@@ -202,6 +202,7 @@ namespace CardPresentation
         {
             // 先弹通知：**它不该被 `Session == null` 那道闸挡住**（会话断了才更需要说话）
             DrainNotices();
+            TickConnectingBanner();          // 🆕 2026-10-28（B89-R4b · 账 HUD 805/806）：常驻「连接中」横幅
             if (Session == null) return;
             Session.Pump();
             // 对局外（大厅/匹配阶段）的消息在这儿处理；进了对局就交给 `NetBattle.Tick`
@@ -243,5 +244,159 @@ namespace CardPresentation
         /// 🆕 2026-10-17（B23·A902）：**顺带把大厅掉线那条接线也挪过来** —— 换会话不挪接线的话，
         /// 自检验的就不是生产那条路了（生产上换会话只有 `Reset`，那条也挂了）。</summary>
         public void AttachForTest(NetSession s) { Session = s; NetMatchmaking.WireLobby(s); }
+
+        // ============================================================ 🆕 2026-10-28（B89-R4b · 账 HUD 805 / 806）
+        //  原版 `ShowStatusWhenConnecting`：一块**常驻**的「连接中」横幅，`OnGUI` 每帧自绘
+        //  （`decomp_full/ShowStatusWhenConnecting__OnGUI.c:1-80`），正文 = 基串 + `dots` 个 "."
+        //  （`__GetConnectingDots.c:1-38`）。⚠️ 原版是 IMGUI 自绘 —— **我们走自己的 uGUI 叠加画布不算偏差**
+        //  （账里已经这么判：差的是「常驻」与「节奏」，不是「用不用 OnGUI」）。
+        //
+        //  🔴 **⛔ 不走 `Notice` 队列** —— 那条是「**新弹一条**」的语义，每秒入一次队会把通知队撑爆
+        //     （同一条理由见上面 `UpdateReconnectPopup` 的 doc）。
+        //
+        //  ── 数值（本轮 `工具/read_literal.py` 4B float 档实读；⚠️ 跑它要先 `export PYTHONIOENCODING=utf-8`）──
+        //   · `0x1834b3270 = 400`  · `0x1834b2e08 = 100`  → 横幅盒子居中：`((W−400)/2, (H−100)/2, 400, 100)`
+        //   · `0x1834b2e8c = 3`    · `0x1834b2df0 = 4`    → `dots = floor(Mathf.Repeat(t × 3, 4))`
+        //     ⇒ **0/1/2/3 循环、每 1/3 秒加一个点**（⚠️ 账里原来写的「每秒加一个点」**不准**，本轮订正）。
+        //
+        //  🔶 自己设计（非原版）：**字号 / 颜色 / 文字在盒子里的对齐** —— 原版是 IMGUI 默认 skin ⇒ 无像素判据
+        //   · 基串**不是**自设计：原版硬编码英文 `"Connecting"`（`cpp2il/out_cpp2il_dev_ilspy/ShowStatusWhenConnecting.cs:48`
+        //     `string text3 = "Connecting" + text;`；⚠️ 2026-10-28 `B89_RXb` 订正：R4b 曾取
+        //     `Loc.T("MenuLogin/Intro/Connecting")` 是**猜的**，原版不本地化这一串）。
+        //   · 字号/颜色/对齐：原版是 IMGUI 默认 skin ⇒ 无像素判据 ⇒ 我们挑（28 px / 白 / 居中）。
+        //
+        //  🔶 自己设计（非原版）：**显示条件与第二行** —— 原版 `OnGUI` 尾部 `if (PhotonNetwork.inRoom) enabled = false;`
+        //     （`…ShowStatusWhenConnecting.cs:60-63`）⇒ 语义 = **未进房就一直亮、进房即灭**；我们无 Photon，按 `NetState`
+        //     映射（`ShouldShowConnectingBanner`）；第二行 `Status: <ClientState>`（`:56-58`）改印我们的 `NetState`。
+
+        /// <summary>原版 `0x1834b3270`（4B float 实读）= **400**。</summary>
+        public const float ConnectingBannerW = 400f;
+        /// <summary>原版 `0x1834b2e08`（4B float 实读）= **100**。</summary>
+        public const float ConnectingBannerH = 100f;
+        /// <summary>原版 `0x1834b2e8c`（4B float 实读）= **3**（每秒加 3 个点的倍率）。</summary>
+        public const float ConnectingDotsRate = 3f;
+        /// <summary>原版 `0x1834b2df0`（4B float 实读）= **4**（点数的循环长度）。</summary>
+        public const float ConnectingDotsPeriod = 4f;
+
+        /// <summary>原版 `GetConnectingDots` 的**点数**：`floor(Mathf.Repeat(t × 3, 4))` ∈ {0,1,2,3}。
+        /// <para>⚠️ 只算「加几个点」，不含基串 —— 基串是**复刻**（`"Connecting"`，见上面那段）。</para></summary>
+        public static int ConnectingDotsForTest(float secondsSinceLoad)
+        {
+            return Mathf.FloorToInt(Mathf.Repeat(secondsSinceLoad * ConnectingDotsRate, ConnectingDotsPeriod));
+        }
+
+        /// <summary>横幅正文 = 基串 + `dots` 个 "."（原版 `String.Concat(base, ".", …)` 逐次拼）。</summary>
+        public static string ConnectingBannerTextForTest(float secondsSinceLoad)
+        {
+            int n = ConnectingDotsForTest(secondsSinceLoad);
+            if (n <= 0) return ConnectingBaseString;
+            var sb = new System.Text.StringBuilder(ConnectingBaseString);
+            for (int i = 0; i < n; i++) sb.Append(" .");   // 原版每次拼 `" ."`（`DAT_1842c63a8`，ILSpy `ShowStatusWhenConnecting.cs:22`）；⚠️ 2026-10-28 B89-E11e 订正：原来是 `'.'`（少一个空格）
+            return sb.ToString();
+        }
+
+        /// <summary>基串 = 原版**硬编码英文** `"Connecting"`（`cpp2il/out_cpp2il_dev_ilspy/ShowStatusWhenConnecting.cs:48`）。⚠️ 2026-10-28 B89-E11e 订正：R4b 原来取 `Loc.T("MenuLogin/Intro/Connecting")`（猜的）—— **原版不本地化这一串**（`B89_RXb` 把出处由 `:32` 改成实读的 `:48`）。</summary>
+        const string ConnectingBaseString = "Connecting";
+
+        /// <summary>🔶 自己设计（非原版）：字号 28 px（原版 IMGUI 默认 skin，无像素判据）。</summary>
+        const int ConnectingBannerFontScale = 28;
+
+        /// <summary>原版 `OnGUI` 的 `GUILayout.BeginArea` 矩形（**GUI 口径：y 向下**）：
+        /// `((Screen.width − 400) × 0.5, (Screen.height − 100) × 0.5, 400, 100)`。</summary>
+        public static Rect ConnectingBannerRectForTest(int screenW, int screenH)
+        {
+            return new Rect((screenW - ConnectingBannerW) * 0.5f,
+                            (screenH - ConnectingBannerH) * 0.5f,
+                            ConnectingBannerW, ConnectingBannerH);
+        }
+
+        /// <summary>🔶 自己设计（非原版）：显示条件的 `NetState` 映射 —— 原版 `OnGUI` 尾 `if (PhotonNetwork.inRoom) enabled = false;`（`…ShowStatusWhenConnecting.cs:60-63`）⇒ 未进房亮、进房灭。</summary>
+        public static bool ShouldShowConnectingBanner(NetState st)
+        {
+            return st == NetState.Connecting || st == NetState.Handshaking || st == NetState.Lobby || st == NetState.Listening;
+        }
+
+        Canvas _bannerCanvas;
+        Label _bannerLabel;
+        Label _statusLabel;      // 原版第二行 `Status: <ClientState>`（`…ShowStatusWhenConnecting.cs:56-58`）—— 两条标签，⛔ 不用 `\n`（点阵后端不认换行）
+        bool _bannerWarned;
+
+        /// <summary>自检读：横幅**这一刻**是不是挂着（批处理里没有帧循环 ⇒ 由用例显式调
+        /// <see cref="TickConnectingBannerForTest"/> 推一次再读）。</summary>
+        public bool ConnectingBannerVisibleForTest { get { return _bannerLabel != null && _bannerLabel.gameObject.activeSelf; } }
+
+        /// <summary>自检用：把「连接中横幅」这一拍按给定状态推一次（**与 `Update` 走同一份代码**）。</summary>
+        public void TickConnectingBannerForTest(NetState st, float secondsSinceLoad)
+        {
+            ApplyConnectingBanner(st, secondsSinceLoad);
+        }
+
+        /// <summary>`Update` 每帧调一次的那一跳（⛔ 别在别处再调一份）。</summary>
+        void TickConnectingBanner()
+        {
+            var st = Session != null ? Session.State : NetState.Off;
+            ApplyConnectingBanner(st, Time.timeSinceLevelLoad);
+        }
+
+        void ApplyConnectingBanner(NetState st, float secondsSinceLoad)
+        {
+            bool on = ShouldShowConnectingBanner(st);
+            if (!on)
+            {
+                if (_bannerLabel != null && _bannerLabel.gameObject.activeSelf) _bannerLabel.gameObject.SetActive(false);
+                if (_statusLabel != null && _statusLabel.gameObject.activeSelf) _statusLabel.gameObject.SetActive(false);
+                return;
+            }
+            if (!EnsureBanner()) return;
+            _bannerLabel.gameObject.SetActive(true);
+            _bannerLabel.SetText(ConnectingBannerTextForTest(secondsSinceLoad));
+            // 第二行 = 原版 `Status: <ClientState>`；枚举无 Photon ⇒ 印我们的 `NetState`（🔶 映射见上方长注）
+            if (_statusLabel != null)
+            {
+                _statusLabel.gameObject.SetActive(true);
+                _statusLabel.SetText("Status: " + st);
+            }
+        }
+
+        /// <summary>懒建那块**独立叠加画布**（`ScreenSpaceOverlay`，⛔ 不挂进壳的画布 —— 这个宿主
+        /// `DontDestroyOnLoad`，跟着场景走会一起没掉）。
+        /// <para>⚠️ `Label.CreateUgui` 需要画布祖先才画得出来 ⇒ 画布必须建在**它自己的 GameObject 上**。</para></summary>
+        bool EnsureBanner()
+        {
+            if (_bannerLabel != null) return true;
+            try
+            {
+                var go = new GameObject("Net Connecting Banner", typeof(RectTransform));
+                go.transform.SetParent(transform, false);
+                _bannerCanvas = go.AddComponent<Canvas>();
+                _bannerCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                _bannerCanvas.sortingOrder = 30000;      // 🔶 自己设计（非原版）：压在所有窗口之上（原版 IMGUI 恒在最上层）
+                var scaler = go.AddComponent<UnityEngine.UI.CanvasScaler>();
+                scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.screenMatchMode = UnityEngine.UI.CanvasScaler.ScreenMatchMode.Expand;
+                // 盒子居中 ⇒ 文字锚在画布中心、偏移 0（🔶 自己设计（非原版）：原版是 GUILayout 区内的默认左上对齐）
+                _bannerLabel = Label.CreateUgui(go.transform, "", Vector3.zero,
+                                                ConnectingBannerFontScale, Color.white,
+                                                new Vector2(0.5f, 0.5f), "connecting_label");
+                _bannerLabel.gameObject.SetActive(false);
+                // 第二行（原版两条 `GUILayout.Label`）：摆在正文下方 24 设计 px
+                _statusLabel = Label.CreateUgui(go.transform, "", new Vector3(0f, -24f, 0f),
+                                                ConnectingBannerFontScale, Color.white,
+                                                new Vector2(0.5f, 0.5f), "connecting_status");
+                _statusLabel.gameObject.SetActive(false);
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                if (!_bannerWarned)
+                {
+                    _bannerWarned = true;
+                    Debug.LogWarning("[Net] 「连接中」横幅建不出来（" + ex.GetType().Name + "：" + ex.Message
+                                   + "）⇒ 这一档只剩状态字（`Settings/Online/St/Connecting`），⛔ 不静默");
+                }
+                return false;
+            }
+        }
     }
 }

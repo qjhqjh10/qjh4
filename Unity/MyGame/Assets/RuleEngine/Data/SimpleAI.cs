@@ -597,11 +597,11 @@ namespace RuleEngine
             // 反击：取守方**本次打法那一档**的攻击力（原版 `GetCombatDamage(守方, 本次打法)`；
             //   引擎侧同一口径 = `RuleCore.DeclareAttack` 的
             //   `counterAtk = FieldAttack(ctx, tgtP, target, ranged)`）
-            // 🔴 2026-10-23（引擎线 `新账-97` ①）：四道豁免的判据**只剩一处** ——
-            //   `CounterAttack.NoCounter`（sneakAttack / terror / LongRange / Sniper）。
-            //   这里原来自己写 `ranged && Has(LongRange)` + `sniper && WouldKill`，是第三份；
-            //   ⛔ 别再写回来（改一处漏两处的先例就在本行上方那段订正里）。
-            bool noCounter = CounterAttack.NoCounter(ctx, side, u, foe, target, ranged, RuleCore.WouldKill(target, atk));
+            // 🔴 2026-10-23（引擎线 `新账-97` ①）：豁免的判据**只剩一处**，⛔ 别再写第三份（先例在上一段）。
+            // 🔴 2026-10-28（B89 · E7 · 账 L1025）：改调**预测版** `CounterAttack.EnemyReturnsAttack`——
+            //   原版 `AI.ScoreFromAttack` 整段转调 `AI.ScoreFromBuffedAttack`，后者用 `EnemyReturnsAttack`
+            //   （`AI__ScoreFromBuffedAttack.c:77`）= **五道**（多 `shuriken(0x460)`；`targetWillDie` 也由它内部算）。
+            bool noCounter = !CounterAttack.EnemyReturnsAttack(ctx, side, u, foe, target, ranged);
             int counter = RuleCore.FieldAttack(ctx, foe, target, ranged);
             // 🔴 2026-10-26（`E4` · 判据 `AI__ScoreFromBuffedAttack.c:47-53`）：**守方带 `ambush(1200)` ⇒
             //   反击伤害被【替换成常数 4】**（原版重建一条 `DamageInfo(target, 4, …)`；**不是 +4**）。

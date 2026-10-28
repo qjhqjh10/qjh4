@@ -343,10 +343,10 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>**这一帧「不许拖出去打」吗** —— 三条闸合一，判据只此一处：
-        /// 回放（`matchType == 0xA0`）· 选目标 / 打法选择器（`UIstate != 1`）。
+        /// <summary>**这一帧「不许拖出去打」吗** —— 三条闸合一：回放（`matchType == 0xA0`）· 选目标 / 打法选择器（`UIstate != 1`）· **手牌重排动画中**（`IsDoingAnim` = 原版 `CanMoveHandCard` 的 `!playerHand.animFlag`）。
+        /// 第三条的判据 / 反证 / 为什么用 `IsDoingAnim` → **类尾「`DragBlocked` 的第三条」那一整段**（⛔ 别在这儿写第二份）。
         /// <para>⚠️ **不包含**整帧闸（那个连轻点都不许，见 <see cref="FullBlocked"/>）。</para></summary>
-        bool DragBlocked() { return ReplayDragBlocked() || DragOnlyBlocked(); }
+        bool DragBlocked() { return ReplayDragBlocked() || DragOnlyBlocked() || IsDoingAnim; }
 
         /// <summary>**回放档**：原版 `OnTouchDrag.c:17-23` 的 `matchType != 0xA0`
         /// —— 它**只禁「拖出去打」**，不禁「轻点看牌」：
@@ -649,7 +649,7 @@ namespace CardPresentation
             if (DragBlocked() && _dragging != null)
                 AbortDrag(ReplayDragBlocked()
                           ? "回放局（原版 `CardScript__OnTouchDrag.c:17-23` 的 0xA0 闸）"
-                          : "选目标 / 打法选择器（原版 `UIstate != 1` ⇒ `OnTouchDrag` 早退）");
+                          : (IsDoingAnim ? "手牌重排动画中（原版 `playerHand.animFlag` ⇒ `CanMoveHandCard` 假）" : "选目标 / 打法选择器（原版 `UIstate != 1` ⇒ `OnTouchDrag` 早退）"));
 
             // ② 冻结闸（原样；只把「丢候选」抽成 `DiscardPress`，语义一字未改）
             if (FrozenNow)
@@ -810,7 +810,7 @@ namespace CardPresentation
                 _pressPendingCard = null;
                 _pressInside = false;
                 Debug.Log("[CardPresentation] 这一档 **拖不起来**（原版 `CardScript__OnTouchDrag.c:17-23`："
-                        + (ReplayDragBlocked() ? "`matchType != 0xA0`（回放）" : "`UIstate == 1`（选目标 / 打法选择器）")
+                        + (ReplayDragBlocked() ? "`matchType != 0xA0`（回放）" : (IsDoingAnim ? "手牌重排动画中（原版 `playerHand.animFlag`）" : "`UIstate == 1`（选目标 / 打法选择器）"))
                         + "）⇒ 这一按作废；轻点看牌照常允许。");
                 return;
             }
@@ -2159,5 +2159,35 @@ namespace CardPresentation
         const float DragTiltMaxDeg = 20f;        // maxCardRotation（Vector2 两轴同值）
         const float DragTiltMinDeg = -20f;       // minCardRotation
         const float DragTiltReduction = 10f;     // movingRotationReduction
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-28（`B89-R4b`）· 账 `战斗界面_HUD` 的 695 与 761
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //
+        //  ── 695 `CanMoveHandCard` 的第三条闸（**已接**，见上面 `DragBlocked`）──
+        //  判据：原版 `BattleManager.CanMoveHandCard()` = `if (playerHand.animFlag) return false; return UIstate−1 == 0;`
+        //        （ILSpy `BattleManager.cs:46525-46542`，唯一调用点 = `CardScript.cs:10313` 的 `OnTouchDrag`）。
+        //  🔴 **账里 `特效动画:497` 的备注说「原版 `PlayerHand.IsDoingAnim` 全量 0 调用、`animFlag` 0 写点」——不成立**：
+        //     `animFlag` 在 ILSpy `PlayerHand.cs:858 / 950 / 1302 / 1457` **四处写**（手牌重排协程 `MoveNext` 的进/出），
+        //     读点在 `BattleManager.cs:46532`（就在 `CanMoveHandCard` 里，**不经过** `IsDoingAnim` 那个包装）；
+        //     `IsDoingAnim()`（`PlayerHand.cs:3300`）本身才是 0 调用者。⛔ 别照那句删第三条。
+        //  等价物 = 本类 `IsDoingAnim`（`_animGate`，`Relayout` 时开、`CardTween.RelayoutDuration` 到点关；
+        //     那个时长 = 原版 `timeToPositionCard` 0.2 s）。⚠️ **批处理 / `animateRelayout == false` 时不开闸**
+        //     ⇒ 自检档行为与改前**逐字相同**（第三条恒假），要验它只能显式开 `Relayout`。
+        //  ⚠️ 顺带的语义：`BlockedThisFrame` 里 `if (DragBlocked() && _dragging != null) AbortDrag(...)` 也会吃这一条
+        //     ⇒ 「拖到一半重排动画起来了」会被收回。生产上重排只在松手后起，够不到；如实记这一处**比原版严**。
+        //
+        //  ── 761 敌方手牌的 `EnemyHandCardClickable`（**本波拒做，理由见下**）──
+        //  判据：`decomp_full/CardScript__OnTouchUpAsButton.c:31-36` —— 非我方手牌只有 `spellType == 0xE6 (Sabotage)`
+        //        才可点开；落点 `CardHighlight.EnemyHandCardClickable(isPlayer, hasRawCard, sabotageKind)`（`CardHighlight.cs:836`，
+        //        已建、全树 0 生产调用点）。
+        //  🔴 **为什么不能「接在轻点支」**：本类管的是**我方**手牌 —— 唯一喂料口 `SetCards(...)` 只被
+        //     `BattleDriver.cs:27375` 用 `_handViews`（我方）调用，`CardBaseDemo` / `HandAssertE8` 是夹具；
+        //     而敌方手牌在场上只有**卡背** `ImageQuad`（`_foeHandViews`），**没有 `CardView`、没有 `CardInteraction`**；
+        //     亮出敌方手牌走的是**居中展示**（`_ResolveDisplayFromHand` 的等价物），不是「手牌位上翻面」。
+        //     ⇒ 在这里加一句 `EnemyHandCardClickable(true, …)` 恒为真（我方恒 `isPlayer`）= **纯死代码**；
+        //       真要接，得先有「敌方手牌翻面成可点的 `CardView`」这条**新链路**（那是 `BattleDriver` 的活，不是本类）。
+        //     ⇒ 本波**零改动**，反证留给账（`B89_R4b` 报告的 §1·761）。
+        // ════════════════════════════════════════════════════════════════════════════════════
     }
 }

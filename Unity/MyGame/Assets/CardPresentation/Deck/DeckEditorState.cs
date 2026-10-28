@@ -1090,6 +1090,100 @@ namespace CardPresentation
             return (id != null && _byId.TryGetValue(id, out c)) ? c : null;
         }
 
+// ============================================================ 🆕 2026-10-28（B89-R3e · 账 109）卡组格重排
+        // 判据 = 原版 `DragAndDropItem`（**5 处实例父链全是 `Collection Deck`** ⇒ 它真正的用途就是卡组格重排）。
+        //   落点语义 = 拖起一件、松手落在另一件上 ⇒ 那一件**挪到落点那一格**（先移除、再按落点插入）。
+        //   ⚠️ 原版算目标槽那一段走的是 `IDropHandler`（我们没有那套）⇒ 这里实现的是**落点语义**本身。
+        // 🔴 **行号口径**：`DeckRuntime.DeckRows()` = `[0]` 督军 · `[1]` 防御卡 · `[2..]` **去重后的卡**
+        //   （`DeckEntries()` 按 id 去重），而 `Deck.CardIds` 允许同一张卡出现多份 ⇒ **行号 ≠ CardIds 下标**。
+        //   ⇒ 本族在**行空间**里移动，再按「卡序 + 每张的份数」重写 `CardIds`（份数不变）。
+
+        /// <summary>卡组的「行序」= `CardIds` 去重后的卡 id（并剔掉督军 / 防御卡那两条 —— 它们占着最前两行）。
+        /// <para>⚠️ 与 `DeckRuntime.DeckEntries()` 的 `seen` 口径**逐字一致**（⛔ 别另写一套去重）。</para></summary>
+        public static List<string> RowOrderOf(List<string> cardIds, string warlordId, string defensiveId)
+        {
+            var seen = new HashSet<string>();
+            if (!string.IsNullOrEmpty(warlordId)) seen.Add(warlordId);
+            if (!string.IsNullOrEmpty(defensiveId)) seen.Add(defensiveId);
+            var order = new List<string>();
+            if (cardIds == null) return order;
+            for (int i = 0; i < cardIds.Count; i++)
+            {
+                string id = cardIds[i];
+                if (string.IsNullOrEmpty(id)) continue;
+                if (!seen.Add(id)) continue;
+                order.Add(id);
+            }
+            return order;
+        }
+
+        /// <summary>**纯函数**（⛔ 不碰存档 ⇒ 自检可以直接拿一个 `List&lt;string&gt;` 断它）：
+        /// 把第 <paramref name="fromRow"/> 行挪到第 <paramref name="toRow"/> 行，返回重写后的 `CardIds`（**份数不变**）。
+        /// 失败 ⇒ 返回 `null` + <paramref name="why"/>。
+        /// <para>行号：`0` = 督军 · `1` = 防御卡（**固定槽、不参与重排**）· `2+` = 卡。</para>
+        /// <para>移动语义：先 `RemoveAt(from)` 再 `Insert(to)` ⇒ 「往下拖」落在目标那一格**之后**、
+        /// 「往上拖」落在目标那一格**之前**，两种方向都等于「挪到那一格」。</para></summary>
+        public static List<string> TryMoveInList(List<string> cardIds, string warlordId, string defensiveId,
+                                                 int fromRow, int toRow, out string why)
+        {
+            why = "";
+            if (cardIds == null) { why = "卡组是空的"; return null; }
+            if (fromRow < 2 || toRow < 2) { why = "督军 / 防御卡那两行是固定槽，不参与重排"; return null; }
+            var order = RowOrderOf(cardIds, warlordId, defensiveId);
+            int from = fromRow - 2, to = toRow - 2;
+            if (from >= order.Count || to >= order.Count) { why = "行号越界（这一行没有卡）"; return null; }
+            if (from == to) { why = "拖回原位"; return null; }
+
+            string moved = order[from];
+            order.RemoveAt(from);
+            order.Insert(to < 0 ? 0 : (to > order.Count ? order.Count : to), moved);
+
+            // 每张卡的份数（`CardIds` 允许同一张出现多次）
+            var count = new Dictionary<string, int>();
+            for (int i = 0; i < cardIds.Count; i++)
+            {
+                string id = cardIds[i];
+                if (string.IsNullOrEmpty(id)) continue;
+                int n; count.TryGetValue(id, out n); count[id] = n + 1;
+            }
+            var rebuilt = new List<string>(cardIds.Count);
+            for (int i = 0; i < order.Count; i++)
+            {
+                int n; count.TryGetValue(order[i], out n);
+                for (int k = 0; k < n; k++) rebuilt.Add(order[i]);
+                count.Remove(order[i]);
+            }
+            // 剩下的 = 「混进 CardIds 的督军/防御卡 id」这类历史脏数据 ⇒ 按原顺序补回去（⛔ 别静默丢）
+            if (count.Count > 0)
+                for (int i = 0; i < cardIds.Count; i++)
+                {
+                    string id = cardIds[i];
+                    if (!string.IsNullOrEmpty(id) && count.ContainsKey(id)) rebuilt.Add(id);
+                }
+            return rebuilt;
+        }
+
+        /// <summary>把「第 <paramref name="fromRow"/> 行拖到第 <paramref name="toRow"/> 行」应用到本卡组
+        /// （= 原版 `DragAndDropItem` 的落点语义）。成功 ⇒ 改 `Deck.CardIds`；
+        /// **不落盘** —— 落盘由调用点 `MarkDeckDirty()` + 存档那条链管。</summary>
+        public bool TryMove(int fromRow, int toRow, out string why)
+        {
+            var next = TryMoveInList(Deck.CardIds, Deck.WarlordId, Deck.DefensiveId, fromRow, toRow, out why);
+            if (next == null) return false;
+            Deck.CardIds.Clear();
+            for (int i = 0; i < next.Count; i++) Deck.CardIds.Add(next[i]);
+            return true;
+        }
+
+        /// <summary>自检读口：第 <paramref name="row"/> 行（**行口径**）是哪张卡（没有 ⇒ `null`）。</summary>
+        public string CardIdAtRow(int row)
+        {
+            if (row == 0) return string.IsNullOrEmpty(Deck.WarlordId) ? null : Deck.WarlordId;
+            if (row == 1) return string.IsNullOrEmpty(Deck.DefensiveId) ? null : Deck.DefensiveId;
+            var order = RowOrderOf(Deck.CardIds, Deck.WarlordId, Deck.DefensiveId);
+            int k = row - 2;
+            return k >= 0 && k < order.Count ? order[k] : null;
+        }
     }
 
     /// <summary>
@@ -1301,6 +1395,88 @@ namespace CardPresentation
                                  + " · 剩 " + backBad.CardIds.Count + " 条"));
 
             return bad;
+        }
+    }
+
+    /// <summary>🆕 2026-10-28（B89-R3e · 账 109）：**卡组格重排**（`DeckEditorState.TryMove` 一族）的自检。
+    /// <para>🔴 **为什么放在本文件**（与 <see cref="AltArtDeckSelfCheck"/> 同一套做法）：本族是**纯函数 + 纯列表**，
+    /// 断言只要一个 `List&lt;string&gt;` —— 摸不到存档、更摸不到玩家的真卡组（那条纪律见 `CLAUDE.md` 的
+    /// 「自检必须走临时存档」）。宿主只需要一行：
+    /// <c>DeckReorderSelfCheck.Run((tag, ok, detail) =&gt; CheckTrue(ok, tag + " —— " + detail));</c></para>
+    /// <para>判据 = 原版 `DragAndDropItem`（5 处实例父链全是 `Collection Deck`）的落点语义：拖起一件、松手落在另一件上
+    /// ⇒ 那一件**挪到落点那一格**（先移除、再按落点插入）。<see cref="DeckEditorState.TryMoveInList"/> 的 doc 里有完整解释。</para></summary>
+    public static class DeckReorderSelfCheck
+    {
+        /// <summary>跑一遍；返回失败条数（0 = 全绿）。</summary>
+        public static int Run(Action<string, bool, string> check)
+        {
+            int bad = 0;
+            if (check == null) return 0;
+            Action<string, bool, string> C = (tag, ok, detail) => { check(tag, ok, detail); if (!ok) bad++; };
+            string why;
+
+            // ① 行序口径：去重 + 剔掉督军/防御卡那两条（与 `DeckRuntime.DeckEntries` 的 `seen` 同一把尺）
+            var order = DeckEditorState.RowOrderOf(new List<string> { "A", "A", "B", "W", "D" }, "W", "D");
+            C("行序：去重且剔掉督军/防御卡", order.Count == 2 && order[0] == "A" && order[1] == "B",
+              "实得 [" + string.Join(",", order) + "]");
+
+            // ② 向下拖（row2 → row4）：「挪到那一格」，不是「插到它前面」
+            var down = DeckEditorState.TryMoveInList(new List<string> { "A", "B", "C", "D" }, null, null, 2, 4, out why);
+            C("向下拖：A 落到 C 那一格之后 ⇒ B,C,A,D", down != null && string.Join(",", down) == "B,C,A,D",
+              down == null ? ("返回 null：" + why) : string.Join(",", down));
+
+            // ③ 向上拖（row4 → row2）：落在目标**之前**
+            var up = DeckEditorState.TryMoveInList(new List<string> { "A", "B", "C", "D" }, null, null, 4, 2, out why);
+            C("向上拖：C 落到第一格 ⇒ C,A,B,D", up != null && string.Join(",", up) == "C,A,B,D",
+              up == null ? ("返回 null：" + why) : string.Join(",", up));
+
+            // ④ 份数不变：同一张卡的两份必须仍在一起、张数不丢
+            var dup = DeckEditorState.TryMoveInList(new List<string> { "A", "A", "B" }, null, null, 3, 2, out why);
+            C("份数不变：B 上移后 A 仍是两份、总数仍 3",
+              dup != null && dup.Count == 3 && string.Join(",", dup) == "B,A,A",
+              dup == null ? ("返回 null：" + why) : string.Join(",", dup));
+
+            // ⑤ 固定槽（督军 row0 / 防御卡 row1）不参与重排
+            C("督军那行不能动", DeckEditorState.TryMoveInList(new List<string> { "A", "B" }, "W", "D", 0, 2, out why) == null && why.Length > 0, why);
+            C("落点落在防御卡那行也不做", DeckEditorState.TryMoveInList(new List<string> { "A", "B" }, "W", "D", 2, 1, out why) == null && why.Length > 0, why);
+
+            // ⑥ 越界 / 原位
+            C("行号越界 ⇒ 拒做", DeckEditorState.TryMoveInList(new List<string> { "A", "B" }, null, null, 2, 99, out why) == null && why.Length > 0, why);
+            C("拖回原位 ⇒ 拒做", DeckEditorState.TryMoveInList(new List<string> { "A", "B" }, null, null, 3, 3, out why) == null && why.Length > 0, why);
+
+            // ⑦ 灭自证（结构不变式）：任一次成功移动后 —— 总张数不变、每种 id 的份数不变、**除被移动那张外相对顺序不变**
+            var src = new List<string> { "A", "B", "B", "C", "D" };
+            var mov = DeckEditorState.TryMoveInList(src, null, null, 5, 2, out why);     // 行 5 = D ⇒ 挪到第一格
+            bool sameMultiset = mov != null && mov.Count == src.Count && Multiset(mov) == Multiset(src);
+            bool othersKeepOrder = false;
+            if (mov != null)
+            {
+                var withoutMoved = new List<string>();
+                bool skipped = false;
+                foreach (var id in mov)
+                {
+                    if (!skipped && id == "D") { skipped = true; continue; }
+                    withoutMoved.Add(id);
+                }
+                othersKeepOrder = string.Join(",", withoutMoved) == "A,B,B,C";
+            }
+            C("灭自证：移动只挪那一张（总张数 / 份数 / 其余相对序都不变）", sameMultiset && othersKeepOrder,
+              mov == null ? ("返回 null：" + why) : (string.Join(",", mov) + " · multiset 同=" + sameMultiset + " · 其余序同=" + othersKeepOrder));
+
+            return bad;
+        }
+
+        /// <summary>多重集指纹（顺序无关）—— 用来断「份数一张都没丢」。</summary>
+        static string Multiset(List<string> xs)
+        {
+            if (xs == null) return "";
+            var m = new Dictionary<string, int>();
+            foreach (var x in xs) { if (x == null) continue; int n; m.TryGetValue(x, out n); m[x] = n + 1; }
+            var keys = new List<string>(m.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            var sb = new StringBuilder();
+            foreach (var k in keys) sb.Append(k).Append('×').Append(m[k]).Append(';');
+            return sb.ToString();
         }
     }
 }

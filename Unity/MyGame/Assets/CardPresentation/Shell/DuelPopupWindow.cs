@@ -306,8 +306,8 @@ namespace CardPresentation
         /// <para>⚠️ **本地等价物**：原版那个 `GetDeckForGameMode` 读的是**服务器上的玩家卡组**（P3）；
         /// 我们这边「某模式有没有卡组」= **预组卡组表**（`PrebuiltDecks.All` 里 `gameMode` 匹配且 `complete` 的）
         /// —— 本仓的模式卡组本来就只从预组数据来（见 `Shell/PrebuiltDecks.cs` 文件头）。</para>
-        /// <para>⚠️ 原版错误那一步是**内联错误条**（`UIMessageController`，5 条轮转的 toast），我们没有那套组件
-        /// ⇒ 交给 `ErrorPopupWindowController.ShowError`（同一条消息弹窗，口径写在那个方法的 doc 里）。</para></summary>
+        /// <para>🔴 **2026-10-28（B89-E16c）就地订正（铁律 5）**：本段原文写「原版错误那一步是内联错误条，**我们没有那套组件** ⇒ 交给 `ErrorPopupWindowController.ShowError`」——**两句都错**：① 我们有那套组件（`Shell/MessageToast.cs` = `UIMessageController` 的宿主，判据 → 该文件头 ②③，`DeckRuntime.SayError` 早在用）；
+        /// ② 模态消息弹窗（`WindowsManager.ShowPopUp`，**必须点一下**）**不是** `UIMessageController` 的等价物 —— 原版那条横幅**自己消失** ⇒ 现在走 `MessageToast.ShowError`（红档、5 条轮转）。</para></summary>
         static bool CanPlay(GameMode mode)
         {
             var all = PrebuiltDecks.All;
@@ -316,7 +316,7 @@ namespace CardPresentation
                 var d = all[i];
                 if (d != null && d.complete && d.gameMode == (int)mode) return true;
             }
-            ErrorPopupWindowController.ShowError("MainMenu/General/DontHaveDeckForGameMode", true);
+            MessageToast.ShowError("MainMenu/General/DontHaveDeckForGameMode", true);   // B89-E16c：通道 = `UIMessageController` 横幅（原版 `DuelPopupWindow__CanPlay.c:24`；⛔ 不是模态弹窗）
             return false;
         }
 
@@ -333,5 +333,12 @@ namespace CardPresentation
                     + "要**服务器**（对手得在线）⇒ 本地开不了。**没有静默**，点了就报这一句。"
                     + "（对面名字：`" + (OpponentName ?? "") + "`）");
         }
+
+        // ============================================================ 自检口（B89-E16d 追加在类尾；⛔ 生产路径别调）
+        /// <summary>`CanPlay` 的公开转发 —— 让 Editor 宿主能**造出**「没这个模式的卡组」那一支（传一个没有卡组的模式值）。
+        /// <para>为什么要有这一口：`CanPlay` 是 private static，而 Editor 是**另一个程序集**
+        /// （`Assembly-CSharp-Editor`）⇒ 不加这一口就**断不了**「错误走的是横幅、不是模态窗」这条 ——
+        /// 那正是 B89-E16c 修的那个通道误用（原版 `DuelPopupWindow__CanPlay.c:24` = `UIMessageController.ShowError`）。</para></summary>
+        public static bool CanPlayForTest(RuleEngine.GameMode mode) { return CanPlay(mode); }
     }
 }

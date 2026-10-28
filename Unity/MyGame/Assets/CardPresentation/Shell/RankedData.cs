@@ -587,5 +587,20 @@ namespace CardPresentation
                 _legendaryElo = savedLegend;
             }
         }
+
+        // ============================================================ 账 400 GetLegionRankedMatchesWon
+        /// <summary>
+        /// 原版 `PlayerDataManager.GetLegionRankedMatchesWon(CardArmy army)`（`decomp_full/PlayerDataManager__GetLegionRankedMatchesWon.c` 全文）：
+        /// 遍历 `rankedSave(+0x308)` 的**按阵营条目**，把 **该 `army` 的 `wins(+0x14)`** 求和返回（没有该阵营 ⇒ 0）。
+        /// <para>⚠️ 原版那个 `+0x308` 是**服务器下发的排位存档**（本机取不到，数据侧 = P3）；
+        /// 本工程的本地等价 = <see cref="_wins"/>（按阵营的胜场表，`SetArmyRecordForTest` 是它今天的唯一写口）。</para>
+        /// <para>🔴 **⛔ 别拿 `EventBoost.WinsFor(army)` 冒充** —— 那是**活动 boost** 口径的胜场，不是排位胜场（不同量）。</para>
+        /// </summary>
+        public static int GetLegionRankedMatchesWon(int army)
+        {
+            Load();
+            int w;
+            return _wins.TryGetValue(army, out w) ? w : 0;
+        }
     }
 }

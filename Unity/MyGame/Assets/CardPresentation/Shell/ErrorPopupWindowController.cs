@@ -119,18 +119,16 @@ namespace CardPresentation
             if (actionAfterError != null) actionAfterError();
         }
 
-        /// <summary>= 原版 `UIMessageController.ShowError(string, bool)` 的**等价口**（账 157 之外的顺手口，
-        /// 消费者 = `DuelPopupWindow.CanPlay` 的「没这个模式的卡组」那一支）。
-        /// <para>⚠️ 原版那是**内联错误条**（`UIErrorMessageItem`，5 条轮转 + 带颜色），我们**没有**那套 toast 组件
-        /// ⇒ 等价物 = 「把同一句话交给我们唯一那条消息弹窗」（`WindowsManager.ShowPopUp`），并保留
-        /// `localize` 这一档（真 ⇒ 先过 `Loc`）。**这不是缺功能**，是同一件事换了载体（如实记）。</para></summary>
+        /// <summary>⚠️ **原版没有这个口**（原版同名类只有三个 `ShowErrorMessage` 重载；方法是**我们自建**的），
+        /// **2026-10-28 起只作转调** → 缺省的 `MessageToast.ShowError`（= `UIMessageController.ShowError` 的真宿主）。
+        /// <para>🔴 **2026-10-28（B89-E16c）就地订正（铁律 5）**：本方法原先把同一个「瞬时红横幅」做成了
+        /// `WindowsManager.ShowPopUp`（**模态弹窗 + Retry 钮，要玩家点一下**），并在 doc 里写「我们没有那套 toast 组件 /
+        /// 这不是缺功能，是同一件事换了载体」——**两句都错**：`Shell/MessageToast.cs` 就是 `UIMessageController` 的宿主
+        /// （判据 → 该文件头 ②③），而**模态弹窗不是它的等价物**（原版横幅**自己消失**）。唯一旧调用点
+        /// `DuelPopupWindow.CanPlay` 已在同一批改走 `MessageToast.ShowError`。⛔ 别改回 `ShowPopUp`。</para></summary>
         public static void ShowError(string termOrText, bool localize)
         {
-            string text = localize ? Loc.T(termOrText) : termOrText;
-            if (!localize && Loc.HasEntry(termOrText)) text = Loc.T(termOrText);   // 原版 `localize=false` 时是明文
-            var wm = WindowsManager.Instance;
-            if (wm != null) { wm.ShowPopUp(text, Loc.T(TermRetry), null); return; }
-            Debug.LogWarning("[Error] `ShowError` 没有弹窗宿主 ⇒ 只出声：`" + text + "`（原版 `UIMessageController.ShowError`）");
+            MessageToast.ShowError(termOrText, localize);   // 词条/明文两态、白/红色档都在 `ErrorMessageBanner.ShowError` 一处判
         }
     }
 }

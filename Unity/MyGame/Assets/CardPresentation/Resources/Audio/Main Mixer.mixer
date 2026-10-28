@@ -9,7 +9,9 @@ AudioMixerSnapshotController:
   m_Name: SFX Off
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: b20c2374deaf4f943857d05ab53d7b47
-  m_FloatValues: {}
+  m_FloatValues:
+    eec8383b82a5828469552ee45332ccb7: -80
+    36724ffed37717040baf0cc002255e7d: -0.16685188
   m_TransitionOverrides: {}
 --- !u!243 &-7176780287274492476
 AudioMixerGroupController:
@@ -81,8 +83,11 @@ AudioMixerSnapshotController:
   m_Name: Music Medium
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 1d5b125d3e54f8044a5f9696add05332
-  m_FloatValues: {}
-  m_TransitionOverrides: {}
+  m_FloatValues:
+    894f6eda8190955459e1650c10422af1: 0.025578512
+    36724ffed37717040baf0cc002255e7d: -0.16685188
+  m_TransitionOverrides:
+    894f6eda8190955459e1650c10422af1: 6
 --- !u!245 &-2241804601392400803
 AudioMixerSnapshotController:
   m_ObjectHideFlags: 0
@@ -92,8 +97,11 @@ AudioMixerSnapshotController:
   m_Name: Music High
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: dd7866105cdec59449c99f861dcd2d1c
-  m_FloatValues: {}
-  m_TransitionOverrides: {}
+  m_FloatValues:
+    894f6eda8190955459e1650c10422af1: 0
+    36724ffed37717040baf0cc002255e7d: -0.16685188
+  m_TransitionOverrides:
+    894f6eda8190955459e1650c10422af1: 6
 --- !u!244 &-1592772255147458823
 AudioMixerEffectController:
   m_ObjectHideFlags: 3
@@ -193,7 +201,9 @@ AudioMixerSnapshotController:
   m_Name: SFX On
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 4f2a8766987843549aeb0e8f16ccb0dd
-  m_FloatValues: {}
+  m_FloatValues:
+    eec8383b82a5828469552ee45332ccb7: 0
+    36724ffed37717040baf0cc002255e7d: -0.16685188
   m_TransitionOverrides: {}
 --- !u!243 &1611842700211643575
 AudioMixerGroupController:
@@ -261,8 +271,11 @@ AudioMixerSnapshotController:
   m_Name: Music Low
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: b4e396c6fd629b04d9aa74cf0384bfa7
-  m_FloatValues: {}
-  m_TransitionOverrides: {}
+  m_FloatValues:
+    894f6eda8190955459e1650c10422af1: 0
+    36724ffed37717040baf0cc002255e7d: -0.16685188
+  m_TransitionOverrides:
+    894f6eda8190955459e1650c10422af1: 6
 --- !u!245 &3804130811986866194
 AudioMixerSnapshotController:
   m_ObjectHideFlags: 0
@@ -272,5 +285,8 @@ AudioMixerSnapshotController:
   m_Name: Music None
   m_AudioMixer: {fileID: 24100000}
   m_SnapshotID: 88bd24952f8c7df4b8611cedc64cc0ca
-  m_FloatValues: {}
-  m_TransitionOverrides: {}
+  m_FloatValues:
+    894f6eda8190955459e1650c10422af1: -80
+    36724ffed37717040baf0cc002255e7d: -0.16685188
+  m_TransitionOverrides:
+    894f6eda8190955459e1650c10422af1: 6

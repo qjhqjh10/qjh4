@@ -282,10 +282,12 @@ namespace CardPresentation
         {
             BuildHeader();
             _general = Node(Root, "GeneralDetails", GeneralR);
-            // ⚠️ 盟名传 `SocialData.AllianceName`（**当前盟**的名字 —— 这一支就是「我在的盟」那个盟）。
+            // ⚠️ 盟名走 `SocialData.GetCurrentPlayerAllianceName`（**当前盟**的名字 —— 这一支就是「我在的盟」那个盟；
+            //    🆕 2026-10-28 B89-E22 · 账 139：那一口 = 原版 `AlliancesManager.GetCurrentPlayerAllianceName` 的等价物）。
             //    未入盟支那一棵传的是「**正在看的那个盟**」的名字，见 `AlliancesTab.cs` 的 `HandleDisplayAlliance`。
+            string myAlliance; SocialData.GetCurrentPlayerAllianceName(out myAlliance);
             AllianceGeneralDetails.Build(this, _general, GeneralR, AllianceGeneralDetails.Variant.Member,
-                                         SocialData.AllianceName ?? "", out _);
+                                         myAlliance, out _);
             _trophies = Node(Root, "TrophiesWindow", TrophiesR);
             BuildTrophies(_trophies);
             BuildChatPreview();
@@ -1292,7 +1294,7 @@ namespace CardPresentation
             public float RateX1, RateIconX2, RateX2, RateH;   // 两个评级块共用的横向四值
             public float RateY1, RateY2;                      // 两块各自的 y（高恒 `RateH`）
             public PxRect Cfg;          // `Config fields`（`HorizontalLayoutGroup` 的容器）
-            public PxRect? ExtraInfo;   // `Config fields>extra_info`（**只有 act F 那份亮**）
+            public PxRect? ExtraInfo;   // `Config fields>extra_info`（= 原版 `AllianceView.regionText`；**两棵各一份，运行期都亮**）
             public PxRect Desc;         // `Description input text`
             public PxRect DescText;     // └ `description text`
             public PxRect Divider;      // `Divisor line members`
@@ -1310,7 +1312,12 @@ namespace CardPresentation
             RateX1 = 613.38f, RateIconX2 = 673.38f, RateX2 = 1099.96f, RateH = 80.83f,   // :271-278
             RateY1 = 264.16f, RateY2 = 344.99f,                          // :271 / :275
             Cfg = new PxRect(1080.54f, 209.81f, 1863.35f, 269.81f),      // :279
-            ExtraInfo = null,                                            // act T 里它是 **F**（:280）
+            // 🔴 **2026-10-28（B89-E22）判据翻案**：原注释「act T 里它是 act F ⇒ 不建」**只说了序列化出厂态**；
+            //   原版 `AllianceView.Draw` 里是**无条件** `regionText.gameObject.SetActive(true)`
+            //   （`out_cpp2il_dev_ilspy/AllianceView.cs:459-460`），进编辑态才关 ⇒ **运行期在两棵上都亮**。
+            //   ⇒ 本格**已建**（矩形 = 普查 `:280`，act T 那一份），另一半（`Editor/MainMenuScene.cs:14480`
+            //   那条「不建」断言）同一批改掉了。
+            ExtraInfo = new PxRect(1080.54f, 209.81f, 1534.23f, 269.81f), // :280
             Desc = new PxRect(1130.44f, 288.85f, 1879.21f, 482.08f),     // :316
             DescText = new PxRect(1146.32f, 291.64f, 1863.33f, 481.71f), // :319
             Divider = new PxRect(330.67f, 489.85f, 1920.50f, 493.53f),   // :320
@@ -1396,59 +1403,81 @@ namespace CardPresentation
             RatingRow(v, content, g, g.RateY2, "Draft Rating Display", "40k_battle_Win_Skull", RateEmpty);
 
             var cf = Node(content, "Config fields", g.Cfg);
-            if (variant == Variant.Search)
+            // ---- 🆕 2026-10-28（B89-E22 · 账 93⑤ / 97 / 100 / 101③）：改盟设置那一态的六个句柄 ----
+            //   原版 `AllianceView` 的六个字段（`regionText` / `languageDropdown` / `privacyDropdown` /
+            //   `toggleEditButton` / `saveButton` / `cancelButton`）在 `Draw` 末尾、`OnToggleEditClicked`、
+            //   `OnEditCancel` 三处被**同一组 SetActive 梯子**切来切去
+            //   （判据 = `out_cpp2il_dev_ilspy/AllianceView.cs:483-538`）。那一份梯子只在下面 `EditChrome` 里写一遍。
+            //   ⚠️ `isCurrentGroup` **恒真**：这一支就是「我在的盟」（`AllianceMemberTab`）；未入盟支那棵
+            //   （`Variant.Search` = 看**别人**的盟）不建这五件（原版 `Edit` 在那份里也灭、切不到）。
+            Transform langNode = null, privNode = null, editNode = null, confirmNode = null, cancelNode = null;
+            Transform regionNode = null;
+
+            // `extra_info` = 原版那个 `regionText`（原版**两棵各一份**）。
+            // 🔴 **2026-10-28 就地订正（铁律 5）**：本段原来写「它在 act T 那份里是 act F ⇒ 在这棵上不建」——
+            //   **那只是 prefab 的序列化出厂态**：原版 `AllianceView.Draw` 末尾**无条件**
+            //   `regionText.gameObject.SetActive(true)`（`out_cpp2il_dev_ilspy/AllianceView.cs:459-460`），
+            //   进编辑态才关、退编辑态又开 ⇒ **运行期在【两棵】上都亮**；act F / act T 只是 prefab 里存的那一档。
+            //   ✅ **act T 这一格 2026-10-28（B89-E22b）已建**：原先不建只因 `Editor/MainMenuScene.cs:14480`
+            //   那条「不建」断言钉着（现在已同批改成「建了 + 开着」，矩形/文字都按普查 `:280` 钉住）。
+            if (g.ExtraInfo.HasValue)
             {
-                // ---- 未入盟支那一棵（act F）：`Config fields` 里**只有 `extra_info`**（只读摘要）----
-                //   ⛔ 那五个可编辑件在 act F 那份里**全灭**（普查 `:188,201,214,217,220`）——
-                //      它们的「亮」是**改盟设置**那一态（`AllianceView.OnToggleEditClicked` 才点亮），
-                //      而那一态要求先点 `Edit button`，`Edit` 自己在这份里就是灭的 ⇒ **本地切不到** ⇒ 不建
-                //      （与本文件头那条「可切到的状态 ⇒ 建；只是未激活态 ⇒ 不建」同一口径）。
-                if (g.ExtraInfo.HasValue)
-                {
-                    var ei = g.ExtraInfo.Value;
-                    // 文案 = **资产里那一行的字面样例串**（普查 `:187`）—— 运行期那两个值（语言 / 隐私）
-                    // 是服务器给的，本地没有源。口径同下面 `Members: --/20` 与奖杯页那两个样例串。
-                    // 对齐照原版 `Right/Middle`（`SocialView.Text` 只给「左对齐 / 居中」两档 ⇒ 右对齐自己接一下）。
-                    var lb = v.Text(cf, ei, "English / Private", Color.white, "extra_info", 40f, 3, 18f,
-                                    alignLeft: false, wrap: true);   // A258：原版 `折行=1`
-                    if (lb != null) MenuDraw.AlignRight(lb, ei);
-                }
+                var ei = g.ExtraInfo.Value;
+                // 文案 = **资产里那一行的字面样例串**（act F 普查 `:187` / act T 普查 `:280`，两处同一串）——
+                //   运行期那两个值（语言 / 隐私）来自 `Group.region` / `Group.privacy`（**服务器**）⇒ 本地没有源。
+                //   口径与 `Members: --/20`、奖杯页那两个样例串**同一档**（⛔ 不编真数据）。
+                //   ⚠️ 原版运行期拼的是 `termTranslation + "/" + translation`（**不带空格**），与这串样例差两个空格 ——
+                //   我们手上只有样例串，照它画（画面上同一行的同样两个字，只差那两格空格）。
+                //   对齐照原版 `Right/Middle`（`SocialView.Text` 只给「左对齐 / 居中」两档 ⇒ 右对齐自己接一下）。
+                var lb = v.Text(cf, ei, "English / Private", Color.white, "extra_info", 40f, 3, 18f,
+                                alignLeft: false, wrap: true);   // A258：原版 `折行=1`
+                if (lb != null) { MenuDraw.AlignRight(lb, ei); regionNode = lb.transform; }
             }
-            else
+            if (variant == Variant.Member)
             {
                 // ---- 已入盟支那一棵（act T）：五个子件**全建** ----
                 //   `Config fields` 是 `HorizontalLayoutGroup`（spacing 14.5）；
                 //   ⚠️ 五件的 x 是布局跑出来的（逐值照普查 `:281-315`；相邻两件之间正好 = spacing 14.5）。
-                //   ⚠️ 点击一律**出声**（改盟设置要服务器；下拉的展开要靠 Unity 内置 `Template` —— 我们不建它，
-                //      同 `AlliancesTab.CreateAllianceMenu` 那两处下拉的处理）。
-                Dropdown(v, cf, "LanguagesDropdown",
+                //   ⚠️ 下拉的展开要靠 Unity 内置 `Template` —— 我们不建它（同 `AlliancesTab.CreateAllianceMenu` 那两处的处理）。
+                var chrome = new EditChrome();
+                langNode = Dropdown(v, cf, "LanguagesDropdown",
                          new PxRect(1130.90f, 210.41f, 1380.90f, 269.81f),      // :281
                          new PxRect(1355.90f, 230.11f, 1375.90f, 250.11f));      // :283
-                Dropdown(v, cf, "Privacy Dropdown",
+                privNode = Dropdown(v, cf, "Privacy Dropdown",
                          new PxRect(1395.40f, 210.41f, 1645.40f, 269.81f),      // :294
                          new PxRect(1620.40f, 230.11f, 1640.40f, 250.11f));      // :296
-                YellowBtn(v, cf, "Edit button",
+                editNode = YellowBtn(v, cf, "Edit button",
                           new PxRect(1659.90f, 209.81f, 1718.05f, 269.81f),      // :307
                           "40k_general_bt_yellow_edit",
                           new PxRect(1662.00f, 212.49f, 1712.15f, 267.13f),      // :309
-                          "`Edit button`：原版进**改盟设置**那一态（`AllianceView.OnToggleEditClicked` —— 把两个下拉与"
-                        + "`Confirm`/`Cancel` 一起点亮并置 `interactable`）。**改设置要服务器**（原版 `OnEditSave`"
-                        + " 发一条改盟请求）⇒ 本地没有那个源。");
-                YellowBtn(v, cf, "Confirm button",
+                          () => { chrome.Apply(true, true); SocialPage.Say(
+                              "`Edit button`：进**改盟设置**那一态（语言 / 隐私两个下拉 + `Confirm` / `Cancel` 一起亮、"
+                            + "`Edit` 与语言/隐私摘要一起灭 —— 原版 `AllianceView.OnToggleEditClicked`）。"
+                            + "⚠️ 原版这一步还有两条本地落不了：`descriptionText.interactable`（我们那一格是 `Label`、"
+                            + "没有 `interactable`）与两个下拉的 `.value`（假下拉、没有选项表）；改设置本身要服务器。"); });
+                confirmNode = YellowBtn(v, cf, "Confirm button",
                           new PxRect(1732.55f, 209.81f, 1790.70f, 269.81f),      // :310
                           "40k_general_bt_yellow_confirm",
                           new PxRect(1734.23f, 215.18f, 1787.20f, 261.95f),      // :312
-                          "`Confirm button`：原版**提交改盟设置**（`AllianceView.OnEditSave`）—— 要服务器。");
-                YellowBtn(v, cf, "Cancel button",
+                          () => SocialPage.Say("`Confirm button`：原版**提交改盟设置**（`AllianceView.OnEditSave` —— 发一条改盟"
+                                             + "请求后退出编辑态）—— **要服务器**，本地没有那个源。"));
+                cancelNode = YellowBtn(v, cf, "Cancel button",
                           new PxRect(1805.20f, 209.81f, 1863.35f, 269.81f),      // :313
                           "40k_general_bt_yellow_back",
                           new PxRect(1804.80f, 208.31f, 1860.95f, 266.31f),      // :315
-                          "`Cancel button`：原版**退出改盟态**（`AllianceView.OnEditCancel` —— 把两个下拉与"
-                        + "`Confirm`/`Cancel` 关掉、把 `Edit` 重新点亮）。那一态在 act T 里**出厂就是亮的**，"
-                        + "所以这一颗在我们这儿**没有可切的状态**。");
-                // ⛔ `extra_info`（语言 / 隐私摘要，`1408.66,183.02→1862.35,243.02`）在这棵上**不建** ——
-                //    它在 act T 那份里是 **act F**（普查 `:280`）⇒ 建在这棵树上就是**取错实例**
-                //    （📌 A29 之前这里画的正是它；它在**另一棵**上是亮的，见上面 `Variant.Search` 那一支）。
+                          () => { chrome.Apply(false, true); SocialPage.Say(
+                              "`Cancel button`：退出改盟态（把语言/隐私两个下拉与 `Confirm`/`Cancel` 关掉、"
+                            + "`Edit` 与语言/隐私摘要重新亮起 —— 原版 `AllianceView.OnEditCancel`）。"); });
+                chrome.Languages = langNode; chrome.Privacy = privNode;
+                chrome.Edit = editNode; chrome.Confirm = confirmNode; chrome.Cancel = cancelNode;
+                chrome.Region = regionNode;
+                // 出厂态 = 原版 `AllianceView.Draw` 末尾那几句：四件关、`regionText` 开、`Edit` = `isCurrentGroup && role>=Admin`
+                //   （`isCurrentGroup` 这一支恒真；`role` 走 `SocialData.SelfRoleId()` —— 原版 `CurrentPlayerCache.role`）。
+                //   ⚠️ `SelfRoleId()` 在本地**恒 0**，而 0 在本工程是**「无数据」哨兵**（`Member.RoleId` / `MyRoleId`
+                //   都还没有写入方，见 `SocialData.SelfRoleId` 的 doc）⇒ 这一档按 **prefab 出厂态**（`Edit` 亮着）走，
+                //   ⛔ 不把「没数据」当成「Members 角色」把钮藏掉；有真 role（>0）时按 `role >= GroupRole.Admin(2)` 切。
+                int role = SocialData.SelfRoleId();
+                chrome.Apply(false, role <= 0 || role >= 2);
             }
 
             // 联盟简介（`Description input text`；原版样例是一串 Aliance Description，属调试残留 §C·2）
@@ -1550,7 +1579,7 @@ namespace CardPresentation
         /// ⚠️ 展开要 `Template`（Unity 内置模板，§B·13 明说别当业务节点）⇒ 不建。
         /// 底图/箭头与染色**逐值照普查**（`:281-283`）：`40K_dropdown_field_closed` 727×102 九宫 (60,35,60,35)
         /// · 染色 `(1,0.475,0.098,1)`；`40K_dropdown_arrow_closed` 46×19 · 染色 `(0.361,0.188,0.0588,1)`。</summary>
-        static void Dropdown(SocialView v, Transform parent, string name, PxRect fieldR, PxRect arrowR)
+        static Transform Dropdown(SocialView v, Transform parent, string name, PxRect fieldR, PxRect arrowR)
         {
             var f = Node(parent, name, fieldR);
             v.Nine(f, "40K_dropdown_field_closed", fieldR, new Vector4(60f, 35f, 60f, 35f), "Bg", 0,
@@ -1560,6 +1589,7 @@ namespace CardPresentation
             v.Hit(f, "Hit", fieldR, 3, () => SocialPage.Say(
                 $"`{name}` 下拉：**打不开**（展开要 Unity 内置 `Template`；选中的值由 `AllianceView.Start` "
               + "从本地化服务 / 隐私枚举里填，本地没有那个源 —— 改盟设置也要服务器）。"));
+            return f;   // 🆕 2026-10-28（B89-E22）：改盟设置那一态的梯子要按句柄切显隐（原版 `languageDropdown` / `privacyDropdown`）
         }
 
         /// <summary>一颗黄圆钮（`Edit` / `Confirm` / `Cancel`）：`40k_general_bt_yellow`（71×71 · Simple ·
@@ -1568,15 +1598,18 @@ namespace CardPresentation
         /// 🔴 **悬停/按下那两张图是【查到的原版值】**（不是同族先例 —— 2026-10-04 用 `工具/menu_dump.py`
         /// 直读这三颗的 `m_SpriteState`，三颗一致：`HL=40k_general_bt_yellow_hover`；
         /// 按下那张 = `40k_general_bt_yellow_pressed`，原版普查件 `资料/普查产出_1003/按钮悬停图_普查.md:36` 明列）。</summary>
-        static void YellowBtn(SocialView v, Transform parent, string name, PxRect btnR, string icon,
-                              PxRect iconR, string say)
+        static Transform YellowBtn(SocialView v, Transform parent, string name, PxRect btnR, string icon,
+                              PxRect iconR, System.Action onClick)
         {
             var n = Node(parent, name, btnR);
             var bg = v.Rect(n, "40k_general_bt_yellow", btnR, "Image", 1,
                             new Color(1f, 0.773f, 0.333f, 1f), true);
             v.Rect(n, icon, iconR, "Image", 2, null, true);
-            v.Hit(n, "Hit", btnR, 3, () => SocialPage.Say(say), bg, null,
+            // 🆕 2026-10-28（B89-E22 · 账 97/100）：原来这一口只收一句 `Say` 文案 ⇒ 「Edit / Cancel」切不动状态。
+            //   改成收一个 `Action`（原版这三颗各挂一个 `onClick`：`OnToggleEditClicked` / `OnEditSave` / `OnEditCancel`）。
+            v.Hit(n, "Hit", btnR, 3, onClick, bg, null,
                   "40k_general_bt_yellow_hover", "40k_general_bt_yellow_pressed");
+            return n;   // 调用方要按句柄切显隐（原版 `toggleEditButton` / `saveButton` / `cancelButton`）
         }
 
         /// <summary>一个评级块：`Main Icon` + `Individual rating value`（🔴 **左对齐** —— 见下）。
@@ -1611,6 +1644,32 @@ namespace CardPresentation
         }
 
         static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
+
+        /// <summary>🆕 **2026-10-28（B89-E22 · 账 93⑤ / 97 / 100）**：改盟设置那一态的**唯一一份** `SetActive` 梯子。
+        /// <para>判据 = `out_cpp2il_dev_ilspy/AllianceView.cs` 三处逐句：`Draw` 末尾（`:521-538` 前那段）·
+        /// `OnToggleEditClicked`（`:483-519`）· `OnEditCancel`（`:521-538`）· `Draw` 里 `regionText` 那句（`:459-460`）。三处合成两条：
+        /// · **出厂 / 退出编辑**：`saveButton` / `cancelButton` / `privacyDropdown` / `languageDropdown` **关**、
+        ///   `regionText` **开**、`toggleEditButton` = `isCurrentGroup &amp;&amp; role &gt;= GroupRole.Admin`（退出编辑时**无条件开**）；
+        /// · **进编辑**：那四件**开**、`regionText` 与 `toggleEditButton` **关**。</para>
+        /// <para>⚠️ 原版另有两条**本地落不了**（如实留白，⛔ 不假装做了）：
+        /// ① `descriptionText.interactable = !alliance.blockDescriptionChange &amp;&amp; !me.blockDescriptionChange`
+        /// ——我们那一格是 `Label`，没有 `interactable`；
+        /// ② 进编辑时两个下拉的 `.value`（`(int)privacy` / `IndexOf(GroupLanguages, region)`）——
+        /// 我们那两个是「合上的假下拉」（没有选项表、没有 Unity 内置 `Template`）⇒ 只能不显示值。</para></summary>
+        sealed class EditChrome
+        {
+            public Transform Languages, Privacy, Edit, Confirm, Cancel, Region;
+            static void On(Transform t, bool on) { if (t != null) t.gameObject.SetActive(on); }
+            /// <summary>`editing` = 进/出编辑态；`idleEdit` = **退出编辑时** `Edit` 要不要出现
+            /// （出厂那一档由 `role &gt;= Admin` 决定；原版 `OnEditCancel` 是无条件开）。</summary>
+            public void Apply(bool editing, bool idleEdit)
+            {
+                On(Languages, editing); On(Privacy, editing);
+                On(Confirm, editing); On(Cancel, editing);
+                On(Region, !editing);
+                On(Edit, !editing && idleEdit);
+            }
+        }
     }
 
     // ==================================================================
@@ -1827,7 +1886,7 @@ namespace CardPresentation
             //    （判据与理由 → `Rating` 的头注释，⛔ 别在这儿抄第二份）。
             Rating(v, row, r, 3.36f, "Draft Rating", "40k_battle_Win_Skull", m.DraftRating, rightPivot: false, wrap: true);
             Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", m.RankedRating, rightPivot: true, wrap: false);
-            v.Hit(row, "Hit", r, 3, () => OpenMemberOptions(m));
+            v.Hit(row, "Hit", r, 3, () => OpenMemberOptions(m, r));
         }
 
         /// <summary>点成员那一行 ⇒ **开成员选项弹窗**。
@@ -1844,12 +1903,15 @@ namespace CardPresentation
         ///    （原版 `CurrentPlayerCache.role`；没数据时 0 = 最低档，与原版「无数据」等价）；
         /// ② ~~`IsFriend` 没有数据源~~ —— 🔴 **同日已接**：`SocialData.IsFriend(m.Id)`
         ///    （全仓唯一一份，`ChatPanel.IsFriend` 也转调它）；`Member.Id` 早在 C5 批就有了；
-        /// ③ 原版还会把窗**摆到那一行旁边**（`memberTransform.position` + 一次 `anchoredPosition` 重算）——
+        /// ③ ~~原版还会把窗**摆到那一行旁边**（`memberTransform.position` + 一次 `anchoredPosition` 重算）——
         ///    我们的窗只有 `RootRect(anchor)` 那条算式、**没有「已建好后按锚点重排」的口**
-        ///    （那口在 `AllianceMemberOptionsPopup.cs` / `WindowsManager.cs`，**不在本批白名单内**）⇒ 仍居中。</para>
+        ///    （那口在 `AllianceMemberOptionsPopup.cs` / `WindowsManager.cs`，**不在本批白名单内**）⇒ 仍居中。~~
+        ///    🔴 **2026-10-28（B89-E22 · 账 30③）已补**：`AllianceMemberOptionsPopup.SetAnchor(Vector2?)`
+        ///    就是那个「已建好后按锚点重排」的口（内部复用同一份 `RootRect(anchor)` 重建，⛔ 不是另一套平移算式），
+        ///    本方法把**成员行矩形 `rowRow` 的中心**当锚点传给它 ⇒ 窗贴到被点的那一行上（原版 `SetPosition` 的等价物）。</para>
         /// <para>⇒ 因此 `Promote / Demote / Kick` 三颗（要 `outrank = SameGroup &amp;&amp; Role &lt; MyRole`）
         /// 只在**真有 role 数据**时才出现；`Quit` 只在「点的是自己」时出。这是「只知道这些」时的诚实子集。</para></summary>
-        static void OpenMemberOptions(SocialData.Member m)
+        static void OpenMemberOptions(SocialData.Member m, PxRect rowRow)
         {
             var mv = new AllianceMemberOptionsPopup.MemberView
             {
@@ -1869,9 +1931,13 @@ namespace CardPresentation
                 MyRole = SocialData.SelfRoleId(),
             };
             var win = WindowsManager.OpenAllianceMemberOptions(mv);
-            Debug.Log("[Alliance] 点成员行 ⇒ 开 `AllianceMemberOptionsPopup`（原版 `AllianceView.OnMemberClicked`）；"
-                    + "`Role`/`IsFriend` 本地无数据 ⇒ 权限那三颗（Promote/Demote/Kick）不会出现，"
-                    + "窗也没有「摆到那一行」的定位（见 `OpenMemberOptions` 的注释）。"
+            // 🆕 2026-10-28（B89-E22 · 账 30③）：把窗摆到**被点的那一行**上
+            //   （原版 `OnMemberClicked` 里 `WindowsManager.OpenWindow(...)` 之后那次 `SetPosition`）。
+            //   锚点取行矩形中心 —— 与 `RootRect(anchor)` 那条既有算式同一份口径（⛔ 不在这里另算一遍）。
+            if (win != null) win.SetAnchor(new Vector2((rowRow.x1 + rowRow.x2) * 0.5f, (rowRow.y1 + rowRow.y2) * 0.5f));
+            Debug.Log("[Alliance] 点成员行 ⇒ 开 `AllianceMemberOptionsPopup`（原版 `AllianceView.OnMemberClicked`），"
+                    + "并把窗摆到那一行（`SetAnchor`）。`Role`/`IsFriend` 本地无数据 ⇒ "
+                    + "权限那三颗（Promote/Demote/Kick）不会出现。"
                     + (win == null ? "⚠️ 窗没开出来" : ""));
         }
 

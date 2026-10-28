@@ -2204,9 +2204,9 @@ namespace CardPresentation
                                      + "（原版 `DeckInfoPopup.EditDeck` 那条闸）；提示文案 = 官方原文 "
                                      + "`MenuDeck/CantImportDeck`（`{0}` = 督军阵营名 `"
                                      + (wl != null ? CardText.Faction(wl.Faction) : "") + "`）");
-                    // 弹窗唯一那颗钮走词条（键 `MainMenu/General/OK`，出处 = 原版同 GO TMP `m_text` = `OK`；
-                    //   证据与来历写在 `Core/Loc.cs` 里 `MainMenu/General/OK` 那一条的留痕块）。⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）。
-                    if (Manager != null) Manager.ShowPopUp(msg, Loc.T("MainMenu/General/OK"), null);
+                    // 🔴 **2026-10-28（B89-E16c）订正（铁律 5）**：原版这一支是 `UIMessageController.ShowError`（**瞬时红横幅、没有按钮**；判据 = `DeckInfoPopup__EditDeck.c:21-45`）—— 原来那句「弹窗唯一那颗钮走词条 `MainMenu/General/OK`」**已作废**。
+                    //   模态弹窗（`WindowsManager.ShowPopUp`，**要玩家点一下**）**不是**它的等价物 ⇒ 改走 `MessageToast.ShowError`；⛔ 别改回 `ShowPopUp`（B89-E16b 报告 §3·3）。
+                    MessageToast.ShowError(msg, false);   // `msg` = `CantImportDeckMessage(...)`，已是明文（原版 `localize = 0`，尾参那个 `0` 是 IL2CPP `MethodInfo*`）
                     return;
                 }
                 // 「进编辑」**只有一份实现**（`CollectionWindow.GoEdit`）—— 收藏窗那条路也走它
@@ -2439,7 +2439,7 @@ namespace CardPresentation
             if (OverrideDeck != null) { Debug.LogWarning("[DeckInfo] `Delete`：这一副是外面送进来的（没有库下标）⇒ **不删**"); return; }
             if (Blocked("Delete", DeleteInteractable)) return;
             if (CollectionData.DeleteDeck(DeckIndex)) { Debug.Log("[DeckInfo] 已删除该卡组"); Close(); }
-            else Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError);
+            else { MessageToast.ShowError("MenuDeck/Error/FailedToDelete", true); Debug.LogWarning("[DeckInfo] 删卡组失败：" + CollectionData.LastDeleteError); }   // B89-E16c：原版 `__DeleteDeck_b__27_3.c:18` 先弹红横幅（键 = `DAT_1842cf1f0` → `0x42CF1F0`；道具退回那半本地无库存层，见报告 §5·2）
         }
 
         /// <summary>🆕 A10：点督军立绘 ⇒ 开**卡片详情窗**（原版 `Warlord Image` 上那个 `EverguildButton`）。</summary>
@@ -2969,6 +2969,17 @@ namespace CardPresentation
             wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt);
             return hit.transform;
+        }
+
+        // ============================================================ 自检口（B89-E16d 追加在类尾；⛔ 生产路径别调）
+        /// <summary>造「删卡组失败」那一支：`DeleteInteractable` 只有 `ApplyControlStates` 会置真，而自检要验的是
+        /// **失败支的红横幅**（原版 `DeckInfoPopup___DeleteDeck_b__27_3.c:18`）⇒ 这里放开那道闸、再走同一条生产路。
+        /// <para>🔴 **调用方必须先把 `DeckIndex` 置成越界值**（例如 −1），否则会**真的删掉一套卡组**
+        /// （`CollectionData.DeleteDeck` 越界才返回 false）。</para></summary>
+        public void DeleteDeckNowForTest()
+        {
+            DeleteInteractable = true;
+            DeleteDeckNow();
         }
     }
 }

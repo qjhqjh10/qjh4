@@ -586,5 +586,55 @@ namespace RuleEngine
             int abs = NextFreeWithoutDisplacing(ps, out blocked);            // 第三支（原版 `GetNextSlotWithoutDisplacing`）
             return abs < 0 ? 0 : abs - BoardSpec.WarlordSlot;               // 绝对 → 有符号（`ourSlot = 4 + orig`）
         }
+
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-28（`B89-E2` · 账 `L319` / `L1104`）：**右邻那一张** —— 原版
+        //  `BattleManager.GetAdjacentUnitRight` → `MinionManager.GetAdjacentRightTroop` 的等价物。
+        //  ⚠️ 追加在类尾（本文件行号被 6 条账行引用；⛔ 别插到中间）。
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// **右邻那一张单位**（没有就 `null`）—— 原版 `BattleManager.GetAdjacentUnitRight(card)`
+        /// → `MinionManager.GetAdjacentRightTroop(mm, card)`。
+        ///
+        /// <para>**判据（第一权威，逐句；两份产物都读过）**：
+        /// · `decomp_full/BattleManager__GetAdjacentUnitRight.c` —— 先按卡上的 `isPlayer(+0x40)` 取
+        ///   `playerMinionManager(+0xe0)` / `enemyMinionManager(+0xe8)`，再转调 `GetAdjacentRightTroop`；
+        ///   卡片为 `null` 或那边的 manager 为 `null` ⇒ 原版进 `FUN_1803f47a0`（**抛**）；
+        /// · `decomp_full/MinionManager__GetAdjacentRightTroop.c` ——
+        ///   ① 先扫**左侧列表**（`+0x60`）：找到这张卡在 `i`，**`0 &lt; i`** ⇒ 返回 `left[i-1]`；
+        ///      `i == 0`（贴督军那一格）⇒ 不返回，继续扫完 / 换右列表 ⇒ 结果 = **没有右邻**；
+        ///   ② 没在左列表里 ⇒ 扫**右侧列表**（`+0x68`）：找到在 `i`，**`i + 1 &lt; Count`** ⇒ 返回 `right[i+1]`，
+        ///      否则（已是最外那一格）⇒ `null`；
+        ///   ③ 两条表里都没有（督军 / 不在场上）⇒ 返回 `0`（= null）。
+        ///   ⚠️ **不看死活**：那两条 `List` 里的残骸 / 待死单位照样算。</para>
+        ///
+        /// <para>🔴 **在「每侧连续无洞」的棋盘上 = `Board[slot + 1]`，但要跳过督军格**：
+        /// 左侧下标 0 的格号是 3、`3 + 1 = 4` 正好是督军格，而**督军不在那两条 `List` 里**
+        /// ⇒ 原版给 `null`。「跳过督军格」这一条**不能省** —— 直接写 `Board[slot + 1]`
+        /// 会在左侧贴督军那一格拿到**督军**（那不是它的右邻）。
+        /// 🔴 **唯一原版消费点** = 虫群合并（`CardScript__ResolveCardPlayed.c:60-68`，见
+        /// `RuleCore.IsSwarmHost` 的 doc）⇒ `RuleCore.TrySwarmMerge` / `SwarmMergeNow` 调本口。</para>
+        /// </summary>
+        /// <param name="slot">那个单位所在的格号（督军格 / 越界 ⇒ `null`）。</param>
+        public static UnitState RightNeighbor(PlayerState ps, int slot)
+        {
+            if (ps == null || ps.Board == null) return null;
+            if (SideOf(slot) == 0) return null;                       // 督军格 / 越界 ⇒ 它不在这两条表里
+            int right = slot + 1;
+            if (!BoardSpec.IsValid(right) || right == BoardSpec.WarlordSlot) return null;
+            return ps.Board[right];
+        }
+
+        /// <summary>**按牌**取右邻 —— <see cref="RightNeighbor(PlayerState,int)"/> 的转发
+        /// （原版那个方法收的就是卡：`GetAdjacentUnitRight(CardScript referenceCard)`）。
+        /// 这张牌不在这条棋盘上 ⇒ `null`（原版那一支会抛；我们给 `null`，见上一条）。</summary>
+        public static UnitState RightNeighbor(PlayerState ps, UnitState card)
+        {
+            if (ps == null || ps.Board == null || card == null) return null;
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (ReferenceEquals(ps.Board[s], card)) return RightNeighbor(ps, s);
+            return null;
+        }
     }
 }

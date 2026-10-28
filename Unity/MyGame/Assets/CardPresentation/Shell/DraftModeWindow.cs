@@ -1210,6 +1210,7 @@ namespace CardPresentation
         void BuildHeader(Transform root)
         {
             float titleL = HdrL + 155f;                      // 原版 HLG padLeft 155
+            System.Action onBack = () => Close();
             WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
                 RootName = WindowHeader.RootNameGameMode,
@@ -1230,8 +1231,10 @@ namespace CardPresentation
                 PlateTex = Tex("WF_Campaign_Info_Background"),
                 BackTex = Tex("UI_Button_Menu_Back"),
                 QPlate = QArt, QWing = QArt1, QTitle = QText, QBack = QArt1, QHit = QHit,
-                OnBack = () => Close(),
+                OnBack = onBack,
             });
+
+            WireHeaderComponent(root, onBack);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
         }
 
         // ------------------------------------------------------------ Pay 页（只留免费档）
@@ -4144,6 +4147,18 @@ namespace CardPresentation
             if (hl == null || PackScanFeed(tg, hl.gameObject) == 0)
                 Debug.LogWarning("[Draft] 影子副本里找不到 `Content/Highlight`（或它底下没有 `ImageQuad`）⇒ 扫光沿用"
                                + "`Instantiate` 带过来的目标（可能指回本体那颗，画面会看不出扫光）");
+        }
+
+        // ============================================================ 窗头组件接线（B89-E29 · 追加于类尾）
+        /// <summary>接线到原版那颗 `WindowHeaderWithBackButton`
+        /// （原版 `DraftModeMenuDemo` 持有它并 `Initialize(liveopEvent, onBack)`）。
+        /// 返回钮 = `QuadOnHeader` ⇒ `WindowButton` 在 `BackHit` 命中区节点上；标题词条 `Demo/DraftMode/Title`。
+        /// <para>⚠️ 放在类尾是照「新成员追加类尾」的纪律（⛔ 插进已有成员之间会让账的行号整体漂移）。</para></summary>
+        static void WireHeaderComponent(Transform root, System.Action onBack)
+        {
+            ParentEventWindow.EnsureHeaderTitleResolver();
+            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, onBack,
+                                                  Loc.T("Demo/DraftMode/Title"));
         }
     }
 }

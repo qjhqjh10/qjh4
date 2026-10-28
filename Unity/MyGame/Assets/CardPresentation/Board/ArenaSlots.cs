@@ -218,5 +218,41 @@ namespace CardPresentation
                          + "（原版同一情形打 \"Trying to GetLeftSlotPos with slotNum too high\"，MinionManager.cs:466/507）");
             return n < 1 ? 1 : SlotsPerSide;
         }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-28（`B89-R4b` · 账 `战斗界面_HUD:713`）
+        //  `BattleManager.GetUnitSizeInPlay(cardType, isPlayer)` 的**第三支**
+        //  （`decomp_full/BattleManager__GetUnitSizeInPlay.c:1-…` 全文亲读，🥇）：
+        //   · `cardType == Minion(0)`  ⇒ `Vector3.one × MinionManager.desiredScale`  → 本类 `CardScale`
+        //   · `cardType == Hero(10)`   ⇒ `Vector3.one × MinionManager.heroScale`     → 本类 `HeroScale`
+        //   · **其余（非部队、非督军的在场卡）** ⇒
+        //       `Vector3.one × globalVars.minionInPlayScale(+0x68) × (isPlayer ? 1.0 : globalVars.enemyUnitsScaleRatio(+0x74))`
+        //  🔴 **账 713 原来的框架是错的**（本轮回源订正，铁律 5）：它盯的 `BattleManager.GetUnitSizeRatio(bool)`
+        //     在 `decomp_full` / `out_cpp2il_dev_ilspy` / `out_il2csharp` **三份源里都只有定义、0 调用者**
+        //     ⇒ 那是**死方法**；「我方 1 / 敌方 0.86」这个语义**只活在**上面那条 `else` 支里。
+        //  🔴 **0.86 的出处**：资产真值 `d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/GlobalVariables.asset:38`
+        //     `enemyUnitsScaleRatio: 0.86`；`VarsGlobal` 的 **C# 默认值是 `0.93`**（`cpp2il/out_il2cpp…/VarsGlobal.cs:52`）
+        //     —— 那是**死值、被资产覆盖**，⛔ 别用 0.93。
+        //  ⚠️ **今天没有观测面**：`PlayerState.Board` 是 `UnitState[]`，卡池里非部队/非督军的在场卡
+        //     （`defence` 39 张 / `enchantment` 2 张）**还没进 Board** ⇒ 这一支接上也不会有画面差异。
+        //     仍按铁律 11 建出来（只分先后、不分做不做），验收只能靠**算式断言**。
+        //  ⚠️ **接线是别人的活**：真消费者 `BattleDriver.ArenaCardScale` 按 `u.Card.Type` 分派的
+        //     `else` 支要改成调 `InPlayScale(enemy)`，那是 `BattleDriver.cs`（本波归 E5）⇒ 见报告 §1·713 的待接点。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `VarsGlobal.minionInPlayScale`（`+0x68`）= **0.75**（`资料/VarsGlobal_原版数值.md` 同表，
+        /// 与 `targettingAnimTime 0.5` / `minionDeathTime 0.2` 三条互证）。</summary>
+        public const float MinionInPlayScale = 0.75f;
+
+        /// <summary>原版 `VarsGlobal.enemyUnitsScaleRatio`（`+0x74`）= **0.86**（资产真值；
+        /// ⚠️ C# 默认值 `0.93` 是**死值**）。</summary>
+        public const float EnemyUnitsScaleRatio = 0.86f;
+
+        /// <summary>非部队 / 非督军的**在场卡**的根缩放 —— 原版 `GetUnitSizeInPlay` 的第三支。
+        /// <para>`InPlayScale(false) == 0.75f` · `InPlayScale(true) == 0.75f × 0.86f == 0.645f`。</para></summary>
+        public static float InPlayScale(bool enemy)
+        {
+            return MinionInPlayScale * (enemy ? EnemyUnitsScaleRatio : 1f);
+        }
     }
 }

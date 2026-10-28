@@ -1579,8 +1579,8 @@ namespace CardPresentation
 
         void OnCopyPlayerId()
         {
-            // 原版：`GUIUtility.set_systemCopyBuffer(PlayfabId)` + `UIMessageController.ShowMessage`（§B.2）
-            Debug.Log("[Profile] 复制 Player ID：**没有可复制的** —— 原版拷的是 PlayfabId（服务器），本地没有");
+            // 原版（`ProfileTab.__c__DisplayClass11_0___Initialize_b__0.c:20-23`）：写剪贴板 `PlayfabId` + `UIMessageController.ShowMessage("Settings/CopiedToClipboard", 1)`（**白档**横幅）—— 全落在这个口里（类尾）；B89-E16c 2026-10-28
+            CopyPlayerIdToClipboard();
         }
 
         /// <summary>点头像 ⇒ **切到 `Avatar` 页**（🆕 2026-10-24 E12 · P0-4 —— 原来这里只打一行日志）。
@@ -1688,5 +1688,43 @@ namespace CardPresentation
                     + (hasName ? "联盟名 + 评级段**开**（原版内联版：非空才 `AllianceRatingDisplay.Initialize`）"
                                : "评级段**关**、联盟名回占位串（原版内联版：空 ⇒ `SetActive(false)`）"));
         }
+
+        // ============================================================ 复制 Player ID（🆕 2026-10-28 · B89-E16c，追加在类尾）
+        // 判据 = `decomp_full/ProfileTab.__c__DisplayClass11_0___Initialize_b__0.c:20-23`（🥇 全文现读）：
+        //   ① `UnityEngine_GUIUtility__set_systemCopyBuffer(PlayfabId)`（**写系统剪贴板**）；
+        //   ② `UIMessageController__ShowMessage("Settings/CopiedToClipboard", localize = 1)` —— **白档**横幅
+        //      （`ShowMessage` 走 `messageColor` 白；红档是 `ShowError` → `errorColor`，⛔ 别弄反）。
+        //   键字面量判据 = `d:/2/tools/il2cpp_out/stringliteral.json` 的 `0x42448C8`；该键在
+        //   `Resources/official_loc_13lang.json` 现读**命中**。
+        /// <summary>点 `PlayerId` 那一颗 ⇒ 复制 + 一条白档提示（原版 `ProfileTab.<Initialize>b__11_0`）。
+        /// <para>⚠️ **数据缺口（如实出声）**：原版拷的是 **`PlayfabId`（服务器账户域 = P3）**，本仓**没有那一串**
+        /// ⇒ <see cref="PlayerIdForCopy"/> 今天返回 null，本方法**只出声**：不写剪贴板、也不弹「已复制」
+        /// （⛔ 不编一个假 ID、⛔ 不拿玩家名冒充它）。将来接上账户域时**只改 `PlayerIdForCopy` 一处**。</para></summary>
+        void CopyPlayerIdToClipboard()
+        {
+            string id = PlayerIdForCopy();
+            if (string.IsNullOrEmpty(id))
+            {
+                Debug.LogWarning("[Profile] 复制 Player ID：**本地没有可复制的 id** —— 原版拷的是 `PlayfabId`（服务器，P3），"
+                               + "本仓没有那一串 ⇒ 剪贴板**没写**、也**没弹**「已复制」（⛔ 不骗玩家）");
+                return;
+            }
+            GUIUtility.systemCopyBuffer = id;
+            bool shown = MessageToast.Show("Settings/CopiedToClipboard", true);   // 白档（原版 `ShowMessage`，⛔ 不是 `ShowError`）
+            Debug.Log("[Profile] Player ID 已写进系统剪贴板（" + id.Length + " 字符）；提示横幅 "
+                    + (shown ? "已弹" : "**没弹**（壳里没有 `MessageToast` 宿主 —— 那一步已经出过声）"));
+        }
+
+        /// <summary>要复制的 Player ID —— **全仓唯一来源口**（点 `PlayerId` 与将来的账户域都读它）。
+        /// <para>🔶 自己设计（非原版）：原版这一格是 `PlayerDataManager` 里的 `PlayfabId`（服务器下发）；
+        /// 本仓没有账户域 ⇒ 恒 null · 调度台 2026-10-28（B89-E16c）裁定。</para></summary>
+        static string PlayerIdForCopy()
+        {
+            return null;
+        }
+
+        /// <summary>自检口（B89-E16d 追加在类尾；⛔ 生产路径别调）：`CopyPlayerIdToClipboard` 的公开转发
+        /// —— Editor 是**另一个程序集**，那个私有方法调不到。</summary>
+        public void CopyPlayerIdForTest() { CopyPlayerIdToClipboard(); }
     }
 }

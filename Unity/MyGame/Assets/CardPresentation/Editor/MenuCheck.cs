@@ -453,4 +453,167 @@ public static class MenuCheck
             default: return "（按已知情况放行）";
         }
     }
+
+    // ============================================================ 🆕 2026-10-28（B89-R3c）`RaycastFilter` 的三条真值
+    // 判据 = `Shell/RaycastFilter.cs` 文件头（原版 `RaycastFilter.cs` 整类 253 行逐句读过）+ `TutorialManager.cs:1371-1397`
+    //   （`if (!filterRaycast) ClearRaycastFilters(); else { ClearRaycastFilters(); RegisterObjectAndChildrenGraphics(target); }`
+    //    —— 这就是「注册 / 清空成对」的原版出处）。
+    // 🔴 为什么补这三条：`grep RaycastFilter Editor/*.cs` 此前 **0 命中** —— 这族一条断言都没有，而写坏**不会报任何错**：
+    //   ① 把「空表」当成「全禁」⇒ **整层菜单点不动**（教程指针撤掉后玩家卡死）；
+    //   ② 给 `SetRaycastFilter<T>()` 编一个调用点 ⇒ 出货行为与原版分叉（原版那方法是**死码**）；
+    //   ③ 注册了不反注册 ⇒ 教程结束后**只有那个子树能点**。
+    /// <summary>原版 `RaycastFilter`（教程期「只许点某个子树」的全局允许表）的三条真值：
+    /// **空表 = 不过滤** · **`filteredType` 恒 null（死码口）** · **注册 / 清空成对**。
+    /// <para>⚠️ 本函数在**全局静态态**上作业 ⇒ 自己建一棵小树、**进出都把表清空**（`finally` 里也清）。</para>
+    /// <para>⚠️ 还没有调用方：设计上应由**外壳宿主**（`Editor/ShellScene.cs` 的 `Run()`）调一行 —— 见报告 §5 交接。</para></summary>
+    public static void RaycastFilterAsserts(CheckSink s, string what = "RaycastFilter（教程期命中白名单）")
+    {
+        Section(s, what);
+        RaycastFilter.ClearRaycastFilters();          // 起点必须是干净态（唯一出口，见实现文件）
+        True(s, !RaycastFilter.Active && RaycastFilter.AllowedCount == 0,
+             what + "：**起点是干净态**（`Active == false` 且表为空 —— 否则下面几条的前提不成立）");
+
+        var root = new GameObject("RF_Root");
+        var c1 = new GameObject("RF_C1"); c1.transform.SetParent(root.transform, false);
+        var c2 = new GameObject("RF_C2"); c2.transform.SetParent(root.transform, false);
+        var other = new GameObject("RF_Other");
+        try
+        {
+            // ── ① 空表 = 不过滤（⛔ 别实现成「空表 = 全禁」：那会让整层菜单点不动，而且零报错）──
+            True(s, RaycastFilter.Allows(root), what + "：**空表 ⇒ 放行**（原版语义）");
+            True(s, RaycastFilter.Allows(null), what + "：空表时传 null 也放行（谓词①根本不进）");
+
+            // ── ② 死码口：`SetRaycastFilter<T>()` 全库 0 调用点 ⇒ 出货 `filteredType` **恒 null** ──
+            True(s, RaycastFilter.FilteredTypeForTest == null,
+                 what + "：**`filteredType` 恒 null**（`SetRaycastFilter<T>` 是死码，⛔ 别给它编调用点）");
+            RaycastFilter.SetRaycastFilter<RectTransform>();     // 只为本函数断「它按形状仍生效」而调一次
+            True(s, RaycastFilter.FilteredTypeForTest == typeof(RectTransform),
+                 what + "：`SetRaycastFilter<T>` 按形状仍生效（仅自检调用；生产里 0 调用点）");
+            True(s, !RaycastFilter.Allows(c1),
+                 what + "：置成 `RectTransform` 后 `Allows` 走**谓词②**（无该组件 ⇒ 剔除）");
+            RaycastFilter.ClearRaycastFilters();
+            True(s, RaycastFilter.FilteredTypeForTest == null && !RaycastFilter.Active,
+                 what + "：`ClearRaycastFilters()` 连 `filteredType` 一起清空");
+
+            // ── ③ 注册 / 反注册成对（含「原版不去重」与「两颗 GameObject 任一放行」）──
+            RaycastFilter.RegisterObjectAndChildrenGraphics(root);
+            int n = RaycastFilter.AllowedCount;
+            True(s, n > 0, what + "：注册后表非空（n=" + n + "）");
+            True(s, RaycastFilter.Allows(root), what + "：注册后**目标自己**放行");
+            True(s, RaycastFilter.Allows(c1), what + "：注册后**子件**放行（原版扫 `Graphic` / 我们扫全子树）");
+            True(s, !RaycastFilter.Allows(other), what + "：**表外的对象被剔除**（谓词①）");
+            True(s, RaycastFilter.AllowsHit(other, c1),
+                 what + "：`AllowsHit(按钮, 命中图)` **任一被登记即放行**（只登记 button 会漏掉「目标 = 按钮里的某颗图」）");
+
+            int before = RaycastFilter.AllowedCount;
+            RaycastFilter.Register(c2); RaycastFilter.Register(c2);
+            Check(s, RaycastFilter.AllowedCount, before + 2,
+                  what + "：`Register` **不去重**（原版如此：同一颗注册两次就有两条）");
+            RaycastFilter.UnRegister(c2); RaycastFilter.UnRegister(c2);
+            Check(s, RaycastFilter.AllowedCount, before, what + "：`UnRegister` 一次只摘一条（`List.Remove` 语义）");
+
+            RaycastFilter.UnRegisterObjectAndChildrenGraphics(root);
+            Check(s, RaycastFilter.AllowedCount, 0,
+                  what + "：**反注册后表回到 0**（注册/清空成对 —— 不自洽 = 教程结束后只有那个子树能点）");
+            True(s, !RaycastFilter.Active, what + "：表空 ⇒ `Active == false`（回到起点）");
+        }
+        finally
+        {
+            RaycastFilter.ClearRaycastFilters();      // 静态全局态必须还原（别的宿主可能紧接着跑）
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(other);
+        }
+    }
+
+    // ============================================================ 通道断言（B89-E16d 追加在类尾）
+
+    /// <summary>剪贴板取值（批处理 / 无剪贴板环境会抛 ⇒ 一律折成 null，⛔ 不让它把整条自检炸掉）。</summary>
+    static string SafeClip()
+    {
+        try { return GUIUtility.systemCopyBuffer; }
+        catch (System.Exception e) { Debug.LogWarning("[MenuCheck] 读系统剪贴板抛异常（" + e.GetType().Name + "）⇒ 按 null 处理"); return null; }
+    }
+
+    /// <summary>**「瞬时横幅」（原版 `UIMessageController`）≠「模态弹窗」（`WindowsManager.ShowPopUp`）** 的四条断言。
+    /// <para>起因 = 2026-10-28 `B89-E16b/E16c`：原版三处 `UIMessageController.ShowError` 被我们接到了模态窗上
+    /// （玩家可见差别 = **自己消失** vs **必须点一下**）。本函数把修好的三处钉住。</para>
+    /// <para>🔑 **判据三件同时成立才算「走横幅」**：`MessageToast.ShowCount` +1 · `LastRawText` == 本案例的键 ·
+    /// `WindowsManager.popUpWindow == null`。⚠️ 单看前两条会被「横幅 + 模态一起弹」骗过 ⇒ 第三条是牙。</para>
+    /// <para>⚠️ 本函数会**临时建**一颗 `MessageToast`（宿主挂壳上）与两个一次性 GameObject ⇒ `finally` 全部销毁：
+    /// `ShellScene.Run` 收尾有 `SaveScene`，漏销就会被烘进 `Shell.unity`。</para>
+    /// <para>⚠️ 第 ④ 条只能**读源码**断：`DeckInfoPopup` 的 `state == Import` 那一支在本 build **不可达**
+    /// （`CanImportDeck` 恒 true 且该 state 无调用点）⇒ 同 `CollectionScene` 的 `A1051(4)` 那条先例。</para></summary>
+    public static void ToastChannelAsserts(CheckSink s, string what = "Toast/横幅通道（原版 UIMessageController）")
+    {
+        Section(s, what);
+        var made = new List<GameObject>();
+        string clipBefore = SafeClip();
+        try
+        {
+            var mt = MessageToast.Ensure();
+            True(s, mt != null && mt.Built, what + "：横幅宿主建出来了（`MessageToast.Ensure` ⇒ 池子 5 条）");
+
+            // ── ① 决斗窗「没这个模式的卡组」⇒ 横幅（原版 `DuelPopupWindow__CanPlay.c:24`）──
+            int c0 = mt != null ? mt.ShowCount : 0;
+            bool can = DuelPopupWindow.CanPlayForTest((RuleEngine.GameMode)999);   // 999 = 没有任何卡组的模式值 ⇒ 必走错误支
+            True(s, !can, what + "：`CanPlay(没有卡组的模式)` ⇒ false（前提：错误支真的走到了，否则下面两条空转）");
+            int c1 = mt != null ? mt.ShowCount : 0;
+            Check(s, c1, c0 + 1, what + "：**走横幅** —— `MessageToast.ShowCount` +1（若是模态窗，这一条**不变** ⇒ 红）");
+            Check(s, mt != null ? mt.LastRawText : null, "MainMenu/General/DontHaveDeckForGameMode",
+                  what + "：弹的是官方词条键（原版 `UIMessageController.ShowError(键, localize:1)`）");
+            True(s, WindowsManager.Instance == null || WindowsManager.Instance.popUpWindow == null,
+                 what + "①：**没有模态窗**（`popUpWindow == null`）—— 这条挡「横幅 + 模态一起弹」");
+
+            // ── ② 删卡组失败 ⇒ 横幅（原版 `__DeleteDeck_b__27_3.c:18`，键 `MenuDeck/Error/FailedToDelete`）──
+            var dipGo = new GameObject("E16d_DeckInfo"); made.Add(dipGo);
+            var dip = dipGo.AddComponent<DeckInfoPopup>();
+            dip.DeckIndex = -1;                       // 越界 ⇒ `CollectionData.DeleteDeck` 必失败（⛔ 不会真删卡组）
+            int c2 = mt != null ? mt.ShowCount : 0;
+            dip.DeleteDeckNowForTest();
+            int c3 = mt != null ? mt.ShowCount : 0;
+            Check(s, c3, c2 + 1, what + "：删卡组失败 ⇒ **走横幅** +1（改前只 `Debug.LogWarning`，屏幕上一个字都没有）");
+            Check(s, mt != null ? mt.LastRawText : null, "MenuDeck/Error/FailedToDelete",
+                  what + "：键 = 原版 `DAT_1842cf1f0` → `0x42CF1F0`（`stringliteral.json` 现读；官方 13 语言表命中）");
+            True(s, WindowsManager.Instance == null || WindowsManager.Instance.popUpWindow == null,
+                 what + "②：**没有模态窗**（原版这一支是瞬时横幅，⛔ 不是 `ShowPopUp`）");
+
+            // ── ③ 点 Player ID：**没有 id 就不许弹「已复制」**（原版 `ProfileTab.<Initialize>b__11_0` 是**白档**横幅）──
+            var ptGo = new GameObject("E16d_ProfileTab"); made.Add(ptGo);
+            var pt = ptGo.AddComponent<ProfileTab>();
+            int c4 = mt != null ? mt.ShowCount : 0;
+            pt.CopyPlayerIdForTest();
+            int c5 = mt != null ? mt.ShowCount : 0;
+            string clipAfter = SafeClip();
+            bool copied = !string.Equals(clipAfter, clipBefore, System.StringComparison.Ordinal);
+            Check(s, c5 - c4, copied ? 1 : 0,
+                  what + "③：**剪贴板变了 ⇔ 弹了提示**（⛔ 不许「弹了却说没复制」，也⛔ 不许「复制了却静默」）"
+                + "（今天 `PlayerIdForCopy()` 恒 null = PlayfabId 属 P3 ⇒ 期望两边都是 0；接上账户域后自动变 1）");
+            if (copied) True(s, !string.IsNullOrEmpty(clipAfter) && clipAfter != ProfileTab.Dash,
+                             what + "③：真复制了 ⇒ 剪贴板非空、且**不是**空态占位 `-`（⛔ 不拿假值糊弄）");
+
+            // ── ④ 卡组信息窗「导入态点编辑」⇒ 也必须是横幅（原版 `DeckInfoPopup__EditDeck.c:21-45`）──
+            string src = Path.Combine(Application.dataPath, "CardPresentation/Shell/DeckInfoPopup.cs");
+            if (!File.Exists(src))
+                True(s, false, what + "④：读得到 `Shell/DeckInfoPopup.cs`（路径 " + src + "）—— 读不到时这一条**等于没验** ⇒ 当场红");
+            else
+            {
+                bool hasBanner = false, hasModal = false;
+                foreach (var raw in File.ReadAllLines(src))
+                {
+                    var t = raw.TrimStart();
+                    if (t.StartsWith("//")) continue;                      // 注释不算（含 `///`，里面有旧写法）
+                    if (t.IndexOf("MessageToast.ShowError(msg, false)", System.StringComparison.Ordinal) >= 0) hasBanner = true;
+                    if (t.IndexOf("ShowPopUp(msg", System.StringComparison.Ordinal) >= 0) hasModal = true;
+                }
+                True(s, hasBanner, what + "④：`Import` 支调的是 `MessageToast.ShowError(msg, false)`（瞬时红横幅，原版 `localize = 0`）");
+                True(s, !hasModal, what + "④：而且**不再**调 `ShowPopUp(msg`（模态 + OK 钮 = 原版这一支没有的行为）");
+            }
+        }
+        finally
+        {
+            for (int i = 0; i < made.Count; i++) if (made[i] != null) Object.DestroyImmediate(made[i]);
+            MessageToast.DisposeForTest();            // 壳场景收尾有 `SaveScene` ⇒ 漏销会被烘进 `Shell.unity`
+            try { if (clipBefore != null) GUIUtility.systemCopyBuffer = clipBefore; } catch { }   // 别把用户的剪贴板改掉
+        }
+    }
 }

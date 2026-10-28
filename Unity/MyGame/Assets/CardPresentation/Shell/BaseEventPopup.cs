@@ -290,7 +290,7 @@ namespace CardPresentation
 
         public override void Open()
         {
-            LastOpened = this;
+            LastOpened = this; AutoAttachEventImage();
             Build();
         }
 
@@ -525,6 +525,66 @@ namespace CardPresentation
             var t = CardArt.MenuUi(name);
             if (t == null && !MissingArt.Contains(name)) MissingArt.Add(name);
             return t;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B89-R3b · 账 406/407）事件背景图
+        // 原版 `LiveopHelpWindow`（真体 = `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/LiveopHelpWindow.cs`）：
+        //   `Open()` = `titleText.text = GetLabel(base, Title, [])` → `helpText.text = GetLabel(base, Help, [])`
+        //            → `eventImage.sprite = LoadAsset<Sprite>(ev, BackgroundImage)` → **`eventImage.enabled = sprite != null`**；
+        //            而 `Context == null` ⇒ `Close()`。
+        //   `Close()` = `Unload<EventAssetReferenceType>(Context, 1, …)`（引用计数那一跳）。
+        // 我们这扇窗的文案两格**早就有等价物**（`TryGetLabel` + `LiveOpsLocalCatalog`），缺的只有「图」和「卸载」这两格。
+        /// <summary>最近一次请求的事件背景图引用（GUID + bundle）。自检读口；`null` = 没请求过。</summary>
+        public LiveOpsLocalAsset EventImageRef { get; private set; }
+
+        /// <summary>把 `EventNote`（= 活动 eventId）解析成背景图引用并试取。
+        /// <para>🔴 **本机取不到那张图，但这不是「原版没有」**：13 份活动 SO 的 `EventAssets[BackgroundImage]`
+        /// 只给到 **GUID + bundle**（`SubObjectName` 全是空串，见 `Shell/LiveOpsLocalCatalog.cs:355` 那一族），
+        /// 而本仓**没有寻址层**（`Core/LoadableRef.cs` 的 `Reference` 自陈「原版走 Addressables，我们没有 ⇒ 只出声」）
+        /// ⇒ 这里只能按名字试 `CardArt.MenuUi(...)`，取不到就**把 GUID/bundle 打出来 + 不画**
+        /// （原版这时也不画：`eventImage.enabled = sprite != null`；⛔ 不拿别的图顶）。</para></summary>
+        void AutoAttachEventImage()
+        {
+            if (EventImage != null || EventImageRef != null) return;   // 调用方给过就别动
+            string id = EventNote;
+            if (string.IsNullOrEmpty(id)) return;
+            var evt = LiveOpsLocalCatalog.Find(id);
+            if (evt == null)
+            {
+                Debug.Log("[Event] 事件背景图：本地活动目录里没有 `" + id + "` ⇒ **不画**"
+                          + "（原版同一情形是 `eventImage.enabled = false`）");
+                return;
+            }
+            SetEventImageRef(evt.FindAsset((int)LiveOpsAssetRef.BackgroundImage));
+        }
+
+        /// <summary>= 原版 `LiveopHelpWindow.Open()` 里那一跳的等价入口（判据见本节头）。
+        /// ⚠️ 必须在 `Open()`/`Build()` **之前**调（`Open()` 里会自动调一次）。</summary>
+        public void SetEventImageRef(LiveOpsLocalAsset asset)
+        {
+            EventImageRef = asset;
+            if (asset == null)
+            {
+                Debug.Log("[Event] 事件背景图：该活动没有 `BackgroundImage` 资产条目 ⇒ 不画（如实说）");
+                return;
+            }
+            if (!string.IsNullOrEmpty(asset.SubObjectName))
+            {
+                var t = CardArt.MenuUi(asset.SubObjectName);
+                if (t != null) { EventImage = t; return; }
+            }
+            Debug.Log("[Event] 事件背景图要的是 `" + asset.Ref + "`：GUID `" + asset.Guid + "` · bundle `"
+                      + asset.Bundle + "` —— **本仓没有寻址层**（`Core/LoadableRef.Reference` 自陈）"
+                      + "且 `Resources/` 里没有它 ⇒ 这张图**不画**（占位由变体 prefab 决定，⛔ 不拿别的图顶）。");
+        }
+
+        /// <summary>= 原版 `LiveopHelpWindow.Close()` 的尾巴（`Unload<EventAssetReferenceType>(Context, 1, …)`）。
+        /// ⚠️ 我们没有引用计数 ⇒ 这一跳**等价于把句柄清掉**（如实记，⛔ 别写成「已卸载」）。</summary>
+        public override void Close()
+        {
+            EventImage = null;
+            EventImageRef = null;
+            base.Close();
         }
     }
 }

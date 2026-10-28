@@ -196,13 +196,13 @@ namespace CardPresentation
         // ⚠️ 两处显示（顶栏 `Shell/TopBar.cs` 与档案窗 `Shell/ProfileTab.cs`）走**同一个口**
         //    （⛔ 别各算一份 —— 那迟早不一致）。
 
-        /// <summary>当前玩家的收藏等级（= `GetLevelForXP(GetTotalPlayerXPFromInventory())`）。
+        /// <summary>当前玩家的收藏等级（= `GetLevelForXP(GetTotalPlayerXPFromInventory() + PlayerProfileState.CollectorXpGranted)`）。
         /// 🔴 **新号恒为 1**（原版也是）：收集总 XP 只来自**升过级的卡**（`XpAward` 下标 1 = 0），
         /// 出厂每张卡都是 Tier1 ⇒ 总 XP = 0。🆕 2026-10-26（F7）：XP 那一维**已有数据源**
         /// （`CardProgress.XpAward`），升一张卡就会动（旧文档「恒为 1」已过期）。</summary>
         public static int PlayerLevel
         {
-            get { return Instance.GetLevelForXP(Instance.GetTotalPlayerXPFromInventory()); }
+            get { return Instance.GetLevelForXP(Instance.GetTotalPlayerXPFromInventory() + PlayerProfileState.CollectorXpGranted); }   // 🆕 2026-10-28（B89-E10d）：把「奖励发的 XP」那层算进等级（⛔ 只在**这一处**加，加进下面那个库存口径会双计）
         }
 
         /// <summary>那一格要印的串（原版 `playerLevelText.text = level.ToString()`）。
@@ -327,7 +327,7 @@ namespace CardPresentation
         ///   所以本文件直接查表 —— **同一份判据，不是第二份规则**；已记改动请求）。</item>
         /// </list>
         /// <para>🆕 **2026-10-26（F7）**：`XPReward` 已有数据源（`CardProgress.XpAward`）⇒ 本方法**不再是恒 0**
-        /// （旧文档「今天它恒返回 0」已过期）。仍恒 0 的只有「所有卡都停在 Tier1」的新号。</para></summary>
+        /// （旧文档「今天它恒返回 0」已过期）。仍恒 0 的只有「所有卡都停在 Tier1」的新号。🆕 2026-10-28（B89-E10d）：**本方法保持原版口径（只算库存那份）**——「奖励发的 XP」那层（`PlayerProfileState.CollectorXpGranted`）在 **`PlayerLevel` 那一处**加；⛔ 别在这里也加，那会**双计**。</para></summary>
         public int GetTotalPlayerXPFromInventory()
         {
             var inv = Inventories.Cards;

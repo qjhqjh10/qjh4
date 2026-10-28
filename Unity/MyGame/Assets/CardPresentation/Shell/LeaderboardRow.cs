@@ -55,7 +55,7 @@ namespace CardPresentation
         /// <summary>`Icon` 的立绘名（`Avatar_&lt;阵营>_&lt;单位>`，走 `CardArt.Cosmetics`）。</summary>
         public string Avatar;
         /// <summary>是不是自己 —— 原版等于 `OwnPlayer`，决定画 `Background` 还是 `BackgroundHighlight`（判据 ③）。</summary>
-        public bool IsSelf;
+        public bool IsSelf;  public string Badge; public int BadgeTier;   // 原版 `AllianceRankingRowData.Badge`（`GroupBadge`：`featuredTrophy.reward` 的 id · `tierLevel`）—— 我们拆平；空 ⇒ `Default_Badge`（同原版 `Draw(null)` 那一支），判据见 `AllianceBadgeArt`（与 `IsSelf` 同写一行 = 零行数变化，⛔ 别拆开：下面的账落点按行号钉着）
     }
 
     /// <summary>行族。**四款 = 两个家族 × 各自的两个变体**（判据 ①）。</summary>
@@ -89,7 +89,7 @@ namespace CardPresentation
         static readonly PxRect BorderR = new PxRect(135f, 0.98f, 255f, 107.42f);
         /// <summary>头像立绘（挂在 `border` 下，比 `border` 大一圈；`apos=(-11.5,11)` 204.635×167.11）。</summary>
         static readonly PxRect IconR = new PxRect(81.18f, -40.36f, 285.82f, 126.75f);
-        /// <summary>联盟行的徽章格（`BadgeDrawer`；`Frame`/`Badge` **两个子件都没有 sprite** ⇒ 只建结构不画）。</summary>
+        /// <summary>联盟行的徽章格（`BadgeDrawer`；`Frame`/`Badge` 两张的图**运行期由 `AllianceBadgeDrawer.Draw` 灌**，判据与回落见 `AllianceBadgeArt`）。</summary>
         static readonly PxRect BadgeDrawerR = new PxRect(125.91f, 0f, 236.69f, 103.96f);
         static readonly PxRect NameHolderR = new PxRect(290f, 0f, 1023.95f, 100f);
         /// <summary>⚠️ `Name` 的**上下切分是我们推的**（判据 ⑤）：原版两行都印 0 高，真高要字体度量。
@@ -215,20 +215,19 @@ namespace CardPresentation
             }
             else
             {
-                // `BadgeDrawer` → `Frame` + `Badge`：**两个子件都没有 sprite**（运行时由
-                // `AllianceBadgeDrawer.Draw(Badge)` 画）⇒ 只建结构、不画（判据 ②/§D）。
+                // `BadgeDrawer` → `Frame` + `Badge`：原版这一支最后一跳是
+                // `badgeDrawer.Draw(rowData.Badge)`（`out_cpp2il_dev_ilspy/AllianceUIRankingRow.cs:11-45`）。
+                // 🔴 **2026-10-27（E9 · 账 90①）原来写「本地一份 `AllianceBadge` SO 都没有 ⇒ 判据空」——**
+                //   **2026-10-28（B88-B7 + B89-E22）已作废**：16 份 SO 早在
+                //   `assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/`，id→图 16/16 解出，
+                //   落成 `Shell/AllianceBadgeArt.cs`（判据 → `B88_R8_安卓包徽章挖掘.md` §二）。
+                //   本处两层的画法与档位回落**只走那一份**（⛔ 别在这儿另写一道）。
                 var drawerAbs = Abs(r, BadgeDrawerR);
                 var drawer = MenuDraw.Node(row, "BadgeDrawer", drawerAbs);
-                MenuDraw.Node(drawer, "Frame", drawerAbs);
-                MenuDraw.Node(drawer, "Badge", drawerAbs);
-                // 🔴 **2026-10-27（E9 · 账 90①）**：原版这一支最后一跳是
-                //   `badgeDrawer.Draw(rowData.Badge)`（`out_cpp2il_dev_ilspy/AllianceUIRankingRow.cs:11-45`）。
-                //   **反证（判据空）**：`AllianceBadgeDrawer.Draw(GroupBadge)` 要的是
-                //   `GroupBadge → featuredTrophy → AllianceTrophyData.reward → AllianceBadge.badgeImage`
-                //   那条 **SO 引用链**，而我们本地**一份 `AllianceBadge` SO 都没有**（`grep -r AllianceBadge`
-                //   在 `d:/4` 只命中盘点文档、零资产；`guid_map.tsv` 也不覆盖徽章 SO）⇒ **没有 id→图 的映射**。
-                //   所以这里只能停在「结构建好、两张 `m_Sprite` 保持空」（= 原版**未 Draw 之前**的出厂态），
-                //   ⛔ 不编一张图冒充（那是自证明）。真要做：先补一份「徽章 SO → sprite」的 GUID 映射。
+                if (AllianceBadgeArt.DrawTierFrame(drawer, drawerAbs, d.BadgeTier, "Frame", c.Q + L_Art) == null)
+                    MenuDraw.Node(drawer, "Frame", drawerAbs);
+                if (AllianceBadgeArt.Draw(drawer, drawerAbs, d.Badge, "Badge", c.Q + L_Art + 1) == null)
+                    MenuDraw.Node(drawer, "Badge", drawerAbs);
             }
 
             // ---- 名字 + 公会名（判据 ④：`Guild` 空串 ⇒ 原版整格关掉 ⇒ 我们连节点都不建）----
@@ -244,7 +243,7 @@ namespace CardPresentation
                 //   本处 `clip` 恒 `null` ⇒ A781 起压在视口边上的「Name」第一次被夹到视口沿。
                 //   ✅ 返回值有守卫（下一句 `if (nm != null) MenuDraw.AlignLeft(...)`）—— A798 起可能返回 `null`。
                 //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #5。
-                var nm = MenuDraw.Text(holder, nameAbs, d.Name ?? "", Color.white, "Name", NamePx, c.Q + L_Text,
+                var nm = MenuDraw.Text(holder, nameAbs, EffectiveName(d) ?? "", Color.white, "Name", NamePx, c.Q + L_Text,
                                        NameR.W, NameMin, NamePx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 40 · base 36
                 if (nm != null) MenuDraw.AlignLeft(nm, nameAbs);
             }
@@ -321,10 +320,28 @@ namespace CardPresentation
         /// 查清之后若原版会刷新，本行应改回**纯 `PrefabRefProfile`** 并在复用那一支把新数据写进去。</summary>
         static void OnRowClicked(LeaderboardRowData d)
         {
-            WindowsManager.OpenByRef(WindowsManager.PrefabRefProfile + "|" + d.Name,
-                                     m => PlayerProfileWindow.CreateFor(m, d.Name));
-            Debug.Log("[Leaderboard] 点了第 " + d.Rank + " 名「" + (d.Name ?? "") + "」⇒ **开他的档案窗**"
+            // 🔴 2026-10-28（B89-E22 · 账 90）：键与 `ViewedPlayer` 都走 `EffectiveName` —— 与`Name`那一格**同一份口径**，
+            //   否则「自己那一行」会出现「显示我的名字、点开却是 `data.Name` 的档案」。原版按 **playerId** 取
+            //   （`PlayerUIRankingRow.CheckProfile` 用 `playerId`、与名字无关），我们本地没有 id 这一格 ⇒ 名字是唯一可用的键。
+            WindowsManager.OpenByRef(WindowsManager.PrefabRefProfile + "|" + EffectiveName(d),
+                                     m => PlayerProfileWindow.CreateFor(m, EffectiveName(d)));
+            Debug.Log("[Leaderboard] 点了第 " + d.Rank + " 名「" + (EffectiveName(d) ?? "") + "」⇒ **开他的档案窗**"
                       + "（原版 `profileButton` 的语义）。⚠️ 他的资料在服务器 ⇒ 六页是如实说明那一支");
+        }
+
+        /// <summary>🆕 **2026-10-28（B89-E22 · 账 90）**：这一行「这个人叫什么」——原版
+        /// `UIRankingRow.Config` 那句 `nameText.text = data.OwnPlayer ? PlayerDataManager.playerName : data.Name`
+        /// （`out_cpp2il_dev_ilspy/UIRankingRow.cs:21-49`）的等价物。
+        /// <para>⚠️ **左支**（自己那一行）印的是**本机玩家的名字** <see cref="ProfileData.PlayerName"/>
+        /// —— 全工程唯一一份（`Shell/ProfileData.cs:239`，档案窗改名窗写的就是它；原版是 `PlayerDataManager.playerName`）。
+        /// ⛔ **别用 `d.Name` 顶**：夹具里 `IsSelf = true` 那行的 `Name` 是**数据侧**的串，两格不是同一个来源。</para>
+        /// <para>⚠️ 原版这一格**不影响**点击目标（`PlayerUIRankingRow.CheckProfile` 按 `playerId` 取，与名字无关）；
+        /// 我们本地没有 id 这一格 ⇒ 点击也用这个名字（见 `OnRowClicked`，两处**必须同源**，否则「显示我、点开他」）。</para></summary>
+        public static string EffectiveName(LeaderboardRowData d)
+        {
+            if (!d.IsSelf) return d.Name;
+            string mine = ProfileData.PlayerName;
+            return string.IsNullOrEmpty(mine) ? d.Name : mine;
         }
     }
 }

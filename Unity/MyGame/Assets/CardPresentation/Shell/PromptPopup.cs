@@ -128,7 +128,7 @@ namespace CardPresentation
         public Transform ShadeHitNode { get { return transform.Find("AbsorbHit"); } }
 
         public static PromptPopup Create(WindowsManager mgr, string text, string okText, System.Action onOk,
-                                         string cancelText, System.Action onCancel)
+                                         string cancelText, System.Action onCancel, PromptContext.InputData input = null, System.Action<string> onSubmitInput = null)
         {
             var go = new GameObject("GenericPromptWindow");
             var win = go.AddComponent<PromptPopup>();
@@ -139,13 +139,13 @@ namespace CardPresentation
             win._text = text;
             win._okText = okText;
             win._cancelText = cancelText;
-            win._onOk = onOk; win._onCancel = onCancel;
+            win._onOk = onOk; win._onCancel = onCancel; win._input = input; win._onSubmitInput = onSubmitInput;
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
             return win;
         }
 
-        public override void Open() { Build(); }
+        public override void Open() { Build(); BuildInputRowAfterBuild(); }
 
         void Build()
         {
@@ -209,9 +209,9 @@ namespace CardPresentation
             // 🆕 2026-10-27（E9b · 账 545）：有错误串时 VLG 里多一行 `Error Message`（900×90）
             //   ⇒ 面板高 +90（原版那个 `ContentSizeFitter(V=PreferredSize)` 就是这么涨的）。
             float errH = HasError ? ErrRowH : 0f;
-            PanelH = msgH + errH + BtnRowH;
+            PanelH = msgH + (_input != null ? InRowH : 0f) + errH + BtnRowH;
             float px1 = cx - PanelW * 0.5f, px2 = cx + PanelW * 0.5f;
-            float py1 = cy - PanelH * 0.5f, py2 = cy + PanelH * 0.5f;
+            float py1 = _py1 = cy - PanelH * 0.5f, py2 = cy + PanelH * 0.5f;
 
             // 3) 背景：`Generic Popup Background`（九宫格 Sliced，外扩 50）
             var bgGo = Node(root, "Generic Popup Background", cx, cy, PanelW + BgPad * 2f, PanelH + BgPad * 2f);
@@ -279,7 +279,7 @@ namespace CardPresentation
             //   四格照 prefab 实读：宽吃满 900 · 字号 40/**无自适应** · `Center/Middle` · 折行 1 · 色 = `errorColor`。
             if (HasError)
             {
-                var errR = new PxRect(cx - PanelW * 0.5f, py1 + msgH, cx + PanelW * 0.5f, py1 + msgH + ErrRowH);
+                var errR = new PxRect(cx - PanelW * 0.5f, py1 + msgH + (_input != null ? InRowH : 0f), cx + PanelW * 0.5f, py1 + msgH + (_input != null ? InRowH : 0f) + ErrRowH);
                 var errLb = Label.Create(root, _error, Vector3.zero, 6, ErrColor,
                                          new Vector2(0.5f, 0.5f), "Error Message");
                 if (errLb != null)
@@ -365,7 +365,19 @@ namespace CardPresentation
         void Choose(bool ok)
         {
             var a = ok ? _onOk : _onCancel;
+            // 🆕 2026-10-28（B89-R3b · 账 541/543）原版 `OnSubmit()` 先 `SetError("")` 清错、再回调、再关窗；
+            //   `OnCancel()` 直接回调 + 关窗（判据 = `decomp_full/PromptPopup__OnCancel.c` 全 16 行；
+            //   `PromptPopup__OnSubmit.c` 的委托链是**跳转表**、反编译读不全 ⇒ 这里只做「等价那半」：
+            //   取值 → 关窗 → 回调，顺序与 `Choose` 既有约定一致，⛔ 不冒充原版逐句）。
+            string submitted = _inputField != null ? _inputField.Value : null;
+            if (ok && _inputField != null) _inputField.EndEdit(true);
             Close();
+            if (ok && _input != null)
+            {
+                _submitted = submitted;
+                var cb = _onSubmitInput;
+                if (cb != null) cb(submitted);       // 先关再回调（同下面那条既有约定）
+            }
             a?.Invoke();     // ⚠️ 先关再回调（照原版 `HidePopUp` 在 `OnPress` 之后）—— 回调里可能再开窗
         }
 
@@ -406,6 +418,61 @@ namespace CardPresentation
             quad.SetRenderQueue(q);
             return quad;
         }
+
+        // ============================================================ 🆕 2026-10-28（B89-R3b · 账 541）`inputs` 行
+        // 🔴 成员**一律追加到类尾**（铁律 18·b）：`PromptPopup.cs` 在账里有 `文件:行号` 落点
+        //    （`菜单_外壳.tsv` 542/543 指 `Choose`、546 指 `Build`）⇒ 往中间插行会让它们漂。
+        /// <summary>`inputs/template` 的行高 = **90**。判据 = prefab 直读
+        /// （`d:/2/tools/assetripper_out/ExportedProject/Assets/GenericPromptWindow.prefab`：
+        /// `inputs/template` 的 `m_SizeDelta = (0, 90)`；`Window` 的 VLG `m_Spacing = 0` ⇒ 行间**没有**额外间距）。
+        /// 占位字/正文的字号与内缩 → `Shell/TextInputField.cs` 文件头（那里逐条列了出处）。</summary>
+        public const float InRowH = TextInputField.RowH;
+
+        PromptContext.InputData _input;
+        System.Action<string> _onSubmitInput;
+        TextInputField _inputField;
+        string _submitted;
+        /// <summary>`Build()` 算出来的面板顶（设计 px）；只有 `BuildInputRowAfterBuild()` 用。</summary>
+        float _py1;
+
+        /// <summary>= 原版 `PromptPopup.InstantiateInput(PromptContext.InputData)`（账 541）。
+        /// <para>原版：`Instantiate(inputPrefab, inputHolder)` → `contentType` · `text = DefaultValue` → 占位字过词条。
+        /// 我们：建 `<see cref="TextInputField"/>` 一格（版面/键盘/掩码见那个文件），并**重建一次**（面板高会变）。</para>
+        /// <para>幂等：`data == null` ⇒ 清掉输入行并重建。</para></summary>
+        public void InstantiateInput(PromptContext.InputData data)
+        {
+            _input = data;
+            _inputField = null;                 // 旧那颗随 `Build()` 首句一起销毁
+            Build();
+            BuildInputRowAfterBuild();
+        }
+
+        /// <summary>把 `inputs` 那一行建出来。⚠️ `Build()` 里**不插行**（只改表达式），这一跳由 `Open()` 调 ⇒ 行号不漂。</summary>
+        void BuildInputRowAfterBuild()
+        {
+            if (_input == null) return;
+            // 行顶 = 面板顶 + 正文高；正文高由 `PanelH` 的算式反推（`Build()` 里那三格逐字同源）
+            float msgH = PanelH - InRowH - (HasError ? ErrRowH : 0f) - BtnRowH;
+            float rowTop = _py1 + msgH;
+            var r = new PxRect(960f - PanelW * 0.5f, rowTop, 960f + PanelW * 0.5f, rowTop + InRowH);
+            _inputField = TextInputField.Create(transform, r, _input, 0, QFill, SubmitFromInput);
+            if (_inputField == null)
+                Debug.LogWarning("[Prompt] 输入行**没建出来**（`TextInputField.Create` 返回 null）—— 如实说，不静默");
+        }
+
+        void SubmitFromInput(string value)
+        {
+            _submitted = value;
+            var cb = _onSubmitInput;
+            if (cb != null) cb(value);
+        }
+
+        /// <summary>自检读口：现在有没有输入行（原版 `Window/inputs` 在不在）。</summary>
+        public bool HasInputRow { get { return _inputField != null; } }
+        /// <summary>自检读口：输入行那一格（没有 ⇒ `null`）。</summary>
+        public TextInputField InputField { get { return _inputField; } }
+        /// <summary>自检读口：最近一次提交出去的值（没提交过 ⇒ `null`）。</summary>
+        public string SubmittedValue { get { return _submitted; } }
     }
 
     // ✅ **`WindowButton` 已拆到独立文件 `Shell/WindowButton.cs`**（2026-10-11 · `A1506`）。

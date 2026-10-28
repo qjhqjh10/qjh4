@@ -2284,9 +2284,9 @@ namespace CardPresentation
         /// （`DailyRewardDrawerController__Initialize.c:103-116` 那句 `if (1 &lt; rewards.Count)`）；
         /// 我们这一支是**发完奖之后的 Collect 态**（`isPreview: 0`、`OnCollect = null`）——
         /// 登录卡这两条是**已到手的**，不是「将要得到」。</para></summary>
-        static void ShowCollectedWindow(CampaignData.RewardSpec[] rewards)
+        static void ShowCollectedWindow(CampaignData.RewardSpec[] rewards, bool showAnimation = true)
         {
-            RewardWindow.ShowCollected(rewards, RefreshOpenDailyWindows);
+            if (showAnimation) RewardWindow.ShowCollected(rewards, RefreshOpenDailyWindows); else RefreshOpenDailyWindows(rewards);   // 原版 RewardService.Collect:170（`RewardService__Collect.c`）showAnimation==false ⇒ 不开窗、仍调 onCollected
         }
 
         /// <summary>领奖窗关掉之后，把**还开着的**日常两扇窗重建一遍

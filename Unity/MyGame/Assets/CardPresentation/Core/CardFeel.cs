@@ -2918,13 +2918,13 @@ namespace CardPresentation
                                + " 不在 `RemnantDestroyByBody` 表里 ⇒ 落点退回残骸体根");
             }
 
-            Vector3 pos = root.transform.position;
+            Vector3 pos = root.transform.position;   // ⚠️ 2026-10-28 订正（B89_RD）：R4b 曾在同行补 `pos.y = 0f;` 并称「原版只填 x/z」——**那句判据不成立**：`RemnantNecrons__GetDeathParticlePosition.c` / `RemnantAeldari__GetDeathParticlePosition.c` 都是 `Transform.get_position` **整份 12 字节拷回**（`*param_1 = *puVar2; *(undefined4 *)(param_1+1) = uVar1;` ⇒ x/y/z 全带），cpp2il `RemnantBody.DoDestroyByAttack` 也是整个 `Vector3` 交给 `Instantiate` ⇒ 已删掉那处赋值（零行数变化：同一行只换内容）
             if (spec.IdleAnchor)
             {
                 // 灵族：`RemnantAeldari.GetDeathParticlePosition` 取 `wayStoneIdle`（`+0x68`）的 position。
                 Transform node;
                 if (card.TryGetRemnantNode(CardView.RemnantIdleNodePath, out node) && node != null)
-                    pos = node.position;
+                    { pos = node.position; }   // ⚠️ 2026-10-28 订正（B89_RD）：同上，原版取的是 `wayStoneIdle` 的**整份** position（y 也带），R4b 那处 `pos.y = 0f` 已删
                 else
                     Debug.LogWarning($"[CardFeel] 残骸阵亡粒子 `{fx}`：灵族那具残骸体里取不到 "
                                    + $"`{CardView.RemnantIdleNodePath}` ⇒ 落点退回残骸体根"

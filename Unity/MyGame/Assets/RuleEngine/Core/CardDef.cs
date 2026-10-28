@@ -6821,7 +6821,7 @@ namespace RuleEngine
         /// `null` = 旧表（未知）⇒ 整列判不了。</summary>
         public void AttachAbilityDamage(AbilityDamageSpec[] rows)
         {
-            _abilityDamage = rows ?? new AbilityDamageSpec[0];
+            _abilityDamage = rows;      // 🔴 2026-10-28（`B89_E6b` 就地订正，铁律 5）：原来是 `rows ?? new AbilityDamageSpec[0]` —— 那会把「整列未知（旧表 / 手写夹具）」折成「**明确没有行**」⇒ `HasAbilityDamage` **恒真**，与上面那句 doc 正好相反。现在 `null` 保留（= 未知），`[]` 才是「明确没有行」。⛔ 别改回去；断言见 `Editor/EnchantmentTemplateCheck.cs` §A。
         }
 
         /// <summary>第 <paramref name="ability"/> 条 ability 第 <paramref name="logic"/> 行的
@@ -8947,6 +8947,140 @@ namespace RuleEngine
         };
 
 
+    }
+
+    // ==================================================================================================
+    //  🆕 v37（2026-10-28 · 第八十九会话 · 执行代理 `E6` · 账 `战斗逻辑驱动.tsv` L1044 / L847）
+    //     —— `CardDef` 的**另一半**：`whileInPlayAnim` 与 `permanentBuff` 两族数据。
+    //
+    //  🔴 **为什么另起一个 `partial class CardDef` 块、写在文件最末**：
+    //     `CardDef` 类体（`:48`–`:6879`）与它后面的 `KeywordTable`（`:6880`+）里共有 **8 处账落点按【行号】引用**
+    //     （现读最大 `CardDef.cs:8520`）⇒ 在类尾插成员会让它们**整体漂移**
+    //     （同族教训 → `资料/完全复刻/报告/B8_Q_trait口径与卡定义.md` §⑥）。
+    //     追加在**文件最末**只增加尾部行号，上面一处都不动（＝预期零漂移）。
+    //
+    //  📌 本块**只加字段 + 解析口**（白名单：`CardDef.cs` 只加字段与解析）。两处**消费端接线**不在本代理：
+    //     ① `Data/CardDatabase.cs` —— DTO 两格（`whileInPlayAnim` / `permanentBuffs`）+ 两个 `Attach*` 调用；
+    //     ② `Core/Enchantment.cs` —— `Attach` 的缺省改成读 `CardDef.WhileInPlayAnim`
+    //        （文件头 `:160` 那条 P-07 待办）。
+    //     ⛔ 别把这两件当成「已经接了」——今天卡表有了值，但**没有任何 `.cs` 读它们**。
+    // ==================================================================================================
+    public partial class CardDef
+    {
+        /// <summary>🆕 v37（2026-10-28 · `E6` · 账 **L1044**）：原版 `RawCardScript.whileInPlayAnim`
+        /// （`+0x288`，`dump.cs:23338`）—— 附魔卡自己的「在场期间演出」开关。
+        ///
+        /// <para>**原版唯一读点** = `EntityScript__HasEnchantmentWhileInPlay()`（`EntityScript.cs:1843-1882`）：
+        /// 逐件扫 `activeEnchantments(+0x110)`，**任意一件的附魔卡** `whileInPlayAnim` 为真 ⇒ 真。
+        /// ⚠️ 判的是**附魔卡自己**这一格，**不是**「身上有没有附魔」（那个是 `Enchantments.HasAny`，账 L1044 的差异列）。
+        /// 📌 可达性：`decomp_full` / `out_cpp2il_dev_ilspy` / `out_il2csharp` 全树 **0 调用点**
+        /// （`assets_full` 也 0 引用）⇒ 原版自己也不调它（死 API）⇒ 我们跟着不接线是**忠实**的。</para>
+        ///
+        /// <para>三态：`1` = 真 · `0` = 假 · `-1` = **未知**（旧卡表 &lt; v37 / 真值快照里没这张卡）。
+        /// ⛔ 别把 `-1` 当 `0` —— 「原版就是 false」与「我们不知道」必须分得开
+        /// （消费端要查「判不了几件」请用 `Enchantments.CountUnknownWhileInPlayAnim`）。</para>
+        ///
+        /// <para>数据现读（v37 卡表，1,129 张）：`1` = **35** 张（真值全表 1,351 张里 `1` = 41 张）。
+        /// ⚠️ **真正被这条 API 观察的那 3 张附魔卡（`Undying Legions` / `Hive Fleet Leviathan` / `Everstorm`
+        /// 的 `_enchantment` 模板）都不在池里**（v30 入池闸 = `cardType == 20` ∧ 名字含 `enchant`，
+        /// 它们的名字里没有 `enchant`）⇒ 接上消费端**也不会**对它们生效。见报告 §3-1。</para></summary>
+        public int WhileInPlayAnim { get; private set; } = -1;
+
+        /// <summary>`WhileInPlayAnim` 这一格是否**可判**（`>= 0`）。`false` = 旧表 / 真值里没这张卡 / 手写夹具。</summary>
+        public bool WhileInPlayAnimKnown { get { return WhileInPlayAnim >= 0; } }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（与 `AttachAbilityDamage` / `AttachCardTraits` 同族；
+        /// 理由 = `CardDef` 构造函数上那 40 处账落点，⛔ 不往它加形参）。
+        /// <para>`-1` / 任何 `&lt; 0` 的值 = **未知**（⛔ 不折成 0）。</para></summary>
+        public void AttachWhileInPlayAnim(int value)
+        {
+            WhileInPlayAnim = (value == 0 || value == 1) ? value : -1;
+        }
+
+        /// <summary>🆕 v37（2026-10-28 · `E6` · 账 **L847**）：原版 `CardEffect.permanentBuff`（`+0x74`）为真的
+        /// 那些**效果行** —— 「这条效果**摘不掉**」。
+        ///
+        /// <para>**原版两条闸**（第一权威）：
+        /// `CardScript__RemoveEffect.c:1-279` 第一句 `if (*(char*)(effect + 0x74) != 0) return;`；
+        /// `CardScript__RemoveBuffHandCostEffects.c:35`（倒序扫 `activeEffects`）同样是**最外层**那一条。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版的数据形状）**：原版是**逐 `CardEffect` 对象**的 bool，没有「一张卡有哪几条」
+        /// 这种列；我们的卡表只到 `cardAbilities[].abilityLogic[]` 这一层（我们**没有** `activeEffects` 列表，
+        /// 见 `UnitState.EffectRecord` 与 `ActiveCardEffect` 的 doc）⇒ 只能按 `(at, ab, lg)` 落。
+        /// ⛔ 别拿这个形状去反推原版结构；也⛔ 别把它当「语义等价」—— 它只是「哪一行带了这个标志」的**索引**。</para>
+        ///
+        /// <para>数据现读（v37 卡表，1,129 张）：**非空 1 张** = `GSC51 Living Icon`（2 行）；
+        /// 真值全表 1,351 张里 `permanentBuff != 0` 也只 **1 条**（`Living Icon` 挂的那张附魔模板
+        /// `0474b16360827b6408fb02b6820e7e63`：`buffType 2 changeCost` · `costChange -1` · `permanentBuff 1`）。</para></summary>
+        public sealed class PermanentBuffSpec
+        {
+            /// <summary>标志出现在哪一处：`"buffEffect"`（本卡自己的 buffEffect）·
+            /// `"handBuff"`（本卡自己的 `handBuff.cardEffect`）·
+            /// `"enchantment"`（本卡挂上去的**附魔模板**自己身上 —— `Living Icon` 就是这一档）。</summary>
+            public string At;
+            /// <summary>`cardAbilities` 下标（`-1` = 坏格）。</summary>
+            public int Ab = -1;
+            /// <summary>`abilityLogic` 下标（`-1` = 坏格）。</summary>
+            public int Lg = -1;
+            /// <summary>那一行的 `CardEffect.buffType`（`+0x38`）；`-1` = 坏值。</summary>
+            public int BuffType = -1;
+            /// <summary>`At == "enchantment"` 时 = 被挂上去那张模板的 `uniqueId`（其余为 `null`）。</summary>
+            public string TokenCardId;
+        }
+
+        PermanentBuffSpec[] _permanentBuffs;
+
+        /// <summary>`permanentBuffs` 列**来自 v37 卡表**的正面信号。`false` ⇒ 整列**未知**
+        /// （旧表 / 手写夹具 / 真值里没这张卡）—— ⛔ 与「明确没有（`[]`）」不是一回事。
+        /// <para>⚠️ 这里**与 v36 的 `HasAbilityDamage` 有一处刻意的不同**：那个把 `null` 折成空数组
+        /// ⇒ `Has*` 恒真；本块**保留 `null`**（`AttachPermanentBuffs(null)` 之后 `HasPermanentBuffs == false`）。</para></summary>
+        public bool HasPermanentBuffs { get { return _permanentBuffs != null; } }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（同 `AttachAbilityDamage`）。
+        /// `null` = 旧表（未知）⇒ 整列判不了。</summary>
+        public void AttachPermanentBuffs(PermanentBuffSpec[] rows)
+        {
+            _permanentBuffs = rows;
+        }
+
+        /// <summary>全部行（`null` = 未知）。消费端一般只要 <see cref="PermanentBuffAt"/> 或
+        /// <see cref="HasPermanentHandCostBuff"/>。</summary>
+        public PermanentBuffSpec[] PermanentBuffs { get { return _permanentBuffs; } }
+
+        /// <summary>第 <paramref name="ability"/> 条第 <paramref name="logic"/> 行带不带 `permanentBuff`
+        /// （任一 `At` 算命中）。`null` = 没有这一行 / 旧表 / 坏格。</summary>
+        public PermanentBuffSpec PermanentBuffAt(int ability, int logic)
+        {
+            if (_permanentBuffs == null || ability < 0 || logic < 0) return null;
+            for (int i = 0; i < _permanentBuffs.Length; i++)
+            {
+                var s = _permanentBuffs[i];
+                if (s != null && s.Ab == ability && s.Lg == logic) return s;
+            }
+            return null;
+        }
+
+        /// <summary>🔶 **自己设计（非原版）**：`permanentBuff` 的**卡级汇总** ——
+        /// 「这张卡至少有一条 `buffType == 2 (changeCost)` ∧ `permanentBuff` 的效果」。
+        /// <para>为什么需要它：账 **L847** 的消费点是 `RuleCore` 的手牌费用清扫（原版
+        /// `CardScript.RemoveBuffHandCostEffects` 摘「来源是英雄的 `changeCost`」那族），
+        /// 而我们的手牌效果记录（`CardInstance.HandEffect`）**不带** `(ab, lg)` 下标
+        /// （它是从**卡面文本**解析出来的 op）⇒ 逐行版 `PermanentBuffAt` 在那个消费点用不上，
+        /// 只有卡级这一格能判。用户 2026-10-28 授权「之后有需要决策的地方由你决策」＝本条自设计的裁定。</para>
+        /// <para>三态：`null` = 判不了（`HasPermanentBuffs == false`）· `false` = 明确没有 · `true` = 有。</para></summary>
+        public bool? HasPermanentHandCostBuff
+        {
+            get
+            {
+                if (_permanentBuffs == null) return null;
+                for (int i = 0; i < _permanentBuffs.Length; i++)
+                {
+                    var s = _permanentBuffs[i];
+                    if (s != null && s.BuffType == 2) return true;      // buffType 2 = changeCost（`BuffType` 枚举）
+                }
+                return false;
+            }
+        }
     }
 
 }

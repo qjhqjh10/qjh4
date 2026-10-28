@@ -72,6 +72,34 @@ public static class AudioSnapshotCheck
               $"`WarpforgeAudio.SnapshotMisses == 0`（实得 {WarpforgeAudio.SnapshotMisses}）"
             + " —— 非 0 = 有档位取不到快照 ⇒ 切 SFX / 切战斗音乐**没有任何听觉变化**（账 `音频/语音:12`、`:80`）");
 
+        // 🆕 **2026-10-28（`B89` · 执行代理 `E13`）**：**壳齐了 ≠ 有数值** —— 上面那些断言全绿时，
+        //   6 条快照仍可能条条是 `m_FloatValues: {}`，那样 `ToggleSFX` 切过去**没有任何听觉变化**
+        //   （正是账 `音频/语音:80` 要的效果）。本批已把原版的 dB 值写进资产，这条盯**值**。
+        //   判据 = 原版解包资源的 `AudioMixerController.m_MixerConstant.snapshots[i].values`
+        //   （映射 `SnapshotsType → 原版快照` 从 `AudioMixerAddresableReferences` 的 SO 实读）；
+        //   值表 / 出处全在 `Editor/AudioSetup.cs` 的「🆕 2026-10-28（B89 · E13）」那一段。
+        //   ⚠️ 读回走 `AudioMixerGroupController.GetValueForVolume(controller, snapshot)` —— 那是
+        //   **资产侧**读写、不需要音频更新循环，所以 batchmode 下**有效**（与 `AudioMixer.SetFloat`
+        //   那个「批处理读回还是旧值」的已知现象不是一回事）。
+        string svRep = AudioSetup.VerifySnapshotValuesReport();
+        Debug.Log(svRep);
+        Check(AudioSetup.SnapshotValueFailures == 0,
+              "6 条快照的**组音量**已按原版写进去（不一致 "
+            + $"{AudioSetup.SnapshotValueFailures} 条；非 0 ⇒ 跑 `-executeMethod AudioSetup.SetSnapshotValues`）"
+            + " —— 全 0 时切 SFX / 切战斗音乐**没有任何听觉变化**");
+
+        // 🆕 **2026-10-28（`B89` · 执行代理 `E13b`）**：原版 `Main Mixer` 起始快照里 `Master` =
+        //   **−0.16685188 dB**（`m_MixerConstant.snapshots[0].values[0]`），我们原来是 0 dB
+        //   ⇒ 整体响度比原版高 0.17 dB。这一条盯「那个值真的进了每一条快照」。
+        //   ⚠️ 单位是 **dB 不是线性**（反证三条 → `Editor/AudioSetup.cs` 的「🔴 单位是 dB」那段）。
+        string mdRep = AudioSetup.VerifyMixerDefaultsReport();
+        Debug.Log(mdRep);
+        Check(AudioSetup.MixerDefaultFailures == 0,
+              "`Master` 组的默认音量 = 原版 −0.16685188 dB（不一致 "
+            + $"{AudioSetup.MixerDefaultFailures}/{AudioSetup.MixerDefaultChecks} 格；"
+            + "非 0 ⇒ 跑 `-executeMethod AudioSetup.SetMixerDefaults`）"
+            + " —— 原版 Main Mixer 起始快照的值（全 0 = 整体响度比原版高 0.17 dB）");
+
         Debug.Log($"AUD-SNAP === 合计：{_pass} 通过 / {_fail} 失败 ===");
         if (Application.isBatchMode) Application.Quit(_fail == 0 ? 0 : 1);
     }

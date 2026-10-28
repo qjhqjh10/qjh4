@@ -29,7 +29,7 @@
 //   · `counter`      = `"{当前值}/{该档阈值}"`（原版格式串 `{0}/{1}`）
 //   · 进度条          = 按 `当前值 / 本档阈值` 画 `Fill`（`40k_campaign_bar_fill`，色 (1,0.509,0,1)）
 //   · 勋章图          = `40k_Achievements_icon_medal{档}`（原版 `AchievementsManager.GetIconByTier(tier)`；
-//                      ⚠️ **档位图 ↔ 档位的对应关系本地查不到**，我们按 `medal1..5` 顺序 = 档 1..5 推 —— **这是推断**）
+//                      ✅ **档↔图已是证据**（2026-10-28）：`defaultTierIcon[tier-1]`，5 条 PPtr 落名 medal1..5 → 见 `ArtMedalPrefix` 的 doc）
 // ⚠️ **分类那 4 行文案**走官方词条 `Achievements/Types/<枚举名>`（见 `ProfileData.TypeName`）。
 //
 // 🔴 **2026-10-14（第二十八会话 · `A1803`）就地订正上面两条「远端查不到」**（铁律 5）：
@@ -156,9 +156,9 @@ namespace CardPresentation
         /// 原版由 `AchievementsManager.GetIconByTier(tier)` 喂 `40k_Achievements_icon_medal1..5`。</summary>
         static readonly Vector2 MedalA = new Vector2(0f, 0.5f), MedalP = new Vector2(0f, 0.5f);
         static readonly Vector2 MedalPos = new Vector2(15f, 0.000640869f), MedalSz = new Vector2(130f, 130f);
-        const string ArtMedalPrefix = "40k_Achievements_icon_medal";
-        /// <summary>⚠️ **档位图 ↔ 档位的对应关系本地查不到**（`AchievementsManager.tierIcons` 全库 0 命中，§C3）
-        /// ⇒ 按 `medal1..5` 顺序 = 档 1..5 推。**这是推断，不是证据**。</summary>
+        public const string ArtMedalPrefix = "40k_Achievements_icon_medal";
+        /// <summary>✅ **档图 ↔ 档 = 证据**（2026-10-28 订正旧「推断」）：`GetIconByTier` = `defaultTierIcon[tier-1]`
+        /// （`.c` 体）· 实例 `Intro.unity:7141` 的 5 条 PPtr 落名 `medal1..5` ⇒ 前缀/档数只此一份，Toast 侧也读它。</summary>
         public const int MedalMaxTier = 5;
 
         /// <summary>`Counter`（计数条）：`1568.89,161.10 → 1703.96,202.22` ·

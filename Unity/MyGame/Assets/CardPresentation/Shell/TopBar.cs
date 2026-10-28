@@ -601,15 +601,15 @@ namespace CardPresentation
         public static bool StepCounters(Parts parts, float dt)
         {
             if (parts == null || parts.Counters == null || dt < 0f) return false;
-            bool moved = false;
+            bool moved = false, justFinished = false;   // 🔴 2026-10-28（B89_RD）：`justFinished` = 本帧**有件刚滚完**（Animating 由真变假）—— 只有那一拍才许重排（见 :612 的判据）
             for (int i = 0; i < parts.Counters.Count; i++)
             {
                 var c = parts.Counters[i];
                 if (c == null || !c.Animating) continue;
-                StepCounter(c, dt);
+                StepCounter(c, dt); if (!c.Animating) justFinished = true;   // 进循环时它一定是 Animating（:608 那道 continue）⇒ 「这一拍之后不再动」= 刚滚完
                 moved = true;
             }
-            return moved;
+            if (justFinished) FixCounterLayoutIfNeeded(parts); return moved;   // 🆕 B89-E30（账 `L706`）+ 🔴 2026-10-28（B89_RD）订正：原写 `if (moved)` = **动画逐帧**都调，而 `FixCounterLayoutIfNeeded` 会 `DestroyImmediate` 整条 `Resources Bar` 再 `BuildResourcesBar`（`:1082-1086`）⇒ 滚到一半被重建、`Parts.Counters` 换新且 `Animating=false`、数字停在中间值（`MainMenuScene` 两条断言实测红）。本文件 `:1031` 的注释本来就写「只放在**一段滚动刚刚结束**那一拍」⇒ 改成只在 `justFinished` 时调（零行数变化：同一行只换内容）
         }
 
         /// <summary>原版动画时长（`报告/D_未分类_第1轮.md:105`：0.5 s）。</summary>
@@ -1010,6 +1010,107 @@ namespace CardPresentation
             string want = CardTierConfig.PlayerLevelText;
             if (string.Equals(lb.Text, want, System.StringComparison.Ordinal)) return;
             lb.SetText(want);
+        }
+
+        // ============================================================================================
+        //  🆕 B89-E30（账 `L706` `UIResourceCounter.AddQuantity` / `SetQuantity`）：**药丸宽跟着数字重排**
+        //
+        //  原版那一跳 = `SetQuantity` 末尾的 `layoutGroupContentFixer.FixLayout()`
+        //  （判据 `decomp_full/UIResourceCounter__SetQuantity.c` + `:86` 的 maxAmount 支）：
+        //  格的宽由 `ContentSizeFitter.m_HorizontalFit = PreferredSize` 驱动 ⇒ **数字位数一变，药丸/格就重排**。
+        //  我们的 `BuildResourcesBar` 是「**先量后建**」（判据写在 `QtyWMin/QtyWMax` 那一节），
+        //  而 `RefreshCountersIfChanged` 只重写文字、**不重算药丸宽**（那条注释自己写着「这是**我们挑的**」）
+        //  ⇒ 位数变多时（例：`2000 → 12000`）走的是 `SetAutoFitBox` 的**缩字**兜底，与原版不同。
+        //
+        //  ✅ **本件做的事**：数字动过之后复核每一格的**需要宽度**；只要有一格变了，就**整条资源条重建**
+        //     （复用 `BuildResourcesBar` —— 几何只有一份，⛔ 别在这里再抄一遍公式，那是第二个真值源）。
+        //  ⚠️ 为什么「整条重建」而不是「只挪这一格」：药丸是**九宫格**（`MenuDraw.Nine` 建成 9 个子块，
+        //     没有 resize 口），而格是**右对齐**排出来的 ⇒ 改一格宽会**挪动它左边所有格**。重建是唯一
+        //     与原版 CSF 语义同形、且不会产生第二份几何的写法。
+        //  ⚠️ **代价（如实记）**：重建会**换掉** `Parts.Counters[i].Label` 那些实例（新的 Label 在重建里建）。
+        //     所以调用点只放在「一段滚动刚刚结束」那一拍（`StepCounters` 末尾），⛔ 别在动画逐帧里调。
+        //     `RefreshCountersIfChanged` 的**直落分支**（批处理 / 不在屏上）不调它 —— 那种情况数字由
+        //     `SetText` 直接写，宽度不变（本项目起始 2000、每次 ±100..300），下次 `Build` 自然是对的。
+        //  ⚠️ **量宽口径**：把这一格临时撑到 `MeasureBoxPx` 宽再 `SetAutoFitBox` ⇒ TMP 的自适应收敛到
+        //     **上限字号**（= 建树时 `Text(..., QtyFontPx, ...)` 的那一档）⇒ 与 `BuildResourcesBar` 的
+        //     `lb.WorldW * 108f` 同一个量。量完**立刻**把框写回夹取后的 `textW`（无变化时 = 原样）。
+        // ============================================================================================
+
+        /// <summary>量自然宽时临时给的框宽（画布 px）。432 够放 6 位数 @42px（⛔ 别把它当成药丸上限）。</summary>
+        const float MeasureBoxPx = 432f;
+
+        static int _counterLayoutFixes;
+
+        /// <summary>自检读口：资源条因为「数字宽度变了」被重排过几次（账 `L706`）。
+        /// <para>灭自证用法：把某一格的字改成**更长的一串**（例：`Shown` 设 `"12000"`、`Label.SetText`）⇒
+        /// 调本方法必须返回 1 且本数 +1；把 `QtyWMax` 调到 `QtyWMin` 那一档（宽度永远夹到同一个数）⇒ 必须返回 0。</para></summary>
+        public static int CounterLayoutFixesForTest { get { return _counterLayoutFixes; } }
+
+        /// <summary>复核每一格药丸宽；**有一格变了就整条重建**。
+        /// <returns>`1` = 重建了一次；`0` = 宽度都没变（生产绝大多数帧走这一档，无副作用）。</returns>
+        /// <para>⚠️ 量不出来（点阵后端 / 没 TMP / 量出 NaN）⇒ **不动那一格并不重排**（出声由 `Label` 自己负责）。</para></summary>
+        public static int FixCounterLayoutIfNeeded(Parts parts)
+        {
+            if (parts == null || parts.Root == null || parts.Counters == null || parts.Counters.Count == 0) return 0;
+            bool changed = false;
+            for (int i = 0; i < parts.Counters.Count; i++)
+            {
+                var c = parts.Counters[i];
+                if (c == null || c.Label == null || c.Spec == null) continue;
+                float cur = CurrentTextWidthPx(c.Label);
+                string txt = string.IsNullOrEmpty(c.Shown) ? c.Label.Text : c.Shown;
+                float nat = MeasureNaturalWidthPx(c.Label, txt);
+                if (nat <= 0f) continue;                                  // 量不出来 ⇒ 保持原框（⛔ 不猜）
+                float textW = Mathf.Clamp(nat, QtyWMin, QtyWMax);
+                // 量宽那一步会把框临时改成 `MeasureBoxPx` ⇒ 无论变没变，都要写回**夹取后**的那一档。
+                c.Label.SetAutoFitBox(textW / 108f, PillH / 108f, QtyFontMin, QtyFontPx, QtyFontBase);
+                c.Label.SetWrapping(false);
+                if (cur > 0f && Mathf.Abs(cur - textW) < 0.5f) continue;   // 宽度类没变（0.5px 容差 = 量法微差，⛔ 不是「差不多」）⇒ 这一格不动
+                changed = true;
+            }
+            if (!changed) return 0;
+
+            var old = parts.Root.Find("Resources Bar");
+            if (old == null)
+            {
+                Debug.LogWarning("[TopBar] 资源药丸宽变了，但 `Upper bar` 下找不到 `Resources Bar` ⇒ **没重排**（⛔ 不静默）");
+                return 0;
+            }
+            var parent = old.parent;
+            if (parent == null) { Debug.LogWarning("[TopBar] `Resources Bar` 没有父件 ⇒ **没重排**"); return 0; }
+            if (Application.isPlaying) UnityEngine.Object.Destroy(old.gameObject);
+            else UnityEngine.Object.DestroyImmediate(old.gameObject);     // 批处理没有帧末 ⇒ 必须立刻销毁（同 `DestroySafe` 那条口径）
+            parts.Counters.Clear();                                        // 重建会重新登记（`BuildResourcesBar` 负责）
+            BuildResourcesBar(parent, parts, s => Debug.LogWarning("[TopBar] 药丸重排时取不到图 `" + s + "`（这一格少画一层）"));
+            _counterLayoutFixes++;
+            Debug.Log("[TopBar] 资源药丸宽变了 ⇒ 整条资源条重建（原版 `SetQuantity` 末尾的 `layoutGroupContentFixer.FixLayout()`；"
+                    + "判据 = 格的宽由 `ContentSizeFitter` 按文字 preferred 宽算 ⇒ 位数变多就变宽）· 累计 " + _counterLayoutFixes + " 次");
+            return 1;
+        }
+
+        /// <summary>这一格药丸现在按多宽排的（画布 px）—— 就是 `SetAutoFitBox` 写下去的框宽。量不到 ⇒ `-1`。</summary>
+        static float CurrentTextWidthPx(Label lb)
+        {
+            var t = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+            if (t == null) return -1f;
+            float w = t.rectTransform.sizeDelta.x * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+            return w > 0.01f ? w : -1f;
+        }
+
+        /// <summary>把这一格临时撑到 `MeasureBoxPx` 宽量一次**自然宽**（画布 px）。
+        /// ⚠️ 它会**改掉**这一格的框与折行设置 ⇒ 调用方量完必须写回最终那一档（见 `FixCounterLayoutIfNeeded`）。</summary>
+        static float MeasureNaturalWidthPx(Label lb, string text)
+        {
+            if (lb == null) return -1f;
+            var t = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+            if (t == null) return -1f;                                     // 点阵后端没有 preferred width 这回事
+            lb.SetText(text ?? "");
+            lb.SetAutoFitBox(LayoutSpace.Px(MeasureBoxPx), PillH / 108f, QtyFontMin, QtyFontPx, QtyFontBase);
+            lb.SetWrapping(false);
+            lb.ForceRelayout();
+            float wWorld = lb.WorldW;                                      // 与 `BuildResourcesBar` 量药丸宽**同一个口**（`_tmpW`）⇒ 两处不会各有一套量法
+            if (float.IsNaN(wWorld) || float.IsInfinity(wWorld) || wWorld <= 1e-6f) return -1f;
+            return wWorld * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
         }
     }
 }

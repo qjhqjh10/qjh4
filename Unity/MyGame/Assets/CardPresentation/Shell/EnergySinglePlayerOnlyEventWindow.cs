@@ -702,6 +702,7 @@ namespace CardPresentation
         /// · 本窗要把建出来的四件存进字段（`_titleLabel` / `_title` / `_back` / `_backBg`）⇒ **接返回值**。</remarks>
         void BuildHeader(Transform root)
         {
+            System.Action onBack = () => Close();
             var p = WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
                 RootRect = HdrR,
@@ -730,12 +731,14 @@ namespace CardPresentation
                 PlateTex = Art(ArtHdrBg),
                 BackTex = Art(ArtBack),
                 QPlate = QArt, QWing = QArt1, QTitle = QText, QBack = QArt1, QHit = QHit,
-                OnBack = () => Close(),
+                OnBack = onBack,
             });
             _titleLabel = p.Title;
             _title = p.Title != null ? p.Title.transform : null;
             _back = p.BackNode;
             _backBg = p.BackQuad != null ? p.BackQuad.transform : null;
+
+            WireHeaderComponent(p, onBack);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
         }
 
         // ------------------------------------------------------------ 倒计时
@@ -1294,6 +1297,18 @@ namespace CardPresentation
             }
             SetScore(st.CurrentScore, st.Thresholds, Mathf.Max(st.CollectedRewards, milestoneIndex + 1));
             if (onComplete != null) onComplete(new CampaignData.RewardSpec[0]);
+        }
+
+        // ============================================================ 窗头组件接线（B89-E29 · 追加于类尾）
+        /// <summary>接线到原版那颗 `WindowHeaderWithBackButton`
+        /// （原版 `SinglePlayerOnlyEnergyEventWindow` 持有它并 `Initialize(liveopEvent, onBack)`）。
+        /// 返回钮 = `QuadInOwnNode` 那一档 ⇒ `WindowButton` 在 `BackHit` 命中区节点上。
+        /// <para>⚠️ 放在类尾是照「新成员追加类尾」的纪律（⛔ 插进已有成员之间会让账的行号整体漂移）。</para></summary>
+        void WireHeaderComponent(WindowHeader.Parts p, System.Action onBack)
+        {
+            ParentEventWindow.EnsureHeaderTitleResolver();
+            var backWb = p.BackHit != null ? p.BackHit.GetComponent<WindowButton>() : null;
+            WindowHeaderWithBackButton.WireHeader(p.Root, backWb, p.Title, onBack, "Game Mode");
         }
     }
 }

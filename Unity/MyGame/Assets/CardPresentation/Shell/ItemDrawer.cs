@@ -797,7 +797,7 @@ namespace CardPresentation
         /// 其余一律 `null` ⇒ 上层出声 + 兜底。</para></summary>
         public static ItemSpec Spec(string targetId, string art, string label)
         {
-            var s = new ItemSpec { Id = targetId, Kind = ItemKind.Unknown, Art = art, Label = label };
+            var s = new ItemSpec { Id = targetId, Kind = ItemKind.Unknown, Art = art ?? CurrencyNames.Icon(targetId), Label = CurrencyNames.Of(targetId) ?? label };   // 2026-10-28（B89_E17/E17b）：货币 code（`C2/C3/C5`）的名字走原版 `Currency.DisplayName` 那条词条、主图走 `Currency.GetIcon(Large)` = SO 的 `bigIcon`（三段 guid 链逐条实读）；判据 / 边界 → `Shell/CurrencyNames.cs` 文件头。⚠️ 零行数变化（本行只换内容）
             if (string.IsNullOrEmpty(targetId)) { s.Kind = ItemKind.None; return s; }
 
             // 原版类型：先查实据表（`IdTypes`），命中即定；再走野牌那条模式（下面 `StartsWith("Wildcard")`）。
@@ -824,7 +824,7 @@ namespace CardPresentation
                     break;
                 }
             }
-            if (s.Kind == ItemKind.Unknown && !string.IsNullOrEmpty(art)) s.Kind = ItemKind.Generic;
+            if (s.Kind == ItemKind.Unknown && !string.IsNullOrEmpty(s.Art)) s.Kind = ItemKind.Generic;   // 🔴 2026-10-28（B89_RD 修正）：原来判的是**入参** `art`，而货币 code（`C2/C3/C5`）的主图是上面那行 `art ?? CurrencyNames.Icon(targetId)` 解出来的 ⇒ 入参为 null 时 `Kind` 停在 `Unknown` ⇒ `PickDrawer` 落到 `DrawerPlaceholder`、**走不到** `Icon` 里那句货币转交（`ItemDrawer.cs:1297`）⇒ 战役奖励的 `C2` 画的是占位板。判据 = 本行上一句自己：能画出图就应该走 `Icon` 那一档（零行数变化：同一行只换内容）
             return s;
         }
 
@@ -1247,7 +1247,7 @@ namespace CardPresentation
                 ClippedText(node, NameStripAt(box, st.NamePx, 1),
                             WildcardName(item), Color.white, "Name",   // 节点名照 prefab 逐字（`Content/Label/Name` = 原版 `label` 那一格）；⛔ 别与 `NodeItemName`（我们起的名字）合并
                             st.NamePx, st.QText, box.W - 20f, st, 1, 12f * k, 75f * k, 36f * k);
-            if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
+            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
         }
 
         /// <summary>野牌那格 `Name` 的**文本**：原版 `WildcardDrawer.GetItemName(item)`
@@ -1294,7 +1294,7 @@ namespace CardPresentation
         /// <summary>通用图标抽屉（**我们建的**，见 `DrawerIcon` 的注释）：`item.Art` 那张图 + 数量。</summary>
         static void Icon(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
         {
-            var tex = Tex(item.Art);
+            var tex = Tex(item.Art); if (CurrencyNames.Of(item.Id) != null) { DrawCurrency(node, box, item, qty, st, ref res); return; }   // 2026-10-28（B89_E17d）：货币转交 `CurrencyDrawer` 整件（主图+名条行+小图标+数量四件套）—— 判据/逐项几何 → `Shell/ItemDrawerCurrency.cs` 文件头。⚠️ 零行数变化（本行只换内容）
             if (tex == null)
             {
                 Placeholder(node, box, item, qty, st, ref res);
@@ -1304,7 +1304,7 @@ namespace CardPresentation
             res.Art = item.Art;
             MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip,
                           st.ClipSoftness);
-            if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
+            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
         }
 
         /// <summary>占位板（**我们建的**）：中性底色 + 短名 + 数量，并把 `Placeholder` 记上 ——
@@ -1319,7 +1319,7 @@ namespace CardPresentation
             if (st.NamePx > 0f && !string.IsNullOrEmpty(item.Label))
                 ClippedText(node, br, item.Label, Color.white, NodeItemName, st.NamePx, st.QText, br.W, st,
                             face: TmpFont.Face.LatinCardBody);
-            if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
+            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
         }
 
         // ============================================================ 小工具（版式全是我们挑的）
@@ -1817,7 +1817,7 @@ namespace CardPresentation
             ClippedText(node, DeckAnchor(box, 0.08f, 0.052f, 0.92f, 0.15f), deck.DisplayName, Color.white,
                         NodeItemName, fs, st.QText, box.W, st);
 
-            if (st.QuantityPx > 0f) Quantity(node, box, qty, st);
+            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
         }
 
         /// <summary>原版 `DeckAndCardbackDrawer.Draw`：`base.Draw(item, q)`，然后**若 `cardBackDrawer` 非空**再画卡背。

@@ -34276,7 +34276,7 @@ public static class BattleScene
                                             "原版 `ClickExitBattle` 全库唯一调用点 = `BattleSettingsWindow__ResignButtonOnClick`"
                                           + "（uGUI `m_OnClick`）⇒ 抬起（判据 → `D2_BattleScene11红诊断.md` §5）" },
                                     new[] { "HandleMulligan",
-                                            "if (ReleasedThisFrame()) _mulligan.HandleClick(WorldPointer());",
+                                            "if (!_replaySession && ReleasedThisFrame()) _mulligan.HandleClick(WorldPointer());",   // 🔴 2026-10-28（B89_RD）白名单行文订正：`BattleDriver.cs:8916` 本批加了 `!_replaySession &&`（同一方法里键盘那支同批也加了，`:8909`）⇒ 扫到 7/7 但仍报「白名单外 + 没命中」= 文本过期，不是多了一处抬起沿
                                             "换牌三族钮都是 uGUI `Button`（`changeCardButton` = `EverguildButton` ·"
                                           + " `MulliganContinueButton` / `HideMulliganButton` = `Button`）⇒ `m_OnClick` = 抬起" },
                                     new[] { "HandleChoose",

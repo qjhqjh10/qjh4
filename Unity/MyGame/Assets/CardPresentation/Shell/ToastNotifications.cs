@@ -595,10 +595,10 @@ namespace CardPresentation
             // 🔴 **2026-10-20（W58 · D7）**：`wrap: false` → **`true`**。
             //   原版 `MB_505`（`Player Level Text`）的 `m_TextWrappingMode = 1 (Normal)`；
             //   我们这一格原来是 `0 (NoWrap)`（RV·L1）。单/双位数字看不出差别，但字段必须与原版同值。
-            // 🆕 **2026-10-26（批次 4 · F7 · 任务 ③）**：初值从 `"-"` 改成 `CardTierConfig.PlayerLevelText`
-            //   —— 与顶栏 / 档案窗 / 排位页**同一个口**（原版这颗字由 `SetPlayerLevel(PlayerDataManager.CurrentLevel)` 写，
-            //   见 `Shell/TopBar.cs` 那一段判据）。模板只建一次，**每次弹**再由 `Fill` 按同一个口重写一次。
-            var lvlText = Tmp(lvl, lvlTextRect, CardTierConfig.PlayerLevelText, Color.white, "Player Level Text", 37.2f, QText,
+            // 🔴 **2026-10-28（B89-E10e）就地订正（铁律 5）**：初值回到 **`"-"`** —— 判据 = 原版 prefab 的 TMP 序列化值
+            //   `MonoBehaviour_505.json` 的 `m_text = "-"`（`RT 369 Player Level Text`）；上一版写 `CardTierConfig.PlayerLevelText`
+            //   是**把「档案窗的 `playerLevelText`」当成了「升级飘窗的这一格」**（两个 prefab 的字段同名不同物）。
+            var lvlText = Tmp(lvl, lvlTextRect, "-", Color.white, "Player Level Text", 37.2f, QText,
                               wrap: true, autoMin: 18f, autoMax: 37.2f, autoBase: 36.89f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(lvlText, Label.VAlign.Midline, lvlTextRect);
 
@@ -805,17 +805,17 @@ namespace CardPresentation
             return ShowNotification(c);
         }
 
-        // ---- 本地【没有】数据源的那两条（如实出声） ----
+        // ---- 有实参就走「真弹」那一档（⛔ 不再是「本地没有数据源」） ----
 
-        /// <summary>收藏经验飘窗。🔴 **本地没有数据源**（原版 `CollectorLevelData` / `CollectorLevelChangeSignal`
-        /// 都由服务端下发）⇒ **不弹**。要弹请走 `Show(CollectionGainXP, 真实文案, 图标)`。</summary>
+        /// <summary>收藏经验飘窗 = 原版 `PlayerDataManager.ShowGrantedXpToast(int grantedXp)` 的**同一件事**；B89-E10c 收口成一行转调。
+        /// <para>旧注释「本地没有数据源 ⇒ 不弹」只对「XP 从哪儿来」成立；原版这个方法**把 XP 当实参收** ⇒ 实参到了就该弹。</para></summary>
         public static bool ShowCollectionGainXP(int amount)
         {
-            Debug.LogWarning("[ToastNotifications] `ShowCollectionGainXP(" + amount + ")`：**本地没有玩家收藏经验"
-                           + "的数据源**（原版由服务端下发，`CollectorLevelData` 本地只有类型、没有实例）⇒ "
-                           + "**不弹**（⛔ 不编数值）。有真实事件时走 `Show(CollectionGainXP, 文案, 图标)`。");
-            return false;
+            return ShowGrantedXpToast(amount);
         }
+        // ⛔ 两个口不许各写一套文案：本方法只是 `ShowGrantedXpToast` 的别名（词条/档位只在那里写一次）。
+        //    2026-10-28（B89-E10c）就地订正 —— **行数不变**（本文件被账按行号引用，`:812` 必须仍是签名行），
+        //    所以原来那 3 行 `Debug.LogWarning(...)` 换成了这三行注释（真弹那一档在 `ShowGrantedXpToast` 里）。
 
         /// <summary>收藏等级提升飘窗。🆕 **2026-10-26（批次 4 · F7 · 任务 ③/④）：有数据源了** ——
         /// 等级不再来自服务器，而是 `CardTierConfig.PlayerLevel`（算式照原版、4 个标量自拟，
@@ -830,10 +830,10 @@ namespace CardPresentation
             int have = CardTierConfig.PlayerLevel;
             if (level > 0 && level != have)
                 Debug.LogWarning("[ToastNotifications] `ShowCollectionLevelUp(" + level + ")` 的实参与本地算出的等级 "
-                               + have + " 不一致 ⇒ 这一格按 `CardTierConfig.PlayerLevelText` 印（同一口），实参只当记录（不静默）");
-            var c = new Context("MainMenu/ToastNotifications/PlayerCollectorLevelUp",
+                               + have + " 不一致 ⇒ 仍按**实参**印（原版 `ShowNewLevelToast.c` 印的就是 signal 载荷），这一句只当记录（不静默）");
+            var c = new Context(string.Format(Loc.T("MenuCollection/Toast/CollectorLevel"), level > 0 ? level : have),
                                 ToastNotificationType.CollectionLevelUp);
-            c.Localize = true;
+            // 原版这条**不本地化**（`ShowNewLevelToast.c` / `AddCollectorXp.c` 先 `GetTranslation` 再 `String.Format`，上面已做完）
             return ShowNotification(c);
         }
 
@@ -995,16 +995,16 @@ namespace CardPresentation
                                 Debug.LogWarning($"[ToastNotifications] 图标 `{ctx.IconArt}` 取不到 ⇒ 这一条沿用模板图"
                                                + "（⛔ 不静默）。");
                         }
-                        // 🆕 **2026-10-26（批次 4 · F7 · 任务 ③/④）**：升级飘窗那颗 `Player Level Text` 走
-                        //   **同一个口** `CardTierConfig.PlayerLevelText`（顶栏 / 档案窗 / 排位页都是它，
-                        //   ⛔ 别在这里另算一份）。原版这一格由 signal 载荷（`CollectorLevelChangeSignal +0x14`）写；
-                        //   我们的等级是本地算出来的 ⇒ 直接读那一个口。
+                        // 🔴 **2026-10-28（B89-E10e）就地停写（铁律 5 · 行数不变）**：原版**从不写**升级飘窗的
+                        //   `Player Level Text`（`RT 369`）—— 唯一写 `playerLevelText` 的是 `PlayerProfileUIController.SetPlayerLevel`，
+                        //   那是**档案窗自己的字段**，不是这个 prefab 的格子。正文走 `Text`（`RT 352`），见 `ShowCollectionLevelUp`。
+                        //   （下面那个 `if` 刻意留空 —— 它只是给「这一支在哪」留个锚点，⛔ 别再往里写东西。）
                         if (ctx.Type == ToastNotificationType.CollectionLevelUp)
                         {
-                            //   ⚠️ `FindLabel` 走的是 `Transform.Find(路径)`（**不是**按名字全树搜）⇒ 必须给完整路径。
-                            var lvlLb = FindLabel(root, "Player Level (1)/Player Level Text");
-                            if (lvlLb != null) lvlLb.SetText(CardTierConfig.PlayerLevelText);
-                            else Debug.LogWarning("[ToastNotifications] 升级飘窗里找不到 `Player Level Text` ⇒ 等级那一格是旧值（不静默）");
+                            // 这一支**刻意留空**：原版没有写手 ⇒ `Player Level Text` 恒为 baked 的 `"-"`
+                            // （`MonoBehaviour_505.json` 的 `m_text`）。上一版在这里写 `CardTierConfig.PlayerLevelText`
+                            // = **我们自己加的行为**，已删；⛔ 别写回来（那是档案窗那一格的口，不是这条飘窗的）。
+                            // 账 510 那条「既有 A」正是踩在这里（拿我们自己的实现当原版标准）⇒ 2026-10-28 已订正。
                         }
                         break;
                     }
@@ -1459,5 +1459,42 @@ namespace CardPresentation
         /// —— 语义 = 「绕过 handler 表、真自己弹了几条」。与 <see cref="ShowCount"/> 同源（同一处 `:916` `ShowCount++`）；
         /// 原版 `TryShowNotification` 命中 handler 时**不**走内部展示，所以这条计数是「handler 支 vs 内部支」的判据。</summary>
         public int InternalShowCount { get { return ShowCount; } }
+
+        // ============================================================ 509 `ShowGrantedXpToast`（B89-E10b 追加在类尾）
+        // 判据 = `decomp_full/PlayerDataManager__ShowGrantedXpToast.c`（全文现读 2026-10-28）逐句：
+        //   `translation = LocalizationManager.GetTranslation("MenuCollection/Toast/CollectorPoints")`
+        //   → `text = string.Format(translation, grantedXp)`
+        //   → `new ToastNotificationContext(text, …)`（档位 = **CollectionGainXP**，与 `AddCollectorXp`
+        //      的 `showToast` 支**同一族**、同一个词条键）
+        //   → `ToastNotificationController.ShowNotification(context)`
+        //
+        // 🔴 与既有 `ShowCollectionGainXP(int amount)`（`:812`）的**关系**（这一条必须先说清，
+        //   否则两个入口看着像两套规则）：
+        //   · `ShowCollectionGainXP` 的注释写「本地没有数据源 ⇒ 不弹」—— 那句话对**「XP 从哪儿来」**成立，
+        //     但**原版这个方法把 XP 当【实参】收**（`grantedXp`），结了账才调它 ⇒ **实参到了就该弹**。
+        //   · 原版 `grantedXp` 的来源 = `RewardService.Collect` 把回包里的 `RewardInfo.grantedXp` 累加
+        //     （我们**没有**那条服务器奖励链，见报告 §1）。
+        //   ⇒ 本方法 = 「已经拿到一个确定的 XP 数」时的那一档；`ShowCollectionGainXP` 保留给
+        //     「根本不知道是多少」的老调用方（仍然出声、不弹）。⛔ 别在两个方法里各写一套文案逻辑。
+
+        /// <summary>原版 `PlayerDataManager.ShowGrantedXpToast(int grantedXp)`（账 509）。
+        /// 词条 = `MenuCollection/Toast/CollectorPoints`（官方 13 语言表里是 **`+{0} 收藏点数`** 那一条，带 `{0}`）。
+        /// <para>返回 `false` 的情形（都**出声**，⛔ 不静默）：词条取不到（`Loc.T` 回落成键名本身）、
+        /// 或本帧没有 toast 控制器实例（`ShowNotification` 自己也会出声）。</para></summary>
+        /// <param name="grantedXp">本次获得的收藏经验（原版 = `RewardService` 累加回包里的 `RewardInfo.grantedXp`）。
+        /// ⛔ 传 0 也可以（原版不判 0，照样弹「+0」）；要「没变就不弹」请在**调用方**判，别在这里加闸。</param>
+        public static bool ShowGrantedXpToast(int grantedXp)
+        {
+            const string Key = "MenuCollection/Toast/CollectorPoints";
+            string fmt = Loc.T(Key);
+            if (string.IsNullOrEmpty(fmt) || fmt == Key)
+            {
+                Debug.LogWarning($"[ToastNotifications] `ShowGrantedXpToast({grantedXp})`：词条 `{Key}` "
+                               + "**取不到**（`Loc.T` 回落成键名本身）⇒ 不弹（⛔ 不把键名印到屏幕上）。");
+                return false;
+            }
+            var c = new Context(string.Format(fmt, grantedXp), ToastNotificationType.CollectionGainXP);
+            return ShowNotification(c);
+        }
     }
 }

@@ -539,7 +539,7 @@ namespace RuleEngine
             var act = new QueuedAction
             {
                 Label = label, Execute = body,
-                Actor = actor, RequireActorInPlay = requireActorInPlay,
+                Actor = actor, Target = abilityTarget, RequireActorInPlay = requireActorInPlay,
                 AbilityContext = abilityContext,
                 // 🔴🆕 **2026-10-23（`Slay` 就地结算复核）**：出队时按原版
                 //   `CardScript.IsInPlayOrDying`（含 `waitingToDie`）复核载体 ——
@@ -2043,6 +2043,128 @@ namespace RuleEngine
                                   // ② = 原版 `Resolve*` 的出队闸 `CardScript.IsInPlayOrDying`
                                   // （`ResolveTriggerCourtesy.c:28-31`）—— 判据只此一份（泵点那一支）。
                                   requireActorInPlayOrDying: true);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-28（执行代理 `B89_E1` · 完全复刻批次 R9「动作队列族」· 账行 L241 / L242 / L832）
+        //  **离场单位的「入队后清扫」** —— 原版三层里的 ② / ③（① 在 `Core/ActionQueue.cs`：
+        //  `ActionQueue.RemoveQueuedActionAt` / `RemoveQueuedAction`）。
+        //
+        //  判据（第一权威 · 逐句现读）：
+        //    · `decomp_full/BattleManager__CancelEffectsFromDisappearingUnit.c`：
+        //      对**四条队列**各调一次 `…FromQueue`，序 = `actionQueue(+0x350)` → `instantQueue(+0x358)`
+        //      → `interruptQueue(+0x368)` → `delayedInstantQueue(+0x360)`
+        //      （= 我们的 `Player(0)` → `Instant(1)` → `Interrupt(2)` → `DelayedInstant(3)`，
+        //       正好等于 `ActionQueue._lanes[]` 的声明序）；
+        //      ⚠️ ILSpy 那份把第三个实参写成 `shouldIgnoreDestroy2 = default`（**反编译 bug**，
+        //      会把 `shouldIgnoreDestroy` 恒读成 false）—— `.c` 四个调用都传的 `param_4` ⇒ **按 `.c`**。
+        //    · `decomp_full/BattleManager__CancelEffectsFromDisappearingUnitFromQueue.c`：
+        //      倒序遍历**一条**泳道，命中条件与豁免见方法 doc。
+        //
+        //  🔴 **与 `CarrierReplacedByRemnant` 的区别**（⛔ 别把那个改改就用）：
+        //    · 那个 = **出队时**复核「载体被换成了残骸 / 被 transform」，只在泵点跑，判的是状态；
+        //    · 这两个 = **入队之后（动作发生的当下）立刻**按「载体是哪张卡」把已有条目**删掉**，
+        //      判的是**身份**（`casterCard == disappearingUnit`）。语义不同、时机不同。
+        // ==========================================================================================
+
+        /// <summary>
+        /// 原版 `BattleManager.CancelEffectsFromDisappearingUnit(CardScript disappearingUnit,
+        /// CardScript targetCard = null, bool shouldIgnoreDestroy = false)` 的等价物 ——
+        /// **对四条泳道各跑一次** <see cref="CancelEffectsFromDisappearingUnitFromQueue"/>。
+        ///
+        /// <para>**调用点（原版四个，本批一个都没接 —— 待接点见下）**：
+        /// `RemoveSelfBuffsFromQueues`（`CancelEffectsFromDisappearingUnit(bm, card, card, true)`）·
+        /// `ResolveAction` 的 jam 支（`(bm, card, null, false)`）·
+        /// `ResolveJamUnit`（`(bm, card, null, false)` —— **就是账 L832 那一格**）·
+        /// `ResolveTransformUnit`（`(bm, card, card, true)`）。</para>
+        ///
+        /// <para>🔴 **待接点（本批白名单只有 `ActionQueue.cs` / `ActionPump.cs`）**：
+        /// 账 L832 的落点是 `RuleEngine/Core/EffectResolver.cs` 的 `ResolveJamUnit`（属 E3），
+        /// 正确插入位置 = 它的 **⑤ 广播之后、⑥ 光环窄口重算之前**
+        /// （原版 `BattleManager__ResolveJamUnit.c:263` 就在 `BroadcastUnitJammed` 与
+        /// `UpdateCardEffects` 之间；`EffectResolver.cs` 里那一段的 doc 已经把顺序写死）。
+        /// 接的时候传 `ctx, jammed, targetCard: null, shouldIgnoreDestroy: false`（= 原版实参）。</para>
+        /// </summary>
+        /// <returns>四条道一共撤掉几条。</returns>
+        public static int CancelEffectsFromDisappearingUnit(BattleContext ctx, UnitState disappearingUnit,
+                                                            UnitState targetCard = null,
+                                                            bool shouldIgnoreDestroy = false)
+        {
+            if (ctx == null || disappearingUnit == null) return 0;
+            int n = 0;
+            // 原版调用序 = `+0x350` → `+0x358` → `+0x368` → `+0x360`
+            //          = Player(0) → Instant(1) → Interrupt(2) → DelayedInstant(3)
+            //          = `ActionQueue._lanes[]` 的声明序（⛔ 不是 `DequeueOrder` 的消费序）。
+            n += CancelEffectsFromDisappearingUnitFromQueue(ctx, disappearingUnit, targetCard,
+                                                            ActionPriority.Player, shouldIgnoreDestroy);
+            n += CancelEffectsFromDisappearingUnitFromQueue(ctx, disappearingUnit, targetCard,
+                                                            ActionPriority.Instant, shouldIgnoreDestroy);
+            n += CancelEffectsFromDisappearingUnitFromQueue(ctx, disappearingUnit, targetCard,
+                                                            ActionPriority.Interrupt, shouldIgnoreDestroy);
+            n += CancelEffectsFromDisappearingUnitFromQueue(ctx, disappearingUnit, targetCard,
+                                                            ActionPriority.DelayedInstant, shouldIgnoreDestroy);
+            return n;
+        }
+
+        /// <summary>
+        /// 原版 `BattleManager.CancelEffectsFromDisappearingUnitFromQueue(CardScript jammedUnit,
+        /// CardScript targetCard, List&lt;BattleAction&gt; queue, bool shouldIgnoreDestroy = false)`
+        /// 的等价物 —— **倒序**扫一条泳道，把命中的条目逐条交给
+        /// <see cref="ActionQueue.RemoveQueuedActionAt"/>（= 原版「扫 + 逐条调
+        /// `CancelBattleActionFromQueue`」的形状）。
+        ///
+        /// <para>**命中条件**（`.c` 逐句）：
+        /// ① `queue[i].casterCard` 非空 **且** `== jammedUnit`；—— 🔴 我们这一格 = <see cref="QueuedAction.Actor"/>
+        ///    （原版 `casterCard(+0xD8)`；⛔ **不是** `actingCard(+0x08)`，那两格在原版是两个字段）。
+        ///    判法见 `Core/ActionPump.cs` 类尾「五、②」那张偏移表 + `BattleAction.cs` 字段声明序。
+        /// ② `actionType != 1 (attack)`（attack 不撤 —— 原版那个 `while` 条件的第二支）；
+        /// ③ `targetCard == null` **或** `queue[i].targetCard == targetCard`
+        ///    （原版 `+0x10`；我们 = <see cref="QueuedAction.Target"/>，今天多半是 `null` —— 见它的 doc）。</para>
+        ///
+        /// <para>**命中之后的三个「直接结束整条泳道」的豁免**（`.c` 里三处 `return`）：
+        /// ⓐ `actionType == 0x2d (45 destroyUnit)` **且** `deathType == 0x28 (40 poison)`；
+        /// ⓑ `actionType == 0x1a (26 recallToHand)`；
+        /// ⓒ `shouldIgnoreDestroy` 为真 **且** `actionType == 0x2d (45)`。
+        /// ⚠️ ⓐⓑⓒ 原版是**结束整条泳道的清扫**（不是跳过这一条）—— 照抄；工具侧若发现语义不合，
+        /// 回 `.c` 而不是就地改（铁律 11 例外①之外一律先记账）。</para>
+        ///
+        /// <para>**撤之前会补副作用**（`attack` 的 `CancelAttack` / `createHandCard` 的 `SetActive(false)`）——
+        /// 由 `ActionQueue.RemoveQueuedActionAt` 统一做，⛔ 别在这里另写一份。</para>
+        /// </summary>
+        /// <returns>这条泳道撤掉几条。</returns>
+        public static int CancelEffectsFromDisappearingUnitFromQueue(BattleContext ctx, UnitState jammedUnit,
+                                                                     UnitState targetCard, ActionPriority lane,
+                                                                     bool shouldIgnoreDestroy = false)
+        {
+            if (ctx == null || jammedUnit == null) return 0;
+            var q = ctx.ActionQueue;
+            if (q == null) return 0;
+            int n = 0;
+            // 倒序（原版 `iVar1 = count - 1 … 0`）：倒着删时**下标小于 i 的条目不会被挪动**，
+            // 所以不必在删除后调整 i（顺带与原版逐字同一遍历方向）。
+            for (int i = q.CountOf(lane) - 1; i >= 0; i--)
+            {
+                var a = q.At(lane, i);
+                if (a == null) continue;                    // 并发改动兜底（理论上不会）
+                if (a.Actor == null) continue;               // ① 前半：`casterCard` 非空
+                if (!ReferenceEquals(a.Actor, jammedUnit)) continue;   // ① 后半：是消失的那张
+                if (a.ActionType == 1) continue;             // ② attack 不撤
+                if (targetCard != null
+                    && (a.Target == null || !ReferenceEquals(a.Target, targetCard))) continue;   // ③
+
+                // ── 命中：三种豁免都**结束整条泳道**（原版三处 `return`）──────────────
+                if (a.ActionType == 0x2d && a.DeathType == 0x28) return n;             // 45 destroyUnit + 40 poison
+                if (a.ActionType == 0x1a) return n;                                    // 26 recallToHand
+                if (shouldIgnoreDestroy && a.ActionType == 0x2d) return n;             // 45 destroyUnit（豁免档）
+
+                UnityEngine.Debug.LogWarning(
+                    "[ActionQueue] Removing action from queue from card " + (jammedUnit.Name ?? "?")
+                    + ", " + ((int)a.ActionType) + "（原版 `BattleManager.CancelEffectsFromDisappearingUnitFromQueue.c` "
+                    + "同一句 `CustomDebug.LogWarning(\"Removing action from queue from card \" + cardName + \", \" + …)`；"
+                    + "原版打印的是 `BattleActionType` 名，我们打的是原版号 —— 我们还没建那个枚举）");
+                if (q.RemoveQueuedActionAt(lane, i)) n++;
+            }
+            return n;
         }
     }
 }

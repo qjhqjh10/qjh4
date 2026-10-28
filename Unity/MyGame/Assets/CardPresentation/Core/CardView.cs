@@ -3364,7 +3364,7 @@ namespace CardPresentation
             if (_faceMode != CardFace.Board) BuildTextLayers(d);
 
             // 🆕 徽标跟着走：掉血/中 buff/获得关键词都会走到这条路（`BattleDriver` 每刷新一次都调）
-            SetBadges(d.badges);
+            // 🔴 2026-10-28（B89-E8 · 账 `战斗逻辑驱动:976`）：**徽标不在这里单独刷** —— 下面 `UpdateFigures()` 里的 `SetBadges(Data.badges)` 就是它（`Data` 已在上面 = `d`；⛔ 别再拼一遍）。
             // 🆕 2026-09-29 四个数值层同理（贴图/位置/闪现色一起刷）。
             // ⚠️ **`BuildStatLayers` 也在这儿补一次**：`Build` 那条只在「卡框贴图取得到」的分支里
             //    调得到（`_info` 建不出来时整块跳过），而数值层**不依赖卡框** ——
@@ -4590,8 +4590,8 @@ namespace CardPresentation
             if (_faceMode != CardFace.Board) BuildTextLayers(d);
             if (bt) m4 = _buildWatch.ElapsedMilliseconds;          // 文字层（5 段 TMP + FitToBox 二分）到此
 
-            // 🆕 棋盘徽标（`CardData.badges` 为空时这一句什么都不建 —— 手牌/战术卡都是空的）
-            SetBadges(d.badges);
+            // 🆕 棋盘徽标（`CardData.badges` 为空时这一句什么都不建 —— 手牌/战术卡都是空的）：**下面 `UpdateFigures()` 刷**，本行不重复调
+            // 🔴 2026-10-28（B89-E8 · 账 `战斗逻辑驱动:976`）：原来这里还单独调一次 `SetBadges(d.badges)`，与下面 `UpdateFigures()` 里那句**同一个口**；现收口成一次（`Data` 已在 `Build` 开头 = `d`）。
 
             // 🆕 2026-09-29 四个数值层：**在这里兜一次**。
             //    ⚠️ 上面 `if (frameTex != null)` 那条分支里虽然也调了，但**卡框贴图取不到时整块会跳过**
@@ -4605,7 +4605,7 @@ namespace CardPresentation
             BuildFaceStatTexts();
             BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
             UpdateFigures();          // 出生入口也走原子总入口（原版 `CardScript.UpdateFigures`）
-            // ↑ 与上面 `SetBadges(d.badges)` 那一句**不冲突**：本类是「从 `Data` 重新派生」，幂等。
+            // ↑ 徽标（原版第④件 `UpdateTraitIcons`）也由这一句刷：`SetBadges(Data.badges)` 从 `Data` 重新派生，幂等。
 
             // 🆕 **2026-10-17（T09 第 2 步）**：分段计时只在真 Play 出声；批处理/自检零影响。
             if (bt)
@@ -15227,5 +15227,78 @@ namespace CardPresentation
         /// <summary>自检读口：卡框那层现在的不透明度（= `_tint.a · _alpha · _alpha2D · FrameMaskAlpha`）。
         /// 小图档应当 ≈ `_alpha`；**状态 1（Big）下必须是 0**。</summary>
         public float FrameMaskAlphaNow { get { return FrameMaskAlpha; } }
+
+        // ==================================================================
+        //  🆕 2026-10-28（执行代理 `B89_E5c` · 账 `L782`）：`HeroLandIntoField` 的 `showStats` 那一段
+        //
+        //  原版判据（`decomp_full/CardScript._HeroLandIntoField_d__318__MoveNext.c:86-338` 逐句）：
+        //    `if (showStats == 0)` ⇒ **只** `WaitForSeconds(waitMult × 0.3)`，**一个容器都不碰**；
+        //    否则（showStats == 1）⇒ 对**两族**计数器控制器各做一次：
+        //      · `BattleCardUI +0xC0` = `armourCountersController` · `+0xA0` = `healthCountersController`
+        //        （字段名与偏移 = `d:/2/tools/il2cpp_out/dump.cs:19811` 起的 `BasicCardUI` 字段表）；
+        //      · 控制器 `currentState(+0x64) = 1`，再对 `containers(+0x30)` 里**每一项**：
+        //        `container(+0x10).SetActive(flag)`，flag 由该项的 `activationRules(+0x18)`
+        //        （`ActivationRules` 枚举：Normal=0 / SmallScreen=5 / SimplifiedView=10 /
+        //        NoSimplifiedView=15，`dump.cs:36933`）算出来：
+        //        **含 0 或 15 ⇒ 开；含 5 ⇒ 仅小屏开（否则保持原样）；含 10 ⇒ 保持原样**。
+        //
+        //  🔶 自己设计（非原版）：**「哪几个子对象算一组」是我们挑的** —— 原版是 prefab 上序列化的**若干**
+        //     `CardTextCounterContainer`（= GameObject + 规则数组）。⚠️ 2026-10-28（`B89_RXb` · 铁律 5）订正：
+        //     原写「本机读不到 prefab」**不成立** —— 该组件在 `assets_full` 有 **760 份**实例（按 MonoScript
+        //     pathID `-1746985122272567298` 反查；`activationRules` 明文）：**608 份 `[[0]]`** · **152 份
+        //     `[[0,15],[5,10]]`** ⇒ 单容器实值取 `Normal(0)`。而「组」这层仍是我们的（一数值一图层）；
+        //     152 份那族的**第二容器**被我们塌掉 —— 无小屏档 ⇒ 恒关（**已知惰性差异**，非判据缺失）。
+        //  ⚠️ 小屏档：我们的等价物**没有**（`GameplayVariables` 同族几处都「恒传 false」，
+        //     见 `HandCardDisplayOffset` 的 doc）⇒ `smallScreen` 由调用方传 false ⇒ `SmallScreen(5)` 不开。
+        // ==================================================================
+
+        /// <summary>原版 `CardTextCountersController.CardTextCounterContainer.ActivationRules`
+        /// （`d:/2/tools/il2cpp_out/dump.cs:36933`，**值就是这四个**）。</summary>
+        public enum StatContainerRules
+        {
+            Normal = 0,
+            SmallScreen = 5,
+            SimplifiedView = 10,
+            NoSimplifiedView = 15,
+        }
+
+        /// <summary>🔶 自己设计（非原版）：本件每个数值只有一个「容器」（原版是若干容器各带规则数组）；
+        /// 规则取 `Normal(0)` = **608/760** 实例的实值（152 份那族的第二容器见上方长注）。</summary>
+        static readonly StatContainerRules[] StatContainerRuleForCell = { StatContainerRules.Normal };
+
+        /// <summary>原版 `HeroLandIntoField` 的 `showStats == 1` 那一段（`…_d__318__MoveNext.c:97-338`）：
+        /// 对两族计数器（`armour` / `health`）**逐个容器按 `activationRules` 开关**。
+        /// <para>`showStats == false` ⇒ **什么都不做**（原版那一支只等 `0.3 × waitMult`）。</para>
+        /// <para>我们的等价物：容器 = 那两个数值图层本身；「开」= 按**同一条**逐格判据
+        /// <see cref="StatShownFor"/> 重新落一次显隐（与 `SyncStatLayers` **同一段**），⛔ 不另写一份判据。</para>
+        /// <param name="smallScreen">原版 `GameStaticData.smallScreenUI(+0x11c)` —— 我们**没有这一档**，恒 false。</param></summary>
+        public void ApplyStatContainersOnHeroLand(bool showStats, bool smallScreen = false)
+        {
+            if (!showStats) return;                        // 原版 `showStats == 0` ⇒ 不碰容器
+            if (_stats[StatMelee] == null) return;         // 没拆数值层（字形表缺失）⇒ 没有容器可开关
+            for (int k = 0; k < 2; k++)
+            {
+                int s = k == 0 ? StatArmour : StatHealth;  // 原版两族：`+0xC0` armour / `+0xA0` health
+                var mr = _stats[s];
+                if (mr == null) continue;
+                bool open = ContainerOpens(StatContainerRuleForCell, smallScreen);
+                bool show = open && _faceMode == CardFace.Board && !_statsHidden && StatShownFor(s, Data);
+                mr.gameObject.SetActive(show);
+            }
+        }
+
+        /// <summary>原版 `activationRules` 的判定（`.c` 那段规则循环）：含 `Normal(0)` 或
+        /// `NoSimplifiedView(15)` ⇒ **开**；含 `SmallScreen(5)` ⇒ **小屏才开**；只有 `SimplifiedView(10)`
+        /// ⇒ 原版 `break`（保持原样）⇒ 我们按「开」处理（我们没有「简化视图」这一档）。</summary>
+        static bool ContainerOpens(StatContainerRules[] rules, bool smallScreen)
+        {
+            if (rules == null || rules.Length == 0) return true;
+            for (int i = 0; i < rules.Length; i++)
+            {
+                if (rules[i] == StatContainerRules.Normal || rules[i] == StatContainerRules.NoSimplifiedView) return true;
+                if (rules[i] == StatContainerRules.SmallScreen) return smallScreen;
+            }
+            return true;   // 只剩 SimplifiedView(10) ⇒ 原版 break（保持原样）⇒ 我们保持「开」
+        }
     }
 }

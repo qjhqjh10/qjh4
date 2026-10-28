@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace RuleEngine
 {
-    public static class CardDatabase
+    public static partial class CardDatabase   // 🆕 v37（`E6`）：`partial` 是为了把 `CardDto` 的两个新字段追加到【文件末】—— 见文件末尾那段（⛔ 别挪进 `CardDto` 体内：下游 5 处 A 行账落点会整体漂移）
     {
         /// <summary>`Assets/RuleEngine/Resources/cards_engine.json`</summary>
         public const string ResourcePath = "cards_engine";
@@ -30,7 +30,7 @@ namespace RuleEngine
         }
 
         [Serializable]
-        public class CardDto
+        public partial class CardDto   // 🆕 v37（`E6`）：`partial` —— 两个新字段在【文件末】那段
         {
             /// <summary>**稳定 id = 原版 `uniqueId`**（`AM12` 这种短码，或 32 位 GUID 形态）。
             /// 🔴 **2026-10-18（`W25`）订正**：原来这里写「或 `AM_Some_Card` 这样的自造 id」——
@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c));
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null);   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -3447,6 +3447,271 @@ namespace RuleEngine
             var list = new List<string>(count.Keys);
             list.Sort((a, b) => count[b].CompareTo(count[a]));
             return list;
+        }
+
+        // ==========================================================================================
+        //  🆕 v37（2026-10-28 · 第八十九会话 · 执行代理 `E6b` · 账 L1044 `whileInPlayAnim` / L847 `permanentBuff`）
+        //     —— `CardDto` 的两个新字段（+ 本层唯一的 `MapPermanentBuffs`）。
+        //
+        //  🔴 **为什么写在【文件末】、而不是 `CardDto` 体内**：
+        //     `CardDatabase.cs` 有 **9 处账落点按【行号】引用**（现读 `74` / `1040` / `1610` / `1611` / `1690` /
+        //     `1799` / `2303` / `2449` / `3291`），其中 `:1610`（5 行）· `:1611` · `:1799` · `:2449` 都是 **A 行**
+        //     ⇒ 在 `CardDto`（`:33`–`:651`）里插行会让它们**整体漂移**（同族教训 → `CLAUDE.md` 那条「新成员一律追加到类尾」）。
+        //     所以把 `CardDatabase` / `CardDto` 都标成 `partial`（`partial` 关键字是**原地改词、零行数变化**），
+        //     新成员全部追加在**全部落点之后** ⇒ 零漂移。
+        //     ⚠️ `JsonUtility` 按 `Type.GetFields()` 反射所有 public 字段，**不管它们在哪个 partial 段**
+        //     ⇒ 两个字段放在这里与放在 `CardDto` 体内**完全等价**（字段名 = JSON 键名，逐字一致）。
+        //  📌 判据 / 语义 / 缺值口径 **不在本文件抄第二份** → `Core/CardDef.cs` 的 `WhileInPlayAnim` 与
+        //     `PermanentBuffSpec` 的 doc（铁律 6）。
+        // ==========================================================================================
+        public partial class CardDto
+        {
+            /// <summary>🆕 v37：原版 `RawCardScript.whileInPlayAnim`（`+0x288`，`int 0/1`）。
+            /// <para>`-1` = **未知**（旧表 &lt; v37 / 真值快照里没这张卡）—— 由下面的调用点按 `dto.version >= 37` 落。
+            /// ⛔ 别把缺键读成 `0` = 「原版就是 false」（`CardDef.WhileInPlayAnim` doc 里有同一句）。</para></summary>
+            public int whileInPlayAnim = -1;
+
+            /// <summary>🆕 v37：原版 `CardEffect.permanentBuff(+0x74) != 0` 的那些行（**稀疏**；`[]` = 明确没有）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v37 / 真值里没这张卡）⇒ `CardDef.HasPermanentBuffs == false`。</para></summary>
+            public PermanentBuffRowDto[] permanentBuffs;
+        }
+
+        /// <summary>🆕 v37：`permanentBuffs` 的一行（**字段名与 JSON 键名逐字一致**，`JsonUtility` 直读）。
+        /// <para>语义 / 为什么按 `(at, ab, lg)` 落 → <see cref="CardDef.PermanentBuffSpec"/> 的 doc
+        /// （那是 🔶 自己设计的数据形状，⛔ 别拿它反推原版结构）。</para></summary>
+        [Serializable]
+        public class PermanentBuffRowDto
+        {
+            /// <summary>`"buffEffect"` | `"handBuff"` | `"enchantment"`（`null`/`""` = 坏值）。</summary>
+            public string at;
+            /// <summary>`cardAbilities` 下标（`-1` = 缺键/坏格）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标（`-1` = 缺键/坏格）。</summary>
+            public int lg = -1;
+            /// <summary>那一行的 `CardEffect.buffType(+0x38)`（`-1` = 坏值）。</summary>
+            public int buffType = -1;
+            /// <summary>`at == "enchantment"` 时 = 被挂上去那张模板的 `uniqueId`（其余 `null`）。</summary>
+            public string token;
+        }
+
+        /// <summary>🆕 v37：`permanentBuffs` 列 → <see cref="CardDef.PermanentBuffSpec"/> 列表（**逐行**）。
+        ///
+        /// <para>⚠️ **返回 `null` ≠ 返回空表**（与 `MapAbilityDamage` / `MapActiveAbilityLogic` 同一契约）：
+        /// `c.permanentBuffs == null`（旧表 / 真值里没这张卡）⇒ **`null` = 未知**；
+        /// `[]` ⇒ **空表 = 明确没有永久效果**（现池 1,128 张）。</para>
+        ///
+        /// <para>**只做形状校验**（坏行出声丢弃 / 坏格出声落 `-1`），不做语义判断：
+        /// ① `at` 不在三档白名单 ⇒ 出声 + 丢掉那一行（它是分组键，错一个就挂到别处）；
+        /// ② `ab` / `lg` 缺或 &lt; 0 ⇒ 出声 + 丢掉那一行；
+        /// ③ **同一 `(at, ab, lg)` 撞键** ⇒ 出声丢弃后一条（⛔ 谁赢都说不清；现读 0 例）。
+        /// 📌 生成器侧口径 → `工具/gen_cards_engine.py` 的 `permanent_buffs_of` 的 doc。</para></summary>
+        static CardDef.PermanentBuffSpec[] MapPermanentBuffs(CardDto c)
+        {
+            return c == null ? null : MapPermanentBuffs(c.permanentBuffs, c.id, c.name);
+        }
+
+        /// <summary>（同上，但吃**裸行数组** —— 第二张表 `enchantment_templates.json` 复用**同一条规则**，⛔ 别另写一份。）
+        /// <para>`rows == null` ⇒ `null`（未知）；`[]` ⇒ 空表（明确没有）。`cardId` / `cardName` 只用于出声。</para></summary>
+        internal static CardDef.PermanentBuffSpec[] MapPermanentBuffs(PermanentBuffRowDto[] rows,
+                                                                      string cardId, string cardName)
+        {
+            if (rows == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.PermanentBuffSpec>(rows.Length);
+            var seen = new HashSet<string>();
+            foreach (var r in rows)
+            {
+                if (r == null) continue;
+                if (r.at != "buffEffect" && r.at != "handBuff" && r.at != "enchantment")
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{cardName}」（{cardId}）的 `permanentBuffs` 有一行 `at` 不认识"
+                                 + $"（at=\"{r.at}\"）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (r.ab < 0 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{cardName}」（{cardId}）的 `permanentBuffs` 有一行缺 `ab`/`lg`"
+                                 + $"（at={r.at}, ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                string k = r.at + "|" + r.ab + "|" + r.lg;
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{cardName}」（{cardId}）的 `permanentBuffs` 有**重复的 "
+                                 + $"(at={r.at}, ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。");
+                    continue;
+                }
+                list.Add(new CardDef.PermanentBuffSpec
+                {
+                    At = r.at, Ab = r.ab, Lg = r.lg, BuffType = r.buffType, TokenCardId = r.token,
+                });
+            }
+            return list.ToArray();
+        }
+
+        // ==========================================================================================
+        //  🆕 B89 / E6c（2026-10-28 · 执行代理 `E6c`）：**第二张表** —— 附魔模板
+        //     `Assets/RuleEngine/Resources/enchantment_templates.json`（由 `工具/gen_cards_engine.py` 写）
+        // ==========================================================================================
+        //  🔴 **它为什么不是第 1129 张卡**：收录的是真值里 `m_Name` 尾 `_enchantment` 的**模板**（现读 85 张），
+        //     它们**不在** `cards_engine.json` 的 `cards[]` 里（v30 入池闸 = `cardType == 20` ∧ 名字含 `enchant`）。
+        //     调度台 2026-10-28 裁定：**⛔ 不放宽入池闸**（会改 `count` ⇒ 影响可玩池与探针基线；
+        //     附魔模板**不是可玩卡**）⇒ 单开一张表，只服务「**按 id 查模板**」这一条读路。
+        //  📌 口径 / 字段语义 / 张数 → 生成器 `build_enchantment_templates` 的 doc 与产物自己的 `note`
+        //     （⛔ 不在本文件抄第二份，铁律 6）。
+        //  🔴 **注入点不在本文件**：`Core/` 不能引用 `Data/`（`Enchantment.cs:703`：`ruleprobe` 只编 `Core/*.cs`）
+        //     ⇒ 本方法只负责**读成 `List<CardDef>`**，由外层（`BattleDriver` / `ruleprobe` 夹具）把它交给
+        //     `BattleContext` 的新格（**待接**，`BattleContext.cs` 归 `E14`；可照抄的一行见
+        //     `资料/完全复刻/报告/B89_E6c_附魔模板表.md` §3）。
+        // ==========================================================================================
+        /// <summary>第二张表的资源名（`Resources/enchantment_templates.json`）。</summary>
+        public const string EnchantmentTemplatesResourcePath = "enchantment_templates";
+
+        /// <summary>「表读不到」只出声一次（否则每次战斗第一个附魔查找都会刷一条）。</summary>
+        static bool _enchantTemplatesMissingLogged;
+
+        /// <summary>🆕 B89 / E6d：把第二张表的加载器登记进 `BattleContext` 的钩子。
+        /// <para>🔴 **这是「Core 不引用 Data」这条方向约束下的唯一注入点** —— `Core/BattleContext.cs` 只声明
+        /// `EnchantmentTemplatesProvider` 这个委托，由**本静态构造**填上（`Data` → `Core` 是允许的方向）。</para>
+        /// <para>⚠️ 静态构造在**第一次碰到 `CardDatabase` 任何成员**时跑（生产侧 = 开局 `Load()`），
+        /// 所以 `ruleprobe` / 夹具只要碰过本类，钩子就是通的。</para></summary>
+        static CardDatabase()
+        {
+            BattleContext.EnchantmentTemplatesProvider = LoadEnchantmentTemplates;
+        }
+
+        /// <summary>第二张表的文件 DTO（字段名与 JSON 键名逐字一致，`JsonUtility` 直读）。</summary>
+        [Serializable]
+        public class EnchantmentTemplateFileDto
+        {
+            public int version;
+            public int count;
+            public string source;
+            public string note;
+            public EnchantmentTemplateDto[] templates;
+        }
+
+        /// <summary>一张附魔模板（口径 → 生成器 `build_enchantment_templates` 的 doc）。</summary>
+        [Serializable]
+        public class EnchantmentTemplateDto
+        {
+            /// <summary>原版 `uniqueId`（**唯一 join 键**：`buffEffect.enchantment.m_PathID` → 这张模板）。</summary>
+            public string id;
+            public string name;
+            public string nameZh;
+            /// <summary>原版 `m_Name`（尾 `_enchantment`；排查用）。</summary>
+            public string mName;
+            public int cardType = -1;
+            public int spellType = -1;
+            public int manaCost = -1;
+            /// <summary>模板自己的 `ActiveAbility.psychicCost`（`-1` = 未知）。</summary>
+            public int psychicCost = -1;
+            public int plasmaCost = -1;
+            public int targeted = -1;
+            /// <summary>原版 `RawCardScript.whileInPlayAnim(+0x288)`：`1` / `0` / `-1`（未知）。</summary>
+            public int whileInPlayAnim = -1;
+            public string[] cardTraits;
+            /// <summary>与卡表 v37 的 `permanentBuffs` **同形**（复用 `MapPermanentBuffs`）。</summary>
+            public PermanentBuffRowDto[] permanentBuffs;
+            /// <summary>模板自己的 ability 行（只带四格标量：`ca` / `pa` / `ta` / `fm`）。</summary>
+            public EnchantmentTemplateAbilityDto[] abilities;
+            /// <summary>谁挂它（反向索引；`inPool` = 挂载者自己是不是**可玩池**里的卡）。</summary>
+            public EnchantmentTemplateOwnerDto[] owners;
+        }
+
+        [Serializable]
+        public class EnchantmentTemplateAbilityDto
+        {
+            public int trigger = -1;
+            public EnchantmentTemplateLogicDto[] logic;
+        }
+
+        [Serializable]
+        public class EnchantmentTemplateLogicDto
+        {
+            /// <summary>`AbilityLogic.chosenAbility`。</summary>
+            public int ca = -1;
+            /// <summary>`AbilityLogic.playersAffected`。</summary>
+            public int pa = -1;
+            /// <summary>`AbilityLogic.targetCriteria.targetsAffected`。</summary>
+            public int ta = -1;
+            /// <summary>`AbilityLogic.furtherMultiplier`。</summary>
+            public int fm = -1;
+        }
+
+        [Serializable]
+        public class EnchantmentTemplateOwnerDto
+        {
+            public string id;
+            public int buffType = -1;
+            public int trigger = -1;
+            public bool inPool;
+        }
+
+        /// <summary>读第二张表 → 模板的 `CardDef` 列表（**不并入** <see cref="Load"/> 的可玩池）。
+        ///
+        /// <para>每张模板造一个 `CardDef`：`type = "enchantment"` · `rarity`/`faction` 空（模板不是可玩卡、不进收藏）·
+        /// `inventoryOptions = 10 (NotInInventory)` · `showInCollectionOptions = 0 (Hide)`（与 v30 那一批隐藏模板同口径）·
+        /// `spellType` / `cardType` / `whileInPlayAnim` / `permanentBuffs` 从表里灌。</para>
+        /// <para>⚠️ **读不到就出声并返回空表**（⛔ 不许静默）；调用方要能区分「表不存在」与「表是空的」请先看日志。</para></summary>
+        public static List<CardDef> LoadEnchantmentTemplates()
+        {
+            var list = new List<CardDef>();
+            var asset = Resources.Load<TextAsset>(EnchantmentTemplatesResourcePath);
+            if (asset == null)
+            {
+                if (!_enchantTemplatesMissingLogged)   // 只出声一次（每次战斗都会问到，别刷屏）
+                {
+                    _enchantTemplatesMissingLogged = true;
+                    Debug.LogError($"[RuleEngine] 读不到第二张表 `Resources/{EnchantmentTemplatesResourcePath}.json`"
+                                 + " —— 附魔模板的 `whileInPlayAnim` / 效果行**一律取不到**。"
+                                 + "重跑 `python -I -X utf8 工具/gen_cards_engine.py --write`。");
+                }
+                return list;
+            }
+            var file = JsonUtility.FromJson<EnchantmentTemplateFileDto>(asset.text);
+            if (file == null || file.templates == null)
+            {
+                Debug.LogError($"[RuleEngine] 第二张表解析失败（{asset.text.Length} 字符）—— 返回空表。");
+                return list;
+            }
+            var seen = new HashSet<string>();
+            foreach (var t in file.templates)
+            {
+                if (t == null || string.IsNullOrEmpty(t.id))
+                {
+                    Debug.LogError("[RuleEngine] 附魔模板表里有一行**没有 `id`** —— 该行丢弃。");
+                    continue;
+                }
+                if (!seen.Add(t.id))
+                {
+                    Debug.LogError($"[RuleEngine] 附魔模板表里 `id = {t.id}` **重复** —— 后一条丢弃。");
+                    continue;
+                }
+                var def = new CardDef(t.id, string.IsNullOrEmpty(t.name) ? t.id : t.name,
+                                      "enchantment", "", "", "",
+                                      t.manaCost < 0 ? 0 : t.manaCost, 0, 0, 0, null,
+                                      spellType: t.spellType,
+                                      inventoryOptions: 10, showInCollectionOptions: 0);
+                def.AttachCardType(t.cardType);
+                def.AttachWhileInPlayAnim(t.whileInPlayAnim);
+                def.AttachPermanentBuffs(MapPermanentBuffs(t.permanentBuffs, t.id, t.name));
+                list.Add(def);
+            }
+            if (file.count != list.Count)
+                Debug.LogError($"[RuleEngine] 附魔模板表 `count` = {file.count}，实读 {list.Count} 张 —— 表坏了。");
+            Debug.Log($"[RuleEngine] 附魔模板表 v{file.version}：**{list.Count}** 张"
+                    + $"（`whileInPlayAnim == 1` {CountWhileInPlayAnim(list)} 张）—— 来自 `Resources/{EnchantmentTemplatesResourcePath}.json`");
+            return list;
+        }
+
+        /// <summary>`whileInPlayAnim == 1` 的张数（读数辅助；⛔ 不参与任何判据）。</summary>
+        public static int CountWhileInPlayAnim(List<CardDef> templates)
+        {
+            int n = 0;
+            if (templates == null) return 0;
+            for (int i = 0; i < templates.Count; i++)
+                if (templates[i] != null && templates[i].WhileInPlayAnim == 1) n++;
+            return n;
         }
     }
 }

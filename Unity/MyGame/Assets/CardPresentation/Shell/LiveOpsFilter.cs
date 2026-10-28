@@ -1061,8 +1061,12 @@ namespace CardPresentation
         public static Func<bool> IsEventTabSelected;
         /// <summary>原版 `nav.GetToggle(Main).toggle.isOn = true`（**写**）。默认走本仓共用口 `SetNavToggle`。</summary>
         public static Action SelectMainTab = SelectMainTabDefault;
-        /// <summary>原版 `nav.OnEventsRefreshed()`。`null` ⇒ 出声一次（我们没有等价物）。</summary>
-        public static Action OnEventsRefreshed;
+        /// <summary>原版 `nav.OnEventsRefreshed()` —— 默认实现 = 让**主菜单**把左栏整棵重建（🆕 B89-E30 · 账 `L477`）。
+        /// <para>为什么要有默认实现：我们这一侧的重建对象（`Navigation Panel`）是 **`MainMenuRuntime` 实例上的树**，
+        /// 静态钩子只能在**调用那一刻**去取实例（同 `SelectMainTab = SelectMainTabDefault` 那条口径）。
+        /// 之前 `null` ⇒ 生产里这一段**永远只打一条「本仓没有等价物」的告警**、活动钮从不重建。
+        /// `null` 仍然合法（自检可以临时摘掉）。</para></summary>
+        public static Action OnEventsRefreshed = OnEventsRefreshedDefault;
 
         /// <summary>自检口：`Run` 走了几次、最后一次的判定（`true` = 真的执行了导航那半）。</summary>
         public static int RunCount { get; private set; }
@@ -1125,11 +1129,34 @@ namespace CardPresentation
         {
             IsEventTabSelected = null;
             SelectMainTab = SelectMainTabDefault;
-            OnEventsRefreshed = null;
+            OnEventsRefreshed = OnEventsRefreshedDefault;
             RunCount = 0;
             LastRunActed = false;
             _warnedNoMainButton = false;
             _warnedNoEventsRefreshed = false;
+        }
+
+        // ============================================================================================
+        //  🆕 B89-E30（账 `L477` `NavigationPanelController.OnEventsRefreshed`）：默认实现
+        //
+        //  原版那一跳是 `nav.OnEventsRefreshed()` —— 拿**导航控制器单例**、把活动钮按最新事件表重建。
+        //  我们这侧：
+        //    · 原版的 `NavigationPanelController` 在我们这儿**没有对应的类**（判据 → 本类上面那段注释：
+        //      我们只有 `MainMenuRuntime.SetNavToggle` 与「只重建高亮」的 `SelectNav`）；
+        //    · 那棵导航面板树是 **`MainMenuRuntime` 实例**建的 ⇒ 等价物 = 「取实例，让它重建左栏」
+        //      （`MainMenuRuntime.RebuildNavForLiveOpsRefresh`，内部走 `BuildNavigationPanel`，
+        //       第 6 颗活动钮在那里按当前在期 Parent 事件重建 —— 见 `BuildEventNavButtons`）。
+        //  ⚠️ **取不到实例**（战斗场景 / 直起自检 / 菜单还没建）⇒ **出声**（红线：不许静默失败），
+        //     与原版「单例为 null 就 NRE」不同 —— 那一档我们在离线复刻里是常态，NRE 会打断整条刷新链。
+        //  ⚠️ 形态与 `SelectMainTabDefault` **逐字同形**（静态默认实现 + 调时才解析实例），
+        //     ⛔ 别改成「在 `Build()` 里 `+=` 订阅」：静态 Action 是**单值**，`+=` 会与默认实现串成两条 ⇒ 重建两次。
+        // ============================================================================================
+        static void OnEventsRefreshedDefault()
+        {
+            var mm = MainMenuRuntime.Instance;
+            if (mm != null) { mm.RebuildNavForLiveOpsRefresh(); return; }
+            Debug.LogWarning("[LiveOps] `OnEventsRefreshed`：场上没有 `MainMenuRuntime`（战斗 / 直起自检 / 菜单未建）"
+                           + " ⇒ 活动钮**没重建**（原版这一步会按最新事件表重建导航上的活动钮）");
         }
     }
 

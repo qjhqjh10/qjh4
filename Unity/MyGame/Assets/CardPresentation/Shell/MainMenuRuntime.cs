@@ -52,7 +52,7 @@ namespace CardPresentation
         public readonly List<string> MissingArt = new List<string>();
         Transform _root;
 
-        void Awake() { Instance = this; }
+        void Awake() { Instance = this; GameStaticData.LoadSharedDefaultValues(); LiveOpsManager.EnsureStarted(); ReadTextInHandFormatAtBoot(); }   // 账 460：原版 `PlayerDataManager.LoadPlayerData` 在**读玩家存档之前**先调 `LoadSharedDefaultValues()`（13 次写入的次序/默认值见 `Shell/GameStaticData.cs`）；这里 = 我们的等价调用点。⚠️ 它只把**默认值**灌进 `GameStaticData` 的静态量 —— 音量 / smallScreenUI 等有独立存档的那几格**不会**被冲掉（判据见那个文件头）
 
         void Start()
         {
@@ -60,7 +60,7 @@ namespace CardPresentation
             if (_root == null) Build();
         }
 
-        void OnDestroy() { if (Instance == this) Instance = null; }
+        void OnDestroy() { UnhookMenuRebuildBroadcasts(); if (Instance == this) Instance = null; }   // 🆕 B89-E30：摘掉 `L412`/`L477` 那两条静态订阅（否则静态事件攒着已销毁的实例）
 
         // ============================================================ 坐标工具
 
@@ -540,7 +540,7 @@ namespace CardPresentation
             }
 
             BuildBackground(menuWin);
-            BuildNavigationPanel(safeH);
+            HookMenuRebuildBroadcasts(); BuildNavigationPanel(safeH);   // 🆕 B89-E30（账 `L412`/`L477`）：先挂两条重建跳（摘订在 `OnDestroy`，见类尾）
             // 🔴 **2026-10-17（B25）：顶栏改成调共用件 `Shell/TopBar.cs`** —— 本文件原来那份
             //    `BuildUpperBar / BuildPlayerProfile / BuildResourcesBar / BuildTopAvatar` **已删**。
             //    为什么：卡组编辑（独立场景 `DeckEditor.unity`）要**同一条顶栏**，D13/D14 那一轮把本文件
@@ -1160,20 +1160,7 @@ namespace CardPresentation
             //       prefab 样例串 = **`5d 20h 15m`**（⇒ 显示格式 `Xd Yh Zm`）
             //   title 取值 = 原版 `TryGetLabel(ev,4) ?? TryGetLabel(ev,0)`（4 = NavigationBarTitle）；
             //   取不到 ⇒ 保留原来的 `EVENT` 兜底（**我们挑的**，原版是空态）。
-            string evNavTitle; System.DateTime? evNavEnd;
-            TryGetEventNavInfo(out evNavTitle, out evNavEnd);
-            NavButton(holder, 5, "Event", "40k_main_bt_event",
-                      910.0f, 1079.7f, null,
-                      140.0f, 12.8f, 152.8f, 911.7f, 24f,
-                      nodeName: "Event Navigation Button",
-                      label: string.IsNullOrEmpty(evNavTitle) ? "EVENT" : evNavTitle,
-                      hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
-                      iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f),
-                      timerEndUtc: evNavEnd);
-            Debug.Log("[Menu] 第 6 颗「事件钮」的图标已接：`40k_main_bt_event`（135²，PPU 100，Simple）"
-                    + " · 染色照原版插槽 `m_Color` = 0.7358490 灰（比五颗导航钮的白图标暗 26%）"
-                    + " —— 判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` + "
-                    + "`Event Navigation Button/Image` 的 `MonoBehaviour_-1269977380222428235.json`（现读）。");
+            BuildEventNavButtons(holder);        // 🆕 B89-E27（账 `L474`）：原版 `BuildEventButtons` = 每个在期 Parent 一颗；口径/几何/兜底全在类尾同名方法
 
             // 🆕 **2026-10-19（N117）**：六颗建完（⚠️ **2026-10-24 起只有显示着的那几颗有命中区** ——
             //   被隐藏的四颗整段跳过，见 `OnlyPlayAndCollection`），按「当前最上面那扇窗」落一次档
@@ -1395,6 +1382,7 @@ namespace CardPresentation
         /// </summary>
         public void OnNavClick(int idx)
         {
+            CloseOutgoingNavWindowOnToggleOff(idx);      // 🆕 B89-E27（账 `L550` · 原版 `OpenWindowButton/OpenEventButton.ToggleValueChange(false)`）；口径见类尾那个方法
             switch (idx)
             {
                 case 0:   // PLAY / Home —— 原版开**场景内**的 `MainMenuWindow`
@@ -2548,8 +2536,8 @@ namespace CardPresentation
                 }
                 used[col, row] = true;
                 if (tall) used[col, 1] = true;
-                BuildModeCard(content, nm, CardCol0 + col * ColStep - _modeOffsetPx, CardRow0Top + row * RowStep,
-                              CardW, h, art, title, kind, ModeViewport);
+                BuildModeCardForCard(content, nm, CardCol0 + col * ColStep - _modeOffsetPx, CardRow0Top + row * RowStep,
+                                     CardW, h, art, title, kind);   // 🆕 B89-E27（`L411`/`L415`）：按「这一格归哪个在期活动」喂标题+到期时刻（见类尾同名方法）
             };
             // 🔴 **2026-10-13 就地改序（铁律 5，取代 `A1522⑤` 那一版）：五张卡的 `Put` 次序按【用户原版实拍】重排。**
             //   判据 = 用户原版客户端实拍 `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`（1503×883），
@@ -2817,7 +2805,7 @@ namespace CardPresentation
         /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。
         /// <paramref name="modeKind"/> 非空 ⇒ 这张卡**可点**（点它进对应模式的界面；见 `OpenMode`）。</summary>
         void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
-                           string modeKind = null, PxRect? clip = null)
+                           string modeKind = null, PxRect? clip = null, System.DateTime? timerEndUtc = null)
         {
             // 🔴 **2026-10-17（界面线 `T12`）：视口裁切。** 横向滚动之后卡片会跨过视口左缘
             //   （`GameModes` 的 x1 = 167.04，左边就是左竖导航）—— 不裁的话，卡的暗带 / 边框 / 标题
@@ -2898,8 +2886,8 @@ namespace CardPresentation
             //     `Event Title` 顶 **1421.08** ⇒ **25.08**（= (105.866 − 55.708)/2，与
             //     `childForceExpandHeight=1` 自洽；`Base 1x1` + 两个倒计时变体是 **3.41**）。
             //   ⚠️ 将来接上 liveop 数据 ⇒ 给 `modeTimerEnd` 赋值即可恢复 ⑤ 那一整块（代码留着没删）。
-            System.DateTime? modeTimerEnd = null;
-            bool hasTimerRow = modeTimerEnd.HasValue;        // 当前恒 false（见上面 ③）
+            System.DateTime? modeTimerEnd = timerEndUtc;     // 🆕 B89-E27（`L411`/`L415`）：由调用点按「这一格归哪个在期活动」喂进来（类尾 `ModeCardOwnerEvent`）；没有归属 ⇒ null ⇒ 走 `1x2 No Timer` 变体
+            bool hasTimerRow = modeTimerEnd.HasValue;        // 有数据源才建这一行（见上面 ③）
             float titleTop = by1 + (hasTimerRow ? 3.41f : 25.08f);
             // ⚠️ 原版 `m_text` 是占位串 `GAME MODE TITLE`，真标题运行时灌 ⇒ 这里用**模式名**（和 `Game Mode Title` 那个通用件的样例 `Draft Mode` 同口径）
             // 🔴 原版这行 TMP 带 **autosize 18→72**，框 513.7×55.7 ⇒ 让它自己缩着放进框里
@@ -3849,5 +3837,355 @@ namespace CardPresentation
         // ⛔ **别为了「照原版多个组件」再建一个每次都乘 s 的适配器** —— 那会在窄屏把卡放大 1/s 倍、
         //   与 `Editor/MainMenuScene.cs` 的 5 条 `CheckCard`（`205 + 555c / 535 / 414.4 / 848.8 / 182.8`）冲突，
         //   而**画面反而更不像原版**。
+
+        // ============================================================ 启动链的「开机读档」（🆕 2026-10-28 B89-E11c）
+        /// <summary>开机读一次「手牌文本」档（原版 `GameStaticData.cardsTextInHandFormat`）。
+        /// <para>🔴 **为什么必须由启动链补**（判据两份，都已现读）：
+        /// ① 写点 `decomp_full/GraphicsTab__CardsTextInHandDropdownChange.c:35-41` 只做两件事 ——
+        ///    `GameStaticData(+0x140) = value`、`(+0x144) = 1`、打一条 `LogWarning` 然后 **return**
+        ///    ⇒ **它不重刷任何卡面**；
+        /// ② 读点 `decomp_full/BasicCardUI__SetCardTextInHand.c:10-14` = **每张卡自己被建出来时**读 `+0x140`
+        ///    并 `CardTextsController.ToggleSimplifiedView(..., +0x140, ...)` ⇒ 原版是「卡面到处自己来拿」。
+        /// 我们的等价物 `Core/CardView.HandTextFormat` 是**全局静态、只在 `SetHandTextFormat(...)` 时重刷**
+        /// （`CardView.cs:5118`）⇒ 没有「卡自己来拿」那条路，所以**开机必须读一次并应用一次**，
+        /// 否则玩家上次选的档要等他自己开一次设置窗才恢复（= 开机/重进游戏后手牌文本退回全文）。</para>
+        /// <para>返回读到的档（0 = 全文 · 1 = 仅描述 · 2 = 仅卡名），⛔ 越界由 `TextInHand` 自己夹并出声。</para></summary>
+        public static int ReadTextInHandFormatAtBoot()
+        {
+            int v = SettingsWindow.TextInHand.Value;     // 读档（首次读会走 `TextInHand.Load()`）
+            CardView.SetHandTextFormat(v);              // 再应用一次（幂等）：不依赖 `Load()` 的副作用，开机这条路自成一体
+            Debug.Log("[MainMenu] 开机读一次手牌文本档：`cardsTextInHandFormat` = " + v
+                    + "（0=全文 / 1=仅描述 / 2=仅卡名；判据 `BasicCardUI__SetCardTextInHand.c` 读 +0x140）");
+            return v;
+        }
+
+        // ============================================================ 类尾（B89-E27 · 账 `L474` / `L411` / `L415` / `L550`）
+        //   ⚠️ **一律追加在类尾**：本文件被账按 `文件:行号` 引用，新成员插进中间会让下游行号整体漂移
+        //   （CLAUDE.md 那条「新成员一律追加到类尾」）。
+
+        /// <summary>**在期 Parent 活动表**（= 原版 `NavigationPanelController.BuildEventButtons` 循环的那一份）。
+        /// <para>判据：① 类必须是 `Parent`（原版这一颗钮由 `ParentEventHandler` 建）；② `GetState(now) == Active`
+        /// （`LiveOpsState.IsCurrentlyActive` —— ⛔ 别用 `IsActive()`，它连 `Finished` 也算 true，见
+        /// `LiveOpsHandler.SelectInTable` 的 doc）；③ `Selectable`（`enabled &amp;&amp; uploadToLive`，同一处）。
+        /// 排序 = `priority` 降序、同权取 `StartMs` 早的（🔶 自己设计：原版循环序没读到，取一个确定的序保证可复现 ——
+        /// 调度台 2026-10-28 授权，B89-E27）。</para>
+        /// <para>⚠️ 本机 13 份活动 SO 的日期全在 2025 年 ⇒ **今天这个函数恒返回空表**，调用点因此走「静态 EVENT 一颗」
+        /// 那条兜底。要让循环真的跑起来，只能给 `LiveOpsLocalCatalog` 加在期数据（或用 `LiveOpsClock.NowProvider`
+        /// 把「现在」拨进某场活动）。</para></summary>
+        internal static List<LiveOpsLocalEvent> ActiveParentEventsForNav(System.DateTime utc)
+        {
+            var list = new List<LiveOpsLocalEvent>();
+            var table = LiveOpsLocalCatalog.Events;
+            for (int i = 0; i < table.Count; i++)
+            {
+                var e = table[i];
+                if (e == null || e.Kind != LiveOpsLocalKind.Parent) continue;
+                if (!e.IsCurrentlyActive(utc)) continue;
+                if (!e.Selectable) continue;
+                list.Add(e);
+            }
+            list.Sort((a, b) =>
+            {
+                int p = b.Priority.CompareTo(a.Priority);
+                return p != 0 ? p : a.StartMs.CompareTo(b.StartMs);
+            });
+            return list;
+        }
+
+        /// <summary>某个事件在导航钮/模式卡上的标题 = 原版 `TryGetLabel(ev, 4 /*NavigationBarTitle*/) ??
+        /// `TryGetLabel(ev, 0 /*Title*/)`（判据：`OpenEventButton__SetButtonInfo` 那一跳，见
+        /// <see cref="TryGetEventNavInfo"/> 同族实现）。取不到词条 ⇒ **null**（调用点各自兜底）。</summary>
+        internal static string EventNavTitleOf(LiveOpsLocalEvent ev)
+        {
+            if (ev == null) return null;
+            LiveOpsLocalLabel l;
+            string term = null;
+            if (ev.TryGetLabel(4, out l)) term = l.Term;
+            else if (ev.TryGetLabel(0, out l)) term = l.Term;
+            if (string.IsNullOrEmpty(term)) return null;
+            return LiveOpsLocalCatalog.TermText(term);
+        }
+
+        /// <summary>导航钮那颗的文案：取不到事件标题 ⇒ 保留 **`EVENT`** 兜底（**我们挑的**，原版是空态；
+        /// 与「没有在期活动」那条同一档，见 `BuildNavigationPanel` 里 ⑥ 的注释）。</summary>
+        internal static string EventNavTitleOrFallback(LiveOpsLocalEvent ev)
+        {
+            var t = EventNavTitleOf(ev);
+            return string.IsNullOrEmpty(t) ? "EVENT" : t;
+        }
+
+        /// <summary>**建左竖导航那颗「事件钮」**（= 原版 `NavigationPanelController.BuildEventButtons(ParentEventHandler)`，
+        /// 账 `L474`）。判据：原版在 `BuildEventButtons` 里对**每个在期 Parent 活动** `Instantiate(eventButtonPrefab)` 一颗
+        /// ⇒ 我们这里按 <see cref="ActiveParentEventsForNav"/> 逐颗建。
+        /// <para>几何（第 i 颗，i 从 0 起）：顶 = `143.41 + (5 + i) × 153.33` · 高 = `169.70` · 图标顶 = 钮顶 + `1.70`。
+        /// 出处：原版 `Navigation Panel/Buttons Container` 的 VLG（`m_Spacing = −16.35`、钮高 169.68 ⇒ 步进 153.33；
+        /// 第 6 颗顶 = 143.41 + 5×153.33 = 910.06，与原来写死的 910.0 同一格 —— 逐值见上面调用点那段长注释）。</para>
+        /// <para>⚠️ **在期活动 0 颗时仍建一颗静态 `EVENT`** —— 那是本文件 ⑦ 那条**有意偏离**（本机没有活动源，
+        /// 验收口径要求「入口必须点得开」），⛔ 别删、也别改成「没有活动就不建」。</para></summary>
+        void BuildEventNavButtons(Transform holder)
+        {
+            var evNavItems = ActiveParentEventsForNav(LiveOpsClock.NowUtc);
+            if (evNavItems.Count == 0)
+            {
+                string evNavTitle; System.DateTime? evNavEnd;
+                TryGetEventNavInfo(out evNavTitle, out evNavEnd);
+                NavButton(holder, 5, "Event", "40k_main_bt_event",
+                          910.0f, 1079.7f, null,
+                          140.0f, 12.8f, 152.8f, 911.7f, 24f,
+                          nodeName: "Event Navigation Button",
+                          label: string.IsNullOrEmpty(evNavTitle) ? "EVENT" : evNavTitle,
+                          hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
+                          iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f),
+                          timerEndUtc: evNavEnd);
+            }
+            else
+            {
+                for (int i = 0; i < evNavItems.Count; i++)
+                {
+                    float eny1 = 143.41f + (5f + i) * 153.33f;
+                    var ev = evNavItems[i];
+                    NavButton(holder, 5 + i, "Event", "40k_main_bt_event",
+                              eny1, eny1 + 169.70f, null,
+                              140.0f, 12.8f, 152.8f, eny1 + 1.70f, 24f,
+                              nodeName: "Event Navigation Button",
+                              label: EventNavTitleOrFallback(ev),
+                              hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
+                              iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f),
+                              timerEndUtc: ev.EndUtc > LiveOpsClock.NowUtc ? ev.EndUtc : (System.DateTime?)null);
+                }
+                Debug.Log("[Menu] 事件钮按原版 `BuildEventButtons` 建了 " + evNavItems.Count + " 颗（在期 Parent 活动）"
+                        + " —— 第 i 颗顶 = 143.41 + (5+i)×153.33；判据 = 原版 `NavigationPanelController__BuildEventButtons.c`");
+            }
+            Debug.Log("[Menu] 事件钮的图标已接：`40k_main_bt_event`（135²，PPU 100，Simple）"
+                    + " · 染色照原版插槽 `m_Color` = 0.7358490 灰（比五颗导航钮的白图标暗 26%）"
+                    + " —— 判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` + "
+                    + "`Event Navigation Button/Image` 的 `MonoBehaviour_-1269977380222428235.json`（现读）。");
+        }
+
+        /// <summary>= 原版 `LiveopMenuContainer.OnInitialize(LiveOpsEvent playEvent)` + `SetText(LiveOpsEvent)` 的
+        /// **数据那半边**（账 `L411` / `L415`）：先问「这一格归哪个在期活动」（<see cref="ModeCardOwnerEvent"/>），
+        /// 有归属 ⇒ 标题取该事件的 `TryGetLabel(4) ?? TryGetLabel(0)`、倒计时取该事件的 `EndUtc`；没有归属 ⇒
+        /// 两个都保持调用点原来那份（标题 = 我们手挑的那张表；到期 = `null` ⇒ `BuildModeCard` 走原版
+        /// `Base Game Mode Container 1x2 No Timer` 变体，⛔ 不编日期、不印 `--`）。</summary>
+        void BuildModeCardForCard(Transform parent, string nm, float x, float y, float w, float h, string art,
+                                  string title, string kind)
+        {
+            var owner = ModeCardOwnerEvent(nm, LiveOpsClock.NowUtc);
+            string cardTitle = (owner != null ? EventNavTitleOf(owner) : null) ?? title;
+            System.DateTime? end = owner != null && owner.EndUtc > LiveOpsClock.NowUtc ? owner.EndUtc : (System.DateTime?)null;
+            BuildModeCard(parent, nm, x, y, w, h, art, cardTitle, kind, ModeViewport, end);
+        }
+
+        /// <summary>`EventComponents[MainMenuContainer]`（= 35）的 **GUID → 容器 prefab 根名**。
+        /// <para>解析法（本地可解，已实测，⛔ 不是猜的）：`bundle_menus_assets_all/AssetBundle/AssetBundle_1.json`
+        /// 的 `m_Container` 给「AssetReference GUID → `m_PathID`」，再按 `GameObject/*.json` 的 `m_Component`
+        /// 反查根名（与 `判据/B88_P1两条判据.md` §3.3 同一套两步法；那份表解的是弹窗那 6 个 GUID，这里是**容器**那一个）。</para>
+        /// <para>🔴 **B89-E27 本轮实读**（三步，可复跑）：GUID `b28a4a686d3cc4366af8977a6ab69b5e` →
+        /// `m_PathID 541940618620306034`（`AssetBundle_1.json` 的 `m_Container`）→ 该 pid 是 GameObject 本体，
+        /// 它的组件 `RectTransform_7695131988882162290` → 唯一含该组件的 `GameObject/Base Game Mode Container 1x2
+        /// Raid or Army Release.json` ⇒ **根名 = `Base Game Mode Container 1x2 Raid or Army Release`**。
+        /// ⚠️ 本机 13 份 SO 里**只有 2 份**带 `MainMenuContainer` 组件（`ExpansionUM1` / `SWRelease` 两个 Parent），
+        /// 且**指向同一个 GUID** ⇒ 表里就这一行。⛔ 别把「我们那 5 张手挑的模式卡」硬塞进来。</para></summary>
+        static readonly Dictionary<string, string> MainMenuContainerPrefabByGuid = new Dictionary<string, string>
+        {
+            { "b28a4a686d3cc4366af8977a6ab69b5e", "Base Game Mode Container 1x2 Raid or Army Release" },
+        };
+
+        // 🔶 自己设计（非原版）：模式卡 ↔ 事件的**归属**用注入口给 —— 原版的归属是**服务端**下发的
+        //   `LiveopsMainMenuData`（每张容器卡自带自己的事件；`LiveopsMainMenuData` 那三格见 `Shell/LiveOpsEvent.cs:1044`），
+        //   本机只有「事件 → 容器 prefab」这一半（`EventComponents[MainMenuContainer]`），**没有「我们这 5 张卡
+        //   各归哪场活动」**（那 5 张是我们手挑的、已如实标注）⇒ 生产路径靠 `MainMenuContainerPrefabByGuid` 真判，
+        //   断言路径用这个口把「某张卡属于某场活动」直接给进去，用来证明 `hasTimerRow` 那一整块**是活的**。
+        //   调度台 2026-10-28 授权（B89-E27 · 账 `L411`/`L415`），⛔ 别在生产装配里赋值。
+        /// <summary>自检口：`(卡节点名) → 归属事件`；返回非 null 就顶替数据判据。生产恒 `null`。</summary>
+        public static System.Func<string, LiveOpsLocalEvent> ModeCardOwnerOverrideForTest;
+
+        /// <summary>**这一张模式卡归哪场在期活动**（= 原版 `LiveopMenuContainer.OnInitialize(LiveOpsEvent playEvent)`
+        /// 的入参是怎么来的）。判据链（本地能走的那一半）：
+        /// ① 我们的卡节点名 = 「原版 prefab 根名 [+ ` - <模式>` 后缀]」（见 `_placeAllCards` 那五个 `Put`）；
+        /// ② 事件侧：`EventComponents[MainMenuContainer(35)]` 的 GUID → <see cref="MainMenuContainerPrefabByGuid"/>；
+        /// ③ 两者相等 ⇒ 这张卡由该事件驱动（标题/倒计时/两张图都取该事件的）。
+        /// <para>⚠️ **返回值是 null 时不是失败**：原版就有 `1x2 No Timer` 变体（`TextDarkening` 里只剩 `Event Title`），
+        /// 我们那 5 张手挑的卡今天全都落这一档（本机没有指向它们的活动）⇒ 调用点保持「不建这一行」。</para></summary>
+        internal static LiveOpsLocalEvent ModeCardOwnerEvent(string cardNodeName, System.DateTime utc)
+        {
+            var hook = ModeCardOwnerOverrideForTest;
+            if (hook != null)
+            {
+                try { return hook(cardNodeName); }
+                catch (System.Exception ex) { Debug.LogError("[Menu] `ModeCardOwnerOverrideForTest` 抛异常：" + ex); }
+            }
+            if (string.IsNullOrEmpty(cardNodeName)) return null;
+            int cut = cardNodeName.IndexOf(" - ", System.StringComparison.Ordinal);      // 去掉我们加的 ` - Skirmish` 那种后缀
+            string prefab = cut > 0 ? cardNodeName.Substring(0, cut) : cardNodeName;
+            var list = ActiveParentEventsForNav(utc);
+            for (int i = 0; i < list.Count; i++)
+            {
+                var comps = list[i].Components;
+                if (comps == null) continue;
+                for (int c = 0; c < comps.Length; c++)
+                {
+                    if (comps[c].Key != (int)LiveOpsComponentRef.MainMenuContainer) continue;
+                    string name;
+                    if (MainMenuContainerPrefabByGuid.TryGetValue(comps[c].Value ?? "", out name) && name == prefab)
+                        return list[i];
+                }
+            }
+            return null;
+        }
+
+        /// <summary>`OpenWindowButton` / `OpenEventButton` 的 **`closeOnToggleChangeToFalse`**（逐颗现读，⛔ 不是统一 1）。
+        /// <para>本轮实读（`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/*.json` + `bundle_menus_assets_all`
+        /// 的 `Event Navigation Button`）：Home `MB_2556` · Collection `MB_2496` · Shop `MB_2495` · Rewards `MB_2494` ·
+        /// Social `MB_2497` · 事件钮（3 份 MB）—— **六颗全是 `1`**。序列仍是**逐颗一张表**：这一格原版本来就是
+        /// 逐 prefab 序列化的，将来若某颗读出来是 0，只改这一格即可。</para></summary>
+        static readonly bool[] NavCloseOnToggleChangeToFalse = { true, true, true, true, true, true };
+
+        /// <summary>`OpenWindowButton.closeOtherMenus`（同一批 MB 现读）：Home/Collection/Shop/Rewards/Social **全 1**、
+        /// 事件钮 **0**（`OpenEventButton` 的 3 份 MB 都是 0）。</summary>
+        static readonly bool[] NavCloseOtherMenus = { true, true, true, true, true, false };
+
+        /// <summary>= 原版 `OpenWindowButton.ToggleValueChange(bool)` / `OpenEventButton.ToggleValueChange(bool)`
+        /// （体已读：`decomp_full/OpenWindowButton__ToggleValueChange.c` · `…OpenEventButton__ToggleValueChange.c`
+        /// —— `option == 0` 且 `closeOnToggleChangeToFalse(+0x41 / +0x29)` 且 `currentWindow(+0x48 / +0x70)` 非空
+        /// ⇒ 虚调它的 `Close()`；`option != 0` ⇒ `OpenWindow()`）。
+        /// <para>🔴 **这是 `L550` 的落点**。机制（照原版）：这 6 颗是同一个 `ToggleGroup`（`m_AllowSwitchOff = 0`）
+        /// ⇒ 点第 j 颗时**第 i 颗被关掉**（`isOn: true → false`）⇒ 那颗的 `onValueChanged` 走 `option == false` 支
+        /// ⇒ `closeOnToggleChangeToFalse = 1` ⇒ **关掉它自己那扇窗**。所以「关窗」是由**出去的那一颗**驱动的，
+        /// ⛔ 不是由进来的那一颗的 `closeOtherMenus` 驱动的。</para>
+        /// <para>⚠️ **我们只补真正缺的那一半**：0..4 那五颗 `closeOtherMenus = 1` ⇒ 进来的那颗自己
+        /// `OpenWindow(..., closeAll: true)` 已经把上一扇收掉了（净效果与原版相同，见 `OpenShop`/`OpenCollection`
+        /// 的 doc）⇒ 再先关一次只会白走一遍 `ShowPreviousWindow`（把常驻主菜单开/关一轮）。
+        /// 缺的是**事件钮那一路**（`closeOtherMenus = 0`）：原来开事件窗时上一扇**不关**，原版会关。</para>
+        /// <para>⛔ 不许改成「点已选中的那一颗 ⇒ 关窗」：原版 `EverguildToggle.OnPointerClick` 首段
+        /// `!allowClickWhenAlreadySelected(0x139) &amp;&amp; isOn(0x120) ⇒ return`（**整下点击被吃掉**，连
+        /// `Toggle.OnPointerClick` 都不跑）⇒ 点当前那一颗**什么都不发生**（我们 `WindowButton` 同一口径）。</para></summary>
+        void CloseOutgoingNavWindowOnToggleOff(int nextIdx)
+        {
+            int prev = SelectedNav;
+            if (prev < 0 || prev == nextIdx) return;
+            if (prev >= NavCloseOnToggleChangeToFalse.Length) return;
+            if (!NavCloseOnToggleChangeToFalse[prev]) return;
+            if (nextIdx >= 0 && nextIdx < NavCloseOtherMenus.Length && NavCloseOtherMenus[nextIdx]) return;
+            if (!NavItemShown(prev)) return;
+            var wm = WindowsManager.Get();
+            if (wm == null) return;
+            var top = wm.TopWindow;
+            if (top == null || top == wm.BaseMenu) return;      // 常驻主菜单不是那五颗/事件钮开的窗 ⇒ 不归这一条管
+            // ⚠️ **如实记的近似**：原版关的是「那颗钮**自己**开的窗」（`currentWindow` 字段），我们这里取「最上面那扇」。
+            //   最上面那扇是**弹窗**时（提示框/确认框压在导航窗上）⇒ **不关**（此时关掉它会关错对象）；真正的
+            //   per-nav 窗口账要等 L434 那批把 `LiveopMenuContainer.currentWindow` 建出来再补。
+            if (top.type == WindowType.Popup) return;
+            Debug.Log("[Menu] 换导航钮：第 " + (prev + 1) + " 颗的 `closeOnToggleChangeToFalse = 1` ⇒ 关掉它开的那扇 `"
+                    + top.name + "`（原版 `OpenWindowButton__ToggleValueChange.c` 的 `option == 0` 支）");
+            top.Close();
+        }
+
+        // ============================================================================================
+        //  🆕 B89-E30（账 `L412` / `L477`）：**两条「重建」跳**（追加在类尾，⛔ 别插到中间去）
+        //
+        //  · `L412` `LiveopMenuContainer.OnLocalize()` —— 原版换语言时由 `LocalizationManager` 的
+        //    `OnLocalizeCallback` 打到每颗活动容器上，容器**自己**把 title / 倒计时重设一遍。
+        //    我们这侧：左栏 6 颗导航（`BuildNavigationPanel` 里字是 `Loc.T` 现查的）与模式卡标题/时间
+        //    （`_placeAllCards` 里同样是现查）**都在设置窗后面活着**，所以换语言之后要**重建**这两处。
+        //    广播口 = `Core/Loc.LanguageChanged`（`SetLanguage` 真改了值才发）。
+        //  · `L477` `NavigationPanelController.OnEventsRefreshed()` —— 原版活动刷新之后重建活动钮。
+        //    我们这侧的注入口一直在（`Shell/LiveOpsFilter.cs` 的 `LiveOpsParentEventRefresh.OnEventsRefreshed`，
+        //    `ParentEventHandler.BeforeRefresh` 在「全部不在期」时调它），但**从来没有真订户**
+        //    ⇒ 今天它只会打一条「本仓没有等价物」的告警。这里把它接上。
+        //
+        //  🔴 为什么落在**本类**而不是 `LiveOpsFilter.cs`：那两份数据（导航面板 / 模式卡内容）都是**本类实例的**，
+        //    静态钩子里拿不到别的宿主 ⇒ 按「谁拥有那棵树谁订」订（形态照 `Battle/BattleHudLanguage.cs`：
+        //    `-=`/`+=` 幂等订 + 销毁时摘）。⛔ 别改成「静态事件里满地找实例」。
+        //  ⚠️ **批处理里 `Awake` 不跑** ⇒ 只能挂在 `Build()`（自检与 Play 走同一条路），所以订阅点在
+        //    `BuildNavigationPanel` 那一行（同一行两个语句，为的是**不动下游账落点行号**）。
+        // ============================================================================================
+
+        /// <summary>把换语言那条订阅订上（**幂等**：先摘后挂，重建菜单不会攒出第二份）。
+        /// <para>⚠️ **只订 `Loc.LanguageChanged`**：`L477` 那条（活动刷新）走的是
+        /// `LiveOpsParentEventRefresh.OnEventsRefreshed` 的**静态默认实现**
+        /// （`Shell/LiveOpsFilter.cs` 的 `OnEventsRefreshedDefault` → 本类的
+        /// <see cref="RebuildNavForLiveOpsRefresh"/>）—— 那是个**单值 Action**，在这里 `+=`
+        /// 会与默认实现串成两条 ⇒ **一次刷新重建两遍**。⛔ 别再往这里加。</para></summary>
+        void HookMenuRebuildBroadcasts()
+        {
+            Loc.LanguageChanged -= OnLanguageChangedRebuild;
+            Loc.LanguageChanged += OnLanguageChangedRebuild;
+        }
+
+        /// <summary>摘掉换语言那条订阅（`OnDestroy` 那一跳）。⚠️ **不置空整个事件** —— 别的宿主可能也订过。</summary>
+        void UnhookMenuRebuildBroadcasts()
+        {
+            Loc.LanguageChanged -= OnLanguageChangedRebuild;
+        }
+
+        /// <summary>账 `L412`：换语言 ⇒ 重建左栏 + 模式卡标题/时间。
+        /// <para>⚠️ 本方法**不判断「语言有没有变」** —— 那道闸在 `Loc.SetLanguage`（值没变就早退、不发广播）。</para></summary>
+        void OnLanguageChangedRebuild()
+        {
+            bool nav = RebuildNavPanel("换语言");
+            bool cards = RebuildModeCardsForLanguage();
+            _languageRebuilds++;
+            Debug.Log("[Menu] 换语言 ⇒ " + (nav ? "左栏重建 1 次" : "左栏**没建**（菜单树不在）")
+                    + " + " + (cards ? "模式卡标题/时间重建 1 次" : "模式卡**没建**")
+                    + "（原版 `LiveopMenuContainer.OnLocalize` 一路；重建后的字全部由 `Loc.T` 现查）");
+        }
+
+        /// <summary>账 `L477`：活动刷新 ⇒ 重建左栏（原版 `NavigationPanelController.OnEventsRefreshed`）。
+        /// <para>🔴 **调用方 = `Shell/LiveOpsFilter.OnEventsRefreshedDefault`**（那个钩子的静态默认实现，
+        /// 调时才用 `Instance` 解析到本对象）⇒ ⛔ 别再在本类里 `+=` 订阅一次（会重建两遍）。</para>
+        /// <para>⚠️ 原版还带一条「把导航点回主菜单」的跳，那一条走同一个钩子对象的 `SelectMainTab`
+        /// （`LiveOpsParentEventRefresh` 里已经有默认实现），⛔ 不在本方法里再做一遍。</para></summary>
+        public void RebuildNavForLiveOpsRefresh()
+        {
+            bool nav = RebuildNavPanel("LiveOps 活动刷新");
+            _liveOpsNavRebuilds++;
+            if (nav)
+                Debug.Log("[Menu] 活动刷新 ⇒ 左栏重建 1 次（原版 `NavigationPanelController.OnEventsRefreshed`；"
+                        + "第 6 颗活动钮按当前在期 Parent 事件重建，见 `BuildEventNavButtons`）");
+        }
+
+        /// <summary>把左栏整棵重建（= 原版 `NavigationPanelController` 那两条「刷新后重建」的落地）。
+        /// <para>⚠️ **Play 下旧面板是 `Destroy`（帧末才真销毁）** ⇒ 同一帧里场上会短暂有两套同名节点；
+        /// `_navPanel` 已指向新的那一套（`SetNavPanelVisible` / `NavPanelXForTest` 读的都是它）。
+        /// 这与 `Build()` 自己那轮「先清后建」同一条语义（那里也是 `DestroySafe`）。</para>
+        /// <returns>`false` = 菜单树还没建（或取不到父件）⇒ **已出声**，什么都没做。</returns></summary>
+        bool RebuildNavPanel(string why)
+        {
+            if (_navPanel == null)
+            {
+                Debug.LogWarning("[Menu] " + why + "：要重建左栏，但 `Navigation Panel` 还没建（菜单树不在这一场）⇒ 跳过（⛔ 不静默）");
+                return false;
+            }
+            var parent = _navPanel.parent;
+            if (parent == null)
+            {
+                Debug.LogWarning("[Menu] " + why + "：`Navigation Panel` 没有父件 ⇒ 重建不了（节点树被摘过？）");
+                return false;
+            }
+            var old = _navPanel.gameObject;
+            _navPanel = null;
+            DestroySafe(old);
+            BuildNavigationPanel(parent);      // 内部会重建 6 颗钮的命中区（末尾 `RefreshNavHitQueue`）
+            return true;
+        }
+
+        /// <summary>模式卡那一族换语言：标题 / 倒计时都是 `Loc.T` + 归属活动**现查**的
+        /// （见 `_placeAllCards` 与 `BuildModeCardForCard`）⇒ 最省的一步就是**照滚动重建那条路整片重摆**。
+        /// <returns>`false` = 模式卡内容还没建。</returns></summary>
+        bool RebuildModeCardsForLanguage()
+        {
+            if (_modeContent == null || _placeAllCards == null) return false;
+            RebuildModeCards();                // 销毁 Content 子件 → `_placeAllCards()`（与滚轮那条同一个口）
+            return true;
+        }
+
+        int _languageRebuilds, _liveOpsNavRebuilds;
+
+        /// <summary>自检读口：换语言重建跑过几次（账 `L412`）。
+        /// 用法：`Loc.LanguageChanged` 有人订 ⇒ 先断订户 ≥ 1，再 `Loc.SetLanguage(另一种)` ⇒ 本数 +1。</summary>
+        public int LanguageRebuildsForTest { get { return _languageRebuilds; } }
+        /// <summary>自检读口：活动刷新重建跑过几次（账 `L477`）。</summary>
+        public int LiveOpsNavRebuildsForTest { get { return _liveOpsNavRebuilds; } }
     }
 }

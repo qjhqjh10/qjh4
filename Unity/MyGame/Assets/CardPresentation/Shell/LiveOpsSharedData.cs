@@ -411,4 +411,168 @@ namespace CardPresentation
             Persistence = null;
         }
     }
+
+    // ============================================================ 原版 `RankedSharedData`（`GameModes` +0x80 / +0x88）
+    /// <summary>原版 `RankedSharedData`（`RankedSharedData.cs`，字段逐个抄；偏移见 `dump.cs:62900`）：
+    /// `previousLeaderboard(+0x10)` · `lastPlayedSeason(+0x18)` · `lastPlayedEvent(+0x20)` ·
+    /// `HighestPosition(+0x28)` · `SeasonPositions(+0x30)` · `isHuman(+0x38)` ·
+    /// `highestScoreSeason(+0x3C)` · `lossStreak(+0x40)`。
+    /// <para>🔴 **构造默认值是原版的语义，别删**（`RankedSharedData__ctor.c`）：
+    /// `HighestPosition = new LeaguePositionRecord { Position = int.MaxValue }`（= 「还没有名次」）、
+    /// `SeasonPositions = new Dictionary&lt;int,int&gt;()`。</para>
+    /// <para>⚠️ 差异：原版由 `JsonWrapper.DeserializeObject&lt;RankedSharedData&gt;`（Newtonsoft）反序列化；
+    /// 我们**没有 Newtonsoft**，而 `JsonUtility` **不支持 `Dictionary`** ⇒ 本类自带 <see cref="FromJson"/>，
+    /// 逐格从 <see cref="LiveOpsJson"/> 读数（**JSON 形状与原版逐字一致**，⛔ 没有把字段改成 List）。</para></summary>
+    [Serializable]
+    public class RankedSharedData
+    {
+        /// <summary>原版 `previousLeaderboard`（string，+0x10）。</summary>
+        public string previousLeaderboard;
+        /// <summary>原版 `lastPlayedSeason`（int，+0x18）。</summary>
+        public int lastPlayedSeason;
+        /// <summary>原版 `lastPlayedEvent`（string，+0x20）。</summary>
+        public string lastPlayedEvent;
+        /// <summary>原版 `HighestPosition`（`LeaguePositionRecord`，+0x28）。默认 `Position = int.MaxValue`。</summary>
+        public LeaguePositionRecord HighestPosition;
+        /// <summary>原版 `SeasonPositions`（`Dictionary&lt;int,int&gt;`，+0x30）。JSON 里是 `{"<季>": 分}` 的对象。</summary>
+        public Dictionary<int, int> SeasonPositions;
+        /// <summary>原版 `isHuman`（bool，+0x38）：由 `GameModes.SetIsHuman()` 置 true。</summary>
+        public bool isHuman;
+        /// <summary>原版 `highestScoreSeason`（int，+0x3C）。</summary>
+        public int highestScoreSeason;
+        /// <summary>原版 `lossStreak`（int，+0x40）：由 `GameModes.SetLossStreak(int)` 写。</summary>
+        public int lossStreak;
+
+        /// <summary>原版 ctor（`RankedSharedData__ctor.c`）：两格默认值**必须**在这里给。</summary>
+        public RankedSharedData()
+        {
+            HighestPosition = new LeaguePositionRecord { Position = int.MaxValue };
+            SeasonPositions = new Dictionary<int, int>();
+        }
+
+        /// <summary>原版 `JsonWrapper.DeserializeObject&lt;RankedSharedData&gt;(token)` 的等价物。
+        /// <para>`j == null` ⇒ **返回 null**（原版 `DeserializeObject(null)` 也为 null，调用方据此走回落链）。</para></summary>
+        public static RankedSharedData FromJson(LiveOpsJson j)
+        {
+            if (j == null) return null;
+            var d = new RankedSharedData();                 // 先拿 ctor 的默认值（原版同样先跑 ctor 再覆盖）
+            string s; long l; bool b;
+
+            if (j.TryGetString("previousLeaderboard", out s)) d.previousLeaderboard = s;
+            if (j.TryGetLong("lastPlayedSeason", out l)) d.lastPlayedSeason = (int)l;
+            if (j.TryGetString("lastPlayedEvent", out s)) d.lastPlayedEvent = s;
+            if (j.TryGetLong("highestScoreSeason", out l)) d.highestScoreSeason = (int)l;
+            if (j.TryGetLong("lossStreak", out l)) d.lossStreak = (int)l;
+            // `isHuman`：Newtonsoft 会把 1/0 也转成 bool ⇒ 两档都读。
+            if (j.TryGetBool("isHuman", out b)) d.isHuman = b;
+            else if (j.TryGetLong("isHuman", out l)) d.isHuman = l != 0;
+
+            var pos = j.GetObject("HighestPosition");
+            if (pos != null)
+            {
+                var rec = new LeaguePositionRecord { Position = int.MaxValue };
+                if (pos.TryGetLong("Position", out l)) rec.Position = (int)l;
+                if (pos.TryGetLong("Rating", out l)) rec.Rating = (int)l;
+                if (pos.TryGetLong("Season", out l)) rec.Season = (int)l;
+                d.HighestPosition = rec;
+            }
+
+            var seasons = j.GetObject("SeasonPositions");
+            if (seasons != null)
+            {
+                foreach (var key in seasons.Keys)
+                {
+                    int season;
+                    if (!int.TryParse(key, NumberStyles.Integer, CultureInfo.InvariantCulture, out season)) continue;
+                    if (!seasons.TryGetLong(key, out l)) continue;
+                    d.SeasonPositions[season] = (int)l;
+                }
+            }
+            return d;
+        }
+    }
+
+    /// <summary>原版 `LeaguePositionRecord`（`LeaguePositionRecord.cs`）：`Position` / `Rating` / `Season` 三个 int。
+    /// <para>🔴 默认 `Position = int.MaxValue` 是 `RankedSharedData` 的 ctor 给的（不是本类的）—— 本类保持全 0。</para></summary>
+    [Serializable]
+    public class LeaguePositionRecord
+    {
+        public int Position;
+        public int Rating;
+        public int Season;
+    }
+
+    /// <summary>原版 `ResultValues`（`ResultValues.cs`，偏移 `Won +0x10 / Loss +0x14 / Draw +0x18`）。
+    /// ⚠️ 字段名是**大写开头**的（原版就是这样），JSON 键也就是 `Won`/`Loss`/`Draw`。</summary>
+    [Serializable]
+    public class ResultValues
+    {
+        public int Won;
+        public int Loss;
+        public int Draw;
+    }
+
+    /// <summary>原版 `ResultCounterSharedData`（`dump.cs:62920`）：`ResultCounter` = `Dictionary&lt;string, ResultValues&gt;`
+    /// （把「模式 → 胜负平计数」存成一张表）。
+    /// <para>⚠️ 差异同 `RankedSharedData`：没有 Newtonsoft、`JsonUtility` 不吃 `Dictionary` ⇒ 自带 <see cref="FromJson"/>
+    /// （JSON 形状逐字照原版：`{"ResultCounter":{"Classic":{"Won":1,"Loss":2,"Draw":0}}}`）。</para></summary>
+    [Serializable]
+    public class ResultCounterSharedData
+    {
+        /// <summary>原版 `ResultCounter`（`Dictionary&lt;string, ResultValues&gt;`）。</summary>
+        public Dictionary<string, ResultValues> ResultCounter;
+
+        public ResultCounterSharedData()
+        {
+            ResultCounter = new Dictionary<string, ResultValues>();
+        }
+
+        /// <summary>原版 `ResultCounterSharedData.GetValuesForMode(string)`（`ResultCounterSharedData__GetValuesForMode.c`）：
+        /// **取不到就新建一条并返回它**（不是返回 null）；`ResultCounter` 为 null ⇒ 原版返回 null（随后 NRE）。
+        /// <para>⚠️ 差异：`playMode` 为 null 时原版 `Dictionary` 抛 `ArgumentNullException`，我们返回 null 并出声
+        /// （调用方 <see cref="CardPresentation.GameModesHandler.SetResultCount"/> 会 LogError）。</para></summary>
+        public ResultValues GetValuesForMode(string playMode)
+        {
+            if (ResultCounter == null) return null;
+            if (playMode == null)
+            {
+                Debug.LogError("[LiveOps] ResultCounterSharedData.GetValuesForMode：playMode 是 null"
+                             + "（原版 Dictionary 会抛 ArgumentNullException）⇒ 返回 null");
+                return null;
+            }
+            ResultValues v;
+            if (ResultCounter.TryGetValue(playMode, out v)) return v;
+            v = new ResultValues();
+            ResultCounter[playMode] = v;
+            return v;
+        }
+
+        /// <summary>原版 `JsonWrapper.DeserializeObject&lt;ResultCounterSharedData&gt;(整份 sharedData)` 的等价物。
+        /// 🔴 读的是**顶层** `ResultCounter` 那一块（原版就是拿整份 sharedData 去反序列化，不是取子键）。
+        /// <para>`j == null` ⇒ 返回 null；`ResultCounter` 缺失 ⇒ 空表（原版同样得到空表）。</para></summary>
+        public static ResultCounterSharedData FromJson(LiveOpsJson j)
+        {
+            if (j == null) return null;
+            var d = new ResultCounterSharedData();
+            var block = j.GetObject("ResultCounter");
+            if (block == null) return d;
+            foreach (var mode in block.Keys)
+            {
+                var cell = block.GetObject(mode);
+                if (cell == null)
+                {
+                    Debug.LogError("[LiveOps] ResultCounterSharedData.FromJson：模式 '" + mode
+                                 + "' 的值不是对象（原版 Newtonsoft 会抛）⇒ 跳过这一格");
+                    continue;
+                }
+                var rv = new ResultValues();
+                long l;
+                if (cell.TryGetLong("Won", out l)) rv.Won = (int)l;
+                if (cell.TryGetLong("Loss", out l)) rv.Loss = (int)l;
+                if (cell.TryGetLong("Draw", out l)) rv.Draw = (int)l;
+                d.ResultCounter[mode] = rv;
+            }
+            return d;
+        }
+    }
 }

@@ -797,7 +797,7 @@ public static class DeckScene
             TestDefensiveCardsInEditMode();
 
             Section("状态：加牌 / 删牌 / 督军");
-            TestEditing();
+            TestEditing(); DeckReorderSelfCheck.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail));   // 🆕 2026-10-28（B89-R3f · 账 109）卡组格重排：**纯列表**断言（只吃 `List<string>` ⇒ 摸不到存档/真卡组）；同一行追加 ⇒ 文件行数不变、账落点零漂移
 
             Section("状态：费用曲线与滚动窗口");
             TestCurveAndScroll();

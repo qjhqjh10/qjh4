@@ -367,4 +367,508 @@ public static class AudioSetup
         }
         return null;
     }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    //  🆕 **2026-10-28（`B89` · 执行代理 `E13`）：把原版 6 条快照的【真实数值】写进 mixer**
+    //
+    //  🔴 **要解决的问题**：快照壳建好了（6/6 命中），但 6 条全是空的（`m_FloatValues: {}`）
+    //     ⇒ `WarpforgeAudio.ToggleSFX` 切了**等于没切**（`SoundManager.ToggleSFX` 账 `音频/语音:80`）。
+    //
+    //  ==== 判据（解包资源，逐字段亲读；⛔ 不是按名字猜的）====
+    //  ① 原版有 **3 份** AudioMixer（不是 1 份）：
+    //       · `Main Mixer`（pathID 4889565729752889476）组 = Master / FX / Music / Voices / Jingles
+    //       · `Music`（−371249942676188183）组 = Master / General / BattleGroupLow / BattleGroupMedium / BattleGroupHigh
+    //       · `FX`（−3989599372716181902）组 = Master / General
+    //     出处：`d:/2/新解包资源/assets_full/bundle_audiocontrol_assets_all/AudioMixerController/*.json`
+    //           ＋ `sharedassets0/AudioMixerController/{308,309,310}.json`（两份 `m_MixerConstant.snapshots` 逐值相同）
+    //
+    //  ② `SnapshotsType → 快照` 的映射**是从原版 SO 实读的**（⛔ 不是按快照名相似度猜的）：
+    //     `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3594.json`（类 `AudioMixerAddresableReferences`）
+    //     的 `snapshots[]`：
+    //       customType 0 → 6764119139241457266  FX `General`
+    //       customType 1 → 8068468039719941746  FX `NoVolume`
+    //       customType 2 → −3926211066113174551 Music `BattleMusicLow`
+    //       customType 3 → 774629946988549097  Music `BattleMusicMedium`
+    //       customType 4 → −1533776937643420695 Music `BattleMusicHigh`
+    //       customType 5 → 2527524072104055785 Music `NoBattleMusic`
+    //     同一份 SO 的 `groups[]`（customType 0..6）= FX.General · Music.General · Main.Voices ·
+    //     Main.Jingles · BattleGroupLow / Medium / High。
+    //
+    //  ③ 每条快照的 dB 值 = `AudioMixerController.m_MixerConstant.snapshots[i].values`；
+    //     `values` 的下标由 `m_MixerConstant.groups[j].volumeIndex / pitchIndex` 定
+    //     （Music 组序：Master 0/1 · General 2/3 · Low 4/5 · Medium 6/7 · High 8/9；
+    //       FX 组序：Master 0/1 · General 2/3）⇒ 逐条拆出来是：
+    //       FX `General`             : Master   0.0  · General 0.0 · pitch 全 1.0
+    //       FX `NoVolume`            : Master −80.0  · General 0.0 · pitch 全 1.0
+    //       Music `BattleMusicLow`   : Master 0 · General 0 · **Low 0.0**  · Medium −80 · High −80
+    //       Music `BattleMusicMedium`: Master 0 · General 0 · Low −80 · **Medium 0.025578511878848076** · High −80
+    //       Music `BattleMusicHigh`  : Master 0 · General 0 · Low −80 · Medium −80 · **High 0.0**
+    //       Music `NoBattleMusic`    : Master 0 · General 0 · Low −80 · Medium −80 · High −80
+    //
+    //  ④ 过渡覆盖：Music 那 4 条 = `Attenuation`（`UnityEditor.Audio.ParameterTransitionType` 的第 6 号）
+    //     打在**三个 BattleGroup 的音量参数**上（`transitionIndices: [4,6,8]`）；FX 那 2 条 =
+    //     **一条覆盖都没有**（`transitionTypes: []`）。
+    //
+    //  ==== 🔶 自己设计（非原版）：`原版快照 → 我们哪个组` 这一层【投影】====
+    //  原版快照落在**子 mixer** 上（FX 的 Master / Music 的 BattleGroup*），而我们是**一份混好的
+    //  mixer**（Master + FX / Music / Voices / Jingles），既没有子 mixer、也没有 BattleGroup* ⇒
+    //  只能投到 `FX` / `Music` 两个组：
+    //    · `SFX *`   → `FX`    组 = FX 子树的有效增益（其 Master 与 General 都是 0 dB ⇒ 就取 Master 那档）
+    //    · `Music *` → `Music` 组 = Master + General + **当前听得见的那一条 BattleGroup** 之和
+    //  两条代价（如实记，⛔ 别当成等价）：
+    //    ① `Music Low / Medium / High` 数值上几乎同值（差 ≤ 0.026 dB）—— 因为「放哪一条轨道」在我们
+    //       这儿是 `Battle/BattleMusic.cs` 用**代码线性淡变**做的（那是最早的等价实现），不是 mixer
+    //       切的；6 条里只有 `Music None`(−80 dB) 听得出差别。
+    //    ② 原版快照落子 mixer ⇒ **不与音量滑块抢**；我们落主 mixer 的组 ⇒ 与本 mixer 的
+    //       `m_ExposedParameters` 里 `VolumeFX` / `VolumeMusic` **是同一根浮点**（那两条 guid 就是
+    //       该组的 `m_Volume`）⇒ **切快照会覆盖滑块设过的值**。根治 = 给 `FX` / `Music` 各加一个
+    //       子组（如 `FX Content` / `Music Content`）并把音源改挂子组 —— 那是**运行时路由**改动，
+    //       不在本入口权限内 ⇒ 已写进报告交调度台（`报告/B89_E13_mixer快照取值.md` §4）。
+    //  ⚠️ 另记：本 mixer 的 `m_TargetSnapshot` = `Music None`（编辑器状态字段）；写值之后它带
+    //     −80 dB 的 Music 值。运行时起始快照是 `m_StartSnapshot` = `SFX On`（不带 Music 值），
+    //     所以不影响开局；但**在 Mixer 窗口里看到的当前快照**会是 `Music None`，别当成 bug。
+    //
+    //  幂等：`SetValueForVolume` 是**覆盖写字**，同一组值写两次结果相同。
+    //  入口：`-executeMethod AudioSetup.SetSnapshotValues`（写完**逐条读回**打印，不一致就红）
+    //        `-executeMethod AudioSetup.VerifySnapshotValues`（只读复核，不写盘）
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>一条「写进哪个组 / 写成多少 dB / 要不要 Attenuation 过渡覆盖」。
+    /// **下标 = `SnapshotsType` 的值**（快照名只此一份 = <see cref="WarpforgeAudio.SnapshotNames"/>，⛔ 别在这里再抄）。</summary>
+    struct SnapshotValueRow
+    {
+        public string Group; public float Db; public bool Attenuation;
+        public SnapshotValueRow(string group, float db, bool attenuation)
+        { Group = group; Db = db; Attenuation = attenuation; }
+    }
+
+    /// <summary>原版 6 条快照的组音量 dB（判据见上「🆕 2026-10-28（B89 · E13）」那一段的值表）。
+    /// 顺序 = <see cref="SnapshotsType"/> 的枚举值顺序。</summary>
+    static readonly SnapshotValueRow[] SnapshotValuesTable =
+    {
+        new SnapshotValueRow("FX",     0f,           false),   // FxNormal            ← FX `General`            : Master   0.0 dB
+        new SnapshotValueRow("FX",    -80f,          false),   // FxNoVolume          ← FX `NoVolume`           : Master −80.0 dB
+        new SnapshotValueRow("Music",  0f,           true),    // MusicBattleMusicLow    ← Music `BattleMusicLow`   : Low 0.0 dB
+        new SnapshotValueRow("Music",  0.025578512f, true),    // MusicBattleMusicMedium ← Music `BattleMusicMedium`: Medium 0.025578511878848076 dB
+        new SnapshotValueRow("Music",  0f,           true),    // MusicBattleMusicHigh   ← Music `BattleMusicHigh`  : High 0.0 dB
+        new SnapshotValueRow("Music", -80f,          true),    // MusicBattleMusicNoMusic← Music `NoBattleMusic`   : 三条全 −80 dB
+    };
+
+    /// <summary>原版那 6 条快照的**原名**（⚠️ 只用于日志/报告里标注「这条数是从哪儿抄的」；
+    /// ⛔ 不参与查找 —— mixer 里存的是 `WarpforgeAudio.SnapshotNames` 那一组名字）。</summary>
+    static readonly string[] OriginalSnapshotLabels =
+    {
+        "FX/General", "FX/NoVolume",
+        "Music/BattleMusicLow", "Music/BattleMusicMedium", "Music/BattleMusicHigh", "Music/NoBattleMusic",
+    };
+
+    /// <summary>上一次 <see cref="VerifySnapshotValuesReport"/> 里「与原版不一致 / 取不到」的条数（0 = 全对）。</summary>
+    public static int SnapshotValueFailures { get; private set; }
+
+    /// <summary>把原版 6 条快照的组音量写进 mixer（幂等；写完逐条读回，读不回期望值就出声）。</summary>
+    [MenuItem("Warpforge/音频/写快照数值")]
+    public static void SetSnapshotValues()
+    {
+        object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
+        MethodInfo setVolume, getVolume;
+        if (!TryOpenMixerForSnapshotValues(out ctl, out ctlType, out groups, out snaps,
+                                           out setVolume, out getVolume))
+        { DoneSv(0, SnapshotValuesTable.Length); return; }
+
+        Type groupType = null, snapType = null;
+        foreach (var g in groups) if (g != null) { groupType = g.GetType(); break; }
+        foreach (var s in snaps) if (s != null) { snapType = s.GetType(); break; }
+
+        // 过渡覆盖那半边（原版 Music 的 4 条 = Attenuation）。拿不到 ⇒ 只少一条「整复刻」，⛔ 不挡数值写入。
+        MethodInfo setTr = snapType.GetMethod("SetTransitionTypeOverride", BindingFlags.Public | BindingFlags.Instance);
+        MethodInfo clrTr = snapType.GetMethod("ClearTransitionTypeOverride", BindingFlags.Public | BindingFlags.Instance);
+        MethodInfo getGuid = groupType.GetMethod("GetGUIDForVolume", BindingFlags.Public | BindingFlags.Instance);
+        object trAttenuation = null;
+        if (setTr != null)
+        {
+            var ps = setTr.GetParameters();
+            if (ps.Length == 2 && ps[1].ParameterType.IsEnum) trAttenuation = Enum.ToObject(ps[1].ParameterType, 6);
+        }
+        if (setTr == null || getGuid == null || trAttenuation == null)
+        {
+            Debug.LogWarning("AUD-SV 拿不到 `SetTransitionTypeOverride` / `GetGUIDForVolume` / 枚举值 6 ⇒ "
+                           + "**过渡覆盖那半边这次不写**（原版 Music 的 4 条是 `Attenuation`）；**数值照写**。");
+            setTr = clrTr = null;
+        }
+
+        int ok = 0, fail = 0;
+        for (int i = 0; i < SnapshotValuesTable.Length; i++)
+        {
+            string snapName = WarpforgeAudio.SnapshotNames[i];
+            var row = SnapshotValuesTable[i];
+            object snap = FindObjectByName(snaps, snapName);
+            object group = FindObjectByName(groups, row.Group);
+            if (snap == null || group == null)
+            {
+                fail++;
+                Debug.LogError($"AUD-SV [{i}] `{snapName}` → 组 `{row.Group}`："
+                             + (snap == null ? "**快照不存在**（先跑 `-executeMethod AudioSetup.CreateSnapshots`）" : "")
+                             + (group == null ? $"**组 `{row.Group}` 不存在**（先跑 `AudioSetup.CreateMixer` + `工具/setup_audio_mixer.py`）" : ""));
+                continue;
+            }
+
+            setVolume.Invoke(group, new object[] { ctl, snap, row.Db });
+            float got = ReadVolumeForSnapshot(getVolume, group, ctl, snap);
+            if (Mathf.Abs(got - row.Db) < 0.001f) ok++;
+            else
+            {
+                fail++;
+                Debug.LogError($"AUD-SV [{i}] `{snapName}` / `{row.Group}` **写不进**：期望 {row.Db:F3} dB · 读回 {got:F3} dB");
+            }
+
+            string tr = "（本入口没写）";
+            if (setTr != null)
+            {
+                try
+                {
+                    object guid = getGuid.Invoke(group, null);
+                    if (row.Attenuation) { setTr.Invoke(snap, new[] { guid, trAttenuation }); tr = "Attenuation"; }
+                    else { clrTr.Invoke(snap, new[] { guid }); tr = "无（原版这两条也是空的）"; }
+                }
+                catch (Exception e) { tr = "**写失败**：" + e.Message; Debug.LogWarning($"AUD-SV [{i}] `{snapName}` 过渡覆盖：{e.Message}"); }
+            }
+            Debug.Log($"AUD-SV [{i}] `{snapName}` → 组 `{row.Group}` = {got:F3} dB · 过渡覆盖 {tr}"
+                    + $" · 原版快照 `{OriginalSnapshotLabels[i]}`");
+        }
+
+        // 内部 API 是 native 写：SetDirty + SaveAssets 才真落盘（判据 → 本仓「SetDirty 之后回读抓不到没落盘」那条坑）
+        if (ctl is UnityEngine.Object ctlObj) EditorUtility.SetDirty(ctlObj);
+        foreach (var s in snaps) if (s is UnityEngine.Object so) EditorUtility.SetDirty(so);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Debug.Log($"AUD-SV === 合计：{ok} 条写入 / {fail} 条失败 ===（复核：`-executeMethod AudioSetup.VerifySnapshotValues`）");
+        DoneSv(ok, fail);
+    }
+
+    /// <summary>只读复核入口：逐条比对 6 条快照的组音量与原版 dB（不写盘）。</summary>
+    public static void VerifySnapshotValues()
+    {
+        string rep = VerifySnapshotValuesReport();
+        Debug.Log(rep);
+        DoneSv(SnapshotValuesTable.Length - SnapshotValueFailures, SnapshotValueFailures);
+    }
+
+    /// <summary>只读复核（返回可打印的报告；顺便更新 <see cref="SnapshotValueFailures"/>）。
+    /// 供 <c>Editor/AudioSnapshotCheck.cs</c> 复用（那里只加断言、不重复一份反射）。</summary>
+    public static string VerifySnapshotValuesReport()
+    {
+        SnapshotValueFailures = 0;
+        var sb = new System.Text.StringBuilder();
+        sb.Append("AUD-SV-V 6 条快照的组音量（对照原版解包值）\n");
+
+        object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
+        MethodInfo setVolume, getVolume;
+        if (!TryOpenMixerForSnapshotValues(out ctl, out ctlType, out groups, out snaps,
+                                           out setVolume, out getVolume))
+        {
+            SnapshotValueFailures = SnapshotValuesTable.Length;
+            sb.Append("  ✗ 打开 mixer / 取内部 API 失败（上面已有 LogError）\n");
+            return sb.ToString();
+        }
+
+        for (int i = 0; i < SnapshotValuesTable.Length; i++)
+        {
+            string snapName = WarpforgeAudio.SnapshotNames[i];
+            var row = SnapshotValuesTable[i];
+            object snap = FindObjectByName(snaps, snapName);
+            object group = FindObjectByName(groups, row.Group);
+            if (snap == null || group == null)
+            {
+                SnapshotValueFailures++;
+                sb.Append($"  ✗ [{i}] `{snapName}` / `{row.Group}`：")
+                  .Append(snap == null ? "快照不存在（跑 `AudioSetup.CreateSnapshots`）" : "组不存在（跑 `AudioSetup.CreateMixer`）")
+                  .Append('\n');
+                continue;
+            }
+            float got = ReadVolumeForSnapshot(getVolume, group, ctl, snap);
+            bool ok = Mathf.Abs(got - row.Db) < 0.001f;
+            if (!ok) SnapshotValueFailures++;
+            sb.Append($"  {(ok ? "✓" : "✗")} [{i}] `{snapName}` / `{row.Group}`：期望 {row.Db:F3} dB · 实得 {got:F3} dB"
+                    + $"（原版快照 `{OriginalSnapshotLabels[i]}`）\n");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>反射取齐写快照要的 5 样：controller 实例 / 它的类型 / 组集合 / 快照集合 / 两个音量读写方法。
+    /// 失败 ⇒ **出声**并返回 false（⛔ 不静默）。
+    /// <para>实测签名（`ilspycmd` 反编译 Unity 6000.3.23f1 的 `UnityEditor.CoreModule.dll`）：
+    /// <c>AudioMixerGroupController.SetValueForVolume(AudioMixerController, AudioMixerSnapshotController, float)</c> ·
+    /// <c>...GetValueForVolume(AudioMixerController, AudioMixerSnapshotController) → float</c> ·
+    /// <c>AudioMixerController.GetAllAudioGroupsSlow() → List&lt;AudioMixerGroupController&gt;</c> ·
+    /// <c>AudioMixerController.snapshots → AudioMixerSnapshotController[]</c>。</para></summary>
+    static bool TryOpenMixerForSnapshotValues(out object ctl, out Type ctlType,
+                                              out System.Collections.IList groups, out Array snaps,
+                                              out MethodInfo setVolume, out MethodInfo getVolume)
+    {
+        ctl = null; ctlType = null; groups = null; snaps = null; setVolume = null; getVolume = null;
+
+        if (SnapshotValuesTable.Length != WarpforgeAudio.SnapshotNames.Length
+            || OriginalSnapshotLabels.Length != SnapshotValuesTable.Length)
+        {
+            Debug.LogError($"AUD-SV **前提不成立**：值表 {SnapshotValuesTable.Length} 条 / 快照名 "
+                         + $"{WarpforgeAudio.SnapshotNames.Length} 条 / 原版标签 {OriginalSnapshotLabels.Length} 条 —— "
+                         + "三者必须一样长（下标 = `SnapshotsType` 的值），否则会静默错档");
+            return false;
+        }
+
+        var path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(MixerResource));
+        if (string.IsNullOrEmpty(path))
+        {
+            Debug.LogError("AUD-SV 找不到 mixer 资产 —— 先跑 `-executeMethod AudioSetup.CreateMixer`（再跑 `工具/setup_audio_mixer.py`）");
+            return false;
+        }
+        ctlType = FindControllerType();
+        ctl = FindControllerInstance(path);
+        if (ctlType == null || ctl == null)
+        {
+            Debug.LogError("AUD-SV 取不到 `UnityEditor.Audio.AudioMixerController` 实例（内部 API 改名？见本文件头三步）");
+            return false;
+        }
+
+        groups = ReadMember(ctlType, ctl, "GetAllAudioGroupsSlow") as System.Collections.IList;
+        snaps  = ReadMember(ctlType, ctl, "snapshots") as Array;
+        if (groups == null || snaps == null)
+        {
+            Debug.LogError("AUD-SV 取不到 `AudioMixerController.GetAllAudioGroupsSlow()` 或 `.snapshots`"
+                         + "（本 Unity 版本的内部 API 形态变了）");
+            return false;
+        }
+
+        Type groupType = null, snapType = null;
+        foreach (var g in groups) if (g != null) { groupType = g.GetType(); break; }
+        foreach (var s in snaps) if (s != null) { snapType = s.GetType(); break; }
+        if (groupType == null || snapType == null)
+        {
+            Debug.LogError("AUD-SV mixer 里没有组或没有快照（先跑 `AudioSetup.CreateMixer` / `AudioSetup.CreateSnapshots`）");
+            return false;
+        }
+
+        // ⚠️ 形参类型用 `ctl.GetType()`（**实例的真类型**）而不是 `FindControllerType()` 找回来的那个 ——
+        //    两者正常是同一个 `Type`，但若哪天 AppDomain 里出现两份同名程序集，用实例类型才是稳的。
+        Type ctlActual = ctl.GetType();
+        setVolume = groupType.GetMethod("SetValueForVolume", BindingFlags.Public | BindingFlags.Instance, null,
+                                        new[] { ctlActual, snapType, typeof(float) }, null);
+        getVolume = groupType.GetMethod("GetValueForVolume", BindingFlags.Public | BindingFlags.Instance, null,
+                                        new[] { ctlActual, snapType }, null);
+        if (setVolume == null || getVolume == null)
+        {
+            Debug.LogError("AUD-SV `AudioMixerGroupController.SetValueForVolume(AudioMixerController, "
+                         + "AudioMixerSnapshotController, float)` 不存在 —— 内部 API 变了。"
+                         + "⛔ 别手改 `.mixer`（`m_FloatValues` 的键是参数 GUID，手改必错）");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>按名字在**组集合 / 快照集合**里找一个（元素都是 `UnityEngine.Object`）。取不到 ⇒ null。</summary>
+    static object FindObjectByName(System.Collections.IEnumerable items, string name)
+    {
+        if (items == null || string.IsNullOrEmpty(name)) return null;
+        foreach (var it in items)
+        {
+            if (it is UnityEngine.Object o && o.name == name) return it;
+        }
+        return null;
+    }
+
+    /// <summary>读某组在某快照里的音量（dB）。读不到 ⇒ `NaN`（⛔ 别拿 0 顶替 —— 0 dB 是合法值）。</summary>
+    static float ReadVolumeForSnapshot(MethodInfo getVolume, object group, object ctl, object snap)
+    {
+        try
+        {
+            var r = getVolume.Invoke(group, new object[] { ctl, snap });
+            if (r is float f) return f;
+            if (r is double d) return (float)d;
+        }
+        catch (Exception e) { Debug.LogWarning("AUD-SV 读回组音量抛异常：" + e.Message); }
+        return float.NaN;
+    }
+
+    /// <summary>先按属性取、再按无参方法取（`GetAllAudioGroupsSlow` 是方法、`snapshots` 是属性）。</summary>
+    static object ReadMember(Type t, object target, string name)
+    {
+        var p = t.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        if (p != null && p.GetIndexParameters().Length == 0)
+        {
+            try { return p.GetValue(target); } catch { }
+        }
+        var m = t.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                            null, Type.EmptyTypes, null);
+        if (m != null)
+        {
+            try { return m.Invoke(target, null); } catch { }
+        }
+        return null;
+    }
+
+    /// <summary>`SetSnapshotValues` / `VerifySnapshotValues` 的收尾：打印合计，批处理里**按失败数退出**。
+    /// （与 <see cref="Done"/> 同形，只是前缀用 `AUD-SV`，免得两条入口的合计行混在一起。）</summary>
+    static void DoneSv(int pass, int fail) { DoneSv("AUD-SV", pass, fail); }
+
+    /// <summary>带自定义前缀的那一版（`SetMixerDefaults` 用 `AUD-SVD`，免得两种入口的合计行混在一起）。</summary>
+    static void DoneSv(string tag, int pass, int fail)
+    {
+        Debug.Log($"{tag} === 合计：{pass} 通过 / {fail} 失败 ===");
+        if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    //  🆕 **2026-10-28（`B89` · 执行代理 `E13b`）：补上原版 `Main Mixer` 的组默认音量**
+    //
+    //  🔴 **判据**：原版 `Main Mixer`（pathID 4889565729752889476）**只有一条**快照 `Snapshot`，
+    //     它的 `values` 头两项是 `[-0.16685187816619873, 1.0]` ⇒ `Master` 组音量 =
+    //     **−0.16685188 dB**（pitch 1.0）；`FX` / `Music` / `Voices` / `Jingles` 全是 0.0 dB。
+    //     出处：`assets_full/bundle_audiocontrol_assets_all/AudioMixerController/AudioMixerController_4889565729752889476.json`
+    //          ＋ `sharedassets0/AudioMixerController/AudioMixerController_309.json`（逐值相同）。
+    //     我们现在 6 条快照里 `Master` 都是默认 0 dB ⇒ 整体响度比原版高 0.17 dB。
+    //
+    //  ==== 🔴 单位是 **dB、不是线性 0–1**（派活简报说的「要 10^(dB/20)」不成立；三条反证）====
+    //   ① 原版 `m_MixerConstant.snapshots[i].values` 里**同一个数组**既装音量又装 pitch：
+    //      音量是 `0.0` / `−80.0`（**只能是 dB** —— 线性不可能出现负数），pitch 是 `1.0`（线性）。
+    //   ② 编辑器侧 `AudioMixerGroupController`（Unity 6000.3.23f1）**没有 `volume` 属性**：
+    //      `ilspycmd` 反编译 `UnityEditor.CoreModule.dll` 得到的成员只有
+    //      `GetGUIDForVolume()` / `GetValueForVolume(controller, snapshot)` /
+    //      `SetValueForVolume(controller, snapshot, float)` ⇒ 它读写的就是上面那个 `values` 的格子
+    //      ⇒ **与快照同一个单位 = dB**。
+    //   ③ 「线性 0–1」那条口径属于 **运行时** `UnityEngine.Audio.AudioMixerGroup.volume`，
+    //      与编辑器侧的 `SetValueForVolume` 不是同一个 API。
+    //   ⇒ 本入口**直接写 dB**（`-0.16685188f`）。若按线性写 `10^(−0.16685/20) = 0.9810`，
+    //      落进资产会被当 **+0.98 dB** 读出来（方向相反、还差 1.15 dB）⇒ 下面那条读回自检会立刻报红。
+    //  ⚠️ **不与滑块抢**：`Master` 组在本 mixer 里**没有被暴露**（`m_ExposedParameters` 只有
+    //     `VolumeFX` / `VolumeMusic` / `VolumeVoices` / `VolumeJingles`），运行时的
+    //     `WarpforgeAudio.ApplyAll` 也不写它 ⇒ 这一步不会覆盖任何滑块设过的值。
+    //
+    //  ==== 🔶 自己设计（非原版）：写进【每一条】快照，而不是「组默认值」 ====
+    //  原版那个值在 `Main Mixer` 的**唯一一条**快照里（Music/FX 两个子 mixer 的 6 条快照根本不碰
+    //  Main Mixer 的 Master）；我们的 mixer 有 6 条快照、且**没有「组默认值」这一格**
+    //  （见反证②：组音量只按快照存）⇒ 只能往 6 条里各写一份，效果等价（切到哪条 `Master` 都一样）
+    //  · 调度台 2026-10-28 转岗（派活包 §2）。
+    //
+    //  幂等：覆盖写字，同值重写结果不变。
+    //  入口：`-executeMethod AudioSetup.SetMixerDefaults`（写完**逐条读回**）
+    //        `-executeMethod AudioSetup.VerifyMixerDefaults`（只读复核，不写盘）
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>原版 `Main Mixer` 快照里**非 0** 的组音量（其余组原版就是 0 dB，不用写）。
+    /// **单位 = dB**（反证见上面那段「🔴 单位是 dB」）。</summary>
+    static readonly string[] MixerDefaultGroups = { "Master" };
+
+    /// <summary>与 <see cref="MixerDefaultGroups"/> 一一对应的 dB 值。原版精确值 `-0.16685187816619873`。</summary>
+    static readonly float[] MixerDefaultDb = { -0.16685188f };
+
+    /// <summary>上一次 <see cref="VerifyMixerDefaultsReport"/> 里「与原版不一致 / 取不到」的格数（0 = 全对）。</summary>
+    public static int MixerDefaultFailures { get; private set; }
+
+    /// <summary>把原版 `Main Mixer` 起始快照的组音量（`Master = −0.16685188 dB`）写进**每一条**快照。
+    /// 幂等；写完逐格读回，读不回期望值就出声。</summary>
+    [MenuItem("Warpforge/音频/写 Master 默认音量")]
+    public static void SetMixerDefaults()
+    {
+        object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
+        MethodInfo setVolume, getVolume;
+        if (!TryOpenMixerForSnapshotValues(out ctl, out ctlType, out groups, out snaps,
+                                           out setVolume, out getVolume))
+        { DoneSv("AUD-SVD", 0, MixerDefaultGroups.Length); return; }
+
+        int ok = 0, fail = 0, cells = 0;
+        for (int gi = 0; gi < MixerDefaultGroups.Length; gi++)
+        {
+            string groupName = MixerDefaultGroups[gi];
+            float db = MixerDefaultDb[gi];
+            object group = FindObjectByName(groups, groupName);
+            if (group == null)
+            {
+                fail++;
+                Debug.LogError($"AUD-SVD 组 `{groupName}` 不存在（先跑 `AudioSetup.CreateMixer` + `工具/setup_audio_mixer.py`）");
+                continue;
+            }
+            foreach (var s in snaps)
+            {
+                var so = s as UnityEngine.Object;
+                if (so == null || string.IsNullOrEmpty(so.name)) continue;
+                cells++;
+                setVolume.Invoke(group, new object[] { ctl, s, db });
+                float got = ReadVolumeForSnapshot(getVolume, group, ctl, s);
+                bool good = Mathf.Abs(got - db) < 0.001f;
+                if (good) ok++;
+                else
+                {
+                    fail++;
+                    Debug.LogError($"AUD-SVD 快照 `{so.name}` / 组 `{groupName}` **写不进**："
+                                 + $"期望 {db:F5} dB · 读回 {got:F5} dB");
+                }
+                Debug.Log($"AUD-SVD 快照 `{so.name}` / 组 `{groupName}` = {got:F5} dB（原版 −0.16685188 dB）");
+            }
+        }
+
+        if (ctl is UnityEngine.Object ctlObj) EditorUtility.SetDirty(ctlObj);
+        foreach (var s in snaps) if (s is UnityEngine.Object so) EditorUtility.SetDirty(so);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Debug.Log($"AUD-SVD **{snaps.Length} 条快照 × {MixerDefaultGroups.Length} 个组 = {cells} 格**"
+                + "（复核：`-executeMethod AudioSetup.VerifyMixerDefaults`）");
+        DoneSv("AUD-SVD", ok, fail);
+    }
+
+    /// <summary>只读复核入口：逐格比对 `Master` 组在每条快照里的音量与原版 dB（不写盘）。</summary>
+    public static void VerifyMixerDefaults()
+    {
+        string rep = VerifyMixerDefaultsReport();
+        Debug.Log(rep);
+        DoneSv("AUD-SVD", MixerDefaultChecks - MixerDefaultFailures, MixerDefaultFailures);
+    }
+
+    /// <summary>上一次 <see cref="VerifyMixerDefaultsReport"/> 实际检查过的格数（`snapshots × groups`）。</summary>
+    public static int MixerDefaultChecks { get; private set; }
+
+    /// <summary>只读复核（返回可打印的报告；顺便更新 <see cref="MixerDefaultFailures"/> /
+    /// <see cref="MixerDefaultChecks"/>）。供 `Editor/AudioSnapshotCheck.cs` 复用。</summary>
+    public static string VerifyMixerDefaultsReport()
+    {
+        MixerDefaultFailures = 0;
+        MixerDefaultChecks = 0;
+        var sb = new System.Text.StringBuilder();
+        sb.Append("AUD-SVD-V 组默认音量（对照原版 Main Mixer 起始快照）\n");
+
+        object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
+        MethodInfo setVolume, getVolume;
+        if (!TryOpenMixerForSnapshotValues(out ctl, out ctlType, out groups, out snaps,
+                                           out setVolume, out getVolume))
+        {
+            MixerDefaultFailures = 1;
+            sb.Append("  ✗ 打开 mixer / 取内部 API 失败（上面已有 LogError）\n");
+            return sb.ToString();
+        }
+
+        for (int gi = 0; gi < MixerDefaultGroups.Length; gi++)
+        {
+            string groupName = MixerDefaultGroups[gi];
+            float db = MixerDefaultDb[gi];
+            object group = FindObjectByName(groups, groupName);
+            if (group == null)
+            {
+                MixerDefaultFailures++;
+                sb.Append($"  ✗ 组 `{groupName}` 不存在（跑 `AudioSetup.CreateMixer`）\n");
+                continue;
+            }
+            foreach (var s in snaps)
+            {
+                var so = s as UnityEngine.Object;
+                if (so == null || string.IsNullOrEmpty(so.name)) continue;
+                MixerDefaultChecks++;
+                float got = ReadVolumeForSnapshot(getVolume, group, ctl, s);
+                bool ok = Mathf.Abs(got - db) < 0.001f;
+                if (!ok) MixerDefaultFailures++;
+                sb.Append($"  {(ok ? "✓" : "✗")} 快照 `{so.name}` / 组 `{groupName}`：期望 {db:F5} dB · 实得 {got:F5} dB\n");
+            }
+        }
+        return sb.ToString();
+    }
 }

@@ -13144,7 +13144,7 @@ public static partial class RuleEngineTest
                 // 判别式：重算**只碰刚落地的这一个**。⛔ 「遍历全场重算」会把本回合**已经行动过**、
                 // 身上也带着 `flank` 的单位**放活**（一回合动两次）—— 下面这条与那种写法
                 // **结构上不可能同时绿**（已用离屏错版 `D:/tmp/wf_f8_probe_bad` 实测：它在这一条上红）。
-                fd.Exhausted = true;                       // 假装它本回合已经行动过了
+                fd.Exhausted = true; fd.AttacksThisTurn = RuleCore.ActionQuota(fd);   // 🔴 2026-10-28（B89_RD）夹具订正：「已经行动过」的**真身**是 `AttacksThisTurn >= ActionQuota`（`RuleCore.cs:3523` 的 `actedOut`；三个 `Exhausted = true` 写点都同时 `AttacksThisTurn++`：`RuleCore.cs:11568/11999/15403`）⇒ 只置 `Exhausted` 的话，光环重算（`UnitState.AddAuraKeyword` → `RecomputeActAndAttack`）会按「没行动过」把它解开放活 —— 那不是缺陷，是夹具状态不自洽
                 int fSlot2;
                 CheckTrue(RuleCore.DeployFree(ctxF, 0, sister2, out fSlot2), "再免费部署一个 Infantry");
                 var fd2 = Board(ctxF, 0, fSlot2);
@@ -16451,7 +16451,7 @@ public static partial class RuleEngineTest
             // 「本回合已经行动过」的那一份（同样吃这条光环）—— 判别式用它
             var actedCard = new CardDef("FixtureActed", "FixtureActed", "unit", "",
                                         "common", "Test", 1, 3, 5, 0, null, subtype: "Infantry");
-            var acted = Place(ctx, 0, 2, actedCard, exhausted: true);
+            var acted = Place(ctx, 0, 2, actedCard, exhausted: true); acted.AttacksThisTurn = RuleCore.ActionQuota(acted);   // 🔴 2026-10-28（B89_RD）夹具订正：同 `:13147` —— 「已经行动过」的真身是 `AttacksThisTurn >= ActionQuota`（只置 `Exhausted` 时，光环重算会按「没行动过」把它解开放活）
             RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_Raise"), -1);
             var revived = Board(ctx, 0, 3);
             CheckTrue(revived != null && !revived.IsRemnant, "残骸翻回来了");
@@ -17335,17 +17335,17 @@ public static partial class RuleEngineTest
                 var ctx = BattlePool(new[] { mobber }, new[] { Unit("EFoe", 1, 0, 20) }, pool,
                                      warlordFaction: "Goff");
                 ToP1Turn(ctx, 1);
-                Place(ctx, 0, 2, nob, exhausted: true);           // 监听者：在场上才收得到广播
-                var atk = Place(ctx, 0, 3, mobber);               // ⚠️ 攻击者**不能是 Exhausted**
+                var mobU = Place(ctx, 0, 2, mobber, exhausted: true); Place(ctx, 0, 3, nob, exhausted: true);   // 🔴 2026-10-28（B89_RD）夹具订正：`Mob:` 的载体必须是**旁观者** —— 原版 `CardScript__ResolveUnitAttacked.c:126-146` 的接收者分支**排除攻击者本人**（它走 `:31-112` 那一支 return）；监听者 GOF68 在场上才收得到广播
+                Place(ctx, 0, 1, Unit("FixtureMobAtk", 1, 2, 20));   // 真攻击者：**不带** Mob（2 攻 ∥ 与载体同数值，便于逐格对照）
                 Place(ctx, 1, 5, Unit("EFoe2", 1, 0, 20), exhausted: true);
-                Check(atk.Attack, 2, "（前提）它的近战是 2");
+                Check(mobU.Attack, 2, "（前提）旁观者（Mob 载体）的近战是 2");
 
-                CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 5, false), RuleCodes.OK,
-                          "近战打一下（会触发 Mob）");
-                Check(atk.Attack, 4,
-                      "★ Mob **触发了两次**（2 → 4）—— 基础 1 次 + `it triggers an additional time` 1 次"
+                CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 5, false), RuleCodes.OK,
+                          "近战打一下（友军出手 ⇒ 旁观者的 Mob 触发）");
+                Check(mobU.Attack, 4,
+                      "★ 旁观者的 Mob **触发了两次**（2 → 4）—— 基础 1 次 + `it triggers an additional time` 1 次"
                       + "（额度由 `GOF68` 在广播里挂上，`RuleCore.TakeExtraTrigger` 就地消费）");
-                CheckTrue(atk.ExtraTriggers.Count == 0,
+                CheckTrue(mobU.ExtraTriggers.Count == 0,
                           "★ ……而且额度**用掉就摘**（留着会让下一次攻击白捡一次）");
             }
         }
@@ -20667,11 +20667,11 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new[] { mobber }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            var m = Place(ctx, 0, 3, mobber, exhausted: false);
+            var m = Place(ctx, 0, 2, mobber, exhausted: true); Place(ctx, 0, 3, Unit("FixtureMobAtk1", 1, 2, 9));   // 🔴 2026-10-28（B89_RD）夹具订正：`Mob:` 载体 = **旁观者**（原版 `ResolveUnitAttacked.c:126-146` 排除攻击者），出手的另派一个不带该词的兵
             Place(ctx, 1, 3, Unit("FixtureMobTarget", 1, 0, 9), exhausted: true);
             Check(m.Attack, 2, "动手之前 2 攻");
-            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "**近战**打一下");
-            Check(m.Attack, 3, "★ **近战攻击 → `Mob:` 触发**（2 → 3 攻）");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "**近战**打一下（友军出手 ⇒ 旁观者的 Mob 触发）");
+            Check(m.Attack, 3, "★ **友军近战攻击 → 旁观者的 `Mob:` 触发**（2 → 3 攻）");
         }
 
         // ---- ② 远程攻击 → mob **不该**触发（这是 Mob 和 Strike 唯一的差别）----
@@ -20681,12 +20681,12 @@ public static partial class RuleEngineTest
                                       "common", "Test", 1, 2, 9, 3, null, subtype: "Infantry");
             var ctx = ProbeBattle(new[] { shooter }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            var s = Place(ctx, 0, 3, shooter, exhausted: false);
+            var s = Place(ctx, 0, 2, shooter, exhausted: true); Place(ctx, 0, 3, Ranged("FixtureMobAtk2", 1, 2, 9, 2));   // ⚠️ 远程那一记要**能远程**（`Unit` 的 ranged = 0 ⇒ `ErrCannotRanged`），用 `Ranged(...)` 造   // 同 ①：载体是旁观者（否则本条会**空转绿** —— 攻击者本来就不跑自己的 Mob）
             Place(ctx, 1, 3, Unit("FixtureMobTarget2", 1, 0, 9), exhausted: true);
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true), RuleCodes.OK,
                       "**远程**打一下");
             Check(s.Attack, 2,
-                  "★ **远程攻击 → `Mob:` 不触发**（还是 2 攻）—— 漏掉 `!ranged` 这条会实得 3");
+                  "★ **友军远程攻击 → `Mob:` 不触发**（还是 2 攻）—— 漏掉 `!ranged` 这条会实得 3");
         }
 
         // ---- ③ 团（Regiment）：和 Mob **成对**，差别只在远程 ----
@@ -20700,12 +20700,12 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new[] { trooper }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            var t = Place(ctx, 0, 3, trooper, exhausted: false);
+            var t = Place(ctx, 0, 2, trooper, exhausted: true); Place(ctx, 0, 3, Ranged("FixtureRegAtk1", 1, 2, 9, 2));   // 同上：远程攻击者必须 ranged > 0   // 同 ①：`Regiment:` 载体 = 旁观者
             Place(ctx, 1, 3, Unit("FixtureRegTarget", 1, 0, 9), exhausted: true);
             Check(t.Attack, 2, "动手之前 2 攻");
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true), RuleCodes.OK,
-                      "**远程**打一下");
-            Check(t.Attack, 3, "★ **远程攻击 → `Regiment:` 触发**（2 → 3 攻）");
+                      "**远程**打一下（友军出手 ⇒ 旁观者的 Regiment 触发）");
+            Check(t.Attack, 3, "★ **友军远程攻击 → 旁观者的 `Regiment:` 触发**（2 → 3 攻）");
         }
 
         // ③-b 近战攻击 → regiment **不该**触发
@@ -20715,11 +20715,11 @@ public static partial class RuleEngineTest
                                        "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
             var ctx = ProbeBattle(new[] { meleeMan }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            var t = Place(ctx, 0, 3, meleeMan, exhausted: false);
+            var t = Place(ctx, 0, 2, meleeMan, exhausted: true); Place(ctx, 0, 3, Unit("FixtureRegAtk2", 1, 2, 9));   // 同 ①：载体是旁观者（否则本条空转绿）
             Place(ctx, 1, 3, Unit("FixtureRegTarget2", 1, 0, 9), exhausted: true);
             CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK, "**近战**打一下");
             Check(t.Attack, 2,
-                  "★ **近战攻击 → `Regiment:` 不触发**（还是 2 攻）—— 把 `ranged` 写反了这条会亮");
+                  "★ **友军近战攻击 → `Regiment:` 不触发**（还是 2 攻）—— 把 `ranged` 写反了这条会亮");
         }
     }
 
@@ -20822,13 +20822,13 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new[] { mobber, watcher }, new[] { Unit("EFoe", 1, 0, 9) });
             ToP1Turn(ctx, 2);
-            var m = Place(ctx, 0, 2, mobber, exhausted: false);
+            var m = Place(ctx, 0, 2, mobber, exhausted: true); Place(ctx, 0, 1, Unit("FixtureKwAtk", 1, 2, 9));   // 🔴 2026-10-28（B89_RD）夹具订正：`Mob:` 载体 = **旁观者**（原版 `ResolveUnitAttacked.c:126-146` 排除攻击者本人），出手的另派一个不带该词的兵
             var w = Place(ctx, 0, 3, watcher, exhausted: true);
             Place(ctx, 1, 3, Unit("EFoe2", 1, 0, 9), exhausted: true);
 
-            Check(m.Attack, 2, "出手前：触发者 2 攻");
+            Check(m.Attack, 2, "出手前：载体 2 攻");
             Check(w.Attack, 2, "出手前：监听者 2 攻");
-            CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 3), RuleCodes.OK, "己方**近战**打一下");
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 1, 1, 3), RuleCodes.OK, "己方**近战**打一下（友军出手 ⇒ 旁观者的 Mob 响）");
             // 🔴 **2026-10-18（`A887` 的续）· 这两个数从 5 / 6 改回 3 / 4（各少 2 点）。**
             //    5 / 6 的来历 = 「手里那份监听者**没写主语**的 +2 洒给了**己方全体**」
             //    （这里当天就地标注过是一处**真偏离**）—— **现在修了**：
@@ -20843,7 +20843,7 @@ public static partial class RuleEngineTest
             //      🔴 ① 把手牌那一跳关掉 ⇒ 那份身上 0 条 ⇒ 下面第二条红；
             //      🔴 ② 把「落在它自己身上」改回「洒给己方全体」⇒ 这里实得 5 / 6 ⇒ 红。
             Check(m.Attack, 3,
-                  "触发者 3 = 2 + 1（自己那条 `Mob:`）—— **手里那份监听者的 +2 落它自己身上**，"
+                  "载体 3 = 2 + 1（它自己那条 `Mob:`，由**友军出手**触发）—— **手里那份监听者的 +2 落它自己身上**，"
                   + "不再洒全队" + LogTail(ctx));
             Check(w.Attack, 4,
                   "★ **`When a friendly unit triggers Mob` 真的响了** —— 监听者 2 + 2（场上那份）"
@@ -20860,10 +20860,10 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 2);
             var w = Place(ctx, 0, 2, watcher, exhausted: true);
             Place(ctx, 0, 3, Unit("EFoe3", 1, 0, 9), exhausted: true);   // 我方的靶子
-            var em = Place(ctx, 1, 3, mobber, exhausted: false);
+            var em = Place(ctx, 1, 2, mobber, exhausted: true); Place(ctx, 1, 3, Unit("FixtureKwAtk2", 1, 2, 9));   // 同 ④-a：敌方那只也是**旁观者**（出手的另派一个）
             PassTurn(ctx);                                              // 轮到**敌方**
 
-            CheckCode(RuleCore.DeclareAttack(ctx, 1, 3, 0, 3), RuleCodes.OK, "**敌方**近战打一下");
+            CheckCode(RuleCore.DeclareAttack(ctx, 1, 3, 0, 3), RuleCodes.OK, "**敌方**近战打一下（敌方友军出手 ⇒ 敌方旁观者的 Mob 响）");
             Check(em.Attack, 3,
                   "★ **敌方触发 Mob → 我方监听器不动** —— 敌方那张只有自己那份（2 → 3）；"
                   + "`friendly` 那半段被丢掉的话，它会变成 **5**");
@@ -30184,14 +30184,14 @@ public static partial class RuleEngineTest
             Check(side == 0 && slot == 3 && me != null, true, "认出来的是 0 号位 3 号格那只");
 
             var noId = new TutorialUnitRef { unitType = 30, ourId = "", name = "" };
-            Check(TutorialRules.FindBoardUnit(ctx, noId, out side, out slot, out why), false,
-                  "★ **判别式**：`ourId` 空（产物解不出我们的卡 id）⇒ **false**，⛔ 不退回 `list[0]`"
-                + "（原版 `GetChosenCard` 会那样做 —— 那会**静默打错目标**）");
+            Check(TutorialRules.FindBoardUnit(ctx, noId, out side, out slot, out why) && side == 0 && slot == 3, true,
+                  "★ **判别式**：`ourId` 空（产物解不出我们的卡 id）⇒ **照原版 `GetChosenCard` 退回列表第 0 个**"
+                + "（⚠️ 2026-10-28 调度台裁定「照抄原版」：`decomp_full/AiScripted__GetChosenCard.c:36-40` 的 `iVar4 = 0;` ⇒ 拿 `get_Item(list, 0)`；⛔ 别再要求 false —— 那是旧口径）");
             CheckTrue(!string.IsNullOrEmpty(why), "被拒时要给出**人话理由**（调用方拿它出声）：" + (why ?? "<null>"));
 
             var wrongId = new TutorialUnitRef { unitType = 30, ourId = "NotOnBoard" };
-            Check(TutorialRules.FindBoardUnit(ctx, wrongId, out side, out slot, out why), false,
-                  "★ 场上**没有**那一张 ⇒ 也 false（不是「随便挑一只」）");
+            Check(TutorialRules.FindBoardUnit(ctx, wrongId, out side, out slot, out why) && side == 0 && slot == 3, true,
+                  "★ 场上**没有**那一张 ⇒ 同样退回列表第 0 个（= 3 号格那只；原版 `GetChosenCard.c:38`，⛔ 不是「随便挑一只别的卡」）");
 
             var theirGuy = new TutorialUnitRef { unitType = 40, ourId = "TheirGuy" };
             Check(TutorialRules.FindBoardUnit(ctx, theirGuy, out side, out slot, out why) && side == 1,
@@ -30201,7 +30201,7 @@ public static partial class RuleEngineTest
             int hi = TutorialRules.FindHandIndex(ctx, new TutorialUnitRef { unitType = 50, ourId = "Mine" }, out why);
             Check(hi, 0, $"（前提）`50` + `ourId` ⇒ 我方手牌第 {hi} 张（`shuffle:false` 时起手第一张就是那张）");
             Check(TutorialRules.FindHandIndex(ctx, new TutorialUnitRef { unitType = 50, ourId = "Nobody" }, out why),
-                  -1, "★ 手牌里没有那一张 ⇒ **-1**（理由非空，同上）");
+                  0, "★ 手牌里没有那一张 ⇒ 退回**下标 0**（原版 `GetChosenCard.c:38`；⛔ 旧的「-1」是旧口径 —— 只有手牌为空时才 -1）");
             CheckTrue(!string.IsNullOrEmpty(why), "手牌认不出也给理由：" + (why ?? "<null>"));
         }
 
@@ -34916,11 +34916,11 @@ public static partial class RuleEngineTest
             var ctx2 = ProbeBattle(new[] { Unit("A1562_Pad2", 1, 0, 1) },
                                    new[] { Unit("A1562_Foe2", 1, 0, 9) });
             ToP1Turn(ctx2, 2);
-            Place(ctx2, 0, 2, mobSelf, exhausted: false);
+            Place(ctx2, 0, 2, mobSelf, exhausted: true); Place(ctx2, 0, 1, Unit("A1562_Atk2", 1, 2, 9));   // 🔴 2026-10-28（B89_RD）夹具订正：`Mob:` 载体 = **旁观者**（原版 `ResolveUnitAttacked.c:126-146` 排除攻击者）—— 原来让带词那张**自己出手**，于是「触发源」根本不触发、整组断言全塌
             Place(ctx2, 0, 3, mobOther, exhausted: true);
             Place(ctx2, 1, 3, Unit("A1562_Foe2b", 1, 0, 9), exhausted: true);
             ctx2.ClearSignals();
-            CheckCode(RuleCore.DeclareAttack(ctx2, 0, 2, 1, 3), RuleCodes.OK, "己方**近战**打一下");
+            CheckCode(RuleCore.DeclareAttack(ctx2, 0, 1, 1, 3), RuleCodes.OK, "己方**近战**打一下（友军出手 ⇒ 旁观者的 Mob 响）");
 
             Check(LogCount(ctx2, "「A1562_MobOther」的监听器"), 1,
                   "★ A1562-①-bis【正例·同族】`mob` 这一族的广播照旧送到「别人」那里"
@@ -34978,12 +34978,12 @@ public static partial class RuleEngineTest
             var ctx4 = ProbeBattle(new[] { Unit("A1562_Pad4", 1, 0, 1) },
                                    new[] { Unit("A1562_Foe4", 1, 0, 9) });
             ToP1Turn(ctx4, 2);
-            var d = Place(ctx4, 0, 3, mobSelfOnly, exhausted: false);   // 🔴 S2：贴督军那格（2 号会留 3 号洞）
+            var d = Place(ctx4, 0, 3, mobSelfOnly, exhausted: true); Place(ctx4, 0, 2, Unit("A1562_Atk4", 1, 2, 9));   // 🔴 2026-10-28（B89_RD）夹具订正：`Mob:` 载体 = **旁观者**（原版 `ResolveUnitAttacked.c:126-146` 排除攻击者）；S2 连续性：贴督军 3 号 + 2 号 ✓
             string whyS2a;
             CheckTrue(BoardSlots.IsContiguous(ctx4.Players[0], out whyS2a), "（前提）S2 有洞棋盘普查：攻方在贴督军那格、棋盘连续 —— " + (whyS2a ?? "无洞"));
             Place(ctx4, 1, 3, Unit("A1562_Foe4b", 1, 0, 9), exhausted: true);
             ctx4.ClearSignals();
-            CheckCode(RuleCore.DeclareAttack(ctx4, 0, 3, 1, 3), RuleCodes.OK, "己方**近战**打一下");
+            CheckCode(RuleCore.DeclareAttack(ctx4, 0, 2, 1, 3), RuleCodes.OK, "己方**近战**打一下（友军出手 ⇒ 旁观者的 Mob 响）");
             Check(LogCount(ctx4, "「A1562_MobSelfOnly」的监听器"), 1,
                   "★ A1562-④ 带 `Mob:`＋ **`SelfOnly`** 的监听器：自己触发时**自己【要】响** —— "
                 + "自排除那条守卫只管**非** `SelfOnly` 的那一半"
@@ -35032,13 +35032,13 @@ public static partial class RuleEngineTest
         ToP1Turn(ctx, 2);
         CheckTrue(HandHasInst(ctx, 0, "A1562_HandCheap"),
                   "（前提）那张降费卡**真在手里** —— 不在的话下面 `0 == 0` 是**恒绿**的假断言");
-        var m = Place(ctx, 0, 3, mobber, exhausted: false);      // 🔴 S2：贴督军那格（2 号会留 3 号洞）
+        var m = Place(ctx, 0, 3, mobber, exhausted: true); Place(ctx, 0, 2, Unit("A1562_Atk5", 1, 2, 9));   // 🔴 2026-10-28（B89_RD）夹具订正：`Mob:` 载体 = **旁观者**（原版 `ResolveUnitAttacked.c:126-146` 排除攻击者）—— S2 连续性：3 号 + 2 号 ✓
         string whyS2a;
         CheckTrue(BoardSlots.IsContiguous(ctx.Players[0], out whyS2a), "（前提）S2 有洞棋盘普查：攻方在贴督军那格、棋盘连续 —— " + (whyS2a ?? "无洞"));
         Place(ctx, 1, 3, Unit("A1562_FoeM2", 1, 0, 9), exhausted: true);
-        Check(m.Attack, 2, "（前提）攻击者 2 攻");
+        Check(m.Attack, 2, "（前提）载体 2 攻");
         ctx.ClearSignals();
-        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 3), RuleCodes.OK,
                   "己方近战打一下 ⇒ 触发 `mob` 那一半");
         Check(LogCount(ctx, "「A1562_HandCheap」在手里监听"), 1,
               "★ A1562-⑤【端到端】手里那条降费监听器**照样被叫醒**（`BroadcastCostWhen` → `FireCostWhen` "

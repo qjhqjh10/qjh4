@@ -3694,6 +3694,7 @@ namespace CardPresentation
             }
             Debug.Log($"[Loc] 语言 → `{lang}`（{LanguageName(lang)}）"
                     + (HasOwnText(lang) ? "" : " —— ⚠️ 本地没有这一套文案，界面文字**回退英文**（见 `Loc.T`）"));
+            NotifyLanguageChanged();      // 🆕 B89-E30（账 `L412`）：真的改了值之后发一次（订户见类尾那个广播口）
             return true;
         }
 
@@ -3850,5 +3851,48 @@ namespace CardPresentation
 
             return bad;
         }
+
+        // ============================================================ 🆕 B89-E30（账 `L412`）：换语言广播口
+        //
+        // 原版 `LiveopMenuContainer.OnLocalize()`（`decomp_full/LiveopMenuContainer.cs:27` 那一族）是
+        // `LocalizationManager.OnLocalizeCallback` 打到每颗容器上的：换语言 ⇒ **容器自己把标题/时间重设一遍**。
+        // 我们这边 `SetLanguage` 原本「**不发事件**」（理由写在它的 doc 里：两个设置窗不会同时开着）——
+        // 但**主菜单**那棵树（左栏 6 颗导航 + 模式卡标题/倒计时）在设置窗后面**一直活着**，它没人通知。
+        // ⇒ 这里补的正是原版那一条广播：`SetLanguage` 真改了值之后调 <see cref="NotifyLanguageChanged"/>。
+        //
+        // 🔴 订户形态照 `Battle/BattleHudLanguage.cs`（同一个问题在战斗 HUD 上的解法）：
+        //    静态 `event` + `-=`/`+=` 的幂等订法 + 销毁时摘掉 + `ClearForTest`；
+        //    ⛔ 别做成「自动满地找组件」—— 我们这侧要重设的不是 UGUI 子件，是一棵我们自己建的树。
+        // ⚠️ **订户为 0 是合法的**（大部分宿主没有菜单树）⇒ 本方法**不报警**，由调用方按自己的需要看
+        //    <see cref="LanguageChangedSubscribers"/>。
+
+        /// <summary>语言真的变了（`SetLanguage` 返回 `true` 之后）发一次。
+        /// <para>⚠️ 值没变（`SetLanguage` 早退那条）**不发** —— 与原版「只有 `ChangedLanguage` 才广播」同义。</para></summary>
+        public static event System.Action LanguageChanged;
+
+        /// <summary>发一次广播，返回**订户个数**（0 = 没人听，这不是错误）。
+        /// <para>自检可以直接 `LanguageChanged += probe;` 再调本方法（同 `BattleHudLanguage.Notify` 的用法）。</para></summary>
+        public static int NotifyLanguageChanged()
+        {
+            var h = LanguageChanged;
+            if (h == null) return 0;
+            int n = h.GetInvocationList().Length;
+            try { h(); }
+            catch (System.Exception e)
+            {
+                // 红线：不许静默失败。一个订户抛异常不能连带其它订户（原版 `BroadcastMessage` 也不连带）。
+                Debug.LogError("[Loc] 换语言广播里有一家订户抛了异常（其它订户照常收到）：" + e);
+            }
+            return n;
+        }
+
+        /// <summary>现在有几个订户（自检读口）。</summary>
+        public static int LanguageChangedSubscribers
+        {
+            get { var h = LanguageChanged; return h == null ? 0 : h.GetInvocationList().Length; }
+        }
+
+        /// <summary>清空订户（自检用；⛔ 生产别调 —— 会把主菜单那条订阅一起摘掉）。</summary>
+        public static void ClearLanguageChangedForTest() { LanguageChanged = null; }
     }
 }

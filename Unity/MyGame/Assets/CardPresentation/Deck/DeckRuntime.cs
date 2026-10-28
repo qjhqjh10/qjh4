@@ -4408,8 +4408,8 @@ namespace CardPresentation
                     SetOn(_deckRowCost[i], false);          // 蓝六边形（原版 `Cost Image`）
                     SetOn(_deckRowCostText[i], false);      // 圆里那个数（原版 `Cost`）
                     SetOn(_deckRowCountText[i], false);     // 份数（原版 `Count`）
-                    ClipRowToBand(i, y, heroPiece, false);  // 第 4 个实参 = 「费用圆该不该显示」⇒ 空位行不带
-                    ClipRowLabels(i);
+                    if (!(_dragging && i == _dragSlotView)) ClipRowToBand(i, y, heroPiece, false);  // 第 4 个实参 = 「费用圆该不该显示」⇒ 空位行不带；🆕 B89-R3d：**正在拖的那一槽这一帧不裁**（否则边滚边拖会把它裁没）
+                    if (!(_dragging && i == _dragSlotView)) ClipRowLabels(i);
                     continue;
                 }
                 // 🆕 **2026-10-25（`C` 域 · E 查出的 C-P2 ①）**：**异画卡的名单后面加 `*`** ——
@@ -5026,9 +5026,9 @@ namespace CardPresentation
             if (_dragging && _dragQuad != null)
             {
                 _dragQuad.transform.position = new Vector3(wp.x, wp.y, _dragQuad.transform.position.z);
-                if (_dragText != null) _dragText.transform.position = new Vector3(wp.x, wp.y, _dragText.transform.position.z);
+                if (_dragText != null) _dragText.transform.position = new Vector3(wp.x, wp.y, _dragText.transform.position.z); DragAutoScroll(px.y, wp);   // 🆕 B89-R3d · 账 101：原版 `CheckScrollDrag`（50px / 10）
                 if (!_draggingMoved && Mathf.Abs(wp.x - _dragOrigin.x) > 0.15f) _draggingMoved = true;
-                if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed) { EndDrag(px.x); return; }
+                if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed) { EndDragAt(px.x, px.y); return; }   // 🆕 B89-R3e · 账 109：落点在列表内 ⇒ 重排（否则走原来的「拖出删除 / 没动开窗」）
                 return;
             }
 
@@ -5339,7 +5339,7 @@ namespace CardPresentation
         void StartRowDrag(int deckIndex, int viewRow, Vector3 fromWorld)
         {
             _dragRow = deckIndex;
-            _dragQuad = _deckRowBg[viewRow];
+            _dragQuad = _deckRowBg[viewRow]; _dragSlotView = viewRow;   // 🆕 B89-R3d：记下被拖那一槽（拖拽期不裁它，见 `ClipRowToBand` 前那道闸）
             _dragText = _deckRowName[viewRow];
             _dragOrigin = fromWorld;
             _dragging = true;
@@ -9140,5 +9140,90 @@ namespace CardPresentation
         }
         /// <summary>自检读口：`Updated` 订着吗（原版 = `Signal` 注册着）。</summary>
         public bool WcSignalHookedForTest { get { return _wcSignalOn; } }
+
+        // ============================================================ 🆕 2026-10-28（B89-R3d · 账 101）拖到边缘自动滚
+        // 判据 = 原版 `DragAndDropItem.CheckScrollDrag`（`DragAndDropItem.cs:361`）：**阈值 50px / 速度 10**。
+        //   原版是 `Update()` 里每帧调 `CheckScrollDrag()`，按 ±10px 步进 `ScrollRect` 的滚动位。
+        // 🔴 **结构差（本轮现读）**：原版被拖的那件在 `OnBeginDrag` 就**脱离** ScrollRect（拖拽层上的克隆），
+        //   而我们这棵树的被拖行**仍挂在列表里**、每帧要被 `ClipRowToBand` 裁到视口内 ⇒ 一旦滚到它出视口就被裁没。
+        //   ⇒ 本件加了一条闸：**正在拖的那一槽这一帧不裁**（`RefreshDeckList` 里 `ClipRowToBand` / `ClipRowLabels`
+        //   前那两个 `if`）。原版靠「脱离」，我们靠「不裁这一槽」—— 这是等价物，⛔ 别当成原版写法。
+        // ⚠️ **真机待验**（本件改的是手感，断言测不出）：见报告 §3 那一条「怎么点、看到什么算对」。
+
+        /// <summary>原版 `CheckScrollDrag` 的**阈值**（设计 px）：指针离视口上下沿不到这么近就开始滚。</summary>
+        public const float DragEdgeBandPx = 50f;
+        /// <summary>原版 `CheckScrollDrag` 的**速度**（每帧设计 px）。</summary>
+        public const float DragEdgeSpeedPx = 10f;
+
+        /// <summary>正在被拖的那一行**在视口里的槽号**（`-1` = 没在拖）。拖拽期这一槽不参与裁切。</summary>
+        int _dragSlotView = -1;
+
+        /// <summary>自检读口：上一次 <see cref="DragAutoScroll"/> 算出来的增量（0 = 不在边缘带里；正 = 往下滚）。</summary>
+        public float DragAutoScrollDeltaForTest { get; private set; }
+
+        /// <summary>= 原版 `CheckScrollDrag` 的判定那一半（纯函数，自检可直接断言）：
+        /// 指针贴上沿 ⇒ 往**上**滚（−10）· 贴下沿 ⇒ 往**下**滚（+10）· 中间 ⇒ 0。
+        /// <para>⚠️ `pointerY` = **设计 px、y 向下为正**（与本文件 `ToPx` 同一口径）。</para></summary>
+        public static float DragEdgeScrollFor(float pointerY)
+        {
+            if (pointerY < ListY + DragEdgeBandPx) return -DragEdgeSpeedPx;                 // 贴上沿 ⇒ 往上看
+            if (pointerY > ListY + ListH - DragEdgeBandPx) return DragEdgeSpeedPx;          // 贴下沿 ⇒ 往下看
+            return 0f;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B89-R3e · 账 109）松手 → 重排
+        // 判据 = 原版 `DragAndDropItem.OnEndDrag`（实例父链全是 `Collection Deck` ⇒ 它是**卡组格重排**那件工具）。
+        // 🔴 **落槽口径（会不会落错槽）**：
+        //   · `_dragRow` 是**数据行号**（`DeckRows()` 的下标，含 0=督军 / 1=防御卡 / 2+=去重后的卡），
+        //     在拖拽期间**不随滚动变化**（滚动只改 `_deckScroll`，不改卡组内容）；
+        //   · 落点行号由 `floor((y − ListY + _deckScroll) / RowPitch)` 现算 —— 与 `RefreshDeckList`
+        //     摆行那条式子（`y = ListY + i×RowPitch − off`，`off = _deckScroll − firstRow×RowPitch`）**互逆**。
+        //   ⇒ 「滚过一整屏之后指针落在哪一行」仍算得对（这就是上轮 §4·3 那条担心的答案：**只可能视觉错位，
+        //     不会落错槽**，因为两边都用数据行号 + 同一把 `RowPitch`）。
+        // ⚠️ 只在「落点**在列表矩形内**、且落在**另一行**、且两行都是卡（≥2）」时重排；
+        //   其余一律走原来的 `EndDrag`（拖出右缘 = 删除 · 没动 = 开卡窗）。
+
+        /// <summary>松手：先试重排，不成就交给 <see cref="EndDrag"/>（原行为）。</summary>
+        void EndDragAt(float screenX, float screenY)
+        {
+            if (_dragging && _dragRow >= 2
+                && screenX >= ListX && screenX <= ListX + ListW
+                && screenY >= ListY && screenY <= ListY + ListH)
+            {
+                int target = Mathf.FloorToInt((screenY - ListY + _deckScroll) / RowPitch);
+                if (target >= 2 && target != _dragRow)
+                {
+                    string why;
+                    if (State.TryMove(_dragRow, target, out why))
+                    {
+                        MarkDeckDirty();
+                        Say("已调整位置：第 " + (target + 1) + " 行");
+                        LastReorderForTest = target;
+                    }
+                    else Debug.Log("[Deck] 重排没做：" + why + "（行 " + _dragRow + " → " + target + "）");
+                }
+            }
+            EndDrag(screenX);
+        }
+
+        /// <summary>自检读口：最近一次重排落到的那一行（`-1` = 没重排过）。</summary>
+        public int LastReorderForTest { get; private set; } = -1;
+
+        /// <summary>拖拽中每帧调一次（= 原版 `Update → CheckScrollDrag`）：算增量 → 夹到 `[0, MaxDeckScrollPx]` → 滚 + 刷行，
+        /// 刷完把被拖的那两件**贴回指针**（否则这一帧它们会回到行槽里）。</summary>
+        void DragAutoScroll(float pointerY, Vector3 keepWorld)
+        {
+            float d = DragEdgeScrollFor(pointerY);
+            DragAutoScrollDeltaForTest = d;
+            if (d == 0f) return;
+            float next = Mathf.Clamp(_deckScroll + d, 0f, MaxDeckScrollPx);
+            if (Mathf.Abs(next - _deckScroll) < 1e-4f) return;        // 已到顶/到底 ⇒ 不动（原版 ScrollRect 同样夹住）
+            _deckScroll = next;
+            RefreshDeckList();
+            if (_dragQuad != null)
+                _dragQuad.transform.position = new Vector3(keepWorld.x, keepWorld.y, _dragQuad.transform.position.z);
+            if (_dragText != null)
+                _dragText.transform.position = new Vector3(keepWorld.x, keepWorld.y, _dragText.transform.position.z);
+        }
     }
 }

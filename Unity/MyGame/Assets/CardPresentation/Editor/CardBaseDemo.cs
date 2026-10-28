@@ -386,7 +386,7 @@ public static class CardBaseDemo
         AssertHandPoseTween();
 
         // ---- 6. 🆕 2026-10-23（战斗线 · 新账-73 / 新账-74）：远程收招第二段 + 缩放走唯一口 ----
-        AssertRangedRecoverAndBaseScale();
+        AssertRangedRecoverAndBaseScale();  AssertFiguresAtom();   // 账 `战斗逻辑驱动:976`（原版 `CardScript.UpdateFigures` 五件同刷的原子入口；见方法 doc）
 
         ProbeTextBg(cam);                 // 🔍 诊断（`WF_TEXTBG_PROBE=1` 才跑；不设 = 零输出）
         ProbeTextBgDiff(cam);             // 🔍 诊断（`A1934`；`WF_TEXTBG_DIFF=1` 才跑 —— 开/关两帧存 PNG + 逐像素 diff）
@@ -6145,5 +6145,157 @@ public static class CardBaseDemo
             v.ToggleShowInBigCollider(false);
         }
         finally { Object.DestroyImmediate(root); }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-28（B89-E8 · 账 `战斗逻辑驱动:976`）：
+    //     原版 `CardScript.UpdateFigures()` —— **五件同刷的原子入口**，调用点不可能只刷一半
+    // ==================================================================
+    //  判据 = 亲读 `decomp_full/CardScript__UpdateFigures.c:6-26`（全文 26 行，一个总入口串起五件）：
+    //    `UpdateHealthText(card,1,0)` → `UpdateAttackText(card,0)` → `UpdateCostText(card,0)`
+    //    → `CleanStatusAnims(battleCardUI,0,0)` → `UpdateTraitIcons(battleCardUI,0)`；
+    //    尾部 `RawCardScript.IsUnit` 才 `CheckIfDead(card,0,0,0)`。
+    //  我们的落点（一一对应，理由见 `CardView` 里 `UpdateFigures` 那一段文件头）：
+    //    ① `UpdateHealthText` ② `UpdateAttackText` ⇒ 非场上档那四件真 TMP（`_faceStatText`，一个口刷四格）
+    //    ③ `UpdateCostText` ⇒ `_faceCostText` · ④ `UpdateTraitIcons` ⇒ 7 个 `_badgeIcons` 层
+    //    ④ 的 `CleanStatusAnims` 与尾部 `CheckIfDead` **有意不在本方法里**（前者等价物在
+    //    `BattleDriver.SyncKeywords` → `TraitFrames.Clean`，后者属规则侧）。
+    //
+    //  🔴 **断言比的是「渲染出来的那一格 == 塞进去的数据」**，⛔ 不是比我们自己的常量：
+    //    期望值全部取自这次喂进去的那份 `CardData`（真卡那四格再由卡池 `CardDef` 现读一次）。
+    //    而且**每一格都换过值**（`+1 / +2`）⇒「刷新没发生」与「刷的还是旧的」都会当场红。
+    //
+    //  🧨 改坏法（三条任选其一即红）：
+    //    ① 删 `UpdateFigures()` 里的 `SyncFaceStatTexts()` ⇒ ② 那四条红（四格停在上一次的数据上）；
+    //    ② 删 `SyncFaceCostText()` ⇒ ③ 红；③ 删 `SetBadges(Data.badges)` ⇒ ④⑤ 红。
+    static void AssertFiguresAtom()
+    {
+        Check(TmpFont.Available,
+              "★ 前提：字体资产取得到 —— 取不到时四格数值/费用 TMP 根本不建，下面几条就是**假绿**");
+        if (!TmpFont.Available) return;
+        var root = new GameObject("figures_atom_probe");
+        try
+        {
+            // ---- ② 四格数值 + ③ 费用：真卡（`ToCardData` 那一路把攻/血/甲/费全从卡池读进来）----
+            var pool = RuleEngine.CardDatabase.Load();
+            RuleEngine.CardDef def = null;
+            for (int i = 0; i < pool.Count; i++) if (pool[i].Name == "Deathwing Terminator") { def = pool[i]; break; }
+            Check(def != null,
+                  "★ 前提：卡池里有 `Deathwing Terminator`（攻 / 血 / 甲 / 费四格都非 0 的真卡夹具 ——"
+                + " 护甲 0 的那一格原版本来就不印，拿它当夹具那一条就不是在验东西）");
+            if (def != null)
+            {
+                var a = BattleDriver.ToCardData(def, def.Faction);
+                Check(CardView.ShowsCost(a) && a.armor != 0,
+                      $"★ 前提：`{def.Name}` 该印费用、且护甲非 0（现读 费 {a.cost} / 甲 {a.armor}）");
+                var v = CardView.Create(root.transform, a, "figatom_face", CardFace.Hand);
+                Check(v != null, $"★ 前提：`{def.Name}` 的卡面建出来了");
+                if (v != null)
+                {
+                    // 每一格都换一个**不同的**数（⛔ 别拿 `a` 自己当期望：那样「一次都没刷新」也会绿 = 自证）
+                    var b = a;
+                    b.cost = a.cost + 1;
+                    b.melee = a.melee + 1;
+                    b.ranged = a.ranged + 2;
+                    b.armor = a.armor + 1;
+                    b.health = a.health + 1;
+                    v.SetData(b);        // ← 刷新路径：`SetData` 末了**只走 `UpdateFigures()`** 这一个口
+                    Check(StatOf(b, CardView.StatMelee) != StatOf(a, CardView.StatMelee)
+                       && b.cost != a.cost,
+                          "★ 前提：改后的数据与改前**逐格不同**（否则「停在旧值」也会绿）");
+
+                    int bad = 0;
+                    for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                    {
+                        int want = StatOf(b, s), was = StatOf(a, s);
+                        bool shown = v.FaceStatVisible(s);
+                        string drew = v.FaceStatTextNow(s);
+                        if (!shown || drew != want.ToString()) bad++;
+                        Debug.Log(P + $"    [{def.Name}] {StatSlotName(s)}：改前 {was} → 数据 {want}｜"
+                                    + $"屏上 visible={shown} text=\"{drew}\"");
+                    }
+                    // 四条一次断完（逐格给值，⛔ 不用「&&」把 4 条糊成 1 条也算通过）
+                    for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+                    {
+                        int want = StatOf(b, s), was = StatOf(a, s);
+                        Check(v.FaceStatVisible(s) && v.FaceStatTextNow(s) == want.ToString(),
+                              $"[{def.Name}] ② {StatSlotName(s)} 那一格**渲染出来的字 == 数据**"
+                            + $"（应为 \"{want}\"，改前 {was}；实得 visible={v.FaceStatVisible(s)} /"
+                            + $" \"{v.FaceStatTextNow(s)}\"）"
+                            + "｜🧨 删 `UpdateFigures` 里的 `SyncFaceStatTexts()` ⇒ 本条红（停在上一次的数据上）");
+                    }
+                    Check(bad == 0, $"[{def.Name}] ② 四格**一起**对（不合格 {bad} 格）");
+
+                    var ct = v.FaceCostText;
+                    Check(ct != null && v.FaceCostVisible && ct.text == b.cost.ToString(),
+                          $"[{def.Name}] ③ 费用那一格**渲染出来的字 == 数据**"
+                        + $"（应为 \"{b.cost}\"，改前 {a.cost}；实得 visible={v.FaceCostVisible} /"
+                        + $" \"{(ct == null ? "<没有 TMP>" : ct.text)}\"）"
+                        + "｜🧨 删 `UpdateFigures` 里的 `SyncFaceCostText()` ⇒ 本条红");
+                }
+            }
+
+            // ---- ④⑤ 徽标（= 原版第④件 `UpdateTraitIcons`）：`BadgesShown` 数的是**开着的徽标层** ----
+            //  ⚠️ 用本宿主的默认档（`CardFace.Full`）—— 与 `BattleScene` 既有那条「4 枚都画出来了」的夹具同档。
+            var two = new List<Badge>
+            {
+                new Badge { sprite = "armour", counter = 2, active = true },
+                new Badge { sprite = "blast",  counter = 3, active = true },
+            };
+            var tArmour = CardArt.Trait("armour");
+            Check(tArmour != null && CardArt.Trait("blast") != null,
+                  "★ 前提：两枚徽标图取得到（`CardArt.Trait`）—— 取不到时那一位**空着**，条数断言会假绿/假红");
+            var bd = CardData.Simple("FiguresAtomBadge", 3, 3, 4);
+            bd.badges = two;
+            var vb = CardView.Create(root.transform, bd, "figatom_badge");
+            Check(vb != null, "★ 前提：带徽标的探针卡建出来了");
+            if (vb != null)
+            {
+                Check(vb.BadgesShown == 2,
+                      $"④ 出生入口（`Build` → `UpdateFigures`）：**画出来的徽标数 == 数据**"
+                    + $"（应为 2，实得 {vb.BadgesShown}）"
+                    + "｜🧨 删 `UpdateFigures` 里的 `SetBadges(Data.badges)` ⇒ 本条红（一位都不建）");
+                var t0 = vb.BadgeTexture(0);
+                Check(t0 != null && tArmour != null
+                   && t0.name.ToLowerInvariant().Contains("armour"),
+                      $"④b 第 1 枚画的**就是** `armour` 那张图（实得 \"{(t0 == null ? "<null>" : t0.name)}\"）"
+                    + "｜🧨 把 `SetBadges` 里的 `SetBadgeIconTexture(i, CardArt.Trait(b.sprite))` 换成固定图 ⇒ 红");
+
+                var bd1 = bd;
+                bd1.badges = new List<Badge> { two[0] };
+                vb.SetData(bd1);         // ← 刷新路径：同样只走 `UpdateFigures()`
+                Check(vb.BadgesShown == 1,
+                      $"⑤ 刷新入口（`SetData` → `UpdateFigures`）：数据剩 1 枚 ⇒ **画出来的也是 1**"
+                    + $"（实得 {vb.BadgesShown}）"
+                    + "｜🧨 删那句 `SetBadges(Data.badges)` ⇒ 本条红（还挂着上一份的 2 枚）");
+
+                bd1.badges = null;
+                vb.SetData(bd1);
+                Check(vb.BadgesShown == 0,
+                      $"⑤b 数据清空 ⇒ 一位都不剩（实得 {vb.BadgesShown}）"
+                    + "｜🧨 同 ⑤：徽标不跟数据走就停在上一次");
+            }
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>自检用：`CardData` 里第 `s` 格那个数（口径 = `CardView.SyncFaceStatTexts` 的 `StatValue`：
+    /// 近战 / 远程 / 护甲 / 生命）。⛔ 只给断言读，产品侧走 `CardView` 自己的那个口。</summary>
+    static int StatOf(CardData d, int s)
+    {
+        if (s == CardView.StatMelee) return d.melee;
+        if (s == CardView.StatRanged) return d.ranged;
+        if (s == CardView.StatArmour) return d.armor;
+        return d.health;
+    }
+
+    /// <summary>自检用：第 `s` 格的那个中文名（只为断言文案可读，⛔ 不参与任何判定）。</summary>
+    static string StatSlotName(int s)
+    {
+        if (s == CardView.StatMelee) return "近战";
+        if (s == CardView.StatRanged) return "远程";
+        if (s == CardView.StatArmour) return "护甲";
+        if (s == CardView.StatHealth) return "生命";
+        return "第 " + s + " 格";
     }
 }

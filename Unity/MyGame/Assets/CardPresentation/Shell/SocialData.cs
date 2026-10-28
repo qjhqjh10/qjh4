@@ -449,5 +449,18 @@ namespace CardPresentation
                 if (_members[i] != null && _members[i].IsPlayer) return _members[i].RoleId;
             return 0;
         }
+
+        /// <summary>🆕 **2026-10-28（B89-E22 · 账 139）**：原版
+        /// `AlliancesManager.GetCurrentPlayerAllianceName(out string allianceName)` —— **纯本地缓存读取**，
+        /// 方法体里**没有任何后端调用**（判据 = `decomp_full/AlliancesManager__GetCurrentPlayerAllianceName.c`：
+        /// 先把 out 清成 `""`，再看 `controller.CurrentPlayerCache` 在不在；在 ⇒ `out = cache.groupName; return true`，
+        /// 不在 ⇒ `return false`）。
+        /// <para>等价物 = 本类的 <see cref="AllianceName"/> 静态（原版那一格就是 `CurrentPlayerCache.groupName` 的缓存）
+        /// ⇒ 这里只做「一条方法级的口」，**没有第二份数据**。返回 `false` ⇔ 名字从没写进来过。</para></summary>
+        public static bool GetCurrentPlayerAllianceName(out string allianceName)
+        {
+            allianceName = AllianceName ?? "";
+            return AllianceName != null;
+        }
     }
 }

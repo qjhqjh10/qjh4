@@ -10636,6 +10636,7 @@ public static class ShellScene
             Object.DestroyImmediate(probeRoot);
         }
 
+        MenuCheck.RaycastFilterAsserts(_sink); MenuCheck.ToastChannelAsserts(_sink);   // 🆕 2026-10-28（B89-R3d · 账 `未分类_其他` 230）：教程期命中白名单那 3 条（空表=不过滤 / 死码口 / 注册清空成对）｜🆕 2026-10-28（B89-E16d）：**横幅 ≠ 模态窗**那 4 条（决斗窗没卡组 / 删卡组失败 / 点 Player ID / 导入支源码扫描）—— 同 R3d 口径：**追加在同一行末**，行数 0 变化、落点零漂移。都在合计行**之前** ⇒ 计数进本宿主的 `_sink`
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——

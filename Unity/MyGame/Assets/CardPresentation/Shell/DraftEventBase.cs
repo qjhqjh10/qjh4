@@ -88,7 +88,7 @@ namespace CardPresentation
         /// <summary>自检用：清注入 + 告警去重。</summary>
         public static void ResetInjectionForTest()
         {
-            HasJoinedEvent = null; CreateFreeRun = null; Telemetry = null;
+            HasJoinedEvent = null; CreateFreeRun = null; Telemetry = null; CanEnterDraftMode = null;
             warnedOnce.Clear();
         }
 
@@ -113,6 +113,13 @@ namespace CardPresentation
         /// <para>⚠️ 云脚本 handle 的名字本批**没解出**（`.c` 里是元数据指针）⇒ 出声说明「原版这一跳打云脚本」。</para></summary>
         public void FreeEventEntrance(Action onSuccess, Action onError)
         {
+            if (!CanEnterDraft)
+            {
+                Debug.Log("[DraftEventBase] FreeEventEntrance：`CanEnterDraft=false`（原版 `canEnterDraftMode` 门）⇒ 不进轮抽；"
+                        + "解锁条件 = 练习首胜（`PracticeEvent.OnMatchWon`，生产者见 `报告/B89_R2d_日常G6落点补齐.md` §L585）");
+                if (onError != null) onError();
+                return;
+            }
             string id = GetID();
             Debug.Log("[DraftEventBase] FreeEventEntrance('" + (id ?? "<null>") + "')：原版这一跳打云脚本（handle 名本批未解出）"
                     + "，本地没有服务器 ⇒ 直接走本地落地（写存档 → 遥测 → onSuccess）");
@@ -324,6 +331,16 @@ namespace CardPresentation
                 return (int)DraftModeState.SelectWarlord;
             }
         }
+
+        // ============================================================ 2026-10-28（B89-R2d · 账 L585）草稿入口 gate
+        /// <summary>原版 `PlayerDataManager.demoData.canEnterDraftMode` 的可注入替身（本类文件头「差异 ②」明列「无等价物」的那一格）。
+        /// 生产者 = 练习首胜（`PracticeEvent.OnMatchWon`，`Everguild.LiveOps/PracticeEvent.cs:95` ⇒ `canEnterDraftMode = true`）——
+        /// 本批落点**不在本类**（练习侧/`GameModesHandler` 归 E11b，见 `报告/B89_R2d_日常G6落点补齐.md` §L585）。
+        /// null ⇒ 视为**允许**（⛔ 不因缺数据把轮抽锁死 —— 那是回归）。</summary>
+        public static Func<bool> CanEnterDraftMode;
+
+        /// <summary>现在能不能进轮抽（= 原版 `canEnterDraftMode` 的读取点）：注入为 null ⇒ **true**（允许，保持改前「轮抽恒可进」的行为）。</summary>
+        public static bool CanEnterDraft { get { return CanEnterDraftMode == null || CanEnterDraftMode(); } }
     }
 
     // 🔴 本文件**不给具体子类**：原版的两个具体子类（`DraftEvent` / `TimedDraftEvent`）各有自己的

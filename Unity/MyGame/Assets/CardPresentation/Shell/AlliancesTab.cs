@@ -153,8 +153,10 @@ namespace CardPresentation
                     + "`AllianceMemberVariant` 建了但**走不到**（如实记着，不是漏做）。");
         }
 
-        /// <summary>联盟名（`Alliance name text`）—— 两支共用一份数据源时用得上；本地恒空。</summary>
-        public string AllianceName { get { return SocialData.AllianceName; } }
+        /// <summary>联盟名（`Alliance name text`）—— 两支共用一份数据源时用得上；本地恒空。
+        /// 🆕 2026-10-28（B89-E22 · 账 139）：改走 <see cref="SocialData.GetCurrentPlayerAllianceName"/> ——
+        /// 那一口就是原版 `AlliancesManager.GetCurrentPlayerAllianceName(out string)` 的等价物（纯缓存读）。</summary>
+        public string AllianceName { get { string n; SocialData.GetCurrentPlayerAllianceName(out n); return n; } }
     }
 
 }

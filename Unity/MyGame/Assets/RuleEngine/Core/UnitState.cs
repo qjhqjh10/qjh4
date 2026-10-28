@@ -1545,7 +1545,7 @@ namespace RuleEngine
             //    现在收进 `SyncKeywordState`（**判据只此一份**，与 `AddKeyword` 共用）。
             //    ⚠️ 今天全池**没有任何**光环授予 `blind`/`pindown`（实测正则扫过 `have/has/gains …
             //    blind|pindown` **0 命中**）⇒ 这两条是**机制对齐**、不是行为变化。
-            SyncKeywordState(keyword, value);
+            SyncKeywordState(keyword, value); RecomputeActAfterAuraKeyword(keyword);   // 🔴 L1376：`AddEffect.c:570-572` —— 加 `fast`/`flank` 那一跳必须重算两位
         }
 
         /// <summary>
@@ -2673,8 +2673,8 @@ namespace RuleEngine
         /// <para>⚠️ **没建的两位**（如实标，铁律 2）：`currentDropPodHealth/Attack(+0xcc/+0xe0)`
         /// 我们**没有这两个字段**（drop pod 在我们这边是关键词 `droppod` 的 `KwValue`，
         /// 见 `CardDef.cs` 的 DropPod 那一族注释）⇒ 原版 ④ 里那两句**不搬**。
-        /// `alreadyTriggeredBacklash(+0x222)` 同样没有字段（反噬是否已触发，我们按「本回合死过」算）
-        /// ⇒ `clearBacklash` 形参**保留但今天不起作用**（留着是为了让调用点与原版形状一致）。</para>
+        /// 🔴 `alreadyTriggeredBacklash(+0x222)` 没有字段 —— 判据 `CardScript__ResetToValuesInHand.c:138-140`（`if (param_2 != 0) *(byte*)(this + 0x222) = 0;`，**只在 `clearBacklash` 为真时清**；字段名 `dump.cs:35448`）⇒ 我们按「本回合死过」(`ctx.DiedThisTurn`) 算，而原版是**每卡一份**的位 ⇒ 两者**不等价**（同回合「死过 ⇒ 回手/翻回 ⇒ 再上场」原版能再触发、我们挡住）
+        /// ⇒ `clearBacklash` 形参**今天仍不起作用**（保留只为让调用点与原版同形；要真做必须**同时**补「字段 + 本方法这一清 + `RuleCore` 的写点/读点」三步，⛔ 只加字段不加消费口 = 死代码）。</para>
         /// </summary>
         public void ResetToValuesInHand(bool clearBacklash)
         {
@@ -2731,7 +2731,7 @@ namespace RuleEngine
             _remnantTraits.Clear();        // 90 档那条记录原版仍在，但非残骸支看不见 ⇒ 整本摘
             AuraRemnantStay = false;       // 光环那本账同属 activeEffects
             OathTripleGranted = false;
-            OathAllTurnsGranted = false;
+            OathAllTurnsGranted = false; if (clearBacklash) AlreadyTriggeredBacklash = false;   // 原版 `.c:138-140`（⛔ 不能新增行：本文件下游有 A 行落点）
         }
 
         /// <summary>
@@ -2777,8 +2777,8 @@ namespace RuleEngine
             public int ArmourChange;
             /// <summary>`CardEffect.healthChange(+0x60)`</summary>
             public int HealthChange;
-            /// <summary>`CardEffect.permanentBuff(+0x74)` —— 非 0 ⇒ 这条效果**摘不掉**</summary>
-            public bool Permanent;
+            /// <summary>`CardEffect.permanentBuff(+0x74)` —— 非 0 ⇒ 这条效果**摘不掉**；同行第二个字段 = `untilNextAttack(+0x36)`</summary>
+            public bool Permanent;  public bool UntilNextAttack;   // +0x74 摘不掉 / +0x36 到期档（全文见类尾「untilNextAttack 到期档」那一段）
         }
 
         /// <summary>
@@ -3249,5 +3249,180 @@ namespace RuleEngine
         {
             get { return Card != null && Card.HasActiveAbility == 1 && !ActiveAbilityHidden; }
         }
+
+        // ================================================================================================
+        //  🆕 **2026-10-28（完全复刻 · B89 第 1 波 · 执行代理 `E4` · 账 `L1376`）**
+        //     **光环新挂上 `fast` / `flank` 的那一跳 ⇒ 重算 `canAct` / `canAttack` 两位**
+        //  —— 本段全部追加在类尾（⛔ 别插到中间：`账/*.tsv` 按 `文件:行号` 引 `UnitState.cs`）
+        // ================================================================================================
+        //  【为什么加这一跳】原版 `CardScript__AddEffect.c` 的 `case 3`（= 加 trait）在**加词那一步之后**
+        //    有一段（`.c:570-572`，现读原文）：
+        //        `if ((*(int *)(param_2 + 0x3c) == 0x28) || (*(int *)(param_2 + 0x3c) == 0x1cc)) {
+        //             CardScript__UpdateSummonSicknessAnims(param_1); }`
+        //    `0x28 = fast` · `0x1cc = flank`；`UpdateSummonSicknessAnims.c:16-20` 再转调
+        //    `CardScript__ActivateMinion` ⇒ 按 `displaySummonSickness` 重写那两个位
+        //    （整条链的逐句判据在 `RuleCore.RecomputeActAndAttack` 的 doc 里，判据**只此一份**）。
+        //
+        //  🔴 **这一段把 `RuleCore.RecomputeActAndAttack` 的 doc 里那条「判据未定」结掉了** ——
+        //    那儿原来写着「光环那条路（`AddAuraKeyword` / `ClearAuraGrants`）没有接 ——
+        //    原版光环给的关键词走的是哪条路**还没查清**（`AddTraitSilently` 不重算、
+        //    `UpdateWhileInPlay` 那一支没读到实据）」。实读的结论是**两半都对、只是问的是不同的方法**：
+        //      · `AddTraitSilently`（`CardScript__AddTraitSilently.c`）确实**自己不重算** —— 那半没错；
+        //      · 但**它的调用方 `AddEffect` 在 `.c:570-572` 补了这一跳** ⇒ 走 `AddEffect` 挂 trait 的路
+        //        （= 光环/附魔/任何 extrinsic 效果**唯一**的挂载口）**一定会重算**。
+        //    ⇒ 关键分支是「**摘**的时候重不重算」：
+        //      · **摘**走 `RemoveEffect`（`RemoveExtrinsicEffectsFrom.c:44` 那条 240 刷新路就是这么摘的）
+        //        → `case 3` → `RemoveTraitSilently`（`CardScript__RemoveEffect.c:60-78` 现读）
+        //        ⇒ **不重算**（`RemoveTrait.c:66-68` 那条重算属于**真移除** `RemoveTrait`，不是这条路）。
+        //    ⇒ 结论：**重挂要重算、重算周期内的收回不要重算** —— 与本文件 `RequestActRecomputeAfterAuraChange`
+        //      那套「周期内延后、真丢才补」**不冲突、互补**（后者管「收回那一半」，本方法管「挂上那一半」）。
+        //
+        //  【修的是什么（`RE1`–`RE4` 那条回归的另一半）】**部署那一刻** `ApplyDeployTurnState` 先判过一次，
+        //    那一刻光环还没算（`Auras.Recompose` 在后）⇒ 单位被判成「有召唤病」；随后光环给它 `flank`，
+        //    而 `AddAuraKeyword` 当年**不重算** ⇒ 这一整个回合它就一直是「不能动」。
+        //    `W18AR` 那次只补了「收回」那一半（周期末补一次），「挂上」这一半没人补 ⇒ 本方法补上。
+        // ================================================================================================
+
+        /// <summary>
+        /// 光环**新挂上**一个关键词之后的收尾：只有 `fast` / `flank` 需要重算「能动 / 能攻击」两位
+        /// （判据 = `CardScript__AddEffect.c:570-572`，见本段头注）。
+        /// <para>⛔ **判据只此一处**：`AddKeyword` 那条路的重算在它自己的尾巴上（`.c:570-572` 的同一句），
+        /// 两条路各调一次 <see cref="RuleCore.RecomputeActAndAttack"/>，⛔ 别把本判断搬到 `SyncKeywordState` ——
+        /// 那会连「光环之外」的路一起改成两次调用（幂等，但那是同一条判据的第二份写法）。</para>
+        /// <para>**幂等**：`RecomputeActAndAttack` 只按当前状态写两个 bool，重复调用结果不变 ⇒
+        /// 在重算周期内被调多次也无副作用（它不碰 `Health` / 费用 / 誓约，见那个方法的逐句判据）。</para>
+        /// </summary>
+        void RecomputeActAfterAuraKeyword(string keyword)
+        {
+            if (keyword != "fast" && keyword != "flank") return;
+            RuleCore.RecomputeActAndAttack(this);
+        }
+
+        // ================================================================================================
+        //  🆕 **2026-10-28（完全复刻 · B89 第 1 波 · 执行代理 `E4` · 账 `L875`）**
+        //     **`untilNextAttack` 到期档**（原版 `CardEffect.untilNextAttack(+0x36)`）
+        //  —— 本段全部追加在类尾（⛔ 别插到中间，理由同上）
+        // ================================================================================================
+        //  原版怎么用这一档（判据 = `d:/2/tools/decomp_full/` + `cpp2il/out_cpp2il_dev_ilspy/`，逐句亲读）：
+        //   · **只有两处扫描它**（全树 `grep -rn untilNextAttack` 现读 = 2 个扫点 + 1 个复位 + 1 个拷贝）：
+        //       ① `CardScript__UsedActiveAbility.c:66-84`（ILSpy `CardScript.cs:12167` 的方法体，
+        //          扫描在 `:12211-12223`）。它是「这张牌用掉一次行动」的收尾：`:20` 先
+        //          `attacksThisTurn(+0x48) += 1`，再依次处理 duty / agenda / oath / ferocity，
+        //          **最后**才是这一趟扫描。调用点 = `BattleManager.cs:9431`（`ResolveActiveAbilityPlayed` 之后）。
+        //       ② `CardScript__ResolveUnitAttacked.c:79-94`（ILSpy `CardScript.cs:14113-14129`）——
+        //          只在 `actingCard == this` 那一支里跑（即**这一记是它自己打出去的**）。
+        //     两处的形状**完全相同**：扫 `activeEffects(+0x108)`，
+        //     `if (*(char *)(效果 + 0x36) != '\0') CardScript__SendRemoveEffect(card, 效果, 1)`。
+        //     ⇒ **语义 = 「这张牌的下一次行动（攻击 / 主动能力）之后整份摘掉」**。
+        //   · `SendRemoveEffect`（`CardScript__SendRemoveEffect.c` 全文）= 造一条 `battleActionType 0x10`
+        //     （RemoveEffect）→ `BattleManager__AddAutoActionToQueue(…, priority, 0)` ⇒ **入队**，不是立刻摘。
+        //   · `CardEffect.GetNewInstanceOfThisEffect`（`CardEffect.cs:118`）把这一位**原样拷**；
+        //     `CardScript.cs:17660` 是另一处把它清成 `false` 的复位点。
+        //
+        //  我们的形状（如实标，⛔ 别当成「一模一样」）：
+        //   · `EffectRecord`（本文件那个「按记录摘效果」的列容器）加了 `UntilNextAttack` 一列 = 原版 `+0x36`。
+        //     ⚠️ 那一列**加在 `Permanent` 的同一行**（写手 `E4` 2026-10-28 的决定）：`EffectRecord` 在文件
+        //     中部，另起一行会让下游 6 处 `账` 落点整体 +1 漂移（其中 5 条状态是 B，
+        //     `check_ledger_points --fix` 修不了）⇒ **零行数变化优先**。
+        //   · **真正带列表的记录账只有 `_traitEffects`**（`TraitEffectRecord` 那本 `addTrait` 账）⇒
+        //     到期扫描落在它上面，判据是 `TimingBits` 的 **bit4**
+        //     （`TraitEffectRecord.TimingBits` 的 doc 已写明 bit0..4 = 五个 `until*` 位，bit4 = `untilNextAttack`）。
+        //   · **触发器接线不在本批**（账 `L875` 的「缺什么」明写：那两个调用点在 `RuleCore`）⇒
+        //     本段只给**原语**，今天 **0 调用点**、**0 可观察变化**。
+        //
+        //  📊 **可达性（现读数据，不是推测）**：卡数据里 `untilNextAttack` 只有 **1 处**
+        //     （`cards_truth.json` 的效果串 `EffectBjornShrine`），而那张卡**不在当前池**
+        //     （`cards_engine.json` 现读 0 命中）；解析层也**不产出**这一档
+        //     （`EffectResolver.TimingBitsOfDuration` 只有 `""` / `"turn"` / `"nextturn"` 三档）
+        //     ⇒ `TimingBitUntilNextAttack` 今天**永远不会被置上**，<see cref="ExpireUntilNextAttack"/>
+        //     恒返回 0。这是「机制建好、数据没有」的休眠件（铁律 11：休眠也做），⛔ 别当「已接线」。
+        //
+        //  ⚠️ **两处如实记的残余**（⛔ 别以为做全了）：
+        //     ① 原版**入队**（`SendRemoveEffect`）再摘，我们**同步**摘 —— 同一拍内、下一个动作之前结果相同；
+        //        差的是「这一拍的可观察中间态」，而我们的引擎没有那条动作队列入口（`ActionQueue` / `ActionPump`）。
+        //     ② `permanentBuff(+0x74)` 与 `untilNextAttack(+0x36)` 同时为真的组合：原版 `RemoveEffect`
+        //        第一句就 `return`（摘不掉）。`TraitEffectRecord` **没有 `Permanent` 列** ⇒ 我们表达不了那一格。
+        //        等价性论证：每一条 `TraitEffectRecord` 都来自 `ApplyTraitEffect`，而它**没有** `Permanent`
+        //        形参 ⇒ 全为 false ⇒ **今天等价**（判据不全就先如实标，⛔ 别加一个猜的默认值）。
+        // ================================================================================================
+
+        /// <summary>`TraitEffectRecord.TimingBits` 的 **bit4** = 原版 `CardEffect.untilNextAttack(+0x36)`。
+        /// 位序判据 → <see cref="TraitEffectRecord.TimingBits"/> 的 doc。</summary>
+        public const int TimingBitUntilNextAttack = 0x10;
+
+        /// <summary>这条 `addTrait` 记录是不是「临攻击到期」那一档（`TimingBits` 的 bit4）。</summary>
+        public static bool IsUntilNextAttack(int timingBits)
+        {
+            return (timingBits & TimingBitUntilNextAttack) != 0;
+        }
+
+        /// <summary>「这条 <see cref="EffectRecord"/> 属于 `untilNextAttack` 档吗」——
+        /// 原版那两处扫的就是 `CardEffect.untilNextAttack(+0x36)` 这一位。
+        /// <para>⚠️ 只是**判定**；`EffectRecord` 没有列表（见那个类的 doc），真正的扫点在
+        /// <see cref="ExpireUntilNextAttack"/>（吃 `_traitEffects` 那本账）。</para></summary>
+        public static bool IsUntilNextAttack(EffectRecord rec)
+        {
+            return rec != null && rec.UntilNextAttack;
+        }
+
+        /// <summary>
+        /// **`untilNextAttack` 到期档的扫描＋摘除**（原版 `CardScript__UsedActiveAbility.c:66-84` /
+        /// `CardScript__ResolveUnitAttacked.c:79-94` 那两处，形状完全相同；判据全文 → 本段头注）。
+        ///
+        /// <para>**语义**：这张牌**下一次行动之后**，把带这一档的记录**整份摘掉**。
+        /// 每一条走 <see cref="RemoveTraitEffect"/>（= 原版 `RemoveEffect` 的 `case 3`：
+        /// 从记录表摘掉那条 + `HasDefaultTrait ? 留着 : RemoveTraitSilently`）。</para>
+        ///
+        /// <para>⚠️ **必须在这张牌「用掉一次行动」之后调**（原版两个调用点：主动能力那一路在
+        /// `ResolveActiveAbilityPlayed` 之后、攻击那一路在 `actingCard == this` 的分支里）。
+        /// 调用点属 `RuleCore`，**不在本批**（账 `L875` 的「缺什么」写明触发接线归后续批次）。</para>
+        ///
+        /// <para>⚠️ **同步摘 vs 原版入队**、以及 `permanentBuff` 那一格 ⇒ 见本段头注的「两处残余」。</para>
+        /// </summary>
+        /// <returns>摘掉几条（`0` = 身上没有这一档，或数据里从没置过这一位）。</returns>
+        public int ExpireUntilNextAttack()
+        {
+            if (_traitEffects.Count == 0) return 0;
+            int n = 0;
+            // 倒序走：`RemoveTraitEffect` 会改 `_traitEffects`
+            for (int i = _traitEffects.Count - 1; i >= 0; i--)
+            {
+                var r = _traitEffects[i];
+                if (r == null || !IsUntilNextAttack(r.TimingBits)) continue;
+                if (RemoveTraitEffect(r)) n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// **原版 `CardScript.alreadyTriggeredBacklash`（`+0x222`，bool）** —— 「这一张卡的死亡已经
+        /// 被处理过一次」的**每卡一位**（`dump.cs:35448`；getter/setter 见
+        /// `CardScript__get_alreadyTriggeredBacklash.c` / `__set_...c`，各三行）。
+        ///
+        /// <para>**原版四处读写**（逐条现读）：
+        /// · 写 1：`BattleManager._ResolveBacklash_d__451__MoveNext.c:146` —— `BroadcastDeadUnit` **之后**
+        ///   对**死者**置 1（`:144` 广播 → `:146` 置位）；`_ResolveMultiDamageAndDestroySelf_d__457__MoveNext.c:316`
+        ///   同一形状（摧毁那条路）。
+        /// · 写 0：`CardScript__CardSetup.c:95`（建卡/重置卡时与 `+0x65` 一起清）· `CardScript__ResetToValuesInHand.c:138-140`
+        ///   （**只在 `clearBacklash` 为真时清**）。
+        /// · **读**：`CardScript__ResolveDeadCard.c:234-236` 的那一行复合闸
+        ///   `(!isRemnant || cardState == 2) &amp;&amp; alreadyTriggeredBacklash == 0` ⇒ 才
+        ///   `TriggerOnMinionDeath(观察者, 死者, …)`。
+        ///   ⇒ 语义 = **同一张卡的「死亡族广播」只放行一次**；因为卡可以「变残骸 → 翻回 → 再上场」，
+        ///   所以要有一条「回到手牌/重置」时把它清掉的路（这就是 `clearBacklash` 的那个形参）。</para>
+        ///
+        /// <para>🔴 **本引擎里的覆盖现状（如实标，⛔ 别当成已完全等价）**：
+        /// ① **写 1** = `RuleCore.CleanupDeaths` 在「`BroadcastWhen(Die)` ＋ 死因三族」之后置真；
+        /// ② **写 0** = 本类的 `ResetToValuesInHand(clearBacklash: true)`（回手 / 洗回牌库 / 翻回 那五处
+        ///   调用点都传 `true`，判据 `_ResolveRecallToDeck…:108/177/276` · `_ResolveRecallToHand…:188/255`）；
+        /// ③ **读点在本引擎里【不可达】**：原版那个闸防的是「`_ResolveMinionDeath` 与 `_ResolveBacklash`
+        ///   两条路各广播一次」，而我们只有 `CleanupDeaths` **一条**死亡路、且当场把槽摘掉
+        ///   ⇒ 同一单位不会有两趟死亡族广播。⛔ **因此没有加读点**（加了就是死代码）；
+        ///   若将来出现第二条死亡广播路，闸应加在 `BroadcastWhen(WhenEventKind.Die)` 之前。</para>
+        ///
+        /// <para>**观测口**：打死一个单位 ⇒ 本字段真；把它 `Return … to your hand` / 翻回 ⇒ 变假。
+        /// 本条是 `L866`（账：回手/洗回牌库要重置）的落地。</para>
+        /// </summary>
+        public bool AlreadyTriggeredBacklash;
     }
 }

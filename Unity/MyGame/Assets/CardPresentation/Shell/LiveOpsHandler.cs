@@ -54,6 +54,12 @@ namespace CardPresentation
     public sealed class LiveOpsScheduledRefresh
     {
         public DateTime DueUtc;
+        /// <summary>原版 `ScheduledAction.TargetDateTime__BackingField`（由 epoch 毫秒回算；与 <see cref="DueUtc"/> 同值）。
+        /// 判据 = `decomp_full/ActionScheduler__Schedule.c`：`*(lVar5+0x18) = MillisSinceEpochToDateTime(TargetTime)`。</summary>
+        public DateTime TargetDateTime;
+        /// <summary>原版 `ScheduledAction.ActionId__BackingField`（调用方没给时 = `Guid.NewGuid().ToString()`）。
+        /// 用途 = 同一 id 重复排期时**替换旧的**（判据 `ActionScheduler__Schedule.c` 的去重段）。</summary>
+        public string ActionId;
         public Action Callback;
         /// <summary>已被释放（原版 `ActionScheduler.Release`）⇒ 到点也不触发。</summary>
         public bool Released;
@@ -69,12 +75,15 @@ namespace CardPresentation
     {
         static readonly List<LiveOpsScheduledRefresh> _pending = new List<LiveOpsScheduledRefresh>();
 
-        /// <summary>排一次到点回调（原版 `ActionScheduler.Schedule(refreshTime, action)`）。</summary>
-        public static LiveOpsScheduledRefresh Schedule(DateTime dueUtc, Action callback)
+        /// <summary>排一次到点回调 —— **本重载 = 原版 `ActionScheduler.Schedule(DateTime dateTime, Action action, string actionId = null)`**
+        /// （判据 = `decomp_full/ActionScheduler__Schedule.c` 前 30 行 + `out_cpp2il_dev_ilspy/ActionScheduler.cs:76`）：
+        /// 原版把 `DateTime` 按 `new DateTime(1970,1,1,…)` 换算成 **epoch 毫秒**后**转调 `Schedule(long)`** —— 下面两行就是那一步。
+        /// ⚠️ cpp2il 那份在换算的尾段有一处 `Jump target not found`，换算方向（`dateTime - 1970` → 毫秒）由可见的 4 句定。
+        /// <para>`actionId` 非空时走重载去重（同一 id 先前排过 ⇒ 旧的被移除并 `LogWarning`）。</para></summary>
+        public static LiveOpsScheduledRefresh Schedule(DateTime dueUtc, Action callback, string actionId = null)
         {
-            var h = new LiveOpsScheduledRefresh { DueUtc = dueUtc, Callback = callback };
-            _pending.Add(h);
-            return h;
+            long millis = (long)(dueUtc.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+            return Schedule(millis, callback, actionId);
         }
 
         /// <summary>释放一个已排的刷新（原版 `ActionScheduler.Release`）。重复释放安全。</summary>
@@ -85,29 +94,88 @@ namespace CardPresentation
             _pending.Remove(handle);
         }
 
-        /// <summary>推进：把 `utcNow` 之前（含）到点的都触发一次，返回触发条数。
-        /// ⚠️ 回调是**同步调用**的（原版也一样，`Action` 没有 await）。</summary>
+        /// <summary>推进一次 —— **每拍最多弹 1 条**，返回触发条数（0 或 1）。
+        /// <para>判据 = 原版 `ActionScheduler.Update()`（`decomp_full/ActionScheduler__Update.c`，逐句）：
+        /// `var a = scheduledActions.FirstOrDefault(); if (a != null &amp;&amp; a.TargetTime &lt;= currentServerTime)
+        /// { scheduledActions.Remove(a); a.Callback(); }` ⇒ 只看**队首**（队列按 `TargetTime` 排序 ⇒ 队首 = 最早那条）、
+        /// **每次只弹一条**。</para>
+        /// <para>⚠️ 回调是**同步调用**的（原版也一样，`Action` 没有 await）。</para>
+        /// <para>⚠️ 我们的泵 <see cref="LiveOpsPump"/> 是**1 秒一拍**（原版每帧）⇒ 同刻多条到期时我们是「1 秒一条」、
+        /// 原版是「1 帧一条」，可见差 ≈ 后续刷新延迟 N 秒（活动刷新是小时/天尺度 ⇒ 无可见后果）。
+        /// 🔶 自己设计（非原版）：泵的 1 秒节流（`LiveOpsPump.MinIntervalSeconds`）· 判据 = 原版每帧检查，本仓按开销自定 · 调度台 2026-10-28</para></summary>
         public static int Tick(DateTime utcNow)
         {
-            int fired = 0;
-            for (int i = _pending.Count - 1; i >= 0; i--)
-            {
-                var h = _pending[i];
-                if (h == null) { _pending.RemoveAt(i); continue; }
-                if (h.Released) { _pending.RemoveAt(i); continue; }
-                if (h.DueUtc > utcNow) continue;
-                _pending.RemoveAt(i);
-                h.Fired = true;
-                fired++;
-                try { if (h.Callback != null) h.Callback(); }
-                catch (Exception e) { Debug.LogError("[LiveOps] 刷新回调抛异常：" + e); }
-            }
-            return fired;
+            if (_pending.Count == 0) return 0;
+            var h = _pending[0];
+            if (h == null || h.Released) { _pending.RemoveAt(0); return 0; }   // 残渣：只清、不触发
+            if (h.DueUtc > utcNow) return 0;                                   // 队首还没到 ⇒ 后面更没到（已排序）
+            _pending.RemoveAt(0);
+            h.Fired = true;
+            try { if (h.Callback != null) h.Callback(); }
+            catch (Exception e) { Debug.LogError("[LiveOps] 刷新回调抛异常：" + e); }
+            return 1;
         }
 
         public static int PendingCount { get { return _pending.Count; } }
 
         public static void ResetForTest() { _pending.Clear(); }
+
+        // ---- ↓ 2026-10-28（B89-E15）追加到类尾：原版 `ActionScheduler` 的三个成员 ----
+
+        /// <summary>原版 `ActionScheduler.Schedule(long dateTime, Action action, string actionId = null)` 的**真身**
+        /// （判据 = `decomp_full/ActionScheduler__Schedule.c` 全文，逐句；行数 158）：
+        /// <list type="number">
+        /// <item>`dateTime &lt; TimeHelper.ServerTime` ⇒ **直接 `return null`、不入队**（不是「排一个立即执行的」）。</item>
+        /// <item>建 `ScheduledAction`：`Callback`(+0x28) · `TargetTime`(+0x20) · `TargetDateTime = MillisSinceEpochToDateTime(TargetTime)`(+0x18)。</item>
+        /// <item>`ActionId`(+0x10) = 传入的 `actionId`，为空则 `Guid.NewGuid().ToString()`。</item>
+        /// <item>**只在传入 actionId 非空时**（`.c` 判的是 `param_4 != 0`）去重：`Any(同 id)` ⇒
+        ///   `Debug.LogWarning("Action with ID " + id + " already exists in the queue. Replacing it.")` ⇒ `First(同 id)` 移除旧的。</item>
+        /// <item>入队后 `List.Sort(按 TargetTime)`（`.c` 末尾 `System_Collections_Generic_List&lt;object&gt;__Sort`）。</item>
+        /// </list></summary>
+        public static LiveOpsScheduledRefresh Schedule(long dateTimeMs, Action callback, string actionId = null)
+        {
+            if (dateTimeMs < NowMillis()) return null;      // ① 过点的不排（原版 `return 0`）
+            var h = new LiveOpsScheduledRefresh
+            {
+                DueUtc = EpochMsToUtc(dateTimeMs),          // ②
+                Callback = callback,
+                ActionId = string.IsNullOrEmpty(actionId) ? System.Guid.NewGuid().ToString() : actionId,   // ③
+            };
+            h.TargetDateTime = h.DueUtc;
+            if (!string.IsNullOrEmpty(actionId))            // ④ 只有**显式给了** id 才去重
+            {
+                int at = _pending.FindIndex(x => x != null && string.Equals(x.ActionId, h.ActionId, StringComparison.Ordinal));
+                if (at >= 0)
+                {
+                    Debug.LogWarning("Action with ID " + h.ActionId + " already exists in the queue. Replacing it.");
+                    _pending.RemoveAt(at);
+                }
+            }
+            _pending.Add(h);
+            _pending.Sort((x, y) => x == null || y == null ? 0 : x.DueUtc.CompareTo(y.DueUtc));   // ⑤
+            return h;
+        }
+
+        /// <summary>原版 `ActionScheduler.ScheduleRelative(TimeSpan relativeTime, Action action, string actionId = null)`
+        /// （判据 = `decomp_full/ActionScheduler__ScheduleRelative.c`：`currentServerTime + relativeTime.TotalMilliseconds`
+        /// → 转调 `Schedule(long)`；`.c` 里那一段的 `timeSpan` 是默认值 ⇒ 可见的只有「`TotalMilliseconds` 加当前时刻」这一句）。</summary>
+        public static LiveOpsScheduledRefresh ScheduleRelative(TimeSpan relativeTime, Action callback, string actionId = null)
+        {
+            return Schedule(NowMillis() + (long)relativeTime.TotalMilliseconds, callback, actionId);
+        }
+
+        /// <summary>`TimeHelper.ServerTime` / `PlayerDataManager.currentServerTime` 的等价物（**epoch 毫秒**）。
+        /// ⚠️ 仍然读 <see cref="LiveOpsClock"/>（「现在」的唯一读口 —— 自检钉时间时两条路一起钉）。</summary>
+        static long NowMillis()
+        {
+            return (long)(LiveOpsClock.NowUtc.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+        }
+
+        /// <summary>原版 `SupportMethods.MillisSinceEpochToDateTime`（`ActionScheduler__Schedule.c` 里那一跳）。</summary>
+        static DateTime EpochMsToUtc(long ms)
+        {
+            return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMilliseconds(ms);
+        }
     }
 
     // ============================================================ 接口（原版 `ILiveOpsHandler`，16 个成员）

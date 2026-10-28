@@ -1126,15 +1126,15 @@ public static class MainMenuScene
                 //   0.5 s 内从当前值推到目标值、每次 `ceil` 写文本 —— `UIResourceCounter__SetQuantity.c` + b__0/b__1）。
                 // ⚠️ 批处理 `Application.isPlaying == false` ⇒ 生产刷新走「直落」；这里**直接驱动 StepCounters**
                 //   验补间算式（与 `UiBadgeNotification.Step` 同口径）。
-                cr.From = 10; cr.Target = 30; cr.Value = 10; cr.T = 0f; cr.Animating = true;
+                cr.From = old > 20 ? old - 20 : old + 20; cr.Target = old; cr.Value = cr.From; cr.T = 0f; cr.Animating = true;   // 🔴 2026-10-28（B89_RD）：目标必须 = **钱包真值**（= `old`）—— 原来写死 30 而钱包不是 30；而 B89-E30 的「刚滚完重排」会按钱包重建文本（`TopBar.cs:1082-1086`）⇒ 写死 30 时那一步会把画面打回钱包值、断言必红
                 TopBar.StepCounters(parts, 0.25f);                     // t = 0.25s / 0.5s ⇒ 半程
-                int mid = Mathf.CeilToInt(Mathf.Lerp(10f, 30f, 0.5f));
+                int mid = Mathf.CeilToInt(Mathf.Lerp(cr.From, old, 0.5f));
                 Check(cr.Label.Text,
                       MainMenuRuntime.CounterText(mid, MainMenuRuntime.MaxOf(cr.Spec.Currency)),
-                      $"★ 滚到半程 = `ceil(10 + (30−10)×0.5)` = {mid}（🧨 不滚动/直接跳终值 ⇒ 红）");
+                      $"★ 滚到半程 = `ceil({cr.From} + ({old}−{cr.From})×0.5)` = {mid}（🧨 不滚动/直接跳终值 ⇒ 红）");
                 TopBar.StepCounters(parts, 0.25f);                     // 第二段 ⇒ 到点
                 Check(cr.Label.Text,
-                      MainMenuRuntime.CounterText(30, MainMenuRuntime.MaxOf(cr.Spec.Currency)),
+                      MainMenuRuntime.CounterText(old, MainMenuRuntime.MaxOf(cr.Spec.Currency)),
                       "★ 0.5 s 到点 ⇒ 终值");
                 CheckTrue(!cr.Animating, "★ 到点**自己停**（下一帧不再滚）");
                 // 还原这一格（后面截图/其他断言看的是真账）
@@ -10756,7 +10756,13 @@ public static class MainMenuScene
             CheckAtWorld(FindChild(row, "border"), 495f, 615f, 289.57f, 396.01f,
                          "行内 `border`（头像格 —— **这一层才是 Button**，`target` = `Icon` 的 Image）");
             CheckAtWorld(FindChild(row, "Name Holder"), 650f, 1383.95f, 288.59f, 388.59f, "行内 `Name Holder`");
-            CheckText(TextOf(FindChild(row, "Name")), "Test Commander", "行内 `Name`");
+            // 🔴 **2026-10-28（B89-E22b）就地订正（铁律 5）**：原期望值写的是夹具串 `Test Commander` ——
+            //   那条断言编码的前提（「名字恒印 `data.Name`」）**是错的**：原版 `UIRankingRow.Config` 是
+            //   `nameText.text = data.OwnPlayer ? PlayerDataManager.playerName : data.Name`，本行 `IsSelf = true`
+            //   ⇒ 这一格印的是**本机玩家的名字**（`ProfileData.PlayerName`，全工程唯一一份）。
+            //   ⛔ 改坏法：把 `Shell/LeaderboardRow.cs` 的 `EffectiveName` 改回 `d.Name` ⇒ 这里读到 `Test Commander` ⇒ 红。
+            CheckText(TextOf(FindChild(row, "Name")), ProfileData.PlayerName,
+                      "行内 `Name`（`IsSelf = true` ⇒ **自己的名字**，不是夹具的 `data.Name` = `Test Commander`）");
             // `Points` 是**左对齐**的（原版 `m_HorizontalAlignment = Left`）⇒ 不能用 `CheckAtWorld` 比节点中心
             //（`AlignLeftOn` 会把节点挪到「文字左缘 = 矩形左缘」那个位置）。**量它渲出来的左缘**才对。
             // 🔴 **2026-10-13（A617）就地订正（铁律 5）**：这里原来走 `RenderedRect` —— 那两格都是**同式自证**：
@@ -10946,15 +10952,17 @@ public static class MainMenuScene
                 {
                     wbRow.ClickForTest();
                     var pw = PlayerProfileWindow.LastOpened;
-                    CheckTrue(pw != null && pw.ViewedPlayer == "Test Commander",
-                              "点行 ⇒ 开了**那一行那个玩家**的档案窗（`ViewedPlayer` = 行里的名字）");
+                    // 🔴 **2026-10-28（B89-E22b）**：和上面 `Name` 那一格同源 —— `IsSelf = true` 的行，
+                    //   点开的口也用 `EffectiveName`（= 自己的名字），否则「显示我、点开却是 `data.Name`」。
+                    CheckTrue(pw != null && pw.ViewedPlayer == ProfileData.PlayerName,
+                              "点行 ⇒ 开了**那一行那个玩家**的档案窗（`ViewedPlayer` = 行里的名字；`IsSelf` ⇒ 自己的名字）");
                     if (pw != null)
                     {
                         var p0 = FindChild(pw.transform, "Profile Tab");
                         CheckTrue(p0 != null && p0.GetComponent<StrangerProfilePage>() != null,
                                   "六页换成了 `StrangerProfilePage`（原版这一页的数据全在服务器）");
                         CheckTrue(p0 != null && FindChild(p0, "Stranger Name") != null
-                                  && TextOf(FindChild(p0, "Stranger Name")) == "「Test Commander」的档案",
+                                  && TextOf(FindChild(p0, "Stranger Name")) == "「" + ProfileData.PlayerName + "」的档案",
                                   "页里画了那行**如实说明**（不是他的真资料 —— 本地没有）");
                         pw.Close();
                     }
@@ -14466,7 +14474,8 @@ public static class MainMenuScene
                                          "`Draft Rating Display`（act T y=344.99；act F 那份是 318.21）");
                             CheckAtWorld(FindChild(gd, "Config fields"), 1080.54f, 1863.35f, 209.81f, 269.81f,
                                          "`Config fields`（act T 值；act F 那份是 1079.54,183.02→1862.35,243.02）");
-                            // `Config fields` 那一行：**act T 里五个子件全亮、`extra_info` 灭**（与 act F **正好相反**）
+                            // `Config fields` 那一行：**act T 里五个子件都建、`extra_info` 也建**（原版 `Draw` 的出厂态 =
+                            //   五件关 + `extra_info` 开 + `Edit` 按 role；`CheckAtWorld` 量的是设计矩形、不吃 `activeSelf`）
                             CheckAtWorld(FindChild(gd, "LanguagesDropdown"), 1130.90f, 1380.90f, 210.41f, 269.81f,
                                          "★ `LanguagesDropdown`（act T 里 act=T ⇒ 建；act F 那份是 act F）");
                             CheckAtWorld(FindChild(gd, "Privacy Dropdown"), 1395.40f, 1645.40f, 210.41f, 269.81f,
@@ -14477,10 +14486,33 @@ public static class MainMenuScene
                                          "★ `Confirm button`（act T 里 act=T）");
                             CheckAtWorld(FindChild(gd, "Cancel button"), 1805.20f, 1863.35f, 209.81f, 269.81f,
                                          "★ `Cancel button`（act T 里 act=T）");
-                            CheckTrue(FindChild(gd, "extra_info") == null,
-                                      "★ `extra_info`（`English / Private` 那行）**不建** —— 它在 act T 那份里是 "
-                                      + "**act F**（普查 `:280`），只在未入盟支那一棵上亮（普查 `:187`）"
-                                      + "⇒ 建在这棵树上 = **取错实例**（改之前这里画的正是它）");
+                            // 🔴 **2026-10-28（B89-E22b）就地把这条断言翻案（铁律 5）**：原文断「`extra_info` **不建**」，
+                            //   依据是「act T 那份里它是 act F（普查 `:280`）」—— 那只是 **prefab 的序列化出厂态**；
+                            //   原版 `AllianceView.Draw` 里 `regionText.gameObject.SetActive(true)` 是**无条件**的
+                            //   （`out_cpp2il_dev_ilspy/AllianceView.cs:459-460`），进编辑态才关 ⇒ 运行期在这一棵上**亮着**。
+                            //   ⇒ 改成「**建了 + 开着 + 文字/位置照 act T 那一份**」（同一份判据的另半 → `Shell/AllianceMemberTab.cs` 的 `GeoT.ExtraInfo`）。
+                            // ⚠️ 量法与 act F 那一棵**同一条口径**：`AlignRight` 把节点挪到右边 ⇒ **不能拿 `position`
+                            //   当矩形中心断**（同 `Points` 那条），要量 **TMP 渲出来那块字的右缘** + 节点 y。
+                            var xinfoT = FindChild(gd, "extra_info");
+                            CheckTrue(xinfoT != null && xinfoT.GetComponent<Label>() != null,
+                                      "★ `extra_info`（= 原版 `regionText`）**建了**（act T 普查 `:280`，"
+                                      + "`1080.54,209.81→1534.23,269.81`）");
+                            CheckTrue(xinfoT != null && xinfoT.gameObject.activeSelf,
+                                      "★ `extra_info` **开着**（原版 `Draw` 那条 `regionText.SetActive(true)` 是无条件的）；"
+                                      + "⛔ 改坏法：把它 `SetActive(false)`（= 按旧的「act T 里是 F」口径）⇒ 本条红");
+                            {
+                                // ⚠️ 先给哨兵值：`xinfoT == null` 时那个 `out` 不会被执行（`&&` 短路）⇒ 编译器要求显式赋值
+                                float zx1 = 0f, zy1 = 0f, zx2 = -9999f, zy2 = 0f;
+                                CheckTrue(xinfoT != null && TmpRenderedRect(xinfoT, out zx1, out zy1, out zx2, out zy2),
+                                          "（前提）`extra_info` 那一段字量得到（下面两条挂在它身上）");
+                                CheckNear(zx2, 1534.23f, 1f,
+                                          "★ 它**右对齐到 1534.23**（原版 `Right/Middle`，act T 普查 `:280`；"
+                                          + "量的是 TMP 渲出来那块字的右缘，不是我们写进去的节点 x）");
+                                CheckNear(MenuCheck.DesignPx(xinfoT).y, 239.81f, 1f,
+                                          "…纵向中心 = 239.81（`209.81,269.81` 那条的中线）");
+                            }
+                            CheckText(TextOf(xinfoT), "English / Private",
+                                      "`extra_info` 的字 = **资产里的字面样例串**（运行期那两个值在服务器上，同 act F 那一棵）");
                             // 五件的**相邻间距 = `HorizontalLayoutGroup.spacing 14.5`**（普查 `:279`）——
                             //   位置对不对，光看单个 rect 看不出来，这一条把「这一行是布局跑出来的」钉住。
                             CheckNear(1395.40f - 1380.90f, 14.5f, 0.01f,

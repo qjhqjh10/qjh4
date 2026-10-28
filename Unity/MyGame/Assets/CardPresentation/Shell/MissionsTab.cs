@@ -1193,15 +1193,15 @@ namespace CardPresentation
             //    `align=4 (MiddleCenter) · sp=20 · ctlW=0 · ctlH=0 · expW=0 · expH=1`
             //    ⇒ 5 格各 40 + 4×20 = **280 宽放进 325 的容器**，`MiddleCenter` ⇒ **左右各留 22.5**。
             //    原来 `UguiLayout.HorizontalChild` **不做水平对齐**（从容器左边起排）⇒ 整排偏左 22.5px。
-            float contentW = DailyData.SkullsStepCount * 40f + (DailyData.SkullsStepCount - 1) * 20f;
-            float padL = (325f - contentW) * 0.5f;
+            float stepSp = DailyData.SkullsStepCount > 1 ? (325f - DailyData.SkullsStepCount * 40f) / (DailyData.SkullsStepCount - 1) : 0f;   // 🆕 B89-R3c · 账 215：原版 `steps` 挂的是 `EverguildLayoutGroup`（`Missions Tab.prefab` 的 GO `steps`，`evenlySpaceinBetween=1` / `alignment=0`/宽 / 序列化 `m_Spacing 262.8113`，判据 = `.cs.meta` guid `7b66bd014610349998c3bad543975100` → grep 导出工程），它运行期用 `(容器同向尺寸 − n×子件尺寸)/(n−1)` **覆盖**序列化值（`decomp_full/EverguildLayoutGroup__CalculateSpacing.c` 101 行）⇒ n=5 时 = **31.25**，⛔ 不是序列化那 20
+            float padL = (325f - (DailyData.SkullsStepCount * 40f + (DailyData.SkullsStepCount - 1) * stepSp)) * 0.5f;   // 填满 325 ⇒ `MiddleCenter` 下恒 0（与原版 `m_ChildAlignment 4` 自洽）
             for (int i = 0; i < DailyData.SkullsStepCount; i++)
             {
                 // 🆕 **A371（2026-10-12）**：第 4 个实参 = 那一格**画在方框里的阈值数字**
                 //   （`3 / 10 / 25 / 50 / 100`，数据源 = `DailyData.SkullsStepTarget(i)`；
                 //    框/字号由 `BuildMilestone` 里 `small` 那一支给，判据见它的 summary）。
                 //   ⚠️ 格数走 `SkullsStepCount` 而**不是**写死的 `5` —— 与 `DailyData` 同一条口径。
-                var cell = UguiLayout.HorizontalChild(ms, 40f, 40f, i, padL, 20f);
+                var cell = UguiLayout.HorizontalChild(ms, 40f, 40f, i, padL, stepSp);
                 BuildMilestone(parent, cell, DailyData.SkullsStepDone(i), true,
                                DailyData.SkullsStepTarget(i).ToString());
             }

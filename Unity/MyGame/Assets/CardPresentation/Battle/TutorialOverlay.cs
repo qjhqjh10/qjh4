@@ -47,9 +47,10 @@
 //       + `bundle_armycursors_assets_all`（21 张 `Cursor_<阵营>_01` / `…Glow`）。
 //       🔴 **但它们运行时会被换掉**：`TutorialPointer__SetupCursor.c` →
 //       `ArmyUtilities.GetCursorForArmy(army, out normal, out glow)` → `Image.set_sprite(...)`
-//       按**阵营**取。那张对应表在 `CursorByArmySO`（**本地没解出来**，全库只有它的 MonoScript）
-//       ⇒ **阵营 → 光标**的对应**没有判据**，⛔ 不猜 ⇒ 我们**继续用 `40k_general_bt_arrow`** 当载体，
-//       并如实标「真载体是光标图，不是这张」。
+//       🔴 **2026-10-28（`B89-E15` · 铁律 5）就地订正**：本文原写「那张对应表在 `CursorByArmySO`、
+//       **本地没解出来** ⇒ 阵营→光标**没有判据**」——**不成立**：那张表**就在图名里**
+//       （`bundle_armycursors_assets_all/Sprite/` 现读 21 个 `Cursor_<阵营>_01[Glow]`，11 个阵营各一对）
+//       ⇒ 判据齐，缺的只是**那 20 张图没 import 进 `Resources`**（只导了 Space Marine 那一对）⇒ 仍用现图，等图。
 //     · **提示底板**：✅ **查到真名了 ⇒ 已换**：`Generic Popup Background`（pid `-7511397500040153103`）
 //       = **`40k_popup`**（同一张索引表读出）。⛔ 不再是「我们挑的 `40K_display`」。
 //     · **跳过钮底板**：✅ **2026-10-18（`G9`）查到真名 ⇒ 已换 = `40K_button`**。

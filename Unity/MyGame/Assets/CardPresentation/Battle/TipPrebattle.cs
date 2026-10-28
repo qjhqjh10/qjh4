@@ -173,7 +173,7 @@ namespace CardPresentation
         /// <summary>从池里抽一条显示（原版 :460 `DisplayTips(PlayerDataManager)`）。</summary>
         public void DisplayTips(IReadOnlyList<string> pool)
         {
-            _pool = pool;
+            _pool = pool; _nextRaw = null;      // 走平铺池 ⇒ 关掉分组抽样器（见 <see cref="DisplayTips(IReadOnlyList{Tips})"/>）
             var t = GetNextTip();
             if (t != null) DisplayTip(t);
         }
@@ -182,7 +182,7 @@ namespace CardPresentation
         /// 空串或与上一条相同就重抽；仍拿不到 → 返回 null 并**出声**（本工程红线：不静默失败）。</summary>
         string GetNextTip()
         {
-            if (_pool == null || _pool.Count == 0)
+            if (_nextRaw == null && (_pool == null || _pool.Count == 0))
             {
                 Debug.LogWarning("[TipPrebattle] 文案池是空的 —— 原版走 PlayerDataManager.GetRandomTip() + " +
                                  "词条 `PrebattleTips/*`；我们本地化表里这两样都没有（见文件头 ②）");
@@ -190,7 +190,8 @@ namespace CardPresentation
             }
             for (int i = 0; i <= 5; i++)          // 原版 `obj = 5` + 循环 ⇒ 最多 6 次
             {
-                var raw = _pool[Random.Range(0, _pool.Count)];
+                // 原版每次重抽都走 `playerData.GetRandomTip()`；分组池那条路由 `_nextRaw` 提供同一个动作。
+                var raw = _nextRaw != null ? _nextRaw() : _pool[Random.Range(0, _pool.Count)];
                 if (string.IsNullOrEmpty(raw)) continue;
                 // 原版：`term = "PrebattleTips/" + raw`，再查 I2。我们照同一口径查词条；
                 //   查不到就把 raw 本身当文案（**只在它不像键的时候**），否则出声。
@@ -387,6 +388,65 @@ namespace CardPresentation
             yield return new WaitForSeconds((deactivateDelay >= 0f ? deactivateDelay : timeToOpenBg * 0.5f) + 0.1f);
             if (gameObject.activeSelf)
                 Debug.LogError("[TipPrebattle·断言2·隐藏] DeactivateTip 没有把自己 SetActive(false)");
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════
+        //  账 409：`PlayerDataManager.GetRandomTip()`
+        // ════════════════════════════════════════════════════════════════════════════
+        //
+        // **判据 = `d:/2/tools/decomp_full/PlayerDataManager__GetRandomTip.c` 全文**：
+        //   ① 遍历 `tips(+0x118)`；每项 `+0x10` = **`maxHeroLevel`**（`int`）、`+0x18` = `List<string> tips`；
+        //   ② 取 **`maxHeroLevel > 0` 且最大**的那一组（**严格 `>`** ⇒ 平手取**先遇到**的）；
+        //   ③ 一组都没有 ⇒ 返回 **`""`**（`DAT_1842b80e0` = 空串实解）；
+        //   ④ 否则 `UnityEngine.Random.Range(0, 组.Count)` → `组[i]`。
+        //   ⚠️ 原版对「`tips` 字段为 null」与「选中组 `+0x18` 为 null」走 NRE 帮助函数（`FUN_1803f47a0`）；
+        //      本工程**不抛**（红线），这两种退化输入都按「没有可用组」返回 `""`（并与"一组都没有"同一档）。
+        //   ⚠️ **文案池本身**（原版 `TipsData` = `OnlineData` key 14，服务器下发）本地**没有** ⇒ 池子由宿主任传
+        //      （与 `DisplayTips(pool)` 同一条口径：没有就出声，⛔ 不造假文案）。
+
+        /// <summary>= 原版 `Tips`（`tips(+0x118)` 的元素；`cpp2il/out_cpp2il_dev_ilspy/Tips.cs` 两个字段逐字照抄）。
+        /// ⚠️ `maxHeroLevel` 在这套逻辑里就是**分组权重**（`GetRandomTip` 按它取最大组）—— 名字照原版，别改名。</summary>
+        [System.Serializable]
+        public class Tips
+        {
+            public int maxHeroLevel;
+            public List<string> tips = new List<string>();
+        }
+
+        /// <summary>分组池那条路的抽样器（`null` ⇒ 走平铺 `_pool`）。见 <see cref="GetNextTip"/>。</summary>
+        System.Func<string> _nextRaw;
+
+        /// <summary>原版 `PlayerDataManager.GetRandomTip()`（账 409）。判据/退化输入见本节文件头注释。</summary>
+        public static string GetRandomTip(IReadOnlyList<Tips> groups)
+        {
+            if (groups == null) return "";                       // 原版：NRE（见本节注释）
+            Tips best = null;
+            int bestLevel = -1;                                  // 原版 `iVar5 = -1`
+            for (int i = 0; i < groups.Count; i++)               // 原版 `foreach` 序
+            {
+                var g = groups[i];
+                if (g == null) continue;
+                int lv = g.maxHeroLevel;
+                if (lv > 0 && bestLevel < lv) { best = g; bestLevel = lv; }   // 严格 `<` ⇒ 平手取先遇到的
+            }
+            if (best == null || best.tips == null || best.tips.Count == 0) return "";   // 原版 `return DAT_1842b80e0`（空串）
+            return best.tips[Random.Range(0, best.tips.Count)];  // 原版 `UnityEngine.Random.Range(0, 组.Count)`
+        }
+
+        /// <summary>原版 `DisplayTips(PlayerDataManager)` 的**分组池**入口：池 = <see cref="Tips"/> 列表
+        /// ⇒ 走 <see cref="GetRandomTip"/>，再进 `GetNextTip` 那条「`PrebattleTips/&lt;条目&gt;` 查表 + 最多重抽 6 次」的路
+        /// （与平铺池**同一条**查表/重抽逻辑，⛔ 别复制第二份）。</summary>
+        public void DisplayTips(IReadOnlyList<Tips> groups)
+        {
+            if (groups == null)
+            {
+                Debug.LogWarning("[TipPrebattle] 分组文案池是 null —— 原版 `PlayerDataManager.tips` 由服务器下发"
+                               + "（`TipsData` = OnlineData key 14），本工程没有 ⇒ 池子必须由宿主任传");
+                return;
+            }
+            _nextRaw = () => GetRandomTip(groups);
+            var t = GetNextTip();
+            if (t != null) DisplayTip(t);
         }
     }
 }

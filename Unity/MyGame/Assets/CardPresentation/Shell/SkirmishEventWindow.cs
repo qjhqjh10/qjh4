@@ -623,6 +623,8 @@ namespace CardPresentation
             //    ⇒ 我们「不建 DEBUG」与原版运行时一致（不是「判不出」）。
             Debug.Log("[Event] `DEBUG` 那一层**没建** —— 原版挂 `DebugAutoDisabler`，其 `OnEnable` 实读 = "
                       + "`gameObject.SetActive(false)`（自关；反编译函数符号错配，函数体可读）⇒ 运行时本来就不显示");
+
+            WireHeaderComponent(root);   // 🔴 2026-10-28（B89-E29）窗头组件接线（方法在类尾）
         }
 
         /// <summary>`Timer`：图标 + 倒计时文字（**照 `Energy` 窗那一套**，A1248）。
@@ -900,6 +902,19 @@ namespace CardPresentation
         protected override void OnDeckColumnChanged()
         {
             RefreshBannedLine();
+        }
+
+        // ============================================================ 窗头组件接线（B89-E29 · 追加于类尾）
+        /// <summary>与 `RankedEventWindow` 同一口径 —— 表头建在基类 `LiveOpsEventWindow.Build()` 里
+        /// （`BuildHeader` 是 private），本子类在 `BuildExtras` 里按路径补线。
+        /// 原版 `SkirmishEventWindow.header` 就是那颗组件（`SkirmishEventWindow__Open.c:28` 调
+        /// `WindowHeaderWithBackButton.Initialize(header, ev, onBack)`）；标题 = 本模式名（小冲突）。
+        /// <para>⚠️ 放在类尾是照「新成员追加类尾」的纪律（⛔ 插进已有成员之间会让账的行号整体漂移）。</para></summary>
+        void WireHeaderComponent(Transform root)
+        {
+            ParentEventWindow.EnsureHeaderTitleResolver();
+            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => Close(),
+                                                  Loc.T("MainMenu/GameMode/Skirmish"));
         }
     }
 }

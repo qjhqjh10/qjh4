@@ -56,7 +56,40 @@ run CardFaceAssertE5.Run cardface_e5.log  # 卡面音效 cue 断言（含 SoundC
 #   加它的理由同上面两条：**现有宿主没有一个碰过 `WarpforgeAudio`**（`AudioSetup.PlayCheck` 在 batchmode 下直接拒跑）
 #   ⇒ 不加进本清单，那几条断言**永远不会执行**。⛔ 仍然**串行**。
 run AudioSnapshotCheck.Run audiosnap.log # 混音快照：条数 / 逐档取得到 / 0 miss
-echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 + AnimFX + 卡面音效 + 音频快照 = 15 条）==="
+# ---- 🆕 2026-10-28（第八十九会话 · `B89-E9` 建、调度台并入）----
+#   `Editor/LoadableRefCheck.cs` 断 `LoadableReference<T>` 的 12 条原版语义（`Equals`/`GetHashCode`/
+#   两个 `implicit`/序列化三钩子），含**「`Equals(null)` 原版抛 NRE」**那条灭自证断言。
+#   加它的理由同上面几条：**没有第二个 `-executeMethod` 指向它** ⇒ 不加进本清单，36 条断言永远不会执行。
+#   ⚠️ 该宿主**只跑纯函数，不建场景、不出图**。⛔ 仍然**串行**。
+run LoadableRefCheck.Run loadable_ref.log # LoadableReference<T>：12 条语义 / 36 断言
+# ---- 🆕 2026-10-28（第八十九会话 · `B89-E10` 建、调度台并入）----
+#   `Editor/PlayerDataMathCheck.cs` 断 `Core/PlayerDataMath.cs` 的六条纯函数（`GetMD5Hash` 空串返 `""`
+#   不是 null · `AreDecksEqual` 的**不对称** · `GetXPFromMatch` 的分支表（含 `Campaign` 返 130 那条原版 bug））。
+#   P0 相关：`GetXPFromMatch` 是「赛后 XP 一分不发」的那条判据本体。判绿红看日志里的 `PDMATH 合计`。
+#   ⚠️ 纯函数，不建场景、不出图。⛔ 仍然**串行**。
+run PlayerDataMathCheck.Run pdmath.log # 玩家数据纯函数：MD5 / 卡组相等 / XP 分支表
+# ---- 🆕 2026-10-28（第八十九会话 · `B89-E11` 建、调度台并入）----
+#   `Editor/GameModesCheck.cs` 断 `Shell/GameModesHandler.cs`（`LiveOpsHandler` 的 GameModes 子类）：
+#   `DeserializeSharedData` 三条回落（`Classic→Ranked→new`，`FastMode` 无 Ranked 级回落，第三条取整份）
+#   · `SetResultCount` 三支 +1 且 `default` 必须排在 `GetValuesForMode` **之前**（否则未知 winner 会往战绩表塞空记录，静默）
+#   · `CombatFinished` 末尾清 `CurrentPlayingEvent`（原版行为，同一局只分派一次）。
+#   ⚠️ 纯逻辑，不建场景、不出图。⛔ 仍然**串行**。
+run GameModesCheck.Run gamemodes.log # GameModes：共享数据回落 / 战绩计数 / 分派一次性
+# ---- 🆕 2026-10-28（第八十九会话 · `B89-E12` 建、调度台并入）----
+#   `Editor/GameStaticDataCheck.cs` 断 `Shell/GameStaticData.cs`（13 格默认值 + `CheckIfNewCards`/`FoundNewCard`）
+#   与 `Core/Tooltip.GetTraitDesc` 的 `isAlt` 支（3 条 `CardTraitDescription/*Alt` 键已在官方表里）。
+#   ⚠️ `LoadSharedDefaultValues` 的 13 个默认值全部现读 `dump.cs:119411-119520`；`hiFPS = true`、
+#   `smallScreenUI`/`useCombatAutoZoom` 是**同一个值**、`graphicsQuality` 默认 **4（Ultra）**（`.c` 全文 = `return 4`）。
+#   ⚠️ 纯数据 + 纯函数，不建场景、不出图。⛔ 仍然**串行**。
+run GameStaticDataCheck.Run gsd.log # GameStaticData 13 格默认值 / 新卡判定 / 词条 Alt 文案
+# ---- 🆕 2026-10-28（第八十九会话 · `B89-E6b` 建、调度台并入）----
+#   `RuleEngine/Editor/EnchantmentTemplateCheck.cs` 断卡表 v37 的两列（`whileInPlayAnim` / `permanentBuffs`）
+#   与 `AttachAbilityDamage` 的 null vs [] 两档（26 条，含 4 条灭自证 + 全池下限）。
+#   🔴 **`HasAbilityDamage` 全仓 0 消费者**、`DoDeal` 90 档读的是 `AbilityDamageAt`（对 null 与 [] 同回 null）
+#   ⇒ 这两列**今天不改任何卡的结算**；加它的理由是「数据侧先落地、消费端后接」时别丢断言。
+#   ⚠️ 纯数据，不建场景、不出图。⛔ 仍然**串行**。
+run EnchantmentTemplateCheck.Run enchant_tpl.log # 卡表 v37 两列 / abilityDamage 的 null 与空数组两档
+echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 + AnimFX + 卡面音效 + 音频快照 + LoadableRef + PlayerDataMath + GameModes + GameStaticData + EnchantmentTemplate = 20 条）==="
 # 🔴 **2026-10-18 就地订正（铁律 5）**：这一句原来写「= **13** 条」—— **错了**，实读脚本的 `run` 调用**只有 12 个**
 #   （`grep -c '^run '` 会数出 13，因为它**把上面那句函数定义 `run () {` 也算进去了**；
 #    判据 = 本脚本的 12 个入口 + 本脚本跑出来的日志里**只有 12 行「开始」**）。
@@ -66,4 +99,9 @@ echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基�
 #   **现在**（本行起）= **14 个 `run` 调用** —— 2026-10-24 新增 `AnimFXCheck.Run`（12→13），
 #   2026-10-25 新增 `CardFaceAssertE5.Run`（13→**14**，见上面那条 RU）。
 #   2026-10-27（第八十八会话）再增 `AudioSnapshotCheck.Run`（14→**15**，见 `B88_E8b` 那条注释）。
-#   判据照旧：`grep -c '^run '` 会得 **16**（含函数定义 `run () {`），减去那一行 = **15**；也可以数日志里的「开始」行。⛔ 以后加/删条目时**只改这一处与 `echo` 那一句**。
+#   2026-10-28（第八十九会话）再增 `LoadableRefCheck.Run`（15→**16**，见 `B89-E9` 那条注释）。
+#   2026-10-28（第八十九会话 · 同日第二批）再增 `PlayerDataMathCheck.Run`（16→**17**，见 `B89-E10` 那条注释）。
+#   2026-10-28（第八十九会话 · 同日第三批）再增 `GameModesCheck.Run`（17→**18**，见 `B89-E11` 那条注释）。
+#   2026-10-28（第八十九会话 · 同日第四批）再增 `GameStaticDataCheck.Run`（18→**19**，见 `B89-E12` 那条注释）。
+#   2026-10-28（第八十九会话 · 同日第五批）再增 `EnchantmentTemplateCheck.Run`（19→**20**，见 `B89-E6b` 那条注释）。
+#   判据照旧：`grep -c '^run '` 会得 **21**（含函数定义 `run () {`），减去那一行 = **20**；也可以数日志里的「开始」行。⛔ 以后加/删条目时**只改这一处与 `echo` 那一句**。

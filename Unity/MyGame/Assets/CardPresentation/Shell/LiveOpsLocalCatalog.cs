@@ -1136,4 +1136,47 @@ namespace CardPresentation
         /// <summary>当前语档下的显示文本（缺键 ⇒ 空串）。</summary>
         public string Text;
     }
+
+    // ============================================================ 追加区 · 2026-10-28（B89-R2b · 日常_奖励 LiveOpsAssetUtility 缺口 · 账 297/300）
+    /// <summary>原版 `Everguild.LiveOps.LiveOpsAssetUtility` 的本地等价物（第八十九会话 B89-R2b）。
+    /// 原版这两个取器在**取不到时会 `CustomDebug.LogWarning`**（`GetAssetReference` 还会先判 `RuntimeKeyIsValid`）；
+    /// 我们原来的 `LiveOpsLocalEvent.FindAsset`/`TryGetLabel` **静默**返 null/false —— 本类补回「会喊」的那一层。
+    /// <para>⚠️ **不把 warning 直接塞进 `TryGetLabel`**：它在全仓被当「探一探有没有」用（`HasLabel` / `InboxData` /
+    /// `MainMenuRuntime` 先试 4 再试 0 …），塞进去会让每一次「正常的不存在」都变日志噪声。⇒ warning 只在本「意图取用」层发。</para>
+    /// <para>🔶 自己设计（非原版）：`RuntimeKeyIsValid` 本地没有 Addressables runtime key ⇒ 以「能解析到子对象名
+    /// （`LiveOpsLocalAsset.SubObjectName` 非空）」为有效代理 · 为什么必须自己定：原版校验的是 Addressables 的 runtime key、
+    /// 本机没有那套装载层 · 调度台 2026-10-28（B89-R2b）裁定。</para></summary>
+    public static class LiveOpsAssetUtility
+    {
+        /// <summary>原版 `GetEventLabel(ILiveOps, EventLabelReferenceType)`：按 key 查 `EventLabel`；取不到 ⇒ `CustomDebug.LogWarning`。
+        /// 判据 `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__GetEventLabel.c:38`。</summary>
+        public static LiveOpsLocalLabel GetEventLabel(LiveOpsLocalEvent evt, LiveOpsLabelRef type)
+        {
+            LiveOpsLocalLabel label;
+            if (evt != null && evt.TryGetLabel((int)type, out label) && label != null) return label;
+            Debug.LogWarning("[LiveOpsAssetUtility] GetEventLabel(" + (evt != null ? evt.EventId : "<null>") + ", " + type
+                           + ") 取不到 —— 原版此处 CustomDebug.LogWarning（账 300）");
+            return null;
+        }
+
+        /// <summary>原版 `GetAssetReference(LiveOpsEventData, EventAssetReferenceType)`：按 key 查 `EventAssets`；
+        /// 查到还判 **`RuntimeKeyIsValid`**，否则 `CustomDebug.LogWarning` 后返 null。判据 `Everguild.LiveOps.LiveOpsAssetUtility__GetAssetReference.c:15-36`。</summary>
+        public static LiveOpsLocalAsset GetAssetReference(LiveOpsLocalEvent evt, LiveOpsAssetRef type)
+        {
+            LiveOpsLocalAsset asset = evt != null ? evt.FindAsset((int)type) : null;
+            if (asset == null)
+            {
+                Debug.LogWarning("[LiveOpsAssetUtility] GetAssetReference(" + (evt != null ? evt.EventId : "<null>") + ", " + type
+                               + ") 取不到 —— 原版此处 LogWarning 后返 null（账 297）");
+                return null;
+            }
+            if (string.IsNullOrEmpty(asset.SubObjectName))
+            {
+                Debug.LogWarning("[LiveOpsAssetUtility] GetAssetReference(" + evt.EventId + ", " + type
+                               + ") 命中但 RuntimeKey 无效（本地无 SubObjectName）—— 原版此处 LogWarning 后返 null（账 297）");
+                return null;
+            }
+            return asset;
+        }
+    }
 }

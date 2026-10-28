@@ -1233,7 +1233,10 @@ namespace CardPresentation
             //   `Two Sides Event Window/Event On Going Tab/Game Mode Header With Back Button/Header Back Button`
             //   = 空 cue + **`useDefaultAudioClipIfNull = 1`** ⇒ **默认 `ButtonClick`**
             //   （改前我们传了 `DefaultCloseCue` = `ButtonClick Back`，是错的 ⇒ 现在不传）。
-            MenuDraw.Hit(back, "Hit", Scr(P2HeaderBackR), QHit, () => Close());
+            System.Action onBack = () => Close();
+            var backHit = MenuDraw.Hit(back, "Hit", Scr(P2HeaderBackR), QHit, onBack);
+
+            WireHeaderComponent(header, backHit, onBack);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
 
             // `Battle Background`（`m_Sprite = null` ⇒ 只建容器）
             MenuDraw.Node(page, "Battle Background", Scr(P2BattleBgR));
@@ -1528,5 +1531,38 @@ namespace CardPresentation
 
         /// <summary>自检用：把本机选边状态清掉。</summary>
         public static void ResetTeamSelectionForTest() { SelectedTeamId = null; }
+
+        // ============================================================ 窗头组件的标题词条解析器（B89-E29 · 追加于类尾）
+        /// <summary>「事件 → 标题词条键」的通用解析器（= 原版 `LiveOpsAssetUtility.GetLabel(baseData, Title, [])`）。
+        /// 判据：`decomp_full/WindowHeaderWithBackButton__Initialize.c` 第 ③ 步 · `LiveOpsLabelRef.Title = 0`。
+        /// <para>🔶 **放在本窗是我们挑的落点**：口径要求 `WindowHeaderWithBackButton` **不直依赖** `LiveOpsLocalCatalog`
+        /// （那个文件正被搬），而本窗本来就依赖它（`TabLabelTerm` / `BuildEventTabs`）⇒ 由本窗提供这一份，
+        /// 六扇窗接线时经 <see cref="WindowHeaderWithBackButton.InstallTitleTermResolver"/> 装上（装一次全局生效）。</para></summary>
+        public static string ResolveHeaderTitleTerm(ILiveOps ev)
+        {
+            if (ev == null) return null;
+            var le = LiveOpsLocalCatalog.Find(ev.GetID());
+            if (le == null) return null;
+            var l = LiveOpsAssetUtility.GetEventLabel(le, LiveOpsLabelRef.Title);
+            return l != null ? l.Term : null;
+        }
+
+        /// <summary>把 <see cref="ResolveHeaderTitleTerm"/> 装进表头组件的静态接线口（幂等，装一次即可）。</summary>
+        public static void EnsureHeaderTitleResolver()
+        {
+            WindowHeaderWithBackButton.InstallTitleTermResolver(ResolveHeaderTitleTerm);
+        }
+
+        /// <summary>接线到原版那颗 `WindowHeaderWithBackButton`（原版 `Two Sides Event Window` 是那 8 个实例之一，
+        /// 表头由 `TwoSidesEvent_OnGoingTab` 持有）。本窗**内联建**表头、没走 `WindowHeader.WithBackButton`
+        /// ⇒ 返回钮的 `WindowButton` 在 `Hit` 命中区上。标题仍是 `P2HeaderTitle`（prefab 出厂 `Game mode`）——
+        /// 原版运行期由 liveop 的 `Title` 标签覆盖；本地没有该 `ILiveOps` 实例 ⇒ 走 `Initialize(string, Action)`
+        /// （与另五扇同一口径）。<para>⚠️ 放在类尾是照「新成员追加类尾」的纪律。</para></summary>
+        void WireHeaderComponent(Transform header, Transform backHit, System.Action onBack)
+        {
+            EnsureHeaderTitleResolver();
+            var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
+            WindowHeaderWithBackButton.WireHeader(header, backWb, _p2HeaderTitle, onBack, P2HeaderTitle);
+        }
     }
 }

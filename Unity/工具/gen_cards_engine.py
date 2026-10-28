@@ -4167,6 +4167,318 @@ def _enchant_shape(r):
     return out
 
 
+# ==========================================================================================
+#  🆕 v37（2026-10-28 · 第八十九会话 · 执行代理 `E6` · 账 L234 / L867 / L1044 / L847）
+#     —— 三族**数据侧**列。
+#  🔴 **⚠️ 本版【不是】零行为变化**（初稿写错了，同族教训 → 铁律 5「就地改掉」）：
+#     ① 那四列**已经有活的消费者** —— `RuleCore.cs:15321`（`CanStartActiveAbility` 的能量闸）与
+#        `:15408-15413`（`UseAbilityCore` 的 `SpendNormalMana`）都按 `ActiveAbilityCostKnown` 分支；
+#        今天 `ActiveAbilityCostKnown == false`（四格全 `-1`）⇒ 走「不收费 + `NoteActiveAbilityCostUnknown` 出声」。
+#        落列之后 ⇒ **`manaCost > 0` 的 34 张（全部督军）主动能力真的收费、能量不足则 `ErrCost`**。
+#        这是**与原版对齐**（`CanUseActiveAbility.c:60-70` 就是先查钱），但它会改指纹 ⇒
+#        同步点要跑 `ruleprobe check` 与受影响的 Unity 宿主。
+#     ② `whileInPlayAnim` / `permanentBuffs` 两列**今天确实零消费者**（`CardDef` 的解析口已建，接线另批）。
+# ==========================================================================================
+#  ① `activeAbilityManaCost` / `activeAbilityPsychicCost` / `activeAbilityPlasmaCost` /
+#     `activeAbilityTargeted`  —— 账 **L234**（`BattleManager.CanUseActiveAbility` 的费用闸）·
+#     账 **L867**（`CardScript.ResolveActiveAbilityPlayed`；同一条数据链的另一端）
+#
+#     · 判据（第一权威，逐行读过）：`d:/2/tools/decomp_full/BattleManager__CanUseActiveAbility.c:60-70`
+#       `PlayerManager__HasEnoughMana(player, <费用>, AbilityUsesPsychicEnergy(card), AbilityUsesPlasmaEnergy(card))`
+#       —— 三个入参**全部**来自卡自己的 `ActiveAbility` **对象**（不是文本、不是卡面）：
+#         `EntityScript__AbilityUsesPsychicEnergy.c` = `GetActiveAbilityCard(card).activeAbility(+0x260).psychicCost(+0x28)`
+#         `EntityScript__AbilityUsesPlasmaEnergy.c` = 同形，`+0x29`
+#         费用本体 = `ActiveAbility.manaCost(+0x14)`；`targeted` = `ActiveAbility.targeted`（同一对象的 bool）
+#       `EntityScript__GetActiveAbilityCard.c` = `activeAbilityRef(+0x118)` 非空则用它、否则用卡自己 ⇒ 取的是
+#       **对象级**那一份（`activeAbility`），**不是** `alternativeAbility`（⛔ 那一支只影响走哪组 logic 行）。
+#
+#     · 形状（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/ActiveAbility.cs`）：`manaCost` = **int**；
+#       `psychicCost` / `plasmaCost` / `targeted` = **bool** ⇒ 落列时折成 `0 / 1`（与
+#       `CardDef.ActiveAbility*` 的三态 `-1 = 未知` 对齐）。
+#
+#     · 🔴 **「数据费用 vs 文本费用」谁是判据 = 【数据】**：上面那条链里引擎**一个字都没读卡面文本** ——
+#       费用与币种全部来自 `ActiveAbility` 对象，文本只是展示。我们今天的 `RuleCore.AbilityCostGate`
+#       读的是**文本前缀**（`Ability:` / `Oath:` 的 op.Cost）—— 那是**我们自己的实现**（账 L234 的差异列），
+#       ⛔ 不是原版语义；消费端接上本列之后应以本列为准。
+#
+#     · 缺值 = `-1`（真值快照里没这张卡 / 旧表 < v37）。⚠️ `0` 是**合法**值
+#       （`SOR66` 的 `manaCost` 真值就是 0 = 免费）⇒ ⛔ 别把缺键读成 0。
+#
+#  ② `whileInPlayAnim` —— 账 **L1044**（`EntityScript.HasEnchantmentWhileInPlay`）
+#     · 判据：`RawCardScript.whileInPlayAnim`（`+0x288`，`dump.cs:23338`）；
+#       `EntityScript__HasEnchantmentWhileInPlay()` 逐件读的是**附魔卡自己**这一格（不是「身上有没有附魔」）。
+#     · 真值 `full_raw.whileInPlayAnim` 现读两档 `0/1`（1,351 张里 `1` = **41** 张；其中附魔卡 3 张）。
+#     · 缺值 = `-1`（未知）。读点 = `CardDef.WhileInPlayAnim` → `Enchantments.Attach` 的缺省。
+#
+#  ③ `permanentBuffs` —— 账 **L847**（`CardScript.RemoveBuffHandCostEffects` ·
+#     `CardScript.RemoveEffect` 的第一句闸 `permanentBuff(+0x74) != 0 ⇒ 摘不掉`）
+#     · 数据在哪：`CardEffect.permanentBuff(+0x74)` 是**逐条效果**的 bool。现读全表（1,351 张）**只有 1 条非 0**：
+#       `Living Icon` 挂的那张附魔模板（`uniqueId 0474b16360827b6408fb02b6820e7e63`，`m_Name` 尾 `_enchantment`）
+#       的 `cardAbilities[0].abilityLogic[0].buffEffect`：`buffType 2 (changeCost)` · `costChange -1` · `permanentBuff 1`。
+#       🔴 **它不在挂载方卡自己身上** —— 在**被挂上去的那张附魔模板**身上（挂载方 = `GSC51 Living Icon`，
+#       走 `buffType 12 (enchantment)` 的 `enchantment` PPtr → 模板）⇒ 本列**必须把 PPtr 那一步解出来**，
+#       否则那一张卡永远判不出来（这正是账 L847 今天仍然成立的原因）。
+#     · 形状（**稀疏**）：`[{"at": "buffEffect"|"handBuff"|"enchantment", "ab": i, "lg": j, "buffType": n}, …]`
+#       —— 只列 `permanentBuff != 0` 的那些行；`[]` = 明确没有。
+#       `at = "enchantment"` 的条目额外带 `"token"`（被挂上去那张模板的 `uniqueId`）。
+#     · 🔴 **这是数据形状、不是语义**：原版没有「一张卡有哪几条永久 buff」这种列 —— 它是逐效果的 bool。
+#       我们按 `(ab, lg)` 落是因为**我们**的卡表只到 ability/logic 这一层（没有 `activeEffects` 列表，
+#       见 `UnitState.EffectRecord` 的 doc）⇒ `// 🔶 自己设计（非原版的数据形状）：…`
+#       ⛔ 别拿这个形状去反推原版结构。
+#     · 缺列 = `null`（真值里没这张卡）—— 与「没有 permanent buff = `[]`」**必须分得开**。
+ACTIVE_ABILITY_COST_REPORT = {"cards": 0, "no_truth": 0, "bad": [],
+                              "mana": {}, "psychic": {}, "plasma": {}, "targeted": {}}
+WHILE_IN_PLAY_ANIM_REPORT = {"cards": 0, "no_truth": 0, "bad": [], "on": 0}
+PERMANENT_BUFF_REPORT = {"cards": 0, "no_truth": 0, "rows": 0, "via_enchantment": 0,
+                         "bad": [], "hit": []}
+
+
+def _tri_bool(v):
+    """真值里的 `bool` / `0-1 int` → `1 / 0`；缺键或坏值 → `None`（⛔ 不拿 0 顶）。"""
+    if isinstance(v, bool):
+        return 1 if v else 0
+    if isinstance(v, int) and v in (0, 1):
+        return v
+    return None
+
+
+def active_ability_cost_of(cid, name, trow, report):
+    """一张卡 → 原版 `ActiveAbility` 对象自己的四个标量（判据 / 口径 → 上面 v37 那段 ①）。
+
+    ⚠️ **四格永远都落**（`-1` = 未知）：与 `cardType` / `keyword` 同一写法 ——
+      「整列缺席」在这一族里没有额外语义（DTO 的缺键初值本来就是 `-1`）。
+    """
+    aa = (trow or {}).get("activeAbility")
+    if not isinstance(aa, dict):
+        report["no_truth"] += 1
+        return {"activeAbilityManaCost": -1, "activeAbilityPsychicCost": -1,
+                "activeAbilityPlasmaCost": -1, "activeAbilityTargeted": -1}
+    mana = aa.get("manaCost")
+    if isinstance(mana, bool) or not isinstance(mana, int):
+        report["bad"].append((cid, name, "activeAbility.manaCost", mana))
+        mana = -1
+    out = {"activeAbilityManaCost": mana}
+    for col, key in (("activeAbilityPsychicCost", "psychicCost"),
+                     ("activeAbilityPlasmaCost", "plasmaCost"),
+                     ("activeAbilityTargeted", "targeted")):
+        v = _tri_bool(aa.get(key))
+        if v is None:
+            # 缺键 / 坏值 ⇒ 那一格 -1（未知）；⛔ 不折成 0 = 「不花这个币种」。
+            report["bad"].append((cid, name, "activeAbility." + key, aa.get(key)))
+            v = -1
+        out[col] = v
+    report["cards"] += 1
+    report["mana"][out["activeAbilityManaCost"]] = report["mana"].get(out["activeAbilityManaCost"], 0) + 1
+    report["psychic"][out["activeAbilityPsychicCost"]] = \
+        report["psychic"].get(out["activeAbilityPsychicCost"], 0) + 1
+    report["plasma"][out["activeAbilityPlasmaCost"]] = \
+        report["plasma"].get(out["activeAbilityPlasmaCost"], 0) + 1
+    report["targeted"][out["activeAbilityTargeted"]] = \
+        report["targeted"].get(out["activeAbilityTargeted"], 0) + 1
+    return out
+
+
+def while_in_play_anim_of(cid, name, trow, report):
+    """一张卡 → 原版 `RawCardScript.whileInPlayAnim(+0x288)` 的 `0 / 1`；`-1` = 未知（口径 → v37 段 ②）。"""
+    if trow is None:
+        report["no_truth"] += 1
+        return -1
+    v = _tri_bool(trow.get("whileInPlayAnim"))
+    if v is None:
+        # 真值里**有这张卡但没这一格** ⇒ 未知（⛔ 不当 0 = 原版就是 false）。
+        report["bad"].append((cid, name, trow.get("whileInPlayAnim")))
+        return -1
+    report["cards"] += 1
+    if v:
+        report["on"] += 1
+    return v
+
+
+def _permanent_rows_of(row):
+    """一行真值（卡 SO）→ 它**自己身上**带 `permanentBuff != 0` 的 `[(at, ab, lg, buffType), …]`。
+
+    `at` = `"buffEffect"` / `"handBuff"`（两处都可能带 `permanentBuff`，口径 → v37 段 ③）。
+    """
+    out = []
+    for i, a in enumerate(row.get("cardAbilities") or []):
+        for j, lg in enumerate(a.get("abilityLogic") or []):
+            be = lg.get("buffEffect") or {}
+            if isinstance(be, dict) and be.get("permanentBuff"):
+                out.append(("buffEffect", i, j, be.get("buffType")))
+            hb = lg.get("handBuff") or {}
+            ce = hb.get("cardEffect") if isinstance(hb, dict) else None
+            if isinstance(ce, dict) and ce.get("permanentBuff"):
+                out.append(("handBuff", i, j, ce.get("buffType")))
+    return out
+
+
+def permanent_buffs_of(cid, name, trow, truth_by_path, truth_cards, report):
+    """一张卡 → 稀疏的 `[{at, ab, lg, buffType[, token]}, …]`；真值里没这张卡 ⇒ `None`（不落列）。
+
+    口径 / 判据 / 为什么必须解 `enchantment` PPtr → 上面 v37 那段 ③。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for at, i, j, bt in _permanent_rows_of(trow):
+        out.append({"at": at, "ab": i, "lg": j, "buffType": bt if isinstance(bt, int) else -1})
+        report["rows"] += 1
+    # ---- 挂上去的那张附魔模板自己是不是 permanent（`Living Icon` 那一例就在这儿）----
+    for i, a in enumerate(trow.get("cardAbilities") or []):
+        for j, lg in enumerate(a.get("abilityLogic") or []):
+            be = lg.get("buffEffect") or {}
+            if not isinstance(be, dict) or be.get("buffType") not in ENCHANTMENT_ATTACH_BUFFTYPES:
+                continue
+            en = be.get("enchantment") or {}
+            pid = en.get("m_PathID") if isinstance(en, dict) else None
+            if not pid:
+                continue                      # 这一行没有引用附魔模板 ⇒ 跳过（不是坏值）
+            tok_uid = (truth_by_path or {}).get(pid)
+            tok = (truth_cards or {}).get(tok_uid) if tok_uid else None
+            if tok is None:
+                report["bad"].append((cid, name, f"ab{i}.lg{j}.enchantment PPtr {pid}",
+                                      "解不出模板行"))
+                continue
+            for at, ti, tj, bt in _permanent_rows_of(tok):
+                out.append({"at": "enchantment", "ab": i, "lg": j,
+                            "buffType": bt if isinstance(bt, int) else -1, "token": tok_uid})
+                report["rows"] += 1
+                report["via_enchantment"] += 1
+    report["cards"] += 1
+    if out:
+        report["hit"].append((cid, name, len(out)))
+    return out
+
+
+# ==========================================================================================
+#  🆕 B89 / E6c（2026-10-28 · 执行代理 `E6c`）：**第二张表** —— 附魔模板 `enchantment_templates.json`
+# ==========================================================================================
+#  🔴 **为什么要第二张表**（⛔ 不是「把模板塞进 `cards_engine.json`」）：
+#    账 **L1044**（`EntityScript.HasEnchantmentWhileInPlay`）读的是**附魔卡自己**的 `whileInPlayAnim`，
+#    而真值里为 `1` 的那 3 张全是 `m_Name` 尾 `_enchantment` 的**模板**，它们**不在**
+#    `cards_engine.json` 的 `cards[]` 里（v30 入池闸 = `cardType == 20` **∧** 名字含 `enchant`）。
+#    调度台 2026-10-28 裁定：**⛔ 不放宽入池闸**（会改 `count` ⇒ 影响可玩池与探针基线；附魔模板**不是可玩卡**）。
+#    ⇒ 本表只服务「**按 id 查模板**」这一条读路；`cards_engine.json` 的 `cards[]` 与 `count` **一个字不动**。
+#
+#  📌 **口径**（同时写进产物的 `note` —— 消费端照它读，⛔ 别在别处另立一套）：
+#    · 收录 = 真值快照里 **`m_Name` 尾 `_enchantment`** 的全部行（现读 **85** 张）。
+#      ⛔ **不**按「名字含 `enchant`」筛（那是入池闸的判据，另一件事）。
+#    · `version` **独立计数**（从 1 起），与卡表的 v37 **无关**；两张表各自 bump。
+#    · `abilities` 只带**四格标量**：`ca` = `chosenAbility` · `pa` = `playersAffected` ·
+#      `ta` = `targetCriteria.targetsAffected` · `fm` = `furtherMultiplier`。
+#      **buff / damage / summon 正文不带**（附魔效果的解释层还没建模；要用时按同一批 helper 扩，
+#      ⛔ 别在消费端另写一套解析 —— 两处写同一条规则 = 迟早不一致）。
+#    · `permanentBuffs` 与主表 v37 **同形**（稀疏、`at/ab/lg/buffType`）—— 直接复用 `_permanent_rows_of`。
+#    · `owners` = 反向索引「谁挂它」（`buffEffect{buffType 12/15/16}.enchantment` 的 PPtr → 本行），
+#      记 `id` / `buffType` / `trigger` / `inPool`（挂载者自己是不是池内卡）。
+#    · 排序 = `uniqueId` 升序 ⇒ **字节稳定**（两次 `--write` 必须逐字节相同）。
+ENCHANT_TEMPLATES_DST = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/enchantment_templates.json"
+ENCHANT_TEMPLATES_DOC = None                 # `build()` 填；`main()` 在 `--write` 时落盘
+ENCHANT_TEMPLATES_REPORT = {"rows": 0, "with_owner": 0, "pool_reachable": 0,
+                            "wp_on": 0, "rows_bad": [], "order": "uniqueId"}
+
+
+def _tri_or_unknown(v):
+    """`_tri_bool` 的落列版：坏值/缺键 → `-1`（未知）。"""
+    t = _tri_bool(v)
+    return -1 if t is None else t
+
+
+def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
+    """真值快照 → 第二张表的 doc（`{version, source, note, count, templates[]}`）；口径见上面那段长注释。"""
+    pool_ids = {c.get("id") for c in (pool_cards or [])}
+    # ---- ① 谁挂哪个模板（只看 `buffEffect.enchantment` 的非零 PPtr）----
+    owners = {}          # 模板 path_id → [(owner uid, buffType, trigger)]
+    for uid, owner in (truth_cards or {}).items():
+        for a in (owner.get("cardAbilities") or []):
+            for lg in (a.get("abilityLogic") or []):
+                be = lg.get("buffEffect") or {}
+                if not isinstance(be, dict) or be.get("buffType") not in ENCHANTMENT_ATTACH_BUFFTYPES:
+                    continue
+                en = be.get("enchantment") or {}
+                pid = en.get("m_PathID") if isinstance(en, dict) else None
+                if not pid:
+                    continue
+                owners.setdefault(pid, []).append((uid, be.get("buffType"), a.get("trigger")))
+
+    templates = []
+    for uid in sorted((truth_cards or {}).keys()):
+        r = truth_cards[uid]
+        if not norm_str(r.get("m_Name")).endswith("_enchantment"):
+            continue
+        aa = r.get("activeAbility") if isinstance(r.get("activeAbility"), dict) else {}
+        abil = []
+        for a in (r.get("cardAbilities") or []):
+            tg = a.get("trigger")
+            logic = []
+            for lg in (a.get("abilityLogic") or []):
+                tc = lg.get("targetCriteria") or {}
+                logic.append({
+                    "ca": truth_int(lg, "chosenAbility", -1),
+                    "pa": truth_int(lg, "playersAffected", -1),
+                    "ta": truth_int(tc, "targetsAffected", -1),
+                    "fm": truth_int(lg, "furtherMultiplier", -1),
+                })
+            abil.append({"trigger": tg if isinstance(tg, int) and not isinstance(tg, bool) else -1,
+                         "logic": logic})
+        _wp = _tri_bool(r.get("whileInPlayAnim"))
+        if _wp is None:
+            ENCHANT_TEMPLATES_REPORT["rows_bad"].append((uid, "whileInPlayAnim", r.get("whileInPlayAnim")))
+            _wp = -1
+        own = [{"id": o[0], "buffType": o[1] if isinstance(o[1], int) else -1,
+                "trigger": o[2] if isinstance(o[2], int) and not isinstance(o[2], bool) else -1,
+                "inPool": o[0] in pool_ids} for o in owners.get(r.get("path_id"), [])]
+        templates.append({
+            "id": uid,
+            "name": norm_str(r.get("cardName")) or norm_str(r.get("m_Name")).split("_")[-1],
+            # 官方中文名按 **卡 id** 查（模板 uid 是 32 位 GUID ⇒ 大概率 miss，落 `""` 并如实标注口径）
+            "nameZh": (off_id or {}).get(uid, ""),
+            "mName": norm_str(r.get("m_Name")),
+            "cardType": truth_int(r, "cardType", -1),
+            "spellType": truth_int(r, "spellType", -1),
+            "manaCost": truth_int(r, "manaCost", -1),
+            "psychicCost": _tri_or_unknown(aa.get("psychicCost")),
+            "plasmaCost": _tri_or_unknown(aa.get("plasmaCost")),
+            "targeted": _tri_or_unknown(aa.get("targeted")),
+            "whileInPlayAnim": _wp,
+            # ⚠️ 必须走 `truth_traits_of`（与主表 `cardTraits` 列**同一个写法**：`["Armour 1", "Long Range"]`）——
+            #    真值 `CardTraits` 的元素是**字典**，直接 `norm_list` 会把它们变成 Python repr 字符串。
+            "cardTraits": truth_traits_of(r),
+            "permanentBuffs": [{"at": at, "ab": i, "lg": j,
+                                "buffType": bt if isinstance(bt, int) else -1}
+                               for at, i, j, bt in _permanent_rows_of(r)],
+            "abilities": abil,
+            "owners": own,
+        })
+        if own:
+            ENCHANT_TEMPLATES_REPORT["with_owner"] += 1
+            if any(o["inPool"] for o in own):
+                ENCHANT_TEMPLATES_REPORT["pool_reachable"] += 1
+        if _wp == 1:
+            ENCHANT_TEMPLATES_REPORT["wp_on"] += 1
+
+    ENCHANT_TEMPLATES_REPORT["rows"] = len(templates)
+    doc = {
+        "version": 1,
+        "source": (f"{TRUTH_CARDS_SRC}（当前 build 的卡 SO 快照 —— 与 `cards_engine.json` **同一份源**）"),
+        "note": (
+            "附魔模板表（第二张表）。收录 = 真值快照里 `m_Name` 尾 `_enchantment` 的全部行；"
+            "⛔ **不进** `cards_engine.json` 的 `cards[]`、不改它的 `count`（那些模板不是可玩卡）。"
+            "用途 = 账 L1044 的 `HasEnchantmentWhileInPlay` 需要读**附魔卡自己**的 `whileInPlayAnim`，"
+            "而那 3 张为真的模板都在本表里。"
+            "口径：`whileInPlayAnim` 三态（-1 未知 / 0 / 1）；`abilities` 只带四格标量 "
+            "`ca`(chosenAbility) `pa`(playersAffected) `ta`(targetsAffected) `fm`(furtherMultiplier)，"
+            "buff/damage/summon 正文**不在本表**；`permanentBuffs` 与卡表 v37 同形（稀疏）；"
+            "`owners` = 谁挂它（`id` / `buffType` / `trigger` / `inPool`）；排序 = uniqueId 升序。"
+            "`version` 独立计数，与卡表版本无关。"
+        ),
+        "count": len(templates),
+        "templates": templates,
+    }
+    return doc
+
+
 def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
                               anim_idx=None, anim_cache=None, anim_trig_names=None,
                               anim_report=None, trait_names=None,
@@ -4349,6 +4661,12 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
             entry[_col] = truth_ref_name(r, _tf) if _dflt == "" else truth_int(r, _tf, _dflt)
         # ---- 🆕 2026-10-25：`alternateArts`（与主循环同一 helper；本卡没有异画 ⇒ `[]`，⛔ 不是 `null`）----
         entry["alternateArts"] = alt_ids_of(r)
+        # ---- 🆕 v37（2026-10-28 · 执行代理 `E6`）：三族数据列（与主循环**同 helper**，⛔ 别另写一份）----
+        entry.update(active_ability_cost_of(uid, name, r, ACTIVE_ABILITY_COST_REPORT))
+        entry["whileInPlayAnim"] = while_in_play_anim_of(uid, name, r, WHILE_IN_PLAY_ANIM_REPORT)
+        _pb = permanent_buffs_of(uid, name, r, truth_by_path, truth_cards, PERMANENT_BUFF_REPORT)
+        if _pb is not None:
+            entry["permanentBuffs"] = _pb
         # ---- `choicesDefinition` 三列（本卡没有 ⇒ `-1 / -1 / []`，与主循环同一段）----
         _cd = (r.get("choicesDefinition") or {})
         _cd_ta, _cd_mt = _cd.get("targetsAffected"), _cd.get("maxTargets")
@@ -4961,6 +5279,15 @@ def build():
             #    的**原版字段偏移注释**里）⇒ 本列只落数据、不改任何行为。
             "alternateArts": alt_ids_of(trow),
         }
+        # ---- 🆕 v37（2026-10-28 · 执行代理 `E6` · 账 L234 / L867 / L1044 / L847）---------------------
+        #   三族数据列；判据 / 口径 / 缺值语义 → 上面 `active_ability_cost_of` 那一段长注释（⛔ 别在这里抄第二份）。
+        entry.update(active_ability_cost_of(cid, name, trow, ACTIVE_ABILITY_COST_REPORT))
+        entry["whileInPlayAnim"] = while_in_play_anim_of(cid, name, trow, WHILE_IN_PLAY_ANIM_REPORT)
+        _pb = permanent_buffs_of(cid, name, trow, truth_by_path, truth_cards,
+                                 PERMANENT_BUFF_REPORT)
+        # `None` = 真值里没这张卡 ⇒ **不落列**（与「明确没有 = `[]`」分得开，同 `abilityTargets`）。
+        if _pb is not None:
+            entry["permanentBuffs"] = _pb
         # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
         # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。
         #    `-1` = 真值里查不到这张卡（快照比现池旧：整个 SpaceWolves + DA75..DA74 等）⇒ 引擎**不拦**，
@@ -5655,12 +5982,68 @@ def build():
           f"不退还族 {{230,233,235,236}} = **{len(_ca_norefund)}** 张（{', '.join(_ca_norefund)}）"
           f" · 坏值 {len(CHOSEN_ABILITY_REPORT['bad'])} 处")
 
+    # ---- 🆕 v37（2026-10-28 · 执行代理 `E6` · 账 L234 / L867 / L1044 / L847）三族数据列的读数 ----
+    #   口径（⛔ 别把「缺值」当「原版就是 0」）：`-1` = 真值快照里没这张卡（未知）；`0` 常常是合法值。
+    _pb_cards = [c for c in cards if "permanentBuffs" in c]
+    _pb_hit = [c for c in _pb_cards if c["permanentBuffs"]]
+    print("卡表数据侧三族（v37 · `E6`）：")
+    print("  · `activeAbility*` 四列："
+          f"真值命中 **{ACTIVE_ABILITY_COST_REPORT['cards']}/{len(cards)}** 张"
+          f"（`no_truth` **{ACTIVE_ABILITY_COST_REPORT['no_truth']}**）"
+          f" · manaCost 分布 {dict(sorted(ACTIVE_ABILITY_COST_REPORT['mana'].items()))}"
+          f" · psychic {dict(sorted(ACTIVE_ABILITY_COST_REPORT['psychic'].items()))}"
+          f" · plasma {dict(sorted(ACTIVE_ABILITY_COST_REPORT['plasma'].items()))}"
+          f" · targeted {dict(sorted(ACTIVE_ABILITY_COST_REPORT['targeted'].items()))}"
+          f" · 坏值 **{len(ACTIVE_ABILITY_COST_REPORT['bad'])}** 处")
+    print(f"  · `whileInPlayAnim`：`1` = **{WHILE_IN_PLAY_ANIM_REPORT['on']}** 张"
+          f"（真值命中 {WHILE_IN_PLAY_ANIM_REPORT['cards']}/{len(cards)} · "
+          f"`no_truth` {WHILE_IN_PLAY_ANIM_REPORT['no_truth']} · "
+          f"坏值 {len(WHILE_IN_PLAY_ANIM_REPORT['bad'])}）")
+    print(f"  · `permanentBuffs`：落列 **{len(_pb_cards)}/{len(cards)}** 张 · "
+          f"**非空 {len(_pb_hit)}** 张"
+          + ("（" + " · ".join(f"{c['id']} {c['name']}×{len(c['permanentBuffs'])}"
+                               for c in _pb_hit) + "）" if _pb_hit else "")
+          + f" · 行数 **{PERMANENT_BUFF_REPORT['rows']}**（其中经附魔模板 PPtr 解出 "
+          f"{PERMANENT_BUFF_REPORT['via_enchantment']} 条）"
+          f" · `no_truth` {PERMANENT_BUFF_REPORT['no_truth']}"
+          f" · 解不出的 PPtr **{len(PERMANENT_BUFF_REPORT['bad'])}** 处")
+
     # 🆕 2026-10-19（`E12` · `A2142`）：**天赋名 → 天赋卡 id** 的真值表（见 `build_talent_name_ids`）。
     #   仍在卡表里（不另立文件）：`CardDatabase` 把它交给 `TalentCardData` 当**兜底查表**用。
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
+    # 🆕 B89 / E6c（2026-10-28）：**第二张表**（附魔模板）—— 口径 → `build_enchantment_templates` 上面那段长注释。
+    #   ⛔ 它**不进** `cards_engine.json`：`cards[]` 与 `count` 一个字不动（调度台 2026-10-28 裁定）。
+    global ENCHANT_TEMPLATES_DOC
+    ENCHANT_TEMPLATES_DOC = build_enchantment_templates(truth_cards, truth_by_path, cards, off_id)
+    _etpl = ENCHANT_TEMPLATES_REPORT
+    print(f"\n附魔模板表   `enchantment_templates.json`（第二张表）收录 **{_etpl['rows']}** 张"
+          f"（判据 = `m_Name` 尾 `_enchantment`；⛔ 不进卡池、不改 `count`）"
+          f" · 有挂载者 **{_etpl['with_owner']}** 张（其中挂载者在池内 **{_etpl['pool_reachable']}** 张）"
+          f" · `whileInPlayAnim == 1` **{_etpl['wp_on']}** 张")
+    if _etpl["rows_bad"]:
+        print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["rows_bad"][:5]))
+
     return {
-        "version": 36,         # v36（2026-10-28 · 第八十八会话 · 执行代理 `A1c`）= 加 `abilityDamage`（`damageCriteria` 四格）
+        "version": 37,         # v37（2026-10-28 · 第八十九会话 · 执行代理 `E6`）= 三族「数据侧」列（账 L234 / L867 / L1044 / L847）
+                               #     ① `activeAbilityManaCost` / `activeAbilityPsychicCost` /
+                               #        `activeAbilityPlasmaCost` / `activeAbilityTargeted`
+                               #        （原版 `ActiveAbility` 对象自己的四个标量；`-1` = 未知，`0` = 免费是合法值）
+                               #        —— 消费端**已经在了**（`CardDatabase.cs` 的 DTO 四格 + `AttachActiveAbilityCost`），
+                               #        本版落列之后它们立刻从 `-1` 变成真值。
+                               #        🔴 **所以这一列会改行为**（不是「只落数据」）：`RuleCore.cs:15321` 的能量闸与
+                               #        `:15408` 的 `SpendNormalMana` 都按 `ActiveAbilityCostKnown` 分支 ⇒ `manaCost > 0`
+                               #        的 34 张（全督军）主动能力从此**真的收费**（原版同一条闸，这是对齐）。
+                               #        ⇒ 同步点要跑 `ruleprobe check` / `play check` 与受影响的 Unity 宿主。
+                               #     ② `whileInPlayAnim`（原版 `RawCardScript.whileInPlayAnim +0x288`；`0/1`，`-1` = 未知）
+                               #        —— 消费端**待接**（`CardDef.WhileInPlayAnim` 已建，`Enchantments.Attach` 的缺省
+                               #        还没读它：`Core/Enchantment.cs` 不在本代理白名单）。
+                               #     ③ `permanentBuffs`（稀疏；`CardEffect.permanentBuff +0x74 != 0` 的那些行）
+                               #        —— 消费端**待接**（`CardDef.PermanentBuffs` 已建；`CardDatabase` 的 DTO 与
+                               #        `EffectRecord.Permanent` / `ActiveCardEffect.Permanent` 的灌值另行接线）。
+                               #     判据 / 口径 / 现读规模 → `active_ability_cost_of` 上面那一段 v37 长注释。
+                               #     ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v36（2026-10-28 · 第八十八会话 · 执行代理 `A1c`）= 加 `abilityDamage`（`damageCriteria` 四格）
                                #     ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
                                #     `cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` /
                                #     `targetingTextReferenceId`（原版 6 个 `*ReferenceId` 里的三个，
@@ -7278,6 +7661,18 @@ def main():
     with open(DST, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, separators=(",", ":"))
     print(f"\n写出 {DST}  ({os.path.getsize(DST) / 1024:.0f} KB)")
+    # 🆕 B89 / E6c（2026-10-28）：**第二张表**同生共死 —— 与卡表在同一个 `--write` 里落盘
+    #   （干跑 / `--check` / 守卫炸掉三种情况下都**不会**留下它；详见上面 `A1648` 那段）。
+    if ENCHANT_TEMPLATES_DOC is not None:
+        os.makedirs(os.path.dirname(ENCHANT_TEMPLATES_DST), exist_ok=True)
+        with open(ENCHANT_TEMPLATES_DST, "w", encoding="utf-8") as f:
+            json.dump(ENCHANT_TEMPLATES_DOC, f, ensure_ascii=False, separators=(",", ":"))
+        print(f"写出 {ENCHANT_TEMPLATES_DST}  "
+              f"({os.path.getsize(ENCHANT_TEMPLATES_DST) / 1024:.0f} KB · "
+              f"{ENCHANT_TEMPLATES_DOC['count']} 张模板)")
+    else:
+        print("⚠️ 第二张表（附魔模板）**没生成** —— `ENCHANT_TEMPLATES_DOC is None`"
+              "（`build()` 没跑到那一步？⛔ 别当「没有模板」）")
     # 🔴 **`A1980`②（2026-10-18）：自造 id 清单** —— 写在「`--check` 已返回、`_bad` 也已返回」之后，
     #    与卡表**同生共死**（只对账不落盘 / 出错不落盘，两种情况下都不该留下这份清单）。
     if id_made:

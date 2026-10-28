@@ -86,10 +86,10 @@ namespace CardPresentation
         bool _initialized;
 
         static LiveOpsManager _instance;
-        /// <summary>进程级单例（原版 `SingletonBehaviour&lt;LiveOpsManager&gt;`；见文件头差异 ②）。</summary>
+        /// <summary>进程级单例（原版 `SingletonBehaviour&lt;LiveOpsManager&gt;`；见文件头差异 ②）。🔴 建单例时登记**内建 handler**（原版靠 `GetComponentsInChildren&lt;ILiveOpsHandler&gt;()` 发现它们，差异 ①）：`LiveOpsLocalHandler.Default`（key `"local"`）→ `new GameModesHandler()`（key `"GameModes"`），**注册序不变**（新的只**追加**在后面；🆕 2026-10-28 B89-E11b；判据 = 原版 `GameModes : LiveOpsHandler&lt;IPlayEvent&gt;` 由启动链 `BuildHandlers` 建成并登记，`LiveOpsManager.cs:2029`）。</summary>
         public static LiveOpsManager Instance
         {
-            get { if (_instance == null) { _instance = new LiveOpsManager(); Register(LiveOpsLocalHandler.Default); } return _instance; }
+            get { if (_instance == null) { _instance = new LiveOpsManager(); Register(LiveOpsLocalHandler.Default); Register(new GameModesHandler()); } return _instance; }
         }
 
         // ── 注册表读写 ──────────────────────────────────────────────────────────
@@ -352,5 +352,53 @@ namespace CardPresentation
 
         /// <summary>注册表条数（自检读）。</summary>
         public static int HandlerCountForTest { get { return HandlerLookup.Count; } }
+
+        // ============================================================ 启动链（🆕 2026-10-28 B89-E11c）
+        static bool _bootLogged;
+
+        /// <summary>**启动链的唯一入口**（幂等）：把单例建起来 ⇒ 内建 handler 登记进注册表
+        /// （`LiveOpsLocalHandler` key `"local"` → `GameModesHandler` key `"GameModes"`，见 <see cref="Instance"/>）。
+        /// <para>🔴 **为什么必须有这个口**：2026-10-28 实测 `Instance` **全仓 0 个调用方** ⇒ 整个注册表从来没被填过，
+        /// `GetHandler&lt;…&gt;()` 永远是 null（原版那些 `LiveOpsManager.GetHandler&lt;GameModes&gt;()` 的调用形状一条都接不上）。</para>
+        /// <para>**原版的等价位置**：`PlayerDataManager` 的登录链 —— `InitializeLiveOpsAndConfig()` → 拿服务器载荷
+        /// （`liveOps.Unpack(result.HandlerData)`，`out_cpp2il_dev_ilspy/PlayerDataManager.cs:4572`）→ `BuildHandlers` 建出并登记。
+        /// 本机**没有服务器载荷** ⇒ 这里只做「建实例 + 登记内建 handler」那半步，`BuildHandlers` / `Unpack` 不跑
+        /// （`LiveOpsLocalBoot.BootLocalLiveOps` 那条 `RuntimeInitializeOnLoadMethod` 已经把 13 份本地活动装进 local handler 了）。</para>
+        /// <para>⚠️ **幂等**：重复调用返回同一个实例、日志只打一次（`Awake` 可能被多次触发）。
+        /// ⚠️ **失败出声**：建不出来时 `LogError`（⛔ 不静默 —— 静默的后果就是「UI 空白而没人知道为什么」）。</para></summary>
+        public static LiveOpsManager EnsureStarted()
+        {
+            try
+            {
+                var m = Instance;
+                if (m == null)
+                {
+                    Debug.LogError("[LiveOps] EnsureStarted：`Instance` 建不出来 ⇒ liveops 注册表是空的，"
+                                 + "所有 `GetHandler<…>()` 都会返回 null（原版这里是 `SingletonBehaviour<LiveOpsManager>` 的 scene 单例）");
+                    return null;
+                }
+                if (!_bootLogged)
+                {
+                    _bootLogged = true;
+                    Debug.Log("[LiveOps] 启动链：单例已建，注册表 = [" + string.Join(", ", HandlerKeys) + "]"
+                            + "（原版这一步由 `PlayerDataManager.InitializeLiveOpsAndConfig` → `Unpack(HandlerData)` → `BuildHandlers` 驱动；"
+                            + "本地没有服务器载荷 ⇒ 不跑 `BuildHandlers`/`Unpack`；本地活动的装载见 `LiveOpsLocalBoot`）");
+                }
+                return m;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[LiveOps] EnsureStarted 抛异常（注册表可能只填了一半）：" + e);
+                return null;
+            }
+        }
+
+        /// <summary>自检口：把「启动过」的标记与单例一起复位，让 <see cref="EnsureStarted"/> 能被**重新证明**跑过
+        /// （⛔ 只给断言用；注册表 `HandlerLookup` 不动 —— 重复登记本来就幂等）。</summary>
+        public static void ResetBootForTest()
+        {
+            _instance = null;
+            _bootLogged = false;
+        }
     }
 }

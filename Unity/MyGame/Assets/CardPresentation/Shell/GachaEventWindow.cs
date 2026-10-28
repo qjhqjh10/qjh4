@@ -69,7 +69,7 @@
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **页签栏**：原版 `TabButtons.AddTabButton(label, sprite)` 由 liveops 数据驱动；本窗只有一颗
 //   「The Vault」页签（文字走 `Loc`），图标留空（liveops sprite 本地没有）。
-// · **`Video Player` / `Video Background`**：建节点；不挂 `VideoPlayer`（没有 clip）、`Video Background` 出厂关着。
+// · **`Video Player` / `Video Background`**：建节点；不挂 `VideoPlayer`（clip 本地**有**、只是未导入 `Resources/`，见 `:645`）、`Video Background` 出厂关着。
 // · **`Gacha Drawer Holder`**：`containerPrefab`（运行时逐奖励 Instantiate）的**模板**；无数据 ⇒ 建出来、**关着**。
 // · **两张图未导入 `Resources/`**（源图在本地，落盘名可查）：
 //     `40k_Crate_Tier5_Warp_premium`（`bundle_boosterpacks_assets_all/Texture2D/`）⇒ 回退 `40k_Crate_Tier5_Warp`；
@@ -642,7 +642,7 @@ namespace CardPresentation
             }, null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
             _getCardsBtn.gameObject.SetActive(true);
 
-            // `Video Player`（原版挂 `VideoPlayer`；本地没有 `Gacha Crate Opening.mp4` ⇒ 只建空节点）
+            // `Video Player`（原版挂 `VideoPlayer`；🔴 2026-10-28 B89_E17 铁律 5 订正：这句原写「本地没有 `Gacha Crate Opening.mp4`」= **假** —— clip 在 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4`（5,141,522 B），只是**没导入 `Resources/Art/videos/`**（同目录那四支 defeat/draw/intro/victory 就是从同族 mp4 转出来的）⇒ 今天只建空节点。真正的闸不是素材：原版点击 = 播视频 + `ContainerOfferEvent.TryPurchaseOffer`（服务器；掉落表本地没有）⇒ 播了却没有回包 = 假装开箱）
             MenuDraw.Node(_chest, "Video Player", VideoPlayerR);
         }
 
@@ -818,7 +818,7 @@ namespace CardPresentation
             _claimedText = MenuDraw.TextBox(claimed, ClaimedTextR, Loc.T(TermClaimed), Color.white, "Claimed Tex",
                                             40.55f, 18f, QRewText, 200f, 36f, face: TmpFont.Face.LatinCardBody);
             if (_claimedText != null) MenuDraw.SetVAlign(_claimedText, Label.VAlign.Midline, ClaimedTextR);
-            _drawer.gameObject.SetActive(false);
+            _drawer.gameObject.SetActive(false); ApplyRewardsSpacing();
         }
 
         void BuildRewardsFooter(Transform panel)
@@ -912,6 +912,70 @@ namespace CardPresentation
                                + "（导入器：`工具/import_original_art.py` 的 `MENU_IMAGES`）。");
             }
             return t;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B89-R3b · 账 29）奖励行行距
+        // 原版 = `AutoLayoutSpacingByItemSize`：挂在我们这棵树的对应节点 `Rewards/Viewport/Content` 上
+        //   （prefab 直读 `GenericPromptWindow` 之外的另一份：`d:/2/tools/assetripper_out/ExportedProject/Assets/Gacha Tab.prefab`
+        //    的节点链 `Gacha Tab ▸ Rewards Panel ▸ Rewards ▸ Viewport ▸ Content`，同 GO 还挂着
+        //    HorizontalLayoutGroup(fileID `-405508275`) + ContentSizeFitter(H fit, fileID `1741964061`)）。
+        // 🔴 判据 = 序列化字段 + 方法体，两样都现读：
+        //   · `spacingAt16_9 = -40`（`m_Curve` 在 `1.777` 那一端）· `spacingAt4_3 = 84.76`（`1.33` 那一端）
+        //   · `spacingByAspectRatioCurve` 两个键：`(1.33, 0, in 1.983927, out 1.983927, inW 0, outW 0.21344574)` ·
+        //     `(1.777, 1, in 2.1977012, out 2.1977012, inW 0.17689756, outW 0.33333334)`
+        //   · 方法体 `decomp_full/AutoLayoutSpacingByItemSize__OnEnable.c` 全 24 行：
+        //     `t = Clamp01(curve.Evaluate(Screen.width / (float)Screen.height))` ·
+        //     `spacing = (max − min) × t + min`（`+0x28` = max = **−40**、`+0x2c` = min = **84.76**）
+        // ⚠️ 负值不是笔误：16:9 下奖励格**故意重叠 40px**，⛔ 别 `Mathf.Max(0, …)`。
+        /// <summary>16:9 那一端（`spacingAt16_9`）。</summary>
+        public const float SpaceAt16_9 = -40f;
+        /// <summary>4:3 那一端（`spacingAt4_3`）。</summary>
+        public const float SpaceAt4_3 = 84.76f;
+
+        /// <summary>本帧算出来的奖励行行距（设计 px）= 原版 `layoutGroup.spacing` 的等价物。**自检读口**：
+        /// 16:9 ⇒ **−40**、4:3 ⇒ **84.76**、两端之外被曲线夹住（ClampForever）。</summary>
+        public float RewardsSpacingPx { get; private set; }
+
+        static AnimationCurve _aspectCurve;
+        static bool _spacingNoted;
+
+        /// <summary>原版那条 `spacingByAspectRatioCurve`（键/切线/权重逐字段照抄，判据见本节头）。</summary>
+        public static AnimationCurve AspectCurve
+        {
+            get
+            {
+                if (_aspectCurve == null)
+                {
+                    _aspectCurve = new AnimationCurve(
+                        new Keyframe(1.33f, 0f, 1.983927f, 1.983927f, 0f, 0.21344574f),
+                        new Keyframe(1.777f, 1f, 2.1977012f, 2.1977012f, 0.17689756f, 0.33333334f));
+                    _aspectCurve.preWrapMode = WrapMode.ClampForever;
+                    _aspectCurve.postWrapMode = WrapMode.ClampForever;
+                }
+                return _aspectCurve;
+            }
+        }
+
+        /// <summary>= 原版 `OnEnable` 那三句（判据见本节头）。`aspect` = **物理**宽高比 `Screen.width / Screen.height`。</summary>
+        public static float SpacingForAspect(float aspect)
+        {
+            float t = Mathf.Clamp01(AspectCurve.Evaluate(aspect));
+            return (SpaceAt16_9 - SpaceAt4_3) * t + SpaceAt4_3;
+        }
+
+        /// <summary>算一次并存进 <see cref="RewardsSpacingPx"/>（`BuildRewardsScroll` 末尾调）。
+        /// <para>⚠️ **今天没有可观测的画面差异**：奖励格要 `GachaRewardsPanel.RefreshContainers` 按**掉落表**逐条
+        /// Instantiate，而掉落表在服务端（本地 0 载荷）⇒ `Content` 下只有那颗关着的模板。
+        /// 观测面 = ① 本读口 ② 建树时那条日志（`Note`，每扇窗只打一次）。</para></summary>
+        void ApplyRewardsSpacing()
+        {
+            float aspect = Screen.height > 0 ? Screen.width / (float)Screen.height : 16f / 9f;
+            RewardsSpacingPx = SpacingForAspect(aspect);
+            if (_spacingNoted) return;
+            _spacingNoted = true;
+            Note("奖励行行距 = " + RewardsSpacingPx.ToString("0.##") + " px（宽高比 " + aspect.ToString("0.###")
+                 + "；原版 `AutoLayoutSpacingByItemSize`：16:9 ⇒ " + SpaceAt16_9 + " · 4:3 ⇒ " + SpaceAt4_3
+                 + "。奖励格还没建（掉落表在服务端）⇒ 这个值目前只进读数与日志）");
         }
     }
 }

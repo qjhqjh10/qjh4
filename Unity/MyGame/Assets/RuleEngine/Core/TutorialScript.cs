@@ -875,8 +875,9 @@ namespace RuleEngine
         /// ⚠️ **本批的实现边界（2026-10-18 更新，A938）**：六档里
         ///    `PlayCard(45)` · `Attack(34)` · `AttackFreeMode(1)` · `ChangeToRanged(13)` · `ChangeToMelee(8)` **接上了**；
         ///    `ActiveAbility` **6 关数据里 0 条** ⇒ **只留桩 + 出声**（⛔ 不凭空造）。
-        ///    认不出「脚本指的是哪一张卡」时 —— **如实出声、不执行**，指针照旧 ++（整条链不卡死）。
-        ///    ⛔ **绝不退回 `list[0]`**（原版 `GetChosenCard` 会那样做，那会**静默打错目标**）。
+        ///    🔴 **2026-10-28 改口径（账 L96 · 调度台裁定）**：认不出「脚本指的是哪一张卡」时**照原版退回 `list[0]`**
+        ///    （`GetChosenCard.c:38` 的 `iVar4 = 0`；先例 = `BroadcastCardDrawn` 漏 `!` 也照抄）—— 原来这里写的是
+        ///    「绝不退回 `list[0]`」，那是我们自己的偏离，已按裁定改回照抄。
         /// </summary>
         /// <returns>true = 引擎真的改了局面；false = 没改（已记账 + 出声）。</returns>
         public bool ExecuteAction(BattleContext ctx, TutorialAction a)
@@ -936,14 +937,14 @@ namespace RuleEngine
                     return RunActiveAbility(ctx, a, ref done);
 
                 case ScriptedActionType.PlayerChoice:
-                    // 原版 `AiScripted.PlayerChoiceAction()` = **只有 `actionCounter++`**，
-                    // 而 `PlayScriptedTurn` 末尾**已经 ++ 过一次** ⇒ 这里**什么都不做**（别再加一次，
-                    // 那会跳掉一条动作）。判据：`AiScripted__PlayerChoiceAction.c`。
-                    // ⚠️ **审查（2026-10-18）**：原来这一支 `return true`，于是 `Executed` 会发一条
-                    //   `ok = true, Kind = None` —— 与本类文档「**只有真的改了引擎状态才 `ok = true`**」
-                    //   自相矛盾（订阅方会以为「有一条动作落地了」）。⇒ 改成 **`false`**：
-                    //   它的语义本来就是「这一档在 `ExecuteAction` 里什么都不做」。
+                    // 原版 `AiScripted.PlayerChoiceAction()` = **只有 `actionCounter++`**，而 `PlayScriptedTurn` 末尾
+                    // **已经 ++ 过一次** ⇒ 这里**什么都不做**（别再加一次，那会跳掉一条动作）。判据 `AiScripted__PlayerChoiceAction.c`。
+                    // ⚠️ 审查（2026-10-18）：原来 `return true` 与本类「只有真的改了引擎状态才 `ok = true`」自相矛盾 ⇒ 改 `false`。
                     return false;
+                case ScriptedActionType.ShowManaAura:
+                    return RunShowManaAura(ctx, a, ref done);
+                case ScriptedActionType.ResolveCard:
+                    return RunResolveCard(ctx, a, ref done);
 
                 default:
                     // 🔴 **2026-10-19（`A939`）**：`default` 原来**一律**进 `Note`（「原版本来就没分支」）——
@@ -982,7 +983,7 @@ namespace RuleEngine
             //   `targetUnitType` 解析成 `chosenCard6` ⇒ 原版动作**带脚本目标**。
             //   ⇒ 非单位卡且脚本写了目标（`d.target.unitType != 0`）：用 `FindBoardUnit` 解析出目标格，
             //     把**格号**当 `slot` 传下去（`PlayTactic` 按卡的 `spec.Side` 解读这一格，故只需格号）；
-            //     认不出就 `Fail`（⛔ 不猜）。
+            //     认不出 ⇒ 2026-10-28 起按原版 `list[0]` 退回档取（`FindBoardUnit` 内的裁定），那一侧无人时才 `Fail`。
             //   ⚠️ **单位卡仍走 `DeploySlot`**（原版落点是鼠标位置，本环境没有鼠标 ⇒ 退化成最近空格）。
             //   ⚠️ `RuleCore.PlayCard(..., chosen)` 的 5 参重载在非单位分支**不把 `chosen` 转给
             //      `PlayTactic`**（`RuleCore.cs:3884-3885`，该文件不属本批）⇒ 今天只能靠正确的 `slot`
@@ -1013,7 +1014,8 @@ namespace RuleEngine
         /// 🔴 打法**不是脚本字段**：原版读 `*(actingCard + 0x120)`
         /// （`:1139` 的 `uVar18` → `AddAttackAction`）⇒ 我们走 `RuleCore.DeclareAttackByCurrentType`。
         /// ⚠️ 原版 `targetUnitType` 为 0（没写目标）时 `GetChosenCard` 收 null ⇒ 那一条进 `AddAttackAction`
-        /// 会走不到（`param_3 == 0` 早退）。我们照实：认不出目标就**出声 + 不执行**。</summary>
+        /// 会走不到（`param_3 == 0` 早退）。⚠️ 2026-10-28：`FindBoardUnit` 已按原版加了 `list[0]` 退回档 ⇒ 只有
+        /// 「那一侧一个单位都没有」才会 `Fail`；「认不出是哪一张」按原版**取列表第 0 个**（见该方法 doc）。</summary>
         bool RunAttack(BattleContext ctx, TutorialAction a, ref ScriptedActionDone done)
         {
             var d = First(a);
@@ -1154,8 +1156,8 @@ namespace RuleEngine
             if (!_warnedWhy.Add(key)) return;
             UnityEngine.Debug.LogWarning("[Tutorial] 第 " + Turn + " 回合第 " + ActionCounter + " 条「" + kind
                 + "」**没有执行**：" + why
-                + " ⇒ 这一条被消费掉（指针照 ++），但局面**没有变**。⛔ 不拿别的卡顶上去"
-                + "（原版 `GetChosenCard` 认不出会退回 `list[0]` —— 那会**静默打错目标**，我们不照抄）。");
+                + " ⇒ 这一条被消费掉（指针照 ++），但局面**没有变**。⛔ 不拿**别的**卡顶上去"
+                + "（`GetChosenCard` 的 `list[0]` 退回档已按原版照抄，见 `TutorialRules.FindBoardUnit`）。");
         }
 
         /// <summary>原版 `AiScripted.PlayScriptedTurn` 的 `default` 出口 = 纯演出档，什么都不做。
@@ -1179,7 +1181,9 @@ namespace RuleEngine
 
         /// <summary>🆕 **2026-10-19（`A939`）**：`default` 里哪些档属于「**原版本来就没有改局面的分支**」。
         /// <para>逐档照 `AiScripted__ExecuteAction.c` 的分支表（`switchD_…_caseD_20` = 通用收尾）
-        /// + `tutorial_stages.json` 的 `actionTypeNote`（6 关实测只出现 14 个取值）。</para>
+        /// + `tutorial_stages.json` 的 `actionTypeNote`（6 关实测只出现 14 个取值）。
+        /// ⚠️ `ShowManaAura` / `ResolveCard` 自 2026-10-28 起在 `ExecuteCore` 有**显式分支** ⇒ 本表对它们已不再被查
+        /// （留着是为了与本函数「哪些档原版本来没有改局面的分支」这层语义对齐）。</para>
         /// <para>⚠️ 这里**只收演出/高亮/音效档**。`Attack` / `PlayCard` 那几档**不在**里面 ——
         /// 漏掉 `case` 时它们要落进 `Unhandled`（现有断言 `AttackFreeMode` 两格都不在，就是靠这一点）。</para></summary>
         static bool IsNoOpScriptKind(ScriptedActionType k)
@@ -1400,6 +1404,78 @@ namespace RuleEngine
         /// 判据 = 原版 `BattleManager.GetWinnerAfterBattleEnd`（`GetCurrentTutorialStage().playerAlwaysWins` ⇒ 直接给 10 = 玩家胜）。
         /// 唯一读点 = `RuleCore.CheckWinner`（**一处**，别在别处再判一遍）。</summary>
         public bool PlayerAlwaysWins { get { return Stage != null && Stage.playerAlwaysWins; } }
+
+        // ==================================================================
+        //  🆕 2026-10-28（B89 · E7 · 账 L93）：`ShowManaAura(130)` / `ResolveCard(140)` 两档
+        // ==================================================================
+        //  判据 = `decomp_full/AiScripted__ExecuteAction.c`：
+        //    · `0x82(130) ShowManaAura`（`.c:133-180`）：按 `data[0].actingUnitType` 取列表 → `GetChosenCard`
+        //      → 认得出才 `CardScript.ShowManaCostAura(card)`；认不出 ⇒ 原版落 `FUN_1803f47a0()`（抛/不返回）。
+        //      🔴 `ShowManaCostAura` 原版**只打一条 `LogWarning`、不写任何状态**
+        //      （`CardScript__ShowManaCostAura.c:3-12` 全文；账 928 行判 `D`）⇒ 这一档**不改局面**。
+        //    · `0x8c(140) ResolveCard`（`.c:199-217`）：取 `data[0].actingCard(+0x18)`；**为空 ⇒ 整支跳过**
+        //      （什么都不做、也不抛）；非空 ⇒ 对那张卡连发 `TriggerAbilities(card, 0)` + `(card, 500)`，
+        //      `thisCard = cardPlayed = GetHero(mgr, 0)`（= **AI 那一侧的督军**）、`targetCard = null`、
+        //      `isEnchantment = 1`、`onlyEnchantments = 0`。
+        //  📊 教程数据 6 关里这两档**各 0 条**（`tutorial_stages.json`，`actionTypeNote` 实测只出现 14 个取值）
+        //     ⇒ 今天零可观测；铁律 11 照做。
+
+        /// <summary>`ShowManaAura(130)` —— 原版 `AiScripted__ExecuteAction.c:133-180` 的 `case 0x82`。
+        /// 引擎侧**不改局面**：原版 `CardScript.ShowManaCostAura` 自己就是一条
+        /// `LogWarning` 的空桩（`CardScript__ShowManaCostAura.c:3-12`）。
+        /// ⇒ 我们照抄结构：**解析出那张卡**（认不出就出声，原版那里是抛），再把「原版这一跳是空桩」说出来。
+        /// 返回值恒 `false`（没改局面）—— ⛔ 别为了让 `Executed` 好看改成 true（同 `PlayerChoice` 那一条）。</summary>
+        bool RunShowManaAura(BattleContext ctx, TutorialAction a, ref ScriptedActionDone done)
+        {
+            done.Kind = ScriptedActionType.ShowManaAura;
+            var d = First(a);
+            if (ctx == null || d == null) { Fail(ctx, a.Kind, "这条动作没有 `data[0]`"); return false; }
+            int side, slot = -1, handIdx = -1;
+            string why;
+            bool onBoard = TutorialRules.FindBoardUnit(ctx, d.acting, out side, out slot, out why);
+            if (!onBoard) handIdx = TutorialRules.FindHandIndex(ctx, d.acting, out why);
+            if (!onBoard && handIdx < 0)
+            { Fail(ctx, a.Kind, "认不出 `ShowManaAura` 指的是哪一张（原版 `.c:180` 落到抛）：" + why); return false; }
+            done.Seat = side; done.Slot = slot; done.HandIdx = handIdx;
+            ctx.Log("教程 `ShowManaAura(130)`：原版 `CardScript.ShowManaCostAura` **只打一条 LogWarning、"
+                  + "不写任何状态**（`CardScript__ShowManaCostAura.c:3-12`）⇒ 这一档不改局面（照抄）");
+            return false;
+        }
+
+        /// <summary>`ResolveCard(140)` —— 原版 `AiScripted__ExecuteAction.c:199-217` 的 `case 0x8c`。
+        /// **不是**按 `unitType` 去列表里挑，而是直接取 `data[0].actingCard` 那张卡；
+        /// 为空 ⇒ **整支跳过（不抛）**；非空 ⇒ `TriggerAbilities(card, 0)` + `(card, 500)`，
+        /// `thisCard = cardPlayed = GetHero(mgr, 0)`（AI 督军）、`targetCard = null`、`isEnchantment = 1`。
+        /// 🔴 **我们转调 <see cref="Enchantments.TriggerEnchantment"/>**（`RawCardScript__TriggerEnchantment.c:7-13`）——
+        /// 它正是同一个形状：「对这张卡连发 `TriggerAbilities(card,0)` + `(card,500)`、`isEnchantment = 1`」。
+        /// ⚠️ **残差（如实标）**：它 `trigger 0` 那一跳的取数口是 `EffectText.Parse(card.Desc)`（附魔那一族的口径），
+        /// 不是通用 `cardAbilities[trigger == 0]` 的解析 —— 对「正文就写在 `desc` 里」的卡等价，对其余不等价。
+        /// 数据今天 0 条 ⇒ 零可观测；铁律 11 照做，残差记在账里。</summary>
+        bool RunResolveCard(BattleContext ctx, TutorialAction a, ref ScriptedActionDone done)
+        {
+            done.Kind = ScriptedActionType.ResolveCard;
+            var d = First(a);
+            if (ctx == null || d == null) { Fail(ctx, a.Kind, "这条动作没有 `data[0]`"); return false; }
+            var r = d.acting;
+            if (r == null || string.IsNullOrEmpty(r.ourId))
+            {
+                // 原版 `.c:202`：`data[0].actingCard == null` ⇒ **整支跳过，什么都不做（也不抛）**。
+                Note(ctx, a.Kind);
+                ctx.Log("教程 `ResolveCard(140)`：`data[0].actingCard` 为空 ⇒ 原版整段跳过（`.c:202`）");
+                return false;
+            }
+            var lookup = TutorialRules.PoolLookup(ctx);
+            var card = lookup == null ? null : lookup(r.ourId);
+            if (card == null)
+            { Fail(ctx, a.Kind, "`ourId = " + r.ourId + "` 在卡池里找不到（⛔ 不猜一张顶上去）"); return false; }
+            var hero = ctx.Players[1].Warlord;
+            bool any = Enchantments.TriggerEnchantment(ctx, 1, card, hero, null, false);
+            done.Seat = 1; done.Slot = BoardSpec.WarlordSlot;
+            ctx.Log("教程 `ResolveCard(140)`：「" + card.Name + "」跑 `trigger 0` / `trigger 500`"
+                  + "（原版 `.c:207/213` 两次 `TriggerAbilities`）"
+                  + (any ? "" : " —— ⚠️ 两跳今天都没有可跑的 op（结构已照抄、数据为空）"));
+            return any;
+        }
     }
 
     // ==================================================================
@@ -1648,11 +1724,11 @@ namespace RuleEngine
         /// <summary>
         /// 脚本里的「谁」→ **场上的格号**（`ourId` 精确匹配）。
         ///  · `10 / 20`（督军）：**按类型就定得下来**，不需要 id（原版 `GetHero` 也是按侧取的）；
-        ///  · `30 / 31 / 32 / 40`（部队）：按 `ourId` 在那一侧的**非督军**格里找，
-        ///    ⚠️ **认不出就返回 false 并给出理由** —— ⛔ **不退回 `list[0]`**
-        ///    （原版 `GetChosenCard` 认不出时退回 `list[0]` —— 判据 `decomp_full/AiScripted__GetChosenCard.c:38`
-        ///    （`iVar4 = 0;` 那一句，cpp2il `AiScripted.cs:3539`）；那会**静默打错目标**，所以我们**不照抄**
-        ///    = **已知偏离**（是否改回照抄待调度台裁定，见施工单 98；铁律 2/11 那条「认不出就说认不出」）。
+        ///  · `30 / 31 / 32 / 40`（部队）：按 `ourId` 在那一侧的**非督军**格里找；**认不出 ⇒ 退回列表第 0 个**
+        ///    （🔴 原版 `GetChosenCard` 认不出时 `iVar4 = 0` ⇒ 返回 `list[0]`，判据 `decomp_full/AiScripted__GetChosenCard.c:38`
+        ///    ＋ cpp2il `AiScripted.cs:3539`）；`chosenMinion` 为空时同样退回 `list[0]`（同一个 `iVar4 = 0`）。
+        ///    🔴 **2026-10-28 调度台裁定：照抄原版**（先例 = 原版 `BroadcastCardDrawn` 漏一个 `!`，
+        ///    我们照抄 + 注释写死「原版如此，⛔ 别修」）⇒ 本方法**改了口径**，不再是「已知偏离」。
         ///  · 其余类型（手牌 `50/60` 用 <see cref="FindHandIndex"/>）返回 false。
         /// </summary>
         public static bool FindBoardUnit(BattleContext ctx, TutorialUnitRef r, out int side, out int slot, out string why)
@@ -1678,10 +1754,10 @@ namespace RuleEngine
             side = ((ScriptedActionUnit)r.unitType == ScriptedActionUnit.EnemyMinion) ? 1 : 0;
             if (string.IsNullOrEmpty(r.ourId))
             {
-                why = "数据里这一条的 `ourId` 是**空的**（原版 SO 那个字段没名字 ⇒ 产物解不出我们的卡 id）"
-                    + "，脚本写的是「" + (string.IsNullOrEmpty(r.name) ? "<无名>" : r.name) + "」"
-                    + " —— 认不出是哪一张就**不猜**";
-                return false;
+                // 🔴 原版此处为 `GetChosenCard(chosenMinion == null)` ⇒ 直接退回 `list[0]`，
+                //    照抄，⛔ 别修（2026-10-28 调度台裁定；见本方法 doc）。
+                why = "数据里 `ourId` 是空的 ⇒ 按原版 `GetChosenCard` 退回**列表第 0 个**";
+                return PickFirstMinion(ctx, side, out slot);
             }
             var board = ctx.Players[side].Board;
             for (int s = 0; s < BoardSpec.Size; s++)
@@ -1690,14 +1766,14 @@ namespace RuleEngine
                 if (u == null || u.IsWarlord || u.Card == null) continue;
                 if (u.Card.Id == r.ourId) { slot = s; return true; }
             }
-            why = "场上**没有**「" + r.ourId + "」（" + (string.IsNullOrEmpty(r.name) ? "?" : r.name)
-                + "）这一张 —— 脚本说的那张此刻不在 " + (side == 0 ? "玩家" : "AI") + " 那一侧";
-            return false;
+            // 🔴 原版此处为 `GetChosenCard` 认不出退回 `list[0]`（`.c:38` 的 `iVar4 = 0;`），照抄，⛔ 别修。
+            why = "场上没有「" + r.ourId + "」⇒ 按原版退回**列表第 0 个**（`GetChosenCard.c:38`）";
+            return PickFirstMinion(ctx, side, out slot);
         }
 
         /// <summary>
         /// 脚本里的「谁」→ **手牌下标**（`50` 玩家手牌 / `60` 敌方手牌）。规则同
-        /// <see cref="FindBoardUnit"/>：`ourId` 精确匹配，认不出就 false + 理由（⛔ 不退回 `list[0]`）。
+        /// <see cref="FindBoardUnit"/>：`ourId` 精确匹配；**认不出 ⇒ 退回下标 0**（原版 `GetChosenCard` 的 `iVar4 = 0`，照抄）。
         /// ⚠️ 同一张卡在手牌里有多份时取**下标最小的那一份** —— 原版 `GetChosenCard` 也是按列表顺序取第一个。</summary>
         public static int FindHandIndex(BattleContext ctx, TutorialUnitRef r, out string why)
         {
@@ -1711,16 +1787,16 @@ namespace RuleEngine
             { why = "`" + r.unitTypeName + "` 不是手牌那一档"; return -1; }
             if (string.IsNullOrEmpty(r.ourId))
             {
-                why = "数据里这一条的 `ourId` 是**空的**（脚本写的是「"
-                    + (string.IsNullOrEmpty(r.name) ? "<无名>" : r.name) + "」）—— 认不出是哪一张就不猜";
-                return -1;
+                // 🔴 原版此处为 `GetChosenCard(chosenMinion == null)` ⇒ 退回 `list[0]`，照抄，⛔ 别修。
+                why = "数据里 `ourId` 是空的 ⇒ 按原版退回**下标 0**";
+                return ctx.Players[side].Hand.Count > 0 ? 0 : -1;
             }
             var hand = ctx.Players[side].Hand;
             for (int i = 0; i < hand.Count; i++)
                 if (hand[i] != null && hand[i].Card != null && hand[i].Card.Id == r.ourId) return i;
-            why = (side == 0 ? "玩家" : "AI") + "手上**没有**「" + r.ourId + "」（"
-                + (string.IsNullOrEmpty(r.name) ? "?" : r.name) + "）这一张";
-            return -1;
+            // 🔴 原版此处为 `GetChosenCard` 认不出退回 `list[0]`（`.c:38` 的 `iVar4 = 0;`），照抄，⛔ 别修。
+            why = (side == 0 ? "玩家" : "AI") + "手上没有「" + r.ourId + "」⇒ 按原版退回**下标 0**";
+            return hand.Count > 0 ? 0 : -1;
         }
 
         // ==================================================================
@@ -1838,6 +1914,125 @@ namespace RuleEngine
                                || d.type == (int)ScriptedActionType.ChangeToMelee)) return true;
             }
             return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-28（B89 · E7 · 账 L96）：`GetChosenCard` 的「退回 list[0]」那一半
+        // ==================================================================
+
+        /// <summary>原版 `AiScripted.GetChosenCard` 的**退回档**：`chosenMinion` 为空、或列表里按名
+        /// 一个也对不上 ⇒ `iVar4 = 0` ⇒ 返回 `list[0]`（`decomp_full/AiScripted__GetChosenCard.c:38`；
+        /// cpp2il `AiScripted.cs:3539`）。
+        /// <para>🔴 **原版此处为「认不出就取列表第 0 个」，照抄，⛔ 别修**（2026-10-28 调度台裁定；
+        /// 先例 = 原版 `BroadcastCardDrawn` 漏一个 `!`，我们照抄 + 注释写死「原版如此」）。</para>
+        /// <para>「列表」= 原版 `Get{Player,Enemy}MinionsAndRemnantInPlay()` 的那一份 —— 那一侧的**非督军**
+        /// 在场单位（按格号升序取第一个；原版按 `unitsInPlay` 的遍历序，我们以格号为序）。</para>
+        /// <para>候选表为空（原版 `Count == 0` ⇒ `LogError` + 返回 null）⇒ 返回 false，由调用方出声。</para></summary>
+        public static bool PickFirstMinion(BattleContext ctx, int side, out int slot)
+        {
+            slot = -1;
+            if (ctx == null || side < 0 || side > 1) return false;
+            var board = ctx.Players[side].Board;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = board[s];
+                if (u == null || u.IsWarlord || u.Card == null) continue;
+                slot = s; return true;
+            }
+            return false;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-28（B89 · R5c · 账 L96 前置 / HUD 741 施工）：
+        //    原版 `AiScripted.CheckIfWaitingToUseAbility(manager, turnData, cardSelected)` 的等价物
+        // ==================================================================
+
+        /// <summary>原版 `AiScripted.CheckIfWaitingToUseAbility` —— **脚本是不是正在等玩家用主动技**。
+        ///
+        /// <para>逐句照抄（🥇 `decomp_full/AiScripted__CheckIfWaitingToUseAbility.c`——
+        /// 这份 Ghidra `.c` 是本条的**控制流权威**；🥈 `cpp2il/out_cpp2il_dev_ilspy/AiScripted.cs:803-…`
+        /// 交叉核对，⚠️ 同目录 `out_il2csharp/AiScripted.cs:451` 的 `flag1=true` 收尾是**反编译走样**，
+        /// 以 `.c` 的「循环走完 ⇒ `return 0`」为准）：</para>
+        /// <list type="number">
+        /// <item>前闸：`turn` / `turn.actions` 非空 · `actionCounter ∈ [0, Count)` · 当前条非空 ·
+        ///       当前条 `playerAction` · 当前条 `data` 非空 —— 任一不满足 ⇒ **false**。</item>
+        /// <item>遍历当前条的 `data[]`，只看 `type == ActiveAbility(40)` 的项：按其 `acting.unitType`
+        ///       定位「发起那张卡」的 identity：10 PlayerWarlord / 20 AiWarlord ⇒ 该方督军卡；
+        ///       30/31/32 PlayerMinion 三档 ⇒ 该方在场非督军（`GetChosenCard`）；40 EnemyMinion 同理；
+        ///       50/60 双方手牌 ⇒ `GetChosenCard`；其余 unitType ⇒ **认不出**（原版 `LogWarning` + 记 null）。</item>
+        /// <item>命中的那张：**== null 或 == 选中的卡** ⇒ **true**；否则接着看下一条 data。</item>
+        /// <item>全部看完没命中 ⇒ **false**。</item>
+        /// </list>
+        ///
+        /// <para>`GetChosenCard(list, acting)`（`decomp_full/AiScripted__GetChosenCard.c`）= 列表里按
+        /// 那个 id **匹配**到的那张，匹配不到 / id 空 ⇒ **退回 `list[0]`**；列表为空 ⇒ 记错并返回 null。
+        /// 本类 <see cref="PickFirstMinion"/> 的 doc 已记过这条「退回 list[0] 照抄、⛔ 别修」的口径，
+        /// 这里补上「按 id 匹配」那一半。</para>
+        ///
+        /// <para>🔴 **拿不到的输入（如实记，⛔ 不在这里假装有一个）**：原版第 3 实参 `cardSelected`
+        /// = `BattleManager.cardSelected`（**当前选中的那张卡**）。我们**引擎侧没有「选中的卡」这个状态**
+        /// （选中态目前在表现层 `BattleDriver` 的 `_pressSlot`）⇒ 本谓词把它当**形参 `cardSelectedId`**
+        /// 由调用方传入（见施工单：`BattleDriver` 那一侧把选中卡的 ourId 传进来）。另一个调用方条件
+        /// `waitingToResolveActiveAbilityFlag`（原版 `+0x418`）**不属于本谓词**，在 `BattleDriver` 侧判。</para>
+        ///
+        /// <para>⚠️ **本谓词本身不会自己跑**：今天全仓**零调用**（与兄弟 <see cref="IsWaitingChangeAttack"/>
+        /// 同处境）。观测口 = 见 `报告/B89_R5c_IsWaitingUseAbility与U9施工指令.md` §三
+        /// （纯函数 + 用例矩阵；消费者 = `BattleDriver` 的 U9 日志支，归 E10d）。</para>
+        public static bool IsWaitingUseAbility(TutorialTurn turn, int actionCounter, BattleContext ctx, string cardSelectedId)
+        {
+            // ① 前闸（逐句照 `CheckIfWaitingToUseAbility.c:29-50`）
+            if (turn == null || turn.actions == null || ctx == null) return false;
+            if (actionCounter < 0 || actionCounter >= turn.actions.Length) return false;
+            var cur = turn.actions[actionCounter];
+            if (cur == null || !cur.playerAction || cur.data == null) return false;
+
+            // ② 扫 data[]，只看 ActiveAbility(40)
+            for (int i = 0; i < cur.data.Length; i++)
+            {
+                var d = cur.data[i];
+                if (d == null || d.type != (int)ScriptedActionType.ActiveAbility) continue;
+                string chosen = TutChosenIdentity(ctx, d.acting, out _);
+
+                // ③ `chosenCard == null`（认不出 / 空列表 / 督军缺失）⇒ true（`CheckIfWaitingToUseAbility.c` 的 `return 1`）
+                if (chosen == null) return true;
+                // ③ `chosenCard == cardSelected` ⇒ true
+                if (chosen == cardSelectedId) return true;
+            }
+            // ④ 走完没命中 ⇒ false（`.c` 循环尾 `return 0`）
+            return false;
+        }
+
+        /// <summary>`AiScripted.GetChosenCard` 的 identity 版（配 <see cref="IsWaitingUseAbility"/>）：
+        /// 复用本类**已有**的两条 `GetChosenCard` 等价物 —— 在场/督军走 <see cref="FindBoardUnit"/>、
+        /// 手牌走 <see cref="FindHandIndex"/>（两者都按 `ourId` 精确匹配、认不出退回 `list[0]`，原版口径），
+        /// 再取命中那张的 `CardDef.Id` 作 identity（与 <see cref="Matches"/> 的 `ourId` 同口径）。
+        /// 认不出 / 空列表 / 督军缺失 ⇒ **null**（= 原版 `chosenCard == null` 的 true 档）。
+        /// <para>🔶 自己设计（非原版）：原版 `GetChosenCard` 用 `CardScript` **引用相等**判 `== cardSelected`；
+        /// 本仓无「选中的卡」引用态，改用 `CardDef.Id` 字符串比 —— 与 <see cref="Matches"/> 的 `ourId` 同一取舍
+        /// （⚠️ 手牌里两张**同名同 Id** 的卡会被判成同一张；教程局不会出现这种情况，且本仓既有闸门同此口径）。</para>
+        /// <para>⛔ 别在这里另写一份 `GetChosenCard`（`FindBoardUnit`/`FindHandIndex` 是唯一正本，
+        /// 与 `ScriptedChangeAttackMatches` 共用）。</para></summary>
+        static string TutChosenIdentity(BattleContext ctx, TutorialUnitRef acting, out string why)
+        {
+            why = null;
+            if (ctx == null || acting == null) return null;
+            var kind = (ScriptedActionUnit)acting.unitType;
+            if (kind == ScriptedActionUnit.PlayerCardInHand || kind == ScriptedActionUnit.EnemyCardInHand)
+            {
+                int hi = FindHandIndex(ctx, acting, out why);
+                if (hi < 0) return null;
+                int side = SideOfUnitType(acting.unitType);
+                if (side < 0 || side > 1) return null;
+                var hand = ctx.Players[side].Hand;
+                if (hand == null || hi >= hand.Count) return null;
+                var h = hand[hi];
+                return (h != null && h.Card != null) ? h.Card.Id : null;
+            }
+            if (!FindBoardUnit(ctx, acting, out int side2, out int slot, out why)) return null;
+            var board = ctx.Players[side2].Board;
+            if (board == null || slot < 0 || slot >= board.Length) return null;
+            var u = board[slot];
+            return (u != null && u.Card != null) ? u.Card.Id : null;
         }
     }
 }

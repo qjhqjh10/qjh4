@@ -272,7 +272,7 @@ namespace RuleEngine
             string _tr = trait;
             if (_tr == null && carrier != null && carrier.Card != null) _tr = carrier.Card.EnchantTrait;
             if (_tr == null && enchantmentCard != null) _tr = enchantmentCard.EnchantTrait;
-            var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = _st, WhileInPlayAnim = whileInPlayAnim };
+            var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = _st, WhileInPlayAnim = EnchantmentWhileInPlayAnimOf(enchantmentCard, whileInPlayAnim) };   // 🆕 B89/E6d：调用方没给 ⇒ 读**附魔卡自己**的 `CardDef.WhileInPlayAnim`（原版 `EntityScript__HasEnchantmentWhileInPlay` 读的就是它；P-07 待办收口）
             var eff = new ActiveCardEffect
             {
                 EnchantmentCard = enchantmentCard,
@@ -724,7 +724,7 @@ namespace RuleEngine
                 if (c.Id == PrayEnchantmentCardId) return c;
                 if (byName == null && c.IsEnchantment && c.Name == PrayEnchantmentName) byName = c;
             }
-            return byName;
+            return byName != null ? byName : ctx.FindEnchantmentTemplate(PrayEnchantmentCardId);   // 🆕 B89/E6d：卡池找不到 ⇒ 兜底查**第二张表**（`BattleContext.FindEnchantmentTemplate` = 先池后表）。⛔ 别再写第二个查找；Core 不引用 Data ⇒ 走那个钩子
         }
 
         /// <summary>载体身上挂着的那一条祈祷附魔（没有返回 `null`）。</summary>
@@ -1123,7 +1123,7 @@ namespace RuleEngine
                 if (c.Id == DA42EnchantmentCardId) return c;
                 if (byName == null && c.IsEnchantment && c.Name == DA42EnchantmentName) byName = c;
             }
-            return byName;
+            return byName != null ? byName : ctx.FindEnchantmentTemplate(DA42EnchantmentCardId);   // 🆕 B89/E6d：同上（`FindPrayCard` 那条兜底），⛔ 别各写一份
         }
 
         /// <summary>
@@ -1370,6 +1370,272 @@ namespace RuleEngine
             if (card == null || string.IsNullOrWhiteSpace(card.Desc)) return null;
             var ops = EffectText.Parse(card.Desc, out _, out _, card: card);
             return ops != null && ops.Count > 0 ? ops : null;
+        }
+
+        // ==================================================================
+        //  ⑥ 原版 `EntityScript.HasEnchantment(AbilityTrigger)` 的**三个「闸」调用点**
+        //     🆕 2026-10-28（完全复刻 · B89 第 1 波 · 执行代理 `E4` · 账 `L1042`）
+        //  —— 本段全部追加在类尾（⛔ 别插到中间：`账/*.tsv` 按 `文件:行号` 引 `Enchantment.cs`）
+        // ==================================================================
+        //  【原版那个方法】（`cpp2il/out_cpp2il_dev_ilspy/EntityScript.cs:1806-1841`，
+        //    C 侧 `decomp_full/EntityScript__HasEnchantment.c`，两边逐句一致）：
+        //    `foreach (ActiveEnchantment ae in activeEnchantments(+0x110))
+        //         if (ae != null && ae.enchantmentCard(+0x10) != null
+        //             && ae.enchantmentCard.HasAbilityType(trigger)) return true;`
+        //    `HasAbilityType(trigger)` = 遍历该卡 `cardAbilities(+0x290)`、比 `CardAbility.trigger(+0x10)`
+        //    （`RawCardScript__HasAbilityType.c:16-38`，**只看 trigger、不看 abilityLogic 空不空**）。
+        //    ⇒ 判的是「**附魔卡自己**有没有一条这个 trigger 的 ability」，**不是**「载体身上有没有附魔」。
+        //
+        //  【全树只有三个调用点】（`grep -rn "HasEnchantment(AbilityTrigger"` 现读 = 3 行 / 4 个 trigger）：
+        //    ① `CardScript.cs:6827`，在 `CardScript.HasWhileInPlayAbility()` 里（方法起于 `:6800`）：
+        //         `if (!HasEnchantment(WhileInPlay) && !HasEnchantment(WhileInPlayVariable)
+        //              && !HasCurrentTrait(DefinedTrait.pack /* 610 */)) { …再查 activeEffects… }`
+        //       ⚠️ **第三个析取项是 `pack` trait，不是附魔** ⇒ 不在本层，调用方自己 OR 上
+        //         （我们这边 = `UnitState.Has("pack")`）。
+        //    ② `CardScript.cs:14072`，在 `ResolveUnitAttacked` 的近战那支：
+        //         `if (HasCurrentTrait(DefinedTrait.mob /* 0x398 */) || HasEnchantment(Mob)) BroadcastUnitMob(this);`
+        //    ③ `CardScript.cs:14298`，在伤害结算里（`damagedCard == this` 那一支）：
+        //         `if (… HasDefaultTrait(rage) || damagedCard.HasCurrentTrait(rage)
+        //               || damagedCard.HasEnchantment(Rage)) { OnTrigger(Rage, …); … }`
+        //    ⇒ 本层只提供**三个闸里属于「附魔」的那一半**（另外两半是 `UnitState.Has` / `CardDef`），
+        //      **调用点接线归批次 4 的 `E3`**（它只接调用点），本批不动 `RuleCore`。
+        //
+        //  【`enum → 关键词` 的映射】数值来自 `d:/2/tools/il2cpp_out/dump.cs` 的 `AbilityTrigger`
+        //    （`WhileInPlay = 20` · `Rage = 130` · `WhileInPlayVariable = 240` · `Mob = 300`）；
+        //    我们引擎里那套「名字 ↔ 数值」的唯一正本是 `CardDef.AbilityTriggerNumberOfName`
+        //    （现读 `{"WhileInPlay", 20}` / `{"WhileInPlayVariable", 240}` / `{"Mob", 300}` / `{"Rage", 130}`，
+        //    逐条已核）⇒ 下面只写**名字常量**，取数一律走 `CardDef.AbilityTriggerPresence(名字)`
+        //    （它内部就是 `AbilityTriggerNumber(名字)` + `_abilityTriggers` 集合），⛔ 别在这里抄第三份数字表。
+        //
+        //  【三值口径（`-1` 不许读成「没有」）】`CardDef.AbilityTriggerPresence` 返回
+        //    `1` 有 / `0` 明确没有 / `-1` 旧表缺列。`1` ⇒ 真；`0` ⇒ 这一件跳过；
+        //    `-1` ⇒ **退回关键词口径**（`TriggerOps(名字) != null || Effect(名字) != null`，
+        //    与 `HasAboutToAttackAbility` 同一套兜底、与本文件 `Matching` 同一口径）。
+        //    ⚠️ 为什么必须分三档：`-1` 当「没有」= 把「判不了」静默变成「没有」（铁律 2 的老毛病）。
+        //
+        //  📊 **可达性**：本文件 `HasAny` 的 doc 已记「今天 0 张卡有附魔」⇒ 三个闸**全部休眠**，
+        //    接上也不改任何对局（与 `L1042` 账上「今天只有 `FireTriggerAt` 一处消费者」自洽）。
+        // ==================================================================
+
+        /// <summary>原版 `AbilityTrigger.WhileInPlay = 20` 的枚举名
+        /// （判据 = `dump.cs` 的 `AbilityTrigger` + `CardDef.AbilityTriggerNumberOfName` 那一行）。</summary>
+        public const string TriggerNameWhileInPlay = "WhileInPlay";
+
+        /// <summary>原版 `AbilityTrigger.WhileInPlayVariable = 240` 的枚举名。</summary>
+        public const string TriggerNameWhileInPlayVariable = "WhileInPlayVariable";
+
+        /// <summary>原版 `AbilityTrigger.Mob = 300` 的枚举名。</summary>
+        public const string TriggerNameMob = "Mob";
+
+        /// <summary>原版 `AbilityTrigger.Rage = 130` 的枚举名。</summary>
+        public const string TriggerNameRage = "Rage";
+
+        /// <summary>
+        /// **原版 `EntityScript.HasEnchantment(AbilityTrigger trigger)` 的等价物**
+        /// （`EntityScript.cs:1806-1841`，逐句 → 本段头注）。
+        ///
+        /// <para>载体身上**有没有一件**附魔卡，它自己带一条 `trigger == <paramref name="triggerName"/>`
+        /// 的 ability。`triggerName` 用 `CardDef.AbilityTriggerNumberOfName` 那套词
+        /// （本类给了四个常量：`WhileInPlay` / `WhileInPlayVariable` / `Mob` / `Rage`）。</para>
+        ///
+        /// <para>⚠️ **三值**（见本段头注）：`AbilityTriggerPresence` 返 `-1`（旧表缺列）时退回
+        /// <see cref="Matching"/> 的关键词口径 —— 那是**判不了时的兜底**，不是等价物。</para>
+        ///
+        /// <para>⚠️ 与原版两处形状差：① 原版对 `ae == null` / `enchantmentCard == null` 那一格**会 NRE**
+        /// （ILSpy 的 `NullReferenceException` 桩）⇒ 我们跳过（不复制崩溃语义，与本文件
+        /// `HasEnchantmentWhileInPlay` 的取舍同一条）；② 原版逐件返回 `true`/扫完 `false`，我们同。</para>
+        /// </summary>
+        public static bool HasEnchantmentForTrigger(CardInstance carrier, string triggerName)
+        {
+            if (carrier == null || string.IsNullOrEmpty(triggerName)) return false;
+            foreach (var e in carrier.ActiveEnchantments)
+            {
+                if (e == null || e.Card == null) continue;
+                int presence = e.Card.AbilityTriggerPresence(triggerName);
+                if (presence == 1) return true;                 // 明确有那条 trigger 的 ability
+                if (presence == 0) continue;                    // 明确没有 ⇒ 这一件跳过
+                // -1 = 旧表 / 缺列 ⇒ 退回关键词口径（判不了时的兜底，⛔ 别读成「没有」）
+                if (e.Card.TriggerOps(triggerName) != null || e.Card.Effect(triggerName) != null) return true;
+            }
+            return false;
+        }
+
+        /// <summary><see cref="HasEnchantmentForTrigger(CardInstance,string)"/> 的棋盘形态。</summary>
+        public static bool HasEnchantmentForTrigger(UnitState carrier, string triggerName)
+        {
+            return carrier != null && HasEnchantmentForTrigger(carrier.Instance, triggerName);
+        }
+
+        /// <summary>
+        /// **闸 ①**：原版 `CardScript.HasWhileInPlayAbility()`（`CardScript.cs:6800`，闸在 `:6827`）
+        /// 里属于附魔的那**两项析取** —— `HasEnchantment(WhileInPlay) || HasEnchantment(WhileInPlayVariable)`。
+        ///
+        /// <para>🔴 **调用方还要 OR 上第三项 `HasCurrentTrait(DefinedTrait.pack /* 610 */)`** ——
+        /// 那是 **trait** 不是附魔（`UnitState.Has("pack")`），⛔ 别塞进本方法（本类是附魔层）。
+        /// 原版那一整句：
+        /// <c>if (!HasEnchantment(WhileInPlay) &amp;&amp; !HasEnchantment(WhileInPlayVariable)
+        ///    &amp;&amp; !HasCurrentTrait(pack)) { …再扫 activeEffects 里的 pack 记录… }</c></para>
+        /// </summary>
+        public static bool HasWhileInPlayGate(UnitState carrier)
+        {
+            return HasEnchantmentForTrigger(carrier, TriggerNameWhileInPlay)
+                || HasEnchantmentForTrigger(carrier, TriggerNameWhileInPlayVariable);
+        }
+
+        /// <summary>
+        /// **闸 ②**：原版 `ResolveUnitAttacked` 的近战那支（`CardScript.cs:14072`）里属于附魔的那一项 ——
+        /// `HasCurrentTrait(DefinedTrait.mob) || HasEnchantment(AbilityTrigger.Mob)` 的**后一半**。
+        /// 🔴 前一半 `HasCurrentTrait(mob)` 是 trait（0x398），调用方自己 OR。
+        /// </summary>
+        public static bool HasMobGate(UnitState carrier)
+        {
+            return HasEnchantmentForTrigger(carrier, TriggerNameMob);
+        }
+
+        /// <summary>
+        /// **闸 ③**：原版伤害结算里那一支（`CardScript.cs:14298`）属于附魔的那一项 ——
+        /// `HasDefaultTrait(rage) || HasCurrentTrait(rage) || HasEnchantment(AbilityTrigger.Rage)`
+        /// 的**最后一半**。🔴 前两项是 trait（卡面印的 / 当前生效的），调用方自己 OR。
+        /// </summary>
+        public static bool HasRageGate(UnitState carrier)
+        {
+            return HasEnchantmentForTrigger(carrier, TriggerNameRage);
+        }
+
+        // ==================================================================
+        //  🆕 B89 / E6d（2026-10-28 · 执行代理 `E6d`）：`whileInPlayAnim` 的取值口
+        // ==================================================================
+        /// <summary>一条附魔记录该记哪个 `whileInPlayAnim`（账 **L1044** 收口的那一格）。
+        ///
+        /// <para>**原版读点** = `EntityScript__HasEnchantmentWhileInPlay()`（`EntityScript.cs:1843-1882`）：
+        /// 逐件扫 `activeEnchantments(+0x110)`，读的是**附魔卡自己**的 `RawCardScript.whileInPlayAnim(+0x288)`。</para>
+        ///
+        /// <para>**本方法的两级**：① 调用方**显式**传了值 ⇒ 用它（原版那条链同样是「记录上的值」）；
+        /// ② 没传（= `UnknownWhileInPlayAnim` 哨兵）且附魔卡的卡表**有这一列** ⇒ 读 `CardDef.WhileInPlayAnim`；
+        /// ③ 都没有 ⇒ 保持 `-1`（未知，⛔ 不猜 `0`）。</para>
+        ///
+        /// <para>⚠️ 数据来源是**两张表都算**：可玩池里的附魔卡（`cards_engine.json` 的 `whileInPlayAnim` 列，v37）
+        /// 与**第二张表**的模板（`enchantment_templates.json`）—— 后者走
+        /// `BattleContext.FindEnchantmentTemplate`（先池后表，Core 不引用 Data，靠静态钩子）。</para></summary>
+        static int EnchantmentWhileInPlayAnimOf(CardDef enchantmentCard, int explicitValue)
+        {
+            if (explicitValue != UnknownWhileInPlayAnim) return explicitValue;
+            if (enchantmentCard != null && enchantmentCard.WhileInPlayAnimKnown)
+                return enchantmentCard.WhileInPlayAnim;
+            return UnknownWhileInPlayAnim;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（B89 第 1 波 · 执行代理 `E26` · 简报「真战斗里会不会挂上去」那一问）：
+        //  **`buffType 12/15` 附魔「打出即挂」的接线端**
+        //  —— 本段全部追加在类尾（⛔ 别插到中间：`账/*.tsv` 按 `文件:行号` 引 `Enchantment.cs`）
+        // ================================================================================================
+        //  【原版这一跳在哪】`CardScript__AddEffect.c:826-828`：`buffType ∈ {12,15,16}` ⇒ `CardScript__AddEnchantment`
+        //    ⇒ 把 `buffEffect.enchantment` 那张模板挂到**被选中的那张牌**的 `activeEnchantments(+0x110)`。
+        //    挂载者（`owners`）全池 **114 张卡 / 130 行**（`cards_truth.json` 的
+        //    `abilities[].logic[].buff.enchantment.m_PathID`，现读）；模板侧的反向索引在
+        //    `enchantment_templates.json` 的 `owners[]`（`{id, buffType, trigger, inPool}`）。
+        //
+        //  🔶 自己设计（非原版的数据通路）：**本表只是 3 张「已知模板 ↔ 挂载者」的 id 白名单**。
+        //    · 为什么必须自己定：**Core 拿不到 `owners[]`** —— `Data/CardDatabase.LoadEnchantmentTemplates()`
+        //      物化时只造 `List<CardDef>`、把 `owners` 丢了；`CardDef` 也没有「我由谁挂载 / 我挂的是哪张模板」
+        //      的列（`cards_engine.json` v37 同样没有 `enchantment` 列）⇒ 要数据驱动得同时改
+        //      生成器 + `CardDef` + `CardDatabase`（都不在本代理的文件所有权内）。
+        //    · 覆盖边界（如实）：全池 114 张挂载者里**只接了这 3 张**（`inPool` 的 2 张 + 休眠的 `SW64`）；
+        //      其余 111 张**仍未挂**（判据 ↗ 报告 `报告/B89_E26_附魔模板真战斗挂载.md` §三）。
+        //    · 谁定的：本波简报（B89 第 1 波 `E26`）「能修就修」授权，2026-10-28。
+        //    · 数据列一落地就删本表、改读 `CardDef` 的通用列（⛔ 别在本表上继续加卡 —— 那是把缺口藏起来）。
+        // ================================================================================================
+
+        /// <summary>一条「这张牌被打出 ⇒ 给目标挂这张模板」的登记（<see cref="PlayerGrantedEnchantments"/> 的行）。</summary>
+        public sealed class PlayedGrantedEnchantment
+        {
+            /// <summary>挂载者（可玩池里的那张卡）的 `uniqueId`。判据 = 卡池 `CardDef.Id`。</summary>
+            public string SourceCardId;
+            /// <summary>要挂上去的**附魔模板** `uniqueId`（= `enchantment_templates.json` 的 `id`）。</summary>
+            public string TemplateCardId;
+            /// <summary>原版 `CardEffect.buffType`（这三张全是 `12 enchantment`）。</summary>
+            public int BuffType;
+            /// <summary>给人看的说明（日志/断言用）。</summary>
+            public string Note;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：3 张「打出即挂附魔」的挂载者白名单 —— 见本节头注的「为什么必须自己定」。</summary>
+        public static readonly PlayedGrantedEnchantment[] PlayerGrantedEnchantments =
+        {
+            // `SAU53 Undying Legions`（3 费战术）→ `T16 Sautekh-Undying Legions_enchantment`（`whileInPlayAnim = 1`）。
+            //   挂载行 = `cardAbilities[trigger 0].abilityLogic[0].buffEffect{buffType 12, meleeAttackChange 2,
+            //   rangeAttackChange 2, enchantment → path_id -5318231028992627218}`。
+            new PlayedGrantedEnchantment
+            {
+                SourceCardId = "SAU53",
+                TemplateCardId = "eab54e4c131034e4dacf8ce72807ed07",
+                BuffType = BuffTypeEnchantment,
+                Note = "Undying Legions（残骸 Shield 的载体；模板自身 ability = trigger 90 → buffType 90 addTraitRemnant shield）",
+            },
+            // `TL47 Hive Fleet Leviathan`（6 费战术）→ `T18 Leviathan-Hive Fleet Leviathan_enchantment`（`wp = 1`）。
+            //   模板**自己 `cardAbilities` 为空** ⇒ 唯一可观察量就是 `HasEnchantmentWhileInPlay`（表现层那一下）。
+            new PlayedGrantedEnchantment
+            {
+                SourceCardId = "TL47",
+                TemplateCardId = "a5960475756bec144a1d6d8a9d141fc9",
+                BuffType = BuffTypeEnchantment,
+                Note = "Hive Fleet Leviathan（模板无 ability ⇒ 只承载 whileInPlayAnim=1）",
+            },
+            // `SW64 Z-SW-Everstorm`（**不在可玩池**，`manaCost = -1`）→ `Z-SW-Everstorm_enchantment`（`wp = 1`）。
+            //   ⚠️ 休眠登记：今天打不出来，但数据在表里（`owners[].inPool = false`）⇒ 保留，免得将来入池再补一遍。
+            new PlayedGrantedEnchantment
+            {
+                SourceCardId = "SW64",
+                TemplateCardId = "7c06b8117fe86e74dbc454139da8653b",
+                BuffType = BuffTypeEnchantment,
+                Note = "Everstorm（休眠：SW64 不在可玩池）",
+            },
+        };
+
+        /// <summary>这张卡（按 `uniqueId`）有没有「打出即挂附魔」的登记；没有返回 `null`。</summary>
+        public static PlayedGrantedEnchantment GrantedEnchantmentOf(CardDef sourceCard)
+        {
+            if (sourceCard == null || sourceCard.Id == null) return null;
+            var t = PlayerGrantedEnchantments;
+            for (int i = 0; i < t.Length; i++)
+                if (t[i] != null && t[i].SourceCardId == sourceCard.Id) return t[i];
+            return null;
+        }
+
+        /// <summary>
+        /// **一张牌被打出 ⇒ 把它那一族附魔挂到被选中的目标身上**（原版
+        /// `CardScript__AddEffect.c:826-828` → `CardScript__AddEnchantment.c` 的等价入口）。
+        ///
+        /// <para>调用点 = `EffectResolver.PlayTacticCore`（`BroadcastWhen(Play)` 之后、紧挨着
+        /// <see cref="OnCarrierPlayed"/>）—— 那里同时拿得到「打出的那一份**实例**」与「玩家点定的**目标**」。</para>
+        ///
+        /// <para>🔴 **静默条件是【故意的】**：没有登记 / 没有目标 / 查不到模板 ⇒ **一声不响地返回 0**。
+        /// 理由：`ruleprobe`（只编 `Core/*.cs`）**没有第二张表**（`EnchantmentTemplatesProvider` 为 null），
+        /// 而 `ctx.Log` 会进 `ctx.Events`、`ctx.Events` 进 `Fingerprint` ⇒ 在这里出声会让
+        /// `play all dump` / `play check` 的指纹整片变化。⇒ 「没挂上」这件事**由断言钉**
+        /// （`Editor/EnchantmentTemplateCheck.cs` §G 的 G2/G3），不靠运行期日志。</para>
+        ///
+        /// <para>⚠️ 与原版的两处**如实差异**：① 一次只挂**一个**目标（原版 `TL47` 有 3 条 logic、
+        /// 其中一条是 `chosenAbility 30 buffOthers` ⇒ 可能多目标）；② 本仓的卡面解析（`desc`）
+        /// 对这些卡**本来就没有「选一个目标挂附魔」这一步**，目标来自**落牌那一格**（`PlayTacticCore` 的 `chosen`）。</para>
+        /// </summary>
+        /// <returns>真挂上了几条（0 = 什么都没做，见上面的静默条件）。</returns>
+        public static int AttachGrantedByPlayedCard(BattleContext ctx, CardInstance playedInst, UnitState chosen)
+        {
+            if (ctx == null || playedInst == null || playedInst.Card == null || chosen == null) return 0;
+            var carrier = chosen.Instance;
+            if (carrier == null) return 0;
+            var grant = GrantedEnchantmentOf(playedInst.Card);
+            if (grant == null) return 0;
+            var tmpl = ctx.FindEnchantmentTemplate(grant.TemplateCardId);
+            if (tmpl == null) return 0;   // ⛔ 静默（理由见 doc）；G3 那条断言就是这一格的锁
+            var eff = Attach(ctx, carrier, tmpl, grant.BuffType,
+                             source: playedInst.Card.Name,
+                             acting: null,
+                             trait: "");   // 明确 `""`（= 没有 trait）：原版 `CardEffect.trait` 取自**挂它的那条 buff**，
+                                            // 而这三张的 enchant 行没有 `trait` ⇒ ⛔ 别退到载体的 `EnchantTrait`（那是 Pray 的约定）
+            return eff != null ? 1 : 0;
         }
     }
 }

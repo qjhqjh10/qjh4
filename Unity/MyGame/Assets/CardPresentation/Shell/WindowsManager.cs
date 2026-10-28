@@ -1552,5 +1552,52 @@ namespace CardPresentation
                 t.localScale = Vector3.one;
             }
         }
+
+        // ============================================================ 354 `BlockGame`（B89-E10b 追加在类尾）
+        // 判据 = `decomp_full/PlayerDataManager__BlockGame.c`（全文现读 2026-10-28）三句：
+        //   ① `if (loginManager(+0xa0) != null) loginManager.DuplicateConnection();`
+        //   ② `WindowsManager.Instance.ShowPopUp(Loc("CustomErrors/DuplicateConnection"), …, Loc("MainMenu/General/Confirm"), 回调)`
+        //      —— 两个词条实读：`0x425CEA8` = `CustomErrors/DuplicateConnection` · `0x42BE318` = `MainMenu/General/Confirm`
+        //      （`il2cpp_out/stringliteral.json`，与施工单 `B88_R10` §2.2 #3 一致；**只有一颗按钮**）。
+        //   ③ 那颗按钮的回调 = `UIGenericEventCatcher.Source`（`GameBlocked`）⇒ 弹窗确认后 **`Application.Quit()`**
+        //      （判据 = `Net/NetBattle.cs` 的 T07 结算注：「`UIGenericEventCatcher.Source`（`GameBlocked` = 重复连接
+        //      ⇒ 弹 `CustomErrors/DuplicateConnection` 后 `Application.Quit()`）」）。
+        //
+        // ⚠️ **第 ① 句在本仓落不了**：`LoginManager` **全仓 0 命中**（施工单 §2.2 #3 已记）——
+        //   它的对外作用只有「断开那条重连会话」，我们**没有登录会话**可断 ⇒ **出声记录、不伪造一个类**。
+        // ⚠️ 原版对 `WindowsManager.Instance` 为 null **不判**（`.c` 走 `FUN_1803f47a0` = 抛 NRE）；
+        //   我们出声 + 返回 false（同本仓一贯口径：不许静默、也不让一次脏状态把壳炸掉）。
+
+        /// <summary>原版 `PlayerDataManager.BlockGame()`（账 354）——「同一账号重复连接」那句拦人：
+        /// 弹 `CustomErrors/DuplicateConnection`（只有一颗「确认」），点确认后退出游戏。
+        /// <para>⚠️ 原版那颗按钮的文本键是 `MainMenu/General/Confirm`、**没有取消钮**（`.c` 里第二个按钮位是 0）
+        /// ⇒ 这就是一扇**只能确认**的窗，⛔ 别顺手加「取消」。</para>
+        /// <para>⚠️ 我们**没有生产触发源**：原版它由 Photon 房间层的「同账号重复进房」推（`UIGenericEventCatcher.GameBlocked` 事件），
+        /// 本仓的 P2P <b>不是</b>房间模型 ⇒ 没有这条事件。留着是为了把方法落地（铁律 11），接线位见报告。</para></summary>
+        public bool BlockGame()
+        {
+            Debug.LogWarning("[WindowsManager] `BlockGame()`：原版第 ① 句 `loginManager.DuplicateConnection()` "
+                           + "**本仓 0 命中 `LoginManager`**（我们没有登录会话可断）⇒ 这一跳省略（⛔ 不伪造一个类）。"
+                           + "第 ② 句的弹窗照做。");
+            if (Instance == null)
+            {
+                Debug.LogError("[WindowsManager] `BlockGame()`：场上没有 `WindowsManager` 实例 ⇒ 弹窗没弹"
+                             + "（⛔ 原版这里会抛 NRE）。");
+                return false;
+            }
+            Instance.ShowMessagePopUp("CustomErrors/DuplicateConnection", "MainMenu/General/Confirm",
+                                      QuitForDuplicateConnection);
+            return true;
+        }
+
+        /// <summary>`BlockGame` 那颗唯一按钮的回调 = 原版 `UIGenericEventCatcher.Source` 的 `GameBlocked` 支：
+        /// **直接退出**（先例 = `Core/PlayerBoot.cs` 的 `Application.Quit(0)`）。
+        /// <para>⚠️ 编辑器里 `Application.Quit` 是空操作 ⇒ 出声（同 `MainMenuRuntime` 那条退出链的口径）。</para></summary>
+        static void QuitForDuplicateConnection()
+        {
+            Debug.Log("[WindowsManager] 重复连接已确认 ⇒ 退出游戏（原版 `UIGenericEventCatcher.GameBlocked` 支）。");
+            if (Application.isEditor) Debug.LogWarning("[WindowsManager] 编辑器里 `Application.Quit` 是空操作 ⇒ 真机上才退。");
+            Application.Quit(0);
+        }
     }
 }

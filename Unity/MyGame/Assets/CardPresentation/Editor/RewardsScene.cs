@@ -1639,7 +1639,7 @@ public static class RewardsScene
                 // 原版 `steps` 的 LG：`align=4 sp=20 ctlW=0 ctlH=0`，格 **40×40** ⇒ 缩放后 **46×46**
                 CheckH(steps[0], 46f, "里程碑格（40 × 1.15）");
                 float sp = Mathf.Abs(steps[1].position.x - steps[0].position.x) * 108f;   // 甲式保留：两个世界点的**长度差**（期望 69 = 设计 60 × 1.15，换设计帧会差 1.15 倍）
-                CheckNear(sp, 69f, 2f, "里程碑格间距(px)（(40+20) × 1.15）");
+                CheckNear(sp, 81.94f, 2f, "里程碑格间距(px)（(40 + 31.25) × 1.15 = 81.94 —— 🔴 2026-10-28（B89_RD）订正：原来的 (40+20) 用的是**序列化** `m_Spacing 20`，而原版 `EverguildLayoutGroup` 在 `evenlySpaceinBetween` 下**运行期覆盖** spacing = (325 − 5×40)/(5−1) = 31.25（`decomp_full/EverguildLayoutGroup__CalculateSpacing.c:98-100`）；⛔ 别改回实现）");
                 // `align=4 (MiddleCenter)` ⇒ 5×40+4×20=280 放进 325 的容器，左右各留 **22.5**（缩放后 25.875）
                 float cardCx = MenuCheck.DesignPx(skullsCard).x;
                 float stepsCx = (MenuCheck.DesignPx(steps[0]).x + MenuCheck.DesignPx(steps[4]).x) * 0.5f;

@@ -3979,22 +3979,23 @@ namespace CardPresentation
             };
         }
 
-        /// <summary>手牌文本选中（= 原版 `GraphicsTab__CardsTextInHandDropdownChange`：写
-        /// `GameStaticData.cardsTextInHandFormat`(+0x140) + `…ChosenManually`(+0x144)）。
-        /// 🔴 **如实出声**：我们工程里**还没有消费者**（`CardTextsController.ToggleSimplifiedView` 那一支
-        /// 手牌渲染没接）⇒ 值先存下来，日志里明说「不生效」，⛔ 不假装它能用。</summary>
+        /// <summary>手牌文本选中（= 原版 `GraphicsTab__CardsTextInHandDropdownChange`：写 `GameStaticData.cardsTextInHandFormat`(+0x140)
+        /// + `…ChosenManually`(+0x144) 再打一条 LogWarning）。
+        /// 🔴 **2026-10-28（`B89-E12b`）就地订正（铁律 5）**：原写「我们工程里**还没有消费者**」——**不成立**：`Core/CardView.cs:5096`
+        /// 起 `HandTextFormat` 就是消费者；缺的只是一根线，已接在 <see cref="TextInHand"/> 的 setter / Load 里。</summary>
         void ChooseTextInHandOption(int i)
         {
             TextInHand.Value = i;
             if (_tihCap != null) _tihCap.SetText(TextInHandOptionLabels()[TextInHand.Value]);
             Debug.Log($"[Settings] 手牌文本 → 「{TextInHandOptionLabels()[TextInHand.Value]}」"
-                    + "（原版写 `GameStaticData.cardsTextInHandFormat`(+0x140) 与 `…ChosenManually`(+0x144)，"
-                    + "由 `CardTextsController.ToggleSimplifiedView` 改手牌卡面。"
-                    + "⚠️ **我们的手牌卡面还没有消费者** ⇒ 这一格现在只把值存下来（`PlayerPrefs[\"CardsTextInHand\"]`），"
-                    + "**画面上不会变**。不许让你以为它已经生效。）");
+                    + "（原版 `GraphicsTab__CardsTextInHandDropdownChange.c` 只写 +0x140/+0x144 并 LogWarning，"
+                    + "消费者 = 每次进手牌时 `BasicCardUI.SetCardTextInHand` 读那一格。"
+                    + "我们的等价物 = `CardView.HandTextFormat` ⇒ 本格**已经生效**（在场手牌卡立即重刷）。"
+                    + "⚠️ `cardsTextInHandFormatChosenManually`(+0x144) 我们**没有**这一位（如实标注，不影响行为）。）");
         }
 
-        /// <summary>手牌文本的持久值（原版 = 玩家存档里的 `cardsTextInHandFormat`）。</summary>
+        /// <summary>手牌文本的持久值（原版 = 玩家存档里的 `cardsTextInHandFormat`）。🔴 **接线（2026-10-28 `B89-E12b`）**：读档与写入
+        /// **都**转一次 `CardView.SetHandTextFormat` —— 原版没有「应用」那一跳，是因为那一格就在 `GameStaticData` 上、`BasicCardUI.SetCardTextInHand` 每次进手牌时读它；我们的等价物 = `CardView.HandTextFormat`（默认 0）。</summary>
         public static class TextInHand
         {
             public const string PrefKey = "CardsTextInHand";
@@ -4006,7 +4007,7 @@ namespace CardPresentation
             {
                 if (_loaded) return;
                 _loaded = true;
-                _value = Mathf.Clamp(PlayerPrefs.GetInt(PrefKey, 0), 0, 2);
+                _value = Mathf.Clamp(PlayerPrefs.GetInt(PrefKey, 0), 0, 2); CardView.SetHandTextFormat(_value);
             }
             public static int Value
             {
@@ -4015,9 +4016,8 @@ namespace CardPresentation
                 {
                     Load();
                     _value = Mathf.Clamp(value, 0, 2);
-                    if (PersistOverride) return;
-                    PlayerPrefs.SetInt(PrefKey, _value);
-                    PlayerPrefs.Save();
+                    if (!PersistOverride) { PlayerPrefs.SetInt(PrefKey, _value); PlayerPrefs.Save(); }
+                    CardView.SetHandTextFormat(_value);      // 改设置即改卡面（见类注释）
                 }
             }
             public static void ResetForTest() { _loaded = true; _value = 0; }

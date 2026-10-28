@@ -677,7 +677,8 @@ namespace CardPresentation
             //   550×115.36）—— **原版是 `Sliced`**；共件一律走 `MenuDraw.Nine`（= A641 要的那一支）。
             //   判据（现读两处互证：`menu_dump` 那一行 + 全包 20 个用这张 sprite 的 `Image` 实例 `m_Type`
             //   全是 1）写在 `WindowHeader.PlateBorder` 的 doc 上，⛔ 不是抄表。
-            WindowHeader.WithBackButton(root, new WindowHeader.Spec
+            System.Action onBack = () => { DailyData.StreakAutoCollect(); Close(); };
+            var p = WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
                 RootRect = HeaderRoot,
                 PlateRect = H_Plate,
@@ -715,8 +716,10 @@ namespace CardPresentation
                 QPlate = QPanel, QWing = QPanel, QTitle = QText, QBack = QContent,
                 // 原版：返回钮与背景遮罩**走同一个 `CloseButtonClicked` → `Close()`**，
                 // 而 `Close()` = `LiveOp.TryCollect(() => base.Close())` ⇒ **关窗会先自动收取**。
-                OnBack = () => { DailyData.StreakAutoCollect(); Close(); },
+                OnBack = onBack,
             });
+
+            WireHeaderComponent(p, onBack);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
         }
 
         /// <summary>一个奖格：`NormalReward` 那一组（`BG` / `Highlight` / 图标 / 名字 / 角标） + `Collect`。</summary>
@@ -855,6 +858,19 @@ namespace CardPresentation
         public string Dump()
         {
             return $"DailyStreak：{(HasFailed ? "断签态" : "连胜态")} · {entries.Count} 个奖格 · 取不到的图 {MissingArt.Count} 张";
+        }
+
+        // ============================================================ 窗头组件接线（B89-E29 · 追加于类尾）
+        /// <summary>把建好的窗头接到原版那颗 `WindowHeaderWithBackButton` 组件上
+        /// （原版 `DailyStreakWindow` 持有它并在 `Open` 里 `Initialize(liveopEvent, onBack)`）。
+        /// 返回钮 = `BoundOnQuad` 那一档 ⇒ `WindowButton` 挂在**图自己**身上（`p.BackQuad`），**没有 `BackHit`**。
+        /// 标题仍走 `Initialize(string, Action)`：本窗没有 `ILiveOps` 实例（本地等价物是 `LiveOpsLocalEvent`）。
+        /// <para>⚠️ 放在类尾是照「新成员追加类尾」的纪律（⛔ 插进已有成员之间会让账的行号整体漂移）。</para></summary>
+        void WireHeaderComponent(WindowHeader.Parts p, System.Action onBack)
+        {
+            ParentEventWindow.EnsureHeaderTitleResolver();
+            var backWb = p.BackQuad != null ? p.BackQuad.GetComponent<WindowButton>() : null;
+            WindowHeaderWithBackButton.WireHeader(p.Root, backWb, p.Title, onBack, DailyData.StreakWindowTitle());
         }
     }
 }

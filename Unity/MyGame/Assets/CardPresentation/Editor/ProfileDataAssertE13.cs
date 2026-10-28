@@ -19,6 +19,11 @@
 //  C. **旧录像可见（兜底行）**：本表空、盘上有录像 ⇒ `BattleLogData.DisplayRows()` 仍列得出
 //     且 `ReplayStore.Load()` 读得回来（= 行上那颗回放钮走的就是这一条）；同名的真记录不会重复列。
 //
+//  D. 🆕 **成就跨档提示**（2026-10-28 `B89-E16` 追加，账 `个人资料_成就_排行:29`）：
+//     跨一档 ⇒ `AchievementMilestoneToast` 弹一条；文案 = 官方格式串 + 称号 + 档；
+//     **勋章图 = `defaultTierIcon[tier-1]`**（档 1..5 ↔ `medal1..5`，证据 → `AchievementsManager__GetIconByTier.c`
+//     + `assetripper_out/…/Intro.unity:7141`）；通道 = `ToastNotificationController`（⛔ 不是 `MessageToast`/错误横幅）。
+//
 // ⚠️ **不碰玩家真档**：B/C 都把 `OverrideDir` 指到临时目录；A 把 `ProfileData.SavePathOverrideForTest`
 //    指到临时文件（虽然批处理本来就不落盘 —— 双保险）。
 // 🔴 **删档类调用的顺序（2026-10-24 热修 `E11`）**：`ReplayStore.ResetForTest()` 是**删文件**的 ——
@@ -51,6 +56,9 @@ public static class ProfileDataAssertE13
             // A 节：成就写点（临时存档路径 —— 批处理本来就不写盘，这里是双保险）
             ProfileData.SavePathOverrideForTest = Path.Combine(tmp, "profile.json");
             RunAchievementWritePoints();
+
+            // D 节：成就**跨档提示**（B89-E16 追加；在同一份临时存档上跑，阈值真跨得过）
+            RunAchievementMilestoneToast();
 
             // B 节：对局历史落盘
             RunBattleLogPersistence(Path.Combine(tmp, "battlelog"));
@@ -288,5 +296,66 @@ public static class ProfileDataAssertE13
             if (rows2[i].ReplayFile == fn) { same++; fromDisk = rows2[i].FromDisk; }
         Eq(same, 1, "C3 本表已有这一份录像 ⇒ 只列 1 行（不重复）");
         Ok(!fromDisk, "C3 剩下的那一行是**本表记录**（不是兜底行）");
+    }
+
+    // ==================================================================
+    //  D · 成就**跨档提示**（原版 `Achievement.OnReachMilestone` 的 ⑤）
+    //     期望值全部来自**资产真数 / 官方词条 / 反编译口径**，⛔ 不回读 `AchievementMilestoneToast` 的常量。
+    // ==================================================================
+    static void RunAchievementMilestoneToast()
+    {
+        Debug.Log(P + "--- D · 成就跨档提示（原版 OnReachMilestone ⑤）---");
+
+        var a = AchById("Ach_1");
+        if (!Ok(a != null && a.Thresholds != null && a.Thresholds.Length >= 2,
+                "D0（前提）Ach_1 至少 2 档阈值（否则跨不满一档，下面的断言会静默空转）"))
+            return;
+
+        int cur = ProfileData.AchievementValue("Ach_1");
+        int thr1 = a.Thresholds[0], thr2 = a.Thresholds[1];
+        if (!Ok(cur < thr1, $"D0（前提）Ach_1 当前进度 {cur} **还没到首档** {thr1}（否则本节「跨一档」不成立）"))
+            return;
+
+        // 词条是**数据**（官方表），不是我们的常量 —— 缺了就先红，别让文案那条断言测到「空串档」
+        string title = Loc.T("Achievements/Title/Ach_1");
+        if (!Ok(!string.IsNullOrEmpty(title) && title != "Achievements/Title/Ach_1",
+                "D0（前提）`Achievements/Title/Ach_1` 在官方词条表里（否则文案那条测的是称号取空那一档）"))
+            return;
+        string fmt = Loc.T("Achievements/NewAchievementMessage");
+
+        AchievementMilestoneToast.ResetForTest();
+        ToastNotifications.ClearLive();
+
+        // ---- D1 跨第 1 档：弹 1 条 · 文案 = 官方格式串 · 勋章 = medal1 ----
+        ProfileData.AddAchievementValue("Ach_1", thr1 - cur);
+        Eq(ProfileData.AchievementValue("Ach_1"), thr1, $"D1 进度正好顶到首档阈值（资产真数 {thr1}）");
+        Eq(AchievementMilestoneToast.FiredCount, 1, "D1 跨 1 档 ⇒ 弹 1 条（原版「每命中一个 milestone 调一次」）");
+        Eq(AchievementMilestoneToast.LastText, string.Format(fmt, title + " 1"),
+           "D1 文案 = `Format(I2(NewAchievementMessage), I2(称号) + \" \" + 1)`（原版 ②③④ 逐句）");
+        Eq(AchievementMilestoneToast.LastIconArt, "40k_Achievements_icon_medal1",
+           "D1 勋章 = `defaultTierIcon[0]` = medal1（`AchievementsManager__GetIconByTier.c` + Intro.unity:7141 的 5 条 PPtr）");
+
+        // ---- D2 跨第 2 档：再多 1 条 · 勋章换 medal2（**档↔图**那条映射真的在走） ----
+        ProfileData.AddAchievementValue("Ach_1", thr2 - thr1);
+        Eq(AchievementMilestoneToast.FiredCount, 2, "D2 再跨一档 ⇒ 累计 2 条");
+        Eq(AchievementMilestoneToast.LastIconArt, "40k_Achievements_icon_medal2", "D2 勋章换到 medal2");
+
+        // ---- D3 真弹到屏上了吗：通道 = ToastNotification（⛔ 不是 MessageToast/错误横幅）----
+        var tn = ToastNotifications.Instance;
+        if (!Ok(tn != null, "D3（前提）壳里有 `ToastNotificationController`（`ScheduleNotification` 才有落点）"))
+            return;
+        tn.Step(0.02f);      // 批处理没有帧循环 ⇒ 自己泵一拍，把 `Schedule` 的队列排空
+        Eq(tn.LastShownType, ToastNotifications.ToastNotificationType.Achievement,
+           "D3 真正走的通道 = `ToastNotification`（原版 `ToastNotificationType.Achievement = 0` → `Toast` 模板）");
+        Ok(tn.LiveCount >= 2, $"D3 两条跨档提示都实例化了（实得 {tn.LiveCount} 条活飘窗）");
+        // ⚠️ 取**最后**一颗：`Holder` 的子件顺序 = 实例化顺序（先 tier1 后 tier2），`Find("Toast")` 会拿回 tier1 那条。
+        var live = tn.Holder != null && tn.Holder.childCount > 0
+                 ? tn.Holder.GetChild(tn.Holder.childCount - 1) : null;
+        Ok(live != null && (live.name == "Toast" || live.name == "Toast(Clone)"), "D3 飘窗节点名 = `Toast`（原版模板名，⛔ 别改名；🔴 2026-10-28 B89_RD：`Instantiate` 会给克隆体加 `(Clone)` 后缀 —— 本仓既有旁证 `MainMenuRuntime.cs:3394` / `ErrorMessageBanner.cs:70`，所以两种写法都算「没改名」）");
+        var iconTr = live != null ? live.Find("Icon") : null;
+        var q = iconTr != null ? iconTr.GetComponent<ImageQuad>() : null;
+        Eq(q != null && q.Texture != null ? q.Texture.name : null, "40k_Achievements_icon_medal2",
+           "D3 最后那条的 `Icon` quad 上贴的**就是** medal2（不是模板默认的 medal1 —— 这条挡「只传了图名、没真换上」）");
+        ToastNotifications.ClearLive();
     }
 }

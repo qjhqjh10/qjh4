@@ -1122,5 +1122,34 @@ namespace CardPresentation
                      + " hidePending=" + (_pressedBtnHidePending ? 1 : 0);
             }
         }
+
+        // ==================================================================
+        //  🆕 2026-10-28（执行代理 `B89_E5e` · 账 `战斗界面_HUD:761`）：
+        //  **「敌手牌那一格能不能点开」—— 本链里可以单独断言的那一步**
+        //
+        //  原版判据（`decomp_full/CardScript__OnTouchUpAsButton.c:22-51` 逐句现读）：
+        //    `cardState ∈ {inHand(1), inHandShowing(8)}` 且 `isPlayer(+0x40) == 0` 时：
+        //    必须 `rawCardData(+0x28) != null` **且** `rawCardData.spellType(+0x90) == 0xE6 (Sabotage)`
+        //    才继续走「短按（≥0.2 s 的门）⇒ `BattleManager.DisplayCard(bm, this, 1, 0, 0)`」；
+        //    否则 `return` —— 这一下**不认**。
+        //
+        //  🔴 **同一批现读推翻施工单的前提**：`BattleCardUI__ShouldShowCardback.c:29-39` =
+        //     `inHand ∧ !isPlayer ⇒ return 1`（**恒显示卡背**，任何状态都不翻面）
+        //     ⇒ 「把敌方手牌翻面成可点 `CardView`」这条链路**原版并不存在**：原版点的是**卡背那一格**、
+        //     开的是卡面**展示窗**（语义 = 偷看那张 sabotage 牌）。
+        //     ⛔ 所以本链**不该**新建 CardView、也不该有「亮出敌方手牌」这个开关 —— 那会是**自造**。
+        // ==================================================================
+
+        /// <summary>敌手牌那一格的**点击闸**（把原版那两跳合成一次调用；判据见上方长注）。
+        /// <para>⛔ `sabotage` 的判据**只此一处**：`CreatePool.MatchesKind(card, "sabotage")`
+        /// （与 <see cref="OutlineOf"/> 用的是同一个；`CardDef.spellType` 我们这边没有等价列）。</para>
+        /// <para>宿主只需给三样：**是不是我方手牌** / **有没有卡数据** / **那张卡的 `CardDef`**。</para>
+        /// <para>⚠️ 返回值只回答「这一下认不认」；「认了之后开哪扇窗」归宿主那侧（原版是
+        /// `BattleManager.DisplayCard(bm, this, 1, 0, 0)` = 我们的卡面展示窗）。</para></summary>
+        public static bool FoeHandCardTapOpens(bool isPlayer, bool hasRawCard, RuleEngine.CardDef card)
+        {
+            bool sabotage = card != null && RuleEngine.CreatePool.MatchesKind(card, "sabotage");
+            return CardBoardHighlight.EnemyHandCardClickable(isPlayer, hasRawCard, sabotage);
+        }
     }
 }

@@ -54,7 +54,7 @@ namespace RuleEngine
     /// `ResolveOps` 的入参塞进来、再把 `ResolveAction` 那一跳补齐。
     /// ⚠️ 名字**故意不叫 `Action`** —— 那会与 `System.Action` 撞名（`using System;` 的文件里歧义）。
     /// </summary>
-    public sealed class QueuedAction
+    public sealed partial class QueuedAction
     {
         /// <summary>它进的是哪条道（`Enqueue` 时按入参回填，出队时与 `TryDequeue` 的 `lane` 一致）。</summary>
         public ActionPriority Priority;
@@ -350,5 +350,197 @@ namespace RuleEngine
             }
             return false;
         }
+
+        // ==========================================================================================
+        //  🆕 2026-10-28（执行代理 `B89_E1` · 完全复刻批次 R9「动作队列族」）
+        //  **按条撤动作**（账行 L240 / L241 / L242 的队列侧）—— 原版三层：
+        //    ① `BattleManager.CancelBattleActionFromQueue(List<BattleAction>, int actionIndex)`
+        //        撤**指定下标**那一条，**撤之前按 `actionType` 补副作用**，末尾 `RemoveAt(index)`；
+        //    ② `BattleManager.CancelEffectsFromDisappearingUnitFromQueue(…, queue, …)`
+        //        倒序遍历**一条**队列，决定撤哪几条 ⇒ 逐条调 ①；
+        //    ③ `BattleManager.CancelEffectsFromDisappearingUnit(…)`
+        //        对四条队列各调一次 ②。
+        //  本类只提供 ① 与「按谓词撤一条」的原语；② / ③ 在 `Core/ActionPump.cs`（同一个 `partial class RuleCore`）。
+        //  判据（第一权威）= `d:/2/tools/decomp_full/BattleManager__CancelBattleActionFromQueue.c` 逐句。
+        // ⛔ **别把 `Clear()` 当它用** —— `Clear()` 是整表清（只在泵环硬闸那一处），这条是「语义性撤销」。
+        // ==========================================================================================
+
+        /// <summary>
+        /// 只读取某条道里的第 <paramref name="index"/> 条（越界 ⇒ `null`）。
+        /// 原版等价物 = `List&lt;BattleAction&gt;.get_Item(index)`（`CancelEffectsFromDisappearingUnitFromQueue.c`
+        /// 在一个 `for` 里反复 `get_Item(queue, i)` 取出来逐格判）。
+        /// ⚠️ 返回的是**引用**，⛔ 别在持有它的同时调 <see cref="RemoveQueuedActionAt"/> 改变下标。
+        /// </summary>
+        public QueuedAction At(ActionPriority lane, int index)
+        {
+            int i = (int)lane;
+            if (i < 0 || i >= LaneCount) return null;
+            var list = _lanes[i];
+            if (index < 0 || index >= list.Count) return null;
+            return list[index];
+        }
+
+        /// <summary>
+        /// 原版 `BattleManager.CancelBattleActionFromQueue(List&lt;BattleAction&gt; queue, int actionIndex)`
+        /// 的等价物 —— **撤掉某条道里指定下标的那一条**。
+        ///
+        /// <para>**逐句判据**（`decomp_full/BattleManager__CancelBattleActionFromQueue.c`）：
+        /// ① 下标越界（`actionIndex >= queue.Count`）⇒ `LogError("No action in queue " + index)` 后**什么都不做**；
+        /// ② `actionType == 1 (attack)` ⇒ 对 `+0x08`（= `actingCard`）调 `CardScript.CancelAttack()`；
+        /// ③ `actionType == 0x17 (23 createHandCard)` ⇒ 对 `+0x10`（= `targetCard`）取 `gameObject` 后
+        ///    `SetActive(false)`；
+        /// ④ 最后 `queue.RemoveAt(actionIndex)`。</para>
+        ///
+        /// <para>🔴 **两个副作用是【语义】不是清理**（施工判据原话）：撤一条「正在打出去的攻击」和
+        /// 撤一条「已经建好手牌卡体的 createHandCard」，原版都要**把那一步的后果收回去**。
+        /// ⛔ 别只做 `List.RemoveAt`。</para>
+        ///
+        /// <para>⚠️ **本批的两个副作用仍走「待接点」**（`RuleCore` / 表现层都不属本批的白名单文件）
+        /// —— 见 <see cref="ApplyCancelSideEffects"/> 的 doc。</para>
+        /// </summary>
+        /// <returns>`true` = 真的撤了一条；`false` = 下标越界/道非法（已按原版出声）。</returns>
+        public bool RemoveQueuedActionAt(ActionPriority lane, int index)
+        {
+            int i = (int)lane;
+            if (i < 0 || i >= LaneCount)
+            {
+                UnityEngine.Debug.LogError(
+                    $"[ActionQueue] CancelBattleActionFromQueue：非法道 {(int)lane}（合法 0..3）"
+                    + " —— 原版同一格是 `LogError` 后什么都不做");
+                return false;
+            }
+            var list = _lanes[i];
+            if (index < 0 || index >= list.Count)
+            {
+                UnityEngine.Debug.LogError(
+                    $"[ActionQueue] No action in queue {index}（道 {(int)lane} 共 {list.Count} 条）"
+                    + " —— 原版 `BattleManager.CancelBattleActionFromQueue.c` 同一格也是 LogError 后 return");
+                return false;
+            }
+            var act = list[index];
+            ApplyCancelSideEffects(act);
+            list.RemoveAt(index);
+            return true;
+        }
+
+        /// <summary>
+        /// 按谓词**撤一条**（账行 L240 施工判据要求的那个口）。
+        /// 扫序 = 道 **0→1→2→3**（= `_lanes[]` 声明序 = 原版 `actionQueue(+0x350)` →
+        /// `instantQueue(+0x358)` → `interruptQueue(+0x368)` → `delayedInstantQueue(+0x360)`），
+        /// **道内倒序**（= `CancelEffectsFromDisappearingUnitFromQueue.c` 的 `iVar1 = count-1 … downto 0`）。
+        /// 命中第一条即撤（走 <see cref="RemoveQueuedActionAt"/>，因此**副作用照原版补**）。
+        ///
+        /// <para>⚠️ 本方法**只撤一条**；原版 `CancelEffectsFromDisappearingUnitFromQueue` 是「整条泳道全扫」，
+        /// 那个循环在 `Core/ActionPump.cs` 的 `CancelEffectsFromDisappearingUnitFromQueue` 里，
+        /// 由它逐条回调 <see cref="RemoveQueuedActionAt"/>（正是原版「扫 + 逐条调 ①」的形状）。</para>
+        /// </summary>
+        public bool RemoveQueuedAction(System.Predicate<QueuedAction> match)
+        {
+            if (match == null) return false;
+            for (int lane = 0; lane < LaneCount; lane++)
+            {
+                var list = _lanes[lane];
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    if (!match(list[i])) continue;
+                    return RemoveQueuedActionAt((ActionPriority)lane, i);
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 撤一条动作之前的**副作用**（原版 `BattleManager.CancelBattleActionFromQueue.c` 的那个 `switch`）。
+        ///
+        /// <para>🔴 **类型号是原版 `BattleActionType` 的字面量**，⛔ 别换成我们自己的枚举：
+        /// `1 = attack` · `0x17 = 23 = createHandCard`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/BattleActionType.cs`）。
+        /// 本类只认这两个（原版 `switch` 只有这两支，其它类型**只 `RemoveAt`、不补副作用**）。</para>
+        ///
+        /// <para>🔴🔴 **反证（铁律 5 · 就地订正施工判据）**：施工判据（`判据/B88_R9_主线68条分批.md`
+        /// §批次 1）写的是「类型 1 = `CancelAttack(targetCard)`」，**与 `.c` 不符**：
+        /// `.c` 类型 1 那一支读的是 `local_100 = 缓冲区 + 0x08`，而 `BattleAction` 的
+        /// `+0x08 = actingCard`、`+0x10 = targetCard`（`Core/ActionPump.cs` 类尾「五、②」那张表
+        /// ＋ `BattleAction.cs` 字段声明序 ⇒ 逐字节吻合）。旁证：`CardScript__CancelAttack.c:35`
+        /// 的闸是「调用者自己必须处于 `inPlayAttacking(3)/0x11`」，那只能是**攻方自己**。
+        /// ⇒ 按 `.c` 走 `actingCard`（= 我们的 <see cref="QueuedAction.Actor"/>）。</para>
+        ///
+        /// <para>⚠️ **待接点（本批不许跨文件）**：两个副作用在原版都落在**别的层**——
+        /// · 类型 1 ⇒ `待接：RuleCore.CancelAttack(act.Actor)`（`RuleEngine/Core/RuleCore.cs` 属 Chain R，
+        ///   本批白名单只有 `ActionQueue.cs` / `ActionPump.cs`）；
+        /// · 类型 0x17 ⇒ `待接：表现层把 act.Target 对应的卡体 SetActive(false)`
+        ///   （`RuleEngine` 里没有 `GameObject`，那一层在 `CardPresentation`，同样不在白名单）。
+        /// ⇒ 今天走到这两支**一律出声**（`LogWarning` + `CancelSideEffectsPendingForTest++`），⛔ 不静默。</para>
+        /// </summary>
+        void ApplyCancelSideEffects(QueuedAction act)
+        {
+            if (act == null) return;
+            switch (act.ActionType)
+            {
+                case 1:                 // attack（`BattleActionType.attack`）
+                    // 待接：RuleCore.CancelAttack(act.Actor)
+                    _cancelSideEffectsPending++;
+                    UnityEngine.Debug.LogWarning(
+                        "[ActionQueue] 撤掉一条 `attack(1)` 动作 —— **没有**执行 `CancelAttack`："
+                        + "`RuleCore.CancelAttack` 尚未接线（账 L240 的待接点，Chain R 下一批）。"
+                        + $"动作「{act}」，施放者「{(act.Actor != null ? act.Actor.Name : "(null)")}」");
+                    break;
+                case 0x17:              // 23 = createHandCard
+                    // 待接：表现层 act.Target 的卡体 SetActive(false)
+                    _cancelSideEffectsPending++;
+                    UnityEngine.Debug.LogWarning(
+                        "[ActionQueue] 撤掉一条 `createHandCard(0x17)` 动作 —— **没有**执行 `SetActive(false)`："
+                        + "表现层卡体不在 `RuleEngine`（账 L240 的待接点，需 `CardPresentation` 一侧开口）。"
+                        + $"动作「{act}」，目标「{(act.Target != null ? act.Target.Name : "(null)")}」");
+                    break;
+            }
+        }
+
+        int _cancelSideEffectsPending;
+
+        /// <summary>走到「待接点」而**没能**补副作用的次数（排查 / 断言用）。⛔ 不是容量、不是错误计数。</summary>
+        public int CancelSideEffectsPendingForTest { get { return _cancelSideEffectsPending; } }
+    }
+
+    /// <summary>
+    /// <see cref="QueuedAction"/> 的**第二批字段**（账行 L241 / L242 用的两格）。
+    ///
+    /// 🔴 **为什么单开一个 `partial` 段、而不插进上面那个类体**：本文件被 `资料/完全复刻/账/*.tsv`
+    /// 按 `文件:行号` 引用（`Count` / `CountOf` / `Busy` / `Enqueue` / `TryDequeue` / `Clear` / `Has`
+    /// 共 7 处落点在 `QueuedAction` 之后）—— 在类体中间插行会让它们**整体漂移**
+    /// （CLAUDE.md 铁律「新成员一律追加到类尾」）。把新字段放在文件末尾 = **零漂移**。
+    /// </summary>
+    public sealed partial class QueuedAction
+    {
+        /// <summary>
+        /// 🆕 2026-10-28（执行引擎批次 `B89_E1` · 账行 L241 / L242）：
+        /// **原版 `BattleAction.targetCard`（`+0x10`）的对应物** —— 这一条动作指向的那一张。
+        ///
+        /// <para>**唯一用途** = 离场清扫时按「`targetCard` == 指定那张」再筛一道
+        /// （`BattleManager__CancelEffectsFromDisappearingUnitFromQueue.c`：`param_3` 非空时
+        /// 要求 `queue[i].targetCard == param_3`，否则跳过）。</para>
+        ///
+        /// <para>⚠️ **今天几乎全 `null`**：只有 `EnqueueAbility` 的 `abilityTarget` 形参会回填它
+        /// （原版那一格就是 `Add*` 动作的 `targetCard`），而施工判据口径下今天只有
+        /// `FireBoardWhenListener` 一路传 `abilityTarget`。⇒ **`targetCard` 过滤这一半今天覆盖不到**，
+        /// 如实标着（⛔ 不是「做完了」）。好在原版四个调用点里有三个传 `targetCard = null`
+        /// （`ResolveJamUnit` / `ResolveAction` 的 jam 支；只有 `RemoveSelfBuffsFromQueues` /
+        /// `ResolveTransformUnit` 传自己那张）⇒ 主路径上这一半**无可观测差异**。</para>
+        /// </summary>
+        public UnitState Target;
+
+        /// <summary>
+        /// 🆕 2026-10-28（`B89_E1` · 账行 L242）：**原版 `BattleAction.deathType`（`+0xF0`）的对应物**
+        /// （`UnitDeathType`：`undefined(0)` / `combatAttacker(10)` / `combatDefender(15)` / `ability(20)` /
+        /// `tactic(30)` / `poison(40)` / `collectWaystone(50)`）。
+        ///
+        /// <para>**唯一用途** = 离场清扫的**豁免**：`actionType == 0x2d (45 destroyUnit)` **且**
+        /// `deathType == 0x28 (40 poison)` ⇒ 原版**直接结束整条泳道的清扫**、不撤它
+        /// （`CancelEffectsFromDisappearingUnitFromQueue.c` 的 `local_130[0] == 0x2d &amp;&amp; local_40 == 0x28`
+        /// 那一支；`local_40` 的偏移 = 缓冲区 + 0xF0 = `deathType`，判据 = 字段声明序 + 对齐）。</para>
+        ///
+        /// <para>⚠️ 缺省 `0` = 未标（今天**所有入队点都没写这一格**，且 `ActionType` 也恒 0
+        /// ⇒ 这条豁免结构上走不到，纯增量、行为零变化）。要用它时与 <see cref="ActionType"/> 一起回填。</para>
+        /// </summary>
+        public int DeathType;
     }
 }

@@ -421,6 +421,21 @@ namespace CardPresentation
             // 同遭遇战窗：原版还有一层 `DEBUG`（`DebugAutoDisabler`），**不建**（方法体本地读不到）
             Debug.Log("[Event] `DEBUG` 那一层**没建** —— 原版挂 `DebugAutoDisabler`（方法体本地读不到），"
                       + "我们按「不建调试件」办");
+
+            WireHeaderComponent(root);   // 🔴 2026-10-28（B89-E29）窗头组件接线（方法在类尾）
+        }
+
+        // ============================================================ 窗头组件接线（B89-E29 · 追加于类尾）
+        /// <summary>表头建在**基类** `LiveOpsEventWindow.Build()` 里（`BuildHeader` 是 private，子类够不着返回值）
+        /// ⇒ 在本子类的 `BuildExtras`（同一 `Build()` 里、排在 `BuildHeader` 之后）按路径补线。
+        /// 原版 `RankedEventWindowV2.header` 就是那颗组件（`RankedEventWindowV2__Open.c:85` 调
+        /// `WindowHeaderWithBackButton.Initialize(header, ev, onBack)`）；标题 = 本模式名（经典）。
+        /// <para>⚠️ 放在类尾是照「新成员追加类尾」的纪律（⛔ 插进已有成员之间会让账的行号整体漂移）。</para></summary>
+        void WireHeaderComponent(Transform root)
+        {
+            ParentEventWindow.EnsureHeaderTitleResolver();
+            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => Close(),
+                                                  Loc.T("MainMenu/GameMode/Classic"));
         }
     }
 }

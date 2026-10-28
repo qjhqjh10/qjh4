@@ -1939,4 +1939,43 @@ namespace CardPresentation
                 return (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
             }
         }
+
+    // ============================================================ 追加区 · 2026-10-28（B89-R2b · 日常_奖励 RewardService 原语 · 账 677）
+    /// <summary>原版 `RewardService` 的**本地等价物**（第八十九会话 B89-R2b）。只建「有一条明确落点」的那一个原语：
+    /// `CollectCurrencyReward`（判据 = `d:/2/tools/decomp_full/RewardService__CollectCurrencyReward.c:22-44` 全文现读）。
+    /// <para>⚠️ 它**不是新的生产发奖口** —— 本工程生产发奖口仍是 `Shell/DailyData.cs` 的 `Wallet.Grant`（按菜单图名记账）。
+    /// 本类走**类型化货币**（<see cref="ICurrency"/>），供将来把奖励路径从「图名」迁到「货币对象」时接线（账 677 的 Energy 特判就落在这里）。</para>
+    /// <para>⛔ `CollectItemReward` / `CollectSingleReward` / `Collect` **没建**：它们要 `RewardInfo` 物品层 + `Collect` 编排层，
+    /// 属未建的 reward-event 家族（账 654-668 / U09 / G1），建空壳违反「⛔ 别先建空壳」⇒ 反证写在报告 `B89_R2b_日常奖励执行.md`。</para></summary>
+    public static class RewardService
+    {
+        /// <summary>原版 `SharedEventDataManager.GetContext&lt;EnergyContext&gt;().GrantEnergy(int)` 的可注入替身（能量「授予」那一路；
+        /// 与 `CurrencyExtensions.EnergyOf/SpendEnergyOf` 同一套「可注入钩子」口径）。没注入 ⇒ 出声、⛔ 不假装给了能量。</summary>
+        public static Action<int> GrantEnergyOf;
+
+        /// <summary>原版 `RewardService.CollectCurrencyReward(Currency currency, int quantity)`（判据 `RewardService__CollectCurrencyReward.c:22-44` 逐句）：
+        /// ① `currency.Type == energy && GetContext&lt;EnergyContext&gt;() != null` ⇒ `EnergyContext.GrantEnergy(quantity)`；
+        /// ② 否则 ⇒ `InventoryManager.Add&lt;Currency&gt;(currency, quantity)`（兜底走背包）。
+        /// <para>🔴 与 `CurrencyExtensions.AddCurrency` 区分：那里 energy 走 **`SpendEnergy`（减）**，这里原版走 **`GrantEnergy`（加）**，⛔ 别混。</para></summary>
+        public static void CollectCurrencyReward(ICurrency currency, int quantity)
+        {
+            if (currency == null)
+            {
+                InventoryManager.Note("rs-collectcur:null", "`CollectCurrencyReward` 收到 null 货币 ⇒ 不发（原版同一档会 NRE）");
+                return;
+            }
+            if (currency.Type == GameCurrency.energy)
+            {
+                if (GrantEnergyOf != null) { GrantEnergyOf(quantity); return; }
+                // 原版：energy 但 GetContext<EnergyContext>()==null ⇒ 落到下面 InventoryManager.Add 兜底（照抄）
+            }
+            if (InventoryManager.GetInventory<ICurrency>() == null)
+            {
+                InventoryManager.Note("rs-collectcur:noinv",
+                    "没有登记 `Inventory<ICurrency>` ⇒ `CollectCurrencyReward(" + currency.GetID() + ", " + quantity + ")` 无处可加（原版同一档 InventoryManager.Add 也无处落）");
+                return;
+            }
+            InventoryManager.Add<ICurrency>(currency, quantity);
+        }
+    }
 }

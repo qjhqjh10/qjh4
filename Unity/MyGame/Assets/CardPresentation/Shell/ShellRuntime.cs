@@ -340,7 +340,7 @@ namespace CardPresentation
 
         void Awake()
         {
-            Instance = this;
+            Instance = this; LiveOpsManager.EnsureStarted();   // 🆕 2026-10-28 B89-E11d：liveops 注册表在这建起来（**幂等**，与 `MainMenuRuntime.Awake` 那一处并存也只建一次；本文件是 `Shell.unity`=Build Settings 索引 0 的真入口 ⇒ 比主菜单更早）
             _ownSceneName = gameObject.scene.name;   // ⚠️ 必须在 DDOL 之前（之后读不到真名）
             DontDestroyOnLoad(gameObject);      // 壳要跨场景活着（进主菜单/战斗都不重建）
 

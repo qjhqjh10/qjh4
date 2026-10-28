@@ -1284,5 +1284,70 @@ namespace CardPresentation
             if (CardIcons.HasOfficialMarks(body)) body = CardIcons.RewriteMarks(body, useZh);
             return Compose(sprite, title, body);
         }
+
+        // ==================================================================
+        //  账 250：`GameStaticData.GetTraitDesc(DefinedTrait, bool isAlt)`
+        // ==================================================================
+        //
+        // **判据 = `d:/2/tools/decomp_full/GameStaticData__GetTraitDesc.c` 全文**（逐句对应）：
+        //   ```
+        //   suffix = isAlt ? "Alt" : "";
+        //   alt  = Loc("CardTraitDescription/" + trait.ToString() + suffix);
+        //   base = Loc("CardTraitDescription/" + trait.ToString());
+        //   if (IsNullOrEmpty(alt) && IsNullOrEmpty(base)) return trait.ToString();
+        //   return IsNullOrEmpty(alt) ? base : alt;
+        //   ```
+        //   字面量实解：`DAT_1842cd148` = `"CardTraitDescription/"` · `DAT_18425ab50` = `"Alt"`（施工单 §4.1）。
+        //
+        // 🔴 **数据侧已经齐了**（施工单 §4.1 原写「官方表里没有 `*Alt` 键」，**那句是错的**）：
+        //   现读 `CardPresentation/Resources/official_loc_13lang.json` 有 **3 条 Alt**：
+        //   `CardTraitDescription/{prayAlt, faithsAlt, questPointsAlt}`
+        //   （`pray` / `questPoints` 本体也在；**`faiths` 本体缺** ⇒ 那一格正好走「Alt 有、base 没有」这条支）。
+        //   ⇒ 缺口**只剩代码分支**，本方法就是把它建出来（不新增任何数据）。
+        //
+        // ⚠️ **`isAlt` 什么时候为 true —— 未查清（照实记，不猜）**：施工单 §4.5 追到
+        //   `TraitDefinitionDisplay.DisplayTraitList(…, bool)` 就断了，上游 `DisplayCardAbilities` /
+        //   `DisplayRawCardAbilities` 没读。⇒ 本方法只**建分支**，不替上游决定什么时候传 true。
+        //
+        // ⚠️ **原版的 `Loc(...)` 缺键返回空**（I2 `GetTermTranslation`），而我们的 `Loc.T` 缺键返回**键名本身**
+        //   （见 `Loc.T` 的缺键档）⇒ 这里用 `LocOrNull` 把「返回键名」折成 `null`，否则回落链会整条失效。
+
+        /// <summary>`Loc.T` 的"缺键 ⇒ null"版（`Loc.T` 缺键时返回键名本身，见它最后那一段）。
+        /// ⛔ 不要拿它当通用取值口（它只服务 `CardTraitDescription/*` 这条回落链）。</summary>
+        static string LocOrNull(string key)
+        {
+            string v = Loc.T(key);
+            return v == key ? null : v;
+        }
+
+        /// <summary>原版 `GameStaticData.GetTraitDesc(DefinedTrait trait, bool isAlt)`（账 250）。
+        /// <para>键 = `"CardTraitDescription/" + 枚举名 + (isAlt ? "Alt" : "")`；取不到回落非 Alt，
+        /// 再取不到回**枚举名字符串**（= 原版 `trait.ToString()`）。</para>
+        /// <para>⚠️ `isAlt = false` 时两跳的键**是同一个**（原版就是这样，`suffix` 为空串）⇒ 结果与直接查一次等价。</para>
+        /// <para>⚠️ 原版形参是 `DefinedTrait` 枚举；本工程的关键词键是**字符串规范键** ⇒ 本重载收**官方枚举名**
+        /// （`pray` / `faiths` / `questPoints` / `armour` …）。规范键 → 官方枚举名的桥见 <see cref="GetTraitDescForCanon"/>。</para></summary>
+        public static string GetTraitDesc(string traitEnumName, bool isAlt)
+        {
+            if (string.IsNullOrEmpty(traitEnumName)) return traitEnumName;
+            string alt  = LocOrNull("CardTraitDescription/" + traitEnumName + (isAlt ? "Alt" : ""));
+            string bas  = LocOrNull("CardTraitDescription/" + traitEnumName);
+            if (string.IsNullOrEmpty(alt) && string.IsNullOrEmpty(bas)) return traitEnumName;
+            return string.IsNullOrEmpty(alt) ? bas : alt;
+        }
+
+        /// <summary><see cref="GetTraitDesc"/> 的「我们的规范键」入口：先用现成的
+        /// `_officialTraitName`（`LoadOfficialTraitMap` 从本地数据推出来的映射，**唯一一份**，
+        /// ⛔ 别再写一张别名表）把规范键换成官方枚举名，再走原版那条回落链。
+        /// <para>⚠️ 推不出官方枚举名时**直接用规范键当枚举名**（同名那批 —— `pray` / `questPoints` 这类 ——
+        /// 本来就是对的；不同名那批会在 `Loc` 缺键档出声一次，⛔ 不静默）。</para></summary>
+        public static string GetTraitDescForCanon(string canonKey, bool isAlt)
+        {
+            if (string.IsNullOrEmpty(canonKey)) return canonKey;
+            LoadOfficialTraitMap();
+            string official;
+            if (_officialTraitName.TryGetValue(canonKey, out official) && !string.IsNullOrEmpty(official))
+                return GetTraitDesc(official, isAlt);
+            return GetTraitDesc(canonKey, isAlt);
+        }
     }
 }

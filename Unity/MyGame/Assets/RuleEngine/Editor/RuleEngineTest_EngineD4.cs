@@ -98,8 +98,8 @@ public static partial class RuleEngineTest
         //   **v33 = 加 `enchantTrait` 一列** · **v34 = 加 `cardType` 一列**（消费点 `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）。
         //   归因 → `工具/gen_cards_engine.py:5619`（`"version": 35`；⚠️ 2026-10-27 现读，v33/v34 的注就在它下面几行）
         //   —— 原来这里写的 `:5572`/`:5580` 是 v34 那一版的行号，加列之后整体下移（铁律 5 就地订正）。
-        Check(dto.version, 36,
-              "★ A1 卡表 `version` = **36**（🔴 2026-10-28 第八十八会话 · 执行代理 `A1c` = 加 `abilityDamage` 一列 "
+        Check(dto.version, 37,
+              "★ A1 卡表 `version` = **37**（🔴 2026-10-28 第八十九会话 · 执行代理 `E6` = 三族「数据侧」列（账 L234 / L867 / L1044 / L847）；上一档 v36 = 执行代理 `A1c` = 加 `abilityDamage` 一列 "
             + "（`damageCriteria` 四格 `min/max/opt/type`，80/90 档 per-target 掷骰的数据面）；"
             + "🔴 2026-10-27 批次 A（执行代理 `G1`）= 加三列 "
             + "`cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` / `targetingTextReferenceId`"

@@ -1,0 +1,142 @@
+# B89_变灰实例对表.tsv —— 原版 `EverguildButton` / `EverguildToggle` 的逐颗普查（只读产物，2026-10-28 · B89-R3b 生成）
+#
+# 数据源 = `d:/2/新解包资源/assets_full/bundle_menus_assets_all/`（menus 包）逐 MB json 现读；
+#   类判据 = MB 里有 `m_IsOn` ⇒ Toggle，否则 Button；`grey` = `colorTintGreyOnDisable`（Button）/ `grey`（Toggle）序列化字段；
+#   路径 = RectTransform/Transform 的 `m_Father` 链 + GameObject 的 `m_Name`（用 `m_Component` 反查 pid）。
+#
+# 合计：Button 855 颗（grey=0 有 34）· Toggle 151 颗（grey=0 有 93）；本表只列 grey=0 的 127 颗。
+# m_Transition 分布：Button None/ColorTint/SpriteSwap = 17/301/537 · Toggle = 23/90/38
+# ⚠️ `m_Transition` ≠ 变灰闸：`EverguildButton.SoftDisable` 的闸**只有** `colorTintGreyOnDisable`（`.c` 头 6 行）；
+#    `m_Transition == 1` 那个闸只属于 `SetUpButtonColors`（重建 ColorBlock），⚠️ 别把两者混成一个闸。
+# 另有 `m_SpriteState.m_DisabledSprite` 普查：全 1,276 颗 Selectable 里**只有 13 颗**有 disabled sprite
+#   （且全在 SpriteSwap 那档）⇒ 其余「禁用时视觉不变」是原版事实，不是我们漏了。
+#
+# 用法：执行代理按【节点路径】对到自己的建树代码（`MenuDraw.Hit(...)` 站点），把该颗的 `ColorTintGreyOnDisable = false`。
+原版类	grey	m_Transition	alpha	m_Enabled	节点路径	叶子名	资产文件名
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (9)	Checkbox (9)	MonoBehaviour_-1083006033978469938.json
+EverguildButton	0	1	1.0	0	General Basic Offer Popup Variant Single Item Type/window/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_-1182098932025741067.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 1/S1Q1/Questions List/Checkbox (2)	Checkbox (2)	MonoBehaviour_-1284020464609078834.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox (4)	Checkbox (4)	MonoBehaviour_-1316805406679313970.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox (3)	Checkbox (3)	MonoBehaviour_-1711549794351263282.json
+EverguildToggle	0	0		1	Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Rarity FIlter/Content/Toggle	Toggle	MonoBehaviour_-1902731330081722588.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/Graphics Tab/Content/Scroll View/Viewport/Content/Auto Zoom Toggle	Auto Zoom Toggle	MonoBehaviour_-1945515878065012826.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 3/S3Q10/Questions List/Checkbox (2)	Checkbox (2)	MonoBehaviour_-2166751614897106482.json
+EverguildToggle	0	2		1	Main Menu Settings Window/Menu Area/Mask Tabs buttons/Tab Buttons/Account	Account	MonoBehaviour_-2400866827126341722.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q2/Questions List/Checkbox	Checkbox	MonoBehaviour_-2669998102661639730.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/Cardback Tab/Cardback Display/Cosmetic FIlter/Filters/Army Filter/Content/Toggle	Toggle	MonoBehaviour_-2740539364266417451.json
+EverguildButton	0	1	0.0	1	Profile Player Info/Avatar Item Small	Avatar Item Small	MonoBehaviour_-2936979477450477258.json
+EverguildToggle	0	0		1	Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Cost Filter/Content/Toggle	Toggle	MonoBehaviour_-3231474121381908700.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Owned Toggle	Owned Toggle	MonoBehaviour_-3326318459444075819.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Army Filter/Content/Toggle	Toggle	MonoBehaviour_-3457606859507047723.json
+EverguildButton	0	1	0.0	1	Player Profile Window/Menu Area/Tab  Area/Tab Content/Profile Tab/Player Info/Avatar Item Small	Avatar Item Small	MonoBehaviour_-3462452072783250894.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q2/Questions List/Checkbox (4)	Checkbox (4)	MonoBehaviour_-3473081966148922930.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/Cardback Tab/Cardback Display/Cosmetic FIlter/Filters/Owned Toggle (1)	Owned Toggle (1)	MonoBehaviour_-3488754161828568363.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant Booster_title_resource/background/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_-3622225869822965287.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Booster_CardOrAltArt_Cardback_Avatar_Title/background/Dynamic Content/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_-3637350499195793854.json
+EverguildToggle	0	0		1	Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Type Filter/Content/Toggle	Toggle	MonoBehaviour_-3642016103912050908.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/Graphics Tab/Content/Scroll View/Viewport/Content/Small Screen Size Toggle	Small Screen Size Toggle	MonoBehaviour_-3711178237594468442.json
+EverguildToggle	0	1		1	Deck Editing Menu/Content Area/Cosmetic Display/Cosmetic FIlter/Filters/Owned Toggle	Owned Toggle	MonoBehaviour_-3725464403648385244.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Upgradable Toggle	Upgradable Toggle	MonoBehaviour_-3752174454145293611.json
+EverguildToggle	0	1		1	Deck Editing Menu/Content Area/Header/Filters	Filters	MonoBehaviour_-3758886955019145436.json
+EverguildButton	0	1	1.0	1	Friend Info Item/Delete friend button	Delete friend button	MonoBehaviour_-37858234232650960.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/General Tab/Checkboxes/Touch Input	Touch Input	MonoBehaviour_-3854377658820165722.json
+EverguildToggle	0	1		1	Purchase Premium Window/Scroll View/Viewport/Content/Army Container	Army Container	MonoBehaviour_-3878836225173759943.json
+EverguildToggle	0	2		1	Main Menu Settings Window/Menu Area/Mask Tabs buttons/Tab Buttons/Media	Media	MonoBehaviour_-3923264254360584282.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (2)	Checkbox (2)	MonoBehaviour_-408414116192988722.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant cardback_premiumOrAvatarOrResource_titleOrResource/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-410211732863801641.json
+EverguildButton	0	1	0.0	1	Player Profile Window/Menu Area/Tab  Area/Tab Content/Ranking Tab/Profile Player Info/Avatar Item Small	Avatar Item Small	MonoBehaviour_-4127900403781043662.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q3/Questions List/Checkbox (3)	Checkbox (3)	MonoBehaviour_-4146597822076890674.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant Single Item Type/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-4286350090576531778.json
+EverguildToggle	0	0		1	Social Submenu Variant/Content Area/Tabs/Alliances Tab/AllianceMemberVariant/Alliance Header Buttons (1)/Tab buttons/Generic Tab UI Button Info	Generic Tab UI Button Info	MonoBehaviour_-4477857345849663325.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Upgradable Toggle	Upgradable Toggle	MonoBehaviour_-4536464227433454891.json
+EverguildButton	0	1	1.0	1	Small General Basic Offer Container Variant Single Item Type/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-4583841231015355915.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (5)	Checkbox (5)	MonoBehaviour_-4680177599870414386.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant cardback_premiumOrAvatarOrResource_titleOrResource/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-478178051520999701.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Type Filter/Content/Toggle	Toggle	MonoBehaviour_-4805868774649961771.json
+EverguildButton	0	1	1.0	1	Main Menu Offer Container 1x1 Premium_booster_title_avatarOrResource/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-4925175642673537982.json
+EverguildToggle	0	1		1	Checkbox	Checkbox	MonoBehaviour_-5434123152668497473.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/Graphics Tab/Content/Scroll View/Viewport/Content/Hi FPS toggl	Hi FPS toggl	MonoBehaviour_-5470500803146580058.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant Booster_avatar_cardback_title/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-5476810935007123074.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant avatarOrTitle_resource/window/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_-5603740872383795455.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/Graphics Tab/Content/Scroll View/Viewport/Content/Android extra compatibility	Android extra compatibility	MonoBehaviour_-5679716637793681498.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q1/Questions List/Checkbox	Checkbox	MonoBehaviour_-6748257915320348210.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (8)	Checkbox (8)	MonoBehaviour_-6750695570059898418.json
+EverguildButton	0	1	1.0	1	Main Menu Offer Container 1x1/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-6758923391363428727.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_-7001589771690651186.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/General Tab/Checkboxes/Disable Bots	Disable Bots	MonoBehaviour_-7120676205696090202.json
+EverguildToggle	0	1		1	Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Upgradable Toggle	Upgradable Toggle	MonoBehaviour_-7134010496431493340.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant Premium_Booster_avatar_cardback_title_resource/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_-7219581399569276736.json
+EverguildToggle	0	2		1	Main Menu Settings Window/Menu Area/Mask Tabs buttons/Tab Buttons/Support	Support	MonoBehaviour_-7224982752548520026.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 1/S1Q1/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_-7322751536983518770.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q3/Questions List/Checkbox (2)	Checkbox (2)	MonoBehaviour_-7563682923286572594.json
+EverguildToggle	0	0		1	Social Submenu Variant/Content Area/Tabs/Alliances Tab/AllianceMemberVariant/Alliance Header Buttons (1)/Tab buttons/Generic Tab UI Button Trophies	Generic Tab UI Button Trophies	MonoBehaviour_-7612521829568814941.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Cost Filter/Content/Toggle	Toggle	MonoBehaviour_-7977018581143199019.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q3/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_-8001576218101886514.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q2/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_-812676943423614514.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant avatarOrTitle_resource/background/Dynamic Content/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_-8280815107643407565.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Cost Filter/Content/Toggle	Toggle	MonoBehaviour_-8406525421738269995.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q3/Questions List/Checkbox (4)	Checkbox (4)	MonoBehaviour_-8420085213842648626.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (7)	Checkbox (7)	MonoBehaviour_-8422132780859731506.json
+EverguildToggle	0	2		1	Main Menu Settings Window/Menu Area/Mask Tabs buttons/Tab Buttons/Graphics	Graphics	MonoBehaviour_-8519784757761769562.json
+EverguildToggle	0	2		1	Settings Menu Tab Toggle	Settings Menu Tab Toggle	MonoBehaviour_-8823272438913213221.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (3)	Checkbox (3)	MonoBehaviour_-8948372041170103858.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Owned Toggle	Owned Toggle	MonoBehaviour_-9008867474461760811.json
+EverguildToggle	0	1		1	Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Owned Toggle	Owned Toggle	MonoBehaviour_-9051368228953264348.json
+EverguildButton	0	1	1.0	1	Friend Info Item/Show Profile Button	Show Profile Button	MonoBehaviour_1158875579154252592.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Header Filters/Filter Toggle	Filter Toggle	MonoBehaviour_1177155078246163157.json
+EverguildToggle	0	0		1	Social Submenu Variant/Content Area/Tabs/Alliances Tab/AllianceNotMemberVariant/Alliance Header Buttons/Tab buttons/Generic Tab UI Button Search	Generic Tab UI Button Search	MonoBehaviour_1218139718101229731.json
+EverguildToggle	0	0		1	Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/Army Filter/Content/Toggle	Toggle	MonoBehaviour_1318350590833061668.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (10)	Checkbox (10)	MonoBehaviour_1417536045378228686.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/General Tab/Checkboxes/Disable Notifications	Disable Notifications	MonoBehaviour_1689246551644405670.json
+EverguildButton	0	0	1.0	1	Draft Mode Expiring Popup/Content/Crate Image	Crate Image	MonoBehaviour_2066638065230270270.json
+EverguildButton	0	1	1.0	0	General Basic Offer Popup Booster_CardOrAltArt_AvatarORTitle/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_2123406405673481276.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 3/S3Q10/Questions List/Checkbox	Checkbox	MonoBehaviour_21985293369790926.json
+EverguildToggle	0	2		1	Main Menu Settings Window/Menu Area/Mask Tabs buttons/Tab Buttons/General	General	MonoBehaviour_2348637581993934758.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/Graphics Tab/Content/Scroll View/Viewport/Content/Use super sampling	Use super sampling	MonoBehaviour_2540564133076434854.json
+EverguildButton	0	1	1.0	1	Deck info Popup/Info Panel/Deck List/Content/Deck Selector Card Info button	Deck Selector Card Info button	MonoBehaviour_2559236695625730472.json
+EverguildButton	0	1	1.0	0	General Basic Offer Popup Booster_CardOrAltArt_Cardback_Avatar_Title/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_2871525295215890684.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (6)	Checkbox (6)	MonoBehaviour_2898071331795161550.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant Premium_booster_title_avatarOrResource/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_294429699625663655.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox (5)	Checkbox (5)	MonoBehaviour_302252444938981838.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Header Filters/Filter Toggle	Filter Toggle	MonoBehaviour_3337533546458440405.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 1/S1Q1/Questions List/Checkbox (4)	Checkbox (4)	MonoBehaviour_3547605484843487694.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox	Checkbox	MonoBehaviour_3964287037327921614.json
+EverguildButton	0	0	1.0	1	TrophyDisplay/bg	bg	MonoBehaviour_3992214537738372636.json
+EverguildToggle	0	0		1	Social Submenu Variant/Content Area/Tabs/Alliances Tab/AllianceNotMemberVariant/Alliance Header Buttons/Tab buttons/Generic Tab UI Button Create	Generic Tab UI Button Create	MonoBehaviour_4191302746976673955.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_4634739972154446286.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/Cardback Tab/Header/Filter Toggle	Filter Toggle	MonoBehaviour_4911952888281424597.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox (4)	Checkbox (4)	MonoBehaviour_4939882264293659086.json
+EverguildButton	0	1	1.0	0	General Basic Offer Popup Variant Single Item Type/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_4951053503007207669.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/Select Deck Tab/Decks Tab/Collection Display/Deck Filters/Filters/Army Filter/Content/Toggle	Toggle	MonoBehaviour_5091711632956449493.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Rarity FIlter/Content/Toggle	Toggle	MonoBehaviour_509764840299422421.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Type Filter/Content/Toggle	Toggle	MonoBehaviour_5330905119992898261.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant Booster_avatar_cardback_title/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_5453134510683730501.json
+EverguildButton	0	0	1.0	1	Social Submenu Variant/Content Area/Tabs/Alliances Tab/AllianceMemberVariant/TrophiesWindow/Scroll Rect/Item Drawer/TrophyDisplay/bg	bg	MonoBehaviour_5619267763306029219.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 3/S3Q10/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_5658560511035560398.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q2/Questions List/Checkbox (5)	Checkbox (5)	MonoBehaviour_5744304019640799694.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q2/Questions List/Checkbox (3)	Checkbox (3)	MonoBehaviour_5816380650913059278.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox (6)	Checkbox (6)	MonoBehaviour_6183280556713103822.json
+EverguildButton	0	1	1.0	1	Friend Info Item/Challenge button	Challenge button	MonoBehaviour_6397404461116572464.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q4/Questions List/Checkbox (2)	Checkbox (2)	MonoBehaviour_6442652417803014606.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 3/S3Q10/Questions List/Checkbox (3)	Checkbox (3)	MonoBehaviour_6612914075823165902.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Variant Premium_Booster_avatar_cardback_title/background/Dynamic Content/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_6751413059776752896.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title_resource/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_6823784615261003091.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant Premium_booster_title_avatarOrResource/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_6830756769563286915.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q3/Questions List/Checkbox	Checkbox	MonoBehaviour_6839331978204336590.json
+EverguildToggle	0	0		1	Deck Editing Menu/Content Area/Cosmetic Display/Cosmetic FIlter/Filters/Army Filter/Content/Toggle	Toggle	MonoBehaviour_7081699917981609764.json
+EverguildToggle	0	1		1	Collection Menu Variant/Content Area/Tabs/Select Deck Tab/Header/Filter Toggle	Filter Toggle	MonoBehaviour_709345757288850133.json
+EverguildToggle	0	1		1	Main Menu Settings Window/Menu Area/Tab Content/Graphics Tab/Content/Scroll View/Viewport/Content/Vsync	Vsync	MonoBehaviour_713914645010939814.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title/window/Title Drawer Horizontal Variant	Title Drawer Horizontal Variant	MonoBehaviour_7585904267884152444.json
+EverguildButton	0	1	1.0	1	General Basic Offer Container Booster_CardOrAltArt__AvatarORTitle/background/Dynamic Content/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_796651957582745315.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q1/Questions List/Checkbox (1)	Checkbox (1)	MonoBehaviour_8026298526031794638.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q3/Questions List/Checkbox (5)	Checkbox (5)	MonoBehaviour_807719602748051918.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 4/S4Q2/Questions List/Checkbox (2)	Checkbox (2)	MonoBehaviour_8312143152063304142.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 1/S1Q1/Questions List/Checkbox	Checkbox	MonoBehaviour_8368556135081431502.json
+EverguildButton	0	1	1.0	1	General Basic Offer Popup Variant Booster_title_resource/window/Title Drawer Horizontal Variant (1)	Title Drawer Horizontal Variant (1)	MonoBehaviour_839876700789423961.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/Alternate Art Tab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Army Filter/Content/Toggle	Toggle	MonoBehaviour_8601981187430933205.json
+EverguildToggle	0	0		1	Collection Menu Variant/Content Area/Tabs/CardsTab/Collection Display/Card Filters/Scroll View/Viewport/Filters/Rarity FIlter/Content/Toggle	Toggle	MonoBehaviour_8604850209327997653.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 2/S2Q3/Questions List/Checkbox	Checkbox	MonoBehaviour_8673399049474527694.json
+EverguildToggle	0	1		1	Give Feedback Popup menu/Window/Scroll Rect/Questions container/Section 1/S1Q1/Questions List/Checkbox (3)	Checkbox (3)	MonoBehaviour_8684388035106427342.json
+EverguildToggle	0	1		1	Alliance Trophy Info Popup/window/RightSide/Controls/selectButton/Checkbox	Checkbox	MonoBehaviour_8715985860481997949.json
+EverguildToggle	0	0		1	Deck Selection Popup with Tabs/Alliance Header Buttons/Tab buttons/Generic Tab UI Button 1	Generic Tab UI Button 1	MonoBehaviour_887680976907711871.json
+EverguildToggle	0	0		1	Deck Selection Popup with Tabs/Alliance Header Buttons/Tab buttons/Generic Tab UI Button	Generic Tab UI Button	MonoBehaviour_907016068568626559.json

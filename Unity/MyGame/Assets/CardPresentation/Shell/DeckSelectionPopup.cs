@@ -370,7 +370,7 @@ namespace CardPresentation
         }
 
         public static DeckSelectionPopup Create(WindowsManager mgr, System.Action<DeckPick> onPicked = null,
-                                                int? modeFilter = null)
+                                                int? modeFilter = null, System.Func<CollectionData.DeckInfo, bool> filter = null)
         {
             var go = new GameObject("Deck Selection Popup with Tabs");
             var win = go.AddComponent<DeckSelectionPopup>();
@@ -380,7 +380,7 @@ namespace CardPresentation
             win.extraScaleSmallScreen = 1f;              // 实证 1.0
             win.Manager = mgr;
             win.OnPicked = onPicked;
-            win.ModeFilter = modeFilter;
+            win.ModeFilter = modeFilter; win.Filter = filter;
             WindowsManager.AttachToAnchor(win);
             return win;
         }
@@ -420,7 +420,7 @@ namespace CardPresentation
             {
                 int i = ((prefer < 0 ? 0 : prefer) + k) % n;
                 var d = CollectionData.Raw(i);
-                if (d != null && (!ModeFilter.HasValue || d.GameMode == ModeFilter.Value)) return i;
+                if (d != null && (!ModeFilter.HasValue || d.GameMode == ModeFilter.Value) && (Filter == null || Filter(CollectionData.DeckAt(i)))) return i;
             }
             return (prefer >= 0 && prefer < n) ? prefer : 0;
         }
@@ -437,7 +437,7 @@ namespace CardPresentation
                 for (int i = 0; i < CollectionData.DeckCount(); i++)
                 {
                     // 🆕 2026-09-26：**按模式筛**（原版 `DeckSelectionPopup.__TryOpen_b__10_0` 那条 lambda）
-                    if (ModeFilter.HasValue && CollectionData.DeckAt(i).GameMode != ModeFilter.Value) continue;
+                    if ((ModeFilter.HasValue && CollectionData.DeckAt(i).GameMode != ModeFilter.Value) || (Filter != null && !Filter(CollectionData.DeckAt(i)))) continue;
                     list.Add(new DeckPick { Prebuilt = false, Info = CollectionData.DeckAt(i), OwnIndex = i, PrebuiltDeck = null });
                 }
             }
@@ -1063,5 +1063,27 @@ namespace CardPresentation
             if (target != null) wb.Bind(target, art, hoverArt);
             return hit;
         }
+
+        /// <summary>
+        /// **列表级筛选谓词**（`Create(..., filter)` 的第 4 个形参；`null` = 不筛 —— 与改前逐字相同）。
+        ///
+        /// <para>**为什么要这个口**：原版 `RankedDeckSelector.OnSelectDeckButtonClick()` 开这扇窗时
+        /// 带的 `DeckSelectionContext` 里有**列表级谓词**，判据 =
+        /// `decomp_full/RankedDeckSelector___OnSelectDeckButtonClick_b__32_1.c`：
+        /// `过滤谓词 = d.Army == currentArmy`（排位赛那一栏只该列**本阵营**的卡组）。
+        /// 我们原来只有 `ModeFilter`（模式），没有阵营/其它谓词口 ⇒ 那扇窗只能列出**全部**自有卡组
+        /// （账 `战役.tsv:121`；账 `战役.tsv:117` 的 ② 缺的两个口 = 本条 + `allowEdit:false`）。</para>
+        ///
+        /// <para>🔴 **接在哪两处**（两处都要，⛔ 只接一处会「默认选中」与「列表」不一致）：
+        /// ① `FirstOwnDeckInMode`（= `DeckIndex` 的初值）② `Shown()`（列表本身）。
+        /// ⚠️ **只作用于「我的卡组」那一页**：预组页**不筛**（照原版 —— 预组页就是两种模式混排的 66 副，
+        /// 见 `ModeFilter` 的 doc）。</para>
+        ///
+        /// <para>⚠️ **还没做的那一半**：原版 `DeckSelectionContext` 还有 `allowEdit:false`（排位栏那扇窗
+        /// 不许就地编辑卡组）。我们**没有**照抄 —— 它到底管「信息窗里那颗 Edit 钮」还是「整窗只读」
+        /// 本地**判据没闭合**（`DeckInfoMode` 那条更接近前者但语义不同，⛔ 别拿它冒充）。
+        /// 见 `报告/B89_R1d_战役轮抽锻造落地.md` §5。</para>
+        /// </summary>
+        public System.Func<CollectionData.DeckInfo, bool> Filter;
     }
 }

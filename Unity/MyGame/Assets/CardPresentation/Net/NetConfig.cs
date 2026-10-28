@@ -25,7 +25,7 @@ namespace CardPresentation.Net
         /// <summary>客机连谁 / 主机自己给出去的那个地址（主机侧只是**显示**用，监听永远绑 `IPAddress.Any`）。</summary>
         public string ip = "";
         public string password = "";
-        public int port = NetConfig.DefaultPort;
+        public int port = NetConfig.DefaultPort; public bool altPorts = false;   // 🆕 账 486（B89-E10b）：原版 `ConnectionSettingsData.altPorts`（`connectionSettings+0x1e`）
     }
 
     public static class NetConfig
@@ -369,5 +369,28 @@ namespace CardPresentation.Net
             return null;
         }
 
+        // ============================================================ 486 `SetAltPorts`（B89-E10b 追加在类尾）
+        // 判据 = `decomp_full/PlayerDataManager__SetAltPorts.c`（全文现读 2026-10-28）：
+        //   ① `*(bool*)(GameStaticData+0xef) = (旧值 == 0);`   ← 🔴 **先【翻转】全局**，不是赋值
+        //   ② `if (connectionSettings(+0x1d8) != null) connectionSettings.altPorts(+0x1e) = 入参;`
+        //   ③ `PlayerDataManager.SavePlayerData()`            ← 落盘（整份玩家数据；我们这份的等价物 = `NetConfig.Save`）
+        // ⚠️ 第 ① 句「为什么先翻全局」的语义**没解出来**（机器码直读、意思就是取反）——
+        //    施工单 `B88_R10` §六·4 也把它挂成「照抄即可、语义存疑」。⛔ 别「顺手写成赋值」。
+        // ⚠️ 原版那个全局叫 `GameStaticData.dontUseAltPortSetting`；🆕 **2026-10-28（B89-E10c）已归位**：
+        //    `Shell/GameStaticData.cs` 建出来了（E12 建），那一格按判据搬了过去
+        //    ⇒ **本类不再持有它**，只在这里读写（唯一读写点，见下）。原版 0 调用点。
+
+        /// <summary>原版 `PlayerDataManager.SetAltPorts(bool altPorts)`（账 486）。
+        /// <para>判据 = `PlayerDataManager__SetAltPorts.c` 三句（顺序照抄）：
+        /// ① 全局开关**取反** ② 连接设置的 `altPorts` = 入参 ③ 落盘。</para>
+        /// <para>⚠️ 原版 0 调用点（唯一提到它的地方是 `NetworkCustomManager__ConnectToPhoton.c` 那一族，
+        /// 而我们没有 Photon 层）⇒ 本地没有生产调用方，接线位置见报告。</para></summary>
+        public static void SetAltPorts(bool altPorts)
+        {
+            // ① 先翻转全局（⛔ 不是赋值）—— 那一格的原版家在 `GameStaticData+0xEF`，我们把它放在同名类里
+            GameStaticData.DontUseAltPortSetting = !GameStaticData.DontUseAltPortSetting;
+            Current.altPorts = altPorts;                      // ② 连接设置那一格
+            Save();                                           // ③ 落盘（= 原版 SavePlayerData 的那一跳）
+        }
     }
 }

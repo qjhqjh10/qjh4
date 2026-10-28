@@ -1863,6 +1863,106 @@ public static class ShopScene
                 + " ⇒ 单数那个 `deck` 是**我们自己写错的**、不是原版语病（已换成官方值）");
         }
 
+        // ---------------- 🆕 2026-10-28（B89_E17）：VIP 页两态（原版 `VIPCardShopTab.CheckVIPState`）----------------
+        //   判据 = `d:/2/tools/decomp_full/VIPCardShopTab__CheckVIPState.c` 全文现读：
+        //     `bool can = Store.CanPurchase;` ⇒ `playerIsVIPObject.SetActive(can);`
+        //                                    ⇒ `playerIsNotVIPObject.SetActive(!can);`
+        //   ⇒ **恒有且只有一块**。那两个 GameObject 是 prefab 的 PPtr 定的（⛔ 不是按名字猜）：
+        //     `playerIsVIPObject`    = `daily shop header/VIP Status`（读口 `ShopTabPage.VipStatusShown`）
+        //     `playerIsNotVIPObject` = `Packs Scroll View/No VIP`    （读口 `ShopTabPage.VipBlockShown`）
+        //   🧨 改坏法：删 `ShopTabPage.Setup()` 里 :247 那句的 `ShopData.IsVip` ⇒ ①红（VIP 态也建遮罩）；
+        //     删 :273 那句的 `!ShopData.IsVip` ⇒ ②红（两态都建 status）；
+        //     删 `BuildVipBlock` 里那颗 `MenuDraw.Absorb` ⇒ ③红（遮罩只挡视线、点价签照样买得到）。
+        //   ⚠️ 两态由 `ShopData.SetVipForTest`（自检专用 override 位）摆出来，收尾复原成 `true`
+        //      = **今天的公式结果**（`RequiredItemId` 为空 ⇒ `CanPurchase()` 走原版条件① 恒真，见 `ShopData.CanPurchase`）。
+        Section("VIP 页两态（`VIPCardShopTab.CheckVIPState` 那两句 `SetActive(can)` / `SetActive(!can)`）");
+        {
+            win.tabButtons.Click(ShopTabPage.VipPage);
+            var vipView = win.PageOf(ShopTabPage.VipPage);
+            CheckTrue(vipView != null, "（前提）VIP 页的 `ShopTabPage` 视图拿得到");
+            var vipRoot = FindChild(root, ShopData.Pages[ShopTabPage.VipPage].Prefab);
+            CheckTrue(vipRoot != null, "（前提）VIP 页的根节点建出来了");
+            if (vipView != null && vipRoot != null)
+            {
+                // ① VIP 态
+                ShopData.SetVipForTest(true);
+                vipView.Setup();
+                CheckTrue(vipView.VipStatusShown && !vipView.VipBlockShown,
+                          "★ ① VIP 态 ⇒ **只建** `VIP Status`、不建非 VIP 遮罩"
+                        + $"（status={vipView.VipStatusShown}, block={vipView.VipBlockShown}）");
+                CheckAt(FindPath(vipRoot, "daily shop header/VIP Status"),
+                        ShopTabPage.VipStatus.x1, ShopTabPage.VipStatus.x2,
+                        ShopTabPage.VipStatus.y1, ShopTabPage.VipStatus.y2,
+                        "`VIP Status` 矩形 = prefab 实读（相对 `daily shop header`）");
+                // ② 非 VIP 态
+                ShopData.SetVipForTest(false);
+                vipView.Setup();
+                CheckTrue(vipView.VipBlockShown && !vipView.VipStatusShown,
+                          "★ ② 非 VIP 态 ⇒ **只建** `No VIP` 遮罩、不建 `VIP Status`"
+                        + $"（status={vipView.VipStatusShown}, block={vipView.VipBlockShown}）");
+                CheckTrue(vipView.VipBlockHit != null,
+                          "★ ③ 非 VIP 遮罩挂着**吃点击**的命中区（原版 `Block Input` 的 `m_RaycastTarget = 1`）"
+                        + " —— 少了它遮罩只挡视线、点价签照样买得到");
+                CheckAt(FindPath(vipRoot, "Packs Scroll View/No VIP"),
+                        ShopTabPage.ScrollView.x1, ShopTabPage.ScrollView.x2,
+                        ShopTabPage.ScrollView.y1, ShopTabPage.ScrollView.y2,
+                        "`No VIP` 整块 = `Packs Scroll View` 同矩形"
+                      + "（原版 `No VIP` 与 `Block Input` 都是锚 (0,0)-(1,1)）");
+                // ③ 复原（= 今天的公式结果；`ShopData.ResetForTest` 不清这个 override 位 ⇒ 别指望它兜底）
+                ShopData.SetVipForTest(true);
+                vipView.Setup();
+            }
+        }
+
+        // ---------------- 🆕 2026-10-28（B89_E17d）：货币抽屉（原版 `CurrencyDrawer` 四件套）----------------
+        //   判据 = prefab 整棵子树（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Currency Drawer"`）：
+        //     根 `603.6,0→1316.4,1080`（`AspectRatioFitter` **高控宽 0.66**）· 主图槽 `604,0→1316,864` 且 **×0.9 绕中心** ·
+        //     名条行 `639.6,810→1280.4,918`（`40k_main_bt_nametag` ＋ HLG spacing10 / pad(25,25,0,0) / align4 居中）·
+        //     小图标槽 `108²` · 数量 `fs100 / 基准36 / auto12~100 / Left·Midline`。
+        //   ⇒ 下面那几个**绝对数**照这套几何 ＋ `k = 300/1080 = 0.277778`、`ox = 960 − 712.8k/2 = 861`、`oy = 540 − 1080k/2 = 390`
+        //     **手算**的（⛔ 不是拿同一套公式再算一遍 —— 那就成自证了）：
+        //       名条行：x = 861 + (639.6−603.6)k = **871.0** … 861 + (1280.4−603.6)k = **1049.0**；
+        //               y = 390 + 810k = **615.0** … 390 + 918k = **645.0**；小图标边长 = 108k = **30.0**。
+        //   🧨 改坏法：删 `CurrencyNames.Small` 的 `C2` 那支 ⇒ ②红；删 `ItemDrawer.cs:1297` 那句转交 ⇒ ②③ 红
+        //     （退回通用 `Icon` 抽屉：没有名条行、没有小图标）；把主图 `×0.9` 去掉 ⇒ 主图会盖到名条行上（首条「名条行」仍绿，但真机会看出来）。
+        Section("货币抽屉（原版 `CurrencyDrawer`：主图 + 名条行 + 小图标 + 数量）");
+        {
+            // 探针挂在**整屏矩形**的节点上 ⇒ 下面的 px 就是设计基准绝对坐标（与 `CheckAt` 的口径 1:1）
+            var probeCur = MenuDraw.Node(root, "CurrencyDrawerProbe", new PxRect(0f, 0f, 1920f, 1080f));
+            CheckTrue(probeCur != null, "（前提）货币抽屉的探针节点建出来了");
+            if (probeCur != null)
+            {
+                var stCur = ItemDrawerStyle.Default(ShopTabPage.QCellBg, ShopTabPage.QCellArt, ShopTabPage.QCellText);
+                stCur.NodeName = "Item_C2";
+                var rCur = ItemDrawer.Draw(probeCur, new PxRect(860f, 390f, 1060f, 690f),
+                                           ItemDrawer.Spec("C2", null, null), 400,
+                                           DrawerOverride.Default, stCur);
+                CheckTrue(rCur.Node != null, "（前提）货币抽屉建出来了");
+                if (rCur.Node != null)
+                {
+                    CheckTrue(ItemDrawer.LastCurrency.MainImage,
+                              "① 主图画了（原版 `image.sprite = item.GetIcon(Large)`）");
+                    CheckTrue(ItemDrawer.LastCurrency.Nametag,
+                              "（前提）名条底 `40k_main_bt_nametag` 取到并画了（否则下面的字/图标没底板）");
+                    CheckTrue(ItemDrawer.LastCurrency.SmallIcon,
+                              "② 小图标画了（原版 `if ((bool)icon) icon.sprite = item.GetIcon(Small)`）");
+                    CheckTrue(ItemDrawer.LastCurrency.Quantity,
+                              "③ 数量画了（`Currency.stackable = 1`；⛔ 不是被 `Stackable` 挡掉）");
+                    CheckAt(FindPath(rCur.Node, "Content/Label"),
+                            871.0f, 1049.0f, 615.0f, 645.0f,
+                            "名条行矩形 = 逐项几何的映射结果（639.6,810→1280.4,918 × k=0.277778 + 原点 861,390）");
+                    CheckNear(ItemDrawer.LastCurrency.SmallIconRect.W, 30.0f, 0.5f, "小图标边长 = 108 × 0.277778 = 30");
+                    CheckNear(ItemDrawer.LastCurrency.SmallIconRect.H, 30.0f, 0.5f, "…高同样 30（108² 是正方）");
+                    CheckTrue(ItemDrawer.LastCurrency.SmallIconRect.x2 <= ItemDrawer.LastCurrency.QuantityRect.x1 + 0.01f,
+                              "小图标在数量**左边**（HLG `spacing 10` 的排布；反过来就是布局写反了）");
+                    CheckTrue(ItemDrawer.LastCurrency.SmallIconRect.x1 >= 871.0f - 0.01f
+                              && ItemDrawer.LastCurrency.QuantityRect.x2 <= 1049.0f + 0.01f,
+                              "两件都在名条行内部（⛔ 没溢出到主图上）");
+                }
+            }
+            if (probeCur != null) Object.DestroyImmediate(probeCur.gameObject);
+        }
+
         // ---------------- 买一件（红线：点了必须有反应）----------------
         Section("买一件：**点了必须有反应**（红线：不许静默失败；边界②：不做真实经济 ⇒ 不扣钱）");
         win.tabButtons.Click(0);
@@ -1993,9 +2093,24 @@ public static class ShopScene
             CheckTrue(wm != null && wm.popUpWindow != null, "确认框**真弹出来了**");
             if (wm != null && wm.popUpWindow != null) wm.popUpWindow.Close();
             // 非传奇那件照旧直接买（单机行为一字不改）
+            // 🆕 2026-10-28（B89_E17）：购买那条链上的**等待框三跳**（账 203；判据 → `判据/B88_R6_ShopStore购买链_VA判定.md` §一/§二）
+            //   原版 `ShopStore.TryPurchase` 的**第一句、早于任何分支** = `ShowPopUp("MenuShop/WaitingPopup",
+            //   localizeTexts: true, closeOnEsc: false, primaryButton: null, secondButton: null)` ⇒ **0 颗钮**；
+            //   三条回调（成功 / 失败 / 货币支）的**首句**都是 `HidePopUp(forceHide: true)`。
+            //   ⚠️ 只断**结构**，⛔ 不断「可见时长」——我们的购买同步 ⇒ 同一帧开关（调度台 2026-10-28 裁定：不加延迟）。
+            //   ⚠️ 先清掉前几节留下的旧引用，否则「弹过」那条是**空转绿灯**。
+            //   🧨 改坏法：删 `DoBuy` 开头那两句 ⇒ ①红；删 `PopUpGameWindow` 第 8b 步（0 颗钮那一档）⇒ ②红；删 `HidePopUp(true)` ⇒ ③红。
+            ShopTabPage.LastWaitingPopup = null;
+            ShopTabPage.LastWaitingPopupHadNoButton = false;
             int before0 = ShopData.OwnedOf(0, 0);
             if (pg != null) pg.Buy(0);
             Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
+            CheckTrue(ShopTabPage.LastWaitingPopup != null,
+                      "★ 购买时弹过「正在处理您的购买…」等待框（原版 `ShopStore.TryPurchase` 第一句，无条件）");
+            CheckTrue(ShopTabPage.LastWaitingPopupHadNoButton,
+                      "★ …那扇窗是 **0 颗钮**（原版 `ConfigurePopUp(3 参)` 对每颗 `LiveButtons` 调 `SetActive(false)`）");
+            CheckTrue(wm == null || wm.popUpWindow == null,
+                      "★ …买完已被 `HidePopUp(forceHide: true)` 收掉（原版三条回调的共用第一句）");
         }
         ClosePackAndReopenShop(win);   // A7：同上（这一件也是卡包 ⇒ 也会弹开包窗）
 

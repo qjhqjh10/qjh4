@@ -321,10 +321,10 @@ public static partial class RuleEngineTest
                      + "（2026-10-27 现读。`HEAD` 是 16，多的三处 = `:6558` Landing **续攻出队**那一拍 · "
                      + "`:8105` `RevealSecretOrders` wrapper · `:15354` `UseActiveAbility`（`A3` 的主动能力入口）"
                      + " —— 都是**该包的地方包了**，不是扫描器多算）");
-        Check(nEff, 3, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 3"
-                     + "（`PlayTacticCore` :2457 · `BroadcastWhen` 壳 :9757 · `GrantDarkPact` 壳 :12183；"
+        Check(nEff, 4, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 4"
+                     + "（`PlayTacticCore` :2519 · `BroadcastWhen` 壳 :9870 · `GrantDarkPact` 壳 :12324 · **`BroadcastCreatedCardWithWarlordPreCall` :18139**（🔴 2026-10-28 `B89_RD` 订正：3→4 —— `E6` 账 L638/L639 的新件把「预调督军 + 棋盘广播」成对包进同一作用域，`ActionScope` 嵌套安全 `ActionPump.cs:88`）；"
                      + "2026-10-27 现读 —— 旧写的 :2042/:8341/:10185 是**过期行号**）");
-        Check(nRule + nEff, 22, "★ T26 **泵点总数 = 22**（19 + 3；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+        Check(nRule + nEff, 23, "★ T26 **泵点总数 = 23**（19 + 4；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
     }
 
     /// <summary>`T26` 的行扫描：**整行正则** —— 行内**任意位置**出现

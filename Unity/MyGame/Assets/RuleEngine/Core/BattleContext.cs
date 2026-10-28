@@ -129,7 +129,7 @@ namespace RuleEngine
         /// <summary>它属于哪一方（`Choose a **friendly** troop that died …` 只在自己这边挑）</summary>
         public int Owner;
         /// <summary>死在第几回合（全局 `ctx.Turn`）。与 <see cref="PlayerState.LastTurnStartMark"/> 比出窗口</summary>
-        public int DeathTurn;
+        public int DeathTurn;   public bool IsRemnant;   // 🔴 2026-10-28（`B89-E2` · 账 `L336`）：**`IsRemnant`** = 原版 `CardScript.isRemnant`（`+0x65`）的等价物 ——「**死的那一刻**是不是一具残骸」的**冻结快照**。判据（逐句实读）：① 写点 `CardScript__TransformIntoRemnant.c` 翻面时 `*(undefined2*)(card+0x65)=1`、`CardScript__TransformFromRemnant.c:10` 变回来时清 0；② `CemeteryManager__AddCardToCemetery.c` 里 `0x65` **0 命中** ⇒ 那张卡进墓地时**带着当时的值**；③ 唯一消费者 `BattleManager__GetCardsInCemetery.c:60` **无条件排除** `+0x65 != 0` 的牌（与 cardType 那几格并列、**不受** `incl*` 影响）⇒「残骸被摧毁」进墓的那张在原版**从墓地查询里查不出来**（我们原来分不出 ⇒ 多算）。⚠️ 与 `UnitState.IsRemnant`（「**现在**是不是残骸」）不是一回事：残骸事后被 `reanimate` 变回来**不改历史**。⚠️ 分不出时默认 `false` = 照旧查得到（与改前逐字相同，⛔ 别反过来默认 `true`）。读点 = `RuleCore.GetCardsInCemetery`（⚠️ `EffectResolver.ReturnFromCemetery` 仍自己筛、**还没切过去** ⇒ 那一支的残骸闸还没生效）。⛔ **别把它拆成单独一行** —— 本文件下面还有 30+ 处账的落点，插一行就整体漂移
 
         public override string ToString() { return (Card != null ? Card.Name : "?") + "@T" + DeathTurn; }
     }
@@ -2074,6 +2074,34 @@ namespace RuleEngine
         {
             _oathAnswerHas = false; _oathAnswerSeat = -1; _oathAnswerPay = false;
         }
+
+        /// <summary>
+        /// 🆕 **2026-10-28（`B89-E14` · 账 L64）：「当前正在结算的这条效果是不是 extrinsic」的作用域量。**
+        ///
+        /// <para>**它是什么**：原版 `CardEffect.extrinsic // +0x30`（= `AbilityData.whileInPlay // +0x40`）
+        /// —— 「这条增益是**持续型来源**给的，来源一离场就该被整份收回」。</para>
+        ///
+        /// <para>**为什么需要它**：本仓原有的两个 extrinsic 载体
+        /// （① `CardInstance.HandEffect.Extrinsic` ② 光环 `Auras.GrantTag` → `UnitState.IsExtrinsicSource`）
+        /// **都不经过** `EffectResolver.DoGive → ApplyOneGain`；而这个作用域量就是给那条链补的那一格。</para>
+        ///
+        /// <para>**为什么是「作用域量」而不是形参**：`RuleCore.ApplyHandBuffs` 把 N 条
+        /// `CardInstance.HandEffect.Op` **合并成一个列表**再 `ResolveOps` —— 每条 op 带不带 extrinsic
+        /// 只有 `HandEffect` 那一层知道，而 `ResolveOps → DoGive → ApplyOneGain` 这条链上
+        /// **没有**任何一个格子能带它（`EffectOp` / `PayloadOp` 都没有这一列，给它们加列会波及
+        /// 解析层与全部生产者）。形态照 <see cref="CardPlaySource"/>：**只在一次结算窗口内有效、save/restore**。</para>
+        ///
+        /// <para>**写点（全部 save/restore，别在别处写）**：`RuleCore.ResolveHandBuffOps`
+        /// （`ApplyHandBuffs` 的唯一出口）—— 它把合并后的 op 列表按「extrinsic 相同」切成**连续段**，
+        /// 每段设一次本量再 `ResolveOps`。**读点唯一** = `EffectResolver.ApplyOneGain` 落关键词时
+        /// 传 `extrinsic: ctx.ResolvingExtrinsic`（原版合并键的一格，判据
+        /// `decomp_full/CardScript__AddEffect.c:469-568`）。</para>
+        ///
+        /// <para>⚠️ **今天零行为变化**：`HandEffect.Extrinsic` **没有生产者**
+        /// （`EffectResolver.AttachHandEffect` 的全部调用点都传 `false`）⇒ 恒 `false` ⇒ 只有一段
+        /// ⇒ 与改前**逐字节相同**。</para>
+        /// </summary>
+        public bool ResolvingExtrinsic;
     }
 
     /// <summary>对局**类型** = 原版 `MatchType`（`d:/2/tools/il2cpp_out/dump.cs:27369-27391`，
@@ -2314,6 +2342,67 @@ namespace RuleEngine
         public static bool IsReplayMatch(MatchType t)
         {
             return t == MatchType.TutorialReplay || t == MatchType.Replay;
+        }
+
+    }
+
+    // ==========================================================================================
+    //  🆕 B89 / E6d：`BattleContext` 的**另一半**（第二张表 = 附魔模板的注入格）
+    //     写在这里（文件末）而不是类体里：`BattleContext.cs` 有 40+ 处账落点按【行号】引用，
+    //     而 `MatchTypes`（`:2151`-`:2397`）里就有 `:2119`…`:2314` 一整片（含 A 行）
+    //     ⇒ 类体里插成员会让它们**整体漂移**。`partial` 追加在**全部落点之后** = 零漂移。
+    // ==========================================================================================
+    public partial class BattleContext
+    {
+        // ==========================================================================================
+        //  🆕 B89 / E6d（2026-10-28 · 执行代理 `E6d`）：**第二张表（附魔模板）的注入格**
+        // ==========================================================================================
+        //  🔴 **为什么是「静态钩子 + 懒物化」，而不是在这里直接 `CardDatabase.LoadEnchantmentTemplates()`**：
+        //     `Core/` **不引用 `Data/`**（方向固定：Data → Core。`Enchantment.cs` 那条「Core 不能引用
+        //     `Data/CardDatabase`」的口径就写在这里的兄弟文件里）⇒ `CardDatabase` 在**静态构造**里把
+        //     自己的加载器登记进 <see cref="EnchantmentTemplatesProvider"/>（见 `Data/CardDatabase.cs` 文件末那段）。
+        //     ⇒ 本文件**零外部依赖**，`ruleprobe`（只编 `Core/*.cs` + `Data/CardDatabase.cs`）与 Unity 都能编。
+        //
+        //  📌 与 <see cref="CardPool"/> 的分工（⛔ 别混）：
+        //     · `CardPool` = **可玩卡池**（1,129 张；造牌、收藏、卡组都看它）；
+        //     · `EnchantmentTemplates` = **第二张表**（85 张附魔模板；⛔ **不进** `CardPool`、不进 `count`）。
+        //     判据 → `资料/完全复刻/报告/B89_E6c_附魔模板表.md` §1③ / `B89_E6d_附魔模板注入与消费.md`。
+        // ==========================================================================================
+
+        /// <summary>第二张表的**加载器钩子**（由 `Data/CardDatabase` 的静态构造登记；`null` = 没人注册 ⇒ 判不了）。
+        /// <para>⚠️ 它是**进程级静态**（不是每局一份）：加载器本身是纯读表，物化出来的列表由每个
+        /// <see cref="BattleContext"/> 各自持有一份引用。</para></summary>
+        public static Func<List<CardDef>> EnchantmentTemplatesProvider;
+
+        /// <summary>本局可查的**附魔模板**（第二张表）。`null` = **还没物化**（懒加载）或没人注册。</summary>
+        /// <para>⛔ 与 <see cref="CardPool"/> **不是一类东西**：模板不是可玩卡（`inventoryOptions = 10` /
+        /// `showInCollectionOptions = 0`），只服务「按 id 查模板」这一条读路。</para>
+        public List<CardDef> EnchantmentTemplates;
+
+        /// <summary>把附魔模板**物化一次**（幂等）。没人注册 ⇒ 保持 `null`（= 判不了，⛔ 不造假空表）。</summary>
+        public void EnsureEnchantmentTemplates()
+        {
+            if (EnchantmentTemplates != null) return;
+            var p = EnchantmentTemplatesProvider;
+            if (p == null) return;
+            EnchantmentTemplates = p() ?? new List<CardDef>();
+        }
+
+        /// <summary>按 id 查附魔模板：**先 <see cref="CardPool"/>（可玩池，兼容历史）→ 再第二张表**。
+        /// <para>`null` = 两张表都没有它（调用方必须如实出声，⛔ 别当「这条链不适用」）。</para></summary>
+        public CardDef FindEnchantmentTemplate(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            var pool = CardPool;
+            if (pool != null)
+                for (int i = 0; i < pool.Count; i++)
+                    if (pool[i] != null && pool[i].Id == id) return pool[i];
+            EnsureEnchantmentTemplates();
+            var tpl = EnchantmentTemplates;
+            if (tpl != null)
+                for (int i = 0; i < tpl.Count; i++)
+                    if (tpl[i] != null && tpl[i].Id == id) return tpl[i];
+            return null;
         }
     }
 }

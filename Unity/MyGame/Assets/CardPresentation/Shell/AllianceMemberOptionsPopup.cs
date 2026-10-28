@@ -358,7 +358,7 @@ namespace CardPresentation
             MissingArt.Clear();
             _name = null; _buttons = null;
 
-            var R = RootRect();
+            var R = RootRect(_anchor);
             var S = ShadeRect(R);
 
             // ---- 1) `Menu Dark Background`（**a = 0** 的整屏底，只吃点击）----
@@ -449,7 +449,7 @@ namespace CardPresentation
                 _btnNodes[i] = bn; _btnTexts[i] = tx; _btnBgs[i] = bq;
             }
 
-            Apply();
+            Apply(); _built = true;   // 同写一行 = 零行数变化（下面的账落点按行号钉着，⛔ 别拆成两行）
         }
 
         /// <summary>把 `_view` 铺上去（= 原版 `Open()` 那一大段 `SetActive` 梯子 + `playerName.SetText`）。
@@ -640,5 +640,29 @@ namespace CardPresentation
             }
             return l.ToArray();
         }
+
+        // ============================================================ 锚点（原版 `AllianceView.OnMemberClicked` 那次「摆到成员行旁边」）
+        //  判据：`out_cpp2il_dev_ilspy/AllianceView.cs:595-612` —— `WindowsManager.OpenWindow(memberOptionsPopup, member)`
+        //  之后把窗 `transform.position = memberTransform.position`、再重算一次 `anchoredPosition`。
+        //  ⚠️ 我们这个口只能**在窗已建好之后**调（`Create`/`Open` 里先跑 `Build`）⇒ 直接重建一次：
+        //     `Build()` 用的是同一份 `RootRect(anchor)`，⛔ 不在这里另写一套平移算式（两处写同一条规则 = 迟早不一致）。
+        //     重建前先把上一颗整屏底**出栈**（`Build` 每次都会 `ClearChildren` 换新的那一颗，见 `Pop` 的注释）。
+
+        /// <summary>把窗摆到某个**画布点**（左上原点、y 向下）。`null` = 回 prefab 出厂位（底沿 763.30、水平居中）。</summary>
+        public void SetAnchor(Vector2? anchor)
+        {
+            if (_anchor.Equals(anchor)) return;
+            _anchor = anchor;
+            if (!_built) return;
+            BackgroundOverDrawController.Pop(_shade);
+            _shade = null;
+            Build();
+        }
+
+        /// <summary>当前锚点（自检读口）。</summary>
+        public Vector2? Anchor { get { return _anchor; } }
+
+        Vector2? _anchor;
+        bool _built;
     }
 }

@@ -635,7 +635,7 @@ namespace CardPresentation
         public static void ApplyAchievementTally(AchievementTally tally, int me,
                                                  int damageToEnemyWarlord, int skullsCollected,
                                                  int faithGained, GameMode mode, string faction,
-                                                 bool won, bool replay)
+                                                 bool won, bool replay, int spiritStonesGained = 0)
         {
             if (tally == null) return;
             var all = Achievements;
@@ -643,7 +643,7 @@ namespace CardPresentation
             {
                 var a = all[i];
                 int delta = TallyDeltaOf(a, tally, me, damageToEnemyWarlord, skullsCollected,
-                                         faithGained, mode, faction, won);
+                                         faithGained, mode, faction, won, spiritStonesGained);
                 if (delta > 0) GainAchievement(a.Id, delta, mode, replay);
             }
         }
@@ -652,7 +652,7 @@ namespace CardPresentation
         /// 认不出 / 数不到 ⇒ **0**（⛔ 不猜）。每个 `case` 都注了判据出处。</summary>
         public static int TallyDeltaOf(Achievement a, AchievementTally tally, int me,
                                        int damageToEnemyWarlord, int skullsCollected,
-                                       int faithGained, GameMode mode, string faction, bool won)
+                                       int faithGained, GameMode mode, string faction, bool won, int spiritStonesGained = 0)
         {
             if (a == null || tally == null || (me != 0 && me != 1)) return 0;
             var f = FiltersOf(a);
@@ -679,7 +679,7 @@ namespace CardPresentation
 
                 // ---- 骷髅 / 信仰（E13 已有）----
                 case "SkullsCount":   return skullsCollected;
-                case "CollectFaith":  return faithGained;
+                case "CollectFaith":  return faithGained;   case "CollectSpiritStone": return spiritStonesGained;   // 🆕 B89-E30（账 `L165`，⛔ 与上一格写在同一物理行 = 为零行数变化）：原版 `CollectSpiritStone.OnCollectSpiritStone`（`CollectSpiritStone.cs:21`）= 收到收集信号就 `UpdateProgress(obj.Amount)` 累加；我们的等价物 = 结算口传进来的本局「真收了路基石」累计（`BattleDriver._waystonesCollected`，读口 `WaystonesCollectedForTest`）。⚠️ 现读 102 条成就里 **0 条**用它 ⇒ 今天零可见后果（接的是「这条通道在」，不是改数字）。`spiritStonesGained` 是**末尾可选形参** ⇒ `Editor/**` 那些既有调用点一字不用改。
 
                 // ---- 隐秘 / 破坏（判据 §B-3 #14）----
                 // 写点 = `EffectResolver` 里**三处造隐秘**（`DoCreate` 手牌支 · `DA44` 的 `todeck` 支 ·
@@ -1341,7 +1341,7 @@ namespace CardPresentation
             get
             {
                 var list = Borders;
-                if (list == null || list.Count == 0) return null;
+                if (list == null || list.Count == 0) return null; RefreshExpiredBorders(LiveOpsLocalCatalog.NowUtc);   // 🆕 B89-E30（账 `L141`）：读到就扫一次（原版在登录/开窗时扫；那两个调用点不在本批白名单 ⇒ 挂在唯一读口上，见类尾那段说明）
                 int i = EquippedBorderIndex;
                 if (i < 0 || i >= list.Count) i = 0;
                 return list[i];
@@ -1369,6 +1369,94 @@ namespace CardPresentation
         public static BorderItem FindActiveAvatarBorder()
         {
             return EquippedBorder;
+        }
+
+        // ============================================================================================
+        //  🆕 B89-E30（账 `L141` `PlayerAvatarDataManager.RefreshExpiredBorders`）：**限时边框到期 ⇒ 卸下**
+        //
+        //  原版（`CardPresentation` 的判据源 = `PlayerAvatarDataManager.cs:1767` + `:1830` 那个 lambda）：
+        //  登录 / 开个人资料时把背包里所有 `CosmeticItemAvatarBorder` 过一遍，**父活动已过期的**从
+        //  「当前装备」里摘掉（`_003CRefreshExpiredBorders_003Eb__33_0` 就是那个谓词）。
+        //
+        //  我们这侧的原料（都在本地，⛔ 不用等远端）：
+        //    · 哪个边框属于哪场活动 = `profile_cosmetics.json` 的 `borders[].pe`（= 原版 `parentEvent.targetId`；
+        //      空串 = 无父活动 ⇒ **恒可用**，`Default` 就是这一档）；
+        //    · 那场活动的起止时刻 = `Shell/LiveOpsLocalCatalog` 那 13 份事件 SO（`Find(pe)` + `GetState(utc)`）。
+        //  ⇒ 「过期」一律按 **`GetState(utc) == LiveOpState.Expired`** 判（⛔ 别用 `EndUtc` 自己比 ——
+        //    `Expirable == true` 时原版用的是 `FinalDate = expireDate`，`GetState` 已经照抄了那条）。
+        //
+        //  🔴 **调用点（本批口径，如实记）**：挂在 <see cref="EquippedBorder"/> 的读口上（**首次读到就扫**）。
+        //    原版的「登录 / 开窗」两个调用点分别落在 `PlayerDataManager` 与 `AvatarTab`，
+        //    **两个都不在本批白名单**（`Editor/**` 与 `Shell/AvatarTab.cs`）⇒ 与其留一个没人调的公开方法，
+        //    不如把它挂在**唯一会被读的那一处**：任何一处画边框的代码都要先过 `EquippedBorder`，
+        //    读到的就一定是扫过的结果（不会出现「窗口画完了才发现过期」那一档）。
+        //    ⚠️ 代价：每次读都扫一遍（5 条 × 13 场事件的整数比较，可忽略）；`Borders` 本身是懒加载的。
+        //  ⚠️ **查不到父活动 ⇒ 按可用处理 + 出声一次**（⛔ 不判过期：判据缺失时把玩家的边框卸掉，比不卸更糟）。
+        //  ⚠️ **存档格（原报告 ②）没做**：`EquippedBorderIndex` 今天**没有任何写入点**（全仓只在本文件里被读），
+        //    而「落盘的那一格」要动 `SaveDto`（本文件中段）+ `LegacySaveReader.ProfileFields/LegacyProfile`
+        //    （白名单外，且那条导入路径会按旧 DTO 重新序列化 ⇒ 新字段会被丢）⇒ 等那两份能一起改时再做，
+        //    详细理由与改法写在 `报告/B89_E30_只差接线13条.md` §L141。**本批只做 ①（到期扫描）**。
+        // ============================================================================================
+
+        static readonly HashSet<string> _borderUnknownEvents = new HashSet<string>();
+
+        /// <summary>某个边框在 `utc` 这一刻**可不可用**（无父活动 = 恒可用；父活动查不到 = 可用 + 出声一次）。
+        /// <paramref name="why"/> 只会给出「为什么不可用」那一档的说明（给日志用）。</summary>
+        public static bool IsBorderUsable(BorderItem b, System.DateTime utc, out string why)
+        {
+            why = null;
+            if (b == null) { why = "边框是 null"; return false; }
+            if (string.IsNullOrEmpty(b.pe)) return true;                 // 无父活动 ⇒ 恒可用（`Default` 那一档）
+            var ev = LiveOpsLocalCatalog.Find(b.pe);
+            if (ev == null)
+            {
+                if (_borderUnknownEvents.Add(b.pe))
+                    Debug.LogWarning("[Profile] 边框 `" + b.n + "` 的父活动 `" + b.pe + "` 在本地活动目录里**查不到**"
+                                   + " ⇒ 判不了到期，按**可用**处理（⛔ 不当过期；红线：不许静默失败）");
+                return true;
+            }
+            var st = ev.GetState(utc);
+            if (st != LiveOpState.Expired) return true;
+            why = "父活动 `" + b.pe + "` 已过期（`GetState` = Expired，终期 " + ev.ExpireUtc.ToString("u") + "）";
+            return false;
+        }
+
+        /// <summary>原版 `PlayerAvatarDataManager.RefreshExpiredBorders()` 的等价物：
+        /// 把**已装备**的那条限时边框在过期后卸下（回到 `Default`）。
+        /// <para>返回这一刻**已过期**的边框条数（诊断用；今天 = 4 —— 本地那 4 条限时边框的父活动都在 2025 / 2026-01）。</para>
+        /// <para>⚠️ 只卸「已装备」那一条：原版这里也只是把当前项换成默认，**不删定义**
+        /// （`borders` 清单是不变的，`GetAllItems` 那一族照样列得出来）。</para></summary>
+        public static int RefreshExpiredBorders(System.DateTime utc)
+        {
+            var list = Borders;
+            if (list == null || list.Count == 0) return 0;
+            int expired = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                string why;
+                if (IsBorderUsable(list[i], utc, out why)) continue;
+                expired++;
+                if (EquippedBorderIndex != i) continue;
+                EquippedBorderIndex = 0;                                 // `Default`（原版同样回默认项）
+                Debug.Log("[Profile] 限时边框 `" + list[i].n + "` 已不可用 ⇒ **卸下**、回到 `Default`（" + why
+                        + "；原版 `PlayerAvatarDataManager.RefreshExpiredBorders`）");
+            }
+            return expired;
+        }
+
+        /// <summary>自检读口：`utc` 这一刻**可用**的边框条数（本机今天 = 1，只有 `Default`）。
+        /// <para>灭自证用法：传**活动期内**的时刻（例：`ExpansionOrks1Scoring` 的 2025-04-15）⇒ 必须变大，
+        /// 传今天 ⇒ 回到 1。⛔ 别只断一个数（那样「扫描恒返回 1」也能过）。</para></summary>
+        public static int UsableBorderCountForTest(System.DateTime utc)
+        {
+            var list = Borders;
+            int n = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                string why;
+                if (IsBorderUsable(list[i], utc, out why)) n++;
+            }
+            return n;
         }
     }
 }

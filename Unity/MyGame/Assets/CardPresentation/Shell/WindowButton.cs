@@ -865,11 +865,11 @@ namespace CardPresentation
         /// <summary>原版 `EverguildButton.colorTintGreyOnDisable`（**字段 `+0x17A`**；`EverguildToggle` 那份是 **`+0x148`**，
         /// 体同形）。它是「这颗钮到底会不会变灰」的**前置闸**：`SoftDisable` / `SwitchMaterial` 的第一句都是
         /// `if (*(char*)(this + 0x17a) != '\0')`（判据 → 本文件上面那段 A65② 的长注释）。
-        /// <para>🔴 **2026-10-27（E9b · 账 179/231）**：原来我们**无条件**灰 —— 而原版 prefab 普查
-        /// （`EverguildButton` 880 颗 / `EverguildToggle` 153 颗）里有一批 `colorTintGreyOnDisable = 0`
-        /// （Button **34** 颗 grey=0；Toggle **95** 颗）⇒ 那些**原版根本不灰**。
-        /// 默认 `true` 保住本仓既有各站点的可见态（`Edit Deck` / 12 颗 `Collect` 真包实读全是 `grey=1`），
-        /// 需要对齐原版 grey=0 的站点**显式置 `false`**（逐颗对应关系还没普查出来，见账里「还差什么」）。</para>
+        /// <para>🔴 **2026-10-28（B89-R3b · 账 179/231）就地复核**：整包逐 MB 现读 = `EverguildButton` **855** 颗（grey=0 **34**）· `EverguildToggle` **151** 颗（grey=0 **93**）⇒ 这 **127** 颗**原版根本不灰**；逐颗表 = `资料/完全复刻/判据/B89_变灰实例对表.tsv`。
+        /// ⚠️ **别把 `m_Transition` 并进这条闸**：`SoftDisable` 的闸**只有** `colorTintGreyOnDisable`（`EverguildButton__SoftDisable.c` 头 6 行）；`m_Transition == 1` 只属 `SetUpButtonColors` 重建 ColorBlock 那一半（我们无 ColorBlock ⇒ 无对应物）。
+        /// 另：全 1,276 颗 Selectable 里**只有 13 颗**有 `m_SpriteState.m_DisabledSprite` ⇒ 其余「禁用时视觉不变」是原版事实。
+        /// 默认 `true` 保住本仓既有各站点的可见态（`Edit Deck` / 12 颗 `Collect` 真包实读全是 `grey=1`）；
+        /// 需要对齐原版 grey=0 的站点**由该文件的写手**显式置 `false`（本轮只交表，见报告 §5 的改派清单）。</para>
         /// <para>⚠️ 原版那颗方法的另一半（`disabledColor.a = colorTintGreyOnDisableAlpha`(`+0x17C`/`+0x14C`)
         /// 再 `set_colors`）我们**没有对应物**：那颗 `ColorBlock` 是 uGUI `Selectable` 的字段，
         /// 而我们的禁用观感走的是**材质换 Greyscale**（同一族、另一条路）⇒ 这一半记在账 179/231 的「还差什么」。</para></summary>
