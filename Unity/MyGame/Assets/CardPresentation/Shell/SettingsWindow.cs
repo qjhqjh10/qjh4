@@ -141,7 +141,7 @@ namespace CardPresentation
     /// **页号 `Online = 5` 照旧合法**（`OpenTab` / `_pages` 都按它切），只是栏里没有它的键。</para></summary>
     public enum SettingsTab { General = 0, Audio = 1, Account = 2, Graphics = 3, Support = 4, Online = 5 }
 
-    public class SettingsWindow : GameWindow
+    public partial class SettingsWindow : GameWindow
     {
         // ============================================================ 常量（出处见文件头）
 
@@ -6645,5 +6645,43 @@ namespace CardPresentation
         /// ⚠️ 走 `Refresh()`：它按 `Text` 空不空决定画占位还是画真值，并顺带把灰/白配色摆对
         /// （只改 `_placeholder` 字段、不 `Refresh()` 的话要等下一次输入才现形 = 静默）。</para></summary>
         public void SetPlaceholder(string s) { _placeholder = s ?? ""; Refresh(); }
+    }
+    // ============================================================ 🆕 2026-10-28（B92-N4 批）
+    // 为什么单独一个 partial 块（⛔ 不是随手放）：本文件被账按行号引用，而落在
+    // `AutoZoom` / `SuperSampling` 两个后置类里的账行（6218 / 6329 / 6344 / 6513）在 `SettingsWindow` 类**之后**
+    // ⇒ 往类中间插一段会让它们整体下移。放在**文件末尾的 partial 块**里 ⇒ 既有行号一个不动。
+    public partial class SettingsWindow
+    {
+
+        /// <summary>= 原版 `PlayerDataManager.ApplySettingsOptions()`（**逐句**，判据
+        /// `decomp_full/PlayerDataManager__ApplySettingsOptions.c` 全文 30 行）。
+        /// <para>原版体只有两件事（⛔ **没有**画质档、**没有** VSync —— 那两格在
+        /// `QualitySettingsManager.ApplyGraphicsQuality`，另一个类）：
+        /// ① `SetMusicAndFxVolumes();`
+        /// ② fps 链 —— 读 `GameStaticData` 的 `FPSLimit`（`+0x128`）：
+        /// `0 ⇒ SetTargetFramerate(0x1e=30)` · `2 ⇒ (0xffffffff)=−1` · 其余（含 1）`⇒ (0x3c=60)`。</para>
+        /// <para>我们的等价：① = 三档音量按**当前存值**各写一遍 mixer
+        /// （`WarpforgeAudio.SetMusic/SetSoundFx/SetVoiceOver`；`SetSoundFx` 同写 `VolumeJingles`，
+        /// 与 `WarpforgeAudio.ApplyAll` 的四格**逐格一致** —— 那个方法是 private，这里走三个公开 setter 达到同一效果）；
+        /// ② = <see cref="FpsOfIndex"/>（**逐字**同一张映射表）＋ `Application.targetFrameRate`
+        /// （= 原版 `PlayerDataManager.SetTargetFramerate`）。</para>
+        /// <para>⚠️ **零调用者（如实记）**：原版唯一的调用方在读档/登录链（本仓那条链是服务端，P3）⇒
+        /// 按账的 A 尺子①。今天开窗仍走各 setter 分别写一次（行为等价、只是没有这个「一次全量」的单一入口）。</para>
+        /// <para>⚠️ fps 档位的**存值**今天在 `_fpsIndex`（= 本窗的 `GameStaticData.FPSLimit` 对位）；
+        /// 无实例时（`_loaded` 之前的静态调用）退回 <see cref="Application.targetFrameRate"/> 现有值反推，
+        /// 两种入口都不猜数（⛔ 不拿 0 当哨兵）。</para></summary>
+        public static void ApplySettingsOptions()
+        {
+            // ① `SetMusicAndFxVolumes()`
+            WarpforgeAudio.SetMusic(WarpforgeAudio.Music);
+            WarpforgeAudio.SetSoundFx(WarpforgeAudio.SoundFx);
+            WarpforgeAudio.SetVoiceOver(WarpforgeAudio.VoiceOver);
+            // ② fps 链（`GameStaticData.FPSLimit` ⇒ `SetTargetFramerate`）
+            int idx = FpsIndexOfTarget(Application.targetFrameRate);
+            Application.targetFrameRate = FpsOfIndex(idx);
+            Debug.Log("[Settings] `ApplySettingsOptions`（原版 `PlayerDataManager.ApplySettingsOptions`）⇒ "
+                    + "音量三档按存值重写 mixer · `targetFrameRate = " + Application.targetFrameRate
+                    + "`（FPSLimit 档 " + idx + "）");
+        }
     }
 }

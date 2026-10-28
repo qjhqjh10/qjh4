@@ -847,15 +847,15 @@ namespace CardPresentation
         /// ⇒ 当时「**中文档零变化**」。🔴 **2026-10-14（第二十七会话）就地订正**：这两条（`Battle/Effect/`
         /// `ChangeMeleeAttackOneTurn` 等）的中文列**已换成官方 zh-CN 表**的值
         /// （`获得 {0} 近战攻击一回合`）⇒ 这一族的中文档**不再零变化**（英文档照旧）。</para>
-        /// 「谁给的」用 `SourceCard`（施加它的**真卡名**，不是那个恒为「战术卡」的 `Src` —— 两者**别混**）。</summary>
-        public static List<EffectRow> RowsOf(IReadOnlyList<UnitState.TempBuff> buffs)
+        /// 「谁给的」用 `DisplaySourceName`（原版 `CardEffect.effectName(+0x20)` 优先、空才退施加卡名；⛔ 不是恒为「战术卡」的 `Src`）；`hasQuests` = 原版 `EntityScript.HasQuests(载体) > 0`（喂 `IsEffectListEntry` 那条进槽过滤，B92_N10 2026-10-28）。</summary>
+        public static List<EffectRow> RowsOf(IReadOnlyList<UnitState.TempBuff> buffs, bool hasQuests = false)
         {
             var rows = new List<EffectRow>();
             if (buffs == null) return rows;
             for (int i = 0; i < buffs.Count; i++)
             {
                 var b = buffs[i];
-                if (b == null) continue;
+                if (b == null || !UnitState.IsEffectListEntry(b.BuffType, hasQuests)) continue;   // 原版 `DisplayCardEffects.c:44-53`：进槽前倒序过滤 buffType 6/30/35 与 (16 且 !quests)
                 string what;
                 // 🔴 **2026-10-19（A1316②）就地更正**：这一行原来走 `CardText.KeywordZh`（**恒中文列**）
                 //   ⇒ **英文档下这一行仍是中文**（同一个根：拿「恒中文」的取值口当显示口）。
@@ -868,7 +868,7 @@ namespace CardPresentation
                 if (b.IsKeyword) what = CardText.KeywordDisplay(b.Name);   // 关键词：跟语档；⛔ 不是 `Battle/Effect/*`
                 else what = AttrText(b.Name, b.Value);
                 if (what == null) what = b.Name;      // 认不出来才**原样打出来**（不静默、不自造）；⚠️ **空串不回退** —— 原版「空文本占一槽」就是这一档（`AttrText` 数值 0 ⇒ `""`）
-                string who = b.SourceCard;
+                string who = b.DisplaySourceName;                   // 原版 `LoadEffect.c:110-140`：`EffectName` 优先、否则施加卡名
                 if (string.IsNullOrEmpty(who)) who = b.Src;         // 兜底；两个都空才留白（上面那半句还在）
                 rows.Add(new EffectRow(who, what));
             }

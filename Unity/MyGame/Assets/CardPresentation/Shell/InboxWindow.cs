@@ -962,7 +962,7 @@ namespace CardPresentation
             _animT = _animRows > 0 ? 0f : -1f;
             // 起点：全透明 + 半尺寸（原版先写 alpha 0、再在 interval 之后才动；我们这里先把**初值**摆好，
             // `Tick` 里按「每行自己的 0.15s 窗口」推进 —— 等价于原版那条 Sequence）。
-            for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 0f, 0f);
+            for (int i = 0; i < _rowNodes.Length; i++) ApplyRowAnim(i, 0f, 0f); _animSoundPlayed = new bool[_rowNodes.Length];   // 🆕 2026-10-28 B92_N6：每行一次的 slotting 音闸（原版每颗 `MessageContainer` 各播一次；判据 → 文件尾 `PlaySlottingIfVisible`）
         }
 
         /// <summary>按进度摆一行的两个量。**两个进度分开传**（原版的缓动**只挂在缩放上**，淡入是另一条 ease）：
@@ -994,7 +994,7 @@ namespace CardPresentation
                 // 第 i 行：延迟 (i + 1) × AnimDelay 之后开始，AnimTime 内推到 1（淡入 = OutQuad · 缩放 = 原版 curve）。
                 float tc = Mathf.Clamp01((_animT - (i + 1) * AnimDelay) / AnimTime);
                 float pf = 1f - (1f - tc) * (1f - tc);                  // 淡入：DOTween 默认 `Ease.OutQuad`（原版 `DOFade` 没 SetEase）
-                ApplyRowAnim(i, pf, AnimCurveEase(tc));                 // 缩放：原版 `SetEase(curve)` —— **只挂在 DOScale 上**
+                ApplyRowAnim(i, pf, AnimCurveEase(tc)); if (i < _animSoundPlayed.Length && !_animSoundPlayed[i] && _animT >= (i + 1) * AnimDelay) { _animSoundPlayed[i] = true; PlaySlottingIfVisible(i); }   // 缩放：原版 `SetEase(curve)` —— **只挂在 DOScale 上**｜🆕 2026-10-28 B92_N6：该行窗口刚开那一拍播 slotting 音（原版 `AnimateIn` 的 `AppendCallback`；判据与 cue → 文件尾 `PlaySlottingIfVisible`）
             }
             if (_animT > (AnimRows + 1f) * AnimDelay + AnimTime)
             {
@@ -1387,6 +1387,40 @@ namespace CardPresentation
             var ts = UnityEngine.InputSystem.Touchscreen.current;
             if (ts != null) return ts.primaryTouch.position.ReadValue();
             return Vector3.zero;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B92_N6 · 追加在类尾；⛔ 别插进已有成员之间 —— 本文件 `:954`/`:971`/`:1321` 被账引用）
+        /// <summary>每行一次的「入场 slotting 音」闸（<c>true</c> = 这一行已经试过播了，不再重试）。</summary>
+        bool[] _animSoundPlayed = new bool[0];
+
+        /// <summary>入场时那一颗 slotting 音 —— 原版 `MessageContainer.__c__DisplayClass23_0.&lt;AnimateIn&gt;b__0`
+        /// （🥇 `out_il2csharp/Assembly-CSharp/Everguild/LiveOps/MessageContainer.cs:147-154`；`.c` 同体 = `decomp_full/Everguild.LiveOps.MessageContainer.__c__DisplayClass23_0___AnimateIn_b__0.c`）：
+        /// <code>
+        /// if (RendererExtensions.IsVisibleFrom(this.content.GetComponent&lt;RectTransform&gt;(), Camera.main))
+        ///     SoundManager.Instance.Play2D((this.&lt;&gt;4__this).slottingSound, MixerType.FX);
+        /// </code>
+        /// 其中 <c>content</c> = `background.transform` = **本窗每一行那颗底图 quad**（`_rowBgs[i]`，见 `BuildMessageRow` 那条注释）。
+        /// <para>🔴 **`slottingSound` 的 cue = `CardClick 2`** —— prefab 实读
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-9188051066216764495.json` 的
+        /// `slottingSound = PPtr(fileID 6, pid 3481876391266756950)`，而 pid `3481876391266756950` 就是
+        /// `CardInBoosterPack.clickSound`（`Shell/WindowSounds.cs` 头部那张表）⇒ **同一个 cue 资产**，
+        /// 直接复用 <see cref="WindowSounds.BoosterCardClickCue"/>，⛔ 不在本文件另写 cue 名（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>🔴 **混音组 = FX（MixerType 0）** —— 判据 = 上面那行 `Play2D(..., MixerType.FX)` ⇒ 走 `WindowSounds.PlayFx`。</para>
+        /// <para>⚠️ **时机**：原版那条回调挂在 `AppendInterval((index + 1) × animationDelay)` **之后**、`DOFade/DOScale` **之前**
+        /// ⇒ 本窗在 `AnimTick` 里以「`_animT` 首次越过该行的起点」为一拍，**每行只播一次**（`_animSoundPlayed` 闸）。</para>
+        /// <para>⚠️ **可见性为假 ⇒ 静默不播**（原版那一支什么都不做，⛔ 不是「换成别的音」）。</para>
+        /// <para>📌 prefab 里还有一个 `maxSounds = 6`，但 `out_il2csharp` 里**全类只出现在声明处**（0 处读取）
+        /// ⇒ 原版这一版是死字段，我们**不实现** 6 声上限（照抄「它没被读」这一事实，并在账 `B92_N6_new.tsv` 里写明）。</para></summary>
+        void PlaySlottingIfVisible(int i)
+        {
+            if (i < 0 || i >= _rowBgs.Length) return;
+            var q = _rowBgs[i];
+            if (q == null) return;
+            var rt = q.transform as RectTransform;
+            var cam = Camera.main;
+            if (rt == null || cam == null) return;                       // 批处理/无相机 ⇒ 不播（原版这一档 NRE，我们降级）
+            if (!RendererExtensions.IsVisibleFrom(rt, cam)) return;      // 原版：不在屏幕内 ⇒ 静默
+            WindowSounds.PlayFx(WindowSounds.BoosterCardClickCue, "InboxWindow 入场 slotting（原版 MessageContainer.slottingSound）");
         }
     }
 }

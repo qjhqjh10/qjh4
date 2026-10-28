@@ -71,7 +71,7 @@ namespace CardPresentation
     /// IDropHandler&lt;RawCardScript&gt;, IDropHandler&lt;CosmeticItem&gt;`；它挂在 `Sidebar/Deck Details`
     /// 那一件上（MB −2895006486255833308 · GO −1322417011089150172），我们这扇窗里对应的活全在本类
     /// ⇒ **两个接口由本类实现**（等价物，不是同名类）。</para></summary>
-    public class DeckRuntime : MonoBehaviour, IDropHandler<string>, IDropHandler<CardDef>
+    public partial class DeckRuntime : MonoBehaviour, IDropHandler<string>, IDropHandler<CardDef>
     {
         public static DeckRuntime Instance { get; private set; }
 
@@ -1220,7 +1220,7 @@ namespace CardPresentation
             //    判据与推导 → `OtherWindowUp` 上面那一段）。
             _winShieldPrev = OtherWindowUp() != null;
 
-            TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt);
+            TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt); TickCardWindowAltArt();   // 2026-10-28（B92_N9）：详情窗关掉那一帧对账「换异画 ⇒ 换卡组里那一条」（原版 `DeckEditingWindow` 两处 `b__0`；见类尾）
             // 🔴 **2026-10-17（D35 删件）**：这里原来有一段「`notice` 那行字 2.5 秒后自动消失」
             //   —— 那行字**原版没有**、已删（判据 → D35）⇒ 计时/清空/`Update` 窗口一并删掉。
             //   ⛔ 别把 `Say` 也一起删了：它是本窗「不许静默失败」的出口（仍然 `Debug.Log`）。
@@ -4471,8 +4471,8 @@ namespace CardPresentation
                 ClipRowLabels(i);
             }
 
-            SetOn(_emptyWarn, cards && DeckRowCardCount(shown) == 0);
-            if (_emptyWarnGo != null) _emptyWarnGo.SetActive(cards && DeckRowCardCount(shown) == 0);
+            SetOn(_emptyWarn, cards && State.DeckCardCount(true) == 0);   // 🔴 2026-10-28（B92_N9）：原版 `DeckEditingPanel__Initialize` = `emptyWarning.SetActive(CardCount(true) == 0)`（`.cs:258`）⇒ 只有督军时【关】；判据/理由见 `DeckEditorState.DeckCardCount` 与类尾 `TickCardWindowAltArt` 上面那段
+            if (_emptyWarnGo != null) _emptyWarnGo.SetActive(cards && State.DeckCardCount(true) == 0);
             RefreshTabVisibility();
 
             var curve = State.CostCurve();
@@ -9371,6 +9371,93 @@ namespace CardPresentation
                 }
                 return top;
             }
+        }
+    }
+
+    // ================================================================================================
+    //  🆕 2026-10-28（B92_N9）· 原版 `CardDeck.Has` 的**唯一消费者**：详情窗里换了异画 ⇒ 换卡组里那一条
+    //  **追加在类尾的第二段 partial 里**（零行号漂移 —— 本文件有上千条账按行号钉着）。
+    //
+    //  原版（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DeckEditingWindow.cs:217` / `:918`，两处逐句相同）：
+    //      var alt = window.SelectedAlternateArtCard;
+    //      if (alt == null) return;
+    //      if (alt.GetID() == card.GetID()) return;                 // 没换档 ⇒ 什么都不做
+    //      if (!InventoryManager.Instance.HasItem(alt)) return;      // 没解锁 ⇒ 不做
+    //      if (!EditingDeck.Has(card)) return;                       // ★ 就是账 `卡组编辑.tsv:24` 那一条
+    //      EditingDeck.RemoveCard(card); EditingDeck.TryAddCard(alt);
+    //      EditingDeck.syncedToServer = false;                       // = 我们的 `MarkDeckDirty()`
+    //  挂点：原版是 `window.OnCloseWindow += b`（关详情窗那一刻跑）；
+    //  我们这扇 `CardDetailPopup` **没有对外暴露关窗回调**（它不在本批白名单，⛔ 一个字节不动）
+    //  ⇒ 等价物 = `Update()` 里每帧看一眼 `CurrentState`，**由开到关那一帧**跑同一段（见 `TickCardWindowAltArt`）。
+    //
+    //  ⚠️ 与「我们挑的」那条区分：`#HB_<原卡 id>` 这个**卡组条目写法**是我们自定的（🔶 判据 →
+    //  `RuleEngine/Core/DeckRules.cs` 类尾「我们的表示」那段，调度台 2026-10-27 裁定），本段只是沿用它。
+    // ================================================================================================
+    public partial class DeckRuntime
+    {
+        /// <summary>详情窗上一帧是不是开着（只有「由开到关」那一帧才做对账）。</summary>
+        bool _altWinWasOpen;
+
+        /// <summary>这一轮详情窗开着时**看的是哪张卡** + **起来时那一档异画**（= 用户有没有动过箭头）。
+        /// 🔴 没有这两格就会「只是开关一下详情窗、把卡组里的异画条目降回原画」—— 原版那两处 `b__0` 有
+        /// `if (alt.GetID() == card.GetID()) return;` 顶着，等价物就是「档没变 ⇒ 什么都不做」。</summary>
+        CardDef _altWinCard;
+        int _altWinStartStyle;
+
+        /// <summary>那张卡的**异画条目**写法：卡表 `AlternateArts` 里那条 `#…`；表里没有 ⇒ `#HB_&lt;原卡 id&gt;`
+        /// （我们卡组条目的口径，`CardDef.HasAlternateArt("#HB_"+id)` 认它）。</summary>
+        static string AltArtEntryOf(CardDef def)
+        {
+            if (def == null) return null;
+            if (def.AlternateArts != null)
+                foreach (var a in def.AlternateArts)
+                    if (!string.IsNullOrEmpty(a) && PlayerDeck.IsAltArtEntry(a)) return a;
+            return "#HB_" + def.Id;
+        }
+
+        /// <summary>自检读口：上一拍「换异画」对账做了什么（`""` = 没跑过）。</summary>
+        public string LastAltArtSwapNote { get; private set; }
+
+        /// <summary>由 `Update()` 尾每帧调（**挂在既有那一行行尾，零行数变化**）：
+        /// 详情窗**由开到关**的那一帧，按原版 `DeckEditingWindow` 那两处 `b__0` 对账一次。</summary>
+        void TickCardWindowAltArt()
+        {
+            if (_cardWindow == null) return;
+            bool open = _cardWindow.CurrentState != WindowState.Closed;
+            if (open)
+            {
+                // 换卡（`ShowCard` 会把档归零）时重新记起点，否则会把上一张的档当成这一张的
+                if (!_altWinWasOpen || !ReferenceEquals(_altWinCard, _cardWindow.Card))
+                { _altWinCard = _cardWindow.Card; _altWinStartStyle = _cardWindow.AltStyleIndex; }
+                _altWinWasOpen = true; return;
+            }
+            if (!_altWinWasOpen) return;
+            _altWinWasOpen = false;
+            var def = _altWinCard;
+            int style = _cardWindow.AltStyleIndex;
+            if (def == null || style == _altWinStartStyle) return;   // 档没动 ⇒ 什么都不做（= 原版 `alt.GetID() == card.GetID()` 那一支）
+            ApplyAltArtFromCardWindow(def, style);
+        }
+
+        /// <summary>原版那一拍的等价物（判据 → 本节头部）。`styleIndex` = `CardDetailPopup.AltStyleIndex`
+        /// （**0 = 原画**，1..N = 第 N 种异画；本地 7 张卡各一种）。</summary>
+        void ApplyAltArtFromCardWindow(CardDef def, int styleIndex)
+        {
+            if (def == null || State == null || State.Deck == null) return;
+            string want = styleIndex <= 0 ? def.Id : AltArtEntryOf(def);
+            string cur = State.DeckEntryOf(def.Id);
+            if (cur == null) { LastAltArtSwapNote = "不在卡组里（原版 `!Has(card)` ⇒ 不换）：" + def.Id; return; }
+            if (cur == want) { LastAltArtSwapNote = "没有换档："; return; }   // 原版 `alt.GetID() == card.GetID()` 那一支
+            if (!State.ReplaceDeckEntry(def.Id, want))
+            {
+                LastAltArtSwapNote = "换不了：" + def.Id + " → " + want;
+                Debug.LogWarning("[DeckEditor] 换异画**没换成**：「" + def.Id + "」→ `" + want + "`（⛔ 不静默）");
+                return;
+            }
+            MarkDeckDirty();      // = 原版 `syncedToServer = false`（不落盘，Done 那一拍才写回）
+            RefreshAll();
+            LastAltArtSwapNote = "已换：" + cur + " → " + want;
+            Say("已换成异画：" + CardText.Name(def));
         }
     }
 }

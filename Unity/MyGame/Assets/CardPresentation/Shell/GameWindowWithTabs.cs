@@ -30,10 +30,10 @@
 //      ③ `GetStartingTab` 原版读 `GameWindowWithTabsOptions.startTab`；我们**没有 options 资产**，回落到
 //         `tabs.FirstOrDefault()`（= 原版回落那一条）。各窗自己的「回到上次页」规则仍在
 //         `RewardsWindow.StartVisualIndex` 等处 —— 下一轮接线时收口到这里。
-//      ④ 原版 `SetupTabs` 用 `TabbedWindowComponents`（`tabPrefab`/`tabButtons`）；我们的等价物只有
-//         `tabButtons`（`tabHolder` 目前由 `MainMenuSubmenuWindow.BuildBar` 用），没有 `tabPrefab` 母版组件。
-//      ⑤ 原版 `CreateTab<T>`（从 prefab 实例化）**本轮没做**：缺 `TabbedWindowComponents.tabPrefab` 与
-//         图标（`Sprite`）这条链 —— 见报告「差什么」。`CreateTabButton`（已建好的页挂一颗键）做了。
+//      ④ 原版 `SetupTabs` 用 `TabbedWindowComponents`（`tabPrefab`/`tabButtons`/`tabHolder`）；我们的等价物是窗口自己的
+//         三个同名字段（`tabButtons` / `tabHolder` / 🆕 `tabPrefab`），⛔ 不新建那个空壳组件类（本仓无 prefab 数据链）。
+//      ⑤ 原版 `CreateTab<T>`（从 prefab 实例化）—— 🆕 **2026-10-28（B92_N5d）已建**（类尾；判据 = `__CreateTab_object_.c` 94 行）；
+//         ⚠️ 仍有一条真缺口：图标（`Sprite`）没去路（`TabButtons.AddTabButton` 只吃名字）⇒ 见报告「差什么」。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -325,5 +325,65 @@ namespace CardPresentation
         /// ⚠️ **零逻辑**（同 `TabButtons.ToggleForTest` / `FirstTimeGateForTest` 的先例）；
         /// 追加在**类尾**以免动到账引用的行号。</summary>
         public void OpenTabsForTest() { OpenTabs(); }
+
+        // ======================================================== 原版 `CreateTab<T>`（2026-10-28 · B92_N5d）
+        // 判据 = `decomp_full/GameWindowWithTabs__CreateTab_object_.c`（94 行，全文现读）。
+        // 原版签名（类桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/GameWindowWithTabs.cs:83`）：
+        //   `public (T, EverguildToggle) CreateTab<T>(string tabName, Sprite icon, T tabPrefab = null) where T : WindowTabBase`
+        // ⚠️ 与文件头差异④同源：原版 `tabPrefab` 住在 `TabbedWindowComponents`（`tabButtons` / `tabPrefab` / `tabHolder` 三格），
+        //   我们把它摊成窗口自己的字段（前两格早有，本轮补第三格）—— ⛔ **不为此新建 `TabbedWindowComponents` 空壳类**
+        //   （本仓没有那条 prefab 数据链，建了就是零使用者的空壳）。
+        // 🔴 `.c` 里 `GetComponentFastPath` 之后那句 `param_5 = 0` 是**反编译器把 out 写丢了**（同「ILSpy 丢实参」那一族）
+        //   ⇒ 真语义 = `tabPrefab = Components.TabPrefab.GetComponent<T>()`。
+        // 🔴 末尾 `if (*(this+0x88) != 0) inst.<vtable+0x188>(this, …)`：`0x88` 那个 bool 与 slot `0x188` 的语义
+        //   **本机解不出**（缺 `WindowTabBase` 的 vtable 表）；从参数形状 `(this)` 看是「把本窗交给页」⇒
+        //   按 `Setup(GameWindow)`（`Shell/WindowTabBase.cs:45`，正文 `baseWindow = window; OnSetup();`）落，
+        //   ⚠️ **这一格是推断，如实标注**（不是逐句）。
+
+        /// <summary>`TabbedWindowComponents.tabPrefab` 的等价物（原版那颗页母版 GameObject）。
+        /// <para>⚠️ **声明在类尾**：本文件在账里有 16 个 `文件:行号` 落点（`:80`…`:249`），往前面插字段会让它们整体漂移。</para></summary>
+        public GameObject tabPrefab;
+
+        /// <summary>建页时要不要 `tab.Setup(this)` —— 对应原版 `CreateTab` 末尾那个 `if (*(this+0x88) != 0)` 闸。
+        /// 默认 `true`（页对象不绑窗口就没法用）；原版那个闸的**默认值本机解不出**，见上面那段注释。</summary>
+        public bool setupTabOnCreate = true;
+
+        /// <summary>原版 **`CreateTab&lt;T&gt;(string tabName, Sprite icon, T tabPrefab = null)`**：
+        /// ① `tabPrefab == null` ⇒ 取 <see cref="tabPrefab"/> 母版上的 `T`（原版 `GetComponentFastPath(typeof(T))`）；
+        /// ② `Instantiate(母版, Components.TabHolder)`；
+        /// ③ `SetActive(true)` → `name = tabName` → `tabs.Add(inst)`；
+        /// ④ `CreateTabButton(inst, tabName)`（原版还有 `icon`；我们的 `TabButtons.AddTabButton` 只有名字这一半 —— 差异⑤）；
+        /// ⑤ 闸开 ⇒ `inst.Setup(this)`；
+        /// ⑥ 返回 `(tab, button)`（原版是 `(T, EverguildToggle)` 元组）。
+        /// <para>⛔ 每一处取不到都**出声**（红线：不许静默失败）；原版同格是 NRE。</para>
+        /// <para>⚠️ `icon` 今天**没有去路**（`TabButtons.AddTabButton` 不吃图标）—— 留着形参是为了与原版签名同形，⛔ 别删。</para></summary>
+        public (T tab, WindowButton button) CreateTab<T>(string tabName, Sprite icon = null, T tabPrefab = null)
+            where T : WindowTabBase
+        {
+            if (tabPrefab == null)
+            {
+                if (this.tabPrefab == null)
+                {
+                    Debug.LogWarning("[Tabs] `CreateTab<" + typeof(T).Name + ">(" + (tabName ?? "?") + ")`："
+                                   + "既没传母版、本窗也没有 `tabPrefab`（原版这一格走 `Components.TabPrefab`，取不到即 NRE）⇒ 不建");
+                    return (null, null);
+                }
+                tabPrefab = this.tabPrefab.GetComponent<T>();
+                if (tabPrefab == null)
+                {
+                    Debug.LogWarning("[Tabs] `CreateTab<" + typeof(T).Name + ">`：母版 `" + this.tabPrefab.name
+                                   + "` 上没有 `" + typeof(T).Name + "` 组件（原版 `GetComponentFastPath` 之后直接 NRE）⇒ 不建");
+                    return (null, null);
+                }
+            }
+            var parent = tabHolder != null ? tabHolder : transform;   // 原版 `Components.TabHolder`
+            var inst = Instantiate(tabPrefab, parent);                // 原版 `Object.Instantiate<T>(prefab, tabHolder)`
+            inst.gameObject.SetActive(true);                          // 原版 `SetActive(true)`
+            inst.name = tabName;                                      // 原版 `set_name(inst, tabName)`
+            tabs.Add(inst);                                           // 原版 `List<WindowTabBase>.Add`
+            var button = CreateTabButton(inst, tabName);              // 原版 `CreateTabButton(this, inst, tabName, icon)`
+            if (setupTabOnCreate) inst.Setup(this);                   // 原版 `if (+0x88) inst.<vtable+0x188>(this)`
+            return (inst, button);
+        }
     }
 }

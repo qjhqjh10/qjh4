@@ -1277,3 +1277,27 @@ namespace CardPresentation
         }
     }
 }
+
+// ============================================================ `ILiveOps` 的两个缺声明补齐（B92·N1 · 2026-10-28）
+// 判据 = `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/ILiveOps.cs` 的**声明序**（逐行现读）：
+//   `Type SaveType`(7) / `Type DataType`(9) / **`int Priority`(11)** / `bool IsSegmented`(13) /
+//   `LiveOpState EventState`(15) / `ILiveOpsHandler Handler`(17) / **`bool ShowInMainMenu`(19)** / …
+// 我们原来把这两格只放在 `LiveOpsEvent` **类**上（`:379` / `:385`），接口里没有 ⇒
+// 任何「按接口取优先级 / 问该不该上主菜单」的代码只能 downcast 或拿 `GetEventPriorityForMainMenu()` 顶替
+// （账 217/218 的排序键就是这么绕的；菜单容器 C1-W4 接线时会被迫 cast）。
+// 🔴 补这一条**零行为变化、零改调用点**：类上那两个成员早就是 `public`，接口声明自动被满足。
+// 🔴 追加在文件末尾（⛔ 不插进上面任何类体）—— 账按 `文件:行号` 引用，插中间会让下游落点整体漂移。
+namespace CardPresentation
+{
+    public partial interface ILiveOps
+    {
+        /// <summary>原版 `ILiveOps.Priority`（`ILiveOps.cs:11`，声明序第 3）：`int Priority { get; }`。
+        /// 实现判据 = `LiveOpsEvent.cs:385`（`GetBaseData().priority`）—— 与 `GetEventPriorityForMainMenu()`
+        /// **同一格**（原版就有这两个入口，⛔ 别让它们读不同的字段）。</summary>
+        int Priority { get; }
+        /// <summary>原版 `ILiveOps.ShowInMainMenu`（`ILiveOps.cs:19`，声明序第 7）：`bool ShowInMainMenu { get; }`。
+        /// 实现判据 = `LiveOpsEvent.cs:379`（`GetBaseData().showInMainMenu`）；`PlayEvent&lt;TSave,TData&gt;`
+        /// 还多一道 `EventState == Active` 闸（`PlayEvent.cs:420`，原版 `PlayEvent.cs:260`）。</summary>
+        bool ShowInMainMenu { get; }
+    }
+}

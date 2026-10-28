@@ -1047,8 +1047,19 @@ namespace CardPresentation
         /// 缺失的那个**出声**而不是假装做完。</para></summary>
         protected override void BeforeRefresh()
         {
-            LiveOpsParentEventRefresh.Run(events);
+            LiveOpsParentEventRefresh.Run(BeforeRefreshEvents);
         }
+
+        /// <summary>原版 `BeforeRefresh` 读的是 **`this.events`** —— 而原版那个 handler 是
+        /// `LiveOpsHandler&lt;ParentEventData&gt;`，**只装 Parent 族事件**。
+        /// 🔶 自己设计（非原版）：我们是**合并 handler**（`LiveOpsLocalHandler` 一把抓 4 个 kind，
+        /// 见 `Shell/LiveOpsHandler.cs:942`），`events` 里混着 Scoring / PremiumItemOffer / FastMode
+        /// ⇒ 直接喂 `events` 会让谓词 `All(e =&gt; e.EventState != Active)` 被**别的族**的在期事件挡住
+        /// （原版不会被挡）。所以留这一个取口：**默认 = 全部 `events`（= 原版形状）**，
+        /// 合并 handler 覆盖它把范围收窄到 Parent 族。
+        /// 为什么必须自己定：原版「一个 handler 一个事件族」的结构在我们的合并实现里不存在。
+        /// 谁定的 + 日期：调度台 B92 2026-10-28。</summary>
+        protected virtual IEnumerable<ILiveOps> BeforeRefreshEvents { get { return events; } }
     }
 
     /// <summary>`ParentEventHandler.BeforeRefresh` 的主体 + 三个钩子（原版直接摸 `NavigationPanelController`）。

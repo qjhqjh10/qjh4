@@ -2405,4 +2405,44 @@ namespace RuleEngine
             return null;
         }
     }
+
+    // ==========================================================================================
+    //  🆕 2026-10-28（B92 波 4 · 执行代理 `B7`）：**bot 对手名字的接入格**
+    //  为什么追加在文件末：`BattleContext.cs` 有 40+ 处账落点按【行号】引用（含 `MatchTypes` 那一整片）
+    //  ⇒ 类体里插成员会让它们整体漂移；`partial` 追加在**全部落点之后** = 零漂移（先例 = B89/E6d 那块）。
+    //  判据 → `资料/完全复刻/判据/B92_战斗判据_B7.md` §3·7（`MatchData.SetBotOpponent`）；报告 → `报告/B92_B7b.md`
+    // ==========================================================================================
+    public partial class BattleContext
+    {
+        /// <summary>本局**电脑对手**的名字（原版写进对手那副牌的 `DeckAndWarlordData.deckName(+0x10)`）。
+        /// <para>🔴 **判据（2026-10-28 现读）**：`decomp_full/MatchData__SetBotOpponent.c:88-101` —— 当
+        /// `FeatureConfig.ShouldDisableNewMatchMaking()` 为假、且 matchType 不在那张白名单里时，
+        /// 名字 = `NameGenerator.GenerateName(4, UnityEngine.Random.Range(0,10) + 4)`（4 个词、语料下标落在 [4,14)），
+        /// 写进 `*(对手 DeckAndWarlordData + 0x10)`。</para>
+        /// <para>⚠️ **原版那一跳用的是 `UnityEngine.Random`**（不是 `ctx.GetRandomInt`）⇒ bot 名字**本来就不参与
+        /// 可复现性**、也不进 `NetProtocol.Fingerprint` / `StateHash`。所以引擎侧**不生成名字、不烧随机**，
+        /// 只留这一格给表现层填：⛔ 别在 `RuleEngine/` 里引 `UnityEngine.Random`（污染可复现纪律），
+        /// 也⛔ 别拿 `ctx.AiRng` / `ctx.GetRandomInt` 去抽它（会**推进**引擎随机流、改残局指纹）。</para>
+        /// <para>`null` = 还没填。单机局表现层现在走的兜底见 `BattleDriver.AlliancePanelName` 的 doc
+        /// （「我们**没有 bot 的名字数据源** ⇒ 取玩家看到的那一串、⛔ 不编造」—— 本格就是那个缺的数据源）。</para></summary>
+        public string BotOpponentName;
+
+        /// <summary>把 bot 对手名字一次写进两处（`BotOpponentName` + 该座位 `PlayerState.Name`）。
+        /// <para>为什么两处：原版那一格是**对手那副牌的名字**（`DeckAndWarlordData.deckName`），而我们的等价载体是
+        /// `PlayerState.Name`（`RuleCore.BuildPlayer` 用**卡组名**填它，现读 `RuleCore.cs:609`）。⇒ 表现层拿到名字后
+        /// 调本方法，对手名牌 / 联盟面板 / HUD 三处就同源。</para>
+        /// <para>接线配方（B3 的 `BattleDriver`，一行）：`ctx.ApplyBotOpponentName(
+        /// NameGenerator.GenerateName(4, UnityEngine.Random.Range(0, 10) + 4));` —— `NameGenerator` 在
+        /// `CardPresentation/Shell/NameGenerator.cs`（已存在；⛔ 本路没碰它）。`BotSeat &lt; 0`（这局没有电脑）
+        /// ⇒ 只记 <see cref="BotOpponentName"/>、不碰座位名。</para></summary>
+        public void ApplyBotOpponentName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return;      // 空串 = 不写（原版那一跳不会写空名）
+            BotOpponentName = name;
+            int b = BotSeat;
+            if (b < 0 || b > 1) return;
+            var p = Players[b];
+            if (p != null) p.Name = name;
+        }
+    }
 }

@@ -173,13 +173,13 @@ namespace CardPresentation
     public static class LiveOpsConditionBindings
     {
         /// <summary>原版 `SegmentationController.CheckTag(PlayerTag)`。参数 = `PlayerTag` 的 int 值
-        /// （⛔ 本地没有 `PlayerTag` 枚举类，只有注释里那几条取值，别在这里编一个）。</summary>
-        public static Func<int, bool> CheckTag;
-        /// <summary>原版 `SegmentationController.GetRawAttribute(PlayerTag)`（`AttributeCondition` 用）。</summary>
-        public static Func<int, string> GetRawAttribute;
-        /// <summary>原版 `Evaluation.Check(string raw, Evaluation.Operation op, string value)`。
-        /// 参数 = (原值, 运算的 int 值, 目标值)。</summary>
-        public static Func<string, int, string, bool> EvaluationCheck;
+        /// （⛔ 本地没有 `PlayerTag` 枚举类，只有注释里那几条取值，别在这里编一个）。🆕 2026-10-28（B92·N1）：**默认接本地口**（改前裸 null ⇒ `TagCondition` 恒 `Missing→false`）。</summary>
+        public static Func<int, bool> CheckTag = SegmentationControllerLocal.CheckTagPort;
+        /// <summary>原版 `SegmentationController.GetRawAttribute(PlayerTag)`（`AttributeCondition` 用）。🆕 2026-10-28（B92·N1）：**默认接本地口**。</summary>
+        public static Func<int, string> GetRawAttribute = SegmentationControllerLocal.GetRawAttributePort;
+        /// <summary>原版 `Evaluation.Check(object x, object y, Operation operation)` —— **实参序就是 (x, y, operation)**（判据 = `AttributeCondition__Validate.c:56`：`Evaluation__Check(rawAttribute, option.Value(+0x18), (Operation)option.Operation(+0x14))`）。
+        /// 🆕 2026-10-28（B92·N1）：签名从「(raw, op, value)」**就地订正为原版序**「(x, y, operation)」，并**默认接本地口**（改前裸 null ⇒ `AttributeCondition` 恒 `Missing→false`）。</summary>
+        public static Func<string, string, int, bool> EvaluationCheck = EvaluationLocal.Check;
         /// <summary>原版 `PlayerDataManager.singletonManager.CurrentLevel`。🆕 2026-10-28（B90·N3）：**默认接本地口**（改前裸 null + 全仓 0 处赋值 ⇒ 恒 `Missing→false`）。</summary>
         public static Func<int> PlayerLevel = LiveOpsConditionBindingsLocal.PlayerLevel;
         /// <summary>原版 `InventoryManager.HasItem(item)` —— 按**物品 id** 查（类型无关的等价物；
@@ -298,19 +298,31 @@ namespace CardPresentation
                     // 一条都判不了 ⇒ 整条条件 fail-closed（原版这里 NRE，我们出声 + false）
                     return LiveOpsConditionBindings.Missing("CheckTag", false);
                 }
+                // 🔴 判据 = `decomp_full/Everguild.LiveOps.TagCondition__Validate.c:64-65`：
+                //   循环条件 = `while (CheckTag(tag) == (requirement == include))` ⇒ 不等就**跳出并返回 0**。
                 bool on = LiveOpsConditionBindings.CheckTag(o.tag);
                 bool want = o.requirement == TagRequirements.include;
-                if (on != want) return false;
+                if (on != want)
+                {
+                    // 原版在 `liveOps != null` 时**先打一条日志再返回 false**（`.c:66-78`，
+                    // 文案 = `$"{(liveOps 侧的某个名字)} failed tag validation {tag} - {requirement}"`）。
+                    // ⚠️ 差异：我们把 `{tag}` 印成 **int**（本地没有 `PlayerTag` 枚举类），`{requirement}` 印成枚举名。
+                    Debug.Log((liveOps != null ? liveOps.GetID() : "<null>")
+                            + " failed tag validation " + o.tag + " - " + o.requirement);
+                    return false;
+                }
             }
             return true;
         }
     }
 
     /// <summary>原版 `AttributeCondition`（`AttributeCondition.cs`）：每个 option 里
-    /// `if (!Evaluation.Check(SegmentationController.GetRawAttribute(option.Tag), option.Operation, option.Value)) return false;`
-    /// ⇒ **全部 option 都要为真**（⚠️ `AttributeCondition.cs` 的方法体被混淆只剩间接调用，
-    /// 「`Evaluation.Check` 的三实参顺序」按 ILSpy 里能读到的 `rawAttribute / operation / value` 三处装载推定；
-    /// 结论方向（全真才过）与 `TagCondition` 同形，可信）。</summary>
+    /// `if (!Evaluation.Check(GetRawAttribute(option.Tag), option.Value, option.Operation)) return false;`
+    /// ⇒ **全部 option 都要为真**。
+    /// 🔴 2026-10-28（B92·N1）**推定已作废**：`decomp_full/Everguild.LiveOps.AttributeCondition__Validate.c` 是
+    /// **可读真体**（61 行），逐实参对过 —— `.c:55` `GetRawAttribute(this+0x10 的 option 表项 + 0x10)`、
+    /// `.c:56` `Evaluation.Check(raw, option+0x18(=Value), (Operation)option+0x14)`；循环条件是
+    /// `while (check != 0)`（有一条不成立就返回 0）；**失败支不打日志**（与 `TagCondition` 不同，⛔ 别给它加）。</summary>
     public sealed class AttributeCondition : EventCondition
     {
         /// <summary>原版嵌套类 `AttributeCondition.AttributeOption`。</summary>
@@ -337,7 +349,9 @@ namespace CardPresentation
                 if (LiveOpsConditionBindings.GetRawAttribute == null || LiveOpsConditionBindings.EvaluationCheck == null)
                     return LiveOpsConditionBindings.Missing("GetRawAttribute/EvaluationCheck", false);
                 string raw = LiveOpsConditionBindings.GetRawAttribute(o.tag);
-                if (!LiveOpsConditionBindings.EvaluationCheck(raw, o.operation, o.value)) return false;
+                // 🔴 实参序 = 原版 `Evaluation.Check(rawAttribute, option.Value, (Operation)option.Operation)`
+                // （判据 = `decomp_full/Everguild.LiveOps.AttributeCondition__Validate.c:56`，逐实参对过）。
+                if (!LiveOpsConditionBindings.EvaluationCheck(raw, o.value, o.operation)) return false;
             }
             return true;
         }
@@ -353,8 +367,12 @@ namespace CardPresentation
 //   做法：不新开注入总线（本批白名单里没有启动点），把默认实现直接挂在字段初始化上
 //      （`LiveOpsConditionBindings.PlayerLevel = LiveOpsConditionBindingsLocal.PlayerLevel` …）——
 //      仍然是**可注入**的（谁都可以再赋一个覆盖），但「什么都不做」时**已经是接上的**。
-//   ⚠️ 另外三个口（`CheckTag` / `GetRawAttribute` / `EvaluationCheck`）**故意不接**：本机没有
-//      `SegmentationController` / `Evaluation` 的等价物（判据 → `报告/B88_J3_活动线判据.md` §2·3）⇒ 保持 fail-closed + 出声。
+//   ⚠️ ~~另外三个口（`CheckTag` / `GetRawAttribute` / `EvaluationCheck`）**故意不接**~~ ——
+//      🔴 **2026-10-28（B92·N1）改口径：已接**（见文件尾 `SegmentationControllerLocal` / `EvaluationLocal`）。
+//      依据：`SegmentationController` / `Evaluation` 原版**真身都在**（`decomp_full/SegmentationController__*.c` +
+//      `Evaluation__Check.c` 123 行可读），所以不再是「判据拿不到」，而是「**数据在远端**」
+//      （`SegmentationController.Unpack(GetPlayerCombinedInfoResultPayload)` = PlayFab 玩家数据）
+//      ⇒ 按铁律 18·0「只有服务器相关的才允许自己设计」给了本地模拟。
 namespace CardPresentation
 {
     /// <summary>三个「本地有数据源」的条件输入口的默认实现。判据与差异逐条写在每个成员上。</summary>
@@ -431,6 +449,204 @@ namespace CardPresentation
                 case LiveOpState.Finished: return "Event_Description/General/TimeFinished";
                 default: return "";        // Planned / Expired / NotAvailable 都不显示前缀（原版同一句）
             }
+        }
+    }
+}
+
+// ============================================================ 🆕 2026-10-28（B92 · N1，追加在文件尾）
+//   把 `LiveOpsConditionBindings` 最后三个口（`CheckTag` / `GetRawAttribute` / `EvaluationCheck`）接过本地数据源。
+//
+//   判据（**原版真身，全部现读，不是推定**）：
+//     · `decomp_full/SegmentationController__CheckTag.c`（19 行）
+//         ⇒ `return segmentation.tags(+0x10).Contains(tag)` —— 数据是**玩家 tag 集合**。
+//     · `decomp_full/SegmentationController__GetRawAttribute.c`（50 行）
+//         ⇒ 查 `segmentation.attributes(+0x18)` 那个字典；**取不到 ⇒ `Debug.LogError` + 返回 `string.Empty`**（照抄）。
+//     · `decomp_full/SegmentationController__Unpack.c` 一族 / ILSpy `SegmentationController.cs`
+//         ⇒ 数据源 = `Unpack(GetPlayerCombinedInfoResultPayload userInfo)`（**PlayFab 玩家数据**）
+//           + `AddLocalAttributes(userInfo)`（tag 1 `ValueSpent` / 2 `DaysSinceLastLogin` / 9 `PlayerAgeInDays` /
+//           10 `MatchesWon` —— 四格的输入**全部**来自 `userInfo` 的服务器字段）。
+//     · `decomp_full/Evaluation__Check.c`（123 行，真体）—— 见 `EvaluationLocal.Check` 的逐 case 注记。
+//
+//   🔶 自己设计（非原版）：本地 `SegmentationController` 的**数据填充**。为什么必须自己定：
+//      原版那两格（tags / attributes）唯一的**生产者**是 PlayFab 返回值（`Unpack` 的形参），**服务器已关服**
+//      ⇒ 判据在远端、本地永远拿不到（铁律 18·0 允许自设计的唯一门类）。**机制**（contains / lookup / 缺格返回空串）
+//      照抄原版，**数据**只能本地模拟。
+//      谁定的 + 日期：调度台 B92 2026-10-28。
+//   ⚠️ 今天本地**只注册得出一个 tag**：`CollectedFirstDeck(0)`（教程线 E01 `SelectArmy` 完成位 ——
+//      判据与 `MenuTutorialManager.ShouldGetInitialDeck()` 用的是**同一条**，⛔ 别另开一份存档）。
+//      其余 tag / 四个 attribute 的输入都是服务器字段 ⇒ **不注册**（= 原版「PlayFab 里没有这个 tag」时的同一结果）。
+namespace CardPresentation
+{
+    /// <summary>原版 `SegmentationController`（`SingletonBehaviour&lt;SegmentationController&gt;`）的本地等价物。
+    /// <para>🔴 只有**机制**照抄原版：「tag 集合 + 属性表」，`CheckTag` = 集合包含、`GetRawAttribute` = 查表
+    /// （缺格 ⇒ 出声 + `string.Empty`）。**数据填充是本地模拟**（见文件尾大注释的 🔶）。</para>
+    /// <para>⚠️ 原版 `tags` / `attributes` 的键是 `PlayerTag` 枚举；本地**没有那个枚举类**（全仓 0 个）
+    /// ⇒ 一律用 `int`（枚举值逐值来自 `cpp2il/out_cpp2il_dev_ilspy/PlayerTag.cs`：
+    /// `CollectedFirstDeck=0 · ValueSpent=1 · DaysSinceLastLogin=2 · Spender=3 · Mobile=4 · IOSDevice=5 ·
+    /// AndroidDevice=6 · playfab=7 · steam=8 · PlayerAgeInDays=9 · MatchesWon=10 · CompletedDailyLogin=11 ·
+    /// FinishedFTUETutorial=20 · FinishedOnboarding=50 · ConvertedSkirmishDeck=55 · mobile=99`）。</para></summary>
+    public static class SegmentationControllerLocal
+    {
+        /// <summary>原版 `PlayerTag.CollectedFirstDeck = 0`（`PlayerTag.cs:3`）。</summary>
+        public const int TagCollectedFirstDeck = 0;
+        /// <summary>原版 `PlayerTag.ValueSpent = 1`。</summary>
+        public const int TagValueSpent = 1;
+        /// <summary>原版 `PlayerTag.DaysSinceLastLogin = 2`。</summary>
+        public const int TagDaysSinceLastLogin = 2;
+        /// <summary>原版 `PlayerTag.PlayerAgeInDays = 9`。</summary>
+        public const int TagPlayerAgeInDays = 9;
+        /// <summary>原版 `PlayerTag.MatchesWon = 10`。</summary>
+        public const int TagMatchesWon = 10;
+
+        static readonly System.Collections.Generic.HashSet<int> _tags = new System.Collections.Generic.HashSet<int>();
+        static readonly System.Collections.Generic.Dictionary<int, string> _attributes =
+            new System.Collections.Generic.Dictionary<int, string>();
+
+        /// <summary>原版 `SegmentationController.CheckTag(PlayerTag)`：`tags.Contains(tag)`（`.c` 逐句对过）。
+        /// ⚠️ 原版 `segmentation == null` ⇒ NRE；本地没有「还没 Unpack」这一档（集合恒存在，空集合 = 没标签）。</summary>
+        public static bool CheckTag(int tag) { return _tags.Contains(tag); }
+
+        /// <summary>原版 `SegmentationController.GetRawAttribute(PlayerTag)`（`.c` 逐句对过）：
+        /// 查属性字典；**取不到 ⇒ `Debug.LogError` 后返回 `string.Empty`** —— 照抄（⛔ 别改成 null）。
+        /// ⚠️ 差异：原版返回 `object`（数字也原样返回），本地只有 `string` 这一个载体
+        /// ⇒ 「原版返回 boxed int / 我们返回它的十进制串」在 `Evaluation.Check` 里等价（那边一律 `TryParse`）。</summary>
+        public static string GetRawAttribute(int tag)
+        {
+            string v;
+            if (_attributes.TryGetValue(tag, out v)) return v;
+            Debug.LogError("[Segmentation] GetRawAttribute：没有 tag " + tag + " 的属性"
+                         + "（原版 `SegmentationController__GetRawAttribute.c:23-32`：字典取不到 ⇒ LogError + 返回空串）");
+            return string.Empty;
+        }
+
+        /// <summary>原版 `SegmentationController.AddTag(PlayerTag)`：加进 tag 集合。
+        /// ⚠️ 原版第二参（`AddTag` 的 `.c` 里那个 int）我们没有对应语义，只留 tag 一个参数。</summary>
+        public static void AddTag(int tag) { _tags.Add(tag); }
+
+        /// <summary>原版 `SegmentationController.RemoveTag(PlayerTag)`。</summary>
+        public static void RemoveTag(int tag) { _tags.Remove(tag); }
+
+        /// <summary>原版 `SegmentationController.SetAttribute(PlayerTag, object)`。</summary>
+        public static void SetAttribute(int tag, string value)
+        {
+            if (value == null) { _attributes.Remove(tag); return; }
+            _attributes[tag] = value;
+        }
+
+        /// <summary>原版 `SegmentationController.IncreaseAttribute`：数值累加（`int.TryParse` 不计入 ⇒ 出声）。</summary>
+        public static void IncreaseAttribute(int tag, int delta)
+        {
+            string cur;
+            int v = 0;
+            if (!_attributes.TryGetValue(tag, out cur) || !int.TryParse(cur, out v)) v = 0;
+            _attributes[tag] = (v + delta).ToString();
+        }
+
+        /// <summary>本地能推出来的那些 tag / attribute（见文件尾 🔶 那段的清单）。
+        /// 🔴 由 <see cref="CheckTag"/> / <see cref="GetRawAttribute"/> **首次调用时懒执行一次**
+        /// （原版同样是「登录时 `Unpack` 算一次」，不是每次查询重算）。改本地状态后要它跟着变就显式再调一次。</summary>
+        public static void AddLocalTags()
+        {
+            // 原版 `PlayerTag.CollectedFirstDeck`：唯一的本地等价物 = 教程线 E01 `SelectArmy` 完成位
+            // （`MenuTutorialManager.ShouldGetInitialDeck()` = `!SegmentationController.CheckTag(CollectedFirstDeck)`，
+            //  见 `Shell/MenuTutorialManager.cs:317-336` —— 两处**必须同源**，⛔ 别另开一份存档）。
+            if (!MenuTutorialManager.ShouldGetInitialDeck()) AddTag(TagCollectedFirstDeck);
+            else RemoveTag(TagCollectedFirstDeck);
+        }
+
+        /// <summary>自检口：清空（并把「懒执行」标记复位）。</summary>
+        public static void ResetForTest()
+        {
+            _tags.Clear(); _attributes.Clear(); _localApplied = false;
+        }
+
+        static bool _localApplied;
+
+        /// <summary>懒执行 `AddLocalTags()`（只跑一次）。</summary>
+        internal static void EnsureLocal()
+        {
+            if (_localApplied) return;
+            _localApplied = true;
+            AddLocalTags();
+        }
+
+        /// <summary>`LiveOpsConditionBindings.CheckTag` 的默认实现（外面套一层懒执行）。</summary>
+        public static bool CheckTagPort(int tag) { EnsureLocal(); return CheckTag(tag); }
+
+        /// <summary>`LiveOpsConditionBindings.GetRawAttribute` 的默认实现（外面套一层懒执行）。</summary>
+        public static string GetRawAttributePort(int tag) { EnsureLocal(); return GetRawAttribute(tag); }
+    }
+
+    /// <summary>原版 `Evaluation.Check(object x, object y, Operation operation)` 的等价实现。
+    /// <para>判据 = `decomp_full/Evaluation__Check.c`（**123 行真体**，逐 case 对过）＋
+    /// ILSpy `Evaluation.cs` 的 `Operation` 枚举（`LessThan=0 · LessThanEqualTo=1 · Equals=2 · NotEquals=3 ·
+    /// GreaterThan=4 · GreaterThanEqualTo=5 · Contains=6 · DontContain=7`）。</para>
+    /// <para>🔴 **三处反直觉，全部照抄**：
+    ///  ① `Equals`/`NotEquals` 判的是 **引用相等**（`.c:55` `bVar9 = param_1 == param_2`）—— 两个内容相同的
+    ///    不同字符串对象在原版里判 **false**。⛔ 别「修好」成 `string.Equals`。
+    ///  ② 只有 0/1/4/5 比数值，且**两侧都 `float.TryParse`**（`Single.TryParse`，当前区域性）；
+    ///    任一侧解析失败 ⇒ `CustomDebug.LogError("Cannot evaluate objects of type {0} and {1}")` + **false**（`.c:98-103`）。
+    ///  ③ `Contains`/`DontContain` 走 `string.Contains`；区别只由最后那句 `return has ^ (op != 6)` 决定。</para></summary>
+    public static class EvaluationLocal
+    {
+        /// <summary>`Operation.LessThan`</summary>
+        public const int OpLessThan = 0;
+        /// <summary>`Operation.LessThanEqualTo`</summary>
+        public const int OpLessThanEqualTo = 1;
+        /// <summary>`Operation.Equals`</summary>
+        public const int OpEquals = 2;
+        /// <summary>`Operation.NotEquals`</summary>
+        public const int OpNotEquals = 3;
+        /// <summary>`Operation.GreaterThan`</summary>
+        public const int OpGreaterThan = 4;
+        /// <summary>`Operation.GreaterThanEqualTo`</summary>
+        public const int OpGreaterThanEqualTo = 5;
+        /// <summary>`Operation.Contains`</summary>
+        public const int OpContains = 6;
+        /// <summary>`Operation.DontContain`</summary>
+        public const int OpDontContain = 7;
+
+        /// <summary>原版 `Evaluation.Check(x, y, operation)`（`.c` 逐 case 对过）。
+        /// `x` / `y` 在原版是 `object`；本地载体统一是 `string`（见 `GetRawAttribute` 的差异注记）。</summary>
+        public static bool Check(string x, string y, int operation)
+        {
+            if (operation == OpContains || operation == OpDontContain)
+            {
+                // .c:25-52 —— 两个都非 null 才走；原版 null ⇒ 抛 NRE。
+                if (x == null || y == null)
+                {
+                    Debug.LogError("[Evaluation] Check：Contains/DontContain 的实参是 null（原版这一跳 NRE）⇒ false");
+                    return false;
+                }
+                bool has = x.Contains(y);
+                return has ^ (operation != OpContains);
+            }
+            if (operation == OpEquals || operation == OpNotEquals)
+            {
+                // .c:54-59 —— 🔴 **引用相等**，不是值相等（照抄，⛔ 别修）。
+                bool same = ReferenceEquals(x, y);
+                return same ^ (operation != OpEquals);
+            }
+            // .c:60-118 —— 数值档：两侧都 Single.TryParse，任一侧失败 ⇒ LogError + false。
+            float fx, fy;
+            bool okx = float.TryParse(x, out fx);
+            bool oky = float.TryParse(y, out fy);
+            if (!okx || !oky)
+            {
+                Debug.LogError("[Evaluation] Cannot evaluate objects of type "
+                             + (x == null ? "<null>" : "System.String") + " and "
+                             + (y == null ? "<null>" : "System.String")
+                             + "（原版 `Evaluation__Check.c:98-103`：TryParse 失败就 LogError + false）");
+                return false;
+            }
+            switch (operation)
+            {
+                case OpLessThan: return fx < fy;
+                case OpLessThanEqualTo: return fx <= fy;
+                case OpGreaterThan: return fy < fx;            // .c:110-111 —— 注意是 y < x
+                case OpGreaterThanEqualTo: return fy <= fx;    // .c:112-113 —— 注意是 y <= x
+            }
+            return false;                                       // 未知 operation ⇒ 原版也走 `return false`（.c:116）
         }
     }
 }

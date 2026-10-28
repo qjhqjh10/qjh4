@@ -448,8 +448,8 @@ namespace CardPresentation
             if (newEvent == null) { Debug.LogError("[LiveOps] ShowTriggerEventPopup(null)"); return; }
             string id = newEvent.GetID();
             if (!handlerActions.ContainsKey(id)) return;
+            Debug.Log("[LiveOps][" + HandlerKey + "] 触发弹窗：" + id);   // 🔴 原版次序：ContainsKey → **Log** → Remove（`.c` 逐句）
             handlerActions.Remove(id);
-            Debug.Log("[LiveOps][" + HandlerKey + "] 触发弹窗：" + id);
             if (options != null)
             {
                 var window = LiveOpsPopupPresenter.Open == null ? null : LiveOpsPopupPresenter.Open(newEvent, options);
@@ -939,7 +939,7 @@ namespace CardPresentation
     /// <para>🔴 **「当前活动」的选择逻辑就住在这里**（`SelectInTable` 是唯一实现）—— 这是
     /// `判据/日常与活动.md` §四 第 3 步「把选择逻辑从 catalog 挪进 handler」的落地：
     /// `LiveOpsLocalCatalog.TryPickEventIn` 现在**只做转发**，⛔ 不再有第二份挑选规则。</para></summary>
-    public sealed class LiveOpsLocalHandler : LiveOpsHandler
+    public sealed partial class LiveOpsLocalHandler : ParentEventHandler
     {
         /// <summary>原版每个 handler 有自己的一把 key（`HandlerKey`）。本地目录只有一套 ⇒ `"local"`。</summary>
         public const string LocalHandlerKey = "local";
@@ -1650,5 +1650,39 @@ namespace CardPresentation
 
         /// <summary>自检收尾（⚠️ 只给断言用）。</summary>
         public static void ResetForTest() { Paused = false; PausedFor = null; }
+    }
+}
+
+// ============================================================ 🆕 2026-10-28（B92·N1 · 账 row 25 的第二半）
+//   `LiveOpsLocalHandler` 现在**继承 `ParentEventHandler`**（`Shell/LiveOpsHandler.cs:942`）⇒
+//   原版 `ParentEventHandler.BeforeRefresh()` 终于有了生产宿主（旧缺口「没人继承 ⇒ 只在自检里跑到」由此关闭）。
+//   生产触发点：`LiveOpsEvent.ToggleEventActivation(forceReload:true)`（`LiveOpsEvent.cs:514`）
+//     → `Handler.RefreshHandlerLocally()` → `HandleBeforeRefresh()` → `BeforeRefresh()`。
+//   🔴 但原版那个 handler 是 `LiveOpsHandler<ParentEventData>`，**只装 Parent 族事件**；我们是**合并 handler**
+//     （一把抓 Parent / Scoring / PremiumItemOffer / FastMode 四个 kind）⇒ 必须把谓词范围收窄到 Parent 族，
+//     否则「别的族有在期事件」会把 `All(e => e.EventState != Active)` 挡掉（原版不会被挡）。
+//   ⛔ 追加在**文件末尾**（partial 的第二个声明）—— 本文件有多条账按 `文件:行号` 钉着（429/446/469/487/553/629/965…），
+//     插进类体里会让下游落点整体漂移（实测 +19 行 ⇒ 9 条漂移）。
+namespace CardPresentation
+{
+    public sealed partial class LiveOpsLocalHandler
+    {
+        /// <summary>原版 `BeforeRefresh` 读的是 `this.events`，而那个 handler 只装 Parent 族。
+        /// 🔶 自己设计（非原版）：**合并 handler 的取口收窄** —— 原版「一个事件族一个 handler」的结构在我们这里不存在。
+        /// 谁定的 + 日期：调度台 B92 2026-10-28。</summary>
+        protected override IEnumerable<ILiveOps> BeforeRefreshEvents
+        {
+            get
+            {
+                var mine = new List<ILiveOps>();
+                for (int i = 0; i < events.Count; i++)
+                {
+                    var inst = events[i] as LocalLiveOpsEvent;
+                    if (inst == null || inst.Local == null) continue;
+                    if (inst.Local.Kind == LiveOpsLocalKind.Parent) mine.Add(inst);
+                }
+                return mine;
+            }
+        }
     }
 }

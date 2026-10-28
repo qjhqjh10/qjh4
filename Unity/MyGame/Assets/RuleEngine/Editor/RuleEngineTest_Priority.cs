@@ -72,6 +72,7 @@ public static partial class RuleEngineTest
         W61T31PersistentQueuesUntilBoundary();
         // 🆕 2026-10-24（引擎线 `A12` 第 4 件）：`BroadcastHandTrapWhen`（**非单位卡**那一跳）
         W61T32HandTrapQueuesUntilBoundary();
+        W61T33CanPlayCardWaitingBlocking();
     }
 
     // ==================================================================
@@ -1132,5 +1133,83 @@ public static partial class RuleEngineTest
               "★ T32 边界之后：手牌陷阱结算完毕 ⇒ **任务点 +2**"
             + "｜🧨 `ActionScope.Dispose` 不泵队 ⇒ 本行实得 +0");
         Check(ctx.ActionQueue.Count, 0, "T32 边界之后：队列取空");
+    }
+
+    /// <summary>
+    /// **T33 · `CanPlayCard` 的两道「现在不能出牌」闸**（🆕 2026-10-28 `B92_B1d` 接线）——
+    /// 原版 **第 ① 段**（`BattleManager__CanPlayCard.c:35-60`：`initiateAction && actionQueue.Count > 0`
+    /// ⇒ 提示 `Battle/Tips/PleaseWait` 并返 false）与 **第 ④ 段**（`CanPlayCard.c:255`：
+    /// `WaitingForBlockingAction(showTips)` 为真 ⇒ 返 false）。
+    ///
+    /// 判据（`WaitingForBlockingAction.c:28/:42/:60/:84`）：`matchType == 0xa0(160 Replay)` ⇒ false；
+    /// 否则四条道里有没有 `actionType == 0x1b(27 transformUnit)`。
+    ///
+    /// 🔴 两条闸**互斥可分辨**：① 只看「队列非空 + `initiateAction`」，④ 只看「队列里有没有 27」。
+    /// 🧨 删掉 `CanPlayCard` 里 ① 那一行 ⇒ 第 2 条断言实得 OK。
+    /// 🧨 把 ① 的 `initiateAction &&` 去掉 ⇒ 第 3 条断言（查询式调用仍可打）实得 `ErrWaitingBlockingAction`。
+    /// 🧨 删掉 ④ 那一行 ⇒ 第 5 条断言实得 OK。
+    /// 🧨 把 `WaitingForBlockingAction` 的 `MatchType.Replay ⇒ false` 删掉 ⇒ 第 6 条断言红。
+    /// </summary>
+    static void W61T33CanPlayCardWaitingBlocking()
+    {
+        var troop = Unit("W61T33T", 1, 1, 5);
+        var ctx = Battle(new[] { troop }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        int hand = HandIdx(ctx, 0, "W61T33T");
+
+        // ① 空队列 ⇒ 两道闸都不拦
+        CheckTrue(!RuleCore.WaitingForBlockingAction(ctx),
+                  "🧪 T33 前提：空队列 ⇒ `WaitingForBlockingAction` = false");
+        CheckCode(RuleCore.CanPlayCard(ctx, 0, hand, 2, initiateAction: true), RuleCodes.OK,
+                  "★ T33 空队列 + `initiateAction:true` ⇒ **可打**"
+                + "｜🧨 把 ① 的 `Count > 0` 写成 `>= 0` ⇒ 本行实得 `ErrWaitingBlockingAction`");
+
+        using (RuleCore.BeginAction(ctx))        // ← 外层外壳：体内入队的东西不会被泵走
+        {
+            // ② 队列里有一条【非 27】的动作 ⇒ 只有 ① 生效（`initiateAction` 那一档）
+            CheckTrue(ctx.ActionQueue.Enqueue(
+                          new QueuedAction { Label = "T33-normal", ActionType = 1 }, ActionPriority.Instant),
+                      "🧪 T33 前提：非阻塞动作入队成功");
+            CheckTrue(!RuleCore.WaitingForBlockingAction(ctx),
+                      "🧪 T33 前提：`actionType == 1` **不算**阻塞（`WaitingForBlockingAction` 只认 27）");
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, hand, 2, initiateAction: true),
+                      RuleCodes.ErrWaitingBlockingAction,
+                      "★ T33 队列非空 + `initiateAction:true` ⇒ **不可出牌**（第 ① 段）"
+                    + "｜🧨 删掉 ① 那一行 ⇒ 本行实得 OK");
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, hand, 2), RuleCodes.OK,
+                      "★ T33 队列非空但**查询式调用**（`initiateAction` 缺省 `false`）⇒ 照样可打"
+                    + "（原版 AI / 查询侧就是这一档：`out_cpp2il_dev_ilspy/BattleManager.cs:43298`）"
+                    + "｜🧨 把 ① 的 `initiateAction &&` 去掉 ⇒ 本行实得 `ErrWaitingBlockingAction`");
+
+            // ③ 再入队一条 `transformUnit(27)` ⇒ 第 ④ 段生效（这一闸**不看** `initiateAction`）
+            CheckTrue(ctx.ActionQueue.Enqueue(
+                          new QueuedAction { Label = "T33-transform", ActionType = 27 }, ActionPriority.Instant),
+                      "🧪 T33 前提：阻塞动作（`ActionType = 27`）入队成功");
+            CheckTrue(RuleCore.WaitingForBlockingAction(ctx),
+                      "★ T33 `WaitingForBlockingAction` 认得出 `actionType == 27`"
+                    + "｜🧨 判据写成 `!= 27`、或扫的格子恒 0 ⇒ 本行红");
+            CheckCode(RuleCore.CanPlayCard(ctx, 0, hand, 2), RuleCodes.ErrWaitingBlockingAction,
+                      "★ T33 有 `transformUnit(27)` 在队列里 ⇒ **查询式调用也不可出牌**（第 ④ 段）"
+                    + "｜🧨 删掉 ④ 那一行 ⇒ 本行实得 OK");
+        }
+
+        // ④ 边界之后：队列被泵空 ⇒ 又能打
+        CheckTrue(!RuleCore.WaitingForBlockingAction(ctx), "T33 边界之后：队列已空");
+        CheckCode(RuleCore.CanPlayCard(ctx, 0, hand, 2, initiateAction: true), RuleCodes.OK,
+                  "★ T33 队列取空后又能打");
+
+        // ⑤ 原版那一档：回放局（`matchType == 0xa0 = 160`）⇒ 阻塞动作在也**不挡**
+        var replay = Battle(new[] { troop }, new CardDef[0]);
+        replay.Players[0].Energy = 99;
+        replay.PlayMode = GameMode.Replay;                       // ⇒ `MatchType.Replay(160)`
+        CheckTrue(replay.MatchType == MatchType.Replay, "🧪 T33 前提：本局 `MatchType == Replay(160)`");
+        using (RuleCore.BeginAction(replay))
+        {
+            replay.ActionQueue.Enqueue(new QueuedAction { Label = "T33-replay", ActionType = 27 },
+                                       ActionPriority.Instant);
+            CheckTrue(!RuleCore.WaitingForBlockingAction(replay),
+                      "★ T33 回放局 ⇒ `WaitingForBlockingAction` 恒 false（`.c:28` 的 `matchType == 0xa0` 短路）"
+                    + "｜🧨 删掉 `MatchType.Replay` 那一行 ⇒ 本行红");
+        }
     }
 }

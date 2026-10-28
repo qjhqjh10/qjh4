@@ -75,7 +75,7 @@ namespace RuleEngine
     /// 一局内的成就计数（见文件头）。**只有 `RuleCore` / `BattleContext` 往里写**，
     /// 读点只有结算那一个（`BattleDriver.AwardAchievements` → `ProfileData.ApplyAchievementTally`）。
     /// </summary>
-    public sealed class AchievementTally
+    public sealed partial class AchievementTally
     {
         /// <summary>`DamageKind` 的取值个数（含 `Unknown`；数组按它分块）。</summary>
         public const int KindCount = 9;
@@ -313,5 +313,112 @@ namespace RuleEngine
 
         /// <summary>某一方（作为被治疗方）累计吃到过多少实际治疗量。</summary>
         public int HealDoneOf(int seat) { return SeatOk(seat) ? HealDone[seat] : 0; }
+    }
+
+    // ================================================================================================
+    //  🆕 2026-10-28（B92 波 4 · 执行代理 `B7`）—— 两格「原版口径」的**加法**（追加在文件末 = 零行漂移）
+    //  判据 → `资料/完全复刻/判据/B92_战斗判据_B7.md` §3·5 / §3·8；报告 → `报告/B92_B7b.md`
+    //  🔴 本块**只加容器 + 取数口**、不接任何写点 ⇒ 今天的 `play` 输出与指纹**逐字节不变**。
+    //     两个写点都在 `RuleCore`（B1 的文件），逐条落点见各自 doc。
+    // ================================================================================================
+    public sealed partial class AchievementTally
+    {
+        // ------------------------------------------------------------------------------------------
+        //  ① 扣甲前的伤害（原版 `DamageDeltToEnemyUnit.OnDamageDelt` 数的就是这一份）
+        // ------------------------------------------------------------------------------------------
+        /// <summary>`[打出去那一方的座位 * <see cref="KindCount"/> + DamageKind]` —— **扣甲前**的伤害累计。
+        /// <para>🔴 **判据（2026-10-28 现读）**：原版 `DamageDeltToEnemyUnit__OnDamageDelt.c:81` 记的是
+        /// `DamageInfo.damageValue(+0x18)`，而护甲是在**被伤害方**的 `CardScript.ResolveDamageDealt` 里才减的
+        /// —— `val = damageInfo.damageValue - 护甲; num3 = Math.Max(1, val)`（`cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:14317`）；
+        /// 且 `BattleManager.BroadcastUnitDamaged` **不看** `damageAbsorbed` 就发 `LogDamage` 信号
+        /// （dev `BattleManager.cs:24516-24527`）⇒ 原版数的是「打到身上的名义伤害」，**含被护甲/盾/absorbed 吃掉的那部分**。</para>
+        /// <para>⚠️ 与 <see cref="DamageByKind"/> 的关系：那一格是**扣甲后**的 `actual`（现役口径），本格是原版口径
+        /// —— **二选一**，⛔ 别让同一个消费者同时读两格（会双计）。切换两步：
+        /// ① 写点 = `RuleCore.ApplyDamageCore`（现读 `RuleCore.cs:8946` 的 `AddDamage(1 - _own, kind, actual)`
+        /// ⇒ 改调本方法、传**扣甲前**那一份量 + **攻方**座位）；② 消费点 = `BattleDriver.AwardAchievements` 改读
+        /// <see cref="DamageRawOf"/>。⚠️ 原版还要求「absorbed 也计入」，而 `ApplyDamageCore` 在
+        /// 盾 / 闪避 / 无敌 / 空投舱那几支是**早退 `return 0`**（到不了记账口）⇒ ① 那一步要顺带把早退支改成「先记再退」。</para></summary>
+        public readonly int[] DamageByKindRaw = new int[2 * KindCount];
+
+        /// <summary>记一笔**扣甲前**的伤害（`dealerSeat` = **打出去的那一方**）。闸与 <see cref="AddDamage"/> 逐条相同
+        /// （座位不合法 / `amount &lt;= 0` / `Unknown` 一律不计）。</summary>
+        public void AddDamageRaw(int dealerSeat, DamageKind kind, int amount)
+        {
+            if (!SeatOk(dealerSeat) || amount <= 0) return;
+            int k = (int)kind;
+            if (k <= (int)DamageKind.Unknown || k >= KindCount) return;   // `Unknown` 不计（同 AddDamage）
+            DamageByKindRaw[dealerSeat * KindCount + k] += amount;
+        }
+
+        /// <summary>某一方某一类**扣甲前**的伤害累计（原版口径的取数口）。⚠️ 传**本地玩家座位**而不是写死 0
+        /// ≠ 原版那道 `signal.IsPlayer` 闸（`DamageDeltToEnemyUnit__OnDamageDelt.c:39-41`）—— 只在消费侧生效。</summary>
+        public int DamageRawOf(int seat, DamageKind kind)
+        {
+            if (!SeatOk(seat)) return 0;
+            int k = (int)kind;
+            if (k < 0 || k >= KindCount) return 0;
+            return DamageByKindRaw[seat * KindCount + k];
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  ② 花掉的能量**按类型分格**（原版 `EnergySpentSignal.Type` 那一维）
+        // ------------------------------------------------------------------------------------------
+        /// <summary>原版 `EnergyCostType.CardCost = 1`：**打出卡**付的那一份（`BattleManager__PayCardCost.c:34-38`）。</summary>
+        public const int EnergyCostCard = 1;
+
+        /// <summary>原版 `EnergyCostType.AbilityCost = 2`：**主动能力**付的那一份（`BattleManager__PayActiveAbilityCostOath.c:35`）。</summary>
+        public const int EnergyCostAbility = 2;
+
+        /// <summary>`[座位 * 2 + 槽位]` —— 花掉的能量；槽位 0 = <see cref="EnergyCostCard"/>、1 = <see cref="EnergyCostAbility"/>。
+        /// <para>🔴 **判据（2026-10-28 现读）**：`EnergySpentSignal` 四格 = `IsPlayer(+0x10) / Card(+0x18) /
+        /// Cost(+0x20) / Type(+0x24)`（`dump.cs:59332-59335`）；两个发起源分别传 **CardCost(1)**
+        /// （`BattleManager__PayCardCost.c:34-38`）与 **AbilityCost(2)**（`BattleManager__PayActiveAbilityCostOath.c:35`）；
+        /// 消费者 `EnergySpent.OnEnergySpent`（`EnergySpent__OnEnergySpent.c:14-40`）三道闸 =
+        /// `signal.IsPlayer` ∧ `costCondition.Compare(Cost)` ∧ `costType(+0x60) 含 signal.Type(+0x24)` ⇒ `UpdateProgress(Cost)`。
+        /// ⇒ 「花掉 N 点能量」类挑战**必须能按类型筛**，而我们原来只有「按座位累计一个总数」。</para>
+        /// <para>⚠️ 写点在 B1 的文件里：`RuleCore.SpendNormalMana`（现读 `RuleCore.cs:13040`；出牌调用点 `:3930`、
+        /// 主动能力 `:15396`；维护费 `:1826` 传 `energySpentSignal: false` —— 与原版两个发起源**都不含维护费**一致）。
+        /// 需给它加 `costType` 形参、两处分别传 Card / Ability，由它调本方法。</para>
+        /// <para>⚠️ 原版记 `EntityScript.get_CurrentCost(card)`（**付费之后重取**），`SpendNormalMana` 现在记实付 `paid`
+        /// —— 在「付完会改费用」的卡上会分叉，切换时一并核。</para></summary>
+        public readonly int[] EnergySpentByCostType = new int[2 * 2];
+
+        /// <summary>记一笔花掉的能量。`costType` 只接受 <see cref="EnergyCostCard"/> / <see cref="EnergyCostAbility"/>
+        /// （原版 `[Flags]` 枚举但信号只发单值 1 或 2）；其它值 ⇒ **不记 + 出声一次**（⛔ 并进别的格子更糟）。</summary>
+        public void AddEnergySpent(int seat, int amount, int costType)
+        {
+            if (!SeatOk(seat) || amount <= 0) return;
+            int slot;
+            if (costType == EnergyCostCard) slot = 0;
+            else if (costType == EnergyCostAbility) slot = 1;
+            else
+            {
+                if (!_energyCostTypeWarned)
+                {
+                    _energyCostTypeWarned = true;
+                    UnityEngine.Debug.LogWarning("[Tally] `AddEnergySpent` 收到未知 `costType = " + costType
+                        + "`（原版 `EnergyCostType` 只发 CardCost(1) / AbilityCost(2)）⇒ 这一次**没记**。");
+                }
+                return;
+            }
+            EnergySpentByCostType[seat * 2 + slot] += amount;
+        }
+        static bool _energyCostTypeWarned;
+
+        /// <summary>某一方在某一类上花掉多少能量（`costType` 同 <see cref="AddEnergySpent"/>）。
+        /// ⚠️ 传**本地玩家座位**（原版 `EnergySpent.OnEnergySpent` 第一道闸就是 `signal.IsPlayer`），⛔ 别写死 0。</summary>
+        public int EnergySpentOf(int seat, int costType)
+        {
+            if (!SeatOk(seat)) return 0;
+            int slot = costType == EnergyCostCard ? 0 : (costType == EnergyCostAbility ? 1 : -1);
+            return slot < 0 ? 0 : EnergySpentByCostType[seat * 2 + slot];
+        }
+
+        /// <summary>某一方**两类合计**花掉多少能量（= 原版「不筛类型」那档挑战读的数）。</summary>
+        public int EnergySpentTotalOf(int seat)
+        {
+            if (!SeatOk(seat)) return 0;
+            return EnergySpentByCostType[seat * 2] + EnergySpentByCostType[seat * 2 + 1];
+        }
     }
 }

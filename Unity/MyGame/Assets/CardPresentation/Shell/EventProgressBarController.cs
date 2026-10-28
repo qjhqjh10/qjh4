@@ -51,8 +51,8 @@ namespace CardPresentation
         /// （空判：`scoreText` 那半反汇编里**没有** Unity 空判、`iconHolder` 那半有 —— 我们两边都判，出声口径同全工程）。</summary>
         public void Toggle(bool option)
         {
-            if (ScoreText != null) ScoreText.enabled = option;
-            if (IconHolder != null) IconHolder.gameObject.SetActive(option);
+            if (ScoreText != null) ScoreText.enabled = option; else Debug.LogError("[EventProgressBar] ScoreObject.Toggle：scoreText 是 null（原版这一跳 NRE）");
+            if (IconHolder != null) IconHolder.gameObject.SetActive(option); else Debug.LogError("[EventProgressBar] ScoreObject.Toggle：iconHolder 是 null（原版这一跳 NRE）");
         }
 
         /// <summary>原版 `ScoreObject.Initialize(ScoringDataInfo, ObtainableItem, bool isLastMilestone)`

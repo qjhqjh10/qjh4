@@ -31,17 +31,17 @@
 //   （原版那一对分支：`String.Contains(desc, "{0}")`）。
 // · 描述串有两档（原版 `useExtraText` / `useLastMinutesText`）：
 //   ① 常档 = `prefix`（原版 `extraText` 或 `Initialize` 的 `timerDescription`；商店那条是空串）；
-//   ② 最后 5 分钟档 = `lastMinutesPrefix`（原版 `lastMinutesText`，阈值的常量 `DAT_1834b3380`
-//      **实读 = 5.0 分钟**）。只有 `useLastMinutesText = 1` 的实例才有这一档 —— 我们接的消费点里
+//   ② 最后 5 分钟档 = `lastMinutesPrefix`（原版 `lastMinutesText`，阈值的常量 `DAT_1834b3380` **实读 = 5.0 分钟**）。
+//      🔴 **2026-10-28（B92_N8）按 `.c` 订正**：原版把**时间那一格直接写成 `lastMinutesText` 译文本身**（不带数字）—— 我们原来当期前缀拼成「即将结束2分钟」，已改。只有 `useLastMinutesText = 1` 的实例才有这一档 —— 我们接的消费点里
 //      **商店**（`MonoBehaviour_-5363483528564307958`）与**单机能源活动窗**
 //      （`MonoBehaviour_666837755613493937`，键 `Event_Description/Generic/EndsSoon`）是 1；
 //      🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）**：这里原来写「能源窗那一档**暂未接**
 //      （该键正文不在官方本地化快照里）」—— **已过期**：当前官方表（10,854 条）里
 //      `Event_Description/Generic/EndsSoon` = en `Ends soon` / zh `即将结束`，且
 //      **能源窗与遭遇战窗两处都已接上** `lastMinutesPrefix`；其余为 0 或不使用。
-// · 到点（剩余 <= 0）：原版把 timer 那颗 TMP 的 GameObject `SetActive(false)` 并**只触发一次**
-//   `OnRunOutOfTime`。我们把**同一个 `Label` 的文本清空**（视觉等价；组件继续每秒 tick，
-//   目标滚到下一档时会自己把字写回来 —— 原版那条路把 GameObject 关了，Update 也就停了）。
+// · 到点（剩余 <= 0）：原版把 timer 那颗 TMP 的 GameObject `SetActive(false)` 并**只触发一次** `OnRunOutOfTime`。
+//   🔴 **2026-10-28（B92_N8）按 `.c` 订正**：我们原来只清字不关 GameObject（「视觉等价」的自我说服）——
+//   已改成**同一条路**：清字 + `SetActive(false)` + 一次性回调（GameObject 一关，`Update` 自然停）。
 // · 目标时刻**取不到**：`Debug.LogWarning` **一次**（按 `what` 去重）+ 显示 `<prefix>--`。
 //   ⛔ 绝不编一个日期顶上（用户口径：不许静默给假数）。
 using System.Collections.Generic;
@@ -91,7 +91,7 @@ namespace CardPresentation
         /// <para><paramref name="lastMinutesPrefix"/> 非空时启用原版那一档：剩余 &lt; 5 分钟时描述串换成它。</para></summary>
         public static TimerDisplay Attach(Label label, System.Func<System.DateTime?> target,
                                           string prefix, string what, string unknownReason,
-                                          string lastMinutesPrefix = null)
+                                          string lastMinutesPrefix = null, string prefixKey = null)
         {
             if (label == null)
             {
@@ -102,12 +102,12 @@ namespace CardPresentation
             if (td == null) td = label.gameObject.AddComponent<TimerDisplay>();
             td._label = label;
             td._target = target;
-            td._prefix = prefix ?? "";
+            td._prefix = prefix ?? ""; td._prefixKey = prefixKey;   // 同一行写完：插行会让本文件下游十几条账落点漂移（铁律 18·b）
             td._what = string.IsNullOrEmpty(what) ? label.gameObject.name : what;
             td._unknownReason = unknownReason;
             td._lastMinutesPrefix = lastMinutesPrefix;
             td._expired = false;
-            td.Refresh();
+            td.UpdateTimer();
             return td;
         }
 
@@ -121,44 +121,14 @@ namespace CardPresentation
             Refresh();
         }
 
-        /// <summary>重算一次并写进 Label。`Attach` 会调一次；每秒由 `Update` 再调。</summary>
-        public void Refresh()
-        {
-            if (_label == null) return;
-            var now = System.DateTime.Now;   // ⚠️ 本机时钟（我们没有服务器时间 —— 见文件头）
-            var target = _target != null ? _target() : null;
-
-            if (!target.HasValue)
-            {
-                WarnUnknownOnce(_what, _unknownReason);
-                _expired = false;
-                SetText(Compose(_prefix, "--"));   // 🆕 2026-10-18：同 `TextFor` —— 带 `{0}` 的词条要填参
-                return;
-            }
-
-            var remain = target.Value - now;
-            if (remain <= System.TimeSpan.Zero)
-            {
-                // 原版：`timer.gameObject.SetActive(false)` + `OnRunOutOfTime` 只发一次。
-                // 我们清空同一颗 Label 的字（见文件头「行为」那一段）。
-                if (!_expired)
-                {
-                    _expired = true;
-                    SetText("");
-                    var cb = OnRunOutOfTime;
-                    if (cb != null) cb();
-                }
-                return;
-            }
-
-            _expired = false;
-            string desc = _prefix;
-            if (_lastMinutesPrefix != null && remain < System.TimeSpan.FromMinutes(LastMinutesThreshold))
-                desc = _lastMinutesPrefix;
-
-            string time = FormatTimeString(remain, eventTimer: true);
-            SetText(Compose(desc, time));
-        }
+        /// <summary>重算一次并写进 Label。`Attach` 会调一次；每秒由 `Update` 再调。
+        /// 🔴 **2026-10-28（B92_N8）**：本体已搬进与原型同名的 <see cref="UpdateTimer"/>（逐句对
+        /// `decomp_full/TimerDisplay__UpdateTimer.c`），这里只留一个转发口（历史调用点还在用它）。
+        /// ⚠️ 搬家时**顺带按 `.c` 改了两处行为**（原来是我们自己挑的，与 `.c` 不符）：
+        ///   ① 最后 5 分钟档：原版把**时间那一格直接写成 `lastMinutesText` 译文本身**（不带数字），
+        ///      我们原来把它当期前缀拼成「即将结束2分钟」；
+        ///   ② 到点：原版除了清字还 `gameObject.SetActive(false)`，我们原来只清字。</summary>
+        public void Refresh() { UpdateTimer(); }
 
         void SetText(string text)
         {
@@ -287,6 +257,173 @@ namespace CardPresentation
             Debug.LogWarning("[TimerDisplay] " + what + "：**目标时刻取不到**"
                              + (string.IsNullOrEmpty(reason) ? "" : "（" + reason + "）")
                              + " ⇒ 显示 `--` 兜底（**不编日期**；原版这一格由服务端下发）。");
+        }
+
+        // ============================================================ 换语言重解析（原版 LocalizationChange）
+        // 🔴 声明在**类尾**（不是和别的状态字段排在一起）：`TimerDisplay.cs` 在账里被按 `文件:行号`
+        //    引用了十几处（`账/日常_奖励.tsv` 那一族），往前面插行会让它们整段漂移（铁律 18·b）。
+        //    C# 允许字段 / 方法声明在类体任意处。
+
+        /// <summary>描述串的**本地化键**（原版 `TimerDisplay._timerDescription` @+0x88）。
+        /// 非空 ⇒ 换语言时重取译文；为空 ⇒ 与原版同（`IsNullOrEmpty` 那一支什么都不做）。</summary>
+        string _prefixKey;
+
+        /// <summary>原版 **`TimerDisplay.LocalizationChange()`**，逐句
+        /// （`decomp_full/TimerDisplay__LocalizationChange.c` 全文）：
+        /// <code>if (!String.IsNullOrEmpty(_timerDescription))
+        ///     SetTimerDescriptionText(LocalizationManager.GetTranslation(_timerDescription), false);</code>
+        /// <para>⇒ 我们同一跳：键非空 ⇒ `Loc.T(键)` 重取译文写回描述串、立刻重算一次。</para>
+        /// <para>⚠️ 原版由 `LocalizationManager` 在 `ChangedLanguage` 时回调订阅者；
+        /// 我们的广播口 = `Loc.LanguageChanged`（`Core/Loc.cs` 类尾，`SetLanguage` **真改了值**才发）。
+        /// 订阅在 <see cref="OnEnable"/>、注销在 <see cref="OnDisable"/> —— 组件随 Label 的 GameObject
+        /// 一起销毁，所以注销挂在 `OnDisable`（而不是只写 `OnDestroy`）。</para></summary>
+        public void LocalizationChange()
+        {
+            if (string.IsNullOrEmpty(_prefixKey)) return;
+            _prefix = Loc.T(_prefixKey);
+            Refresh();
+        }
+
+        void Awake() { Loc.LanguageChanged += LocalizationChange; }        // 原版 `TimerDisplay__Awake.c` = add_OnLocalizeEvent
+        void OnDestroy() { Loc.LanguageChanged -= LocalizationChange; }    // 原版 `TimerDisplay__OnDestroy.c` = remove_OnLocalizeEvent
+
+        // ============================================================ 原版同名方法落点（B92_N8 · 2026-10-28）
+        // 🔴 **为什么单开这一节**：账里 `TimerDisplay` 的那三行原来是「声明级等价」（落点 = `Attach` /
+        //    `Compose` / `Refresh`），不满足 A 尺子（要求 **方法体逐句对过 + 落点真实存在**）。
+        //    这里按 `decomp_full/TimerDisplay__{Initialize,SetTimerDescriptionText,UpdateTimer}.c`
+        //    **逐句**落成三个与原型同名的方法，`Attach` / `Update` / `Refresh` 的路由改到它们上面。
+        // ⚠️ 全部追加在**类尾**（本文件在账里被按 `文件:行号` 引用 4 处：92 / 125 / 173 / 231，
+        //    都在本节之前）⇒ 零行号漂移（铁律 18·b）。
+
+        /// <summary>原版 `TimerDisplay` 的**固定目标**（`+0x78` = `Nullable&lt;DateTime&gt;`，由 `Initialize` 写）。
+        /// 为 `null` ⇒ 走 `Attach` 的 delegate 路径（每 tick 现取；见 <see cref="ResolveTarget"/>）。</summary>
+        System.DateTime? _targetFixed;
+
+        /// <summary>原版的**描述那一件**（`+0x28`，一颗**独立的** TMP）。当前 15 个消费点只给了一颗 Label
+        /// ⇒ 一律 `null`，`SetTimerDescriptionText` 落到「单 Label 合并档」（那一支标了 `🔶 自己设计`）。</summary>
+        Label _descLabel;
+
+        /// <summary>原版 `TimerDisplay.Initialize(DateTime target, string timerDescription)` 的逐句等价。
+        /// <para>判据全文（`decomp_full/TimerDisplay__Initialize.c`，逐句读过）：</para>
+        /// <code>
+        /// target = SupportMethods.MillisSinceEpochToDateTime(millis);   // 我们收 DateTime，省掉这一跳
+        /// this._target = target;
+        /// if (target - PlayerDataManager.CurrentServerDateTime &lt;= TimeSpan.Zero) this._hasRunOutOfTime = true;
+        /// SetTimerDescriptionText(timerDescription);
+        /// UpdateTimer();
+        /// </code>
+        /// <para>⚠️ 原版第一个实参是 **Unix 毫秒**（`+0x78` 存 `Nullable&lt;DateTime&gt;`）；我们收 `DateTime`
+        /// —— 调用方本来就有 `DateTime`，多一跳转换没有意义（⭐ 这不是行为差异）。</para>
+        /// <para>⚠️ 原版那口是 `PlayerDataManager.CurrentServerDateTime`；**我们没有服务器** ⇒ 本机时钟
+        /// （本项目允许的偏离，每个消费点都标了）。</para></summary>
+        public void Initialize(System.DateTime target, string timerDescription)
+        {
+            _target = null;                 // 固定目标优先（原版没有 delegate 这一档，见 `ResolveTarget`）
+            _targetFixed = target;
+            if (target - System.DateTime.Now <= System.TimeSpan.Zero) _expired = true;
+            SetTimerDescriptionText(timerDescription);
+            UpdateTimer();
+        }
+
+        /// <summary>原版 `TimerDisplay.SetTimerDescriptionText(string timerDescription)` 的逐句等价。
+        /// <para>判据全文（`decomp_full/TimerDisplay__SetTimerDescriptionText.c`）：</para>
+        /// <code>
+        /// if (!this._descriptionText) return;                       // 组件不存在 ⇒ 什么都不做
+        /// this._descriptionText.enabled = !String.IsNullOrEmpty(timerDescription);
+        /// this._descriptionText.text    = timerDescription;
+        /// </code>
+        /// <para>⚠️ **原版描述是独立的一颗 TMP**（`+0x28`）。我们接的消费点只给了一颗 Label
+        /// ⇒ 没有描述件时走「单 Label 合并档」：把它当 `extraText` 前缀、由 `UpdateTimer` 拼进同一格。</para></summary>
+        public void SetTimerDescriptionText(string timerDescription)
+        {
+            if (_descLabel == null)
+            {
+                // 🔶 自己设计（非原版）：单 Label 合并档 · 原版描述是独立的一颗 TMP（`+0x28`），
+                //   我们 15 个消费点只给了一颗 Label，没有描述件可 enable/disable ⇒ 把描述串存成前缀、
+                //   由 `UpdateTimer` 拼进同一格（描述为空时只剩时间串，与原版把描述件 `enabled=false` 观感等价）·
+                //   调度台 2026-10-28 裁定（B92_N8）
+                _prefix = timerDescription ?? "";
+                return;
+            }
+            _descLabel.enabled = !string.IsNullOrEmpty(timerDescription);
+            _descLabel.SetText(timerDescription ?? "");
+        }
+
+        /// <summary>原版 `TimerDisplay.UpdateTimer()` 的逐句等价（`decomp_full/TimerDisplay__UpdateTimer.c`，
+        /// 80 条语句 / 26 个分支 —— 这是本组件**唯一的**文本计算口）。
+        /// <para>分支（逐句对过 `.c`）：</para>
+        /// <list type="number">
+        /// <item><c>if (target == null) return;</c> —— 原版**静默返回**；我们按用户口径改成「出声一次 + `--`」（🔶 非原版）。</item>
+        /// <item><b>最后 5 分钟档</b>（只有 `useLastMinutesText = 1` 的实例才有）：`0 &lt; remain &lt; 5min`
+        ///       ⇒ **时间那一格直接写成 `lastMinutesText` 译文本身**（`.c` 尾部 `timeText.text = loc(lastMinutesText)`，
+        ///       **不带倒计时数字**）。⚠️ 这一档原来我们把它当前缀用（拼成 `即将结束2分钟`），**与原版不符**，本轮按 `.c` 改。</item>
+        /// <item>`remain &gt; 0` ⇒ `gameObject.SetActive(true)`，再写
+        ///       `desc.Contains("{0}") ? String.Format(desc, t) : String.Concat(desc, t)`（`t = GetTimeString(remain,1,0,0,0)`）。</item>
+        /// <item>`remain &lt;= 0` ⇒ `text = ""` → `gameObject.SetActive(false)` → **只发一次** `OnRunOutOfTime`
+        ///       （原版 `+0x98` 那个闩；`Initialize` 里「已经到点」也会先把它置上）。</item>
+        /// <item>尾部：原版若挂了 `LayoutGroupContentFixer`（`+0x70`）就 `FixLayout` —— **本工程没有这个组件**（如实记，不编）。</item>
+        /// </list></summary>
+        public void UpdateTimer()
+        {
+            // 老 `Refresh()` 的同一条守卫（原版那一格是 `+0x20` 的时间 TMP，取不到时原版走 throw）。
+            if (_label == null) return;
+            var target = ResolveTarget();
+            if (!target.HasValue)
+            {
+                // 原版这一支是 `return;`（静默）。我们的约定见文件头「目标时刻取不到」那一条（🔶 非原版）。
+                WarnUnknownOnce(_what, _unknownReason);
+                _expired = false;
+                ShowLabel(true);
+                SetText(Compose(_prefix, "--"));
+                return;
+            }
+
+            var remain = target.Value - System.DateTime.Now;   // ⚠️ 本机时钟（没有服务器，见文件头）
+
+            // ---- 最后 5 分钟档（原版 `+0x50 != 0` 那一支）----
+            if (_lastMinutesPrefix != null
+                && remain > System.TimeSpan.Zero
+                && remain < System.TimeSpan.FromMinutes(LastMinutesThreshold))
+            {
+                ShowLabel(true);
+                SetText(_lastMinutesPrefix);
+                return;
+            }
+
+            if (remain > System.TimeSpan.Zero)
+            {
+                ShowLabel(true);
+                _expired = false;
+                string time = FormatTimeString(remain, eventTimer: true);
+                SetText(_prefix.Contains("{0}") ? string.Format(_prefix, time) : _prefix + time);
+                return;
+            }
+
+            // ---- 到点（原版 `remain <= 0` 那一支）----
+            SetText("");
+            ShowLabel(false);
+            if (_expired) return;
+            _expired = true;
+            var cb = OnRunOutOfTime;
+            if (cb != null) cb();
+        }
+
+        /// <summary>目标时刻：`Initialize` 写死的那个优先，否则每 tick 问 `Attach` 交进来的 delegate。
+        /// 🔶 **自己设计（非原版）**：原版目标在 `Initialize` 时**固定**（`+0x78` 一个 `Nullable&lt;DateTime&gt;`），
+        /// 我们的窗比原版活得久（外壳常驻）⇒ 商店「过 9 点滚次日」/ 日常「过日界滚明天」必须**现取** ·
+        /// 调度台 2026-10-28 裁定（B92_N8）。</summary>
+        System.DateTime? ResolveTarget()
+        {
+            if (_targetFixed.HasValue) return _targetFixed;
+            return _target != null ? _target() : (System.DateTime?)null;
+        }
+
+        void ShowLabel(bool on)
+        {
+            if (_label == null) return;
+            var go = _label.gameObject;
+            if (go == null) return;
+            if (go.activeSelf != on) go.SetActive(on);
         }
     }
 }

@@ -370,7 +370,7 @@ namespace CardPresentation
         }
 
         public static DeckSelectionPopup Create(WindowsManager mgr, System.Action<DeckPick> onPicked = null,
-                                                int? modeFilter = null, System.Func<CollectionData.DeckInfo, bool> filter = null)
+                                                int? modeFilter = null, System.Func<CollectionData.DeckInfo, bool> filter = null, int? currentDeckMode = null)
         {
             var go = new GameObject("Deck Selection Popup with Tabs");
             var win = go.AddComponent<DeckSelectionPopup>();
@@ -380,7 +380,7 @@ namespace CardPresentation
             win.extraScaleSmallScreen = 1f;              // 实证 1.0
             win.Manager = mgr;
             win.OnPicked = onPicked;
-            win.ModeFilter = modeFilter; win.Filter = filter;
+            win.ModeFilter = modeFilter; win.Filter = filter; win.CurrentDeckMode = currentDeckMode;   // 🆕 B92_N9：原版 `_TryOpen_b__10_0` 用的是 `context.Deck.GameMode`（见类尾 `ModePasses`）
             WindowsManager.AttachToAnchor(win);
             return win;
         }
@@ -420,7 +420,7 @@ namespace CardPresentation
             {
                 int i = ((prefer < 0 ? 0 : prefer) + k) % n;
                 var d = CollectionData.Raw(i);
-                if (d != null && (!ModeFilter.HasValue || d.GameMode == ModeFilter.Value) && (Filter == null || Filter(CollectionData.DeckAt(i)))) return i;
+                if (d != null && ModePasses(CollectionData.DeckAt(i)) && (Filter == null || Filter(CollectionData.DeckAt(i)))) return i;
             }
             return (prefer >= 0 && prefer < n) ? prefer : 0;
         }
@@ -437,7 +437,7 @@ namespace CardPresentation
                 for (int i = 0; i < CollectionData.DeckCount(); i++)
                 {
                     // 🆕 2026-09-26：**按模式筛**（原版 `DeckSelectionPopup.__TryOpen_b__10_0` 那条 lambda）
-                    if ((ModeFilter.HasValue && CollectionData.DeckAt(i).GameMode != ModeFilter.Value) || (Filter != null && !Filter(CollectionData.DeckAt(i)))) continue;
+                    if (!ModePasses(CollectionData.DeckAt(i)) || (Filter != null && !Filter(CollectionData.DeckAt(i)))) continue;
                     list.Add(new DeckPick { Prebuilt = false, Info = CollectionData.DeckAt(i), OwnIndex = i, PrebuiltDeck = null });
                 }
             }
@@ -1085,5 +1085,30 @@ namespace CardPresentation
         /// 见 `报告/B89_R1d_战役轮抽锻造落地.md` §5。</para>
         /// </summary>
         public System.Func<CollectionData.DeckInfo, bool> Filter;
+
+        // ================================================================================================
+        //  🆕 2026-10-28（B92_N9）· 模式闸照原版那条 lambda 改（追加在类尾 —— 零行号漂移）
+        //
+        //  原版（`d:/2/tools/decomp_full/DeckSelectionPopup___TryOpen_b__10_0.c` 全文，本笔现读）：
+        //      iVar2 = candidate.GameMode;
+        //      lVar1 = closure+0xa8;                       // = `DeckSelectionContext`
+        //      if (*(lVar1 + 0x20) != 0)                   // ← `context.Deck`（当前那一副）
+        //          return iVar2 == context.Deck.GameMode;  //   **以【当前卡组】的模式为准**
+        //      return iVar2 == *(int*)(lVar1 + 0x30);      //   没有当前卡组 ⇒ 用 `context.GameMode`
+        //  ⇒ 不是「或」，是**二选一**：有当前卡组就只看它的模式。
+        //  改前我们只传了 `context.GameMode`（= 本窗模式）⇒ **当前那副卡组的模式与窗口模式不同时，列错一批**。
+        //  判据出处汇总（那 0x20 / 0x30 是 `DeckSelectionContext` 的哪两格）：
+        //      `DeckSelectionContext.cs:88` 那句「第 3 个实参是 `overrideDeckList=null`」（B91-L6 已核）
+        //      ⇒ `Deck` 与 `GameMode` 是它仅有的两格相关字段；lambda 里只读这两格。
+        // ================================================================================================
+        /// <summary>当前那一副卡组的模式（原版 `context.Deck.GameMode`）；`null` = 没有当前卡组 ⇒ 回落 <see cref="ModeFilter"/>。</summary>
+        public int? CurrentDeckMode;
+
+        /// <summary>一张「我的卡组」候选过不过模式闸（判据 → 本段头部）。</summary>
+        bool ModePasses(CollectionData.DeckInfo d)
+        {
+            int? want = CurrentDeckMode.HasValue ? CurrentDeckMode : ModeFilter;
+            return !want.HasValue || d.GameMode == want.Value;
+        }
     }
 }

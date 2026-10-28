@@ -58,16 +58,16 @@ namespace CardPresentation
     /// 两个 playMode 名单等 9 格（判据 `dump.cs:59615-59648`）—— **本批的 6 条账一行都不读它们**
     /// ⇒ 没搬就是没搬（⛔ 别写个半套让人以为齐了）。</para></summary>
     [Serializable]
-    public abstract class MissionChallenge
+    public abstract partial class MissionChallenge
     {
         public string id;
-        public object[] rewards;      // 原版 `ChallengeMilestone[]`（里程碑表），本批只透传
+        public ChallengeMilestone[] rewards;   // 原版 `ChallengeMilestone[] rewards; // 0x18`（B92-N8c 起真用：`AvailableRewards`/`MaxValue`）
 
         /// <summary>原版 `+0x48`：挑战进度变了就喊一声（`MissionEvent` 是**唯一**订阅方）。</summary>
         public event Action<MissionChallengeUpdatePayload> OnProgressUpdate;
 
-        /// <summary>原版 `Initialize()`：重算一次并广播（`UpdateSaveGame` 里「新来的挑战」会调它一次）。</summary>
-        public virtual void Initialize() { RaiseProgress(); }
+        /// <summary>原版 `MissionChallenge.initialized`（`+0x50`，一次性闩）：`Initialize()` 与 `DisableChallenge()` 共用（🔴 **2026-10-28（B92_N8）按 `MissionChallenge__Initialize.c` 补一次性闸**）；`initialized` / `IsInitialized` / `GetID()` / `OnInitialize` 的完整判据见**文末 partial 块**（本处行数不变以免账的行号落点漂移）。</summary>
+        public virtual void Initialize() { if (initialized) return; OnInitialize(); initialized = true; }
 
         /// <summary>内部广播口（子类在进度真的变了之后调；`Initialize` 也走这一个口）。</summary>
         protected void RaiseProgress()
@@ -80,7 +80,7 @@ namespace CardPresentation
     /// <summary>原版 `MissionChallengeProgress`（`dump.cs:61185-61200`，字段逐个抄）。
     /// <para>`canCollect`（`+0x48`）是 `MissionEvent.Expire` 那道闸的**唯一读者**（见文件头 🔴）。</para></summary>
     [Serializable]
-    public class MissionChallengeProgress
+    public partial class MissionChallengeProgress
     {
         public string entryId;
         public string challengeId;
@@ -101,18 +101,18 @@ namespace CardPresentation
             set { challenge = value; }
         }
 
-        /// <summary>原版 `MissionChallengeProgress.IsComplete()`（`ChallengeProgress.IsComplete`）：
-        /// 判据取「已经完成的时刻记上了」这一支（`completedAt != 0`）——
-        /// ⚠️ 原版那个方法体本批**没读**，这里只用最保守的那一格（`completedAt != 0`），
-        /// `MissionPersistence.IsCompleted` 那条判据只依赖它。⛔ 别拿它去当「达标」判据。</summary>
-        public bool IsComplete() { return completedAt != 0; }
+        /// <summary>原版 `MissionChallengeProgress.IsComplete()` → 真体在文末 partial 块 `IsCompleteCore()`
+        /// （**2026-10-28 B92-N8c 按 `.c` 落**：`loopable ? false : Count(AvailableRewards()) <= collectedRewards`）。
+        /// ⚠️ 原来这里是 `completedAt != 0` 的保守近似，**与 `.c` 的算式不是一回事**，已换掉。
+        /// `MissionPersistence.IsCompleted` / `IsChallengeComplete` 都读这一格 ⇒ 一并按原版改口径。</summary>
+        public bool IsComplete() { return IsCompleteCore(); }
     }
 
     // ============================================================ 存档（原版 `MissionPersistence`）
     /// <summary>原版 `MissionPersistence : LiveOpsEventPersistence, IBeforeRead`（`dump.cs:61024-61050`，
     /// 五个字段逐个抄）。`ISave` 的泛型参数就是它。</summary>
     [Serializable]
-    public class MissionPersistence : LiveOpsSave
+    public partial class MissionPersistence : LiveOpsSave
     {
         public long lastRefillUpdate;
         public int availableRefills;
@@ -142,13 +142,13 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>原版 `bool IsChallengeComplete(MissionChallenge challenge)`
-        /// （`MissionPersistence__IsChallengeComplete.c`）：在 `completedChallenges` 字典里查
-        /// `challenge.GetID()`（那一跳是 `challenge.&lt;+0x198&gt;()` = `GetID()`，再 `ContainsKey`）。</summary>
+        /// <summary>原版 `bool IsChallengeComplete(MissionChallenge challenge)`（`MissionPersistence__IsChallengeComplete.c`）：
+        /// ① `completedChallenges.Contains(challenge.GetID())`；② 否则 `challengeProgress.FirstOrDefault(p =&gt; p.challengeId == GetID())?.IsComplete()`。
+        /// 🔴 **2026-10-28（B92_N8）**：第②支原来漏了（只做了①）—— 完整体在文末 partial 块（本处行数不变免漂移）。</summary>
         public bool IsChallengeComplete(MissionChallenge challenge)
         {
-            if (challenge == null || completedChallengeIds == null) return false;
-            return completedChallengeIds.Contains(challenge.id);
+            if (challenge == null) return false;
+            return IsChallengeCompleteCore(challenge);
         }
 
         /// <summary>把存档行与挑战对象对起来（原版靠 `MissionChallengeProvider` 资产表查，
@@ -394,6 +394,116 @@ namespace CardPresentation
             }
             Debug.LogWarning("[MissionEvent] ReleaseContainer：走基类支 —— `LiveOpsEvent.ReleaseContainer` 属 B33，本批没有落点 ⇒ 不做事");
         }
+
+        // ============================================================ 挑战查询（账：`MissionEvent<TS,>.IsActive`）
+        /// <summary>原版 `public bool IsActive(MissionChallenge challenge)`（`cpp2il/out_cpp2il_dev_ilspy/MissionEvent.cs:770`，
+        /// **控制流全部内容** = `return SaveGame.challengeProgress.Any(x =&gt; x.Challenge == challenge);`）：
+        /// 谓词实体 = `MissionEvent.__c__DisplayClass4_0._IsActive_b__0`（捕获 `challenge`）；
+        /// 旁证 = 同类里 `GetProgressFor`（`:722`）用的是**同一个谓词** + `FirstOrDefault`。
+        /// ⚠️ 原版 `SaveGame` 为 null ⇒ NRE；我们出声 + `false`（全工程口径，⛔ 不让游戏崩）。</summary>
+        public bool IsActive(MissionChallenge challenge)
+        {
+            var s = SaveGame;
+            if (s == null)
+            {
+                Debug.LogError("[MissionEvent] IsActive：没有存档（原版这一跳 NRE）⇒ false");
+                return false;
+            }
+            if (s.challengeProgress == null || challenge == null) return false;
+            // 🔴 **2026-10-28（B92_N8）按 `.c` 订正**：谓词实体
+            // `MissionEvent.__c__DisplayClass4_0_object__object____IsActive_b__0.c` 的内容是
+            // `String.Equals(*(progress + 0x38), challenge.GetID())`，而 `progress + 0x38` 是
+            // **`challengeId`**（`dump.cs:61190`）⇒ 比的是**字符串 id**。原来我们比的是对象引用
+            // （`p.Challenge == challenge`），只在「`Bind()` 把同一个对象注进去」时才等价 —— 换个
+            // 实例就错（而且原版从不这么比）。
+            return FindProgressIndex(s, challenge.id) >= 0;
+        }
+
+        /// <summary>原版 `protected MissionChallengeProgress GetProgressFor(MissionChallenge challenge)`
+        /// （`decomp_trial/MissionEvent_object__object___GetProgressFor__102eb40.c`）：
+        /// <code>
+        /// return SaveGame.challengeProgress.FirstOrDefault(x =&gt; x.challengeId == challenge.GetID());
+        /// </code>
+        /// 谓词实体与 <see cref="IsActive"/> **是同一个函数体**（`DisplayClass3_0` vs `DisplayClass4_0`，
+        /// 机器码相同 ⇒ ICF 折叠；两处 `.c` 逐字节一致）⇒ 同样**按字符串 id 比**。
+        /// ⚠️ 原版 `SaveGame` 为 null ⇒ NRE；我们出声 + `null`（全工程口径）。</summary>
+        public MissionChallengeProgress GetProgressFor(MissionChallenge challenge)
+        {
+            var s = SaveGame;
+            if (s == null)
+            {
+                Debug.LogError("[MissionEvent] GetProgressFor：没有存档（原版这一跳 NRE）⇒ null");
+                return null;
+            }
+            if (challenge == null) return null;
+            int i = FindProgressIndex(s, challenge.id);
+            return i >= 0 ? s.challengeProgress[i] : null;
+        }
+
+        /// <summary>原版 `public void InitializeChallenge(MissionChallenge challenge)`
+        /// （`decomp_trial/MissionEvent_object__object___InitializeChallenge__102ec50.c`，控制流全文）：
+        /// <code>
+        /// challenge.OnProgressUpdate -= &lt;this.OnProgressUpdate&gt;;           // ★ 先【摘】
+        /// foreach (var c in Data.challenges)                                 // 原版遍历活动定义里的挑战表
+        ///     if (SaveGame.challengeProgress.Any(p =&gt; p.challengeId == challenge.ID)) {
+        ///         challenge.OnProgressUpdate += &lt;this.OnProgressUpdate&gt;;   // 再【挂】
+        ///         challenge.Initialize();                                    // 然后初始化（幂等闸）
+        ///     }
+        /// </code>
+        /// 🔴 **2026-10-28（B92_N8）按 `.c` 落**：与 <see cref="EnableChallenge"/>（只有「挂 + Initialize」）
+        /// 的差别有两处，都是原版真语义：① **先摘一次**（幂等，重复调用不会挂两份）；
+        /// ② **只有「存档进度表里真有这条挑战」才挂**（不在表里 ⇒ 什么都不做）。
+        /// ⚠️ `Data.challenges`（原版 `MissionData.challenges`）那一圈只影响「要不要再判一次」，
+        /// 而判定条件本身是 `Any(存档进度表)` —— 与遍历无关 ⇒ 我们直接判那一句（语义等价，省掉一圈空转）。
+        /// ⚠️ 原版 `SaveGame` 为 null ⇒ NRE；我们出声 + 不挂（全工程口径）。</summary>
+        public void InitializeChallenge(MissionChallenge challenge)
+        {
+            if (challenge == null)
+            {
+                Debug.LogError("[MissionEvent] InitializeChallenge：challenge 是 null（原版这一跳 NRE）");
+                return;
+            }
+            challenge.OnProgressUpdate -= OnChallengeProgressChanged;      // ★ 原版第一跳：先摘
+            var s = SaveGame;
+            if (s == null)
+            {
+                Debug.LogError("[MissionEvent] InitializeChallenge：没有存档（原版这一跳 NRE）⇒ 不挂监听");
+                return;
+            }
+            if (s.challengeProgress == null || FindProgressIndex(s, challenge.id) < 0) return;   // 不在进度表里 ⇒ 不挂
+            challenge.OnProgressUpdate += OnChallengeProgressChanged;
+            challenge.Initialize();
+        }
+
+        /// <summary>原版 `public string LocalizedDescription(MissionChallenge challenge)`
+        /// （`decomp_trial/MissionEvent_object__object___LocalizedDescription__102f190.c`，**5 语句 / 1 分支**）：
+        /// <code>
+        /// var p = GetProgressFor(challenge);
+        /// if (p == null) throw;                     // 原版 NRE
+        /// return p.GetLocalizedDescription();       // ← 转发（本方法自己不算任何文案）
+        /// </code>
+        /// 🔴 **2026-10-28（B92-N8c）按 `.c` 落**：原来账里的落点是 `DailyData.DailyDesc`（**另一个方法**）。</summary>
+        public string LocalizedDescription(MissionChallenge challenge)
+        {
+            var p = GetProgressFor(challenge);
+            if (p == null)
+            {
+                Debug.LogError("[MissionEvent] LocalizedDescription：取不到该挑战的进度（原版这一跳 NRE）⇒ 空串");
+                return "";
+            }
+            return p.GetLocalizedDescription();
+        }
+
+        /// <summary>按字符串 id 在 `SaveGame.challengeProgress` 里找下标（原版那两个 lambda 的等价物：
+        /// `p.challengeId == challenge.GetID()`）。找不到 ⇒ `-1`。</summary>
+        static int FindProgressIndex(MissionPersistence s, string id)
+        {
+            if (s == null || s.challengeProgress == null || id == null) return -1;
+            var a = s.challengeProgress;
+            for (int i = 0; i < a.Length; i++)
+                if (a[i] != null && a[i].challengeId == id) return i;
+            return -1;
+        }
     }
 
     /// <summary>具体的那一个任务活动（原版 `public class MissionEvent : MissionEvent&lt;MissionPersistence, MissionData&gt;`，
@@ -410,4 +520,562 @@ namespace CardPresentation
     /// 它**不新增任何字段或规则**。调度台 C2 2026-10-27 定。</para></summary>
     [Serializable]
     public class SimpleMissionData : MissionData { }
+
+    // ============================================================ 原版同名方法落点（B92_N8 · 2026-10-28）
+    // 🔴 **为什么单开这一节**：`MissionChallenge` 的 `initialized` / `IsInitialized` / `GetID()` /
+    //    `OnInitialize()` 与 `MissionPersistence.IsChallengeComplete` 的**完整判据**放在这里，
+    //    是为了**不动上面已经生效的段落** —— 本文件有 6 条 A 行按 `文件:行号` 落点
+    //    （207 `GetBaseSave` / 234 `DisableChallenge` / 274 `UpdateSaveGame` / 334 `Expire` /
+    //     369 `GetContainer` / 387 `ReleaseContainer`），往类体中间插成员会让它们整段漂移（铁律 18·b）。
+    public abstract partial class MissionChallenge
+    {
+        /// <summary>原版 `private bool initialized; // 0x50`（`dump.cs:59645`）—— `Initialize()` 与
+        /// `DisableChallenge()` **共用同一格**（两处 `.c` 读的都是 `param_1[10]`）。</summary>
+        [NonSerialized] bool initialized;
+
+        /// <summary>原版 `MissionChallenge.IsInitialized { get; }`（`get_IsInitialized`，读 `+0x50`）。</summary>
+        public bool IsInitialized { get { return initialized; } }
+
+        /// <summary>原版 `public virtual string GetID()`（`MissionChallenge.cs`，**Slot: 6**）。
+        /// 体 = `decomp_full/MissionChallenge__GetID.c` —— 该产物首行是
+        /// `&lt;&gt;f__AnonymousType0&lt;object&gt;__get_itemId`（ICF 折叠：`return *(param_1 + 0x10);`），
+        /// 与 `id` 的字段偏移 **`+0x10`**（`dump.cs:59619`）逐字吻合 ⇒ 体 = `return this.id;`。
+        /// 🔴 **2026-10-28（B92_N8）按 `.c` 落**：原来本类只有公开字段 `id`、**没有 `GetID()`**，
+        /// 账的落点只能写「按下标取行（`DailyData.At`）」—— 那是另一件事。</summary>
+        public virtual string GetID() { return id; }
+
+        /// <summary>原版 `protected abstract void OnInitialize()`（ILSpy `MissionChallenge.cs:273` —— **基类没有体**）。
+        /// 真体在各子类：`DailyLoginChallenge.OnInitialize` = `UpdateProgress(&lt;Execute&gt;b__3_0)`
+        /// （`DailyLoginChallenge__OnInitialize.c`）；`MissionComplete.OnInitialize` = 注册战斗信号
+        /// （`MissionComplete__OnInitialize.c`）。
+        /// 🔴 **2026-10-28（B92-N8c）按 `.c` 改成 `abstract`**：这里原来是 `virtual { RaiseProgress(); }`
+        /// （= 历史行为的兜底，**原版没有这一档**）。改 abstract 之后两个子类都必须真实现 —— 都已落。
+        /// ⇒ 账 `日常_奖励.tsv:445` 因此按 §3·2(a)「原版体是 abstract」判 **D**。</summary>
+        protected abstract void OnInitialize();
+    }
+
+    public partial class MissionPersistence
+    {
+        /// <summary>原版 `IsChallengeComplete` 的**完整两句**（`decomp_full/MissionPersistence__IsChallengeComplete.c`）：
+        /// <code>
+        /// if (completedChallenges.Contains(challenge.GetID())) return true;
+        /// var p = challengeProgress.FirstOrDefault(x =&gt; x.challengeId == challenge.GetID());
+        /// return p != null &amp;&amp; p.IsComplete();
+        /// </code>
+        /// 🔴 **2026-10-28（B92_N8）补上第②句**：原来只做了①，「进度表里那条完成了也算」整支漏掉。
+        /// 谓词实体 = `MissionPersistence.__c__DisplayClass7_0___IsChallengeComplete_b__0.c`：
+        /// 它比的是 `*(progress + 0x38)`（= **`challengeId`**，`dump.cs:61190`）与 `challenge.GetID()`
+        /// ⇒ **按字符串 id 比，不是按对象引用**。</summary>
+        bool IsChallengeCompleteCore(MissionChallenge challenge)
+        {
+            string id = challenge.GetID();
+            if (completedChallengeIds != null && id != null && completedChallengeIds.Contains(id)) return true;
+            var a = challengeProgress;
+            if (a != null && id != null)
+                for (int i = 0; i < a.Length; i++)
+                {
+                    var p = a[i];
+                    if (p != null && p.challengeId == id) return p.IsComplete();   // FirstOrDefault ⇒ 只取第一条
+                }
+            return false;
+        }
+    }
+
+    // ============================================================ B92-N8b（2026-10-28）· 原版同名方法落点（续）
+    // 补 `MissionChallenge.UpdateProgress` ×2 / `ValidateMatchConditions` / `DailyLoginChallenge` 那一族，
+    // 以及 `MissionChallengeProgress` 缺的三个基类字段（`collectedRewards` / `synced` / `resetProgress`）。
+    // ⚠️ 全部落在**文末 partial 块**里（同上一条的理由：本文件有 6 条 A 行按行号落点）。
+    public abstract partial class MissionChallenge
+    {
+        /// <summary>原版 `private bool loopable; // 0x2D`（`dump.cs:59636`）。**`IsComplete()` 的第一道闸**：
+        /// 循环挑战永不算「完成」（判据 → `MissionChallengeProgress__IsComplete.c` 第①支）。</summary>
+        public bool loopable;
+
+        /// <summary>原版 `private bool allowOnTutorials; // 0x34`（`dump.cs:59640`）。教程局算不算这条挑战。</summary>
+        public bool allowOnTutorials;
+
+        /// <summary>原版 `private bool allowOnDuels; // 0x35`（`dump.cs:59642`）。决斗局（`playMode == 1`）算不算。</summary>
+        public bool allowOnDuels;
+
+        /// <summary>原版 `private PlayModes[] playModeBlocklist; // 0x38`（`dump.cs:59644`）。**非空即优先**（见 `ValidateMatchConditions`）。</summary>
+        public int[] playModeBlocklist;
+
+        /// <summary>原版 `private PlayModes[] playModeAllowlist; // 0x40`（`dump.cs:59646`）。比 blocklist **更优先**。</summary>
+        public int[] playModeAllowlist;
+
+        // ── 战斗态注入口（原版直接问 `BattleManager`；本层不依赖战斗程序集）────────────────
+        /// <summary>原版 `ValidateMatchConditions` 的第一跳是取 `BattleManager`，再读
+        /// `matchData.playMode`（`matchData + 0x18`）/ `IsReplayMatch()` / `IsTutorialMatch()`。
+        /// ⚠️ **这不是「自己设计」**（2026-10-28 B92-N8c 复核：原版 `.c` 第一句就是
+        /// `if (BattleManager == null) return true;` ⇒ **`null` ⇒ 放行是原版行为**，见
+        /// `MissionChallenge__ValidateMatchConditions.c:31-33`：`op_Implicit(BattleManager)` 为假 ⇒ `return true`）。
+        /// 我们只是把「读 `BattleManager` 的三个字段」
+        /// 换成三个注入口 —— 结构不同、**语义相同**（`CLAUDE.md` 18·0「⛔ 不许打标记」第 ② 类：实现风格）。
+        /// 因此这里**不挂 `🔶 自己设计`**；`null` 默认 = 原版「没有 BattleManager」那一支。</summary>
+        public static Func<int> MatchPlayMode;
+        /// <inheritdoc cref="MatchPlayMode"/>
+        public static Func<bool> MatchIsReplay;
+        /// <inheritdoc cref="MatchPlayMode"/>
+        public static Func<bool> MatchIsTutorial;
+
+        /// <summary>原版 `private bool ValidateMatchConditions()`（`decomp_full/MissionChallenge__ValidateMatchConditions.c`，
+        /// 45 语句 / 23 分支 —— 下面是**去掉静态初始化样板后的完整判定树**）：
+        /// <code>
+        /// if (BattleManager == null) return true;                 // ★ 没在打局 ⇒ 放行
+        /// if (IsReplayMatch()) return false;                      // ★ 回放局 ⇒ 一律不算
+        /// if (playMode == 1) return allowOnDuels;                 // ★ 决斗局只看 +0x35
+        /// if (IsTutorialMatch()) return allowOnTutorials;         // ★ 教程局只看 +0x34
+        /// if (allowlist != null &amp;&amp; allowlist.Length &gt; 0) return allowlist.Contains(playMode);   // +0x40 优先
+        /// if (blocklist == null || blocklist.Length &lt; 1) return true;
+        /// return !blocklist.Contains(playMode);                   // +0x38 兜底
+        /// </code>
+        /// ⚠️ 原版 `Contains` 是 `Enumerable.Contains&lt;PlayModes&gt;`（值比较）⇒ 我们用 `Array.IndexOf`。</summary>
+        public bool ValidateMatchConditions()
+        {
+            if (MatchPlayMode == null) return true;
+            int playMode = MatchPlayMode();
+            if (MatchIsReplay != null && MatchIsReplay()) return false;
+            if (playMode == 1) return allowOnDuels;
+            if (MatchIsTutorial != null && MatchIsTutorial()) return allowOnTutorials;
+            if (playModeAllowlist != null && playModeAllowlist.Length > 0)
+                return System.Array.IndexOf(playModeAllowlist, playMode) >= 0;
+            if (playModeBlocklist == null || playModeBlocklist.Length < 1) return true;
+            return System.Array.IndexOf(playModeBlocklist, playMode) < 0;
+        }
+
+        /// <summary>原版 `protected void UpdateProgress(Func&lt;ChallengeProgress,bool&gt; updateFunction)`
+        /// （`cpp2il/out_cpp2il_dev_ilspy/MissionChallenge.cs:297` 骨架 + 谓词实体
+        /// `decomp_full/MissionChallenge.__c__DisplayClass34_0___UpdateProgress_b__0.c`）：
+        /// <code>
+        /// if (!ValidateMatchConditions()) return;                       // ★ 模式闸
+        /// var handler = OnProgressUpdate;                                // +0x48
+        /// handler?.Invoke(new ChallengeUpdatePayload(this, progress =&gt; {
+        ///     bool changed = updateFunction(progress);
+        ///     progress.synced = !changed;                                // ★ +0x18：改了 ⇒ 待上传
+        ///     return changed;
+        /// }));
+        /// </code>
+        /// 🔴 **挑战自己不改进度** —— 它把「怎么改」打包广播出去，由订阅方（`MissionEvent`）去改
+        /// （这条口径见 `MissionEvent.cs` 文件头）。</summary>
+        protected void UpdateProgress(Func<MissionChallengeProgress, bool> updateFunction)
+        {
+            if (!ValidateMatchConditions()) return;
+            var handler = OnProgressUpdate;
+            var payload = new MissionChallengeUpdatePayload(this, progress =>
+            {
+                bool changed = updateFunction(progress);
+                progress.synced = !changed;
+                return changed;
+            });
+            if (handler != null) handler(payload);
+        }
+
+        /// <summary>原版 `protected void UpdateProgress(Action&lt;ChallengeProgress&gt; updateFunction)`
+        /// （`decomp_full/MissionChallenge__UpdateProgress.c` + `…DisplayClass36_0…__UpdateProgress_b__0.c`）：
+        /// <code>
+        /// UpdateProgress(progress =&gt; {
+        ///     int before = progress.CurrentValue;
+        ///     updateFunction(progress);
+        ///     return before != progress.CurrentValue;      // ★ 变了才算一次推进
+        /// });
+        /// </code>
+        /// （那个 `.c` 的文件名与**另一个重载**撞了 —— `decomp_full` 同名重载只留一份，
+        ///  通用纪律 §六·11；这里以 ILSpy 骨架 + `b__36_0` 的真体为准。）</summary>
+        protected void UpdateProgress(Action<MissionChallengeProgress> updateFunction)
+        {
+            UpdateProgress(progress =>
+            {
+                int before = progress.currentValue;
+                updateFunction(progress);
+                return before != progress.currentValue;
+            });
+        }
+    }
+
+    public partial class MissionChallengeProgress
+    {
+        /// <summary>原版基类 `ChallengeProgress.collectedRewards // 0x10`（`dump.cs:59765`）—— 已领的奖励条数。
+        /// `IsComplete()` 的第③句拿它比 `AvailableRewards()` 的条数。</summary>
+        public int collectedRewards;
+
+        /// <summary>原版基类 `ChallengeProgress.synced // 0x18`（`dump.cs:59768`）——
+        /// `UpdateProgress` 的包装器写 `!changed`（= 进度变了就标记「待上传」）。</summary>
+        public bool synced;
+
+        /// <summary>原版基类 `ChallengeProgress.resetProgress // 0x28`（`dump.cs:59772`）——
+        /// `DailyLoginChallenge` 的「断天」那一支会把它置 `true`（`b__3_0.c`：`*(char *)(progress + 0x28) = 1`）。</summary>
+        public bool resetProgress;
+
+        /// <summary>原版 `ChallengeProgress.customData // 0x20`（`Dictionary&lt;string,JToken&gt;`）。
+        /// ⚠️ **简化**：本仓没有 `JToken` 这一层，这一格只存**毫秒时间戳**（唯一用到它的键是
+        /// `DailyLoginChallenge` 的 `lastUpdate`）⇒ 类型收窄成 `Dictionary&lt;string,long&gt;`（行为等价：
+        /// 原版每次都是 `ToObject&lt;long&gt;()` 取出来当毫秒用）。</summary>
+        public Dictionary<string, long> customData;
+    }
+
+    /// <summary>原版 `DailyLoginChallenge : MissionChallenge` —— 「每日登录」这条挑战。
+    /// 行为全在**两个入口 + 一个谓词**里：
+    /// <para>`Execute()`（`decomp_full/DailyLoginChallenge__Execute.c`，与 `OnInitialize` **是同一份机器码**，
+    /// ICF 折叠 —— 两个 `.c` 的首行都印成 `DailyLoginChallenge__OnInitialize`）：
+    /// <code>UpdateProgress(new Predicate&lt;ChallengeProgress&gt;(this.&lt;Execute&gt;b__3_0));</code></para>
+    /// <para>谓词 `b__3_0`（`decomp_full/DailyLoginChallenge___Execute_b__3_0.c`）的判定树：
+    /// <code>
+    /// last = customData["lastUpdate"]（毫秒）
+    /// if (last 的日期 &gt;= 今天) { 警告「同日重复执行」; return false; }            // ★ 同日幂等
+    /// if (RequirementMet &amp;&amp; last 存在 &amp;&amp; (今天 - last 的日期).TotalDays &gt; 1) {
+    ///     customData["lastUpdate"] = 今天0点的毫秒; CurrentValue = 1;
+    ///     collectedRewards = 0; resetProgress = true; return true;               // ★ 断天 ⇒ 归 1
+    /// }
+    /// customData["lastUpdate"] = 今天0点的毫秒; CurrentValue = CurrentValue + 1; return true;   // ★ 跨天 +1
+    /// </code></para>
+    /// 🔴 「**同日幂等 / 断天归 1 / 跨天 +1**」这三条与 `DailyData.RecordLogin` 的口径**同构** ——
+    /// 差别只在数据落点（那边是 `DailyData` 的静态字段 + 本地存档，这边是挑战自己的 `customData`）。
+    /// ⚠️ 原版的「今天」取 `TimeHelper.ServerDateTime`；**我们没有服务器** ⇒ 本机时钟（本项目允许的偏离）。</summary>
+    public partial class DailyLoginChallenge : MissionChallenge
+    {
+        /// <summary>原版 `customData` 里那个键（`DAT_184257ab8`；本仓按语义取同名 `lastUpdate`）。</summary>
+        public const string LastUpdateKey = "lastUpdate";
+
+        /// <summary>时钟（原版 = `TimeHelper.ServerDateTime`；本机时钟，见类注释）。</summary>
+        public Func<System.DateTime> Now = () => System.DateTime.Now;
+
+        /// <summary>原版谓词里 `(char)param_1[0xb]` 那一格（「今天的登录条件已满足」）——
+        /// 原版读挑战自己的字段，本仓由装载方注入（`null` = 未知 ⇒ 只走「跨天 +1」那一支）。</summary>
+        public Func<bool> RequirementMet;
+
+        /// <summary>原版 `public void Execute()`：跑一次日登推进。</summary>
+        public void Execute() { UpdateProgress(Advance); }
+
+        /// <summary>原版 `protected override void OnInitialize()`：初始化即跑一次（**同一份**体）。</summary>
+        protected override void OnInitialize() { UpdateProgress(Advance); }
+
+        /// <summary>`b__3_0` 的判定树（逐句，见类注释）。</summary>
+        bool Advance(MissionChallengeProgress p)
+        {
+            var today = Now().Date;
+            System.DateTime last;
+            bool hasLast = TryGetLast(p, out last);
+            if (hasLast && last >= today)
+            {
+                UnityEngine.Debug.LogWarning("[DailyLoginChallenge] 同日重复执行（`" + GetID() + "`）："
+                                           + "lastUpdate 的日期 " + last.ToString("yyyy-MM-dd")
+                                           + " >= 今天 " + today.ToString("yyyy-MM-dd") + " ⇒ 不改进度（原版同）");
+                return false;
+            }
+            if (hasLast && RequirementMet != null && RequirementMet() && (today - last).TotalDays > 1d)
+            {
+                SetLast(p, today);
+                p.currentValue = 1;
+                p.collectedRewards = 0;        // `.c`：`param_2[2] = 0`（+0x10）
+                p.resetProgress = true;        // `.c`：`*(char *)(param_2 + 5) = 1`（+0x28）
+                return true;
+            }
+            SetLast(p, today);
+            p.currentValue = p.currentValue + 1;
+            return true;
+        }
+
+        static bool TryGetLast(MissionChallengeProgress p, out System.DateTime last)
+        {
+            last = default(System.DateTime);
+            long ms;
+            if (p == null || p.customData == null) return false;
+            if (!p.customData.TryGetValue(LastUpdateKey, out ms) || ms <= 0) return false;
+            last = MillisToDate(ms).Date;
+            return true;
+        }
+
+        static void SetLast(MissionChallengeProgress p, System.DateTime day)
+        {
+            if (p.customData == null) p.customData = new Dictionary<string, long>();
+            p.customData[LastUpdateKey] = DateToMillis(day);
+        }
+
+        /// <summary>= `TimeHelper.MillisToDateTime`（Unix 毫秒 → 本地时间）。</summary>
+        static System.DateTime MillisToDate(long ms)
+        {
+            return new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).AddMilliseconds(ms).ToLocalTime();
+        }
+
+        /// <summary>= `TimeHelper.MillisSinceEpoch(this.DateTime.Date)`。</summary>
+        static long DateToMillis(System.DateTime day)
+        {
+            return (long)(day.ToUniversalTime() - new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)).TotalMilliseconds;
+        }
+    }
+
+    // ============================================================ B92-N8b（续）· `MissionComplete` 那一族
+    public abstract partial class MissionChallenge
+    {
+        /// <summary>原版 `protected void UpdateProgress(int value, bool shouldOverride = false)`
+        /// （ILSpy `MissionChallenge.cs:337`）：先造一个 setter，再套进 `Action` 那一档 ——
+        /// <code>
+        /// Action&lt;ChallengeProgress&gt; set = p =&gt; p.CurrentValue = shouldOverride ? value : value + p.CurrentValue;
+        /// UpdateProgress(set);      // ⇒ 走 Action 重载（只有「变了」才算一次推进）
+        /// </code>
+        /// ⚠️ ILSpy 把那一档反编译成了内联的 `Func` 版（`before != after`），语义与 `Action` 重载一致。</summary>
+        protected void UpdateProgress(int value, bool shouldOverride = false)
+        {
+            UpdateProgress(progress =>
+            {
+                progress.currentValue = shouldOverride ? value : value + progress.currentValue;
+            });
+        }
+    }
+
+    /// <summary>原版 `IMission`（任务信号里那个**标记接口**，`dump.cs` 一族）。
+    /// 本仓只在 <see cref="MissionCompleteSignal"/> 里用到它的 `GetType()`（= 判「这是哪种模式的任务」）。</summary>
+    public interface IMission { }
+
+    /// <summary>原版 `MissionCompleteSignal : IBattleSignal`（`dump.cs`，两个字段逐个抄）：
+    /// `mission // 0x10` · `challenge // 0x18`。</summary>
+    public class MissionCompleteSignal : ILiveOpsSignal
+    {
+        public readonly IMission mission;
+        public readonly MissionChallenge challenge;
+        public MissionCompleteSignal(IMission mission, MissionChallenge challenge)
+        { this.mission = mission; this.challenge = challenge; }
+    }
+
+    /// <summary>原版 `MissionComplete : MissionChallenge` —— 「打完一局 ⇒ 给匹配的挑战记 1 次」。
+    /// 判据 `decomp_full/MissionComplete__OnMissionComplete.c`（24 语句 / 8 分支，下面是**完整判定树**）：
+    /// <code>
+    /// if (obj == null || obj.challenge == null) throw;                  // 原版 NRE
+    /// if (obj.challenge.GetID() == this.GetID()) return;                // ★ 同一条挑战 ⇒ 跳过
+    /// if (!anyMissionType) {                                            // +0x58
+    ///     var t = obj.mission.GetType();
+    ///     if (!missionTypes.Contains(t)) return;                        // +0x60：只认白名单里的模式
+    /// }
+    /// UpdateProgress(1);                                                // ★ 推进 1（不是覆盖）
+    /// </code>
+    /// ⚠️ 原版 `missionTypes` 是 `List&lt;TypeReference&gt;`（TypeReferences 插件，本仓没有）⇒ 收窄成
+    /// `List&lt;Type&gt;`（原版那一跳就是 `TypeReference.op_Implicit(mission.GetType())` 再 `Contains`，语义相同）。</summary>
+    public class MissionComplete : MissionChallenge
+    {
+        /// <summary>原版 `+0x58`：`true` = 任何模式都算（跳过白名单那一支）。</summary>
+        public bool anyMissionType;
+
+        /// <summary>原版 `+0x60`：认哪些 `IMission` 实现（`anyMissionType == false` 时才看它）。</summary>
+        public List<Type> missionTypes;
+
+        /// <summary>原版 `protected override void OnInitialize()`（`decomp_full/MissionComplete__OnInitialize.c`，**全文两句**）：
+        /// <code>
+        /// Signal.Register&lt;MissionCompleteSignal&gt;(this.OnMissionComplete);
+        /// </code>
+        /// 🔴 **这一跳就是「谁会调 `OnMissionComplete`」的答案** —— 初始化时把处理函数挂到战斗信号上。
+        /// 我们的信号总线 = `LiveOpsSignal`（`Shell/LiveOpsFilter.cs`，与 `Scaffold.Core.Events.Signal` 同角色）。
+        /// ⚠️ 本仓**还没有人 `Raise` 过 `MissionCompleteSignal`**（战斗侧未接）⇒ 订阅上也不会被调（如实记）。
+        /// ⚠️ 原版另有 `OnReset` 也注册一个（`MissionComplete__OnReset.c`，另一个信号表），本批只落 `OnInitialize`。</summary>
+        protected override void OnInitialize()
+        {
+            LiveOpsSignal.Register<MissionCompleteSignal>(OnMissionComplete);
+        }
+
+        /// <summary>原版 `public void OnMissionComplete(MissionCompleteSignal obj)`，逐句见类注释。</summary>
+        public void OnMissionComplete(MissionCompleteSignal obj)
+        {
+            if (obj == null || obj.challenge == null)
+            {
+                UnityEngine.Debug.LogError("[MissionComplete] OnMissionComplete：信号或挑战是 null（原版这一跳 NRE）⇒ 不算");
+                return;
+            }
+            if (string.Equals(obj.challenge.GetID(), GetID())) return;      // ★ 同一条 ⇒ 跳过
+            if (!anyMissionType)
+            {
+                if (obj.mission == null)
+                {
+                    UnityEngine.Debug.LogError("[MissionComplete] OnMissionComplete：mission 是 null（原版这一跳 NRE）⇒ 不算");
+                    return;
+                }
+                if (missionTypes == null || !missionTypes.Contains(obj.mission.GetType())) return;
+            }
+            UpdateProgress(1);                                              // ★ 推进 1
+        }
+    }
+
+    // ============================================================ B92-N8b（续）· 挑战的描述文案
+    public abstract partial class MissionChallenge
+    {
+        /// <summary>原版描述词条的**前缀常量** `DAT_184236888`（`MissionChallenge__GetLocalizedDescription.c`
+        /// 与 `MissionChallengeProgress__GetLocalizedDescription.c` 用的是**同一个**常量）。
+        /// 🔴 **本机读不出那个字面量**（是 metadata 指针）；这里按**既有账判据**取 `"Missions/"`
+        /// （账 `日常_奖励.tsv:441` 的判据要点「原版 LocalizedString `Missions/<id>`」+ `Core/Loc.cs` 里
+        /// `Missions/Daily_*` 那一族键名逐条对得上）。⛔ 这不是原版字面量的证据，是**沿用既有账口径**。</summary>
+        public const string DescriptionKeyPrefix = "Missions/";
+
+        /// <summary>原版 `public LocalizedString GetLocalizedDescription()`（`decomp_full/MissionChallenge__GetLocalizedDescription.c`，
+        /// **全文四条语句**）= `return new LocalizedString(&lt;前缀&gt; + GetID());`
+        /// —— **不带 `string.Format`**（填参数那一跳在 `MissionChallengeProgress.GetLocalizedDescription` 里）。
+        /// ⚠️ 本仓没有 `LocalizedString` 这一层，`Loc.T(键)` 返回的就是**未填参的模板**（与 `LocalizedString` 等价）。
+        /// <para>🔴 **2026-10-28（B92_N8b）就地订正 N2d 的记法**：N2d 记这一行「原版体 42 语句 / 3 分支」，
+        /// 那是 `MissionChallengeProgress__GetLocalizedDescription.c`（**另一个类**的同名方法）；
+        /// 本行自己的 `.c` 只有四条语句。</para></summary>
+        public virtual string GetLocalizedDescription() { return Loc.T(DescriptionKeyPrefix + GetID()); }
+    }
+
+    // ============================================================ B92-N8b（续）· 日登挑战的「下一次刷新时刻」
+    public partial class DailyLoginChallenge
+    {
+        /// <summary>原版 `GetNextUpdate` 里读的 `Data.challenges.Count`（`*(*(this+0x18) + 0x18)` ——
+        /// `this+0x18` 是 `LiveOpsEvent.Data`）。本仓这一层不持有 `Data` ⇒ 由装载方注入；
+        /// **`0` 等价于「没有挑战表」**（那时 `count &lt;= currentValue` 恒真 ⇒ 走「今天 0 点」那一支，
+        /// 与原版 `challenges` 为空的形状一致）。</summary>
+        public int ChallengeCount;
+
+        /// <summary>原版 `public DateTime GetNextUpdate(ChallengeProgress progress)`
+        /// （`decomp_full/DailyLoginChallenge__GetNextUpdate.c`，28 语句 / 10 分支）：
+        /// <code>
+        /// if (!loopable) {                                        // +0x2D
+        ///     if (progress == null) throw;
+        ///     if (Data.challenges.Count &lt;= progress.CurrentValue) return ServerDateTime.Date;   // ★ 跑完了 ⇒ 今天 0 点
+        /// }
+        /// if (progress != null &amp;&amp; progress.customData != null) {
+        ///     DateTime dt = 读 customData["lastUpdate"] 成功 ? MillisToDateTime(v) : ServerDateTime;
+        ///     return dt.Date.AddDays(1);                          // ★ 否则 ⇒ 次日 0 点
+        /// }
+        /// throw;                                                  // 原版 NRE
+        /// </code>
+        /// ⚠️ 原版 `ServerDateTime` = `TimeHelper.ServerDateTime`；我们没有服务器 ⇒ 本机时钟。</summary>
+        public System.DateTime GetNextUpdate(MissionChallengeProgress progress)
+        {
+            if (!loopable)
+            {
+                if (progress == null)
+                {
+                    UnityEngine.Debug.LogError("[DailyLoginChallenge] GetNextUpdate：progress 是 null（原版这一跳 NRE）⇒ 退回次日 0 点");
+                    return Now().Date.AddDays(1);
+                }
+                if (ChallengeCount <= progress.currentValue) return Now().Date;      // ★ 跑完 ⇒ 今天 0 点
+            }
+            if (progress == null || progress.customData == null)
+            {
+                UnityEngine.Debug.LogError("[DailyLoginChallenge] GetNextUpdate：没有 progress/customData（原版这一跳 NRE）⇒ 退回次日 0 点");
+                return Now().Date.AddDays(1);
+            }
+            System.DateTime last;
+            if (!TryGetLast(progress, out last)) last = Now();                       // 读不到 ⇒ 用「现在」
+            return last.Date.AddDays(1);
+        }
+    }
+
+    // ============================================================ B92-N8c（2026-10-28）· 里程碑 / 描述 / 完成判定
+    /// <summary>原版 `ChallengeMilestone`（`dump.cs:59731`，三个字段逐个抄）：
+    /// `difficulty // 0x10`（`ChallengeDifficulty`：`Easy=1 / Medium=2 / Hard=4`，见 `dump.cs:59747`）·
+    /// **`targetValue // 0x14`**（这一档的门槛值）· `rewards // 0x18`（`RewardInfo[]`，本仓只透传）。</summary>
+    [Serializable]
+    public class ChallengeMilestone
+    {
+        public int difficulty;
+        public int targetValue;
+        public object[] rewards;
+    }
+
+    public abstract partial class MissionChallenge
+    {
+        /// <summary>原版 `private ChallengeType challengeType; // 0x28`（`dump.cs:59624`）：
+        /// `DifficultyBased = 1 / MilestonesBased = 2 / DailyLogin = 4`（`dump.cs:59736-59740`）。
+        /// **`AvailableRewards()` 只有 `== 1` 才筛里程碑**（见 `MissionChallengeProgress.AvailableRewards`）。</summary>
+        public int challengeType;
+    }
+
+    public partial class MissionChallengeProgress
+    {
+        /// <summary>原版 `IEnumerable&lt;ChallengeMilestone&gt; AvailableRewards()`
+        /// （`decomp_full/MissionChallengeProgress__AvailableRewards.c`，全文就三跳）：
+        /// <code>
+        /// var c = AssetLocator.GetAsset(this.challengeId);            // 原版按 +0x38 取挑战；我们 = 注入的 `Challenge`
+        /// if (c == null) throw;                                        // 原版 NRE
+        /// if (c.challengeType != ChallengeType.DifficultyBased /* 1 */) return c.rewards;   // ★ 默认支：**全部**里程碑
+        /// return c.rewards.Where(&lt;实例方法委托&gt;);                                          // 只有 DifficultyBased 才筛
+        /// </code>
+        /// 🔴 **唯一残差 = `challengeType == 1` 那一支的筛选谓词**：`.c` 里是
+        /// `new Predicate&lt;ChallengeMilestone&gt;(this, DAT_1842b0c48)` —— **实例方法委托**（不是 `&lt;&gt;c` 静态 lambda），
+        /// 所以 `decomp_full` 里**没有** `__c___AvailableRewards_b__NN.c` 可查，本机也拿不到那个方法名。
+        /// ⇒ 那一支**出声一次 + 退回全集**（⛔ 不猜「按 difficulty 过滤」）。
+        /// ✅ **本仓该分支恒不命中**：我们只有 `DailyLoginChallenge`（`challengeType = 4`）与 `MissionComplete`（默认 0）。</summary>
+        public IEnumerable<ChallengeMilestone> AvailableRewards()
+        {
+            var c = Challenge;
+            if (c == null)
+            {
+                Debug.LogError("[MissionChallengeProgress] AvailableRewards：取不到挑战（原版走 AssetLocator，这一跳 NRE）⇒ 空表");
+                return System.Array.Empty<ChallengeMilestone>();
+            }
+            var a = c.rewards;
+            if (a == null) return System.Array.Empty<ChallengeMilestone>();
+            if (c.challengeType != 1) return a;
+            SayUnfilteredOnce();
+            return a;
+        }
+
+        /// <summary>「DifficultyBased 那一支的筛选谓词未解」只说一次（每次重建都吼会淹掉日志）。</summary>
+        static bool _saidUnfiltered;
+        static void SayUnfilteredOnce()
+        {
+            if (_saidUnfiltered) return;
+            _saidUnfiltered = true;
+            Debug.LogWarning("[MissionChallengeProgress] AvailableRewards：`challengeType == DifficultyBased(1)` 那一支的"
+                           + "筛选谓词是**实例方法委托**（`Predicate<ChallengeMilestone>(this, DAT_1842b0c48)`），"
+                           + "本机无符号可解 ⇒ **退回全集**（未按难度过滤）。原版这一支只服务 DifficultyBased 挑战，"
+                           + "本仓暂无该类挑战。");
+        }
+
+        /// <summary>原版 `public int MaxValue { get; }`（`decomp_full/MissionChallengeProgress__get_MaxValue.c`）：
+        /// `AvailableRewards()` 里取 `targetValue`（谓词实体 `…__c___get_MaxValue_b__19_0.c` = `m =&gt; m.targetValue`），
+        /// 一条都没有 ⇒ **0**。
+        /// ⚠️ 那一跳的 LINQ 是 `Last`/`Max` 两可（`.c` 只看到「取一个元素再读 `+0x14`」）；
+        /// 里程碑按 `targetValue` 升序排列时两者同值 —— 这里取**最后一个**（`Last`）。</summary>
+        public int MaxValue
+        {
+            get
+            {
+                int v = 0;
+                foreach (var m in AvailableRewards()) v = m.targetValue;
+                return v;
+            }
+        }
+
+        /// <summary>原版 `bool IsComplete()`（`decomp_full/MissionChallengeProgress__IsComplete.c`，15 语句 / 4 分支）：
+        /// <code>
+        /// var c = AssetLocator.GetAsset(this.challengeId);              // 原版按 +0x38 取挑战；我们 = 注入的 `Challenge`
+        /// if (c == null) throw;                                          // 原版 NRE
+        /// if (c.loopable) return false;                                  // ★ +0x2D：循环挑战永不算完成
+        /// return Count(AvailableRewards()) &lt;= this.collectedRewards;      // ★ +0x10：可领条数 ≤ 已领条数
+        /// </code>
+        /// 🔴 **2026-10-28（B92-N8c）按 `.c` 落**：原来本方法只有 `completedAt != 0` 那一格（最保守的近似，
+        /// 而且与 `.c` 的算式**不是一回事**）。`MissionPersistence.IsCompleted` / `IsChallengeComplete`
+        /// 都读这一格 ⇒ 一并按原版改口径。</summary>
+        public bool IsCompleteCore()
+        {
+            var c = Challenge;
+            if (c == null)
+            {
+                Debug.LogError("[MissionChallengeProgress] IsComplete：取不到挑战（原版走 AssetLocator，这一跳 NRE）⇒ false");
+                return false;
+            }
+            if (c.loopable) return false;
+            int n = 0;
+            foreach (var _ in AvailableRewards()) n++;
+            return n <= collectedRewards;
+        }
+
+        /// <summary>原版 `public string GetLocalizedDescription()`（`decomp_full/MissionChallengeProgress__GetLocalizedDescription.c`）：
+        /// <code>
+        /// var c = AssetLocator.GetAsset(this.challengeId);
+        /// if (c == null) throw;
+        /// string s = String.Concat(&lt;前缀常量&gt;, c.GetID());          // 与 MissionChallenge 那一份同一个常量
+        /// return String.Format(new LocalizedString(s), this.MaxValue);  // ★ 这里才填 {0}
+        /// </code>
+        /// ⚠️ 前缀常量见 `MissionChallenge.DescriptionKeyPrefix`（取值理由写在那儿）。</summary>
+        public string GetLocalizedDescription()
+        {
+            var c = Challenge;
+            if (c == null)
+            {
+                Debug.LogError("[MissionChallengeProgress] GetLocalizedDescription：取不到挑战（原版这一跳 NRE）⇒ 空串");
+                return "";
+            }
+            return string.Format(Loc.T(MissionChallenge.DescriptionKeyPrefix + c.GetID()), MaxValue);
+        }
+    }
 }

@@ -402,7 +402,7 @@ namespace CardPresentation
     /// **对战类活动**的共同基类（`PracticeEvent` / `TutorialEvent` 直接继承；`Ranked` / `FastMode` / `Draft`
     /// 再往下一层）。判据 → `判据/泛型与启动链.md` §二 的状态→实例表。
     /// <para>本类负责三件事：① 事件级对局状态（`JoinStates`）② 一局打完的分派（胜/负/平）③ 活动卡组取用。</para></summary>
-    public abstract class PlayEvent<TSave, TData> : LiveOpsEvent<TSave, TData>
+    public abstract partial class PlayEvent<TSave, TData> : LiveOpsEvent<TSave, TData>
         where TSave : PlayEventSaveGame
         where TData : PlayEventData
     {
@@ -849,5 +849,94 @@ namespace CardPresentation
 
         /// <summary>自检口：清注入口 + 告警去重。</summary>
         public static void ResetForTest() { Source = null; _warned = false; }
+    }
+}
+
+// ============================================================ `IPlayEvent` 接口（B92·N1 · 2026-10-28）
+// 判据 = `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/IPlayEvent.cs`（**整条接口逐行现读**，13 个成员）：
+//   `IPlayEvent : ILiveOps` —— `PlayModes EventPlayMode`(get) · `PlayEventSaveGame.JoinStates JoinState`(get) ·
+//   `int CurrentGamesLost`(get) · `void StartMatch()` · `void CancelMatch()` ·
+//   `void MatchFinished(RankedMatchResult, Action<OnlineMatchResult>)` · `string GetMatchmakingFilter(int,int,int)` ·
+//   `void SetCustomMatchOptions(RoomOptions,int)` · `void SetDefaultDeck(CardDeck,bool)` · `CardDeck GetEventDeck()` ·
+//   `CardDeck GetEventDeck(CardArmy)` · `new PlayEventData GetBaseData()` · `new PlayEventSaveGame GetBaseSave()`。
+//
+// 🔴 **建它的代价**（账 row 60 的差异列）：缺接口 ⇒ `GameModesHandler.GetActiveEvent(PlayModes)` 只能**反射**读
+//    `EventPlayMode`、`GameModesHandler.CombatFinished` 只能**反射**调 `MatchFinished`。
+//    建好之后那两处可以换回强类型（⚠️ 本批**没换**：`GameModesHandler.cs` 不在 B92·N1 白名单，交给 N5）。
+//
+// ⚠️ **与原版的两处如实差异**（⛔ 不是「已经一样」）：
+//   ① `CardDeck` → **`string`**：本工程卡组没有 `CardDeck` 资产对象，唯一 id = `CollectionData.DeckInfo.Name`
+//      （文件头差异③；`GetEventDeck()` / `GetEventDeck(CardArmy)` / `SetDefaultDeck` 三处同此）。
+//   ② `JoinState` / `CurrentGamesLost` 在原版是**接口的默认实现**（Cpp2IL 在两处都写
+//      `NoteDecompilerIssue("Method not found @…")`，但 `CurrentGamesLost` 的控制流可读 =
+//      `LiveOpsManager.GetHandler<GameModes>() … return handler.LossStreak`）——
+//      我们改成**接口只声明、实现落在类上**（C# 8 的默认接口成员在 IL2CPP 上有风险，⛔ 别改成默认实现）。
+namespace CardPresentation
+{
+    /// <summary>原版 `IPlayEvent`：对战类活动的接口面（`PracticeEvent` / `TutorialEvent` 直接实现；
+    /// `Ranked` / `FastMode` / `Draft` 经由 `PlayEvent&lt;,&gt;` 继承）。</summary>
+    public interface IPlayEvent : ILiveOps
+    {
+        /// <summary>原版 `PlayModes EventPlayMode { get; }` —— 同时是 `GetEventDeck` 一族筛卡组的判据。</summary>
+        PlayModes EventPlayMode { get; }
+        /// <summary>原版 `JoinState`（默认实现读 `SaveGame + 0x30` = `PlayEventSaveGame.joinState`）。</summary>
+        PlayEventSaveGame.JoinStates JoinState { get; }
+        /// <summary>原版 `CurrentGamesLost`（默认实现 = `LiveOpsManager.GetHandler&lt;GameModes&gt;().LossStreak`）。</summary>
+        int CurrentGamesLost { get; }
+        void StartMatch();
+        void CancelMatch();
+        void MatchFinished(RankedMatchResult result, Action<OnlineMatchResult> callback);
+        string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost);
+        void SetCustomMatchOptions(RoomOptions options, int currentElo);
+        /// <summary>⚠️ 差异①：原版是 `CardDeck`。</summary>
+        void SetDefaultDeck(string deckId, bool upload = true);
+        /// <summary>⚠️ 差异①：原版是 `CardDeck`。</summary>
+        string GetEventDeck();
+        /// <summary>⚠️ 差异①：原版是 `CardDeck`。</summary>
+        string GetEventDeck(CardArmy army);
+        new PlayEventData GetBaseData();
+        new PlayEventSaveGame GetBaseSave();
+    }
+
+    // ── 类那半：`IPlayEvent` 要求的两个成员（其余成员 `PlayEvent<,>` 上早已存在）
+    // 🔴 追加在文件末尾（⛔ 不插进上面任何类体）—— 账按 `文件:行号` 引用，插中间会让下游落点整体漂移。
+    public abstract partial class PlayEvent<TSave, TData> : IPlayEvent
+        where TSave : PlayEventSaveGame
+        where TData : PlayEventData
+    {
+        /// <summary>原版 `IPlayEvent.JoinState`（接口默认实现）：读 `SaveGame.joinState`（`+0x30` 那一格，
+        /// 已由 `PlayEventSaveGame.joinState` 逐字段对过）。`SaveGame == null` ⇒ 原版 NRE，我们出声 + `NotJoined`。</summary>
+        public PlayEventSaveGame.JoinStates JoinState
+        {
+            get
+            {
+                if (SaveGame == null)
+                {
+                    Debug.LogWarning("[PlayEvent] JoinState：活动 '" + (GetID() ?? "<null>")
+                                   + "' 没有存档（原版这一跳 NRE）⇒ 返回 NotJoined");
+                    return PlayEventSaveGame.JoinStates.NotJoined;
+                }
+                return SaveGame.JoinState;
+            }
+        }
+
+        /// <summary>原版 `IPlayEvent.CurrentGamesLost`（接口默认实现，控制流可读）：
+        /// `var h = LiveOpsManager.GetHandler&lt;GameModes&gt;(); if (h != null) return h.LossStreak;` 否则 NRE。
+        /// 本地：`LiveOpsManager.GetHandler&lt;GameModesHandler&gt;()`；取不到 ⇒ 出声 + 0（原版 NRE）。
+        /// ⚠️ 原版的 `GameModes` 型参 = 我们的 `GameModesHandler`（同名族，见 `Shell/GameModesHandler.cs:53`）。</summary>
+        public int CurrentGamesLost
+        {
+            get
+            {
+                var h = LiveOpsManager.GetHandler<GameModesHandler>();
+                if (h == null)
+                {
+                    Debug.LogWarning("[PlayEvent] CurrentGamesLost：`LiveOpsManager.GetHandler<GameModesHandler>()` 是 null"
+                                   + "（原版这一跳 NRE）⇒ 返回 0");
+                    return 0;
+                }
+                return h.LossStreak;
+            }
+        }
     }
 }

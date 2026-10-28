@@ -9779,7 +9779,7 @@ namespace CardPresentation
             //    以及撤环境那条「回调计数到齐才 Destroy」）—— 判据（逐句读方法体）→
             //    `资料/加时与冲突模式_原版规格.md` 的 2026-09-30 那一节。
             //    ⚠️ **仍没接**：`ScenarioParticleSpawnerBlender`（4 个实例，要原版 `ParticleSystemAreaSpawner*`）。
-            if (_envApplier == null) _envApplier = gameObject.AddComponent<EnvironmentApplier>();
+            ApplyEnvWarlordAbilityOnce(); if (_envApplier == null) _envApplier = gameObject.AddComponent<EnvironmentApplier>();   // 【B92_B3 2026-10-28】原版 `ApplyEnvEffect.c:14-15`：**先**督军触发、**再**换环境（见 `ApplyEnvWarlordAbilityOnce` 的 doc）
             var envItem = EnvironmentConditions.Find(so);
             if (envItem == null)
             {
@@ -13188,7 +13188,7 @@ namespace CardPresentation
             if (!TutorialAllowsCardDisplay) return;
             // 🆕 2026-10-24（`W20`）：末位实参 `isPlayer`（敌方伏击整排徽标不画那道闸，见 `ToCardData`）。
             _cardDisplay.Toggle(ToCardData(u, side == _me ? _myFaction : _foeFaction, side == _me), u.Card,
-                                CardDisplayWindow.RowsOf(u.TempBuffs));
+                                CardDisplayWindow.RowsOf(u.TempBuffs, Enchantments.CountQuests(u.Instance) > 0));   // 2nd arg = 原版 `HasQuests(载体)`（`DisplayCardEffects.c:44-53`）
             AfterCardWinToggle(BoardViewAt(slot, side == _me));
         }
 
@@ -15319,10 +15319,10 @@ namespace CardPresentation
                 // `ActiveSkillDesc` @ `FrontCanvas/Safe area FrontCanvas`，`OverHand` 层 / order 0）。
                 // ⚠️ 它**不在这里弹**（这一处只给选择器做角标）：面板由「压住技能钮」那条路单独触发
                 //   （`BattleDriver` 的 `AbilityBox` 悬停 → `ShowAbilityCard`）。
-                // ⚠️ 替代行动没有「一个数字」（它的正文在 `TriggerOps` 里）⇒ 角标留空。
-                // 🆕 誓约有数字：就是它要付的能量（`Oath N:` 的 N）。
-                Badge = u.Ability != null ? u.Ability.Amount.ToString()
-                      : oath ? u.Card.OathCost.ToString() : "",
+                // ⚠️ 角标**唯一**判据 = 原版 `customIconValue`（见 `AbilityBadgeOf`）—— ⛔ 不是 `OathCost` / `Ability.Amount`。
+                // 🔴 2026-10-28（B92_N10 · 铁律 5 就地订正）：原写「誓约有数字 = 它要付的能量」—— 数值常撞上但**来源不是它**；
+                //   且旧写法其中一个来源 `u.Ability.Amount` 对原版卡**恒 null**（`CardDef.Ability` 只给自造卡解析）。
+                Badge = AbilityBadgeOf(u, oath),
                 // 🆕 2026-09-25 **这一格的底图按卡换**：带替代行动/誓约的卡用它自己那张专属按钮图
                 //    （原版就是运行时给 `buttonIcon` 赋值的；五张图已导进 `Resources/Art/ui/`）。
                 //    没有替代行动的卡 ⇒ null ⇒ 落回 `AttackSelector.IconName` 那张占位图。
@@ -18959,8 +18959,8 @@ namespace CardPresentation
                             : AttackKind.Ability;
 
             SyncReticleCameras();
-            _aiAnimFrom = caster.transform.position;
-            _aiAnimFrom.z = TargetReticle.Z;
+            _aiAnimFrom = Get2DPosOfCard(caster, true);   // 【B92_B3c】`__EnemyTargetingAnim.c:18`：起点走 `Get2DPosOfCard(cardOrigin, useCenter:1)`
+            _aiAnimFrom.z = TargetReticle.Z;              // ↑ z 换成本仓准星平面；终点仍是裸 `transform.position`（`.c:22`，本来就对）
             _aiAnimTo = reticle.ResolveAim(target.transform.position);
             _aiAnimTo.z = TargetReticle.Z;
             _aiAnimKind = kind;
@@ -26759,7 +26759,7 @@ namespace CardPresentation
                 //   · ⚠️ **排在 `SetCanAct` 之后、`SetQueue` 之前**：`SetQueue` 要落在这一格所有动作
                 //     的最后（它扫整棵子树盖章，见它上面那段注释）；本方法**不新建任何子物体**
                 //     （只开关已有层 + 换贴图），所以放它前面不破坏那条纪律。
-                v.SetAmbush(u.FaceDown, hideStats: u.FaceDown && !mine);
+                v.SetAmbush(u.FaceDown, hideStats: u.FaceDown && !mine); NoteAmbushObserved(owner, s, u);   // 【B92_B3c 2026-10-28】事件式翻「法力藏不藏」那个 bool（判据见类尾 `NoteAmbushObserved`）
 
                 // 🆕 2026-10-12（`A1672`）：**这一格上的卡占一段渲染队列**。
                 //   号源 = `BoardLayout.QueueOf(格号)`（⛔ 别在这儿另算一套号），机制 = `CardView.SetQueue`
@@ -35644,8 +35644,8 @@ namespace CardPresentation
 
         /// <summary>③ + ④：原版 `StartPointer(clickAndDrag, 狂暴单位, 目标, 1)` 的**起点**那一半，
         /// 以及 `StopHandAnim(2.0f)` = **2.0 s 后**熄指针。
-        /// 位置口径 = `Get2DPosOfCard(狂暴单位)`（`BattleManager__Get2DPosOfCard.c`：取 `transform.position`、
-        /// 再投到 UI 画布平面）⇒ 我们取 `v.transform.position`（世界档 HUD 与画布同平面，与 `TutorialAnchor` 同口径）。</summary>
+        /// 位置口径 = `Get2DPosOfCard(狂暴单位, useCenter: 1)`（`BattleManager__EndTurnClick.c:95/:101` 两个实参**都是 1**）；
+        /// ✅ 2026-10-28（`B92_B3`）起**真的调那个方法**，不再用裸 `v.transform.position`（那条记在账 `战斗逻辑驱动` 的 `Get2DPosOfCard` 行）。</summary>
         void ShowPendingBerzerkPointer()
         {
             int side, slot;
@@ -35664,7 +35664,7 @@ namespace CardPresentation
                 }
                 return;
             }
-            ov.SetPointer(true, v.transform.position);
+            ov.SetPointer(true, Get2DPosOfCard(v, true));
             _berzerkPointerOffAt = _clock + PendingBerzerkPointerSeconds;
         }
 
@@ -36407,16 +36407,16 @@ namespace CardPresentation
         //        `out_cpp2il_dev_ilspy/ManaTypeHolder.cs:328-352`，两份互证）；
         //        调用点 = `CardScript__SetAmbush.c:56`（进埋伏 ⇒ activate=false）/ `:101`（出埋伏 ⇒ activate=true）。
         //  🔴 原版是**改文字**（不是灰化）；引擎侧零状态改动 —— 状态就地读 `UnitState.FaceDown`（伏击 = 面朝下）。
-        //  ⚠️ 原版按「进/出事件」翻一个 bool；我们按**当前棋盘**算（多张伏击时原版会在第一次翻开就还原，
-        //     那看着像 bug；我们按「还有面朝下的就继续藏」—— 如实记这一处行为差异）。
+        //  ✅ 2026-10-28（`B92_B3c`）**已改回事件式**（判据 `MinionManager__AreMinionsWithAmbush.c:1-52` + B5 §R15）。
+        //     ⇒ 见类尾 `NoteAmbushObserved` / `AreMinionsWithAmbush` / `_manaHiddenByAmbush`（⛔ 别再按棋盘每帧算）。
         bool AmbushHidesEnergy(int side)
         {
-            if (Ctx == null || Ctx.Players == null || side < 0 || side >= Ctx.Players.Length) return false;
-            var b = Ctx.Players[side].Board;
-            if (b == null) return false;
-            for (int i = 0; i < b.Length; i++)
-                if (b[i] != null && b[i].FaceDown) return true;
-            return false;
+            EnsureAmbushStateForBattle();                     // 换局清零（⛔ 不在 `Begin` 里加行 ⇒ 不推账行号）
+            if (side != 0 && side != 1) return false;
+            // 🔴 原版是**一个 bool**（`PlayerManager` 那一格），由两次**事件**翻：
+            //    「进伏击 ⇒ 藏」（`CardScript__SetAmbush.c:56`）·「出伏击且场上再无伏击 ⇒ 还原」（`:96-104`）
+            //    ⇒ 我们照事件式存，⛔ **不再每帧扫棋盘**（旧写法「还有面朝下的就继续藏」更合理，但**不是原版**）。
+            return _manaHiddenByAmbush[side];
         }
 
         /// <summary>能量数字那一格的整串文字（原版 `ManaTypeHolder.ToggleCurrentMana` 的两档）。
@@ -37233,6 +37233,226 @@ namespace CardPresentation
             if (tf.DisplayTrigger(KeywordTable.BloodThirst, isWarlord, traitValue))
                 Debug.Log("[Battle] SW34 的 Slay 结算 ⇒ 效果 480「血渴高亮」"
                         + "（原版 `AbilityLogic__PlayAbility.c:1960-1972` case 0x1e0）");
+        }
+
+        // ==================================================================================================
+        //  🆕 2026-10-28（B92 波 4 · `B92_B3`）：原版 `BattleManager.ApplyEnvEffect` 的**第一跳**
+        //  —— 督军按 `ThisCardPlayed` 跑**环境卡自己**的能力（判据 `decomp_full/BattleManager__ApplyEnvEffect.c:14-15`）
+        // ==================================================================================================
+        //  原版 `.c` 全文的顺序（🔴 这两跳的**先后**是整条的唯一硬约束）：
+        //    `lVar2 = param_3 ? *(bm+0xc0) : *(bm+200)`   // `+0xc0` = 先手/本地那一侧的 PlayerManager，`+0xc8`（=200）= 对面
+        //    `if (lVar2 != 0 && *(lVar2+0x28) != 0) {`     // `+0x28` = `heroCard`
+        //        `CardScript__TriggerOtherCardAbility(heroCard, card, 0);`    // ← **本方法补的就是这一跳**（`:15`）
+        //        `... GetEnviromentalEffect(+0x220) → ApplyEnvironment(+0x100, effect, 0, 0)`  // ← `:20`，`ApplyOffensiveEnvOnce` 已有
+        //    `}`
+        //  ⇒ **先督军触发、再换环境**（⛔ 别反过来，也别把这一跳挪到 `_envApplier.Apply` 之后）。
+        //  `TriggerOtherCardAbility(heroCard, envCard)` 的真语义 = `envCard.OnTriggerEffectInCard(ThisCardPlayed, mgr,
+        //  thisCard = envCard, actingCard = heroCard, target = null)` ⇒ **环境卡跑自己的 `ThisCardPlayed`、`actingCard` = 督军**。
+        //  执行体 = `RuleEngine/Core/EffectResolver.cs.RunAbilityOfAnotherCard`（它自己的 doc 第一句就写着
+        //  「原版 5 个调用点 = `BattleManager__ApplyEnvEffect.c:15`（环境卡）· …」）—— ⛔ 本笔**只调用、不改它**（B4 的文件）。
+        //
+        //  🔴 **今天这一跳「接上了但跑不动」，原因是数据不在**（如实记，⛔ 不自己编一棵 ability 树顶上）：
+        //  环境卡**不在**我们的组牌池 `Resources/cards_engine.json` 里 —— 现读 13 个阵营的 3 张进攻卡 + 空卡
+        //  （`Dawn Attack` / `Planetary Invasion` / `Manufactorum Overdrive` / `Warp Storm` / `Helfire Outburst` /
+        //   `Daemonic Feast` / `Normal Conditions`）**7/7 全部未命中**；真值只在 `数据/游戏数据/cards_truth.json`
+        //  （`AM63 Dawn Attack` = `cardType 20` / `spellType 200`，`trigger 0` 那条 ability =
+        //   `chosenAbility 30` + `buffType 12` + 一个 enchantment PPtr）。
+        //  ⇒ 本方法的做法 = **按卡名去卡池里找那张 `CardDef`**：找到就照原版跑，找不到就**出声**（⛔ 不静默）。
+        //  数据侧哪天把环境卡并进 `cards_engine.json`，这一跳**零改动**自动生效。
+        void ApplyEnvWarlordAbilityOnce()
+        {
+            if (Ctx == null || !Ctx.OffensiveChosen) return;
+            int seat = Ctx.OffensiveSeat;                      // 原版实参 `isPlayer = playerGoesFirst` ⇒ **先手方**
+            if (seat != 0 && seat != 1) return;
+            var pm = Ctx.Players[seat];
+            var hero = pm != null ? pm.Warlord : null;          // 原版 `+0x28` = `heroCard`
+            if (hero == null || hero.Card == null)
+            {
+                Debug.LogWarning("[Battle] 进攻卡：先手方（P" + (seat + 1) + "）的督军取不到 ⇒ 原版那一跳跳过。"
+                               + "⚠️ 原版的 `if (playerMgr != null && heroCard != null)` 把**督军触发与换环境一起**包着"
+                               + "（`.c` 落到那条 throw）⇒ 严格说环境这一步也该跳过；我们仍照旧换环境 —— **已知偏离，出声不静默**。");
+                return;
+            }
+            var envCard = ChosenOffensiveCardDef();
+            if (envCard == null) return;                        // 已经在 ChosenOffensiveCardDef 里出过声
+            // ⚠️ 类名是 `RuleCore`（`EffectResolver.cs` 只是**文件名** —— 本仓**没有**叫 `EffectResolver` 的类，
+            //    见 `EffectResolver.cs:8348` 那句原文）⇒ 这里必须写 `RuleCore.`，⛔ 别按文件名写成 `EffectResolver.`。
+            bool ran = RuleCore.RunAbilityOfAnotherCard(
+                Ctx, envCard, "ThisCardPlayed", seat,
+                abilityOwnerUnit: null,          // 环境卡不在场上；那个形参只作 `by` 与代词种子
+                actingCard: hero,                // 原版 `actingCard = heroCard`
+                targetCard: null,                // 原版 `target = null`
+                by: hero.Name);
+            Debug.Log("[Battle] 进攻卡「" + envCard.Name + "」⇒ 督军「" + hero.Name
+                    + "」按 `ThisCardPlayed` 跑它自己的能力（原版 `ApplyEnvEffect.c:15` 的 "
+                    + "`heroCard.TriggerOtherCardAbility(envCard)`）"
+                    + (ran ? " —— 已结算" : " —— ⛔ **这一跳没有生效**（原因见 `ctx` 日志）"));
+        }
+
+        /// <summary>本次选中的进攻卡在**卡池**里的 <see cref="CardDef"/>；找不到 ⇒ 出声一次 + `null`。
+        /// <para>⚠️ 现读：环境卡**不在** `Resources/cards_engine.json`（组牌池）⇒ 今天**恒 `null`**。
+        /// 判据与「为什么不能自己拼一棵 ability 树」→ <see cref="ApplyEnvWarlordAbilityOnce"/> 头上那段。</para></summary>
+        CardDef ChosenOffensiveCardDef()
+        {
+            string faction = FactionOf(Ctx.SecondSeat);          // 与选卡那一刻同一个阵营（两处 `ChooseOffensiveCard` 调用点用的就是它）
+            var list = OffensiveCards.Choices(faction);
+            string name = null;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] != null && list[i].idx == Ctx.OffensiveSlotIdx) { name = list[i].name; break; }
+            if (string.IsNullOrEmpty(name))
+            {
+                Debug.LogWarning("[Battle] 进攻卡槽 " + Ctx.OffensiveSlotIdx + "（" + faction + "）在 "
+                               + "`Resources/OffensiveCards.json` 里对不上任何卡名 ⇒ 督军那一跳跳过（⛔ 不猜）。");
+                return null;
+            }
+            var pool = CardDatabase.Load();
+            var def = pool != null ? CardDatabase.Find(pool, name) : null;
+            if (def == null && _envCardNoDefWarned.Add(name))
+                Debug.Log("[Battle] 进攻卡「" + name + "」**不在卡池**（`Resources/cards_engine.json`）⇒ 原版 "
+                        + "`ApplyEnvEffect.c:15` 那一跳（督军让环境卡跑 `ThisCardPlayed`）**今天没有可执行的 ability 树**。"
+                        + "真值在 `数据/游戏数据/cards_truth.json`（`AM63` 一类）；要它能跑，把环境卡并进 "
+                        + "`cards_engine.json`（生成器 `工具/gen_cards_engine.py`）—— **代码这一侧零改动**。");
+            return def;
+        }
+        /// <summary>「这张进攻卡不在卡池」已经出过声的卡名（⛔ 别每场刷屏）。</summary>
+        readonly HashSet<string> _envCardNoDefWarned = new HashSet<string>();
+
+        // ==================================================================================================
+        //  🆕 2026-10-28（B92 波 4 · `B92_B3c`）：`MinionManager.AreMinionsWithAmbush()` —— **改回事件式**
+        // ==================================================================================================
+        //  判据（🥇 `decomp_full/MinionManager__AreMinionsWithAmbush.c:1-52` 全文 + `判据/B92_战斗判据_B5.md` §R15）：
+        //   · 原版那条查询 = 扫**两侧**表，任一 `HasCurrentTrait(0x4b0 = 1200 ambush)` ⇒ true。
+        //   · 它有 **8 个活调用点**，**全部服务于「法力数字藏不藏」**：
+        //       `CardScript__SetAmbush.c:56`（**进**伏击）⇒ `PlayerManager.ToggleCurrentMana(pm, false)` = **无条件藏**（印 `?/{total}`）；
+        //       `CardScript__SetAmbush.c:96-104`（**出**伏击）⇒ **只有 `AreMinionsWithAmbush()` 为假**才 `ToggleCurrentMana(pm, true)` = 还原；
+        //       `PlayerManager__TurnStart.c:35` · `__RefillMana.c:28` · `__UseNormalEnergy.c:115` · `__AddNewMana` ·
+        //       `__RefillCustomMana` · `__RefillOneMana` · `__OnTurnEnd` —— 同一形状：**有伏击 ⇒ 跳过本轮法力显示刷新**。
+        //   · 🔴 **所以它是一个「bool + 两次事件」，不是「每帧按棋盘算」**：
+        //       多张伏击时，翻开第一张 **不会** 还原（`AreMinionsWithAmbush()` 仍真）；翻开最后一张才还原。
+        //       我们旧写法「还有面朝下的就继续藏」在常见路径上净等价，但**在多张伏击 + 只翻一张时不等价**，
+        //       而且会「任何 FaceDown 变化立刻生效」—— 原版只在那 9 个事件点上重算。⇒ 本笔照事件式重写。
+        //   · ⚠️ **`AreMinionsWithAmbush()` 是【全局】查询（扫两侧）**，而 `ToggleCurrentMana` 只作用于**那一侧**：
+        //       «我方的伏击单位翻开、但对面还有伏击» ⇒ 我方法力**仍然藏着**。这是原版的形状（18·0：照抄，⛔ 别「修好」）。
+        //   · 那个 bool 落在我们这边 = `_manaHiddenByAmbush[side]`，唯一读口 = `EnergyTextOf`（`UpdateHud` 两处）。
+
+        /// <summary>原版 `PlayerManager` 那一格「法力数字藏没藏」的 bool（每侧一个）。
+        /// 🔴 **只由 <see cref="NoteAmbushObserved"/> 的两次事件翻**，⛔ 不许在别处直接赋值。</summary>
+        readonly bool[] _manaHiddenByAmbush = new bool[2];
+        /// <summary>每格上次看到的「单位实例 id」（`0` = 这一格上次是空的）—— 用来把「换了个单位」当成**一次新的进伏击**。</summary>
+        readonly int[] _seenAmbushInst = new int[2 * BoardSpec.Size];
+        /// <summary>每格上次看到的 `FaceDown`。</summary>
+        readonly bool[] _seenFaceDownBySlot = new bool[2 * BoardSpec.Size];
+        /// <summary>这份事件状态属于哪一局 —— 换 `Ctx` 就整份清零（⛔ 不在 `Begin` 里加行，见 `EnsureAmbushStateForBattle`）。</summary>
+        BattleContext _ambushStateCtx;
+
+        /// <summary>换局就把三张表清零（幂等；由 <see cref="AmbushHidesEnergy"/> 与 <see cref="NoteAmbushObserved"/> 顺手调）。
+        /// <para>⚠️ **为什么不写在 `Begin()` 里**：`Begin` 在本文件很靠前，往里加一行会让**下游全部账行落点漂移**。
+        /// 换成「第一次用到时按 `Ctx` 身份懒清」，语义与写在 `Begin` 里等价（换局 ⇒ `Ctx` 换 ⇒ 下一帧就清）。</para></summary>
+        void EnsureAmbushStateForBattle()
+        {
+            if (ReferenceEquals(_ambushStateCtx, Ctx)) return;
+            _ambushStateCtx = Ctx;
+            for (int i = 0; i < _manaHiddenByAmbush.Length; i++) _manaHiddenByAmbush[i] = false;
+            for (int i = 0; i < _seenAmbushInst.Length; i++) { _seenAmbushInst[i] = 0; _seenFaceDownBySlot[i] = false; }
+        }
+
+        /// <summary>某一格上那个单位的 `FaceDown` 被同步进视图时调一次（**唯一调用点** = 那个 `v.SetAmbush(...)` 旁边）。
+        /// <para>= 原版 `CardScript.SetAmbush(bool)` 的两次调用（进 / 出）在我们这边的等价入口 —— 视图每次同步都会调
+        /// `SetAmbush(当前值)`，所以这里**自己判「变没变」**（变了才算一次事件）。</para>
+        /// <para>🔴 「换了个单位」按**新的进伏击**算（用 `InstanceId` 认）：否则一张面朝下的卡死掉、同格再来一张面朝下的，
+        /// 会被当成「没变化」而漏掉那次藏。</para></summary>
+        void NoteAmbushObserved(int owner, int slot, UnitState u)
+        {
+            EnsureAmbushStateForBattle();
+            if (owner != 0 && owner != 1) return;
+            if (slot < 0 || slot >= BoardSpec.Size || u == null) return;
+            int k = owner * BoardSpec.Size + slot;
+            bool wasDown = _seenFaceDownBySlot[k] && _seenAmbushInst[k] == u.InstanceId;
+            _seenAmbushInst[k] = u.InstanceId;
+            _seenFaceDownBySlot[k] = u.FaceDown;
+            if (wasDown == u.FaceDown) return;                 // 没变化 ⇒ 不是事件
+            if (u.FaceDown) NoteAmbushEntered(owner, u);
+            else NoteAmbushExited(owner, u);
+        }
+
+        /// <summary>**进伏击**（原版 `CardScript__SetAmbush.c:56`：`ToggleCurrentMana(pm, false)`）—— **无条件藏**，不看别人。</summary>
+        void NoteAmbushEntered(int owner, UnitState u)
+        {
+            if (owner != 0 && owner != 1) return;
+            _manaHiddenByAmbush[owner] = true;
+            Debug.Log("[Battle] P" + (owner + 1) + " 的「" + (u != null && u.Card != null ? u.Card.Name : "?")
+                    + "」进入伏击 ⇒ 该侧法力数字改印 `?/{total}`（原版 `CardScript__SetAmbush.c:56` → "
+                    + "`PlayerManager.ToggleCurrentMana(pm, false)`）");
+        }
+
+        /// <summary>**出伏击**（原版 `CardScript__SetAmbush.c:96-104`）—— 🔴 **只有 `AreMinionsWithAmbush()` 为假**才还原。
+        /// <para>⚠️ 那条查询扫的是**两侧**（原版就是全局的）⇒ 对面还有伏击时，我方这一侧**继续藏**。照抄，⛔ 别「修好」。</para></summary>
+        void NoteAmbushExited(int owner, UnitState u)
+        {
+            if (owner != 0 && owner != 1) return;
+            bool anyLeft = AreMinionsWithAmbush();
+            if (!anyLeft) _manaHiddenByAmbush[owner] = false;
+            Debug.Log("[Battle] P" + (owner + 1) + " 的「" + (u != null && u.Card != null ? u.Card.Name : "?")
+                    + "」退出伏击 ⇒ 原版 `AreMinionsWithAmbush()` = " + (anyLeft ? "真 ⇒ **不还原**（场上还有伏击）" : "假 ⇒ 还原成真值")
+                    + "（判据 `CardScript__SetAmbush.c:96-104`）");
+        }
+
+        /// <summary>原版 `MinionManager.AreMinionsWithAmbush()`（`decomp_full/MinionManager__AreMinionsWithAmbush.c:1-52`，🥇 全文）：
+        /// **扫两侧**（玩家表 → 敌方表），任一 `HasCurrentTrait(0x4b0 = 1200 ambush)` ⇒ `true`。
+        /// <para>⚠️ 我们的等价读法 = `UnitState.FaceDown`（伏击 = 面朝下，见 `CardView` 那段注释与 `RuleCore.PlaysFaceDown`）。
+        /// ⚠️ 它**只在「出伏击」那一刻被问一次**（原版 8 个调用点里唯一影响这个 bool 的那一个），⛔ 不是每帧查询。</para></summary>
+        bool AreMinionsWithAmbush()
+        {
+            if (Ctx == null || Ctx.Players == null) return false;
+            for (int side = 0; side < 2 && side < Ctx.Players.Length; side++)
+            {
+                var b = Ctx.Players[side].Board;
+                if (b == null) continue;
+                for (int i = 0; i < b.Length; i++)
+                    if (b[i] != null && b[i].FaceDown) return true;
+            }
+            return false;
+        }
+
+        // ── ⑩ 技能钮上的数值角标（原版 `customIconValue`）───────────────────────────────
+        //  🆕 **2026-10-28（B92_N10 · 账 `菜单_外壳:25` `AttackTypesButtonsController.ToggleAttackTypesSelector`）**。
+        //
+        //  **判据链（三跳，逐句读）**：
+        //    ① `decomp_full/UnitOnBoardAttackTypeSelector__Toggle.c:74-95` —— 算值：
+        //       `bVar11` = 卡 `+0x220`（`hasActiveAbility`）；若「有 `duty`(0x4c4) 且卡 `+0x4c` 非 0」⇒ `bVar11 = false`；
+        //       **有 `oath`(0x4fb) 但 `CanUseAbilityNow` 为假 ⇒ 整段跳过（值留 0）**；
+        //       满足则 `uVar5 = GetDefaultTraitValue(卡, GetTraitForActiveAbilityRawCard(army))`。
+        //    ② `decomp_full/CardTraitCollection__GetTraitForActiveAbilityRawCard.c:5-24` —— 纯映射
+        //       （`10→1275 oath` · `80→1185 pray` · `100→1220 duty` · `110→1235 agenda` · `130→1265 ferocity` · 其余 `400`）。
+        //       ⛔ 别在这里再抄一份：唯一正本 = `CardDef.ActiveAbilityTrait`（`CardDefCostPerKeyword.cs:234`）。
+        //    ③ `decomp_full/RawCardScript__GetDefaultTraitValue.c:21-34` —— 扫卡自己的 trait 表（`+0x230`），
+        //       命中就回 `_traitValue`(`+0x1c`)，扫完没有回 **0**（「没有」与「值是 0」原版就分不开）。
+        //       ⛔ 也别再抄：唯一正本 = `CardDef.GetDefaultTraitValue`（`CardDef.cs:6459`）。
+        //    ④ `decomp_full/AttackTypesButtonsController__ToggleAttackTypesSelector.c:109-135` ——
+        //       **`if (0 < (int)param_5)` 才**把数字写进 `ValueText`(`+0x30`) 并 `SetActive(true)`；
+        //       `≤ 0` 时那颗子节点**原样不动**（= 我们这边「角标留空 ⇒ `SetSlotActive` 把 `Badge_*` 关掉」，
+        //       `AttackSelector.cs` 的 `_captions` 那一跳）。
+        //
+        //  ⚠️ **现池实测（`cards_engine.json`，1,129 张）**：`activeAbilityLogic` 非空的 **132 张**里，
+        //  按上面映射能取到 `> 0` 的**只有 18 张**（全部 Ultramarines `oath` 系，值 1–4）。
+        //  `pray` / `duty` / `agenda` / `ferocity` 在卡表里是**裸词**（`AttachCardTraits` 给 `Value = 0`，
+        //  与原版 `_traitValue = 0` 一致）⇒ 那几档原版本来就不印角标 ⇒ 我们照样留空（**其余 114 张零变化**）。
+        //
+        //  ⚠️ **未建模的一小格**：`duty`(1220) 那条 `bVar11 = false` 抑制支（卡 `+0x4c` 的语义本机没解出来）。
+        //  今天**不可观测** —— duty 系的 trait 值在池内恒 0（裸词）⇒ 抑制与否都印不出数字。
+        //  判据未闭合的部分如实记在这里，⛔ 别拿「大概是某个 bool」当成已复刻（铁律 2/3·3·a）。
+        static string AbilityBadgeOf(UnitState u, bool oathUsable)
+        {
+            if (u == null || u.Card == null) return "";
+            // ① 原版：有 oath 但那一下**用不了** ⇒ 整格不印（`.c:80-86` 的 else 支落空、`uVar5` 留 0）。
+            if (u.Card.OathOps.Count > 0 && !oathUsable) return "";
+            // ② `HasActiveAbility != 1` ⇒ 原版 `bVar11` 为假 ⇒ 0。
+            var spec = u.Card.ActiveAbilityTrait;
+            // ③ 其余阵营映射到 `400 activeAbility`（泛称、卡面没有这条 trait）⇒ 取不到数值。
+            if (spec == null || spec.Keyword == null) return "";
+            int v = u.Card.GetDefaultTraitValue(spec.Keyword, out _);
+            // ④ `0 < value` 才印。
+            return v > 0 ? v.ToString() : "";
         }
     }
 }

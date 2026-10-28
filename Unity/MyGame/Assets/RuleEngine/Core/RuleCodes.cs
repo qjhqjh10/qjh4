@@ -168,6 +168,22 @@ namespace RuleEngine
         /// 语义本来就是「本版未实现」，与这档无关。</summary>
         public const int ErrAbilityRejected = 29;
 
+        /// <summary>
+        /// 🆕 **2026-10-28（B92 波 4 · 执行代理 `B1d`）新开**：**「现在还不能出牌 —— 有动作在队列里等着」**。
+        ///
+        /// <para>**判据（原版 `BattleManager.CanPlayCard` 的第 ① 与第 ④ 道闸）**：
+        /// · ① `initiateAction && actionQueue(+0x350).Count > 0` ⇒ 提示 `Battle/Tips/PleaseWait` 并返 false
+        ///   （`BattleManager__CanPlayCard.c:35-60`；提示面属表现层，我们只给码）；
+        /// · ④ `WaitingForBlockingAction(showTips)` 为真 ⇒ 返 false（`CanPlayCard.c:255`；
+        ///   实现 = `RuleCore.WaitingForBlockingAction`，判据 `BattleManager__WaitingForBlockingAction.c:28/:42/:60/:84`）。
+        /// 两档对玩家是同一句话（「等这一步走完」）⇒ **共用一个码**。</para>
+        ///
+        /// <para>⚠️ **不复用 <see cref="ErrNotTurn"/>**（那句话是「不是你的回合」—— 玩家会去等回合切换，
+        /// 而这里只是等一拍）；**也不复用 <see cref="ErrNotPlayable"/>**（那是「这张牌本身打不出去」，
+        /// 与局面忙不忙无关）。**谁返回它**：`RuleCore.CanPlayCard` 两处。</para>
+        /// </summary>
+        public const int ErrWaitingBlockingAction = 30;
+
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
             { OK,             "OK" },
@@ -218,6 +234,9 @@ namespace RuleEngine
             { ErrNotEnoughRoom,     "棋盘上已经放不下了" },
             { ErrNotPlayable,       "这张卡不能直接打出" },
             { ErrAbilityRejected,   "这个能力此刻结算不了（条件不成立或付费被拒）" },
+            // 🆕 2026-10-28（`B92_B1d`）：**必须有中文名** —— 漏了就走 `Describe` 的 fallback，吐「未知错误码 30」
+            //    （同 18/19、21..27 那几批的教训）。返回点只有 `RuleCore.CanPlayCard` 的两道闸。
+            { ErrWaitingBlockingAction, "还有动作在队列里等着，现在不能出牌" },
             // 🆕 2026-10-23（`B-31` 拆码的配套）：21..27 **必须有中文名** ——
             //   漏了就走 `Describe` 的 fallback，吐「**未知错误码 21**」（同 18/19 那两条的教训）。
             { ErrNoMeleeAttack,       "这个单位不能进行近战攻击" },

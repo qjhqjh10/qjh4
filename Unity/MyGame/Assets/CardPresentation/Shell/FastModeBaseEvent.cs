@@ -512,7 +512,7 @@ namespace CardPresentation
             int max = currentElo + delta;
             var ranked = tryCount == 2 ? Data as IRankedData : null;   // 原版 = GetData<IRankedData>()：普通快模式 null ⇒ 跳过这一支
             if (ranked != null && ranked.LegendaryElo <= currentElo) { max = Data.MaxEloCap; if (ranked.LegendaryElo < min) min = ranked.LegendaryElo; }
-            return "rating>=" + min + " and rating<=" + max;
+            return BuildMatchmakingSql(min, max, gamesLost);   // 原版尾段 = `GetSqlFilter(max, min, group, isRanked, blacklist, gamesLost)` + 一句 Log
         }
 
         /// <summary>原版 `override void SetCustomMatchOptions(RoomOptions options, int currentElo)`
@@ -535,12 +535,12 @@ namespace CardPresentation
             options.CustomRoomPropertiesForLobby = new[] { "C1", "C2", "C3", "C4", "C5" };
         }
 
-        /// <summary>原版 `override CardDeck GetEventDeck()` / `GetEventDeck(CardArmy)` 的 FastMode 覆盖
-        /// （`GetEventDeck__1a0fdf0.c` / `GetEventDeck__1a0ff80.c`）：同 `PlayEvent` 那两条，
-        /// 只是多认 `ArmyStatsV3.lastPlayedDeck`（DisplayClass10_0 的 `b__0` 佐证：
-        /// `CardDeck__get_Army(d) == army &amp;&amp; CardDeck__get_GameMode(d) == EventPlayMode`）。
-        /// ⇒ **基类那两条已经就是这个语义**，这里不再覆盖（⛔ 两处写同一条规则 = 迟早不一致）。
-        /// 本类只把「按阵营取」显式转出去，便于调用点写清楚意图。</summary>
+        /// <summary>原版 `override CardDeck GetEventDeck()` / `GetEventDeck(CardArmy)` 的 FastMode 覆盖 ——
+        /// 🔴 **2026-10-28（B92·N1）就地改掉旧说法**「基类那两条已经就是这个语义，不再覆盖」：**不成立**。
+        /// 逐句现读 `decomp_generic_trial/out/FastModeBaseEvent_object__object___GetEventDeck__1a0fdf0.c`（50 行）与 `…_GetEventDeck__1a0ff80.c`（54 行）⇒ 与 `PlayEvent` 那两条有**两处真实差异**：
+        /// ① 无参版**没有**第三支（`GameModes.GetActiveEvent&lt;IRankedEvent&gt;()`）；
+        /// ② 带参版拿到 `ArmyStatsV3.LastPlayedDeck` 后**直接 return**（不校验 `GameMode`）。⇒ 见类尾那两个 override。
+        /// 本方法保留：只是「按阵营取」的显式转出口，便于调用点写清意图。</summary>
         public string GetEventDeckForArmy(CardArmy army) { return GetEventDeck(army); }
 
         /// <summary>原版 `_003CGetEventDeck_003Eb__12_0(CardDeck d)`（DisplayClass10_0 的 `b__0`）：
@@ -555,17 +555,214 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `GetSqlFilter(...)`（`GetSqlFilter__1a103d0.c`）的等价物：把上下界/联盟/黑名单拼成串。
-        /// ⚠️ 差异：原版拼的是 PlayFab 的 SQL 片段（`StringBuilder` 逐段 Append，含 `BlacklistedUsers`
-        /// 的 `NOT IN (...)`）；我们只拼**前面那条 rating 区间**，黑名单/联盟那几段**没有搬**
-        /// （本机没有好友/联盟/作弊名单那几条线）。如实记。</summary>
+        /// 🔴 **2026-10-28（B92·N1c）就地重写**：真体**已全解**（见类尾 6 参重载）。本 2 参重载只剩「只拼评级区间」的便利调用，
+        /// ⛔ 判据请用 6 参那个（原版就是 6 参：`max, min, guildId, isRanked, blacklistedUsers, gamesLost`）。
+        /// 本重载只服务「只想看评级区间」的调用；⛔ 别把它当原版行为（原版没有 2 参形态）。</summary>
         protected static string GetSqlFilter(int maxRating, int minRating)
         {
-            return "rating>=" + minRating + " and rating<=" + maxRating;
+            return GetSqlFilter(maxRating, minRating, null, false, null, 0);
         }
 
         /// <summary>领到奖励时的出口（原版走 `RewardService.Collect` + `GameAnalytics.RecordTransaction`）。
         /// 🔶 自己设计（非原版）：奖励分发线不在本批 ⇒ 只给一个可注入的回调。调度台 C1 2026-10-27 定。</summary>
         public static Action<CollectFastModeRewardsResult> OnRewardsCollected;
+
+        // ============================================================ 🆕 2026-10-28（B92·N1 · 账 row 4 / row 5）
+        //   FastMode 对 `GetEventDeck()` / `GetEventDeck(CardArmy)` 的**覆盖**（原版是 override，不是继承基类语义）。
+        //   判据（**真体现读，泛型体**，`decomp_generic_trial/out/`）：
+        //     · `FastModeBaseEvent_object__object___GetEventDeck__1a0fdf0.c`（50 行，形参 = (this, 泛型上下文)）
+        //         `save = this+0x20; if (save == null) NRE;`
+        //         `id = save+0x38 (defaultDeckId);`
+        //         `if (id != null && id.Trim().Length > 0) { deck = AssetLocator.GetAsset(id);
+        //              if (deck != null && deck.GameMode == EventPlayMode && ValidateDeck(deck, out _, true)) return deck; }`
+        //         `return AssetLocator.GetAssets<CardDeck>().FirstOrDefault(<b__12_0 谓词>);`   ← ★ **到此结束**
+        //     · `…_GetEventDeck__1a0ff80.c`（54 行，形参 = (this, **CardArmy army**, 泛型上下文)）
+        //         `stats = GetArmyStats(army);  deck = stats.LastPlayedDeck;`
+        //         `if (deck != null) return deck;`                       ← ★ **不校验 GameMode**
+        //         `return InventoryManager.GetInventory<CardDeck>().GetItemInstances(true).FirstOrDefault(<b__0 谓词>);`
+        //   两个谓词（逐行现读）：
+        //     · `b__12_0`（`…_GetEventDeck_b__12_0__1a12120.c`）= `d.GameMode == EventPlayMode && DeckUtility.ValidateDeck(d, out _, true)`
+        //     · `b__0`（`FastModeBaseEvent.__c__DisplayClass10_0_object__object____GetEventDeck_b__0.c`）=
+        //        `d.Army == army && d.GameMode == EventPlayMode`
+        //   🔴 与 `PlayEvent` 那两条的差异（⛔ **别**当成「基类已覆盖」而删掉这两个 override）：
+        //     ① 无参版**没有**第三支 `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`；
+        //     ② 带参版对 `LastPlayedDeck` **不校验 GameMode**（`PlayEvent` 的版本校验）。
+        //   ⚠️ 照抄原版的「Trim 只用于判空」：判空用 `Trim()`，查表用**原值**（原版就是这么喂 `AssetLocator.GetAsset`）。
+
+        /// <summary>原版 FastMode `override CardDeck GetEventDeck()`（判据见上）。
+        /// 本地等价：`defaultDeckId`（判空用 Trim、查表用原值）→ 扫全表（模式对 ∧ 可打）。
+        /// ⚠️ **没有** `PlayEventRankedDeck` 那一支（原版 FastMode 也没有）。</summary>
+        public override string GetEventDeck()
+        {
+            var src = PlayEventDecks.Source;
+            if (src == null)
+            {
+                Debug.LogError("[FastMode] GetEventDeck：没有注入 IPlayEventDeckSource ⇒ 取不到卡组");
+                return null;
+            }
+            if (SaveGame != null && !string.IsNullOrEmpty(SaveGame.defaultDeckId)
+                                 && SaveGame.defaultDeckId.Trim().Length > 0)
+            {
+                int i = src.IndexOfId(SaveGame.defaultDeckId);
+                if (i >= 0 && src.GameModeAt(i) == EventPlayMode && src.IsPlayableAt(i))
+                    return src.IdAt(i);
+            }
+            for (int i = 0; i < src.Count; i++)
+                if (GetEventDeckPredicate(src.IdAt(i))) return src.IdAt(i);
+            return null;                       // ★ 无参版到此结束（原版没有 ranked 那一支）
+        }
+
+        /// <summary>原版 FastMode `override CardDeck GetEventDeck(CardArmy army)`（判据见上）：
+        /// 先认 `ArmyStatsV3.LastPlayedDeck`（**不校验模式**，原版就是这么直返），否则扫全表
+        /// （`Army == army ∧ GameMode == EventPlayMode`，**不带 ValidateDeck**）。</summary>
+        public override string GetEventDeck(CardArmy army)
+        {
+            var src = PlayEventDecks.Source;
+            if (src == null)
+            {
+                Debug.LogError("[FastMode] GetEventDeck(army)：没有注入 IPlayEventDeckSource ⇒ 取不到卡组");
+                return null;
+            }
+            if (SaveGame != null)
+            {
+                var stats = SaveGame.GetArmyStats(army);
+                if (stats != null && !string.IsNullOrEmpty(stats.LastPlayedDeckId))
+                {
+                    // 原版 `LastPlayedDeck` 是**已解析的资产引用**：卡组被删掉时它解析成 null ⇒ 落到扫表那一支。
+                    // 我们的等价判据 = 「这个 id 还在卡组表里」（`IndexOfId`）；⛔ 但**不校验 GameMode**（原版不校验）。
+                    int j = src.IndexOfId(stats.LastPlayedDeckId);
+                    if (j >= 0) return src.IdAt(j);
+                }
+            }
+            for (int i = 0; i < src.Count; i++)
+                if (GetEventDeckArmyPredicate(src.IdAt(i), army)) return src.IdAt(i);
+            return null;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B92·N1c · 账 row 6 / row 41）
+        //   `GetSqlFilter` 的**真体**（原版 6 参）＋ 它的两个私有依赖。
+        //   判据（**全部现读**，两条源互相印证）：
+        //     · `decomp_generic_trial/out/FastModeBaseEvent_object__object___GetSqlFilter__1a103d0.c`（205 行，VA 0x181A103D0）
+        //        —— 结构：`new StringBuilder()` → `Append(<串>)` → `Append(param_1 maxRating)` → `Append(<串>)` → `Append(param_2 minRating)`
+        //        → `Where(param_5 blacklistedUsers, x => !IsNullOrEmpty(x))` 逐个 `Append(<串>) / Append(x) / Append(<串>)`
+        //        → `if (!IsNullOrEmpty(param_3 guildId)) { Append(<串>); Append(GetShortStringGuild(guildId)); Append(<串>); }`
+        //        → `Append(<串>); Append(param_4 isRanked);` → `if (!FeatureConfig.ShouldDisableNewMatchMaking()) { Append(<串>); Append(param_6 gamesLost); }`
+        //        → `return sb.ToString()`（虚槽 0x168 = `StringBuilder.ToString`）。
+        //     · `cpp2il/out_cpp2il_dev_ilspy/FastModeBaseEvent.cs:946`（**ILSpy 把 4 个字符串字面量保住了**，`.c` 里它们只剩 `DAT_`）：
+        //        `Append("C1 < ")` / `Append(" AND C1 >= ")` / `Append(" AND C2 != \"")` / `Append("\"")`（两处）/
+        //        `Append(" AND C3 != \"")` / `Append(" AND C4 == ")` / `Append(" AND C5 == ")`。
+        //   🔴 这 4 个 `DAT_`（`0x18429e2f0` / `0x1842c7ea0` / `0x1842c7fa0` / `0x1842c81a0`）是 IL2CPP 的
+        //      **metadata-usage 令牌**（`.data` 里存 `0xA000xxxx`，运行时由 `il2cpp_codegen_initialize_method` 填成 `Il2CppString*`），
+        //      ⛔ 拿 `工具/read_literal.py` 读不出来（它只读数值），`stringliteral.json` 也**不带地址** ⇒ 只能从 ILSpy 那份取字面量。
+        //   🔴 差异（如实记，⛔ 不是「已经一样」）：
+        //      ① `guildId` 来源 = 原版 `AlliancesManager.Instance.CurrentGroupId` —— 本机**没有联盟线** ⇒ 走注入点，不注入 = null（C3 段不拼 + 出声一次）。
+        //      ② `blacklistedUsers` = 原版 `PlayerDataManager.Instance.GetSuspiciousIds()` **再 Append 自己的 playerId**（`+0x1c8`）——
+        //         本机既无作弊名单也无「自己的 playerId」这一格 ⇒ 走注入点，不注入 = null（C2 段不拼 + 出声一次）。
+        //      ③ `isRanked` = 原版 `(Data as IRankedData).<接口槽 4>`（`FUN_1800021f0(4,…)`，**那个成员的函数名未解**；
+        //         用 `Data is IRankedData` 顶 —— 语义同（C4 ↔ `SetCustomMatchOptions` 写的 `C4 = 1`），但**这一格是近似、未坐实**）。
+        //      ④ `FeatureConfig.ShouldDisableNewMatchMaking()` 读**远端** FeatureConfig（`FeatureConfig__ShouldDisableNewMatchMaking.c`：
+        //         `ConfigManager.GetConfig<FeatureConfig>() == null ⇒ false`，否则取 `+0x70`）⇒ 服务器已关服 ⇒ 取「拿不到 config」那一支
+        //         = `false`（= 新匹配启用 ⇒ **加** C5 段）。共用 `DraftEventBase.DisableNewMatchMaking` 这一格（⛔ 别另立第二份开关）。
+
+        /// <summary>原版 `SupportMethods.GetShortStringGuild(string)`（`decomp_full/SupportMethods__GetShortStringGuild.c`，真体 2 句）：
+        /// `return param_1.Substring(param_1.Length - 6);` —— **取最后 6 个字符**。
+        /// ⚠️ 长度 &lt; 6 时原版抛 `ArgumentOutOfRangeException`（`Substring` 自己抛）；我们同样让它抛（⛔ 不兜底，兜了就不是原版行为）。</summary>
+        internal static string GetShortStringGuild(string guildId)
+        {
+            return guildId.Substring(guildId.Length - 6);
+        }
+
+        /// <summary>原版 `FeatureConfig.ShouldDisableNewMatchMaking()` 的取值（见上面差异④）：
+        /// 走 <see cref="MatchmakingInputs.DisableNewMatchMaking"/> 那**一格全局开关**。
+        /// 🔴 为什么不用 `DraftEventBase.DisableNewMatchMaking`：那个类**是泛型**（`DraftEventBase&lt;TS,TD&gt;`）⇒
+        /// 泛型类里的 `static` 是**按闭合类型各一份**（本仓已记过这条坑）⇒ 它不是全局一格，⛔ 不能当共用开关。</summary>
+        static bool ShouldDisableNewMatchMaking() { return MatchmakingInputs.DisableNewMatchMaking; }
+
+        /// <summary>原版 `private static string GetSqlFilter(int maxRating, int minRating, string guildId, bool isRanked,
+        /// IEnumerable&lt;string&gt; blacklistedUsers, int gamesLost)`（`.c` 205 行 ＋ ILSpy 字面量，逐段照抄）。
+        /// <para>拼出来的形状：`C1 &lt; {max} AND C1 &gt;= {min}[ AND C2 != "{x}"…][ AND C3 != "{guildLast6}"][ AND C4 == {isRanked?1:0}][ AND C5 == {gamesLost}]`</para>
+        /// <para>🔴 与 `DraftEventBase` 的同名方法**不是同一条**：那一条的区间是 `C1 &lt; {won+2n} AND C1 &gt; {won-2n}`（**严格大于**、中心是胜场数），
+        /// 这一条是 `C1 &lt; {max} AND C1 &gt;= {min}`（**大于等于**、中心是 ELO）。⛔ 别合并。</para></summary>
+        protected static string GetSqlFilter(int maxRating, int minRating, string guildId, bool isRanked,
+                                            System.Collections.Generic.IEnumerable<string> blacklistedUsers, int gamesLost)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append("C1 < ").Append(maxRating).Append(" AND C1 >= ").Append(minRating);
+            if (blacklistedUsers != null)
+            {
+                foreach (var value in blacklistedUsers)          // 原版谓词 `x => !string.IsNullOrEmpty(x)` 写在调用方的 Where 里
+                {
+                    if (string.IsNullOrEmpty(value)) continue;
+                    sb.Append(" AND C2 != \"").Append(value).Append("\"");
+                }
+            }
+            if (!string.IsNullOrEmpty(guildId))
+                sb.Append(" AND C3 != \"").Append(GetShortStringGuild(guildId)).Append("\"");
+            sb.Append(" AND C4 == ").Append(isRanked ? 1 : 0);
+            if (!ShouldDisableNewMatchMaking())
+                sb.Append(" AND C5 == ").Append(gamesLost);
+            return sb.ToString();
+        }
+
+        /// <summary>`GetMatchmakingFilter` 的尾段（原版那 6 行 `.c`：`GetSqlFilter(…6 参)` → `CustomDebug.Log("GetMatchmakingFilter Ranked with Filter: " + sql)` → return）。
+        /// <para>四个外部输入的取口见 <see cref="MatchmakingInputs"/>；缺哪个就**出声一次**并跳过对应那一段（⛔ 不静默）。</para></summary>
+        protected string BuildMatchmakingSql(int minRating, int maxRating, int gamesLost)
+        {
+            string group = null;
+            if (MatchmakingInputs.CurrentGroupId != null) group = MatchmakingInputs.CurrentGroupId();
+            else WarnOnceSql("CurrentGroupId", "原版 `AlliancesManager.Instance.CurrentGroupId`（本机没有联盟线）", "C3 段");
+
+            System.Collections.Generic.List<string> blacklist = null;
+            if (MatchmakingInputs.SuspiciousIds != null || MatchmakingInputs.OwnPlayerId != null)
+            {
+                blacklist = new System.Collections.Generic.List<string>();
+                if (MatchmakingInputs.SuspiciousIds != null)
+                    foreach (var id in MatchmakingInputs.SuspiciousIds()) if (!string.IsNullOrEmpty(id)) blacklist.Add(id);
+                if (MatchmakingInputs.OwnPlayerId != null)
+                {
+                    var me = MatchmakingInputs.OwnPlayerId();
+                    if (!string.IsNullOrEmpty(me)) blacklist.Add(me);        // 原版无条件 Append 自己的 playerId（`+0x1c8`）
+                }
+            }
+            else WarnOnceSql("SuspiciousIds", "原版 `PlayerDataManager.Instance.GetSuspiciousIds()` + 自己的 playerId", "C2 段");
+
+            bool isRanked = Data is IRankedData;                             // ⚠️ 差异③：近似（原版取 IRankedData 的接口槽 4）
+            string sql = GetSqlFilter(maxRating, minRating, group, isRanked, blacklist, gamesLost);
+            Debug.Log("GetMatchmakingFilter Ranked with Filter: " + sql);    // 原版字面量（ILSpy `FastModeBaseEvent.cs:939`）
+            return sql;
+        }
+
+        static bool _warnedSqlC2, _warnedSqlC3;
+        static void WarnOnceSql(string port, string what, string seg)
+        {
+            if (port == "SuspiciousIds") { if (_warnedSqlC2) return; _warnedSqlC2 = true; }
+            else { if (_warnedSqlC3) return; _warnedSqlC3 = true; }
+            Debug.Log("[FastMode] GetMatchmakingFilter：没有接「" + port + "」⇒ " + seg + " 不拼"
+                    + "（" + what + "，本地没有那几条线；原版会拼进 SQL 过滤串）");
+        }
+    }
+
+    /// <summary>`FastModeBaseEvent.GetMatchmakingFilter` 那四个「原版从别的单例拿」的输入（B92·N1c）。
+    /// 🔶 自己设计（非原版）：原版直接摸 `AlliancesManager.Instance.CurrentGroupId` 与
+    /// `PlayerDataManager.Instance.GetSuspiciousIds()` ＋ 自己的 playerId —— 本机**没有联盟线 / 没有作弊名单 / 没有 playerId 那一格**
+    /// （关服 ⇒ 判据在远端；联盟与社交是 P2/P3）⇒ 做成可注入的静态委托，未注入就出声并跳过对应 SQL 段。
+    /// 谁定的 + 日期：调度台 B92 2026-10-28。</summary>
+    public static class MatchmakingInputs
+    {
+        /// <summary>原版 `AlliancesManager.Instance.CurrentGroupId`（`.c`：`AlliancesManager__get_CurrentGroupId`）。</summary>
+        public static Func<string> CurrentGroupId;
+        /// <summary>原版 `PlayerDataManager.Instance.GetSuspiciousIds()`（`.c`：`PlayerDataManager__GetSuspiciousIds`）。</summary>
+        public static Func<System.Collections.Generic.IEnumerable<string>> SuspiciousIds;
+        /// <summary>原版 `PlayerDataManager` 的 `+0x1c8` 那格（自己的 playerId，原版**无条件** Append 进黑名单 ⇒ 不会匹配到自己）。</summary>
+        public static Func<string> OwnPlayerId;
+        /// <summary>原版 `FeatureConfig.ShouldDisableNewMatchMaking()`（`FeatureConfig__ShouldDisableNewMatchMaking.c` 真体：
+        /// `ConfigManager.GetConfig&lt;FeatureConfig&gt;() == null ⇒ false`，否则取 `<+0x70>`）。服务器已关服 ⇒ 取「拿不到 config」那一支 = `false`。
+        /// 🔶 自己设计（非原版）：那一格来自**远端配置**，判据在远端；留一个静态可写位给「将来接上配置」用（⛔ 没判据别改成 true）。
+        /// 谁定的 + 日期：调度台 B92 2026-10-28。</summary>
+        public static bool DisableNewMatchMaking = false;
+
+        /// <summary>自检口（⚠️ 只给断言用）。</summary>
+        public static void ResetForTest() { CurrentGroupId = null; SuspiciousIds = null; OwnPlayerId = null; }
     }
 
     /// <summary>排位加成事件表的取用口（原版 `LiveOpsManager.GetHandler&lt;RankedScoreBoostHandler&gt;().GetBoostsFor(army)`）。

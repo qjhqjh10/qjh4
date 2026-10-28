@@ -597,7 +597,7 @@ namespace CardPresentation
 
         /// <summary>排行行。原版：**前 4 名复用 `#1..#4 FactionScoreBig`（在 `Top4` 里），第 5 名起
         /// `Instantiate(factionScorePrefab)` 到 `factionListHolder`**（§C·2）。我们**没有阵营分** ⇒
-        /// 这一栏只建 4 行空壳（行数照预制体的 4 个烘焙实例），并在日志里说明。
+        /// 这一栏按 `CampaignData.Armies` 建 **13 行**、**分数留空**（B92-N4 2026-10-28 改为 13 行，见类尾）。
         /// 🔴 **2026-10-13（A435 阶段 2 · 丙）**：原来这里重设了一对 `Clip`/`Clip = null` —— **删掉了**
         /// （裁切状态已迁到 `viewport` 节点上，重画时自动继续生效）。</summary>
         public void RebuildRows()
@@ -609,7 +609,8 @@ namespace CardPresentation
 
         void BuildRows()
         {
-            const int n = 4;                       // 预制体里烘焙了 4 行（`FactionScoreSmall{,1,2,3}`）
+            string[] armies = RankedFactionArmies();   // 13 个阵营（原版 = 服务器 per-army 排行，判据见类尾）
+            int n = armies != null ? armies.Length : 0;   // 原版按服务器返回的阵营条数逐行 Instantiate
             BuiltRows = 0;
             _rowIcons = new ImageQuad[n];
             _scroll.ContentX1 = AfScT;
@@ -619,16 +620,15 @@ namespace CardPresentation
                 float top = AfScT + i * RowH;
                 var rr = _scroll.Shift(new PxRect(AfScL, top, AfScL + RowW, top + RowH));
                 if (!_scroll.Intersects(rr)) continue;
-                BuildRow(rr, i);
+                BuildRow(rr, i, armies[i]);
                 BuiltRows++;
             }
-            Debug.Log("[Ranked] `AllFactions`：**各阵营评分是服务器的**（§C·2）⇒ 4 行都建、**分数留空**；"
-                    + "阵营图也不画（没有分就没有名次可排）。第 5 名起原版是 `Instantiate(factionScorePrefab)`，"
-                    + "我们没有数据 ⇒ **不建**。");
+            Debug.Log("[Ranked] `AllFactions`：**各阵营分数是服务器的**（§C·2）⇒ " + n + " 行都建、**分数留空**；"
+                    + "阵营徽记按 `CampaignData.Armies[i]` 画（`ArmyIcons.IconName` ⇒ 原版 `ArmyUtilities.GetArmyIcon`）。");
         }
 
         /// <summary>一行 `FactionScoreSmall`（`Image + FactionScore`）。</summary>
-        void BuildRow(PxRect r, int i)
+        void BuildRow(PxRect r, int i, string army)
         {
             var row = Node(_content, i == 0 ? "FactionScoreSmall" : "FactionScoreSmall (" + i + ")", r);
             // 底：UGUI 内置 `Background`（32×32 · 九宫 10,10,10,10 · ppu=200）—— 与我们其它「内置图」一致：**不导不画**
@@ -637,7 +637,7 @@ namespace CardPresentation
             //   `CardArt.Solid()` **纯白**（那四处白块的第 4 处就在这一栏的行里）⇒ 改成 tint **全透明**：
             //   画面无、节点与 `ImageQuad` 都留着（宿主 `Editor/MainMenuScene.cs:7751` 要拿它量矩形，
             //   详由见 `BuildCard` 那一段注释）。`_rowIcons` 仍记这个 quad（目前无读取点，留着当句柄）。
-            _rowIcons[i] = Rect(row, null, ic, "icon", L_Bg2, Transparent);      // 阵营图：空态不画
+            _rowIcons[i] = FactionIconQuad(row, ic, army);   // 有阵营 ⇒ 画徽记；取不到 ⇒ 透明块（见类尾）
             RatingRow(row, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowRtT, r.x1 + RowRtL + RowRtW, r.y1 + RowRtT + RowRtH),
                       SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase);
@@ -699,5 +699,49 @@ namespace CardPresentation
         /// （`RefreshIdentity` 里按 `CardTierConfig.PlayerLevelText` 重写）。
         /// ⚠️ 声明在**类尾**（`CLAUDE.md` §三「新成员追加到类尾」）—— 本页既有成员的行号一个不动。</summary>
         Label _levelLabel;
+
+        // ============================================================ 🆕 2026-10-28（B92-N4 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:659`，本段全在其后 ⇒ 零漂）。
+
+        /// <summary>`AllFactions` 那 13 行**按哪个次序、建哪几个阵营**。
+        /// <para>原版：这栏的每一条是**服务器 `LeaderboardConfig` 的 per-army 排行项**（`RankedTab.InitializeFactionScores`，
+        /// 判据 → 账 `个人资料/成就/排行 · RankedTab.InitializeFactionScores`：`LeaderboardDefinition[]` 由
+        /// `LeaderboardConfigProvider` 取，**本地没有那份配置**）⇒ 原版的**行数与次序都来自服务端**。</para>
+        /// <para>🔶 自己设计（非原版）：**行的集合与次序**取 `CampaignData.Armies`（本机 13 个阵营的表序）。
+        /// 为什么必须自己定 —— 服务器已关服，per-army 排行目录（`LeaderboardConfig`）在远端、`assets_full`
+        /// 与远端 722 个 MonoScript 双侧 0 命中 ⇒ 本机**永远拿不到**那份目录（判据 → 账里那一段）；
+        /// 而「一栏一行都建不出来」是可观测的功能缺失。**分数仍留空**（⛔ 不编数值）。
+        /// 次序在原版是「按分数降序」，我们没有分数 ⇒ 退到本机阵营表序（⛔ 别当成原版次序）。
+        /// · B92-N4 2026-10-28，调度台裁定（`B92_波4_派活与文件所有权` 行 38 的返工清单 ①）。</para></summary>
+        static string[] RankedFactionArmies()
+        {
+            var a = CampaignData.Armies;
+            if (a == null || a.Length == 0)
+            {
+                Debug.LogWarning("[Ranked] `CampaignData.Armies` 为空 ⇒ `AllFactions` 一行都不建（出声，⛔ 不编阵营表）");
+                return null;
+            }
+            return a;
+        }
+
+        /// <summary>一行里那颗 `icon` = **阵营徽记**（原版 `FactionScore.Initialize` 的第一句
+        /// `factionImage.sprite = ArmyUtilities.GetArmyIcon(faction)`；本仓唯一映射 = `ArmyIcons.IconName`）。
+        /// <para>⚠️ **图取不到时保持「透明块」而不是删节点**：节点与 `ImageQuad` 必须留着（宿主断言
+        /// `Editor/MainMenuScene.cs` 拿这颗 `icon` 量矩形 —— 见 `BuildCard` 那一段的 E12 注）。</para>
+        /// <para>⚠️ **不传 `keepAspect`**（= 默认拉伸）：原版这一格是固定框内的 `Image`，而宿主断言量的是
+        /// **整框宽 1305.29..1448.39** ⇒ 一旦改成等比内接，渲出来的宽会小于框宽、那条断言会红。</para></summary>
+        ImageQuad FactionIconQuad(Transform row, PxRect ic, string army)
+        {
+            string art = string.IsNullOrEmpty(army) ? null : ArmyIcons.IconName(army);
+            var tex = string.IsNullOrEmpty(art) ? null : Art(art);
+            if (tex == null)
+            {
+                if (!string.IsNullOrEmpty(army))
+                    Debug.LogWarning("[Ranked] `AllFactions` 里 " + army + " 的阵营徽记没画 —— 图名「"
+                                   + (art ?? "<空>") + "」取不到（⛔ 不拿纯色块顶替）");
+                return Rect(row, null, ic, "icon", L_Bg2, Transparent);   // 空态：节点在、画面无
+            }
+            return Rect(row, art, ic, "icon", L_Bg2, null);               // 有阵营 ⇒ 画徽记（拉伸到框，见上）
+        }
     }
 }

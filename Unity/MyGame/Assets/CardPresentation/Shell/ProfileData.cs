@@ -1599,5 +1599,60 @@ namespace CardPresentation
                     + "；原版随后 `UploadOnlineDemoData()` 上传（P3，本地无服务器）");
             return true;
         }
+
+        // ============================================================ 🆕 2026-10-28（B92-N4 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:1474` 一带，本段全在其后 ⇒ 零漂）。
+
+        /// <summary>= 原版 `CosmeticItem.GetLocalizedDescription()`（**逐句**，判据
+        /// `decomp_full/CosmeticItem__GetLocalizedDescription.c` 全文）。
+        /// <para>原版体三支：① `descriptionTextReference`（`+0x50`）**空** ⇒ 用 `uniqueId`（`+0x38`）；
+        /// ② 非空且**同时含 `((` 与 `))`** ⇒ 去掉那两对括号 → 按 `,` 切 → `&gt;1` 段时取
+        /// `LocalizationManager.GetTranslation("Modular_Description/" + 段0)` 与 `GetTranslation(段1)`，
+        /// 再 `string.Format(前者, 后者)`；③ 其余（非空但不带模板括号，或模板段数 ≤1）⇒
+        /// **把那个引用串本身当 id**。最后一步一律 `GetTranslation("Cosmetic_Description/" + id)`。</para>
+        /// <para>我们的等价：`Loc.T` 取代 `I2.Loc.LocalizationManager.GetTranslation`（同一个「查不到就回键名」
+        /// 语义 —— 这是 I2 的兜底行为，⛔ 不是我方发明）；`descriptionTextReference` 在本地数据里**全空**
+        /// （1,195 条装饰品逐条实读）⇒ 今天恒走第 ① 支、`Cosmetic_Description/*` 官方表 **0 条**
+        /// ⇒ 返回值 = `"Cosmetic_Description/&lt;uniqueId&gt;"`（**这是原版 I2 的兜底，不是我们印键名**）。
+        /// ⚠️ 本方法今天**零消费者**（我们没有任何界面显示装饰品描述）；真接线时若不想印键名，
+        /// 由调用方先 `Loc.HasEntry(...)` 判一次 —— 判据留在调用点，⛔ 不在这里偷偷改成空串。</para></summary>
+        public static string GetLocalizedDescription(string descriptionTextReference, string uniqueId)
+        {
+            string id;
+            if (!string.IsNullOrEmpty(descriptionTextReference))
+            {
+                // ② `((模板,参数))` 那一支（原版两个 Contains 是**与**关系）
+                if (descriptionTextReference.Contains("((") && descriptionTextReference.Contains("))"))
+                {
+                    string s = descriptionTextReference.Replace("((", "").Replace("))", "");
+                    var parts = s.Split(',');
+                    if (parts.Length > 1)
+                    {
+                        string fmt = LocalizedText("Modular_Description/" + parts[0]);   // 原版：模板那条
+                        string arg = LocalizedText(parts[1]);                            // 原版：参数那条（也是一次 GetTranslation）
+                        return string.Format(fmt, arg);
+                    }
+                }
+                id = descriptionTextReference;    // ③ 原版：引用串本身当 id
+            }
+            else
+            {
+                id = uniqueId;                    // ① 原版：`uniqueId`
+            }
+            return LocalizedText("Cosmetic_Description/" + id);
+        }
+
+        /// <summary>`I2.Loc.LocalizationManager.GetTranslation(term)` 的等价读口（**同一个兜底**：
+        /// 表里没有 ⇒ 返回 `term` 本身，并**出声一次**（原版 I2 也会打一条 missing-translation 日志，
+        /// 只是那一条不在我们的日志体系里）。⛔ 这里**不改返回值** —— 改了就与原版不同。</summary>
+        static string LocalizedText(string term)
+        {
+            if (Loc.HasEntry(term)) return Loc.T(term);
+            if (_descKeyWarned.Add(term))
+                Debug.LogWarning("[Profile] 词条缺键 `" + term + "` ⇒ 退回键名本身"
+                               + "（= 原版 `I2.Loc.LocalizationManager.GetTranslation` 的兜底行为）");
+            return term;
+        }
+        static readonly HashSet<string> _descKeyWarned = new HashSet<string>();
     }
 }

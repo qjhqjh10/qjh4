@@ -4156,15 +4156,15 @@ namespace RuleEngine
             switch (op.Dest)
             {
                 case "decktop":
-                    // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）。
-                    // 🔴 判据 = 原版**下标 0 = 牌库顶**（`decomp_full/BattleManager__DrawCardFromDeck.c`
-                    //    取 `List[0]` · `BattleManager__AddInitialCardToDeck.c` 的 `Insert(0, card)` ·
-                    //    `BattleManager__AddCardToDeck.c` 的 `SetActive(go, index == 0)`），
-                    //    我们把列表**末尾**当顶（镜像约定）⇒ 放牌库顶 = `AddRange` 追加。
-                    //    （`D29①` 改掉原来那句「和 `rule_core` 的 `pop_back` 一致」= 自证。）
-                    ctx.Players[owner].Deck.AddRange(made);
-                    ctx.Log($"{by}：「{op.Source}」造了 {n} 张放到自己牌库顶：{names}"
-                          + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
+                    // 🔴 **2026-10-28（B92_B2 · W2）：原版【没有】「造一张牌放到牌库顶」这条路 ⇒ 这里是照抄原版 bug。**
+                    //   判据（五跳，全现读）：① 全池只有 `DA72 Vengeful Brethren` 的卡面写 `Create a copy of it at the top of your deck`；② 它的 SO 真值（`cards_truth.json`）= `chosenAbility 270` + `summon.chooseCardInPlay:1`；③ `270 = createCardInDeck`（`AbilityLogic__PlayAbility.c:2607` 的 `0x10e` 支）→ `BattleManager__AddNewCardToDeck.c:112` 压的动作号 `0x30`=48=`createDeckCard`，**动作里没有「放哪一格」的字段**（`createAtPos/moveToPos` 是 `PositionOption` 140=`createCardPos` / 145=`stratagemGeneralShowCase`，只喂演出坐标）；
+                    //   ④ 出队体 `_ResolveCreateDeckCard_d__513__MoveNext.c:111` = `AddCardInPlayToDeck(card, toTop: 0)` 传**字面 0**；⑤ `BattleManager__AddCardInPlayToDeck.c:48-51` = `index = (toTop == 0) ? GetRandomInt(0, Count+1) : 0`。
+                    //   ⇒ 原版是**随机下标 Insert**（开局预烧随机表）；卡面那句 `at the top` 代码根本没实现 = **原版 bug** ⇒ 按铁律 18·0 照抄，⛔ 别「修好」成置顶。
+                    //   ⚠️ 只改**这一支**：另外三处 `decktop`（选牌动作 / 回手回牌库 / 墓地取出）对应的是原版 `RecallToDeck`，
+                    //   那边 `toTop` 位是**非零**（`_ResolveRecallToDeck_d__543__MoveNext.c:328`）⇒ **确定性置顶本来是对的**，⛔ 别一起改。
+                    foreach (var m in made) InsertIntoDeckRandom(ctx, owner, m);   // 判据见上：原版 `AddCardInPlayToDeck(card, toTop:0)` = 随机下标 Insert（每张各抽一次）
+                    ctx.Log($"{by}：「{op.Source}」造了 {n} 张**随机**插进自己牌库（原版就这样：`create` 没有「放牌库顶」这条路）"
+                          + $"：{names}" + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
                     return true;
 
                 case "hand":
@@ -6733,13 +6733,13 @@ namespace RuleEngine
                     int p, slot;
                     if (!FindUnit(ctx, u, out p, out slot)) continue;
                     var ps2 = ctx.Players[p];
-                    // 🔴 **用户 2026-09-18 拍的口径**：回手 / 洗回牌库 = **同一个 `CardInstance`**（不新建）。⚠️ **边界（调度台 2026-10-28 裁定）**：「保留」= **实例身份 / 视图不重建**（`CardView` 实例、动画状态），**不是「状态字段也不复位」** —— 状态字段按原版 `ResetToValuesInHand(clearBacklash:1)` 复位。
+                    // 🔴 **用户 2026-09-18 拍的口径**：回手 / 洗回牌库 = **同一个 `CardInstance`**（不新建）。⚠️ **边界（调度台 2026-10-28 裁定）**：「保留」= **实例身份 / 视图不重建**（`CardView` 实例、动画状态），**不是「状态字段也不复位」** —— 状态字段按原版 `ResetToValuesInHand(clearBacklash:1)` 复位（**本处已接线**：`BoardSlots.RemoveAt` 之后当场 `u.ResetToValuesInHand(true)` + 清 `inst.ActiveEffects/ActiveEnchantments`，B92_B4c 2026-10-28；`UnitState` 侧的逐句实现归 B6）。
                     //    （判据：`_ResolveRecallToDeck_d__543__MoveNext.c:108/177/276` · `_ResolveRecallToHand_d__542__MoveNext.c:188/255` **五处恒传 1**；清除项见 `CardScript__ResetToValuesInHand.c:138-140`。）效果的后续分句仍可显式改它
                     //    （`Master of Manoeuvre` 的 `It costs 4 less` 正是那样一条分句）—— 所以复位必须排在分句**之前**（原版 `.c:188` 的重置就早于分句）。
                     var inst = u.Instance;
                     // 🔴 2026-10-01：回手/回牌库 = 原版 `_ResolveRecallToHand/_ResolveRecallToDeck`
                     //    两支都走 `MinionManager.RemoveMinion`（`List.Remove`）⇒ **外侧的单位内移一格补位**。
-                    BoardSlots.RemoveAt(ps2, slot);
+                    BoardSlots.RemoveAt(ps2, slot); u.ResetToValuesInHand(true); if (inst != null) { inst.ActiveEffects.Clear(); inst.ActiveEnchantments.Clear(); }   // 🔴 2026-10-28（B92_B4c · 调度台裁定「照原版重置」）回手/回牌库当场复位：判据 = `_ResolveRecallToHand_d__542__MoveNext.c:188` / `_ResolveRecallToDeck_d__543__MoveNext.c:108/177/276`（五处恒传 1）在 `RemoveMinion` **之后**调 `ResetToValuesInHand(card,1,0)`；`+0x108/+0x110` 两本账挂在 `CardInstance` 上、`ResetToValuesInHand` 够不到 ⇒ 这里清（与 `ReanimateRemnantInPlace` 同口径）。⚠️ `ResetToValuesInHand` 只在 `IsRemnant` 时改那两个残骸位 ⇒ 普通单位不受影响。
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
 
                     switch (op.Dest)
@@ -9076,7 +9076,7 @@ namespace RuleEngine
                            //   `requireActorInPlay: false` 现在**只当 `-1` 的回退档**（= 改前的「不判」）——
                            //   已知 context 时由泵点按 `QueuedAction.AbilityContext` 判（context 更准，
                            //   见 `EnqueueAbility` 的 `abilityContext` 参数 doc）。
-                           actor: unit, requireActorInPlay: false, abilityContext: actx);
+                           actor: unit, requireActorInPlay: false, abilityContext: actx, actionType: (int)BattleActionType.triggerSpiritStone);   // 账 L490 · ActionType 回填：`AddTriggerSpiritStone` = 0x4d = 77（判据 = `ActionPump.cs` 类尾「逐条对照」表 账 198 行；B92_B4c 2026-10-28）
             return;
         }
 
@@ -9127,7 +9127,7 @@ namespace RuleEngine
                            },
                            // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：同上（免付那一档走同一个能力）——
                            //   `UseSpiritStone(600)` 的 context 混着 `50`（在墓地也算）⇒ **不判在场**。
-                           actor: _u, requireActorInPlay: false);
+                           actor: _u, requireActorInPlay: false, actionType: (int)BattleActionType.triggerSpiritStone);   // 账 L490 · 免付那一档走**同一个能力**（`UseSpiritStone` 600）⇒ 同一个 77（B92_B4c 2026-10-28）
         }
 
         /// <summary>
@@ -15905,8 +15905,8 @@ namespace RuleEngine
         /// `CardScript__Heal.c` 与 `_Heal_d__468__MoveNext.c` 里 `BroadcastUnitHealed` **0 命中**）。
         /// ⇒ 我们的调用点 = `RuleCore.CleanupDeaths` 的幸存者支
         /// （`RuleCore.cs` 里 `FireTriggerAlways(…, KeywordTable.Survivor, …)` 之后那一行，
-        /// 就是「原版 `:87`」的等价位置 —— 那边目前只发了一条负数 `Hit` 当标记）。
-        /// ⚠️ **该调用点不在本代理白名单**（`RuleCore.cs` 属 `F1`）⇒ 已写改动请求，**这一半还没接**。</para>
+        /// 就是「原版 `:87`」的等价位置）。
+        /// ✅ **2026-10-28（B92_B4c）就地订正（铁律 5）**：原 doc 写「那边目前只发了一条负数 `Hit` 当标记」「该调用点不在本代理白名单 ⇒ 这一半还没接」—— **两句都已过期**：`RuleCore.CleanupDeaths` 的幸存者支早在 2026-10-26（批次 4 `R2`）就已 `if (healed > 0) BroadcastUnitHealed(ctx, p, u)`，与那条负数 `Hit` **并存**（`Hit` 只管表现层的「已广播」标记，⛔ 两者不能互相替代）。</para>
         /// </summary>
         /// <param name="who">**被治疗那个单位的归属方**（0/1）—— 极性判据看的就是它。</param>
         /// <param name="healed">被治疗的那个单位（`subject` 传它 ⇒ 关键词/兵种筛读**运行时**状态）。</param>

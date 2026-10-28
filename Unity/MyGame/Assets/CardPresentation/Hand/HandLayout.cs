@@ -262,7 +262,7 @@ namespace CardPresentation
 
         [Tooltip("悬停时抬起多少（**世界单位**，×108 = px）—— 原版 `VarsDevice.cardInHandShownYOffset`"
                + " = **30 px**（桌面；小屏 ≤7 吋取 `…YOffsetMin` = 20）。原来我们自造 0.06（=6.5 px），2026-09-25 换成实读值")]
-        public float hoverLift = HoverLiftPx / 108f;
+        public float hoverLift = HoverLiftPx / 108f;   // ⚠️ 2026-10-28 回退：字段初始化器 **不能** 读 Screen（Unity 在 MonoBehaviour 构造器里禁用 `Screen.dpi`，会抛 `UnityException` 并**中断构造器**，声明在后面的 `_lastSeen/_nowSet/_lastPose` 全留 null ⇒ 首趟 `Refresh` NRE、`BattleScene.Run` 崩）。设备档见类尾 `HoverLiftPxForDevice`，接线要在 `Awake` 里做。
 
         [Tooltip("悬停那张的缩放 —— 原版 `VarsDevice.cardInHandShownScale` = **1.3**（移动端 1.7）")]
         public float hoverScale = 1.3f;
@@ -1020,6 +1020,23 @@ namespace CardPresentation
             int denom = max - n;
             float t = denom <= 0 ? 0f : Mathf.Clamp01((count - n) / (float)denom);
             return selectedExtraByCount.Evaluate(t) * OurUnitsPerWorldUnit;
+        }
+
+        /// <summary>🆕 2026-10-28（`B92_N5`）：原版 **`VarsDevice.GetCardInHandYOffsetTouchInput()`**
+        /// （账 `其他_基础设施`「VarsDevice.GetCardInHandYOffsetTouchInput」那一行）的逐句等价 ——
+        /// 物理对角线 `> 7.0` 吋取 `cardInHandShownYOffsetMin = 20`，否则 `cardInHandShownYOffset = 30`（px）。
+        /// <para>判据 = `decomp_full/VarsDevice__GetCardInHandYOffsetTouchInput.c` 全文：
+        /// `f = ScreenUtilities.GetScreenPhysicalSize(); return f <= DAT_1834b338c ? *(this+0x1c) : *(this+0x20);`
+        /// （`DAT_1834b338c` = `7.0f`）；两个值出自 SO `VarsDesktop` 的
+        /// `cardInHandShownYOffset: 30` / `cardInHandShownYOffsetMin: 20`
+        /// （`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/VarsDesktop.json`）。
+        /// ⚠️ 原版取的是**当前 `globalVars`**（`VarsDesktop` 或 `VarsMobile`，后者是 25 / 12）——
+        /// 我们只有桌面一份（移动端 SO 的另两档未建），这一档**只覆盖桌面**（如实标，⛔ 别当全情况）。</para>
+        /// <para>声明在类尾（同 <see cref="SelectedExtraFor"/> 的理由）：`HandLayout.cs` 在账里有
+        /// `文件:行号` 落点，插进字段区会让下游整段漂移（铁律 18·b）。</para></summary>
+        public static float HoverLiftPxForDevice
+        {
+            get { return ScreenUtilities.GetScreenPhysicalSize() > 7.0f ? 20f : 30f; }
         }
     }
 }

@@ -1561,6 +1561,36 @@ namespace CardPresentation
               .Append("（").Append(RewardClaimFx.ParticleCount(_claimFx)).Append(" 颗）");
             return sb.ToString();
         }
+
+        // ============================================================ 原版同名方法落点（B92_N8 · 2026-10-28）
+        /// <summary>= 原版 `RewardService.Preview(...)`（`decomp_full/RewardService__Preview.c`，**全文就两句**：
+        /// 建 `RewardWindowContext` → `WindowsManager.Instance.OpenWindow&lt;RewardWindow&gt;(ctx, false, &lt;assetRef&gt;)`）。
+        /// 🔴 **为什么单开一个同名方法**：账 `日常_奖励.tsv:682` 原来落在 `ShowPreview`（**另一个名字**）⇒ 属
+        /// 「声明级等价」，不满足 A 尺子（要求方法体逐句对过 + 落点真实存在）。这里按 `.c` 的**实参顺序**落一个
+        /// 同名入口；`ShowPreview` 保留为历史别名（不改它，免得动到下面那串行号落点）。
+        /// <para>⚠️ 原版 ctor 那串位置实参**无法逐格对名**（本机没有 `RewardWindowContext..ctor` 的形参顺序），
+        /// 唯一可确定的是其中**一格为 `1`**（= 预览态；`.c`：`…, param_3, 1, param_5, 0`）。我们按**字段名**
+        /// 直接置 `IsPreview = true` —— 与 `ShowPreview` 现有行为一致，可观测结果相同。</para>
+        /// <para>⚠️ 原版的 `showXpToast` 那一格本工程**没有 XP 系统** ⇒ 不建（如实记，⛔ 不编）。</para>
+        /// <para>⚠️ 原版 `Preview` 是**静态服务方法**（`RewardService` 类本工程没有）—— 落点选在窗类上，
+        /// 理由与 `ShowCollected` 那段注释同（我们挑的落点，不是原版就长在窗上）。</para></summary>
+        public static RewardWindow Preview(CampaignData.RewardSpec[] rewards,
+                                           System.Action<CampaignData.RewardSpec[]> onClose,
+                                           CampaignData.RewardSpec[] collectedRewards,
+                                           bool isPremiumLocked,
+                                           string customTitle)
+        {
+            return Show(new RewardWindowContext
+            {
+                Rewards = rewards ?? new CampaignData.RewardSpec[0],
+                CollectedRewards = collectedRewards,
+                IsPremiumLocked = isPremiumLocked,
+                IsPreview = true,
+                OnCollect = null,
+                OnClose = onClose,
+                CustomTitle = customTitle,
+            });
+        }
     }
 
     /// <summary>`Reward Window / Content / Reward Claim` 那棵子树（= 原版 `RewardWindow.claimRewardParticles`，

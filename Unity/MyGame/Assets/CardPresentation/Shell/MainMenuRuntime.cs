@@ -1745,11 +1745,11 @@ namespace CardPresentation
         /// （先例 = `Core/PlayerBoot.cs` 里那句 `Application.Quit(0)`）。⚠️ **编辑器里 `Quit` 是空操作** ⇒ 这里出声（红线：不许静默失败）。</summary>
         public static void QuitGame()
         {
-            Debug.Log("[Menu] 「退出游戏」按下 ⇒ `Application.Quit(0)`"
-                      + (Application.isEditor
-                         ? "（⚠️ **编辑器里 `Application.Quit` 是空操作** —— 只有 build 出来的 player 里才真退）"
-                         : ""));
-            Application.Quit(0);
+            Debug.Log("[Menu] 「退出游戏」按下 ⇒ `QuitApplication()`"
+                      + "（= 原版 `PlayerDataManager.QuitApplication`"
+                      + "：② `LeaveRoom` ③ 等 0.5s 再 `Application.Quit`）"
+                      + (Application.isEditor ? "（⚠️ 编辑器里 `Quit` 是空操作）" : ""));
+            QuitApplication();
         }
 
         /// <summary>
@@ -3420,9 +3420,9 @@ namespace CardPresentation
                     ? RectTex(step, texFill, sx1, sx1 + StepW, y + MmpT, y + MmpB, "Fill", QContent, true) : null;
                 // 逐颗点亮（原版 `MilestonesStepDisplay__Initialize.c`：
                 // `DestroyAllChildren(stepsHolder)` → 逐颗 `Instantiate` → `MilestoneStep.Toggle(step, i < 已完成数, …)`）
-                SealToggle(empty, fill, i < RankedSealFallbackLit);
+                _rankedSealPairs.Add(new RankedSealPair { Empty = empty, Fill = fill });   // B92-N4c：点亮改走共用件（见下）
             }
-
+            MilestonesStepDisplay.Initialize<RankedSealPair>(RankedSealFallbackLit, _rankedSealPairs.Count, _rankedSealPairs.ToArray(), null, null, p => p, (p, filled, i, ps, pa) => SealToggle(p.Empty, p.Fill, filled), null, false, false);
             // 🔴 **出声**（红线）：这一排的颗数 / 点亮数**原版来自远端**，本地的 4 / 0 是**我们挑的兜底**。
             Debug.Log("[Menu] 排位卡那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps`）："
                     + "建了 " + RankedSealFallbackCount + " 颗 · 点亮 " + RankedSealFallbackLit + " 颗。"
@@ -4331,5 +4331,73 @@ namespace CardPresentation
                         + "` 的 `MainMenuContainerBackground` = `" + n + "`（原版 `LiveopMenuContainer.OnInitialize` 那一跳）。");
             return n;
         }
+
+        // ============================================================ 🆕 2026-10-28（B92-N4 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:4036` 一带，本段全在其后 ⇒ 零漂）。
+        // ⛔ 也别在这里加 `using`：加一行 `using` 会把**整份文件**行号 +1，账里几十条落点一起漂。
+
+        /// <summary>= 原版 `PlayerDataManager.QuitApplication()`（**逐跳**，判据
+        /// `decomp_full/PlayerDataManager__QuitApplication.c` ＋ `…__FullyQuitApplication.c`，0.5 秒常量
+        /// `DAT_1834b2bb4` 实读 = `0.5f`）。
+        /// <para>原版三跳：① 若 `helpshiftManager` 非空 ⇒ 调它的**空方法**（`RVA 0x4B33B0` = 全局共享空桩
+        /// ⇒ **什么都不做**，这一跳永远不需要实现）；② `photonManager.LeaveRoom()`（离开联机房间）；
+        /// ③ `StartCoroutine(FullyQuitApplication())`（= 等 0.5 秒再 `Application.Quit()`）。</para>
+        /// <para>⚠️ **残差一跳（如实记）**：② 的对位原语是 `BattleDriver.LeaveNetRoom`（`private`，
+        /// `Battle/BattleDriver.cs:12833`）与 `NetSession.Close(say:false, …)`，两者都在本件白名单之外
+        /// ⇒ 这里**只能出声**（红线：⛔ 不许静默略过）。等 Net/战斗线给一个公开包装后，把
+        /// <see cref="QuitApplication"/> 里那句警告换成那一行调用即可（别的都不用动）。</para>
+        /// <para>⚠️ 没有宿主实例时（例如卡组编辑那一屏没有 `MainMenuRuntime`）⇒ 出声并**直接退**
+        /// （原版那条协程挂在常驻单例上，本仓没有对应常驻物 ⇒ 只能如实降级，⛔ 不假装等过 0.5 秒）。</para></summary>
+        public static void QuitApplication()
+        {
+            // ① 原版 `helpshiftManager` 那一跳 = 空桩（RVA 0x4B33B0 `ret 0`）⇒ 不做任何事。
+            // ② `photonManager.LeaveRoom()` —— 本件白名单外，出声。
+            bool inRoom = false;
+            try { inRoom = NetRuntime.Instance != null && NetRuntime.Instance.Session != null
+                         && NetRuntime.Instance.Session.State != CardPresentation.Net.NetState.Off; }
+            catch { /* 联机层未初始化 ⇒ 当作没有房间 */ }
+            if (inRoom)
+                Debug.LogWarning("[Menu] 退出前应「先离开联机房间」（原版 `QuitApplication` 第②跳 "
+                               + "`photonManager.LeaveRoom()`）—— 这一跳的落点 `BattleDriver.LeaveNetRoom` / "
+                               + "`NetSession.Close` 都在本件白名单外 ⇒ **本批没做**（如实出声，⛔ 不是静默略过）");
+            // ③ `StartCoroutine(FullyQuitApplication())`
+            var host = Instance != null ? Instance : InstanceOrFind();
+            if (host != null && host.isActiveAndEnabled)
+            {
+                host.StartCoroutine(host.FullyQuitApplication());
+                return;
+            }
+            Debug.LogWarning("[Menu] 找不到 `MainMenuRuntime` 宿主 ⇒ 走不了「等 0.5 秒再退」那条协程"
+                           + "（原版 `StartCoroutine(FullyQuitApplication())`）—— 直接退");
+            Application.Quit(0);
+        }
+
+        /// <summary>= 原版 `PlayerDataManager.FullyQuitApplication()`（**逐句**，判据
+        /// `decomp_full/PlayerDataManager__FullyQuitApplication.c`：状态机 `MoveNext` 体 =
+        /// `yield return new WaitForSeconds(DAT_1834b2bb4)`（实读 = **0.5f**）⇒ `Application.Quit()`）。</summary>
+        public System.Collections.IEnumerator FullyQuitApplication()
+        {
+            Debug.Log("[Menu] `FullyQuitApplication`：等 0.5 秒再 `Application.Quit()`"
+                    + "（原版 `PlayerDataManager.FullyQuitApplication`，`DAT_1834b2bb4` = 0.5f）"
+                    + (Application.isEditor ? "（⚠️ **编辑器里 `Application.Quit` 是空操作** —— 只有 build 出来的 player 里才真退）" : ""));
+            yield return new WaitForSeconds(0.5f);      // 原版 `d__450.MoveNext` 的那一跳
+            Application.Quit();
+        }
+
+        // ============================================================ 🆕 2026-10-28（B92-N4c 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:4249`，本段全在其后 ⇒ 零漂）。
+
+        /// <summary>排位卡那一排「段位印玺」的一颗（`Empty` / `Fill` 两枚已建好的 quad）。
+        /// <para>🆕 2026-10-28（B92-N4c）：它让那一排的「逐颗点亮」能走**共用件**
+        /// <see cref="MilestonesStepDisplay.Initialize"/>（= 原版 `MilestonesStepDisplay.Initialize` 的算法核）——
+        /// 原来那颗循环里手写了一遍 `SealToggle(empty, fill, i &lt; 已完成数)`，与
+        /// `RankedDivisionChangeWindow.ApplySeals` 各写一份。⚠️ 我们的「prefab」是**烘死的绝对框 + 已建好的 quad**，
+        /// 不是 Unity prefab ⇒ 传进去时 `instantiate` 用恒等委托、建件/销毁仍留在调用点。</para></summary>
+        sealed class RankedSealPair
+        {
+            public ImageQuad Empty, Fill;
+        }
+
+        readonly List<RankedSealPair> _rankedSealPairs = new List<RankedSealPair>();
     }
 }

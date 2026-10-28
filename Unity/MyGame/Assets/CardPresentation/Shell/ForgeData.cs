@@ -302,6 +302,10 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(army) || amount == 0) return;
             int cur = PointsOf(army);
             _points[army] = System.Math.Max(0, cur + amount);   // 原版是累计加，不封顶（封的是显示档）
+            // 🆕 2026-10-28（B92_N3）：原版 `CollectPoints` 的**第二半**（`out_cpp2il_dev_ilspy/Everguild.LiveOps/ForgeHandler.cs:324` 现读）：
+            //   `if (forge.GetRewardsToCollect().Any()) UiBadgeNotificationManager.Refresh<ForgeBadge>();`
+            //   ⇒ 加完之后**如果变成可领**，就刷一次锻造红点。我们的 `HasToCollect` = `GetRewardsToCollect().Any()`。
+            if (HasToCollect(army)) UiBadgeNotificationManager.Refresh(typeof(ForgeBadge));
         }
     }
 }

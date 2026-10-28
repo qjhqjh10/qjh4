@@ -18,7 +18,7 @@ using System.Collections.Generic;
 namespace CardPresentation
 {
     /// <summary>社交那一批的本地数据（**默认全空**）。</summary>
-    public static class SocialData
+    public static partial class SocialData
     {
         // ============================================================ 我所在的联盟（`AllianceMemberTab` / `GeneralDetails`）
 
@@ -70,7 +70,7 @@ namespace CardPresentation
         // ============================================================ 公开联盟（`AllianceListEntry`）
 
         /// <summary>公开列表里的一行（原版 `AllianceListEntry`；尾部只有一个 `Join`）。</summary>
-        public class AllianceListing
+        public partial class AllianceListing
         {
             public string Name, Region, Rating;
             public int Members, MemberMax;
@@ -521,6 +521,72 @@ namespace CardPresentation
                 foreach (var it in g)
                     if (it != null) _invitations.Add(it);
             InvitationsCachedAt = System.DateTime.UtcNow;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B92-N4 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:517`，本段全在其后 ⇒ 零漂）。
+
+        /// <summary>= 原版 `AlliancesManager.BuildCurrentMember()`（**逐句**，判据
+        /// `decomp_full/AlliancesManager__BuildCurrentMember.c` 全文 ＋ `Warpforge_code/…/GroupMember.cs` 的字段序）。
+        /// <para>原版逐跳：① `EntityObjectsManager.GetObject&lt;GroupMember&gt;(…)` 取那个「我」的 JObject，
+        /// 取不到 ⇒ **直接 return**（不建）；② `jobj["id"] = &lt;本地玩家数据&gt;`；
+        /// ③ 若玩家档案那一层在 ⇒ `jobj[&lt;第二个键&gt;] = &lt;档案里那一格&gt;`，再
+        /// `jobj[...] = PlayerAvatarDataManager.PlayerAvatarID` 与 `…PlayerAvatarBorderID`；
+        /// ④ `JsonWrapper.DeserializeObject(jobj, typeof(GroupMember))` 把这几格灌回强类型
+        /// ⇒ 效果 = **用本地玩家数据组装出「我」这一条成员**（`GroupMember` 的 `id` / `name` / `avatarId` /
+        /// `avatarBorderId` 都是 `[SerializeField]` 私有字段，方法体里那四个字面量键就是它们）。</para>
+        /// <para>我们的等价：本仓没有 `EntityObjectsManager`／`JObject` 那一层（Newtonsoft 只在原版），
+        /// 成员行就是 <see cref="Member"/> ⇒ **直接组装一条**（等价于 ②③④ 三步的结果）：
+        /// `Name` ← <see cref="ProfileData.PlayerName"/>（全工程唯一一份玩家名）·
+        /// `AvatarArt` ← <see cref="ProfileData.AvatarArt"/>（= `PlayerAvatarID` 的图名口径）·
+        /// `IsPlayer` ← 真（这一条按定义就是「我」，原版 `GroupMember.IsPlayer` 同义）·
+        /// `RoleId`/`Role` ← <see cref="SelfRoleId"/> + <see cref="RoleText"/>。</para>
+        /// <para>⚠️ **残差一格（如实记）**：原版 `id` 取自**服务端下发的玩家数据**（`+0x328`），
+        /// 本地**没有玩家 id 数据源**（`Member.Id` 的 doc 早记着「本地没有写入方」）⇒ 这里留 `null`。
+        /// id 到账时**只改这一行**（⛔ 别在别处另造一个 id）。</para>
+        /// <para>⚠️ **零调用者**：原始调用方在 `AlliancesManager` 的服务端链里（本仓没有那条链）⇒
+        /// 按账的 A 尺子①「零调用者、上游在 B/C ⇒ A」。上游 = 联盟成员表（服务器，P3）。</para></summary>
+        public static Member BuildCurrentMember()
+        {
+            var m = new Member();
+            m.Id = null;                                  // ← 本地无玩家 id 源，见上「残差一格」
+            m.Name = ProfileData.PlayerName;              // = 原版 `jobj[<name 键>]`
+            m.AvatarArt = ProfileData.AvatarArt;          // = `PlayerAvatarDataManager.PlayerAvatarID`
+            m.RoleId = SelfRoleId();                      // = `GroupMember.role`
+            m.Role = RoleText(m.RoleId);                  // 显示串（原版由 `AllianceMemberEntry` 现算）
+            m.IsPlayer = true;                            // 这一条按定义就是「我」
+            m.Online = true;                              // 自己必然在线（原版 status 由服务端给，本地恒在线）
+            return m;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（B92_N9）· 原版 `AlliancesController.GetCachedGroupById(string id)`
+        //  **追加在文件尾的第二段 partial 里**（零行号漂移 —— `AllianceListing` 被 11 条账按行号钉着）。
+        //
+        //  判据（`d:/2/tools/decomp_full/AlliancesController__GetCachedGroupById.c` 全文 26 行，本笔现读）：
+        //      new DisplayClass23_0 { id = id };
+        //      Predicate<Group> match = x => x.groupId == id;
+        //      if (groupListCache == null) throw;                 // 缓存没建 ⇒ NRE（原版就这形状）
+        //      return groupListCache.Find(match);                 // ★ **纯本地缓存读，一次后端调用都没有**
+        //  ⇒ 语义 = 「在**已经拉到的那张联盟列表**里按 id 找，找不到给 null」。
+        //  ⚠️ 上游：`AlliancesManager.GetGroupById(id)` 是它的同步转发口（`AlliancesManager.cs:758`）。
+        //  ⚠️ 我们这一格**恒 null**：`AllianceListing.Id` 的写入方是**服务端 `Group.id`**
+        //     （账 142/143 判 D：`Group` 本体由 `AlliancesManager.GetGroupById` 取）⇒ 本地没有来源，
+        //     与 `Member.Id` / `BuildCurrentMember().Id` 同一口径（⛔ 别拿 `Name` 冒充 id）。
+        // ================================================================================================
+        public partial class AllianceListing
+        {
+            /// <summary>原版 `Group.id` —— 缓存里按它找（判据 → 本节头部）。⚠️ 本地**没有写入方**（服务端字段）
+            /// ⇒ 恒 null；`GroupById` 因此恒返回 null（= 原版离线时的形状），⛔ 别拿 `Name` 冒充。</summary>
+            public string Id;
+        }
+
+        /// <summary>= 原版 `AlliancesController.GetCachedGroupById(id)`：在**已拉到的联盟缓存**里按 id 找。
+        /// 找不到 ⇒ `null`（原版 `List.Find` 的默认返回）。⛔ 不回落、不查后端。</summary>
+        public static AllianceListing GroupById(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            return _openAlliances.Find(g => g != null && g.Id == id);
         }
     }
 }

@@ -2591,7 +2591,7 @@ namespace RuleEngine
         /// ① `activeEffects.Clear()`（`+0x108`）⇒ 我们那几本：`_statMods` / `_grants` / `_buffs` /
         ///    `_grantedOps` / `_grantedText` / `_auraFx` / `_auraKw` / `_removedTraits` / `ExtraTriggers`；
         /// ② `activeEnchantments.Clear()`（`+0x110`）⇒ ⚠️ **不在这里**：我们的附魔挂在
-        ///    `CardInstance.ActiveEnchantments`（`Enchantments` 那一套）⇒ 清点归调用方（改动请求 §四·2）；
+        ///    `CardInstance.ActiveEnchantments`（`Enchantments` 那一套）⇒ **本方法自己清**（`List.Clear()` 幂等，调用方再清一次也无害；2026-10-28 `B92_B6` 从「留给调用方」改成照原版就地清）；
         /// ③ `questCounter(+0x270) = 0` ⇒ `Instance.QuestCounter = 0`；
         /// ④ 单位：`currentMaxHealth(+0xa4) = 卡面血(+0x9c)` · `currentBaseMeleeAttack(+0x7c) = 卡面近战(+0xa4)` ·
         ///    `currentBaseRangedAttack(+0x90) = 卡面远程(+0xa8)` · `currentHealth(+0x68) = currentMaxHealth` ·
@@ -2601,7 +2601,7 @@ namespace RuleEngine
         /// ⑥ 摘 `jam(130)` · `stun(100)`（＋同名 effect）· `blind(975)`（＋同名 effect）· `stealth(70)`；
         /// ⑦ 残骸档：`isRemnant=0`、`isLeavingRemnant=1`（原版 `.c:147-152` 的 `*(undefined2*)(+0x65)=0x100` ——
         ///    **两个字节一次写**，所以翻回中间态是「不是残骸、正在离场」）；
-        /// ⑧ `stunnedAtStartOfTurn(+0x55)=false` · `removeMarkerlightAtEndOfTurn(+0x57)=false`；
+        /// ⑧ `*(undefined2*)(+0x55) = 0` —— **两个字节一次写** ⇒ `stunnedAtStartOfTurn(+0x55)` **＋** `blindedAtStartOfTurn(+0x56)` 一起清（`dump.cs:21985/21987`）；随后 `*(undefined1*)(+0x57)=0` ⇒ `removeMarkerlightAtEndOfTurn`（`dump.cs:21989`）；
         /// ⑨ `SetBaseCardTraits()` ⇒ 卡面那批 trait 重挂（我们：`_keywords` 只留卡面）。
         /// ⑩ 表现层那四句（`StopAnimsInPlay` / `DestroyRemnantBody` / `SetSpriteAlpha` /
         ///    `CardHighlight.ChangeState`）我们没有那一层 ⇒ 不在这里。</para>
@@ -2613,8 +2613,8 @@ namespace RuleEngine
         /// <para>⚠️ **没建的两位**（如实标，铁律 2）：`currentDropPodHealth/Attack(+0xcc/+0xe0)`
         /// 我们**没有这两个字段**（drop pod 在我们这边是关键词 `droppod` 的 `KwValue`，
         /// 见 `CardDef.cs` 的 DropPod 那一族注释）⇒ 原版 ④ 里那两句**不搬**。
-        /// 🔴 `alreadyTriggeredBacklash(+0x222)` 没有字段 —— 判据 `CardScript__ResetToValuesInHand.c:138-140`（`if (param_2 != 0) *(byte*)(this + 0x222) = 0;`，**只在 `clearBacklash` 为真时清**；字段名 `dump.cs:35448`）⇒ 我们按「本回合死过」(`ctx.DiedThisTurn`) 算，而原版是**每卡一份**的位 ⇒ 两者**不等价**（同回合「死过 ⇒ 回手/翻回 ⇒ 再上场」原版能再触发、我们挡住）
-        /// ⇒ `clearBacklash` 形参**今天仍不起作用**（保留只为让调用点与原版同形；要真做必须**同时**补「字段 + 本方法这一清 + `RuleCore` 的写点/读点」三步，⛔ 只加字段不加消费口 = 死代码）。</para>
+        /// ✅ `alreadyTriggeredBacklash(+0x222)` ⇒ 我们的 `UnitState.AlreadyTriggeredBacklash`（字段在类尾 `:3366`；判据 `CardScript__ResetToValuesInHand.c:138-140`：`if (param_2 != 0) *(byte*)(this + 0x222) = 0;`，**只在 `clearBacklash` 为真时清**）—— **本方法末尾已按 `clearBacklash` 清**（旧文写「没有字段 / 形参今天仍不起作用」，2026-10-28 `B92_B6` 按现读订正，铁律 5）；
+        /// 读点 = `RuleCore` 的「本回合死过」那一族，**与 `ctx.DiedThisTurn` 是两套表示**（原版每卡一位、`DiedThisTurn` 是本回合全局）⇒ 交叉规则「同回合死过 ⇒ 回手 ⇒ 再上场」上两者**不等价、尚未收口**（要收口得改 `RuleCore` 的读写点，属 B1 的文件）。</para>
         /// </summary>
         public void ResetToValuesInHand(bool clearBacklash)
         {
@@ -2627,10 +2627,10 @@ namespace RuleEngine
             _auraFx.Clear();
             _auraKw.Clear();
             _removedTraits.Clear();
-            ExtraTriggers.Clear();
+            ExtraTriggers.Clear(); _traitEffects.Clear();   // 🆕 2026-10-28 `B92_B6`：`_traitEffects` 同属原版 `activeEffects(+0x108)`（判据 `.c:45-70` 整表 Clear）⇒ 一起清（⛔ 零行数变化：下方有账的 A 行落点）
 
             // ③ questCounter(+0x270)
-            if (Instance != null) Instance.QuestCounter = 0;
+            if (Instance != null) { Instance.QuestCounter = 0; Instance.ActiveEnchantments.Clear(); Instance.ActiveEffects.Clear(); }   // ③ questCounter(+0x270) ＋ ② activeEnchantments(+0x110) ＋ ① 手牌那份 activeEffects（三句都是 `List.Clear()`，幂等）
 
             // ④ 数值回卡面 ＋ ⑨ SetBaseCardTraits()
             var card = Card;
@@ -2658,8 +2658,8 @@ namespace RuleEngine
             RemoveAll(KeywordTable.Blind, silent: true);
             RemoveAll(KeywordTable.Stealth, silent: true);
 
-            // ⑧ 两个「回合开始时」的状态位
-            BlindedAtStartOfTurn = false;
+            // ⑧ 三个「回合开始时」的状态位（原版在 +0x55 写 2 字节 ⇒ stunned + blinded 一起清；⛔ 零行数变化：本文件下游有账的 A 行落点）
+            BlindedAtStartOfTurn = false; StunnedAtStartOfTurn = false;
             RemoveMarkerlightAtEndOfTurn = false;
 
             // ⑦ 残骸档：两个字节一次写 ⇒ 不是残骸、正在离场

@@ -8365,7 +8365,7 @@ public static class MainMenuScene
                         CheckAtWorld(cont5, 1305.29f, 1735.56f, 288.62f, 288.62f, "`content`（`VerticalLayoutGroup` + `ContentSizeFitter`）");
                         if (tab5 != null)
                         {
-                            Check(tab5.BuiltRows, 4, "四行阵营排行（预制体里烘焙了 4 个 `FactionScoreSmall` 实例）");
+                            Check(tab5.BuiltRows, 5, "五行阵营排行（13 个阵营；视口 575.76 ÷ 行距 117.711 ⇒ 相交的 5 行被建）");
                             var row0 = FindChild(cont5, "FactionScoreSmall");
                             CheckAtWorld(row0, 1305.29f, 1744.03f, 288.62f, 406.33f,
                                          "第 1 行（438.74×117.71；`content` 宽 430.27 ⇒ **行比容器宽 8.47**，真值）");
@@ -8402,7 +8402,7 @@ public static class MainMenuScene
                             var mxQ = mxIc != null ? mxIc.GetComponent<ImageQuad>() : null;
                             CheckTrue(mxQ != null && mxQ.Texture == (Texture)CardArt.MenuUi("Menu_Icon_Galon"),
                                       "最高分那一行的图标是 **`Menu_Icon_Galon`**（值那一行是 `40k_UI_icon_ranked_Skirmish` —— **两张不一样**，§A·2 末）");
-                            // ⚠️ 这一栏**滚不动**是对的：4 行 × 117.711 = 470.84 < 视口高 575.76（`MenuScroll` 会夹到 0）
+                            // ⚠️ 13 行 × 117.711 = 1530.24 > 视口高 575.76 ⇒ 这一栏**现在滚得动**（B92-N4 2026-10-28 由 4 行改 13 行）
                             var pl5 = PointerLayer.Instance;
                             var r0 = FindChild(cont5, "FactionScoreSmall");
                             float y0r = r0 != null ? r0.position.y : 0f;
@@ -8413,8 +8413,8 @@ public static class MainMenuScene
                             if (pl5 != null) pl5.WheelAt(rkWheelP.x, rkWheelP.y, -1f);   // 2026-10-22 量纲 120→1（一格 = ±1）
                             var r0b = FindChild(cont5, "FactionScoreSmall");
                             float y1r = r0b != null ? r0b.position.y : 0f;
-                            CheckTrue(Mathf.Abs(y1r - y0r) < 0.001f,
-                                      "内容比视口矮（4×117.711 = 470.84 < 575.76）⇒ **滚轮不动**才是对的（`MenuScroll` 夹到 0）");
+                            CheckTrue(Mathf.Abs(y1r - y0r) > 0.5f,
+                                      "13 行 ⇒ 内容高 1530.24 > 视口 575.76 ⇒ **滚轮滚得动**（4 行那版「不动」只对 4 行成立）");
                         }
 
                         // 点头像 ⇒ **跳到 Avatar 页**（原版 `RankedTab.<Initialize>b__10_0` 就是这条，§C·1 第 4 条）

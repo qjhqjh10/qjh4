@@ -807,11 +807,11 @@ namespace CardPresentation
             MenuDraw.Rect(_rewardsScroll, CardArt.Solid(), RewScrollR, "Background", QRewArt, ScrollBgTint);
             var vp = ViewportClip.Hang(_rewardsScroll, "Viewport", RewScrollR, Vector4.zero, Vector2Int.zero).transform;
             // `Viewport` 的 `UIMask` 图 **alpha = 0**（不可见）⇒ 不画；裁切已由 `ViewportClip` 承担（如实记录）。
-            var content = MenuDraw.Node(vp, "Content", RewContentR);
+            _rewardContent = MenuDraw.Node(vp, "Content", RewContentR);
 
             // `Gacha Drawer Holder` = `GachaRewardsPanel.containerPrefab` 的模板（运行时逐奖励 Instantiate）。
             // ⚠️ 没有掉落表 ⇒ **建出来、关着**（⛔ 不拿 prefab 里那颗示例当真实奖励）。
-            _drawer = MenuDraw.Node(content, "Gacha Drawer Holder", DrawerR);
+            _drawer = MenuDraw.Node(_rewardContent, "Gacha Drawer Holder", DrawerR);
             var claimed = MenuDraw.Node(_drawer, "Gacha Reward Claimed (1)", ClaimedR);
             MenuDraw.Nine(claimed, Tex(ArtClaim, "奖励领取条"), ClaimedR, new Vector4(162f, 0f, 162f, 0f),
                           324f, 87f, QRewArt, ClaimTint, true, "Image");
@@ -840,10 +840,10 @@ namespace CardPresentation
             MenuDraw.Nine(barBg, Tex(ArtBarBg, "进度条底"), ProgressBgR, new Vector4(20f, 0f, 20f, 0f),
                           42f, 18f, QRewBar, BarBgTint, true, "Image");
             var fillArea = MenuDraw.Node(barBg, "Fill Area", FillAreaR);
-            var fill = MenuDraw.Node(fillArea, "Fill", FillR);              // 出厂 0 宽 = 进度 0
-            MenuDraw.Nine(fill, Tex(ArtBarFill, "进度条填充"), FillR, new Vector4(10f, 0f, 10f, 0f),
+            _progressFill = MenuDraw.Node(fillArea, "Fill", FillR);              // 出厂 0 宽 = 进度 0
+            MenuDraw.Nine(_progressFill, Tex(ArtBarFill, "进度条填充"), FillR, new Vector4(10f, 0f, 10f, 0f),
                           42f, 18f, QRewBar, BarFillTint, true, "Image");
-            MenuDraw.Rect(fill, Tex(ArtBarEnd, "进度条末端"), FillEndR, "end", QRewBar, BarEndTint, true);
+            MenuDraw.Rect(_progressFill, Tex(ArtBarEnd, "进度条末端"), FillEndR, "end", QRewBar, BarEndTint, true);
             MenuDraw.Nine(_progress, Tex(ArtBarOutline, "进度条描边"), ProgressiveOutlineR,
                           new Vector4(20f, 0f, 20f, 0f), 46f, 22f, QRewBar, BarOutlineTint, true, "Outline");
             _counter = MenuDraw.TextBox(_progress, CounterR, NoData + "/" + NoData, Color.white, "counter",
@@ -855,7 +855,7 @@ namespace CardPresentation
             _allItems = MenuDraw.TextBox(all, AllItemsTextR, Loc.T(TermAllRewards), Color.white, "Footer Text",
                                          56f, 18f, QRewText, 56f, 36f, face: TmpFont.Face.LatinCardBody);
             if (_allItems != null) MenuDraw.SetVAlign(_allItems, Label.VAlign.Middle, AllItemsTextR);
-            all.gameObject.SetActive(false);
+            all.gameObject.SetActive(false); ReinitializeRewardsPanel();   // 原版 `GachaRewardsPanel.Initialize` 的末两拍（同一行 = 不加行号）
         }
 
         void BuildRewardsCompleted(Transform panel)
@@ -976,6 +976,266 @@ namespace CardPresentation
             Note("奖励行行距 = " + RewardsSpacingPx.ToString("0.##") + " px（宽高比 " + aspect.ToString("0.###")
                  + "；原版 `AutoLayoutSpacingByItemSize`：16:9 ⇒ " + SpaceAt16_9 + " · 4:3 ⇒ " + SpaceAt4_3
                  + "。奖励格还没建（掉落表在服务端）⇒ 这个值目前只进读数与日志）");
+        }
+
+        // ============================================================ 🆕 2026-10-28（B92_N3）
+        // **原版 `GachaRewardsPanel` / `GachaRewardContainer` 的运行时那半边**（本节 = 机制；
+        // 数据一律经 `RewardsProvider` 注入，`null` = 今天的真实情况）。
+        //
+        // 判据（`d:/2/tools/decomp_full/` 四个方法体**现读** · 2026-10-28）：
+        //  · `GachaRewardsPanel__Initialize.c`：`gachaEvent == null` ⇒ 崩；`CurrentContainer == null` ⇒
+        //    `Debug.LogError` + return；否则 `TimerDisplay.Initialize(+0x28, CurrentOffer.<+0x4c8>(), …)` →
+        //    `RefreshContainers()` → `RefreshFooter()`（后两拍在 `.c` 里被内联展开）。
+        //  · `GachaRewardsPanel__RefreshContainers.c`：`Σ dropTable[i].maxAmount`（分母）/ `Σ counters[id]`
+        //    （只数掉落表里出现的 id，分子）→ `SupportMethods.DestroyAllChildren(+0x30)` →
+        //    逐条 `Instantiate(+0x38)` + `SetActive(true)` + `GachaRewardContainer.Initialize(item, 分子_i, 分母_i)` →
+        //    顶行计数 = `string.Format(fmt, 分子, 分母)` → `+0x40.SetActive(分子 == 分母)`。
+        //  · `GachaRewardsPanel__RefreshFooter.c`：`!PlayerHasAllSpecialItems` ⇒ `+0x50.SetActive(true)` +
+        //    `ProgressBar.SetProgress(Math.Max(0, CratesSinceLastLegendary), container.maxCrates, fmt, 1)`；
+        //    否则 `+0x50.SetActive(false)`（**只碰 +0x50，不碰 +0x40** ⇒ 我们也不在这一支碰它）。
+        //  · `GachaRewardContainer__Initialize.c`：先 `Destroy` 旧抽屉(+0x58) → `ItemDrawer.Draw(+0x28, reward, 1, 0, 0)` →
+        //    `current < max` ⇒ 文本 `"{0}/{1}"`，否则 `Loc("Rewards Menu/Claimed")` →
+        //    `+0x20.SetActive(current > 0)` + `transform.SetAsLastSibling()`。
+        //  · `GachaRewardContainer__Reset.c` = **只有一句** `ItemDrawer.Release(+0x58)`
+        //    （`claimedColor` / `inprogressColor` 两个序列化色在这四个方法里**一次都没被读** ⇒ ⛔ 别按名字编用法）。
+        //  · `GachaRewardContainer__OnClick(Action)` = 把回调转发给抽屉（虚槽 +0x218）。
+        //  · `GachaRewardContainer__Awake.c`（`.c` 首行是 ICF 折叠来的他方法名，**体只碰 `this.gameObject`**）
+        //    = `gameObject.SetActive(false)` ⇒ 模板出厂关着（我们 `BuildRewardsScroll` 末尾那一句就是它）。
+        //
+        // 🔴 **今天一格都建不出来**：`SpecialDropTable` / `droptableCounters` / `CrateInfo` 全在远端 LiveOps
+        //    ⇒ 走原版那条「没数据 ⇒ 直接返回」的分支，footer 保持 prefab 出厂态（「Player doesn't have all items」
+        //    亮着、进度 0）。⛔ 不编掉落表、不编进度。
+        // ⚠️ **不在本节的两件事**（如实记，别以为漏了）：① 截止时刻（`Initialize` 第一拍）—— 我们的
+        //    `TimerDisplay.Attach` 在 `BuildHeader` / `BuildRewardsHeader` 建树时就挂了，杆子等价；
+        //    ② 格子**排布**（`Content` 上的 `HorizontalLayoutGroup` + `AutoLayoutSpacingByItemSize`）——
+        //    那是**另一个组件**的职责（账在 `AutoLayoutSpacingByItemSize` 那一行），本节只照原版做
+        //    「Instantiate + Initialize」；框由调用方给（同 `ItemDrawer.Draw` 的约定），缺省 = 模板框。
+
+        Transform _rewardContent;
+        Transform _progressFill;
+        readonly List<ItemDrawerView> _rewardContainers = new List<ItemDrawerView>();
+        readonly List<Transform> _rewardContainerRoots = new List<Transform>();
+        static bool _rewardsDataNoted;
+
+        /// <summary>奖励格的一项 —— 原版 `CustomDropTableDefinition.DropTableItem`（`reward.itemId` +
+        /// `maxAmount`）＋「当前持有」（原版 `droptableCounters[container.DropTableCounterKey][id]`）。</summary>
+        public sealed class SpecialItem
+        {
+            /// <summary>物品（原版 `ObtainableItem`；我们用 `ItemDrawer.Spec(id, art, label)` 组）。</summary>
+            public ItemSpec Item;
+            /// <summary>计数器当前值。</summary>
+            public int Current;
+            /// <summary>这一项的总数（原版 `DropTableItem.maxAmount`）。</summary>
+            public int Max;
+        }
+
+        /// <summary>一局活动数据的三格（原版 `GachaEvent.CurrentContainer` 里那三样）。</summary>
+        public struct RewardsData
+        {
+            /// <summary>`DropTableContainer.SpecialDropTable.items`（**空表 = 全部集齐**，见 `PlayerHasAllSpecialItems`）。</summary>
+            public List<SpecialItem> SpecialItems;
+            /// <summary>`CrateInfo.CratesSinceLastLegendary`（进度条分子）。</summary>
+            public int CratesSinceLastLegendary;
+            /// <summary>`DropTableContainer.maxCrates`（`+0x74`，进度条分母）。</summary>
+            public int MaxCrates;
+        }
+
+        /// <summary>数据注入口（远端 LiveOps 的替身）。`null` = 没有活动数据（今天）。
+        /// ⚠️ 这是**数据来源**的替身，不是「我们编了一套掉落规则」—— 规则（怎么算集齐/怎么印字）逐句照原版。</summary>
+        public static System.Func<RewardsData?> RewardsProvider { get; set; }
+
+        /// <summary>建出来的奖励格（自检读口；顺序 = 掉落表顺序）。</summary>
+        public List<ItemDrawerView> RewardContainers { get { return _rewardContainers; } }
+        /// <summary>最后一次刷新时「没有数据源」= 一格都没建。</summary>
+        public bool RewardsDataMissing { get; private set; }
+        /// <summary>最后一次 `SetRewardProgress` 的两个实参（自检读口）。</summary>
+        public int ProgressValue { get; private set; }
+        public int ProgressMax { get; private set; }
+
+        static RewardsData? Snapshot()
+        {
+            var p = RewardsProvider;
+            return p != null ? p() : null;
+        }
+
+        /// <summary>= 原版 `GachaEvent.PlayerHasAllSpecialItems()`（`GachaEvent.cs:245` 现读）：
+        /// `Enumerable.All(SpecialDropTable.items, x =&gt; counters[x.reward.itemId] &gt;= x.maxAmount)`
+        /// ⇒ **空表 = true**（`All` 的真空真），照抄。
+        /// <para>没有数据源 ⇒ `false`（= 原版那条链根本进不来时的现状：footer 保持「doesn't have all」出厂态）。</para></summary>
+        public bool PlayerHasAllSpecialItems()
+        {
+            RewardsData? d = Snapshot();
+            if (d == null || d.Value.SpecialItems == null) return false;
+            var items = d.Value.SpecialItems;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var it = items[i];
+                if (it == null || it.Current < it.Max) return false;
+            }
+            return true;
+        }
+
+        Transform NoAllItemsNode() { return _guarantee != null ? _guarantee.transform.parent : null; }
+        Transform AllItemsNode() { return _allItems != null ? _allItems.transform.parent : null; }
+
+        /// <summary>= 原版 `GachaRewardsPanel.Initialize(gachaEvent)` 的后两拍（`Shell` 建完三块后调，见
+        /// `BuildRewardsFooter` 末句）。没有数据 ⇒ 照原版的空数据分支**什么都不建**（只出声一次）。</summary>
+        public void ReinitializeRewardsPanel()
+        {
+            RewardsData? d = Snapshot();
+            if (d == null)
+            {
+                RewardsDataMissing = true;
+                if (!_rewardsDataNoted)
+                {
+                    _rewardsDataNoted = true;
+                    Debug.LogWarning("[Gacha] 奖励面板：`CurrentContainer` / `SpecialDropTable` 本地没有（远端 LiveOps）"
+                                   + " ⇒ 照原版 `GachaRewardsPanel.Initialize` 的空数据分支**一格都不建**，"
+                                   + "footer 保持 prefab 出厂态。⛔ 不编掉落表与进度。");
+                }
+                return;
+            }
+            RewardsDataMissing = false;
+            RefreshRewardContainers();
+            RefreshRewardFooter();
+        }
+
+        /// <summary>= 原版 `GachaRewardsPanel.RefreshContainers()`（逐句见本节头）。
+        /// <para><paramref name="boxOf"/> = 每一格的框（序号 ⇒ `PxRect`）。原版的格子尺寸在
+        /// `containerPrefab` 里、位置由 `Content` 上的 LayoutGroup 排；我们这棵树没有那个 LayoutGroup
+        /// ⇒ 框由**调用方**给（同 `ItemDrawer.Draw` 的约定）。缺省 = 模板框 `DrawerR`（多格会重叠，如实记）。</para></summary>
+        /// <returns>建出来的格数。</returns>
+        public int RefreshRewardContainers(System.Func<int, PxRect> boxOf = null)
+        {
+            RewardsData? d = Snapshot();
+            if (d == null || d.Value.SpecialItems == null) { RewardsDataMissing = true; return 0; }
+            RewardsDataMissing = false;
+            var items = d.Value.SpecialItems;
+            ClearRewardContainers();
+            int totalMax = 0, owned = 0;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var it = items[i];
+                if (it == null) continue;
+                totalMax += it.Max;
+                int c = it.Current;
+                owned += c < 0 ? 0 : (c > it.Max ? it.Max : c);
+            }
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i] == null) continue;
+                BuildRewardContainer(items[i], boxOf != null ? boxOf(i) : DrawerR);
+            }
+            if (_rewardCount != null) _rewardCount.SetText(owned + "/" + totalMax);
+            var allNode = AllItemsNode();
+            if (allNode != null) allNode.gameObject.SetActive(owned == totalMax);
+            return _rewardContainers.Count;
+        }
+
+        /// <summary>= 原版 `GachaRewardsPanel.RefreshFooter()`（**只碰「doesn't have all items」那一个节点** +
+        /// 进度条；`+0x40` 是 `RefreshContainers` 的事，⛔ 别写两处）。</summary>
+        public void RefreshRewardFooter()
+        {
+            bool hasAll = PlayerHasAllSpecialItems();
+            var noAll = NoAllItemsNode();
+            if (noAll != null) noAll.gameObject.SetActive(!hasAll);
+            RewardsData? d = Snapshot();
+            if (d == null) return;                       // 没有数据 ⇒ 进度保持出厂 0（⛔ 不编）
+            SetRewardProgress(d.Value.CratesSinceLastLegendary, d.Value.MaxCrates);
+        }
+
+        /// <summary>= 原版 `ProgressBar.SetProgress(value, max, fmt, 1)` 那一拍（`Math.Max(0, value)` 照抄）。
+        /// <para>填充 = `Fill Area` 的宽度 × `value/max`；端帽（`Fill` 的子件 `end`）中心跟填充右端走，
+        /// 偏移量照 prefab 出厂关系（`FillEndR` 中心 1048.35 比 `Fill Area` 左缘 1060.4 左 **12.05**，
+        /// 端帽自身 39.9×54.3）—— 都是序列化值之间的关系，不是我们挑的数。</para></summary>
+        public void SetRewardProgress(int value, int max)
+        {
+            ProgressValue = value < 0 ? 0 : value;
+            ProgressMax = max < 0 ? 0 : max;
+            if (_counter != null) _counter.SetText(ProgressValue + "/" + ProgressMax);
+            if (_progressFill == null) return;
+            float t = ProgressMax <= 0 ? 0f : Mathf.Clamp01(ProgressValue / (float)ProgressMax);
+            var fr = new PxRect(FillAreaR.x1, FillAreaR.y1, FillAreaR.x1 + FillAreaR.W * t, FillAreaR.y2);
+            MenuDraw.ApplyPxRect(_progressFill, _progressFill.parent, fr);
+            var end = _progressFill.Find("end");
+            if (end != null)
+            {
+                float cx = fr.x2 - 12.05f;
+                MenuDraw.ApplyPxRect(end, _progressFill,
+                                     new PxRect(cx - 19.95f, FillEndR.y1, cx + 19.95f, FillEndR.y2));
+            }
+        }
+
+        /// <summary>= 原版 `GachaRewardContainer.Initialize(reward, current, max)`（逐句见本节头）。
+        /// <paramref name="onClick"/> = 原版 `OnClick(action)` 那一跳（转发给抽屉；`null` = 不挂）。</summary>
+        public ItemDrawerView BuildRewardContainer(SpecialItem it, PxRect box, System.Action onClick = null)
+        {
+            if (_rewardContent == null || it == null) return null;
+            var node = MenuDraw.Node(_rewardContent, "Gacha Reward Container", box);
+            _rewardContainerRoots.Add(node);
+            var holder = MenuDraw.Node(node, "Drawer Holder", box);              // 原版 `drawerHolder`(+0x28)
+            var view = ItemDrawer.DrawView(holder, box, it.Item, 1, DrawerOverride.Default,
+                                           ItemDrawerStyle.Default(QRewArt, QRewArt1, QRewText));
+            if (view != null)
+            {
+                // 原版 `DrawItemReward` 第三步 `ToggleShowInfoOnClick(false)`（我们那一档是空实现，
+                // 理由 → `ItemDrawerView.ToggleShowInfoOnClick`：原版的 `showItemInfoOnClick` 是 prefab 上的静态值）
+                view.ToggleShowInfoOnClick(false);
+                if (onClick != null) view.OverrideOnClickAction(onClick);
+                _rewardContainers.Add(view);
+            }
+            // `itsClaimedObject`(+0x20)：`current > 0` 才显示，并 `SetAsLastSibling()` 压到最上
+            var claimed = MenuDraw.Node(node, "Gacha Reward Claimed (1)", ClaimedR);
+            MenuDraw.Nine(claimed, Tex(ArtClaim, "奖励领取条"), ClaimedR, new Vector4(162f, 0f, 162f, 0f),
+                          324f, 87f, QRewArt, ClaimTint, true, "Image");
+            var txt = MenuDraw.TextBox(claimed, ClaimedTextR,
+                                       it.Current < it.Max ? it.Current + "/" + it.Max : Loc.T(TermClaimed),
+                                       Color.white, "Claimed Tex", 40.55f, 18f, QRewText, 200f, 36f,
+                                       face: TmpFont.Face.LatinCardBody);
+            if (txt != null) MenuDraw.SetVAlign(txt, Label.VAlign.Midline, ClaimedTextR);
+            claimed.gameObject.SetActive(it.Current > 0);
+            claimed.SetAsLastSibling();
+            return view;
+        }
+
+        /// <summary>= 原版 `GachaRewardContainer.Reset()`（**只有一句** `ItemDrawer.Release(itemDrawer)`）。
+        /// 我们的抽屉不池化（→ `ItemDrawer` 追加区头注 ③）⇒ 等价做法 = 销毁整格；节点销毁时
+        /// `ItemDrawerLeash.OnDestroy` 会自动把句柄从 `ItemDrawer._handles` 放掉（= 原版 `Release` 那一半）。</summary>
+        public void ResetRewardContainer(ItemDrawerView v)
+        {
+            if (v == null) return;
+            _rewardContainers.Remove(v);
+            Transform root = null;
+            if (v.Node != null)
+                root = v.Node.parent != null && v.Node.parent.parent != null ? v.Node.parent.parent : v.Node;
+            if (root != null) _rewardContainerRoots.Remove(root);
+            Transform kill = root != null ? root : (v.Node != null ? v.Node : null);
+            if (kill == null) return;
+#if UNITY_EDITOR
+            if (!Application.isPlaying) { Object.DestroyImmediate(kill.gameObject); return; }
+#endif
+            Object.Destroy(kill.gameObject);
+        }
+
+        /// <summary>= 原版 `RefreshContainers` 的 `SupportMethods.DestroyAllChildren(containerHolder)` 那一拍。
+        /// <para>⚠️ 我们这棵树里 `Gacha Drawer Holder`（模板）**是** `Content` 的子件（原版它是独立 prefab）
+        /// ⇒ 清的时候要保它（它出厂关着，等于不存在）。</para></summary>
+        public void ClearRewardContainers()
+        {
+            for (int i = _rewardContainers.Count - 1; i >= 0; i--) ResetRewardContainer(_rewardContainers[i]);
+            _rewardContainers.Clear();
+            if (_rewardContent == null) { _rewardContainerRoots.Clear(); return; }
+            for (int i = _rewardContent.childCount - 1; i >= 0; i--)
+            {
+                var ch = _rewardContent.GetChild(i);
+                if (ch == _drawer) continue;
+                _rewardContainerRoots.Remove(ch);
+#if UNITY_EDITOR
+                if (!Application.isPlaying) { Object.DestroyImmediate(ch.gameObject); continue; }
+#endif
+                Object.Destroy(ch.gameObject);
+            }
+            _rewardContainerRoots.Clear();
         }
     }
 }

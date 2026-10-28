@@ -705,7 +705,7 @@ namespace CardPresentation
             //   这里挂上全工程唯一的倒计时口径 `TimerDisplay` ⇒ 每秒重算一次。
             //   目标 = 我们自建的**日界** `DailyData.NextResetAt`（本机时间；原版这颗由 `TimerDisplay` 运行时填，
             //   我们没有服务器 —— 见 `DailyData.ResetIn` 那条注释）。前缀与 `RewardTimerText()` 同一格（`Resets in `）。
-            TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日奖励窗 Timer", null);
+            TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日奖励窗 Timer", null, prefixKey: "Missions/CollectCounter");   // 🆕 B92_N5：键一并交下去 ⇒ 换语言时 TimerDisplay.LocalizationChange 能重取译文（同一行写完 = 零行号漂移）
         }
 
         // ============================================================ 🆕 2026-10-26（B9 · P9 #91/#92）

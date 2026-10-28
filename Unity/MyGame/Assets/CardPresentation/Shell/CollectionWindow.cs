@@ -6558,6 +6558,31 @@ namespace CardPresentation
         public int WildcardArmyAtShineBuildForTest { get { return _wcArmyAtShineBuild; } }
 
         int _wcArmyAtShineBuild = int.MinValue;
+
+        // ============================================================ 异画风格清单（B92-N4 2026-10-28，追加在类尾）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用；既有落点最高在 `:6064` 一带 ⇒ 本段全在其后 ⇒ 零漂）。
+
+        /// <summary>= 原版 `AlternateArtStyleIconsSO.GetAlternateArtStyleOnly()`（**逐句**）。
+        /// <para>判据 🥇 `decomp_full/AlternateArtStyleIconsSO__GetAlternateArtStyleOnly.c` 全文：
+        /// `this+0x18` = `styleIcons` 列表 ⇒ `List&lt;…&gt;.FindAll(predicate)`，谓词 =
+        /// `AlternateArtStyleIconsSO__c__&lt;GetAlternateArtStyleOnly&gt;b__3_0.c` 的 `*(int*)(x+0x10) != 0`
+        /// （= `styleIcons.Where(x =&gt; x.isAlternateStyleOnly)`）。</para>
+        /// <para>我们的等价：风格表 = {<see cref="StyleDefault"/>, <see cref="StyleHammerAndBolter"/>}（判据见
+        /// <see cref="StyleDefault"/> / 上面 `AlternateArtSyle` 枚举那一段 —— 原版 SO 就那两条），
+        /// `isAlternateStyleOnly` 的取值判据 = 「不是 Default」⇒ 与 <see cref="AltStyles"/> **同集**。
+        /// ⇒ 单独成一个**方法**（而不是继续用属性）是为了与原版**方法级**对应；数据只有一份（⛔ 别在别处再算一遍）。</para>
+        /// <para>⚠️ 与原版的一处形差（如实记）：原版返回 `List&lt;AlternateArtSyle&gt;`（枚举），我们返回
+        /// `string[]`（风格名，全文其余地方都用这个口径）；这是本仓既有的表示法，不是新语义。</para></summary>
+        public static string[] AltStylesOnly() { return AltStyles; }
+
+        /// <summary>= 原版 `AlternateArtStylesUtilities.GetAlternateStylesOnly()`（**逐句**）。
+        /// <para>判据 🥇 `decomp_full/AlternateArtStylesUtilities__GetAlternateStylesOnly.c` 全文 8 行：
+        /// `this+0x20` = `styleIconsSO`，非空就 `return styleIconsSO.GetAlternateArtStyleOnly();`
+        /// （空 ⇒ 原版 `FUN_1803f47a0()` = 抛 NRE 的那条路）。**它本身就是一句纯转发**。</para>
+        /// <para>⇒ 我们照建一句转发到 <see cref="AltStylesOnly"/>。原版该类是 `SingletonBehaviour`、出货
+        /// **0 个组件实例**（`assets_full` 无引用）⇒ 本地**没有实例可拿**，所以是静态方法而不是 `.Instance.…`；
+        /// 这是本仓「无实例的单例一律静态」的既有口径，⛔ 不是行为差异。</para></summary>
+        public static string[] GetAlternateStylesOnly() { return AltStylesOnly(); }
     }
 
 }

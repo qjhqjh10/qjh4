@@ -918,7 +918,7 @@ namespace CardPresentation
                  + "（源 = `Assets/CardPresentation/Art/原版/0_mainmenu/40K_general_icon_Expansion_Pass_XP.png`）"
                  + " ⇒ 这一件没画（⛔ 不用别的点数图标冒充）");
             // `Image`：运行期 `ExpansionPassPointDrawer.DrawForArmy(army)` 按阵营灌图（出厂那张 Orks 是示例）
-            MenuDraw.Node(content, "Image", Center(ExtraIconR, 63.16f, 63.16f));
+            _extraIconImage = MenuDraw.Rect(content, CardArt.Solid(), Center(ExtraIconR, 63.16f, 63.16f), "Image", QPanelDecor, Color.clear);  // 原版这格 `m_Sprite = null`（画前无图）⇒ 透明占位，`DrawForArmy` 时换图（等价，见该方法 doc）
             Note("`ExpansionPassPointDrawer/DrawForArmy(army)` 的阵营图：prefab 出厂是 Orks 示例"
                  + "（`40k_DeckSelection_icon_FactionOrks`），运行期按玩家阵营换 —— 本地没有阵营 ⇒ 不画");
             // 两个 INACT 抽屉（`40k_main_bt_nametag`）：内部价签是数据驱动的 ⇒ 只建节点、关着。
@@ -2366,9 +2366,9 @@ namespace CardPresentation
         /// </list>
         /// <para>⚠️ `LoadAsset` / `DrawForArmy(army)` 要远端数据与玩家阵营 ⇒ 本地没有：图不画、**出声**。
         /// 两条 `ItemDrawer.Draw` 只在真有里程碑数据时才跑（`Rewards.First()` 空表会抛）。</para></summary>
-        public void ApplyPremiumPanel()
+        public void ApplyPremiumPanel(System.Action onClosePurchasePopup = null)
         {
-            if (_premiumPanel == null || _event == null) return;
+            _onClosePurchasePopup = onClosePurchasePopup; if (_premiumPanel == null || _event == null) return;   // 原版 `Initialize` 第一句 = `onClosePurchasePopup = 入参`（先存、后判）
             bool premium = _event.HasPremium;
             var notPremium = FindDeep(_premiumPanel, "IsNotPremium");
             var isPremium = FindDeep(_premiumPanel, "Is Premium");
@@ -2388,8 +2388,8 @@ namespace CardPresentation
                 if (_extraPoints != null)
                     _extraPoints.SetText(string.Format(Loc.T(TermExtraPercentaje), _event.Data != null
                         ? _event.Data.PremiumPercentageBonus.ToString() : NoData));
-                Note("`expansionPassPointDrawer.DrawForArmy(army)`：玩家阵营在本地存档里（`ProfileData`），"
-                   + "本窗没有读它 ⇒ 那颗点数图**不画**（⛔ 不拿 prefab 出厂的 Orks 示例冒充）");
+                DrawForArmy(PremiumArmyOf());   // 原版这一句 = `expansionPassPointDrawer.DrawForArmy(army)`；army 来自**事件数据**（`LiveOpsEventData.filter.army`），不是玩家存档
+                // ↑ 两行原位替换（保行数）：army 未知时 `DrawForArmy` 自己出声，⛔ 不拿 prefab 出厂的 Orks 示例冒充
             }
             else
             {
@@ -2433,7 +2433,7 @@ namespace CardPresentation
                 return;
             }
             var spec = ItemDrawer.Spec(m.RewardArray[0].Id, null, m.RewardArray[0].Id);
-            ItemDrawer.Draw(anchor, LastCardDrawerR, spec, Mathf.Max(1, m.RewardArray[0].Quantity),
+            ItemDrawer.Draw(anchor, LastCardDrawerR, spec, 1,   // 🔴 数量恒 1：原版三处 `ItemDrawer.Draw(anchor, item, 1, 0, 0)` 都**硬编码 1**（不读 reward.quantity）—— 2026-10-28 B92_N3 现读订正（原来传的是 reward 的数量）
                             DrawerOverride.Default, ItemDrawerStyle.Default(QCardReward, QCardReward, QCardText));
         }
 
@@ -2599,5 +2599,65 @@ namespace CardPresentation
             }
             return -1;
         }
+
+        // ============================================================ 🆕 2026-10-28（B92_N3b）
+        // `ExpansionPassPointDrawer.DrawForArmy(army)` —— 原版方法体**只有两句**（`ExpansionPassPointDrawer__DrawForArmy.c` 现读）：
+        //   ① `if (armyText(+0x58) != null) armyText.text = GameStaticData.CardArmyToString(army)`
+        //   ② `if (image == null) return; image.sprite = ArmyUtilities.GetArmyIcon(army)`
+        // 🔴 **本窗这一份实例的 `armyText` 是 null**（判据 = prefab 的 MB 现读：
+        //   `MonoBehaviour_-2460985498715340003.json` 的 `m_GameObject.m_PathID = 564162408064697117`
+        //   = `Icon Expansion Pass Points Drawer Variant` 这一份，而它的 `armyText.m_PathID = 0`；
+        //   另两份同族实例（`…-7240202003299004953` / `…3544614726814496501`）里前者的 armyText 才非空）
+        //   ⇒ **①这一句在原版这一步是空操作**，⛔ 我们也不用建 `armyText` 节点（建了反而与原版不同）。
+        // ⚠️ `army` 从哪来：`expansionPass.Data.<+0x1b8>()` = `LiveOpsEventData.Army` = **`eventFilter.army`**
+        //   （`out_cpp2il_dev_ilspy/Everguild.LiveOps/LiveOpsEventData.cs:42`）—— 是**事件数据**上的一格，
+        //   ⛔ **不是玩家存档/`ProfileData`**（本行旧差异那句「需要玩家阵营（本窗没读 ProfileData）」是错的，已订正）。
+
+        /// <summary>事件数据里那一格 army（`LiveOpsEventData.filter.army`）的注入口 —— 本地数据模型里没有这一格
+        /// （`Shell/ExpansionPassEvent.cs` 的 `ExpansionPassData` 只有 `XpPerGold` / `PremiumPercentageBonus` 等，
+        /// 且那个文件不在本代理白名单）。`null` = 拿不到（今天）⇒ 传 0。</summary>
+        public static System.Func<int> PremiumArmyProvider { get; set; }
+
+        /// <summary>`Image` 那一格（原版 `ItemDrawerComponents.image`）：出厂无图（透明占位），
+        /// `DrawForArmy` 时换成阵营徽记。</summary>
+        ImageQuad _extraIconImage;
+
+        /// <summary>`Initialize` 的第一句 `onClosePurchasePopup = 入参`（原版 `+0x60`）。
+        /// 本地没有「购买窗开了再关」那条链（见账 `PurchasePremiumClick` 一行）⇒ 只存着，出声由那一条负责。</summary>
+        System.Action _onClosePurchasePopup;
+        bool _armyNoteOnce;
+
+        int PremiumArmyOf()
+        {
+            var p = PremiumArmyProvider;
+            return p != null ? p() : 0;
+        }
+
+        /// <summary>= 原版 `ExpansionPassPointDrawer.DrawForArmy(CardArmy army)`（判据与边界见本节头）。
+        /// <para>`army` 认不出（0 / Neutral / 不在 13 条表里）⇒ **不画** + 出声一次
+        /// （原版 `ArmyUtilities.GetArmyIcon(Neutral)` 同样取不到 ⇒ `image.sprite` 保持 null）。</para></summary>
+        public void DrawForArmy(int army)
+        {
+            if (_extraIconImage == null) return;
+            var tex = ArmyIcons.Texture(army);
+            if (tex == null)
+            {
+                if (!_armyNoteOnce)
+                {
+                    _armyNoteOnce = true;
+                    Note("`ExpansionPassPointDrawer.DrawForArmy(" + army + ")`：这一格 army 取不到"
+                       + "（原版 = 事件数据的 `eventFilter.army`，本地 `ExpansionPassData` 里没有这一格）"
+                       + " ⇒ 阵营徽记**不画**（原版那一支 `ArmyUtilities.GetArmyIcon` 同样失败，`sprite` 保持 null）");
+                }
+                return;
+            }
+            _extraIconImage.SetTexture(tex);
+            _extraIconImage.SetTint(Color.white);
+        }
+
+        /// <summary>自检读口：存着的 `onClosePurchasePopup`（原版 `+0x60`，由 `ApplyPremiumPanel` 的入参写进来）。
+        /// <para>⚠️ 今天没人传（消费方是「premium 购买窗」，账 `PurchasePremiumClick` 那一行仍是 B）
+        /// ⇒ 恒 null；但**存这一句本身**是原版 `Initialize` 的第一句，已逐字对齐。</para></summary>
+        public System.Action OnClosePurchasePopup { get { return _onClosePurchasePopup; } }
     }
 }

@@ -828,11 +828,11 @@ namespace CardPresentation
         /// 的组件表（2026-10-25 `menu_dump.py … --depth 9 --no-layout` 现读）。⛔ 别把它「修好」。</para></summary>
         static void AppendChips(List<Cell> cells, int firstIdx, int n, int perRow,
                                 float padL, float top, float cell, float spX, float spY,
-                                Func<int, bool> selected, Func<int, string> chipKey, bool hidden = false)
+                                Func<int, bool> selected, Func<int, string> chipKey, bool hidden = false, int listLimit = int.MaxValue)   // 🆕 2026-10-28 B92_N6b：`listLimit` = 原版 `FillToggleList(currentList, maxElements)` 的上限（判据 = `out_il2csharp/Assembly-CSharp/CardRarityFilter.cs:29` 循环首句 `if (currentList._size >= listLimit) break;`）—— ⚠️ **原版实参值未解**（来自 `CollectionFilterController` 的序列化字段；本地 MonoBehaviour JSON 搜 `maxElements/listLimit` = 0 命中）⇒ 默认「不限」= 今天的行为不变，等 VA 读出值再从现在这个默认值改一处
         {
             if (cells == null || selected == null) return;
-            int slot = n;
-            for (int i = 0; i < n; i++)
+            int slot = n, added = 0;
+            for (int i = 0; i < n && added < listLimit; i++)
             {
                 if (!selected(i)) continue;
                 var src = cells[firstIdx + i];
@@ -849,7 +849,7 @@ namespace CardPresentation
                 dst.On = true;
                 dst.Hidden = hidden;
                 cells.Add(dst);
-                slot++;
+                slot++; added++;     // 🆕 2026-10-28 B92_N6b：记「已加几颗 chip」—— 原版那一句 `currentList._size >= listLimit ⇒ break` 的等价物
             }
         }
 

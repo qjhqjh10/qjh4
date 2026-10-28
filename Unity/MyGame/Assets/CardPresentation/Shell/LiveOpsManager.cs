@@ -425,5 +425,62 @@ namespace CardPresentation
             if (r == null || r.Data == null) return int.MinValue;
             return r.Data.priority;
         }
+
+        // ============================================================ 🆕 2026-10-28（B92·N1 · 账 row 22 / 23）
+        //   `GetEvent(Type, string)` / `GetEvents(Type, string[])` —— **按 handler 类型**取（原版那两个重载）。
+        //   判据（**现读**，不是推定）：
+        //     · `cpp2il/out_cpp2il_dev_ilspy/LiveOpsManager.cs` 的 `GetEvent(Type t, string id)`（DisplayClass7_0）：
+        //         `var h = GetHandler(t); if (h == null) NRE; return <h.GetBaseEvents(false)>.FirstOrDefault(x => x.GetID() == id);`
+        //       —— 那个「source」在 ILSpy 里丢了，但同一文件 `GetEvents(Type,string[])` 里同一个 call site
+        //       （`Method not found @1800122E0`）在 `.c` 里有实参：`FUN_1800122e0(1, …, handler, 0)` ⇒ **`ILiveOpsHandler.GetBaseEvents(false)`**。
+        //     · `decomp_full/LiveOpsManager__GetEvents.c`（39 行，**真体**）逐句：
+        //         `h = GetHandler(t); if (h != null) return Where(h.GetBaseEvents(false), x => ids.Contains(x.GetID()));` 否则 NRE。
+        //   🔴 **别把它们和 `GetEvent(string id)` 混为一条**：那个是 `GetAllEvents().FirstOrDefault(...)` 跨 handler
+        //      （`decomp_full/LiveOpsManager__GetEvent.c:25-28` 现读，**只收 1 个形参** ⇒ 它对应的是 string 那个重载；
+        //       同名的两个重载在 Ghidra 里同名，文件只剩一份，⛔ 别拿它当 Type 重载的判据）。
+        //   ⚠️ 差异：原版 `h == null` ⇒ NRE；我们出声 + 返回 null / 空表（同本类 `GetHandler` 的口径）。
+
+        /// <summary>原版 `public static ILiveOps GetEvent(Type t, string id)`（`:1918` 一带，DisplayClass7_0）。
+        /// `t` = handler 的**运行时类型**（`HandlerLookup` 的键就是 `h.GetType()`）。</summary>
+        public static ILiveOps GetEvent(Type t, string id)
+        {
+            var h = GetHandler(t);
+            if (h == null)
+            {
+                Debug.LogError("[LiveOps] GetEvent(" + (t == null ? "<null>" : t.Name) + ", " + (id ?? "<null>")
+                             + ")：那个类型的 handler 没注册（原版这一跳 NRE）⇒ 返回 null");
+                return null;
+            }
+            var list = h.GetBaseEvents(false);
+            if (list == null) return null;
+            if (string.IsNullOrEmpty(id)) return null;         // 空 id 不匹配任何事件（原版 `text == id` 同解）
+            foreach (var e in list) if (e != null && e.GetID() == id) return e;
+            return null;
+        }
+
+        /// <summary>原版 `public static IEnumerable&lt;ILiveOps&gt; GetEvents(Type t, string[] ids)`（`:1977` 一带）。
+        /// 判据 = `decomp_full/LiveOpsManager__GetEvents.c`（39 行真体）：`Where(x =&gt; ids.Contains(x.GetID()))`。</summary>
+        public static IEnumerable<ILiveOps> GetEvents(Type t, string[] ids)
+        {
+            var outp = new List<ILiveOps>();
+            var h = GetHandler(t);
+            if (h == null)
+            {
+                Debug.LogError("[LiveOps] GetEvents(" + (t == null ? "<null>" : t.Name)
+                             + ", …)：那个类型的 handler 没注册（原版这一跳 NRE）⇒ 返回空表");
+                return outp;
+            }
+            if (ids == null) return outp;                       // 原版 `Contains(null, …)` 会 NRE；空表同解
+            var list = h.GetBaseEvents(false);
+            if (list == null) return outp;
+            foreach (var e in list)
+            {
+                if (e == null) continue;
+                var id = e.GetID();
+                for (int i = 0; i < ids.Length; i++)
+                    if (ids[i] == id) { outp.Add(e); break; }
+            }
+            return outp;
+        }
     }
 }

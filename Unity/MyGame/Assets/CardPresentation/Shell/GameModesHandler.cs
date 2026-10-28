@@ -96,55 +96,55 @@ namespace CardPresentation
         }
 
         // ============================================================ 原版 `IPlayEvent` 的两格（见文件头差异 ①）
-        static readonly Dictionary<Type, PropertyInfo> _playModeProps = new Dictionary<Type, PropertyInfo>();
-        static readonly Dictionary<Type, MethodInfo> _matchFinishedMethods = new Dictionary<Type, MethodInfo>();
+        // 🆕 2026-10-28（B92_N5）：`IPlayEvent` 已由 N1 建好（`Shell/PlayEvent.cs:878` 接口声明；`PlayEvent<,>` 在 `:903`
+        //   声明实现它）⇒ 这两格**改回强类型**、反射整条废掉 —— 18·0「默认照原版」，原版没有反射这条路。
+        // ⚠️ 行数刻意与改造前**逐行一致**（本文件在账里有 17 个 `文件:行号` 落点，插/删行会让它们整体漂移）。
+        //   原物 = `Dictionary<Type, PropertyInfo> _playModeProps` / `Dictionary<Type, MethodInfo> _matchFinishedMethods`
+        //   + `Type[] MatchFinishedParams`（三行已就地改写，删除会把下游落点全部下移 ⇒ 铁律 18·b）。
+        //   `using System.Reflection;` 那一行同样**保留**（改成注释会把上面所有行号推上移一格，得不偿失）。
 
-        static readonly Type[] MatchFinishedParams = new Type[] { typeof(RankedMatchResult), typeof(Action<OnlineMatchResult>) };
+        /// <summary>「这个类型没实现 `IPlayEvent`」的日志去重 —— 原 `Dictionary&lt;Type, PropertyInfo&gt;` 缓存
+        /// 在反射废除后只剩这一个用途。⚠️ 结算那一路**不**去重（原版那一格每次调用都报，见 `TryFinishMatch`）。</summary>
+        static readonly HashSet<Type> _playModeWarned = new HashSet<Type>();
 
-        /// <summary>读事件上的 `EventPlayMode`（原版 `IPlayEvent.EventPlayMode`，槽 0）。
-        /// 反射的原因见文件头差异 ①；每个**类型**只查一次（查不到也缓存，避免每条事件刷一次日志）。</summary>
+        /// <summary>读事件上的 `EventPlayMode`（原版 `IPlayEvent.EventPlayMode`，槽 0 —— `Shell/PlayEvent.cs:881`）。
+        /// ⚠️ **行为等价性（本代理复核）**：反射版找的是「公开实例属性 `EventPlayMode`、类型 `PlayModes`」；
+        /// 本仓唯一的实现家族是 `PlayEvent<,>`（现 `: IPlayEvent`）＋ 直接实现 `IPlayEvent` 的那两个活动类
+        /// ⇒「有这一格」⟺「实现了 `IPlayEvent`」在同一批类型上**完全重合**；自检夹具
+        /// （`Editor/GameModesCheck.cs:463`）也是 `PlayEvent<,>` 的派生类 ⇒ 一并覆盖。日志仍是**每类型一次**。</summary>
         static bool TryGetPlayMode(ILiveOps e, out PlayModes mode)
         {
             mode = default(PlayModes);
             if (e == null) return false;
-            var t = e.GetType();
-            PropertyInfo p;
-            if (!_playModeProps.TryGetValue(t, out p))
+            var pe = e as IPlayEvent;
+            if (pe == null)
             {
-                p = t.GetProperty("EventPlayMode", BindingFlags.Public | BindingFlags.Instance);
-                if (p != null && p.PropertyType != typeof(PlayModes)) p = null;
-                _playModeProps[t] = p;
-                if (p == null)
-                    Debug.LogWarning("[GameModes] 事件类型 '" + t.Name + "' 没有公开的 `EventPlayMode` 属性"
-                                   + "（原版是 `IPlayEvent` 的接口成员）⇒ 它不参与 `GetActiveEvent(PlayModes)` 的筛选");
+                var t = e.GetType();
+                if (_playModeWarned.Add(t))
+                    Debug.LogWarning("[GameModes] 事件类型 '" + t.Name + "' 没有实现 `IPlayEvent`"
+                                   + "（原版 `EventPlayMode` 是它的槽 0）⇒ 它不参与 `GetActiveEvent(PlayModes)` 的筛选");
+                return false;
             }
-            if (p == null) return false;
-            var v = p.GetValue(e, null);          // 原版同格：`IPlayEvent.get_EventPlayMode()`
-            if (!(v is PlayModes)) return false;
-            mode = (PlayModes)v;
+            mode = pe.EventPlayMode;              // 原版同格：`IPlayEvent.get_EventPlayMode()`
             return true;
         }
 
         /// <summary>调事件上的 `MatchFinished(RankedMatchResult, Action&lt;OnlineMatchResult&gt;)`
-        /// （原版 `IPlayEvent.MatchFinished`）。反射的原因见文件头差异 ①。</summary>
+        /// （原版 `IPlayEvent.MatchFinished`，`Shell/PlayEvent.cs:888`）。
+        /// ⚠️ 失败那一格**每次调用都报**（改造前就是这样 —— 它不走缓存去重），照抄，⛔ 别改成「每类型一次」。
+        /// ⚠️ 原版成员名/签名一字不差 ⇒ 强类型调用与反射选中的是同一个方法。</summary>
         static bool TryFinishMatch(ILiveOps e, RankedMatchResult result, Action<OnlineMatchResult> callback)
         {
             if (e == null) return false;
-            var t = e.GetType();
-            MethodInfo m;
-            if (!_matchFinishedMethods.TryGetValue(t, out m))
+            var pe = e as IPlayEvent;
+            if (pe == null)
             {
-                m = t.GetMethod("MatchFinished", BindingFlags.Public | BindingFlags.Instance, null, MatchFinishedParams, null);
-                _matchFinishedMethods[t] = m;
-            }
-            if (m == null)
-            {
-                Debug.LogError("[GameModes] CombatFinished：事件类型 '" + t.Name + "' 上没有 "
-                             + "`MatchFinished(RankedMatchResult, Action<OnlineMatchResult>)`（原版是 `IPlayEvent` 的接口成员）"
+                Debug.LogError("[GameModes] CombatFinished：事件类型 '" + e.GetType().Name + "' 没有实现 `IPlayEvent`"
+                             + "（原版 `MatchFinished` 是它的成员）"
                              + "⇒ **这一局的结算没有被分派出去**");
                 return false;
             }
-            m.Invoke(e, new object[] { result, callback });
+            pe.MatchFinished(result, callback);
             return true;
         }
 
@@ -437,8 +437,8 @@ namespace CardPresentation
         {
             RankedEventInterfaceType = null;
             GameModesConfigSource.ResetForTest();
-            _playModeProps.Clear();
-            _matchFinishedMethods.Clear();
+            _playModeWarned.Clear();            // 🆕 B92_N5：原 `_playModeProps` 那两张反射缓存已废（见 `TryGetPlayMode`）
+            // （`_matchFinishedMethods` 那一格随反射一起作废 —— 结算那一路不去重，没有要清的状态）
             // 草稿闸（账 585 的那一半）：只是把值还原成兜底 true。
             // ⚠️ **装在那个闭合泛型上的委托清不掉**（`DraftEventBase<TS,TD>` 的 static 是**按闭合类型各一份**，
             //    本类不知道将来哪个闭合类型 ⇒ 由调用方用该类型的 `ResetInjectionForTest()` 自己清）。

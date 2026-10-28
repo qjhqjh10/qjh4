@@ -1,0 +1,2 @@
+﻿域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+商店	ShopStore	RemoveFinishedOffer()	Everguild.LiveOps/ShopStore.cs:589	一个 store 的本地状态（报价 / 刷新时间）	C	Shell/ShopData.cs:238（Offers，静态表）	原版 = 把已结束的报价从 store 里摘掉；我们的报价是静态表、没有「已结束」这一态 ⇒ 缺口未做（不是不可达）		B87-R24	⚠️ 2026-10-28 就地订正（铁律 5）：原判 D 已被推翻 —— 原版有活调用点 `ShopTab.RefreshAfterExpire()`（`out_il2csharp/Assembly-CSharp/ShopTab.cs:306-311`：`((IStore)LiveOps).RemoveFinishedOffer(); CreateOffers();`，由每格 `SetRefreshCallback` 到期触发）⇒ D 四类都不成立，改 C。价格/拥有数仍是我们挑的（`Shell/ShopData.cs` 文件头）。

@@ -42,7 +42,7 @@ using CardPresentation.Net;      // 🆕 联机（N3：`Battle!` 走 P2P 还是�
 namespace CardPresentation
 {
     /// <summary>活动窗（遭遇战 / 排位）的公共基类。**不要直接实例化**。</summary>
-    public abstract class LiveOpsEventWindow : GameWindow
+    public abstract partial class LiveOpsEventWindow : GameWindow
     {
         // ============================================================ 分层
         // 🔴 **一条明确的梯子，每层 +1** —— 同一个队列的两层「谁盖谁」是**不可控**的
@@ -548,7 +548,7 @@ namespace CardPresentation
 
         public override void Open()
         {
-            LastOpened = this;
+            LastOpened = this; LoadEventDeckSlots();   // 2026-10-28（B92_N9）：每活动卡组槽跨进程持久化（判据 → 类尾）
             // 🆕 **2026-10-24（E11 · P2 + P0-2）**：照原版 `RankedDeckSelector__Initialize.c:15-22` 那条链，**顺序不能反**：
             //   ① 选中阵营 = **当前卡组督军的阵营**；**只有当前卡组为空**才回落 `10 = Ultramarines`
             //      （`if (currentDeck == 0) army = 10; else army = currentDeck.Army;`）；
@@ -1917,7 +1917,7 @@ namespace CardPresentation
                     SyncArmyToShownDeck();  // 🆕 E11：同预组支
                     RefreshDeckColumn();
                 }
-            }, DeckGameMode, info => DeckRules.SameFaction(info.Faction, SelectedArmyFaction));   // 🆕 2026-09-26 模式筛 + 🆕 B90-N3：原版 `OnSelectDeckButtonClick` 的第 4 个实参谓词 `d.Army == currentArmy`
+            }, DeckGameMode, info => DeckRules.SameFaction(info.Faction, SelectedArmyFaction), CurrentDeckModeForSelection());   // 🆕 2026-09-26 模式筛 + 🆕 B90-N3：第 4 个实参谓词 = 原版 `d.Army == currentArmy` ｜ 🆕 B92_N9：第 5 个实参 = 原版 `context.Deck.GameMode`（`_TryOpen_b__10_0` 的**二选一**闸，见 `DeckSelectionPopup.ModePasses`）
             Manager.OpenWindow(w);
             LastDeckSelection = w;
             Debug.Log("[Event] 开 `Deck Selection Popup with Tabs`");
@@ -2092,7 +2092,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `RankedDeckSelector.OnCreateDeckButtonClick()` —— **开收藏窗**。
-        /// 同族先例 = `Shell/RankedDeckSelector.cs` 的 `OnCreateDeckButtonClick`（E13 建的那一份，判据同源）。
+        /// 同族先例 = 本类 `OnGoToStoreButtonClick` 的 `OpenByRef`（`Shell/RankedDeckSelector.cs` 重复实现已于 2026-10-28 删除）。
         /// ⚠️ 旧的近路 `CreateDeckInMode()` **留着**（`Editor/MainMenuScene.cs:9527` 的断言直调它）——
         ///   **钮已经不再走它**：原版是「先开收藏窗，用户自己在里面建」，不是「窗口替你建好」。</summary>
         public void OnCreateDeckButtonClick()
@@ -2152,7 +2152,7 @@ namespace CardPresentation
             if (PickedPrebuilt != null) return;
             var raw = CollectionData.Raw(DeckIndex);
             if (raw == null || string.IsNullOrEmpty(raw.Name)) return;
-            _eventDeckSlot[EventId] = raw.Name;
+            _eventDeckSlot[EventId] = raw.Name; SaveEventDeckSlots();   // 2026-10-28（B92_N9）：写进 `_ours_` 存档（原版住在活动存档里）
         }
 
         /// <summary>自检口：读某活动记的那副卡组名（没记过 ⇒ null）。</summary>
@@ -2197,6 +2197,79 @@ namespace CardPresentation
         {
             var raw = CollectionData.Raw(i);
             return raw != null && DeckRules.Validate(raw, CollectionData.Card, raw.IsSkirmish) == DeckError.None;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（B92_N9）· 每活动卡组槽的**跨进程持久化**（追加在类尾 —— 零行号漂移）
+        //
+        //  原版：这一格住在**活动存档**里 —— `RankedDeckSelector__Initialize.c` 读接口槽 **9**
+        //        （`IPlayEvent.GetDeck()`）、`RankedDeckSelector__ChangeDeck.c` 的 `FUN_1800121a0(8, …)`
+        //        （= `SetDeck(deck)`）⇒ 关掉游戏再进，**每个活动还记着自己那副**。
+        //  我们（B90-N3）当时只做了内存字典 + 在账里写明「跨进程会丢」；本笔按 B91-L6 的判定补落盘：
+        //        `SaveKeys.OursPrefix + "EventDeckSlot"` = `_ours_EventDeckSlot`
+        //        （`SaveKeys.IsKnown` 对 `_ours_` 前缀直接放行 ⇒ **不用改键表**；原版没有这个键，
+        //         它是 🔶 我们自定的 —— 原版那格在活动存档里，我们没有活动存档）。
+        //  ⚠️ 形状：`JsonUtility` **不能序列化 Dictionary** ⇒ 落成「行数组」。
+        //  ⚠️ 读不到 / 坏档 ⇒ 空表 + **出声**（`SaveCenter` 自己会说话）⇒ 退回「回落全局当前」的旧行为，⛔ 不静默造一条记录。
+        // ================================================================================================
+        /// <summary>我们自定的存档键：**活动 id → 该活动上次选的卡组名**。</summary>
+        public const string EventDeckSlotKey = SaveKeys.OursPrefix + "EventDeckSlot";
+
+        /// <summary>落盘一行。（`JsonUtility` 要 public 字段 + `[System.Serializable]`）</summary>
+        [System.Serializable]
+        public class EventDeckSlotRow { public string EventId; public string DeckName; }
+
+        /// <summary>`EventDeckSlotKey` 的 payload（一份 JSON 对象）。</summary>
+        [System.Serializable]
+        public class EventDeckSlotFile { public List<EventDeckSlotRow> Items = new List<EventDeckSlotRow>(); }
+
+        static bool _eventDeckSlotLoaded;
+
+        /// <summary>从 `_ours_EventDeckSlot` 读一次（`Open()` 那一拍调；**只读一次**）。</summary>
+        static void LoadEventDeckSlots()
+        {
+            if (_eventDeckSlotLoaded) return;
+            _eventDeckSlotLoaded = true;                 // 读失败也不重试（`SaveCenter` 已经出过声）
+            var f = SaveCenter.Get<EventDeckSlotFile>(EventDeckSlotKey);
+            if (f == null || f.Items == null) return;    // 第一次跑 / 档丢了 / 坏档 —— `SaveCenter` 各自出过声
+            int n = 0;
+            foreach (var row in f.Items)
+            {
+                if (row == null || string.IsNullOrEmpty(row.EventId) || string.IsNullOrEmpty(row.DeckName)) continue;
+                _eventDeckSlot[row.EventId] = row.DeckName; n++;
+            }
+            Debug.Log("[Event] 读到每活动卡组槽 " + n + " 条（`" + EventDeckSlotKey + "`）");
+        }
+
+        /// <summary>写回 `_ours_EventDeckSlot`（`RememberEventDeck` 每改一次就写一次 —— 一格一份 JSON，代价可忽略）。</summary>
+        static void SaveEventDeckSlots()
+        {
+            var f = new EventDeckSlotFile();
+            foreach (var kv in _eventDeckSlot)
+                if (!string.IsNullOrEmpty(kv.Key) && !string.IsNullOrEmpty(kv.Value))
+                    f.Items.Add(new EventDeckSlotRow { EventId = kv.Key, DeckName = kv.Value });
+            if (!SaveCenter.Set(EventDeckSlotKey, f))
+                Debug.LogWarning("[Event] 每活动卡组槽**没落盘**（`" + EventDeckSlotKey + "`）⇒ 这一局里记的，重开游戏会丢");
+        }
+
+        /// <summary>自检口：把「已读」标记清掉（配合 `SaveCenter.OverrideRoot` 验跨进程那一段）。</summary>
+        public static void ResetEventDeckSlotLoadForTest() { _eventDeckSlotLoaded = false; }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（B92_N9）· `RankedDeckSelector.OnSelectDeckButtonClick` 的第 5 个实参
+        //
+        //  原版把整个 `DeckSelectionContext` 传给 `DeckSelectionPopup.TryOpen`，其中 `context.Deck`
+        //  = **当前正在用的那一副**；`DeckSelectionPopup.__TryOpen_b__10_0` 的模式闸读它
+        //  （`.c` 全文 → `DeckSelectionPopup.ModePasses` 那段），**有它就只看它的模式、不看窗口模式**。
+        //  我们（B90-N3）当时只传了窗口模式 ⇒ 账 `战役.tsv:117` 的残差「没传 currentDeck」就是这一格。
+        //  ⚠️ 预组那副也算「当前那一副」（原版两边都是 `CardDeck`）⇒ 用它自己的 `gameMode`。
+        // ================================================================================================
+        /// <summary>当前那一副卡组的模式（原版 `context.Deck.GameMode`）；取不到 ⇒ `null`（回落窗口模式）。</summary>
+        int? CurrentDeckModeForSelection()
+        {
+            if (PickedPrebuilt != null) return PickedPrebuilt.gameMode;
+            var raw = CollectionData.Raw(DeckIndex);
+            return raw != null ? (int?)raw.GameMode : null;
         }
     }
 }

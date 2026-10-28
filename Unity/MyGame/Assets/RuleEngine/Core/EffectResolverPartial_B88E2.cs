@@ -591,7 +591,7 @@ namespace RuleEngine
                                                  ctx.Log($"{by ?? u.Name}：「{u.Name}」的 `untilNextAttack` 那条记录"
                                                        + "**出队时已经不在**（被前面的动作摘掉了）⇒ 这条空过");
                                          },
-                                         actor: u);
+                                         actor: u, actionType: (int)BattleActionType.removeEffect);   // 账 L490 · ActionType 回填：原版 `SendRemoveEffect` 组的是 `action 0x10 = 16 removeEffect`（判据 = `CardScript__SendRemoveEffect.c:1-87`，账 ROW 28；B92_B4c 2026-10-28）
                 if (ok) n++;
             }
             if (due.Count > 0)

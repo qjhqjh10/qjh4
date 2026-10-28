@@ -405,7 +405,7 @@ namespace CardPresentation
             }
             // 出厂（`SealCurrent == null`）= 全空（prefab 的 `Fill` alpha 0）
             int cur = _ctx.SealCurrent.HasValue ? Mathf.Clamp(_ctx.SealCurrent.Value, 0, n) : 0;
-            for (int i = 0; i < n; i++) ToggleSeal(i, i < cur);
+            MilestonesStepDisplay.Initialize<ImageQuad>(cur, n, _sealFills.ToArray(), null, null, q => q, (q, filled, i, ps, pa) => ToggleSeal(i, filled), null, false, false);   // 🆕 2026-10-28 B92-N4c：逐颗 `Toggle(currentPoints > i)` 改走原版同名件的算法核（`stepPrefab` = 已建好的 Fill 句柄，`instantiate` 恒等；销毁/建件仍在 `Build()`）
         }
 
         /// <summary>`ApplySeals` 那条「总数超出模板」的告警只出声一次（同 `_noArtWarned` 那套口径）。</summary>

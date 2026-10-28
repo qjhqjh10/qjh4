@@ -182,7 +182,7 @@ namespace CardPresentation
     /// <summary>
     /// 卡组编辑器的状态。**改这个类就要加断言**（`DeckScene.Run` 里那一段）。
     /// </summary>
-    public class DeckEditorState
+    public partial class DeckEditorState
     {
         public const int AnyCost = -1;
 
@@ -1477,6 +1477,88 @@ namespace CardPresentation
             var sb = new StringBuilder();
             foreach (var k in keys) sb.Append(k).Append('×').Append(m[k]).Append(';');
             return sb.ToString();
+        }
+    }
+
+    // ================================================================================================
+    //  🆕 2026-10-28（B92_N9）· 原版 `CardDeck.CardCount(bool)` / `CardDeck.Has(card)` 那两支
+    //  **追加在文件尾的第二段 partial 里**（零行号漂移 —— 本文件有 11+ 条账按行号钉着）。
+    //
+    //  判据（本笔现读全文）：
+    //    · `d:/2/tools/decomp_full/CardDeck__CardCount.c`
+    //        if (countHero && deckHero != null) return cardLibrary.Count + 1;
+    //        return cardLibrary.Count;                      // ⚠️ 防御卡**不加**
+    //    · `d:/2/tools/decomp_full/CardDeck__Has.c`
+    //        if (deckHero == null) return false;            // ← 督军为空 ⇒ **连普通卡也不比**（原版就这一支）
+    //        if (GetOriginalId(deckHero) == GetOriginalId(card)) return true;
+    //        return cardLibrary.Any(c => GetOriginalId(c) == GetOriginalId(card));
+    //      ⚠️ 原版**没有**防御卡那一支（防御卡住在 `+0x48`、`cardLibrary` 里没有它）⇒ 本方法对防御卡恒 false，**照抄**。
+    //    · 消费者（原版只有两处，都在「详情窗里换了异画 ⇒ 换卡组里那一条」这条路上）：
+    //        `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DeckEditingWindow.cs:217` / `:918`
+    //        = `if (EditingDeck.Has(card)) { RemoveCard(card); TryAddCard(altArtCard); }`
+    //      ⇒ 我们这边落在 `DeckRuntime.TickCardWindowAltArt`（详情窗关掉那一帧对账）。
+    // ================================================================================================
+    public partial class DeckEditorState
+    {
+        /// <summary>原版 `CardDeck.CardCount(bool countHero)`：卡表张数（**可选含督军那一张**）。
+        /// ⚠️ 只有督军、没有普通卡时 ⇒ `DeckCardCount(true) == 1`（`DeckCount` 那个属性永远看不见督军）。
+        /// ⛔ 别与 `DeckRules.CardCount(GameMode)` 混 —— 那个是**张数上限**（30/40），同名不同义。</summary>
+        public int DeckCardCount(bool countHero)
+        {
+            if (Deck == null) return 0;
+            int n = Deck.CardIds != null ? Deck.CardIds.Count : 0;
+            return (countHero && !string.IsNullOrEmpty(Deck.WarlordId)) ? n + 1 : n;
+        }
+
+        /// <summary>原版 `CardDeck.Has(card)`：这张卡在不在卡组里。
+        /// <para>🔴 **督军为空 ⇒ 恒 false**（原版 `.c:29-32` 整段 `return 0`，连 `cardLibrary` 都不比）——
+        /// 原版就是这个形状，照抄；⛔ 别「顺手修好」（CLAUDE.md 铁律 18·0）。</para>
+        /// <para>⚠️ 判「同一张」用 <see cref="PlayerDeck.SameCardKey"/>（= 原版 `GetOriginalId`；异画副本与普通那张算同一张）。</para></summary>
+        public bool DeckHas(string cardId)
+        {
+            if (Deck == null || string.IsNullOrEmpty(cardId)) return false;
+            if (string.IsNullOrEmpty(Deck.WarlordId)) return false;
+            string key = PlayerDeck.SameCardKey(cardId);
+            if (PlayerDeck.SameCardKey(Deck.WarlordId) == key) return true;
+            return Deck.CountOf(cardId) > 0;
+        }
+
+        /// <summary>这张卡在卡组里的**那一条**（督军优先，其次卡表里第一条同卡键的条目；不在 ⇒ null）。
+        /// 只给「换异画」那一拍读 —— ⛔ 别拿它当「取原卡 id」的通用口。</summary>
+        public string DeckEntryOf(string cardId)
+        {
+            if (Deck == null || string.IsNullOrEmpty(cardId)) return null;
+            string key = PlayerDeck.SameCardKey(cardId);
+            if (!string.IsNullOrEmpty(Deck.WarlordId) && PlayerDeck.SameCardKey(Deck.WarlordId) == key) return Deck.WarlordId;
+            if (Deck.CardIds == null) return null;
+            foreach (var c in Deck.CardIds) if (PlayerDeck.SameCardKey(c) == key) return c;
+            return null;
+        }
+
+        /// <summary>把卡组里那张卡的**那一条**换成 <paramref name="newEntry"/>
+        /// （= 原版 `RemoveCard(card)` + `TryAddCard(altArtCard)` 的等价物）。
+        /// <para>督军那一支换 `WarlordId`（原版 `RemoveCard` 对 Hero 清的是 `deckHero` 那一格、`TryAddCard` 再写回）；
+        /// 普通卡换 `CardIds` 里**第一条**同卡键的条目（原版 `List.Remove` 也只摘一条）。</para>
+        /// <para>返回 true = 真的换了（调用方负责 `MarkDeckDirty()` + `RefreshAll()`）。</para></summary>
+        public bool ReplaceDeckEntry(string cardId, string newEntry)
+        {
+            if (Deck == null || string.IsNullOrEmpty(cardId) || string.IsNullOrEmpty(newEntry)) return false;
+            string key = PlayerDeck.SameCardKey(cardId);
+            if (!string.IsNullOrEmpty(Deck.WarlordId) && PlayerDeck.SameCardKey(Deck.WarlordId) == key)
+            {
+                if (Deck.WarlordId == newEntry) return false;
+                Deck.WarlordId = newEntry;
+                return true;
+            }
+            if (Deck.CardIds == null) return false;
+            for (int i = 0; i < Deck.CardIds.Count; i++)
+            {
+                if (PlayerDeck.SameCardKey(Deck.CardIds[i]) != key) continue;
+                if (Deck.CardIds[i] == newEntry) return false;
+                Deck.CardIds[i] = newEntry;
+                return true;
+            }
+            return false;
         }
     }
 }
