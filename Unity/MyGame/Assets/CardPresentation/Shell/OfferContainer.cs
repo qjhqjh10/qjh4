@@ -966,6 +966,254 @@ namespace CardPresentation
                 if (n <= 0 || visible <= 0) return 0;
                 return (n + visible - 1) / visible;
             }
+
+            // ======================================================== 🆕 2026-10-28（`B93_E13` · G1）
+            //
+            // 🔴 **本段把 `CarouselOfferPopupDrawer` 的【对象那一半】补全**（原来只有布局数学）。
+            //   判据（第一权威 = 反编译方法体 + **ILSpy 那份补全了类型/字段名**）：
+            //     · `d:/2/tools/decomp_full/CarouselOfferPopupDrawer__DoReset.c` / `__Initialize.c` / `__DrawRewards.c`
+            //     · `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CarouselOfferPopupDrawer.cs`
+            //       （字段名全在：`thresholdForEnableAutoScroll = 4` · `scroll` · `contentAnchor` ·
+            //        `DrawItemReward(ObtainableItem itemToDraw, int quantity)` · 两个谓词 `b__4_0` / `b__4_1`）
+            //     · `GeneralOfferPopupDrawerBase`（基类 `Initialize` = `DrawRewards(items [Concat v2 的那一串])`）·
+            //       `ReleaseAssets()` 的体
+            //     · `ListExtensions.SpliceWhere<T>(IList<T> list, Func<T,bool> predicate, int count = 0)`
+            //       = `Where(pred).ToList()` **并从 `list` 里摘掉命中的**（ILSpy `:2362-2420`）⇒ 两组不重复。
+            //
+            // 🔴 **两个谓词，一条已解、一条仍未解**（原来两条都记「查不到」—— 铁律 5 就地订正）：
+            //   · 谓词②（`b__4_1`）= **`x.Item is Currency`**。判据：ILSpy 那份的 `isinst` 形状与
+            //     `MainMenuOfferContainer.OnInitialize` 里 `playEvent as ShopOfferEvent` **逐字节同形**
+            //     （`typeof(Currency)` + `obj3 = 1` 那一支 + `obtainableItem = null; if (!flag) obtainableItem = item;`）
+            //     ⇒ **已解**（我们这一侧要的是「物品的原版类型名」，那个口径与 A43 的 `Content.ItemType` 同一份）。
+            //   · 谓词①（`b__4_0`）= `ObtainableItem` 上的**一个虚 `bool`**（槽 `+0x1C8`），ILSpy / cpp2il
+            //     **都没解出方法名** ⇒ **仍未解**，⛔ 不猜；走可注入的 <see cref="Filter"/>（`null` = 不过滤 + 出声一次）。
+
+            /// <summary>= 原版 `CarouselOfferPopupDrawer.thresholdForEnableAutoScroll`
+            /// （**ctor 实读 `*(int*)(this+0x28) = 4`**，`CarouselOfferPopupDrawer__.ctor.c:3`）。</summary>
+            public const int ThresholdForEnableAutoScroll = 4;
+
+            /// <summary>谓词②：`x.Item is Currency`（判据见本节头）。`itemType` = 原版 `ObtainableItem` 的
+            /// **子类型名**（例 `"Currency"`）—— 同一份口径见 `Content.ItemType`
+            /// （⚠️ 由调用方给：我们这套 `RewardSpec` 里没有 `Item` 的类型）。</summary>
+            public static bool IsCurrency(string itemType)
+            {
+                return itemType == "Currency";
+            }
+
+            /// <summary>轮播抽屉的**对象那一半**（原版 `CarouselOfferPopupDrawer`：`currentItemDrawers` +
+            /// `scroll.AutoScroll`）。纯数据 + 回调，**不碰 Unity 对象**（那样才可断言、也才不依赖帧循环）。
+            /// <para>⚠️ **今天接不到 UI**：我们每份报价只有 1 条奖励（`ShopData.Grants` 全长度 1）
+            /// ⇒ 轮播路径不可达；本类只保证**行为与状态**齐备。</para></summary>
+            public sealed class State
+            {
+                /// <summary>一条抽屉（原版 `ItemDrawer` 实例的最小对位）。</summary>
+                public struct Entry
+                {
+                    public CampaignData.RewardSpec Reward;
+                    /// <summary>= 原版 `DrawItemReward(itemToDraw, quantity)` 的第 2 实参（`RewardInfo.Quantity`）。</summary>
+                    public int Quantity;
+                    /// <summary>被 `DoReset` 销毁过（自检读口；原版 `Destroy(component.gameObject)`）。</summary>
+                    public bool Destroyed;
+                    public Transform Node;   // 🆕 2026-10-28（B93_S1）= 原版 `view`（只有走 `ItemDrawer.Draw` 那个重载才有；纯回调那一路是 `null`）
+                }
+
+                /// <summary>= 原版 `currentItemDrawers`（顺序 = 画出顺序）。</summary>
+                public readonly List<Entry> CurrentItemDrawers = new List<Entry>();
+                /// <summary>= 原版 `UI_InfiniteScroll.AutoScroll`（**出厂 true**；`DrawRewards` 末尾按阈值可关）。</summary>
+                public bool AutoScroll = true;
+                /// <summary>`ManualInit()` 跑过没有（= 原版 `scroll.ManualInit()`）。</summary>
+                public bool Initialized;
+                /// <summary>`ManualInit` 的一屏槽数（我们给 `IndexAt` 用的输入 —— ⚠️ 原版是
+                /// `UI_InfiniteScroll` 从布局自己量的，那份源码本地没有 ⇒ 这一格**由调用方给**）。</summary>
+                public int Visible;
+                /// <summary>最后一次 `DrawRewards` 收进抽屉的条数（= 谓词②命中 + 未命中两组之和）。</summary>
+                public int DrawnCount { get; private set; }
+                /// <summary>谓词②命中的那一组（**先画**的那一组）的条数。</summary>
+                public int CurrencyGroupCount { get; private set; }
+                /// <summary>`ReleaseAssets()` 的告警条数（原版那两句是 **TODO 空实现**，见 `ReleaseAssets`）。</summary>
+                public int ReleaseWarnings { get; private set; }
+                /// <summary>被 `DoReset` 销毁的条数。</summary>
+                public int DestroyedCount { get; private set; }
+
+                static bool _filterUnresolvedSaid;
+                static bool _typeOfSaid;
+
+                /// <summary>= 原版 `Initialize(ShopOfferBase shopOfferData)`（两句）：`base.Initialize(offer)` + `scroll.ManualInit()`。
+                /// <para>`base.Initialize` 的体（ILSpy `GeneralOfferPopupDrawerBase.cs:17-50`）=
+                /// **`DrawRewards(offer is ShopOfferDataV2 ? offer.Items.Concat(那一串) : offer.Items)`**
+                /// ⇒ <paramref name="v2Extra"/> 非 null 就代表「是 V2、这是它多出来的那一串」。</para>
+                /// <param name="drawItemReward">= 原版 `DrawItemReward(item, quantity)`；**返回 true** = 画出来了
+                /// （原版 `if ((bool)itemDrawer)` 那道闸）。画出来的由本方法收进 <see cref="CurrentItemDrawers"/>。</param>
+                public void Initialize(IEnumerable<CampaignData.RewardSpec> items,
+                                       IEnumerable<CampaignData.RewardSpec> v2Extra,
+                                       System.Func<CampaignData.RewardSpec, string> typeOf,
+                                       System.Func<CampaignData.RewardSpec, int, bool> drawItemReward,
+                                       int visible)
+                {
+                    IEnumerable<CampaignData.RewardSpec> all = items;
+                    if (v2Extra != null)
+                    {
+                        var cat = new List<CampaignData.RewardSpec>();
+                        if (items != null) cat.AddRange(items);
+                        cat.AddRange(v2Extra);
+                        all = cat;
+                    }
+                    DrawRewards(all, typeOf, drawItemReward);      // ① base.Initialize
+                    ManualInit(visible);                          // ② scroll.ManualInit()
+                }
+
+                /// <summary>= 原版 `scroll.ManualInit()`（第三方 `UnityEngine.UI.Extensions.UI_InfiniteScroll`）。
+                /// <para>⚠️ **那份源码本地没有**（有 prefab、无脚本）⇒ 我们只留**它保证的那一件事**：
+                /// 「初始化完了，一屏 N 槽」——`IndexAt(slot, offset, n)` 的循环取模就是它给的环。</para></summary>
+                public void ManualInit(int visible)
+                {
+                    Initialized = true;
+                    Visible = visible > 0 ? visible : 0;
+                }
+
+                /// <summary>= 原版 `DrawRewards(IEnumerable&lt;RewardInfo&gt; rewards)`（四拍，逐拍见行内注）。</summary>
+                /// <param name="typeOf">把奖励映射到原版 `ObtainableItem` 子类型名；`null` ⇒ 谓词②**判不了**
+                /// ⇒ 一律当 false（= 第二组为空）+ 出声一次（⛔ 不默认为 true）。</param>
+                public void DrawRewards(IEnumerable<CampaignData.RewardSpec> rewards,
+                                        System.Func<CampaignData.RewardSpec, string> typeOf,
+                                        System.Func<CampaignData.RewardSpec, int, bool> drawItemReward)
+                {
+                    if (rewards == null) return;
+
+                    // ---- ① `Where(谓词①)` ----
+                    var first = new List<CampaignData.RewardSpec>();
+                    var f = Filter;
+                    if (f == null && !_filterUnresolvedSaid)
+                    {
+                        _filterUnresolvedSaid = true;
+                        Debug.LogWarning("[OfferContainer.Carousel] `DrawRewards` 第 ① 拍 `Where(谓词①)` **没落地**："
+                                       + "谓词是 `ObtainableItem` 上的一个虚 `bool`（槽 `+0x1C8`），"
+                                       + "ILSpy / cpp2il 都没解出方法名 ⇒ 走可注入的 `Carousel.Filter`，"
+                                       + "**默认 null = 不过滤**（⛔ 不猜一个谓词出来）。");
+                    }
+                    int idx = 0;
+                    foreach (var r in rewards) { if (f == null || f(idx, r)) first.Add(r); idx++; }
+
+                    // ---- ② `SpliceWhere(谓词②)`：**命中的从 `first` 里摘走** ⇒ 两组不重复 ----
+                    var second = new List<CampaignData.RewardSpec>();
+                    for (int i = 0; i < first.Count; i++)
+                    {
+                        if (!IsCurrencyOf(typeOf, first[i])) continue;
+                        second.Add(first[i]);
+                        first.RemoveAt(i--);
+                    }
+                    CurrencyGroupCount = second.Count;
+
+                    // ---- ③ **先第二组、后第一组**（原版就是两个 foreach，顺序如此）----
+                    int n = 0;
+                    for (int g = 0; g < 2; g++)
+                    {
+                        var grp = g == 0 ? second : first;
+                        for (int i = 0; i < grp.Count; i++)
+                            if (DrawOne(grp[i], drawItemReward)) n++;
+                    }
+                    DrawnCount = n;
+
+                    // ---- ④ `count(第二组) + count(第一组) < thresholdForEnableAutoScroll ⇒ AutoScroll = false` ----
+                    //   ⚠️ 原版比的是**两组条数之和**（`Enumerable.Count(list3) + list._size`），不是「画出来几条」
+                    if (second.Count + first.Count < ThresholdForEnableAutoScroll) AutoScroll = false;
+                }
+
+                bool IsCurrencyOf(System.Func<CampaignData.RewardSpec, string> typeOf,
+                                  CampaignData.RewardSpec r)
+                {
+                    if (typeOf == null)
+                    {
+                        if (!_typeOfSaid)
+                        {
+                            _typeOfSaid = true;
+                            Debug.LogWarning("[OfferContainer.Carousel] 谓词②（`x.Item is Currency`）**判不了**："
+                                           + "调用方没给「物品的原版类型名」映射（同一份口径 = `Content.ItemType`）"
+                                           + " ⇒ 一律当 false（第二组为空），⛔ 不默认 true。");
+                        }
+                        return false;
+                    }
+                    return IsCurrency(typeOf(r));
+                }
+
+                bool DrawOne(CampaignData.RewardSpec r,
+                             System.Func<CampaignData.RewardSpec, int, bool> drawItemReward)
+                {
+                    // 🆕 2026-10-28（B93_S1）：原版 `DrawItemReward(itemToDraw, quantity)` 那三步的**唯一实现**
+                    //   搬进了下面那个同名公开方法（`DrawRewards` 的两个 foreach 都从这一处过）。
+                    //   原来这三步写在这里，形状对、但**没有原版的方法名**，账里记不住是哪一条。
+                    return DrawItemReward(r, r.Quantity, drawItemReward);
+                }
+
+                /// <summary>= 原版 `DoReset()`：`foreach (currentItemDrawers) { ReleaseAssets(); Destroy(drawer.gameObject); }` 然后清表。
+                /// <para>🔴 **顺序已闭合**（原来记「循环内 ReleaseAssets 的顺序存疑」）：ILSpy `:320-345` 实读 =
+                /// **先 `ReleaseAssets()`、再 `Destroy(component.gameObject)`**，两句都在循环体内。</para>
+                /// <para>🔴 **`ReleaseAssets()` 自己是个 TODO 空实现**（`GeneralOfferPopupDrawerBase.ReleaseAssets`
+                /// 的体 = `foreach (…) CustomDebug.LogWarning("[TODO] Implement itemdrawer release")`）
+                /// ⇒ **照抄原版**：只出声、不释放（⛔ 别替原版实现；这是原版自己的 bug/欠账，见铁律「照抄原版」）。
+                /// 副作用：它在循环里被调 N 次 ⇒ **O(N²) 条告警**，原版就是这样。</para>
+                /// <param name="destroy">= 原版 `Object.Destroy(drawer.gameObject)`；`null` = 不销毁（只记数）。</param>
+                public void DoReset(System.Action<Entry> destroy)
+                {
+                    for (int i = 0; i < CurrentItemDrawers.Count; i++)
+                    {
+                        ReleaseAssets();                                   // 原版循环内第 1 句（TODO 空实现）
+                        var e = CurrentItemDrawers[i];
+                        if (destroy != null) destroy(e);
+                        e.Destroyed = true;
+                        DestroyedCount++;
+                        CurrentItemDrawers[i] = e;
+                    }
+                    CurrentItemDrawers.Clear();
+                }
+
+                void ReleaseAssets()
+                {
+                    for (int i = 0; i < CurrentItemDrawers.Count; i++)
+                    {
+                        ReleaseWarnings++;
+                        if (i == 0)
+                            Debug.LogWarning("[OfferContainer.Carousel] `ReleaseAssets()`：原版这一跳是 "
+                                           + "**TODO 空实现**（`GeneralOfferPopupDrawerBase.ReleaseAssets` 体只刷 "
+                                           + "`[TODO] Implement itemdrawer release`）⇒ 照抄：只出声、不释放。");
+                    }
+                }
+
+                /// <summary>= 原版 `CarouselOfferPopupDrawer.DrawItemReward(ObtainableItem itemToDraw, int quantity)`
+                /// （判据 `decomp_full/CarouselOfferPopupDrawer__DrawItemReward.c` 现读，**三步**）：
+                /// <list type="number">
+                /// <item>`view = ItemDrawer.Draw(contentAnchor(+0x38), item, quantity, 0, 0)`</item>
+                /// <item>**`view == null` ⇒ 直接 return**（⛔ 不画、也不收进 `currentItemDrawers`）</item>
+                /// <item>`currentItemDrawers.Add(view)` → `view.ToggleShowInfoOnClick(false)`
+                ///      （⚠️ 后者在**原版里就是空方法体**，见 `ItemDrawer.ToggleShowInfoOnClick`，我们照抄）</item>
+                /// </list>
+                /// <para>🆕 2026-10-28（B93_S1）：本方法原来只是 `DrawOne` 那个私有函数（形状对、没有原版名），
+                /// 这一版**给了原版的方法名**，并补了「真的走 `ItemDrawer.Draw`」的重载（见下一个）。</para>
+                /// <param name="drawItemDrawer">= 原版 `ItemDrawer.Draw` 的那一跳，返回「画出来没有」；
+                /// `null` ⇒ 按原版第 ② 步「不画」返回 false。</param>
+                public bool DrawItemReward(CampaignData.RewardSpec itemToDraw, int quantity,
+                                           System.Func<CampaignData.RewardSpec, int, bool> drawItemDrawer)
+                {
+                    if (drawItemDrawer == null) return false;                                            // ① 没有抽屉
+                    if (!drawItemDrawer(itemToDraw, quantity)) return false;                             // ② `view == null ⇒ return`
+                    CurrentItemDrawers.Add(new Entry { Reward = itemToDraw, Quantity = quantity });      // ③ 收进表
+                    return true;                                                                         //    + `ToggleShowInfoOnClick(false)`（空实现）
+                }
+
+                /// <summary>**真的接 `ItemDrawer.Draw`** 的那个重载（原版 `contentAnchor` 那一跳）。
+                /// <para>⚠️ 原版 `contentAnchor` 与每个抽屉的框都是 `UI_InfiniteScroll` 布局时给的，
+                /// 那份源码本地没有 ⇒ **框由调用方给**（同 `ItemDrawer.Draw` 的既有口径）。
+                /// `ItemDrawer.Draw` 返回的 `Node == null` 就等于原版的 `view == null` ⇒ 返回 false。</para></summary>
+                public bool DrawItemReward(Transform contentAnchor, PxRect box, ItemSpec item, int quantity,
+                                           DrawerOverride drawerOverride, ItemDrawerStyle style,
+                                           CampaignData.RewardSpec rewardForEntry)
+                {
+                    var res = ItemDrawer.Draw(contentAnchor, box, item, quantity, drawerOverride, style);   // ①
+                    if (res.Node == null) return false;                                                    // ②
+                    CurrentItemDrawers.Add(new Entry { Reward = rewardForEntry, Quantity = quantity, Node = res.Node });   // ③
+                    return true;
+                }
+            }
         }
 
         /// <summary>`ItemKind` → **原版类型名**（只有一档**有判据**）：

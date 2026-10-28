@@ -878,12 +878,8 @@ namespace CardPresentation
             // 原版 `ExpansionPassPurchasePremiumPanel.PurchasePremiumClick` → `GetComponentReference(premiumOfferData, 0xc)`
             // → `WindowsManager.OpenWindow(...)`。**那个窗口引用在远端 premium 报价数据里**，本地拿不到
             // ⇒ 只出声，⛔ 不猜成 `PurchasePremiumWindow` / 某个 `BaseOfferPopup` 变体。
-            MenuDraw.Hit(btn, "Hit", NpButtonR, QHit, () =>
-                Debug.LogWarning("[ExpansionPass] **买付费档**需要服务器：原版 "
-                               + "`ExpansionPassPurchasePremiumPanel.PurchasePremiumClick` → "
-                               + "`LiveOpsAssetUtility.GetComponentReference(premiumOfferData, 0xc)` → "
-                               + "`WindowsManager.OpenWindow(...)`；本地拿不到 premium 报价与那个窗口引用 ⇒ "
-                               + "**不假装打开购买窗**。"),
+            // 🆕 2026-10-28（`B93_E13`）：整段搬进 `PurchasePremiumClick()`（**出声必须带事件 id**），这里只留绑定。
+            MenuDraw.Hit(btn, "Hit", NpButtonR, QHit, () => PurchasePremiumClick(),
                 null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
         }
 
@@ -1041,7 +1037,7 @@ namespace CardPresentation
             MenuDraw.Hit(_whereBtn, "Hit", WhereBtnR, QHit, () =>
             {
                 var wm = WindowsManager.Instance;
-                if (wm != null) WindowsManager.OpenWhereToGetCards();
+                if (wm != null) GetCardsClick();
                 else Debug.LogWarning("[ExpansionPass] `Where get cards`：没有 `WindowsManager` ⇒ 开不了 "
                                     + "`WhereToGetCardsPopup`（原版那一跳是 `ExpansionPassEventTab.GetCardsClick` → "
                                     + "`WindowsManager.OpenWindow`）。");
@@ -1978,7 +1974,7 @@ namespace CardPresentation
         }
 
         /// <summary>= 原版 `ExpansionPassRewardSelector.CollectRewardClicked(int rewardToClaim)`（`:163-184`）：
-        /// ① `EventSystemController.Toggle(false)`（本壳没有 `EventSystemController` ⇒ 无对应物，如实记）
+        /// ① `EventSystemController.Toggle(false)` ⇒ 等价物 = `PointerLayer.SetInputEnabled(false)`（🔴 2026-10-28 铁律 5 就地订正：原文写「本壳没有 `EventSystemController` ⇒ 无对应物」**已过期** —— 那个等价物从 `B90-N1` 就有；判据 → `资料/完全复刻/判据/B93_Q12_SetInputEnabled语义对齐.md`）
         /// ② `scoringEvent.PurchaseMilestone(index, onComplete, onError)`
         /// ③ 成功回调 = 恢复事件系统 + 播 `rewardClaimedSound` + `CreateRewards(true)`；失败 = 恢复 + `CreateRewards(true)`。</summary>
         public void CollectRewardClicked(int rewardToClaim)
@@ -2659,5 +2655,229 @@ namespace CardPresentation
         /// <para>⚠️ 今天没人传（消费方是「premium 购买窗」，账 `PurchasePremiumClick` 那一行仍是 B）
         /// ⇒ 恒 null；但**存这一句本身**是原版 `Initialize` 的第一句，已逐字对齐。</para></summary>
         public System.Action OnClosePurchasePopup { get { return _onClosePurchasePopup; } }
+
+        // ================================================================================
+        // 🆕 2026-10-28（`B93_E13` · 批次 G1「商店族」）—— `ExpansionPassPurchasePremiumPanel` 的两条
+        // ================================================================================
+        //
+        // 判据（第一权威 = 反编译方法体）：
+        //   `d:/2/tools/decomp_full/ExpansionPassPurchasePremiumPanel__PurchasePremiumClick.c`
+        //   `d:/2/tools/decomp_full/ExpansionPassPurchasePremiumPanel__Start.c`
+        //   `d:/2/tools/decomp_full/ExpansionPassPurchasePremiumPanel___PurchasePremiumClick_b__12_0.c`
+        //   （⚠️ 本篇一律写 `[0x..]` 而不是 `:行号` —— 那份 `.c` 的行号会随反编译器版本漂，点方法名最稳。）
+
+        /// <summary>= 原版 `ExpansionPassPurchasePremiumPanel.PurchasePremiumClick()`（要点逐句）：
+        /// <list type="number">
+        /// <item>`premiumOfferData = data.PremiumOfferData`（`data` = 组件 `+0x58` 上的 `ExpansionPassData`）；
+        ///      **`data` 或 `premiumOfferData` 为 null ⇒ 整段什么都不做**（`.c` 开头两道 null 闸）</item>
+        /// <item>`eventData = LiveOpsManager.GetHandler&lt;…&gt;().GetEvent(premiumOfferData.GetID())`</item>
+        /// <item>`prefab = LiveOpsAssetUtility.GetComponentReference(premiumOfferData, 0xc)`</item>
+        /// <item>`win = WindowsManager.Instance.OpenWindow(prefab, eventData)`</item>
+        /// <item>`win == null` ⇒ **`CustomDebug.LogWarning("…" + premiumOfferData.GetID())`**（那条告警**带事件 id**）</item>
+        /// <item>开出来了 ⇒ 往 `win` 的那个 `UnityEvent`（`win + 0xc`）**挂两条回调**
+        ///      （`b__12_0` = 重跑 `Initialize(this.data, this.onClose)`，以及 `b__12_1`）</item>
+        /// </list>
+        /// <para>🔴 **本地能做的只有「第 ⑤ 句的等价」**：`GetComponentReference(…, 0xc)` 那个窗口引用在
+        /// **远端 premium 报价资产**里（`ExpansionPassData.PremiumOfferData` 本地没有，见文件头数据缺口）
+        /// ⇒ 我们这一侧 = 打不开 + **告警里带上事件 id**（这一条本来没有 id，2026-10-28 补上）。
+        /// ⛔ 不猜成 `PurchasePremiumWindow` / 某个 `BaseOfferPopup` 变体。</para>
+        /// <returns>`true` = 真把付费窗开出来了（今天恒 false）。</returns></summary>
+        public bool PurchasePremiumClick()
+        {
+            PurchasePremiumClicks++;
+            // ① `data` / `premiumOfferData` 两道 null 闸在我们这一侧**恒不成立**（本地没有 premium 报价数据）
+            //    ⇒ 原版这里会**什么都不做、连告警都不打**。我们**出声**（本工程红线：不许静默失败）。
+            string evId = _event != null ? _event.Id : null;
+            Debug.LogWarning("[ExpansionPass] **买付费档**打不开：事件 `" + (evId ?? "<没有事件数据>") + "` —— 原版 "
+                           + "`ExpansionPassPurchasePremiumPanel.PurchasePremiumClick` 的第 ③ 句 "
+                           + "`LiveOpsAssetUtility.GetComponentReference(premiumOfferData, 0xc)` 要**远端 premium 报价资产**"
+                           + "（`ExpansionPassData.PremiumOfferData`，本地没有）；拿不到 prefab 引用 ⇒ 照原版第 ⑤ 句那条 "
+                           + "`LogWarning` 的形状，**把事件 id 打出来**，⛔ 不猜成某一扇窗。");
+            return false;
+        }
+
+        /// <summary>自检读口：`PurchasePremiumClick` 被点了几次（= 付费档入口那条绑定通不通的端到端证据）。</summary>
+        public int PurchasePremiumClicks { get; private set; }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  B93-5（2026-10-28 · 文件所有者代理 `D2`）：`ExpansionPassEventTab.GetCardsClick()`
+        //  的**同名方法级入口**（原来只内联在 `BuildWhereToGetCardsButton` 的 lambda 里 ⇒ 判「声明级等价」降 B）。
+        //  【为什么加在类尾】账按 `文件:行号` 记落点（`:491/:509/:572/:950/:1026/:1070/:1134/:1203/:1210/`
+        //    `:1271/:1755/:1771/:1856/:1902/:1925/:1943/:1986/:2054/…`）⇒ 新成员只能加在所有老落点之后。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `ExpansionPassEventTab.GetCardsClick()`（`decomp_full/ExpansionPassEventTab__GetCardsClick.c`
+        /// 全文 5 句，逐句）：
+        /// <code>
+        /// var wm   = SingletonBehaviour&lt;WindowsManager&gt;.Instance;        // ①
+        /// var data = 事件;                                                // ②（+0x58）
+        /// var cfg  = ConfigManager.GetConfig&lt;…&gt;();                        // ③ ★ 远端 TitleData
+        /// if (cfg == null || wm == null) NRE;                             // ④
+        /// wm.OpenWindow(cfg.&lt;+0x28&gt;, data, options: 0, 0, 0);              // ⑤ ★ 那扇窗的 prefab 引用在 cfg 里
+        /// </code>
+        /// <para>本仓等价（⛔ 不是猜）：`WindowsManager.OpenWhereToGetCards()` 开的就是那扇「这张卡从哪拿」窗
+        /// （`WhereToGetCardsPopup`，判据见 `WindowsManager.OpenWhereToGetCards` 的头注）。
+        /// 第 ③⑤ 句里那个 prefab 引用在远端 TitleData（`CardsSpecialConfig.whereToGetCardsData`）⇒ 拿不到，
+        /// 我们走的是**同一扇窗的本仓入口**，不是「另挑一扇窗」。</para></summary>
+        public void GetCardsClick()
+        {
+            if (!_getCardsClickBound) return;                                  // 原版 `RemoveAllListeners()` 之后这颗钮不再响应
+            var wm = WindowsManager.Instance;                                  // ①
+            if (wm == null)                                                    // ④
+            {
+                Debug.LogWarning("[ExpansionPass] `GetCardsClick`：没有 `WindowsManager` ⇒ 开不了 `WhereToGetCardsPopup`"
+                               + "（原版第 ⑤ 句 `OpenWindow(cfg.<+0x28>, …)`）。");
+                return;
+            }
+            WindowsManager.OpenWhereToGetCards();                              // ⑤（③ 的远端 prefab 引用 → 本仓入口）
+        }
+
+        /// <summary>原版 `ExpansionPassEventTab.OnClose()`（`__OnClose.c` 全文 2 句）：`base.OnClose(); Reset();`。
+        /// <para>我们这一侧：`base` 的收尾由 `GameWindow.Close` 承担 ⇒ 本方法只跑那一跳 `Reset()`；
+        /// 由类尾的 `Close()` 覆写在关窗前调（= 原版的顺序）。</para></summary>
+        public void OnClose()
+        {
+            if (!gameObject.activeSelf) return;      // 原版 `base.OnClose` 那道「没开就不收尾」的闸
+            ExpansionPassEventTabLogic.OnClose(_event != null, _whereBtn != null);
+            Reset();
+        }
+
+        /// <summary>原版 `ExpansionPassEventTab.Reset()`（`__Reset.c` 全文 3 句，逐句）：
+        /// <code>
+        /// CustomDebug.LogWarning(字面量没解出);                          // ⛔ 原文没解出，我们不编
+        /// LiveOpsAssetUtility.Unload(事件, 1);                           // 卸背景图
+        /// getCardsButton.onClick.RemoveAllListeners();                   // 摘「Where get cards」那颗钮的监听
+        /// </code>
+        /// <para>⚠️ 第 ② 句本地恒空（我们不加载 liveops 资产）；第 ③ 句我们的等价 = 把该钮的命中委托置空
+        /// （本仓没有 `UnityEvent` ⇒ 见 <see cref="GetCardsClickBound"/> 的读口）。</para></summary>
+        public void Reset()
+        {
+            // 🔴 `Reset()` 是 MonoBehavour 的**编辑器回调**（`AddComponent` 时会自动调一次）——
+            //   那时候树还没建（`_content == null`）⇒ 原版这一跳也不可能发生 ⇒ 直接早退，
+            //   ⛔ 否则会在每次建窗时白打一条告警、并把 `_getCardsClickBound` 提前置成 false。
+            if (_content == null) return;
+            var plan = ExpansionPassEventTabLogic.Reset(_event != null, _whereBtn != null);
+            Debug.LogWarning("[ExpansionPass] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842926d0` 是字符串对象）"
+                           + " ⇒ 我们只出声、不编原文。要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes)
+                           + "（本地一张都没加载 ⇒ 空）；摘监听 = " + plan.RemovesGetCardsListener + "。");
+            _getCardsClickBound = !plan.RemovesGetCardsListener;
+        }
+
+        /// <summary>`Where get cards` 那颗钮的命中委托**还在不在**（= 原版 `getCardsButton.onClick` 的监听者数，自检读口）。</summary>
+        public bool GetCardsClickBound { get { return _getCardsClickBound; } }
+
+        /// <summary>`Build()` 会把监听重新挂上（= 原版 `Initialize` 第 ⑤ 句的 `AddListener`）⇒ 出厂为在册。</summary>
+        bool _getCardsClickBound = true;
+
+        /// <summary>关窗前先跑原版那一跳 `OnClose`（见 `OnClose` 的 doc）。</summary>
+        public override void Close()
+        {
+            OnClose();
+            base.Close();
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+    //  B93-5（2026-10-28 · `D2`）：原版 `ExpansionPassEventTab` / `ExpansionPassMissionsTab` 的
+    //  **生命周期那一半**，投影成「显式入参 → 显式出参」的纯函数（同 `Shell/RaidEvent.cs` 的 `…Logic` 族）。
+    //  判据（逐句）：`ExpansionPassEventTab__Initialize.c` / `__OnClose.c` / `__Reset.c` /
+    //               `ExpansionPassMissionsTab__Initialize.c` / `__OnClose.c` / `__Reset.c`。
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>原版 `ExpansionPassEventTab` 的生命周期。字段对位：`+0x30 rewardSelector` · `+0x38 backgroundImage` ·
+    /// `+0x40 premiumPanel` · `+0x48 headerController` · `+0x50 getCardsButton` · `+0x68 liveOps(事件)`。</summary>
+    public static class ExpansionPassEventTabLogic
+    {
+        /// <summary>原版 `Initialize()`（`__Initialize.c` 全文 5 跳，逐句）：
+        /// <code>
+        /// ① rewardSelector.Initialize(事件);
+        /// ② backgroundImage.sprite = LoadAsset(事件, 1); backgroundImage.enabled = (sprite != null);
+        /// ③ premiumPanel.Initialize(事件, onClosePurchasePopup);
+        /// ④ headerController.Initialize(事件);
+        /// ⑤ getCardsButton.onClick.AddListener(GetCardsClick);                            // ★ 接线
+        ///    getCardsButton.gameObject.SetActive(cfg.whereToGetCardsData.expansionData != 0);   // ★ 远端显隐
+        /// </code></summary>
+        public struct InitializePlan
+        {
+            /// <summary>① 要不要重建奖励容器（实体 = `CreateRewards`）。</summary>
+            public bool RebuildRewards;
+            /// <summary>② 背景图取不取得到（本地恒 `false` ⇒ `Image.enabled = false`）。</summary>
+            public bool BackgroundSpriteAvailable;
+            /// <summary>③ 付费档面板要不要初始化。</summary>
+            public bool ApplyPremiumPanel;
+            /// <summary>④ 页头要不要初始化（`GetLabel` / `LoadAsset(事件,5)` 都在远端 ⇒ 只出声）。</summary>
+            public bool HeaderInitialized;
+            /// <summary>⑤ `Where get cards` 那颗钮**显不显示**（原版读远端 `whereToGetCardsData.expansionData != 0`）。</summary>
+            public bool GetCardsButtonVisible;
+        }
+
+        public static InitializePlan Initialize(bool hasEvent, bool backgroundSpriteAvailable, bool remoteGetCardsFlag)
+        {
+            var p = new InitializePlan
+            {
+                BackgroundSpriteAvailable = backgroundSpriteAvailable,
+                GetCardsButtonVisible = remoteGetCardsFlag,
+            };
+            if (!hasEvent) return p;                 // 事件为空 ⇒ 五跳**一件都不做**（原版每条都先解引用事件）
+            p.RebuildRewards = true;                 // ①
+            p.ApplyPremiumPanel = true;              // ③
+            p.HeaderInitialized = true;              // ④
+            return p;
+        }
+
+        /// <summary>原版 `OnClose()`（全文 2 句）：`base.OnClose(); Reset();` —— 我们只投影第 2 句的触发。</summary>
+        public static bool OnClose(bool hasEvent, bool hasGetCardsButton) { return true; }
+
+        /// <summary>原版 `Reset()`（全文 3 句）：
+        /// `LogWarning(原文没解出)` → `Unload(事件, 1)` → `getCardsButton.onClick.RemoveAllListeners()`。</summary>
+        public struct ReleasePlan
+        {
+            /// <summary>要卸的 `EventAssetReferenceType`（原版只有 `1` 这一个）。</summary>
+            public int[] AssetTypes;
+            /// <summary>要不要摘 `Where get cards` 那颗钮的监听（原版第三句那道 `!= null` 闸）。</summary>
+            public bool RemovesGetCardsListener;
+        }
+
+        public static ReleasePlan Reset(bool hasEvent, bool hasGetCardsButton)
+        {
+            return new ReleasePlan
+            {
+                AssetTypes = hasEvent ? new[] { 1 } : new int[0],   // 原版 `Unload(事件,1)`（无事件时那一跳 NRE ⇒ 我们不卸）
+                RemovesGetCardsListener = hasGetCardsButton,
+            };
+        }
+    }
+
+    /// <summary>原版 `ExpansionPassMissionsTab`（第二页）的生命周期。字段对位：`+0x30 headerController` ·
+    /// `+0x50 warlordImage` · `+0x68 liveOps(事件)`。</summary>
+    public static class ExpansionPassMissionsTabLogic
+    {
+        /// <summary>原版 `Initialize()`（`__Initialize.c` 全文 2 句）：
+        /// <code>
+        /// headerController.Initialize(事件);
+        /// warlordImage.sprite = LiveOpsAssetUtility.LoadAsset(事件, 2);      // ★ 远端图（督军立绘）
+        /// </code></summary>
+        public struct InitializePlan
+        {
+            /// <summary>`headerController.Initialize(事件)` 是否执行（原版 `+0x30` 那道 `!= null` 闸）。</summary>
+            public bool HeaderInitialized;
+            /// <summary>`LoadAsset(事件, 2)` 取不取得到（本地恒 `false`）。</summary>
+            public bool WarlordSpriteAvailable;
+        }
+
+        public static InitializePlan Initialize(bool hasHeaderController, bool hasEvent, bool warlordSpriteAvailable)
+        {
+            return new InitializePlan
+            {
+                HeaderInitialized = hasHeaderController && hasEvent,
+                WarlordSpriteAvailable = warlordSpriteAvailable,
+            };
+        }
+
+        /// <summary>原版 `OnClose()`（全文 2 句）：`base.OnClose(); LiveOpsAssetUtility.ReleaseEventAssets(事件);`。</summary>
+        public static bool ReleasesEventAssetsOnClose(bool hasEvent) { return hasEvent; }
+
+        /// <summary>原版 `Reset()`（全文 1 句）：`LiveOpsAssetUtility.ReleaseEventAssets(事件);`。</summary>
+        public static bool ReleasesEventAssetsOnReset(bool hasEvent) { return hasEvent; }
     }
 }

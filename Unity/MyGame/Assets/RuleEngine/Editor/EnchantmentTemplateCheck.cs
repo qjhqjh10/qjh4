@@ -54,7 +54,7 @@ public static class EnchantmentTemplateCheck
             Debug.Log(P + "===== §G 真战斗里会不会挂上去（B89/E26：SAU53 / TL47） =====");
             SectionG_RealBattleAttach();
             Debug.Log(P + "===== §H 数据驱动通路（B90/B3：卡表 v38 `enchantment` 列 · 54 张 / trigger 0 的 29 张） =====");
-            SectionH_DataDrivenGrant();
+            SectionH_DataDrivenGrant(); SectionI_OffensiveEnvGrant();   // 🆕 B93/E25：环境（进攻）卡那一跳 —— 与上一句**挤在同一行是故意的**（本文件 141/167/217 三处账落点按行号引，加行会整体漂移）
         }
         catch (Exception e)
         {
@@ -745,5 +745,220 @@ public static class EnchantmentTemplateCheck
         if (cond) { Pass++; Debug.Log(P + "✓ " + msg); }
         else { Fail++; Debug.LogError(P + "✗ " + msg); }
         return cond;
+    }
+
+    // ==================================================================
+    //  §I 环境（进攻）卡那一跳 —— B93 波 · 执行代理 `E25`（2026-10-28）
+    // ==================================================================
+    //  🔴 这一节钉的链：**41 行 `abilityLogic` → 同一张附魔反查表 → 按 `targetsAffected` 挂到督军**。
+    //  判据（逐条亲读 `.c`；⛔ 不是按枚举名推的）：
+    //   · `BattleManager__ApplyEnvEffect.c:14-15` —— **先**督军触发（`TriggerOtherCardAbility(heroCard, envCard)`）
+    //     **再**换环境；两跳都在 `if (playerMgr != null && heroCard != null)` 里。
+    //   · `CardScript__TriggerOtherCardAbility.c` → `RawCardScript__OnTriggerEffectInCard.c`：
+    //     `OnTriggerEffectInCard(envCard, trigger 0, mgr, thisCard = heroCard, actingCard = heroCard, null)`
+    //     ⇒ 这条链上 **`thisCard` 就是督军卡**（不是环境卡自己）。
+    //   · `AbilityLogic__GetTargets.c:184-194 / 721-736 / 738-750`：
+    //     `ta 20` ⇒ `Add(thisCard)` · `ta 120` ⇒ `GetHero(actingCard.player)` · `ta 130` ⇒ `GetHero(!actingCard.player)`。
+    //   · `AbilityLogic__PlayAbility.c:685`（`chosenAbility 60 buffMana` 打完 `AddManaBuff` 就 `return`）·
+    //     `:1439`（`0 drawCard`）⇒ **这两支不产生 `AddEffect`**；只有 `:1177-1180`（`30 buffOthers`）与
+    //     `:1310`（`40 buffSelf`）会 `BattleManager__AddEffect`。
+    //   · `CardScript__AddEffect.c` 的 `case 0xc / 0xf` ⇒ `AddEnchantment`（`buffType 12 / 15`）。
+    //  🧨 每条都写了「什么改动能让它红」。
+    // ==================================================================
+    static void SectionI_OffensiveEnvGrant()
+    {
+        const string Am63Tpl = "b3dd8a39126b31342b38756e72e8660b";   // AM63 Dawn Attack（ca 30 / ta 120）
+        const string Sw62Tpl = "29ee7b2dcd0d13e43a7065d3194a59b4";   // SW62 First Light（ca 30 / ta 120 + ta 130）
+
+        // ---- I0 · 【先声明前提，再谈结论】第三张表 + 41 行 + 池内 0 张 spellType==200 ----
+        var env = CardDatabase.OffensiveEnvCards;
+        var raw = CardDatabase.OffensiveEnvRows();
+        bool pre = Ok(env != null && env.Count == 39,
+                      $"I0 前提：第三张表 `offensive_env_cards.json` 读到 **{(env == null ? -1 : env.Count)}** 张进攻卡（期望 39）"
+                    + " —— 🧨 表丢了 / 生成器改了口径 ⇒ 本节全部无效（⛔ 别把「表没读到」当成「没挂」）");
+        pre &= Ok(raw != null && raw.Length == 39,
+                  $"I0（同族）原始行 **{(raw == null ? -1 : raw.Length)}** 行（期望 39）");
+        int logicRows = 0;
+        for (int i = 0; raw != null && i < raw.Length; i++)
+        {
+            var c = raw[i];
+            if (c == null || c.abilities == null) continue;
+            for (int ai = 0; ai < c.abilities.Length; ai++)
+            {
+                var a = c.abilities[ai];
+                if (a != null && a.logic != null) logicRows += a.logic.Length;
+            }
+        }
+        pre &= Ok(logicRows == 41, $"I0（同族）全表 `abilityLogic` 共 **{logicRows}** 行（期望 41）"
+                    + " —— 🧨 生成器改口径 ⇒ 下面的 37 / 4 两个数都要重算（别硬改断言里的数，先查生成器）");
+        var pool = CardDatabase.Load();
+        int poolOff = 0;
+        for (int i = 0; pool != null && i < pool.Count; i++)
+            if (pool[i] != null && pool[i].SpellType == Enchantments.SpellTypeOffensiveCard) poolOff++;
+        pre &= Ok(poolOff == 0,
+                  $"★ I0（**灭自证前提**）可玩池里 `spellType == 200`（OffensiveCard）的卡 **{poolOff}** 张（期望 0）"
+                + " —— 这一条红的意思不是「断言错」：它说明 `RunGrantedEnvAbility` 那道闸会碰到可玩卡，"
+                + "`play all dump` / `play check` 的指纹就可能被这一跳改掉 ⇒ **先停下查数据**，⛔ 别改断言");
+        if (!pre) return;
+
+        // ---- I1 · 单卡正向：`AM63` 那一行**并进反查表**了，且四个字段逐个对 ----
+        var am63Rows = CardDatabase.EnchantmentGrantsOf("AM63");
+        Ok(am63Rows != null && am63Rows.Count == 1,
+           $"★ I1 `CardDatabase.EnchantmentGrantsOf(\"AM63\")` 有 **{(am63Rows == null ? -1 : am63Rows.Count)}** 行（期望 1）"
+         + " —— 🧨 删掉 `EnchantmentGrantsOf` 里那句 `EnsureOffensiveEnvGrantsMerged();` ⇒ 变 0"
+         + "（那正是改之前的状态：这 39 张不在组牌池 ⇒ 表里恒 null）");
+        if (am63Rows != null && am63Rows.Count == 1)
+        {
+            var r0 = am63Rows[0];
+            Ok(r0.TemplateCardId == Am63Tpl && r0.BuffType == 12 && r0.Trigger == 0
+               && r0.TargetsAffected == Enchantments.TargetsAffectedFriendlyHero,
+               $"★ I1（同族）模板 `{r0.TemplateCardId}` / buffType {r0.BuffType} / trigger {r0.Trigger} / "
+             + $"ta {r0.TargetsAffected}（期望 `{Am63Tpl}` / 12 / 0 / 120=友方督军）"
+             + " —— 🧨 并表时把 `TemplateCardId = g.enchantmentId` 写错字段 / 把 `ta` 填成 `buffType` ⇒ 红");
+        }
+
+        // ---- I2 · 覆盖率：37 行进表、4 行**明确不入表**（ca 0 / 60 两支原版不产生 AddEffect）----
+        int grantRows = 0, cardsWithRows = 0, rowsUnknownTa = 0;
+        for (int i = 0; i < env.Count; i++)
+        {
+            if (env[i] == null) continue;
+            var g = CardDatabase.EnchantmentGrantsOf(env[i].Id);
+            if (g == null || g.Count == 0) continue;
+            cardsWithRows++;
+            grantRows += g.Count;
+            for (int k = 0; k < g.Count; k++) if (g[k] != null && g[k].TargetsAffected < 0) rowsUnknownTa++;
+        }
+        Ok(grantRows == 37,
+           $"★ I2 39 张进攻卡在反查表里共 **{grantRows}** 行（期望 37 = 41 − 4；有行的卡 {cardsWithRows} 张）"
+         + " —— 🧨 去掉并表那段 `if (g.chosenAbility != 30 && g.chosenAbility != 40)` 那道闸 ⇒ 变 41"
+         + "（`chosenAbility 0 drawCard` / `60 buffMana` 两支在 `AbilityLogic__PlayAbility.c` 里**不产生 `AddEffect`**，"
+         + "挂了就是原版没有的行为）");
+        Ok(rowsUnknownTa == 0,
+           $"★ I2（同族）入表的行里 `targetsAffected < 0`（判不了载体）的有 **{rowsUnknownTa}** 行（期望 0）"
+         + " —— 41 行里那 4 个 `-1` 正好是被剔掉的那 4 行 ⇒ 载体永远可判（⛔ 若这条红了，"
+         + "`RunGrantedEnvAbility` 会走「载体不明」那支出声而不是瞎挂）");
+        // 那 4 行所属的 3 张卡必须**查不到任何行**（AM65 例外：它另有一条 ca 30 的合法行）
+        Ok(CardDatabase.EnchantmentGrantsOf("SOR62") == null
+           && CardDatabase.EnchantmentGrantsOf("ASH59") == null
+           && CardDatabase.EnchantmentGrantsOf("SW63") == null,
+           "★ I2（同族）`SOR62`（ca 0 drawCard）/ `ASH59` / `SW63`（ca 60 buffMana）三张在反查表里**都是 null**"
+         + " —— 🧨 闸去掉 ⇒ 三张都会冒出 1 行");
+        var am65 = CardDatabase.EnchantmentGrantsOf("AM65");
+        Ok(am65 != null && am65.Count == 1,
+           $"★ I2（同族）`AM65 Manufactorum Overdrive` 有 {am65?.Count ?? -1} 行（期望 1：它有 ca 30 + ca 60 两行，"
+         + "只有 ca 30 那行入表）—— 🧨 把闸写成「一张卡有任意合法行就全收」⇒ 变 2");
+
+        // ---- I3 · 真挂载：`AM63`（ta 120）⇒ 挂到**本方**督军，不是对面 ----
+        {
+            var ctx = EnvFixture(20261301);
+            var w0 = ctx.Players[0].Warlord;
+            var w1 = ctx.Players[1].Warlord;
+            if (Ok(w0 != null && w1 != null,
+                   "I3 前提：夹具里**两侧督军都在位**（否则下面的载体断言全是「0 == 0」的假绿）"))
+            {
+                var am63 = CardDatabase.FindById(env, "AM63");
+                int n = Enchantments.RunGrantedEnvAbility(ctx, am63, 1, w1, "E25fixture");
+                Ok(am63 != null && n == 1,
+                   $"★ I3 `RunGrantedEnvAbility(AM63, owner=1)` 挂了 **{n}** 件（期望 1）"
+                 + " —— 🧨 删掉 `RunGrantedEnvAbility` 里 `Attach(...)` 那句 ⇒ 0");
+                Ok(w1.Instance.ActiveEnchantments.Count == 1,
+                   $"★ I3（同族）**本方**（P2）督军身上 {w1.Instance.ActiveEnchantments.Count} 条 `activeEnchantments`（期望 1）");
+                Ok(w0.Instance.ActiveEnchantments.Count == 0,
+                   $"★ I3（同族）**对面**（P1）督军身上 {w0.Instance.ActiveEnchantments.Count} 条（期望 0）"
+                 + " —— 🧨 把 `case TargetsAffectedFriendlyHero` 改成 `WarlordOf(ctx, 1 - owner)` ⇒ 挂反人（本条红）");
+                var rec = w1.Instance.ActiveEnchantments.Count > 0 ? w1.Instance.ActiveEnchantments[0] : null;
+                Ok(rec != null && rec.Card != null && rec.Card.Id == Am63Tpl,
+                   $"★ I3（同族）挂上去的是**那张模板**（实得 `{(rec == null || rec.Card == null ? "null" : rec.Card.Id)}`，"
+                 + $"期望 `{Am63Tpl}`）—— 🧨 把并表时 `TemplateCardId` 换成卡自己的 id ⇒ 红");
+            }
+        }
+
+        // ---- I4 · 载体两支**同时**成立：`SW62`（ta 120 + ta 130、同一模板）⇒ 两侧督军各 1 件 ----
+        {
+            var ctx = EnvFixture(20261302);
+            var w0 = ctx.Players[0].Warlord;
+            var w1 = ctx.Players[1].Warlord;
+            if (Ok(w0 != null && w1 != null, "I4 前提：夹具两侧督军都在位"))
+            {
+                var sw62 = CardDatabase.FindById(env, "SW62");
+                int n = Enchantments.RunGrantedEnvAbility(ctx, sw62, 1, w1, "E25fixture");
+                Ok(n == 2, $"★ I4 `RunGrantedEnvAbility(SW62, owner=1)` 挂了 **{n}** 件（期望 2：ta 120 + ta 130 两行）"
+                     + " —— 🧨 把载体判定写成「只挂本方」⇒ 1");
+                Ok(w1.Instance.ActiveEnchantments.Count == 1 && w0.Instance.ActiveEnchantments.Count == 1,
+                   $"★ I4（同族）两侧各 1 件（实得 本方 {w1.Instance.ActiveEnchantments.Count} / "
+                 + $"对面 {w0.Instance.ActiveEnchantments.Count}）—— 🧨 `case TargetsAffectedEnemyHero` 写成 `owner` ⇒ 本方 2 / 对面 0");
+                bool both = w1.Instance.ActiveEnchantments.Count == 1 && w0.Instance.ActiveEnchantments.Count == 1;
+                if (both)
+                {
+                    var a = w1.Instance.ActiveEnchantments[0];
+                    var b = w0.Instance.ActiveEnchantments[0];
+                    Ok(a.Card != null && b.Card != null && a.Card.Id == Sw62Tpl && b.Card.Id == Sw62Tpl,
+                       "★ I4（同族）两件挂的是**同一张模板**（`First Light`）—— 判据：数据里两行 `enchantmentId` 相同");
+                    // 🔑 灭自证：两件必须是**两条不同的记录**。若实现里「只挂一次、两个载体指向同一个对象」，
+                    //    「模板相同」与「`EnchantmentCardId` 不同」不可能同时成立。
+                    Ok(a.EnchantmentCardId != b.EnchantmentCardId,
+                       $"★★ I4（**灭自证**）两件的 `EnchantmentCardId` 必须**不同**"
+                     + $"（实得 {a.EnchantmentCardId} / {b.EnchantmentCardId}）—— "
+                     + "若实现只挂一次、或把同一条记录塞进两个载体，这一条与上一条「模板相同」**不可能同时为真**");
+                }
+            }
+        }
+
+        // ---- I5 · 灭自证：同一入口拿**可玩池**的卡调 ⇒ 一件都不挂（闸真的在）----
+        {
+            var ctx = EnvFixture(20261303);
+            var w1 = ctx.Players[1].Warlord;
+            var tl47 = FindById(pool, "TL47");   // 池卡，且它**自己确实有**挂载行（ta 20）⇒ 没有闸就会挂上
+            if (Ok(w1 != null && tl47 != null, "I5 前提：夹具督军在位，且池里有 `TL47`（一张**有挂载行的池卡**）"))
+            {
+                int before = w1.Instance.ActiveEnchantments.Count;
+                int n = Enchantments.RunGrantedEnvAbility(ctx, tl47, 1, w1, "E25fixture");
+                Ok(n == 0 && w1.Instance.ActiveEnchantments.Count == before,
+                   $"★★ I5（**灭自证**）拿**可玩池**的 `TL47`（它自己有 ta 20 的挂载行）调同一入口 ⇒ 挂了 {n} 件（期望 0）"
+                 + " —— 🧨 删掉 `RunGrantedEnvAbility` 里 `envCard.SpellType != SpellTypeOffensiveCard` 那道闸 ⇒ "
+                 + "`ta 20` 会命中 `actingCard` 从而挂上 1 件（换别的方式「让两边一起变绿」也一起被这条挡住）");
+            }
+        }
+
+        // ---- I6 · 反面：`ca 60` / `ca 0` 那三张**一件都不挂**（数据侧已剔）----
+        {
+            var ctx = EnvFixture(20261304);
+            var w0 = ctx.Players[0].Warlord;
+            var w1 = ctx.Players[1].Warlord;
+            if (Ok(w0 != null && w1 != null, "I6 前提：夹具两侧督军都在位"))
+            {
+                int total = 0;
+                string[] ids = { "SOR62", "ASH59", "SW63" };
+                for (int i = 0; i < ids.Length; i++)
+                {
+                    var d = CardDatabase.FindById(env, ids[i]);
+                    if (d == null) { total += 99; continue; }
+                    total += Enchantments.RunGrantedEnvAbility(ctx, d, 1, w1, "E25fixture");
+                }
+                Ok(total == 0,
+                   $"★ I6 `SOR62`（ca 0 drawCard）/ `ASH59` / `SW63`（ca 60 buffMana）三张挂上去共 **{total}** 件（期望 0；99 = 表里找不到该卡）"
+                 + " —— 🧨 把并表那段 `chosenAbility` 闸去掉 ⇒ 这 3 张会各挂 1 件（原版这两支不产生 `AddEffect`）");
+                Ok(w0.Instance.ActiveEnchantments.Count == 0 && w1.Instance.ActiveEnchantments.Count == 0,
+                   "★ I6（同族）两侧督军身上都还是 0 条");
+            }
+        }
+
+        Debug.Log(P + "I·读数：41 行 `abilityLogic` → 37 行进**同一张**反查表（4 行 `ca 0/60` 明确不入表）；"
+                     + "载体 `ta 120/130/20` 三档**全是督军**，由 `AbilityLogic__GetTargets.c` 逐分支坐实。"
+                     + "⚠️ 「挂上去之后谁来跑它」仍是缺口（模板的 `trigger 640 EarnedSkull` 那一档），见报告 §没查清。");
+    }
+
+    /// <summary>§I 的夹具：真卡池 + 两侧各一张督军（⛔ 不摆小兵 —— 本节的载体判据只认督军，
+    /// 摆了反而会让「挂错到小兵身上」看不出来）。</summary>
+    static BattleContext EnvFixture(int seed)
+    {
+        var pool = CardDatabase.Load();
+        var d0 = new List<CardDef> { Hero("EnvWarlord0", "Ultramarines") };
+        var d1 = new List<CardDef> { Hero("EnvWarlord1", "Goff") };
+        var ctx = RuleCore.NewBattle(d0, d1, seed: seed, shuffle: false, cardPool: pool);
+        if (ctx.Turn == 0) RuleCore.BeginTurn(ctx);
+        ctx.Players[0].Energy = 30;
+        ctx.Players[1].Energy = 30;
+        return ctx;
     }
 }

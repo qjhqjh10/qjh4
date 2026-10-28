@@ -533,16 +533,16 @@ namespace CardPresentation
     /// <para>成员逐个对位（签名桩 = `out_il2csharp/.../SignalEventTrigger.cs`）：
     /// `public T EventSignal;` · `private Action callback;` · `sealed override Register(Action)` ·
     /// `private void TryTrigger(T signal)` · `protected abstract bool ValidateSignal(T)` · `sealed override Unregister()`。</para>
-    /// <para>🔴 **方法体在 Ghidra 侧 0 产物**（泛型类）⇒ 复原依据见**文件头 ①**。核心形状：
+    /// <para>🔴 **`Register` / `Unregister` 的方法体在【四源全无】**（2026-10-28 B93·N2 把四源逐个数过：`decomp_full` 0 文件 ·
+    /// `decomp_generic_trial/out` 0 文件 · `out_cpp2il_dev_ilspy` 只剩 `Method not found @1818A6ED0` / `@180DA0A00`（那是 `il2cpp_codegen_initialize_method`，不是真调用）·
+    /// `out_il2csharp` = `NotImplementedException("Method body was not recovered.")`）⇒ 复原依据见**文件头 ①**。核心形状：
     /// <code>
     /// Register(cb) { callback = cb; Signal.Register&lt;T&gt;(TryTrigger); }
     /// TryTrigger(signal) { if (ValidateSignal(signal)) callback?.Invoke(); }
     /// Unregister() { Signal.Unregister&lt;T&gt;(TryTrigger); }
     /// </code>
-    /// 两条独立证据：ILSpy 里 `TryTrigger` 剩下的唯一控制流 = 一次「类偏移 +198」的间接调用（抽象 `ValidateSignal`）后紧跟
-    /// `callback` 的 `invoke_impl`；`EventFilter.RegisterTriggers` 的体显示它把**同一个闭包回调**逐条交给
-    /// `trigger.Register(Action)`（vtable +0x178 槽）。⇒ 「信号 → 校验 → 回调」这个次序是**有据**的；
-    /// 「挂在哪条泛型重载上」是**推的**（见文件头 ①「还差什么」）。</para>
+    /// 三条独立证据：① ILSpy 里 `TryTrigger` **剩下的唯一**控制流 = 一次「类偏移 +198」的间接调用（抽象 `ValidateSignal`）后紧跟 `callback` 的 `invoke_impl`（⇒ 次序 = 先校验后回调，这条**有据**）；② `EventFilter.RegisterTriggers` 的体把**同一个闭包回调**逐条交给 `trigger.Register(Action)`（vtable 槽），且 `Unregister` 与它成对（`CleanupTriggers`）；③ 目标 API 形状对得上：本工程的 `LiveOpsSignal`（= 原版 `Scaffold.Core.Events.Signal`）**确实有** `Register<T>(Action<T>)` / `Unregister<T>(Action<T>)` 这一对（`LiveOpsFilter.cs:437` / `:459`），而 `TryTrigger` 的签名正好是 `Action<T>`。
+    /// ⇒ 「信号 → 校验 → 回调」**有据**；「挂在哪条泛型重载上」仍是**推的**（见文件头 ①「还差什么」：要补的话是给 `DecompG7.java` 名单加 `SignalEventTrigger` 跑一趟泛型导出）。</para>
     /// <para>⚠️ `EventSignal` 字段（原版 `public T EventSignal`）在**我们复原的这条链里不参与**判断 —— 原版它大概是给
     /// Inspector 里填「要监听哪个信号实例」的（`T : ISignal` 是空接口 ⇒ 没有可比的成员）。**⛔ 别拿它做过滤**；
     /// 过滤一律走 `ValidateSignal`。</para></summary>
@@ -1208,6 +1208,21 @@ namespace CardPresentation
             public bool IsRegistered { get { return _cb != null; } }
         }
 
+        /// <summary>夹具 handler：只为 `GetAllEvents()` / `ResetHandlers()` 提供一张**可清空**的事件表
+        /// （`LiveOpsHandler` 基类的 `SetupEvents(ops, blocked, shared)` 就是原版那三参入口）。</summary>
+        sealed class FixtureHandler : LiveOpsHandler
+        {
+            public override string HandlerKey { get { return "fixture"; } }
+        }
+
+        /// <summary>夹具共享 context：只记「`Unpack` 交给我的是哪一份对象」，用来区分
+        /// 「传整份 `SharedEventData`」与「传 `energyData` 那一段 JSON」。</summary>
+        sealed class FixtureSharedContext : LiveOpsSharedContext
+        {
+            public SharedEventData LastUnpacked;
+            public override void UnpackData(SharedEventData sharedEventData) { LastUnpacked = sharedEventData; }
+        }
+
         /// <summary>夹具信号触发器的「算不算数」判据：只有 `EventId == Want` 才算。</summary>
         sealed class CountingSignalTrigger : SignalEventTrigger<EventExpiredSignal>
         {
@@ -1564,6 +1579,132 @@ namespace CardPresentation
                     C(bridged == 1, "P1/⑩ 桥：`LiveOpsSignals.RaiseEventExpired` ⇒ 总线上也收到 1 次（实 " + bridged + "）");
                     LiveOpsSignal.Unregister<EventExpiredSignal>(onBridge);
                 }
+
+                // ── ⑪ `LiveOpsManager` 的三条新口径（2026-10-28 B93_E12 · 账 410 / 415 / 407 / 420 / 162）────────
+                //   判据全在 `Shell/LiveOpsManager.cs` 类尾那一段；这里只锁**行为**，不问实现。
+                {
+                    LiveOpsManager.ResetForTest();
+                    // 🔴 `ResetForTest()` 会把 `LiveOpsClock` 也复位 ⇒ **必须重设 NowProvider**，否则下面算出来的状态
+                    //    是按「真实现在」而不是夹具时间（本块要判 Active/Planned 两档，差一天结果就翻）。
+                    LiveOpsClock.NowProvider = delegate { return now; };
+                    var fh = new FixtureHandler();
+                    var a = new FixtureEvent("L_parent");                  // location=Parent，目录里没有 ⇒ parentId = null
+                    a.D.location = (int)EventLocationType.Parent;
+                    a.D.showInMainMenu = true;  a.D.priority = 5;
+                    a.D.dates = new LiveOpsEventTimeData
+                    {
+                        startDate = LiveOpsEventTimeData.ToMs(now.AddHours(-1)),
+                        endDate = LiveOpsEventTimeData.ToMs(now.AddHours(1)),
+                        expirable = false,
+                    };
+                    var b = new FixtureEvent("L_main");                    // location=Main
+                    b.D.location = (int)EventLocationType.Main;
+                    b.D.priority = 9;                                      // 不在主菜单
+                    // 🔴 补课（B93_FX6 · B93_E30 §四 补丁 B）：`FixtureEvent` 的 ctor 默认 `activationType = OnDate`（`:1192`），
+                    //   而 `GetState` 对「OnDate 但没有 dates」走 NotAvailable(-1) 那一支（`Shell/LiveOpsEvent.cs:246-251`）
+                    //   ⇒ b 会被 `GetEventsForDisplayingInMenu` 的 `state ∈ [OnPreview, Finished]` 闸筛掉（`Shell/LiveOpsManager.cs:566`），
+                    //   下面两条「灭自证」就永远拿不到 b（实得 1 条）—— 那是**夹具漏填**，不是实现错。
+                    //   给一段覆盖 `now` 的 dates 即可（照 a 那份写）。⛔ 别去改实现绕开状态闸。
+                    b.D.dates = new LiveOpsEventTimeData
+                    {
+                        startDate = LiveOpsEventTimeData.ToMs(now.AddHours(-1)),
+                        endDate = LiveOpsEventTimeData.ToMs(now.AddHours(1)),
+                        expirable = false,
+                    };
+                    var c2 = new FixtureEvent("L_planned");                // 主菜单 + Planned(0) ⇒ 不该进菜单列表
+                    c2.D.location = (int)EventLocationType.Parent;
+                    c2.D.showInMainMenu = true; c2.D.priority = 99;
+                    c2.D.dates = new LiveOpsEventTimeData
+                    {
+                        startDate = LiveOpsEventTimeData.ToMs(now.AddHours(1)),   // 还没开始 ⇒ Planned
+                        endDate = LiveOpsEventTimeData.ToMs(now.AddHours(3)),
+                        expirable = false,
+                    };
+                    fh.SetupEvents(new List<ILiveOps> { a, b, c2 }, new List<ILiveOps>(), null).GetAwaiter().GetResult();
+                    LiveOpsManager.Register(fh);
+                    // 前提硬检查（不是 `if (x != null) Check(...)`：注册不上就不该往下判）
+                    var all = new List<ILiveOps>(LiveOpsManager.GetAllEvents());
+                    C(all.Count == 3, "P2/⑪ 前提：夹具 handler 注册后 `GetAllEvents()` 有 3 条（实 " + all.Count + "）");
+
+                    // 账 410：`GetAllEvents(EventLocationType, string parent)`
+                    int parentOnly = 0, mainOnly = 0, withParentId = 0, nullParent = 0;
+                    foreach (var e in LiveOpsManager.GetAllEvents(EventLocationType.Parent)) parentOnly++;
+                    foreach (var e in LiveOpsManager.GetAllEvents(EventLocationType.Main)) mainOnly++;
+                    foreach (var e in LiveOpsManager.GetAllEvents(EventLocationType.Parent, "P1")) withParentId++;
+                    foreach (var e in LiveOpsManager.GetAllEvents(EventLocationType.Parent, null)) nullParent++;
+                    C(parentOnly == 2, "P2/⑪ 账410 `location=Parent` ⇒ 2 条（实 " + parentOnly + "）");
+                    C(mainOnly == 1, "P2/⑪ 账410 `location=Main` ⇒ 1 条（实 " + mainOnly + "）");
+                    C(withParentId == 0, "P2/⑪ 账410 负例：`parent=\"P1\"` 但本地目录查不到该 id ⇒ 0 条（实 " + withParentId + "）");
+                    C(nullParent == 2, "P2/⑪ 账410 `parent=null` ⇒ `null→\"\"` 折叠后仍匹配 parentId=null 的那 2 条（实 " + nullParent + "）");
+
+                    // 账 415：`GetEventsForDisplayingInMenu()`（showInMainMenu ∧ state∈{1,2,3}，按 Priority **降序**且稳定）
+                    var menu = LiveOpsManager.GetEventsForDisplayingInMenu();
+                    C(menu.Count == 1, "P2/⑪ 账415 只有 `L_parent` 同时满足「主菜单 + Active」（`L_main` 不在主菜单、`L_planned` 是 Planned）⇒ 1 条（实 " + menu.Count + "）");
+                    C(menu.Count == 1 && menu[0].Priority == 5, "P2/⑪ 账415 返回值带出 `Priority`（应 5，实 " + (menu.Count > 0 ? menu[0].Priority : -1) + "）");
+                    // 灭自证：把 `L_main` 也放进主菜单并给它**更高**优先级 ⇒ 它必须排到**前面**（证明是降序，不是升序也不是随机）
+                    b.D.showInMainMenu = true;
+                    var menu2 = LiveOpsManager.GetEventsForDisplayingInMenu();
+                    C(menu2.Count == 2 && menu2[0].Priority == 9 && menu2[1].Priority == 5,
+                      "P2/⑪ 账415 灭自证：Priority 9 排在 5 **前面**（降序；实 [" + (menu2.Count > 0 ? menu2[0].Priority.ToString() : "?")
+                      + "," + (menu2.Count > 1 ? menu2[1].Priority.ToString() : "?") + "]）");
+                    b.D.priority = 1;                                         // 再换一次 ⇒ 顺序必须跟着翻
+                    var menu3 = LiveOpsManager.GetEventsForDisplayingInMenu();
+                    C(menu3.Count == 2 && menu3[0].Priority == 5 && menu3[1].Priority == 1,
+                      "P2/⑪ 账415 灭自证②：Priority 换成 1 后顺序翻过来（实 [" + (menu3.Count > 0 ? menu3[0].Priority.ToString() : "?")
+                      + "," + (menu3.Count > 1 ? menu3[1].Priority.ToString() : "?") + "]）");
+                    b.D.showInMainMenu = false;
+
+                    // 账 407：`IsTriggeredEvent`（= `data.filter.Triggers.Count > 0`，BuildHandler 分派的第二道闸）
+                    C(!LiveOpsManager.IsTriggeredEvent(a), "P2/⑪ 账407 `IsTriggeredEvent`：没有触发器 ⇒ 假");
+                    a.D.filter.Triggers = new List<LiveOpsEventTrigger> { new CountingTrigger() };
+                    C(LiveOpsManager.IsTriggeredEvent(a), "P2/⑪ 账407 反例：`Triggers` 有 1 条 ⇒ 真（`BuildHandler` 走「让它自己激活」那一支）");
+                    a.D.filter.Triggers.Clear();
+
+                    // 账 162：`EventDataAssetProvider.GetAssets()` = `GetAllEvents().Select(e => e.GetBaseData())`
+                    var assets = EventDataAssetProvider.GetAssets();
+                    C(assets.Count == 3, "P2/⑪ 账162 `GetAssets()` 条数 = 事件条数（3，实 " + assets.Count + "）");
+                    // 🔴 次序**不是夹具输入序**：`SetupEvents(List,…)` 先 `ops.OrderByDescending(PriorityOf)`
+                    //   （判据 `Shell/LiveOpsHandler.cs:275`）⇒ 本块的**真序** = `[c2(99), b(9), a(5)]`
+                    //   （排序在 `SetupEvents` 那一刻定死；下面把 b 的 priority 改成 1 也不会重排）。
+                    //   ⇒ 原来断 `assets[0] == a.D` 是把「输入序」当成了「输出序」（B93_E30 §四 补丁 A）。
+                    //   改成「与 `GetAllEvents().Select(GetBaseData())` **逐项同序同引用**」：既锁住真次序，也锁住「返回的是 data 本身、不是新对象」。
+                    var evOrder = new List<ILiveOps>(LiveOpsManager.GetAllEvents());
+                    bool sameSeqRef = assets.Count == evOrder.Count;
+                    for (int k = 0; sameSeqRef && k < assets.Count; k++)
+                        sameSeqRef = ReferenceEquals(assets[k], evOrder[k].GetBaseData());
+                    C(sameSeqRef, "P2/⑪ 账162 `GetAssets()` 与 `GetAllEvents().Select(GetBaseData())` **逐项同序同引用**（实 "
+                                  + assets.Count + "/" + evOrder.Count + "）");
+
+                    // 账 420：`ResetHandlers()` 调的是 `ClearEvents()`（清列表），**不是** `ResetEvents()`（不清列表）
+                    int beforeReset = new List<ILiveOps>(fh.GetBaseEvents(true)).Count;
+                    C(beforeReset == 3, "P2/⑪ 账420 前提：`ResetHandlers()` 之前 handler 里有 3 条（实 " + beforeReset + "）");
+                    LiveOpsManager.ResetHandlers();
+                    int afterReset = new List<ILiveOps>(fh.GetBaseEvents(true)).Count;
+                    C(afterReset == 0,
+                      "P2/⑪ 账420 灭自证：`ResetHandlers()` 之后事件表**被清空**（= `ClearEvents` 槽 7；若误用 `ResetEvents`，这里会是 3，实 "
+                      + afterReset + "）");
+                    C(LiveOpsManager.HandlerCountForTest == 0, "P2/⑪ 账420 `ResetHandlers()` 尾句 `HandlerLookup.Clear()`（应 0，实 " + LiveOpsManager.HandlerCountForTest + "）");
+
+                    // 账 698 / 699：`SharedEventDataManager` 键 = `GetType()`；`Unpack` 交给 context 的是**整份** `SharedEventData`
+                    LiveOpsSharedDataManager.ResetForTest();
+                    var ctx = new FixtureSharedContext();
+                    LiveOpsSharedDataManager.Initialize(new List<LiveOpsSharedContext> { ctx });
+                    C(LiveOpsSharedDataManager.ContextCountForTest == 1, "P2/⑪ 账698 前提：登记 1 个 context（实 " + LiveOpsSharedDataManager.ContextCountForTest + "）");
+                    C(LiveOpsSharedDataManager.GetContext<FixtureSharedContext>() == ctx,
+                      "P2/⑪ 账698 键 = `GetType()`：`GetContext<FixtureSharedContext>()` 取得到（原版 `ToDictionary(x => x.GetType())`）");
+                    var persistence = new SharedEventData { energyData = LiveOpsJson.NewObject() };
+                    LiveOpsSharedDataManager.Unpack(persistence);
+                    C(ctx.LastUnpacked != null && ctx.LastUnpacked == persistence,
+                      "P2/⑪ 账699 灭自证：context 收到的是**整份 `SharedEventData`**（同一个引用）；若误传 `energyData` 则这里拿到的会是另一个对象");
+                    C(persistence.energyData != null && !ReferenceEquals(ctx.LastUnpacked, persistence.energyData),
+                      "P2/⑪ 账699 灭自证②：交出去的**不是** `energyData` 那一段（两者都不是同一个对象）");
+                    LiveOpsSharedDataManager.ResetForTest();
+                    LiveOpsManager.ResetForTest();                        // 收尾：注册表回到「空」（本块进来时就是这个状态）
+                }
+
+                // ── ⑫ 夹具：`LiveOpsManager` 那两条新口径要用的最小实现 ─────────────────────
+                //   ② `FixtureHandler` = 只为 `GetAllEvents()`/`ResetHandlers()` 提供一张可清空的事件表。
+                //   ③ `FixtureSharedContext` = 只为记「`Unpack` 交给我的是哪一份对象」。
             }
             catch (Exception ex)
             {
@@ -1590,6 +1731,306 @@ namespace CardPresentation
         sealed class FalseCondition : EventCondition
         {
             public override bool Validate(ILiveOps liveOps) { return false; }
+        }
+    }
+
+    // ============================================================ B93·N2 自检（2026-10-28 · **追加在文件尾**，⛔ 别插中间 —— 本文件有账按 `文件:行号` 钉着）
+    /// <summary>`B93·N2` 那 14 行的断言（快模式 6 · `LiveOpsAssetUtility` 2 · 时间文案 2 · handler 2 · 信号触发器 2）。
+    /// <para>宿主调用（粘到 `Editor/ShellScene.cs` 的「合计行之前」，见本类 `Run` 的说明）：
+    /// <c>Debug.Log(P + "LiveOpsB93N2SelfCheck 跑 " + LiveOpsB93N2SelfCheck.Run((ok, msg) =&gt; CheckTrue(ok, msg)) + " 条断言");</c></para>
+    /// <para>🔴 **每条都配灭自证**：把对应实现改回旧写法时，**必须至少有一条变红**（每条上方都写了「回退 ⇒ 哪条红」）。
+    /// 🔴 **前提断言先于被测断言**（本地目录非空 / 引用表非空），⛔ 不用 `if (前提) Check(结论)` 那种会静默跳过的写法。</para></summary>
+    public static class LiveOpsB93N2SelfCheck
+    {
+        // ── 夹具 ────────────────────────────────────────────────────────────────
+        /// <summary>`FastModeBaseEvent` 的最小具体子类（`EventPlayMode` / `GetMatchmakingFilter` 已由基类实现 ⇒ 只需装数据）。</summary>
+        sealed class FixtureFastMode : FastModeBaseEvent<FastModeSave, FastModeData>
+        {
+            public FixtureFastMode(FastModeData d, FastModeSave s) { LoadEventData(d, s, null); }
+        }
+
+        /// <summary>普通 `LiveOpsEvent` 的最小具体子类（时间文案两跳用）。</summary>
+        sealed class FixtureEvent : LiveOpsEvent<LiveOpsSave, LiveOpsEventData>
+        {
+            public FixtureEvent(LiveOpsEventData d) { LoadEventData(d, new LiveOpsSave { eventId = d.eventId }, null); }
+        }
+
+        /// <summary>handler 夹具：`GetEvents` 被覆盖成一个**哨兵表** —— 用它证明 `GetBaseEvents` 走的是虚分派。</summary>
+        sealed class FixtureHandler : LiveOpsHandler
+        {
+            public readonly List<ILiveOps> Stamp = new List<ILiveOps>();
+            public int OverrideCalls;
+            public override string HandlerKey { get { return "B93N2"; } }
+            public override IEnumerable<ILiveOps> GetEvents(bool includeBlockedEvents = false)
+            { OverrideCalls++; return Stamp; }
+        }
+
+        /// <summary>信号触发器夹具：只认 `EventId == Want` 的那条信号。</summary>
+        sealed class FixtureSignalTrigger : SignalEventTrigger<EventExpiredSignal>
+        {
+            public string Want;
+            public int Fired;
+            protected override bool ValidateSignal(EventExpiredSignal signal)
+            {
+                if (signal == null || signal.EventId != Want) return false;
+                Fired++;
+                return true;
+            }
+        }
+
+        // ── 数据夹具 ────────────────────────────────────────────────────────────
+        static FastModeData MkData(string id, int[] eloDiffs, params int[] milestones)
+        {
+            var d = new FastModeData { eventId = id, activationType = LiveOpsActivationType.Permanent };
+            d.ratingDifferenceForMatchMaking = eloDiffs;
+            for (int i = 0; i < milestones.Length; i++)
+                d.rewardsPerTier.Add(new MilestoneReward { milestone = milestones[i], rewardIds = new[] { id + ":" + i } });
+            return d;
+        }
+        static FastModeSave MkSave(string id) { return new FastModeSave { eventId = id, IsActive = true }; }
+
+        /// <summary>源码扫描口（用来给「接线了没有」下硬断言）。路径 = `Assets/CardPresentation/Shell/&lt;file&gt;`。</summary>
+        static string ReadShellSource(string file)
+        {
+            try
+            {
+                string p = System.IO.Path.Combine(UnityEngine.Application.dataPath, "CardPresentation", "Shell", file);
+                return System.IO.File.Exists(p) ? System.IO.File.ReadAllText(p) : null;
+            }
+            catch (Exception e) { Debug.LogError("[LiveOps] B93N2SelfCheck 读源码失败：" + e.Message); return null; }
+        }
+
+        /// <summary>跑全部断言。`check(条件, 断言文案)` 由宿主提供。返回执行的断言条数（打印它 = 自证真被跑到）。</summary>
+        public static int Run(Action<bool, string> check)
+        {
+            if (check == null) { Debug.LogError("[LiveOps] LiveOpsB93N2SelfCheck.Run(null) ⇒ 不跑"); return 0; }
+            int n = 0;
+            Action<bool, string> C = delegate (bool ok, string msg) { n++; check(ok, msg); };
+
+            DateTime now = new DateTime(2026, 10, 28, 12, 0, 0, DateTimeKind.Utc);
+            var oldNow = LiveOpsClock.NowProvider;
+            LiveOpsClock.NowProvider = delegate { return now; };
+            long t = LiveOpsEventTimeData.ToMs(now);
+            var oldVerbose = LiveOpsSignals.Verbose;
+            LiveOpsSignals.Verbose = false;
+            try
+            {
+                // ══════════ ① `FastModeBaseEvent.Expire`：TryCollect 的回调 = `base.Expire(onComplete)` ══════════
+                {
+                    var d = MkData("fm_exp", new[] { 10, 20, 30 }, 50);
+                    var s = MkSave("fm_exp");
+                    s.UpdateLocalJoinState(PlayEventSaveGame.JoinStates.Joined);   // 不进早退支
+                    s.localMilestoneScore = 0;                                     // 一档都够不到 ⇒ TryCollect 只回调
+                    var ev = new FixtureFastMode(d, s);
+                    bool completed = false;
+                    ev.Expire(delegate { completed = true; });
+                    C(completed, "①a Expire：`onComplete` 跑到（⛔ 旧实现也绿 ⇒ 它**不是**这一条的灭自证）");
+                    // 🔴 灭自证：回退成 `TryCollect(onComplete)` ⇒ base.Expire 那半不跑 ⇒ ①b/①c 红
+                    C(!s.IsActive, "①b Expire：`base.Expire` 那半**真跑了**（`IsActive` 被置 false）—— 回退成 `TryCollect(onComplete)` ⇒ 红");
+                    C(s.expiredTime > 0, "①c Expire：`base.Expire` 写了 `expiredTime` —— 回退 ⇒ 红");
+
+                    var d2 = MkData("fm_exp2", new[] { 10 }, 50);
+                    var s2 = MkSave("fm_exp2");                                   // JoinState 默认 NotJoined ∧ score 0 ⇒ 早退
+                    var ev2 = new FixtureFastMode(d2, s2);
+                    int collected0 = s2.collectedRewards;
+                    bool completed2 = false;
+                    ev2.Expire(delegate { completed2 = true; });
+                    C(completed2 && !s2.IsActive, "①d Expire 早退支（NotJoined ∧ CurrentScore==0）：直接 `base.Expire(onComplete)`");
+                    C(s2.collectedRewards == collected0, "①e Expire 早退支：**不进** TryCollect（`collectedRewards` 一位没动）");
+                }
+
+                // ══════════ ② `SetCustomMatchOptions` ══════════
+                {
+                    var ev = new FixtureFastMode(MkData("fm_opt", new[] { 10, 20, 30 }), MkSave("fm_opt"));
+                    ev.LocalDefeatStreak = 7;
+                    var ro = new RoomOptions();
+                    ev.SetCustomMatchOptions(ro, 1500);
+                    C(ro.Get("C4") is int && (int)ro.Get("C4") == 1, "②a SetCustomMatchOptions：`C4` = **常量 1**");
+                    C(ro.Get("C5") is int && (int)ro.Get("C5") == 7, "②b SetCustomMatchOptions：`C5` = 连败数（灭自证：与 ②a 交叉 —— 两格写反 ⇒ 至少一条红）");
+                    var arr = ro.CustomRoomPropertiesForLobby;
+                    C(arr != null && arr.Length == 5 && arr[0] == "C1" && arr[1] == "C2" && arr[2] == "C3" && arr[3] == "C4" && arr[4] == "C5",
+                      "②c SetCustomMatchOptions：大厅键表逐字 = [C1,C2,C3,C4,C5]（原版字面量 0x429E1F8/0x429E4E0/0x429E5D8/0x429E6D0/0x429E7C8）");
+                }
+
+                // ══════════ ③ `GetMatchmakingFilter` ══════════
+                {
+                    MatchmakingInputs.ResetForTest();                              // 不注入 ⇒ C2/C3 两段不拼
+                    var ev = new FixtureFastMode(MkData("fm_mm", new[] { 10, 20, 30 }), MkSave("fm_mm"));
+                    string q0 = ev.GetMatchmakingFilter(1000, 0, 3);
+                    string q1 = ev.GetMatchmakingFilter(1000, 1, 3);
+                    string q2 = ev.GetMatchmakingFilter(1000, 2, 3);
+                    C(q0.Contains("C1 < 1010") && q0.Contains("C1 >= 990"), "③a GetMatchmakingFilter：tryCount=0 ⇒ 档 0（δ=10）⇒ [990,1010]");
+                    C(q1.Contains("C1 < 1020") && q1.Contains("C1 >= 980"), "③b GetMatchmakingFilter：tryCount=1 ⇒ 档 1（δ=20）⇒ [980,1020]");
+                    C(q2.Contains("C1 < 1030") && q2.Contains("C1 >= 970"), "③c GetMatchmakingFilter：tryCount=2 ⇒ 档 2（δ=30）⇒ [970,1030]（灭自证：三档互不相同 ⇒ 写死 δ / 用 gamesLost 当下标 ⇒ 至少一条红）");
+                    C(q0.Contains("C5 == 3"), "③d GetMatchmakingFilter：`gamesLost` 原样进 C5 段");
+                    C(ev.GetMatchmakingFilter(5, 0, 0).Contains("C1 >= 0"), "③e GetMatchmakingFilter：下界钳到 0（5 − 10 ⇒ 0）");
+                    // 灭自证（模态）：同一份数据、只改 tryCount ⇒ 三条串必须两两不同
+                    C(q0 != q1 && q1 != q2 && q0 != q2, "③f GetMatchmakingFilter：三档串两两不同（写死任一档 ⇒ 红）");
+                }
+
+                // ══════════ ④ `TryCollect` 的三道闸 ══════════
+                {
+                    // 闸①：一档都够不到
+                    var s1 = MkSave("fm_tc1"); s1.localMilestoneScore = 0;
+                    var e1 = new FixtureFastMode(MkData("fm_tc1", new[] { 10 }, 50), s1);
+                    int hit1 = 0; var oldCb = FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected;
+                    FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected = delegate { hit1++; };
+                    try
+                    {
+                        e1.TryCollect(null);
+                        C(hit1 == 0 && s1.collectedRewards == 0, "④a TryCollect 闸①（`milestone > CurrentScore` 全中）⇒ 不领、`collectedRewards` 不变");
+                    }
+                    finally { FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected = oldCb; }
+
+                    // 闸②：`pending <= collectedRewards`（没有新的可领）
+                    var s2 = MkSave("fm_tc2"); s2.localMilestoneScore = 20; s2.collectedRewards = 2;
+                    var e2 = new FixtureFastMode(MkData("fm_tc2", new[] { 10 }, 10, 20), s2);
+                    int hit2 = 0;
+                    FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected = delegate { hit2++; };
+                    try
+                    {
+                        e2.TryCollect(null);
+                        C(hit2 == 0 && s2.collectedRewards == 2, "④b TryCollect 闸②（`pending == collectedRewards`）⇒ 不领、不推进（灭自证：「总是推进」⇒ 红）");
+                    }
+                    finally { FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected = oldCb; }
+
+                    // 闸③：有新可领 ⇒ 推进到 pending 且把新那几档的 rewardId 交出去
+                    var s3 = MkSave("fm_tc3"); s3.localMilestoneScore = 20; s3.collectedRewards = 0;
+                    var e3 = new FixtureFastMode(MkData("fm_tc3", new[] { 10 }, 10, 20, 30), s3);
+                    CollectFastModeRewardsResult got3 = null;
+                    FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected = delegate (CollectFastModeRewardsResult r) { got3 = r; };
+                    try
+                    {
+                        e3.TryCollect(null);
+                        C(s3.collectedRewards == 2, "④c TryCollect 闸③：`collectedRewards` 推到 `pending`（= 2，⛔ 不是推到总档数 3）");
+                        C(got3 != null && got3.rewardIds != null && got3.rewardIds.Length == 2,
+                          "④d TryCollect 闸③：交出的 `rewardIds` **只**含新那两档（⛔ 不是三档全给）");
+                        C(got3 != null && ReferenceEquals(got3.updatedPersistence, s3), "④e TryCollect 闸③：`updatedPersistence` = 本事件存档");
+                    }
+                    finally { FastModeBaseEvent<FastModeSave, FastModeData>.OnRewardsCollected = oldCb; }
+                }
+
+                // ══════════ ⑤ `GetTimeDescriptionTextKey` / `GetTimeDescriptionText` ══════════
+                {
+                    var evActive = new FixtureEvent(new LiveOpsEventData { eventId = "fmd_act", activationType = LiveOpsActivationType.Permanent });
+                    string kA = evActive.GetTimeDescriptionTextKey();
+
+                    var dFin = new LiveOpsEventData { eventId = "fmd_fin", activationType = LiveOpsActivationType.OnDate };
+                    dFin.dates = new LiveOpsEventTimeData { startDate = t - 3000000, endDate = t - 10000, expirable = true, expireDate = t + 1000000 };
+                    string kF = new FixtureEvent(dFin).GetTimeDescriptionTextKey();
+
+                    var dPre = new LiveOpsEventData { eventId = "fmd_pre", activationType = LiveOpsActivationType.OnDate };
+                    dPre.dates = new LiveOpsEventTimeData { startDate = t + 1000000, endDate = t + 2000000, previewable = true, previewDate = t - 10000, expirable = true, expireDate = t + 3000000 };
+                    string kP = new FixtureEvent(dPre).GetTimeDescriptionTextKey();
+
+                    var dExp = new LiveOpsEventData { eventId = "fmd_exp", activationType = LiveOpsActivationType.OnDate };
+                    dExp.dates = new LiveOpsEventTimeData { startDate = t - 3000000, endDate = t - 2000000, expirable = true, expireDate = t - 1000 };
+                    var evExp = new FixtureEvent(dExp);
+                    string kX = evExp.GetTimeDescriptionTextKey();
+
+                    C(kP == "Event_Description/General/TimeStartsIn", "⑤a Key：OnPreview(1) ⇒ `TimeStartsIn`（字面量 0x42AAA88）");
+                    C(kA == "Event_Description/General/TimeEndsIn", "⑤b Key：Active(2) ⇒ `TimeEndsIn`（字面量 0x42AA898）");
+                    C(kF == "Event_Description/General/TimeFinished", "⑤c Key：Finished(3) ⇒ `TimeFinished`（字面量 0x42AA990）");
+                    C(kX == "", "⑤d Key：Expired(4) ⇒ 空串（字面量 0x42B80E0）");
+                    C(kP != kA && kA != kF && kP != kF, "⑤e 三档键**两两不同**（灭自证：写死同一个键 ⇒ ⑤a/⑤b/⑤c 至少两条红）");
+                    C(!string.IsNullOrEmpty(evActive.GetTimeDescriptionText()), "⑤f Text：键非空 ⇒ `Loc.T` 出来的显示文本非空（三档兜底）");
+                    C(evExp.GetTimeDescriptionText() == "", "⑤g Text：键为空 ⇒ 空串（不走本地化）");
+                }
+
+                // ══════════ ⑥ `LiveOpsHandler.GetBaseEvents` = 虚转发 ══════════
+                {
+                    var h = new FixtureHandler();
+                    var ev1 = new FixtureEvent(new LiveOpsEventData { eventId = "fmd_h1", activationType = LiveOpsActivationType.Permanent });
+                    h.Stamp.Add(ev1);
+                    var got = h.GetBaseEvents(false);
+                    C(h.OverrideCalls > 0, "⑥a GetBaseEvents：走的是**虚方法** `GetEvents`（子类 override 被调用）—— 实现直接 `return events` ⇒ 红");
+                    var list = new List<ILiveOps>(got);
+                    C(list.Count == 1 && ReferenceEquals(list[0], ev1), "⑥b GetBaseEvents：返回的就是 `GetEvents` 给出的那一批（内容等价）");
+                    C(h.GetBlockedEvents() != null, "⑥c GetBlockedEvents：非 null（原样返回字段）");
+                }
+
+                // ══════════ ⑦ `LiveOpsHandlerRefreshedSignal` + `RefreshHandler` 的发射跳 ══════════
+                {
+                    var taps = new List<LiveOpsHandlerRefreshedSignal>();
+                    Action<LiveOpsHandlerRefreshedSignal> tap = delegate (LiveOpsHandlerRefreshedSignal s) { taps.Add(s); };
+                    var h = new FixtureHandler();
+                    LiveOpsSignal.Register<LiveOpsHandlerRefreshedSignal>(tap);
+                    try
+                    {
+                        LiveOpsSignal.Raise(new LiveOpsHandlerRefreshedSignal(h));
+                        C(taps.Count == 1 && ReferenceEquals(taps[0].Handler, h),
+                          "⑦a LiveOpsHandlerRefreshedSignal：载荷 `Handler` 原样送达订阅方");
+                    }
+                    finally { LiveOpsSignal.Unregister<LiveOpsHandlerRefreshedSignal>(tap); }
+                    LiveOpsSignal.Raise(new LiveOpsHandlerRefreshedSignal(h));
+                    C(taps.Count == 1, "⑦b 退订后不再收到（`Register`/`Unregister` 成对）");
+                    // 🔴 灭自证（结构）：光有信号类不算接线 —— 发射点必须真在 `RefreshHandler(LiveopsHandlerData)` 里
+                    string src = ReadShellSource("LiveOpsHandler.cs");
+                    C(src != null, "⑦c 前提：读得到 `Shell/LiveOpsHandler.cs` 源码（读不到 ⇒ 下面的扫描断言无意义）");
+                    C(src != null && src.Contains("LiveOpsSignal.Raise(new LiveOpsHandlerRefreshedSignal(this))"),
+                      "⑦d `RefreshHandler(LiveopsHandlerData)` 末尾**真的** raise 了这个信号（源码扫描）—— 删掉那一跳 ⇒ 红");
+                }
+
+                // ══════════ ⑧ `ReleaseEventAssets` ══════════
+                {
+                    int released = 0;
+                    var oldRelease = LiveOpsContainers.ReleaseAsset;
+                    LiveOpsContainers.ReleaseAsset = delegate (string g) { released++; };
+                    try
+                    {
+                        LiveOpsContainers.ReleaseEventAssets(null);
+                        C(released == 0, "⑧a ReleaseEventAssets(null)：直接返回（原版 `.c:30` 的 `if (param_1 == 0) return`，**不是** NRE）");
+
+                        var any = LiveOpsLocalCatalog.Events != null && LiveOpsLocalCatalog.Events.Count > 0 ? LiveOpsLocalCatalog.Events[0] : null;
+                        C(any != null, "⑧b 前提：本地活动目录非空（否则下面两条无从谈起）");
+                        if (any != null)
+                        {
+                            int expect = (any.Components != null ? any.Components.Length : 0) + (any.Assets != null ? any.Assets.Length : 0);
+                            C(expect > 0, "⑧c 前提：'" + any.EventId + "' 的引用表非空（= " + expect + "；为 0 会让 ⑧d 空转绿）");
+                            released = 0;
+                            var inst = new FixtureEvent(new LiveOpsEventData { eventId = any.EventId, activationType = LiveOpsActivationType.Permanent });
+                            LiveOpsContainers.ReleaseEventAssets(inst);
+                            C(released == expect, "⑧d ReleaseEventAssets：释放次数 = Components + Assets = " + expect + "（漏掉任一段 ⇒ 红）");
+                        }
+                    }
+                    finally { LiveOpsContainers.ReleaseAsset = oldRelease; }
+                }
+
+                // ══════════ ⑨ `SignalEventTrigger<T>.Register` / `Unregister` ══════════
+                {
+                    var trig = new FixtureSignalTrigger { Want = "b93n2-yes" };
+                    int fired = 0;
+                    trig.Register(delegate { fired++; });
+                    try
+                    {
+                        LiveOpsSignal.Raise(new EventExpiredSignal("b93n2-no"));
+                        C(fired == 0, "⑨a Register：`ValidateSignal` 挡掉不匹配的信号（**先校验后回调**）");
+                        LiveOpsSignal.Raise(new EventExpiredSignal("b93n2-yes"));
+                        C(fired >= 1, "⑨b Register：匹配的信号把回调打出来了");
+                    }
+                    finally { trig.Unregister(); }
+                    int afterUnreg = fired;
+                    LiveOpsSignal.Raise(new EventExpiredSignal("b93n2-yes"));
+                    C(fired == afterUnreg, "⑨c Unregister：摘掉后不再回调（灭自证：只 Register 不 Unregister ⇒ 红）");
+                }
+
+                // ══════════ ⑩ `Expire` 的「组件 21 那扇窗」（`LiveOpsExpirePopup`，2026-10-28 B93·N2） ══════════
+                {
+                    C(!LiveOpsExpirePopup.HasComponent(null), "⑩a HasComponent(ExpirePopup)：`liveOps == null` ⇒ false（⛔ 不抛）");
+                    var withExp = new FixtureEvent(new LiveOpsEventData { eventId = "ExpansionOrks1Scoring", activationType = LiveOpsActivationType.Permanent });
+                    var without = new FixtureEvent(new LiveOpsEventData { eventId = "DarkZealots", activationType = LiveOpsActivationType.Permanent });
+                    C(LiveOpsExpirePopup.HasComponent(withExp), "⑩b HasComponent(ExpirePopup)：有 key=21 的活动 ⇒ **true**（判据 = 本地目录里 `ExpansionOrks1Scoring` 带 `ExpirePopup`）");
+                    C(!LiveOpsExpirePopup.HasComponent(without), "⑩c HasComponent(ExpirePopup)：没有 key=21 的活动 ⇒ **false**（灭自证：与 ⑩b 相反 ⇒ 恒真/恒假的实现必然红一条）");
+                    C(LiveOpsExpirePopup.ExpirePopupKey == (int)LiveOpsComponentRef.ExpirePopup, "⑩d `ExpirePopupKey` = `LiveOpsComponentRef.ExpirePopup`（= 21，原版 `.c` 的字面量 `0x15`）");
+                }
+            }
+            finally
+            {
+                LiveOpsClock.NowProvider = oldNow;
+                LiveOpsSignals.Verbose = oldVerbose;
+                LiveOpsContainers.ResetForTest();
+            }
+            return n;
         }
     }
 }

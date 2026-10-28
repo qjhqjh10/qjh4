@@ -232,7 +232,7 @@ namespace CardPresentation
     ///   · `OverlapsAny` = **按传入 `rects` 的枚举顺序，返回第一个相交的**（原版 `if (bVar1) { *param_3 = …; return 1; }`），
     ///     ⛔ **不排序、不取最近**。
     /// </summary>
-    public static class RectExtensions
+    public static partial class RectExtensions
     {
         /// <summary>两个 `PxRect` 是否**严格**相交（AABB；贴边不算）。原版 `RectExtensions.OverlapsAny` 的相交判据。</summary>
         public static bool Overlaps(PxRect a, PxRect b)
@@ -295,5 +295,59 @@ namespace CardPresentation
         /// <summary>四角全在屏内（`Count == 4`）。原版 `RendererExtensions.IsFullyVisibleFrom`（原版 D 行：出货 0 调用）。</summary>
         public static bool IsFullyVisibleFrom(RectTransform rectTransform, Camera camera)
             => CountCornersVisibleFrom(rectTransform, camera) == 4;
+    }
+
+    /// <summary>
+    /// **`UIExtension`** —— 逐条照原版 `UIExtension` 抄（账 668～672）。
+    /// 判据 = `decomp_full/UIExtension__GetCorners.c` ＋ `__MaxX.c` / `__MaxY.c` / `__MinX.c` / `__MinY.c`。
+    /// 🔴 **四个取值器【不是】「扫四角取最大/最小」，是按固定下标取某一颗角**（`.c` 里是数组字节偏移，逐条核过）：
+    ///   · `MaxX` = `corners[2].x`（偏移 `0x38` = `0x20` + 2×0xC）＝ **右上**的 x
+    ///   · `MaxY` = `corners[1].y`（偏移 `0x30` = `0x20` + 1×0xC + 4）＝ **左上**的 y
+    ///   · `MinX` = `corners[0].x`（`0x20`）· `MinY` = `corners[0].y`（`0x24`）＝ **左下**
+    ///   （每个取值器的「长度校验」也逐条对上：MaxX 要 `2 < count`、MaxY 要 `1 < count`、MinX/MinY 要 `count != 0`。）
+    ///   Unity `GetWorldCorners` 的角序 = 左下 → 左上 → 右上 → 右下（旁证 `Battle/HudPiece.cs:441`）。
+    ///   ⇒ 名字叫 Max/Min，实际是「取那一颗角」；**轴对齐矩形上两者同值，旋转过的矩形上不同**
+    ///   （铁律 5·c：一个值 ≠ 全部情况）。⛔ 别「优化」成 `Mathf.Max` 扫描 —— 那是另一个函数。
+    /// ⚠️ 原版把四角数组建在**静态字段**里复用（`DAT_18429f330`）⇒ 这里同样复用一份，
+    ///   语义（含「后一次调用会覆盖上一次返回的数组」）与原版一致。⛔ 别改成每次 `new`。
+    /// ⚠️ 原版 `null` 入参走的是 `throw`（`FUN_1803f47a0` = null-check 抛出）⇒ 这里也抛，⛔ 不静默返回空数组。
+    /// </summary>
+    public static class UIExtension
+    {
+        static readonly Vector3[] _corners = new Vector3[4];
+
+        /// <summary>`GetWorldCorners(4)` 的四角（**复用同一份数组**：左下→左上→右上→右下）。原版 `UIExtension.GetCorners`。</summary>
+        public static Vector3[] GetCorners(RectTransform rectTransform)
+        {
+            if (rectTransform == null) throw new System.ArgumentNullException(nameof(rectTransform));
+            rectTransform.GetWorldCorners(_corners);
+            return _corners;
+        }
+
+        /// <summary>`corners[2].x`（右上）。原版 `UIExtension.MaxX`（⛔ 不是四角里的最大值）。</summary>
+        public static float MaxX(RectTransform rectTransform) { GetCorners(rectTransform); return _corners[2].x; }
+        /// <summary>`corners[1].y`（左上）。原版 `UIExtension.MaxY`（⛔ 不是四角里的最大值）。</summary>
+        public static float MaxY(RectTransform rectTransform) { GetCorners(rectTransform); return _corners[1].y; }
+        /// <summary>`corners[0].x`（左下）。原版 `UIExtension.MinX`。</summary>
+        public static float MinX(RectTransform rectTransform) { GetCorners(rectTransform); return _corners[0].x; }
+        /// <summary>`corners[0].y`（左下）。原版 `UIExtension.MinY`。</summary>
+        public static float MinY(RectTransform rectTransform) { GetCorners(rectTransform); return _corners[0].y; }
+    }
+
+    public static partial class RectExtensions
+    {
+        /// <summary>**世界矩形**（中心 + 尺寸）。原版 `RectExtensions.GetWorldRect(RectTransform)`：
+        /// `GetCorners` → 以 `corners[0]` 为基点、`corners[2]` 为对角 → 中心 = 基点 + 对角线 × 0.5、size = 对角线。
+        /// 判据 = `decomp_full/RectExtensions__GetWorldRect.c:20-29`（`DAT_1834b2bb4` = **0.5**；用第 0 / 第 2 颗
+        /// = **对角** ⇒ 旋转过的矩形上它也得到轴对齐包围盒的中心与尺寸）。
+        /// <para>⚠️ 原版写的是 `return` 一个 `Rect`（`float*` 出参）⇒ 这里用 `UnityEngine.Rect` 直接返回，字段序一致
+        /// （x, y = 中心；width, height = 尺寸）。</para></summary>
+        public static Rect GetWorldRect(RectTransform rect)
+        {
+            Vector3[] c = UIExtension.GetCorners(rect);
+            float w = c[2].x - c[0].x;
+            float h = c[2].y - c[0].y;
+            return new Rect(c[0].x + w * 0.5f, c[0].y + h * 0.5f, w, h);
+        }
     }
 }

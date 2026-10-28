@@ -65,7 +65,7 @@ B62	350/0x15e removeFromCemetery	遍历目标 AddRemoveFromCemetery	1977-1992	�
 B63	360/0x168 playChosenCardAbility	PayCardPlayedCostOath + OnTriggerAlt + double-oath 循环（誓约重放）	1994-2070	RuleEngine/Core/EffectResolver.cs:4557（DoChooseOne）+ Oath 链（`BattleDriver` OathOps / `RuleCore.OathExtraReplays`）	已实现	无缺口（2026-10-28 就地改判 C→已实现）：原版 360 = `PayCardPlayedCostOath`+`OnTriggerAlt`+double-oath ⇒ 我们对应 `chooseone`（Choose one:）+ Oath；`play ASH71` / `play UM109` 实测都能结算
 B64	370/0x172 triggerRelentless	遍历目标 AddTriggerRelentless	1995-2012	EffectResolver.cs:14897（DoTriggerAbility，部分）	B	缺 relentless 关键词常量/op 分派（R4 L183）
 B65	375/0x177 triggerSacrifice	AddTriggerSacrifice	2111-2126	EffectResolver.cs:14897（DoTriggerAbility，sacrifice 支）	B	需核
-B66	380/0x17c setReferenceCard	给 actingCard.referencedCards 换新表并填本条目标（覆盖）	2128-2160	EffectResolver.cs:1307（SetReferenceCards）	A	结构已实现（无生产调用点，见其 doc）
+B66	380/0x17c setReferenceCard	给 actingCard.referencedCards 换新表并填本条目标（覆盖）	2128-2160	EffectResolver.cs:1366（SetReferenceCards）	A	结构已实现（无生产调用点，见其 doc）｜2026-10-28 重钉：1307 → 1366（B93_E8 现读 `grep -n "public static int SetReferenceCards"` = :1366）
 B67	390/0x186 triggerRequiem	AddTriggerRequiem	2073-2089	EffectResolver.cs:14897（DoTriggerAbility，requiem 支）	B	需核
 B68	400/0x190 triggerCourtesy	AddTriggerCourtesy	2091-2109	EffectResolver.cs:14897（DoTriggerAbility，部分）	B	缺 courtesy 关键词常量/op 分派（R4 L178）
 B69	410/0x19a triggerCodex	AddTriggerCodex	1685-1700	EffectResolver.cs:14897（DoTriggerAbility，codex 支）	B	需核

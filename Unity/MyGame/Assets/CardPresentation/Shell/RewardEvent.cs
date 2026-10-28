@@ -205,8 +205,9 @@ namespace CardPresentation
         /// </code>
         /// 🔴 判据（账 661 现读）：**图标实参是 0**（图不走 `Icon` 字段）、`data` = 奖励对象本身、
         /// `type` = 0（本工程 `ToastNotificationType.Achievement`）、**每条一个**（推迟一拍由总线做）。
-        /// <para>⚠️ 本工程 `ToastNotifications.Context` **没有 `Data` 槽**（那一格只有 `MissionProgress`
-        /// 四件套）⇒ 奖励对象传不进去，如实记在这里；文字/控制器 id/类型三格逐条照抄。</para></summary>
+        /// <para>✅ **2026-10-28（B93_D4）**：本工程 `ToastNotifications.Context` 已补 `object Data` 槽
+        /// ⇒ 奖励对象照原版第 4 实参传进去（`ctx.Data = r`），`EventBadge.SetNotificationData` 第 ③ 段的
+        /// `Data is RewardInfo` 那一支因此接通（账 158 / 662 同一处上游）。</para></summary>
         public void HandleRewardDisplay()
         {
             if (Data == null || Data.Rewards == null)
@@ -222,6 +223,7 @@ namespace CardPresentation
                 string text = string.Format("+{0}", r.Quantity);
                 var ctx = new ToastNotifications.Context(text, ToastNotifications.ToastNotificationType.Achievement);
                 ctx.ControllerId = controllerId;                             // 原版实参 5 = GetID()
+                ctx.Data = r;                                                // 原版实参 4 = `data: r`（账 662 · 2026-10-28 B93_D4 补：`Context` 已有 `object Data` 槽）
                 if (!ToastNotifications.ScheduleNotification(ctx))
                     Debug.LogWarning("[RewardEvent] HandleRewardDisplay：奖励 '" + r.Id + "' 的飘窗没排进队列（壳里没有控制器）");
             }

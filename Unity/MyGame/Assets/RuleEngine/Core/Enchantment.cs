@@ -1746,5 +1746,166 @@ namespace RuleEngine
             }
             return null;
         }
+
+        // ==========================================================================================
+        //  🆕 2026-10-28（B93 波 · 执行代理 `E25`）：**环境（进攻）卡**「`chosenAbility` 驱动」那一跳
+        // ==========================================================================================
+        //  【这条链在原版里长什么样】（逐条亲读 `.c`，路径见下面每个成员的头注）
+        //    `BattleManager__ApplyEnvEffect.c:14-15` → `CardScript__TriggerOtherCardAbility(heroCard, envCard)`
+        //    → `RawCardScript__OnTriggerEffectInCard(envCard, trigger 0, mgr, thisCard = heroCard, actingCard = heroCard, null)`
+        //    → `RawCardScript__TriggerAbilities(…)` → `AbilityLogic.PlayAbility(mgr, abilityData, ThisCardPlayed)`
+        //    → 按 `abilityLogic.chosenAbility` 分派。
+        //  🔴 **所以环境卡的正文（`desc`）在这条链上根本不被解析**：`AbilityLogic` 那一层是**数据驱动**的
+        //     （`chosenAbility` + `targetCriteria` + `buffEffect`），而我们的 `CardDef.TriggerOps` 只解得出
+        //     「卡面祈使句」。39 张环境卡的 `desc` 是触发句（「When a player earns a Skull, …」）
+        //     ⇒ `RuleCore.RunAbilityOfAnotherCard` 恒走「正文解析不出来」那一条。
+        //  【本段补的那一步】`buffEffect.buffType ∈ {12,15,16}` ⇒ `CardScript__AddEffect.c` 的
+        //     `case 0xc / 0xf / 0x10` → `AddEnchantment` ⇒ 把 `buffEffect.enchantment` 那张模板挂到**载体**身上。
+        //     数据行由 `Data/CardDatabase.EnsureOffensiveEnvGrantsMerged` 并进**同一张**附魔反查表
+        //     （⛔ 不是第二张同义表 —— 铁律 6）；本段只负责「按 `targetsAffected` 找载体 + 调 `Attach`」。
+        //  【载体判据（`AbilityLogic__GetTargets.c`，逐分支亲读）】
+        //   · `0x78 = 120 friendlyHero` ⇒ `GetHero(mgr, actingCard.player)`        （`.c:721-736`）
+        //   · `0x82 = 130 enemyHero`    ⇒ `GetHero(mgr, actingCard.player == 0)`   （`.c:738-750`，对方）
+        //   · `0x14 = 20  self`         ⇒ `List.Add(thisCard)`                     （`.c:184-194`）
+        //    而这条链上 `thisCard` = **heroCard**（`OnTriggerEffectInCard` 的第 4 实参）
+        //   ⇒ **三档载体全是督军**。`ta = 120 ⇒ 挂督军` 由 `.c` 坐实（不是按枚举名推的）。
+        //  【哪几行会挂（`AbilityLogic__PlayAbility.c` 的 `chosenAbility` 分派）】
+        //   · `30 buffOthers`（`.c:1182-1260` 那一支 —— 派发闸在 `:1177-1180`、`BattleManager__AddEffect` 在 `:1218`，逐目标）
+        //   · `40 buffSelf`（`.c:1310`，`AddEffect(abilityData.thisCard, …)`，**硬写 thisCard**、不看 `ta`）
+        //   · `0 drawCard`（`.c:1439`）与 `60 buffMana`（`.c:685`，打完 `AddManaBuff` 就 `return`）
+        //     **不产生 `AddEffect`** ⇒ 那 4 行在数据侧就被剔掉（见 `EnsureOffensiveEnvGrantsMerged`）。
+        // ==========================================================================================
+
+        /// <summary>原版 `SpellType.OffensiveCard = 200` —— 环境（进攻）卡的唯一 `spellType`（39/39）。
+        /// <para>**池内 0 张**（2026-10-28 现读 `cards_engine.json` 1,129 张的 `spellType`）⇒ 拿它当闸
+        /// 保证「接这一跳不会动任何可玩卡」，`play all dump` / `play check` 的指纹因此不变。</para>
+        /// <para>⚠️ 附魔模板（第二张表）里也有 `spellType = 200` 的条目，但它们**没有**数据行
+        /// （不在反查表里）⇒ 到 `GrantedEnchantmentRowsOf` 就返回 `null` 了，不会误挂。</para></summary>
+        public const int SpellTypeOffensiveCard = 200;
+
+        /// <summary>`TargetCriteria.targetsAffected = 120` = `friendlyHero` ⇒ 载体 = **本方督军**。
+        /// <para>判据 🥇 `AbilityLogic__GetTargets.c:721-736`：`iVar6 == 0x78` ⇒
+        /// `BattleManager__GetHero(param_1, *(byte*)(actingCard + 0x40))`。⛔ 别按枚举名猜。</para></summary>
+        public const int TargetsAffectedFriendlyHero = 120;
+
+        /// <summary>`targetsAffected = 130` = `enemyHero` ⇒ 载体 = **对方督军**。
+        /// <para>判据 🥇 `AbilityLogic__GetTargets.c:738-750`：`iVar6 == 0x82` ⇒
+        /// `uVar18 = *(char*)(actingCard + 0x40) == '\0'` 再 `GetHero(mgr, uVar18)`。</para></summary>
+        public const int TargetsAffectedEnemyHero = 130;
+
+        /// <summary>`targetsAffected = 20` = `self` ⇒ 载体 = **`thisCard`**。
+        /// <para>判据 🥇 `AbilityLogic__GetTargets.c:184-194`：`iVar6 == 0x14` ⇒ `List.Add(thisCard)`。
+        /// 🔴 对环境卡这条链 `thisCard` = **督军卡**（`RawCardScript__OnTriggerEffectInCard` 的第 4 实参
+        /// 就是 `heroCard`），⛔ 不是环境卡自己 —— 见本段头注的调用链。</para></summary>
+        public const int TargetsAffectedSelf = 20;
+
+        /// <summary>诊断计数：环境卡那一跳里「有数据行、但载体/模板取不到」被跳过的条数
+        /// （只给调试/排查读；⛔ 不参与任何判据，也不进对局指纹）。</summary>
+        public static int EnvGrantSkipped;
+
+        /// <summary>
+        /// **环境（进攻）卡「`ThisCardPlayed` 那一跳」的 `AddEffect → AddEnchantment` 等价物**
+        /// （判据链 → 本段头注；载体判据 → 上三个 `TargetsAffected*` 常量的 doc）。
+        ///
+        /// <para>🔴 **为什么它必须挂在 `RunAbilityOfAnotherCard` 上、而不是另开一条链**：
+        /// 那正是原版的**同一个入口** —— `ApplyEnvEffect` 的第 1 跳只做一件事，
+        /// 「让环境卡按 `ThisCardPlayed` 跑它自己的能力」；至于那条能力是「正文可解析」还是
+        /// 「`chosenAbility` 驱动」，是**同一次分派里的两个分支**。
+        /// ⇒ 我们的等价形状 = `TriggerOps` 有 op 就走 op（老路），没有就落到这里。</para>
+        ///
+        /// <para>⚠️ **`rows == null` 时一声不响地返回 0**（⛔ 不在这里补一句「没数据」的日志）：
+        /// 那种情况下把话说完是**调用方**的事（它已经会打「正文解析不出来」那句）；这里再喊一句
+        /// 会让 `play all dump` / `play check` 的指纹多出内容（`ctx.Log` 进 `ctx.Events`、`ctx.Events` 进
+        /// `Fingerprint`）。而 `ruleprobe` 只编 `Core/*.cs`、`GrantedEnchantmentsProvider` 恒 `null`
+        /// ⇒ 那一路**必须**一字节都不变。</para>
+        ///
+        /// <para>⚠️ **真挂上之后这条效果还不一定看得见**：挂上去的是**附魔模板**（
+        /// `Resources/enchantment_templates.json`），模板自己的效果是 `trigger 640 (EarnedSkull)` 那一档
+        /// ability，而 `LoadEnchantmentTemplates` 今天**没有把 `abilities` 灌进 `CardDef`**
+        /// （见那一段的 doc），`TriggerEnchantment` 也只跑 `trigger 0 / 500`。
+        /// ⇒ 「挂载」这一步今天能走通并出声；「挂上去之后谁来跑它」是**另一笔缺口**，
+        /// 已在报告 `资料/完全复刻/报告/B93_E25.md` §没查清 里写死，⛔ 别在这里假装跑过。</para>
+        /// </summary>
+        /// <returns>真挂上去几件（`0` = 这一跳没产生任何附魔）。</returns>
+        public static int RunGrantedEnvAbility(BattleContext ctx, CardDef envCard, int owner,
+                                               UnitState actingCard, string by)
+        {
+            if (ctx == null || envCard == null) return 0;
+            // 🔴 `spellType == 200` 是这条链的**唯一**闸：池内 0 张 ⇒ 可玩卡一条都碰不到。
+            if (envCard.SpellType != SpellTypeOffensiveCard) return 0;
+            if (owner != 0 && owner != 1) return 0;
+            var rows = GrantedEnchantmentRowsOf(envCard);
+            if (rows == null || rows.Count == 0) return 0;      // 见 doc：这里**故意**不出声
+            string who = by ?? envCard.Name;
+            int ok = 0, badTa = 0, badBuff = 0, badCarrier = 0, missingTmpl = 0;
+            // 同一次里 `(模板, buffType, 载体)` 相同的行只挂一次：`SW62 First Light` 有 120 / 130 两行、
+            // 模板同一个，但**载体不同** ⇒ 两件都要挂（按载体去重，不是按模板去重）。
+            var done = new List<string>(rows.Count);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var g = rows[i];
+                if (g == null) continue;
+                if (g.Trigger != TriggerThisCardPlayed) continue;   // 本钩子只服务 `ThisCardPlayed`
+                if (!IsEnchantmentBuffType(g.BuffType))
+                {
+                    badBuff++;
+                    ctx.Log($"{who}：环境卡「{envCard.Name}」的数据行 `buffType = {g.BuffType}` 不属于附魔那三档"
+                          + "（`CardScript__AddEffect.c` 只有 `case 0xc / 0xf / 0x10` 会进 `AddEnchantment`）"
+                          + "—— **这一条没有挂上**");
+                    continue;
+                }
+                UnitState carrier;
+                switch (g.TargetsAffected)
+                {
+                    case TargetsAffectedFriendlyHero: carrier = WarlordOf(ctx, owner); break;
+                    case TargetsAffectedEnemyHero:    carrier = WarlordOf(ctx, 1 - owner); break;
+                    case TargetsAffectedSelf:         carrier = actingCard; break;
+                    default:
+                        badTa++;
+                        ctx.Log($"{who}：环境卡「{envCard.Name}」的数据行 `targetsAffected = {g.TargetsAffected}` "
+                              + "本版**没有对应分支**（已知 120 友方督军 / 130 敌方督军 / 20 thisCard 三档，"
+                              + "判据 `AbilityLogic__GetTargets.c` 各分支）⇒ **这一条没有挂上**（⛔ 不猜载体）");
+                        continue;
+                }
+                if (carrier == null || carrier.Instance == null)
+                {
+                    badCarrier++;
+                    ctx.Log($"{who}：环境卡「{envCard.Name}」这条附魔的载体（`targetsAffected = {g.TargetsAffected}` "
+                          + "⇒ 督军）**取不到** —— **这一条没有挂上**（原版 `BattleManager__ApplyEnvEffect.c:14-15` "
+                          + "那道 `heroCard != null` 闸同义）");
+                    continue;
+                }
+                string key = g.TemplateCardId + "#" + g.BuffType + "#" + carrier.Instance.Id;
+                if (done.Contains(key)) continue;
+                var tmpl = ctx.FindEnchantmentTemplate(g.TemplateCardId);
+                if (tmpl == null)
+                {
+                    missingTmpl++;
+                    ctx.Log($"{who}：环境卡「{envCard.Name}」要挂的附魔模板 `{g.TemplateCardId}` 在 "
+                          + "`Resources/enchantment_templates.json` 里**查不到** ⇒ **这一条没有挂上**");
+                    continue;
+                }
+                var eff = Attach(ctx, carrier.Instance, tmpl, g.BuffType,
+                                 source: envCard.Name, acting: actingCard, trait: "");
+                if (eff != null) { ok++; done.Add(key); }
+            }
+            EnvGrantSkipped += badTa + badBuff + badCarrier + missingTmpl;
+            if (ok > 0)
+                ctx.Log($"{who}：环境卡「{envCard.Name}」按 `ThisCardPlayed` 把 **{ok}** 件附魔挂到载体上"
+                      + "（原版 `AbilityLogic.PlayAbility` 的 `buffOthers 30` / `buffSelf 40` → "
+                      + "`BattleManager__AddEffect` → `CardScript__AddEffect.c:826-828` → `AddEnchantment`）");
+            else if (badTa + badBuff + badCarrier + missingTmpl > 0)
+                ctx.Log($"{who}：环境卡「{envCard.Name}」这一跳**一件都没挂上**（载体不明 {badTa} · "
+                      + $"buffType 不对 {badBuff} · 载体取不到 {badCarrier} · 模板缺失 {missingTmpl}）");
+            return ok;
+        }
+
+        /// <summary>某一方的督军（`PlayerState.Warlord`）。取不到返回 `null`，⛔ 不造一个假的。</summary>
+        static UnitState WarlordOf(BattleContext ctx, int side)
+        {
+            if (ctx == null || ctx.Players == null || side < 0 || side >= ctx.Players.Length) return null;
+            var ps = ctx.Players[side];
+            return ps != null ? ps.Warlord : null;
+        }
     }
 }

@@ -711,7 +711,7 @@ namespace RuleEngine
     /// 而且序列化出来是一大坨。UI 和引擎都通过 id 去卡池查。
     /// </summary>
     [Serializable]
-    public class PlayerDeck
+    public partial class PlayerDeck
     {
         public string Name = "新卡组";
         public string WarlordId;
@@ -771,7 +771,7 @@ namespace RuleEngine
 
         public PlayerDeck Clone()
         {
-            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds, GameMode) { CardbackId = CardbackId };
+            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds, GameMode) { CardbackId = CardbackId, WarcryId = WarcryId };
         }
 
         /// <summary>放进/拿走一张普通卡。返回是否真的变了（UI 用来决定要不要重排）。</summary>
@@ -984,7 +984,7 @@ namespace RuleEngine
         /// <param name="deck">要序列化的那副（`null` ⇒ 返回 `null`，⛔ 不造空壳）。</param>
         /// <param name="tierOf">卡 id → **0 基**升级档（Unity 侧传 `CardProgress.Level(id) − 1`）。
         /// `null` ⇒ 全部写 0（= Tier1）并**由调用方出声**。</param>
-        /// <param name="extras">调用方填好的「服务器那半」模板（elo / 联盟 / warcry / currentDeckId /
+        /// <param name="extras">调用方填好的「服务器那半」模板（elo / 联盟 / currentDeckId /
         /// 头像 / 称号 / draftVictories）。摘要字段一律**被 deck 覆盖**；`null` ⇒ 全部留默认（= 离线档）。</param>
         public static SerializedPlayerDeckData From(PlayerDeck deck, Func<string, int> tierOf,
                                                    SerializedPlayerDeckData extras = null)
@@ -1010,7 +1010,7 @@ namespace RuleEngine
                 playerAvatarBorder = extras != null && !string.IsNullOrEmpty(extras.playerAvatarBorder)
                              ? extras.playerAvatarBorder : "36ae26bb6bd304e79bd17fe02fbd3725",
                 titleId = extras != null ? extras.titleId : null,
-                warcry = extras != null ? extras.warcry : null,
+                warcry = !string.IsNullOrEmpty(deck.WarcryId) ? deck.WarcryId : (extras != null ? extras.warcry : null),
                 allianceName = extras != null ? extras.allianceName : null,
                 allianceRating = extras != null ? extras.allianceRating : 0,
                 allianceBadgeId = extras != null ? extras.allianceBadgeId : null,
@@ -1029,5 +1029,31 @@ namespace RuleEngine
                 }
             return dto;
         }
+    }
+
+    // ================================================================================================
+    //  🆕 2026-10-28（`B93_F5` · 账 `战斗逻辑驱动:392` = 原版 `BattleManager.GetWarcry(bool isPlayer)`）
+    //  `PlayerDeck.WarcryId` —— 原版 `CardDeck.warcryId : string`（**字段 @0x30**）。
+    //    · 判据 ① 字段存在：`Assembly-CSharp/CardDeck.cs:18`（`public string warcryId;`；
+    //      同处 `:16 cardbackId`、`:14 gameMode=+0x70`）；
+    //    · 判据 ② 写入形状：`decomp_full/CardDeck__CosmeticsSetup.c` 全文 —— `*(p+0x28) = cardbackId;
+    //      *(p+0x30) = warcryId;`（**一次写整副级两个装饰**，⛔ 不是每张卡一个）；
+    //    · 判据 ③ 消费：`BattleManager.GetWarcry(isPlayer)` 读该侧 `rawBattleData.warcry`
+    //      （`cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:16188-16240`；`decomp_full/…__GetWarcry.c:36,57,60,69,73-77`）
+    //      ⇒ `GetCosmeticItem(warcry)` → `Chat_Messages/warcry-<uniqueId>`，取不到 ⇒ `Chat_Messages/warcry-default`。
+    //  ⚠️ **为什么追加在这里而不是 `CardbackId` 旁边**：插在类中间会让本文件下游**全部行号 +N**
+    //    （现读账里有 `DeckRules.cs:762/772/778/785/793/871/881/933/989` 等落点）⇒ 改 `partial` + 文件尾追加 = **零漂移**。
+    //  ⚠️ **落盘向后兼容**：旧存档没有这个键 ⇒ `JsonUtility` 反序列化成 null ⇒ 正好走 `warcry-default`（原版「没选过」同档）。
+    //  ⚠️ **拷贝点**（改/读这个字段时四处一起看）：`Clone`（本类）、`SerializedPlayerDeckData.From`（`warcry` 那一行已改成本字段优先）、
+    //    以及卡组串的导入/导出那两处（`DeckLibrary.SplitByType` / `ExportString` —— 那两个方法今天不带任何装饰字段，与本字段同档）。
+    // ================================================================================================
+    public partial class PlayerDeck
+    {
+        /// <summary>这副卡组用的**战吼**（原版 `CardDeck.warcryId`，+0x30）。
+        /// 空/null = 没选过 ⇒ 文案走 `CardPresentation.Loc.Warcry(null)` 的 `Chat_Messages/warcry-default` 那一档。
+        /// <para>🔶 自己设计（非原版）：原版「这个战吼你有没有」由 `PlayerDataManager.GetCosmeticItem(warcry)` 判
+        /// （持有清单属服务器 / PlayFab，关服后判据在远端、本机 0 命中）⇒ 我们**只能**把非空 id 当作持有。
+        /// 为什么必须自己定：判据为空，不是我们没查到 · 调度台 2026-10-28 裁定（依据 `资料/完全复刻/报告/B92_B2.md` W10）。</para></summary>
+        public string WarcryId;
     }
 }

@@ -911,7 +911,7 @@ namespace CardPresentation
                                    null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
             var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
             if (wb != null) { wb.allowClickWhenAlreadySelected = false; wb.isOn = () => false; }
-            return t;
+            CreateEventTab(tab, t); return t;   // 账 13：原版 `CreateEventTab` 的两步尾巴（红点类型登记 + `data.enabled` 闸）
         }
 
         /// <summary>一颗事件钮（原版 `TabButtons__AddTabButton` 那一跳：`Instantiate` → `SetActive(true)` →
@@ -1131,6 +1131,7 @@ namespace CardPresentation
             var p1BackHit = MenuDraw.Hit(back, "Hit", Scr(P1BackR), QHit, () => Close());
             var p1BackWb = p1BackHit != null ? p1BackHit.GetComponent<WindowButton>() : null;
             if (p1BackWb != null) p1BackWb.playClickSound = false;
+            OpenChooseSideTab();   // 账 765：= 原版 `TwoSidesEvent_ChooseSideTab.OnOpen` 的数据那一半（本机默认无队伍数据 ⇒ 出声 + 保持出厂态）
         }
 
         void BuildTeamCard(Transform page, PxRect card, PxRect noise, PxRect glow, PxRect bottomText,
@@ -1670,6 +1671,237 @@ namespace CardPresentation
                     + "两名保持 **prefab 出厂态**（`Red Team` / `#squidmar`）、`Foreground Image` 留空"
                     + "（= 原版 `m_Sprite = null` 的同一可观测结果）—— ⛔ 不编数字；有数据时走 "
                     + "`ApplyTeamInfo(side, name, captain, image)` 就地填（原版 `TwoSidesTeamDrawer.Initialize(TeamInfo)` 的等价物）。");
+        }
+
+        // ============================================================ 账 13 · 原版 `BaseParentEventWindow.CreateEventTab`（2026-10-28 · B93_D3）
+        //
+        // 【判据 —— `decomp_full/BaseParentEventWindow__CreateEventTab.c`（94 行，逐句现读）】
+        //   ① `label = LiveOpsAssetUtility.TryGetLabel(ev, 4) ?? TryGetLabel(ev, 0)`  → 页签名
+        //   ② `icon  = LiveOpsAssetUtility.LoadAsset(ev, 0)`                          → 页签图标
+        //   ③ `GameWindowWithTabs.CreateTab<T>(this, label, icon, component)`          → 建页 + 建键
+        //   ④ `UiBadgeNotification.AddNotificationType(newTab 的 badgeNotification, ev 的通知类型)`
+        //   ⑤ `ev 的某个属性(tab)`  ← 原版那句 = `tab.Initialize(ev)`（把活动实例交给页）
+        //   ⑥ `if (ev.GetData().enabled == false) TabButtons.ToggleInteractable(tabButtons, newTab, false)`
+        //      （`:70-76` 那个 `*(char*)(data+0x22) == 0` 分支；**只**把键改成不可交互，不销毁）
+        //
+        // 【我们这边 ① ② ③ ⑤ 的等价物（⛔ 别在这里重建第二份）】
+        //   · ① = `MakeEventTab`（`TryGetLabel(4) ?? TryGetLabel(0)`，同一条判据）；
+        //   · ② = `EventTab.Icon`（本机**没有可加载的 liveops Sprite** ⇒ 恒 null，`SetupEventTabs` 已出声）；
+        //   · ③ = 本文件 `AddEventTabButton`（我们的建树是扁平 quad，没有 `GameWindowWithTabs` 那条 prefab 链）；
+        //   · ⑤ = `EventTab` 这个 DTO 自身（`EventId` / `Open` 在建树时已灌 —— 原版那句就是「把活动实例交给页」）。
+        // ⇒ **本函数只补 ④ 与 ⑥** 这两步（正是账 13 记的两个缺口）。
+        //
+        // 🔶 自己设计（非原版）：④ 的**通知类型**原版由**远端活动数据**给（`OpenEventButton__Initialize.c` 同一句反射取值），
+        //    本机 13 份活动 SO 里没有那一格 ⇒ 用**与活动钮同一类**的 `EventNavBadge`（关服后判据在远端 ·
+        //    铁律 18·0 允许本地模拟 · 调度台 B93 批次 2026-10-28 授权；口径与 `MainMenuRuntime.NavBadgeDefs` 同一处）。
+
+        /// <summary>原版 `BaseParentEventWindow.CreateEventTab(ILiveOps)` 的 **④ 红点类型登记 + ⑥ `data.enabled` 闸**。
+        /// <para>⚠️ 没有本地活动实例时这两步**无作用对像**（原版同样以 `ev != null` 为前提 —— `:16` 那个
+        /// `if (param_2 == 0) goto LAB_18069a255;` 就是「ev 为 null ⇒ 后面全跳过」）⇒ 出声一句、页签照建。</para></summary>
+        public static void CreateEventTab(EventTab tab, Transform tabButton)
+        {
+            if (tab == null || tabButton == null) return;
+            LiveOpsLocalEvent ev = null;
+            string why = null;
+            var kinds = CatalogKinds(tab.Kind);
+            if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, System.DateTime.UtcNow, out ev, out why);
+            if (ev == null)
+            {
+                HideEventTabBadge(tabButton);   // ⚠️ 顺手修：底板 alpha = 1（`TabBadgeTint`）⇒ 没通知源时它会一直画着；原版 `Awake` 是 alpha = 0
+                Debug.Log("[ParentEvent] `CreateEventTab`：页签 `" + (tab.Label ?? "?") + "` 没有本地活动实例（"
+                        + (why ?? "本机没有这一类活动（Gacha / Raid 的定义只在远端 CCD）")
+                        + "）⇒ 原版那两步（红点类型登记 / `data.enabled` 闸）**没有作用对像**，页签照建（与原版 `ev == null` 那一支同义）；红点按原版 `Awake` 出厂态藏掉。");
+                return;
+            }
+
+            // ---------------- ④ `UiBadgeNotification.AddNotificationType(badgeNotification, type)` ----------------
+            var badge = tabButton.Find("Badge Highlight");
+            if (badge == null)
+            {
+                Debug.LogWarning("[ParentEvent] `CreateEventTab`：页签 `" + tab.Label + "` 上取不到 `Badge Highlight`"
+                               + "（`BuildTabButton` 没建出来）⇒ 原版那句 `AddNotificationType` 落空（出声，不静默）");
+            }
+            else
+            {
+                AttachEventTabBadge(badge);
+            }
+
+            // ---------------- ⑥ `if (data.enabled == false) TabButtons.ToggleInteractable(tab, false)` ----------------
+            // 本地等价字段 = `LiveOpsLocalEvent.Enabled`（SO 的 `enabled`；`Selectable` = `Enabled && UploadToLive`）。
+            // ⚠️ 我们 `MakeEventTab` 只挑**在期且可选中**的实例 ⇒ 这一格今天恒为「可交互」；
+            //    判据留在这里是**为了那一天的**（一旦选事件的规则放宽，这条闸就自己生效，⛔ 不是死代码）。
+            if (!ev.Selectable)
+            {
+                var wb = tabButton.GetComponentInChildren<WindowButton>(true);
+                if (wb != null) wb.SetSoftDisabled(true);       // = `Selectable.interactable = false` 的等价物
+                else Debug.LogWarning("[ParentEvent] `CreateEventTab`：`data.enabled == false` 但页签上找不到 "
+                                    + "`WindowButton` ⇒ 不可交互那一步落空（出声）");
+                Debug.Log("[ParentEvent] 活动 `" + ev.EventId + "` 的 `enabled/uploadToLive` 为假 ⇒ 页签 `"
+                        + tab.Label + "` 按原版 `ToggleInteractable(tab, false)` 变灰不可点");
+            }
+        }
+
+        // ============================================================ 账 755 / 765 · `TwoSidesEventSelectTeamContainer.Initialize` + 选边页 `OnOpen`
+        //
+        // 【判据 a —— `TwoSidesEventSelectTeamContainer.Initialize(TeamInfo teamInfo, Action<TeamInfo> onTeamSelected)`】
+        //   `decomp_full/TwoSidesEventSelectTeamContainer__Initialize.c`（17 行，全文）：**三句**
+        //     ① `this+0x38 = teamInfo`  ② `this+0x30 = onTeamSelected`
+        //     ③ `if (drawer(+0x28) != null) TwoSidesTeamDrawer.Initialize(drawer, teamInfo)`  （drawer 为 null ⇒ NRE）
+        //   ⇒ 容器**只存两格 + 把数据交给画家**；点击时 `ContainerButtonClick` 把 `teamInfo` 原样回给那个委托。
+        //
+        // 【判据 b —— `TwoSidesEvent_ChooseSideTab.OnOpen()`（74 行，全文）】
+        //   `base.OnOpen()` → 取 `event.data.teams`（List<TeamInfo>）→
+        //     `for (i = 0; i < teams.Count; i++) { if (i > 1) { CustomDebug.LogWarning(...); break; }    // ★ 多于两队只警告并停
+        //        containers[i].Initialize(teams[i], <SourceDelegate → 本页的 OnTeamSelected>) }`
+        //   → 最后 `uVar4 = LiveOpsAssetUtility.GetLabel(ev, 0)` → `title 组件.SetLabel(uVar4)`（虚槽 `+0x558`）。
+        //
+        // 🔶 自己设计（非原版）：`TeamInfo` / `teams` **是远端活动数据**（`TwoSidesEventData.teams`，本机 13 份 SO 里
+        //   一个 TwoSides 活动都没有）⇒ 本机用 <see cref="TwoSidesTeamInfo"/> + <see cref="Teams"/> 这个注入口代替；
+        //   判据在远端 → 铁律 18·0 允许本地模拟 · 调度台 B93 批次 2026-10-28。
+        //   ⚠️ 本机**默认空表** ⇒ `OpenChooseSideTab` 走「没有队伍数据」那一支：两块卡保持 prefab 出厂态并出声
+        //   （与改前可观测结果一致，⛔ 不编队名/队长）。
+
+        /// <summary>原版 `TwoSidesEventData.TeamInfo` 的本地替身（🔶 见本节头；字段照原版那几格取）。
+        /// <para>⚠️ 原版 `TeamInfo` 还有战功/人数等格（我们取不到真值）⇒ **不建那些字段**（⛔ 不编数字）。</para></summary>
+        public sealed class TwoSidesTeamInfo
+        {
+            public string Id;
+            public string Name;
+            public string Captain;
+            public Texture2D Image;
+        }
+
+        /// <summary>队伍数据注入口（🔶 见本节头）。生产恒 `null` ⇒ 走「本机没有队伍数据」那一支。</summary>
+        public static IList<TwoSidesTeamInfo> Teams { get; set; }
+
+        /// <summary>每格的「选中回调」与它那一份队伍数据（原版容器 +0x30 / +0x38 两格）。</summary>
+        readonly TwoSidesTeamInfo[] _teamInfos = new TwoSidesTeamInfo[2];
+        readonly System.Action<TwoSidesTeamInfo>[] _teamSelected = new System.Action<TwoSidesTeamInfo>[2];
+
+        /// <summary>≡ 原版 `TwoSidesEventSelectTeamContainer.Initialize(TeamInfo, Action&lt;TeamInfo&gt;)`（判据 a，三句逐字）。
+        /// <para>`side` 0/1 = 原版 `containers[0]` / `[1]`（我们按位置给两格，原版也是按下标拿容器）。</para></summary>
+        public void InitializeTeamContainer(int side, TwoSidesTeamInfo team, System.Action<TwoSidesTeamInfo> onTeamSelected)
+        {
+            if (side != 0 && side != 1)
+            {
+                Debug.LogWarning("[Event] `InitializeTeamContainer` 收到 side = " + side + "（只有 0/1 两格）⇒ 忽略");
+                return;
+            }
+            _teamInfos[side] = team;                       // ① `this+0x38 = teamInfo`
+            _teamSelected[side] = onTeamSelected;          // ② `this+0x30 = onTeamSelected`
+            // ③ `TwoSidesTeamDrawer.Initialize(drawer, teamInfo)` —— 我们的画家等价物 = `ApplyTeamInfo`（空值不覆盖）
+            if (team == null)
+            {
+                Debug.LogWarning("[Event] `InitializeTeamContainer(" + side + ", null, …)`：原版这一跳会把 null 交给 "
+                               + "`TwoSidesTeamDrawer.Initialize`（体里直接读 teamName ⇒ NRE）；我们走 `ApplyTeamInfo` 的"
+                               + "「空值不覆盖」 ⇒ 保持 prefab 出厂态");
+                return;
+            }
+            ApplyTeamInfo(side, team.Name, team.Captain, team.Image);
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent_ChooseSideTab.OnOpen()`（判据 b 的循环 + 标题两句）。
+        /// <para>⚠️ `base.OnOpen()` 那一跳：我们的页是 `GameWindow` 里的手工页（没有 `WindowTabBase.OnOpen`），
+        /// 等价物 = `Open()` 里那次建树（`BuildChooseSidePage`）—— ⛔ 不在这里重建树。</para>
+        /// <para>标题：原版 `GetLabel(ev, 0)`（= `Title`）→ 本地上等价物 = <see cref="TabLabelTerm"/> 那条已有链
+        /// （`BuildChooseSidePage` 建标题时已用过）；没有本地事件实例 ⇒ 保留 prefab 出厂串并出声。</para></summary>
+        public int OpenChooseSideTab()
+        {
+            var teams = Teams;
+            if (teams == null || teams.Count == 0)
+            {
+                Debug.Log("[Event] 选边页 `OnOpen`：**本机没有队伍数据**（原版 `TwoSidesEventData.teams` 在服务端，"
+                        + "本机 13 份活动 SO 里没有 TwoSides 事件）⇒ 两块队伍卡保持 prefab 出厂态，标题保持出厂串"
+                        + "（与改前可观测结果一致，⛔ 不编队名/队长）。有数据时经 `Teams` 注入口进来即生效。");
+                return 0;
+            }
+            int n = 0;
+            for (int i = 0; i < teams.Count; i++)
+            {
+                if (i > 1)      // ★ 原版 `if (1 < i) { CustomDebug.LogWarning(...); break; }`
+                {
+                    Debug.LogWarning("[Event] 选边页 `OnOpen`：队伍数据有 " + teams.Count + " 队 ⇒ **只用前两队**"
+                                   + "（原版 `TwoSidesEvent_ChooseSideTab__OnOpen.c` 那支 `1 < i` 就 LogWarning 并 break）");
+                    break;
+                }
+                var t = teams[i];
+                int side = i;      // 闭包捕获（原版是每个容器各存一份自己的委托）
+                InitializeTeamContainer(side, t, info => OnTeamInfoSelected(side, info));
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>容器点击 → 原版 `TwoSidesEventSelectTeamContainer.ContainerButtonClick()`：把**容器自己存的那一份
+        /// `teamInfo`** 回给委托（⛔ 不是回一个 id 字符串 —— 那是我们对 <see cref="ContainerButtonClick(string)"/> 的旧近似）。
+        /// <para>⚠️ 本机数据空表时这一跳走不到（`InitializeTeamContainer` 没登记委托）⇒ 点击仍走旧的
+        /// `ContainerButtonClick("A"/"B")`（位置 id，已在建树时接上）。</para></summary>
+        void OnTeamInfoSelected(int side, TwoSidesTeamInfo info)
+        {
+            string id = info != null ? info.Id : null;
+            if (string.IsNullOrEmpty(id))
+            {
+                Debug.LogWarning("[Event] 容器(" + side + ") 的 teamInfo 没有 `Id`（原版 `TeamSelected(teamInfo)` 取的就是它）"
+                               + "⇒ 退化到按位置 id 选边（出声）");
+                TeamSelected(side == 0 ? "A" : "B");
+                return;
+            }
+            TeamSelected(id);
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent_OnGoingTab.CollectClicked()`（35 行）：
+        /// `event.TryCollect(onComplete)` —— 回调 = 本页的 `OnCollectCompleted`（原版 `SourceDelegate`）。
+        /// <para>🔴 原版 `TryCollect`（`TwoSidesEvent__TryColllect.c`：18 行）体只有一句虚调用
+        /// `this.vtable[0x568](data.currentMilestone(+0x34), onComplete, null, …)` = **云脚本领奖**（P3）。</para></summary>
+        public void CollectClicked()
+        {
+            Debug.LogWarning("[Event] 领取（`CollectClicked`）：原版 `TwoSidesEvent.TryCollect` 体只有一句云调用"
+                           + "（`TwoSidesEvent__TryColllect.c` 18 行 = `vtable[0x568](data.currentMilestone(+0x34), cb, …)`）"
+                           + "⇒ **PlayFab 云脚本 = P3**，本地没有服务器 ⇒ 不能假装领取/加奖励（如实出声）");
+            // 原版拿的是**当前里程碑**（`data+0x34`），本地没有该数据 ⇒ 出声说明这一格为什么是空的
+            Debug.Log("[Event] `CollectClicked`：本地缺的是 `TwoSidesEventData.currentMilestone(+0x34)` 与 rewards 表"
+                    + "（远端数据，本机 0 份）—— 判定 → 报告 §TwoSides 那四条");
+        }
+
+        /// <summary>把「有一条活动通知」这类红点接到**已建好的**页签红点上（原版 `AddNotificationType`）。
+        /// <para>⚠️ 为什么不直接调 `BadgeWiring.Attach`：那颗 `Badge Highlight` **已经有** `Image` quad 与
+        /// `OneText` 子件（`BuildTabButton` 建的），`Attach` 会再建一颗 `OneText` ⇒ 同一格里两层字。
+        /// 这里按 `Attach` 的同一套语义就地接线（alpha / 计数字），⛔ 判据仍只有 `UiBadgeNotification` 一处。</para></summary>
+        /// <summary>把页签那颗红点按**出厂态**藏掉（原版 `UiBadgeNotification.Awake`：`canvasGroup.alpha = 0`）。
+        /// <para>⚠️ 为什么需要：`BuildTabButton` 建的底板 `TabBadgeTint` alpha = 1（= 原版 prefab 的 `m_Color`），
+        /// 原版靠那个组件的 `Awake` 把 alpha 压到 0 ⇒ 我们若不给它一层 alpha 控制，它就**一直画着**。</para></summary>
+        static void HideEventTabBadge(Transform badgeNode)
+        {
+            if (badgeNode == null) return;
+            var quad = badgeNode.GetComponent<ImageQuad>();
+            if (quad != null) quad.SetTint(new Color(TabBadgeTint.r, TabBadgeTint.g, TabBadgeTint.b, 0f));
+            var oneT = badgeNode.Find("OneText");
+            var lb = oneT != null ? oneT.GetComponent<Label>() : null;
+            if (lb != null) { lb.SetText(""); lb.SetColor(new Color(1f, 1f, 1f, 0f)); }
+        }
+
+        static void AttachEventTabBadge(Transform badgeNode)
+        {
+            var quad = badgeNode.GetComponent<ImageQuad>();
+            var oneT = badgeNode.Find("OneText");
+            var label = oneT != null ? oneT.GetComponent<Label>() : null;
+            var comp = badgeNode.GetComponent<UiBadgeNotification>();
+            if (comp == null) comp = badgeNode.gameObject.AddComponent<UiBadgeNotification>();
+            var defs = new List<BadgeNotificationDefinition>();
+            defs.Add(new BadgeNotificationDefinition(typeof(EventNavBadge)));     // 🔶 见本节头
+            comp.notificationDefinitions = defs;
+            comp.showCounter = true;
+            var baseColor = new Color(TabBadgeTint.r, TabBadgeTint.g, TabBadgeTint.b, 1f);
+            comp.SetAlpha = a =>
+            {
+                if (quad != null) quad.SetTint(new Color(baseColor.r, baseColor.g, baseColor.b, a));
+                if (label != null) label.SetColor(new Color(1f, 1f, 1f, a));
+            };
+            comp.SetCountText = s => { if (label != null) label.SetText(s ?? ""); };
+            comp.SetAlpha(0f);                 // 原版 `Awake`：`canvasGroup.alpha = 0`
+            MainMenuRuntime.EnsureEventNavBadgeProviderForTabs();   // 数据源（本地活动目录；与活动钮共用一条 provider）
+            comp.Recount();
+            if (!Application.isPlaying) comp.Step(1f);              // 批处理下没有帧循环（同 `BadgeWiring.Attach`）
         }
 
     }

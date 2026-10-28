@@ -1,0 +1,45 @@
+序号	原版调用点(文件:行)	开/关	我们宿主窗(文件)	现状	该接在哪(文件:行)	优先级	批次
+1	decomp_full/BasicLoginWithEmailWindow__LoginButtonClick.c:31	关(0)	无宿主：PlayFab 邮箱登录窗未建(SettingsWindow.cs 只提到 login，不是该窗)	不适用	无落点；若建登录窗 ⇒ 该窗 LoginButtonClick 首句(原版位置：点 Login 后、set_interactable(false) 之前)	P3	B5
+2	decomp_full/BasicLoginWithEmailWindow___LoginButtonClick_b__12_0.c:38	开(1)	同上	不适用	配序号 1 的成功回调尾(原版：关弹字 → 恢复 interactable → Enable(true))	P3	B5
+3	decomp_full/BasicLoginWithEmailWindow___LoginButtonClick_b__12_1.c:13	开(1)	同上	不适用	配序号 1 的失败回调(原版：Enable(true) 后调虚表 +0x1b8)	P3	B5
+4	decomp_full/ChatPreviewMessage__Enable.c(L2 本体)	—	不适用：假符号本体(ICF 折叠)	不适用	真身 = EventSystemController.Toggle ⇒ 我们的等价物 = MyGame/Assets/CardPresentation/Shell/PointerLayer.cs:763 SetInputEnabled	—	—
+5	decomp_full/CloudscriptHandler.__c__DisplayClass18_0___ExecuteServerCall_g__OnCloudscriptSuccess_0.c:454	开(1)	无宿主：云脚本兜底处理器未建(LiveOpsHandler.cs 是活动调度器，不是云回调)	不适用	若将来接云脚本 ⇒ 回调尾统一 Enable(true)；今天无落点	P3	B5
+6	decomp_full/CloudscriptHandler__DefaultCustomErrorAction.c:35	开(1)	同上	不适用	同上	P3	B5
+7	decomp_full/CloudscriptHandler__DefaultPlayfabErrorAction.c:46	开(1)	同上	不适用	同上	P3	B5
+8	decomp_full/CloudscriptHandler__HandleCustomError.c:97	开(1)	同上(先解禁、再 WindowsManager.ShowPopUp)	不适用	同上	P3	B5
+9	decomp_full/DraftExpiringContent.__c__DisplayClass26_0___GoToState_b__3.c:20	关(0)	MyGame/Assets/CardPresentation/Shell/DraftModeWindow.cs(GoToState:2151) + DraftEventBase.cs	未接	MyGame/Assets/CardPresentation/Shell/DraftModeWindow.cs:2151 GoToState 内、发云句柄(0xc 那一路)之前	P3	B4
+10	decomp_full/DraftExpiringContent__GoToState.c:73	开(1)	同上	未接	MyGame/Assets/CardPresentation/Shell/DraftModeWindow.cs:2151 状态入口(原版：进状态先把输入还回去)	P3	B4
+11	decomp_full/DraftExpiringContent__GoToState.c:84	开(1)	同上	未接	同序号 10(原版另一分支同样先开)	P3	B4
+12	decomp_full/DraftExpiringContent__GoToState.c:174	关(0)	同上	未接	MyGame/Assets/CardPresentation/Shell/DraftModeWindow.cs:2151 内、`FUN_1800020b0(0xf)` 等价的云句柄调用前	P3	B4
+13	decomp_full/DraftExpiringContent___GoToState_b__26_0.c:20	关(0)	同上	未接	同序号 12(云句柄 0xc 的闭包那一支)	P3	B4
+14	decomp_full/EventSystemController__Toggle.c(L2 真身)	—	不适用：ICF 真身(与序号 4 同体)	不适用	我们的等价物 = MyGame/Assets/CardPresentation/Shell/PointerLayer.cs:763；ESC 门槛消费点 = Shell/GameWindow.cs:911	—	—
+15	decomp_full/Everguild.LiveOps.Campaign.__c__DisplayClass11_0___CollectRewards_g__OnSuccess_0.c:22	开(1)	MyGame/Assets/CardPresentation/Shell/CampaignRewardWindow.cs(:333 Open) + CampaignTab.cs(ClaimForTest)	不适用：我们的领取是同步本地(CampaignData.Claim)，没有等待期	若要字面照抄 ⇒ CampaignTab.cs 的 ClaimForTest 内、CampaignData.Claim 之后(同帧 false→true，无观察差异)	要做(形式)	B6
+16	decomp_full/Everguild.LiveOps.Campaign__CollectRewards.c:45	关(0)	同上	不适用：同步链无等待期	若要字面照抄 ⇒ CampaignTab.cs ClaimForTest 内、CampaignData.Claim 之前	要做(形式)	B6
+17	decomp_full/Everguild.LiveOps.Campaign___CollectRewards_g__OnFail_11_1.c:14	开(1)	同上	不适用：同步链无等待期	配序号 16 的失败支(我们的 Claim 返回 false 那一支)	要做(形式)	B6
+18	decomp_full/EverguildSceneManager._LoadTransition_d__24__MoveNext.c:42	关(0)	MyGame/Assets/CardPresentation/Shell/ShellRuntime.cs(LoadSceneWithFade:138)	未接	两条支都要：ShellRuntime.cs:143(无黑场直切支、LoadScene 前) 与 :176(黑场支、LoadingFade(true) 前)	要做	B3
+19	decomp_full/EverguildSceneManager._LoadTransition_d__24__MoveNext.c:181	开(1)	同上	未接	ShellRuntime.cs:189-190(sceneLoaded 回调 cb 内、LoadScene 之后、rt.StartCoroutine(CoFadeBackAfterLoad) 之前)；无黑场直切支没有回跳点 ⇒ 需新增一句	要做	B3
+20	decomp_full/ExpansionPassRewardSelector__CollectRewardClicked.c:20	关(0)	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs(:1980)	未接(注释称「本壳没有 EventSystemController ⇒ 无对应物」= 已过期)	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs:1987(_event.PurchaseMilestone 之前)	要做	B2
+21	decomp_full/ExpansionPassRewardSelector__OnLevelUp.c:19	关(0)	同上(:2021)	未接	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs:2028(PurchaseLevelUp 之前)	要做	B2
+22	decomp_full/ExpansionPassRewardSelector___CollectRewardClicked_b__8_0.c:14	开(1)	同上(:1991 OnRewardCollectComplete)	未接	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs:1993(CreateRewards(true) 之前；原版次序 = 解禁 → 播音 → CreateRewards)	要做	B2
+23	decomp_full/ExpansionPassRewardSelector___CollectRewardClicked_b__8_1.c:13	开(1)	同上(:2001 OnRewardCollectError)	未接	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs:2003(之前)	要做	B2
+24	decomp_full/ExpansionPassRewardSelector___OnLevelUp_b__9_0.c:13	开(1)	同上(:2031 OnLevelUpComplete)	未接	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs:2031(方法体首句)	要做	B2
+25	decomp_full/ExpansionPassRewardSelector___OnLevelUp_b__9_1.c:13	开(1)	同上(:2032 OnLevelUpError)	未接	MyGame/Assets/CardPresentation/Shell/ExpansionPassEventWindow.cs:2032(方法体首句)	要做	B2
+26	decomp_full/FTUESelectDeckWindow.__c__DisplayClass12_0___OnContinueButtonClicked_g__OnSuccess_1.c:163	开(1)	MyGame/Assets/CardPresentation/Shell/FTUESelectDeckWindow.cs(:524 OnContinueClicked)	不适用：GrantStarterDeck 的本地等价物是同步的(菜单落盘)，无等待期	若要字面照抄 ⇒ FTUESelectDeckWindow.cs:558(Close() 之前)	要做(形式)	B6
+27	decomp_full/FTUESelectDeckWindow__OnContinueButtonClicked.c:35	关(0)	同上	不适用：同步链无等待期	若要字面照抄 ⇒ FTUESelectDeckWindow.cs:533(GrantStarter 之前)	要做(形式)	B6
+28	decomp_full/GachaCratePanel._CrateAnimationFinished_d__15__MoveNext.c:48	开(1)	MyGame/Assets/CardPresentation/Shell/GachaEventWindow.cs	已接	Shell/GachaEventWindow.cs:1416(收摊支) 与 :1477(state2 收尾；注释已标 EventSystemController.Toggle(true))	已接	—
+29	decomp_full/GachaCratePanel__OpenCrateButtonClick.c:22	关(0)	同上	已接	Shell/GachaEventWindow.cs:1402(④，注释已标 Toggle(false))	已接	—
+30	decomp_full/PurchasePremiumWindow__OnPurChaseCompleted.c:13	开(1)	MyGame/Assets/CardPresentation/Shell/PurchasePremiumWindow.cs(本地无 IAP，PurchaseButtonClick:925 只出声)	不适用	若接 IAP ⇒ Shell/PurchasePremiumWindow.cs:925 PurchaseButtonClick 内(关)+ 完成/失败回调(开)	P3	B5
+31	decomp_full/PurchasePremiumWindow__OnPurchasedFailed.c:15	开(1)	同上	不适用	同上(失败回调)	P3	B5
+32	decomp_full/PurchasePremiumWindow__TryPurchase.c:70	关(0)	同上	不适用	同上(发起购买之前)	P3	B5
+33	decomp_full/RaidEventRewardItemContainer__OnCollect.c:26	关(0)	MyGame/Assets/CardPresentation/Shell/RaidEventWindow.cs(:1441 OnCollect)	未接(注释写「本批不动」，理由已过期——社交线不是它的依赖)	Shell/RaidEventWindow.cs:1441 OnCollect 的 :1449(CollectRewardClicked 之前)	要做	B1
+34	decomp_full/RaidRewardSelector__CollectRewardClicked.c:20	关(0)	同上(:1460 CollectRewardClicked)	未接	Shell/RaidEventWindow.cs:1460 方法首句(:1464 的 null 早退之前，原版也是先关再判空)	要做	B1
+35	decomp_full/RaidRewardSelector___CollectRewardClicked_b__7_0.c:14	开(1)	同上(:1470 成功 lambda)	未接	Shell/RaidEventWindow.cs:1470 lambda 首句(原版次序 = 解禁 → 播音 → RebuildRewards)	要做	B1
+36	decomp_full/RaidRewardSelector___CollectRewardClicked_b__7_1.c:13	开(1)	同上(:1476 失败 lambda)	未接	Shell/RaidEventWindow.cs:1476 lambda 首句	要做	B1
+37	decomp_full/RankedEventDivisionChangeWindow._SafetyInputEnabler_d__15__MoveNext.c:29	开(1)	不适用：旧系统 RankedEventDivisionChangeWindow(LiveOpsEventWindow<IRankedEvent>) 我们未建	不适用	无落点(我们只建 NewSystem 那一扇，见序号 38-42)	—	—
+38	decomp_full/RankedEventDivisionChangeWindow__AnimationFinished.c:13	开(1)	同上	不适用	无落点	—	—
+39	decomp_full/RankedEventDivisionChangeWindow__CloseButton.c:14	开(1)	同上	不适用	无落点	—	—
+40	decomp_full/RankedEventDivisionChangeWindow__Open.c:44	关(0)	同上	不适用	无落点	—	—
+41	decomp_full/RankedEventDivisionChangeWindowNewSystem._SafetyInputEnabler_d__29__MoveNext.c:32	开(1)	MyGame/Assets/CardPresentation/Shell/RankedDivisionChangeWindow.cs	已接	Shell/RankedDivisionChangeWindow.cs:1410(算出秒数)+ :1418(TickInputSafety 推进)，与原版协程同义	已接	—
+42	decomp_full/RankedEventDivisionChangeWindowNewSystem__AnimationFinished.c:13	开(1)	同上	已接	Shell/RankedDivisionChangeWindow.cs:1435(AnimationFinished 体唯一一句)	已接	—
+43	decomp_full/RankedEventDivisionChangeWindowNewSystem__CloseButton.c:14	开(1)	同上	已接	Shell/RankedDivisionChangeWindow.cs:1462(Close() 覆写；含 ESC/CloseWindow 那条路)	已接	—
+44	decomp_full/RankedEventDivisionChangeWindowNewSystem__Open.c:231	关(0)	同上	已接	Shell/RankedDivisionChangeWindow.cs:229(Open() 里 Build() 之后)	已接	—

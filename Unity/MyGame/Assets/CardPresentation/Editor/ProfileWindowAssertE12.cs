@@ -22,7 +22,7 @@
 //  P0-4 个人资料点头像 ⇒ 切到 `Avatar` 页
 //  P1-7 头像页格子里那些 `Avatar Name` **建了但关着**（原版 `m_IsActive = F`）
 //  P1-8 改名校验（3~25 字 · 去富文本 · 同名禁改）+ **顶栏名字跟着刷**
-//  P1-10 排名页四处白块（`Rect(..., null, ...)` ⇒ `CardArt.Solid()`）已去掉
+//  P1-10 排名页四处白块（`Rect(..., null, ...)` ⇒ `CardArt.Solid()`）已去掉 —— ⚠️ 判据 2026-10-29 订正为「**不许 `Solid()` 纯白 ∧ 不透明**」（有阵营就该画真徽记），见 `CheckRankedWhiteBlocks`
 //  P1-9 **不在本文件里** —— 战斗记录那格 Mode 的显示点在 `Shell/MatchLogRow.cs`，那份属于 `E13`（本批不能碰）
 //       ⇒ 只有待办、没有断言（报告里写清了要改的那一行与官方词条键）。
 //
@@ -198,12 +198,19 @@ public static class ProfileWindowAssertE12
     {
         if (page == null) { Ok(false, "P1-10：没有 `RankedTab` ⇒ 验不了白块"); return; }
         // 白块的机制：`ProfilePage.Rect(art: null, …)` 会落到 `CardArt.Solid()`（**纯白图**）+ 缺省白 tint。
-        // ⇒ 修法（2026-10-24 E12）= 那两格仍建 quad，但 tint **全透明**：
-        //    · 画面：什么都不画（原版那儿是阵营图，空态没有阵营分 ⇒ 无可画）；
+        // ⇒ 2026-10-24 E12 的修法（**历史口径**）= 那两格仍建 quad，但 tint **全透明**（⚠️ 2026-10-29 起**不再**要求全透明，见下一条 🔴 订正）：
+        //    · 画面：什么都不画（**那是 2026-10-24 的口径**；2026-10-29 起有阵营就画真徽记）；
         //    · 结构：`ImageQuad` **留着** —— 宿主 `MenuCheck.NodeRectPx` 对「无 `Label` 也无 `ImageQuad`」的节点
         //      返回 false，而 `Editor/MainMenuScene.cs:7687`/`:7751` 正是拿 `icon` 节点量矩形
         //      ⇒ 删成裸节点会让那两条**与画面无关地变红**（这一条断言同时守住「别退回裸节点」）。
-        int iconNodes = 0, iconQuads = 0, opaqueQuads = 0;
+        // 🔴 **2026-10-29（B93_FX3）判据就地订正**：本条原来要求「所有 `icon` quad 的 `Tint.a == 0`」——
+        //   那条前提**已过期**：`6c4a111f` 起 `Shell/RankedTab.cs:733-745` 的 `FactionIconQuad` **真画阵营徽记**
+        //   （原版就是画图：`decomp_full/FactionScore__Initialize.c:17-19`
+        //    `factionImage.sprite = ArmyUtilities.GetArmyIcon(...)`）⇒「有图 ∧ 不透明」是**对的**，⛔ 不该判红。
+        //   白块真正的判据 = 「**`CardArt.Solid()` 那张纯白图 ∧ 不透明**」—— 画面上的白块只可能来自它。
+        //   ⚠️ **不能**写成「是 `Solid()` 就红」：取不到徽记时的**空态兜底**仍是 `Rect(row, null, …, Transparent)`
+        //   （`Shell/RankedTab.cs:742`）—— 那张 `Solid()` **在、但 alpha 0**（画面无），那是正确形状。
+        int iconNodes = 0, iconQuads = 0, whiteVisible = 0, blankQuads = 0;
         var all = page.GetComponentsInChildren<Transform>(true);
         for (int i = 0; i < all.Length; i++)
         {
@@ -212,15 +219,18 @@ public static class ProfileWindowAssertE12
             var q = all[i].GetComponent<ImageQuad>();
             if (q == null) continue;
             iconQuads++;
-            if (q.Tint.a > 0.001f) opaqueQuads++;
+            if (q.Tint.a <= 0.001f) blankQuads++;                                                    // 空态（取不到徽记 ⇒ 画面无）
+            else if (q.Texture != null && q.Texture == (Texture)CardArt.Solid()) whiteVisible++;      // 白块（旧病）
         }
         Ok(iconNodes > 0, "P1-10：排名页里那些 `icon` 节点还在（实建 " + iconNodes + " 个）");
         Ok(iconQuads == iconNodes,
            "P1-10：`icon` 节点上**仍带 `ImageQuad`**（" + iconQuads + "/" + iconNodes
            + " 个 —— 宿主那两条量矩形的断言靠它，⛔ 别删成裸节点）");
-        Ok(opaqueQuads == 0,
-           "P1-10：那些 quad **一个都不不透明**（`Tint.a == 0`）—— 改前是 `CardArt.Solid()` 的白图，"
-           + "就是实拍 `14_档案窗_排名页.png` 里那四处白块（实得不透明 " + opaqueQuads + " 个）");
+        Ok(whiteVisible == 0,
+           "P1-10：`icon` 上**没有一个「`CardArt.Solid()` 纯白 ∧ 不透明」的块**（旧病 = 实拍 `14_档案窗_排名页.png` 那四处白块）"
+           + "｜有阵营就该画**真徽记**（`FactionScore__Initialize.c:17-19` 的 `GetArmyIcon`）、取不到才透明"
+           + "（实得：不透明白块 " + whiteVisible + " · 空态透明 " + blankQuads + " · 共 " + iconQuads + " 个 `icon` quad）"
+           + "｜🧨 把 `FactionIconQuad` 改回 `art = null` + 不透明 tint ⇒ 白块数 > 0 ⇒ 红");
     }
 
     // ============================================================ P0-4 + P1-7

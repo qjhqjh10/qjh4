@@ -77,6 +77,7 @@
 //   两处都**出声一次**并记进 `MissingArt` 之外的 `ArtNotes`（自检读口）。
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Video;      // 🆕 B93_E13：`VideoPlayer`（原版 `GachaCratePanel.videoPlayer`）
 
 namespace CardPresentation
 {
@@ -608,8 +609,8 @@ namespace CardPresentation
             BuildCrateShadow("Crate Shadow", Shadow1R, 4.7137f);
             BuildCrateShadow("Crate Shadow", Shadow2R, -6.6537f);
 
-            // `Highlight Crate`（`Crate Border Highlight` · tint 紫 · 在箱体之下）
-            MenuDraw.Rect(_chest, Tex(ArtCrateHg, "箱体高亮框"), CrateHiR, "Highlight Crate", QChestHi, CrateHiTint);
+            // `Highlight Crate`（`Crate Border Highlight` · tint 紫 · 在箱体之下；🆕 B93_S1 留住节点 = 原版 `crateHighlight`）
+            _crateHighlightGo = MenuDraw.Rect(_chest, Tex(ArtCrateHg, "箱体高亮框"), CrateHiR, "Highlight Crate", QChestHi, CrateHiTint);
 
             // `Crate`（原版 `40k_Crate_Tier5_Warp_premium` 未导入 ⇒ 回退普通 Tier5，出声）
             _crate = MenuDraw.Node(_chest, "Crate", CrateR);
@@ -632,18 +633,20 @@ namespace CardPresentation
             }
             // 原版 `GachaEventTab.GetCardsClick` → `WindowsManager.OpenWindow(getCardsWindow, config)`。
             // 🔴 本地有对应窗口（`WhereToGetCardsPopup`）⇒ 真接，⛔ 不是空按钮。
+            // 🆕 B93_E13：**监听器走字段**（`_getCardsClick`）—— 原版这里是
+            //   `getCardsButton.OnClick.AddListener(GetCardsClick)`，而 `GachaEventTab.Reset` 会
+            //   `RemoveAllListeners()` 把这一颗摘掉。字段这一层就是那个 `UnityEvent` 的等价物（0/1 个监听者）。
+            _getCardsClick = OnGetCardsClicked;
             MenuDraw.Hit(_getCardsBtn, "Hit", GetCardsR, QHit, () =>
             {
-                var wm = WindowsManager.Instance;
-                if (wm != null) WindowsManager.OpenWhereToGetCards();
-                else Debug.LogWarning("[Gacha] `Where get cards`：没有 `WindowsManager` ⇒ 开不了 "
-                                    + "`WhereToGetCardsPopup`（原版那一跳是 `GachaEventTab.GetCardsClick` → "
-                                    + "`WindowsManager.OpenWindow`）。");
+                var h = _getCardsClick;          // 原版 `UnityEvent.Invoke()`：没有监听者 ⇒ 什么都不做
+                if (h != null) h();
             }, null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
             _getCardsBtn.gameObject.SetActive(true);
 
-            // `Video Player`（原版挂 `VideoPlayer`；🔴 2026-10-28 B89_E17 铁律 5 订正：这句原写「本地没有 `Gacha Crate Opening.mp4`」= **假** —— clip 在 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4`（5,141,522 B），只是**没导入 `Resources/Art/videos/`**（同目录那四支 defeat/draw/intro/victory 就是从同族 mp4 转出来的）⇒ 今天只建空节点。真正的闸不是素材：原版点击 = 播视频 + `ContainerOfferEvent.TryPurchaseOffer`（服务器；掉落表本地没有）⇒ 播了却没有回包 = 假装开箱）
-            MenuDraw.Node(_chest, "Video Player", VideoPlayerR);
+            // `Video Player`（🆕 B93_E13：原来只建空节点；现在照 `GachaCratePanel.Awake` 五句接上
+            //   `VideoPlayer` 本体 —— clip 未导入 ⇒ 出声，仍是同一个 `.webm` 口径。）
+            BuildCrateVideo(_chest);
         }
 
         void BuildCrateShadow(string name, PxRect r, float angleZ)
@@ -663,8 +666,8 @@ namespace CardPresentation
         {
             _openCrateBtn = MenuDraw.Node(chest, "Price Display Button", PriceBtnR);
 
-            // `Button Higlight border`（`OctagonUI Filled SDF` 九宫 52 · ppuMul .85 · fillCenter=0）
-            MenuDraw.Nine(_openCrateBtn, Tex(ArtOctagon, "开箱钮高亮框"), PriceBtnHiR,
+            // `Button Higlight border`（`OctagonUI Filled SDF` 九宫 52 · ppuMul .85 · fillCenter=0；🆕 B93_S1 留住节点 = 原版 `openCrateHighlight`）
+            _openCrateHighlightGo = MenuDraw.Nine(_openCrateBtn, Tex(ArtOctagon, "开箱钮高亮框"), PriceBtnHiR,
                           new Vector4(52f, 52f, 52f, 52f), 128f, 128f, QChestButton, Color.white, false,
                           "Button Higlight border",
                           new Vector4(52f / 0.85f, 52f / 0.85f, 52f / 0.85f, 52f / 0.85f));
@@ -680,22 +683,19 @@ namespace CardPresentation
             if (btLb != null) MenuDraw.SetVAlign(btLb, Label.VAlign.Midline, OpenBtnTextR);
             bt.gameObject.SetActive(false);
 
-            // `Price Display`（HLG：icon + text；价格 = liveops 数据 ⇒ `--` 占位）
+            // `Price Display`（HLG：icon + text；价格 = liveops 数据 ⇒ `--` 占位；🆕 B93_S1 留住 Label = 原版 `Setup(价格)` 那一跳）
             var pd = MenuDraw.Node(btn, "Price Display", PriceDispR);
             MenuDraw.Rect(pd, Tex(ArtTicket, "票价图标"), TicketIconR, "icon", QChestText, Color.white);
-            var pt = MenuDraw.TextBox(pd, TicketTextR, NoData, Color.white, "text", 62.77f, 13.46f, QChestText,
+            _priceLabel = MenuDraw.TextBox(pd, TicketTextR, NoData, Color.white, "text", 62.77f, 13.46f, QChestText,
                                       62.77f, 39f, face: TmpFont.Face.LatinCardBody);
-            if (pt != null)
+            if (_priceLabel != null)
             {
-                pt.SetWrapping(false);
-                MenuDraw.SetVAlign(pt, Label.VAlign.Capline, TicketTextR);
+                _priceLabel.SetWrapping(false);
+                MenuDraw.SetVAlign(_priceLabel, Label.VAlign.Capline, TicketTextR);
             }
 
-            // 开箱 = `ContainerOfferEvent.TryPurchaseOffer`（服务器）+ 视频 ⇒ 本地只出声
-            MenuDraw.Hit(_openCrateBtn, "Hit", PriceBtnR, QHit, () =>
-                Debug.LogWarning("[Gacha] **开箱**需要服务器：原版 `GachaCratePanel.OpenCrateButtonClick` → "
-                               + "`GachaEvent.CurrentOffer.TryPurchaseOffer(...)`（LiveOps）+ 播 "
-                               + "`Gacha Crate Opening.mp4`；本地没有 liveops 后端与视频 ⇒ **不假装开箱**。"),
+            // 开箱 = `GachaCratePanel.OpenCrateButtonClick` 六句（🆕 B93_E13 整段落地，见类尾 `OpenCrateButtonClick`）
+            MenuDraw.Hit(_openCrateBtn, "Hit", PriceBtnR, QHit, () => OpenCrateButtonClick(),
                 null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
         }
 
@@ -1237,5 +1237,387 @@ namespace CardPresentation
             }
             _rewardContainerRoots.Clear();
         }
+
+        // ================================================================================
+        // 🆕 2026-10-28（`B93_E13` · 批次 G1「商店族」）—— 原版 `GachaEventTab` / `GachaCratePanel` 的两段
+        // ================================================================================
+        //
+        // 🔴 **本段【追加在类尾】**（纪律：新成员追加类尾 ⇒ 不动既有成员的下游行号）。
+        //    `BuildChest` / `BuildPriceButton` 里那三处是**就地改写**（行数基本不变）：
+        //      · `getCardsButton` 的监听改走字段 `_getCardsClick`（= 原版那个 `UnityEvent`）
+        //      · `MenuDraw.Node(_chest, "Video Player", …)` → `BuildCrateVideo(_chest)`
+        //      · 开箱钮的 Hit 回调 → `OpenCrateButtonClick()`
+        //
+        // **判据（第一权威 = 反编译方法体；类型/字段名 = `out_cpp2il_dev_ilspy`）**：
+        //   `GachaEventTab__Reset.c` · `GachaEventTab__SetEventTab.c` ·
+        //   `GachaCratePanel__Awake.c` · `GachaCratePanel__OpenCrateButtonClick.c` ·
+        //   `GachaCratePanel._CrateAnimationFinished_d__15__MoveNext.c` · `GachaCratePanel__RewardWindowClosed.c` ·
+        //   `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/GachaCratePanel.cs`（字段名 + `EventSystemController.Toggle`）。
+        //   ⚠️ **`cpp2il` 的 `.c` 把 `EventSystemController.Toggle(false)` 打成 `ChatPreviewMessage__Enable`**
+        //   —— 那是**类名错位**（同名方法体是 `eventSystem.enabled = value`）；ILSpy 那份写的是
+        //   `EventSystemController.Instance.Toggle(option: false)`。我们这一侧的对位 = **`PointerLayer.SetInputEnabled`**
+        //   （判据 = `Editor/ShellScene.cs` A77㉑① 那条订正：本仓没有 UGUI `EventSystem`/`EventSystemController`）。
+
+        // ---------------------------------------------------------------- ① `GachaEventTab.SetEventTab` / `Reset`
+        /// <summary>原版 `GachaEventTab.SetEventTab(ILiveOps liveOps)` 的**实参在本地的最小对位**：
+        /// `ILiveOps` 只有 id；`as GachaEvent` 那一步只有「是不是 Gacha 事件」；`CurrentOffer` 那个报价对象。
+        /// <para>⚠️ **不冒充**：原版存的是**接口引用**并用它做 `is` 判定；我们这边没有 liveops 事件对象族
+        /// （`Shell/LiveOpsLocalCatalog.cs` 里没有 Gacha 这一档）⇒ 这里显式三格，⛔ 别写成「原版就是这样」。</para></summary>
+        public sealed class EventTabSource
+        {
+            /// <summary>`LiveOps.GetID()`（原版 +0x58 那个 `ILiveOps` 唯一被我们用到的一格）。</summary>
+            public string LiveOpsId;
+            /// <summary>= 原版 `liveOps as GachaEvent` 的**结果**（非 Gacha 事件 ⇒ false ⇒ +0x60 = null）。</summary>
+            public bool IsGachaEvent;
+            /// <summary>= 原版 `GachaEvent.CurrentOffer`。`null` = 原版那句 `if (CurrentOffer != null)` 不成立。</summary>
+            public object CurrentOffer;
+        }
+
+        /// <summary>= 原版 `GachaEventTab.SetEventTab(ILiveOps liveOps)`（**四句**，判据 `GachaEventTab__SetEventTab.c:20-100`）：
+        /// <list type="number">
+        /// <item>存 `liveOps`（+0x58）</item>
+        /// <item>`as GachaEvent`（+0x60；判型不过 ⇒ **null**）</item>
+        /// <item>+0x60 == null ⇒ **直接 return**（不排程）</item>
+        /// <item>`CurrentOffer != null` ⇒ `ActionScheduler.Schedule(offer 的委托)` 存句柄（+0x68）</item>
+        /// </list>
+        /// <para>🔴 **第 ③④ 句我们只做到「形状」**：本仓**没有 `ActionScheduler`**（全仓 0 命中，见
+        /// `Shell/` 与 `Battle/` 的同类记录）⇒ 句柄位 `EventTabScheduledHandle` **恒 null** 并出声一次。
+        /// 这条不改成 A（账里记 **B**）：形到、动作调度器不在。</para></summary>
+        public void SetEventTab(EventTabSource liveOps)
+        {
+            _eventTabLiveOpsId = liveOps != null ? liveOps.LiveOpsId : null;          // ① +0x58
+            _eventTabHasGachaEvent = liveOps != null && liveOps.IsGachaEvent;         // ② as-cast
+            if (!_eventTabHasGachaEvent) { _eventTabHandle = null; return; }          // ③ null ⇒ 早退
+            if (liveOps.CurrentOffer == null) return;                                 // ④ `CurrentOffer != null` 那道闸
+            _eventTabHandle = null;                                                   // 原版这里拿到的是 Schedule 的返回值
+            if (_noSchedulerSaid) return;
+            _noSchedulerSaid = true;
+            Debug.LogWarning("[Gacha] `GachaEventTab.SetEventTab` 第 ④ 句没落地：原版 "
+                           + "`ActionScheduler.Schedule(CurrentOffer 的委托)` 存进 +0x68（`Reset` 时 Release）；"
+                           + "本仓**没有 `ActionScheduler`** ⇒ 句柄位恒 null、这一拍不排程。");
+        }
+
+        /// <summary>= 原版 `GachaEventTab.Reset()`（**两句**，判据 `GachaEventTab__Reset.c:16-38`）：
+        /// <list type="number">
+        /// <item>`+0x68 != null` ⇒ `ActionScheduler.Release(handle)`（**我们无调度器 ⇒ 只清字段**）</item>
+        /// <item>`getCardsButton != null` ⇒ `它的 UnityEvent.RemoveAllListeners()`</item>
+        /// </list>
+        /// <para>⚠️ **原版还有一道 `getCardsButton == null` 的早退**（`op_Inequality` 判假 ⇒ `return`）——
+        /// 即「按钮不在就什么都不做」，我们照抄（`_getCardsClick` 本来就可能是 null）。</para>
+        /// <para>🔴 **今天「整窗重建」把这两件都盖住了**（`Build()` → `MenuDraw.ClearChildren` ⇒ 监听随节点一起没了），
+        /// 所以**看不到差别**；补它是为了形状完整 + 让断言能点名（`GetCardsClickBound`）。</para></summary>
+        public void ResetEventTab()
+        {
+            _eventTabHandle = null;                    // ① 原版 `ActionScheduler.Release(+0x68)`
+            _getCardsClick = null;                     // ② 原版 `RemoveAllListeners()`（0 个监听者）
+        }
+
+        /// <summary>自检读口：`getCardsButton` 上有没有监听者（= 原版那个 `UnityEvent` 的 `GetPersistentEventCount` 等价物）。</summary>
+        public bool GetCardsClickBound { get { return _getCardsClick != null; } }
+        /// <summary>自检读口：`SetEventTab` 存下来的 liveops id（`null` = 没设过 / 传的就是 null）。</summary>
+        public string EventTabLiveOpsId { get { return _eventTabLiveOpsId; } }
+        /// <summary>自检读口：`as GachaEvent` 那一步过没过（+0x60 非空）。</summary>
+        public bool EventTabHasGachaEvent { get { return _eventTabHasGachaEvent; } }
+        /// <summary>自检读口：`ActionScheduler` 句柄位（+0x68）。**本仓恒 null**（没有调度器）。</summary>
+        public object EventTabScheduledHandle { get { return _eventTabHandle; } }
+
+        /// <summary>= 原版 `GachaEventTab.GetCardsClick()`（`WindowsManager.OpenWindow(getCardsWindow, config)`）。</summary>
+        void OnGetCardsClicked()
+        {
+            var wm = WindowsManager.Instance;
+            if (wm != null) WindowsManager.OpenWhereToGetCards();
+            else Debug.LogWarning("[Gacha] `Where get cards`：没有 `WindowsManager` ⇒ 开不了 "
+                                + "`WhereToGetCardsPopup`（原版那一跳是 `GachaEventTab.GetCardsClick` → "
+                                + "`WindowsManager.OpenWindow`）。");
+        }
+
+        // ---------------------------------------------------------------- ② `GachaCratePanel.Awake` 的五句
+        /// <summary>`RolePlay` 用的资源路径（**我们挑的命名**，不是原版字段）。
+        /// 原版是 prefab 上的 `videoPlayer.clip`（`AssetReference`）⇒ 名字在 bundle 里，不落 `Resources/`。
+        /// ⚠️ 要让它生效：把 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4`
+        /// 转成 `Resources/Art/videos/gacha_crate_opening.webm`（同目录 `intro/defeat/draw/victory` 那四支的同族做法）。</summary>
+        public const string CrateClipResource = "Art/videos/gacha_crate_opening";
+
+        /// <summary>= 原版 `GachaCratePanel.Awake()` 的**①③④**（②⑤ 已在别处：② `Video Background` 关着建在
+        /// `BuildPage`；⑤ 开箱钮的监听建在 `BuildPriceButton`）。判据 `GachaCratePanel__Awake.c:16-50`：
+        /// <list type="number">
+        /// <item>`videoPlayer.enabled = false`</item>
+        /// <item>`videoPlayer.started += (src) => crateOpenSound.Play2D()`</item>
+        /// <item>`videoPlayer.targetCamera = Camera.main`</item>
+        /// </list>
+        /// <para>⚠️ **clip 未导入 `Resources/`** ⇒ `clip == null`，`Play()` 什么都不会发生；出声一次（⛔ 不静默）。
+        /// 🆕 2026-10-28（B93_S1 · 铁律 5 就地订正）：**音效 cue 名【已解出】= `Gacha vault open`** ——
+        /// AssetRipper 导出工程里有这份 `AudioCue`（`Assets/Gacha vault open.asset`，`clipList` = `Vault Crate Open Full.ogg`），
+        /// 不再是「那份 CAB 不在本机」；`started` 回调现在**真的播**（见 <see cref="OnCrateVideoStarted"/>）。</para></summary>
+        void BuildCrateVideo(Transform chest)
+        {
+            _videoNode = MenuDraw.Node(chest, "Video Player", VideoPlayerR);
+            _videoPlayer = _videoNode.gameObject.AddComponent<VideoPlayer>();
+            _videoPlayer.enabled = false;                       // ①
+            _videoPlayer.targetCamera = Camera.main;            // ④
+            _videoPlayer.started += OnCrateVideoStarted;        // ③
+            var clip = Resources.Load<VideoClip>(CrateClipResource);
+            if (clip != null) { _videoPlayer.clip = clip; return; }
+            if (_noClipSaid) return;
+            _noClipSaid = true;
+            Debug.LogWarning("[Gacha] `Video Player` 没有 clip ⇒ **开箱视频播不出来**（原版 "
+                           + "`GachaCratePanel.videoPlayer.clip` 是 prefab 的 AssetReference）："
+                           + "把 `bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4` 转到 "
+                           + "`Resources/" + CrateClipResource + ".webm` 即可（同目录 `intro/defeat/draw/victory` 同族做法）。"
+                           + "⚠️ 即便有了 clip，`OpenCrateButtonClick` 的第 ⑤ 句（服务器开箱）本地仍然没有。");
+        }
+
+        /// <summary>= 原版 `GachaCratePanel.<Awake>b__9_0(VideoPlayer)`：`crateOpenSound.Play2D(cue, 0, 0)`（**MixerType 0 = FX**）。
+        /// <para>🆕 2026-10-28（B93_S1）：**cue 名已解出** = `Gacha vault open` —— 判据 = AssetRipper 导出工程的 `Assets/Gacha vault open.asset`（`clipList` = `Vault Crate Open Full.ogg`）+ `GachaCratePanel__<Awake>b__9_0.c`。</para></summary>
+        void OnCrateVideoStarted(VideoPlayer src)
+        {
+            WindowSounds.PlayFx(WindowSounds.GachaVaultOpenCue, "Gacha 开箱视频开始");   // 原版每次 `started` 都播
+            if (_crateCueSaid) return;
+            _crateCueSaid = true;
+            Note("开箱音效 = 原版 `AudioCue__Play2D(cue, 0 /*FX*/, 0)`（挂在 `videoPlayer.started` 上）"
+               + "；cue `Gacha vault open` · clip `Vault Crate Open Full`（已导入 `Resources/Art/audio/sfx/`）。");
+            Note("🔴 原版这一跳**不判 clip 有没有**：`started` 一响就播 ⇒ 我们也每次 `started` 都播（⛔ 不 gate）。");
+        }
+
+        // ---------------------------------------------------------------- ③ `GachaCratePanel.OpenCrateButtonClick` 的六句
+        /// <summary>= 原版 `GachaCratePanel.OpenCrateButtonClick()`（**六句**，判据
+        /// `GachaCratePanel__OpenCrateButtonClick.c:16-60` + `out_cpp2il_dev_ilspy/GachaCratePanel.cs:236-260`）：
+        /// <list type="number">
+        /// <item>`videoBackground.SetActive(true)`</item>
+        /// <item>`videoPlayer.enabled = true`</item>
+        /// <item>`videoPlayer.Play()`</item>
+        /// <item>`EventSystemController.Instance.Toggle(false)` ⇒ **我们这一侧 = `PointerLayer.SetInputEnabled(false)`**</item>
+        /// <item>`crateRewards = null` · `crateOpenned = false` · `CurrentOffer.TryPurchaseOffer(onComplete, null, showRewardPopup:false)`</item>
+        /// <item>`StartCoroutine(CrateAnimationFinished())`</item>
+        /// </list>
+        /// <para>🔴 **第 ⑤ 句今天必然拿不到回包**（`CurrentOffer` 在远端；`TryPurchaseOffer` 打到服务器）
+        /// ⇒ 原版会**一直等**（黑屏 + 输入关着，等一个永远不到的委托）。我们**不收这个尾巴**：
+        /// 出声 + 就地收摊（恢复输入、关视频背景、`crateOpened` 保持 false），并**不启动** ⑥。
+        /// ⚠️ 这是**有意偏离**（原版在这里是无限等待），⛔ 别写成「原版也这样」。</para>
+        /// <returns>`true` = 走完了完整流程（今天不可能）；`false` = 停在 ⑤ 并已收摊。</returns>
+        public bool OpenCrateButtonClick()
+        {
+            if (_videoBg != null) _videoBg.gameObject.SetActive(true);                  // ①
+            if (_videoPlayer != null) { _videoPlayer.enabled = true; _videoPlayer.Play(); } // ②③
+            PointerLayer.SetInputEnabled(false);                                        // ④
+            _crateRewards = null; _crateOpened = false;                                 // ⑤ 前两句
+            if (!TryPurchaseCrate())                                                    // ⑤ 第三句
+            {
+                if (!_crateNoServerSaid)
+                {
+                    _crateNoServerSaid = true;
+                    Debug.LogWarning("[Gacha] **开箱**停在服务器那一跳：原版 `GachaCratePanel.OpenCrateButtonClick` 第 ⑤ 句 = "
+                                   + "`GachaEvent.CurrentOffer.TryPurchaseOffer(onComplete, null, showRewardPopup:false)`，"
+                                   + "回包回来才 `crateOpenned = true`。本地没有 liveops 后端 ⇒ **永远等不到回包** ⇒ "
+                                   + "我们**收摊**（恢复输入 + 关视频背景），⛔ 不假装开箱、也不留一个永挂的协程。"
+                                   + "⚠️ 有意偏离：原版在这里是无限等待。");
+                }
+                RewardWindowClosed();            // = RESTORE：videoPlayer.Stop/enabled=false + 背景关
+                PointerLayer.SetInputEnabled(true);   // 🔴 收摊必须把输入还回去（否则玩家点什么都点不动）
+                return false;
+            }
+            CrateFlowBegin();                                                           // ⑥
+            return true;
+        }
+
+        /// <summary>第 ⑤ 句第三跳的唯一入口（`CurrentOffer.TryPurchaseOffer`）。
+        /// `false` = 本地没有 `CurrentOffer`（远端 LiveOps）⇒ 调用方按「等不到回包」收摊。</summary>
+        bool TryPurchaseCrate()
+        {
+            // 数据侧：`GachaEvent.CurrentOffer` 在本地**恒 null**（`CurrentContainer`/`CurrentOffer` 都是远端；
+            // 见文件头「数据缺口」）。⛔ 不编一个「成功回调」出来 —— 那就成了假装开箱。
+            return false;
+        }
+
+        /// <summary>= 原版 `GachaCratePanel.RewardWindowClosed()`（四句）：`videoPlayer.Stop()` ·
+        /// `videoPlayer.enabled = false` · `videoBackground.SetActive(false)` · `RefreshVisuals()`。
+        /// <para>⚠️ `RefreshVisuals()` **本批不建**（箱体高亮的抖动 = 另一条账：`requiredOpeningsToSpecialItem`
+        /// 的进度与 `DOShakePosition` 循环），见 `报告/B93_E13.md`「没查清 / 顺手发现」。</para></summary>
+        public void RewardWindowClosed()
+        {
+            if (_videoPlayer != null) { _videoPlayer.Stop(); _videoPlayer.enabled = false; }
+            if (_videoBg != null) _videoBg.gameObject.SetActive(false); RefreshVisuals();   // ④ 原版第 4 句
+        }
+
+        // ---------------------------------------------------------------- ④ `CrateAnimationFinished` 状态机
+        /// <summary>= 原版 `GachaCratePanel.CrateAnimationFinished()` 的协程体（`…_d__15__MoveNext.c`）：
+        /// <list type="number">
+        /// <item>**state 0**：`if (videoPlayer.clip != null) yield return new WaitForSeconds(clip.length * 0.85f)`</item>
+        /// <item>**state 1**：`if (!crateOpenned) yield return null`（一直等回包）</item>
+        /// <item>**state 2**：`EventSystemController.Toggle(true)` · `videoPlayer.Stop()` · `videoPlayer.enabled = false`
+        ///      · `videoBackground.SetActive(false)` · `RefreshVisuals()` · `RewardService.Collect(crateRewards, showAnimation:true)`</item>
+        /// </list>
+        /// <para>🔴 **做成可步进的显式状态机**（⛔ 不写成只能用协程推的）：批处理里没有帧循环
+        /// （CLAUDE.md §三），自检可以按 `CrateFlowStep(dt)` 逐步驱动并断言每一档。</para></summary>
+        public void CrateFlowBegin()
+        {
+            CrateFlowState = 0;
+            _crateWait = 0f;
+            _crateWaitTotal = _videoPlayer != null && _videoPlayer.clip != null
+                ? (float)_videoPlayer.clip.length * 0.85f : 0f;      // state 0 那个 `length * 0.85`
+        }
+
+        /// <summary>推进 <see cref="CrateFlowBegin"/> 的状态机。<paramref name="dt"/> = 秒（批处理里由自检给）。
+        /// <returns>`true` = 走到了终点（状态回到 −1）。</returns></summary>
+        public bool CrateFlowStep(float dt)
+        {
+            if (CrateFlowState < 0) return true;
+            if (CrateFlowState == 0)
+            {
+                _crateWait += dt;
+                if (_crateWait < _crateWaitTotal) return false;
+                CrateFlowState = 1;
+            }
+            if (CrateFlowState == 1)
+            {
+                if (!_crateOpened) return false;      // 原版就是在这里一直等（回包没来就不往下走）
+                CrateFlowState = 2;
+            }
+            // state 2：收尾
+            PointerLayer.SetInputEnabled(true);        // `EventSystemController.Toggle(true)`
+            RewardWindowClosed();                      // Stop + enabled=false + 背景关
+            CrateFlowState = -1;
+            if (_crateRewards == null || _crateRewards.Length == 0)
+            {
+                Debug.LogWarning("[Gacha] 开箱结算回来是空表 ⇒ 不弹领奖窗（原版 `RewardService.Collect(rewards, "
+                               + "showAnimation: true, …)`；本地没有服务器回包，这一支今天走不到）");
+                return true;
+            }
+            RewardWindow.ShowCollected(_crateRewards, null);
+            return true;
+        }
+
+        /// <summary>`CrateAnimationFinished` 的协程壳（真跑起来时用它驱动 <see cref="CrateFlowStep"/>）。
+        /// ⚠️ 批处理下没有帧循环 ⇒ 自检走 `CrateFlowStep`，⛔ 不要指望这个协程。</summary>
+        System.Collections.IEnumerator CrateAnimationFinished()
+        {
+            while (CrateFlowState >= 0)
+            {
+                CrateFlowStep(Time.deltaTime);
+                yield return null;
+            }
+        }
+
+        /// <summary>自检读口：`CrateAnimationFinished` 状态机当前档（`-1` = 没跑 / 已结束）。</summary>
+        public int CrateFlowState { get; private set; } = -1;
+        /// <summary>自检读口：第 ⑤ 句的回包有没有到（原版 `crateOpenned`）。**本地恒 false**。</summary>
+        public bool CrateOpened { get { return _crateOpened; } }
+        /// <summary>自检读口：原版 `videoPlayer`（`null` = 没建）。</summary>
+        public VideoPlayer CrateVideoPlayer { get { return _videoPlayer; } }
+        /// <summary>自检读口：prefab 那颗 `Video Player` 节点（`VideoPlayer` 的宿主）。</summary>
+        public Transform CrateVideoNode { get { return _videoNode; } }
+        /// <summary>自检读口：原版 `videoBackground` 那颗节点现在是开的吗。</summary>
+        public bool VideoBackgroundActive { get { return _videoBg != null && _videoBg.gameObject.activeSelf; } }
+
+        // ---- 本段的私有字段（全是 **2026-10-28 B93_E13 新增**）----
+        /// <summary>= 原版 `GachaEventTab` +0x58（`ILiveOps`）—— 我们只留 id。</summary>
+        string _eventTabLiveOpsId;
+        /// <summary>= 原版 `GachaEventTab` +0x60（`as GachaEvent`）。</summary>
+        bool _eventTabHasGachaEvent;
+        /// <summary>= 原版 `GachaEventTab` +0x68（`ActionScheduler` 句柄）。**本仓恒 null**。</summary>
+        object _eventTabHandle;
+        /// <summary>= 原版 `getCardsButton` 的 `UnityEvent`（0/1 个监听者）。</summary>
+        System.Action _getCardsClick;
+        bool _noSchedulerSaid;
+        bool _noClipSaid;
+        bool _crateCueSaid;
+        bool _crateNoServerSaid;
+        /// <summary>= 原版 `GachaCratePanel.videoPlayer`。</summary>
+        VideoPlayer _videoPlayer;
+        Transform _videoNode;
+        /// <summary>= 原版 `GachaCratePanel.crateOpenned`。</summary>
+        bool _crateOpened;
+        /// <summary>= 原版 `GachaCratePanel.crateRewards`（服务器回包；本地恒 null）。</summary>
+        CampaignData.RewardSpec[] _crateRewards;
+        float _crateWait, _crateWaitTotal;
+
+        // ============================================================ 🆕 2026-10-28（执行代理 `B93_S1`）
+        //   `GachaCratePanel.Initialize` / `RefreshVisuals`（+ `RewardWindowClosed` 的第 4 句）。
+        //   判据（第一权威 = 反编译方法体）：`out_cpp2il_dev_ilspy/GachaCratePanel.cs:189-220`（`RefreshVisuals` 全文、
+        //   字段名齐）+ `decomp_full/GachaCratePanel__RefreshVisuals.c`（`+0x58` = `crateHighlight` ·
+        //   `+0x50` = `crate` · `+0x74` = **`requiredOpeningsToSpecialItem`**）。
+        //   🔴 **铁律 5 就地订正**：账里 `商店:99` 原来把 `+0x74` 写成 `maxCrates` —— **错**，
+        //   ILSpy 的字段名是 `requiredOpeningsToSpecialItem`（本行起按真名写）。
+
+        /// <summary>= 原版 `GachaCratePanel.Initialize(GachaEvent gachaEvent)` 的四拍
+        /// （判据 `GachaCratePanel__Initialize.c` / `out_cpp2il_dev_ilspy/GachaCratePanel.cs`）：
+        /// ① `currentGachaEvent = gachaEvent` ② `openCrateButton.Setup(价格, 1)` ③ **`openCrateHighlight.SetActive(openCrateButton.Interactable)`**
+        /// （是 `+0x28` 那颗「Button Higlight border」，**不是** `crateHighlight(+0x58)`）④ `RefreshVisuals()`。
+        /// <para>⚠️ ①②③ 的三个输入（容器 / 价格 / Interactable）**全在远端 LiveOps** ⇒ 由调用方注入；
+        /// `null` = 「原版这一格没有」⇒ 不做那一拍（⛔ 不编数字、⛔ 不默认 true）。</para></summary>
+        public void Initialize(int? price, bool? interactable)
+        {
+            if (price != null && _priceLabel != null) _priceLabel.SetText(price.Value.ToString());   // ② Setup(价格, 1)
+            if (interactable != null && _openCrateHighlightGo != null)                                // ③
+                _openCrateHighlightGo.SetActive(interactable.Value);
+            RefreshVisuals();                                                                         // ④
+        }
+
+        /// <summary>= 原版 `GachaCratePanel.RefreshVisuals()`（判据 `…RefreshVisuals.c` 现读，逐句）：
+        /// <list type="number">
+        /// <item>`container = currentGachaEvent.CurrentContainer`；**null ⇒ 直接 return**（出厂态不动）</item>
+        /// <item>`crates = PlayerDataManager.crateCounters[container.CrateCounterKey]?.CratesSinceLastLegendary ?? 0`</item>
+        /// <item>`show = (crates &gt;= container.requiredOpeningsToSpecialItem) &amp;&amp; !currentGachaEvent.PlayerHasAllSpecialItems()`</item>
+        /// <item>`crateHighlight.SetActive(show)`</item>
+        /// <item>`!show` ⇒ `DOTween.KillAll(crate)` 并 return；`show` ⇒ `crate.DOShakePosition(1, 2, 10, 90)` +
+        ///      `SetLoops(-1, Restart)` + `SetEase(Linear)`（四字面量现读：`1f · 2f · 10 · 90f`）</item>
+        /// </list>
+        /// <para>⚠️ 三个输入都可注入（<see cref="RequiredOpeningsToSpecialItem"/> 为 `null` = 原版第 ① 句的
+        /// `container == null` ⇒ **整段早退**，与今天（没有容器）的行为逐字一致）。
+        /// ⚠️ 批处理里没有帧循环（DOTween 补间跑不完，同 `BoosterPackOpenWindow` 那条口径）⇒ 非播放态
+        /// **只记「该抖」并出声一次**，不建补间（建了也跑不动，且会在对象销毁时留下悬空 tween）。</para></summary>
+        public void RefreshVisuals()
+        {
+            if (RequiredOpeningsToSpecialItem == null) return;                       // ① `container == null` ⇒ return
+            int crates = CratesSinceLastLegendary ?? 0;                              // ② `?? 0`
+            bool show = crates >= RequiredOpeningsToSpecialItem.Value && !PlayerHasAllSpecialItems();  // ③
+            if (_crateHighlightGo != null) _crateHighlightGo.gameObject.SetActive(show);   // ④ `crateHighlight.SetActive`
+            if (!show)                                                              // ⑤ 不 show
+            {
+                if (_crateShake != null) { DG.Tweening.DOTween.Kill(_crate); _crateShake = null; }
+                CrateShaking = false;
+                return;
+            }
+            if (!Application.isPlaying)                                             // 批处理：补间跑不完
+            {
+                CrateShaking = true;
+                if (!_shakeSaid)
+                {
+                    _shakeSaid = true;
+                    Note("`RefreshVisuals` 的箱体抖动（`DOShakePosition(1, 2, 10, 90)` + `SetLoops(-1)`）在**批处理里不建**"
+                       + "（没有帧循环，补间跑不动）⇒ 只记 `CrateShaking = true`。");
+                }
+                return;
+            }
+            if (CrateShaking) return;                                               // 已经在抖 ⇒ 不叠第二条
+            var t = DG.Tweening.ShortcutExtensions.DOShakePosition(_crate, 1f, 2f, 10, 90f);
+            t = DG.Tweening.TweenSettingsExtensions.SetLoops(t, -1, DG.Tweening.LoopType.Restart);
+            _crateShake = DG.Tweening.TweenSettingsExtensions.SetEase(t, DG.Tweening.Ease.Linear);
+            CrateShaking = true;
+        }
+
+        /// <summary>= 原版 `GachaCratePanel.currentGachaEvent.CurrentContainer.requiredOpeningsToSpecialItem`（`+0x74`）。
+        /// **`null` = 容器不在**（原版 `container == null` 那一支）⇒ <see cref="RefreshVisuals"/> 整段早退。</summary>
+        public int? RequiredOpeningsToSpecialItem { get; set; }
+        /// <summary>= 原版 `PlayerDataManager.crateCounters[container.CrateCounterKey]?.CratesSinceLastLegendary ?? 0`。</summary>
+        public int? CratesSinceLastLegendary { get; set; }
+        /// <summary>自检读口：`crateHighlight`（「Highlight Crate」）现在开着吗。</summary>
+        public bool CrateHighlightActive { get { return _crateHighlightGo != null && _crateHighlightGo.gameObject.activeSelf; } }
+        /// <summary>自检读口：`openCrateHighlight`（「Button Higlight border」）现在开着吗。</summary>
+        public bool OpenCrateHighlightActive { get { return _openCrateHighlightGo != null && _openCrateHighlightGo.activeSelf; } }
+        /// <summary>自检读口：原版那条无限抖动「该不该在抖」（批处理里 = 只记状态）。</summary>
+        public bool CrateShaking { get; private set; }
+        /// <summary>自检读口：价格那一格现在的文本（原版 `openCrateButton.Setup(价格)` 灌的）。</summary>
+        public string PriceText { get { return _priceLabel != null ? _priceLabel.Text : null; } }
+
+        /// <summary>= 原版 `GachaCratePanel.crateHighlight`（prefab `Highlight Crate`，出厂 `m_IsActive = 1`）。</summary>
+        ImageQuad _crateHighlightGo;
+        /// <summary>= 原版 `GachaCratePanel.openCrateHighlight`（prefab `Button Higlight border`，出厂 `m_IsActive = 1`）。</summary>
+        GameObject _openCrateHighlightGo;
+        /// <summary>= 原版 `openCrateButton` 的价格那一格（`Setup(价格, 1)` 灌的就是它）。</summary>
+        Label _priceLabel;
+        /// <summary>播放态下的无限抖动句柄（非播放态恒 null）。</summary>
+        DG.Tweening.Tweener _crateShake;
+        bool _shakeSaid;
     }
 }

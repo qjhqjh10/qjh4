@@ -342,11 +342,11 @@ namespace CardPresentation
             if (!HostDrivesItself) SearchOpponentManager.End(this);
         }
 
-        /// <summary>点 `Cancel` / 点背板 —— 原版走 `MatchMakerManager.CancelSearch`（我们本地没有那个管理器）。</summary>
+        /// <summary>点 `Cancel` / 点背板 —— 原版取消钮只转调 `ChallengeManager.CancelSearch`（见本类尾 `CancelSearch`）。</summary>
         public void Cancel()
         {
-            Debug.Log("[Searching] 取消搜索（原版 `CancelSearchButtonOnClick → MatchMakerManager.CancelSearch`）");
-            AbortSearch();
+            CancelSearch();                    // 原版那三句（Log → 找 `SearchOpponentManager` → `CancelBattleSearch` + `duelState`=0）
+            // ⛔ 原版没有这一跳：`OnCancel` 是**我们宿主**的回调口（收窗 / 记账），不是原版 `CancelSearch` 的一部分
             if (OnCancel != null) OnCancel();
         }
 
@@ -698,6 +698,26 @@ namespace CardPresentation
             if (!_waiting && !IsShowing) return;      // 没在等也没在显示 ⇒ 什么都不做（不制造日志噪声）
             Debug.Log("[Searching] 联机层撤了这一局（两端模式不一致）⇒ 收起搜索窗");
             AbortSearch();
+        }
+
+        /// <summary>原版 `ChallengeManager.CancelSearch`（private）的等价物 —— 取消钮那条链**真正做事**的方法。
+        /// 判据 = `decomp_full/ChallengeManager__CancelSearch.c`（全文 4 句，2026-10-28 现读）：
+        /// ① `CustomDebug.Log("Cancel Search")`（字面量由 metadata token 解出 = `0xA00029F7 → idx 5371`）；
+        /// ② `var m = UnityEngine.Object.FindObjectOfType&lt;SearchOpponentManager&gt;();`
+        /// ③ `if (m != null) { m.CancelBattleSearch(); this.duelState(+0x28) = 0; return; }`
+        /// ④ 否则抛 NRE（`FUN_1803f47a0`）。
+        /// 我们：管理器是静态单例（`SearchOpponentManager.Instance`，不走 `FindObjectOfType` 的场景查找）；
+        /// `CancelBattleSearch` 的等价物 = `AbortSearch()`（其中 `Hide()` 内含 `SearchOpponentManager.End` = 原版的
+        /// `StopCoroutine`）；原版 `duelState = 0` 那一格（`ChallengeManager` 的 `PracticeState`）= 本窗的 `_waiting`
+        /// （「还在等」）⇒ 由 `AbortSearch` 归零。
+        /// ⚠️ 两处偏离都出声、⛔ 不静默：① 管理器不在时原版抛 NRE，我们 `LogWarning` 后继续收尾；
+        /// ② 本仓没有 `ChallengeManager` 那个类，`duelState` 取语义等价的 `_waiting`。</summary>
+        public void CancelSearch()
+        {
+            Debug.Log("[Searching] Cancel Search");      // 原版 `CustomDebug.Log("Cancel Search")`
+            if (SearchOpponentManager.Instance == null)
+                Debug.LogWarning("[Searching] 取消搜索时没有 `SearchOpponentManager`（原版此处抛 NRE）—— 仍按本地状态收尾");
+            AbortSearch();                               // = `m.CancelBattleSearch()`（StopCoroutine）+ `duelState = 0`
         }
     }
 }

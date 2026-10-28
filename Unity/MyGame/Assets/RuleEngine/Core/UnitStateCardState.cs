@@ -199,4 +199,27 @@ namespace RuleEngine
         /// <summary>`this` 算不算「在场上或待死」（= 原版 `IsInPlayOrDying()`）。</summary>
         public bool IsInPlayOrDyingState(BattleContext ctx) { return IsInPlayOrDyingStateOf(CardStateOf(ctx)); }
     }
+
+    // ==================================================================================================
+    //  🧪 仅测试可见的同步探针（2026-10-28 · `B93_E17`）
+    // ==================================================================================================
+    //  🔴 **为什么必须有这个口**：`cardState = 15/3/17` 四个写点的窗口**都是同步的**
+    //  （`RuleCore.CleanupDeaths` 变残骸支 / `EffectResolver.DoReanimate` 残骸退路 /
+    //    `RuleCore.DeclareAttackCore` 攻击 / `RuleCore.UseAbilityCore` 主动技），
+    //  而窗口外的 `BroadcastWhen` 监听器是**入队**的（出队时窗口早已关闭）
+    //  ⇒ 自检**没有别的地方**能读到「窗口内那一刻的枚举值」。
+    //
+    //  ⚠️ **生产路径恒 `null`**（全仓只有 `RuleEngine/Editor/RuleEngineTest_W12.cs` 会赋值），
+    //  调用点一律写成 `if (ctx.CardStateProbe != null) ctx.CardStateProbe(u);` ⇒ 零行为影响；
+    //  ⛔ **探针里绝不许 `ctx.Log`**（那会动 `ctx.Events.Count` ⇒ 动 `NetProtocol.Fingerprint`）。
+    //  测试用完必须在 `try/finally` 里置回 `null`（否则后续用例会被上一次的回调串到）。
+    //
+    //  📌 `BattleContext` 是 `partial`（`Core/BattleContext.cs` 有四处分部声明），本文件加一份分部
+    //  就在白名单内 —— ⛔ 别为了这个口去动 `BattleContext.cs`／`ActionPump.cs`。
+    // ==================================================================================================
+    public partial class BattleContext
+    {
+        /// <summary>🧪 **仅测试可见**：`CardStateOf` 的同步探针（见上面那段说明）。生产恒 `null`。</summary>
+        public System.Action<UnitState> CardStateProbe;
+    }
 }

@@ -333,5 +333,249 @@ public static partial class RuleEngineTest
         CheckTrue(RuleCodes.Describe(RuleCodes.ErrAttackGiantKiller) != null
                && RuleCodes.Describe(RuleCodes.ErrAttackGiantKiller).IndexOf("未知", StringComparison.Ordinal) < 0,
                   "★ 诊断面有中文名（漏 `Names` 那行 ⇒ `Describe` 吐「未知错误码 28」，本行红）");
+
+        // 🆕 2026-10-28（`B93_F5`）：五组「小文件」判据钉（账 `战斗逻辑驱动` 291 / 392 / 411 / 1064 / 1366）。
+        //   ⚠️ 名字**不叫** `Test*`/`Report*`：那样会进 `RunCoverageCompiledCases()` 的清单 ⇒ 必须在
+        //      `RuleEngineTest.cs` 的 `Run()` 里补 `Step(...)` 并重生成 `Diag` 产物（两处都不属本代理）。
+        //      ⇒ 沿用本文件头的既有做法：由**已有用例**（本条 = `TestFlyingMeleeBlocked` → `N1GiantKiller`）显式调起，
+        //      所以它**真的会被跑到**，不是死代码。
+        F5Checks();
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-28（`B93_F5`）：五组判据钉
+    //    ① `VarsDevice` 九项真值（账 291）② `Loc.Warcry*`（账 392）
+    //    ③ `IsClosedDeckGame` 谓词（账 411）④ bot 预组池（账 1064）⑤ 胜利计数（账 1366）
+    // ==================================================================
+
+    /// <summary>账 `战斗逻辑驱动:291`（原版 `BattleManager.DeviceVariables()` → `VarsDevice`）。
+    /// 值全部来自 `VarsDesktop.json` / `VarsMobile.json`（解包资源），**不是我们挑的**。
+    /// 🧨 把任意一项改回「我们顺手取的值」⇒ 对应那行红。</summary>
+    static void F5VarsDevice()
+    {
+        var d = CardPresentation.VarsDevice.Desktop;
+        var m = CardPresentation.VarsDevice.Mobile;
+
+        // ---- 前提（硬检查）：两份实例都建起来了，且不是同一个对象 ----
+        CheckTrue(!ReferenceEquals(d, m), "前提：`VarsDevice.Desktop` / `Mobile` 是两份**独立**实例");
+        CheckTrue(d.extraSpaceOnSelectedCard != null && m.extraSpaceOnSelectedCard != null,
+                  "前提：两份 `extraSpaceOnSelectedCard` 曲线都建出来了（⛔ 别静默跳过下面那组曲线断言）");
+
+        // ---- 桌面档九项（`VarsDesktop.json` 现读）----
+        Check(d.cardInHandShownScale, 1.3f, "★ VarsDesktop.cardInHandShownScale = **1.3**"
+            + "｜🧨 写成 1.0 / 1.5 ⇒ 本行红（`Hand/HandLayout.cs:267` 那个 1.3 是同一个值）");
+        Check(d.cardInHandShownYOffset, 30f, "★ VarsDesktop.cardInHandShownYOffset = **30**（UI px）"
+            + "｜🧨 拿 20（= Min 那一档）顶 ⇒ 本行红");
+        Check(d.CardInHandYOffsetMin, 20f, "★ VarsDesktop.cardInHandShownYOffsetMin = **20**（UI px，只有大屏档取它）"
+            + "｜🧨 与上一行对调 ⇒ 大屏手牌会往上跳 10px，本行红");
+        Check(d.warlordStartSizeFactor, 1.3f, "★ VarsDesktop.warlordStartSizeFactor = **1.3**"
+            + "｜🧨 这条是**整条没做**的那一项（全仓 0 消费者，见 `VarsDevice.cs` 头注）—— 值先钉死，接线在战斗侧");
+        Check(d.tutorialTipHorizontalOffset, 20f, "★ VarsDesktop.tutorialTipHorizontalOffset = **20**（UI px）");
+        Check(d.tutorialTipHorizontalOffsetForElements, 18f,
+              "★ VarsDesktop.tutorialTipHorizontalOffsetForElements = **18**（UI px）");
+        Check(d.moveCardYOffset, 0.2f, "★ VarsDesktop.moveCardYOffset = **0.2**（**世界单位**；同一份 SO 混量纲，照抄）");
+        Check(d.targetYOffset, 0f, "★ VarsDesktop.targetYOffset = **0.0**"
+            + "｜🧨 抄签名桩里那个 0.7 的类内默认值 ⇒ 凭空多出 0.7 的偏移，本行红");
+
+        // ---- 移动档五项（`VarsMobile.json` 现读；可读四源零消费者，只防值被改 ----
+        Check(m.cardInHandShownScale, 1.7f, "★ VarsMobile.cardInHandShownScale = **1.7**");
+        Check(m.CardInHandYOffsetMin, 12f, "★ VarsMobile.cardInHandShownYOffsetMin = **12**");
+        Check(m.warlordStartSizeFactor, 1.5f, "★ VarsMobile.warlordStartSizeFactor = **1.5**");
+        Check(m.moveCardYOffset, 0.7f, "★ VarsMobile.moveCardYOffset = **0.7**");
+        Check(m.targetYOffset, 0.2f, "★ VarsMobile.targetYOffset = **0.2**");
+
+        // ---- `extraSpaceOnSelectedCard` 曲线形状（桌面 = 平曲线 2.0；移动 = (0,2)→(1,5)）----
+        Check(d.extraSpaceOnSelectedCard.Evaluate(0f), 2f, "★ 桌面曲线 x=0 ⇒ **2.0**");
+        Check(d.extraSpaceOnSelectedCard.Evaluate(0.5f), 2f,
+              "★ 桌面曲线 x=0.5 ⇒ **2.0**（**平**曲线：两键同值 + 四个 slope 全 0）"
+            + "｜🧨 抄成移动那套斜率 ⇒ 中点会变成 3.5，本行红");
+        Check(d.extraSpaceOnSelectedCard.Evaluate(1f), 2f, "★ 桌面曲线 x=1 ⇒ **2.0**");
+        Check(m.extraSpaceOnSelectedCard.Evaluate(0f), 2f, "★ 移动曲线 x=0 ⇒ **2.0**");
+        Check(m.extraSpaceOnSelectedCard.Evaluate(1f), 5f, "★ 移动曲线 x=1 ⇒ **5.0**");
+
+        // ---- `GetCardInHandYOffsetTouchInput()`：≤7.0 英寸 ⇒ YOffset；> 7.0 ⇒ YOffsetMin ----
+        //  判据 = `decomp_full/VarsDevice__GetCardInHandYOffsetTouchInput.c`（阈值 = `0x1834b338c` 的 4B float = 7.0）
+        float physical = CardPresentation.ScreenUtilities.GetScreenPhysicalSize();
+        float expect = physical <= 7.0f ? d.cardInHandShownYOffset : d.CardInHandYOffsetMin;
+        Check(d.GetCardInHandYOffsetTouchInput(), expect,
+              "★ 桌面 `GetCardInHandYOffsetTouchInput()` = 按 **7.0 英寸**分档取 30 / 20"
+            + "（本机物理对角线 " + physical.ToString("F2") + " 英寸）"
+            + "｜🧨 照签名桩里那句 `return 0f` 实现 ⇒ 本行红");
+        //  灭自证：两档值必须**不同**，否则「分档」这件事根本验不出来
+        CheckTrue(d.cardInHandShownYOffset != d.CardInHandYOffsetMin,
+                  "★ 灭自证：两档取值不同（30 ≠ 20）⇒ 上面那条真有鉴别力");
+        //  唯一实现：屏幕尺寸必须走 `ScreenUtilities`（⛔ 别在 VarsDevice 里再写一遍 sqrt）
+        Check(CardPresentation.ScreenUtilities.GetScreenPhysicalSize() > 0f, true,
+              "前提：`ScreenUtilities.GetScreenPhysicalSize()` 是活的（恒 > 0 英寸）");
+    }
+
+    /// <summary>账 `战斗逻辑驱动:392`（原版 `BattleManager.GetWarcry(bool isPlayer)`）。
+    /// <para>🔴 **本 build 的真相**：官方 13 语言表里 `Chat_Messages/warcry*` **0 条**
+    /// ⇒ 原版两条分支都只能印缺键串。这条断言**同时钉住「键拼法」与「表里确实没有这一族」** ——
+    /// 后者是判据（⛔ 不是缺陷），谁哪天「顺手补上文案」会先把这一条弄红。</para></summary>
+    static void F5Warcry()
+    {
+        // ---- 键拼法（逐字照 `cpp2il RawCardScript/BattleManager.GetWarcry`）----
+        Check(CardPresentation.Loc.WarcryKey(null), "Chat_Messages/warcry-default",
+              "★ `WarcryKey(null)` ⇒ 兜底键 `Chat_Messages/warcry-default`（原版 `GetCosmeticItem` 回 null 那一支）");
+        Check(CardPresentation.Loc.WarcryKey(""), "Chat_Messages/warcry-default",
+              "★ `WarcryKey(\"\")` ⇒ 同上（空串与 null 同档）");
+        Check(CardPresentation.Loc.WarcryKey("cw_warcry_1"), "Chat_Messages/warcry-cw_warcry_1",
+              "★ `WarcryKey(id)` ⇒ `Chat_Messages/warcry-` + **装饰的 uniqueId**（⛔ 不是卡 id、不是卡名）");
+
+        // ---- 数据现读：这一族键**不在**表里（原版因此印键名）----
+        int warcryKeys = CardPresentation.Loc.Lang13Keys("Chat_Messages/warcry").Length;
+        Check(warcryKeys, 0,
+              "★ 官方 13 语言表里 `Chat_Messages/warcry*` = **0 条**（原版本 build 两条支都印缺键串 ⇒ 照抄即正确）"
+            + "｜🧨 有人把战吼文案补进 `official_loc_13lang.json` ⇒ 本行红（那时要重写这一整段判据，⛔ 别只删断言）");
+        //  前提：表本身是加载过的（0 条不是因为没加载）—— 同一前缀族 `Chat_Messages/` 有 1,736 条
+        CheckTrue(CardPresentation.Loc.Lang13Keys("Chat_Messages/").Length > 100,
+                  "前提：`Chat_Messages/*` 这一族在表里是**有货**的（⇒ 上面那个 0 不是「表没加载」）");
+
+        // ---- `PlayerDeck.WarcryId`：字段 + `Clone` 拷贝点（原版 `CardDeck.warcryId` +0x30）----
+        var deck = new PlayerDeck("F5", "W", "D", null);
+        deck.WarcryId = "cw_warcry_probe";
+        Check(deck.Clone().WarcryId, "cw_warcry_probe",
+              "★ `PlayerDeck.Clone()` 拷 `WarcryId`（原版 `CardDeck.clone` 逐字段拷；漏拷 = 静默丢装饰）"
+            + "｜🧨 删掉 `Clone` 里那一句 ⇒ 本行红");
+    }
+
+    /// <summary>账 `战斗逻辑驱动:411`（原版 `BattleManager.IsClosedDeckGame(MatchType)`，
+    /// 判据 = `decomp_full/BattleManager__IsClosedDeckGame.c:1-10` 全文）。
+    /// 🧨 把谓词写成「`== ClosedDeck`」少一半、或顺手并进 `UsesDefencePool` 那 4 档 ⇒ 下面各有行红。</summary>
+    static void F5ClosedDeck()
+    {
+        Check((int)MatchType.ClosedDeck, 0x6e, "★ `MatchType.ClosedDeck` = **110 (0x6e)**（与原版 `.c` 的常量逐值）");
+        Check((int)MatchType.ClosedDeckBot, 0x78, "★ `MatchType.ClosedDeckBot` = **120 (0x78)**");
+
+        CheckTrue(MatchType.ClosedDeck.IsClosedDeckGame(), "★ 110 ⇒ 真");
+        CheckTrue(MatchType.ClosedDeckBot.IsClosedDeckGame(), "★ 120 ⇒ 真"
+            + "｜🧨 只写 110 那一支 ⇒ 本行红（`ClosedDeckBot` 是翻转后的值，真打的那局就是它）");
+
+        // 负例（逐个都必须是假）—— 尤其 50/80：它们与 110/120 同在 `UsesDefencePool` 那 4 档里
+        var notClosed = new[] { MatchType.Undefined, MatchType.Ranked, MatchType.RankedBot,
+                                MatchType.PracticeOffline, MatchType.EventAI, MatchType.Tutorial,
+                                MatchType.Campaign, MatchType.TutorialReplay, MatchType.Duel,
+                                MatchType.Replay, MatchType.Unranked, MatchType.UnrankedBot,
+                                MatchType.FastMode, MatchType.FastModeBot };
+        int bad = 0;
+        foreach (var t in notClosed) if (t.IsClosedDeckGame()) bad++;
+        Check(bad, 0, "★ 其余 " + notClosed.Length + " 档**一律为假**"
+            + "｜🧨 把谓词写成 `MatchTypes.UsesDefencePool`（多 50/80）⇒ 本行数字 > 0");
+
+        // 灭自证：证明本谓词**不是**那两个既有谓词的复制（否则「多这一份」毫无意义）
+        CheckTrue(MatchType.PracticeOffline.IsClosedDeckGame() == false
+               && MatchTypes.UsesDefencePool(MatchType.PracticeOffline),
+                  "★ 灭自证：`50 PracticeOffline` 过 `UsesDefencePool` 但**不过** `IsClosedDeckGame`"
+                + "｜🧨 把两者写成同一份实现 ⇒ 本行红");
+        CheckTrue(MatchTypes.IsAgainstAI(MatchType.ClosedDeckBot) == true
+               && MatchTypes.IsAgainstAI(MatchType.ClosedDeck) == false,
+                  "★ 灭自证：`IsAgainstAI` 只收 120、不收 110 ⇒ 它不是本谓词（⛔ 别拿它顶）");
+    }
+
+    /// <summary>账 `战斗逻辑驱动:1064`（原版 `MatchData.GetBotDeck(MatchType)`）——
+    /// 原版按 matchType 从**远端** `AIBotsConfig` 的名单挑一副；本地没有那份名单 ⇒
+    /// 等价物 = `PrebuiltDecks`（本地池 + 模式筛，名单传 null = 「没有名单、全部可选」）。
+    /// <para>这条钉的是**等价物的可用性与形状**（名单位于远端这件事本身在账里记 B，不在本断言内）。</para></summary>
+    static void F5BotDeck()
+    {
+        // ---- 前提（硬检查：池子真的加载了，⛔ 别让下面的断言在空池上「空转绿」）----
+        CheckTrue(CardPresentation.PrebuiltDecks.Available,
+                  "前提：`prebuilt_decks.json` 加载成功（否则下面全是空池空转）");
+        int decks = CardPresentation.PrebuiltDecks.Decks.Count;
+        CheckTrue(decks > 0, "前提：非教程副 > 0（现读 224 副；本机 " + decks + "）");
+
+        // ---- `BotDecks` = 原版 `PrebuiltDeckCollection.BotDecks`（`Type == Bot` 的那批）----
+        var bot = CardPresentation.PrebuiltDecks.BotDecks;
+        CheckTrue(bot.Count > 0, "★ bot 预组池非空（现读 196 副；本机 " + bot.Count + "）");
+        int notBot = 0;
+        foreach (var d in bot)
+        {
+            var meta = CardPresentation.PrebuiltDecks.MetaOf(d);
+            if (meta == null || meta.type != CardPresentation.PrebuiltDecks.DeckTypeBot) notBot++;
+        }
+        Check(notBot, 0, "★ `BotDecks` 里每副的 `meta.type` 都是 `DeckTypeBot(0)`"
+            + "｜🧨 把它写成 `Decks` 的别名 ⇒ 混进 28 副 `Default`，本行数字 > 0");
+
+        // ---- 按模式取（`GetRandomDeck` 的 ⑤ 模式闸；原版无此道，见那一行 🔶 自设计注释）----
+        int classic = CardPresentation.PrebuiltDecks.FilterDecks(null, null, null, 0, null).Count;
+        int skirmish = CardPresentation.PrebuiltDecks.FilterDecks(null, null, null, 13, null).Count;
+        CheckTrue(classic > 0 && skirmish > 0,
+                  "前提：经典(0) 与遭遇(13) 两档各自都有可选副（现读 " + classic + " / " + skirmish + "）");
+        CheckTrue(classic + skirmish <= decks,
+                  "前提：两档之和不超过总池（模式闸真的是筛、不是复制）");
+
+        var picked = CardPresentation.PrebuiltDecks.GetRandomDeck(new System.Random(20261028), playMode: 0, faction: null);
+        CheckTrue(picked != null, "★ 给定 seed 能抽到一副（经典档）"
+            + "｜🧨 模式闸写反（只收 13）⇒ 抽不到，本行红");
+        Check(picked == null ? -1 : picked.gameMode, 0,
+              "★ 抽到的那副 `gameMode` = **0**（= 原版 `GetRandomDeck` 之后 `playMode` 必须与请求一致）");
+
+        // ---- 同 seed 同结果（`System.Random` 契约；原版 `UnityEngine.Random` 不可复现）----
+        var a = CardPresentation.PrebuiltDecks.GetRandomDeck(new System.Random(424242), playMode: 0, faction: null);
+        var bb = CardPresentation.PrebuiltDecks.GetRandomDeck(new System.Random(424242), playMode: 0, faction: null);
+        CheckTrue(a != null && bb != null && a.deckId == bb.deckId,
+                  "★ 同 seed ⇒ 同一副（`deckId` 相等）"
+                + "｜🧨 换成 `UnityEngine.Random` 或每帧重排池子 ⇒ 本行红");
+    }
+
+    /// <summary>账 `战斗逻辑驱动:1366`（原版 `WarlordMasteryContainer.OnInitialize(PlayerInfo context)` 的**数据侧两件**：
+    /// `VictoryCounter` DTO 与 key 44 的读写口）。
+    /// <para>DTO 与 `VictoryCountersStore` **已在盘上**（`CardPresentation/Shell/VictoryCountersStore.cs`）⇒ 这条钉住三件事：
+    /// ① `HighestCardId` = `victoriesById` 里计数最大的 key（判据 `VictoryCounter__get_HighestCardId.c`）；
+    /// ② key 就是原版枚举**第 44 项**；③ `GetVictoryCounters` 按**原卡 id** 归并（异画折回本体）。</para>
+    /// <para>⚠️ **不碰盘**：只跑纯函数（`GetVictoryCounters` / 属性），⛔ 不调 `Save`/`Load`（那是真存档）。</para></summary>
+    static void F5VictoryCounters()
+    {
+        // ---- ① `HighestCardId`（空表 ⇒ null；否则取最大）----
+        var empty = new CardPresentation.VictoryCounter();
+        CheckTrue(empty.HighestCardId == null, "★ 空 `victoriesById` ⇒ `HighestCardId` = **null**（⛔ 不是空串）");
+
+        var vc = new CardPresentation.VictoryCounter();
+        vc.victoriesById["SW1"] = 1;
+        vc.victoriesById["UM47"] = 3;
+        vc.victoriesById["DA1"] = 2;
+        Check(vc.HighestCardId, "UM47",
+              "★ `HighestCardId` = 计数最大的那个 **key**（3 > 2 > 1 ⇒ `UM47`）"
+            + "｜🧨 写成「取最后一项」/「取 value」⇒ 本行红");
+
+        // ---- ② key 44（原版 `PlayerDataKey.VictoryCounters` 第 44 项）----
+        // 🔴 2026-10-28（`B93_FX2` · `B93_DG1` ③ 定性 = α 断言错）：`Array.IndexOf` 是 **0 基**，而原版
+        //   `PlayerDataKey` 是 **1 基**（`undefined = 0` 是哨兵，`ProfileVersion = 1` … `VictoryCounters = 44`；
+        //   判据 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlayerDataKey.cs:4-56`）⇒ 实得 43 **就是**第 44 项。
+        //   ⛔ 别去动 `SaveKeys.All` 的顺序 —— 它是对的（`All[i]` ↔ 枚举值 `i+1`）。
+        int vcIdx = System.Array.IndexOf(CardPresentation.SaveKeys.All, CardPresentation.SaveKeys.VictoryCounters);
+        CheckTrue(vcIdx >= 0, "前提②：`VictoryCounters` 在 `All` 里找得到（`IndexOf` 不是 −1）");
+        Check(vcIdx + 1, 44,
+              "★ `SaveKeys.VictoryCounters` 的**原版枚举号** = 第 44 项（`Array.IndexOf` 0 基 ⇒ 索引 43，**+1** 才等于 44）"
+            + "｜🧨 有人插了新 key 改了序号 ⇒ 本行红（那时要同步原版 `PlayerDataKey` 表，⛔ 别只改数字）");
+
+        // ---- ③ `GetVictoryCounters`：按**原卡 id** 归并（异画 `#HB_<id>` 折回本体）----
+        var raw = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>
+        {
+            new System.Collections.Generic.KeyValuePair<string, int>("SW1", 2),
+            new System.Collections.Generic.KeyValuePair<string, int>("#HB_SW1", 1),
+            new System.Collections.Generic.KeyValuePair<string, int>("UM47", 1),
+        };
+        var map = CardPresentation.VictoryCountersStore.GetVictoryCounters(raw);
+        Check(map.Count, 2, "★ 三条原始记录 ⇒ **2** 个原卡 id（异画与本体合成一条）"
+            + "｜🧨 不折原卡 id（直接按 rawId 分组）⇒ 3，本行红");
+        CardPresentation.VictoryCounter sw;
+        CheckTrue(map.TryGetValue("SW1", out sw) && sw != null,
+                  "★ 归并后的键是**原卡 id** `SW1`（⛔ 不是 `#HB_SW1`）");
+        Check(sw == null ? -1 : sw.totalVictories, 3,
+              "★ `totalVictories` = 2 + 1 = **3**（原版 `+= count`）");
+        CheckTrue(sw != null && sw.victoriesById.Count == 2 && sw.victoriesById.ContainsKey("#HB_SW1"),
+                  "★ `victoriesById` 保留**原始 id** 两条（本体 + 异画各一条）—— 原版 `victoriesById[rawId] = count`");
+    }
+
+    /// <summary>五组判据钉的入口（由 `N1GiantKiller` 末尾显式调用 ⇒ 一定会跑到）。</summary>
+    static void F5Checks()
+    {
+        F5VarsDevice();
+        F5Warcry();
+        F5ClosedDeck();
+        F5BotDeck();
+        F5VictoryCounters();
     }
 }

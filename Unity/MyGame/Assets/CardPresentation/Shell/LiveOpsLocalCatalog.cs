@@ -1179,4 +1179,33 @@ namespace CardPresentation
             return asset;
         }
     }
+
+    // ============================================================ 🆕 2026-10-28（B93_E12 · 账 row 162）
+    //   ⚠️ 追加在**文件尾**：本文件有多条账按 `文件:行号` 钉着（688 / 691 等），往中间插一行就会漂移。
+    /// <summary>原版 `EventDataAssetProvider`（`EventDataAssetProvider : AssetProvider&lt;LiveOpsEventData&gt;`）的唯一成员
+    /// `GetAssets()`（`decomp_full/EventDataAssetProvider__GetAssets.c`，**核心一句**）：
+    /// <code>
+    /// return LiveOpsManager.GetAllEvents().Select(ev =&gt; ev.GetBaseData());
+    /// </code>
+    /// 🔴 **判据**：`.c` 第一跳是 `LiveOpsManager__GetAllEvents(0,0)`，第二次是 `Enumerable.Select`（`FUN_180c9ae10`），
+    /// 选择器闭包 `EventDataAssetProvider.__c___GetAssets_b__0_0.c` 的体**只有一句** `FUN_1800021f0(0xf, …)`
+    /// = `ILiveOps` 槽 **15** = `GetBaseData()`（`dump.cs:126037`）。
+    /// <para>⚠️ 原来账上把「返回 13 份 SO 的离线表（`LiveOpsLocalCatalog.Events`）」当作等价实现 —— 那是**资产目录**，
+    /// 不是「当前活事件的 data 集合」（原版走 `GetAllEvents()`，含运行时状态与 blocked 口径）。这里补的是**真身那条链**；
+    /// 两者都保留：`LiveOpsLocalCatalog.Events` 是数据源，本方法是原版那个 provider 的入口。</para></summary>
+    public static class EventDataAssetProvider
+    {
+        /// <summary>原版 `GetAssets()`：所有 handler 名下事件的数据（= `GetAllEvents().Select(e =&gt; e.GetBaseData())`）。</summary>
+        public static List<LiveOpsEventData> GetAssets()
+        {
+            var outp = new List<LiveOpsEventData>();
+            foreach (var e in LiveOpsManager.GetAllEvents())
+            {
+                if (e == null) continue;
+                var d = e.GetBaseData();
+                if (d != null) outp.Add(d);
+            }
+            return outp;
+        }
+    }
 }

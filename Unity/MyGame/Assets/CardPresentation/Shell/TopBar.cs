@@ -402,20 +402,20 @@ namespace CardPresentation
         static void OpenSettings() { MainMenuRuntime.OpenSettings(); }
 
         /// <summary>「挑战」钮（`40K_icon_duel`）—— 🔴 **原版这一颗不开任何窗**，它是一颗**收挑战**的钮：
-        /// `ChallengeButton.Initialize()` 按 `challengeManager.challenges.Count > 0` 决定显不显；
+        /// `ChallengeButton.Initialize()` 按 `chatGlobalManager.PendingPracticeMatches.Count > 0` 决定显不显（⛔ 不是 `challengeManager.challenges`）；
         /// 点下去 = `ShowPopUp(String.Format(词条 `Demo/FriendsMenu/ReceiveChallenge`, 挑战名, 模式词条),
         /// OK=`Demo/MainMenu/OK` / Cancel=`Demo/MainMenu/CancelButton`)`，然后**把自己 `SetActive(false)`**
         /// （`d:/2/tools/decomp_full/ChallengeButton__Initialize.c` · `__OnButtonClick.c`，三个词条串按
         /// RVA 解出 = `0x4277070` / `0x4277658` / `0x4277360`）。
-        /// ⚠️ 挑战**来自服务端**（PlayFab），本地没有挑战源 ⇒ 这里**没有可做的事**。
-        /// 🔴 所以这一声必须**出声**（本工程红线：点了没反应又不吭声 = 静默失败）—— 这就是那一声。</summary>
+        /// 本侧：队列 `ChallengeData.PendingPracticeMatches` **有数据模型**（只是还没有生产者）⇒ 点下去**会弹**确认框。
+        /// （留痕：本行原写「挑战来自服务端 ⇒ 本地没有挑战源、无可做的事」—— 2026-10-28 `B93_N4` 按 `.c` 订正。）</summary>
         static void ChallengeClicked()
         {
-            Debug.Log("[TopBar] 「挑战」钮（`Challenge button` / `40K_icon_duel`）：原版这一颗**不开窗** —— 它是"
-                      + "`ChallengeButton`，由 `challengeManager.challenges.Count > 0` 决定显不显，点下去弹一个"
-                      + "「`Demo/FriendsMenu/ReceiveChallenge`」确认框（OK / Cancel）然后把自己隐藏。"
-                      + "挑战来自服务端（PlayFab）⇒ **本地没有挑战源，这一下没有可做的事**"
-                      + "（判据 → `decomp_full/ChallengeButton__Initialize.c` / `__OnButtonClick.c`）。");
+            // = 原版 `ChallengeButton.OnButtonClick()`（`decomp_full/ChallengeButton__OnButtonClick.c`，110 行逐句）：
+            //   `PendingPracticeMatches.Count > 0` ⇒ 用「`Demo/FriendsMenu/ReceiveChallenge` + 模式词条」弹确认框（**左 = 撤回 / 右 = 接受**）
+            //   → **最后把自己 `SetActive(false)`**。本地那一半 = `ChallengeManager.OnChallengeButtonClick`（待处理队列
+            //   = `ChallengeData.PendingPracticeMatches`；生产者为 P2P 邀约/测试 —— 队列空 ⇒ 只隐藏自己，与原版同支）。
+            ChallengeManager.OnChallengeButtonClick(_challengeRoot);
         }
 
         // ============================================================ 玩家档案（左上那块）

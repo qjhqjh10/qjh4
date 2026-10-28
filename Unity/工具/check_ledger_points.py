@@ -13,7 +13,8 @@
    · 那一行**既不像声明也不是非空数据行**（注释行 / 空行 / 语句行 / 只有 `{` `}` 的行）；
    · 括号里的名字**能确定**（见下节），但文件里根本没有这份声明；
    · 括号里的名字**和那一行声明的名字明显对不上**
-     （例：`…:764（Refresh 方法）`，而 764 行声明的是 `SelectArmy` ⇒ 失败）。
+     （例：`…:764（Refresh 方法）`，而 764 行声明的是 `SelectArmy` ⇒ 失败）；
+   · 🆕 **落点列里第二处及以后的 `文件:行`** 也按上面几条判（见下面「三个盲点」①）。
 2) **漂移**（**不算失败**，退出码不变）—— 名字找得到、但行号是旧快照：
    · 唯一命中且 ≠ 账里的行号 ⇒ 漂移；`--fix` 可改，
      ⛔ **目标行是 getter / `*ForTest` 时不自动改**（历史事故：`--fix` 把漂移改到一个属性上）；
@@ -32,6 +33,13 @@
      ⛔ **不计失败**。理由：为了过闸去加一个无行为的转发方法 = 「为工具写代码」，比一条告警更糟。
      防滥用两道（见 `member_decl_kind`）：① 必须以访问修饰符开头（局部变量语句没有 ⇒ 仍失败）；
      ② `decl_name_at` 必须解析得到名字（拿不准 ⇒ 不判，⛔ 不猜）。注释/空行/纯括号/语句中间仍失败。
+     🆕 2026-10-28（B93_E4）：①**放宽到隐式 private**（没有修饰符 = C# 默认 private），
+     但只认「文本上不可能是局部语句」的形状（类型 / 带 `{` 的属性 / 表达式体属性 /
+     **下一行是 `{`** 的名字行属性）；裸字段 `int X;` 仍不认（与局部变量同形）。
+   · **SECOND**（🆕 2026-10-28 · B93_E4 · 盲点①）：落点列里**第二处及以后的 `文件:行`**
+     （= 证据指针，全库 A 行 551 条这种形状）的候选：文件找不到（多为**原版源码引用**，如
+     `CardDeck.cs:647` / `dump.cs:19631`）/ 短名歧义 / 声称的名字不在那一行 ⇒ 只提示、⛔ 不算失败。
+     其中「**行号越界 / 那一行是空的**」且文件是**直接解析到**的 ⇒ 判**失败**（客观破碎）。
    ⚠️ **「告警」是「通过」之下的子集**：合计里的 **通过数包含告警行**
      （告警只说明「这条通过得可疑」，不改变通过/失败的判法）。
 4) **通过** —— 上面三条都不沾。
@@ -63,6 +71,31 @@
   · **调用行被当成声明**：`public void UiScroll(float dy) { …; RefreshDeckList(); }`
     —— 同一个闸门一并挡掉（同上「`{` 之后」判定），不再需要按名字猜。
 
+2026-10-28（B93_E4）补的三个盲点（判据 = `报告/F2_落点失败收尾.md` §④）
+--------------------------------------------------------------------------
+  · **① 落点列里「第二处及以后」的 `文件:行` 现在也机检**（`check_extra_refs`）。
+    原来 `REF.search(land)` 只取**第一处**，写在括号/散文里的第二、三处
+    （`A.cs:123（X）· B.cs:456（Y）· :789（Z）`，全库 A 行 **551 条**是这种形状）
+    **从来没被机检过** ⇒ 那里写成注释行 / 指向不存在的文件或行号，闸照样绿（**空转绿灯**）。
+    现在每一处都过「文件在 / 行号不越界 / 那行像声明 / 括号里写的名字与那行声明一致」四关；
+    ⛔ **次要落点不产生 `--fix` 改写**（`--fix` 的重定位语义一个字没动），
+    「名字不在这一行」按**漂移**报（带 `（次要落点）` 前缀），人读。
+    ⚠️ 只取**紧跟该处 `:行` 之后、到下一处 `:行` 之前**的那一段当它的括号
+    （否则会把别人的括号算到自己头上）。
+  · **② 带基类列表的 `class X : Y` 现在认得出**（`find_decl_candidates` 的候选正则补了 `:`）。
+    原来名字后面跟的是 `:`、模式只认 `( < { ; = $` ⇒ `public sealed class Foo : Bar { }`
+    **当不了落点**（会被判「文件里找不到这份声明」）。F2 §④2 点名的就是这条。
+  · **③ 隐式 private / 一行式 getter 不再被判「不像声明」**（`member_decl_kind` 去掉「必须有访问修饰符」的前置闸）。
+    原来 `bool TutorialAllowsCardDisplay`（`{` 在下一行，见 `BattleDriver.cs:17310`）、
+    `int Count => KwValue(3);` 这类**合法成员声明**会被判「既无 `(` 也无 `=>`/`{`」/「`)` 后接的是语句」⇒ **失败**。
+    现在它们按「成员级声明」放行，并只报 **MEMBER / GETTER 告警**（⛔ 仍不算失败）。
+    🔴 **两条故意不认**（防「放宽到随便什么都算声明」）：
+      a) **隐式 private 的裸字段**（`int X;` / `int X = 5;`）—— 它与**方法体里的局部变量文本完全同形**，
+         放宽就等于让局部变量也算声明；实测全库 A 行 **0 条**落在这种行上（2026-10-28）。
+      b) **名字行属性必须「下一行是 `{`」**（真属性体的形状）才认 —— 否则多行调用
+         （`SetThing\n  (a, b);`）会被当成属性。
+    局部语句 / 注释 / 空行 / 纯括号行**仍然失败**（`_STMT_HEAD` + 上面两条闸）。
+
 `--fix` 只改写「唯一命中 + 目标行不是 getter / `*ForTest` / **能解析成声明**」的漂移行号（默认不写）。
 目标行解析不出声明名时，漂移理由里会打 **`NEED-HUMAN`** 并**跳过**（不写），请人读。
 
@@ -75,7 +108,8 @@
 
 `--warn-getters`（2026-10-25 加，**只报、不算失败、退出码不变**）
 ------------------------------------------------------------------
-把五类告警（GETTER / FORTEST / SELFREF / PROSE / MEMBER）的**明细**打出来（默认只在合计行给计数 + 按账分布）。
+把六类告警（SECOND / GETTER / FORTEST / SELFREF / PROSE / MEMBER）的**明细**打出来
+（默认只在合计行给计数 + 按账分布）。
 名字保留是为了兼容旧命令行。
 
 **为什么单开一档**：形态闸原有判据把「一行式成员」当合法声明，于是
@@ -120,15 +154,19 @@ WARN_PROSE = "PROSE"
 #   （纯取值器等价 / 结构等价）⇒ 合法但只报告警、⛔ 不计失败。理由：为了过闸去加一个
 #   无行为的转发方法 = 「为工具写代码」，比一条告警更糟。防滥用两条见 `member_decl_kind`。
 WARN_MEMBER = "MEMBER"
+# 🆕 2026-10-28（B93_E4 · 盲点①）：落点列里**次要落点**（第二处及以后的 `文件:行`）的候选
+#   —— 文件找不到（含原版源码引用）/ 声称的名字不在那一行。⛔ 不算失败（判法见 `check_extra_refs`）。
+WARN_SECOND = "SECOND"
 WARN_TITLE = {
     WARN_GETTER: "落点那一行是属性 getter（原版可能就是属性 ⇒ 人读）",
     WARN_FORTEST: "落点是 `*ForTest` 自检 / 转发口（不是实现）",
     WARN_SELFREF: "那一行既声明又调用了同名方法（转发口，不是实现）",
     WARN_PROSE: "括号是散文 ⇒ 名字没法对（只提示、不判失败）",
     WARN_MEMBER: "落点是字段/属性/嵌套类型声明（纯取值器/结构等价 ⇒ 只报、不算失败）",
+    WARN_SECOND: "次要落点（第二处及以后的 `文件:行`）的候选：找不到文件 / 名字不在那一行",
 }
 # 告警打印顺序里 `MEMBER` 排在 `PROSE` 之前（结构性问题，人复核时先看它）。
-_WARN_PRINT_ORDER = (WARN_MEMBER, WARN_PROSE, WARN_GETTER, WARN_FORTEST, WARN_SELFREF)
+_WARN_PRINT_ORDER = (WARN_SECOND, WARN_MEMBER, WARN_PROSE, WARN_GETTER, WARN_FORTEST, WARN_SELFREF)
 _MEMBER_KIND_CN = {"field": "字段", "property": "属性", "type": "嵌套类型"}
 
 _IDENT = re.compile(r"[A-Za-z_]\w*")
@@ -153,6 +191,62 @@ def find_file(rel, roots):
         if os.path.isfile(c):
             return c
     return None
+
+
+# 🆕 2026-10-28（B93_E4）：**文件名兜底索引**（只在「按四个根找不到」时才用，见 `resolve_ref_file`）。
+#   起因：账里次要落点大量写**短名**（`GameStaticData.cs` / `MenuDraw.cs` / `BattleContext.cs` /
+#   `AnimAnchors.cs` / `WindowButton.cs`），它们确实在 `Assets/**` 下、但不在四个根的**根目录**上 ⇒
+#   直接判「文件不存在」是**假失败**（CLAUDE.md 铁律：报「不存在」之前先做模糊匹配）。
+_SRC_INDEX = None
+
+
+def _src_index():
+    """`basename → [全路径…]`（只建一次；**只走 `Assets` 一棵根**）。
+
+    ⚠️ 不能把 `DEFAULT_ROOTS[:2]` 都走一遍：第二个根 `Assets/CardPresentation` 是第一个根的
+       **子树** ⇒ 同一个文件会被收两次 ⇒ 每个短名都变成「歧义」（2026-10-28 实测 26 条假失败）。
+    """
+    global _SRC_INDEX
+    if _SRC_INDEX is None:
+        idx = {}
+        root = DEFAULT_ROOTS[0]
+        if os.path.isdir(root):
+            for dirpath, _dirnames, filenames in os.walk(root):
+                for fn in filenames:
+                    if fn.endswith((".cs", ".json", ".tsv", ".asset")):
+                        p = os.path.join(dirpath, fn)
+                        idx.setdefault(fn, {})[os.path.normcase(p)] = p.replace("\\", "/")
+        _SRC_INDEX = {k: list(v.values()) for k, v in idx.items()}
+    return _SRC_INDEX
+
+
+def resolve_ref_file(rel, roots):
+    """`(全路径 or None, 失败时用的说明, 是不是【直接】找的)`。
+
+    先按四个根直接找（与第一处落点**完全同一套**，`exact=True`）；找不到才用**同名文件**兜底，
+    且**只有恰好唯一一个**才算找到（`exact=False` —— 兜底是猜测，调用方要把「越界 / 空行」
+    降级成告警：账里这个位置**经常是原版源码引用**，`GameStaticData.cs:2444` 指的是原版那个
+    2444 行，而我们的同名文件只有 227 行 ⇒ 拿它判「越界」是假红）。多个同名 ⇒ 如实报歧义，⛔ 不猜。
+    """
+    full = find_file(rel, roots)
+    if full is not None:
+        return full, "", True
+    # ⚠️ **小写比较**：本机文件系统不区分大小写（CLAUDE.md 记过这个坑），
+    #    账里写 `Core/EffectResolver.cs`、真身是 `RuleEngine/Core/EffectResolver.cs`。
+    want = ("/" + rel.replace("\\", "/").lstrip("/")).lower()
+    hit = [c for c in _src_index().get(os.path.basename(rel.replace("\\", "/")), [])
+           if c.lower().endswith(want)]
+    if len(hit) == 1:
+        return hit[0], "", False
+    if len(hit) > 1:
+        return None, "短名歧义（%d 个同名文件：%s …）⇒ 请写全路径" % (len(hit), ", ".join(hit[:3])), False
+    return None, "文件不存在（四个根 + Assets/** 同名兜底都没找到）", False
+
+
+def name_lines(lines, name):
+    """`name` 作为**标识符**出现在哪些行（1-based）。⛔ 用 `\\b` 卡边界，别让 `Init` 命中 `InitX`。"""
+    pat = re.compile(r"\b" + re.escape(name) + r"\b")
+    return [i for i, l in enumerate(lines, 1) if pat.search(l)]
 
 
 def looks_like_decl(line):
@@ -247,32 +341,74 @@ _PROP_TAIL = re.compile(
     r"^(?:public|private|protected|internal)"
     r"(?:\s+(?:static|readonly|const|sealed|virtual|override|abstract|new|unsafe|extern|volatile|partial))*"
     r"\s+[\w<>\[\],\.\?]+\s+\w+$")
+# 🆕 2026-10-28（B93_E4 · 盲点③）：**隐式 private** 的成员声明（没有访问修饰符 = 默认 private），
+#   以及**一行式 getter / 表达式体属性**（它们可能被 `looks_like_decl` 判成「`)` 后接的是语句」）。
+#   ⛔ 只认「文本上不可能是方法体里的局部语句」的形状：表达式体属性 / 带 `{` 的属性 /
+#      **下一行是 `{`** 的名字行属性 / 类型声明。裸字段 `int X;` 与局部变量同形 ⇒ 故意不认（见文件头盲点③）。
+_MODS = (r"(?:public|private|protected|internal|static|readonly|const|sealed|virtual|override|"
+         r"abstract|new|unsafe|extern|volatile|partial)")
+_EXPR_PROP = re.compile(r"^" + _MODS + r"*\s*[\w<>\[\],\.\?]+\s+(\w+)\s*=>\s*\S.*;$")
+_NAME_ONLY = re.compile(r"^" + _MODS + r"*\s*[\w<>\[\],\.\?]+\s+(\w+)\s*$")
+_PROP_BODY = re.compile(r"^" + _MODS + r"*\s*[\w<>\[\],\.\?]+\s+(\w+)\s*\{")
 
 
-def member_decl_kind(line):
+def _next_code_line(lines, idx):
+    """`lines[idx]` 之后**第一条非空非注释**行（0 基 `idx`）；没有 ⇒ 空串。"""
+    if lines is None or idx is None:
+        return ""
+    for j in range(idx + 1, min(len(lines), idx + 6)):
+        t = lines[j].strip()
+        if t and not t.startswith("//") and not t.startswith("*") and not t.startswith("#"):
+            return t
+    return ""
+
+
+def member_decl_kind(line, lines=None, idx=None):
     """落在「成员级声明」时的种类：`'field'` / `'property'` / `'type'`；不是成员声明 ⇒ `None`。
 
     ⛔ 只管**非方法**成员（方法由 `looks_like_decl` 正常判通过、不加这条告警）。
     ⛔ 不负责注释行 / 空行 / 语句 —— 那三类在下面都返回 `None`（仍由 `looks_like_decl` 判失败）。
+
+    🆕 2026-10-28（B93_E4 · 盲点③）：**不再要求必须有访问修饰符** —— C# 里没有修饰符的类成员
+        = `private`（隐式 private），它和「局部变量」的唯一区别是**在不在类体里**，
+        而本函数只看一行。所以改成「按形状认，且只认**不可能是局部语句**的形状」：
+          · 表达式体属性 `[mods] Type Name => expr;`（局部语句里 `Name =>` 前面不会有类型）
+          · 带 `{` 的属性 `[mods] Type Name {`（局部语句没有 `{` 体）
+          · 名字行属性 `[mods] Type Name` + **下一行是 `{`**（传 `lines`/`idx` 才判；不传 ⇒ 不认）
+          · 类型声明 `[mods] class/struct/interface/enum/record Name`
+        🔴 **裸字段 `int X;` 仍不认**（与 `int x = 5;` 局部变量文本完全同形），
+           要认它必须换判据（数花括号深度），那会给「字符串里带 `{`」这种行制造静默偏移 —— 不做。
     """
     s = line.strip()
     if not s or s.startswith("//") or s.startswith("*") or s.startswith("/*") or s.startswith("#"):
         return None
     s = re.split(r"\s//", s)[0].strip()           # 行尾注释（与 decl_name_at 同口径）
-    if not s or not _MEMBER_MOD.match(s):
-        return None                                # 局部变量 / 语句没有访问修饰符 ⇒ 不是成员
+    if not s or _STMT_HEAD.match(s):
+        return None                                # 局部语句 / 语句头 ⇒ 不是成员（与修饰符无关）
+    # ① 表达式体属性（含一行式 getter）：`public int Count => KwValue(3);` / `int Count => …;`
+    m = _EXPR_PROP.match(s)
+    if m and decl_name_at(line) == m.group(1):
+        return "property"
     if "(" in s:
-        return None                                # 方法 / 表达式体 —— 交给 looks_like_decl
-    if _STMT_HEAD.match(s):
-        return None
+        return None                                # 方法 / 表达式体方法 —— 交给 looks_like_decl
     if _TYPE_DECL.search(s):
-        return "type"                              # `public sealed class Foo`（`{` 常在下一行）
+        return "type" if decl_name_at(line) else None   # `[mods] sealed class Foo`（`{` 常在下一行）
     if decl_name_at(line) is None:
         return None                                # 拿不准就不判（⛔ 不猜）
     if s.endswith(";"):
-        return "field"                             # `public int X;` / `… X = …;`
+        # 🔴 盲点③ 明确**不放宽**的一格：裸字段（隐式 private 的 `int X;`）与局部变量同形。
+        return "field" if _MEMBER_MOD.match(s) else None
     if _PROP_TAIL.fullmatch(s):
         return "property"                          # `public int Count`（`{` 在下一行）
+    # ② 隐式 private 的名字行属性：`bool X` 且**下一行**是 `{`（真属性体）——
+    #    不加「下一行是 `{`」这道闸，多行调用（`SetThing` 换行 `(a, b);`）会被误认成属性。
+    m = _NAME_ONLY.match(s)
+    if m and decl_name_at(line) == m.group(1) and _next_code_line(lines, idx).startswith("{"):
+        return "property"
+    # ③ 带 `{` 的名字行属性：`int X {`（正常路径由 `looks_like_decl` 放行，这里是兜底）
+    m = _PROP_BODY.match(s)
+    if m and decl_name_at(line) == m.group(1):
+        return "property"
     return None
 
 
@@ -331,7 +467,11 @@ def find_decl_candidates(lines, name):
         return []
     # `$` 收尾：字段/属性块的名字可能**就在行尾**（`public int Count` 的 `{` 在下一行）——
     #   2026-10-27（B9_W52LAND）补，否则 `（Count）`/`（Board）` 这类成员落点永远「找不到声明」。
-    pat = re.compile(r"\b" + re.escape(name) + r"\s*(?:\(|<|\{|;|=|$)")
+    # `:` —— 2026-10-28（B93_E4 · 盲点②）补：**带基类列表的类型声明**
+    #   `public sealed class Foo : Bar { }`（名字后面跟 `:`）原来**匹配不上** ⇒ 被判「找不到这份声明」。
+    #   安全性由下游 `decl_name_at(l) != name` 兜住：`case Foo:`（STMT 头挡）/ 三元 `a ? Foo : Bar;`
+    #   （`decl_name_at` 取到的是 `Bar`）都不会变成候选。
+    pat = re.compile(r"\b" + re.escape(name) + r"\s*(?:\(|<|\{|;|=|:|$)")
     out = []
     for i, l in enumerate(lines, 1):
         t = l.strip()
@@ -343,7 +483,9 @@ def find_decl_candidates(lines, name):
         ok, _why = looks_like_decl(l)
         # 🔴 2026-10-27（方案 §4.1 例外）：字段 / 属性 / 嵌套类型声明也算候选（--fix 仍不自动改，
         #   见 `fix_block_reason` 的 `dn_at_name` 闸 —— 非方法行解析不出 ⇒ NEED-HUMAN）。
-        if not ok and member_decl_kind(l) is None:
+        # 2026-10-28（B93_E4）：把 `lines`/`i-1` 传下去，否则「隐式 private 的名字行属性」
+        #   （`bool X` + 下一行 `{`）在这里认不出来。
+        if not ok and member_decl_kind(l, lines, i - 1) is None:
             continue
         before = l[:mm.start()]
         # ① 声明语境：名字前面不能是「使用」的引导符
@@ -373,6 +515,104 @@ def find_decl_by_name(lines, name):
     """唯一命中才返回行号；0 处或多处 ⇒ None（多义交给 `check_file` 报「歧义」）。"""
     c = find_decl_candidates(lines, name)
     return c[0] if len(c) == 1 else None
+
+
+def check_extra_refs(land, roots, skip_key=None):
+    """落点列里**第二处及以后**的 `文件:行` 的机检（2026-10-28 · B93_E4 · 盲点①）。
+
+    🔴 **修的是什么**：`check_file` 原来只 `REF.search(land)` 取**第一处**带文件名+行号的引用。
+    而账里大量落点是 `A.cs:123（X）· B.cs:456（Y）· :789（Z）` 这种**多处**写法
+    （全库 A 行 **551 条**，2026-10-28 实测）—— 第二处及以后**从来没被机检**，
+    指向空行 / 不存在的文件 / 越界行号 / 早已失效的行，闸**照样绿**（= 空转绿灯，F2 报告 §④ 记的就是这个）。
+
+    🔴 **它和「第一处」的判法【故意不同】**（2026-10-28 实测定了口径）：
+      第一处 = **落点**（必须是「像样声明」那一行）；
+      第二处及以后 = **证据指针**（`调用点 / 唯一写点 / 别名的声明 / 调度台裁定注释 / 原版源码引用`
+      都合法，语义上本来就不是「声明」）。拿「必须是声明」去量它们，实测 **300 条假失败 / 551 行**
+      （注释说明行、`WireHeaderComponent(root);` 这种调用行全被误判）⇒ ⛔ 不这么干。
+
+    ⇒ 判定分两档（**只有客观破碎才判失败**）：
+      **失败**（这一处确实坏了，任何语义下都不成立）：
+        · 文件**解析得出来**但**行号越界**（`> len`）；
+        · 文件解析得出来、行号在范围内、但**那一行是空的**（空行永远不是证据）。
+      **告警 `SECOND`**（候选，人读；⛔ 不算失败）：
+        · 文件**找不到**（含「短名歧义」）—— 账里这个位置**经常是原版源码引用**
+          （`CardDeck.cs:647-671` / `dump.cs:19631` / `out_il2csharp/.../X.cs:108`），
+          它们本来就不可能解析到 `Assets/**` ⇒ 判失败会变成假红；
+        · 这一处**声称了名字**（`:行 Foo(…` / `（Foo）` / `` （`Foo`） `` / 散文里恰好 1 个标识符，
+          <3 字符的噪声 token 不算）但**那一行没有它** —— 行号可能已漂（`SetTip` 账写 925、实际 926），
+          也可能散文指的是**外层方法名**（`（BeginTurnCore，= 兑现后写 0）`），机器分不清 ⇒ 只提示。
+
+    文件解析：先按四个根找（与第一处**同一套**）；找不到再按**文件名兜底** —— 账里大量短名
+      （`GameStaticData.cs` / `MenuDraw.cs` / `BattleContext.cs`）在 `Assets/**` 下**唯一**，
+      按 CLAUDE.md「报『不存在』之前先做模糊匹配」的口径，兜底到**恰好唯一**的那个才算找到。
+
+    ⚠️ 三处保守：
+      · **只取 `:行` 之后、下一处 `:行` 之前**的那一段当它自己的括号 —— 否则会把别人的括号算到
+        自己头上（`A.cs:1 · B.cs:2（Foo）` 里 `Foo` 属于 B，不是 A）。
+      · **`--fix` 一个字都不动**：次要落点在 `--fix` 眼里不存在（`--fix` 的重定位语义不变）。
+      · 只认 `文件名:行`：像 `· :789` 这种**省略文件名、靠上下文**的写法不在这里检（无法可靠消歧）。
+    """
+    fails, warns = [], []
+    ms = list(REF.finditer(land))
+    if len(ms) < 2:
+        return fails, warns
+    seen = set()
+    if skip_key:
+        seen.add(skip_key)
+    for i, m in enumerate(ms):
+        if i == 0:
+            continue
+        nxt = ms[i + 1].start() if i + 1 < len(ms) else len(land)
+        tail = land[m.end():nxt]
+        rel, ln = m.group(1), int(m.group(2))
+        key = (rel.replace("\\", "/"), ln)
+        if key in seen:
+            continue
+        seen.add(key)
+        tag = "%s:%d " % (rel, ln)
+        full, note, exact = resolve_ref_file(rel, roots)
+        if full is None:
+            warns.append((rel, ln, tag + note + "（可能是原版源码引用 ⇒ 只提示）"))
+            continue
+        try:
+            lines = read_src_lines(full)
+        except Exception as e:
+            warns.append((rel, ln, tag + "读不了文件：" + str(e)))
+            continue
+        if ln < 1 or ln > len(lines):
+            msg = tag + "行号越界（文件只有 %d 行）" % len(lines)
+            if exact:
+                fails.append((rel, ln, msg))
+                continue
+            warns.append((rel, ln, msg + "（**短名兜底**解析到 %s，可能是原版源码引用 ⇒ 只提示）"
+                          % full.replace("\\", "/")))
+            continue
+        if not lines[ln - 1].strip():
+            msg = tag + "那一行是空的（空行不是证据 ⇒ 行号大概率已漂）"
+            if exact:
+                fails.append((rel, ln, msg))
+                continue
+            warns.append((rel, ln, msg + "（**短名兜底**解析到 %s，可能是原版源码引用 ⇒ 只提示）"
+                          % full.replace("\\", "/")))
+            continue
+        # 名字只从**这一处自己的尾巴**里取（见 docstring 第一条保守）
+        mm = re.match(r"\s*`?([A-Za-z_]\w*)`?\s*[（(]", tail)
+        hname = mm.group(1) if (mm and len(mm.group(1)) >= 3) else None
+        names, mode = paren_idents(tail)
+        strict = hname or (names[0] if (mode == "exact" or (mode == "prose" and len(names) == 1))
+                           else None)
+        if not strict:
+            continue                         # 没声称名字 ⇒ 只过上面三条客观关
+        where = name_lines(lines, strict)
+        if ln in where:
+            continue                         # 名字就在这一行 ⇒ 过
+        warns.append((rel, ln, tag + "声称的名字 `%s` 不在这一行（%s）⇒ 行号可能已漂、"
+                                    "或散文指的是外层方法：人读"
+                      % (strict, ("它出现在 %s" % "/".join(map(str, where[:5])))
+                         + ("…共 %d 处" % len(where) if len(where) > 5 else "")
+                         if where else "整个文件里都没有这个标识符")))
+    return fails, warns
 
 
 def self_reference(line, name):
@@ -593,7 +833,9 @@ def check_file(path, roots, show_pass=False, do_fix=False):
                 # 🔴 2026-10-27（B9_W52LAND · 方案 §4.1 例外）：纯取值器 / 结构等价的落点
                 #   可以是**字段 / 属性 / 嵌套类型**声明 ⇒ **合法但只报告警**（⛔ 不计失败）。
                 #   ⚠️ 注释行 / 空行 / 语句行 / 纯括号行在这条路里仍返回 None ⇒ 仍然失败。
-                kind = member_decl_kind(lines[ln - 1])
+                #   2026-10-28（B93_E4 · 盲点③）：传 `lines`/`ln-1`，好让「隐式 private 的名字行属性」
+                #   （`bool X` + 下一行 `{`，实测 `BattleDriver.cs:17310`）不再被判「不像声明」。
+                kind = member_decl_kind(lines[ln - 1], lines, ln - 1)
                 if kind is None:
                     fails.append((base, who, land, "%s：`%s`" % (why, lines[ln - 1].strip()[:60])))
                     continue
@@ -609,7 +851,18 @@ def check_file(path, roots, show_pass=False, do_fix=False):
         elif not lines[ln - 1].strip():
             fails.append((base, who, land, "数据文件那一行是空的"))
             continue
-        if show_pass:
+        # ---- 🆕 2026-10-28（B93_E4 · 盲点①）：落点列里**第二处及以后**的 `文件:行` 也要机检 ----
+        #   原来只查了 `REF.search` 的第一处 ⇒ 后面的（全库 551 条 A 行有）是**空转绿灯**。
+        #   ⛔ 次要落点**从不产生 `--fix` 改写**（`--fix` 的重定位语义一个字没动），只报漂移 / 失败。
+        ex_fails, ex_warns = check_extra_refs(
+            land, roots, skip_key=(rel.replace("\\", "/"), int(r.group(2))))
+        for _rel, _ln2, _why in ex_fails:
+            fails.append((base, who, land, "（次要落点）" + _why))
+        for _rel, _ln2, _why in ex_warns:
+            # ⚠️ 直连 `warns`（不走 `warn()`）：它的去重键是 `(行, 档位)`，会把同一行里
+            #    第二、三处次要落点的明细合并成一条 —— 这里每一条都要看得见。
+            warns.append((base, who, land, WARN_SECOND, "（次要落点）" + _why))
+        if show_pass and not ex_fails:
             print("OK   | %-22s | %-52s | %s" % (base, who[:52], land[:70]))
     return total, fails, drifts, rewrites, getters, warns
 

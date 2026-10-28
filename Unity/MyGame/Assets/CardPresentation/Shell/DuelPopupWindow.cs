@@ -340,5 +340,76 @@ namespace CardPresentation
         /// （`Assembly-CSharp-Editor`）⇒ 不加这一口就**断不了**「错误走的是横幅、不是模态窗」这条 ——
         /// 那正是 B89-E16c 修的那个通道误用（原版 `DuelPopupWindow__CanPlay.c:24` = `UIMessageController.ShowError`）。</para></summary>
         public static bool CanPlayForTest(RuleEngine.GameMode mode) { return CanPlay(mode); }
+
+        // ============================================================ 原版 `ChallengeManager.OpenStartChallengeWindow(PlayerDuelPopUpData)`
+        //  🆕 2026-10-28（`B93_N6` · 账 `日常_奖励:51`）—— **追加在类尾**（⛔ 不插进已有成员之间：
+        //  `Create` 在 :118、`Build` 在 :150 一带，账按行号引用它们）。
+        //
+        //  判据（🥇 三源同读，2026-10-28）：
+        //   · `decomp_full/ChallengeManager__OpenStartChallengeWindow.c:1-18` 全文 =
+        //     ① `SingletonBehaviour<WindowsManager>.Instance`（为 0 ⇒ 走 `FUN_1803f47a0` = **抛 NRE**）；
+        //     ② `WindowsManager.OpenWindow(instance, *(this+0x20) /*duelPopup*/, data, 0, 0, 0)`
+        //        —— 后三个实参 = 编译期默认值 `closeAll: false` / `options: default`；
+        //   · `cpp2il/out_cpp2il_dev_ilspy/ChallengeManager.cs:62-67` 同体（两个局部变量 + 一句调用）；
+        //   · 参数类型 `PlayerDuelPopUpData`（`il2cpp_out/dump.cs:78639`）**只有两个只读字段**
+        //     `PlayerName(+0x10)` / `PlayerId(+0x18)`，构造 `(string playerName, string playerId)`。
+        //
+        //  🔴 **为什么落到本文件而不是 `Shell/ChallengeManager.cs`**：原版这个方法在 `ChallengeManager` 上，
+        //     但它的**全部内容**就是「把这扇窗开出来」；本仓那扇窗的建法（`Create` + 尺寸/放置属性）在
+        //     本文件里 ⇒ 同名同流程的落点放这里，`ChallengeManager` 那一份（`Shell/ChallengeManager.cs:243`
+        //     的 `OpenStartChallengeWindow(string, WindowsManager)`）**是旧路径**：
+        //     ⚠️ 它走 `Create` + `win.Open()`，**绕过了 `WindowsManager.OpenWindow`** ⇒ 那扇窗不进
+        //     `openWindows`、不成为 `currentWindow`（`WindowsManager.cs:290-355`）⇒ `GetOpenWindow<DuelPopupWindow>()`
+        //     取不到它、`closeAll` 也关不掉它。**接线建议**（那份文件不归本代理）：
+        //     让 `ChallengeManager.OpenStartChallengeWindow` 转调本方法。
+
+        /// <summary>原版 `PlayerDuelPopUpData`（`dump.cs:78639`，**只有两个只读字段**）。
+        /// <para>⛔ 本仓**没有**这个类型（`grep PlayerDuelPopUpData` 在 `Assets/` 里 0 命中）⇒ 按原版字段名落一个
+        /// 只读等价物；字段名与构造实参顺序**逐字照抄**（`(playerName, playerId)`）。</para></summary>
+        public struct DuelPopUpData
+        {
+            /// <summary>原版 `<PlayerName>k__BackingField`（`+0x10`）—— 那扇窗**唯一真正吃**的一格
+            /// （`MessageText` 的 `{0}`）。</summary>
+            public string PlayerName;
+            /// <summary>原版 `<PlayerId>k__BackingField`（`+0x18`）。今天**零消费者**（我们的开局面走
+            /// `Net.NetMatchmaking`，那是 P2P、按地址连，不按 PlayFab id）⇒ **照原版留着这一格**，
+            /// ⛔ 别因为「用不上」删掉（铁律 11：只有先后、不分做不做）。</summary>
+            public string PlayerId;
+
+            public DuelPopUpData(string playerName, string playerId) { PlayerName = playerName; PlayerId = playerId; }
+        }
+
+        /// <summary>那扇窗带进来的 `PlayerId`（原版 `PlayerDuelPopUpData.PlayerId`；`null` = 调用方没给）。
+        /// ⚠️ 追加在类尾（同上面那条理由）。</summary>
+        public string PlayerId { get; private set; }
+
+        /// <summary>≡ 原版 **`ChallengeManager.OpenStartChallengeWindow(PlayerDuelPopUpData playerDuelPopUpData)`**。
+        /// <para>逐句：① 取 `WindowsManager` 单例（原版为 null ⇒ NRE；我们**出声 + 返回 null**，不崩）；
+        /// ② `WindowsManager.OpenWindow(win, data, closeAll: false)` —— **必须走这一口**
+        /// （它才登记 `openWindows` / `currentWindow` 并调 `TryOpen(data)`；见上面那段）。</para>
+        /// <para>@return 开出来的那扇窗；`null` = 没开成（已出声）。</para></summary>
+        public static DuelPopupWindow OpenStartChallengeWindow(WindowsManager mgr, DuelPopUpData data)
+        {
+            var wm = mgr != null ? mgr : WindowsManager.Get();
+            if (wm == null)
+            {
+                Debug.LogError("[Duel] `OpenStartChallengeWindow`：取不到 `WindowsManager` 单例"
+                             + "（原版这一跳走 `FUN_1803f47a0` = **抛 NRE**）⇒ 不开窗");
+                return null;
+            }
+            var win = Create(wm, data.PlayerName);
+            if (win == null)
+            {
+                Debug.LogError("[Duel] `OpenStartChallengeWindow`：`DuelPopupWindow.Create` 返回 null ⇒ 不开窗");
+                return null;
+            }
+            win.PlayerId = data.PlayerId;
+            // = 原版那一句 `WindowsManager.OpenWindow(instance, duelPopup, playerDuelPopUpData, 0, 0, 0)`
+            //   （`closeAll: false` 是编译期默认值 ⇒ 显式写出来，⛔ 别照「开窗就关全场」猜成 true）
+            wm.OpenWindow(win, data, false);
+            Debug.Log("[Duel] 开出「好友挑战」弹窗（对手 = " + (data.PlayerName ?? "<空>") + " · id = "
+                    + (data.PlayerId ?? "<空>") + "）= 原版 `ChallengeManager.OpenStartChallengeWindow` 那两句");
+            return win;
+        }
     }
 }

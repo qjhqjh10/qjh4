@@ -417,23 +417,23 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>把 Exception 栈整理成 Unity 格式（原版 `GetUnityFormatStacktrace`，:785）：
-        /// **去掉首行**（首行是 `ExceptionType: message`，原版模板里已经单独印了 message）+ 统一缩进。</summary>
+        /// <summary>Exception 栈整理（原版 `decomp_full/SceneInitializer__GetUnityFormatStacktrace.c` 逐句）：含 `Assets\` 的行按
+        /// `{0} in <a href="{1}" line="{2}">{3}:{4}</a>` 重排（5 字面量由 metadata token 解：`\n` · `Assets\` · `:` · ` in ` · 模板）</summary>
         static string UnityFormatStacktrace(Exception e)
         {
-            if (e == null) return "";
-            string st = e.StackTrace;
-            if (string.IsNullOrEmpty(st)) return "";
-            var lines = st.Replace("\r\n", "\n").Split('\n');
+            if (e == null || string.IsNullOrEmpty(e.StackTrace)) return "";     // 原版此处抛 NRE；我们出声留空（见 diff）
+            string[] lines = e.StackTrace.Split('\n');
             var sb = new StringBuilder();
             for (int i = 0; i < lines.Length; i++)
             {
                 string ln = lines[i];
-                if (string.IsNullOrEmpty(ln)) continue;
-                if (ln.TrimStart().StartsWith("at ")) ln = "  " + ln.TrimStart();
+                if (ln.Contains("Assets\\")) {
+                    string[] seg = ln.Substring(ln.IndexOf("Assets\\")).Split(':'), head = ln.Split(new[] { " in " }, StringSplitOptions.None);
+                    ln = string.Format("{0} in <a href=\"{1}\" line=\"{2}\">{3}:{4}</a>", head[0], seg[0], seg[1], seg[0], seg[1]);
+                }
                 sb.AppendLine(ln);
             }
-            return sb.ToString().TrimEnd();
+            return sb.ToString();
         }
 
         // ==================================================================

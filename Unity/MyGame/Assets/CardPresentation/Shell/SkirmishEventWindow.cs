@@ -159,7 +159,7 @@ namespace CardPresentation
             //   那是「内容档再往上留一档」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**
             //   （`QBg` = 3104），且严格低于本窗内容命中区最低档（`QHit` = 3116）
             //   ⇒ 改走 `MenuDraw.ShadeHit`（判据 → 它的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
-            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => Close(), "BackdropHit");
+            MenuDraw.ShadeHit(root, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => CloseButtonClick(), "BackdropHit");
             // ② `Reward Background Get Reward`（`40k_general_popup_simple red` Sliced）—— **比压暗高一档**
             MenuDraw.Nine(root, Tex(ArtPopupRed), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QBg1, null, true, "Reward Background Get Reward");
@@ -571,9 +571,11 @@ namespace CardPresentation
                                    55f * SBarScale, QText, CollectTxR.W,
                                    10f * SBarScale, 55f * SBarScale, 12f * SBarScale, face: TmpFont.Face.LatinCardBody);
             if (ct != null) ct.SetWrapping(false);
-            MenuDraw.Hit(collect, "CollectHit", CollectR, QHit, OnCollectClick, cb, "UI_Button_Mulligan",
+            var ch = MenuDraw.Hit(collect, "CollectHit", CollectR, QHit, CollectClicked, cb, "UI_Button_Mulligan",
                          "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
                          clickCue: WindowSounds.PositiveCue);
+            // 原版 `RewardProgressBarPanel.Initialize`：`collectButton.interactable = HasMilestoneToCollect(milestones)`（见类尾那两条）
+            if (ch != null) { var cw = ch.GetComponent<WindowButton>(); if (cw != null) cw.Interactable = HasMilestoneToCollect(ForceMilestoneStatesForTest); }
 
             Debug.Log("[Event] 记分条的 `Score` 照 **prefab 出厂原文 `1256`**、`Collect` 照出厂建 —— "
                       + "原版 `MilestoneScoreBar.Initialize(currentScore, scoringMilestones)` 会按活动分数改它们，"
@@ -588,14 +590,13 @@ namespace CardPresentation
         /// 立即红。⛔ 别把这里的 `−` 写成 `+`。</para></summary>
         public static float ScoreLevelRowCy(int i) { return LevelCy1 - LevelStep * i; }
 
-        /// <summary>🆕 **2026-10-17（A1221）**：`Collect` 点了 ⇒ **如实提示「暂无服务器」**。
+        /// <summary>🆕 **2026-10-17（A1221）**：`Collect` 点了 ⇒ **如实提示「暂无服务器」**（= 原版 `CollectClicked`）。
         /// 原版 `RewardProgressBarPanel.CollectClicked` 向 LiveOps 领奖（= `Energy` 窗那一颗同一条链）。
-        /// <para>🔴 **2026-10-19（`N37②`）如实标注**：上屏那句 `Event rewards are not available offline.`
-        /// 是**我们自拟的** —— 官方 13 语言表（`Resources/official_loc_13lang.json` 现读 **10,862** 键）
-        /// 对它 **0 命中**（同族同一句在 `EnergySinglePlayerOnlyEventWindow.OnCollectClick`，那边
-        /// 2026-10-17 已标过）。原版这一路要连 LiveOps 服务器、客户端**没有「离线」这个分支的文案**
-        /// ⇒ ⛔ 别硬套官方键、也别把它当成原版文案。</para></summary>
-        void OnCollectClick()
+        /// <para>🔶 自己设计（非原版）：`Collect` 的离线提示窗与那句文案 · 为什么必须自定：领奖走 LiveOps 服务端
+        /// （`IFastModeEvent.TryCollect`，已关服）+ 官方客户端**没有「离线」这个分支的文案**（官方 13 语言表 10,862 键 0 命中）
+        /// ⇒ 只能自拟一句上屏 · 调度台 2026-10-17 裁定（同族同一句在 `EnergySinglePlayerOnlyEventWindow`）。
+        /// ⛔ 别硬套官方键、也别把这句话当成原版文案。</para></summary>
+        void CollectClicked()
         {
             Debug.Log("[Event] `Collect` 点了 ⇒ **如实提示「暂无服务器」**"
                     + "（原版要 LiveOps 活动数据领奖；本地没有活动、也没有服务器 —— 照边界③不静默）。");
@@ -762,18 +763,18 @@ namespace CardPresentation
         public void RefreshBannedLine()
         {
             if (_bannedLine == null) return;
-            RuleEngine.PlayerDeck deck = null;
-            if (PickedPrebuilt != null) deck = PrebuiltDecks.ToPlayerDeck(PickedPrebuilt);
-            else if (HasEffectiveDeck) deck = CollectionData.Raw(DeckIndex);
-            if (deck == null) { _bannedLine.gameObject.SetActive(false); return; }
-
-            // 🔴 **按【这副牌自己的模式】校验** —— 原版 `RankedDeckSelector.HasValidDeckWithValidationMessage`
-            //   调的是 `DeckUtility.ValidateDeck(currentDeck, out error)`（**不带 isSkirmish 实参**）：
-            //   张数规则从 `CardDeck.gameMode` 读（我们的等价字段 = `PlayerDeck.GameMode`）。
-            //   ⛔ 别写死 `skirmish: true`：遭遇窗里也可能选中一副**经典预组**，那会误报「张数不对」。
-            bool deckIsSkirmish = deck.GameMode == (int)RuleEngine.GameMode.Skirmish;
-            RuleEngine.DeckError err = RuleEngine.DeckRules.Validate(deck, CollectionData.Card, deckIsSkirmish);
-            if (err == RuleEngine.DeckError.None) { _bannedLine.gameObject.SetActive(false); return; }
+            // 🔴 **2026-10-28（`B93_D1` · 账 `B93_Q2 :724`）**：判据收口到基类 `TryValidateCurrentDeck`
+            //   （= 原版 `RankedDeckSelector.HasValidDeckWithValidationMessage()` 的 `valid`）——
+            //   同一个布尔**同时**喂下面这一行提示与战斗钮 `interactable`（原版 `OnDeckSelected` 就这两句）。
+            //   ⛔ 别在这里再写第二份「张数规则」：它按**这副牌自己的模式**判（`deck.GameMode`），
+            //   写死 `skirmish: true` 会把「经典预组」误报成张数不对。
+            RuleEngine.DeckError err;
+            RuleEngine.PlayerDeck deck;
+            bool valid = TryValidateCurrentDeck(out err, out deck);
+            SetBattleInteractable(valid);      // = 原版 `battleButton.interactable = valid`（`OnDeckSelected` 第一句）
+            if (valid) { _bannedLine.gameObject.SetActive(false); return; }
+            // 空态：原版 `currentDeck == null` ⇒ `interactable = false` 且这一行**不写**（`HasValidDeckWithValidationMessage` 的 null 支）
+            if (deck == null) { _bannedLine.gameObject.SetActive(false); return; }   // 到这里 = 有卡组但校不过 ⇒ 下面写短档原因
 
             string key = RuleEngine.DeckRules.DescribeShort(err);
             string text = string.IsNullOrEmpty(key) ? null : Loc.T(key);
@@ -913,8 +914,51 @@ namespace CardPresentation
         void WireHeaderComponent(Transform root)
         {
             ParentEventWindow.EnsureHeaderTitleResolver();
-            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => Close(),
+            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => CloseButtonClick(),
                                                   Loc.T("MainMenu/GameMode/Skirmish"));
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（`B93_D1` · 账 `B93_Q2 :671/:722/:728`）—— `RewardProgressBarPanel.Initialize` 那一半。
+        //  **追加在类尾**（⛔ 中段加行会让账按 `文件:行号` 的落点整体漂移）。
+        // ================================================================================================
+
+        /// <summary>自检注入口（⛔ 产品路径永不设它）：5 档里程碑各自的状态
+        /// （`GenericScoringMilestone.State`：`0 Locked` / `1 Unlocked` / `2 Collected`）。
+        /// <para>生产侧恒 `null` —— 本地**没有** FastMode（小冲突）活动数据，一档都不存在
+        /// （`LiveOpsLocalCatalog.HasActiveFastModeEvent` 现读 = false）⇒ `Collect` 与原版「一档都没解锁」那一刻同值：**不可点**。</para></summary>
+        public static int[] ForceMilestoneStatesForTest;
+
+        /// <summary>原版 `RewardProgressBarPanel.HasMilestoneToCollect(GenericScoringMilestone[])` ——
+        /// 判据 `cpp2il/out_cpp2il_dev_ilspy/RewardProgressBarPanel.cs:114-133`（`Enumerable.Any(milestones, m =&gt; m.state - 1 == 0)`）
+        /// + 同一份的 `.c`（`state == State.Unlocked`）。
+        /// <para>`null`（= 本地无活动数据）⇒ `false`，与「数组里没有任何一档解锁」是同一个值。</para></summary>
+        public static bool HasMilestoneToCollect(int[] states)
+        {
+            if (states == null) return false;
+            for (int i = 0; i < states.Length; i++) if (states[i] == 1) return true;   // 1 = Unlocked
+            return false;
+        }
+
+        /// <summary>原版 `SkirmishEventWindow.RefreshScore` 里那条**状态投影**（`_003CRefreshScore_003Eb__0`）：
+        /// 逐档算出 `GenericScoringMilestone`（score + state）。
+        /// <para>判据 = `decomp_full/SkirmishEventWindow.__c__DisplayClass18_0___RefreshScore_b__0.c:22-30`：
+        /// `if (currentScore &lt; r.milestone) state = Locked;
+        ///  else state = (i &lt; collectedRewards) + 1;`
+        /// （`i` = 该档在**里程碑表里的下标**、`collectedRewards` = 事件数据里已领档数 —— 后者的来源见下一段）。</para>
+        /// <para>🔴 **`collectedRewards` 不是 0**：ILSpy 把 `DisplayClass.collectedRewards` 印成字面 `0`，
+        /// 而 `.c` 现读是 **`*(int*)(ev+0x70)`**（`RefreshScore.c` 里 `*(undefined4 *)(lVar5 + 0x14) = *(undefined4 *)(lVar7 + 0x70);`
+        /// —— `+0x10` 是 `currentScore`、`+0x14` 就是它）⇒ **ILSpy 丢了这个赋值**（「丢 `= true`」同族）。
+        /// ⛔ 别照 ILSpy 把已领数写死 0，那会把「已领档」全算成「可领」。</para>
+        /// <para>⚠️ 本方法是**纯函数**、不接数据源：`collectedRewards` 由调用方给（原版从 `IFastModeEvent` 取）。
+        /// 本窗今天**不调它**（无活动数据 ⇒ 一档都没有）；判据留在这里是为了将来接上数据时不用回头再推一遍。</para></summary>
+        public static int[] MilestoneStates(int currentScore, int collectedRewards, int[] milestoneScores)
+        {
+            if (milestoneScores == null) return null;
+            var st = new int[milestoneScores.Length];
+            for (int i = 0; i < st.Length; i++)
+                st[i] = currentScore < milestoneScores[i] ? 0 : (i < collectedRewards ? 2 : 1);
+            return st;
         }
     }
 }

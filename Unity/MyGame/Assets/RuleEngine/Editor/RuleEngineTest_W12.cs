@@ -34,6 +34,10 @@ public static partial class RuleEngineTest
         Section("🆕 引擎线 `W12`：被效果召唤 ⇒ 195（第三条入口）· 再造两条退路 ⇒ 不发 190/195");
         W12EffectSummonEmitsThisUnitSummoned();
         W12ReanimateSkipsDeployBroadcast();
+        // 🆕 2026-10-28（执行代理 `B93_E17`）：`cardState` 三档（3 / 15 / 17）的窗口断言。
+        //   写点 = `RuleCore.DeclareAttackCore`(:6604) / `RuleCore.UseAbilityCore`(:11664) /
+        //   `RuleCore.CleanupDeaths` 变残骸支(:9858) / `EffectResolver.DoReanimate` 残骸退路(:15543)。
+        W12CardStateWindows();
     }
 
     // ==============================================================================================
@@ -325,6 +329,160 @@ public static partial class RuleEngineTest
                       "★（d）`TAU34` 的 `+2 Health` 没落（190 真的没发）");
             CheckTrue(watcher != null && watcher.Health == cold.Health,
                       "★（d）对照：旁观者自己也没吃到任何东西");
+        }
+    }
+
+    // ==============================================================================================
+    //  🆕 2026-10-28（执行代理 `B93_E17`）：`cardState` 三档（3 / 15 / 17）的**窗口**断言
+    // ==============================================================================================
+    //  判据（第一权威 = 反编译，**已闭合、⛔ 不要重新论证**）：
+    //    · 3 `inPlayAttacking`      —— `CardScript__SetupActiveAbility.c:5`（复位 = `UsedActiveAbility` /
+    //      `CancelActiveAbility` 回 2）；
+    //    · 17 `inPlayAminingAttack` —— `CardScript__SetupAttack.c:12`（复位 = `FinishAfterAttack.c:80-81`
+    //      `cardState != 5 ⇒ 2` / `CancelAttack`）；
+    //    · 15 `inPlayTransforming`  —— `CardScript.SetAsUnitTransforming()` 末句（`CardScript.cs:15656`），
+    //      两个**活**入口：① `case 0x48` **into 支** → `ResolveTransformIntoRemnant`（ILSpy `BattleManager.cs:12097`）
+    //      = 我们的变残骸支；② `case 0x48` **from 支**（`ResolveAction.c:6482` 内联）= 我们的残骸退路复活支。
+    //      ⚠️ `ResolveWeaponKilled`（`:15509`）那条本 build **没有武器卡种 ⇒ 是死的**，
+    //      **不能**因为「只查了那一条」就判「15 零可达」（`B92_B2b` §2·4 的旧错，`B93_Q1` §3·1 已推翻）。
+    //
+    //  🔴 **为什么用 `ctx.CardStateProbe` 而不是 `BroadcastWhen` 的监听器**：
+    //    窗口外的监听器是**入队**的（`FireBoardWhenListener` → `EnqueueAbility`），出队时窗口早已关闭
+    //    ⇒ 从监听器里读到的永远是复位后的 2。探针是**同步**调用的（`UnitStateCardState.cs` 类尾的
+    //    `partial class BattleContext`），生产恒 `null`。
+    //
+    //  🔴 **⛔ 绝对不能断 `IsInPlayState()`** —— `{2,15,3,17}` 四档同真 ⇒ 恒定绿、等于没断。
+    //    这里一律**直接比枚举值**，并各配一条 `!= inPlay` 的灭自证（删掉 `MarkCardState` 那一句 ⇒ 必红）。
+    static void W12CardStateWindows()
+    {
+        // ---- ① `inPlayAttacking`(3)：主动技能窗口 ----
+        {
+            UnitState caster;
+            UnitState prey;
+            var ctx = Duel(Unit("E17Caster", 3, 2, 5, "Ability: Damage 3 EnemyUnit"),
+                           Unit("E17Prey", 1, 4, 6), out caster, out prey);
+            int seen = -1;                                  // ⚠️ 初值 -1：探针**没被调用**也必红（不是假绿）
+            ctx.CardStateProbe = u => { if (ReferenceEquals(u, caster)) seen = (int)u.CardStateOf(ctx); };
+            CheckCode(RuleCore.UseAbility(ctx, 0, 3, 3), RuleCodes.OK,
+                      "🧪（① 前提）施法者真的放出了主动技能");
+            ctx.CardStateProbe = null;
+
+            Check(seen, (int)CardStateOptions.inPlayAttacking,
+                  "★★（①）**主动技能窗口内 `cardState == 3 inPlayAttacking`**"
+                + "｜判据 = `CardScript__SetupActiveAbility.c:5`；🧨 删掉 `UseAbilityCore` 那句 "
+                + "`u.MarkCardState(CardStateOptions.inPlayAttacking);` ⇒ 实得 2 ⇒ 本行红");
+            CheckTrue(seen != (int)CardStateOptions.inPlay,
+                      "★★（① 灭自证）窗口内**不是** `inPlay(2)` —— 上一条不许靠「2 也算在场」蒙过去");
+            Check((int)caster.CardStateOf(null), (int)CardStateOptions.inPlay,
+                  "★★（①）**窗口后复位成 `inPlay(2)`**"
+                + "｜🧨 把 `finally { u.ClearCardStateMark(); }` 删掉 ⇒ 脏标记永久 3 ⇒ 本行红");
+        }
+
+        // ---- ② `inPlayAminingAttack`(17)：攻击窗口 ----
+        {
+            UnitState atk;
+            UnitState tgt;
+            var ctx = Duel(Unit("E17Atk", 1, 2, 5), Unit("E17Tgt", 1, 0, 9), out atk, out tgt);
+            int seen = -1;
+            ctx.CardStateProbe = u => { if (ReferenceEquals(u, atk)) seen = (int)u.CardStateOf(ctx); };
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
+                      "🧪（② 前提）攻击真的宣告成功（2 攻打 9 血 ⇒ 攻击者活着，好读窗口后的值）");
+            ctx.CardStateProbe = null;
+
+            Check(seen, (int)CardStateOptions.inPlayAminingAttack,
+                  "★★（②）**攻击窗口内 `cardState == 17 inPlayAminingAttack`**"
+                + "｜判据 = `CardScript__SetupAttack.c:12`；🧨 删掉 `DeclareAttackCore` 那句 "
+                + "`attacker.MarkCardState(CardStateOptions.inPlayAminingAttack);` ⇒ 实得 2 ⇒ 本行红");
+            CheckTrue(seen != (int)CardStateOptions.inPlay,
+                      "★★（② 灭自证）窗口内**不是** `inPlay(2)`");
+            Check((int)atk.CardStateOf(null), (int)CardStateOptions.inPlay,
+                  "★★（②）**窗口后复位成 `inPlay(2)`**"
+                + "｜🧨 删掉 `finally { attacker.ClearCardStateMark(); }` ⇒ 永久 17 ⇒ 本行红");
+        }
+
+        // ---- ③ `inPlayTransforming`(15) · 变残骸支（原版 `case 0x48` into 支）----
+        {
+            // 夹具照 `RuleEngineTest.cs:6432` 那具「带 Remnant 关键词的 5 血单位」：
+            //   `CleanupDeaths` 的 `(Remnant || Waystone) && !IsRemnant` 那一跳 ⇒ 当场翻面成残骸。
+            var remDef = new CardDef("E17RemnantDoomed", "E17RemnantDoomed", "unit", "",
+                                     "common", "Test", 1, 2, 5, 0,
+                                     new[] { KeywordTable.Remnant }, subtype: "Infantry");
+            var ctx = Battle(new[] { Unit("E17HandA", 1, 1, 1) }, new[] { Unit("E17HandX", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            Place(ctx, 0, 3, Unit("E17Con", 1, 5, 5));      // 5 攻 ⇒ 一击打掉 5 血
+            var doomed = Place(ctx, 1, 3, remDef);           // 5 血 ⇒ 正好被打死
+
+            int seen = -1;
+            int again = -1;
+            ctx.CardStateProbe = u =>
+            {
+                if (!ReferenceEquals(u, doomed)) return;
+                seen = (int)u.CardStateOf(ctx);
+                // 原版幂等闸（`CardScript.cs:15617`：`cardState == inPlayTransforming ⇒ goto`）：
+                // 已经是 15 时**再标一次仍是 15**。⛔ 这不是「测实现」，是照原版那一道闸的判别式。
+                u.MarkCardState(CardStateOptions.inPlayTransforming);
+                again = (int)u.CardStateOf(ctx);
+            };
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
+                      "🧪（③ 前提）打死那个带 `Remnant` 的单位");
+            ctx.CardStateProbe = null;
+
+            CheckTrue(Board(ctx, 1, 3) is { IsRemnant: true },
+                      "🧪（③ 前提）它**真的翻面成残骸**、留在 3 号格（没翻面 ⇒ 下面全是假绿）"
+                    + LogTail(ctx));
+            Check(seen, (int)CardStateOptions.inPlayTransforming,
+                  "★★★（③）**变残骸窗口内 `cardState == 15 inPlayTransforming`**"
+                + "｜判据 = `case 0x48` into 支 → `ResolveTransformIntoRemnant`（ILSpy `BattleManager.cs:12097`）"
+                + "→ `SetAsUnitTransforming`（`CardScript.cs:15656`）；🧨 删掉 `CleanupDeaths` 残骸支那句 "
+                + "`u.MarkCardState(CardStateOptions.inPlayTransforming);` ⇒ 实得 2 ⇒ 本行红");
+            CheckTrue(seen != (int)CardStateOptions.inPlay,
+                      "★★★（③ 灭自证）窗口内**不是** `inPlay(2)` —— 15 与 2 在 `IsInPlay()` 里同真，"
+                    + "只断 `IsInPlayState` 恒绿 ⇒ 必须比枚举值本身");
+            Check(again, (int)CardStateOptions.inPlayTransforming,
+                  "★★（③）照原版幂等闸：窗口内**再标一次 15，仍是 15**（`CardScript.cs:15617`）");
+            Check((int)doomed.CardStateOf(null), (int)CardStateOptions.inPlay,
+                  "★★（③）**窗口后 `doomed` 的标记复位成 `inPlay(2)`**"
+                + "｜🧨 删掉分支收尾的 `finally { u.ClearCardStateMark(); }` ⇒ 永久 15 ⇒ 本行红"
+                + "（⚠️ 残骸是**新建的另一个 `UnitState`** ⇒ 复位读的是 `doomed` 那一份，不是 `Board[1,3]`）");
+        }
+
+        // ---- ④ `inPlayTransforming`(15) · 复活支（原版 `case 0x48` from 支）----
+        {
+            var raise = Tactic("E17Raise", 0, "Reanimate a friendly Remnant");
+            var ctx = Battle(new[] { raise }, new[] { Unit("E17Foe", 1, 0, 9) });
+            ToP1Turn(ctx, 1);
+            var rem = Place(ctx, 0, 5, Unit("E17Rem", 1, 0, 1), exhausted: true);
+            rem.IsRemnant = true;                            // 一具残骸（攻 0 / 1 血，按定义）
+
+            int seen = -1;
+            int got = 0;
+            ctx.CardStateProbe = u =>
+            {
+                if (!ReferenceEquals(u, rem)) return;
+                seen = (int)u.CardStateOf(ctx);
+                got++;
+            };
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "E17Raise"), -1), RuleCodes.OK,
+                      "🧪（④ 前提）打出 `Reanimate a friendly Remnant`（场上有一具残骸 ⇒ 残骸退路）");
+            ctx.CardStateProbe = null;
+
+            var back = Board(ctx, 0, 5);
+            CheckTrue(back != null && ReferenceEquals(back, rem) && !back.IsRemnant,
+                      "🧪（④ 前提）残骸**翻回成活的单位**了，而且**是同一个 `UnitState`**"
+                    + "（`ReanimateRemnantInPlace` 原地返）" + LogTail(ctx));
+            Check(got, 1, "🧪（④ 前提）窗口探针恰被调用 **1** 次（= 残骸退路只翻回这一个；0 次 ⇒ 窗口没开、"
+                        + "下面几条是假绿；2 次 ⇒ 同一具残骸被标了两遍）");
+            Check(seen, (int)CardStateOptions.inPlayTransforming,
+                  "★★★（④）**复活窗口内 `cardState == 15 inPlayTransforming`**"
+                + "｜判据 = `case 0x48` from 支（`ResolveAction.c:6482` 内联 `SetAsUnitTransforming`）；"
+                + "🧨 删掉 `DoReanimate` 那句 `rem.MarkCardState(CardStateOptions.inPlayTransforming);` ⇒ 实得 2 ⇒ 本行红");
+            CheckTrue(seen != (int)CardStateOptions.inPlay,
+                      "★★★（④ 灭自证）窗口内**不是** `inPlay(2)`");
+            Check((int)rem.CardStateOf(null), (int)CardStateOptions.inPlay,
+                  "★★（④）**窗口后复位成 `inPlay(2)`**（原版 onComplete 的 `SetAsUnitInPlay`）"
+                + "｜🧨 删掉循环体收尾的 `finally { rem.ClearCardStateMark(); }` ⇒ 永久 15 ⇒ 本行红");
+            // ⚠️ 墓地退路（候选 ②）**不标 15** —— 原版没有那条路（`B93_Q1` §7 硬约束 ③），
+            //    所以这里**不**为它写断言；哪天要标必须先按铁律 18 打 `🔶 自己设计`。
         }
     }
 }

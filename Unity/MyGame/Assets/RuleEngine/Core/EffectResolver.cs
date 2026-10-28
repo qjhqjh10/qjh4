@@ -993,8 +993,8 @@ namespace RuleEngine
                 //    🔴 **2026-10-11（`A1346` ②乙）：一组里只发一次**（`!op.CostShared`）——
                 //       卡面写的是「**当**你触发一个灵魂石能力」，一次激活 = 一次触发；
                 //       一份付费前缀盖住 2 条 op 时发两遍就成了「触发两次」的假事件。
-                if (kind == "spirit" && !op.CostShared)
-                    BroadcastUnitSpiritStone(ctx, owner, source);
+                if (kind == "spirit" && !op.CostShared && SpiritBroadcastGate(ctx, source))
+                    BroadcastUnitSpiritStone(ctx, owner, source);   // 🆕 2026-10-28（`B93_F2` · 账 958）：补原版 `CardScript__TriggerSpiritStone.c:21-25` 的 `HasAbilityType(600)` 专门闸（见 `SpiritBroadcastGate`）
             }
 
             // 🔴 **2026-10-11（第十四会话 · `A1413` ①）：`payOnly` —— 只走付费支、不结算效果。**
@@ -2579,7 +2579,7 @@ namespace RuleEngine
             int paid = CostOf(ctx, p, inst);
             // 🔴 2026-10-21（引擎线 `T03·b`）：走唯一的扣能量口（原版 `PayCardCost` → `UseMana`
             //   → `UseNormalEnergy`）—— 扣到 0 会触发 `SpentAllMana`。⛔ 别改回 `ps.Energy -= paid;`
-            RuleCore.SpendNormalMana(ctx, p, paid, "打出「" + card.Name + "」");
+            RuleCore.SpendNormalMana(ctx, p, paid, "打出「" + card.Name + "」", costType: AchievementTally.EnergyCostCard);   // B93_E6：打出战术卡也是原版 `PayCardCost` ⇒ `Type = CardCost(1)`
             // `next …` 那族费用修正**用完即销** —— 和 `RuleCore.PlayCard`（单位那条）对称，
             // 两处都必须在**付费之后**调（见 `RuleCore.ConsumeOnceCostMods`）
             RuleCore.ConsumeOnceCostMods(ctx, p, inst);
@@ -2795,7 +2795,7 @@ namespace RuleEngine
                 // ---- 突触（Synapse）那一段：**被友方战术选中时，对相邻部队/单位重复效果**（规则书 `:217`）----
                 // 五步语义（同方 / 目标带 synapse / 取相邻 / 再过 targetCriteria / BroadcastUnitSynapse）见 `RepeatTacticOnAdjacent`。
                 if (chosen != null && targetSlot >= 0 && side != "enemy"
-                    && chosen.Has(KeywordTable.Synapse) && !ctx.SynapseBusy)
+                    && chosen.Has(KeywordTable.Synapse))   // 🔴 2026-10-28（`B93_F2` · 调度台裁定 E4 族10 · 账 231）：去掉 `ctx.SynapseBusy` 单层闸 —— 原版无守卫（`BattleManagerSupport__BroadcastUnitSynapse.c:23-24` + `CardScript__TargetedSpellPlayed.c:49-72` 相邻循环无 busy 闸）；改由 `EnterSynapseGuard` 的 1000 层深度上限防崩
                 {
                     RepeatTacticOnAdjacent(ctx, p, card, ops, chosen);
                 }
@@ -2878,8 +2878,8 @@ namespace RuleEngine
         ///   · 每个候选**再过一遍这张战术的目标规格**（`IsLegalPick`，和「高亮能不能点」同一份判据）；
         ///   · 命中者以**它自己**为 `chosen` 再跑一遍这张卡的 ops。
         ///
-        /// ⚠️ **递归保护**：`ctx.SynapseBusy` —— 邻居自己也可能带 `synapse`，
-        ///    没有它就会「A 触发 B、B 又触发 A」转不停。用完立刻复位。
+        /// ⚠️ **递归保护**：见 `EnterSynapseGuard`（🔴 2026-10-28 `B93_F2`：原来是 `ctx.SynapseBusy` 单层闸，
+        ///    原版无守卫 ⇒ 照原版不设单层闸，只加 1000 层深度上限防栈溢出，触顶出声并停止。用完立刻复位。
         /// ⚠️ **不去重**：同一个邻居只会在候选里出现一次（左右两格互不相同）。
         /// </summary>
         static void RepeatTacticOnAdjacent(BattleContext ctx, int p, CardDef card,
@@ -2914,9 +2914,9 @@ namespace RuleEngine
                 }
             };
 
-            ctx.SynapseBusy = true;
+            if (!EnterSynapseGuard(ctx, anchor)) return;
             try { runNeighbors(); }
-            finally { ctx.SynapseBusy = false; }
+            finally { ExitSynapseGuard(ctx); }
 
             // `When this unit triggers Synapse, …` / `When a friendly unit triggers Synapse, …`
             // （`Broodlord` / `Zoanthrope`）—— 触发者是**被选中的那个带突触的单位**。
@@ -2953,9 +2953,9 @@ namespace RuleEngine
             int extra = RuleCore.TakeExtraTrigger(ctx, anchor, KeywordTable.Synapse);
             if (extra <= 0) return;
             ctx.Log($"（突触：`{anchor.Name}` 的效果**再来一遍** —— `it applies the effect twice`）");
-            ctx.SynapseBusy = true;
+            if (!EnterSynapseGuard(ctx, anchor)) return;
             try { RuleCore.FireExtraTriggers(ctx, extra, i => runNeighbors()); }
-            finally { ctx.SynapseBusy = false; }
+            finally { ExitSynapseGuard(ctx); }
         }
 
         /// <summary>
@@ -8619,10 +8619,10 @@ namespace RuleEngine
                 // ⇒ 两个名字在原版是**同一个回调里的两次 OnTrigger**（不是两条广播）。
                 // ⚠️ `BroadcastTurnStarted`（`:385`，排在 `BroadcastActivateMinions` 之后）发的是
                 //   `CardScript__OnTurnStarted.c` 里的 **`0xa0 = 160`**，**不是 31**（本轮现核）。
-                // ⇒ 我们目前仍是**二选一**发（`TurnTriggerNameOf`）：池内**没有一张卡两个名字都有**
-                //   ⇒ 今天无可观测差异；真出现时原版是「先 30 再 31（31 仅 owner==行动方）」，
-                //   要按那条补（另有一条账，见报告「顺手发现」①）。
-                EmitAtTurnTriggerPass(ctx, active, phase, null, unitJobs, handJobs, persistJobs);
+                // ✅ 2026-10-28（`B93_F2` · 账 643）**已按原版补**：`EmitTurnStartBothPasses` 两遍指名发 ——
+                //   第 1 遍 `TurnStart(30)` **双方**都发；第 2 遍 `TurnStartPlayer(31)` **只发给 owner == 行动方**的卡
+                //   （改前是「按卡二选一」⇒ 非行动方的 31 卡**也会**收到 31，比原版宽）。
+                EmitTurnStartBothPasses(ctx, active, unitJobs, handJobs, persistJobs);   // 🆕 2026-10-28（`B93_F2` · 账 643）：原版是同一回调里**连发两次**（30 再 31，31 仅 owner==行动方）⇒ 改两遍指名发射
             }
         }
 
@@ -8630,11 +8630,11 @@ namespace RuleEngine
         /// 里的那三个循环）。<paramref name="onlyName"/> = `null` ⇒ 按 `TurnTriggerNameOf` 二选一。</summary>
         static void EmitAtTurnTriggerPass(BattleContext ctx, int active, string phase, string onlyName,
                                           List<AtTurnUnitJob> unitJobs, List<AtTurnHandJob> handJobs,
-                                          List<AtTurnPersistJob> persistJobs)
+                                          List<AtTurnPersistJob> persistJobs, bool ownerIsActiveOnly = false)
         {
             BattleEvent EmitOne(CardDef c, int owner, UnitState unit)
             {
-                if (c == null) return null;
+                if (c == null || (ownerIsActiveOnly && owner != active)) return null;   // 🆕 2026-10-28（`B93_F2` · 账 643）：`TurnStartPlayer(31)` 只发给 **owner == 行动方** 的卡（原版 `CardScript__OnTurnStart.c:140` 的 `param_2 == *(char*)(card+0x40)`）
                 if (onlyName == null) return EmitTurnTrigger(ctx, c, owner, unit, phase);
                 // ⚠️ 两张名字都有的卡今天**不存在**（现读全池 18 张 `Turn*` 卡各占一个名字：
                 //    TurnEnd 11 · TurnBeforeEnd 1 · TurnStart 3 · TurnStartPlayer 3）。
@@ -15539,8 +15539,8 @@ namespace RuleEngine
                     // 翻回来 = 那个格位上换成一个**活着的、全须全尾的**单位
                     int slot = s;
                     // 🔴 第 7 行第 1 步：翻回来**也是那一张牌**（残骸就是它翻的面）
-                    //    ⇒ **原地**翻（原版同一个 `CardScript` 对象）—— 见 `ReanimateRemnantInPlace`。
-                    var back = ReanimateRemnantInPlace(rem);
+                    //    ⇒ **原地**翻（原版同一个 `CardScript` 对象）—— 见 `ReanimateRemnantInPlace`。｜🔴 2026-10-28（B93_E17）：下面那次 `rem.MarkCardState(CardStateOptions.inPlayTransforming); try {` … `got++; } finally { rem.ClearCardStateMark(); }` = cardState 写点 ④（复活）—— 原版 `ResolveAction.c:6482` 的 `case 0x48` from 支（内联 `SetAsUnitTransforming`，`CardScript.cs:15656` 置 15）→ `CardScript.TransformFromRemnant` → onComplete 的 `SetAsUnitInPlay`（回 2，`ILSpy BattleManager.cs:30386-30400`）。`ReanimateRemnantInPlace` 原地返同一个对象 ⇒ 标/清都在 `rem` 上；⚠️ 墓地退路（候选 ②）是我们自己的旧口径、原版没有这条路 ⇒ **不标 15**（铁律 18·a）。零行数变化（铁律 18·b）。
+                    rem.MarkCardState(CardStateOptions.inPlayTransforming); try { var back = ReanimateRemnantInPlace(rem);
                     back.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（同上）
                     // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**残骸翻回来 = 重新进场** ⇒ 取**新号**。
                     //   判据 = 原版「死掉 `List.Remove`、之后复活/再造 `List.Add` 到**表尾**」
@@ -15592,13 +15592,13 @@ namespace RuleEngine
                              instanceId: rem.InstanceId);
                     // `When Reanimated, …` —— 和 `DeployFree` 那条路发同一种广播
                     // （⚠️ 那个重载是 `BroadcastWhen(ctx, kind, owner, card, unit)`：卡 + 场上单位）
-                    BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, rem.Card, ps.Board[slot]);
+                    BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, rem.Card, ps.Board[slot]); if (ctx.CardStateProbe != null) ctx.CardStateProbe(rem);
                     // 🆕 **2026-10-25（执行代理 `X18` · 第二批）**：成就 `Ach_14`（`UnitReanimated`）计数 ——
                     //   **每翻回一个 +1**（不是「一次效果 +1」）。归属 = 施放者 `owner`。
                     //   ⚠️ 原版 `UnitReanimated__OnUnitReanimated.c` 那格 `unit+0x40 != 0` 的过滤
                     //   语义**没解出来**（反编译产物撞名）⇒ 我们按「翻了就算」，如实标为近似（判据 §B-3 #15）。
                     ctx.Tally.AddReanimated(owner);
-                    got++;
+                    got++; } finally { rem.ClearCardStateMark(); }
                 }
                 if (got > 0) return true;
             }
@@ -16427,7 +16427,7 @@ namespace RuleEngine
             // 🆕 2026-10-27（B9 · `E6ENG` · 账 627 / 631）：`Draw` / `GainFaith` / `GainQuest` 三族**同样没有** `IsInPlay` 闸
             //   —— `BattleManagerSupport__BroadcastCardDrawn.c`（棋盘循环全文只判非 null，`Ghidra` 第 30-33 行）·
             //   `…__BroadcastCollectFaith.c:29-38` · `…__BroadcastCollectQuestPoints.c:29-38`（后两者逐句同形：预调 + 棋盘循环，循环体只有 `op_Inequality(u, subject)`）。🆕 2026-10-27（B88 · `E2` · 账 628 / 656）：`Play`（`BroadcastCardPlayed` 棋盘循环只判 `cardScript != actingCard`、**无 `IsInPlay`** —— `out_cpp2il_dev_ilspy/BattleManagerSupport.cs:674-686`）· `GetsDarkPact`（`BroadcastUnitObtainedMark` 的 `unitsInPlay` 循环同样只有 `!= unitMarked`，`:1852-1862`）两族也没有 `IsInPlay` 闸 ⇒ 一并放开待死。
-            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice) || kind == WhenEventKind.Draw || kind == WhenEventKind.GainFaith || kind == WhenEventKind.GainQuest || kind == WhenEventKind.Play || kind == WhenEventKind.GetsDarkPact || kind == WhenEventKind.Reanimated;   // 🔴 2026-10-28（B89-E3b · 账 L660）：`Reanimated` 也**无 `IsInPlay`、且不排除被复活者自己** —— `BroadcastUnitReanimated.c` 的 `unitsInPlay` 循环体只有 `ReactToUnitReanimated(unitReanimated)` 一句（手牌那两趟才有 `!= unitReanimated`）
+            return kind == WhenEventKind.Triggers(KeywordTable.Sacrifice) || kind == WhenEventKind.Draw || kind == WhenEventKind.GainFaith || kind == WhenEventKind.GainQuest || kind == WhenEventKind.Play || kind == WhenEventKind.GetsDarkPact || kind == WhenEventKind.Reanimated || kind == WhenEventKind.GetsHuntMark || kind == WhenEventKind.GetsMarkerlight;   // 🔴 2026-10-28（B89-E3b · 账 L660）：`Reanimated` 也**无 `IsInPlay`、且不排除被复活者自己** —— `BroadcastUnitReanimated.c` 的 `unitsInPlay` 循环体只有 `ReactToUnitReanimated(unitReanimated)` 一句（手牌那两趟才有 `!= unitReanimated`）｜🆕 2026-10-28（`B93_F2` · 账 655）：`GetsHuntMark` / `GetsMarkerlight` 两族棋盘循环**也没有 `IsInPlay`** —— `decomp_full/BattleManagerSupport__BroadcastUnitObtainedHuntMark.c` / `…ObtainedMarkerlight.c` 全文 `grep -c IsInPlay` = **0**（循环体只有 `op_Inequality(u, param_2)` 自排除）
         }
 
         /// <summary>
@@ -18002,10 +18002,10 @@ namespace RuleEngine
             if (ops == null || ops.Count == 0)
             {
                 int presence = abilityCard.AbilityTriggerPresence(triggerName);
-                ctx.Log($"{who}：原版 `TriggerOtherCardAbility` 要让「{abilityCard.Name}」按 "
-                      + $"{triggerName.ToUpperInvariant()} 跑它自己的能力，但本版这条能力的正文**解析不出来**"
-                      + $"（`AbilityTriggerPresence` = {presence}；`chosenAbility` 驱动的那一类今天没有分派口）"
-                      + "—— **这一跳没有生效**");
+                int granted = Enchantments.RunGrantedEnvAbility(ctx, abilityCard, owner, actingCard, who);
+                if (granted > 0) return true;
+                ctx.Log($"{who}：原版 `TriggerOtherCardAbility` 要让「{abilityCard.Name}」按 {triggerName.ToUpperInvariant()} 跑它自己的能力，"
+                      + $"但本版这条能力的正文**解析不出来**（`AbilityTriggerPresence` = {presence}）—— **这一跳没有生效**");
                 return false;
             }
             ctx.Log($"{who}：「{abilityCard.Name}」按 {triggerName.ToUpperInvariant()} 跑它自己的能力"
@@ -18521,6 +18521,98 @@ namespace RuleEngine
                   + $"给 {queued}/{targets.Count} 个目标各登记一条 `{kw}` 触发"
                   + "（原版 `BattleManager__AddTriggerCourtesy.c:20-79` / `…Relentless.c:20-79`，逐目标各入队一条）");
             return queued > 0 ? 1 : 0;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-28（第九十三会话 · 执行代理 `B93_F2`）：账 231 / 643 / 958 三件的等价位
+        //  （新成员一律追加到类尾 —— 避免给 `账/*.tsv` 的 `文件:行号` 落点造成漂移）
+        // ==========================================================================================
+
+        /// <summary>
+        /// **`turn_start` 的两遍指名发射** —— 原版 `CardScript__OnTurnStart.c:137-146` 是
+        /// **同一个回调里的两次 `OnTrigger`**：
+        /// <list type="number">
+        /// <item>`:137-139` **无条件** `RawCardScript__OnTrigger(0x1e = 30 TurnStart, …)`；</item>
+        /// <item>`:140` `if (param_2 /*isPlayerTurn*/ != *(char*)(card+0x40) /*card.isPlayer*/) return;`
+        ///   ⇒ `:144-146` 只有 **卡主 == 行动方** 的卡才收到 `0x1f = 31 TurnStartPlayer`。</item>
+        /// </list>
+        /// <para>🔴 **改前是「按卡二选一」**（`TurnTriggerNameOf` 取第一个命中的名字）⇒ 只带 31 的卡
+        /// **双方**都会收到 31（比原版宽）。现池 30 = 5 张 / 31 = 8 张、交集 0，本笔之后
+        /// 「非行动方的 31 卡」不再收到那一拍。</para>
+        /// <para>⚠️ 两遍都走**同一份作业表**（不复制）—— `EmitAtTurnTriggerPass` 会把发出的
+        /// `BattleEvent` 写回 `unitJobs[i].TriggerEvent`，复制一份会让第 2 遍的「目标回填」丢失。</para>
+        /// </summary>
+        static void EmitTurnStartBothPasses(BattleContext ctx, int active,
+                                            List<AtTurnUnitJob> unitJobs, List<AtTurnHandJob> handJobs,
+                                            List<AtTurnPersistJob> persistJobs)
+        {
+            if (ctx == null) return;
+            const string phase = "turn_start";
+            EmitAtTurnTriggerPass(ctx, active, phase, "TurnStart", unitJobs, handJobs, persistJobs);
+            EmitAtTurnTriggerPass(ctx, active, phase, "TurnStartPlayer", unitJobs, handJobs, persistJobs,
+                                  ownerIsActiveOnly: true);
+        }
+
+        /// <summary>
+        /// **`HasAbilityType(600)` 那道专门闸**（判据 = `decomp_full/CardScript__TriggerSpiritStone.c:21-25` 逐句）：
+        /// <code>
+        /// RawCardScript__OnTrigger(raw, 600, mgr, this, actingCard, this, 0);
+        /// if (RawCardScript__HasAbilityType(raw, 600, 0))      // ← 这一道
+        ///     BattleManager__BroadcastUnitSpiritStone(mgr, this);
+        /// </code>
+        /// <para>⚠️ 原版**先发 600 那一拍、再判**；所以「有正文但数据里没有 600 能力」时
+        /// 效果照跑、**只是不广播** 455 —— 我们照抄这个次序（本方法在广播前调用）。</para>
+        /// <para>📊 可达性（2026-10-28 现读 `cards_engine.json`）：`abilityTriggers` 含 **600 的 29 张**
+        /// ⊇ 卡面带 `[Spirit Stone]` 的 **28 张**（多的一张 = `ASH52`，它走免付触发、`SpiritOps` 为空）
+        /// ⇒ **今天这道闸对任何一张卡都不会拦**，是口径对齐（休眠）。</para>
+        /// <para>`AbilityTriggerPresence == -1`（旧表读不到）⇒ **放行**（不拿未知当「没有」）。</para>
+        /// </summary>
+        static bool SpiritBroadcastGate(BattleContext ctx, UnitState card)
+        {
+            if (card == null || card.Card == null) return true;          // 拿不到卡 ⇒ 不额外收窄（保持旧行为）
+            int presence = card.Card.AbilityTriggerPresence(600);        // = 原版 `RawCardScript.HasAbilityType(600)`
+            if (presence != 0) return true;                              // 1 = 有 · -1 = 未知 ⇒ 放行
+            ctx.Log($"{card.Name} 用出了灵魂石能力，但它卡上**没有** `trigger 600 (UseSpiritStone)` 这条能力 "
+                  + "⇒ **不广播** `When you trigger a Spirit Stone ability`（原版 "
+                  + "`CardScript__TriggerSpiritStone.c:21-25` 的 `HasAbilityType(600)` 闸；效果本身照旧结算）");
+            return false;
+        }
+
+        /// <summary>
+        /// 突触（`synapse`）重放的**深度上限**（层数）。
+        /// 🔶 自己设计（非原版）：原版**没有任何守卫** —— `BattleManagerSupport__BroadcastUnitSynapse.c:23-24`
+        /// 与 `CardScript__TargetedSpellPlayed.c:49-72` 都是「拿相邻单位、逐个重跑」，A↔B 互带 `synapse`
+        /// 时原版会一直重入直到栈溢出。我们按调度台 **2026-10-28 裁定**：去掉原来的 `ctx.SynapseBusy`
+        /// 单层闸（那会把「原版允许的二次重入」也挡掉 = 行为不等价），改成**只防崩**的深度上限；
+        /// 触顶时**出声并停止**（⛔ 不静默）。层数取 1000 = 远高于任何真实牌局、又远低于栈上限。
+        /// </summary>
+        const int SynapseMaxDepth = 1000;
+
+        /// <summary><see cref="SynapseMaxDepth"/> 的当前深度（内层 `try/finally` 配平，异常也不漏减）。</summary>
+        static int _synapseDepth;
+
+        /// <summary>
+        /// 进入一次突触重放（见 <see cref="SynapseMaxDepth"/> 的口径）。返回 `false` = **已达上限、本次不再重放**
+        /// （调用方必须直接 `return`，⛔ 别继续跑）。
+        /// </summary>
+        static bool EnterSynapseGuard(BattleContext ctx, UnitState anchor)
+        {
+            if (_synapseDepth >= SynapseMaxDepth)
+            {
+                ctx?.Log($"突触（Synapse）重放已达 **{SynapseMaxDepth} 层**上限 —— **停止**"
+                       + (anchor != null ? $"（当前锚点 = {anchor.Name}）" : "")
+                       + "。🔶 这是我们的防崩措施（原版无守卫、会一直重入到栈溢出），"
+                       + "调度台 2026-10-28 裁定");
+                return false;
+            }
+            _synapseDepth++;
+            return true;
+        }
+
+        /// <summary><see cref="EnterSynapseGuard"/> 的配对出口（配平，见那里的口径）。</summary>
+        static void ExitSynapseGuard(BattleContext ctx)
+        {
+            if (_synapseDepth > 0) _synapseDepth--;
         }
     }
 }

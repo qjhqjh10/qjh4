@@ -137,19 +137,19 @@ namespace CardPresentation
         /// PlayfabWrapper.GenericCloudScriptHandler(CloudHandle.OpenInbox, new { eventId });
         /// </code>
         /// <para>🔴 **`if (SaveGame.Openned) return;` 是第一句**（已读过就不再开）。
-        /// ⚠️ 我们的基类 `LiveOpsEvent` **还没有 `SelectEvent`**（那一跳属 B09 的 `Shell/LiveOpsEvent.cs`，
-        /// 判据 §三 #2）⇒ 这里先把「开窗」等价成 `OpenWindow()`（基类已有，且原版 `SelectEvent` 的
-        /// 真正落地就是它 —— 判据 `LiveOpsEvent__SelectEvent` 那一跳）。
-        /// ⛔ 等 B09 补上基类 `SelectEvent` 之后，本方法改成 `override` + 调 `base.SelectEvent()`（一行改动）。</para>
+        /// ✅ **2026-10-28（B93_E19）**：基类 `LiveOpsEvent.SelectEvent()` **已补**（`Shell/LiveOpsEvent.cs:1326`，B93_E12）
+        /// ⇒ 本方法改成 `override` 并调 `base.SelectEvent()`（原版那一跳的等价物 = `WindowsManager.OpenWindow(MainWindow /*10*/, this)`）。
+        /// 🔴 **⛔ 别再改回 `OpenWindow()`**：那一版按**状态**选 label（OnPreview⇒20 / Finished⇒21），而原版 `SelectEvent` **恒用 10**
+        /// ⇒ 经 `ILiveOps.SelectEvent` 虚分派时会**绕过**基类那一段（另多一条 `CS0114` 告警）。</para>
         /// <para>⚠️ 徽记刷新（`UiBadgeNotificationManager`）与云脚本两跳都**没有落点**（前者属外壳线、
         /// 后者是服务器）⇒ 出声一次，顺序不改。</para></summary>
-        public virtual void SelectEvent()
+        public override void SelectEvent()
         {
             if (SaveGame != null && SaveGame.Openned) return;    // ★ 原版第一句
 
             Debug.Log("[GameNewsEvent] SelectEvent：'" + GetID() + "' —— 徽记重算（UiBadgeNotificationManager）"
                     + "与云脚本 OpenInbox 两跳都没有落点（前者属外壳线、后者是服务器）");
-            OpenWindow();
+            base.SelectEvent();                                  // ★ 判据 = 基类那一跳（恒 MainWindow(10)）
         }
     }
 }

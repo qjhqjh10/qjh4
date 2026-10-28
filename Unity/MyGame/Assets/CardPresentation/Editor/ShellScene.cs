@@ -846,7 +846,7 @@ public static class ShellScene
 
     static Transform Find(string name, Transform root)
     {
-        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+        foreach (var t in root != null ? root.GetComponentsInChildren<Transform>(true) : new Transform[0])   // 🆕 2026-10-28（B93_E27 · 调度台裁定）：null 根**返回 null 而不是 NRE**（一行内改，行数 0 变化，⛔ 别拆行 —— 本文件有账按行号引用）
             if (t.name == name) return t;
         return null;
     }
@@ -10637,6 +10637,388 @@ public static class ShellScene
         }
 
         MenuCheck.RaycastFilterAsserts(_sink); MenuCheck.ToastChannelAsserts(_sink);   // 🆕 2026-10-28（B89-R3d · 账 `未分类_其他` 230）：教程期命中白名单那 3 条（空表=不过滤 / 死码口 / 注册清空成对）｜🆕 2026-10-28（B89-E16d）：**横幅 ≠ 模态窗**那 4 条（决斗窗没卡组 / 删卡组失败 / 点 Player ID / 导入支源码扫描）—— 同 R3d 口径：**追加在同一行末**，行数 0 变化、落点零漂移。都在合计行**之前** ⇒ 计数进本宿主的 `_sink`
+        Debug.Log(P + "LiveOpsFilterSelfCheck 跑 " + LiveOpsFilterSelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_E19）：`Shell/LiveOpsFilter.cs` 的 `LiveOpsFilterSelfCheck.Run` 原来**全仓 0 调用方**（那一批断言一条都不跑）。接在**合计行之前** ⇒ 其后无账落点（本文件最大账落点 = `ShellScene.cs:10351`），本行 = 文件行数 **+1**、其下游只位移 `+1`。**打印返回条数 = 自证它真被跑到**（`Run` 返回实际执行的断言数）。
+        // ---------------- ④·c 🆕 2026-10-28（B93_E24）：**输入层停用 = 原版 `eventSystem.enabled = false`** ----------------
+        //
+        // ⚠️ **位置说明（B93_E27 落地时改过一次）**：E24 报告建议「紧跟 ESC 三门槛那一节（`:3765` 之后）」。
+        //   但本文件有账按 `文件:行号` 引用（最大落点 = `ShellScene.cs:10351`）⇒ **在 `:3765` 插 80 行会让
+        //   `:10351` 之后所有落点整体位移 = 漂移暴增**（铁律：新断言一律加在**最后一条账落点之后**）。
+        //   ⇒ 改为**合计行之前**（`RunCore` 尾部，`:10351` 之后）—— 断言照样被跑到（同一方法体内），落点零漂移。
+        //   判据（`判据/B93_Q12_SetInputEnabled语义对齐.md` §二）：原版 `EventSystemController.Toggle(false)` 写的是
+        //   `eventSystem.enabled` ⇒ `EventSystem.Update()` 整段不跑（`EventSystem.cs:472-531`）⇒ `Process()` 里那四条支路
+        //   （`StandaloneInputModule.cs:294-315`：悬停 / 点击 / 滚轮 / 方向键 / 回车 / 打字）**一整帧都不跑**；
+        //   同时 `OnDisable → DeactivateModule → ClearSelection`（`EventSystem.cs:429-444` · `PointerInputModule.cs:394-406`）
+        //   派 OnPointerExit、清指针缓存、清选中。
+        // 🔴 **灭自证**：②③④ 与 ⑥⑦⑧ 用的是**同一颗钮、同一个坐标、同一个滚动区**，只翻 `InputEnabled` 一位，
+        //   期望值**相反** ⇒ 五种坏实现各自红在不同的条上：
+        //   · `HitButton` 恒返回 null（命中表坏）      ⇒ ① 与 ③ 红
+        //   · 闸压根没接（改前现状）                  ⇒ ⑥⑦⑧⑨ 红
+        //   · 只挡指针、不挡键盘（= 判据的方案 B）      ⇒ ⑨ 里**只有**「键盘那条」红
+        //   · 只挡 ESC（改前的旧口径）                ⇒ ⑥⑦⑧ 红
+        //   · 只加两行 `return null`、不清状态        ⇒ ⑩⑪ 红（⑥⑦⑧ 全绿 —— 这正是「只改命中口」能骗过的那一档）
+        Section("B93-E24：输入层停用（= 原版 `eventSystem.enabled = false`）—— 指针 / 滚轮 / 悬停 / 键盘全停 + 清选中与指针缓存");
+        {
+            var plIn = PointerLayer.Instance;
+            CheckTrue(plIn != null, "前置：指针层在场（下面每一条都走它这条唯一输入路）");
+            PointerLayer.SetInputEnabled(true);      // 本节自己收拾干净，别受上面那一节（ESC 三门槛）影响
+            CheckTrue(PointerLayer.InputEnabled, "前置：`InputEnabled == true`（本节从「开着」这一态起步）");
+
+            // 探针：一颗真钮 + 一个滚动区（命中点固定 (400,400)，几态共用 —— 与 N8 同形）
+            var inGo = new GameObject("B93E24Probe");
+            var inHits = new GameObject("Hits").transform;
+            inHits.SetParent(inGo.transform, false);
+            var inBtn = MakeNavButton(inHits, "B93E24Btn", 400f, 400f, 80f, 40f);
+            int inFired = 0;
+            inBtn.onClick = () => inFired++;
+            var inScroll = MenuScroll.TopAligned(new PxRect(200f, 200f, 600f, 900f), 2000f);
+            inScroll.Owner = inGo;
+            PointerLayer.RegisterScroll(inScroll);
+
+            // ---- ① 前提（**硬检查**：⛔ 不写成 `if (前提) Check(结论)` —— 前提不成立时那条会静默空转）
+            CheckTrue(plIn.ButtonAt(400f, 400f) == inBtn, "① 前置：命中表是活的（同一坐标命中探针钮）");
+            CheckTrue(plIn.ClickAt(400f, 400f), "① 前置：`ClickAt` 真的派发");
+            Check(inFired, 1, "① …探针钮被点了一次");
+            float inOff0 = inScroll.Offset;
+            CheckTrue(plIn.WheelAt(400f, 400f, -1f), "① 前置：滚轮滚得到（`HitScroll` 那条登记表路是活的）");
+            CheckTrue(inScroll.Offset > inOff0, "① …偏移真的动了（返回 true 但没滚 = 假绿）");
+            CheckTrue(plIn.HoverAt(400f, 400f) == inBtn && inBtn.Hovered, "① 前置：悬停落到它身上");
+            plIn.Select(inBtn);
+            CheckTrue(plIn.Selected == inBtn, "① 前置：选中放得进探针钮（⑩「停用后选中被清」的对照态）");
+            CheckTrue(plIn.KeySubmit(), "① 前置：回车/空格**派发得出去**（键盘那条活着）");
+            Check(inFired, 2, "① …又点了一次（`KeySubmit` → `Button.Click()`）");
+
+            // ---- ② 停用（**只翻这一位**）
+            PointerLayer.SetInputEnabled(false, "ShellScene/B93E24");
+            CheckTrue(!PointerLayer.InputEnabled, "② `SetInputEnabled(false)` ⇒ `InputEnabled == false`");
+            CheckTrue(plIn.ButtonAt(400f, 400f) == null, "② 同一坐标**命不到**探针钮（= 原版 `Process()` 整段不跑）");
+            CheckTrue(!plIn.ClickAt(400f, 400f), "② `ClickAt` 也吃不到");
+            Check(inFired, 2, "② …而且**一次都没派发**（只把返回值改 false、照样派发 = 假绿）");
+            float inOff1 = inScroll.Offset;
+            CheckTrue(!plIn.WheelAt(400f, 400f, -1f), "② 滚轮也落空（`HitScroll` 是**另一条**登记表路 —— 只改 `HitButton` 时这里会静默地滚）");
+            CheckTrue(!plIn.WheelAt(400f, 400f, new Vector2(0f, -1f)), "② 同上的 `Vector2` 重载也落空（`Update` 用的就是它）");
+            CheckNear(inScroll.Offset, inOff1, 0.001f, "② …偏移一个像素都没动");
+            CheckTrue(plIn.HoveredForTest == null && !inBtn.Hovered,
+                      "② = `HandlePointerExitAndEnter(pointer, null)`：**悬停被退掉**（`HoveredForTest` 与 `Hovered` 两面都断，"
+                    + "只把返回值改 null 不算）");
+            CheckTrue(plIn.Selected == null,
+                      "② = `ClearSelection` 的 ③：**选中被清掉**（只在那两口加 `return null`、不做状态清理的实现在这里红）");
+            CheckTrue(!plIn.KeySubmit(), "② 键盘那条也停（`KeySubmit` = 原版 `SendSubmitEventToSelectedObject`）");
+            Check(inFired, 2, "② …回车一次都没派发（挡「只挡指针」那一半 = 判据的方案 B）");
+
+            // ---- ③ 翻回（灭自证：同一坐标 / 同一颗钮全部恢复）
+            PointerLayer.SetInputEnabled(true, "ShellScene/B93E24 收尾");
+            CheckTrue(PointerLayer.InputEnabled, "③ `SetInputEnabled(true)` ⇒ 恢复");
+            CheckTrue(plIn.ButtonAt(400f, 400f) == inBtn,
+                      "③ 同一坐标**恢复命中**（⛔ 只断 ② 不断这条 ⇒「`HitButton` 恒返回 null」也能全绿）");
+            CheckTrue(plIn.ClickAt(400f, 400f), "③ 点击恢复派发");
+            Check(inFired, 3, "③ …探针钮又点了一次");
+            float inOff2 = inScroll.Offset;
+            CheckTrue(plIn.WheelAt(400f, 400f, -1f), "③ 滚轮恢复");
+            CheckTrue(inScroll.Offset > inOff2, "③ …偏移真的又动了");
+            CheckTrue(plIn.HoverAt(400f, 400f) == inBtn && inBtn.Hovered, "③ 悬停恢复");
+
+            // 清场（批处理没有帧循环 ⇒ 一律 `DestroyImmediate`；先退悬停、再退滚动登记）
+            plIn.HoverAt(10f, 10f);
+            PointerLayer.UnregisterOwnedBy(inGo);
+            Object.DestroyImmediate(inGo);
+            PointerLayer.SetInputEnabled(true, "ShellScene/B93E24 兜底");
+        }
+
+        // ============================================================ B93_U1：原版 uGUI 矩形工具族
+        //   判据：decomp_full/UIExtension__{GetCorners,MaxX,MaxY,MinX,MinY}.c ·
+        //         decomp_full/RectExtensions__GetWorldRect.c:20-29
+        //   🔴 两条【灭自证】：
+        //      ① 把件**转 30°** 之后断 MaxX == corners[2].x —— 轴对齐时「取下标」与「取最大值」同值，
+        //         只有旋转过的矩形能把「写成 Mathf.Max 扫描」抓出来；
+        //      ② 断「两次调用的返回值是同一个数组实例」—— 抓「改成每次 new」。
+        Section("B93_U1：UIExtension / RectExtensions.GetWorldRect（原版 uGUI 矩形工具族）");
+        {
+            var probe = new GameObject("b93u1_rectProbe", typeof(RectTransform));
+            try
+            {
+                var rt = (RectTransform)probe.transform;
+                rt.SetParent(null, false);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(200f, 100f);
+                rt.anchoredPosition = Vector2.zero;   // 🆕 2026-10-28（B93_E27 · 调度台裁定 A）：原来是 (123,45) —— `UIExtension.MaxX/MinX/MaxY/MinY` 取的是**世界空间**角（`GetWorldCorners`），而 `rt.rect.*` 是**局部空间** ⇒ 带偏移时两者恒差那个偏移（夹具瑕疵，不是实现缺陷）⇒ 探针归零，让 ③ 只测「无关偏移时两者相等」；④ 的「转 30° 后 `MaxX == corners[2].x`」灭自证**不受影响**（它只跟旋转有关）
+                rt.localRotation = Quaternion.identity;
+                Canvas.ForceUpdateCanvases();
+
+                // ① 前提（硬检查）：四角真的拿到了、且角序是 Unity 的「左下→左上→右上→右下」
+                var c1 = UIExtension.GetCorners(rt);
+                Check(c1 != null, true, "① 前提：GetCorners 返回非 null");
+                Check(c1 != null ? c1.Length : -1, 4, "① 前提：四角数组长度 = 4");
+                CheckTrue(c1[2].x > c1[0].x && c1[1].y > c1[0].y,
+                          "① 前提：角序 = 左下→左上→右上→右下（c2.x > c0.x 且 c1.y > c0.y）");
+                // ② 灭自证：静态复用数组（两次调用是同一个实例）
+                CheckTrue(ReferenceEquals(c1, UIExtension.GetCorners(rt)),
+                          "② 灭自证：GetCorners 复用同一个静态数组（原版 DAT_18429f330）—— 改成每次 new 会红");
+                // ③ 轴对齐档：Max/Min 与 PxRect 四边同值
+                CheckNear(UIExtension.MaxX(rt), rt.rect.xMax, 0.01f, "③ MaxX = rect.xMax（轴对齐）");
+                CheckNear(UIExtension.MinX(rt), rt.rect.xMin, 0.01f, "③ MinX = rect.xMin（轴对齐）");
+                CheckNear(UIExtension.MaxY(rt), rt.rect.yMax, 0.01f, "③ MaxY = rect.yMax（轴对齐）");
+                CheckNear(UIExtension.MinY(rt), rt.rect.yMin, 0.01f, "③ MinY = rect.yMin（轴对齐）");
+                // ④ 灭自证（旋转档）：MaxX 必须等于 corners[2].x，而不是四角里最大的 x
+                rt.localRotation = Quaternion.Euler(0f, 0f, 30f);
+                Canvas.ForceUpdateCanvases();
+                var cr = UIExtension.GetCorners(rt);
+                float maxOfAllX = Mathf.Max(Mathf.Max(cr[0].x, cr[1].x), Mathf.Max(cr[2].x, cr[3].x));
+                CheckNear(UIExtension.MaxX(rt), cr[2].x, 0.01f,
+                          "④ MaxX = corners[2].x（**转 30° 后**；写成 Max 扫描 ⇒ 这里会差出来）");
+                CheckTrue(Mathf.Abs(cr[2].x - maxOfAllX) > 0.5f,
+                          "④ 灭自证前提：转 30° 后「右上角的 x」确实不是四角最大 x（差 > 0.5）");
+                // ⑤ GetWorldRect = 以 c0 基点、c2 对角 → **中心写进 x/y 槽** + 对角线尺寸
+                // 🔴 **2026-10-28（B93_E30 · 按 `B93_DG2` 裁定的「α 断言错」改）**：原版把**中心**写进
+                //   `Rect.m_XMin` / `m_YMin`（`decomp_full/RectExtensions__GetWorldRect.c:20-29` = `*p = c0.x + w*0.5`、
+                //   `p[1] = c0.y + h*0.5`；ILSpy `cpp2il/out_cpp2il_dev_ilspy/RectExtensions.cs:246-277` 的 `m_XMin = xMin`），
+                //   我们的实现**逐字照抄**（`Core/UguiRect.cs:345-352`，它自己的 doc 就写着「x, y = 中心」）
+                //   ⇒ 读 `Rect.center` 会把半宽半高**再加一次**（探针归零后实得 `61.603/93.301` = `c2.x/c2.y`）。
+                //   ⛔ 别改实现去写「中心 − 半宽」：那才偏离原版（原版消费者 `UICulling.cs:182-200` 比的也是 `m_XMin`）。
+                Rect wr = RectExtensions.GetWorldRect(rt);
+                CheckNear(wr.x, (cr[0].x + cr[2].x) * 0.5f, 0.01f, "⑤ GetWorldRect 的 **x 槽 = 中心 x** = (c0+c2)/2（原版写 `m_XMin`，⛔ 不是 Unity 习惯的左下角）");
+                CheckNear(wr.y, (cr[0].y + cr[2].y) * 0.5f, 0.01f, "⑤ GetWorldRect 的 **y 槽 = 中心 y** = (c0+c2)/2（同上，写进 `m_YMin`）");
+                CheckNear(wr.width, cr[2].x - cr[0].x, 0.01f, "⑤ GetWorldRect 宽 = c2.x − c0.x（轴对齐包围盒）");
+                CheckNear(wr.height, cr[2].y - cr[0].y, 0.01f, "⑤ GetWorldRect 高 = c2.y − c0.y");
+                // ⑥ 灭自证：null 入参必须抛（原版 null-check throw），⛔ 不许静默返回空数组
+                bool threw = false;
+                try { UIExtension.GetCorners(null); } catch (System.ArgumentNullException) { threw = true; }
+                CheckTrue(threw, "⑥ 灭自证：GetCorners(null) 抛 ArgumentNullException —— 改成静默返回会红");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(probe); }
+        }
+
+        // 判据：decomp_full/EmptyGraphic__OnPopulateMesh.c（全文 = VertexHelper.Clear）⇒ 图形在、画面无。
+        // 我们的等价 = MenuDraw.Hit 建的命中节点把 quad 设成全透明（Shell/MenuDraw.cs:2292）。
+        // 灭自证：断的是 **tint 的 alpha == 0**（画面不可见），⛔ 不是断「建了个 ImageQuad」——后者改成有色也会绿。
+        Section("B93_U1：EmptyGraphic 等价物 —— 命中区全透明");
+        {
+            var host = new GameObject("b93u1_hitProbe", typeof(RectTransform));
+            try
+            {
+                var hit = MenuDraw.Hit(host.transform, "HitProbe",
+                                       new PxRect(0f, 0f, 100f, 50f), 4000, null);
+                CheckTrue(hit != null, "① 前提：MenuDraw.Hit 建出了节点");
+                var iq = hit != null ? hit.GetComponentInChildren<ImageQuad>(true) : null;
+                CheckTrue(iq != null, "① 前提：命中节点下**必须有 ImageQuad**（PointerLayer 只认它）");
+                CheckNear(iq != null ? iq.Tint.a : 1f, 0f, 0.001f,
+                          "② 命中 quad 全透明（= 原版 EmptyGraphic 的『不画但有 Graphic』）");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); }
+        }
+        // ================================================================================================
+        //  🆕 2026-10-28（B93_D1 · 账 批次 B93-4）—— 活动窗 A：开关图 / 战斗钮 interactable /
+        //  Collect interactable / 里程碑状态投影 / 生存标记 / 阵营条 / 三个同名入口。
+        //  判据全文 → 资料/完全复刻/报告/B93_D1.md §1
+        // ================================================================================================
+        Section("B93_D1 · 活动窗 A（排位开关图 / Battle interactable / Collect interactable / 生存标记 / 阵营条）");
+        {
+            // ---- ① 排位窗开关粒：图按 `RankedData.IsRanked` 换（原版 `ToggleDisplay.Setup`）----
+            {
+                // 🔴 **2026-10-28（B93_E30 · 按 `B93_DG2` 裁定的「δ 夹具前提」改）**：原来是 `Create(null)`，两处都不对：
+                //   ① 没有 `WindowsManager`（② 那三条入口靠它 `OpenWindow`）；② **建树在 `Open()` 里**
+                //   —— `Create` 只 `Init`（赋窗口参数 + `AttachToAnchor`，`Shell/LiveOpsEventWindow.cs:538-547`），
+                //   `Build()` 的唯一入口是 `Open()`（`:564`）⇒ 树是空的，`ChangeRankedToggle` 当然找不到。
+                //   ⚠️ 同文件别的窗夹具一律 `Create(...)` 之后立刻 `Open()`（`:9314-9317` 等）。
+                var rk = RankedEventWindow.Create(shell.Windows);
+                CheckTrue(rk != null, "（前提）排位窗建出来了");
+                CheckTrue(TryOpenForSelfCheck(rk, "RankedEventWindow/①"),
+                          "（前提）`Open()` 跑通（树在它里面建；抛异常 ⇒ 只跳过本小段，不影响其它批次）");
+                // 纯函数那一半：两个方向的映射都钉住（改坏法：把 on/off 调回来 ⇒ 这两条同时红）
+                Check(RankedEventWindow.ToggleKnobArt(false), "40_main_bt_toggle_off",
+                      "状态 false ⇒ `40_main_bt_toggle_off`（判据 = `MonoBehaviour_-3197939917699577936.json` 的 toggleOffSprite）");
+                Check(RankedEventWindow.ToggleKnobArt(true), "40_main_bt_toggle_on",
+                      "状态 true ⇒ `40_main_bt_toggle_on`（同一个 prefab 的 toggleOnSprite）");
+                // 🔴 **2026-10-28（B93_E27 · 调度台裁定）**：夹具查找一律**先硬检查、拿不到只跳过本小段** ——
+                //    ⛔ 绝不让 `Find(...)` / `FindChildIn(...)` 的 NRE 逃出 `RunCore`：那会打断**后面所有批次**（一条都不跑）。
+                //    （`FindChildIn` 对 null 父件本来返回 null；`Find` 的 null 根也已就地改成返回 null。）
+                var knobNode = rk != null ? FindChildIn(rk.transform, "ChangeRankedToggle") : null;
+                CheckTrue(knobNode != null, "★ 前提：`ChangeRankedToggle` 节点存在（拿不到 ⇒ **只跳过本小段**，不影响其它批次）");
+                if (knobNode != null)
+                {
+                    var knob = Find("Image", knobNode);
+                    var knobQ = knob != null ? knob.GetComponent<ImageQuad>() : null;
+                    CheckTrue(knobQ != null, "（前提）`ChangeRankedToggle/Image`（= 原版 `ToggleDisplay.toggleImage`）在");
+                    // 落到节点上：出厂 `BuildLeftColumn` 收尾就会 `SetRankedToggle()` ⇒ 图必须等于「当前状态」那一张
+                    bool ranked = RankedData.IsRanked;
+                    CheckTrue(knobQ != null && knobQ.Texture != null
+                              && knobQ.Texture.name == (ranked ? "40_main_bt_toggle_on" : "40_main_bt_toggle_off"),
+                              "★ 开关粒的**当前贴图** = 当前状态那一张（改坏法：把 `BuildLeftColumn` 的 `SetRankedToggle()` "
+                            + "换回恒 `40_main_bt_toggle_on` ⇒ 未排名时这条红；实得 "
+                            + (knobQ != null && knobQ.Texture != null ? knobQ.Texture.name : "<null>") + "）");
+                }
+                if (rk != null) RewardsWindow.DestroySafe(rk.gameObject);
+            }
+
+            // ---- ② 三个同名入口真的接到那三条链上（原版同名方法 = 点击入口）----
+            {
+                // 🔴 **2026-10-28（B93_E30 · 同 ① 的 δ）**：`Manager` 必须是真的那一台 —— 三条 `Open*` 的**首句**
+                //   就是 `Manager == null ⇒ 出声 + return null`（`Shell/LiveOpsEventWindow.cs:1890 / :1932 / :1534`），
+                //   上一轮的日志里那三条警告就是它。`shell.Windows` = 本宿主那台真的（`:1030` 建、`:1554` 的注释写明）。
+                var rk = RankedEventWindow.Create(shell.Windows);
+                CheckTrue(TryOpenForSelfCheck(rk, "RankedEventWindow/②"), "（前提）`Open()` 跑通");
+                // ⚠️ **前提**：`View Deck Button` 那条链自己有一道**空态闸**（`OpenDeckInfo`：`PickedPrebuilt == null && DeckIndex < 0`
+                //   ⇒ 出声、不开窗）⇒ 「本窗模式 ∧ 本阵营有一套卡组」是下面那条断言的**前提**；空态时它是红的，
+                //   而原因**不在入口接线**（下面这条把它分开报）。
+                CheckTrue(rk.DeckIndex >= 0 || rk.PickedPrebuilt != null,
+                          "（前提）排位窗有可看的卡组（`DeckIndex >= 0` || 预选预组，实得 `DeckIndex = " + rk.DeckIndex + "`）");
+                rk.ChangeDeckButtonClick();
+                CheckTrue(LiveOpsEventWindow.LastDeckSelection != null,
+                          "★ `ChangeDeckButtonClick()` ⇒ 开 `DeckSelectionPopup`（= 原版 `OpenWindow<DeckSelectionPopup>`）");
+                rk.ViewDeckButtonClick();
+                CheckTrue(LiveOpsEventWindow.LastDeckInfo != null,
+                          "★ `ViewDeckButtonClick()` ⇒ 开 `DeckInfoPopup`（= 原版 `OpenWindow<DeckInfoPopup>`）");
+                rk.HelpButtonClick();
+                CheckTrue(LiveOpsEventWindow.LastHelpPopup != null,
+                          "★ `HelpButtonClick()` ⇒ 开事件说明弹窗（= 原版 `HasComponent(HelpPopup)` → `OpenWindow`）");
+                // 灭自证：把上面任一个入口改成空体（不转调）⇒ 对应那条立刻红；三条互相独立，不是同一条的三种说法。
+                // 🔴 **2026-10-28（B93_E30）**：那三扇弹窗是走 `Manager.OpenWindow` 开的（**登记在 `openWindows` 里**）
+                //   ⇒ 收尾必须 `CloseAllWindows()`（逐扇 `Close()` 摘表再清），⛔ 别只 `DestroyImmediate` 窗根
+                //   （那会在窗表里留一个 Unity 假 null）。纪律同 `:5830` / `:8849` / `:8947`。
+                shell.Windows.CloseAllWindows();
+                RewardsWindow.DestroySafe(rk.gameObject);
+            }
+
+            // ---- ③ 小冲突窗：`Battle!` interactable 与「卡组不可用」那一行 = 同一个布尔 ----
+            {
+                SkirmishEventWindow.ResetEventProbeForTest();
+                // 🔴 **2026-10-28（B93_E30）· 本节新增的夹具**（超出 `B93_DG2` 清单的那一处，理由见报告）：给
+                //   「遭遇模式 ∧ 本阵营」造**一副自有卡组**。为什么非有不可 —— 原版 **no-deck 那一档两处都不亮**
+                //   （`Shell/SkirmishEventWindow.cs:773-777`：`valid = false` ⇒ 钮不可点；`deck == null` ⇒
+                //   「卡组不可用」那一行**隐藏**）⇒ 空库时下面那条双条件**恒假**（`false == true`）。
+                //   ⚠️ 上一轮它是**假绿**：当时没有 `Open()` ⇒ `BattleButtonWb == null` ⇒ `BattleInteractable`
+                //   按实现**恒 true**（`LiveOpsEventWindow.cs:2328` 的注释写着「没有按钮 ⇒ true」）⇒ `true == true`。
+                //   ⛔ 别改成「放宽断言」或「让 `BattleInteractable` 空态返 false」—— 那会动原版语义（`Shell/*` 不在本笔）。
+                //   夹具走本文件既有的「不碰玩家真存档」那一套（`:5888-5903` / `:8851-8950`）。
+                string keepDeckPath3 = RuleEngine.DeckStore.OverridePath;
+                try
+                {
+                    RuleEngine.DeckStore.OverridePath = "d:/4/_tmp_view/shell/_b93e30_decks.json";
+                    try { System.IO.File.Delete(RuleEngine.DeckStore.OverridePath); } catch { }
+                    var lib3 = RuleEngine.DeckLibrary.Load();
+                    var fd3 = lib3.Create("B93E30夹具·遭遇", (int)RuleEngine.GameMode.Skirmish);
+                    fd3.WarlordId = "ASH1";     // SaimHann 督军 ⇒ 阵营与「本机当前那套」一致；**0 张卡 = 故意不合法**（走「有卡组但校不过」那一档）
+                    lib3.Save();
+                    CollectionData.ResetForTest();   // `CollectionData._lib` 是进程级缓存 ⇒ 必须作废，才读得到这份临时库
+
+                    var sk = SkirmishEventWindow.Create(shell.Windows);
+                    bool skOpened = TryOpenForSelfCheck(sk, "SkirmishEventWindow/③");
+                    CheckTrue(skOpened, "（前提）`Open()` 跑通（抛异常 ⇒ 只跳过本小段，不影响其它批次）");
+                    CheckTrue(skOpened && sk.BattleButtonWb != null,
+                              "（前提）`Battle!` 那颗 `WindowButton` 拿得到（`To Battle Button/BattleHit`）");
+                    var ban = sk != null ? FindChildIn(sk.transform, "Banned card in deck") : null;   // 🆕 2026-10-28（B93_E27 · 调度台裁定）：夹具拿不到时不许 NRE 逃出 RunCore
+                    var banText = ban != null ? FindChildIn(ban, "Text") : null;
+                    CheckTrue(banText != null, "（前提）`Banned card in deck/Text` 在");
+                    bool lineOn = banText != null && banText.gameObject.activeSelf;
+                    CheckTrue(sk.BattleInteractable == !lineOn,
+                              "★ 战斗钮可点 ⟺ 「卡组不可用」那一行**关着**（两处消费者同一个 `TryValidateCurrentDeck`；"
+                            + "改坏法：`interactable` 另写一份判据 ⇒ 这两格会分叉）");
+                    sk.SetBattleInteractable(false);
+                    CheckTrue(!sk.BattleInteractable, "★ 置假 ⇒ `Battle!` 不可点（= 原版 `battleButton.interactable = valid`）");
+                    sk.SetBattleInteractable(true);
+                    CheckTrue(sk.BattleInteractable, "★ 置真 ⇒ 恢复可点（灭自证：上面两条只翻这一个维度）");
+                    RewardsWindow.DestroySafe(sk.gameObject);
+                }
+                finally
+                {
+                    RuleEngine.DeckStore.DeleteFile();          // ⚠️ 必须在还原路径**之前**删（`Path` 读的是 `OverridePath`）
+                    RuleEngine.DeckStore.OverridePath = keepDeckPath3;
+                    CollectionData.ResetForTest();
+                }
+            }
+
+            // ---- ④ 里程碑状态投影（原版 `RefreshScore` 的 lambda）----
+            {
+                var a = SkirmishEventWindow.MilestoneStates(25, 0, new[] { 10, 20, 30, 40, 50 });
+                Check(a[0], 1, "到达但未领 ⇒ Unlocked(1)（原版 `(i < collectedRewards) + 1`）");
+                Check(a[1], 1, "第二档同样 Unlocked(1)");
+                Check(a[2], 0, "没到（25 < 30）⇒ Locked(0)");
+                var b = SkirmishEventWindow.MilestoneStates(50, 2, new[] { 10, 20, 30, 40, 50 });
+                Check(b[1], 2, "已领两档 ⇒ Collected(2)（判据 = `.c` 的 `*(int*)(ev+0x70)`，⛔ 不是 ILSpy 印的 0）");
+                Check(b[2], 1, "第三档没领 ⇒ Unlocked(1)（只翻「已领数」一个维度 ⇒ 灭自证）");
+                CheckTrue(SkirmishEventWindow.HasMilestoneToCollect(null) == false,
+                          "`null`（本地无活动数据）⇒ 一档都没解锁 = 不可领");
+                CheckTrue(SkirmishEventWindow.HasMilestoneToCollect(new[] { 0, 0, 0 }) == false, "全 Locked ⇒ 不可领");
+                CheckTrue(SkirmishEventWindow.HasMilestoneToCollect(new[] { 0, 1, 0 }), "有一档 Unlocked ⇒ 可领");
+            }
+
+            // ---- ⑤ `Collect` 钮 interactable 跟着里程碑走（活动期形态才有这颗钮）----
+            {
+                SkirmishEventWindow.ForceActiveEventForTest = true;
+                try
+                {
+                    SkirmishEventWindow.ForceMilestoneStatesForTest = null;              // 一档都没解锁
+                    // 🔴 **2026-10-28（B93_E30 · 按 `B93_DG2` 裁定的「δ 夹具前提」改）**：`Create(null)` + 没有 `Open()`
+                    //   ⇒ 树是空的（`CollectHit` 在 `BuildScoreBar` 里，只在 `Build()`/`Open()` 那一拍建，
+                    //   `Shell/SkirmishEventWindow.cs:574`）；`Manager` 也必须是那台真的。
+                    var skA = SkirmishEventWindow.Create(shell.Windows);
+                    CheckTrue(TryOpenForSelfCheck(skA, "SkirmishEventWindow/⑤A"), "（前提）活动期形态的 `Open()` 跑通");
+                    var hA = FindChildIn(skA.transform, "CollectHit");
+                    var wA = hA != null ? hA.GetComponent<WindowButton>() : null;
+                    CheckTrue(wA != null, "（前提）活动期形态建出了 `CollectHit`");
+                    CheckTrue(wA != null && !wA.Interactable,
+                              "★ 一档都没解锁 ⇒ `Collect` **不可点**（原版 `HasMilestoneToCollect` = false；改坏法：删掉那句 "
+                            + "`cw.Interactable = …` ⇒ 这条红）");
+                    RewardsWindow.DestroySafe(skA.gameObject);
+
+                    SkirmishEventWindow.ForceMilestoneStatesForTest = new[] { 0, 0, 1, 0, 0 };   // 只翻这一个维度
+                    var skB = SkirmishEventWindow.Create(shell.Windows);   // 🆕 B93_E30：同 ⑤A（原来 `Create(null)` + 无 `Open()` ⇒ 树空）
+                    CheckTrue(TryOpenForSelfCheck(skB, "SkirmishEventWindow/⑤B"), "（前提）活动期形态的 `Open()` 跑通");
+                    var hB = FindChildIn(skB.transform, "CollectHit");
+                    var wB = hB != null ? hB.GetComponent<WindowButton>() : null;
+                    CheckTrue(wB != null && wB.Interactable,
+                              "★ 有一档可领 ⇒ `Collect` 可点（同一条 Build 路径，只翻里程碑状态 ⇒ 灭自证）");
+                    RewardsWindow.DestroySafe(skB.gameObject);
+                }
+                finally { SkirmishEventWindow.ResetEventProbeForTest(); }
+            }
+
+            // ---- ⑥ 生存事件「敌方标记」宿主（行为 1:1；本工程还没有生存事件窗 ⇒ 只验行为）----
+            {
+                var host = new GameObject("B93D1_SurvivalHost").transform;
+                var hidden = new GameObject("HiddenEnemyVisual"); hidden.transform.SetParent(host, false);
+                var revealed = new GameObject("RevealedEnemyVisual"); revealed.transform.SetParent(host, false);
+                var nameLb = MenuDraw.Text(host, new PxRect(0f, 0f, 400f, 60f), "", Color.white,
+                                           "EnemyNameText", 36f, 3114, face: TmpFont.Face.LatinCardBody);
+                CheckTrue(nameLb != null && hidden != null && revealed != null,
+                          "（前提）三个视觉件都建出来了（名字文本 / 隐藏标记 / 已揭示标记）");
+                var mk = SurvivalEventWindowEnemyMarker.Bind(nameLb, hidden, revealed);
+                CheckTrue(mk.HiddenVisible && !mk.RevealedVisible,
+                          "★ `Awake` = 隐藏标记开 / 已揭示标记关（`SurvivalEventWindowEnemyMarker__Awake.c`）");
+                revealed.SetActive(true);                       // 先把已揭示标记**手动打开**
+                mk.SetHiddenEnemy();
+                CheckTrue(!mk.RevealedVisible,
+                          "★ `SetHiddenEnemy` 会把**已揭示标记关掉**（灭自证：上一句先置真，漏了那句 SetActive(false) 就红）");
+                CheckTrue(mk.HiddenVisible, "…同时把隐藏标记打开");
+                mk.SetEnemyName("Hive Tyrant");
+                Check(mk.EnemyName, "Hive Tyrant", "★ `SetEnemyName` 写名字（原版 `EnemyNameText.text = name`）");
+                CheckTrue(!mk.RevealedVisible,
+                          "★ `SetEnemyName` **不碰** `RevealedEnemyVisual`（原版也没碰 ⇒ 别顺手改成「揭示」）");
+                CheckTrue(mk.HiddenVisible, "…且隐藏标记仍开着（那句 false→true 是重播动画，不是关掉）");
+                RewardsWindow.DestroySafe(host.gameObject);
+            }
+
+            // ---- ⑦ 活动阵营图标行（组件已建；接线方 = 能量窗，见报告 §5·2）----
+            {
+                var pRoot = new GameObject("B93D1_ArmiesHost").transform;
+                var panel = ShowEventArmiesPanel.Build(pRoot);
+                CheckTrue(FindChildIn(pRoot, "Army Selector Panel") != null,
+                          "（前提）`Army Selector Panel` 建出来了（原版这四个静态节点）");
+                panel.Initialize(new[] { 10, 20 });             // Ultramarines / Goff
+                Check(panel.Count, 2, "★ `Initialize(2 个阵营)` ⇒ 两颗徽记（原版 `foreach cardArmies`）");
+                Check(panel.ItemSpriteName(0), "40k_DeckSelection_icon_FactionUM",
+                      "第 1 颗 = UM 的徽记（= 原版 `ArmyUtilities.GetArmyIcon(10)`；判据 = `Core/ArmyIcons.cs` 的 13 条表）");
+                Check(panel.ItemSpriteName(1), "40k_DeckSelection_icon_FactionOrks", "第 2 颗 = 兽人徽记");
+                panel.Initialize(new[] { 10, 20, 30 });
+                Check(panel.Count, 3, "★ 再 `Initialize` ⇒ **先 Reset 再加**（Count = 3 而不是 5；改坏法：删掉那句 Reset ⇒ 5）");
+                panel.Reset();
+                Check(panel.Count, 0, "★ `Reset` ⇒ 清空");
+                RewardsWindow.DestroySafe(pRoot.gameObject);
+            }
+        }
+
+        Debug.Log(P + "B93D4SelfCheck 跑 " + B93D4SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_D4）：断言本体在 `Editor/ShellScene_B93D4SelfCheck.cs`。打印返回条数 = 自证真被跑到。
+        Debug.Log(P + "LiveOpsB93N2SelfCheck 跑 " + LiveOpsB93N2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
@@ -10710,5 +11092,17 @@ public static class ShellScene
         // ⚠️ 同上：这一张拍在 `Build` 之后、开场刚起 —— 画面上确实什么都没有
         Shoot("00_外壳.png", allowBlank: true);
         Debug.Log(P + shell.Dump());
+    }
+
+    /// <summary>🆕 **2026-10-28（B93_E30）**：夹具开窗的**统一护栏** —— `Open()` 抛异常时**只返回 false**，
+    /// ⛔ 不让异常逃出 `RunCore`（那会打断**后面所有批次**，一条都不跑；同一条纪律 = `B93_D1` 那一节里
+    /// `B93_E27` 的裁定「⛔ 绝不让 `Find(...)` / `FindChildIn(...)` 的 NRE 逃出 `RunCore`」）。
+    /// <para>⚠️ 调用点一律 `CheckTrue(TryOpenForSelfCheck(w, "窗名"), "（前提）…")` —— 红了要说得出「是这一步塌的」，
+    /// ⛔ 别写成 `if (w != null) Check(...)`（前提不成立就静默跳过，`资料/已知的坑` 那条同族）。</para></summary>
+    static bool TryOpenForSelfCheck(GameWindow w, string who)
+    {
+        if (w == null) { Debug.LogError(P + "夹具 `" + who + "` 是 null ⇒ 没法 `Open()`"); return false; }
+        try { w.Open(); return true; }
+        catch (System.Exception e) { Debug.LogError(P + "夹具 `" + who + "`.Open() 抛异常：" + e); return false; }
     }
 }

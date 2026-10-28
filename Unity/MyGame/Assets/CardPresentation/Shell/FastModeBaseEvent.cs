@@ -271,8 +271,8 @@ namespace CardPresentation
         /// <summary>原版 `OnMatchFinished(float matchWon, RankedMatchResult result, Action&lt;OnlineMatchResult&gt; callback)`
         /// （`OnMatchFinished__1a10a40.c`，逐跳照抄）：
         /// <code>
-        /// suspicious = PlayerDataManager 当前玩家的「可疑对局」标志（.c 读 [player+0xb4]）;
-        /// GameModes.SetResultCount(handler, …, result.targetMilestone);
+        /// suspicious = (matchData == null) ? true : matchData.suspiciousGame(读 +0xb4);      // ★ 拿不到 matchData 时**算可疑**
+        /// GameModes.SetResultCount(handler, "FastMode"(字面量 0x42BE6C0), result.battleWinner(读 +0x28));   // 不是 targetMilestone
         /// switch (result.battleWinner) {
         ///   Player(10): SetLossStreak(0);
         ///   Enemy(20):  if (!suspicious) SetLossStreak(GetLossStreak() + 1);
@@ -284,9 +284,9 @@ namespace CardPresentation
         /// </code>
         /// 🔴 **平局也 +连败**（`Draw` 支里也 `SetLossStreak(+1)`）—— 这条在 `判据/泛型与启动链.md` §四 里
         /// 没写，是 `.c` 里读出来的，照抄。
-        /// ⚠️ 本地等价：`SetResultCount` / `SetLossStreak` 那两个 handler 状态我们没有 ⇒
-        /// 记进 `FastModeSave`（`lossStreak` 用 `defeatStreak` 语义的本地字段，见 <see cref="LocalDefeatStreak"/>），
-        /// 然后**直接回调**（`RecordMatchFinished` 那一跳，无重试）。
+        /// ⚠️ 本地等价：`SetLossStreak` 记进 `FastModeSave`（见 <see cref="LocalDefeatStreak"/>）；**`SetResultCount` 没有本地对应物**
+        /// （原版写 `GameModes` handler 的 resultCount，本机 handler 恒 null）⇒ 未搬，如实记。`suspicious` 的
+        /// `matchData == null ⇒ true` 那一支对应「本机没有 matchData」：我们恒走 `SuspiciousGame`（非 null 支，默认 false）⇒ 然后**直接回调**（`RecordMatchFinished` 那一跳，无重试）。
         /// </summary>
         protected override void OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)
         {
@@ -326,14 +326,14 @@ namespace CardPresentation
         /// if (EndMatchData.&lt;boost 表&gt; 有内容) 逐个更新 RankedScoreBoost;
         /// </code>
         /// ⇒ 语义 = **服务器确认后**才把「这局」落进存档（我方 `matchStarted` 清、对手信息清、分数更新）。
-        /// ⚠️ 本地等价：这些「服务器确认」的字段里，`NewRating` / `armyStats` 本来就在我们自己的
-        /// `RecordMatchFinished` 里写完了 ⇒ 这里只做**清局内态 + 落盘 + 本地榜计分**（`LeaderboardData.LocalScore` 已接），并出声说明「没有服务器确认」。</summary>
+        /// 🔴 **2026-10-28 B93·N2 就地订正（铁律 5）**：原来这里写「`NewRating` / `armyStats` 本来就在 `RecordMatchFinished` 里写完了」——**前半对、后半不成立**：`armyStats` 在整条链路里**没有任何写入点**（`PlayEventSaveGame.armyStats` 只有 `GetArmyStats` 读）。⚠️ **仍未搬的两支（判据已定，缺的是数据不是判据）**：① `if (EndMatchData.armyStats.Count &gt; 0) SaveGame.armyStats = …`；② `if (EndMatchData.&lt;boost 表&gt;.Count &gt; 0) foreach (b in RankedScoreBoostHandler.GetBoostsFor(this)) b.&lt;0x428&gt;(EndMatchData.&lt;boost 表&gt;.FirstOrDefault(…))` —— 两支都要读 `result.EndMatchData`，而我们的 `OnlineMatchResult`（`Shell/PlayEvent.cs`，**D3 名下**）只有 `success/error/newRating` 三格 ⇒ 本文件改不动，已作为跨文件依赖交调度台。
+        /// 其余差异：原版这三行的闸是 `Data != null &amp;&amp; result != null &amp;&amp; result.EndMatchData != null`（否则 NRE），我们是 `SaveGame != null` + `result != null`；原版 `LocalScore` 不看 key 是否为空，我们多了一道 `!IsNullOrEmpty(LeaderboardKey)`（更保守，如实记）。</summary>
         protected virtual void OnMatchProcessSuccess(OnlineMatchResult result)
         {
             if (SaveGame == null) return;
             SaveGame.matchStarted = false;
             SaveGame.lastOpponentInfo = null;
-            if (result != null) { SaveGame.currentRating = result.newRating; if (!string.IsNullOrEmpty(Data.LeaderboardKey)) LeaderboardData.LocalScore(Data.LeaderboardKey, result.newRating, LeaderboardScoringMode.SetValue); }   // 原版同刻还有 `LeaderboardManager.LocalScore(key, NewRating, mode=2)`（`OnMatchProcessSuccess__1a110c0.c`）
+            if (result != null) { SaveGame.currentRating = result.newRating; if (!string.IsNullOrEmpty(Data.LeaderboardKey)) LeaderboardData.LocalScore(Data.LeaderboardKey, result.newRating, LeaderboardScoringMode.SetValue); }   // 原版：`LeaderboardManager.LocalScore(Data.LeaderboardKey, EndMatchData.NewRating, (LeaderboardScoringMode?)2)`；`SetValue == 2` 已核（`Shell/LeaderboardData.cs:51`）
             SaveEventProgress(null, null);
             Debug.Log("[FastMode] OnMatchProcessSuccess：'" + GetID() + "' 局内态已清、存档已落"
                     + "（原版这一跳是『服务器确认后』才走的；本地没有服务器 ⇒ 由 RecordMatchFinished 直接调进来）");
@@ -345,7 +345,7 @@ namespace CardPresentation
         /// if (SaveGame.JoinState == NotJoined(0) &amp;&amp; &lt;虚方法 0x758&gt;() == 0) { base.Expire(onComplete); return; }
         /// if (LiveOpsAssetUtility.HasComponent(this, 0x15 /*组件类型 21*/))
         ///     WindowsManager.OpenWindow(LiveOpsAssetUtility.GetComponentReference(this, 0x15), this, …);
-        /// TryCollect(() =&gt; onComplete());        // ← 过期前先把能领的里程碑领掉
+        /// TryCollect(() =&gt; base.Expire(onComplete));   // ← 过期前先把能领的里程碑领掉 · 🔴 回调**不是** onComplete（2026-10-28 B93·N2 坐实）：`Expire__1a0f700.c:44` 交出的是 `<>c__DisplayClass19_0.b__0`；`…Expire_b__0.c` 的体 = `FUN_181a121b0(this, onComplete)`，而 `FastModeBaseEvent_object__object_____n__0__1a121b0.c` 的体 = `Everguild_LiveOps_LiveOpsEvent__Expire(this, onComplete)` ⇒ 就是 **`base.Expire(onComplete)`**（`<>n__0` = 编译器给「基类调用」生成的桩）
         /// </code>
         /// ⚠️ 「组件 21 那扇窗」我们没有（活动窗是 `LiveOpsEventWindow` 一族，按类分不是按组件引用）
         /// ⇒ 那一跳**没搬**，出声记一条。
@@ -363,8 +363,8 @@ namespace CardPresentation
                 base.Expire(onComplete);
                 return;
             }
-            Debug.Log("[FastMode] Expire：'" + GetID() + "' 过期结算（原版会先开组件 21 那扇窗并领掉里程碑）");
-            TryCollect(onComplete);
+            if (LiveOpsExpirePopup.HasComponent(this)) LiveOpsExpirePopup.Open(this); Debug.Log("[FastMode] Expire：'" + GetID() + "' 过期结算（组件 21 那扇窗见 LiveOpsExpirePopup；随后领里程碑）");
+            TryCollect(() => base.Expire(onComplete));   // ★ 原版是 base.Expire(onComplete) 而非 onComplete（判据见方法注释）
         }
 
         /// <summary>原版 `TryCollect(Action onComplete = null)`（`TryCollect__1a11d20.c`，逐跳照抄）：
@@ -517,8 +517,8 @@ namespace CardPresentation
 
         /// <summary>原版 `override void SetCustomMatchOptions(RoomOptions options, int currentElo)`
         /// （`SetCustomMatchOptions__1a11ae0.c` + ILSpy `:817`，逐句）：
-        /// <code>
-        /// options.CustomRoomProperties["C4"] = 1;
+        /// <code>   // ★ 第 1 句是基类调用 base.SetCustomMatchOptions(options, currentElo)（`.c:24` 的 `NetworkingPeer__OnMessage(this, options, currentElo, mth)`；基类空体 ⇒ 行为中和，但逐句照抄别省）
+        /// options.CustomRoomProperties["C4"] = 1;      // 字面量数组已核：0x429E1F8..0x429E7C8 = "C1".."C5"（idx3="C4"、idx4="C5"）
         /// options.CustomRoomProperties["C5"] = GameModes.GetHandler&lt;GameModes&gt;().LossStreak;
         /// options.CustomRoomPropertiesForLobby = new[]{ "C1", "C2", "C3", "C4", "C5" };
         /// </code>
@@ -529,7 +529,7 @@ namespace CardPresentation
         /// <para>🔴 `C4` 的值在原版是**常量 1**（不是"已开局"之类可推的量 —— `.c` 里就是 `local_res18[0]=1`），照抄。</summary>
         public override void SetCustomMatchOptions(RoomOptions options, int currentElo)
         {
-            if (options == null) return;
+            base.SetCustomMatchOptions(options, currentElo); if (options == null) return;   // 原版第 1 句就是基类调用（`.c:24`）；基类空体 ⇒ 零行为，但照抄
             options.Set("C4", 1);
             options.Set("C5", LocalDefeatStreak);
             options.CustomRoomPropertiesForLobby = new[] { "C1", "C2", "C3", "C4", "C5" };
@@ -653,13 +653,12 @@ namespace CardPresentation
         //        `Append(" AND C3 != \"")` / `Append(" AND C4 == ")` / `Append(" AND C5 == ")`。
         //   🔴 这 4 个 `DAT_`（`0x18429e2f0` / `0x1842c7ea0` / `0x1842c7fa0` / `0x1842c81a0`）是 IL2CPP 的
         //      **metadata-usage 令牌**（`.data` 里存 `0xA000xxxx`，运行时由 `il2cpp_codegen_initialize_method` 填成 `Il2CppString*`），
-        //      ⛔ 拿 `工具/read_literal.py` 读不出来（它只读数值），`stringliteral.json` 也**不带地址** ⇒ 只能从 ILSpy 那份取字面量。
+        //      ⛔ 拿 `工具/read_literal.py` 读不出来（它只读数值）。🔴 **2026-10-28 B93·N2 就地订正（铁律 5）**：原来这里写「`stringliteral.json` 也**不带地址**」——**不成立**：它每条都带 `address`（形如 `0x42AAA88`），而 Ghidra 的 `DAT_1842aaa88` 就是同一地址 ⇒ **`DAT_xxxxxxxx` → 字面量可以直接查**（`{x['address']:x['value']}` 建表即可）。
         //   🔴 差异（如实记，⛔ 不是「已经一样」）：
         //      ① `guildId` 来源 = 原版 `AlliancesManager.Instance.CurrentGroupId` —— 本机**没有联盟线** ⇒ 走注入点，不注入 = null（C3 段不拼 + 出声一次）。
         //      ② `blacklistedUsers` = 原版 `PlayerDataManager.Instance.GetSuspiciousIds()` **再 Append 自己的 playerId**（`+0x1c8`）——
         //         本机既无作弊名单也无「自己的 playerId」这一格 ⇒ 走注入点，不注入 = null（C2 段不拼 + 出声一次）。
-        //      ③ `isRanked` = 原版 `(Data as IRankedData).<接口槽 4>`（`FUN_1800021f0(4,…)`，**那个成员的函数名未解**；
-        //         用 `Data is IRankedData` 顶 —— 语义同（C4 ↔ `SetCustomMatchOptions` 写的 `C4 = 1`），但**这一格是近似、未坐实**）。
+        //      ③ `isRanked` = 原版 `(Data as IRankedData).<接口槽 4>`（`FUN_1800021f0(4,…)`，**那个成员的函数名未解**；用 `Data is IRankedData` 顶 —— 语义同（C4 ↔ `SetCustomMatchOptions` 写的 `C4 = 1`），但**这一格是近似、未坐实**）。🔴 2026-10-28 B93·N2 已坐实同接口另两格：槽 2 = LegendaryElo（.c 与 currentElo 比并收紧 min）· 槽 5 = MaxEloCap（.c 直接当新 max）⇒ 这两处取值正确；只剩槽 4 那个 bool 的名字没解。
         //      ④ `FeatureConfig.ShouldDisableNewMatchMaking()` 读**远端** FeatureConfig（`FeatureConfig__ShouldDisableNewMatchMaking.c`：
         //         `ConfigManager.GetConfig<FeatureConfig>() == null ⇒ false`，否则取 `+0x70`）⇒ 服务器已关服 ⇒ 取「拿不到 config」那一支
         //         = `false`（= 新匹配启用 ⇒ **加** C5 段）。共用 `DraftEventBase.DisableNewMatchMaking` 这一格（⛔ 别另立第二份开关）。
@@ -767,7 +766,8 @@ namespace CardPresentation
 
     /// <summary>排位加成事件表的取用口（原版 `LiveOpsManager.GetHandler&lt;RankedScoreBoostHandler&gt;().GetBoostsFor(army)`）。
     /// 🔶 自己设计（非原版）：那个 handler 属 B11；本批只留一个注入点 + 「没注入 ⇒ 空表、出声一次」。
-    /// 调度台 C1 2026-10-27 定。</summary>
+    /// 调度台 C1 2026-10-27 定。
+    /// <para>⚠️ 唯一该有的生产态读者 = `FastModeBaseEvent.OnMatchProcessSuccess` 的「逐个更新 RankedScoreBoost」支，**那一支还没接**（要 `result.EndMatchData`）⇒ 今天这个口在比赛链上没有调用方。</para></summary>
     public static class FastModeBoosts
     {
         public delegate IReadOnlyList<RankedScoreBoostEvent> BoostsProvider(CardArmy army);
@@ -789,5 +789,47 @@ namespace CardPresentation
 
         /// <summary>自检口（⚠️ 只给断言用）。</summary>
         public static void ResetForTest() { Provider = null; _warnedOnce = false; }
+    }
+
+    // ============================================================ `Expire` 里「组件 21 那扇窗」的落地缝（B93·N2 · 2026-10-28 追加，**文件尾**）
+    /// <summary>原版 `FastModeBaseEvent.Expire` 中间那两跳（`Expire__1a0f700.c:35-41`）：
+    /// `if (LiveOpsAssetUtility.HasComponent(this, 0x15)) WindowsManager.OpenWindow(LiveOpsAssetUtility.GetComponentReference(this, 0x15), this, …)`。
+    /// <para>`0x15 = 21 = <see cref="LiveOpsComponentRef.ExpirePopup"/>`（判据 `Shell/LiveOpsLocalCatalog.cs:146`）。</para>
+    /// <para>⚠️ **差异（如实记）**：原版按**组件引用（prefab GUID）**开窗；我们按 **label** 走
+    /// <see cref="LiveOpsPopupPresenter.Open"/> —— 与 `SelectEvent()`（label 10）与 `OpenWindow()` 的 default 支**同一条缝**。
+    /// 判据缺口 = 本机没有 `WindowsManager.OpenWindow(assetRef, …)` 那一跳（`LiveOpsLocalCatalog` 只有 GUID，没有可实例化的 prefab）。
+    /// 查不到 = 「组件 21 的 prefab 在本地是否存在」尚未核（要 GUID → prefab 的反查）。</para></summary>
+    public static class LiveOpsExpirePopup
+    {
+        /// <summary>= `LiveOpsComponentRef.ExpirePopup`（原版 `.c` 里的字面量 `0x15`）。</summary>
+        public const int ExpirePopupKey = 21;
+
+        /// <summary>原版 `LiveOpsAssetUtility.HasComponent(liveOps, ExpirePopup)`：这份活动的 `EventComponents` 里有没有 key=21。
+        /// 数据源 = 本地活动目录（判据 `LiveOpsLocalEvent.Components`，`KeyValuePair&lt;int,string&gt;`：组件键 → GUID）。</summary>
+        public static bool HasComponent(ILiveOps liveOps)
+        {
+            var local = liveOps == null ? null : LiveOpsLocalCatalog.Find(liveOps.GetID());
+            if (local == null || local.Components == null) return false;
+            for (int i = 0; i < local.Components.Length; i++)
+                if (local.Components[i].Key == ExpirePopupKey) return true;
+            return false;
+        }
+
+        /// <summary>原版 `WindowsManager.OpenWindow(GetComponentReference(this, 21), this, …)`（见类注释的差异）。</summary>
+        public static GameWindow Open(ILiveOps liveOps)
+        {
+            if (LiveOpsPopupPresenter.Open == null)
+            {
+                Debug.LogError("[FastMode] 过期窗（组件 21）打不开：没有接 `LiveOpsPopupPresenter.Open`"
+                             + "（原版此跳 = `WindowsManager.OpenWindow(GetComponentReference(this, 21), this, …)`）。eventId = "
+                             + (liveOps != null ? (liveOps.GetID() ?? "<null>") : "<null>"));
+                return null;
+            }
+            var opts = new PopupOptions { PopupLabel = ExpirePopupKey };
+            var win = LiveOpsPopupPresenter.Open(liveOps, opts);
+            if (win == null)
+                Debug.Log("[FastMode] 过期窗（组件 21）没开成（presenter 返回 null）；原版这一跳是 `WindowsManager.OpenWindow` 拿不到引用的空跳");
+            return win;
+        }
     }
 }

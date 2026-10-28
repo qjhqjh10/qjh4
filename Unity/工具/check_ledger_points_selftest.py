@@ -334,6 +334,14 @@ def main():
         exit_of([fixf3, "--root", APP, "--fix"])
         after3 = io.open(fixf3, encoding="utf-8", newline="").read()
         ok("--fix：目标行解析不出声明 ⇒ 账一个字都不改（NEED-HUMAN 跳过）", before3 == after3, after3.strip())
+        # 🆕 2026-10-28（B93_E4）：`--fix` 的**重定位语义一个字没动** —— 它只改第一处（落点）的行号，
+        #   ⛔ 绝不碰次要落点（证据指针）。这条样例的第一处会漂（9 → 7）、第二处故意写坏（S.cs:7 空行）。
+        fixf4 = os.path.join(TMP, "fix4.tsv")
+        _write(fixf4, HDR + "A\t%s\tC\tM\t\n" % "T.cs:9（`KwValue`） · S.cs:7")
+        exit_of([fixf4, "--root", APP, "--fix"])
+        after4 = io.open(fixf4, encoding="utf-8", newline="").read()
+        ok("--fix：只改正第一处（9→7），次要落点 `S.cs:7` 逐字不动",
+           "T.cs:7（`KwValue`） · S.cs:7" in after4, after4.strip())
 
         # ------------------------------------------------------------------
         # 辅助函数单测（形态判据的底）
@@ -349,6 +357,123 @@ def main():
         ok("head_name：参数式", C.head_name("a.cs:642 ShowError(text, loc)", C.REF.search("a.cs:642 ShowError(text, loc)")) == "ShowError")
         ok("head_name：括号紧跟", C.head_name("a.cs:750 Show（关窗钮）", C.REF.search("a.cs:750 Show（关窗钮）")) == "Show")
         ok("head_name：落点直接进括号 ⇒ None", C.head_name("a.cs:1（Foo）", C.REF.search("a.cs:1（Foo）")) is None)
+
+        # ------------------------------------------------------------------
+        # 🆕 2026-10-28（B93_E4）三个新盲点的构造性自检
+        #   判据 = `资料/完全复刻/报告/F2_落点失败收尾.md` §④ 的 1 / 2 / 3
+        #   外形 = 「**修前必红、修后必绿**」：修前那三红的实证见 B93_E4 报告
+        #   （同一批样例喂给 `.bak_20261028` 那个版本），本文件钉的是「修后」的行为。
+        # ------------------------------------------------------------------
+        S_CS = (
+            "class S\n"
+            "{\n"
+            "    void Good()\n"
+            "    {\n"
+            "        Helper();\n"
+            "    }\n"
+            "\n"
+            "    // Helper 在这里只是被提了一句（注释行）\n"
+            "    void Helper()\n"
+            "    {\n"
+            "    }\n"
+            "}\n"
+        )
+        B_CS = (
+            "public sealed class Badge : InventoryBadge { }\n"
+            "\n"
+            "public sealed record Match : BadgeNotification { }\n"
+        )
+        P_CS = (
+            "class P\n"
+            "{\n"
+            "    bool Flag\n"
+            "    {\n"
+            "        get { return Kw(1) != 0; }\n"
+            "    }\n"
+            "\n"
+            "    int Count => Kw(3);\n"
+            "\n"
+            "    int Kw(int x)\n"
+            "    {\n"
+            "        return x;\n"
+            "    }\n"
+            "\n"
+            "    void Body()\n"
+            "    {\n"
+            "        int local = 5;\n"
+            "        Kw(local);\n"
+            "    }\n"
+            "\n"
+            "    bool NotAProp\n"
+            "        = false;\n"
+            "}\n"
+        )
+        _write(os.path.join(APP, "S.cs"), S_CS)
+        _write(os.path.join(APP, "B.cs"), B_CS)
+        _write(os.path.join(APP, "P.cs"), P_CS)
+
+        # ---- 盲点①：落点列里第二处及以后的 `文件:行` 也要机检 ----
+        # 修前这些**全部通过**（`REF.search` 只取第一处 ⇒ 后面那截根本没看 = 空转绿灯）。
+        r = case("B93-1+ 次要落点指向空行（`S.cs:7`）⇒ 失败", "S.cs:3（`Good`） · S.cs:7", "F")
+        ok("B93-1+ …理由点名空行", "空行" in str(r["why"]), r["why"])
+        r = case("B93-1+ 次要落点行号越界 ⇒ 失败", "S.cs:3（`Good`） · S.cs:9999", "F")
+        ok("B93-1+ …理由点名越界", "越界" in str(r["why"]), r["why"])
+        r = case("B93-1+ 次要落点文件不存在 ⇒ 告警（可能是原版源码引用，⛔ 不算失败）",
+                 "S.cs:3（`Good`） · NoSuchFile.cs:3", "W", C.WARN_SECOND)
+        ok("B93-1+ …理由点名「找不到 / 不存在」",
+           ("不存在" in str(r["why"]) or "找不到" in str(r["why"])), r["why"])
+        r = case("B93-1+ 次要落点声称的名字不在那一行 ⇒ 告警",
+                 "S.cs:3（`Good`） · S.cs:10（`Helper`）", "W", C.WARN_SECOND)
+        ok("B93-1+ …告警里报出它实际在哪（9）", "9" in str(r["why"]), r["why"])
+        # 反例（⛔ 不许过火）
+        case("B93-1- 次要落点是**调用行**（`Helper();` 在 5 行）⇒ 通过、不告警",
+             "S.cs:3（`Good`） · S.cs:5（`Helper`）", "P", "-")
+        case("B93-1- 次要落点是**注释行但提了那个名字**（8 行）⇒ 通过、不告警",
+             "S.cs:3（`Good`） · S.cs:8（`Helper`）", "P", "-")
+        case("B93-1- 次要落点与第一处重复（同一 `文件:行`）⇒ 不算两遍",
+             "S.cs:3（`Good`） · S.cs:3（`Good`）", "P", "-")
+        case("B93-1- 次要落点没声称名字、那行非空 ⇒ 通过（散文不硬套）",
+             "S.cs:3（`Good`） · S.cs:5（实现细节两处 Foo Bar）", "P", "-")
+
+        # ---- 盲点②：带基类列表的 `class X : Y` ----
+        # 修前：候选正则只认 `( < { ; = $`，名字后面是 `:` ⇒ 判「找不到这份声明」= 假失败
+        #   （F2 报告 §④2 点名的就是这条：`BoosterPackBadge` / `ChallengeMatch` 两条 record）。
+        case("B93-2+ `class Foo : Bar { }` 能当落点", "B.cs:1（`Badge`）", "P")
+        case("B93-2+ `record Foo : Bar { }` 能当落点", "B.cs:3（`Match`）", "P")
+        case("B93-2- 反例：**基类名**不是声明（`InventoryBadge` 只是 `Badge` 的基类）",
+             "B.cs:1（`InventoryBadge`）", "F")
+        ok("B93-2+ find_decl_candidates：`Badge` 命中 1 行",
+           C.find_decl_candidates(C.read_src_lines(os.path.join(APP, "B.cs")), "Badge") == [1],
+           C.find_decl_candidates(C.read_src_lines(os.path.join(APP, "B.cs")), "Badge"))
+
+        # ---- 盲点③：隐式 private / 一行式 getter ----
+        # 修前：`bool Flag`（`{` 在下一行）判「既无 `(` 也无 `=>`/`{`」、
+        #       `int Count => Kw(3);` 判「`)` 后接的是语句」⇒ 两条**假失败**。
+        _pc = C.read_src_lines(os.path.join(APP, "P.cs"))
+        case("B93-3+ 隐式 private 的名字行属性（`bool Flag` + 下一行 `{`）⇒ 告警、⛔ 不算失败",
+             "P.cs:3（`Flag`）", "W", C.WARN_MEMBER)
+        case("B93-3+ 一行式表达式体属性（`int Count => Kw(3);`）⇒ 告警、⛔ 不算失败",
+             "P.cs:8（`Count`）", "W")
+        # 反例（⛔ 不许放宽）
+        case("B93-3- 方法体里的局部变量（`int local = 5;`）仍然失败",
+             "P.cs:17（`local`）", "F")
+        case("B93-3- 方法体里的调用语句（`Kw(local);`）仍然失败 —— 不声称名字，只验形态",
+             "P.cs:18（两处实现细节）", "F")
+        case("B93-3- 隐式 private 的**裸字段**（`bool NotAProp` 换行 `= false;`）仍然失败"
+             "（与局部变量同形 ⇒ 故意不认）", "P.cs:21（`NotAProp`）", "F")
+        ok("B93-3+ member_decl_kind：名字行属性 + 下一行 `{` ⇒ property",
+           C.member_decl_kind("    bool Flag", _pc, 2) == "property",
+           C.member_decl_kind("    bool Flag", _pc, 2))
+        ok("B93-3+ member_decl_kind：名字行属性但**下一行不是 `{`** ⇒ None（⛔ 不猜）",
+           C.member_decl_kind("    bool NotAProp", _pc, 20) is None,
+           C.member_decl_kind("    bool NotAProp", _pc, 20))
+        ok("B93-3+ member_decl_kind：表达式体属性 ⇒ property",
+           C.member_decl_kind("    int Count => Kw(3);") == "property",
+           C.member_decl_kind("    int Count => Kw(3);"))
+        ok("B93-3- member_decl_kind：裸字段 ⇒ None（不认）",
+           C.member_decl_kind("    int local = 5;") is None, C.member_decl_kind("    int local = 5;"))
+        ok("B93-3- member_decl_kind：语句 ⇒ None", C.member_decl_kind("    Kw(local);") is None,
+           C.member_decl_kind("    Kw(local);"))
     finally:
         shutil.rmtree(TMP, ignore_errors=True)
 

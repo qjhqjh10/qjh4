@@ -57,7 +57,7 @@ namespace CardPresentation
         void Start()
         {
             // 按 Play 的入口 —— **和自检是同一条路**（本工程的规矩）
-            if (_root == null) Build();
+            if (_root == null) Build(); IngestPracticeResultsAtMenuStart();   // 账 584/585：把上一场练习局吃进战绩
         }
 
         void OnDestroy() { UnhookMenuRebuildBroadcasts(); if (Instance == this) Instance = null; }   // 🆕 B89-E30：摘掉 `L412`/`L477` 那两条静态订阅（否则静态事件攒着已销毁的实例）
@@ -1265,7 +1265,7 @@ namespace CardPresentation
 
             // 🆕 **2026-10-27（B88_J2）**：`Timer` 那一格（原版 `OpenEventButton.timer` = `TimerDisplay`）。
             //   几何/字号判据见 EVENT 那颗调用点上面那段（`menu_dump … "Event Navigation Button"` 本轮现读）。
-            if (timerEndUtc.HasValue) BuildNavEventTimer(b, timerEndUtc.Value);
+            if (timerEndUtc.HasValue) { BuildNavEventTimer(b, timerEndUtc.Value); RegisterEventNavTimer(b, timerEndUtc.Value); }   // 账 549：登记进按秒泵
             // 🔴 **2026-10-11（A305①）**：上面第 5 个数据实参 = 原版这一颗的 `m_fontSizeBase` **原文**。
             //    判据（本轮自己扫的原版场景 `bundle_scenes_scenes_mainmenuwarpforge`，逐颗现读）：
             //    五个导航钮的 `Text (TMP)`（`'PLAY'`/`'REWARDS'`/`'SHOP'`/`'COLLECTION'`/`'SOCIAL'`，
@@ -1287,7 +1287,7 @@ namespace CardPresentation
             //      ⇒ 没有**计数**、没有**补间**、没有**类型继承**（`MissionsBadge : RewardsBadge` 那条）。
             //   详细判据/差异 → `Shell/BadgeNotifications.cs` 文件头。
             BadgeWiring.Attach(badgeQuad, badgeR, b, QText, BadgeTint,
-                               BadgeWiring.DefinitionsFor(NavBadgeKey(idx)), "Nav[" + idx + "]");
+                               NavBadgeDefs(idx), "Nav[" + idx + "]");   // 账 546：EVENT 那颗运行期补一条（= 原版 `AddNotificationType`）
 
             // 点击区（**原版口径 = 可射线件的并集**，⛔ 不是整颗钮高）。
             // 原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
@@ -1877,7 +1877,7 @@ namespace CardPresentation
         /// 🔴 **入口链（复刻，不是我们挑的）**：`RankedEventWindowV2.LeaderboardButtonClick` 手上有
         /// **两颗** prefab —— `rankingPrefab`（遭遇榜）与 `rankingPrefabClassic`（经典榜），
         /// 按 `SetDivision` 传进来的 `playMode` 二选一 ⇒ **排位窗那颗钮走的是这条路**
-        /// （见 `RankedEventWindow.OpenLeaderboard`），**自检以外的调用点不该有**。
+        /// （见 `RankedEventWindow.LeaderboardButtonClick`），**自检以外的调用点不该有**。
         /// ⚠️ 另外两棵**在原版里没有可达入口**：轮抽榜挂在轮抽活动窗的 `AlliancesEventScorePanel` 上
         /// （我们没做轮抽模式）；嵌入版 `Ranked Leaderboard Display` **全库零引用**。
         /// ⇒ 这个方法留给自检（同 `OpenBattleLogPopup` 那条先例）。
@@ -1887,7 +1887,7 @@ namespace CardPresentation
         /// （`RankedSkirmishLeaderboardPopup` / `RankedClassicLeaderboardPopup Variant`）是**两条引用**
         /// ⇒ 缓存里自然也是两条（换 kind 再点会开第二扇，与「一棵 prefab 一个实例」同义）。
         /// ✅ **2026-10-11（A177）订正**：原来这里写「另一条入口 `Shell/RankedEventWindow.cs` 不在白名单
-        /// ⇒ 不共用这份缓存」—— **已过期**：那条入口（`RankedEventWindow.OpenLeaderboard`）也收编到
+        /// ⇒ 不共用这份缓存」—— **已过期**：那条入口（`RankedEventWindow.LeaderboardButtonClick`）也收编到
         /// `WindowsManager.OpenByRef`，与本法**共用同一份缓存**（`closeAll` 与否按各自那一段判据）。
         /// </summary>
         public LeaderboardWindow OpenLeaderboard(LeaderboardKind kind)
@@ -2257,7 +2257,7 @@ namespace CardPresentation
             // 🆕 2026-10-25：资源数字滚动（原版 `UIResourceCounter.SetQuantity(..., animated=1)` 的 0.5 s 递增）
             TopBar.StepCounters(_topBar, Time.deltaTime);
             TickNavPanelTween();
-            RefreshDraftModeCard(); TickChatPreviewTween();
+            RefreshDraftModeCard(); TickChatPreviewTween(); StepEventNavTimers();
         }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
@@ -4399,5 +4399,167 @@ namespace CardPresentation
         }
 
         readonly List<RankedSealPair> _rankedSealPairs = new List<RankedSealPair>();
+
+        // ============================================================ 账 546 / 549 · 活动钮：红点类型登记 + 倒计时按秒泵
+        //   （2026-10-28 · B93_D3；⚠️ **一律追加在类尾** —— 本文件挂着 70 处 `文件:行号` 落点）
+        //
+        // 【账 546 的判据 —— `decomp_full/OpenEventButton__Initialize.c`（84 行，逐句现读）】
+        //   `this+0x68 = liveOps;` → 绑 toggle/catcher 的监听 → **若 liveOps != null**：
+        //     `t = 反射取 liveOps 的「通知类型」那一格` → `UiBadgeNotification.AddNotificationType(this+0x60, t)`
+        //   → `SetButtonInfo()`。
+        //   ⇒ 我们缺的就是**中间那一句**：活动钮的 `badgeNotification` 在**运行时**被补上一条通知类型
+        //     （prefab 里那 6 颗导航钮的 `notificationDefinitions` 是**烘死**的，只有 Home/Collection/Shop/Rewards/Social
+        //      五条 —— 见 `Shell/BadgeNotifications.cs` 文件头那张表 ⇒ EVENT 那颗**出厂没有红点定义**，
+        //      它靠 `OpenEventButton.Initialize` 这一句在运行时补）。
+        //
+        // 【账 549 的三条残差里，本段收掉的是第 ② 条「倒计时只在建树那一刻算一次」】
+        //   原版 `TimerDisplay.Update` 按帧刷（`targetFrameRate` 那一档）；我们原来建一次就定死 ⇒ 跨过整分钟
+        //   屏上会停旧值。现在改成**按秒泵**（`StepEventNavTimers`，由 `Update()` 那条同一帧泵带起来 ——
+        //   零新增行：那句改成了一行内联调用）。
+        //   ⚠️ 仍是 🔶：① **剩余时间格式串**（`Xd Yh Zm`，原版 `TimeHelper.FormatTimeSpan` 体未解，判据只有 prefab
+        //   样例串 `5d 20h 15m`）；③ **overIcon**（`LoadAsset(ev,9)`）本机无图 ⇒ 照旧出声、不建。
+
+        struct EventNavTimer { public Transform Button; public System.DateTime EndUtc; }
+        static readonly List<EventNavTimer> _eventNavTimers = new List<EventNavTimer>();
+        static float _eventNavTimerAcc;
+
+        /// <summary>把一颗活动钮的倒计时登记进按秒泵（`NavButton` 里那句一行内联调用）。
+        /// ⚠️ 不持有 `Label` 引用：`Build()` 会 `MenuDraw.ClearChildren` 重建整颗钮 ⇒ 泵里按名字
+        /// （`Timer Text`）现查、查不到就**静默摘掉**那一格（那是重建后的旧节点，不是错误）。</summary>
+        static void RegisterEventNavTimer(Transform button, System.DateTime endUtc)
+        {
+            if (button == null) return;
+            _eventNavTimers.Add(new EventNavTimer { Button = button, EndUtc = endUtc });
+        }
+
+        /// <summary>按秒推进那一排倒计时（`Update()` 每帧调，内部自节流到 1 Hz）。
+        /// 判据 = 原版 `TimerDisplay.Update`（同一套「把剩余时间写进 `Timer Text`」的语义）。</summary>
+        static void StepEventNavTimers() { StepEventNavTimers(Time.deltaTime); }
+
+        /// <summary>按秒泵的真身（`dt` 由调用方给 —— 自检可以一次推几秒，⛔ 不用等帧）。</summary>
+        static int StepEventNavTimers(float dt)
+        {
+            if (_eventNavTimers.Count == 0) return 0;
+            _eventNavTimerAcc += dt;
+            if (_eventNavTimerAcc < 1f) return 0;
+            _eventNavTimerAcc = 0f;
+            int updated = 0;
+            for (int i = _eventNavTimers.Count - 1; i >= 0; i--)
+            {
+                var it = _eventNavTimers[i];
+                if (it.Button == null) { _eventNavTimers.RemoveAt(i); continue; }   // 重建过的旧节点 ⇒ 摘掉
+                var node = it.Button.Find("Timer Text");
+                var lb = node != null ? node.GetComponent<Label>() : null;
+                if (lb == null) { _eventNavTimers.RemoveAt(i); continue; }
+                string want = NavTimerText(it.EndUtc);
+                if (lb.Text != want) { lb.SetText(want); updated++; }   // 只在真的变了才写（TMP 每帧刷是纯浪费）
+            }
+            return updated;
+        }
+
+        /// <summary>活动钮的红点定义：原版那 6 颗导航钮里 EVENT 那颗**出厂没有定义**，由
+        /// `OpenEventButton.Initialize` 运行期 `AddNotificationType` 补一条（判据见上）。
+        /// <para>🔶 自己设计（非原版）：**通知类型本身**在本地没有对等物 —— 原版那个 `Type` 由**远端活动数据**
+        /// 给（`OpenEventButton__Initialize.c` 里那句反射取值），本机 13 份活动 SO 里没有那一格 ⇒ 我们定义
+        /// `EventNavBadge` 一类，数据源 = 本地活动目录里**在期且可选中**的 Parent 事件（每场一条）。
+        /// 为什么必须自定：判据在远端 liveops 数据里，关服后本地拿不到 —— 按铁律 18·0 这一格属于「与服务器有关」
+        /// ⇒ 允许本地模拟 · 调度台 B93 批次 2026-10-28 授权。</para></summary>
+        static List<BadgeNotificationDefinition> NavBadgeDefs(int idx)
+        {
+            var defs = BadgeWiring.DefinitionsFor(NavBadgeKey(idx));
+            if (idx >= 5)
+            {
+                EnsureEventNavBadgeProvider();
+                defs.Add(new BadgeNotificationDefinition(typeof(EventNavBadge)));
+            }
+            return defs;
+        }
+
+        static EventNavBadgeProvider _eventNavBadgeProvider;
+
+        /// <summary>登记「活动钮红点」的 provider（幂等）。</summary>
+        static void EnsureEventNavBadgeProvider()
+        {
+            if (_eventNavBadgeProvider != null) return;
+            _eventNavBadgeProvider = new EventNavBadgeProvider();
+            UiBadgeNotificationManager.Register(_eventNavBadgeProvider);
+        }
+
+        /// <summary>给**活动窗左栏那几颗事件页签**用的同一条口（`Shell/ParentEventWindow.CreateEventTab` 里那句
+        /// `AddNotificationType` 的等价物）—— 原版活动钮与事件页签取的是**同一个**「活动数据的通知类型」
+        /// （`OpenEventButton__Initialize.c` / `BaseParentEventWindow__CreateEventTab.c` 同一句反射取值）
+        /// ⇒ provider 只登记一次、两边共用（⛔ 别在 `ParentEventWindow` 再建一条）。</summary>
+        internal static void EnsureEventNavBadgeProviderForTabs() { EnsureEventNavBadgeProvider(); }
+
+        /// <summary>自检用：摘掉活动钮红点 provider（生产不收）。</summary>
+        public static void DetachEventNavBadgeProviderForTest()
+        {
+            if (_eventNavBadgeProvider == null) return;
+            UiBadgeNotificationManager.Unregister(_eventNavBadgeProvider);
+            _eventNavBadgeProvider = null;
+        }
+
+        /// <summary>自检口：第 <paramref name="idx"/> 颗导航钮的红点定义里有没有 `EventNavBadge`
+        /// （= 原版 `OpenEventButton.Initialize` 那句运行期 `AddNotificationType`）。</summary>
+        public static bool NavBadgeHasEventBadgeForTest(int idx)
+        {
+            var defs = NavBadgeDefs(idx);
+            for (int i = 0; i < defs.Count; i++)
+                if (defs[i] != null && defs[i].notificationType == typeof(EventNavBadge)) return true;
+            return false;
+        }
+
+        /// <summary>自检口：把一颗「假活动钮」（带 `Timer Text` 子件的节点）登记进按秒泵。</summary>
+        public static void RegisterEventNavTimerForTest(Transform button, System.DateTime endUtc)
+        {
+            if (button == null) return;
+            _eventNavTimers.Add(new EventNavTimer { Button = button, EndUtc = endUtc });
+        }
+
+        /// <summary>自检口：推一次按秒泵（返回真的被改写的字数 —— 用它断「泵是活的」而不是只断纯函数）。</summary>
+        public static int StepEventNavTimersForTest(float dt) { return StepEventNavTimers(dt); }
+
+        /// <summary>自检口：剩余时间串（`NavTimerText` 是 `internal`，编辑器是另一个程序集 ⇒ 要一条公开转发）。</summary>
+        public static string NavTimerTextForTest(System.DateTime endUtc) { return NavTimerText(endUtc); }
+
+
+        /// <summary>主菜单起来时把「上一场练习局」的结算吃进战绩（= 原版 `PracticeEvent.OnMatchFinished`
+        /// 在服务器回调里做的那件事的本地等价物；账 584/585）。数据源 = `BattleLogData.All`。
+        /// <para>⚠️ 为什么挂在**主菜单 Start**：练习局打完会切回主菜单（`BattleDriver` 那侧写对局记录），
+        /// 那一刻正好是原版「服务器回调到了」的对应时刻；⛔ 不每帧扫（`Update` 里那条泵只管倒计时）。</para></summary>
+        static void IngestPracticeResultsAtMenuStart()
+        {
+            var h = LiveOpsManager.GetHandler<GameModesHandler>();
+            if (h == null)
+            {
+                Debug.LogWarning("[Menu] 练习战绩回灌：取不到 `GameModesHandler`（`LiveOpsManager.GetHandler<GameModesHandler>()` = null）"
+                               + " ⇒ 这一轮没有回灌（出声，不静默）");
+                return;
+            }
+            int n = h.IngestPracticeResults();
+            Debug.Log("[Menu] 练习战绩回灌：吃了一 " + n + " 场（账 584/585 · 数据源 = `BattleLogData.All`）");
+        }
+    }
+
+    // ============================================================ 活动钮红点（类型 + provider）
+    // 🔶 自己设计（非原版）类型：原版这条通知类型由**远端活动数据**给（`OpenEventButton__Initialize.c` 那句反射取值），
+    //    关服后本地拿不到 ⇒ 我们定义一类，数据源 = 本地活动目录里的在期 Parent 事件 · 调度台 2026-10-28 授权（账 546）。
+    /// <summary>「有在期活动」那条红点（活动钮 / 活动窗左栏的事件钮共用一类 —— 原版这两处取的是**同一个**
+    /// 「活动数据的通知类型」，见 `OpenEventButton__Initialize.c` 与 `BaseParentEventWindow__CreateEventTab.c`）。</summary>
+    public sealed class EventNavBadge : BadgeNotification { }
+
+    /// <summary>活动钮红点的数据源：**本地活动目录**里每一场「在期且可选中」的 Parent 事件发一条。
+    /// ⚠️ 13 份 SO 今天全部过期 ⇒ 恒 0 条（= 红点恒隐藏）；这不是「写死 false」，判据 = `LiveOpsLocalCatalog`
+    /// 的 `IsCurrentlyActive` + `Selectable`（同一处口径见 `MainMenuRuntime.ActiveParentEventsForNav`）。</summary>
+    public sealed class EventNavBadgeProvider : INotificationProvider
+    {
+        public System.Type NotificationType { get { return typeof(EventNavBadge); } }
+        public IEnumerable<INotificationProvider> ChildProviders { get { return null; } }
+
+        public IEnumerable<BadgeNotification> CheckNotification()
+        {
+            var evs = MainMenuRuntime.ActiveParentEventsForNav(LiveOpsClock.NowUtc);
+            for (int i = 0; i < evs.Count; i++) yield return new EventNavBadge();
+        }
     }
 }

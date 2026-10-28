@@ -273,11 +273,11 @@ namespace CardPresentation
             {
                 var mainRankedType = GameModesConfigSource.MainRankedType;
                 if (mainRankedType == null)
-                {
-                    // 原版：`config == null || config.mainRankedType == null` ⇒ 直接返回 null（NRE），**不**走 LINQ
-                    Debug.LogError("[GameModes] GetActiveEvent：问的是排位接口，但远端 `GameModesConfig.mainRankedType`"
-                                 + " 本地拿不到（原版这一支直接返回 null / NRE）⇒ 返回 null");
-                    return null;
+                {   // 原版这一支 = `goto LAB_18068658b` → `/* Subroutine does not return */ FUN_1803f47a0();` = **throw NRE**（不是 return null）
+                    // 判据 `decomp_full/GameModes__GetActiveEvent.c`：`if ((lVar3 == 0) || (*(longlong *)(lVar3 + 0x18) == 0)) goto LAB_18068658b;`
+                    throw new NullReferenceException("[GameModes] GetActiveEvent：问的是排位接口，但远端 `GameModesConfig.mainRankedType`"
+                                                   + " 本地拿不到（原版这一支是 NRE —— 照抄，⛔ 别再改回 `return null`）");
+                    // （上一版这里写的是「出声 + 返回 null」，那是我们的旧口径，按 §18·0「原版的 bug 也照抄」订正）
                 }
                 if (mainRankedType != rankedInterface)
                 {
@@ -439,10 +439,10 @@ namespace CardPresentation
             GameModesConfigSource.ResetForTest();
             _playModeWarned.Clear();            // 🆕 B92_N5：原 `_playModeProps` 那两张反射缓存已废（见 `TryGetPlayMode`）
             // （`_matchFinishedMethods` 那一格随反射一起作废 —— 结算那一路不去重，没有要清的状态）
-            // 草稿闸（账 585 的那一半）：只是把值还原成兜底 true。
+            // 草稿闸（账 585 的那一半）：只是把值还原成**原版默认 `false`**（首胜才解锁，2026-10-28 B93_D3 改）。
             // ⚠️ **装在那个闭合泛型上的委托清不掉**（`DraftEventBase<TS,TD>` 的 static 是**按闭合类型各一份**，
             //    本类不知道将来哪个闭合类型 ⇒ 由调用方用该类型的 `ResetInjectionForTest()` 自己清）。
-            DraftModeUnlocked = true;
+            DraftModeUnlocked = false;
         }
 
         // ============================================================ 账 585 的那一半 · 练习首胜解锁草稿（草稿入口闸）
@@ -452,14 +452,14 @@ namespace CardPresentation
         ///       PlayerDataManager.singletonManager.UploadOnlineDemoData();</code>
         /// ⇒ 真正的那一位住在 `PlayerDataManager.demoData.canEnterDraftMode`（**首胜前为 false**），
         /// `PracticeEvent.OnMatchWon()` 只做「置 true + 上传」。
-        /// <para>🔶 自己设计（非原版）：**默认值 `true`** —— 判据**是可读的**（⚠️ 2026-10-28 `B89_RXb` 订正：
-        /// 原来写「本机没有 `demoData` 这一层 / 全仓 `canEnterDraft` 0 命中」，那只对 `decomp_full` 成立；
-        /// `DemoData.canEnterDraftMode` 在 `dump.cs:79362`、解锁路径在 `cpp2il/…/PracticeEvent.cs:97-101`），
-        /// 是**我们还没实现** `DemoData` 与 `PracticeEvent`（账 584/585 仍为 C）。照原版默认 `false` 接上，
-        /// 轮抽会变成**谁都进不去且不可恢复**（原版没有的死状态）⇒ 兜底放行。
-        /// 等练习首胜落地后翻成 `false` 即逐字复刻（接口不变）。
-        /// 执行代理 B89-E11b 2026-10-28 · `B89_RXb` 改口径。</para></summary>
-        public static bool DraftModeUnlocked = true;
+        /// <para>🔴 **默认值 = `false`（原版口径 · 2026-10-28 B93_D3 翻转；原来是兜底 `true`）**：
+        /// 判据是可读的 —— `DemoData.canEnterDraftMode` 在 `dump.cs:79362`、解锁路径在
+        /// `cpp2il/…/PracticeEvent.cs:97-101`（`OnMatchWon` 里那句 `= true`）⇒ **首胜前就是 `false`**。
+        /// 原来取 `true` 的唯一理由 = 「本机没有生产者，接 `false` 会让轮抽谁都进不去」（当时的自设计兜底）；
+        /// **现在生产者已落地**（`GameModesHandler.IngestPracticeResults` → `ApplyPracticeOutcome` →
+        /// `NotifyPracticeMatchWon`），故按原版翻成 `false`，⛔ 不再兜底放行。
+        /// 执行代理 B93_D3 2026-10-28（账 585）· 原口径留痕见上一版 `B89-E11b / B89_RXb`。</para></summary>
+        public static bool DraftModeUnlocked = false;
 
         /// <summary>把「草稿入口闸」注入给 `DraftEventBase&lt;TS,TD&gt;`（原版这一位由 `PlayerDataManager` 提供，
         /// 见 <see cref="DraftModeUnlocked"/>）。**值 = `DraftModeUnlocked` 的活读口**（不是快照）。
@@ -479,9 +479,10 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `PracticeEvent.OnMatchWon()`（`PracticeEvent.cs:95-101`）的落地口：**练习首胜 ⇒ 解锁草稿**。
-        /// <para>⚠️ 当前 **0 调用方**：本机没有 `PracticeEvent` 类，练习流程的胜局回调在
-        /// `Shell/PracticeModePopup.cs` / `Battle/BattleDriver.cs`（账 584/585 仍为 C）⇒ 这是**待接点**。
-        /// 原版第二句 `UploadOnlineDemoData()`（上传）是 P3，本地没有服务器。</para></summary>
+        /// <para>✅ **2026-10-28（B93_D3）起有生产调用方**：`IngestPracticeResults` → `ApplyPracticeOutcome`
+        /// （胜局那支）—— 数据源 = 既有本地对局记录 `BattleLogData.All` 里模式为 `OfflinePractice` /
+        /// `OwnDeckTraining` 的场次（原版这条触发在服务器回调里 ⇒ 本地等价见 `ApplyPracticeOutcome` 的 doc）。
+        /// ⚠️ 原版第二句 `UploadOnlineDemoData()`（上传）是 P3，本地没有服务器 ⇒ 只出声。</para></summary>
         public void NotifyPracticeMatchWon()
         {
             DraftModeUnlocked = true;                       // 原版：demoData.canEnterDraftMode = true
@@ -547,6 +548,243 @@ namespace CardPresentation
                 if (ranked != null) return ranked.lastPlayedSeason;
                 return 0;
             }
+        }
+
+        // ============================================================ 账 584 / 585 · 练习局收尾（2026-10-28 · B93_D3，追加在类尾）
+        //
+        // 【判据 —— 原版 `Everguild.LiveOps/PracticeEvent.cs`（ILSpy 两份体都可读，本轮现读）】
+        //   `protected override void OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)`：
+        //       `GameModes handler = LiveOpsManager.GetHandler<GameModes>();
+        //        handler.SetResultCount("Practice", result.battleWinner);
+        //        PlayerDataManager.singletonManager.RecordPracticeMatchFinished(this, matchWon,
+        //              result.targetMilestone, result.enemyMilestone, matchData, callbackOnSuccess);`
+        //   `protected override void OnMatchWon()`：
+        //       `base.OnMatchWon();`（= `numberOfMatchesWon += 1` + `lastOpponentInfo.Result = 1`，见 `PlayEvent.OnMatchWon`）
+        //       `PlayerDataManager.singletonManager.demoData.canEnterDraftMode = true;`
+        //       `PlayerDataManager.singletonManager.UploadOnlineDemoData();`   ← **P3（服务器）**
+        //
+        // 【本机为什么只能落在「本地落地 + 出声」】
+        //   · `RecordPracticeMatchFinished` 的体在 `decomp_full/PlayerDataManager__RecordPracticeMatchFinished*.c`
+        //     里 = 打 `PlayfabWrapper.GenericCloudScriptHandler(…, callback)` ⇒ **P3**；
+        //   · `UploadOnlineDemoData` 同理（同样是云脚本）。
+        //   ⇒ 本地等效 = ① `SetResultCount("Practice", winner)`（**原版既有**、已在 :364）；
+        //                ② 把胜/负/平记进**练习活动自己的存档**（`PracticeSave` = 原版 `PracticeEventSaveGame`，
+        //                   与 `PlayEvent.OnMatchWon/Lost/Draw` 同一套字段/同一条口径，⛔ 不另立计数器）；
+        //                ③ 首胜 ⇒ `NotifyPracticeMatchWon()`（**原版那两句的本地那一半**，⚠️ 上传那一跳出声）。
+        //   ⛔ 没有编任何数值、也没有「假装拿到了服务器确认」。
+        //
+        // 【数据源 = 既有本地对局记录】与轮抽那条 `DraftModeWindow.IngestBattleResults` **同族同法**
+        //   （`Shell/BattleLogData.cs` 的 `All`，由结算处写、且落盘）：练习两种模式号 =
+        //   `GameMode.OfflinePractice`（练习窗 `Battle!`）与 `GameMode.OwnDeckTraining`（`Deck info ▸ Practice Deck`）。
+
+        /// <summary>练习结果计数用的模式名 —— 原版 `SetResultCount` 的第一个实参**就是字面量 `"Practice"`**
+        /// （`Everguild.LiveOps/PracticeEvent.cs:86`，不是枚举名）。⛔ 别换成 `PlayModeNames.Name(OfflinePractice)`。</summary>
+        public const string PracticeResultMode = "Practice";
+
+        /// <summary>练习活动的本地存档（原版 `PracticeEventSaveGame : PlayEventSaveGame`）。
+        /// ⚠️ 原版这一份在服务器上（`PlayerDataManager` 持久化）；本地只活在本进程 + 由 `LiveOpsSaveStore` 那条
+        /// 常规路落盘（⛔ 本类没有专门的存档文件，别在这里造第二种存档格式）。</summary>
+        public static PlayEventSaveGame PracticeSave = new PlayEventSaveGame();
+
+        /// <summary>已经算进战绩的练习场次（新→旧表的游标；`BattleLogData` **只留 50 条** ⇒ 与轮抽那条同族的负差闸）。</summary>
+        static int _consumedPracticeMatches;
+
+        /// <summary>自检/换局复位（⛔ 生产路径不调）。同时把草稿闸还原成**原版默认值 `false`**。</summary>
+        public static void ResetPracticeForTest()
+        {
+            PracticeSave = new PlayEventSaveGame();
+            _consumedPracticeMatches = 0;
+            DraftModeUnlocked = false;
+        }
+
+        /// <summary>原版 `PracticeEvent.OnMatchFinished(matchWon, result, callback)` 的本地落地（账 584）。
+        /// <para>`matchWon` 从 `PlayEvent.MatchFinished` 下来是 float（胜 1 / 负 0 / 平 2），原版把它透传给
+        /// `RecordPracticeMatchFinished`；我们只**记下来**（`LastPracticeMatchWonCells`）并出声 ——
+        /// 那个云脚本的返回值（`OnlineMatchResult`）本地没有，⛔ 不编一个。</para></summary>
+        public void OnPracticeMatchFinished(BattleWinner winner, int targetMilestone, int enemyMilestone,
+                                            float matchWon, Action<OnlineMatchResult> callback = null)
+        {
+            SetResultCount(PracticeResultMode, winner);          // ① 原版第一句（逐字）
+            // ③ ★ 清「未收尾」标记：原版在 `OnMatchFinished` 的服务器成功回调里清
+            //    （同族写法 `Shell/FastModeBaseEvent.cs:334` = `SaveGame.matchStarted = false;`；
+            //      `PracticeEvent` 的 `callbackOnSuccess` 体本地不可读）⇒ 本地等价 = 在这里清。
+            //    ⛔ 不清会让 `InitializePracticeForMenuStart` 每一场都判「未收尾」⇒ 多记一负。
+            if (PracticeSave != null) PracticeSave.matchStarted = false;
+            LastPracticeMatchWonCells = matchWon;
+            // ② 原版 `RecordPracticeMatchFinished(…)` = 云脚本（P3）⇒ 本地只把「这一场的结算输入」记下来并出声
+            Debug.Log("[GameModes] 练习局收尾：winner = " + winner + " · matchWon = " + matchWon
+                    + " · targetMilestone = " + targetMilestone + " · enemyMilestone = " + enemyMilestone
+                    + " ⇒ `SetResultCount(\"" + PracticeResultMode + "\", …)` 已记；原版随后那句 "
+                    + "`RecordPracticeMatchFinished`（PlayFab 云脚本 = P3）本地没有服务器 ⇒ **未执行**"
+                    + "（本地等价 = `PracticeSave` 的胜/负/平三格，见 `ApplyPracticeOutcome`）");
+            // ③ 原版把服务器回调原样转出；本地没有回包 ⇒ **不回调**（⛔ 别拿「成功」假装有回包）
+            if (callback != null)
+                Debug.LogWarning("[GameModes] 练习局收尾的 `callback` **没有调用**：原版它是 `RecordPracticeMatchFinished` 的"
+                               + "服务器成功回调（P3），本地没有回包 ⇒ 如实跳过（调用方别等它）");
+        }
+
+        /// <summary>最近一场练习局 `MatchFinished` 透传下来的 `matchWon`（胜 1 / 负 0 / 平 2 格）。</summary>
+        public float LastPracticeMatchWonCells { get; private set; }
+
+        /// <summary>把「已经打完、还没算进战绩」的练习对局吃进战绩（原版那两句在服务器上的效果，本地落地）。
+        /// <para>🔴 **生产入口（`Shell/MainMenuRuntime.cs` 进主菜单时调的就是这一个）**：
+        /// 先「吃已结算的场次」（这一步会把 `matchStarted` 清掉），**再**跑原版 `PracticeEvent.Initialize()`
+        /// 的「上一场没收尾 ⇒ 判负 + 提示」那一支（账 583）。次序反了会把每一场都当成未收尾。</para>
+        /// <returns>这次吃了几场（0 = 没有新的；⚠️ 不含 `Initialize` 那一支补记的那一场）。</returns></summary>
+        public int IngestPracticeResults()
+        {
+            int n = IngestPracticeResults(BattleLogData.All);      // ① 先吃已结算的（顺带清 `matchStarted`）
+            InitializePracticeForMenuStart();                      // ② 再查「还有没有没收尾的」（原版 `PracticeEvent.Initialize`）
+            return n;
+        }
+
+        /// <summary>同上，日志从参数来（自检用：⛔ 不去改全局 `BattleLogData` 的那张表）。</summary>
+        public int IngestPracticeResults(IList<BattleLogData.Match> log)
+        {
+            var outcomes = PracticeOutcomes(log);                  // 新 → 旧
+            int pending = outcomes.Count - _consumedPracticeMatches;
+            if (pending < 0)
+            {
+                Debug.LogWarning("[GameModes] 对局记录里的练习场次（" + outcomes.Count + "）**少于**已记的 "
+                               + _consumedPracticeMatches + " ⇒ 记录被清过/裁过（只留 50 条）；游标拉回 "
+                               + outcomes.Count + "（少掉的那几场**无法补记**）");
+                _consumedPracticeMatches = outcomes.Count;
+                return 0;
+            }
+            if (pending == 0) return 0;
+            // 从**最旧**一场开始按 `MatchFinished` 的三支分派走（顺序影响「首胜解锁」那一跳的时机）
+            for (int i = outcomes.Count - pending; i < outcomes.Count; i++) ApplyPracticeOutcome(outcomes[i]);
+            _consumedPracticeMatches = outcomes.Count;
+            Debug.Log("[GameModes] 练习战绩回灌：吃了 " + pending + " 场 ⇒ 现在 " + PracticeSave.numberOfMatchesWon + " 胜 "
+                    + PracticeSave.numberOfMatchesLost + " 负 " + PracticeSave.numberOfMatchesDraw + " 平"
+                    + "（原版这两格在 `PlayEventSaveGame+0x48 / +0x4C / +0x50`）");
+            return pending;
+        }
+
+        /// <summary>从对局记录里挑出**练习**的对局并按「新 → 旧」给结果。
+        /// 练习的低频模式号 = `GameMode.OfflinePractice(6)`（练习窗 `Battle!`）与 `GameMode.OwnDeckTraining(12)`
+        /// （`Deck info ▸ Practice Deck`）—— 两个都是 `PracticeEvent.EventPlayMode` 那一路的入口。</summary>
+        public static List<BattleWinner> PracticeOutcomes(IList<BattleLogData.Match> log)
+        {
+            var outp = new List<BattleWinner>();
+            if (log == null) return outp;
+            string a = RuleEngine.PlayModeNames.Name(RuleEngine.GameMode.OfflinePractice);
+            string b = RuleEngine.PlayModeNames.Name(RuleEngine.GameMode.OwnDeckTraining);
+            for (int i = 0; i < log.Count; i++)
+            {
+                var m = log[i];
+                if (m == null || (m.Mode != a && m.Mode != b)) continue;
+                outp.Add(m.Result == BattleLogData.Outcome.Victory ? BattleWinner.Player
+                       : m.Result == BattleLogData.Outcome.Defeat ? BattleWinner.Enemy
+                       : BattleWinner.Draw);
+            }
+            return outp;
+        }
+
+        /// <summary>一场练习局结算：= 原版 `PlayEvent.MatchFinished` 的三支分派（`OnMatchWon/Lost/Draw`，本地存档那三格）
+        /// **＋** `PracticeEvent.OnMatchFinished`（`SetResultCount` 那一句）**＋** 首胜解锁草稿。
+        /// <para>🔴 计数**只在这里加一次**：`PlayEvent.OnMatchWon/Lost/Draw` 的原版语义就是「+1 并写
+        /// `lastOpponentInfo.Result`」，我们把它们的内联等价物写在这里（⛔ 别在 `NotifyPracticeMatchWon` 里再加一遍）。</para></summary>
+        void ApplyPracticeOutcome(BattleWinner winner)
+        {
+            var s = PracticeSave;
+            switch (winner)
+            {
+                case BattleWinner.Player:
+                    s.numberOfMatchesWon += 1;
+                    if (s.lastOpponentInfo != null) s.lastOpponentInfo.Result = 1;
+                    break;
+                case BattleWinner.Enemy:
+                    s.numberOfMatchesLost += 1;
+                    if (s.lastOpponentInfo != null) s.lastOpponentInfo.Result = 0;
+                    break;
+                case BattleWinner.Draw:
+                    s.numberOfMatchesDraw += 1;
+                    if (s.lastOpponentInfo != null) s.lastOpponentInfo.Result = 2;
+                    break;
+                default:
+                    Debug.LogWarning("[GameModes] 练习局结果 = " + winner + "（`Undefined`）⇒ 原版三支都不命中、**不计数**");
+                    return;
+            }
+            float cells = winner == BattleWinner.Player ? 1f : winner == BattleWinner.Draw ? 2f : 0f;   // = `MatchFinished` 的 matchWon
+            OnPracticeMatchFinished(winner, 0, 0, cells, null);
+            if (winner == BattleWinner.Player) NotifyPracticeMatchWon();     // 原版 `PracticeEvent.OnMatchWon` 那段
+        }
+
+        // ============================================================ 账 571 / 583 · 练习局的「开局置位」与「续局收尾」（追加在类尾）
+        //
+        // 【判据（2026-10-28 现读，ILSpy 体可读；偏移表 = `d:/2/tools/il2cpp_out/dump.cs` 的 `PlayEventSaveGame`）】
+        //   · `Everguild.LiveOps/PracticeEvent.cs:34` `Initialize()`：
+        //       `base.Initialize();
+        //        if (!saveGame.matchStarted(+0x44)) return;                       // ← 唯一的闸
+        //        result = new RankedMatchResult(0,0){ battleWinner = BattleWinner.Enemy };
+        //        base.MatchFinished(result, null);                                // ⇒ OnMatchLost + OnMatchFinished
+        //        MenuActions.Instance.QueueAction(() => WindowsManager.Instance.ShowPopUp(
+        //              "Demo/MainMenu/OngoingMatch", localizeTexts: true, closeOnEsc: false), ActionRule.DontBlock, …);`
+        //   · `PlayEvent.cs` `StartMatchNoCheck(CardDeck playerDeck)`（基类体，`PracticeEvent` **没有 override**）：
+        //       `ChangeState(Joined)` + `save.matchStarted = true`（+0x44）+ `save.randomSeed`（+0x40）+ `SaveEventProgress`
+        //     本仓同形实现 = `Shell/PlayEvent.cs:535 StartMatchNoCheck(string)`（D3 已落地，本类照它的三句做）。
+        //   · `PracticeEvent.cs:73` `StartMatch()` 在基类之后还有一句
+        //       `PlayfabWrapper.GenericCloudScriptHandler(CloudHandle.onPracticeMatchStarted, { eventId })` = **P3（云脚本）**。
+        // 🔴 **为什么这一支此前「接不上」**：`matchStarted` 在本仓**没有任何置位点**
+        //    （练习窗的 `Battle!` 不走 `PlayEvent.StartMatch`）⇒ `Initialize` 那道闸恒假。
+        //    现在 `Shell/PracticeModePopup.cs` 的 `StartBattle`（点 `Battle!` 那一拍）会调
+        //    <see cref="StartPracticeMatchNoCheck"/>，闸才第一次有输入。
+        // ⚠️ **清位点**：原版在 `OnMatchFinished` 的**服务器成功回调**里清（同族写法 = `Shell/FastModeBaseEvent.cs:334`
+        //    `SaveGame.matchStarted = false;`；`PracticeEvent` 的 `callbackOnSuccess` 体在本地不可读）
+        //    ⇒ 本地等价 = 结算口 <see cref="OnPracticeMatchFinished"/> 清。⛔ 不清会让每一场都「永远未收尾」。
+
+        /// <summary>「上一场练习局没结算」那一句提示的**词条键**（原版 `PracticeEvent.Initialize` 里的字面量，
+        /// 不是 `…Victory` / `…Draw` 那两档 —— 那两档属于基类 `PlayEvent.CheckPreviousMatch`）。</summary>
+        public const string PracticeOngoingMatchTerm = "Demo/MainMenu/OngoingMatch";
+
+        /// <summary>原版 `PracticeEvent.StartMatchNoCheck(CardDeck playerDeck)` 的本地落地（账 571）。
+        /// <para>三句逐字照 `Shell/PlayEvent.cs:535`（同一基类体的本仓实现）：
+        /// `UpdateLocalJoinState(Joined)` = `ChangeState(Joined)` · `matchStarted = true` · `randomSeed` 只在 0 时抖一次。</para>
+        /// <para>⚠️ 原版 `PracticeEvent.StartMatch()` 之后那句 `onPracticeMatchStarted` 云脚本 = **P3** ⇒ 出声不执行。</para></summary>
+        public void StartPracticeMatchNoCheck(string deckId)
+        {
+            var s = PracticeSave;
+            if (s == null)
+            {
+                Debug.LogError("[GameModes] StartPracticeMatchNoCheck：`PracticeSave` 是 null"
+                             + "（原版这一跳 NRE）⇒ 不置位");
+                return;
+            }
+            s.UpdateLocalJoinState(PlayEventSaveGame.JoinStates.Joined);   // 原版 `ChangeState(Joined)`
+            s.matchStarted = true;                                         // ★ 原版 `+0x44`
+            if (s.randomSeed == 0) s.randomSeed = Environment.TickCount;    // 同 `PlayEvent.StartMatchNoCheck` 的本地口径
+            Debug.Log("[GameModes] 练习局开局：卡组 id = " + (deckId ?? "<null>") + " ⇒ `joinState = Joined` + "
+                    + "`matchStarted = true`（原版 `PracticeEvent` 继承的 `StartMatchNoCheck` 三句）；"
+                    + "原版随后那句 `onPracticeMatchStarted` 云脚本 = P3（本地没有服务器）");
+        }
+
+        /// <summary>原版 `PracticeEvent.Initialize()` 的本地落地（账 583）：**进主菜单时**若上一场练习局没收尾
+        /// ⇒ 按「判负」结算一次并弹 `Demo/MainMenu/OngoingMatch`。
+        /// <para>🔴 **调用次序**：必须在「把已结算的场次吃进战绩」**之后**跑 —— 原版的清位发生在对局结束那一刻
+        /// （服务器回调），而我们的清位发生在结算口；先把已结束的吃进来，`matchStarted` 就已经被清掉，
+        /// 只剩真正「中途退出」的那一种会命中本支（否则每一场都会被当成未收尾 ⇒ 多记一负）。</para>
+        /// <returns>是否命中了「未收尾」那一支。</returns></summary>
+        public bool InitializePracticeForMenuStart()
+        {
+            var s = PracticeSave;
+            if (s == null)
+            {
+                Debug.LogError("[GameModes] InitializePracticeForMenuStart：`PracticeSave` 是 null（原版这一跳 NRE）⇒ 不判");
+                return false;
+            }
+            if (!s.matchStarted) return false;          // ★ 原版那道闸（`+0x44`）
+            s.matchStarted = false;                     // 先清：否则下一次进主菜单还会再判一次（原版清位在结算回调里）
+            Debug.LogWarning("[GameModes] 上一次练习局**没有收尾**（`matchStarted` 仍为 true）⇒ 按原版 `PracticeEvent.Initialize` "
+                           + "判一次负并提示玩家（原版：`MatchFinished(battleWinner = Enemy)` + 弹 `" + PracticeOngoingMatchTerm + "`）");
+            ApplyPracticeOutcome(BattleWinner.Enemy);   // = 原版 `base.MatchFinished(new RankedMatchResult{ Enemy }, null)`
+            var wm = WindowsManager.Instance;           // 原版 `MenuActions.QueueAction(() => WindowsManager.ShowPopUp(…))`
+            if (wm != null)
+                wm.ShowPopUp(Loc.T(PracticeOngoingMatchTerm), Loc.T("MainMenu/General/OK"), null);
+            else
+                Debug.LogWarning("[GameModes] 没有 `WindowsManager` 实例 ⇒ 续局提示 '" + PracticeOngoingMatchTerm
+                               + "' 只记日志（原版走 `MenuActions.QueueAction` → `WindowsManager.ShowPopUp`）");
+            return true;
         }
     }
 }

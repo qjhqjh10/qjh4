@@ -231,13 +231,15 @@ namespace CardPresentation
         /// 这里不必管它（`MissionsTab` 只在 `!claimed` 那一支里调本方法）。</summary>
         public static string DailyCounterText(int i)
         {
-            var t = At(i);
-            if (t.Progress < t.Target) return t.Progress + "/" + t.Target;
-            SayCompletedKeyOnce();
-            // 🔴 **2026-10-18（`A1012` 前半 · 铁律 5）**：这一行原来是 `return CompletedMessage;`
-            //   —— 把**词条键**当文案印在屏上（中文档印 `Missions/Completed`、不是「已完成」）。
-            //   键在表里（`Core/Loc.cs` 的 `Missions/Completed`）⇒ 接上表就是**一行的事**。
-            return Loc.T(CompletedMessage);
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:471`）**：本体改成**转调原版同名件**
+            //   <see cref="MissionCounterDisplay.Text"/>（= `MissionCounterDisplay.Setup` 里那两段：
+            //   `currentValue >= MaxValue &amp;&amp; displayCompletedMessage` → `completedMessage` 词条；
+            //   否则 `string.Format(progressTextFormat, currentValue, MaxValue)`）。
+            //   🔴 **格式串现在是参数**（原版**每实例一个**）：每日行实例 = `"{0}/{1}"`（MB `3476392019656054992`）
+            //   ⇒ 用 `MissionCounterDisplay.FormatDaily`，⛔ 别再在这里手写拼接。
+            var p = ProgressView(i);
+            if (p.CurrentValue >= p.MaxValue) SayCompletedKeyOnce();
+            return MissionCounterDisplay.Text(p, MissionCounterDisplay.FormatDaily, true, CompletedMessage);
         }
 
         /// <summary>原版 `MissionCounterDisplay.completedMessage` 的**出厂原文**
@@ -300,10 +302,12 @@ namespace CardPresentation
         /// <summary>周常是否**已领取**（同上，只管状态、不管显隐）。</summary>
         public static bool WeeklyClaimed() { return _weeklyState == State.Claimed; }
 
-        /// <summary>整卡底色。**照原版两套值**：普通/已领取 = `normalColor`，可领取 = `collectableColor`。</summary>
-        public static Color RowTint(int i)
-            => At(i).St == State.Collectable ? new Color(1.0f, 0.6667f, 0.3451f, 1f)
-                                             : new Color(0.4941f, 0.5686f, 0.9176f, 1f);
+        /// <summary>整卡底色。**照原版两套值**：普通/已领取 = `normalColor`，可领取 = `collectableColor`。
+        /// 🆕 **2026-10-28（`B93_E10` · 账 `:438`）**：本体改成**转调原版同名件**
+        /// <see cref="MissionBackgroundHighlighter.ColorFor"/>（= `MissionBackgroundHighlighter.Setup` 里那
+        /// 一句三元），颜色常量从此**只有一处**（那个类里，prefab 全精度值）。
+        /// ⚠️ **方法名保留**：30+ 处引用/断言在读 `RowTint`（⛔ 别删）；它现在只是**入口**。</summary>
+        public static Color RowTint(int i) { return MissionBackgroundHighlighter.ColorFor(ProgressView(i)); }
 
         public static string RefillText()
         {
@@ -313,9 +317,20 @@ namespace CardPresentation
             return Loc.T("Missions/RefillCount").Replace("{0}", n.ToString());
         }   // 原版占位串是 `0 Disponible`（葡语残留）；有官方键 `Missions/RefillCount` ⇒ 按词条印
 
-        public static string LoginTitle() { return Loc.T("Missions/Title/LoginBonus"); }
-        public static string SkullsTitle() { return Loc.T("Missions/Title/DailySkulls"); }
-        public static string SkullsCounter() { return "x" + _skullsCount; }
+        /// <summary>登录卡卡头标题。🆕 **2026-10-28（`B93_E10` · 账 `:492`）**：改成转调原版同名件
+        /// <see cref="MissionHeaderDisplay.TitleText"/>（= `MissionHeaderDisplay.Setup` 里
+        /// `title.text = LiveOpsAssetUtility.GetLabel(mission, EventLabelReferenceType.Title)`）。
+        /// ⚠️ **原版这一支的 `tooltip.Setup(GetLabel(…Description))` 我们没有落点** ——
+        /// 我们卡头右边那颗 ⓘ 是**另一件**（`AddInfoTooltip`），理由写在那颗类里。</summary>
+        public static string LoginTitle() { return MissionHeaderDisplay.TitleText("Missions/Title/LoginBonus"); }
+        /// <summary>骷髅卡卡头标题（同 `LoginTitle`，账 `:492`）。</summary>
+        public static string SkullsTitle() { return MissionHeaderDisplay.TitleText("Missions/Title/DailySkulls"); }
+        /// <summary>骷髅卡 `progress` 那一格的文本。🆕 **2026-10-28（`B93_E10` · 账 `:471`）**：改成转调
+        /// <see cref="MissionCounterDisplay.Text"/>，格式串 = **骷髅卡实例自己那一份** `"x{0}"` +
+        /// `displayCompletedMessage = false`（MB `-3349471971615803659` 实读）⇒ **到顶也不换词条**
+        /// （这一条以前只是「行为碰巧对」，现在是**同一个判据的两个参数**）。</summary>
+        public static string SkullsCounter()
+        { return MissionCounterDisplay.Text(SkullsProgressView(), MissionCounterDisplay.FormatSkulls, false, CompletedMessage); }
 
         /// <summary>🆕 2026-10-03：每日骷髅任务那条 `counter/icons/Army` 格子要挂的**阵营**
         /// （`null` = **Neutral**）。判据 = `d:/2/tools/decomp_full/MissionCounterDisplay__Setup.c:51-63`：
@@ -350,8 +365,11 @@ namespace CardPresentation
         { return _skullsSteps[Mathf.Clamp(i, 0, _skullsSteps.Length - 1)]; }
 
         /// <summary>第 `i` 档达成了没有（`_skullsCount >= 阈值`）。
-        /// ⚠️ **只管「方框亮不亮」，不管「能不能领」** —— 可点性见 `CanCollectSkulls`。</summary>
-        public static bool SkullsStepDone(int i) { return _skullsCount >= SkullsStepTarget(i); }
+        /// ⚠️ **只管「方框亮不亮」，不管「能不能领」** —— 可点性见 `CanCollectSkulls`。
+        /// 🆕 **2026-10-28（`B93_E10` · 账 `:497`）**：那个 `>=` 现在**只有一处** —— 转调原版同名件
+        /// <see cref="MissionMilestoneStep.Reached"/>（= `MissionMilestoneStep__Setup.c` 里那个
+        /// `value &lt;= currentValue`，也 = `MissionChallengeProgress.&lt;CurrentMilestone&gt;b__15_0` 的取反）。</summary>
+        public static bool SkullsStepDone(int i) { return MissionMilestoneStep.Reached(SkullsStepTarget(i), _skullsCount); }
 
         // ============================================================ 卡面的奖励格（🆕 2026-10-05 · **B4**）
         //
@@ -719,7 +737,12 @@ namespace CardPresentation
         /// 🔴 **2026-10-12（A372）改了口径**：这里原来读一个**手写的 `bool[]`** —— 与 `_weeklyProgress`
         /// **两处各说各话**（格亮不亮和计数 `13/15` 可以互相矛盾，加档还要改两处）。
         /// 现在与骷髅卡（`SkullsStepDone`）**同一条口径**：**唯一数据源 = 阈值数组**，亮不亮由计数算出来。</summary>
-        public static bool WeeklyStepDone(int i) { return _weeklyProgress >= WeeklyStepTarget(i); }
+        /// <summary>周常第 `i` 档达成了没有。
+        /// 🆕 **2026-10-28（`B93_E10` · 账 `:460` / `:497`）**：那个 `>=` 改成转调
+        /// <see cref="MissionMilestoneStep.Reached"/>（它内部用
+        /// <see cref="MissionChallengeProgress.CurrentMilestonePredicate"/> 的取反 =
+        /// `MissionChallengeProgress.&lt;CurrentMilestone&gt;b__15_0` 那个闭包）⇒ **判定只有一处**。</summary>
+        public static bool WeeklyStepDone(int i) { return MissionMilestoneStep.Reached(WeeklyStepTarget(i), _weeklyProgress); }
         /// <summary>`Weekly Mission / TimerHolder / Timer`（prefab 占位 `Ends in 12h 34 m`）。
         /// 🆕 **2026-10-17（W_A_TimerDisplay）**：目标时刻 = **未知** —— 我们的数据模型里**没有周常刷新时刻**
         /// （`TryDailyReset` 明确「只清当日那一族 ⇒ 周常不在内」，全仓也没有 `weeklyReset` 之类的字段；
@@ -756,8 +779,8 @@ namespace CardPresentation
         static readonly int[] _rewardFreeCount = { 150, 20, 200, 160 };
         static readonly int[] _rewardPremCount = { 300, 40, 400, 320 };
         static readonly bool[] _rewardClaimed = new bool[RewardDays];
-        /// 🔶 自己设计（非原版）：单机不卖 Premium（`_premiumOwned = false`） · 用户边界②「不做真实经济」（判据不适用：原版是真实经济、本项由用户拍板） · 用户 2026-09-17｜原注：<summary>⚠️ 我们挑的：**单机不卖 Premium**（边界②「不做真实经济」）⇒ Premium 抽屉恒为 `PremiumLocked`。</summary>
-        static readonly bool _premiumOwned = false;
+        /// 🔶 自己设计（非原版）：本地模拟「买 Premium 轨」（`_premiumOwned` 可写） · 原版走真商店 `PremiumOffer.TryPurchaseOffer`、服务器已关服 ⇒ 判据在远端 · 调度台 2026-10-28 裁定｜原注：⚠️ 我们挑的：**单机不卖 Premium** ⇒ 出厂 `false`、Premium 抽屉恒 `PremiumLocked`；买过了才转可领（见 `PurchasePremiumLocal`）。
+        static bool _premiumOwned;
 
         static int RI(int day) { return Mathf.Clamp(day, 0, RewardDays - 1); }
 
@@ -1884,7 +1907,7 @@ namespace CardPresentation
         /// <summary>🔴 **本类任何成员被碰到之前，它一定先跑完**（C# 的静态构造函数语义）——
         /// 这就是**读盘的唯一入口**（理由见上面那段）。⚠️ 它的整个身子都在 `EnsureLoaded()` 里、
         /// 而那一支**自己吞掉所有异常** ⇒ 不会把本类变成一碰就炸的 `TypeInitializationException`。</summary>
-        static DailyData() { EnsureLoaded(); }
+        static DailyData() { InitializeHandler(); }
 
         /// <summary>读一次盘（**只能读一次**；要重读走 `ReloadForTest()`）。
         /// ⚠️ 盘上没有 / 读不出 / 版本不认识 ⇒ 都**按出厂值走**，并且**一律出声**（红线：不许静默失败
@@ -1916,6 +1939,9 @@ namespace CardPresentation
             }
             try
             {
+                // 🆕 **2026-10-28（`B93_E10` · 账 `:500`）**：老格式迁移 —— 原版 `MissionPersistence.OnBeforeRead`
+                //   在**反序列化之前**把 `challenges` 从「单个对象」包成一元数组；我们这里同一条路（见 `OnBeforeRead`）。
+                text = OnBeforeRead(text);
                 var dto = JsonUtility.FromJson<StoreDto>(text);
                 if (dto == null)
                 {
@@ -2655,6 +2681,194 @@ namespace CardPresentation
             for (int i = 0; i < all.Length; i++) ids[i] = all[i].Army;
             return ids;
         }
+
+        // ============================================================ 原版类名的同名入口（2026-10-28 · `B93_E10`）
+        //
+        // 🔴 **为什么集中放在类尾**：这四条对应的原版成员分别在 `MissionEvent<T,TData>` / `Missions` /
+        //    `MissionPersistence` 上，而**我们的等价实现全在本类**（本仓的「日常」= 一套本地数据源，
+        //    没有 `MissionEvent` 那个事件对象层面）。账里那几行的缺口写的是「**缺一个与原型同名的方法**」
+        //    —— 那正是本节存在的理由（可核性：账的落点能指到一个同名方法）。
+        // ⚠️ **铁律 18·b**：新成员一律追加在类尾（⛔ 别往中间插）—— 中间插会让本文件下游几十条账落点整体漂移。
+        // ⚠️ **本节四条里有两条是「语义别名」（`RerollChallenge` / `UpdateChallengeProgress`）**：
+        //    行为本体在别的方法里，别名只是名字对齐 ⇒ 它们**没有调用方**，如实写在每一条的注释里。
+
+        /// <summary>原版 `MissionEvent<T,TData>.Initialize()`（`decomp_generic_trial/out/…__Initialize__102ee20.c`）：
+        /// 「遍历 `Save.challengeProgress` 逐条 `InitializeChallenge`（初始化 + 订阅）」。
+        /// <para>我们这一侧的等价物 = <see cref="InitializeHandler"/>（读盘 + 建表）——
+        /// **遍历那一半是空的**：我们的三条日常任务**不是** `MissionChallenge` 实例，
+        /// 磁盘上也没有 `challengeProgress[]`（见本文件头「这是我们自己设计的」那一段）⇒ 如实为空，⛔ 不编一张假表。</para></summary>
+        internal static void Initialize() { InitializeHandler(); }
+
+        /// <summary>原版 `Missions.InitializeHandler()`（`decomp_full/Missions__InitializeHandler.c`）：
+        /// 取配置（`MissionChallengeProvider.GetAssets()` → 远端 `MissionsConfig`）+ 建组。
+        /// 我们的等价物 = **静态构造那一拍读一次盘**（`EnsureLoaded`）⇒ 本方法是它**唯一**的入口
+        /// （`static DailyData()` 调的就是它 —— 所以这一条**有调用方**、不是死代码）。</summary>
+        internal static void InitializeHandler() { EnsureLoaded(); }
+
+        /// <summary>原版 `MissionEvent<T,TData>.RerollChallenge(challenge, onComplete)`（`…__RerollChallenge__102f210.c`）：
+        /// 「换一条新的（服务端下发）」。
+        /// <para>⚠️ **语义别名（0 调用方）**：我们这一侧的实现整体在 <see cref="RerollDaily"/>（就地换掉那一行），
+        /// 调用点 = `Shell/MissionRerollPopup.cs:481`（那个文件不在本批白名单）⇒ 名字对齐用，行为**逐字相同**
+        /// （它转调 `RerollDaily`）。⛔ 别在这里再写一份换任务的逻辑。</para></summary>
+        internal static string RerollChallenge(int i) { return RerollDaily(i); }
+
+        /// <summary>原版 `MissionEvent&lt;T,TData&gt;.UpdateChallengeProgress(payload)`
+        /// （`…__UpdateChallengeProgress__102f660.c`，197 行）：服务端推进一次就下发一次。
+        /// <para>我们**没有服务器** ⇒ 等价物 = **结算那一拍推本地进度**，本体在 <see cref="OnBattleEnd"/>
+        /// （它同时管骷髅计数 / 刚完成提示 / 落盘）。本方法只是**名字对齐的转发**（⛔ 别让两者各推一次 —— 双记）。</para></summary>
+        internal static void UpdateChallengeProgress(bool win, int damageToEnemy, int troopsPlayed, int skulls,
+                                                    int playMode, int damageToEnemyWarlord = -1,
+                                                    int attacksDeclared = -1, int rangedAttacksDeclared = -1)
+        {
+            OnBattleEnd(win, damageToEnemy, troopsPlayed, skulls, playMode,
+                        damageToEnemyWarlord, attacksDeclared, rangedAttacksDeclared);
+        }
+
+        /// <summary>原版 `Missions.UpdateMissionProgress(Action onComplete)`（`decomp_full/Missions__UpdateMissionProgress.c`，
+        /// 157 行 / 173 语句）：**上传进度 + 本地落盘**。
+        /// <para>我们这一侧**只有本地那一半**（上传要服务器）⇒ 本体 = <see cref="Persist"/>。
+        /// `onComplete` = 原版上传完的回调（云端受理后刷新界面）；我们没有「等待受理」那一拍
+        /// ⇒ **不接回调**（传 null 是唯一诚实的写法，⛔ 别造一个假的异步）。</para></summary>
+        internal static void UpdateMissionProgress(System.Action onComplete)
+        {
+            Persist("Missions.UpdateMissionProgress（本地落盘那一半）");
+            // ⚠️ `onComplete` **故意不调**：原版它在**云端受理之后**跑（改界面用）；本地没有「受理」这一步，
+            //    调它会让调用方以为「已经和服务器对齐」。要接它必须先补出「受理」这个概念。
+            if (onComplete != null)
+                Debug.Log("[Daily] `Missions.UpdateMissionProgress` 的 `onComplete` **不会**被调用："
+                        + "原版它在云端受理后跑，我们没有服务器（红线：不许静默 —— 这句就是说明）。");
+        }
+
+        /// <summary>原版 `MissionPersistence.OnBeforeRead(JObject jo)`（`decomp_full/MissionPersistence__OnBeforeRead.c`）：
+        /// 反序列化**之前**做老格式迁移 —— `jo["challenges"]` 若是**单个对象**（老档），
+        /// 包成 `new JArray(obj)` 再写回去（这样接下来的读取就当数组处理）。
+        /// <para>我们这一侧的同一条路：`StoreDto.rows` 在老档里也是**单个对象**。本方法做纯文本迁移，
+        /// 由 <see cref="EnsureLoaded"/> 在 `JsonUtility.FromJson` **之前**调用（顺序就是原版的语义）。</para>
+        /// <para>⚠️ 扫描**必须跳过字符串字面量**：`desc` / `rewardText` 里可能有 `{0}` 这类花括号，
+        /// 不过那些是**值**里的字符、不在 `rows` 的结构位置上；仍然按引号感知扫，避免把值里的 `}` 当成结构。</para>
+        /// <returns>迁移后的 JSON（不需要迁移时**原样返回同一个字符串**）。</returns></summary>
+        internal static string OnBeforeRead(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return json;
+            int at = json.IndexOf("\"rows\"", System.StringComparison.Ordinal);
+            if (at < 0) return json;
+            int i = at + 6;
+            while (i < json.Length && (json[i] == ' ' || json[i] == '\t' || json[i] == '\r' || json[i] == '\n')) i++;
+            if (i >= json.Length || json[i] != ':') return json;       // 不是我们认得的形状 ⇒ 原样交回（交给版本/异常那条路去出声）
+            i++;
+            while (i < json.Length && (json[i] == ' ' || json[i] == '\t' || json[i] == '\r' || json[i] == '\n')) i++;
+            if (i >= json.Length || json[i] != '{') return json;        // 已经是数组 / null ⇒ 不动
+            // 找这个对象的收尾 `}`（引号感知 —— 值里的 `}` 不算结构）
+            int depth = 0; bool inStr = false; bool esc = false; int end = -1;
+            for (int k = i; k < json.Length; k++)
+            {
+                char c = json[k];
+                if (inStr)
+                {
+                    if (esc) { esc = false; continue; }
+                    if (c == '\\') { esc = true; continue; }
+                    if (c == '"') inStr = false;
+                    continue;
+                }
+                if (c == '"') { inStr = true; continue; }
+                if (c == '{') depth++;
+                else if (c == '}') { depth--; if (depth == 0) { end = k; break; } }
+            }
+            if (end < 0) return json;                                   // 括号不配 ⇒ 原样交回（不猜）
+            Debug.Log("[Daily] `MissionPersistence.OnBeforeRead`：存档里的 `rows` 是**老格式（单个对象）**"
+                    + " ⇒ 包成一元数组再读（判据：原版 `MissionPersistence__OnBeforeRead.c` 的 "
+                    + "`new JArray(obj)` 后写回）。");
+            return json.Substring(0, i) + "[" + json.Substring(i, end - i + 1) + "]" + json.Substring(end + 1);
+        }
+
+        // ============================================================ `MissionProgressView` 的四个出口
+        //
+        // 原版这几个显示件读的是同两个对象（`IMission` + `MissionChallengeProgress`）；
+        // 我们的对应物是 `_daily[i]` / `_skullsCount` / `_loginState` / `_weeklyProgress` 四族
+        // ⇒ **每族一个只读出口**，字段名照样标出原版读点（判据见 `MissionProgressView` 的 summary）。
+        // ⚠️ **`Army` 一律传 0（= `CardArmy.Neutral`）**：原版那条任务的阵营**在服务端**、本地拿不到，
+        //    我们这份 mock 恒 Neutral（判据 + 实拍两条证据见 `SkullsArmy()` 那一段）⇒ 图标那一格不建、也不留空位。
+
+        /// <summary>每日第 `i` 行的读口（`CurrentValue/MaxValue` = `Progress/Target`）。</summary>
+        internal static MissionProgressView ProgressView(int i)
+        {
+            var t = At(i);
+            return new MissionProgressView(t.Progress, t.Target, CanCollectDaily(i), DailyClaimed(i), 0);
+        }
+
+        /// <summary>骷髅卡的读口（`CurrentValue` = `_skullsCount`，`MaxValue` = **最后一档阈值** —— 即原版 `MaxValue`
+        /// = `AvailableRewards()` 的**最后一个** `targetValue`，见 `DailyData.SkullsStepTarget`）。</summary>
+        internal static MissionProgressView SkullsProgressView()
+        {
+            return new MissionProgressView(_skullsCount, SkullsStepTarget(SkullsStepCount - 1),
+                                           CanCollectSkulls(), SkullsClaimed(), 0);
+        }
+
+        /// <summary>登录卡的读口（`CanCollect` = `CanCollectLogin`；`MaxValue` = 1 —— 登录卡是**单件**，
+        /// 原版那一条挑战只有一个里程碑 ⇒ 进度那一格恒 `0/1` 那一档，我们这一侧不画它）。</summary>
+        internal static MissionProgressView LoginProgressView()
+        {
+            return new MissionProgressView(_loginState == State.Claimed ? 1 : 0, 1,
+                                           CanCollectLogin(), LoginClaimed(), 0);
+        }
+
+        /// <summary>周常卡的读口（`CurrentValue` = `_weeklyProgress`，`MaxValue` = 最后一档阈值）。</summary>
+        internal static MissionProgressView WeeklyProgressView()
+        {
+            return new MissionProgressView(_weeklyProgress, WeeklyStepTarget(WeeklyStepCount - 1),
+                                           CanCollectWeekly(), WeeklyClaimed(), 0);
+        }
+
+        /// <summary>登录卡奖励格的**归并后**清单（原版 `MissionRewardsDisplay.Setup` 里那个 `GroupBy(x =&gt; x.ItemId)`）。
+        /// 🆕 **2026-10-28（`B93_E10` · 账 `:508`）**：归并求和那一半落成
+        /// <see cref="MissionRewardsDisplay.MergeSameItem"/>；本方法只是把**我们这张表**（`_loginRewardArt` /
+        /// `_loginRewardCount`，逐格读）喂进去 ⇒ `MissionsTab.BuildLoginCard` 的建格循环改吃它。
+        /// ⚠️ 我们这张表**恒无重复 Id** ⇒ 归并后与逐格直取**逐位同值**（今天的观感零变化）；
+        /// 它存在的意义是「将来若某一版表里出现两条同 Id，格子数会自己少一颗、数量会相加」——
+        /// 那正是原版 `GroupBy` 的行为。</summary>
+        internal static System.Collections.Generic.List<MissionRewardsDisplay.Cell> LoginRewardCellList()
+        {
+            var src = new System.Collections.Generic.List<MissionRewardsDisplay.Cell>(_loginRewardArt.Length);
+            for (int i = 0; i < _loginRewardArt.Length; i++)
+                src.Add(new MissionRewardsDisplay.Cell { ItemId = _loginRewardArt[i], Quantity = _loginRewardCount[i] });
+            return MissionRewardsDisplay.MergeSameItem(src);
+        }
+
+        // ============================================================ 每日奖励 · Premium 轨（🆕 2026-10-28 · `B93_N1`）
+        // 本节`追加在类尾`（铁律「新成员追加到类尾」）：上面最后一条落点（`DailyData.cs:2750`）之后，零行号漂移。
+        /// <summary>本机是否已拥有 Premium 轨 = 原版 `InventoryManager.HasItem(mission.PremiumItem)` 的等价物。
+        /// <para>判据两处：① `DailyRewardTrackPanel__Initialize.c:24-46`（`HasItem(premiumItem)` 决定那颗价钱钮的显隐）；
+        /// ② `DailyRewardTrackPanel__HandlePurchase.c:26-29`（已拥有 ⇒ 直接 `return`）。</para></summary>
+        public static bool PremiumOwned { get { return _premiumOwned; } }
+
+        /// <summary>= 原版 `DailyRewardTrackPanel.HandlePurchase()`（`d:/2/tools/decomp_full/DailyRewardTrackPanel__HandlePurchase.c`
+        /// 全 72 行）＋ 它的续作 `&lt;HandlePurchase&gt;b__6_0`（`…___HandlePurchase_b__6_0.c:10-19`）。
+        /// <para>原版三句：① `if (InventoryManager.HasItem(premiumItem)) return;` · ② `purchaseButton.Interactable = false;`
+        /// · ③ `liveOp.PremiumOffer.TryPurchaseOffer(onComplete)`；续作 = `liveOp.CurrentChallenges.FirstOrDefault()` 的
+        /// `canCollect(+0x48) = true`。🔴 **`FirstOrDefault()` 无谓词** —— ILSpy 版
+        /// `out_cpp2il_dev_ilspy/DailyRewardTrackPanel.cs:99-108` 逐字给出 `Enumerable.FirstOrDefault(currentChallenges)`；
+        /// `.c:12` 里那第二个实参是泛型 MethodInfo（IL2CPP 的泛型调用形状），**不是**谓词。
+        /// ⛔ 别与 `MissionEvent.TryCollect` 里那个 `FirstOrDefault(x =&gt; x.canCollect)` 混成一条（两处不同）。</para>
+        /// <para>🔶 自己设计（非原版）：**第 ③ 句「买」这一跳** · 原版是真钱商店（`PremiumOffer` 由远端商店目录下发，
+        /// 关服后判据在远端、本机永远拿不到） · 调度台 2026-10-28 裁定「本地模拟买」。
+        /// ⇒ 本口 = ① 守卫（同原版）＋ 置位。**续作不另造**：原版 `canCollect = true` 的作用是
+        /// 「让 Premium 奖励可领」，而在我们的状态机里这一格由 `_premiumOwned` 直接参与
+        /// <see cref="RewardStateOf"/> ⇒ 置位即达成。⛔ 别再去改某条每日任务的 `St`：原版改的是**当前挑战**的
+        /// `canCollect`，不是任务的进度（改了就变成我们自己发明的一条副作用）。</para>
+        /// <para>原版第 ② 句（`Interactable = false`）在这里**没有站立点**：本地模拟买是同步的、不会二次进入，
+        /// 而且紧接着调用方就把整颗价钱钮 `SetActive(false)`（= `Initialize` 那一句）⇒ 如实不写。
+        /// **返回**：真 = 这一次真买成了（调用方据此刷新抽屉 + 收掉价钱钮）。</para></summary>
+        public static bool PurchasePremiumLocal()
+        {
+            if (_premiumOwned) return false;      // 原版 `HasItem(premiumItem)` ⇒ 已拥有 ⇒ 什么都不做
+            _premiumOwned = true;
+            Say("Premium 轨已「购买」（🔶 本地模拟：原版走真商店 `PremiumOffer.TryPurchaseOffer`，本项目服务器已关服）");
+            return true;
+        }
+
+        /// <summary>自检口：把「已拥有 Premium」拨到指定态（**测试口，不在出厂路径上**；同 `ForceRewardClaimedForTest` 一族
+        /// —— 自检之间不靠隐式状态）。⛔ 运行时别调。</summary>
+        public static void ForcePremiumOwnedForTest(bool owned) { _premiumOwned = owned; }
     }
 
     /// <summary>

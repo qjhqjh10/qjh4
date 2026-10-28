@@ -1355,7 +1355,7 @@ namespace CardPresentation
             var noClip4 = ClearClip();
             var panel = new PxRect(344.29f, 867.01f, 720.35f, 1080.00f);
             var p = RewardsWindow.Node(root, "Premium Panel", panel);
-            _win.Rect(p, "WF_UI_Ranked_Background_Gold", panel, "Background", QPanel);
+            _premBgQuad = _win.Rect(p, "WF_UI_Ranked_Background_Gold", panel, "Background", QPanel);   // 🆕 B93_S1：原版 `panelBackground`(Image) 的宿主
             var panTitleR = new PxRect(354.43f, 874.01f, 710.22f, 916.33f);
             // 🔴 **2026-10-09（A1173）**：这颗也**在收口名单里**（R1 那张表按「调用点后 45 行内出现
             //    `SetAutoFitBox`」判，本处相隔 52 行 ⇒ 被漏记；实读判据见下面那段）。那五个数现在直接喂
@@ -1472,8 +1472,7 @@ namespace CardPresentation
                 panBtn.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
                 MenuDraw.AlignRight(panBtn, btnTxR);
             }
-            AddHit(_premAction, "ContinueHit", btn, QPanelBtn, () =>
-                Debug.Log("[Campaign] `Continue`：原版是「领高级每日奖励」，走 PlayFab 云脚本 —— **单机没有服务器**，本轮不实现"),
+            AddHit(_premAction, "ContinueHit", btn, QPanelBtn, () => CollectButtonClicked(),
                 contQ, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
             // `Timer`（HLG：时钟图标 + 倒计时文本）—— 原版 state 2 才显示，state 0/1 关（同上反编译 `:48-51`）。
             _premTimer = RewardsWindow.Node(p, "Timer", new PxRect(370.10f, 1030.09f, 694.55f, 1068.62f));
@@ -1537,9 +1536,9 @@ namespace CardPresentation
         /// `collectText`/`becomePremiumText`）；state 2 走 `:42-57`（三者**全反**）。
         /// 两条词条名 = prefab `MonoBehaviour_-4598054059081945715.json` 的 `mTerm` 原文。
         /// ⚠️ **本方法不管**底图 sprite 与 `backgroundShinyEffect` —— 那两件我们**根本没建**（如实记在报告里）。</summary>
-        void ApplyPremiumState(int state)
+        public void ApplyPremiumState(int state)
         {
-            _premState = state;
+            _premState = state; ApplyPremiumBackground(state);
             bool showAction = state == PremStatePurchased || state == PremStateNotPurchased;
             if (_premPoints != null) _premPoints.gameObject.SetActive(showAction);
             if (_premAction != null) _premAction.gameObject.SetActive(showAction);
@@ -1747,5 +1746,122 @@ namespace CardPresentation
                    + " · 缩放比 " + Ratio.ToString("F4") + "（行距 " + (128f * Ratio).ToString("F1") + "px）"
                    + " · 首奖励无图 " + NoIconRewardNodes + " 个节点 / " + NoIconRewards.Count + " 个 id";
         }
+
+        // ================================================================================
+        // 🆕 2026-10-28（`B93_E13` · 批次 G1「商店族」）—— `CampaignPremiumPointsPanel.CollectButtonClicked`
+        // ================================================================================
+        //
+        // 判据（第一权威 = 反编译方法体）：`d:/2/tools/decomp_full/CampaignPremiumPointsPanel__CollectButtonClicked.c`
+        //  **三档**（字段 `+0xa8` = 当前 state）：
+        //   · **state 0 (`PremiumPurchased`)** ⇒ `:17-23`：调**订阅方委托**（`+0xa0` 那个委托，`call [委托+0x18]`
+        //      带两个实参 `[+0x40]` / `[+0x28]`）—— 那个订阅方在服务端链上（PlayFab 云脚本）。
+        //   · **state 1 (`PremiumNotPurchased`)** ⇒ `:24-38`：`WindowsManager.OpenWindow(prefab 引用(组件 +0x40),
+        //      boxed int(campaign.<+0x18> 的 `+0x1b8`))`。
+        //   · **其它（含 state 2 `AlreadyCollected`）** ⇒ **整段什么都不做**（`:39` 的 `return`）——
+        //      与「按钮本来就关着」自洽。
+        // ⇒ 本方法**三档形状全部落地**；两支的**输入**都在远端（订阅方 / 那扇窗的 prefab 引用 + 那个 int）
+        //   ⇒ 走**出声**，⛔ 不编一条「看起来会领到」的链。这一条账维持 **B**（形到、远端输入不在）。
+
+        /// <summary>= 原版 `CampaignPremiumPointsPanel.CollectButtonClicked()`。三档见本节头。
+        /// <para>`_premState` 由 <see cref="ApplyPremiumState"/> 写（`LocalPremiumState()` 恒 2）⇒ **今天恒走第 3 档
+        /// （无动作）**；两态断言靠 `LastCollectBranch` 读。</para></summary>
+        public void CollectButtonClicked()
+        {
+            CollectClicks++;
+            LastCollectBranch = -1;                          // 原版第 3 档：什么都不做
+            if (_premState == PremStatePurchased)
+            {
+                LastCollectBranch = 0;
+                var sub = OnCollectSubscriber;
+                if (sub != null) { sub(); return; }
+                Debug.LogWarning("[Campaign] `Premium Panel` 的 Collect 没落地：原版 state 0 会调**订阅方委托**"
+                               + "（`CampaignPremiumPointsPanel__CollectButtonClicked.c:17-23`），"
+                               + "那个订阅方在服务端链上（PlayFab 云脚本领高级每日奖励）⇒ 单机没有订阅方，**不假装领到**。");
+                return;
+            }
+            if (_premState == PremStateNotPurchased)
+            {
+                LastCollectBranch = 1;
+                Debug.LogWarning("[Campaign] `Premium Panel` 的 Collect 没落地：原版 state 1 会 "
+                               + "`WindowsManager.OpenWindow(那扇付费窗的 prefab 引用, boxed int)`"
+                               + "（`…CollectButtonClicked.c:24-38`）；prefab 引用在组件的序列化字段 `+0x40`、"
+                               + "那个 int 来自 `campaign.<+0x18>+0x1b8` —— 两样本地都拿不到 ⇒ **不猜成某扇窗**。");
+            }
+            // state 2 / 还没建（`_premState == -1`）：原版**整段 return**，这里也什么都不做（⛔ 别加 Log，
+            // 「无动作」本身就是判据 —— 自检靠 `LastCollectBranch == -1` 反证）。
+        }
+
+        /// <summary>= 原版 `CampaignPremiumPointsPanel.OnCollect`（`+0xa0` 那个委托）的**订阅方**（我们这一侧的可注入位）。
+        /// `null` = 没有订阅方（本地常态）⇒ 点 Collect 只出声。</summary>
+        public System.Action OnCollectSubscriber { get; set; }
+        /// <summary>自检读口：Collect 被点了几次。</summary>
+        public int CollectClicks { get; private set; }
+        /// <summary>自检读口：最后一次点 Collect 走到了哪一档（`-1` = 无动作 / `0` = state 0 / `1` = state 1）。</summary>
+        public int LastCollectBranch { get; private set; } = -1;
+
+        // ============================================================ 🆕 2026-10-28（执行代理 `B93_S1`）
+        //   `CampaignPremiumPointsPanel.ChangeState` 里**原来没建的两件**（账 `商店:36`）：
+        //   ① `panelBackground.sprite = state==2 ? collectedSprite : notCollectedSprite`
+        //   ② `backgroundShinyEffect.enabled = state!=2`
+        //   判据（第一权威 = 反编译方法体，逐句）：
+        //     · `decomp_full/CampaignPremiumPointsPanel__ChangeState.c` —— state 0/1 走
+        //       `set_sprite(panelBackground(+0x80), +0x90)`、state 2 走 `set_sprite(…, +0x88)`；
+        //       两档末尾都 `Behaviour__set_enabled(backgroundShinyEffect(+0x98), on/off)`。
+        //     · `out_cpp2il_dev_ilspy/CampaignPremiumPointsPanel.cs` —— **字段名**齐，且 `+0x88 = collectedSprite`
+        //       （state 2 那一档）、`+0x90 = notCollectedSprite`（state 0/1）。
+        //     · 两格 sprite 的真身 = `Campaign Tab.prefab` 的 `collectedSprite`/`notCollectedSprite`
+        //       → guid `58b19cc8…` = `WF_UI_Ranked_Background_Silver` · `8107107b…` = `WF_UI_Ranked_Background_Gold`
+        //       （均在 `Resources/Art/ui_menu/`，2026-10-28 现读）。
+        //   ③ `panelBackground` 与 `backgroundShinyEffect` **挂在同一个 GO** = `Premium Panel/Background`
+        //       （prefab `m_GameObject` 都是 fileID 1634108722742392，`m_Name = Background`）⇒ 我们那颗
+        //       `_premBgQuad` 就是它。`backgroundShinyEffect` 的 `UIEffect` 参数 = `m_TransitionFilter 4`(Shiny) ·
+        //       rotation 120 · width 0.25 · softness 0.5 · color 白 · colorFilter 6；它旁边那颗
+        //       `UIEffectTweener`（`m_Duration 1` · `m_WrapMode 1 = Loop` · `m_PlayOnEnable 1`）
+        //       ⇒ 等价层 = `WildcardShineLayer`（同参数、loop、duration 1）。
+
+        /// <summary>按原版 `ChangeState` 换 `panelBackground` 的图 + 开关 `backgroundShinyEffect`。
+        /// <para>⚠️ state 2 那一档原版**也**换了图（`collectedSprite` = Silver）—— 那时按钮/点数行虽然整块关着，
+        /// 面板底图本身仍在 ⇒ **看得见**（我们原来恒 Gold，是可见差）。</para></summary>
+        void ApplyPremiumBackground(int state)
+        {
+            bool collected = state == PremStateCollected;
+            string art = PremiumBgForState(state);
+            if (_premBgArtName != art)
+            {
+                _premBgArtName = art;
+                var tex = CardArt.MenuUi(art);
+                if (tex != null && _premBgQuad != null) _premBgQuad.SetTexture(tex, true);   // 只换图、比例不动
+            }
+            if (_premBgShine == null && _premBgQuad != null)
+            {
+                var pr = new WildcardShineLayer.Params
+                {
+                    rotation = 120f, width = 0.25f, softness = 0.5f, duration = 1f,
+                    color = Color.white, colorFilter = 6f, colorGlow = 0f, reverse = false, loop = true,
+                };
+                _premBgShine = WildcardShineLayer.AttachQuad(_premBgQuad, pr);
+            }
+            if (_premBgShine == null) return;
+            _premBgShine.SetEnabled(!collected);          // 原版 `backgroundShinyEffect.enabled = state != 2`
+            if (!collected) _premBgShine.Play(true);      // 原版 tweener `m_PlayOnEnable = 1`
+        }
+
+        /// <summary>纯函数：state → 面板底图资源名（原版 `panelBackground.sprite = collected ? collectedSprite : notCollectedSprite`）。
+        /// 0/1 ⇒ Gold（`notCollectedSprite`）· 2 ⇒ Silver（`collectedSprite`）。自检直接打这个口。</summary>
+        public static string PremiumBgForState(int state) { return state == PremStateCollected ? PremBgSilver : PremBgGold; }
+
+        /// <summary>原版 `notCollectedSprite`（state 0/1）。</summary>
+        public const string PremBgGold = "WF_UI_Ranked_Background_Gold";
+        /// <summary>原版 `collectedSprite`（state 2）。</summary>
+        public const string PremBgSilver = "WF_UI_Ranked_Background_Silver";
+        /// <summary>自检读口：面板底图现在挂的是哪一张（`null` = 还没跑过 `ApplyPremiumBackground`）。</summary>
+        public string PremiumBackgroundArt { get { return _premBgArtName; } }
+        /// <summary>自检读口：`backgroundShinyEffect` 的等价层开着吗（`null` = 层没建出来 / card art 缺）。</summary>
+        public bool? PremiumBackgroundShineEnabled { get { return _premBgShine != null ? (bool?)_premBgShine.Enabled : null; } }
+        /// <summary>= 原版 `panelBackground`（prefab `Premium Panel/Background` 的 Image）。</summary>
+        ImageQuad _premBgQuad;
+        /// <summary>= 原版 `backgroundShinyEffect`（同一颗 GO 上的 `UIEffect`(Shiny)）的等价层。</summary>
+        WildcardShineLayer _premBgShine;
+        string _premBgArtName;
     }
 }

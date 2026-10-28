@@ -546,10 +546,10 @@ namespace CardPresentation
             return RefreshHandler(handlerCache);
         }
 
-        /// <summary>原版 `protected virtual Task RefreshHandler(LiveopsHandlerData data)`（`:2656`）。
-        /// **真身**（`_RefreshHandler_d__29...MoveNext.c`）：`refreshSemaphore.WaitAsync()` →
-        /// `ConfigManager.GetConfig&lt;FeatureConfig&gt;()` → `await Manager.BuildHandler(this, data, config)` → `Release()`。
-        /// ⚠️ 没有载荷（`data == null`）⇒ **出声返回**（原版这里会 NRE，因为 `manager.BuildHandler` 要 data）。</summary>
+        /// <summary>原版 `protected virtual Task RefreshHandler(LiveopsHandlerData data)`（`:2656` / **Slot 23**）。**真身**（`_RefreshHandler_d__29_…MoveNext.c`，271 行）：
+        /// `GetConfig&lt;FeatureConfig&gt;()` →（某条件下 `await Task.Yield()`）→ `await refreshSemaphore.WaitAsync()` → `await Manager.BuildHandler(this, data, config)` → `await &lt;虚调用 +0x2d8&gt;` → `EventsRefreshed?.Invoke()` → `Signal.Raise(new LiveOpsHandlerRefreshedSignal(this))` → `CustomDebug.Log("[" + HandlerKey + "] Handler Refreshed")` → `sem.Release()`。
+        /// ⚠️ 没有载荷（`data == null`）⇒ **出声返回**（原版这里会 NRE，因为 `manager.BuildHandler` 要 data）。
+        /// 🔴 **仍未搬两处（判据未闭合，⛔ 别猜）**：① 那句条件 `await Task.Yield()` 的**条件**（`.c` = 3 个 `Method not found @1806FB110` + 一次 bool 判）；② `await &lt;+0x2d8&gt;` 是哪个虚方法（`dump.cs` 的 `Slot` 编号与 vtable 偏移在本类**对不上**：拿 `RefreshHandlerLocally` 的 `0x2a8 ↔ Slot 23` 校准出的 stride 与 `Slot: 5 = GetBaseEvents` 的 `0x2e8` 互相矛盾）。</summary>
         protected virtual async Task RefreshHandler(LiveopsHandlerData data)
         {
             if (data == null)
@@ -573,7 +573,7 @@ namespace CardPresentation
                 refreshSemaphore.Release();
             }
             var h = EventsRefreshed;
-            if (h != null) h();
+            if (h != null) h(); LiveOpsSignal.Raise(new LiveOpsHandlerRefreshedSignal(this)); Debug.Log("[" + HandlerKey + "] Handler Refreshed");   // ★ 原版这两句在 EventsRefreshed 之后：`Signal.Raise(...)` + `CustomDebug.Log("[" + HandlerKey + "] Handler Refreshed")`（字面量 0x429B170="[" / 0x42B6C48="] Handler Refreshed"）· 零行数变化：⛔ 别拆成多行（会顶掉下游账落点）
         }
 
         /// <summary>原版 `private void HandleBeforeRefresh()`（`:2665`）：`Log("[key] Before Refresh")`
@@ -749,8 +749,8 @@ namespace CardPresentation
             return outp;
         }
 
-        /// <summary>原版 `public IEnumerable&lt;ILiveOps&gt; GetBaseEvents(bool includeBlockedEvents = false)`（`:3135`）：
-        /// 就是 `GetEvents(includeBlockedEvents)` 的 **ILiveOps 静态类型版**（原版是「虚方法转发」）。</summary>
+        /// <summary>原版 `public IEnumerable&lt;ILiveOps&gt; GetBaseEvents(bool includeBlockedEvents = false)`（`:3135` / **`ILiveOpsHandler` 槽 5**，`dump.cs` 的 `Slot: 5`）：
+        /// 就是 `GetEvents(includeBlockedEvents)` 的 **ILiveOps 静态类型版**（原版是「虚方法转发」）。🔴 **2026-10-28 B93·N2 已把「四源无真体」这条结掉**：`decomp_generic_trial/out/LiveOpsHandler_object___GetBaseEvents__1017fe0.c`（10 行）的整条体就是 `(**(code **)(*param_1 + 0x2e8))(param_1, param_2, *(*param_1 + 0x2f0))` —— 一次**带 method-info 的虚调用**（Ghidra 标了 `Could not recover jumptable / Treating indirect jump as call`，那是虚分派不是死代码）⇒ 语义 = 转发给同名同签名的虚方法 `GetEvents(bool)`，与我们这句 `return GetEvents(includeBlockedEvents)` 一致（含**子类 override 会生效**这一点）。</summary>
         public IEnumerable<ILiveOps> GetBaseEvents(bool includeBlockedEvents = false)
         {
             return GetEvents(includeBlockedEvents);
@@ -1684,5 +1684,24 @@ namespace CardPresentation
                 return mine;
             }
         }
+    }
+
+    // ============================================================ 原版 `LiveOpsHandlerRefreshedSignal`（B93·N2 · 2026-10-28 追加，**文件尾**）
+    /// <summary>原版 `public class LiveOpsHandlerRefreshedSignal : ISignal`（`LiveOpsHandlerRefreshedSignal.cs` 全文 20 行）：
+    /// 一个**只读载荷**的信号 —— `private ILiveOpsHandler Handler__BackingField;` + `public ILiveOpsHandler Handler { get; }`
+    /// + `public LiveOpsHandlerRefreshedSignal(ILiveOpsHandler liveOpsHandler)`（ctor 只写那一格，`+0x10`）。
+    /// <para>🔴 生产态发射点 = `LiveOpsHandler.RefreshHandler(LiveopsHandlerData)` 末尾的
+    /// `Signal.Raise(new LiveOpsHandlerRefreshedSignal(this))`（`LiveOpsHandler._RefreshHandler_d__29_…MoveNext.c:262`
+    /// 一带的 `Scaffold_Core_Events_Signal__Raise&lt;object&gt;`）。我们对应 <see cref="LiveOpsSignal.Raise{T}(T)"/>，
+    /// 接口用本工程的 <see cref="ILiveOpsSignal"/>（原版 `ISignal` 是空接口，同义）。</para></summary>
+    public sealed class LiveOpsHandlerRefreshedSignal : ILiveOpsSignal
+    {
+        /// <summary>原版 `public ILiveOpsHandler Handler { get; }`（`Handler__BackingField`，+0x10）。</summary>
+        public ILiveOpsHandler Handler { get; private set; }
+
+        /// <summary>原版 `public LiveOpsHandlerRefreshedSignal(ILiveOpsHandler liveOpsHandler)`。</summary>
+        public LiveOpsHandlerRefreshedSignal(ILiveOpsHandler liveOpsHandler) { Handler = liveOpsHandler; }
+
+        public override string ToString() { return "LiveOpsHandlerRefreshedSignal(" + (Handler != null ? Handler.GetType().Name : "<null>") + ")"; }
     }
 }

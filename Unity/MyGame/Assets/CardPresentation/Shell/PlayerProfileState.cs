@@ -142,23 +142,23 @@ namespace CardPresentation
         }
 
         // ======================================================== 555 showDevTools（B89-E10b 追加在类尾）
-        // 判据 = `decomp_full/PlayerDataManager__showDevTools.c`（全文现读 2026-10-28）：
-        //   全是 `CodeStage.AntiCheat.ObscuredTypes.ObscuredBool.op_Implicit` 那一跳 ——
-        //   **读一个静态 ObscuredBool 并隐式转 bool**，没有任何参数、没有任何副作用。
-        //   `dump.cs` 的签名是 `public bool showDevTools()`（属性式写法，**不是 UI 页**）。
-        //
-        // ⚠️ **还没查清（如实记，⛔ 别当「我们的选择」）**：那个静态量属于哪个类是施工单 `B88_R10` §六·5
-        //   挂着的未决项（`DAT_1842604c8` ≠ `GameStaticData` 的 `DAT_18427be00`）。最可能的来源是
-        //   `PlayerDataKey.ActivateDevTools = 2`（我们 `Shell/SaveKeys.cs:43/247` **已经有这条键**、
-        //   序号也是 2）⇒ 真接线应当读存档那一格，而不是另开一个开关。
-        //   ⇒ **本格只是一个占位口**：默认 `false`（= 原版 obscurity 未解锁时的值），
-        //      **没有写入方**（全仓 0 处写它），⛔ 不当成「原版就是这么来的」。
+        // 判据 = `decomp_full/PlayerDataManager__showDevTools.c`（全文现读 2026-10-28）= `return activateDevTools;`
+        //   —— `dump.cs:85667` 写着那个静态就是 `private static ObscuredBool <activateDevTools>k__BackingField; // 0x10`
+        //   （属性 `PlayerDataManager.activateDevTools`，`dump.cs:85848/86151/86155`）⇒ 一行取值器、无参数无副作用。
+        //   唯一读者 = `BattleSettingsWindow.ConsoleButtonOnClick`（为真才让 `Reporter` 调试台显形）· `Reporter.OnGUIDraw`。
+        // 🔴 2026-10-28（B93_N5）**数据源已查清 —— 本条推翻上一版「还没查清 / 最可能是存档键」**：
+        //   唯一写入方 = `PlayerDataManager.UnpackOnlineVersionData()`
+        //   （`cpp2il/out_cpp2il_dev_ilspy/PlayerDataManager.cs:8028`）：
+        //   `activateDevTools = OnlineData.GetPlayerOnlineData<bool>(userInfo, PlayerDataKey.ActivateDevTools);`
+        //   ⇒ 来源 = **PlayFab 只读玩家数据（服务器 / P3）**，**不是**本地存档。
+        //   ⇒ 关服 ⇒ 这条链永远取不到 ⇒ 原版离线恒 `false` = 本格常量（逐字一致，不是占位猜测）。
+        //   ⚠️ `SaveKeys.ActivateDevTools`（`SaveKeys.cs:43/247`）是**同名不同物**：原版那条链 0 处读它 ⇒
+        //      ⛔ 别再照「最可能的来源是存档键」去接（那会造出原版没有的开关）。
+        // 🔶 自己设计（非原版）：本格是**可写属性**（原版是静态字段 + 私有 setter），只为自检能验「开了读得到」；
+        //   生产路径 0 处写它 ⇒ 值恒 = 原版离线值 `false` · 调度台 2026-10-28（B89-E10b）裁定。
 
-        /// <summary>原版 `PlayerDataManager.showDevTools()`（账 555）：读一个**全局 dev-tools 开关**。
-        /// <para>⚠️ 数据源**还没查清**（见上方那段）：本格今天**没有任何写入方**、恒为 `false`，
-        /// 真正的来源大概率是存档键 `SaveKeys.ActivateDevTools`（= `PlayerDataKey.ActivateDevTools(2)`）
-        /// —— 接线时把 <see cref="DevToolsEnabled"/> 换成读那一格即可（**只有一个口，别在别处再判一次**）。</para>
-        /// <para>⚠️ 它不是「devtools 页要不要建」那个问题（那是设置窗 UI 线的事）。</para></summary>
+        /// <summary>原版 `PlayerDataManager.showDevTools()`（账 555）= `return activateDevTools;`（服务端下发 ⇒ 离线恒 false）。</summary>
+        /// <para>⚠️ 它不是「devtools 页要不要建」那个问题（那是设置窗 UI 线的事）。</para>
         public static bool DevToolsEnabled { get; set; }
 
         // ======================================================== 340 AddCollectorXp（B89-E10c 追加在类尾）

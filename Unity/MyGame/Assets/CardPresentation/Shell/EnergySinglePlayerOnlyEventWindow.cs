@@ -295,7 +295,7 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
-            Build(); ApplyTimerVisibility();   // 原版 `TryOpen`：`activationType == Permanent ⇒ timerDisplay.SetActive(false)`
+            TryOpen(null, PermanentEvent);   // 原版 `TryOpen`：`activationType == Permanent ⇒ timerDisplay.SetActive(false)`（四句见类尾 `TryOpen`）
             if (_warned) return;
             _warned = true;
             Debug.Log("[Energy] 本窗的**活动数据全在远端**（`SinglePlayerScoringEvent` 是 LiveOps 事件）："
@@ -355,7 +355,7 @@ namespace CardPresentation
             //    ⇒ 只有面板**之外**的上下两条窄边才落得到 ① 上。
             //    🔴 `Absorb` 的档由它自己算 = `QHit − 1`(3944) ⇒ 严格夹在 `QShade`(3935) 与 `QHit`(3945) 之间
             //      （同档/越档的症状是「点窗内空白处**有时**会关窗」，且**静默**）。
-            MenuDraw.ShadeHit(transform, RootR, QShade, QHit, () => Close(), "BackgroundHit");
+            MenuDraw.ShadeHit(transform, RootR, QShade, QHit, () => { if (_shadeClickBound) CloseButtonClick(); }, "BackgroundHit");
             MenuDraw.Absorb(transform, "AbsorbHit", GenRedR, QShade, QHit);
         }
 
@@ -702,7 +702,7 @@ namespace CardPresentation
         /// · 本窗要把建出来的四件存进字段（`_titleLabel` / `_title` / `_back` / `_backBg`）⇒ **接返回值**。</remarks>
         void BuildHeader(Transform root)
         {
-            System.Action onBack = () => Close();
+            System.Action onBack = CloseButtonClick;   // 原版三处用**同一个 delegate**（表头返回 / 压暗层 / Open）
             var p = WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
                 RootRect = HdrR,
@@ -900,35 +900,35 @@ namespace CardPresentation
         // ------------------------------------------------------------ 阵营选择
         void BuildArmySelector(Transform root)
         {
-            var asp = MenuDraw.Node(root, "Army Selector Panel", AspR);
-            // 🔴 **2026-10-19（A1190）**：这一颗原来**没传 autosize 实参** ⇒ 固定 44.65px。
-            //   判据 = 逐颗现读原版那一颗（同一颗的现读命令见 `Reward Tile` 那一段）：
-            //   `…/Army Selector Panel/Factions Title` = `'Factions'` · 字号 **44.65** ·
-            //   基准 **36.0** · **`auto[18.0~45.869998…]`**（`m_enableAutoSizing = 1`）·
-            //   对齐 `Left/Midline` · **折行 = 1** · 框 **563.61 × 54.68**（= `FacTitleR` 逐位同值）。
-            //   ⚠️ 🔴 **`m_fontSizeMax`(45.87) ≠ `m_fontSize`(44.65)** —— 别拿字号顶上限（那是 A333 那一条），
-            //   上限照实传 **45.87**（同 `label.SetAutoFitBox` 那条「上限不能取 `_tmp.fontSize`」的血证）。
-            //   ⚠️ 折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`。
-            var ft = MenuDraw.Text(asp, FacTitleR, "Factions", Color.white, "Factions Title", 44.65f, QText,
-                                   FacTitleR.W, 18f, 45.87f, 36f, face: TmpFont.Face.LatinUi);
-            MenuDraw.AlignLeft(ft, FacTitleR);
-            // `Army Selector`（原版 `ScrollRect` + `CustomRaycaster` + `ShowEventArmiesPanel`）
-            var sel = MenuDraw.Node(asp, "Army Selector", ArmySelR);
-            _armySelector = sel;
-            //   `Viewport`（原版 `RectMask2D`）⇒ 视口节点（软边 (0,0) = 原版这一颗没有软边）
-            var vp = ViewportClip.Hang(sel, "Viewport", ArmySelR, Vector4.zero, Vector2Int.zero);
-            var vpT = vp != null ? vp.transform : sel;
-            //   `Army Content`（原版 `ContentSizeFitter(h:PreferredSize)` + `HorizontalLayoutGroup`）
-            _armyContent = MenuDraw.Node(vpT, "Army Content", ArmyContentR);
-            //     `ArmyItemReference`：原版的**模板件**（`m_Sprite` 出厂 null；`ShowEventArmiesPanel`
-            //     运行时按活动阵营表 `Instantiate` 它）。本地没有那份表 ⇒ **只建模板那一颗**（= 出厂同档）。
-            MenuDraw.Node(_armyContent, "ArmyItemReference", ArmyContentR);
-            Debug.Log("[Energy] `Army Content` 下**只有模板那一颗 `ArmyItemReference`**（= 原版出厂态）——"
-                    + " 原版 `ShowEventArmiesPanel` 按**活动阵营表**逐阵营 `Instantiate`，本地没有那份表。");
-            var fi = MenuDraw.TextBox(asp, FactionInsR,
-                                      "Play with any of these factions to take part in the event.",
-                                      Color.white, "Faction instructions", 42.95f, 18f, QText, 72f, 36f, face: TmpFont.Face.LatinCardBody);
-            MenuDraw.AlignLeft(fi, FactionInsR);
+            // 🔴 **2026-10-28（B93-E29）就地收口**：这里原来内联摆了 `Army Selector Panel` / `Factions Title` /
+            //   `Army Selector` / `Viewport` / `Army Content` / `ArmyItemReference` / `Faction instructions`
+            //   七个节点，与 `Shell/ShowEventArmiesPanel.cs` 的 `Build` 是**两处写同一条规则**（CLAUDE.md §三）
+            //   ⇒ 现在只留组件那一份，本窗只接返回值（逐格几何判据 → 那个文件的文件头，全部 prefab 现读）。
+            //   ⚠️ 本文件上面那组常量（`AspR` / `FacTitleR` / `ArmySelR` / `ArmyContentR` / `FactionInsR`）
+            //   **留着**：它们是 prefab 现读的**取证记录**，⛔ 不要在任何地方照它们再摆第二份节点。
+            // 🔴 **队列档必须传本窗的**（`QArt` 3939 / `QArt1` 3940 / `QText` 3941）：组件缺省是 LiveOps 那一档
+            //   （3111 / 3112 / 3114），全部**在压暗层 `QShade`（3935）之下** ⇒ 阵营徽记会被压暗层盖住。
+            //   透明队列按「到相机的 3D 距离」排、不看 z（CLAUDE.md §三）⇒ 这类错**静默**，所以这里显式给。
+            // ⚠️ `Factions Title` 的字体面：D1 那份写 `LatinCardBody`、本窗原来写 `LatinUi`，两版判据冲突，
+            //   而两者都没落到「prefab 那一颗 TMP 的 `m_fontAsset` 到底是哪一份」⇒ 取**本窗现状**（`LatinUi`），
+            //   ⛔ 不在这一笔里顺手改渲染（那会让 `Editor/ShellScene.cs` 的 A1190 那条 fitCase 换一把尺子）。
+            // ✅ `ShowEventArmiesPanel.Build` 里 `Viewport` 走的是 `ViewportClip.Hang`（原版 `RectMask2D`）——
+            //   这一档是**本笔补的**（D1 那版用裸 `MenuDraw.Node`，13 个阵营时会溢出视口、不裁）。
+            // ✅ 那颗 `Army Selector` 的**横向滚动**也在组件里接好了（`ShowEventArmiesPanel.EnsureScroll`）：
+            //   本窗不再自己建 `MenuScroll`，也不改几何（⛔ 别为了「13 颗摆得下」缩格 —— 原版就是滚）。
+            //   `MenuScroll` 本来就是**双轴**件（`Vertical` 缺省 false = 横向）⇒ 这一笔只是接线，
+            //   ⛔ 没有动 `Shell/MenuScroll.cs`（共用件，多扇窗在用）。
+            // ⚠️ 原来那段「`Army Content` 下只有模板那一颗」的出声也一并搬进组件（`Initialize`/`RebuildItems`），
+            //   本窗不再重复打一遍（两处都在打 = 日志里看出「两次初始化」的假象）。
+            _armiesPanel = ShowEventArmiesPanel.Build(root, QArt, QArt1, QText);
+            _armySelector = _armiesPanel != null ? _armiesPanel.Selector : null;
+            _armyContent  = _armiesPanel != null ? _armiesPanel.Anchor   : null;
+            if (_armiesPanel == null)
+                Debug.LogWarning("[Energy] `Army Selector Panel` **没建出来** ⇒ 阵营行与它的滚动都会缺席（出声，⛔ 不静默）");
+            else
+                Debug.Log("[Energy] `Army Selector Panel` 由 `ShowEventArmiesPanel.Build` 建（组件唯一一份）；出厂仍只有"
+                        + "模板 `ArmyItemReference`，真阵营由 `InitializeEventArmies()` 从 `RewardEventHandler` 那条链灌"
+                        + "（原版 `SinglePlayerOnlyEnergyEventWindow__Open.c:114`）");
         }
 
         // ============================================================ 几何 / 素材助手
@@ -1182,7 +1182,7 @@ namespace CardPresentation
         /// <param name="collectedRewards">已领档数（状态机第二个输入）。</param></summary>
         public void SetScore(int currentScore, IList<int> thresholds, int collectedRewards)
         {
-            _currentScore = currentScore;
+            _currentScore = currentScore; ApplyScorePanel(currentScore);
             _collectedRewards = collectedRewards < 0 ? 0 : collectedRewards;
             _thresholds.Clear();
             int n = thresholds == null ? 0 : Mathf.Min(thresholds.Count, _scoreLabels.Count);
@@ -1310,5 +1310,354 @@ namespace CardPresentation
             var backWb = p.BackHit != null ? p.BackHit.GetComponent<WindowButton>() : null;
             WindowHeaderWithBackButton.WireHeader(p.Root, backWb, p.Title, onBack, "Game Mode");
         }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  B93-5（2026-10-28 · 文件所有者代理 `D2`）
+        //  原版 `SinglePlayerOnlyEnergyEventWindow` 的六跳生命周期（`GetScoringIconFromEvent` /
+        //  `CloseButtonClick` / `OnEnable` / `OnDisable` / `OnDestroy` / `TryOpen`）
+        //  ＋ `ShowEventArmiesPanel`（逐阵营布局）
+        //  ＋ `RewardProgressBarPanel` 的 `scoreText` / `scoringImage` / `scoringTitleText` 三格。
+        //
+        //  【为什么全加在类尾】账按 `文件:行号` 记落点（`:295/:327/:358/:705/:741/:819/:1144/:1148/`
+        //    `:1163/:1183/:1234/:1249/:1275/:1307`）⇒ 新成员只能加在**所有老落点之后**；
+        //    真要在中间加行，下游那十几条账会一起漂（CLAUDE.md §三「新成员追加到类尾」）。
+        //    中间那四处改动都是**同一物理行的就地改写**（`:298` / `:358` / `:705` / `:1185`），行数不变。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        // ------------------------------------------------------------ ① `GetScoringIconFromEvent`
+        /// <summary>「本窗有没有可查的计分物」——原版读 `LiveOpsUtility.GetLiveOpsData(事件).ScoringItem`。
+        /// 🔶 自己设计（非原版）：<「计分物存在」的本地替身> · <为什么必须自定：`ScoringItem` 在远端 LiveOps
+        /// 事件数据里，本机 13 份活动 SO 全过期、没有在期实例；而本窗类里 `GetScoringIcon` 的**唯一分支**
+        /// 就是「计分物是 `ScoringPoint` ⇒ Skulls」，没有第二档> · <调度台 2026-10-28 裁定（B93-5）>。
+        /// <para>默认 `true` ⇒ 与「本窗是单机计分事件」自洽，且与改前的画面逐像素相同；真数据到了改这一格。</para></summary>
+        public bool HasScoringItem = true;
+
+        /// <summary>原版 `private bool GetScoringIconFromEvent(out ScoringIconsSO.ScoringIcon scoringIcon)`
+        /// （`decomp_full/SinglePlayerOnlyEnergyEventWindow__GetScoringIconFromEvent.c` 全文 6 句，逐句）：
+        /// <code>
+        /// scoringIcon = null;                                          // ① 先清 out
+        /// if (liveOp == null || liveOp.&lt;+0x18&gt; == null) return false;   // ② 事件 / 事件数据为空
+        /// var item = eventData.ScoringItem;                             // ③
+        /// if (item == null) return false;                               // ④
+        /// if (!(item is ScoringPoint)) return false;                    // ⑤ ★ 类型闸（唯一分支）
+        /// scoringIcon = GetScoringIcon((ScoringItemType)item[9]);       // ⑥ 本窗类里恒 Skulls
+        /// return true;                                                  //   ★ 即便图是 null 也返 true
+        /// </code>
+        /// <para>⚠️ **类型替换（如实记）**：原版 out 参是 `ScoringIconsSO.ScoringIcon`（SO 内嵌结构，带 sprite+名字），
+        /// 我们这一侧那张图走 `Shell/ScoringIcons.cs`（`Texture2D`）⇒ out 参换成 `Texture2D`，语义一格不少。
+        /// `ScoringItemType.Skulls` 这一档的映射判据 → `Shell/ScoringIcons.cs` 文件头。</para></summary>
+        public bool GetScoringIconFromEvent(out Texture2D scoringIcon)
+        {
+            scoringIcon = null;                                          // ①
+            if (!HasScoringItem) return false;                            // ②③④（本地替身，见上面那格）
+            scoringIcon = ScoringIcons.Icon(ScoringIcons.ItemType.Skulls); // ⑤⑥
+            return true;                                                  //   原版：图取不到也返 true
+        }
+
+        // ------------------------------------------------------------ ② `CloseButtonClick`
+        /// <summary>原版 `SinglePlayerOnlyEnergyEventWindow.CloseButtonClick()`：**`Close()`**。
+        /// <para>🔴 **判据标注（铁律 5）**：`decomp_full/SinglePlayerOnlyEnergyEventWindow__CloseButtonClick.c`
+        /// 的**内容不是它** —— 文件里装的是 `TutorialTipScript__StopTipPermanent`（本仓已知的
+        /// 「文件名与内容不符」那一类，⛔ 别拿它当判据）。真身由三处**同一个 delegate** 反证
+        /// （`__Open.c` / `__OnEnable.c` / `__OnDisable.c` 里都是 `DAT_18427a338`）：
+        /// ① `Open` 把它作 `OnBackButtonPressed` 交给 `WindowHeaderWithBackButton.Initialize`
+        /// ② `OnEnable` 把它挂到 `backgroundCloseButton.onClick` ③ `OnDisable` 摘掉
+        /// ⇒ 表头返回钮 = 点压暗层 = **同一个处理器**，本类里唯一候选就是它 ⇒ 体 = `Close()`。
+        /// （判据全文 → 本文件头 2026-10-13 A795 那段就地订正。）</para></summary>
+        public void CloseButtonClick() { Close(); }
+
+        // ------------------------------------------------------------ ③ `OnEnable` / `OnDisable`
+        /// <summary>`backgroundCloseButton.onClick` 上那个监听的**0/1 状态**
+        /// （= 原版 `AddListener` / `RemoveListener` 之后 `UnityEvent` 里的监听者数）。
+        /// <para>默认 `true`：字段初始化器不能引用实例方法，而本窗的等价「监听」在 `Build()` 里就绑好了
+        /// ⇒ 出厂即视为在册；`OnDisable` 摘、`OnEnable` 挂回来（原版两跳）。</para></summary>
+        bool _shadeClickBound = true;
+
+        /// <summary>监听见没见（自检读口 = 原版 `backgroundCloseButton.onClick` 的监听者数）。</summary>
+        public bool ShadeClickBound { get { return _shadeClickBound; } }
+
+        /// <summary>原版 `private void OnEnable()`（`__OnEnable.c` 全文 2 句）：
+        /// `if (backgroundCloseButton == null) return; backgroundCloseButton.onClick.AddListener(CloseButtonClick);`
+        /// <para>⚠️ 这是 Unity 生命周期口 —— 批处理里 `AddComponent` **不会**触发它
+        /// （CLAUDE.md §三那条实测），所以自检要么显式调本方法、要么读 <see cref="ShadeClickBound"/>。</para></summary>
+        public void OnEnable() { _shadeClickBound = true; }
+
+        /// <summary>原版 `private void OnDisable()`（`__OnDisable.c` 全文 2 句）：`RemoveListener(CloseButtonClick)`。</summary>
+        public void OnDisable() { _shadeClickBound = false; }
+
+        // ------------------------------------------------------------ ④ `OnDestroy`
+        bool _liveOpReleased;
+
+        /// <summary>原版 `public void OnDestroy()`（`__OnDestroy.c` 全文 1 句）：
+        /// `LiveOpsAssetUtility.ReleaseEventAssets(事件);`。
+        /// <para>⚠️ 本地不加载 liveops 资产（`LiveOpsAssetUtility` 在本仓没有等价物，见账 708 那一行）
+        /// ⇒ 这一跳**恒空**；只在「确实有事件」时出声，⛔ 不静默跳过一整跳、也不假装释放过。</para>
+        /// <para>⚠️ 幂等：Unity 在销毁时调一次，自检也会显式调一次 ⇒ 用 <see cref="_liveOpReleased"/> 去重。</para></summary>
+        public void OnDestroy()
+        {
+            if (_liveOpReleased) return;
+            _liveOpReleased = true;
+            if (HasScoringItem)
+                Debug.Log("[Energy] `OnDestroy`：原版这一跳 = `LiveOpsAssetUtility.ReleaseEventAssets(事件)`；"
+                        + "本机没有加载过任何 liveops 资产（没有该运行时的等价物）⇒ 释放为空。");
+        }
+
+        // ------------------------------------------------------------ ⑤ `TryOpen`
+        /// <summary>原版 `public override void TryOpen(object data, GameWindowOptions options = null)`
+        /// （`decomp_full/SinglePlayerOnlyEnergyEventWindow__TryOpen.c` 全文 3 句，逐句）：
+        /// <code>
+        /// base.TryOpen(data, options);                                   // ① 开窗本体
+        /// int activationType = LiveOpsUtility.&lt;取激活类型&gt;(事件);          // ★ 0 = Permanent
+        /// timerDisplay.gameObject.SetActive(activationType != 0);         // ② Permanent ⇒ 藏计时器
+        /// if (activationType != 0) timerDisplay.Initialize(事件.GetEndDate());   // ③ 非 Permanent 才灌截止时刻
+        /// RefreshScore();                                                // ④ ★ 两支**都会**走到这里
+        /// </code>
+        /// <para>⚠️ **签名差异（如实记）**：原版第二参 `GameWindowOptions` 在本仓不存在
+        /// （`GameWindow.TryOpen` 只有 1 参、且非虚），而原版从事件读到的那一格就是「激活类型」
+        /// ⇒ 换成显式 `bool permanent`（= `activationType == 0`，今天由 <see cref="PermanentEvent"/> 提供）。</para></summary>
+        public void TryOpen(object data, bool permanent = false)
+        {
+            PermanentEvent = permanent;      // 原版那个 activationType 的本地替身（默认 false = 非 Permanent）
+            Build(); InitializeEventArmies();  // ①（本仓的开窗本体在 Open()，Open 里转调本方法）＋ 原版 `__Open.c:114` 那一跳（灌参战阵营）
+            ApplyTimerVisibility();           // ②③（Permanent ⇒ 整件关；非 Permanent ⇒ 照原样 `--`，截止时刻在远端）
+            RefreshScore();                   // ④ 原版两支都会走到
+        }
+
+        // ------------------------------------------------------------ ⑥ `RewardProgressBarPanel` 三格
+        /// <summary>原版 `RewardProgressBarPanel.Initialize(...)` 里那三格（`decomp_full/RewardProgressBarPanel__Initialize.c`）：
+        /// <code>
+        /// scoreText.text       = score.ToString();                       // +0x30 → 本窗「Total Victories」
+        /// scoringImage.sprite  = 传入的 sprite; scoringImage.enabled = (sprite != null);   // +0x38 → 「Skull Victories」
+        /// scoringTitleText.text = 传入的 title;                           // +0x40 → 「Victories title」
+        /// </code>
+        /// <para>节点对位（prefab 现读 `Player victories` 那一行三颗）：
+        /// `Total Victories`=`'751'`（一个分数）· `Skull Victories`=骷髅图 · `Victories title`=`'Victories: '`
+        /// ⇒ 三个字段与三颗节点**一一对上**（判据：`Score` 那 5 格是 1256、这一颗 751 才是面板的大分数）。</para>
+        /// <para>⚠️ **`scoringTitleText`（`param_6`）的取值没闭合**：原版 `RefreshScore` 的**两参重载体没导出**
+        /// （`__RefreshScore.c` 只有一参那支在转调它；`SkirmishEventWindow` 那一族调这一格时**传 0**）
+        /// ⇒ 我们保持 prefab 出厂词条（`Ranked/Victories` = 「Victories: 」），⛔ 不编一个标题。</para></summary>
+        void ApplyScorePanel(int currentScore)
+        {
+            // `scoreText.text = score.ToString()`（+0x30）
+            var sc = _victoriesTotal != null ? _victoriesTotal.GetComponent<Label>() : null;
+            if (sc != null) sc.SetText(currentScore.ToString());
+
+            // `scoringImage.sprite/enabled`（+0x38）—— 建树期就按「图取不到 ⇒ 不建 quad」落地，
+            //   这里只在**有图而当时没画**时把它补出来（今天恒不触发，出声以便真数据到了能看见）。
+            var icon = ScoringIcons.Icon(ScoringIcons.ItemType.Skulls);
+            var row = _victoriesTotal != null ? _victoriesTotal.parent : null;
+            var skull = row != null ? row.Find("Skull Victories") : null;
+            if (icon == null && skull != null && skull.gameObject.activeSelf)
+                Debug.LogWarning("[Energy] `scoringImage` 那颗（`Skull Victories`）按原版 `enabled = (sprite != null)` 该关，"
+                               + "但节点是开的 —— 判据不一致，请核 `BuildPlayerVictories`。");
+            else if (icon == null && skull == null && !_warnedScoreIcon)
+            {
+                _warnedScoreIcon = true;
+                Debug.LogWarning("[Energy] `scoringImage`（`Skull Victories`）：`Resources/Art/` 取不到 Skulls 图 ⇒ "
+                               + "原版那一跳 `sprite = null ⇒ enabled = false` ⇒ 这一格**不画**（⛔ 不拿别的图顶上）。");
+            }
+        }
+        static bool _warnedScoreIcon;
+
+        /// <summary>自检读口：`scoreText`（`Total Victories`）现在印的是什么
+        /// （= 原版 `RewardProgressBarPanel.Initialize` 第 ① 句写进去的那个 `score.ToString()`）。</summary>
+        public string ScorePanelText
+        {
+            get
+            {
+                var l = _victoriesTotal != null ? _victoriesTotal.GetComponent<Label>() : null;
+                return l != null ? l.Text : null;
+            }
+        }
+
+        // ------------------------------------------------------------ ⑦ `ShowEventArmiesPanel`（逐阵营布局）
+        readonly List<Transform> _armyItems = new List<Transform>();
+
+        /// <summary>本窗建出来的「参战阵营」格数（原版 `ShowEventArmiesPanel.armyItemContainers.Count`，自检读口）。</summary>
+        public int EventArmyCount { get { return _armyItems.Count; } }
+
+        /// <summary>原版 `ShowEventArmiesPanel.Initialize(List&lt;int&gt; armies)`
+        /// （`decomp_full/ShowEventArmiesPanel__Initialize.c` 全文 7 句，逐句）：
+        /// <code>
+        /// if (armyItemContainers.Count &gt; 0) Reset();                     // ① 先清旧
+        /// template.gameObject.SetActive(true);                            // ② 模板先开（Instantiate 前的原版写法）
+        /// foreach (var army in armies) {                                 // ③
+        ///     var go = Instantiate(template, template.parent);            // ④ 复制到 `Army Content`
+        ///     armyItemContainers.Add(go);                                // ⑤
+        ///     go.GetComponent&lt;Image&gt;().sprite = ArmyUtilities.GetArmyIcon(army);   // ⑥
+        /// }
+        /// template.gameObject.SetActive(false);                           // ⑦ ★ 模板最后收起来
+        /// </code>
+        /// <para>🔴 **布局判据（prefab 现读，⛔ 不是我们挑的）**：`Army Content` 挂 `HorizontalLayoutGroup`
+        /// （`spacing 0` · `align 0`(UpperLeft) · pad 0 · `expandW 1` · `ctrlH 1`）+ `ContentSizeFitter(h:PreferredSize)`；
+        /// 每格 **136.501 × 136.501**（= <see cref="ArmyContentR"/> 那一格，`ArmyItemReference` 现读同值）
+        /// ⇒ 第 i 格左上角 x = `ArmyContentR.x1 + i × 136.501`。
+        /// 我们这套没有 HLG/CSF 运行时 ⇒ 按同一算式手工排（同 `RaidEventWindow.RebuildRewards` 的先例）。</para>
+        /// <para>⚠️ **`armies` 从哪来**：原版 = `RewardEventHandler.GetEvents().Where(RewardEvent.IsTargetTo)` 取到
+        /// 那个 `RewardEvent` 的阵营表（判据 `SinglePlayerOnlyEnergyEventWindow__Open.c` 中段）。
+        /// 本机活动数据 0 份 ⇒ 生产路径今天一次都不会调；本方法只做「给了表就按表排」，
+        /// ⛔ 自己不去编一张阵营表（那是编数据）。</para>
+        /// <returns>排出来的格数。</returns></summary>
+        public int ShowEventArmies(IList<int> armies)
+        {
+            // 🔴 2026-10-28（B93-E29）：**实现已收口到 `Shell/ShowEventArmiesPanel.cs`**（唯一一份）。
+            //   本方法退成「原版那个调用点」本身 —— `SinglePlayerOnlyEnergyEventWindow__Open.c:114` 的宿主侧：
+            //   转调组件的 `Initialize`，再把面板里那批节点抄进 `_armyItems`（`EventArmyCount` 的读口）。
+            //   ⛔ 别在本窗再写第二份布局算式（改前这里有一整段 `MenuDraw.Rect` 的 HLG 手工推法）。
+            //   ✅ 组件那一侧现在还带**横向滚动**与 `ViewportClip`（原版 `RectMask2D`），判据 → 那个文件 §滚动。
+            // 📌 收口之后的调用链（自证「新代码真的在跑」）：
+            //   `Open()` → `TryOpen()` → `Build()` → `BuildArmySelector()` → `ShowEventArmiesPanel.Build()`
+            //   → `InitializeEventArmies()` →（原版那句话）→ 本方法 → 组件 `Initialize` → 组件 `RebuildItems`。
+            //   ⇒ 断言只要读组件那边的 `Count` / `ItemSpriteName` / `Scroll`，读到的就是**生产路径**的产物。
+            // ⚠️ 顺序照原版：`__Open.c` 里「灌阵营」在 `GetScoringIconFromEvent` **之前**；
+            //   我们把它挂在 `Build()` 之后、`RefreshScore()` 之前（`TryOpen` 那一行就地改写，行数不变）。
+            if (_armiesPanel == null)
+            {
+                Debug.LogWarning("[Energy] `ShowEventArmies`：`Army Selector Panel` 没建出来 ⇒ 先 `Build()`（出声，⛔ 不静默）");
+                _armyItems.Clear();
+                return 0;
+            }
+            // 原版那句 `First().Data.armyAllowList.ToArray()` 的产物已经由 `InitializeEventArmies` 算好，
+            // 这里只做「形状搬运」：`IList<int>` → 组件要的 `int[]`（⛔ 不做语义判断，也不缓存第二份）。
+            var arr = armies == null ? new int[0] : new int[armies.Count];
+            for (int i = 0; i < arr.Length; i++) arr[i] = armies[i];
+            int n = _armiesPanel.Initialize(arr);
+            // `EventArmyCount` 的读口副本（原版 `armyItemContainers.Count`）：
+            // 组件那一侧才是正本；本窗这一份只给自检读，⛔ 不参与任何行为判断。
+            _armyItems.Clear();
+            for (int i = 0; i < _armiesPanel.Count; i++)
+            {
+                var t = _armiesPanel.Item(i);
+                if (t != null) _armyItems.Add(t);
+            }
+            return n;
+        }
+
+        /// <summary>原版 `ShowEventArmiesPanel.Reset()`（`decomp_full/ShowEventArmiesPanel__Reset.c` 全文 4 句）：
+        /// `foreach (var go in armyItemContainers) Destroy(go.gameObject); armyItemContainers.Clear();`。</summary>
+        public void ResetEventArmies()
+        {
+            // 🔴 2026-10-28（B93-E29）：实现收口到 `ShowEventArmiesPanel.Reset()`（唯一一份）。
+            //   原版 `ShowEventArmiesPanel__Reset.c` 四句 = 逐个 `Destroy` + 清表；组件那边逐句照抄过
+            //   （含批处理下 `Object.Destroy` 不生效 ⇒ 走 `RewardsWindow.DestroySafe` 那一档的处置）。
+            //   ⚠️ `_armyItems` 这一份只是**本窗的读口副本**（`EventArmyCount` 用它），
+            //   ⛔ 不是第二份实现 —— 行为一律以组件那一份为准。
+            // ✅ 组件 `Reset()` 顺带把滚动偏移归零并把可滚范围收成 0（空表 ⇒ 滚不动），
+            //   这是原版那条 `ContentSizeFitter(h:PreferredSize)` 的等价物（内容宽跟着格数走）。
+            // ⚠️ 顺序：先清本窗的读口副本、再让组件去销毁真节点 —— 反过来也能跑，但那样
+            //   组件 `Reset` 会先 `Destroy` 掉 `_armyItems` 里那几颗（Unity 假 null），
+            //   本窗那份副本就会留着一串「非 null 但已死」的引用（自检读到会莫名其妙）。
+            _armyItems.Clear();
+            if (_armiesPanel != null) _armiesPanel.Reset();
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  B93-E29（2026-10-28 · 执行代理 `E29`）
+        //  ① 把 `ShowEventArmiesPanel` **真接线**（原版唯一调用点 = `__Open.c:114`，在本窗 `Open()` 里）
+        //  ② 阵营条的**横向滚动**（原版 `Army Selector ▸ ScrollRect`，h=1 v=0）
+        //
+        //  【为什么全加在类尾】本文件被账按 `文件:行号` 引用（`:295/:298/:327/:358/:705/:741/:819/`
+        //   `:1144/:1148/:1163/:1183/:1234/:1249/:1275/:1307/:1349/:1383/:1386/:1396/:1418/:1439/`
+        //   `:1464/:1501/:1538`）⇒ 新成员只能加在**所有老落点之后**；中间那三处改动
+        //   （`BuildArmySelector` / `ShowEventArmies` / `ResetEventArmies`）都是**等行数就地改写**，
+        //   另有一处（`TryOpen` 的 `Build()` 那一行）是同一物理行改写 ⇒ **零行数变化**。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版那颗 `ShowEventArmiesPanel`（`__Open.c` 的 `this+0xa0`；`Build()` 里建）。</summary>
+        ShowEventArmiesPanel _armiesPanel;
+
+        /// <summary>原版 `this`（本窗持有的 `ILiveOps` 事件实例）—— `RewardEvent.IsTargetTo(this)` 的输入。
+        /// <para>⚠️ 本地没有在期事件（13 份 SO 全过期）⇒ **默认 null**，`InitializeEventArmies()` 走「出声 + 出厂态」那一支。
+        /// 宿主/将来接上事件实例时把它灌进来即可（`LocalLiveOpsEvent` 就是现成的实现）。</para></summary>
+        public ILiveOps LiveOp;
+
+        /// <summary>原版 `LiveOpsManager.GetHandler&lt;RewardEventHandler&gt;()` 的本地口。
+        /// <para>灌了就用它；没灌则退回 `LiveOpsManager.GetHandler&lt;RewardEventHandler&gt;()`（没注册就是 null）。</para></summary>
+        public RewardEventHandler RewardHandler;
+
+        /// <summary>上一次 `InitializeEventArmies()` 命中的奖励事件条数（原版那个 `Where(...).Any()` 的计数；自检读口）。</summary>
+        public int LastArmyMatchCount;
+
+        /// <summary>本窗建出来的阵营面板（自检/宿主读口 —— 原版 `__Open.c` 里那个 `this+0xa0`）。</summary>
+        public ShowEventArmiesPanel ArmiesPanel { get { return _armiesPanel; } }
+
+        /// <summary>原版 `SinglePlayerOnlyEnergyEventWindow.Open()` 里那一段（`__Open.c:103-118`，逐句）：
+        /// <code>
+        /// var handler = LiveOpsManager.GetHandler&lt;RewardEventHandler&gt;();
+        /// var matches = handler.GetEvents(false).Where(e =&gt; e.IsTargetTo(this));   // ← 谓词 b__11_0
+        /// if (matches.Any())                                                        // ★ 没有命中 ⇒ **一次都不调**
+        ///     armiesPanel.Initialize(matches.First().Data.armyAllowList.ToArray());
+        /// </code>
+        /// <para>🔴 **数据源是 `RewardEventData.armyAllowList`（`+0x80`）** —— `.c` 里读的是
+        /// `[[First+0x18]+0x80]`（`+0x18` = `LiveOpsEvent.Data`）⇒ 不是「各条活动上某个叫 `Army` 的字段」，
+        /// 也**不是把所有命中的 `armyAllowList` 拼起来**（只有 `First()` 那一条）。⛔ 别按二手文档改。</para>
+        /// <para>⚠️ **本地口径（如实记）**：本工程的 `RewardEvent` **不派生 `LiveOpsEvent`**
+        /// （见 `Shell/RewardEvent.cs` 文件头）⇒ handler 的事件表是 `RewardEventHandler.Events`
+        /// （`RegisterEvent` 登记的那一批），不是基类的 `GetEvents()`。判据链仍是一条：同一条 `IsTargetTo`。</para>
+        /// <returns>排出来的格数（0 = 没有命中 / 没有数据源 ⇒ 保持出厂态）。</returns></summary>
+        public int InitializeEventArmies()
+        {
+            if (_armiesPanel == null)
+            {
+                Debug.LogWarning("[Energy] `InitializeEventArmies`：`Army Selector Panel` 没建出来 ⇒ 阵营行缺席（出声）");
+                return 0;
+            }
+            var handler = RewardHandler;
+            if (handler == null) handler = LiveOpsManager.GetHandler<RewardEventHandler>();
+            if (handler == null)
+            {
+                if (!_warnedNoRewardHandler)
+                {
+                    _warnedNoRewardHandler = true;
+                    Debug.Log("[Energy] `InitializeEventArmies`：没有 `RewardEventHandler`（原版这里是 "
+                            + "`LiveOpsManager.GetHandler<RewardEventHandler>()`；本机没有注册任何 handler）"
+                            + " ⇒ 阵营行保持出厂态（只有模板 `ArmyItemReference`），⛔ 不编一张阵营表");
+                }
+                LastArmyMatchCount = 0;
+                return 0;
+            }
+            if (LiveOp == null)
+            {
+                if (!_warnedNoLiveOp)
+                {
+                    _warnedNoLiveOp = true;
+                    Debug.Log("[Energy] `InitializeEventArmies`：`LiveOp` 没灌（原版 `this` = 那条 LiveOps 活动实例；"
+                            + "本机 13 份活动 SO 全过期、没有在期实例）⇒ 没法跑 `IsTargetTo(this)` ⇒ 阵营行保持出厂态");
+                }
+                LastArmyMatchCount = 0;
+                return 0;
+            }
+
+            // `handler.GetEvents(false).Where(e => e.IsTargetTo(this))` —— 只取 **First**（原版 `Any()` 之后 `First()`）
+            RewardEvent first = null;
+            int matches = 0;
+            for (int i = 0; i < handler.Events.Count; i++)
+            {
+                var e = handler.Events[i];
+                if (e == null || !e.IsTargetTo(LiveOp)) continue;
+                if (matches == 0) first = e;
+                matches++;
+            }
+            LastArmyMatchCount = matches;
+            if (matches == 0)
+            {
+                // ★ 原版这一档 `Any() == false` ⇒ `Initialize` **整句不执行**（组件保持它当时的样子）。
+                //   我们今天每次开窗都会重建树 ⇒ 组件此刻正是出厂态，所以「不调」与「调空表」今天同解；
+                //   但⛔ **仍按原版不调**（将来组件被复用时，这一档的行为才会分叉）。
+                Debug.Log("[Energy] `InitializeEventArmies`：登记的 " + handler.Events.Count
+                        + " 条奖励事件里**没有一条** `IsTargetTo(本事件)` ⇒ 原版这一档不调 `Initialize`，阵营行保持出厂态");
+                return 0;
+            }
+
+            var allow = first.Data != null ? first.Data.ArmyAllowList : null;
+            var arr = new int[allow == null ? 0 : allow.Length];
+            for (int i = 0; i < arr.Length; i++) arr[i] = (int)allow[i];
+            if (arr.Length == 0)
+                Debug.Log("[Energy] `InitializeEventArmies`：命中的奖励事件 `" + first.GetID()
+                        + "` 的 `armyAllowList` 是空的 ⇒ 原版这时会调 `Initialize(空表)`（= 清掉旧图标、一颗不建）");
+            return ShowEventArmies(arr);
+        }
+
+        bool _warnedNoRewardHandler, _warnedNoLiveOp;
     }
 }

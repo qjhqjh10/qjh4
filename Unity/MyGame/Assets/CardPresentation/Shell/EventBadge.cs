@@ -25,13 +25,13 @@
 //      —— 那个 slot-0 接口调用 = **`IIdentifiable.GetID()`**（`ILiveOps : IIdentifiable, IContainerProvider`，
 //      `IIdentifiable` 槽 0；旁证 = 我们自己的 `Shell/RewardEvent.HandleRewardDisplay` 把 `ctx.ControllerId = GetID()`）
 //      ⇒ 取 `liveOps.GetID()`。**这是有判据的推断（两处旁证），不是默认值**；⛔ 仍待一次 VA 复核那一句的接口类。
-//   ③ 🔴 **两处未解**：`DOFade` 之后那个 `FUN_180dc57c0(tween,0,1,0,…)`（ILSpy = `Method not found @180DC57C0`，
-//      看着像 `SetEase/SetDelay` 一族）**没复刻**；punch 的**基向量**来自 `Vector3` 的一个静态字段
-//      （`.c`：`*(float*)(*(Il2CppClass<Vector3> +0xb8) + 0xc / +0x14)`），本机读不到它的运行值 ⇒
-//      做成**可覆写字段** `PunchBase`，默认 `Vector3.one`（DOTween 语义下 punch 是偏移，恒 0 = 什么都不动 ⇒
-//      `Vector3.one` 是唯一非退化候选，**但这仍是我们挑的**，见下方 TODO）。
-//   ④ `Image.fillAmount` 在本仓**没有等价物**（`Core/Battle/ImageQuad` 无 fill）⇒ `SetFill(f)` 用 **uv 左→右显影**
-//      （`SetUvRect(0,0,f,1)`）当等价物；原版 `m_FillMethod` 未读 ⇒ TODO。
+//   ③ 🆕 **2026-10-28（B93_D4）已解一格**：`FUN_180dc57c0(tween,0,1,0,…)` =
+//      **`TweenSettingsExtensions.From<float,float,FloatOptions>(t, 0f, true, false)`**
+//      （判据 = `d:/2/tools/il2cpp_out/dump.cs:1010694` 的 `|-RVA: 0xDC57C0` 那一行）
+//      ⇒ 那条就是 `DOFillAmount(1, 0.4).From(0)`，= 我们已在做的「fill 从 0 补到 1」。⛔ 别再当成未解。
+//      **仍缺**：punch 的**基向量**来自一个**运行期才解的静态结构**（`.c`：`*(float*)(*(klass +0xb8 /*static_fields*/) + 0xc / +0x14)`）
+//      ⇒ 本机读不到它的值 ⇒ 做成**可覆写字段** `PunchBase`，默认 `Vector3.one`（DOTween 语义下 punch 是偏移，恒 0 = 什么都不动 ⇒ `Vector3.one` 是唯一非退化候选，**但这仍是我们挑的**）。
+//   ④ `Image.fillAmount` 在本仓**没有等价物**（`Core/Battle/ImageQuad` 无 fill）⇒ `SetFill(f)` 用 **uv 左→右显影**（`SetUvRect(0,0,f,1)`）当等价物；原版 `m_FillMethod` 判据为空（EventBadge prefab 不在离线包里）⇒ 见 `SetFill` 的注释。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -139,13 +139,10 @@ namespace CardPresentation
                 if (drawerHolder != null) drawerHolder.gameObject.SetActive(false);
             }
 
-            // ③ `Data is RewardInfo` 那一段 —— 🔴 **做不了**：本仓 `ToastNotifications.Context` **没有 `Data` 槽**
-            //    （`Shell/ToastNotifications.cs` 的 `Context` 只有 Text/IconArt/OnClick/ControllerId/Type + 任务四件套）
-            //    ⇒ 这一支永远进不去。TODO(判据缺一片)：上游是 `ToastNotifications.Context` 加 `object Data`（**不在本批白名单**）。
-            //    原版判据 = `decomp_full/EventBadge__SetNotificationData.c:44-70`（`ctx+0x38` 的 runtime type 比对 `RewardInfo`）。
-            if (context.ShowProgress)
-                WarnOnce("[EventBadge] SetNotificationData：原版第 ③ 段（`Data is RewardInfo` ⇒ `ItemDrawer.Draw`）**没接** —— "
-                       + "本仓 `ToastNotifications.Context` 缺 `Data` 槽（账 `日常_奖励` 第 10 行仍为 B）");
+            // ③ `Data is RewardInfo` ⇒ `drawerHolder.SetActive(true)` + `drawer = ItemDrawer.Draw(drawerHolder, item, 1, 10)`
+            //    🆕 **2026-10-28（B93_D4）已接**：上游缺口（`ToastNotifications.Context` 没有 `Data` 槽）已补（同批加 `object Data`）。
+            //    判据 = `decomp_full/EventBadge__SetNotificationData.c:44-70`（`ctx+0x38` 的 runtime type 比对 `RewardInfo`；第 4 实参 `10` = `DrawerOverride.Icon`）
+            if (context.Data is RewardInfo) ApplyRewardDrawer((RewardInfo)context.Data);
 
             // ④ 文本（原版最后一句：`notificationText.text = ctx.Text`，`.c` 里是 slot 0x558 = `set_text`）
             if (notificationText != null) notificationText.SetText(context.Text ?? "");
@@ -182,22 +179,26 @@ namespace CardPresentation
         {
             if (_t < 0f) return;
             _t += dt;
-            // 8 拍的时间轴（起点 = 0）：
-            //   0.00 起 interval 0.1
-            //   0.10 → 0.35  punch（弹一下）
-            //   0.10 → 0.50  fill 0→1（Append，与 punch 串在同一拍上：原版 punch 的 Append 之后紧跟 fill 的 Append）
-            //   0.10 → 0.30  fade 0→1（Join）
-            //   0.10 → 0.50  rotate z 0→+360（Join）
-            //   0.50 → 2.50  hold
-            //   2.50 → 2.90  fill 1→0
-            //   2.50 → 2.90  rotate z 0→−360（Join）
-            const float tPunch = IntervalA + PunchDur;                 // 0.35
-            const float tFill1 = IntervalA + FillDur;                  // 0.50
-            const float tFade = IntervalA + FadeDur;                   // 0.30
-            const float tHoldEnd = tFill1 + HoldDur;                   // 2.50
-            const float tEnd = tHoldEnd + FillDur;                     // 2.90
+            // 8 拍的真时间轴（起点 = 0）。
+            // 🔴 **2026-10-28（B93_D4）就地订正（铁律 5）**：旧版把 punch/fill/fade/rotate 全盖在 0.10 起（并行），
+            //   **那是错的** —— 原版是 DOTween `Sequence`：`Append` 把元素接在**游标之后**、`Join` 接在**当前游标**上
+            //   ⇒ 前四拍是**串行**。判据 = `decomp_full/EventBadge__ShowNotification.c` 逐句 +
+            //   `cpp2il/out_cpp2il_dev_ilspy/EventBadge.cs` 的 `AppendInterval/Append/Join` 次序：
+            //     0.00–0.10  AppendInterval(0.1)                                   DAT_1834b2dc4
+            //     0.10–0.35  Append(icon.DOPunchScale(base×0.2, 0.25, vibrato 1))
+            //     0.35–0.75  Append(holder.DOFillAmount(1, 0.4).From(0))           ← `From` 那一跳 2026-10-28 已解（见文件头 ③）
+            //     0.75–0.95  Join (holder.DOFade(1, 0.2).From(0))                  游标 = fill 之后
+            //     0.75–1.15  Join (icon.DORotate((0,0,+360), 0.4, WorldAxisAdd))
+            //     1.15–3.15  AppendInterval(2.0)                                   游标 = 两个 Join 的较晚者
+            //     3.15–3.55  Append(holder.DOFillAmount(0, 0.4))
+            //     3.15–3.55  Join (icon.DORotate((0,0,−360), 0.4, WorldAxisAdd))
+            const float tPunch   = T1;                                     // 0.35
+            const float tFill1   = T2;                                     // 0.75  ← 旧版写 0.50
+            const float tRot1End = T3;                                     // 1.15（fade 0.95 只是它的一小段，不用单列）
+            const float tHoldEnd = T4;                                     // 3.15
+            const float tEnd     = T5;                                     // 3.55
 
-            // punch：`DOPunchScale(base × 0.2, 0.25, vibrato 1)` ⇒ 在 0.1..0.35 内按 sin 弹一次
+            // punch：`DOPunchScale(base × 0.2, 0.25, vibrato 1)` ⇒ 只在 0.10..0.35 内按 sin 弹一次
             if (icon != null && _t >= IntervalA && _t <= tPunch)
             {
                 float p = (_t - IntervalA) / PunchDur;
@@ -207,24 +208,24 @@ namespace CardPresentation
             }
             else if (icon != null && _t > tPunch) icon.localScale = _iconScale0;
 
-            // fill：0.1→0.5 补到 1；2.5→2.9 补到 0
-            if (_t > IntervalA && _t < tFill1) SetFill(Mathf.InverseLerp(IntervalA, tFill1, _t));
+            // fill：0.35→0.75 补到 1；0.75→3.15 停在 1；3.15→3.55 补回 0
+            if (_t > tPunch && _t < tFill1) SetFill(Mathf.InverseLerp(tPunch, tFill1, _t));
             else if (_t >= tFill1 && _t < tHoldEnd) SetFill(1f);
             else if (_t >= tHoldEnd && _t <= tEnd) SetFill(1f - Mathf.InverseLerp(tHoldEnd, tEnd, _t));
 
-            // fade：0.1→0.3 alpha 0→1（原版 `DOFade(1, 0.2).From(0)`；`.c` 里目标 = 1，时长 = 0.2）
+            // fade：0.75→0.95 alpha 0→1（`DOFade(1, 0.2).From(0)`）；之后恒 1
             if (notificationHolder != null)
             {
-                float fa = _t <= IntervalA ? 0f : Mathf.Clamp01((_t - IntervalA) / FadeDur);
+                float fa = _t <= tFill1 ? 0f : Mathf.Clamp01((_t - tFill1) / FadeDur);
                 var c = notificationHolder.Tint; c.a = fa; notificationHolder.SetTint(c);
             }
 
-            // rotate：0.1→0.5 z 0→+360；2.5→2.9 z 0→−360（RotateMode.WorldAxisAdd = 累加）
+            // rotate：0.75→1.15 z 0→+360；1.15→3.15 停在 +360；3.15→3.55 +360→0（RotateMode.WorldAxisAdd = 累加）
             if (icon != null)
             {
                 float rz = 0f;
-                if (_t >= IntervalA && _t <= tFill1) rz = RotateZ * Mathf.InverseLerp(IntervalA, tFill1, _t);
-                else if (_t > tFill1 && _t < tHoldEnd) rz = RotateZ;
+                if (_t >= tFill1 && _t <= tRot1End) rz = RotateZ * Mathf.InverseLerp(tFill1, tRot1End, _t);
+                else if (_t > tRot1End && _t < tHoldEnd) rz = RotateZ;
                 else if (_t >= tHoldEnd) rz = RotateZ - RotateZ * Mathf.InverseLerp(tHoldEnd, tEnd, _t);
                 icon.localEulerAngles = new Vector3(_iconEuler0.x, _iconEuler0.y, _iconEuler0.z + rz);
             }
@@ -284,5 +285,49 @@ namespace CardPresentation
             return errs;
         }
 #endif
+
+        // ============================================================ 8 拍时间轴的断点（单一来源）
+        //   判据 = `decomp_full/EventBadge__ShowNotification.c` 的 `Append/Join` 次序（见 `Tick` 的注释）。
+        //   ⚠️ 放在类尾而不是常量区：常量区在第 80/99 行之前，那里插行会让账落点位移（铁律 18·b 的同一条纪律）。
+        const float T1 = IntervalA + PunchDur;      // 0.35  punch 结束
+        const float T2 = T1 + FillDur;              // 0.75  fill(0→1) 结束（fade / rotate 从这里开始）
+        const float T3 = T2 + FillDur;              // 1.15  rotate(+360) 结束
+        const float T4 = T3 + HoldDur;              // 3.15  hold 结束
+        const float T5 = T4 + FillDur;              // 3.55  全段结束
+
+        /// <summary>自检口：8 拍断点（秒 · 相对起播）。**同一来源** = 上面那 5 个常量（`Tick` 用的也是它们）。
+        /// 🔴 **灭自证**：旧的「并行」实现给出的会是 `0.10 / 0.35 / 0.50 / 2.50 / 2.90`；
+        /// 现在是 `0.10 / 0.35 / 0.75 / 1.15 / 3.15 / 3.55` ⇒ 谁把时间轴改回并行，断言立刻红。</summary>
+        public static float[] TimelineBreakpoints() { return new[] { 0f, IntervalA, T1, T2, T3, T4, T5 }; }
+
+        // ============================================================ 追加区 · 2026-10-28（B93_D4 · 账 `日常/奖励` 158 第 ③ 段）
+        /// <summary>原版 `SetNotificationData` 第 ③ 段（`EventBadge__SetNotificationData.c:44-70`）：
+        /// `context.Data is RewardInfo` ⇒ `drawerHolder.gameObject.SetActive(true)` +
+        /// `drawer = ItemDrawer.Draw(drawerHolder, item, 1, 10)`，并把那个抽屉记进 `+0x50`（下一轮 `Destroy` 它）。
+        /// <para>那个 `item` = `RewardInfo` 的虚槽 `+0x208` getter（同一份 `.c` 里
+        /// `(**(code **)(*plVar1 + 0x208))(plVar1, *(plVar1 + 0x210))`）⇒ 本工程等价物 = 按 `RewardInfo.Id` 建 `ItemSpec`。</para>
+        /// <para>⚠️ 第 4 实参 `10` = <see cref="DrawerOverride.Icon"/>（`.c` 里那个裸整数 `10`）。</para></summary>
+        public void ApplyRewardDrawer(RewardInfo reward)
+        {
+            if (reward == null) return;
+            if (drawerHolder == null)
+            {
+                WarnOnce("[EventBadge] SetNotificationData 第 ③ 段：`drawerHolder` 没绑（prefab 几何不在离线包里）⇒ 不建抽屉");
+                return;
+            }
+            drawerHolder.gameObject.SetActive(true);                       // 原版这一句在 Draw 之前
+            var spec = ItemDrawer.Spec(reward.Id, null, null);
+            var res = ItemDrawer.Draw(drawerHolder, DrawerBox, spec, 1,
+                                      DrawerOverride.Icon,
+                                      ItemDrawerStyle.Default(ToastNotifications.QHit + 1, ToastNotifications.QHit + 2, ToastNotifications.QHit + 3));
+            drawer = res.Node != null ? (object)res.Node.gameObject : null;  // 原版存 `ItemDrawer`；我们存它建出来的那个根
+            if (res.Node == null)
+                WarnOnce("[EventBadge] 第 ③ 段：`ItemDrawer.Draw` 没画出抽屉（id=`" + reward.Id + "`）—— 见它自己的告警");
+        }
+
+        /// <summary>抽屉框（原版在 `EventBadge` prefab 里，那份 prefab 不在离线包里 ⇒ 尺寸由宿主给）。
+        /// 🔶 自己设计（非原版）：判据为空（prefab 缺席）· 76×76 是「小徽记档」的通行尺寸 ·
+        /// 调度台 2026-10-28 授权（B93_D4 报告）。</summary>
+        public PxRect DrawerBox = new PxRect(0f, 0f, 76f, 76f);
     }
 }

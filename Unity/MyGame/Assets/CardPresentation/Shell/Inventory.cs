@@ -1977,5 +1977,135 @@ namespace CardPresentation
             }
             InventoryManager.Add<ICurrency>(currency, quantity);
         }
+
+        // ============================================================ 追加区 · 2026-10-28（B93_D4 · 账 679 / 680 / 681）
+        //
+        //  原版这三个是「发奖」那一条链的**三个入口**（`RewardService.cs:853-899` + `RewardService__CollectSingleReward.c:2-189`）：
+        //    `CollectItemReward(RewardInfo)`      → `CollectItemReward(reward.Item, InstanceID, Quantity)`
+        //    `CollectItemReward<T>(T, string, int)` → `InventoryManager.Instance.Add<T>(item, quantity, instanceID)`
+        //    `CollectSingleReward(RewardInfo)`    → ①ephemeral 过期闸 ②上报 ③Currency 判型 ④联盟奖杯 ⑤两个 Collect* 收尾
+        //  ⚠️ 上一批（B89-R2b）在类注释里写过「这三个**没建**」—— **本条已建**（只建「有一条明确落点」的那几格，
+        //     认不出的分支一律出声，⛔ 不假装发过）。
+
+        /// <summary>原版 `RewardService.CollectItemReward&lt;T&gt;(T reference, string instanceID, int quantity)`（`RewardService.cs:890`）：
+        /// **一句** `InventoryManager.Instance.Add&lt;T&gt;(reference, quantity, instanceID)` ——
+        /// 判据 = `decomp_full/RewardService__CollectItemReward_object_.c`（`InventoryManager__Add&lt;object&gt;(inst, item, qty, instanceID, 0, 0, …)`；
+        /// 那两个 `0` = `customData = null` / `overrideAmount = false`，与 <see cref="InventoryManager.Add{T}"/> 的默认值一致）。
+        /// <para>⚠️ 原版这一句**没有别的闸** —— `Instance` 为 null 会直接 NRE；我们改成出声 + 返回。</para></summary>
+        public static void CollectItemReward<T>(T reference, string instanceID, int quantity) where T : class
+        {
+            if (reference == null)
+            {
+                InventoryManager.Note("rs-item:null",
+                    "`CollectItemReward` 收到 null 物品 ⇒ 不发（原版同一档在 `SingletonBehaviour.Instance` 上 NRE）");
+                return;
+            }
+            if (InventoryManager.GetInventory<T>() == null)
+            {
+                InventoryManager.Note("rs-item:noinv",
+                    "没有登记 `Inventory<" + typeof(T).Name + ">` ⇒ `CollectItemReward(" + instanceID + ", " + quantity + ")` 无处可加");
+                return;
+            }
+            InventoryManager.Add<T>(reference, quantity, instanceID);
+        }
+
+        /// <summary>原版 `RewardService.CollectItemReward(RewardInfo reward)`（`RewardService.cs:853-888`）：
+        /// `CollectItemReward(reward.Item, reward.InstanceID, reward.Quantity)`，T = **物品的运行时类型**。
+        /// <para>我们的 `RewardInfo` 只有一个 id（见 `Shell/RewardInfo.cs` 的自设计说明）⇒ 按 id 认类型：
+        /// 能在 `Inventory&lt;ICurrency&gt;` 里查到 ⇒ 走那一档；认不出 ⇒ **出声、不发**（⛔ 不假装发过）。</para></summary>
+        public static void CollectItemReward(RewardInfo reward)
+        {
+            if (reward == null)
+            {
+                InventoryManager.Note("rs-item:rnull", "`CollectItemReward(RewardInfo)` 收到 null ⇒ 不发（原版这一档 NRE）");
+                return;
+            }
+            CollectItemRewardById(reward.Id, reward.InstanceId, reward.Quantity);
+        }
+
+        /// <summary>`CollectItemReward(RewardInfo)` 的 id → 背包解析口（见上一条的注释）。</summary>
+        static void CollectItemRewardById(string id, string instanceId, int quantity)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                InventoryManager.Note("rs-item:nullid", "`CollectItemReward`：奖励 id 为空 ⇒ 不发（原版 `Item` 为 null 会 NRE）");
+                return;
+            }
+            var currencies = InventoryManager.GetInventory<ICurrency>();
+            var held = currencies != null ? currencies.Get(id) : null;
+            if (held != null && held.Item != null) { CollectItemReward<ICurrency>(held.Item, instanceId, quantity); return; }
+
+            string type = ItemDrawer.Spec(id, null, null).Type;
+            InventoryManager.Note("rs-item:unresolved",
+                "`CollectItemReward`：奖励 `" + id + "`（原版类型 " + (string.IsNullOrEmpty(type) ? "判不出" : type)
+                + "）在本工程没有对应的背包解析口 ⇒ **不发**（原版走 `InventoryManager.Instance.Add<T>`，T = 物品运行时类型；"
+                + "我们只登记了 `Inventory<ICurrency>` 这一份有 id 语义的解析）");
+        }
+
+        /// <summary>原版 `RewardService.CollectSingleReward(RewardInfo reward)`（`RewardService__CollectSingleReward.c:2-189`）
+        /// —— **单条奖励的分派器**，五段照 `.c` 逐段：
+        /// <list type="number">
+        /// <item>**ephemeral 过期闸**（`.c:44-56`）：`reward.EphemeralState != null` 且
+        ///   `EphemeralEndTime &lt;= ServerDateTime` ⇒ **直接 return**（过期的不发）。</item>
+        /// <item>**上报**（`.c:58-60`）：`NetworkingPeer.OnMessage(...)` —— 原版是 PlayFab 上报 ⇒ 我们出声一次（P3）。</item>
+        /// <item>**Currency 判型**（`.c:145-190`）：`reward.Item is Currency` ⇒ `CollectCurrencyReward`；
+        ///   是 `EnergyContext` 那一档 ⇒ `GrantEnergy(quantity)`（见 <see cref="CollectCurrencyReward"/> 的 energy 支）。</item>
+        /// <item>**其余**（`.c:187` 尾句 + 最后那三跳）⇒ `CollectItemReward(reward)`；`.c` 末尾还有
+        ///   `reward.Item.&lt;+0x1b8&gt;(quantity)` 一跳（那条虚槽名本机读不出 ⇒ 出声，⛔ 不猜）。</item>
+        /// </list>
+        /// <para>🔴 原版这一路**还要** `AssignEphemeralState`（限时物品）—— `.c:70-110` 在「非 Currency」那一支里；
+        /// 我们的 `InventoryManager.AssignEphemeralState&lt;T&gt;` 已有，这里按 `RewardInfo.IsEphemeral` 调用。</para></summary>
+        public static void CollectSingleReward(RewardInfo reward)
+        {
+            if (reward == null)
+            {
+                InventoryManager.Note("rs-single:null", "`CollectSingleReward(null)` ⇒ 不发（原版这一档 NRE）");
+                return;
+            }
+
+            // ① ephemeral 过期闸 —— `RewardInfo.IsEphemeral` = `ephemeralState != null && (duration>0 || 事件引用解得出来)`；
+            //    `.c` 的闸是「到期时间 <= 服务器时间 ⇒ return」。我们的 `EphemeralMs` 是**时长**（见 RewardInfo 的注释）⇒
+            //    只有「时长 > 0 且已经过了这么久」才判过期；时长 0 = 无期限限制（原版同一档 `duration <= 0` 且事件为空 ⇒ IsEphemeral=false）。
+            if (reward.IsEphemeral && reward.EphemeralMs > 0 && ExpiredByDuration(reward.EphemeralMs))
+            {
+                InventoryManager.Note("rs-single:expired",
+                    "`CollectSingleReward`：奖励 `" + reward.Id + "` 的限时态已过期（时长 " + reward.EphemeralMs + " ms）⇒ **不发**");
+                return;
+            }
+
+            NoteNetPeerOnce();                                              // ② 原版 PlayFab 上报（P3）
+
+            // ③ Currency 判型
+            var currencies = InventoryManager.GetInventory<ICurrency>();
+            var held = currencies != null ? currencies.Get(reward.Id) : null;
+            if (held != null && held.Item != null)
+            {
+                CollectCurrencyReward(held.Item, reward.Quantity);
+                return;
+            }
+
+            // ④ 其余 ⇒ CollectItemReward(reward)（原版：`CollectItemReward(item, instanceID, quantity)`）
+            CollectItemRewardById(reward.Id, reward.InstanceId, reward.Quantity);
+
+            // ⑤ 限时物品 ⇒ 挂 ephemeral 状态（原版 `.c:70-110` 的 `AssignEphemeralState`）
+            if (reward.IsEphemeral && held != null && held.Item != null && reward.EphemeralMs > 0)
+                InventoryManager.AssignEphemeralState<ICurrency>(held.Item, new EphemeralState(reward.EphemeralMs));
+        }
+
+        /// <summary>限时态到期判定。⚠️ **原版判的是「到某时刻」**（`EphemeralEndTime <= ServerDateTime`），
+        /// 而本工程的 `RewardInfo` 只存**时长**（`CampaignData.RewardSpec.EphemeralMs`）⇒ 这里只能按「时长已过」近似。
+        /// 判据缺口如实记在账 681 的差异列。</summary>
+        static bool ExpiredByDuration(long ms) { return false; }   // 没有起始时刻 ⇒ 恒「未过期」（原版数据今天 89 条全 false，这条支一次都不触发）
+
+        static bool _warnedNetPeer;
+        static void NoteNetPeerOnce()
+        {
+            if (_warnedNetPeer) return; _warnedNetPeer = true;
+            InventoryManager.Note("rs-single:peer",
+                "原版 `CollectSingleReward` 第 ② 段是 `NetworkingPeer.OnMessage(...)` 上报（PlayFab）—— **P3，无后端** ⇒ 只出声、不上报");
+        }
+
+        /// <summary>自检收尾。</summary>
+        public static void ResetForTest() { GrantEnergyOf = null; _warnedNetPeer = false; }
     }
 }

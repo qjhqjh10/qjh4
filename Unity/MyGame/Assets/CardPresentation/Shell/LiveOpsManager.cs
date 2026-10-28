@@ -120,11 +120,13 @@ namespace CardPresentation
         /// <summary>原版 `public static void ResetHandlers()`（`:1648`，**真身** `LiveOpsManager__ResetHandlers.c`）：
         /// <code>
         /// var snapshot = HandlerLookup.Values.ToList();
-        /// foreach (var h in snapshot) &lt;虚调用&gt;;      // ← 见下面的「⚠️」
+        /// foreach (var h in snapshot) h.ClearEvents();      // ← 接口槽 **7**
         /// HandlerLookup.Clear();
         /// </code>
-        /// ⚠️ 那个虚调用**取的是哪个方法没坐实**（Ghidra 只给出 vtable 槽号 +7，与 `ILiveOpsHandler` 的成员序对不上）；
-        /// 按语义（「逐个 Reset」）与账 row 420 的口径取 <see cref="LiveOpsHandler.ResetEvents"/>。账里标 B。</summary>
+        /// 🔴 **2026-10-28（B93_E12）坐实：那个虚调用是 `ClearEvents()`，不是 `ResetEvents()`。** 判据 = `d:/2/tools/il2cpp_out/dump.cs:53773`
+        /// 的 `ILiveOpsHandler` 槽表（`Slot: 7` = `void ClearEvents()`；`ResetEvents()` **根本不在接口上**，它是类方法）+ Ghidra 侧
+        /// `…ResetHandlers.c` 的 `(offset + 7) * 0x10` 且只传 `this`+MethodInfo 两个实参。⚠️ 两者语义整条不同（`ClearEvents` = 撤排期 +
+        /// 逐个 `Dispose` + 清三表；`ResetEvents` = 逐个 `ResetEventProgress()` 不清表）—— 原来按「名字像 Reset」取错了，已改。</summary>
         public static void ResetHandlers()
         {
             var snapshot = new List<ILiveOpsHandler>(HandlerLookup.Values);
@@ -132,9 +134,7 @@ namespace CardPresentation
             {
                 var h = snapshot[i];
                 if (h == null) continue;
-                var concrete = h as LiveOpsHandler;
-                if (concrete != null) concrete.ResetEvents();
-                else Debug.LogWarning("[LiveOps] ResetHandlers：'" + (h.HandlerKey ?? "?") + "' 不是 LiveOpsHandler 基类 ⇒ 跳过 Reset");
+                h.ClearEvents();                 // 原版 `ILiveOpsHandler` 槽 7（dump.cs:53773）
             }
             HandlerLookup.Clear();
         }
@@ -286,7 +286,7 @@ namespace CardPresentation
         /// <para>🔴 2026-10-28 B91_W7 现读订正（原写「两处推断」，其中两处现已坐实/改写）：① **顺序**：原版先
         /// **`OrderByDescending(raw =&gt; raw.Data.priority)`**（`.c` 的遍历源 = `Enumerable.OrderByDescending`，选择器 = 闭包 `b__17_0`）⇒ 已补；
         /// ② **逐事件特性闸**：原版每条读 `FeatureConfig.CheckFeature(config, raw.Data.eventId)`，没开就**整条跳过** ⇒ 已补（本地无远端配置 ⇒ 放行，见 `EventFeatureGate`）；
-        /// ③ **live/blocked 的判法仍未能定案**（`.c` 与 ILSpy 对「接口槽 4 真假各走哪一支」**互相矛盾**，且槽 4 指向 `IsActive()` 还是别的成员未坐实）⇒ 暂按 `data.enabled` 这个最小自洽解释，⛔ 别照本条猜着改。</para></summary>
+        /// ③ ✅ **2026-10-28（B93_E12）live/blocked 分派已定案**（槽 4/8/9/13 全部解出，见方法体内那一段）⇒ 按 `.c` 逐句照抄。</para></summary>
         public async Task BuildHandler(ILiveOpsHandler handler, LiveopsHandlerData handlerData, LiveOpsFeatureConfig config)
         {
             if (handler == null) { Debug.LogError("[LiveOps] BuildHandler：handler 是 null"); return; }
@@ -314,10 +314,26 @@ namespace CardPresentation
                                        + (r.Data.eventId ?? "?") + "' 造不出实例（`LiveopsHelper.TryGetEventFromData` 没匹配到事件类）⇒ 跳过");
                         continue;
                     }
-                    if (!r.Data.enabled) blockedOps.Add(ev);      // ⚠️ 推断，见方法注释
-                    else ops.Add(ev);
+                    // 🔴 2026-10-28（B93_E12）**已坐实**（下面三条槽号全部来自 `d:/2/tools/il2cpp_out/dump.cs:126037` 的 ILiveOps 槽表）：
+                    //   Slot 4 = `bool IsActive()` · Slot 8 = `RegisterEventTriggers()` · Slot 9 = `CheckEventFilter()` · Slot 13 = `ToggleEventActivation(bool,bool,bool)`
+                    //   判据 = `decomp_full/LiveOpsManager._BuildHandler_d__17__MoveNext.c:186-222`：
+                    //     if (!ev.IsActive())                     { ev.RegisterEventTriggers(); blockedEvents.Add(ev); }
+                    //     else if (IsTriggeredEvent(ev) || ev.CheckEventFilter()) { events.Add(ev); ev.ToggleEventActivation(true, false, false); }
+                    //     else                                    { blockedEvents.Add(ev); }
+                    //   （`IsTriggeredEvent` = `data.filter.Triggers.Count > 0`，判据 `decomp_full/LiveOpsUtility__IsTriggeredEvent.c`）
+                    //   `events`/`blockedEvents` 的归属：`.c` 的两张表是 `param_1+0x14` / `+0x16`，`SetupEvents(events, blockedEvents, shared)`
+                    //   按接口槽 5 的形参序传的是 `(+0x14, +0x16, data.SharedData)` ⇒ `+0x14` = events、`+0x16` = blockedEvents（与上面三条 Add 一致）。
+                    if (!ev.IsActive()) { ev.RegisterEventTriggers(); blockedOps.Add(ev); }
+                    else if (IsTriggeredEvent(ev) || ev.CheckEventFilter()) { ops.Add(ev); ev.ToggleEventActivation(true, false, false); }
+                    else blockedOps.Add(ev);
                 }
             }
+            // 🔴 2026-10-28（B93_E12）补这一跳：原版 `_BuildHandler_d__17__MoveNext.c` 在 `SetupEvents` **之前**调
+            //   `ILiveOpsHandler` 槽 0 = `RegisterManager(LiveOpsManager)`（`(*(code*)*puVar8)(plVar2, lVar9)`，
+            //   `lVar9` = `LiveOpsManager` 的单例）。
+            //   ⚠️ 原来**全仓没有一处调它** ⇒ `LiveOpsHandler.Manager` 恒 null ⇒ `RefreshHandler` 每次都在
+            //   「Manager 是 null ⇒ 无法建 handler」那条错误支上返回（静默的功能死路，`grep RegisterManager` 只有声明）。
+            handler.RegisterManager(this);
             await handler.SetupEvents(ops, blockedOps, handlerData == null ? null : handlerData.SharedData);
             HandlerLookup[handler.GetType()] = handler;
         }
@@ -481,6 +497,105 @@ namespace CardPresentation
                     if (ids[i] == id) { outp.Add(e); break; }
             }
             return outp;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B93_E12 · 账 row 410 / 415 / 407）
+        //   ⚠️ 追加在**类尾**：本文件有多条账按 `文件:行号` 钉着（128 / 164 / 210 / 290），往上插一行就会集体漂移。
+        //   判据（**现读**）：`cpp2il/out_cpp2il_dev_ilspy/LiveOpsManager.cs:1842-1935`（两个重载的 C# 形状）+
+        //                     `decomp_full/LiveOpsManager__GetAllEvents.c`（第 2 个重载的机器码）+
+        //                     `decomp_full/LiveOpsManager__GetEventsForDisplayingInMenu.c` 与 4 个 `b__19_*` 闭包。
+
+        /// <summary>原版 `public static IEnumerable&lt;ILiveOps&gt; GetAllEvents(EventLocationType location, string parent = null)`
+        /// （`LiveOpsManager.cs:1842` / `decomp_full/LiveOpsManager__GetAllEvents.c`）：
+        /// <code>
+        /// return GetAllEvents().Where(ev =&gt; ev.GetBaseData().location.Match(location, parent));
+        /// </code>
+        /// 🔴 **判据逐跳**：`.c` 里 `FUN_1800021f0(0xf, …)` = `ILiveOps` 槽 **15** = `GetBaseData()`（`dump.cs:126037`）；
+        /// 取到 `data + 0x48`（`location`，`LiveOpsEventData.cs:38` 那个 `EventLocation` 字段），
+        /// 然后 `(loc + 0x10) == location` 且 `string.Equals(parent ?? "", loc.parent?.TargetId ?? "")`。
+        /// 那两句**就是 `EventLocation.Match` 的体**（`cpp2il/out_cpp2il_dev_ilspy/EventLocation.cs`，我们已在
+        /// `Shell/LiveOpsFilter.cs` 复刻为 `EventLocation.Match`）⇒ 这里直接调它，⛔ 别在本地再抄一遍比较式。
+        /// <para>⚠️ **数据面的等价差异**（如实记）：原版 `data.location` 是 `EventLocation` 整个对象（含 `parent` 资产引用）；
+        /// 我们的 `LiveOpsEventData.location` **只存 `type` 那个 int**（见该字段注释）⇒ `parentId` 从本地目录
+        /// `LiveOpsLocalEvent.LocationParentId` 补（判据 = `LiveOpsLocalCatalog` 的 `location.parent.targetId` 那一列）。
+        /// 两步都是**同一份 SO 数据的两个列**，合起来与原版那个对象等价。</para></summary>
+        public static IEnumerable<ILiveOps> GetAllEvents(EventLocationType location, string parent = null)
+        {
+            var outp = new List<ILiveOps>();
+            foreach (var e in GetAllEvents())
+            {
+                if (e == null) continue;
+                var d = e.GetBaseData();
+                if (d == null) continue;                 // 原版这一支 NRE；我们跳过（同一口径见本类 `GetHandler` 的差异说明）
+                var local = LiveOpsLocalCatalog.Find(d.eventId);
+                var loc = new EventLocation
+                {
+                    type = (EventLocationType)d.location,                       // 原版 `data.location.type`
+                    parentId = local == null ? null : local.LocationParentId,   // 原版 `data.location.parent.TargetId`
+                };
+                if (!loc.Match(location, parent)) continue;
+                outp.Add(e);
+            }
+            return outp;
+        }
+
+        /// <summary>原版 `public static IOrderedEnumerable&lt;LiveopsMainMenuData&gt; GetEventsForDisplayingInMenu()`
+        /// （`LiveOpsManager.cs:2075` / `decomp_full/LiveOpsManager__GetEventsForDisplayingInMenu.c`）：
+        /// <code>
+        /// GetAllEvents()
+        ///   .Where(e =&gt; e.ShowInMainMenu)                              // b__19_0 → ILiveOps 槽 25 = get_ShowInMainMenu
+        ///   .Where(e =&gt; (int)e.EventState is 1 or 2 or 3)              // b__19_1 → 槽 23 = get_EventState（OnPreview/Active/Finished）
+        ///   .Select(e =&gt; e.GetMainMenuData())                          // b__19_2 → 槽 26 = GetMainMenuData
+        ///   .OrderByDescending(d =&gt; d.Priority);                       // b__19_3 → 读 `LiveopsMainMenuData + 0x18`
+        /// </code>
+        /// 🔴 **四个闭包全部反查到槽号**（`dump.cs:126037` 的 `ILiveOps` 槽表 + `b__19_3` 的 `.c` 读 `param_2 + 0x18`
+        /// = `LiveopsMainMenuData.Priority`）。`OrderByDescending` 的判据：那个调用点用的辅助函数 `FUN_180c99380`
+        /// 与 `BuildHandler` 里 `OrderByDescending(raw =&gt; raw.Data.priority)` 是**同一个函数**（同一个 `FUN_181a60060` 建键选择器），
+        /// 且 `GameModes__GetActiveEvent.c` 用同一函数后 `FirstOrDefault()` 取到的是**最高优先**那个 ⇒ 是降序，⛔ 不是升序。
+        /// <para>⚠️ 返回类型：原版 `IOrderedEnumerable&lt;LiveopsMainMenuData&gt;`，我们回 `List&lt;LiveopsMainMenuData&gt;`
+        /// （本工程这几个文件不用 LINQ；排序用**带序号的稳定排序**等价 `OrderByDescending` 的稳定性 —— 同优先级保持源次序）。</para></summary>
+        public static List<LiveopsMainMenuData> GetEventsForDisplayingInMenu()
+        {
+            var keyed = new List<KeyValuePair<int, LiveopsMainMenuData>>();
+            int seq = 0;
+            foreach (var e in GetAllEvents())
+            {
+                if (e == null) continue;
+                if (!e.ShowInMainMenu) continue;                       // 槽 25
+                int state = (int)e.EventState;                          // 槽 23
+                if (!(state >= (int)LiveOpState.OnPreview && state <= (int)LiveOpState.Finished)) continue;
+                var data = e.GetMainMenuData();                         // 槽 26
+                if (data == null)
+                {
+                    Debug.LogWarning("[LiveOps] GetEventsForDisplayingInMenu：活动 '" + (e.GetID() ?? "<null>")
+                                   + "' 的 GetMainMenuData() 给了 null（原版这一跳会 NRE）⇒ 跳过它");
+                    continue;
+                }
+                keyed.Add(new KeyValuePair<int, LiveopsMainMenuData>(seq++, data));
+            }
+            // 稳定降序：同 Priority 时按源次序（等价 LINQ `OrderByDescending` 的稳定语义）
+            keyed.Sort((a, b) =>
+            {
+                int c = b.Value.Priority.CompareTo(a.Value.Priority);
+                return c != 0 ? c : a.Key.CompareTo(b.Key);
+            });
+            var outp = new List<LiveopsMainMenuData>(keyed.Count);
+            for (int i = 0; i < keyed.Count; i++) outp.Add(keyed[i].Value);
+            return outp;
+        }
+
+        /// <summary>原版 `LiveOpsUtility.IsTriggeredEvent(ILiveOps)`（`decomp_full/LiveOpsUtility__IsTriggeredEvent.c`，**逐句**）：
+        /// <code>
+        /// var data = ev.GetBaseData();      // ILiveOps 槽 15
+        /// return data.filter.Triggers.Count &gt; 0;    // data + 0x30 = filter，filter + 0x30 = Triggers（`DynamicList`）
+        /// </code>
+        /// 用途 = `BuildHandler` 的 live/blocked 分派（「这个事件挂了触发器 ⇒ 让它自己决定什么时候激活」）。</summary>
+        public static bool IsTriggeredEvent(ILiveOps e)
+        {
+            if (e == null) return false;
+            var d = e.GetBaseData();
+            if (d == null || d.filter == null || d.filter.Triggers == null) return false;
+            return d.filter.Triggers.Count > 0;
         }
     }
 }

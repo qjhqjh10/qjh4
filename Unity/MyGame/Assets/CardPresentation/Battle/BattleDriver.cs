@@ -9175,12 +9175,12 @@ namespace CardPresentation
         /// ⚠️ **这是「整段开不开」的总闸**；只关**进攻卡**那一半用 `offensiveCardEnabled`。</summary>
         public bool offensivePhaseEnabled = true;
 
-        /// <summary>🔶 自己设计（非原版）：多出来的「选进攻卡」面板 · 原版 `BattleManager.ShouldUseEnviromentalEffects()` 恒 false（`RVA 0x6FB110` = `xor al,al; ret`，账 596 的 VA 取证）⇒ 这扇面板原版**永不出现**；我们留着当备份、默认关 · 用户 2026-10-11 裁定「暂时不要、代码一行不删」。🔴 **2026-10-11 用户拍板：进攻卡暂时不要（防御卡照旧要）** —— 默认 `false`。
+        /// <summary>🔶 自己设计（非原版）：多出来的「选进攻卡」面板 · 原版 `BattleManager.ShouldUseEnviromentalEffects()` 恒 false（`RVA 0x6FB110` = `xor al,al; ret`，账 596 的 VA 取证）⇒ 这扇面板原版**永不出现**；我们照用户裁定把它做出来（曾留作备份、默认关）。🔴 **2026-10-28 用户改裁定：进攻卡恢复、照原版做** ⇒ 默认值由 `false` 改回 **`true`**（旧裁定的原话与后果见下，保留作历史，⛔ 别当成现行口径）。
         ///
         /// 用户两次原话（第二次是**纠正**）：「**面板/功能都暂时不要了，做这些地方太耗精力，暂时去掉，
         /// 留着备份，以后可能在使用。先把场景复刻好**」→ 我按「整段都关」做了一版 → 用户当场订正：
         /// 「**防御卡需要，不要的是进攻卡。**」
-        /// ⇒ **只关进攻卡**：本机是先手时**不弹**「选择进攻卡」面板、AI 是先手时也**不替它挑**
+        /// ⇒ **旧行为（2026-10-11 口径，2026-10-28 已废）**：只关进攻卡 —— 本机是先手时**不弹**「选择进攻卡」面板、AI 是先手时也**不替它挑**
         ///   （⇒ 没人选进攻卡 ⇒ **战场停在默认环境**，正是用户要的「只用 13 个默认场景的默认环境」）；
         ///   **本机是后手时那扇「选择防御卡」面板照旧弹、AI 是后手时照旧替它挑**（`PickDefensiveForAi`）。
         ///   ⚠️ **2026-10-12（`A1664`）起这句的【防御卡那半】已作废**：那扇面板现在由
@@ -9190,11 +9190,11 @@ namespace CardPresentation
         /// 🗄 **这是「暂时去掉」不是「删除」** —— 进攻卡那套代码**一行没删、原样留着当备份**：
         ///   `OffensiveCards` / `OffensiveCardData` / `OnOffensiveDone` / `PickOffensiveForAi` /
         ///   `EnvSOFor` / `ApplyOffensiveEnvOnce` / `_envPickViews` 全在。
-        ///   ✅ **要恢复：把这个字段改回 `true` 即可**（没有别的地方需要动）。
+        ///   ✅ **2026-10-28 已恢复**：本字段现读 `true`（用户当天裁定「进攻卡恢复，照原版做」）。
         ///   ✅ `A1541` 那两条断言**仍然开着**（`Editor/BattleScene.cs` 第 17·1 节显式把它与
         ///     `offensivePhaseEnabled` 一起置 `true` 再跑）⇒ 备份里的代码不会烂掉
-        ///     （铁律 11 例外②：用户明确拍板不做，但东西留着）。</summary>
-        public bool offensiveCardEnabled = false;
+        ///     （原记为铁律 11 例外②「用户明确拍板不做，但东西留着」；2026-10-28 该例外不再适用 —— 已恢复）。</summary>
+        public bool offensiveCardEnabled = true;
 
         /// <summary>🔴 **2026-10-12（`A1664`，用户真机点名「为什么可以选择防御卡，防御卡是放在卡组，
         /// 后手的时候直接在手卡，这个是给后手玩家的补偿」）**：要不要弹「**选**防御卡」那扇面板。
@@ -17053,14 +17053,14 @@ namespace CardPresentation
         ///   · 其余动作类型里出现的档：`EndTurn`(100) n=73 里 `90×12` · `PlayCard` n=107 里 `30×1 / 90×4` ·
         ///     `ChangeToRanged` n=17 里 `10×1` · `ActivateHandCards` n=6 里 `10×2` ·
         ///     `AiChat`/`PlayerChat`/`RadioMessage` 各 `90×1/1/0`；其余类型**全 0**。
-        ///   · 🔴 **`100 = ActiveAbility` 【0 条】**（449 条里一次都没用到）——
-        ///     这就是「`ActiveAbility` 那个锚点我们没做」那一笔的**最终结论**：
-        ///     原版那一支取 `bm+0x168` 那颗钮 + `x -= 1.5`（`DAT_1834b3090` 实读），
-        ///     **我们这边没有那一颗物件**；而数据里这一档**一条都没有** ⇒
-        ///     **保持「退回屏幕中心 + 出声」是零可见影响的**（判据在此，⛔ 不是「忘了做」）。
-        ///   · 同理 `50 EnemyCardInHand` / `70 EnemyMana` / `110 ChatButton` / `120 Cemetery` 也是 **0 条**
-        ///     —— 其中 110/120 我们**照样实现了**（锚点物件存在、只是数据里没人用），
-        ///     50/70 走 `default` 档（我们那边确实没有对应物件）。
+        ///   · 🔴 **`100 = ActiveAbility` 【0 条】**（449 条里一次都没用到）—— 🔁 **2026-10-28（`B93_G2`）就地订正（铁律 5）**：原来这里写「我们这边
+        ///     没有那一颗物件 ⇒ 保持退回屏幕中心」，**已过期**：`bm+0x168` 按 `dump.cs:30765` 是 **`ActiveSkillDisplay activeSkillDesc`**
+        ///     （技能说明面板，⛔ 不是「钮」）；我们的同形物 = `SkillPanel` ⇒ 已建在 `TutorialAnchorExtra`（`:36681`）=
+        ///     `skillPanel.transform.position + (-1.5, 0, 0)`。数据里这一档 **0 条** ⇒ 今天仍不可观测，但**机制已照做**。
+        ///   · 同理 `50 EnemyCardInHand` / `70 EnemyMana` / `110 ChatButton` / `120 Cemetery` 也是 **0 条** ——
+        ///     **110/120 早就实现了**；🔁 2026-10-28（`B93_G2`）：**50/70 也已建**（同 `TutorialAnchorExtra`）。
+        ///     ⚠️ 70/80 的锚点物件现核：`+0xC8`=`enemyManager` · `+0xC0`=`playerManager`（`dump.cs:30738-30739`），而
+        ///     `PlayerManager+0x30` = `manaManager`（`:40510`）⇒ 原版 = **`EnemyMana`/`PlayerMana` 两容器的 position**；我们取球心（差 ≤2 px）。
         /// ⚠️ 「`*Melee/Range/Health`」（11/12/13/21/22/23）在卡面上是**同一张卡的那一排数值格**
         /// （原版 `IsReferenceCardElement` 把它们指到卡上的子元素）—— 我们只到**卡面**这一层，
         /// 三个子锚用卡宽的比例分开（**近似**，注释里如实标）。
@@ -17072,9 +17072,9 @@ namespace CardPresentation
         ///     ⇒ 我们照抄这两个数（z 取 `_endTurnBg` 的）。
         ///   · **`ChatButton(110)`**：取 `bm+0x140` 那颗钮的 position，`x -= 0.7`（`DAT_1834b3188` 实读）、`y += 0.5`。
         ///   · **`Cemetery(120)`**：取 `bm+0x110` 那颗钮的 position，`x -= 0.5`。
-        ///   ⚠️ **`ActiveAbility(100)`**：原版取 `bm+0x168` 那颗钮的 position、`x -= 1.5`
-        ///     （`DAT_1834b3090` 实读）—— 可我们这边**没有那一颗物件**（技能钮是 `AttackSelector` 里的选项）
-        ///     ⇒ **认不出就不仿**，退回屏幕中心 + 出声一次（原版那一档数据里 0 条，零影响）。
+        ///   · **`ActiveAbility(100)`**：原版取 `bm+0x168`（= **`ActiveSkillDisplay activeSkillDesc`**，`dump.cs:30765`）的 position、`x -= 1.5`
+        ///     （`DAT_1834b3090` 实读）⇒ 我们的同形物 = `SkillPanel`（`SkillPanel.cs` = 原版 `ActiveSkillDesc`），已建在 `TutorialAnchorExtra`；
+        ///     ⚠️ 位置随面板节点走（批处理建场里那颗节点在 `(0,0,0)`，摆位由建场方决定 ⇒ 这一格的**坐标**要真机复核）。
         /// </summary>
         bool TutorialAnchor(int positionReference, out Vector3 center, out Vector2 size)
         {
@@ -18522,7 +18522,7 @@ namespace CardPresentation
             var tut = Ctx != null ? Ctx.Tutorial : null;
             if (tut == null) return false;
             if (_replaySession) return false;                       // 原版 `IsReplayMatch ⇒ return`
-            if (!_tutWaitArmed) return false;                       // 见上面 list 的第 4 条（替代闸）
+            if (!_tutWaitArmed || !TutorialSkipAllowed(_tutWaitAction)) return false;   // 见上面 list 的第 4 条（替代闸）｜🔴 2026-10-28（`B93_G2`）：再叠原版 `CanSkipAction` 那道闸 —— 只有聊天五档能跳（判据与理由 → 类尾 `TutorialSkipAllowed`）
             if (TutorialClickHitsSomething(world)) return false;    // 原版「指针下有东西 ⇒ 不收」
             _tutSkipNext = true;
             // 原版 `SkippableActionWait` 逐帧看标志 ⇒ 置位后**当场收工**（不必等满 waitAfter）
@@ -18959,9 +18959,9 @@ namespace CardPresentation
                             : AttackKind.Ability;
 
             SyncReticleCameras();
-            _aiAnimFrom = Get2DPosOfCard(caster, true);   // 【B92_B3c】`__EnemyTargetingAnim.c:18`：起点走 `Get2DPosOfCard(cardOrigin, useCenter:1)`
-            _aiAnimFrom.z = TargetReticle.Z;              // ↑ z 换成本仓准星平面；终点仍是裸 `transform.position`（`.c:22`，本来就对）
-            _aiAnimTo = reticle.ResolveAim(target.transform.position);
+            _aiAnimFrom = Get2DPosOfCard(caster, false);  // 【B93_E5 · 铁律 5 就地订正】起点 = 原版 `BattleManager__EnemyTargetingAnim.c:24` 的 `cardOrigin.transform.position`（**裸原点**，⛔ 不带 `useCenter`）—— 投影不在调用点做，而在 `TargetReticleController__PrepareMovement.c:24` 内部做 `Get2DWorldPosFromBoardPos`（形参名 `startingPositionBoardSpace`，`dump.cs:50584`）⇒ 我们这里走 `Get2DPosOfCard(caster, false)`：它自带**同一跳**投影、基准是裸原点。⚠️ `B92_B3c` 原来这行写「`.c:18`：起点走 `Get2DPosOfCard(cardOrigin, useCenter:1)`」**读反了**（`.c:18` 的第一个卡实参 `param_3` 是 **target**，见 `dump.cs:32779` 签名 `EnemyTargetingAnim(cardOrigin, target, attackType)`）⇒ 起点/终点的 `useCenter` 对调是那一轮引入这条红的根因之一
+            _aiAnimFrom.z = TargetReticle.Z;              // ↑ z 换成本仓准星平面（`TargetReticle.Z`）。⚠️ 同一行原来还写「终点仍是裸 `transform.position`（`.c:22`，本来就对）」—— 也读反了：终点在 `.c:18`（`Get2DPosOfCard(target, useCenter:1)`），`.c:22-24` 那一头是**起点**
+            _aiAnimTo = Get2DPosOfCard(target, true);     // 终点 = `BattleManager__EnemyTargetingAnim.c:18` `Get2DPosOfCard(target, useCenter:1)`（`useCenter` ⇒ 取目标的 `GetEffectAnchor`）。⛔ 别在外面再套 `reticle.ResolveAim` —— 本工程 HUD 相机**恒正交**（`Core/LayoutSpace.cs:78`），`ResolveAim` 返回的是**战场帧**的点（射线 ∩ `enemyMinionPlane`），再套一次 = **跨帧 + 双投**
             _aiAnimTo.z = TargetReticle.Z;
             _aiAnimKind = kind;
             _aiAnimT = 0f;
@@ -37170,10 +37170,10 @@ namespace CardPresentation
         //    → `CardScript.HighlightBloodThirst`（`CardScript__HighlightBloodThirst.c:1-15`）
         //    → `BattleCardUI.HighlightBloodThirst`（那颗 `bloodThirstFrame` 恒 null，不产生画面）
         //      + `DisplayTriggerAnim(card, 220 /*bloodThirst*/, 1, 0)`。
-        //  🔴 **原版这一支四道闸一道都没有**（对比 `CardScript.ActivateBloodThirst` 的四闸：
-        //     `Has(bloodThirst)` ∧ `AttacksThisTurn == 1` ∧ `p == ctx.Active` ∧ `!IsPendingDeath`）
-        //     ⇒ **不能**复用 `RuleCore.EmitBloodThirst`（`Core/RuleCore.cs:12441` 带那四闸，
-        //       SW34 的 Slay 那一跳会被 `AttacksThisTurn != 1` 直接早退）。
+        //  🔴 **2026-10-28 就地订正（铁律 5）**：原来这里写「原版这一支四道闸一道都没有」—— **不成立**。
+        //     原版**有**四闸，只是不在 `PlayAbility` 那一跳（它只 `SendHighlightBloodThirstAction` 排队，动作类型 `0x2b`；
+        //     `CardScript__SendHighlightBloodThirstAction.c:30`），而在**结算那一跳**：`BattleManager__ResolveAction.c:3670`
+        //     `case 0x2b` → `:3719 CardScript__ActivateBloodThirst` 为真才 `:3769 HighlightBloodThirst`；闸口 = `.c:8-21` 四道合取（见方法体）。
         //
         //  🔴 **也不走 `ctx.Emit`**：`BattleContext.Emit`（`Core/BattleContext.cs:1866`）会对
         //     `EvtKind.Trigger` 调 `CountTriggerForAchievements`（成就 `Ach_*` 的触发计数会变）。
@@ -37220,6 +37220,16 @@ namespace CardPresentation
             var u = Ctx.Players[e.Player].Board[e.Slot];
             if (u == null || u.Card == null || !BloodThirstHighlight480Ids.Contains(u.Card.Id)) return;
 
+            // 🔴 四道闸 —— 判据 = `CardScript__ActivateBloodThirst.c:8-21`，原版在**结算那一跳**跑
+            //    （`BattleManager__ResolveAction.c:3670 case 0x2b` → `:3719 ActivateBloodThirst` 为真才 `:3769`），
+            //    ⛔ 不是「PlayAbility 那一跳无闸」。表达式与 `RuleCore.EmitBloodThirst` 逐项同形（`Core/RuleCore.cs:12503-12504`）。
+            //    ⚠️ 顺序不冲突：`RuleCore.DeclareAttackCore` 在 `:6437` 先 `AttacksThisTurn++`、伤害在 `:6519` 才落
+            //       ⇒ Slay 结算这一刻四闸全过（⛔ 但仍不能改用 `EmitBloodThirst`：它在 `:6445` 就发了，见类尾注释）。
+            if (!u.Has(KeywordTable.BloodThirst)) return;
+            if (u.AttacksThisTurn != 1) return;        // 原版 `+0x48 == 1`（本回合第 1 次）
+            if (e.Player != Ctx.Active) return;        // 原版 `isPlayer(+0x40) == IsPlayerTurn()`
+            if (Ctx.IsPendingDeath(u)) return;         // 原版 `+0x228 != 5`（waitingToDie）
+
             var v = ViewAt(e.Player, e.Slot);
             if (!AnimGate.CanContinue(v)) return;      // 原版 `CanContinueAnim`（含 activeSelf）⇒ 不表演
 
@@ -37251,14 +37261,16 @@ namespace CardPresentation
         //  执行体 = `RuleEngine/Core/EffectResolver.cs.RunAbilityOfAnotherCard`（它自己的 doc 第一句就写着
         //  「原版 5 个调用点 = `BattleManager__ApplyEnvEffect.c:15`（环境卡）· …」）—— ⛔ 本笔**只调用、不改它**（B4 的文件）。
         //
-        //  🔴 **今天这一跳「接上了但跑不动」，原因是数据不在**（如实记，⛔ 不自己编一棵 ability 树顶上）：
-        //  环境卡**不在**我们的组牌池 `Resources/cards_engine.json` 里 —— 现读 13 个阵营的 3 张进攻卡 + 空卡
-        //  （`Dawn Attack` / `Planetary Invasion` / `Manufactorum Overdrive` / `Warp Storm` / `Helfire Outburst` /
-        //   `Daemonic Feast` / `Normal Conditions`）**7/7 全部未命中**；真值只在 `数据/游戏数据/cards_truth.json`
-        //  （`AM63 Dawn Attack` = `cardType 20` / `spellType 200`，`trigger 0` 那条 ability =
-        //   `chosenAbility 30` + `buffType 12` + 一个 enchantment PPtr）。
-        //  ⇒ 本方法的做法 = **按卡名去卡池里找那张 `CardDef`**：找到就照原版跑，找不到就**出声**（⛔ 不静默）。
-        //  数据侧哪天把环境卡并进 `cards_engine.json`，这一跳**零改动**自动生效。
+        //  🔴 **数据侧已就位（2026-10-28 `B93/E16` 建表 + `B93/E22` 接线）**：环境卡**不在**组牌池
+        //  `Resources/cards_engine.json`（原版 `inv=5 / show=0`：既不可组牌、也不在收藏里显示），而是**单独的第二张表**
+        //  `Resources/offensive_env_cards.json`（39 张 / 22 列；`CardDatabase.OffensiveEnvCards` 懒加载）。
+        //  ⇒ 本方法取 `CardDef` 走 `ChosenOffensiveCardDef` 的「**按槽 `(faction, idx)` 取 id → `FindById`**」
+        //    （⛔ 不按卡名：`Resources/OffensiveCards.json` 有 6 处卡名与官方显示名不符 ⇒ 按名查恒落空）。
+        //  🔴 **但这一跳今天仍然「接上了但跑不动」**（如实记，⛔ 不自己编一棵 ability 树顶上）：
+        //    39 张的 `desc` 是**触发句**、`keyword` 全空 ⇒ `CardDef.TriggerOps("thiscardplayed")` 恒 `null`
+        //    ⇒ `RuleCore.RunAbilityOfAnotherCard` 走到「正文解析不出来」那条。真正缺的机器 =
+        //    「按 `chosenAbility 30/60/40/0` + `buffType 12/15` + `enchantmentId` 挂附魔模板」
+        //    （41 行 logic 在表里、37 个模板在 `enchantment_templates.json`、载体是督军 ⇒ 判据 → `报告/B93_E16.md` §四·7/8）。
         void ApplyEnvWarlordAbilityOnce()
         {
             if (Ctx == null || !Ctx.OffensiveChosen) return;
@@ -37289,9 +37301,11 @@ namespace CardPresentation
                     + (ran ? " —— 已结算" : " —— ⛔ **这一跳没有生效**（原因见 `ctx` 日志）"));
         }
 
-        /// <summary>本次选中的进攻卡在**卡池**里的 <see cref="CardDef"/>；找不到 ⇒ 出声一次 + `null`。
-        /// <para>⚠️ 现读：环境卡**不在** `Resources/cards_engine.json`（组牌池）⇒ 今天**恒 `null`**。
-        /// 判据与「为什么不能自己拼一棵 ability 树」→ <see cref="ApplyEnvWarlordAbilityOnce"/> 头上那段。</para></summary>
+        /// <summary>本次选中的进攻卡对应的 <see cref="CardDef"/>；找不到 ⇒ 出声一次 + `null`。
+        /// <para>🆕 **2026-10-28（`B93/E22`）改成按槽查**：`CardDatabase.OffensiveEnvIdAt(faction, Ctx.OffensiveSlotIdx)`
+        /// → `CardDatabase.FindById(CardDatabase.OffensiveEnvCards, id)`。数据源 = **第二张表**
+        /// `Resources/offensive_env_cards.json`（⛔ 不是组牌池 —— 那 39 张原版 `inv=5 / show=0`，既不可组牌也不显示）。</para>
+        /// <para>判据与「为什么不能自己拼一棵 ability 树」→ <see cref="ApplyEnvWarlordAbilityOnce"/> 头上那段。</para></summary>
         CardDef ChosenOffensiveCardDef()
         {
             string faction = FactionOf(Ctx.SecondSeat);          // 与选卡那一刻同一个阵营（两处 `ChooseOffensiveCard` 调用点用的就是它）
@@ -37305,16 +37319,23 @@ namespace CardPresentation
                                + "`Resources/OffensiveCards.json` 里对不上任何卡名 ⇒ 督军那一跳跳过（⛔ 不猜）。");
                 return null;
             }
-            var pool = CardDatabase.Load();
-            var def = pool != null ? CardDatabase.Find(pool, name) : null;
-            if (def == null && _envCardNoDefWarned.Add(name))
-                Debug.Log("[Battle] 进攻卡「" + name + "」**不在卡池**（`Resources/cards_engine.json`）⇒ 原版 "
-                        + "`ApplyEnvEffect.c:15` 那一跳（督军让环境卡跑 `ThisCardPlayed`）**今天没有可执行的 ability 树**。"
-                        + "真值在 `数据/游戏数据/cards_truth.json`（`AM63` 一类）；要它能跑，把环境卡并进 "
-                        + "`cards_engine.json`（生成器 `工具/gen_cards_engine.py`）—— **代码这一侧零改动**。");
+            // 🆕 2026-10-28（`B93/E22`）：**按槽取 id → 按 id 取卡**（⛔ 不再按卡名去组牌池里找）。
+            //   历史：原来是 `CardDatabase.Find(pool, name)` —— 那 39 张不在 `cards_engine.json` 里、
+            //   且 `Resources/OffensiveCards.json` 有 6 处卡名与官方显示名不符 ⇒ **恒落空**。
+            string id = CardDatabase.OffensiveEnvIdAt(faction, Ctx.OffensiveSlotIdx);
+            var table = CardDatabase.OffensiveEnvCards;
+            var def = table != null ? CardDatabase.FindById(table, id) : null;
+            if (def == null && _envCardNoDefWarned.Add(id ?? name))
+                Debug.Log("[Battle] 进攻卡「" + name + "」（" + faction + " 槽 " + Ctx.OffensiveSlotIdx + "）"
+                        + (string.IsNullOrEmpty(id) ? "在第二张表 `Resources/offensive_env_cards.json` 里**没有对应的 (faction, idx) 行**"
+                                                   : "按 id `" + id + "` 在第二张表里**查不到**")
+                        + " ⇒ 原版 `ApplyEnvEffect.c:15` 那一跳（督军让环境卡跑 `ThisCardPlayed`）**今天没有可执行的 ability 树**。"
+                        + "⚠️ 这**不是**「并进 `cards_engine.json` 就自动生效」那一套（方案已改判：**第二张表**，见 "
+                        + "`资料/完全复刻/报告/B93_E16.md`）—— 表坏了就重跑 "
+                        + "`python -I -X utf8 工具/gen_offensive_env_cards.py --write`。");
             return def;
         }
-        /// <summary>「这张进攻卡不在卡池」已经出过声的卡名（⛔ 别每场刷屏）。</summary>
+        /// <summary>「这张进攻卡在第二张表里查不到」已经出过声的 key（有 id 用 id、没有退化用卡名；⛔ 别每场刷屏）。</summary>
         readonly HashSet<string> _envCardNoDefWarned = new HashSet<string>();
 
         // ==================================================================================================
@@ -37454,5 +37475,37 @@ namespace CardPresentation
             // ④ `0 < value` 才印。
             return v > 0 ? v.ToString() : "";
         }
+
+        // ==================================================================
+        //  🆕 2026-10-28（`B93_G2`）账 `战斗逻辑驱动:115`（跳过闸）+ `:103`（锚点读数口）
+        // ==================================================================
+        //  ① **跳过闸**（账 115）：
+        //     判据 `decomp_full/AiScripted__CanSkipAction.c` —— 集合 = `actionType ∈ {0x32,0x37,0x3C,0x41,0x5A}`
+        //       = {50,55,60,65,90} = 聊天五档（正本 = `RuleEngine/Core/TutorialScript.cs` 的 `TutorialRules.IsChatKind`）；
+        //     `decomp_full/AiScripted._SkippableActionWait_d__15__MoveNext.c:38-48` —— `CanSkipAction` **假** ⇒
+        //       `WaitForSeconds(time)`，这一等里 `skipNextAction(+0x29)` **根本没被读** ⇒ 原版只有聊天五档的等待**能被跳过**。
+        //     🔴 我们在 2026-10-26 把等待窗口扩到**所有动作**（真机演出档）之后，`RequestTutorialSkip` 变成
+        //       「任何武装中的等待都能切」—— 那是原版没有的（非聊天档在原版是硬等满）。本条闸把它收回去。
+        //     ⛔ 别删：删了 = 玩家能跳过会改局面的动作等待。
+        static bool TutorialSkipAllowed(TutorialAction a)
+        {
+            return a != null && TutorialRules.IsChatKind(a.Kind);
+        }
+
+        /// <summary>自检口：这条动作的等待**能不能被跳过**（= 原版 `AiScripted.CanSkipAction`）。
+        /// 走的正是产品那条 <see cref="TutorialSkipAllowed"/>（⛔ 不另写一份判定）。</summary>
+        public static bool TutorialSkipAllowedForTest(TutorialAction a) { return TutorialSkipAllowed(a); }
+
+        /// <summary>自检口（账 `战斗逻辑驱动:103`）：`PositionReference` → 锚点（世界坐标 + 尺寸）。
+        /// 走产品那条 <see cref="TutorialAnchor"/> ⇒ 50/70/100（`TutorialAnchorExtra`）与
+        /// 「认不出 ⇒ 中心 + 出声一次」都在读数里，⛔ 别在自检里另写一份映射。</summary>
+        public bool TutorialAnchorForTest(int positionReference, out Vector3 center, out Vector2 size)
+        {
+            return TutorialAnchor(positionReference, out center, out size);
+        }
+
+        /// <summary>自检口：敌方手牌视图（卡背）有几张 —— 50 那一档的**前提**（空手牌时它按原版返回 false）。
+        /// ⚠️ 它们是 `ImageQuad`（卡背），不是 `CardView`（原版敌方手牌同样是卡背）。</summary>
+        public int FoeHandViewCountForTest { get { return _foeHandViews != null ? _foeHandViews.Count : 0; } }
     }
 }

@@ -306,6 +306,37 @@ namespace CardPresentation
 
         public static void ResetScoringForTest() { _cache.Clear(); }
 
+        // ============================================================ 追加区 · 2026-10-28（B93_D4 · 账 748）
+        /// <summary>原版 `TwoSidesEvent.GetTotalStats()`（`decomp_full/TwoSidesEvent__GetTotalStats.c` **全文 24 行 / 3 分支**）——
+        /// 逐句：
+        /// <code>
+        /// var mgr = SingletonBehaviour&lt;LeaderboardManager&gt;.Instance;        // `.c:` `SingletonBehaviour__get_Instance(DAT_1842be548)`
+        /// if (this.eventData != null &amp;&amp; mgr != null)                        // `.c:` `this+0x18` 与 mgr 两个 != 0
+        ///     mgr.GetCachedLeaderboard(this.eventData.&lt;+0x80&gt;, null);         // key 在 `eventData+0x80`
+        /// else FUN_1803f47a0();                                            // = **throw NullReferenceException**
+        /// </code>
+        /// <para>🔴 判据（**为什么落到本类**）：`LeaderboardManager.GetCachedLeaderboard(key, default)` 在本工程的等价物
+        /// = <see cref="GetCached"/>（同一张本地缓存 `_cache`，同一批 `LeaderboardData` 行族）。原版那 3 个分支里
+        /// ① `mgr == null` 与 ② `eventData == null` 都落到 **throw NRE**；③ 才是那句取缓存。
+        /// ⚠️ 我们**不抛**（抛了会把整个壳打断）：出声 + 返 null —— 与本文件其余「原版这一档 NRE」的写法同口径。</para>
+        /// <para>⚠️ `key` 由调用方给：原版是 `TwoSidesEvent.eventData+0x80`，本工程的 `TwoSidesEvent`/`TwoSidesEventData`
+        /// 还没建（账 `TwoSidesEvent` 那一族两处 C）⇒ 这一层只负责「判空 → 取缓存」那 3 个分支。</para></summary>
+        public static LocalLeaderboardResult GetTotalStats(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                WarnOnce("no-key", "[LeaderboardData] `TwoSidesEvent.GetTotalStats`：没有事件数据（原版这一档 `this.eventData == null` ⇒ **throw NRE**）"
+                                 + " ⇒ 返 null（我们不抛）");
+                return null;
+            }
+            var r = GetCached(key);
+            if (r == null) WarnOnce("miss:" + key, "[LeaderboardData] `GetTotalStats(" + key + ")`：缓存里还没有这张榜 ⇒ 返 null（原版 `GetCachedLeaderboard` 同一档）");
+            return r;
+        }
+
+        static readonly HashSet<string> _told = new HashSet<string>(StringComparer.Ordinal);
+        static void WarnOnce(string tag, string msg) { if (_told.Add(tag ?? "")) Debug.Log(msg); }
+
         /// <summary>自检：**灭自证**版断言集。
         /// 关键一条：**同一个 (old=5,new=3) 三种模式必须给出三个不同的结果**（8 / 5 / 3）——
         /// 任何「恒返回某个常量」的实现都不可能同时满足；再叠上重排与 position 的边界。</summary>

@@ -501,7 +501,7 @@ namespace CardPresentation
             //   关窗钮的圆底 `UI_Button_Round_background` ↔ **`40k_general_bt_yellow_hover`**
             //   （橙色关闭钮一族的值；判据 → `资料/普查产出_1018/R_按钮交互反馈对账.md` §1·2 #6）。
             //   ⚠️ `m_PressedSprite` 那一格报告里没记 ⇒ 走 `WindowButton.TexOf` 的既有兜底（按下 = 悬停图）。
-            MenuDraw.Hit(_close, "Hit", CloseR, QHit, Close, closeQ, ArtCloseRound,
+            MenuDraw.Hit(_close, "Hit", CloseR, QHit, RequestClose, closeQ, ArtCloseRound,
                          hoverArt: "40k_general_bt_yellow_hover", clickCue: WindowSounds.DefaultCloseCue);
 
             // ---- 8) `Free feedback`（prefab 出厂 `m_IsActive = false`；旧版单行反馈面板）----
@@ -764,7 +764,7 @@ namespace CardPresentation
         }
 
         // ============================================================ 交互
-        void ToggleChoice(Item it, int idx, Transform checkMark)
+        public void ToggleChoice(Item it, int idx, Transform checkMark)
         {
             var sel = _selected[it.Name];
             if (it.Max <= 1)
@@ -787,20 +787,20 @@ namespace CardPresentation
             }
             else
             {
-                if (sel.Contains(idx)) sel.Remove(idx);
-                else if (sel.Count >= it.Max)
+                if (sel.Contains(idx)) { sel.Remove(idx); ForgetSelected(it, idx); }
+                else
                 {
-                    Debug.LogWarning("[GiveFeedback] `" + it.Name + "` 最多选 " + it.Max + " 项（原版 `maxSelectedOptions`）"
-                                   + " ⇒ 这一下**不生效**。");
-                    return;
+                    // 原版满了是「踢掉**最早选的那个**」不是拒绝（`MultipleChoiceQuestionItem.Initialize` 的 b__0：
+                    // `if (selectedOptions.Count >= maxSelectedOptions) { first = First(); first.toggle.isOn = false; Remove(first); }`）
+                    if (sel.Count >= it.Max) DropFirstSelected(it, sel);
+                    sel.Add(idx); RememberSelected(it, idx);
                 }
-                else sel.Add(idx);
                 if (checkMark != null) checkMark.gameObject.SetActive(sel.Contains(idx));
             }
             RefreshSubmitState();
         }
 
-        void SetScore(string qid, int idx)
+        public void SetScore(string qid, int idx)
         {
             // 🔴 **2026-10-18（主对话裁定 · 按原版 `allowClickWhenAlreadySelected = 0` 订正）**：
             //   原版评分钮**已选中再点 = 什么都不做**（不播音、不改分、**不取消**）。
@@ -820,7 +820,7 @@ namespace CardPresentation
             foreach (var sec in Sections)
                 foreach (var it in sec.Items)
                 {
-                    if (!it.Required) continue;
+                    if (!IsRequiredQuestion(it.Name)) continue;
                     if (it.Kind == ItemKind.Choice)
                     {
                         HashSet<int> s;
@@ -842,6 +842,7 @@ namespace CardPresentation
 
         void RefreshSubmitState()
         {
+            ApplyVisibility();                                    // 原版每次答案变化 ⇒ 每条 `OnQuestionAnswered.OnAnswered` 重算一遍显隐（2026-10-28 B93_D4）
             SubmitInteractable = AllRequiredAnswered();
             // 原版：`Start` 里出厂 `interactable = 0`，`OnAnswer` 里 `= All(...)`。
             // 我们这一层用「提交钮的按钮底染暗」当视觉态（没有 uGUI 的 `ColorBlock.m_DisabledColor`）。
@@ -983,6 +984,233 @@ namespace CardPresentation
             int n = 0;
             foreach (var s in Sections) foreach (var it in s.Items) if (it.Kind == ItemKind.Choice) n += it.Opts.Length;
             return n;
+        }
+
+        // ============================================================ 追加区 · 2026-10-28（B93_D4 · 账 280 / 535 / 538 / 539 / 541 / 543）
+        //
+        //  原版这一族是**对象模型**：`FeedbackQuestionItem`（抽象基类，持 `Answer` + 两条事件 + `Answered`）
+        //  ＋ 三个子类（`MultipleChoiceQuestionItem` / `NumericFeedbackQuestion` / `OpenEndedQuestionItem`）
+        //  ＋ `OnQuestionAnswered`（跨题条件显隐）＋ `GiveFeedbackMenuDemo`（宿主：Initialize/订阅/OnAnswer/Submit/Close）。
+        //  本窗把问卷**数据化**（`Sections[].Items[]`）⇒ 这里把原版那几层的**行为**补上，宿主对象仍是本窗。
+        //  判据（逐条现读）：`cpp2il/out_cpp2il_dev_ilspy/FeedbackQuestionItem.cs`（`Answered` getter + `SetAnswer`）、
+        //  `decomp_full/FeedbackQuestionItem__SetAnswer.c`、`MultipleChoiceQuestionItem.cs:180-330`、
+        //  `NumericFeedbackQuestion.cs:51-171`、`OpenEndedQuestionItem.cs:8-14`、
+        //  `decomp_full/OnQuestionAnswered__{Start,OnAnswered,OnDestroy}.c`、`decomp_full/GiveFeedbackMenuDemo__{Open,Close}.c`。
+        //
+        //  ⚠️ 为什么不把 `isRequiredIfEnabled` 塞进 `Item` 结构：`Item` / `Sections` 定义在本文件上半段，
+        //     加字段会让下面所有账落点（558/599/643/689/843）整体位移（铁律 18·b 的同一条纪律）⇒ 这里用**旁挂表**。
+
+        /// <summary>原版 `FeedbackQuestionItem.isRequiredIfEnabled`（`+0x29`）**为真的那 5 道** ——
+        /// prefab 逐份实读（`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_*.json` 的 `isRequired` / `isRequiredIfEnabled` 两列）：
+        /// <code>
+        /// S4Q2 (0/1) · S4Q2_Extra (0/1) · S4Q3 (0/1) · S4Q3_extra (0/1) · S4Q4 (0/1)
+        /// 其余 16 道全部 (1/0)  —— S1Q1 S2Q1..S2Q4 S3Q1..S3Q10 S4Q1
+        /// </code>
+        /// ⇒ 「必答」这件事**不是**看我们数据里的 `Required` 一格：那 5 道是**看得见才必答**。</summary>
+        static readonly HashSet<string> _requiredIfEnabled = new HashSet<string>(System.StringComparer.Ordinal)
+        { "S4Q2", "S4Q2_Extra", "S4Q3", "S4Q3_Extra", "S4Q4" };
+
+        /// <summary>原版 `OnQuestionAnswered` 的**依赖表** —— 5 份 prefab 实例逐字段实读
+        /// （2026-10-28 由 `m_Script → m_ClassName` 反查 `questionItem`，由 RT 的 `m_GameObject` 反查 `objectToEnable`）：
+        /// <code>
+        /// 实例 MB pid               questionItem（组件的 questionId）  objectToEnable        enableIfAnswered  questionFilter
+        /// -4634440272722734642      S4Q3                             S4Q3_Extra            1                 "Other"
+        ///  3452005510164369870      S4Q1                             S4Q4                  1                 "Yes"
+        ///  5543340576972919246      S4Q1                             S4Q2                  1                 "Yes"
+        ///  6452858811180306894      S4Q1                             S4Q3                  1                 "Yes"
+        ///  7419885581804622286      S4Q2                             S4Q2_Extra            1                 "Other"
+        /// </code></summary>
+        public struct VisibilityRule { public string Question, Target, Filter; public bool EnableIfAnswered; }
+
+        /// <summary>见上表的注释（顺序照 prefab 的 `MonoBehaviour_*` 文件序遍历）。</summary>
+        public static readonly VisibilityRule[] VisibilityRules =
+        {
+            new VisibilityRule { Question = "S4Q3", Target = "S4Q3_Extra", Filter = "Other", EnableIfAnswered = true },
+            new VisibilityRule { Question = "S4Q1", Target = "S4Q4",       Filter = "Yes",   EnableIfAnswered = true },
+            new VisibilityRule { Question = "S4Q1", Target = "S4Q2",       Filter = "Yes",   EnableIfAnswered = true },
+            new VisibilityRule { Question = "S4Q1", Target = "S4Q3",       Filter = "Yes",   EnableIfAnswered = true },
+            new VisibilityRule { Question = "S4Q2", Target = "S4Q2_Extra", Filter = "Other", EnableIfAnswered = true },
+        };
+
+        /// <summary>被 `OnQuestionAnswered` 规则**关掉**的题（原版那件 GameObject 的 `activeSelf == false`）。</summary>
+        readonly HashSet<string> _hidden = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>原版 `FeedbackQuestionItem.m_OnAnswer`（`+0x38`）/ `m_AfterAnswer`（`+0x40`）两条事件。
+        /// ⚠️ 原版**确实是两条**：`OnQuestionAnswered.Start` 订阅前者、`GiveFeedbackMenuDemo.Open` 订阅后者
+        /// （判据 = `OnQuestionAnswered__Start.c` 里 `Delegate.Combine(lVar1+0x38, …)` 与
+        ///  `GiveFeedbackMenuDemo.Open` 里 `obj7 = array[obj5] + 64` ⇒ `+0x40`）。
+        /// 🔴 **本窗不建这两条事件**：我们的答案是**从 `_selected/_score/_text` 现算**的（`AnswerOf`），
+        /// 每次变化都汇到 `RefreshSubmitState` ⇒ 在那里**整表重算显隐**（`ApplyVisibility`）就等价于原版
+        /// 「`m_OnAnswer` → `OnQuestionAnswered.OnAnswered`」＋「`m_AfterAnswer` → `GiveFeedbackMenuDemo.OnAnswer`」两条订阅。
+        /// ⛔ 别为了「看起来像」再加一对没人订阅的事件（死 API）。</summary>
+
+        /// <summary>选中序（原版 `selectedOptions` 是 `List`，`First()` 取的是**最早选的那个**）。
+        /// `_selected` 是 `HashSet` ⇒ 没有序 ⇒ 这里旁挂一份。</summary>
+        readonly Dictionary<string, List<int>> _order = new Dictionary<string, List<int>>();
+
+        void RememberSelected(Item it, int idx)
+        {
+            List<int> l;
+            if (!_order.TryGetValue(it.Name, out l)) { l = new List<int>(); _order[it.Name] = l; }
+            if (!l.Contains(idx)) l.Add(idx);
+        }
+
+        void ForgetSelected(Item it, int idx)
+        {
+            List<int> l;
+            if (_order.TryGetValue(it.Name, out l)) l.Remove(idx);
+        }
+
+        /// <summary>原版 `MultipleChoiceQuestionItem.Initialize` 的 b__0 里那一段：满了 ⇒ 把**最早选的**那个取消掉。
+        /// 序取 `_order`（插入序）；`_order` 不可用（单选清空过 / 老状态）⇒ 退回「序最小的那个」并出声一次。</summary>
+        void DropFirstSelected(Item it, HashSet<int> sel)
+        {
+            List<int> l;
+            if (_order.TryGetValue(it.Name, out l))
+                for (int i = 0; i < l.Count; i++)
+                    if (sel.Contains(l[i])) { sel.Remove(l[i]); l.RemoveAt(i); return; }
+            int min = int.MaxValue;
+            foreach (int v in sel) if (v < min) min = v;
+            if (min != int.MaxValue)
+            {
+                sel.Remove(min);
+                if (_warnedDropOrder.Add(it.Name))
+                    Debug.LogWarning("[GiveFeedback] `" + it.Name + "` 选满时找不到「最早选的那个」（`_order` 已被单选清过）"
+                                   + " ⇒ 按**序最小的选项**踢掉；原版踢的是 `selectedOptions.First()` = 插入序第一个。");
+            }
+        }
+        static readonly HashSet<string> _warnedDropOrder = new HashSet<string>();
+
+        /// <summary>原版 `FeedbackQuestionItem.Answer`（`+0x30`）。三类语义逐条照抄赋值点：
+        /// Choice = `string.Join(";", selectedOptions.Select(x =&gt; x.id)).Trim()`；
+        /// Numeric = `(toggleNumber).ToString()`；Open = 输入框原文。空串 = 未答。</summary>
+        public string AnswerOf(string qid)
+        {
+            var it = FindItem(qid);
+            if (!it.HasValue) return "";
+            switch (it.Value.Kind)
+            {
+                case ItemKind.Choice:
+                    HashSet<int> sel;
+                    if (!_selected.TryGetValue(qid, out sel) || sel.Count == 0) return "";
+                    var ids = new List<string>();
+                    for (int i = 0; i < it.Value.Opts.Length; i++)
+                        if (sel.Contains(i)) ids.Add(it.Value.Opts[i].Id);
+                    return string.Join(";", ids.ToArray()).Trim();
+                case ItemKind.Numeric:
+                    int v;
+                    return _score.TryGetValue(qid, out v) && v > 0 ? v.ToString() : "";
+                case ItemKind.Open:
+                    string t;
+                    return _text.TryGetValue(qid, out t) ? (t ?? "") : "";
+                default:
+                    return "";
+            }
+        }
+
+        /// <summary>现在看得见吗（= 原版那件 GameObject 的 `activeSelf`）。</summary>
+        public bool Visible(string qid) { return !_hidden.Contains(qid); }
+
+        /// <summary>原版 `FeedbackQuestionItem.Answered` 三段（`cpp2il/.../FeedbackQuestionItem.cs` 的 getter）：
+        /// `isRequired` ⇒ `!IsNullOrEmpty(Answer)`；否则 `isRequiredIfEnabled` ⇒ **只有自身 active 才要求**，关着恒真；其余恒真。
+        /// <para>本例这两档互斥（prefab 里那 5 道是 0/1、其余 16 道是 1/0）⇒ 先判 `isRequiredIfEnabled` 等价。</para></summary>
+        public bool Answered(string qid)
+        {
+            if (!IsRequiredQuestion(qid)) return true;
+            return !string.IsNullOrEmpty(AnswerOf(qid));
+        }
+
+        /// <summary>「这道题现在算不算必答」—— 两个必答档 + **关着就不要求**（`isRequiredIfEnabled` 与 `activeSelf` 那一格）。</summary>
+        public bool IsRequiredQuestion(string qid)
+        {
+            if (_requiredIfEnabled.Contains(qid)) return Visible(qid);
+            var it = FindItem(qid);
+            return it.HasValue && it.Value.Required;
+        }
+
+        /// <summary>按 `Name` 找题（16 + 5 道，含 Header）。</summary>
+        public Item? FindItem(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            for (int s = 0; s < Sections.Length; s++)
+                for (int i = 0; i < Sections[s].Items.Length; i++)
+                    if (string.Equals(Sections[s].Items[i].Name, name, System.StringComparison.Ordinal))
+                        return Sections[s].Items[i];
+            return null;
+        }
+
+        /// <summary>原版 `OnQuestionAnswered.OnAnswered` / `Start` 里**同一个式子**（两处方法体逐句相同）：
+        /// `objectToEnable.SetActive(Answered(questionItem) == enableIfAnswered
+        ///                          &amp;&amp; (IsNullOrEmpty(questionFilter) || Answer(questionItem).Contains(questionFilter)))`。
+        /// <para>`Start` 另做「订阅 + 初始算一次」、`OnDestroy` 退订 —— 我们由本窗每次答案变化后**整表重算**
+        /// （等价：原版那 5 条各自独立，不级联；一轮即可）。</para></summary>
+        public void ApplyVisibility()
+        {
+            for (int i = 0; i < VisibilityRules.Length; i++)
+            {
+                var r = VisibilityRules[i];
+                bool filterOk = string.IsNullOrEmpty(r.Filter) || AnswerOf(r.Question).Contains(r.Filter);
+                bool show = Answered(r.Question) == r.EnableIfAnswered && filterOk;
+                if (show) _hidden.Remove(r.Target); else _hidden.Add(r.Target);
+                ApplyVisible(r.Target, show);
+            }
+        }
+
+        /// <summary>把某道题的节点按显隐设置。视口外没建出来的题**跳过**（滚到那儿时 `BuildSurvey` 会重建并重算）。</summary>
+        void ApplyVisible(string qid, bool show)
+        {
+            var node = FindChildDeep(_content, qid);
+            if (node == null) return;
+            if (node.gameObject.activeSelf != show) node.gameObject.SetActive(show);
+        }
+
+        /// <summary>原版 `GiveFeedbackMenuDemo.Close()`：
+        /// `if (!questionsItems.Any(Answered)) base.Close();` ——「还有必答题没答」才弹询问；
+        /// 否则 `ShowPopUp(onCloseKey, localizeTexts:true, closeOnEsc:true,
+        ///                primaryButton("MainMenu/General/OK", null), secondButton("Demo/Feedback/CloseThanksPopup", () =&gt; { HidePopUp(); base.Close(); }))`。
+        /// <para>🔴 我们**没有** override `Close()`：`WindowsManager.CloseAll` 会调 `w.Close()`
+        /// （`WindowsManager.cs:377/671`）⇒ override 会让「关全部窗」弹出确认框。⇒ 关窗钮改走本方法
+        /// （`MenuDraw.Hit(... RequestClose ...)`），ESC 仍直落 `Close()`。**这是实现上的一处偏离，如实记**。</para></summary>
+        public void RequestClose()
+        {
+            if (AllRequiredAnswered()) { Close(); return; }
+            var mgr = Manager;
+            if (mgr == null)
+            {
+                Debug.LogWarning("[GiveFeedback] 原版 `Close` 这一档要弹「还有必答题没答」的确认框，但没有 `WindowsManager` ⇒ 直接关");
+                Close();
+                return;
+            }
+            mgr.ShowPopUp(Term(OnCloseTerm), Term("MainMenu/General/OK"), null,
+                          Term(ThanksButtonTerm), Close);
+        }
+
+        /// <summary>自检读口：当前被规则关掉的题（原版 = 那些 `objectToEnable.activeSelf == false` 的件）。</summary>
+        public int HiddenCount { get { return _hidden.Count; } }
+
+        /// <summary>自检口：把作答态清成「刚建窗」那一档，**不建任何节点**（`Build()` 需要 `MenuScroll/PointerLayer`，
+        /// 编辑器自检宿主里不一定齐）。等价于 `BuildChoice/BuildNumeric` 第一次跑时那两句
+        /// `if (!_selected.ContainsKey(...)) _selected[...] = new HashSet&lt;int&gt;();`。
+        /// ⚠️ 只给自检用；生产路径仍由 `Build()` / `BuildChoice()` 建。</summary>
+        public void ResetAnswersForTest()
+        {
+            _selected.Clear(); _score.Clear(); _text.Clear(); _order.Clear(); _hidden.Clear();
+            for (int s = 0; s < Sections.Length; s++)
+                for (int i = 0; i < Sections[s].Items.Length; i++)
+                {
+                    var it = Sections[s].Items[i];
+                    if (it.Kind == ItemKind.Choice) _selected[it.Name] = new HashSet<int>();
+                    else if (it.Kind == ItemKind.Numeric) _score[it.Name] = 0;
+                }
+            ApplyVisibility();
+            RefreshSubmitState();
+        }
+
+        /// <summary>自检口：直接给某道开放题写作答（生产路径 = `BeginEditOpen` 的 `PointerLayer.BeginText` 回调）。</summary>
+        public void SetOpenAnswerForTest(string qid, string text)
+        {
+            _text[qid] = text ?? "";
+            RefreshSubmitState();
         }
     }
 }

@@ -1146,6 +1146,11 @@ public static partial class RuleEngineTest
         //   而不是卡数据列）。测试体在 `RuleEngineTest_EngineE5.cs`（同一 partial 类）。
         Step(TestE5SmallEngineGaps);
 
+        // 🆕 2026-10-28（代理 `B93_F1` 代接线）：`B93_F2` 的 `RuleEngineTest_EngineF2.cs` 此前**零 Step 引用**
+        //   ⇒ 7 条断言一条都不会跑（`VerifyRunCaseCoverage` ① 也会把它点名成「少跑了一个用例」）。
+        //   判据/施工详情见 `资料/完全复刻/报告/B93_F2*.md`。
+        Step(TestF2EffectResolverGaps);
+
         // 🆕 2026-10-25（执行代理 `X13`）：`pray` 的**经典语义**补全 —— 「未受伤 ⇒ 自己下回合开始 +1 信仰」
         //   （官方文案 `CardTraitDescription/pray`）。上一轮曾误判成「原版没有」；真值**在卡数据里**：
         //   隐藏附魔 `Pray Enchantment`（23 张 pray 卡 `trigger=655` 挂 `buffType:15` 附魔；
@@ -1272,6 +1277,53 @@ public static partial class RuleEngineTest
         //    ⇒ 这一行**不要**挪回 8 空格。
         {
             VerifyRunCaseCoverage();
+        }
+
+        // 🆕 2026-10-28（代理 `B93_F1`）：接上 `AiScoringSelfTest`（此前**全仓 0 调用方** = 孤儿自检，
+        //   一条都没跑过；判据见 `RuleEngine/Data/AiScoring.cs:1140-1155` 的类注释）。
+        //   接线形状照上面 `EngineClosedDeckAssert.Run()` 那一节的惯例（块内调用、**故意缩进深一层**，
+        //   `工具/gen_diag_runner.py` 只认「8 空格缩进的顶层语句」⇒ 这一段不进产物、不用重生成）。
+        //   🧨 自证：`n > 0` 是因为 `AiScoringSelfTest.Run` 有 `if (check == null) return;` 一类的早退口
+        //   —— 万一它将来变成空转，本行会红，而不是「静默地一条都没跑」。
+        Section("🆕 B93_F1 · AiScoringSelfTest（账行 12/29/38/39 的单测）");
+        {
+            int n = 0;
+            AiScoringSelfTest.Run((tag, ok, detail) => { n++; CheckTrue(ok, tag + " —— " + detail); });
+            CheckTrue(n > 0, $"AiScoringSelfTest 实际跑了 {n} 条检查（>0 才算真被跑到）｜🧨 把接线删回孤儿 ⇒ 本行红");
+        }
+
+        // 🆕 2026-10-28（代理 `B93_F1` · 账行 658）：`BroadcastUnitPoisoned` 的两条性质断言。
+        //   ⚠️ 同样**故意缩进深一层**（`gen_diag_runner` 只认 8 空格缩进的顶层语句 ⇒ 不进产物）；
+        //      方法名**不用 `Test` 打头**（`VerifyRunCaseCoverage` 按那个前缀认用例）。
+        Section("🆕 B93_F1 · BroadcastUnitPoisoned（账行 658 · 棋盘那一趟的筛子 / 正对照）");
+        {
+            CheckB93F1UnitPoisonedBroadcast();
+        }
+
+        // 🆕 2026-10-28（代理 `B93_F7` · 账行 559/634）建；🔴 **2026-10-29（`B93_FX2` · 铁律 5）就地改口径**：
+        //   原版 `ResolveDeadCard.c:266-278` 那一支的宿主必须先过入口闸 `IsInPlay`（2/15/3/17），而**真死是 5**
+        //   ⇒ 它对「真死」**结构上不可达**（`B93_DG1` ⑤ · `B93_FX1` 已把调用从 `RuleCore.cs:10109` 撤回）。
+        //   ⇒ 本段现在是「**反向钉住**：真死不发」＋「`leftPlay` 支里 `SweepExtrinsicEffectsOnSourceDeath` 仍在跑」＋对照。
+        //   ⚠️ 同样**故意缩进深一层**（`gen_diag_runner` 只认 8 空格缩进的顶层语句 ⇒ 不进产物）；
+        //      方法名**不用 `Test`/`Report` 打头**（`VerifyRunCaseCoverage` 按那两个前缀认用例）。
+        Section("🆕 B93_F7 → B93_FX2 订正 · 真死**不**发 `sacrifice`（账行 559/634 · 反向钉住 + `leftPlay` 支仍在跑 + 对照）");
+        {
+            CheckB93F7SacrificeOnDeath();
+        }
+
+        // 🆕 2026-10-28（代理 `B93_F7` · 账行 634 第②条）：`BroadcastDeadUnit` 的**棋盘跳排除凶手**。
+        Section("🆕 B93_F7 · 死亡广播的棋盘跳排除凶手（账行 634 · 反例 + 正对照）");
+        {
+            CheckB93F7DeadUnitExcludesKiller();
+        }
+
+        // 🆕 2026-10-28（代理 `B93_G1` · 账行 1308 / 869）：`GetRandomOrder` 的钉位支 + 打出时摘 `ephemeral`。
+        //   ⚠️ 同样**故意缩进深一层**（`gen_diag_runner` 只认 8 空格缩进的顶层语句 ⇒ 不进产物）；
+        //      方法名**不用 `Test`/`Report` 打头**（`VerifyRunCaseCoverage` 按那两个前缀认用例）。
+        Section("🆕 B93_G1 · GetRandomOrder 钉位支（账 1308）+ 打出时摘 ephemeral（账 869）");
+        {
+            CheckB93G1RandomOrderStratagem();
+            CheckB93G1PlayedCardTail();
         }
 
         // ---- 汇总 ----
@@ -7364,11 +7416,23 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx4, 1);                      // 1 费
             Place(ctx4, 0, 3, troop);
             int deckBefore = ctx4.Players[0].Deck.Count;
+            int cursorBefore = ctx4.RandomNumbersIndex;   // 🆕 2026-10-28（B93_FX2）：随机游标（判「随机插 vs 置顶」的唯一判据）
+            // 🧨 前提：牌库非空 —— `AddCardInPlayToDeck.c:37` 只在 `Count > 0` 时抽随机下标（空库不抽 ⇒ 下面的游标判据测不到东西）
+            CheckTrue(deckBefore > 0, "前提：牌库非空（否则原版那次`随机下标`根本不抽，游标判据会空转）");
             CheckCode(RuleCore.PlayTactic(ctx4, 0, HandIdx(ctx4, 0, "Vengeful Brethren"), 3), RuleCodes.OK,
                       "`Vengeful Brethren` 打得出去（选了自己那个部队当目标）");
             Check(ctx4.Players[0].Deck.Count, deckBefore + 1, "复制出来的那张进了自己牌库");
-            Check(ctx4.Players[0].Deck[ctx4.Players[0].Deck.Count - 1].Card.Name, "CopyMe",
-                  "牌库**顶**（末尾，抽牌从末尾抽）那张就是被复制的那张卡");
+            // 🔴 2026-10-28（B93_FX2，`B93_DG1` ④ 定性 = α 断言过期）：**不判位置**。原版卡面写
+            //   `Create a copy of it at the top of your deck`，而代码是**随机下标 Insert**：
+            //   `_ResolveCreateDeckCard_d__513__MoveNext.c:111` 传 `toTop = 0` → `AddCardInPlayToDeck.c:37`
+            //   `GetRandomInt(0, Count+1)`、`:49-52` `toTop == 0` 就用那个随机值 ⇒ **原版自己的 bug，按铁律 18·0 照抄**。
+            //   ⚠️ 位置判据钉不住「随机 vs 置顶」（同一种子两种写法都是确定结果）⇒ 鉴别力靠下一行的**随机游标**。
+            CheckTrue(ctx4.Players[0].Deck.Exists(x => x.Card.Name == "CopyMe"),
+                      "★ 复制品确实进了自己牌库（只判「有一张」，⛔ 不判第几格）"
+                    + "｜🧨 复制品没造出来 / 造到对手牌库 ⇒ 本行红");
+            Check(ctx4.RandomNumbersIndex - cursorBefore, 1,
+                  "★ 复制那一下**抽了一次**随机下标（`toTop == 0` ⇒ `GetRandomInt(0, Count+1)` 一次）"
+                + "｜🧨 改回「置顶」⇒ 0 次；多抽 ⇒ 2 次 —— 两种都红（这才是「随机 vs 置顶」的判据）");
 
             // **没有卡池的对局**：造牌必须如实报「没生效」，不许静默什么都不做
             var noPoolCtx = Battle(new[] { mercurial }, new[] { Unit("X", 1, 1, 5) });
@@ -39179,5 +39243,332 @@ public static partial class RuleEngineTest
                 + "⚠️ 本行必须与上一条 `noTa == 0` **对读**：同样是「判不了」，两档的结论正好相反"
                 + "（`ta` 判不了 = 照旧筛；`cond` 判不了 = 整条不筛）");
         }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-28（代理 `B93_F1` · 账行 658 `BattleManagerSupport.BroadcastUnitPoisoned`）
+    // ==================================================================
+    //  判据（第一权威）= `decomp_full/BattleManagerSupport__BroadcastUnitPoisoned.c`（65 行）：
+    //  三跳 —— ① 棋盘上 `CardScript.IsInPlay` 为真的每一张 ② 当前行动方手牌 ③ 对方手牌，
+    //  每跳都是 `CardScript__ReactToUnitPoisoned` ⇒ `RawCardScript.OnTrigger(0x122 = **290 UnitPoisoned**)`。
+    //  我们的实现 = `RuleCore.BroadcastUnitPoisoned`（棋盘那一趟已建；手牌两趟**没有执行口**、只出声）。
+    //  ⚠️ **池内 `trigger == 290` 的卡 0 张**（`cards_engine.json` 全卡 walk）⇒ 「接线本身」今天不可观察。
+    //     本用例只锁**实现的两个性质**，两条各配一条 🧨（灭自证）：
+    //       ① 没有 290 正文的在場单位 **一个事件都不许刷** —— 原版 `OnTrigger` 对没这条能力的卡内部空转；
+    //          而我们的 `FireTriggerAlways` 对没正文的卡**会多发一条 `EvtKind.Trigger`** ⇒ 那道筛子必须在。
+    //       ② **正对照**：有 290 正文的单位要**真被触发** —— 否则 ① 的 0 可能只是「根本没扫棋盘」的假绿。
+    //  ⚠️ 命名**不用 `Test` 打头**：本文件 `VerifyRunCaseCoverage` 用「`Test`/`Report` 前缀」认用例方法，
+    //     辅助件打那个头会被判成「少跑了一个用例」。调用点也写在**深一层缩进**的块里（`gen_diag_runner` 只认 8 空格）。
+    static void CheckB93F1UnitPoisonedBroadcast()
+    {
+        var hero  = new CardDef("B93F1HERO",  "B93F1HERO",  "hero", "", "common", "Test", 0, 0, 30, 0, null);
+        var plain = new CardDef("B93F1PLAIN", "B93F1PLAIN", "unit", "", "common", "Test", 1, 1, 3, 0, null);
+
+        // ---- 前提硬检查（⛔ 不写成 `if (x != null) Check(...)`）----
+        var seg = EffectText.ParseSegment("Draw 1 card");
+        CheckTrue(seg.Kind == EffectText.SegKind.Ok && seg.Ops != null && seg.Ops.Count > 0,
+                  "前提：`Draw 1 card` 解析得出 op（正对照要拿它造一条 290 正文）");
+
+        // ---- ① 负对照：全是「没有 290 正文」的在场单位 ⇒ 一个事件都不许刷 ----
+        var ctxN = new BattleContext(0xB93F1);
+        ctxN.Players[0] = new PlayerState();
+        ctxN.Players[1] = new PlayerState();
+        var nH0 = new UnitState(hero, true);
+        ctxN.Players[0].Warlord = nH0; ctxN.Players[0].Board[BoardSpec.WarlordSlot] = nH0;
+        var nH1 = new UnitState(hero, true);
+        ctxN.Players[1].Warlord = nH1; ctxN.Players[1].Board[BoardSpec.WarlordSlot] = nH1;
+        var nVictim = new UnitState(plain, false); ctxN.Players[0].Board[0] = nVictim;
+        var nOther  = new UnitState(plain, false); ctxN.Players[1].Board[0] = nOther;
+
+        CheckTrue(!RuleCore.HasUnitPoisonedBodyForTest(nVictim),
+                  "前提：普通单位身上**没有** `UnitPoisoned(290)` 正文");
+        int b0 = ctxN.Events.Count;
+        RuleCore.BroadcastUnitPoisonedForTest(ctxN, nVictim, null);
+        Check(ctxN.Events.Count, b0,
+              "★ 没有 290 正文的棋盘（4 张在场卡）：**一个事件都不许刷**"
+            + "｜🧨 把 `HasUnitPoisonedBody` 那道筛子去掉 ⇒ 每张在场卡各刷一条 `EvtKind.Trigger`，本行红");
+
+        // ---- ② 正对照：给一张在场卡挂上 290 正文 ⇒ 它必须被触发 ----
+        var ctxP = new BattleContext(0xB93F2);
+        ctxP.Players[0] = new PlayerState();
+        ctxP.Players[1] = new PlayerState();
+        var pH0 = new UnitState(hero, true);
+        ctxP.Players[0].Warlord = pH0; ctxP.Players[0].Board[BoardSpec.WarlordSlot] = pH0;
+        var pH1 = new UnitState(hero, true);
+        ctxP.Players[1].Warlord = pH1; ctxP.Players[1].Board[BoardSpec.WarlordSlot] = pH1;
+        var pVictim   = new UnitState(plain, false); ctxP.Players[0].Board[0] = pVictim;
+        var pListener = new UnitState(plain, false); ctxP.Players[1].Board[0] = pListener;
+
+        if (seg.Ops != null && seg.Ops.Count > 0)
+            pListener.GrantOps("UnitPoisoned", seg.Ops, "Draw 1 card");
+        CheckTrue(RuleCore.HasUnitPoisonedBodyForTest(pListener),
+                  "前提：`GrantOps` 之后它**有** 290 正文（`FxOps` 那一路读得到）");
+
+        int b1 = ctxP.Events.Count;
+        RuleCore.BroadcastUnitPoisonedForTest(ctxP, pVictim, null);
+        CheckTrue(ctxP.Events.Count > b1,
+                  $"正对照：棋盘上那张**有** 290 正文的单位被触发（事件 +{ctxP.Events.Count - b1}）"
+                + "｜🧨 把 `BroadcastUnitPoisoned` 的棋盘那一趟删掉 / 把筛子写成恒 false ⇒ 本行红");
+
+        // ---- ③ 空实参：不抛、不刷（`poisonedUnit == null` 原版是 NRE，我们选择**不出声的空转**）----
+        int b2 = ctxP.Events.Count;
+        RuleCore.BroadcastUnitPoisonedForTest(ctxP, null, null);
+        Check(ctxP.Events.Count, b2,
+              "★ `poisonedUnit == null` ⇒ 空转（不抛、不刷事件）｜🧨 去掉开头那道 null 闸 ⇒ 下面遍历里 NRE，本行红");
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-28（代理 `B93_F7` · 账行 559 `BattleManager.ResolveTriggerSacrifice`
+    //                / 账行 634 `BattleManagerSupport.BroadcastDeadUnit`）
+    // ==================================================================
+    //  判据（第一权威）= `decomp_full/CardScript__ResolveDeadCard.c:242-244 / :266-278`（逐行现读）：
+    //    死亡广播（`BattleManagerSupport__BroadcastDeadUnit.c`，六跳）对**每一张**在场 / 手牌卡各调一次
+    //    `ResolveDeadCard`，其中 `targetCard == this` 那一支 = 「**死的就是我**」：
+    //    `HasCurrentTrait(0x1d6 sacrifice)` 为真 **且** `IsPlayerTurn(bm) == card.isPlayer`
+    //    ⇒ `CardScript.TriggerSacrifice(this)` → `OnTrigger(0xdc = 220 Sacrifice)`。
+    //
+    //  🔴 **2026-10-29 就地订正（`B93_FX2` · 铁律 5；原口径 = `B93_F7`「把那一跳挂在真死这一路」）**：
+    //    本段原来写「我们的落点 = `RuleCore.CleanupDeaths` 的 `leftPlay` 支 → `TriggerSacrificeOnDeath`」
+    //    并锁它三道性质（本方回合发 1 / 敌方回合 0 / 不带 trait 0）—— **那个落点是错的，调用已被撤回**
+    //    （`B93_FX1`：`RuleCore.cs:10109` 的 `leftPlay` 支现在只剩 `SweepExtrinsicEffectsOnSourceDeath`）。
+    //    错因（`B93_DG1` ⑤ 定性 + `B93_FX1` 逐句现读）：那一支的宿主必须先过入口闸 `CardScript__IsInPlay()`，
+    //    只认状态 **2 / 15 / 3 / 17**（`CardScript__IsInPlay.c:5-9`；`BroadcastDeadUnit.c:82-90` 遍历
+    //    `unitsInPlay` 时每张先判）；而「真的死了」那张卡的状态是 **`waitingToDie = 5`**
+    //    （`CardStateOptions.cs` · `CardScript__CheckIfDead.c:124` 写 `+0x228 = 5`）⇒ **真死那张进不了那个循环**
+    //    ⇒ `ResolveDeadCard.c:266-278` 对「真死」形态**结构上不可达**。唯一可达形态 = 「仍在场（2/15/3/17）、
+    //    且是本次 action 的 `targetCard`、但没死」的观察者 —— 而我们 `CleanupDeaths(ctx, p, slot, deathType)`
+    //    **没有 `action.targetCard` 这一路输入** ⇒ 口（`RuleCorePartial_B93F7.cs` 的 `TriggerSacrificeOnDeath`）
+    //    保留待将来用正确输入接上，⛔ **真死这一路不许再挂它**、⛔ 也别改 `CleanupDeaths` 的位次或给它加闸「救活」。
+    //  ⚠️ 池内 **0 张**卡带 `sacrifice`(trait 470)（`cards_truth.json` 逐卡 walk；用
+    //      `chosenAbility 375 (AddTriggerSacrifice)` 的也是 0 张）⇒ 生产不可观察，只能靠合成夹具。
+    //  ⇒ **本用例的三段（全部非真空 —— 每条都配了能让它红的 🧨）**：
+    //     ① **反向钉住**：带 `sacrifice` + 死在自己回合 + **真死** ⇒ **一条 `Trigger(sacrifice)` 都不许发**
+    //        （🧨 把那半句加回 `RuleCore.cs:10109` ⇒ 本行红 —— 这条断言就是「别再挂回真死那一路」的说明书）；
+    //     ② `leftPlay` 支里**仍在跑**的那一半：死者给别人的外来效果**被摘掉**
+    //        （`SweepExtrinsicEffectsOnSourceDeath`；🧨 整段删掉 / 挪出真死这条路 ⇒ 红）；
+    //     ③ 对照：**不带** `sacrifice` 的来源死掉，外来效果**照样**被摘（证明 ②③ 的夹具真的走到了那条死亡路、
+    //        不是空转），同时再断一次「0 条 sacrifice」（将来谁把那一跳加回来但**丢了 trait 闸**，这里会红）。
+    //  ⚠️ 关键字必须用 `AddKeyword` 挂 —— `AddTempBuff(IsKeyword:true)` **只记账**、`Has` 看不见它
+    //      （`CLAUDE.md §三` 2026-10-28 那条实测）。
+    //  ⚠️ 数的是 `ctx.Signals`（`List<BattleEvent>`），**不是** `ctx.Events`（那是 `List<string>` 日志）。
+    static void CheckB93F7SacrificeOnDeath()
+    {
+        var sacCard   = Unit("B93F7SAC",   1, 0, 2);
+        var plainCard = Unit("B93F7PLAIN", 1, 0, 2);
+        var otherCard = Unit("B93F7OTHER", 1, 0, 2);
+
+        // ---- ① 反向：带 `sacrifice` 的单位**死在自己回合**里 ⇒ 一条 `Trigger(sacrifice)` 都**不该**发 ----
+        var ctxA = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctxA, 1);
+        int activeA = ctxA.Active;
+        var victimA = Place(ctxA, activeA, 0, sacCard);
+        CheckTrue(ReferenceEquals(ctxA.Players[activeA].Board[0], victimA),
+                  "前提（①）：夹具单位确实摆在该方 0 号格");
+        CheckTrue(!victimA.Has(KeywordTable.Sacrifice),
+                  "前提（①）：新摆上场的单位**默认不带** `sacrifice`（`Has` 读的是**当前** trait）");
+        victimA.AddKeyword(KeywordTable.Sacrifice, 1);
+        CheckTrue(victimA.Has(KeywordTable.Sacrifice),
+                  "前提（①）：`AddKeyword` 之后它带 `sacrifice`（⛔ 别用 `AddTempBuff(IsKeyword:true)` —— 那个 `Has` 看不见）");
+
+        int sacA0 = CountSacrificeSignals(ctxA);
+        RuleCore.HurtWithSourceForTest(ctxA, victimA, 9, "自检");
+        CheckTrue(!victimA.IsAlive, "前提（①）：9 点伤害把它（2 血）打死了");
+        Check(CountSacrificeSignals(ctxA), sacA0,
+              "★ **真死**这条路**一条 `EvtKind.Trigger(sacrifice)` 都不许发** —— 哪怕它带 `sacrifice`、哪怕死在自己回合"
+            + "（原版 `BroadcastDeadUnit.c:82-90` 的入口闸 `IsInPlay` 只认 2/15/3/17，而真死是 `waitingToDie = 5`"
+            + " ⇒ `ResolveDeadCard.c:266-278` 对「真死」**不可达**）"
+            + "｜🧨 把 `TriggerSacrificeOnDeath(ctx, u, p, slot)` 加回 `RuleCore.cs:10109` 的 `leftPlay` 支 ⇒ 这里是 1、本行红");
+
+        // ---- ② `leftPlay` 支里**仍在跑**的那一半：死者给别人的外来效果被摘掉 ----
+        var ctxD = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctxD, 1);
+        int activeD = ctxD.Active;
+        var srcD = Place(ctxD, activeD, 0, sacCard);       // 来源（会真死，带 `sacrifice`）
+        srcD.AddKeyword(KeywordTable.Sacrifice, 1);
+        var obsD = Place(ctxD, activeD, 1, plainCard);     // 观察者
+        int buffs0 = obsD.TempBuffs.Count;
+        obsD.AddTempBuff(new UnitState.TempBuff
+        {
+            Name = "attack", Value = 2, SourceCard = srcD.Name, Src = srcD.Name,
+        });
+        Check(obsD.TempBuffs.Count, buffs0 + 1, "前提（②）：观察者身上挂了一条**来源 = 死者**的增益");
+        Check(obsD.Attack, 2, "前提（②）：那条增益真的生效（base 0 + 2）");
+
+        RuleCore.HurtWithSourceForTest(ctxD, srcD, 9, "自检");
+        CheckTrue(!srcD.IsAlive, "前提（②）：来源那张真的死了");
+        Check(obsD.TempBuffs.Count, buffs0,
+              "★ 死者离场 ⇒ 观察者身上「来源是它」的外来效果被摘掉 —— `leftPlay` 支里 `SweepExtrinsicEffectsOnSourceDeath` 那半**仍在跑**"
+            + "（原版 `ResolveDeadCard.c:242-244` → `RemoveExtrinsicEffectsFrom`）"
+            + "｜🧨 把 `leftPlay` 支整段删掉 / 把它挪出真死那条路 ⇒ 本行红");
+        Check(obsD.Attack, 0, "★ 增益撤干净（回落到 base 0）｜🧨 只摘记录、不撤修饰 ⇒ 本行红");
+        CheckTrue(ctxD.Events.Exists(e => e.Contains("离场 ⇒ 场上摘掉")),
+                  "★ 日志里也印了摘除那一行（同一条判据的第二个读数口）");
+
+        // ---- ③ 对照：**不带** `sacrifice` 的来源死掉，外来效果**照样**被摘（= 这条路真的走到了）+ 0 条 sacrifice ----
+        var ctxC = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctxC, 1);
+        int activeC = ctxC.Active;
+        var srcC = Place(ctxC, activeC, 0, plainCard);     // 来源（**不带** `sacrifice`）
+        CheckTrue(!srcC.Has(KeywordTable.Sacrifice), "前提（③）：来源**不带** `sacrifice`");
+        var obsC = Place(ctxC, activeC, 1, otherCard);     // 观察者（换个卡名，避开「按名字匹配」那条已知限制）
+        int buffsC0 = obsC.TempBuffs.Count;
+        obsC.AddTempBuff(new UnitState.TempBuff { Name = "attack", Value = 2, SourceCard = srcC.Name, Src = srcC.Name });
+        Check(obsC.TempBuffs.Count, buffsC0 + 1, "前提（③）：观察者挂上了「来源 = 它」的增益");
+
+        int sacC0 = CountSacrificeSignals(ctxC);
+        RuleCore.HurtWithSourceForTest(ctxC, srcC, 9, "自检");
+        CheckTrue(!srcC.IsAlive, "前提（③）：来源真的死了");
+        Check(obsC.TempBuffs.Count, buffsC0,
+              "★ 对照：**不带** `sacrifice` 的来源死掉 ⇒ 外来效果**照样**被摘 —— 证明这条夹具真的走到了那条死亡路（不是空转绿）"
+            + "｜🧨 整段删掉 `leftPlay` 支 ⇒ 本行红");
+        Check(CountSacrificeSignals(ctxC), sacC0,
+              "★ 对照：不带 `sacrifice` ⇒ 0 条 `Trigger(sacrifice)`（挡「谁死都刷」的实现）"
+            + "｜🧨 将来把那一跳加回来但**丢了 trait 闸** ⇒ 本行红");
+    }
+
+    /// <summary>数 `ctx.Signals` 里「`EvtKind.Trigger` 且关键词 = `sacrifice`」的条数（本文件内小工具）。</summary>
+    static int CountSacrificeSignals(BattleContext ctx)
+    {
+        int n = 0;
+        if (ctx == null || ctx.Signals == null) return 0;
+        foreach (var e in ctx.Signals)
+            if (e.Kind == EvtKind.Trigger && e.Keyword == KeywordTable.Sacrifice) n++;
+        return n;
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-28（代理 `B93_F7` · 账行 634 `BattleManagerSupport.BroadcastDeadUnit`）
+    // ==================================================================
+    //  判据（第一权威）= `decomp_full/BattleManagerSupport__BroadcastDeadUnit.c` 的**棋盘跳**：
+    //    `if (unitsInPlay[i] != battleAction.actingCard)` ⇒ **凶手**不会被自己这一记的死亡唤醒，
+    //    而且**手牌两跳照收**（只有棋盘跳排除）。
+    //    `.c` 那一行 Ghidra 把第 2 个实参丢了（`UnityEngine_Object__op_Inequality(uVar15)`）；
+    //    补上它的 = `out_il2csharp/Assembly-CSharp/BattleManagerSupport.cs:315` 的
+    //    `if (list11[num2] != object1)`，其中 `object1 = obj17`（漏声明的泄漏变量 = 结构体拷贝里的
+    //    `+0x08 actingCard`；字段表 `dump.cs:118958` 的 `BattleAction.actingCard // 0x8`）。
+    //  我们的落点 = `RuleCore.CleanupDeaths` 里那次
+    //    `BroadcastWhen(WhenEventKind.Die, …, preCalled: actingCard)`（`RuleCore.cs:10063`）。
+    //  ⚠️ **两条必须对读**（缺一条就会出假绿）：
+    //    ① 凶手**就是监听者自己** ⇒ 它**不许**听见（本批新加的那道排除）；
+    //    ② 同样的局面、凶手换成 `null` ⇒ 它**必须**听见（挡住「监听器压根不工作」的假绿）。
+    //  ⚠️ 方法名**不用 `Test`/`Report` 打头**（`VerifyRunCaseCoverage` 按那两个前缀认用例）。
+    static void CheckB93F7DeadUnitExcludesKiller()
+    {
+        var watcher = new CardDef("B93F7WATCH", "B93F7WATCH", "unit",
+                                  "When a friendly troop dies, gain +2 Attack",
+                                  "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+        var fodder  = new CardDef("B93F7FODDER", "B93F7FODDER", "unit", "", "common", "Test",
+                                  1, 1, 1, 0, null, subtype: "Infantry");
+        CheckTrue(watcher.WhenTriggers.Count == 1,
+                  "前提：`When a friendly troop dies, gain +2 Attack` 被收成一条监听器（`CardDef.CollectWhenTriggers`）");
+
+        // ---- ① 凶手 = 监听者自己 ⇒ 原版棋盘跳把它排除 ⇒ 一点攻击都不加 ----
+        var ctxA = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctxA, 1);
+        var wA = Place(ctxA, 0, 2, watcher, exhausted: true);
+        var fA = Place(ctxA, 0, 3, fodder,  exhausted: true);
+        Check(wA.Attack, 2, "（前提①）监听者初始 2 攻");
+        RuleCore.HurtWithSourceForTest(ctxA, fA, 5, "自检", actingCard: wA);
+        CheckTrue(!fA.IsAlive, "（前提①）友方炮灰真的死了");
+        Check(wA.Attack, 2,
+              "★ **凶手就是监听者自己** ⇒ 它**不该**被这次死亡唤醒"
+            + "（原版 `BroadcastDeadUnit` 棋盘跳 `unitsInPlay[i] != battleAction.actingCard`）"
+            + "｜🧨 去掉 `preCalled: actingCard` ⇒ 它听见、攻变 4，本行红");
+
+        // ---- ② 正对照：同一局面，凶手另有其人（`null`）⇒ 必须唤醒（否则 ① 是假绿）----
+        var ctxB = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctxB, 1);
+        var wB = Place(ctxB, 0, 2, watcher, exhausted: true);
+        var fB = Place(ctxB, 0, 3, fodder,  exhausted: true);
+        RuleCore.HurtWithSourceForTest(ctxB, fB, 5, "自检");
+        CheckTrue(!fB.IsAlive, "（前提②）友方炮灰真的死了");
+        Check(wB.Attack, 4,
+              "★ 没有凶手（`actingCard == null`）⇒ 监听者**必须**被唤醒（攻 2 → 4）"
+            + "｜🧨 若监听器压根不工作、或排除写过头 ⇒ 这里是 2（那 ① 的「没听见」就是假绿）");
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-28（代理 `B93_G1`）· 账行 1308 / 869
+    // ==================================================================
+    //  1308 `SupportMethods.GetRandomOrder(numElements, matchData, stratagemList)` ——
+    //    判据 🥇 `decomp_full/SupportMethods__GetRandomOrder.c:1-98`（本笔逐行现读）：
+    //    `:48-60` 钉位（`stratagemList[i]` 直接写前缀位、置 used）；`:61-95` 其余位抽签
+    //    （`uVar9 < 钉位数` ⇒ **跳过抽签、不消耗随机数**；抽签上界恒为 `n - i`）。
+    //    落点 = `RuleCore.ShuffleByRandomOrderCore`（`Core/RuleCorePartial_B93G1.cs`），
+    //    `RuleCore.ShuffleByRandomOrder` 一行转调它（`stratagemList = null`）。
+    //  869 `CardScript.ResolveCardPlayed(cardPlayed, targetCard)` ——
+    //    判据 🥇 `decomp_full/CardScript__ResolveCardPlayed.c:36-42`：
+    //    `cardPlayed == this` ⇒ `RemoveTraitSilently(5 /*ephemeral*/)`（引擎那半；`StopReflected`
+    //    是表现层）。落点 = `RuleCore.ApplyPlayedCardTailEffects`（`RuleCore.cs:4104` 接线）。
+    //    ⚠️ 池内 `Combo(590)` / `syphon(110)` / `poisonous(380)` 都是 **0 张** ⇒ 那条支不可断言；
+    //      本用例锁的是**打出时摘 ephemeral**（池内 104 张带 ephemeral 词条）。
+    static void CheckB93G1RandomOrderStratagem()
+    {
+        var ctx = new BattleContext(0xB93A1);
+
+        // ---- ① 钉位：`stratagemList` 里的下标钉在**前缀位**（原版 `.c:48-60`）----
+        var deck = new List<int> { 10, 11, 12, 13, 14 };
+        int cursor0 = ctx.RandomNumbersIndex;
+        RuleCore.ShuffleByRandomOrderCore(deck, ctx, new List<int> { 3, 0 });
+        Check(deck[0], 13,
+              "★ 钉位第 1 位 = `stratagemList[0]` 指向的元素（下标 3 ⇒ 13）"
+            + "｜🧨 不钉位 ⇒ 这一位是随机值，本行红");
+        Check(deck[1], 10, "★ 钉位第 2 位 = `stratagemList[1]` 指向的元素（下标 0 ⇒ 10）");
+        var rest = new List<int> { deck[2], deck[3], deck[4] };
+        rest.Sort();
+        Check(string.Join(",", rest), "11,12,14",
+              "★ 其余三位 = 剩下三张牌（不多不少、不重复）｜🧨 钉位那一张没从 used 里划掉 ⇒ 这里会重复");
+        Check(ctx.RandomNumbersIndex - cursor0, 2,
+              "★ 钉位那两位**不抽签**：5 张牌 2 个钉位 ⇒ 只消耗 2 格随机数（i=2 / i=3；i=4 末位早退）"
+            + "｜🧨 把钉位那次也算成抽签 ⇒ 3 格；把末位也抽 ⇒ 4 格");
+
+        // ---- ② 越界钉位 ⇒ 抛（原版 `used[该下标]` 越界 = IndexOutOfRange）----
+        var deck2 = new List<int> { 1, 2, 3 };
+        bool threw = false;
+        try { RuleCore.ShuffleByRandomOrderCore(deck2, ctx, new List<int> { 5 }); }
+        catch (System.ArgumentOutOfRangeException) { threw = true; }
+        CheckTrue(threw,
+                  "★ 钉位下标越界 ⇒ 抛 `ArgumentOutOfRangeException`（原版 `.c:53-56` 越界抛）"
+                + "｜🧨 静默跳过 / 静默截断 ⇒ 本行红");
+
+        // ---- ③ `stratagemList == null` = 改前的整表洗牌（同种子 ⇒ 逐格同结果）----
+        var a = new List<int> { 0, 1, 2, 3, 4 };
+        var c = new List<int> { 0, 1, 2, 3, 4 };
+        var ca = new BattleContext(0xB93A2);
+        var cc = new BattleContext(0xB93A2);
+        CheckTrue(ca.RandomNumbersIndex == cc.RandomNumbersIndex,
+                  "前提（③）：两颗同种子上下文的随机游标起点相同");
+        RuleCore.ShuffleByRandomOrderCore(a, ca, null);
+        RuleCore.ShuffleByRandomOrderCore(c, cc, null);
+        Check(string.Join(",", a), string.Join(",", c),
+              "★ `stratagemList == null` ⇒ 同种子同结果（与改前的整表洗牌同一条路）"
+            + "｜🧨 把 null 当「钉 0 张但跳过首抽」处理 ⇒ 两条流分叉，本行红");
+    }
+
+    static void CheckB93G1PlayedCardTail()
+    {
+        // 前提硬检查：`Has("ephemeral")` 在这个夹具上**真的读得到**（否则下面的「摘掉了」是假绿）
+        var eph = Unit("B93G1Eph", 1, 1, 3, "ephemeral");
+        var ctxCtl = Battle(new CardDef[0], new CardDef[0]);
+        ToP1Turn(ctxCtl, 1);
+        var ctl = Place(ctxCtl, 0, 1, eph);
+        CheckTrue(ctl.Has("ephemeral"),
+                  "前提①：直接摆上场的单位**带着** `ephemeral`（`Has` 读得到）");
+
+        var ctx = Battle(new[] { eph }, new CardDef[0]);
+        ToP1Turn(ctx, 1);
+        int hi = HandIdx(ctx, 0, "B93G1Eph");
+        CheckTrue(hi >= 0, "前提②：那张 ephemeral 牌在手里");
+        // 🔴 2026-10-28（B93_FX2，`B93_DG1` ⑧ 定性 = δ 夹具读错格号）：`slot` 是**请求格**，不是落点。
+        //   `BoardSlots.Resolve:196-199` 把请求的 slot 1（左 index 2）**夹到**该侧最外一格（index 0 ⇒ slot 3）；
+        //   部署日志自己印着「到槽 3」（`RuleCore.cs:4075`）⇒ 读死 `Board(ctx, 0, 1)` 必然 null。
+        //   判据 = `RuleCore.PlayCard(..., out landedSlot)` 的回填（`RuleCore.cs:3900`）。
+        CheckCode(RuleCore.PlayCard(ctx, 0, hi, 1, out int landed), RuleCodes.OK, "打出 ephemeral 部队");
+        CheckTrue(landed >= 0, "前提③：部署回填了落点（`landed = " + landed + "`）" + LogTail(ctx));
+        var played = Board(ctx, 0, landed);
+        CheckTrue(played != null, "前提③：它上场了" + LogTail(ctx));
+        CheckTrue(played != null && !played.Has("ephemeral"),
+                  "★ 打出之后 `ephemeral` 被摘掉（原版 `ResolveCardPlayed.c:42` 的 `RemoveTraitSilently(5)`）"
+                + "｜🧨 删掉 `ApplyPlayedCardTailEffects` 里 `RemoveAll(\"ephemeral\", silent: true)` 那一句 ⇒ 本行红");
     }
 }

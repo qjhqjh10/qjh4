@@ -1,0 +1,449 @@
+行号	现值	正确值	依据(dump.cs)
+2	RankedEventBase<TSave,	RankedEventBase<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:130887
+3	RankedEventBase<TSave,	RankedEventBase<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:130887
+4	RankedEventBase<TSave,	RankedEventBase<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:130887
+5	RankedEventBase<TSave,	RankedEventBase<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:130887
+28	<>f__AnonymousType75<<DeckId>j__TPar,	<>f__AnonymousType75<<DeckId>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7802
+29	<>f__AnonymousType75<<DeckId>j__TPar,	<>f__AnonymousType75<<DeckId>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7802
+30	<>f__AnonymousType75<<DeckId>j__TPar,	<>f__AnonymousType75<<DeckId>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7802
+31	<>f__AnonymousType76<<DeckIds>j__TPar,	<>f__AnonymousType76<<DeckIds>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7889
+32	<>f__AnonymousType76<<DeckIds>j__TPar,	<>f__AnonymousType76<<DeckIds>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7889
+33	<>f__AnonymousType76<<DeckIds>j__TPar,	<>f__AnonymousType76<<DeckIds>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7889
+34	<>f__AnonymousType82<<StoreId>j__TPar,	<>f__AnonymousType82<<StoreId>j__TPar, <ItemId>j__TPar, <SkuIstanceId>j__TPar, <SkuId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8397
+35	<>f__AnonymousType82<<StoreId>j__TPar,	<>f__AnonymousType82<<StoreId>j__TPar, <ItemId>j__TPar, <SkuIstanceId>j__TPar, <SkuId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8397
+36	<>f__AnonymousType82<<StoreId>j__TPar,	<>f__AnonymousType82<<StoreId>j__TPar, <ItemId>j__TPar, <SkuIstanceId>j__TPar, <SkuId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8397
+37	ShopStore<TSave,	ShopStore<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:134319
+38	ShopStore<TSave,	ShopStore<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:134319
+39	ShopStore<TSave,	ShopStore<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:134319
+40	ShopStore<TSave,	ShopStore<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:134319
+41	ShopStore<TSave,	ShopStore<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:134319
+42	ShopStore<TSave,	ShopStore<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:134319
+138	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+139	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+140	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+141	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+142	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+143	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+144	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+145	ToggleCollectionFilter<T,	ToggleCollectionFilter<T, TOption>	d:/2/tools/il2cpp_out/dump.cs:75518
+146	<>f__AnonymousType33<<EventId>j__TPar,	<>f__AnonymousType33<<EventId>j__TPar, <ChallengeId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3126
+147	<>f__AnonymousType33<<EventId>j__TPar,	<>f__AnonymousType33<<EventId>j__TPar, <ChallengeId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3126
+148	<>f__AnonymousType33<<EventId>j__TPar,	<>f__AnonymousType33<<EventId>j__TPar, <ChallengeId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3126
+149	<>f__AnonymousType34<<EventId>j__TPar,	<>f__AnonymousType34<<EventId>j__TPar, <ChallengeId>j__TPar, <NewSave>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3213
+150	<>f__AnonymousType34<<EventId>j__TPar,	<>f__AnonymousType34<<EventId>j__TPar, <ChallengeId>j__TPar, <NewSave>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3213
+151	<>f__AnonymousType34<<EventId>j__TPar,	<>f__AnonymousType34<<EventId>j__TPar, <ChallengeId>j__TPar, <NewSave>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3213
+152	<>f__AnonymousType35<<EventId>j__TPar,	<>f__AnonymousType35<<EventId>j__TPar, <ChallengeId>j__TPar, <CurrentArmy>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3314
+153	<>f__AnonymousType35<<EventId>j__TPar,	<>f__AnonymousType35<<EventId>j__TPar, <ChallengeId>j__TPar, <CurrentArmy>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3314
+154	<>f__AnonymousType35<<EventId>j__TPar,	<>f__AnonymousType35<<EventId>j__TPar, <ChallengeId>j__TPar, <CurrentArmy>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3314
+158	<>f__AnonymousType45<<EventId>j__TPar,	<>f__AnonymousType45<<EventId>j__TPar, <RewardIndex>j__TPar, <RewardUnlocked>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4422
+159	<>f__AnonymousType45<<EventId>j__TPar,	<>f__AnonymousType45<<EventId>j__TPar, <RewardIndex>j__TPar, <RewardUnlocked>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4422
+160	<>f__AnonymousType45<<EventId>j__TPar,	<>f__AnonymousType45<<EventId>j__TPar, <RewardIndex>j__TPar, <RewardUnlocked>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4422
+172	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+173	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+174	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+175	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+176	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+177	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+178	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+179	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+180	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+181	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+182	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+183	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+184	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+185	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+186	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+187	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+188	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+189	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+190	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+191	FastModeBaseEvent<TS,	FastModeBaseEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:57363
+192	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+193	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+194	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+195	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+196	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+197	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+198	GameNewsEvent<TPersistence,	GameNewsEvent<TPersistence, TData>	d:/2/tools/il2cpp_out/dump.cs:128851
+199	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+200	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+201	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+202	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+203	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+204	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+205	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+206	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+207	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+208	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+209	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+210	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+211	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+212	LiveOpsEvent<TSave,	LiveOpsEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:126282
+244	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+245	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+246	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+247	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+248	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+249	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+250	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+251	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+252	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+253	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+254	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+255	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+256	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+257	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+258	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+259	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+260	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+261	MissionEvent<TS,	MissionEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:60754
+263	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+264	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+265	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+266	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+267	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+268	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+269	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+270	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+271	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+272	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+273	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+274	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+275	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+276	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+277	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+278	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+279	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+280	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+281	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+282	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+283	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+284	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+285	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+286	PlayEvent<TSave,	PlayEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129759
+287	ScoringEvent<TS,	ScoringEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:132490
+288	ScoringEvent<TS,	ScoringEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:132490
+289	ScoringEvent<TS,	ScoringEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:132490
+290	ScoringEvent<TS,	ScoringEvent<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:132490
+298	<>f__AnonymousType101<<CardID>j__TPar,	<>f__AnonymousType101<<CardID>j__TPar, <WildcardID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10134
+299	<>f__AnonymousType101<<CardID>j__TPar,	<>f__AnonymousType101<<CardID>j__TPar, <WildcardID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10134
+300	<>f__AnonymousType101<<CardID>j__TPar,	<>f__AnonymousType101<<CardID>j__TPar, <WildcardID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10134
+301	<>f__AnonymousType102<<ItemId>j__TPar,	<>f__AnonymousType102<<ItemId>j__TPar, <WildcardID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10221
+302	<>f__AnonymousType102<<ItemId>j__TPar,	<>f__AnonymousType102<<ItemId>j__TPar, <WildcardID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10221
+303	<>f__AnonymousType102<<ItemId>j__TPar,	<>f__AnonymousType102<<ItemId>j__TPar, <WildcardID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10221
+304	<>f__AnonymousType103<<ids>j__TPar,	<>f__AnonymousType103<<ids>j__TPar, <reset>j__TPar, <clearSharedData>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10308
+305	<>f__AnonymousType103<<ids>j__TPar,	<>f__AnonymousType103<<ids>j__TPar, <reset>j__TPar, <clearSharedData>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10308
+306	<>f__AnonymousType103<<ids>j__TPar,	<>f__AnonymousType103<<ids>j__TPar, <reset>j__TPar, <clearSharedData>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10308
+307	<>f__AnonymousType104<<eventID>j__TPar,	<>f__AnonymousType104<<eventID>j__TPar, <seed>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10409
+308	<>f__AnonymousType104<<eventID>j__TPar,	<>f__AnonymousType104<<eventID>j__TPar, <seed>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10409
+309	<>f__AnonymousType104<<eventID>j__TPar,	<>f__AnonymousType104<<eventID>j__TPar, <seed>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10409
+316	<>f__AnonymousType107<<extraArgs>j__TPar,	<>f__AnonymousType107<<extraArgs>j__TPar, <entryCountToFetch>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10656
+317	<>f__AnonymousType107<<extraArgs>j__TPar,	<>f__AnonymousType107<<extraArgs>j__TPar, <entryCountToFetch>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10656
+318	<>f__AnonymousType107<<extraArgs>j__TPar,	<>f__AnonymousType107<<extraArgs>j__TPar, <entryCountToFetch>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10656
+319	<>f__AnonymousType108<<Index>j__TPar,	<>f__AnonymousType108<<Index>j__TPar, <Value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10743
+320	<>f__AnonymousType108<<Index>j__TPar,	<>f__AnonymousType108<<Index>j__TPar, <Value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10743
+321	<>f__AnonymousType108<<Index>j__TPar,	<>f__AnonymousType108<<Index>j__TPar, <Value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:10743
+322	<>f__AnonymousType10<<eventId>j__TPar,	<>f__AnonymousType10<<eventId>j__TPar, <Handler>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1035
+323	<>f__AnonymousType10<<eventId>j__TPar,	<>f__AnonymousType10<<eventId>j__TPar, <Handler>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1035
+324	<>f__AnonymousType10<<eventId>j__TPar,	<>f__AnonymousType10<<eventId>j__TPar, <Handler>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1035
+334	<>f__AnonymousType14<<dlcId>j__TPar,	<>f__AnonymousType14<<dlcId>j__TPar, <steamId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1341
+335	<>f__AnonymousType14<<dlcId>j__TPar,	<>f__AnonymousType14<<dlcId>j__TPar, <steamId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1341
+336	<>f__AnonymousType14<<dlcId>j__TPar,	<>f__AnonymousType14<<dlcId>j__TPar, <steamId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1341
+337	<>f__AnonymousType15<<ItemId>j__TPar,	<>f__AnonymousType15<<ItemId>j__TPar, <StoreId>j__TPar, <Expired>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1428
+338	<>f__AnonymousType15<<ItemId>j__TPar,	<>f__AnonymousType15<<ItemId>j__TPar, <StoreId>j__TPar, <Expired>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1428
+339	<>f__AnonymousType15<<ItemId>j__TPar,	<>f__AnonymousType15<<ItemId>j__TPar, <StoreId>j__TPar, <Expired>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1428
+340	<>f__AnonymousType16<<eventID>j__TPar,	<>f__AnonymousType16<<eventID>j__TPar, <nodeId>j__TPar, <starterDeckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1529
+341	<>f__AnonymousType16<<eventID>j__TPar,	<>f__AnonymousType16<<eventID>j__TPar, <nodeId>j__TPar, <starterDeckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1529
+342	<>f__AnonymousType16<<eventID>j__TPar,	<>f__AnonymousType16<<eventID>j__TPar, <nodeId>j__TPar, <starterDeckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1529
+343	<>f__AnonymousType17<<eventID>j__TPar,	<>f__AnonymousType17<<eventID>j__TPar, <nodeId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1630
+344	<>f__AnonymousType17<<eventID>j__TPar,	<>f__AnonymousType17<<eventID>j__TPar, <nodeId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1630
+345	<>f__AnonymousType17<<eventID>j__TPar,	<>f__AnonymousType17<<eventID>j__TPar, <nodeId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1630
+349	<>f__AnonymousType19<<eventID>j__TPar,	<>f__AnonymousType19<<eventID>j__TPar, <cards>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1790
+350	<>f__AnonymousType19<<eventID>j__TPar,	<>f__AnonymousType19<<eventID>j__TPar, <cards>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1790
+351	<>f__AnonymousType19<<eventID>j__TPar,	<>f__AnonymousType19<<eventID>j__TPar, <cards>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1790
+352	<>f__AnonymousType1<<Id>j__TPar,	<>f__AnonymousType1<<Id>j__TPar, <TotalPoints>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:210
+353	<>f__AnonymousType1<<Id>j__TPar,	<>f__AnonymousType1<<Id>j__TPar, <TotalPoints>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:210
+354	<>f__AnonymousType1<<Id>j__TPar,	<>f__AnonymousType1<<Id>j__TPar, <TotalPoints>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:210
+355	<>f__AnonymousType20<<eventID>j__TPar,	<>f__AnonymousType20<<eventID>j__TPar, <opponentInfo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1877
+356	<>f__AnonymousType20<<eventID>j__TPar,	<>f__AnonymousType20<<eventID>j__TPar, <opponentInfo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1877
+357	<>f__AnonymousType20<<eventID>j__TPar,	<>f__AnonymousType20<<eventID>j__TPar, <opponentInfo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1877
+358	<>f__AnonymousType21<<eventID>j__TPar,	<>f__AnonymousType21<<eventID>j__TPar, <matchWon>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1964
+359	<>f__AnonymousType21<<eventID>j__TPar,	<>f__AnonymousType21<<eventID>j__TPar, <matchWon>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1964
+360	<>f__AnonymousType21<<eventID>j__TPar,	<>f__AnonymousType21<<eventID>j__TPar, <matchWon>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:1964
+361	<>f__AnonymousType22<<eventID>j__TPar,	<>f__AnonymousType22<<eventID>j__TPar, <pack>j__TPar, <cards>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2051
+362	<>f__AnonymousType22<<eventID>j__TPar,	<>f__AnonymousType22<<eventID>j__TPar, <pack>j__TPar, <cards>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2051
+363	<>f__AnonymousType22<<eventID>j__TPar,	<>f__AnonymousType22<<eventID>j__TPar, <pack>j__TPar, <cards>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2051
+367	<>f__AnonymousType24<<eventID>j__TPar,	<>f__AnonymousType24<<eventID>j__TPar, <warlord>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2225
+368	<>f__AnonymousType24<<eventID>j__TPar,	<>f__AnonymousType24<<eventID>j__TPar, <warlord>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2225
+369	<>f__AnonymousType24<<eventID>j__TPar,	<>f__AnonymousType24<<eventID>j__TPar, <warlord>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2225
+370	<>f__AnonymousType25<<eventID>j__TPar,	<>f__AnonymousType25<<eventID>j__TPar, <isTen>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2312
+371	<>f__AnonymousType25<<eventID>j__TPar,	<>f__AnonymousType25<<eventID>j__TPar, <isTen>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2312
+372	<>f__AnonymousType25<<eventID>j__TPar,	<>f__AnonymousType25<<eventID>j__TPar, <isTen>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2312
+373	<>f__AnonymousType26<<eventID>j__TPar,	<>f__AnonymousType26<<eventID>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2413
+374	<>f__AnonymousType26<<eventID>j__TPar,	<>f__AnonymousType26<<eventID>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2413
+375	<>f__AnonymousType26<<eventID>j__TPar,	<>f__AnonymousType26<<eventID>j__TPar, <warlords>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2413
+376	<>f__AnonymousType27<<eventID>j__TPar,	<>f__AnonymousType27<<eventID>j__TPar, <opponentInfo>j__TPar, <deckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2500
+377	<>f__AnonymousType27<<eventID>j__TPar,	<>f__AnonymousType27<<eventID>j__TPar, <opponentInfo>j__TPar, <deckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2500
+378	<>f__AnonymousType27<<eventID>j__TPar,	<>f__AnonymousType27<<eventID>j__TPar, <opponentInfo>j__TPar, <deckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2500
+379	<>f__AnonymousType28<<eventID>j__TPar,	<>f__AnonymousType28<<eventID>j__TPar, <matchResult>j__TPar, <opponentId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2601
+380	<>f__AnonymousType28<<eventID>j__TPar,	<>f__AnonymousType28<<eventID>j__TPar, <matchResult>j__TPar, <opponentId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2601
+381	<>f__AnonymousType28<<eventID>j__TPar,	<>f__AnonymousType28<<eventID>j__TPar, <matchResult>j__TPar, <opponentId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2601
+382	<>f__AnonymousType29<<eventId>j__TPar,	<>f__AnonymousType29<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isSuspicious>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2702
+383	<>f__AnonymousType29<<eventId>j__TPar,	<>f__AnonymousType29<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isSuspicious>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2702
+384	<>f__AnonymousType29<<eventId>j__TPar,	<>f__AnonymousType29<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isSuspicious>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2702
+385	<>f__AnonymousType2<<id>j__TPar,	<>f__AnonymousType2<<id>j__TPar, <value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:297
+386	<>f__AnonymousType2<<id>j__TPar,	<>f__AnonymousType2<<id>j__TPar, <value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:297
+387	<>f__AnonymousType2<<id>j__TPar,	<>f__AnonymousType2<<id>j__TPar, <value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:297
+388	<>f__AnonymousType30<<eventID>j__TPar,	<>f__AnonymousType30<<eventID>j__TPar, <addPoints>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2929
+389	<>f__AnonymousType30<<eventID>j__TPar,	<>f__AnonymousType30<<eventID>j__TPar, <addPoints>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2929
+390	<>f__AnonymousType30<<eventID>j__TPar,	<>f__AnonymousType30<<eventID>j__TPar, <addPoints>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:2929
+394	<>f__AnonymousType32<<leaderboardKey>j__TPar,	<>f__AnonymousType32<<leaderboardKey>j__TPar, <overrideValues>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3039
+395	<>f__AnonymousType32<<leaderboardKey>j__TPar,	<>f__AnonymousType32<<leaderboardKey>j__TPar, <overrideValues>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3039
+396	<>f__AnonymousType32<<leaderboardKey>j__TPar,	<>f__AnonymousType32<<leaderboardKey>j__TPar, <overrideValues>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3039
+397	<>f__AnonymousType37<<Action>j__TPar,	<>f__AnonymousType37<<Action>j__TPar, <dlcsToRedeem>j__TPar, <dlcsRedeemed>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3488
+398	<>f__AnonymousType37<<Action>j__TPar,	<>f__AnonymousType37<<Action>j__TPar, <dlcsToRedeem>j__TPar, <dlcsRedeemed>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3488
+399	<>f__AnonymousType37<<Action>j__TPar,	<>f__AnonymousType37<<Action>j__TPar, <dlcsToRedeem>j__TPar, <dlcsRedeemed>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3488
+400	<>f__AnonymousType38<<eventId>j__TPar,	<>f__AnonymousType38<<eventId>j__TPar, <deckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3589
+401	<>f__AnonymousType38<<eventId>j__TPar,	<>f__AnonymousType38<<eventId>j__TPar, <deckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3589
+402	<>f__AnonymousType38<<eventId>j__TPar,	<>f__AnonymousType38<<eventId>j__TPar, <deckId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3589
+409	<>f__AnonymousType40<<eventID>j__TPar,	<>f__AnonymousType40<<eventID>j__TPar, <opponentInfo>j__TPar, <isRanked>j__TPar, <season>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3749
+410	<>f__AnonymousType40<<eventID>j__TPar,	<>f__AnonymousType40<<eventID>j__TPar, <opponentInfo>j__TPar, <isRanked>j__TPar, <season>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3749
+411	<>f__AnonymousType40<<eventID>j__TPar,	<>f__AnonymousType40<<eventID>j__TPar, <opponentInfo>j__TPar, <isRanked>j__TPar, <season>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3749
+412	<>f__AnonymousType41<<eventID>j__TPar,	<>f__AnonymousType41<<eventID>j__TPar, <matchResult>j__TPar, <isRanked>j__TPar, <opponentId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3864
+413	<>f__AnonymousType41<<eventID>j__TPar,	<>f__AnonymousType41<<eventID>j__TPar, <matchResult>j__TPar, <isRanked>j__TPar, <opponentId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3864
+414	<>f__AnonymousType41<<eventID>j__TPar,	<>f__AnonymousType41<<eventID>j__TPar, <matchResult>j__TPar, <isRanked>j__TPar, <opponentId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3864
+415	<>f__AnonymousType42<<eventId>j__TPar,	<>f__AnonymousType42<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isRanked>j__TPar, <isSuspicious>j__TPar, <Season>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3979
+416	<>f__AnonymousType42<<eventId>j__TPar,	<>f__AnonymousType42<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isRanked>j__TPar, <isSuspicious>j__TPar, <Season>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3979
+417	<>f__AnonymousType42<<eventId>j__TPar,	<>f__AnonymousType42<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isRanked>j__TPar, <isSuspicious>j__TPar, <Season>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:3979
+418	<>f__AnonymousType43<<eventId>j__TPar,	<>f__AnonymousType43<<eventId>j__TPar, <milestoneIndex>j__TPar, <isRewardUnlocked>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4234
+419	<>f__AnonymousType43<<eventId>j__TPar,	<>f__AnonymousType43<<eventId>j__TPar, <milestoneIndex>j__TPar, <isRewardUnlocked>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4234
+420	<>f__AnonymousType43<<eventId>j__TPar,	<>f__AnonymousType43<<eventId>j__TPar, <milestoneIndex>j__TPar, <isRewardUnlocked>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4234
+421	<>f__AnonymousType44<<eventId>j__TPar,	<>f__AnonymousType44<<eventId>j__TPar, <milestoneIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4335
+422	<>f__AnonymousType44<<eventId>j__TPar,	<>f__AnonymousType44<<eventId>j__TPar, <milestoneIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4335
+423	<>f__AnonymousType44<<eventId>j__TPar,	<>f__AnonymousType44<<eventId>j__TPar, <milestoneIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4335
+430	<>f__AnonymousType48<<eventID>j__TPar,	<>f__AnonymousType48<<eventID>j__TPar, <level>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4669
+431	<>f__AnonymousType48<<eventID>j__TPar,	<>f__AnonymousType48<<eventID>j__TPar, <level>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4669
+432	<>f__AnonymousType48<<eventID>j__TPar,	<>f__AnonymousType48<<eventID>j__TPar, <level>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4669
+433	<>f__AnonymousType49<<ItemId>j__TPar,	<>f__AnonymousType49<<ItemId>j__TPar, <InstanceId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4756
+434	<>f__AnonymousType49<<ItemId>j__TPar,	<>f__AnonymousType49<<ItemId>j__TPar, <InstanceId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4756
+435	<>f__AnonymousType49<<ItemId>j__TPar,	<>f__AnonymousType49<<ItemId>j__TPar, <InstanceId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4756
+436	<>f__AnonymousType50<<Action>j__TPar,	<>f__AnonymousType50<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <Error>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4843
+437	<>f__AnonymousType50<<Action>j__TPar,	<>f__AnonymousType50<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <Error>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4843
+438	<>f__AnonymousType50<<Action>j__TPar,	<>f__AnonymousType50<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <Error>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:4843
+439	<>f__AnonymousType51<<Action>j__TPar,	<>f__AnonymousType51<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <Error>j__TPar, <CustomError>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5014
+440	<>f__AnonymousType51<<Action>j__TPar,	<>f__AnonymousType51<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <Error>j__TPar, <CustomError>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5014
+441	<>f__AnonymousType51<<Action>j__TPar,	<>f__AnonymousType51<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <Error>j__TPar, <CustomError>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5014
+442	<>f__AnonymousType52<<Action>j__TPar,	<>f__AnonymousType52<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <CustomError>j__TPar, <Error>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5199
+443	<>f__AnonymousType52<<Action>j__TPar,	<>f__AnonymousType52<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <CustomError>j__TPar, <Error>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5199
+444	<>f__AnonymousType52<<Action>j__TPar,	<>f__AnonymousType52<<Action>j__TPar, <FunctionName>j__TPar, <ApiRequestCount>j__TPar, <HttpRequestCount>j__TPar, <Revision>j__TPar, <CustomError>j__TPar, <Error>j__TPar, <StackTrace>j__TPar, <Logs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5199
+445	<>f__AnonymousType53<<Action>j__TPar,	<>f__AnonymousType53<<Action>j__TPar, <FunctionName>j__TPar, <Error>j__TPar, <HttpCode>j__TPar, <CustomError>j__TPar, <APIEndpoint>j__TPar, <Details>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5384
+446	<>f__AnonymousType53<<Action>j__TPar,	<>f__AnonymousType53<<Action>j__TPar, <FunctionName>j__TPar, <Error>j__TPar, <HttpCode>j__TPar, <CustomError>j__TPar, <APIEndpoint>j__TPar, <Details>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5384
+447	<>f__AnonymousType53<<Action>j__TPar,	<>f__AnonymousType53<<Action>j__TPar, <FunctionName>j__TPar, <Error>j__TPar, <HttpCode>j__TPar, <CustomError>j__TPar, <APIEndpoint>j__TPar, <Details>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5384
+448	<>f__AnonymousType54<<SessionId>j__TPar,	<>f__AnonymousType54<<SessionId>j__TPar, <Version>j__TPar, <Override>j__TPar, <Data>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5541
+449	<>f__AnonymousType54<<SessionId>j__TPar,	<>f__AnonymousType54<<SessionId>j__TPar, <Version>j__TPar, <Override>j__TPar, <Data>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5541
+450	<>f__AnonymousType54<<SessionId>j__TPar,	<>f__AnonymousType54<<SessionId>j__TPar, <Version>j__TPar, <Override>j__TPar, <Data>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5541
+451	<>f__AnonymousType55<<Cards>j__TPar,	<>f__AnonymousType55<<Cards>j__TPar, <WarlordId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5656
+452	<>f__AnonymousType55<<Cards>j__TPar,	<>f__AnonymousType55<<Cards>j__TPar, <WarlordId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5656
+453	<>f__AnonymousType55<<Cards>j__TPar,	<>f__AnonymousType55<<Cards>j__TPar, <WarlordId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5656
+454	<>f__AnonymousType56<<playerId>j__TPar,	<>f__AnonymousType56<<playerId>j__TPar, <botIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5743
+455	<>f__AnonymousType56<<playerId>j__TPar,	<>f__AnonymousType56<<playerId>j__TPar, <botIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5743
+456	<>f__AnonymousType56<<playerId>j__TPar,	<>f__AnonymousType56<<playerId>j__TPar, <botIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5743
+460	<>f__AnonymousType58<<hasWon>j__TPar,	<>f__AnonymousType58<<hasWon>j__TPar, <matchInfo>j__TPar, <battleResult>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5903
+461	<>f__AnonymousType58<<hasWon>j__TPar,	<>f__AnonymousType58<<hasWon>j__TPar, <matchInfo>j__TPar, <battleResult>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5903
+462	<>f__AnonymousType58<<hasWon>j__TPar,	<>f__AnonymousType58<<hasWon>j__TPar, <matchInfo>j__TPar, <battleResult>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:5903
+463	<>f__AnonymousType59<<recordName>j__TPar,	<>f__AnonymousType59<<recordName>j__TPar, <battleRecord>j__TPar, <cancelled>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6004
+464	<>f__AnonymousType59<<recordName>j__TPar,	<>f__AnonymousType59<<recordName>j__TPar, <battleRecord>j__TPar, <cancelled>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6004
+465	<>f__AnonymousType59<<recordName>j__TPar,	<>f__AnonymousType59<<recordName>j__TPar, <battleRecord>j__TPar, <cancelled>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6004
+466	<>f__AnonymousType5<<eventId>j__TPar,	<>f__AnonymousType5<<eventId>j__TPar, <teamId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:530
+467	<>f__AnonymousType5<<eventId>j__TPar,	<>f__AnonymousType5<<eventId>j__TPar, <teamId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:530
+468	<>f__AnonymousType5<<eventId>j__TPar,	<>f__AnonymousType5<<eventId>j__TPar, <teamId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:530
+472	<>f__AnonymousType61<<recordName>j__TPar,	<>f__AnonymousType61<<recordName>j__TPar, <targetPlayerId>j__TPar, <enemyName>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6178
+473	<>f__AnonymousType61<<recordName>j__TPar,	<>f__AnonymousType61<<recordName>j__TPar, <targetPlayerId>j__TPar, <enemyName>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6178
+474	<>f__AnonymousType61<<recordName>j__TPar,	<>f__AnonymousType61<<recordName>j__TPar, <targetPlayerId>j__TPar, <enemyName>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6178
+475	<>f__AnonymousType62<<recordIndex>j__TPar,	<>f__AnonymousType62<<recordIndex>j__TPar, <pinned>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6279
+476	<>f__AnonymousType62<<recordIndex>j__TPar,	<>f__AnonymousType62<<recordIndex>j__TPar, <pinned>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6279
+477	<>f__AnonymousType62<<recordIndex>j__TPar,	<>f__AnonymousType62<<recordIndex>j__TPar, <pinned>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6279
+478	<>f__AnonymousType63<<eventId>j__TPar,	<>f__AnonymousType63<<eventId>j__TPar, <tutorialIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6366
+479	<>f__AnonymousType63<<eventId>j__TPar,	<>f__AnonymousType63<<eventId>j__TPar, <tutorialIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6366
+480	<>f__AnonymousType63<<eventId>j__TPar,	<>f__AnonymousType63<<eventId>j__TPar, <tutorialIndex>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6366
+481	<>f__AnonymousType65<<hasWon>j__TPar,	<>f__AnonymousType65<<hasWon>j__TPar, <ownName>j__TPar, <opponentInfo>j__TPar, <isSuspicious>j__TPar, <ReplaysVersion>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <eventID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6526
+482	<>f__AnonymousType65<<hasWon>j__TPar,	<>f__AnonymousType65<<hasWon>j__TPar, <ownName>j__TPar, <opponentInfo>j__TPar, <isSuspicious>j__TPar, <ReplaysVersion>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <eventID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6526
+483	<>f__AnonymousType65<<hasWon>j__TPar,	<>f__AnonymousType65<<hasWon>j__TPar, <ownName>j__TPar, <opponentInfo>j__TPar, <isSuspicious>j__TPar, <ReplaysVersion>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <eventID>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6526
+484	<>f__AnonymousType66<<eventId>j__TPar,	<>f__AnonymousType66<<eventId>j__TPar, <hasWon>j__TPar, <ownName>j__TPar, <opponentID>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerHeroId>j__TPar, <ReplaysVersion>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6697
+485	<>f__AnonymousType66<<eventId>j__TPar,	<>f__AnonymousType66<<eventId>j__TPar, <hasWon>j__TPar, <ownName>j__TPar, <opponentID>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerHeroId>j__TPar, <ReplaysVersion>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6697
+486	<>f__AnonymousType66<<eventId>j__TPar,	<>f__AnonymousType66<<eventId>j__TPar, <hasWon>j__TPar, <ownName>j__TPar, <opponentID>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerHeroId>j__TPar, <ReplaysVersion>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6697
+487	<>f__AnonymousType67<<eventId>j__TPar,	<>f__AnonymousType67<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isRanked>j__TPar, <Season>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6924
+488	<>f__AnonymousType67<<eventId>j__TPar,	<>f__AnonymousType67<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isRanked>j__TPar, <Season>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6924
+489	<>f__AnonymousType67<<eventId>j__TPar,	<>f__AnonymousType67<<eventId>j__TPar, <hasWon>j__TPar, <milestone>j__TPar, <enemymilestone>j__TPar, <ownName>j__TPar, <isRanked>j__TPar, <Season>j__TPar, <opponentId>j__TPar, <playerHeroId>j__TPar, <opponentName>j__TPar, <opponentHeroId>j__TPar, <playerClan>j__TPar, <enemyClan>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:6924
+490	<>f__AnonymousType68<<opponentId>j__TPar,	<>f__AnonymousType68<<opponentId>j__TPar, <errorLog>j__TPar, <gameState>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7165
+491	<>f__AnonymousType68<<opponentId>j__TPar,	<>f__AnonymousType68<<opponentId>j__TPar, <errorLog>j__TPar, <gameState>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7165
+492	<>f__AnonymousType68<<opponentId>j__TPar,	<>f__AnonymousType68<<opponentId>j__TPar, <errorLog>j__TPar, <gameState>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7165
+493	<>f__AnonymousType69<<opponentId>j__TPar,	<>f__AnonymousType69<<opponentId>j__TPar, <gameState>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7266
+494	<>f__AnonymousType69<<opponentId>j__TPar,	<>f__AnonymousType69<<opponentId>j__TPar, <gameState>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7266
+495	<>f__AnonymousType69<<opponentId>j__TPar,	<>f__AnonymousType69<<opponentId>j__TPar, <gameState>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7266
+496	<>f__AnonymousType6<<eventID>j__TPar,	<>f__AnonymousType6<<eventID>j__TPar, <nodeId>j__TPar, <rewardTier>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:617
+497	<>f__AnonymousType6<<eventID>j__TPar,	<>f__AnonymousType6<<eventID>j__TPar, <nodeId>j__TPar, <rewardTier>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:617
+498	<>f__AnonymousType6<<eventID>j__TPar,	<>f__AnonymousType6<<eventID>j__TPar, <nodeId>j__TPar, <rewardTier>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:617
+502	<>f__AnonymousType71<<sunsetData>j__TPar,	<>f__AnonymousType71<<sunsetData>j__TPar, <playerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7426
+503	<>f__AnonymousType71<<sunsetData>j__TPar,	<>f__AnonymousType71<<sunsetData>j__TPar, <playerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7426
+504	<>f__AnonymousType71<<sunsetData>j__TPar,	<>f__AnonymousType71<<sunsetData>j__TPar, <playerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7426
+505	<>f__AnonymousType72<<Handlers>j__TPar,	<>f__AnonymousType72<<Handlers>j__TPar, <Configs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7513
+506	<>f__AnonymousType72<<Handlers>j__TPar,	<>f__AnonymousType72<<Handlers>j__TPar, <Configs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7513
+507	<>f__AnonymousType72<<Handlers>j__TPar,	<>f__AnonymousType72<<Handlers>j__TPar, <Configs>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7513
+508	<>f__AnonymousType73<<PlayerPlayfabId>j__TPar,	<>f__AnonymousType73<<PlayerPlayfabId>j__TPar, <Deck>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7600
+509	<>f__AnonymousType73<<PlayerPlayfabId>j__TPar,	<>f__AnonymousType73<<PlayerPlayfabId>j__TPar, <Deck>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7600
+510	<>f__AnonymousType73<<PlayerPlayfabId>j__TPar,	<>f__AnonymousType73<<PlayerPlayfabId>j__TPar, <Deck>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7600
+511	<>f__AnonymousType74<<CharacterId>j__TPar,	<>f__AnonymousType74<<CharacterId>j__TPar, <Deck>j__TPar, <DeckId>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7687
+512	<>f__AnonymousType74<<CharacterId>j__TPar,	<>f__AnonymousType74<<CharacterId>j__TPar, <Deck>j__TPar, <DeckId>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7687
+513	<>f__AnonymousType74<<CharacterId>j__TPar,	<>f__AnonymousType74<<CharacterId>j__TPar, <Deck>j__TPar, <DeckId>j__TPar, <GameMode>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7687
+514	<>f__AnonymousType77<<badge>j__TPar,	<>f__AnonymousType77<<badge>j__TPar, <cardback>j__TPar, <warcry>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7976
+515	<>f__AnonymousType77<<badge>j__TPar,	<>f__AnonymousType77<<badge>j__TPar, <cardback>j__TPar, <warcry>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7976
+516	<>f__AnonymousType77<<badge>j__TPar,	<>f__AnonymousType77<<badge>j__TPar, <cardback>j__TPar, <warcry>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:7976
+517	<>f__AnonymousType78<<CardIds>j__TPar,	<>f__AnonymousType78<<CardIds>j__TPar, <bundlesVersion>j__TPar, <ItemInstanceIds>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8077
+518	<>f__AnonymousType78<<CardIds>j__TPar,	<>f__AnonymousType78<<CardIds>j__TPar, <bundlesVersion>j__TPar, <ItemInstanceIds>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8077
+519	<>f__AnonymousType78<<CardIds>j__TPar,	<>f__AnonymousType78<<CardIds>j__TPar, <bundlesVersion>j__TPar, <ItemInstanceIds>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8077
+532	<>f__AnonymousType83<<Action>j__TPar,	<>f__AnonymousType83<<Action>j__TPar, <TutorialStage>j__TPar, <Reason>j__TPar, <ClientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8512
+533	<>f__AnonymousType83<<Action>j__TPar,	<>f__AnonymousType83<<Action>j__TPar, <TutorialStage>j__TPar, <Reason>j__TPar, <ClientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8512
+534	<>f__AnonymousType83<<Action>j__TPar,	<>f__AnonymousType83<<Action>j__TPar, <TutorialStage>j__TPar, <Reason>j__TPar, <ClientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8512
+538	<>f__AnonymousType86<<tag>j__TPar,	<>f__AnonymousType86<<tag>j__TPar, <value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8773
+539	<>f__AnonymousType86<<tag>j__TPar,	<>f__AnonymousType86<<tag>j__TPar, <value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8773
+540	<>f__AnonymousType86<<tag>j__TPar,	<>f__AnonymousType86<<tag>j__TPar, <value>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:8773
+541	<>f__AnonymousType89<<OrderBy>j__TPar,	<>f__AnonymousType89<<OrderBy>j__TPar, <StartAt>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9006
+542	<>f__AnonymousType89<<OrderBy>j__TPar,	<>f__AnonymousType89<<OrderBy>j__TPar, <StartAt>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9006
+543	<>f__AnonymousType89<<OrderBy>j__TPar,	<>f__AnonymousType89<<OrderBy>j__TPar, <StartAt>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9006
+544	<>f__AnonymousType8<<Action>j__TPar,	<>f__AnonymousType8<<Action>j__TPar, <EventId>j__TPar, <EventState>j__TPar, <ClientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:791
+545	<>f__AnonymousType8<<Action>j__TPar,	<>f__AnonymousType8<<Action>j__TPar, <EventId>j__TPar, <EventState>j__TPar, <ClientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:791
+546	<>f__AnonymousType8<<Action>j__TPar,	<>f__AnonymousType8<<Action>j__TPar, <EventId>j__TPar, <EventState>j__TPar, <ClientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:791
+547	<>f__AnonymousType94<<desc>j__TPar,	<>f__AnonymousType94<<desc>j__TPar, <privacy>j__TPar, <region>j__TPar, <badgeId>j__TPar, <minElo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9511
+548	<>f__AnonymousType94<<desc>j__TPar,	<>f__AnonymousType94<<desc>j__TPar, <privacy>j__TPar, <region>j__TPar, <badgeId>j__TPar, <minElo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9511
+549	<>f__AnonymousType94<<desc>j__TPar,	<>f__AnonymousType94<<desc>j__TPar, <privacy>j__TPar, <region>j__TPar, <badgeId>j__TPar, <minElo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9511
+553	<>f__AnonymousType98<<amount>j__TPar,	<>f__AnonymousType98<<amount>j__TPar, <playerId>j__TPar, <groupId>j__TPar, <eventId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9873
+554	<>f__AnonymousType98<<amount>j__TPar,	<>f__AnonymousType98<<amount>j__TPar, <playerId>j__TPar, <groupId>j__TPar, <eventId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9873
+555	<>f__AnonymousType98<<amount>j__TPar,	<>f__AnonymousType98<<amount>j__TPar, <playerId>j__TPar, <groupId>j__TPar, <eventId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9873
+559	<>f__AnonymousType9<<eventId>j__TPar,	<>f__AnonymousType9<<eventId>j__TPar, <handler>j__TPar, <active>j__TPar, <localState>j__TPar, <clientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:906
+560	<>f__AnonymousType9<<eventId>j__TPar,	<>f__AnonymousType9<<eventId>j__TPar, <handler>j__TPar, <active>j__TPar, <localState>j__TPar, <clientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:906
+561	<>f__AnonymousType9<<eventId>j__TPar,	<>f__AnonymousType9<<eventId>j__TPar, <handler>j__TPar, <active>j__TPar, <localState>j__TPar, <clientTime>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:906
+581	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+582	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+583	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+584	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+585	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+586	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+587	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+588	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+589	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+590	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+591	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+592	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+593	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+594	BiDirectionalDictionary<TKey,	BiDirectionalDictionary<TKey, TValue>	d:/2/tools/il2cpp_out/dump.cs:98846
+633	MultiKeyDictionary<T1,	MultiKeyDictionary<T1, T2, T3>	d:/2/tools/il2cpp_out/dump.cs:120233
+651	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+652	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+653	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+654	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+655	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+656	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+657	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+658	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+659	BaseInboxEvent<TSave,	BaseInboxEvent<TSave, TData>	d:/2/tools/il2cpp_out/dump.cs:129192
+660	FancyCell<TItemData,	FancyCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692497
+661	FancyCell<TItemData,	FancyCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692497
+662	FancyCell<TItemData,	FancyCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692497
+663	FancyCell<TItemData,	FancyCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692497
+664	FancyCell<TItemData,	FancyCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692497
+666	FancyCellGroup<TItemData,	FancyCellGroup<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692832
+667	FancyCellGroup<TItemData,	FancyCellGroup<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692832
+668	FancyCellGroup<TItemData,	FancyCellGroup<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692832
+669	FancyCellGroup<TItemData,	FancyCellGroup<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692832
+670	FancyCellGroup<TItemData,	FancyCellGroup<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692832
+671	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+672	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+673	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+674	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+675	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+676	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+677	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+678	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+679	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+680	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+681	FancyGridView<TItemData,	FancyGridView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692982
+682	FancyGridViewCell<TItemData,	FancyGridViewCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693152
+684	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+685	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+686	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+687	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+688	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+689	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+690	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+691	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+692	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+693	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+694	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+695	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+696	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+697	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+698	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+699	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+700	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+701	FancyScrollRect<TItemData,	FancyScrollRect<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693579
+702	FancyScrollRectCell<TItemData,	FancyScrollRectCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693828
+703	FancyScrollRectCell<TItemData,	FancyScrollRectCell<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:693828
+705	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+706	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+707	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+708	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+709	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+710	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+711	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+712	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+713	FancyScrollView<TItemData,	FancyScrollView<TItemData, TContext>	d:/2/tools/il2cpp_out/dump.cs:692628
+717	LocalizeTargetDesc_Type<T,	LocalizeTargetDesc_Type<T, G>	d:/2/tools/il2cpp_out/dump.cs:139790
+718	LocalizeTargetDesc_Type<T,	LocalizeTargetDesc_Type<T, G>	d:/2/tools/il2cpp_out/dump.cs:139790
+736	<>f__AnonymousType90<<GroupName>j__TPar,	<>f__AnonymousType90<<GroupName>j__TPar, <PlayerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9093
+737	<>f__AnonymousType90<<GroupName>j__TPar,	<>f__AnonymousType90<<GroupName>j__TPar, <PlayerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9093
+738	<>f__AnonymousType90<<GroupName>j__TPar,	<>f__AnonymousType90<<GroupName>j__TPar, <PlayerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9093
+739	<>f__AnonymousType91<<GroupName>j__TPar,	<>f__AnonymousType91<<GroupName>j__TPar, <Description>j__TPar, <BadgeId>j__TPar, <Region>j__TPar, <Privacy>j__TPar, <MinElo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9180
+740	<>f__AnonymousType91<<GroupName>j__TPar,	<>f__AnonymousType91<<GroupName>j__TPar, <Description>j__TPar, <BadgeId>j__TPar, <Region>j__TPar, <Privacy>j__TPar, <MinElo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9180
+741	<>f__AnonymousType91<<GroupName>j__TPar,	<>f__AnonymousType91<<GroupName>j__TPar, <Description>j__TPar, <BadgeId>j__TPar, <Region>j__TPar, <Privacy>j__TPar, <MinElo>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9180
+742	<>f__AnonymousType92<<GroupName>j__TPar,	<>f__AnonymousType92<<GroupName>j__TPar, <PlayerId>j__TPar, <NewRole>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9323
+743	<>f__AnonymousType92<<GroupName>j__TPar,	<>f__AnonymousType92<<GroupName>j__TPar, <PlayerId>j__TPar, <NewRole>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9323
+744	<>f__AnonymousType92<<GroupName>j__TPar,	<>f__AnonymousType92<<GroupName>j__TPar, <PlayerId>j__TPar, <NewRole>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9323
+745	<>f__AnonymousType93<<GroupId>j__TPar,	<>f__AnonymousType93<<GroupId>j__TPar, <GroupData>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9424
+746	<>f__AnonymousType93<<GroupId>j__TPar,	<>f__AnonymousType93<<GroupId>j__TPar, <GroupData>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9424
+747	<>f__AnonymousType93<<GroupId>j__TPar,	<>f__AnonymousType93<<GroupId>j__TPar, <GroupData>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9424
+748	<>f__AnonymousType95<<GroupId>j__TPar,	<>f__AnonymousType95<<GroupId>j__TPar, <PlayerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9640
+749	<>f__AnonymousType95<<GroupId>j__TPar,	<>f__AnonymousType95<<GroupId>j__TPar, <PlayerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9640
+750	<>f__AnonymousType95<<GroupId>j__TPar,	<>f__AnonymousType95<<GroupId>j__TPar, <PlayerId>j__TPar>	d:/2/tools/il2cpp_out/dump.cs:9640
+776	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+777	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+778	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+779	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+780	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+781	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+782	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+783	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+784	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+785	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+786	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+787	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+788	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+789	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+790	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+791	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+792	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+793	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+794	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+795	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+796	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+797	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+798	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+799	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+800	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+801	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+802	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+803	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+804	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+805	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+806	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547
+807	DraftEventBase<TS,	DraftEventBase<TS, TD>	d:/2/tools/il2cpp_out/dump.cs:127547

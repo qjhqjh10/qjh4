@@ -3021,17 +3021,17 @@ namespace RuleEngine
         /// 与 <see cref="RemoveEffectRecord"/> 的 `case 3` **同一口径**（那边是「调用方把记录的相关列投进来」，
         /// 这边是「记录本身就在我们账上」）—— ⛔ 两份必须一起改。
         ///
-        /// <para>⚠️ **残余（如实记，不是省了）**：原版的值来自 `Σ 剩余记录`，我们只有 `_keywords` 一本账 ⇒
-        /// 摘掉一条时「同 trait 的其它记录还留着值」这一格我们**做不到**（整条摘，但**不写**「已移除」簿记 ——
-        /// `RemoveTraitSilently` 也不写）。今天零可观察：多记录只可能由本方法造出来，而 `EffectResolver`
-        /// 还没切到本方法（那条路仍是一路 `AddKeyword`）；池内 `replace` 档 trait 0 条。</para>
+        /// <para>🆕 **2026-10-28（`B93_F4` · 账 L1041）就地补上第二道闸**：原版在 `HasDefaultTrait` 之后还有
+        /// `!HasCurrentTraitActiveEffect(trait)` ⇒ **还有别的记录在给这条 trait 就留着关键词**（`RemoveEffect.c:63-72`）；
+        /// 我们的等价物 = <see cref="AnyEffectGrantsTrait"/>（`_traitEffects` 里同 trait ∧ buffType ∈ {3,90}，且带残骸闸）。
+        /// 残余：`EffectResolver` 主路径仍是一路 `AddKeyword`（记录式摘只有 `EffectResolverPartial_B88E2` / `ExpireUntilNextAttack` 走到）。</para>
         /// </summary>
         public bool RemoveTraitEffect(TraitEffectRecord rec)
         {
             if (rec == null) return false;
             if (!_traitEffects.Remove(rec)) return false;
             if (string.IsNullOrEmpty(rec.Trait)) return true;
-            if (Card != null && Card.Has(rec.Trait)) return true;   // 印在卡面上 ⇒ 留着（原版 `HasDefaultTrait` 那一支）
+            if ((Card != null && Card.Has(rec.Trait)) || AnyEffectGrantsTrait(rec.Trait)) return true;   // 印在卡面 / 还有别的记录在给 ⇒ 留着（原版 `HasDefaultTrait` + `HasCurrentTraitActiveEffect` 两道闸，判据 `CardScript__RemoveEffect.c:63-72`）
             RemoveAll(rec.Trait, silent: true);                     // `RemoveTraitSilently`
             return true;
         }
@@ -3410,6 +3410,49 @@ namespace RuleEngine
                 }
             }
             return true;
+        }
+
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-28（`B93_F4` · 账 `L1041`）：原版 `EntityScript.HasCurrentTraitActiveEffect(trait)`
+        //  的等价物。⚠️ 追加在类尾（本文件行号被 40+ 条账行引用；最大的那条落点在 `:3323`）。
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// **原版 `EntityScript.HasCurrentTraitActiveEffect(DefinedTrait trait)`**
+        /// （`d:/2/tools/decomp_full/EntityScript__HasCurrentTraitActiveEffect.c`，🥇 全文现读）的等价物 ——
+        /// 「这张卡身上**还有没有别的 `addTrait` 记录**在给这条 trait」。
+        ///
+        /// <para>**原版逐句**：</para>
+        /// <list type="bullet">
+        /// <item>**门**：`if (isRemnant(+0x65) == 0 || isLeavingRemnant(+0x66) != 0)` —— 是「**或**」不是「且」：
+        /// 残骸（且**不是**正在离开残骸态）⇒ **整段跳过、返回 false**；</item>
+        /// <item>扫 `activeEffects(+0x108)`：`effect.trait(+0x3C) == 参数` ∧ `effect.buffType(+0x38) ∈ {3 addTrait, 0x5A=90 addTraitRemnant}`
+        /// ⇒ **返回 true**；扫完没有 ⇒ false。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **为什么需要它**：原版 `CardScript__RemoveEffect.c:63-72`（`case 3`）在摘一条 `addTrait` 记录之后
+        /// **不是无条件 `RemoveTraitSilently`** —— 先 `HasDefaultTrait(rawCard, trait)`（印在卡面上 ⇒ 留着），
+        /// 再 `!HasCurrentTraitActiveEffect(trait)`（**还有别的记录在给** ⇒ 也留着）才摘关键词。
+        /// 我们的 <see cref="RemoveTraitEffect"/> 就是那个 `case 3`，本方法补上第二道闸。</para>
+        ///
+        /// <para>⚠️ **`_traitEffects` 只装 `addTrait` 家族**（`ApplyTraitEffect` 是唯一写入口，`buffType` 默认 3、
+        /// 残骸那档传 90）⇒ 这里再按 `{3,90}` 过滤是**照抄原版的闸**，不是多余判断（防将来有人往表里塞别的档）。</para>
+        ///
+        /// <para>⚠️ **与 <see cref="Has"/> 的分工**（⛔ 别互相当替身）：`Has` 读 `_keywords`（**含卡面印的、光环给的**，
+        /// 比原版宽）；本方法问的是「**效果记录**里还有没有在给」—— 原版问的正是后者。</para>
+        /// </summary>
+        public bool AnyEffectGrantsTrait(string trait)
+        {
+            if (string.IsNullOrEmpty(trait)) return false;
+            if (IsRemnant && !IsLeavingRemnant) return false;   // 原版 `+0x65 && !+0x66` ⇒ 残骸整段跳过
+            for (int i = 0; i < _traitEffects.Count; i++)
+            {
+                var r = _traitEffects[i];
+                if (r == null) continue;
+                if (r.Trait != trait) continue;
+                if (r.BuffType == BuffTypeAddTrait || r.BuffType == BuffTypeAddTraitRemnant) return true;
+            }
+            return false;
         }
     }
 }

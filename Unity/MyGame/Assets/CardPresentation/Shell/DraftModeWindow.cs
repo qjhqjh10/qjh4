@@ -3243,7 +3243,7 @@ namespace CardPresentation
         /// <summary>本窗开出来的那一扇卡片详情（重开时先收掉，见 `ShowCardDetail`；两条入口共用）。</summary>
         CardDetailPopup _cardDetail;
 
-        /// <summary>选一位战将（本地暂存，原版 `SelectWarlord(card)`；此时 `Continue` 才变可点）。</summary>
+        /// <summary>选一位战将（本地暂存，原版 `SelectWarlord(card)`；此时 `Continue` 才变可点）。🔴 **2026-10-28 就地订正（铁律 5 · 账 轮抽:24）**：账里 `PickWarlord` 的判据要点原写「校验在可选集 → 写存档 → 回调」—— **不成立**。现读 `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/DraftEventBase.cs:3748`，全过程只有一句云脚本 `PlayfabWrapper.GenericCloudScriptHandler(CloudHandle.PickDraftWarlord, { id = GetID(), warlord }, onComplete, onError)`，而 `onComplete`（`b__0`）第一跳是产物里未解出的 VA `0x181814090` ⇒ **「校验 / 写存档」在服务器那一侧**。本方法 = 玩家可见那半（只认本局候选 + 存卡 + Continue 可点）的本地等价物，⛔ 别照「三段」去改。</summary>
         public bool ChooseWarlord(string cardId)
         {
             if (State != DraftModeState.SelectWarlord)
@@ -3475,21 +3475,21 @@ namespace CardPresentation
             return _cardPool;
         }
 
-        /// <summary>本局的候选择将 —— **按 seed 确定性抽**（🔴 2026-10-26 订正：原版 `GetRandomWarlords()` 的**体在场**，
-        /// 🥈 `Everguild.LiveOps/DraftEventBase.cs:2353-2932`：`RandomSeedProvider.InitSeed(seedID, Fixed, deckHero)`
-        /// + 反复 `GetRandom(seedID, 0, 候选数)` 并从池里移除已选 ⇒ **一条顺序流**；我们逐位一份 `System.Random`（差异已记账））。
-        /// 🔴 候选池 = 本机卡池里**所有** `type == "hero"` 的卡（原版由 `specificArmies/specificWarlords/guaranteedArmies/blacklistedWarlords` 过滤，那四个都在服务端 ⇒ 全池）。</summary>
+        /// <summary>本局的候选择将 —— **按 seed 确定性抽**（✅ **2026-10-28 起已接回原版那一族**：原版 `GetRandomWarlords()` = `RandomSeedProvider.InitSeed(seedID, SeedOptions.Fixed, deckHero)` 一次 + 反复 `GetRandom(seedID, 0, 候选数)` 并从池里移除已选 ⇒ **一条顺序流**，判据 = `Everguild.LiveOps/DraftEventBase.cs:2353-2932` 那三处调用点 ＋ 本仓 `Shell/RandomSeedProvider.cs`（逐句复刻，头注写死了那三行）。）
+        /// 🔴 **原来用的是逐位独立种子 `System.Random(seed*83492791 ^ i*19349663 ^ 0x5F3A1)`**，与「顺序流」形状不同 ⇒ §18·0 换成原版机制。⚠️ 这不违反红线「只用 `System.Random`」：那条管的是 `RuleEngine` 对局结算，本类是 Shell 侧，且 `RandomSeedProvider` 每次都**存/还全局 `Random.state`**（见该文件头）。
+        /// 🔴 候选池 = 本机卡池里**所有** `type == "hero"` 的卡（原版由 `specificArmies/specificWarlords/guaranteedArmies/blacklistedWarlords` 过滤，那四个都在服务端 ⇒ 全池）。
+        /// ⚠️ `seedID` 那个字符串**原版产物里丢了**（读成 `(string)0`）⇒ 键名是我们起的（`DraftWarlordSeedId`，见类尾）；**键名不影响数列**（每次 `InitSeed` 都覆盖写同一格，只有 `startValue`/`currentRoll` 参与取数）。</summary>
         public static List<CardDef> RollWarlords(int seed, int count)
         {
             var pool = new List<CardDef>();
             var all = CardPool();
             for (int i = 0; i < all.Count; i++)
                 if (all[i] != null && all[i].Type == "hero") pool.Add(all[i]);
-            var outp = new List<CardDef>(count);
+            var outp = new List<CardDef>(count); const string seedId = "draft.warlords";   // 原版那条 seedID 字符串产物里丢了（读成 `(string)0`）⇒ 键名我们起；**不影响数列**（每次 InitSeed 覆盖写同一格）
+            RandomSeedProvider.InitSeed(seedId, RandomSeedProvider.SeedOptions.Fixed, seed);   // 原版 `:2560`
             for (int i = 0; i < count && pool.Count > 0; i++)
             {
-                int slotSeed = unchecked((seed * 83492791) ^ (i * 19349663) ^ 0x5F3A1);
-                int idx = new System.Random(slotSeed).Next(pool.Count);
+                int idx = RandomSeedProvider.GetRandom(seedId, 0, pool.Count);   // 原版 `:2610` / `:2858`：一条顺序流
                 outp.Add(pool[idx]);
                 pool.RemoveAt(idx);        // 同一局不重复
             }

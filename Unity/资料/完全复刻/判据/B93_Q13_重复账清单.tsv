@@ -1,0 +1,707 @@
+组号	规范化键	行(域:行号)	现状态	是否主题行	处置	理由	主题行依据
+G001	AlternateArtStyleItem.Release/1	未分类_其他.tsv:27	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:27
+G001	AlternateArtStyleItem.Release/1	泛型与启动链_补读.tsv:538（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AlternateArtStyleItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:27
+G002	AlternateArtStyleItem.TryGetItem/2	未分类_其他.tsv:28	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:28
+G002	AlternateArtStyleItem.TryGetItem/2	泛型与启动链_补读.tsv:537（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AlternateArtStyleItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:28
+G003	AlternateArtStyleItem.TryRelease/1	未分类_其他.tsv:29	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:29
+G003	AlternateArtStyleItem.TryRelease/1	泛型与启动链_补读.tsv:539（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AlternateArtStyleItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:29
+G004	ArmyItem.Release/1	未分类_其他.tsv:38	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:38
+G004	ArmyItem.Release/1	泛型与启动链_补读.tsv:541（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ArmyItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:38
+G005	ArmyItem.TryGetItem/2	未分类_其他.tsv:39	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	未分类_其他.tsv:39
+G005	ArmyItem.TryGetItem/2	泛型与启动链_补读.tsv:540（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ArmyItem	主题行 = 未分类_其他.tsv:39
+G006	ArmyItem.TryRelease/1	未分类_其他.tsv:40	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:40
+G006	ArmyItem.TryRelease/1	泛型与启动链_补读.tsv:542（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ArmyItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:40
+G007	AssetProvider.Awake/0	未分类_其他.tsv:42	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:42
+G007	AssetProvider.Awake/0	泛型与启动链_补读.tsv:543（域=未分类/其他）	A	否	并（回填后删）	同原版方法=AssetProvider；状态 A 强于主题行 D；落点不同（本行 LiveOpsFilter.cs:721） → 先并入主题行再删	主题行 = 未分类_其他.tsv:42
+G008	AssetProvider.GetAssets/0	未分类_其他.tsv:43	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:43
+G008	AssetProvider.GetAssets/0	泛型与启动链_补读.tsv:544（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AssetProvider；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:43
+G009	AssetReferenceTyped.Load/1	未分类_其他.tsv:44	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:44
+G009	AssetReferenceTyped.Load/1	泛型与启动链_补读.tsv:547（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AssetReferenceTyped；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:44
+G010	AssetReferenceTyped.Release/2	未分类_其他.tsv:45	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:45
+G010	AssetReferenceTyped.Release/2	泛型与启动链_补读.tsv:548（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AssetReferenceTyped；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:45
+G011	AssetReferenceTyped.ValidateAsset/1	未分类_其他.tsv:46	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:46
+G011	AssetReferenceTyped.ValidateAsset/1	泛型与启动链_补读.tsv:545（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AssetReferenceTyped；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:46
+G012	AssetReferenceTyped.ValidateAsset/1	未分类_其他.tsv:47	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:47
+G012	AssetReferenceTyped.ValidateAsset/1	泛型与启动链_补读.tsv:546（域=未分类/其他）	D	否	并（回填后删）	同原版方法=AssetReferenceTyped；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:47
+G013	BaseEventProgressClaimButtonController.CollectionClick/0	日常_奖励.tsv:8	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C2	日常_奖励.tsv:8
+G013	BaseEventProgressClaimButtonController.CollectionClick/0	泛型与启动链_补读.tsv:161（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=BaseEventProgressClaimButtonController	主题行 = 日常_奖励.tsv:8
+G014	BaseEventProgressClaimButtonController.Initialize/3	日常_奖励.tsv:9	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C2	日常_奖励.tsv:9
+G014	BaseEventProgressClaimButtonController.Initialize/3	泛型与启动链_补读.tsv:160（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=BaseEventProgressClaimButtonController	主题行 = 日常_奖励.tsv:9
+G015	BaseEventProgressRewardDrawerController.ChangeState/1	日常_奖励.tsv:10	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:10
+G015	BaseEventProgressRewardDrawerController.ChangeState/1	泛型与启动链_补读.tsv:164（域=日常/奖励）	D	否	并（回填后删）	同原版方法=BaseEventProgressRewardDrawerController；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:10
+G016	BaseEventProgressRewardDrawerController.OverridePremiumBadge/1	日常_奖励.tsv:12	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:12
+G016	BaseEventProgressRewardDrawerController.OverridePremiumBadge/1	泛型与启动链_补读.tsv:163（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=BaseEventProgressRewardDrawerController	主题行 = 日常_奖励.tsv:12
+G017	BaseInboxEvent.GetMessage/0	社交_聊天.tsv:177	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	社交_聊天.tsv:177
+G017	BaseInboxEvent.GetMessage/0	泛型与启动链_补读.tsv:619（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:191） → 先并入主题行再删	主题行 = 社交_聊天.tsv:177
+G018	BaseInboxEvent.GetMessageContent/0	社交_聊天.tsv:178	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B90	社交_聊天.tsv:178
+G018	BaseInboxEvent.GetMessageContent/0	泛型与启动链_补读.tsv:620（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:86） → 先并入主题行再删	主题行 = 社交_聊天.tsv:178
+G019	BaseInboxEvent.GetRewards/0	社交_聊天.tsv:179	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	社交_聊天.tsv:179
+G019	BaseInboxEvent.GetRewards/0	泛型与启动链_补读.tsv:622（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:206） → 先并入主题行再删	主题行 = 社交_聊天.tsv:179
+G020	BaseInboxEvent.GetTitle/0	社交_聊天.tsv:180	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	社交_聊天.tsv:180
+G020	BaseInboxEvent.GetTitle/0	泛型与启动链_补读.tsv:618（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:181） → 先并入主题行再删	主题行 = 社交_聊天.tsv:180
+G021	BaseInboxEvent.IsRead/0	社交_聊天.tsv:181	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	社交_聊天.tsv:181
+G021	BaseInboxEvent.IsRead/0	泛型与启动链_补读.tsv:623（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:218） → 先并入主题行再删	主题行 = 社交_聊天.tsv:181
+G022	BaseInboxEvent.RedeemableAt/0	社交_聊天.tsv:182	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	社交_聊天.tsv:182
+G022	BaseInboxEvent.RedeemableAt/0	泛型与启动链_补读.tsv:621（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:200） → 先并入主题行再删	主题行 = 社交_聊天.tsv:182
+G023	BaseInboxEvent.StartDate/0	社交_聊天.tsv:183	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	社交_聊天.tsv:183
+G023	BaseInboxEvent.StartDate/0	泛型与启动链_补读.tsv:624（域=社交/聊天）	A	否	并（回填后删）	同原版方法=BaseInboxEvent；落点不同（本行 BaseInboxEvent.cs:230） → 先并入主题行再删	主题行 = 社交_聊天.tsv:183
+G024	BaseProgressBarScaleAndPositionController.Initialize/3	未分类_其他.tsv:74	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:74
+G024	BaseProgressBarScaleAndPositionController.Initialize/3	泛型与启动链_补读.tsv:549（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BaseProgressBarScaleAndPositionController；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:74
+G025	BaseProgressBarScaleAndPositionController.SetPositionAndScale/5	未分类_其他.tsv:75	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:75
+G025	BaseProgressBarScaleAndPositionController.SetPositionAndScale/5	泛型与启动链_补读.tsv:550（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BaseProgressBarScaleAndPositionController；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:75
+G026	BiDirectionalDictionary.Add/1	未分类_其他.tsv:76	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:76
+G026	BiDirectionalDictionary.Add/1	泛型与启动链_补读.tsv:555（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:76
+G027	BiDirectionalDictionary.Add/2	未分类_其他.tsv:77	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:77
+G027	BiDirectionalDictionary.Add/2	泛型与启动链_补读.tsv:554（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:77
+G028	BiDirectionalDictionary.Clear/0	未分类_其他.tsv:78	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:78
+G028	BiDirectionalDictionary.Clear/0	泛型与启动链_补读.tsv:556（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:78
+G029	BiDirectionalDictionary.Contains/1	未分类_其他.tsv:79	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:79
+G029	BiDirectionalDictionary.Contains/1	泛型与启动链_补读.tsv:557（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:79
+G030	BiDirectionalDictionary.ContainsKey/1	未分类_其他.tsv:80	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:80
+G030	BiDirectionalDictionary.ContainsKey/1	泛型与启动链_补读.tsv:558（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:80
+G031	BiDirectionalDictionary.ContainsValue/1	未分类_其他.tsv:81	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:81
+G031	BiDirectionalDictionary.ContainsValue/1	泛型与启动链_补读.tsv:559（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:81
+G032	BiDirectionalDictionary.CopyTo/2	未分类_其他.tsv:82	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:82
+G032	BiDirectionalDictionary.CopyTo/2	泛型与启动链_补读.tsv:560（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:82
+G033	BiDirectionalDictionary.GetEnumerator/0	未分类_其他.tsv:83	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:83
+G033	BiDirectionalDictionary.GetEnumerator/0	泛型与启动链_补读.tsv:561（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:83
+G034	BiDirectionalDictionary.GetKey/1	未分类_其他.tsv:84	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:84
+G034	BiDirectionalDictionary.GetKey/1	泛型与启动链_补读.tsv:552（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:84
+G035	BiDirectionalDictionary.GetValue/1	未分类_其他.tsv:85	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:85
+G035	BiDirectionalDictionary.GetValue/1	泛型与启动链_补读.tsv:553（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:85
+G036	BiDirectionalDictionary.Remove/1	未分类_其他.tsv:86	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:86
+G036	BiDirectionalDictionary.Remove/1	泛型与启动链_补读.tsv:563（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:86
+G037	BiDirectionalDictionary.Remove/1	未分类_其他.tsv:87	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:87
+G037	BiDirectionalDictionary.Remove/1	泛型与启动链_补读.tsv:562（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:87
+G038	BiDirectionalDictionary.TryGetKey/2	未分类_其他.tsv:88	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:88
+G038	BiDirectionalDictionary.TryGetKey/2	泛型与启动链_补读.tsv:551（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:88
+G039	BiDirectionalDictionary.TryGetValue/2	未分类_其他.tsv:89	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	未分类_其他.tsv:89
+G039	BiDirectionalDictionary.TryGetValue/2	泛型与启动链_补读.tsv:564（域=未分类/其他）	D	否	并（回填后删）	同原版方法=BiDirectionalDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:89
+G040	Cache.ForceChangedValueNotification/0	未分类_其他.tsv:105	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:105
+G040	Cache.ForceChangedValueNotification/0	泛型与启动链_补读.tsv:565（域=未分类/其他）	D	否	并（回填后删）	同原版方法=Cache；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:105
+G041	ChallengeLogMgr.LogAddEffect/1	日常_奖励.tsv:34	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B90	日常_奖励.tsv:34
+G041	ChallengeLogMgr.LogAddEffect/1	日常_奖励.tsv:783	A	否	并（回填后删）	同原版方法=GiveHuntsMark；落点不同（本行 AchievementTally.cs:240/AchievementTally.cs:2） → 先并入主题行再删	主题行 = 日常_奖励.tsv:34
+G042	ChallengeLogMgr.LogHeal/1	日常_奖励.tsv:37	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B90	日常_奖励.tsv:37
+G042	ChallengeLogMgr.LogHeal/1	日常_奖励.tsv:782	A	否	并（回填后删）	同原版方法=HealAmount；落点不同（本行 AchievementTally.cs:308/RuleCore.cs:9272） → 先并入主题行再删	主题行 = 日常_奖励.tsv:37
+G043	ChallengeLogMgr.TroopKilled/1	日常_奖励.tsv:781	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B88-A2	日常_奖励.tsv:781
+G043	ChallengeLogMgr.TroopKilled/1	日常_奖励.tsv:42	B	否	并（回填后删）	同原版方法=TroopsKilledCount；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:781
+G044	CollectionDisplay.GetItemCount/0	收藏.tsv:114	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:114
+G044	CollectionDisplay.GetItemCount/0	泛型与启动链_补读.tsv:45（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:114
+G045	CollectionDisplay.GetItemObject/1	收藏.tsv:115	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:115
+G045	CollectionDisplay.GetItemObject/1	泛型与启动链_补读.tsv:51（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:115
+G046	CollectionDisplay.GetItems/0	收藏.tsv:116	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:116
+G046	CollectionDisplay.GetItems/0	泛型与启动链_补读.tsv:37（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:116
+G047	CollectionDisplay.Initialize/2	收藏.tsv:117	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:117
+G047	CollectionDisplay.Initialize/2	泛型与启动链_补读.tsv:36（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:117
+G048	CollectionDisplay.OnDisable/0	收藏.tsv:118	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:118
+G048	CollectionDisplay.OnDisable/0	泛型与启动链_补读.tsv:39（域=收藏）	A	否	并（回填后删）	同原版方法=CollectionDisplay；状态 A 强于主题行 D；落点不同（本行 CollectionWindow.cs:4965/CollectionWindow.cs:） → 先并入主题行再删	主题行 = 收藏.tsv:118
+G049	CollectionDisplay.OnEnable/0	收藏.tsv:119	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:119
+G049	CollectionDisplay.OnEnable/0	泛型与启动链_补读.tsv:38（域=收藏）	A	否	并（回填后删）	同原版方法=CollectionDisplay；状态 A 强于主题行 D；落点不同（本行 CollectionWindow.cs:6107） → 先并入主题行再删	主题行 = 收藏.tsv:119
+G050	CollectionDisplay.OnEndDragEvent/1	收藏.tsv:120	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:120
+G050	CollectionDisplay.OnEndDragEvent/1	泛型与启动链_补读.tsv:40（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:120
+G051	CollectionDisplay.OnListDrag/1	收藏.tsv:121	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:121
+G051	CollectionDisplay.OnListDrag/1	泛型与启动链_补读.tsv:52（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:121
+G052	CollectionDisplay.RefreshCells/0	收藏.tsv:122	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:122
+G052	CollectionDisplay.RefreshCells/0	泛型与启动链_补读.tsv:48（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:122
+G053	CollectionDisplay.RefreshCollection/0	收藏.tsv:123	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:123
+G053	CollectionDisplay.RefreshCollection/0	泛型与启动链_补读.tsv:44（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:123
+G054	CollectionDisplay.ReorderCollectionByHierarchy/1	收藏.tsv:124	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:124
+G054	CollectionDisplay.ReorderCollectionByHierarchy/1	泛型与启动链_补读.tsv:47（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:124
+G055	CollectionDisplay.ResetRelayTarget/0	收藏.tsv:125	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:125
+G055	CollectionDisplay.ResetRelayTarget/0	泛型与启动链_补读.tsv:41（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionDisplay；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 收藏.tsv:125
+G056	CollectionDisplay.Select/2	收藏.tsv:126	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:126
+G056	CollectionDisplay.Select/2	泛型与启动链_补读.tsv:49（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:126
+G057	CollectionDisplay.Select/1	收藏.tsv:127	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	收藏.tsv:127
+G057	CollectionDisplay.Select/1	泛型与启动链_补读.tsv:50（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionDisplay；落点不同（本行 CollectionWindow.cs:6064） → 先并入主题行再删	主题行 = 收藏.tsv:127
+G058	CollectionDisplay.SetCell/2	收藏.tsv:128	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:128
+G058	CollectionDisplay.SetCell/2	泛型与启动链_补读.tsv:46（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:128
+G059	CollectionDisplay.ToggleFilters/1	收藏.tsv:129	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:129
+G059	CollectionDisplay.ToggleFilters/1	泛型与启动链_补读.tsv:43（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:129
+G060	CollectionDisplay.UpdateCollection/1	收藏.tsv:130	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:130
+G060	CollectionDisplay.UpdateCollection/1	泛型与启动链_补读.tsv:42（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionDisplay	主题行 = 收藏.tsv:130
+G061	CollectionFilter.ClearFilters/0	收藏.tsv:131	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:131
+G061	CollectionFilter.ClearFilters/0	泛型与启动链_补读.tsv:57（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilter	主题行 = 收藏.tsv:131
+G062	CollectionFilter.FillToggleList/2	收藏.tsv:132	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:132
+G062	CollectionFilter.FillToggleList/2	泛型与启动链_补读.tsv:58（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilter	主题行 = 收藏.tsv:132
+G063	CollectionFilter.Filter/1	收藏.tsv:133	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:133
+G063	CollectionFilter.Filter/1	泛型与启动链_补读.tsv:56（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilter	主题行 = 收藏.tsv:133
+G064	CollectionFilter.NotifyChange/0	收藏.tsv:134	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:134
+G064	CollectionFilter.NotifyChange/0	泛型与启动链_补读.tsv:55（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilter	主题行 = 收藏.tsv:134
+G065	CollectionFilter.OnFilterChange/0	收藏.tsv:135	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:135
+G065	CollectionFilter.OnFilterChange/0	泛型与启动链_补读.tsv:54（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilter	主题行 = 收藏.tsv:135
+G066	CollectionFilter.SetupFilter/1	收藏.tsv:136	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:136
+G066	CollectionFilter.SetupFilter/1	泛型与启动链_补读.tsv:53（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilter	主题行 = 收藏.tsv:136
+G067	CollectionFilterController.ClearFilters/0	收藏.tsv:137	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:137
+G067	CollectionFilterController.ClearFilters/0	泛型与启动链_补读.tsv:63（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilterController	主题行 = 收藏.tsv:137
+G068	CollectionFilterController.Filter/1	收藏.tsv:138	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:138
+G068	CollectionFilterController.Filter/1	泛型与启动链_补读.tsv:62（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilterController	主题行 = 收藏.tsv:138
+G069	CollectionFilterController.NotifyFilterChange/0	收藏.tsv:139	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:139
+G069	CollectionFilterController.NotifyFilterChange/0	泛型与启动链_补读.tsv:61（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilterController	主题行 = 收藏.tsv:139
+G070	CollectionFilterController.SetupFilters/0	收藏.tsv:140	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:140
+G070	CollectionFilterController.SetupFilters/0	泛型与启动链_补读.tsv:60（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilterController	主题行 = 收藏.tsv:140
+G071	CollectionFilterController.Toggle/2	收藏.tsv:141	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:141
+G071	CollectionFilterController.Toggle/2	泛型与启动链_补读.tsv:59（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionFilterController	主题行 = 收藏.tsv:141
+G072	CollectionItem.AnimateIn/0	收藏.tsv:147	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:147
+G072	CollectionItem.AnimateIn/0	泛型与启动链_补读.tsv:73（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:147
+G073	CollectionItem.Config/4	收藏.tsv:148	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:148
+G073	CollectionItem.Config/4	泛型与启动链_补读.tsv:65（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:148
+G074	CollectionItem.Config/2	收藏.tsv:149	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:149
+G074	CollectionItem.Config/2	泛型与启动链_补读.tsv:72（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:149
+G075	CollectionItem.HoverHighlight/1	收藏.tsv:150	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:150
+G075	CollectionItem.HoverHighlight/1	泛型与启动链_补读.tsv:81（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:150
+G076	CollectionItem.OnBeginDrag/1	收藏.tsv:151	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:151
+G076	CollectionItem.OnBeginDrag/1	泛型与启动链_补读.tsv:75（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:151
+G077	CollectionItem.OnDeselect/0	收藏.tsv:152	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:152
+G077	CollectionItem.OnDeselect/0	泛型与启动链_补读.tsv:79（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionItem；落点不同（本行 CollectionWindow.cs:1501） → 先并入主题行再删	主题行 = 收藏.tsv:152
+G078	CollectionItem.OnDisable/0	收藏.tsv:153	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:153
+G078	CollectionItem.OnDisable/0	泛型与启动链_补读.tsv:70（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 收藏.tsv:153
+G079	CollectionItem.OnDrag/1	收藏.tsv:154	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:154
+G079	CollectionItem.OnDrag/1	泛型与启动链_补读.tsv:76（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:154
+G080	CollectionItem.OnEnable/0	收藏.tsv:155	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:155
+G080	CollectionItem.OnEnable/0	泛型与启动链_补读.tsv:66（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionItem；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 收藏.tsv:155
+G081	CollectionItem.OnEndDrag/1	收藏.tsv:156	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:156
+G081	CollectionItem.OnEndDrag/1	泛型与启动链_补读.tsv:77（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:156
+G082	CollectionItem.OnEndDragEvent/1	收藏.tsv:157	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:157
+G082	CollectionItem.OnEndDragEvent/1	泛型与启动链_补读.tsv:69（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:157
+G083	CollectionItem.OnPointerClick/1	收藏.tsv:158	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:158
+G083	CollectionItem.OnPointerClick/1	泛型与启动链_补读.tsv:74（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:158
+G084	CollectionItem.OnPointerEnter/1	收藏.tsv:159	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:159
+G084	CollectionItem.OnPointerEnter/1	泛型与启动链_补读.tsv:84（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:159
+G085	CollectionItem.OnPointerExit/1	收藏.tsv:160	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:160
+G085	CollectionItem.OnPointerExit/1	泛型与启动链_补读.tsv:83（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:160
+G086	CollectionItem.OnSelect/0	收藏.tsv:161	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	收藏.tsv:161
+G086	CollectionItem.OnSelect/0	泛型与启动链_补读.tsv:78（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionItem；落点不同（本行 CollectionWindow.cs:1501） → 先并入主题行再删	主题行 = 收藏.tsv:161
+G087	CollectionItem.OnStartDragEvent/1	收藏.tsv:162	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:162
+G087	CollectionItem.OnStartDragEvent/1	泛型与启动链_补读.tsv:68（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:162
+G088	CollectionItem.SelectedHighlight/1	收藏.tsv:163	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:163
+G088	CollectionItem.SelectedHighlight/1	泛型与启动链_补读.tsv:80（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:163
+G089	CollectionItem.SetSortMode/1	收藏.tsv:164	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:164
+G089	CollectionItem.SetSortMode/1	泛型与启动链_补读.tsv:82（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:164
+G090	CollectionItem.ToggleDrag/1	收藏.tsv:166	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:166
+G090	CollectionItem.ToggleDrag/1	泛型与启动链_补读.tsv:67（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionItem	主题行 = 收藏.tsv:166
+G091	CollectionItem.ToggleListenToPointerEvents/1	收藏.tsv:167	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	收藏.tsv:167
+G091	CollectionItem.ToggleListenToPointerEvents/1	泛型与启动链_补读.tsv:71（域=收藏）	D	否	并（回填后删）	同原版方法=CollectionItem；落点不同（本行 CollectionWindow.cs:6041） → 先并入主题行再删	主题行 = 收藏.tsv:167
+G092	CollectionTab.GetCollection/0	收藏.tsv:179	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:179
+G092	CollectionTab.GetCollection/0	泛型与启动链_补读.tsv:90（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionTab	主题行 = 收藏.tsv:179
+G093	CollectionTab.GetItems/0	收藏.tsv:180	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:180
+G093	CollectionTab.GetItems/0	泛型与启动链_补读.tsv:86（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionTab	主题行 = 收藏.tsv:180
+G094	CollectionTab.OnItemSelected/2	收藏.tsv:181	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:181
+G094	CollectionTab.OnItemSelected/2	泛型与启动链_补读.tsv:89（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionTab	主题行 = 收藏.tsv:181
+G095	CollectionTab.OnOpen/0	收藏.tsv:182	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:182
+G095	CollectionTab.OnOpen/0	泛型与启动链_补读.tsv:88（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionTab	主题行 = 收藏.tsv:182
+G096	CollectionTab.Setup/1	收藏.tsv:183	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:183
+G096	CollectionTab.Setup/1	泛型与启动链_补读.tsv:87（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=CollectionTab	主题行 = 收藏.tsv:183
+G097	ComponentReference.GameObjectReady/1	未分类_其他.tsv:168	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:168
+G097	ComponentReference.GameObjectReady/1	泛型与启动链_补读.tsv:570（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:168
+G098	ComponentReference.InstantiateAsync/2	未分类_其他.tsv:169	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:169
+G098	ComponentReference.InstantiateAsync/2	泛型与启动链_补读.tsv:568（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:169
+G099	ComponentReference.InstantiateAsync/3	未分类_其他.tsv:170	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:170
+G099	ComponentReference.InstantiateAsync/3	泛型与启动链_补读.tsv:567（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:170
+G100	ComponentReference.Load/0	未分类_其他.tsv:171	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:171
+G100	ComponentReference.Load/0	泛型与启动链_补读.tsv:575（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:171
+G101	ComponentReference.LoadAssetAsync/0	未分类_其他.tsv:172	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:172
+G101	ComponentReference.LoadAssetAsync/0	泛型与启动链_补读.tsv:569（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:172
+G102	ComponentReference.Release/1	未分类_其他.tsv:173	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:173
+G102	ComponentReference.Release/1	泛型与启动链_补读.tsv:573（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:173
+G103	ComponentReference.ReleaseAsset/0	未分类_其他.tsv:174	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:174
+G103	ComponentReference.ReleaseAsset/0	泛型与启动链_补读.tsv:574（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:174
+G104	ComponentReference.ValidateAsset/1	未分类_其他.tsv:175	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:175
+G104	ComponentReference.ValidateAsset/1	泛型与启动链_补读.tsv:571（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:175
+G105	ComponentReference.ValidateAsset/1	未分类_其他.tsv:176	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:176
+G105	ComponentReference.ValidateAsset/1	泛型与启动链_补读.tsv:572（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ComponentReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:176
+G106	ConfigProvider.Initialize/1	未分类_其他.tsv:177	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:177
+G106	ConfigProvider.Initialize/1	泛型与启动链_补读.tsv:576（域=未分类/其他）	A	否	并（回填后删）	同原版方法=ConfigProvider；状态 A 强于主题行 D；落点不同（本行 LiveOpsFilter.cs:721） → 先并入主题行再删	主题行 = 未分类_其他.tsv:177
+G107	ConfigProvider.OnDestroy/0	未分类_其他.tsv:178	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:178
+G107	ConfigProvider.OnDestroy/0	泛型与启动链_补读.tsv:578（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ConfigProvider；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:178
+G108	ConfigProvider.UnpackInternal/1	未分类_其他.tsv:179	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:179
+G108	ConfigProvider.UnpackInternal/1	泛型与启动链_补读.tsv:577（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ConfigProvider；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:179
+G109	Decorator.Awake/0	未分类_其他.tsv:241	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:241
+G109	Decorator.Awake/0	泛型与启动链_补读.tsv:579（域=未分类/其他）	A	否	并（回填后删）	同原版方法=Decorator；落点不同（本行 CampaignTab.cs:875） → 先并入主题行再删	主题行 = 未分类_其他.tsv:241
+G110	Decorator.OnDecorableUpdated/2	未分类_其他.tsv:242	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:242
+G110	Decorator.OnDecorableUpdated/2	泛型与启动链_补读.tsv:580（域=未分类/其他）	A	否	并（回填后删）	同原版方法=Decorator；落点不同（本行 CampaignTab.cs:875） → 先并入主题行再删	主题行 = 未分类_其他.tsv:242
+G111	Decorator.OnDisable/0	未分类_其他.tsv:243	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:243
+G111	Decorator.OnDisable/0	泛型与启动链_补读.tsv:582（域=未分类/其他）	A	否	并（回填后删）	同原版方法=Decorator；落点不同（本行 CampaignTab.cs:875） → 先并入主题行再删	主题行 = 未分类_其他.tsv:243
+G112	Decorator.OnEnable/0	未分类_其他.tsv:244	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:244
+G112	Decorator.OnEnable/0	泛型与启动链_补读.tsv:581（域=未分类/其他）	A	否	并（回填后删）	同原版方法=Decorator；落点不同（本行 CampaignTab.cs:875） → 先并入主题行再删	主题行 = 未分类_其他.tsv:244
+G113	Decorator.OnObjectUpdated/1	未分类_其他.tsv:245	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:245
+G113	Decorator.OnObjectUpdated/1	泛型与启动链_补读.tsv:583（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Decorator	主题行 = 未分类_其他.tsv:245
+G114	DraftEventBase.CollectRewards/2	轮抽.tsv:5	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	轮抽.tsv:5
+G114	DraftEventBase.CollectRewards/2	泛型与启动链_补读.tsv:763（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 轮抽.tsv:5
+G115	DraftEventBase.FinishRun/1	轮抽.tsv:7	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:7
+G115	DraftEventBase.FinishRun/1	泛型与启动链_补读.tsv:762（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:7
+G116	DraftEventBase.FreeEventEntrance/2	轮抽.tsv:8	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:8
+G116	DraftEventBase.FreeEventEntrance/2	泛型与启动链_补读.tsv:761（域=轮抽）	A	否	并（回填后删）	同原版方法=DraftEventBase；落点不同（本行 DraftEventBase.cs:114） → 先并入主题行再删	主题行 = 轮抽.tsv:8
+G117	DraftEventBase.GetBaseData/0	轮抽.tsv:9	B	是	保持（主题行）	主题表行；状态B、有落点、轮次R1	轮抽.tsv:9
+G117	DraftEventBase.GetBaseData/0	泛型与启动链_补读.tsv:755（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 轮抽.tsv:9
+G118	DraftEventBase.GetBaseSave/0	轮抽.tsv:10	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:10
+G118	DraftEventBase.GetBaseSave/0	泛型与启动链_补读.tsv:756（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 轮抽.tsv:10
+G119	DraftEventBase.GetCardsFromPacks/1	轮抽.tsv:11	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:11
+G119	DraftEventBase.GetCardsFromPacks/1	泛型与启动链_补读.tsv:746（域=轮抽）	A	否	并（回填后删）	同原版方法=DraftEventBase；落点不同（本行 DraftPacks.cs:405） → 先并入主题行再删	主题行 = 轮抽.tsv:11
+G120	DraftEventBase.GetRandomPack/2	轮抽.tsv:15	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:15
+G120	DraftEventBase.GetRandomPack/2	泛型与启动链_补读.tsv:752（域=轮抽）	A	否	并（回填后删）	同原版方法=DraftEventBase；落点不同（本行 DraftPacks.cs:289/DraftPacks.cs:336） → 先并入主题行再删	主题行 = 轮抽.tsv:15
+G121	DraftEventBase.LoadEventData/3	轮抽.tsv:17	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:17
+G121	DraftEventBase.LoadEventData/3	泛型与启动链_补读.tsv:742（域=轮抽）	A	否	并（回填后删）	同原版方法=DraftEventBase；落点不同（本行 DraftModeWindow.cs:1099） → 先并入主题行再删	主题行 = 轮抽.tsv:17
+G122	DraftEventBase.OnMatchFinished/3	轮抽.tsv:18	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B90	轮抽.tsv:18
+G122	DraftEventBase.OnMatchFinished/3	泛型与启动链_补读.tsv:749（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:18
+G123	DraftEventBase.OnMatchFound/1	轮抽.tsv:19	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	轮抽.tsv:19
+G123	DraftEventBase.OnMatchFound/1	泛型与启动链_补读.tsv:748（域=轮抽）	A	否	并（回填后删）	同原版方法=DraftEventBase；状态 A 强于主题行 D；落点不同（本行 DraftEventBase.cs:207/PlayEvent.cs:548） → 先并入主题行再删	主题行 = 轮抽.tsv:19
+G124	DraftEventBase.OnMatchProcessSuccess/1	轮抽.tsv:20	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	轮抽.tsv:20
+G124	DraftEventBase.OnMatchProcessSuccess/1	泛型与启动链_补读.tsv:750（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；落点不同（本行 DraftEventBase.cs:224） → 先并入主题行再删	主题行 = 轮抽.tsv:20
+G125	DraftEventBase.OnMatchWon/0	轮抽.tsv:21	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:21
+G125	DraftEventBase.OnMatchWon/0	泛型与启动链_补读.tsv:751（域=轮抽）	A	否	并（回填后删）	同原版方法=DraftEventBase；落点不同（本行 DraftModeWindow.cs:2378） → 先并入主题行再删	主题行 = 轮抽.tsv:21
+G126	DraftEventBase.PayEventEntrance/3	轮抽.tsv:22	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	轮抽.tsv:22
+G126	DraftEventBase.PayEventEntrance/3	泛型与启动链_补读.tsv:760（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 轮抽.tsv:22
+G127	DraftEventBase.PickPack/3	轮抽.tsv:23	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:23
+G127	DraftEventBase.PickPack/3	泛型与启动链_补读.tsv:753（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:23
+G128	DraftEventBase.ReRollPack/2	轮抽.tsv:25	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:25
+G128	DraftEventBase.ReRollPack/2	泛型与启动链_补读.tsv:754（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:25
+G129	DraftEventBase.RefundRun/2	轮抽.tsv:26	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B88-B2	轮抽.tsv:26
+G129	DraftEventBase.RefundRun/2	泛型与启动链_补读.tsv:764（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 轮抽.tsv:26
+G130	DraftEventBase.ResetCollectedDraft/1	轮抽.tsv:27	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:27
+G130	DraftEventBase.ResetCollectedDraft/1	泛型与启动链_补读.tsv:744（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:27
+G131	DraftEventBase.SaveCards/5	轮抽.tsv:28	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:28
+G131	DraftEventBase.SaveCards/5	泛型与启动链_补读.tsv:747（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:28
+G132	DraftEventBase.SelectEvent/0	轮抽.tsv:29	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:29
+G132	DraftEventBase.SelectEvent/0	泛型与启动链_补读.tsv:743（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:29
+G133	DraftEventBase.SetCustomMatchOptions/2	轮抽.tsv:30	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	轮抽.tsv:30
+G133	DraftEventBase.SetCustomMatchOptions/2	泛型与启动链_补读.tsv:759（域=轮抽）	D	否	并（回填后删）	同原版方法=DraftEventBase；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 轮抽.tsv:30
+G134	DraftEventBase.UpdateState/0	轮抽.tsv:31	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	轮抽.tsv:31
+G134	DraftEventBase.UpdateState/0	泛型与启动链_补读.tsv:757（域=轮抽）	A	否	删	与主题行同落点、同状态；同原版方法=DraftEventBase	主题行 = 轮抽.tsv:31
+G135	Draggable.Initialize/1	菜单_外壳.tsv:118	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R3	菜单_外壳.tsv:118
+G135	Draggable.Initialize/1	泛型与启动链_补读.tsv:717（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Draggable	主题行 = 菜单_外壳.tsv:118
+G136	Draggable.OnDrag/0	菜单_外壳.tsv:120	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	菜单_外壳.tsv:120
+G136	Draggable.OnDrag/0	泛型与启动链_补读.tsv:718（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Draggable	主题行 = 菜单_外壳.tsv:120
+G137	Draggable.OnRelease/0	菜单_外壳.tsv:123	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	菜单_外壳.tsv:123
+G137	Draggable.OnRelease/0	泛型与启动链_补读.tsv:719（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Draggable	主题行 = 菜单_外壳.tsv:123
+G138	DraggableController.OnBeginDrag/1	菜单_外壳.tsv:124	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	菜单_外壳.tsv:124
+G138	DraggableController.OnBeginDrag/1	泛型与启动链_补读.tsv:721（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=DraggableController	主题行 = 菜单_外壳.tsv:124
+G139	DraggableController.OnDrag/1	菜单_外壳.tsv:125	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	菜单_外壳.tsv:125
+G139	DraggableController.OnDrag/1	泛型与启动链_补读.tsv:722（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=DraggableController	主题行 = 菜单_外壳.tsv:125
+G140	DraggableController.OnEndDrag/1	菜单_外壳.tsv:126	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	菜单_外壳.tsv:126
+G140	DraggableController.OnEndDrag/1	泛型与启动链_补读.tsv:723（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=DraggableController	主题行 = 菜单_外壳.tsv:126
+G141	DraggableController.SetDraggable/1	菜单_外壳.tsv:127	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	菜单_外壳.tsv:127
+G141	DraggableController.SetDraggable/1	泛型与启动链_补读.tsv:720（域=菜单/外壳）	A	否	删	本行备注已写「已并入主题表」；同原版方法=DraggableController	主题行 = 菜单_外壳.tsv:127
+G142	DynamicList.Add/1	菜单_外壳.tsv:142	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:142
+G142	DynamicList.Add/1	泛型与启动链_补读.tsv:731（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:142
+G143	DynamicList.Clear/0	菜单_外壳.tsv:143	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:143
+G143	DynamicList.Clear/0	泛型与启动链_补读.tsv:734（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:143
+G144	DynamicList.Get/1[gen1]	菜单_外壳.tsv:144	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:144
+G144	DynamicList.Get/1[gen1]	泛型与启动链_补读.tsv:728（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:144
+G145	DynamicList.Get/1[gen1]	菜单_外壳.tsv:145	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:145
+G145	DynamicList.Get/1[gen1]	泛型与启动链_补读.tsv:729（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:145
+G146	DynamicList.GetAll/0[gen1]	菜单_外壳.tsv:146	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:146
+G146	DynamicList.GetAll/0[gen1]	泛型与启动链_补读.tsv:730（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:146
+G147	DynamicList.GetIndexType/1	菜单_外壳.tsv:147	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:147
+G147	DynamicList.GetIndexType/1	泛型与启动链_补读.tsv:727（域=菜单/外壳）	D	否	并（回填后删）	同原版方法=DynamicList；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 菜单_外壳.tsv:147
+G148	DynamicList.GetList/0	菜单_外壳.tsv:149	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:149
+G148	DynamicList.GetList/0	泛型与启动链_补读.tsv:725（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:149
+G149	DynamicList.IndexOf/1	菜单_外壳.tsv:150	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:150
+G149	DynamicList.IndexOf/1	泛型与启动链_补读.tsv:733（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:150
+G150	DynamicList.Inser/2	菜单_外壳.tsv:151	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:151
+G150	DynamicList.Inser/2	泛型与启动链_补读.tsv:732（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:151
+G151	DynamicList.ListType/0	菜单_外壳.tsv:152	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:152
+G151	DynamicList.ListType/0	泛型与启动链_补读.tsv:726（域=菜单/外壳）	D	否	并（回填后删）	同原版方法=DynamicList；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 菜单_外壳.tsv:152
+G152	DynamicList.Remove/1	菜单_外壳.tsv:154	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:154
+G152	DynamicList.Remove/1	泛型与启动链_补读.tsv:735（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:154
+G153	DynamicList.RemoveAt/1	菜单_外壳.tsv:155	D	是	保持（主题行）	主题表行；状态D、有落点、轮次B90	菜单_外壳.tsv:155
+G153	DynamicList.RemoveAt/1	泛型与启动链_补读.tsv:736（域=菜单/外壳）	A	否	并（回填后删）	⚠️ 本行落点疑似抄错（`LiveOpsEvent.cs:135` 属 LiveOpsEvent.Triggers，与 DynamicList 无关）⇒ ⛔ 别回填落点；同原版方法=DynamicList；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:135） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:155
+G154	FastModeBaseEvent.GetArmyState/2	日常_奖励.tsv:260	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:260
+G154	FastModeBaseEvent.GetArmyState/2	泛型与启动链_补读.tsv:166（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:260
+G155	FastModeBaseEvent.GetArmyStats/1	日常_奖励.tsv:261	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:261
+G155	FastModeBaseEvent.GetArmyStats/1	泛型与启动链_补读.tsv:165（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:261
+G156	FastModeBaseEvent.GetBaseData/0	日常_奖励.tsv:262	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:262
+G156	FastModeBaseEvent.GetBaseData/0	泛型与启动链_补读.tsv:168（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:262
+G157	FastModeBaseEvent.GetBaseSave/0	日常_奖励.tsv:263	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:263
+G157	FastModeBaseEvent.GetBaseSave/0	泛型与启动链_补读.tsv:172（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:263
+G158	FastModeBaseEvent.GetEventDeck/1	日常_奖励.tsv:265	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:265
+G158	FastModeBaseEvent.GetEventDeck/1	泛型与启动链_补读.tsv:167（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:265
+G159	FastModeBaseEvent.GetEventDeck/0	日常_奖励.tsv:264	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:264
+G159	FastModeBaseEvent.GetEventDeck/0	泛型与启动链_补读.tsv:169（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:264
+G160	FastModeBaseEvent.GetSqlFilter/6	日常_奖励.tsv:267	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:267
+G160	FastModeBaseEvent.GetSqlFilter/6	泛型与启动链_补读.tsv:171（域=日常/奖励）	D	否	并（回填后删）	同原版方法=FastModeBaseEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:267
+G161	FastModeBaseEvent.OnMatchDraw/0	日常_奖励.tsv:268	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:268
+G161	FastModeBaseEvent.OnMatchDraw/0	泛型与启动链_补读.tsv:176（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:268
+G162	FastModeBaseEvent.OnMatchLost/0	日常_奖励.tsv:271	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:271
+G162	FastModeBaseEvent.OnMatchLost/0	泛型与启动链_补读.tsv:175（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:271
+G163	FastModeBaseEvent.OnMatchWon/0	日常_奖励.tsv:273	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:273
+G163	FastModeBaseEvent.OnMatchWon/0	泛型与启动链_补读.tsv:174（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:273
+G164	FastModeBaseEvent.RecordMatchFinished/4	日常_奖励.tsv:274	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:274
+G164	FastModeBaseEvent.RecordMatchFinished/4	泛型与启动链_补读.tsv:173（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=FastModeBaseEvent	主题行 = 日常_奖励.tsv:274
+G165	FastModeBaseEvent.SetCustomMatchOptions/2	日常_奖励.tsv:275	B	是	保持（主题行）	主题表行；状态B、有 .cs:行、轮次B87-C1	日常_奖励.tsv:275
+G165	FastModeBaseEvent.SetCustomMatchOptions/2	泛型与启动链_补读.tsv:170（域=日常/奖励）	D	否	并（回填后删）	同原版方法=FastModeBaseEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:275
+G166	GameNewsEvent.GetBaseData/0	日常_奖励.tsv:281	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:281
+G166	GameNewsEvent.GetBaseData/0	泛型与启动链_补读.tsv:181（域=日常/奖励）	A	否	并（回填后删）	同原版方法=GameNewsEvent；落点不同（本行 GameNewsEvent.cs:98） → 先并入主题行再删	主题行 = 日常_奖励.tsv:281
+G167	GameNewsEvent.GetBaseSave/0	日常_奖励.tsv:282	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-F1	日常_奖励.tsv:282
+G167	GameNewsEvent.GetBaseSave/0	泛型与启动链_补读.tsv:182（域=日常/奖励）	A	否	并（回填后删）	同原版方法=GameNewsEvent；落点不同（本行 GameNewsEvent.cs:101） → 先并入主题行再删	主题行 = 日常_奖励.tsv:282
+G168	GameNewsEvent.IsRead/0	日常_奖励.tsv:285	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:285
+G168	GameNewsEvent.IsRead/0	泛型与启动链_补读.tsv:179（域=日常/奖励）	A	否	并（回填后删）	同原版方法=GameNewsEvent；落点不同（本行 GameNewsEvent.cs:107） → 先并入主题行再删	主题行 = 日常_奖励.tsv:285
+G169	GameNewsEvent.StartDate/0	日常_奖励.tsv:287	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:287
+G169	GameNewsEvent.StartDate/0	泛型与启动链_补读.tsv:180（域=日常/奖励）	A	否	并（回填后删）	同原版方法=GameNewsEvent；落点不同（本行 GameNewsEvent.cs:120） → 先并入主题行再删	主题行 = 日常_奖励.tsv:287
+G170	IdentifiableWrapper.GetID/0	未分类_其他.tsv:362	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:362
+G170	IdentifiableWrapper.GetID/0	泛型与启动链_补读.tsv:593（域=未分类/其他）	A	否	并（回填后删）	同原版方法=IdentifiableWrapper；状态 A 强于主题行 D；落点不同（本行 Inventory.cs:1636） → 先并入主题行再删	主题行 = 未分类_其他.tsv:362
+G171	Inventory.Add/5	收藏.tsv:219	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:219
+G171	Inventory.Add/5	泛型与启动链_补读.tsv:105（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=Inventory	主题行 = 收藏.tsv:219
+G172	Inventory.Create/3	收藏.tsv:220	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:220
+G172	Inventory.Create/3	泛型与启动链_补读.tsv:103（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:220
+G173	Inventory.Get/2	收藏.tsv:222	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:222
+G173	Inventory.Get/2	泛型与启动链_补读.tsv:110（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=Inventory	主题行 = 收藏.tsv:222
+G174	Inventory.Get/1	收藏.tsv:223	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:223
+G174	Inventory.Get/1	泛型与启动链_补读.tsv:111（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:223
+G175	Inventory.Get/1	收藏.tsv:221	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:221
+G175	Inventory.Get/1	泛型与启动链_补读.tsv:112（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:221
+G176	Inventory.GetItemInstances/1	收藏.tsv:224	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:224
+G176	Inventory.GetItemInstances/1	泛型与启动链_补读.tsv:109（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=Inventory	主题行 = 收藏.tsv:224
+G177	Inventory.GetItems/0	收藏.tsv:225	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:225
+G177	Inventory.GetItems/0	泛型与启动链_补读.tsv:108（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:225
+G178	Inventory.GetWhere/1	收藏.tsv:226	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:226
+G178	Inventory.GetWhere/1	泛型与启动链_补读.tsv:113（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:226
+G179	Inventory.OnFinishUnpack/0	收藏.tsv:227	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	收藏.tsv:227
+G179	Inventory.OnFinishUnpack/0	泛型与启动链_补读.tsv:104（域=收藏）	D	否	并（回填后删）	同原版方法=Inventory；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 收藏.tsv:227
+G180	Inventory.OnItemCountModify/2	收藏.tsv:228	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:228
+G180	Inventory.OnItemCountModify/2	泛型与启动链_补读.tsv:101（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:228
+G181	Inventory.OnItemCountModifyInternal/2	收藏.tsv:229	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:229
+G181	Inventory.OnItemCountModifyInternal/2	泛型与启动链_补读.tsv:100（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:229
+G182	Inventory.RegisterSubset/2	收藏.tsv:230	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:230
+G182	Inventory.RegisterSubset/2	泛型与启动链_补读.tsv:102（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:230
+G183	Inventory.TryGetItem/2	收藏.tsv:232	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:232
+G183	Inventory.TryGetItem/2	泛型与启动链_补读.tsv:106（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:232
+G184	Inventory.TryGetItem/2	收藏.tsv:231	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:231
+G184	Inventory.TryGetItem/2	泛型与启动链_补读.tsv:107（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:231
+G185	Inventory.UpdateItemCollection/0	收藏.tsv:233	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:233
+G185	Inventory.UpdateItemCollection/0	泛型与启动链_补读.tsv:99（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Inventory	主题行 = 收藏.tsv:233
+G186	ItemDrawer.Awake/0	收藏.tsv:264	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:264
+G186	ItemDrawer.Awake/0	泛型与启动链_补读.tsv:114（域=收藏）	D	否	并（回填后删）	同原版方法=ItemDrawer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 收藏.tsv:264
+G187	ItemDrawer.Draw/3	收藏.tsv:265	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B88-E8b	收藏.tsv:265
+G187	ItemDrawer.Draw/3	泛型与启动链_补读.tsv:116（域=收藏）	A	否	并（回填后删）	同原版方法=ItemDrawer；落点不同（本行 ItemDrawer.cs:840） → 先并入主题行再删	主题行 = 收藏.tsv:265
+G188	ItemDrawer.Draw/2	收藏.tsv:267	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次B87-R7	收藏.tsv:267
+G188	ItemDrawer.Draw/2	泛型与启动链_补读.tsv:126（域=收藏）	A	否	并（回填后删）	同原版方法=ItemDrawer；状态 A 强于主题行 D；落点不同（本行 ItemDrawer.cs:840） → 先并入主题行再删	主题行 = 收藏.tsv:267
+G189	ItemDrawer.HandlePointerClick/0	收藏.tsv:271	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:271
+G189	ItemDrawer.HandlePointerClick/0	泛型与启动链_补读.tsv:130（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:271
+G190	ItemDrawer.OnPointerClick/1	收藏.tsv:273	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B9	收藏.tsv:273
+G190	ItemDrawer.OnPointerClick/1	泛型与启动链_补读.tsv:129（域=收藏）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ItemDrawer	主题行 = 收藏.tsv:273
+G191	ItemDrawer.OverrideOnClickAction/1	收藏.tsv:276	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:276
+G191	ItemDrawer.OverrideOnClickAction/1	泛型与启动链_补读.tsv:124（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:276
+G192	ItemDrawer.OverridePremiumBadge/1	收藏.tsv:278	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:278
+G192	ItemDrawer.OverridePremiumBadge/1	泛型与启动链_补读.tsv:121（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:278
+G193	ItemDrawer.Refresh/0	收藏.tsv:280	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:280
+G193	ItemDrawer.Refresh/0	泛型与启动链_补读.tsv:115（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:280
+G194	ItemDrawer.SetConvertedItem/1	收藏.tsv:284	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:284
+G194	ItemDrawer.SetConvertedItem/1	泛型与启动链_补读.tsv:118（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:284
+G195	ItemDrawer.SetEphemeralDisplay/1	收藏.tsv:286	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:286
+G195	ItemDrawer.SetEphemeralDisplay/1	泛型与启动链_补读.tsv:119（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:286
+G196	ItemDrawer.SetItemName/1	收藏.tsv:287	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R5	收藏.tsv:287
+G196	ItemDrawer.SetItemName/1	泛型与启动链_补读.tsv:117（域=收藏）	D	否	并（回填后删）	同原版方法=ItemDrawer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 收藏.tsv:287
+G197	ItemDrawer.ToggleClaimedWarning/1	收藏.tsv:289	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:289
+G197	ItemDrawer.ToggleClaimedWarning/1	泛型与启动链_补读.tsv:120（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ItemDrawer	主题行 = 收藏.tsv:289
+G198	ItemDrawer.ToggleHighlight/1	收藏.tsv:291	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R5	收藏.tsv:291
+G198	ItemDrawer.ToggleHighlight/1	泛型与启动链_补读.tsv:127（域=收藏）	A	否	并（回填后删）	同原版方法=ItemDrawer；状态 A 强于主题行 D；落点不同（本行 ItemDrawer.cs:1628） → 先并入主题行再删	主题行 = 收藏.tsv:291
+G199	ItemDrawer.ToggleLock/1	收藏.tsv:293	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R5	收藏.tsv:293
+G199	ItemDrawer.ToggleLock/1	泛型与启动链_补读.tsv:128（域=收藏）	A	否	并（回填后删）	同原版方法=ItemDrawer；状态 A 强于主题行 D；落点不同（本行 ItemDrawer.cs:1631） → 先并入主题行再删	主题行 = 收藏.tsv:293
+G200	ItemDrawer.TogglePremiumHighlight/1	收藏.tsv:295	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:295
+G200	ItemDrawer.TogglePremiumHighlight/1	泛型与启动链_补读.tsv:122（域=收藏）	A	否	并（回填后删）	同原版方法=ItemDrawer；落点不同（本行 ItemDrawer.cs:1618） → 先并入主题行再删	主题行 = 收藏.tsv:295
+G201	ItemDrawer.ToggleShowInfoOnClick/1	收藏.tsv:296	D	是	保持（主题行）	主题表行；状态D、有 .cs:行、轮次R1	收藏.tsv:296
+G201	ItemDrawer.ToggleShowInfoOnClick/1	泛型与启动链_补读.tsv:123（域=收藏）	A	否	并（回填后删）	同原版方法=ItemDrawer；状态 A 强于主题行 D；落点不同（本行 ItemDrawer.cs:1652） → 先并入主题行再删	主题行 = 收藏.tsv:296
+G202	ItemInfo.Add/2	未分类_其他.tsv:373	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	未分类_其他.tsv:373
+G202	ItemInfo.Add/2	泛型与启动链_补读.tsv:597（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ItemInfo	主题行 = 未分类_其他.tsv:373
+G203	ItemInfo.AssignEphemeralState/1	未分类_其他.tsv:374	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	未分类_其他.tsv:374
+G203	ItemInfo.AssignEphemeralState/1	泛型与启动链_补读.tsv:599（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ItemInfo	主题行 = 未分类_其他.tsv:374
+G204	ItemInfo.Convert/0[gen1]	未分类_其他.tsv:375	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C4	未分类_其他.tsv:375
+G204	ItemInfo.Convert/0[gen1]	泛型与启动链_补读.tsv:595（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ItemInfo	主题行 = 未分类_其他.tsv:375
+G205	ItemInfo.SetAmount/1	未分类_其他.tsv:376	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	未分类_其他.tsv:376
+G205	ItemInfo.SetAmount/1	泛型与启动链_补读.tsv:598（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ItemInfo	主题行 = 未分类_其他.tsv:376
+G206	ItemInfo.SetInfo/3	未分类_其他.tsv:377	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R2	未分类_其他.tsv:377
+G206	ItemInfo.SetInfo/3	泛型与启动链_补读.tsv:596（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=ItemInfo	主题行 = 未分类_其他.tsv:377
+G207	LiveOpsEvent.CreateNewSave/1	日常_奖励.tsv:322	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:322
+G207	LiveOpsEvent.CreateNewSave/1	泛型与启动链_补读.tsv:191（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:322
+G208	LiveOpsEvent.GetBaseData/0	日常_奖励.tsv:326	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:326
+G208	LiveOpsEvent.GetBaseData/0	泛型与启动链_补读.tsv:184（域=日常/奖励）	D	否	并（回填后删）	同原版方法=LiveOpsEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:326
+G209	LiveOpsEvent.GetBaseSave/0	日常_奖励.tsv:328	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:328
+G209	LiveOpsEvent.GetBaseSave/0	泛型与启动链_补读.tsv:185（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:328
+G210	LiveOpsEvent.GetEndDate/1	日常_奖励.tsv:330	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:330
+G210	LiveOpsEvent.GetEndDate/1	泛型与启动链_补读.tsv:196（域=日常/奖励）	A	否	并（回填后删）	同原版方法=LiveOpsEvent；落点不同（本行 LiveOpsLocalCatalog.cs:184） → 先并入主题行再删	主题行 = 日常_奖励.tsv:330
+G211	LiveOpsEvent.GetID/0	日常_奖励.tsv:334	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:334
+G211	LiveOpsEvent.GetID/0	泛型与启动链_补读.tsv:183（域=日常/奖励）	D	否	并（回填后删）	同原版方法=LiveOpsEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:334
+G212	LiveOpsEvent.Initialize/0	日常_奖励.tsv:339	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:339
+G212	LiveOpsEvent.Initialize/0	泛型与启动链_补读.tsv:187（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:339
+G213	LiveOpsEvent.LoadEventData/3	日常_奖励.tsv:342	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:342
+G213	LiveOpsEvent.LoadEventData/3	泛型与启动链_补读.tsv:188（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:342
+G214	LiveOpsEvent.ResetEventProgress/0	日常_奖励.tsv:352	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:352
+G214	LiveOpsEvent.ResetEventProgress/0	泛型与启动链_补读.tsv:194（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:352
+G215	LiveOpsEvent.SaveEventProgress/2	日常_奖励.tsv:353	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:353
+G215	LiveOpsEvent.SaveEventProgress/2	泛型与启动链_补读.tsv:195（域=日常/奖励）	A	否	并（回填后删）	同原版方法=LiveOpsEvent；状态 A 强于主题行 D；落点不同（本行 LiveOpsEvent.cs:400） → 先并入主题行再删	主题行 = 日常_奖励.tsv:353
+G216	LiveOpsEvent.SelectEvent/0	日常_奖励.tsv:355	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:355
+G216	LiveOpsEvent.SelectEvent/0	泛型与启动链_补读.tsv:186（域=日常/奖励）	A	否	并（回填后删）	同原版方法=LiveOpsEvent；落点不同（本行 LiveOpsEventWindow.cs:549） → 先并入主题行再删	主题行 = 日常_奖励.tsv:355
+G217	LiveOpsEvent.UpdateData/1	日常_奖励.tsv:357	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:357
+G217	LiveOpsEvent.UpdateData/1	泛型与启动链_补读.tsv:192（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:357
+G218	LiveOpsEvent.UpdateSaveGame/1	日常_奖励.tsv:359	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:359
+G218	LiveOpsEvent.UpdateSaveGame/1	泛型与启动链_补读.tsv:193（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:359
+G219	LiveOpsEvent.Validate/1	日常_奖励.tsv:360	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:360
+G219	LiveOpsEvent.Validate/1	泛型与启动链_补读.tsv:190（域=日常/奖励）	D	否	并（回填后删）	同原版方法=LiveOpsEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:360
+G220	LiveOpsEvent.ValidateEventData/4	日常_奖励.tsv:361	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:361
+G220	LiveOpsEvent.ValidateEventData/4	泛型与启动链_补读.tsv:189（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsEvent	主题行 = 日常_奖励.tsv:361
+G221	LiveOpsEventWindow.Close/0	日常_奖励.tsv:372	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:372
+G221	LiveOpsEventWindow.Close/0	泛型与启动链_补读.tsv:199（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsEventWindow	主题行 = 日常_奖励.tsv:372
+G222	LiveOpsEventWindow.InitializeWindow/1	日常_奖励.tsv:373	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:373
+G222	LiveOpsEventWindow.InitializeWindow/1	泛型与启动链_补读.tsv:197（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsEventWindow	主题行 = 日常_奖励.tsv:373
+G223	LiveOpsEventWindow.OnRefresh/0	日常_奖励.tsv:375	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B88-E11	日常_奖励.tsv:375
+G223	LiveOpsEventWindow.OnRefresh/0	泛型与启动链_补读.tsv:198（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsEventWindow	主题行 = 日常_奖励.tsv:375
+G224	LiveOpsEventWindow.SetupData/2	日常_奖励.tsv:376	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:376
+G224	LiveOpsEventWindow.SetupData/2	泛型与启动链_补读.tsv:200（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsEventWindow	主题行 = 日常_奖励.tsv:376
+G225	LiveOpsEventWindowWithTabs.InitializeWindow/1	日常_奖励.tsv:377	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:377
+G225	LiveOpsEventWindowWithTabs.InitializeWindow/1	泛型与启动链_补读.tsv:202（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsEventWindowWithTabs	主题行 = 日常_奖励.tsv:377
+G226	LiveOpsEventWindowWithTabs.SetupData/2	日常_奖励.tsv:379	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:379
+G226	LiveOpsEventWindowWithTabs.SetupData/2	泛型与启动链_补读.tsv:201（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsEventWindowWithTabs	主题行 = 日常_奖励.tsv:379
+G227	LiveOpsHandler.BeforeRefresh/0	日常_奖励.tsv:380	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:380
+G227	LiveOpsHandler.BeforeRefresh/0	泛型与启动链_补读.tsv:218（域=日常/奖励）	D	否	并（回填后删）	同原版方法=LiveOpsHandler；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:380
+G228	LiveOpsHandler.ClearEvents/0	日常_奖励.tsv:381	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:381
+G228	LiveOpsHandler.ClearEvents/0	泛型与启动链_补读.tsv:221（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:381
+G229	LiveOpsHandler.DeserializeSharedData/1	日常_奖励.tsv:382	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B9_R2T3B3	日常_奖励.tsv:382
+G229	LiveOpsHandler.DeserializeSharedData/1	泛型与启动链_补读.tsv:211（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:382
+G230	LiveOpsHandler.ExpireEvent/4	日常_奖励.tsv:383	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:383
+G230	LiveOpsHandler.ExpireEvent/4	泛型与启动链_补读.tsv:209（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:383
+G231	LiveOpsHandler.GetBlockedEvents/0	日常_奖励.tsv:385	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:385
+G231	LiveOpsHandler.GetBlockedEvents/0	泛型与启动链_补读.tsv:224（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:385
+G232	LiveOpsHandler.GetEvent/1	日常_奖励.tsv:386	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:386
+G232	LiveOpsHandler.GetEvent/1	泛型与启动链_补读.tsv:225（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:386
+G233	LiveOpsHandler.GetEvents/1	日常_奖励.tsv:388	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:388
+G233	LiveOpsHandler.GetEvents/1	泛型与启动链_补读.tsv:223（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:388
+G234	LiveOpsHandler.HandleBeforeRefresh/0	日常_奖励.tsv:390	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:390
+G234	LiveOpsHandler.HandleBeforeRefresh/0	泛型与启动链_补读.tsv:217（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:390
+G235	LiveOpsHandler.InitializeHandler/0	日常_奖励.tsv:391	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:391
+G235	LiveOpsHandler.InitializeHandler/0	泛型与启动链_补读.tsv:220（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:391
+G236	LiveOpsHandler.QueueEventPopup/3	日常_奖励.tsv:392	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:392
+G236	LiveOpsHandler.QueueEventPopup/3	泛型与启动链_补读.tsv:210（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:392
+G237	LiveOpsHandler.RegisterManager/1	日常_奖励.tsv:396	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:396
+G237	LiveOpsHandler.RegisterManager/1	泛型与启动链_补读.tsv:204（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:396
+G238	LiveOpsHandler.ResetEvents/0	日常_奖励.tsv:397	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:397
+G238	LiveOpsHandler.ResetEvents/0	泛型与启动链_补读.tsv:222（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:397
+G239	LiveOpsHandler.ScheduleEventPopups/0	日常_奖励.tsv:398	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:398
+G239	LiveOpsHandler.ScheduleEventPopups/0	泛型与启动链_补读.tsv:207（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:398
+G240	LiveOpsHandler.ScheduleHandlerRefresh/1	日常_奖励.tsv:399	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:399
+G240	LiveOpsHandler.ScheduleHandlerRefresh/1	泛型与启动链_补读.tsv:213（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:399
+G241	LiveOpsHandler.SetupEvents/3	日常_奖励.tsv:400	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B90	日常_奖励.tsv:400
+G241	LiveOpsHandler.SetupEvents/3	泛型与启动链_补读.tsv:206（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:400
+G242	LiveOpsHandler.SetupEvents/1	日常_奖励.tsv:401	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:401
+G242	LiveOpsHandler.SetupEvents/1	泛型与启动链_补读.tsv:219（域=日常/奖励）	A	否	并（回填后删）	同原版方法=LiveOpsHandler；状态 A 强于主题行 D；落点不同（本行 LiveOpsHandler.cs:287） → 先并入主题行再删	主题行 = 日常_奖励.tsv:401
+G243	LiveOpsHandler.ShowTriggerEventPopup/3	日常_奖励.tsv:402	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:402
+G243	LiveOpsHandler.ShowTriggerEventPopup/3	泛型与启动链_补读.tsv:208（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:402
+G244	LiveOpsHandler.TryScheduleHandlerRefresh/1	日常_奖励.tsv:403	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:403
+G244	LiveOpsHandler.TryScheduleHandlerRefresh/1	泛型与启动链_补读.tsv:212（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:403
+G245	LiveOpsHandler.UpdateCachedSave/1	日常_奖励.tsv:404	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:404
+G245	LiveOpsHandler.UpdateCachedSave/1	泛型与启动链_补读.tsv:203（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:404
+G246	LiveOpsHandler.ValidateData/1	日常_奖励.tsv:405	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次E2	日常_奖励.tsv:405
+G246	LiveOpsHandler.ValidateData/1	泛型与启动链_补读.tsv:205（域=日常/奖励）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LiveOpsHandler	主题行 = 日常_奖励.tsv:405
+G247	LoadableReference.Equals/1	其他_基础设施.tsv:288	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9	其他_基础设施.tsv:288
+G247	LoadableReference.Equals/1	泛型与启动链_补读.tsv:14（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:288
+G248	LoadableReference.Equals/1	其他_基础设施.tsv:289	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9	其他_基础设施.tsv:289
+G248	LoadableReference.Equals/1	泛型与启动链_补读.tsv:15（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:289
+G249	LoadableReference.GetHashCode/0	其他_基础设施.tsv:290	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9	其他_基础设施.tsv:290
+G249	LoadableReference.GetHashCode/0	泛型与启动链_补读.tsv:16（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:290
+G250	LoadableReference.OnBeforeRead/1	其他_基础设施.tsv:296	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9 ｜ B91_Q1 2026-10-28 ｜ B91_W6 2026-10-28	其他_基础设施.tsv:296
+G250	LoadableReference.OnBeforeRead/1	泛型与启动链_补读.tsv:19（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:296
+G251	LoadableReference.OnBeforeWrite/0	其他_基础设施.tsv:297	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9 ｜ B91_Q1 2026-10-28 ｜ B91_W6 2026-10-28	其他_基础设施.tsv:297
+G251	LoadableReference.OnBeforeWrite/0	泛型与启动链_补读.tsv:17（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:297
+G252	LoadableReference.SetReferenceById/1	其他_基础设施.tsv:298	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E21	其他_基础设施.tsv:298
+G252	LoadableReference.SetReferenceById/1	泛型与启动链_补读.tsv:5（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:298
+G253	LoadableReference.SetReferenceByObject/1	其他_基础设施.tsv:299	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9	其他_基础设施.tsv:299
+G253	LoadableReference.SetReferenceByObject/1	泛型与启动链_补读.tsv:6（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:299
+G254	LoadableReference.SetReferenceObjEditor/1	其他_基础设施.tsv:300	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:300
+G254	LoadableReference.SetReferenceObjEditor/1	泛型与启动链_补读.tsv:20（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoadableReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:300
+G255	LoadableReference.ValidateReferences/0	其他_基础设施.tsv:302	D	是	保持（主题行）	主题表行；状态D、无落点、轮次B8_BJ	其他_基础设施.tsv:302
+G255	LoadableReference.ValidateReferences/0	泛型与启动链_补读.tsv:7（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoadableReference；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:302
+G256	LoadableReference.WriteJson/0	其他_基础设施.tsv:303	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B89-E9 ｜ B91_Q1 2026-10-28 ｜ B91_W6 2026-10-28	其他_基础设施.tsv:303
+G256	LoadableReference.WriteJson/0	泛型与启动链_补读.tsv:18（域=其他/基础设施）	A	否	删	本行备注已写「已并入主题表」；同原版方法=LoadableReference	主题行 = 其他_基础设施.tsv:303
+G257	LoginManager.CheckDataLoaded/0	其他_基础设施.tsv:305	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:305
+G257	LoginManager.CheckDataLoaded/0	泛型与启动链_补读.tsv:770（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:305
+G258	LoginManager.CheckInternetConnection/0	其他_基础设施.tsv:306	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:306
+G258	LoginManager.CheckInternetConnection/0	泛型与启动链_补读.tsv:776（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:306
+G259	LoginManager.CheckNewVersion/0	其他_基础设施.tsv:307	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:307
+G259	LoginManager.CheckNewVersion/0	泛型与启动链_补读.tsv:772（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:307
+G260	LoginManager.CheckNewVersionSucceed/0	其他_基础设施.tsv:308	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:308
+G260	LoginManager.CheckNewVersionSucceed/0	泛型与启动链_补读.tsv:774（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:308
+G261	LoginManager.CheckPlayerDeck/0	其他_基础设施.tsv:309	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:309
+G261	LoginManager.CheckPlayerDeck/0	泛型与启动链_补读.tsv:791（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:309
+G262	LoginManager.DoNewVersionOperations/1	其他_基础设施.tsv:310	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:310
+G262	LoginManager.DoNewVersionOperations/1	泛型与启动链_补读.tsv:773（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:310
+G263	LoginManager.DownloadFinishCallback/1	其他_基础设施.tsv:311	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:311
+G263	LoginManager.DownloadFinishCallback/1	泛型与启动链_补读.tsv:789（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:311
+G264	LoginManager.DownloadInAppProducts/0	其他_基础设施.tsv:312	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:312
+G264	LoginManager.DownloadInAppProducts/0	泛型与启动链_补读.tsv:790（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:312
+G265	LoginManager.DuplicateConnection/0	其他_基础设施.tsv:313	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:313
+G265	LoginManager.DuplicateConnection/0	泛型与启动链_补读.tsv:793（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:313
+G266	LoginManager.Initialize/0	其他_基础设施.tsv:314	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	其他_基础设施.tsv:314
+G266	LoginManager.Initialize/0	泛型与启动链_补读.tsv:768（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:314
+G267	LoginManager.IsAccountLoginError/1	其他_基础设施.tsv:315	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:315
+G267	LoginManager.IsAccountLoginError/1	泛型与启动链_补读.tsv:782（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:315
+G268	LoginManager.LoadPlugins/0	其他_基础设施.tsv:317	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:317
+G268	LoginManager.LoadPlugins/0	泛型与启动链_补读.tsv:777（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:317
+G269	LoginManager.OnDestroy/0	其他_基础设施.tsv:318	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:318
+G269	LoginManager.OnDestroy/0	泛型与启动链_补读.tsv:769（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:318
+G270	LoginManager.ProceedSuccessfulLogin/1	其他_基础设施.tsv:319	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:319
+G270	LoginManager.ProceedSuccessfulLogin/1	泛型与启动链_补读.tsv:783（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:319
+G271	LoginManager.ProcessData/0	其他_基础设施.tsv:320	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:320
+G271	LoginManager.ProcessData/0	泛型与启动链_补读.tsv:787（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:320
+G272	LoginManager.ProcessLoginResult/4	其他_基础设施.tsv:321	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:321
+G272	LoginManager.ProcessLoginResult/4	泛型与启动链_补读.tsv:780（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:321
+G273	LoginManager.ProcessNormalLoginResult/3	其他_基础设施.tsv:322	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:322
+G273	LoginManager.ProcessNormalLoginResult/3	泛型与启动链_补读.tsv:779（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:322
+G274	LoginManager.ProgressUpdateCallback/2	其他_基础设施.tsv:323	D	是	保持（主题行）	主题表行；状态D、有落点、轮次R1	其他_基础设施.tsv:323
+G274	LoginManager.ProgressUpdateCallback/2	泛型与启动链_补读.tsv:788（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:323
+G275	LoginManager.RegisterPushNotifications/0	其他_基础设施.tsv:324	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:324
+G275	LoginManager.RegisterPushNotifications/0	泛型与启动链_补读.tsv:771（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:324
+G276	LoginManager.ReloadGame/0	其他_基础设施.tsv:325	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:325
+G276	LoginManager.ReloadGame/0	泛型与启动链_补读.tsv:786（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:325
+G277	LoginManager.RetryLogin/0	其他_基础设施.tsv:326	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:326
+G277	LoginManager.RetryLogin/0	泛型与启动链_补读.tsv:785（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:326
+G278	LoginManager.SetBackupLogin/0	其他_基础设施.tsv:327	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:327
+G278	LoginManager.SetBackupLogin/0	泛型与启动链_补读.tsv:781（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:327
+G279	LoginManager.SetProgress/1	其他_基础设施.tsv:329	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:329
+G279	LoginManager.SetProgress/1	泛型与启动链_补读.tsv:784（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:329
+G280	LoginManager.ThrowCustomError/3	其他_基础设施.tsv:331	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:331
+G280	LoginManager.ThrowCustomError/3	泛型与启动链_补读.tsv:794（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:331
+G281	LoginManager.TryCompleteLogin/0	其他_基础设施.tsv:332	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:332
+G281	LoginManager.TryCompleteLogin/0	泛型与启动链_补读.tsv:792（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:332
+G282	LoginManager.TryLoginToPlayfab/0	其他_基础设施.tsv:333	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:333
+G282	LoginManager.TryLoginToPlayfab/0	泛型与启动链_补读.tsv:778（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:333
+G283	LoginManager.UnpackPlayerData/0	其他_基础设施.tsv:334	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:334
+G283	LoginManager.UnpackPlayerData/0	泛型与启动链_补读.tsv:775（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:334
+G284	LoginManager._003CCheckInternetConnection_003Eb__25_0/0	其他_基础设施.tsv:335	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:335
+G284	LoginManager._003CCheckInternetConnection_003Eb__25_0/0	泛型与启动链_补读.tsv:795（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:335
+G285	LoginManager._003CProcessLoginResult_003Eb__29_0/0	其他_基础设施.tsv:336	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:336
+G285	LoginManager._003CProcessLoginResult_003Eb__29_0/0	泛型与启动链_补读.tsv:796（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:336
+G286	LoginManager._003CProcessLoginResult_003Eb__29_1/0	其他_基础设施.tsv:337	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:337
+G286	LoginManager._003CProcessLoginResult_003Eb__29_1/0	泛型与启动链_补读.tsv:797（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:337
+G287	LoginManager._003CProcessLoginResult_003Eb__29_2/0	其他_基础设施.tsv:338	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:338
+G287	LoginManager._003CProcessLoginResult_003Eb__29_2/0	泛型与启动链_补读.tsv:798（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:338
+G288	LoginManager._003CThrowCustomError_003Eb__43_0/0	其他_基础设施.tsv:339	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	其他_基础设施.tsv:339
+G288	LoginManager._003CThrowCustomError_003Eb__43_0/0	泛型与启动链_补读.tsv:799（域=其他/基础设施）	D	否	并（回填后删）	同原版方法=LoginManager；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 其他_基础设施.tsv:339
+G289	MissionEvent.DisableChallenge/1	日常_奖励.tsv:476	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:476
+G289	MissionEvent.DisableChallenge/1	泛型与启动链_补读.tsv:230（域=日常/奖励）	A	否	并（回填后删）	同原版方法=MissionEvent；落点不同（本行 MissionEvent.cs:234） → 先并入主题行再删	主题行 = 日常_奖励.tsv:476
+G290	MissionEvent.Expire/1	日常_奖励.tsv:477	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:477
+G290	MissionEvent.Expire/1	泛型与启动链_补读.tsv:237（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=MissionEvent	主题行 = 日常_奖励.tsv:477
+G291	MissionEvent.GetBaseData/0	日常_奖励.tsv:478	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:478
+G291	MissionEvent.GetBaseData/0	泛型与启动链_补读.tsv:233（域=日常/奖励）	D	否	并（回填后删）	同原版方法=MissionEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:478
+G292	MissionEvent.GetBaseSave/0	日常_奖励.tsv:479	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:479
+G292	MissionEvent.GetBaseSave/0	泛型与启动链_补读.tsv:234（域=日常/奖励）	A	否	并（回填后删）	同原版方法=MissionEvent；落点不同（本行 MissionEvent.cs:207） → 先并入主题行再删	主题行 = 日常_奖励.tsv:479
+G293	MissionEvent.GetNextRefreshTime/0	日常_奖励.tsv:481	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:481
+G293	MissionEvent.GetNextRefreshTime/0	泛型与启动链_补读.tsv:231（域=日常/奖励）	A	否	并（回填后删）	同原版方法=MissionEvent；落点不同（本行 DailyData.cs:1673） → 先并入主题行再删	主题行 = 日常_奖励.tsv:481
+G294	MissionEvent.GetProgressFor/1	日常_奖励.tsv:482	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:482
+G294	MissionEvent.GetProgressFor/1	泛型与启动链_补读.tsv:228（域=日常/奖励）	A	否	并（回填后删）	同原版方法=MissionEvent；落点不同（本行 DailyData.cs:1387） → 先并入主题行再删	主题行 = 日常_奖励.tsv:482
+G295	MissionEvent.IsActive/1	日常_奖励.tsv:485	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:485
+G295	MissionEvent.IsActive/1	泛型与启动链_补读.tsv:229（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=MissionEvent	主题行 = 日常_奖励.tsv:485
+G296	MissionEvent.LocalizedDescription/1	日常_奖励.tsv:486	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:486
+G296	MissionEvent.LocalizedDescription/1	泛型与启动链_补读.tsv:227（域=日常/奖励）	A	否	并（回填后删）	同原版方法=MissionEvent；落点不同（本行 DailyData.cs:166） → 先并入主题行再删	主题行 = 日常_奖励.tsv:486
+G297	MissionEvent.ReleaseContainer/0	日常_奖励.tsv:487	B	是	保持（主题行）	主题表行；状态B、有落点、轮次B87-F1 ｜ B91_Q1 2026-10-28｜B93_E15 2026-10-28	日常_奖励.tsv:487
+G297	MissionEvent.ReleaseContainer/0	泛型与启动链_补读.tsv:236（域=日常/奖励）	D	否	并（回填后删）	同原版方法=MissionEvent；落点不同（本行 MissionEvent.cs:387） → 先并入主题行再删	主题行 = 日常_奖励.tsv:487
+G298	MissionEvent.RerollChallenge/2	日常_奖励.tsv:488	B	是	保持（主题行）	主题表行；状态B、有 .cs:行、轮次N17	日常_奖励.tsv:488
+G298	MissionEvent.RerollChallenge/2	泛型与启动链_补读.tsv:232（域=日常/奖励）	A	否	并（回填后删）	同原版方法=MissionEvent；状态 A 强于主题行 B；落点不同（本行 DailyData.cs:617） → 先并入主题行再删	主题行 = 日常_奖励.tsv:488
+G299	MissionEvent.UpdateSaveGame/1	日常_奖励.tsv:491	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:491
+G299	MissionEvent.UpdateSaveGame/1	泛型与启动链_补读.tsv:235（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=MissionEvent	主题行 = 日常_奖励.tsv:491
+G300	MultiKeyDictionary.ContainsKey/2	未分类_其他.tsv:450	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:450
+G300	MultiKeyDictionary.ContainsKey/2	泛型与启动链_补读.tsv:600（域=未分类/其他）	D	否	并（回填后删）	同原版方法=MultiKeyDictionary；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:450
+G301	MultiKeyLiveOpsHandler.ExtractKey/2	日常_奖励.tsv:533	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:533
+G301	MultiKeyLiveOpsHandler.ExtractKey/2	泛型与启动链_补读.tsv:238（域=日常/奖励）	D	否	并（回填后删）	同原版方法=MultiKeyLiveOpsHandler；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:533
+G302	PlayEvent.CancelMatch/0	日常_奖励.tsv:552	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:552
+G302	PlayEvent.CancelMatch/0	泛型与启动链_补读.tsv:245（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:574） → 先并入主题行再删	主题行 = 日常_奖励.tsv:552
+G303	PlayEvent.ChangeState/1	日常_奖励.tsv:553	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:553
+G303	PlayEvent.ChangeState/1	泛型与启动链_补读.tsv:239（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:431） → 先并入主题行再删	主题行 = 日常_奖励.tsv:553
+G304	PlayEvent.GetBaseData/0	日常_奖励.tsv:555	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:555
+G304	PlayEvent.GetBaseData/0	泛型与启动链_补读.tsv:241（域=日常/奖励）	D	否	并（回填后删）	同原版方法=PlayEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:555
+G305	PlayEvent.GetBaseSave/0	日常_奖励.tsv:556	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:556
+G305	PlayEvent.GetBaseSave/0	泛型与启动链_补读.tsv:240（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:442） → 先并入主题行再删	主题行 = 日常_奖励.tsv:556
+G306	PlayEvent.GetEventDeck/1	日常_奖励.tsv:558	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:558
+G306	PlayEvent.GetEventDeck/1	泛型与启动链_补读.tsv:253（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=PlayEvent	主题行 = 日常_奖励.tsv:558
+G307	PlayEvent.Initialize/0	日常_奖励.tsv:560	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:560
+G307	PlayEvent.Initialize/0	泛型与启动链_补读.tsv:242（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:456） → 先并入主题行再删	主题行 = 日常_奖励.tsv:560
+G308	PlayEvent.MatchFinished/2	日常_奖励.tsv:562	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:562
+G308	PlayEvent.MatchFinished/2	泛型与启动链_补读.tsv:247（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=PlayEvent	主题行 = 日常_奖励.tsv:562
+G309	PlayEvent.OnMatchDraw/0	日常_奖励.tsv:563	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:563
+G309	PlayEvent.OnMatchDraw/0	泛型与启动链_补读.tsv:251（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=PlayEvent	主题行 = 日常_奖励.tsv:563
+G310	PlayEvent.OnMatchFinished/3	日常_奖励.tsv:564	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:564
+G310	PlayEvent.OnMatchFinished/3	泛型与启动链_补读.tsv:246（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；状态 A 强于主题行 D；落点不同（本行 PlayEvent.cs:591） → 先并入主题行再删	主题行 = 日常_奖励.tsv:564
+G311	PlayEvent.OnMatchFound/1	日常_奖励.tsv:565	B	是	保持（主题行）	主题表行；状态B、有 .cs:行、轮次N17	日常_奖励.tsv:565
+G311	PlayEvent.OnMatchFound/1	泛型与启动链_补读.tsv:244（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；状态 A 强于主题行 B；落点不同（本行 PlayEvent.cs:548） → 先并入主题行再删	主题行 = 日常_奖励.tsv:565
+G312	PlayEvent.OnMatchLost/0	日常_奖励.tsv:566	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:566
+G312	PlayEvent.OnMatchLost/0	泛型与启动链_补读.tsv:250（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:660） → 先并入主题行再删	主题行 = 日常_奖励.tsv:566
+G313	PlayEvent.OnMatchWon/0	日常_奖励.tsv:567	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:567
+G313	PlayEvent.OnMatchWon/0	泛型与启动链_补读.tsv:249（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:652） → 先并入主题行再删	主题行 = 日常_奖励.tsv:567
+G314	PlayEvent.SetCustomMatchOptions/2	日常_奖励.tsv:568	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:568
+G314	PlayEvent.SetCustomMatchOptions/2	泛型与启动链_补读.tsv:252（域=日常/奖励）	D	否	并（回填后删）	同原版方法=PlayEvent；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 日常_奖励.tsv:568
+G315	PlayEvent.SetDefaultDeck/2	日常_奖励.tsv:569	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C1	日常_奖励.tsv:569
+G315	PlayEvent.SetDefaultDeck/2	泛型与启动链_补读.tsv:254（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=PlayEvent	主题行 = 日常_奖励.tsv:569
+G316	PlayEvent.StartMatch/0	日常_奖励.tsv:570	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:570
+G316	PlayEvent.StartMatch/0	泛型与启动链_补读.tsv:243（域=日常/奖励）	A	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:512） → 先并入主题行再删	主题行 = 日常_奖励.tsv:570
+G317	PlayEvent.UploadDefaultDeck/0	日常_奖励.tsv:572	D	是	保持（主题行）	主题表行；状态D、无落点、轮次N17	日常_奖励.tsv:572
+G317	PlayEvent.UploadDefaultDeck/0	泛型与启动链_补读.tsv:255（域=日常/奖励）	D	否	并（回填后删）	同原版方法=PlayEvent；落点不同（本行 PlayEvent.cs:762） → 先并入主题行再删	主题行 = 日常_奖励.tsv:572
+G318	PlayEvent.ValidateEventDeck/2	日常_奖励.tsv:573	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次N17	日常_奖励.tsv:573
+G318	PlayEvent.ValidateEventDeck/2	泛型与启动链_补读.tsv:248（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=PlayEvent	主题行 = 日常_奖励.tsv:573
+G319	Points.Collect/1	未分类_其他.tsv:490	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C4	未分类_其他.tsv:490
+G319	Points.Collect/1	泛型与启动链_补读.tsv:601（域=未分类/其他）	D	否	并（回填后删）	同原版方法=Points；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:490
+G320	Points.GetID/0	未分类_其他.tsv:491	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C4	未分类_其他.tsv:491
+G320	Points.GetID/0	泛型与启动链_补读.tsv:602（域=未分类/其他）	A	否	删	本行备注已写「已并入主题表」；同原版方法=Points	主题行 = 未分类_其他.tsv:491
+G321	QuantityBoundItemInfo.Add/2	未分类_其他.tsv:498	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:498
+G321	QuantityBoundItemInfo.Add/2	泛型与启动链_补读.tsv:603（域=未分类/其他）	A	否	并（回填后删）	同原版方法=QuantityBoundItemInfo；状态 A 强于主题行 D；落点不同（本行 Inventory.cs:1608） → 先并入主题行再删	主题行 = 未分类_其他.tsv:498
+G322	RankedEventBase.GetArmyState/2	个人资料_成就_排行.tsv:210	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	个人资料_成就_排行.tsv:210
+G322	RankedEventBase.GetArmyState/2	泛型与启动链_补读.tsv:2（域=个人资料/成就/排行）	A	否	并（回填后删）	同原版方法=RankedEventBase；落点不同（本行 RankedEventBase.cs:180） → 先并入主题行再删	主题行 = 个人资料_成就_排行.tsv:210
+G323	RankedEventBase.GetBaseData/0	个人资料_成就_排行.tsv:211	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R22	个人资料_成就_排行.tsv:211
+G323	RankedEventBase.GetBaseData/0	泛型与启动链_补读.tsv:3（域=个人资料/成就/排行）	A	否	并（回填后删）	同原版方法=RankedEventBase；落点不同（本行 RankedEventBase.cs:174） → 先并入主题行再删	主题行 = 个人资料_成就_排行.tsv:211
+G324	RankedEventBase.ToggleRankedMode/1	个人资料_成就_排行.tsv:213	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	个人资料_成就_排行.tsv:213
+G324	RankedEventBase.ToggleRankedMode/1	泛型与启动链_补读.tsv:4（域=个人资料/成就/排行）	A	否	并（回填后删）	同原版方法=RankedEventBase；落点不同（本行 RankedData.cs:345/RankedEventBase.cs:196） → 先并入主题行再删	主题行 = 个人资料_成就_排行.tsv:213
+G325	ReferenceList.LoadReferences/0	未分类_其他.tsv:513	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:513
+G325	ReferenceList.LoadReferences/0	泛型与启动链_补读.tsv:605（域=未分类/其他）	D	否	并（回填后删）	同原版方法=ReferenceList；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:513
+G326	ScoringEvent.GetBaseData/0	日常_奖励.tsv:692	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C2	日常_奖励.tsv:692
+G326	ScoringEvent.GetBaseData/0	泛型与启动链_补读.tsv:258（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=ScoringEvent	主题行 = 日常_奖励.tsv:692
+G327	ScoringEvent.GetState/1	日常_奖励.tsv:693	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C2	日常_奖励.tsv:693
+G327	ScoringEvent.GetState/1	泛型与启动链_补读.tsv:260（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=ScoringEvent	主题行 = 日常_奖励.tsv:693
+G328	ScoringEvent.IsMilestoneCollected/1	日常_奖励.tsv:694	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-C2	日常_奖励.tsv:694
+G328	ScoringEvent.IsMilestoneCollected/1	泛型与启动链_补读.tsv:259（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=ScoringEvent	主题行 = 日常_奖励.tsv:694
+G329	ShopStore.GetBaseData/0	商店.tsv:292	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	商店.tsv:292
+G329	ShopStore.GetBaseData/0	泛型与启动链_补读.tsv:33（域=商店）	D	否	并（回填后删）	同原版方法=ShopStore；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 商店.tsv:292
+G330	ShopStore.GetPurchaseCount/1	商店.tsv:294	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	商店.tsv:294
+G330	ShopStore.GetPurchaseCount/1	泛型与启动链_补读.tsv:35（域=商店）	A	否	删	与主题行同落点、同状态；同原版方法=ShopStore	主题行 = 商店.tsv:294
+G331	ShopStore.TryPurchase/3	商店.tsv:297	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	商店.tsv:297
+G331	ShopStore.TryPurchase/3	泛型与启动链_补读.tsv:34（域=商店）	A	否	并（回填后删）	同原版方法=ShopStore；落点不同（本行 ShopData.cs:472） → 先并入主题行再删	主题行 = 商店.tsv:297
+G332	SignalEventTrigger.Register/1	日常_奖励.tsv:702	B	是	保持（主题行）	主题表行；状态B、有 .cs:行、轮次B87-R11	日常_奖励.tsv:702
+G332	SignalEventTrigger.Register/1	泛型与启动链_补读.tsv:261（域=日常/奖励）	A	否	并（回填后删）	同原版方法=SignalEventTrigger；状态 A 强于主题行 B → 先并入主题行再删	主题行 = 日常_奖励.tsv:702
+G333	SignalEventTrigger.TryTrigger/1	日常_奖励.tsv:703	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:703
+G333	SignalEventTrigger.TryTrigger/1	泛型与启动链_补读.tsv:262（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=SignalEventTrigger	主题行 = 日常_奖励.tsv:703
+G334	SignalEventTrigger.Unregister/0	日常_奖励.tsv:704	B	是	保持（主题行）	主题表行；状态B、有 .cs:行、轮次B87-R11	日常_奖励.tsv:704
+G334	SignalEventTrigger.Unregister/0	泛型与启动链_补读.tsv:264（域=日常/奖励）	A	否	并（回填后删）	同原版方法=SignalEventTrigger；状态 A 强于主题行 B → 先并入主题行再删	主题行 = 日常_奖励.tsv:704
+G335	SignalEventTrigger.ValidateSignal/1	日常_奖励.tsv:705	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R11	日常_奖励.tsv:705
+G335	SignalEventTrigger.ValidateSignal/1	泛型与启动链_补读.tsv:263（域=日常/奖励）	A	否	删	与主题行同落点、同状态；同原版方法=SignalEventTrigger	主题行 = 日常_奖励.tsv:705
+G336	SingletonBehaviour.Awake/0	未分类_其他.tsv:585	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:585
+G336	SingletonBehaviour.Awake/0	泛型与启动链_补读.tsv:607（域=未分类/其他）	D	否	并（回填后删）	同原版方法=SingletonBehaviour；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:585
+G337	SingletonBehaviour.OnDestroy/0	未分类_其他.tsv:586	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:586
+G337	SingletonBehaviour.OnDestroy/0	泛型与启动链_补读.tsv:608（域=未分类/其他）	D	否	并（回填后删）	同原版方法=SingletonBehaviour；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:586
+G338	SingletonInitializableBehaviour.Awake/0	未分类_其他.tsv:587	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:587
+G338	SingletonInitializableBehaviour.Awake/0	泛型与启动链_补读.tsv:610（域=未分类/其他）	A	否	删	与主题行同落点、同状态；同原版方法=SingletonInitializableBehaviour	主题行 = 未分类_其他.tsv:587
+G339	SingletonInitializableBehaviour.OnDestroy/0	未分类_其他.tsv:588	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:588
+G339	SingletonInitializableBehaviour.OnDestroy/0	泛型与启动链_补读.tsv:611（域=未分类/其他）	A	否	删	与主题行同落点、同状态；同原版方法=SingletonInitializableBehaviour	主题行 = 未分类_其他.tsv:588
+G340	SingletonInitializableBehaviour.OnInitializationComplete/0	未分类_其他.tsv:589	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	未分类_其他.tsv:589
+G340	SingletonInitializableBehaviour.OnInitializationComplete/0	泛型与启动链_补读.tsv:609（域=未分类/其他）	A	否	删	与主题行同落点、同状态；同原版方法=SingletonInitializableBehaviour	主题行 = 未分类_其他.tsv:589
+G341	ToggleCollectionFilter.ClearFilters/0	收藏.tsv:311	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R5	收藏.tsv:311
+G341	ToggleCollectionFilter.ClearFilters/0	泛型与启动链_补读.tsv:135（域=收藏）	A	否	并（回填后删）	同原版方法=ToggleCollectionFilter；落点不同（本行 CollectionWindow.cs:2060） → 先并入主题行再删	主题行 = 收藏.tsv:311
+G342	ToggleCollectionFilter.FillToggleList/2	收藏.tsv:312	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:312
+G342	ToggleCollectionFilter.FillToggleList/2	泛型与启动链_补读.tsv:136（域=收藏）	A	否	删	与主题行同落点、同状态；同原版方法=ToggleCollectionFilter	主题行 = 收藏.tsv:312
+G343	ToggleCollectionFilter.Filter/1	收藏.tsv:313	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:313
+G343	ToggleCollectionFilter.Filter/1	泛型与启动链_补读.tsv:133（域=收藏）	A	否	并（回填后删）	同原版方法=ToggleCollectionFilter；落点不同（本行 DeckEditorState.cs:568） → 先并入主题行再删	主题行 = 收藏.tsv:313
+G344	ToggleCollectionFilter.FilterItem/1	收藏.tsv:314	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R1	收藏.tsv:314
+G344	ToggleCollectionFilter.FilterItem/1	泛型与启动链_补读.tsv:134（域=收藏）	D	否	并（回填后删）	同原版方法=ToggleCollectionFilter；落点不同（本行 DeckEditorState.cs:79） → 先并入主题行再删	主题行 = 收藏.tsv:314
+G345	ToggleCollectionFilter.SetupFilter/1	收藏.tsv:316	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-F1	收藏.tsv:316
+G345	ToggleCollectionFilter.SetupFilter/1	泛型与启动链_补读.tsv:131（域=收藏）	A	否	并（回填后删）	同原版方法=ToggleCollectionFilter；落点不同（本行 FilterPanelModel.cs:647） → 先并入主题行再删	主题行 = 收藏.tsv:316
+G346	TutorialPointer.StartPointer/4	教程_引导.tsv:94	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次B87-R15	教程_引导.tsv:94
+G346	TutorialPointer.StartPointer/4	特效动画.tsv:524	B	否	并（回填后删）	同原版方法=TutorialPointer；落点不同（本行 TutorialOverlay.cs:1075） → 先并入主题行再删	主题行 = 教程_引导.tsv:94
+G347	UiContainer.HandleClick/0	未分类_其他.tsv:714	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:714
+G347	UiContainer.HandleClick/0	泛型与启动链_补读.tsv:616（域=未分类/其他）	D	否	并（回填后删）	同原版方法=UiContainer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:714
+G348	UiContainer.Initialize/1	未分类_其他.tsv:717	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:717
+G348	UiContainer.Initialize/1	泛型与启动链_补读.tsv:612（域=未分类/其他）	D	否	并（回填后删）	同原版方法=UiContainer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:717
+G349	UiContainer.Initialize/1	未分类_其他.tsv:715	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:715
+G349	UiContainer.Initialize/1	泛型与启动链_补读.tsv:613（域=未分类/其他）	D	否	并（回填后删）	同原版方法=UiContainer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:715
+G350	UiContainer.OnClick/0	未分类_其他.tsv:718	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:718
+G350	UiContainer.OnClick/0	泛型与启动链_补读.tsv:617（域=未分类/其他）	D	否	并（回填后删）	同原版方法=UiContainer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:718
+G351	UiContainer.OnDestroy/0	未分类_其他.tsv:719	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:719
+G351	UiContainer.OnDestroy/0	泛型与启动链_补读.tsv:614（域=未分类/其他）	D	否	并（回填后删）	同原版方法=UiContainer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:719
+G352	UiContainer.OnInitialize/1	未分类_其他.tsv:720	D	是	保持（主题行）	主题表行；状态D、无落点、轮次R1	未分类_其他.tsv:720
+G352	UiContainer.OnInitialize/1	泛型与启动链_补读.tsv:615（域=未分类/其他）	D	否	并（回填后删）	同原版方法=UiContainer；本行差异/备注有独有内容 → 先并入主题行再删	主题行 = 未分类_其他.tsv:720
+G353	WindowTabBase.Setup/1	菜单_外壳.tsv:833	A	是	保持（主题行）	主题表行；状态A、有 .cs:行、轮次R3	菜单_外壳.tsv:833
+G353	WindowTabBase.Setup/1	泛型与启动链_补读.tsv:741（域=菜单/外壳）	A	否	并（回填后删）	同原版方法=WindowTabBase；落点不同（本行 WindowTabBase.cs:30） → 先并入主题行再删	主题行 = 菜单_外壳.tsv:833

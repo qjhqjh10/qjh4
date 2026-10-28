@@ -120,32 +120,32 @@ namespace CardPresentation
 
             var list = new List<CampaignData.RewardSpec>();
             if (obj.Items != null) list.AddRange(obj.Items);
+            ExpandPrebuiltDecks(list);                                      // b__8_3 / b__8_4（B93_D4 2026-10-28 补）
 
-            // b__8_0：只算「背包里还没有的」那几条
+            // b__8_0：`anyItemType` 短路真；否则 `itemType.Contains(item.GetType())`；再 `anyArmy` 短路真；否则 `item.cardArmy == army`
+            //   🔴 **2026-10-28（B93_D4）就地订正**：旧版把这一道写成「背包里还没有的」—— **错**（那是 b__8_1）。
             var filtered = new List<CampaignData.RewardSpec>();
             for (int i = 0; i < list.Count; i++)
-                if (IsNotOwnedYet(list[i].Id)) filtered.Add(list[i]);
+                if (PassesItemTypeAndArmy(list[i])) filtered.Add(list[i]);
 
-            // b__8_1：ignoreDuplicates ⇒ 同一件只算一次
-            if (ignoreDuplicates)
-            {
-                var seen = new HashSet<string>(StringComparer.Ordinal);
-                var dedup = new List<CampaignData.RewardSpec>();
-                for (int i = 0; i < filtered.Count; i++)
-                    if (seen.Add(filtered[i].Id ?? "")) dedup.Add(filtered[i]);
-                filtered = dedup;
-            }
+            // b__8_1：**只挂一道、且只在 `ignoreDuplicates` 时挂**，判据 = `!InventoryManager.HasItem(i.Item)`
+            //   🔴 **同上就地订正**：旧版把它当「无条件过滤」、又把 `ignoreDuplicates` 做成「按 id 去重」—— 两句都反了。
+            if (ignoreDuplicates) filtered.RemoveAll(r => !IsNotOwnedYet(r.Id));
 
-            // b__8_2：数量求和
+            // b__8_2：`ignoreDuplicates ? 1 : x.Quantity`（判据 = `RewardCollected__<OnTrigger>b__8_2.c`：
+            //   `if (*(char *)(param_1 + 0x5a) != '\0') return 1;` 否则走 `RewardInfo` 虚槽 `+0x218` = `Quantity`）
             int sum = 0;
-            for (int i = 0; i < filtered.Count; i++) sum += filtered[i].Quantity;
+            for (int i = 0; i < filtered.Count; i++) sum += ignoreDuplicates ? 1 : filtered[i].Quantity;
 
-            WarnPrebuiltDeckOnce(list);
             if (sum != 0) UpdateProgress(sum, false);                       // shouldOverride: false
         }
 
-        // ============================================================ 三个谓词 / 一个求和（原版 b__6_0 / b__6_1 / b__8_0 / b__8_2）
-        /// <summary>原版 `_003COnTrigger_003Eb__8_0`：`!InventoryManager.HasItem(i.Item)`（「背包里还没有」）。</summary>
+        // ============================================================ 三个谓词 / 一个求和
+        //   原版：b__6_0 / b__6_1（`OnInitialize` 那一路）＋ b__8_0 / b__8_1 / b__8_2（`OnTrigger` 那一路）
+        //   🔴 2026-10-28（B93_D4）：旧注释把下面这个谓词记成 `b__8_0` —— 它是 **`b__8_1`**（`b__8_0` = itemType/army 那道，
+        //   现由 `PassesItemTypeAndArmy` 承担）。判据 = `RewardCollected.__c___OnTrigger_b__8_1.c`；
+        //   同一份判据还说明它**只在 `ignoreDuplicates` 为真时**才挂进 `Where`（`OnTrigger` 里现读的次序）。
+        /// <summary>原版 `_003COnTrigger_003Eb__8_1`：`!InventoryManager.HasItem(i.Item)`（「背包里还没有」）。</summary>
         protected virtual bool IsNotOwnedYet(string itemId)
         {
             if (string.IsNullOrEmpty(itemId)) return true;
@@ -230,25 +230,105 @@ namespace CardPresentation
         }
 
         // ============================================================ 一次性出声
-        static bool _warnedSink, _warnedPrebuilt;
+        static bool _warnedSink;
         static readonly HashSet<string> _warnedNoArmy = new HashSet<string>();
         void WarnNoSinkOnce()
         {
             if (_warnedSink) return; _warnedSink = true;
             Debug.Log("[RewardCollected] 没有接 `ProgressSink` ⇒ 进度只存在本对象上（原版由 `MissionChallenge` 基类持有）");
         }
-        void WarnPrebuiltDeckOnce(List<CampaignData.RewardSpec> list)
+        /// <summary>原版 `OnTrigger` 里那段 **PrebuiltDeck 展开**（`b__8_3` / `b__8_4`）——
+        /// 判据 = `decomp_full/RewardCollected__OnTrigger.c` 的 `LAB_1806aae19` 那一段 + `.c` 尾三跳：
+        /// <code>
+        /// foreach (RewardInfo r in obj.Items)
+        ///   if (r.Item is PrebuiltDeck deck) {
+        ///       list.AddRange(deck.GetCardLibrary()
+        ///                        .GroupBy(b__8_3: x =&gt; x.uniqueId)
+        ///                        .Select (b__8_4: g =&gt; new RewardInfo(g.Key, g.Count(), RewardTier.Basic, null, null)));
+        ///       list.Add(new RewardInfo(deck.GetDeckCardback(), 1, Basic, null, null));
+        ///       list.Add(new RewardInfo(deck.DeckHero,         1, Basic, null, null));
+        ///   }
+        /// </code>
+        /// ⚠️ 原版靠 **`r.Item is PrebuiltDeck`** 判类型；我们的 `RewardSpec` 只有一个 id ⇒ 用两条判据认：
+        /// ① `ItemDrawer.Spec(id).Type` 含 `PrebuiltDeck`（`IdTypes` 真表）· ② `PrebuiltDecks.ById(id) != null`。
+        /// 🔴 **2026-10-28（B93_D4）**：原来这里只有一句 `WarnPrebuiltDeckOnce` 出声「未搬」—— **已搬完**，出声删掉。</summary>
+        void ExpandPrebuiltDecks(List<CampaignData.RewardSpec> list)
         {
-            if (_warnedPrebuilt) return;
-            for (int i = 0; i < list.Count; i++)
-                if (!string.IsNullOrEmpty(list[i].Id) && list[i].Id.StartsWith("deck:", StringComparison.OrdinalIgnoreCase))
+            if (list == null || list.Count == 0) return;
+            int n = list.Count;                                   // 只展开**传进来的那些**（原版遍历的就是 `obj.Items`）
+            for (int i = 0; i < n; i++)
+            {
+                var deck = DeckOf(list[i].Id);
+                if (deck == null) continue;
+                // `GroupBy(uniqueId).Select(g => new RewardInfo(key, g.Count(), Basic))`
+                if (deck.cardIds != null)
                 {
-                    _warnedPrebuilt = true;
-                    Debug.LogWarning("[RewardCollected] 收到 `deck:` 前缀的卡组奖励 —— 原版会把卡组**拆成**「每张卡 + 卡背 + 督军」"
-                                   + "（`b__8_3/b__8_4` 的 PrebuiltDeck 展开）；本机没有 `PrebuiltDeck` 奖励条目 ⇒ 那一跳未搬");
-                    return;
+                    var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+                    var order = new List<string>();
+                    for (int c = 0; c < deck.cardIds.Length; c++)
+                    {
+                        string id = deck.cardIds[c];
+                        if (string.IsNullOrEmpty(id)) continue;
+                        int k;
+                        if (!seen.TryGetValue(id, out k)) { seen[id] = 1; order.Add(id); }
+                        else seen[id] = k + 1;
+                    }
+                    for (int c = 0; c < order.Count; c++)
+                        list.Add(new CampaignData.RewardSpec(order[c], seen[order[c]], CampaignData.TierBasic));
                 }
+                if (!string.IsNullOrEmpty(deck.cardback))
+                    list.Add(new CampaignData.RewardSpec(deck.cardback, 1, CampaignData.TierBasic));
+                if (!string.IsNullOrEmpty(deck.heroId))
+                    list.Add(new CampaignData.RewardSpec(deck.heroId, 1, CampaignData.TierBasic));
+            }
         }
+
+        /// <summary>这一条奖励的 item 是不是一副预组卡组（判据见 <see cref="ExpandPrebuiltDecks"/>）。
+        /// 认不出 ⇒ `null`（⛔ 不当成卡组）。</summary>
+        static PrebuiltDecks.Deck DeckOf(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            string type = ItemDrawer.Spec(id, null, null).Type;
+            bool byType = !string.IsNullOrEmpty(type) && type.IndexOf("PrebuiltDeck", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!byType && !PrebuiltDecks.Available) return null;
+            return PrebuiltDecks.ById(id);                        // 两条判据任一命中 ⇒ 再让 `ById` 确认真有这副牌
+        }
+
+        /// <summary>原版 `_003COnTrigger_003Eb__8_0`（`RewardCollected.cs:599` 一带）：
+        /// `anyItemType` 短路真 → 否则 `itemType.Contains(item.GetType())` → 再 `anyArmy` 短路真 → 否则 `((PlayerItem)item).cardArmy == army`。
+        /// <para>我们的 `itemType` 存的是**物品类型全名**（见文件头）；`RewardSpec` 没有类型 ⇒ 用 `ItemDrawer.Spec(id).Type`
+        /// （= `IdTypes` 真表里的原版 `ObtainableItem` 子类名）当 `item.GetType()` 的等价物。</para>
+        /// <para>⚠️ 判不出类型/阵营时**出声一次并放行**（同 <see cref="ArmyPasses"/> 的口径：⛔ 不静默少算）。</para></summary>
+        protected virtual bool PassesItemTypeAndArmy(CampaignData.RewardSpec r)
+        {
+            var spec = ItemDrawer.Spec(r.Id, null, null);
+            if (!anyItemType)
+            {
+                if (string.IsNullOrEmpty(spec.Type))
+                {
+                    WarnNoTypeOnce(r.Id);
+                }
+                else
+                {
+                    bool hit = false;
+                    for (int i = 0; i < itemType.Count; i++)
+                        if (string.Equals(itemType[i], spec.Type, StringComparison.Ordinal)) { hit = true; break; }
+                    if (!hit) return false;                       // 类型不在白名单 ⇒ 这一条不算
+                }
+            }
+            if (anyArmy) return true;
+            if (spec.CardArmy <= 0) { WarnNoArmyOnce(typeof(CampaignData.RewardSpec)); return true; }
+            return spec.CardArmy == (int)army;
+        }
+
+        static readonly HashSet<string> _warnedNoType = new HashSet<string>();
+        static void WarnNoTypeOnce(string id)
+        {
+            if (!_warnedNoType.Add(id ?? "")) return;
+            Debug.LogWarning("[RewardCollected] `itemType` 白名单在用，但奖励 '" + id + "' 的 item 类型在本机判不出来"
+                           + "（`ItemDrawer.IdTypes` 没这一行）⇒ 这一条**放行**（⛔ 不是判它有效，是判不了）");
+        }
+
         void WarnNoArmyOnce(Type t)
         {
             string k = t != null ? t.Name : "?";
@@ -258,6 +338,6 @@ namespace CardPresentation
         }
 
         /// <summary>自检收尾。</summary>
-        public static void ResetForTest() { ProgressSink = null; _warnedSink = false; _warnedPrebuilt = false; _warnedNoArmy.Clear(); }
+        public static void ResetForTest() { ProgressSink = null; _warnedSink = false; _warnedNoArmy.Clear(); _warnedNoType.Clear(); }
     }
 }

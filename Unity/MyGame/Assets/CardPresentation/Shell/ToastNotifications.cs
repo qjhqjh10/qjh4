@@ -193,7 +193,7 @@ namespace CardPresentation
             public string Text;
             public string IconArt;
             public Action OnClick;
-            public string ControllerId;
+            public string ControllerId; public object Data;   // `Data` = 原版 `ctx+0x38`（`RewardInfo` / `ToastNotificationMissionsData`）；零行数变化
             /// <summary>文案是**词条键**时置真（原版这条链**不**查表 —— 只有任务那条走
             /// `GetLocalizedDescription`；本项是我们给调用方的方便口，默认 false = 原版行为）。</summary>
             public bool Localize;
@@ -211,7 +211,7 @@ namespace CardPresentation
                 Type = type; Text = text; IconArt = iconArt; OnClick = onClick;
                 ControllerId = controllerId; Localize = false;
                 ShowProgress = false; Progress01 = 0f; ProgressText = null;
-                RewardArt = null; RewardText = null;
+                RewardArt = null; RewardText = null; Data = null;   // 原版 ctor 的 `data` 实参；我们由调用方直赋（零行数变化）
             }
         }
 
@@ -802,6 +802,67 @@ namespace CardPresentation
             c.ProgressText = DailyData.DailyCounter(dailyIndex);
             c.RewardArt = DailyData.DailyRewardArt(dailyIndex);
             c.RewardText = DailyData.DailyRewardText(dailyIndex);
+            return ShowNotification(c);
+        }
+
+        // ============================================================ 追加区 · 2026-10-28（B93_D4 · 账 745）
+        //
+        //  原版 `ToastNotificationMission : ToastNotification`（`ToastNotificationMission.cs:8`），
+        //  `Initialize(object obj)` 的方法体（判据 = `decomp_full/ToastNotificationMission__Initialize.c` 逐句）：
+        //    if (obj == null || !(obj is ToastNotificationContext)) return;
+        //    context = (ToastNotificationContext)obj;
+        //    if (context.Data is ToastNotificationMissionsData d) {
+        //        gameObject.SetActive(true);
+        //        text.text = SupportMethods.ModifyLocalization(d.progress.GetLocalizedDescription());
+        //        foreach (var disp in infoDisplays) disp.Initialize(d.mission, d.progress);
+        //    } else {
+        //        CustomDebug.LogError(...);  gameObject.SetActive(false);
+        //    }
+        //  ⇒ 两条**行为**是本条真正补的东西：① `Data` 不是任务数据 ⇒ **报错并把自己关掉**（旧版没有这一支）；
+        //     ② 文案来自 `progress.GetLocalizedDescription()` 再走 `ModifyLocalization`。
+        //  🔴 `ModifyLocalization` = **模板占位符替换引擎**（`SupportMethods__ModifyLocalization.c` 里 20+ 处
+        //     `String.Replace` / `Split(',')` / `Concat`），我们**没有**等价物 ⇒ 本工程的任务文案是
+        //     `DailyData.DailyDesc()` 已经拼好的成品串，这里直传（缺口如实记在账 745 的差异列）。
+
+        /// <summary>原版 `ToastNotificationMissionsData`（`ToastNotificationMissionsData.cs` 两个字段，顺序照抄）。</summary>
+        public sealed class MissionsData
+        {
+            /// <summary>原版 `IMission mission`（`+0x10`）。本工程的任务对象没有统一接口 ⇒ 只留 id 字串。</summary>
+            public string MissionId;
+            /// <summary>原版 `MissionChallengeProgress progress`（`+0x18`）—— `.c` 里 `data+0x18` 那一格。</summary>
+            public string ProgressText;      // = `progress.GetLocalizedDescription()` 的成品串
+            public float Progress01;
+        }
+
+        /// <summary>原版 `MissionInfoDisplay.Initialize(mission, progress)` 的本地等价（我们只有「一句话 + 进度条」两格）。</summary>
+        public sealed class MissionInfoDisplay
+        {
+            public string Text;
+            public float Progress01;
+            public void Initialize(MissionsData d) { Text = d != null ? d.ProgressText : null; Progress01 = d != null ? d.Progress01 : 0f; }
+        }
+
+        /// <summary>原版 `ToastNotificationMission.Initialize(object obj)`（见上面的逐句）。
+        /// 返回：真的弹了 ⇒ true。⚠️ 与原版的差异**只有** `ModifyLocalization` 那一步（见上）。</summary>
+        public static bool InitializeMissionToast(object obj, MissionInfoDisplay[] infoDisplays = null)
+        {
+            if (obj == null) return false;                                   // 原版：`obj == null` ⇒ 直接 return（**不**关自己）
+            var ctx = obj as Context?;                                       // 原版：`!(obj is ToastNotificationContext)` ⇒ return
+            if (!ctx.HasValue) return false;
+            var d = ctx.Value.Data as MissionsData;
+            if (d == null)
+            {
+                // 原版这一支：`CustomDebug.LogError(...)` + `gameObject.SetActive(false)` —— 即「这条飘窗不该出现」
+                Debug.LogError("[ToastNotifications] `ToastNotificationMission.Initialize`：`Data` 不是 `ToastNotificationMissionsData`"
+                             + " ⇒ 原版会 LogError 并把自身 `SetActive(false)`；我们**不弹**这一条（⛔ 不拿别的数据顶）");
+                return false;
+            }
+            var c = ctx.Value;
+            c.Text = d.ProgressText;                                         // = `ModifyLocalization(progress.GetLocalizedDescription())`
+            c.ShowProgress = true;
+            c.Progress01 = d.Progress01;
+            if (infoDisplays != null)
+                for (int i = 0; i < infoDisplays.Length; i++) if (infoDisplays[i] != null) infoDisplays[i].Initialize(d);
             return ShowNotification(c);
         }
 

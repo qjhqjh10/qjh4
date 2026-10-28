@@ -770,8 +770,8 @@ namespace CardPresentation
             System.Action[] acts =
             {
                 () => StepDeck(-1),
-                () => OpenDeckSelection(),
-                () => OpenDeckInfo(),
+                () => ChangeDeckButtonClick(),
+                () => ViewDeckButtonClick(),
                 () => StepDeck(+1),
             };
             string[] names = { "Previous Deck Button", "Change Deck Button", "View Deck Button", "Next Deck Button" };
@@ -1427,7 +1427,7 @@ namespace CardPresentation
             ApplyBattleBoostFlags(BattleBoostFlags);
 
             // 🆕 A17：原版 `To Battle Button` 是 SpriteSwap（普查 §块 4 第 14 行）
-            MenuDraw.Hit(btn, "BattleHit", new PxRect(BattleL, BattleT, BattleR, BattleB), QHit, () => StartMatch(),
+            MenuDraw.Hit(btn, "BattleHit", new PxRect(BattleL, BattleT, BattleR, BattleB), QHit, () => PlayButtonClicked(),
                          btBg, ArtMulligan, clickCue: WindowSounds.PositiveCue);
         }
 
@@ -1485,7 +1485,7 @@ namespace CardPresentation
             float half = (HelpR - HelpL) * HelpScale * 0.5f;
             var r = new PxRect(cx - half, cy - half, cx + half, cy + half);
             var helpQ = MenuDraw.Rect(root, Tex(ArtHelp), r, "Help Button", QArt, null, true);
-            var helpHit = MenuDraw.Hit(root, "HelpHit", r, QHit, () => OpenHelp());
+            var helpHit = MenuDraw.Hit(root, "HelpHit", r, QHit, () => HelpButtonClick());
             // 🆕 **2026-10-19（`N70` P1-7）**：原版这颗 `Help Button` 是 **`m_Transition = 1`(ColorTint)** ——
             //   可见件与命中区是两个节点（命中区那颗 quad 透明）⇒ 必须 `TintOn` 到可见件上，否则零反馈。
             //   色 = 全库默认（HL 0.9607843 / PR 0.7843137 / fade 0.1）⇒ `WindowButton` 的缺省值就是它，不覆盖。
@@ -2270,6 +2270,99 @@ namespace CardPresentation
             if (PickedPrebuilt != null) return PickedPrebuilt.gameMode;
             var raw = CollectionData.Raw(DeckIndex);
             return raw != null ? (int?)raw.GameMode : null;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（第九十三会话 · `B93_D1` · 判据 `判据/B93_Q2_日常190.tsv` 批次 `B93-4`）
+        //  「原版同名入口」+ 战斗钮 `interactable` 那一族。**全部追加在类尾**（⛔ 不在文件中段加行：
+        //  账按 `文件:行号` 引用，中段加一行就让下游整体漂移，见 `CLAUDE.md` §18·b）。
+        // ================================================================================================
+
+        /// <summary>点 `Battle!` —— = 原版 `SkirmishEventWindow.BattleButtonClick` / `.StartBattle` /
+        /// `RankedEventWindowV2.BattleButtonClick` / `.StartBattle` / `RankedEventWindow.PlayButtonClicked`
+        /// （五个方法体**逐句同构**：先 `GameStaticData.shouldUseDebugMatchmakingData = false`、再 `StartMatch`）。
+        /// <para>⚠️ 我们**没有** `shouldUseDebugMatchmakingData` 这个调试开关（原版只喂 debug matchmaking 那一支，
+        /// 本工程没有对应实现 ⇒ 无落点）⇒ 这里只剩 `StartMatch` 那一跳；⛔ 别为此造一个恒 false 的假静态。</para></summary>
+        public virtual void PlayButtonClicked() { StartMatch(); }
+
+        /// <summary>`Close Button` / `BackgroundCloseButton` / 窗头返回键 —— 原版两扇活动窗都有同名私有方法，
+        /// 体 = `Close()`（`SkirmishEventWindow__CloseButtonClick.c` / `RankedEventWindowV2__CloseButtonClick.c`）。</summary>
+        public virtual void CloseButtonClick() { Close(); }
+
+        /// <summary>`Help Button` —— 原版 `HelpButtonClick`：`HasComponent(liveOps, HelpPopup)` ⇒
+        /// `OpenWindow(GetComponentReference(HelpPopup), liveOps)`（两扇窗**逐行同构**）。
+        /// 等价物 = <see cref="OpenHelp"/>（变体按 `HelpVariant`、文案键按 `EventHelpTitleTerm`/`…DescriptionTerm`）。</summary>
+        public virtual void HelpButtonClick() { OpenHelp(); }
+
+        /// <summary>`Change Deck Button` —— 原版 `RankedEventWindow.ChangeDeckButtonClick`
+        /// （`DeckSelectionContext(currentDeck, DeckChanged, null, filter, gameMode)` ⇒ `OpenWindow&lt;DeckSelectionPopup&gt;`）
+        /// 与 `RankedDeckSelector.OnSelectDeckButtonClick`（同一个弹窗）。
+        /// 等价物 = <see cref="OpenDeckSelection"/>：挑完那一步会重建卡组栏并调 `OnDeckColumnChanged`
+        /// （= 原版 `DeckChanged` 里 `deckInfo.SetContent(deck)` 的那一半；另一半 `SetDivision()` 的输入全在服务器）。</summary>
+        public virtual void ChangeDeckButtonClick() { OpenDeckSelection(); }
+
+        /// <summary>`View Deck Button` —— 原版 `RankedEventWindow.ViewDeckButtonClick`
+        /// （`DeckInfoContext(deck, DeckInfoStates.Edit, null, checkOwnership, editButtonAction)` ⇒ `OpenWindow&lt;DeckInfoPopup&gt;`）
+        /// 与 `RankedDeckSelector.OnViewDeckButtonClick`。等价物 = <see cref="OpenDeckInfo"/>。</summary>
+        public virtual void ViewDeckButtonClick() { OpenDeckInfo(); }
+
+        /// <summary>战斗钮那颗 `WindowButton`（懒取，`BuildToBattle` 建完就有）。
+        /// 走**路径**而不是在 `BuildToBattle` 里存一份 —— 中段加行会让账的行号整体漂移（见上面那段标题）。</summary>
+        WindowButton _battleWb;
+
+        /// <summary>`To Battle Button/BattleHit` 那颗 `WindowButton`；没有 ⇒ `null`（没建 / 被视口裁掉）。</summary>
+        public WindowButton BattleButtonWb
+        {
+            get
+            {
+                if (_battleWb == null)
+                {
+                    var h = transform.Find("To Battle Button/BattleHit");
+                    if (h != null) _battleWb = h.GetComponent<WindowButton>();
+                }
+                return _battleWb;
+            }
+        }
+
+        /// <summary>现在这颗 `Battle!` 可不可点（自检读口）。没有按钮 ⇒ `true`（不该发生，出声在 setter 里）。</summary>
+        public bool BattleInteractable { get { var wb = BattleButtonWb; return wb == null || wb.Interactable; } }
+
+        /// <summary>原版 `battleButton.interactable = …` 那一句的等价物。
+        /// <para>判据（两处**逐句同构**）：
+        /// ① `SkirmishEventWindow__OnDeckSelected.c` —— `battleButton.interactable = HasValidDeckWithValidationMessage().valid`；
+        /// ② `RankedEventWindowV2__ArmySelectedOnSelectArmy.c` —— `= currentDeck != null &amp;&amp; ValidateDeck(...)`。
+        /// 本批只接了 ① （`SkirmishEventWindow.RefreshBannedLine`）；② 未接，已记账。</para>
+        /// <para>⚠️ 置假 ⇒ `WindowButton.Click()` 第一句直接返回（= 原版 `Selectable.OnPointerClick` 的
+        /// `if (!IsActive() || !IsInteractable()) return;`）+ 底图变灰；见 `WindowButton.Interactable` 的 doc。</para></summary>
+        public void SetBattleInteractable(bool on)
+        {
+            var wb = BattleButtonWb;
+            if (wb == null)
+            {
+                Debug.LogWarning("[Event] `Battle!` 没有 `WindowButton` ⇒ `interactable` **没写进去**（⛔ 不静默）");
+                return;
+            }
+            if (wb.Interactable == on) return;
+            wb.Interactable = on;
+            Debug.Log("[Event] `Battle!` interactable = " + on
+                      + "（原版 `battleButton.interactable = <卡组存在 && 校卡通过>`）");
+        }
+
+        /// <summary>当前这一副卡组的校验 = 原版 `HasValidDeckWithValidationMessage()` /
+        /// `DeckUtility.ValidateDeck(currentDeck, out error)` 的等价物。**全工程只此一份**
+        /// （`SkirmishEventWindow.RefreshBannedLine` 与 `SetBattleInteractable` 的调用点都从这里取判据）。
+        /// <para>返回 `false` = 「没有卡组」**或**「有卡组但校不过」—— 调用方要看 `deck`/`err` 区分
+        /// （原版两处都是 `deck != null &amp;&amp; Validate(...)`：空态也置假）。</para></summary>
+        protected bool TryValidateCurrentDeck(out RuleEngine.DeckError err, out RuleEngine.PlayerDeck deck)
+        {
+            deck = PickedPrebuilt != null ? PrebuiltDecks.ToPlayerDeck(PickedPrebuilt)
+                 : HasEffectiveDeck ? CollectionData.Raw(DeckIndex) : null;
+            err = RuleEngine.DeckError.None;
+            if (deck == null) return false;
+            // 张数规则从**这副牌自己的模式**读（原版 `ValidateDeck` 不带 isSkirmish 实参，读 `CardDeck.gameMode`）
+            bool isSkirmish = deck.GameMode == (int)RuleEngine.GameMode.Skirmish;
+            err = RuleEngine.DeckRules.Validate(deck, CollectionData.Card, isSkirmish);
+            return err == RuleEngine.DeckError.None;
         }
     }
 }

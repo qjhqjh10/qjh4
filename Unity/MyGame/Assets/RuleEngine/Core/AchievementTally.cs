@@ -93,7 +93,7 @@ namespace RuleEngine
         /// （`RuleCore.ApplyDamageCore` 里扣盾 / 减伤 / 易伤拆分之后的 `actual`）。</summary>
         public readonly int[] DamageByKind = new int[2 * KindCount];
 
-        /// <summary>`[座位 * AbilityMax + AbilityTrigger 数值]` —— 触发**次数**（不是目标数）。</summary>
+        /// <summary>`[座位 * AbilityMax + AbilityTrigger 数值]` —— 触发**次数**（不是目标数）。读点 = `ProfileData.TallyDeltaOf` 的 `case "TriggerAbility"`（`Shell/ProfileData.cs` 现读 `:669-671`；102 条成就里 **17 条**用它，全部走「指定 trigger」那一支）—— 🔴 2026-10-28（`B93_E1`）现核，旧账那句「`TriggerByAbility` 生产 0 消费方」**已过期**。</summary>
         public readonly int[] TriggerByAbility = new int[2 * AbilityMax];
 
         /// <summary>`[座位 * TagCount + CardPlayedTag]` —— 打出**张数**（一张卡可以同时落多个标签）。</summary>
@@ -286,16 +286,16 @@ namespace RuleEngine
         /// 归属 = **凶手**（`kOwner`）—— 原版 `TroopsKilled` 按**死者**选边写进**凶手那侧**的 stats
         /// （`ChallengeLogMgr__TroopKilled.c` 尾：`deadCard+0x40 == 0` ⇒ `PlayerBattleStats`），
         /// 而消费者 `TroopsKilledCount` 只看 `killer.isPlayer` ⇒ 两条口径**同值**。</para>
-        /// <para>⚠️ 覆盖差（如实记）：原版 `ResolveMinionDeath` 每个小兵死都发信号，无凶手时
-        /// 消费者自身会在 `null.isPlayer` 上抛 NRE ⇒ **原版那一路也不计数**；我们只数「有凶手且凶手
-        /// 是当前行动方」那一档（与消费者等价，但不是逐字等价的信号流）。</para></summary>
+        /// <para>⚠️ 覆盖差（如实记）：原版 `ResolveMinionDeath` 每个小兵死都发信号，无凶手时消费者自身
+        /// 抛 NRE（`TroopsKilledCount__OnTroopKilled.c:4-5` 两道空闸之后就是 `FUN_1803f47a0()`）⇒ **那一档原版也不计数**；
+        /// 🔴 2026-10-28（`B93_E1`）订正：原写「与消费者等价」**不成立** —— 本格写在 `TryCreditKillCore` 里，还继承了它那句 `kOwner != ctx.Active` 的闸 ⇒ 「**非本方回合**的击杀」（例：对方回合里我方触发效果打死对方部队）**原版会计、我们不记**；另：本格今天**无读者**（102 条成就里 `TroopsKilledCount` = **0** 条，唯一潜在消费者是远端任务）。</para></summary>
         public readonly int[] TroopsKilled = new int[2];
 
         /// <summary>`[被治疗方座位]` —— **实际治疗量**（原版 `ChallengeVariable`/`HealAmount` 那一格）。
         /// <para>写点 = `RuleCore.HealUnit`（`ctx.Emit(EvtKind.Heal)` 之后）。量 = 该方法算出的 `healed`
         /// （= `u.Health - before`，天生就是 `min(请求, MaxHealth−Health)` 的净量，与
         /// `HealAmount.cs:100-160` 的消费者公式逐字对上）。阵营过滤在消费者里，我们这里
-        /// 用 `owner`（被治疗方的座位）承载 `t.isPlayer`。</para></summary>
+        /// 用 `owner`（被治疗方的座位）承载 `t.isPlayer`。⚠️ 2026-10-28（`B93_E1`）现核：① 本格今天**无读者**（102 条成就里 `HealAmount` = **0** 条，唯一潜在消费者是远端任务）；② **未查清**：原版 `LogHeal` 唯一调用点 = `_ResolveHeal_d__491__MoveNext.c:89`（只覆盖 heal action），而我们的 `HealUnit` 还吃「回合末再生 / 猎杀标记」两路 ⇒ 可能**多算**，待核。</para></summary>
         public readonly int[] HealDone = new int[2];
 
         /// <summary>记一次**击杀部队**（`TroopsKilledOf` 的对写口）。</summary>
@@ -318,8 +318,10 @@ namespace RuleEngine
     // ================================================================================================
     //  🆕 2026-10-28（B92 波 4 · 执行代理 `B7`）—— 两格「原版口径」的**加法**（追加在文件末 = 零行漂移）
     //  判据 → `资料/完全复刻/判据/B92_战斗判据_B7.md` §3·5 / §3·8；报告 → `报告/B92_B7b.md`
-    //  🔴 本块**只加容器 + 取数口**、不接任何写点 ⇒ 今天的 `play` 输出与指纹**逐字节不变**。
-    //     两个写点都在 `RuleCore`（B1 的文件），逐条落点见各自 doc。
+    //  ✅ **写点已接（2026-10-28 · `B93_E6`）**：`RuleCore.ApplyDamageCore`（主伤害在函数头、易伤第二发在函数尾）
+    //     与 `RuleCore.SpendNormalMana` → `RecordEnergySpent`（`PayCardCost` ×2 / `PayActiveAbilityCostOath` ×1）。
+    //     🔴 **消费侧还没切**（`BattleDriver.AwardAchievements` / 任务挑战读的仍是老那一份）⇒ 今天的
+    //     `play` 输出与指纹**仍然逐字节不变**（这两格今天是 0 个读者）。
     // ================================================================================================
     public sealed partial class AchievementTally
     {
@@ -333,11 +335,18 @@ namespace RuleEngine
         /// 且 `BattleManager.BroadcastUnitDamaged` **不看** `damageAbsorbed` 就发 `LogDamage` 信号
         /// （dev `BattleManager.cs:24516-24527`）⇒ 原版数的是「打到身上的名义伤害」，**含被护甲/盾/absorbed 吃掉的那部分**。</para>
         /// <para>⚠️ 与 <see cref="DamageByKind"/> 的关系：那一格是**扣甲后**的 `actual`（现役口径），本格是原版口径
-        /// —— **二选一**，⛔ 别让同一个消费者同时读两格（会双计）。切换两步：
-        /// ① 写点 = `RuleCore.ApplyDamageCore`（现读 `RuleCore.cs:8946` 的 `AddDamage(1 - _own, kind, actual)`
-        /// ⇒ 改调本方法、传**扣甲前**那一份量 + **攻方**座位）；② 消费点 = `BattleDriver.AwardAchievements` 改读
-        /// <see cref="DamageRawOf"/>。⚠️ 原版还要求「absorbed 也计入」，而 `ApplyDamageCore` 在
-        /// 盾 / 闪避 / 无敌 / 空投舱那几支是**早退 `return 0`**（到不了记账口）⇒ ① 那一步要顺带把早退支改成「先记再退」。</para></summary>
+        /// —— **二选一**，⛔ 别让同一个消费者同时读两格（会双计）。✅ **① 写点已接（2026-10-28 · `B93_E6`）**：
+        /// `ApplyDamageCore` 在**函数开头**（`DamageAfterReduction` 之后、所有早退之前）记**主伤害**（`dmg` = 扣甲前），
+        /// 在**函数尾**（`AddDamage` 那一句旁）记**易伤第二发**（`VulnerableRaw`）。两条都与 `AddDamage` **并存**、
+        /// ⛔ **没有替换它** —— 它的消费者 `BattleDriver.AwardAchievements` 还没切（那是 B3/E5 的文件）。
+        /// ② **消费点仍未切** ⇒ 本格今天 **0 个读者**。
+        /// 🔴 原版那两条「absorbed 也计入」+「易伤第二发另算一条 `DamageInfo`」因此**自然满足**：
+        /// 主伤害记在早退**之前**（盾 / 闪避 / 无敌 / 空投舱 / 堡垒整份吃下都会先记），
+        /// 第二发是原版 `_ReceiveDamage…:252-254` 那条**独立 `DealMultiDamage`**，它自己也广播一次。
+        /// ⚠️ **已知唯一缺口（今天不可达）**：空投舱血池把**易伤第二发**也吃掉那一支
+        /// （`ApplyDamageCore` 里 `after >= 1` 那个 `EmitHit(ctx, u, 0); return 0;`）会绕过函数尾 ⇒
+        /// 那一发在原版会被广播、我们没记。全池 **0 张卡**带 `dropPod`（现扫 `cards_engine.json`）⇒ 行为差异 0，
+        /// 将来真出这张卡时要补。</para></summary>
         public readonly int[] DamageByKindRaw = new int[2 * KindCount];
 
         /// <summary>记一笔**扣甲前**的伤害（`dealerSeat` = **打出去的那一方**）。闸与 <see cref="AddDamage"/> 逐条相同
@@ -376,11 +385,20 @@ namespace RuleEngine
         /// 消费者 `EnergySpent.OnEnergySpent`（`EnergySpent__OnEnergySpent.c:14-40`）三道闸 =
         /// `signal.IsPlayer` ∧ `costCondition.Compare(Cost)` ∧ `costType(+0x60) 含 signal.Type(+0x24)` ⇒ `UpdateProgress(Cost)`。
         /// ⇒ 「花掉 N 点能量」类挑战**必须能按类型筛**，而我们原来只有「按座位累计一个总数」。</para>
-        /// <para>⚠️ 写点在 B1 的文件里：`RuleCore.SpendNormalMana`（现读 `RuleCore.cs:13040`；出牌调用点 `:3930`、
-        /// 主动能力 `:15396`；维护费 `:1826` 传 `energySpentSignal: false` —— 与原版两个发起源**都不含维护费**一致）。
-        /// 需给它加 `costType` 形参、两处分别传 Card / Ability，由它调本方法。</para>
-        /// <para>⚠️ 原版记 `EntityScript.get_CurrentCost(card)`（**付费之后重取**），`SpendNormalMana` 现在记实付 `paid`
-        /// —— 在「付完会改费用」的卡上会分叉，切换时一并核。</para></summary>
+        /// <para>✅ **写点已接（2026-10-28 · `B93_E6`）**：`RuleCore.SpendNormalMana(..., int costType = 0)`
+        /// → <see cref="RuleCore.RecordEnergySpent"/> → 本方法。三个调用点：
+        /// `PlayCardCore`（出单位）与 `EffectResolver.PlayTacticCore`（出战术卡）传 <see cref="EnergyCostCard"/>、
+        /// `RuleCore.ResolveActiveAbilityPlayed`（单位主动能力）传 <see cref="EnergyCostAbility"/>。
+        /// 维护费传 `energySpentSignal: false`（原版两个发起源**都不含维护费**）。</para>
+        /// <para>🔴 **刻意不记的两处**（原版**不发** `EnergySpentSignal`，不是漏接）：
+        /// ① 卡面付费前缀（`Oath N:` / `N Energy:`，`EffectResolver` 的 `CostPrefixPayable` 那一支）——
+        /// 原版那两条是 `PayCardPlayedCostOath.c`（无 `EnergySpentSignal___ctor`）与
+        /// `RawCardScript__TriggerAbility.c:52`（`UseMana(…, ManaType 5)`，也不发）。全树 `grep
+        /// "EnergySpentSignal___ctor"` **只有两个命中**（`PayCardCost` / `PayActiveAbilityCostOath`）。
+        /// ② 测试夹具直调 `SpendNormalMana`（不传 `costType` ⇒ 走 0 档）。</para>
+        /// <para>⚠️ **已知差异（未消）**：原版记 `EntityScript.get_CurrentCost(card)`（**付费之后重取**），
+        /// `SpendNormalMana` 记的是实付 `paid` —— 在「付完会改费用」的卡上会分叉（与
+        /// `RuleCore.EnergySpentTotal` 记的是同一个 `paid`，两格口径一致）。</para></summary>
         public readonly int[] EnergySpentByCostType = new int[2 * 2];
 
         /// <summary>记一笔花掉的能量。`costType` 只接受 <see cref="EnergyCostCard"/> / <see cref="EnergyCostAbility"/>
@@ -420,5 +438,26 @@ namespace RuleEngine
             if (!SeatOk(seat)) return 0;
             return EnergySpentByCostType[seat * 2] + EnergySpentByCostType[seat * 2 + 1];
         }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（`B93_F4b` · 账 `日常_奖励:39` = `ChallengeLogMgr.LogPlayTactic`）
+        //      **原版 `PlayerBattleStats.tacticsPlayed(+0x14)` 的读数口。**
+        //  判据（三源一致）：`decomp_full/ChallengeLogMgr__LogPlayTactic.c:370-408`（唯一自增 `*(lVar25+0x14)+=1`）·
+        //    `cpp2il/out_il2csharp/Assembly-CSharp/ChallengeLogMgr.cs`（`stats.tacticsPlayed += 1` 只一处）·
+        //    `il2cpp_out/dump.cs:37205-37210`（`PlayerBattleStats` 只有 `enemyTroopsDied / tacticsPlayed / damageDone` 三个 int）。
+        //  🔴 **反证（就地订正上游施工单）**：`LogPlayTactic` **没有**「按 7 类战术分别累加」那一维 ——
+        //    方法体 = 挑出打出的那张卡(+其 cost) → 发一次 `CardPlayedSignal` → 给**打出的那一方**的
+        //    `tacticsPlayed` **+1**。所谓「7 个分支」是 `actionType==46` 的 if/else 与三段 null 回退链
+        //    （同一件事的候选卡回退），不是 7 个统计格 ⇒ ⛔ 别按施工单去造 `TacticKind` 维度（原版没有）。
+        // ================================================================================================
+
+        /// <summary>某一方**打出过几张战术卡** —— 原版 `PlayerBattleStats.tacticsPlayed(+0x14)` 的等价位。
+        /// <para>**写点（唯一）**：战术卡真打出去那一刻 `EffectResolver.PlayTacticCore` 调
+        /// `Tally.AddCardPlayed(p, RuleCore.CardPlayedTagMask(card, inst))`，而 `CardPlayedTagMask`
+        /// 对所有 `type == "tactic"` 的卡置 `CardPlayedTag.Tactic` 位（`RuleCore.cs:3883`）
+        /// ⇒ 与 <c>CardsPlayedOf(seat, CardPlayedTag.Tactic)</c> **同一个格**（本口只是转发，⛔ 不是第二本账）。</para>
+        /// <para>⚠️ 原版那个 `CardPlayedSignal` 带 **cost**（`EntityScript.get_CurrentCost`）—— 我们的事件流里
+        /// 没有「打出成本」这一格，属**另一行**的残差（本口不承担）。</para></summary>
+        public int TacticsPlayedOf(int seat) { return CardsPlayedOf(seat, CardPlayedTag.Tactic); }
     }
 }

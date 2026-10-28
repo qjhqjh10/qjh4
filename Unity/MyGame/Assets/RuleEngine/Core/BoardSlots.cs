@@ -636,5 +636,73 @@ namespace RuleEngine
                 if (ReferenceEquals(ps.Board[s], card)) return RightNeighbor(ps, s);
             return null;
         }
+
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-28（`B93_F4` · 账 `L1106`）：**有符号格号 → 卡** —— 原版
+        //  `MinionManager.GetCardInPos(int indexInPlay)` 的等价物。
+        //  ⚠️ 追加在类尾（本文件行号被 30+ 条账行引用；⛔ 别插到中间）。
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// **原版 `MinionManager.GetCardInPos(int indexInPlay)`**（`d:/2/tools/decomp_full/MinionManager__GetCardInPos.c`，
+        /// 🥇 全文 68 行逐句读过）的等价物 —— 把**原版有符号格号**翻译成**那一格上的卡**。
+        ///
+        /// <para>**原版逐句**：</para>
+        /// <list type="bullet">
+        /// <item>`index == 0`（`0 &lt;= index &lt; 1` 那一支）⇒ `CustomDebug.LogWarning("…index…")` + 返回 `null`；</item>
+        /// <item>`index &lt; 0` ⇒ 左表（`+0x60`）第 `-index-1` 个（`-index &gt; Count` 时 `LogWarning` + `null`）；</item>
+        /// <item>`index &gt; 0` ⇒ 右表（`+0x68`）第 `index-1` 个（`index &gt; Count` 时 `LogWarning` + `null`）。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **与我们棋盘的对应**：`Index = |有符号格号| - 1` 就是**该侧第几个**（见文件头
+        /// 「格号 ↔ 下标的映射」）；原版那两条 `List` 是**连续无洞**的，所以「第 idx 个」=
+        /// **该侧第 idx 个非空格**（`Board[]` 在自检夹具里可能有洞 ⇒ 这里按「跳过 null 数第 idx 个」取，
+        /// 与 `List[idx]` 同义，⛔ 不是 `Board[SlotOf(side,idx)]` 直取 —— 直取在有洞时会拿到错的那张）。</para>
+        ///
+        /// <para>🔴 **越界必须出声**（原版 `LogWarning`；改前我们的调用方直索引 `Board[]`，
+        /// `index == 0` / 越界会静默 `IndexOutOfRange`）—— 本方法按原版打 `Debug.LogWarning` 再返回 `false`。</para>
+        ///
+        /// <para>⚠️ **与 <see cref="OriginalIndexOfCard"/> 互为逆**：`OriginalIndexOfCard(ps, c)` 给格号、
+        /// 本方法收格号给卡；一条往返断言 = `TryGetCardInPos(ps, orig, out c) &amp;&amp; ReferenceEquals(c, 原卡)`。</para>
+        /// </summary>
+        /// <param name="signedIndex">原版有符号格号：`&lt; 0` 左、`&gt; 0` 右、`0` = 督军格（原版也当越界）。</param>
+        /// <returns>`true` = 该格上有卡；`false` = 格号非法 / 该侧没那么多单位（**都已出声**）。</returns>
+        public static bool TryGetCardInPos(PlayerState ps, int signedIndex, out UnitState card)
+        {
+            card = null;
+            if (ps == null || ps.Board == null) return false;
+            if (signedIndex == 0)                       // 原版 `-1 < index < 1` 那一支
+            {
+                WarnCardInPos(ps, signedIndex);
+                return false;
+            }
+            int side = signedIndex < 0 ? Left : Right;
+            int idx = System.Math.Abs(signedIndex) - 1; // 该侧第几个（0 = 贴督军那格）
+            if (idx >= CountOnSide(ps, side))           // = 原版 `-index > Count` / `index > Count`
+            {
+                WarnCardInPos(ps, signedIndex);
+                return false;
+            }
+            int seen = 0;
+            for (int i = 0; i < BoardSpec.SlotsPerSide; i++)
+            {
+                var u = ps.Board[SlotOf(side, i)];
+                if (u == null) continue;                // 有洞 ⇒ 跳过（原版 List 里不会有 null）
+                if (seen == idx) { card = u; return true; }
+                seen++;
+            }
+            WarnCardInPos(ps, signedIndex);             // 兜底：数不满（不该发生）
+            return false;
+        }
+
+        /// <summary>原版 `GetCardInPos` 那条 `CustomDebug.LogWarning` 的等价位 —— **⛔ 别静默返回**
+        /// （原版串里带 index 与两侧人数；字面量读不出，语义等价）。</summary>
+        static void WarnCardInPos(PlayerState ps, int signedIndex)
+        {
+            int l = ps != null && ps.Board != null ? CountOnSide(ps, Left) : -1;
+            int r = ps != null && ps.Board != null ? CountOnSide(ps, Right) : -1;
+            UnityEngine.Debug.LogWarning("[BoardSlots] ⚠️ GetCardInPos(有符号格号 " + signedIndex
+                + ") 越界：左侧 " + l + " / 右侧 " + r + "（原版同点 LogWarning 并返回 null）");
+        }
     }
 }

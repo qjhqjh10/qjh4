@@ -47,8 +47,8 @@
 // | ⑥b | `Tap to close/Collider` | −534.74,−204.55 → 3318.35,2027.98（**盖满整屏**） | 跟 ⑥ 一起 ⇒ **点哪儿都关** |
 //
 // ============================ 🔴 我们挑的 / 缺口（逐条出声，红线：不许静默失败） ============================
-//   · **卡包内容是我们编的**：原版是服务端 drop table（`Booster Pack Ultramarines` SO 的
-//     `dropTableItems` 指着 `DT Ultramarines All R2+` / `DT Ultramarines All` 两张**没导出来**的掉落表）。
+//   · **卡包内容是我们编的**：原版是服务端 drop table（`Booster Pack Ultramarines` SO 的 `dropTableItems` 指着 `DT Ultramarines All R2+` / `DT Ultramarines All`；原写「两张**没导出来**的掉落表」）
+//     ⚠️ 2026-10-28 订正（B93_Q8 现核）：**不成立** —— 34 份 `DT *` + 11 个 Booster 容器都在 `assets_full`（`bundle_menus_assets_all` / `bundle_cosmeticsso_assets_all` / `bundle_duplicateassetisolationso_assets_all`），之前因**文件名带空格**漏检；判别字段 = `cantBeRandomlyCreated`（过滤已接进 `RollPack`）。
 //     我们按**同一份 SO 的出厂文案**定规则：「Contains 5 cards for the Sautekh army.」
 //     + 「At least one of the cards is guaranteed to be Rare or better」
 //     ⇒ **5 张 + 至少 1 张 rare/epic/legendary**，阵营按商品主图对（见 `ArmyOfArt`）。
@@ -1226,6 +1226,21 @@ namespace CardPresentation
                 Debug.LogWarning("[BoosterPack] ⚠️ 阵营 `" + army + "` 在卡池里一张都没有 ⇒ 退回全卡池");
                 list = pool;
             }
+            // 🔴 **2026-10-28（B93_Q8）：原版卡包池的判据 = `cantBeRandomlyCreated == 0`** —— 见
+            //   `资料/完全复刻/判据/B93_Q8_开包过滤判定.md`。硬证据：原版 drop table 的 **329 条白名单**里
+            //   `show=0` / `inv=10 / 5` / `cbrc=1` 一条都没有；而 4 个本地有掉落表的阵营，卡池 − 白名单
+            //   **逐张 == 卡池里 `cbrc=1` 的那批**（22/18/12/10）。
+            //   ⚠️ **别改成按 `showInCollectionOptions` / `inventoryOptions` 筛**：那会漏掉 39 张 `show=5` 的战场环境卡
+            //   （`defence` · `inv=5` · `cbrc=1`），它们在原版 4 个阵营的白名单里同样 0 命中。
+            {
+                var filtered = new List<CardDef>(list.Count);
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i] != null && !list[i].CantBeRandomlyCreated) filtered.Add(list[i]);
+                if (filtered.Count == 0)
+                    Debug.LogWarning("[BoosterPack] ⚠️ 阵营 `" + army + "` 剔掉 `cantBeRandomlyCreated` 之后一张不剩 ⇒ "
+                                     + "本包退回未过滤（会开出原版不会出的卡，如实出声）");
+                else list = filtered;
+            }
             var rare = new List<CardDef>();
             var rest = new List<CardDef>();
             for (int i = 0; i < list.Count; i++)
@@ -1239,7 +1254,10 @@ namespace CardPresentation
             if (rare.Count > 0) pick.Add(rare[rnd.Next(rare.Count)]);
             // 剩下 4 张从「除了已选那张以外的全部」里抽
             var others = new List<CardDef>();
-            for (int i = 0; i < list.Count; i++) if (list[i] != pick[0]) others.Add(list[i]);
+            // 🔴 2026-10-28（B93_Q8 顺手发现 #1）：原来无条件读 `pick[0]` —— `rare.Count == 0` 时 `pick` 为空
+            //   ⇒ `ArgumentOutOfRangeException`（而上面那条告警恰好写着"这种情况会发生"）。
+            if (pick.Count > 0) { for (int i = 0; i < list.Count; i++) if (list[i] != pick[0]) others.Add(list[i]); }
+            else others.AddRange(list);
             for (int k = 0; pick.Count < 5 && others.Count > 0; k++)
             {
                 int j = rnd.Next(others.Count);
@@ -1260,7 +1278,7 @@ namespace CardPresentation
         void HintGaps()
         {
             Debug.Log("[BoosterPack] 如实标注：① **卡包内容是我们摇的**（原版走服务端 drop table，"
-                      + "`DT Ultramarines All(R2+)` 那两张本地没导出来）；"
+                      + "`DT Ultramarines All(R2+)` —— ⚠️ 2026-10-28 订正（B93_Q8 现核）：原写「本地没导出来」**不成立**，34 份 `DT *` + 11 个 Booster 容器都在 `assets_full`（以前因**文件名带空格**漏检）；判别字段 = `cantBeRandomlyCreated`）；"
                       + "② **翻牌动画是代码补间**（判据 = 原版 7 条 clip 的关键帧，采样表在 `BoosterPackAnim`）"
                       + " —— 原版是 legacy `Animation` 播 clip，我们**不能**直接播（坐标系/缩放/锚点都对不上）；"
                       + "③ **相机抖是等价物**（菜单层没有相机 ⇒ 抖卡容器；包络/时长我们挑的；"

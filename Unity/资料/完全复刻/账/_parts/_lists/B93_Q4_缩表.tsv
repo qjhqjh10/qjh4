@@ -1,0 +1,89 @@
+操作	行号	原版类	方法	理由	主题表对应行
+删	5	RankedEventBase<TSave,	GetDivisionByPoints(long points)	主题表 个人资料_成就_排行.tsv:212 已 A(同键已实现) -> 本行纯过期副本，删	个人资料_成就_排行.tsv:212
+删	8	LoadableReference<T>	GetReference()	主题表 其他_基础设施.tsv:291[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）｜⚠️ 我方 Core/LoadableRef.cs 已实现(TargetId/Reference 属性)，本行落点「—」已过期；以主题表 B 为准并在主题表补落点	其他_基础设施.tsv:291
+删	9	LoadableReference<T>	GetTargetId()	主题表 其他_基础设施.tsv:293[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）｜⚠️ 我方 Core/LoadableRef.cs 已实现(TargetId/Reference 属性)，本行落点「—」已过期；以主题表 B 为准并在主题表补落点	其他_基础设施.tsv:293
+删	23	LoadableReference<T>	GetReferenceObjEditor()	主题表 其他_基础设施.tsv:292[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）｜⚠️ 我方未实现(LoadableRef.cs:22 明确「仍然没做」)，是真缺口(小)；主题表 B 保留	其他_基础设施.tsv:292
+删	37	ShopStore<TSave,	Initialize()	主题表 商店.tsv:295 已 A(同键已实现) -> 本行纯过期副本，删	商店.tsv:295
+删	39	ShopStore<TSave,	GetBaseSave()	主题表 商店.tsv:293 已 A(同键已实现) -> 本行纯过期副本，删	商店.tsv:293
+删	42	ShopStore<TSave,	RemoveFinishedOffer()	主题表 商店.tsv:296[C] 同键在册；工作归主题表，删本表重复行	商店.tsv:296
+改D	48	CollectionDisplay<T>	ResetRelayTarget()	随主题表 收藏.tsv:125 判 D(结构不需要(useSelectedHighlight=0 等))；状态改 D，差异列写「随主题表 收藏.tsv:125 的 D 判据」	收藏.tsv:125
+改D	57	CollectionDisplay<T>	Select(T item)	随主题表 收藏.tsv:127 判 D(结构不需要(useSelectedHighlight=0 等))；状态改 D，差异列写「随主题表 收藏.tsv:127 的 D 判据」	收藏.tsv:127
+改D	77	CollectionItem<T>	OnDisable()	随主题表 收藏.tsv:153 判 D(结构不需要(useSelectedHighlight=0 等))；状态改 D，差异列写「随主题表 收藏.tsv:153 的 D 判据」	收藏.tsv:153
+改D	85	CollectionItem<T>	OnSelect()	随主题表 收藏.tsv:161 判 D(结构不需要(useSelectedHighlight=0 等))；状态改 D，差异列写「随主题表 收藏.tsv:161 的 D 判据」	收藏.tsv:161
+改D	86	CollectionItem<T>	OnDeselect()	随主题表 收藏.tsv:152 判 D(结构不需要(useSelectedHighlight=0 等))；状态改 D，差异列写「随主题表 收藏.tsv:152 的 D 判据」	收藏.tsv:152
+改D	171	BaseEventProgressRewardDrawerController<TState>	ChangeState(TState currentState)	随主题表 日常_奖励.tsv:10 判 D(原版无体/恒值/纯云脚本/Addressables句柄)；状态改 D，差异列写「随主题表 日常_奖励.tsv:10 的 D 判据」	日常_奖励.tsv:10
+删	178	FastModeBaseEvent<TS,	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	主题表 日常_奖励.tsv:266[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:266
+删	180	FastModeBaseEvent<TS,	OnMatchFound(string otherPlayerName)	主题表 日常_奖励.tsv:270[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:270
+删	181	FastModeBaseEvent<TS,	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	主题表 日常_奖励.tsv:269[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:269
+删	182	FastModeBaseEvent<TS,	OnMatchProcessSuccess(OnlineMatchResult result)	主题表 日常_奖励.tsv:272[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:272
+删	183	FastModeBaseEvent<TS,	Expire(Action onComplete)	主题表 日常_奖励.tsv:259[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:259
+删	184	FastModeBaseEvent<TS,	TryCollect(Action onComplete)	主题表 日常_奖励.tsv:276[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:276
+删	192	GameNewsEvent<TPersistence,	SelectEvent()	主题表 日常_奖励.tsv:286 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:286
+删	193	GameNewsEvent<TPersistence,	GetTitle()	主题表 日常_奖励.tsv:284 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:284
+删	194	GameNewsEvent<TPersistence,	GetMessage()	主题表 日常_奖励.tsv:283 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:283
+改D	206	LiveOpsEvent<TSave,	Validate(TSave save)	随主题表 日常_奖励.tsv:360 判 D(原版无体/恒值/纯云脚本/Addressables句柄)；状态改 D，差异列写「随主题表 日常_奖励.tsv:360 的 D 判据」	日常_奖励.tsv:360
+改D	234	LiveOpsHandler<TEvent>	BeforeRefresh()	随主题表 日常_奖励.tsv:380 判 D(原版无体/恒值/纯云脚本/Addressables句柄)；状态改 D，差异列写「随主题表 日常_奖励.tsv:380 的 D 判据」	日常_奖励.tsv:380
+删	240	LiveOpsHandler<TEvent>	GetBaseEvents(bool includeBlockedEvents = False)	主题表 日常_奖励.tsv:384[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:384
+删	247	MissionEvent<TS,	Initialize()	主题表 日常_奖励.tsv:483[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	日常_奖励.tsv:483
+删	249	MissionEvent<TS,	InitializeChallenge(MissionChallenge challenge)	主题表 日常_奖励.tsv:484 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:484
+删	251	MissionEvent<TS,	Collect(Action onComplete)	主题表 日常_奖励.tsv:474[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	日常_奖励.tsv:474
+删	252	MissionEvent<TS,	Collect(MissionChallenge challenge, Action onComplete)	主题表 日常_奖励.tsv:475 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:475
+删	254	MissionEvent<TS,	UpdateChallengeProgress(ChallengeUpdatePayload payload)	主题表 日常_奖励.tsv:490[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	日常_奖励.tsv:490
+删	255	MissionEvent<TS,	TryCollect(Action onComplete)	主题表 日常_奖励.tsv:489 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:489
+删	259	MissionEvent<TS,	GetContainer()	主题表 日常_奖励.tsv:480[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:480
+改D	260	MissionEvent<TS,	ReleaseContainer()	随主题表 日常_奖励.tsv:487 判 D(原版无体/恒值/纯云脚本/Addressables句柄)；状态改 D，差异列写「随主题表 日常_奖励.tsv:487 的 D 判据」	日常_奖励.tsv:487
+删	267	PlayEvent<TSave,	CheckPreviousMatch()	主题表 日常_奖励.tsv:554[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:554
+删	269	PlayEvent<TSave,	StartMatchNoCheck(CardDeck playerDeck)	主题表 日常_奖励.tsv:571[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:571
+删	271	PlayEvent<TSave,	MakeOpponentInfo(MatchData matchData)	主题表 日常_奖励.tsv:561[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:561
+删	280	PlayEvent<TSave,	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	主题表 日常_奖励.tsv:559[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:559
+删	281	PlayEvent<TSave,	GetEventDeck()	主题表 日常_奖励.tsv:557[B] 同键在册；工作归主题表，删本表重复行	日常_奖励.tsv:557
+改D	284	PlayEvent<TSave,	UploadDefaultDeck()	随主题表 日常_奖励.tsv:572 判 D(原版无体/恒值/纯云脚本/Addressables句柄)；状态改 D，差异列写「随主题表 日常_奖励.tsv:572 的 D 判据」	日常_奖励.tsv:572
+删	288	ScoringEvent<TS,	PurchaseMilestone(int milestoneIndex, Action<RewardInfo[]> onComplete, Action<string> onError)	主题表 日常_奖励.tsv:695 已 A(同键已实现) -> 本行纯过期副本，删	日常_奖励.tsv:695
+改D	567	AlternateArtStyleItem<T>	TryGetItem(AlternateArtSyle alternateArtSyle, out T returnItem)	随主题表 未分类_其他.tsv:28 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:28 的 D 判据」	未分类_其他.tsv:28
+改D	568	AlternateArtStyleItem<T>	Release(AddressableCacheGroup cacheGroup = 1)	随主题表 未分类_其他.tsv:27 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:27 的 D 判据」	未分类_其他.tsv:27
+改D	569	AlternateArtStyleItem<T>	TryRelease(AlternateArtSyle alternateArtSyle)	随主题表 未分类_其他.tsv:29 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:29 的 D 判据」	未分类_其他.tsv:29
+改D	571	ArmyItem<T>	Release(AddressableCacheGroup cacheGroup = 1)	随主题表 未分类_其他.tsv:38 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:38 的 D 判据」	未分类_其他.tsv:38
+改D	572	ArmyItem<T>	TryRelease(CardArmy armyToRelease)	随主题表 未分类_其他.tsv:40 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:40 的 D 判据」	未分类_其他.tsv:40
+改D	576	AssetReferenceTyped<TObject>	ValidateAsset(string path)	随主题表 未分类_其他.tsv:47 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:47 的 D 判据」	未分类_其他.tsv:47
+改D	577	AssetReferenceTyped<TObject>	Load(AddressableCacheGroup cacheGroup = 1)	随主题表 未分类_其他.tsv:44 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:44 的 D 判据」	未分类_其他.tsv:44
+改D	578	AssetReferenceTyped<TObject>	Release(AddressableCacheGroup cacheGroup = 1, bool releaseAll = False)	随主题表 未分类_其他.tsv:45 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:45 的 D 判据」	未分类_其他.tsv:45
+改D	579	BaseProgressBarScaleAndPositionController<TState>	Initialize(TState currentState, TState previousState, int level)	随主题表 未分类_其他.tsv:74 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:74 的 D 判据」	未分类_其他.tsv:74
+改D	580	BaseProgressBarScaleAndPositionController<TState>	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, TState stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	随主题表 未分类_其他.tsv:75 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:75 的 D 判据」	未分类_其他.tsv:75
+改D	581	BiDirectionalDictionary<TKey,	TryGetKey(TValue value, out TKey key)	随主题表 未分类_其他.tsv:88 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:88 的 D 判据」	未分类_其他.tsv:88
+改D	582	BiDirectionalDictionary<TKey,	GetKey(TValue value)	随主题表 未分类_其他.tsv:84 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:84 的 D 判据」	未分类_其他.tsv:84
+改D	583	BiDirectionalDictionary<TKey,	GetValue(TKey key)	随主题表 未分类_其他.tsv:85 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:85 的 D 判据」	未分类_其他.tsv:85
+改D	584	BiDirectionalDictionary<TKey,	Add(TKey key, TValue value)	随主题表 未分类_其他.tsv:77 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:77 的 D 判据」	未分类_其他.tsv:77
+改D	585	BiDirectionalDictionary<TKey,	Add(KeyValuePair<TKey, TValue> item)	随主题表 未分类_其他.tsv:76 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:76 的 D 判据」	未分类_其他.tsv:76
+改D	586	BiDirectionalDictionary<TKey,	Clear()	随主题表 未分类_其他.tsv:78 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:78 的 D 判据」	未分类_其他.tsv:78
+改D	587	BiDirectionalDictionary<TKey,	Contains(KeyValuePair<TKey, TValue> item)	随主题表 未分类_其他.tsv:79 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:79 的 D 判据」	未分类_其他.tsv:79
+改D	588	BiDirectionalDictionary<TKey,	ContainsKey(TKey key)	随主题表 未分类_其他.tsv:80 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:80 的 D 判据」	未分类_其他.tsv:80
+改D	589	BiDirectionalDictionary<TKey,	ContainsValue(TValue value)	随主题表 未分类_其他.tsv:81 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:81 的 D 判据」	未分类_其他.tsv:81
+改D	590	BiDirectionalDictionary<TKey,	CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)	随主题表 未分类_其他.tsv:82 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:82 的 D 判据」	未分类_其他.tsv:82
+改D	591	BiDirectionalDictionary<TKey,	GetEnumerator()	随主题表 未分类_其他.tsv:83 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:83 的 D 判据」	未分类_其他.tsv:83
+改D	592	BiDirectionalDictionary<TKey,	Remove(TKey key)	随主题表 未分类_其他.tsv:87 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:87 的 D 判据」	未分类_其他.tsv:87
+改D	593	BiDirectionalDictionary<TKey,	Remove(KeyValuePair<TKey, TValue> item)	随主题表 未分类_其他.tsv:86 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:86 的 D 判据」	未分类_其他.tsv:86
+改D	594	BiDirectionalDictionary<TKey,	TryGetValue(TKey key, out TValue value)	随主题表 未分类_其他.tsv:89 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:89 的 D 判据」	未分类_其他.tsv:89
+改D	595	Cache<T>	ForceChangedValueNotification()	随主题表 未分类_其他.tsv:105 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:105 的 D 判据」	未分类_其他.tsv:105
+改D	597	ComponentReference<TComponent>	InstantiateAsync(Vector3 position, Quaternion rotation, Transform parent)	随主题表 未分类_其他.tsv:170 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:170 的 D 判据」	未分类_其他.tsv:170
+改D	598	ComponentReference<TComponent>	InstantiateAsync(Transform parent, bool instantiateInWorldSpace = False)	随主题表 未分类_其他.tsv:169 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:169 的 D 判据」	未分类_其他.tsv:169
+改D	599	ComponentReference<TComponent>	LoadAssetAsync()	随主题表 未分类_其他.tsv:172 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:172 的 D 判据」	未分类_其他.tsv:172
+改D	600	ComponentReference<TComponent>	GameObjectReady(AsyncOperationHandle<GameObject> arg)	随主题表 未分类_其他.tsv:168 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:168 的 D 判据」	未分类_其他.tsv:168
+改D	602	ComponentReference<TComponent>	ValidateAsset(string path)	随主题表 未分类_其他.tsv:176 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:176 的 D 判据」	未分类_其他.tsv:176
+改D	603	ComponentReference<TComponent>	Release(AddressableCacheGroup cacheGroup = 1)	随主题表 未分类_其他.tsv:173 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:173 的 D 判据」	未分类_其他.tsv:173
+改D	604	ComponentReference<TComponent>	ReleaseAsset()	随主题表 未分类_其他.tsv:174 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:174 的 D 判据」	未分类_其他.tsv:174
+改D	605	ComponentReference<TComponent>	Load()	随主题表 未分类_其他.tsv:171 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:171 的 D 判据」	未分类_其他.tsv:171
+删	609	ContainerBuilder<TCont>	MakeContainer(IContainerProvider evt, Transform parent)	主题表 未分类_其他.tsv:181[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）｜真实缺口：建 Shell/ContainerBuilder.cs(施工单见 B93_Q4b §件1)；工作落主题表 未分类:180-182	未分类_其他.tsv:181
+删	610	ContainerBuilder<TCont>	MakeContainer(IContainerProvider evt, EventComponentReferenceType componentReferenceType, Transform parent)	主题表 未分类_其他.tsv:180[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）｜真实缺口：建 Shell/ContainerBuilder.cs(施工单见 B93_Q4b §件1)；工作落主题表 未分类:180-182	未分类_其他.tsv:180
+删	611	ContainerBuilder<TCont>	MakeContainer(IContainerProvider evt, UiContainer container, Transform parent)	主题表 未分类_其他.tsv:182[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）｜真实缺口：建 Shell/ContainerBuilder.cs(施工单见 B93_Q4b §件1)；工作落主题表 未分类:180-182	未分类_其他.tsv:182
+改D	640	SingletonBehaviour<T>	Awake()	随主题表 未分类_其他.tsv:585 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:585 的 D 判据」	未分类_其他.tsv:585
+改D	641	SingletonBehaviour<T>	OnDestroy()	随主题表 未分类_其他.tsv:586 判 D(Addressables/句柄层 或 无单例基类/编辑器工具(本工程不用寻址层))；状态改 D，差异列写「随主题表 未分类_其他.tsv:586 的 D 判据」	未分类_其他.tsv:586
+删	658	BaseInboxEvent<TSave,	ClaimRewards()	主题表 社交_聊天.tsv:176 已 A(同键已实现) -> 本行纯过期副本，删	社交_聊天.tsv:176
+删	787	DraftEventBase<TS,	GetRandomWarlords()	主题表 轮抽.tsv:16[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	轮抽.tsv:16
+删	788	DraftEventBase<TS,	GetPossibleWarlords()	主题表 轮抽.tsv:14[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	轮抽.tsv:14
+删	791	DraftEventBase<TS,	PickWarlord(RawCardScript warlord, Action onSuccess, Action onFail)	主题表 轮抽.tsv:24[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	轮抽.tsv:24
+删	792	DraftEventBase<TS,	GetEventDeck()	主题表 轮抽.tsv:12[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	轮抽.tsv:12
+删	795	DraftEventBase<TS,	ValidateEventDeck(CardDeck deck, bool validateOwnership = True)	主题表 轮抽.tsv:33[B] 同键在册；工作归主题表，删本表重复行（本表落点列无可定位 .cs:行）	轮抽.tsv:33
+改D	798	DraftEventBase<TS,	SetCustomMatchOptions(RoomOptions options, int currentELO)	随主题表 轮抽.tsv:30 判 D(Photon RoomOptions 离线不适用 或 用户拍板轮抽不做奖励)；状态改 D，差异列写「随主题表 轮抽.tsv:30 的 D 判据」	轮抽.tsv:30
+改D	802	DraftEventBase<TS,	CollectRewards(Action<RewardInfo[]> onSuccess, Action onError)	随主题表 轮抽.tsv:5 判 D(Photon RoomOptions 离线不适用 或 用户拍板轮抽不做奖励)；状态改 D，差异列写「随主题表 轮抽.tsv:5 的 D 判据」	轮抽.tsv:5
+删	804	DraftEventBase<TS,	Expire(Action onComplete)	主题表 轮抽.tsv:6[B] 同键在册；工作归主题表，删本表重复行	轮抽.tsv:6
+删	809	LoginManager	IsActivatedLanguage(string currentLanguage)	主题表 其他_基础设施.tsv:316 已 A(同键已实现) -> 本行纯过期副本，删	其他_基础设施.tsv:316

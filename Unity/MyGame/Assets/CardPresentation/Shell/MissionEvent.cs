@@ -357,42 +357,42 @@ namespace CardPresentation
             base.Expire(onComplete);
         }
 
-        /// <summary>原版 `public virtual T GetContainer()`（`…_GetContainer__102ea40.c`，**逐句**）：
+        /// <summary>原版 `public override IUiContainer GetContainer()`（`…_GetContainer__102ea40.c`，**逐句**）：
         /// <code>
         /// if (UseSmallContainer) { LiveOpsAssetUtility.LoadComponent(this, 1 /*Container*/); return; }
         /// base.GetContainer();
         /// </code>
-        /// <para>⚠️ 基类那一跳（`LiveOpsEvent.GetContainer`）与 `LiveOpsAssetUtility` 都还没有落点
-        /// （前者属 `Core/UiContainer` = B33、后者属 B13）⇒ 本类**只搬分支判断**，
-        /// 两支都出声返回 null（⛔ 不假装取到容器）。返回类型用 `UnityEngine.Object` 是因为
-        /// 原版那一跳返回的就是一个组件（`UiContainer` 的实例）。</para></summary>
-        public virtual UnityEngine.Object GetContainer()
+        /// <para>🔴 **2026-10-28（`B93_N4`）按 ILSpy `MissionEvent.cs:2292` 订正两处**：原版是 **`override`**（不是新虚方法）；
+        /// 基类那一跳 `LiveOpsEvent.GetContainer` **现在有落点**（`Shell/LiveOpsEvent.cs:1153`，走 `LiveOpsContainers.Load`
+        /// 注入点）⇒ 基类支**转调 `base.GetContainer()`**（原来那句「B33 没有落点 ⇒ 返 null」已过期）。
+        /// 只剩 `UseSmallContainer` 那一支仍无落点（本仓**没有** `LiveOpsAssetUtility.LoadComponent`）⇒ 出声 + null。</para></summary>
+        public override IUiContainer GetContainer()
         {
             if (UseSmallContainer)
             {
                 Debug.LogWarning("[MissionEvent] GetContainer：走 `UseSmallContainer` 支 —— "
-                               + "`LiveOpsAssetUtility.LoadComponent(this, Container)` 属 B13，本批没有落点 ⇒ null");
+                               + "`LiveOpsAssetUtility.LoadComponent(this, Container)` 本仓没有落点 ⇒ null"
+                               + "（基类支已按原版转调 base）");
                 return null;
             }
-            Debug.LogWarning("[MissionEvent] GetContainer：走基类支 —— `LiveOpsEvent.GetContainer` 属 B33，本批没有落点 ⇒ null");
-            return null;
+            return base.GetContainer();
         }
 
-        /// <summary>原版 `public virtual void ReleaseContainer()`（`…_ReleaseContainer__102f1c0.c`，**逐句**）：
+        /// <summary>原版 `public override void ReleaseContainer()`（`…_ReleaseContainer__102f1c0.c`，**逐句**）：
         /// <code>
         /// if (UseSmallContainer) { LiveOpsAssetUtility.Unload(this, 1 /*Container*/); return; }
         /// base.ReleaseContainer();
         /// </code>
-        /// ⚠️ 与 <see cref="GetContainer"/> 同一处没有落点 ⇒ 出声，不做。</summary>
-        public virtual void ReleaseContainer()
+        /// ⚠️ 同 <see cref="GetContainer"/>：基类支转调 `base.ReleaseContainer()`（有落点）；`UseSmallContainer` 支无落点 ⇒ 出声。</summary>
+        public override void ReleaseContainer()
         {
             if (UseSmallContainer)
             {
                 Debug.LogWarning("[MissionEvent] ReleaseContainer：走 `UseSmallContainer` 支 —— "
-                               + "`LiveOpsAssetUtility.Unload(this, Container)` 属 B13，本批没有落点 ⇒ 不做事");
+                               + "`LiveOpsAssetUtility.Unload(this, Container)` 本仓没有落点 ⇒ 不做事");
                 return;
             }
-            Debug.LogWarning("[MissionEvent] ReleaseContainer：走基类支 —— `LiveOpsEvent.ReleaseContainer` 属 B33，本批没有落点 ⇒ 不做事");
+            base.ReleaseContainer();
         }
 
         // ============================================================ 挑战查询（账：`MissionEvent<TS,>.IsActive`）

@@ -388,7 +388,12 @@ namespace CardPresentation
             //    与 SM 那段**同一条路**：设计空间算矩形 ⇒ 建对象那一刻过 `R()` / `NodeD()` / `FS()`。
             _s = DM_Scale; _so = new Vector2(dm.x1, dm.y1);          // 绕它自己的 pivot `(0,1)` = 左上角
             BuildMissionHeader(dmNode, dm, false);                   // 卡头（`Mission Header` 那一条）
-            for (int i = 0; i < 3; i++) BuildDailyRow(dhNode, RowRect(dh, i), i);
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:527`）**：逐行那三句收成原版同名方法
+            //   `InstantiateNormalMissions(holder, holderRect, missionType)`（原版 `MissionsTab__InstantiateNormalMissions.c`：
+            //   「按 `missionType` 选 holder → 逐条 `TryAdd<MissionContainer>` + `SetChallenge`」）。
+            //   ⚠️ 今天只有**日常**这一组走这里（周常是一张单例卡、由 `BuildWeekly` 建；
+            //   网格任务那一路是休眠档，见 `InstantiateGridMissions` 的注释）。
+            InstantiateNormalMissions(dhNode, dh, MissionType.DailyMission);
             _s = 1f; _so = Vector2.zero;
 
             BuildWeekly(wmNode, ScaleAbout(wm, wm.x1, wm.y1, 1f));   // 周常没有额外缩放（1.0 是显式的，便于以后改）
@@ -615,8 +620,13 @@ namespace CardPresentation
             // `MissionBackgroundHighlighter.normalColor` = (0.4941,0.5686,0.9176,1)（**可领取**时换 (1,0.6667,0.3451,1)）
             // ⚠️ 走 `Draw`（**过 `R()`**）—— 别再写成 `_win.Rect(parent, …, row.x1, …)`：
             //    那样绕开缩放，行底图会比原版小 15%、而**行内其它件却是缩放的**（版面自相矛盾，且静默）。
-            Draw(parent, "40K_missions_display_Daily_horizontal", row, "Background", RewardsWindow.QPanel,
-                 DailyData.RowTint(index));
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:438`）**：**改调原版同名件** ——
+            //   `MissionBackgroundHighlighter.Setup(...)`（= `背景.color = CanCollect ? collectable : normal`）。
+            //   做法：先用**无色**建出那块底图，再把 quad 交给 `Setup` 上色（`ImageQuad.Tint` 只读 ⇒
+            //   写色必须走 `SetTint`，见 `Battle/ImageQuad.cs:398/410`）。**结果与原来逐位相同**
+            //   （`DailyData.RowTint` 现在也转调同一个 `ColorFor`），区别是判据只有一处、且能写断言。
+            var bgQ = Draw(parent, "40K_missions_display_Daily_horizontal", row, "Background", RewardsWindow.QPanel);
+            new MissionBackgroundHighlighter { background = bgQ }.Setup(DailyData.ProgressView(index));
 
             // 🔴 **`description` 与 `timer` 是互斥的**（2026-09-23 取证 · 2026-10-04 定性）：
             //    原版 `MissionInfoDisplay.DisplayRule` 是 `[Flags]` 枚举
@@ -704,7 +714,14 @@ namespace CardPresentation
                 var tv = Txt(parent, tim, DailyData.DailyTimer(index), new Color(1f, 1f, 1f, 0.59f), "timer", 35f, 15f, 0f, 36f);
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`）。
                 //   先挂组件再对齐 —— 组件会**当场**把文本写成真值，对齐要按最终宽度算。
-                TimerDisplay.Attach(tv, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日任务行 Timer", null);
+                // 🆕 **2026-10-28（`B93_E10` · 账 `:510`）**：描述串改成调原版同名件
+                //   `MissionTimerDisplay.Description(onlyShowNumber: false, progress.IsComplete())`
+                //   —— **到顶未领取 ⇒ `Missions/CollectCounter`，已领取 ⇒ `Missions/CompleteCounter`**。
+                //   ⚠️ 这一颗 `timer` 是 `displayRule = 2 (WhenComplete)` ⇒ 它**一显示就已经是已领取**
+                //   ⇒ 屏上文案从「准备在 {0} 收集」变成官方表的「在 {0} 可用」（判据 ILSpy `MissionTimerDisplay.cs:66-75`）。
+                TimerDisplay.Attach(tv, () => DailyData.NextResetAt,
+                                    MissionTimerDisplay.Description(false, DailyData.DailyClaimed(index)),
+                                    "每日任务行 Timer", null);
                 AlignL(tv, tim);
             }
 
@@ -749,15 +766,15 @@ namespace CardPresentation
             //    `Mission Milestones Progress Bar` 节点**自己没有脚本**（纯容器），所以只需管这两个子的。
             if (!claimed)
             {
+                var mmpbNode = NodeD(parent, "Mission Milestones Progress Bar", mmpb);   // 🔴 2026-10-28（B93_FX4）：补建原版这颗**纯容器**（MB 父链逐字 = `Daily Mission Container/Mission Milestones Progress Bar/{Progress Bar,progress}`，见本段开头 ②）—— 原来只拿 `mmpb` 算矩形、两子直接挂在**行**下 = 把树压平了（原版 / 我们自己的 toast 都建这颗）⇒ 两子改挂它下。几何零变化：两子的矩形本来就是用 `mmpb` 算出来的**设计空间绝对矩形**，`MenuDraw` 按绝对矩形摆位
                 //   └ `Progress Bar`  N(2, 0,0, 1,0.33, 0,1, 5.5,-5.5, -5.5,-5.5)  bg/fill 都是 `40k_generial_bar_*` 九宫格
                 var pb = UguiRect.Child(mmpb, UguiRect.A00, new Vector2(1f, 0.33f), new Vector2(0f, 1f),
                                         new Vector2(5.5f, -5.5f), new Vector2(-5.5f, -5.5f));
                 // ⚠️ **A124**：节点过 `R()`（`NodeD`）—— `BuildBar` 内部的 `f = R(r)` 用的是**同一个**矩形，
                 //    两边必须一致（节点留在设计空间的话，自检量到的节点位置与画出来的条会差 15%）。
-                BuildBar(NodeD(parent, "Progress Bar", pb), pb, DailyData.DailyProgress01(index));
+                BuildBar(NodeD(mmpbNode, "Progress Bar", pb), pb, DailyData.DailyProgress01(index));
                 //   └ `progress`  N(2, 0,0.33, 1,1, 0,0, 0,-3, 0,6)  文本 `52/500` fs35 色 (1,0.77,0.33,1)
-                var pt = UguiRect.Child(mmpb, new Vector2(0f, 0.33f), UguiRect.A11, UguiRect.P00,
-                                        new Vector2(0f, -3f), new Vector2(0f, 6f));
+                var pt = UguiRect.Child(mmpb, new Vector2(0f, 0.33f), UguiRect.A11, UguiRect.P00, new Vector2(0f, -3f), new Vector2(0f, 6f));
                 // 🆕 **A63（2026-10-04）：到顶换文案** —— 原来这一行恒写 `DailyCounter`（`52/500`），
                 //   而原版 `MissionCounterDisplay__Setup.c:24-26,68-79` 在 **`currentValue >= MaxValue`**
                 //   时改显示 `completedMessage`（出厂 `"Missions/Completed"`、`displayCompletedMessage=1`；MB 实读）。
@@ -773,7 +790,7 @@ namespace CardPresentation
                 //    🔴 **2026-10-18（`A1232`）**：上面那档是**页内作者态**；按「基础命名的独立 prefab」
                 //    （`Daily Mission Container`）改为 **auto[25~35]**（`35 / base 36 / 折行 0`）。
                 //    ⇒ `wrapPx` 缺省 0（原版不折行，`Txt1` 内部会 `SetWrapping(false)` 还原）。
-                AlignL(Txt1(parent, pt, DailyData.DailyCounterText(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f,
+                AlignL(Txt1(mmpbNode, pt, DailyData.DailyCounterText(index), new Color(1f, 0.77f, 0.33f, 1f), "progress", 35f,
                              autoMinPx: 25f, autoMaxPx: 35f, autoBasePx: 36f), pt);
             }
 
@@ -833,7 +850,11 @@ namespace CardPresentation
             //        ⚠️ 原来那句「已报调度台、别在这里顺手改」说的正是这件事 —— 现在它做完了，别再读成「还没做」。
             //   ⚠️ 隐藏是**原版行为**（静默 `SetActive(false)`），不是我们在偷懒 —— 所以这里不出声。
             //   🔴 **用 `if (!claimed)` 包住而不是提前 `return`** —— 这一行以后要再加件时，早退会**静默漏掉**。
-            if (!claimed)
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:503` / `:493`）**：显隐那一句改成调**原版同名件**
+            //   `MissionReRollButton.ShouldShow(ProgressView(index))`（= `!IsComplete &amp;&amp; Price.amount &gt; 0`，
+            //   后半本地恒真、判据写在那个类里）。⚠️ 与上面那个 `claimed` **是同一个布尔**
+            //   （`ShouldShow` 内部用的就是 `p.IsComplete` = `DailyClaimed(index)`）⇒ ⛔ 别两处各判一份。
+            if (MissionReRollButton.ShouldShow(DailyData.ProgressView(index)))
             {
                 // ⚠️ 原版这一件是 `Simple + preserveAspect`（源图 71×71 塞进 49.104×49.368 的框）⇒ 画出来是 **49.104²**
                 var trashQ = Draw(parent, "40k_general_bt_yellow", trash, "Trash mission", RewardsWindow.QContent,
@@ -852,6 +873,12 @@ namespace CardPresentation
                     Debug.LogWarning("[Missions] 第 " + (index + 1) + " 行垃圾桶的**命中区没建出来**（`AddHit` 返回 null）"
                                      + " —— 玩家会点不动它（红线：不许静默失败）");
             }
+
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:468`）**：原版这一拍在**容器初始化**时调 `OnInitialize(mission)`
+            //   （`UiContainer.OnInitialize`）；我们的建树即初始化 ⇒ 在这里补那一跳。
+            //   ⚠️ 它**今天恒早返回**（本仓没有教程任务，原版第一句 `t == null ⇒ return`）——
+            //   补它不是为了行为，是为了让「教程任务改名/挂 id/interactable」那条链**有落点可核**。
+            OnInitialize(index);
         }
 
         /// <summary>🆕 **A64（2026-10-04）**：点每日任务那一行的 `Collect` ⇒ 领奖，**领到了就把整页重建一次**。
@@ -907,7 +934,10 @@ namespace CardPresentation
                       + "（原版链路：`CollectChallenge` 的 `onComplete` = `MissionContainer.OnCollect` → "
                       + "`ChangeTab<MissionsTab>` → `TryOpenTab` → `OnOpen` → `CreateMissions`；"
                       + "判据 `资料/普查产出_1004/X2审查_A44甲.md` §一·附）");
-            Build();
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:467`）**：这一跳改成调**原版同名方法** `OnCollect()`，
+            //   它再 → `Refresh()`（`:530`）→ `CreateMissions()`（`:525`）→ `Build()`。
+            //   链路逐环同名、行为逐字不变（原来这里直接 `Build()`）。
+            OnCollect();
         }
 
         /// <summary>点垃圾桶 ⇒ 开「重摇任务」窗（原版 `MissionReRollButton` 的点击链，见上面那段注释）。
@@ -973,7 +1003,13 @@ namespace CardPresentation
             // ⚠️ **格数 = 我们自己那张表的长度**（不是照原版抄的）：原版的格数是**数据驱动**的、那份数据
             //    （PlayFab Title Data 的 `MissionsConfig`）**本地没有** ⇒ 判据全文见 `DailyData` 的
             // 🔶 自己设计（非原版）：登录卡奖励的格数 / 币种 / 数量 · 原版格数数据驱动（PlayFab Title Data `MissionsConfig`），本地没有 · TODO(谁定的)｜原注：「「格数」的数据源」那一段（块6 · 件②）。每一格的**币种与数量也都是我们挑的**。
-            for (int i = 0; i < DailyData.LoginRewardCells; i++)
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:508`）**：格子的**数据源**改成
+            //   `DailyData.LoginRewardCellList()`（= 原版 `MissionRewardsDisplay.Setup` 的
+            //   **`GroupBy(ItemId)` 归并求和**那一跳，见 `MissionRewardsDisplay.MergeSameItem`）。
+            //   ⚠️ 今天这张表**无重复 Id** ⇒ 归并后与原来逐格直取**逐位同值**（观感零变化、断言不用改）；
+            //   意义在于「将来表里出现两条同 Id ⇒ 少一颗格子、数量相加」这一条**原版行为**现在有了落点。
+            var lCells = DailyData.LoginRewardCellList();
+            for (int i = 0; i < lCells.Count; i++)
                 // 🆕 **A1205 接上**（`R5` §2·J #59 · 登录卡那一档）—— 宿主 =
                 //    `Daily Login Container ▸ background ▸ footer ▸ Rewards` ⇒
                 //    原版 `Reward Display Mission ▸ count` = `10 / 40 / 36`（⚠️ 与每日行那一档**不同**）。
@@ -986,7 +1022,7 @@ namespace CardPresentation
                 //    `sideGap` = 两格各自的 `m_Spacing` —— **第 0 格 5.0 · 第 1 格 4.0**（不是同一个值，别抄成一个）。
                 //    判据全文与残差 → `BuildRewardCell` 函数体里那一段。
                 BuildRewardCell(parent, new PxRect(rw.x1 + rw.W * 0.5f * i, rw.y1, rw.x1 + rw.W * 0.5f * (i + 1), rw.y2),
-                                DailyData.LoginRewardArt(i), DailyData.LoginRewardCount(i).ToString(), i.ToString(),
+                                lCells[i].ItemId, MissionRewardItem.AmountText(lCells[i].Quantity), i.ToString(),
                                 20f, 30f, 36f, sideIconW: 55f, sideGap: i == 0 ? 5f : 4f,
                                 // 🆕 **2026-10-17（界面线 `T07` · `A1272`）**：两格原版的 HLG 对齐/内缩**不同**：
                                 //   第 0 格 `m_ChildAlignment = 5 (MiddleRight)` + `m_Padding.m_Left = −20` ·
@@ -1056,7 +1092,11 @@ namespace CardPresentation
                     // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
                     //   ⚠️ `Editor/RewardsScene.cs` 那条断言还把文案钉在出厂串 `Resets in 12h 34 m` 上
                     //   —— 本件只改实现、**没动 Editor**（不在白名单）⇒ 那条断言**会红**，需主对话另行更新。
-                    TimerDisplay.Attach(tl, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "登录卡 Timer", null);
+                    // 🆕 **2026-10-28（`B93_E10` · 账 `:510`）**：同每日行 —— 描述串按 `IsComplete` 分档
+                    //   （登录卡这一颗也是 `displayRule = 2` ⇒ 显示即已领取 ⇒ `Missions/CompleteCounter`）。
+                    TimerDisplay.Attach(tl, () => DailyData.NextResetAt,
+                                        MissionTimerDisplay.Description(false, DailyData.LoginClaimed()),
+                                        "登录卡 Timer", null);
             }
         }
 
@@ -1203,7 +1243,7 @@ namespace CardPresentation
                 //   ⚠️ 格数走 `SkullsStepCount` 而**不是**写死的 `5` —— 与 `DailyData` 同一条口径。
                 var cell = UguiLayout.HorizontalChild(ms, 40f, 40f, i, padL, stepSp);
                 BuildMilestone(parent, cell, DailyData.SkullsStepDone(i), true,
-                               DailyData.SkullsStepTarget(i).ToString());
+                               MissionMilestoneStep.ThresholdText(DailyData.SkullsStepTarget(i)));
             }
 
             // ==================== `footer`（**与登录卡逐字段相同**）============================
@@ -1248,7 +1288,10 @@ namespace CardPresentation
             //    ✅ **2026-10-17（A1289）那条残差已收口**：数字那一截的宽现在由 `BuildRewardCell` 末尾
             //    用 `PreferredWidthPx` 量出来、`off` 按 `(图标 + 间距 + numW)` 重算 ⇒ 整块回到原版的居中位
             //    （原来比原版**偏右**约「数字宽 ÷ 2」；实拍复核：原版图标左沿 ≈ 120 设计 px、我们 ≈ 132）。
-            BuildRewardCell(parent, rw, DailyData.SkullsRewardArt(), DailyData.SkullsRewardCount().ToString(), "1",
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:506`）**：数量那一格的文本走原版同名件
+            //   `MissionRewardItem.AmountText(quantity)`（= `MissionRewardItem.Setup` 第一句
+            //   `amountText.text = info.Quantity.ToString()` —— **不带 `"x"` 前缀**）。
+            BuildRewardCell(parent, rw, DailyData.SkullsRewardArt(), MissionRewardItem.AmountText(DailyData.SkullsRewardCount()), "1",
                             20f, 30f, 36f, sideIconW: 55f, sideGap: 6f, sideAlignT: 0.5f, fontPx: 30f);
 
             // `footer.Generic UI Button`  N(a=(.5,.5) p=(.5,.5) pos=(**3.1692, −24.0231**) sd=(**255.9915 × 74.6201**))
@@ -1289,7 +1332,10 @@ namespace CardPresentation
             if (tm == null) Debug.LogWarning("[Rewards] 骷髅卡的 `Timer` 没建出来（红线：不许静默失败）");
             else
                 // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时（目标 = 自建日界 `NextResetAt`，本机时间）。
-                TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "骷髅卡 Timer", null);
+                // 🆕 **2026-10-28（`B93_E10` · 账 `:510`）**：同上，按 `SkullsClaimed()` 分档。
+                TimerDisplay.Attach(tm, () => DailyData.NextResetAt,
+                                    MissionTimerDisplay.Description(false, DailyData.SkullsClaimed()),
+                                    "骷髅卡 Timer", null);
         }
 
         /// <summary>`Weekly Mission`（1518.99×227.51）· **6** 个 70² 里程碑 + 进度条 + `Ends in`。
@@ -1441,7 +1487,7 @@ namespace CardPresentation
                 //   ⇒ 我们这一侧「已达成的除最后一档之外」那几格不可点（它们已经过去），其余都可点看预览。
                 bool stepDone = DailyData.WeeklyStepDone(i);
                 BuildMilestone(parent, cell, stepDone, false,
-                               DailyData.WeeklyStepTarget(i).ToString(), i, i == lastReached,
+                               MissionMilestoneStep.ThresholdText(DailyData.WeeklyStepTarget(i)), i, i == lastReached,
                                interactable: !(stepDone && i != lastReached),
                                preview: DailyData.WeeklyRewardSpecs());
             }
@@ -1494,7 +1540,9 @@ namespace CardPresentation
             //    ⚠️ 只动 min：`max` 走 `Txt` 的 `autoMaxPx = 0` ⇒ 代标称 36（= 原版 max）· `base` 46 已对。
             // 🆕 **2026-10-17（`A1753` #1）**：原版 `Mission Header ▸ name` 挂 `Asar-Regular Mission cream w outline`
             //   （`_FaceColor = (1, 0.931, 0.703)`、顶点白）⇒ 屏上就是奶油色，**不是白**。
-            var hdrNameLb = Txt(parent, nm, Loc.T(isSkulls ? "Missions/Title/DailySkulls" : "Missions/Title/DailyMissions"), MissionCreamInk,
+            // 🆕 **2026-10-28（`B93_E10` · 账 `:492`）**：页头标题也走原版同名件
+            //   `MissionHeaderDisplay.TitleText(词条键)`（`MissionHeaderDisplay.Setup` 里 `title.text = GetLabel(Title)`）。
+            var hdrNameLb = Txt(parent, nm, MissionHeaderDisplay.TitleText(isSkulls ? "Missions/Title/DailySkulls" : "Missions/Title/DailyMissions"), MissionCreamInk,
                        "name (Mission Header)", 36f, 20f, 0f, 46f, face: TmpFont.Face.LatinUi);   // 🆕 A336③：base 46（见下条注释）
             AlignL(hdrNameLb, nm);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— `name (Mission Header)` = `Left/**Capline**`
@@ -1893,7 +1941,10 @@ namespace CardPresentation
                 //    🔴 UGUI 的 `Outline` 是**四个沿单轴偏移的副本**（左/右/下/上各一份，`Outline.ModifyMesh`），
                 //    ⇒ 画出来是**四条 2px 边**、而且**四角是缺口**（不是一圈闭合的描边）。
                 //    颜色由 `MissionMilestoneStep__Setup.c` 在运行时写（达成绿 / 未达成米黄，见 summary）。
-                var oc = done ? OutlineActive : OutlineDisabled;
+                // 🆕 **2026-10-28（`B93_E10` · 账 `:497`）**：选色那一条改成调原版同名件
+                //   `MissionMilestoneStep.OutlineColorFor(reached)`（= `Setup` 里 `ChangeOutline` 那一支：
+                //   `outline.effectColor = 达成 ? activeColor : disabledColor`）。
+                var oc = MissionMilestoneStep.OutlineColorFor(done);
                 const float ow = OutlineDist;   // = 原版 `m_EffectDistance` 的 x/y 绝对值
                 Draw(cell, null, new PxRect(r.x1, r.y1 - ow, r.x2, r.y1), "Outline Top", RewardsWindow.QContent - 2, oc);
                 Draw(cell, null, new PxRect(r.x1, r.y2, r.x2, r.y2 + ow), "Outline Bottom", RewardsWindow.QContent - 2, oc);
@@ -1904,7 +1955,12 @@ namespace CardPresentation
                 //    ⇒ 勾在**数字下面**、盖在黑方块上面。我们用**渲染队列**表达同一个次序
                 //    （分层只靠队列，别靠 z —— 见 `ImageQuad.SetRenderQueue` 那条）：
                 //    描边 3008 < 方框 3009 < 勾 **3010**（= `QContent`）< 数字 **3011**（= `QText`）。
-                if (done)
+                // 🆕 **2026-10-28（`B93_E10` · 账 `:497`）**：显隐判据改成调原版同名件
+                //   `MissionMilestoneStep.CheckMarkVisible(DisplayCheckMark, reached, hasActive:true, hasDisabled:false)`
+                //   —— 原版 `active = (sprite = 达成 ? activeCheckmark : disabledCheckmark) != null`，
+                //   而我们的 `disabledCheckmark` 不存在（= null）⇒ 未达成整件不画（与原来 `if (done)` 同解）。
+                if (MissionMilestoneStep.CheckMarkVisible(MissionMilestoneStep.OnReach.DisplayCheckMark, done,
+                                                          hasActive: true, hasDisabled: false))
                     Draw(cell, CheckMarkArt, CheckMarkRect(r), "CheckMark", RewardsWindow.QContent, null, true);
             }
             else
@@ -2010,11 +2066,14 @@ namespace CardPresentation
         /// <summary>`m_EffectDistance = (2, -2)` ⇒ **单轴各偏 2px**（`Outline` 只取 `±x` / `±y`）。</summary>
         const float OutlineDist = 2f;
 
-        /// <summary>`MissionMilestoneStep.activeColor`（实读 `(0.3312554, 1.0, 0.0)`）—— 达成时的描边色。</summary>
-        static readonly Color OutlineActive = new Color(0.3312554f, 1f, 0f, 1f);
+        /// <summary>`MissionMilestoneStep.activeColor`（实读 `(0.3312554, 1.0, 0.0)`）—— 达成时的描边色。
+        /// 🆕 **2026-10-28（`B93_E10` · 账 `:497`）**：值本身搬到原版同名件
+        /// <see cref="MissionMilestoneStep.OutlineColorFor"/>（那两个字面量**只留一份**在那里面）；
+        /// 这两个常量保留成**转调**（历史注释/文档按这个名字引用它，⛔ 别删）。</summary>
+        static readonly Color OutlineActive = MissionMilestoneStep.OutlineColorFor(true);
         /// <summary>`MissionMilestoneStep.disabledColor`（实读 `(0.9176471, 0.7686275, 0.4823530)`）
-        /// —— 未达成时的描边色；**就是实拍上那圈米黄**。</summary>
-        static readonly Color OutlineDisabled = new Color(0.9176471f, 0.7686275f, 0.4823530f, 1f);
+        /// —— 未达成时的描边色；**就是实拍上那圈米黄**。（转调同上）</summary>
+        static readonly Color OutlineDisabled = MissionMilestoneStep.OutlineColorFor(false);
 
         /// <summary>每日那一格 `holder/CheckMark` 的**框**：`40 × 42.3202`、中心在格心 **+21(右) / −27.3(上)**。
         /// 出处 = `GO/Mission Milestones Step (1).json` 那棵树的 RT 原文
@@ -2387,6 +2446,106 @@ namespace CardPresentation
             // 🆕 **2026-10-12（A336③）**：`autoBasePx` = 原版 `m_fontSizeBase`（由调用方传**设计空间原值**）。
             Txt(parent, box, text, new Color(0.57f, 0.57f, 0.59f, 1f), "Timer", fontPx, autoMinPx, autoMaxPx,
                 autoBasePx);
+        }
+
+        // ============================================================ 原版同名方法（`B93_E10` · 2026-10-28）
+        //
+        // 🔴 **为什么追加在类尾**：铁律 18·b —— 往类中间插成员会让本文件下游几十条账落点整体漂移。
+        // 🔴 **这批方法的性质**：原版 `MissionsTab` / `MissionContainer` 上的同名方法；我们的**行为早就在**
+        //    （`Build()` / `BuildDailyRow()` / `CollectThenRebuild()` 的内联实现里）—— 账里那几行的缺口
+        //    写的就是「**缺一个与原型同名的方法**」（可核性，不是行为缺失）⇒ ⛔ 别在这里再实现一遍逻辑。
+
+        /// <summary>原版 `MissionsTab.CreateMissions()`（`decomp_full/MissionsTab__CreateMissions.c`，148 行）：
+        /// `Clear()` 三个容器 → 过滤可见任务 → `GroupBy(MissionType)` → 逐组
+        /// `InstantiateNormalMissions` / `InstantiateGridMissions` → `RefreshRefillCount()`。
+        /// <para>我们这一侧 = <see cref="Build"/>（同一条流程：先销毁子树 → 按组建 → 页头计数）。</para></summary>
+        internal void CreateMissions() { Build(); }
+
+        /// <summary>原版 `MissionsTab.Refresh()`（`decomp_full/MissionsTab__Refresh.c`，72 行）：
+        /// 对两个 holder 里每个 `MissionContainer` 再 `OnSetup` 一次，然后 `RefreshRefillCount()`。
+        /// <para>🔴 **账 `:469`（`MissionContainer.Refresh`）与 `:530`（`MissionsTab.Refresh`）在这里【合并】**：
+        /// 前者在原版是「让这一行里每个 `MissionInfoDisplay` 重新 `Initialize`」（**体被截断**，见
+        /// `B93_Q2` §3 第 8 条：`.c` 与 ILSpy 两份都是 `Invalid instruction: Jump target not found`），
+        /// 我们的等价物与后者**同一条**（整页重建 ⇒ 每颗件都重新 `Setup`）⇒ 只留这一个同名方法。</para>
+        /// <para>⚠️ `Build()` 与它**行为逐字相同**，区别只在入口语义（`Build` 也被自检直接调）。</para></summary>
+        internal void Refresh() { CreateMissions(); }
+
+        /// <summary>原版 `MissionsTab.InstantiateNormalMissions(IEnumerable&lt;IMission&gt;, MissionType)`
+        /// （`decomp_full/MissionsTab__InstantiateNormalMissions.c`，93 行）：
+        /// 「按 `missionType` 选 holder（weekly / daily）→ 逐条 `TryAdd&lt;MissionContainer&gt;` + `SetChallenge`」。
+        /// <para>⚠️ **今天只服务日常那一组**：周常是**一张单例卡**（原版 `ContainerHolder.maxAmount = 1`），
+        /// 由 `BuildWeekly` 建；网格任务那一路是休眠档（见 <see cref="InstantiateGridMissions"/>）。</para>
+        /// <para>⚠️ `holderRect` 是**设计空间**矩形（`Build()` 里 `_s`/`_so` 已经设好，`BuildDailyRow` 内部过 `R()`）。</para></summary>
+        void InstantiateNormalMissions(Transform holder, PxRect holderRect, MissionType missionType)
+        {
+            if (missionType == MissionType.WeeklyMission)
+            {
+                // 原版这两支共用一个 holder 循环；我们这一侧周常不是「逐条」而是一张卡
+                // ⇒ 这一支**故意不落**（⛔ 不在这里再建一遍周常，那会变成两处各造一棵子树）。
+                Debug.LogWarning("[Missions] `InstantiateNormalMissions(WeeklyMission)` 不在本方法的落点上"
+                               + "（周常是单例卡，由 `BuildWeekly` 建）—— 走到这里说明有人接了第二条路");
+                return;
+            }
+            for (int i = 0; i < DailyData.DailyTaskCount; i++) BuildDailyRow(holder, RowRect(holderRect, i), i);
+        }
+
+        /// <summary>原版 `MissionsTab.InstantiateGridMissions(IEnumerable&lt;IMission&gt;)`
+        /// （`decomp_full/MissionsTab__InstantiateGridMissions.c`，129 行）：**网格任务区**。
+        /// <para>🔴 **本方法故意是空的，理由两条（账 `:526` 判 `C` 的同一份判据）**：
+        /// ① **本地 0 条网格任务** —— 网格那一组的数据源同样是远端 `MissionsConfig`（`MissionsConfig.configs`
+        ///   里 `MissionConfig{ type, maxAmount }` 决定每组几格），本地 0 份 SO ⇒ 建出来**永远是空区**；
+        /// ② 原版那个布局件 **`FlexibleGridLayout` 在本工程不存在**（全仓 0 命中）⇒ 要建得先新建一个布局类，
+        ///   而它没有任何可填的数据。
+        /// ⇒ 按铁律 11 例外①「**原版判据（数据）本身拿不到**」如实留空并出声；⛔ 别造一个假网格。</para></summary>
+        void InstantiateGridMissions()
+        {
+            Debug.Log("[Missions] `InstantiateGridMissions` 未落地：本仓 0 条网格任务（数据在远端 `MissionsConfig`）"
+                    + "且 `FlexibleGridLayout` 类不存在 ⇒ 建出来也永远是空区（判据见本方法 summary）。");
+        }
+
+        /// <summary>原版 `MissionContainer.OnCollect()`（`decomp_full/MissionContainer__OnCollect.c`，33 行）：
+        /// `WindowsManager.GetOpenWindow&lt;MainMenuRewardsWindow&gt;()` 非空 ⇒
+        /// `ChangeTab&lt;MissionsTab&gt;()` → `TryOpenTab` → `OnOpen` → **`CreateMissions()`（整页重建）**。
+        /// <para>我们的等价物 = **再建一次整页**（`Refresh()`）；调用点 = `CollectThenRebuild`（只在**真领到**时调）。</para>
+        /// <para>⚠️ 换到的页签正好是当前这页时，原版 `ChangeTabCO` 走「不 `CloseTab`、但照样 `TryOpenTab`」那一支
+        /// （`.c` 开头 `op_Equality(old, new)` 且 old 非空）⇒ **同一页也会重建**，所以这里不是 no-op。</para></summary>
+        internal void OnCollect()
+        {
+            Debug.Log("[Missions] `MissionContainer.OnCollect` ⇒ 整页重建"
+                    + "（原版链：`GetOpenWindow<MainMenuRewardsWindow>()` → `ChangeTab<MissionsTab>()` → "
+                    + "`TryOpenTab` → `OnOpen` → `CreateMissions`；判据 `MissionContainer__OnCollect.c`）");
+            Refresh();
+        }
+
+        /// <summary>原版 `MissionContainer.OnInitialize(IMission mission)`
+        /// （`decomp_full/MissionContainer__OnInitialize.c`，56 行）：**教程任务专属**那一段 ——
+        /// <code>
+        /// var t = LiveOpsManager.GetHandler&lt;Missions&gt;().TutorialMission;
+        /// if (t == null) return;                                   // ← 没有教程任务 ⇒ 立刻返回
+        /// if (t == mission) { collectButton.name = "CollectMissionTutorial_Challenge_0";
+        ///                     AddComponent&lt;GameObjectUniqueIdentifier&gt;().SetID(同一个串); }
+        /// else              { collectButton.name = &lt;原来的名字&gt;; }
+        /// collectButton.interactable = (t == mission);
+        /// </code>
+        /// <para>🔴 **我们这一侧的等价物是 `TutorialClaimButton`**（本类那个属性，见它的 summary）：
+        /// 它**不按 id 找、按「第一条可领的行」找** ⇒ 上面那三件在本仓的对应关系是：</para>
+        /// <list type="number">
+        /// <item>**改名** `CollectMissionTutorial_Challenge_0` —— **不需要**：本仓没有按这个 id 的查找者
+        ///   （`MenuTutorialFlow` 要的是 `TutorialClaimButton` 那个 `Transform`）。</item>
+        /// <item>**挂 `GameObjectUniqueIdentifier`** —— **不需要**，理由同上
+        ///   （⛔ 别 AddComponent 一个没有任何读口的 id 组件）。</item>
+        /// <item>**`interactable = (t == mission)`** —— **已经在**：`BuildButton` 那一步用的是
+        ///   `DailyData.CanCollectDaily(index)`（同一份布尔，见 `BuildDailyRow` 那颗 `BuildButton` 的实参）。</item>
+        /// </list>
+        /// <para>⇒ 本方法**只是落点**（把原版那一支的三件逐条对到本仓的什么地方）：**没有缺失 ⇒ 不出声**。
+        /// 调用点 = <see cref="BuildDailyRow"/> 末尾（与原版一样：`OnInitialize` 在容器初始化那一拍跑）。</para></summary>
+        internal void OnInitialize(int index)
+        {
+            // 原版第一句是 `if (TutorialMission == null) return;`；我们有 `TutorialClaimButton` 这条等价指针
+            // （不是「没有教程任务」）⇒ 三件的归属见 summary，这里**不做任何事是正确的**，不是「没做」。
+            // ⚠️ 改坏法：将来本仓若真的引入 `GameObjectUniqueIdentifier` 那一套，改名 / 挂 id 两句必须补在这里
+            //    （判据 = `MissionContainer__OnInitialize.c:20-56`）。
+            if (index < 0) return;
         }
     }
 }

@@ -3894,5 +3894,54 @@ namespace CardPresentation
 
         /// <summary>清空订户（自检用；⛔ 生产别调 —— 会把主菜单那条订阅一起摘掉）。</summary>
         public static void ClearLanguageChangedForTest() { LanguageChanged = null; }
+    // ==========================================================================================
+    //  战吼文案（`Chat_Messages/warcry-*`）—— 原版 `BattleManager.GetWarcry(bool isPlayer)`
+    //  🆕 2026-10-28（`B93_F5` · 账 `战斗逻辑驱动:392`）
+    // ==========================================================================================
+    //  **原版方法体**（🥇 `cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:16188-16240`：
+    //  `GetWarcry(bool)`；`decomp_full/BattleManager__GetWarcry.c:36,57,60,69,73-77` 同体）：
+    //    DeckAndWarlordData d = isPlayer ? matchData.playerRawBattleData : matchData.enemyRawBattleData;
+    //    CosmeticItem ci = PlayerDataManager.singletonManager.GetCosmeticItem(d.warcry);
+    //    if (ci == null) return LocalizationManager.GetTranslation("Chat_Messages/warcry-default");
+    //    return LocalizationManager.GetTranslation("Chat_Messages/warcry-" + ci.uniqueId);
+    //  唯一调用点 = 结算界面 `SpecificPlayerResult..ctor`（`decomp_full/SpecificPlayerResult__.ctor.c:38-40`）。
+    //
+    //  🔴 **数据现读（2026-10-28 复核，与 `资料/完全复刻/报告/B92_B2.md` §4·1 第 3 条逐字一致）**：
+    //    官方 13 语言表 `Resources/official_loc_13lang.json` **10,862 键**、旧 en+zh 表 **10,854 键** 里
+    //    **`Chat_Messages/warcry*` = 0 条**（而 `Chat_Messages/*` 共 **1,736** 条 ⇒ 表本身是全的）。
+    //    ⇒ 原版在本 build **两条分支都只能印缺键串**（I2 取不到就回 term 本身）。
+    //    **照抄即正确** —— ⛔ 别把「印出 `Chat_Messages/warcry-default`」当缺陷去补文案。
+    //  ⚠️ 账里那句「本地化表现在有官方全表（10,862 键）⇒ 判据可得」**已就地订正**：
+    //    键族不在表里 ⇒ 能拿到的判据只有「键拼法 + 兜底档」，不是文案内容。
+    //
+    //  🔶 自己设计（非原版）：`GetCosmeticItem` 那道「你持不持有这个战吼」的闸。
+    //    持有清单在服务器（PlayFab / `PlayerDataManager` 由远端灌；关服后本机 0 命中）⇒ 本机**只能**
+    //    把「非空 warcryId」当成持有。为什么必须自己定：判据在远端、不是我们没查到 ·
+    //    调度台 2026-10-28 裁定（依据 = `报告/B92_B2.md` W10 施工项）。
+    // ==========================================================================================
+
+    /// <summary>原版 `GetWarcry` 的键前缀（`"Chat_Messages/warcry-"`）与兜底键。</summary>
+    public const string WarcryTermPrefix = "Chat_Messages/warcry-";
+
+    /// <summary>没持有任何战吼 / `warcry` 为空时那一档（原版 `GetCosmeticItem` 回 null 那一支）。</summary>
+    public const string WarcryDefaultTerm = "Chat_Messages/warcry-default";
+
+    /// <summary>原版 `GetWarcry` 的**键拼法**（唯一一处）：
+    /// `warcryId` 空 ⇒ <see cref="WarcryDefaultTerm"/>；否则 `Chat_Messages/warcry-` + id。
+    /// <para>⚠️ 原版拼的是 `cosmeticItem.uniqueId`（回到 `GetCosmeticItem(warcry)` 的那个对象）；
+    /// 我们把它记在 `PlayerDeck.WarcryId` 里（= 同一个装饰 id）⇒ 等价，见文件头 🔶 那条。
+    /// ⛔ 别在这里查表 / 回退语言 —— 只拼键（自检靠它，不需要正本数据）。</para></summary>
+    public static string WarcryKey(string warcryId)
+    {
+        return string.IsNullOrEmpty(warcryId) ? WarcryDefaultTerm : WarcryTermPrefix + warcryId;
+    }
+
+    /// <summary>按**当前语言**取这句战吼（原版 `BattleManager.GetWarcry(bool isPlayer)`）。
+    /// <para>缺键 ⇒ 走 <see cref="T"/> 的缺键档（返回键名 + 出声一次）—— 与原版 I2「取不到就回 term」同形，
+    /// ⛔ 不改判成空串（空串 = 一块空白，静默失败）。本 build 现读 **该键族 0 条** ⇒ 必然落这一档（原版同）。</para></summary>
+    public static string Warcry(string warcryId)
+    {
+        return T(WarcryKey(warcryId));
+    }
     }
 }

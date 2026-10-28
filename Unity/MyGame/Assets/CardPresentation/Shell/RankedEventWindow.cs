@@ -98,7 +98,7 @@ namespace CardPresentation
             //   （`QBg` = 3104，见 `LiveOpsEventWindow.QBg` 的注释），且严格低于本窗内容命中区最低档
             //   （`QHit` = 3116）⇒ 改走 `MenuDraw.ShadeHit`。判据 → `MenuDraw.ShadeHit` ·
             //   `资料/待办判据_阶段二与联机.md` §A25·补（一）。
-            MenuDraw.ShadeHit(gen, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => Close(), "BackdropHit");
+            MenuDraw.ShadeHit(gen, new PxRect(0f, 0f, 1920f, 1080f), QBg, QHit, () => CloseButtonClick(), "BackdropHit");
             MenuDraw.Nine(gen, Tex(ArtPopupRed), new PxRect(RedL, RedT, RedR, RedB),
                           RedBorder, RedTexW, RedTexH, QBg1, null, true, "Reward Background Get Reward");
             // 🆕 **2026-10-06（A94）：红底那块整幅底图吸收点击**。判据 = 原版 prefab
@@ -147,7 +147,7 @@ namespace CardPresentation
                           Color.white, "Button Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版 `Ranked Division Info` 的 `LeaderboardButton` 是 SpriteSwap（普查 §块 5 第 24 行）
             MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
-                         OpenLeaderboard, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
+                         LeaderboardButtonClick, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
 
             // `Ranked Division Info/Content`（**段位信息块**）—— 2026-09-27 建；唯一正本 =
             // `资料/普查产出_0927/段位块_RankedDivisionInfo.md`（表 + 字段→节点对照 + 查不到的）。
@@ -180,7 +180,7 @@ namespace CardPresentation
             if (rk != null) rk.SetCharSpacing(-4f);
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
             _unrankedLbl = un; _rankedLbl = rk;      // 🆕 切模式后要重刷（见 RefreshToggleState）
-            MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),
+            _tgKnob = MenuDraw.Rect(tg, Tex(ToggleKnobArt(false)),
                           new PxRect(TgKnobL, TgKnobT, TgKnobR, TgKnobB), "Image", QArt1, null, true);
             // 🆕 **2026-10-19（战斗线 `T16` · 命中区全仓普查）**：命中区 = **底图 ∪ 两颗 TMP 文字**。
             //   原版 `ChangeRankedToggle` 的可射线件 = 底图 `Image`（`40k_menu_bt`，`m_RaycastTarget=1`、
@@ -194,9 +194,9 @@ namespace CardPresentation
                              new PxRect(TgL, TgT, TgR, TgB),
                              new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB),
                              new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB)),
-                         QHit, ToggleRankedMode,
+                         QHit, ChangeRankedButtonClick,
                          clickCue: WindowSounds.SelectToggleCue);
-            ApplyToggleState(un, rk);
+            SetRankedToggle();          // 出厂就按 `RankedData.IsRanked` 摆一次（原版 `Open` 里那一次 `Setup`）
         }
 
         /// <summary>`Ranked Division Info/Content/Timer` —— 段位信息块里那行「结束于：…」（= `RankingDisplay.timerDisplay`）。
@@ -261,7 +261,9 @@ namespace CardPresentation
             }
         }
 
-        void OpenLeaderboard()
+        /// <summary>`LeaderboardButton` 的点击 —— = 原版 `RankedEventWindowV2.LeaderboardButtonClick`
+        /// （`LeaderboardButtonClick.c`：`playMode` 二选一 ⇒ `rankingPrefab` / `rankingPrefabClassic` ⇒ `OpenWindow`）。</summary>
+        public void LeaderboardButtonClick()
         {
             var kind = LeaderboardKindForMode;
             // 🆕 **2026-10-11（A177）**：改走 `WindowsManager.OpenByRef`（= 原版 `automaticallyLoadedWindows`
@@ -275,7 +277,10 @@ namespace CardPresentation
                       + "本窗模式 = " + DeckGameModeName + "）");
         }
 
-        void ToggleRankedMode()
+        /// <summary>`ChangeRankedToggle` 的点击 —— = 原版 `RankedEventWindow.ChangeRankedButtonClick`
+        /// / `ChangeRankedModeToggle.Clicked`（`ChangeRankedModeToggle__Clicked.c`：读 `IsRanked` ⇒
+        /// `set_IsRanked(!v)` ⇒ **再读一次**并 `Setup(state, "MainMenu/RankedWindow/Ranked", sprite)`）。</summary>
+        void ChangeRankedButtonClick()
         {
             // 原版 `ChangeRankedModeToggle` 切的是「打排位还是非排位」（`RankedEventBase.ToggleRankedMode`：
             // `IsRanked = isRanked;` + `GameStaticData.unrankedMultiplayer = !isRanked`）。
@@ -284,7 +289,7 @@ namespace CardPresentation
             // 本地这张表只记我们自己算得出的东西（段位换算/连败/赛季）。用户 2026-09-24 的裁决：
             // 「点了要如实说明」⇒ 不假装有排行分，也不假装没切。
             RankedData.ToggleRankedMode(!RankedData.IsRanked);
-            RefreshToggleState();
+            SetRankedToggle();          // 原版写完旗标**再读一次**并 `ToggleDisplay.Setup(state, term, sprite)`
             Debug.Log("[Event] `ChangeRankedToggle` ⇒ RankedMode = " + RankedMode
                       + "（`RankedData.IsRanked`，本地存档）；⚠️ **排位分不会因此变化** —— "
                       + "MMR 与每局增减在服务器 CloudScript（`RankedData.WhyNoPointDelta`）");
@@ -300,6 +305,33 @@ namespace CardPresentation
         /// <summary>按 `RankedData.IsRanked` 重刷两行文字的明暗（= 原版「亮的那一个就是当前模式」）。
         /// 与 `BuildLeftColumn` 末尾那次调用**同一份实现**（⛔ 别各写一份颜色规则）。</summary>
         void RefreshToggleState() { ApplyToggleState(_unrankedLbl, _rankedLbl); }
+
+        /// <summary>`ChangeRankedToggle` 的**视觉**那一步 = 原版 `ToggleDisplay.Setup(state, term, sprite)`
+        /// （`RankedEventWindowV2__Open.c` 与 `ChangeRankedModeToggle__SetState.c` 都是这一句：
+        /// `sprite = state ? toggleOnSprite(+0x30) : toggleOffSprite(+0x38)`）。
+        /// <para>🔴 **2026-10-28（`B93_D1` · 账 `B93_Q2 :651`）真缺陷**：改前这里**恒挂 `…_toggle_on`**
+        /// —— 而 prefab 出厂 `Image.m_Sprite` 也是 on、`ToggleDisplay.toggled = 1`，**运行时第一帧就被 `Setup`
+        /// 换成 off**（`IsRanked` 默认 false）⇒ 原版屏上是**关**（金球在左、轨暗），我们是**开**（金球在右、轨亮）。
+        /// 两颗 sprite 都是 89×40、与本窗 `TgKnob*` 那颗 `Image` 的框**逐位同尺寸** ⇒ 只换图、不动框。</para>
+        /// <para>⚠️ 同一个 prefab 实例里 `ToggleDisplay.xOffset = 0`、`toggleText = null` ⇒ `Setup` 的另两半
+        /// （按状态平移开关、改文字词条）在这一处**没有可见效果**，⛔ 别自己加平移。</para></summary>
+        public void SetRankedToggle()
+        {
+            if (_tgKnob != null)
+            {
+                var art = ToggleKnobArt(RankedMode);
+                var tex = Tex(art);
+                if (tex != null) _tgKnob.SetTexture(tex);
+                else Debug.LogWarning("[Event] `ChangeRankedToggle` 的开关图 `" + art + "` **取不到** ⇒ 开关停在旧状态（⛔ 不静默）");
+            }
+            RefreshToggleState();       // 两行文字的明暗（原版 `ToggleDisplay.Setup` 只动 sprite/位移，文字明暗是我们这一层的等价物）
+        }
+
+        /// <summary>状态 → 开关图。判据 = `ChangeRankedModeToggle` prefab 实例的两个 sprite 字段
+        /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3197939917699577936.json`：
+        /// `toggleOnSprite` = `40_main_bt_toggle_on` · `toggleOffSprite` = `40_main_bt_toggle_off`，各 89×40）。
+        /// ⚠️ `SkirmishEventWindow` 的经典式左列有**同一颗**开关 ⇒ 那边也必须走同一条映射（值抄自本处，见那边注释）。</summary>
+        public static string ToggleKnobArt(bool ranked) { return ranked ? "40_main_bt_toggle_on" : "40_main_bt_toggle_off"; }
 
         void ApplyToggleState(Label unranked, Label ranked)
         {
@@ -434,8 +466,16 @@ namespace CardPresentation
         void WireHeaderComponent(Transform root)
         {
             ParentEventWindow.EnsureHeaderTitleResolver();
-            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => Close(),
+            WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => CloseButtonClick(),
                                                   Loc.T("MainMenu/GameMode/Classic"));
         }
+
+        // ================================================================================================
+        //  🆕 2026-10-28（`B93_D1` · 账 `B93_Q2 :651`）—— `ChangeRankedToggle` 那颗开关粒的图，按状态换。
+        //  **追加在类尾**（⛔ 中段加行会让账按 `文件:行号` 的落点整体漂移）。
+        // ================================================================================================
+        /// <summary>`ChangeRankedToggle/Image`（= 原版 `ToggleDisplay.toggleImage`；prefab 里那颗 `Image`
+        /// `m_Sprite` 出厂 `40_main_bt_toggle_on`）。建在 `BuildLeftColumn`，由 <see cref="SetRankedToggle"/> 换图。</summary>
+        ImageQuad _tgKnob;
     }
 }

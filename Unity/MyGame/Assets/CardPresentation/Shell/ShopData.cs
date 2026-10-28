@@ -160,7 +160,7 @@ namespace CardPresentation
         //
         // 🔶 自己设计（非原版）：商店商品表（名字 / 类型 / 价格 / 拥有数 / 限购数） · 原版商品数据在服务端，本地唯一 store 属战役高级轨 · TODO(谁定的)｜原注：⇒ 下面这些名字 / 类型 / 价格 / 拥有数 / 限购数**都是我们挑的**，只为「把界面点通」。
 
-        static readonly ShopOffer[] _cards =
+        static ShopOffer[] _cards =
         {
             // 🔴 **2026-10-12（A439）：卡包这四件【故意不填 `Grants`】** —— 它们是**容器档**
             //   （`Type == "Booster Pack"`）：原版那一档的 `ShowRewardOnPurchase` 反编译出来是**常量 false**
@@ -198,7 +198,7 @@ namespace CardPresentation
         // ⚠️ 件的 `Tier` 一律 `TierBasic` —— 商店这一档**没有基础/高级轨之分**（那是战役奖励的概念），
         //    填它只为满足 `RewardSpec` 的三参 ctor；`RewardWindow` 只拿它做 `TogglePremiumHighlight` 那三跳。
 
-        static readonly ShopOffer[] _daily =
+        static ShopOffer[] _daily =
         {
             // 金 —— 🔴 **2026-10-15（A544）：小族 `40k_topmarquee_currency_gold` 换成 big 族**
             //   `40k_general_icon_currency_gold`。理由 = 本表**统一到一族**（R6 §六·2）：同一张表原来
@@ -218,7 +218,7 @@ namespace CardPresentation
             { Grants = new[] { new CampaignData.RewardSpec("40K_missions_icon_Daily_skulls", 5, CampaignData.TierBasic) } },
         };
 
-        static readonly ShopOffer[] _items =
+        static ShopOffer[] _items =
         {
             // 🔴 **2026-10-15（A544）**：这三件的 `Grants` id 原来有两处「图标发错」——
             //   ① 件名叫 **Blackstone**，发的却是**水晶**（`40k_general_icon_currency_crystal` = `Crystals`
@@ -558,7 +558,7 @@ namespace CardPresentation
         /// `40K_shop_offer_booster_generic`（原版这两个槽的图在运行期由服务端给，prefab 里 `m_Sprite` 是 0）。</para>
         /// <para>🔶 自己设计（非原版）：VIP 页商品表 · 原版报价在服务端（`VIPCardShopTab` 的 `DailyStore`，SO 未导出）·
         /// 调度台 2026-10-27 裁定（与另外三页同一处置：本文件文件头那句「下面这张表是**我们编的**」一并覆盖本表）。</para></summary>
-        static readonly ShopOffer[] _vip =
+        static ShopOffer[] _vip =
         {
             new ShopOffer("VIP Booster Cache", "Booster Pack", "40K_shop_offer_booster_generic",
                           "2 400", 0, 1, 3, true, null),
@@ -607,6 +607,84 @@ namespace CardPresentation
             }
             var info = inv.Get(RequiredItemId);
             return info != null && info.Amount > 0;
+        }
+
+        // ============================================================ 原版 `ShopStore.RemoveFinishedOffer()`（类尾 · 新成员一律追加在这里）
+        /// <summary>= 原版 `ShopStore&lt;TSave,TData&gt;.RemoveFinishedOffer()`（判据
+        /// `out_cpp2il_dev_ilspy/Everguild.LiveOps/ShopStore.cs:589-640` 现读）：**倒序遍历**页内报价表，
+        /// `!offer.IsActive()` 的**摘掉**（`List.RemoveAt(i)`），遍历到表头为止。
+        /// <para>🔴 **`IsActive()` 的语义** = `LiveOpsEventData.IsActive(now, includePlanned: false)`，
+        /// 即「`now` 落在 `[start, end]` 内」。我们这一侧**没有报价的起止时刻**（`ShopStore`/`LiveOps
+        /// store` SO 本地一份都没导出，同 <see cref="RequiredItemId"/> 那段），⇒ 活跃性判据**由调用方注入**
+        /// （`Func&lt;ShopOffer,bool&gt;`）。</para>
+        /// <para>⚠️ 今天**没有任何调用方**（同原版：这个方法由 LiveOps 刷新链在拿到新 store 之后调）。
+        /// 形状先补齐，判据一旦有了数据就能一条语句接上（铁律 11：差异要做，只有先后）。</para>
+        /// <param name="isActive">`null` = 全部算活跃（= 今天：静态表没有结束态）⇒ **一个都不摘**。</param>
+        /// <returns>被摘掉的条数。</returns></summary>
+        public static int RemoveFinishedOffer(System.Func<ShopOffer, bool> isActive)
+        {
+            if (isActive == null) return 0;
+            int removed = 0;
+            for (int p = 0; p < Pages.Length + 1; p++)   // Pages 之外的越界页在 `Offers` 里回落到 `_items`
+            {
+                var page = PageArray(p);
+                if (page == null) continue;
+                var keep = new System.Collections.Generic.List<ShopOffer>(page.Length);
+                // 原版**倒序**遍历（`for (i = Count-1; i >= 0; i--)`），保留顺序不变 ⇒ 正序筛出的结果与之一致
+                for (int i = page.Length - 1; i >= 0; i--)
+                {
+                    if (isActive(page[i])) keep.Add(page[i]);
+                    else removed++;
+                }
+                if (keep.Count == page.Length) continue;            // 一条没摘 ⇒ 不动这一页
+                keep.Reverse();                                     // 倒序收集 ⇒ 翻回原顺序
+                SetPageArray(p, keep.ToArray());
+            }
+            return removed;
+        }
+
+        /// <summary>纯函数版（原版那个循环的「筛」那一半）：返回筛完的新数组，`removed` = 摘掉几条。
+        /// <para>🆕 2026-10-28（B93_S1）：给自检用 —— 它不碰静态表，所以断言可以随便造两件报价来试。</para></summary>
+        public static ShopOffer[] PruneFinished(ShopOffer[] page, System.Func<ShopOffer, bool> isActive, out int removed)
+        {
+            removed = 0;
+            if (page == null) return null;
+            if (isActive == null) return page;
+            var keep = new System.Collections.Generic.List<ShopOffer>(page.Length);
+            for (int i = 0; i < page.Length; i++)
+            {
+                if (isActive(page[i])) keep.Add(page[i]);
+                else removed++;
+            }
+            return keep.ToArray();
+        }
+
+        /// <summary>页号 → 那一页的数组（**越界页**照 `Offers` 的回落规则 = `_items`；`Pages.Length` 本身不存在 ⇒ null）。</summary>
+        static ShopOffer[] PageArray(int pageIndex)
+        {
+            switch (pageIndex)
+            {
+                case 0: return _cards;
+                case 1: return _daily;
+                case 2: return _items;
+                case 3: return _vip;
+                case 4: return _cards;
+                default: return pageIndex == Pages.Length ? null : _items;
+            }
+        }
+
+        /// <summary>把筛完的数组写回那一页（`Offers` 的回落规则同样适用于越界页）。</summary>
+        static void SetPageArray(int pageIndex, ShopOffer[] page)
+        {
+            switch (pageIndex)
+            {
+                case 0: _cards = page; break;
+                case 1: _daily = page; break;
+                case 2: _items = page; break;
+                case 3: _vip = page; break;
+                case 4: _cards = page; break;
+                default: if (pageIndex != Pages.Length) _items = page; break;
+            }
         }
     }
 }

@@ -1752,22 +1752,22 @@ namespace RuleEngine
                     why = "`unitType = " + r.unitType + "` 这一档原版是 `LogWarning` + null（认不出）"; return false;
             }
             side = ((ScriptedActionUnit)r.unitType == ScriptedActionUnit.EnemyMinion) ? 1 : 0;
-            if (string.IsNullOrEmpty(r.ourId))
+            if (!HasScriptedKey(r))   // 🆕 2026-10-28（`B93_F3` · 族11 裁定 + 原版 `.c`）：匹配键 = `cardName(+0x38)`，其次 ourId
             {
                 // 🔴 原版此处为 `GetChosenCard(chosenMinion == null)` ⇒ 直接退回 `list[0]`，
                 //    照抄，⛔ 别修（2026-10-28 调度台裁定；见本方法 doc）。
-                why = "数据里 `ourId` 是空的 ⇒ 按原版 `GetChosenCard` 退回**列表第 0 个**";
-                return PickFirstMinion(ctx, side, out slot);
+                //    2026-10-28 `B93_F3`：键改成「先 `cardName`（原版 `.c:38` 比的就是它）、再 ourId」。
+                why = "数据里 `ourId`/`name` 都是空的 ⇒ 按原版 `GetChosenCard` 退回**列表第 0 个**"; ctx.Log("[Tutorial] `" + r.unitTypeName + "` 这一格没有卡名也没有 id ⇒ 按原版 `GetChosenCard.c:38` 退回列表第 0 个"); return PickFirstMinion(ctx, side, out slot);
             }
             var board = ctx.Players[side].Board;
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = board[s];
                 if (u == null || u.IsWarlord || u.Card == null) continue;
-                if (u.Card.Id == r.ourId) { slot = s; return true; }
+                if (ScriptedUnitMatches(u, r)) { slot = s; return true; }
             }
             // 🔴 原版此处为 `GetChosenCard` 认不出退回 `list[0]`（`.c:38` 的 `iVar4 = 0;`），照抄，⛔ 别修。
-            why = "场上没有「" + r.ourId + "」⇒ 按原版退回**列表第 0 个**（`GetChosenCard.c:38`）";
+            why = "场上没有「" + ScriptedKeyText(r) + "」⇒ 按原版退回**列表第 0 个**（`GetChosenCard.c:38`）"; ctx.Log("[Tutorial] 场上没有「" + ScriptedKeyText(r) + "」⇒ 按原版 `GetChosenCard.c:38` 退回列表第 0 个（⛔ 这不是我们改的，原版就退）");
             return PickFirstMinion(ctx, side, out slot);
         }
 
@@ -1785,17 +1785,17 @@ namespace RuleEngine
             var kind = (ScriptedActionUnit)r.unitType;
             if (kind != ScriptedActionUnit.PlayerCardInHand && kind != ScriptedActionUnit.EnemyCardInHand)
             { why = "`" + r.unitTypeName + "` 不是手牌那一档"; return -1; }
-            if (string.IsNullOrEmpty(r.ourId))
+            if (!HasScriptedKey(r))   // 🆕 2026-10-28（`B93_F3`）：键 = 先 `cardName`、再 ourId（同 `FindBoardUnit`）
             {
                 // 🔴 原版此处为 `GetChosenCard(chosenMinion == null)` ⇒ 退回 `list[0]`，照抄，⛔ 别修。
-                why = "数据里 `ourId` 是空的 ⇒ 按原版退回**下标 0**";
-                return ctx.Players[side].Hand.Count > 0 ? 0 : -1;
+                //    （`ctx.Log` 出声 = 族11 裁定「找不到要出声」，⛔ 不静默）
+                why = "数据里 `ourId`/`name` 都是空的 ⇒ 按原版退回**下标 0**"; ctx.Log("[Tutorial] 手牌那一格没有卡名也没有 id ⇒ 按原版 `GetChosenCard.c:38` 退回下标 0"); return ctx.Players[side].Hand.Count > 0 ? 0 : -1;
             }
             var hand = ctx.Players[side].Hand;
             for (int i = 0; i < hand.Count; i++)
-                if (hand[i] != null && hand[i].Card != null && hand[i].Card.Id == r.ourId) return i;
+                if (hand[i] != null && hand[i].Card != null && ScriptedCardMatches(hand[i].Card, r)) return i;
             // 🔴 原版此处为 `GetChosenCard` 认不出退回 `list[0]`（`.c:38` 的 `iVar4 = 0;`），照抄，⛔ 别修。
-            why = (side == 0 ? "玩家" : "AI") + "手上没有「" + r.ourId + "」⇒ 按原版退回**下标 0**";
+            why = (side == 0 ? "玩家" : "AI") + "手上没有「" + ScriptedKeyText(r) + "」⇒ 按原版退回**下标 0**"; ctx.Log("[Tutorial] " + (side == 0 ? "玩家" : "AI") + "手上没有「" + ScriptedKeyText(r) + "」⇒ 按原版 `GetChosenCard.c:38` 退回下标 0");
             return hand.Count > 0 ? 0 : -1;
         }
 
@@ -2033,6 +2033,49 @@ namespace RuleEngine
             if (board == null || slot < 0 || slot >= board.Length) return null;
             var u = board[slot];
             return (u != null && u.Card != null) ? u.Card.Id : null;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-28（`B93_F3` · 账 `战斗逻辑驱动:96`/`:98` · 族11 裁定）
+        //  **`GetChosenCard` 的匹配键 = `cardName`（不是 id）**
+        // ==================================================================
+        //  判据（🥇 `decomp_full/AiScripted__GetChosenCard.c:20-40`）：循环里比的是
+        //  `availableUnits[i].rawCardData.cardName(+0x38)` 与 `chosenMinion.cardName(+0x38)`（**字符串**），
+        //  不是 id、不是 uniqueId；认不出 / `chosenMinion == null` ⇒ `iVar4 = 0` ⇒ **返回 `list[0]`**。
+        //  我们的脚本数据 `TutorialUnitRef` 同时带 `name`（原版卡名，逐字）+ `ourId`（生成器解出的我方 id，
+        //  `matchTier` 记着是逐字命中还是靠 ocrName 裁定）⇒ **先比卡名、再退回 id**：
+        //  · 逐字命中档（`matchTier == "exact"`）走卡名 —— 与原版同一把尺；
+        //  · ocrName 裁定档 / 没解出名字的，退回 id（⛔ 不是原版的口径，但它是我们唯一能指向那张卡的键）。
+        //  ⛔ 别只留 id：那会让「同一张卡在我们表里改过 id」与「原版按名取」分叉（铁律 18·0 的「照原版」）。
+
+        /// <summary>脚本那一格有没有可比的键（卡名或 id 至少一个）。
+        /// <para>都空 ⇒ 原版 `chosenMinion == null` ⇒ `GetChosenCard` 直接送 `list[0]`（`.c:38`）。</para></summary>
+        static bool HasScriptedKey(TutorialUnitRef r)
+        {
+            return r != null && (!string.IsNullOrEmpty(r.name) || !string.IsNullOrEmpty(r.ourId));
+        }
+
+        /// <summary>脚本那一格的键的**可读文本**（日志用；卡名优先，与原版匹配口径一致）。</summary>
+        static string ScriptedKeyText(TutorialUnitRef r)
+        {
+            if (r == null) return "<空>";
+            if (!string.IsNullOrEmpty(r.name)) return r.name;
+            return r.ourId ?? "<空>";
+        }
+
+        /// <summary>场上那张单位是不是脚本指的那一张 —— **先比卡名（原版 `cardName`）、再退回我方 id**。</summary>
+        static bool ScriptedUnitMatches(UnitState u, TutorialUnitRef r)
+        {
+            if (u == null || u.Card == null || r == null) return false;
+            return ScriptedCardMatches(u.Card, r);
+        }
+
+        /// <summary>同上，但直接对 <see cref="CardDef"/>（手牌那一侧用）。</summary>
+        static bool ScriptedCardMatches(CardDef c, TutorialUnitRef r)
+        {
+            if (c == null || r == null) return false;
+            if (!string.IsNullOrEmpty(r.name) && c.Name == r.name) return true;
+            return !string.IsNullOrEmpty(r.ourId) && c.Id == r.ourId;
         }
     }
 }

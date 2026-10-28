@@ -2536,17 +2536,94 @@ public static class RewardsScene
                 //    🧨 改坏法：把 `DailyData.RewardTimerText` 换回死串 / 空串 ⇒ 本条红。
                 {
                     var timerText = TextOf(FindChild(lgCard2, "Timer"));
-                    // 🔴 **2026-10-18（Rewards 四条红 #2）**：前缀已走官方词条 `Missions/CollectCounter`
-                    //   （`DailyData.ResetIn()` → `Loc.T("Missions/CollectCounter")`，中文档 = 「准备在 … 收集」）。
-                    //   旧断言钉死英文 `"Resets in "` ⇒ 中文档必红。这里从**词条字符串本身**按 `{0}` 拆前缀
-                    //   （⛔ 不拿 `DailyData.ResetIn()` 当期望 = 自证）。
-                    string cntTerm = Loc.T("Missions/CollectCounter");
+                    // 🔴 **2026-10-18（Rewards 四条红 #2）**：前缀走官方词条；⚠️ **2026-10-28 订正（`B93_E10` §一-1）**：
+                    //   原来钉的是 `Missions/CollectCounter` = **我们自己的偏离** —— 登录卡 `displayRule = 2`
+                    //   （一显示就已领取）⇒ 原版 `MissionTimerDisplay.Update` 的 `IsComplete` 支走 `Missions/CompleteCounter`
+                    //   （判据 ILSpy `MissionTimerDisplay.cs:66-75`；生产侧 `MissionsTab` 已按原版落）—— 仍按 `{0}` 拆前缀（⛔ 不自证）。
+                    string cntTerm = Loc.T("Missions/CompleteCounter");
                     int cut = cntTerm.IndexOf("{0}", System.StringComparison.Ordinal);
                     string prefix = cut > 0 ? cntTerm.Substring(0, cut) : cntTerm;
                     CheckTrue(timerText != null && timerText.StartsWith(prefix)
                               && timerText.Length > prefix.Length,
                               "…`Timer` 文案 = **活倒计时**（`" + prefix + "` + `TimerDisplay` 算出的剩余；"
                             + "实得「" + timerText + "」）");
+                }
+
+                // ================================================================ B93_E10：日常/奖励 B93-1 的 6 条
+                // 🔴 期望值全部是**字面量**（⛔ 不读 `DailyData.RowTint` / 不读 `MissionBackgroundHighlighter.*`
+                //    = 断言自证）；判据 = prefab MB `-443721620838148353`（daily）/ `-3349471971615803659`（skulls）实读。
+                // ⚠️ **2026-10-28（`B93_E23` 落地时的一处如实偏离）**：`B93_E10` §四 原文 ③a 直接读
+                //    `MissionCounterDisplay.FormatDaily / FormatSkulls` —— 那几个成员是 `internal`
+                //    （编辑器程序集看不见，本仓没有 `InternalsVisibleTo`，同 `RuleEngine/Core/EffectResolver.cs:7794` 那条记录）
+                //    ⇒ 改断**公开口渲染出来的文本字面量**（判别力等价，且比读被测常量更不像自证）。
+                {
+                    // 一颗件的四通道 tint —— 先硬断「`ImageQuad` 拿得到」，⛔ 没有「取不到就静默跳过」。
+                    void QuadTint(Transform node, string what, float r, float g, float b)
+                    {
+                        var q = node != null ? node.GetComponent<ImageQuad>() : null;
+                        CheckTrue(q != null, "（前提）" + what + "：`ImageQuad` 拿得到（拿不到 ⇒ 下面四条等于没查）");
+                        if (q == null) return;
+                        CheckNear(q.Tint.r, r, 0.01f, what + " · r");
+                        CheckNear(q.Tint.g, g, 0.01f, what + " · g");
+                        CheckNear(q.Tint.b, b, 0.01f, what + " · b");
+                        CheckNear(q.Tint.a, 1f, 0.01f, what + " · a");
+                    }
+
+                    // ---- ① 底图两态（原版 `MissionBackgroundHighlighter.Setup`）----
+                    DailyData.ForceDailyProgressForTest(0, 0);       // 未到顶（`St` 一起回 `InProgress`）
+                    mt75.Build();
+                    var b93Row0 = FindChild(tab, "Daily Mission Container (0)");
+                    CheckTrue(b93Row0 != null, "（前提）第 1 行 `Daily Mission Container (0)` 在");
+                    var b93BgA = b93Row0 != null ? FindChild(b93Row0, "Background") : null;
+                    CheckTrue(b93BgA != null, "（前提）第 1 行有 `Background` 节点");
+                    QuadTint(b93BgA,
+                             "★ 未到顶那一行底图 = prefab `normalColor`(0.4941,0.5686,0.9176,1)（MB -443721620838148353）",
+                             0.4941176f, 0.5686275f, 0.9176471f);
+                    // ---- ② 到顶 = collectableColor —— **同一颗节点、同一条 Build 路径**，只翻「到没到顶」一个维度（灭自证）
+                    DailyData.ForceDailyProgressForTest(0, 45);      // 45 = 该行 Target（到顶 ⇒ `St = Collectable`）
+                    mt75.Build();
+                    var b93Row0b = FindChild(tab, "Daily Mission Container (0)");
+                    CheckTrue(b93Row0b != null, "（前提）重建后第 1 行仍在");
+                    var b93BgB = b93Row0b != null ? FindChild(b93Row0b, "Background") : null;
+                    CheckTrue(b93BgB != null, "（前提）重建后第 1 行仍有 `Background`");
+                    QuadTint(b93BgB,
+                             "★ 到顶 ⇒ 换 `collectableColor`(1,0.6667,0.3451,1)（同一颗件的另一态）",
+                             1f, 0.6666667f, 0.3450980f);
+                    DailyData.ForceDailyProgressForTest(0, 0);       // 还原（后面几节吃这个状态）
+                    mt75.Build();
+
+                    // ---- ③ 进度文本：两实例两套格式串（原版 `MissionCounterDisplay`）----
+                    Check(DailyData.DailyCounterText(0), "0/45",
+                          "★ 每日行 `progressTextFormat` = `{0}/{1}`（MB 3476392019656054992；渲染文本字面量）");
+                    Check(DailyData.CompletedMessage, "Missions/Completed",
+                          "★ `completedMessage` 出厂串（同两份 MB 实读）");
+                    // 骷髅卡 `displayCompletedMessage = 0` ⇒ **到顶也不换词条**（原账点名「现在没有任何断言盯它」）
+                    int b93SkullsSave = DailyData.SkullsCountValue();
+                    DailyData.ForceSkullsCountForTest(999);
+                    mt75.Build();
+                    var b93Sk = FindChild(tab, "Daily Skulls Mission Container");
+                    CheckTrue(b93Sk != null, "（前提）骷髅卡在");
+                    var b93SkTxt = b93Sk != null ? TextOf(FindChild(b93Sk, "counter")) : null;
+                    Check(b93SkTxt, "x999",
+                          "★ 骷髅卡 `progressTextFormat` = `x{0}`（MB -3349471971615803659）+ `displayCompletedMessage = 0`"
+                        + " ⇒ 到顶仍显示 `x{N}`");
+                    CheckTrue(b93SkTxt != Loc.T("Missions/Completed"),
+                              "…而且**不是**完成态词条（灭自证：这条挡「两个实例共用一个开关」的错法）");
+                    DailyData.ForceSkullsCountForTest(b93SkullsSave); // 还原
+
+                    // ---- ④ 图标死支：`targetIcon`/`armyIcon` 双 null ⇒ 那一行不得有图标子件 ----
+                    mt75.Build();
+                    var b93Row2 = FindChild(tab, "Daily Mission Container (0)");
+                    var b93Prog = b93Row2 != null ? FindChild(b93Row2, "Mission Milestones Progress Bar") : null;
+                    CheckTrue(b93Prog != null, "（前提）进度条容器在");
+                    var b93ProgText = b93Prog != null ? FindChild(b93Prog, "progress") : null;
+                    CheckTrue(b93ProgText != null, "（前提）进度条下 `progress` 计数节点在");
+                    CheckTrue(b93ProgText != null
+                              && FindChild(b93ProgText, "Army") == null
+                              && FindChild(b93ProgText, "Target") == null,
+                              "★ `armyIcon`/`targetIcon` 双 null（MB 3476392019656054992 / -3349471971615803659）⇒ 不建图标格");
+                    CheckTrue(DailyData.SkullsArmy() == null,
+                              "★ 骷髅卡的 `armyIcon` 槽 = null（数据侧等价口）—— 与上一条互证");
                 }
 
                 // ---------------------------------------------------------------- ① + B4 骷髅卡
@@ -8326,6 +8403,90 @@ public static class RewardsScene
         Check(dr.MissingArt.Count, 0, "每日奖励窗没有取不到的图");
         CheckHoverSwap(dr.transform, "每日奖励窗");
         Shoot("03_每日奖励.png");
+
+        // ============================================================ ★ **B93_E11**（2026-10-28）
+        // 判据 = `DailyRewardDrawerController__SetState.c:8-28`（三态五件的开关表）·
+        //        `DailyRewardSelector__Reset.c`（清轨）· `__RefreshData.c`（有容器 ⇒ 逐条 Refresh，否则 CreateRewards）。
+        // ⛔ 期望值写原版字面量（哪个态开哪一件），⛔ 不读 `Drawer.State` 去反推（那是被测实现 = 自证）。
+        Section("★ B93_E11：每日奖励抽屉三态开关表（原版 SetState）");
+        {
+            Check(dr.DrawerCountForTest, DailyData.RewardDays * 2, "（前提）抽屉数 = 每天两条轨");
+            var drContent = dr.entries.Count > 0 ? dr.entries[0].parent : null;
+            CheckTrue(drContent != null, "（前提）内容区拿得到（`entries[0].parent`）");
+            var normal0 = dr.entries.Count > 0 ? FindChild(dr.entries[0], "NormalReward") : null;
+            CheckTrue(normal0 != null, "（前提）第一格 `NormalReward` 拿得到（拿不到 ⇒ 下面等于没查）");
+            var hl = normal0 != null ? FindChild(normal0, "Highlight") : null;
+            var pi = normal0 != null ? FindChild(normal0, "Premium Indicator") : null;
+            var gc = normal0 != null ? FindChild(normal0, "Gacha Reward Claimed") : null;
+            var co = normal0 != null ? FindChild(normal0, "colider") : null;
+            CheckTrue(hl != null && pi != null && gc != null && co != null,
+                      "（前提）我们建了的三态件四颗都在（`Shadow` 按原版无图不建，不在本组）");
+            var d0 = dr.DrawerForTest(0, false);
+            CheckTrue(d0 != null, "（前提）`DrawerForTest(0,false)` 拿得到");
+            if (hl != null && pi != null && gc != null && co != null && d0 != null)
+            {
+                foreach (var st in new[] { RewardState.Locked, RewardState.Unlocked,
+                                           RewardState.Collected, RewardState.PremiumLocked })
+                {
+                    d0.SetState(st);
+                    Check(hl.gameObject.activeSelf, st == RewardState.Unlocked,
+                          $"SetState({st}) ⇒ `Highlight` 开（原版：只有 Unlocked）");
+                    Check(co.gameObject.activeSelf, st == RewardState.Unlocked,
+                          $"SetState({st}) ⇒ `colider` 开（原版：只有 Unlocked）");
+                    Check(pi.gameObject.activeSelf, st == RewardState.PremiumLocked,
+                          $"SetState({st}) ⇒ `Premium Indicator` 开（原版：只有 PremiumLocked）");
+                    Check(gc.gameObject.activeSelf, st == RewardState.Collected,
+                          $"SetState({st}) ⇒ `Gacha Reward Claimed` 开（原版：只有 Collected）");
+                }
+                // 灭自证：把 `Drawer.SetState` 里任意两句改成同一个条件
+                //   ⇒ 上面 4 态 × 4 件 = 16 条里必有一条红（四个态的开关组合两两不同）。
+                d0.Refresh();
+                // ⚠️ 期望值是**字面量**（数据口径：第 0 天 < 已领到第 2 天 ⇒ `Collected`）——
+                //    ⛔ 不拿 `DailyData.RewardStateOf` 当期望（那是被测数据口 = 同义反复）。
+                Check(d0.State, RewardState.Collected, "`Refresh()` 之后回到数据算出来的态（= Collected）");
+            }
+        }
+
+        Section("★ B93_E11：选择器的 建/清/刷 三条口（原版 CreateRewards / Reset / RefreshData）");
+        {
+            int n0 = dr.DrawerCountForTest;
+            // 内容区（原版选择器的 `contentAnchor`）—— `ResetRewards` 只销毁**子节点**、不销毁这一颗
+            var drContent = dr.entries.Count > 0 ? dr.entries[0].parent : null;
+            CheckTrue(drContent != null, "（前提）内容区拿得到（`entries[0].parent`）");
+            dr.ResetRewards();
+            Check(dr.entries.Count, 0, "`ResetRewards()` 之后 Entry 数 = 0（原版 `Reset` 清表）");
+            Check(dr.DrawerCountForTest, 0, "…抽屉数 = 0");
+            CheckTrue(drContent != null && drContent.childCount == 0,
+                      "…而且**内容区节点真的被销毁了**（只 `Clear()` 列表、忘了销毁节点 ⇒ 本条红"
+                    + "（`entries.Count` 会假绿 = 分不出两种状态））");
+            dr.RefreshData(true);                    // 无容器 ⇒ 走 CreateRewards
+            Check(dr.entries.Count, DailyData.RewardDays, "`RefreshData(true)` 重建回 RewardDays 格");
+            Check(dr.DrawerCountForTest, n0, "…抽屉数回到原来的数（≠ 2× ⇒ 说明没重复登记）");
+            CheckTrue(drContent != null && drContent.childCount == DailyData.RewardDays,
+                      "…内容区节点数也回到 RewardDays（重建不是只补列表）");
+            dr.RefreshData(true);                    // 有容器 ⇒ 走逐条 Refresh（⛔ 不重建）
+            Check(dr.entries.Count, DailyData.RewardDays, "（灭自证）连调两次 `RefreshData` 不翻倍");
+            CheckTrue(drContent != null && drContent.childCount == DailyData.RewardDays,
+                      "…节点数也不翻倍（`RefreshData` 走的是逐条 `Refresh`，⛔ 不是再建一遍）");
+
+            // 原版第 3 跳：抽屉 → 选择器 `CollectRewardClicked` → 窗 `OnCollect`（⛔ 不真发奖，只验这一跳）
+            // ⚠️ `WireUp` 已把**真发奖**那条也挂在同一个事件上 ⇒ 先硬断「这一格领不了」
+            //    （premium 轨恒 `PremiumLocked`，真发奖口 `DailyData.CollectReward` 第一句 `st != Unlocked` 就返回）
+            //    ⇒ 本跳**不会**改任何仓库状态。⛔ 别把它换成可领的那一格（那会真发奖、弹领奖窗）。
+            Check(DailyData.RewardStateOf(2, true), RewardState.PremiumLocked,
+                  "（前提）第 2 天 premium = PremiumLocked ⇒ 下面这一跳被真发奖口的守卫挡下（不静默改状态）");
+            int fired = 0; int fDay = -1; bool fPrem = false;
+            System.Action<int, bool> hook = (d, p) => { fired++; fDay = d; fPrem = p; };
+            dr.OnCollect += hook;
+            var d2p = dr.DrawerForTest(2, true);
+            CheckTrue(d2p != null, "（前提）`DrawerForTest(2,true)` 拿得到");
+            if (d2p != null) d2p.OnCollect();
+            dr.OnCollect -= hook;
+            Check(fired, 1, "`Drawer.OnCollect()` → 选择器 → 窗 `OnCollect` 只发一次（原版 `m_OnCollect?.Invoke`）");
+            Check(fDay, 2, "…天号透传");
+            Check(fPrem, true, "…premium 透传");
+        }
+
         wm2.CloseAllWindows();
 
         Section("§五 `Daily Streak Popup`（每日连登窗 —— 两态互斥 + 奖格轨，2026-09-23 建）");
@@ -8334,6 +8495,50 @@ public static class RewardsScene
         Check(ds.type, WindowType.Fullscreen, "`type` = 0 Fullscreen（实证）");
         Check(ds.placement, WindowsPlacement.Popup, "`windowsPlacement` = 15 Popup（实证）");
         Check(ds.closeOnEsc, false, "`closeOnESC` = **0**（实测；⚠️ 与每日奖励窗的 1 相反）");
+
+        // ============================================================ ★ **B93_E11**（2026-10-28）
+        // 判据 = `DailyStreakItemContainer__SetState.c:2-29`（两态四件）· `DailyStreakWindow__RefreshRewards.c`（先清后建）。
+        Section("★ B93_E11：连登奖格两态（原版 SetState）");
+        {
+            var day0 = DailyData.StreakCollected;
+            var dsContent = ds.entries.Count > 0 ? ds.entries[0].parent : null;
+            CheckTrue(dsContent != null, "（前提）奖格内容区拿得到（`entries[0].parent`）");
+            // 🔴 **2026-10-28（B93_FX4 · δ 夹具）**：`StreakCollected` 是常量 **5**（`Shell/DailyData.cs`）⇒ 第 6 格
+            //   整块落在视口右沿外（原版几何如此）⇒ `MenuDraw.Rect` 对「整块在视口外」**按设计返 null**、子件不建
+            //   ⇒ **先滚进去再取 `Collect`**（口径与实现 = 文件尾 `RevealClaim`；原来这一节**漏了**这一步，
+            //   所以「拿得到」那条红在**夹具**上，不是实现少了那颗节点）。
+            RevealClaim(ds);
+            var eCur = ds.EntryForTest(day0);
+            CheckTrue(eCur != null, "（前提）当前那一格的状态载体拿得到（拿不到 ⇒ 下面等于没查）");
+            CheckTrue(ds.entries.Count > day0, "（前提）`entries[day0]` 下标在范围内");
+            var cell = eCur != null && ds.entries.Count > day0 ? FindChild(ds.entries[day0], "Collect") : null;
+            CheckTrue(cell != null, "（前提）当前格的 `Collect` 节点拿得到");
+            if (eCur != null && cell != null)
+            {
+                eCur.SetState(DailyStreakPopup.State.Unlocked);
+                CheckTrue(cell.gameObject.activeSelf, "Unlocked ⇒ `Collect` 开（原版 `claimLabel`/`claimButton` 两句）");
+                eCur.SetState(DailyStreakPopup.State.Locked);
+                Check(cell.gameObject.activeSelf, false, "Locked ⇒ `Collect` 关");
+                // 灭自证：把 `Entry.SetState` 里那三句全写成恒真 ⇒ 上面「Locked ⇒ 关」立刻红
+                eCur.Refresh(DailyStreakPopup.State.Unlocked);
+                Check(eCur.CurrentState, DailyStreakPopup.State.Unlocked,
+                      "`Refresh(Unlocked)` 之后 `CurrentState` 记的是 Unlocked（原版末句）");
+            }
+            // 原版窗口级「先清后建」：连调两次不许翻倍（列表 + 节点两个口径都断 —— 只 `Clear()` 不销毁节点时
+            //   前者会假绿、后者才红）
+            int n1 = ds.entries.Count;
+            ds.RefreshRewards();
+            ds.RefreshRewards();
+            Check(ds.entries.Count, n1, "`RefreshRewards()` 连调两次 Entry 数不变（= 先清后建；翻倍 ⇒ 红）");
+            CheckTrue(dsContent != null && dsContent.childCount == n1,
+                      "…节点数也不翻倍（只 `Clear()` 列表、忘了销毁旧节点 ⇒ 本条红，`entries.Count` 会假绿）");
+            Check(ds.entries.Count, DailyData.StreakDays, "…且恒 = StreakDays");
+            // ⚠️ **收工把轨归零（B93_FX4）**：本节后面还有一批按 **`offset = 0`（原版开机态）** 写死的断言
+            //   （`entries[5]` 的绝对 X = 2234.36 · `TrackScroll.Offset == 0` · 第 5 格 `BG` 左沿 1628.67）
+            //   ⇒ 滚过去取完节点**必须还原**。只能放在**本块最后一句**：块内那五条读的是本块自己取的活节点，
+            //   而 `SetOffset` 会经 `OnChanged → BuildTrack` **整轨重建**（把它们全部作废）。
+            if (ds.TrackScroll != null) ds.TrackScroll.SetOffset(0f);
+        }
 
         // ---------------- 🆕 2026-10-17（A1024③ 第 1/2 批）：R0 站点的换面抽查 ----------------
         // 判据 = `资料/普查产出_1017/UI/R_A1024_字体按用途普查.md` §2·2 那几行（原版 `m_fontAsset` 逐颗实读）。
@@ -8890,12 +9095,9 @@ public static class RewardsScene
             //   第 6 格（可领那格）整块落在视口右沿外**（原版几何如此；那一格的子件按 `RectMask2D` 语义不建）。
             //   本节要读/点它的 `Collect` 与 `Reward Holder` ⇒ **每次 `Build()` 之后把轨滚到最右**再取节点。
             //   ⚠️ 这是**测试驱动**、不是被测行为（原版 `ScrollRect` 组件被禁 ⇒ 玩家滚不动；本节只借它把那一格挪进视口）。
-            System.Action revealClaim = () =>
-            {
-                if (ds.TrackScroll != null) ds.TrackScroll.SetOffset(ds.TrackScroll.MaxOffset);
-            };
+            //   🆕 **2026-10-28（B93_FX4）**：这一跳提成文件级 `RevealClaim(ds)`（`§B93_E11` 的 B4 也要用 ⇒ 只留一份）。
             wm2.OpenWindow(ds);                                        // 重开（上面 `CheckAbsorbRule` 把它点关了）⇒ 内容重建
-            revealClaim();                                             // 见上面那段：把可领那一格滚进视口
+            RevealClaim(ds);                                           // 见上面那段：把可领那一格滚进视口
 
             var eClaim = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
             CheckTrue(eClaim != null, "（前提）连登窗第 " + (dClaim + 1) + " 格建出来了（可领的那一格）");
@@ -8953,20 +9155,28 @@ public static class RewardsScene
                   "★ …而且**一扇窗都没弹**（`ShowCollectedWindow` 在成功分支**之内**：写在守卫之前 ⇒ 红）");
 
             // ---- ★ 领过之后那一格**不画 `Collect` 了**（与上面「未领时画了」合起来才分得出「按状态」）----
+            // 🔴 **2026-10-28（B93_FX4 · α）**：本批 `B93_E11` 把「不满足就不建」换成了原版的「**恒建 + `SetState` 开合**」
+            //   （`Shell/DailyStreakPopup.cs` 的 `BuildEntry` 建满三件、`Entry.SetState` 里 `_claim.SetActive(on)`）
+            //   ⇒ 节点**恒在**、只是 `activeSelf = false`。旧断言断的是「节点为 null」，与本批实现互斥
+            //   （同一节的配对断言下面那条断「在」且绿 —— 一对断言里一条要求不在、一条要求在，只有「恒建」能让后者绿）。
             ds.Build();                                                // = 领奖窗关掉之后 `RefreshOpenDailyWindows` 那一跳
-            revealClaim();                                             // A1280：那一格在开机 offset 下在视口外 ⇒ 先滚进去再量
+            RevealClaim(ds);                                           // A1280：那一格在开机 offset 下在视口外 ⇒ 先滚进去再量
             var eAfter = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
-            CheckTrue(eAfter == null || FindChild(eAfter, "Collect") == null,
-                      "★ …重建之后那一格的 `Collect` **不画了**（`unlocked && !claimed` —— 领过之后两半都假）");
+            var cAfter = eAfter != null ? FindChild(eAfter, "Collect") : null;
+            CheckTrue(cAfter != null, "（前提）重建之后那一格的 `Collect` **节点还在**（恒建 + `SetState` 开合 ⇒ 拿不到才是缺陷）");
+            Check(cAfter != null && cAfter.gameObject.activeSelf, false,
+                  "★ …但 `activeSelf = false` ⇒ **不画了**（原版 `claimLabel` / `claimButton` 两句 `SetActive`）");
 
             // ---- 还原到本节起点 ----
             DailyData.ForceStreakClaimedForTest(dClaim, claimed0);
             ds.Build();
-            revealClaim();                                             // A1280：同上（重建把偏移归零了）
+            RevealClaim(ds);                                           // A1280：同上（重建把偏移归零了）
             var eBack = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
-            CheckTrue(eBack == null || FindChild(eBack, "Collect") != null,
-                      "（还原）起点是「没领过」⇒ 那一格的 `Collect` **又画出来了**"
-                      + "（三个态合起来才证得住它是**按状态**画的，不是恒画 / 恒不画）");
+            var cBack = eBack != null ? FindChild(eBack, "Collect") : null;
+            CheckTrue(cBack != null, "（前提）（还原）那一格的 `Collect` 节点还在（恒建）");
+            Check(cBack != null && cBack.gameObject.activeSelf, true,
+                  "（还原）起点是「没领过」⇒ 那一格的 `Collect` **又画出来了**"
+                  + "（三个态合起来才证得住它是**按状态**画的，不是恒画 / 恒不画）");
 
             // ============================================================ 🆕 **2026-10-13（A482 · 落 H29 §3·2）**
             // **A400：「关窗 ⇒ 真收到」**（`Shell/DailyData.cs` 的 `StreakAutoCollect`）—— 这条路原来是个**空壳**：
@@ -9000,7 +9210,7 @@ public static class RewardsScene
                 int dAuto = DailyData.StreakClaimableDay;                  // = `StreakCollected`（只有这一格可领）
                 DailyData.ForceStreakClaimedForTest(dAuto, false);
                 ds.Build();
-                revealClaim();                                             // A1280：可领那一格在视口外 ⇒ 先滚进去再量
+                RevealClaim(ds);                                           // A1280：可领那一格在视口外 ⇒ 先滚进去再量
                 var eAuto = ds.entries.Count > dAuto ? ds.entries[dAuto] : null;
                 CheckTrue(eAuto != null, "★ A482①：（前提）连登窗那一格（可领的那一格）建出来了");
                 string artAuto = eAuto != null ? ArtOf(FindChild(eAuto, "Reward Holder")) : null;
@@ -9049,7 +9259,7 @@ public static class RewardsScene
                 // ---- ⑧ 收工还原：把那一格拨回本节起点那个态（A316 那一节的收尾写法就是范本）----
                 DailyData.ForceStreakClaimedForTest(dAuto, claimed0);
                 ds.Build();
-                revealClaim();                                             // A1280：同上（重建把偏移归零了）
+                RevealClaim(ds);                                           // A1280：同上（重建把偏移归零了）
                 var eAutoBack = ds.entries.Count > dAuto ? ds.entries[dAuto] : null;
                 CheckTrue(eAutoBack == null || FindChild(eAutoBack, "Collect") != null,
                           "（A482 还原）那一格回到「没领过」⇒ `Collect` 又画出来"
@@ -9688,6 +9898,127 @@ public static class RewardsScene
                           + " —— 先推时钟、再判空的实现这里是 **1.0** ⇒ 红");
             }
 
+            wm2.CloseAllWindows();
+        }
+        wm2.CloseAllWindows();
+
+        // ============================================================ 🆕 **2026-10-28（`B93_N1`）**
+        // 每日奖励窗今天补的两条（账 `日常_奖励.tsv` 的 `:94` / `:104` / `:107`）：
+        //   ① **Premium 轨「本地模拟买」**：价钱钮 → `DailyData.PurchasePremiumLocal()` → 价钱钮被收掉 +
+        //      Premium 抽屉由 `PremiumLocked` 转「可领」。判据 = `DF:DailyRewardTrackPanel__HandlePurchase.c:26-72`
+        //      （`HasItem` 守卫 → `Interactable = false` → `TryPurchaseOffer`）
+        //      + `…___HandlePurchase_b__6_0.c:10-19`（续作 = 第一条挑战 `canCollect = true`）。
+        //   ② **`DailyRewardPopup.Start()` 的第 4 跳** = `timerText.OnRunOutOfTime += ToFocus`
+        //      （那个方法常量 `+0x1B0` = `Il2CppClass` vtable slot 7 = `ToFocus`；两个方程互校的推导写在
+        //       `Shell/DailyRewardPopup.cs` 的 `WireUp` doc 里）。
+        // ⚠️ 本节**自成一体**（自己建窗、自己拨回静态态、收工还原）⇒ 不改任何既有语句，别人的落点行号不动。
+        Section("★ B93_N1：Premium 轨「本地模拟买」（价钱钮 ⇒ 可领 + 价钱钮收掉）+ `Start()` 第 4 跳（计时器到点 ⇒ `ToFocus`）");
+        {
+            // ---- (0) 前提：出厂态 = 没买过 Premium ----
+            //   ⛔ **不动 `_rewardClaimed[]`**（那是别的节在管的状态）：第 1 天恒 `Collected`（`i < RewardsCollected`）
+            //   ⇒ 买了 Premium 就该转 `Unlocked`，本节不需要动领取位。
+            DailyData.ForcePremiumOwnedForTest(false);
+            Check(DailyData.PremiumOwned, false, "（前提）出厂 `PremiumOwned == false`（= 原版 `!HasItem(premiumItem)`）");
+            Check(DailyData.RewardStateOf(0, true), RewardState.PremiumLocked,
+                  "（前提）第 1 天的 **Premium** 抽屉 = `PremiumLocked`（原版 `GetCurrentState` 的 `!IsPremium` 那一支）");
+
+            var drN1 = DailyRewardPopup.Create(wm2);
+            wm2.OpenWindow(drN1);
+            var premEntry0 = drN1.entries.Count > 0 ? drN1.entries[0] : null;
+            var premCell0 = premEntry0 != null ? FindChild(premEntry0, "Premium Reward") : null;
+            var premCol0 = premCell0 != null ? FindChild(premCell0, "colider") : null;
+            CheckTrue(premCol0 != null,
+                      "（前提）第 1 天的 `Premium Reward/colider` 建出来了 —— 抓不到 ⇒ 下面整段等于没验");
+            CheckTrue(premCol0 != null && !premCol0.gameObject.activeInHierarchy,
+                      "（前提）买之前那一格的 `colider` **关着**（`PremiumLocked` 那一态）");
+
+            // ---- (a) 价钱钮：**真鼠标点**（`PointerLayer` 那条路），点完三件一起翻面 ----
+            var premPriceBtn = FindPath(drN1.transform, "Tracks Side Bar/Premium Track/Price Display Button 2 Variant/Generic UI Button");
+            var premWb = premPriceBtn != null ? premPriceBtn.GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(premPriceBtn != null && premWb != null,
+                      "（前提）找得到那颗价钱钮的 `WindowButton`（原版 `DailyRewardTrackPanel.purchaseButton`）");
+            CheckTrue(premPriceBtn != null && premPriceBtn.gameObject.activeInHierarchy,
+                      "（前提）买之前价钱钮**是开着的**（原版 `SetActive(!HasItem && IsActive)` = 真）");
+            bool premClicked = ClickButtonByQuad(PointerLayer.Instance, premPriceBtn, premWb, "每日奖励窗左栏的「买 Premium 轨」价钱钮");
+            CheckTrue(premClicked, "点得动（走 `PointerLayer` 真路径，不是直调 `onClick`）");
+            Check(DailyData.PremiumOwned, true,
+                  "★★ 点完 `PremiumOwned` 由 **false → true**（`DailyData.PurchasePremiumLocal`；"
+                + "改坏法：把那颗钮的 `onClick` 退回「只 `Debug.Log` 一条」⇒ 本条红）");
+            CheckTrue(premPriceBtn == null || !premPriceBtn.gameObject.activeInHierarchy,
+                      "★★ 点完那颗价钱钮**被收掉**（= 原版 `Initialize` 那句 `SetActive(!HasItem…)` 在新态下为假；"
+                    + "只置位不刷新的实现这里仍然开着 ⇒ 红）");
+            // ★ **灭自证**（结构上不可能两边同时满足）：状态是**由 `PremiumLocked` 翻到「可领」**，不是一直是「可领」。
+            //   上面 (0) 两条断的是买之前那一态，(a) 这几条断的是买之后 —— 把 `RewardStateOf` 的 premium 分支
+            //   恒写成 `Unlocked`（或恒写 `PremiumLocked`）的实现，**两组里必有一组红**。
+            Check(DailyData.RewardStateOf(0, true), RewardState.Unlocked,
+                  "★★ 买完第 1 天的 Premium 抽屉 = **`Unlocked`**（原版续作 `<HandlePurchase>b__6_0` 那句"
+                + " `CurrentChallenges.FirstOrDefault().canCollect = true` 在**本状态机里的落点**");
+            var premCell1 = drN1.entries.Count > 0 ? FindChild(drN1.entries[0], "Premium Reward") : null;
+            var premCol1 = premCell1 != null ? FindChild(premCell1, "colider") : null;
+            CheckTrue(premCol1 != null && premCol1.gameObject.activeInHierarchy,
+                      "★★ …而且**节点那一面也翻过来了**：`Premium Reward/colider` 现在开着（原版 `SetState(Unlocked)`）"
+                    + " —— 只改数据不 `RefreshData` 的实现：节点停在 `PremiumLocked` ⇒ 红");
+            var premD0 = drN1.DrawerForTest(0, true);
+            Check(premD0 != null ? premD0.State : (RewardState)(-1), RewardState.Unlocked,
+                  "★★ …`Drawer.State` 也说 `Unlocked`（三处口径同源：数据 / 节点 / 抽屉最后一次 `SetState`）");
+
+            // ---- (b) 已拥有时再点一次：**什么都不发生**（原版 `HasItem` 那道守卫）----
+            int wPremBefore = Wallet.Of(DailyData.RewardIconOf(1, true));
+            bool premAgain = DailyData.PurchasePremiumLocal();
+            Check(premAgain, false,
+                  "★★ 已拥有再买 ⇒ **返回假**（= 原版 `if (InventoryManager.HasItem(premiumItem)) return;` 那道守卫）"
+                + " —— 少了守卫的实现会每次返真（调用方就会反复刷新/反复发）");
+            Check(DailyData.PremiumOwned, true, "…而「已拥有」这一位不变（守卫不是「买两次就翻转」）");
+            Check(Wallet.Of(DailyData.RewardIconOf(1, true)), wPremBefore, "…也没多发任何东西");
+
+            // ---- (c) `Start()` 第 4 跳：计时器到点 ⇒ `ToFocus`（重算侧栏显隐 + `RefreshData`）----
+            //   判据 = `DF:DailyRewardPopup__Start.c:60-66`：`timerText.OnRunOutOfTime += <+0x1B0>`，
+            //   而 `+0x1B0` = `Il2CppClass` vtable slot 7 = `ToFocus`（`0x140 + 7*16`；同函数第 1 跳读 `+0x1C0` = slot 8 = `Close`）。
+            //   **怎么观察 `ToFocus` 真的跑了**：`ToFocus` 体 = `InitializeTrackPanel(_premiumTrack, _premiumBuyButton, owned: DailyData.PremiumOwned)`
+            //   + `RefreshData(true)` ⇒ **两个可观察面**：
+            //     ① 价钱钮的显隐按**当前** `PremiumOwned` 重算一次；
+            //     ② 每一格抽屉按**当前**数据 `SetState` 一次。
+            //   ⛔ **别用「领了一格之后 `<colider>` 关掉」当记号**：`RewardStateOf` 的 premium 分支是
+            //     `normal == Collected ? Unlocked : normal`（照原版 `GetCurrentState`）⇒ **领完 premium 仍然是 `Unlocked`**
+            //     （那一格能反复领 —— 是本仓既有的一个问题，**不在本条账内**，⛔ 别在这里顺手改状态机）。
+            //   所以陈旧态这样造：**把数据拨回「没买」而节点停在「买了」那一帧**（`ForcePremiumOwnedForTest(false)`），
+            //   计时器到点后价钱钮**重新出现** + Premium 抽屉**回到 `PremiumLocked`** ⇒ 那一条订阅确实在。
+            var priceNode = FindPath(drN1.transform, "Tracks Side Bar/Premium Track/Price Display Button 2 Variant");
+            var timerTd = FindPath(drN1.transform, "Timer/EverguildTextMeshPro (1)");
+            var timerComp = timerTd != null ? timerTd.GetComponent<TimerDisplay>() : null;
+            CheckTrue(priceNode != null,
+                      "（前提）找得到 `Price Display Button 2 Variant` 那颗节点（原版 `purchaseButton`）");
+            CheckTrue(timerComp != null,
+                      "（前提）倒计时那颗上挂着 `TimerDisplay`（`BuildTimer` 里 `TimerDisplay.Attach` 的落点）");
+            CheckTrue(timerComp != null && !timerComp.Expired, "（前提）这一刻**还没到点**（`Expired == false`）");
+            CheckTrue(premCol1 != null && premCol1.gameObject.activeInHierarchy,
+                      "（前提）第 1 天的 Premium `colider` 此刻**开着**（买完之后 `Unlocked`）—— 抓不到 ⇒ 下面没得验");
+            if (priceNode != null && timerComp != null && premCol1 != null)
+            {
+                DailyData.ForcePremiumOwnedForTest(false);      // 数据回到「没买」；节点还停在「买了」那一帧
+                CheckTrue(!priceNode.gameObject.activeInHierarchy && premCol1.gameObject.activeInHierarchy,
+                          "（前提）**陈旧态造出来了**：数据已回 `false`，而钮还关着、Premium `colider` 还开着"
+                        + "（`ToFocus` 那一跳还没跑过）");
+                var savedNextReset = DailyData.NextResetAt;
+                DailyData.ForceNextResetForTest(System.DateTime.Now.AddMinutes(-1));   // 目标挪到过去 ⇒ 下一拍就「到点」
+                timerComp.Refresh();                                                   // = `Update` 那一拍的重算（到点那一支只发一次）
+                DailyData.ForceNextResetForTest(savedNextReset);                        // 立刻还原（别把过去留给后面的节）
+                CheckTrue(timerComp.Expired, "（前提）计时器确实进「到点」态（`Expired == true`）");
+                CheckTrue(priceNode.gameObject.activeInHierarchy,
+                          "★★ **`Start()` 第 4 跳接上了**：计时器到点 ⇒ `ToFocus` ⇒ `InitializeTrackPanel(owned: PremiumOwned = false)`"
+                        + " ⇒ 那颗价钱钮**重新出现** —— ⛔ 删掉 `Shell/DailyRewardPopup.cs` 的 `BuildTimer` 里那句"
+                        + " `timerTd.OnRunOutOfTime += ToFocus` ⇒ 订阅不在、钮停在陈旧态（关着）⇒ 本条红");
+                CheckTrue(!premCol1.gameObject.activeInHierarchy,
+                          "★★ …同一拍的第二面：`ToFocus` 的 `RefreshData(true)` 把抽屉按当前数据重设 ⇒ 第 1 天 Premium 抽屉"
+                        + "回到 `PremiumLocked`（`colider` 关了）—— 只接「价钱钮」那一半、没接 `RefreshData` 的实现这里红");
+                Check(DailyData.RewardStateOf(0, true), RewardState.PremiumLocked,
+                      "（对照）数据层此刻就是 `PremiumLocked`（上面那条 node 断言的分母）");
+            }
+            else
+                CheckTrue(false, "（前提）价钱钮 / `TimerDisplay` / Premium 格 缺一件 ⇒ 第 4 跳那三条**没验成**");
+
+            drN1.Close();
+            DailyData.ForcePremiumOwnedForTest(false);      // 还原出厂态（别把「已拥有」留给后面的节）
             wm2.CloseAllWindows();
         }
         wm2.CloseAllWindows();
@@ -12833,6 +13164,20 @@ public static class RewardsScene
         foreach (var t in root.GetComponentsInChildren<Transform>(true))
             if (t.name.StartsWith(prefix, System.StringComparison.Ordinal) && t.gameObject.activeInHierarchy) n++;
         return n;
+    }
+
+    /// <summary>🆕 **2026-10-28（B93_FX4 · δ 夹具）**：把连登窗的奖格轨**滚到最右**（`MaxOffset`）。
+    /// <para>为什么必须有这一步（判据三份）：① `DailyData.StreakCollected` 是常量 **5**（`Shell/DailyData.cs:1072`）
+    /// ⇒ 第 6 格（可领那格）左沿 ≈ **1960.9**，而视口右界 **1920** ⇒ **整块落在视口右沿外**（原版几何如此）；
+    /// ② `MenuDraw.Rect` 对「整块在视口外」**按设计返 `null`** ⇒ 那一格的**子件（含 `Collect`）根本不建**，
+    /// 只有**格节点自己**照建（`Shell/DailyStreakPopup.cs:527-529` 把这条口径写死了）；
+    /// ③ 于是「读/点第 6 格的子件」的断言**必须先滚进来**再取，否则红在**夹具**上、看起来像实现缺节点。</para>
+    /// <para>⚠️ 这是**测试驱动**、不是被测行为（原版 `ScrollRect` 组件被禁 ⇒ 玩家滚不动；自检只借 `SetOffset`
+    /// 把那一格挪进视口）。`SetOffset` 经 `OnChanged → BuildTrack` **整轨重建**（幂等、先清后建），
+    /// 所以**取节点必须在这之后**（`entries` 里换成了新建的 `Entry`）。</para></summary>
+    static void RevealClaim(DailyStreakPopup popup)
+    {
+        if (popup != null && popup.TrackScroll != null) popup.TrackScroll.SetOffset(popup.TrackScroll.MaxOffset);
     }
 }
 

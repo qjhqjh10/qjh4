@@ -699,7 +699,7 @@ namespace CardPresentation
             // 🆕 2026-10-27（B14）：原版 `RaidEventTab.Initialize` 的第二跳 = `rewardSelector.CreateRewards()`
             //   ——**按里程碑逐件 Instantiate**（里程碑为空 ⇒ 一件都不建）。上面那件永远只当**母版**
             //   （= 原版 `RaidRewardSelector.rewardItemContainer` 那个 prefab 引用），实例在下面这一跳里建。
-            RebuildRewards();
+            if (RaidEventTabLogic.Initialize(true, _raid != null, false).RebuildRewards) RebuildRewards();
         }
 
         // ------------------------------------------------------------ `Header`（= `RaidHeaderController`）
@@ -774,7 +774,7 @@ namespace CardPresentation
 
             // 🆕 2026-10-27（B14）：原版 `RaidHeaderController.Initialize` 的最后一跳 `UpdateText()`
             //   （`__UpdateText.c` —— **整段被「事件不为空」包着** ⇒ 没有事件时一个字段都不写，保持 prefab 出厂态）。
-            ApplyHeaderText();
+            if (RaidHeaderControllerLogic.Initialize(_raid != null).WritesText) ApplyHeaderText();
         }
 
         // ------------------------------------------------------------ `Footer`
@@ -923,7 +923,7 @@ namespace CardPresentation
         void BuildPersonalProgression(Transform root, RewardCard card)
         {
             var prog = MenuDraw.Node(root, "Personal Progression", PersonalProgressionR);
-            var barRoot = MenuDraw.Node(prog, "Personal Raid Progress Bar", PersonalBarRootR);
+            var barRoot = MenuDraw.Node(prog, "Personal Raid Progress Bar", RaidProgressBarScaleAndPositionControllerLogic.SetPositionAndScale(PersonalBarRootR, RaidRewardState.Locked, RaidBarPlacementLogic.PositionOffsetCurrent, RaidBarPlacementLogic.ScaleOffsetCurrent));
             card.PersonalBarRoot = barRoot;
 
             var bar = MenuDraw.Node(barRoot, "Bar", PersonalBarR);
@@ -1303,9 +1303,9 @@ namespace CardPresentation
             //      仍按原版的**真值**把规则算出来写进口志，免得将来接数据时再猜一次。
             bool applyPrev, applyCur; RaidBarPlacementLogic.PlanSteps(info.Level, out applyPrev, out applyCur);
             if (RaidBarPlacementLogic.Moves(state))
-                Note("奖励格 " + info.Level + "：状态 " + state + " ⇒ 原版会把个人进度条按档位偏移"
-                     + "（current(" + RaidBarPlacementLogic.PositionOffsetCurrent.x + "," + RaidBarPlacementLogic.ScaleOffsetCurrent.x
-                     + ") · level>0=" + applyCur + "）—— 本壳不做随档位移（不动版面，已记账）");
+                ApplyPersonalBarShift(card, info.Level, state, applyPrev, applyCur);
+                Note("奖励格 " + info.Level + "：状态 " + state + " ⇒ 个人进度条按档位偏移**已落地**（level>0=" + applyCur
+                     + "；prefab 偏移表 current(-74.34 / -72.31) · previous(0 / -72.31)）");
 
             // ---- ② 个人进度条 + 分数牌（**U04 的** `EventProgressBarController.Initialize`）
             //      它自己三跳：`Root.SetActive(Next != 0)` → `ScoreObject.Initialize` → `SetBarFill(p)`
@@ -1454,13 +1454,13 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `RaidRewardSelector.CollectRewardClicked(int rewardToClaim)`（`__CollectRewardClicked.c`）：
-        /// `ChatPreviewMessage.Instance?.Enable(false)` → `raidEvent.PurchaseMilestone(rewardToClaim, onSuccess, onError)`。
-        /// <para>⚠️ 聊天预览（`ChatPreviewMessage`）属**社交/聊天**那条线（`Shell/ChatPanel.cs`）——
-        /// 本批白名单里没有它 ⇒ 这两跳**出声跳过**（⛔ 不改别人的文件）。</para></summary>
+        /// `EventSystemController.Toggle(false)` → `raidEvent.PurchaseMilestone(rewardToClaim, onSuccess, onError)`。
+        /// <para>🔴 2026-10-28（B93-5）铁律 5 就地订正：原文写的 `ChatPreviewMessage.Instance?.Enable(false)` 是 **ICF 折叠出来的假符号**，
+        /// 真身 = `EventSystemController.Toggle`（同族判据 → `Shell/GachaEventWindow.cs:1258`）；本仓等价物 = `PointerLayer.SetInputEnabled`。</para></summary>
         void CollectRewardClicked(int rewardToClaim)
         {
-            Debug.Log("[Raid] `CollectRewardClicked`：原版先 `ChatPreviewMessage.Enable(false)`（聊天预览属社交线，本批不动）"
-                    + "再 `PurchaseMilestone(" + rewardToClaim + ", …)`。");
+            // 原版这一跳 = `EventSystemController.Toggle(false)`（cpp2il 的 ICF 折叠把它印成 `ChatPreviewMessage.Enable`）
+            PointerLayer.SetInputEnabled(false);
             if (_raid == null)
             {
                 Debug.LogWarning("[Raid] 领奖：没有事件实例 ⇒ 不做任何事（原版这一跳 NRE）");
@@ -1469,14 +1469,14 @@ namespace CardPresentation
             _raid.PurchaseMilestone(rewardToClaim,
                 rewards =>
                 {
-                    // 成功回调（`b__7_0`）：恢复聊天预览 → 放 `rewardClaimedSound` → `CreateRewards()`
-                    WindowSounds.PlayFx(WindowSounds.PurchaseCue, "Raid/Collect");
+                    // 成功回调（`b__7_0`）：恢复事件系统 → 放 `rewardClaimedSound` → `CreateRewards()`
+                    PointerLayer.SetInputEnabled(true); WindowSounds.PlayFx(WindowSounds.PurchaseCue, "Raid/Collect");
                     RebuildRewards();
                 },
                 error =>
                 {
-                    // 失败回调（`b__7_1`）：恢复聊天预览 → `CreateRewards()`
-                    Debug.LogWarning("[Raid] 领奖失败（原版走 PlayFab 的 onError）：" + error);
+                    // 失败回调（`b__7_1`）：恢复事件系统 → `CreateRewards()`
+                    PointerLayer.SetInputEnabled(true); Debug.LogWarning("[Raid] 领奖失败（原版走 PlayFab 的 onError）：" + error);
                     RebuildRewards();
                 });
         }
@@ -1498,6 +1498,120 @@ namespace CardPresentation
         {
             if (index < 0 || index >= _cards.Count) { Debug.LogWarning("[Raid] TestHighlighOn：下标越界 " + index); return; }
             SetHighlight(_cards[index], true);
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  B93-5（2026-10-28 · 文件所有者代理 `D2`）：`RaidEventTab` / `RaidHeaderController` /
+        //  `RaidProgressBarScaleAndPositionController` 三者的**接线**（算式在 `Shell/RaidEvent.cs` 的 `…Logic` 族）。
+        //  【为什么加在类尾】账按 `文件:行号` 记落点（`:417/:463/:647/:706/:850/:1029/:1177/:1227/:1259/:1273/`
+        //    `:1295/:1406/:1441/:1460/:1486/:1497`）⇒ 新成员只能加在所有老落点之后；中间那五处改动
+        //    都是**同一物理行的就地改写**，行数不变。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        // ------------------------------------------------------------ `RaidEventTab.OnClose` / `Reset`
+        /// <summary>原版 `RaidEventTab.OnClose()`（`__OnClose.c` 全文 2 句）：`base.OnClose(); Reset();`。
+        /// <para>本仓：`base` 的收尾在 `GameWindow.Close` ⇒ 本方法只跑那一跳 `Reset()`，由类尾 `Close()` 覆写在关窗前调。</para></summary>
+        public void OnClose()
+        {
+            if (!gameObject.activeSelf) return;      // 原版 `base.OnClose` 那道「没开就不收尾」的闸
+            Reset();
+        }
+
+        /// <summary>原版 `RaidEventTab.Reset()`（`__Reset.c` 全文 3 句，逐句）：
+        /// <code>
+        /// CustomDebug.LogWarning(字面量没解出);                       // ⛔ 原文没解出，不编
+        /// LiveOpsAssetUtility.Unload(事件, 1);                        // 卸背景图
+        /// LiveOpsAssetUtility.Unload(事件, 5);                        // 卸阵营图（走 headerController 那一跳）
+        /// </code>
+        /// <para>本地一张 liveops 图都不加载 ⇒ 两句都是空；**照原版出声**并把要卸的两个类型打出来。</para></summary>
+        public void Reset()
+        {
+            // 🔴 `Reset()` 是 MonoBehaviour 的**编辑器回调**（`AddComponent` 时会自动调一次）——
+            //   那时树还没建（`_page == null`）⇒ 原版这一跳也不可能发生 ⇒ 早退（⛔ 否则每次建窗都会白打一条告警）。
+            if (_page == null) return;
+            var plan = RaidEventTabLogic.Reset(_header != null);
+            Debug.LogWarning("[Raid] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842926d0` 是字符串对象）⇒ 只出声、不编原文。"
+                           + "要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes)
+                           + "（本机没加载过 ⇒ 空）；headerController 在不在 = " + plan.HeaderUnloads + "。");
+        }
+
+        /// <summary>关窗前先跑原版那一跳 `OnClose`（= 原版 `OnClose` 在 `base.OnClose` 前后各占一半，顺序照抄）。</summary>
+        public override void Close()
+        {
+            OnClose();
+            base.Close();
+        }
+
+        // ------------------------------------------------------------ `RaidHeaderController` 生命周期
+        /// <summary>原版 `RaidHeaderController.Awake()` 的接线结果（= 那颗 `eventHelpButton.onClick` 挂没挂上）。
+        /// <para>🔴 **本 prefab 的 `eventHelpButton` 是空 PPtr（= null）** ⇒ 原版这一跳**不执行** ⇒ 返回 `false`，
+        /// 我们也就**不伪造一颗钮**（判据 → 本文件头 ②「`RaidHeaderController__Awake.c`」那一条）。</para></summary>
+        public bool SubscribeHelpButton()
+        {
+            bool ok = RaidHeaderControllerLogic.SubscribeHelpButton(false);
+            if (!ok) Note("`RaidHeaderController.Awake`：本 prefab 的 `eventHelpButton` 是空 PPtr ⇒ 原版那一跳不执行（不伪造钮）");
+            return ok;
+        }
+
+        /// <summary>原版 `RaidHeaderController.ClickEventHelpButton()`（`__ClickEventHelpButton.c` 全文 4 句）：
+        /// 三道闸 `HasComponent(事件,0x1e)` → 组件自述可开 → `WindowsManager` 可用，全过才 `OpenWindow`。
+        /// <para>本地：事件为空 ⇒ 第 1 道闸就停 ⇒ 只出声（⛔ 不去猜那个帮助窗是哪一扇）。</para></summary>
+        public void ClickEventHelpButton()
+        {
+            var plan = RaidHeaderControllerLogic.ClickEventHelpButton(
+                hasHelpComponent: _raid != null,          // `HasComponent(事件, 0x1e)` —— 本地无事件 ⇒ false
+                componentSaysOpenable: false,             // 那个组件本身拿不到 ⇒ 第 2 道闸也不会过
+                hasWindowsManager: WindowsManager.Instance != null);
+            Debug.Log("[Raid] `ClickEventHelpButton`：停在第 " + plan.StoppedAt + " 道闸（0 = 全过 ⇒ 会开帮助窗）。"
+                    + (plan.Opens ? "已开。" : "未开（原版三道闸：`HasComponent(事件,0x1e)` / 组件自述 / `WindowsManager`）。"));
+        }
+
+        /// <summary>原版 `RaidHeaderController.UpdateTimer()` 那个协程的**判据谓词**（原版读
+        /// `LiveOpsUtility.GetDateForEventStage(事件, 0xf)` 返回对象的 `+0x24`）。
+        /// <para>⚠️ 那一格**语义没解出**（类型身份在 cpp2il 里丢了）⇒ 做成可注入谓词，**默认恒 `false`**
+        /// （= 不自己造一个会无限跑的循环；倒计时文本本来就由 `TimerDisplay` 每秒刷）。</para></summary>
+        public System.Func<bool> HeaderTimerShouldContinue = () => false;
+
+        /// <summary>原版 `RaidHeaderController.UpdateTimer()`（`__UpdateTimer.c` + `_d__12__MoveNext.c`）：
+        /// `while (谓词) { yield return WaitForSeconds(1); UpdateText(); }`。</summary>
+        public System.Collections.IEnumerator UpdateTimer()
+        {
+            return RaidHeaderControllerLogic.UpdateTimer(HeaderTimerShouldContinue, ApplyHeaderText).GetEnumerator();
+        }
+
+        /// <summary>起那个每秒协程（= 原版 `Initialize` 的最后一跳 `StartCoroutine(UpdateTimer())`）。
+        /// <para>⚠️ 批处理没有帧循环 ⇒ 只会在 Play 模式里真跑；`HeaderTimerShouldContinue` 默认 `false`
+        /// ⇒ 今天它**一起就结束**（如实记录，不假装在跑）。</para></summary>
+        public void StartHeaderTimer()
+        {
+            if (!RaidHeaderControllerLogic.Initialize(_raid != null).StartsTimer) return;
+            StartCoroutine(UpdateTimer());
+        }
+
+        /// <summary>原版 `RaidHeaderController.OnDestroy()`（`__OnDestroy.c` 全文 1 句）：`Unload(事件, 5)`（卸阵营图）。</summary>
+        public void OnDestroy()
+        {
+            if (!RaidHeaderControllerLogic.ReleasesArmyIcon(_raid != null)) return;
+            Debug.Log("[Raid] `OnDestroy`：原版 `Unload(事件, 5)` 卸阵营图；本机没加载过 liveops 图 ⇒ 空。");
+        }
+
+        // ------------------------------------------------------------ `RaidProgressBarScaleAndPositionController`
+        /// <summary>原版基类 `BaseProgressBarScaleAndPositionController&lt;TState&gt;.Initialize` 的两步
+        /// （判据 → `Shell/ExpansionPassEventWindow.PersonalBarRect`，同一份结论）：**先按上一档摆，`level > 0` 时再按当前档叠加**。
+        /// <para>落地 = 改那颗 `Personal Raid Progress Bar` 的**父框**；子件（`Bar` / `ProgressionBar` / 端帽）
+        /// 的矩形是**父局部坐标** ⇒ 父框一动它们跟着走（这一档与 Expansion Pass 那一边不同，那边子件是绝对设计 px）。</para></summary>
+        void ApplyPersonalBarShift(RewardCard card, int level, RaidRewardState state, bool applyPrev, bool applyCur)
+        {
+            if (card == null || card.PersonalBarRoot == null) return;
+            var r = PersonalBarRootR;
+            if (applyPrev)
+                r = RaidProgressBarScaleAndPositionControllerLogic.SetPositionAndScale(
+                        r, RaidRewardState.CommunityUnlocked,          // 上一档恒按「会挪」那一档算（原版先摆这一遍）
+                        RaidBarPlacementLogic.PositionOffsetPrevious, RaidBarPlacementLogic.ScaleOffsetPrevious);
+            if (applyCur)
+                r = RaidProgressBarScaleAndPositionControllerLogic.SetPositionAndScale(
+                        r, state, RaidBarPlacementLogic.PositionOffsetCurrent, RaidBarPlacementLogic.ScaleOffsetCurrent);
+            MenuDraw.ApplyPxRect(card.PersonalBarRoot, card.PersonalBarRoot.parent, r);
         }
     }
 }

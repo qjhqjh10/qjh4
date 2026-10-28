@@ -1,0 +1,178 @@
+[
+ {
+  "file": "账\\其他_基础设施.tsv",
+  "row": 585,
+  "cls": "PlayerManager",
+  "meth": "SetAccumulationMana(bool active)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:2893（EnergyAccumulationOn：`Ctx.Vars.addedManaSecond > 0`，正对 `SetupBoardPhase.c:181/196` 的 `0 < *(int*)(vars+0x34)`）· :2900（RefreshEnergyAccumulation，RefreshAll/BuildHud 各调一次）· RuleEngine/Core/GameplayVariables.cs:236（addedManaSecond）"
+ },
+ {
+  "file": "账\\战斗界面_HUD.tsv",
+  "row": 378,
+  "cls": "ChooseCardMenu",
+  "meth": "Setup(List<RawCardScript> chooseCards, string actingCardId, int timerCounter, int target)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:11189（ShowAsk）/ :11062（BeginAsk）· CardChoicePanel"
+ },
+ {
+  "file": "账\\战斗界面_HUD.tsv",
+  "row": 537,
+  "cls": "ManaManager",
+  "meth": "SetManaSaved(int savedMana, int unUsedMana, int totalMana, bool useNumberChange)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:34057（SetSavedMana）· :36243（SyncSavedManaToHud 桥）· :36269（EnergyShownOf）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 89,
+  "cls": "AiScripted",
+  "meth": "CheckIfWaitingToClickCard(BattleManager manager, TurnScriptedData turnData, CardScript cardClicked)",
+  "st": "C",
+  "land": "CardPresentation/Battle/BattleDriver.cs:33860（TapBoardCard） · —— 本批不动· RuleEngine/Core/TutorialScript.cs:1282（本批新增：`Matches` 的 TapCard 支注释，写清六档 + 等价物口径）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 103,
+  "cls": "AiScripted",
+  "meth": "GetTipPosition(BattleManager manager, PositionReference positionReference, PositionRelation positionRelation, RawCardScript referenceUnit)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:16250（ReticleTargetView） · TipAnchor（等价实现 = TipAnchor + :17032-17092）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 115,
+  "cls": "AiScripted",
+  "meth": "SkippableActionWait(ScriptedAction action, float time)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:18413（StepTutorialScript）（末尾 arm 支：复用 _tutWaitArmed/_tutWaitLeft，由 TickTutorialView 步进、RequestTutorialSkip 可提前收）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 196,
+  "cls": "BattleManager",
+  "meth": "ApplyEnvEffect(RawCardScript card, bool isPlayer)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:9760（ApplyOffensiveEnvOnce）· CardPresentation/Battle/BattleDriver.cs:37274（ApplyEnvWarlordAbilityOnce）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 439,
+  "cls": "BattleManager",
+  "meth": "LeaveBattle()",
+  "st": "C",
+  "land": "CardPresentation/Battle/BattleDriver.cs:12778（LeaveBattle）（等价实现 = LeaveBattle：离场所做的收尾（改卡背/解绑/回主菜单））"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 446,
+  "cls": "BattleManager",
+  "meth": "NeedToChooseMinionTarget(CardScript actingCard)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:7935（NeedsUnitTargetAfterDeploy）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 457,
+  "cls": "BattleManager",
+  "meth": "PlayAi()",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:19002（DriveAiTurn）（等价实现 = AI 回合逐帧驱动；原记 :18097 已漂）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 483,
+  "cls": "BattleManager",
+  "meth": "RemoveSelfBuffsFromQueues(CardScript card)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:34778（RemoveSelfBuffsFromQueues）（表现层那一半 = 同一口 `CancelPendingAnimsOf`；引擎侧 `CancelEffectsFromDisappearingUnit` 无实现）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 907,
+  "cls": "CardScript",
+  "meth": "SetStateAsMulligan(bool toBeDiscarded)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:8395（ActiveForTest） · InMulligan/Mulligan 面板· CardPresentation/Battle/MulliganPanel.cs（换牌区布局）（等价实现 = MulliganPanel 的换牌区：原版改 cardState 两位，我们由面板管理同一批卡）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 930,
+  "cls": "CardScript",
+  "meth": "StopAnimsInPlay()",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:22870（AttackVfxRotation） · jam· :25479（离场）· :26659（残骸翻面）· :27331（手牌换实例）· CardPresentation/Core/CardFeel.cs:1878（StopInPlayAnims） · TransformUnitInPlayToCard· :3709（MoveBackToHand）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 1079,
+  "cls": "MatchData",
+  "meth": "SetBotOpponent(CardDeck enemyDeck)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:4514（BeginFromDeckLibrary）（等价实现 = BeginFromDeckLibrary / `BeginFromPendingCore`(CardPresentation/Battle/BattleDriver.cs:4033)：把「对手那副牌 / 对手是 bot」写进 `Ctx`（`BotSeat` + `MatchTypes.Effective` 的翻转）） ｜ 🆕 **2026-10-28（B92_B7b）：bot 名字那一格** —— `BattleContext.BotOpponentName` ＋ `BattleContext.ApplyBotOpponentName(string)`（`RuleEngine/Core/BattleContext.cs` 文件末 partial 块，零行漂移）"
+ },
+ {
+  "file": "账\\战斗逻辑驱动.tsv",
+  "row": 1080,
+  "cls": "MatchData",
+  "meth": "SetBotOpponentDeck(PrebuiltDeck botDeck, PlayerDataManager playerData)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:4514（BeginFromDeckLibrary）（等价实现 = BeginFromDeckLibrary + `BuildTutorialDeck`(CardPresentation/Battle/BattleDriver.cs:4744) 一族：对手那副牌从预组/教程数据装进 `PlayerState`）"
+ },
+ {
+  "file": "账\\未分类_其他.tsv",
+  "row": 709,
+  "cls": "UIResourceCounter",
+  "meth": "Toggle(bool option)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:11726（SetFactionResourceVisible）"
+ },
+ {
+  "file": "账\\特效动画.tsv",
+  "row": 403,
+  "cls": "SwarmVFXController",
+  "meth": "Initialize(CardScript card, Action onFinish)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:25037（PlaySwarmMergeFeel）"
+ },
+ {
+  "file": "账\\特效动画.tsv",
+  "row": 485,
+  "cls": "AiScripted",
+  "meth": "ShowPlayerActionAnim(BattleManager manager, ScriptedAction playerAction)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:35541（TutorialPointerAnchorFor）+ :17877（ApplyTutorialActionView） · 载体 = CardPresentation/Battle/TutorialOverlay.cs（原版 TutorialPointerCombat/Pointer）"
+ },
+ {
+  "file": "账\\特效动画.tsv",
+  "row": 492,
+  "cls": "BattleManager",
+  "meth": "ResolveAnimInfoRangeAttack(AnimInfo animInfo, CardScript actingCard, CardScript targetCard, bool waitForAnim, bool skipSound)",
+  "st": "C",
+  "land": "CardPresentation/Battle/BattleDriver.cs:22379（ScheduleAttackPresentation）+ :35696（SchedulePieceUnitShakes）"
+ },
+ {
+  "file": "账\\特效动画.tsv",
+  "row": 503,
+  "cls": "CardScript",
+  "meth": "ActivateTraitParticlesFromCodeInTarget(DefinedTrait trait, CardScript targetCard)",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:24952（PlayTraitParticles）· TraitParticles.Play(t, v.transform) = 恒挂触发者自己 · CardPresentation/Core/TraitParticles.cs:68（EnsureFromCode） · 数据驱动表"
+ },
+ {
+  "file": "账\\特效动画.tsv",
+  "row": 507,
+  "cls": "CardScript",
+  "meth": "CardToMinionAnim()",
+  "st": "B",
+  "land": "CardPresentation/Battle/BattleDriver.cs:26348（LandAiDeployFlight 的 ③：`v.SetBody3DVisible(true)` + `WarnInvokeAnimNotWiredOnce()`）· :25970（PlayAutoPlayCenterDisplay，音那一半）"
+ },
+ {
+  "file": "账\\社交_聊天.tsv",
+  "row": 283,
+  "cls": "ChatManager",
+  "meth": "GetChatSoundAsset(ChatMessage chatMsgIndex, bool isPlayer)",
+  "st": "B",
+  "land": "Battle/BattleDriver.cs:10354（SpeakIntro）"
+ }
+]

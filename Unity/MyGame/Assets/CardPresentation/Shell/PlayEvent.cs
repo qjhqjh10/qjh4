@@ -532,7 +532,7 @@ namespace CardPresentation
         /// 「只用 `System.Random(seed)`」（CLAUDE.md §三），故这里只**存**种子不掷骰。
         /// 🔶 自己设计（非原版）：`randomSeed` 取 `Environment.TickCount` 并在存档里落定，是为了让
         /// 「同一局重连能复现」；原版那一路读的是服务器下发值（本地没有）。调度台 C1 2026-10-27 定。</summary>
-        private void StartMatchNoCheck(string deckId)
+        public virtual void StartMatchNoCheck(string deckId)
         {
             if (SaveGame == null) return;
             ChangeState(PlayEventSaveGame.JoinStates.Joined);
@@ -707,7 +707,7 @@ namespace CardPresentation
             // ② 原版这一支 = 「扫全表取 FirstOrDefault(b__26_0)」（模式对 ∧ 可打）；★ 原版 ② 有结果时**直接 return**，不进 ③
             for (int i = 0; i < src.Count; i++)
                 if (GetEventDeckPredicate(src.IdAt(i))) return src.IdAt(i);
-            return PlayEventRankedDeck.TryGet();       // ③ 原版 `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`
+            return GetEventDeckRankedOrNull(src);      // ③ 原版 `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`
         }
 
         /// <summary>原版 `GetEventDeck(CardArmy army)`（`PlayEvent.cs:1286`）：
@@ -937,6 +937,22 @@ namespace CardPresentation
                 }
                 return h.LossStreak;
             }
+        }
+
+        // ============================================================ ②/③ 分岔（账 557 的那一格 · 追加在类尾）
+        // 判据（原版 `PlayEvent<,>.GetEventDeck()` 三支，逐句见上面 `GetEventDeck()` 的 doc）：
+        //   ② `if (handler != null) return 全表.FirstOrDefault(b__26_0);`   ← **有 handler 就直接返回（可能是 null）**
+        //   ③ `return GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck();`  ← **只在 handler 为 null 时才走**
+        // 🔴 改前我们**没有这道闸**：② 扫完没命中就无条件落到 ③ ⇒ 「活动 handler 在、但一副合格卡组都没有」那一档
+        //    我们会去问排位 handler 要卡组，而原版返回 **null**（调用方拿到 null 走「没有该模式卡组」那条错误支）。
+        //    ⇒ 现在按原版补：`Handler != null` 时 ② 的结果就是最终结果（= 上面那圈 `for` 已扫完的 `null`）。
+        // ⚠️ `Handler` 是 `LiveOpsEvent<TSave,TData>.Handler`（`Initialize()` 里那句 `if (Handler == null) return;` 同源），
+        //    ⛔ 不是另建一个「有没有排位层」的标志位。
+        /// <summary>原版 `GetEventDeck()` 的 ②/③ 分岔（见上方注释；账 557）。</summary>
+        string GetEventDeckRankedOrNull(IPlayEventDeckSource src)
+        {
+            if (Handler != null) return null;          // ② 已扫完没命中 ⇒ 原版就在这里返回 null，**不进 ③**
+            return PlayEventRankedDeck.TryGet();       // ③ = `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`
         }
     }
 }

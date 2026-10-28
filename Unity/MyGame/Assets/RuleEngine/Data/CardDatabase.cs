@@ -1104,7 +1104,7 @@ namespace RuleEngine
         static List<CardDef> _cache;
 
         /// <summary>🆕 2026-10-18（T09）：丢掉缓存 —— 编辑器里改完卡表、或自检要重读时用。</summary>
-        public static void InvalidateCache() { _cache = null; InvalidateEnchantmentGrants(); }
+        public static void InvalidateCache() { _cache = null; InvalidateEnchantmentGrants(); InvalidateOffensiveEnvCards(); }   // 🆕 B93/E16：第三张表（进攻卡）一并丢 —— 同一句里挤着写是故意的（加行会让下游 A 行账落点整体漂移）
 
         /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。
         /// 🔴 **2026-10-18（T09）起有进程级缓存**（见 `_cache` 的说明）；读不到的那一路**不缓存**，
@@ -3766,14 +3766,14 @@ namespace RuleEngine
         static bool _enchantGrantsMissingLogged;
 
         /// <summary>丢掉索引（`InvalidateCache()` 里一并调 —— 编辑器改完卡表重读时用）。</summary>
-        public static void InvalidateEnchantmentGrants() { _enchantGrants = null; }
+        public static void InvalidateEnchantmentGrants() { _enchantGrants = null; _offensiveEnvGrantsMerged = false; }   // 🆕 B93/E25：同一句里重置「进攻卡那 37 行已并表」的标记（⛔ 别另加一行 —— 下游有 A 行落点）
 
         /// <summary>这张卡（按 `uniqueId`）的「挂附魔」数据行；`null` = 没有 / 索引建不出来。</summary>
         public static List<Enchantments.GrantedEnchantmentRow> EnchantmentGrantsOf(string cardId)
         {
             if (string.IsNullOrEmpty(cardId)) return null;
             List<Enchantments.GrantedEnchantmentRow> rows;
-            return (_enchantGrants != null && _enchantGrants.TryGetValue(cardId, out rows)) ? rows : null;
+            EnsureOffensiveEnvGrantsMerged(); return (_enchantGrants != null && _enchantGrants.TryGetValue(cardId, out rows)) ? rows : null;   // 🆕 B93/E25：进攻卡的 37 行在**同一张**表里（并表见 `EnsureOffensiveEnvGrantsMerged`；挤在一行是故意的，加行会让下游 A 行落点漂移）
         }
 
         /// <summary>把卡表文本里的 `enchantment` 列物化成一棵反查表（幂等；`Load()` 末尾调）。
@@ -3925,6 +3925,436 @@ namespace RuleEngine
                 });
             }
             return list.ToArray();
+        }
+    }
+
+    // ==================================================================================================
+    //  🆕 B93 / E16（2026-10-28 · 执行代理 `B93_E16`）：**第三张表** —— 进攻卡（环境效果卡）
+    //     `Assets/RuleEngine/Resources/offensive_env_cards.json`（由 `工具/gen_offensive_env_cards.py` 写）
+    // ==================================================================================================
+    //  🔴 **它们为什么不是组牌池的第 1130…1168 张**：原版判据 = 39/39 `inventoryOptions 5
+    //     (CantAddToDeck)` ∧ `showInCollectionOptions 0 (Hide)`（`DeckUtility__ValidateDeckCards.c:68-77`：
+    //     `inv != 0` ⇒ 非法；`show != 5` ⇒ 非法）⇒ 这 39 张**不是组牌池成员**。塞进 `cards_engine.json`
+    //     会改 `count`（1129 → 1168）、重钉 `PinnedPoolMd5` / `PinnedPlayMd5`、并要改
+    //     `Editor/RuleEngineTest_EngineE1.cs:80` 那条硬编码张数断言。
+    //     调度台 2026-10-28 裁定「**方案乙**」：单开一张表（与同日的附魔模板 `enchantment_templates.json`
+    //     同一档待遇、同一句先例 `工具/gen_cards_engine.py:4536-4546`：「⛔ 不放宽入池闸（会改 `count`
+    //     ⇒ 影响可玩池与探针基线；附魔模板**不是可玩卡**）」）。
+    //  📌 口径 / 收录范围 / 三张表怎么 join / 缺值哨兵 → 生成器 `工具/gen_offensive_env_cards.py` 的
+    //     头部注释 ＋ 产物自己的 `note`（⛔ 不在本文件抄第二份，铁律 6）。
+    //  🔴 **本表今天【只有数据、还没有消费者】**：`BattleDriver.offensiveCardEnabled` 现读仍是 `false`
+    //     （用户 2026-10-11「进攻卡暂时不要」⇒ 2026-10-28 改判「恢复，照原版做」）。要让它真正跑起来，
+    //     `BattleDriver` 三处 + `chosenAbility` 分派口要一起改 —— 逐处清单（含现读行号）→
+    //     `资料/完全复刻/报告/B93_E16.md` §4。⛔ 本笔只交数据与读取端，**没碰 `BattleDriver.cs`**。
+    //  ⚠️ **`ruleprobe` 的行为必须逐字保持**：`工具/ruleprobe/Stub.cs:25` 的 `Resources.Load` 恒 `null`
+    //     ⇒ 懒加载拿到空表（只出声一次）⇒ 本段**零行为变化**、`PinnedPlayMd5` / `PinnedPoolMd5` 都不动。
+    //  ⚠️ **本段追加在【文件最末】**：`账/*.tsv` 按【行号】引用本文件（现读最大落点 `:3772`），
+    //     在类中段插成员会让它们整体漂移（与上面 A4 那段同一条纪律）。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        /// <summary>第三张表的资源名（`Resources/offensive_env_cards.json`）。</summary>
+        public const string OffensiveEnvResourcePath = "offensive_env_cards";
+
+        /// <summary>「表读不到」只出声一次（别每次开局都刷一条）。</summary>
+        static bool _offensiveEnvMissingLogged;
+
+        /// <summary>懒加载缓存：`null` = 还没读过（**表不存在时也留 `null`** —— 补上资源后还能读到）；
+        /// 空表 = 读到了但**解析失败**（不再重试，别刷屏）。</summary>
+        static List<CardDef> _offensiveEnvCards;
+
+        /// <summary>丢掉这张表的缓存（<see cref="InvalidateCache"/> 里一并调）。</summary>
+        public static void InvalidateOffensiveEnvCards() { _offensiveEnvCards = null; _offensiveEnvRows = null; _offensiveEnvById = null; _offensiveEnvGrantsMerged = false; }   // 🆕 B93/E25：重读表 ⇒ 「已并表」标记一并作废（并表见 `EnsureOffensiveEnvGrantsMerged`）
+
+        /// <summary>第三张表的文件 DTO（字段名与 JSON 键名**逐字一致**，`JsonUtility` 直读）。</summary>
+        [Serializable]
+        public class OffensiveEnvFileDto
+        {
+            public int version;
+            public int count;
+            public string source;
+            public string note;
+            public OffensiveEnvCardDto[] cards;
+        }
+
+        /// <summary>一张进攻卡（口径 → 生成器头部注释；⚠️ 以下所有 `-1` 都是「真值里没有这个键」的哨兵，
+        /// `0` 是**合法取值** —— 例 `targetsAffected 0 = any`、`playersAffected 20 = Enemy`）。</summary>
+        [Serializable]
+        public class OffensiveEnvCardDto
+        {
+            /// <summary>原版 `uniqueId`（= 我们的 `CardDef.Id`，`AM63` / `ASH59` 这种短码）。</summary>
+            public string id;
+            /// <summary>**官方显示名**（`Card_Name/&lt;id&gt;` 英文列）。</summary>
+            public string name;
+            public string nameZh;
+            /// <summary>`cards_truth.json` 的 `name`（**旧名**，只供对账）。</summary>
+            public string nameTruth;
+            /// <summary>运行时 `Resources/OffensiveCards.json` 里那一格看到的卡名 ——
+            /// ⚠️ 有 **6 处**与 <see cref="name"/> 不同（`nameMatchOfficial == 0`，都是「贴图名 / SO 占位名反推」）。</summary>
+            public string offensiveCardName;
+            /// <summary>`1` = 运行时卡名就是官方显示名；`0` = 不是（6 处）；`-1` = 表里没这一格。</summary>
+            public int nameMatchOfficial = -1;
+            /// <summary>阵营串 —— **与 `OffensiveCards.json` 的 `army` / `CardDef.Faction` 同一个写法**
+            /// （`BattleDriver.FactionOf(...)` 拿到的就是这一串）。</summary>
+            public string faction;
+            /// <summary>原版 `CardArmy` 枚举数值（10 Ultramarines / 20 Goff / … / 130 SpaceWolves）。</summary>
+            public int army = -1;
+            /// <summary>槽号 **1..3**（`offensive_cards.json` 的 `slot`）。</summary>
+            public int slot = -1;
+            /// <summary>槽号 **0..2** = `slot - 1` —— 与 `Resources/OffensiveCards.json` 的 `cards[].idx`
+            /// **同一个数**，也就是 `BattleContext.OffensiveSlotIdx` 存的那个值
+            /// （`-1` = 「不使用进攻卡」那张空卡，**不在本表**）。</summary>
+            public int idx = -1;
+            /// <summary>原版 SO 的 `forgeLevel`（4 / 25 / 40|45；`OffensiveCards.ChoicesOwnedAt` 那道闸用它）。</summary>
+            public int forgeLevel = -1;
+            /// <summary>环境 SO 名（`ApplyEnvironment` 要的那一条，= `OffensiveCards.json` 的 `envSO`）。</summary>
+            public string envSO;
+            /// <summary>卡面正文英文（官方 `Card_Description/&lt;id&gt;`）—— 🔴 是**触发句**
+            /// （「When a player earns a Skull, …」），**不是**「打出去做什么」的可解析效果文本。</summary>
+            public string desc;
+            /// <summary>卡面正文中文（同上中文列）。</summary>
+            public string descZh;
+            /// <summary>原版 `RawCardScript.cardType`（39/39 = `20` = `CardTypeOptions.Tactic`）。</summary>
+            public int cardType = -1;
+            /// <summary>原版 `RawCardScript.spellType`（39/39 = `200` = `OffensiveCard`）。</summary>
+            public int spellType = -1;
+            /// <summary>原版 `cardRarity`（39/39 = `5` ⇒ 我们的 `"special"`）。</summary>
+            public int rarity = -1;
+            /// <summary>39/39 = `5` = `CardInventoryOptions.CantAddToDeck`（⇒ `DeckRules.CannotAddToDeck` 拦）。</summary>
+            public int inventoryOptions = -1;
+            /// <summary>39/39 = `0` = `ShowInCollectionOptions.Hide`（⇒ 收藏 / 卡组编辑都不显示）。</summary>
+            public int showInCollectionOptions = -1;
+            /// <summary>39/39 = `1`（⇒ 「随机生成一张卡」抽不到，`EffectResolver.cs:4689`）。</summary>
+            public int cantBeRandomlyCreated;
+            /// <summary>`cardAbilities[].trigger` 的去重集合（39/39 = `[0]` = `ThisCardPlayed`）。</summary>
+            public int[] abilityTriggers;
+            /// <summary>能力树（逐叶摊平，字段一个不丢；口径 → 生成器 `_ability_rows`）。</summary>
+            public OffensiveEnvAbilityDto[] abilities;
+        }
+
+        [Serializable]
+        public class OffensiveEnvAbilityDto
+        {
+            /// <summary>原版 `CardAbility.trigger`（39/39 = `0` = `AbilityTrigger.ThisCardPlayed`）。</summary>
+            public int trigger = -1;
+            public OffensiveEnvLogicDto[] logic;
+        }
+
+        /// <summary>`abilityLogic[j]` 的一行（原版 `AbilityLogic` ＋ `targetCriteria` ＋ `buff` ＋ `manaBuff`）。</summary>
+        [Serializable]
+        public class OffensiveEnvLogicDto
+        {
+            /// <summary>原版 `AbilityLogic.chosenAbility`（`AbilityEffect`：0 / 30 / 40 / 60）。</summary>
+            public int chosenAbility = -1;
+            /// <summary>原版 `AbilityLogic.playersAffected`（`PlayersAffected`：0 Both / 10 Self / 20 Enemy）。</summary>
+            public int playersAffected = -1;
+            /// <summary>原版 `TargetCriteria.targetsAffected`（120 `friendlyHero` / 130 `enemyHero` / 20 `self` / 0 `any`）。</summary>
+            public int targetsAffected = -1;
+            public int friendlyUnits = -1;
+            public int enemyUnits = -1;
+            public int includeHero = -1;
+            public int includeMinions = -1;
+            public int includeSelf = -1;
+            /// <summary>原版 `CardEffect.buffType`（现读 `12` × 39 行 / `15` × 2 行，都在 `SW62 First Light`）。</summary>
+            public int buffType = -1;
+            /// <summary>`buffEffect.enchantment.m_PathID` 解出来的**附魔模板 id**
+            /// （= `enchantment_templates.json` 的 `id`；41/41 命中，37 个不同模板）。
+            /// <para>🔴 **这才是「环境生效期间」那段效果的本体** —— 模板本身已经在
+            /// `enchantment_templates.json`（v1 · 85 张）里，缺的只是「谁来挂它」。</para></summary>
+            public string enchantmentId;
+            /// <summary>原版 PPtr 原值（排查用；`0` = 真值里没有这个键）。</summary>
+            public long enchantmentPathId;
+            /// <summary>`manaBuff.manaAmount` 等四格（只有 `chosenAbility 60` 那 3 行有）。</summary>
+            public int manaAmount = -1;
+            public int manaFriendlyPlayer = -1;
+            public int manaEnemyPlayer = -1;
+            public int manaCreateMana = -1;
+        }
+
+        /// <summary>这张表的 **`CardDef` 列表**（懒加载；⛔ **不是** <see cref="Load"/> 的可玩池，
+        /// 别把它塞进 `DeckRules` / 收藏 / 轮抽的任何一条链 —— 原版判据说它们既不可组牌也不显示）。
+        ///
+        /// <para>配 <see cref="FindById"/> 用：`CardDatabase.FindById(CardDatabase.OffensiveEnvCards, "AM63")`。
+        /// <paramref name="faction"/> + `idx` 那条路见 <see cref="OffensiveEnvIdAt"/>。</para>
+        /// <para>⚠️ **读不到就出声一次并返回空表**（⛔ 不许静默）—— 调用方要区分「表不存在」与「表是空的」
+        /// 请先看日志。</para></summary>
+        public static List<CardDef> OffensiveEnvCards
+        {
+            get
+            {
+                if (_offensiveEnvCards != null) return _offensiveEnvCards;
+                var asset = Resources.Load<TextAsset>(OffensiveEnvResourcePath);
+                EnsureOffensiveEnvFrom(asset != null ? asset.text : null);
+                return _offensiveEnvCards;
+            }
+        }
+
+        /// <summary>把第三张表物化成 `CardDef` 列表（**幂等**；已在 <see cref="InvalidateOffensiveEnvCards"/> 之后重调即重建）。
+        ///
+        /// <para>每张卡造一个 `CardDef`：`type = "tactic"` · `cardType` / `spellType` / `rarity` /
+        /// `inventoryOptions` / `showInCollectionOptions` / `cantBeRandomlyCreated` /
+        /// `abilityTriggers` / `abilityTargets` 从表里灌。</para>
+        /// <para>⚠️ **能力树本身不进 `CardDef`**（`CardDef` 没有这个格子）：它留在表里，按 id 从
+        /// <see cref="OffensiveEnvAbilitiesOf"/> 取 —— 因为「按 `chosenAbility` 分派」那台机器今天**还不存在**
+        /// （见 <see cref="OffensiveEnvAbilitiesOf"/> 的 doc）。</para>
+        /// <para>⚠️ `json` 为 `null` / 空 = 表不存在 ⇒ **出声一次 + 落空表**（而且**不缓存**，与
+        /// <see cref="Load"/> 读不到那一路同口径：补上资源后还能读到）。</para></summary>
+        public static void EnsureOffensiveEnvFrom(string json)
+        {
+            if (_offensiveEnvCards != null) return;
+            if (string.IsNullOrEmpty(json))
+            {
+                if (!_offensiveEnvMissingLogged)
+                {
+                    _offensiveEnvMissingLogged = true;
+                    Debug.LogError($"[RuleEngine] 读不到第三张表 `Resources/{OffensiveEnvResourcePath}.json`"
+                                 + " —— 进攻卡（环境效果卡）的 39 张卡**一张都取不到**。"
+                                 + "重跑 `python -I -X utf8 工具/gen_offensive_env_cards.py --write`。");
+                }
+                return;      // ⚠️ 不缓存：补上资源后下一次还能读到
+            }
+            var file = JsonUtility.FromJson<OffensiveEnvFileDto>(json);
+            if (file == null || file.cards == null)
+            {
+                Debug.LogError($"[RuleEngine] 第三张表解析失败（{json.Length} 字符）—— 落空表（⛔ 不静默）。");
+                _offensiveEnvCards = new List<CardDef>();   // 解析坏了 ⇒ 缓存空表，别每次重试刷屏
+                return;
+            }
+            var list = new List<CardDef>(file.cards.Length);
+            var seen = new HashSet<string>();
+            int bad = 0;
+            foreach (var c in file.cards)
+            {
+                if (c == null || string.IsNullOrEmpty(c.id))
+                {
+                    bad++;
+                    Debug.LogError("[RuleEngine] 进攻卡表里有一行**没有 `id`** —— 该行丢弃。");
+                    continue;
+                }
+                if (!seen.Add(c.id))
+                {
+                    bad++;
+                    Debug.LogError($"[RuleEngine] 进攻卡表里 `id = {c.id}` **重复** —— 后一条丢弃。");
+                    continue;
+                }
+                // 能力树 → 逐 ability 的 `targetsAffected`（`-1` 保持「这一格是缺键」，⛔ 不压成 0）
+                var abilityTargets = new List<CardDef.AbilityTargetSpec>();
+                if (c.abilities != null)
+                {
+                    foreach (var a in c.abilities)
+                    {
+                        if (a == null || a.logic == null) { abilityTargets.Add(null); continue; }
+                        var ta = new int[a.logic.Length];
+                        for (int i = 0; i < a.logic.Length; i++)
+                            ta[i] = a.logic[i] != null ? a.logic[i].targetsAffected : -1;
+                        abilityTargets.Add(new CardDef.AbilityTargetSpec { Trigger = a.trigger, TargetsAffected = ta });
+                    }
+                }
+                // ⚠️ `rarity 5` ⇒ 我们的 `"special"`（与 `gen_cards_engine.py` 的 `TRUTH_RARITY` 同一口径）。
+                //    其它值不可能（生成器 39/39 断言 5），出现就照原样留空并出声。
+                string rarity = c.rarity == 5 ? "special" : "";
+                if (c.rarity != 5)
+                    Debug.LogError($"[RuleEngine] 进攻卡「{c.name}」（{c.id}）的 `cardRarity` = {c.rarity} ≠ 5"
+                                 + " —— 稀有度留空（⛔ 不猜）。重跑 工具/gen_offensive_env_cards.py。");
+                var def = new CardDef(c.id, string.IsNullOrEmpty(c.name) ? c.id : c.name,
+                                      "tactic", c.desc ?? "", rarity, c.faction ?? "",
+                                      // ⚠️ `keywords` 传**空数组**（⛔ 不是 `null`）：`CardDef` 的
+                                      //    `CollectTriggerOps` 逐条往下传这个集合，`Parse()` 那条老路
+                                      //    喂的一直是数组 ⇒ 空数组是**走过千万遍**的形状，`null` 没人验过。
+                                      0, 0, 0, 0, Array.Empty<string>(),
+                                      nameZh: c.nameZh, descZh: c.descZh,
+                                      inventoryOptions: c.inventoryOptions,
+                                      showInCollectionOptions: c.showInCollectionOptions,
+                                      spellType: c.spellType,
+                                      cantBeRandomlyCreated: c.cantBeRandomlyCreated != 0,
+                                      abilityTriggers: c.abilityTriggers,
+                                      abilityTriggersVersioned: c.abilityTriggers != null,
+                                      // 🔴 `abilityTriggers` / `abilityTargets` **两列共用一个版本位**
+                                      //    （`CardDef` 的 `AbilityTargetsVersioned` 的 doc 写着「不是原版语义，
+                                      //    是我们数据管线的形状」）⇒ 这里**没有** `abilityTargetsVersioned` 这个形参，
+                                      //    ⛔ 别自己发明一个。
+                                      abilityTargets: abilityTargets.Count > 0 ? abilityTargets : null);
+                def.AttachCardType(c.cardType);
+                list.Add(def);
+            }
+            _offensiveEnvCards = list;
+            if (file.count != list.Count)
+                Debug.LogError($"[RuleEngine] 进攻卡表 `count` = {file.count}，实读 {list.Count} 张 —— 表坏了。");
+            Debug.Log($"[RuleEngine] 进攻卡表 v{file.version}：**{list.Count}** 张 / "
+                    + $"{CountFactions(list)} 个阵营（坏行 {bad}）—— 来自 `Resources/{OffensiveEnvResourcePath}.json`"
+                    + "（⚠️ 只是**数据**：`BattleDriver.offensiveCardEnabled` 还关着 ⇒ 今天不产生任何行为）");
+        }
+
+        static int CountFactions(List<CardDef> list)
+        {
+            var set = new HashSet<string>();
+            for (int i = 0; i < list.Count; i++) if (list[i] != null) set.Add(list[i].Faction);
+            return set.Count;
+        }
+
+        /// <summary>**按「阵营 ＋ 槽号」取 id** —— 这是进攻卡那条链**唯一无歧义的找法**
+        /// （<paramref name="idx"/> 就是 `BattleContext.OffensiveSlotIdx` 存的那个 0..2；`-1` = 空卡 ⇒ 返回 `null`）。
+        ///
+        /// <para>🔴 **为什么不用卡名**：`Resources/OffensiveCards.json` 的卡名有 **6 处**与官方显示名对不上
+        /// （`B93_Q7` 施工单 §顺手发现①）⇒ 今天 `BattleDriver.ChosenOffensiveCardDef` 那句
+        /// `CardDatabase.Find(pool, name)` **恒落空**。改成「名字 → 本表的 `id` → `FindById`」才修得掉，
+        /// 而最省事的是**直接按 `(faction, idx)`**（本表两列直接来自原版 SO 的 `cardRef.m_PathID` join，
+        /// 39/39 一对一）。</para>
+        /// <para>读不到表 ⇒ 返回 `null`（并已由 <see cref="OffensiveEnvCards"/> 出声一次）。</para></summary>
+        public static string OffensiveEnvIdAt(string faction, int idx)
+        {
+            if (idx < 0 || string.IsNullOrEmpty(faction)) return null;
+            var list = OffensiveEnvCards;
+            if (list == null) return null;
+            // ⚠️ `CardDef` 上没有槽号格子 ⇒ 回表里查（一次线性扫描，39 条，开销可忽略）。
+            var raw = OffensiveEnvRows();
+            if (raw == null) return null;
+            for (int i = 0; i < raw.Length; i++)
+            {
+                var c = raw[i];
+                if (c != null && c.idx == idx && string.Equals(c.faction, faction, StringComparison.Ordinal))
+                    return c.id;
+            }
+            return null;
+        }
+
+        /// <summary>表里那些**原始行**（`OffensiveEnvCardDto`；按 id 建的索引，懒建）。
+        /// <para>⚠️ 给 `CardDef` 装不下的那几列用（`slot` / `idx` / `envSO` / `forgeLevel` / `abilityTriggers` /
+        /// 能力树）。**`null` = 表读不到**（已出声）。</para></summary>
+        public static OffensiveEnvCardDto[] OffensiveEnvRows()
+        {
+            EnsureOffensiveEnvIndex();
+            return _offensiveEnvRows;
+        }
+
+        static OffensiveEnvCardDto[] _offensiveEnvRows;
+        static Dictionary<string, OffensiveEnvCardDto> _offensiveEnvById;
+
+        static void EnsureOffensiveEnvIndex()
+        {
+            // 先触发一次懒加载（`CardDef` 那一路读不到时它已经出过声；这里只关心原始行）
+            if (_offensiveEnvCards == null && OffensiveEnvCards == null) return;
+            if (_offensiveEnvRows != null) return;
+            var asset = Resources.Load<TextAsset>(OffensiveEnvResourcePath);
+            if (asset == null) return;                                        // 已经在上面出过声
+            var file = JsonUtility.FromJson<OffensiveEnvFileDto>(asset.text);
+            if (file == null || file.cards == null) return;
+            _offensiveEnvRows = file.cards;
+            _offensiveEnvById = new Dictionary<string, OffensiveEnvCardDto>(StringComparer.Ordinal);
+            foreach (var c in _offensiveEnvRows)
+                if (c != null && !string.IsNullOrEmpty(c.id) && !_offensiveEnvById.ContainsKey(c.id))
+                    _offensiveEnvById[c.id] = c;
+        }
+
+        /// <summary>这张进攻卡**按原版 `cardAbilities` 长出来的能力树**（逐叶摊平；`null` = 表里没有这张卡）。
+        ///
+        /// <para>🔴 **`CardDef` 里没有这个格子，也不该硬塞进去**：`trigger 0` 那条 ability 的
+        /// `chosenAbility` 是 **30 / 40 / 60 / 0**，而我们的 `EffectText` 只解得动**卡面正文**那一套
+        /// （「Deal 3 damage…」这种祈使句）；环境卡的正文是**触发句**（「When a player earns a Skull, …」）
+        /// ⇒ `TriggerOps("this_card_played")` 恒定取不到 ⇒ `RuleCore.RunAbilityOfAnotherCard` 会
+        /// 如实报「本版这条能力的正文解析不出来」。**这不是数据缺口，是分派口缺口**：
+        /// 真正的效果体是 `enchantmentId` 指向的那张模板（`enchantment_templates.json`）。</para></summary>
+        public static OffensiveEnvAbilityDto[] OffensiveEnvAbilitiesOf(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            EnsureOffensiveEnvIndex();
+            if (_offensiveEnvById == null) return null;
+            OffensiveEnvCardDto row;
+            return _offensiveEnvById.TryGetValue(id, out row) && row != null ? row.abilities : null;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-28（B93 波 · 执行代理 `E25`）：进攻卡那 41 行 `abilityLogic` **并进同一张**附魔反查表
+        // ==========================================================================================
+        //  【为什么必须并进同一张】`_enchantGrants`（v38 那张表）只从 `cards_engine.json` 的 `enchantment`
+        //    列建；而 39 张进攻卡原版 `inventoryOptions = 5 (CantAddToDeck)` ∧
+        //    `showInCollectionOptions = 0 (Hide)` ⇒ **不在组牌池** ⇒ 表里查不到 ⇒
+        //    `Enchantments.GrantedEnchantmentRowsOf` 对它们恒 `null`。再建一张同义表就是
+        //    「两处写同一条规则 = 迟早不一致」（铁律 6）⇒ 并进 `_enchantGrants`。
+        //  【判据：哪几行进表】原版 `AbilityLogic__PlayAbility.c` 按 `abilityLogic.chosenAbility` 分派：
+        //    · `30 buffOthers`（`.c:1182-1260` 那一支 —— 闸在 `:1177-1180`、`AddEffect` 在 `:1218`）与 `40 buffSelf`（`.c:1310`）会走到
+        //      `BattleManager__AddEffect` → `CardScript__AddEffect.c` 的 `case 0xc / 0xf`（buffType 12 / 15）
+        //      → `AddEnchantment` ⇒ **只有这两支产生「挂附魔」**（现读 34 + 3 = **37 行**）；
+        //    · `0 drawCard`（1 行）与 `60 buffMana`（3 行）**不产生 `AddEffect`**
+        //      （`.c:685` 的 `case 0x3c` 打完 `AddManaBuff` 就 `return`）⇒ **不进表**（否则会挂出原版不会有的附魔）。
+        //    ⇒ 41 行 = 37 行入表 + 4 行**明确排除**（个数在日志里打出来，⛔ 不静默丢）。
+        //  【载体】`targetsAffected`：120 / 130 / 20 —— 三档载体**全是督军**，
+        //    判据与逐分支出处 → `Core/Enchantment.cs` 的 `TargetsAffectedFriendlyHero` 等三个常量。
+        //    🔑 现读那 37 行的 `targetsAffected` = 120 × 33 / 130 × 1 / 20 × 3 ⇒ **没有 `-1`**
+        //      （4 个 `-1` 正好就是被剔掉的那 4 行）⇒ 载体永远可判。
+        // ==========================================================================================
+
+        /// <summary>「进攻卡那 41 行已经并进 `_enchantGrants`」的标记（`Invalidate*` 里重置）。
+        /// <para>⚠️ 它是**「尝试过一次」**语义（进方法第一句就置位），不是「成功了」——
+        /// 这样 `Resources` 里缺这张表时不会每次出牌都重试一次 `Resources.Load`。</para></summary>
+        static bool _offensiveEnvGrantsMerged;
+
+        /// <summary>
+        /// 把进攻卡表里那 41 行 `abilityLogic` 并进 <see cref="_enchantGrants"/>（**幂等**；
+        /// 由 <see cref="EnchantmentGrantsOf"/> 顺手调一次 —— 那里是唯一的读口，⛔ 别在别处再造入口）。
+        ///
+        /// <para>行映射：`SourceCardId` = 卡 id · `TemplateCardId` = `enchantmentId` ·
+        /// `BuffType` = `buffType` · `Trigger` = 该 ability 的 `trigger`（39/39 = `0`）·
+        /// `TargetsAffected` = `targetsAffected` · `AbilityIndex` / `LogicIndex` 只作排查。</para>
+        ///
+        /// <para>⚠️ 与 `cards_engine.json` 那 58 行的关系：**同一张表、不同的键**（池卡 vs 不进池的
+        /// 环境卡），现读**零重叠**（`spellType == 200` 的池卡 0 张）。真出现同 id 时**出声**并保留先到的那份。</para>
+        /// </summary>
+        public static void EnsureOffensiveEnvGrantsMerged()
+        {
+            if (_offensiveEnvGrantsMerged) return;
+            _offensiveEnvGrantsMerged = true;        // 见字段 doc：「尝试过一次」语义
+            var raw = OffensiveEnvRows();
+            if (raw == null || raw.Length == 0) return;   // 表读不到（加载器已经出过声）⇒ 什么都不做
+            if (_enchantGrants == null)
+                _enchantGrants = new Dictionary<string, List<Enchantments.GrantedEnchantmentRow>>(StringComparer.Ordinal);
+            int cards = 0, rows = 0, notAddEffect = 0, collide = 0;
+            for (int i = 0; i < raw.Length; i++)
+            {
+                var c = raw[i];
+                if (c == null || string.IsNullOrEmpty(c.id) || c.abilities == null) continue;
+                List<Enchantments.GrantedEnchantmentRow> list = null;
+                for (int ai = 0; ai < c.abilities.Length; ai++)
+                {
+                    var a = c.abilities[ai];
+                    if (a == null || a.logic == null) continue;
+                    for (int li = 0; li < a.logic.Length; li++)
+                    {
+                        var g = a.logic[li];
+                        if (g == null) continue;
+                        // 🔴 只有 `chosenAbility 30 / 40` 两支会走到 `AddEffect`（判据见本段头注）
+                        if (g.chosenAbility != 30 && g.chosenAbility != 40) { notAddEffect++; continue; }
+                        if (string.IsNullOrEmpty(g.enchantmentId)) { notAddEffect++; continue; }
+                        if (a.trigger != Enchantments.TriggerThisCardPlayed) { notAddEffect++; continue; }
+                        if (list == null) list = new List<Enchantments.GrantedEnchantmentRow>(4);
+                        list.Add(new Enchantments.GrantedEnchantmentRow
+                        {
+                            SourceCardId = c.id,
+                            TemplateCardId = g.enchantmentId,
+                            BuffType = g.buffType,
+                            Trigger = a.trigger,
+                            TargetsAffected = g.targetsAffected,
+                            AbilityIndex = ai,
+                            LogicIndex = li,
+                        });
+                        rows++;
+                    }
+                }
+                if (list == null || list.Count == 0) continue;
+                if (_enchantGrants.ContainsKey(c.id))
+                {
+                    collide++;
+                    Debug.LogError($"[RuleEngine] 进攻卡「{c.name}」（{c.id}）在附魔反查表里**与池卡撞了同一个 id** —— "
+                                 + "保留先到的那一份（⛔ 不静默覆盖）。这不该发生：`spellType == 200` 的池卡现读 0 张。");
+                    continue;
+                }
+                _enchantGrants[c.id] = list;
+                cards++;
+            }
+            Debug.Log($"[RuleEngine] 进攻卡并进附魔反查表：**{cards}** 张卡 / **{rows}** 行"
+                    + $"（41 行里 {notAddEffect} 行**不入表**：`chosenAbility 0 drawCard` / `60 buffMana` 两支"
+                    + "在原版 `AbilityLogic__PlayAbility.c` 里不产生 `AddEffect`；撞 id "
+                    + $"{collide} 张）—— 与池卡那 58 行共用同一张表（`spellType == 200` 的池卡现读 0 张）");
         }
     }
 

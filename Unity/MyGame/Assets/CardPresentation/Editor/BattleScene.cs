@@ -10556,18 +10556,20 @@ public static class BattleScene
             { Kind = AiActionKind.AttackMelee, Slot = foeAtkSlot, TargetP = 0, TargetSlot = vicSlot };
             Check(driver.SimulateStartEnemyTargetingAnim(actA), "目标在真人那一侧 ⇒ 起演出");
             Check(driver.ReticleVisible, "★ 演出把准星点亮（原版 `ToggleCrosshair(true, false)` 那一支）");
-            Vector3 fromW = driver.FoeUnits[foeAtkSlot].transform.position;
+            Vector3 fromW = driver.PointerAtWorldForTest(driver.FoeUnits[foeAtkSlot].transform.position);   // 🔴 2026-10-28（`B93_E5`）**期望值换帧**：卡的 `transform.position` 是**战场透视帧**，准星却是 **HUD 正交帧**的件（`TargetReticle.Z` / 尺寸 `/108` / HUD 相机 `orthographicSize = 5`）⇒ 原版 `TargetReticleController__PrepareMovement.c:24` 先 `Get2DWorldPosFromBoardPos` 投影、再 `set_position`。旧写法拿战场帧当期望值 = **同义反复**（同文件 `:9995-9996` / `:10099-10102` 已为同族立过规矩）；2D 兜底档下它逐位恒等
             Vector3 p0;
             bool gotP0 = driver.reticle.CrossPosition(out p0);
             Check(gotP0 && Mathf.Abs(p0.x - fromW.x) < 0.05f && Mathf.Abs(p0.y - fromW.y) < 0.05f,
-                  "★ 准星**起点 = 施法者**（原版 `PrepareMovement` 先瞬移过去，无补间；"
-                + $"实测 ({p0.x:F2},{p0.y:F2}) vs 施法者 ({fromW.x:F2},{fromW.y:F2})）");
+                  "★ 准星**起点 = 施法者的 HUD 投影点**（原版 `PrepareMovement` 先投影、再瞬移，无补间；"
+                + $"实测 ({p0.x:F2},{p0.y:F2}) vs 投影点 ({fromW.x:F2},{fromW.y:F2})）");
+            // ★【灭自证】（`B93_E5` 点名的欠账）两个帧**真的分得开** —— 没有这一条，把实现与期望值一起退回裸 `transform.position` 会**静默变绿**（同族：本文件 `:10003-10008` 的 `sep3D`、`:9991-9994`）。
+            Check(Vector3.Distance(fromW, driver.FoeUnits[foeAtkSlot].transform.position) > 0.5f, $"★ 灭自证：HUD 投影点与卡的裸 `transform.position` 在 3D 下确实可分（差 {Vector3.Distance(fromW, driver.FoeUnits[foeAtkSlot].transform.position):F3} 世界单位）｜🧨 实现与期望值一起退回裸坐标 ⇒ 上面那条照样绿、这条红");
             var mc = driver.reticle.CrossColor;
             Check(mc.r > 0.8f && mc.g < 0.5f, $"近战 ⇒ 准星红（{mc.r:F2},{mc.g:F2},{mc.b:F2}）");
 
             // ③ 推进 1/4 时长 ⇒ 应当已经走了 **43.75%**（OutQuad = 1 − 0.75²）——
-            //    **这一条就是「不是线性」的判据**（线性只会走 25%）。原版 `DoCrosshairMove` 没有 `SetEase`。
-            Vector3 toW = driver.reticle.ResolveAim(driver.MyUnits[vicSlot].transform.position);
+            //    **这一条就是「不是线性」的判据**（线性只会走 25%）。原版 `DoCrosshairMove` 没有 `SetEase`。⚠️ `B93_E5`：`toW` 必须与实现**同帧** —— `reticle.ResolveAim` 返回的是**战场帧**的点（射线 ∩ `enemyMinionPlane`），准星却在 HUD 帧 ⇒ 原来那版是跨帧相减（`frac` 只是碰巧落进区间）⇒ 改走 `PointerAtWorldForTest`（= 原版 `PrepareMovement` 那一跳）。
+            Vector3 toW = driver.PointerAtWorldForTest(driver.MyUnits[vicSlot].transform.position);
             driver.SimulateTickAiTargetingAnim(CardFeel.EnemyTargetingAnimTime * 0.25f);
             Vector3 p1;
             driver.reticle.CrossPosition(out p1);
@@ -11076,6 +11078,134 @@ public static class BattleScene
                         driver.RefreshAll();
                     }
                 }
+            }
+
+            // ⑨ 🆕 2026-10-28（`B93_E9`）：**效果 480 `highlightBloodThirst` 的四道闸** —— 实现 =
+            //   `BattleDriver.PlaySw34BloodThirstHighlight480`（消费 `EvtKind.StatusApplied` + `CardId == "bloodthirst"`）。
+            //   判据 = `CardScript__ActivateBloodThirst.c:8-21` 的四道合取，原版在**结算那一跳**判
+            //   （`BattleManager__ResolveAction.c:3670 case 0x2b` → `:3719 ActivateBloodThirst` 为真才 `:3769 HighlightBloodThirst`；
+            //    `PlayAbility.c:1970` 只是排队）。⛔ 别按旧文档「480 那一跳无闸」写（已在 `BattleDriver` 那段类尾注释里就地订正）。
+            //   🧨 缺任何一道闸 ⇒ 对应负例红；把 id 表改成「谁拿到血渴都演」⇒ ⑥ 红。
+            {
+                DrainQueue(driver);                                   // 旧队先排空（⛔ 否则量到的是更早排的事件）
+                var pool480 = CardDatabase.Load();
+                // 样卡按 **id** 取（`SW34` = Murderfang）—— 门是按 `u.Card.Id` 判的，用 id 取才与门同口径；
+                // `?? CardByName` 只是兜底（`FindById` 找不到会回 null，`new UnitState(null, …)` 会 NRE）。
+                var def480 = CardDatabase.FindById(pool480, "SW34") ?? CardByName(pool480, "Murderfang");
+                ctx.Players[1].Board[tfSlot] = new UnitState(def480, false);
+                var sw34 = ctx.Players[1].Board[tfSlot];
+                sw34.AddKeyword(KeywordTable.BloodThirst, 1);
+                sw34.AttacksThisTurn = 1;
+                int activeWas480 = ctx.Active;
+                ctx.Active = 1;                                       // 事件那一侧 = 行动方（原版 `isPlayer == IsPlayerTurn()`）
+                driver.RefreshAll();
+                CardView bv480;
+                driver.FoeUnits.TryGetValue(tfSlot, out bv480);
+                var btf = bv480 != null ? bv480.GetComponent<TraitFrames>() : null;
+                Check(btf != null && sw34 != null && sw34.Card != null && sw34.Card.Id == "SW34"
+                   && sw34.Has(KeywordTable.BloodThirst) && sw34.AttacksThisTurn == 1 && ctx.Active == 1,
+                      "⑨（前提·硬）`SW34` Murderfang 已摆上敌方那一格、视图挂着、四闸的输入都摆好了"
+                    + $"（id = {(sw34 != null && sw34.Card != null ? sw34.Card.Id : "?")}"
+                    + $" · AttacksThisTurn = {(sw34 != null ? sw34.AttacksThisTurn : -1)} · Active = {ctx.Active}）");
+                if (btf != null && sw34 != null && sw34.Card != null && sw34.Card.Id == "SW34")
+                {
+                    // ① 正向：四闸全过 ⇒ 演**两条**（`bloodthirst` 的 Trigger(3) `_Gain` + TriggerOnPlay(6) `_Idle`）
+                    btf.Remove(KeywordTable.BloodThirst);          // 清去重表（原版 `RemoveStatusAnim`）；⛔ 不清 ⇒ 下面全被守卫挡住、断言空转
+                    int q480 = btf.TriggerPlayCount;
+                    ctx.Signals.Add(new BattleEvent
+                    { Kind = EvtKind.StatusApplied, Player = 1, Slot = tfSlot, CardId = KeywordTable.BloodThirst, Amount = 1 });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    Check(btf.TriggerPlayCount == q480 + 2,
+                          $"★ ① SW34 拿到血渴（四闸全过）⇒ 效果 480 亮一下、演**两条**（{q480} → {btf.TriggerPlayCount}）"
+                        + "｜🧨 消费点没接 / 漏绑一条 TraitEffect ⇒ 红");
+
+                    // ②【闸·负例】本回合已行动过（原版 `+0x48 == 1`）⇒ 一下都不演
+                    btf.Remove(KeywordTable.BloodThirst);
+                    sw34.AttacksThisTurn = 2;
+                    int q480b = btf.TriggerPlayCount;
+                    ctx.Signals.Add(new BattleEvent
+                    { Kind = EvtKind.StatusApplied, Player = 1, Slot = tfSlot, CardId = KeywordTable.BloodThirst, Amount = 1 });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    Check(btf.TriggerPlayCount == q480b,
+                          $"★ ②【闸·负例】`AttacksThisTurn = 2` ⇒ 480 **一下都不演**（仍 {btf.TriggerPlayCount} 次；"
+                        + "判据 `CardScript__ActivateBloodThirst.c` 的 `+0x48 == 1`）｜🧨 没有这道闸 ⇒ 红");
+                    sw34.AttacksThisTurn = 1;
+
+                    // ③【闸·负例】触发点不在行动侧（原版 `isPlayer == IsPlayerTurn()`）⇒ 一下都不演
+                    btf.Remove(KeywordTable.BloodThirst);
+                    ctx.Active = 0;                                     // 事件仍在 `Player = 1`
+                    int q480c = btf.TriggerPlayCount;
+                    ctx.Signals.Add(new BattleEvent
+                    { Kind = EvtKind.StatusApplied, Player = 1, Slot = tfSlot, CardId = KeywordTable.BloodThirst, Amount = 1 });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    Check(btf.TriggerPlayCount == q480c,
+                          $"★ ③【闸·负例】行动方在**另一侧**（`ctx.Active = 0` / 事件 `Player = 1`）⇒ 480 一下都不演"
+                        + $"（仍 {btf.TriggerPlayCount} 次）｜🧨 没有 `e.Player != Ctx.Active` 那道闸 ⇒ 红");
+                    ctx.Active = 1;
+
+                    // ④【闸·负例】卡上**没有** `bloodthirst`（原版 `HasCurrentTrait(0xdc)`）⇒ 一下都不演
+                    btf.Remove(KeywordTable.BloodThirst);
+                    sw34.RemoveKeyword(KeywordTable.BloodThirst, 1);
+                    driver.RefreshAll();                                // 让棋盘与视图同步（卡上真的没有这个词了）
+                    int q480d = btf.TriggerPlayCount;
+                    ctx.Signals.Add(new BattleEvent
+                    { Kind = EvtKind.StatusApplied, Player = 1, Slot = tfSlot, CardId = KeywordTable.BloodThirst, Amount = 1 });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    Check(btf.TriggerPlayCount == q480d,
+                          $"★ ④【闸·负例】卡上没有 `bloodthirst` ⇒ 480 一下都不演（仍 {btf.TriggerPlayCount} 次；"
+                        + "判据 `CardScript__ActivateBloodThirst.c` 的 `HasCurrentTrait(0xdc)`）｜🧨 没有这道闸 ⇒ 红");
+                    sw34.AddKeyword(KeywordTable.BloodThirst, 1);
+                    driver.RefreshAll();
+
+                    // ⑤【闸·负例】它已进「将死」队列（原版 `+0x228 != 5`）⇒ 一下都不演
+                    //   ⚠️ 队列没有公开的出队口（`TakePendingDeaths` 是 `internal`）⇒ 这一条会**留下一条待死记录**：
+                    //      它由引擎下一次 `FlushDeaths` 收走，而 `CleanupDeaths` 对「还活着」的单位当场 return
+                    //      （`RuleCore.cs:9552`），本段收尾时 `Board[tfSlot]` 还会被换成别的 `UnitState` ⇒ 那一格再也对不上它。
+                    btf.Remove(KeywordTable.BloodThirst);
+                    ctx.AddPendingDeath(1, tfSlot, -1);
+                    Check(ctx.IsPendingDeath(sw34), "⑨（前提）⑤ 那道闸的输入真的置上了（这一格进了将死队列）");
+                    int q480e = btf.TriggerPlayCount;
+                    ctx.Signals.Add(new BattleEvent
+                    { Kind = EvtKind.StatusApplied, Player = 1, Slot = tfSlot, CardId = KeywordTable.BloodThirst, Amount = 1 });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    Check(btf.TriggerPlayCount == q480e,
+                          $"★ ⑤【闸·负例】已进将死队列（`waitingToDie`）⇒ 480 一下都不演（仍 {btf.TriggerPlayCount} 次；"
+                        + "判据 `CardScript__ActivateBloodThirst.c` 的 `+0x228 != 5`）｜🧨 没有这道闸 ⇒ 红");
+
+                    // ⑥【灭自证】同一格换成**不是 SW34** 的卡（其余三闸全过）⇒ 一下都不演
+                    //   ⇒ 证明走的是 id 表，而不是「谁拿到血渴都亮」。
+                    DrainQueue(driver);
+                    ctx.Players[1].Board[tfSlot] = new UnitState(CardByName(StarterCards.Tide(), "Tide Minion"), false);
+                    var tide480 = ctx.Players[1].Board[tfSlot];
+                    tide480.AddKeyword(KeywordTable.BloodThirst, 1);
+                    tide480.AttacksThisTurn = 1;
+                    driver.RefreshAll();
+                    CardView cv480;
+                    driver.FoeUnits.TryGetValue(tfSlot, out cv480);
+                    var ctf = cv480 != null ? cv480.GetComponent<TraitFrames>() : null;
+                    Check(ctf != null && tide480.Card != null && tide480.Card.Id != "SW34",
+                          "⑨（前提）⑥ 换上的那张**不是** SW34"
+                        + $"（id = {(tide480.Card != null ? tide480.Card.Id : "?")}）");
+                    if (ctf != null)
+                    {
+                        ctf.Remove(KeywordTable.BloodThirst);
+                        int q480f = ctf.TriggerPlayCount;
+                        ctx.Signals.Add(new BattleEvent
+                        { Kind = EvtKind.StatusApplied, Player = 1, Slot = tfSlot, CardId = KeywordTable.BloodThirst, Amount = 1 });
+                        driver.RefreshAll();
+                        StepThrough(driver);
+                        Check(ctf.TriggerPlayCount == q480f,
+                              $"★ ⑥【灭自证】**非 SW34** 的卡拿到血渴 ⇒ 480 **一下都不演**（仍 {ctf.TriggerPlayCount} 次）"
+                            + "｜🧨 把 id 表改成「谁拿到血渴都演」⇒ 红（原版 480 只由 `chosenAbility = 480` 的卡走）");
+                    }
+                }
+                ctx.Active = activeWas480;
+                driver.RefreshAll();
             }
 
             for (int t = 0; t < BoardSpec.Size; t++) ctx.Players[1].Board[t] = foeBackup[t];
@@ -35206,6 +35336,99 @@ public static class BattleScene
                 Check(TutHandIds(cT3.Players[1]).Length > 0, "AI 那一侧的起手也照同一支走过（3 张）");
 
                 // ------------------------------------------------------------
+                //  ③'' **`GetChosenCard` 的匹配键 = 【卡名】**（账 `战斗逻辑驱动:96`/`:98` · 族11 裁定 · 2026-10-28 `B93_F3`）
+                //     判据 = `decomp_full/AiScripted__GetChosenCard.c:20-40`：比的是 `rawCardData.cardName(+0x38)`；
+                //     认不出 / 键为空 ⇒ `iVar4 = 0` ⇒ **返回 `list[0]`**（原版自己就这么退，⛔ 别修）。
+                //     我们 = `TutorialRules.FindBoardUnit(:1734)/FindHandIndex(:1778)` +
+                //     `ScriptedUnitMatches/ScriptedCardMatches/HasScriptedKey`（类尾，:2053+）：键 = **先 `name`、再 `ourId`**。
+                //     ⚠️ 下面每条都**先断前提**（这一格真的能分开「按名取到」与「退回第 0 个」），再断结论。
+                // ------------------------------------------------------------
+                int foeMinions = TutBoardUnits(cT5.Players[1]);
+                Check(foeMinions >= 2, $"（前提）第 5 关敌方场上 ≥2 只部队，才验得出「按卡名取到**指定的那只**」（实得 {foeMinions}）");
+                if (foeMinions >= 2)
+                {
+                    int firstSlot = -1;
+                    for (int s = 0; s < cT5.Players[1].Board.Length; s++)
+                    {
+                        var u = cT5.Players[1].Board[s];
+                        if (u != null && !u.IsWarlord) { firstSlot = s; break; }
+                    }
+                    // 挑一只 **名字在这一侧唯一** 且 **不是列表第 0 只** 的单位（否则「按名取」与「退回第 0 个」同解）
+                    int pickSlot = -1; string pickName = null; string pickId = null;
+                    for (int s = cT5.Players[1].Board.Length - 1; s >= 0 && pickSlot < 0; s--)
+                    {
+                        var u = cT5.Players[1].Board[s];
+                        if (u == null || u.IsWarlord || u.Card == null || string.IsNullOrEmpty(u.Card.Name)) continue;
+                        if (s == firstSlot) continue;
+                        int dup = 0;
+                        for (int k = 0; k < cT5.Players[1].Board.Length; k++)
+                        {
+                            var v = cT5.Players[1].Board[k];
+                            if (v != null && !v.IsWarlord && v.Card != null && v.Card.Name == u.Card.Name) dup++;
+                        }
+                        if (dup != 1) continue;
+                        pickSlot = s; pickName = u.Card.Name; pickId = u.Card.Id;
+                    }
+                    Check(pickSlot >= 0 && firstSlot >= 0 && pickSlot != firstSlot,
+                          $"（前提）这一侧有一只是「名字唯一 + 不在第 0 格」的（实得槽 {pickSlot} / 第 0 格 {firstSlot}）"
+                        + " —— 否则本条分不开「按名取到」与「退回 list[0]」");
+                    if (pickSlot >= 0)
+                    {
+                        // ① 只给卡名（`ourId` 留空）⇒ 必须命中**那一只**
+                        var byName = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.EnemyMinion, name = pickName, ourId = "" };
+                        int gSide = -1, gSlot = -1; string gWhy = null;
+                        bool gOk = TutorialRules.FindBoardUnit(cT5, byName, out gSide, out gSlot, out gWhy);
+                        Check(gOk && gSide == 1 && gSlot == pickSlot,
+                              $"★ **`GetChosenCard` 按【卡名】取**：`name = \"{byName.name}\"`（`ourId` 留空）⇒ 命中 (side 1, 槽 {pickSlot})，"
+                            + $"实得 (ok={gOk}, side {gSide}, 槽 {gSlot})"
+                            + $"｜🧨 把匹配键改回「只比 ourId」⇒ 本条红（`ourId` 空 ⇒ 退到 list[0] = 槽 {firstSlot}）");
+                        // ② 认不出的名字 ⇒ 退回 `list[0]` 且**出声**（原版 `iVar4 = 0`）
+                        var bogus = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.EnemyMinion, name = "<自检·不存在的卡名>", ourId = "" };
+                        int fSide = -1, fSlot = -1; string fWhy = null;
+                        bool fOk = TutorialRules.FindBoardUnit(cT5, bogus, out fSide, out fSlot, out fWhy);
+                        Check(fOk && fSide == 1 && fSlot == firstSlot,
+                              $"★ **认不出 ⇒ 退回列表第 0 个**（原版 `GetChosenCard.c:38` 的 `iVar4 = 0`）：实得 (ok={fOk}, 槽 {fSlot})，"
+                            + $"期望槽 {firstSlot}｜🧨 把退回档改回「返回 false / 不执行」⇒ 本条红");
+                        Check(!string.IsNullOrEmpty(fWhy) && fWhy.Contains("退回"),
+                              "★ **退回要出声**（族11 裁定）：`why` 必须写明「退回」—— 取错一张不许静默过去");
+                        // ③ `ourId` 那一档仍然有效（产物里 `matchTier != exact` 的行只有 id 对得上）
+                        var byId = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.EnemyMinion, name = "<自检·对不上的卡名>", ourId = pickId };
+                        int iSide = -1, iSlot = -1; string iWhy = null;
+                        Check(TutorialRules.FindBoardUnit(cT5, byId, out iSide, out iSlot, out iWhy) && iSlot == pickSlot,
+                              $"★ **卡名对不上时仍按 `ourId` 取**：实得槽 {iSlot}，期望 {pickSlot}"
+                            + "（否则那批靠 ocrName 认出来的行会全部退到第 0 个）");
+                    }
+                }
+                // ④ 手牌那一侧同理：拿**最后一张名字在手牌里唯一**的卡，只给卡名就要取到它
+                var hand3 = cT3.Players[0].Hand;
+                Check(hand3 != null && hand3.Count >= 2, $"（前提）第 3 关我方手牌 ≥2 张（实得 {(hand3 != null ? hand3.Count : 0)}）");
+                if (hand3 != null && hand3.Count >= 2)
+                {
+                    int hi = -1; string hName = null;
+                    for (int i = hand3.Count - 1; i > 0 && hi < 0; i--)
+                    {
+                        if (hand3[i] == null || hand3[i].Card == null || string.IsNullOrEmpty(hand3[i].Card.Name)) continue;
+                        int dup = 0;
+                        for (int j = 0; j < hand3.Count; j++)
+                            if (hand3[j] != null && hand3[j].Card != null && hand3[j].Card.Name == hand3[i].Card.Name) dup++;
+                        if (dup == 1) { hi = i; hName = hand3[i].Card.Name; }
+                    }
+                    Check(hi > 0, $"（前提）手牌里有「名字唯一 + 下标 >0」的一张（实得下标 {hi}）");
+                    if (hi > 0)
+                    {
+                        var byNameH = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerCardInHand, name = hName, ourId = "" };
+                        string hWhy = null;
+                        int got = TutorialRules.FindHandIndex(cT3, byNameH, out hWhy);
+                        Check(got == hi, $"★ **手牌也按卡名取**：期望下标 {hi}，实得 {got}"
+                            + "｜🧨 改回只比 `ourId` ⇒ 本条红（退回下标 0）");
+                        var bogusH = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.PlayerCardInHand, name = "<自检·不存在的卡名>", ourId = "" };
+                        string hWhy2 = null;
+                        Check(TutorialRules.FindHandIndex(cT3, bogusH, out hWhy2) == 0 && !string.IsNullOrEmpty(hWhy2),
+                              "★ **手牌认不出 ⇒ 退回下标 0 且出声**（原版 `GetChosenCard.c:38`）");
+                    }
+                }
+
+                // ------------------------------------------------------------
                 //  ④ **白名单闸门**（`CheckIfPlayerActionPermittedInTutorial` + `CheckIfMatchesActionData`）
                 //     纯引擎侧验 —— 不碰 driver 的状态。
                 // ------------------------------------------------------------
@@ -37218,6 +37441,64 @@ public static class BattleScene
                     Check(driver.UnitChat != null && driver.UnitChat.ShownSide == 0,
                           "★ **判别式**：但**气泡还在**（原版只有 `skipNextAction` 置过才 `CloseChatBoxes`；"
                         + "自然等满不关）—— 两腿一开一关 ⇒ 上面那条不是「恒关」");
+
+                    // ---------- 账 `战斗逻辑驱动:115`：`CanSkipAction` 那道闸（2026-10-28 `B93_G2`）----------
+                    // 判据 = `decomp_full/AiScripted__CanSkipAction.c`：集合 `{0x32,0x37,0x3C,0x41,0x5A}`
+                    //   = {50,55,60,65,90} = 聊天五档；＋ `AiScripted._SkippableActionWait_d__15__MoveNext.c:38-48`：
+                    //   这个谓词**假** ⇒ `WaitForSeconds(time)`，那一等里 `skipNextAction(+0x29)` 根本没被读
+                    //   ⇒ **原版只有聊天五档的等待能被跳过**（其余档硬等满）。
+                    // 🔴 我们 2026-10-26 把等待窗口扩到**所有动作**（`animateFeel` 档）之后，
+                    //   `RequestTutorialSkip` 一度「任何武装中的等待都能切」⇒ 本轮补闸把它收回去。
+                    // ⚠️ 本条只断**谓词**这一层：真机那一腿的正例已由上面 G-2 覆盖；反例要么开
+                    //   `animateFeel`（会改批处理那条「显式步进」口径）⇒ **不在自检里造**，如实记。
+                    TutorialAction MkSkipWait(int actionType)
+                    {
+                        return new TutorialAction
+                        {
+                            index = 0, type = "<自检·跳过闸>", arg = "", playerAction = false, waitAfter = 1f,
+                            data = new[] { new TutorialActionData { type = actionType } },
+                        };
+                    }
+                    Check(BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.PlayerChat))
+                          && BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.PlayerChatBig))
+                          && BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.AiChat))
+                          && BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.AiChatBig))
+                          && BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.RadioMessage)),
+                          "★ **账 115**：聊天五档**可跳过**（= 原版 `CanSkipAction` 为真那五档）"
+                        + "｜🧨 把 `TutorialRules.IsChatKind` 那五档换成别的集合 ⇒ 本条红");
+                    Check(!BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.EndTurn))
+                          && !BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.SmallTip))
+                          && !BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.PlayCard))
+                          && !BattleDriver.TutorialSkipAllowedForTest(MkSkipWait((int)ScriptedActionType.Attack))
+                          && !BattleDriver.TutorialSkipAllowedForTest(null),
+                          "★ **账 115 判别式**：**非聊天档**（`EndTurn`/`SmallTip`/`PlayCard`/`Attack`）与 `null` **不许跳过**"
+                        + "（原版 `CanSkipAction` 假 ⇒ 硬等满，`skipNextAction` 不被读）"
+                        + "｜🧨 把 `TutorialSkipAllowed` 改成恒真 ⇒ 本条红");
+
+                    // ---------- 账 `战斗逻辑驱动:103`：`GetTipPosition` 的 50/70/100 三档（现核）----------
+                    // 🔴 2026-10-28（`B93_G2`）就地订正（铁律 5）：账里与本文件旧注释都写着「50/70/100 三档未建」——
+                    //   **过期**：三档早在 `TutorialAnchorExtra`（`BattleDriver.cs:36681`，本轮现读）。
+                    //   判据物件现核（`d:/2/tools/il2cpp_out/dump.cs`）：`bm+0xC8`=`enemyManager` · `bm+0xC0`=`playerManager`，
+                    //   而 `PlayerManager+0x30` = `manaManager`（`:40510`）⇒ 70/80 = `EnemyMana`/`PlayerMana` 两个**容器**；
+                    //   `bm+0x168` = `ActiveSkillDisplay activeSkillDesc`（`:30765`）⇒ 100 = 技能说明面板（我们的 `SkillPanel`）。
+                    Vector3 anchC; Vector2 anchSz;
+                    Check(driver.MyEnergyPlateTex == "Card_Frame_Cost_Icon"
+                          && driver.FoeEnergyPlateTex == "Card_Frame_Cost_Icon",
+                          $"（前提）两块能量底板都建出来了（我 `{driver.MyEnergyPlateTex}` / 敌 `{driver.FoeEnergyPlateTex}`）"
+                        + " —— 70/80 那一档才有「可锚的物件」，否则下面那条红是美术没进来、不是锚点没做");
+                    Check(driver.TutorialAnchorForTest(70, out anchC, out anchSz)
+                          && driver.TutorialAnchorForTest(80, out anchC, out anchSz),
+                          "★ **账 103**：`EnemyMana(70)` / `PlayerMana(80)` **都有锚点**（原版 = 那两个容器的 position）"
+                        + "｜🧨 把 `TutorialAnchor` 的 default 分支里 `TutorialAnchorExtra` 那一跳删掉"
+                        + " ⇒ 两档全落到「中心 + 出声一次」⇒ 本条红");
+                    Check(driver.TutorialAnchorForTest(100, out anchC, out anchSz),
+                          "★ **账 103**：`ActiveAbility(100)` **有锚点**（原版 `ActiveSkillDisplay activeSkillDesc`；"
+                        + "我们 = `SkillPanel` 的 position + `x -= 1.5`）");
+                    Check(driver.FoeHandViewCountForTest > 0,
+                          $"（前提）敌方手牌有卡背视图（实得 {driver.FoeHandViewCountForTest}）—— 50 那一档才验得出");
+                    if (driver.FoeHandViewCountForTest > 0)
+                        Check(driver.TutorialAnchorForTest(50, out anchC, out anchSz),
+                              "★ **账 103**：`EnemyCardInHand(50)` **有锚点**（敌方手牌那张卡背；空手牌时按原版返回 false）");
 
                     // ---------- G-5：小提示的左右箭头（原版 `TutorialTipScript.SetupArrows`）----------
                     TutorialAction MkTip(bool left, bool right)

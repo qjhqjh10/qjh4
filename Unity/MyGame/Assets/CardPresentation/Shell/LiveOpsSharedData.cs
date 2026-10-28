@@ -328,10 +328,12 @@ namespace CardPresentation
     /// 负责把自己的那一段 JSON 解成强类型。**本批只有抽象骨架**（原版具体子类本地无数据 ⇒ 不建空的）。</summary>
     public abstract class LiveOpsSharedContext
     {
-        /// <summary>这个 context 认得的数据类型（用作 `SharedContexts` 的键）。</summary>
-        public abstract Type SharedType { get; }
-        /// <summary>原版 `SharedDataContext.Unpack(payload)`（`SharedEventDataManager__Unpack.c` 里 vtable +0x178 那一跳）。</summary>
-        public abstract void Unpack(LiveOpsJson payload);
+        /// <summary>原版 `SharedDataContext.UnpackData(SharedEventData sharedEventData)`（`SharedDataContext.cs` 全文 = 一个抽象方法；
+        /// `dump.cs:54672` 的槽表：`Slot: 4`）。
+        /// 🔴 **2026-10-28（B93_E12）订正两处**：① 方法名是 `UnpackData`，不是 `Unpack`（`SharedEventDataManager` 自己那个方法才叫 `Unpack`）；
+        /// ② 形参是**整份 `SharedEventData`**（不是 `energyData` 那一段 JSON）—— 判据 = `SharedEventDataManager__Unpack.c`
+        /// 循环体那句 `(**(code **)(*plVar7 + 0x178))(plVar7, *plVar1)`，`*plVar1` 就是函数第一句写进 `this+0x28` 的那个 `persistence`。</summary>
+        public abstract void UnpackData(SharedEventData sharedEventData);
     }
 
     // ============================================================ 共享数据管理（原版 `SharedEventDataManager`）
@@ -346,8 +348,10 @@ namespace CardPresentation
         /// <summary>最近一次 `Unpack` 的载荷（原版写到 `this + 0x28`）。**这是共享块的唯一正本**。</summary>
         public static SharedEventData Persistence { get; private set; }
 
-        /// <summary>原版 `Initialize()`（`:148`）：收集 context → 建成 `Type → context` 的字典。
-        /// ⚠️ 差异 ②：没有 `GetComponentsInChildren` ⇒ 这里接收一个显式列表（传 null = 只清空重来）。</summary>
+        /// <summary>原版 `Initialize()`（`:148`）：`GetComponentsInChildren&lt;SharedDataContext&gt;().ToDictionary(x =&gt; x.GetType())`。
+        /// 🔴 **2026-10-28（B93_E12）坐实两处**：① 键 = **`x.GetType()`**（运行期具体类型），不是自报的类型 ——
+        /// 判据 `decomp_full/SharedEventDataManager.__c___Initialize_b__6_0.c`（体只有一句 `System_Object__GetType(param_2)`）；
+        /// ② 源 = 子件收集。⚠️ 差异 ②：我们没有 `GetComponentsInChildren` ⇒ 这里接收一个显式列表（传 null = 只清空重来）。</summary>
         public static void Initialize(IEnumerable<LiveOpsSharedContext> contexts)
         {
             SharedContexts.Clear();
@@ -355,8 +359,8 @@ namespace CardPresentation
             {
                 foreach (var c in contexts)
                 {
-                    if (c == null || c.SharedType == null) continue;
-                    SharedContexts[c.SharedType] = c;
+                    if (c == null) continue;
+                    SharedContexts[c.GetType()] = c;      // 原版键 = `x.GetType()`
                 }
             }
             Debug.Log("[LiveOpsSharedData] Initialize：登记了 " + SharedContexts.Count + " 个共享 context"
@@ -374,17 +378,17 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>原版 `Unpack(SharedEventData persistence)`（`:49`，**真身** `SharedEventDataManager__Unpack.c`）：
+        /// <summary>原版 `Unpack(SharedEventData persistence)`（`:49`，**真身** `SharedEventDataManager__Unpack.c`，逐句）：
         /// <code>
-        /// this.persistence = persistence;                  // 字段 +0x28
-        /// if (SharedContexts == null) return;
-        /// var ctx = GetContext&lt;&lt;EnergyContext&gt;&gt;();      // ← 具体类型读不出（vtable 泛型实例）
-        /// if (ctx == null) return;
-        /// foreach (var item in persistence.&lt;某列表&gt;) ctx.Unpack(item);   // vtable +0x178
+        /// this.persistence = persistence;                    // 字段 +0x28（`.c` 第一句 `*plVar1 = param_2`）
+        /// if (SharedContexts == null) Initialize();          // `.c`：`if (**(…+0xb8) != 0) { if (&lt;slot 0&gt;() == 0) &lt;0x1d8&gt;() }` = 「登记表为空就先收一遍」
+        /// foreach (var ctx in SharedContexts.&lt;Values&gt;) ctx.UnpackData(sharedEventData);   // vtable +0x178 / 槽 4
         /// </code>
-        /// ⚠️ 「哪个 context、遍历哪个列表」反编译读不出 ⇒ 我们按**登记表全量分发**：
-        /// 每个 context 都拿到整份 `energyData`（`SharedContexts` 为空时只出声，不做别的）。
-        /// 这是**有意差异**（账 row 699 记 B）。</summary>
+        /// 🔴 **2026-10-28（B93_E12）订正账 row 699 的「取哪个 context / 遍历哪个列表」**：
+        /// ① 遍历的是**登记表的全部 context**（`.c` 的 `while(true)` 一路 `MoveNext` 到枚举结束，中间没有任何按类型筛的闸）；
+        /// ② 传给每个 context 的是**整份 `SharedEventData`**（`*plVar1`），⛔ 不是 `persistence.energyData` 那一段 ——
+        /// 由 `SharedDataContext.UnpackData(SharedEventData)` 的形参类型直接坐实（`dump.cs:54677`）。
+        /// ⚠️ 仍存的差异：「共享上下文表」原版来自 prefab 子件、我们是显式注册（见 `Initialize`）⇒ 本地表为空时只出声。</summary>
         public static void Unpack(SharedEventData persistence)
         {
             Persistence = persistence;
@@ -393,13 +397,12 @@ namespace CardPresentation
                 Debug.LogWarning("[LiveOpsSharedData] Unpack：共享 context 表是空的 ⇒ 没有任何东西被解（原版至少有一个 `EnergyContext`）");
                 return;
             }
-            var payload = persistence == null ? null : persistence.energyData;
             foreach (var kv in SharedContexts)
             {
                 var c = kv.Value;
                 if (c == null) continue;
-                try { c.Unpack(payload); }
-                catch (Exception e) { Debug.LogError("[LiveOpsSharedData] context '" + (c.SharedType == null ? "?" : c.SharedType.Name) + "' 的 Unpack 抛异常：" + e); }
+                try { c.UnpackData(persistence); }
+                catch (Exception e) { Debug.LogError("[LiveOpsSharedData] context '" + (kv.Key == null ? "?" : kv.Key.Name) + "' 的 UnpackData 抛异常：" + e); }
             }
         }
 

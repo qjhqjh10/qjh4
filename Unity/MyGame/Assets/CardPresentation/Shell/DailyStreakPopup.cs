@@ -451,6 +451,7 @@ namespace CardPresentation
             //   （调度台口径）；按名字取要用**递归**的 `FindChild(succ, "Current Streak Value")`（它穿子树）。
             var curVal = MenuDraw.Text(curLbl != null ? curLbl.transform : p, S_CurValue,
                                        DailyData.StreakCurrentValue(), Color.white, "Current Streak Value", 80f, QText, face: TmpFont.Face.LatinUi);
+            _streakValue = curVal;   // `RefreshRewards()` 要重取这一格（原版 `DailyStreakWindow__RefreshRewards.c` 里那颗 `+0x80`）
             if (curVal != null) curVal.SetCharSpacing(5f);
             MenuDraw.AlignLeft(curVal, S_CurValue);
             MenuDraw.SetVAlign(curVal, Label.VAlign.Capline, S_CurValue);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
@@ -532,6 +533,7 @@ namespace CardPresentation
             for (int i = _trackContent.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_trackContent.GetChild(i).gameObject);
             entries.Clear();
+            _streakEntries.Clear();          // 与 `entries` 同生同灭（`BuildEntry` 逐格登记）
 
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：那六行没了。** 旧写法 = 「存 `Clip`/`ClipSoftness`/
             //   `ClipPad` 三件 → 设 `S_Scroll` / `TrackSoft(89,0)` / `TrackPad(0,0,0,0)` → 建完成对还原」。
@@ -755,7 +757,8 @@ namespace CardPresentation
             //    （原来走裸 `MenuDraw.Rect/Text`：`Rewards Scroll View` 之外的部分**照画出去**，而所有断言全绿）。
             DrawRect(e, Art(ArtBackOpaque), ON(E_Bg), "BG", QPanel);
             var hl = DrawRect(e, Art(ArtHighlight), ON(E_Highlight), "Highlight", QPanel, HighlightTint);
-            if (hl != null) hl.gameObject.SetActive(unlocked && !claimed);
+            // 显隐**不在这里设**（原来这一句是 `SetActive(unlocked && !claimed)`）—— 见本方法末尾
+            // `Entry.SetState` 那一跳（= 原版 `DailyStreakItemContainer.SetState` 的 `highlight` 那一句）。
             DrawRect(e, Art(DailyData.StreakRewardIcon(day)), ON(E_Holder), "Reward Holder", QContent, null, true);
             // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 40 / 36 / 1`
             //   （出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3；归组 =
@@ -782,7 +785,10 @@ namespace CardPresentation
 
             // `Collect`（色 (0.06,0.57,0.13,1) + 'Claim'；整组挂在 `Collect` 底下 —— 那一层 `ls = 0.7`，
             // 矩形由 `OC` 绕它的中心缩，TMP 的 `m_fontSize` 也要自己乘 0.7）
-            if (unlocked && !claimed)
+            // 🔴 **2026-10-28（B93_E11）改口径：先建、再设态** —— 原版 `DailyStreakItemContainer.Initialize`
+            //   是**建满三件**（`highlight` / `claimLabel` / `claimButton`）之后由 `SetState(State)` 决定开不开
+            //   （`DF:DailyStreakItemContainer__SetState.c:2-29`）；原来我们是「不满足就不建」⇒ 节点数随状态变，
+            //   而且没有「二次设态」这条路（`Refresh(State)` 要用）。⇒ 现在恒建，态由 `Entry.SetState` 说了算。
             {
                 var c = DrawRect(e, Art(ArtClaim), OC(E_Collect), "Collect", QContent, ClaimTint);
                 // 🔴 **2026-10-16（A679）**：补 **`align: 1`（左对齐）** —— 原版那一颗的 TMP
@@ -823,12 +829,23 @@ namespace CardPresentation
                 if (c != null)
                 {
                     var hit = c.gameObject.AddComponent<WindowButton>();
-                    int d = day;
                     // 🆕 **2026-10-11（批次1 · W1 · A309）**：这一下现在**会弹原版那扇 `Reward Window`**
                     //   （开窗在 `DailyData.CollectStreak` 里面 = 我们唯一的发奖口那一处；原版
                     //   `RewardService.Collect` 就是「发完奖 → 开一扇 Collect 态的全屏领奖窗」）。
-                    hit.onClick = () => DailyData.CollectStreak(d);
+                    //   ⚠️ 这一次的**动作**现在挂在 `Entry.OnCollect` 上（原版也是同一跳：`claimButton` 的
+                    //   `onClick` → 关自己 + 调 `onCollectCallback`），见下面 `Entry.OnCollect`。
+                    var ent = new Entry(day, hl != null ? hl.transform : null, c.transform, hit);
+                    ent.SetState(unlocked && !claimed ? State.Unlocked : State.Locked);
+                    _streakEntries.Add(ent);
+                    hit.onClick = ent.OnCollect;
+                    return e;
                 }
+            }
+            // `Collect` 建不出来（图缺）⇒ 这一格没有可点件：仍登记一个「只有高亮」的态，⛔ 别静默少一格
+            {
+                var ent = new Entry(day, hl != null ? hl.transform : null, null, null);
+                ent.SetState(unlocked && !claimed ? State.Unlocked : State.Locked);
+                _streakEntries.Add(ent);
             }
             return e;
         }
@@ -871,6 +888,105 @@ namespace CardPresentation
             ParentEventWindow.EnsureHeaderTitleResolver();
             var backWb = p.BackQuad != null ? p.BackQuad.GetComponent<WindowButton>() : null;
             WindowHeaderWithBackButton.WireHeader(p.Root, backWb, p.Title, onBack, DailyData.StreakWindowTitle());
+        }
+
+        // ============================ 原版「窗 → 奖格」两层的 1:1 落点（2026-10-28 · B93_E11）
+        // 原版：`DailyStreakWindow`（窗，本类）→ `DailyStreakItemContainer`（一格，下面的 `Entry`）。
+
+        /// <summary>奖格两态。**值照原版** `DailyStreakItemContainer.State`（`Locked = 0` · `Unlocked = 1`）。</summary>
+        public enum State { Locked = 0, Unlocked = 1 }
+
+        /// <summary>本窗每一格的状态载体（= 原版 `DailyStreakItemContainer`）。
+        /// <para>原版是三件：`highlight` / `claimLabel` / `claimButton`；我们把后两件并成一颗
+        /// `Collect`（我们那张 `Collect` quad 上挂 `WindowButton`，文字是它的子件）——
+        /// ⇒ `SetState` 里那两句开关落在**同一颗**上（原版是两个不同 GameObject，`SetActive` 两次）。</para></summary>
+        public sealed class Entry
+        {
+            public readonly int Day;
+            /// <summary>原版 `CurrentState`（`+0x60`）—— 最后一次 `SetState` 的值。</summary>
+            public State CurrentState { get; private set; }
+            readonly Transform _highlight, _claim;
+            readonly WindowButton _hit;
+
+            internal Entry(int day, Transform highlight, Transform claim, WindowButton hit)
+            {
+                Day = day; _highlight = highlight; _claim = claim; _hit = hit;
+            }
+
+            /// <summary>= 原版 `DailyStreakItemContainer.SetState(State)`（`DF:…__SetState.c:2-29`，四句）：
+            /// `highlight` ⇔ `Unlocked`；`claimLabel` ⇔ `Unlocked`；`claimButton.gameObject` ⇔ `Unlocked`；
+            /// `claimButton.interactable` ⇔ `Unlocked`；末尾 `CurrentState = state`。
+            /// ⚠️ 原版是连续四层 `if (x != null)` 嵌套、任何一件为空就抛 —— 那是 prefab 保证「都挂了」的写法，
+            /// 我们是运行时建节点 ⇒ 逐件判空跳过（⛔ 不照抄那个抛出）。</summary>
+            public void SetState(State state)
+            {
+                bool on = state == State.Unlocked;
+                if (_highlight != null) _highlight.gameObject.SetActive(on);
+                if (_claim != null) _claim.gameObject.SetActive(on);
+                if (_hit != null) _hit.Interactable = on;
+                CurrentState = state;
+            }
+
+            /// <summary>= 原版 `DailyStreakItemContainer` 在 `Start()` 里挂上去的那个 lambda
+            /// （`out_cpp2il_dev_ilspy/DailyStreakItemContainer.cs:100-111`）：**先把按钮自己按灰，
+            /// 再调 `onCollectCallback`**（那一跳 = `Initialize` 传进来的 `Action`）。
+            /// <para>我们那两半 = `_hit.Interactable = false` + `DailyData.CollectStreak(day)`（发奖口唯一一处）。</para></summary>
+            public void OnCollect()
+            {
+                if (_hit != null) _hit.Interactable = false;
+                DailyData.CollectStreak(Day);
+            }
+
+            /// <summary>= 原版 `DailyStreakItemContainer.Refresh(State newState)`（`…__Refresh.c`：
+            /// `currentDrawer.Refresh()` + `SetState(newState)`）。我们没有独立的 drawer 组件可刷
+            /// （图标是建的时候一次定的），⇒ 这一层只剩 `SetState`。</summary>
+            public void Refresh(State newState) { SetState(newState); }
+        }
+
+        /// <summary>= 原版 `DailyStreakWindow.ToFocus()`
+        /// （`DF:DailyStreakWindow__ToFocus.c`：**第一句就是 `RefreshRewards()`**，其后才是计时器 `Initialize`）。
+        /// <para>🔴 补这一跳解决一个真缺陷：领完奖回来时**奖格状态是旧的**（`DailyData.StreakRewardUnlocked`
+        /// 只在建窗那一刻读过）。⚠️ 计时器那一半不复刻（原版 `TimerDisplay.Initialize(GetNextUpdate(progress))`
+        /// 读的是服务端活动期；我们的 `TimerDisplay.Attach` 自己每秒重算、到点自己隐藏文本）。</para>
+        /// <para>⚠️ 只在这一跳重刷**状态与文案**，⛔ 不重建整窗（`RefreshRewards` = `BuildTrack`，幂等先清后建）。</para></summary>
+        public override void ToFocus()
+        {
+            base.ToFocus();
+            if (_trackContent == null) return;      // 还没建（`Open` 之前）⇒ 什么都不做
+            RefreshRewards();
+        }
+
+        /// <summary>`Rewards Content` 下每一格的状态载体（与 `entries` 一一对应）。</summary>
+        readonly System.Collections.Generic.List<Entry> _streakEntries = new System.Collections.Generic.List<Entry>();
+        /// <summary>`Streak Successful/Current Streak/Current Streak Value`（原版 `DailyStreakWindow.RefreshRewards`
+        /// 里那颗 `+0x80` 的文本口）。</summary>
+        Label _streakValue;
+
+        /// <summary>= 原版 `DailyStreakWindow.RefreshRewards()`（`DF:DailyStreakWindow__RefreshRewards.c:2-119`）：
+        /// **容器已有 ⇒ 先 `Reset()`；再逐格实例化；窗口首格乘 `scaleMultiplierFirstElement`；
+        /// `m_Name = string.Format("<模板>", 绝对天号)`；状态 = `milestone.Index &lt;= progress.collectedRewards`
+        /// （`+0x10` = `ChallengeProgress.collectedRewards`）；那颗 `+0x80` 文本 = `progress.currentValue`（`+0x40`）**。
+        /// <para>我们这一层 = `BuildTrack()`（同样是「先清后建、幂等」——`_trackScroll.OnChanged` 会重入）。</para>
+        /// <para>🔴 **三处如实记的差异**（都进账）：
+        /// ① 原版的 7 格从**当前天**（`collectedRewards`）起排、名字用**绝对天号**，我们把第 1–7 天全列出来
+        ///   （🔶 自建数据 `DailyData.StreakDays` 就是 7 天，且格子名走 `DailyData.StreakRewardName(i)`）；
+        /// ② 原版「放大那一格」= **窗口首格**（`i == collectedRewards`），我们固定在 `i == DailyData.StreakCollected`
+        ///   —— 两者只在「当前天 = 0」时重合（现读数据 `StreakCollected` 是常量 5 但也只是第 6 格）；
+        /// ③ 原版每格的态是 `milestone.Index &lt;= collectedRewards`（**已领的天也算 Unlocked，只是按钮被按灰**），
+        ///   我们的 `DailyData.StreakRewardUnlocked` 只把「当前那天且未领」算解锁（🔶 自建数据的口径）。</para></summary>
+        public void RefreshRewards()
+        {
+            BuildTrack();
+            if (_streakValue != null) _streakValue.SetText(DailyData.StreakCurrentValue());
+            // 重建后 `_streakEntries` 由 `BuildTrack → BuildEntry` 重新登记；这里把它与 `entries` 对齐交给自检
+        }
+
+        /// <summary>自检用：取某一格的状态载体（`null` = 那一格没建）。⛔ 只读引用。</summary>
+        public Entry EntryForTest(int day)
+        {
+            for (int i = 0; i < _streakEntries.Count; i++)
+                if (_streakEntries[i].Day == day) return _streakEntries[i];
+            return null;
         }
     }
 }

@@ -196,7 +196,7 @@ namespace CardPresentation
         void HandleTyping()
         {
             var kb = Keyboard.current;
-            if (kb == null || !_editing) return;
+            if (!_inputEnabled) return; if (kb == null || !_editing) return;   // 🆕 2026-10-28（B93_E24）：输入层停用 ⇒ 打字整段不跑（= 原版 `Process()` 不跑、`SendUpdateEventToSelectedObject` 压根没被调用，`StandaloneInputModule.cs:299`）
             if (kb.escapeKey.wasPressedThisFrame)
             {
                 // 🆕 **2026-10-18（`N67`）出声**：这一下 ESC 是「取消编辑」、**不是**「关窗」——
@@ -749,7 +749,7 @@ namespace CardPresentation
         /// （`GameWindow.ESCPressed()` 的**第一道门槛**，反汇编逐条 → `Shell/WindowsManager.cs` 的 `ESCPressed`）。
         /// <para>🔴 **在我们这边它是【我们挑的】等价物**：原版读的是 UGUI `EventSystem.enabled`，而本仓
         /// **没有 UGUI `EventSystem`**（那台 `EventSystem` 的实例在 `assets_full` 里根本不存在；
-        /// 唯一那条输入路就是本类 ⇒ 用它当等价物）。**门槛的形状照原版**：为 `false` 时按 ESC **不关窗**。</para>
+        /// 唯一那条输入路就是本类 ⇒ 用它当等价物）。**门槛的形状照原版**：为 `false` 时按 ESC **不关窗**。</para><para>🆕 **2026-10-28 就地订正（`B93_E24` · 铁律 5）**：上面「ESC 的第一道门槛」**只说了它的一面** —— 原版写的是 `eventSystem.enabled`，**停的是整个 UGUI 输入模块**（点击 / 拖拽 / 滚轮 / 悬停 enter-exit / 方向键 / 回车 / 打字**全停**，并清掉选中与指针缓存；判据 → `判据/B93_Q12_SetInputEnabled语义对齐.md` §二，含 `EventSystem.cs:429-444/472-531` · `PointerInputModule.cs:394-406` · `StandaloneInputModule.cs:269-315`）。我们**已对齐的五个口**：`HitButton`（:1564）· `HitScroll`（:1706）· `KeySubmit`（:925）· `KeyMove`（:940）· `HandleTyping`（:199），外加 `SetInputEnabled(false)` 里的状态清理（`ClearInputState`，类尾）。⛔ **`KeyCancel` 不问这一位** —— ESC 的门槛在原版就在窗里（`GameWindow.ESCPressed`）。</para>
         /// <para>出厂值 `true`（= 原版那台 EventSystem 出厂是启用的）。原版改这一位的是
         /// `EventSystemController.Toggle(bool)`（虚表实读 = `eventSystem.enabled = option`，与
         /// `ChatPreviewMessage.Enable` 同体 ⇒ ICF），我们对应 `SetInputEnabled`。</para>
@@ -759,13 +759,13 @@ namespace CardPresentation
         public static bool InputEnabled { get { return _inputEnabled; } }
 
         /// <summary>开关输入层（= 原版 `EventSystemController.Toggle(bool)`）。出声（红线：不许静默失败）——
-        /// 「ESC 按了没反应」要么是这道门槛、要么是缺陷，必须能从日志里分辨。</summary>
-        public static void SetInputEnabled(bool on)
+        /// 「ESC 按了没反应」要么是这道门槛、要么是缺陷，必须能从日志里分辨。🆕 **2026-10-28（B93_E24）**：停用时**整条输入路停摆**（不只是 ESC），所以日志与语义都改成「整个输入层停用」；`why` = 谁开的闸（可选，零调用点改动），不填也能跑。</summary>
+        public static void SetInputEnabled(bool on, string why = null)
         {
             if (_inputEnabled == on) return;
-            _inputEnabled = on;
+            _inputEnabled = on; if (!on) ClearInputState();     // 🆕 B93_E24 = 原版 `OnDisable → DeactivateModule → ClearSelection`（`EventSystem.cs:429-444` · `PointerInputModule.cs:394-406`），实现见类尾同名方法
             Debug.Log($"[Key] 输入层 **{(on ? "启用" : "停用")}**（对位原版 `EventSystemController.Toggle({on.ToString().ToLowerInvariant()})`：" +
-                      "它写的就是 `eventSystem.enabled` ⇒ 停用时 `GameWindow.ESCPressed` 的第一道门槛不过、ESC 不关窗）");
+                      $"它写的就是 `eventSystem.enabled` ⇒ 停用时 ① `GameWindow.ESCPressed` 的第一道门槛不过、ESC 不关窗 ② **整个输入层停摆**：点击/拖拽/滚轮/悬停/方向键/回车/打字全停 + 清选中与指针缓存；谁开的闸：{why ?? "<未命名>"}；恢复时同样谁开的闸谁负责开回来）");
         }
 
         /// <summary>原版 `GetAxisEventData(x, y, 0.6f)` 里那个死区（`StandaloneInputModule.cs:509`）。</summary>
@@ -918,10 +918,10 @@ namespace CardPresentation
         /// 没有选中 ⇒ 直接 false；否则把 submit 事件打给选中那一颗。
         /// `Button.OnSubmit` → `Press()` → `onClick.Invoke()`（`UI/Core/Button.cs`）⇒ 我们调 `Click()`。
         /// ⚠️ **不调 `Press()`/`Release()`**：原版 submit 会闪一下按下态（`OnFinishSubmit` 协程收回来），
-        ///    而**批处理里没有帧循环**能把那个态收回去；且 `Press/Release` 是鼠标那条路的东西。</summary>
+        ///    而**批处理里没有帧循环**能把那个态收回去；且 `Press/Release` 是鼠标那条路的东西。🆕 **2026-10-28（B93_E24）**：输入层停用（`_inputEnabled == false` = 原版 `eventSystem.enabled = false`）时**第一句就返回 false** —— 原版那一帧 `EventSystem.Update()` 整段不跑 ⇒ `SendSubmitEventToSelectedObject`（`StandaloneInputModule.cs:299`）压根没被调用。</summary>
         public bool KeySubmit()
         {
-            var b = Selected;
+            if (!_inputEnabled) { Debug.Log("[Key] 回车/空格**不派发** —— 输入层停用中（= 原版 `eventSystem.enabled = false`：`EventSystem.Update()` 不跑 ⇒ `SendSubmitEventToSelectedObject` 那一支整段不跑，`StandaloneInputModule.cs:299/308`；谁开的闸见停用那一条日志）"); return false; } var b = Selected;   // 🆕 2026-10-28（B93_E24）
             if (b == null) return false;               // 原版第一句就是这个 null 守卫
             b.Click();
             return true;
@@ -937,7 +937,7 @@ namespace CardPresentation
         /// ⇒ 原版**即使方向键真的移动了选中，回车那一跳照样跑**。这里照它。</para></summary>
         public bool KeyMove(float ax, float ay, float time = -1f)
         {
-            if (time < 0f) time = Time.unscaledTime;
+            if (!_inputEnabled) return false; if (time < 0f) time = Time.unscaledTime;   // 🆕 2026-10-28（B93_E24）：输入层停用 ⇒ 方向键整段不跑（= 原版 `Process()` 不跑、`SendMoveEventToSelectedObject` 没被调用，`StandaloneInputModule.cs:308`）；⚠️ 恒 false 不变（本方法原本就恒 false）
 
             // ① `GetRawMoveVector()` 之后那条「两轴都约等于 0」的守卫
             if (Mathf.Approximately(ax, 0f) && Mathf.Approximately(ay, 0f)) { _moveCount = 0; return false; }
@@ -1534,7 +1534,7 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **只拦指针**：`KeyCancel` / `KeySubmit` / `HandleTyping` / `ClickForTest` 一律不动 ——
         /// 原版 `WindowsManager__Update.c` 的 ESC 分支里**没有任何 loading / 遮挡门槛**
-        /// （键盘不走 uGUI 射线），而 `ClickForTest` 是自检/工具直调口（不许被黑场挡掉）。</para>
+        /// （键盘不走 uGUI 射线），而 `ClickForTest` 是自检/工具直调口（不许被黑场挡掉）。🆕 **2026-10-28（`B93_E24`）**：**另一把闸 `_inputEnabled`（`InputEnabled`）才是连键盘一起停的那把** —— 这一位只挡指针、那一位停整个输入模块；⛔ **别把两者合并**（合并会让上面那句「只拦指针」变成假话，也会让黑场那条诊断误报）。</para>
         ///
         /// <para>⚠️ **批处理/编辑态也要判得对**：`ShellRuntime.Instance` **只在 `Awake` 里赋、批处理下恒 null**
         /// （判据 → `Editor/ShellScene.cs` 的 `LoadingMenu`）⇒ 取不到实例时退到 `LoadingMenu.Current`（`Build()` 里登记）。
@@ -1561,7 +1561,7 @@ namespace CardPresentation
         /// **队列与 `z` 都相同 ⇒ 后兄弟优先**（判据见 <see cref="IsAboveInHierarchy"/>）。</summary>
         WindowButton HitButton(float px, float py)
         {
-            if (InputBlocked) return null;      // 🆕 N8：黑场/遮罩期间指针命中一条都不给（判据见 `InputBlocked`）
+            if (InputBlocked || !_inputEnabled) return null;   // 🆕 N8：黑场/遮罩。🆕 2026-10-28（B93_E24）：`!_inputEnabled` = 原版 `eventSystem.enabled = false` ⇒ `EventSystem.Update()` 整段不跑 ⇒ 一整帧没有任何指针事件（`EventSystem.cs:472-531` · `StandaloneInputModule.cs:294-315`）。⚠️ 两条闸各判各的（前者只拦指针、后者连键盘），⛔ 别合并。
             WindowButton best = null;
             ImageQuad bestQuad = null;
             int bestQ = int.MinValue;
@@ -1703,7 +1703,7 @@ namespace CardPresentation
         /// 也会滚这一区），今天两层都闭合 ✔。</para></summary>
         MenuScroll HitScroll(float px, float py)
         {
-            if (InputBlocked) return null;      // 🆕 N8：黑场/遮罩期间滚轮也落到空处（判据见 `InputBlocked`）
+            if (InputBlocked || !_inputEnabled) return null;   // 🆕 N8：黑场/遮罩期间滚轮落到空处。🆕 2026-10-28（B93_E24）：输入层停用时同样落空（原版 `EventSystem.Update()` 不跑 ⇒ `ProcessMouseEvent` 的滚轮支路整段不跑，`StandaloneInputModule.cs:306`）。
             for (int i = _scrolls.Count - 1; i >= 0; i--)
             {
                 var s = _scrolls[i];
@@ -1715,6 +1715,32 @@ namespace CardPresentation
                     && py >= v.y1 && py <= v.y2) return s;
             }
             return null;
+        }
+
+        // ============================================================ 🆕 2026-10-28（B93_E24）：输入层停用时的状态清理
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用，插一行整段下游就漂）。
+        //
+        // 判据 = 原版 `eventSystem.enabled = false` 的第二步：
+        //   `EventSystem.OnDisable`（`EventSystem.cs:429-444`）→ `DeactivateModule()` → `ClearSelection()`，
+        //   而 `PointerInputModule.ClearSelection`（`PointerInputModule.cs:394-406`）干三件事：
+        //   ① 对每个 pointer 调 `HandlePointerExitAndEnter(pointer, null)` ⇒ **对正在悬停的件派 `OnPointerExit`**
+        //   ② `m_PointerData.Clear()` ⇒ **指针缓存清空**（停用前按住的拖拽，恢复后**不会接上**）
+        //   ③ `SetSelectedGameObject(null)` ⇒ **选中被清掉**
+        // ⚠️ 与 `InputBlocked`（黑场）**无关**：那条闸不碰任何状态，恢复后一切照旧 —— 这里清状态是**另一件事**。
+        // ⚠️ **不清** `_lastPx` / `_haveLastPx`：原版恢复后**有一帧完全不吃输入**（`EventSystem.cs:514` 的 `changedModule` 那一跳），
+        //   我们没有帧节流口 ⇒ 留着这一对更接近那个形状（精确对齐未做，见 `报告/B93_E24.md`）。
+        // 🔴 **不清** `_editing` / `_typed` / `_buf`：原版那一步是 `ClearSelection` 顺带把 `InputField` 反选掉
+        //   （`OnDeselect` → `DeactivateInputField`），而本类的文本框链**没有「反选」这个入口**
+        //   （`EndText(true)` 会**提交**、`EndText(false)` 会**取消**，两者都不是「失焦」）⇒ 归入「没查清」，不在本批自造。
+        static void ClearInputState()
+        {
+            var pl = _inst != null ? _inst : Object.FindFirstObjectByType<PointerLayer>();   // ⛔ **只找、绝不新建**（`Instance` 会惰性造一台 + `DontDestroyOnLoad`，在编辑器/批处理里会抛 —— 见 `Instance` 的 doc 那段病史）
+            if (pl == null) { Debug.Log("[Key] 输入层停用时**没有 PointerLayer 实例** ⇒ 悬停/按下/选中这一组状态无从清理（批处理/编辑态的正常情形；Play 里出现 = 这一位在输入层建起来之前就被关了）"); return; }
+            if (pl._hover != null) { pl._hover.Exit(); pl._hover = null; }   // ① = `HandlePointerExitAndEnter(pointer, null)`
+            pl._pressed = false; pl._down = null;                            // ② = `m_PointerData.Clear()`（含「按住中」那一档）
+            pl._dragScroll = null; pl._dragItem = default(DragSource);
+            pl._itemDragging = false; pl._dragging = false;
+            pl.Select(null);                                                 // ③ = `SetSelectedGameObject(null)`（顺带退掉选中视觉）
         }
     }
 }

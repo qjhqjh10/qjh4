@@ -512,7 +512,7 @@ namespace CardPresentation
         public const float DlPadL = 22f, DlPadT = 4f;
         public const float DnL = 1371.64f, DnT = 224.13f, DnR = 1726.64f, DnB = 271.82f;
         /// <summary>⚠️ 原版 `Warlord Name` 的矩形**宽 0**（`ContentSizeFitter` + `RectSizeLimiter` 运行时算）
-        /// 🔶 自己设计（非原版）：战将名框 `WnL/WnT/WnR/WnB` 的右沿（取 `Deck Name` 的 `DnR`） · 原版 `Warlord Name` 宽 0、靠 ContentSizeFitter + RectSizeLimiter 运行时算（原版判据拿不到） · TODO(谁定的)｜原注：⇒ **右沿是我们挑的**（取 `Deck Name` 的 `DnR`）。**不是复刻**。</summary>
+        /// ✅ **2026-10-28 订正（铁律 5 / 18·0）：原来这里写「🔶 自己设计（非原版）… 原版判据拿不到」【不成立】** —— 判据完全可读（`decomp_full/RectSizeLimiter__SetLayoutHorizontal.c` / `__SetLayoutVertical.c`，首行函数名就是它自己、35 行全文）⇒ 组件本体已逐句建成 `Shell/RectSizeLimiter.cs`，装配口 = `AttachWarlordNameLimiter`；`m_maxSize = (350, 0)` · `m_minSize = (0, 0)`（判据 = `bundle_menus_assets_all` 的 `MonoBehaviour_-6920805963187007684.json` / `MonoBehaviour_-888295288352693547.json`，两份值逐位相同）。**仍然是我们挑的只剩 `WnR` 这个常量右沿**（原版宽 0、由 `ContentSizeFitter(H=PreferredSize)` 撑到文本宽再被 350 夹住；本仓没有 uGUI 布局管线 ⇒ 常量框 + 夹取逼近，Hug 那一半不是逐字复刻）。</summary>
         public const float WnL = 1373.78f, WnT = 269.62f, WnR = 1726.64f, WnB = 303.62f;
         /// <summary>`Army Image` **105.26×104**（原版 sprite = 该阵营的 `40k_DeckSelection_icon_Faction*`）。</summary>
         public const float ArmImgL = 1258.85f, ArmImgT = 210.08f, ArmImgR = 1364.11f, ArmImgB = 314.08f;
@@ -829,7 +829,7 @@ namespace CardPresentation
             _txtWarlord = Txt(_info, WarlordNameOf(wl), WnL, WnR, WnT, WnB, 35f,
                               Align.Left, "Warlord Name", QPrText,
                               wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f,
-                              face: TmpFont.Face.LatinCardBody); BuildWarlordHit(wl);   // 原版第 4 颗钮（账 卡组:134），见方法头
+                              face: TmpFont.Face.LatinCardBody); BuildWarlordHit(wl); AttachWarlordNameLimiter(_txtWarlord);   // 原版第 4 颗钮（账 卡组:134），见方法头；末尾那句 = 原版那颗 `RectSizeLimiter`（账 未分类:509/510）
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
                             "Army Image", QPrFront, true);   // 🆕 2026-10-22（M2）：`QPrRow`→`QPrFront`（要压在立绘之上，见 `QPrFront` doc）
         }
@@ -2961,6 +2961,13 @@ namespace CardPresentation
             //   `SaveSelectedDeck()` ⇒ 点 `Battle!` 也会把「上次选的演示卡组」写进存档）。
             //   ⚠️ 放在督军闸**之后**：闸不过就不开局（原版那一刻也走不到 `SaveSelectedDeck` 后面那几跳）。
             SaveSelectedDeck();
+            // 🆕 **2026-10-28（盘 571）：原版 `PracticeEvent.StartMatch → StartMatchNoCheck(CardDeck)` 那三句的本地落地**
+            //   （`joinState = Joined` + `save.matchStarted(+0x44) = true` + `randomSeed`；判据见
+            //   `GameModesHandler.StartPracticeMatchNoCheck` 的方法头）。原版 `StartMatchNoCheck` 在
+            //   `MatchMakerManager.StartMatch` 之前跑 ⇒ 与 `SaveSelectedDeck()` 同刻，**放在这里**。
+            //   ⚠️ 这一步是 `PracticeEvent.Initialize` 那道闸（「上一场没收尾 ⇒ 判负 + 弹 OngoingMatch」）唯一的输入源。
+            new GameModesHandler().StartPracticeMatchNoCheck(
+                PrebuiltDecks.PendingSource != null ? PrebuiltDecks.PendingSource.deckId : deck.Name);
             // 🆕 2026-10-17（U4-1）：`Battle!` **按当前开关的赛制取卡组**（原版 `BattleButtonOnClick.c:96-160`
             //   按 `gameMode` 在 `plVar1[3]/[4]` 两套卡组/督军槽位里二选一）。我们每副牌自带 `GameMode`
             //   ⇒ 列表与选卡组窗都已按模式筛，这里只做**一致性出声**：选中的那副若是另一档
@@ -3738,6 +3745,40 @@ namespace CardPresentation
             DG.Tweening.TweenSettingsExtensions.OnKill(tw, () => ApplyCardbacksPose(1f));
             // ⚠️ 缓动只能挂在**数值补间自己**身上（Sequence 上挂非 Linear 会整条时间轴再弯一次）。
             _cardbacksTween = CardTween.Use(tw, DG.Tweening.Ease.InOutQuad, this);
+        }
+
+        // ============================================================ 账 未分类:509 / 510 · `Warlord Name` 上的 `RectSizeLimiter`
+        // 【判据（2026-10-28 现读，两份都读了）】
+        //   · prefab：`Warlord Name` 的组件表 = `TextMeshProUGUI, ContentSizeFitter, RectSizeLimiter, Button, EverguildTextController`
+        //     （`python 工具/menu_dump.py bundle_menus_assets_all "Practice Mode Menu" --depth 8 --md`，
+        //      同一行还印出 `⚙CSF h:PreferredSize ; RSL （0×34 在界内，没改）`）
+        //   · 实例值：`m_maxSize = (350, 0)` · `m_minSize = (0, 0)`（两份 MB 逐位相同，见 `WnL..WnB` 的 summary）
+        //   · 组件体：`Shell/RectSizeLimiter.cs`（逐句照 `decomp_full` 的两份 `.c`）
+        // ⇒ 这一颗的**上限 350 是原版数字**，不再是「我们挑的」。
+
+        /// <summary>原版 `Warlord Name` 那颗 `RectSizeLimiter` 的 `m_maxSize.x`（**350**，判据 = prefab 实例字段，见上）。</summary>
+        public const float WarlordNameMaxW = 350f;
+
+        /// <summary>把原版那颗 `RectSizeLimiter` 装到 `Warlord Name` 上，并**立刻跑一次**原版那两个回调。
+        /// <para>🔴 为什么要手动跑一次：本仓的 UI **不走 uGUI 布局管线**（每颗 rect 都是显式摆好的），
+        /// 所以没有任何 `LayoutRebuilder` 会来调 `SetLayoutHorizontal/Vertical` —— 不跑就等于「装了但从不执行」。
+        /// 跑的那一次用的是**原版的入参**（`rectTransform` = 这一格、`maxSize = (350,0)`、`minSize = (0,0)`），
+        /// ⛔ 不调全局 `ForceRebuildLayoutImmediate`（那会把整棵树上的其它控件也排一遍，动静过大）。</para>
+        /// <para>⚠️ 夹取会真的生效：我们那个常量框宽 = `WnR − WnL` = **352.86 px** &gt; 原版上限 350
+        /// ⇒ 夹完这一格是 **350 px**（差 2.86 px）。这正是原版的行为（它的框永远不可能超过 350）。</para></summary>
+        static void AttachWarlordNameLimiter(Label lb)
+        {
+            if (lb == null) { Debug.LogWarning("[Practice] `Warlord Name` 那颗 `Label` 没建出来 ⇒ 原版的 `RectSizeLimiter` 装不上（出声，不静默）"); return; }
+            var rt = lb.transform as RectTransform;
+            if (rt == null) { Debug.LogWarning("[Practice] `Warlord Name` 底下取不到 `RectTransform` ⇒ `RectSizeLimiter` 装不上（出声）"); return; }
+            var lim = rt.gameObject.AddComponent<RectSizeLimiter>();
+            lim.rectTransform = rt;                                         // 原版由 prefab 序列化赋值
+            lim.maxSize = new Vector2(LayoutSpace.Px(WarlordNameMaxW), 0f);  // 原版 `(350, 0)`，换算进本仓的布局单位
+            lim.minSize = Vector2.zero;                                     // 原版 `(0, 0)`
+            lim.SetLayoutHorizontal();                                      // 原版这一格由布局泵每趟调；本仓没有泵 ⇒ 显式跑一次
+            lim.SetLayoutVertical();
+            Debug.Log("[Practice] `Warlord Name` 装上原版 `RectSizeLimiter`（maxSize = (" + WarlordNameMaxW + ", 0) · minSize = (0, 0)）"
+                    + " ⇒ 当前宽 " + (rt.rect.width / LayoutSpace.Px(1f)).ToString("F2") + " px（上限 " + WarlordNameMaxW + " px）");
         }
     }
 }

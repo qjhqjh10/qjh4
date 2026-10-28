@@ -1008,8 +1008,8 @@ namespace CardPresentation
             //   现读 `:979` = `Price Display`（点它 `ProcessPurchase`）⇒ **Purchase Click**；
             //   `:1046` = `Preview` ⇒ **Positive**。R3 那两行的号已漂移（它写的 `:1012` 现在是
             //   `WebShop Button`，而原版每个 General Offer prefab 只有上面那 3 类 cue ⇒ **WebShop 不接**）。
-            MenuDraw.Hit(pd, "Hit", G.Price, QHit, () => ProcessPurchase(), pq, ArtBtn, ArtBtnHi,
-                         clickCue: WindowSounds.PurchaseCue);
+            if (pd == null) Debug.LogError("[BaseOffer] Offer popup missing priceDisplayButton");   // = 原版 `BaseOfferPopup.OnEnable` 那道闸
+            else MenuDraw.Hit(pd, "Hit", G.Price, QHit, () => ProcessPurchase(), pq, ArtBtn, ArtBtnHi, clickCue: WindowSounds.PurchaseCue);
 
             // ---- `Offer Price Discount Badge`（**带 rotation 17.17°**，见 `DiscountRotDeg`）----
             var dq = Rect(row, ArtOfferBadge, G.Discount, "Offer Price Discount Badge", QBtn, null, false);
@@ -1179,6 +1179,31 @@ namespace CardPresentation
                    + " · 抽屉槽 " + DrawerNodes.Count + " 个（填了 " + DrawerFilled + "）"
                    + " · 取不到的图 " + MissingArt.Count + " 张"
                    + (MissingArt.Count > 0 ? "（" + string.Join("、", MissingArt.ToArray()) + "）" : "");
+        }
+
+        // ============================================================ 🆕 2026-10-28（执行代理 `B93_S1`）
+        //   `BaseOfferPopup.OnEnable` / `OnDisable`（账 `商店:12` / `商店:13`）的**语义**那一半：
+        //   原版 = `priceDisplayButton(+0xA0).button.m_OnClick.AddListener(ProcessPurchase)`（`OnEnable`）／
+        //          `RemoveListener(ProcessPurchase)`（`OnDisable`）· **`priceDisplayButton == null` ⇒ `LogError`**
+        //          （判据 `out_cpp2il_dev_ilspy/BaseOfferPopup.cs:504-530` + `BaseOfferPopup__OnEnable.c` /
+        //          `__OnDisable.c` 现读）。
+        //   我们这一侧：按钮是建树时交给 `MenuDraw.Hit` 的**闭包**（全仓 `Shell/` 零 `AddListener`）⇒
+        //   「订阅/解绑」这一对**没有对应物**（宿主机制不同，见文件头 §④）；能对位的是**那一道闸**
+        //   + 「点价签 = `ProcessPurchase`」这一点（已接在 `BuildButtons` 的 `MenuDraw.Hit` 上）。
+
+        /// <summary>自检读口：价签的命中区建出来了没有（= 原版 `priceDisplayButton != null` 那一支）。
+        /// <para>`false` = `BuildButtons` 里 `MenuDraw.Node("Price Display")` 返回了 null ⇒ 原版那一支会
+        /// `LogError("Offer popup missing priceDisplayButton")`（我们也打同一条）。</para></summary>
+        public bool PriceDisplayButtonPresent
+        {
+            get
+            {
+                var tn = TextNode;
+                if (tn == null) return false;
+                var row = tn.Find("Purchase buttons");
+                if (row == null) return false;
+                return row.Find("Price Display") != null;
+            }
         }
     }
 }

@@ -692,4 +692,32 @@ namespace RuleEngine
             return new PxOffset(x * k, y * k);
         }
     }
+
+    // ================================================================================================
+    //  🆕 2026-10-28（`B93_F5` · 账 `战斗逻辑驱动:411`）
+    //  = 原版 `BattleManager.IsClosedDeckGame(MatchType chosenMatchType)` 的唯一等价谓词。
+    //  判据（🥇 全文 10 行）= `d:/2/tools/decomp_full/BattleManager__IsClosedDeckGame.c:1-10`：
+    //      if ((matchType != 0x6e /*110 ClosedDeck*/) && (matchType != 0x78 /*120 ClosedDeckBot*/)) return 0;
+    //      return 1;
+    //  ⇒ 真值集 = **{110, 120}**（与我们 `MatchType` 表的两个值逐值吻合）。
+    //
+    //  ⚠️ **为什么挂在扩展方法上**：逻辑上它属于 `MatchTypes`（`BattleContext.cs`），而那个文件本批不属本代理
+    //    ⇒ 先在这里给**唯一一份**实现。⛔ 不要在调用点手写 `t == ClosedDeck || t == ClosedDeckBot`
+    //    （两处写同一条规则 = 迟早不一致）；F4 把它并进 `MatchTypes` 类尾之后，删掉本类即可。
+    //  ⚠️ **别拿它替换语义不同的谓词**：`MatchTypes.UsesDefencePool`（{50,80,110,120}）·
+    //    `IsAgainstAI`（10 档）· `IsAgainstOnlineBot`（11 档）各自是不同的真值集 ⇒ 只有「问这是不是轮抽局」才用它。
+    //    「被内联 ⇒ 0 调用点也不判 D」那条口径见 `报告/B92_B3`：原版这个 `public static` 在可读四源里 0 调用点。
+    // ================================================================================================
+    public static class MatchTypeExtensions
+    {
+        /// <summary>= 原版 `BattleManager.IsClosedDeckGame`：`110 ClosedDeck` 或 `120 ClosedDeckBot` ⇒ 真。
+        /// <para>⚠️ 比之前务必取 <see cref="MatchTypes.Effective"/> 那一侧（原版比的也是翻转后的 `matchType`）。
+        /// ⚠️ 这两个值在 `GameMode` 上只有一档（`ClosedDeck 7`）—— 110→120 只改 `MatchType`、不改 `PlayMode`
+        /// （`BattleContext.MatchTypes.Effective`），所以「是不是轮抽局」问 `MatchType` 才覆盖 110 与 120 两种。</para></summary>
+        public static bool IsClosedDeckGame(this MatchType t)
+        {
+            return t == MatchType.ClosedDeck        // 110 (0x6e)
+                || t == MatchType.ClosedDeckBot;    // 120 (0x78)
+        }
+    }
 }

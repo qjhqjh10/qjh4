@@ -918,4 +918,370 @@ namespace CardPresentation
             return ev;
         }
     }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+    //  B93-5（2026-10-28 · 文件所有者代理 `D2`）：`RaidEventTab` / `RaidHeaderController` /
+    //  `RaidOrArmyReleaseMenuContainer` 三个**组件类**的生命周期与接线那一半。
+    //
+    //  【为什么追加在命名空间尾部】账按 `文件:行号` 记落点（`:244/:281/:355/:359/:400/:445/:497/:513/`
+    //    `:576/:694/:709/:727/:769/:779/:791/:801/:833/:874`）⇒ 新成员只能加在**所有老落点之后**，
+    //    否则整份账漂移（CLAUDE.md §三「新成员追加到类尾」的实测代价）。
+    //
+    //  【这是什么】原版这三个都是 `MonoBehaviour`，行为分散在
+    //    `Awake/Initialize/OnEnable/OnDestroy/Reset/UpdateTimer/ClickEventHelpButton/…` 里。
+    //    我们没有 prefab 实例与 `UnityEvent`/`LiveOpsAssetUtility` 运行时 ⇒ 把**每一句**投影成
+    //    「显式入参 → 显式出参」的纯函数/计划结构，由 `Shell/RaidEventWindow.cs` 接线。
+    //    **`null` 入参一律照原版「那一跳不执行」**（decomp 里每个 `if (字段 != 0)` 都逐条可见）。
+    //
+    //  【⛔ 别在这里建 UI、别猜远端值】本块只做「算」和「说清楚为什么不做」。
+    // ════════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>原版 `RaidHeaderController` 的**生命周期/接线**那一半
+    /// （`UpdateText` 的算式在 <see cref="RaidHeaderLogic"/>，⛔ 不重复第二份）。
+    /// <para>判据（逐句 · `d:/2/tools/decomp_full/`）：
+    /// `RaidHeaderController__Awake.c` · `__Initialize.c` · `__ClickEventHelpButton.c` ·
+    /// `__OnDestroy.c` · `__UpdateTimer.c` · `RaidHeaderController._UpdateTimer_d__12__MoveNext.c`。</para>
+    /// <para>字段对位（原版偏移 → 本类入参）：`+0x20 title` · `+0x28 armyIcon` · `+0x48 eventHelpButton` ·
+    /// `+0x50 liveOps(事件)` · `+0x58` 缓存的那个 `WaitForSeconds`。</para></summary>
+    public static class RaidHeaderControllerLogic
+    {
+        /// <summary>原版 `Awake()`（`__Awake.c` 全文 5 句）：
+        /// <code>
+        /// if (eventHelpButton == null) return;                       // op_Implicit 那道闸
+        /// eventHelpButton.onClick.AddListener(ClickEventHelpButton);  // UnityEvent 在 +0x100
+        /// </code>
+        /// <para>⚠️ **本 prefab 的 `eventHelpButton` 是空 PPtr（= `null`）** ⇒ 原版这一跳在本页**不执行**，
+        /// 返回 <see cref="SubscribeHelpButton"/> = `false`。⛔ 别为了「有颗钮」伪造一颗。</para></summary>
+        public static bool SubscribeHelpButton(bool hasEventHelpButton) { return hasEventHelpButton; }
+
+        /// <summary>原版 `Initialize(ILiveOps scoringEvent)`（`__Initialize.c` 全文 5 句）：
+        /// <code>
+        /// liveOps = scoringEvent;                                    // +0x50 存下
+        /// title.text = LiveOpsAssetUtility.GetLabel(事件);             // ★ 远端文案
+        /// armyIcon.sprite = LiveOpsAssetUtility.LoadAsset(事件, 5);    // ★ 远端图（阵营图）
+        /// UpdateText();                                              // 见 RaidHeaderLogic
+        /// StartCoroutine(UpdateTimer());                              // 每秒刷
+        /// </code>
+        /// <para>返回的三格就是「哪几句本地能落、哪几句拿不到」—— ⛔ 不拿 `Event Title` 冒充 `GetLabel`。</para></summary>
+        public struct InitializePlan
+        {
+            /// <summary>原版第一句：事件已存下（`liveOps != null`）。</summary>
+            public bool HasEvent;
+            /// <summary>`title.text = GetLabel(事件)`（远端 Addressables 文案）—— 本地拿不到。</summary>
+            public bool TitleFromRemoteLabel;
+            /// <summary>`armyIcon.sprite = LoadAsset(事件,5)`（远端图）—— 本地拿不到。</summary>
+            public bool ArmyIconFromRemoteAsset;
+            /// <summary>`UpdateText()` 会不会写字段（整段被「事件不为空」包着）。</summary>
+            public bool WritesText;
+            /// <summary>`StartCoroutine(UpdateTimer())` 会不会起（同样要事件非空）。</summary>
+            public bool StartsTimer;
+        }
+
+        public static InitializePlan Initialize(bool hasEvent)
+        {
+            // 原版 5 句逐句投影：字段存下 → 两处远端取值 → UpdateText → StartCoroutine
+            return new InitializePlan
+            {
+                HasEvent = hasEvent,
+                TitleFromRemoteLabel = hasEvent,
+                ArmyIconFromRemoteAsset = hasEvent,
+                WritesText = hasEvent,      // UpdateText 的第一道闸 = 事件非空
+                StartsTimer = hasEvent,     // UpdateTimer 的第一道闸 = 事件非空
+            };
+        }
+
+        /// <summary>原版 `ClickEventHelpButton()`（`__ClickEventHelpButton.c` 全文 4 句）：
+        /// <code>
+        /// if (!LiveOpsAssetUtility.HasComponent(事件, 0x1e)) return;            // 事件上有没有那个帮助组件
+        /// var c = LiveOpsAssetUtility.GetComponentReference(事件, 0x1e);
+        /// if (!c.&lt;+0x248&gt;()) return;                                        // 组件自己那道「可不可开」闸
+        /// WindowsManager.Instance.OpenWindow(c, 事件, options: 0, 0, 0);
+        /// </code>
+        /// <para>三格入参 = 那三道闸；`0x1e` 是 `EventAssetReferenceType`（**数值照原版**，别改名成我们自己造的枚举）。</para></summary>
+        public struct HelpClickPlan
+        {
+            /// <summary>那三道闸是否全过（= 原版最终会 `OpenWindow`）。</summary>
+            public bool Opens;
+            /// <summary>走到第几句就停了（`0` = 全过；`1/2/3` = 第 1/2/3 道闸拦下）。用于自检把三档分开。</summary>
+            public int StoppedAt;
+        }
+
+        public static HelpClickPlan ClickEventHelpButton(bool hasHelpComponent, bool componentSaysOpenable,
+                                                         bool hasWindowsManager)
+        {
+            // 原版 4 句，逐句一道闸（顺序照抄：HasComponent → 组件自述 → WindowsManager 可用）
+            if (!hasHelpComponent) return new HelpClickPlan { Opens = false, StoppedAt = 1 };
+            if (!componentSaysOpenable) return new HelpClickPlan { Opens = false, StoppedAt = 2 };
+            if (!hasWindowsManager) return new HelpClickPlan { Opens = false, StoppedAt = 3 };
+            return new HelpClickPlan { Opens = true, StoppedAt = 0 };
+        }
+
+        /// <summary>原版 `OnDestroy()`（`__OnDestroy.c` 全文 1 句）：`LiveOpsAssetUtility.Unload(事件, 5)`。
+        /// <returns>是否真有句柄可放（我们有句柄才出声，⛔ 不假装放过）。</returns></summary>
+        public static bool ReleasesArmyIcon(bool hasEvent)
+        {
+            // 原版：Unload(事件, 5) —— `5` = 阵营图那一个 EventAssetReferenceType（与 Initialize 的 LoadAsset 同值）
+            return hasEvent;
+        }
+
+        /// <summary>原版 `IEnumerator.Reset()`（编译器给协程状态机生成的 `Reset`，
+        /// `RaidHeaderController._UpdateTimer_d__12__System.Collections.IEnumerator.Reset.c` 全文 2 句）：
+        /// <code>state = -1; current = null;</code>
+        /// <para>⚠️ 它**不是** `RaidHeaderController` 自己的方法 —— 是 `_UpdateTimer_d__12` 那个状态机的。
+        /// 账里 617 那一行指向它；我们的等价 = 把协程迭代器复位（下面的 <see cref="UpdateTimer"/> 重新从头走）。</para></summary>
+        public static void ResetEnumeratorState(ref int state, ref object current) { state = -1; current = null; }
+
+        /// <summary>原版 `UpdateTimer()` + 它的状态机 `MoveNext`（`__UpdateTimer.c` 4 句 + `MoveNext.c` 2 支）：
+        /// <code>
+        /// while (LiveOpsUtility.GetDateForEventStage(事件, 0xf)?.&lt;+0x24&gt; != 0)   // ★ 那句判据没解出语义
+        /// {
+        ///     yield return 缓存的那个 WaitForSeconds(1);      // +0x58
+        ///     UpdateText();
+        /// }
+        /// </code>
+        /// <para>⚠️ **`+0x24` 那一格语义未查清**（`GetDateForEventStage` 的返回对象类型在 cpp2il 里丢了）⇒ 做成
+        /// 显式谓词 <paramref name="shouldContinue"/>，⛔ 不猜成「结束时刻未到」。</para>
+        /// <para>⚠️ 批处理没有帧循环 ⇒ 这个协程只会在 Play 模式里真跑；自检断的是**它有没有被起**与**每拍调了什么**。</para></summary>
+        public static System.Collections.IEnumerable UpdateTimer(System.Func<bool> shouldContinue, System.Action updateText)
+        {
+            var wait = new WaitForSeconds(1f);            // 原版缓存在 +0x58（循环里同一个实例）
+            while (shouldContinue != null && shouldContinue())
+            {
+                yield return wait;
+                if (updateText != null) updateText();
+            }
+        }
+    }
+
+    /// <summary>原版 `RaidEventTab`（页）的生命周期那一半。字段对位：
+    /// `+0x30 rewardSelector` · `+0x38 backgroundImage` · `+0x40 headerController` · `+0x50 liveOps(事件)`。
+    /// <para>判据（逐句）：`RaidEventTab__Initialize.c` · `__OnClose.c` · `__Reset.c`。</para></summary>
+    public static class RaidEventTabLogic
+    {
+        /// <summary>原版 `Initialize()`（`__Initialize.c` 全文 6 句）：
+        /// <code>
+        /// if (rewardSelector == null) NRE;
+        /// rewardSelector.scoringEvent = 事件;        // +0x38 那一格
+        /// rewardSelector.CreateRewards();            // 按里程碑逐件建
+        /// backgroundImage.sprite = LoadAsset(事件, 1); backgroundImage.enabled = (sprite != null);
+        /// if (headerController != null) headerController.Initialize(事件);
+        /// </code>
+        /// <para>返回三格 = 「奖励格要不要重建 / 背景图取不取得到 / 页头要不要初始化」。</para></summary>
+        public struct InitializePlan
+        {
+            /// <summary>第 1 句那道闸：没有 `rewardSelector` 原版直接 NRE ⇒ 我们出声并整段不跑。</summary>
+            public bool HasSelector;
+            /// <summary>事件非空时才 `CreateRewards`（原版 `scoringEvent = 事件` 之后无条件调，但里程碑为空 ⇒ 0 件）。</summary>
+            public bool RebuildRewards;
+            /// <summary>`LoadAsset(事件,1)` 取不取得到（本地 = 永远取不到 ⇒ `Image.enabled = false`）。</summary>
+            public bool BackgroundSpriteAvailable;
+            /// <summary>`headerController.Initialize(事件)` 是否执行。</summary>
+            public bool HeaderInitialized;
+        }
+
+        public static InitializePlan Initialize(bool hasSelector, bool hasEvent, bool backgroundSpriteAvailable)
+        {
+            var p = new InitializePlan { HasSelector = hasSelector, BackgroundSpriteAvailable = backgroundSpriteAvailable };
+            if (!hasSelector) return p;                     // 原版 NRE 那道闸
+            p.RebuildRewards = true;                        // 原版无条件调（里程碑空 ⇒ 循环 0 次）
+            p.BackgroundSpriteAvailable = backgroundSpriteAvailable;
+            p.HeaderInitialized = hasEvent;                 // 页头那一跳要事件非空
+            return p;
+        }
+
+        /// <summary>原版 `OnClose()`（`__OnClose.c` 全文 2 句）：`base.OnClose(); Reset();` ——
+        /// 我们这一侧 = <see cref="Reset"/> 的那一整段（base 的收尾由 `GameWindow.Close` 承担）。</summary>
+        public static bool ClosesByResetting() { return true; }
+
+        /// <summary>原版 `Reset()`（`__Reset.c` 全文 3 句）：
+        /// <code>
+        /// CustomDebug.LogWarning(字面量没解出);          // ⛔ 原文没解出，我们不编
+        /// LiveOpsAssetUtility.Unload(事件, 1);           // 卸背景图
+        /// if (headerController != null) headerController.Unload(事件, 5);  // 卸阵营图
+        /// </code>
+        /// <para>返回「要卸几张图」：`1` = 背景图；`+5` = 阵营图。本地一张都不加载 ⇒ 恒 0，但要**说清楚**。</para></summary>
+        public struct ReleasePlan
+        {
+            /// <summary>要卸的 `EventAssetReferenceType` 列表（原版 `1` 与 `5` 两个）。</summary>
+            public int[] AssetTypes;
+            /// <summary>`headerController == null` ⇒ 少卸一个（原版第三句的闸）。</summary>
+            public bool HeaderUnloads;
+        }
+
+        public static ReleasePlan Reset(bool hasHeaderController)
+        {
+            // 原版顺序：先 Unload(事件,1)，再（有 headerController 时）Unload(事件,5)
+            var d = new ReleasePlan { HeaderUnloads = hasHeaderController };
+            d.AssetTypes = hasHeaderController ? new[] { 1, 5 } : new[] { 1 };
+            return d;
+        }
+    }
+
+    /// <summary>原版 `RaidProgressBarScaleAndPositionController.SetPositionAndScale(...)`
+    /// （`decomp_full/RaidProgressBarScaleAndPositionController__SetPositionAndScale.c` 全文 4 句，逐句）：
+    /// <code>
+    /// if (stateToApply &lt; 2) return;                                  // ① ★ 唯一那道闸（形参按 uint 比）
+    /// rt.anchoredPosition = positionToModify + positionOffset;        // ②
+    /// rt.sizeDelta       = scaleToModify    + scaleOffset;            // ③
+    /// </code>
+    /// <para>我们这套没有 uGUI 布局 ⇒ 用**同一个算式**把矩形反算出来（纯函数、可自检）：
+    /// pivot 按 prefab 的 `(1, 0.5)` 反算 —— `anchoredPosition` 指**右缘中心** ⇒ 位置偏移先挪右缘；
+    /// `sizeDelta.x` 变而右缘不动 ⇒ 中心跟着挪 `−dw/2`。⚠️ Unity 的 `y` 向上、我们的 `PxRect` **y 向下** ⇒ `dy` 取负。</para>
+    /// <para>⚠️ **pivot 未逐字段现读**（`MonoBehaviour_3159737194665565180.json` 的 `m_Pivot` 本轮没读）
+    /// —— 若读到 `(0.5,0.5)`，位置偏移就是**整块平移**、右缘不动这一条要改。记在这里，真数据到了再核。</para></summary>
+    public static class RaidProgressBarScaleAndPositionControllerLogic
+    {
+        /// <summary>原版那道闸（与 <see cref="RaidBarPlacementLogic.Moves"/> 同一条规则，⛔ 不写第二份）。</summary>
+        public static bool Moves(RaidRewardState state) { return RaidBarPlacementLogic.Moves(state); }
+
+        /// <summary>把「位置偏移 + 尺寸偏移」落到矩形上（= 原版 ②③ 两句）。<paramref name="stateToApply"/> 不过闸 ⇒ 原样返回。</summary>
+        public static PxRect SetPositionAndScale(PxRect original, RaidRewardState stateToApply,
+                                                Vector2 positionOffset, Vector2 scaleOffset)
+        {
+            if (!Moves(stateToApply)) return original;         // ①
+            float w = original.W + scaleOffset.x;              // ③（sizeDelta = 原尺寸 + 偏移）
+            float h = original.H + scaleOffset.y;
+            float right = original.x2 + positionOffset.x;      // ②（anchoredPosition 挪的是**右缘中心**）
+            float cy = (original.y1 + original.y2) * 0.5f - positionOffset.y;
+            float cx = right - w * 0.5f;
+            return new PxRect(cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
+        }
+    }
+
+    /// <summary>原版 `RaidOrArmyReleaseMenuContainer : LiveopMenuContainer` —— **主菜单活动入口格上的小进度条**。
+    /// <para>字段对位：`+0x68 icon(Image)` · `+0x70 progressBar(ProgressBar)` · `+0x78 progressContainer(GameObject)` ·
+    /// `+0x80 levelText` · `+0x88 iconAssetType(int)` · `+0x90 expansionPassEvent` · `+0x98 raidEvent`。</para>
+    /// <para>判据（逐句）：`RaidOrArmyReleaseMenuContainer__OnEnable.c` · `__OnInitialize.c` ·
+    /// `__SetAndRefreshProgressBar.c` · `__RefreshProgressBar.c`。</para>
+    /// <para>🔴 **为什么只做到「逻辑 + 读口」**：宿主 `LiveopMenuContainer` 那一半在我们这儿是
+    /// `Shell/MainMenuRuntime.cs:3993` 起（不在本批所有权）⇒ 接线要等那条线；本块把**能判的全判掉**。</para></summary>
+    public static class RaidOrArmyReleaseMenuContainerLogic
+    {
+        /// <summary>原版 `OnEnable()`（全文 1 句）：`RefreshProgressBar();`。</summary>
+        public static bool RefreshesOnEnable() { return true; }
+
+        /// <summary>原版 `OnInitialize` 的**选支结果**（全文 9 句 + `<OnInitialize>b__0` 谓词）：
+        /// <code>
+        /// base.OnInitialize(事件);                                  // LiveopMenuContainer 那一半
+        /// if (progressContainer != null) progressContainer.SetActive(false);
+        /// var parentEvent = 事件 as ParentEvent;                     // 类型不对 ⇒ null
+        /// if (parentEvent == null) return;
+        /// if (ScoringEventHandler.FirstOrDefault(x =&gt; 谓词) is A型) { expansionPassEvent = it; }   // +0x90
+        /// else if (… is B型)                                       { raidEvent = it; }            // +0x98
+        /// else { progressContainer.SetActive(false); return; }      // 两种都不是 ⇒ 收起来
+        /// SetAndRefreshProgressBar(parentEvent);
+        /// </code>
+        /// <para>三支互斥 ⇒ 自检必须能把 `<see cref="Branch"/>` 的 0/1/2/3 四个值分开。</para></summary>
+        public struct InitPlan
+        {
+            /// <summary>`0` = 不是 ParentEvent（整段不跑）；`1` = 找到了 ExpansionPass 计分事件；
+            /// `2` = 找到了 Raid 计分事件；`3` = 找到了但两种都不是（收起来）。</summary>
+            public int Branch;
+            /// <summary>要不要 `progressContainer.SetActive(**false**)`（原版第一句 + 第 3 支各一次）。</summary>
+            public bool HideProgressContainer;
+            /// <summary>要不要接着调 `SetAndRefreshProgressBar`。</summary>
+            public bool CallsSetAndRefresh;
+        }
+
+        /// <summary>`matchedKind`：`0` = 没找到；`1` = ExpansionPass 型；`2` = Raid 型；`3` = 其它型。</summary>
+        public static InitPlan OnInitialize(bool isParentEvent, int matchedKind)
+        {
+            var p = new InitPlan();
+            if (!isParentEvent) { p.Branch = 0; p.HideProgressContainer = true; return p; }
+            switch (matchedKind)
+            {
+                case 1: p.Branch = 1; break;
+                case 2: p.Branch = 2; break;
+                default: p.Branch = 3; p.HideProgressContainer = true; return p;
+            }
+            p.CallsSetAndRefresh = true;
+            return p;
+        }
+
+        /// <summary>原版 `SetAndRefreshProgressBar(ParentEvent)`（`__SetAndRefreshProgressBar.c` 全文 5 句）：
+        /// <code>
+        /// progressContainer.SetActive(true);                       // +0x78
+        /// icon.sprite = LiveOpsAssetUtility.LoadAsset(parentEvent, +0x88);   // ★ 远端图（assetType 值未读）
+        /// icon.enabled = (sprite != null);
+        /// RefreshProgressBar();
+        /// </code>
+        /// <para>⚠️ `+0x88`（`iconAssetType`）的**数值没读出来**（prefab MB 待读）⇒ 做成入参，⛔ 不猜一个类型值。</para></summary>
+        public struct SetPlan
+        {
+            public bool ShowContainer;
+            public bool IconEnabled;
+            public bool CallsRefresh;
+            /// <summary>`+0x88` 那格（原版 `EventAssetReferenceType`）；调用方传，⛔ 本类不假定。</summary>
+            public int IconAssetType;
+        }
+
+        public static SetPlan SetAndRefreshProgressBar(bool iconSpriteAvailable, int iconAssetType)
+        {
+            return new SetPlan
+            {
+                ShowContainer = true,
+                IconEnabled = iconSpriteAvailable,
+                CallsRefresh = true,
+                IconAssetType = iconAssetType,
+            };
+        }
+
+        /// <summary>原版 `RefreshProgressBar()`（`__RefreshProgressBar.c` 全文 11 句）：
+        /// <code>
+        /// if (raidEvent == null &amp;&amp; expansionPassEvent == null) return;
+        /// if (raidEvent == null) {                                  // ⇒ ExpansionPass 那一支
+        ///     if (expansionPassEvent == null) return;
+        ///     levelText.text = (expansionPassEvent.GetCurrentMilestoneIndex() + 1).ToString();
+        ///     progress = expansionPassEvent.GetScoringInfoFromCurrentMilestone();
+        /// } else {
+        ///     if (expansionPassEvent != null) return;                // ★ 两个都非空 ⇒ 什么都不做
+        ///     levelText.text = (raidEvent.GetCurrentMilestoneIndex() + 1).ToString();
+        ///     progress = raidEvent.GetScoringInfoFromCurrentMilestone();
+        /// }
+        /// progressBar.SetProgress(progress);                        // = current / next
+        /// </code>
+        /// <para>🔴 两处**反直觉**、别「顺手修正」：① 档位文字是 **下标 + 1**；② 两个事件都非空 ⇒ **早退**（原版就这样）。</para></summary>
+        public struct RefreshPlan
+        {
+            /// <summary>`false` = 原版在这一档 return（一个字段都不写）。</summary>
+            public bool Writes;
+            /// <summary>档位文字（原版 `levelText.text`）= 下标 + 1；不写时为 `null`。</summary>
+            public string LevelText;
+            /// <summary>`progressBar.SetProgress` 的归一化值（`current / next`；`next &lt;= 0` ⇒ `0`）。</summary>
+            public float Progress;
+        }
+
+        public static RefreshPlan RefreshProgressBar(bool hasExpansionPassEvent, bool hasRaidEvent,
+                                                     int expansionPassMilestoneIndex, int raidMilestoneIndex,
+                                                     ScoringDataInfo expansionPassScoring, ScoringDataInfo raidScoring)
+        {
+            var p = new RefreshPlan();
+            if (!hasExpansionPassEvent && !hasRaidEvent) return p;          // 第 1 句
+            if (!hasRaidEvent)
+            {
+                if (!hasExpansionPassEvent) return p;                        // 第 3 句（与第 1 句同解，照抄）
+                p.LevelText = (expansionPassMilestoneIndex + 1).ToString();
+                p.Progress = ProgressOf(expansionPassScoring);
+            }
+            else
+            {
+                if (hasExpansionPassEvent) return p;                         // ★ 第 7 句：两个都非空 ⇒ 早退
+                p.LevelText = (raidMilestoneIndex + 1).ToString();
+                p.Progress = ProgressOf(raidScoring);
+            }
+            p.Writes = true;
+            return p;
+        }
+
+        /// <summary>`ProgressBar.SetProgress(ScoringDataInfo)`（`ProgressBar__SetProgress.c` 全文 2 句）：
+        /// 取 `+0x10`（当前分）与 `+0x18`（下一档门槛）⇒ `current / next`。`next &lt;= 0` ⇒ 0（⛔ 不除零）。</summary>
+        public static float ProgressOf(ScoringDataInfo info)
+        {
+            if (info == null) return 0f;
+            int cur = info.CurrentScore, next = info.NextLevelScore;
+            if (next <= 0) return 0f;
+            float v = (float)cur / (float)next;
+            return v < 0f ? 0f : (v > 1f ? 1f : v);
+        }
+    }
 }

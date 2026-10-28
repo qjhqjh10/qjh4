@@ -224,6 +224,22 @@ namespace CardPresentation
 
         public override void Open() { Build(); }
 
+        /// <summary>= 原版 `DailyRewardPopup.ToFocus()`（`out_cpp2il_dev_ilspy/DailyRewardPopup.cs` 的 `ToFocus`）：
+        /// `trackSidePanel.Initialize(mission)` → `rewardsTrack.RefreshData(mission, refreshAllRewards: true)`
+        /// → 重算 `timerText`（`DailyLoginChallenge.GetNextUpdate(progress)`，过去 ⇒ `timerText.gameObject.SetActive(false)`）。
+        /// <para>🔴 **这一跳原来在本工程里没有对应物**（`Shell/GameWindow.cs:468` 那句 2026-10-25 之前的口径），
+        /// ⇒ 领完奖回到本窗时**抽屉状态是旧的**（`DailyData.RewardStateOf` 只在 `Build` 那一刻读）。
+        /// 补上之后：点领奖 → 关掉那扇 `Reward Window` → 回前台这一拍重算 ⇒ 已领那格立刻变 `Collected`。</para>
+        /// <para>⚠️ 计时器那一半不复刻：原版 `GetNextUpdate` 读的是服务端下发的活动期；我们的倒计时由
+        /// `TimerDisplay.Attach` 每秒重算、到点自己隐藏文本（`Shell/TimerDisplay.cs` 的口径）。</para></summary>
+        public override void ToFocus()
+        {
+            base.ToFocus();
+            if (_content == null) return;                    // 还没建（`Open` 之前）⇒ 什么都不做
+            InitializeTrackPanel(_premiumTrack, _premiumBuyButton, owned: DailyData.PremiumOwned);
+            RefreshData(true);
+        }
+
         // ============================================================ 🆕 **2026-10-13（A495）**
         // **「关窗那一拍先收一遍」的三条生产路径**（ESC / 返回钮 / 点窗外）—— 裁定原文与落地形状见下。
         //
@@ -359,7 +375,7 @@ namespace CardPresentation
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepTop, "Separator Line Top", QPanel);
             MenuDraw.Rect(tracks, Art(ArtSepLine), SepBottom, "Separator Line Bottom", QPanel);
             var view = MenuDraw.Node(tracks, "Rewards Scroll View", ScrollView);
-            var content = MenuDraw.Node(view, "Rewards Content", new PxRect(ScrollView.x1, 132.09f, ScrollView.x1, 944.19f));
+            _content = MenuDraw.Node(view, "Rewards Content", new PxRect(ScrollView.x1, 132.09f, ScrollView.x1, 944.19f));
             // 🆕 **2026-10-17（`N46②`）**：接上原版那台滚动区（灵敏度 **1.0** px/格 · Elastic · Inertia）。
             float scrollContentW = EntryPitch * (DailyData.RewardDays - 1) + EntryW;
             var vc = view.gameObject.AddComponent<ViewportClip>();
@@ -370,21 +386,14 @@ namespace CardPresentation
             _scroll.Owner = gameObject;
             _scroll.Elastic = true;             // 原版 `m_MovementType = 1`
             _scroll.ClipNode = vc;              // ⚠️ `MenuScroll.ClipNode` 只能宿主显式赋值（`Owner` 反查永远 null）
-            var contentBase = content.localPosition;
+            var contentBase = _content.localPosition;
             _scroll.OnChanged = () =>
-                content.localPosition = contentBase + new Vector3(LayoutSpace.Px(-_scroll.Offset), 0f, 0f);
+                _content.localPosition = contentBase + new Vector3(LayoutSpace.Px(-_scroll.Offset), 0f, 0f);
             SocialPage.RegisterScroll(_scroll); // 指针层要认识它，滚轮才落得到这一格上
 
-            // 3) 四个 Entry（`Rewards Content` 的 HLG：spacing **−64**、align=3 MiddleLeft ⇒ 相邻格**故意重叠 64**）
-            for (int i = 0; i < DailyData.RewardDays; i++)
-            {
-                float x1 = ScrollView.x1 + EntryPitch * i;
-                // 🔴 四格一律过 `Shift`（与 `CampaignTab` 同一条口径）；`Offset` 归零时逐位不变。
-                var r = _scroll != null
-                      ? _scroll.Shift(new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH))
-                      : new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
-                entries.Add(BuildEntry(content, r, i));
-            }
+            // 3) 四个 Entry —— 走原版选择器那条口（`DailyRewardSelector.Initialize` → `CreateRewards`；
+            //    `Rewards Content` 的 HLG：spacing **−64**、align=3 MiddleLeft ⇒ 相邻格**故意重叠 64**）
+            InitializeRewards();
 
             // 4) 侧栏（双轨 + 关闭圆钮）
             BuildSideBar(root);
@@ -396,6 +405,9 @@ namespace CardPresentation
             // 5) 顶栏（阵营）与底栏（倒计时）
             BuildHeader(root);
             BuildTimer(root);
+
+            // 6) 原版 `Start()` 的四跳接线（见 `WireUp` 的 doc：3 跳已在各自建点、第 3 跳在这里、第 4 跳未接）
+            WireUp();
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[DailyReward] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -477,7 +489,7 @@ namespace CardPresentation
             var hl = MenuDraw.Node(node, "Highlight", R(D_Highlight));
             MenuDraw.Nine(hl, Art(ArtHighlight), R(D_Highlight), new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
                           QPanel, HighlightTint);
-            hl.gameObject.SetActive(st == RewardState.Unlocked);
+            // 显隐**不在这里设** —— 三态五件统一由 `Drawer.SetState` 开（见本方法末尾那三行）。
             // `Reward Holder` → 图标
             var holder = MenuDraw.Node(node, "Reward Holder", R(D_Holder));
             var icon = Art(DailyData.RewardIconOf(day, prem));
@@ -504,7 +516,7 @@ namespace CardPresentation
             MenuDraw.Rect(pi, Art(ArtPremBanner), R(D_PremBanner), "Banner", QContent);
             // PA=1（`WF Lock Icon Simple` 42×63 塞 33.52×46.15 ⇒ 原版 30.77×46.15，我们拉伸 33.5 宽，差 ~9%）
             MenuDraw.Rect(pi, Art(ArtLock), R(D_PremLock), "Lock", QOverlay, null, true);
-            pi.gameObject.SetActive(st == RewardState.PremiumLocked);
+            // PremiumLocked 才开 —— `Drawer.SetState` 那一跳（判据同原版 `+0x30` 那一件）。
 
             // `Gacha Reward Claimed`（`WF_Special offer_Value` + 'Claimed'）—— **只有 Collected 开**
             var gc = MenuDraw.Node(node, "Gacha Reward Claimed", R(D_Claimed));
@@ -524,17 +536,17 @@ namespace CardPresentation
                                           R(D_ClaimedTex).W, 15f * 0.8f, 200f * 0.8f, 36f * 0.8f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
             MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex));   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
-            gc.gameObject.SetActive(st == RewardState.Collected);
+            // Collected 才开（原版同一句还开 `Shadow` —— 我们没有那张影子图，见文件头「我们挑的」）——
+            // 由 `Drawer.SetState` 统一开。
 
             // `colider`（**真的点击区**：同 BG 的图、α=0.00 + 按钮）—— **只有 Unlocked 开且可点**
             var col = MenuDraw.Node(node, "colider", R(D_Bg));
             var cq = MenuDraw.Rect(col, Art(ArtBackOpaque), R(D_Bg), "Hit", QOverlay,
                                    new Color(1f, 1f, 1f, 0f));
-            col.gameObject.SetActive(st == RewardState.Unlocked);
+            WindowButton hit = null;
             if (cq != null)
             {
-                var hit = cq.gameObject.AddComponent<WindowButton>();
-                int d = day; bool pm = prem;
+                hit = cq.gameObject.AddComponent<WindowButton>();
                 // 🆕 **2026-10-11（批次1 · W1 · A309）**：这一下现在**会弹原版那扇 `Reward Window`** ——
                 //   开窗在 `DailyData.CollectReward` 里面（= 我们唯一的发奖口那一处，见那边的「领奖窗」一段）：
                 //   `RewardService.Collect` 在原版就是「发完奖 → 开一扇 Collect 态的全屏领奖窗」。
@@ -546,8 +558,19 @@ namespace CardPresentation
                 //   ⇒ 原版点哪一格都一样：收的是 `CurrentChallenges` 里**第一条 `canCollect`**
                 //   （**不止本窗那一格**；列表序本地查不到 ⇒ 我们按**点的那一格**收 = 我们的落地，
                 //   与关窗那一拍（`DailyData.DailyRewardAutoCollect`）同口径、同一份守卫）。
-                hit.onClick = () => DailyData.CollectReward(d, pm);
+                //   ⚠️ 那一跳**不在这一行写死**了：抽屉的 `OnCollect` → 选择器 `CollectRewardClicked`
+                //   → 本窗 `OnCollect`（接线在 `WireUp`）—— 三层与原版 `+0x70 → +0x58 → <Start>b__6_0` 一一对应。
             }
+            // 🔴 **三态五件统一由 `Drawer.SetState` 开**（= 原版 `DailyRewardDrawerController.SetState`，
+            //   `DF:DailyRewardDrawerController__SetState.c:8-28` 的五句逐条对应；开关表见那个方法）。
+            //   ⚠️ 原来这四句是**散在本方法里各写一条 `SetActive`** —— 与「状态只有一处说了算」相冲突，
+            //   而且那样没地方表达原版的 `CurrentState` / 二次设态（`RefreshData` 那条路要用）。
+            var drawer = new Drawer(this, day, prem, hl, pi.gameObject, gc.gameObject, col, hit);
+            drawer.SetState(st);
+            _drawers.Add(drawer);
+            // 原版 `DailyRewardItemContainer.Initialize` 把 `onCollect` 交给抽屉；抽屉点一下 →
+            // 选择器 `CollectRewardClicked` → 窗上 `OnCollect`（= 原版 `<Start>b__6_0` 的 `TryCollect()`）。
+            if (hit != null) hit.onClick = drawer.OnCollect;
         }
 
         void BuildSideBar(Transform root)
@@ -589,14 +612,18 @@ namespace CardPresentation
             if (pb != null)
             {
                 var hit = pb.gameObject.AddComponent<WindowButton>();
-                // ⚠️ 单机口径（边界②）：**不卖 Premium**，点了如实说明（红线：不许静默失败）
-                hit.onClick = () => Debug.Log("[DailyReward] 「买 Premium 轨」单机版**没有实现** —— " +
-                                              "原版走 `PremiumOffer.TryPurchaseOffer`（真商店），" +
-                                              "本项目的边界②是「不做真实经济」⇒ 点了如实提示，不假装成功");
+                // 🔶 自己设计（非原版）：本地模拟「买 Premium 轨」 · 原版这一跳是真钱商店 `PremiumOffer.TryPurchaseOffer`（远端商店目录，关服后判据拿不到） · 调度台 2026-10-28 裁定
+                hit.onClick = HandlePurchase;   // = 原版 `DailyRewardTrackPanel.Start()` 那句 `purchaseButton.OnClick.AddListener(HandlePurchase)`（`out_cpp2il_dev_ilspy/DailyRewardTrackPanel.cs:26-31`）
+                // （原版 `purchaseButton.Interactable = false` 这一句**没有站立点**：本地模拟买是同步的、进不来第二次，
+                //   而且紧接着整颗价钱钮就被 `InitializeTrackPanel` 的 `SetActive(false)` 收掉 ⇒ 见 `HandlePurchase` 的 doc）
                 // 🆕 A17：原版 `Tracks Side Bar>BG>Premium Track>Price Display Button 2 Variant>Generic UI Button`
                 // 是 SpriteSwap（普查 §块 4 第 7 行）
                 hit.BindSelf("UI_Button_Mulligan");
             }
+            // 原版 `DailyRewardTrackPanel.Initialize(MainMenuMission)`：**holders 的显隐**（判据那条在下面方法里）
+            _premiumTrack = p;
+            _premiumBuyButton = price;
+            InitializeTrackPanel(p, price, owned: DailyData.PremiumOwned);
             // 左下关闭圆钮
             var close = MenuDraw.Node(bar, "Generic Round Button Variant", CloseBtn);
             var cq = MenuDraw.Rect(close, Art(ArtBackBtn), CloseBtn, "Image", QOverlay);
@@ -700,12 +727,12 @@ namespace CardPresentation
             var tm = MenuDraw.Text(t, TimerText, DailyData.RewardTimerText(), Color.white, "EverguildTextMeshPro (1)", 50f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(tm, TimerText);
             MenuDraw.SetVAlign(tm, Label.VAlign.Capline, TimerText);   // A712 阶段 2：原版 `Left/Capline` 的纵向那一半
-            // 🔴 **2026-10-17（N3）**：这一颗原来只有**建窗那一刻**的活值（`DailyData.RewardTimerText()` 一次性
-            //   算好的字符串），**没有每秒 tick**（判据/缺口见 `资料/普查产出_1017/UI/W_A_TimerDisplay.md` §4·5）。
+            // 🔴 **2026-10-17（N3）**：这一颗原来只有**建窗那一刻**的活值（`DailyData.RewardTimerText()` 一次性算好的字符串），**没有每秒 tick**（判据/缺口见 `资料/普查产出_1017/UI/W_A_TimerDisplay.md` §4·5）。
             //   这里挂上全工程唯一的倒计时口径 `TimerDisplay` ⇒ 每秒重算一次。
             //   目标 = 我们自建的**日界** `DailyData.NextResetAt`（本机时间；原版这颗由 `TimerDisplay` 运行时填，
             //   我们没有服务器 —— 见 `DailyData.ResetIn` 那条注释）。前缀与 `RewardTimerText()` 同一格（`Resets in `）。
-            TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日奖励窗 Timer", null, prefixKey: "Missions/CollectCounter");   // 🆕 B92_N5：键一并交下去 ⇒ 换语言时 TimerDisplay.LocalizationChange 能重取译文（同一行写完 = 零行号漂移）
+            var timerTd = TimerDisplay.Attach(tm, () => DailyData.NextResetAt, Loc.T("Missions/CollectCounter"), "每日奖励窗 Timer", null, prefixKey: "Missions/CollectCounter");   // 🆕 B92_N5：键一并交下去 ⇒ 换语言时 TimerDisplay.LocalizationChange 能重取译文（同一行写完 = 零行号漂移）
+            if (timerTd != null) timerTd.OnRunOutOfTime += ToFocus;   // 🆕 B93_N1：原版 `Start()` 的**第 4 跳**；那个方法常量（`+0x1B0`）= vtable slot 7 = `ToFocus`（推导见 `WireUp` 的 doc）
         }
 
         // ============================================================ 🆕 2026-10-26（B9 · P9 #91/#92）
@@ -799,6 +826,270 @@ namespace CardPresentation
         public string Dump()
         {
             return $"DailyReward：{entries.Count} 个 Entry · 取不到的图 {MissingArt.Count} 张";
+        }
+
+        // ============================ 原版「窗 → 选择器 → 一天 → 抽屉」四层的 1:1 落点（2026-10-28 · B93_E11）
+        //
+        // 原版结构（`dump.cs:68853-69000`；方法体 = `DF:DailyRewardSelector__*.c` 一族）：
+        //   `DailyRewardPopup`（窗）→ `DailyRewardSelector`（奖格轨）→ `DailyRewardItemContainer`（一天）
+        //     → `DailyRewardDrawerController`（一条轨：`NormalReward` / `Premium Reward` 各一份）
+        // 我们是「一扇窗一个类」（没有可挂的 MonoBehaviour 子件），四层落在同一个类里：
+        //   · 抽屉 = 下面的 `Drawer`（`SetState` / `OnCollect` / `Refresh`）
+        //   · 一天 = `BuildEntry` + `BuildDrawer`
+        //   · 选择器 = `CreateRewards` / `RefreshData` / `ResetRewards` / `InitializeRewards` / `CollectRewardClicked`
+        //   · 窗 = `Build` / `WireUp`
+        // ⚠️ 三个口名**不是原版名**（`ResetRewards` / `InitializeRewards` / `WireUp`）：本类是 `GameWindow`
+        //   （MonoBehaviour 子类），`Start` / `Reset` / `Initialize` 这些名字**要么被 Unity 生命周期占用、
+        //   要么与既有成员冲突**（`Open()` 已经是「建窗」那个口）⇒ 只能改口名，语义一一对应见各自 doc。
+
+        /// <summary>抽屉（= 原版 `DailyRewardDrawerController`）。`NormalReward` / `Premium Reward` 各一份。</summary>
+        readonly System.Collections.Generic.List<Drawer> _drawers = new System.Collections.Generic.List<Drawer>();
+        /// <summary>`Tracks ▸ Rewards Scroll View ▸ Rewards Content`（原版选择器的 `contentAnchor`）。</summary>
+        Transform _content;
+        /// <summary>`Tracks Side Bar ▸ Premium Track`（原版 `DailyRewardTrackPanel.premiumTrackHolder`）与
+        /// 它那颗购买钮（`purchaseButton`）—— 由 `InitializeTrackPanel` 开关，`ToFocus` 会再调一次。</summary>
+        Transform _premiumTrack, _premiumBuyButton;
+        /// <summary>`WireUp` 只跑一次（`Build` 会被重建多次 ⇒ 否则事件会重复挂）。</summary>
+        bool _wired;
+
+        /// <summary>一个抽屉的三态开关 + 它的「收」回调（= 原版 `DailyRewardDrawerController` 那半，
+        /// 逐句判据 `DF:DailyRewardDrawerController__SetState.c:8-28`）。
+        /// <para>原版那是**独立 MonoBehaviour**、12 个实例各挂一份（`dump.cs` 里 12 个 MB）；
+        /// 我们一个 drawer 一个对象，节点引用在 `BuildDrawer` 里一次抓齐。</para></summary>
+        public sealed class Drawer
+        {
+            public readonly int Day;
+            public readonly bool Premium;
+            /// <summary>原版 `CurrentState`（`+0x70`）——**最后一次 `SetState` 的值**。</summary>
+            public RewardState State { get; private set; }
+            readonly DailyRewardPopup _owner;
+            readonly Transform _highlight, _colider;
+            readonly GameObject _premiumIndicator, _claimed;
+            readonly WindowButton _hit;
+
+            internal Drawer(DailyRewardPopup owner, int day, bool premium, Transform highlight,
+                            GameObject premiumIndicator, GameObject claimed, Transform colider, WindowButton hit)
+            {
+                _owner = owner; Day = day; Premium = premium;
+                _highlight = highlight; _premiumIndicator = premiumIndicator; _claimed = claimed;
+                _colider = colider; _hit = hit;
+            }
+
+            /// <summary>= 原版 `SetState(State)`。**五件里我们只建了四件**（`Shadow` 那张图我们没有，
+            /// 见文件头「我们挑的」那条）：
+            /// <list type="bullet">
+            ///   <item>`premiumLockIndicator`（`+0x30`）= `Premium Indicator` ⇔ `PremiumLocked`；</item>
+            ///   <item>`claimedIndicator`（`+0x38`）= `Gacha Reward Claimed` ⇔ `Collected`；</item>
+            ///   <item>`shadow`（`+0x48`）⇔ `Collected` —— **本工程没有这一件**（无图）；</item>
+            ///   <item>`highlight`（`+0x50`）= `Highlight` ⇔ `Unlocked`；</item>
+            ///   <item>`claimButton`（`+0x58`）= `colider`：`SetActive` + `interactable` 都 ⇔ `Unlocked`
+            ///         （原版两句都吃同一个 `state == 1`）。</item>
+            /// </list>
+            /// 末尾 `CurrentState = state`（原版 `*(int *)(param_1 + 0x70) = param_2`）。
+            /// ⚠️ 原版这个方法是**连续四层 `if (x != null)` 嵌套** —— 任何一件为空就**抛异常**（`FUN_1803f47a0`）。
+            /// 那是 prefab 保证「都挂了」的写法，我们是运行时建节点 ⇒ 逐件判空（空则跳过），**不照抄那个抛出**。</summary>
+            public void SetState(RewardState state)
+            {
+                if (_premiumIndicator != null) _premiumIndicator.SetActive(state == RewardState.PremiumLocked);
+                if (_claimed != null) _claimed.SetActive(state == RewardState.Collected);
+                if (_highlight != null) _highlight.gameObject.SetActive(state == RewardState.Unlocked);
+                if (_colider != null) _colider.gameObject.SetActive(state == RewardState.Unlocked);
+                if (_hit != null) _hit.Interactable = state == RewardState.Unlocked;
+                State = state;
+            }
+
+            /// <summary>= 原版 `DailyRewardItemContainer.OnCollect()`：**只做一件事 —— 调那个回调**
+            /// （`DF:DailyRewardItemContainer__OnCollect.c` 全文就是 `(**(…)(+0x18))(+0x40, +0x28)` = `onCollect.Invoke()`）。
+            /// 我们的回调链 = 抽屉 → 选择器 `CollectRewardClicked` → 窗 `OnCollect` → `DailyData.CollectReward`
+            /// （原版是 抽屉 → `&lt;Initialize&gt;` 的 lambda → 选择器 `OnCollect` → `<Start>b__6_0` → `TryCollect(null)`）。</summary>
+            public void OnCollect()
+            {
+                if (_owner != null) _owner.CollectRewardClicked(Day, Premium);
+            }
+
+            /// <summary>= 原版 `DailyRewardItemContainer.Refresh()` 的**状态那一半**
+            /// （`…__Refresh.c` / `out_cpp2il_dev_ilspy/DailyRewardItemContainer.cs:243-330`：重算 `GetCurrentState`
+            /// 再 `SetState`；另一半 `currentDrawer.Refresh()` 是图标重绘，我们的图标是建的时候定的、没有可刷的层）。</summary>
+            public void Refresh()
+            {
+                SetState(DailyData.RewardStateOf(Day, Premium));
+            }
+        }
+
+        /// <summary>= 原版 `DailyRewardSelector.OnCollect`（`Action&lt;ChallengeMilestone&gt;`，`+0x58`）：
+        /// 窗把它挂到 `<Start>b__6_0`（→ `LiveOp.TryCollect(null)`）。
+        /// <para>形参从 `ChallengeMilestone` 换成 `(day, premium)`：我们没有里程碑 SO，
+        /// **这一对就是「哪一格抽屉」**；而且原版那条链末句**根本没用那个 milestone 形参**（见 `BuildDrawer` 的注释）。</para></summary>
+        public event System.Action<int, bool> OnCollect;
+
+        /// <summary>= 原版 `DailyRewardSelector.CollectRewardClicked(ChallengeMilestone)`
+        /// （`DF:DailyRewardSelector__CollectRewardClicked.c:2-17` —— 全篇就是 `m_OnCollect?.Invoke(milestone)`）。</summary>
+        public void CollectRewardClicked(int day, bool premium)
+        {
+            var cb = OnCollect;
+            if (cb != null) cb(day, premium);
+        }
+
+        /// <summary>= 原版 `DailyRewardSelector.CreateRewards(bool refreshAllRewards)`
+        /// （`DF:DailyRewardSelector__CreateRewards.c:2-91`）：**先 `Reset()`，再按天实例化并 Initialize**。
+        /// <para>🔴 原版有一句 `if (i &lt; 7) cVar4 = true;` —— 即 **前 7 格（一屏）必刷、第 8 格起才看
+        /// `refreshAllRewards`**。我们现读只有 `DailyData.RewardDays`（4）格 ⇒ **那个闸恒真**，
+        /// 照抄成空分支就是死代码 ⇒ **只在这里记一笔，不写**（差异已进账）。</para></summary>
+        public void CreateRewards(bool refreshAllRewards)
+        {
+            if (_drawers.Count > 0 || entries.Count > 0) ResetRewards();
+            if (_content == null) return;                     // 轨道没建（理论不可达）⇒ 不出声地回（原版这里会抛）
+            for (int i = 0; i < DailyData.RewardDays; i++)
+            {
+                float x1 = ScrollView.x1 + EntryPitch * i;
+                // 🔴 四格一律过 `Shift`（与 `CampaignTab` 同一条口径）；`Offset` 归零时逐位不变。
+                var r = _scroll != null
+                      ? _scroll.Shift(new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH))
+                      : new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
+                entries.Add(BuildEntry(_content, r, i));       // ← 原版 `Instantiate(rewardItemContainer, contentAnchor)`
+            }
+        }
+
+        /// <summary>= 原版 `DailyRewardSelector.Reset()`（`…__Reset.c:2-67`）：销毁每条容器 + 清表。
+        /// <para>⚠️ 原版第一句是 `CustomDebug.LogWarning("[TODO] We have to clear the addressables when closing this window")`
+        /// —— 那是原版作者留给自己的 TODO（他们走 Addressables，关窗要 `Release`）。我们走 `Resources` 直取、
+        /// **没有引用计数要放** ⇒ **不复刻这句日志**（照抄会天天刷一条与我们无关的 TODO）；差异已进账。</para></summary>
+        public void ResetRewards()
+        {
+            _drawers.Clear();
+            if (_content != null)
+                for (int i = _content.childCount - 1; i >= 0; i--)
+                    RewardsWindow.DestroySafe(_content.GetChild(i).gameObject);
+            entries.Clear();
+        }
+
+        /// <summary>= 原版 `DailyRewardSelector.RefreshData(MainMenuMission evt, bool refreshAllRewards)`
+        /// （`…__RefreshData.c:2-55` / `out_cpp2il_dev_ilspy/DailyRewardSelector.cs:183-213`）：
+        /// **有容器 ⇒ 逐条 `Refresh()`（不重建节点）；没有 ⇒ `CreateRewards(refreshAllRewards)`**。
+        /// <para>原版第一个形参只用于「换了活动就整块重建（`evt != scoringEvent` ⇒ `Initialize(evt)`）」；
+        /// 我们只有一件日常活动、没有第二个事件可换 ⇒ 那个分叉**恒不成立**，形参省掉。</para>
+        /// <para>⚠️ 如实标注一处路径差：换阵营（`BuildArmyCell` 的点击）我们走**整窗重建**，
+        /// 而原版 `SetArmy → RefreshOnArmyChange` 走 `RefreshData(true)`（**不重建**）。终局相同
+        /// （格数/状态/文案都重算过），只是结算路径不同。</para></summary>
+        public void RefreshData(bool refreshAllRewards = false)
+        {
+            if (_drawers.Count > 0)
+            {
+                for (int i = 0; i < _drawers.Count; i++) _drawers[i].Refresh();
+                return;
+            }
+            CreateRewards(refreshAllRewards);
+        }
+
+        /// <summary>= 原版 `DailyRewardSelector.Initialize(MainMenuMission evt)`（`…__Initialize.c:2-66`）：
+        /// **清空内容区 → 建全部格 → （重排）→ 把当前那一格滚到视口中心**。
+        /// 🔴 **最后那一步在我们这儿恒不动**：原版是 `if (5 &lt; 当前格) FocusOnItem(items[当前格 − 3])`
+        /// （同一段体在 `AdjustView` 里又抄了一遍）—— 我们只有 4 格 ⇒ 条件恒假。
+        /// ⇒ **如实不写那条分支**（写了就是死代码）；与 `Shell/DailyStreakPopup.cs` 的 `FocusCurrentDay` 同口径
+        /// （那边数据是常量 5，也恒不动）。差异已进账。</summary>
+        public void InitializeRewards()
+        {
+            ResetRewards();
+            CreateRewards(true);
+        }
+
+        /// <summary>= 原版 `DailyRewardPopup.Start()` 的四跳接线（`DF:DailyRewardPopup__Start.c:2-72`）。
+        /// 原版四跳 → 我们的落点：
+        /// <list type="number">
+        ///   <item>`closeButton.m_OnClick += Close` ⇒ `BuildSideBar` 那颗圆钮 `hit.onClick = CloseCollecting`
+        ///         （原版 `Close()` = `TryCollect(() =&gt; base.Close())`；我们拆成两条生产路径各自调，见那个方法 doc）；</item>
+        ///   <item>`armySelector.OnArmySelected += SetArmy` ⇒ `BuildArmyCell` 的 `hit.onClick`（换阵营 + 重建）；</item>
+        ///   <item>`rewardsTrack.OnCollect += (milestone) =&gt; TryCollect()` ⇒ **本方法里那一句 `OnCollect +=`**；</item>
+        ///   <item>`timerText.OnRunOutOfTime += &lt;类方法常量 +0x1B0&gt;` ⇒ **`BuildTimer` 末尾那句 `timerTd.OnRunOutOfTime += ToFocus`**（🆕 2026-10-28 `B93_N1` 解出 = `ToFocus`，见下）。</item>
+        /// </list>
+        /// ✅ **第 4 跳已闭合（🆕 2026-10-28 `B93_N1`）= `ToFocus`**：`+0x1B0` 是 `Il2CppClass` 的 **vtable 项**
+        /// （`VirtualInvokeData` = 16 字节/项、基址 0x140 ⇒ `0x140 + 7*16 = 0x1B0`），**两个方程互校**：
+        /// ① `dump.cs` 的 `DailyRewardPopup.ToFocus()` 标 `Slot: 7`、`Close()` 标 `Slot: 8`；② 同一个 `Start` 的第 1 跳读 `+0x1C0`，
+        /// 而它在 ILSpy 里逐字是 `closeButton.m_OnClick += Close` ⇒ `0x1C0` = Close = slot 8 ⇒ `0x1B0` = slot 7 = `ToFocus`。
+        /// ⚠️ 旧记的「同时对得上 `GameWindow.TryOpen` 与 `ToFocus`」是把**基类** slot 表当成本对象的（`*param_1` = 本类 `Il2CppClass`）⇒ 作废。
+        /// <para>⚠️ 第 1、2 跳仍留在各自的建点（不搬到这里）：它们的实参是**建的时候才有的节点**，
+        /// 搬过来要么多存一份引用、要么多一次查找 —— 可观察行为相同，⛔ 不为了「形似」改。</para></summary>
+        public void WireUp()
+        {
+            if (_wired) return;                     // `Build` 可重建多次 ⇒ 事件只挂一次
+            _wired = true;
+            OnCollect += (day, premium) => { DailyData.CollectReward(day, premium); };
+        }
+
+        /// <summary>自检用：取某一天的抽屉对象（`null` = 那一格没建）。⛔ 只读引用，别在自检里改节点。
+        /// <para>为什么开这个口：`Drawer.SetState` 的三态开关表（原版 `DailyRewardDrawerController__SetState`）
+        /// 只有把四个态各打一遍才能验全；而 `Drawer` 是运行时对象、自检拿不到它 ⇒ 必须留一个只读取值口
+        /// （同族先例 = `ProfileData.ReloadSaveForTest` / `DailyData.ForceStreakClaimedForTest`）。</para></summary>
+        public Drawer DrawerForTest(int day, bool premium)
+        {
+            for (int i = 0; i < _drawers.Count; i++)
+                if (_drawers[i].Day == day && _drawers[i].Premium == premium) return _drawers[i];
+            return null;
+        }
+
+        /// <summary>自检用：当前登记的抽屉数 —— 应恒 = `DailyData.RewardDays × 2`（每天两条轨）。</summary>
+        public int DrawerCountForTest { get { return _drawers.Count; } }
+
+        /// <summary>= 原版 `DailyRewardTrackPanel.Initialize(MainMenuMission mission)`
+        /// （`DF:DailyRewardTrackPanel__Initialize.c:2-70`；逐句可读版 `out_cpp2il_dev_ilspy/DailyRewardTrackPanel.cs:27-61`）：
+        /// <code>
+        /// premiumItem = mission.PremiumItem;  liveOp = mission;
+        /// if (premiumItem != null) { purchaseButton.Setup(mission.PremiumOffer);
+        ///     purchaseButton.gameObject.SetActive(!InventoryManager.HasItem(premiumItem) &amp;&amp; mission.IsActive()); }
+        /// else premiumTrackHolder.SetActive(false);
+        /// </code>
+        /// 🔴 **两个输入**：`InventoryManager.HasItem(premiumItem)` ↔ 我们的 `DailyData.PremiumOwned`
+        /// （= `_premiumOwned`；🆕 2026-10-28 `B93_N1` 已改成**可写** + 暴露 getter，见 `DailyData.PurchasePremiumLocal`）；
+        /// `mission.IsActive()` 是远端活动期，单机恒开。⇒ 本方法把判据形状写成**显式实参**：
+        /// 两个调用点（`BuildSideBar` / `ToFocus`）都传 `owned: DailyData.PremiumOwned`
+        /// （⛔ 别在这里再写第二份「已拥有」判断 —— 唯一那份在 `DailyData.PurchasePremiumLocal`）。
+        /// ⚠️ `purchaseButton.Setup(offer)` 我们**没有**：`PriceDisplayButton.Setup` 吃远端 `IShopOffer`
+        /// （价格/货币/折扣），本地没有那份目录 ⇒ 价格仍走 `DailyData.PremiumTrackPrice()` 的字面量（🔶 已标）。</summary>
+        void InitializeTrackPanel(Transform holder, Transform purchaseButton, bool hasPremiumItem = true,
+                                  bool owned = false, bool active = true)
+        {
+            if (holder != null) holder.gameObject.SetActive(hasPremiumItem);
+            if (purchaseButton != null) purchaseButton.gameObject.SetActive(hasPremiumItem && !owned && active);
+        }
+
+        // ============================================================ 🆕 **2026-10-28（`B93_N1`）**
+        // 本节同样**追加在类尾**（铁律 18·b）：上面最后一条落点 `:1048` 之后，零行号漂移。
+        /// <summary>= 原版 `DailyRewardTrackPanel.HandlePurchase()`（`d:/2/tools/decomp_full/DailyRewardTrackPanel__HandlePurchase.c`
+        /// 全 72 行；可读版 `out_cpp2il_dev_ilspy/DailyRewardTrackPanel.cs:80-113`）。原版三句 + 一跳续作：
+        /// <code>
+        /// if (InventoryManager.HasItem(premiumItem)) return;      // ① 已拥有 ⇒ 什么都不做
+        /// purchaseButton.Interactable = false;                    // ② 先把钮按灰（防连点）
+        /// liveOp.PremiumOffer.TryPurchaseOffer(&lt;HandlePurchase&gt;b__6_0);   // ③ 真商店
+        /// </code>
+        /// <para>我们的落点：① = `DailyData.PremiumOwned`（同一个「已拥有」判断，**只此一处**）；
+        /// ③ = `DailyData.PurchasePremiumLocal()`（🔶 本地模拟买，见那边的 doc）；续作 = <see cref="HandlePurchaseCompleted"/>。</para>
+        /// <para>⚠️ ② **如实不写**：本地模拟买是**同步**的 ⇒ 进不来第二次；而且紧接着
+        /// <see cref="InitializeTrackPanel"/> 就把整颗价钱钮 `SetActive(false)`（= 原版 `Initialize` 那一句在新态下为假）
+        /// ⇒ 这一句**没有可观察的落点**，写出来只是为了「形似」（铁律：⛔ 别为形式加代码）。</para>
+        /// <para>**改坏法**：① 删掉第一句守卫 ⇒ 「已拥有还能再买一次」，`RewardsScene` 的 `B93_N1 (b)` 那条红；
+        /// ② 删掉 <see cref="HandlePurchaseCompleted"/> 那一跳 ⇒ 价钱钮不收、Premium 抽屉停在 `PremiumLocked` ⇒ (a) 段红。</para></summary>
+        public void HandlePurchase()
+        {
+            if (DailyData.PremiumOwned) return;                  // ① 原版 `if (InventoryManager.HasItem(premiumItem)) return;`
+            if (!DailyData.PurchasePremiumLocal()) return;       // ③ 原版 `liveOp.PremiumOffer.TryPurchaseOffer(onComplete)`（🔶 本地模拟）
+            HandlePurchaseCompleted(null);                       // 续作（原版是那个 lambda，拿到购买结果列表）
+        }
+
+        /// <summary>= 原版 `<HandlePurchase>b__6_0`（`d:/2/tools/decomp_full/DailyRewardTrackPanel___HandlePurchase_b__6_0.c:10-19`；
+        /// 一个 **lambda**，没有真名 ⇒ 这里给它一个可核的声明名）。原版体**两句**：
+        /// `liveOp.CurrentChallenges.FirstOrDefault()` → 非空则 `canCollect(+0x48) = true`。
+        /// <para>🔴 **`FirstOrDefault()` 无谓词**（ILSpy 版 `out_cpp2il_dev_ilspy/DailyRewardTrackPanel.cs:99-108` 逐字可读）。
+        /// ⛔ 别与 `MissionEvent.TryCollect` 里那个 `FirstOrDefault(x =&gt; x.canCollect)` 混成一条。</para>
+        /// <para>那一跳的**作用**是「让 Premium 奖励可领」；在我们这一侧同一格由 `DailyData.PremiumOwned` 直接参与
+        /// `DailyData.RewardStateOf` ⇒ **置位即达成**，本方法只剩「把新态刷到节点上」两跳：
+        /// 价钱钮收掉（= 原版 `Initialize` 的 `SetActive(!HasItem…)`）+ `RefreshData`（= 原版选择器的 `RefreshData`）。
+        /// ⛔ 别在这里再去改某条每日任务的 `St`（原版改的是**当前挑战**的 `canCollect`，不是任务进度）。</para>
+        /// <para><paramref name="_"/> = 原版那个 `IReadOnlyList&lt;RewardInfo&gt;`（购买结果）—— 原版体里**没用它**，
+        /// 我们照抄「不用」（传 `null` 合法）。</para></summary>
+        public void HandlePurchaseCompleted(System.Collections.Generic.IReadOnlyList<RewardInfo> _)
+        {
+            InitializeTrackPanel(_premiumTrack, _premiumBuyButton, owned: true);
+            RefreshData(true);
         }
     }
 }

@@ -5851,6 +5851,22 @@ public static class ShopScene
                     + " ⇒ 读到 `2 × 设计宽` ⇒ **本条红**；两帧一起改回同一帧 ⇒ 本条照样红");
         }
 
+        // ---------------- 🆕 2026-10-28（执行代理 `B93_E20`）：开包池 = 阵营卡池 − `cantBeRandomlyCreated` ----------------
+        //   判据 → `资料/完全复刻/判据/B93_Q8_开包过滤判定.md`；被测 = `Shell/BoosterPackOpenWindow.cs` 的 `RollPack`。
+        //   ⚠️ 放在**最后**：它会摇 4,100 包（纯数据、不建窗），不碰前面任何几何断言的现场。
+        Section("B93_Q8：开包池 = 阵营卡池 − `cantBeRandomlyCreated`");
+        CheckBoosterRollPackFilter();
+
+        // ---------------- 🆕 2026-10-28（执行代理 `B93_E13`）：商店族（G1）14 条 · 独立断言文件 ----------------
+        //   那个文件由 `B93_E13` 新建，当时文件所有权只到 `Shell/*.cs` ⇒ **它一条都没被跑过**；
+        //   这两行是它**唯一的调用点**（同族先例：`MainMenuScene.cs:8644-8645` 的 `ProfileWindowAssertE12`）。
+        //   自证：日志里会出现 `[E13] ` 前缀的节标题与 `✓` 行，且本宿主 `合计` 的通过数把它们算在内。
+        ShopFamilyAssertE13.Run();
+        _sink.Pass += ShopFamilyAssertE13.Pass; _sink.Fail += ShopFamilyAssertE13.Fail;
+        //   🆕 2026-10-28（执行代理 `B93_S1`）：商店族 28 条 B/C 里本轮新落地的那几族（5 组断言）。
+        ShopFamilyAssertB93S1.Run();
+        _sink.Pass += ShopFamilyAssertB93S1.Pass; _sink.Fail += ShopFamilyAssertB93S1.Fail;
+
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记统一成 `失败重列：`（原来写的是 `失败 N：` —— 同一件事四个宿主四种标记：
@@ -6006,5 +6022,103 @@ public static class ShopScene
         if (n == 0) return false;
         lowSecs = total; fineSecs = finest;
         return true;
+    }
+
+    /// <summary>🆕 2026-10-28（执行代理 `B93_E20`）：开包池的判据 = **阵营卡池 − `cantBeRandomlyCreated`**
+    /// （判定 / 证据 / 原版白名单 → `资料/完全复刻/判据/B93_Q8_开包过滤判定.md`；被测 = `Shell/BoosterPackOpenWindow.RollPack`）。
+    ///
+    /// <para>🔴 **期望值一律从 `CardDef` / `CardDatabase` 字段现算，或写成字面量** —— ⛔ **不复用** `RollPack`
+    /// 内部那道过滤来算期望（拿被测实现证明被测实现 = 自证；两边一起改回去就一起绿）。</para>
+    ///
+    /// <para>🔴 **灭自证三条一起才分得出真假**：
+    /// ③ 断「2600 包里 0 张 `cbrc=1`」；④ 断「具名错卡 500 包 0 命中」**且**先反证它们在池里（闸不是空转）；
+    /// ⑤ **正对照** —— 一张 `cbrc=0` 的卡必须在 500 包里出现 ⇒ 挡住「把池子清空 / 恒返回同一张」也算过。
+    /// ⇒ 删掉过滤 ⇒ ③④ 同时红；清空池子 ⇒ ③ 会因包长不足红、⑤ 也红。**不可能一起改回去还全绿。**</para>
+    ///
+    /// <para>⚠️ 判据**不是** `showInCollectionOptions` / `inventoryOptions`：那会漏掉 39 张 `show=5` 的战场环境卡
+    /// （`defence` · `inv=5` · `cbrc=1`），它们在原版 4 个阵营的 drop table 白名单里同样 0 命中。</para></summary>
+    static void CheckBoosterRollPackFilter()
+    {
+        var poolAll = RuleEngine.CardDatabase.Load();
+
+        // ---- ① 前提（硬检查：⛔ 不写成 `if (前提) Check(结论)` —— 前提不成立会静默跳过）----
+        Check(poolAll.Count, 1129, "★①（前提）卡池张数 = 1129（现读）");
+        int cbrcTotal = 0;
+        for (int i = 0; i < poolAll.Count; i++) if (poolAll[i] != null && poolAll[i].CantBeRandomlyCreated) cbrcTotal++;
+        Check(cbrcTotal, 168, "★①（前提）卡池里 `cantBeRandomlyCreated=1` 的张数 = 168（现读；闸真有人在筛）");
+
+        var facs = new[] { "Ultramarines", "Goff", "EmperorsChildren", "SpaceWolves", "Sautekh", "Leviathan",
+                           "AstraMilitarum", "BlackLegion", "DarkAngels", "Genestealers", "SaimHann", "Sororitas", "TauEmpire" };
+        // 现读（`Resources/cards_engine.json` · 2026-10-28）：逐阵营 `cbrc=1` 张数。合计 **166**；
+        //   另 **2** 张 `enchantment` 模板（`DarkAngels`/`Sororitas` 各一）不属任何阵营 —— `OfFaction` 本来就排除它们
+        //   ⇒ 166 + 2 = 168（与 ① 对上；这两条是同一份数据的两个切法）。
+        var wantBad = new Dictionary<string, int> {
+            {"Ultramarines",22},{"Goff",18},{"EmperorsChildren",12},{"SpaceWolves",10},{"Sautekh",10},{"Leviathan",10},
+            {"AstraMilitarum",9},{"BlackLegion",15},{"DarkAngels",14},{"Genestealers",14},{"SaimHann",12},
+            {"Sororitas",8},{"TauEmpire",12} };
+
+        // ---- ② 逐阵营：错卡张数（现读值）＋ 过滤后仍够开一包 ----
+        for (int f = 0; f < facs.Length; f++)
+        {
+            var pool = RuleEngine.CardDatabase.OfFaction(poolAll, facs[f]);
+            int bad = 0, ok = 0;
+            for (int i = 0; i < pool.Count; i++) { if (pool[i].CantBeRandomlyCreated) bad++; else ok++; }
+            Check(bad, wantBad[facs[f]], "★② " + facs[f] + " 的 `cbrc=1` 张数（现读）");
+            CheckTrue(ok >= 5, "★②（前提）" + facs[f] + " 过滤后仍 ≥5 张可开（实测 " + ok + "）");
+        }
+
+        // ---- ③ 行为：13 阵营 × 200 seed，每包 5 张、0 张 cbrc=1 ----
+        int packs = 0, wrongLen = 0, leaked = 0;
+        for (int f = 0; f < facs.Length; f++)
+            for (int s = 0; s < 200; s++)
+            {
+                var pack = BoosterPackOpenWindow.RollPack(facs[f], s);
+                packs++;
+                if (pack == null || pack.Length != 5) { wrongLen++; continue; }
+                for (int i = 0; i < pack.Length; i++)
+                    if (pack[i] == null || pack[i].CantBeRandomlyCreated) leaked++;
+            }
+        Check(packs, 2600, "★③（前提）跑满 13 阵营 × 200 seed = 2600 包（0 的话下面两条恒等）");
+        Check(wrongLen, 0, "★③ 2600 包**每包都是 5 张**");
+        Check(leaked, 0, "★③ 2600 包 ⇒ `cantBeRandomlyCreated=1` 的卡 **0 张**"
+                       + "｜🧨 把 `RollPack` 里那道 `!CantBeRandomlyCreated` 过滤删掉 ⇒ 本条红（现读每族错卡 8~22 张）");
+
+        // ---- ④ 灭自证：具名错卡 500 包 0 命中 ＋ 反证它确实在池里 ----
+        var never = new[] { "cf0b346f70e748c4bbfc4dc03ab39ead", "0740581c2c0523745a42dbec1b2ef82a", "UM52" };
+        var neverName = new[] { "Smite（UM · epic · show=0）", "Might of Heroes（UM · epic · show=0）",
+                                "Firestrike Turrets（UM · defence 战场环境卡 · show=5/inv=5）" };
+        for (int n = 0; n < never.Length; n++)
+        {
+            bool inPool = false;
+            for (int i = 0; i < poolAll.Count; i++) if (poolAll[i] != null && poolAll[i].Id == never[n]) { inPool = true; break; }
+            CheckTrue(inPool, "★④（前提）" + neverName[n] + " 确实在卡池里（闸不是空转）");
+            int hit = 0;
+            for (int s = 0; s < 500; s++)
+            {
+                var pack = BoosterPackOpenWindow.RollPack("Ultramarines", s);
+                if (pack == null) continue;
+                for (int i = 0; i < pack.Length; i++) if (pack[i] != null && pack[i].Id == never[n]) { hit++; break; }
+            }
+            Check(hit, 0, "★④ " + neverName[n] + " 在 500 包里 **0 命中**"
+                        + "｜🧨 把过滤删掉 ⇒ 本条红（它在 UM 池里，且是 rare+ ⇒ 连保底槽都可能顶掉）");
+        }
+
+        // ---- ⑤ 正对照（结构上挡住「池子清空 / 恒返回同一张」也能过 ③④）----
+        string ctrlId = null, ctrlName = null;
+        {
+            var um = RuleEngine.CardDatabase.OfFaction(poolAll, "Ultramarines");
+            for (int i = 0; i < um.Count; i++)
+                if (!um[i].CantBeRandomlyCreated) { ctrlId = um[i].Id; ctrlName = um[i].Name; break; }
+        }
+        CheckTrue(ctrlId != null, "★⑤（前提）UM 池里找得到一张 `cbrc=0` 的卡（正对照的靶子；找不到 ⇒ 下面那条必红）");
+        int seen = 0;
+        for (int s = 0; s < 500; s++)
+        {
+            var pack = BoosterPackOpenWindow.RollPack("Ultramarines", s);
+            if (pack == null) continue;
+            for (int i = 0; i < pack.Length; i++) if (pack[i] != null && pack[i].Id == ctrlId) { seen++; break; }
+        }
+        CheckTrue(seen > 0, "★⑤（正对照）`" + ctrlName + "`（`cbrc=0`）在 500 包里出现 " + seen + " 次 ⇒ 池子没被清空"
+                          + "｜🧨 把 `RollPack` 改成返回空 / 恒同几张 ⇒ 本条红而 ③④ 未必红");
     }
 }

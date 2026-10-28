@@ -1218,5 +1218,33 @@ namespace CardPresentation
             Debug.LogWarning("[Shop] crates 页：`OpenData.army = " + ctx.army + "`（" + (ArmyIcons.Faction(ctx.army) ?? "认不出")
                            + "）在本页 " + offers.Length + " 件里**没有对应的卡包** ⇒ 不弹窗（原版这一支也不出声）");
         }
+
+        // ============================================================ 🆕 2026-10-28（`B93_E13` · G1）
+        // 原版 `VIPCardShopTab.VipTimerOnOnRunOutOfTime()` 的自检读口（**追加在类尾**，不动既有成员行号）。
+        //
+        // 判据（`VIPCardShopTab__VipTimerOnOnRunOutOfTime.c` = **一句** `CheckVIPState()`；
+        //   `VIPCardShopTab__OnOpen.c` 里那一句 `vipTimer.OnRunOutOfTime += VipTimerOnOnRunOutOfTime`）
+        // ⇒ 我们的等价物 = `_vipTimer.OnRunOutOfTime += OnVipTimerRunOutOfTime`（`BuildVipStatus`）+
+        //    `OnVipTimerRunOutOfTime` 里那句 `Setup()`（**逐字等价**：`CheckVIPState` 就是按 VIP 态重建状态行/遮罩）。
+        //
+        // 🔴 **今天这个回调一次都不会被调用**，而且**不是因为我们没接**：本机拿不到 VIP 到期时刻
+        //    （`InventoryManager.GetExpirationDate(Store.RequiredItem)` 的那个 `RequiredItem` 在远端 store SO 里，
+        //    见 `ShopData.VipExpiresAt` 恒 null + `VipExpiryUnknownReason`）⇒ `TimerDisplay` 恒 `--`、永不走完。
+        //    ⇒ **不许为了「看起来会动」编一个到期时刻**（用户口径：不编日期）。
+        //    这条断言盯的正是「**数据缺 ⇒ 不假装倒计时**」：目标时刻必须是 null、文本必须是 `--`。
+
+        /// <summary>自检读口：VIP 页那颗倒计时（`null` = 这一页不是 VIP 页 / 没建）。</summary>
+        public TimerDisplay VipTimerNode { get { return _vipTimer; } }
+
+        /// <summary>自检读口：VIP 页**有没有到期时刻**（原版 `InventoryManager.GetExpirationDate(RequiredItem)` 的结果）。
+        /// 本机恒 `null`（数据在远端 store SO）⇒ 倒计时不许印出一个具体日期。</summary>
+        public static bool VipExpiryKnown { get { return ShopData.VipExpiresAt.HasValue; } }
+
+        /// <summary>原版 `VIPCardShopTab.VipTimerOnOnRunOutOfTime()` = `CheckVIPState()`。**只有计时器真的走完**
+        /// （原版 `TimerDisplay.OnRunOutOfTime`）才会被调到；本机永远不会（见上）。直接调它可以验等价物。</summary>
+        public void VipTimerRunOutOfTime()
+        {
+            OnVipTimerRunOutOfTime();
+        }
     }
 }

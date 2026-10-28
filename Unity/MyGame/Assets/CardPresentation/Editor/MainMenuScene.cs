@@ -8403,18 +8403,18 @@ public static class MainMenuScene
                             CheckTrue(mxQ != null && mxQ.Texture == (Texture)CardArt.MenuUi("Menu_Icon_Galon"),
                                       "最高分那一行的图标是 **`Menu_Icon_Galon`**（值那一行是 `40k_UI_icon_ranked_Skirmish` —— **两张不一样**，§A·2 末）");
                             // ⚠️ 13 行 × 117.711 = 1530.24 > 视口高 575.76 ⇒ 这一栏**现在滚得动**（B92-N4 2026-10-28 由 4 行改 13 行）
-                            var pl5 = PointerLayer.Instance;
-                            var r0 = FindChild(cont5, "FactionScoreSmall");
-                            float y0r = r0 != null ? r0.position.y : 0f;
-                            // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：(1526,576) 是**设计帧**视口中心
-                            //   （`1305.29..1746.97 × 288.62..864.38`）⇒ 先换到指针帧。
-                            //   `owner` = `vp5`（`viewport` 节点；滚动区视口就是它自己的矩形）。
-                            var rkWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1526f, 576f), vp5);
-                            if (pl5 != null) pl5.WheelAt(rkWheelP.x, rkWheelP.y, -1f);   // 2026-10-22 量纲 120→1（一格 = ±1）
-                            var r0b = FindChild(cont5, "FactionScoreSmall");
-                            float y1r = r0b != null ? r0b.position.y : 0f;
-                            CheckTrue(Mathf.Abs(y1r - y0r) > 0.5f,
-                                      "13 行 ⇒ 内容高 1530.24 > 视口 575.76 ⇒ **滚轮滚得动**（4 行那版「不动」只对 4 行成立）");
+                            // 🔴 **2026-10-28（B93_FX3）(δ) 夹具前提**：本区 `_scroll.Owner` = **`Ranking Tab` 页根**
+                            //   （`Shell/RankedTab.cs:591`），而 `HitScroll` 有一句 `if (!s.Owner.activeInHierarchy) continue;`
+                            //   （`Shell/PointerLayer.cs:1711`）—— 那一页在这一整轮里**从没被激活过**
+                            //   （`Shell/PlayerProfileWindow.cs:497` 只激活 `DefaultTabIndex`(= Profile)；第 6 键按用户
+                            //   2026-10-24 拍板已隐藏 ⇒ 全仓没有一条 `ChangeTab(ProfileRanking)`）⇒ 滚轮落不到本区。
+                            //   ⛔ 别去动 `HitScroll` 那条闸（它是「关着的页不吃滚轮」的判据）；修的只是夹具：
+                            //   按**原版换页路径**激活本页 → 先断「页根真激活了」（硬前提）→ 再断 `WheelAt` 的**返回值**
+                            //   （原来被丢掉 ⇒ 那条断言自己说不出「滚轮有没有落到本区」，对照 `:7170` 头像网格那条的写法）
+                            //   → 最后断内容真动了（失败时打出 `PointerLayer.ScrollUnder` 的身份）。
+                            //   ⚠️ 13 行 × 117.711 = 1530.24 > 视口高 575.76 ⇒ 滚得动（B92-N4 2026-10-28 由 4 行改 13 行）；
+                            //   视口中心 (1526,576) 是**设计帧**（`1305.29..1746.97 × 288.62..864.38`）⇒ 工具内部换指针帧；量纲 120→1（一格 = ±1）。
+                            RankedWheelProbe(pp, rk, cont5, vp5);   // 实现 → 类尾（⛔ 别在这儿加行：账里有 30 处按行号提到本文件，见类尾那条注）
                         }
 
                         // 点头像 ⇒ **跳到 Avatar 页**（原版 `RankedTab.<Initialize>b__10_0` 就是这条，§C·1 第 4 条）
@@ -8654,6 +8654,12 @@ public static class MainMenuScene
         _sink.Pass += ProfileAssertU2b.Pass; _sink.Fail += ProfileAssertU2b.Fail;
         ProfileDataAssertE13.Run();
         _sink.Pass += ProfileDataAssertE13.Pass; _sink.Fail += ProfileDataAssertE13.Fail;
+
+        // 🆕 2026-10-28（执行代理 `B93_D2`）：日常/奖励线第 5 批 —— 活动/通行证窗口那 33 条里「代码侧能断」的全部
+        //   （Raid 页头/页签/进度条位移 · 主菜单活动入口小进度条 · ExpansionPass 两页签 · 活动资产→Image 两条接线 ·
+        //    单机能量活动窗的四跳）。本文件自建自销一扇 `EnergySinglePlayerOnlyEventWindow`（`finally` 里销毁）。
+        MainMenuAssertB93D2.Run();
+        _sink.Pass += MainMenuAssertB93D2.Pass; _sink.Fail += MainMenuAssertB93D2.Fail;
 
         // 🆕 2026-10-24（执行代理 `E11`）：录像目录**守卫** —— 未设 `OverrideDir` 时 `ResetForTest` 必须
         //   拒绝清空并出声（判据 = 自检不许碰玩家真档；事故 = `E13` 的 finally 顺序反了，删过一次真录像）。
@@ -9621,7 +9627,7 @@ public static class MainMenuScene
                         var mine = libM.Decks[CollectionData.IndexOf(pendingName)];
                         foreach (var c in CardDatabase.Load())
                             if (c.Type == "hero") { mine.WarlordId = c.Id; break; }
-                        libM.Save();
+                        FillLegalSkirmishDeck(mine); libM.Save();   // 🔴 2026-10-28（B93_FX3）(δ) 夹具：`CreateDeckInMode` 建的是**空牌** ⇒ 先补成合法的遭遇卡组（否则 `Battle!` 的 `interactable = false`，`WindowButton.Click()` 头一句就 return）
                         CollectionData.ResetForTest();
                     }
                     sk.Open();                        // 重开：按新模式吸附 + 重画（`_search` 也会重建）
@@ -9661,9 +9667,9 @@ public static class MainMenuScene
                     var sp = FindChild(sk.transform, "Searching Oponent Popup (1)");
                     CheckTrue(sp != null && sp.gameObject.activeSelf,
                               "点 `Battle!` ⇒ `Searching Oponent Popup` 出来（原版 `MatchMakerManager.StartMatch`）");
-                    CheckTrue(!sk.StartedBattle, "12 秒还没到 ⇒ 不抢跑");
+                    CheckTrue(sp != null, "（前提·开战链）匹配窗 `Searching Oponent Popup (1)` 拿得到 —— 下面「12 秒后自己关掉 / 开战成立」 两条都以它为前提（⛔ 别写成 `!(sp != null && …)`：`sp == null` 时那条会空转绿）"); CheckTrue(!sk.StartedBattle, "12 秒还没到 ⇒ 不抢跑");
                     sk.TickSearch(12f);
-                    CheckTrue(!(sp != null && sp.gameObject.activeSelf), "等满 12 秒 ⇒ 匹配窗自己关掉");
+                    CheckTrue(sp != null && !sp.gameObject.activeSelf, "等满 12 秒 ⇒ 匹配窗自己关掉（前提 = 上一条拿到 `sp`；🧨 退回 `!(sp != null && …)` ⇒ `sp == null` 时又空转绿）");
                     CheckTrue(sk.StartedBattle, "等满 12 秒 ⇒ **开战成立**（真机上 `LoadScene(\"Battle\")`）");
                 }
                 // 🔴 **2026-10-17（F3 · D3 红⑪）**：遭遇战的 `StartBotBattle` 同样往 `SetPendingPlayMode` 写了一个模式号
@@ -17055,7 +17061,7 @@ public static class MainMenuScene
                           "新赛季窗 `Timer Icon` = 图 **`WF_icon_clock`**（prefab `m_Sprite` 实读）");
                 CheckTrue(ns.TimerNode != null && Mathf.Abs(Wpx(ns.TimerNode) - 1496.98f) < 0.05f,
                           "新赛季窗 `Timer` 容器 = **1496.98** 宽（dump 实读）");
-                ns.Close();
+                RankedShadeCloseProbe(ns, "新赛季窗");   // 🆕 B93-E14：点暗底 ⇒ 关（原版 `__CloseButton.c` 只有 `base.Close()`）；本行**原位替掉**原来的 `ns.Close();`（行数守恒）
             }
 
             // ---------------------------------------------------------- ③ 赛季结束窗 `Ranked Season Ended Window`
@@ -17083,7 +17089,7 @@ public static class MainMenuScene
                           "赛季结束窗 `canvasGroup.m_Alpha` = **1**（`CanvasGroup_-3969323529196569944.json` 实读）");
                 CheckTrue(se.RankPointsNode != null && Mathf.Abs(Wpx(se.RankPointsNode) - 1444.31f) < 0.05f,
                           "赛季结束窗 `Rank Points` = **1444.31** 宽（dump 实读）");
-                se.Close();
+                RankedShadeCloseProbe(se, "赛季结束窗");   // 🆕 B93-E14：同上（本行原位替掉原来的 `se.Close();`，行数守恒）；⚠️ 同一份实现覆盖 `RankedEventSeasonEndedWindow` + `…Old` 两条账行
             }
 
             // ---------------------------------------------------------- ④ 反馈问卷 `Give Feedback Popup menu`
@@ -20557,6 +20563,182 @@ public static class MainMenuScene
                   && (restoreQ == null || !restoreQ.gameObject.activeSelf),
                   "（还原·队伍卡三格）文本回到断言前那一版、图槽回到空态"
                 + "（= `SetTeamImage(side, null)` 的可观测结果：载体可留、但必须关 —— 与上面 `backQ` 同一谓词；⛔ 别要求销毁载体）");
+    }
+
+    // ============================================================ 🆕 2026-10-28（B93 · E14，追加在类尾）
+    //   **B12「有活入口」G5 —— 三扇排位弹窗 `CloseButton()` 的「点暗底 ⇒ 关窗」闭环断言**
+    //   （表 → `资料/完全复刻/判据/B93_Q5_有活入口183.tsv` 序号 **68 / 69 / 70**；账 → `个人资料_成就_排行.tsv` **L230 / L235 / L241**）。
+    //
+    //   【原版判据 —— 两源一致（⛔ 别只信一份）】
+    //     · `.c`：`RankedEventSeasonEndedWindow__CloseButton.c` / `RankedEventSeasonEndedWindowOld__CloseButton.c` /
+    //       `RankedEventStartSeasonWindow__CloseButton.c` 三份的体**只有一句** = 虚表 `+0x1b8`（= `GameWindow.Close()`）——
+    //       **没有** `Toggle/Enable`；
+    //     · ILSpy：`out_cpp2il_dev_ilspy/RankedEventSeasonEndedWindow.cs:402` / `…Old.cs:219` / `RankedEventStartSeasonWindow.cs:42`
+    //       = `private void CloseButton() { base.Close(); }`（同结论）。
+    //     ⚠️ 那三份 `.c` 的**首行函数名是 `TutorialTipScript__StopTipPermanent`** ——
+    //       那是 **ICF 链接折叠**（体都是「一次 `+0x1b8` 虚调用」）⇒ ⛔ 不是解错，也别当「文件名与内容不符」去翻案
+    //       （同族留档 → `CLAUDE.md` §三「首行名不是自己，也可能是 ICF 折叠」）。
+    //   ⇒ 这三扇**原版就没有「弹窗期间禁输入」那条链**：整套设施只存在于 `RankedEventDivisionChangeWindow` 与
+    //     `…NewSystem` 那一对里（那两扇的断言 = 本类 `RankedDivisionInputGate`，2026-10-28 B90-N3b）。
+    //     ⛔ **别给这三扇加输入闸** —— 加了才是造原版没有的行为。
+    //
+    //   🔴 **本批顺手钉死的两条口径更正（铁律 5 · 均在本批开工前已就地订正，这里只留结论与可复跑的判断法）**：
+    //     ① 账里原记的残差「**`ChatPreviewMessage.Enable(true)` 那条横切设施未接**」**不成立**：
+    //        反编译里那个被折叠的符号真身是 **`EventSystemController.Toggle(bool)`** ——
+    //        依据 ⓐ `ChatPreviewMessage : MonoBehaviour`（`dump.cs:44782`）**没有 `Instance` 属性**，而 41 个调用点
+    //        全是 `SingletonBehaviour<X>.get_Instance(&DAT_1842bdc50)`；ⓑ `EventSystemController : SingletonBehaviour<>`
+    //        （`dump.cs:104632`），两者 `+0x20` 都是 `Behaviour`（`EventSystem eventSystem` / `TextMeshProUGUI message`）
+    //        ⇒ 方法体逐字相同 ⇒ 符号折叠；ⓒ **决定性旁证**：ILSpy 全树 `grep "ChatPreviewMessage"` **0 处 `.Enable(` 调用**，
+    //        而 `BasicLoginWithEmailWindow.cs:88` 等处写的是 `EventSystemController instance = …Instance; instance.Toggle(option: false);`。
+    //        ⇒ **那条「聊天预览设施」根本不存在**，⛔ 别再去 `Shell/ChatPanel.cs` 里找宿主。
+    //        我们的等价物 = `PointerLayer.SetInputEnabled(bool)`（`Shell/PointerLayer.cs:763`）—— 它**早就有**，不是缺口。
+    //     ② 所以本函数的第 ③ 条断言断的是「关窗**不动**输入层」：把 ① 那条假残差永久钉死 ——
+    //        谁再照升段窗那一对的样子给这三扇补一句 `SetInputEnabled(true)`，这里就红。
+    //
+    //   ⚠️ 调用点 = 各窗那一节的**最后一行**，且是**原位替掉**原来的 `ns.Close();` / `se.Close();`
+    //     （**行数守恒**：`Editor/MainMenuScene.cs` 挂着账的 A 行落点，多一行就整片漂 —— `CLAUDE.md` §三那条）。
+    //   ⚠️ 本函数**会把窗真的关掉**（同 `MenuDraw.CheckShadeClickRule` 的时机硬约束）⇒ 只能排在那一节其它断言之后。
+    static void RankedShadeCloseProbe(GameWindow win, string what, string hitName = "BackgroundCloseButton")
+    {
+        // ---------- 硬前提（⛔ 不写成 `if (x != null) Check(...)` 那种「前提不成立就静默跳过」）----------
+        CheckTrue(win != null, "（前提·" + what + " 关窗）窗对象在");
+        if (win == null) return;
+        var root = win.transform;
+        var hit = FindChild(root, hitName);
+        CheckTrue(hit != null, "（前提·" + what + " 关窗）压暗层命中区 `" + hitName + "` 建出来了"
+                             + "（= `MenuDraw.ShadeHit` 落成的那颗子件；取不到 ⇒ 这一扇点了关不掉）");
+        CheckTrue(win.CurrentState == WindowState.Open, "（前提·" + what + " 关窗）此刻窗是**开**的");
+        // 🔴 这条前提**不能省**：否则下面「关窗后仍然停用」是**空断言**（本来就停用 ⇒ 恒真）。
+        CheckTrue(PointerLayer.InputEnabled, "（前提·" + what + " 关窗）进入本节时输入层**启用**"
+                                          + "（否则下一条「关窗后仍然停用」恒真 = 空断言）");
+        if (hit == null || win.CurrentState != WindowState.Open || !PointerLayer.InputEnabled) return;
+
+        // ---------- ① 夹具：把输入层摁成**停用**（= 第 ③ 条那条灭自证断言的对照态）----------
+        PointerLayer.SetInputEnabled(false);
+        Check(PointerLayer.InputEnabled, false, "（夹具·" + what + "）输入层已摁成**停用**");
+
+        // ---------- ② 点暗底 ⇒ 窗关（公共件 `MenuDraw.CheckShadeClickRule`：内部另带 5 条 ——
+        //              命中区属于本窗 / 挂着 `WindowButton` / 不是吸收层 / 点前 `Open` / 点后 `Closed`）----------
+        MenuDraw.CheckShadeClickRule(CheckTrue, what, root, hit, () => win.CurrentState);
+
+        // ---------- ③ 灭自证：关窗**不碰**输入层 ----------
+        Check(PointerLayer.InputEnabled, false,
+              "★ " + what + "**关窗不碰输入层**（点完压暗层之后 `PointerLayer.InputEnabled` 仍是 `false`）"
+            + "｜判据 = `RankedEventSeasonEndedWindow__CloseButton.c` / `…Old__CloseButton.c` / `RankedEventStartSeasonWindow__CloseButton.c`"
+            + " 三份的体**只有** `base.Close()`（ILSpy 同：`RankedEventSeasonEndedWindow.cs:402` / `…Old.cs:219` / `RankedEventStartSeasonWindow.cs:42`），"
+            + "**没有** `EventSystemController.Toggle`"
+            + "｜🧨 谁给这三扇补一句 `PointerLayer.SetInputEnabled(true)`（照升段窗那一对抄）⇒ **本条红**");
+
+        // ---------- 复原：输入层回到进本节时的值（不给后面几节留脏）----------
+        PointerLayer.SetInputEnabled(true);
+    }
+
+    // ============================================================ 🆕 2026-10-28（B93_FX3，追加在类尾）
+    //   本批两条 **(δ) 夹具** 修法的实现体 —— **新增代码一律追加在类尾**（省得跟账里的行号引用打架）
+    //   现读：账里 `MainMenuScene.cs:<行号>` 共 30 处，但**全在「差异 / 备注」列（散文）**、`我们的落点` 列 **0 处** ⇒ 机检闸不看本文件，仍按零行数变化改。
+    //   定性 → `资料/完全复刻/判据/B93_DG3_三宿主红.md` §A1（滚轮）· §A3/A4（开战链）。
+
+    /// <summary>🔧 **夹具**（⛔ 不是产品行为）：`Ranking` 页「滚轮滚得动」那条断言的**前提修法 + 定量判据**。
+    /// <para>**为什么原来是红的**（两段，都不是实现坏）：① **(δ) 夹具** —— 本区 `_scroll.Owner` = `Ranking Tab` 页根
+    /// （`Shell/RankedTab.cs:591`），而 `HitScroll` 有一句 `if (!s.Owner.activeInHierarchy) continue;`
+    /// （`Shell/PointerLayer.cs:1711`）；那一页这一整轮**从没被激活过**（`Shell/PlayerProfileWindow.cs:497`
+    /// 只激活 `DefaultTabIndex`(= Profile)；第 6 键按用户 2026-10-24 拍板已隐藏 ⇒ 全仓没有一条
+    /// `ChangeTab(ProfileRanking)`）⇒ 滚轮落不到本区。② **(α) 断言** —— 原判据是「一次 `WheelAt` 之后内容位移
+    /// &gt; 0.5 **世界单位**（= 54px）」，而本区**一格滚轮只走 10 设计 px**（见下 ③）⇒ 那条判据**永远不可能满足**。</para>
+    /// <para>⛔ **别动 `HitScroll` 那条闸**（「关着的页不吃滚轮」是它的判据）、⛔ **别改 `MenuScroll`**。
+    /// 本方法按四条断：① 页根真激活（硬前提 A）；② 本区**真有可滚空间**（`MaxOffset` ≈ 954 设计 px，排掉「被夹住」那一支）；
+    /// ③ `WheelAt` 返回值 + **本区** `Offset` 前进**正好 10 设计 px**（定量判别式）；④ 内容跟着 `Offset` 同步位移。</para>
+    /// <para>🔑 **为什么量 `Offset` 而不是「位移 &gt; 阈值」**：`Wheel → Apply` 是**同步**写 `Offset`
+    /// （`Shell/MenuScroll.cs:360` → `:336`，没有缓动）⇒ **与有没有帧循环无关**，一格就是一格、量得准；
+    /// 而「&gt; 阈值」既分不出「一格 10px」与「只动 1px」，也分不出「本区」与「别的区一起动」。</para></summary>
+    static void RankedWheelProbe(PlayerProfileWindow pp, Transform rk, Transform cont, Transform vp)
+    {
+        // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：(1526,576) 是**设计帧**视口中心
+        //   （`1305.29..1746.97 × 288.62..864.38`）⇒ 先换到指针帧；`owner` = `vp`（`viewport` 节点本身）。
+        //   量纲 120→1（一格 = ±1，2026-10-22）。
+        Vector2 at = MenuCheck.PointerFramePxFromDesign(new Vector2(1526f, 576f), vp);
+        PointerLayer pl = PointerLayer.Instance;
+
+        // ---------- ① 硬前提 A：本页真被激活（否则 `HitScroll` 直接跳过本区、下面全无意义）----------
+        if (pp != null && pp.CurrentTab != WindowTabType.ProfileRanking) pp.ChangeTab(WindowTabType.ProfileRanking);
+        CheckTrue(rk != null && rk.gameObject.activeInHierarchy,
+                  "（前提·滚轮 A）`Ranking Tab` 页根**已激活** —— `HitScroll` 对 `!Owner.activeInHierarchy` 的滚动区直接 `continue`"
+                + "（`Shell/PointerLayer.cs:1711`），页根关着时滚轮根本落不到本区；本夹具走原版换页路径"
+                + " `ChangeTab(ProfileRanking)` 把它激活（`DefaultTabIndex` = Profile + 第 6 键已隐藏 ⇒ 不切就没有任何一条路会激活它）");
+
+        // ---------- ② 硬前提 B：本区真有可滚空间（排掉「MaxOffset 很小 / 被夹住」那一支）----------
+        var sc = pl != null ? pl.ScrollUnder(at.x, at.y) : null;
+        float maxOff = sc != null ? sc.MaxOffset : -1f;
+        CheckTrue(sc != null,
+                  "（前提·滚轮 B）`ScrollUnder` 拿得到本区的 `MenuScroll`（拿不到 = 滚轮压根没地方落）—— 实测 "
+                + (sc != null ? "有（`Owner` = " + (sc.Owner != null ? sc.Owner.name : "<无>") + "）" : "<null>"));
+        CheckTrue(maxOff > 900f,
+                  "（前提·滚轮 B）本区**真有可滚空间**（`MaxOffset` 应 ≈ **954.48** 设计 px：内容 1818.86 − 视口 864.38，"
+                + "13 行 × 117.711 = 1530.24 的算式见 DG3 §A1）—— 实得 " + maxOff.ToString("0.##")
+                + "｜🧨 这条红 ⇒ **是缺陷**（内容高 / 视口高 / `MaxOffset` 被夹住），别去改下面两条断言迁就");
+
+        // ---------- ③ 滚轮真的落到本区，且**一格 = 正好 10 设计 px**（定量判别式）----------
+        //   期望值 10 = 原版 `Ranking Tab/AllFactions/scroll rect` 的 `m_ScrollSensitivity`（`Shell/RankedTab.cs` 建它时
+        //   传的 `notchPx`）⇒ `NotchK = notchPx / ScrollUnitsPerNotch` = 10 / 1（一格 = ±1，2026-10-22 实测）。
+        //   ⛔ 不读 `sc.NotchK`（那是被测实现自己的常量 ⇒ 同式自证）；这个 10 是**原版 prefab 的字面量**。
+        Transform row0 = FindChild(cont, "FactionScoreSmall");
+        float y0 = row0 != null ? row0.position.y : 0f;
+        float off0 = sc != null ? sc.Offset : 0f;
+        bool hit = pl != null && pl.WheelAt(at.x, at.y, -1f);
+        var under = pl != null ? pl.ScrollUnder(at.x, at.y) : null;
+        float off1 = sc != null ? sc.Offset : 0f;
+        CheckTrue(hit, "滚轮落在阵营排行这一区（`PointerLayer.WheelAt` 的**返回值**）—— 实测 `ScrollUnder("
+                     + at.x.ToString("0.##") + ", " + at.y.ToString("0.##") + ")` = "
+                     + (under == null ? "<空>" : (under.Owner != null ? under.Owner.name : "<无 Owner>")));
+        CheckNear(off1 - off0, 10f, 0.01f,
+                  "滚一格（`dy = −1`）⇒ **本区** `Offset` 前进 **10 设计 px**（= 原版 `scroll rect` 的 `m_ScrollSensitivity = 10`）"
+                + " —— 实测 " + off0.ToString("0.###") + " → " + off1.ToString("0.###")
+                + "｜🧨 `Wheel` 没接上 ⇒ Δ = 0 ⇒ 红；滚到**别的区** ⇒ 本区 Δ = 0 ⇒ 红；改成缓动 / 一次只走半步 ⇒ Δ ≠ 10 ⇒ 红"
+                + "（⛔ 别把 tolerance 放宽成「动了就算」—— 那等于放过「只动 1px」）");
+
+        // ---------- ④ 内容跟着 `Offset` 同步走（视图层真用上了新偏移）----------
+        Transform row1 = FindChild(cont, "FactionScoreSmall");
+        float y1 = row1 != null ? row1.position.y : 0f;
+        CheckNear((y1 - y0) * 108f, off1 - off0, 1.5f,
+                  "内容跟着 `Offset` 同步位移（`FactionScoreSmall` world y " + y0.ToString("0.###") + " → " + y1.ToString("0.###")
+                + " = " + ((y1 - y0) * 108f).ToString("0.##") + "px；`Offset` 走了 " + (off1 - off0).ToString("0.##") + " 设计 px）"
+                + "｜🧨 `OnChanged → RebuildRows` 没接 / 重建时没用新 `Offset` ⇒ 内容不动 ⇒ 红");
+    }
+
+    /// <summary>🔧 **夹具**（⛔ 不是产品行为）：把一副**空牌**的遭遇卡组填成**合法**的（`Battle!` 才点得动）。
+    /// <para>为什么必须填：本节夹具那副「新卡组」是 `CreateDeckInMode()` 建的**空牌**（`RunCore` 里那句注释写着），
+    /// 后补的只有督军 ⇒ `DeckRules.Validate` 回 `TooFewCards` ⇒ 本批（B93）给
+    /// `Shell/SkirmishEventWindow.cs:774` 接上的 `SetBattleInteractable(valid)`（= 反编译
+    /// `SkirmishEventWindow__OnDeckSelected.c:15-17` 的 `battleButton.interactable = HasValidDeckWithValidationMessage()`；
+    /// **那是原版能力，⛔ 不许回滚**）把那颗钮置成 `interactable = false` ⇒ `WindowButton.Click()` 头一句就 return
+    /// ⇒ 匹配窗不开 ⇒ 「等满 12 秒开战」自然也不成立。</para>
+    /// <para>填法与 <see cref="FillSkirmishFixtureDecks"/> **同一套口径**；张数取 `DeckRules.CardCount(true)`
+    /// （唯一出处，⛔ 不写死 12 / 30 —— 写 30 会直接 `TooManyCards`）。填完**当场硬断**它过 `Validate`，
+    /// 否则「点得动」这条前提又是假的（本工程踩过「前提不成立 ⇒ 断言空转绿」）。</para></summary>
+    static void FillLegalSkirmishDeck(PlayerDeck d)
+    {
+        if (d == null)
+        { CheckTrue(false, "（夹具）要填的那副遭遇卡组是 null ⇒ `Battle!` 永远点不动（这条红了别去看下面两条）"); return; }
+        CardDef hero = string.IsNullOrEmpty(d.WarlordId) ? null : CollectionData.Card(d.WarlordId);
+        if (hero == null)
+        { CheckTrue(false, "（夹具）这副牌的督军「" + d.WarlordId + "」在卡池里查不到 ⇒ 填不出合法卡组"); return; }
+        int want = DeckRules.CardCount(true);              // 遭遇模式的张数（唯一出处）
+        d.CardIds.Clear();
+        foreach (var c in CardDatabase.Load())
+        {
+            if (d.CardIds.Count >= want) break;
+            if (c.Type != "unit") continue;
+            if (!DeckRules.SameFaction(c.Faction, hero.Faction)) continue;
+            if (d.CardIds.Contains(c.Id)) continue;         // 一张一名 ⇒ 不碰同名上限（`Validate` ⑦）
+            if (DeckRules.IsLegendary(c.Rarity)) continue;  // 遭遇模式传说上限 4 ⇒ 跳过 ⇒ 恒 0（`Validate` ⑧）
+            if (DeckRules.CannotAddToDeck(c)) continue;     // 原版 `inventoryOptions` 那一档（`Validate` ⑥b）
+            d.CardIds.Add(c.Id);
+        }
+        DeckError err = DeckRules.Validate(d, CollectionData.Card, true);
+        CheckTrue(err == DeckError.None,
+                  "（夹具）这副遭遇卡组**当下**过 `DeckRules.Validate(…, skirmish: true)`（= 原版 `DeckUtility.ValidateDeck`）"
+                + " —— 这是「点 `Battle!` 点得动」的硬前提；实得 " + err + "（" + d.CardIds.Count + " 张）"
+                + "｜🧨 这里红 ⇒ 夹具退化，**别**去放宽 `SetBattleInteractable`（那是 `OnDeckSelected` 首句的原版判据）");
     }
 
 }
