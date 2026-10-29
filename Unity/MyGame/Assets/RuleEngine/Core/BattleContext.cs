@@ -2582,7 +2582,7 @@ namespace RuleEngine
             string who = actingCard != null ? actingCard.Name : "?";
             bool ok = RuleCore.EnqueueAbility(this, lane,
                                               $"removeFromCemetery(60):{card.Card?.Name ?? "?"}",
-                                              () => RuleCore.ExileFromCemetery(this, card),
+                                              () => ResolveRemoveFromCemetery(card),   // 🆕 2026-10-29（`B97_W3` · 账 534）：**出队处理口** = 原版 `BattleManager.ResolveRemoveFromCemetery` 的等价物（见类尾那个方法）
                                               actor: null,          // 原版这条 auto 动作没有「施放者必须在场」的闸
                                               actionType: 60);      // 判据 `BattleManager__AddRemoveFromCemetery.c:31` 的 `0x3c`
             if (!ok)
@@ -2595,6 +2595,45 @@ namespace RuleEngine
               + $"isPlayer = {(isPlayer ? 1 : 0)}，blockPlayerActions = {(blockPlayerActions ? 1 : 0)}）"
               + "—— 原版 `BattleManager__AddRemoveFromCemetery.c:31-35` 组的是 `actionType 0x3c (60)`");
             return true;
+        }
+
+        /// <summary>
+        /// **动作 `removeFromCemetery(60)` 的【出队处理口】** —— 原版
+        /// `BattleManager.ResolveRemoveFromCemetery(BattleAction)` 的等价物（账 534）。
+        ///
+        /// <para>**判据**（🥇 `d:/2/tools/decomp_full/BattleManager__ResolveRemoveFromCemetery.c`，全文 233 行，
+        /// 2026-10-29 逐段现读 —— 其中 90% 是 Ghidra 展开的 `BattleAction` 结构体整份拷贝，真语句只有两句）：
+        /// <list type="number">
+        /// <item>`:82-134`：取动作里的卡字段；**非空** ⇒ `CardScript.RemoveCardFromCemetery(那张)`
+        ///   —— 而它**全文只有一句** `*(card + 0x24b) = 0`（`CardScript__RemoveCardFromCemetery.c:1-8`）；
+        ///   卡字段**为空** ⇒ `CustomDebug.LogWarning(...)`，**什么都不摘**。</item>
+        /// <item>`:182/:229`：`BattleManager.FinishResolvingAction(...)` —— 收尾。</item>
+        /// </list></para>
+        ///
+        /// <para>🔴 `+0x24b` = `shouldCheckIfIsInCemetery`（`CardScript__Awake.c:40` 置 1、全库**无写回 1**）
+        /// ⇒ 清 0 = **永久放逐**：`GetCardsInCemetery.c:54` 从此不再把这张收进结果
+        /// ⇒ 我们的等价物 = <see cref="RuleCore.ExileFromCemetery"/>（读点 <see cref="RuleCore.IsExiledFromCemetery"/>，
+        /// 消费点 `RuleCore.GetCardsInCemetery` 那一条 `|| IsExiledFromCemetery(...)`）。**副作用不是零**。</para>
+        ///
+        /// <para>⚠️ **收尾那一跳由谁做**：原版是显式 `FinishResolvingAction`；本工程的等价物是
+        /// **动作泵的收尾**（`ActionPump.ActionScope.Dispose` → `PumpActionQueues` + `EmitWhileInPlayPass` …）
+        /// ⇒ 本方法**只做「摘」这一件事**，⛔ 别在这里再手发一次收尾（那会与泵点重复）。</para>
+        ///
+        /// <para>⚠️ **卡为空这一支**：`AddRemoveFromCemetery` 在**入队前**就把空卡挡掉了（原版
+        /// `AddRemoveFromCemetery.c:32` 的 `if (param_2 != 0)` 同理）；这里仍保留同一条 **出声 + 不摘**，
+        /// 因为原版 `ResolveRemoveFromCemetery` 自己也有这一支（动作在队列里排队期间目标被清成空是可能的）。</para>
+        /// </summary>
+        /// <param name="card">要放逐的那一张（原版 `battleAction.card`）。</param>
+        public void ResolveRemoveFromCemetery(CardInstance card)
+        {
+            if (card == null)
+            {
+                // 原版 `.c:82-134` 的空卡支：LogWarning + 直接去 FinishResolvingAction。
+                Log("⚠️ `ResolveRemoveFromCemetery`：动作里的那张卡是空的 ⇒ **这一条什么都不摘**"
+                  + "（原版 `BattleManager__ResolveRemoveFromCemetery.c:82-134` 的 `LogWarning` 支）");
+                return;
+            }
+            RuleCore.ExileFromCemetery(this, card);
         }
     }
 }

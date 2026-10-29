@@ -10069,7 +10069,7 @@ public static class BattleScene
                       "（前提）A28：这一手至少有一颗钮建出来（量节点 rect 要用；贴图缺 ⇒ 一颗都量不到，"
                     + "⛔ 那不是「对上了」）");
                 Check(sel.ButtonScale(AttackKind.Melee) < 1.01f && sel.ButtonScale(AttackKind.Ranged) < 1.01f,
-                      "★ 这个单位**还没打过** ⇒ 各格都不放大（原版那圈挂的是 `unit.attackType`，0 = 不亮）");
+                      "★ 这个单位**还没打过** ⇒ 各格都不放大（原版那圈挂的是 `unit.attackType`，0 = 不亮）"); B97HUDROTAssert.Run(); pass += B97HUDROTAssert.Pass; fail += B97HUDROTAssert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_HUDROT`）：账 `未分类_其他:584` 的战斗 HUD 三颗 Highlight 自转（同一行追加 ⇒ 行数零变化）
                 // 「已选打法」那一格：挑一个**这一手真有的**打法（不同单位的可选格不同：近战/远程/技能），
                 // 给它一个 `LastAttackType` 再开一次 —— 原版那圈（+ 1.3 倍）挂的就是它。
                 var pickKind = AttackKind.Melee;
@@ -36517,7 +36517,7 @@ public static class BattleScene
                     Check(driver.DeckSizeVisibleForTest && driver.HandSizeVisibleForTest,
                           "★ 再按回去 ⇒ **又亮**（一藏一显 ⇒ 这一条既不可能是「恒藏」也不可能是「恒显」）");
                     driver.SetCardHoldForTest(null);        // 还原成看真指针，别影响后面的段
-                    driver.ApplyTutorialVisibilityForTest();
+                    driver.ApplyTutorialVisibilityForTest(); B97_BD_Assert.CheckB97BD(driver);   // 🆕 2026-10-29（调度台代接线 · `B97_BD`）：账 255（`ChoicesMaxTargets` 数据优先）· 292（督军入场 ×1.3 + 落地回正）。接在 `BeginTutorial(0)` 之前 ⇒ 不污染后面那一段
 
                     // ---- ⑤ 督军两拍（原版 `BattleManager.TutorialStartSequence`，**不是动作档**）----
                     driver.BeginTutorial(0);
@@ -37991,7 +37991,7 @@ public static class BattleScene
             //  ⛔ 命中**一律调生产函数**（⛔ 探针不重算一份算式 —— 那是「实现与检测器一起改回去还全绿」的自证）。
             // ================================================================
             {
-                var drv964 = driver;
+                var drv964 = driver; B97_UI2_Assert.CheckB97UI2TargetInPos(driver); Check(B97_UI2_Assert.Fail == 0 && B97_UI2_Assert.Pass > 0, "B97_UI2 棋盘拾取断言（通过 " + B97_UI2_Assert.Pass + " / 失败 " + B97_UI2_Assert.Fail + "）");   // 🆕 2026-10-29（调度台代接线 · `B97_UI2`）：账 `战斗逻辑驱动:381` `GetTargetInPos` 的等价物 = `BattleDriver.HitSlot`。它自己 `Begin` 一局（同种子 20260915），紧随其后的 `drv964.Begin(...)` 会盖掉本件状态 ⇒ 不污染后面断言 · 同一行追加 ⇒ 行数零变化
                 var hits964 = new List<string>();
                 hits964.Add("kind\ttarget\t判据/命中函数\t读数\t结论\t备注");
                 bool chatDependsOnCooldown964 = false;      // chat 的「副作用」那一格如实降级（见下）
@@ -46627,7 +46627,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

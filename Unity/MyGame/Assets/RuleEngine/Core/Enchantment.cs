@@ -1950,7 +1950,7 @@ namespace RuleEngine
                     Remove(ctx, carrier, other);
                 }
             }
-            eff.QuestBuff = true;
+            eff.QuestBuff = true; carrier.QuestCounter = 0;   // 🔴 2026-10-29（执行代理 `B97_W1`）：补原版 `CardScript__AddEffect.c:888` 的 `*(int*)(param_1 + 0x270) = 0`（**载体的** `questCounter` 归零 —— `ReachedQuestCounter` 的累计器，消费点 = `FilterByQuestCounter`；漏了它 = 挂第二条任务附魔后计数接着累，原版是重来）。⚠️ 同处 `:890/:891` 的 `DisplayStatusAnim(0x2ee)` / `UpdateTraitIcons` 是**表现层**，本层无对应层 ⇒ 如实留缺口（池内 `spellType==120` **0 张** ⇒ 今天零可观测）
         }
 
         /// <summary>

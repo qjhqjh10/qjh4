@@ -1376,6 +1376,8 @@ public static class DeckScene
                 }
             }
 
+            B97_MENU_Assert.CheckB97MenuDeckPoolBanIcon(_rt);   // 🆕 2026-10-29（调度台代接线 · `B97_MENU`）：卡池卡格的 ban 徽标（账 `菜单_外壳:58`）。
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else

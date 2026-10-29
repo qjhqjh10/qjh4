@@ -104,8 +104,12 @@ public static partial class RuleEngineTest
                 CheckTrue(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
                           "🧨 教程/战役都空 ⇒ `IsScriptedStageAvailable` = false");
                 ctx.CampaignStage = new TutorialStageData { stage = 1 };
+                ctx.Turn = 1;
+                CheckTrue(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
+                          "🧨 战役半非空但 `turns == null` ⇒ false（原版 ④ `turn-1 < stage[+0x48].Count`；`decomp_full/BattleManager__IsCampaignStageAvailable.c`。2026-10-29 `B97_TUT` 改）");
+                ctx.CampaignStage = new TutorialStageData { stage = 1, turns = new[] { new TutorialTurn() } };
                 CheckTrue(TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
-                          "战役半非空 ⇒ `IsScriptedStageAvailable` = true（原版 `IsCampaignStageAvailable()` 那一跳）");
+                          "战役半 `turns.Length = 1` ∧ `Turn = 1` ⇒ true（原版 `IsCampaignStageAvailable()` 那一跳）");
             }
         }
     }

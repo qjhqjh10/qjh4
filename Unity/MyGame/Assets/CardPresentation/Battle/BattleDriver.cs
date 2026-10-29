@@ -10629,11 +10629,11 @@ namespace CardPresentation
         /// 「`desc` 含一句以 `choose ` 开头的子句」的共 **50** 张，其 `maxTargets` 分布 =
         /// `3` 48 · `2` 1（`Duelist's Hubris`，走 `choose one`）· `4` 1（`GSC65`）—— **没有一张是 0**。
         ///
-        /// ⚠️ **仍未搬进管线的那一半**：我们自己的卡数据（`cards_engine.json` / `CardDef`）里
-        /// **仍然没有** `choicesDefinition` 这个字段 ⇒ 下表是**表现层镜像**，不是最终形态。
-        /// 正解 = `工具/gen_cards_engine.py` → `cards_engine.json` → `Core/CardDef.cs`（引擎线数据管线）；
-        /// 那一半本轮**没动**（文件所有权：不碰 `RuleEngine/**` 与工具/数据 JSON）。
-        /// 搬进去之后 <see cref="ChooseShowByCardId"/> 应**整张删掉**、改查 `CardDef`。
+        /// ~~⚠️ **仍未搬进管线的那一半**：我们自己的卡数据（`cards_engine.json` / `CardDef`）里
+        /// **仍然没有** `choicesDefinition` 这个字段 ⇒ 下表是**表现层镜像**~~ ✅ **2026-10-29（账 255 ① · `B97_BD`）：已搬进管线** ——
+        /// `cards_engine.json` 的 `choices*` 三列（v10 起）→ `CardDef.ChoicesMaxTargets`；
+        /// 运行期判据已改成读它（见 `ChooseShowLimit`），下表**降级为兜底快照**。
+        /// 仍活着的那半句：`RuleEngine/**` 与工具/数据 JSON 本文件不动（那是别的写手的域）。
         ///
         /// ⚠️ **不作出处的那一份**：`《Warpforge Offline Rulebook》` 英文版 `:475`
         /// （「randomly select 3 cards」）—— 它**自己第 5 行写着 `Not official. Fan project.`**，
@@ -10649,12 +10649,12 @@ namespace CardPresentation
 
         /// <summary>
         /// 原版 `choicesDefinition.maxTargets` ∈ **{2, 4}** 的那几张卡（键 = `CardDef.Id`）。
+        /// 🔴 **2026-10-29（账 255 ① · `B97_BD`）：本表已降级为【兜底快照】** —— 运行期判据 = 卡数据 `CardDef.ChoicesMaxTargets`（见 `ChooseShowLimit`），本表只在它回 `-1`（真值快照缺这张卡）时才被查。
         /// 🆕 **2026-10-19（`A1959`）：本表从「6 张手工表」换成【完整 21 张】** ——
         /// 数据源 = `d:/4/_tmp_view/allcards_export/cards_raw.json`（2026-10-18 导出的当前 build 的
         /// 1351 张卡 SO）里的 `full_raw.choicesDefinition.maxTargets`；**与池内 1127 张逐 id 对上、0 缺**。
         /// `maxTargets = 3`（池内 127 张）走 <see cref="ChooseShowDefault"/>，不重复列；
         /// `maxTargets = 0`（池内 979 张）原版**不开这条路**，见 <see cref="ChooseShowDefault"/> 的说明。
-        /// ⚠️ 这是**表现层镜像**（见 `ChooseShowDefault` 那段「仍未搬进管线的那一半」）。
         /// ⚠️ 原版 `maxTargets` 只说明「**最多摆几张**」；**「开不开面板」是另一件事** ——
         /// `A1960`（黑团那 5 张 `targetsAffected = 180` 的卡，原版会开、我们解析层还不发 `choosecard`）
         /// 与这张表**互不相干**。
@@ -10688,12 +10688,12 @@ namespace CardPresentation
                 { "GSC65", 4 },                              // Pilfered Supplies（defence · 180；✅ 今天唯一真走得到这个面板的 4 张卡）
             };
 
-        /// <summary>这一张卡这次最多摆几张候选 —— 表里查不到就取众数 <see cref="ChooseShowDefault"/>。</summary>
+        /// <summary>这一张卡这次最多摆几张候选 —— **判据 = 卡数据 `CardDef.ChoicesMaxTargets`**（原版 `choicesDefinition.maxTargets`）；只有 `-1`（快照缺这张卡）才退回快照表 / 众数 <see cref="ChooseShowDefault"/>。⚠️ `0` 是**合法值**（原版「不摆」），⛔ 别当缺值。</summary>
         static int ChooseShowLimit(CardDef c)
         {
-            int v;
-            if (c != null && c.Id != null && ChooseShowByCardId.TryGetValue(c.Id, out v)) return v;
-            return ChooseShowDefault;
+            int v = c != null ? c.ChoicesMaxTargets : -1;
+            if (v >= 0) return v;                                  // 数据为判据（`0` 合法 = 不摆）
+            return (c != null && c.Id != null && ChooseShowByCardId.TryGetValue(c.Id, out v)) ? v : ChooseShowDefault;
         }
 
         /// <summary>
@@ -16946,7 +16946,7 @@ namespace CardPresentation
                     + " 这一局的提示/高亮/光标/标注/跳过钮**都不会出现**（⛔ 不静默）。");
                 return null;
             }
-            _tutOverlay = TutorialOverlay.Create(hudRoot);
+            _tutOverlay = TutorialOverlay.Create(hudRoot); _tutOverlay.SetupCursor(ArmyIcons.Id(_myFaction));   // 🆕 2026-10-29（B97_FXC · 账 524）：= 原版 `SetupCursor(deckWarlord.cardArmy)` 的等价处（同 `SetupDataDependentElements` 起手那一跳）
             // 🔴 **2026-10-18：这里原来有一句 `_tutOverlay.SkipPanel = _settingsPanel;`（A991 收口时加的），已删。**
             //   跳过钮已于 A991 搬进 `Battle/SettingsPanel.cs`（原版那颗的父链就是
             //   `BattleSettingsPanel/Bottom buttons`），而 `TutorialOverlay` 上留下的那几个**纯转发口**
@@ -25076,7 +25076,7 @@ namespace CardPresentation
             v.SetSwarm(true);
 
             // ② 合并件（挂在存活那格；⚠️ 偏离 ① —— 原版挂在被并掉那张）
-            WarpforgeVFX.WarpforgeEffectPlayer.Play(SwarmMergeVfxName, v.transform, Vector3.zero, 1f, -1f);
+            var mergeVfx = WarpforgeVFX.WarpforgeEffectPlayer.Play(SwarmMergeVfxName, v.transform, Vector3.zero, 1f, -1f);
 
             // ②·b 🔴 **2026-10-27（`B9_W29BDR2` · 订正 `E4BDR`/账 403 落点）**：原版 `SwarmVFXController.Initialize.c:22` 的
             //   `CardUI(+0x290).ToggleBody3D(false, null)` 作用的是 **`param_2` = 被并掉那张**，⛔ 不是存活那张：
@@ -25088,14 +25088,15 @@ namespace CardPresentation
             //   （`Kill`/`PendingExitFor`）；原版「藏体 1.2 s 再销毁」那半拍**没有等价载体** ⇒ 如实记为未复刻的一小段（见报告）。
             //   ⚠️ 原版那一跳还连带 `effectsAnchor` 的显隐（`ToggleBody3D` 内部；我们的 `Show` 只管 `_body3D`）—— 那一半在我们这侧
             //      **没有消费者**（特效都挂 `CardView.transform`）。⚠️ 材质交接（`Initialize.c:20-21` 的 `ConfigureMaterial(mat, card)`）
-            //      **不换**：那两句写的是**两格贴图**（`_CardImage` 立绘 · `_MatCap` 按 `CardTier`），而对象是 `SwarmVFXController`
-            //      自己的 renderer(+0x20)；`WarpforgeEffectPlayer` 没有「按卡改写特效材质」这条路 ⇒ **查不到判据，不换**。
-            if (!_swarmMergeMaterialWarned)
+            //      是**两格贴图**（`_CardImage` 立绘 · `_MatCap` 按 `CardTier`），对象是 `SwarmVFXController` 自己的
+            //      renderer(+0x20)；🆕 2026-10-29（`B97_FXC`）**已接**：`WarpforgeEffectPlayer.SetMatCap` 窄口 + 下面那 7 行。
+            SwarmMergeMatCapWrites = ApplySwarmCardMaterials(mergeVfx, v);
+            if (SwarmMergeMatCapWrites == 0 && !_swarmMergeMaterialWarned)
             {
                 _swarmMergeMaterialWarned = true;
-                Debug.Log("[Battle] 虫群合并：原版 `SwarmVFXController.Initialize` 还对那件 VFX 的材质调过 "
-                        + "`CardMaterialHelper.ConfigureMaterial(mat, card)`（写 `_CardImage` / `_MatCap` 两格）—— "
-                        + "我们没有「按卡改写特效材质」的路（特效材质来自效果库原件）⇒ **这一档不换材质**（查不到判据，⛔ 不猜）");
+                Debug.LogWarning("[Battle] 虫群合并：原版 `CardMaterialHelper.ConfigureMaterial` 的两格贴图"
+                               + "（`_CardImage` / `_MatCap`）一个槽都没写进去 ⇒ 这一档材质交接没生效"
+                               + "（判据 = `SwarmVFXController__Initialize.c:20-22`）");
             }
 
             // ③ 3D 音（原版 `Play3D` ⇒ is2d = false）
@@ -33170,7 +33171,7 @@ namespace CardPresentation
         /// （= `Update` 里原来那一行；现在恒 false）。</summary>
         public bool HandleOffensiveButtonForTest() { return HandleOffensiveButton(); }
 
-        /// <summary>点到哪个槽位了（从最前面往后测，压住的也能选中）。
+        /// <summary>点到哪个槽位了（从最前面往后测，压住的也能选中）。🔴 **本方法 = 原版 `BattleManager.GetTargetInPos` 真生效支的对应物**（账 `战斗逻辑驱动:381`；判据 `decomp_full/BattleManager__GetTargetInPos.c:204-265` = `boardCamera.ScreenPointToRay(TouchInputManager.TouchPosition)` → `Physics.RaycastNonAlloc(200f, 1<<BoardElements)` → 取首条 `GetComponentInParent<CardScript>()` ⇒ 返回**棋盘**元素，⛔ **不是**手牌/换牌区那套 `CardInteraction.Frontmost`）。结构差（如实标）：本仓棋盘**没有 3D collider**，用「逐卡 `BoxCollider2D` 投影」（`CardHit`）代替物理射线；原版 2D 支 `Physics2D.GetRayIntersectionNonAlloc(ray, buf, **-1f**)` 负距离恒 0 命中 = **死支**，它的三档（`ActiveSkillDisplay` / `ActiveWarlordAbility` / 裸 `CardScript`）与 `+0x290 == 10/0xd ⇒ null` 状态闸**因此不可达、不实现**（死支照抄「不实现」，⛔ 别补）。
         /// <para>🔴 **2026-10-20（`W57` · 战斗线 `T09` 步骤 B2b）：命中判据已从手算 `CardView.Contains`
         /// 换成真 collider `CardView.HitByCollider`**（= `Physics2D.OverlapPoint` 逐颗比对本卡那颗
         /// `BoxCollider2D`，B1 交付）。判据来源 → `CardView.HitByCollider` 的 doc + `W57_战斗线_T09_B1_CardViewCollider.md`。
@@ -34743,7 +34744,7 @@ namespace CardPresentation
         // ══════════════════════════════════════════════════════════════════════════
         //  判据（`decomp_full/CardScript._HeroLandIntoField_d__318__MoveNext.c` 逐 state 亲读；
         //  三个常量用 `工具/read_literal.py` 现读 `GameAssembly.dll`）：
-        //   段0（:37-95）：`GetUnitSizeInPlay` ⇒ `set_DefaultScale`（再 × `AlternateArtCard.CardImage` 的缩放档）
+        //   段0（:37-95）：`GetUnitSizeInPlay` ⇒ `set_DefaultScale`（再 × `DeviceVariables().warlordStartSizeFactor` = **1.3**）
         //        · `waitMult != 1` ⇒ `localPosition.y -= 0.2`（`DAT_1834b2bb0` = **0.2**）
         //        · 卡图 `DOFade(1, 0.3)`（`DAT_1834b2dc8` = **0.3**）· `FadeAllTraitsIcons(1, 0.3)`
         //        · `showStats == 0` ⇒ `WaitForSeconds(waitMult × 0.3)`（else 逐组 SetActive 打开图标/计数器）
@@ -34757,8 +34758,8 @@ namespace CardPresentation
         //     ⚠️ **普通开局不调它**（`BattleManager.SetupBoard` 那条链里没有它）⇒ 别接成「每局都落一次」。
         //
         //  🔶 自己设计（非原版）· 调度台 2026-10-26 裁定：
-        //    ① **缩放不写** —— 场上卡的在位尺度由 `SyncBoard` 统一管（原版 `GetUnitSizeInPlay` 的等价物），
-        //       这里再写一次会跟它抢；而且原版那一跳的**起止值本来就相等**（同级）⇒ 观测上是空操作。
+        //    ① ✅ **2026-10-29（账 292 · `B97_BD`）已撤销「缩放不写」**：原版 state 0 是「在位 scale × `warlordStartSizeFactor`
+        //       (1.3)」（VA 层：`DeviceVariables` → `[rax+0x30]` → 三分量 `mulss` → `set_localScale`），state 1 再 `DOScale(GetUnitSizeInPlay, 0.1, OutElastic)` 回正 ⇒ **起止值并不相等**，不是空操作（那半句已作废）。
         //    ② **alpha 不写 0 再淡入** —— 我们的卡视图刚 `SetActive(true)` 就是全不透明（原版 `DOFade(1)`
         //       在 alpha 已为 1 时同样是空操作）⇒ 强行压 0 再补间，一旦补间被杀就是**一张看不见的督军**。
         //    ③ `showStats` 那一半（`.c:97-338` 四组嵌套循环逐组 `SetActive`）**判据未逐句解** ⇒ TODO，不假装做了。
@@ -34770,7 +34771,7 @@ namespace CardPresentation
         void HeroLandInto(CardView v, bool showStats, float waitMult)
         {
             if (v == null || !animateFeel || Ctx == null) return;
-            float fade = CardFeel.HeroLandBadgeFadeTime;      // 0.3 = `DAT_1834b2dc8` 现读
+            float fade = CardFeel.HeroLandBadgeFadeTime, dflt = HeroLandScaleIn(v, waitMult);   // 0.3 = `DAT_1834b2dc8` 现读；`dflt` = 段0 ① 的 `DefaultScale`（见 `HeroLandScaleIn`）
             float landAt = Mathf.Max(0f, waitMult) * fade;    // 段0 的 `WaitForSeconds(waitMult × 0.3)`
             // 段1 的 `LandOnGround()`：**震镜**这一件（另两件没有对应的入场事件，见上面 ④）
             // ⚠️ 用 `SchedulePresentationCallback`（**不动队尾**的那条窄口）—— `ScheduleAction` 会把队尾推后，
@@ -34778,11 +34779,11 @@ namespace CardPresentation
             SchedulePresentationCallback(landAt, () =>
             {
                 if (v == null || Ctx == null) return;
-                CardFeel.ShakeCameraForLand(cam, hudRoot, 0f, boardCam); v.ApplyStatContainersOnHeroLand(showStats);   // 段0 收尾那一刻 = 原版 `showStats` 那一段（`.c:97-338`；判据与 🔶 标记见 CardView 那个方法）
+                HeroLandScaleOut(v, dflt, waitMult); CardFeel.ShakeCameraForLand(cam, hudRoot, 0f, boardCam); v.ApplyStatContainersOnHeroLand(showStats);   // 段1 的 `DOScale` 回正 + y 抬回；震镜 = `LandOnGround` 那一件（`.c:97-338` 的 `showStats` 见 CardView）
             });
             Debug.Log($"[Battle] 督军入场（原版 `HeroLandIntoField(showStats={showStats}, waitMult={waitMult})`）："
                     + $"落地那一拍排在 {landAt:F2}s 后（段0 的 `WaitForSeconds`）"
-                    + "；🔶 缩放/alpha 两半按我们的形状不写（见 `HeroLandInto` 的 doc）");
+                    + "；缩放已按 state 0/1 接（×1.3 → 补间回正）；🔶 alpha 那一半按我们的形状不写（见 `HeroLandInto` 的 doc）");
         }
 
         // ══════════════════════════════════════════════════════════════════════════
@@ -35471,7 +35472,7 @@ namespace CardPresentation
         /// <summary>自检口：把「③④ 无对应层已出声」那位清零。</summary>
         public static void ResetDissolveExtrasWarnForTest() { _warnedDissolveExtras = false; }
 
-        /// <summary>虫群合并那一跳的「材质不换」已出声一次（账 403；判据见 `PlaySwarmMergeFeel` 里 ②·b 那段）。
+        /// <summary>虫群合并那一跳「材质一个槽都没写进去」已出声一次（账 403 第三档；判据见 `PlaySwarmMergeFeel` 里 ②·c 那段）。
         /// ⚠️ 追加在类尾（⛔ 别插到 `_swarmMergeCueWarned` 旁边 —— 那会让它下面所有账的 `文件:行号` 整体漂）。</summary>
         static bool _swarmMergeMaterialWarned;
 
@@ -38048,5 +38049,85 @@ namespace CardPresentation
             };
             return h.OnTouchUpAsButton(inp);
         }
+
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-29（`B97_FXC` · 账 403 第三档）：虫群合并件的材质交接（原版 `ConfigureMaterial`）
+        // ------------------------------------------------------------------
+        /// <summary>自检口：虫群合并那一拍真正写进 `_CardImage` / `_MatCap` 的材质槽数（`0` = 这一档没生效）。
+        /// 账 403 的读数口 —— ⛔ 别拿「调过 `SetMatCap`」自证。</summary>
+        public int SwarmMergeMatCapWrites { get; private set; }
+
+        /// <summary>把原版 `CardMaterialHelper.ConfigureMaterial(mat, card)` 那两格贴图写进虫群合并件。
+        ///
+        /// <para>判据 = `d:/2/tools/decomp_full/SwarmVFXController__Initialize.c:20-22`（`Renderer.GetMaterial(0)` →
+        /// `ConfigureMaterial`）+ `CardMaterialHelper` 全文只有 `_CardImage` / `_MatCap` 两条 `SetTexture`。
+        /// 取数口与 `CardView.ConfigureRemnantMaterials` **同一条**（`CardArt.Card3DMatcap(CardProgress.Level(artId))`
+        /// + `CardView.BodyArtTexture`）—— 残骸体那一路已逐行核过，⛔ 别另挑一套取法。</para>
+        /// <para>⚠️ 一个槽都没写进去时由**调用点**出声一次（`_swarmMergeMaterialWarned` 去重）—— 静默失败是本仓红线。</para></summary>
+        int ApplySwarmCardMaterials(WarpforgeVFX.WarpforgeEffectPlayer p, CardView v)
+        {
+            if (p == null || v == null) return 0;
+            int level = !string.IsNullOrEmpty(v.Data.artId) ? CardProgress.Level(v.Data.artId) : 0;
+            int n = p.SetMatCap(CardArt.Card3DMatcap(level), v.BodyArtTexture);
+            SwarmMergeMatCapWrites = n;
+            // ⚠️ 写 0 个槽的**出声**由调用点（`PlaySwarmMergeFeel` 的 ②·c 那 7 行）负责，
+            //    ⛔ 别在这里再报一次 —— 两份告警会让人以为是两个缺陷。
+            return n;
+        }
+
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-29（执行代理 `B97_BD` · 账 `战斗逻辑驱动:292`）：`HeroLandIntoField` 的**缩放两拍**
+        //  （原版 state 0 的 ②③ 与 state 1 的 `DOScale`）。追加在**类尾** ⇒ 上面任何账落点都不动。
+        // ------------------------------------------------------------------
+        //  判据（第一权威 = `decomp_full/CardScript._HeroLandIntoField_d__318__MoveNext.c` 逐句）：
+        //   · state 0（`:37-95`）：
+        //     ① `DefaultScale = GetUnitSizeInPlay(cardType, isPlayer)`（`:42`）—— 我们的等价物 = `SyncBoard`
+        //        落位时已经写进 `CardView.BaseScale` 的那个值（`PoseFor` → `ArenaSlots.CardScale/HeroScale`
+        //        或 2D 那套 `layout.placedScale`）⇒ 入口先把它读出来。
+        //     ② `localScale = 【当前 scale】 × VarsDevice.warlordStartSizeFactor`（`:52` 读 `[rax+0x30]`、
+        //        `:59` 三分量 `mulss` → `set_localScale`）。⚠️ 乘的起点是**当前值**（`+0x324`/`+0x32c`
+        //        那三个缓存分量），**不是** `DefaultScale` 本身 —— 两者今天相等，但别把顺序写反。
+        //        🔴 **偏移 `+0x30` 独立坐实**（不靠那个符号名）：`VarsDevice__GetCardInHandYOffsetTouchInput.c`
+        //        自己写 `this+0x1c` / `this+0x20` = `cardInHandShownYOffset` / `…Min`（两个相邻 float）
+        //        ⇒ 往前一格 `+0x18` = `cardInHandShownScale`、`extraSpaceOnSelectedCard` 指针在 `+0x28`
+        //        ⇒ **`+0x30` 正好是 `warlordStartSizeFactor`**（桌面 1.3 / 移动 1.5，`VarsDesktop.json` 现读）。
+        //        ⚠️ `.c` 里那个调用被印成 `AlternateArtCard__get_CardImage` —— 那是**符号名撞车**
+        //        （同「文件名与内容不符」那一族）：实参是 `manager(+0x258)`、返回值被当 `VarsDevice` 用。
+        //        ⛔ 本文件原来那句「再 × `AlternateArtCard.CardImage` 的缩放档」已按此订正。
+        //     ③ `waitMult != 1.0` ⇒ `localPosition.y -= 0.2`（`DAT_1834b2bb0` 现读 = 0.2）。
+        //        🔴 本 build 两个调用点传的都是 `1.0`（`_TutorialStartSequence_d__592:80/:124`）⇒ 这一档
+        //        今天**不跑**，但两条支原版都在 ⇒ 照抄留着（⛔ 别按「反正不跑」删）。
+        //   · state 1（`:342-400`）：`waitMult != 1.0` ⇒ `y += 0.2` 抬回；`DOScale(GetUnitSizeInPlay,
+        //     AttackStepTime = 0.1)` + `SetEase(0x18)`（`Ease.OutElastic`）。
+        //   ⚠️ 缩放**只经 `CardView.SetBaseScale`**（本仓唯一口：直接写 `transform.localScale` 会让
+        //     `_baseScale` 停在旧值 ⇒ 之后任何一次 `SetPose`/`SetHighlightScale` 都把卡弹回旧缩放 —— 见
+        //     `CardView.BaseScale` 的 doc / `CardFeel.ScaleTo`）。原版没有「高亮系数」那一层，语义等价。
+
+        /// <summary>原版 `HeroLandIntoField` **state 0 的 ②③**：整卡放大 ×`warlordStartSizeFactor`（+ `waitMult != 1` 时下压 0.2）。
+        /// <para>⚠️ 只在 <see cref="HeroLandInto"/> 里调（它有 `animateFeel` 闸）—— ⛔ 别在普通落位路径上顺手调一次。</para>
+        /// <returns>入口那一刻的**在位缩放**（= 原版 `DefaultScale`，也是 state 1 `DOScale` 的终点）。</returns></summary>
+        float HeroLandScaleIn(CardView v, float waitMult)
+        {
+            float dflt = v.BaseScale;                                            // ① 原版 `DefaultScale`
+            v.SetBaseScale(dflt * VarsDevice.Current.warlordStartSizeFactor);     // ② 三分量同乘（1.3 桌面）
+            if (!Mathf.Approximately(waitMult, 1f))                              // ③ `waitMult != 1.0` 才下压
+                v.transform.localPosition += Vector3.down * HeroLandYOffset;
+            return dflt;
+        }
+
+        /// <summary>原版 `HeroLandIntoField` **state 1**：y 抬回 + `DOScale(DefaultScale, AttackStepTime, OutElastic)`。
+        /// <para>⚠️ 没被放大过（`BaseScale` 已经是 <paramref name="dflt"/>）⇒ **不造补间**（零行为）。</para></summary>
+        void HeroLandScaleOut(CardView v, float dflt, float waitMult)
+        {
+            if (!Mathf.Approximately(waitMult, 1f)) v.transform.localPosition += Vector3.up * HeroLandYOffset;
+            if (Mathf.Approximately(v.BaseScale, dflt)) return;
+            float from = v.BaseScale;
+            var tw = DOTween.To(() => from, x => { from = x; if (v != null) v.SetBaseScale(x); },
+                                dflt, CardFeel.AttackStepTime);                  // 原版 `get_AttackStepTime()` = 0.1
+            CardTween.Use(tw, Ease.OutElastic, v.transform);                     // 原版 `SetEase(0x18)` = OutElastic
+        }
+
+        /// <summary>原版 `DAT_1834b2bb0` 现读 = **0.2**（`waitMult != 1.0` 时 y 那一格，正负各一次）。</summary>
+        const float HeroLandYOffset = 0.2f;
     }
 }

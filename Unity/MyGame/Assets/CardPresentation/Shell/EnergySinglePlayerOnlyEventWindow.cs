@@ -329,6 +329,7 @@ namespace CardPresentation
             MenuDraw.ClearChildren(transform);
             MissingArt.Clear();
             _levels.Clear(); _scoreLabels.Clear(); _crateHi.Clear(); _chests.Clear();
+            _scoreLines.Clear(); _scoreBar = null; _scoreSlider = null;   // 🆕 2026-10-29（B97_MINI2）：组件表随树重建
 
             _root = transform;
             BuildBackdrop(transform);
@@ -430,6 +431,13 @@ namespace CardPresentation
             var bar = MenuDraw.Node(rp, "Scoring Bar Event Score Info",
                                     CenterRect(SBarCx, SBarCy, SBarVisW, SBarVisH));
             var pr = MenuDraw.Node(bar, "Progress Bar", CenterRect(ProgCx, ProgCy, ProgVisW, ProgVisH));
+            // 🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:430`）：原版 `MilestoneScoreBar.progressBar` 就挂在这颗
+            //   `Progress Bar` 上（判据 = `menu_dump.py bundle_menus_assets_all "EnergySinglePlayerOnlyEventWindow"` 现读：
+            //   `Scoring Bar Event Score Info` 的组件 = `MilestoneScoreBar`（字段 `progressBar,scoringLines`）·
+            //   `Progress Bar` 的组件 = **`Slider`** · 5 行 `Score Bar Line Level k` 的组件 = `GenericScoreBarLine`）。
+            //   本工程的渲染线**不画 uGUI 滑块** ⇒ 这颗 `Slider` 只承载 `maxValue / normalizedValue`
+            //   （原版 `SetProgressBar` 写的就是这两格），Fill 仍由下面那颗 quad 表示（见 `DrawFill`）。
+            var barSlider = pr.gameObject.AddComponent<UnityEngine.UI.Slider>();
             //   `Background`（`MiniBar_01` 59×648 · Simple）
             MenuDraw.Rect(pr, Art(ArtMiniBar), CenterRect(ProgBgCx, ProgBgCy, ProgBgW, ProgBgH),
                           "Background", QArt);
@@ -479,6 +487,8 @@ namespace CardPresentation
             MenuDraw.Hit(_collect, "CollectHit", CollectR, QHit, CollectClicked, cb, ArtMulligan,
                          ArtMulligan + "_hover", ArtMulligan + "_Pressed",
                          clickCue: WindowSounds.PositiveCue);
+
+            WireScoreBar(bar, barSlider);
         }
 
         /// <summary>点第 `level` 档（1..5）的宝箱 —— 原版 lambda = `RewardService.Preview(reward)`
@@ -554,9 +564,10 @@ namespace CardPresentation
                 float dy = -i * LvlStep;      // `Level 1` 那一档 = 基准，往上每档减 LvlStep
                 // `Highlight Crate`（自带 scl **0.796** ⇒ 框取**视觉尺寸**）
                 //   原版 tint = **不透明金** `(0.98,0.801,0.0588,1)`；运行时只在「这一档可领」时点亮。
-                _crateHi.Add(MenuDraw.Rect(row, Art(ArtCrateHi),
+                var hiQ = MenuDraw.Rect(row, Art(ArtCrateHi),
                               CenterRect(CrateHiCx, CrateHiCy + dy, CrateHiW, CrateHiH),
-                              "Highlight Crate", QArt1, CrateHiTint));
+                              "Highlight Crate", QArt1, CrateHiTint);
+                _crateHi.Add(hiQ);
                 // `Chest`（自带 scl **0.8696**）· `Skull`（同）—— 中心随行一起走
                 // 🔴 **2026-10-18（音效线转来的界面缺口）：补命中区 + 点击音**（原来**只有视觉**，点了什么都不发生）。
                 //   判据（原版 prefab 逐字段现读 + 反编译）：
@@ -569,12 +580,13 @@ namespace CardPresentation
                 //   ⚠️ **本地没有“奖励预览”的窗口/数据**（`RewardService` 走远端 LiveOps 奖励对象）⇒
                 //     命中区与音照原版接，动作**留空并出声**（同本窗 `Collect` 的口径：边界③不静默）。
                 var chestRect = CenterRect(ChestCx, ChestCy + dy, ChestW, ChestH);
-                _chests.Add(MenuDraw.Rect(row, Art(CrateArt[i]), chestRect, "Chest", QArt));
+                var chestQ = MenuDraw.Rect(row, Art(CrateArt[i]), chestRect, "Chest", QArt);
+                _chests.Add(chestQ);
                 //   原版这颗是 **`m_Transition = 1 (ColorTint)`**（不是 SpriteSwap）⇒ **不传 `target`**：
                 //   `WindowButton.Bind` 在 `art == null` 时会把 `" → "` 记进 `MissingSwapArt`（假缺口），
                 //   而这里没有图要换 —— 命中 quad 自己那颗透明件就够（同 `MissionsTab.AddInfoTooltip` 的写法）。
                 MenuDraw.Hit(row, "ChestHit", chestRect, QHit, () => OnChestClick(i + 1));
-                MenuDraw.Rect(row, Art(ArtSkull), CenterRect(SkullCx, SkullCy + dy, SkullSide, SkullSide),
+                var skullQ = MenuDraw.Rect(row, Art(ArtSkull), CenterRect(SkullCx, SkullCy + dy, SkullSide, SkullSide),
                               "Skull", QArt);
                 // `Score`：原版 hAlign = **Right**（现读 `对齐=Right/Midline · 折行=1`）⇒ 右对齐到那一格
                 var sr = CenterRect(ScoreCx, ScoreCy + dy, ScoreW, ScoreH);
@@ -597,6 +609,14 @@ namespace CardPresentation
                 //   ⚠️ 那颗 `0.8696` 长在 **`Skull`** 身上、`Score` 是 `Skull` 的**子件**（现读链，⛔ 别记到行节点头上）。
                 //   ⛔ 框不动（`sr` = `CenterRect(…, ScoreW, ScoreH)`，本来就是乘过刻度的屏值）。
                 MenuDraw.AlignRight(sc, sr); _scoreLabels.Add(sc);
+                // 🆕 2026-10-29（`B97_MINI2` · 账 430）：这一行就是原版那颗 `GenericScoreBarLine`
+                //   （prefab 现读：`Score Bar Line Level k` 挂它，字段 `score/chestReward/chestOpen/readyToCollect/resourceIcon`
+                //    正好指向 `Score` / `Chest` / 出厂开箱图 / `Highlight Crate` / `Skull` 这五件）。
+                //   ⇒ 组件挂上去、把**已经建好的这五件**绑给它（几何/颜色/父子链一个像素都没动）。
+                var line = row.gameObject.AddComponent<CardPresentation.ScoreBars.GenericScoreBarLine>();
+                line.Bind(sc, chestQ, Art(CrateArt[i] + "_open"),
+                          hiQ != null ? hiQ.gameObject : null, skullQ);
+                _scoreLines.Add(line);
             }
             Debug.Log("[Energy] 5 行 `Score` 照的是 **prefab 出厂原文 `1256`**、`Highlight Crate` 照出厂"
                     + "（原版是**不透明金**）—— 原版 `MilestoneScoreBar.Initialize(currentScore, milestones)` "
@@ -1185,43 +1205,38 @@ namespace CardPresentation
             _currentScore = currentScore; ApplyScorePanel(currentScore);
             _collectedRewards = collectedRewards < 0 ? 0 : collectedRewards;
             _thresholds.Clear();
-            int n = thresholds == null ? 0 : Mathf.Min(thresholds.Count, _scoreLabels.Count);
-            var ths = new int[n];
-            for (int i = 0; i < n; i++) { ths[i] = thresholds[i]; _thresholds.Add(thresholds[i]); }
+            int n = thresholds == null ? 0 : Mathf.Min(thresholds.Count, _scoreLines.Count);
+            for (int i = 0; i < n; i++) _thresholds.Add(thresholds[i]);
 
-            bool anyClaimable = false;
-            for (int i = 0; i < _scoreLabels.Count; i++)
-            {
-                if (i >= n)
-                {
-                    // 原版 `MilestoneScoreBar` 在这里只打一条
-                    // `[ERROR] Alliances scoring bar: There are more scoring lines that thresholds` 然后**停**
-                    // ⇒ 我们没有阈值的那几行**不动**（保持出厂），下面那条出声一次。
-                    break;
-                }
-                // 状态机（判据逐字 → 本段头部）
-                int state = currentScore < ths[i] ? 0 : (_collectedRewards > i ? 2 : 1);
-                if (state == 1) anyClaimable = true;
+            // 🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:430`）：**这一跳改走真组件** ——
+            //   原版 `SinglePlayerOnlyEnergyEventWindow.RefreshScore` 的产物就是 `GenericScoringMilestone[]`，
+            //   交给 `RewardProgressBarPanel.Initialize` → `MilestoneScoreBar.Initialize`（两个类本体已复刻，
+            //   判据见 `报告/B94_B17.md`）。原来这里是「手工逐件写」的等价族（分数 / 箱子 / 高亮 / 进度），
+            //   现在改成喂组件 —— **几何与外观逐件同前**（`GenericScoreBarLine.Initialize` 写的正是那四件）。
+            //   ⚠️ 状态机没搬走：它仍是原版那条（`currentScore < scoreToUnlock ⇒ Locked`，
+            //   否则 `i < collectedRewards ? Collected : Unlocked`），实现收在
+            //   `Shell/MilestoneLocalSimulation.cs` 的 `FromScore`（⛔ 不在本窗重写第二份）。
+            var ms = CardPresentation.ScoreBars.MilestoneLocalSimulation.FromScore(currentScore, _thresholds, _collectedRewards);
+            if (_scoreBar != null) _scoreBar.Initialize(currentScore, ms, null);
+            else Debug.LogWarning("[Energy] `MilestoneScoreBar` 没建（`_scoreBar == null`）⇒ 5 行里程碑没刷"
+                                + "（原版这一跳就在组件上；⛔ 不静默）");
+            PinChestAspect();      // 换图会把 `_aspect` 拉成贴图比例 ⇒ 钉回框的比例（见 `PinChestAspect` 的 doc）
 
-                if (_scoreLabels[i] != null) _scoreLabels[i].SetText(ths[i].ToString());
-                if (i < _crateHi.Count && _crateHi[i] != null)
-                    _crateHi[i].transform.gameObject.SetActive(state == 1);
-                if (i < _chests.Count && _chests[i] != null)
-                {
-                    // `Collected` ⇒ 开箱图 `<Tier>_open`（五张开箱图都在 `Resources/Art/ui_menu/`）；
-                    // 另两档 ⇒ 闭箱图（就是建树时那一张）。
-                    var tex = Art(state == 2 ? CrateArt[i] + "_open" : CrateArt[i]);
-                    if (tex != null) _chests[i].SetTexture(tex, true);
-                }
-            }
-            if (n < _scoreLabels.Count)
-                Debug.LogWarning("[Energy] 里程碑阈值只有 " + n + " 档、记分条有 " + _scoreLabels.Count
+            // 原版 `RewardProgressBarPanel.HasMilestoneToCollect` = 「有没有一档 state == Unlocked」。
+            bool anyClaimable = RewardProgressBarPanel.HasMilestoneToCollect(ms);
+
+            // 原版 `MilestoneScoreBar.InitializeLines` 同一处只打 `[ERROR] … more scoring lines that thresholds` 然后**停**
+            // ⇒ 没有阈值的那几行**不动**（保持出厂）。本窗再出声一条（说明我们这边的行数从哪来）。
+            if (n < _scoreLines.Count)
+                Debug.LogWarning("[Energy] 里程碑阈值只有 " + n + " 档、记分条有 " + _scoreLines.Count
                         + " 行（原版 `MilestoneScoreBar` 同一处只报错并停止）⇒ 余下几行保持出厂值。");
 
             // 进度：原版 `slider.maxValue = 末档` · `normalizedValue = InterpolateMilestones(score, [0, 阈值…])`。
-            // ⚠️ **共用那份实现**（`AllianceEventScoreInfo.InterpolateMilestones`，判据与出处写在它头上）——
-            //    ⛔ 别在本窗再写一份（CLAUDE.md §三：两处写同一条规则 = 迟早不一致）。
-            SetProgress(AllianceEventScoreInfo.InterpolateMilestones(currentScore, ths));
+            // 🔴 这个数现在**由组件算**（`MilestoneScoreBar.SetProgressBar`）⇒ 直接从 `Slider` 读回来，
+            //    ⛔ 不在本窗再算一遍（那正是「两处写同一条规则」）。
+            SetProgress(_scoreSlider != null
+                        ? _scoreSlider.normalizedValue
+                        : AllianceEventScoreInfo.InterpolateMilestones(currentScore, _thresholds.ToArray()));
 
             if (_collectBtn == null && _collect != null)
                 _collectBtn = _collect.GetComponentInChildren<WindowButton>(true);
@@ -1659,5 +1674,56 @@ namespace CardPresentation
         }
 
         bool _warnedNoRewardHandler, _warnedNoLiveOp;
+
+        // ================================================================================================
+        //  🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:430`）—— **`MilestoneScoreBar` 组件接线**。
+        //  **追加在类尾**（⛔ 中段加行会让账按 `文件:行号` 的落点整体漂移）。
+        //  判据：原版这扇窗的 `Scoring Bar Event Score Info` 挂的就是 `MilestoneScoreBar`
+        //  （`progressBar` = `Progress Bar` 上那颗 `Slider`；`scoringLines` = 5 行 `GenericScoreBarLine`）。
+        // ================================================================================================
+
+        /// <summary>本窗建出来的 5 行组件（`scoringLines` 那一格）。</summary>
+        readonly List<CardPresentation.ScoreBars.GenericScoreBarLine> _scoreLines
+            = new List<CardPresentation.ScoreBars.GenericScoreBarLine>();
+        CardPresentation.ScoreBars.MilestoneScoreBar _scoreBar;
+        UnityEngine.UI.Slider _scoreSlider;
+
+        /// <summary>自检读口：本窗的 `MilestoneScoreBar`（没建 ⇒ null）。</summary>
+        public CardPresentation.ScoreBars.MilestoneScoreBar ScoreBarForTest { get { return _scoreBar; } }
+        /// <summary>自检读口：`progressBar` 那一格（`Progress Bar` 上的 `Slider`）。</summary>
+        public UnityEngine.UI.Slider ScoreBarSliderForTest { get { return _scoreSlider; } }
+
+        /// <summary>把 `MilestoneScoreBar` 挂到已经建好的记分条上，并喂**本地模拟表**（见 `Shell/MilestoneLocalSimulation.cs`）。
+        /// <para>🔴 这一步**不建任何新节点** —— 行/箱子/骷髅/高亮/分数全是 `BuildMilestones` 已经按 prefab 逐值建好的那五件；
+        /// 这里只把 `<see cref="CardPresentation.ScoreBars.GenericScoreBarLine"/>` 绑上去，再由
+        /// `MilestoneScoreBar.Initialize` 按原版写一遍（`score.text` / 箱子图 / 高亮开关 / 进度条两格）。</para>
+        /// <para>⚠️ 模拟表的取值口径 = **镜像 prefab 出厂态** ⇒ 这一步**不改变任何可见像素**
+        /// （`score` = `1256` 与出厂 TMP 原文同字、`state = Unlocked` 与出厂「高亮亮着」同态、`currentScore = 0` ⇒ 进度 0）。</para></summary>
+        void WireScoreBar(Transform bar, UnityEngine.UI.Slider slider)
+        {
+            _scoreSlider = slider;
+            _scoreBar = bar.gameObject.AddComponent<CardPresentation.ScoreBars.MilestoneScoreBar>();
+            _scoreBar.Bind(slider, _scoreLines.ToArray());
+            CardPresentation.ScoreBars.MilestoneLocalSimulation.LogOnce("Energy");
+            _scoreBar.Initialize(CardPresentation.ScoreBars.MilestoneLocalSimulation.CurrentScore,
+                                 CardPresentation.ScoreBars.MilestoneLocalSimulation.CreateTable(), null);
+            PinChestAspect();
+            // 出厂进度 = 0：让 `Slider.normalizedValue` 与画出来的 `Fill` 保持一致（`DrawFill(0)` ⇒ 不建 quad）。
+            SetProgress(_scoreSlider.normalizedValue);
+        }
+
+        /// <summary>把 5 颗 `Chest` 的 `_aspect` 钉回**各自框**的比例。
+        /// <para>🔴 为什么必须有这一步（2026-10-29 `B97_MINI2`）：`GenericScoreBarLine.Initialize` 写箱子走的是
+        /// `ImageQuad.SetTexture(tex)` 那个**单参**重载（= 原版 `chestReward.image.sprite = x` 那一跳），
+        /// 它会把 `_aspect` 拉成**贴图自己**的比例（`keepAspect:false` 档）；而本窗的箱子框是按 prefab 矩形画的
+        /// —— `ChestW 104.49 × ChestH 93.20` ⇒ **1.1211**，贴图 `40k_Crate_Tier*` 是 **512×512** ⇒ 1.0
+        /// ⇒ 不钉回来的话箱子会**窄 10.8%**（`WorldW = WorldH × _aspect`，而且**静默**）。</para>
+        /// <para>改前那一版 `SetScore` 用的是 `SetTexture(tex, true)`（不动比例）⇒ 这条钉子是「接组件后**视觉等价**」
+        /// 的必要件，⛔ 别删（`Editor/B97_MINI2_Assert.cs` 的 C 段钉着它存在）。</para></summary>
+        void PinChestAspect()
+        {
+            const float aspect = ChestW / ChestH;
+            for (int i = 0; i < _chests.Count; i++) if (_chests[i] != null) _chests[i].SetAspect(aspect);
+        }
     }
 }

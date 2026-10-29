@@ -1345,7 +1345,7 @@ namespace CardPresentation
                     ev.D.filter.eventGroupIds = new string[] { "g4" };
                     var trig = new CountingTrigger();
                     var sigTrig = new CountingSignalTrigger { Want = "E_trigger" };
-                    ev.D.filter.Triggers = new List<LiveOpsEventTrigger> { trig, sigTrig };
+                    ev.D.filter.Triggers = new DynamicList<LiveOpsEventTrigger>(); ev.D.filter.Triggers.Add(trig); ev.D.filter.Triggers.Add(sigTrig);   // ⚠️ `DynamicList` 原版**没有实现 `IEnumerable`** ⇒ 集合初始化器编不过，逐条 `Add`（同一行 = 行号零漂移）
 
                     int before = LiveOpsSignal.Bus.ListenerCount<EventExpiredSignal>();
                     ev.RegisterEventTriggers();
@@ -1400,7 +1400,7 @@ namespace CardPresentation
 
                     // 条件不过 ⇒ 假
                     var ev3 = new FixtureEvent("F_cond");
-                    ev3.D.filter.Conditions = new List<EventCondition> { new FalseCondition() };
+                    ev3.D.filter.Conditions = new DynamicList<EventCondition>(); ev3.D.filter.Conditions.Add(new FalseCondition());   // ⚠️ 同上：`DynamicList` 不实现 `IEnumerable` ⇒ 逐条 `Add`
                     C(!ev3.CheckEventFilter(), "P1/⑤ `Conditions` 里有一条不过 ⇒ `CheckEventFilter()` 假（`Validate` 的短路）");
                 }
 
@@ -1656,7 +1656,7 @@ namespace CardPresentation
 
                     // 账 407：`IsTriggeredEvent`（= `data.filter.Triggers.Count > 0`，BuildHandler 分派的第二道闸）
                     C(!LiveOpsManager.IsTriggeredEvent(a), "P2/⑪ 账407 `IsTriggeredEvent`：没有触发器 ⇒ 假");
-                    a.D.filter.Triggers = new List<LiveOpsEventTrigger> { new CountingTrigger() };
+                    a.D.filter.Triggers = new DynamicList<LiveOpsEventTrigger>(); a.D.filter.Triggers.Add(new CountingTrigger());   // ⚠️ 同上：逐条 `Add`
                     C(LiveOpsManager.IsTriggeredEvent(a), "P2/⑪ 账407 反例：`Triggers` 有 1 条 ⇒ 真（`BuildHandler` 走「让它自己激活」那一支）");
                     a.D.filter.Triggers.Clear();
 

@@ -5869,6 +5869,15 @@ public static class ShopScene
         //   🆕 2026-10-29（执行代理 `B94_S1`）：本波真改的 `Where get cards` 显隐闸 + 补 `ShopTab.SetStore` 刷新计时器分页闸。
         ShopFamilyAssertB94S1.Run();
         _sink.Pass += ShopFamilyAssertB94S1.Pass; _sink.Fail += ShopFamilyAssertB94S1.Fail;
+        //   🆕 2026-10-29（执行代理 `B97_SHOP`）：商店族 16 条 B 里本批**能动手**的四处 ——
+        //   开箱 clip 真身（`商店:95`）/ `started` 音效不 gate（`商店:101`）/ 战役点抽屉 = 阵营徽记（`商店:38`）/
+        //   报价格容器的**调用方**（`商店:162`）。其余 12 条是「结构差 / REMOTE / 等 Unity 导入」，无运行时断言面。
+        B97SHOPAssert.Run();
+        _sink.Pass += B97SHOPAssert.Pass; _sink.Fail += B97SHOPAssert.Fail;
+        // 🆕 2026-10-29（调度台代接线 · `B97_REMOTE1`）：商店 7 条 REMOTE 的本地模拟口径（89/91/92/203）。
+        B97REMOTE1Assert.Run(); _sink.Pass += B97REMOTE1Assert.Pass; _sink.Fail += B97REMOTE1Assert.Fail;
+        // 🆕 2026-10-29（调度台代接线 · `B97_SHOP2`）：开箱奖励/来源卡配置/排程替身 + 限购售罄闸（A 组写盘全程在 OverrideDir 临时目录）。
+        B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail;
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）

@@ -472,7 +472,7 @@ namespace CardPresentation
         public static string Buy(int pageIndex, int i)
         {
             var o = Offers(pageIndex);
-            if (i < 0 || i >= o.Length) return "越界";
+            if (i < 0 || i >= o.Length) return BuyNotFound; else if (SoldOut(pageIndex, i)) return BuySoldOut;   // 🔴 原版「限购售罄」闸（判据 → `SoldOut`；两句合占一行 ⇒ 行号零漂移）
             string k = pageIndex + "/" + o[i].Name;
             // 🆕 2026-10-25：**拥有数的正本 = 背包**（`Inventories.Shop`）—— 不再自己记字典
             var it = ItemFor(pageIndex, i);
@@ -686,5 +686,63 @@ namespace CardPresentation
                 default: if (pageIndex != Pages.Length) _items = page; break;
             }
         }
+
+        // ============================================================ 🆕 2026-10-29（执行代理 `B97_REMOTE1`）
+        //   账 `商店:203` —— 原版 `PurchasePremiumWindow.PremiumArmyPurchaseData.TryPurchase(onPurchase, onFailPurchase)`
+        //   的**失败支**（`onFailPurchase`）在本地原本恒不触发（服务端回包本地没有）。
+        //
+        //   判据（第一权威 = 反编译方法体）：
+        //     · `decomp_full/PurchasePremiumWindow.PremiumArmyPurchaseData__TryPurchase.c` = 一句
+        //       `PurchasesManager.Instance.Purchase(storeItem, onSuccess, onFailPurchase)` —— 失败支的**来源是服务端**。
+        //     · `decomp_full/PurchasePremiumWindow__OnPurchasedFailed.c` = ① `ErrorPopupWindowController.ShowErrorMessage(10)`
+        //       （10 = `CustomError.InternetUnreachable`，`Shell/ErrorPopupWindowController.cs:30` 现读）
+        //       ② 收掉「正在处理您的购买…」等待框 ③ 清掉 `itemBeingPurchased`。
+        //   ⇒ 本地**唯一能真的失败**的一支 = 「这一件在本地取不到」（`pageIndex` / 下标不在表里）——
+        //     那本来就是「点了没反应」的静默失败，现在如实走原版失败支（出声 + 错误弹窗）。
+        //   ⛔ **不另加余额闸**（用户 2026-09-17 边界②：不做真实经济；原版那一支恒成功）。
+        //   ✅ **2026-10-29（执行代理 `B97_SHOP2` · 铁律 5 就地订正）**：原版「限购售罄」（`AvailableMax > 0 && Available == 0`）
+        //      **现在【已拦】** —— 调度台 2026-10-29 裁定「要做」，落点 = `SoldOut()` + `Buy` 里那道闸 + `ShopTabPage.Buy/DoBuy` 两处拒绝。
+
+        /// <summary>`Buy` 在「这一件本地不存在」时返回的哨兵。**唯一判据** —— 调用方请用
+        /// <see cref="PurchaseSucceeded"/> 判成败，⛔ 别自己拿字符串比（两处写同一条 = 迟早不一致）。</summary>
+        public const string BuyNotFound = "越界";
+
+        /// <summary>`Buy` 的那句返回值是不是**成功**（= 原版 `onPurchase` 那一支走不走）。
+        /// `false` ⇒ 调用方走原版 `OnPurchasedFailed` 那一支（错误弹窗 + 出声）。
+        /// <para>⚠️ **2026-10-29（`B97_SHOP2`）**：`BuySoldOut`（限购售罄）也算**失败**，但调用方要**分开走**——
+        /// 原版售罄那一档**没有任何弹窗**（按钮不可点），错误窗只属于服务端回包失败。见 `ShopTabPage.RefuseSoldOut`。</para></summary>
+        public static bool PurchaseSucceeded(string buyResult) { return buyResult != BuyNotFound && buyResult != BuySoldOut; }
+
+        // ============================================================ 🆕 2026-10-29（执行代理 `B97_SHOP2`）
+        //   账 `商店:297` —— 原版「限购售罄」那一道闸（调度台 2026-10-29 裁定「要做」）。
+        //   判据（第一权威 = 反编译方法体）`decomp_full/CatalogItemContainer__Refresh.c:45-51`（限购判定）
+        //   与 `:65-77`（合成 `interactable` 并落地）现读：
+        //     `iVar5 = CollectionExtensions.GetValueOrDefault(<已购数表>, key)`   ← 已购次数
+        //     `if (*(int*)(lVar7 + 0x20) < 1) bVar12 = true; else bVar12 = iVar5 < *(int*)(lVar7 + 0x20);`
+        //       （`+0x20` = 限购上限 = 我们的 `AvailableMax`；`max < 1` ⇒ 无限制）
+        //     `bVar3 = CurrencyValue.HasEnoughCurrency()` · `cVar2 = 已拥有`
+        //     `if (((bVar12 & bVar3) == 0) || (cVar2 != '\0')) uVar4 = 0;`
+        //     `Selectable.set_interactable(uVar4)` · `PriceDisplayButton.set_Interactable(uVar4)`
+        //   ⇒ **售罄（已购 >= 上限，且上限 > 0）时原版把整格的按钮设成不可点** —— 连 `MenuShop/WaitingPopup` 都不弹。
+        //   我们这一侧 `Available` 记的是**剩余**（`Buy` 每买一次 `--`）⇒ 售罄 = `AvailableMax > 0 && Available <= 0`。
+        //   ⚠️ 原版那格 `bVar3`（货币够不够）与 `cVar2`（已拥有）本轮**不加**：前者与用户 2026-09-17 边界②
+        //      （不做真实经济，原版那一支恒成功）冲突，后者是「可重复购买」的商品表口径。见 `商店:297` 差异列。
+
+        /// <summary>「这一件已售罄」= 原版 `interactable = false` 里**限购**那一格（另两格是货币 / 已拥有）。
+        /// <para>判据 `CatalogItemContainer__Refresh.c`：`max < 1 ⇒ 可买`；否则 `已购数 >= max ⇒ 不可买`。
+        /// → 本地口径 = `AvailableMax > 0 && Available <= 0`（我们存的是**剩余**次数，见 <see cref="Buy"/>）。</para>
+        /// <para>⚠️ 越界下标 ⇒ **false**（那是 <see cref="BuyNotFound"/> 那一档，⛔ 别和售罄混成一句）。</para></summary>
+        public static bool SoldOut(int pageIndex, int i)
+        {
+            EnsureSeeded();
+            var o = Offers(pageIndex);
+            if (i < 0 || i >= o.Length) return false;
+            return o[i].AvailableMax > 0 && o[i].Available <= 0;
+        }
+
+        /// <summary>`Buy` 在「这一件已售罄」时返回的哨兵。
+        /// <para>⚠️ 与 <see cref="BuyNotFound"/> **必须分开**：越界 ⇒ 原版 `OnPurchasedFailed`（错误弹窗 10 =
+        /// `InternetUnreachable`）；售罄 ⇒ 原版**没有任何弹窗**（按钮根本不可点）。判据见本节头。</para></summary>
+        public const string BuySoldOut = "售罄";
     }
 }

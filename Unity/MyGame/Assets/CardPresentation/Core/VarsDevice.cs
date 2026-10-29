@@ -35,15 +35,15 @@
 //  📌 已散落实现（本轮**不动**，只在此登记）：`cardInHandShownScale` 1.3 → `Hand/HandLayout.cs:267` ·
 //     `cardInHandShownYOffset` 30 → `HandLayout.cs:34` · `tutorialTipHorizontalOffset` 20 /
 //     `…ForElements` 18 → `BattleDriver.cs:17033/17038` · `moveCardYOffset` 0.2 → `BattleDriver.cs:36013`。
-//  🔴 **缺的那一项 = `warlordStartSizeFactor`（桌面 1.3）**：全仓 0 命中 ⇒ 整条没做。
-//     接法（⛔ 别凭猜，按原版次序；判据 → 账 `战斗逻辑驱动:291` 的 `B92_B8` 那段）：
-//       ① `GetUnitSizeInPlay(cardType, isPlayer)` 的等价物 → 写 `DefaultScale`；
-//       ② `transform.localScale = defaultScale × VarsDevice.Current.warlordStartSizeFactor`；
-//       ③ 再判 `waitMult != 1.0` 的 `localPosition.y -= 0.2` 那一跳。
+//  ✅ **`warlordStartSizeFactor`（桌面 1.3）已接（2026-10-29 · `B97_BD` · 账 `战斗逻辑驱动:292`）** ——
+//     落地 = `BattleDriver.HeroLandScaleIn` / `HeroLandScaleOut`（类尾）。接法（按原版次序；判据 → 账 `:292` 的 `B92_B8` 那段）：
+//       ① `GetUnitSizeInPlay(cardType, isPlayer)` 的等价物 = 入口现读的 `CardView.BaseScale`（入位缩放）；
+//       ② `localScale = 【当前 scale】 × VarsDevice.Current.warlordStartSizeFactor`（`.c` 乘的是**当前值**那三个缓存分量，⛔ 别写成 `DefaultScale × factor` —— 今天两者相等，顺序别反）；
+//       ③ 再判 `waitMult != 1.0` 的 `localPosition.y -= 0.2` 那一跳（本 build 两个调用点都传 1.0 ⇒ 今天不跑）。
 //     唯一读点 = 原版 `CardScript.<HeroLandIntoField>d__318.MoveNext`（VA `0x180611B6F`，指令序已坐实：
 //     `call DeviceVariables` → `movss xmm2,[rax+0x30]` → 逐分量 `mulss` → `set_localScale`）。
-//     我们的等价方法 = `CardPresentation/Battle/BattleDriver.cs:34703 HeroLandInto`（**不属本代理**，其 doc 已明写
-//     「缩放/alpha 两半按我们的形状不写」⇒ 缺的正是这一半）。
+//     我们的等价方法 = `CardPresentation/Battle/BattleDriver.cs:34771 HeroLandInto`（🔥 2026-10-29 起它**已写**缩放那两半；
+//     仍是 🔶 的只有 alpha 那一半 —— 见它 doc 的 ②）。
 using UnityEngine;
 
 namespace CardPresentation

@@ -69,7 +69,7 @@
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **页签栏**：原版 `TabButtons.AddTabButton(label, sprite)` 由 liveops 数据驱动；本窗只有一颗
 //   「The Vault」页签（文字走 `Loc`），图标留空（liveops sprite 本地没有）。
-// · **`Video Player` / `Video Background`**：建节点；不挂 `VideoPlayer`（clip 本地**有**、只是未导入 `Resources/`，见 `:645`）、`Video Background` 出厂关着。
+// · **`Video Player` / `Video Background`**：建节点并挂 `VideoPlayer`（🆕 B93_E13：`BuildCrateVideo`），`renderMode = CameraNearPlane`（🆕 2026-10-29 `B97_W2`）；clip 本地**有**、只是未导入 `Resources/`（见 `:1338`），`Video Background` 出厂关着。
 // · **`Gacha Drawer Holder`**：`containerPrefab`（运行时逐奖励 Instantiate）的**模板**；无数据 ⇒ 建出来、**关着**。
 // · **两张图未导入 `Resources/`**（源图在本地，落盘名可查）：
 //     `40k_Crate_Tier5_Warp_premium`（`bundle_boosterpacks_assets_all/Texture2D/`）⇒ 回退 `40k_Crate_Tier5_Warp`；
@@ -642,10 +642,10 @@ namespace CardPresentation
                 var h = _getCardsClick;          // 原版 `UnityEvent.Invoke()`：没有监听者 ⇒ 什么都不做
                 if (h != null) h();
             }, null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
-            ApplyWhereToGetCardsVisible();   // 原版 `GachaEventTab.Initialize` 第 ⑥ 句（`CardsSpecialConfig` 驱动；见 `WhereToGetCardsVisible`）
+            ResolveWhereToGetCardsVisibleFromLocalConfig(); ApplyWhereToGetCardsVisible(); InstallLocalCratePurchaseHook();   // 原版 `GachaEventTab.Initialize` 第 ⑥ 句（🔶 本地 `CardsSpecialConfig` 表算 ⇒ 再落地）+ 账 `商店:102` 的本地回包 hook；三句同一行 ⇒ 行号零漂移
 
             // `Video Player`（🆕 B93_E13：原来只建空节点；现在照 `GachaCratePanel.Awake` 五句接上
-            //   `VideoPlayer` 本体 —— clip 未导入 ⇒ 出声，仍是同一个 `.webm` 口径。）
+            //   `VideoPlayer` 本体 —— clip 未导入 ⇒ 出声；扩展名口径 = **`.mp4`**（内容本来就是真 MP4，见 `:1338`）。）
             BuildCrateVideo(_chest);
         }
 
@@ -1269,8 +1269,8 @@ namespace CardPresentation
             public string LiveOpsId;
             /// <summary>= 原版 `liveOps as GachaEvent` 的**结果**（非 Gacha 事件 ⇒ false ⇒ +0x60 = null）。</summary>
             public bool IsGachaEvent;
-            /// <summary>= 原版 `GachaEvent.CurrentOffer`。`null` = 原版那句 `if (CurrentOffer != null)` 不成立。</summary>
-            public object CurrentOffer;
+            /// <summary>= 原版 `GachaEvent.CurrentOffer`（`null` = 原版那句 `if (CurrentOffer != null)` 不成立）；同一行第二格 `ScheduledServerTime` = 原版 `ActionScheduler.Schedule` 的**时刻实参**（服务端时间，`null` = 拿不到 = 本地常态）—— 两格同行 ⇒ 行号零漂移。</summary>
+            public object CurrentOffer; public System.DateTime? ScheduledServerTime;
         }
 
         /// <summary>= 原版 `GachaEventTab.SetEventTab(ILiveOps liveOps)`（**四句**，判据 `GachaEventTab__SetEventTab.c:20-100`）：
@@ -1280,26 +1280,26 @@ namespace CardPresentation
         /// <item>+0x60 == null ⇒ **直接 return**（不排程）</item>
         /// <item>`CurrentOffer != null` ⇒ `ActionScheduler.Schedule(offer 的委托)` 存句柄（+0x68）</item>
         /// </list>
-        /// <para>🔴 **第 ③④ 句我们只做到「形状」**：本仓**没有 `ActionScheduler`**（全仓 0 命中，见
-        /// `Shell/` 与 `Battle/` 的同类记录）⇒ 句柄位 `EventTabScheduledHandle` **恒 null** 并出声一次。
-        /// 这条不改成 A（账里记 **B**）：形到、动作调度器不在。</para></summary>
+        /// <para>✅ **2026-10-29（`B97_SHOP2` · 铁律 5 就地订正）第 ④ 句已落地**：旧的「本仓没有 `ActionScheduler` ⇒ 句柄位恒 null」
+        /// 已过期 —— 现在走类尾的 🔶 本地替身 `LocalActionScheduler`（服务端时钟 `TimeHelper.get_ServerTime()` 用**本地 `DateTime.UtcNow`**、
+        /// 到期**只出声**，⛔ 不假装打过云脚本）。时刻实参 = `EventTabSource.ScheduledServerTime`，拿不到 ⇒ 不排程 + 出声。</para></summary>
         public void SetEventTab(EventTabSource liveOps)
         {
             _eventTabLiveOpsId = liveOps != null ? liveOps.LiveOpsId : null;          // ① +0x58
             _eventTabHasGachaEvent = liveOps != null && liveOps.IsGachaEvent;         // ② as-cast
             if (!_eventTabHasGachaEvent) { _eventTabHandle = null; return; }          // ③ null ⇒ 早退
             if (liveOps.CurrentOffer == null) return;                                 // ④ `CurrentOffer != null` 那道闸
-            _eventTabHandle = null;                                                   // 原版这里拿到的是 Schedule 的返回值
-            if (_noSchedulerSaid) return;
-            _noSchedulerSaid = true;
-            Debug.LogWarning("[Gacha] `GachaEventTab.SetEventTab` 第 ④ 句没落地：原版 "
-                           + "`ActionScheduler.Schedule(CurrentOffer 的委托)` 存进 +0x68（`Reset` 时 Release）；"
-                           + "本仓**没有 `ActionScheduler`** ⇒ 句柄位恒 null、这一拍不排程。");
+            if (!liveOps.ScheduledServerTime.HasValue) { _eventTabHandle = null;     // ④ 时刻拿不到 ⇒ 不排程（原版那一格在远端 offer 上）
+                if (!_noSchedulerSaid) { _noSchedulerSaid = true;
+                    Debug.LogWarning("[Gacha] `GachaEventTab.SetEventTab` 第 ④ 句：`CurrentOffer` 非空，但**排程时刻拿不到**"
+                                   + "（`EventTabSource.ScheduledServerTime` = null；原版那一格在远端 offer 上）"
+                                   + " ⇒ 句柄位仍为 null、这一拍不排程（⛔ 不假装排过任务）。"); } return; }
+            _eventTabHandle = LocalActionScheduler.Schedule(liveOps.ScheduledServerTime.Value, "GachaEventTab 的 offer 委托");   // ④ 🔶 本地替身（到期只出声；原版打云脚本）
         }
 
         /// <summary>= 原版 `GachaEventTab.Reset()`（**两句**，判据 `GachaEventTab__Reset.c:16-38`）：
         /// <list type="number">
-        /// <item>`+0x68 != null` ⇒ `ActionScheduler.Release(handle)`（**我们无调度器 ⇒ 只清字段**）</item>
+        /// <item>`+0x68 != null` ⇒ `ActionScheduler.Release(handle)`（🆕 2026-10-29 `B97_SHOP2`：走 🔶 本地替身 `LocalActionScheduler.Release`）</item>
         /// <item>`getCardsButton != null` ⇒ `它的 UnityEvent.RemoveAllListeners()`</item>
         /// </list>
         /// <para>⚠️ **原版还有一道 `getCardsButton == null` 的早退**（`op_Inequality` 判假 ⇒ `return`）——
@@ -1308,7 +1308,7 @@ namespace CardPresentation
         /// 所以**看不到差别**；补它是为了形状完整 + 让断言能点名（`GetCardsClickBound`）。</para></summary>
         public void ResetEventTab()
         {
-            _eventTabHandle = null;                    // ① 原版 `ActionScheduler.Release(+0x68)`
+            if (_eventTabHandle != null) LocalActionScheduler.Release((int)_eventTabHandle); _eventTabHandle = null;   // ① 原版 `ActionScheduler.Release(+0x68)`（🔶 本地替身；同一行 = 不加行号）
             _getCardsClick = null;                     // ② 原版 `RemoveAllListeners()`（0 个监听者）
         }
 
@@ -1318,7 +1318,7 @@ namespace CardPresentation
         public string EventTabLiveOpsId { get { return _eventTabLiveOpsId; } }
         /// <summary>自检读口：`as GachaEvent` 那一步过没过（+0x60 非空）。</summary>
         public bool EventTabHasGachaEvent { get { return _eventTabHasGachaEvent; } }
-        /// <summary>自检读口：`ActionScheduler` 句柄位（+0x68）。**本仓恒 null**（没有调度器）。</summary>
+        /// <summary>自检读口：`ActionScheduler` 句柄位（+0x68）。🆕 2026-10-29 `B97_SHOP2`：拿到排程时刻时 = 🔶 本地替身 `LocalActionScheduler.Schedule` 回的 int（装成 `object`）；时刻拿不到 = null（见 `SetEventTab`）。</summary>
         public object EventTabScheduledHandle { get { return _eventTabHandle; } }
 
         /// <summary>= 原版 `GachaEventTab.GetCardsClick()`（`WindowsManager.OpenWindow(getCardsWindow, config)`）。</summary>
@@ -1335,7 +1335,7 @@ namespace CardPresentation
         /// <summary>`RolePlay` 用的资源路径（**我们挑的命名**，不是原版字段）。
         /// 原版是 prefab 上的 `videoPlayer.clip`（`AssetReference`）⇒ 名字在 bundle 里，不落 `Resources/`。
         /// ⚠️ 要让它生效：把 `d:/2/新解包资源/assets_full/bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4`
-        /// 转成 `Resources/Art/videos/gacha_crate_opening.webm`（同目录 `intro/defeat/draw/victory` 那四支的同族做法）。</summary>
+        /// **复制**成 `Resources/Art/videos/gacha_crate_opening.mp4`（⚠️ 2026-10-29 `B97_W2` 铁律 5 就地订正：原写「转成 …`.webm`」= **错** —— 该文件**内容本来就是标准 MP4**（`ftyp` 主 brand `mp42` / H.264 `avc1` / 无音轨 / 3840×1080 / 4.400 s / 5,141,522 B / md5 `fac0d41686dc00dcf4f055364c099895`）⇒ ⛔ **别照 `intro/defeat/draw/victory` 那四支改名成 `.webm`**：那四支本来就是真 WebM（`1A 45 DF A3`），把 H.264 改名成 `.webm` 会让 Unity 用 VP8 解码器去解。判据 → `资料/完全复刻/判据/B96_商店95_开箱视频.md` §一/§二；`Resources.Load` 不带扩展名 ⇒ 代码不用改）。</summary>
         public const string CrateClipResource = "Art/videos/gacha_crate_opening";
 
         /// <summary>= 原版 `GachaCratePanel.Awake()` 的**①③④**（②⑤ 已在别处：② `Video Background` 关着建在
@@ -1354,7 +1354,7 @@ namespace CardPresentation
             _videoNode = MenuDraw.Node(chest, "Video Player", VideoPlayerR);
             _videoPlayer = _videoNode.gameObject.AddComponent<VideoPlayer>();
             _videoPlayer.enabled = false;                       // ①
-            _videoPlayer.targetCamera = Camera.main;            // ④
+            _videoPlayer.renderMode = VideoRenderMode.CameraNearPlane; _videoPlayer.targetCamera = Camera.main;   // prefab 字段 `m_RenderMode = 1` = `CameraNearPlane`（`Awake` 五句之外）· ④（同一行 = 不加行号，先例 `:858`）
             _videoPlayer.started += OnCrateVideoStarted;        // ③
             var clip = Resources.Load<VideoClip>(CrateClipResource);
             if (clip != null) { _videoPlayer.clip = clip; return; }
@@ -1363,7 +1363,7 @@ namespace CardPresentation
             Debug.LogWarning("[Gacha] `Video Player` 没有 clip ⇒ **开箱视频播不出来**（原版 "
                            + "`GachaCratePanel.videoPlayer.clip` 是 prefab 的 AssetReference）："
                            + "把 `bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4` 转到 "
-                           + "`Resources/" + CrateClipResource + ".webm` 即可（同目录 `intro/defeat/draw/victory` 同族做法）。"
+                           + "`Resources/" + CrateClipResource + ".mp4` 即可（⚠️ 2026-10-29 订正：内容是**真 MP4** ⇒ ⛔ 别照那四支改名成 `.webm`；判据 `判据/B96_商店95_开箱视频.md` §二）。"
                            + "⚠️ 即便有了 clip，`OpenCrateButtonClick` 的第 ⑤ 句（服务器开箱）本地仍然没有。");
         }
 
@@ -1416,7 +1416,7 @@ namespace CardPresentation
                 PointerLayer.SetInputEnabled(true);   // 🔴 收摊必须把输入还回去（否则玩家点什么都点不动）
                 return false;
             }
-            CrateFlowBegin();                                                           // ⑥
+            CrateFlowBegin(); if (Application.isPlaying) StartCoroutine(CrateAnimationFinished());   // ⑥ 原版 `StartCoroutine(CrateAnimationFinished())`（同一行 = 不加行号；批处理没有帧循环 ⇒ 只在真跑时起，同 `RefreshVisuals` 的 `Application.isPlaying` 口径）
             return true;
         }
 
@@ -1628,10 +1628,10 @@ namespace CardPresentation
         //   （`assets_full` 只有 MonoScript 类桩，`数据/` 无该表；`whereToGetCardsData.expansionData` 由远端 addressables 填）
         //   ⇒ 那个「长度 != 0」的远端真值拿不到（见 `资料/完全复刻/报告/B94_S1.md`）。
 
-        /// 🔶 自己设计（非原版）：`Where get cards` 钮的显隐**默认值** —— 原版读 `CardsSpecialConfig.whereToGetCardsData.expansionData.Length != 0`，
-        /// 那份 config 的实例 SO 本机没有（远端 addressables）⇒ 取不到那个 bool。我们挑 **`true`**（钮显示），
-        /// 因为本地确实有 `WhereToGetCardsPopup` 可开（`OnGetCardsClicked` → `WindowsManager.OpenWhereToGetCards`）；要隐藏就设 `false`。
-        /// 谁定的：调度台 2026-10-29 裁定（依铁律 18 打标）。⚠️ 判据那道「原版按 config 决定」是真的，只有【默认值】是我们挑的。
+        /// 🔶 自己设计（非原版）：`Where get cards` 钮的显隐**来源** —— 原版读 `CardsSpecialConfig.whereToGetCardsData.expansionData.Length != 0`，
+        /// 那份 config 的实例 SO 本机没有（远端 addressables）⇒ 那个 bool 只能由**本地配置表**算（`LocalWhereToGetCardsExpansionCount`）。
+        /// 🆕 2026-10-29（`B97_SHOP2`）：`BuildPage` 现在先调 `ResolveWhereToGetCardsVisibleFromLocalConfig()` 再 `ApplyWhereToGetCardsVisible()`，
+        /// 出厂本地表 = 2（>0 ⇒ 显示；本地确实有 `WhereToGetCardsPopup` 可开）。谁定的：调度台 2026-10-29 裁定（铁律 18 打标 + §18·0）。
         public bool WhereToGetCardsVisible { get; set; } = true;
 
         /// <summary>把 <see cref="WhereToGetCardsVisible"/> 应用到已建出的 `Where get cards` 钮（= 原版 `Initialize` 第 ⑥ 句）。
@@ -1673,6 +1673,118 @@ namespace CardPresentation
         {
             _crateRewards = rewards;      // 原版第 1 句 `crateRewards = rewards`
             _crateOpened = true;          // 原版第 2 句 `crateOpenned = true`
+        }
+
+        // ============================================================================================
+        // 🆕 2026-10-29（执行代理 `B97_SHOP2` · 第九十七会话）—— 商店 3 条 REMOTE 的**本地模拟那一格**
+        //   口径 = CLAUDE.md §18·0：「只有和服务器有关的才允许自己设计」（服务器已关服 ⇒ 判据永远在远端）。
+        //   三条都追加在**类尾**（⛔ 别插在中间：账在本文件上有 20+ 个 `文件:行` 落点，插一行就全漂）。
+        //   判据与方案全文 → `资料/完全复刻/报告/B97_REMOTE1.md` §四 P1/P2/P3；本代理的落地读数 → `报告/B97_SHOP2.md`。
+        // ============================================================================================
+
+        // ------------------------------------------------------------ 账 `商店:102`
+        // 🔶 自己设计（非原版）：**开箱奖励表的本地替身 + 默认回包 hook**。
+        // · 这是什么：原版 `GachaEvent.CurrentOffer.TryPurchaseOffer(onComplete, null, showRewardPopup:false)`
+        //   的 `onComplete`（= `b__14_0` = `OnCratePurchaseComplete`）由**服务端回包**调，回包里带着奖励表。
+        // · 为什么必须自定：`CurrentOffer` 在远端 LiveOps（本机恒 null），原版已关服 ⇒ 判据永远在远端。
+        // · 谁定的：调度台 2026-10-29 裁定（§18·0）。
+        // ⚠️ 改前 `TryPurchaseCrate()` 恒 false ⇒ 点了只收摊；接上本 hook 之后开箱链在本地**真的走完**
+        //   （⑤ → `b__14_0` → state1 等到 `_crateOpened` → state2），而且**每次都出声**说清奖励来自本地表。
+
+        /// <summary>🔶 本地开箱奖励表的**通配档键**（本地没有箱的真实 id 表 ⇒ 出厂只靠它兜底）。</summary>
+        public const string AnyCrateId = "*";
+
+        /// <summary>🔶 箱 id → 奖励（本地表；出厂**空**，由 `InstallLocalCratePurchaseHook` 装默认 hook 后仍为空
+        /// ⇒ 发空表 + 出声。自检 / 将来的活动数据往里填）。</summary>
+        public static readonly System.Collections.Generic.Dictionary<string, CampaignData.RewardSpec[]> LocalCrateRewards =
+            new System.Collections.Generic.Dictionary<string, CampaignData.RewardSpec[]>();
+
+        /// <summary>取这一箱的本地奖励（查不到就退回通配档；连通配档都没有 ⇒ 空表 + 出声，⛔ 不静默）。</summary>
+        public static CampaignData.RewardSpec[] LocalCrateRewardFor(string crateId)
+        {
+            CampaignData.RewardSpec[] r;
+            if (!string.IsNullOrEmpty(crateId) && LocalCrateRewards.TryGetValue(crateId, out r)) return r;
+            if (LocalCrateRewards.TryGetValue(AnyCrateId, out r)) return r;
+            Debug.LogWarning("[Gacha] 本地开箱奖励表里没有这一箱（id = `" + (crateId ?? "<null>")
+                           + "`）、也没有通配档 ⇒ 发**空表**（原版这一格是服务端回包的 rewards；🔶 本地替身见 `LocalCrateRewards`）");
+            return new CampaignData.RewardSpec[0];
+        }
+
+        /// <summary>装上默认 hook（= 原版 `CurrentOffer.TryPurchaseOffer` 那一跳的 🔶 本地替身）。
+        /// <para><paramref name="replace"/> = false 且已有 hook ⇒ **不覆盖**（自检注入的优先级更高）。</para>
+        /// <para>⚠️ 每次开箱都会打一条 `[Gacha] 开箱：🔶 **本地模拟**…`（红线：不许静默失败 —— 玩家/自检必须知道
+        /// 奖励不是服务器给的）。</para></summary>
+        public bool InstallLocalCratePurchaseHook(bool replace = false)
+        {
+            if (CratePurchaseHook != null && !replace) return false;
+            CratePurchaseHook = onComplete =>
+            {
+                var rewards = LocalCrateRewardFor(null);
+                Debug.Log("[Gacha] 开箱：🔶 **本地模拟**了一次服务器回包（" + rewards.Length
+                        + " 条奖励）—— 原版这一格来自 `CurrentOffer.TryPurchaseOffer` 的服务端回包，"
+                        + "本机已关服 ⇒ 奖励取自 `GachaEventWindow.LocalCrateRewards`（调度台 2026-10-29 按 §18·0 裁定）。");
+                onComplete(rewards);                       // = 原版回包到达 ⇒ `b__14_0`
+            };
+            return true;
+        }
+
+        // ------------------------------------------------------------ 账 `商店:108`
+        // 🔶 自己设计（非原版）：`CardsSpecialConfig.whereToGetCardsData.expansionData.Length` 的**本地替身**。
+        // · 这是什么：原版 `Initialize` 第 ⑥ 句 `getCardsButton.gameObject.SetActive(config.whereToGetCardsData.expansionData.Length != 0)`
+        //   —— 一个**远端配置驱动**的显隐。
+        // · 为什么必须自定：那份 config 的实例 SO 本机没有（`assets_full` 只有 MonoScript 类桩、`数据/` 无该表），
+        //   内容由远端 Addressables 填 ⇒ 关服后永远拿不到。
+        // · 谁定的：调度台 2026-10-29 裁定。出厂值 = 2（>0 ⇒ 显示；本地确实有 `WhereToGetCardsPopup` 可开）。
+
+        /// <summary>🔶 `CardsSpecialConfig.whereToGetCardsData.expansionData.Length` 的本地取值（出厂 **2**）。</summary>
+        public static int LocalWhereToGetCardsExpansionCount = 2;
+
+        /// <summary>按 🔶 本地配置表算一次 <see cref="WhereToGetCardsVisible"/>（= 原版第 ⑥ 句的**取值那一半**），并出声。
+        /// <para>⛔ 落地那一半仍然只有 <see cref="ApplyWhereToGetCardsVisible"/> 一个口（两处写同一条规则 = 迟早不一致）。</para></summary>
+        public void ResolveWhereToGetCardsVisibleFromLocalConfig()
+        {
+            int n = LocalWhereToGetCardsExpansionCount;
+            WhereToGetCardsVisible = n != 0;
+            Debug.Log("[Gacha] `GachaEventTab.Initialize` 第 ⑥ 句：🔶 用**本地配置表**算（`expansionData.Length` = " + n
+                    + " ⇒ 钮" + (n != 0 ? "显示" : "隐藏") + "）—— 原版读 `CardsSpecialConfig`（实例 SO 本机没有，远端下发）");
+        }
+
+        // ------------------------------------------------------------ 账 `商店:112`
+        // 🔶 自己设计（非原版）：`ActionScheduler` 的**本地替身**。
+        // · 原版 `GachaEventTab.SetEventTab` 第 ④ 句 = `ActionScheduler.Schedule(offer 的委托)` 存句柄（`Reset` 时 Release）；
+        //   `ActionScheduler__Schedule.c:26-30` 现读 = `if (传入时刻 < TimeHelper.get_ServerTime()) return 0;`，
+        //   到期打 `PlayfabWrapper.GenericCloudScriptHandler`（**云脚本**）。
+        // · 为什么必须自定：服务端时钟与云脚本都在远端（已关服）⇒ 判据永远在远端。
+        // · 谁定的：调度台 2026-10-29 裁定。⚠️ **到期只出声，⛔ 不假装打过云脚本**。
+
+        /// <summary>🔶 `ActionScheduler` 的本地替身（只有「排 / 放 / 数」三件事，**不执行任何动作**）。</summary>
+        public static class LocalActionScheduler
+        {
+            static readonly System.Collections.Generic.List<System.DateTime> _pending =
+                new System.Collections.Generic.List<System.DateTime>();
+
+            /// <summary>到点（本地时钟）⇒ 出声一次；返回句柄（**0 = 原版那条「时刻已过 ⇒ 不排程」**）。
+            /// <para>判据 `ActionScheduler__Schedule.c:26-30`：`if (param_2 &lt; TimeHelper.get_ServerTime()) return 0;`。</para></summary>
+            public static int Schedule(System.DateTime at, string what)
+            {
+                if (at <= System.DateTime.UtcNow) return 0;
+                _pending.Add(at);
+                Debug.Log("[Gacha] `ActionScheduler.Schedule`：🔶 本地排程（" + what + " @ " + at.ToString("u")
+                        + "）—— 原版打云脚本 `GenericCloudScriptHandler`，本机已关服 ⇒ **到期只出声、不执行任何动作**");
+                return _pending.Count;
+            }
+
+            /// <summary>自检读口：本地排程表里有几条。</summary>
+            public static int PendingCount { get { return _pending.Count; } }
+
+            /// <summary>= 原版 `ActionScheduler.Release(handle)`。本地表按条存、句柄就是下标 ⇒ 这里只出声（⛔ 不静默删）。</summary>
+            public static void Release(int handle)
+            {
+                Debug.Log("[Gacha] `ActionScheduler.Release(" + handle + ")`：🔶 本地替身无实际在途任务（排程到期只出声）");
+            }
+
+            /// <summary>自检用：清空本地排程表。</summary>
+            public static void ResetForTest() { _pending.Clear(); }
         }
     }
 }

@@ -286,7 +286,7 @@ namespace RuleEngine
                                           UnitState abilityActingCard = null,
                                           bool abilityActingGate = false,
                                           CardDef abilityHostCard = null,
-                                          int abilityOwnerSeat = -1, int actionType = 0)
+                                          int abilityOwnerSeat = -1, int actionType = 0, string abilityActingTrigger = null)   // 🔴 2026-10-29（执行代理 `B97_ER` · 判据 #54）：`abilityActingTrigger` = **只喂第一道闸（`actingCardCriteria` `+0x28`）的 trigger 名**，与 `abilityTrigger`（喂 target/board 两道闸）**解耦** —— 原版 `CardAbility__CanTriggerAbility.c:126-141` 的三道 criteria 对**所有** trigger 生效（`:130` 之后那条 `&&` 链不看 trigger），而我们这三道闸的覆盖面不一样（acting 已扩到全部族，target/board 仍只有七族）⇒ 共用一个名字会顺带把 target/board 两闸也扩出去。缺省 `null` ⇒ 回退 `abilityTrigger`（老调用点行为逐字不变）
         {
             if (ctx == null || body == null) return false;
             // ============================================================
@@ -366,51 +366,51 @@ namespace RuleEngine
             //      **判不了 ⇒ 放行 + 出声**（⛔ 不把「不知道」当「不满足」）。
             //  覆盖面（现读 v27 池）与残余 → `资料/普查产出_1025/E3_actingCardCriteria.md`。
             // ============================================================
-            if (abilityActingGate && !string.IsNullOrEmpty(abilityTrigger)
-                && (actor == null || actor.Card == null))
+            string actingTrig = abilityActingTrigger ?? abilityTrigger;   // 🔴 2026-10-29（`B97_ER` · 账 #54）：第一道闸用**自己那一格**（缺省回退 → 老调用点逐字不变）
+            if (abilityActingGate && !string.IsNullOrEmpty(actingTrig))
             {
-                // 🔴🆕 **2026-10-25（执行代理 `E9`）：⛔ 不再静默跳过。**
-                //  本闸的被筛对象是原版的 `actingCard`（一个 `CardScript`）。`actor == null`
-                //  的路径（战术 / 防御卡）里原版 `actingCard` = **那张牌自己**（判据见
-                //  `EnqueueAbility` 的 `abilityHostCard` doc）—— 我们**没有**「打出去的那张
-                //  战术牌」的 `UnitState` ⇒ 这一闸**判不了**。
-                //  按本函数的契约（见上面那段注释的三档）⇒ **放行 + 出声**，
-                //  ⛔ 既不许静默跳过（改前就是），也不许拿 `abilityTarget` 顶上去猜。
-                AbilityActingCriteriaWarningsForTest++;
-                UnityEngine.Debug.LogWarning(
-                    $"[ActionQueue] 「{label}」的 ability 级 `actingCardCriteria` **判不了** —— "
-                  + "这条入队路径没有 `actor`（战术 / 防御卡那一族）。原版这一闸的被筛对象是 "
-                  + "`actingCard` = **那张牌自己**（`RawCardScript__OnCardPlayedWithTarget.c:40` → "
-                  + "`TriggerAbilities(…, thisCard, cardPlayed, targetCard)`；"
-                  + "`RawCardScript__TriggerAbilities.c:207` → `CanTriggerAbility(…, thisCard, actingCard, targetCard, …)`），"
-                  + "而我们没有「已打出的那张战术牌」的 `UnitState` ⇒ 本次**不筛**（放行；"
-                  + "⛔ 不把「不知道」当「不满足」，也⛔ 不拿 `abilityTarget` 顶替）。");
-            }
-            else if (abilityActingGate && !string.IsNullOrEmpty(abilityTrigger))
-            {
-                int aw, aslot;
-                FindBoardCell(ctx, actor, out aw, out aslot); if (aw < 0 && actor != null && actor.OwnerSeat >= 0) { aw = actor.OwnerSeat; aslot = -1; }   // 【B94_B22 2026-10-29 · B24 接线 C1】离场后仍知道座位（账 647）；`aslot` 离场无意义 ⇒ -1，下游若用需判 <0
-                if (aw < 0)
+                // 🔴🆕 **2026-10-29（执行代理 `B97_ER` · 再裁 #54）：宿主卡 / 座位的两条来路 ——
+                //  与下面 target 闸逐字同形**（改前这里**只有** `actor` 一条，`actor == null` 的
+                //  入队点（手牌监听 / 手牌陷阱 / 常驻效果）一律「判不了 ⇒ 放行」）：
+                //   ① 有 `actor`（棋盘上的监听者）：座位 = 现查格号（离场后回退 `OwnerSeat`），宿主卡 = `actor.Card`；
+                //   ② **没有 `actor`**：座位 = `abilityOwnerSeat`、宿主卡 = `abilityHostCard`
+                //      —— 原版那几跳的 `thisCard` = **那张牌自己**（判据见 `abilityHostCard` 的 doc），
+                //      我们拿 `thisCard = null` 传给 `Matches`（它对 null 的那几格走自己的「判不了」契约）。
+                //   两条都拿不到 ⇒ **判不了 ⇒ 出声 + 放行**（⛔ 不拿 `abilityTarget` 顶）。
+                CardDef ahost = abilityHostCard != null ? abilityHostCard : (actor != null ? actor.Card : null);
+                UnitState athis = actor;
+                int aw = -1; string aseatWhy = null;
+                if (actor != null && actor.Card != null)
+                {
+                    int aslot;
+                    FindBoardCell(ctx, actor, out aw, out aslot); if (aw < 0 && actor.OwnerSeat >= 0) { aw = actor.OwnerSeat; aslot = -1; }   // 【B94_B22 2026-10-29 · B24 接线 C1】离场后仍知道座位（账 647）；`aslot` 离场无意义 ⇒ -1，下游若用需判 <0
+                    if (aw < 0) aseatWhy = $"载体「{actor.Name}」此刻不在棋盘上（求不出 `owner`）";
+                }
+                else if (actor == null && abilityOwnerSeat >= 0) { aw = abilityOwnerSeat; athis = null; }
+                else aseatWhy = ahost == null
+                    ? "本路径既没有 `actor`、也没给 `abilityHostCard` / `abilityOwnerSeat`（宿主卡与 `owner` 都求不出）"
+                    : "本路径既没有 `actor`、也没给 `abilityOwnerSeat`（求不出 `owner`）";
+                if (aseatWhy != null)
                 {
                     AbilityActingCriteriaWarningsForTest++;
                     UnityEngine.Debug.LogWarning(
-                        $"[ActionQueue] 「{label}」的 ability 级 `actingCardCriteria` **判不了** —— 载体"
-                      + $"「{actor.Name}」此刻不在棋盘上（求不出 `owner`）⇒ 本次**不筛**（放行）。"
-                      + "判据 = 原版 `CardAbility__CanTriggerAbility.c:127-130`（`Matches` 要用 `owner` 判友/敌）。");
+                        $"[ActionQueue] 「{label}」的 ability 级 `actingCardCriteria` **判不了** —— {aseatWhy}"
+                      + " ⇒ 本次**不筛**（放行；⛔ 不把「不知道」当「不满足」，也⛔ 不拿 `abilityTarget` 顶替）。"
+                      + "判据 = 原版 `CardAbility__CanTriggerAbility.c:126-141`（`Matches` 要用 `owner` 判友/敌）。");
                 }
                 else
                 {
                     string awhy;
                     bool aamb;
-                    bool? verdict = ActingLevelCriteriaAllows(ctx, aw, actor, actor.Card,
-                                                              abilityTrigger, abilityActingCard, abilityTarget,
+                    bool? verdict = ActingLevelCriteriaAllows(ctx, aw, athis, ahost,
+                                                              actingTrig, abilityActingCard, abilityTarget,
                                                               out awhy, out aamb);
                     if (verdict == false)
                     {
                         AbilityActingCriteriaWarningsForTest++;
                         UnityEngine.Debug.LogWarning(
                             $"[ActionQueue] **不触发**「{label}」—— ability 级 `actingCardCriteria` **不满足**"
-                          + $"（卡「{actor.Card.Name}」· trigger={abilityTrigger}）。"
+                          + $"（卡「{(ahost != null ? ahost.Name : "?")}」· trigger={actingTrig}）。"
                           + (aamb
                               ? " 这一档是「**ability 定位不唯一**」：" + awhy
                               : " 候选 = `actingCard`「"

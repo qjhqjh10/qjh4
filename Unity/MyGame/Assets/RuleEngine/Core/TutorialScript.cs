@@ -1448,9 +1448,9 @@ namespace RuleEngine
         /// `thisCard = cardPlayed = GetHero(mgr, 0)`（AI 督军）、`targetCard = null`、`isEnchantment = 1`。
         /// 🔴 **我们转调 <see cref="Enchantments.TriggerEnchantment"/>**（`RawCardScript__TriggerEnchantment.c:7-13`）——
         /// 它正是同一个形状：「对这张卡连发 `TriggerAbilities(card,0)` + `(card,500)`、`isEnchantment = 1`」。
-        /// ⚠️ **残差（如实标）**：它 `trigger 0` 那一跳的取数口是 `EffectText.Parse(card.Desc)`（附魔那一族的口径），
-        /// 不是通用 `cardAbilities[trigger == 0]` 的解析 —— 对「正文就写在 `desc` 里」的卡等价，对其余不等价。
-        /// 数据今天 0 条 ⇒ 零可观测；铁律 11 照做，残差记在账里。</summary>
+        /// ⚠️ **残差①（2026-10-29 `B97_TUT` 定性，判据 = `判据/B97_可推A七条_审查.md` §一·1）**：`trigger 0`（ThisCardPlayed）
+        /// 在我们引擎里**没有关键词**、正文就由 `Desc` 承载（`gen_cards_engine.py:1282` 收词表原话：「0 `ThisCardPlayed` … 走 `ResolveDeploy` / `Desc` 那条路，**没有关键词**」；同口径 `CardDef.cs:4534`）
+        /// ⇒ `EffectText.Parse(card.Desc)` **就是**本仓 `cardAbilities[trigger==0]` 的唯一取数口，**不再算残余差**。残差② = 按 `ourId` 从卡池重新查 `CardDef`，原版取的是 `data[0].actingCard` **活跃实例**（身份/运行时状态丢失）。数据 0 条 ⇒ 零可观测。</summary>
         bool RunResolveCard(BattleContext ctx, TutorialAction a, ref ScriptedActionDone done)
         {
             done.Kind = ScriptedActionType.ResolveCard;

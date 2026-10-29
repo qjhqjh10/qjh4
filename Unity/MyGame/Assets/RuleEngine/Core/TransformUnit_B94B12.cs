@@ -273,7 +273,7 @@ namespace RuleEngine
             //   顺序照 `DeployFree` 的写点（棋盘写入点唯一口径：`Recompose` **先**、`ApplyDeployTurnState` **后**）。
             Auras.Recompose(ctx);                                  // 棋盘变动 ⇒ 光环重算（9 个写入点同一纪律）
             MinionPlayedIntoField(ctx, nu, keepStatus: keepEffects); // 原版 `:1207`（落地钩子：`+0x2E0` 落地回合 + `+0x58` + 两个 canAct/canAttack 位；第 6 实参 `shouldTriggerSummon:1` 只在表现层有消费点 ⇒ 本仓不发召唤广播，见 `TransformUnit_B95A3.cs` §一/§二）
-            CheckStun(ctx, nu);                                     // 原版 `:1629`
+            CheckStun(ctx, nu); TransformUnitPostResolve(ctx, nu, ni);   // 原版 `:1629`（后一句 = `.c:1775-1825` 伏击面朝下 ＋ `.c:1828-2030` 两手 `UpdateCardEffects`/`CheckEffectsOnNewCard`，见类尾 `TransformUnitPostResolve`）
 
             ctx.Log($"{who}：「{old.Name}」{old.Health}血 变身成「{newCard.Name}」（格 {slot}"
                   + $"{(wasInPlay ? "" : "，原本不在场")}；keepEffects = {(keepEffects ? "真" : "假")}"
@@ -397,6 +397,60 @@ namespace RuleEngine
             // ⚠️ `IsRemnant` / `IsLeavingRemnant` / `FaceDown` / `SwarmUnder` / `ReferencedCards`
             //    **不搬** —— 前者两个是「残骸身份」，变身的靶是在场单位；后两个是引用表，
             //    我们的实现里没有「别人指着我」的反向更新口（如实留缺口，见报告）。
+        }
+
+        /// <summary>
+        /// 账 548 · 原版 `ResolveTransformUnit` 的**末两跳**（本笔 2026-10-29 补；判据逐句现读）：
+        /// <list type="bullet">
+        /// <item>`:1775-1825` —— `if (local_308 != 0) { if (EntityScript__HasCurrentTrait(local_308, 0x4b0, 0))
+        ///   CardScript__SetAmbush(local_308, 1, 0); }`。`0x4B0 = 1200` 在 `CardDef` 的关键词表里就是
+        ///   <see cref="KeywordTable.Ambush"/>（`RuleCore.PlaysFaceDown` 的那一处判别式用的是同一个词条；
+        ///   「打出/召唤/自动召唤」那三个 `SetAmbush(true)` 调用点在我们要么走 `PlaysFaceDown`、
+        ///   要么走 `FaceDown` 位）⇒ 状态层等价物 = **`UnitState.FaceDown = true`**。
+        ///   ⚠️ 原版判定读的是**变身后那张卡当前的 traits**（`local_308` 已 `SetRawCardData`）⇒ 我们读
+        ///   **新 `UnitState` 的合并关键词**（`nu.Has(...)`，含光环给的），⛔ 别退回「卡面 `CardDef.Has`」
+        ///   —— 那会漏掉光环/效果给的那一份。</item>
+        /// <item>`:1829/:1831` —— 两手各一次 `PlayerHand__UpdateCardEffects(hand, 0, 0)`
+        ///   （`endOfTurn = false`、第三个实参 0）。等价物 = <see cref="RuleCore.ExpireHandBuffs"/>
+        ///   （它**自己就扫两方**，`endOfTurn: false` 正是原版那两个 0 的含义）⇒ 只调一次，
+        ///   ⛔ 别照原版写两遍（第二遍是空转）。</item>
+        /// <item>`:1931/:1981` —— 两手各一次 `PlayerHand__CheckEffectsOnNewCard(hand, local_308)`。
+        ///   它的方法体（`decomp_full/PlayerHand__CheckEffectsOnNewCard.c` 全文 54 行）= 遍历
+        ///   `activeEffects(+0x48)` → `FilterMethods.CheckIfMeetsCriteria(...)` → `CardScript.AlreadyContainsEffect`
+        ///   → `CardScript.AddEffect` —— 🔑 **与 `SetupCardInHand.c:38-74` 的核心循环逐句同形**
+        ///   （后者只多两件**表现层**动作：`ShowBoardObjects` + `SetSortingLayer/Order` + 换父节点）。
+        ///   ⇒ 我们的等价物 = <see cref="RuleCore.SetupCardInHand"/>（它实现的就是那一圈 registry 循环）。
+        ///   ⚠️ **原版调的是【两手】⇒ 这里对 owner 0/1 各调一次**（`SetupCardInHand` 只处理传入的那一侧），
+        ///   ⛔ 别只调自己那一侧。</item>
+        /// </list>
+        /// <para>📍 **位置**：原版这三段排在 `BroadcastWhileInPlay`(`:1726`) **之后**、`FinishResolvingAction`
+        /// 之前 ⇒ 我们挂在 `TransformUnit` 的 `CheckStun`（`:1629`）之后 —— 中间那两跳
+        /// （`:1678 UpdateFigures` 表现层 / `:1726 BroadcastWhileInPlay` = 我们的 `Auras.Recompose` + 排空时的
+        /// `EmitWhileInPlayPass`，见文件头 §四·④）不需要在这里补。</para>
+        /// <para>📊 **可达性**：`chosenAbility 85` 池内 0 张 ⇒ 休眠件；本方法对既有对局**零行为变化**
+        /// （`play check` 指纹应逐字节不变）。</para>
+        /// </summary>
+        static void TransformUnitPostResolve(BattleContext ctx, UnitState nu, CardInstance ni)
+        {
+            if (ctx == null || nu == null) return;
+
+            // ---- ① 原版 `.c:1775-1825`：HasCurrentTrait(ambush) ⇒ SetAmbush(true) ----
+            if (nu.Has(KeywordTable.Ambush))
+            {
+                nu.FaceDown = true;
+                ctx.Log($"「{nu.Name}」变身成带 `Ambush` 的卡 ⇒ **面朝下**（原版 `ResolveTransformUnit.c:1825` "
+                      + "的 `SetAmbush(card, true, 0)`；与打出/召唤那三支同一个面朝下位）");
+            }
+
+            // ---- ② 原版 `.c:1829/:1831`：两手 UpdateCardEffects(hand, 0, 0) ⇒ 我们的 ExpireHandBuffs 自己扫两方 ----
+            ExpireHandBuffs(ctx, endOfTurn: false);
+
+            // ---- ③ 原版 `.c:1931/:1981`：两手 CheckEffectsOnNewCard(hand, 变身后的卡) ----
+            if (ni == null) return;
+            int got = SetupCardInHand(ctx, 0, ni) + SetupCardInHand(ctx, 1, ni);
+            if (got > 0)
+                ctx.Log($"「{nu.Name}」变身：按两手的手牌效果登记表补挂上 **{got}** 条"
+                      + "（原版 `ResolveTransformUnit.c:1931/:1981` 的 `PlayerHand.CheckEffectsOnNewCard`）");
         }
     }
 }

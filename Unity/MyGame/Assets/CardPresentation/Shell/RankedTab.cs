@@ -627,23 +627,23 @@ namespace CardPresentation
                     + "阵营徽记按 `CampaignData.Armies[i]` 画（`ArmyIcons.IconName` ⇒ 原版 `ArmyUtilities.GetArmyIcon`）。");
         }
 
-        /// <summary>一行 `FactionScoreSmall`（`Image + FactionScore`）。</summary>
+        /// <summary>一行 `FactionScoreSmall`（`Image + FactionScore`）。🆕 2026-10-29（`B97_W2`）：三件（徽记 + 两颗评级）的**写入**收口到 `FactionScore.Initialize`（原版这一行就是一颗挂着该组件的 `FactionScoreSmall` prefab 实例）。</summary>
         void BuildRow(PxRect r, int i, string army)
         {
             var row = Node(_content, i == 0 ? "FactionScoreSmall" : "FactionScoreSmall (" + i + ")", r);
-            // 底：UGUI 内置 `Background`（32×32 · 九宫 10,10,10,10 · ppu=200）—— 与我们其它「内置图」一致：**不导不画**
             var ic = new PxRect(r.x1 + RowIcL, r.y1 + RowIcT, r.x1 + RowIcL + RowIcW, r.y1 + RowIcT + RowIcH);
-            // 🔴 **2026-10-24（E12 · P1-10）**：同 `BuildCard` 那一处 —— 原来只传 `art = null` ⇒ 落到
-            //   `CardArt.Solid()` **纯白**（那四处白块的第 4 处就在这一栏的行里）⇒ 改成 tint **全透明**：
-            //   画面无、节点与 `ImageQuad` 都留着（宿主 `Editor/MainMenuScene.cs:7751` 要拿它量矩形，
-            //   详由见 `BuildCard` 那一段注释）。`_rowIcons` 仍记这个 quad（目前无读取点，留着当句柄）。
-            _rowIcons[i] = FactionIconQuad(row, ic, army);   // 有阵营 ⇒ 画徽记；取不到 ⇒ 透明块（见类尾）
+            // 🔴 **2026-10-24（E12 · P1-10）**：`icon` 的 tint 必须**全透明**（原来 `art = null` ⇒ `CardArt.Solid()` **纯白**
+            //   ⇒ 这一栏每行各挂一块白矩形）。画面无、节点与 `ImageQuad` 都留着（宿主 `Editor/MainMenuScene.cs:7751` 要拿它量矩形）。
+            _rowIcons[i] = FactionIconQuad(row, ic);   // 空态节点（贴图由 `FactionScore.Initialize` 第 1 句写，⛔ 不在这里画第二份）
             RatingRow(row, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowRtT, r.x1 + RowRtL + RowRtW, r.y1 + RowRtT + RowRtH),
-                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, FactionScoreText(i, false));
+                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, null);
             RatingRow(row, "Alliance Rating Display (1)", ArtGalonIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowMxT, r.x1 + RowRtL + RowRtW, r.y1 + RowMxT + RowMxH),
-                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, FactionScoreText(i, true));
+                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, null);
+            var fs = row.gameObject.AddComponent<CardPresentation.ScoreBars.FactionScore>();   // 原版这一行 = 一颗挂着 `FactionScore` 的 `FactionScoreSmall`
+            fs.Bind(_rowIcons[i], ArdOf(row, "Alliance Rating Display"), ArdOf(row, "Alliance Rating Display (1)"));
+            fs.InitializeOrEmpty(FactionOf(army), FactionScoreValue(i, false), FactionScoreValue(i, true), ScoreEmpty);   // 三句 = 原版 `FactionScore.Initialize` 的唯一实现
         }
 
         // ============================================================ 交互 / 数据
@@ -724,24 +724,19 @@ namespace CardPresentation
             return a;
         }
 
-        /// <summary>一行里那颗 `icon` = **阵营徽记**（原版 `FactionScore.Initialize` 的第一句
-        /// `factionImage.sprite = ArmyUtilities.GetArmyIcon(faction)`；本仓唯一映射 = `ArmyIcons.IconName`）。
-        /// <para>⚠️ **图取不到时保持「透明块」而不是删节点**：节点与 `ImageQuad` 必须留着（宿主断言
-        /// `Editor/MainMenuScene.cs` 拿这颗 `icon` 量矩形 —— 见 `BuildCard` 那一段的 E12 注）。</para>
+        /// <summary>建一行里那颗 `icon` 节点（**空态**：节点与 `ImageQuad` 在、**画面无**）。
+        /// <para>🔴 **2026-10-29（`B97_W2`）就地订正（铁律 5）：本方法不再解析、也不再画图。** 徽记那**一句**
+        /// （原版 `FactionScore__Initialize.c:17-19` 的 `factionImage.sprite = ArmyUtilities.GetArmyIcon(faction)`）
+        /// 从此**只有一份实现** = `FactionScore.Initialize`（`BuildRow` 末尾的 `fs.InitializeOrEmpty(...)` 调它）；
+        /// 本方法只剩「结构」那一半，与 `FactionScore.Build` 的 `IconNodeAt(..., empty)` 同一口径。
+        /// ⇒ 旧的 `ArmyIcons.IconName` + `Art()` 取图与那条缺图警告**已移除**（⛔ 别加回来 = 两处各画一次）。</para>
+        /// <para>⚠️ **节点与 `ImageQuad` 必须留着**（⛔ 别删成裸节点）：宿主断言 `Editor/MainMenuScene.cs` 拿这颗
+        /// `icon` 量矩形；`Editor/ProfileWindowAssertE12.cs` 还要求「`icon` 节点数 == 带 `ImageQuad` 的节点数」。</para>
         /// <para>⚠️ **不传 `keepAspect`**（= 默认拉伸）：原版这一格是固定框内的 `Image`，而宿主断言量的是
         /// **整框宽 1305.29..1448.39** ⇒ 一旦改成等比内接，渲出来的宽会小于框宽、那条断言会红。</para></summary>
-        ImageQuad FactionIconQuad(Transform row, PxRect ic, string army)
+        ImageQuad FactionIconQuad(Transform row, PxRect ic)
         {
-            string art = string.IsNullOrEmpty(army) ? null : ArmyIcons.IconName(army);
-            var tex = string.IsNullOrEmpty(art) ? null : Art(art);
-            if (tex == null)
-            {
-                if (!string.IsNullOrEmpty(army))
-                    Debug.LogWarning("[Ranked] `AllFactions` 里 " + army + " 的阵营徽记没画 —— 图名「"
-                                   + (art ?? "<空>") + "」取不到（⛔ 不拿纯色块顶替）");
-                return Rect(row, null, ic, "icon", L_Bg2, Transparent);   // 空态：节点在、画面无
-            }
-            return Rect(row, art, ic, "icon", L_Bg2, null);               // 有阵营 ⇒ 画徽记（拉伸到框，见上）
+            return Rect(row, null, ic, "icon", L_Bg2, Transparent);   // 空态：节点在、画面无（贴图由 `FactionScore.Initialize` 写）
         }
 
         // ============================================================ 原版 `FactionScore.Initialize`（B94_S3 · 2026-10-29）
@@ -755,8 +750,7 @@ namespace CardPresentation
         //   ```
         //   ⇒ 三件：**一张徽记图 + 两颗 AllianceRatingDisplay 的分数**（`disableIfZero` 那一格 `.c` 实参是 `1`）。
         // ⚠️ 我们这一侧的对应物 = `BuildRow`（`FactionScoreSmall` 那一行）：
-        //   徽记走 `FactionIconQuad`（`ArmyIcons.IconName` ⇒ 原版 `ArmyUtilities.GetArmyIcon`，判据在 `Core/ArmyIcons.cs`），
-        //   两颗分数走 `RatingRow`（`Alliance Rating Display` / `… (1)`）。**分数本身是服务器的**
+        //   🆕 2026-10-29（`B97_W2`）：**三句**都过 `FactionScore` —— 唯一实现 = `FactionScore.Initialize`（`BuildRow` 末尾 `fs.InitializeOrEmpty(...)`；`FactionIconQuad` 只建**空态节点**、不画图），结构走 `RatingRow`（`Alliance Rating Display` / `… (1)`）；**分数本身是服务器的**
         //   （`RankedTab.InitializeFactionScores` 那一族）⇒ 没有数据时原样保留原版的空态 `------`。
         //   🔶 自己设计（非原版）：`FactionScoreProvider` / `FactionHighestProvider` 这两个注入点 ——
         //   原版分数由服务器下发（关服后判据在远端）⇒ 本地留一个「谁来喂」的口，默认 null = 没有数据 ·
@@ -772,16 +766,52 @@ namespace CardPresentation
         /// <paramref name="highest"/> = 取第 2 颗（`Alliance Rating Display (1)`）还是第 1 颗。</summary>
         public static string FactionScoreText(int row, bool highest)
         {
-            var f = highest ? FactionHighestProvider : FactionScoreProvider;
-            if (f == null) return null;                       // 没有数据源 ⇒ 交给 RatingRow 落空态
-            int? v = f(row);
-            return v.HasValue ? v.Value.ToString() : null;
+            int? v = FactionScoreValue(row, highest);         // 🔴 单一来源（同两个注入点，见类尾）—— ⛔ 别在这里再读一遍 provider
+            return v.HasValue ? v.Value.ToString() : null;    // 没有数据源 ⇒ null（交给 RatingRow 落空态）
         }
 
         /// <summary>自检口（两个静态注入点 ⇒ 每条断言收尾必须还原）。</summary>
         public static void ResetFactionScoreForTest()
         {
             FactionScoreProvider = null; FactionHighestProvider = null;
+        }
+
+        // ============================================================ 🆕 2026-10-29（B97_W2）：`FactionScore` 接线（三个小口）
+        // 🔴 纪律：追加在**类尾**（本文件被账按行号引用 263/272/355/603/610/659 ⇒ 插中间会整体漂移）。
+
+        /// <summary>把 `RatingRow` 建好的那颗节点包成 <see cref="CardPresentation.ScoreBars.AllianceRatingDisplay"/>
+        /// （原版那是 prefab 上的序列化组件）。
+        /// <para>为什么不让 `RatingRow` 直接返回它：`RatingRow` 被 `BuildCard`（`Top4` 的 `Big` 那四张卡）共用，
+        /// 改它的签名会让那一族的行号与行为一起动 —— 本批只接线 `AllFactions` 那一族（`Small`）。</para>
+        /// <para>子件名 = `Main Icon` / `Individual rating value`（`RatingRow` 建的就是这两个；取不到 ⇒ 传 null，组件自己出声）。</para></summary>
+        static CardPresentation.ScoreBars.AllianceRatingDisplay ArdOf(Transform row, string nodeName)
+        {
+            if (row == null) return null;
+            var t = row.Find(nodeName);
+            if (t == null) return null;
+            var ard = t.gameObject.AddComponent<CardPresentation.ScoreBars.AllianceRatingDisplay>();
+            var lbl = t.Find("Individual rating value");
+            var icn = t.Find("Main Icon");
+            ard.Bind(lbl != null ? lbl.GetComponent<Label>() : null,
+                     icn != null ? icn.GetComponent<ImageQuad>() : null);
+            return ard;
+        }
+
+        /// <summary>阵营名（`CampaignData.Armies[i]`）→ <see cref="CardArmy"/>（`FactionScore.Initialize` 的实参类型）。
+        /// 认不出 ⇒ `Neutral`(0)（= 原版 `ArmyIconsSO` 里没有的那一格 ⇒ 取图返回 null、⛔ 不顶替别的阵营）。</summary>
+        static CardArmy FactionOf(string army)
+        {
+            int id = ArmyIcons.Id(army);                      // 认不出 ⇒ -1（⚠️ 不是 0 —— 0 是 `Neutral`，合法值）
+            return (CardArmy)(id >= 0 ? id : ArmyIcons.Neutral);
+        }
+
+        /// <summary>某一行的分数值（`null` = 没有数据源）。与 <see cref="FactionScoreText"/> **共用同两个注入点**，
+        /// 只是要 `int?` 形态（`FactionScore.Initialize` 吃 `int`，见 <see cref="CardPresentation.ScoreBars.FactionScore.InitializeOrEmpty"/>）。</summary>
+        static int? FactionScoreValue(int row, bool highest)
+        {
+            var f = highest ? FactionHighestProvider : FactionScoreProvider;
+            if (f == null) return null;
+            return f(row);
         }
     }
 }

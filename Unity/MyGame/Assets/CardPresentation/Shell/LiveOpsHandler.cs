@@ -547,9 +547,9 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `protected virtual Task RefreshHandler(LiveopsHandlerData data)`（`:2656` / **Slot 23**）。**真身**（`_RefreshHandler_d__29_…MoveNext.c`，271 行）：
-        /// `GetConfig&lt;FeatureConfig&gt;()` →（某条件下 `await Task.Yield()`）→ `await refreshSemaphore.WaitAsync()` → `await Manager.BuildHandler(this, data, config)` → `await &lt;虚调用 +0x2d8&gt;` → `EventsRefreshed?.Invoke()` → `Signal.Raise(new LiveOpsHandlerRefreshedSignal(this))` → `CustomDebug.Log("[" + HandlerKey + "] Handler Refreshed")` → `sem.Release()`。
+        /// `GetConfig&lt;FeatureConfig&gt;()` → `await Task.Yield()`（**条件恒 false ⇒ 恒 Yield**，见 ①）→ `await refreshSemaphore.WaitAsync()` → `await Manager.BuildHandler(this, data, config)` → `await InitializeHandler()`（= 虚调用 `+0x2d8` / Slot 26，见 ②）→ `EventsRefreshed?.Invoke()` → `Signal.Raise(new LiveOpsHandlerRefreshedSignal(this))` → `CustomDebug.Log("[" + HandlerKey + "] Handler Refreshed")` → `sem.Release()`。
         /// ⚠️ 没有载荷（`data == null`）⇒ **出声返回**（原版这里会 NRE，因为 `manager.BuildHandler` 要 data）。
-        /// 🔴 **仍未搬两处（判据未闭合，⛔ 别猜）**：① 那句条件 `await Task.Yield()` 的**条件**（`.c` = 3 个 `Method not found @1806FB110` + 一次 bool 判）；② `await &lt;+0x2d8&gt;` 是哪个虚方法（`dump.cs` 的 `Slot` 编号与 vtable 偏移在本类**对不上**：拿 `RefreshHandlerLocally` 的 `0x2a8 ↔ Slot 23` 校准出的 stride 与 `Slot: 5 = GetBaseEvents` 的 `0x2e8` 互相矛盾）。</summary>
+        /// 🔴 **2026-10-29（`B97_GEN2`）两处判据已解出、已搬**：① `Task.Yield()` 的「条件」= `.c` 里三跳同址（ILSpy 注 `Method not found @1806FB110` ×3）⇒ **RVA `0x6FB110` 的机器码 = `32 c0 c3`（`xor al,al; ret` = 恒 `false`）** ⇒ 三跳全 false ⇒ **无条件 Yield**；② `+0x2d8` = **Slot 26 `InitializeHandler()`** —— vtable 步长 = `VirtualInvokeData` 的 **16 字节**，三个独立锚点互证：`0x2a8 ↔ Slot 23 RefreshHandler(data)`（`_d__26:88` / `_d__27:33` 传的正是 `handlerCache`+0x60）、`0x2e8 ↔ Slot 27 GetEvents(bool)`（`ForgeHandler.HasAnyArmyRewardsToCollect:16` 等四处都传 bool）、`0x278 ↔ Slot 20 get_HandlerKey`（拼日志串）⇒ `0x2d8 = 0x2a8 + 3×16`。⚠️ 旧注释说的「`Slot: 5 = GetBaseEvents` 的 `0x2e8` 矛盾」是**归错槽**：`0x2e8` 是 Slot 27，不是 Slot 5。</summary>
         protected virtual async Task RefreshHandler(LiveopsHandlerData data)
         {
             if (data == null)
@@ -563,17 +563,17 @@ namespace CardPresentation
                 Debug.LogError("[LiveOps][" + HandlerKey + "] 刷新：Manager 是 null（`RegisterManager` 没调过）⇒ 无法建 handler");
                 return;
             }
-            await refreshSemaphore.WaitAsync();
+            var cfg = LiveOpsFeatureConfig.Current; await Task.Yield(); await refreshSemaphore.WaitAsync();   // ★ 原版序：先取 `GetConfig<FeatureConfig>()`，再 Yield（其「条件」恒 false —— 三跳共享桩 RVA 0x6FB110 = `xor al,al; ret`），再等互斥
             try
             {
-                await Manager.BuildHandler(this, data, LiveOpsFeatureConfig.Current);
+                await Manager.BuildHandler(this, data, cfg); await InitializeHandler();   // ★ 原版 `await <虚调用 +0x2d8>` = Slot 26 `InitializeHandler()`（判据见方法 doc 的 ②）
+                var h = EventsRefreshed;
+                if (h != null) h(); LiveOpsSignal.Raise(new LiveOpsHandlerRefreshedSignal(this)); Debug.Log("[" + HandlerKey + "] Handler Refreshed");   // ★ 原版这两句在 EventsRefreshed 之后：`Signal.Raise(...)` + `CustomDebug.Log("[" + HandlerKey + "] Handler Refreshed")`（字面量 0x429B170="[" / 0x42B6C48="] Handler Refreshed"）· 零行数变化：⛔ 别拆成多行（会顶掉下游账落点）
             }
             finally
             {
-                refreshSemaphore.Release();
+                refreshSemaphore.Release();   // ⚠️ 有意差异：原版只在正常路径末尾 Release（BuildHandler/InitializeHandler 抛异常时**不释放**、信号量永久占住）；我们用 finally 兜住
             }
-            var h = EventsRefreshed;
-            if (h != null) h(); LiveOpsSignal.Raise(new LiveOpsHandlerRefreshedSignal(this)); Debug.Log("[" + HandlerKey + "] Handler Refreshed");   // ★ 原版这两句在 EventsRefreshed 之后：`Signal.Raise(...)` + `CustomDebug.Log("[" + HandlerKey + "] Handler Refreshed")`（字面量 0x429B170="[" / 0x42B6C48="] Handler Refreshed"）· 零行数变化：⛔ 别拆成多行（会顶掉下游账落点）
         }
 
         /// <summary>原版 `private void HandleBeforeRefresh()`（`:2665`）：`Log("[key] Before Refresh")`

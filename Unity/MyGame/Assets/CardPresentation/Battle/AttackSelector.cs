@@ -426,7 +426,7 @@ namespace CardPresentation
         public bool Tick(float dt)
         {
             if (!Visible) return false;
-            TickHover(dt);
+            TickHover(dt); AdvanceRingRotation(dt);
             return PushDrag(TouchInputManager.TouchDragDeltaViewport);
         }
 
@@ -436,7 +436,7 @@ namespace CardPresentation
         public bool TickForTest(float dt, Vector2 dragDeltaViewport)
         {
             if (!Visible) return false;
-            TickHover(dt);
+            TickHover(dt); AdvanceRingRotation(dt);
             return PushDrag(dragDeltaViewport);
         }
 
@@ -1956,5 +1956,91 @@ namespace CardPresentation
             return p != null && p.IsUgui && p.Rect != null ? p.Rect.GetComponent<UnityEngine.UI.Image>() : null;
         }
 #endif
+
+        // ============================================================ 原版 `SimpleRotation`（`B97_HUDROT` · 2026-10-29）
+        //
+        // **缺口**：账 `未分类_其他.tsv:584` 原来记成「战场 prefab 没挂驱动物」—— 方向错了（`B97_MISC2` 复核时改的）。
+        //   现读 `m_Script = -6857224376968460714`（= `SimpleRotation`；类名出处
+        //   `bundle_Waprforge_monoscripts/MonoScript/MonoScript_-6857224376968460714.json`）的全库 **42 个实例**：
+        //   **13 场 × 3 + `Cog` × 3**。那 39 个**不是 3D 景物**，是**战斗 HUD 的 UI 图** —— 每颗都是
+        //   `RectTransform + CanvasRenderer + Image + SimpleRotation + EverguildButtonMaterialModifier`
+        //   （`bundle_scenes_scenes_battlearena1/GameObject/Highlight.json` = GO 112、
+        //    同目录 `Highlight_396.json` / `Highlight_180.json` —— 三份的 `m_Name` 都是 `Highlight`）。
+        //   ⇒ 真缺的是**这三颗圈的驱动**（圈本身与它的 rect 早已建好，见 `RingW`/`RingH`）。
+        //
+        // **逐场取证（39 个实例逐个现读，**几何 / 图 / speed 全同 ⇒ 写死，不按场分档**）**：
+        //   · 父链（arena1 现读，其余 12 场同构、只有 pathID 不同）：
+        //       `Highlight` 的**父**分别是 `Select Melee Button`(RT_3368) / `Select Active Skill Button`(RT_2626)
+        //       / `Select Range Button`(RT_2804) —— 与 `Order = {Melee, Ability, Ranged}` 一一对应；
+        //       再上：`Drag Attack Selector`(RT_2973) → `Safe area FrontCanvas`(2862) → `FrontCanvas`(2900)
+        //       → `Canvas`(2759) → `BattleHud`(1395) → `BattlePrefab`(1300)。
+        //       ⚠️ 我们这边圈是**平铺的兄弟件**（父链差一级，见报告 §⑤），几何等价。
+        //   · `m_IsActive = true`（三颗序列化里都亮）；运行时的显隐由
+        //     `CardDisplayAttackTypeButton__HighlightIfNeeded.c` 第一句
+        //     `SetActive(highlightImage(+0x38), param_2 == attackType(+0x20))` 按「是不是已选打法」开关
+        //     —— 我们已按这条实现（`IsPickedSlot` / `SetSlotActive` / `RefreshPicked`）。
+        //   · `RectTransform`（RT_2776 / RT_3028 / RT_3512 等 39 份）：`m_AnchorMin = m_AnchorMax = (0.5, 0.5)` ·
+        //     `m_AnchoredPosition = (0, 0)`（个别是 `-3.8e-5` 的浮点噪声）· `m_Pivot = (0.5, 0.5)` ·
+        //     `m_LocalScale = 1` · `m_LocalRotation = identity`（= 起始角 0）·
+        //     **`m_SizeDelta = (176.22999572753906, 176.875)`** ⇒ 与钮同心，尺寸 = `RingW × RingH`。
+        //   · `Image`（MB_4108 / 4478 / …）：`m_Sprite` = **`Attack type button highlight`**
+        //     （`d:/2/解包整理/03_界面UI/图集/battleatlasui/Sprite/Attack type button highlight_-7315808829623560242.json`
+        //      · 227×227 · `m_PixelsToUnits 100` · pivot (0.5,0.5)）；`m_Color = (1,1,1,1)` ·
+        //     `m_Type = 0`(Simple) · `m_PreserveAspect = 0` · `m_RaycastTarget = 1`。
+        //     ⇒ 同名图我们已在用（`Resources/Art/ui/Attack_type_button_highlight.png`，`Build*` 里那张）。
+        //   · `SimpleRotation.speed` = **`(0, 0, 100)`** —— 39 个实例逐个现读，**没有一个例外**
+        //     （另 3 个 `Cog` 是 `(0, 0, -20)`，宿主在 `menus_assets_all` / `mainmenuwarpforge`，**不属本件**）。
+        //     `SimpleRotation.cs:7` 的 `Update` = `transform.eulerAngles += speed * Time.deltaTime`
+        //     ⇒ **100°/s，3.6 s 一圈**；数学那一半 = `Shell/LoadingMenu.cs` 的 `CardPresentation.SimpleRotation`
+        //     （`Step` 已带 `Repeat(.., 360)`，与「下一次读 `eulerAngles` 拿到 0..360」等价）。
+        //   · 第 5 个组件 `EverguildButtonMaterialModifier`（MB_4693）**序列化里一个字段值都没有**
+        //     ⇒ `ToogleGreyScale(+0x20)` 为假 ⇒ `GetModifiedMaterial` 原样返回 ⇒ **无视觉作用，故不建**。
+        //
+        // ⚠️ **如实记：每颗圈各有一个角度累加器，而且只有【activeSelf 为真】的那颗才推进**。
+        //   原版是 3 个独立 `SimpleRotation`（各转各的），**未被选中的那颗 GameObject 是关的 ⇒ Unity 不给它跑
+        //   `Update` ⇒ 角度冻住**。这里逐字照那条（`!activeSelf` 就 `continue`），所以「切选」那一刻新亮起
+        //   的那颗从它上次冻住的角度续上 —— 与原版同一条语义。⛔ 别图省事改成「三颗共用一个累加器 / 每帧
+        //   无条件写三颗」：那会让关着的那颗也跟着走（原版不走），而且这条差异**只能在自检里看出来**。
+
+        /// <summary>原版 `SimpleRotation.speed.z`：13 场 × 3 颗 `Highlight` **全部 = 100**（度/秒）。
+        /// 判据 → 本节头「逐场取证」。</summary>
+        const float RingSpinDegPerSec = 100f;
+
+        /// <summary>三颗 `Highlight` 圈各自的自转角（度，0..360）—— 按 `Order` 下标。
+        /// `0` = 还没转过（= 原版序列化里的 `m_LocalRotation = identity`）。</summary>
+        readonly float[] _ringSpinDeg = new float[3];
+
+        /// <summary>自检用：第 `i` 格（`Order` 下标）那个累加器当前的角度（度，0..360）。</summary>
+        public float RingSpinDegForTest(int i)
+        {
+            return (i >= 0 && i < _ringSpinDeg.Length) ? _ringSpinDeg[i] : float.NaN;
+        }
+
+        /// <summary>自检用：某一格 `Highlight` 节点 **`localRotation` 的 z 欧拉角**（原版由 `SimpleRotation`
+        /// 每帧写它）。件没建出来 ⇒ `NaN`（⛔ 不是 0 —— 「量不到」和「没转」必须分得开）。</summary>
+        public float RingNodeRotationZForTest(AttackKind k)
+        {
+            for (int i = 0; i < Order.Length; i++)
+                if (Order[i] == k)
+                    return _rings[i] != null ? _rings[i].transform.localRotation.eulerAngles.z : float.NaN;
+            return float.NaN;
+        }
+
+        /// <summary>原版 `SimpleRotation.Update` 的落地：把**亮着的那颗**圈按 `100°/s` 转一格。
+        /// <para>⚠️ 入口只有 `Tick` / `TickForTest` 两处（都在 `Visible` 早退**之后**）—— 与「选择器收起时
+        /// 三颗 GameObject 全是关的、`Update` 不跑 ⇒ 角度冻住」同义。</para>
+        /// <para>⚠️ 写的是 **`localRotation`**：原版写 `transform.eulerAngles`（世界欧拉角），
+        /// 但三颗圈的世界旋转只有 Z 这一份（父链全是恒等旋转 + `localScale 1`）⇒ 两者写出来的数相等。
+        /// ⛔ 世界档的 `ImageQuad` / uGUI 档的 `RectTransform` 都没有别的旋转要保住，别改成 `rotation`
+        /// （那会被父级旋转带偏）。</para></summary>
+        void AdvanceRingRotation(float dt)
+        {
+            for (int i = 0; i < _rings.Length; i++)
+            {
+                if (_rings[i] == null || !_rings[i].gameObject.activeSelf) continue;
+                _ringSpinDeg[i] = SimpleRotation.Step(_ringSpinDeg[i], RingSpinDegPerSec, dt);
+                _rings[i].transform.localRotation = Quaternion.Euler(0f, 0f, _ringSpinDeg[i]);
+            }
+        }
     }
 }

@@ -3025,7 +3025,7 @@ namespace CardPresentation
                     if (_poolBars[i] != null) { _poolBars[i].gameObject.SetActive(false); DestroySafe(_poolBars[i].gameObject); }
                 for (int i = 0; i < _poolBarTexts.Count; i++)
                     if (_poolBarTexts[i] != null) { _poolBarTexts[i].gameObject.SetActive(false); DestroySafe(_poolBarTexts[i].gameObject); }
-                _poolBars.Clear(); _poolBarTexts.Clear();
+                _poolBars.Clear(); _poolBarTexts.Clear(); ClearPoolBanIcons();   // 🆕 2026-10-29（B97_MENU · 账 菜单/外壳:58）：ban 徽标的**尺寸**也是建时烘进去的（`1.75 × PxPerUnit × CardScale`）⇒ 换档跟张数条一起拆（见类尾 `ClearPoolBanIcons`，⛔ 别只挪位置：会画出上一档的大小）
                 _poolCellWUsed = P.CellW;
             }
             _poolNextViews.Clear(); _poolNextIds.Clear(); _poolNextIdx.Clear();
@@ -3077,7 +3077,7 @@ namespace CardPresentation
                 {
                     // 空位：视图**留着**（只关掉 —— 切页/筛选切回来时直接复用，不必再花那 ≈2.2 秒）
                     if (v != null) v.gameObject.SetActive(false);
-                    ShowPoolCounter(vi, false);
+                    ShowPoolCounter(vi, false); ShowPoolBanIcon(vi, false);   // 🆕 2026-10-29（B97_MENU · 账 菜单/外壳:58）：空位也要收掉 ban 徽标（否则滚动后它会留在下一张卡上）—— 追加在同一行 ⇒ 行号零漂移
                     continue;
                 }
 
@@ -3130,7 +3130,7 @@ namespace CardPresentation
                 //    「未拥有 / 被禁」要的卡面灰，所以**不额外调 `SetGrey`**（省得两处各写一遍灰度）。
                 //    ✅ 这也正是简报里那条「先例」的反面用法：`BattleDriver.cs:23763` 是「`SetHighlight` 之后再
                 //       `SetGrey(0)`」把它抵消掉 —— 我们这里**要的**就是它。
-                v.SetHighlight(owned && !banned ? CardHighlightState.Playable : CardHighlightState.Unplayable);
+                v.SetHighlight(owned && !banned ? CardHighlightState.Playable : CardHighlightState.Unplayable); SetPoolBanIcon(vi, banned, cx, cy, P);   // ③ **ban 徽标**（原版 `Collection Card/CardUI/Ban Icon`：1.75×1.75 单位 + 子件 `Banned Text`，显隐 = `SetActive(banned)`）；追加在同一行 ⇒ 行号零漂移，判据 → 类尾 `SetPoolBanIcon` 的 doc
 
                 // ② **张数条**：`!canAdd` 才是灰它的那个条件（原版 `:19-20`）。
                 //    ⚠️ 灰的是**底板那一张图**，旁边的数字（`poolcnt_*`，`Label`）**不灰** ——
@@ -9486,6 +9486,116 @@ namespace CardPresentation
         static bool IsCardBanned(string cardId)
         {
             return CurrentEventData != null && CurrentEventData.IsCardBanned(cardId);
+        }
+    }
+}
+
+// ============================================================ 账 菜单/外壳:58 —— 卡格 **ban 徽标**（B97_MENU · 2026-10-29）
+//
+// 判据（**逐值现读，⛔ 不是照截图量的**）：`d:/2/新解包资源/assets_full/bundle_menus_assets_all/`
+//   · `GameObject/Collection Card.json` 根 350×512（`RectTransform_-914581999851801256`）
+//   · `CardUI`（`RectTransform_6631878794057741656`）= stretch + `sizeDelta (-350,-512)`、**`m_LocalScale = 150`**
+//     ⇒ 它的子件坐标是**卡内单位**（1 单位 = 150 px），这与我们 `CardView.Width = 2.0927` / `Height = 3.3313`
+//     **是同一套数**（原版 `2DCard` 就是 2.0927×3.3313）⇒ 两边可以直接用同一档 `CardScale` 换算。
+//   · `CardUI/Ban Icon`（`RectTransform_8858818889435772248`）：**中心锚**（anchor 0.5/0.5）、
+//     `m_SizeDelta = 1.75 × 1.75`、`m_AnchoredPosition ≈ (0.0166, 0)`（≈ 居中）、**`m_LocalScale = 1`**
+//   · 它的 `Image`（`MonoBehaviour_703390393061078360`）：`m_Sprite` = `40k_Cross_icon_cross_big Banned card`
+//     （512²、PPU 100）、`m_PreserveAspect = 1`、`m_Color` 白、`m_RaycastTarget = 0`
+//     ⇒ 图**已在工程里**：`Resources/Art/ui_menu/40k_Cross_icon_cross_big_Banned_card.png`（`CardArt.MenuUi`）
+//   · 子件 `Banned Text`（`RectTransform_2530570991428695384`）：anchor `x 0.1..0.9` / `y 0.4..0.6`、`sizeDelta 0`
+//     ⇒ 框 = **0.8 × 0.2** 个 Ban Icon 的方框；TMP（`MonoBehaviour_-3469432334489946792`）= `m_fontSizeBase 36` ·
+//     autosize `0.25…72` · 水平 Center(2) / 垂直 Middle(4096) · `m_fontStyle 17`（= Bold+UpperCase）· 白色；
+//     本地化键 = `MenuDeck/Banned`（`MonoBehaviour_-7220881934041615016.mTerm`），官方表 = `["Banned","禁止"]`。
+//
+// 显隐：原版 `CollectionCard__UpdateCardVisuals.c` 里那颗 ban 图标由 `BasicCardUI.ToggleBanned(isBanned)` 驱动
+//   （= `banIcon.gameObject.SetActive(banned)`）；**卡面灰度**是另一回事（`isOwned ? isBanned : 1`），
+//   那半已由 `SetHighlight(Unplayable)` ⇒ `SetGrey(1)` 等价实现（见 `RefreshPool` 那段）。
+//
+// ⚠️ **为什么追加成独立的 partial 段**：本文件被账按 `文件:行号` 引用 124 处（最大 `:9359`）
+//   ⇒ 往类体中间插成员会让下游落点整体漂移（`CLAUDE.md` 铁律 18·b）。
+namespace CardPresentation
+{
+    public partial class DeckRuntime
+    {
+        /// <summary>ban 徽标的渲染队列。**必须压在卡（`CardView` 默认 3000）之上**；
+        /// 取 3012/3013 是本文件队列表里的空号（`QPoolBar`=3010 / `QPoolBarText`=3011 之后、
+        /// `QFlt`=3020 之前 —— 见那几档的注释）。⚠️ 它与「张数条」**纵向不重叠**（条在卡下方），
+        /// 所以与 `QPoolBar` 同不同层都不会撞上「同一层不许压住」那条断言。</summary>
+        const int QPoolBan = 3012, QPoolBanText = 3013;
+
+        /// <summary>ban 图标框（原版 `Ban Icon` 的 `m_SizeDelta`）——**卡内单位**，与 `CardView.Width/Height` 同一套。</summary>
+        const float BanIconUnits = 1.75f;
+
+        readonly List<ImageQuad> _poolBanIcons = new List<ImageQuad>();
+        readonly List<Label> _poolBanTexts = new List<Label>();
+
+        /// <summary>摆一格卡池卡格的 ban 徽标（图标 + 「禁止」那行字）。
+        /// <para>尺寸 = `1.75 × PxPerUnit × P.CardScale`（与卡本身同一条换算：卡高 = `CardView.Height × 108 × CardScale`）
+        /// ⇒ 桌面档 ≈ **263.6 px**（原版 350×512 的卡里那颗是 262.5 px —— 同一条式子解出来的，差的是卡宽比）。</para>
+        /// <para>⚠️ 尺寸是**建的时候**烘进去的（`Img`/`TxtPx` 只摆一次）⇒ 换档（桌面 ⇄ 小屏）要被
+        /// <see cref="ClearPoolBanIcons"/> 拆掉重建（调用点 = `RefreshPool` 的 D24 那一段）。</para></summary>
+        void SetPoolBanIcon(int vi, bool banned, float cx, float cardCenterY, PoolMetrics P)
+        {
+            while (_poolBanIcons.Count <= vi) { _poolBanIcons.Add(null); _poolBanTexts.Add(null); }
+            float side = BanIconUnits * PxPerUnit * P.CardScale;      // 卡内单位 → 屏幕 px（与卡的换算同一条）
+            float x1 = cx - side * 0.5f, y1 = cardCenterY - side * 0.5f;
+            if (_poolBanIcons[vi] == null && side > 0f)
+            {
+                _poolBanIcons[vi] = Img("poolban_" + vi, "40k_Cross_icon_cross_big_Banned_card",
+                                        x1, y1, side, side, QPoolBan, true);   // `keepAspect = m_PreserveAspect = 1`
+                // 文字框 = 0.8 × 0.2 个方框（原版 anchor x 0.1..0.9 / y 0.4..0.6），居中
+                float tw = side * 0.8f, th = side * 0.2f;
+                // 字号按**原版那一档**等比缩：原版 `m_fontSizeBase 36` 是在 262.5 px 的方框里定的
+                float basePx = side * (36f / 262.5f);
+                var lb = TxtPx("poolbantxt_" + vi, Loc.T("MenuDeck/Banned"),
+                               cx - tw * 0.5f, cardCenterY - th * 0.5f, tw, th, basePx, Color.white, QPoolBanText);
+                // 原版 autosize `0.25…72` + Center/Middle ⇒ 我们同一条路（限宽/限高 = 字框，下限 8px）
+                if (lb != null) lb.SetAutoFitBox(U(tw), U(th), 8f, basePx, basePx);
+                if (lb != null)
+                    MenuDraw.SetVAlign(lb, Label.VAlign.Midline,
+                                       new PxRect(cx - tw * 0.5f, cardCenterY - th * 0.5f,
+                                                  cx + tw * 0.5f, cardCenterY + th * 0.5f));
+                _poolBanTexts[vi] = lb;
+            }
+            var icon = _poolBanIcons[vi];
+            if (icon != null) icon.transform.localPosition = Pos(cx, cardCenterY);
+            var t = _poolBanTexts[vi];
+            if (t != null) t.transform.localPosition = Pos(cx, cardCenterY);
+            ShowPoolBanIcon(vi, banned);          // 原版 `BasicCardUI.ToggleBanned(isBanned)` = `SetActive(banned)`
+        }
+
+        /// <summary>= 原版 `banIcon.gameObject.SetActive(on)`（图标与那行字一起开关）。</summary>
+        void ShowPoolBanIcon(int vi, bool on)
+        {
+            if (vi < _poolBanIcons.Count && _poolBanIcons[vi] != null) _poolBanIcons[vi].gameObject.SetActive(on);
+            if (vi < _poolBanTexts.Count && _poolBanTexts[vi] != null) _poolBanTexts[vi].gameObject.SetActive(on);
+        }
+
+        /// <summary>换档（桌面 ⇄ 小屏）时把那批 ban 徽标**拆掉**（尺寸烘在框里，只挪位置会画出上一档的大小 ——
+        /// 与张数条 `_poolBars` 同一条理由，见 `RefreshPool` 的 D24 段）。</summary>
+        void ClearPoolBanIcons()
+        {
+            for (int i = 0; i < _poolBanIcons.Count; i++)
+                if (_poolBanIcons[i] != null) { _poolBanIcons[i].gameObject.SetActive(false); DestroySafe(_poolBanIcons[i].gameObject); }
+            for (int i = 0; i < _poolBanTexts.Count; i++)
+                if (_poolBanTexts[i] != null) { _poolBanTexts[i].gameObject.SetActive(false); DestroySafe(_poolBanTexts[i].gameObject); }
+            _poolBanIcons.Clear(); _poolBanTexts.Clear();
+        }
+
+        /// <summary>自检读口：第 <paramref name="vi"/> 格那颗 ban 图标建了没有（`null` = 没建）。</summary>
+        public bool PoolBanIconBuilt(int vi) { return vi >= 0 && vi < _poolBanIcons.Count && _poolBanIcons[vi] != null; }
+        /// <summary>自检读口：第 <paramref name="vi"/> 格那颗 ban 图标**现在是不是显示着**（= 原版 `banIcon.activeSelf`）。</summary>
+        public bool PoolBanIconVisible(int vi)
+        {
+            return vi >= 0 && vi < _poolBanIcons.Count && _poolBanIcons[vi] != null && _poolBanIcons[vi].gameObject.activeSelf;
+        }
+        /// <summary>自检读口：那行字**现在的内容**（没建 ⇒ `null`）。</summary>
+        public string PoolBanText(int vi) { return vi >= 0 && vi < _poolBanTexts.Count && _poolBanTexts[vi] != null ? _poolBanTexts[vi].Text : null; }
+        /// <summary>自检读口：第 <paramref name="vi"/> 格现在装的是哪张卡（卡 id；空位 / 越界 ⇒ `null`）。
+        /// <para>它只服务断言：「禁掉这一格那张卡」要先知道是哪张。生产路不读它。</para></summary>
+        public string PoolCellCardId(int vi)
+        {
+            return vi >= 0 && vi < _poolViewIds.Count ? _poolViewIds[vi] : null;
         }
     }
 }

@@ -882,6 +882,74 @@ namespace WarpforgeVFX
             DestroyAfter(tail);
         }
 
+        // ==================================================================
+        //  🆕 2026-10-29（`B97_FXC` · 账 403 第三档）：按卡改写本件特效的材质
+        // ==================================================================
+        /// <summary>原版 `CardMaterialHelper.ConfigureMaterial` 会写的那两个槽（判据：该方法**全文只有这两条 `SetTexture`**，
+        /// `d:/2/tools/decomp_full/CardMaterialHelper__ConfigureMaterial.c:24-58`）。</summary>
+        public const string MatCapProp = "_MatCap";
+        /// <summary><inheritdoc cref="MatCapProp"/></summary>
+        public const string CardImageProp = "_CardImage";
+        /// <summary>自检口：全工程累计真正写进去的材质槽数（`SetMatCap` 的返回值之和）。</summary>
+        public static int MatCapSlotsWritten { get; private set; }
+        /// <summary>自检口：累计「调了 `SetMatCap` 但一个槽都没写进去」的次数（⛔ 不许静默）。</summary>
+        public static int MatCapNoSlotCalls { get; private set; }
+        /// <summary>自检口：把上面两个累计数清零（自检开跑前调一次）。</summary>
+        public static void ResetMatCapDiagnostics() { MatCapSlotsWritten = 0; MatCapNoSlotCalls = 0; }
+
+        /// <summary>把本件特效里**带 `_MatCap` / `_CardImage` 槽的材质**换成给定贴图
+        /// —— 原版 `CardMaterialHelper.ConfigureMaterial(mat, card)` 在本 prefab 上真正会生效的那一半。
+        ///
+        /// <para>判据（🥇 `d:/2/tools/decomp_full/SwarmVFXController__Initialize.c:20-22`）：
+        /// `UnityEngine_Renderer__GetMaterial(this+0x20, 0)` → `CardMaterialHelper__ConfigureMaterial(card, mat, 0)`；
+        /// 该方法全文只有两条 `SetTexture`：`_CardImage = card.rawCardData.cardSprite.texture`（sprite 空则跳过）、
+        /// `_MatCap = matcapTexturesByCardTier[clamp(CardTier)]`（越界夹末位）。</para>
+        ///
+        /// <para>⚠️ **为什么运行时这两个槽是存在的**：本 prefab 的材质由 <c>WarpforgeEffectBinder</c> 在 `Awake` 里
+        /// 按**原版 shader 名**重建，而 `Everguild/Cards/Card Swarm Effect` 在 `WarpforgeShaderMap` 的 `UseOriginal`
+        /// 白名单里（走原版 bundle 里的原件，属性表含 `_MatCap` / `_CardImage`）。**prefab 里那份 `.mat` 是降级过的
+        /// 占位**（`URP/Unlit`，两个槽都没有）⇒ 在**编辑器里不跑 binder** 时 `HasProperty` 会是 false，
+        /// 这属于正常情况，别拿它当「判据不成立」。</para>
+        ///
+        /// <para>⚠️ **必须复制材质**：binder 建出来的材质走**静态共享缓存**（`WarpforgeEffectBinder.Cache`，
+        /// 键 = 材质名|shader）⇒ 直接写 `sharedMaterial` 会把这张贴图串到**所有同时活着的同一件特效**上
+        /// （同 `CardView.ApplyRemnantCardMaterial` 的 `A1967` 那条理由：那里也是先 `new Material(src)` 再写）。</para>
+        ///
+        /// <para>⚠️ 写进去 0 个槽 ⇒ **本函数不自己出声**，由调用方上报（本仓里唯一调用点
+        /// = `BattleDriver.ApplySwarmCardMaterials`，它带 `_swarmMergeMaterialWarned` 去重闸）。
+        /// 返回值 = 真正写进去的材质槽数（自检拿它当读数，⛔ 别用「调过几次」自证）。</para></summary>
+        public int SetMatCap(Texture2D matcap, Texture2D cardImage = null)
+        {
+            if (matcap == null && cardImage == null) return 0;
+            int wrote = 0;
+            var rends = GetComponentsInChildren<Renderer>(true);
+            foreach (var r in rends)
+            {
+                if (r == null) continue;
+                var arr = r.sharedMaterials;
+                if (arr == null || arr.Length == 0) continue;
+                bool copied = false;
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    var src = arr[i];
+                    if (src == null) continue;
+                    bool canMatcap = matcap != null && src.HasProperty(MatCapProp);
+                    bool canImage = cardImage != null && src.HasProperty(CardImageProp);
+                    if (!canMatcap && !canImage) continue;
+                    if (!copied) { arr = (Material[])r.sharedMaterials.Clone(); copied = true; }
+                    var m = new Material(src) { name = src.name + " (swarm card)" };
+                    if (canMatcap) m.SetTexture(MatCapProp, matcap);
+                    if (canImage) m.SetTexture(CardImageProp, cardImage);
+                    arr[i] = m;
+                    wrote++;
+                }
+                if (copied) r.sharedMaterials = arr;
+            }
+            if (wrote == 0) MatCapNoSlotCalls++;
+            else MatCapSlotsWritten += wrote;
+            return wrote;
+        }
+
         /// <summary>原版 `SwarmVFXController.OnAnimationEndEvent` 里 `Destroy(gameObject, 5f)` 的 **5.0**
         /// （`DAT_1834b2df4` 现读 4 字节 float）。</summary>
         public const float SwarmAnimationEndTail = 5f;

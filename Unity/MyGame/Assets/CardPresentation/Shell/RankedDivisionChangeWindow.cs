@@ -336,13 +336,13 @@ namespace CardPresentation
             //   否则 `SampleAnimation` 对那几条曲线是**静默空转**（⛔ 不是「差不多就行」）。
             //   判据（prefab 树现走）：`Particles Rank Up` 是**纯 `Transform`**（无 RectTransform）、
             //   `localPosition (0, 88.9, −26.6)` · `localScale 164.237`；子件 `Sparks Burn` 是 RectTransform。
-            _particlesDivision = MenuDraw.Node(transform, "Particles DivisionUp", new PxRect(0f, 0f, 1920f, 1080f));
-            _sparksBurnDivision = MenuDraw.Node(_particlesDivision, "Sparks Burn", new PxRect(909f, 449f, 1009f, 549f));
-            _particlesRank = MenuDraw.Node(transform, "Particles Rank Up", new PxRect(0f, 0f, 1920f, 1080f));
-            NoteNoArt("Particles DivisionUp / Particles Rank Up", "原版是 5 个 `ParticleSystem`（Glow below / "
-                                            + "Sparks background / Sparks Burn / Glow Big / Promote Letter Effect / Sparks fast）；"
-                                            + "粒子属于特效线，本窗只建容器节点（动画的 `m_IsActive` / `ShapeModule.m_Scale` 曲线照建、"
-                                            + "取不到 `ParticleSystem` 时逐条出声一次）");
+            var pfx = RankedDivisionParticles.Build(transform);   // 🆕 账 `221`：两棵粒子树按原版建（判据 JSON + 生成器见那个文件头）
+            _particlesDivision = pfx.Division;   _sparksBurnDivision = pfx.SparksBurnDivision;   _divisionPs = pfx.DivisionPs;
+            _particlesRank = pfx.Rank;   _rankPs = pfx.RankPs;
+            // 🆕 账 `221`（2026-10-29）：这一条 `NoteNoArt` 已**删掉** —— 粒子不再是空壳（原来写的是
+            //   「只建容器节点 + 取不到 `ParticleSystem` 时逐条出声一次」）。判据 JSON 取不到 / 材质取不到时由
+            //   `RankedDivisionParticles.Build` 自己**出声一次**（⛔ 不静默失败）。
+            //   两棵树合计 **14 颗 `ParticleSystem`**（`Particles DivisionUp` 6 + `Particles Rank Up` 8）。
 
             // ---- 7) `Mission Milestones Progress`（prefab = 4 颗 `RankedSealStep`）----
             _milestones = MenuDraw.Node(transform, "Mission Milestones Progress", MilestonesR);
@@ -833,7 +833,7 @@ namespace CardPresentation
                     // 原版这一拍先响 cue（`AudioCue.Play2D(cue, 3)` = Jingles），再 `Play(name)`。
                     // `soundOnOpen` 指向的就是它（判据 → `Create()` 与文件头）。
                     WindowSounds.PlayJingles(WindowSounds.DivisionChangeCue, "[RankedDivChange] `soundOnOpen`");
-                    PlayClip(_ctx.IsDivisionChange ? ClipKeyDivisionUp : ClipKeyRankUp);
+                    ApplyParticleAndGlow(); PlayClip(_ctx.IsDivisionChange ? ClipKeyDivisionUp : ClipKeyRankUp);
                 }
             }
             // ② 推进当前 clip
@@ -1510,5 +1510,94 @@ namespace CardPresentation
         //   ② 生产入口 `OpenRankedDivisionChange` 目前**还没接进活界面**（只有 `Editor/MainMenuScene.cs` 在调），
         //   接上之后要真机看一次「`Division Change` 音效 → promote 演出 → 解禁」的次序。
         // ============================================================================================
+
+        // ============================================================ 账 `221`（2026-10-29 · B97_PROFILE）
+        //  `RankedEventDivisionChangeWindowNewSystem.ChangeParticleEffectAndSpriteRank(Image, ParticleSystem, Sprite)`
+        //  的 ③④ 两跳。**全部成员追加在类尾**（本文件 `:475/:753/:764/:774/:823/:1163/:1410/:1433/:1459` 还有账落点，
+        //  往中间插一行会让它们整体下移 ⇒ 铁律「新成员追加类尾」）。
+        //
+        //  【判据（逐句现读）】`decomp_full/RankedEventDivisionChangeWindowNewSystem__ChangeParticleEffectAndSpriteRank.c`
+        //   ① `targetImage.sprite = rankIcon(+0x98).m_Sprite(+0xe0)`
+        //   ② `targetImage.gameObject.SetActive(op_Implicit(rankSprite))`（= `rankSprite != null`）
+        //   ③ `textureSheetAnimation.SetSprite(0, rankIcon.m_Sprite)`
+        //   ④ `GetComponent<Renderer>().enabled = op_Implicit(rankSprite)`
+        //  【调用侧 —— 谁是谁】`…__DoDivisionChangeAnimations.c:54-56` 传
+        //   `(rankNumberGlow, divisionParticleSystem(+0xa8), rankIcon.m_Sprite)`；`…__DoRankChangeAnimations.c:54-56` 传
+        //   `(rankNumberGlow, rankParticleSystem(+0xb0), rankIcon.m_Sprite)`。
+        //   两个字段的真身（`MonoBehaviour_-4938671765695524530.json` 的 PPtr 现读）：
+        //     · `divisionParticleSystem` = ps `1201952928742936910` = **DivisionUp ▸ Sparks Burn ▸ Promote Letter Effect**
+        //     · `rankParticleSystem`     = ps `-6284612905696259762` = **Rank Up ▸ Sparks Burn ▸ Promote Letter Effect**
+        //     · `rankNumberGlow`         = `-8635674026998525618`（= 我们的 `_rankGlow` 那颗加色块）
+        //   ⇒ **第三参 `rankSprite` 与图源 `rankIcon.m_Sprite` 是同一个值**（调用侧传的就是它）——
+        //     `B90-N1` 那句「第一件事 `if (rankSprite != 0) set_sprite`」是错读，已被 `B94-R-L` 推翻。
+        //
+        //  【本机会不会变】**不会**：`rankIcon.m_Sprite` 由服务端段位图喂（P3）⇒ 本机恒 `null`
+        //   ⇒ ② `Rank Icon Glow` 保持 `SetActive(false)`、④ `Renderer.enabled = false`，与今天「空壳」的可观测结果**相同**
+        //   （只多了一条：粒子现在真的建出来了，但它们的 renderer 是关的）。注入 `RankIconSprite` 后才可见。
+
+        ParticleSystem _divisionPs, _rankPs;
+        Sprite _rankIconSprite;
+        bool _warnedNoGlowQuad;
+
+        /// <summary>`rankIcon.m_Sprite` 的等价物（原版由服务端段位图喂 ⇒ 本机恒 `null`；自检可注入）。
+        /// ⚠️ 我们的 `Rank Icon` 是 `CardArt.Solid()` 的纯色 quad（**没有 `Sprite` 概念**）⇒ 只能由外部注入。</summary>
+        public Sprite RankIconSprite
+        {
+            get { return _rankIconSprite; }
+            set { _rankIconSprite = value; }
+        }
+
+        /// <summary>自检读口：`Particles DivisionUp ▸ Sparks Burn ▸ Promote Letter Effect` 的 `Renderer.enabled`（= 原版 ④）。</summary>
+        public bool DivisionParticleEnabled { get { return RankedDivisionParticles.RendererEnabled(_divisionPs); } }
+        /// <summary>自检读口：`Particles Rank Up ▸ Sparks Burn ▸ Promote Letter Effect` 的 `Renderer.enabled`。</summary>
+        public bool RankParticleEnabled { get { return RankedDivisionParticles.RendererEnabled(_rankPs); } }
+        /// <summary>自检读口：两棵树的 `Promote Letter Effect` 各自那个 `ParticleSystem`（原版 ③ 的目标）。</summary>
+        public ParticleSystem DivisionParticleForTest { get { return _divisionPs; } }
+        /// <summary>自检读口，见 <see cref="DivisionParticleForTest"/>。</summary>
+        public ParticleSystem RankParticleForTest { get { return _rankPs; } }
+
+        /// <summary>③④ 的落地口。**由 `TickAnimation` 的 promote 那一拍调用**（原版次序 = 先 `Change…` 再 `Play(name)`）。</summary>
+        void ApplyParticleAndGlow()
+        {
+            var sprite = _rankIconSprite;
+            bool visible = sprite != null;
+
+            // ① `targetImage.sprite = rankIcon.m_Sprite`：我们的 `targetImage`（`Rank Icon Glow`）是 `ImageQuad`
+            //   （`CardArt.Solid()` 的白块 + 加法材质），没有 uGUI `Image.sprite` 这一位 ⇒ 等价物 = 换贴图。
+            //   `sprite == null`（本机常态）⇒ 什么都不做（原版这时也会把 sprite 设成 null = 白图）。
+            var quad = _rankGlow == null ? null : _rankGlow.GetComponent<ImageQuad>();
+            if (sprite != null)
+            {
+                if (quad != null) quad.SetTexture(sprite.texture);
+                else if (!_warnedNoGlowQuad)
+                {
+                    _warnedNoGlowQuad = true;
+                    WarnChannel("carrier:Rank Icon Glow",
+                                "`Rank Icon Glow` 上没有 `ImageQuad`（载体退回空节点）⇒ 原版 ①（`targetImage.sprite = rankIcon.m_Sprite`）"
+                              + "**没有落点**；②④ 仍按 `rankSprite != null` 生效");
+                }
+            }
+
+            // ② `targetImage.gameObject.SetActive(rankSprite != null)`
+            if (_rankGlow != null) _rankGlow.gameObject.SetActive(visible);
+
+            // ③ `textureSheetAnimation.SetSprite(0, rankIcon.m_Sprite)` + ④ `Renderer.enabled = (rankSprite != null)`
+            var ps = _ctx.IsDivisionChange ? _divisionPs : _rankPs;
+            if (ps == null)
+            {
+                WarnChannel("ps:" + (_ctx.IsDivisionChange ? "DivisionUp" : "RankUp"),
+                            "本窗没建出 `Promote Letter Effect` 那颗 `ParticleSystem`（判据 JSON / 材质缺失）"
+                          + "⇒ 原版 ③④ **没有落点**（`Renderer.enabled` 保持出厂 true，但那个 renderer 根本不存在）");
+                return;
+            }
+            if (visible)
+            {
+                var uv = ps.textureSheetAnimation;
+                uv.enabled = true;
+                uv.SetSprite(0, sprite);
+            }
+            var r = ps.GetComponent<Renderer>();
+            if (r != null) r.enabled = visible;   // ④
+        }
     }
 }

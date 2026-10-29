@@ -761,4 +761,290 @@ namespace CardPresentation
             if (tutorial != null) tutorial.ResetCampaignActionCounter = () => Runner.ActionCampaignCounter = 0;
         }
     }
+
+    // ==================================================================
+    //  五、**真实宿主**（账 94 · 执行代理 `B97_W3` 2026-10-29 新建）
+    // ==================================================================
+    //  与上面的 `NullCampaignScriptHost` 分工：
+    //    · `NullCampaignScriptHost` = 「宿主还没有」时的**出声兜底**（战役局还没开、数据也不在本地）；
+    //    · **本类** = 把 `ICampaignScriptHost` 那 15 个成员逐条接到**工程里已有的真实资源/管理器**上
+    //      （卡表 / `UnitChatPanel` / `VoiceLines` / `CardArt` / `AudioSource` / `Input`）。
+    //
+    //  🔴 两条必须写死的口径：
+    //    ① **`DisplayBigChat` 两个重载在本 build 是【空桩】**（VA 实证：`0x1809604B0` 重载 A、`0x180960580` 重载 B
+    //       的正常路径都直接 return；调度台 2026-10-29 裁定「照抄空桩」）⇒ 本类**只转发**给
+    //       `Battle/BattleBigChat.Display`（那个类已经按「照抄空桩」实现），⛔ **别在这里自己显示**
+    //       —— 自己显示会比原版**多**一屏大聊天。
+    //    ② 战役脚本数据（`TimedCampaignObject` / `WarlordPathData`）**本地不存在**（判据 → 本文件文件头那段）
+    //       ⇒ 接上本类之后仍然**零可观测**。这是「休眠 ≠ 不做」（铁律 11），⛔ 不是「接上就完事」。
+    //
+    //  ⚠️ 接线口（`BattleDriver` 的动作口）**不在本代理白名单** ⇒ 精确补丁写在报告 `报告/B97_W3.md`，
+    //     由调度台转派。本类只要求构造时给一个 `BattleDriver`。
+    public sealed class BattleCampaignScriptHost : ICampaignScriptHost
+    {
+        readonly BattleDriver _driver;
+        readonly List<string> _warned = new List<string>();
+        AudioSource _sfx;
+        Dictionary<string, RuleEngine.CardDef> _byId;
+
+        /// <summary>`driver == null` ⇒ 每个成员都走「出声 + 空值」，但**仍然不是** Null 宿主的语义
+        /// （它会**真的**去读卡表 / 美术 / 语音；拿不到才出声）。自检里可以用它验「不接线时不 NRE」。</summary>
+        public BattleCampaignScriptHost(BattleDriver driver) { _driver = driver; }
+
+        RuleEngine.BattleContext Ctx { get { return _driver != null ? _driver.Ctx : null; } }
+        UnitChatPanel Chat { get { return _driver != null ? _driver.UnitChat : null; } }
+        int Me { get { return _driver != null ? _driver.MySeat : 0; } }
+
+        void Warn(string message)
+        {
+            string k = message ?? "";
+            if (_warned.Contains(k)) return;
+            _warned.Add(k);
+            Debug.LogWarning("[Campaign] " + k);
+        }
+
+        /// <summary>原版 `CustomDebug.Log`（`ExecuteAction` 开头那一条）。</summary>
+        public void Log(string message) { Debug.Log("[Campaign] " + message); }
+
+        /// <summary>原版没有 warning 口；本工程红线「不许静默失败」⇒ 出声（按文案去重）。</summary>
+        public void LogWarning(string message) { Warn(message); }
+
+        /// <summary>原版 `ScriptedActionCampaignData.GetBundledSound` 里的 `AssetBundle.LoadAsset&lt;AudioClip&gt;(name)`。
+        /// 我们本地唯一一条音频路 = `Resources/{VoiceLines.ClipRoot}{name}`（教程那一族已经在用同一个根）。</summary>
+        public AudioClip ResolveBundledSound(string soundName)
+        {
+            if (string.IsNullOrEmpty(soundName)) return null;
+            var clip = Resources.Load<AudioClip>(VoiceLines.ClipRoot + soundName);
+            if (clip == null)
+                Warn($"音效 `{soundName}` 取不到（找 `Resources/{VoiceLines.ClipRoot}{soundName}`）"
+                   + " ⇒ 这一条**没声**");
+            return clip;
+        }
+
+        /// <summary>原版 `BattleManager.GetHero(bool playerHeroY)`：`true` = **玩家**督军、`false` = **敌方**督军。
+        /// 座位换算用 `BattleDriver.MySeat`（本地玩家恒 `_me`）。</summary>
+        public RuleEngine.CardDef GetHero(bool playerHeroY)
+        {
+            var ctx = Ctx;
+            if (ctx == null || ctx.Players == null) { Warn("`GetHero`：对局上下文还没建 ⇒ 没有督军可给"); return null; }
+            int seat = playerHeroY ? Me : 1 - Me;
+            if (seat < 0 || seat >= ctx.Players.Length || ctx.Players[seat] == null)
+            { Warn($"`GetHero({playerHeroY})`：座位 {seat} 不存在"); return null; }
+            var w = ctx.Players[seat].Warlord;
+            if (w == null || w.Card == null) { Warn($"`GetHero({playerHeroY})`：座位 {seat} 没有督军卡"); return null; }
+            return w.Card;
+        }
+
+        /// <summary>原版 `PlayerDataManager.allCardCollection.Find(x =&gt; x.uniqueId == id)` —— 我们 = 卡表全池。</summary>
+        public RuleEngine.CardDef FindCardByUniqueId(string uniqueId)
+        {
+            if (string.IsNullOrEmpty(uniqueId)) return null;
+            if (_byId == null)
+            {
+                var pool = RuleEngine.CardDatabase.Load();
+                _byId = pool != null ? RuleEngine.CardDatabase.IdIndex(pool) : new Dictionary<string, RuleEngine.CardDef>();
+            }
+            RuleEngine.CardDef def;
+            if (_byId.TryGetValue(uniqueId, out def) && def != null) return def;
+            Warn($"卡表里找不到 `uniqueId == \"{uniqueId}\"`（`CardDatabase.Load()` 全池）");
+            return null;
+        }
+
+        /// <summary>这张卡归哪一侧（`CardScript.isPlayer` 的等价物）：
+        /// 督军格 → 棋盘 → 手牌，逐层按**实例号（Id）**比（⛔ 不按 `CardDef` 引用比 —— 同一张卡可能两份定义）。
+        /// 认不出 ⇒ `-1`（调用方出声，⛔ 不猜）。</summary>
+        int SeatOf(RuleEngine.CardDef card)
+        {
+            var ctx = Ctx;
+            if (ctx == null || card == null || ctx.Players == null) return -1;
+            for (int p = 0; p < ctx.Players.Length && p < 2; p++)
+            {
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                if (ps.Warlord != null && ps.Warlord.Card != null && ps.Warlord.Card.Id == card.Id) return p;
+                if (ps.Board != null)
+                    for (int s = 0; s < ps.Board.Length; s++)
+                    {
+                        var u = ps.Board[s];
+                        if (u != null && u.Card != null && u.Card.Id == card.Id) return p;
+                    }
+                if (ps.Hand != null)
+                    for (int i = 0; i < ps.Hand.Count; i++)
+                    {
+                        var h = ps.Hand[i];
+                        if (h != null && h.Card != null && h.Card.Id == card.Id) return p;
+                    }
+            }
+            return -1;
+        }
+
+        /// <summary>**座位 → 气泡序号**：原版三颗盒子 `0 = 我方 / 1 = 敌方 / 2 = RadioChat`，
+        /// 且是**视图侧**（本地玩家恒 0）⇒ 与 `BattleDriver.BubbleSideOf` 同一口径
+        /// （那个是 private，本类自己算一遍：`seat == MySeat ? 0 : 1`）。</summary>
+        int BubbleOf(int seat) { return seat == Me ? 0 : 1; }
+
+        /// <summary>原版 `VoiceLinesController.DisplayChatBox(string, CardScript talkingUnit, AudioClip)`。
+        /// 气泡两侧由 `talkingUnit.isPlayer` 定 ⇒ 我们按 <see cref="SeatOf"/> 求座位再换成气泡序号。</summary>
+        public void DisplayChatBox(string text, RuleEngine.CardDef talkingUnit, AudioClip clip)
+        {
+            var chat = Chat;
+            if (chat == null) { Warn("`DisplayChatBox`：`UnitChatPanel` 还没建（非战斗 HUD 阶段）⇒ 这一句没显示"); return; }
+            if (string.IsNullOrEmpty(text)) { Warn("`DisplayChatBox`：文案为空（原版 `$Trying to send empty chat`）⇒ 不显示"); return; }
+            int seat = SeatOf(talkingUnit);
+            if (seat < 0) { Warn($"`DisplayChatBox`：认不出「{talkingUnit?.Id}」是哪一侧 ⇒ 按敌方气泡显示"); seat = 1 - Me; }
+            string id = talkingUnit != null ? talkingUnit.Id : "CampaignChat";
+            string artKey = talkingUnit != null ? BattleDriver.ArtKey(talkingUnit) : null;
+            string name = talkingUnit != null ? talkingUnit.Name : null;
+            bool shown = chat.Speak(BubbleOf(seat), id, "CampaignChat", artKey, name, text, clip,
+                                    null, null, null, false, clip != null);
+            if (!shown) Warn($"`DisplayChatBox`「{text}」**没显示出来**（`UnitChatPanel.Speak` 返回 false）");
+        }
+
+        /// <summary>原版 `BattleManager.DisplayBigChat(string, CardScript)`（重载 A）。
+        /// 🔴 **本 build 是空桩**（VA `0x1809604B0`）⇒ 只转发，**不显示**。</summary>
+        public void DisplayBigChat(string text, RuleEngine.CardDef talkingUnit)
+        {
+            BattleBigChat.Display(Chat, text, talkingUnit);
+        }
+
+        /// <summary>原版 `BattleManager.DisplayBigChat(string, Sprite)`（重载 B）。
+        /// 🔴 **本 build 是空桩**（VA `0x180960580`）⇒ 只转发，**不显示**。</summary>
+        public void DisplayBigChat(string text, Texture2D talkingUnitSprite)
+        {
+            BattleBigChat.Display(Chat, text, talkingUnitSprite);
+        }
+
+        /// <summary>原版 `VoiceLinesController.ShowRadioMessage(SmallTipData, Sprite, AudioClip, CardTypeOptions)`
+        /// —— 明确传给**第 3 颗盒子 `RadioChat`**（`VoiceLinesController__ShowRadioMessage.c:28` 传 `2`）。
+        /// <para>⚠️ **如实记的缺口**：我们的 `UnitChatPanel.Speak` 只吃 `artKey`（字符串），**不吃 `Texture2D`**
+        /// ⇒ 电台那一条**只有文字 + 语音、没有立绘**（原版那一格是 `rawCard.cardSprite`）。
+        /// 要补得给 `UnitChatPanel` 加一条「按贴图说话」的口（不在本代理白名单）。</para></summary>
+        public void ShowRadioMessage(CampaignSmallTipData tipData, Texture2D speakerSprite,
+                                     AudioClip audioClip, int cardType)
+        {
+            var chat = Chat;
+            if (chat == null) { Warn("`ShowRadioMessage`：`UnitChatPanel` 还没建 ⇒ 这一条没显示"); return; }
+            string text = tipData != null ? tipData.tipText : null;
+            if (string.IsNullOrEmpty(text)) { Warn("`ShowRadioMessage`：`tipText` 为空 ⇒ 不显示"); return; }
+            if (speakerSprite == null) Warn("`ShowRadioMessage`：立绘为空（原版 `DisplayChatBox without talkingUnit defined`）");
+            // `cardType` 那一格原版用来过 `CanUseVOs` 闸（`VoiceLinesController__ShowRadioMessage`）；
+            // 我们的 `UnitChatPanel.Speak` 没有这条闸 ⇒ 只把值原样记进日志（⛔ 不发明分支）。
+            bool shown = chat.Speak(BattleBigChat.Side /* 2 = RadioChat */, "CampaignRadio", "CampaignRadio",
+                                    null, null, text, audioClip, null, null, null, false, audioClip != null);
+            if (!shown) Warn($"`ShowRadioMessage`「{text}」**没显示出来**（`UnitChatPanel.Speak` 返回 false）");
+            Log($"ShowRadioMessage：cardType={cardType}（原版只在 `CanUseVOs` 闸里用它；我们没有那条闸）");
+        }
+
+        /// <summary>原版 `VoiceLinesController.DisplayWarlordChatMessage(ChatMessage chatMsgIndex, bool isPlayer, bool ignoreUiState)`。
+        /// <para>🔴 **只落 `ChatMessage.Intro = 0` 这一档**（战役脚本里唯一用到的那一档：
+        /// `AiScripted.ExecuteAction` 的 `AiChat` 空文案支传的就是 `Intro`）。文案取法 = 该侧督军的
+        /// **开场白官方词条**（`Chat_Messages/&lt;chatId&gt;-Chat0`，`CardChatIntro.TermFor` + `VoiceLines.ForIntro`）；
+        /// **其余枚举值出声、不显示**（我们的工程里没有 `ChatMessage` 枚举，见
+        /// `Battle/ChatPopupPanel.cs:1396`；⛔ 不按序号猜是哪一句）。</para>
+        /// <para>⚠️ `ignoreUiState`（原版用来跳过「UI 状态不允许聊天」那道闸）我们没有那条闸 ⇒ 无操作。</para></summary>
+        public void DisplayWarlordChatMessage(int chatMsgIndex, bool isPlayer, bool ignoreUiState)
+        {
+            var chat = Chat;
+            if (chat == null) { Warn("`DisplayWarlordChatMessage`：`UnitChatPanel` 还没建 ⇒ 这一句没显示"); return; }
+            if (chatMsgIndex != 0)
+            {
+                Warn($"`DisplayWarlordChatMessage(idx={chatMsgIndex})`：本工程只落了 `ChatMessage.Intro(0)` 这一档"
+                   + " ⇒ **这一句不显示**（⛔ 不按序号猜台词）");
+                return;
+            }
+            var hex = GetHero(isPlayer);
+            if (hex == null) return;
+            int seat = isPlayer ? Me : 1 - Me;
+            string term = CardChatIntro.TermFor(hex.Id, "-Chat0");
+            string text = UnitChatPanel.OfficialChatTextOfTerm(term, out term);
+            string file, voiceText, ev;
+            if (!VoiceLines.TryPick(hex.Id, VoiceLines.ForIntro, null, out file, out voiceText, out ev))
+            { file = null; voiceText = null; }
+            if (string.IsNullOrEmpty(text)) text = voiceText;                 // 官方表缺键 ⇒ 回落 voice_lines 英文
+            if (string.IsNullOrEmpty(text)) { Warn($"`DisplayWarlordChatMessage(Intro, {isPlayer})`：文案取不到 ⇒ 这一句不显示"); return; }
+            var clip = VoiceLines.Clip(file);
+            bool shown = chat.Speak(BubbleOf(seat), hex.Id, "CampaignIntro", BattleDriver.ArtKey(hex), hex.Name,
+                                    text, clip, file, null, term, false, clip != null);
+            if (!shown) Warn($"`DisplayWarlordChatMessage(Intro, {isPlayer})`「{text}」**没显示出来**");
+        }
+
+        /// <summary>原版 `BattleManager.LandWarlordsInCampaign()`（`BattleManager__LandWarlordsInCampaign.c` 全文：
+        /// 只是 `StartCoroutine` 一个 `<Int32Enum>` 闭包，枚举实参 0 ⇒ 真体在 `CardScript._HeroLandIntoField_d__318__MoveNext`）。
+        /// <para>⚠️ **如实记的缺口**：我们这一跳的等价物（督军 `HeroLandIntoField` 落地演出）**没有公开入口**
+        /// —— `CardView` 那一侧要 `abovePos/landPos`，而求那两个点的 `Get2DPosOfCard` 是 `BattleDriver` 的 private；
+        /// `DeploySequence.Play(...)` 虽是 public，但坐标得调用方给 ⇒ 本类**只出声、不放演出**。
+        /// 补法 = 给 `BattleDriver` 加一个 `public void CampaignLandWarlords()`（补丁写在报告 §②）。</para></summary>
+        public void LandWarlordsInCampaign()
+        {
+            Warn("`LandWarlordsInCampaign`：督军落地演出的公开入口还没接（`HeroLandIntoField` 一族；"
+               + "坐标要靠 `BattleDriver.Get2DPosOfCard` 这个 private 口）⇒ 这一跳**没有演出**");
+        }
+
+        /// <summary>原版 `BattleManager.PlaySoundAsset(SoundAsset_OLD)` —— `ExecuteAction` 的末尾一跳。
+        /// 音量口径逐字照 `PlayNextSoundInQueue`：`PlayOneShot(clip, AudioListener.volume * soundAsset.volume)`
+        /// （`soundAsset.volume` 恒 1.0，判据 → `ScriptedActionCampaignData.GetSoundAsset`）。</summary>
+        public void PlaySoundAsset(CampaignSoundAsset soundAsset)
+        {
+            if (soundAsset.clip == null) return;      // 原版 `GetSoundAsset` 取不到音 ⇒ clip 为空 ⇒ 这一条本来就没声
+            if (_driver == null) { Warn("`PlaySoundAsset`：没有 `BattleDriver` ⇒ 没有可挂 `AudioSource` 的宿主"); return; }
+            if (_sfx == null)
+            {
+                _sfx = _driver.gameObject.AddComponent<AudioSource>();
+                _sfx.playOnAwake = false;
+                _sfx.spatialBlend = 0f;                       // 原版 `Play2D`
+                _sfx.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
+            }
+            _sfx.PlayOneShot(soundAsset.clip, AudioListener.volume * soundAsset.volume);
+        }
+
+        /// <summary>原版 `ChatManager.GetChatMessage(ChatMessage.Intro, isPlayer)`（`AiChatBig` 文案为空时的兜底）。
+        /// 我们 = 该侧督军的开场白官方词条（`Chat_Messages/&lt;chatId&gt;-Chat0`）；缺键 ⇒ 空串 + 出声（⛔ 不自译）。</summary>
+        public string GetIntroChatMessage(bool isPlayer)
+        {
+            var hex = GetHero(isPlayer);
+            if (hex == null) return "";
+            string term = CardChatIntro.TermFor(hex.Id, "-Chat0");
+            string text = UnitChatPanel.OfficialChatTextOfTerm(term, out term);
+            if (string.IsNullOrEmpty(text))
+            {
+                Warn($"`ChatManager.GetChatMessage(Intro, {isPlayer})`：官方表里没有 `{term}` ⇒ 文案用空串");
+                return "";
+            }
+            return text;
+        }
+
+        /// <summary>原版 `MousePositionDebug.GetMouseClickPosition()`（`RadioMessage` 那条的 `tipPosition`）。
+        /// ⚠️ 我们取**当前指针位置**（`Input.mousePosition`）—— 原版记的是**上一次点击**的位置；
+        /// 这一格只影响大提示（`SmallTipData.tipPosition`）指向哪儿，且战役数据本地不存在 ⇒ 今天零可观测。</summary>
+        public Vector2 GetMouseClickPosition() { return Input.mousePosition; }
+
+        /// <summary>原版 `RawCardScript.fullHeroSpriteReference.Load()`（`PlayerChatBig` 那条的立绘）。
+        /// 我们的等价物 = `CardArt.TryDeckHero`（它的判据本身就是 `fullHeroSpriteReference`）。</summary>
+        public Texture2D FullHeroSprite(RuleEngine.CardDef card)
+        {
+            if (card == null) return null;
+            Texture2D tex;
+            if (CardArt.TryDeckHero(card.Id, out tex)) return tex;
+            Warn($"`fullHeroSprite`（`CardArt.TryDeckHero`）取不到 `{card.Id}`");
+            return null;
+        }
+
+        /// <summary>原版 `RawCardScript.cardSprite`（`RadioMessage` 那一支的**卡面插图**，与 `FullHeroSprite` 不是一回事）。</summary>
+        public Texture2D CardSprite(RuleEngine.CardDef card)
+        {
+            if (card == null) return null;
+            var tex = CardArt.Portrait(card.Id);
+            if (tex == null) Warn($"`cardSprite`（`CardArt.Portrait`）取不到 `{card.Id}`");
+            return tex;
+        }
+
+        /// <summary>原版 `RawCardScript.cardType @+0x94`（`CardTypeOptions`：`Minion 0 / Hero 10 / Tactic 20 / Whispers 40`）。</summary>
+        public int CardTypeOf(RuleEngine.CardDef card)
+        {
+            if (card == null) { Warn("`CardTypeOf(null)` ⇒ 传 0"); return 0; }
+            if (card.CardType >= 0) return card.CardType;
+            Warn($"`RawCardScript.cardType` **判不了**（`{card.Id}`：卡表没有 `cardType` 列，或这张卡不在真值快照里）⇒ 传 0");
+            return 0;
+        }
+    }
 }

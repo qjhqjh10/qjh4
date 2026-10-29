@@ -45,7 +45,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>主菜单。挂在 `MainMenu.unity` 的根对象上。</summary>
-    public class MainMenuRuntime : MonoBehaviour
+    public partial class MainMenuRuntime : MonoBehaviour   // 🔴 2026-10-29（B97_MENU）加 `partial`：账 427/434/438 的容器族落在**文件末尾**的第二个 partial 段（⛔ 不插进类体 —— 本文件按 `文件:行号` 被账引用，插中间会让下游落点整体漂移）
     {
         public static MainMenuRuntime Instance { get; private set; }
 
@@ -2552,7 +2552,7 @@ namespace CardPresentation
                 }
                 used[col, row] = true;
                 if (tall) used[col, 1] = true;
-                BuildModeCardForCard(content, nm, CardCol0 + col * ColStep - _modeOffsetPx, CardRow0Top + row * RowStep,
+                PlaceModeCardViaContainer(content, nm, CardCol0 + col * ColStep - _modeOffsetPx, CardRow0Top + row * RowStep,
                                      CardW, h, art, title, kind);   // 🆕 B89-E27（`L411`/`L415`）：按「这一格归哪个在期活动」喂标题+到期时刻（见类尾同名方法）
             };
             // 🔴 **2026-10-13 就地改序（铁律 5，取代 `A1522⑤` 那一版）：五张卡的 `Put` 次序按【用户原版实拍】重排。**
@@ -2576,9 +2576,9 @@ namespace CardPresentation
             //   原版 `RefreshLiveOpContainers(forceClean) == true` ⇒ `CleanupContainers`（全销毁 —— 本委托每轮
             //   都从空 `used` 表重排，天然等价）+ 对 `GetEventsForDisplayingInMenu()` 每份 `InstantiateLiveOp(data)`。
             //   ⇒ **有在期活动时，下面手挑那 5 张一张都不建**（原版主菜单容器全部由事件实例化，没有静态卡）。
-            //   ⚠️ `forceClean == false` 的**增量回收复用**（`SetData` / `Release`）**未做**：容器族
-            //   （`LiveopMenuContainer` / `ContainerBuilder<T>` / `holder(+0x98)` / 容器 list(+0xb0)）本仓仍缺
-            //   ⇒ 两支同路走整片重建。⛔ 别以为传 false 会走增量。
+            //   ✅ **2026-10-29（B97_MENU）起 `forceClean == false` 的增量回收复用也做了**（原「容器族本仓仍缺」已不成立：
+            //   `holder` = `ContainerHolder`（`Shell/OfferContainer.cs`）· 容器表 = 它的 `containers` · `SetData`/`Release`
+            //   那一对 → 类尾 `RefreshLiveOpContainers` / `PlaceModeCardViaContainer`）。⚠️ 只对事件驱动的卡生效。
             //   🔶 §18·0 边界：卡片**数据源** = `LiveOpsLocalCatalog`（本地模拟 liveop，关服后判据在远端）；
             //   本机 13 份活动 SO 的日期全在 2025 年 ⇒ 今天 `ModeCardsFromLiveOpEvents` 恒返回 `null` ⇒ 走下面兜底。
             var evCards = ModeCardsFromLiveOpEvents(LiveOpsClock.NowUtc);
@@ -2627,7 +2627,7 @@ namespace CardPresentation
             Put("Base Game Mode Container 1x1 - Practice", "Container_Image_Practice_1x1",
                 Loc.T("MainMenu/GameModes/Practice"), CardH, "practice");                       // col3 / row0（1×1 · 上）
             Put("Base Game Mode Container 1x1 - Tutorial", "Container_Image_Tutorial",
-                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial");                       // col3 / row1（1×1 · 下）
+                Loc.T("MainMenu/GameModes/Tutorial"), CardH, "tutorial"); PlaceRankedArmyBonusCard(content, used);   // col3 / row1（1×1 · 下）；🆕 2026-10-29（`B97_RBCARD` · 账 个人资料/成就/排行:198）奖励活动卡 = first-fit 的下一列（见文件末尾第三个 `partial` 段）
             };                                   // ← `_placeAllCards` 委托结束
             _placeAllCards();                    // 第一次摆放
 
@@ -2656,14 +2656,14 @@ namespace CardPresentation
             PointerLayer.RegisterScroll(_modeScroll);
         }
 
-        /// <summary>滚动偏移变了 ⇒ 重建模式卡（`MenuScroll.OnChanged` 的约定；与 `ForgeTab` 那两处同一条路）。🔴 账 菜单:439 —— 形参 `forceClean` = 原版 `MainMenuWindow.RefreshLiveOpContainers(bool forceClean)` 的入参（`decomp_full/MainMenuWindow__RefreshSignal.c` 唯一产出点 = `PlayerDataManager.AllTutorialsCompleted()`）；⚠️ 我们恒走「整片重建」= 原版 `forceClean == true` 那一支，`false` 的**增量复用支未做**（账 427/434/438 判 B 同一卡点）⇒ 两支同路，⛔ 别以为传 false 会走增量。
+        /// <summary>滚动偏移变了 ⇒ 重建模式卡（`MenuScroll.OnChanged` 的约定；与 `ForgeTab` 那两处同一条路）。🔴 账 菜单:439 —— 形参 `forceClean` = 原版 `MainMenuWindow.RefreshLiveOpContainers(bool forceClean)` 的入参（`decomp_full/MainMenuWindow__RefreshSignal.c` 唯一产出点 = `PlayerDataManager.AllTutorialsCompleted()`）；✅ 2026-10-29（B97_MENU）起**两支都做了**（`forceClean` ⇒ 全清重建；否则 ⇒ 增量回收复用，只对事件驱动的卡生效）—— 正文见类尾 `RefreshLiveOpContainers(bool)`。
         /// ⚠️ 只重建 `Content` 的子件 —— 页面 / 视口节点一个都不动（`MainMenuScene` 有引用它们后面的断言）。</summary>
         void RebuildModeCards(bool forceClean = false)
         {
-            if (_modeContent == null || _placeAllCards == null) return;
-            for (int i = _modeContent.childCount - 1; i >= 0; i--) DestroySafe(_modeContent.GetChild(i).gameObject);
-            _modeOffsetPx = _modeScroll != null ? _modeScroll.Offset : 0f;
-            _placeAllCards();
+            // 🔴 2026-10-29（B97_MENU · 账 菜单/外壳:427/434/438）：旧实现（销毁全部子件 → 重取滚动偏移 → 整片重摆）
+            //   逐句搬进类尾 `RefreshLiveOpContainers(bool forceClean)`（= **原版同名方法**）；本方法只剩转发。
+            //   ⚠️ 下方**保留一行空注释**是为了让本方法的**行数与其他账落点都不漂**（本文件按 `文件:行号` 被引用）。
+            RefreshLiveOpContainers(forceClean);
         }
 
         /// <summary>自检用：模式卡滚动区（批处理没有滚轮事件 ⇒ 直调 `Wheel/ScrollBy`，与真滚同一条）。
@@ -4063,7 +4063,7 @@ namespace CardPresentation
             // 倒计时**前缀词条**同样来自事件（原版 `InitializeWitLocKey(end, evt.GetTimeDescriptionTextKey())`，
             // 三档 `TimeStartsIn`/`TimeEndsIn`/`TimeFinished`，空串 = 不显示前缀）—— 正本 → `Shell/LiveOpsState.cs` 那份实现。
             BuildModeCard(parent, nm, x, y, w, h, cardArt, cardTitle, kind, ModeViewport, end,
-                          owner != null ? owner.GetTimeDescriptionTextKey() : null);
+                          owner != null ? owner.GetTimeDescriptionTextKey() : null); BindMainMenuOfferContainer(owner != null && parent != null ? parent.Find(nm) : null, owner, w, h);   // 🆕 2026-10-29（B97_SHOP）：账 `商店:162` —— 原版 `ContainerBuilder<T>.MakeContainer` 之后宿主对容器喂的那一次 `OnInitialize(data.Event)`（正常路径 = 报价格容器那一族，见类尾 `BindMainMenuOfferContainer` 的 doc）。⚠️ 追加在**同一行** ⇒ 行号零漂移（先例 `GachaEventWindow.cs:858` 的「同一行 = 不加行号」）；本文件被账按 `文件:行号` 引用（`:4718`/`:4504`/`:4518` 等 10 处都在此之后）
         }
 
         /// <summary>`EventComponents[MainMenuContainer]`（= 35）的 **GUID → 容器 prefab 根名**。
@@ -4767,6 +4767,95 @@ namespace CardPresentation
             // 队列 `QContent + 1` = 压在 `Image`（`QContent`）之上；该处与 `Text` 不重叠（文字在钮底），故与 `QText` 同值无画面冲突。
             RectTex(b, tex, ix1 + insetX, ix2 - insetX, iy1 + insetY, iy1 + ih - insetY, "Over Image", QContent + 1, keepAspect: true);
         }
+
+        // ============================================================================
+        //  账 商店:162 —— `MainMenuOfferContainer.OnInitialize(LiveOpsEvent)` 的**调用方**
+        //  （类尾追加，⛔ 别插到中间：本文件被账按 `文件:行号` 引用，插进中间会让下游落点整体漂移）
+        //
+        //  原版谁调它：`MainMenuWindow.InstantiateLiveOp` → `ContainerBuilder<T>.MakeContainer(data.Event, 35, …)`
+        //  把「`EventComponents[MainMenuContainer]` 指向的那份容器 prefab」实例化出来，宿主随后把
+        //  `data.Event` 喂给容器的 `OnInitialize` —— 报价格那一支就是 `MainMenuOfferContainer.OnInitialize`
+        //  （判据 = `decomp_full/MainMenuOfferContainer__OnInitialize.c` 的入参语义 + 闸顺序；
+        //   调用链见 `decomp_full/MainMenuWindow__InstantiateLiveOp.c` / `__RefreshLiveOpContainers.c`）。
+        //
+        //  报价格容器的**本地实例**（2026-10-29 现查，按脚本反查：`m_Script.m_PathID = -6437201350575876930`
+        //  → `bundle_Waprforge_monoscripts/MonoScript/MonoScript_-6437201350575876930.json` 的 `m_ClassName`
+        //  ⇒ `bundle_menus_assets_all/GameObject/` 里 **5 份**宿主）：
+        //    `Main Menu Offer Container 1x1` · `… 1x1 Premium_booster_title_avatarOrResource` ·
+        //    `… Carousel 1x1` · `… Static Image 1x1` · `… Static Image 1x2`
+        //  ⇒ 判「这张卡要不要接」= 卡根名落在 `Main Menu Offer Container` 族里（`StartsWith`）。
+        //
+        //  我们的等价落点 = `BuildModeCardForCard` 已经算好的 `owner`（= `ModeCardOwnerEvent` 的结果）。
+        //  ⇒ **手挑那 5 张卡（`owner == null`）一律不接**；只有「由在期活动驱动、且容器根名属于该族」的
+        //  那张卡才挂容器组件并喂一次 `OnInitialize`（原版拿不到容器引用时同样不实例化）。
+        //
+        //  🔴 数据侧如实记：报价内容（`ShopOfferBase.Items`）在**远端** —— `ShopOfferEvent.GetBaseData()`
+        //  由 LiveOps 服务端下发，而本地 `LiveOpsLocalEvent` 只有 `Components` / `Assets` / `Labels` 三张
+        //  GUID 表，**没有任何一条报价 item**（`grep` 全 `Shell/LiveOps*.cs` 0 命中 `RewardSpec`）
+        //  ⇒ `OfferEventData.Base` 传 `null`，由 `MainMenuOfferDrawer.Initialize(null)` 那条**既有**告警出声
+        //  （⛔ 不编一份假报价）。同理「哪一份活动真的指向报价格容器」也解不出 —— 本机
+        //  `MainMenuContainerPrefabByGuid` 只解出 1 条（`Base Game Mode Container 1x2 Raid or Army Release`）。
+
+        /// <summary>自检读口：最近一次 <see cref="BindMainMenuOfferContainer"/> 接上的报价格容器（没接 ⇒ `null`）。</summary>
+        public static MainMenuOfferContainer LastOfferContainerForTest { get; private set; }
+
+        /// <summary>卡根名是不是「报价格容器」族（原版 5 份 prefab 的根名，见本节头）。</summary>
+        public static bool IsOfferContainerPrefab(string prefabRootName)
+        {
+            return !string.IsNullOrEmpty(prefabRootName)
+                && prefabRootName.StartsWith("Main Menu Offer Container", System.StringComparison.Ordinal);
+        }
+
+        /// <summary>= 原版 `ContainerBuilder&lt;T&gt;.MakeContainer` 之后宿主喂 `OnInitialize(data.Event)` 的那一跳
+        /// （账 `商店:162`）。`card == null`（被视口裁掉、节点没建）或 `owner == null`（手挑卡 / 没有在期活动）
+        /// ⇒ **什么都不做**（原版这两档同样不实例化容器）。</summary>
+        public static void BindMainMenuOfferContainer(Transform card, LiveOpsLocalEvent owner, float w, float h)
+        {
+            if (card == null || owner == null) return;
+            if (!IsOfferContainerPrefab(card.name)) return;
+
+            var box = card.GetComponent<MainMenuOfferContainer>();
+            if (box == null) box = card.gameObject.AddComponent<MainMenuOfferContainer>();
+            // ① `base.OnInitialize(playEvent)` 那一拍（= 原版 `LiveopMenuContainer` 的标题 / 计时器 / 背景图）：
+            //    `BuildModeCardForCard` 已经按 `owner` 建过那三件（标题 + `timerEndUtc` + `EventContainerArtOf`）
+            //    ⇒ 这里给一个**空实现**把它接住，⛔ 不重写第二份（两处各写一份 = 迟早不一致）。
+            box.BaseInitializer = _ => { };
+            // ③ `GetComponent<GeneralOfferPopupDrawerBase>()` 那一拍：原版抽屉是容器 prefab 上的子组件；
+            //    我们是扁平 quad 树 ⇒ 在卡下建一个 `MainMenuCarouselDrawer`（它的行为本体 =
+            //    `OfferContainer.Carousel.State`，判据写在那一段头上，⛔ 不在这里抄第二份）。
+            if (box.Drawer == null) box.Drawer = BuildOfferDrawerForMenuCard(card, w, h);
+            if (!_offerNoDataSaid)
+            {
+                _offerNoDataSaid = true;
+                Debug.LogWarning("[Menu] 报价格容器（`" + card.name + "`）已按原版挂上并喂过 `OnInitialize`，但**报价内容在远端**"
+                               + "（`ShopOfferEvent.GetBaseData()` 由 LiveOps 服务端下发；本地 `LiveOpsLocalEvent` 只有 GUID 表）"
+                               + " ⇒ `OfferEventData.Base` 传 null、由抽屉那条既有告警出声（⛔ 不编假报价）。");
+            }
+            // ④ `drawer.Initialize(shopOfferEvent.GetBaseData())` —— 入口就是原版那一句。
+            box.OnInitialize(new OfferEventData { Id = owner.EventId, Base = null });
+            LastOfferContainerForTest = box;
+        }
+
+        static bool _offerNoDataSaid;
+
+        /// <summary>在模式卡下建那颗报价格抽屉（原版 `GeneralOfferPopupDrawerBase` 的宿主）。
+        /// <para>🔶 自己设计（非原版）：`SlotBox` / `ContentAnchor` / `Visible` 三格由**宿主给** —— 原版是
+        /// `CarouselOfferPopupDrawer` 在 prefab 上的 `contentAnchor` + `UI_InfiniteScroll`（那份源码本地没有），
+        /// 我们是扁平 quad 树、没有锚点层可照抄 · 必须自己定：卡内可用区 · 调度台 2026-10-29 指派（B97_SHOP）。
+        /// 几何取「卡内**左上角**一个正方形槽（边长 = min(卡宽,卡高)）」= `MainMenuCarouselDrawer.SlotBox` 的既有契约。</para></summary>
+        static MainMenuCarouselDrawer BuildOfferDrawerForMenuCard(Transform card, float w, float h)
+        {
+            var go = new GameObject("Offer Drawer", typeof(RectTransform));
+            go.transform.SetParent(card, false);
+            var d = go.AddComponent<MainMenuCarouselDrawer>();
+            d.ContentAnchor = go.transform;
+            float side = h < w ? h : w;                        // 1×2 的卡也要落成一个正方形槽（同 `ItemDrawer.Square` 的口径）
+            d.SlotBox = new PxRect(0f, 0f, side, side);
+            d.Visible = 1;
+            d.QBase = QContent;                                // 抽屉三档 = `QContent / +1 / +2`（压在卡图 `QCardArt` 之上）
+            d.TypeOf = null;                                   // 谓词② `x.Item is Currency` 的输入本地没有 ⇒ 出声一次（既有口径）
+            return d;
+        }
     }
 
     // ============================================================ 活动钮红点（类型 + provider）
@@ -4788,6 +4877,325 @@ namespace CardPresentation
         {
             var evs = MainMenuRuntime.ActiveParentEventsForNav(LiveOpsClock.NowUtc);
             for (int i = 0; i < evs.Count; i++) yield return new EventNavBadge();
+        }
+    }
+}
+
+// ============================================================ 账 菜单/外壳:427 / :434 / :438 —— 主菜单活动容器的三件（B97_MENU · 2026-10-29）
+//
+// 判据（**逐句现读，第一权威 = Ghidra 真身**）：
+//   · `d:/2/tools/decomp_full/MainMenuWindow__CleanupContainers.c`（44 行，全文）
+//   · `d:/2/tools/decomp_full/MainMenuWindow__InstantiateLiveOp.c`（49 行，全文）
+//   · `d:/2/tools/decomp_full/MainMenuWindow__RefreshLiveOpContainers.c`（231 行，全文）
+//   · 分诊 → `资料/完全复刻/判据/B96_菜单未分类44_分诊.md` §二（那三条的残差 = holder/list 两格 + `SetData`/`Release`）
+//
+// 原版三件的语义（`.c` 逐句）：
+//   · `CleanupContainers(仍在用的, 当前全部)`：**从尾往前**扫「当前全部」，`仍在用的.Contains(c)` ⇒ 跳过；
+//     否则 `Destroy(c.gameObject)` + `RemoveAt(i)`。（`containersStillBeingUsed == null` 原版抛 NRE。）
+//   · `InstantiateLiveOp(LiveopsMainMenuData data)`：
+//     `ContainerBuilder<T>.MakeContainer(data.Event(+0x10), data.ComponentKey(+0x1c), holder(+0x98))`
+//     → 塞进窗口自己的 `list(+0xb0)` → 返回那个容器。（`data == null` 原版抛 NRE。）
+//   · `RefreshLiveOpContainers(bool forceClean)` 两支：
+//       `forceClean == true`  ⇒ `SupportMethods.DestroyAllChildren(holder)` + `list.Clear()`
+//                                 → 对 `GetEventsForDisplayingInMenu()` 每份 `InstantiateLiveOp(GetMainMenuData())`
+//       `forceClean == false` ⇒ 建一张 `仍在用` 表；对每份数据 `GetMainMenuData()`，
+//                                 在 `list` 里找**同一个事件**的那一颗 ⇒ 命中就调它的 `SetData` 那一跳（虚函数
+//                                 `vtable+0x198`，ILSpy 没给名）并记进 `仍在用`；没命中就 `InstantiateLiveOp` 并记进去；
+//                                 最后 `CleanupContainers(仍在用, list)` 把剩下的销毁。
+//
+// ============================ 我们这一侧（四条如实标）============================
+// ① **holder(+0x98) = `ContainerHolder`（真类，`Shell/OfferContainer.cs:1784`）**，`Host` = `GameModes/Viewport/Content`
+//    （原版容器就挂在那个 holder 下）。🔶 自己设计（非原版）：原版 `+0x98` 与 `+0xb0` 是**两格**
+//    （`ContainerHolder` 组件 / 窗口自己的 `List<LiveopMenuContainer>`），我们让 `ContainerHolder.containers`
+//    当那张表（同一批对象；`TryAdd` 就是原版「加到 `+0xb0`」那一跳的等价）⇒ **形状合并、行为等价**。
+//    调度台 2026-10-29 授权（本条 = 铁律 18 表里「机制不同但行为等价」那一档）。
+// ② **容器 = 卡节点本身**：原版 `ContainerBuilder<T>.MakeContainer` 里那一跳是
+//    `Instantiate(容器 prefab, holder)`；我们的模式卡是**过程式建**的（`BuildModeCardForCard`），**没有 prefab 可实例化**
+//    ⇒ 我们这边「建一颗容器」= **建那张卡节点**。⛔ 这不是偏离：原版该 prefab 的外观/字段正是 `BuildModeCard` 复刻的那一批。
+// ③ **`SetData` 那一跳**：原版是容器上的一个虚方法（名未解出）。我们取「**数据没变 ⇒ 只挪位置**（视觉完全不变，
+//    与 `SetData` 重灌同一份数据同义）；数据变了 ⇒ **只重建那一颗**」——原版会就地更新文字/图，我们重建同一颗，
+//    **对外可观察结果相同**、代价是这一颗重画一次（不是整片）。
+// ④ **`GetEventsForDisplayingInMenu()` 的等价物 = `ModeCardsFromLiveOpEvents(now)`**（见它自己的 doc）；
+//    `LiveopsMainMenuData` 的等价物 = 那个 `ModeCardSpec`（`NodeName`/`Art`/`Title`/`H`/`Kind`）。
+//    🔶 数据源 = `LiveOpsLocalCatalog`（本地模拟 liveop，关服后判据在远端 —— §18·0 允许自设计的那一类）。
+//    本机 13 份 SO 的日期全在 2025 年 ⇒ 今天恒 `null` ⇒ 走手挑 5 张兜底（那 5 张**不进容器表**，原版也没有它们）。
+namespace CardPresentation
+{
+    public partial class MainMenuRuntime
+    {
+        /// <summary>= 原版 `MainMenuWindow.holder`（`+0x98`）—— 容器的持有者 / 父件。
+        /// <para>惰性创建（`_modeContent` 要等 `BuildGameModes` 才有）⇒ 见 <see cref="EnsureLiveOpHolder"/>。</para></summary>
+        ContainerHolder _liveOpHolder;
+
+        /// <summary>本轮「仍在用」的那张表（原版 `RefreshLiveOpContainers` 里的局部 `List`）。</summary>
+        readonly List<LiveOpMenuContainerSlot> _liveOpStillUsed = new List<LiveOpMenuContainerSlot>();
+
+        /// <summary>`true` = 正在走**增量回收复用**那一支（只有事件驱动的卡参与；见 `PlaceModeCardViaContainer`）。</summary>
+        bool _liveOpIncremental;
+
+        /// <summary>= 原版 `MainMenuWindow.list`（`+0xb0`）—— 见本段文件头 ①（形状合并）。</summary>
+        List<IUiContainer> LiveOpContainerTable
+        {
+            get { EnsureLiveOpHolder(); return _liveOpHolder.GetContainers(); }
+        }
+
+        /// <summary>惰性建 holder（`Host` = 模式卡容器 `Content`）。**幂等**。</summary>
+        void EnsureLiveOpHolder()
+        {
+            if (_liveOpHolder != null) return;
+            _liveOpHolder = new ContainerHolder(0, _modeContent);
+        }
+
+        /// <summary>像素位移 → 世界位移（与 `Center(...)` 同一套换算：`FromPixel` 的差）。
+        /// 复用容器时**只挪根节点**（子件都是绝对 px 摆在根的原点坐标系里 ⇒ 挪根 = 整卡平移）。</summary>
+        static Vector3 DeltaPx(float dx, float dy)
+        {
+            return LayoutSpace.FromPixel(dx, dy) - LayoutSpace.FromPixel(0f, 0f);
+        }
+
+        /// <summary>按节点名找容器（原版那一圈 `while (list[i] 的事件 == data.Event)`）。</summary>
+        LiveOpMenuContainerSlot FindLiveOpContainer(string nodeName)
+        {
+            if (string.IsNullOrEmpty(nodeName)) return null;
+            var tbl = LiveOpContainerTable;
+            for (int i = 0; i < tbl.Count; i++)
+            {
+                var s = tbl[i] as LiveOpMenuContainerSlot;
+                if (s != null && s.NodeName == nodeName) return s;
+            }
+            return null;
+        }
+
+        /// <summary>= 原版 `MainMenuWindow.CleanupContainers(List 仍在用的, List 当前全部)`（`.c` 逐句）。
+        /// <para>⚠️ 语序照抄：**从尾往前**扫；`仍在用的` 为 `null` ⇒ 原版抛 NRE，我们出声后按「一个都不留」处理。</para></summary>
+        internal void CleanupContainers(List<LiveOpMenuContainerSlot> containersStillBeingUsed,
+                                        List<IUiContainer> currentLiveOpContainers)
+        {
+            if (currentLiveOpContainers == null) return;
+            if (containersStillBeingUsed == null)
+                Debug.LogWarning("[Menu] CleanupContainers：`仍在用的` 是 null（原版这一支抛 NRE）⇒ 按「一个都不留」处理");
+            for (int i = currentLiveOpContainers.Count - 1; i >= 0; i--)
+            {
+                var c = currentLiveOpContainers[i] as LiveOpMenuContainerSlot;
+                if (c == null) { currentLiveOpContainers.RemoveAt(i); continue; }
+                if (containersStillBeingUsed != null && containersStillBeingUsed.Contains(c)) continue;
+                ReleaseLiveOpContainer(c);
+                currentLiveOpContainers.RemoveAt(i);
+            }
+        }
+
+        /// <summary>= 原版 `MainMenuWindow.InstantiateLiveOp(LiveopsMainMenuData)`（`.c` 逐句）：
+        /// `MakeContainer(data.Event, data.ComponentKey, holder)` → 收进 `list(+0xb0)`。
+        /// <para>见本段文件头 ②：「建容器」在我们这边 = **建那张卡节点**（没有 prefab 可实例化）。</para>
+        /// <para>⚠️ 原版这一跳**不设上限**（`ContainerHolder.TryAdd` 的 `maxAmount` 那道闸走的是另一条调用路）
+        /// ⇒ 我们 `MaxAmount = 0`（不限量）。整卡落在视口外时 `BuildModeCard` 不建节点 ⇒ 本方法返回 `null`
+        /// （原版这一刻不会发生，因为它按 prefab 建、不做视口裁切）。</para></summary>
+        internal LiveOpMenuContainerSlot InstantiateLiveOp(Transform parent, string nm, float x, float y, float w, float h,
+                                                           string art, string title, string kind)
+        {
+            if (parent == null) { Debug.LogWarning("[Menu] InstantiateLiveOp：parent 是 null（原版会 NRE）⇒ 不建"); return null; }
+            EnsureLiveOpHolder();
+            BuildModeCardForCard(parent, nm, x, y, w, h, art, title, kind);
+            var node = parent.Find(nm);
+            if (node == null) return null;                  // 整张卡在视口外 ⇒ 原版同样不产生任何可视物
+            var slot = new LiveOpMenuContainerSlot
+            {
+                NodeName = nm, Art = art, Title = title, Kind = kind, H = h,
+                BuildX = x, BuildY = y, Node = node.gameObject,
+            };
+            LiveOpContainerTable.Add(slot);                  // = 原版塞进 `list(+0xb0)`
+            return slot;
+        }
+
+        /// <summary>= 原版容器上的那一跳 `Release`（`Destroy(gameObject)`）。
+        /// ⚠️ 原版的 `Release` 只在 `SetData` 反义那一支 / `CleanupContainers` 里被调；我们两个地方都用它。</summary>
+        void ReleaseLiveOpContainer(LiveOpMenuContainerSlot slot)
+        {
+            if (slot == null) return;
+            if (slot.Node != null)
+            {
+                slot.Node.SetActive(false);                 // ⚠️ Play 模式下 `Destroy` 要等帧末 ⇒ 先关掉（本文件既有做法）
+                DestroySafe(slot.Node);
+            }
+            slot.Node = null;
+        }
+
+        /// <summary>= 原版 `MainMenuWindow.RefreshLiveOpContainers(bool forceClean)`（`.c` 231 行，两支见本段文件头）。
+        /// <para>本方法**接管**了原来 `RebuildModeCards` 的全部内容（销毁/重摆的次序逐句不变），
+        /// `RebuildModeCards` 只剩一行转发。</para>
+        /// <para>⚠️ `forceClean == false` 且**当前一个容器都没有** ⇒ 退回整片重建（原版那一刻 `list` 为空 ⇒
+        /// 增量支同样会把每份数据都 `InstantiateLiveOp` 一遍，净效果相同，只是省掉一次空表扫描）。</para></summary>
+        internal void RefreshLiveOpContainers(bool forceClean)
+        {
+            if (_modeContent == null || _placeAllCards == null) return;
+            if (forceClean || LiveOpContainerTable.Count == 0)
+            {
+                // ---- `forceClean == true`：`DestroyAllChildren(holder)` + `list.Clear()` + 逐份重建 ----
+                CleanupContainers(null, LiveOpContainerTable);          // = 销毁容器 + `list.Clear()`（原版两跳）
+                for (int i = _modeContent.childCount - 1; i >= 0; i--)  // = `SupportMethods.DestroyAllChildren(holder)` 的收尾
+                    DestroySafe(_modeContent.GetChild(i).gameObject);
+                _liveOpIncremental = false;
+            }
+            else
+            {
+                // ---- `forceClean == false`：增量回收复用（命中 ⇒ `SetData` 那一跳，见 `PlaceModeCardViaContainer`）----
+                _liveOpStillUsed.Clear();
+                _liveOpIncremental = true;
+            }
+            _modeOffsetPx = _modeScroll != null ? _modeScroll.Offset : 0f;
+            _placeAllCards();
+            if (_liveOpIncremental)
+            {
+                CleanupContainers(_liveOpStillUsed, LiveOpContainerTable);   // 本轮没被碰过的 ⇒ 销毁（原版最后那一跳）
+                _liveOpIncremental = false;
+            }
+        }
+
+        /// <summary>`Put` 的唯一落点（原版 `InstantiateLiveOp` 的等价口径）。
+        /// <para>🔶 自己设计（非原版）：**只有事件驱动的卡走容器表**（`kind == "event"`）——
+        /// 原版主菜单没有任何静态卡（全部由 liveop 实例化），那 5 张手挑卡是我们自己的兜底，
+        /// 它们的句柄（`_draftStateNode` 一族）在 `_placeAllCards` 开头会被清空、依赖「重建」重新填
+        /// ⇒ **不让它们参与复用**（参与就会拿到已清句柄的旧节点）。调度台 2026-10-29 授权。</para></summary>
+        void PlaceModeCardViaContainer(Transform parent, string nm, float x, float y, float w, float h,
+                                       string art, string title, string kind)
+        {
+            // 手挑那 5 张（`kind != "event"`）**不进容器表**：原版主菜单没有静态卡，它们是我们的兜底，
+            // 且 `_draftStateNode` 一族句柄依赖「重建」重新填 ⇒ 保持改动前逐字相同的建法。
+            if (kind != "event")
+            {
+                BuildModeCardForCard(parent, nm, x, y, w, h, art, title, kind);
+                return;
+            }
+            // 事件驱动的卡 = `LiveopMenuContainer` ⇒ 一律走容器表（**首建也要登记**，否则下一次刷新拿不到可复用的那颗）
+            var slot = _liveOpIncremental ? FindLiveOpContainer(nm) : null;
+            if (slot != null && slot.Node != null && slot.SameData(art, title, kind, h))
+            {
+                // = 原版 `SetData` 那一跳：数据没变 ⇒ 只把这一颗挪到新位置（子件是绝对 px 摆在根的原点系里）
+                slot.Node.transform.localPosition = DeltaPx(x - slot.BuildX, y - slot.BuildY);
+                _liveOpStillUsed.Add(slot);
+                return;
+            }
+            if (slot != null)
+            {
+                LiveOpContainerTable.Remove(slot);       // 数据变了 ⇒ 这一颗重画（见本段文件头 ③）
+                ReleaseLiveOpContainer(slot);
+            }
+            var made = InstantiateLiveOp(parent, nm, x, y, w, h, art, title, kind);
+            if (made != null && _liveOpIncremental) _liveOpStillUsed.Add(made);
+        }
+
+        /// <summary>自检读口：容器表里现在有几颗（= 原版 `list(+0xb0).Count`）。</summary>
+        public int LiveOpContainerCountForTest { get { return LiveOpContainerTable.Count; } }
+        /// <summary>自检读口：容器表里第 i 颗的节点名（越界 ⇒ `null`）。</summary>
+        public string LiveOpContainerNameForTest(int i)
+        {
+            var t = LiveOpContainerTable;
+            var s = i >= 0 && i < t.Count ? t[i] as LiveOpMenuContainerSlot : null;
+            return s != null ? s.NodeName : null;
+        }
+        /// <summary>自检读口：第 i 颗容器**建的时候**的位置（像素，左上原点）——用来核对「复用时是挪根节点」。</summary>
+        public Vector2 LiveOpContainerBuildPosForTest(int i)
+        {
+            var t = LiveOpContainerTable;
+            var s = i >= 0 && i < t.Count ? t[i] as LiveOpMenuContainerSlot : null;
+            return s != null ? new Vector2(s.BuildX, s.BuildY) : Vector2.zero;
+        }
+        /// <summary>自检读口：第 i 颗容器现在的节点（`null` = 没有）。</summary>
+        public GameObject LiveOpContainerNodeForTest(int i)
+        {
+            var t = LiveOpContainerTable;
+            var s = i >= 0 && i < t.Count ? t[i] as LiveOpMenuContainerSlot : null;
+            return s != null ? s.Node : null;
+        }
+    }
+
+    /// <summary>= 原版 `LiveopMenuContainer` 的**最小对位**（主菜单那颗活动容器 / 模式卡）。
+    /// <para>原版它是 `MonoBehaviour`（`OnInitialize` 四拍 = 标题 / 计时器 / 背景图 / 抽屉）；本工程那张卡由
+    /// `BuildModeCard` 过程式建在 `Content` 下 ⇒ 这里只留**容器表需要的那几格**（节点 / 数据快照 / 建时的位置）。
+    /// ⛔ 别把它当 `LiveopMenuContainer` 的完整复刻（那四拍在 `BuildModeCard` / `BindMainMenuOfferContainer` 里）。</para>
+    /// <para>实现 `IUiContainer`（原版容器就是 `UiContainer` 一族的基础件）⇒ 才能进 `ContainerHolder.containers`。</para></summary>
+    internal sealed class LiveOpMenuContainerSlot : IUiContainer
+    {
+        public string NodeName;
+        public string Art, Title, Kind;
+        public float H;
+        /// <summary>建的时候的像素位置（左上原点）——复用挪位时**永远以它为零点**（不累加，反复刷新不会漂）。</summary>
+        public float BuildX, BuildY;
+        public GameObject Node;
+
+        /// <summary>= 原版 `LoadableReference.targetId` 那一格的最小对位（我们用它装节点名）。</summary>
+        public string ComponentId { get { return NodeName; } }
+
+        /// <summary>`SetData` 那一跳的判据：数据一模一样 ⇒ 只要挪位置。</summary>
+        public bool SameData(string art, string title, string kind, float h)
+        {
+            return Art == art && Title == title && Kind == kind && Mathf.Abs(H - h) < 0.01f;
+        }
+    }
+}
+
+// ============================================================ 账 个人资料/成就/排行:198 —— 奖励活动卡接线（`B97_RBCARD` · 2026-10-29）
+//
+// 判据（现读）：`decomp_full/RankedArmyBonusContainer__OnInitialize.c:30-186` ——
+//   ① `evt == null` / 类型闸不等 ⇒ `Destroy(this)`；
+//   ③ 先 `DestroyAllChildren(armyContentAnchor)` + 清 List，再对 `RankedScoreBoostData.get_AffectedArmies(evt)`
+//      每个阵营 `Instantiate(armyPrefab = Simple Army Icon, armyContentAnchor = Content)`；
+//   ④ `AutoScrollEnabled = thresholdForAutoScroll(2) < list.Count`。
+//   卡片本体的逐句对位 / 🔶 本地模拟表 → `Shell/RankedArmyBonusCard.cs`（`B97_PROFILE` 建，本代理只接线）。
+//
+// 为什么接在 `_placeAllCards` 的第五张 `Put`（`Tutorial`）之后：原版主菜单的卡**全部**由 liveop 事件在运行时
+//   实例化（`RefreshLiveOpContainers`），本地 13 份活动 SO 的日期全在 2025 年 ⇒ `ModeCardsFromLiveOpEvents`
+//   恒 `null` ⇒ 走那 5 张手挑卡兜底；奖励活动卡是同一族的第七张 ⇒ 排在它们后面 = first-fit 网格的下一列。
+//
+// ⚠️ **零行数变化**（本文件按 `文件:行号` 被 79 处账落点引用：`2680` / `2676` / `2686` / `2469` …）：
+//   调用点用**一行追加**写在第五张 `Put` 那一行的行尾，方法体放这个**文件末尾的第三个 `partial` 段**。
+//   ⛔ 别把方法体插进 `_placeAllCards` 里面 —— 那会让下游所有落点整体漂移。
+namespace CardPresentation
+{
+    public partial class MainMenuRuntime
+    {
+        /// <summary>🆕 2026-10-29（`B97_RBCARD` · 账 `个人资料_成就_排行:198`）：奖励活动卡
+        /// （原版 prefab `Reward Event Container 1x1` = 类 `RankedArmyBonusContainer`）。
+        /// 数据 = `Resources/Art/ranked_army_bonus.json`（🔶 自己设计：服务器已关服，判据在远端）。</summary>
+        RankedArmyBonusCard _rankedArmyBonusCard;
+
+        /// <summary>把奖励活动卡摆到 first-fit 网格的下一格（`1×1`，只占 `row0`）。
+        /// <para>判据：原版 `RankedArmyBonusContainer.OnInitialize(LiveOpsEvent)` —— `evt == null` / 类型闸不等则
+        /// **毁卡**；`AffectedArmies` 非空才建。⇒ 我们这边「**没有数据就不建这张卡**」（⛔ 不留空卡）。</para>
+        /// <para>为什么一次摆放与滚动重建都走这里：两者共用同一个 `_placeAllCards` 委托（`T12` 那条纪律
+        /// 「两份迟早不一致」）。重建时上一颗可能还在：全量那条路已由 `DestroyAllChildren(_modeContent)` 收走
+        /// （此时引用是**已销毁的 Unity 对象** ⇒ `!= null` 为假，不会重复销毁）；增量那条路
+        /// （`LiveOpContainerTable` 非空、`forceClean == false`）不走那个销毁 ⇒ 这里先收兜住。</para>
+        /// <para>⚠️ 已知边界：本地事件表恒空 ⇒ `evCards == null` 恒成立 ⇒ 今天只走兜底这条；将来事件数据到账、
+        /// 且**正好走增量复用**时这张卡会留在场上（原版那一刻它本该是一张事件卡）。见本段文件头。</para></summary>
+        void PlaceRankedArmyBonusCard(Transform content, bool[,] used)
+        {
+            if (content == null || used == null) return;     // 前提不成立 ⇒ 静默返回（调用点在同一次摆放里一定有值）
+            if (_rankedArmyBonusCard != null)                // 增量复用那条路不销毁旧子件 ⇒ 这里收掉，避免叠两张
+            {
+                DestroySafe(_rankedArmyBonusCard.gameObject);
+                _rankedArmyBonusCard = null;
+            }
+
+            var bonusEvent = RankedArmyBonusData.FirstValid(RankedArmyBonusData.Load());
+            if (bonusEvent == null) return;                  // 取不到 / 空表 ⇒ ⛔ 不建卡（= 原版「没数据就毁卡」）
+
+            int maxCols = used.GetLength(0);                 // 与 `_placeAllCards` 的 `MaxCols` **同一张表** ⇒ 不另写常量
+            int col = -1;
+            for (int i = 0; i < maxCols && col < 0; i++) if (!used[i, 0]) col = i;
+            if (col < 0)
+            {
+                Debug.LogWarning("[Menu] 🔶 奖励活动卡在网格里排不下（最多 " + maxCols + " 列）⇒ 不建");
+                return;
+            }
+            used[col, 0] = true;                             // 原版它是 `1×1` ⇒ 只占 row0（⛔ 别占整列，会留洞）
+
+            _rankedArmyBonusCard = RankedArmyBonusCard.Create(content);
+            if (_rankedArmyBonusCard == null) return;        // 不可达：`Create` 只在 parent 为空时返 null，而上面已判过
+            MenuDraw.ApplyPxRect(_rankedArmyBonusCard.transform, content,
+                new PxRect(CardCol0 + col * CardColStep - _modeOffsetPx, CardRow0Top,
+                           CardCol0 + col * CardColStep - _modeOffsetPx + CardW, CardRow0Top + CardH));
+            _rankedArmyBonusCard.Initialize(bonusEvent);     // 内部自己 `Clean()` 再按 `affectedArmies` 原序填
         }
     }
 }

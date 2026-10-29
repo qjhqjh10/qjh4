@@ -71,7 +71,7 @@ public static class B94B18Assert
         "RewardsMenu_CampaignButton",       // 奖励窗 Campaign 页签
         "RewardsMenu_ForgeButton",          // 奖励窗 Forge 页签
         "CollectionCardsButton",            // 收藏窗 Cards 页签
-        "CardCollectionReferenceCardPointer",// ⛔ 本仓没有这颗节点（见报告 §三）
+        "CardCollectionReferenceCardPointer",// 🆕 2026-10-29（`B97_MINI2`）：**已建**（`CollectionWindow.cs:1133`，形状派），⛔ 旧注释「本仓没有这颗节点」已过期
         "CampaignRewardUnlockBaseReward",   // 战役窗基础列 `Unlock Button`
         "RewardsMenuButton",                // 左竖导航 Rewards
         "CollectionMenuButton",             // 左竖导航 Collection
@@ -131,12 +131,12 @@ public static class B94B18Assert
                            + "⇒ 下面走生产刷新路径重新登记（⛔ 不是「跳过断言」）。");
         menu.RebuildNavForLiveOpsRefresh();
 
-        // ⚠️ **已知缺（出声，⛔ 不硬造）**：`CardCollectionReferenceCardPointer` 是原版那 12 个唯一 id 里**唯一**一颗
-        //   本仓**没有节点**的（原版它在收藏窗的 `Reference Card Pointer`；判据 → 报告 §三）。
-        //   ⇒ C 段**只断另外四条生产注册点**；不许为了让它变绿去造一颗节点（那是自设计，违反铁律 18·0）。
+        // 🆕 2026-10-29 订正（铁律 5 · `B97_MINI2` 现核）：这颗节点**已经建了**（`CollectionWindow.cs:1133` 的 `Reference Card Pointer`，
+        //   判据 = `Collection Display` 的 `RectTransform_-1444448670045642027.json` 的 anchoredPosition (−544.3845,316.5719) / sizeDelta 193.839×45.0918）。
+        //   ⛔ 旧注释「本仓没有节点 / 已知缺」已过期；下面这条 warning 现在只剩「将来若被删掉」的兜底作用。
         if (MenuUniqueIds.Find("CardCollectionReferenceCardPointer") == null)
-            Debug.LogWarning("[B18] C 段：`CardCollectionReferenceCardPointer` 未登记 —— **已知缺**：本仓没有原版那颗 "
-                           + "`Reference Card Pointer` 节点（⛔ 不硬造，铁律 18·0）；C1..C6 只断另外四条。");
+            Debug.LogWarning("[B18] C 段：`CardCollectionReferenceCardPointer` 未登记 —— 🔴 2026-10-29 起它**本该已建**（`CollectionWindow.cs:1133`）；"
+                           + "若这条 warning 出现，说明那颗节点被删了或没走到 `BuildCardsPage`，⛔ 别再当成「已知缺」放过。");
 
         // 三颗导航钮：id 与 idx 的对应 = 原版场景那三份 MonoBehaviour 的 `id` 实读（Home=0 / Collection=1 / Rewards=3）
         Tr(MenuUniqueIds.Find("HomeMenuButton") != null,

@@ -710,10 +710,10 @@ namespace CardPresentation
         /// <summary>买一件。**照边界②：不扣钱**，只记账 + **出声**（红线：点了必须有反应）。
         /// 🆕 2026-10-03：**先过「传奇重复购买」那道确认**（判据 → `ShopData.NeedsLegendaryConfirm`；
         /// 原版 `CatalogItemContainer__TryPurchase` 就是这个顺序：先弹 `MenuShop/ExtraLegendaryWarning`、
-        /// 确认了才走 `ShopItemContainer.TryPurchase`）。⚠️ 取消 = **什么都不做**（原版那条 `Cancel` 分支就是返回）。</summary>
+        /// 确认了才走 `ShopItemContainer.TryPurchase`）。⚠️ 取消 = **什么都不做**（原版那条 `Cancel` 分支就是返回）。🆕 2026-10-29（`B97_SHOP2` · 账 `商店:297`）**限购售罄比这两道都早** —— 原版那道闸在 `CatalogItemContainer.Refresh` 的 `interactable = false` 上，见函数体第一句与 `RefuseSoldOut`。</summary>
         public string Buy(int idx)
         {
-            if (ShopData.NeedsLegendaryConfirm(_page, idx))
+            if (ShopData.SoldOut(_page, idx)) return RefuseSoldOut(idx); if (ShopData.NeedsLegendaryConfirm(_page, idx))   // 🔴 原版「限购售罄」闸；两句合占一行 ⇒ 行号零漂移
             {
                 Debug.Log("[Shop] 这一件是**传奇（Rarity 4）且已拥有 1 张** ⇒ 照原版先弹确认框"
                           + "（`MenuShop/ExtraLegendaryWarning`）—— 确认了才买");
@@ -795,7 +795,7 @@ namespace CardPresentation
             //   `ShopStore…TryPurchase_b__0.c:17` · `…HandlePurchaseComplete_1.c:13` · `…HandlePurchaseError_2.c:13`。
             // ⚠️ 时序照原版：**先关等待框，再 `Setup()` / 开下一扇窗**（⛔ 别反过来 —— 两扇窗会抢栈顶）。
             if (wm != null) wm.HidePopUp(true);
-            Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 2000（用户 2026-10-24 从 9999 改）、不扣钱 —— 用户 2026-09-17 边界②）");
+            if (got == ShopData.BuySoldOut) return OnPurchaseSoldOut(idx, got); else if (!ShopData.PurchaseSucceeded(got)) return OnPurchaseFailed(idx, got); else Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 2000（用户 2026-10-24 从 9999 改）、不扣钱 —— 用户 2026-09-17 边界②）");   // 🔴 售罄那一档与「越界」分家：原版售罄**没有任何弹窗**（`B97_SHOP2` 2026-10-29）
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
             Setup();
             // ---- 到手之后那一扇窗：**两条路，按原版的档分开**（A439）----
@@ -1245,6 +1245,101 @@ namespace CardPresentation
         public void VipTimerRunOutOfTime()
         {
             OnVipTimerRunOutOfTime();
+        }
+
+        // ============================================================ 🆕 2026-10-29（执行代理 `B97_REMOTE1`）
+        //   账 `商店:203` —— 原版 `PurchasePremiumWindow.OnPurchasedFailed(string purchaseID)` 的等价物。
+        //   判据（`decomp_full/PurchasePremiumWindow__OnPurchasedFailed.c` 逐句）：
+        //     ① `ErrorPopupWindowController.ShowErrorMessage(10)`（10 = `CustomError.InternetUnreachable`）
+        //     ② `WindowsManager.HidePopUp(forceHide: true)`（收掉「正在处理您的购买…」等待框）
+        //     ③ 清掉 `itemBeingPurchased`（本地无此字段：我们每次都是**同步**买完，没有「在途订单」这一态）。
+        //   ⚠️ 顺序：原版是「先弹错误、后收等待框」；我们这边收等待框在 `DoBuy` 里**先**跑（那是既有次序，
+        //     而且不能反过来 —— 否则等待框会盖在错误窗上面）。最终画面一致：错误窗在最上层。
+        //   ⚠️ 本地**唯一**会走到这里的成因 = 「这一件在本页取不到」（`ShopData.BuyNotFound`）；
+        //     服务端回包那一支仍然不可达（原版已关服，判据在远端）—— 那一格已如实记在账 `商店:203` 的差异列。
+
+        /// <summary>自检读口：本地购买**失败支**走过几次（原版 `onFailPurchase` 那条）。</summary>
+        public static int PurchaseFailedCalls { get; private set; }
+        /// <summary>自检读口：最近一次失败支拿到的返回值（= `ShopData.BuyNotFound`）。</summary>
+        public static string LastPurchaseFailResult { get; private set; }
+        /// <summary>自检读口：最近一次失败支的点位（页下标 / 件下标）。</summary>
+        public static int LastPurchaseFailPage = -1, LastPurchaseFailIndex = -1;
+
+        /// <summary>自检收尾：把失败支的三个读口清零。</summary>
+        public static void ResetPurchaseFailForTest()
+        {
+            PurchaseFailedCalls = 0; LastPurchaseFailResult = null;
+            LastPurchaseFailPage = -1; LastPurchaseFailIndex = -1;
+        }
+
+        /// <summary>原版 `PurchasePremiumWindow.OnPurchasedFailed` 那一支（见本节头）。
+        /// <para>返回 `got` 原样交给 <see cref="DoBuy"/> 的调用方（`DoBuy` 返回的是「买到了什么」那句话，
+        /// 失败时它就是 `ShopData.BuyNotFound` —— ⛔ 别在这里编一句「买到了 X」）。</para></summary>
+        string OnPurchaseFailed(int idx, string got)
+        {
+            PurchaseFailedCalls++;
+            LastPurchaseFailResult = got;
+            LastPurchaseFailPage = _page;
+            LastPurchaseFailIndex = idx;
+            Debug.LogWarning("[Shop] 购买**失败**（第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件）：`ShopData.Buy` 返回 `"
+                           + got + "` —— 这一件在本页不存在（原版这一支来自服务端回包，本地 0 命中）"
+                           + " ⇒ 照原版 `PurchasePremiumWindow.OnPurchasedFailed` 走错误弹窗（`ShowErrorMessage(10)`）"
+                           + "，⛔ 不谎报「买到了」。");
+            // ① 原版第一句：错误弹窗（10 = `CustomError.InternetUnreachable`）
+            ErrorPopupWindowController.ShowErrorMessage(CustomError.InternetUnreachable);
+            return got;
+        }
+
+        // ============================================================ 🆕 2026-10-29（执行代理 `B97_SHOP2`）
+        //   账 `商店:297` —— 原版「限购售罄」那一档在**购买入口**上的闸（判据全文 → `ShopData.SoldOut`）。
+        //   原版把这道闸做在 `CatalogItemContainer.Refresh()` 里：售罄 ⇒ `Selectable.set_interactable(0)`
+        //   （`decomp_full/CatalogItemContainer__Refresh.c:45-51` 算 `bVar12`、`:65-77` 落 `interactable`）
+        //   ⇒ **点击根本不进购买链**、连 `MenuShop/WaitingPopup` 都不弹。
+        //   ⇒ 我们的对位 = `Buy(idx)` 的第一句（早于传奇确认、早于 `DoBuy` 的等待框）；
+        //     `DoBuy` 里那一条（`OnPurchaseSoldOut`）是**数据层再挡一次**（`ShopData.Buy` 自己也会返回 `BuySoldOut`）。
+        //   ⚠️ **仍存的差异**（已写进账 `商店:297` 的差异列）：原版售罄格的**按钮不可点且变灰**，
+        //     我们的 `MenuDraw.Hit` 是建树时挂的闭包 ⇒ **点得到**，由这里**拒绝 + 出声**。
+        //     变灰那一档的判据没解（`PriceDisplayButton__set_Interactable.c` 只做
+        //     `Selectable.set_interactable(value)` + 一个 `Behaviour.enabled = value`，颜色来自 prefab 的
+        //     `m_DisabledColor`，那个值尚未取）⇒ 待接线（⛔ 别自己编一个灰色）。
+
+        /// <summary>自检读口：售罄被拒了几次（= 原版 `interactable = false` 那一档被点到的次数）。</summary>
+        public static int SoldOutRefusals { get; private set; }
+        /// <summary>自检读口：最近一次售罄拒绝的页 / 件下标（`-1` = 没发生过）。</summary>
+        public static int LastSoldOutPage = -1, LastSoldOutIndex = -1;
+
+        /// <summary>自检收尾：把售罄那一档的三个读口清零（否则跨段污染）。</summary>
+        public static void ResetSoldOutForTest()
+        {
+            SoldOutRefusals = 0; LastSoldOutPage = -1; LastSoldOutIndex = -1;
+        }
+
+        /// <summary>= 原版「售罄 ⇒ 点不进去」的本地形态：**拒绝 + 出声**。
+        /// <para>⛔ **不弹错误窗** —— 原版那一档**没有** `OnPurchasedFailed`（错误窗只属于服务端回包失败）；
+        /// 也 ⛔ **不静默**（红线：点了必须有反应）。</para></summary>
+        string RefuseSoldOut(int idx)
+        {
+            SoldOutRefusals++;
+            LastSoldOutPage = _page; LastSoldOutIndex = idx;
+            var offs = ShopData.Offers(_page);
+            int max = idx >= 0 && idx < offs.Length ? offs[idx].AvailableMax : 0;
+            Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件**已售罄**（限购剩 "
+                           + ShopData.AvailableOf(_page, idx) + "/" + max + "）⇒ **不买**。原版把这一档做在按钮的 "
+                           + "`interactable = false` 上（`CatalogItemContainer__Refresh.c:45-77`），连购买链都不进；"
+                           + "我们这一侧点得到 ⇒ 在这里拒绝（⛔ 不静默、⛔ 不弹错误窗、⛔ 不谎报买到了）");
+            return ShopData.BuySoldOut;
+        }
+
+        /// <summary>`DoBuy` 的「数据层再挡一次」支：`ShopData.Buy` 回 <see cref="ShopData.BuySoldOut"/> 时走这里。
+        /// <para>⚠️ 与 <see cref="OnPurchaseFailed"/> **不是一回事**：那条是「这一件本地不存在」⇒ 原版
+        /// `OnPurchasedFailed`（错误窗 10 = `InternetUnreachable`）；售罄在原版**没有任何弹窗**。</para></summary>
+        string OnPurchaseSoldOut(int idx, string got)
+        {
+            SoldOutRefusals++;
+            LastSoldOutPage = _page; LastSoldOutIndex = idx;
+            Debug.LogWarning("[Shop] `ShopData.Buy` 回 `" + got + "`（第 " + (_page + 1) + " 页第 " + (idx + 1)
+                           + " 件已售罄）⇒ 不记账、**不弹错误窗**（原版这一档是按钮不可点，⛔ 不是 `OnPurchasedFailed`）");
+            return got;
         }
     }
 }

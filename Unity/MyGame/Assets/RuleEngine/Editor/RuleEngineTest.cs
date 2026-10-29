@@ -1290,6 +1290,24 @@ public static partial class RuleEngineTest
         // 🆕 2026-10-29（调度台代接线）：`B96_CR` —— 279 先标将死 · 876/550 · 1376 ActivateMinions · 559 Sacrifice · 1053 SecretBuff · 1217 逐条 AND。
         { CheckB96CRCombatBits(); }
 
+        // 🆕 2026-10-29（调度台代接线）：`B97_W1` —— 账 832 ② `RecordGrant` 的「施放者」列 · 账 1053 的 `questCounter` 归零。
+        { CheckB97W1Grants(); }
+
+        // 🆕 2026-10-29（调度台代接线）：`B97_US` —— 账 521 `ResolveJamUnit` ② 的 `permanentBuff` 早退 ＋ 清修饰后夹血。
+        { CheckB97USJam(); }
+
+        // 🆕 2026-10-29（调度台代接线）：`B97_US2` —— `特效:521` S2 的「出表序戳」（StatMod/TraitEffectRecord/TempBuff 三格 + 光环不换戳）。
+        { CheckB97US2Seq(); }
+
+        // 🆕 2026-10-29（调度台代接线）：`B97_ER2` —— 账 921（被打出/被偷时发 `CardBeingDrawn`）+ 427（誓约重放条件里现算）。
+        { CheckB97ER2Gaps(); }
+
+        // 🆕 2026-10-29（调度台代接线）：`B97_ER` —— 再裁 #54：`CanTriggerAbility` 第一道闸扩到全部 trigger。
+        { CheckB97ERAbilityGates(); }
+
+        // 🆕 2026-10-29（调度台代接线）：`B97_GEN2` —— 泛型补读 20 条（DynamicList 12 + ConfigProvider 2 + RefreshHandler 等）。
+        { CheckB97Gen2(); }
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -1344,9 +1362,9 @@ public static partial class RuleEngineTest
         Section("🆕 B93_G1 · GetRandomOrder 钉位支（账 1308）+ 打出时摘 ephemeral（账 869）");
         {
             CheckB93G1RandomOrderStratagem();
-            CheckB93G1PlayedCardTail();
+            CheckB93G1PlayedCardTail(); CheckB97RCGaps(); CheckB97RC2Gaps(); CheckB97AIGaps();   // 🆕 2026-10-29（调度台代接线 · `B97_RC`）：RuleCore 五件（ambush⇒FaceDown · Strike 待结算量 · 目标次序两口 · OnTurnSetup 逐条入队）
         }   // 🆕 B94_F1（账 534/455）：墓地放逐闩 + 誓约出牌费 —— 断言全文在 `RuleEngineTest_EngineB94F1.cs`
-        { CheckB94F1CemeteryExileAndOathPay(); CheckB94Y1TroopKilled(); CheckB94W3DeathTurnPredicate(); B94B3EngineGaps(); CheckB94B2EngineGaps(); CheckB94B8Engine(); CheckB94Z3RuleCoreGaps(); CheckB94B1EngineGaps(); CheckB94Z2HandAbilityChannel(); CheckB94B12TransformUnit(); CheckB94B13RuleCoreWiring(); CheckB94B16Engine(); B94B15EngineGaps(); CheckB94B14EffectResolverGaps(); CheckB94B19TutorialGate(); CheckB94B21DormantBroadcasts(); CheckB94B20CreateAtPos(); CheckB94B24SeatAndActingCard(); CheckB94B23AbilityBuffs(); CheckB95WRSGaps(); }   // 🆕 2026-10-29（调度台代接线；B95WRS = UnitState 866/636 两处）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
+        { CheckB94F1CemeteryExileAndOathPay(); CheckB94Y1TroopKilled(); CheckB94W3DeathTurnPredicate(); B94B3EngineGaps(); CheckB94B2EngineGaps(); CheckB94B8Engine(); CheckB94Z3RuleCoreGaps(); CheckB94B1EngineGaps(); CheckB94Z2HandAbilityChannel(); CheckB94B12TransformUnit(); CheckB94B13RuleCoreWiring(); CheckB94B16Engine(); B94B15EngineGaps(); CheckB94B14EffectResolverGaps(); CheckB94B19TutorialGate(); CheckB94B21DormantBroadcasts(); CheckB94B20CreateAtPos(); CheckB94B24SeatAndActingCard(); CheckB94B23AbilityBuffs(); CheckB95WRSGaps(); CheckB97W3CemeteryDequeueAndTransformTail(); }   // 🆕 2026-10-29（调度台代接线；B95WRS = UnitState 866/636 两处）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
 
         // ---- 汇总 ----
         int total = _pass + _fail;

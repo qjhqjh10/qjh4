@@ -821,8 +821,8 @@ namespace CardPresentation
         //  ⇒ 两条**行为**是本条真正补的东西：① `Data` 不是任务数据 ⇒ **报错并把自己关掉**（旧版没有这一支）；
         //     ② 文案来自 `progress.GetLocalizedDescription()` 再走 `ModifyLocalization`。
         //  🔴 `ModifyLocalization` = **模板占位符替换引擎**（`SupportMethods__ModifyLocalization.c` 里 20+ 处
-        //     `String.Replace` / `Split(',')` / `Concat`），我们**没有**等价物 ⇒ 本工程的任务文案是
-        //     `DailyData.DailyDesc()` 已经拼好的成品串，这里直传（缺口如实记在账 745 的差异列）。
+        //     `String.Replace` / `Split(',')` / `Concat`），等价物 = `SupportMethods.ModifyLocalization`（B96_WB 加在类尾）
+        //     ⇒ 文案在 `:861` 走一次替换（2026-10-29 B97_DAILY 接线，账 745 残差清零）。
 
         /// <summary>原版 `ToastNotificationMissionsData`（`ToastNotificationMissionsData.cs` 两个字段，顺序照抄）。</summary>
         public sealed class MissionsData
@@ -843,7 +843,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `ToastNotificationMission.Initialize(object obj)`（见上面的逐句）。
-        /// 返回：真的弹了 ⇒ true。⚠️ 与原版的差异**只有** `ModifyLocalization` 那一步（见上）。</summary>
+        /// 返回：真的弹了 ⇒ true。⚠️ 2026-10-29（B97_DAILY）：`ModifyLocalization` 已接上，与原版差异清零。</summary>
         public static bool InitializeMissionToast(object obj, MissionInfoDisplay[] infoDisplays = null)
         {
             if (obj == null) return false;                                   // 原版：`obj == null` ⇒ 直接 return（**不**关自己）
@@ -858,7 +858,7 @@ namespace CardPresentation
                 return false;
             }
             var c = ctx.Value;
-            c.Text = d.ProgressText;                                         // = `ModifyLocalization(progress.GetLocalizedDescription())`
+            c.Text = SupportMethods.ModifyLocalization(d.ProgressText);       // = `ModifyLocalization(progress.GetLocalizedDescription())`（账 745 接线 · 2026-10-29）
             c.ShowProgress = true;
             c.Progress01 = d.Progress01;
             if (infoDisplays != null)

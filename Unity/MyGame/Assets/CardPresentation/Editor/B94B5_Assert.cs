@@ -23,6 +23,9 @@
 //   · A6：再把 0 打一次 ⇒ Gold —— 保证那道闸**没有**把正常的 0/1 两档一起挡掉（防「一刀切早退」）。
 //   · B9/B10：`OnCratePurchaseComplete` 只写 `crateRewards`、漏写 `crateOpened` ⇒ 状态机永远停在
 //         state 1 ⇒ B10 红；反过来把两句顺序写反不影响这两条，但 B8 之前的 `CrateOpened == false` 兜住「提前置真」。
+//   · B2 / B5b–B5d（🆕 2026-10-29 执行代理 `B97_SHOP2` 改写）：`BuildPage` 装了默认 hook（🔶 本地开箱奖励表）⇒
+//         「收摊」那一支改用**显式置 null** 造状态。删掉 `BuildPage` 末尾那个 `InstallLocalCratePurchaseHook()` ⇒ B2 红；
+//         把默认 hook 改成「只出声、不回调 `onComplete`」⇒ B5c/B5d 红（`crateOpened` 不会变真）。
 using CardPresentation;   // `GachaEventWindow` / `CampaignTab` / `CampaignData` 都在这个命名空间里
 using UnityEngine;
 
@@ -99,12 +102,25 @@ public static class B94B5_Assert
             if (!built) return;
 
             C(win.CrateOpened, false, "B1 前提：还没开箱 ⇒ `crateOpened = false`");
-            Tr(win.CratePurchaseHook == null, "B2 前提：生产路径没有注入位 ⇒ `CratePurchaseHook = null`");
-
+            // 🔴 2026-10-29（执行代理 `B97_SHOP2` · 账 `商店:102`）**就地改写**：`BuildPage` 现在**装默认 hook**
+            //   （🔶 本地开箱奖励表，调度台 2026-10-29 裁定）⇒ 改前那四条「生产路径 hook 恒 null ⇒ 收摊」已过期。
+            //   现在改成**两态对照**：① 显式把 hook 置 null ⇒ 「本地没有 `CurrentOffer`」那一支仍在（B3–B5）；
+            //   ② 恢复默认 hook ⇒ 整条链真的走完（B5b–B5d）。下面 B6 起照旧（自检注入的 hook 优先级更高）。
+            Tr(win.CratePurchaseHook != null,
+               "B2 ★★ `Build()` 装上了**默认 hook**（= 原版 `CurrentOffer.TryPurchaseOffer` 那一跳的 🔶 本地替身）"
+             + "｜🧨 把 `BuildPage` 末尾那个 `InstallLocalCratePurchaseHook()` 删掉 ⇒ 本条红（改前这里是「恒 null」）");
+            win.CratePurchaseHook = null;                       // 造出「本地没有 `CurrentOffer`」那一档
             Tr(win.OpenCrateButtonClick() == false,
                "B3 ★ 没有 hook（= 本地没有 `CurrentOffer`）⇒ 返回 false（收摊，⛔ 不假装开箱）");
             C(win.CrateOpened, false, "B4 同上一档：`crateOpened` 仍是 false");
             C(win.CrateFlowState, -1, "B5 同上一档：**没有**起 `CrateAnimationFinished`（原版第 ⑥ 句只在成功时 StartCoroutine）");
+
+            Tr(win.InstallLocalCratePurchaseHook(true),
+               "B5b 两态对照：`InstallLocalCratePurchaseHook(replace: true)` ⇒ 真装上了（返回 true）");
+            Tr(win.OpenCrateButtonClick(),
+               "B5c ★★ 有默认 hook ⇒ 第 ⑤ 句「发出去了」⇒ 返回 true（改前这一条恒 false）");
+            C(win.CrateOpened, true,
+               "B5d ★★ 默认 hook **同步**回包（🔶 本地表）⇒ `crateOpened = true`（原版第 2 句）");
 
             System.Action<CampaignData.RewardSpec[]> captured = null;
             win.CratePurchaseHook = cb => captured = cb;

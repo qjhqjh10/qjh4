@@ -132,11 +132,11 @@ namespace CardPresentation
         /// 由 `RegisterTriggers` 逐条挂上总线、`CleanupTriggers` 逐条摘掉（`Shell/LiveOpsFilter.cs`）。
         /// 🔴 **原版 ctor 里就 `new` 出来了 ⇒ 永不为 null**（`EventFilter__.ctor.c` 的 `+0x30`），我们同样给初始化器。
         /// ⚠️ 抽象多态表 ⇒ **`JsonUtility` 序列化不了**（原版也不走 Json，走 Unity 序列化）⇒ 只能代码/自检注入。</summary>
-        public List<LiveOpsEventTrigger> Triggers = new List<LiveOpsEventTrigger>();
+        public DynamicList<LiveOpsEventTrigger> Triggers = new DynamicList<LiveOpsEventTrigger>();
         /// <summary>原版 `EventFilter.Conditions`（+0x38，`DynamicList&lt;EventCondition&gt;`，**私有**）：额外条件，
         /// `Validate` 里「组门过后逐条 `Validate(liveOps)`，任一 false 即 false」。**原版 ctor 里也是 `new` 出来的**（永不为 null）。
         /// 同 `Triggers`：POCO 装不进 Json。</summary>
-        public List<EventCondition> Conditions = new List<EventCondition>();
+        public DynamicList<EventCondition> Conditions = new DynamicList<EventCondition>();
     }
 
     // ============================================================ 弹窗选项（原版 `PopupOptions`）

@@ -56,6 +56,13 @@ MAP = {
     "Glow Rays UI": "Glow Rays UI.mat",
     "Spark Additive Extra Color": "Spark Additive Extra Color.mat",
     "Lightning Random UI": "Lightning Random add.mat",
+    # 🆕 2026-10-29（B97_PROFILE · 账 `个人资料_成就_排行:221`）：段位变化窗两棵粒子树用到的两张。
+    #   判据 = `Resources/Art/ranked_division_particles.json` 的 `material` 列现读（生成器
+    #   `工具/gen_ranked_division_particles.py`）：`Up Rays Additive`（Wave Shine / Wave Shine R）·
+    #   `Glow Additive Extra Color`（Trails R / Trails L）。⚠️ 后者在 `WarpforgeVFX/Materials/` 有**两个变体**
+    #   （`__75594af2` / `__80c1155a`），实测 `diff` 只差 `m_Name` 一行 ⇒ 取名字干净的那份。
+    "Up Rays Additive": "Up Rays Additive.mat",
+    "Glow Additive Extra Color": "Glow Additive Extra Color__80c1155a.mat",
 }
 
 # shader GUID（.mat 按 GUID 引 shader；URL 见文件头）

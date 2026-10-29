@@ -128,8 +128,8 @@
 //   · `LiveOpsAssetUtility.LoadAsset(事件, 2)` = Missions 页 `Event Image`（= `warlordImage`）
 // ⇒ 本窗照 **prefab 出厂结构**建满，**数值一律 `--` 占位**（⛔ 不编等级/分数/奖励/价格/日期），
 //    并在 `Open()` 里 `Debug.LogWarning` **逐条出声**（本工程红线：不许静默失败）。
-//    **领奖 / 升级 / 买付费档**：原版分别是 `ExpansionPassEvent.OnRewardCollected` / `PurchaseLevelUp` /
-//    `PurchasePremiumClick → OpenWindow(远端窗口引用)`（**全是服务器 + 远端引用**）⇒ 本地点击**只出声**。
+//    **领奖 / 升级**：原版分别是 `ExpansionPassEvent.OnRewardCollected` / `PurchaseLevelUp`（服务器事务）⇒ 本地点击**只出声**；
+//    **买付费档** = `PurchasePremiumClick → OpenWindow(远端窗口引用)` ⇒ 见 `Shell/ExpansionPassPremiumOffers.cs`（🔶 本地报价表 + 两条关窗回调）。
 // 🔴 **有意偏离（照实记录）**：
 //    原版 `ExpansionPassRewardSelector.CreateRewards` 按里程碑逐件 Instantiate 奖励容器，里程碑为空时**一件都不建**；
 //    本任务的验收口径是「**页面能打开、看得到原版结构、空态出声**」⇒ 我们**只建一份模板 `Expansion Pass Reward Container` 并关着**。
@@ -876,9 +876,9 @@ namespace CardPresentation
             MenuDraw.Nine(btn, Tex(ArtGlowBorder, "付费档入口高亮"), NpHighlightR,
                           new Vector4(50f, 50f, 50f, 50f), 128f, 128f, QPanelHi, Color.white, true, "Highlight");
             // 原版 `ExpansionPassPurchasePremiumPanel.PurchasePremiumClick` → `GetComponentReference(premiumOfferData, 0xc)`
-            // → `WindowsManager.OpenWindow(...)`。**那个窗口引用在远端 premium 报价数据里**，本地拿不到
-            // ⇒ 只出声，⛔ 不猜成 `PurchasePremiumWindow` / 某个 `BaseOfferPopup` 变体。
-            // 🆕 2026-10-28（`B93_E13`）：整段搬进 `PurchasePremiumClick()`（**出声必须带事件 id**），这里只留绑定。
+            // → `WindowsManager.OpenWindow(...)`。那个窗口引用在**远端** premium 报价数据里 ⇒ 🔶 用本地报价表顶替，
+            // 落在 `ExpansionPassPremiumOffers`（`WindowsManager.OpenPurchasePremiumWindow` 那一跳）。
+            // 🆕 2026-10-29（`B97_REMOTE1`）：整段在 `PurchasePremiumClick()`（告警带事件 id + 两条关窗回调），这里只留绑定。
             MenuDraw.Hit(btn, "Hit", NpButtonR, QHit, () => PurchasePremiumClick(),
                 null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
         }
@@ -2619,7 +2619,7 @@ namespace CardPresentation
         ImageQuad _extraIconImage;
 
         /// <summary>`Initialize` 的第一句 `onClosePurchasePopup = 入参`（原版 `+0x60`）。
-        /// 本地没有「购买窗开了再关」那条链（见账 `PurchasePremiumClick` 一行）⇒ 只存着，出声由那一条负责。</summary>
+        /// 消费方 = `ExpansionPassPremiumOffers.NotifyParent`（原版 `b__12_1`）；今天没人传 ⇒ 恒 null（见属性 doc）。</summary>
         System.Action _onClosePurchasePopup;
         bool _armyNoteOnce;
 
@@ -2652,8 +2652,8 @@ namespace CardPresentation
         }
 
         /// <summary>自检读口：存着的 `onClosePurchasePopup`（原版 `+0x60`，由 `ApplyPremiumPanel` 的入参写进来）。
-        /// <para>⚠️ 今天没人传（消费方是「premium 购买窗」，账 `PurchasePremiumClick` 那一行仍是 B）
-        /// ⇒ 恒 null；但**存这一句本身**是原版 `Initialize` 的第一句，已逐字对齐。</para></summary>
+        /// <para>⚠️ 今天**恒 null**：本窗的父级没有接这个回调（`InitializeEventTab` 调 `ApplyPremiumPanel()` 不传参）
+        /// ⇒ 原版 `b__12_1` 那一支落到「什么都不做」；存这一句本身是原版 `Initialize` 的第一句，已逐字对齐。</para></summary>
         public System.Action OnClosePurchasePopup { get { return _onClosePurchasePopup; } }
 
         // ================================================================================
@@ -2674,26 +2674,26 @@ namespace CardPresentation
         /// <item>`prefab = LiveOpsAssetUtility.GetComponentReference(premiumOfferData, 0xc)`</item>
         /// <item>`win = WindowsManager.Instance.OpenWindow(prefab, eventData)`</item>
         /// <item>`win == null` ⇒ **`CustomDebug.LogWarning("…" + premiumOfferData.GetID())`**（那条告警**带事件 id**）</item>
-        /// <item>开出来了 ⇒ 往 `win` 的那个 `UnityEvent`（`win + 0xc`）**挂两条回调**
-        ///      （`b__12_0` = 重跑 `Initialize(this.data, this.onClose)`，以及 `b__12_1`）</item>
+        /// <item>开出来了 ⇒ 往 `win + 0xc` 那个 nullary 委托上**连续 Combine 两条回调**
+        ///      （`b__12_0` = 重跑 `Initialize(this.data, this.onClose)`，以及 `b__12_1` = 转出 `onClose`；原版**不去重**）</item>
         /// </list>
-        /// <para>🔴 **本地能做的只有「第 ⑤ 句的等价」**：`GetComponentReference(…, 0xc)` 那个窗口引用在
-        /// **远端 premium 报价资产**里（`ExpansionPassData.PremiumOfferData` 本地没有，见文件头数据缺口）
-        /// ⇒ 我们这一侧 = 打不开 + **告警里带上事件 id**（这一条本来没有 id，2026-10-28 补上）。
-        /// ⛔ 不猜成 `PurchasePremiumWindow` / 某个 `BaseOfferPopup` 变体。</para>
-        /// <returns>`true` = 真把付费窗开出来了（今天恒 false）。</returns></summary>
+        /// <para>🔴 **③④ 的输入在远端**（`ExpansionPassData.PremiumOfferData` 由 LiveOps 下发，本机 0 命中）
+        /// ⇒ 🔶 窗口那一格用 `ExpansionPassPremiumOffers` 的本地报价表补（`WindowsManager
+        /// .OpenPurchasePremiumWindow` 顶替远端 prefab 引用）+ **告警里带上事件 id**；两条关窗回调在
+        /// 同一处 `WireClose` 里挂（对位 = `GameWindow.OnCloseWindow`，判据与不确定度见那个文件的文件头）。</para>
+        /// <returns>`true` = 真把付费窗开出来了（今天：本地表命中就 true）。</returns></summary>
         public bool PurchasePremiumClick()
         {
             PurchasePremiumClicks++;
-            // ① `data` / `premiumOfferData` 两道 null 闸在我们这一侧**恒不成立**（本地没有 premium 报价数据）
-            //    ⇒ 原版这里会**什么都不做、连告警都不打**。我们**出声**（本工程红线：不许静默失败）。
+            // ① 原版 `data(+0x58)` / `premiumOfferData` 两道 null 闸 ↔ 🔶 本地报价表（`ExpansionPassPremiumOffers`）
             string evId = _event != null ? _event.Id : null;
-            Debug.LogWarning("[ExpansionPass] **买付费档**打不开：事件 `" + (evId ?? "<没有事件数据>") + "` —— 原版 "
-                           + "`ExpansionPassPurchasePremiumPanel.PurchasePremiumClick` 的第 ③ 句 "
-                           + "`LiveOpsAssetUtility.GetComponentReference(premiumOfferData, 0xc)` 要**远端 premium 报价资产**"
-                           + "（`ExpansionPassData.PremiumOfferData`，本地没有）；拿不到 prefab 引用 ⇒ 照原版第 ⑤ 句那条 "
-                           + "`LogWarning` 的形状，**把事件 id 打出来**，⛔ 不猜成某一扇窗。");
-            return false;
+            var offer = ExpansionPassPremiumOffers.ForEvent(evId);
+            if (!offer.HasValue) return ExpansionPassPremiumOffers.SayCannotOpen(evId, "本地报价表里没有这一档");
+            // ②③④ 原版 `GetEvent(id)` → `GetComponentReference(premiumOfferData, 0xc)` → `OpenWindow(prefab, 事件)`
+            var win = WindowsManager.OpenPurchasePremiumWindow(offer.Value.FocusArmy);
+            if (win == null) return ExpansionPassPremiumOffers.SayCannotOpen(evId, "`OpenPurchasePremiumWindow` 返回 null");
+            // ⑥ 原版 `Delegate.Combine(win + 0xc, b__12_0)` 再 Combine `b__12_1`（不 RemoveListener ⇒ 点几次叠几次，照抄）
+            return ExpansionPassPremiumOffers.WireClose(win, evId, this);
         }
 
         /// <summary>自检读口：`PurchasePremiumClick` 被点了几次（= 付费档入口那条绑定通不通的端到端证据）。</summary>

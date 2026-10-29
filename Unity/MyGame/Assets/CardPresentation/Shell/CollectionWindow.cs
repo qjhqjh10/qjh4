@@ -1098,7 +1098,7 @@ namespace CardPresentation
             //   ✅ **2026-10-25（`C` 收藏域）已按原版改写** —— K3 当时留的两个「判据未定」现在都查清了：
             //      ① **`Reference Card Pointer` 的矩形**：`工具/menu_dump.py bundle_menus_assets_all "CardsTab"
             //         --depth 8` 现读 = **402.3,236.4 → 596.1,281.4**（193.84×45.09，父件 = `Collection Display`
-            //         的直接孩子、与 `Scroll View` 同级；`m_IsActive = 0` 只是不画、矩形照用）。
+            //         的直接孩子、与 `Scroll View` 同级；`m_IsActive = 1`（⚠️ 2026-10-29 `B97_MINI2` 订正：原写 `0` 是卡组编辑窗那颗；无 Image ⇒ 本来就不画）。
             //         ⚠️ K3 记的 `417.69,260.95 → 611.53,306.05` **不是本窗这一颗** —— 那是
             //         **卡组编辑窗**（`Deck Editing Menu ▸ Card Display ▸ Scroll View`）里那颗同名节点的矩形
             //         （`Deck/DeckRuntime.PoolRefL/T/R/B`），两个 prefab 各有一颗、**不是同一颗的两种 dump 口径**。
@@ -1119,6 +1119,19 @@ namespace CardPresentation
             _wcArmyQuad = Rect(wcDisplay, _wcArmyArt, wcArmyR, "Army Icon", QPageRow, null, true);
 
             var holder = Node(page, "Scroll View", CardsViewport);
+            // 🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:312` · **形状派**）：原版 `CardCollectionDisplay.referenceCardPoint`
+            //   指向的就是这颗节点 —— `Reference Card Pointer`（`bundle_menus_assets_all` 的 `CardsTab` 树现读：
+            //   `Collection Display` 的直接孩子、与 `Scroll View` **同级**；`m_IsActive = true`、**没有 Image / 没有子件**
+            //   （纯隐形锚点，所以原版画面上看不到它）；`GameObjectUniqueIdentifier.id = "CardCollectionReferenceCardPointer"`，
+            //   `m_Script` pathID `5370249714765181407`，实例 = `MonoBehaviour_2244189844683285205.json`）。
+            //   RectTransform 原值：`anchorMin = anchorMax = pivot = (0.5,0.5)` · `anchoredPosition = (-544.3845, 316.5719)`
+            //   · `sizeDelta = 193.839 × 45.0918`（`RectTransform_-1444448670045642027.json`）⇒ 绝对矩形
+            //   **402.3,236.4 → 596.1,281.4** = `WcRefL/T/R/B`（同一份尺子，⛔ 别再抄第二份）。
+            //   ⚠️ **铁律 5 就地订正**：本文件里原来两处写这颗节点「`m_IsActive = 0`」——**那是卡组编辑窗那颗同名节点**
+            //   （`417.69,260.95 → 611.53,306.05`，无任何组件；判据 = `GameObject/Reference Card Pointer_4160045545866129188.json`
+            //   `m_IsActive: false` + `RectTransform_6601596930717576996.json`），**不是本窗这一颗**。本窗这颗 **active = 1**。
+            var refPt = Node(page, "Reference Card Pointer", new PxRect(WcRefL, WcRefT, WcRefR, WcRefB));
+            if (refPt != null) MenuTutorialFlow.RegisterUnique("CardCollectionReferenceCardPointer", refPt);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：裁切状态**长在视口节点上**（= 原版 `Viewport` 上
             //   那个 `RectMask2D`；本页参数实读 = `m_Softness (0,0)` · `m_Padding (0,0,0,0)`，
             //   出处 `资料/普查产出_1008/波C2_A181_A212收藏窗_A214一.md`）。
@@ -5098,7 +5111,7 @@ namespace CardPresentation
         /// <list type="number">
         /// <item>**矩形**：`工具/menu_dump.py bundle_menus_assets_all "CardsTab" --depth 8` 现读（2026-10-25）——
         ///   节点 `Reference Card Pointer` = **402.3,236.4 → 596.1,281.4**（193.84×45.09），父件 = `Collection Display`
-        ///   的直接孩子、与 `Scroll View` **同级**；`m_IsActive = 0` ⇒ **不画、但矩形照用**。
+        ///   的直接孩子、与 `Scroll View` **同级**；`m_IsActive = 1`（⚠️ 2026-10-29 `B97_MINI2` 订正：原写 `0` 是卡组编辑窗那颗；无 Image ⇒ 画面上本来就不画）。2026-10-29 起该节点已按原版真建并登记唯一 id。
         ///   本组数与 `CardsViewport`（330.2,155.9→1919.9,1079.9）**同一帧**（同一份 dump 里 `Scroll View`
         ///   就是 330.2,155.9）⇒ 与 `CardsCellRect` 可直接比，⛔ 不要再加父链偏移。</item>
         /// <item>**命中序**：`RectExtensions.OverlapsAny`（🥇 `out_cpp2il_dev_ilspy/RectExtensions.cs:69-244`

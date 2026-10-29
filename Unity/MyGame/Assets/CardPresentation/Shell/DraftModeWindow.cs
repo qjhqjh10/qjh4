@@ -3484,7 +3484,7 @@ namespace CardPresentation
             var pool = new List<CardDef>();
             var all = CardPool();
             for (int i = 0; i < all.Count; i++)
-                if (all[i] != null && all[i].Type == "hero") pool.Add(all[i]);
+                if (all[i] != null && all[i].Type == "hero" && DraftWarlordTriage.IsPossibleWarlord(all[i])) pool.Add(all[i]);   // 🆕 2026-10-29（B97_SMALL · 账 `轮抽:14`）：原版 `GetPossibleWarlords` 尾巴的三档剔除（`inventoryOptions == NotInInventory(10)` / `PlayerItem.IsHidden()` / `RawCardScript.IsAlternateArt()`）—— 判据全文见 `Shell/DraftWarlordTriage.cs` 文件头
             var outp = new List<CardDef>(count); const string seedId = "draft.warlords";   // 原版那条 seedID 字符串产物里丢了（读成 `(string)0`）⇒ 键名我们起；**不影响数列**（每次 InitSeed 覆盖写同一格）
             RandomSeedProvider.InitSeed(seedId, RandomSeedProvider.SeedOptions.Fixed, seed);   // 原版 `:2560`
             for (int i = 0; i < count && pool.Count > 0; i++)

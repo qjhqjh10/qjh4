@@ -14,9 +14,9 @@
 //    （`+0x244 = 本回合是玩家0` · `+0x246 = (本回合不是玩家0)`）⇒ **语义就是「回合归属」**；
 //    `BattleManager__ResolveEndTurn.c:336-337` / `StopBattleAfterBattleEnd.c:48-49` 收手清 0。
 //  · 我们的等价物 = `SimpleAI.EnumerateActions(BattleContext ctx, int forSide = -1)`
-//    （`Data/SimpleAI.cs:316`）：**只给「手牌段」加闸**（循环上界 `me == ctx.Active ? mine.Hand.Count : 0`），
-//    棋盘 / 攻击 / 主动能力 / 残骸 / **`endTurn`** 一律不受影响（原版那五处读点里只有
-//    `CanPlayCard` 属手牌段，其余四处都是棋盘段）。
+//    （`Data/SimpleAI.cs:316`）：**闸不满足 ⇒ 整张表为空**（`:326 if (me != ctx.Active) return list;`，
+//    连 `endTurn` 都没有 —— `.c:62/67` 的 `goto LAB_180964050` 落在 `:69 return *(param_1 + 0x560)`，
+//    而 `endTurn` 在 `:339-341` 即返回点**之后**）。🔴 2026-10-29（`B97_TUT`）订正：原来这里写「只挡手牌段」，是**读错 `.c`**。
 //
 // 🔴 三条硬要求（本项目踩过 3 次「前提不成立 ⇒ 断言空转绿」）：
 //    ① **前提断言与结论断言并列写**，⛔ 不写 `if (前提) Check(结论)`；
@@ -40,7 +40,7 @@ public static partial class RuleEngineTest
     /// 夹具：**双方手里各一张**能打得起的单位卡（费用 1 / 能量给 9）⇒ 手牌候选只可能来自「闸放行的那一方」。
     /// <para>期望（判据见文件头）：</para>
     /// · `EnumerateActions(ctx)`（= 行动方）⇒ 手牌候选 **1** 条（自己那张）；
-    /// · `EnumerateActions(ctx, foe)`（**显式给非行动方**）⇒ 手牌候选 **0** 条，但 **`endTurn` 仍在**；
+    /// · `EnumerateActions(ctx, foe)`（**显式给非行动方**）⇒ **整张表为空**（手牌 0 条 ∧ 连 `endTurn` 也没有；判据 `.c:62/67 → :69`）；
     /// · `EnumerateActions(ctx, me)`（显式给行动方）⇒ 手牌候选 **1** 条（与默认档同）。
     /// </summary>
     static void B95WBDHandGateCase()
@@ -86,10 +86,13 @@ public static partial class RuleEngineTest
         Check(handFoe, 0,
               "★★ 显式传 `forSide = 非行动方` ⇒ 手牌候选 **0** 条（原版 `+0x246/+0x244` 闸 = 回合归属）"
             + "｜🧨 闸没接 / 接在整表外却漏了手牌段 ⇒ 实得 1 ⇒ 红");
-        CheckTrue(foeHasEndTurn,
-                  "★★ 同一张表里 **`endTurn` 仍在** —— 原版那两档闸**只挡手牌段**（`CanPlayCard`），"
-                + "棋盘 / 攻击 / 主动能力 / 残骸 / `endTurn` 都不受它影响"
-                + "｜🧨 把闸包在**整张表**外面（一挡就整体清空）⇒ 本条红 —— 这正是本用例要挡的那种「改错法」");
+        Check(foeList.Count, 0,
+              "★★ 非行动方那侧 **整张表为空** —— 原版 `.c:62/67` 的 `goto LAB_180964050` 落在 `:69 return *(param_1 + 0x560)`，"
+            + "返回的是已清空的动作表（`endTurn` 在 `:339-341`，在返回点**之后**）"
+            + "｜🧨 闸只包手牌段（棋盘 / 攻击 / 主动能力 / 残骸 / `endTurn` 照发）⇒ 实得 >0 ⇒ 红");
+        CheckTrue(!foeHasEndTurn,
+                  "★★ 同一张表里 **`endTurn` 也不在** —— 同一条判据（`:69` 在 `:339-341` 之前返回）"
+                + "｜🧨 把闸包在手牌段外面（`endTurn` 仍追加在末尾）⇒ 本条红 —— 这正是本用例要挡的「改错法」");
 
         // 收尾：别把夹具留在全局状态里（本用例只读枚举，不落盘；这行是防御性的）
         mine.Energy = 0; theirs.Energy = 0;

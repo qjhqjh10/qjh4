@@ -184,14 +184,34 @@ public static class B94B11_Assert
         Tr(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
            "C2 ★ 两半都空 ⇒ **false**（普通对局不该进脚本关那一支）");
 
+        // 🔴 2026-10-29（`B97_TUT`）就地订正（铁律 5）：这三态原来是按「两条 null 判断」写的，
+        //    而原版两个操作数**各四道闸**（① match ② stage 非空 ③ `turn>0` ④ `turn-1 < stage[+0x48].Count`，
+        //    判据 = `decomp_full/BattleManager__IsTutorialStageAvailable.c` / `__IsCampaignStageAvailable.c`
+        //    + `B97_可推A七条_审查.md` §一·3）⇒ 空 stage（`turns == null`）原版返回 **false**。
+        ctx.Turn = 1;
         ctx.Tutorial = new TutorialScript(new TutorialStageData());
+        Tr(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
+           "C3 ★ 教程半非空但 `Stage.turns == null` ⇒ **false**（原版 ④：`+0x48 == 0` 直接返 false，`.c` 逐句）");
+
+        ctx.Tutorial = new TutorialScript(new TutorialStageData { turns = new[] { new TutorialTurn() } });
         Tr(TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
-           "C3 ★ 教程半非空 ⇒ **true**（原版 `IsTutorialStageAvailable()` 那一半）");
+           "C3b ★ 教程半非空 ∧ `turns.Length = 1` ∧ `Turn = 1` ⇒ **true**（四道闸全过；原版 `IsTutorialStageAvailable()` 那一半）");
+
+        ctx.Turn = 0;
+        Tr(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
+           "C3c ★ 同上但 `Turn = 0` ⇒ **false**（原版 ③ `turnCounter > 0`）");
+        ctx.Turn = 2;
+        Tr(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
+           "C3d ★ `Turn = 2` 而 `turns.Length = 1` ⇒ **false**（原版 ④ `turn-1 < Count` 不成立）");
+        ctx.Turn = 1;
 
         ctx.Tutorial = null;
         ctx.CampaignStage = new TutorialStageData();
+        Tr(!TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
+           "C4 ★ 教程空、战役半非空但 `turns == null` ⇒ **false**（战役那一半是同一套四道闸）");
+        ctx.CampaignStage = new TutorialStageData { turns = new[] { new TutorialTurn() } };
         Tr(TutorialScriptPredicatesB94B8.IsScriptedStageAvailable(ctx),
-           "C4 ★ 教程空、战役半非空 ⇒ **true**（原版 `IsCampaignStageAvailable()` 那一半；⛔ 只判教程会漏这一档）");
+           "C5 ★ 战役半 `turns.Length = 1` ∧ `Turn = 1` ⇒ **true**（原版 `IsCampaignStageAvailable()` 那一半；⛔ 只判教程会漏这一档）");
 
         // ★ 结构：`TutorialWaitingUseAbility` 的 ⑤ 真的改走这个谓词了。
         string src = ReadSource("CardPresentation/Battle/BattleDriver.cs");

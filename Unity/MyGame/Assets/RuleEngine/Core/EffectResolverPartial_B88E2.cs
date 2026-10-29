@@ -782,7 +782,7 @@ namespace RuleEngine
                 unresolved.Add(source + "（弃牌时手牌里已找不到该卡）");
                 return false;
             }
-            AddToCemetery(ps, inst);
+            RuleCore.EmitCardBeingDrawn(ctx, seat, inst, isSteal: false); AddToCemetery(ps, inst);   // 🔴 2026-10-29（B97_ER2 · 账 L921 ①）：原版 `_ResolveDiscardFromHand_d__544__MoveNext.c:95` 的演出段 = `CardScript.ShowCardBeingDrawn(0.2f)`（`cardState=9` + `SetSortingLayer(HandMoving)` + 非己方翻面），净语义在 `RemoveCardFromHand` **之前**触达 ⇒ 在移进墓地之前发这一条揭示事件。⛔ 时长两档别统一（弃牌 0.2 / 偷牌 0.4）。零行数变化（铁律 18·b：同文件 876 行有账落点，插行会整体漂移）。
             ctx.Log($"{by}：**{inst.Card?.Name} 从 {ps.Name} 的手牌进了弃牌堆**"
                   + "（原版 `_ResolveDiscardFromHand` 状态 4 = `RemoveCostEffects` → `DestroyCard` → `RemoveCardFromHand`；"
                   + "翻牌/亮牌那三段演出我们没有，只做结算 —— 如实记）");
@@ -997,7 +997,7 @@ namespace RuleEngine
             //   而 `ThisCardPlayed(0)` 的卡面写法就是 `Rally:`（判据 = `ActionPump` 的 `AbilityTriggerNameOfKeyword`
             //   `case KeywordTable.Rally: return "ThisCardPlayed"`，且池内 105/105 张带 rally 的卡 `abilityTriggers` 都有 0）。
             //   传 `"ThisCardPlayed"` ⇒ `TriggerOps` 恒 `null` ⇒ 静默空转（本代理 2026-10-29 实测）。
-            for (int i = 0; i < times; i++)
+            for (int i = 0; i < (times = oath ? 1 + RuleCore.OathExtraReplays(ctx, p) : 1); i++)   // 🔴 2026-10-29（B97_ER2 · 账 L427 ②）：原版 `AbilityLogic__PlayAbility.c:2043-2057` 的 `while (IsThereDoubleOathEffect(bm, actingCard.isPlayer) > i)` 是**每圈重算** ⇒ 条件里现算（顺带把 `times` 同步成当前值，下面那行日志因此报的是**最终**次数）。⚠️ 残余同 `EffectResolver.ResolveOathAbility`：算子读卡面 trait，原版读 `HasCurrentTrait` —— 那一半在 `RuleCore.cs`。
                 if (RunAbilityOfAnotherCard(ctx, cc, KeywordTable.Rally, p, u, actingCard: u, targetCard: chosen, by: u.Name)) ran++;
             ctx.CardChosenInSelection = null;                      // 原版 `:2060-2068`：`bm+0x2e8 = 0`
             ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 360`：让选中的「{cc.Name}」按 `ThisCardPlayed` 跑它自己的能力 "

@@ -311,9 +311,9 @@ namespace RuleEngine
         /// **不在这儿复制第二份合法性判据**（两处写迟早不一致，工程铁律）。
         ///
         /// ⚠️ 近战和远程**各列一条**（原版就是这样：`attackMelee` / `attackRanged` 是两条动作，
-        ///    各自打分再挑高的）。老版本那句「远程攻击力更高就用远程」是另一种近似。｜🔴 原版那两个字节闸 `+0x244/+0x246`（`allowPlayerActionsFlag`/`allowEnemyActionsFlag`，真名 `dump.cs:30814-30822`；写点 = `BattleManager._NextTurn_d__395__MoveNext.c:380-383`：**玩家0 回合置前者、否则置后者** = 回合归属；`ResolveEndTurn.c:336-337` / `StopBattleAfterBattleEnd.c:48-49` 收手清 0）**覆盖「出牌 + 在场单位行动」两段**（读点五处：`CanPlayCard` 手牌段 · `CanAttackCard`/`CanUseActiveAbility`/`CanUseWaystone`/`ReadyToUseActiveAbility` 棋盘段），且**只在 `allowAutoActions == false` 时查**（`CanAttackCard` 的 `param_3` / `CanPlayCard` 的 `param_5` 就是旁路位）⇒ 我们的等价物 = 调用点 `BattleDriver.cs:14466` 的 `Ctx.Active != _me && AiShouldDriveOpponent`（本函数只在自己回合被调、只枚举自己那侧）⇒ **不加 `isPlayer/allowAutoActions` 形参**（加了就是无人能置假的死代码）。⚠️ `+0x245 resolvingTurnEndFlag`（`CanPlayCard` 的**总旁路**）我们**没有**等价位 —— 将来真要接 `CanPlayCard` 时先落这一格。2026-10-29 `B95_WBD` 现读（五处读法由 `B95_WRS` 补核）。
+        ///    各自打分再挑高的）。老版本那句「远程攻击力更高就用远程」是另一种近似。｜🔴 原版那两个字节闸 `+0x244/+0x246`（`allowPlayerActionsFlag`/`allowEnemyActionsFlag`，真名 `dump.cs:30814-30822`；写点 = `BattleManager._NextTurn_d__395__MoveNext.c:380-383`：**玩家0 回合置前者、否则置后者** = 回合归属；`ResolveEndTurn.c:336-337` / `StopBattleAfterBattleEnd.c:48-49` 收手清 0）**还是那五处谓词的闸**（读点五处：`CanPlayCard` 手牌段 · `CanAttackCard`/`CanUseActiveAbility`/`CanUseWaystone`/`ReadyToUseActiveAbility` 棋盘段），且**只在 `allowAutoActions == false` 时查**（`CanAttackCard` 的 `param_3` / `CanPlayCard` 的 `param_5` 就是旁路位）⇒ 🔴 **2026-10-29（`B97_TUT`，判据 = `判据/B97_可推A七条_审查.md` §一·2）就地订正**：那两档闸不满足时 `.c:62/67` 的 `goto LAB_180964050` 落在 **`:69 return *(param_1 + 0x560)`** = 返回**已清空的整张表**（`endTurn` 在 `:339-341`，在返回点**之后** ⇒ 也没有）⇒ 我们的等价物 = 本函数第 326 行的 `if (me != ctx.Active) return list;`（`ctx.Active` 就是那两个字节闸的语义，写点 = `BattleManager._NextTurn_d__395__MoveNext.c:380-383`）；**不加 `isPlayer/allowAutoActions` 形参**（`allowAutoActions` 那一档我们没有等价物，⛔ 别造一个无人能置真的形参）。⚠️ `+0x245 resolvingTurnEndFlag`（`CanPlayCard` 的**总旁路**）我们**没有**等价位 —— 将来真要接 `CanPlayCard` 时先落这一格。2026-10-29 `B95_WBD` 现读（五处读法由 `B95_WRS` 补核）。
         /// </summary>
-        public static List<AiAction> EnumerateActions(BattleContext ctx, int forSide = -1)   // 🆕 2026-10-29（`B95_WBD` · 账 324）：`forSide` 显式给**非行动方**时，原版那两档闸（`+0x244/+0x246` = 回合归属）就把**手牌段**挡掉；`-1` = 取 `ctx.Active`（老调用点一个都不改）
+        public static List<AiAction> EnumerateActions(BattleContext ctx, int forSide = -1)   // 🆕 2026-10-29（`B95_WBD` · 账 324；🔴 `B97_TUT` 同日订正）：`forSide` 显式给**非行动方**时，原版那两档闸（`+0x244/+0x246` = 回合归属）把**整张动作表**清空（含 `endTurn`，判据 `.c:62/67 → :69`）；`-1` = 取 `ctx.Active`（老调用点一个都不改）
         {
             var list = new List<AiAction>();
             if (ctx == null || ctx.IsOver) return list;
@@ -322,8 +322,8 @@ namespace RuleEngine
             var mine = ctx.Players[me];
             var foeBoard = ctx.Players[foe].Board;
 
-            // ---- 手牌（原版 `+0x244/+0x246` 闸 = 「这一方是不是本回合的行动方」⇒ 只包**这一段**：⛔ 别包整表，`endTurn` 必须仍在）----
-            for (int i = 0; i < (me == ctx.Active ? mine.Hand.Count : 0); i++)
+            // ---- 🔴 原版 `+0x244/+0x246` 两档闸 = 回合归属（`.c:60-77`）⇒ 不满足时**整张表清空**：`.c:62/67` 的 `goto LAB_180964050` 落在 `:69 return *(param_1+0x560)`，而 `endTurn` 在 `:339-341`（返回点**之后**）⇒ 连 `endTurn` 都没有 ----
+            if (me != ctx.Active) return list; for (int i = 0; i < mine.Hand.Count; i++)   // 🔴 闸不满足 ⇒ **整表清空**（`.c:62/67` → `:69`；连 `endTurn` 都没有）—— 与循环同一行只为「账的行号零漂移」
             {
                 var card = mine.Hand[i].Card;      // 第 7 行第 2 步：手牌存实例，评分看的是模板
                 if (card == null) continue;
@@ -359,15 +359,15 @@ namespace RuleEngine
                 }
             }
 
-            // ---- 场上单位：近战 / 远程各一条 ----
-            for (int s = 0; s < BoardSpec.Size; s++)
+            // ---- 场上单位：近战 / 远程各一条（🔴 次序 = 原版 `unitsInPlay` 进场序 `PlayOrder` 升序，⛔ 不是格号序；判据 → `PlayOrderedSlots` 的 doc）----
+            var atkOrder = PlayOrderedSlots(mine.Board); var tgtOrder = PlayOrderedSlots(foeBoard);
+            for (int ai = 0; ai < atkOrder.Count; ai++)
             {
-                var u = mine.Board[s];
+                int s = atkOrder[ai]; var u = mine.Board[s];
                 if (u == null || !u.IsAlive || u.Exhausted || u.IsStunned) continue;
-
-                for (int t = 0; t < BoardSpec.Size; t++)
+                for (int ti = 0; ti < tgtOrder.Count; ti++)
                 {
-                    if (foeBoard[t] == null) continue;
+                    int t = tgtOrder[ti]; if (foeBoard[t] == null) continue;
                     for (int r = 0; r <= 1; r++)
                     {
                         bool ranged = r == 1;
@@ -2223,6 +2223,38 @@ namespace RuleEngine
             return a.AltKeyword == AltActiveAbility
                  ? RuleCore.UseActiveAbility(ctx, me, a.Slot, tgt)
                  : RuleCore.UseAbility(ctx, me, a.Slot, tgt);
+        }
+
+        // ── ⑬ **AI 选靶的枚举次序**（🆕 2026-10-29 · `B97_AI`）────────────────────────────────
+        //  原版 AI 那条路的攻击者与目标**都按 `unitsInPlay` 的【进场追加序】正序**枚举，不是格号序：
+        //    · 攻击者：`BattleManager__GetAvailableActions.c:132` → `GetUnitsInPlayList(manager, 0x570, …)`
+        //      → `BattleManager__GetUnitsInPlayPooledList.c`（`0x470` **从下标 0 往大扫**）
+        //      → 逐个单位调 `GetAvailableAttackActions`；
+        //    · 目标：`BattleManager__GetAvailableAttackActions.c` 里的目标表 `0x580` 同样是
+        //      `0x470` **正序**过滤出来的（`iVar7 = 0` 起）。
+        //  ⇒ 本引擎的等价物 = `UnitState.PlayOrder` 升序（没取号 `-1` 排末尾，与 `ValidTargetSlots` 同口径）。
+        //
+        //  🔴 **⛔ 别把这里换成 `BattleManager.GetAvailableAttackTargets` 那一口**：那个函数**是倒序**
+        //     （`.c:23-33` `iVar1 = count; iVar1--`），但**原版 AI 不用它** —— 三源（`decomp_full` /
+        //     `out_cpp2il_dev_ilspy` / `out_il2csharp`）现扫，它的调用方只有 `EndTurnClick`
+        //     （狂暴提示的 UI 检查）与 `GetRandomAttackTarget`（**三源 0 调用方** = 死代码）。
+        //     ⇒ 它服务的不是 AI 决策，`RuleCore.AvailableAttackTargetsDesc` 也**不该**被 AI 转调。
+        //     （判据订正：`报告/B97_RC.md` §七·2 那句「AI 选靶…原版走 `GetAvailableAttackTargets`」不成立。）
+        //
+        //  ⚠️ 放在文件末尾（类尾）是**故意的**：本文件被账按 `文件:行号` 引用 50+ 处，
+        //     往中间插行 = 一片漂移（同 `AltActiveAbility` 那条的理由）。
+
+        /// <summary>把棋盘上的**非空格号**按原版 `unitsInPlay` 的进场追加序（= `UnitState.PlayOrder` 升序）排出来。
+        /// <para>判据与「为什么不是格号序」→ 本段上面的长注释。`-1`（夹具 / 合成单位，没有进场号）排末尾，
+        /// 与 <see cref="RuleCore.ValidTargetSlots"/> / `PlayerState.UnitsByPlayOrder()` 同口径。</para></summary>
+        static List<int> PlayOrderedSlots(UnitState[] board)
+        {
+            var slots = new List<int>(BoardSpec.Size);
+            if (board == null) return slots;
+            for (int s = 0; s < BoardSpec.Size && s < board.Length; s++)
+                if (board[s] != null) slots.Add(s);
+            RuleCore.StableSortByPlayOrder(slots, s => board[s].PlayOrder);
+            return slots;
         }
     }
 }

@@ -507,7 +507,16 @@ namespace CardPresentation
             MenuDraw.Rect(pn, CardArt.Solid(), ProgressRect(298.68f, 654.07f, 26.48f, 368.42f),
                           "Fill Area", QArt1, new Color(1f, 0.228f, 0.0142f, 0f));   // 进度 = 0 ⇒ alpha 0
 
+            // 🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:430`）：原版 `MilestoneScoreBar.progressBar` 就挂在这颗
+            //   `Progress Bar` 上（判据 = `menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow"` 现读：
+            //   `Scoring Bar Event Score Info` 的组件 = `MilestoneScoreBar`（字段 `progressBar,scoringLines`）·
+            //   `Progress Bar` 的组件 = **`Slider`** · 5 行 `Score Bar Line Level k` 的组件 = `GenericScoreBarLine`）。
+            //   本工程的渲染线**不画 uGUI 滑块** ⇒ 这颗 `Slider` 只承载 `maxValue / normalizedValue`
+            //   （原版 `SetProgressBar` 写的就是这两格），⛔ 别指望它把 Fill 画出来（Fill 仍由上面那颗 quad 表示）。
+            var barSlider = pn.gameObject.AddComponent<UnityEngine.UI.Slider>();
+
             BuildMilestones(bar);
+            WireScoreBar(bar, barSlider);
         }
 
         /// <summary>5 个里程碑（`Score Bar Line Level 1..5`）：左→右 = 分数 · 骷髅标记 · 竖条 · 箱子。
@@ -522,6 +531,7 @@ namespace CardPresentation
         /// ⚠️ `Highlight Crate` 仍是「哪一档都不亮」（`readyToCollect` 由活动数据定），那一条**保留**。</para></summary>
         void BuildMilestones(Transform bar)
         {
+            _scoreLines.Clear();                    // 每次建树重建组件表（⛔ 别让上一次开窗的悬空组件留在表里）
             var levels = MenuDraw.Node(bar, "Score Levels",
                                        ScoreRect(299f, LevelCy1 - LevelStep * 2f, 100f, 0f));
             for (int i = 0; i < 5; i++)
@@ -530,16 +540,16 @@ namespace CardPresentation
                 float cy = ScoreLevelRowCy(i);
                 var rowR = ScoreRect((LevelX1 + LevelX2) * 0.5f, cy, LevelX2 - LevelX1, LevelRowH);
                 var row = MenuDraw.Node(levels, "Score Bar Line Level " + (i + 1), rowR);
-                MenuDraw.Rect(row, Tex("Rank_Skull"),
+                var skullQ = MenuDraw.Rect(row, Tex("Rank_Skull"),
                               ScoreRect(299f + SkullDx, cy, SkullSide * ChestScale, SkullSide * ChestScale),
                               "Skull", QArt, null, true);
-                MenuDraw.Rect(row, Tex(CrateArt[i]),
+                var chestQ = MenuDraw.Rect(row, Tex(CrateArt[i]),
                               ScoreRect(299f + ChestDx, cy, ChestW * ChestScale, ChestH * ChestScale),
                               "Chest", QArt, null, true);
                 //   `Highlight Crate`（`Crate Border Highlight` 金色 + `UIBorderGlow`）—— 原版是**在「可领取」时**才点亮那一档。
                 //   ⚠️ **实读的字段是 col(0.98,0.801,0.0588,1)**（不透明）——
                 //   **我们按「没有活动数据 ⇒ 哪一档都不亮」画 alpha 0，这一条是我们挑的**（不是原版字段值）。
-                MenuDraw.Rect(row, Tex("Crate_Border_Highlight"),
+                var hiQ = MenuDraw.Rect(row, Tex("Crate_Border_Highlight"),
                               ScoreRect(299f + HiCrateDx, cy + HiCrateDy, HiCrateW * HiCrateScale, HiCrateH * HiCrateScale),
                               "Highlight Crate", QArt1, new Color(0.98f, 0.801f, 0.0588f, 0f));
                 // 🆕 **2026-10-17（A1221）**：`Score`（原版 `…/Skull/Score`）。判据（同文末命令现读）：
@@ -551,6 +561,14 @@ namespace CardPresentation
                                        48f * ScoreFontScale, QText, sr.W,
                                        18f * ScoreFontScale, 48f * ScoreFontScale, 36f * ScoreFontScale, face: TmpFont.Face.LatinCardBody);
                 MenuDraw.AlignRight(sc, sr);           // 原版 `Right/Midline`（折行 1 ⇒ ⛔ 不补 SetWrapping(false)）
+                // 🆕 2026-10-29（`B97_MINI2` · 账 430）：这一行就是原版那颗 `GenericScoreBarLine`
+                //   （prefab 现读：`Score Bar Line Level k` 挂它，字段 `score/chestReward/chestOpen/readyToCollect/resourceIcon`
+                //    正好指向 `Score` / `Chest` / 出厂开箱图 / `Highlight Crate` / `Skull` 这五件）。
+                //   ⇒ 组件挂上去、把**已经建好的这五件**绑给它（几何/颜色/父子链一个像素都没动）。
+                var line = row.gameObject.AddComponent<CardPresentation.ScoreBars.GenericScoreBarLine>();
+                line.Bind(sc, chestQ, Tex(CrateArt[i] + "_open"),
+                          hiQ != null ? hiQ.gameObject : null, skullQ);
+                _scoreLines.Add(line);
             }
 
             // 🆕 **2026-10-17（界面线 `N37②`）：文字走官方词条** —— `Button Text` 那颗挂了 `Localize`，
@@ -959,6 +977,42 @@ namespace CardPresentation
             for (int i = 0; i < st.Length; i++)
                 st[i] = currentScore < milestoneScores[i] ? 0 : (i < collectedRewards ? 2 : 1);
             return st;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:430`）—— **`MilestoneScoreBar` 组件接线**。
+        //  **追加在类尾**（⛔ 中段加行会让账按 `文件:行号` 的落点整体漂移）。
+        //  判据：原版这扇窗的 `Scoring Bar Event Score Info` 挂的就是 `MilestoneScoreBar`
+        //  （`progressBar` = `Progress Bar` 上那颗 `Slider`；`scoringLines` = 5 行 `GenericScoreBarLine`），
+        //  数据由 `MilestoneScoreBar.Initialize(currentScore, GenericScoringMilestone[], icon)` 灌。
+        // ================================================================================================
+
+        /// <summary>本窗建出来的 5 行组件（`scoringLines` 那一格）。</summary>
+        readonly System.Collections.Generic.List<CardPresentation.ScoreBars.GenericScoreBarLine> _scoreLines
+            = new System.Collections.Generic.List<CardPresentation.ScoreBars.GenericScoreBarLine>();
+        CardPresentation.ScoreBars.MilestoneScoreBar _scoreBar;
+        UnityEngine.UI.Slider _scoreSlider;
+
+        /// <summary>自检读口：本窗的 `MilestoneScoreBar`（没建 ⇒ null）。</summary>
+        public CardPresentation.ScoreBars.MilestoneScoreBar ScoreBarForTest { get { return _scoreBar; } }
+        /// <summary>自检读口：`progressBar` 那一格（`Progress Bar` 上的 `Slider`）。</summary>
+        public UnityEngine.UI.Slider ScoreBarSliderForTest { get { return _scoreSlider; } }
+
+        /// <summary>把 `MilestoneScoreBar` 挂到已经建好的记分条上，并喂**本地模拟表**（见 `Shell/MilestoneLocalSimulation.cs`）。
+        /// <para>🔴 这一步**不建任何新节点** —— 行/箱子/骷髅/高亮/分数全是 `BuildMilestones` 已经按 prefab 逐值建好的那五件，
+        /// 这里只是把 `<see cref="CardPresentation.ScoreBars.GenericScoreBarLine"/>` 绑上去，再由
+        /// `MilestoneScoreBar.Initialize` 按原版写一遍（`score.text` / 箱子图 / 高亮开关 / 进度条两格）。</para>
+        /// <para>⚠️ 模拟表的取值口径 = **镜像 prefab 出厂态** ⇒ 这一步**不改变任何可见像素**
+        /// （`score` = `1256` 与出厂 TMP 原文同字、`state = Unlocked` 与出厂「高亮亮着」同态、`currentScore = 0` ⇒ 进度 0）。
+        /// ⛔ 真数据到齐时把这里换成服务端那份 `GenericScoringMilestone[]` 即可。</para></summary>
+        void WireScoreBar(Transform bar, UnityEngine.UI.Slider slider)
+        {
+            _scoreSlider = slider;
+            _scoreBar = bar.gameObject.AddComponent<CardPresentation.ScoreBars.MilestoneScoreBar>();
+            _scoreBar.Bind(slider, _scoreLines.ToArray());
+            CardPresentation.ScoreBars.MilestoneLocalSimulation.LogOnce("Event");
+            _scoreBar.Initialize(CardPresentation.ScoreBars.MilestoneLocalSimulation.CurrentScore,
+                                 CardPresentation.ScoreBars.MilestoneLocalSimulation.CreateTable(), null);
         }
     }
 }

@@ -204,5 +204,47 @@ namespace CardPresentation.ScoreBars
             var tex = CardArt.MenuUi(art);
             return tex != null ? tex : CardArt.Ui(art);
         }
+
+        // ============================================================ 🆕 2026-10-29（B97_W2）：宿主接线口
+        // 🔴 纪律：追加在**类尾**（本文件被账按行号引用 `:103` / `:172` ⇒ 插中间会让下游行号整体漂移）。
+
+        /// <summary>把宿主**已经建好**的三件绑进来（⛔ 不重建、不改几何）。
+        /// <para>为什么需要它：`FactionScoreSmall` / `FactionScoreBig` 的三件几何**逐实例不同**（同一份 `Small`
+        /// 在三个宿主里三套宽度、`Big` 的 `#1..#4` 各自被覆盖 —— 见 <see cref="SmallSize"/> 的注释与
+        /// `资料/完全复刻/报告/B94_B17.md` §五那张表），而 <see cref="Create"/> 只能给「**出厂那一份**」；
+        /// 宿主（`RankedTab.BuildRow`）按**自己那份**建好三件之后用本方法交进来 ⇒
+        /// <see cref="Initialize"/> 才是原版那三句的唯一实现（原版这三件本来就是 prefab 的序列化字段）。</para>
+        /// <para>⚠️ `null` 是允许的（那一半跳过并出声）—— ⛔ 别拿 `Create` 再建一份来「补」。</para></summary>
+        public void Bind(ImageQuad icon, AllianceRatingDisplay rating, AllianceRatingDisplay highest)
+        {
+            factionImage = icon;
+            ratingDisplay = rating;
+            highestRatingDisplay = highest;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：**没有分数**那一档的接入口。
+        /// <para>为什么必须自己定：原版 `Initialize(int, int, int)` 只吃真分数 —— 分数由**服务器**下发
+        /// （关服 ⇒ 判据在远端、本地恒 `null`），而「`AllFactions` 一行都不建」又是可观测的功能缺失
+        /// ⇒ 用 `null` 表达「没有数据」，落到原版那颗 `AllianceRatingDisplay` 自己的空态串
+        /// <paramref name="emptyText"/>（= `RankedTab.ScoreEmpty` 的 `------`）。
+        /// 这是铁律 18·0 的「**与服务器有关**」例外；调度台 2026-10-29 裁定（`B97_W2`）。</para>
+        /// <para>**有值没值都先走 <see cref="Initialize"/>**（那才是原版三句的唯一实现），没值的那颗再把文本改回空态串
+        /// —— 原版「没有分数时会印什么」本地**永远不可观测**（那几行只由服务器数据驱动），⛔ 别把它当成原版判据。</para></summary>
+        public void InitializeOrEmpty(CardArmy faction, int? currentScore, int? highestScore, string emptyText)
+        {
+            Initialize(faction, currentScore ?? 0, highestScore ?? 0);
+            if (!currentScore.HasValue) ResetToEmpty(ratingDisplay, emptyText);
+            if (!highestScore.HasValue) ResetToEmpty(highestRatingDisplay, emptyText);
+        }
+
+        /// <summary><see cref="InitializeOrEmpty"/> 的「改回空态串」那半步
+        /// （`AllianceRatingDisplay.Initialize` 只会写 `value.ToString()`，⛔ 别去改它的签名 —— 那是照 `dump.cs` 的）。
+        /// ⚠️ 只写宿主建的那颗 `Label`（<see cref="AllianceRatingDisplay.RatingText"/>），⛔ 不碰结构。</summary>
+        static void ResetToEmpty(AllianceRatingDisplay d, string emptyText)
+        {
+            if (d == null) return;
+            var t = d.RatingText;
+            if (t != null) t.SetText(emptyText ?? "");
+        }
     }
 }

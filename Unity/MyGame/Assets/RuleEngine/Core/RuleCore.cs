@@ -1493,11 +1493,11 @@ namespace RuleEngine
             //    ⚠️ 敌方 = `1 - p` —— 由下面那个整表口内部现算，⛔ 别在这里再存一份
             bool ranged = CurrentAttackIsRanged(ctx, p, atkSlot);
             if (CanAttackNow(ctx, p, atkSlot, ranged) != RuleCodes.OK) return false;
-            // 🔴 2026-10-29（`B95_WRC` · 账 1248）：整表枚举收口到类尾的 `ValidTargetSlots`
-            //    （判据 = `RawCardScript__GetValidTargets.c:1-51` 全文：`unitsInPlay` 逐候选调 `IsValidTarget`）。
-            //    下面这两行替代了原来内联的 6 行 `for` 循环 —— **逐字节等价**：同一个 `IsValidTarget`、
-            //    同样「敌方格号升序」、同样一命中即真。⛔ 别改回内联循环（两处写同一判据 = 迟早不一致）。
-            var hits = ValidTargetSlots(ctx, p, atkSlot, ranged);
+            // 🔴 2026-10-29（`B97_RC`）：本方法判的就是「原版 `GetAvailableAttackTargets` 非空」
+            //    ⇒ 改用那个口的等价物 `AvailableAttackTargetsDesc`（**倒序**枚举，`.c:23-33`；判据见它的 doc）。
+            //    只取 `Count` ⇒ 与次序无关、与改前的 `ValidTargetSlots` **结果集逐字节相同**（同一个 `IsValidTarget`）。
+            //    ⛔ 别在这里改成 `ValidTargetSlots`：那个口是 `GetValidTargets`（正序），与本方法**不是一个原版函数**。
+            var hits = AvailableAttackTargetsDesc(ctx, p, atkSlot, ranged);
             return hits.Count > 0;   // ⚠️ 平手判定**不用**这张表（`ResolveBerzerkAttacks` 的 `sc > bestScore` 依赖「格号最小先到」）；行数守恒 = 本方法仍 12 行、下游落点零漂移
         }
 
@@ -1509,7 +1509,7 @@ namespace RuleEngine
         /// 目标选择**与原版同一条评分**（`AI.SelectBestAttackAction` → `AI.GetActionScore` 的攻击支）——
         /// 2026-10-23（`W64·B-01`）起经 <see cref="AiScorerHook"/> 调 `Data/SimpleAI` 里那一份实现；
         /// 之前这里是「同族判据的最小版」，**与原版不等价**（不扣反击风险、不加关键词分）。
-        /// 钩子没装时（只有不编 `Data/` 的探针）才回退到那一版，判据见 <see cref="ScoreBerzerkCandidate"/>。
+        /// 钩子没装时（只有不编 `Data/` 的探针）才回退到那一版，判据见 <see cref="ScoreBerzerkCandidate"/>。🔴 **候选枚举次序 = 原版 `unitsInPlay` 正序（`PlayOrder` 升序）、平手取最先出现的那张**（2026-10-29 `B97_RC2` 现读确证，⛔ 别再猜）：`ResolveEndTurn.c:64` → `AI.SelectBestAttackAction.c:25` → `GetAvailableActions.c` 内 `GetAvailableAttackActions(bm, 攻方, 0)` → 该函数 `.c:100-146` **正序**扫 `mgr+0x470` 建 `0x538`/`0x580`、`.c:148-190` 又**正序**逐格建动作；`SelectBestAction.c:70` 是严格 `>`。⚠️ **⛔ 别拿 `BattleManager.GetAvailableAttackTargets` 的【倒序】顶这一格**：那个函数只被 `EndTurnClick.c:78`（教学指针）与 `GetRandomAttackTarget.c:15` 调用，**不在 berzerk 这条链上**。
         /// 打不出目标（`IsValidTarget` 全挡掉：Stealth / Vanguard / 攻击者自己的禁攻关键词 …）⇒ 出声跳过
         /// （原版也是 `AI.SelectBestAttackAction` 返回 null 时 `LogWarning` + 跳过）。
         /// ⚠️ 2026-10-23 就地订正：这里原来还写了「**距离**挡掉」—— 本引擎/原版都**没有攻击距离**
@@ -1547,11 +1547,11 @@ namespace RuleEngine
                     int atk = FieldAttack(ctx, me, u0, ranged);
                     if (atk > 0)
                     {
-                        for (int t = 0; t < BoardSpec.Size; t++)
+                        var cands = ValidTargetSlots(ctx, me, s2, ranged);   // 次序 = 原版 `unitsInPlay` 正序（见方法头那段判据）；集合与判定同一份
+                        foreach (var (side, t) in cands)
                         {
-                            var target = ctx.Players[foe].Board[t];
-                            if (target == null) continue;
-                            if (IsValidTarget(ctx, me, s2, foe, t, ranged) != RuleCodes.OK) continue;
+                            var target = ctx.Players[side].Board[t];
+                            if (target == null) continue;   // 兜底（`ValidTargetSlots` 只收非空格）—— 不静默
 
                             // 目标打分 = **原版那一份**（2026-10-23 `W64·B-01` 接线）：
                             //   原版 `BattleManager__ResolveEndTurn.c:44-59` 走 `AI.SelectBestAttackAction`（`:59` 那一句）
@@ -1911,18 +1911,18 @@ namespace RuleEngine
             //  ⚠️ 原来的 `RevealAmbush(ctx, ctx.Active)` 调用与那个方法**已按此删除**。
 
             // 「直到你的下个回合」的限时增益，在**施放者自己的回合开始时**撤（`rule_core.gd:3019`，旁证）。两边场上都要扫 —— buff 可能在对方单位身上（`give -1 attack to an enemy`）。🔴 **2026-10-28（批次 91 · `W1` · 账 L815/L816）：第二到期档「对面回合撤」的【扫场这一半就在这里】—— 契约 = `UnitState.RevertBuffs(atTurnEnd:false, player)` 里两档一起判（`UntilMyNextTurn && Owner == player` ＋ `UntilOpponentNextTurn && Owner != player`）⇒ 本处**不需要**第二条调用；⛔ 别在 RuleCore 里再补一个「对面回合」的扫场（那会让同一批 buffers 被撤两遍）
-            int reverted = 0;
-            for (int pl = 0; pl < 2; pl++)
-                for (int s = 0; s < BoardSpec.Size; s++)
-                {
-                    var u2 = ctx.Players[pl].Board[s];
-                    if (u2 != null) reverted += u2.RevertBuffs(false, ctx.Active);
-                }
-            if (reverted > 0) ctx.Log($"（{reverted} 条「直到你下个回合」的增益到期）");
+            int reverted = EnqueueTurnSetupEffectRemovals(ctx, ctx.Active);   // 🔴 2026-10-29（`B97_RC` · 账 816 · 结构差 #62）：**逐条入队**，不再整批 `RevertBuffs`
+            //   判据 = `CardScript__OnTurnSetup.c:21-102`（正序扫 `activeEffects`：`+0x33` 施放者==本回合方、
+            //   `+0x34` 本回合方!=施放者 ⇒ 各 `SendRemoveEffect(effect, globalVars+0xb8)`；`+0xb8` = `instantPriority`
+            //   ⇒ lane = `ActionPriority.Instant`）。与 `EndTurn` 那条（`EnqueueEndOfTurnEffectRemovals`，账 722）同一条修法。
+            //   ⚠️ **只换「撤的时机/形状」，撤除规则仍是 `UnitState.RemoveTempBuff` 一份**（铁律 6）；
+            //     到期谓词与 `UnitState.RevertBuffs(atTurnEnd:false, player)` 同式、逐字复制 ——
+            //     那个文件本轮不在白名单 ⇒ 没能收成一处；⛔ 改任一侧都要同步另一侧。
+            if (reverted > 0) ctx.Log($"（{reverted} 条「直到你下个回合」的增益到期 ⇒ 已逐条入队摘除动作）");
 
             // ---- 失明到期（卡面写 `until your next turn`）----
             //      **在施放者自己的下一个回合开始时清**，和「直到你的下个回合」的限时增益同一个口径
-            //      （那一条就在上面几行 `RevertBuffs(false, ctx.Active)`）。
+            //      （那一条就是上面那次 `EnqueueTurnSetupEffectRemovals`）。
             //      结果：卡在**对手的整个回合**里都还有效 —— 那正是这张牌的用处。
             //      ⚠️ 原版这条清除读的是 `blind_turn`、写的是 `blind_turn_end`（字段名对不上），
             //         所以原版实际表现为**永不恢复**。我们按卡面语义实现，不照抄那个笔误。
@@ -4835,7 +4835,7 @@ namespace RuleEngine
                 //   （`_ResolveSummonUnit_d__510__MoveNext.c:179-183` ·
                 //     `_ResolveCardAutoSummoned_d__511__MoveNext.c:284`）。
                 unit.PlayOrder = ctx.TakePlayOrder();
-                ps.Board[dst] = unit; unit.SetOwnerSeat(owner);   // 【B94_B22 2026-10-29 · B24 接线 A3】免费部署也写座位
+                ps.Board[dst] = unit; unit.SetOwnerSeat(owner); if (deploySource != DeploySource.Reanimate && PlaysFaceDown(card)) { unit.FaceDown = true; ctx.Log($"{unit.Name} **面朝下**落在 {dst} 号格（伏击）—— 原版 _ResolveCardAutoSummoned_d__511:166-170 与 _ResolveSummonUnit_d__510:95 的 HasCurrentTrait(ambush) ⇒ SetAmbush(true)；再造那条链没有这一跳"); }   // 【B94_B22 2026-10-29 · B24 接线 A3】免费部署也写座位 ＋ 🔴 2026-10-29（`B97_RC` · 账 500 · 审查 #4）补 ambush ⇒ FaceDown
                 // 🔴 **2026-10-19（`A1571`）：`autoPlayFromHand` 那一档要兑现【手牌加成】。**
                 //   判据 = `_ResolveCardAutoSummoned_d__511__MoveNext.c` 末尾的
                 //   `PlayerHand.CardPlayedWithEffects(hand, CardScript.GetCopyOfCardEffects(card))` ——
@@ -6806,14 +6806,14 @@ namespace RuleEngine
                 //  —— 那读的是**已登记的待结算伤害**：原版在 `:831 RecordAttackPendingDamage`
                 //  就把这一下攻击的全部伤害（**含反击**）登记好了、`:856 ResolveAttackDamage` 再广播一次
                 //  ⇒ 走到 `:988` 时「反击会不会打死我」**已经在表里**。
-                //  我们逐段结算、没有那张表 ⇒ 用同一条公式（`DamageAfterReduction`，纯函数、
-                //  与 `Hurt` 共用同一份）**预测**反击那一下。
-                //  ⚠️ `DamageAfterReduction` 判「会打死」是保守的（见它的注释）⇒ 最多少触发一次
-                //  Strike；⛔ 不会多触发 —— 这一条正好保住移块之前的行为（那时用「打完还活着」当闸门）。
-                bool targetWillDieFromThis = targetDied || DamageAfterReduction(target, atk) >= target.Health;
+                //  我们逐段结算、没有那张表 ⇒ 拿**同一条判死口径**（`WouldKillByEntries`：护甲/盾/闪避/
+                //  无敌/幸存者/堡垒/空投舱七档）**预测**反击那一下（2026-10-29 `B97_RC` · 账 476）。
+                //  🔴 **2026-10-29（`B97_RC` · 结构差 #30）改**：原来用 `DamageAfterReduction(attacker, 反击)
+                //  >= Health` —— 漏掉幸存者/堡垒/空投舱三档 ⇒ **静默少触发一次** Strike；现换 `WouldKillByEntries`。
+                bool targetWillDieFromThis = targetDied || WouldKillByEntries(target, new[] { atk });   // 🔴 2026-10-29（`B97_RC2` · 结构差 #30 的「守方那一半」）：原版这一格读的是 `EnoughPendingDamageToDie(守方)`（待结算量口径），改前用 `DamageAfterReduction >= Health` ⇒ 漏 幸存者/堡垒/空投舱 三档；现换同族判死口径 `WouldKillByEntries`（= `…WithDamageValues` 的等价物）
                 bool noCounterEarly = CounterAttack.NoCounter(ctx, p, attacker, tgtP, target, ranged, targetWillDieFromThis);
                 bool attackerDiesFromPending = !noCounterEarly && counterAtk > 0
-                                               && DamageAfterReduction(attacker, counterAtk) >= attacker.Health;
+                                               && WouldKillByEntries(attacker, new[] { counterAtk });
 
                 // ---- **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
                 //   卡面：`Destroy any troop attacked by this unit`（`Venomthrope`）·
@@ -9878,7 +9878,7 @@ namespace RuleEngine
                     //   **看不出有 Remove+Add 一趟**；但我们**没有**逐机器码坐实「它仍在表里原位」。
                     //   ⇒ 先按「沿用原号」实现（原号位置 = 翻面前的位置），待核缺口记在
                     //   `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §七。
-                    PlayOrder = u.PlayOrder, DeployedTurn = u.DeployedTurn,   // 🔴 2026-10-29（B95_WRE 批 3 · **独立于次序重排，单独归因**）：`DeployedTurn` 必须跟着搬 —— 原版残骸是**同一个 `CardScript` 对象**（`TransformIntoRemnant` 只改状态位），`turnPlayed(+0x30c)` **原样保留**（`ResetToValuesInHand.c` 也不碰它）；我们新造 `UnitState` ⇒ 原来回落 `-1` ⇒「本回合上场 → 变残骸 → 复活回单位」这一族 `IsTheSameTurnPlayed` 为**假** ⇒ 誓约能力被 `:11752` 的 `u.DeployedTurn != ctx.Turn` 挡掉。⛔ 别改 `UnitState.DeployedTurn` 的默认值（`-1` 是对的，只搬不清）
+                    PlayOrder = u.PlayOrder, DeployedTurn = u.DeployedTurn, AttacksThisTurn = u.AttacksThisTurn, SummonSickness = u.SummonSickness,   // 🔴 2026-10-29（第九十六会话 · 指纹归因 `B97_指纹17卡归因.md`）：`AttacksThisTurn`/`SummonSickness` **也必须搬** —— 原版残骸是**同一个 `CardScript`**（`TransformIntoRemnant.c` 只写 `+0x65=1`、抄数值、`RemoveTraitSilently`，**不碰 `+0x228`(cardState) 也不碰 `+0x48`/`+0x58`**）；而 `ActivateMinion.c:18-42` 每个动作后重算 `canAct` 时读的正是这两个字段 ⇒ 不搬则残骸被算成 `canAct=true`（旧账的 `Exhausted=true` 被冲掉）。⛔ **别改成「按 cardState==2 跳过残骸」**——原版残骸 cardState 仍是 2，跳过会与原版相反｜🔴 2026-10-29（B95_WRE 批 3 · **独立于次序重排，单独归因**）：`DeployedTurn` 必须跟着搬 —— 原版残骸是**同一个 `CardScript` 对象**（`TransformIntoRemnant` 只改状态位），`turnPlayed(+0x30c)` **原样保留**（`ResetToValuesInHand.c` 也不碰它）；我们新造 `UnitState` ⇒ 原来回落 `-1` ⇒「本回合上场 → 变残骸 → 复活回单位」这一族 `IsTheSameTurnPlayed` 为**假** ⇒ 誓约能力被 `:11752` 的 `u.DeployedTurn != ctx.Turn` 挡掉。⛔ 别改 `UnitState.DeployedTurn` 的默认值（`-1` 是对的，只搬不清）
                     AttackBase = 0, RangedAttackBase = 0,
                     Health = 1, MaxHealthBase = 1,      // 挨任何一下就没（规则书：受伤害即被摧毁）
                     Exhausted = true,                   // 残骸不能行动
@@ -17110,20 +17110,20 @@ namespace RuleEngine
         //   的逐目标循环、`DeclareAttackCore` 的出手校验、续攻复检）。本口把「同一份判据」
         //   收成一处，供需要整表的调用方转调。
         //
-        // ⚠️ **枚举次序如实标注（⛔ 别在这里改成原版的 `unitsInPlay` 追加序）**：
-        //   原版走的是 `unitsInPlay` 的**进场追加序**；我们的棋盘是「连续无洞」格号模型
-        //   （`BoardSpec.Size` = 8），既有四个调用方**一律按敌方格号升序**遍历。
-        //   ⇒ 本口也按**敌方格号升序**，好处是「转调前后逐字节等价」。
-        //   🔴 **一旦有人要用这张表做「平手提第一个」的决策（`ResolveBerzerkAttacks` 的
-        //   `sc > bestScore` 就是这种），⛔ 不能直接把本口换进去** —— 那会把平手判定从
-        //   「格号最小」改成「进场最晚」，是**行为级**差异（`play all dump` 会变）。
+        // ✅ **2026-10-29（`B97_RC` · 账 1248 · 结构差 #91）：枚举次序已改成原版的 `unitsInPlay` 进场追加序** ——
+        //   原版 `RawCardScript__GetValidTargets.c:26-45` 遍历 `mgr+0x470`（按进场追加序），
+        //   我们的等价物 = `UnitState.PlayOrder` 升序（`StableSortByPlayOrder`；没取号的排末尾）。
+        //   ⚠️ 改前是「敌方格号升序」⇒ 凡「平手提第一个」的决策（`ResolveBerzerkAttacks` 的 `sc > bestScore`）
+        //   会选到**另一张** —— 那是**行为级**差异（`play all dump` 会变），属 2026-10-29 重钉基线的输入。
+        //   🔴 **`BattleManager.GetAvailableAttackTargets` 是【倒序】枚举**（`.c:24-33` `iVar1 = count; iVar1--`），
+        //   与本节**不是同一个轴** ⇒ 那个口单列在类尾 `AvailableAttackTargetsDesc`，⛔ 别把两者混用。
         //
         // ⚠️ **同侧不会出现在结果里**：`IsValidTarget` 自己有一句 `if (tgtP == p) return ErrSelf`
         //   ⇒ 原版「双方一个列表里筛」与我们「只遍历敌方」**结果集相同**（如实记，不是近似）。
 
         /// <summary>
         /// **这一格攻击者此刻的「全部合法攻击目标」** —— 原版 `RawCardScript.GetValidTargets`（判据见上）。
-        /// 按敌方格号升序（⚠️ 次序口径与差异见上面那段注释，⛔ 别拿去判平手）。
+        /// **按原版 `unitsInPlay` 的进场追加序**（= `PlayOrder` 升序；判据见上面那段注释）。
         /// </summary>
         /// <returns>合法目标 `(side, slot)` 列表（可能为空，**不返回 null**）。</returns>
         public static List<(int side, int slot)> ValidTargetSlots(BattleContext ctx, int p, int atkSlot,
@@ -17136,14 +17136,106 @@ namespace RuleEngine
             int foe = 1 - p;
             var foeBoard = ctx.Players[foe].Board;
             if (foeBoard == null) return res;
+            // 原版遍历 `unitsInPlay`（进场追加序）⇒ 先把敌方非空格按 `PlayOrder` 升序排出来，再逐格判合法性
+            var order = new List<int>(BoardSpec.Size);
             for (int t = 0; t < BoardSpec.Size; t++)
+                if (foeBoard[t] != null) order.Add(t);
+            StableSortByPlayOrder(order, t => foeBoard[t].PlayOrder);
+            foreach (int t in order)
             {
-                if (foeBoard[t] == null) continue;
                 if (IsValidTarget(ctx, p, atkSlot, foe, t, ranged, allowAutoActions,
                                   isCheckingDestroyerTargets) == RuleCodes.OK)
                     res.Add((foe, t));
             }
             return res;
+        }
+
+        /// <summary>
+        /// **原版 `BattleManager.GetAvailableAttackTargets(manager, attacker)`** —— 随机 / AI 选靶用的「合法攻击目标表」
+        /// （判据 `decomp_full/BattleManager__GetAvailableAttackTargets.c:1-46` 全文现读）。
+        ///
+        /// <para>🔴 **它是【倒序】枚举**（`.c:23-33`：`iVar1 = *(int *)(list + 0x18); do { iVar1--; …
+        /// get_Item(list, iVar1) … } while (…);` = 从 `unitsInPlay` 的**末尾往前**取），
+        /// 与本文件 <see cref="ValidTargetSlots"/> 的**正序**（`RawCardScript.GetValidTargets`）**不是同一个轴**
+        /// ⇒ ⛔ 别把两者合并 / 互相顶替（2026-10-29 `B97_STRUCT30` §三·9c 的顺手发现）。</para>
+        ///
+        /// <para>本口 = 把 <see cref="ValidTargetSlots"/> 的产出**取逆**（同一份 `IsValidTarget` 判定、
+        /// 同一批目标，只是次序反过来）。⚠️ 原版这两个函数其实用的是**两个不同的校验器**
+        /// （`RawCardScript` 的虚方法 `+0x318` vs `BattleManager.IsValidAttackTarget`），而在本引擎它们落在同一处
+        /// `IsValidTarget`（`RuleCore.cs:5392`，它就是 `IsValidAttackTarget` 的等价物）⇒ 共用一份判据是对的。
+        /// 原版那条的 `attType` 实参传 0 ⇒ 按**当前攻击型**，故 `ranged` 由调用方算好传进来（与 `HasAnyValidAttackTarget` 同一口径）。</para>
+        ///
+        /// <para>⚠️ **今天的消费者**只有 <see cref="HasAnyValidAttackTarget"/>（只取 `Count`，与次序无关）。
+        /// 「AI / 随机真的按这张表的**次序**挑」那一侧在 `RuleEngine/Data/SimpleAI`（本轮不在白名单）
+        /// ⇒ **待接线**：接的时候照抄「倒序」，⛔ 别顺手换成 `ValidTargetSlots`。</para>
+        /// </summary>
+        /// <returns>合法攻击目标 `(side, slot)` 列表（**倒序**：进场最晚的在前；可能为空，不返回 null）。</returns>
+        public static List<(int side, int slot)> AvailableAttackTargetsDesc(BattleContext ctx, int p, int atkSlot,
+                                                                           bool ranged)
+        {
+            // 集合与正序口**同一份判据**（`IsValidTarget`）、只是**次序取逆** —— 原版那两个函数各自遍历
+            // `unitsInPlay`（一个正序一个倒序），我们把「挑谁合法」收在 `ValidTargetSlots` 一处（铁律 6），
+            // 这里只负责把次序翻过来（⛔ 别再抄一遍排序 + 判定）。
+            var res = ValidTargetSlots(ctx, p, atkSlot, ranged);
+            res.Reverse();
+            return res;
+        }
+
+        /// <summary>
+        /// **原版 `CardScript.OnTurnSetup` 的两档「到期撤」** —— 与 <see cref="EnqueueEndOfTurnEffectRemovals"/>
+        /// （账 722 的回合末版）**同一条修法**：**每条到期 effect 各入队一条摘除动作**，而不是整批当场撤。
+        /// （2026-10-29 `B97_RC` · 账 816 · 结构差 #62。）
+        ///
+        /// <para>判据（`decomp_full/CardScript__OnTurnSetup.c:21-102` 现读）：正序扫 `activeEffects(+0x108)` ——
+        /// `+0x33` 为真且「施放者 == 本回合方」⇒ `SendRemoveEffect(effect, globalVars+0xb8)`；
+        /// `+0x34` 为真且「本回合方 != 施放者」⇒ 同上；`+0x35` ⇒ `+0x35 = 0; +0x32 = 1`（转成回合末到期，
+        /// 那一档在 `UnitState` 的 `due` 里已经等价，不归本方法）。</para>
+        ///
+        /// <para>⚠️ `globalVars + 0xb8` = **`instantPriority`**（判据 = `ActionPump` 那张五道优先级表）
+        /// ⇒ lane = <see cref="ActionPriority.Instant"/>（⛔ 不是回合末那条的 `DelayedInstant`）。</para>
+        ///
+        /// <para>✅ **到期谓词已收口**（2026-10-29 `B97_RC2`）：与 `UnitState.RevertBuffs(atTurnEnd:false, player)`
+        /// **共用** `TempBuff.IsDueAtTurnStart(player)`（`UnitState.cs` 文件尾那份 `partial` 段）—— 铁律 6，⛔ 别再抄第三份。
+        /// 撤除规则本身仍只有 `UnitState.RemoveTempBuff` 一份（铁律 6）。</para>
+        /// </summary>
+        /// <param name="seat">回合开始那一侧的座位（原版 `CardScript` 不按侧筛，两侧棋盘都要扫；
+        /// 这个实参只参与「这个到期档算不算数」的判据）。</param>
+        /// <returns>实际入队了几条（= 找到几条到期 buff）。</returns>
+        public static int EnqueueTurnSetupEffectRemovals(BattleContext ctx, int seat)
+        {
+            if (ctx == null) return 0;
+            int queued = 0, due = 0;
+            for (int pl = 0; pl < ctx.Players.Length; pl++)
+            {
+                var board = ctx.Players[pl] != null ? ctx.Players[pl].Board : null;
+                if (board == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = board[s];
+                    if (u == null) continue;
+                    var buffs = u.TempBuffs;
+                    if (buffs == null) continue;
+                    // 正序（= 原版 `activeEffects` 的列表序）；先拷长度，入队期间不动 `_buffs`
+                    int n = buffs.Count;
+                    for (int i = 0; i < n; i++)
+                    {
+                        var b = buffs[i];
+                        if (b == null) continue;
+                        // = `UnitState.cs:1700`（`RevertBuffs(atTurnEnd:false, player)`）的 due 同式，逐字复制
+                        bool expireNow = b.IsDueAtTurnStart(seat);   // = `TempBuff.IsDueAtTurnStart`（与 `UnitState.RevertBuffs` 共用一份，2026-10-29 `B97_RC2` 收口）
+                        if (!expireNow) continue;
+                        var unit = u; var buff = b;      // 每遍一个新局部 ⇒ 闭包各自捕获一条（⛔ 别让它捕获循环变量）
+                        due++;
+                        if (EnqueueAbility(ctx, ActionPriority.Instant, "removeEffect:" + buff.Name,
+                                           () => unit.RemoveTempBuff(buff), actionType: 16 /* removeEffect —— 判据 `CardScript__SendRemoveEffect.c:27` 的 `local_208[0] = 0x10`(=16) */))
+                            queued++;
+                    }
+                }
+            }
+            if (due > 0)
+                ctx.Log($"（回合开始：{due} 条限时增益到期 ⇒ 入队 {queued} 条逐条摘除动作"
+                      + " —— 原版 `CardScript.OnTurnSetup` 的逐条 `SendRemoveEffect(effect, instantPriority)`）");
+            return queued;
         }
     }
 }

@@ -1526,11 +1526,11 @@ namespace CardPresentation
         /// **自动带上它**（点击态 `Pointer` 缩到 0.7，`light` 跟着缩）。
         /// ⚠️ 与菜单侧同构实现对齐：`Shell/TutorialPointerUi.cs:316` 的 `_lightImg`（同 tint / 同矩形 /
         /// `preserveAspect`）—— 两边一个口径，⛔ 别再各写一份参数。
-        /// ⚠️ **阵营那一档仍缺**：原版 `BattleManager.SetupDataDependentElements` 会
+        /// ⚠️ **阵营那一档**：原版 `BattleManager.SetupDataDependentElements` 会
         /// `tutorialPointerBattle.SetupCursor(deckWarlord.cardArmy)` 换成该阵营那一对
-        /// （ILSpy `BattleManager.cs:15316`），而 21 张里只有 Space Marine 这一对 import 进了 `Resources`
-        /// ⇒ 今天恒用序列化默认值（= 原版「该阵营不在 `CursorByArmySO` 表里」时的表现：
-        /// `SetupCursor` 只在 `GetCursorForArmy` 返回真时才 `pointer.sprite/bgLight.sprite = …`）。</para></summary>
+        /// （ILSpy `BattleManager.cs:15316`）—— 🆕 2026-10-29（`B97_FXC` · 账 524）**已接**：
+        /// `SetupCursor(int)` 在 `BattleDriver.EnsureTutorialOverlay` 里按 `_myFaction` 调一次。
+        /// ⚠️ 原句「只有 Space Marine 那一对导进了 `Resources`」**已过期**：现读 `Resources/Art/ui_menu/` 有 21 张（11 阵营各一对，Dark Angels 无 Glow）。</para></summary>
         void BuildPointerLight()
         {
             var glowTex = MenuUiTex(PointerLightArt);
@@ -1588,5 +1588,87 @@ namespace CardPresentation
             _ptrLight.SetTint(new Color(PointerLightTint.r, PointerLightTint.g, PointerLightTint.b,
                                         Mathf.Clamp01(a)));
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-29（`B97_FXC` · 账 特效动画:524 的最后一条残差）：原版 `TutorialPointer.SetupCursor(int army)`
+        // ═══════════════════════════════════════════════════════════════════════════════
+        /// <summary>`CursorByArmySO` 的等价表。`Army` = `CardArmy` 值（同 `ArmyIcons` 那 13 条的值口径），
+        /// `Normal` / `Glow` = **本机 `Resources/Art/ui_menu/` 里的 PNG 基名**。
+        /// <para>⚠️ **只列原版 bundle 里真有图的 11 个阵营**（`bundle_armycursors_assets_all/Sprite/` 现读 21 张：
+        /// 11 张本体 + 10 张 Glow，**`Cursor_Dark Angels` 没有 Glow**）。`EmperorsChildren(120)` / `SpaceWolves(130)`
+        /// 在那 21 张里没有对应图 ⇒ **表里不列**（= 原版 `GetCursorForArmy` 返 false 那一支：不换图）。</para>
+        /// <para>判据链：`TutorialPointer__SetupCursor.c`（`GetCursorForArmy(army, out normal, out glow)` ⇒
+        /// 两个 `Image.set_sprite`；返回 false 时**直接 return**、一个都不换）+ `CursorByArmySO__GetCursor.c`
+        /// （按 `ArmyCursor.army(+0x10)` 命中，`+0x18` = 本体、`+0x20` = Glow）。
+        /// 那张 SO 本身本地没解出来，但**图名就是阵营名**（21 个文件名逐字现读）⇒ 对应关系直接落到表上。</para></summary>
+        struct CursorArt { public int Army; public string Normal; public string Glow; }
+        /// <summary>11 条（自检读口）。</summary>
+        static readonly CursorArt[] CursorArts =
+        {
+            new CursorArt { Army =  10, Normal = "Cursor_Space_Marine_01",      Glow = "Cursor_Space_Marine_01Glow" },
+            new CursorArt { Army =  20, Normal = "Cursor_Ork_01",               Glow = "Cursor_Ork_01Glow" },
+            new CursorArt { Army =  30, Normal = "Cursor_Eldar_01",             Glow = "Cursor_Eldar_01Glow" },
+            new CursorArt { Army =  40, Normal = "Cursor_Necron_01",            Glow = "Cursor_Necron_01Glow" },
+            new CursorArt { Army =  50, Normal = "Cursor_Chaos_01",             Glow = "Cursor_Chaos_01Glow" },
+            new CursorArt { Army =  60, Normal = "Cursor_Space_Tyranid_01",     Glow = "Cursor_Space_Tyranid_01Glow" },
+            new CursorArt { Army =  70, Normal = "Cursor_Tau_01",               Glow = "Cursor_Tau_01Glow" },
+            new CursorArt { Army =  80, Normal = "Cursor_Sororitas",            Glow = "Cursor_Sororitas_Glow" },
+            new CursorArt { Army =  90, Normal = "Cursor_Genestealer_01",       Glow = "Cursor_Genestealer_01Glow" },
+            new CursorArt { Army = 100, Normal = "Cursor_AstraMillitarum_01",   Glow = "Cursor_AstraMillitarum_01Glow" },
+            // ⚠️ 原版 bundle 里 `Cursor_Dark Angels` **只有本体那张**（没有 `…Glow`）⇒ `Glow` 留空。
+            new CursorArt { Army = 110, Normal = "Cursor_Dark_Angels",          Glow = null },
+        };
+        /// <summary>自检口：表里那一条（认不出 ⇒ `false`，`out` 是 `default`）。</summary>
+        public static bool CursorArtForTest(int army, out string normal, out string glow)
+        {
+            for (int i = 0; i < CursorArts.Length; i++)
+                if (CursorArts[i].Army == army)
+                { normal = CursorArts[i].Normal; glow = CursorArts[i].Glow; return true; }
+            normal = glow = null;
+            return false;
+        }
+        /// <summary>自检口：表里一共几条。</summary>
+        public static int CursorArtCountForTest { get { return CursorArts.Length; } }
+
+        /// <summary>原版 `TutorialPointer.SetupCursor(int army)`：按阵营换 `Pointer`（本体）与 `light`（暖黄高光）两张图。
+        /// <para>表里没有（含 `army &lt;= 0` = `Neutral` / 认不出的 `-1`）⇒ **一个都不换、返回 false**
+        /// （= 原版 `GetCursorForArmy` 返 false 那条 `return` 早退；⛔ 别回落成 Space Marine）。</para>
+        /// <para>⚠️ `Dark Angels(110)` 原版**没有 Glow 图** ⇒ 只换本体、`light` 保持现状，并**出声一次**
+        /// （⛔ 不猜一张顶替）。</para>
+        /// <returns>真的换了本体那张吗（自检读数口；⛔ 别拿「调过」自证）。</returns></summary>
+        public bool SetupCursor(int army)
+        {
+            string normalName, glowName;
+            if (!CursorArtForTest(army, out normalName, out glowName)) return false;
+            var normalTex = MenuUiTex(normalName);
+            if (normalTex == null)
+            {
+                Debug.LogWarning("[Tutorial] 阵营光标 `" + normalName + "` 在 `Art/ui_menu/` 里取不到 ⇒ "
+                               + "`SetupCursor(" + army + ")` 这一档**不换图**（⛔ 不回落成 Space Marine）");
+                return false;
+            }
+            if (_pointer != null) { _pointer.SetTexture(normalTex); _pointer.SetAspect(normalTex.width / (float)normalTex.height); }
+            if (string.IsNullOrEmpty(glowName))
+            {
+                if (!_cursorGlowWarned)
+                {
+                    _cursorGlowWarned = true;
+                    Debug.Log("[Tutorial] 阵营 " + army + " 在原版 `bundle_armycursors_assets_all` 里**没有 Glow 图**"
+                            + "（`Cursor_Dark Angels` 只有本体）⇒ `light` 保持序列化默认值（如实记，不算未做）");
+                }
+                return true;
+            }
+            var glowTex = MenuUiTex(glowName);
+            if (glowTex == null)
+            {
+                Debug.LogWarning("[Tutorial] 阵营光标高光 `" + glowName + "` 在 `Art/ui_menu/` 里取不到 ⇒ "
+                               + "只有本体换了图、`light` 停在默认那张（原版会一起换）");
+                return true;
+            }
+            if (_ptrLight != null) { _ptrLight.SetTexture(glowTex); _ptrLight.SetAspect(glowTex.width / (float)glowTex.height); }
+            return true;
+        }
+        /// <summary>`SetupCursor` 那条「这个阵营原版没有 Glow 图」的去重闸。</summary>
+        bool _cursorGlowWarned;
     }
 }

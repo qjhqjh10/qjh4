@@ -55,16 +55,30 @@ namespace RuleEngine
 
         /// <summary>
         /// **当前是否处于「脚本关」（教程或战役）** —— 原版 `BattleManager__IsScriptedStageAvailable.c:1-15`：
-        /// `IsTutorialStageAvailable() || IsCampaignStageAvailable()`（先教程、再战役）。
-        ///
-        /// <para>我们侧的等价物（现有代理口径，与 `B94_R-B1` 第 12 条一致）：
-        /// `ctx.Tutorial != null`（教程半）`|| ctx.CampaignStage != null`（战役半）。
-        /// ⚠️ 战役半 `Ctx.CampaignStage` 今天恒 null（无写点）⇒ 教程那一半是唯一可达来源。</para>
-        /// </summary>
+        /// `IsTutorialStageAvailable() || IsCampaignStageAvailable()`（先教程、再战役），**每个操作数各四道闸**：
+        /// ① match 类型（`IsTutorialMatch()` / `IsCampaignLike()`）② `currentTutorialStage|currentCampaignStage` 非空
+        /// ③ `turnCounter(+0x3f8) > 0` ④ `turn-1 < stage[+0x48].Count`（🥇 现读 `decomp_full/BattleManager__IsTutorialStageAvailable.c`
+        /// 与 `__IsCampaignStageAvailable.c`，两份同形、逐句核过；⚠️ 原版**不要求** `scriptedTurn`）。
+        /// 🔴 2026-10-29（`B97_TUT`，判据 = `判据/B97_可推A七条_审查.md` §一·3）：原来只有两条 null 判断 ⇒ 现按原版四道闸补齐。
+        /// ⚠️ 战役半 `ctx.CampaignStage` 今天恒 null（无写点）⇒ 教程那一半是唯一可达来源。</summary>
         public static bool IsScriptedStageAvailable(BattleContext ctx)
         {
             if (ctx == null) return false;
-            return ctx.Tutorial != null || ctx.CampaignStage != null;
+            return SingleStageAvailable(ctx.Tutorial != null ? ctx.Tutorial.Stage : null, ctx.Turn) || SingleStageAvailable(ctx.CampaignStage, ctx.Turn);
+        }
+
+        /// <summary>上面那一半：**一个操作数的后三道闸（②③④）**（① match 类型由调用方那两个 `!= null` 判）。
+        /// 判据 = `decomp_full/BattleManager__IsTutorialStageAvailable.c`（`__IsCampaignStageAvailable.c` 同形）：
+        /// `stage == null ⇒ false`（原版 `op_Inequality` 那道）· `turnCounter > 0` · `stage[+0x48] == null ⇒ false` ·
+        /// 末句 `CONCAT31(…, iVar2 + -1 &lt; *(int *)(stage[+0x48] + 0x18))` = **`turn - 1 &lt; turns.Count`**（List `_size` 在 `+0x18`）。
+        /// ⚠️ 原版那两道重取的 `FUN_1805e3920`（= 再取一次 `currentXxxStage`）在这里由同一个 `stage` 实参表达。</summary>
+        static bool SingleStageAvailable(TutorialStageData stage, int turn)
+        {
+            if (stage == null) return false;                                   // ② base stage 非空
+            if (turn <= 0) return false;                                       // ③ turnCounter > 0
+            var turns = stage.turns;                                           // stage[+0x48]
+            if (turns == null) return false;                                   // 原版 `*(+0x48) == 0 ⇒ goto LAB ⇒ false`
+            return (turn - 1) < turns.Length;                                  // ④ turn-1 < Count
         }
     }
 }

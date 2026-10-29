@@ -8,7 +8,7 @@
 //     · `TargetReticleController__MoveCrosshair.c` —— 准星本体：`crosshair.set_position(targetPositionUISpace)`（原样指针）
 //   `GetTargetInPos` 自己那条 2D 射线实参 `DAT_1834b2bc8` = **-1f**（`read_literal` 实读）⇒ 恒 0 命中 = 死支；
 //   它真生效的是 3D 回退支（`Physics.RaycastNonAlloc(..., 200f, BoardElements)`），对应物是
-//   `CardInteraction.Frontmost`（不在这里重测，那一条已由 `BattleScene` 的 `A1668` 族断言覆盖）。
+//   🔴 2026-10-29 订正（`B97_UI2` 现核）：`BattleDriver.HitSlot`（`BattleDriver.cs:33200`）—— ⛔ **不是** `CardInteraction.Frontmost`（那套是**手牌/换牌区**，`A1668`；账原先错锚就是这句）。断言在 `B97_UI2_Assert.cs`。
 //
 // 本文件只钉 **2026-10-29 这一轮在 `Battle/TargetReticle.cs` 里对齐的三件事**：
 //   A. 2D 兜底（无战场相机）⇒ `ResolveAim` 原样返回（🔶 自己设计：原版此处会 NRE）；
