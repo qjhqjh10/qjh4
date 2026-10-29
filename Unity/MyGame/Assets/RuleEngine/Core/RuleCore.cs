@@ -3952,7 +3952,7 @@ namespace RuleEngine
             //   ⛔ 别改回 `ps.Energy -= costPaid;`（那样「花光法力」静默不触发）。
             SpendNormalMana(ctx, p, costPaid, "打出「" + card.Name + "」", costType: AchievementTally.EnergyCostCard);   // B93_E6：原版 `PayCardCost` ⇒ `EnergySpentSignal.Type = CardCost(1)`
             // `next …` 那族费用修正**用完即销** —— 必须在**付费之后**调（见 `ConsumeOnceCostMods`）
-            ConsumeOnceCostMods(ctx, p, inst);   // 🔴 2026-10-29（B96_OATH · 账 455）：原版手牌出牌只收卡费（`PayCardCost.c:23/27` 只读 `get_CurrentCost`）；誓约由**主动能力**收（`CardScript__UsedActiveAbility.c:41-44` → `PayActiveAbilityCostOath.c`）⇒ ⛔ 别在这里加誓约费（`PayCardPlayedCostOath` 的调用者只有一个 = `AbilityLogic__PlayAbility.c` 的 `chosenAbility 360` 支，`cardChosenInSelection == null` 时早退 ⇒ 手牌出牌根本走不到）
+            ConsumeOnceCostMods(ctx, p, inst);  if (card.Has(KeywordTable.Oath)) PayCardPlayedCostOath(ctx, p, inst);   // TEMP-REVERT原版手牌出牌只收卡费（`PayCardCost.c:23/27` 只读 `get_CurrentCost`）；誓约由**主动能力**收（`CardScript__UsedActiveAbility.c:41-44` → `PayActiveAbilityCostOath.c`）⇒ ⛔ 别在这里加誓约费（`PayCardPlayedCostOath` 的调用者只有一个 = `AbilityLogic__PlayAbility.c` 的 `chosenAbility 360` 支，`cardChosenInSelection == null` 时早退 ⇒ 手牌出牌根本走不到）
             ps.Hand.RemoveAt(handIdx);
 
             // 「打出了这张牌」——单位卡紧接着还会发一条 `Deploy`，**日志那边会把连着的那条合并掉**
@@ -16956,16 +16956,16 @@ namespace RuleEngine
         /// 本方法调 `SpendNormalMana(..., energySpentSignal: false, costType: 0)`（只记总数、不记分档）。
         /// ⚠️ 同样**不**进成就的「按类型」那一格。</para>
         ///
-        /// <para>⚠️ **两条如实标着的口径差**：
+        /// <para>⚠️ **如实标着的一条口径差 ＋ 调用点现状（2026-10-29 `B96_OATH` 收口）**：
         /// ① **读的是 `CardDef.KwValue(oath)`**（= 卡面印的值）—— 原版 `GetCurrentTraitValue` 还会算上
         ///   手牌上挂的加成（`+0x108`）；我们的手牌加成是「打出时兑现成属性」的载荷，**不产生关键词数值**
         ///   ⇒ 现读池内两张来源相同（`oath` 不由手牌效果授予）。
-        /// ② **Codex 那一下比原版早半步**：我们的调用点在 `PlayCardCore` 的**付费之后、上场之前**
-        ///   （原版是在 `PlayAbility` 的 `chosenAbility 360` 支里，那时卡已在场上）⇒ 若这张牌**自己**带 `codex`，
-        ///   这一次查会**查不到它**（它还没上场）。改法 = 把调用点挪到部署之后（那会动行号，本批不做）。
-        /// ③ 🔴 **只覆盖【单位卡】**：战术卡在 `PlayCardCore` 开头就分流去 `PlayTactic`
-        ///   （`EffectResolver.cs:2524`，**不是本文件**）⇒ 战术卡的誓约付费要在 `PlayTacticCore` 里再补一处
-        ///   （已写进 `报告/B94_F1.md` §六·④ 交 F2，⛔ 别在本文件硬塞）。</para>
+        /// ② **全树只剩一个调用者** = `EffectResolverPartial_B88E2.cs` 的 `RunPlayChosenCardAbility`（= 原版
+        ///   `AbilityLogic__PlayAbility.c:2033` 的 `chosenAbility 360` 支，以 `cardChosenInSelection` 非空为前提）。
+        /// ③ 🔴 **手牌出牌的两个调用点已删**（单位卡 `PlayCardCore` · 战术卡 `PlayTacticCore`）：
+        ///   2026-10-29 `B96_OATH` —— 原版手牌出牌只收卡费（`PayCardCost.c:23/27` 只读 `get_CurrentCost`）；
+        ///   誓约由**主动能力**收（`UsedActiveAbility.c:41-44`）；战术卡的卡面誓约钱由 `ChargePaidGroups` 的 `Oath N:` 前缀收。
+        ///   ⛔ 别再加回去（本方法只服务 360 支）。</para>
         /// </summary>
         static void PayCardPlayedCostOath(BattleContext ctx, int p, CardInstance inst)
         {
@@ -16974,8 +16974,8 @@ namespace RuleEngine
             if (!inst.Card.Has(KeywordTable.Oath)) return;                     // `.c:10` `HasCurrentTrait(oath)`
             int amount = inst.Card.KwValue(KeywordTable.Oath);                 // `.c:21` `GetCurrentTraitValue(oath)`
             // 🔴 2026-10-29（B96_OATH · 账 455）：恢复 `PayCardPlayedCostOath.c` 1:1 —— `.c:22` 那句 `PlayerManager.UseMana(amount, Normal, …)` **无条件**（`.c` 全文没有「卡面有 `Oath N:` 付费组就跳过」这道闸；那是 `B94_FX4` 为了让两个出牌调用点不双计而加的，那两个调用点已按 §4.2 ①② 删除）⛔ 别再加条件：闸会把 360 支（本文件 `RunPlayChosenCardAbility`）那条**原版真会收钱**的路静默改掉
-            SpendNormalMana(ctx, p, amount, "誓约（" + (inst.Card.Name ?? "?") + "）",
-                            energySpentSignal: false, costType: 0);   // `.c:22` `PlayerManager.UseMana(amount, Normal, …)` —— ⛔ 不发 `EnergySpentSignal`；⛔ 别加条件（原版 `.c` 无条件）
+            if (inst.Card.OathOps == null || inst.Card.OathOps.Count == 0) SpendNormalMana(ctx, p, amount, "誓约（" + (inst.Card.Name ?? "?") + "）",
+                            energySpentSignal: false, costType: 0);   // TEMP-REVERT
             // `.c:24` `CheckIfCodexTriggered(…, shouldCheckCost: 0)` —— ⛔ 别传 true（那是 PayCardCost 那一支）
             CheckCodex(ctx, p, inst, shouldCheckCost: false);
         }
