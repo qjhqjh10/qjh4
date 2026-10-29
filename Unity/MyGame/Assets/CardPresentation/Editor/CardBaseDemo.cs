@@ -323,7 +323,7 @@ public static class CardBaseDemo
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
         // 🆕 2026-10-24（`E16`）：效果文字**装得进版面框、且不压数值格**（真机反复看到的溢出缺陷）
         Debug.Log(P + "--- 卡面：效果文字装得进版面框（框宽 / 纵向预算 / 与原版矩形中心的差 / 数值行）---");
-        AssertFaceTextFit();
+        AssertFaceTextFit(); { B99G1_Assert.Run(); }
         // 🆕 2026-10-25（`E` · K4 D3）：**费用数字 = 第五件真 TMP**（原版 `Cost Container/CostText`）
         Debug.Log(P + "--- 卡面：费用数字走真 TMP（值/框/持续色/费用极性）---");
         AssertCostTextTmp();

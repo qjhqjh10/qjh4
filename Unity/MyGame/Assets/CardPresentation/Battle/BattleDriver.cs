@@ -4946,7 +4946,7 @@ namespace CardPresentation
             // 🆕 2026-10-27（执行代理 `A4` · 原版 `BattleManager__Update.c:1373-1401`）：**回放那个 15× 快进
             //   是「回放专用」的 `Time.timeScale`**，⛔ 带出去会毁掉下一局（所有吃 `deltaTime` 的东西一起快 15 倍）。
             //   ⇒ 每局开始复位 1×（`Begin` 是新一局的唯一入口：真打 / 重开 / 放录像都走它）。
-            ResetReplaySpeed(); _battleStartMillis = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(); InitDotweenAsOriginal();   // 账 HUD:725⑤ / HUD:731②（同一行加，⛔ 不新增行 ⇒ 不推账行号）
+            ResetReplaySpeed(); _battleStartMillis = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(); InitDotweenAsOriginal(); RuleCore.TermResolver = Loc.T;   // 账 HUD:725⑤ / HUD:731②（同一行加，⛔ 不新增行 ⇒ 不推账行号）；🆕 2026-10-30（`B99_A1` · #9）：`RuleCore.TermResolver` 全仓 0 赋值 ⇒ 替代行动按钮永远中文兜底（原版这 4 个 trait 名走 I2 `Card_Trait/duty|pray|ferocity|agenda`）。挂 `Begin()` 而不是 `Start()`：批处理**不走 `Start`**（同 `HookAnimFx*` 挪进 `Begin` 的那条理由，见 `Start()` 里的注释），而 `Begin` 是「新一局的唯一入口」
             // 🆕 2026-10-27（`A4` · 收局摧场）：新一局把上一局的摧场账清掉（`_endSeqDead` 里的 `UnitState`
             //   是上一局的对象；不清的话新局的条目虽然不会命中，但账会一直涨）。
             _endSeqStarted = false;
@@ -13257,15 +13257,15 @@ namespace CardPresentation
             //   把 `DropRejectKind` 一并带出来，那个文件不在本线所有权里）。
             // 🆕 2026-10-22（W63·拒绝反馈）：原版 `BattleManager__Update.c:642-672`（瞄准的法术松手落空）/
             //   `:1196-1213`（选技能目标松手落空）两处都是 `NotifyCantDoAction(DragToTarget)`
-            //   = **语音 + 文字**。⚠️ **这里只写文字那一半**，理由是一条**判得出来**的边界：
-            //   本回调在「抓起后又原地松手」（`CardInteraction` 的 `tapped` 那一档）里**也会发**
-            //   （见它 `Release` 尾部：`OnReturned` 与 `OnTapped` 同一次调用、先后的两行），
-            //   而那一档在原版是「开/关大卡展示窗」，**不播 cantdo** ⇒ 在这里出声会让
-            //   「轻点看牌」听见一句「我不能这么做」。
-            //   `CardInteraction` 里区分这两档靠的是**私有**的 `_travel` / `_pressWorld`
-            //   （没有公开读数，且那个文件不在本线所有权）⇒ **语音留到拿得到那个位时再接**，
-            //   ⛔ 别猜。**文字照旧**（`G5` 那一轮已接）；语音那一半今天由 `OnIllegalAction`
-            //   （落在格位上却被引擎拒的那一档）承担 —— 两条合起来就是原版那一次调用的两半。
+            //   = **语音 + 文字**。
+            // 🔴 **2026-10-30（`B99_A1` · AUD8-拖空出声）就地改口（铁律 5）**：本段原来写着「这里只写文字那一半」，
+            //   理由是「轻点看牌也走本回调 ⇒ 出声会让轻点听见 cantdo」。那条理由**仍成立** ⇒ 收口改成**按卡分档**：
+            //   只有「目标型非单位卡」（`CardNeedsTargetOnDrag`）才出声 —— 那正是原版那 4 处的两支
+            //   （`playingTargetedSpell` / `targetedActiveAbility`）；轻点点开的是单位卡/非目标战术卡
+            //   ⇒ 走不到这句（`tapped` 那一档在原版是「开/关大卡展示窗」，**不播 cantdo**）。
+            //   `CardInteraction` 里区分「点了看牌」与「拖出去」靠的是**私有**的 `_travel` / `_pressWorld`
+            //   （没有公开读数，且那个文件不在本线所有权）⇒ 这里不按它分，按**卡型**分。
+            //   ⚠️ 另一条**仍成立**的：落在格位上却被引擎拒的那一档由 `OnIllegalAction`（X19/P2 那段）出声。
             //
             // 🔴🆕 **2026-10-25（`X19/P2`）**：**非法出牌那一档在这里【不写字】** ——
             //   它的文案已经按**拒因**分成了四档（费用不够 / 格子满 / 没目标 / 不是你回合），
@@ -13274,7 +13274,7 @@ namespace CardPresentation
             //   （`SetHint` 是队列）⇒ 两句话、第一句还是假的。判据：原版 `CanPlayCard` 拒绝时
             //   **只调一次** `NotifyCantDoAction`（`BattleManager__CanPlayCard.c:82-152` 每支一次）。
             if (CardInteraction.IsIllegalAction(kind)) return;
-            SetHint(Loc.T(DragToTargetTerm));
+            if (CardNeedsTargetOnDrag(card)) NotifyCantDoAction(Loc.T(DragToTargetTerm));   // 🆕 2026-10-30（`B99_A1` · AUD8-拖空出声 · 反向清单 #1）：原版只有「目标型法术/主动技松手落空」那 4 处 `NotifyCantDoAction`（`BattleManager.cs:26054/26677/26685/26693`），`case 3 playingMinion`/`case 5` 松手支 **0 处** ⇒ 部队卡/无目标战术卡拖空**一声不吭**（旧版那句无条件 `SetHint` 是我们多出来的）
         }
 
         /// <summary>手牌被**轻点**了（按下→松开几乎没动）。原版这个动作就是开关卡牌展示窗。</summary>
@@ -15220,7 +15220,7 @@ namespace CardPresentation
             // 🆕 2026-10-22（W63·拒绝反馈）：原版 `CanUseActiveAbility.c:116-132` 那条 ——
             //   `canAct == 0` ⇒ `NotifyCantDoAction(Battle/Tips/UnitNotReady)`（**语音 + 文字**；
             //   我们过去只有文字）。眩晕那一句仍用我们更准的 `STUNNED`（原版两档共用 `UnitNotReady`，
-            //   见下面原有的注释），但**语音照补**（原版也是同一个函数）。
+            //   见下面原有的注释），但**语音照补**（原版也是同一个函数）。🔴 **2026-10-30（`B99_A1` · AUD8-Phrase）**：`THIS UNIT CANNOT ACT`（`Battle/Phrase/*` 那 12 条自造词条之一）的两处调用**已删** —— 原版 `CardScript__TryDraggingFromBoard.c:35-38` 裸 `return`、**完全静默**，官方表也没有这个键；词条本身留在 `CardText.Phrase`（标「未使用」，删表项会牵动 `CardBaseDemo` 的扫描）。
             if (u.Exhausted) { NotifyCantDoAction(Loc.T(UnitNotReadyTerm)); return; }
             if (u.IsStunned) { NotifyCantDoAction(CardText.Phrase("STUNNED")); return; }
 
@@ -15238,7 +15238,7 @@ namespace CardPresentation
 
             if (!melee && !ranged && !skill)
             {
-                NotifyCantDoAction(CardText.Phrase("THIS UNIT CANNOT ACT"));
+                // ⛔ 2026-10-30（`B99_A1` · AUD8-Phrase）：原版 `CardScript__TryDraggingFromBoard.c:35-38` 在这一档是**裸 `return`、完全静默**（官方 I2 表 `Battle/*` 156 键里 `Phrase/*` = 0 条）⇒ 这里**不再出声**。词条本身留在 `CardText.Phrase`（标「未使用」）。
                 return;
             }
 
@@ -15261,7 +15261,7 @@ namespace CardPresentation
                 skill = false;
             }
             if (!melee && !ranged && !skill)
-            { NotifyCantDoAction(CardText.Phrase("THIS UNIT CANNOT ACT")); return; }
+            { return; }   // ⛔ 2026-10-30（`B99_A1` · AUD8-Phrase）：原版这一档裸 `return`、静默（见上面那段判据）
 
             // 🔴 2026-10-20（W58 · 崩溃修复）：**这一格可能还没有视图** —— `Deploy` 事件排在
             //   `max(_clock, _timelineTailAt)`（队尾），在它演到之前 `SyncBoard` 被 `IsPendingDeploy`
@@ -15445,90 +15445,55 @@ namespace CardPresentation
         /// `targetsAffected = any`（生成器不落行）⇒ 任意。`includeSelf` 是**过滤器**（在已定的那一侧里再筛自己），
         /// **不是**独立的第三侧 ⇒ 侧只有 {敌方, 友方, 任意} 三种。</para>
         ///
-        /// <para>🔴 **今天的结论：三种都退回 `1 - _me`（行为一个字没变），但「为什么」逐档不同、而且都出声：**</para>
+        /// <para>🔴 **2026-10-30（`B99_A1` · AUD8-Any 并集）现行结论：逐档映射，不再是「三种都退回敌方」**（2026-10-25
+        /// 那版旧口径已作废，改动史 → `报告/B99_A1.md`）：</para>
         /// <list type="number">
-        /// <item>**只敌方**（`enemyUnits == 1 &amp;&amp; friendlyUnits == 0`，现池 **12 行**）—— 与现状一致，**静默**。</item>
-        /// <item>**友方**（`friendlyUnits == 1 &amp;&amp; enemyUnits == 0`，**24 行**）· **敌我双方都算**
-        ///   （`enemyUnits == 1 &amp;&amp; friendlyUnits == 1`，**36 行**）· **两侧都没标**（`(0,0)`，**35 行**）·
-        ///   **判不了**（列没落 / 支判不出）—— 这几档**一律出声一次**并退回敌方候选。原因**不是**「读不到判据」，
-        ///   而是**引擎结算层只认敌方**：`RuleCore.UseAbilityCore` 里
-        ///   `chosen = ctx.Players[1 - p].Board[targetSlot]`（写死 `1-p`），
-        ///   `ResolveTarget` 的目标规格也只有 `self / ownwarlord / enemywarlord / enemyunit`（`EffectTargets`），
-        ///   `CanUseAbility` 这个包装同样把候选所有者写死成 `1 - p`。
-        ///   ⇒ 表现层若放行友方格位，引擎会**按敌方棋盘的同号格**去解 —— 那就是 `E5-2` 亲手实测过的
-        ///   「**静默错打**」（点督军 ⇒ 技能报成功、督军一滴血没掉）的同一类。
-        ///   ⛔ 所以**不许**为了让候选看起来对就先把这一层打开。</item>
+        /// <item>**只敌方**（`enemyUnits == 1 &amp;&amp; friendlyUnits == 0`，现池 **12 行**）⇒ `1 - _me`，**静默**（绝大多数卡）。</item>
+        /// <item>**友方**（`friendlyUnits == 1 &amp;&amp; enemyUnits == 0`，**24 行**）⇒ `_me`（引擎侧已按 criteria 解 owner，
+        ///   `E5`/`E8` 2026-10-25 起 `CanUseAbility` / `ResolveAbilityTargetOwner` / `UseAbilityCore` 都不再写死 `1-p`）。</item>
+        /// <item>**任意**（`targetsAffected = any` 生成器不落行；或 `enemyUnits == 1 &amp;&amp; friendlyUnits == 1`，**36 行**）
+        ///   ⇒ **哨兵 `TargetSideBoth`（−2）**：消费点两侧都试（`SideCount`/`SideAt`，**敌先友后** = 引擎
+        ///   `RuleCore.AbilityPickOwnersOf` 的 `Any` 次序）⇒ **不再出声**（原版就是「敌我并集」，出声是旧的降级）。</item>
+        /// <item>**两侧都没标**（`(0,0)`，**35 行**）· **判不了**（列没落 / 支判不出）⇒ `Unknown`：**出声一次** + 退回敌方候选
+        ///   —— 这一档才是「判不出来」；原版 `any` 是**明确的「任意」**，⛔ 别把两者并成一档。</item>
         /// </list>
-        /// <para>⚠️ 上表 12/24/36/35 是**数据行数**（`activeAbilityPickCriteria` 共 107 行），不是卡数；
-        /// 而**今天这条路上可达的卡**还更少 —— 现池唯一的「友方目标」例子 `AM69` 的 `Card.Ability == null`
-        /// （正文没有 `Ability:` 段 ⇒ `CanStartAbility` 先回 `ErrNoAbility`，`E5-3` 已核）。
-        /// **真正补齐需要引擎侧两处**（不在本片白名单，已记账）：① `CanUseAbility` / `UseAbilityCore` 把候选所有者
-        /// 从 `1-p` 改成「与表现层同一个决策」；② `EffectTargets` 加友方单位规格 + `ResolveTarget` 对应支。
-        /// 那两件落地后，本函数把每一档映射成 `_me` / `1-_me` / 「两侧」即可，**判据已经在这里备好**。</para></summary>
+        /// <para>⚠️ 上表 12/24/36/35 是**数据行数**（`activeAbilityPickCriteria` 共 107 行），不是卡数；`Any` 档在**我们池内
+        /// 可达性 0**（`RuleCore.cs:11206` + `CardDef.cs:1423` 自认）⇒ 这一改**行为零变化**，只有合成夹具走得到。
+        /// ⚠️ 引擎侧那两件（按 criteria 解 owner · `EffectTargets` 友方规格）**已经落地**（2026-10-25 `E5`/`E8`）
+        /// ⇒ 本函数只负责「给出要试哪几侧」，**哪一侧真的合法**由 `LegalTargetCode`（→ `RuleCore.CanUseAbility`）判
+        /// —— 两处写同一条规则的事在这里**没有了**（`AbilityPickSideOf` 也已改成转发引擎那一份）。</para></summary>
         int AbilityPickOwner(UnitState u)
         {
             string why;
             var side = AbilityPickSideOf(u, out why);
-            if (side == AbilityPickSide.Enemy) return 1 - _me;     // 与现状一致、**静默**（绝大多数卡）
+            if (side == RuleCore.AbilityPickSide.Enemy) return 1 - _me;     // 与现状一致、**静默**（绝大多数卡）
             // 🔴 **2026-10-25（B 域 `R5` P2 · 转执行代理 A）：Friendly 现在返回 `_me`。**
             //   判据：引擎侧已经按 `ActiveAbility.targetCriteria` 解 owner
             //   （`RuleCore.AbilityPickOwnersOf` / `ResolveAbilityTargetOwner` / `UseAbilityCore` 用
             //   `pickedEnemySide`），**不再恒认敌方** —— 原来这里写的「引擎结算层只认敌方」
             //   那句理由**已过期**（B 报告 §②·B2 现核）。
-            //   ⚠️ `Any` **仍然退回敌方**：两侧都能点的候选模型还没建（现池可达性 0，见 `NoteAbilitySideGap`）。
-            //   ⚠️ `BuildAct` 的 `TargetP` 跟着本方法走 ⇒ 录像/观战里的指向是对的。
-            if (side == AbilityPickSide.Friendly) return _me;
-            NoteAbilitySideGap(u, why);                            // 任意 / 判不出：出声
+            //   ✅ **2026-10-30（`B99_A1` · AUD8-Any 并集）**：`Any` 档不再「退回敌方 + 出声」，改返回哨兵
+            //   <see cref="TargetSideBoth"/>（`-2`）—— 7 个消费点两侧都试（敌先友后，与引擎
+            //   `RuleCore.AbilityPickOwnersOf` 同序）；`NoteAbilitySideGap` 因此只留给 **`Unknown`**（判不出，真该出声）。
+            //   ⚠️ `BuildAct` 的 `TargetP` 跟着本方法走 ⇒ 录像/观战里的指向是对的（`-2` 落回 `1-_me`）。
+            if (side == RuleCore.AbilityPickSide.Friendly) return _me;
+            if (side == RuleCore.AbilityPickSide.Any) return TargetSideBoth;
+            NoteAbilitySideGap(u, why);                            // 判不出：出声
             return 1 - _me;                                        // 退回现状
         }
 
-        /// <summary>这一次主动能力原版的**候选侧**（纯读，不写行为）。「自检可断言」←→「生产只消费」分离。</summary>
-        enum AbilityPickSide { Unknown = 0, Enemy = 1, Friendly = 2, Any = 3 }
-
-        /// <summary>判据本体（`AbilityPickOwner` 的读那一半）：按 `ActiveAbility.targetCriteria` 判候选侧。
-        /// `why` = 非敌方时给人看的原因（敌方时为 `null`）。判不出的每一档都**不猜**（回 `Unknown`/`Any`）。</summary>
-        AbilityPickSide AbilityPickSideOf(UnitState u, out string why)
+        /// <summary>判据本体 —— 🔴 **2026-10-30（`B99_A1` · AUD8-Any 并集）：改为转发 `RuleCore.AbilityPickSideOf`。**
+        /// 原来这里是同一判据的**第二个副本**（`RuleCore.cs` 那份 2026-10-25 由 `E8` 开成 public 时就记了账
+        /// 「表现层那份应当改成转发过来」）。两版**逐档分类相同**（`Unknown/Enemy/Friendly/Any` 同值），
+        /// 差别只有 `why` 的文案 ⇒ 行为零变化。⛔ 别再在这边另写一份 criteria 判法（两处写同一条规则 = 迟早不一致）。</summary>
+        RuleCore.AbilityPickSide AbilityPickSideOf(UnitState u, out string why)
         {
-            why = null;
-            if (Ctx == null || u == null || u.Card == null) { why = "没有卡数据"; return AbilityPickSide.Unknown; }
-
-            // 走普通支还是替代支（原版 `RawCardScript.GetActiveAbility` 的等价物）；判不出就不猜。
-            bool? alt = u.Card.UsesAlternativeAbility(Ctx, _me, u);
-            if (alt == null) { why = "判不出走的是普通支还是替代支"; return AbilityPickSide.Unknown; }
-            int ab = alt.Value ? CardDef.AlternativeAbilityObject : CardDef.ActiveAbilityObject;
-
-            string setWhy;
-            var set = u.Card.ActiveAbilityPickCriteriaFor(ab, out setWhy);
-            if (set == null)
-            {
-                // `why == null` ⇒ 原版 `targetsAffected = any`（生成器不落行）= **任意侧**；
-                // 否则 = 这一列判不了。
-                if (setWhy == null) { why = "原版候选 = **任意侧**（`targetsAffected = any`，没有 criteria 行）"; return AbilityPickSide.Any; }
-                why = "criteria 判不了：" + setWhy; return AbilityPickSide.Unknown;
-            }
-            // 候选侧（`J3`/`E5` 判据：侧只由这两格决定；`includeSelf` 是**过滤器**、不是第三侧）
-            int en = set.EnemyUnits, fr = set.FriendlyUnits;
-            if (en == 1 && fr == 0) return AbilityPickSide.Enemy;          // 只敌方（现池 12 行）
-            if (fr == 1 && en == 0)
-            {
-                why = "原版候选是**友方**（`friendlyUnits=1 / enemyUnits=0`，现池 24 行）—— 引擎结算层只认敌方"
-                    + "（`UseAbilityCore` 的 `chosen = ctx.Players[1-p].Board[…]` + `ResolveTarget` 的目标规格）"
-                    + " ⇒ 放行会**静默错打**";
-                return AbilityPickSide.Friendly;
-            }
-            if (en == 1 && fr == 1)
-            {
-                why = "原版候选**敌我双方都算**（`enemyUnits=1 / friendlyUnits=1`，现池 36 行）—— 引擎只认敌方 + 友方无结算层"
-                    + " ⇒ 放行会**静默错打**";
-                return AbilityPickSide.Any;
-            }
-            why = $"criteria 的候选侧判不出来（`enemyUnits={en}` / `friendlyUnits={fr}`，现池另有 35 行是 (0,0)）";
-            return AbilityPickSide.Unknown;
+            return RuleCore.AbilityPickSideOf(Ctx, _me, u, out why);
         }
 
         /// <summary>自检口：当前选中单位**这一次主动能力的原版候选侧**读数
-        /// （`0` 未知 / `1` 敌方 / `2` 友方 / `3` 任意）。⚠️ **只是读数** —— 三种都退回敌方候选
-        /// （理由见 `AbilityPickOwner` 的 doc，⛔ 别拿它当「候选已经开了」）。</summary>
+        /// （`0` 未知 / `1` 敌方 / `2` 友方 / `3` 任意；与 `RuleCore.AbilityPickSide` 同值）。⚠️ **只是读数** ——
+        /// `Any` 那一档在 `AbilityPickOwner` 里映射成哨兵 `-2`（两侧并集，见那边的 doc），⛔ 别拿本读数当 `-2`。</summary>
         public int AbilityPickSideForTest
         {
             get
@@ -15558,8 +15523,8 @@ namespace CardPresentation
             string id = u != null && u.Card != null ? u.Card.Id : "?";
             if (_abilitySideGapNoted.Count > 256) _abilitySideGapNoted.Clear();
             if (!_abilitySideGapNoted.Add(id + "|" + why)) return;
-            Debug.LogWarning($"[Battle] 主动能力候选侧：「{id}」判到 **{why}** ⇒ 今天仍按**敌方候选**排"
-                           + "（⛔ 不是「读不到」：引擎结算层只认敌方单位，放行友方/任意会静默错打）"
+            Debug.LogWarning($"[Battle] 主动能力候选侧：「{id}」**判不出来**（{why}）⇒ 本周仍按**敌方候选**排"
+                           + "（⛔ 分类：`Any` = 原版「敌我并集」是**另一档**、已按两侧并集处理，不再走这里）"
                            + "。判据与补齐路径 → `BattleDriver.AbilityPickOwner` 的 doc");
         }
 
@@ -15582,8 +15547,14 @@ namespace CardPresentation
         int HitCommandTargetSlot(Vector3 world)
         {
             int side = CommandTargetSide();
-            if (side < 0) return -1;
-            return HitSlot(side == _me ? _myUnits : _foeUnits, world);
+            // 🔴 2026-10-30（`B99_A1` · AUD8-Any 并集）：`side` 可能是哨兵 `TargetSideBoth` ⇒ **两侧都探**（敌先友后；
+            //   单侧时循环只有一圈，与改前逐位相同）。⛔ 命中哪一侧由后续 `Resolve`→`CanUseAbility` 自己解 owner。
+            for (int i = 0; i < SideCount(side); i++)
+            {
+                int t = HitSlot(SideAt(side, i) == _me ? _myUnits : _foeUnits, world);
+                if (t >= 0) return t;
+            }
+            return -1;
         }
 
         /// <summary>🔴 **2026-10-20（W57 · 战斗线 `T09-FIX5` · P0-1）：这个屏幕点是不是落在**任何一张棋盘卡**上**
@@ -15710,7 +15681,9 @@ namespace CardPresentation
             // ⚠️ 判据用 `CommandTargetSide() < 0`（**两种来源共用一处**）——
             //    原来这里写的是 `u.Ability != null && !NeedsPick(u.Ability.Target)`，
             //    那个只认 `Ability:` 那一族，替代行动（`Duty:` 等）会走不进来。
-            if (u != null && CommandTargetSide() < 0)
+            // 🔴 2026-10-30（`B99_A1` · AUD8-Any 并集）：判据从 `< 0` 改成 `== -1` —— `TargetSideBoth`（`-2`）是
+            //   **要选目标**的（原版 `targetsAffected = any`），旧写法会把它当成「不用选目标」直接放行。
+            if (u != null && CommandTargetSide() == -1)
             {
                 Resolve(kind, -1);
                 return;
@@ -15743,24 +15716,24 @@ namespace CardPresentation
             //      那是手牌下方「N 个可用目标」的判据）换成原版 `ActiveSkillDisplay.cs:160` 读的
             //      **ability 级**（`ActiveAbility.targetsAvailableCounter(+0x40)`）⇒ 见 `ShouldShowAbilityTargetsCounter`；
             //   ② 描述文本走原版 `GetCurrentLocalizedAbilityDescription()` 的三档后缀链 ⇒ `SkillPanel.AbilityDescription`。
-            //   输入 = `CardDef.HasActiveAbility(+0x220)` / `ActiveAbilityNeedsLoading(+0x22)` /
+            //   输入 = `UnitState.RequiresAbilityLoading`（**实例视图**，见下）/ `ActiveAbilityNeedsLoading(+0x22)` /
             //         `UnitState.HasRemovedTrait("reload")`（= 原版 `HasRemovedTrait(0x1ea)`）。
             bool reloadRemoved = u.HasRemovedTrait(ConditionEval.ReloadTrait);
             // 原版 `DoesAbilityRequireLoading()`（`CardScript__DoesAbilityRequireLoading.c:13-38`）：
             // `hasActiveAbility(+0x220)` 为假 ⇒ false；否则遍历 `activeEffects(+0x108)`，**任一** `HasRemovedTrait(reload)`
             // ⇒ false；都没有 ⇒ 返回 `ActiveAbility.needsLoading(+0x22)`。
-            bool requiresLoading = u.Card != null && u.Card.HasActiveAbility == 1
-                                && !reloadRemoved
-                                && u.Card.ActiveAbilityNeedsLoading == 1;
+            bool requiresLoading, abilityLoaded; SkillPanelLoadingFlags(u, out requiresLoading, out abilityLoaded);   // 🆕 2026-10-29（`B99_E5` · 账 706②）：两格改读引擎侧**实例视图**，唯一读点 = 类尾 `SkillPanelLoadingFlags`
+            //   —— 原来是**卡级** `CardDef.HasActiveAbility(+0x220)`；原版 `CardScript__DoesAbilityRequireLoading.c:13-38` 读的是
+            //   **CardScript 实例字段** `+0x220`（教程关闸 / jam 压制会把它写 0）⇒ 同层的是 `UnitState.RequiresAbilityLoading`（`UnitState.cs:3974`）。
             // 卡名当技能名 —— 原版有独立的技能名（`NameText` = "Fire Arrow"），我们还没那个字段
             skillPanel.Show(CardDisplayName(u.Card, u.Name), u.Ability, targets, SkillPanelMaxTargets(u), SkillPanelSingleTargetName(targets),   // 🆕 2026-10-27（`B9_W57BDR4` · 报告 `B9_W44HUD` §六·④）：原来是写死的 `0, null` ⇒ 单目标 `(卡名)` 那一支结构上不可达。现在 `maxTargets` = 该能力的目标上限（`SkillPanelMaxTargets`：我们 `Ability:` 文法单槽 ⇒ 1 / 不用点目标 ⇒ 0）、`firstTargetName` = **恰好一个**合法目标时它的卡名（`SkillPanelSingleTargetName`，候选口与点亮/准星同一个 `LegalTargetCode`）。⛔ 费用格没动（那要引擎先有 `currentAbilityCost`）
                             !ShouldShowAbilityTargetsCounter(u.Card),
                             cardId: u.Card != null ? u.Card.Id : null,
                             requiresLoading: requiresLoading,
-                            // ⚠️ 原版 `activeAbilityLoaded(+0x224)` 由**装填机制**写；我们没有装填机制
-                            //   ⇒ 恒 false。因为 `ActiveAbilityNeedsLoading` 现读 1,351 张**全是 0**，
-                            //   `requiresLoading` 今天恒假 ⇒ 这一档**不可达**（如实记，⛔ 不是猜的值）。
-                            abilityLoaded: false,
+                            // 🆕 2026-10-29（`B99_E5` · 账 706②）：改读引擎侧**实例位** `UnitState.ActiveAbilityLoaded`
+                            //   （= 原版 `activeAbilityLoaded(+0x224)`；`SetBaseCardTraits.c:38` 清零 ＝ 我们 `UnitState.cs:2674`，
+                            //   `ResolveActiveAbilityPlayed.c:122/128` 推进 ＝ `StepActiveAbilityLoading`（`UnitState.cs:3994`））。⚠️ 全池 `needsLoading` 现读全 0 ⇒ 今天恒假（休眠，铁律 11 照建）。
+                            abilityLoaded: abilityLoaded,
                             abilityNeedsLoading: u.Card != null ? u.Card.ActiveAbilityNeedsLoading : -1,
                             hasRemovedReload: reloadRemoved, abilityTextReferenceId: u.Card != null ? u.Card.ActiveAbilityTextReferenceId : null);   // 2026-10-26 接线：`targetsAny` 语义是【反的】（true = 不拼后缀）｜🆕 2026-10-29（`B98_P1` · 卡-16）：把卡上的 `activeAbilityTextReferenceId` 传进技能面板（原版 `GetLocalizedAbilityDesc` 的键那半边）；⚠️ 同一物理行追加（铁律 18·b）。
         }
@@ -15866,35 +15839,42 @@ namespace CardPresentation
             int side = isPreview
                      ? (cmd == AttackKind.Ability ? CommandTargetSide(AttackKind.Ability) : 1 - _me)
                      : CommandTargetSide();
-            var views = side == _me ? _myUnits : _foeUnits;
-            var other = side == _me ? _foeUnits : _myUnits;
+            // 🔴 2026-10-30（`B99_A1` · AUD8-Any 并集）：`side` 可能是哨兵 `TargetSideBoth`（= 敌我两侧都算候选）。
+            //   非 both 时逐位与改前相同（候选侧那半边跑原循环，非候选侧那半边只刷底光）。
+            bool mineSide = side == TargetSideBoth || side == _me;
+            bool foeSide  = side == TargetSideBoth || side != _me;
 
-            // 另一侧的底光：🔴 **2026-10-25（`AU1` · `CF`）不再「熄掉」** —— 底光现在**只表达这张卡自己的打法**
+            // 非候选那一侧的底光：🔴 **2026-10-25（`AU1` · `CF`）不再「熄掉」** —— 底光现在**只表达这张卡自己的打法**
             //   （原版 `CardScript.ChangeAttackType` → `HighlightAttackTypes` 打的是**自己**那两颗实例），
             //   与「谁在选目标」无关 ⇒ 这里刷成每张卡自己的 `LastAttackType`（没值 ⇒ `None` = 不亮）。
-            int otherOwner = side == _me ? 1 - _me : _me;
-            foreach (var kv in other)
-                if (kv.Value != null) ApplyOwnAttackType(otherOwner, kv.Key, kv.Value);
+            if (!mineSide) foreach (var kv in _myUnits) if (kv.Value != null) ApplyOwnAttackType(_me, kv.Key, kv.Value);
+            if (!foeSide)  foreach (var kv in _foeUnits) if (kv.Value != null) ApplyOwnAttackType(1 - _me, kv.Key, kv.Value);
 
-            for (int t = 0; t < BoardSpec.Size; t++)
+            for (int si = 0; si < 2; si++)
             {
-                CardView v;
-                bool have = views.TryGetValue(t, out v) && v != null;
-                bool legal = isPreview
-                           ? (cmd == AttackKind.None
-                              // 原版 attackType == 0 ⇒ 不做近/远程判据 ⇒ 任一合法即可
-                              ? LegalTargetCode(t, AttackKind.Melee) == RuleCodes.OK
-                                || LegalTargetCode(t, AttackKind.Ranged) == RuleCodes.OK
-                              : LegalTargetCode(t, cmd) == RuleCodes.OK)
-                           : LegalTargetCode(t) == RuleCodes.OK;
+                if (si == 0 ? !mineSide : !foeSide) continue;
+                var views = si == 0 ? _myUnits : _foeUnits;
+                int owner = side == TargetSideBoth ? (si == 0 ? _me : 1 - _me) : side;   // 单侧档沿用「传 side 本身」（含 −1）；只有哨兵档按座位解
+                for (int t = 0; t < BoardSpec.Size; t++)
+                {
+                    CardView v;
+                    bool have = views.TryGetValue(t, out v) && v != null;
+                    bool legal = isPreview
+                               ? (cmd == AttackKind.None
+                                  // 原版 attackType == 0 ⇒ 不做近/远程判据 ⇒ 任一合法即可
+                                  ? LegalTargetCode(t, AttackKind.Melee) == RuleCodes.OK
+                                    || LegalTargetCode(t, AttackKind.Ranged) == RuleCodes.OK
+                                  : LegalTargetCode(t, cmd) == RuleCodes.OK)
+                               : LegalTargetCode(t) == RuleCodes.OK;
 
-                // 🔴 2026-10-25（`AU1` · `CF`）：底光 = **这张卡自己的**打法（与 `legal` 无关）；
-                //   「这个目标是合法的」只由下面那圈 `SetHighlight(ValidTarget)` 描边表达。
-                if (have) ApplyOwnAttackType(side, t, v);
-                if (!legal || !have) continue;
+                    // 🔴 2026-10-25（`AU1` · `CF`）：底光 = **这张卡自己的**打法（与 `legal` 无关）；
+                    //   「这个目标是合法的」只由下面那圈 `SetHighlight(ValidTarget)` 描边表达。
+                    if (have) ApplyOwnAttackType(owner, t, v);
+                    if (!legal || !have) continue;
 
-                v.SetHighlight(CardHighlightState.ValidTarget);
-                n++;
+                    v.SetHighlight(CardHighlightState.ValidTarget);
+                    n++;
+                }
             }
 
             // 🔴 **2026-10-25（`W8`）：这里原来往提示条塞一句自拼文案** ——
@@ -15982,28 +15962,20 @@ namespace CardPresentation
         {
             AttackKind cmd = cmdOverride != AttackKind.None ? cmdOverride : _command;
             if (Ctx == null || _selectedSlot < 0 || t < 0 || t >= BoardSpec.Size) return RuleCodes.ErrTarget;
+            // 🔴 2026-10-30（`B99_A1` · AUD8-Any 并集）：`side` 可能是哨兵 `TargetSideBoth`（原版 `targetsAffected = any`
+            //   = 敌我并集）⇒ 两侧各问一遍单侧本体（**敌先友后**，与 `RuleCore.AbilityPickOwnersOf` 同序）；
+            //   返回「首个 OK」，两侧都不行回**第一侧**的码（与改前只有敌方一档时逐位相同）。
+            //   ⚠️ 教程白名单闸与「候选非 null」都在 `LegalTargetCodeFor` 那一层（按侧判，⛔ 别提到循环外）。
             int side = CommandTargetSide(cmd);
-            if (side < 0) return RuleCodes.ErrTarget;                       // 这一手不用点目标
-            if (Ctx.Players[side].Board[t] == null) return RuleCodes.ErrTarget;
-            // 🔴 🆕 2026-10-18（A938）：**教程白名单闸门 · 第 ③④⑤⑨ 点** —— 原版那五处
-            //   （`IsValidSpellTarget` / `IsValidAttackTarget` / `IsValidActiveAbilityTarget` /
-            //    `IsValidActiveAbilityTargetTutorial` / `CanShowPotentialTargets`）**都挂在同一族
-            //   「这个目标能不能点」的判定上**，而它们在我们这边**收敛成了这一个方法**
-            //   （文件名下那句注释：点亮合法目标与准星都调它 —— 判据只此一处）。
-            //   ⇒ 一处 OR 进去 = 五处一起生效；⛔ 别在 `HighlightTargets` / `UpdateReticle` 里再各写一遍。
-            //   ⚠️ 这一处也是**查询口**（每帧问）⇒ 不出声；被拒的提示由第 ⑪ 点（`DoResolve`）给。
-            if (!TutorialPermits(TutAttemptTarget(side, t))) return RuleCodes.ErrTarget;
-            if (cmd != AttackKind.Ability)
-                return RuleCore.IsValidTarget(Ctx, _me, _selectedSlot, side, t,
-                                              cmd == AttackKind.Ranged);
-
-            // 主动技能那一格：**三种来源各问各的判据**（alt / `Ability:` / ④ 主动能力；都在引擎里，界面不自己判）
-            var u = Ctx.Players[_me].Board[_selectedSlot];
-            string alt = AltActionOf(u);
-            if (alt != null)
-                return RuleCore.CanPickAlternativeTarget(Ctx, _me, _selectedSlot, alt, t)
-                     ? RuleCodes.OK : RuleCodes.ErrTarget;
-            return AbilityTargetCodeOr(u, t);   // ④ 主动能力问 `CanUseActiveAbility`，其余仍 `CanUseAbility`（判据 → `AbilityTargetCodeOr`）
+            if (side != TargetSideBoth && side < 0) return RuleCodes.ErrTarget;   // 这一手不用点目标
+            int first = RuleCodes.ErrTarget;
+            for (int i = 0; i < SideCount(side); i++)
+            {
+                int code = LegalTargetCodeFor(SideAt(side, i), t, cmd);
+                if (code == RuleCodes.OK) return RuleCodes.OK;
+                if (i == 0) first = code;
+            }
+            return first;
         }
 
         /// <summary>
@@ -16044,17 +16016,20 @@ namespace CardPresentation
             // ② 「指针压着哪个**合法目标**」那一档（`selectedTargetInBoard` 橙 + 「这一下会打死它」图标）
             //    **仍然是指针驱动**的 —— 它是悬停反馈，与准星亮不亮是两件事。
             int side = CommandTargetSide();
-            var views = side == _me ? _myUnits : _foeUnits;
-            int t = HitSlot(views, world);
-            CardView foe;
-            if (t < 0 || LegalTargetCode(t) != RuleCodes.OK ||
-                !views.TryGetValue(t, out foe) || foe == null)
+            // 🔴 2026-10-30（`B99_A1` · AUD8-Any 并集）：`side` 可能是哨兵 `TargetSideBoth` ⇒ 两侧各探一次
+            //   （敌先友后；单侧时循环只有一圈，与改前逐位相同 —— 包括 `side == -1` 时直接落 `ClearReticleTarget`）。
+            for (int i = 0; i < SideCount(side); i++)
             {
-                ClearReticleTarget();
+                int s = SideAt(side, i);
+                var views = s == _me ? _myUnits : _foeUnits;
+                int t = HitSlot(views, world);
+                CardView foe;
+                if (t < 0 || LegalTargetCode(t) != RuleCodes.OK ||
+                    !views.TryGetValue(t, out foe) || foe == null) continue;
+                SetReticleTarget(s, t, foe);
                 return;
             }
-
-            SetReticleTarget(side, t, foe);
+            ClearReticleTarget();
         }
 
         /// <summary>指针最后停在哪个世界坐标（准星跟着它走；`CommitCommand` 那一刻也要用它定落点）。</summary>
@@ -16088,11 +16063,11 @@ namespace CardPresentation
             {
                 CardView v0;
                 if (!_myUnits.TryGetValue(_selectedSlot, out v0) || v0 == null) return;
-                // 正在被别的补间摆着的卡不抢（落场/回手那几段还在跑）
-                if (DG.Tweening.DOTween.IsTweening(v0.transform)) return;
+                // ⛔ 2026-10-30（`B99_A1` · AUD6-抬手）：这里原来是 `if (DOTween.IsTweening(v0.transform)) return;`，**已删**。
+                //   判据：原版 `CardScript__Update.c:3-5` 对 `cardState==0x11(inPlayAminingAttack)` **每帧无条件**跑 `OrientToTargetingDirection`（`CardScript__OrientToTargetingDirection.c` 全篇**没有**补间判）。
                 _leanActive = true;
                 _leanSlot = _selectedSlot;
-                _leanHome = v0.transform.localPosition;      // 抬手之前的静止位
+                _leanHome = BoardRestLocal(_selectedSlot, v0);   // 抬手之前的静止位（原版 base = stored 字段 `+0x2b8`；⛔ 别取当前 localPosition —— 补间中那是飞行位置）
                 _leanHomeRot = v0.transform.localRotation;   // 抬手之前的静止朝向（账 762/768/777：旋转那半要从这一档 slerp）
             }
             if (!_leanActive) return;
@@ -32664,7 +32639,7 @@ namespace CardPresentation
             foreach (var v in _handViews) if (TickTraitTip(v, wp)) return true;
             foreach (var kv in _myUnits) if (TickTraitTip(kv.Value, wp)) return true;
             foreach (var kv in _foeUnits) if (TickTraitTip(kv.Value, wp)) return true;
-            if (_cardDisplay != null && _cardDisplay.Visible && TickTraitTip(_cardDisplay.Card, wp)) return true;
+            if ((_cardDisplay != null && _cardDisplay.Visible && TickTraitTip(_cardDisplay.Card, wp)) || TipMultiCards(wp)) return true;   // 🆕 2026-10-30（`B99_A1` · T09-新账）：`|| TipMultiCards(wp)` = 多卡展示窗**逐张**都挂 tooltip（判据 → `TipMultiCards` 的 doc；原版 `UIMultiCardDisplay__Initialize.c:91` 逐卡 `ToggleTooltips(card2d, enableCardTooltips=1, 0)`）
 
             foreach (var v in _handViews) if (TickCardTip(v, wp)) return true;
             foreach (var kv in _myUnits) if (TickCardTip(kv.Value, wp)) return true;
@@ -35966,16 +35941,22 @@ namespace CardPresentation
         {
             if (legalCount != 1 || Ctx == null || _selectedSlot < 0) return null;
             int side = CommandTargetSide();
-            if (side < 0 || side >= Ctx.Players.Length) return null;
-            var views = side == _me ? _myUnits : _foeUnits;
-            for (int t = 0; t < BoardSpec.Size; t++)
+            // 🔴 2026-10-30（`B99_A1` · AUD8-Any 并集）：`side` 可能是哨兵 `TargetSideBoth` ⇒ 两侧都搜（敌先友后；
+            //   单侧时与改前逐位相同）。`legalCount == 1` 由调用方给 ⇒ 两侧合计恰好一个时限定唯一那个。
+            for (int si = 0; si < SideCount(side); si++)
             {
-                CardView v;
-                if (!views.TryGetValue(t, out v) || v == null) continue;
-                if (LegalTargetCode(t) != RuleCodes.OK) continue;
-                var tu = Ctx.Players[side].Board[t];
-                if (tu == null) continue;
-                return CardDisplayName(tu.Card, tu.Name);
+                int s = SideAt(side, si);
+                if (s < 0 || s >= Ctx.Players.Length) continue;
+                var views = s == _me ? _myUnits : _foeUnits;
+                for (int t = 0; t < BoardSpec.Size; t++)
+                {
+                    CardView v;
+                    if (!views.TryGetValue(t, out v) || v == null) continue;
+                    if (LegalTargetCode(t) != RuleCodes.OK) continue;
+                    var tu = Ctx.Players[s].Board[t];
+                    if (tu == null) continue;
+                    return CardDisplayName(tu.Card, tu.Name);
+                }
             }
             return null;
         }
@@ -36092,7 +36073,7 @@ namespace CardPresentation
             var v = interaction.Dragging;
             if (v == null || v.Inst == null) return false;
             var d = v.Inst.Card;
-            return d != null && d.Targeted == 1 && !d.IsUnit;
+            return NeedsTargetOnDrag(d);   // 判据只此一处 = 类尾的 `NeedsTargetOnDrag`（2026-10-30 `B99_A1` 收口）
         }
 
         /// <summary>拖目标型法术时每帧喂准星（锚点 = **我方督军卡**、终点 = 指针 + `moveCardYOffset`）。
@@ -38864,6 +38845,115 @@ namespace CardPresentation
             MissionChallenge.MatchIsReplay = () => _replaySession
                 || (Ctx != null && RuleEngine.MatchTypes.IsReplayMatch(Ctx.MatchType));
             MissionChallenge.MatchIsTutorial = () => Ctx != null && RuleEngine.MatchTypes.IsTutorialMatch(Ctx.MatchType);
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-29（`B99_E5` · 账 `706②`）：技能面板「装填」两格的**唯一读点**
+        // -------------------------------------------------------------------------------------------
+        //  判据 = 原版 `CardScript.GetCurrentLocalizedAbilityDescription.c:43` —— 先问
+        //    `DoesAbilityRequireLoading()`（`CardScript__DoesAbilityRequireLoading.c:13-38`：
+        //    `+0x220 ≠ 0` ∧ 无 removed `reload`(0x1ea) ∧ `ActiveAbility.needsLoading(+0x22)`），
+        //    再按 `activeAbilityLoaded(+0x224)` 选 `-load` / `-effect` 两档描述。
+        //  ⇒ **先后是「先 requires、后 loaded」**，且两格都是 **CardScript 实例**上的字段。
+        //  我们两格都读 `UnitState` 的实例视图（`RequiresAbilityLoading` / `ActiveAbilityLoaded`）；
+        //  ⛔ 别在这里另写一份合取 —— 原来那份读的是**卡面** `CardDef.HasActiveAbility`，
+        //  漏了教程关闸 `ActiveAbilityHidden` / jam 压制 `ActiveAbilitySuppressed` 两个实例位。
+        //  自检口 = `B99E5_Assert`（`ShowSkillPanel` 是私有且要活的 `skillPanel`，走不了反射）。
+        // ============================================================================================
+        public static void SkillPanelLoadingFlags(UnitState u, out bool requiresLoading, out bool abilityLoaded)
+        {
+            requiresLoading = u != null && u.RequiresAbilityLoading;
+            abilityLoaded = u != null && u.ActiveAbilityLoaded;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-30（`B99_A1` · 第九十九会话 · 波 3 · 组 A）：本批新增的四个读口/判据，**全部追加在类尾**
+        //  （⛔ 别插进已有成员之间：`BattleDriver.cs` 是被账按行号引用最多的文件之一，插一行会推走一大批 A 落点）
+        // ============================================================================================
+
+        /// <summary>多卡展示窗里**逐张**挂 tooltip（T09-新账）。判据 = 原版 `UIMultiCardDisplay__Initialize.c:91`：
+        /// 逐卡循环里 `Card2DController__ToggleTooltips(card2d, *(byte*)(this+0x98), 0)`，而 `MB_4182` 现读
+        /// `enableCardTooltips = 1` ⇒ 摊开的**每一张**都该弹 tip（我们原来只给 `_cardDisplay` 单卡窗挂了）。
+        /// <para>⚠️ `MultiCardDisplay` **一字节不改** —— 读口 `Visible / CardCount / CardForTest` 早就有。
+        /// ⛔ 次序照 `TickTooltipAt` 那条口径：**先把关键词那圈跑完、再跑数值圈**（重叠时以关键词为准）。</para></summary>
+        bool TipMultiCards(Vector3 wp)
+        {
+            if (_multiCards == null || !_multiCards.Visible) return false;
+            int n = _multiCards.CardCount;
+            for (int i = 0; i < n; i++)
+            {
+                var v = _multiCards.CardForTest(i);
+                if (v != null && TickTraitTip(v, wp)) return true;
+            }
+            for (int i = 0; i < n; i++)
+            {
+                var v = _multiCards.CardForTest(i);
+                if (v != null && TickCardTip(v, wp)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>「这一拖松手时要一句 `Battle/Tips/DragToTarget`」的**唯一判据** = 原版那 4 处
+        /// `NotifyCantDoAction` 的覆盖面（`BattleManager.cs:26054/26677/26685/26693` 全在
+        /// `playingTargetedSpell` / `targetedActiveAbility` 两支）= **目标型（`Targeted == 1`）且非单位**的卡。
+        /// <para>🔴 与 <see cref="IsDraggingTargetedSpell"/> **同一条谓词**（那边改成本方法的转发，⛔ 别写两份）。</para></summary>
+        static bool NeedsTargetOnDrag(CardDef d) { return d != null && d.Targeted == 1 && !d.IsUnit; }
+
+        /// <summary>同上，按视图取卡（手牌视图的 `Inst.Card` 就是引擎那张 `CardDef`；取不到退回 `DefOf`）。</summary>
+        bool CardNeedsTargetOnDrag(CardView v)
+        {
+            if (v == null) return false;
+            return NeedsTargetOnDrag(v.Inst != null ? v.Inst.Card : DefOf(v));
+        }
+
+        /// <summary>我方某格卡在**静止位**的局部位（AUD6-抬手）。
+        /// <para>**为什么要它**：原版 `CardScript__OrientToTargetingDirection.c` 的 base 是 **stored 字段** `+0x2b8`，
+        /// 每帧 `lerp(当前, base + offset, …)`；我们原来取 `transform.localPosition` 当 base —— 补间进行中那是
+        /// **飞行位置**，抬手会被带到半路、收手也回错位。静止位 = `PoseFor` 的产出（`SyncBoard` 摆位用的就是它，
+        /// 一个判据两处共用）。取不到（无 `Ctx` / 格号非法 / 无视图）⇒ 退回 `fallback` 的**当前** `localPosition`（⛔ 不猜零点）。</para></summary>
+        Vector3 BoardRestLocal(int slot, CardView fallback)
+        {
+            Vector3 now = fallback != null ? fallback.transform.localPosition : Vector3.zero;
+            if (Ctx == null || _me < 0 || _me >= Ctx.Players.Length || !BoardSpec.IsValid(slot)) return now;
+            var board = Ctx.Players[_me].Board;
+            var u = (board != null && slot < board.Length) ? board[slot] : null;
+            Vector3 pos; float sc;
+            PoseFor(true, slot, u, out pos, out sc);
+            return pos;
+        }
+
+        /// <summary>🔴🆕 2026-10-30（`B99_A1` · AUD8-Any 并集）：原版 `targetsAffected = any` 的候选 =
+        /// **敌我两侧并集**（`AbilityLogic__GetTargets.c` 的 `GetUnitsInPlayList(…, both = friendly!=0 || enemy!=0)`；
+        /// il2csharp `AbilityLogic.cs:3824-3827` 的 `inclPlayer=1 ∧ inclEnemy=1`）。我们原来在 `Any` 档**退回敌方并出声**
+        /// （`AbilityPickOwner`）⇒ 这里改用哨兵，让消费点**两侧都试**（次序 = **敌先友后**，与引擎
+        /// `RuleCore.AbilityPickOwnersOf` 的 `Any` 档同一口径，联机/回放两端因此必然一致）。
+        /// <para>⛔ **别把 `-2` 直接拿去索引 `Ctx.Players[…]`** —— 一律过 <see cref="SideCount"/>/<see cref="SideAt"/>。</para></summary>
+        const int TargetSideBoth = -2;
+
+        /// <summary>`side` 档要试几个座位：`TargetSideBoth` = 2 · `0/1` = 1 · `-1`（不用点目标）= 0。</summary>
+        int SideCount(int side) { return side == TargetSideBoth ? 2 : (side >= 0 ? 1 : 0); }
+
+        /// <summary>第 `i` 个候选座位（**敌先友后**；与 `RuleCore.AbilityPickOwnersOf` 的 `Any` 次序同源）。</summary>
+        int SideAt(int side, int i) { return side == TargetSideBoth ? (i == 0 ? 1 - _me : _me) : side; }
+
+        /// <summary>`LegalTargetCode` 的**单侧本体**（判据只此一处；两侧那一层在 `LegalTargetCode` 的循环里）。
+        /// <para>⚠️ 教程白名单闸（`TutAttemptTarget(side, t)`）**按侧判**，所以必须留在这一层、不能提到循环外。</para></summary>
+        int LegalTargetCodeFor(int side, int t, AttackKind cmd)
+        {
+            if (side < 0 || side >= Ctx.Players.Length || t < 0 || t >= BoardSpec.Size) return RuleCodes.ErrTarget;
+            if (Ctx.Players[side].Board[t] == null) return RuleCodes.ErrTarget;
+            // 教程白名单闸门（原版那五处 `IsValid*Target` 共用一族判据 ⇒ 我们收敛在这一个方法，⛔ 别在调用点再写）。
+            // ⚠️ 这是**查询口**（每帧问）⇒ 不出声；被拒的提示由 `DoResolve` 给。
+            if (!TutorialPermits(TutAttemptTarget(side, t))) return RuleCodes.ErrTarget;
+            if (cmd != AttackKind.Ability)
+                return RuleCore.IsValidTarget(Ctx, _me, _selectedSlot, side, t, cmd == AttackKind.Ranged);
+            // 主动技能那一格：**三种来源各问各的判据**（alt / `Ability:` / ④ 主动能力；都在引擎里，界面不自己判）
+            var u = Ctx.Players[_me].Board[_selectedSlot];
+            string alt = AltActionOf(u);
+            if (alt != null)
+                return RuleCore.CanPickAlternativeTarget(Ctx, _me, _selectedSlot, alt, t)
+                     ? RuleCodes.OK : RuleCodes.ErrTarget;
+            return AbilityTargetCodeOr(u, t);   // ④ 主动能力问 `CanUseActiveAbility`，其余仍 `CanUseAbility`
         }
     }
 }

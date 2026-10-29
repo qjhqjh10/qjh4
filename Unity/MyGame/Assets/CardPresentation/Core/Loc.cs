@@ -2761,7 +2761,7 @@ namespace CardPresentation
             { "Card_Trait/sentry", new Entry("哨兵", "Sentry") },
             { "Card_Trait/shield", new Entry("盾牌", "Shield") },
             { "Card_Trait/shuriken", new Entry("星镖", "Shuriken") },
-            { "Card_Trait/slay", new Entry("消灭", "Slay") },
+            { "Card_Trait/slay", new Entry("消灭", "Slay") }, { "Card_Trait/sneakattack", new Entry("潜行攻击", "Sneak Attack") },   // 别名键（不是官方键名）：canonical 是 `sneakattack`（`CardDef.cs:7317`）⇒ `CardText.TraitTerm` 拼出 `Card_Trait/sneakattack`；官方那条叫 `Card_Trait/sneak`（`官方本地化_en+zh-CN.json`）⇒ 两列值逐字照抄官方，⛔ 别当成「我们自造的词」
             { "Card_Trait/sniper", new Entry("狙击手", "Sniper") },
             { "Card_Trait/spiritstone", new Entry("灵魂石", "Spirit Stone") },
             { "Card_Trait/stealth", new Entry("隐身", "Stealth") },

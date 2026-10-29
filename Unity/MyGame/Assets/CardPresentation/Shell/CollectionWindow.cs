@@ -929,7 +929,7 @@ namespace CardPresentation
         /// 🔴 起因：收藏窗第一版漏了这一步，**截图里高亮停在第 2 键上**（DECKS 页却亮着 CARDS）。</summary>
         public override void RefreshHighlights()
         {
-            int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1;
+            int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1; WildcardDisplayTabChanged(CurrentTab == WindowTabType.CollectionCards);   // 界面 #3(+#7)：切页签 = 原版 `WildcardDisplay.OnEnable/OnDisable`（计数条 GO 随 Cards 页树 SetActive；见类尾那个方法）
             if (_btnHighlight == null) return;
             // 🆕 2026-10-03：**整棵九宫格一起开关**（`Highlight` 现在是 `Sliced`，一棵树 9 个 quad）
             MainMenuSubmenuWindow.SetHighlight(_btnRes, sel);
@@ -1051,12 +1051,12 @@ namespace CardPresentation
             //     Common 1565→1630 · Rare 1640→1705 · Epic 1715→1780 · Legendary 1790→1855（y 全 91.4→135.4）。
             //   ⚠️ 组宽 **65**、而 `Counter` 右沿到 `x+71` —— 原版孩子**溢出组框 6px**（dump 实读），照抄。
             string[] wcGroup = { "Common", "Rare", "Epic", "Legendary" };
-            // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原版这 4 个数是 `WildcardDisplay`
-            //    的库存直出；我们缺的是**发放源** ⇒ 数字不自己算）。
-            //    🆕 **2026-10-19（界面线尾巴 · 铁律 5）**：原文那句「我们既没有 hover 也没有发放源」里
-            //    **hover 那一半已过期** —— 同一颗 `WildcardDisplay` 的**阵营徽记**已接悬停/详情换图
-            //    （`SetWildcardArmy`）；**只有数字**仍恒定（发放源没有）。
-            //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
+            // 🔴 ~~**2026-09-28 用户拍板：万能卡数字一律恒定 `99`**~~ → **2026-10-30（`B99_W2`）改回原版口径（§18·0）**：
+            //    这 4 个数 = **该阵营 4 档库存直出**（原版 `WildcardDisplay.SetCountersText`）⇒ 由 `RefreshWildcardCounters` 写；
+            //    出厂库存 = `CardProgress.WildcardsPerRarity = 99`（🔶 用户 2026-09-28 拍板的单机口径，只是「没有存档时的初值」）。
+            //    🆕 2026-10-19 那句「hover 也没有」也已过期 —— 阵营徽记的悬停/详情换图走 `SetWildcardArmy`。
+            //    ⚠️ 与 `Deck/DeckRuntime.cs` 那四格**同一条规则、各写一份**（两个宿主两个文件）；⛔ 别再写死 "99"。
+            //    判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·5。
             for (int i = 0; i < 4; i++)
             {
                 float x = 1565f + 75f * i;
@@ -1116,7 +1116,7 @@ namespace CardPresentation
             //   ⚠️ 图走 `Core/ArmyIcons.cs`（13 阵营，唯一一份；`IconsByArmySO` 逐字节解出）—— ⛔ 别在这写第二份映射。
             var wcArmyR = new PxRect(1470f, 70.94f, 1550f, 155.94f);
             _wcArmyArt = ArmyIcons.IconName(_wcArmy) ?? WcArmyDefaultArt;
-            _wcArmyQuad = Rect(wcDisplay, _wcArmyArt, wcArmyR, "Army Icon", QPageRow, null, true);
+            _wcArmyQuad = Rect(wcDisplay, _wcArmyArt, wcArmyR, "Army Icon", QPageRow, null, true); RefreshWildcardCounters();   // 界面 #5：四格数字 = 该阵营四档库存（原版 `SetCountersText`；见类尾 `WcRarityNames`）
 
             var holder = Node(page, "Scroll View", CardsViewport);
             // 🆕 2026-10-29（`B97_MINI2` · 账 `未分类_其他:312` · **形状派**）：原版 `CardCollectionDisplay.referenceCardPoint`
@@ -5086,7 +5086,7 @@ namespace CardPresentation
                                    + "映射表 = `Core/ArmyIcons.cs`（13 条，原版 `IconsByArmySO` 逐字节解出）。");
                 return;
             }
-            _wcArmy = army;
+            _wcArmy = army;   RefreshWildcardCounters();   // 界面 #5：原版 `WildcardDisplay.Initialize(army)` 的 `SetCountersText` —— 换阵营 ⇒ 四格数字跟着换（放在图之前：图取不到时原版同样是「阵营已换、数字已换」）
             var tex = ArmyIcons.Texture(army);
             if (tex == null)
             {
@@ -5099,7 +5099,7 @@ namespace CardPresentation
             _wcArmyArt = art;
             // 还没建那棵树（或页已重建）⇒ 只记状态，建页时 `BuildCardsPage` 会按 `_wcArmy` 取图。
             // 同名图**不再重设**（悬停每帧级触发；`SetTexture` 会重建网格）。
-            if (_wcArmyQuad != null && changed) _wcArmyQuad.SetTexture(tex, true);   // PA=1（原版 `m_PreserveAspect = 1`）
+            if (_wcArmyQuad != null && changed) _wcArmyQuad.SetTexture(tex, true);   // PA=1（原版 `m_PreserveAspect = 1`）；四格数字已在 `_wcArmy = army` 那一行刷过（界面 #5）
         }
 
         // ============================================================ 🆕 **2026-10-25（`C` 收藏域 · K3 P2-⑦ 落地）**
@@ -6507,19 +6507,19 @@ namespace CardPresentation
         // 【我们这一侧】扫光层 = `_wcShine`（参数复用 `Params.WildcardDisplay`，⛔ 别新造第三组参数）；
         //   `_wcShine == null`（shader 取不到 / 页还没建）⇒ **什么也不做**（原版那一支会抛，我们不出声：
         //   静默的是「这一层本来就没有」，不是「该播没播」—— 那两处 `Debug.LogWarning` 已经在建层时出过声）。
-        //   ⚠️ **`SetCountersText` 那一半不做**：那 4 个数字 2026-09-28 用户拍板恒定 `99`
-        //   （缺的是**发放源**，不是这一跳；见 `BuildCardsPage` 里那条注释）。
+        //   ✅ **`SetCountersText` 那一半 2026-10-30（`B99_W2`）已做**（`RefreshWildcardCounters` = `CardProgress.Wildcards(army,rarity)` 四档库存直出）；
+        //   ~~「4 个数字恒定 `99`（用户 2026-09-28 拍板）」~~ 现按 §18·0 回原版：99 只是**没有存档时的出厂库存**。
         //
-        // ⚠️ 如实标注的两处偏差：
-        //   ① 订阅时机 = **建 Cards 页**（`BuildWildcardShine`）、退订 = **关窗**（`Close`）——
-        //      原版跟着计数条的 `activeSelf`（切到别的页签会 `OnDisable`）。可见差异 = **0**：
-        //      页藏着时播，画面上一帧都看不到（`rate` 到 1 即停），回来时也不会多扫一遍。
-        //      若要逐字对齐，落点 = `RefreshHighlights`（基类 `ChangeTab` 会调）按 `CurrentTab` 订/退 ——
-        //      本波**没接**（那会改动切页行为，需 `CollectionScene` 自检同时补断言）。
-        //   ② **发放源缺口（不在本文件）**：本工程唯一会动通配符库存的地方是
-        //      `Shell/CardDetailPopup.cs` 的 `CardProgress.TrySpendWildcard`（合成扣 1 张），它**不调**
-        //      `Inventories.Wildcards.UpdateItemCollection()` ⇒ **生产路径上这条信号今天不会响**。
-        //      改动请求 → `报告/B9_W63WC_万能卡计数扫光.md` §五·1。
+        // ⚠️ 如实标注：① 已按原版对齐（2026-10-30）；② 发放源的「谁发」仍是服务器（关服）⇒ 出厂库存口径（见下）。
+        //   ① ~~订阅 = 建页、退订 = 关窗~~ → 🔴 **2026-10-30（`B99_W2`）已对齐**：`RefreshHighlights` 按 `CurrentTab` 订/退
+        //      （`WildcardDisplayTabChanged`）—— 原版就是跟着计数条的 `activeSelf`（切到别的页签 = `OnDisable`）。
+        //      ⇒ **切回 Cards 页重播一次**（原版 `OnEnable` 的 `Play(resetTime:true)` + `SetCountersText`）；
+        //      页藏着时 `SetEnabled(false)` + 退订（旧版「页藏着也播、回来也不多扫一遍」那段偏差已消除）。
+        //      ⚠️ `Editor/CollectionScene.cs` 的扫光节读数前要先切回 Cards 页（补丁 → `报告/B99_W2.md` §五）。
+        //   ② ~~发放源缺口：`CardDetailPopup` 不调 `UpdateItemCollection()` ⇒ 生产上信号不响~~ →
+        //      ✅ **2026-10-27（`B9_W63WC`）已接**（扣通配符 / 加拥有数成功都调一次 `UpdateItemCollection()`）；
+        //      库存正本仍是 `CardProgress`（两维桶 `army|rarity`），背包条目 2026-10-30 按它播 52 条。
+        //      ⚠️ 「谁给玩家发通配符」原版是**服务器**（关服）⇒ 出厂 99/档 = 我们的全解锁口径，不是原版数值。
         //   ⚠️ 三个小方法在 `Deck/DeckRuntime.cs` 有一份**同形**实现（两个宿主吃同一条静态事件，
         //      共用件 `Effects/UIEffectTogglerCoffeeEffects.cs` 本波有别的写手 ⇒ 不往那里收口）。
         //   🔶 自己设计（非原版）：信号层用 C# `event`（原版 `Scaffold.Core.Events.Signal`）·
@@ -6546,7 +6546,7 @@ namespace CardPresentation
         void OnWildcardsUpdated()
         {
             if (_wcShine == null) return;      // 这一页没挂扫光 ⇒ 无画面可播（见上面「我们这一侧」那条）
-            _wcShine.Play(true);               // 原版 `UIEffectTweener.Play(_, 1, 0)` = `Play(resetTime: true)`
+            _wcShine.Play(true);   RefreshWildcardCounters();   // 原版 `UIEffectTweener.Play(_, 1, 0)` = `Play(resetTime: true)`；`SetCountersText` 在同一支（`UpdateCounters` 两句都在 `if (shinyEffect != null)` 里）
         }
 
         /// <summary>自检读口：`Updated` 订着吗（原版 = `Signal` 注册着）。关窗后必须 false。</summary>
@@ -6658,6 +6658,58 @@ namespace CardPresentation
         /// 事件数据源复用 `DeckRuntime.CurrentEventData`（卡组编辑池 `B97_MENU` 已用它喂同一颗徽标）。</para></summary>
         static bool IsCardBanned(CardDef def)
             => def != null && DeckRuntime.CurrentEventData != null && DeckRuntime.CurrentEventData.IsCardBanned(def.Id);
+
+        // ============================================================ 界面 #3(+#7) / #5（B99_W2 · 2026-10-29 · 追加在类尾）
+        // 判据（施工单逐句）→ `资料/完全复刻/判据/B99_R3b_施工单_其余按文件.md` §2·3 / §2·5。
+        // 🔴 追加在类尾（★ 就是 `IsCardBanned` 之后）：本文件另有 ~36 条扫光断言 + 账按行号引用
+        //    （`收藏.tsv:916` 指的是 `:6659` = 上面那句 `IsCardBanned` 的**声明行**）⇒ **加在它之后 = 既有行号一个都不漂**。
+
+        /// <summary>切换页签 = 原版 `WildcardDisplay.OnEnable` / `OnDisable` 那一拍。
+        /// <para>原版（🥇 `WildcardDisplay__OnEnable.c` / `__OnDisable.c`）：计数条 GO 藏在 **Cards 页树**里，
+        /// 换页 `SetActive` ⇒ 离开时 `Signal.Unregister`（`OnDisable`）、回来时 `Signal.Register` + （`currentArmy != 0` ⇒）`Play`。
+        /// ⇒ **每次切回 Cards 页都重播一次扫光**；切走时退订（`UpdateCounters` 不再响）。
+        /// ⚠️ 我们原来只在**建页**那一拍（`BuildWildcardShine`）Hook+Play，而 `ChangeTab` **不重建页**（只开关 GO）
+        /// ⇒ 永不重播（本文件 `:6510` 一带的自陈已按本条订正）。</para>
+        /// <para>⚠️ 幂等：`Hook`/`Unhook` 自带 `_wcSignalOn` 守卫；重复 `Play(true)` 只是重头播一次（0.75 s 一次性），可接受。</para></summary>
+        void WildcardDisplayTabChanged(bool onCards)
+        {
+            if (onCards)
+            {
+                HookWildcardUpdate();
+                // 原版 `OnEnable` 第二段：`if (currentArmy != Neutral) { shinyEffect.Play(resetTime:true); SetCountersText(); }`
+                if (_wcShine != null && !ArmyIcons.IsNeutral(_wcArmy)) _wcShine.Play(true);
+                RefreshWildcardCounters();
+            }
+            else
+            {
+                if (_wcShine != null) _wcShine.SetEnabled(false);   // 原版 `OnDisable` 的观感 = 计数条藏起来（不亮）；`DeckRuntime:9072` 同口径
+                UnhookWildcardUpdate();
+            }
+        }
+
+        /// <summary>原版 `WildcardDisplay.SetCountersText`：把 4 个数字写成**该阵营 4 档稀有度的库存**。
+        /// <para>读口 = `CardProgress.Wildcards(army, rarity)`（两维库存，唯一一份；§18·0 ⇒ 「无定义档」返回 0 是**原版行为**）。</para>
+        /// <para>⚠️ 与 `Deck/DeckRuntime.cs` 那四格**同一条规则、各写一份**（两个宿主、两个文件；⛔ 别在这里再算第二种口径）。</para></summary>
+        void RefreshWildcardCounters()
+        {
+            string army = ArmyIcons.Faction(_wcArmy);
+            for (int i = 0; i < _wcCount.Length && i < WcRarityNames.Length; i++)
+            {
+                if (_wcCount[i] == null) continue;
+                _wcCount[i].SetText(CardProgress.Wildcards(army, WcRarityNames[i]).ToString());
+            }
+        }
+
+        /// <summary>`Counters ▸ {Common,Rare,Epic,Legendary}` 四组的中档名 —— **顺序与 `wcIc` 那四张图标逐位对应**
+        /// （`BuildCardsPage` 里那个循环；也是 `CardProgress.Wildcards` 的键口径，全小写）。</summary>
+        static readonly string[] WcRarityNames = { "common", "rare", "epic", "legendary" };
+
+        /// <summary>自检读口：`WIldcard Display ▸ Counters` 第 <paramref name="i"/> 格（0=Common · 1=Rare · 2=Epic · 3=Legendary）
+        /// 现在印的是什么；那一格没建出来 ⇒ `null`（⛔ 不拿 "0" 冒充「没建」）。</summary>
+        public string WildcardCounterTextForTest(int i)
+        {
+            return (i >= 0 && i < _wcCount.Length && _wcCount[i] != null) ? _wcCount[i].Text : null;
+        }
     }
 
 }

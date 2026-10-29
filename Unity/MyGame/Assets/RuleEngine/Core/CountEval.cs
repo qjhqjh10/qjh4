@@ -53,15 +53,15 @@ namespace RuleEngine
         /// <paramref name="actor"/> = 这条 ability 的**所有者单位**（拿得到就传，`includeSelf` /
         /// `excludeNotSelf` 两格要它；拿不到传 `null`，那两格**只在候选就是它时**才有区别）。
         /// </summary>
-        public static bool? Meets(BattleContext ctx, int owner, CardDef.ConditionSpec spec, UnitState actor = null)
+        public static bool? Meets(BattleContext ctx, int owner, CardDef.ConditionSpec spec, UnitState actor = null, UnitState target = null, bool targetKnown = false)
         {
             string gap;
-            return Meets(ctx, owner, spec, actor, out gap);
+            return Meets(ctx, owner, spec, actor, out gap, target, targetKnown);
         }
 
         /// <summary>同上，多一个 <paramref name="gap"/>（**判不了时**写清是哪一格没实现）。</summary>
         public static bool? Meets(BattleContext ctx, int owner, CardDef.ConditionSpec spec, UnitState actor,
-                                  out string gap)
+                                  out string gap, UnitState target = null, bool targetKnown = false)
         {
             gap = null;
             // 🔴🆕 **2026-10-26（批次 9 · 执行代理 `E7P06` · 账 676 ⑤）就地拆开这两种「没有」**：
@@ -124,7 +124,7 @@ namespace RuleEngine
             if (why != null) { gap = why; return null; }
 
             int count;
-            if (CountSet(ctx, owner, set, spec.Condition, spec.CountOption, actor, out count, out why) == null)
+            if (CountSet(ctx, owner, set, spec.Condition, spec.CountOption, actor, out count, out why, null, null, target, targetKnown) == null)
             {
                 gap = why ?? "集合/条件判不了";
                 return null;
@@ -156,7 +156,7 @@ namespace RuleEngine
         /// 里那几张牌（判据见 `CountSet` ④ 与 <see cref="CountDrawnAsPreviousTargets"/>）。</para>
         /// </summary>
         public static int? CountTargets(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond,
-                                        UnitState actor, out string gap)
+                                        UnitState actor, out string gap, UnitState target = null, bool targetKnown = false)
         {
             gap = null;
             if (ctx == null || set == null) { gap = "没有 criteria"; return null; }
@@ -181,7 +181,7 @@ namespace RuleEngine
             int count;
             // `countOptions = 0`（AllTargets = 每个命中 +1）—— 纯 `TargetCriteria` 没有这一格，
             // 原版这一支也不按「同方 −1 / 异方 +1」加权（那是 `BoardCriteria.countOptions`）。
-            if (CountSet(ctx, owner, set, cond, 0, actor, out count, out why) == null)
+            if (CountSet(ctx, owner, set, cond, 0, actor, out count, out why, null, null, target, targetKnown) == null)
             {
                 gap = why ?? "集合判不了";
                 return null;
@@ -238,10 +238,10 @@ namespace RuleEngine
         /// <para>⚠️ 本重载 = `ignoreRandom: false`（原版触发路径
         /// `RawCardScript.TriggerAbilities` 的 `param_10` 在全部已知调用点上都是 0）。</para></summary>
         public static bool? MeetsBoardCriteria(BattleContext ctx, int owner, CardDef.BoardGateSpec gate,
-                                               UnitState actor = null)
+                                               UnitState actor = null, UnitState target = null, bool targetKnown = false)
         {
             string gap;
-            return MeetsBoardCriteria(ctx, owner, gate, actor, out gap);
+            return MeetsBoardCriteria(ctx, owner, gate, actor, out gap, false, 0, target, targetKnown);
         }
 
         /// <summary>同上，多一个 <paramref name="gap"/>（**判不了时**写清是哪一格没实现）。</summary>
@@ -266,7 +266,7 @@ namespace RuleEngine
         /// ⛔ 不传 = 把「只数带某条件的候选」静默变成「全数」。</param>
         public static bool? MeetsBoardCriteria(BattleContext ctx, int owner, CardDef.BoardGateSpec gate,
                                                UnitState actor, out string gap, bool ignoreRandom = false,
-                                               int cond = 0)
+                                               int cond = 0, UnitState target = null, bool targetKnown = false)
         {
             gap = null;
             if (gate == null) return true;              // `:44-46` criteria == null
@@ -355,7 +355,7 @@ namespace RuleEngine
             var cands = needCands ? new System.Collections.Generic.List<UnitState>() : null;
             var candSides = needCands ? new System.Collections.Generic.List<int>() : null;
             if (CountSet(ctx, owner, set, cond, gate.CountOption, actor, out count, out why,
-                         cands, candSides) == null)
+                         cands, candSides, target, targetKnown) == null)
             {
                 gap = why ?? "集合判不了";
                 return null;
@@ -481,7 +481,7 @@ namespace RuleEngine
         static int? CountSet(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond, int countOption,
                              UnitState actor, out int count, out string gap,
                              System.Collections.Generic.List<UnitState> cands = null,
-                             System.Collections.Generic.List<int> candSides = null)
+                             System.Collections.Generic.List<int> candSides = null, UnitState target = null, bool targetKnown = false)   // 🆕 2026-10-30（B99_T2）：`ta=30/90` 的 `[targetCard]` 池要它（见类尾 `CountSetT2` 的 doc）
         {
             count = 0;
             gap = null;
@@ -535,7 +535,12 @@ namespace RuleEngine
                     // 🆕 2026-10-26（`B1`）：`keywordFilter` / `filterSpecificCards` 在**卡模板**上就能判
                     //   （原版 `RawCardScript.IsKeyword` = `rawCardData.keyword(+0x98) == k`，纯静态）；
                     //   运行期那几维（trait / 四组 stat）墓地候选**没有单位实体** ⇒ 判不了、如实出声。
-                    bool? cpass = CemeteryCandidatePasses(set, d.Card, out string cWhy);
+                    // 🔴 2026-10-29（`B99_E3` · 账 1281/1379 的 (c) 格）：判据改走**全仓唯一那份卡面级判据**
+                    //   `TargetCriteriaEval.MatchesRawCard`（= 原版 `FilterMethods.CheckIfRawCardMeetsCriteria`），
+                    //   并把「要靠阵营 / 实例才判得了」的几格一并接上 ⇒ 原来整条挡成 gap 的
+                    //   `traitsFilter` / 四组 stat / `armyFilter` / `spellType` / 稀有度**现在都判得了**
+                    //   （卡面值就是原版这一路读的值：`CheckIfRawCardMeetsCriteria.c:18-103` 全程只读 `RawCardScript`）。
+                    bool? cpass = CemeteryCandidatePasses(set, d.Card, owner, d.Owner, actor, d.Instance, out string cWhy);
                     if (cpass == null) { gap = cWhy; return null; }
                     if (!cpass.Value) continue;
                     var v = ConditionEval.MeetsCard(ctx, d.Card, d.Owner, cond, false, d.InstanceId);
@@ -632,58 +637,43 @@ namespace RuleEngine
                 return count;
             }
 
-            // ---- ③a 🆕 2026-10-28（B88 · `A1b`）：**手牌（`50 inHandFiltered`）** ----
-            //  判据 = 原版 `AbilityLogic__GetTargets` 的 `ta == 0x32(50)` 支 ⇒ 候选池 = **某一侧的 `PlayerHand`**，
-            //  再按 `TargetCriteria` 的卡种 / 其余筛过一遍（`FilterMethods__CheckIfMeetsCriteria`）。
-            //  ⚠️ **唯一现池消费者** = `GSC35 Benefictus` / `GSC59 Day of Ascension` 的 `multiplier`
-            //     （`abilities[0].logic[0].multiplierSet`：`enemyUnits=1 · includeMinions=1 · includeSpells=1`）
-            //     ⇒ 这里只实现**这一种形状**；其余维度（keyword/trait/四组 stat / filterSpecificCards / cond /
-            //     maxTargets 截断 / 自他 / 英雄·武器·密语·残骸档）**一律如实判不了**（`null` + `gap`），
-            //     绝不按「大概是」补（铁律 2）。
+            // ---- ③a **手牌 `50` · 手牌+牌库 `51` · 牌库 `65`**（三个卡池，2026-10-29 `B99_E3` 起统一）----
+            //  判据 = `AbilityLogic__GetTargets.c:918-931(50 手牌)` / `:933-950(51 手牌 AddRange 牌库)` /
+            //  `:966-978(65 牌库)` ⇒ 候选池 = **某一侧的 `PlayerHand` / `PlayerState.Deck`**（按
+            //  `friendlyUnits/enemyUnits` 选边），再按 `TargetCriteria` 逐候选过一遍
+            //  （`FilterMethods__CheckIfMeetsCriteria`；卡面级那一半转调 `TargetCriteriaEval.MatchesRawCard`）。
+            //  🔴 **2026-10-29（`B99_E3`）就地订正**：本条原来写「只实现卡种两档、其余维度一律如实判不了」
+            //     —— **已过期**（铁律 5）。现在支持面 = `CardPoolSetSupported` 那一道闸（只剩
+            //     `selectFromChooseResolution` 一格挡着，理由见那个方法的 doc）；判定/裁剪全在
+            //     `CountCardPool` / `CountCardList` / `CardPoolCandidatePasses`（类尾）与 `ApplyMaxTargets`。
             //  🔴 判据文件 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §二 / §四·3。
-            if (ta == 50)
+            if (ta == 50 || ta == 51 || ta == 65)
             {
                 if (SideEmpty(set)) return 0;
                 string handGap;
-                if (!HandSetSupported(set, cond, out handGap)) { gap = handGap; return null; }
-                for (int p = 0; p < 2; p++)
-                {
-                    if (!SideMatches(owner, p, set)) continue;
-                    var ps = ctx.Players[p];
-                    if (ps == null) continue;
-                    for (int i = 0; i < ps.Hand.Count; i++)
-                    {
-                        var inst = ps.Hand[i];
-                        var c = inst != null ? inst.Card : null;
-                        if (c == null) continue;
-                        // 卡种：`includeMinions` = 单位 · `includeSpells` = 战术（`HandSetSupported` 已保证
-                        // 其余卡种档位全是 0 ⇒ 这里只需判这两档）。
-                        // ⚠️ **防御卡（`defence`）算不算 `includeSpells` 未核**（判据 §五·1）—— 本支按
-                        //    「战术」字面**不算**，并在报告里标着；现池这两张卡的对手手牌没有防御卡时无影响。
-                        bool isMinion = c.Type == "unit";
-                        bool isSpell = c.Type == "tactic";
-                        if (!((isMinion && set.IncludeMinions > 0) || (isSpell && set.IncludeSpells > 0))) continue;
-                        // 手牌候选**没有 `UnitState`** ⇒ 收集档只记个数（同一形状见上面墓地那一支）。
-                        if (candSides != null) count += 1;
-                        else count += Weight(owner, p, countOption);
-                    }
-                }
+                if (!CardPoolSetSupported(set, ta, out handGap)) { gap = handGap; return null; }
+                int? cards = CountCardPool(ctx, owner, set, cond, countOption, ta, actor, cands, candSides, ref gap);
+                if (cards == null) return null;
+                count = cards.Value;
                 return count;
             }
 
-            // ---- ③b 牌库 / 手牌+场上：**本版未实现**（池内 `count` 行 0 条用到）----
-            //  🔴 2026-10-23：原来这里按 50/51/52 写了一版「最小档」，其中 **52（inHandAndPlayFiltered）
-            //     少数了场上那一半**（注释说「场上那半已在 ① 数过」，可 ① 与本支互斥、永远走不到）。
-            //     池内 `count` 行现读 **6 条 / 4 张，全部是 10 或 60** ⇒ 与其留一个静默少数的分支，
-            //     不如**如实判不了**（铁律 2/11：判据不足 ⇒ null + 出声），等真有卡用到再按
-            //     `filterSpecificCards` / `includeSpells` 那一整段一起补。
-            if (ta == 51 || ta == 52 || ta == 65)
-            {
-                gap = $"targetsAffected={ta}（牌库族）本版未实现";
-                return null;
-            }
-
-            gap = $"targetsAffected={ta} 本版未实现";
+            // ---- ③b `52 inHandAndPlayFiltered` 与 `20 / 30 / 90` 三档：**2026-10-30（`B99_T2`）起交给类尾 `CountSetT2`** ----
+            //  判据（`AbilityLogic__GetTargets.c:920-948`，`iVar6 == 0x34`）：候选池 =
+            //    `GetCardsInHandList(…, 本方/异方)` 再 `GetUnitsInPlayList(…, clearList = 0)` **追加**
+            //    —— **两个池子拼在一起**，不是「场上的那半已在 ① 数过」。
+            //  🔴 2026-10-23 订正过的旧口径（留痕，⛔ 别按它改回去）：原来按「手牌 + 场上已在 ① 数过」
+            //    写过一版最小档 ⇒ **少数了场上那一半**（① 与本支互斥、永远走不到）。
+            //  🔴 2026-10-30（`B99_T2` · 铁律 5）：上面那句「只有 `52` 仍如实判不了」**已过期** —— `52` 现已按
+            //    「手牌池 ＋ 场上池」两半各判一次再相加（`CountSetT2`；卡片那半进不了 `cands`，只记个数）。
+            //  `20 self` / `30 target` / `90 targetIfMeetsCriteria` 同批补齐（原版按 `ta` 建池：`[thisCard]` /
+            //    `[targetCard]` / `[targetCard]` 再落常规筛，判据 `GetTargets.c:184-206` / `:747-759`）。
+            //  ⚠️ `30` / `90` 要 `targetCard`：本文件四个入口都多了尾部可选形参 `target` / `targetKnown`；
+            //    今天没有调用点喂它 ⇒ 如实出声（⛔ 不拿 `ctx.LastTarget`（代词槽）/ `LastTargets[0]` 顶）。
+            //  📊 可达性（`cards_engine.json` v44 现读）：`unitConditions[].countSet` 的 `ta` 里这四档 **0 行** ⇒ 休眠件，照样建。
+            int? t2 = CountSetT2(ctx, owner, set, cond, countOption, actor, target, targetKnown, cands, candSides, ref gap);
+            if (t2 != null) { count = t2.Value; return count; }
+            if (gap == null) gap = $"targetsAffected={ta} 本版未实现";
             return null;
         }
 
@@ -852,52 +842,28 @@ namespace RuleEngine
         /// 而墓地候选是 `BattleContext.DeadUnit`（只有 `Card` / `Owner` / `Instance`），
         /// **没有运行期状态**（当前攻/血/费、当前 traits 全没了）。</para>
         ///
-        /// <para>**能判的两维（纯静态，卡模板上就够 —— 判据在第一权威里就是静态的）**：
-        /// <list type="bullet">
-        /// <item>`filterSpecificCards`：原版 `FilterMethods__CheckIfMeetsCriteria.c:465-483` 比的是
-        /// `PlayerItem.uniqueId(+0x38)` 字符串全等；我们比 `CardDef.Id`（生成器已把 PPtr 解成同一套 id）。</item>
-        /// <item>`keywordFilter` + `excludeRace`：原版 `:304-313` 的第一段就是
-        /// `RawCardScript.IsKeyword(card, k)` = **`rawCardData.keyword(+0x98) == k`**（纯静态整数全等）
-        /// ⇒ 我们比 `CardDef.KeywordId == k`。⛔ 这里**不**走 `CreatePool.MatchesKind` 那套词表 ——
-        /// 原版这一格是**数值全等**，词表是另一层（`TargetCriteriaEval.KeywordPasses` 用的是词表，
-        /// 两条对池内 Vehicle/Infantry/Beast/Daemon 取值等价，如实并列在这里）。</item>
-        /// </list></para>
-        ///
-        /// <para>**判不了的维（`null` + 出声）**：`traitsFilter`（原版读候选的**当前** traits）·
-        /// 四组 stat（当前攻/血/费 —— 墓地里的卡没有当前值）。
-        /// 今天池内 `ta=60` 的 count 行只用 `keywordFilter`（`SAU57` ×5 = Infantry ·
-        /// `GOF94` = Beast）⇒ 这一格零影响。</para>
+        /// <para>🔴 **2026-10-29（`B99_E3`）就地订正 —— 下面两段是改前的旧口径，已过期**：
+        /// 原来这里「只判 `filterSpecificCards` + `keywordFilter` 两维、其余整条 `null`」——
+        /// 现在**整份判定转调** <see cref="CardPoolCandidatePasses"/>（卡面那一半 = 全仓唯一那份
+        /// `TargetCriteriaEval.MatchesRawCard` ⇒ `CheckIfRawCardMeetsCriteria.c:18-103` 全部九格：
+        /// 卡种白名单 / `spellType` / traits / 攻血费稀有度四组 / 白名单 / `armyFilter` / `keywordFilter`+`excludeRace`；
+        /// 另补 `includeSelf`/`excludeNotSelf`/`excludeSimilarCards`/`excludeFriendly|EnemyHero`/`excludeEnchantments`）。
+        /// ⚠️ 池内 `ta=60` 的 count 行只用到 `keywordFilter`（`SAU57` ×5 = Infantry · `GOF94` = Beast）
+        /// ⇒ 本笔对**现池零行为变化**（多判的那几格都是 0）。</para>
         /// </summary>
-        static bool? CemeteryCandidatePasses(CardDef.CountSetSpec set, CardDef card, out string gap)
+        static bool? CemeteryCandidatePasses(CardDef.CountSetSpec set, CardDef card, int owner, int side,
+                                             UnitState actor, CardInstance inst, out string gap)
         {
-            gap = null;
-            if (card == null) return false;
-            // 🆕 2026-10-26（`W6K11`）：`SetGap` 撤掉那 9 格后，这里是**唯一降级口** ——
-            //   墓地候选只有 `CardDef`（无实例 / 当前值 / thisCard / 阵营）⇒ 这些格必须如实 `null`，
-            //   ⛔ 不许静默当「都过」（那会让 count 数多）。现读这 7 格在 `role="count"` 行里都是 0。
-            if (set.TraitsFilter != 0 || set.ArmyFilter != 0 || set.SpellType != 0 || set.ExcludeSimilarCards != 0 || set.ExcludeFriendlyHero != 0 || set.ExcludeEnemyHero != 0 || (set.ExcludeEnchantmentIds != null && set.ExcludeEnchantmentIds.Length > 0))
-            { gap = "墓地候选没有单位实体 ⇒ traits/army/spellType/excludeSimilarCards/excludeFriendly|EnemyHero/excludeEnchantments 判不了"; return null; }
-            if (set.CurrentHealthFilterOption != 0 || set.AttackFilterOption != 0
-                || set.ManaCostFilterOption != 0 || set.RarityFilterOption != 0)
-            {
-                gap = "墓地候选没有单位实体 ⇒ 四组 stat 筛（当前攻/血/费）判不了";
-                return null;
-            }
-            if (set.FilterSpecificCardIds != null && set.FilterSpecificCardIds.Length > 0)
-            {
-                bool hit = false;
-                for (int i = 0; i < set.FilterSpecificCardIds.Length; i++)
-                    if (card.Id != null && string.Equals(card.Id, set.FilterSpecificCardIds[i],
-                                                        System.StringComparison.Ordinal))
-                    { hit = true; break; }
-                if (!hit) return false;
-            }
-            if (set.KeywordFilter != 0)
-            {
-                bool has = card.KeywordId == set.KeywordFilter;
-                if (set.ExcludeRace != 0 ? has : !has) return false;
-            }
-            return true;
+            // 🔴 2026-10-29（`B99_E3` · 账 1281/1379 的 (c) 格）：**改走全仓唯一那份卡面级判据**。
+            //   改前这里自带一份「只认 keywordFilter + filterSpecificCards、其余整条 gap」的手写表
+            //   （判据只覆盖 `CheckIfMeetsCriteria.c:304-313` / `:465-483` 两格）——
+            //   而原版这一路对墓地候选跑的也是**同一个** `FilterMethods.CheckIfMeetsCriteria`，
+            //   其中「只读卡模板」的那一半**原版就有函数**：`CheckIfRawCardMeetsCriteria.c:18-103`
+            //   （卡种白名单 / spellType / traits / 攻血费稀有度四组 / 白名单 / army / keyword+excludeRace），
+            //   我们的等价物 = `TargetCriteriaEval.MatchesRawCard`（⛔ 别在这里再写第三份）。
+            //   ⇒ 本方法只剩「它不管、但墓地这一路要管」的四格：`includeSelf` / `excludeNotSelf` /
+            //     `excludeSimilarCards` / `excludeFriendly|EnemyHero` / `excludeEnchantments`。
+            return CardPoolCandidatePasses(owner, side, set, card, actor, inst, out gap);
         }
 
         /// <summary>`StatFilterOptions` 里跟「数量」有关的三档；其余（含 `0` / `-1` / `4-11`）返回 `null`（判不了）。
@@ -990,36 +956,36 @@ namespace RuleEngine
                 case 5:   // lastAdded：池序的后 max 个（`:1274-1313`）
                     for (int i = count - max; i < count; i++) keep.Add(i);
                     break;
-                case 1:   // highestAttack：`OrderByDescending(GetHighestAttackValue)`（`:1172-1214`）
+                case 1:   // highestAttack：`OrderBy(isRemnant).ThenByDescending(GetHighestAttackValue)`（`:1172-1214`）
                     {
                         var idx = new System.Collections.Generic.List<int>(count);
                         for (int i = 0; i < count; i++) idx.Add(i);
-                        // ⚠️ 稳定排序：LINQ `OrderByDescending` 是稳定的 ⇒ 同键保持池序；`List.Sort` 不是
-                        //   ⇒ 平手时显式按原下标升序（`CompareTo` 的次序与 LINQ 同向）。
+                        // 键链判据（🥇 `out_il2csharp/Assembly-CSharp/AbilityLogic.cs:4059`）：`ThenByDescending(OrderBy(pool, b__26_0), b__26_1)`
                         idx.Sort((a, b) =>
                         {
+                            int ra = (cands[a] != null && cands[a].IsRemnant) ? 1 : 0, rb = (cands[b] != null && cands[b].IsRemnant) ? 1 : 0;
+                            int c = ra.CompareTo(rb);                            // ① OrderBy(isRemnant)：非残骸(0) 在前
+                            if (c != 0) return c;
                             int ka = HighestAttackKey(cands[a]), kb = HighestAttackKey(cands[b]);
-                            int c = kb.CompareTo(ka);
-                            return c != 0 ? c : a.CompareTo(b);
+                            return kb != ka ? kb.CompareTo(ka) : a.CompareTo(b); // ② ThenByDescending + ③ 稳定排序（平手保持池序）
                         });
-                        // ⚠️ 原版 `:1172-1214` 还有**次键** `CurrentIntrinsicHealth`（`ThenBy`）——
-                        //   我们**没有** `CurrentIntrinsicHealth` 的等价字段（`UnitState.Health` 是当前值、
-                        //   `MaxHealth` 是上限，都不是「血量减 intrinsic 修饰」）⇒ 只在**主键打平**时才可能不同，
-                        //   如实标着（池内该组合 0 行）。⛔ 别拿 `Health` 冒充次键。
+                        // ⚠️ 2026-10-30（`B99_T2` · 铁律 5）修的第二处：改前这里**漏了 `isRemnant` 主键**，
+                        //   注释还把 `CurrentIntrinsicHealth` 说成「次键」—— 两处都错：那是 `6 lowestHealth`
+                        //   的键（`b__26_2`），本档的次键就是 `GetHighestAttackValue`。池内该组合 0 行。
                         for (int i = 0; i < max; i++) keep.Add(idx[i]);
                         break;
                     }
                 default:
-                    // `0 random` / `4 cardTarget` / `2,3 valueInPlay` / `6 lowestHealth` / 未知值。
+                    // 原版这里不是「判据未取到」：🥇 `out_il2csharp/Assembly-CSharp/AbilityLogic.cs:4021`（`targetSelectMethod - 1` 的 switch）
+                    //   把 `0 random` / `3 ⇒ method 4 (cardTarget)` / `>6 未知` **全落到同一支随机循环**（`:4024` 的
+                    //   `L_180819895`；`case 3: goto` 在 `:4091-4093`）⇒ `cardTarget` 原版就是「随机抽一张」。
                     gap = method switch
                     {
-                        0 => "`targetSelectMethod = random(0)` 的**选择链**本版未建模（随机源**已落地** = `ctx.GetRandomInt`，"
-                           + "原版 `MatchData` 预烧 100 + 按下标取；缺的是这条选择链自己的逐句判据）⇒ 判不了",
-                        4 => "`targetSelectMethod = cardTarget(4)` 在本版没有建模（原版 `:1252-1273` 的 `default` 支"
-                           + "走的是随机抽；`cardTarget` 的真实口径判据未取到）⇒ 判不了",
-                        2 or 3 => "`targetSelectMethod = highest/lowestValueInPlay` 要 `CardScript.GetValueInPlay()`，"
-                                + "本版**没有**这个等价字段 ⇒ 判不了",
-                        6 => "`targetSelectMethod = lowestHealth` 要 `CurrentIntrinsicHealth`"
+                        0 or 4 => $"`targetSelectMethod={method}`（random(0) / cardTarget(4)）：原版**两支都进随机抽**"
+                           + "（il2csharp `AbilityLogic.cs:4024` / `:4091-4093`）⇒ 本版随机源已落地（`ctx.GetRandomInt` + 预烧 100 表）、选择链未建模，判不了",
+                        2 or 3 => "`targetSelectMethod = highest/lowestValueInPlay(2/3)` 要 `CardScript.GetValueInPlay()`"
+                           + "（原版 2 = `OrderByDescending` / 3 = `OrderBy`），本版**没有**这个等价字段 ⇒ 判不了",
+                        6 => "`targetSelectMethod = lowestHealth(6)` 要 `CurrentIntrinsicHealth`"
                            + "（`EntityScript__get_CurrentIntrinsicHealth.c`：当前血量 **减去** intrinsic 修饰），"
                            + "本版**没有**这个等价字段（`Health` / `MaxHealth` 都不是它）⇒ 判不了",
                         _ => method == CardDef.CountSetSpec.Unknown
@@ -1053,33 +1019,30 @@ namespace RuleEngine
         /// <para>⚠️ **`playerTurn` 不在这道闸里**：原版它是 `BoardCriteria` 那一层的整条闸，不是候选筛
         /// （同 <see cref="SideEmpty"/> 的 doc）。这两张卡的 `playerTurn = -1`（缺列）⇒ 若这里要求它已知就整支废掉。</para>
         /// </summary>
-        static bool HandSetSupported(CardDef.CountSetSpec set, int cond, out string why)
+        static bool CardPoolSetSupported(CardDef.CountSetSpec set, int ta, out string why)
         {
+            // 🔴 2026-10-29（`B99_E3` · 账 1281/1379 的 (b) 格）：**支持面从「只认卡种两档」放开到整条 criteria**。
+            //   改前 `HandSetSupported` 把 `keywordFilter` / `traitsFilter` / 四组 stat /
+            //   `filterSpecificCards` / `armyFilter` / `maxTargets` / `includeWhispers` 等
+            //   **一律挡成切判不了**（= 整行 null + 出声）—— 其中 `keywordFilter` / 四组 stat /
+            //   `includeWhispers` 三档**池内现在就真有消费者**：
+            //     · `GSC75 Roaming Outriders`（`ta=50·friendlyUnits·keywordFilter=10 Vehicle`）⇒ 改前 gap，
+            //       那条 `multiplier` 数不出来（「每有一辆载具就重复一次」直接失效）；
+            //     · `GSC37 Patriarch`（`ta=50·includeWhispers=1`）⇒ 改前 gap（「每张手牌减 1 费」失效）。
+            //   ⇒ 这些格**全都能在卡模板上判**（原版 `CheckIfRawCardMeetsCriteria.c:18-103` 就是这么做的，
+            //     我们的等价物 = `TargetCriteriaEval.MatchesRawCard`）⇒ 不再挡。
+            //   ⚠️ 仍然挡的只有两格（都不是「筛」，本版接不上卡片候选）：
+            //     · `selectFromChooseResolution`：它把候选池收窄成「选牌窗里点定的那一张」，
+            //       而我们那一格装的是 `UnitState`（`BattleContext.CardChosenInSelection`）；
+            //     · `excludeTargetted`：原版全树**只有声明、0 个读者**（见 `SetGap` 的注释）⇒ 不参与判定，
+            //       **不挡**（挡着反而把整行误判成判不了）。
             why = null;
-            const int U = CardDef.CountSetSpec.Unknown;
-            if (cond != CardDef.ConditionNone)
-            { why = "ta=50：这条乘数带条件（`cond != none`）—— 手牌候选的条件判定本版未实现"; return false; }
-            if (set.IncludeMinions == U || set.IncludeSpells == U
-                || set.FriendlyUnits == U || set.EnemyUnits == U)
-            { why = "ta=50：卡种（`includeMinions/includeSpells`）或阵营（`friendlyUnits/enemyUnits`）**未知（没落）**"; return false; }
-            if (set.IncludeMinions == 0 && set.IncludeSpells == 0)
-            { why = "ta=50：`includeMinions` 与 `includeSpells` 都为 0 ⇒ 原版一个候选都不留（这一档本版未核）"; return false; }
-            if (set.IncludeHero != 0 || set.IncludeWhispers != 0 || set.IncludeWeapons != 0
-                || set.IncludeRemnants != 0 || set.IncludeHeroParts != 0)
-            { why = "ta=50：`includeHero/Whispers/Weapons/Remnants/HeroParts` 非 0 —— 这些卡种本版未建模"; return false; }
-            if (set.IncludeSelf != 0 || set.ExcludeNotSelf != 0 || set.ExcludeSimilarCards != 0
-                || set.ExcludeTargetted != 0 || set.ExcludeFriendlyHero != 0 || set.ExcludeEnemyHero != 0
-                || set.ExcludeRace != 0 || set.ExcludeTrait != 0 || set.SelectFromChooseResolution != 0)
-            { why = "ta=50：`includeSelf` / `exclude*` / `selectFromChooseResolution` 非 0 —— 本版未实现"; return false; }
-            if (set.FilterSpecificCardIds != null && set.FilterSpecificCardIds.Length > 0)
-            { why = "ta=50：`filterSpecificCards` 非空 —— 本版未实现"; return false; }
-            if (set.KeywordFilter != 0 || set.TraitsFilter != 0 || set.ArmyFilter != 0 || set.ChosenArmy != 0)
-            { why = "ta=50：`keywordFilter` / `traitsFilter` / `armyFilter` / `chosenArmy` 非 0 —— 本版未实现"; return false; }
-            if (set.AttackFilter != 0 || set.CurrentHealthFilter != 0 || set.ManaCostFilter != 0
-                || set.RarityFilter != 0 || set.SpellType != 0)
-            { why = "ta=50：四组 stat / 稀有度 / `spellType` 筛非 0 —— 本版未实现"; return false; }
-            if (set.MaxTargets > 0)
-            { why = "ta=50：`maxTargets > 0`（原版要先截断再数）—— 本版未实现"; return false; }
+            if (set.SelectFromChooseResolution != 0)
+            {
+                why = $"ta={ta}：`selectFromChooseResolution` 非 0 —— 它把候选池收窄成「选牌窗里点定的那一张」，"
+                    + "而 `ctx.CardChosenInSelection` 装的是 `UnitState`，卡片候选接不上（账 676 的 (a) 格同一根）";
+                return false;
+            }
             return true;
         }
 
@@ -1139,6 +1102,299 @@ namespace RuleEngine
                   + "筛 → 截成 1 → 清 `cardChosenInSelection`）"
                   + (pool.Count == 0 ? "；⚠️ **选中的那张不在候选池里 ⇒ 本行没有目标**（原版同样得到空表）" : ""));
             return pool;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（第九十九会话 · 波 1 · 执行代理 `B99_E3`）—— 账 `1281` / `1379` 的 (b)(c) 两格：
+        //  **卡片候选池**（手牌 `50` / 手牌+牌库 `51` / 牌库 `65` / 墓地 `60`）的建池 + 逐候选判据 + 计数
+        // ==========================================================================================
+        //  判据（第一权威 = `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`，逐句现读）：
+        //   · **建池**（`ta` 分派）：
+        //       `:918-931` `iVar6 == 0x32 (50)` ⇒ `BattleManager.GetCardsInHandList(…, 本/异方, …)`；
+        //       `:933-950` `iVar6 == 0x33 (51)` ⇒ 同上，再 `AddRange(GetCardsInDeck(…))`；
+        //       `:952-964` `iVar6 == 0x3c (60)` ⇒ `BattleManager.GetCardsInCemetery(…)`；
+        //       `:966-978` `iVar6 == 0x41 (65)` ⇒ `BattleManager.GetCardsInDeck(…)`。
+        //     ⚠️ 「本/异方」那两个 bool 由 `:204-212` 现算：`bVar16 = 本方那一侧` · `bVar17 = 异方那一侧`
+        //        —— 与我们 `SideMatches(owner, p, set)` 同义。
+        //   · **逐候选筛** = `:1086-1095` 的 `FilterMethods__CheckIfMeetsCriteria`。
+        //     其中「只读卡模板」的那一半原版另有函数 `FilterMethods__CheckIfRawCardMeetsCriteria.c:18-103`
+        //     ⇒ 我们的等价物 = `TargetCriteriaEval.MatchesRawCard`（⛔ 别在 CountEval 里再写一份，
+        //     那会变成第三份判据）。剩下几格（阵营 / 自他 / 相似卡 / 英雄排除 / 附魔排除）在
+        //     `CardPoolCandidatePasses` 里补，判据 = `CheckIfMeetsCriteria.c:203-272` / `:430-463`。
+        //   · **裁剪**（`maxTargets` / `targetSelectMethod`）**不在这里** —— 由调用方走
+        //     `ApplyMaxTargets`（`AbilityLogic__GetTargets.c:1164-1365`），与本文件棋盘那一支同一份。
+        //  📊 可达性（现读 `cards_engine.json`）：
+        //     · `ta=50`：`countSet` 2 行（`ASH82`/`GOF93`）+ `multiplierSet` 4 行（`GSC35/37/59/75`）；
+        //       `ASH82` 带 `selectFromChooseResolution=1` ⇒ 仍如实 gap（账 676 的 (a) 格）；
+        //     · `ta=51`：`countSet` **0 行**（休眠件，铁律 11 照样建）；`ta=65`：`countSet` **0 行**。
+        //     · `ta=60`：`countSet` 10 行，全部只用 `friendlyUnits/includeMinions/keywordFilter/cond`
+        //       ⇒ 本笔对这些行**零行为变化**（多判的那几格都是 0）。
+        // ==========================================================================================
+
+        /// <summary>手牌 / 手牌+牌库 / 牌库（`ta = 50 / 51 / 65`）三个**卡池**的计数。
+        /// <para>`null` = 判不了（写 <paramref name="gap"/>）。`countOptions == 10`（同方 −1 / 异方 +1）
+        /// 时按「这份牌在谁手里」加权 —— 与棋盘那一支同一个 <see cref="Weight"/>。</para>
+        /// <para>⚠️ **收集档**（<paramref name="cands"/> 非 `null`）只记个数：候选是 `CardInstance`、
+        /// 不是 `UnitState` ⇒ 需要按 `targetSelectMethod` 排序时 `ApplyMaxTargets` 会如实报判不了
+        /// （同墓地那一支的口径，⛔ 不拿个数顶排序）。</para></summary>
+        static int? CountCardPool(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond, int countOption,
+                                  int ta, UnitState actor,
+                                  System.Collections.Generic.List<UnitState> cands,
+                                  System.Collections.Generic.List<int> candSides,
+                                  ref string gap)
+        {
+            if (ctx == null) { gap = "没有对局上下文（`ctx == null`）"; return null; }
+            int count = 0;
+            for (int p = 0; p < 2; p++)
+            {
+                if (!SideMatches(owner, p, set)) continue;
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                if (ta == 50 || ta == 51)                       // 50 = 手牌 · 51 = 手牌 + 牌库
+                {
+                    int? r = CountCardList(ctx, owner, p, set, cond, countOption, ps.Hand, actor, cands, candSides, ref gap);
+                    if (r == null) return null;
+                    count += r.Value;
+                }
+                if (ta == 51 || ta == 65)                       // 51 再并上牌库 · 65 = 只有牌库
+                {
+                    int? r = CountCardList(ctx, owner, p, set, cond, countOption, ps.Deck, actor, cands, candSides, ref gap);
+                    if (r == null) return null;
+                    count += r.Value;
+                }
+            }
+            return count;
+        }
+
+        /// <summary><see cref="CountCardPool"/> 的单张列表演算（一份手牌 / 一份牌库）。
+        /// 逐候选 = <see cref="CardPoolCandidatePasses"/> ＋ 条件行（`cond`，走 `ConditionEval.MeetsCard`
+        /// —— 主语是一张**不在场上的卡**，与墓地那一支同一份口径）。</summary>
+        static int? CountCardList(BattleContext ctx, int owner, int side, CardDef.CountSetSpec set, int cond,
+                                  int countOption, System.Collections.Generic.List<CardInstance> list,
+                                  UnitState actor,
+                                  System.Collections.Generic.List<UnitState> cands,
+                                  System.Collections.Generic.List<int> candSides,
+                                  ref string gap)
+        {
+            if (list == null) return 0;
+            int count = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var inst = list[i];
+                var card = inst != null ? inst.Card : null;
+                if (card == null) continue;
+                bool? pass = CardPoolCandidatePasses(owner, side, set, card, actor, inst, out string why);
+                if (pass == null) { gap = why; return null; }
+                if (!pass.Value) continue;
+                var v = ConditionEval.MeetsCard(ctx, card, side, cond, false, inst.Id);
+                if (v == null) { gap = $"cond={cond} 在候选卡（{(card.Name ?? "?")}）身上判不了"; return null; }
+                if (!v.Value) continue;
+                if (candSides != null) count += 1;              // 卡片候选没有 `UnitState` ⇒ 收集档只记个数（同墓地那一支）
+                else count += Weight(owner, side, countOption);
+            }
+            return count;
+        }
+
+        /// <summary>🆕 2026-10-29（`B99_E3`）：**一张不在场上的牌**（手牌 / 牌库 / 墓地）过不过这份 criteria。
+        ///
+        /// <para>**卡面那一半**直接转调 <see cref="TargetCriteriaEval.MatchesRawCard"/>（全仓唯一那份
+        /// `CheckIfRawCardMeetsCriteria` 等价物 —— 卡种白名单 / `spellType` / traits / 四组 stat /
+        /// `filterSpecificCards` / `armyFilter` / `keywordFilter`+`excludeRace`）。</para>
+        ///
+        /// <para>**这里补的那几格**（`MatchesRawCard` 故意不收：它们要「还有谁」这一信息）：
+        /// <list type="bullet">
+        /// <item>`includeSelf` / `excludeNotSelf`（`CheckIfMeetsCriteria.c:232-243`）：原版比的是
+        /// **对象身份**（候选 `CardScript` == `thisCard`）。候选是一张**不在场上的牌**、`thisCard` 是
+        /// 场上单位 ⇒ 两者永不是同一件东西 ⇒ `excludeNotSelf != 0`（「只要这张卡自己」）时**一个候选都不留**
+        /// （同 `CountDrawnAsPreviousTargets` 的写法）；`includeSelf` 只「允许」自己，不构成限制。</item>
+        /// <item>`excludeSimilarCards`（`:203-215`）：原版比 `rawCardData(+0x28)` 的**对象引用**
+        /// ⇒ 我们比 `CardDef` 引用（与 `TargetCriteriaEval.Matches` 同一句）。</item>
+        /// <item>`excludeFriendlyHero` / `excludeEnemyHero`（`:244-272`）：候选是 `hero` 型卡、且
+        /// 阵营与这条 ability 的归属方相同/不同 ⇒ 淘汰。</item>
+        /// <item>`excludeEnchantments`（`:430-463`）：候选实例挂了表里任一张附魔 ⇒ 淘汰
+        /// （`CardInstance.ActiveEnchantments`；拿不到实例 ⇒ `null` + 出声，⛔ 不当「没挂」）。</item>
+        /// </list></para>
+        ///
+        /// <para>`null` = 本版判不了（写 `gap`）—— ⛔ 不静默当「都过」。</para></summary>
+        static bool? CardPoolCandidatePasses(int owner, int side, CardDef.CountSetSpec set, CardDef card,
+                                             UnitState actor, CardInstance inst, out string gap)
+        {
+            gap = null;
+            if (card == null) return false;
+            bool? raw = TargetCriteriaEval.MatchesRawCard(card, set, out gap);
+            if (raw != true) return raw;                        // `null` = 判不了（原样上抛）
+            if (set.IncludeSelf == CardDef.CountSetSpec.Unknown
+                || set.ExcludeNotSelf == CardDef.CountSetSpec.Unknown)
+            { gap = "`includeSelf`/`excludeNotSelf` 未知（没落）"; return null; }
+            if (set.ExcludeNotSelf != 0) return false;          // 见上面 doc：牌候选永远「不是 thisCard」
+            if (set.ExcludeSimilarCards != 0)
+            {
+                if (actor == null || actor.Card == null)
+                { gap = "`excludeSimilarCards` 要拿 thisCard 比原卡，本路径没有载体"; return null; }
+                if (object.ReferenceEquals(actor.Card, card)) return false;
+            }
+            if (set.ExcludeFriendlyHero == CardDef.CountSetSpec.Unknown
+                || set.ExcludeEnemyHero == CardDef.CountSetSpec.Unknown)
+            { gap = "`excludeFriendlyHero`/`excludeEnemyHero` 未知（没落）"; return null; }
+            if ((set.ExcludeFriendlyHero != 0 || set.ExcludeEnemyHero != 0)
+                && string.Equals(card.Type, "hero", System.StringComparison.OrdinalIgnoreCase))
+            {
+                bool sameSide = side == owner;
+                if (sameSide && set.ExcludeFriendlyHero != 0) return false;
+                if (!sameSide && set.ExcludeEnemyHero != 0) return false;
+            }
+            if (set.ExcludeEnchantmentIds != null && set.ExcludeEnchantmentIds.Length > 0)
+            {
+                var ench = inst != null ? inst.ActiveEnchantments : null;
+                if (ench == null) { gap = "候选牌没有实例 ⇒ `excludeEnchantments` 的附魔表读不到"; return null; }
+                for (int i = 0; i < ench.Count; i++)
+                {
+                    var ec = ench[i] != null ? ench[i].Card : null;
+                    if (ec == null || ec.Id == null) continue;
+                    for (int k = 0; k < set.ExcludeEnchantmentIds.Length; k++)
+                        if (string.Equals(ec.Id, set.ExcludeEnchantmentIds[k], System.StringComparison.Ordinal))
+                            return false;
+                }
+            }
+            return true;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-30（第九十九会话 · 执行代理 `B99_T2`）—— 施工判据 `判据/B99_R4b_引擎与工具.md` §三·3·1 ①②④
+        //  `CountSet` 的 `20 self` / `30 target` / `90 targetIfMeetsCriteria` / `52 inHandAndPlayFiltered` 四档
+        // ==========================================================================================
+        //  判据（🥇 `decomp_full/AbilityLogic__GetTargets.c`；🥈 `out_il2csharp/Assembly-CSharp/AbilityLogic.cs`，逐句现读）：
+        //   · `20 self`（`GetTargets.c:184-191`，`iVar6 == 0x14`）：池 = `[thisCard]`（`List.Add(param_3)`），
+        //     **不筛、不裁**，直接 `goto LAB_180818485`（`:1378-1380` = `return 池`）⇒ 个数恒 = 1。
+        //   · `30 target`（`:192-206`，`iVar6 == 0x1e`；与 `220` 共用）：只有 `if (targetCard(param_5) != null)` 才
+        //     `List.Add(param_5)`，随后 `goto LAB_180818474 → LAB_180818485`（= return）⇒ **不筛不裁**，
+        //     个数 = `targetCard != null ? 1 : 0`。🔴 **null ⇒ 空池是原版语义**，⛔ 不以「自己」兜底。
+        //   · `90 targetIfMeetsCriteria`（`:747-759`，`iVar6 == 0x5a`）：`if (targetCard != null) List.Add(param_5)`，
+        //     然后**不 return**，一路落到 `:1086-1095` 的逐候选筛（`FilterMethods.CheckIfMeetsCriteria`）＋尾段裁
+        //     ⇒ 个数 = `targetCard != null && 过筛 ? 1 : 0`。身份那半的判据 → `TargetCriteriaEval.Matches` 的 `case 90`。
+        //   · `52 inHandAndPlayFiltered`（`:920-948`，`iVar6 == 0x34`）：先 `GetCardsInHandList(本/异方, 卡种位…)`
+        //     **覆盖**成池，再 `GetUnitsInPlayList(…, clearList = 0 (第 3 实参), …)` **追加**同一侧别/卡种位的场上单位
+        //     ⇒ 池 = 手牌 ∪ 场上（**同一份 `TargetCriteria` 两半都要过**），再走 `:1086-1095` 筛 ＋ 尾段裁。
+        //  ⚠️ **`targetCard` 的来源**：本文件四个入口（`Meets` / `CountTargets` / `MeetsBoardCriteria` 两个重载）都加了
+        //     尾部可选形参 `target` / `targetKnown`。**今天没有调用点喂它**（`EffectResolver` / `CardDef` / `ActionPump`
+        //     都在本代理白名单外）⇒ `30` / `90` 会**如实出声**，⛔ 不拿 `ctx.LastTarget`（代词槽）/ `LastTargets[0]` 顶。
+        //     接线办法 → `报告/B99_T2.md`「宿主接线指令」。
+        //  📊 **可达性（`cards_engine.json` v44 现读）**：`unitConditions[].countSet` 的 `ta` 分布 =
+        //     `0:25 · 10:37 · 50:2 · 60:10 · 160:21 · 162:4`，其余 343 行该格没落 ⇒ **这四档今天 0 行**（休眠件，
+        //     铁律 11：照样建、⛔ 不按「没数据」删掉）。`abilityLevelCriteria` 里确有 `20:8 · 30:8 · 90:7`，但那一列是
+        //     **targetCriteria**（走 `TargetCriteriaEval.Matches`，**不走**本方法）⇒ 别把那 23 行算成计数缺口。
+        // ==========================================================================================
+
+        /// <summary>`CountSet` 的尾部四条档位（`20` / `30` / `90` / `52`）。返回 `null` 且 <paramref name="gap"/> 为
+        /// `null` = **不归本方法管**（调用方写通用「本版未实现」文案）。判据全文见上面那段注释。</summary>
+        static int? CountSetT2(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond, int countOption,
+                               UnitState actor, UnitState target, bool targetKnown,
+                               System.Collections.Generic.List<UnitState> cands,
+                               System.Collections.Generic.List<int> candSides, ref string gap)
+        {
+            int ta = set.TargetsAffected;
+
+            // ---- `20 self`：池 = [thisCard]，不筛不裁（`GetTargets.c:184-191`）----
+            if (ta == 20)
+            {
+                // 候选就是 thisCard（= 本文件的 `actor`），阵营恒与 `owner` 同侧 ⇒ `countOption == 10` 时权重 −1。
+                if (candSides != null && actor != null) { cands.Add(actor); candSides.Add(owner); }
+                return Weight(owner, owner, countOption);
+            }
+
+            // ---- `30 target` / `90 targetIfMeetsCriteria`：池 = [targetCard]，30 不筛、90 落常规筛 ----
+            if (ta == 30 || ta == 90)
+            {
+                if (!targetKnown)
+                {
+                    gap = $"`targetsAffected={ta}`（{(ta == 30 ? "target" : "targetIfMeetsCriteria")}）的池 = `[targetCard]`，"
+                        + "但本路径**没有把 `targetCard` 传进来**（`target` / `targetKnown` 两个形参）"
+                        + " —— 原版这一跳解引用 `targetCard`，⛔ 我们不拿代词槽兜底 ⇒ 判不了";
+                    return null;
+                }
+                if (target == null) return 0;                  // 原版：null ⇒ 池空（⛔ 不以「自己」兜底）
+                int side = ctx != null ? SideOfUnit(ctx, target) : -1;
+                if (ta == 30)
+                {
+                    // `30` 建完池就 return ⇒ 不筛。唯一要判的是「怎么称重」：`countOption == 10` 要阵营。
+                    if (countOption == 10 && side < 0)
+                    {
+                        gap = "`targetsAffected=30` 的 `targetCard` 不在任一方棋盘上 ⇒ 同方 −1 / 异方 +1 的阵营判不了";
+                        return null;
+                    }
+                    if (candSides != null && side >= 0) { cands.Add(target); candSides.Add(side); }
+                    return Weight(owner, side < 0 ? owner : side, countOption);
+                }
+                // `90`：身份相符之后再落常规筛（`Matches` 的 `case 90` 已按 `:193-201` 实现这一跳）。
+                bool? pass = TargetCriteriaEval.Matches(ctx, owner, set, target, null, actor, target, out string why90);
+                if (pass == null) { gap = why90; return null; }
+                if (!pass.Value) return 0;
+                var v90 = ConditionEval.MeetsUnit(ctx, target, cond, false);
+                if (v90 == null) { gap = $"cond={cond} 在 `ta=90` 的 targetCard 身上判不了"; return null; }
+                if (!v90.Value) return 0;
+                if (countOption == 10 && side < 0)
+                {
+                    gap = "`targetsAffected=90` 的 `targetCard` 不在任一方棋盘上 ⇒ 同方 −1 / 异方 +1 的阵营判不了";
+                    return null;
+                }
+                if (candSides != null && side >= 0) { cands.Add(target); candSides.Add(side); }
+                return Weight(owner, side < 0 ? owner : side, countOption);
+            }
+
+            // ---- `52 inHandAndPlayFiltered`：手牌池 ∪ 场上池（同一份 criteria 两半都要过）----
+            if (ta == 52)
+            {
+                if (ctx == null) { gap = "没有对局上下文（`ctx == null`）"; return null; }
+                if (SideEmpty(set)) return 0;                  // 两个阵营闸都关 ⇒ 原版两半都是空池
+                string hg;
+                if (!CardPoolSetSupported(set, ta, out hg)) { gap = hg; return null; }
+                // 手牌那一半：与 `ta == 50` 同一条口径（`CountCardPool` 只吃手牌，不并牌库）。
+                int? cards = CountCardPool(ctx, owner, set, cond, countOption, 50, actor, cands, candSides, ref gap);
+                if (cards == null) return null;
+                // 场上那一半：与 ①（`ta == 10`）同一套判据 —— 见 `CountUnitsOnBoardForCount` 的 doc。
+                int? units = CountUnitsOnBoardForCount(ctx, owner, set, cond, countOption, actor, cands, candSides, ref gap);
+                if (units == null) return null;
+                return cards.Value + units.Value;
+            }
+
+            return null;   // 其余档不归这里管（调用方写通用文案）
+        }
+
+        /// <summary>`targetsAffected = 52` 的**场上那一半** —— 判据 `AbilityLogic__GetTargets.c:930-948`：
+        /// 手牌池建完再 `GetUnitsInPlayList(…, clearList = 0, …)` **追加**场上单位。
+        ///
+        /// <para>逐候选口径与 `CountSet` ① 支（`ta == 10 || ta == 55`）**同一套**（`BoardCandidatePasses`
+        /// ＋ `ConditionEval` ＋ 同一份 `Weight`）。⚠️ 那边**没有**抽成共用方法，是因为账里 `CountEval.cs:495`
+        /// 这类 A 档落点按行号引用本文件 ⇒ 在 ① 里增删行会让下游落点整体漂移（铁律 18·b）。
+        /// ⇒ 这里是一份**同义复制**：**改一处必须同时改另一处**；它⛔ 不是「第二条判据」
+        /// （判据本体仍是 `TargetCriteriaEval.Matches` + `ConditionEval`）。</para>
+        /// </summary>
+        static int? CountUnitsOnBoardForCount(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond,
+                                              int countOption, UnitState actor,
+                                              System.Collections.Generic.List<UnitState> cands,
+                                              System.Collections.Generic.List<int> candSides, ref string gap)
+        {
+            if (ctx == null) { gap = "没有对局上下文（`ctx == null`）"; return null; }
+            int count = 0;
+            for (int p = 0; p < 2; p++)
+            {
+                if (!SideMatches(owner, p, set)) continue;
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                for (int s = 0; s < ps.Board.Length; s++)
+                {
+                    var u = ps.Board[s];
+                    bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);
+                    if (pass == null) { gap = bWhy; return null; }
+                    if (!pass.Value) continue;
+                    var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
+                    if (v == null) { gap = $"cond={cond} 在候选身上判不了"; return null; }
+                    if (!v.Value) continue;
+                    if (candSides != null) { candSides.Add(p); cands.Add(u); count += 1; }
+                    else count += Weight(owner, p, countOption);
+                }
+            }
+            return count;
         }
     }
 }

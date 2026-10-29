@@ -30,12 +30,15 @@
 输出：`MyGame/Assets/CardPresentation/Resources/Cardbacks.json`
 用法：`python d:/4/Unity/工具/gen_cardbacks.py`
       加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+      🆕 加 `--check` = 只重算、与盘上产物比 md5，**零写盘**（rc 0 = 一致 / 1 = 缺或过期/输入对不上；
+      口径同 `gen_prebuilt_bot_decks.py --check`）。
 """
 import io
 import json
 import os
 import sys
 import glob
+import hashlib
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
@@ -45,10 +48,12 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：`python d:/4/Unity/工具/gen_cardbacks.py`\n      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('用法：`python d:/4/Unity/工具/gen_cardbacks.py`\n      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n      加 `--check` = 只重算、与盘上产物比 md5，**零写盘**（rc 0 = 一致 / 1 = 缺或过期/输入对不上）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
     _wf_help_sys.exit(0)
 
 DRY = "--dry" in sys.argv[1:]
+# 🆕 2026-10-30（B99_A5）：`--check` = 只对账、不写盘（口径照 `gen_prebuilt_bot_decks.py:--check`）。
+CHECK = "--check" in sys.argv[1:]
 
 SO_DIR = "d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour"
 TEX_DIR = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/cardbacks"
@@ -198,15 +203,37 @@ def main():
     print("[B2] 读不到原版 sprite `m_Rect`/`textureRect` 的:", len(no_metrics), no_metrics[:5])
     import collections
     print("阵营分布:", dict(collections.Counter(r["army"] or "(空)" for r in items)))
-    if missing or unmatched_so or unknown_army or bad_default or no_metrics or len(defaults) != 13:
+    # 一个判据只写一处：写盘前的「有对不上的」与 `--check` 的 FAIL 共用它
+    problems = bool(missing or unmatched_so or unknown_army or bad_default or no_metrics
+                    or len(defaults) != 13)
+    if CHECK:
+        # 🆕 2026-10-30（B99_A5）：只对账、不写盘。缺文件 / 内容不同 / 输入对不上都算 FAIL（rc 1）。
+        bad = 1 if problems else 0
+        want = hashlib.md5(text.encode("utf-8")).hexdigest()
+        if not os.path.exists(DST):
+            print("MISSING", DST)
+            bad = 1
+        else:
+            have = hashlib.md5(open(DST, "rb").read()).hexdigest()
+            if have != want:
+                print("DIFF", DST, "disk=%s want=%s" % (have, want))
+                bad = 1
+            else:
+                print("SAME", DST, have)
+        print("--check %s" % ("FAIL" if bad else "OK"))
+        return 1 if bad else 0
+    if problems:
         print("🔴 有对不上的 —— **先把上面几行查清再决定要不要写**")
-        return
+        return 0
     if DRY:
         print("干跑（未写盘）：表里 %d 项 + %d 个默认卡背；要落盘请去掉 --dry"
               % (len(items), len(defaults)))
         return
     io.open(DST, "w", encoding="utf-8", newline="\n").write(text)
     print("已写:", DST)
+    return 0
 
 
-main()
+# ⚠️ 原来这里是裸 `main()`：改成 `sys.exit(main())` 只为一件事 —— 让 `--check` 的 rc 能传出去
+#    （写盘路径返回 0，行为不变）。
+sys.exit(main())

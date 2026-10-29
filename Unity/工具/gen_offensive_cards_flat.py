@@ -10,8 +10,10 @@
 产物：`d:/4/Unity/MyGame/Assets/CardPresentation/Resources/OffensiveCards.json`
 用法：PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_offensive_cards_flat.py
       加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+      🆕 加 `--check` = 只重算、与盘上产物比 md5，**零写盘**（rc 0 = 一致 / 1 = 缺或过期；口径同
+      `gen_prebuilt_bot_decks.py --check`）。
 """
-import io, json, os, sys
+import io, json, os, sys, hashlib
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
@@ -21,10 +23,12 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_offensive_cards_flat.py\n      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('用法：PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_offensive_cards_flat.py\n      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n      加 `--check` = 只重算、与盘上产物比 md5，**零写盘**（rc 0 = 一致 / 1 = 缺或过期）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
     _wf_help_sys.exit(0)
 
 DRY = "--dry" in sys.argv[1:]
+# 🆕 2026-10-30（B99_A5）：`--check` = 只对账、不写盘（口径照 `gen_prebuilt_bot_decks.py:--check`）。
+CHECK = "--check" in sys.argv[1:]
 
 SRC = "d:/4/Unity/数据/游戏数据/offensive_cards.json"
 DST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/OffensiveCards.json"
@@ -76,17 +80,33 @@ def main():
                 }
                 for i, c in enumerate(by.get(a["army"]) or [])
             ]
+    # ⚠️ 先算好再写（别在 write 的实参里做会抛异常的事 —— 那会把文件截成 0 字节，CLAUDE.md 记过）
+    text = json.dumps(out, ensure_ascii=False, indent=1)
+    if CHECK:
+        # 🆕 2026-10-30（B99_A5）：只对账、不写盘。缺文件 / 内容不同都算 FAIL（rc 1）。
+        want = hashlib.md5(text.encode("utf-8")).hexdigest()
+        if not os.path.exists(DST):
+            print("MISSING", DST)
+            print("--check FAIL（盘上没有产物）")
+            return 1
+        have = hashlib.md5(open(DST, "rb").read()).hexdigest()
+        if have != want:
+            print("DIFF", DST, "disk=%s want=%s" % (have, want))
+            print("--check FAIL（盘上产物过期 ⇒ 重跑本脚本，**别手改**）")
+            return 1
+        print("SAME", DST, have)
+        print("--check OK（盘上产物与本次重算逐字节一致）")
+        return 0
     if DRY:
         print("干跑（未写盘）%s：FLAT 阵营 %d · 卡槽 %d · 防御槽 %d" %
               (DST, len(out["armies"]), sum(len(a["cards"]) for a in out["armies"]),
                sum(len(a["defensiveCards"]) for a in out["armies"])))
         return
-    io.open(DST, "w", encoding="utf-8", newline="\n").write(
-        json.dumps(out, ensure_ascii=False, indent=1))
+    io.open(DST, "w", encoding="utf-8", newline="\n").write(text)
     print("FLAT 阵营 %d · 卡槽 %d · 防御槽 %d → %s" %
           (len(out["armies"]), sum(len(a["cards"]) for a in out["armies"]),
            sum(len(a["defensiveCards"]) for a in out["armies"]), DST))
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

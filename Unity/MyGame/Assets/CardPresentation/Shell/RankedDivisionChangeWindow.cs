@@ -31,8 +31,8 @@
 //   ⛔ 别在这儿再抄一份）。「You have reached …」那颗原版是**运行期拼**的（prefab 里的
 //   `You have reached the Legenday Division!` 是**拼错的残留**）⇒ 用词条 `Event_Description/Ranked/ReachedText`
 //   + 服务端段位名；没有段位名 ⇒ `--` + 出声。
-// · **段位大图 / Rank Icon / Rank Number Glow / 两颗模式图标**：`m_Sprite = 0` ⇒ 节点照建、**不画**，
-//   各出声一次（同 `TutorialMessagePopup` 的 `Event image` 那一档）。
+// · **段位大图 / Rank Icon / Rank Number Glow / 两颗模式图标**：`m_Sprite = 0` ⇒ 节点照建、**拿到号才画**
+//   （`Rank Icon` 自 2026-10-30 `B99_G3` 起由 `FeedRankIcon()` 喂；其余三件本机仍不画）+ 各出声一次。
 // · **粒子 `Particles DivisionUp`**：原版是 5 个 `ParticleSystem`（`Glow below` / `Sparks background` /
 //   `Sparks Burn` / 双亲下的 `Glow Big` / `Promote Letter Effect` / `Sparks fast`）。
 //   粒子属于**战斗表现线 / 特效线**，本窗**只建容器节点**并出声一次（⛔ 不在这里手搓粒子）。
@@ -293,7 +293,7 @@ namespace CardPresentation
             _rankIcon = BuildRankIcon();
             _rankGlow = BuildRankIconGlow();
             _rankGlow.gameObject.SetActive(false);   // 出厂 `m_IsActive = false`
-            NoteNoArt("Rank Icon", "`rankIcon.m_Sprite = 0`（运行期 `RankedDivisions.GetRankData(...)`）");
+            FeedRankIcon();   // 名次号 → 图（原版 `GetRankData` 那条链；实现见类尾 —— 没号就不画 + 出声，与原话同一句）
 
             // ---- 5) `Text Content` ----
             _textContent = MenuDraw.Node(transform, "Text Content", new PxRect(0f, 0f, 1920f, 1080f));
@@ -1598,6 +1598,95 @@ namespace CardPresentation
             }
             var r = ps.GetComponent<Renderer>();
             if (r != null) r.enabled = visible;   // ④
+        }
+
+        // ============================================================ 名次图（`Rank Icon` 的图源 · 2026-10-29 · B99_G3 · 账 `221` 同族）
+        //  【原版链（第一手）】`decomp_full/RankedEventDivisionChangeWindowNewSystem__Open.c` 现读 `:172-197`：
+        //    `rankData = RankedDivisions.GetRankData(divisions, last.+0x14)`   ← 名次号取自赛季段位配表
+        //    `this.+0xe0 = rankData?.+0x18`（`AssetReferenceTyped<Sprite>`）
+        //    `Image(+0x98).sprite = (this.+0xe0 != null) ? Load(this.+0xe0) : null`
+        //    `SetActive(Image(+0x98).gameObject, op_Implicit(Image.sprite))`   ← **显隐 = 图有没有**
+        //    之后 `Do{Rank,Division}ChangeAnimations` 把它交给 `ChangeParticleEffectAndSpriteRank`（= 本文件
+        //    `ApplyParticleAndGlow` 的 ①②③④）⇒ 名次图一喂进去，`Rank Icon Glow` 与粒子那两跳自己成立。
+        //    `GetRankData(n)` = `Math.Max(n,1)` + 按 `divisionNumber == n` 找，**找不到就是 null（没有 `Last()`）**
+        //    （`decomp_full/RankedDivisions__GetRankData.c:25-30`）⇒ ≥7 不画；号本身来自服务器，本机没有那张表。
+        //  🔴 本机拿得到的那一半 = **号 → 图名**（`RankedDivisionInfo.RankArt` 6 条，字节证据在那份文件的 doc）；
+        //    拿不到的那一半 = **名次号本身**（服务器 `LeaderboardManager` / `rankedRanks` TitleData）
+        //    ⇒ 只接线、⛔ **不编演示名次号**（口径同 `RankedDivisionInfo.RankArt` 的 doc 末段）。
+        //  ⚠️ 全部成员追加在**类尾**：本文件 `:475/:753/:764/:774/:823/:1163` 还有账落点，插在中间会让它们整体下移。
+
+        /// <summary>名次号（原版 `rankIcon` 的来源：`RankedDivisions.GetRankData(last.`+0x14`)` 的入参）。
+        /// 1..6 对应 `RankedDivisionInfo.RankArt`（`Roman_I`…`Roman_VI`）。
+        /// 服务器数据（`LeaderboardManager.GetCachedLeaderboard` / `rankedRanks` TitleData）⇒ 本地 default = `null`。</summary>
+        public int? RankNumber;
+
+        /// <summary>`Rank Icon` 上现在画的是哪张图（= `RankedDivisionInfo.RankArtName` 的返回值；空串 = 没画）。自检读口。</summary>
+        public string RankArtUsed { get; private set; }
+
+        /// <summary>名次号 → 图名（与 `DivisionArtOf` 同构）。两路依次：`RankNumber` →（本地真有阈值表时）
+        /// `RankedData.CurrentDivision.RankNumber`。两路都取不到 ⇒ 空串（调用方出声、不画）。
+        /// ⛔ 这里**不编**名次号、也不退回演示值 —— 那会画出一张原版此刻不会画的图。
+        /// <para>🔴 号本身的两条边界照**机器码**（`decomp_full/RankedDivisions__GetRankData.c:25-30` 现读）：
+        /// ① `param_2 = Math.Max(param_2, 1)` ⇒ **≤0 夹到 1**（= 画 `Roman_I`），不是「不画」；
+        /// ② 之后只有 `FirstOrDefault(divisionNumber == n)`、**没有** `Last()` 兜底（`GetDivisionData.c:31-33`
+        ///    才有那句 `if (lVar3 == 0) Last(...)`）⇒ **≥7 查不到 = `null` = 不画**。
+        /// ⚠️ 施工判据 §3·1 写的「`GetRankData` 查不到退 `Last()`」是把 `GetDivisionData` 的那句错记到这边，
+        ///    本实现按机器码走（只夹下限、不兜 `Last()`），勘误已写进报告。</para></summary>
+        string RankArtOf()
+        {
+            int? n = RankNumber;
+            if (!n.HasValue)
+            {
+                // `Known == false` = 本地没有 `rankedRanks` 阈值表（`RankedData.WhyNoRankTable`）⇒ 它的 `RankNumber`
+                // 是 `default(int)` = 0，**不是**「第 0 档」⇒ 必须靠 `Known` 挡掉，⛔ 不能直接读。
+                var d = RankedData.CurrentDivision;
+                if (d.Known) n = d.RankNumber;
+            }
+            // ① `Math.Max(n,1)`（机器码原样）：0 / 负数 ⇒ 第 1 档，**不是**「不画」。
+            return n.HasValue ? (RankedDivisionInfo.RankArtName(Math.Max(n.Value, 1)) ?? "") : "";
+        }
+
+        /// <summary>`Build()` 第 4 段的落点（原 `NoteNoArt` 那一行的替代）：按 <see cref="RankArtOf"/> 取图 →
+        /// 换纹理 + **α 从 0 提到 1**（`BuildRankIcon` 建的是 α=0 的占位）→ 同时喂 `RankIconSprite`
+        /// （`ApplyParticleAndGlow` 的 ①②③④ 全靠它判 `sprite != null`）。
+        /// 拿不到图 ⇒ 保持原样 + `NoteNoArt`（**原话照旧**，可观测行为与改前一致，只是多了一条「有号就画」）。</summary>
+        void FeedRankIcon()
+        {
+            string art = RankArtOf();
+            RankArtUsed = art ?? "";
+            var tex = string.IsNullOrEmpty(art)
+                    ? null
+                    : Tex(art, "`Rank Icon` 的名次图（`RankedDivisionInfo.RankArt`；名次号 1..6 ↔ `Roman_I`…`Roman_VI`）");
+            if (tex == null)
+            {
+                // 🔴 原版这一支是 `Image(+0x98).sprite = null` + `SetActive(false)` ⇒ **图与 `Sprite` 都要清空**。
+                //   不清就会「复用的窗把上一次的名次图/辉光留着」（`Show()` 走的是同一个实例，`_rankIconSprite`
+                //   是字段、不属于 `Build()` 重建的那棵树）。⛔ 别只清 quad、不清 `RankIconSprite`（`ApplyParticleAndGlow`
+                //   判的就是它）。
+                var prev = _rankIcon == null ? null : _rankIcon.GetComponent<ImageQuad>();
+                if (prev != null) { prev.SetTexture(CardArt.Solid()); prev.SetTint(new Color(1f, 1f, 1f, 0f)); }
+                RankIconSprite = null;
+                // 原话照旧（`NoteNoArt` 按 `what` 去重 ⇒ 与改前打的是同一句、同样只打一次）。
+                NoteNoArt("Rank Icon", "`rankIcon.m_Sprite = 0`（运行期 `RankedDivisions.GetRankData(...)`）");
+                return;
+            }
+
+            var quad = _rankIcon == null ? null : _rankIcon.GetComponent<ImageQuad>();
+            if (quad == null)
+            {
+                // 载体落在裁切框外那一档（`BuildRankIcon` 退回空节点）⇒ 图没地方画。与 `carrier:Rank Icon` 分开记，
+                // 免得被前面那条已经打过的 warn 吃掉。
+                WarnChannel("art:Rank Icon",
+                            "名次图 `" + art + "` 取到了，但 `Rank Icon` 上没有 `ImageQuad`（载体退回空节点）⇒ **没画**");
+                return;
+            }
+
+            quad.SetTexture(tex);
+            quad.SetTint(Color.white);          // α 0 → 1（原版在这一拍是 `Image.sprite = <图>`，`m_Color` 不动、仍是白）
+            // `ApplyParticleAndGlow` 的 ①②③④ 要的是 `Sprite`（原版 `Image.sprite`）。同一张图复用同一个 `Sprite`，
+            // 免得重复 `Build()` 每次 new 一个（那是托管 + native 两侧各一份）。
+            if (_rankIconSprite == null || _rankIconSprite.texture != tex)
+                RankIconSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         }
     }
 }

@@ -690,13 +690,37 @@ namespace CardPresentation
         /// 并把它两侧的门收进一个**对称预算**里。</para>
         ///
         /// <para>`budget01` = 以 `center` 为中轴、两侧都装得下的最大高度（y01）：取三者的最小值 ×2 ——
-        /// ① 矩形半高（原版 autosize 的盒）；② `center` 到**阵营行墨下沿**；③ `center` 到**下门**。
+        /// ① 矩形半高（原版 autosize 的盒）；② `center` 到**阵营行墨下沿**（🔴 2026-10-29 `B99_G1`：
+        /// **只有真印那一行时才参与**）；③ `center` 到**下门**。
         /// 下门 = 版面框底边（`UnitDescBottom01` / `TacticDescBottom01`；印兵种行时 `RaceDescBottom01`）；
         /// **有数值格的卡**再夹到 <see cref="StatBandTop01"/> 上面 0.01。</para>
         ///
         /// <para>实测（单位卡 + 有兵种行）：center **0.7323**（= 原版矩形中心，Δ0）· 预算 **0.1098 y01
         /// = 0.3658 卡单位**（binding = 数值容器那道门）。战术卡：center 0.7876 · 预算 0.1272 y01。</para></summary>
         public static void FaceDescBand01(bool unitCard, bool hasRace, out float center, out float budget01)
+        {
+            // 老签名 = **最保守那一档**（阵营行照让）—— 全是**自检宿主**在用（`CardBaseDemo` 的三张夹具
+            //   是 `CardFace.Full`、`HandAssertE8` 挑的是**单位卡**，两处都与这一档一致）。
+            //   ⚠️ 生产**不许**走这个重载：生产必须把「这张卡现在印不印阵营行」如实传进来
+            //   （见下面那个三参重载与 `FaceShowsArmy`）。
+            FaceDescBand01(unitCard, hasRace, true, out center, out budget01);
+        }
+
+        /// <summary>同上，但把「**这张卡现在印不印阵营行**」（<see cref="FaceShowsArmy"/>）一起传进来。
+        /// <para>🔴 **2026-10-29（`B99_G1`）为什么加这一维 —— 判据是原版的矩形，不是我们的让位**：
+        /// 原版 `DescTextUnit` / `DescTextTactic` 的矩形**下沿就压在阵营行那一条上**
+        /// （单位 rect 跨 y01 [0.6180, 0.8466]、`ArmyTextUnit` 在 0.6394 附近），因为**原版从不印阵营行**
+        /// （`ArmyTextUnit` 在 170 个 `CardTextsController` 实例里被激活 **0 次**，判据见 `BuildTextLayers` ③）。
+        /// `topGuard` 是**我们**为「用户 2026-09-22 裁定要印阵营行」让出来的那一行
+        /// ⇒ **只在真的印那一行的时候才该让**。
+        /// 手牌 / 场上（`FaceShowsArmy` 为假的两档）原版本就最宽松 ⇒ 那两档必须**恢复成原版矩形**
+        /// （否则等于在两个原版最宽松的态里自己压掉一半可用高度）。</para>
+        /// <para>⚠️ **单位卡那半仍然不变**：它的 binding 是**数值容器那道门**
+        /// （`StatBandTop01 − 0.01` = 0.7872，`center` 0.7323 ⇒ 半高 0.0549 &lt; 矩形半高 0.1143
+        /// &lt; 阵营行给的 0.0624）⇒ 去掉 `topGuard` 也换不出更多高度。真正恢复原版矩形的只有
+        /// **战术/防御卡**（它们没有数值格 ⇒ 那道门不参与）。</para></summary>
+        public static void FaceDescBand01(bool unitCard, bool hasRace, bool showsArmy,
+                                          out float center, out float budget01)
         {
             center = (unitCard ? UnitDescAt : TacticDescAt).y;
             var armyAt = unitCard ? UnitArmyAt : TacticArmyAt;
@@ -705,7 +729,20 @@ namespace CardPresentation
                                      : (unitCard ? UnitDescBottom01 : TacticDescBottom01);
             if (unitCard) botGuard = Mathf.Min(botGuard, StatBandTop01 - 0.01f);   // 数值容器上沿
             float boxHalf = (unitCard ? DescBoxH : TacticDescBoxH) * 0.5f / CardUnitH;  // 原版矩形半高（y01）
-            budget01 = 2f * Mathf.Min(boxHalf, Mathf.Min(center - topGuard, botGuard - center));
+            // 不印阵营行 ⇒ 那半侧**没有门**（用「无穷远」表示，别写成一个魔法数）。
+            float up = showsArmy ? (center - topGuard) : float.MaxValue;
+            budget01 = 2f * Mathf.Min(boxHalf, Mathf.Min(up, botGuard - center));
+        }
+
+        /// <summary>按**卡的展示形态**算效果文字区间（生产与自检共用的那一个口）。
+        /// <para>🔶 自己设计（非原版）：把 `showsArmy` 接成 `FaceShowsArmy(f)` 这一跳本身不是原版的
+        /// 东西 —— 原版没有「阵营行」这一层可印（见三参重载的 doc）· 为什么必须自定：
+        /// 用户 2026-09-22 裁定「手牌与场上不印阵营行、其余都印」，于是「让不让」变成**按形态分档**，
+        /// 而原版矩形是**一档** · 调度台 2026-10-29 裁定照原版恢复手牌/场上的可用高度（`B99_R4a` §1·5）。</para></summary>
+        public static void FaceDescBand01ForFace(bool unitCard, bool hasRace, CardFace f,
+                                                 out float center, out float budget01)
+        {
+            FaceDescBand01(unitCard, hasRace, FaceShowsArmy(f), out center, out budget01);
         }
 
         /// <summary>版面框的尺寸（卡单位）—— 原版 `DescTextUnit` **152.74 × 76.16 px**
@@ -4931,7 +4968,13 @@ namespace CardPresentation
             // 🔴 **字号用实例那份 `NameFontSize`（按 `CardUse` 分档），⛔ 不是静态的 `TitleFontSize`** ——
             //    `A2110`：放大窗那 5 张原版是 `fs16`、其余全 19。判据全在 `CardUse` 的注释里。
             _title = Fill(_title, "title", d.title, nameAt, nameW, NameFontSize, InkName, false, nameH,
-                          face: TmpFont.Face.LatinUi, outline: TmpFont.TextOutline.Name);
+                          face: TmpFont.Face.LatinUi, outline: TmpFont.TextOutline.Name,
+                          // 🔴 **2026-10-29（`B99_G1`）按原版节点给 autosize 档位**：
+                          //   单位/督军 = `NameTextUnit`（1/19）· 战术/防御 = `NameTextTactic`（1/**24**）。
+                          //   ⚠️ 原来两层共用一个名义字号 19 ⇒ **战术卡卡名比原版小 21%**（0.19 ÷ 0.24）——
+                          //   `unit` 那一支的上界恰好 = 名义 1.9（逐位不变），非 unit 那支才会被放大到 2.4。
+                          bandMin: unit ? NameUnitBandMin : NameTacticBandMin,
+                          bandMax: unit ? NameUnitBandMax : NameTacticBandMax);
                           // 原版 `NameTextUnit/NameTextTactic` = Asar（§2·5）；描边**在拟合之前**贴，见 `Fill` 里那段
             // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
             //   判据：原版卡预制体里那 6 个互斥变体（`NameTextUnit` / `…Unit Big` / `…Unit No description` /
@@ -4974,7 +5017,11 @@ namespace CardPresentation
             //    ⚠️ **不要**改回下沿对齐：`CardBaseDemo.AssertFaceTextFit` 的 ③ 就是照这条判据钉的。
             bool hasRace = !string.IsNullOrEmpty(SubtypeLine(d));
             float descCenter01, descBudget01;
-            FaceDescBand01(unit, hasRace, out descCenter01, out descBudget01);
+            // 🔴 **2026-10-29（`B99_G1`）**：把「这张卡现在印不印阵营行」传进去（`FaceShowsArmy(_faceMode)`）——
+            //   手牌 / 场上不印那一行 ⇒ **可用高度恢复成原版矩形**（判据见三参重载的 doc）。
+            //   ⚠️ 这是**可见变化**：手牌/场上（战术/防御卡）的效果文字会变大。钉它的断言在
+            //   `Editor/B99G1_Assert.cs`（`G1-B1` / `G1-B2`）。
+            FaceDescBand01ForFace(unit, hasRace, _faceMode, out descCenter01, out descBudget01);
             //    拟合预算（世界单位）= 对称预算 × 卡高；`Mathf.Max(0.2f, …)` 只是「门挨太近」时的兜底。
             float descH = Mathf.Max(0.2f, descBudget01 * Height);
             var descAt01 = new Vector2(descAt.x, descCenter01);
@@ -5005,7 +5052,11 @@ namespace CardPresentation
             //       改成 `true` 就是退回「下沿对齐」那个已被真机否掉的旧口径。
             _keywords = Fill(_keywords, "keywords", DescTextWithSuffix(d.keywords), descAt01, descW, descFont,
                              InkDesc, true, descH, false, DescLineSpacing, unit ? 0f : DescParaSpacing,
-                             face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
+                             face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
+                             // 🔴 **2026-10-29（`B99_G1`）**：单位 = `DescTextUnit`（1/**24**）·
+                             //   战术 = `DescTextTactic` 与 `DescTacticSmall`（两件都是 1/19）。判据见上面那组常量。
+                             bandMin: unit ? DescUnitBandMin : DescTacticBandMin,
+                             bandMax: unit ? DescUnitBandMax : DescTacticBandMax);
                              // 原版 `DescTextUnit*` = Pragati（§2·5）；描边在拟合之前贴，见 `Fill` 里那段
 
             // ③ 🔴 **阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）：按展示场景分档** ——
@@ -5035,7 +5086,9 @@ namespace CardPresentation
             //       ⇒ 关掉它只是空出那一行，**别的层一个都不动**（手牌版面与这一行启用之前逐字相同）。
             // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
             _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false,
-                         face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
+                         face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
+                         // 原版 `ArmyTextUnit` = 1/15（档位照抄；⚠️ 这一层**没有框高** ⇒ 目前不跑 `FitToBox`）
+                         bandMin: ArmyBandMin, bandMax: ArmyBandMax);
                          // 原版 `ArmyText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
             Show(_army, FaceShowsArmy(_faceMode));
 
@@ -5067,7 +5120,10 @@ namespace CardPresentation
             _raceY01 = RaceUsesTacticAt(d) ? TacticRaceAt.y : UnitRaceAt.y;
             _race = Fill(_race, "race", SubtypeLine(d), new Vector2(UnitRaceAt.x, _raceY01),
                          nameW, RaceFontSize, InkArmy, false,
-                         face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body);
+                         face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
+                         // 原版 `RaceText` = **3**/18（下界是全表唯一不是 1 的那个；档位照抄；
+                         // ⚠️ 同阵营行：这一层没有框高 ⇒ 目前不跑 `FitToBox`）
+                         bandMin: RaceBandMin, bandMax: RaceBandMax);
                          // 原版 `RaceText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
 
             // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
@@ -5228,7 +5284,10 @@ namespace CardPresentation
                 if (_title != null) _title.verticalAlignment = VerticalAlignmentOptions.Middle;
                 _title = Fill(_title, "title", d.title, at, BigTextW,
                               TmpFont.FontSizeForEm(TmpFont.Face.LatinUi, em), InkName, false, h, false, ls, 0f,
-                              face: TmpFont.Face.LatinUi, outline: TmpFont.TextOutline.Name);
+                              face: TmpFont.Face.LatinUi, outline: TmpFont.TextOutline.Name,
+                              // 原版 `NameTextUnit No Description Big` / `NameTextTacticBig` = **都是 1/24**
+                              bandMin: tactic ? NameTacticBigBandMin : NameUnitBigBandMin,
+                              bandMax: tactic ? NameTacticBigBandMax : NameUnitBigBandMax);
                 if (_title != null)
                 {
                     _title.verticalAlignment = VerticalAlignmentOptions.Geometry;   // 原版 `Midline`(4096)
@@ -5247,7 +5306,10 @@ namespace CardPresentation
                 _keywords = Fill(_keywords, "keywords", DescTextWithSuffix(d.keywords), at, BigTextW,
                                  TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, em), InkDesc, true, h, false,
                                  BigLineSpacing, ps, face: TmpFont.Face.LatinCardBody,
-                                 outline: TmpFont.TextOutline.Body);
+                                 outline: TmpFont.TextOutline.Body,
+                                 // 原版 `DescTextUnit Big`（1/26）· `DescTextTactic Big`（1/**26**，fs 25.2）
+                                 bandMin: tactic ? DescTacticBigBandMin : DescUnitBigBandMin,
+                                 bandMax: tactic ? DescTacticBigBandMax : DescUnitBigBandMax);
                 TmpFont.ApplyOutline(_keywords, TmpFont.TextOutline.Body);
                 Show(_keywords, true);
                 Show(_title, false);
@@ -5468,6 +5530,43 @@ namespace CardPresentation
             get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, Height * RaceEmOfCard); }
         }
 
+        // ==================================================================
+        //  📐 **每一层 TMP 的 autosize 档位 `[m_fontSizeMin, m_fontSizeMax]`**（`FitToBox` 的搜索区间）
+        //
+        //  **判据（一手，逐字段现读）**：`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearenatauviorla/
+        //  MonoBehaviour/MonoBehaviour_<id>.json` 里那 15 个 TMP 实例的 `m_fontSizeMin` / `m_fontSizeMax`；
+        //  逐层对照表（节点名 · 实例 MB · fs/fsBase/min/max · wrap · em）→
+        //  `资料/完全复刻/判据/B99_R4a_近似改原版值_卡牌界面.md` §1·2。
+        //  ⚠️ **本表全部是「原版 pt ÷ 10」**（我们这套字号 = 原版 pt ÷ 10，判据 `TmpFont.TrueEmPerFontSize`
+        //     与 `TmpFont.FontSizeForEm`）⇒ ⛔ 别把原版的 24/19 原样写进来。
+        //  ⚠️ **原版每一层的 `m_fontSizeBase` 都是 0.145~0.16**（我们单位 0.0145~0.016），
+        //     `TextMeshPro.cs:2149` 的 `clamp(base, min, max)` 恒落到 **min** ⇒ 运行时那趟搜索
+        //     **从 min 起、一路往上试**（不是从作者填的 `m_fontSize` 起）。落点见 `FitToBox`。
+        //  ⛔ 别把这些值改回「按名义字号 ±5%」那套近似（那是 `B99_R4a` 点名的 5 条近似之一）。
+
+        /// <summary>`DescTextUnit` —— `m_fontSizeMin/Max = 1 / 24`。</summary>
+        const float DescUnitBandMin = 0.10f, DescUnitBandMax = 2.40f;
+        /// <summary>`DescTextTactic` 与 `DescTacticSmall` —— 两件都是 `1 / 19`。</summary>
+        const float DescTacticBandMin = 0.10f, DescTacticBandMax = 1.90f;
+        /// <summary>`NameTextUnit`（含放大窗那档 fs16、含 `…No description`）—— 三件都是 `1 / 19`。</summary>
+        const float NameUnitBandMin = 0.10f, NameUnitBandMax = 1.90f;
+        /// <summary>`NameTextTactic` —— `m_fontSize = 21.5` 而 **`m_fontSizeMax = 24`**（⇒ 运行时 = 24）。</summary>
+        const float NameTacticBandMin = 0.10f, NameTacticBandMax = 2.40f;
+        /// <summary>`ArmyTextUnit` —— `1 / 15`。⚠️ 我们的阵营行**没有框高**（`Fill` 传 `maxHeight = 0`）
+        /// ⇒ 这一档目前**不会**跑到 `FitToBox`；留着是为了「给框高那天不用再查一遍」。</summary>
+        const float ArmyBandMin = 0.10f, ArmyBandMax = 1.50f;
+        /// <summary>`RaceText` —— **`m_fontSizeMin = 3.0`**（全表唯一一个下界不是 1 的）· `max = 18`。
+        /// ⚠️ 同 `ArmyTextUnit`：我们没给兵种行框高 ⇒ 目前不走 `FitToBox`。</summary>
+        const float RaceBandMin = 0.30f, RaceBandMax = 1.80f;
+        /// <summary>`DescTextUnit Big`（手牌简化态 5）—— `1 / 26`。</summary>
+        const float DescUnitBigBandMin = 0.10f, DescUnitBigBandMax = 2.60f;
+        /// <summary>`DescTextTactic Big`（手牌简化态 8）—— fs 25.2 但 `max = 26`。</summary>
+        const float DescTacticBigBandMin = 0.10f, DescTacticBigBandMax = 2.60f;
+        /// <summary>`NameTextUnit No Description Big`（手牌简化态 6）—— `1 / 24`。</summary>
+        const float NameUnitBigBandMin = 0.10f, NameUnitBigBandMax = 2.40f;
+        /// <summary>`NameTextTacticBig`（手牌简化态 7）—— `1 / 24`。</summary>
+        const float NameTacticBigBandMin = 0.10f, NameTacticBigBandMax = 2.40f;
+
         /// <summary>
         /// 建或**原地更新**一层 TMP 文字，返回它（文字为空时返回 null 并把旧的清掉）。
         /// 原地更新是必须的 —— 这条路径每次战场刷新都会走，见 `SetData` 的注释。
@@ -5480,7 +5579,8 @@ namespace CardPresentation
                          float fontSize, Color32 baseColor, bool wrap, float maxHeight = 0f,
                          bool bottomAlign = false, float lineSpacing = 0f, float paragraphSpacing = 0f,
                          TmpFont.Face face = TmpFont.Face.Cjk,
-                         TmpFont.TextOutline outline = TmpFont.TextOutline.None)
+                         TmpFont.TextOutline outline = TmpFont.TextOutline.None,
+                         float bandMin = 0f, float bandMax = 0f)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -5538,7 +5638,7 @@ namespace CardPresentation
             bool fitOk;
             if (wrap) fitOk = Relayout(t, maxWidth, true);       // 就等于 `SetWrapWidth` + 一次生成
             else fitOk = FitToWidth(t, maxWidth);
-            if (maxHeight > 0f) fitOk = FitToBox(t, maxWidth, maxHeight, wrap) && fitOk;
+            if (maxHeight > 0f) fitOk = FitToBox(t, maxWidth, maxHeight, wrap, bandMin, bandMax) && fitOk;
             if (!fitOk) _textNeedsRefit = true;
 
             if (bottomAlign) PlaceBottomAt(t, at, TextZ);
@@ -5548,37 +5648,74 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 字号整体回缩到**装得进原版那块版面框**（宽 × 高）。
-        /// 原版的 `DescTextUnit` 开着 `m_enableAutoSizing`（`m_fontSizeMin/Max` = 1 / 24），
-        /// 长文本会自动缩到刚好装下 —— 这就是本函数要做的事。
-        ///
-        /// 🔴 **2026-09-15 改成二分查找。** 原来是「量一次 → 按 `maxHeight / b.y` 等比缩 → 再来一轮」，
-        ///    三轮收敛。**那个做法会严重缩过头**：折行文字的高度对字号**不是线性的** ——
-        ///    字小了每行能排更多字、行数还变少，高度掉得比等比快。
-        ///    **实测**（`Heavy Intercessor`，框 1.5274×0.5466）：缩完 `bounds.y` 只剩 **0.27**，
-        ///    连框的一半都没用上，字号停在 0.951（名义 2.485 的 38%）——
-        ///    这就是「我们的效果文字比原版小一大截」的直接原因（`资料/PnP卡图_逐张对账_0915.md` A4）。
-        ///    改成在 `[nominal×0.05, nominal]` 上二分「仍然装得下的最大字号」，与 TMP 自带
-        ///    auto-size 的语义一致，8 次量测就收敛。
+        /// 把字号**拟合进原版那块版面框**（宽 × 高）—— **原版 TMP autosize 的忠实复刻**。
+        /// <para>🔴 **2026-10-29（`B99_G1`）整条重写**：原来的实现是「在 `[nominal×0.05, nominal]` 上
+        /// 二分 8 次、不量化、**只缩不放**」，与 TMP 真正做的事**三处都不一样**：
+        /// ① **上界不是 `nominal`** —— 是每层自己的 `m_fontSizeMax`（`DescTextUnit` 24、`NameTextTactic` 24、
+        ///    `DescTextUnit Big` 26…）⇒ **装得下的文字原版会被【放大】**，我们停在名义值
+        ///    （战术卡卡名原版 24、我们 19 ⇒ 小 21%）；② **没有量化** —— 原版结果必落 `0.05 pt` 网格；
+        /// ③ **起点不是名义字号** —— 原版从 `clamp(m_fontSizeBase, min, max)` 起（= `min`）往上涨。</para>
+        /// <para>原版逐句（一手方法体 + TMP 源码，行号现读 `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/`）：</para>
+        /// <list type="bullet">
+        ///   <item>起点：`m_fontSize = Mathf.Clamp(m_fontSizeBase, m_fontSizeMin, m_fontSizeMax)`（`TextMeshPro.cs:2149`）；
+        ///     `m_maxFontSize = m_fontSizeMax; m_minFontSize = m_fontSizeMin;`（`:2151-2152`）。</item>
+        ///   <item>**缩**（这一趟纵向溢出）：`TMP_Text.cs:4537-4546` ——
+        ///     `m_maxFontSize = fontSize; delta = Mathf.Max((fontSize - m_minFontSize)/2, 0.05f);
+        ///      fontSize -= delta; fontSize = Mathf.Max((int)(fontSize*20+0.5f)/20f, m_fontSizeMin);`</item>
+        ///   <item>**涨**（装得下且括号没收够）：`TMP_Text.cs:4811-4828` ——
+        ///     `fontSizeDelta = m_maxFontSize - m_minFontSize; if (… > 0.051f && fontSize &lt; m_fontSizeMax) {
+        ///      m_minFontSize = fontSize; delta = Mathf.Max((m_maxFontSize - fontSize)/2, 0.05f);
+        ///      fontSize += delta; fontSize = Mathf.Min((int)(fontSize*20+0.5f)/20f, m_fontSizeMax); }`</item>
+        ///   <item>迭代上限 `m_AutoSizeMaxIterationCount = 100`（`TMP_Text.cs:524`）。</item>
+        ///   <item>**只判纵向溢出**（`TextMeshPro.cs:3044` 的 `if (textHeight > marginHeight + 0.0001f)`；⚠️ `B99_R4a` §1·1 第 6 条把它写在 `:3295` —— 那其实是 3D 版**缩那一支**的闸 `m_fontSize > m_fontSizeMin`，现读订正到 `:3044`）——
+        ///     横向那一半见 `FitToWidth`（那是我们的，原版没有）。</item>
+        /// </list>
+        /// <para>⚠️ 三个常数**全部 ÷10**（原版 pt → 我们这套字号）：网格 `0.005`、最小步长 `0.005`、
+        /// 收口阈值 `0.0051`。⛔ 别把原版的 `0.05` 原样写进来 —— 在我们这套单位里那是 0.5 pt，粗 10 倍。</para>
+        /// <para>📌 并入的两条既有行为：① <see cref="ClampToInk"/>（按**字墨**再收，原版没有这一步 ——
+        /// 原版只按行盒判）保留，它在网格结果上**再往下**收；② 收完**重新向下取到网格**
+        /// （否则「结果必落网格」不成立）。</para>
+        /// <para>`bandMin` / `bandMax` = 这一层的 `[m_fontSizeMin, m_fontSizeMax]`（÷10）——
+        /// 表和出处见 `DescUnitBandMin` 那一段。**传 0/0 ⇒ 退回旧的「[名义×5%, 名义] 只缩不放」**
+        /// （只为老调用点/别的写层点不炸；⛔ 卡面这四层都传了真档）。</para>
         /// </summary>
         // 🔴 **2026-10-18（T09 · 首次开窗性能）**：`FitToBox` 的**量测结果缓存**。
-        //   为什么要它：一次 fit 会跑 **1 + 最多 8 + 1 次 `ForceMeshUpdate`**（`FitsBox` 每次都重排 + 生成网格）；
+        //   为什么要它：一次 fit 会跑十几次 `Relayout`（每次都重排 + 生成网格）；
         //   卡面在**战场每刷新一次 `SetData`**、收藏窗重建、详情窗重开时都会重走 `BuildTextLayers`
-        //   ⇒ 同一段文本被反复量。缓存键 = 文本 + 字体资产 + 名义字号 + 框 + 折行 + 行距/段距
+        //   ⇒ 同一段文本被反复量。缓存键 = 文本 + 字体资产 + 档位 [min,max] + 框 + 折行 + 行距/段距
         //   ⇒ **只跳过「量」，不跳过排版**：命中时把字号设回去，后面的 `PlaceAt` / `PlaceBottomAt`
         //   那一次 `ForceMeshUpdate` 照常把网格排出来（所以命中时**不要**在这里再量一次）。
         //   ⚠️ 键里**必须带文本与字体资产**：换语言 / 换卡 / 换字体面都会让结果不同。
         //   ⚠️ 浮点按 1e-3 取整：同一个框/字号两次调用可能差 1e-7，不该漏命中。
+        //   🔴 **2026-10-29（`B99_G1`）键里把「名义字号」换成 `[min,max]`** —— 结果现在**与名义字号无关**
+        //      （搜索从 `min` 起、上界 `max`）⇒ 同一段文字、同一个框、**不同层**（不同档）必须分开，
+        //      而同一个档里名义字号变了结果不该变。判据 → `B99_R4a` §1·4 第 3 条。
         static readonly Dictionary<string, float> _fitCache = new Dictionary<string, float>();
 
-        static string FitKey(TextMeshPro t, float maxWidth, float maxHeight, bool wrap, float nominal)
+        /// 原版 autosize 的**量化网格**（`0.05 pt` ÷ 10）。
+        public const float AutoSizeGrid = 0.005f;
+        /// 原版「括号收够了就停」的阈值（`:4813` 的 `0.051 pt` ÷ 10）。
+        public const float AutoSizeGridStop = 0.0051f;
+        /// 原版迭代上限（`TMP_Text.cs:524`：`m_AutoSizeMaxIterationCount = 100`）。
+        public const int AutoSizeMaxIterations = 100;
+        /// 原版每一层 `m_fontSizeBase` 落到的值（0.145~0.16 pt ÷ 10）—— **只当搜索起点**，
+        /// 而它恒小于任何一层的 `min`（最小也是 1.0 pt = 0.10）⇒ 起点**恒等于 min**（见方法头第 ③ 条）。
+        const float AutoSizeBase = 0.015f;
+
+        /// <summary>原版 `(int)(fontSize * 20 + 0.5f) / 20f` 的 ÷10 版：**四舍五入到 0.005 网格**。</summary>
+        static float OnGrid(float fs) { return (int)(fs * 200f + 0.5f) / 200f; }
+        /// <summary>**向下**取到 0.005 网格（`ClampToInk` 之后用 —— 往上取会重新越框）。</summary>
+        static float OnGridDown(float fs) { return Mathf.Floor(fs * 200f) / 200f; }
+
+        static string FitKey(TextMeshPro t, float maxWidth, float maxHeight, bool wrap,
+                             float bandMin, float bandMax)
         {
             // 🔴 **2026-10-25（`X1`）补 `spriteAsset`**：`<sprite>` 的**绘制尺寸**由 sprite asset 的
             //   每颗 `m_Scale` 决定（见 <see cref="InkBox"/> 的 doc），换一份 sprite asset ⇒ 同一个键
             //   量出来的字墨不一样 ⇒ 不把它算进键里就是**跨上下文串味**的缓存。
             return (wrap ? "w" : "n") + "|" + (t.font != null ? t.font.GetInstanceID() : 0) + "|"
                  + (t.spriteAsset != null ? t.spriteAsset.GetInstanceID() : 0) + "|"
-                 + Mathf.RoundToInt(nominal * 1000f) + "|"
+                 + Mathf.RoundToInt(bandMin * 1000f) + "|" + Mathf.RoundToInt(bandMax * 1000f) + "|"
                  + Mathf.RoundToInt(maxWidth * 1000f) + "|" + Mathf.RoundToInt(maxHeight * 1000f) + "|"
                  + Mathf.RoundToInt(t.lineSpacing * 1000f) + "|" + Mathf.RoundToInt(t.paragraphSpacing * 1000f) + "|"
                  + (t.text ?? "");
@@ -5711,7 +5848,7 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>按**字墨**把字号再收到框里（`FitToBox` 的第二段）。
+        /// <summary>🔶 自己设计（非原版）：`ClampToInk` 这一步「行盒收完再按**字形顶点 bbox** 收一刀」 · 为什么必须自定：原版 autosize 只按行盒 `textHeight` 判（`TextMeshPro.cs:3044`），而 `<sprite>` 四边形高 = `m_Scale × ascender`（≈13% 卡单位）**溢出行盒**、字形 overshoot 也不在里面 ⇒ 照原版逐字做会「行盒装得下但看得见的字出框」，本机没有这一步的对应物 · 保留它修的是真机越框（`X1`）· 调度台 2026-10-29 裁定「登记、保留」（`B99_R4a` §1·4 第 4 条，并要求收完重新向下取到 0.005 网格）。按**字墨**把字号再收到框里（`FitToBox` 的第二段）。
         /// <para>先用行盒二分（原版 `m_enableAutoSizing` 的语义、既有行为），再按**顶点 bbox** 收 ——
         /// 原版真正保证的是「**看得见的字形**装进那块固定矩形」，而行盒在含 `<sprite>` 时会**少算**
         /// （见 <see cref="InkBox"/> 的 doc）。⛔ 只缩不放 ⇒ 不会把原来排得下的卡撑大。</para>
@@ -5759,11 +5896,20 @@ namespace CardPresentation
         /// 两种都**不允许**再往 `_fitCache` 里写（否则那次错读数会被全进程复用，
         /// 之后就算激活了再重排也**永远命不中真测量**）。调用方（`Fill`）拿到假 ⇒ 记 `_textNeedsRefit`，
         /// 由激活钩子（`OnEnable` → `RefitTextLayers`）在**真的能测**的时候补一刀。</para></summary>
-        static bool FitToBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap)
+        static bool FitToBox(TextMeshPro t, float maxWidth, float maxHeight, bool wrap,
+                             float bandMin = 0f, float bandMax = 0f)
         {
             if (t == null) return false;
             float nominal = t.fontSize;
-            string key = FitKey(t, maxWidth, maxHeight, wrap, nominal);
+            // 没传档（老调用点）⇒ 退回旧的「[名义×5%, 名义] 只缩不放」口径。⛔ 别把 0 当 min/max 用。
+            if (bandMin <= 0f || bandMax <= 0f)
+            {
+                bandMin = nominal * 0.05f;
+                bandMax = Mathf.Max(nominal, bandMin);
+            }
+            if (bandMax < bandMin) bandMax = bandMin;
+
+            string key = FitKey(t, maxWidth, maxHeight, wrap, bandMin, bandMax);
             float hit;
             if (_fitCache.TryGetValue(key, out hit))
             {
@@ -5776,27 +5922,68 @@ namespace CardPresentation
                 return okHit;
             }
 
-            if (FitsBox(t, maxWidth, maxHeight, wrap, out bool measured) && measured)   // 装得下就别缩
-            {
-                ClampToInk(t, maxWidth, maxHeight, wrap);           // 🆕 X1：行盒装得下 ≠ 字墨装得下
-                _fitCache[key] = t.fontSize;
-                return true;
-            }
-            if (!measured) return false;                            // 量不出来 ⇒ 不缩、不缓存、不打 5%
+            // ---- 原版那趟「括号式二分」：从 min 起，装得下就往上涨、装不下就往下跌 ----
+            //   `lo` / `hi` = 原版的 `m_minFontSize` / `m_maxFontSize`（已知「装得下」/「装不下」的括号）。
+            float lo = bandMin, hi = bandMax;
+            float cur = OnGrid(Mathf.Clamp(AutoSizeBase, bandMin, bandMax));   // 原版起点 = clamp(base,min,max) = min
+            bool measured = false;
+            bool done = false;
 
-            float lo = nominal * 0.05f, hi = nominal;               // lo = 已知能装下（极小），hi = 装不下
-            for (int i = 0; i < 8; i++)
+            // 🔴 **快路（与上面那趟【结果等价】，只省量测次数）**：先量一次**上界**。
+            //   「装得下」⇒ 那趟爬到 `cur >= bandMax` 时也是**同一个结果**（它一定会爬到 max 才收：
+            //   `hi` 只在「装不下」时才降，全程装得下 ⇒ `hi` 恒 = max，而收口条件 `hi-lo<=0.0051`
+            //   要等 `lo` 贴到 max 才成立，那时下一步 `cur` 必是 max）。⇒ **不是近似**。
+            //   ⚠️ 量不出来**不在这里下结论**（交给下面那一趟：那里同样「量不出来就不拟合」）。
+            //   为什么要它：卡面这四层里**绝大多数文字都装得下**，没有这条就每层多付 ~9 次 `Relayout`
+            //   （收藏窗一屏 1128 张卡逐个建，代价实打实）。
+            t.fontSize = bandMax;
+            if (FitsBox(t, maxWidth, maxHeight, wrap, out measured) && measured)
             {
-                float mid = (lo + hi) * 0.5f;
-                t.fontSize = mid;
-                if (FitsBox(t, maxWidth, maxHeight, wrap, out measured) && measured) lo = mid; else hi = mid;
-                if (!measured) { t.fontSize = nominal; return false; }
+                cur = bandMax;
+                done = true;
             }
-            t.fontSize = lo;
+
+            for (int i = 0; i < AutoSizeMaxIterations && !done; i++)
+            {
+                t.fontSize = cur;
+                bool fits = FitsBox(t, maxWidth, maxHeight, wrap, out measured);
+                if (!measured) { t.fontSize = nominal; return false; }   // 量不出来 ⇒ 不拟合、不缓存（见方法头）
+                if (fits)
+                {
+                    // 收口：括号够窄了，或已经顶到这一层的上限 ⇒ 结果 = cur（原版 `m_IsAutoSizePointSizeSet`）
+                    if (hi - lo <= AutoSizeGridStop || cur >= bandMax) { done = true; break; }
+                    lo = cur;                                                       // 原版 `m_minFontSize = fontSize`
+                    float step = Mathf.Max((hi - cur) * 0.5f, AutoSizeGrid);         // 原版 `Mathf.Max(…, 0.05f)`
+                    cur = Mathf.Min(OnGrid(cur + step), bandMax);                    // 原版 `(int)(f*20+0.5)/20` + 夹 max
+                }
+                else
+                {
+                    // 原版那一支有 `fontSize > m_fontSizeMin` 的闸 ⇒ 已经在 min 还装不下 ⇒ 就停在 min（不再缩）
+                    if (cur <= bandMin) { done = true; break; }
+                    hi = cur;                                                        // 原版 `m_maxFontSize = fontSize`
+                    float step = Mathf.Max((cur - lo) * 0.5f, AutoSizeGrid);
+                    cur = Mathf.Max(OnGrid(cur - step), bandMin);
+                }
+            }
+            if (!done) cur = lo;    // 万一撞到 100 次上限：退到「最后一个已知装得下」的那档（原版同样只打一条日志）
+
+            t.fontSize = cur;
             FitsBox(t, maxWidth, maxHeight, wrap, out measured);    // 把字号定下来的那次量测留下
-            ClampToInk(t, maxWidth, maxHeight, wrap);               // 🆕 X1 ②：再按字墨收一遍
+            ClampToInk(t, maxWidth, maxHeight, wrap);               // 🆕 X1 ②：再按字墨收一遍（只缩不放）
+            // 🔴 「结果必落网格」：`ClampToInk` 是按比例收的、不在网格上 ⇒ **向下**取回网格
+            //   （向上取会重新越框）；再夹一次档位，`ClampToInk` 不许把字号压到这一层的 min 以下。
+            t.fontSize = Mathf.Max(OnGridDown(t.fontSize), bandMin);
             if (measured) _fitCache[key] = t.fontSize;
             return measured;
+        }
+
+        /// <summary>🆕 2026-10-29（`B99_G1`）自检口：用**给定档位**对一层 TMP 跑一遍生产 `FitToBox`。
+        /// <para>⛔ 期望值不许从这里读回去；它只让断言能用**同一个实现**跑确定性夹具
+        /// （`B99G1_Assert` 的 `G1-F1/F2`：上界能放大 · 结果落 0.005 网格）。</para></summary>
+        public static bool FitToBoxForTest(TextMeshPro t, float maxWidth, float maxHeight, bool wrap,
+                                           float bandMin, float bandMax)
+        {
+            return FitToBox(t, maxWidth, maxHeight, wrap, bandMin, bandMax);
         }
 
         /// <summary>量一次：当前字号装得进框吗？（顺带把折行宽度和网格更新做掉）
@@ -6034,7 +6221,7 @@ namespace CardPresentation
                     + $" 字墨={(inkOk ? inkW.ToString("F4") : "n/a")} inkOk={(inkOk ? 1 : 0)} 框={maxWidth:F4}");
         }
 
-        /// <summary>太宽就把字号整体回缩到装得下（原来点阵那条路也是「缩号到放得下」）。
+        /// <summary>🔶 自己设计（非原版）：`FitToWidth` 这一整条「按行盒/字墨把字号缩到**框宽**」的横向回缩 · 为什么必须自定：原版 autosize **只判纵向**（`TextMeshPro.cs:3044` 的 `textHeight > marginHeight + 0.0001f`），不折行的层（卡名/阵营/兵种）是 `m_TextWrappingMode = 0` + `m_overflowMode = 0(Overflow)` ⇒ **原版长卡名就是溢出、不缩**，本机没有「横向缩号」的对应物 · 保留它是因为它修的是真机「卡名被右边框切掉」（`X17`），⚠️ 这是一处**与原版不同**的行为 · 调度台 2026-10-29 裁定「登记、暂不实现」（`B99_R4a` §1·4 第 2 条）。
         /// <para>🔴 **2026-10-25（`X17`）**：不折行的那几层（**卡名 / 阵营行 / 兵种行**）走的是本函数，
         /// 而它原来用的是**裸 `ForceMeshUpdate()`** —— 那个口在**未激活**对象上早退
         /// （`TextMeshPro.cs:2119`），量到 0 ⇒ `w &lt;= 0f` ⇒ **一次都不缩**。`X1` 只把

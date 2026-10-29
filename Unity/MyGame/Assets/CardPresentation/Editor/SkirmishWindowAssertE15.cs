@@ -201,17 +201,22 @@ public static class SkirmishWindowAssertE15
                         + "｜🧨 退回留空 ⇒ 红");
             }
 
-            // 「结束于：」那一行（`Content/Timer`）
-            var cTimer = Find(colOff, "Timer");
-            CheckTrue(cTimer != null && cTimer.parent != null && cTimer.parent.name == "Content",
-                      "★ A7 `Content/Timer`（= `RankingDisplay.timerDisplay`）在，父件是 `Content`"
-                    + "｜🧨 挂到窗根 / 不建 ⇒ 红");
-            Check(TextOf(DirectChild(cTimer, "Timer")),
-                  TimerDisplay.Compose(Loc.T("Event_Description/General/EndsInPlusOrangeTime"), "--"),
-                  "★ A7b 倒计时文案 = 官方词条 `EndsInPlusOrangeTime` 填 `--`（本地无截止时刻）");
-            CheckTrue(DirectChild(cTimer, "Timer Icon") != null
-                      && DirectChild(cTimer, "Timer Icon").GetComponentInChildren<ImageQuad>(true) != null,
-                      "★ A7c 倒计时那颗 `Timer Icon`（`WF_icon_clock`）画出来了");
+            // 「结束于：」那一行（`Content/Timer`）—— 🔴 **整棵不建**
+            //   判据（`判据/B99_R3b_施工单_其余按文件.md` §2·4）：原版 `TimerDisplay.UpdateTimer` 取不到目标时刻那一支
+            //   是 **`return;`（静默、一个字都不印）**；本地经典式左列只在「没有 FastMode 活动」时建 ⇒ 根本没有结束时刻。
+            //   ⇒ 我们原来印的那行 `--` = **做了原版没有的**，2026-10-29（`B99_W2`）去掉。先例 = `X4` 的「无倒计时 ⇒ 整行不建」。
+            var cContent = Find(colOff, "Content");
+            CheckTrue(cContent != null, "（前提 · A7）段位块 `Content` 在（下面两条按它的直接子件查，⛔ 不递归）");
+            CheckTrue(cContent != null && DirectChild(cContent, "Timer") == null,
+                      "★ A7 `Content/Timer`（= `RankingDisplay.timerDisplay`）**整棵不建** —— 本地没有活动结束时刻，"
+                    + "原版那一支是 `return;`（静默、⛔ 不印 `--`）"
+                    + "｜🧨 把那一行建回来（哪怕写的是 `--`）⇒ 红");
+            Check(CountNamed(colOff, "Timer"), 0,
+                  "★ A7b 经典式左列**全树一个 `Timer` 都没有**（`Content` 底下那颗也不许有）"
+                + "｜🧨 「有条件建」被写成恒建 ⇒ 红；⚠️ 与 B3（活动期那颗 `Timer` **在**）并排 ⇒ 闸不是「恒不建」");
+            Check(CountNamed(colOff, "Timer Icon"), 0,
+                  "★ A7c 那颗 `Timer Icon`（`WF_icon_clock`）**也没有** —— 同一棵子树一起不建"
+                + "｜🧨 只删文字、留着图标 ⇒ 红");
             CheckTrue(DirectChild(skOff.transform, "Timer") == null,
                       "★ A8 **活动倒计时那颗 `Timer` 不在**（非活动期没有活动可倒计时；"
                     + "否则屏幕上会同时出现两行「结束于：」）"

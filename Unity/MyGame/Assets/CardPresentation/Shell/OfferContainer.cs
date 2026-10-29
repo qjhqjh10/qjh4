@@ -1516,13 +1516,13 @@ namespace CardPresentation
                     //   = `Left/**Midline**`（判据 = 本文件头 `本文件` / `本文件` 两条，**19 份逐份实读**同档
                     //   —— 逐份变的是字号与自适应范围，纵向档**不是**逐份的）。
                     MenuDraw.SetVAlign(timerLb, Label.VAlign.Midline, R(tt.x1, tt.y1, tt.x2, tt.y2));
-                    // 🔴 **2026-10-17（N1）**：出厂串 `5d 20h 15m` **不是倒计时**（原版由服务端 LiveOps
-                    //   报价的到期时刻灌进来 —— 本族本地没有数据源，见文件头）。目标时刻未知 ⇒ 走
-                    //   `TimerDisplay` 的未知支：出声一次 + `--`（⛔ 不编一个倒计时）。
-                    //   调用方**真给了** `TimerText`（≠ 出厂串）就照它画、不覆盖。
-                    if (timerLb != null && c.TimerText == DefTimerText)
-                        TimerDisplay.Attach(timerLb, null, "", "商品条目 Timer Text（OfferContainer）",
+                    // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地订正 + §2·4）**：出厂串 `5d 20h 15m` **不是倒计时**（原版由服务端 LiveOps 报价的到期时刻灌进来）；`TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默（⛔ 印 `--` 是我们做了、原版没有的，`B99_A4` 已删）⇒ 那一格会**露出死占位 = 假数**。
+                    //   处置：`TimerDeadline`（类尾，本地恒 null）没有值 ⇒ **整颗 `Timer` 节点 `SetActive(false)`**（照原版 `SetTimer.c` 的 no-data 分支；⛔ 不删节点 —— `Editor/ShopScene.cs:3466` 的 `KidNames(Timer)` 只读孩子名/兄弟序，父件关着不影响；⚠️ **只关 `Timer Text` 那颗 Label 不行**：`KidNames` 会给 inactive 孩子加 `*` 前缀 ⇒ 那条结构断言变红）。
+                    //   将来接上 liveop 报价时刻 ⇒ **只改类尾 `TimerDeadline`**，`Attach` 那一路自动恢复（「留开关，不硬删」）；调用方**真给了** `TimerText`（≠ 出厂串）就照它画、不受影响。
+                    if (timerLb != null && c.TimerText == DefTimerText && TimerDeadline.HasValue)
+                        TimerDisplay.Attach(timerLb, () => TimerDeadline, "", "商品条目 Timer Text（OfferContainer）",
                                             "本族数据源 = 服务端 LiveOps 报价，本地没有到期时刻");
+                    else if (timerLb != null && c.TimerText == DefTimerText) timer.gameObject.SetActive(false);
                 }
                 // ② `Icon`（原版的第二个孩子）
                 var ic = g.TimerIcon;
@@ -1984,5 +1984,19 @@ namespace CardPresentation
         {
             UnlockContainer = null; RecordTransaction = null; Collect = null; _said = false;
         }
+    }
+
+    // ============================================================ 界面 #6（`B99_A6` · 2026-10-30 · 追加在【文件尾】的 partial 续块）
+    /// <summary>商品条目那颗 `Timer Text` 的**到期时刻** —— **本地恒 null**（= 没有这条数据，不是「我们挑的 0」）。
+    /// <para>判据（⛔ 不是猜）：原版由服务端 LiveOps 报价的到期时刻灌进 `TimerDisplay`（关服后本地没有报价数据源）；
+    /// 而 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 **`return;` 静默** ⇒ 没有到期时刻时 prefab 出厂占位串
+    /// `5d 20h 15m` 会**原样留在屏上 = 假倒计时**（`B99_A4` 删掉 `--` 之后才露出来）⇒ 本批把 `Timer Text` 建成**关着**。</para>
+    /// <para>将来接上 liveop 报价时刻时，**只改这一格**（赋值）⇒ `OfferContainer.Build` 里那条 `Attach` 自动恢复建树（§2·4「留开关，不硬删」）。</para>
+    /// <para>⚠️ **为什么写在文件尾的 partial 续块**：本体类结束在 `:1734`，而本文件在账里被按 `文件:行号` 引用 48 处、
+    /// 最大落点 `:1944` ⇒ 在 1734 那里插行会让其后 9 条账落点整段漂移（铁律 18·b）⇒ 改成本文件末尾新开一段 partial。</para></summary>
+    public static partial class OfferContainer
+    {
+        /// <summary>见上一条 doc。⛔ 别改成常量 / 别写成 `null` 字面量 —— 将来只改这一格（赋那个 `endDate`）。</summary>
+        public static System.DateTime? TimerDeadline;   // 🔶 自己设计（非原版）：商品条目 `Timer` 的到期时刻开关（本地恒 null ⇒ 整颗 `Timer` 节点建成关着）· 为什么必须自定：报价到期时刻来自 LiveServer，关服后判据在远端 ⇒ 按「不给假数」不显示原版 prefab 的占位串 `5d 20h 15m` · 调度台 2026-10-30 裁定
     }
 }

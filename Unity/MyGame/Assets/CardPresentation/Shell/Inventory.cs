@@ -534,7 +534,7 @@ namespace CardPresentation
         public static readonly AlternateArtInventory AltArts = new AlternateArtInventory();
 
         /// <summary>**万能卡的背包**（原版 `WildcardInventory`；条目 = <see cref="InventoryWildcard"/>）。
-        /// ⚠️ 数量正本仍是 `CardProgress`（按稀有度分桶）；本背包今天的唯一作用是「重建后发一次刷新信号」。</summary>
+        /// ⚠️ 数量正本仍是 `CardProgress`（按稀有度分桶）；本背包的两个作用是「重建后发一次刷新信号」+ 「条目表」（13 阵营 × 4 档，由 `WildcardInventorySeed.SeedAllArmies` 播，让 `ItemDrawer` 一类消费者看得见条目）。</summary>
         public static readonly WildcardInventory Wildcards = new WildcardInventory();
 
         /// <summary>把上面四份背包登记进门面（原版 `InventoryManager` 的 `inventories`）。
@@ -568,7 +568,7 @@ namespace CardPresentation
             // 🆕 2026-10-26（批次 3 · Q1）：**异画也是「全解锁」** ⇒ 用同一个口径顺手播一次（幂等）。
             //    两件事仍各有各的方法（`SeedAltArtsAllUnlocked`），这里只是把它接上 —— 否则
             //    `AlternateArtInventory.OnFinishUnpack` 那两跳永远没有条目可跑（空背包 = 假实现）。
-            SeedAltArtsAllUnlocked();
+            SeedAltArtsAllUnlocked(); WildcardInventorySeed.SeedAllArmies();   // 界面 #5（B99_W2）：万能卡也「全解锁」⇒ 顺手播一次（幂等；条目 = 13 阵营 × 4 档，数量取 `CardProgress` 那唯一一份库存）
         }
 
         /// <summary>按「全解锁」口径给 <see cref="AltArts"/> 播种（7 条，来自 `CollectionWindow.AltArtCards`）。
@@ -1513,7 +1513,7 @@ namespace CardPresentation
     {
         /// <summary>阵营名（原版 `Wildcard.cardArmy` 的**名字**；空 = 中立/不分区）。</summary>
         public string Army;
-        /// <summary>稀有度档（本地约定 = 小写英文，同 `CardProgress` 的键）。</summary>
+        /// <summary>稀有度档 = **原版 `Wildcard.cardRarity` 的 1 基档位数字**（`"1".."4"`）—— `ItemDrawer.Spec` 只认 `Wildcard&lt;阵营&gt;&lt;1..4&gt;` 这个形状（= 原版 4 份 SO 的资产名），⛔ 写小写英文名会让它认出 `Unknown`、落到占位板。（`CardProgress` 的键是小写英文；换算只在 `WildcardInventorySeed` / 计数读口里做一次，⛔ 不留两份口径。）</summary>
         public string Rarity;
         /// <summary>`"Wildcard" + Army + Rarity`（与 `ItemDrawer.Spec` 解析的那套 id 同形）。</summary>
         public string Id { get { return "Wildcard" + (Army ?? "") + (Rarity ?? ""); } }
@@ -2163,6 +2163,44 @@ namespace CardPresentation
                 return;
             }
             // 走到这里 = 这件奖励不是头像边框 ⇒ 原版基类空实现 ⇒ 什么都不做（没有第二条 override）
+        }
+    }
+
+    // ============================================================ 界面 #5（B99_W2 · 2026-10-29 · 追加在文件尾）
+    /// <summary>给 <see cref="Inventories.Wildcards"/> 播条目（**13 阵营 × 4 档 = 52 条**）。
+    /// <para>【为什么要有它】原版 `WildcardInventory : Inventory&lt;Wildcard&gt;` 的条目 = 一个 `Wildcard` SO
+    /// （`bundle_menus_assets_all/MonoBehaviour/WildcardUltramarines1..4.json` 四条实读：`cardArmy` + `cardRarity`）；
+    /// 我们那份背包直到 2026-10-29 **一条都没有** ⇒ `InventoryManager.HasItemByID&lt;InventoryWildcard&gt;`
+    /// 与 `ItemDrawer.Spec` 这一族消费者**永远看不到万能卡**（空表 = 假实现）。</para>
+    /// <para>【数量】取 <see cref="CardProgress.Wildcards(string,string)"/> —— **唯一一份**库存正本（两维桶 `army|rarity`）；
+    /// 本类**不存第二份数**，只把「这个阵营这一档有几张」映射成条目数。</para>
+    /// <para>【id 形状】`Wildcard&lt;阵营&gt;&lt;1..4&gt;`（= 原版 SO 资产名；`ItemDrawer.Spec` 认这个形状，
+    /// `ItemDrawer.WildcardArtName` 按档位取 `…_small` 四张图）。</para>
+    /// <para>⚠️ **幂等**：已有条目不动（同 `SeedCardsAllUnlocked` / `SeedAltArtsAllUnlocked` 口径）。
+    /// ⚠️ 条目存在 ≠ 「能合成」：能不能合、扣哪一桶，仍只由 `CardProgress.Wildcards(army,rarity)` 一处说了算。</para>
+    /// <para>判据 → `资料/完全复刻/判据/B99_R3b_施工单_其余按文件.md` §2·5。</para></summary>
+    public static class WildcardInventorySeed
+    {
+        /// <summary>四档的 `CardProgress` 键（**顺序 = 原版 `cardRarity` 1..4**，与 `CardDetailPopup.WildcardRarities` 同一张表的口径）。</summary>
+        static readonly string[] RarityKeys = { "common", "rare", "epic", "legendary" };
+
+        /// <summary>播一次（幂等）。</summary>
+        public static void SeedAllArmies()
+        {
+            var all = ArmyIcons.All;                       // 13 条（不含 Neutral —— 原版 `Wildcard` SO 没有中立那张）
+            for (int a = 0; a < all.Length; a++)
+            {
+                string army = all[a].Faction;
+                if (string.IsNullOrEmpty(army)) continue;
+                for (int r = 0; r < RarityKeys.Length; r++)
+                {
+                    string slot = (r + 1).ToString();
+                    string id = "Wildcard" + army + slot;
+                    if (Inventories.Wildcards.Get(id) != null) continue;   // 幂等：已有的不动
+                    Inventories.Wildcards.Add(new InventoryWildcard { Army = army, Rarity = slot },
+                                              CardProgress.Wildcards(army, RarityKeys[r]));
+                }
+            }
         }
     }
 }

@@ -384,6 +384,7 @@ namespace CardPresentation
             _insertIndex = -1;
             SetHovered(-1);
             DiscardPress();
+            DropAccepted = false;     // 🔴 2026-10-30（`B99_B1`）：⛔ 别让「取消」继承上一手残留的 `DropAccepted`（否则 `EndPreviewReturn` 见 `true` 就只清不送回）
             ClearDropIndicator();
             if (card != null)
             {
@@ -967,6 +968,7 @@ namespace CardPresentation
             //    （九格一起染绿 = 「哪些格能放」），与原版不符：原版只有**一格**落点指示
             //    （`SetCardShadow(GetLeft/RightSlotPos(落点))`，判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
             //    现在改成 `UpdateDrag` 里每帧按**解出来的落点**点一格 —— 拿起、还没移到棋盘上时**不亮**。
+            DropAccepted = false;     // 🔴 2026-10-30（`B99_B1`）：新一手起拖 ⇒ 清掉上一手的结论（同 `AbortDrag`）
             ClearDropIndicator();
         }
 
@@ -1379,26 +1381,36 @@ namespace CardPresentation
         {
             var card = _dragging;
             _dragging = null;
-            ClearDropIndicator();
+            // 🔴🆕 **2026-10-30（`B99_B1` · AUD8·让位预览）：先判「这一手会不会真打出去」，再收指示器。**
+            //   原先顺序相反 ⇒ `ClearDropIndicator()` → `OnDropPreview(null, -1)` → `EndPreviewReturn()`
+            //   读到的是**上一手**残留的 `DropAccepted`（之前有一手真打出去过 ⇒ 残留 `true` ⇒ 早退支
+            //   只 `_previewMoved.Clear()` 而**不送回** ⇒ 被推开的单位永远停在预览的假格位上）。
+            //   判据 = 原版三条（拖动中 `MinionManager.ReassembleMinionsWhilePlayingUnit` /
+            //   取消 `MinionManager.ReassembleMinions` / 打出去 `InsertMinion + AdjustedSlot` 自己定死位置
+            //   ⇒ accept 时**必须不送回**）。
+            int slot;
+            BoardLayout which;
+            DropRejectKind kind;
+            string reject = DropReject(world, card, out slot, out which, out kind);
+            bool ok = reject == null;
+            DropAccepted = ok && card != null && card.Data.isUnit;   // 「这一手真打出去」= 合法 ∧ 单位卡（⚠️ `CardView.Data` 是**结构体** ⇒ 没有 `!= null` 这一判）
+            ClearDropIndicator();     // ⚠️ 必须排在上面那几行**之后**：它内部会拿 `DropAccepted` 决定送不送回
+            DropAccepted = false;     // 用完即清 —— ⛔ 别让下一手继承这一手的结论（驱动层 `DoPlay` 末尾也清一次）
             // 🔴🆕 2026-10-25（`K2`）：第三条 = **长按不开窗**（原版 `OnTouchUpAsButton.c:37` 那个 0.2 s 门）。
             bool tapped = _travel < TapThreshold && _pressInside && PressShortEnough;
             bool suppressByLongPress = _travel < TapThreshold && _pressInside && !PressShortEnough;
             _pressInside = false;
 
-            int slot;
-            BoardLayout which;
             // 🔴 松手时**先记下被拒的原因** —— 回弹不该是静默的：
             //    日志里要能直接看出是哪一道闸挡的（2026-09-17 加）。
             var cp = card.transform.position;          // ⚠️ 只给日志用（看卡滞后了多少）
-            DropRejectKind kind;
             // 🔴 **2026-10-15（`A2107`）：判的是【指针】，⛔ 不再是卡的位置。**
             //   上面 `cp` 那一行**只为日志留着** —— 判据见 `UpdateDrag` 里同一段（原版
             //   `GetClosestAvailableSlot(TouchInputManager.TouchPosition)`，机器码判据在 `B3` §一）。
             //   ⚠️ 这次改动的**来由就是那条日志**：2026-09-17 抓到「卡已经飞到 (-2.14,-3.35) 才判」，
             //      当时判成「指针读野了」并给指针加了防护（`PointerWorldSafe`）—— 那只治了野值，
             //      没治**结构性滞后**；两个量本来就不该混用。
-            string reject = DropReject(world, card, out slot, out which, out kind);
-            bool ok = reject == null;
+            // 🔴 **2026-10-30（`B99_B1`）**：`DropReject` 那一问已提到方法开头（见那段注释）——这里只剩日志要的 `kind`。
             // 🔴🆕 2026-10-25（`K2`）**就地订正（铁律 5 · 真机日志抓到的一处假象）**：
             //   这一行原来写 `拖动中={_dragging != null}` —— 而**上一句刚把 `_dragging` 置 null**
             //   ⇒ 恒打 `拖动中=False`。2026-10-25 第七十七会话的真机验收据此记了一条
@@ -1425,8 +1437,10 @@ namespace CardPresentation
                 //    （插进中间 ⇒ 后面的单位整体外移一格）。落位动画要飞向**真落点**，
                 //    否则卡会先飞到请求格、再滑一下（而引擎里其实没动过）。
                 int land = tactic ? slot : LandingSlot(slot);
-                // 🆕 2026-10-01：单位卡打下去 ⇒ 引擎马上会插它（让位预览那几张**别送回去**，见 `DropAccepted`）
-                DropAccepted = !tactic;
+                // 🆕 2026-10-01：单位卡打下去 ⇒ 引擎马上会插它（让位预览那几张**别送回去**）。
+                // 🔴 **2026-10-30（`B99_B1`）**：这一句原来写 `DropAccepted = !tactic;` —— 已删：
+                //   那个值现在在方法开头、`ClearDropIndicator()` **之前**就摆好并被消费掉了（第④步之后的结论
+                //   不会再有人读它，留着只会变成「下一手继承上一手」的残留，正是本条 bug 的病根）。
                 // ⚠️ 战术卡**不占格位** —— 记进 `_placed` 的话，那个格位本回合就再也放不了牌了
                 if (!tactic) _placed[land] = card;
                 // 从手牌里拿掉：之后的手牌重排不该再算它

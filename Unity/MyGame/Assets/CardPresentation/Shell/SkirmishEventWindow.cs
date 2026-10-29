@@ -378,7 +378,7 @@ namespace CardPresentation
                     + "它们是服务端数据（`RankingDisplay.Initialize` 那一支），本地没有 ⇒ 不编数字。");
         }
 
-        /// <summary>`Ranked Division Info/Content/Timer` —— 「结束于：…」那一行（**本地无截止时刻 ⇒ 印 `--`**）。
+        /// <summary>`Ranked Division Info/Content/Timer` —— 「结束于：…」那一行（**本地无截止时刻 ⇒ 整棵不建**）。🔴 **2026-10-29（`B99_W2`）就地订正（铁律 5 + §18·0）**：原文这里写的是「**本地无截止时刻 ⇒ 印 `--`**」——**已过期**：原版 `TimerDisplay.UpdateTimer` 取不到目标时刻那一支是 **`return;`（静默、一个字都不印）**（我们的 `Shell/TimerDisplay.cs:375` 注释自己就写着这句），先例 = `X4` 裁定「无倒计时 ⇒ 整行不建」⇒ 印 `--` 属「我们做了原版没有的」。判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4。
         /// <para>几何/判据：见本文件 `Tmr*` 那三组常量的注释（= V2 prefab **跑过布局之后**的真值）。
         /// 文案 = 官方词条 `Event_Description/General/EndsInPlusOrangeTime`（值带 `{0}` ⇒ 走 `TimerDisplay.Compose`，
         /// ⛔ 别自己拼「结束于：」）—— 与活动期那颗 `Timer`、与排位窗 `BuildRankTimer` **同一条口径**。</para></summary>
@@ -392,19 +392,19 @@ namespace CardPresentation
                                  + "（`RankedDivisionInfo.Build` 的产出变了？）");
                 return;
             }
+            if (ClassicTimerDeadline.HasValue)   // 原版 `TimerDisplay.UpdateTimer` **取不到目标时刻那一支是 `return;`**（静默、⛔ 不印 `--`）⇒ 本地恒无（类尾 `ClassicTimerDeadline`）⇒ **整棵不建**；将来有数据源时把本行换成那个真判据即可恢复下面那一支（§2·4「留开关，不硬删」）
+            {   // ⛔ 不建 `Timer` / 不建 `Timer Icon` / 一个字都不印 —— 「没有数据」不是「印个占位」
+                Debug.Log("[Event] 经典式左列的 `Content/Timer` **整棵不建** —— 原版 `TimerDisplay.UpdateTimer` 在取不到目标时刻时是 `return;`（静默、不印 `--`）；本窗的经典式左列只在**没有 FastMode 活动**时建 ⇒ 根本没有结束时刻（判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4）。"); return; }
             var tm = MenuDraw.Node(content, "Timer", new PxRect(TmrL, TmrT, TmrR, TmrB));
             MenuDraw.Rect(tm, Tex("WF_icon_clock"), new PxRect(TmrIcL, TmrIcT, TmrIcR, TmrIcB), "Timer Icon", QArt);
-
             string prefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
             var txR = new PxRect(TmrTxL, TmrTxT, TmrTxR, TmrTxB);
-            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, "--"), Color.white, "Timer", 38f, QText,
+            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, ""), Color.white, "Timer", 38f, QText,
                                    face: TmpFont.Face.LatinCardBody);
             if (tx == null) return;                     // 建不出来 ⇒ `TimerDisplay.Attach` 会自己出声，这里不再补一句
-            // 字号四格 = 原版 `38 / 10 / 38 / 38`（本窗与 V2 同档）。⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth`
-            //   ⇒ 紧跟一句还原**原版折行 0**（同排位窗 `BuildRankTimer` 那一处）。
-            tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
-            tx.SetWrapping(false);
-            TimerDisplay.Attach(tx, null, prefix, "遭遇战窗（非活动期）经典式左列 Timer",
+            // 字号四格 = 原版 `38 / 10 / 38 / 38`（本窗与 V2 同档）。⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 紧跟一句还原**原版折行 0**
+            tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f); tx.SetWrapping(false);
+            TimerDisplay.Attach(tx, () => ClassicTimerDeadline, prefix, "遭遇战窗（非活动期）经典式左列 Timer",
                                 "小冲突的结束时刻由服务端下发，本地没有");
         }
 
@@ -629,9 +629,9 @@ namespace CardPresentation
             // 🆕 **2026-10-24（E15）**：这颗 `Timer` = **活动倒计时**（原版 `TimerDisplay` 喂的是活动结束时刻）。
             //   非活动期**不建** —— 否则屏幕上会同时出现两行「结束于：」（经典式左列自带
             //   `Ranked Division Info ▸ Content ▸ Timer`，那才是常驻形态）；原版任何一扇窗都没有两个倒计时。
-            if (HasActiveSkirmishEvent) BuildTimer(root);
-            else Debug.Log("[Event] `Timer`（活动倒计时）**没建** —— 本窗当前不是活动期；"
-                         + "结束时刻那一行由经典式左列的 `Ranked Division Info ▸ Content ▸ Timer` 承担");
+            if (HasActiveSkirmishEvent && TimerDeadline.HasValue) BuildTimer(root);   // 🔴 2026-10-30（B99_A4 · 反向清单 §五 #1）：原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默 ⇒ 无截止时刻（类尾 `TimerDeadline`，本地恒 null）**整棵不建**，⛔ 不印 `--`
+            else Debug.Log("[Event] `Timer`（活动倒计时）**没建** —— 缺截止时刻（`TimerDeadline` 为 null，原版那一支是 `return;` 静默、⛔ 不印 `--`）"
+                         + "或本窗不是活动期；非活动期那一行由经典式左列的 `Ranked Division Info ▸ Content ▸ Timer` 承担（它同样受 `ClassicTimerDeadline` 闸）");
             BuildBanned(root);
             // ⚠️ 原版两扇窗都还有一层 `DEBUG`（`DebugAutoDisabler` + 红字 `EventId` / `DebugBattle` 那几件，出厂 act=1）。
             //    **不建**：🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）** —— 这里原来写「`DebugAutoDisabler`
@@ -652,8 +652,8 @@ namespace CardPresentation
         /// 那个理由是**半对**：位置确实由 HLG 决定，但**本 prefab（`SkirmishModeEventWindow`）跑过布局**，
         /// 已经把那份结果序列化回去了 ⇒ 图标 / 文字的落点**有真值可抄**（见 `TmIconW` 那条 doc）；
         /// 而且文字本身照**官方词条** `Event_Description/General/EndsInPlusOrangeTime`（原版 prefab 出厂
-        /// 占位是 `'Termina en: 23d 5h'`，运行时同样被 `TimerDisplay` 覆盖），
-        /// 截止时刻未知时由 `TimerDisplay` 显示 `--` —— **不需要编位置、也不需要编日期**。</para>
+        /// 占位是 `'Termina en: 23d 5h'`，运行时同样被 `TimerDisplay` 覆盖），🔴 **2026-10-30（`B99_A4`）就地订正**：原句「截止时刻未知时由 `TimerDisplay` 显示 `--`」**已过期** ——
+        /// 原版那一支是 `return;` **静默**（`TimerDisplay__UpdateTimer.c` 第一条），而本方法现在只在 `TimerDeadline.HasValue` 时被调用（§调用点 `BuildExtras` 那道闸）⇒ 本地恒无截止时刻 ⇒ **整棵不建**（⛔ 不印 `--`、⛔ 不编日期）。</para>
         /// <para>⚠️ 判据补充：`Vicotries title` 那一颗**已经是对的**（`本文件` 起那四格自适应），⛔ 别顺手改它
         /// —— 本窗的 `Vicotries title` 是**定宽 236.63×50、没有 CSF**（`menu_dump … --depth 6` 现读），
         /// 与 `Energy` 那一颗（宽 0 + CSF）**不是同一档**。</para></summary>
@@ -698,14 +698,14 @@ namespace CardPresentation
                 }
             }
 
-            // 挂全工程唯一的倒计时口径（截止时刻本地没有 ⇒ 出声 + `<EndsInPlusOrangeTime>--`，⛔ 不编日期）。
+            // 挂全工程唯一的倒计时口径（🔴 **2026-10-30（`B99_A4`）就地订正**：原来写「截止时刻本地没有 ⇒ 出声 + `<EndsInPlusOrangeTime>--`」**已过期** —— 原版那一支是 `return;` 静默，`--` 已删；目标取自类尾 `TimerDeadline`，⛔ 不编日期）。
             // 🔴 **2026-10-19（界面线 P05）**：补上原版那两档描述串 ——
             //   常档 `extraText` = `Event_Description/General/EndsInPlusOrangeTime`；
             //   最后 5 分钟档 `lastMinutesText` = `Event_Description/Generic/EndsSoon`
             //   （`MonoBehaviour_-800057299095106190.json` 现读；该件 `useLastMinutesText` 见同文件）。
-            //   ⚠️ 目标未知时这一档走不到（`TimerDisplay.Refresh` 直接印 `--`），但两档都要接全。
+            //   ⚠️ 目标未知时这一档走不到（`TimerDisplay.UpdateTimer` 在取不到目标时刻时**静默 `return;`**、一个字都不写），但两档都要接全。
             if (tx != null)
-                TimerDisplay.Attach(tx, null, TimerPrefix, "遭遇战活动窗 Timer",
+                TimerDisplay.Attach(tx, () => TimerDeadline, TimerPrefix, "遭遇战活动窗 Timer",
                                     "活动截止时刻由服务端 LiveOps 事件下发，本地没有",
                                     lastMinutesPrefix: Loc.T("Event_Description/Generic/EndsSoon"));
         }
@@ -1014,5 +1014,30 @@ namespace CardPresentation
             _scoreBar.Initialize(CardPresentation.ScoreBars.MilestoneLocalSimulation.CurrentScore,
                                  CardPresentation.ScoreBars.MilestoneLocalSimulation.CreateTable(), null);
         }
+
+        // ============================================================ 界面 #4（B99_W2 · 2026-10-29 · 追加在类尾）
+        /// <summary>经典式左列 `Content/Timer` 的**结束时刻** —— **本地恒 null**（= 没有这条数据，不是「我们挑的 0」）。
+        /// <para>为什么恒 null（判据，⛔ 不是猜）：`BuildLeftColumn` 按 <see cref="HasActiveSkirmishEvent"/> 分叉 ——
+        /// 经典式那一棵**只在没有 FastMode 活动时**建，而没有活动就**没有结束时刻**（结束时刻 = 活动实例的 `endDate`，
+        /// 由服务端下发；本地 13 份活动 SO 里 FastMode 类 **0 份**）。</para>
+        /// <para>原版对照：`SkirmishEventWindow.TryOpen` 拿 `ev.endDate` 喂 `timerDisplay.Initialize(endDate)`；
+        /// `TimerDisplay.UpdateTimer` 在取不到目标时刻时**静默 `return;`**（我们自己的 `Shell/TimerDisplay.cs:375`
+        /// 注释就写着这句）⇒ 那一行**整棵不建**（先例 = `X4`：`Editor/MainMenuScene.cs` 的「无倒计时 ⇒ 整行不建」）。
+        /// ⇒ ⛔ 印 `--` 是**我们做了原版没有的**，本批已去掉。判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4。</para>
+        /// <para>将来接上 FastMode 活动数据时，**只改这一格**（返回那个 `endDate`）⇒ 下面那一支自动恢复建行。</para></summary>
+        static System.DateTime? ClassicTimerDeadline { get { return null; } }
+
+        // ============================================================ 界面 #5（B99_A6 · 2026-10-30 · 追加在类尾）
+        /// <summary>**活动期**那颗 `Timer`（`BuildTimer`）的结束时刻 —— **本地恒 null**（= 没有这条数据，不是「我们挑的 0」）。
+        /// <para>判据（⛔ 不是猜）：原版 `SkirmishEventWindow.TryOpen` 拿 `ev.endDate` 喂 `timerDisplay.Initialize(endDate)`；
+        /// `TimerDisplay__UpdateTimer.c` **第一条** `if (*(char *)(this+0x78) == '\0') return;` ⇒ 取不到目标时刻是**静默**
+        /// （不写字、不动 GameObject）。FastMode 活动实例由服务端 LiveOps 下发、本机 13 份活动 SO 里 FastMode 类 **0 份**
+        /// ⇒ 没有截止时刻 ⇒ 按 §2·4「留开关，不硬删」**整棵不建**（调用点 `BuildExtras` 那道闸），⛔ 不印 `--`、
+        /// ⛔ 不把 prefab 占位串 `23d 5h` 当倒计时留在屏上（那是**假数**）。
+        /// 🔴 **2026-10-30（`B99_A6` · 铁律 5）**：`B99_A4` 把 `TimerDisplay` 改成静默后，本窗若照旧建树就会**露出
+        /// 「结束于：23d 5h」这个死占位**（比 `--` 更糟）⇒ 本字段 + 调用点那道闸一起落在这一批。</para>
+        /// <para>将来接上 FastMode 活动数据时，**只改这一格**（赋那个 `endDate`）⇒ `BuildTimer` 的建树路径原样恢复。</para>
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 本文件在账里被按 `文件:行号` 引用 26 处，最大落点 `:954`）。</para></summary>
+        public static System.DateTime? TimerDeadline;   // 🔶 自己设计（非原版）：活动期 `Timer` 的截止时刻开关（本地恒 null ⇒ 那一行整棵不建）· 为什么必须自定：截止时刻来自 LiveServer，关服后判据在远端 ⇒ 按「不给假数」不显示原版 prefab 的占位串 `23d 5h` · 调度台 2026-10-30 裁定
     }
 }

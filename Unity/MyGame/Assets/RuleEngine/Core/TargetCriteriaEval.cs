@@ -107,10 +107,10 @@ namespace RuleEngine
             {
                 case 0:                                   // any —— 原版「disregards all other filters」
                     return true;
-                case 20:                                  // self
-                case 40:                                  // attacker
-                case 70:                                  // abilityOwner
-                case 80:                                  // actingCard（`:169` 直接 return 1）
+                case 20:                                  // self —— 原版 `:184-191` 池 = `[thisCard]`、**不筛**；我们比 thisCard ⇒ 等价
+                case 40:                                  // attacker —— ⚠️ 原版 `GetTargets.c:760-769`（与 80 同支，`0x28/0x50`）池 = `[**actingCard**]`、**不筛直接 return**；我们**却**拿 thisCard 比（对象不同）
+                case 70:                                  // abilityOwner —— ⚠️ 原版 `:845-848` 是 `LogError("not tested")` 后 `Add(actingCard)`、不筛；我们同样比 thisCard（同上）
+                case 80:                                  // actingCard（`:760-769` 与 40 同支；`:169` 直接 return 1）—— 我们直接 true
                     if (ta == 80) return true;
                     if (thisCard == null) { gap = $"`ta={ta}` 要拿 thisCard 比身份，本版没有载体"; return null; }
                     return ReferenceEquals(candidate, thisCard);
@@ -130,10 +130,10 @@ namespace RuleEngine
                     if (targetCard == null) { gap = $"`ta={ta}` 要拿 targetCard 比身份，这次没有点选目标"; return null; }
                     if (!ReferenceEquals(candidate, targetCard)) return false;
                     break;                                // 身份相符 ⇒ 继续走下面那批常规筛
-                case 140:                                 // previousAbilityTargets —— **只**返回「在表里」
+                case 140:                                 // previousAbilityTargets —— ⚠️ 原版建池侧 `GetTargets.c:849-866` 是「池 = 静态表 AddRange」、**不筛直接 return**；我们把它当成「候选 ∈ 表」的**筛**（判据取自另一个函数 `CheckIfMeetsCriteria.c:495-510`）
                     if (ctx == null) { gap = "`ta=140` 需要 ctx"; return null; }
                     if (ctx.PreviousAbilityTargets == null) { gap = "`ta=140` 的静态表不可用"; return null; }
-                    return PrevTargetsContains(ctx, candidate);   // `:495-510`：**不落**常规格（见 helper doc）
+                    return PrevTargetsContains(ctx, candidate);   // `:495-510`：**不落**常规格（见 helper doc）。⚠️ 为什么与 40/70 一样不同：我们按正文 text spec 建池、`ta` 只做逐候选筛 ⇒ 「池 = 表」这一半没有建池侧；要改得先定「建池侧是谁」（`判据/B99_R4b_引擎与工具.md` §三·3·1 ⑤，本批不做）
                 case 150:                                 // previousAbilityFiltered —— 在表里才继续走常规格
                     if (ctx == null) { gap = "`ta=150` 需要 ctx"; return null; }
                     if (ctx.PreviousAbilityTargets == null) { gap = "`ta=150` 的静态表不可用"; return null; }

@@ -120,10 +120,10 @@ namespace RuleEngine
             DeckStore.LoadNote note;
             string detail;
             int current;
-            // ⚠️ 「文件在不在」必须在 **`LoadAll` 之前**取 —— 读取失败/成功都会改动文件系统状态，
-            //    取在之后就会把「第一次跑」和「文件在但读不出来」判反。
-            bool existed = System.IO.File.Exists(DeckStore.Path);
-            var list = DeckStore.LoadAll(out note, out detail, out current);
+            // ⚠️ 「文件在不在」必须在 **读档（`Parse` / 原来的 `LoadAll`）之前**取 —— 读取失败/成功都会改动文件系统状态，
+            //    取在之后就会把「第一次跑」和「文件在但读不出来」判反。🆕 2026-10-30（`B99_W7` 就地订正 `B99_W6`）：读取改走**注入钩子** `ReadLegacyText`（Shell 侧注册成 `SaveCenter.ReadThroughLegacy` —— **先中央档、再旧档**）⇒ 「文件在不在」**还要 OR 上中央档**；🔴 但那个 OR **只在读钩子也在时才问**（`CentralSaveExists` 由注册方按 `StoreOn` 收口），否则会与 `ReadThroughLegacy` 的 `StoreOn` 支自相矛盾（= W6 的假阳性，见类尾那一段）。
+            bool existed = System.IO.File.Exists(DeckStore.Path) || (ReadLegacyText != null && CentralSaveExists != null && CentralSaveExists());
+            var list = ReadDecksThroughHooks(out note, out detail, out current);
             if (list != null) lib._decks.AddRange(list);
             // 「上次在编辑哪一套」也存了 —— 重新打开还停在那一套上
             if (list != null && list.Count > 0) lib._current = (current >= 0 && current < list.Count) ? current : 0;
@@ -353,11 +353,11 @@ namespace RuleEngine
         }
 
         /// <summary>落盘。失败不吞 —— 原因（**诊断串**，见类头那条更正）写进 <see cref="LastError"/>，
-        /// 调用方要出声就出声；⛔ 别把它当界面文案（显示层走 `Loc`）。</summary>
+        /// 调用方要出声就出声；⛔ 别把它当界面文案（显示层走 `Loc`）。🆕 2026-10-30（`B99_W7` 就地订正 `B99_W6`）：真落盘走**注入钩子** `SaveLegacyText`（Shell 侧注册成 `SaveCenter.SaveThroughLegacy` = 中央档 + 旧档双写；**落盘关着**时只写旧档）；🔴 **钩子为 `null` 时走 `DeckStore.SaveAll`** —— 那是 W6 之前那条纯文件路（逐字同一调用），⛔ 别删（自检 / 编辑器 / 无 Shell 的场景全靠它）。</summary>
         public bool Save()
         {
             string err;
-            bool ok = DeckStore.SaveAll(_decks, _current, out err);
+            bool ok = WriteDecksThroughHooks(out err);
             LastError = ok ? null : err;
             return ok;
         }
@@ -586,6 +586,66 @@ namespace RuleEngine
         static string RawEntry(string id)
         {
             return PlayerDeck.IsAltArtEntry(id) ? id.Substring(1) : id;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  「中央档」注入钩子 —— 解掉 `B99_W6` 引入的反向依赖（2026-10-30 · `B99_W7`）
+        //
+        //  为什么：W6 把 `CardPresentation.SaveCenter.*` / `SaveKeys.*` 直接写进了本类 ⇒
+        //  `RuleEngine/` 反向依赖 `CardPresentation/`（成文约束 = `Core/AchievementTally.cs:281`
+        //  「⛔ 别在 `RuleEngine/` 里插 `CardPresentation.*`」）。
+        //  这里只留**三个注入点** —— 本类**不认识** `SaveCenter`、`SaveKeys`、`StoreOn`：
+        //    · `ReadLegacyText(旧档完整路径)` ⇒ 原文（`null` = 两边都没有）
+        //    · `SaveLegacyText(旧档完整路径, payloadJson, out error)` ⇒ 是否真的写成
+        //    · `CentralSaveExists()` ⇒ 中央档在不在（**注册方负责先判 `StoreOn`**，见下）
+        //
+        //  🔴 三个都是 `null` ⇒ 走 `DeckStore.LoadAll` / `DeckStore.SaveAll` 这两条**纯文件**老路
+        //     （= W6 之前那一版，**逐字同一调用**）⇒ 批处理自检 / 编辑器 / 没有 Shell 的场景零变化。
+        //  🔴 `CentralSaveExists` **必须由注册方按 `StoreOn` 收口**
+        //     （注册成 `() => SaveCenter.StoreOn && SaveCenter.Exists(key)`）：
+        //     本类**不引入「落盘门」这个概念**，否则「文件在不在」会和 `ReadThroughLegacy` 的
+        //     `StoreOn` 支自相矛盾 —— 那正是 W6 留下的假阳性：批处理里 `DeckStore.OverridePath`
+        //     指临时文件，而 `SaveCenter.Exists` 看的是 `persistentDataPath` 下的中央档
+        //     ⇒ 玩家真有中央档时 `existed` 恒 true ⇒ `ClassifyLoad("no save file", true)` = `Failed`
+        //     （应为 `NoSaveFile`）。本类这一侧另有一道闸：`ReadLegacyText == null` 时**根本不问**
+        //     `CentralSaveExists`（两个钩子必须同进同退）。
+        //  ⚠️ 成员**追加在类尾**（铁律 18·b：本文件有 7 处账落点，别插进类体中间）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>读旧档 / 中央档原文的注入点（`null` ⇒ 走 <see cref="DeckStore.LoadAll"/>）。
+        /// <para>🔴 **两处行为必须逐字等价于 W6 的 <c>SaveCenter.ReadThroughLegacy</c>**：
+        /// 先中央档、再旧档；都没有 ⇒ `null`（`DeckStore.Parse(null)` = `NoSaveFile`）。</para></summary>
+        public static Func<string, string> ReadLegacyText;
+
+        /// <summary>写「中央档 + 旧档」的注入点（`null` ⇒ 走 <see cref="DeckStore.SaveAll"/>）。
+        /// <para>🔴 **必须等价于 W6 的 <c>SaveCenter.SaveThroughLegacy</c>**：落盘开着 ⇒ 中央档 + 旧档双写；
+        /// **落盘关着 ⇒ 只写旧档**（那条支由 `SaveCenter` 自己判，本类不重复实现）。</para></summary>
+        public static DeckLegacySaver SaveLegacyText;
+
+        /// <summary>「中央档在不在」的注入点（`null` ⇒ 只看旧档）。
+        /// 🔴 **注册方负责先判 `StoreOn`** —— 本类不知道「落盘门」是什么（理由见上面那一段）。</summary>
+        public static Func<bool> CentralSaveExists;
+
+        /// <summary>写盘注入点的签名 —— `out error` 装**诊断串**；返回 `true` 才算真的写成。</summary>
+        public delegate bool DeckLegacySaver(string legacyFullPath, string payloadJson, out string error);
+
+        /// <summary><see cref="Load"/> 的读档一跳：**有钩子**走「中央档 → 旧档」，
+        /// **没有钩子**走 W6 之前那条纯文件路（<see cref="DeckStore.LoadAll"/>，逐字同一调用）。</summary>
+        static List<PlayerDeck> ReadDecksThroughHooks(out DeckStore.LoadNote note, out string detail, out int current)
+        {
+            if (ReadLegacyText != null)
+                return DeckStore.Parse(ReadLegacyText(DeckStore.Path), out note, out detail, out current);
+            return DeckStore.LoadAll(out note, out detail, out current);
+        }
+
+        /// <summary><see cref="Save"/> 的落盘一跳：**有钩子**走「中央档 + 旧档」，
+        /// **没有钩子**走 W6 之前那条纯文件路（<see cref="DeckStore.SaveAll"/>，逐字同一调用）。
+        /// ⚠️ `DeckStore.Serialize` **只在有钩子时才调** —— 没钩子时多序列化一遍纯属浪费（而且那份串没人要）。</summary>
+        bool WriteDecksThroughHooks(out string error)
+        {
+            if (SaveLegacyText != null)
+                return SaveLegacyText(DeckStore.Path, DeckStore.Serialize(_decks, _current), out error);
+            return DeckStore.SaveAll(_decks, _current, out error);
         }
     }
 }

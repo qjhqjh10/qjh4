@@ -2533,7 +2533,7 @@ public static class MainMenuScene
         //   🔴 **2026-10-11（`A1522⑤`）那一版只把 `Practice`/`Tutorial` 的上下换了**，三张 `1×2` 的列位
         //   仍与实拍不符 ⇒ **2026-10-13 整列重排**（上面那一段）；`Practice`/`Tutorial` 的**上下未变**。
         CheckCard(menu, "Base Game Mode Container 1x2 - Skirmish", 205f, 535f, 848.8f, "Skirmish（1x2 · **col0** · 独占整列）", 182.8f);
-        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 1 * 555f, 535f, 848.8f, "Ranked（1x2 · **col1** · 独占整列）", 182.8f);
+        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 1 * 555f, 535f, 848.8f, "Ranked（1x2 · **col1** · 独占整列）", 182.8f); B99E7_Assert.Run(_sink);
         CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 3 * 555f, 535f, 414.4f,
                   "Practice（1x1 · **col3**/row0 —— 与 `Tutorial` 同列、它在**上**）", 182.8f);
 
@@ -9441,26 +9441,26 @@ public static class MainMenuScene
                 CheckText(TextOf(FindChild(sk.transform, "Reward Tile")), Loc.T("Ranked/Skirmish/ProgressionTitle"),
                           "左列标题 = 官方词条 `Ranked/Skirmish/ProgressionTitle`（en `Progression` / zh `进步`）");
                 {
-                    // ⚠️ `Timer` 是 HLG（图标的位置由「倒计时文字多宽」决定）而那段文字本地没有
-                    //    ⇒ **整件都不画**（连图标），只留节点 + 出声（原来画了个位置错的图标：偏左 207px、下端出屏）
+                    // 🔴 **2026-10-30（`B99_A4`）**：`Timer` 是 HLG（图标位置由「倒计时文字多宽」决定）而那段文字本地没有
+                    //    ⇒ **整棵不建**（连节点都不建；原版 `TimerDisplay__UpdateTimer.c` 无目标 ⇒ `return;` 静默）—— ⛔ 不再印 `--`。
                     var tm = FindChild(sk.transform, "Timer");
-                    CheckTrue(tm != null, "`Timer` 节点在（原版这一件在**遭遇战**有、**排位根上没有**）");
-                    // 🔴 **2026-10-17（R3 现核 · `A1248`）**：这一件**已经真画了**（旧断言写「整件都不画」已过期）——
-                    //   `Timer Icon`（`WF_icon_clock`）+ 官方词条 + 时长。截止时刻本地没有 ⇒ 时长为 `--`。
-                    // 🔴 **2026-10-19（界面线 P05 · 就地改断言）**：描述串已从写死 `Termina en: ` 改走官方词条
-                    //   `Event_Description/General/EndsInPlusOrangeTime`（值带 `{0}`，en `Ends in:  <color…>{0}</color>` /
-                    //   zh `结束于：<color…>{0}</color>`）⇒ 旧期望 `StartsWith("Termina en: ")` 必红。
-                    //   期望值 = **官方词条 + `TimerDisplay.Compose` 的公开格式化规则**（⛔ 不读实现里的 `TimerPrefix`）。
-                    var tmIcon = tm != null ? tm.Find("Timer Icon") : null;
-                    CheckTrue(tmIcon != null && tmIcon.GetComponentInChildren<ImageQuad>() != null,
-                              "`Timer` 里画了 **`Timer Icon`**（`WF_icon_clock`；`A1248` 起真画）");
-                    var tmTx = tm != null ? tm.Find("Timer") : null;
-                    var tmLb = tmTx != null ? tmTx.GetComponent<Label>() : null;
-                    string wantTimer = TimerDisplay.Compose(
-                        Loc.T("Event_Description/General/EndsInPlusOrangeTime"), "--");
-                    CheckTrue(tmLb != null && (tmLb.Text ?? "") == wantTimer,
-                              "…倒计时文案 = 官方词条 `EndsInPlusOrangeTime` 填 `--`（本地无截止时刻；实得「"
-                              + (tmLb != null ? tmLb.Text : "<无 Label>") + "」）");
+                    // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：原来断「`Timer` 在 + 文案 = `…--`」——**已过期**：
+                    //   活动期倒计时的截止时刻同样是服务端 LiveOps 数据（本地没有）⇒ 原版那一支是 `return;` 静默
+                    //   ⇒ 按 §2·4 改成**整棵不建**（`SkirmishEventWindow.TimerDeadline` 闸）；⛔ 不再印 `--`。
+                    //   ⚠️ 覆盖损失如实记（铁律 5·b）：`Timer Icon` 的贴图名与文案那两条**随节点一起撤**，没有 1:1 替身 ——
+                    //   `B99A4Assert` ①只覆盖「`TimerDisplay` 无目标不写字」、③只覆盖排位窗那一档，**不含**遭遇战活动期这一档
+                    //   （要覆盖得给 `SkirmishEventWindow` 注入截止时刻再建一扇，本宿主没有那个夹具）。
+                    CheckTrue(tm == null, "★ 无截止时刻 ⇒ 活动期 `Timer` **整棵不建**（`Timer Icon` / 文案一起不建）"
+                            + "｜🧨 照旧建 / 印 `--` ⇒ 本条红");
+                    CheckTrue(FindChild(sk.transform, "Reward Tile") != null,
+                              "（对照）左列其它件**照旧在**（`Reward Tile` 仍找得到 ⇒ 不是整块被删来换绿）");
+                    CheckTrue(FindChild(sk.transform, "Banned card in deck") != null,
+                              "（对照·灭自证）`Banned card in deck` 也还在 ⇒ 「不建 `Timer`」没有连带拆掉同节的兄弟件"
+                            + "｜🧨 把左列整块删掉 ⇒ 上面两条对照一起红");
+                    CheckTrue(FindChild(sk.transform, "Header Back Button") != null,
+                              "（对照）窗头 `Header Back Button` 还在（`Timer` 不建不影响窗头那一支）");
+                    CheckTrue(sk.transform.Find("Timer") == null,
+                              "**窗根的直接子件里也没有 `Timer`**（`Transform.Find` 只看直接子件 ⇒ 断了「换个挂点偷偷建回来」那条路）");
                 }
                 {
                     var ban = FindChild(sk.transform, "Banned card in deck");
@@ -10008,25 +10008,25 @@ public static class MainMenuScene
                 //   —— 它写于 `Content/Timer` 还没建的时候，而且用的是**递归**的 `FindChild`
                 //   （`GetComponentsInChildren(true)`）：M1 一建出 `Ranked Division Info ▸ Content ▸ Timer`，
                 //   它就命中那颗**孙件** ⇒ 变成假红（实测 2026-10-22：`✗ **排位窗根上没有 Timer**`）。
-                //   现在按**新结构**断两件（⛔ 没删断言、也没放宽成恒真）：
-                //     ① `Ranked Division Info ▸ Content ▸ Timer` **在**，且父件**就是** `Content`
-                //        （原版 `RankingDisplay.timerDisplay` 指的就是它；矩形/文案另有「实例 ③」那一节断）；
-                //     ② 排位窗**根的直接子件**里没有 `Timer`（照旧那条的本意 —— 别把它挂到根上）。
-                //   🧨 改坏法：把 `RankedEventWindow.BuildRankTimer` 改挂到 `col` 下 ⇒ ① 红（父不是 `Content`）；
-                //      删掉 `Content/Timer` ⇒ ① 红；把 `Timer` 再挂一份到根上 ⇒ ② 红。
+                //   现在按**现况**断两件（⛔ 没删断言、也没放宽成恒真）：
+                //     ① `Ranked Division Info ▸ Content` 下**没有** `Timer`（整棵不建 —— 灭自证那一半在 `B99A4Assert` ③b-③d：
+                //        设 `RankTimerDeadline` 之后必须建出来）；
+                //     ② 排位窗**根的直接子件**里也没有 `Timer`（照旧那条的本意 —— 别把它挂到根上）。
+                //   🧨 改坏法：把 `RankTimerDeadline` 那道闸去掉（照旧建）⇒ ① 红；把 `Timer` 挂到根上 ⇒ ② 红。
+                //   🔴 **2026-10-30（`B99_A4`）**：上面 2026-10-22 那段「`Content/Timer` 在 + 父是 `Content`」**已随闸撤销**（节点不在，父子链无从断）。
                 {
                     var rkCol = FindChild(rk.transform, "Ranked Division Info");
                     var rkContent = rkCol != null ? rkCol.Find("Content") : null;   // `Content` 是 `col` 的**直接**子件
                     var rkTimer = rkContent != null ? rkContent.Find("Timer") : null;
-                    CheckTrue(rkTimer != null,
-                              "★ `Ranked Division Info/Content/Timer` 建了（原版 `RankingDisplay.timerDisplay`）");
-                    CheckTrue(rkTimer != null && rkTimer.parent == rkContent,
-                              "★ 灭自证：那颗 `Timer` 的**父是 `Content`**（原版父链 `Ranked Division Info ▸ Content ▸ Timer`）"
-                            + "｜🧨 挂到 `col` / 根上 ⇒ 本条红");
+                    // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：这一块原来断「`Content/Timer` **建了**且父是 `Content`」——**已过期**：
+                    //   原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默、`RankingDisplay__Initialize` 也只在 `dateTime.HasValue` 时才 `Initialize`
+                    //   ⇒ 本地无赛季结束时刻（服务端 LiveOps）⇒ **整棵不建**（`RankedEventWindow.RankTimerDeadline` 闸）；⛔ 印 `--` 是**我们做了、原版没有**的（反向清单 §五 #1）。
+                    CheckTrue(rkContent != null, "（前提·不静默）`Ranked Division Info/Content` 建出来了");
+                    CheckTrue(rkContent != null && rkTimer == null,
+                              "★ 无截止时刻 ⇒ `Ranked Division Info/Content/Timer` **整棵不建**（原版那一支是 `return;`）"
+                            + "｜🧨 照旧建 / 印 `--` ⇒ 本条红；灭自证那一半（设 `RankTimerDeadline` ⇒ 必须建出来）在 `B99A4Assert` ③b-③d");
                     CheckTrue(rk.transform.Find("Timer") == null,
-                              "**排位窗根上没有 `Timer`**（`Transform.Find` = **只看直接子件**；"
-                            + "⚠️ 别退回递归的 `FindChild` —— 那会命中 `Content/Timer` 这颗**孙件**，"
-                            + "2026-10-22 之前就是这么假红的）");
+                              "**排位窗根上没有 `Timer`**（`Transform.Find` = **只看直接子件**；⚠️ 别退回递归的 `FindChild` —— 那会命中 `Content/Timer` 这颗**孙件**，2026-10-22 之前就是这么假红的）");
                 }
                 CheckTrue(FindChild(rk.transform, "Banned card in deck") == null,
                           "**排位窗没有 `Banned card in deck`**（同上，反向断言）");
@@ -11823,36 +11823,36 @@ public static class MainMenuScene
                     CheckTrue(fill != null && fill.GetComponentInChildren<ImageQuad>() == null,
                               "🔴 `Fill`（已达成那一档）**不画** —— 进度是服务器数据（保留 `Empty` 态）");
                 }
-                // 🔴 **2026-10-22（M1）**：`Content/Timer`（段位块那行「结束于：…」）**已建** ——
-                //   改前这条断的是「`Timer` 不建」（当时的判断是"赛季倒计时不做"），而参考图
-                //   `C:/Users/qjh36/Desktop/warpforge参考图/经典模式参考图.png` 上它就在「1600」与
-                //   「未排名/排名」之间 ⇒ 用户点名「排版混乱」的那一块。
-                //   期望值 = **原版 prefab 跑过布局之后的真值**（`python 工具/menu_dump.py bundle_menus_assets_all
-                //   -5324570929900320848 --depth 6 --md` 的 `Ranked Division Info ▸ Content ▸ Timer` 那一行；
-                //   ⛔ 不读 `RankedEventWindow.TmrL…` 的常量 —— 那是被测实现 = 自证）。
-                //   🧨 改坏法：删掉 `BuildRankTimer` 调用 ⇒ 第 1 条红；把三块矩形挪回模板位
-                //   （`menu_rect` 那套 −290.52 / −37.22）⇒ 前两条红。
+                // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：这一块原来断 `Content/Timer` 的**三个矩形 + 文案 `…--` + 图标贴图名** —— **已过期**：
+                //   原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默、`RankingDisplay__Initialize` 只在 `dateTime.HasValue` 时才 `Initialize`
+                //   ⇒ 本地无赛季结束时刻（服务端 LiveOps）⇒ 那一行**整棵不建**（`RankedEventWindow.RankTimerDeadline` 闸）；⛔ 印 `--` 是**我们做了、原版没有**的。
+                //
+                // ⚠️ **覆盖损失如实记（铁律 5·b / ⛔ 不用 `CheckTrue(true, …)` 充数）** —— 撤掉的 4 条读数各有去向：
+                //   · `Timer` 在不在 / `Timer Icon` 在不在 / 文案带数字：`B99A4Assert` ③b-③d 在「注入口」（设 `RankTimerDeadline` 再建一扇）逐条断 —— 本处没有那条夹具。
+                //   · `Content/Timer` 的世界坐标（7.33 / 630.67 / 785.75 / 846.65 …）与 `Timer Icon` 的贴图名 `WF_icon_clock`：**没有 1:1 替身**（③b-③d 只断「节点在」）。
+                //   · ⚠️ 顺带记：原那三个 `CheckAtWorld` 的四个实参纵向重叠（630.67…785.75 与 785.75…846.65），读起来像 x/y 传反（`B99_A4` 报告 §八·1）
+                //     ⇒ **它就算留着也未必是对读数**；要复刻得先在注入口重建一扇窗再量。
+                //   · 词条 `Event_Description/General/EndsInPlusOrangeTime` 有值（防印键名）：③d 断的是「文案带数字」、不含词条本身 ⇒ 这一条**目前没断**（如实登记）。
                 {
-                    // ⚠️ 这两处**必须用 `Transform.Find`（只找直接子件）**：`FindChild` 是
-                    //   `GetComponentsInChildren(true)`（**含自己 + 搜整棵子树**）⇒ 拿 `"Timer"` 去问那颗
-                    //   `Timer` 组会**命中它自己**（名字就叫 `Timer`），文字那一条会静默量错节点。
+                    // ⚠️ 下面用 `Transform.Find`（只找直接子件）：`FindChild` 是 `GetComponentsInChildren(true)`（含自己 + 搜整棵子树）
+                    //   ⇒ 拿 `"Timer"` 去问那颗 `Timer` 组会**命中它自己**（名字就叫 `Timer`），文字那一条会静默量错节点。
                     var tmr = dvContent != null ? dvContent.Find("Timer") : null;
-                    CheckAtWorld(tmr, 7.33f, 630.67f, 785.75f, 846.65f, "`Content/Timer`（那行「结束于：…」）");
-                    CheckAtWorld(FindChild(tmr, "Timer Icon"), 172.83f, 216.73f, 796.75f, 840.65f,
-                                 "`Timer/Timer Icon`（`WF_icon_clock` · 43.91²）");
-                    var tmTx = tmr != null ? tmr.Find("Timer") : null;
-                    CheckAtWorld(tmTx, 216.73f, 465.17f, 790.75f, 846.65f, "`Timer/Timer`（文字框 248.44×55.90）");
-                    // 文案 = 官方词条 `Event_Description/General/EndsInPlusOrangeTime` + `--`（截止时刻是
-                    // 服务端活动数据、本地没有 ⇒ `TimerDisplay` 印 `--`，⛔ 不编日期）。
-                    // 🧨 改坏法：写死「结束于：」四个字、或自拟一个日期 ⇒ 红。
-                    string pfx = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
-                    CheckText(TextOf(tmTx), TimerDisplay.Compose(pfx, "--"),
-                              "段位块 `Timer` 文案 = 官方 `EndsInPlusOrangeTime` + `--`");
-                    CheckTrue(!string.IsNullOrEmpty(pfx) && pfx != "Event_Description/General/EndsInPlusOrangeTime",
-                              "★ 段位块 `Timer` 的词条**有值**（防「表里缺键 ⇒ 界面印键名」）");
-                    var iq = QuadOf(FindChild(tmr, "Timer Icon"));
-                    CheckTrue(iq != null && iq.Texture != null && iq.Texture.name == "WF_icon_clock",
-                              "`Timer Icon` 画的是 **`WF_icon_clock`**（原版 prefab 那件的图）");
+                    CheckTrue(dvContent != null, "（前提·不静默）`Ranked Division Info/Content` 建出来了");
+                    CheckTrue(dvContent != null && tmr == null,
+                              "★ 无截止时刻 ⇒ `Content/Timer` **整棵不建**（`Timer Icon` / 文字一起不建）"
+                            + "｜🧨 照旧建（那行只剩「结束于：」或 `--`）⇒ 本条红");
+                    CheckTrue(FindChild(dvContent, "Timer Icon") == null, "（独立读数·递归 `FindChild`）`Content` **整棵子树**里也没有 `Timer Icon` ⇒ 不是「挪到更深一层偷偷建」");
+                    CheckTrue(FindChild(dvContent, "RankedSealStep") != null,
+                              "（对照）`Content` 底下的**其它件照旧在**（阶梯 `RankedSealStep` 仍找得到 ⇒ 不是整块被删来换绿）");
+                    CheckTrue(FindChild(dvContent, "DivisionText") != null && FindChild(dvContent, "DivisionImage") != null,
+                              "（对照·灭自证）段位名 `DivisionText` / 段位大图 `DivisionImage` **都还在** ⇒ 「不建 `Timer`」没有连带拆掉兄弟件");
+                    CheckTrue(FindChild(dvContent, "footer") != null && FindChild(FindChild(dvContent, "footer"), "MainRating") != null,
+                              "（对照）`footer/MainRating` 也还在（`Timer` 不建不影响 `footer` 那一支）"
+                            + "｜🧨 把 `Content` 整棵删掉（去别的宿主里「变绿」）⇒ 上面三条对照一起红");
+                    CheckTrue(FindChild(dvContent, "Mission Milestones Progress") != null,
+                              "（对照）`footer/Mission Milestones Progress` 也还在 ⇒ `Timer` 的不建只影响它自己");
+                    CheckTrue(FindChild(dvContent, "RankedSealStep (1)") != null,
+                              "（对照）阶梯第 2 颗 `RankedSealStep (1)` 也还在（同一棵 `steps` 没有被连带拆）");
                 }
                 CheckTrue(FindChild(FindChild(dvContent, "Legendary Ratings"), "Position") != null
                           && FindChild(FindChild(dvContent, "Legendary Ratings"), "Global Rating") != null,
@@ -16436,9 +16436,9 @@ public static class MainMenuScene
                 //  🆕 A795（2026-10-13）：原来只有一颗**全屏** `AbsorbHit`（压暗层被整屏吃掉点击）
                 //    ⇒ 现在按原版拆成两颗，见下面那一段。
                 Check(DirectKids(en.transform),
-                      "General Red Background|Image Mask|Reward Progress Panel|Header With Back Button|Timer|"
+                      "General Red Background|Image Mask|Reward Progress Panel|Header With Back Button|"
                       + "Event Instructions|Army Selector Panel|BackgroundHit|AbsorbHit",
-                      "★ 根的直接子件（兄弟序照 `m_Children`；`BackgroundHit`/`AbsorbHit` 是**我们的**节点）");
+                      "★ 根的直接子件（兄弟序照 `m_children`；`BackgroundHit`/`AbsorbHit` 是**我们的**节点）｜🔴 2026-10-30（`B99_A4`）：**`Timer` 不在** —— 截止时刻是服务端 LiveOps 数据、本地没有，原版 `TimerDisplay__UpdateTimer.c` 那一支是 `return;` 静默 ⇒ 按 §2·4 **整棵不建**（⛔ 不是漏建、也⛔ 不再印 `--`）");
                 Check(DirectKids(FindChild(en.transform, "General Red Background")),
                       "Menu Dark Background|Reward Background Get Reward|Noise|Menu Vignette",
                       "★ 背景那一族的兄弟序（= z 序：先压暗、再红底、再 Noise、最后 Vignette）");
@@ -16505,7 +16505,7 @@ public static class MainMenuScene
                 // 🆕 2026-10-18（三扇标题垂直档漏网）：垂直档补断 —— 本窗以前没传 `TitleVAlign`（走 `Middle`），
                 //   与原版那颗 `Window Title` 的 `m_VerticalAlignment = 8192 (Capline)` 不符。
                 CheckTitleVAlign("能源活动窗", en.transform);
-                CheckAtWorld(FindChild(en.transform, "Timer"), 648.33f, 1271.67f, 1008.55f, 1069.45f, "`Timer`");
+                CheckTrue(FindChild(en.transform, "Timer") == null, "★ 无截止时刻 ⇒ 能源窗 `Timer` **整棵不建**（原版那一支是 `return;` 静默；⛔ 不再印 `--`）｜🧨 照旧建 ⇒ 本条红；🔴 2026-10-30（`B99_A4`）原 `CheckAtWorld` 那四格（648.33 / 1271.67 / 1008.55 / 1069.45）只在 `EnergyTimerDeadline` 有值时才量得到，建出来时的尺子见 `B99A4Assert` ④c-④e");
                 CheckAtWorld(FindChild(en.transform, "Event Instructions"), 24.15f, 680.75f, 208.65f, 645.23f,
                              "`Event Instructions`");
                 CheckAtWorld(FindChild(en.transform, "Army Selector Panel"), 0f, 680.75f, 606.69f, 903.67f,

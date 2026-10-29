@@ -131,9 +131,45 @@ namespace RuleEngine
                 detail = "no save file";
                 return new List<PlayerDeck>();
             }
+            string text;
             try
             {
-                var text = File.ReadAllText(path);
+                text = File.ReadAllText(path);
+            }
+            catch (Exception e)
+            {
+                note = LoadNote.ReadFailed;
+                detail = "read failed: " + e.GetType().Name + ": " + e.Message;
+                return new List<PlayerDeck>();
+            }
+            return Parse(text, out note, out detail, out current);
+        }
+
+        /// <summary>Step 4 切换口（读）的**数据半**：把一份 payload 原文解析成卡组表。</summary>
+        /// <remarks>
+        /// <para>判据与 <see cref="LoadAll"/> **逐字同形** —— 它现在只是「读文件 → 调我」两跳；
+        /// 单独拆出来是为了让**调用方**（`RuleEngine/Data/DeckLibrary.cs` 的 `Load`）能把「这份原文从哪读」
+        /// 换成中央档（`CardPresentation.Shell.SaveCenter.ReadThroughLegacy`）而**不把本类的文件 IO 也带上**。
+        /// 🔴 **分层**：`DeckStore` 在 `RuleEngine`、`SaveCenter` 在 `CardPresentation.Shell` ⇒ 双写的两行契约由
+        /// **调用方**转发，⛔ 别让 `RuleEngine` 反向依赖 `Shell`（方案 §七 Step 4 / 施工单 界面 #6）。</para>
+        /// <para>`text == null` ⇒ 与「文件不在」**同码**（<see cref="LoadNote.NoSaveFile"/>、`detail = "no save file"`）：
+        /// 中央档与旧档都没有 = 第一次跑，⛔ 不是失败。</para>
+        /// <para>⚠️ 这个重载**不做** `File.Exists` 判断 —— 「文件在不在」是**取原文之前**的事
+        /// （`DeckLibrary.ClassifyLoad` 的 `saveFileExisted` 要它），取在之后会把「第一次跑」与「文件在但读不出来」判反。</para>
+        /// </remarks>
+        public static List<PlayerDeck> Parse(string text, out LoadNote note, out string detail, out int current)
+        {
+            note = LoadNote.None;
+            detail = null;
+            current = 0;
+            if (text == null)
+            {
+                note = LoadNote.NoSaveFile;
+                detail = "no save file";
+                return new List<PlayerDeck>();
+            }
+            try
+            {
                 // 🔴 2026-10-18 订正（铁律 5：原来写 X、为什么恒假、证据在哪）：
                 //    **原来这里只有 `dto == null || dto.decks == null`，那句对「合法 JSON、但缺 `decks` 键」的存档
                 //    【恒假】** —— `JsonUtility` 把**缺键**的集合字段给成**空表、不是 `null`**
@@ -235,6 +271,20 @@ namespace RuleEngine
 
         public static List<PlayerDeck> LoadAll() { string _; int __; return LoadAll(out _, out __); }
 
+        /// <summary>Step 4 切换口（写）的**数据半**：把卡组表序列化成一份 payload（**纯内存，不碰盘**）。</summary>
+        /// <remarks>
+        /// <para>与 <see cref="SaveAll"/> 用的是**同一份** `Dto` 形状（`{version, current, decks}`）；拆出来是为了让
+        /// 调用方能把「这份 payload 写到哪」换成中央档（`SaveCenter.SaveThroughLegacy(key, path, json, out err)`：
+        /// 中央档带 `_v` 信封、旧档**不带**，两边同一份 payload）—— 那正是方案 §七 Step 4 的两行契约。</para>
+        /// <para>⚠️ 形状要求：`SaveThroughLegacy` 只收**JSON 对象**（首尾必须是 `{ }`）。`JsonUtility.ToJson(dto)` 恒是对象
+        /// （`Dto` 是 `[Serializable]` 的类、不是数组）⇒ 满足。</para>
+        /// </remarks>
+        public static string Serialize(List<PlayerDeck> decks, int current)
+        {
+            var dto = new Dto { version = 1, current = current, decks = decks ?? new List<PlayerDeck>() };
+            return JsonUtility.ToJson(dto, true);
+        }
+
         /// <summary>写全部卡组。返回 true = 写成功；失败时 `error` 里是**诊断串**
         /// （🔴 **不是给人看的界面文案** —— 界面文案走 `CardPresentation.Loc`；
         /// 见 `LoadNote` 那段注释：本层一个给人看的字都不产）。
@@ -245,8 +295,7 @@ namespace RuleEngine
             error = null;
             try
             {
-                var dto = new Dto { version = 1, current = current, decks = decks ?? new List<PlayerDeck>() };
-                var json = JsonUtility.ToJson(dto, true);
+                var json = Serialize(decks, current);
                 // 先写临时文件再替换 —— 写一半崩了不至于把旧存档毁掉
                 var tmp = Path + ".tmp";
                 File.WriteAllText(tmp, json);

@@ -191,22 +191,22 @@ namespace CardPresentation
             for (int i = 0; i < Nodes.Length; i++) _prev[i] = tmp[i].ToArray();
         }
 
-        /// <summary>这一格是不是「开着」的。**照原版语义**：根节点起手就开；其余只要**任一前驱已领基础档**就开。</summary>
+        /// <summary>这一格是不是「开着」的。**照原版语义**：根节点起手就开；其余只要**任一前驱已领基础档**就开；外加 `_sessionUnlocked`（原版 `Collect` 当场把相邻 `locked` 置 10 那一拍，见类尾）。</summary>
         public static bool IsUnlocked(int i)
         {
-            if (i == 0) return true;                       // `UM0` 是根
+            if (i == 0 || _sessionUnlocked[i]) return true;    // `UM0` 是根；`_sessionUnlocked` 见类尾「会话内解锁」
             var pr = _prev[i];
             for (int k = 0; k < pr.Length; k++) if (_base[pr[k]]) return true;
             return false;
         }
 
         /// <summary>第 `i` 格的**基础档**状态。**照原版 `CampaignTrack.GetNodeState` 的口径**：
-        /// 基础+高级都领 → `AllCollected(30)`；只领基础 → `BaseCollected(20)`；
-        /// 开着 → `Unlocked(10)`；没开 → `Locked(0)`。
-        /// ⚠️ `Repeatable(40)` 原版只在「终点且可重复」时用 —— 我们让 `UM47` 在领过之后**回到 40**（可重复领）。</summary>
+        /// 高级档列表命中 → `AllCollected(30)`；基础档列表命中 → `BaseCollected(20)`；
+        /// 开着 → `Unlocked(10)`；没开 → `Locked(0)`；**20/30 两支都再被 `IsRepeatable` 覆盖成 40**
+        /// （`CampaignTrack__GetNodeState.c:27-58` 的 `LAB_1806b9a30` ⇒ 可重复节点永远可再领）。</summary>
         public static int StateOf(int i)
         {
-            if (_base[i] && _prem[i]) return AllCollected;
+            if (_prem[i]) return Nodes[i].Repeatable ? Repeatable : AllCollected;   // 原版：premList 命中即 30，再被 IsRepeatable 覆盖成 40
             if (_base[i]) return Nodes[i].Repeatable ? Repeatable : BaseCollected;
             return IsUnlocked(i) ? Unlocked : Locked;
         }
@@ -216,14 +216,14 @@ namespace CardPresentation
         /// ⚠️ 我们把战役点固定给足 ⇒ 后半句恒真，卡的是**节点图**（见 `Points` 的注释）。</summary>
         public static bool Claimable(int i) { int s = StateOf(i); return s == Unlocked || s == Repeatable; }
 
-        /// <summary>基础档领过没有（`CampaignRewardsWindowContext.BaseCollected`）。</summary>
-        public static bool BaseClaimed(int i) { return i >= 0 && i < _base.Length && _base[i]; }
+        /// <summary>基础档领过没有（原版 `CampaignRewardsWindowContext.BaseCollected` = `State ∈ {20,30}`；⚠️ 可重复节点待领时 `State=40` ⇒ **false**，与 `_base[i]` **不等价**）。</summary>
+        public static bool BaseClaimed(int i) { if (i < 0 || i >= _base.Length) return false; int s = StateOf(i); return s == BaseCollected || s == AllCollected; }
 
-        /// <summary>高级档领过没有（`CampaignRewardsWindowContext.PremiumCollected`）。</summary>
-        public static bool PremiumClaimed(int i) { return i >= 0 && i < _prem.Length && _prem[i]; }
+        /// <summary>高级档领过没有（原版 `CampaignRewardsWindowContext.PremiumCollected` = `State == 30`；可重复节点 `State=40` ⇒ **false**）。</summary>
+        public static bool PremiumClaimed(int i) { return i >= 0 && i < _base.Length && StateOf(i) == AllCollected; }
 
         /// <summary>领一格。**照原版 `CampaignNode.Collect(tier)`**：
-        /// 基础档 → 记 `_base`；高级档 → 记 `_prem`。领完**自动把后继解锁**（那一步靠 `IsUnlocked` 现算，不用写）。
+        /// 基础档 → 记 `_base`；高级档 → **只**记 `_prem`（原版不写 basicList）。领完把相邻节点记进 `_sessionUnlocked`（`IsUnlocked` 派生用）。
         /// 返回「真的领到了吗」；领不到时 `why` 说清原因（红线：**不许静默失败**）。</summary>
         public static bool Claim(int i, int tier, out string why)
         {
@@ -236,17 +236,17 @@ namespace CardPresentation
                                   : "这一格的基础档已经领过了";
                 return false;
             }
+            // 🔴 原版 `CampaignNode.Collect` 的闸**只有** `State ∈ {10, 40}`（`CampaignNode__Collect.c:29-33`）⇒ **没有逐档拒绝**：
+            //    原来那两句 `if (_prem[i]) …高级档已经领过了` / `if (_base[i]) …基础档已经领过了` 是原版没有的，还会把**可重复节点的重复领**挡死 ⇒ 已删，⛔ 别加回来。
+            MarkSuccessorsUnlocked(i);                     // 原版 `Collect` 末段：相邻 `locked(0)` 节点 → `unlocked(10)`（会话内有效）
             if (tier == TierPremium)
             {
-                if (_prem[i]) { why = "高级档已经领过了"; return false; }
-                _prem[i] = true;
-                if (!_base[i]) _base[i] = true;            // 原版 `Collect(Premium)` 直接把 State 推到 30（基础+高级都算领了）
+                _prem[i] = true;                           // 原版：高级档**只**写 premList、⛔ 不写 basicList（`…_g__OnCollect_2.c:140-165`）
                 // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_16`（完成战役）的唯一写点（判据 §B-3 #8）。
                 NotifyCampaignCompletionIfAllClaimed();
                 SaveToSave();                              // 🆕 2026-10-27（E3CMP）：进度落盘
                 return true;
             }
-            if (_base[i]) { why = "基础档已经领过了"; return false; }
             _base[i] = true;
             // 🆕 同上：这一格领完可能就是**最后一格** ⇒ 每次成功领取都问一次（幂等，见那个方法）。
             NotifyCampaignCompletionIfAllClaimed();
@@ -254,17 +254,17 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>🆕 **2026-10-25（执行代理 `X18`）**：**47 个节点的基础档是不是都领过了**
-        /// —— `Ach_16`（`CompleteCampaign`「完成战役」）的本地判据。
-        /// <para>⚠️ **为什么用 `_base` 而不是「基础 + 高级都领」**：表里有 16 个节点 `HasPremium == false`，
-        /// 它们**永远不可能有高级档** ⇒ 拿 `_base &amp;&amp; _prem` 当判据会**永假**、这条成就永远拿不到。
-        /// 原版 `CompleteCampaign` 判的是「整条战役走完」，走完 = **每个节点都领过基础档**。
-        /// ⚠️ 终点 `UM47` 是 `IsRepeatable`：`_base` 领过就是 true，不影响判据。</para></summary>
+        /// <summary>🆕 **2026-10-25（执行代理 `X18`）**：**战役「完成」的本地判据** = `Ach_16`（`CompleteCampaign`）的输入。
+        /// <para>🔴 **2026-10-29（`B99_G2`）改成原版口径**：`Everguild.LiveOps.Campaign.get_IsComplete`
+        /// = `basicList.Contains(Last(GetCampaignNodes()).NodeId)`（`Campaign__get_IsComplete.c:29-31`）
+        /// ⇒ **「末节点在基础档列表里」**，⛔ **不是**「47 格基础档全真」（那是我们原来的近似）。
+        /// <para>「末节点」= `GetCampaignNodes()` 的**表末项**（我们 `Nodes` 表末项 = 终点 `UM47`，与生成的 SO 顺序一致）。
+        /// ⚠️ 名字为兼容保留（全仓调用点只在本类的 `NotifyCampaignCompletionIfAllClaimed`）。</para></summary>
         public static bool AllNodesClaimed()
         {
             if (Nodes.Length == 0) return false;
-            for (int i = 0; i < Nodes.Length; i++) if (!_base[i]) return false;
-            return true;
+            // 原版 `IsComplete` = 末节点 ∈ 基础档列表（`Campaign__get_IsComplete.c:29-31`）——「末节点」= `Nodes` 表末项 `UM47`
+            return _base[Nodes.Length - 1];
         }
 
         /// <summary>🆕 **2026-10-25（执行代理 `X18`）**：**战役全通 ⇒ `Ach_16` 记 1**（唯一写点 = `Claim` 成功之后）。
@@ -287,10 +287,10 @@ namespace CardPresentation
         /// 真机里调它 = 内存清空，下一次 `Claim`/`Select` 才把清空后的状态写回去）。</summary>
         public static void ResetForTest()
         {
-            for (int i = 0; i < Nodes.Length; i++) { _base[i] = false; _prem[i] = false; }
+            for (int i = 0; i < Nodes.Length; i++) { _base[i] = false; _prem[i] = false; _sessionUnlocked[i] = false; }
         }
 
-        /// <summary>已领的格数（诊断用）。</summary>
+        /// <summary>已领**基础档**的格数（诊断用；= 原版 `basicList` 的条数口径，**高级档不计**）。</summary>
         public static int ClaimedCount
         {
             get { int n = 0; for (int i = 0; i < Nodes.Length; i++) if (_base[i]) n++; return n; }
@@ -676,6 +676,30 @@ namespace CardPresentation
                 if (_prem[i]) b.premClaimed.Add(Nodes[i].Id);
             }
             SaveCenter.Set(SaveKeys.ActiveCampaign, b);
+        }
+
+        // ============================================================ 会话内解锁（原版 `Collect` 的当场副作用）
+        //
+        //  原版 `CampaignNode.Collect` 成功那一拍会 `foreach (conn in connections) if (conn.State == locked(0)) { conn.State = unlocked(10); SetNodeStyle(); }`
+        //  （`decomp_full/CampaignNode__Collect.c:29-47`，现读那两段 `if (*(int *)(local_50 + 0x38) == 0)`）——
+        //  它**当场改写相邻节点**；而 `CampaignTrack.GetNodeState` 重算时**只看基础档列表**
+        //  （`CampaignTrack__GetNodeState.c:27-58`）⇒ 只领**高级档**的节点，其后续在**重开窗**后会退回 `locked`。
+        //  🔴 **那是原版怪癖②，照抄、⛔ 别「修好」**（调度台 2026-10-29 裁定：凡需拍板一律照原版，含原版 bug）。
+        //  我们的 `IsUnlocked` 是纯派生（每次按 `_base[前驱]` 现算）⇒ 不补这一档的话，只领高级档会**当场**就退回
+        //  `locked`（比原版更严）⇒ 用 `_sessionUnlocked` 记「本会话内被 `Collect` 当场解锁过的节点」。
+
+        static readonly bool[] _sessionUnlocked = new bool[Nodes.Length];
+
+        /// <summary>原版 `CampaignNode.Collect` 末段：把本节点的**相邻节点**里还锁着（`State == locked(0)`）的置为已解锁
+        /// （会话内有效）。⚠️ 只写 `_sessionUnlocked`，⛔ **不写** `_base` —— 高级档不得污染基础档列表。</summary>
+        static void MarkSuccessorsUnlocked(int i)
+        {
+            int[] nx = Nodes[i].Next;
+            for (int k = 0; k < nx.Length; k++)
+            {
+                int n = nx[k];
+                if (n >= 0 && n < _sessionUnlocked.Length) _sessionUnlocked[n] = true;
+            }
         }
     }
 }

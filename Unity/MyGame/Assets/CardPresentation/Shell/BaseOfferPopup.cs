@@ -715,7 +715,7 @@ namespace CardPresentation
             if (c.Price == null) c.Price = DefPriceText;
             if (c.BadgeText == null) c.BadgeText = DefBadgeText;
             if (c.TimerText == null) c.TimerText = DefTimerText;
-            if (c.Available == null) c.Available = DefAvailText;
+            if (c.Available == null) c.Available = DefAvailText;   if (c.BgArt == null && hasOffer && oEv != null) c.BgArt = OfferContainer.WithEventArt(c, oEv.EventId).BgArt;   // 界面 #1 的**生产来源**（同一物理行追加，零行数变化）：原版 `background.sprite = LoadAsset(offer, BackgroundImage=1)`；只在该 Premium 报价**在期**时取（过期/停用不取，同上面三条文案）。⚠️ 只填 `BgArt` —— `FgArt` 是另一格（`ForegroundImage=2`），本批不动
             return c;
         }
 
@@ -788,11 +788,11 @@ namespace CardPresentation
 
             // ③ `Artwork`（左半边）—— 两件的出厂显隐**逐份不同**（`Variant.ArtworkOn` / `ForegroundOn`）
             ArtworkNode = MenuDraw.Node(WindowNode, "Artwork", G.Artwork);
-            var bgTex = Art(ArtArtworkBg);
+            var bgTex = C.BgArt != null ? Art(C.BgArt) : Art(ArtArtworkBg);   // 界面 #1：原版 `PurchaseableOfferContainer.OnInitialize` 是 `background.sprite = LoadAsset(offer, BackgroundImage=1)` ⇒ 有 event 图就用它；`BgArt == null`（没有活动报价）才回 prefab 那张常量兜底
             var artQ = bgTex != null ? MenuDraw.Rect(ArtworkNode, bgTex, G.ArtBg, "background", QArt) : null;
             ArtBgNode = artQ != null ? artQ.transform : MenuDraw.Node(ArtworkNode, "background", G.ArtBg);
             if (artQ == null)
-                Debug.Log("[BaseOffer] `Artwork/background` 的 sprite `" + ArtArtworkBg + "` **取不到**"
+                Debug.Log("[BaseOffer] `Artwork/background` 的 sprite `" + (C.BgArt != null ? C.BgArt : ArtArtworkBg) + "` **取不到**"
                           + "（`Resources/Art/{ui_menu,ui_deck,ui}/` 三个目录都查过）⇒ 节点照样建、**这一格空着不画**"
                           + "（⛔ 不拿别的图顶上）。导入入口 = `工具/import_offer_backgrounds.py --apply`。");
             BindBlink(artQ);   // 原版这一格挂 `BlinkGraphic`（21 份的组件列里都有它）
@@ -959,18 +959,18 @@ namespace CardPresentation
             TimerNode = MenuDraw.Node(TextNode, "Timer", G.Timer);
             Rect(TimerNode, ArtClock, G.TimerIcon, "Icon", QText, null, true);
             var tt = MenuDraw.Text(TimerNode, G.TimerTextBox, C.TimerText, Color.white, "Timer Text", 30f, QText, face: TmpFont.Face.LatinCardBody);
-            // 🔴 **2026-10-17（N1）**：出厂串 `23h 34m` **不是倒计时**（原版由 LiveOps 报价的到期时刻灌进来，
-            //   本地没有报价数据 —— 见文件头「没有数据」那一段）。目标时刻未知 ⇒ 走 `TimerDisplay` 的
-            //   未知支：出声一次 + `--`（⛔ 不编一个倒计时）。调用方**真给了** `TimerText`（≠ 出厂串）就照它画。
-            //   ⚠️ 整件**仍然建成关着** —— 原版 `SetTimer` 的 no-data 分支就是 `SetActive(false)`，见本方法头；
-            //   别因为这一条把它打开。
+            // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地订正）**：出厂串 `23h 34m` **不是倒计时**（原版由 LiveOps 报价的到期时刻灌进 `TimerDisplay`，本地没有报价数据）；
+            //   `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默（⛔ 印 `--` 是我们做了、原版没有的，已删）⇒ 那颗 Label 上留下的是 **prefab 占位串**。
+            //   ⚠️ 本件**整件建成关着**（下面 `SetActive(false)`；原版 `SetTimer.c` 的 no-data 分支就是它）⇒ 那个占位串**屏上看不见** ——
+            //   与「不做假倒计时」不冲突（可见面一个字都没有）；⛔ 别因此把它打开。
+            //   ✅ 目标改取类尾 `TimerDeadline`（本地恒 null，§2·4「留开关，不硬删」）：有报价时刻时自动走真倒计时，建树一字不动。
             if (tt != null && C.TimerText == DefTimerText)
-                TimerDisplay.Attach(tt, null, "", "礼包 Offer 弹窗 Timer Text（BaseOfferPopup）",
+                TimerDisplay.Attach(tt, () => TimerDeadline, "", "礼包 Offer 弹窗 Timer Text（BaseOfferPopup）",
                                     "报价的到期时刻由服务端 LiveOps 下发，本地没有");
             TimerNode.gameObject.SetActive(false);
             Debug.Log("[BaseOffer] `Timer` **整件建成关着**（连图标）—— 原版 `SetTimer`：不是计时活动就"
                       + "`SetActive(false)`；而图标的位置由倒计时文字的宽度决定（HLG，量出来 0.00）⇒ 不编位置。"
-                      + "那颗 `Timer Text` 已挂 `TimerDisplay`：目标时刻未知 ⇒ 内容是 `--`（出声一次），不是死串。");
+                      + "那颗 `Timer Text` 已挂 `TimerDisplay`（目标 = 类尾 `TimerDeadline`，本地恒 null）：取不到目标时刻 ⇒ 原版那一支是 `return;` 静默，内容停在 **prefab 占位串**（⛔ 不印 `--`），而整件本来就关着 ⇒ 屏上看不见。");
         }
 
         // ---------------------------------------------------------- 底部三颗（价签 / 折扣徽标 / WebShop）
@@ -1205,5 +1205,15 @@ namespace CardPresentation
                 return row.Find("Price Display") != null;
             }
         }
+
+        // ============================================================ 界面 #7（B99_A6 · 2026-10-30 · 追加在类尾）
+        /// <summary>礼包弹窗 `Timer Text` 的**到期时刻** —— **本地恒 null**（= 没有这条数据，不是「我们挑的 0」）。
+        /// <para>判据（⛔ 不是猜）：原版由服务端 LiveOps 报价的到期时刻灌进 `TimerDisplay`；关服后本地没有报价数据源。
+        /// `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 **`return;` 静默** ⇒ 那颗 Label 停在 prefab 出厂占位串 `23h 34m`
+        /// （**⛔ 不是我们印的 `--`**）。而本件整棵 `Timer` 恒 `SetActive(false)`（原版 `SetTimer.c` 的 no-data 分支）
+        /// ⇒ **屏上一个字都不显示**，与用户口径「不许静默给假数」不冲突。</para>
+        /// <para>将来接上报价时刻时，**只改这一格**（赋值）⇒ `BuildTimer` 里那条 `Attach` 自动走真倒计时（§2·4「留开关，不硬删」）。</para>
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 本文件在账里被按 `文件:行号` 引用 40 处，最大落点 `:1111`）。</para></summary>
+        public static System.DateTime? TimerDeadline;   // 🔶 自己设计（非原版）：礼包弹窗 `Timer Text` 的到期时刻开关（本地恒 null；`Timer` 整件恒建成关着）· 为什么必须自定：报价到期时刻来自 LiveServer，关服后判据在远端 ⇒ 按「不给假数」不把原版 prefab 的占位串 `23h 34m` 当倒计时 · 调度台 2026-10-30 裁定
     }
 }

@@ -214,6 +214,63 @@ public static class AnimFXCheck
               $"屏震 preset 全都找得到（缺 {WFModuleScreenShake.MissingPresets.Count} 个："
               + string.Join(" / ", WFModuleScreenShake.MissingPresets) + "）");
 
+        // ---- ③c 🆕（`B99_W4` · 自检 #16）：`effect_extras` 表的**全量 sweep** ----
+        //   判据 → `资料/完全复刻/判据/B99_R3b_施工单_其余按文件.md` §2·11。
+        //   ③b 只扫 AnimFX **模块**那一族（`__node` / `@node:`）；`effect_extras` 是**另一族** ——
+        //   特效 prefab 上那些**非 AnimFX 模块**的原版组件（`SyncParticleSeeds` / `DestroyByTime` /
+        //   `MaterialFlickerEffect` …）。此前这一族**一条全量断言都没有**（只抽样看过 `EffectCount > 60`，
+        //   以及「`Unimplemented` 不增」），**`NodeMisses` 一条断言都没有**。
+        //   现读表 = 88 件 / 164 处挂载。⛔ **别把 88 / 164 写死**：分母全部从 `effect_extras.json` 现读。
+        //   ⚠️ `Attached` / `NodeMisses` / `Unimplemented` 都是**累计量** ⇒ 必须先 `ResetDiagnostics()`，
+        //      否则 ③ 那一批 `Play` 的挂载会混进来，`Attached == 164` 就成了「恒大于」的假绿。
+        //   ⚠️ 这一段**只 Play + Kill，不 Tick**：额外件的挂载发生在 `WarpforgeEffectPlayer.Init → AttachAll`
+        //      （`AddComponent` 当场跑 `OnEnable`/`Apply`），不需要帧循环；不 Tick 也顺便避开
+        //      `WFExtraShakeAndSound` 在批处理里连播 88 条屏震/音效的副作用。
+        //   🧨 灭自证：① 删掉 `WFEffectExtras.AttachAll` 里那句 `Attach(p, list[i])` ⇒ `Attached == 0` ⇒ 红；
+        //      ② 把 `Attach` 里 `NodeMisses++` 那支改成静默 `return` ⇒ 挂载数掉、`Attached == 164` 红；
+        //      ③ `exPlayed` 若不过滤 `null`（恒等于 `exRecs.Length`）⇒ 那条「全起得来」永远绿（⛔ 别这么写）。
+        {
+            WFEffectExtras.ResetDiagnostics();
+            var exTa = Resources.Load<TextAsset>(WFEffectExtras.ResourcesPath);
+            Check(exTa != null, "`effect_extras.json` 读得到（读不到 ⇒ 下面几条等于没查）");
+            var exDoc = exTa != null ? JsonUtility.FromJson<AnimFxExtraDoc>(exTa.text) : null;
+            var exRecs = (exDoc != null && exDoc.effects != null) ? exDoc.effects : new AnimFxExtraRec[0];
+            int exMounts = 0;
+            for (int i = 0; i < exRecs.Length; i++)
+                if (exRecs[i] != null && exRecs[i].extras != null) exMounts += exRecs[i].extras.Length;
+
+            // ---- 前提（**硬检查**）—— ⛔ 不写 `if (前提) Check(结论)`：前提不成立时那会静默跳过 ----
+            Check(exRecs.Length > 0 && exMounts > 0,
+                  $"（前提）表里现读到件数与挂载数（{exRecs.Length} 件 / {exMounts} 处）—— 否则下面等于没查");
+            Check(WFEffectExtras.EffectCount == exRecs.Length,
+                  $"组件读到的条目数 = json 的件数（{WFEffectExtras.EffectCount} vs {exRecs.Length}）"
+                + "—— 少一件就是 `Ensure()` 漏读了（前面那条 ③b 覆盖不到这一族）");
+
+            int exPlayed = 0, exNull = 0;
+            for (int i = 0; i < exRecs.Length; i++)
+            {
+                if (exRecs[i] == null || string.IsNullOrEmpty(exRecs[i].effect)) continue;
+                var ep = WarpforgeEffectPlayer.Play(exRecs[i].effect);
+                if (ep == null) { exNull++; continue; }
+                exPlayed++;
+                ep.Kill();             // 批处理无帧循环 ⇒ 必须显式收，否则留一地实例
+            }
+            Debug.Log(P + $"  extras 全量 sweep：{exPlayed}/{exRecs.Length} 件起得来 · 挂载 "
+                        + $"{WFEffectExtras.Attached}/{exMounts} · 节点未命中 {WFEffectExtras.NodeMisses} · "
+                        + $"未实现 {WFEffectExtras.Unimplemented}");
+            Check(exPlayed == exRecs.Length,
+                  $"表里 **{exRecs.Length} 件特效全起得来**（实测 {exPlayed}，起不来 {exNull} 件 —— "
+                + "起不来 = 效果库没这一条 / 那件 prefab 引用空了，见上面逐条警告）");
+            Check(WFEffectExtras.NodeMisses == 0,
+                  $"`AttachAll` 的**节点路径零失败**（失败 {WFEffectExtras.NodeMisses} 处 —— "
+                + "非 0 = 那条 `node` 路径在工程 prefab 里对不上，见上面逐条警告）");
+            Check(WFEffectExtras.Unimplemented == 0,
+                  $"表里每一种 `kind` 都有等价组件（未实现 {WFEffectExtras.Unimplemented} 处）");
+            Check(WFEffectExtras.Attached == exMounts,
+                  $"挂载数 = 表里的 **{exMounts} 处**（实测 {WFEffectExtras.Attached}；"
+                + "🧨 删掉 `AttachAll` 里那句 `Attach(p, list[i])` ⇒ 得 0 ⇒ 红）");
+        }
+
         // ---- ③d 🆕 2026-10-23（R9）：`rawSignal` 信号表（原版 `Cinemachine.NoiseSettings`）----
         //   判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md`（机器码级算式）
         //        + `资料/普查产出_1023b/特效线_执行报告.md` §二（逐轴 × 3 octave 全表）
@@ -2186,6 +2243,15 @@ public static class AnimFXCheck
     // 只用来算「库里该有多少」——形状要跟 `数据/游戏数据/animfx_modules.json` 对齐
     [System.Serializable] class ModuleDoc { public int effect_count; public int module_count; public ModuleEffect[] effects; }
     [System.Serializable] class ModuleEffect { public string name; public WFModuleDef[] modules; }
+
+    // ③c 用来**现读分母**（`Resources/WarpforgeVFX/effect_extras.json` 的最小形状；`extras` 里的
+    // 其余字段本段不用，`JsonUtility` 忽略未知键）。
+    // ⚠️ ⛔ 别改成复用 `WarpforgeVFX.WFEffectExtraDoc` / `WFEffectExtraRec` —— 那两个是 `internal`，
+    //   编辑器程序集（`Assembly-CSharp-Editor`）看不见（本仓没有 `InternalsVisibleTo`，
+    //   同 `RuleEngine/Core/EffectResolver.cs:7794` 那条记录）。
+    [System.Serializable] class AnimFxExtraDoc { public AnimFxExtraRec[] effects; }
+    [System.Serializable] class AnimFxExtraRec { public string effect; public AnimFxExtraItem[] extras; }
+    [System.Serializable] class AnimFxExtraItem { public string kind; public string node; }
 
     /// <summary>写 `shape.angle` 并**读回来**（`ShapeModule` 是结构体，写回靠它内部的引用 ——
     /// 写不进去的话读回来的还是旧值，所以返回值就是「写回生不生效」的判据）。</summary>

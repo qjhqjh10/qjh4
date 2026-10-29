@@ -2608,7 +2608,7 @@ namespace CardPresentation
         /// `MissionContainer.SetChallenge(container, 挑战)` 且序号 +1；每次迭代前还给该 mission 写一个
         /// `bool = (columns &lt;= 序号)` 的开关（IMission 接口 key `9`，**成员语义未解 ⇒ ⛔ 不猜名字**）。
         /// 🔴 **建树那一半仍然不落**：`missionsHolder` 与 `FlexibleGridLayout` 本工程都不存在、格子数据也不在本地
-        /// （见 <see cref="InstantiateGridMissions"/> 的 summary）⇒ 本类只承载**可以判死的那几条纯函数**。🔶 自己设计（非原版）：用 GridMissionLayoutLogic 纯函数替代 FlexibleGridLayout 的列数规则 · 该组件本机全仓 0 命中、数据在远端 · 调度台 2026-10-29 裁定</para></summary>
+        /// （见 <see cref="InstantiateGridMissions"/> 的 summary）⇒ 本类只承载**可以判死的那几条纯函数**。✅ 2026-10-29 订正（铁律 5 / `B99_R2` §三）：`ColumnCount`（`.c:53-67`）与 `WritesSwitch`（`.c:100`）**逐字来自原版方法体** ⇒ 是**复刻**、不是自设计，⛔ 不属铁律 18 的自设计标记范围（原「非原版自设计」那段是误标，已去掉）。</para></summary>
         public static class GridMissionLayoutLogic
         {
             /// <summary>原版 `.c:53-67`：**列数**。`1`/`2` 条 ⇒ 2 列；`3` 条 ⇒ 1 列；其它 ⇒ 0（原版那一支什么都不写）。</summary>

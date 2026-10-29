@@ -87,15 +87,15 @@ namespace RuleEngine
         //    ② 再取 `BattleManager.GetCardsInHandList(bm, 1,1,1,1,1,1,1, 0)` —— **双方手牌、全卡种**
         //       （实参现读是**七个 1**，施工单写的六个别当判据）—— 逐个 `ReactToCardCreated`。
         //  `CardScript__ReactToCardCreated.c` 全文 = `OnTrigger(0xd2 = **210**, mgr, this /*监听者*/,
-        //    created /*→ thisCard 位*/, 0, 0)` ⇒ **`actingCard` = 被造出来的那张**、`targetCard = null`。
+        //    thisCard = this, created /*→ **actingCard** 位*/, 0, 0)` ⇒ **`actingCard` = 被造出来的那张**、`targetCard = null`（⚠️ ILSpy `CardScript.cs:16000-16002` 把它渲染成 `actingCard = default`，那是**丢实参**的假象 —— 与「ILSpy 丢常量」同族）。
         //
-        //  ⚠️ **本方法只做【手牌那一跳】**，棋盘那一跳如实留缺口（理由见下，⛔ 不是漏做）：
-        //    我们的棋盘监听器走的是**卡面文本**（`CardDef.FireWhen(kind, …)` + `WhenEvents.Matches`），
-        //    而原版这一跳走的是**数据面 `abilityTriggers` 含 210**。要给棋盘补这一跳，需要
-        //    「按 trigger 数值 210 取正文并结算」那个执行口 —— 正是账 `:1288` 里记的
-        //    `RuleCore.FireTriggerAt` 缺 `opsOverride` 形参那一条（`RuleCore.cs`，不属本代理）。
+        //  ✅ **2026-10-30（`B99_C1` · 账 `:203` / `#34 G23③`）棋盘那一跳已补齐** —— 见本文件类尾
+        //    `BroadcastCardCreatedBoardHop`：遍历双方 `PlayerState.Board`、闸 `UnitState.IsInPlayState(ctx)`
+        //    （= 原版 `CardScript__IsInPlay()` 的 `{2,3,15,17}` 四档，判据 `CardScript__IsInPlay.c` 全文）、
+        //    逐个 `RuleCore.FireTriggerByNumber(…, 210, …)`。
+        //    ⚠️ 旧头注写「`RuleCore.FireTriggerAt` 缺 `opsOverride` 形参（账 `:1288`）所以棋盘跳做不了」——**已过期**：`RuleCore.cs` 现读**已有** `List<EffectOp> opsOverride = null`（`B97_W28` 加的）。
         //    今天的可达面：**全池 `abilityTriggers` 含 210 的 = 0 / 1,129**（`cards_engine.json` 现读）
-        //    ⇒ 那一跳落不落，**零可观测**；⛔ 不为了「看起来做全了」造一条我们自己的棋盘监听路。
+        //    ⇒ 那一跳落不落，**零可观测**（但铁律 11：原版有 ⇒ 就得照做，⛔ 不是「不做」的理由）。
         //
         //  ⚠️ **卡名**：210 在 `CardDef.AbilityTriggerNumberOfName` 里的登记名 = **`CardCreatedInHand`**
         //    （`CardDef.cs` 现读）。⇒ 走 <see cref="FireHandAbilityTrigger"/> 时**用这个名字**，
@@ -122,10 +122,10 @@ namespace RuleEngine
                     {
                         var inst = snapshot[i];
                         if (inst == null || inst.Card == null) continue;
-                        // `subject` / `target` / `actingCard` 三个形参：原版这一跳只把 `created` 送进
-                        //   `thisCard` 位（= 我们的 `ctx.EventCard`，由 `FireHandAbilityTrigger` 的队列体
-                        //   `EventSlotsScope` 负责），`targetCard` = null；`subject`（「这件事发生在谁身上」）
-                        //   在**手牌**上没有 `UnitState` ⇒ 只能 `null`（原版那一跳也没有 subject 这个概念）。
+                        // `subject` / `target` / `actingCard` 三个形参：原版这一跳把 `created` 送进 **`actingCard`**
+                        //   位（`CardScript__ReactToCardCreated.c` 的**第 5 个**实参）；我们的 `actingCard` 口只收
+                        //   `UnitState`，而 created 是 `CardInstance` ⇒ 今天**只能传 `null`**（结构性残差，另立账）；
+                        //   `targetCard` 原版是 0 ⇒ `null`；`subject`（「这件事发生在谁身上」）手牌上没有 ⇒ `null`。
                         if (FireHandAbilityTrigger(ctx, seat, inst, "CardCreatedInHand",
                                                    keyword: null, ops: null, spec: null,
                                                    subject: null, target: null, actingCard: null,
@@ -400,6 +400,63 @@ namespace RuleEngine
                           + "原版 `CardScript__AddEffect.c:960` 对它也是打警告、不改状态");
                     return false;
             }
+        }
+
+        // ==============================================================================================
+        //  账 `:203` / `#34 G23③` —— `BattleManager.BroadcastCardCreated` 的**棋盘那一跳**
+        // ==============================================================================================
+        //  **判据（第一权威，全文现读）** = `decomp_full/BattleManager__BroadcastCardCreated.c:19-33`：
+        //    `lVar3 = *(longlong *)(bm + 0x470);`  ← `BattleManager.unitsInPlay`（ILSpy `BattleManager.cs:14355`）
+        //    逐个 `CardScript__IsInPlay(卡, 0)` 为真 ⇒ `CardScript__ReactToCardCreated(卡, created, 0)`。
+        //  **闸** = `CardScript__IsInPlay.c` 全文 = `cardState ∈ {2 inPlay, 15 inPlayTransforming, 3 inPlayAttacking,
+        //    17 inPlayAminingAttack}` ⇒ 闸写 `UnitState.IsInPlayState(ctx)`。
+        //    ⛔ **别写成 `CardStateOf(ctx) != inPlay`** —— 那会把正在结算瞬态（3/15/17）的单位漏掉，与原版差三档。
+        //  **接收体** = `CardScript__ReactToCardCreated.c`：`OnTrigger(0xd2 = 210, mgr, thisCard = 监听者,
+        //    actingCard = **created**, targetCard = 0, 0)` ⇒ 走 `RuleCore.FireTriggerByNumber(…, 210, …)`。
+        //
+        //  ⚠️ **`actingCard` 今天只能传 `null`（如实标的结构性残差，另立账）**：`FireTriggerByNumber` 与
+        //    `EventSlotsScope.TargetCardAndActing` 的 `actingCard` 形参都是 `UnitState`，而这里被造出来的是
+        //    `CardInstance`（可能根本不在场上）⇒ 送不进去。要逐字对齐得给 `BattleContext` 加一格
+        //    `CardDef EventActingCardDef`（触碰 `BattleContext.cs`，**不属本代理**）。
+        //    池内 `abilityTriggers` 含 210 的 = **0 / 1,129**（`cards_engine.json` 现读）⇒ 零可观测。
+        //
+        //  ⚠️ **`unitsInPlay` ≈ 我们的 `PlayerState.Board`**（督军在 `Board[BoardSpec.WarlordSlot]` 上）：
+        //    原版那条 List 里还有英雄部件 / 武器等我们没建模的槽 ⇒ 覆盖面比原版窄，这是**既有的建模差**，
+        //    ⛔ 不是本方法该补的东西（别为它新造棋盘槽）。
+        //
+        //  ⛔ **「召唤路径」那半不做（原版没有）**：原版 `BroadcastCardCreated` 全树只有 2 个调用点
+        //    （`_ResolveCreateHandCard_d__512__MoveNext.c:117` ＋ `_ResolveRecallToHand_d__542__MoveNext.c:85`）；
+        //    召唤走 `ResolveUnitSummoned` / `BroadcastUnitSummoned` 那一族，**不调** `BroadcastCardCreated`
+        //    ⇒ 给 `DeployFreeCore` 补 210 = **造原版没有的行为**（铁律 18·0）。判据 → `判据/B99_R3a_施工单_战斗按文件.md` §五 #9。
+        /// <summary>**`BroadcastCardCreated` 的棋盘那一跳**（遍历双方 `Board`、`IsInPlay` 闸、`CardCreated(210)`）。
+        /// <para>判据 / 残差 / 可达性 → 上面那一整段。</para></summary>
+        /// <param name="created">刚被造出来的那一份（原版把它送进 `actingCard` 位；今天只能传 null，见上）。</param>
+        /// <returns>真排进队列的监听器条数。</returns>
+        public static int BroadcastCardCreatedBoardHop(BattleContext ctx, CardInstance created)
+        {
+            if (ctx == null || ctx.IsOver || created == null || created.Card == null) return 0;
+            int n = 0;
+            using (BeginAction(ctx))
+            {
+                for (int seat = 0; seat < 2; seat++)
+                {
+                    var ps = ctx.Players[seat];
+                    if (ps == null || ps.Board == null) continue;
+                    for (int slot = 0; slot < BoardSpec.Size && slot < ps.Board.Length; slot++)
+                    {
+                        var u = ps.Board[slot];
+                        if (u == null || u.Card == null) continue;
+                        // 原版 `CardScript__IsInPlay()` 闸（`{2,3,15,17}`，见上）
+                        if (!u.IsInPlayState(ctx)) continue;
+                        if (FireTriggerByNumber(ctx, u, 210, seat, slot,
+                                                actingCard: null, targetCard: null)) n++;
+                    }
+                }
+            }
+            if (n > 0)
+                ctx.Log($"（`CardCreated(210)` 棋盘那一跳：「{created.Card.Name}」被造出来 ⇒ "
+                      + $"{n} 个在场监听器入队；原版 `BattleManager__BroadcastCardCreated.c:19-33`）");
+            return n;
         }
     }
 }

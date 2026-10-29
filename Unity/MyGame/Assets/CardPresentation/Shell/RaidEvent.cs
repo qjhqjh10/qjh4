@@ -1201,11 +1201,11 @@ namespace CardPresentation
         /// <summary>原版 `SetAndRefreshProgressBar(ParentEvent)`（`__SetAndRefreshProgressBar.c` 全文 5 句）：
         /// <code>
         /// progressContainer.SetActive(true);                       // +0x78
-        /// icon.sprite = LiveOpsAssetUtility.LoadAsset(parentEvent, +0x88);   // ★ 远端图（assetType 值未读）
+        /// icon.sprite = LiveOpsAssetUtility.LoadAsset(parentEvent, +0x88);   // ★ 远端图（assetType 现读 = 9 = OverIcon）
         /// icon.enabled = (sprite != null);
         /// RefreshProgressBar();
         /// </code>
-        /// <para>⚠️ `+0x88`（`iconAssetType`）的**数值没读出来**（prefab MB 待读）⇒ 做成入参，⛔ 不猜一个类型值。</para></summary>
+        /// <para>✅ 2026-10-29 现读（铁律 5 订正，原写「数值没读出来」已过期）：`+0x88` = `imageEventAssetReferenceType` = **9**（= `EventAssetReferenceType.OverIcon`；`bundle_menus_assets_all` 的 `Base Game Mode Container 1x2 Raid or Army Release` 根上那颗 `RaidOrArmyReleaseMenuContainer` MB 字段实读）⇒ 仍是入参（调用方传 9），⛔ 本类不写死一个类型值。判据 → `资料/完全复刻/判据/B99_R2_日常9条终局.md` §一 #7 / §二。</para></summary>
         public struct SetPlan
         {
             public bool ShowContainer;

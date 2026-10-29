@@ -452,10 +452,10 @@ namespace CardPresentation
         /// **`OverHand` / order 0**。⛔ **只此一份**（建它、自检找它都取这里）。</summary>
         public const string SubCanvasName = "Mulligan Canvas";
 
-        /// <summary>换牌区第 i 张（共 n 张）**相对行中心的横向偏移**（**设计 px**）。
-        /// <para>🔑 **只此一份** —— 世界那条（<see cref="RowLocalAt"/>，给卡用）把它过一遍 `U()`；
-        /// 画布那条（钮那一侧）直接用。⛔ **别在两处各推一遍**（本仓红线：两处写同一条规则 = 迟早不一致）。</para></summary>
-        static float RowDX(int i, int n) { return RowSpacingPx * (i - (n - 1) * 0.5f); }
+        /// <summary>换牌区第 i 张（共 n 张）**相对行中心的横向偏移**（**设计 px**）—— 🔴 **2026-10-29（`B99_E4` · 账 `1178`）**：**不再是实拍常量**，照原版 `CardsHorizontalLayout.GetPosition` 的算法算：
+        /// `步长 × (k − (n−1)/2)`，k = i（本方）/ `n−1−i`（敌方**反向支**，判据 `PlayerHand__MoveCardToMulliganPos.c:45` 传 `(total − cardPos) − 1`）；步长与压缩支见 <see cref="RowStepPx"/>。
+        /// <para>🔑 **只此一份** —— 世界那条（<see cref="RowLocalAt"/>，给卡用）把它过一遍 `U()`；画布那条（钮那一侧）直接用。⛔ **别在两处各推一遍**（本仓红线）。</para></summary>
+        static float RowDX(int i, int n) { return RowDXAt(i, n, RowStepPx(n), true); }
 
         /// <summary>面板内**设计 px** → 画布帧 `_frame` 的**局部坐标**（中心原点、**y 向上**）。
         /// = <see cref="HudCanvas.PosPx"/>（`_frame` 是 `FillParent` ⇒ 中心 = 屏心，两者逐位同值）。
@@ -628,21 +628,21 @@ namespace CardPresentation
         ///     ⇒ **同一组件不保证同一个输出**（铁律 5·c 那一类）；
         ///   · 选牌那一行：原版**运行期探针**量到中心距 **502.2 px**（`panel_0914b/报告.md:61-75`）
         ///     ⇒ 我们 `CardChoicePanel` 的 `383.8 / 502.2` **是对的，不动**；
-        ///   · 换牌这一行：实拍量到卡宽 **292** ⇒ 本值与 `RowSpacingPx` **保持**。
+        ///   · 换牌这一行：实拍量到卡宽 **292** ⇒ 本值保持；⚠️ 但**中心距**已按算法改成 502.2（见 `RowSpacingPx`，与实拍 ~400 冲突、待 A1749）。
         /// ⛔ 别再按「183.41 px / 卡本地单位」往换牌这一侧推（那会得到 383.9 的卡宽 —— 实拍否掉了）。</summary>
         const float CardWidthPx = 292f;
 
-        /// <summary>换牌区相邻两张的**中心距**（设计 px）= **414**。判据 = 同上那张实拍
-        /// （用户 2026-10-13 给的视频帧，**按 0.821 归一** —— 见 `T10_换牌阶段判据` §三-4）。
-        /// ⚠️ **2026-10-19（T10）复核：本行原来的推导数自相矛盾、且与逐像素边界对不上，如实记**：
-        ///   · 逐像素边界（372–612 / 700–940 / 1028–1268）⇒ 中心 492 / 820 / 1148 帧px
-        ///     ⇒ **间距 328 帧px ⇒ 399 设计 px**（不是 414）；
-        ///   · 原文另写「卡中心 485 / 840 / 1205 ⇒ 间距 340」——**算式本身不成立**（840−485=355、1205−840=365），
-        ///     且与逐像素边界对不上。
-        ///   ⇒ **414 暂时保留**（`T10_换牌阶段判据` §`A1749` 的裁定是「换牌保持不动」；且三个中心相对
-        ///   屏心 960 还整体偏右 ≈38 px，说明这张视频帧的横向对齐本身没校准死）。
-        ///   🔴 **真机复测后以实拍为准** —— 那时把这一行连同推导一起改掉，⛔ 别照 414 反推。</summary>
-        const float RowSpacingPx = 414f;
+        /// <summary>换牌区相邻两张的**中心距基数**（设计 px）= **502.2** = 原版 `CardsHorizontalLayout.m_betweenElementsSpacing`
+        /// （判据 = `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4881.json` —— 那份布局就在 `MulliganAnchor` 上（`GameObject/MulliganAnchor.json` 组件表 = [Transform 1292, MB 4881]），`MulliganManager.m_mulliganAnchor` 也指它）。
+        /// 🔴 **2026-10-29（`B99_E4` · 账 `战斗逻辑驱动:1178`）就地订正（铁律 5）**：原来这里是 **414**（用户实拍量值）。现在按判据换成**算法**：
+        ///   `步长 = m_elemetsParent.lossyScale.x × m_betweenElementsSpacing`；换算到设计 px 时 lossyScale 两边约掉 ⇒ **就是 502.2**
+        ///   （运行期探针 `panel_0914b/报告.md` 直接问过原版 `GetPosition`：n=2 中心距 **502.1 px** ↔ 序列化 502.2，互证）。
+        ///   超过 `0.98 × 视口宽` 时走**压缩支**（`.c:201-214`：`步长 = m_calculatedMaxLayoutSize / n`）→ 见 <see cref="RowStepPx"/>。
+        /// ⚠️ **与实拍的冲突如实记**：两张实拍（`战斗—替换手卡参考图（先手/后手）.png`）量到的中心距是 **~400 设计 px**（卡宽 240 帧px ⇒ 292）；
+        ///   而那段录屏的缩放**未校准**（「卡宽 240 帧px : 中心距 328 帧px = 1.44」这个比在两种换算下都凑得上）⇒ **本条不拿实拍反推**。
+        ///   账 `1178` 的裁定 = 「按算法复刻，`A1749` 真机复测后定稿」⇒ 先落算法（真机一复测就把这一行连同推导一起改掉）。
+        ///   ⛔ 也别把它当卡宽用（卡宽另有 <see cref="CardWidthPx"/>）。</summary>
+        const float RowSpacingPx = 502.2f;
 
         /// <summary>每张牌那颗钮（原版 `CardMulliganButtonFrame/Change Card Button`：
         /// `sd = (1.30, 0.33)`，中心 `ap = (0, −1.7513)`，而那一层框是 `2.3335 × 4.167`）。
@@ -1786,5 +1786,66 @@ namespace CardPresentation
             return $"换牌面板 开着={Visible} 卡按钮 {_cardBtns.Count} 个 标记 [{string.Join(",", Marked.ConvertAll(x => x.ToString()).ToArray())}]"
                  + $" 提示「{PromptText ?? "<无>"}」";      // 占位符挪到**打印这一侧**（A245：getter 返 null 才分得开两态）
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-29（`B99_E4` · 账 `战斗逻辑驱动:1178`）：原版 `CardsHorizontalLayout.GetPosition` 的几何
+        //  判据 = `d:/2/tools/decomp_full/CardsHorizontalLayout__GetPosition.c`（唯一权威 = 机器码）
+        //       ＋ 可读交叉源 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardsHorizontalLayout.cs`（`:240-360`，`.c` 的 `*0.5f` 与
+        //       `x = pos.x − (n−1)·step·0.5 + k·step` 在那里逐字可读；⚠️ 那份反编译把**纵向那一项**丢了，y 只认 `.c`）。
+        //  为什么加在这里（类尾）：本文件的行号被账按 `文件:行号` 引用（:131/:251/:458/:617/:633/:645/:665/:678/:689/:965/…/:1550）
+        //  ⇒ 新成员一律**追加到类尾**，⛔ 别插在中间（插一行就是一片漂移）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>换牌行**共 n 张**时相邻两张的中心距（**设计 px**）= 原版 `CardsHorizontalLayout.GetPosition` 的 `step`。
+        /// <para><b>算法</b>（`.c:57-63,147-149`）：`step = m_elemetsParent.lossyScale.x × m_betweenElementsSpacing`；
+        /// 换算到**设计 px** 时两边的 `lossyScale` 约掉 ⇒ 就是序列化里的 <see cref="RowSpacingPx"/>（502.2）。
+        /// 然后**压缩支**：`if (n × step &gt; m_calculatedMaxLayoutSize) step = m_calculatedMaxLayoutSize / n`。</para>
+        /// <para><b>`m_calculatedMaxLayoutSize`</b>（`.c:83-147`）= `(maxLayoutSizeAspectRatioModifier(aspect) + m_maxLayoutSize) × aspect × 2 × dist × tan(fov/2)`
+        /// （正交相机那一支：`(2 × orthoSize × aspect) × m_maxLayoutSize`）⇒ 就是 **`0.98 × 视口宽`**；
+        /// 这份布局 `m_maxLayoutSize = m_maxLayoutSizeSmallScreen = 0.98`、`allowSelectCardLayoutOverFlow = 1`（⇒ `.c:201-210` 的两个 `−2×extra` 不命中）。
+        /// 我们的设计 px 口径「1920×1080 **拉伸**铺满」⇒ 视口宽**恒** = <see cref="LayoutSpace.DesignPxW"/>（1920）。</para>
+        /// <para>✅ <b>实况互证</b>：原版运行期探针（`资料/原版参照图/Unity参照管线_0825/data/panel_0914b/报告.md`，脚本直接调 `GetPosition`）
+        /// 逐 n 量到：n=2/3 ⇒ **502.2** · n=4 ⇒ **470.6** · n=5 ⇒ **376.5** · n=6 ⇒ **313.7** · n=7 ⇒ **268.9**；
+        /// 本式（16:9 ⇒ 0.98×1920 = 1881.6）算得 502.2 / 470.4 / 376.32 / 313.6 / 268.8 ⇒ **逐档对上**（≤0.2 px = 探针自己的浮点噪声）。
+        /// 换牌局恒 n=3（先手）或 n=4（后手）⇒ **先手不压缩、后手压缩到 470.4**。</para>
+        /// <para>⚠️ 本函数**只**覆盖「按 n 压缩」；`.c:88-131` 那条「选中的卡额外让位」要 `selectedCardIndex ≥ 0` 且
+        /// `useExtraSpaceOnSelectedCard = 1`，而换牌这份布局该字段 = **0**、调用方（`MoveCardToMulliganPos.c:30`）传 **−1** ⇒ **换牌行永不进那一支**
+        /// （⛔ 别照选牌面板把 `useExtraSpace` / `GetCardsInHandNumberWhereDistanceBetweenThemMustBeReduced` 搬进来）。</para></summary>
+        public static float RowStepPx(int n)
+        {
+            if (n <= 0) return 0f;
+            float maxPx = 0.98f * LayoutSpace.DesignPxW;        // = m_calculatedMaxLayoutSize（设计 px 口径）
+            return RowSpacingPx * n > maxPx ? maxPx / n : RowSpacingPx;
+        }
+
+        /// <summary>原版 `CardsHorizontalLayout.GetPosition` 的**横向几何**（`.c:215-236`）：`x = 行心 + step × (k − (n−1)/2)`。
+        /// <para><paramref name="isPlayerRow"/> = false ⇒ <paramref name="i"/> 先换成 **`n−1−i`**
+        /// （= `PlayerHand__MoveCardToMulliganPos.c:36-46` 非本方支传的 `(total − cardPos) − 1`）；
+        /// 本方支**不做这一步**（`GetPosition(cardPos, totalCards)`，`.c:30`）。</para>
+        /// <para><b>纵向</b>：原版 `y = 行心 + m_yAxisCurve.Evaluate(k/(n−1)) × m_maxHeight × heightModifier((n−1)/(nForMaxHeight−1))`
+        /// （`.c:221-234`）；而**换牌这份布局的 `m_yAxisCurve` 恒 0**（`MonoBehaviour_4881.json` 只有 (0,0)/(1,0) 两点、两侧斜率 0）
+        /// ⇒ **y 恒等于行心**，我们照此不实现那一项（⛔ 别从手牌那份 5271 的弧线抄过来 —— 那是另一份实例）。</para>
+        /// <para><b>z</b>：`.c:229-233` 的 `useZOrder` 支按 `i × 0.001` 加深度；换牌这份 `useZOrder = 0` ⇒ **不改 z**（Z 仍由本面板的 `Z` 定）。</para></summary>
+        public static float RowDXAt(int i, int n, float stepPx, bool isPlayerRow)
+        {
+            if (n <= 0) return 0f;
+            int k = isPlayerRow ? i : (n - 1 - i);
+            return stepPx * (k - (n - 1) * 0.5f);
+        }
+
+        /// <summary>非本方支的**叠放序**（原版 `PlayerHand__MoveCardToMulliganPos.c:36-39`：
+        /// `SetSortingOrder(card, (PlayerHand.currentHand.Count − cardPos) − 1)`）—— 值越大越靠前。
+        /// <para>⚠️ 原版读的是 **`PlayerHand.currentHand`（实例字段 `+0x50`）的 `Count`**，**不是** `totalCards`、也**不是**布局的 Count
+        /// （判据三路互证：字段序 `isPlayer 0x28 … activeEffects 0x48 / currentHand 0x50 / currentMulligan 0x58 / handAnchorLayout 0x88`；
+        /// `PlayerHand._AddCardsToMulligan_d__41__MoveNext.c:69,103` 在 **`+0x58` 新建**列表并逐张 `List.Add` ⇒ 那一格是 `currentMulligan`；
+        /// 其余 `PlayerHand*` 方法对 `+0x50` 做 `List.Add` 并取 `(*(+0x50)+0x18)` 当 `Count` ⇒ 那一格是手牌表。
+        /// ⛔ 别拿 `PlayerHand__get_currentHand.c` / `PlayerHand__get_currentMulligan.c` 当判据 —— 那两份**文件名与内容不符**
+        /// （内容其实是 `AlternateArtCard.get_CardImage` / `Room.get_PropertiesListedInLobby`，见本仓「反编译文件名与内容不符」那条坑））。
+        /// 换牌阶段两者相等 ⇒ 本函数按 `n` 算的值与之相同；但口径写死在这里，别把它说成「布局的 Count」。</para>
+        /// <para>🔴 <b>目前没有消费者</b>：我们还不画敌方换牌行（`_cards` 只装本方起手牌），而**本方支原版根本不调 `SetSortingOrder`**
+        /// ⇒ 生产侧「本方所有卡同一队列（<see cref="QMulliganCard"/>）」与原件一致、**不算缺口**。
+        /// 将来接敌方行时：`queue = 该行基队列 + RowSortRankFor(i, n)`，⚠️ 基队列必须选在 **3007 之下**或另开一段 ——
+        /// `3007 + rank` 会直接撞 `CardFan.QCardBase`(3009)（点卡放大那扇窗的地盘，见 <see cref="QMulliganCard"/> 的上界那条）。</para></summary>
+        public static int RowSortRankFor(int i, int n) { return (n - 1) - i; }
     }
 }

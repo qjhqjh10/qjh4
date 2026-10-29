@@ -215,14 +215,14 @@ namespace RuleEngine
         /// （= 这条 op 不结算；钱照收 —— 原版「一条 ability 激活了」与「它哪条 logic 真做了事」是两件事，
         /// 判据 → `ChargePaidGroups` 那段注释）。</para>
         ///
-        /// <para>🔴 **窄闸（任一不过 ⇒ 整段不启用，行为逐字不变）**：</para>
+        /// <para>🔴 **窄闸（**两条都不进** ⇒ 整段不启用，行为逐字不变）**：</para>
         /// <list type="number">
         /// <item>调用点给了 <paramref name="card"/> 与 <paramref name="triggerName"/>；
         ///   今天只有战术 / 防御卡正文体传（`PlayTacticBodyDeferred`）。</item>
         /// <item>卡表的 `abilityLevelCriteria` 来自 v26+（否则那行根本不存在）。</item>
-        /// <item>**按 trigger 定位不唯一**（`card.UniqueAbilityIndexForTrigger(triggerName)` 回 `-1` 且
-        ///   `ambiguous`）。唯一定位得到的卡**不启用** —— 它们走既有的
-        ///   `ActionPump.EnqueueAbility` 那条路（`E2`/`E9` 接的），两处都判会是**双重闸**。</item>
+        /// <item>🔴 **2026-10-30（`B99_E9` · #21②）：这一支按 `UniqueAbilityIndexForTrigger` 的结果【分两条互斥的路】**
+        ///   —— `uab >= 0`（唯一定位）⇒ 走 `AbilityLevelCriteriaAllows`（`ApplyAbilityFamilyGateUnique`，
+        ///   即原版那条 `&&` 链的 target+board 两道）；`uab < 0 && uamb`（不唯一）⇒ 走下面的族闸。</item>
         /// </list>
         ///
         /// <para>**三档处置**（同 `RuleCore.AbilityFamilyTargetAllows`，⛔ 别合并）：</para>
@@ -244,7 +244,7 @@ namespace RuleEngine
             string uwhy;
             bool uamb;
             int uab = card.UniqueAbilityIndexForTrigger(triggerName, out uwhy, out uamb);
-            if (uab >= 0 || !uamb) return;
+            if (uab >= 0) { ApplyAbilityFamilyGateUnique(ctx, owner, thisCard, card, triggerName, ops, chosen, skip, by); return; } if (!uamb) return;   // 🔴 2026-10-30（B99_E9 · #21②）：唯一定位 ⇒ 走 `AbilityLevelCriteriaAllows`；不唯一 ⇒ 走族闸
 
             for (int i = 0; i < ops.Count; i++)
             {
@@ -4225,7 +4225,7 @@ namespace RuleEngine
                     }
 
                     ctx.Log($"{by}：「{op.Source}」造了 {n} 张给 {ctx.Players[who].Name}：{names}"
-                          + (pool.Detail != null ? $"（{pool.Detail}）" : "")); foreach (var m0 in landed) BroadcastCardCreatedHandHops(ctx, m0);   // 🔴 2026-10-29（B97_W2 · 账 L506）：原版 `_ResolveCreateHandCard_d__512__MoveNext` 造好之后调 `BattleManager.BroadcastCardCreated`（`BattleManager__BroadcastCardCreated.c:29-44` = **双方手牌**逐卡 `ReactToCardCreated` → `OnTrigger(0xd2 = 210, actingCard = 被造那张)`）⇒ 逐张真落了手的那一份发一次。⚠️ 只做手牌那一跳，棋盘那一跳的缺口与理由 → `BroadcastCardCreatedHandHops` 的头注。零行数变化（铁律 18·b）。
+                          + (pool.Detail != null ? $"（{pool.Detail}）" : "")); foreach (var m0 in landed) { BroadcastCardCreatedHandHops(ctx, m0); BroadcastCardCreatedBoardHop(ctx, m0); }   // 🔴 2026-10-30（`B99_C1` · 账 `:203` / `#34 G23③`）：**两跳都要发** —— 原版 `BattleManager__BroadcastCardCreated.c` 先遍历 `unitsInPlay`（棋盘跳，闸 `IsInPlay()`）再 `GetCardsInHandList`（手牌跳）。旧版本只发了手牌那一跳（棋盘那一跳当时缺执行口，理由已过期）。零行数变化（铁律 18·b）。   // 🔴 2026-10-29（B97_W2 · 账 L506）：原版 `_ResolveCreateHandCard_d__512__MoveNext` 造好之后调 `BattleManager.BroadcastCardCreated`（`BattleManager__BroadcastCardCreated.c:29-44` = **双方手牌**逐卡 `ReactToCardCreated` → `OnTrigger(0xd2 = 210, actingCard = 被造那张)`）⇒ 逐张真落了手的那一份发一次。（判据/残差 → `BroadcastCardCreatedHandHops` 与 `BroadcastCardCreatedBoardHop` 的头注）。零行数变化（铁律 18·b）。
                     return true;
                 }
             }
@@ -4704,7 +4704,7 @@ namespace RuleEngine
                         + "「卡名以 `(tutorial)` 结尾」这条**代理**判据（原版方法体未读到）";
                     ctx.Log($"[choose] 「{op.Source}」按原版 `AbilityLogic.GetTargets` 的 choiceResolution 分支"
                           + $"回落全卡池：{detail}；{why}");
-                    return pool;
+                    return CardPoolCriteriaFilter.Apply(ctx, op, pool);   // 🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：`specific` 全池回落这一支原版同样按 criteria 筛（`AbilityLogic__GetTargets.c:123` `CheckIfRawCardMeetsCriteria`）。今天这条支仍不可达（闸 = `CardDef.HasSpecificCardChoice`，见 `Core/CardPoolCriteriaFilter.cs` 文件头）⇒ 零行为变化。零行数变化（铁律 18·b）。
                 }
                 var byId = new Dictionary<string, CardDef>(System.StringComparer.Ordinal);
                 foreach (var c in ctx.CardPool)
@@ -4788,7 +4788,7 @@ namespace RuleEngine
             if (op.ChooseSrc == "played" && outp.Count > 1)
                 outp.RemoveRange(1, outp.Count - 1);
 
-            return outp;
+            return CardPoolCriteriaFilter.Apply(ctx, op, outp);   // 🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：**候选是卡也要过同一条 36 格 criteria**（原版 `AbilityLogic__GetTargets.c:1086-1095` 对池里每个元素一律 `CheckIfMeetsCriteria`；卡模板级那一支见 `:123`）。判据/射程/现池影响面 → `Core/CardPoolCriteriaFilter.cs` 文件头。零行数变化（铁律 18·b）。
         }
 
         static bool DoChooseCard(BattleContext ctx, int owner, string by, EffectOp op,
@@ -6766,7 +6766,7 @@ namespace RuleEngine
                     //    见 `BattleManagerSupport__BroadcastCardReturnedHand.c:20`）。
                     //   `who` = `p`（收下这张牌的那一方）；`dest == hand` 决定种类，
                     //   `deck` / `decktop` 都算「回牌库」（原版两个广播器的差别只看去手还是去牌库）。
-                    RecordCardReturnedEvent(ctx, p, inst.Card, op.Dest == "hand", by);
+                    RecordCardReturnedEvent(ctx, p, inst.Card, op.Dest == "hand", by); if (op.Dest == "hand" && inst != null) { BroadcastCardCreatedHandHops(ctx, inst); BroadcastCardCreatedBoardHop(ctx, inst); }   // 🔴 2026-10-30（`B99_C1` · 账 `:203` / `#34 G23③` · **新发现的那半**）：原版 `_ResolveRecallToHand_d__542__MoveNext.c:85` 在 `BroadcastCardReturnedHand` **之后**调 `BroadcastCardCreated`（两跳全发）。我们这条 `case "hand"` 原先只发 `RecordCardReturnedEvent`、**不发 210** ⇒ 今天漏发。⚠️ 只有 `hand` 这一支发（原版 `BroadcastCardCreated` 全树只有 2 个调用点：`_ResolveCreateHandCard…:117` ＋ `_ResolveRecallToHand…:85`；回牌库 / 墓地取回原版都**不**发）。零行数变化（铁律 18·b）。
                     moved.Add(inst);
                 }
             }
@@ -10021,7 +10021,7 @@ namespace RuleEngine
             //   🆕 2026-10-26（批次 4 · `F2`）：`boardAndPersistentOnly` 时**这三条手牌侧的跳全关**
             //   （原版 `BroadcastEarnedSkull` 没有手牌两跳 —— 见 `BroadcastWhen` 同名参数注释）。
             // `BroadcastPersistentWhen` 不在关的那一组里（它是「附魔挂在场上」的等价物）。
-            if (!boardAndPersistentOnly) BroadcastCostWhen(ctx, kind, who, card);
+            if (!boardAndPersistentOnly) BroadcastCostWhen(ctx, kind, who, card, subject, actingCard);
 
             //   ⓪-b **常驻效果里的「当……时」监听器**（2026-09-14 A4 批 3）：
             //   `For the rest of this battle, when a friendly troop uses Ferocity,
@@ -10647,7 +10647,7 @@ namespace RuleEngine
         ///    场上监听器的效果可能抽牌/改手牌，那些**事件发生之后才到手**的牌
         ///    不该为这一次事件享受降费。先扫手牌 = 扫的是「事件发生的那一刻就在手里的牌」。
         /// </summary>
-        static void BroadcastCostWhen(BattleContext ctx, string kind, int who, CardDef card)
+        static void BroadcastCostWhen(BattleContext ctx, string kind, int who, CardDef card, UnitState subject = null, UnitState actingCard = null)   // 🔴 2026-10-30（B99_E9 · #19）：`subject` = 死掉的单位（原版 `targetCard`）· `actingCard` = 凶手（只用于出声；第一道闸 acting 另立账）
         {
             for (int p = 0; p < 2; p++)
             {
@@ -10660,7 +10660,7 @@ namespace RuleEngine
 
                     // `listener` 传 p —— 手牌属于谁，极性（friendly / enemy）就相对谁说。
                     // 判据全在 `WhenEvents.Matches`（**只此一份**），这里不再自己判一次。
-                    var hits = c.FireCostWhen(kind, p, who, card);
+                    var hits = c.FireCostWhen(kind, p, who, card); if (hits != null && !CostWhenAbilityCriteriaAllows(ctx, p, c, kind, subject, actingCard)) continue;   // 🔴 2026-10-30（B99_E9 · #19）：闸在 **EmitListenerTrigger（:10677）之前** —— 原版那条 ability 没触发 ⇒ 连动画都不播（`RawCardScript__TriggerAbilities.c:207/231`）。⚠️ 先算 `FireCostWhen` 再判闸（两者都无副作用）：原版 `CanTriggerAbility` 是**逐条 trigger 命中的 ability** 才调（`TriggerAbilities.c:207`），而 `FireCostWhen == null` = 这张卡根本不在听这个事件 ⇒ 不该调闸、也不该出声（否则每条广播 × 5 张降费卡各刷一行「判不了」）。
                     if (hits == null) continue;
 
                     // 🆕 2026-10-19（`T21` · 缺口 E，第五跳）：**事件触发式降费**也是「监听者真的结算」
@@ -13569,8 +13569,8 @@ namespace RuleEngine
             new HashSet<string>(System.StringComparer.Ordinal);
 
         /// <summary>结构化条件这条线上**每一次**「本波不接 / 退回正文」的原因 —— 同一 (卡, 种类, 原因)
-        /// **只喊一次**（否则每张卡每回合刷屏；本工程红线是「不许静默」，不是「必须刷屏」）。</summary>
-        static void StructuredConditionNotice(string key, string msg)
+        /// **只喊一次**（否则每张卡每回合刷屏；本工程红线是「不许静默」，不是「必须刷屏」）。｜🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：可见性 `private` → `internal` —— 卡池侧那条消费端 `CardPoolCriteriaFilter.Apply` 判不了时也要走**同一份**去重表出声（⛔ 别另建第二张表）。</summary>
+        internal static void StructuredConditionNotice(string key, string msg)
         {
             if (!_structuredConditionNotices.Add(key)) return;
             UnityEngine.Debug.LogWarning("[RuleEngine] 结构化条件（W64·B-16）：" + msg);
@@ -15279,9 +15279,9 @@ namespace RuleEngine
             {
                 // 🔴🆕 2026-10-27（`B9_W27ENG`）：原版 `BattleManager__ResolveResetDuty.c:6` 对**传进来的那张卡**
                 //   **无条件**写 `+0x4c = 0`（不看 trait、也不看这一位原来是不是 true）⇒ 这里也**无条件**清，
-                //   ⛔ **别挪到下面那个 `DutyUsed` 的 `continue` 之后**（那样「用过 `Ability:` 但没用 duty」的单位会漏清）。
-                u.ActiveAbilityUsed = false;
-                if (!u.DutyUsed) continue;              // 本来就能用，不用报
+                //   ⛔ **别挪到下面那个 `wasUsed` 的 `continue` 之后**（那样「用过 `Ability:` 但没用 duty」的单位会漏清）。｜🔴 2026-10-30（`B99_C1` · `U3·T1` ③）：**`n++` 改按「清空前捕获的 `ActiveAbilityUsed`」计** —— 原版「职责一局一次」读的就是通用 `+0x4C usedActiveAbility`（`dump.cs:21979`；`BattleManager__CanUseActiveAbility.c:92-97` = 硬编码 trait `duty(1220)` ∧ `+0x4C`），`DutyUsed` 是我们自造的重复位（保留、⛔ 不删：6 处测试 + `TransformUnit_B94B12.cs:394` 引用）。
+                bool wasUsed = u.ActiveAbilityUsed; u.ActiveAbilityUsed = false;
+                if (!wasUsed) continue;                 // 本来就能用（本局主动能力没用过），不用报
                 u.DutyUsed = false;
                 n++;
                 ctx.Log($"{u.Name} 的职责被装填（本局可再次使用）");
@@ -18529,7 +18529,7 @@ namespace RuleEngine
         {
             if (ca == 85) return RunTransformUnitRow(ctx, p, u, row, ta, chosen); if (ca == 350) return RunRemoveFromCemeteryRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B96_CA · 账 172 / 548 与 534）：`85 = transformUnitWithBuff`（判据 `AbilityLogic__PlayAbility.c:904-941`）—— 原版在这一支组一条 `transformUnit(27)` 动作，我们没有 27 号动作道 ⇒ 生产端**直调** `RuleCore.TransformUnit`（下游 `TransformUnit_B94B12.cs` 已逐跳落齐）；`350 = removeFromCemetery`（判据 `AbilityLogic__PlayAbility.c:1986-1999` 逐目标 `AddRemoveFromCemetery`）
             if (ca == 370 || ca == 400) return RunGrantedTriggerRow(ctx, p, u, row, ta, chosen, courtesy: ca == 400); if (ca == 160) return RunDiscardFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 165) return RunDiscardWholeHandRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B97_W5 · 账 850 / 独立账 BL37）：`160 = discardFromHand` / `165 = discardWholeHand`（判据 `AbilityLogic__PlayAbility.c:577-603` / `:293-345`）—— 结算体复用既有 `DoDiscardFromHand` / `DoDiscardWholeHand`（含 `RemoveCostEffects`），两条款行见 `B97W5_RowsAndDedupe.cs`；池内 `chosenAbility 160` = 0 张、`165` = 0 张 ⇒ 休眠档
-            if (ca == 360) return RunPlayChosenCardAbility(ctx, p, u, chosen);   // 🆕 2026-10-29（B94_F2 · 账 455）：`chosenAbility 360 = playChosenCardAbility`（`AbilityEffect.cs:64`）—— 原版 `AbilityLogic__PlayAbility.c:2014-2070` 那一支（判据见 `RunPlayChosenCardAbility` 的 doc）
+            if (ca == 360) return RunPlayChosenCardAbility(ctx, p, u, chosen); if (ca == 320) return RunFollowAfterResolutionRow(ctx, p, u, chosen); if (ca == 390) return RunTriggerRequiemRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B99_E8` · 账 870 (b)）：`390 = AddTriggerRequiem` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2073-2088` → `AddTriggerRequiem(targetCard, actingCard, …)` → `ResolveAction.c:5574` `case 0x40` → `ResolveTriggerRequiem`：跑 430/435 的是 `actingCard`=caster、`targetCard` 只当入口闸；见 `RunTriggerRequiemRow` 的 doc）。📊 池内 `chosenAbility 390` = 0/1,129 ⇒ 休眠件（铁律 11 照建），零可观测 🆕 2026-10-29（B94_F2 · 账 455）：`chosenAbility 360 = playChosenCardAbility`（`AbilityEffect.cs:64`）—— 原版 `AbilityLogic__PlayAbility.c:2014-2070` 那一支（判据见 `RunPlayChosenCardAbility` 的 doc）；🆕 2026-10-29（`B99_E3` · 账 1281/1379 的 (a) 格）：`320 = followAfterResolution` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` → `CardScript__FollowUpResolutionPlayed.c:5-9`，见 `RunFollowAfterResolutionRow` 的 doc）
             return RunActiveRowOps(ctx, p, u, row, ta, chosen);
         }
 
@@ -20381,5 +20381,150 @@ namespace RuleEngine
             FireBoardDamagedByNumber(ctx, u, owner, damageType, actingCard, targetCard);
         }
 
+        // ==========================================================================================
+        //  🆕 2026-10-29（第九十九会话 · 波 1 · 执行代理 `B99_E3`）—— 账 `1281` / `1379` 的 (a) 格：
+        //  `chosenAbility = 320 (followAfterResolution)` 的 **ca 分派**（⛔ 不是 op 挂载）
+        // ==========================================================================================
+        //  判据（第一权威 = `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c`，逐句现读）：
+        //   · `:2243-2245` `if (iVar8 != 0x140) return;`（`0x140 = 320`）—— 这一支只认 320；
+        //   · `:2471-2478` `BattleManager__AddFollowAfterResolution(manager, abilityData+0x10,
+        //       abilityData+0x20, abilityData+0x44 /*priority*/, flag, 0)`；
+        //   · `BattleManager__AddFollowAfterResolution.c:26` `BattleAction..ctor(type = 0x3a = 58, …)`
+        //     末句 `:104` `AddAutoActionToQueue(manager, action, priority, 0)` ⇒ **登记一条后续动作**；
+        //   · 该动作出队时 `BattleManager__ResolveFollowAfterResolution.c:371`
+        //     `CardScript__FollowUpResolutionPlayed(lStack_200, …)` →
+        //     `CardScript__FollowUpResolutionPlayed.c:5-9`
+        //     `RawCardScript__OnTrigger(card+0x28, 0x19a = 410, …, thisCard = card,
+        //      actingCard = card, targetCard = param_2, 0)` ⇒ **410 那条 ability 才是正文所在**
+        //     （本卡 `activeAbilityLogic` 的 320 行**没有可跑的正文 op**，这是它在卡表里的形状：
+        //      `SW9 Fenrisian Wolf` 的 `ca = [320]`、`ta = [20]`，正文全在 `abilities[trigger=410]`）。
+        //  ⇒ 本版等价物 = **已经建好的两个口**（⛔ 别另写一份）：
+        //     `EmitFollowUpResolution`（表现层那一拍，`EffectResolver.cs:7943`）
+        //     ＋ `RuleCore.FireTriggerByNumber(u, 410)`（正文那一跳，`RuleCore.cs:17514`）；
+        //     与 `RuleCore.cs:12884`（`FollowUpSchedulerOf` 那条关键词触发路）**同一对调用、同一口径**。
+        //  ⚠️ **还差一格，⛔ 不在本代理白名单**：`RuleCore.ActiveRowEntersPlan`（`RuleCore.cs:17322`）
+        //     要把 `320` 放进计划表 —— 否则「整组 `ca` 全是 320/325」的行 `ActiveRowHasOps` 恒 false
+        //     （它没有可挂的 op，见 `CardDef.IsContinuationOnlyGroup`）⇒ 被当 `unimplemented` 剔掉、
+        //     **根本走不到本方法**。补法：那一行的 `|| ca == 360` 后面追加 `|| ca == 320`
+        //     （文件属 `B99_E1`，见报告 §接线指令）。
+        //  📊 可达性：池内 `chosenAbility == 320` = **1 张**（`SW9`；`325` 现读 0 张）。
+        // ==========================================================================================
+        /// <summary>账 `1281`/`1379` 的 (a) 格：`chosenAbility 320 = followAfterResolution` 那一行的执行体
+        /// （= 原版 `AbilityLogic__PlayAbility.c:2244-2478` 的 `AddFollowAfterResolution` 那一跳）。
+        ///
+        /// <para>它**自身不产生任何效果**，只做两件事：① 发 `FollowUpResolution` 这一拍的表现事件；
+        /// ② 把本卡 `trigger 410` 的正文排进行动队列（原版是「入队一条 `BattleAction(0x3a)`，
+        /// 出队时再 `OnTrigger(410)`」—— 队列形状不同、时序等价：都在本行动之后）。</para>
+        /// <para><paramref name="chosen"/> = 调用方点定的那个目标：原版把它当 `targetCard` 一路带到
+        /// `FollowUpResolutionPlayed`（`CardScript__FollowUpResolutionPlayed.c:7` 的第 6 实参），
+        /// 410 那条 ability 的 `ta = 30 (target)` 就靠它取到目标。</para>
+        /// <returns>1 = 已排进队列（= 原版「登记了一条后续动作」）；0 = 本卡没有可结算的 410 正文
+        /// （`TriggerOpsByNumber(410)` 为空 ⇒ 与原版「这张卡没有 410 能力」同一结果，**不是**静默失败：
+        /// 日志会写明）。</returns>
+        internal static int RunFollowAfterResolutionRow(BattleContext ctx, int p, UnitState u, UnitState chosen)
+        {
+            if (ctx == null || u == null || u.Card == null) return 0;
+            int slot = -1;
+            FindSlot(ctx, u, out _, out slot);                                 // 不在场上 ⇒ `slot = -1`（`EmitFollowUpResolution` 的 slot 口径）；`FindSlot` 两边都先置 -1，所以失败时也是 -1
+            EmitFollowUpResolution(ctx, u.Card, p, slot, u.InstanceId);
+            bool fired = RuleCore.FireTriggerByNumber(ctx, u, 410, p, slot,
+                                                      actingCard: chosen ?? u, targetCard: chosen ?? u);
+            ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 320`（followAfterResolution）：已登记后续结算 → "
+                  + $"`trigger 410`（{(fired ? "已排入行动队列" : "本卡没有可结算的 410 正文 ⇒ 不会有后续")}）"
+                  + "（判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` → "
+                  + "`CardScript__FollowUpResolutionPlayed.c:5-9`：`OnTrigger(0x19a = 410)`）");
+            return fired ? 1 : 0;
+        }
+
+        /// <summary>自检门：<see cref="RunFollowAfterResolutionRow"/>（账 `1281`/`1379` 的 (a) 格）。</summary>
+        public static int RunFollowAfterResolutionRowForTest(BattleContext ctx, int p, UnitState u, UnitState chosen)
+        {
+            return RunFollowAfterResolutionRow(ctx, p, u, chosen);
+        }
+
+        /// <summary>自检门：<see cref="RunActiveRowOpsOrGrantedTrigger"/> 的 `ca` 分派表
+        /// （证明 `ca == 320` 真的被分派到 <see cref="RunFollowAfterResolutionRow"/>，⛔ 不是落到 op 那一支）。</summary>
+        public static int RunActiveRowDispatchForTest(BattleContext ctx, int p, UnitState u,
+                                                      int row, int ca, int ta, UnitState chosen)
+        {
+            return RunActiveRowOpsOrGrantedTrigger(ctx, p, u, row, ca, ta, chosen);
+        }
+
+        /// <summary>🔴 2026-10-30（`B99_E9` · #19）：**手牌监听（事件触发式降费）的 ability 级闸** ——
+        /// 判据 = 原版 `CardAbility__CanTriggerAbility.c:126-141` 那条 `&&` 链（acting → target → board）；
+        /// 事件源 = `RawCardScript__OnMinionDeath.c:14-24`（`OnTrigger(90 OtherUnitDeath, …, targetCard = 死掉的单位)`）。
+        /// <para>消费点与棋盘 / 常驻效果那两跳**同一个函数**（`ActionPump.AbilityLevelCriteriaAllows`，⛔ 不另写一份）。</para>
+        /// <para>三态（与 `EnqueueAbility` 的两道闸**同一套契约**）：`true` /「没有这一行」⇒ 放行；
+        /// `false` ⇒ **不降费、也不发 `EvtKind.Trigger`**（原版那条 ability 没触发 ⇒ 连
+        /// `PlayTriggerTraitAnim` 都不播，判据 `RawCardScript__TriggerAbilities.c:207/231`）；
+        /// `null`（判不了）⇒ **放行 + 出声**（⛔ 不许当「不满足」把降费掐死）。</para>
+        /// <para>⚠️ `thisCard` 传 `null`：原版这一跳的 `thisCard` = **手里那张牌自己**（它是 `CardScript`），
+        /// 我们没有它的 `UnitState`；`TargetCriteriaEval` 用 `owner`（= `p`）顶 `thisCard.isPlayer` 判阵营
+        /// （`TargetCriteriaEval.cs:222-238`，`W2` 定的等价口径）。</para>
+        /// <para>⚠️ `actingCard` **只用于出声**：降费这一路不启用第一道闸（`+0x28` 的「哪一格」没查清，
+        /// 那一笔另立账，见 `判据/B99_R4b_引擎与工具.md` §六·2）。</para>
+        /// <para>⚠️ **没有**「`AbilityLevelCriteriaRowCount == 0` 就短路」：`AbilityLevelCriteriaAllows` 在
+        /// 「这张 ability 没有 target 条件」时**仍要判 board 条件**（`unitConditions` 的 `role="count"` 那一列，
+        /// 独立于 ability 级 criteria 行）⇒ 那会把 board 闸整条掐掉。</para>
+        /// <para>🧨 灭自证：把本函数改成恒 `return true` ⇒ `B99E9_Assert` 的「能力级 criteria 与卡面文本相反」那两条红。</para>
+        /// </summary>
+        static bool CostWhenAbilityCriteriaAllows(BattleContext ctx, int p, CardDef c, string kind,
+                                                  UnitState subject, UnitState actingCard)
+        {
+            string trig = TriggerNameOfWhenKind(kind, false);
+            if (string.IsNullOrEmpty(trig)) return true;   // 认不出的事件短语 ⇒ 与改前逐字相同（它本来也没有 trigger 名可喂）
+            string why;
+            bool? ok = AbilityLevelCriteriaAllows(ctx, p, /*thisCard*/null, c, trig, subject, out why);
+            if (ok == false)
+            {
+                ctx.Log($"—— 事件「{kind}」不触发：「{c.Name}」在手里监听，但 ability 级触发条件**不满足**"
+                      + $"（trigger={trig}，候选=`{(subject != null ? subject.Name : "?")}`"
+                      + (actingCard != null ? $"，凶手=`{actingCard.Name}`" : "，无来源") + "）"
+                      + (string.IsNullOrEmpty(why) ? "。" : "：" + why)
+                      + " —— 不降费、也不发触发事件（判据 = 原版 `CardAbility__CanTriggerAbility.c:126-141`）");
+                return false;
+            }
+            if (ok == null)
+                ctx.Log($"—— 事件「{kind}」：「{c.Name}」的 ability 级触发条件**判不了**"
+                      + (string.IsNullOrEmpty(why) ? "" : "（" + why + "）")
+                      + " ⇒ 本次不筛（放行；⛔ 不把「不知道」当「不满足」）——");
+            return true;
+        }
+
+        /// <summary>🔴 2026-10-30（`B99_E9` · #21②）：`ApplyAbilityFamilyGate` 的**唯一定位支** ——
+        /// 按 trigger **唯一定位**到一条 ability 时，直接走 `ActionPump.AbilityLevelCriteriaAllows`
+        /// （= 原版 `CardAbility__CanTriggerAbility.c:126-141` 的 target+board 两道闸）。
+        /// 明确不满足 ⇒ **这条 ability 的整段正文都不结算**（原版那条 ability 没触发 ⇒ `PlayAbility` 根本不入队，
+        /// 判据 `RawCardScript__TriggerAbilities.c:207/231`；⛔ 不是「只跳一条 op」）。
+        /// <para>⚠️ 与 `RuleCore.AbilityFamilyGateOpsForTrigger` 的**互斥分工**：那条路（`FireTriggerAt`）的
+        /// 唯一定位支由 `EnqueueAbility` 的 `abilityTrigger` 闸承担（本批同一改动接线）⇒ 那里**保持**
+        /// 「唯一定位 ⇒ 不启用」，否则同一张卡会被两道闸各判一次（净结果相同，但
+        /// `AbilityLevelCriteriaWarningsForTest` 会各加一次）。</para>
+        /// <para>三档：`false` ⇒ `skip[i]=true` 全条 + 计数 + 出声；`null` ⇒ 放行 + 出声（判不了不等于不满足）；
+        /// `true` /「没有条件」⇒ 不动。</para>
+        /// <para>🧨 灭自证：把 `ApplyAbilityFamilyGate` 的 `uab >= 0` 支改回「直接 return」⇒ `B99E9_Assert`
+        /// 的「tactic 正文 ability 级 criteria 不满足 ⇒ 整段不结算」那两条红。</para>
+        /// </summary>
+        static void ApplyAbilityFamilyGateUnique(BattleContext ctx, int owner, UnitState thisCard,
+                                                 CardDef card, string triggerName,
+                                                 List<EffectOp> ops, UnitState chosen, bool[] skip, string by)
+        {
+            if (ctx == null || card == null || ops == null || skip == null) return;
+            string why;
+            bool? ok = AbilityLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, chosen, out why);
+            if (ok == false)
+            {
+                for (int i = 0; i < ops.Count && i < skip.Length; i++) skip[i] = true;
+                NoteAbilityFamilyGateSkipForTest();
+                ctx.Log($"{by}：「{card.Name}」的 ability 级 `targetCriteria`（trigger={triggerName}）**不满足**"
+                      + " ⇒ 这条 ability 的**整段正文都不结算**"
+                      + "（原版 `CanTriggerAbility` 不过 ⇒ `PlayAbility` 不入队；钱照收）"
+                      + (string.IsNullOrEmpty(why) ? "" : "：" + why));
+                return;
+            }
+            if (ok == null && !string.IsNullOrEmpty(why))
+                ctx.Log($"{by}：「{card.Name}」的 ability 级 `targetCriteria`（trigger={triggerName}）**判不了**"
+                      + " ⇒ 本次不筛（放行；⛔ 不把「不知道」当「不满足」）：" + why);
+        }
     }
 }

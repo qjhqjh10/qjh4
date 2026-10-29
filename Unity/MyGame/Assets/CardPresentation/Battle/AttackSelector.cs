@@ -90,13 +90,13 @@ namespace CardPresentation
 {
     /// <summary>
     /// 一次行动可以选哪几种「打法」。
-    /// 值**照抄原版的 `attackType` 位标志**（1/2/4），这样对着场景 JSON 排查时能直接对上。
+    /// 值**照抄原版的 `attackType` 位标志**（1/2/3/4 —— **3 = `Spell`**：原版 `AttackTypes` 枚举有这一档（`dump.cs:24798-24807` `None0/Melee1/Ranged2/Spell3/Active4`），但引擎**从不产 3**、卡面也没有它的 `HighlightAttackType` 实例 ⇒ 这里只补值、⛔ **`KindOf` 不加 `case 3`**），这样对着场景 JSON 排查时能直接对上。
     /// </summary>
     public enum AttackKind
     {
         None = 0,
         Melee = 1,
-        Ranged = 2,
+        Ranged = 2, Spell = 3,
         Ability = 4,
     }
 

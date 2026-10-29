@@ -7,15 +7,15 @@
   "blank_guid": 64,
   "unresolved_guid": 0,
   "pure_wait": 0,
-  "cards": 62,
-  "steps": 99,
-  "cards_no_steps": 739,
-  "rows_not_active": 908,
-  "steps_not_active": 1175,
-  "movers": 7,
-  "offset_beats": 3,
-  "not_in_pool": 96,
-  "renamed": 33,
+  "cards": 93,
+  "steps": 158,
+  "cards_no_steps": 741,
+  "rows_not_active": 911,
+  "steps_not_active": 1178,
+  "movers": 13,
+  "offset_beats": 4,
+  "not_in_pool": 94,
+  "renamed": 35,
   "poolMissing": 0
  },
  "cards": [
@@ -1987,6 +1987,1135 @@
      "vd": 0.0,
      "ts": 0.0,
      "tm": 0.75,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "DA65",
+   "name": "Chaplain Gabutheron",
+   "steps": [
+    {
+     "ca": "0deae3050e715944b9593e7221bbe2ea",
+     "vfx": "Healing_Projectile",
+     "sp": 0,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 1,
+     "otv": 0,
+     "ease": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ],
+     "ao": 1,
+     "ont": 0,
+     "ofx": [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+     ],
+     "ofy": [
+      0.0,
+      0.0,
+      0.5,
+      1.0,
+      1.0,
+      0.0
+     ],
+     "ofz": [
+      0.0,
+      1.0,
+      1.0,
+      1.0
+     ],
+     "mnx": 0.0,
+     "mxx": 0.0,
+     "mny": 1.0,
+     "mxy": 1.5,
+     "mnz": 0.0,
+     "mxz": 0.0
+    },
+    {
+     "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+     "vfx": "Trait_GainQuest",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.699999988079071,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "DA71",
+   "name": "Watcher in the Dark",
+   "steps": [
+    {
+     "ca": "50137c579b0a83245afc786c1e77fe0b",
+     "vfx": "Buff_DA_Forest_Self",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "51ee6cf191575f54fabd4550c788b305",
+     "vfx": "CreateCard DA",
+     "sp": 5,
+     "ep": 5,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 2.5,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+     "vfx": "Trait_GainQuest",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.699999988079071,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "DA75",
+   "name": "Master Zacharial",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "1fcabddbb223cf343a85316bfbeb0498",
+     "vfx": "Trait_GainQuest",
+     "sp": 3,
+     "ep": 3,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.699999988079071,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW1",
+   "name": "Logan Grimnar",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "d9435865cb5d2394391e159a4abd77cd",
+     "vfx": "DeckBuff_MoveToTop",
+     "sp": 50,
+     "ep": 50,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW11",
+   "name": "Grey Hunter Pack Leader",
+   "steps": [
+    {
+     "ca": "283e134ac510dc4498db1784afd59bf1",
+     "vfx": "Buff_Blue_SW",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW21",
+   "name": "Wulfen Pack Leader",
+   "steps": [
+    {
+     "ca": "945014349c7e3cd4b93922bafe782387",
+     "vfx": "Cut Wulfen SW",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "c54f94d30a8004f4ab1967ce57662661",
+     "vfx": "Cut Wulfen SW Reverse",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW23",
+   "name": "Fenrisian Drop Pod",
+   "steps": [
+    {
+     "ca": "23f71ea872951b047b0ee19cd9d47ef4",
+     "vfx": "Space Wolves Summon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.399999976158142,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "23f71ea872951b047b0ee19cd9d47ef4",
+     "vfx": "Space Wolves Summon",
+     "sp": 14,
+     "ep": 14,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.399999976158142,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW29",
+   "name": "Sons of Morkai Eliminator",
+   "steps": [
+    {
+     "ca": "a3d840680f27a4f41929e37c9300e866",
+     "vfx": "Buff_Blue_SW",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW3",
+   "name": "Ragnar Blackmane",
+   "steps": [
+    {
+     "ca": "a6cd0947c6cb4da4598c5c224207840a",
+     "vfx": "Buff_Green_Agenda",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW36",
+   "name": "Bjorn the Fell-Handed",
+   "steps": [
+    {
+     "ca": "a3d840680f27a4f41929e37c9300e866",
+     "vfx": "Buff_Blue_SW",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "d1b99e663c5d8f64dac3392e66c10f27",
+     "vfx": "BolterSweep_2",
+     "sp": 0,
+     "ep": 0,
+     "pt": 4,
+     "vd": 0.0,
+     "ts": 1.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW4",
+   "name": "Blood Claw",
+   "steps": [
+    {
+     "ca": "1d9846e533e2e534cbe76284f3286a2f",
+     "vfx": "BulletImpact_2shot_trail",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW5",
+   "name": "Hunting Wolf",
+   "steps": [
+    {
+     "ca": "70daafca6eefd5544bb3dc44747fc6a3",
+     "vfx": "Buff_Blue_SW_Wolf",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.4000000059604645,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "SW8",
+   "name": "Blackmane Reiver",
+   "steps": [
+    {
+     "ca": "fb136b9d6fb72a844a5e74e804b08ab7",
+     "vfx": "DeckBuff_SW",
+     "sp": 50,
+     "ep": 50,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "cb3f0301bb119dd4c8243fad8797ca90",
+     "vfx": "Card_Buff_Hand_SW",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM101",
+   "name": "1st Company Terminator",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "c9be2ad2685b292498d6e11e5821afa4",
+     "vfx": "BulletImpact_stormbolter_4shots",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM102",
+   "name": "Terminator Captain",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM103",
+   "name": "Terminator",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "b421340356422a7438cb1fc70a480911",
+     "vfx": "ArmourEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.7999999523162842,
+     "te": 0.0,
+     "w": 0,
+     "mv": 1,
+     "otv": 0,
+     "ease": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM104",
+   "name": "Bladeguard Ancient",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "b421340356422a7438cb1fc70a480911",
+     "vfx": "ArmourEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.7999999523162842,
+     "te": 0.0,
+     "w": 0,
+     "mv": 1,
+     "otv": 0,
+     "ease": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM105",
+   "name": "Dreadnought",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "3a154e3e4a13f134a8ae2095eab11902",
+     "vfx": "Impact_blunt_lightning_Big_Recoil",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.6000000238418579,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "3a154e3e4a13f134a8ae2095eab11902",
+     "vfx": "Impact_blunt_lightning_Big_Recoil",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.6000000238418579,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM106",
+   "name": "Ferren Areios",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "0839bfdd8c98f5c4b97ca9d328dc8d4f",
+     "vfx": "Impact_blunt_lightning",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM108",
+   "name": "Brutalis Dreadnought",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "d1b99e663c5d8f64dac3392e66c10f27",
+     "vfx": "BolterSweep_2",
+     "sp": 0,
+     "ep": 0,
+     "pt": 4,
+     "vd": 0.0,
+     "ts": 1.0,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM89",
+   "name": "Incursor",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "075c125925578004b8c8cc469da8ac5c",
+     "vfx": "BlindEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.7999999523162842,
+     "te": 0.0,
+     "w": 0,
+     "mv": 1,
+     "otv": 0,
+     "ease": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "ca": "5eb486c0cf3a5fb408c98e960494695e",
+     "vfx": "Recon Scan",
+     "sp": 3,
+     "ep": 3,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "ce408321d1bf96b40bbc90e9d2ab182a",
+     "vfx": "Recon Hit",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM90",
+   "name": "Phobos Lieutenant",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "d8e61bc2616e734488321071da8a40b3",
+     "vfx": "Stealth_Proc_UM",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 0,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM91",
+   "name": "Tactical Marine",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "29e929d98e905014cbe2e0261569c7e0",
+     "vfx": "Basic_army_UM",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM92",
+   "name": "Firestrike Servo-Turret",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM93",
+   "name": "Vico Therbeus",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "d8e61bc2616e734488321071da8a40b3",
+     "vfx": "Stealth_Proc_UM",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.5,
+     "te": 0.0,
+     "w": 0,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM94",
+   "name": "Scout Sniper",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "c59a868f47f966d449eb8a3175bb7d9b",
+     "vfx": "BulletImpact_1shotSniper_trail",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.75,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM95",
+   "name": "Attack Bike",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "c4f2ac105b9c8024bb932e3b3e512777",
+     "vfx": "FlankEffect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.0,
+     "te": 0.0,
+     "w": 0,
+     "mv": 1,
+     "otv": 0,
+     "ease": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM96",
+   "name": "Chapter Champion",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "b421340356422a7438cb1fc70a480911",
+     "vfx": "ArmourEffect",
+     "sp": 2,
+     "ep": 2,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 1.7999999523162842,
+     "te": 0.0,
+     "w": 0,
+     "mv": 1,
+     "otv": 0,
+     "ease": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM97",
+   "name": "Suppressor",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "27605442c777d9749a436eae93f7384a",
+     "vfx": "CreateCard Gold",
+     "sp": 5,
+     "ep": 5,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 2.5,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM98",
+   "name": "Devastator Marine",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "12cb07380450987479b4739ccf9ac57e",
+     "vfx": "BulletImpact_Bolter_Large Area",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 1.7999999523162842,
+     "tm": 0.0,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    }
+   ]
+  },
+  {
+   "id": "UM99",
+   "name": "Phobos Librarian",
+   "steps": [
+    {
+     "ca": "e88772cb08fb73243970183f0f1dff7a",
+     "vfx": "Oath_Effect",
+     "sp": 0,
+     "ep": 0,
+     "pt": 0,
+     "vd": 0.0,
+     "ts": 0.0,
+     "tm": 0.20000000298023224,
+     "te": 0.0,
+     "w": 1,
+     "mv": 0,
+     "otv": 0,
+     "ease": []
+    },
+    {
+     "ca": "8606c664f55e9be46b7ceb2bccd9df41",
+     "vfx": "Psychic_Lightning",
+     "sp": 0,
+     "ep": 2,
+     "pt": 2,
+     "vd": 0.0,
+     "ts": 0.6499999761581421,
+     "tm": 0.0,
      "te": 0.0,
      "w": 1,
      "mv": 0,

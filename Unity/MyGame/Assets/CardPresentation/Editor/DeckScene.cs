@@ -822,7 +822,7 @@ public static class DeckScene
                 //   `CardDeck.GetEmptyDeck()` → 打模式 → 直接开 `DeckEditingWindow`，**全链无入库调用**）。
                 //   ⛔ 别在这之前预建卡组：预建了，「空库时不写盘」那几条就没有鉴别力了。
                 //   夹具在 `TestLibraryWiring()`（断空库那一拍）**之后**才建，见 `TestLibraryAfterDone()`。
-                state = Build(DeckLibrary.Load(), out _root);
+                state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail));
                 // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
                 //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）

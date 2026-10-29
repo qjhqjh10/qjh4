@@ -662,7 +662,7 @@ namespace RuleEngine
         /// <summary>攻击型：近战（原版 `AttackTypes.Melee = 1`）。</summary>
         public const int AttackTypeMelee = 1;
         /// <summary>攻击型：远程（原版 `AttackTypes.Ranged = 2`）。</summary>
-        public const int AttackTypeRanged = 2;
+        public const int AttackTypeRanged = 2; public const int AttackTypeSpell = 3;   // 攻击型：法术（原版 `AttackTypes.Spell = 3`，`dump.cs:24798-24807`）· 🔴 2026-10-30（`B99_A3`）：三份值域副本里只有本文件缺 3 ⇒ 补上，⛔ 别再用魔数 3 · ⚠️ 原版**实例里只有 Melee/Ranged**（`B99_R3a` 已核）⇒ 这一档今天零可观测
         /// <summary>攻击型：未定（原版 `EntityScript.__ctor` 的初值虽写 `1`，
         /// `AttackTypes` 枚举里 `0` 是「没选」—— 我们只在**强制档**上用不到它，留着对齐枚举）。
         /// 取值照 `AttackTypes`：`0 未定 · 1 近战 · 2 远程 · 4 主动技能`。</summary>
@@ -2741,7 +2741,7 @@ namespace RuleEngine
         ///   `trait==610 pack ⇒ +0x358=0`）**我们没有落点**（前者在我们这边是 `RuleCore.OpenDropPod`
         ///   那条独立机制，后者那格缓存在 `Aura.cs`）⇒ 如实留缺口，见报告 §五。
         /// · `4 / 6 / 7 / 8 / 9 / 0xB / 0xD / 0xE`：**空档**（`.c:196-201` 只有 `break`）。
-        /// · `5 swapStats`（`:202-238`）：`ChangeBaseAttack(卡面近战)` + `ChangeMaxHealth(卡面血)` + 夹血。
+        /// · `5 swapStats`（`:202-238`）：`ChangeBaseAttack(卡面近战)` + `ChangeMaxHealth(卡面血)` + 夹血。⚠️ **夹血有两道**：`ChangeMaxHealth` **自己**先夹一次（`.c` 体末六句：写完 `+0xa4` 后 `currentHealth = min(currentHealth, 新 +0xa4)` ⇒ 夹到 **base**），case 5 外层再夹一次 processed（`.c:222-238`）⇒ 净效果 `min(currentHealth, base, processed)`。两道都落（`B99_E2` 2026-10-29 补第一道）。
         /// · `0xC / 0xF / 0x10`（附魔）：摘 `activeEnchantments` 那条，并在
         ///   `cardType==0x28 && spellType==0x78 && !fromJam` 时 `BroadcastQuestResolved` + `questCounter=0`
         ///   ⇒ **不在本方法**（`Enchantment.Remove` 那一套），`fromJam` 这个形参就是给它留的。
@@ -2779,7 +2779,7 @@ namespace RuleEngine
                     if (Card != null)
                     {
                         int __swpFold = RestoreSwapStatsBase();   // 🔴 2026-10-29（`B98_K6` · 账 852 ②）：原版 case 5 先调 `ChangeBaseAttack(卡面近战)` / `ChangeMaxHealth(卡面血)`，**这两个方法还会顺手清残留**（倒序摘「非 extrinsic ∧ buffType==1 ∧ 有增量」的整条；extrinsic 的血增量折进 base）—— 两半都在**类尾** `RestoreSwapStatsBase`（判据 `decomp_full/CardScript__ChangeBaseAttack.c` / `CardScript__ChangeMaxHealth.c`）
-                        AttackBase = Card.Attack; MaxHealthBase = Card.Health + __swpFold;
+                        AttackBase = Card.Attack; MaxHealthBase = Card.Health + __swpFold; if (Health > MaxHealthBase) Health = MaxHealthBase;   // 🔴 2026-10-29（`B99_E2` · 账 `战斗逻辑驱动:853`（J0 §852 ②））：**原版 `ChangeMaxHealth` 自己还会夹一次血** —— `CardScript__ChangeMaxHealth.c` 体末六句：写完 `+0xa4`（= 刚赋的 base）之后立刻 `iVar7 = currentHealth(+0x68)` / `iVar8 = 0xa4` / `if (iVar7 < iVar8) iVar8 = iVar7` / 回写 `+0x68` ⇒ **夹的是 base**。case 5 外层那句 `ClampHealthToMax()`（`:2784`）夹的才是 processed（`.c:222-238`）⇒ 净效果 `min(Health, base, processed)`；只留外层时「生命落在 base 与 processed 之间」会多留血。本条与上一句**同一物理行**（零行数变化：本文件被 43 条账行按 `文件:行号` 引用）
                     }
                     ClampHealthToMax();
                     SyncAttackTypeAfterStatChange();

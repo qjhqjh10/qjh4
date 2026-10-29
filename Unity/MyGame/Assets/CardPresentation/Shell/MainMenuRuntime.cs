@@ -4063,7 +4063,7 @@ namespace CardPresentation
             // 倒计时**前缀词条**同样来自事件（原版 `InitializeWitLocKey(end, evt.GetTimeDescriptionTextKey())`，
             // 三档 `TimeStartsIn`/`TimeEndsIn`/`TimeFinished`，空串 = 不显示前缀）—— 正本 → `Shell/LiveOpsState.cs` 那份实现。
             BuildModeCard(parent, nm, x, y, w, h, cardArt, cardTitle, kind, ModeViewport, end,
-                          owner != null ? owner.GetTimeDescriptionTextKey() : null); BindMainMenuOfferContainer(owner != null && parent != null ? parent.Find(nm) : null, owner, w, h);   // 🆕 2026-10-29（B97_SHOP）：账 `商店:162` —— 原版 `ContainerBuilder<T>.MakeContainer` 之后宿主对容器喂的那一次 `OnInitialize(data.Event)`（正常路径 = 报价格容器那一族，见类尾 `BindMainMenuOfferContainer` 的 doc）。⚠️ 追加在**同一行** ⇒ 行号零漂移（先例 `GachaEventWindow.cs:858` 的「同一行 = 不加行号」）；本文件被账按 `文件:行号` 引用（`:4718`/`:4504`/`:4518` 等 10 处都在此之后）
+                          owner != null ? owner.GetTimeDescriptionTextKey() : null); BindMainMenuOfferContainer(owner != null && parent != null ? parent.Find(nm) : null, owner, w, h); if (owner != null && CardHasEventProgression(nm, h)) BuildEventProgressionForOwner(parent != null ? parent.Find(nm) : null, x, y, w, h, ModeViewport, owner);   // 🆕 2026-10-29（B97_SHOP）：账 `商店:162` —— 原版 `ContainerBuilder<T>.MakeContainer` 之后宿主对容器喂的那一次 `OnInitialize(data.Event)`（正常路径 = 报价格容器那一族，见类尾 `BindMainMenuOfferContainer` 的 doc）。⚠️ 追加在**同一行** ⇒ 行号零漂移（先例 `GachaEventWindow.cs:858` 的「同一行 = 不加行号」）；本文件被账按 `文件:行号` 引用（`:4718`/`:4504`/`:4518` 等 10 处都在此之后）
         }
 
         /// <summary>`EventComponents[MainMenuContainer]`（= 35）的 **GUID → 容器 prefab 根名**。
@@ -5196,6 +5196,191 @@ namespace CardPresentation
                 new PxRect(CardCol0 + col * CardColStep - _modeOffsetPx, CardRow0Top,
                            CardCol0 + col * CardColStep - _modeOffsetPx + CardW, CardRow0Top + CardH));
             _rankedArmyBonusCard.Initialize(bonusEvent);     // 内部自己 `Clean()` 再按 `affectedArmies` 原序填
+        }
+
+        // ============================================================================================
+        //  账 日常_奖励:434 —— `RaidOrArmyReleaseMenuContainer` 宿主的 `Event Progression` 子树
+        //  （#4 OnEnable / #5 OnInitialize / #6 RefreshProgressBar / #7 SetAndRefreshProgressBar 的**渲染**那一半）
+        //  判据 → `资料/完全复刻/判据/B99_R2_日常9条终局.md` §二（几何逐件现读，2026-10-29 `B99_R2` 解帧）
+        //  逻辑半边 = `Shell/RaidEvent.cs` 的 `RaidOrArmyReleaseMenuContainerLogic`（InitPlan/SetPlan/RefreshPlan）
+        //  🔴 只建在 **`Base Game Mode Container 1x2 Raid or Army Release`** 这一张卡上（唯一带该子树的 prefab；
+        //     同族 `1x1` / `1x2` / `1x2 No Timer` 三棵的根子树里**都没有** `Event Progression` ——
+        //     `bundle_menus_assets_all/GameObject/*` 逐棵 walked 现读）
+        // ============================================================================================
+
+        /// <summary>这张模式卡要不要建 `Event Progression` 子树（判据 → `B99_R2` §二）。
+        /// <para>唯一带该子树的 prefab = `Base Game Mode Container 1x2 Raid or Army Release`（1×2 高卡，`h = CardHTall = 848.8`）；
+        /// 低卡档（`1x1` = 414.4）**原版就没有这一件**（`Base Game Mode Container 1x1` 的根子树 = Background Image /
+        /// Foreground Image / TextDarkening / Border，无 `Event Progression`，现读）⇒ 返回 false，
+        /// ⛔ 不要「按 414.4 也在卡内」就给它建（那是 §二 的另一句话，不是「1×1 变体有这一件」）。</para></summary>
+        public static bool CardHasEventProgression(string nodeName, float h)
+        {
+            if (h <= CardH + 1f) return false;                              // 低卡档（1×1）原版没有这一件
+            if (string.IsNullOrEmpty(nodeName)) return false;
+            int cut = nodeName.IndexOf(" - ", System.StringComparison.Ordinal);
+            string prefab = cut > 0 ? nodeName.Substring(0, cut) : nodeName;
+            return prefab == "Base Game Mode Container 1x2 Raid or Army Release";
+        }
+
+        /// <summary>生产路径：对一张事件卡建 `Event Progression`（`BuildModeCardForCard` 在 `BuildModeCard` 之后调）。
+        /// <para>把原版四支计划都跑一遍（纯函数）来决定「画什么」；**评分事件类型 / 进度都在服务端**（关服后本地拿不到）
+        /// ⇒ `RefreshProgressBar(false,false,…)` 返回 `Writes = false` ⇒ 不写档位数字、不画填充。</para></summary>
+        void BuildEventProgressionForOwner(Transform card, float x, float y, float w, float h, PxRect? clip, LiveOpsLocalEvent owner)
+        {
+            if (card == null) return;
+            var icon = OverIconTexOf(owner);                                                            // = 原版 `SetAndRefreshProgressBar` 的 `icon`（`scoringIcon` 字段 = Over Image）
+            var set  = RaidOrArmyReleaseMenuContainerLogic.SetAndRefreshProgressBar(icon != null, 9);    // `+0x88` 现读 = 9 = OverIcon
+            var rf   = RaidOrArmyReleaseMenuContainerLogic.RefreshProgressBar(false, false, 0, 0, null, null);   // 评分事件类型/进度 = 服务端
+            var init = RaidOrArmyReleaseMenuContainerLogic.OnInitialize(owner != null, 0);               // matchedKind（ExpansionPass/Raid）本地不可判 ⇒ 0
+            // `RaidOrArmyReleaseMenuContainerLogic.RefreshesOnEnable()` 恒 true（原版 OnEnable 全文一句 `RefreshProgressBar()`）——
+            // 本方法就在「建卡 / OnEnable」这一拍被调，等价那一句。
+            // 🔶 自己设计（非原版）：`init.Branch == 3`（本地拿不到评分事件类型）时原版会 `progressContainer.SetActive(false)`；
+            //   **不据此隐藏** —— 那是「确实没有评分事件」的语义，我们是「拿不到分类数据」；服务端已关服、判据在远端（铁律 18·0 的服务器门类）。
+            //   子树照建但**空**（无数字 / 无填充），数据到了由 `BuildEventProgressionForTest` 那条注入的 口喂进来。调度台 2026-10-29 裁定。
+            if (init.HideProgressContainer) { /* 见上：不隐藏，仅记账此支命中 */ }
+            string levelText = rf.Writes ? rf.LevelText : null;
+            float fill01 = rf.Writes ? rf.Progress : -1f;
+            BuildEventProgression(card, x, y, w, h, clip, levelText, null, fill01, set.IconEnabled ? icon : null);
+        }
+
+        /// <summary>自检口 / 数据注入：把 `Event Progression` 子树建进一张**给定卡节点**（`levelText` / `counterText` / `fill01`
+        /// 三格 = 原版 `RefreshProgressBar` 写进去的那三样；`fill01 &lt; 0` = 未知 ⇒ 不画填充）。
+        /// ⛔ 生产路径不直接调它（走 <see cref="BuildEventProgressionForOwner"/>）。</summary>
+        public void BuildEventProgressionForTest(Transform card, float x, float y, float w, float h,
+                                                 string levelText, string counterText, float fill01, Texture2D scoringIcon)
+        {
+            BuildEventProgression(card, x, y, w, h, null, levelText, counterText, fill01, scoringIcon);
+        }
+
+        /// <summary>建 `Event Progression` 子树（几何逐件现读 → `B99_R2` §二）。
+        /// <para>⚠️ 父链上的 `Fill Area` 是 `Background` 的子、`end` 是 `Fill` 的子、`Over Image` 是 `Scoring Icon Holder` 的子、
+        /// `Current Milestone Level text` 是 `Level` 的子（prefab 实录；`B99_R2` §二 把它们并列写是为了好读）。</para>
+        /// <para>⚠️ `Scoring Icon Holder` 的烘焙占位图 `40k_campaign_Expansion Pass` **本地没有**（且它是运行期资产，
+        /// `scoringIcon` 字段实际指 `Over Image`）⇒ 本件只建容器节点、**不画占位图**（⛔ 不造假）；事件图标画在 `Over Image` 上。</para></summary>
+        void BuildEventProgression(Transform card, float x, float y, float w, float h, PxRect? clip,
+                                   string levelText, string counterText, float fill01, Texture2D scoringIcon)
+        {
+            if (card == null) return;
+            var cardR = new EpRect { X1 = x, X2 = x + w, Y1 = y, Y2 = y + h };
+            // `Event Progression`：anchor (0.5,0) · pivot (0.5,0) · ap (0,122) · size 386.781×59.39
+            var ep = EpResolve(cardR, 0.5f, 0f, 0.5f, 0f, 0f, 122f, 386.781f, 59.39f, 0.5f, 0f);
+            float cx1 = clip.HasValue ? Mathf.Max(ep.X1, clip.Value.x1) : ep.X1;
+            float cx2 = clip.HasValue ? Mathf.Min(ep.X2, clip.Value.x2) : ep.X2;
+            if (cx2 - cx1 <= 0.01f) return;
+
+            var epGo = New(card, "Event Progression", ep.W, ep.H);
+            // `ProgressBar`：anchor/pivot (0.5,0.5) · size 386.781×59.39（铺满 EP）
+            var pb = EpResolve(ep, 0.5f, 0.5f, 0.5f, 0.5f, 0f, 0f, 386.781f, 59.39f, 0.5f, 0.5f);
+            var pbGo = New(epGo, "ProgressBar", pb.W, pb.H);
+            // `Background`：拉伸 (0,0.2)-(1,0.8) · size 0·0 ⇒ 中带（灰 0.3207547）
+            var bg = EpResolve(pb, 0f, 0.2f, 1f, 0.8f, 0f, 0f, 0f, 0f, 0.5f, 0.5f);
+            var bgGo = New(pbGo, "Background", bg.W, bg.H);
+            EpImage(bgGo, "40k_campaign_bar_bg", bg, cx1, cx2, QContent, new Color(0.3207547f, 0.3207547f, 0.3207547f, 1f));
+            // `Fill Area`：`Background` 的子 · 拉伸 (0,0.2)-(1,0.8) · sd.y 6.56498
+            var fa = EpResolve(bg, 0f, 0.2f, 1f, 0.8f, 0f, 0f, 0f, 6.564983f, 0.5f, 0.5f);
+            var faGo = New(bgGo, "Fill Area", fa.W, fa.H);
+            // `Outline`：`ProgressBar` 的子 · 拉伸 (0,0.2)-(1,0.8)（浅蓝 0.5518868,0.7508468,1）
+            var ol = EpResolve(pb, 0f, 0.2f, 1f, 0.8f, 0f, 0f, 0f, 0f, 0.5f, 0.5f);
+            var olGo = New(pbGo, "Outline", ol.W, ol.H);
+            EpImage(olGo, "40k_campaign_bar_outline", ol, cx1, cx2, QContent, new Color(0.5518868f, 0.7508468f, 1f, 1f));
+            // `counter`：`ProgressBar` 的子 · 拉伸 (0.2,0.2)-(0.8,0.7) · pivot (0,0.5)：`ProgressBar.SetProgress` 把 "current/next" 写这儿
+            var cn = EpResolve(pb, 0.2f, 0.2f, 0.8f, 0.7f, 0f, 0f, 0f, 0f, 0f, 0.5f);
+            var cnGo = New(pbGo, "counter", cn.W, cn.H);
+            var counterLabel = Text(cnGo, counterText ?? string.Empty, cn.X1, cn.X2, cn.Y1, cn.Y2, 8, Color.white, "counter",
+                                    31.3f, QText, cn.W, 12f, 35f, 36f, face: TmpFont.Face.LatinCardBody);
+            if (counterLabel != null && clip.HasValue && (cx1 > cn.X1 + 0.01f || cx2 < cn.X2 - 0.01f))
+                MenuDraw.ClipText(counterLabel, clip, Vector2.zero);
+
+            // `Fill` + `end`：**只有拿到进度才画**（`fill01 < 0` = 未知 ⇒ 不画，⛔ 不让空条读成「0 进度」）
+            if (fill01 >= 0f)
+            {
+                float f = Mathf.Clamp01(fill01);
+                var fill = new EpRect { X1 = fa.X1, X2 = fa.X1 + (fa.X2 - fa.X1) * f, Y1 = fa.Y1, Y2 = fa.Y2 };
+                var fillGo = New(faGo, "Fill", fill.W, fill.H);
+                EpImage(fillGo, "40k_campaign_bar_fill", fill, cx1, cx2, QContent, new Color(0.12735849f, 0.63347405f, 1f, 1f));
+                // `end`：`Fill` 的子 · anchor/pivot (1,0.5) · ap (3.3,0) · size 22×27.946（白 · a 0.6980392）
+                var endR = EpResolve(fill, 1f, 0.5f, 1f, 0.5f, 3.3f, 0f, 22f, 27.946f, 1f, 0.5f);
+                var endGo = New(fillGo, "end", endR.W, endR.H);
+                EpImage(endGo, "40k_campaign_bar_end", endR, cx1, cx2, QContent, new Color(1f, 1f, 1f, 0.6980392f));
+            }
+
+            // `Scoring Icon Holder`：`Event Progression` 的子 · anchor (0,1) · ap (13.785,-29.691) · size 102.307²（占位图本地缺 ⇒ 只建节点）
+            var sih = EpResolve(ep, 0f, 1f, 0f, 1f, 13.7845f, -29.6906f, 102.307f, 102.307f, 0.5f, 0.5f);
+            var sihGo = New(epGo, "Scoring Icon Holder", sih.W, sih.H);
+            // `Over Image`：`Scoring Icon Holder` 的子 · 拉伸 (0.07857,0.07857)-(0.92143,0.92143) —— 事件 over-icon（`scoringIcon` 字段指这里）
+            var oi = EpResolve(sih, 0.07857143f, 0.07857143f, 0.92142868f, 0.92142868f, 0f, 0f, -0.1391f, -0.1391f, 0.5f, 0.5f);
+            var oiGo = New(sihGo, "Over Image", oi.W, oi.H);
+            EpImageTex(oiGo, scoringIcon, oi, cx1, cx2, QContent, Color.white);
+
+            // `Level`：`Event Progression` 的子 · anchor/pivot (0.5,0.5) · ap (188.879,-2.12) · size 53.263×55.143（里程碑徽章 off 图）
+            var lv = EpResolve(ep, 0.5f, 0.5f, 0.5f, 0.5f, 188.879f, -2.1201f, 53.263f, 55.143f, 0.5f, 0.5f);
+            var lvGo = New(epGo, "Level", lv.W, lv.H);
+            EpImage(lvGo, "40k_ArmyTrack_milestone_off", lv, cx1, cx2, QContent, Color.white);
+            // `Current Milestone Level text`：`Level` 的子 · 拉伸 (0.2063,0.2177)-(0.7938,0.7823)：`RefreshProgressBar` 把「下标+1」写这儿
+            var lt = EpResolve(lv, 0.2063243f, 0.2176733f, 0.7937748f, 0.7823268f, 0f, 0f, 0f, 0f, 0.5f, 0.5f);
+            var ltGo = New(lvGo, "Current Milestone Level text", lt.W, lt.H);
+            var levelLabel = Text(ltGo, levelText ?? string.Empty, lt.X1, lt.X2, lt.Y1, lt.Y2, 8, Color.white,
+                                  "Current Milestone Level text", 32.85f, QText, 0f, 18f, 72f, 36f, face: TmpFont.Face.LatinCardBody);
+            if (levelLabel != null && clip.HasValue && (cx1 > lt.X1 + 0.01f || cx2 < lt.X2 - 0.01f))
+                MenuDraw.ClipText(levelLabel, clip, Vector2.zero);
+
+            if (string.IsNullOrEmpty(levelText) && string.IsNullOrEmpty(counterText) && fill01 < 0f)
+                NoteEventProgressionNoServerData();
+        }
+
+        /// <summary>`Event Progression` 子树的一个矩形（**屏幕设计 px · y 向下 · Y1 = 上边**）。</summary>
+        struct EpRect
+        {
+            public float X1, X2, Y1, Y2;
+            public float W { get { return X2 - X1; } }
+            public float H { get { return Y2 - Y1; } }
+        }
+
+        /// <summary>按一个 uGUI 节点（fraction 锚点 + `anchoredPosition` + `sizeDelta` + `pivot`）在父矩形里的
+        /// **绝对屏幕矩形**（y 向下）。父是 `EpRect`（y 向下）；anchor 的 y=0 = 父底、1 = 父顶（照 Unity up 语义）。</summary>
+        static EpRect EpResolve(EpRect parent, float anX, float anY, float axX, float axY,
+                                float apX, float apY, float sdX, float sdY, float pvX, float pvY)
+        {
+            float pw = parent.X2 - parent.X1, ph = parent.Y2 - parent.Y1;
+            float acx = parent.X1 + (anX + axX) * 0.5f * pw;
+            float acy = parent.Y2 - (anY + axY) * 0.5f * ph;   // fy=0 → 父底 = Y2
+            float pivX = acx + apX;
+            float pivY = acy - apY;                             // `ap.y` 向上为正
+            float sx = (axX - anX) * pw + sdX;
+            float sy = (axY - anY) * ph + sdY;
+            return new EpRect { X1 = pivX - pvX * sx, X2 = pivX + (1f - pvX) * sx,
+                                Y1 = pivY - (1f - pvY) * sy, Y2 = pivY + pvY * sy };
+        }
+
+        ImageQuad EpImage(Transform parent, string art, EpRect r, float cx1, float cx2, int q, Color tint)
+            => EpImageTex(parent, Art(art), r, cx1, cx2, q, tint);
+
+        /// <summary>按矩形建一张图；横向超出视口就**缩网格 + 缩 UV**（与卡图/时钟图标同一条口径，⛔ 只缩网格会把图拉扁）。</summary>
+        ImageQuad EpImageTex(Transform parent, Texture tex, EpRect r, float cx1, float cx2, int q, Color tint)
+        {
+            if (tex == null || r.H <= 0.01f) return null;
+            float vx1 = Mathf.Max(r.X1, cx1), vx2 = Mathf.Min(r.X2, cx2);
+            if (vx2 - vx1 <= 0.01f) return null;
+            var quad = ImageQuad.Create(parent, tex, Center(vx1, vx2, r.Y1, r.Y2), r.H / 108f, new Vector2(0.5f, 0.5f), "Image");
+            if (quad == null) return null;
+            quad.SetAspect((vx2 - vx1) / r.H);
+            if (vx1 > r.X1 + 0.01f || vx2 < r.X2 - 0.01f)
+                quad.SetUvRect(new Rect((vx1 - r.X1) / r.W, 0f, (vx2 - vx1) / r.W, 1f));
+            quad.SetTint(tint);
+            quad.SetRenderQueue(q);
+            return quad;
+        }
+
+        static bool _epNoDataNoted;
+
+        /// <summary>进度未知 ⇒ 出声一次（⛔ 不假造：不印 `--`、不印 `0/0`、不画填充）。</summary>
+        static void NoteEventProgressionNoServerData()
+        {
+            if (_epNoDataNoted) return;
+            _epNoDataNoted = true;
+            Debug.Log("[Menu] `Event Progression` 子树已建（结构齐：ProgressBar / Scoring Icon Holder / Level），"
+                    + "但**进度数据在服务端**（`GetCurrentMilestoneIndex` / `GetScoringInfoFromCurrentMilestone`）⇒ 本机拿不到 ⇒ "
+                    + "**不印档位数字、不印 counter、不画填充**（⛔ 不假造进度）。判据 → `判据/B99_R2_日常9条终局.md` §一 #4–#7。");
         }
     }
 }

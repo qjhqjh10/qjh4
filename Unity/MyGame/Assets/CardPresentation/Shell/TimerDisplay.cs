@@ -42,8 +42,8 @@
 // · 到点（剩余 <= 0）：原版把 timer 那颗 TMP 的 GameObject `SetActive(false)` 并**只触发一次** `OnRunOutOfTime`。
 //   🔴 **2026-10-28（B92_N8）按 `.c` 订正**：我们原来只清字不关 GameObject（「视觉等价」的自我说服）——
 //   已改成**同一条路**：清字 + `SetActive(false)` + 一次性回调（GameObject 一关，`Update` 自然停）。
-// · 目标时刻**取不到**：`Debug.LogWarning` **一次**（按 `what` 去重）+ 显示 `<prefix>--`。
-//   ⛔ 绝不编一个日期顶上（用户口径：不许静默给假数）。
+// · 目标时刻**取不到**：**`return;` —— 一个字都不写、不动 GameObject**（原版 `TimerDisplay__UpdateTimer.c` 第一条就是 `if (*(char*)(this+0x78) == '\0') return;`）。
+//   🔴 **2026-10-30（`B99_A4` · 铁律 5 + §18·0 就地订正）**：原文写「`Debug.LogWarning` 一次 + 显示 `<prefix>--`」——**已过期**：`--` 是**我们做的、原版没有**的占位（反向清单 §五 #1）⇒ 已删；仍**出声一次**（⛔ 不静默失败），但⛔ 不编日期、也⛔ 不印 `--`。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -87,7 +87,7 @@ namespace CardPresentation
         /// <para><paramref name="target"/> 每次 tick 都会重新取 —— 商店那种「过了 9 点就滚到次日」、
         /// 日常那种「过了日界就滚到明天」的，不能只算一次。</para>
         /// <para><paramref name="target"/> 为 <c>null</c>（或它返回 <c>null</c>）= **目标时刻未知**
-        /// ⇒ 出声一次 + `<paramref name="prefix"/>--`。⛔ 不许自己编一个日期。</para>
+        /// ⇒ **一个字都不写**（原版 `UpdateTimer` 那一支是 `return;`），只出声一次。⛔ 不印 `--`、⛔ 不编日期（2026-10-30 `B99_A4`）。</para>
         /// <para><paramref name="lastMinutesPrefix"/> 非空时启用原版那一档：剩余 &lt; 5 分钟时描述串换成它。</para></summary>
         public static TimerDisplay Attach(Label label, System.Func<System.DateTime?> target,
                                           string prefix, string what, string unknownReason,
@@ -227,17 +227,17 @@ namespace CardPresentation
         }
 
         /// <summary>一次性算好的文本（给**没有挂组件**的静态口用，如 `DailyData.RewardTimerText()`）。
-        /// <para>`target == null` ⇒ 出声一次 + `<prefix>--`；已到点 ⇒ 空串（同原版 `SetActive(false)` 的观感）。</para></summary>
+        /// <para>`target == null` ⇒ 出声一次 + **只印描述串**（`Compose(prefix, "")`，⛔ 不印 `--`）；已到点 ⇒ 空串（同原版 `SetActive(false)` 的观感）。</para></summary>
         public static string TextFor(System.DateTime? target, string prefix, string what, string unknownReason)
         {
             if (!target.HasValue)
             {
                 WarnUnknownOnce(what, unknownReason);
-                // 🔴 **2026-10-18（第五十一会话 · 真机抓到 `在 {0} 结束--`）**：
-                //   这一支原来直接 `prefix + "--"`，**没走 `Compose`** ⇒ 带 `{0}` 的词条
-                //   （例 `Missions/ActiveCounter` =「在 {0} 结束」）会把 `{0}` 原样印出来。
-                //   ⇒ 与有目标时刻那一支同一条路。
-                return Compose(prefix, "--");
+                // 🔴 **2026-10-30（`B99_A4` · 铁律 5 + §18·0 就地订正）**：这一支原来返回 `Compose(prefix, "--")`。
+                //   原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 **`return;` 静默**（一个字都不印）——
+                //   `--` 是**我们做的、原版没有**的占位 ⇒ 已删（反向清单 §五 #1）。⛔ 不许自己编一个日期。
+                //   🔶 自己设计（非原版）：`TextFor(null, …)` 返回 `Compose(prefix, "")`（`{0}` 填空、模板照印、⛔ 不印 `--`、⛔ 不编日期）· 为什么必须自定：截止时刻来自 LiveServer，关服后判据在远端（原版这一格永远有服务端时间）⇒ 按「不给假数」只印模板 · 调度台 2026-10-30 裁定
+                return Compose(prefix, "");
             }
             var remain = target.Value - System.DateTime.Now;
             if (remain <= System.TimeSpan.Zero) return "";
@@ -256,7 +256,7 @@ namespace CardPresentation
             if (!_warnedUnknown.Add(what)) return;
             Debug.LogWarning("[TimerDisplay] " + what + "：**目标时刻取不到**"
                              + (string.IsNullOrEmpty(reason) ? "" : "（" + reason + "）")
-                             + " ⇒ 显示 `--` 兜底（**不编日期**；原版这一格由服务端下发）。");
+                             + " ⇒ **这一件不写任何字**（原版这一支是 `return;`；⛔ 不印 `--`、⛔ 不编日期）。");
         }
 
         // ============================================================ 换语言重解析（原版 LocalizationChange）
@@ -353,7 +353,7 @@ namespace CardPresentation
         /// 80 条语句 / 26 个分支 —— 这是本组件**唯一的**文本计算口）。
         /// <para>分支（逐句对过 `.c`）：</para>
         /// <list type="number">
-        /// <item><c>if (target == null) return;</c> —— 原版**静默返回**；我们按用户口径改成「出声一次 + `--`」（🔶 非原版）。</item>
+        /// <item><c>if (target == null) return;</c> —— 原版**静默返回**；我们**照做**（不写字、不动 GameObject），只多一次出声（⛔ 不再印 `--`；2026-10-30 `B99_A4`）。</item>
         /// <item><b>最后 5 分钟档</b>（只有 `useLastMinutesText = 1` 的实例才有）：`0 &lt; remain &lt; 5min`
         ///       ⇒ **时间那一格直接写成 `lastMinutesText` 译文本身**（`.c` 尾部 `timeText.text = loc(lastMinutesText)`，
         ///       **不带倒计时数字**）。⚠️ 这一档原来我们把它当前缀用（拼成 `即将结束2分钟`），**与原版不符**，本轮按 `.c` 改。</item>
@@ -370,11 +370,11 @@ namespace CardPresentation
             var target = ResolveTarget();
             if (!target.HasValue)
             {
-                // 原版这一支是 `return;`（静默）。我们的约定见文件头「目标时刻取不到」那一条（🔶 非原版）。
-                WarnUnknownOnce(_what, _unknownReason);
+                // 原版 `TimerDisplay__UpdateTimer.c` = `if (*(char *)(this+0x78) == '\0') return;`（静默：不写字、不动 GameObject）。
+                WarnUnknownOnce(_what, _unknownReason);   // 只出声一次（按 `what` 去重）—— ⛔ 不再印 `--`（反向清单 §五 #1 · 2026-10-30 `B99_A4`）
                 _expired = false;
-                ShowLabel(true);
-                SetText(Compose(_prefix, "--"));
+                // ⛔ 不 `ShowLabel(true)`、⛔ 不 `SetText(...)`：调用方建 Label 时给的串原样留着（原版就是这条语义）。
+                //   ⚠️ 原来这里是 `ShowLabel(true)` + `SetText(Compose(_prefix, "--"))` —— 那个 `--` 是**我们做的、原版没有**的占位（铁律 18·0）；有截止时刻时 `_targetFixed`/delegate 照样走到下面那几支，⛔ 不会把真倒计时冻住。
                 return;
             }
 

@@ -573,11 +573,11 @@ namespace CardPresentation.Net
         /// <summary>🆕 2026-09-27：**只看局面**的哈希 —— 与 <see cref="Fingerprint"/> 唯一的差别是
         /// **不含 `ctx.Events.Count`**。
         ///
-        /// 🔴 为什么要多这一个：`ctx.Events` 是**待播事件队列**，表现层（`PlaySignals` / `DropSignals`）
-        /// 随时在抽干它 ⇒ **同一个局面在「刚做完动作」与「表现层跑过一轮」两个时刻，`Fingerprint` 不相等**。
-        /// 联机那边没关系（两端在同一约定点比），但**本地录像的逐条对账**会被它骗：
-        /// 录制时是「一回合跑完才 drain」（`PlayTurn` 一口气跑好几条），回放时是**每条都 drain**
-        /// ⇒ 逐条比指纹会**从第一条起就假红**（2026-09-27 实测：分叉点报到第 6 条，其实局面完全一致）。
+        /// 🔴 为什么要多这一个：`Fingerprint` 把 `ctx.Events.Count` 也算进哈希（见 `:566`），而**这一格不稳**。
+        /// ⚠️ **2026-10-29 订正（`B98_O1` 现读 + 本次复核）**：原文写「`ctx.Events` 是待播事件队列、表现层随时抽干它」—— **不成立**：
+        /// 表现层抽的是 `Ctx.Signals`（`BattleDriver.PlaySignals` 里的 `Ctx.DrainSignals`），`ctx.Events` **没有任何 drain**，
+        /// 只在 `BattleContext.cs:1858` 超 `EventCapacity` 时从头部裁掉 ⇒ 「抽干时刻不同」这个**归因是错的**（真因还没查清，已记待办）。
+        /// **实测事实不变**：2026-09-27 录像逐条对账**从第一条起就假红**（分叉点报到第 6 条而局面完全一致）⇒ 录像对账一律用本方法。
         /// ⇒ **录像的轨迹与终局对账一律用这一个**，别用 `Fingerprint`。
         /// </summary>
         public static int StateHash(BattleContext ctx)

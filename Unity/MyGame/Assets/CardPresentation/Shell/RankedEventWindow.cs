@@ -159,7 +159,7 @@ namespace CardPresentation
             // ⚠️ 它建在 `RankedDivisionInfo.Build` **之后**、挂到它建出来的 `Content` 底下（原版父链 =
             //   `Ranked Division Info ▸ Content ▸ Timer`；`Content` 是那棵树里的 VLG 容器）。
             //   ⛔ 别改成挂在 `col` 下 —— 原版 `RankingDisplay.timerDisplay` 指的就是 `Content/Timer`。
-            BuildRankTimer(col);
+            if (RankTimerDeadline.HasValue) BuildRankTimer(col); else Debug.Log("[Event] 段位块的 `Content/Timer` **整棵不建** —— 原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻那一支是 `return;`（静默、一个字都不印）；赛季结束时刻由服务端 LiveOps 下发、本地没有（判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4 / §五 #1；先例 = `B99_W2` 的 `SkirmishEventWindow.BuildClassicTimer`）。");   // ⛔ 不建 `Timer`/`Timer Icon`、⛔ 一个字都不印（§2·4「留开关，不硬删」：将来接上 liveop 截止时刻只改类尾 `RankTimerDeadline`）
 
             // `ChangeRankedToggle`（排位 / 非排位）
             var tg = MenuDraw.Node(col, "ChangeRankedToggle", new PxRect(TgL, TgT, TgR, TgB));
@@ -206,8 +206,8 @@ namespace CardPresentation
         /// （官方 en `Ends in:  <color=#E98A00FF>{0}</color>` / zh `结束于：<color=#E98A00FF>{0}</color>`）——
         /// 与遭遇战窗那颗 `Timer` **同一个词条**（`Shell/SkirmishEventWindow.cs` 的 `BuildTimer`，
         /// 那边已实读 `MonoBehaviour_-800057299095106190.json`）。⛔ 别自己拼「结束于：」四个字。
-        /// 截止时刻是**服务端活动数据**（本地没有）⇒ `Compose(前缀, "--")` + `Attach(null, …)` 出声一次，
-        /// ⛔ 不编日期（`TimerDisplay.Refresh` 对 `target == null` 就是印 `--`）。</para></summary>
+        /// 截止时刻是**服务端活动数据**（本地没有）⇒ 🔴 **2026-10-30（`B99_A4` · 反向清单 §五 #1）根节点整棵不建**（调用点那道 `RankTimerDeadline.HasValue` 闸），⛔ 不印 `--`、⛔ 不编日期。</para>
+        /// <para>⚠️ 本方法**只在** <see cref="RankTimerDeadline"/> 有值时才被调用（`BuildLeftColumn` 那道闸）；它内部的建树 / 几何一字未动。</para></summary>
         void BuildRankTimer(Transform col)
         {
             var content = col.Find("Content");
@@ -222,14 +222,14 @@ namespace CardPresentation
 
             string prefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
             var txR = new PxRect(TmrTxL, TmrTxT, TmrTxR, TmrTxB);
-            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, "--"), Color.white, "Timer", 38f, QText,
+            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, ""), Color.white, "Timer", 38f, QText,
                                    face: TmpFont.Face.LatinCardBody);
             if (tx == null) return;    // 建不出来 ⇒ `Attach` 会自己出声，这里不再补一句
             // 字号四格 = 原版 `38 / 10 / 38 / 38`（`menu_dump … --depth 6` 现读）。
             // ⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 紧跟一句把**原版折行 0** 还原（同 `SkirmishEventWindow.BuildTimer`）。
             tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
             tx.SetWrapping(false);
-            TimerDisplay.Attach(tx, null, prefix, "排位窗段位块 Timer",
+            TimerDisplay.Attach(tx, () => RankTimerDeadline, prefix, "排位窗段位块 Timer",
                                 "赛季结束时刻由服务端 LiveOps 事件下发，本地没有");
         }
 
@@ -482,5 +482,18 @@ namespace CardPresentation
         /// <summary>自检读口：`LeaderboardButtonClick()` 因 `FeatureChecker(PlayerLeaderboard)` 关闭而**早退**的次数。
         /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 会让账按 `文件:行号` 的落点整体漂移）。</para></summary>
         public int LeaderboardBlockedForTest { get; private set; }
+
+        // ============================================================ 类尾追加（B99_A4 2026-10-30）
+        /// <summary>`Ranked Division Info/Content/Timer` 那一行的**截止时刻**（= 原版 `RankingDisplay.timerDisplay`
+        /// 由 `RankingDisplay.Initialize` 灌进去的那一格）。
+        /// <para>🔴 **本地恒 `null`（判据）**：赛季结束时刻 = 服务端 LiveOps 的 `IRankedEvent` 数据
+        /// （`decomp_full/RankingDisplay__Initialize.c` 尾部：`if (this+0x30 != null &amp;&amp; dateTime.HasValue) TimerDisplay.Initialize(...)`）
+        /// —— 本地 13 份活动 SO 全过期、没有在期实例。</para>
+        /// <para>🔴 **为什么 `null` ⇒ 整棵不建**：原版 `TimerDisplay__UpdateTimer.c` 第一条
+        /// `if (*(char *)(this+0x78) == '\0') return;` = **静默返回**（不写字、不动 GameObject）
+        /// ⇒ 建了也只会把 prefab 占位（西语 `Termina en: 23d 5h`）留在屏幕上 = **假倒计时**
+        /// ⇒ 按 §18·0「照抄原版」+ §2·4「留开关，不硬删」，这里做成**一个开关**：有值才建那一行。</para>
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 会让账按 `文件:行号` 的落点整体漂移，铁律 18·b）。</para></summary>
+        public static System.DateTime? RankTimerDeadline;
     }
 }

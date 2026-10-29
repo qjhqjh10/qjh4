@@ -15,11 +15,11 @@
 //    它**已经有一份** = `UnitState.IsEffectListEntry`（`UnitStateEffectDisplay.cs:61`）。
 //    铁律：同一条规则只写一处，⛔ 别在这里抄第二份（两处迟早不一致）。
 //
-// ⚠️ **整条投影仍未接**（口径同账 `特效动画:521`：整条未实现）：
-//    把 7 个源（_statMods / _traitEffects / TempBuffs / CardInstance.ActiveEffects / HandEffects / …）
-//    合成「一条有序 List」+ 每条的 `Seq` 序戳（施工细则 S2，落在 `RuleEngine/Core/UnitState.cs`，本批白名单外）
-//    + 表现侧消费（`CardDisplayWindow.SetEffectRows`）**都还没做** ⇒ 本类**今天没有生产消费者**，
-//    它是先建好的规则核，等 S2 的 Seq + 记录面接齐后由投影层调用。
+// ✅ **整条投影【已接】**（口径同账 `特效动画:521`；旧头注写「今天没有生产消费者」= S1 落地时的状态，**已过期**）：
+//    7 个源（_statMods / _traitEffects / TempBuffs / CardInstance.ActiveEffects / HandEffects / …）
+//    已合成「一条有序 List」+ 每条 `Seq` 序戳（S2，`UnitState.NextEffectSeq`）＋ 表现侧消费
+//    （S4 `CardDisplayWindow.RowsOfEffects`，2026-10-29 `B97_W16`）；**生产接线 = S5**（`BattleDriver.cs:13212`，2026-10-29 `B97_W18`）⇒ 本类**今天有真消费者**。
+//    ⚠️ 仍缺的 3 段（如实标，⛔ 别当成「已做」）→ 见 `Of()` 上面那段「今天做不到的两段」＋ 账 `特效动画:521` 的残差。
 //
 // ⚠️ 本文件属 `Core/` —— **不允许依赖 UnityEngine**。
 using System.Collections.Generic;
@@ -183,10 +183,10 @@ namespace RuleEngine
         //
         //  ⚠️ **今天做不到的两段（别当成已做）**：
         //    · 附魔行 / 手牌行的 `Seq`：`ActiveCardEffect` 与 `HandEffect` 上还没有序戳
-        //      （施工细则 S3-d / S3-f，落点在 `Enchantment.cs` / `RuleCore.cs`，**不在本切片白名单**）
+        //      （施工细则 S3-d / S3-f，落点在 `Enchantment.cs` / `CardInstance.cs` / `RuleCore.cs`，**不在本切片白名单**）
         //      ⇒ 它们 `Seq = 0`、排到队尾（见 `SortShown`）。`RemoveTrait` 是 `HashSet`（无序无戳）同理。
-        //    · `RowGroup`（同一次 `give` 多条合成一行）：生产点是 `EffectResolver.DoGive`（S3-c，白名单外）
-        //      ⇒ 今天恒 `0`（= 不合并）。
+        //    · `RowGroup`（同一次 `give` 多条合成一行，S3-c）：`EffectResolver.DoGive` 本波在白名单内，但**生产端盖不了戳** ——
+        //      `UnitState.StatMod` **没有 `RowGroup` 字段**、`AddStatMod` 也没有这个形参（两者都在 `UnitState.cs`，不属本代理）⇒ 今天恒 `0`（= 不合并）。⛔ 别只在读取端（本文件）凑一个组号：那样同一次 give 的多条属性照样各印一行。
         // ============================================================================================
 
         /// <summary>`BuffType.removeTrait = 4`（`dump.cs:45430-45462`）。</summary>

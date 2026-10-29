@@ -12638,7 +12638,7 @@ public static class CollectionScene
             //      （⛔ 不回读 `WildcardShineLayer.FrameBounds` 那个被测口）；③ `Neutral ⇒ 不播` 与
             //      「非 Neutral ⇒ 播」**两条并排** —— 把闸写成恒关/恒开都只能对一半。
             Section("B9 `收藏:348`：万能卡 `Background` 的 Shiny 扫光（参数 / 一份材质 / 播放进度 / Neutral 闸）");
-            {
+            { win.ChangeTab(WindowTabType.CollectionCards);   // 🔴 2026-10-30（B99_W2）：扫光按原版 `WildcardDisplay.OnEnable` 只在 **Cards 页**播；本节上面 `:12087` 把页签切回 Deck 了 ⇒ 读数前先切回来
                 // ---- 前提 ①：我们自己的 shader 取得到（只有 `Resources/` 下的才随包）----
                 var shineShader = Shader.Find("CardPresentation/WildcardShine");
                 CheckTrue(shineShader != null,
@@ -12778,10 +12778,10 @@ public static class CollectionScene
                 CheckTrue(win.WildcardArmyForTest == armyWas, "（收尾）阵营换回去了");
                 CheckTrue(win.WildcardShinePlayingForTest,
                           "★ **非 Neutral ⇒ 又播了**（闸不是恒关；与上一条并排 ⇒ 恒开/恒关都只能对一半）");
-                CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起");
+                CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else

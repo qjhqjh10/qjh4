@@ -31,7 +31,7 @@
 // | `Reward Help` | **act = F** | 无人（出厂就关） | 建出来、**关着** |
 // | 5 行 `Score` | `'1256'` | `RefreshScore()` 按活动分数 | **照 prefab 出厂原文** + 出声 |
 // | 5 颗 `Chest` / `Highlight Crate` | 闭箱图 / 不透明金高亮（都开着） | 同上 | **照 prefab 出厂原文** + 出声 |
-// | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **接 `TimerDisplay`**（截止时刻本地没有 ⇒ **官方词条** `EndsInPlusOrangeTime` + `--` + 出声） |
+// | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **整棵不建**（截止时刻本地没有 ⇒ 原版 `UpdateTimer` 那一支是 `return;` 静默 ⇒ ⛔ 不印 `--`、⛔ 不编日期；2026-10-30 `B99_A4`） |
 // | `Energy Instructions` | `'… every {0} minutes.'` | `ShowCurrentEnergyRegenText.OnEnable` 读 **LiveOps Config** | **按原版填两个参数**（词条 `Event_Description/ScoringEvent/EnergyRules` + `EnergyConfig` 默认 1 / 300000ms，判据见下） |
 // | `Total Victories` | `'751'` | `RewardProgressBarPanel` 按活动数据 | **照 prefab 出厂原文** + 出声 |
 // | `Event Image` / `Scoring Icon` / `ArmyItemReference` | **`m_Sprite` = null** | 运行时由字段灌图 | **`Scoring Icon` 画 Skulls 图**（原版 `GetScoringIconFromEvent` 写死 Skulls，映射 `Shell/ScoringIcons.cs`）；其余两颗建节点、**不画**、出声 |
@@ -301,7 +301,7 @@ namespace CardPresentation
             Debug.Log("[Energy] 本窗的**活动数据全在远端**（`SinglePlayerScoringEvent` 是 LiveOps 事件）："
                     + "5 档分数 / 箱子开关 / 倒计时截止时刻 / `Total Victories` 都是**运行时灌**的 "
                     + "⇒ 我们照 **prefab 出厂原文**画（`1256` / `751` / 闭箱图），⛔ 不编数字；"
-                    + "`Timer` 那颗已接 `TimerDisplay`，截止时刻本地没有 ⇒ 显示官方词条 + `--`（出声一次）。");
+                    + "`Timer` 那一行**整棵不建**（原版 `TimerDisplay.UpdateTimer` 取不到目标时刻是 `return;` 静默）—— 截止时刻本地没有（出声一次）。");
             Debug.Log("[Energy] `Energy Instructions` **已按原版填参**（模板 = 官方词条 "
                     + "`Event_Description/ScoringEvent/EnergyRules`；`{0}` = `EnergyConfig.rechargeAmount` 默认 **1**、"
                     + "`{1}` = `rechargeCooldown` 默认 **300000 ms** 的时长串 ⇒ `5m` / `5分钟`）。");
@@ -336,7 +336,7 @@ namespace CardPresentation
             BuildImageMask(transform);
             BuildRewardPanel(transform);
             BuildHeader(transform);
-            BuildTimer(transform);
+            if (EnergyTimerDeadline.HasValue) BuildTimer(transform); else { _timerText = null; Debug.Log("[Energy] `Timer` **整棵不建** —— 原版 `SinglePlayerOnlyEnergyEventWindow__TryOpen` 只在 `activationType != 0` 时 `timerDisplay.Initialize(事件.GetEndDate())`，而 `TimerDisplay__UpdateTimer.c` 取不到目标时刻那一支是 `return;`（静默、一个字都不印）；截止时刻由服务端 LiveOps 下发、本地没有（判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4 / §五 #1；先例 = `B99_W2` 的 `SkirmishEventWindow.BuildClassicTimer`）。"); }   // ⛔ 不建 `Timer`/`Timer Icon`、⛔ 一个字都不印（§2·4「留开关，不硬删」：将来接上 liveop 截止时刻只改类尾 `EnergyTimerDeadline`）
             BuildInstructions(transform);
             BuildArmySelector(transform);
 
@@ -820,16 +820,16 @@ namespace CardPresentation
             }
             // 🔴 **2026-10-17（N2）**：接上全工程唯一的倒计时口径 `TimerDisplay`（本文件头 `本文件` 自己写着
             //   原版是 `TimerDisplay.Initialize(endTime)`）。那个 `endTime` = LiveOps 事件的截止时刻，
-            //   **由服务端下发、本地没有** ⇒ 目标传 `null`：出声一次 + 官方词条（`Ends in:` / `结束于：`）+ `--`（⛔ 不编日期）。
+            //   **由服务端下发、本地没有** ⇒ 🔴 **2026-10-30（`B99_A4`）目标取自类尾 `EnergyTimerDeadline`**（本地恒 `null` ⇒ 这一行**整棵不建**，见 `Build()` 那道闸；⛔ 不印 `--`、⛔ 不编日期）。
             //   ⚠️ **挂的时机必须在 `PreferredWidthPx` 之后** —— 那一格量的是 prefab 出厂串的 preferred 宽
-            //   （A1178 已复刻）；先挂会按 `--` 把框重新量窄，`Editor/ShellScene.cs` 那条
+            //   （A1178 已复刻）；先挂会按倒计时串把框重新量窄，`Editor/ShellScene.cs` 那条
             //   「框宽 − 渲出宽 ≥ 1.5px」当场红。
             //   ⚠️ 原版这颗还开了 `useLastMinutesText = 1`（键 `Event_Description/Generic/EndsSoon`）。
             //   🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）**：这里原来写「该键正文也**不在**官方快照里
             //   ⇒ 最后 5 分钟档**暂不接**」—— **已过期**：当前官方表里 `EndsSoon` = en `Ends soon` /
             //   zh `即将结束` ⇒ 这一档现已接上（`TimerDisplay.Attach` 的 `lastMinutesPrefix`）。
             if (tx != null)
-                TimerDisplay.Attach(tx, null, TimerPrefix, "单机能源活动窗 Timer",
+                TimerDisplay.Attach(tx, () => EnergyTimerDeadline, TimerPrefix, "单机能源活动窗 Timer",
                                     "活动截止时刻由服务端 LiveOps 事件下发，本地没有",
                                     lastMinutesPrefix: Loc.T("Event_Description/Generic/EndsSoon"));
             _timerText = tx != null ? tx.transform : null;
@@ -1171,8 +1171,8 @@ namespace CardPresentation
             var t = transform.Find("Timer");
             if (t == null)
             {
-                if (PermanentEvent)
-                    Debug.LogWarning("[Energy] `PermanentEvent = true` 但没找到 `Timer` 节点 ⇒ 计时器没藏（出声，⛔ 不静默）");
+                // 🔴 **2026-10-30（`B99_A4`）**：`Timer` 现在**只在 `EnergyTimerDeadline.HasValue` 时建**（原版 `TryOpen` 也只在
+                //   `activationType != 0` 时才 `Initialize`）⇒ 本地无截止时刻 ⇒ 节点**本来就不存在** = 已经「藏」了 ⇒ ⛔ 不报警。
                 return;
             }
             t.gameObject.SetActive(!PermanentEvent);
@@ -1434,7 +1434,7 @@ namespace CardPresentation
         {
             PermanentEvent = permanent;      // 原版那个 activationType 的本地替身（默认 false = 非 Permanent）
             Build(); InitializeEventArmies();  // ①（本仓的开窗本体在 Open()，Open 里转调本方法）＋ 原版 `__Open.c:114` 那一跳（灌参战阵营）
-            ApplyTimerVisibility();           // ②③（Permanent ⇒ 整件关；非 Permanent ⇒ 照原样 `--`，截止时刻在远端）
+            ApplyTimerVisibility();           // ②③（Permanent ⇒ 整件关；节点本来不建时它什么都不做 —— `EnergyTimerDeadline` 为 null ⇒ `Build()` 不建 `Timer`）
             RefreshScore();                   // ④ 原版两支都会走到
         }
 
@@ -1725,5 +1725,18 @@ namespace CardPresentation
             const float aspect = ChestW / ChestH;
             for (int i = 0; i < _chests.Count; i++) if (_chests[i] != null) _chests[i].SetAspect(aspect);
         }
+
+        // ============================================================ 类尾追加（B99_A4 2026-10-30）
+        /// <summary>`Timer` 那一行的**截止时刻**（= 原版 `SinglePlayerOnlyEnergyEventWindow.TryOpen` 里
+        /// `timerDisplay.Initialize(事件.GetEndDate())` 那个实参）。
+        /// <para>🔴 **本地恒 `null`（判据）**：截止时刻 = 服务端 LiveOps 的 `SinglePlayerScoringEvent.endDate`
+        /// （`decomp_full/SinglePlayerOnlyEnergyEventWindow__TryOpen.c`：`activationType != 0` 才 `Initialize`）
+        /// —— 本机 13 份活动 SO 全过期、没有在期事件实例。</para>
+        /// <para>🔴 **为什么 `null` ⇒ 整棵不建**：原版 `TimerDisplay__UpdateTimer.c` 第一条
+        /// `if (*(char *)(this+0x78) == '\0') return;` = **静默返回**（不写字、不动 GameObject）
+        /// ⇒ 建了也只会把 prefab 占位（`Termina en: 23d 5h`）留在屏幕上 = **假倒计时**
+        /// ⇒ 按 §18·0「照抄原版」+ §2·4「留开关，不硬删」，这里做成**一个开关**：有值才建那一行。</para>
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 会让账按 `文件:行号` 的落点整体漂移，铁律 18·b）。</para></summary>
+        public static System.DateTime? EnergyTimerDeadline;
     }
 }

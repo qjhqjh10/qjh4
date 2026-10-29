@@ -1,12 +1,13 @@
 {
  "_schema": 1,
- "_generatedBy": "A6（T05「逐卡演出与特效接线」第 1 步）· 2026-10-16 · 只读输入 · 未跑 Unity · 未动 git",
+ "_generatedBy": "A6（T05 第 1 步）· 2026-10-16 一次性脚本建底；B99_A2 · 2026-10-30 收进 `工具/gen_card_anim_order.py` + 按 AN1·R3 增量补 31 卡（activeAbility）。只读输入 · 未跑 Unity · 未动 git。",
  "_what": "「带顺序」的逐卡逐技能演出步骤表。abilities[].steps[] = 原版 AbilityLogic.cardAnimations 的数组序（原版 foreach 全播、不挑下标）。",
  "_sources": {
-  "cardSOTruth": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（1,195 张 · 2022 快照）",
-  "guidToAsset": "数据/索引/anim_address_map.json.guid_to_asset（10,325；只索引「以 GUID 为容器键」的条目）",
-  "guidMap": "d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv（4,985 行；补 guid_to_asset 漏掉的 221 个【非 GUID 容器键】）",
-  "factionParams": "d:/4/Unity/数据/游戏数据/card_anim_map.json（506 条 · 只覆盖 12 个阵营 bundle；见 _coverage）",
+  "cardSOTruth": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（1,195 张 · 2022 快照 · 基底）",
+  "cardSOAugment": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build · 只取顶层 activeAbility · 增量）",
+  "guidToAsset": "数据/索引/anim_address_map.json.guid_to_asset（只索引「以 GUID 为容器键」的条目）",
+  "guidMap": "d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv（补 guid_to_asset 漏掉的【非 GUID 容器键】）",
+  "factionParams": "d:/4/Unity/数据/游戏数据/card_anim_map.json（只覆盖 12 个阵营 bundle；见 _coverage）",
   "cardAnimDump": "d:/2/新解包资源/assets_full/bundle_*cardanims_assets_all/MonoBehaviour/*.json（判据正本 = AnimInfo 全字段）",
   "enumStubs": "d:/2/Warpforge_code/Scripts/Assembly-CSharp/{AbilityTrigger,AbilityEffect}.cs（与 gen_card_vfx_by_card.py 同一份）",
   "consumer": null
@@ -19,51 +20,51 @@
   "runtimeSkip": "原版 AbilityLogic__PlayAnim.c 两处逐拍跳过：① AssetReference 无效（:62-64）② start/end/pointTowards ∈ {14,15,16,17} 且空位不可用（:104-169 MinionManager.IsAvailableSlot ⇒ goto 下一拍）⇒ 表里的 N 拍是【上限】。",
   "targetMultiplex": "三个位置选项里【任一 == 2（abilityTarget）】⇒ 该拍按 abilityTargets 列表逐目标各播一份（PlayAnim:171-248）。",
   "waitForAnim": "是否等这拍播完再结算 = 该拍自己的 AnimInfo.waitAnimToApplyEffect(0x58)；多目标分支里再 && (是否最后一个目标)（PlayAnim:217-222）。⛔ 不是「只有最后一拍才 wait」。",
-  "pureWaitBeats": "animAdressable 为空、vfx 为 null 的 cardAnim（实测 4 个：Wait_300ms/1s/1,5s/2s）是【纯延时拍】：没有特效，时长在 timeMoving、waitAnimToApplyEffect=1。⛔ 别把它当「解不出」丢掉，它的时长要照算（原版用它在两拍之间插停顿）。",
+  "pureWaitBeats": "animAdressable 为空、vfx 为 null 的 cardAnim（Wait_*）是【纯延时拍】：没有特效，时长在 timeMoving、waitAnimToApplyEffect=1。⛔ 别把它当「解不出」丢掉，它的时长要照算（原版用它在两拍之间插停顿）。",
   "vfx": "cardAnims[].vfx = AnimInfo.animAdressable(0x10) → guid_to_asset 的名字（= 特效 prefab 名）；vfx 为 null 且 vfxGuid 非空 = 那个 prefab 的 guid 也不在本地索引里。",
   "paramsVerbatim": "cardAnims[].animInfo = 原版 CardAnim dump 的 animInfo 逐字照抄（~20 字段，未裁剪）；params 是其中 10 个核心字段的扁平副本（便于 JsonUtility 直接解）。",
-  "noGuess": "γ（原版空 GUID）/ α（解析不出）两类留空 + 写 why，⛔ 不填替代值。"
+  "noGuess": "γ（原版空 GUID）/ α（解析不出）两类留空 + 写 why，⛔ 不填替代值。",
+  "augmentScope": "增量只补「当前 build 有、2022 基底没有」的卡的 activeAbility；不回改基底里已有的行（含 SOR13 的 2022 vs 当前 build 差异，见报告）。"
  },
  "_coverage": {
-  "cardAnimationsRefs": 1468,
+  "cardAnimationsRefs": 1527,
   "byPath": {
    "cardAbilities": 1284,
-   "activeAbility": 184
+   "activeAbility": 243
   },
-  "cardsWithRefs": 897,
-  "abilityRows": 1112,
-  "abilityRowsWithMoreThanOneStep": 318,
+  "cardsWithRefs": 928,
+  "abilityRows": 1148,
+  "abilityRowsWithMoreThanOneStep": 339,
   "stepsHistogram": {
-   "1": 794,
-   "2": 281,
+   "1": 809,
+   "2": 301,
    "3": 36,
-   "4": 1
+   "4": 2
   },
-  "cardAnimAssetsReferenced": 536,
-  "cardAnimAssetsResolved": 536,
+  "cardAnimAssetsReferenced": 551,
+  "cardAnimAssetsResolved": 551,
   "resolveStats": {
-   "A:anim_address_map.guid_to_asset": 509,
-   "B:guid_map.tsv(非 GUID 容器键)": 27
+   "A:anim_address_map.guid_to_asset": 551
   },
   "stepsWithoutVfx_pureWaitBeats": 14,
   "paramsThisFile": {
-   "hit": 1371,
+   "hit": 1430,
    "blankGuid": 97,
    "unresolvedGuid": 0
   },
   "paramsViaCardAnimMap_BEFORErename": {
-   "total": 1468,
-   "hit": 369,
+   "total": 1527,
+   "hit": 374,
    "blankGuid": 97,
    "unresolvedGuid": 0,
-   "namedButNotInFactionMap": 1002
+   "namedButNotInFactionMap": 1056
   },
   "paramsViaCardAnimMap_AFTERrename": {
-   "total": 1468,
-   "hit": 709,
+   "total": 1527,
+   "hit": 714,
    "blankGuid": 97,
    "unresolvedGuid": 0,
-   "namedButNotInFactionMap": 662
+   "namedButNotInFactionMap": 716
   },
   "paramsViaCardAnimMap_AFTERrename_cardAbilitiesOnly": {
    "total": 1284,
@@ -79,14 +80,30 @@
    "unresolvedGuid": 0,
    "namedButNotInFactionMap": 939
   },
-  "paramsViaCardAnimMap_ifGenestealersToTyranids": 710,
+  "paramsViaCardAnimMap_ifGenestealersToTyranids": 715,
   "paramsViaCardAnimMap_byBundleKey_noNameGuess": {
-   "hitAnyFactionKey": 761,
-   "notInAnyKey": 610
+   "hitAnyFactionKey": 767,
+   "notInAnyKey": 663
   },
   "pool": {
-   "cards": 1127,
-   "matchedTruthByIdOrNameArmy": 1009
+   "cards": 1129
+  },
+  "poolActiveAbility": {
+   "poolCards": 1129,
+   "withResolvedActiveAnim": 93,
+   "refsButUnresolved": 0,
+   "noActiveAbilityAnim": 741,
+   "absentFromTable": 295
+  },
+  "augment": {
+   "source": "资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build · 顶层 activeAbility）",
+   "base": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（2022 · 897 卡）",
+   "baseRefs": 1468,
+   "augmentCards": 31,
+   "augmentRows": 59,
+   "augmentBlankGuids": 0,
+   "augmentNewCardAnims": 15,
+   "note": "只补 activeAbility 一路；cardAbilities 不补（运行期不消费，且这些卡 2022 时尚未入库）。"
   }
  },
  "cardAnims": [
@@ -1376,7 +1393,7 @@
    "name": "CreateCard_EC Pink",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/CreateCard_EC Pink.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -7974,6 +7991,263 @@
     "tweenAnim": {
      "m_FileID": 0,
      "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "12cb07380450987479b4739ccf9ac57e",
+   "name": "Atk_BulletImpact_Bolter_Large Area",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Atk_BulletImpact_Bolter_Large Area.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "BulletImpact_Bolter_Large Area",
+   "vfxGuid": "b1146b4cfd9705a4b8aa43d33014790b",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 2,
+    "pointTowardsOption": 2,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 1.7999999523162842,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "b1146b4cfd9705a4b8aa43d33014790b",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 2,
+    "pointTowardsOption": 2,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 1.7999999523162842,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [
+     {
+      "targetUnit": 0,
+      "awayFromUnit": 30,
+      "shakeSize": 0,
+      "shakeDuration": 0.20000000298023224,
+      "shakeDelay": 0.10000000149011612
+     }
+    ],
+    "tweenAnim": {
+     "m_FileID": 2,
+     "m_PathID": -8275538427997360676
     }
    }
   },
@@ -17367,6 +17641,257 @@
    }
   },
   {
+   "guid": "23f71ea872951b047b0ee19cd9d47ef4",
+   "name": "Space Wolves Summon",
+   "srcBundle": "bundle_spacemarinesspacewolvescardanims_assets_all",
+   "srcMono": "bundle_spacemarinesspacewolvescardanims_assets_all/MonoBehaviour/Space Wolves Summon.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": [
+    "SpaceWolves"
+   ],
+   "vfx": "Space Wolves Summon",
+   "vfxGuid": "dfeeb1a209694b948b17400484af84df",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 14,
+    "endPosOption": 14,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 1.399999976158142,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "dfeeb1a209694b948b17400484af84df",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 14,
+    "endPosOption": 14,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 1.399999976158142,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
    "guid": "241c325cc136c11419d6d347841d3a43",
    "name": "Buff_Red_ork_self",
    "srcBundle": "bundle_cardanimsgeneral_assets_all",
@@ -18377,7 +18902,7 @@
    "name": "EC Target User Warlord",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target User Warlord.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -20037,6 +20562,255 @@
      }
     },
     "waitAnimToApplyEffect": 0,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "283e134ac510dc4498db1784afd59bf1",
+   "name": "Buff_Blue_SW_target",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Buff_Blue_SW_target.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "Buff_Blue_SW",
+   "vfxGuid": "a67143e9313c82849982d3a97100c4a0",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "a67143e9313c82849982d3a97100c4a0",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
     "screenShake": {
      "presetSO": {
       "m_FileID": 0,
@@ -26947,7 +27721,7 @@
    "name": "Whip Attack EC Cut Warlord",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Whip Attack EC Cut Warlord.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -27198,7 +27972,7 @@
    "name": "Cut EC 1x target",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 1x target.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -27698,7 +28472,7 @@
    "name": "Buff EC Dark",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Dark.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -38578,7 +39352,7 @@
    "name": "EC Target",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -44132,6 +44906,255 @@
    }
   },
   {
+   "guid": "50137c579b0a83245afc786c1e77fe0b",
+   "name": "Buff_DA_Forest_Self",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Buff_DA_Forest_Self.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "Buff_DA_Forest_Self",
+   "vfxGuid": "39643f02e15a27c4c9511078e697ef9f",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "39643f02e15a27c4c9511078e697ef9f",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
    "guid": "501a594c192019b4087b05b13e2bde8c",
    "name": "Atk_BulletImpact_Eldar_Shuriken_Short_twinlink",
    "srcBundle": "bundle_aeldarisaimhanncardanims_assets_all",
@@ -44425,6 +45448,255 @@
     "startDelay": 0.0,
     "timeAtStartPos": 0.0,
     "timeMoving": 0.30000001192092896,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "51ee6cf191575f54fabd4550c788b305",
+   "name": "CreateCard_DA",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/CreateCard_DA.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "CreateCard DA",
+   "vfxGuid": "bd406ebbc7067184ca0755ad20bebcb9",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 5,
+    "endPosOption": 5,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 2.5,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "bd406ebbc7067184ca0755ad20bebcb9",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 5,
+    "endPosOption": 5,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 2.5,
+    "timeMoving": 0.0,
     "timeAtEndPos": 0.0,
     "shouldMoveVFX": 0,
     "easeCurve": {
@@ -51609,7 +52881,7 @@
    "name": "Buff EC Pink Intense",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink Intense.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -60196,7 +61468,7 @@
    "name": "EC Sonic Shock Troop",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Sonic Shock Troop.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -60947,7 +62219,7 @@
    "name": "Buff EC Pink",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -62615,6 +63887,255 @@
      }
     },
     "waitAnimToApplyEffect": 0,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "70daafca6eefd5544bb3dc44747fc6a3",
+   "name": "Buff_Howl_SW_self",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Buff_Howl_SW_self.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "Buff_Blue_SW_Wolf",
+   "vfxGuid": "4dd444be45e6c4b42920f42ee951713e",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.4000000059604645,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "4dd444be45e6c4b42920f42ee951713e",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.4000000059604645,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
     "screenShake": {
      "presetSO": {
       "m_FileID": 0,
@@ -70566,7 +72087,7 @@
    "name": "Buff EC Pink Intense Warlord delayed",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink Intense Warlord delayed.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -80681,7 +82202,7 @@
    "name": "Buff EC Stimulate target",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Stimulate target.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -81689,6 +83210,257 @@
    }
   },
   {
+   "guid": "945014349c7e3cd4b93922bafe782387",
+   "name": "Cut Wulfen",
+   "srcBundle": "bundle_spacemarinesspacewolvescardanims_assets_all",
+   "srcMono": "bundle_spacemarinesspacewolvescardanims_assets_all/MonoBehaviour/Cut Wulfen.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": [
+    "SpaceWolves"
+   ],
+   "vfx": "Cut Wulfen SW",
+   "vfxGuid": "747b0e05ddfd8d54689beb2a02ed91a2",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "747b0e05ddfd8d54689beb2a02ed91a2",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
    "guid": "946f3198e69887c44b79fb2e38933f11",
    "name": "DeckBuff_GSC",
    "srcBundle": "bundle_genestalercultscardanims_assets_all",
@@ -82442,7 +84214,7 @@
    "name": "Debuff EC Lower Stats",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Debuff EC Lower Stats.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -83959,7 +85731,7 @@
    "name": "Emperors Children Summon",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Summon.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -85728,7 +87500,7 @@
    "name": "Buff EC Pink Intense Warlord",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Pink Intense Warlord.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -89750,7 +91522,7 @@
    "name": "Buff EC Stimulate self",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Stimulate self.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -90157,6 +91929,255 @@
      "presetSO": {
       "m_FileID": 2,
       "m_PathID": -3128570812362876198
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "a3d840680f27a4f41929e37c9300e866",
+   "name": "Buff_Blue_SW_self",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Buff_Blue_SW_self.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "Buff_Blue_SW",
+   "vfxGuid": "a67143e9313c82849982d3a97100c4a0",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "a67143e9313c82849982d3a97100c4a0",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
      },
      "delay": 0.0,
      "overwriteSustainTime": 0,
@@ -91252,7 +93273,7 @@
    "name": "EC Sonic Destroy",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Sonic Destroy.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -92003,7 +94024,7 @@
    "name": "Buff EC Stimulate warlord passive",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Stimulate warlord passive.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -97100,7 +99121,7 @@
    "name": "Cut EC 1x Reverse target",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 1x Reverse target.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -97351,7 +99372,7 @@
    "name": "Rapturous Ruination",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Rapturous Ruination.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -101110,7 +103131,7 @@
    "name": "CreateCard_EC Elixir",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/CreateCard_EC Elixir.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -102361,7 +104382,7 @@
    "name": "Cut EC 3x target",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Cut EC 3x target.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -103629,7 +105650,7 @@
    "name": "Rally EC Heldrake",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Rally EC Heldrake.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -104380,7 +106401,7 @@
    "name": "EC Target Delayed",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/EC Target Delayed.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -104631,7 +106652,7 @@
    "name": "Buff EC Creating Card Warlord",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff EC Creating Card Warlord.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -108915,7 +110936,7 @@
    "name": "Buff_HideousMutation_EC",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Buff_HideousMutation_EC.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -109158,6 +111179,257 @@
     "tweenAnim": {
      "m_FileID": 2,
      "m_PathID": -3678793900283740710
+    }
+   }
+  },
+  {
+   "guid": "c54f94d30a8004f4ab1967ce57662661",
+   "name": "Cut Wulfen Reverse",
+   "srcBundle": "bundle_spacemarinesspacewolvescardanims_assets_all",
+   "srcMono": "bundle_spacemarinesspacewolvescardanims_assets_all/MonoBehaviour/Cut Wulfen Reverse.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": [
+    "SpaceWolves"
+   ],
+   "vfx": "Cut Wulfen SW Reverse",
+   "vfxGuid": "bd568e7c1b13f7a40a4abcc28fe80fc4",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "bd568e7c1b13f7a40a4abcc28fe80fc4",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
     }
    }
   },
@@ -111575,6 +113847,263 @@
    }
   },
   {
+   "guid": "c9be2ad2685b292498d6e11e5821afa4",
+   "name": "Atk_BulletImpact_4shot_StormBolter",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Atk_BulletImpact_4shot_StormBolter.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "BulletImpact_stormbolter_4shots",
+   "vfxGuid": "8ed522479a9df67469ea5ecba3757977",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 2,
+    "pointTowardsOption": 2,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.75,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "8ed522479a9df67469ea5ecba3757977",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 2,
+    "pointTowardsOption": 2,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.75,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [
+     {
+      "targetUnit": 0,
+      "awayFromUnit": 30,
+      "shakeSize": 0,
+      "shakeDuration": 0.20000000298023224,
+      "shakeDelay": 0.10000000149011612
+     }
+    ],
+    "tweenAnim": {
+     "m_FileID": 2,
+     "m_PathID": -8275538427997360676
+    }
+   }
+  },
+  {
    "guid": "ca76038f1800acb47a35aa66f61b6d14",
    "name": "Shuriken_Short_Random_warlord",
    "srcBundle": "bundle_aeldarisaimhanncardanims_assets_all",
@@ -111862,6 +114391,257 @@
     "startDelay": 0.0,
     "timeAtStartPos": 0.0,
     "timeMoving": 1.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "cb3f0301bb119dd4c8243fad8797ca90",
+   "name": "Card_Buff_Hand_SW",
+   "srcBundle": "bundle_chaosspacemarinesblacklegioncardanims_assets_all",
+   "srcMono": "bundle_chaosspacemarinesblacklegioncardanims_assets_all/MonoBehaviour/Card_Buff_Hand_SW.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": [
+    "BlackLegion"
+   ],
+   "vfx": "Card_Buff_Hand_SW",
+   "vfxGuid": "cde1a34864fe29842abdb0ef0a8e62c6",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "cde1a34864fe29842abdb0ef0a8e62c6",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
     "timeAtEndPos": 0.0,
     "shouldMoveVFX": 0,
     "easeCurve": {
@@ -115352,6 +118132,255 @@
     "tweenAnim": {
      "m_FileID": 0,
      "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "d1b99e663c5d8f64dac3392e66c10f27",
+   "name": "Atk_BolterSweep_2",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Atk_BolterSweep_2.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "BolterSweep_2",
+   "vfxGuid": "6188579de5c98fc40a90544b8132daa2",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 4,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 1.0,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "6188579de5c98fc40a90544b8132daa2",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 4,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 1.0,
+    "timeMoving": 0.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 2,
+     "m_PathID": -8275538427997360676
     }
    }
   },
@@ -119632,6 +122661,255 @@
    }
   },
   {
+   "guid": "d8e61bc2616e734488321071da8a40b3",
+   "name": "Stealth_Proc_UM",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Stealth_Proc_UM.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "Stealth_Proc_UM",
+   "vfxGuid": "8c3490ea82297c94ba53ac5f85c16831",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 0
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "8c3490ea82297c94ba53ac5f85c16831",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 2,
+    "endPosOption": 2,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.5,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 0,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
    "guid": "d9435865cb5d2394391e159a4abd77cd",
    "name": "DeckBuff_MoveToTop",
    "srcBundle": "bundle_cardanimsgeneral_assets_all",
@@ -121727,7 +125005,7 @@
    "name": "Emperors Children Summon 2nd",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Emperors Children Summon 2nd.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -123486,6 +126764,255 @@
    }
   },
   {
+   "guid": "e88772cb08fb73243970183f0f1dff7a",
+   "name": "Oath_Effect",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/Oath_Effect.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "Oath_Effect",
+   "vfxGuid": "003430a5a0d636e47afe7866c999816d",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "003430a5a0d636e47afe7866c999816d",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 0,
+    "endPosOption": 0,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
    "guid": "e8d9367bcc29a224b951345ea191cd11",
    "name": "PointBlank_1shot",
    "srcBundle": "bundle_cardanimsgeneral_assets_all",
@@ -124772,7 +128299,7 @@
    "name": "Debuff EC Lower Stats delay",
    "srcBundle": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all",
    "srcMono": "bundle_chaosspacemarinesemperorschildrencardanims_assets_all/MonoBehaviour/Debuff EC Lower Stats delay.json",
-   "resolvedBy": "B:guid_map.tsv(非 GUID 容器键)",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
    "inCardAnimMapKeys": [
     "EmperorsChildren"
    ],
@@ -133870,6 +137397,255 @@
     "startDelay": 0.0,
     "timeAtStartPos": 0.0,
     "timeMoving": 0.20000000298023224,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "easeCurve": {
+     "m_Curve": [
+      {
+       "time": 0.0,
+       "value": 0.0,
+       "inSlope": 0.0,
+       "outSlope": 1.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      },
+      {
+       "time": 1.0,
+       "value": 1.0,
+       "inSlope": 1.0,
+       "outSlope": 0.0,
+       "weightedMode": 0,
+       "inWeight": 0.0,
+       "outWeight": 0.0
+      }
+     ],
+     "m_PreInfinity": 2,
+     "m_PostInfinity": 2,
+     "m_RotationOrder": 4
+    },
+    "orientToVelocity": 0,
+    "applyMovementOffsets": 0,
+    "offsetMovementAxis": {
+     "useNonModifiedAnimTime": 0,
+     "xAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxXOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "yAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxYOffset": {
+      "x": 0.0,
+      "y": 0.0
+     },
+     "zAxis": {
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       },
+       {
+        "time": 1.0,
+        "value": 0.0,
+        "inSlope": 0.0,
+        "outSlope": 0.0,
+        "weightedMode": 0,
+        "inWeight": 0.0,
+        "outWeight": 0.0
+       }
+      ],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minMaxZOffset": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    "waitAnimToApplyEffect": 1,
+    "screenShake": {
+     "presetSO": {
+      "m_FileID": 0,
+      "m_PathID": 0
+     },
+     "delay": 0.0,
+     "overwriteSustainTime": 0,
+     "sustainTime": 0.0,
+     "overwriteAmplitude": 0,
+     "amplitude": 0.0,
+     "overwriteFrequency": 0,
+     "frequency": 0.0,
+     "overwriteDirection": 0,
+     "direction": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "overwriteAttackTime": 0,
+     "attackTime": 0.0,
+     "overwriteDecayTime": 0,
+     "decayTime": 0.0
+    },
+    "minionAnimationClipInfo": {
+     "enable": 0,
+     "delay": 0.0,
+     "minionClips": []
+    },
+    "minionMovementInfo": {
+     "delay": 0.0,
+     "shouldActivateMinionMovement": 0,
+     "visibilityStateAfterFinish": 0,
+     "minionMovementAnimCurveX": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveY": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "minionMovementAnimCurveZ": {
+      "m_Curve": [],
+      "m_PreInfinity": 2,
+      "m_PostInfinity": 2,
+      "m_RotationOrder": 4
+     },
+     "useXZCurve": 0,
+     "useYCurve": 0,
+     "yOffset": 0.0,
+     "xOffset": 0.0,
+     "zOffset": 0.0,
+     "rotateXAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateYAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "rotateZAxis": {
+      "enable": 0,
+      "curve": {
+       "m_Curve": [],
+       "m_PreInfinity": 2,
+       "m_PostInfinity": 2,
+       "m_RotationOrder": 4
+      },
+      "maxValue": 0.0
+     },
+     "animTime": 0.0
+    },
+    "unitsShake": [],
+    "tweenAnim": {
+     "m_FileID": 0,
+     "m_PathID": 0
+    }
+   }
+  },
+  {
+   "guid": "fb136b9d6fb72a844a5e74e804b08ab7",
+   "name": "DeckBuff_SW",
+   "srcBundle": "bundle_cardanimsgeneral_assets_all",
+   "srcMono": "bundle_cardanimsgeneral_assets_all/MonoBehaviour/DeckBuff_SW.json",
+   "resolvedBy": "A:anim_address_map.guid_to_asset",
+   "inCardAnimMapKeys": null,
+   "vfx": "DeckBuff_SW",
+   "vfxGuid": "7ce0ec8fcd22494419ef0a4ee535bb15",
+   "vfxType": "GameObject",
+   "params": {
+    "startPosOption": 50,
+    "endPosOption": 50,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 1.0,
+    "timeAtEndPos": 0.0,
+    "shouldMoveVFX": 0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfo": {
+    "animAdressable": {
+     "m_AssetGUID": "7ce0ec8fcd22494419ef0a4ee535bb15",
+     "m_SubObjectName": "",
+     "m_SubObjectType": ""
+    },
+    "startPosOption": 50,
+    "endPosOption": 50,
+    "pointTowardsOption": 0,
+    "vfxDelayTime": 0.0,
+    "startDelay": 0.0,
+    "timeAtStartPos": 0.0,
+    "timeMoving": 1.0,
     "timeAtEndPos": 0.0,
     "shouldMoveVFX": 0,
     "easeCurve": {
@@ -162634,6 +166410,945 @@
       {
        "i": 1,
        "ca": "7a2ceb162e185ba4188b422b20f6c8c7",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA65",
+   "name": "Chaplain Gabutheron",
+   "armyId": 110,
+   "armyKey": "DarkAngels",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 20,
+     "chosenAbilityName": "doHeal",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "0deae3050e715944b9593e7221bbe2ea",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA71",
+   "name": "Watcher in the Dark",
+   "armyId": 110,
+   "armyKey": "DarkAngels",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 100,
+     "chosenAbilityName": "createCardInHand",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "50137c579b0a83245afc786c1e77fe0b",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "51ee6cf191575f54fabd4550c788b305",
+       "why": null
+      }
+     ]
+    },
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 1,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "b39a2a1f34eacbb4494c91a7ce9454cb",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DA75",
+   "name": "Master Zacharial",
+   "armyId": 110,
+   "armyKey": "DarkAngels",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 300,
+     "chosenAbilityName": "recallToDeck",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "a6cd0947c6cb4da4598c5c224207840a",
+       "why": null
+      }
+     ]
+    },
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 2,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "1fcabddbb223cf343a85316bfbeb0498",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW1",
+   "name": "Logan Grimnar",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 420,
+     "chosenAbilityName": "setCardDeckToTop",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "a6cd0947c6cb4da4598c5c224207840a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "d9435865cb5d2394391e159a4abd77cd",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW11",
+   "name": "Grey Hunter Pack Leader",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "283e134ac510dc4498db1784afd59bf1",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW21",
+   "name": "Wulfen Pack Leader",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "945014349c7e3cd4b93922bafe782387",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "c54f94d30a8004f4ab1967ce57662661",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW23",
+   "name": "Fenrisian Drop Pod",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 70,
+     "chosenAbilityName": "summonUnit",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "23f71ea872951b047b0ee19cd9d47ef4",
+       "why": null
+      }
+     ]
+    },
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 1,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 70,
+     "chosenAbilityName": "summonUnit",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "23f71ea872951b047b0ee19cd9d47ef4",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW29",
+   "name": "Morkai Eliminator",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 238,
+     "chosenAbilityName": "scriptedSelfCardAttackDontCount",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "a3d840680f27a4f41929e37c9300e866",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW3",
+   "name": "Ragnar Blackmane",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "a6cd0947c6cb4da4598c5c224207840a",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW36",
+   "name": "Bjorn the Fell-Handed",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "a3d840680f27a4f41929e37c9300e866",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "d1b99e663c5d8f64dac3392e66c10f27",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW4",
+   "name": "Blood Claw",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "1d9846e533e2e534cbe76284f3286a2f",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW5",
+   "name": "Hunting Wolf",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 238,
+     "chosenAbilityName": "scriptedSelfCardAttackDontCount",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "70daafca6eefd5544bb3dc44747fc6a3",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "SW8",
+   "name": "Blackmane Reiver",
+   "armyId": 130,
+   "armyKey": "SpaceWolves",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 0,
+     "chosenAbilityName": "drawCard",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "fb136b9d6fb72a844a5e74e804b08ab7",
+       "why": null
+      }
+     ]
+    },
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 1,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "cb3f0301bb119dd4c8243fad8797ca90",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM101",
+   "name": "Terminator Sergeant",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "c9be2ad2685b292498d6e11e5821afa4",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM102",
+   "name": "Terminator Captain",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM103",
+   "name": "Terminator",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "b421340356422a7438cb1fc70a480911",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM104",
+   "name": "Bladeguard Ancient",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "b421340356422a7438cb1fc70a480911",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM105",
+   "name": "Dreadnought",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "3a154e3e4a13f134a8ae2095eab11902",
+       "why": null
+      }
+     ]
+    },
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 1,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "3a154e3e4a13f134a8ae2095eab11902",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM106",
+   "name": "Ferren Areios",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "0839bfdd8c98f5c4b97ca9d328dc8d4f",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM108",
+   "name": "Brutalis Dreadnought",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "d1b99e663c5d8f64dac3392e66c10f27",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM89",
+   "name": "Incursor",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 130,
+     "chosenAbilityName": "stun",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "075c125925578004b8c8cc469da8ac5c",
+       "why": null
+      },
+      {
+       "i": 2,
+       "ca": "5eb486c0cf3a5fb408c98e960494695e",
+       "why": null
+      },
+      {
+       "i": 3,
+       "ca": "ce408321d1bf96b40bbc90e9d2ab182a",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM90",
+   "name": "Phobos Lieutenant",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "d8e61bc2616e734488321071da8a40b3",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM91",
+   "name": "Tactical Marine",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "29e929d98e905014cbe2e0261569c7e0",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM92",
+   "name": "Firestrike Servo-Turret",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM93",
+   "name": "Vico Therbeus",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "d8e61bc2616e734488321071da8a40b3",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM94",
+   "name": "Scout Sniper",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "c59a868f47f966d449eb8a3175bb7d9b",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM95",
+   "name": "Attack Bike",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "c4f2ac105b9c8024bb932e3b3e512777",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM96",
+   "name": "Chapter Champion",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 40,
+     "chosenAbilityName": "buffSelf",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "b421340356422a7438cb1fc70a480911",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM97",
+   "name": "Suppressor",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 140,
+     "chosenAbilityName": "recallToOwnerHand",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "27605442c777d9749a436eae93f7384a",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM98",
+   "name": "Devastator Marine",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "12cb07380450987479b4739ccf9ac57e",
+       "why": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "UM99",
+   "name": "Phobos Librarian",
+   "armyId": 10,
+   "armyKey": "Ultramarines",
+   "abilities": [
+    {
+     "path": "activeAbility",
+     "abilityIndex": 0,
+     "logicIndex": 0,
+     "trigger": null,
+     "triggerName": null,
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "steps": [
+      {
+       "i": 0,
+       "ca": "e88772cb08fb73243970183f0f1dff7a",
+       "why": null
+      },
+      {
+       "i": 1,
+       "ca": "8606c664f55e9be46b7ceb2bccd9df41",
        "why": null
       }
      ]

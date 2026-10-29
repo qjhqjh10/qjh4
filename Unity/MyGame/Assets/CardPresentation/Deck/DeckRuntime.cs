@@ -1394,7 +1394,7 @@ namespace CardPresentation
                 Debug.LogWarning("[DeckRuntime] 缺 " + _missingArt.Count + " 张原版 UI 图（会画成纯白占位，"
                                  + "**不是静默**）：" + string.Join("、", _missingArt));
 
-            RefreshAll();
+            _tab = 0; RefreshAll(); WildcardDisplayEnable();   // B99_W5（界面 1）：原版 `TryOpen:123` 把 tab0 的 `Toggle.isOn` 置 1 ⇒ **每次开窗都回 Cards 页**（我们复用窗对象、原版每次新实例，不重置就会停在上次那页）；`WildcardDisplayEnable` = 原版 `WildcardDisplay.OnEnable` 那一拍（**只 Register、开窗永不播**，见方法 doc）
 
             // 🔴 2026-10-04（A24）：**这里【故意】不建 `PointerLayer`** —— 悬停的派发由本类自己的
             //   `HandlePointer`（下面 `UpdateButtonHover`）做，理由有三条，写在这里免得下一个人「顺手补上」：
@@ -4871,16 +4871,16 @@ namespace CardPresentation
             // 里 `controller.Toggle(ValidateDeck(...), …)` ⇒ **合法才扫**，而且那颗是 `m_WrapMode 1 (Loop)` 一直扫）。
             FootShine(err == DeckError.None);
 
-            // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**。
-            // 原来这里写的是「卡池里四个稀有度各有几张」—— **语义是错的**：原版这 4 个数字是
-            // `WildcardDisplay.Initialize(card.army)` 的**库存直出**（跟着**指针悬停那张卡**的阵营走）。
-            // 单机没有发放源、外壳也没有 hover（`PointerLayer` 无悬停能力）⇒ **不自己算**，统一写 99。
-            // 判据 → `项目任务.md` §三 第 15 条 第 29 项。
-            // ⚠️ **2026-10-04 更正（铁律 5）**：括号里那句「`PointerLayer` 无悬停能力」**已经过期** ——
-            //   它 2026-10-03（A17）起就有 `HoverAt`（悬停换图），本轮 A24 又给这扇窗接上了悬停换图
-            //   （**没建指针层**，由本类 `HandlePointer` 派发 —— 理由见 `Build()` 末尾那段）。**但结论不变**：
-            //   那 4 个数字仍然写 99，因为缺的是**发放源**（`WildcardDisplay` 的库存），不是悬停事件。
-            for (int i = 0; i < 4; i++) _wcTxt[i].SetText("99");
+            // 🔴 **2026-10-29（B99_W1 · 界面 5）：这 4 格改成读【真库存】**，不再是恒定 `99`。
+            // 原版 = `WildcardDisplay__SetCountersText.c`：从 `WildcardInventory` 里挑**同阵营**那些条目
+            //   （谓词 `WildcardDisplay__<SetCountersText>b__11_0.c`：`wildcard.army(+0x2c) == this.currentArmy(+0x50)`），
+            //   再按 1..4 档各写进 `Counters/{Common,Rare,Epic,Legendary}/Counter` 那 4 个 TMP。
+            // 等价读口 = `CardProgress.Wildcards(army, rarity)`（两维桶 `army|rarity`；缺省 `WildcardsPerRarity = 99`）。
+            // ⚠️ **历史**：原来这里是**恒定 `99`**（2026-09-28 用户拍板）—— 那个决定的前提是「没有库存读口」；
+            //   2026-10-26（F7）两维读口落地 ⇒ 前提消失，按 §18·0「照原版」改回来。
+            // ⚠️ 档序：`CardDetailPopup.WildcardRarities` = {common, rare, epic, legendary}，与上面 `wcIc` 那 4 张图标**同序**
+            //   （`Editor/B99W1_Assert.cs` 有一条配对断言盯着，⛔ 别单改一边）。0 也要照印（同「阵营资源 0 值也显示」）。
+            for (int i = 0; i < 4; i++) _wcTxt[i].SetText(CardProgress.Wildcards(DeckArmyName(State), CardDetailPopup.WildcardRarities[i]).ToString());
 
             // 🔴 **2026-10-17（A893）**：页头那颗 `hdr_army` 要**跟着这副卡组的阵营换**（判据与出处
             //   写在 `BuildHeader` 那一行 + `DeckArmyIcon` 的 doc 上）—— 换督军/清督军都会走到这里
@@ -8782,11 +8782,11 @@ namespace CardPresentation
         /// —— **本笔没做**，已记进 `资料/普查产出_1017/W_B31_徽记与上限.md` §④。</para></summary>
         public static string DeckArmyIcon(DeckEditorState state)
         {
-            var wl = (state == null || state.Deck == null || string.IsNullOrEmpty(state.Deck.WarlordId))
-                     ? null : state.Find(state.Deck.WarlordId);
+            // 🔴 **2026-10-29（B99_W1 · 界面 5）**：阵营名那一半搬进类尾 `DeckArmyName` —— 通配符那 4 格
+            //   要喂的是**阵营名**（`WildcardDisplay.Initialize(army)`），本格要喂的是**徽记图**，两处必须同一把尺。
             // ⚠️ 拿不到督军那张卡（卡池里查不到 id）时**也按原版那个默认档**走，别回退成 `FactionIcon(null)`
-            //   （那是卡组图标，绝不是这一格该有的东西）。
-            return FactionIcon(wl != null && !string.IsNullOrEmpty(wl.Faction) ? wl.Faction : NoArmyFaction);
+            //   （那是卡组图标，绝不是这一格该有的东西）—— 那条默认值在 `DeckArmyName` 里，⛔ 别在这里再写第二份。
+            return FactionIcon(DeckArmyName(state));
         }
 
         /// <summary>原版 `DeckEditingWindow__FilterToDeck.c:24` 那句 `uVar3 = 10` ——
@@ -9596,6 +9596,87 @@ namespace CardPresentation
         public string PoolCellCardId(int vi)
         {
             return vi >= 0 && vi < _poolViewIds.Count ? _poolViewIds[vi] : null;
+        }
+
+        // ============================================================ 🆕 2026-10-29（B99_W1 · 界面 2 ＋ B99_W5 订正）
+        // 【界面 2 · 开窗扫光】—— 旧任务「开窗就播」只对了一半；B99_W1 判成「第二次起才播」，B99_W5 现核**再订正一次**：
+        //     ✅ **原版开窗那一拍【永远不播】**（不是「第二次起播」）。三条判据同向。
+        // 判据①（`OnEnable` 的闸）`d:/2/tools/decomp_full/WildcardDisplay__OnEnable.c`：
+        //     `… Signal__Register<object>(…)`            ← **无条件**（Register 那半没有闸）
+        //     `if (*(int *)(param_1 + 0x50) != 0) {`      ← `+0x50` = `currentArmy`
+        //         `UIEffectTweener__Play(this+0x48, 1, 0); WildcardDisplay__SetCountersText(param_1, 0); }`
+        // 判据②（顺序）`DeckEditingWindow__TryOpen.c`：tab0 的 `Toggle__set_isOn(…,1,0)` 在 **:123**、`ToggleDisplay(…,1,0)` 在 **:126**，
+        //     而 `FilterToDeck(param_1,0)` 在 **:134**（它第 27-28 行才 `WildcardDisplay__Initialize`，那只写 `+0x50`、**不 Play**）。
+        //     ⇒ 开窗那一刻 `+0x50` 还是出厂 0 ⇒ **OnEnable 的闸关着**（但 Register 照做）。
+        // 判据③（🔴 B99_W5 新增，**决定性**）**窗对象每次开窗都是全新的** ⇒ `+0x50` 根本不跨开窗保留：
+        //     `assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity` 里那台 `WindowsManager` 的
+        //     `temporaryWindowDictionary[0].typeReference._typeNameAndAssembly = "DeckEditingWindow, Assembly-CSharp"`，
+        //     其 `windowReference.m_AssetGUID = 02993d13b9580364aa733e56e13252ef` = `bundle_menus_assets_all/AssetBundle_1.json`
+        //     的 **m_Container 键**（addressable）⇒ 走 `OpenWindow(ComponentReference)` 的 `Load() + Instantiate()` 那一支、
+        //     并 `automaticallyLoadedWindows.Add(…)`；而 `WindowsManager__CloseWindowCO.c:36-47` 对「在这张表里」的窗做
+        //     `Object.Destroy(gameObject)` + `Release` + `Remove`（只有 `+0x48` = `CurrentBaseMenu` 那一支才仅 `Hide`）
+        //     ⇒ **每次开窗都是一个新实例** ⇒ 开窗那一拍的闸**永远**关着。
+        // ⚠️ 所以「无条件播」与「第二次起播」**都会造出原版没有的一下多播**。⛔ 别改回来。
+        // 【界面 5 · 四格通配符】见 `RefreshHeader` 那一格 `_wcTxt[i].SetText(…)` 的注释；阵营名读口在下面 `DeckArmyName`。
+
+        /// <summary>开窗那一拍（`Build()` 里 `RefreshAll()` 旁边那句）：原版 `WildcardDisplay.OnEnable` 的等价物。
+        /// <para>🔴 **只做 `Signal.Register` 那半**（= `HookWildcardUpdate`）—— `Play` 那半在开窗这一拍**永远不成立**
+        /// （判据③：窗每次都是新实例 ⇒ `currentArmy` 还是出厂 0）；`Play` 只发生在**窗内换页**（见 <see cref="WildcardShineAfterTab"/>）。</para></summary>
+        void WildcardDisplayEnable()
+        {
+            HookWildcardUpdate();   // 原版 `OnEnable` 第一句 `Signal.Register<WildcardUpdateSignal>(UpdateCounters)`（**无条件**）
+        }
+        // ⚠️ 由此**没有**「开窗那一拍重播」这一支了 —— 要验它走「窗内 Cosmetics → Cards」那一拍（`WildcardShineAfterTab`）。
+        // ⚠️ ⛔ **别**把 `Play` 加回 `Build()`：那会给**每次开窗**都加一下原版没有的扫光（判据①②③ 全指向「不播」）。
+        // ⚠️ 原来那位「跨开窗保留的 `+0x50`」标志 `_wcArmyInitialized` 已删 —— 判据③ 说它**不该**跨窗保留。
+
+        /// <summary>这副卡组的**阵营名**（原版 `DeckEditingWindow__FilterToDeck.c:24` 喂给 `WildcardDisplay.Initialize` 的那个 `army`）。
+        /// <para>判据 = <see cref="DeckArmyIcon"/> 原来那两行内联判据（本笔搬到这里，让「徽记图」与「四格通配符计数」共用一把尺）；
+        /// ⛔ 别在别处再写第二份。</para>
+        /// <para>⚠️ `deckArmy == 0`（还没选督军 / 卡池里查不到那张卡）⇒ 原版那个字面量默认档
+        /// <see cref="NoArmyFaction"/>（`10` = `Ultramarines`，`dump.cs:45640`）。</para></summary>
+        public static string DeckArmyName(DeckEditorState state)
+        {
+            var wl = (state == null || state.Deck == null || string.IsNullOrEmpty(state.Deck.WarlordId))
+                     ? null : state.Find(state.Deck.WarlordId);
+            return wl != null && !string.IsNullOrEmpty(wl.Faction) ? wl.Faction : NoArmyFaction;
+        }
+    }
+}
+
+// ================================================================================================
+//  「中央档」钩子的注册点 —— 把 `RuleEngine/DeckLibrary` 那三个注入点接到 `SaveCenter`（2026-10-30 · `B99_W7`）
+//
+//  为什么在这儿：`DeckLibrary` 属于 `RuleEngine/`，⛔ 不能引用 `CardPresentation.*`（反向依赖，
+//  成文约束 = `RuleEngine/Core/AchievementTally.cs:281`）⇒ 由 Shell 侧（本文件）把
+//  `ReadThroughLegacy` / `SaveThroughLegacy` / `Exists` 注进去。
+//
+//  为什么用 `RuntimeInitializeOnLoadMethod` 而不是 `Awake()`：
+//    ① `Awake()` 只有**卡组编辑窗存在**时才跑，而 `DeckLibrary.Load()` 的调用方还有
+//       `BattleDriver.PickSavedDeck` / `CollectionData` 等（都在开窗之前）⇒ 挂 `Awake` 会漏。
+//    ② **批处理自检是 edit mode**（不进入 play）⇒ 本钩子**不会**被触发 ⇒ 自检仍然走
+//       `DeckStore` 那条纯文件路（= W6 之前的行为，零变化）。
+//    ③ 真跑起来（player / 编辑器 play）时才注册 ⇒ 双写与「先中央档、再旧档」按 W6 的设计生效。
+//
+//  🔴 `CentralSaveExists` 里那一句 `SaveCenter.StoreOn &&` **不能省** —— 它才是
+//     「`existed` 与 `ReadThroughLegacy` 的 `StoreOn` 支自洽」的那道闸（W7 修的就是这个假阳性）。
+//     `ReadThroughLegacy` / `SaveThroughLegacy` 自己内部判 `StoreOn`，外面不需要再包。
+//  ⚠️ 本段**追加在文件尾部**（铁律 13·3 / 18·b：本文件被账按 `文件:行号` 引用 124 处，
+//     往类体中间插成员会让下游落点整体漂移）。
+// ================================================================================================
+namespace CardPresentation
+{
+    public partial class DeckRuntime
+    {
+        /// <summary>把 <see cref="RuleEngine.DeckLibrary"/> 的三个注入点接到 <see cref="SaveCenter"/>。
+        /// <para>⚠️ 幂等（重复注册只是把三个字段再赋一次同样的 lambda）。</para>
+        /// <para>⚠️ 只注册、不做别的：**不读盘、不建窗、不碰 `Instance`**。</para></summary>
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void RegisterDeckLibrarySaveHooks()
+        {
+            RuleEngine.DeckLibrary.ReadLegacyText = path => SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, path);
+            RuleEngine.DeckLibrary.SaveLegacyText = (string path, string json, out string err) => SaveCenter.SaveThroughLegacy(SaveKeys.PlayerDecks, path, json, out err);
+            RuleEngine.DeckLibrary.CentralSaveExists = () => SaveCenter.StoreOn && SaveCenter.Exists(SaveKeys.PlayerDecks);
         }
     }
 }

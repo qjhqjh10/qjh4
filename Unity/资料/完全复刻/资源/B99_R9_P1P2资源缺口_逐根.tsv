@@ -1,0 +1,208 @@
+域	根对象	行数	桶	判定	判据/证据	我们的等价物(文件:行)	要做的事	优先级P1/P2
+轮抽	Draft Mode Timed Mode Window	190	④	属未做功能	限时/付费版轮抽是**另一份 prefab**（Pay/Warlord 两页换 Timed 子类 + 阵营进度条 + 联盟积分）；`Shell/DraftModeWindow.cs:1` 与 `:35` 明写「不做限时版」；判据正本 S3 §2.10	`Shell/DraftModeWindow.cs:202` 只覆盖 `Draft Mode Menu Demo`	限时档：需 liveop 事件数据（付费价 / 时长 / 阵营进度 / 联盟积分）—— 本地 0 命中（S3 §五）⇒ 先建窗壳 + 空态出声	P2
+轮抽	Draft Mode Menu Demo	163	④	代码构造等价	原版 `DraftModeMenuDemo : GameWindowWithTabs` 逐节点照建（S3 正本）	`Shell/DraftModeWindow.cs` RootName `:202` · Build `:981` · 打开 `Shell/MainMenuRuntime.cs:2737`	—	P1
+轮抽	Draft Mode Deck Info Panel	81	④	代码构造等价	右栏面板逐节点照建（S3 §2.9 现读）	`Shell/DraftModeWindow.cs:1847`	—	P1
+轮抽	DraftLeaderboardPopup	27	④	代码构造等价	四扇榜之一（轮抽），同 `LeaderboardWindow` 一码	`Shell/LeaderboardWindow.cs:245`（`LeaderboardKind.Draft`）	—	P1
+轮抽	Draft Mode Ongoing State	27	④	代码构造等价	进行中页整页照建	`Shell/DraftModeWindow.cs:1660`	—	P1
+轮抽	Draft Mode Ongoing Content	17	④	代码构造等价	该 prefab 的内容件（`Victories text` / `Win Marks` / `Defeat Marks` / `Stages Container`）建在 `Draft Mode Ongoing State` 页下（根名不同、子件同）	`Shell/DraftModeWindow.cs:1671-1690`	若要 1:1 节点名，可在 State 页下补一层 `Draft Mode Ongoing Content` 容器（纯结构差）	P1
+轮抽	Draft Mode Expiring Popup	12	④	属未做功能	限时档的「即将结束」弹窗（含 `Alliance Content` / `Alliance Skull Count` / `x10 text`）—— 属限时版那一支	无	随限时轮抽一起做；数据判据在远端	P2
+轮抽	Draft Mode Card in deck container Variant	10	④	代码构造等价	行模板 = `Deck Selector Card Info button`，子件（`Rarity Gradient` / `Cost Image` / `banned Icon` / `Text fill` / Card Name / Count）逐件同名建出	`Shell/DraftModeWindow.cs:2951-3031`	—	P1
+轮抽	Card Info Draft Mode button	9	④	代码构造等价	同一行模板的「卡信息钮」档（我们的行根即 `Deck Selector Card Info button` + `Hit`）	`Shell/DraftModeWindow.cs:3031`	—	P1
+轮抽	Draft Game Mode Container 1x2	7	④	代码构造等价	主菜单轮抽模式卡（1×2 独占整列）	`Shell/MainMenuRuntime.cs:2603`	—	P1
+商店	Card Shop VIP Tab Variant	30	④	代码构造等价	第 4 页 = VIP（`VIPCardShopTab : CardShopTab`）	`Shell/ShopData.cs:131`（PageSpec vip）+ `Shell/ShopTabPage.cs`	—	P1
+商店	Icon Currency Drawer Variant	28	④	真缺	抽屉**本体**未实现：`DrawerImpls` 只 5 档，其余 18 个原版抽屉走 `Placeholder`（版式「我们挑的」）。本根 28 行里 27 行是 `Ephemeral Drawer`（已由 ItemDrawer 通用实现），只有根 1 行是本体	槽位：`Shell/BaseOfferPopup.cs:436` 起 9 条；状态三跳：`Shell/ItemDrawer.cs:908/1612`	照 `CurrencyDrawer.Draw` 实现抽屉内部（图 + 数量 + 底框几何）	P1
+商店	General Basic Offer Popup Variant Single Item Type	25	④	代码构造等价	21 条变体表逐份实读（根名 = 我们建出来的根节点名）	`Shell/BaseOfferPopup.cs:495`	—	P1
+商店	Shop Menu Variant	24	④	代码构造等价	商店窗根（左竖导航 SHOP 开）	`Shell/MainMenuRuntime.cs:1637`（RefShop）· `:1996`（OpenShop）	—	P1
+商店	General Basic Offer Popup Booster_CardOrAltArt_AvatarORTitle	23	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:400`	—	P1
+商店	Offer Price Discount Badge	21	④	代码构造等价	划线价徽章（含 rotation / 出厂 ACTIVE）	`Shell/BaseOfferPopup.cs:247`	—	P1
+商店	General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title_resource	20	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:556`	—	P1
+商店	Item Shop Tab	19	④	代码构造等价	Items 页（`ItemShopTab`，计时器 = 时钟图标）	`Shell/ShopData.cs:124`（PageSpec items）	—	P1
+商店	Item Shop Tab No Automatic Ordering	19	④	代码构造等价	同一 Items 页的另一份配置（差 = `itemOrder = 0` 跳过重排）；我们的货架自编、不做服务端重排	`Shell/ShopWindow.cs:30`（`itemOrder 0` 语义）· `Shell/ShopData.cs:124`	若接服务端报价，再按 `itemOrder` 实现重排	P1
+商店	Card Shop Tab	19	④	代码构造等价	Cards 页（`CardShopTab`，`Refreshes in:` 英文）	`Shell/ShopData.cs:117`	—	P1
+商店	General Basic Offer Popup Variant cardback_premiumOrAvatarOrResource_titleOrResource	19	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:518`	—	P1
+商店	General Basic Offer Popup Variant Deck_cardback_avatar	19	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:455`	—	P1
+商店	General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title	18	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:546`	—	P1
+商店	General Basic Offer Popup Variant Booster_avatar_cardback_title	17	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:422`	—	P1
+商店	General Basic Offer Popup Variant Premium_booster_title_avatarOrResource	17	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:485`	—	P1
+商店	General Basic Offer Popup Booster_CardOrAltArt	17	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:392`	—	P1
+商店	General Basic Offer Popup Variant Premium_Premium_cardback_avatar	16	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:476`	—	P1
+商店	General Basic Offer Popup Variant avatarOrTitle_resource	15	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:510`	—	P1
+商店	General Basic Offer Popup Variant Booster_avatar_resource	14	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:431`	—	P1
+商店	General Basic Offer Popup Variant Booster_cardback_resource	14	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:439`	—	P1
+商店	General Basic Offer Popup Variant Booster_title_resource	14	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:447`	—	P1
+商店	General Basic Offer Popup Variant Booster + 2 Currencies	13	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:538`	—	P1
+商店	General Basic Offer Popup Variant Premium_Resource	13	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:568`	—	P1
+商店	General Basic Offer Popup Variant 2 Currencies	12	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:531`	—	P1
+商店	General Basic Offer Popup Just Foreground	10	④	代码构造等价	变体表条目	`Shell/BaseOfferPopup.cs:388`	—	P1
+商店	Avatar Drawer Shop Variant	9	④	真缺	`AvatarDrawer` 本体未实现（`ItemTypeSets` 有 Shop(20)→`AvatarDrawer`，但 `DrawerImpls` 无它 ⇒ Placeholder）	槽位：`Shell/ShopTabPage.cs:515`（`DrawerOverride.Shop`）；类型：`Shell/ItemDrawer.cs:408`；未实现：`:724`	照 `AvatarDrawer__Draw.c` 实现头像抽屉内部（`avatarBG` 底框 + 头像图）	P1
+商店	Shop Item Container	9	④	代码构造等价	商店格子树（Art / Name / Price Display Button/Generic UI Button / Available）逐件同名建出；`TimedOffer` / `New` 按断言**故意不建**（出厂 INACT、锚点落在格外）	`Shell/ShopTabPage.cs:484`（BuildCell）	—	P1
+商店	Generic Shop Tab	9	④	属未做功能	原版 store 页签由**服务端 store 列表**实例化（`ShopWindow.SetupTabs`），prefab 里只序列化一个母版键（= `Shop Tab`）⇒ 这几种页签本地无任何 store 指向	无（我们按 `Shell/ShopData.cs` 的 5 页自建）	等远端 store 列表判据；否则只能自定页签集合（现状）	P2
+商店	Avatar Border Drawer Shop Variant	7	④	真缺	`AvatarBorderDrawer` 本体未实现（走 Placeholder）	槽位：`Shell/BaseOfferPopup.cs:471`；类型：`Shell/ItemDrawer.cs:426`；未实现：`:724`	实现头像边框抽屉内部	P1
+商店	Icon Currency Drawer Variant (1)	7	④	真缺	同族 Icon 档抽屉本体未实现	槽位：`Shell/BaseOfferPopup.cs:504` 起 8 条；未实现：`Shell/ItemDrawer.cs:724`	同 `Icon Currency Drawer Variant`	P1
+商店	Shop Tab	5	④	代码构造等价	原版 `Shop Menu Variant/Tabs` 里**序列化的那一个**就是 `Shop Tab`（母版，label `Pacotes`）⇒ 我们所有页签都按它建	`Shell/ShopWindow.cs:20-33` · `Shell/ShopData.cs:137`（Booster 页注释逐字引这条）· `Shell/ShopTabPage.cs`	—	P1
+商店	XSolla Offer Drawer	4	④	真缺	`XSollaOfferDrawer` 本体未实现（类型表有 `XSollaBundleItem`→它，但 DrawerImpls 无）	类型：`Shell/ItemDrawer.cs:425`；未实现：`:724`	实现 XSolla 礼包抽屉；⚠️ XSolla 属外部支付渠道（P3 边界），先做 UI	P2
+商店	Currency Drawer	4	④	真缺	`CurrencyDrawer` 本体未实现	类型：`Shell/ItemDrawer.cs:407`；未实现：`:724`	实现货币抽屉内部	P1
+商店	Premium Drawer No Glow	4	④	真缺	`PremiumDrawer` 的「无辉光」档；本体未实现（`Premium Highlight` 那三件我们已按 `TogglePremiumHighlight` 建）	`Shell/ItemDrawer.cs:908/1612`（三件已建）· 本体未实现 `:724`	实现 PremiumDrawer 内部（含无辉光档的开关差）	P1
+商店	Premium Drawer	4	④	真缺	`PremiumDrawer` 本体未实现（同上）	类型：`Shell/ItemDrawer.cs:422`；未实现：`:724`	实现 PremiumDrawer 内部	P1
+商店	Icon Currency Drawer Variant 2	2	④	真缺	同族第二份（槽位表里与 `Icon Currency Drawer Variant` 同族）	槽位：`Shell/OfferContainer.cs:638/645`；未实现：`Shell/ItemDrawer.cs:724`	同 `Icon Currency Drawer Variant`	P1
+商店	Premium Unlocked	2	④	代码构造等价	`PurchasePremiumWindow` 里逐节点照建（`PuchasePremiumArmyContainer` 开关它）	`Shell/PurchasePremiumWindow.cs:905`	—	P1
+商店	Price Display Button	1	④	代码构造等价	建盟窗的价签钮（`Price Display Button > Price Display > text`）	`Shell/AllianceSearchTab.cs:858`	—	P1
+商店	Price Display Button 2 Variant	1	④	代码构造等价	第二份价签（每日奖励窗 / 轮抽重掷行）	`Shell/DailyRewardPopup.cs:593` · 轮抽重掷：`Shell/DraftModeWindow.cs`（`Editor/DraftAssertD3.cs:999` 断言查它）	—	P1
+商店	Icon Currency Drawer Variant (2)	1	④	真缺	同族第三份	槽位：`Shell/BaseOfferPopup.cs:348` 注释族；未实现：`Shell/ItemDrawer.cs:724`	同 `Icon Currency Drawer Variant`	P1
+商店	Icon Currency Drawer Variant 3	1	④	真缺	同族第四份	同 `Icon Currency Drawer Variant 2`	同 `Icon Currency Drawer Variant`	P1
+菜单外壳	Rewards Base Submenu Variant	153	④	代码构造等价	奖励窗宿主根（左竖导航第 4 钮开的子菜单），根名逐字照建	`Shell/RewardsWindow.cs:164`	—	P1
+菜单外壳	Title Drawer Horizontal Variant	56	④	代码构造等价	横向称号抽屉：称号页逐层照建（Content 1028×370 / 石板 / 徽记 / TITLE 字）；⚠️ 在礼包弹窗里那一档仍走 ItemDrawer 的 Placeholder	`Shell/TitleTab.cs:333-390`（格模板）· 礼包槽：`Shell/BaseOfferPopup.cs:407`	礼包弹窗里的称号抽屉也接上 TitleTab 那套画法	P1
+菜单外壳	Icon Container Drawer Variant	41	④	真缺	`ContainerDrawer` 本体未实现；本根 41 行里 40 行是 `Ephemeral Drawer`（已实现），只有根 1 行是本体	槽位：`Shell/BaseOfferPopup.cs:395` 起；类型 `Shell/ItemDrawer.cs:409`；未实现 `:724`	实现 ContainerDrawer 内部（卡包图 + 数量）	P1
+菜单外壳	Sunset Popup	31	④	不做（用户拍板）	**用户已拍板「过期活动不做」**（`Shell/LiveOpsLocalCatalog.cs:27` 记这条边界；`任务线/远端挂起线` P04）	无（按裁决不做）	不做（用户 2026-09-17 边界 / 2026-10-24 重申）	—
+菜单外壳	Title Drawer Horizontal Variant (1)	21	④	代码构造等价	同族第二份（几何另读），礼包变体表里有它	`Shell/BaseOfferPopup.cs:452` · 画法同 `Shell/TitleTab.cs:333`	礼包槽若需 1:1，同 TitleTab 接上	P1
+菜单外壳	ChooseNameWindow	19	④	属未做功能	= 登录/账户窗（`Login Window` / Email / Password / `Link Accounts` / `Choose name` / 错误提示）—— 整扇是账户链	改昵称已内联：`Shell/ProfileTab.cs:27-32`（`Edit Name Button` 直接开内嵌窗）	登录链 = P3（账户/服务器）；本地改昵称已可用。若要照原版，需先有账户后端	P2
+菜单外壳	Title Drawer	11	④	真缺	纵向称号抽屉本体：只 Horizontal 档照建，纵向档走 Placeholder（`Image Top` 那层也就没有）	画法参照：`Shell/TitleTab.cs:133-206`；未实现：`Shell/ItemDrawer.cs:724`	把 TitleTab 的格模板抽出来给纵向档复用	P1
+菜单外壳	Base Game Mode Container 1x1 Claim	10	④	属未做功能	活动模式卡的「领取」态（`Collect Text` + 计时器）；今天零命中 —— `ModeCardsFromLiveOpEvents` 因 13 份活动 SO 全过期恒 null	模式卡骨架：`Shell/MainMenuRuntime.cs:2586-2596`；活动卡的领取态未建	建「已达成可领取」态 + 计时器；数据判据在远端 liveop	P2
+菜单外壳	Base Game Mode Container 1x1 Claim AutoCollect	10	④	属未做功能	同上（自动领取档）	同 `Base Game Mode Container 1x1 Claim`	同上	P2
+菜单外壳	Base Game Mode Container 1x1	9	④	代码构造等价	两张 1×1 模式卡（Practice / Tutorial）按该族建	`Shell/MainMenuRuntime.cs:2627-2629`	—	P1
+菜单外壳	Packs Tab	9	④	属未做功能	原版商店页签由服务端 store 列表实例化；本地无 store 指向它	无（5 页自建：`Shell/ShopData.cs:112-137`）	等远端 store 列表判据	P2
+菜单外壳	Base Game Mode Container 1x2	9	④	代码构造等价	三张 1×2 模式卡（Skirmish / Ranked / Draft）按该族建	`Shell/MainMenuRuntime.cs:2591-2605`	—	P1
+菜单外壳	GenericPromptWindow	8	④	代码构造等价	通用提示窗（OkButton / inputs / GenericDropdown / Error Message 全照建）	`Shell/PromptPopup.cs:1`（文件头逐句照 prefab）· `:50`	—	P1
+菜单外壳	Prebuilt Pack UI	7	④	代码构造等价	轮抽选包的单包卡（独立 prefab，逐节点照建）	`Shell/DraftModeWindow.cs:2479`	—	P1
+菜单外壳	Base Submenu	7	④	代码构造等价	子菜单母版（Tabs / Content Area / TabButtonLabel / Sample Tab / Shadow）由子菜单基类 + 各窗自建	`Shell/MainMenuSubmenuWindow.cs:9` · `Shell/RewardsWindow.cs:164` · 页签模板 `Shell/ParentEventWindow.cs:514`	—	P1
+菜单外壳	MainRating	7	④	代码构造等价	段位大块（`displaySeals` 两态：Current Rank 建四封印 / Highest Rank 不建）	`Shell/ProfileTab.cs:201` · `:778/:787`	—	P1
+菜单外壳	Support Tab	7	④	代码构造等价	设置窗第 5 页（五个外链钮）	`Shell/SettingsWindow.cs:103` · `:1145`	—	P1
+菜单外壳	MessagePopupWindowDuel	6	④	代码构造等价	决斗弹窗（原版节点名 `MessagePopupWindowDuel`，类 `DuelPopupWindow`）	`Shell/DuelPopupWindow.cs:2` · `Shell/ChallengeManager.cs:268`	—	P1
+菜单外壳	Edit Name Button	5	④	代码构造等价	改名钮四跳链（我们直接接开内嵌改名窗）	`Shell/ProfileTab.cs:27-32`	—	P1
+菜单外壳	Base Game Mode Container 1x2 No Timer	5	④	代码构造等价	1×2 无计时器档；我们三张 1×2 卡正是无计时器形态 —— 倒计时行**只在 `hasTimerRow` 为真时建**（真有 liveop 到期时刻），本地无数据 ⇒ 整行不建	`Shell/MainMenuRuntime.cs:2591-2605`（三张 1×2）· 计时器闸 `:3045`（`if (hasTimerRow)`，几何留在 `:3024-3045`）	接上 liveop 数据后倒计时行自动建回（代码已就绪）	P1
+菜单外壳	Rate Popup	5	④	属未做功能	商店评分弹窗（1–4 星 / 5 星两态）；用户 2026-09-22 裁决「**保留 UI + 提示**」，代码 0 命中	无	建窗（两态 + 点了提示「评分渠道未接」）；`资料/阶段二外壳_待裁决清单_0922.md` §✅	P2
+菜单外壳	Base Expiration Popup	4	④	代码构造等价	活动到期弹窗变体（无红底 / 无文字 / 压暗更深）	`Shell/BaseEventPopup.cs:6/:28/:71`	—	P1
+菜单外壳	Container Drawer	4	④	真缺	`ContainerDrawer` 本体未实现（母版档）	类型：`Shell/ItemDrawer.cs:409`；未实现：`:724`	实现 ContainerDrawer 内部	P1
+菜单外壳	WelcomeScreen Alpha	4	④	代码构造等价	欢迎窗（`PrefabRefWelcome` 同一套）	`Shell/WindowsManager.cs:841` · `Shell/WelcomePopup.cs`	—	P1
+菜单外壳	Base Drawer	4	④	真缺	抽屉**母版**本体未实现（ItemDrawer 只有 5 个具体类）	`Shell/ItemDrawer.cs:724`（DrawerImpls 只 5 条）· 状态三跳已建 `:908/:992/:1612`	实现 BaseDrawer 母版内部（图 + 名 + 数量 + 底框）	P1
+菜单外壳	Timer With Time Description	4	④	代码构造等价	倒计时行（`Starts in:` + 时钟 + 剩余时间；截止时刻本地没有 ⇒ `--` + 出声）	`Shell/ParentEventWindow.cs:1280` · `Shell/MainMenuRuntime.cs:3024`	—	P1
+菜单外壳	Wildcard Drawer	4	④	代码构造等价	`DrawerImpls` 里有真实现（`DrawerWildcard` 照 `WildcardDrawer__Draw.c` 三层）	`Shell/ItemDrawer.cs:724-728`	—	P1
+菜单外壳	Orange Tab Toggle	3	④	代码构造等价	聊天窗页签模板（运行期逐个建）	`Shell/ChatPanel.cs:471`	—	P2
+菜单外壳	Rank Points	3	④	代码构造等价	段位分块（出厂关着，父节点 INACT）	`Shell/RankedDivisionChangeWindow.cs:310`	—	P1
+菜单外壳	Settings Menu Tab Toggle	3	④	代码构造等价	设置窗页签钮（`Tab Toggle Title` 五颗逐颗实读自适应）	`Shell/SettingsWindow.cs:1933-1938`	—	P1
+菜单外壳	Gold Tab	3	④	属未做功能	同 `Packs Tab`：服务端 store 页签，本地无 store 指向	无	等远端 store 列表判据	P2
+菜单外壳	AutoCompleteComboBox	3	④	代码构造等价	下拉/自动补全等价物（`DropDownList`/`ComboBox` 那一族）	`Shell/SettingsWindow.cs:3678` · `Shell/AllianceMemberTab.cs:2206`（B99_R4b 已逐个映射）	—	P1
+菜单外壳	Main Menu Navigation Button	3	④	代码构造等价	主菜单左竖导航五颗	`Shell/MainMenuRuntime.cs:230`（尺寸逐值实读）· `:786`	—	P1
+菜单外壳	Army Selector	3	④	代码构造等价	阵营选择条（多窗共用）	`Shell/LeaderboardWindow.cs:436` · `Shell/LiveOpsEventWindow.cs:975` · `Shell/PracticeModePopup.cs:1669` · `Shell/DailyRewardPopup.cs:744`	—	P1
+菜单外壳	Icon Title Drawer Variant	2	④	真缺	`TitleIconDrawer` 本体未实现（走 Placeholder）	类型：`Shell/ItemDrawer.cs:419`；未实现：`:724`	实现称号 Icon 小徽记抽屉	P1
+菜单外壳	FPS Slider	2	④	代码构造等价	图形页 FPS 滑块 + 三个刻度子件	`Shell/SettingsWindow.cs:491/:503/:527`	—	P1
+菜单外壳	Glow Preview reward	2	④	代码构造等价	战役奖励钮的「预览」态（`40k_bt_underbutton` + 灰）	`Shell/CampaignRewardWindow.cs:28-32`	—	P1
+菜单外壳	Glow Get reward	2	④	代码构造等价	战役奖励钮的「领取」态（同图 + 红，出厂 INACT）	`Shell/CampaignRewardWindow.cs:28-32`	—	P1
+菜单外壳	Army Item Button No Arrow Variant	2	④	代码构造等价	阵营条目无箭头档（同 `Army Item Button` 族）	`Shell/CampaignTab.cs:51/:76` · `Shell/ForgeTab.cs:142`	—	P1
+菜单外壳	Menu Navigation Panel Button	2	④	代码构造等价	窗内页签模板（事件窗族共用）	`Shell/ParentEventWindow.cs:634` · `Shell/GachaEventWindow.cs:477` · `Shell/ExpansionPassEventWindow.cs:650`	—	P1
+菜单外壳	Practice Army Select Button	2	④	代码构造等价	练习模式阵营格（四个子件逐件读）	`Shell/PracticeModePopup.cs:407-410`	—	P1
+菜单外壳	Sample Tab	2	④	代码构造等价	页签模板（建出来、关着 = 原版 `tabPrefab`）	`Shell/ParentEventWindow.cs:514`	—	P1
+菜单外壳	Icon Wildcard Drawer Variant	2	④	代码构造等价	`DrawerImpls` 里有真实现（`DrawerWildcardIcon`）	`Shell/ItemDrawer.cs:724-728`	—	P1
+菜单外壳	Player Level	2	④	代码构造等价	主菜单玩家等级（与头像框重叠关系照实拍）	`Shell/MainMenuRuntime.cs:387`	—	P1
+菜单外壳	Army Item Button	2	④	代码构造等价	阵营条目（`HighlightBG → Icon → Slider` 次序照原版）	`Shell/CampaignTab.cs:51` · `Shell/ForgeTab.cs:142`	—	P1
+菜单外壳	Unlock	1	④	代码构造等价	收藏窗解锁控件	`Shell/CollectionWindow.cs:4168`	—	P1
+菜单外壳	ReRollPopup Variant	1	④	代码构造等价	任务重摇弹窗	`Shell/MissionRerollPopup.cs:6/:88`	—	P1
+菜单外壳	S1Q1	1	④	代码构造等价	反馈弹窗的选项格	`Shell/GiveFeedbackPopup.cs:242` · 断言 `Editor/MainMenuScene.cs:17123`	—	P2
+菜单外壳	Conversion Initialized	1	④	属未做功能	HH:Legions 交叉推广·金币转换窗的「转换待完成」态（同族还有 `Conversion finished` / `Convert to Legions` / `Go Play legions`）	无	整扇是跨游戏推广链（依赖另一款游戏与服务）⇒ P2/P3；若要照原版，先定边界	P2
+菜单外壳	Conversion finished	1	④	属未做功能	同上（「金币已被领过」态）	无	同上	P2
+菜单外壳	PlayerRankingRow	1	④	代码构造等价	排行榜玩家行（`border`+头像格，`Guild Name` 出厂 active）	`Shell/LeaderboardRow.cs:4/:8/:24`	—	P2
+菜单外壳	Animated Loading Image	1	④	代码构造等价	加载菜单的转圈骷髅（`40K_icon_searching_skull` 270.439²）+ 齿轮	`Shell/LoadingMenu.cs:18-19/:224`	—	P1
+菜单外壳	Simple Army Icon	1	④	代码构造等价	段位奖励卡的阵营小图标	`Shell/RankedArmyBonusCard.cs:296`	—	P2
+菜单外壳	Yes VIP	1	④	代码构造等价	商店 VIP 页的状态字	`Shell/ShopTabPage.cs:1042`	—	P1
+菜单外壳	Download Legions Content	1	④	属未做功能	HH:Legions 交叉推广的「下载/去玩」屏（`Play Legions`）	无	同 `Conversion Initialized`	P2
+菜单外壳	PlayerRankingRow For Army	1	④	代码构造等价	阵营榜行（与玩家行的差别 = 无头像格/`For Army` 那一支）	`Shell/LeaderboardRow.cs:8/:24`	—	P2
+菜单外壳	Filter Toggle	1	④	代码构造等价	收藏窗四颗筛选钮（驱动 `ToggleFilters`）	`Shell/CollectionWindow.cs:471/:498/:582`	—	P1
+菜单外壳	Android extra compatibility	1	④	死资产	**原版运行期就不在**：`SettingsWindow` 只放行 `superSampling`；`Hi FPS` 与 `Android extra compatibility` 运行时都不在树上	`Shell/SettingsWindow.cs:402` · `:4325/:4330`（「⛔ 没建的」）	不做（原版不显示）	—
+菜单外壳	Media Tab	1	④	代码构造等价	设置窗音频页（`Audio Settings` / `PlatformBasedComponents` PC 档才显示）	`Shell/SettingsWindow.cs:65/:74/:290`	—	P1
+菜单外壳	Node Line	1	④	代码构造等价	战役节点连线（`290.6 × 10`）	`Shell/CampaignTab.cs:124`（粗细）· `:741`（BuildLine）	—	P1
+社交	Social Submenu Variant	210	④	代码构造等价	社交窗根，根名逐字照建	`Shell/SocialWindow.cs:143` · 打开 `Shell/MainMenuRuntime.cs:1844`（OpenSocial）	—	P2
+社交	Profile Player Info	24	④	代码构造等价	玩家信息块（排行页与档案页同构）	`Shell/RankedTab.cs:278` · `Shell/ProfileTab.cs`	—	P2
+社交	Friends Menu Demo	18	④	代码构造等价	好友页（页内 18 节点照建；好友行 100% 运行期生成）	`Shell/FriendsTab.cs:227-238` · `:380`	—	P2
+社交	Legendary Display Profile	18	④	代码构造等价	传奇支展示（与 `Highest Rank` 互斥两支）	`Shell/ProfileTab.cs:305/:1087/:1100`	—	P2
+社交	Profile Cosmetic Tab	16	④	代码构造等价	外观页基类（`Select` 钮三颗同键）	`Shell/AvatarTab.cs:110/:124` · `Shell/TitleTab.cs:71`	—	P2
+社交	Inbox Menu	8	④	代码构造等价	收件箱（整窗照 `Inbox Menu` 树）	`Shell/InboxWindow.cs:1/:20`	—	P2
+社交	Member Options Panel	6	④	代码构造等价	成员操作弹窗（四颗钮逐节点）	`Shell/AllianceMemberOptionsPopup.cs:245`	—	P2
+社交	No Alliance	3	④	代码构造等价	联盟分面板的空态（`In Alliance`/`No Alliance` 两态）	`Shell/AllianceEventScorePanel.cs:21-39/:75`	—	P2
+社交	Alliance Score Bar Line	2	④	代码构造等价	五档分数条	`Shell/AllianceEventScoreInfo.cs:125`	—	P2
+社交	Campaign Profile Container Variant	2	④	代码构造等价	档案页战役进度容器（我们的节点名少了 ` Variant` 后缀）	`Shell/ProfileTab.cs:1240`	若要对齐节点名，可改名（纯结构差）	P2
+社交	Forge Profile Container Variant	2	④	代码构造等价	档案页锻造进度容器	`Shell/ProfileTab.cs:1221`	同上	P2
+社交	Friend Info Item	1	④	代码构造等价	好友行真 prefab（9 个节点）	`Shell/FriendsTab.cs:376-380`	—	P2
+排名	Two Sides Event Window	87	④	代码构造等价	双边事件窗（`TwoSidesEventWindow`，tabs = 2）	`Shell/ParentEventWindow.cs:90/:93`	—	P2
+排名	SkirmishModeEventWindow	67	④	代码构造等价	遭遇事件窗（模式卡直接开它）	`Shell/MainMenuRuntime.cs:2715`（OpenByRef）· `Shell/SkirmishEventWindow.cs:34`	—	P2
+排名	RankedSkirmishLeaderboardPopup	23	④	代码构造等价	遭遇榜（3 个页签）	`Shell/LeaderboardWindow.cs:243`	—	P2
+排名	RankedClassicLeaderboardPopup Variant	17	④	代码构造等价	经典榜	`Shell/LeaderboardWindow.cs:244`	—	P2
+排名	Skirmish Ranked Game Mode Container 1x2	17	④	代码构造等价	遭遇模式卡（1×2）	`Shell/MainMenuRuntime.cs:2591/:2616`	—	P2
+排名	Ranked Game Mode Container 1x2	17	④	代码构造等价	排位模式卡（1×2，带段位印玺排）	`Shell/MainMenuRuntime.cs:2591` · 印玺 `:3285-3320`	—	P2
+排名	Base Game Mode Container 1x2 Raid or Army Release	14	④	代码构造等价	唯一带「阵营解禁/突袭」子树的 1×2 卡	`Shell/MainMenuRuntime.cs:4076-4081` · `:5212/:5222`	—	P2
+排名	Ranked Deck Selection	14	④	代码构造等价	卡组栏（预组优先）	`Shell/LiveOpsEventWindow.cs:671`	—	P2
+排名	Ranked Leaderboard Display	12	④	死资产	**嵌入版**：原版里零引用（84 个 bundle 逐 SerializedFile 搜 guid 无引用，`LeaderboardWindow.cs:28` 记录），且没有窗口字段	我们仍建了它（`Shell/LeaderboardWindow.cs:246` 作为默认 kind 的回落）	不做（原版不可达）；我们那份可保留作回落	—
+排名	Rating Text	3	④	代码构造等价	段位块里的评级数字（两处几何）	`Shell/ProfileTab.cs:1087/:1153`	—	P2
+排名	Placeholder Generic Leaderboard Display	2	④	死资产	通用排行榜**占位模板**（600×800），无实际入口、原版自己就是占位件	普查判据：`资料/历史/普查产出_0913_菜单盘点/原版菜单盘点_块12.md:103` · `资料/普查产出_0917/菜单盘点_块2.md:88`	不做（原版占位；真榜本体是 `RankedSkirmishLeaderboardPopup` 等）	—
+排名	Draft Rating	1	④	代码构造等价	联盟成员行里的轮抽评级（骷髅图，折行 1）	`Shell/AllianceMemberTab.cs:1932/:2001`	—	P2
+排名	DivisionImage	1	④	代码构造等价	段位大图槽（原版高度是 0.00 的布局伪值，按宽度 390.922 定）	`Shell/ProfileTab.cs:231-248`	—	P2
+活动	Gacha Tab	32	④	代码构造等价	抽卡活动页（原版无独立窗口 prefab，页 + `Parent Event Window` 壳）	`Shell/GachaEventWindow.cs:84/:342` · `Shell/WindowsManager.cs:806`	—	P1
+活动	General Basic Offer Popup Variant Expansion pass	26	④	代码构造等价	变体表条目（本族唯一带根级 `AvatarHelpText` 的一份）	`Shell/BaseOfferPopup.cs:463`	—	P1
+活动	Two Side Event Select Team	9	④	代码构造等价	双边事件的选阵营格 A/B（535×737.78）	`Shell/ParentEventWindow.cs:1142/:1569-1589`	—	P2
+活动	Icon Expansion Pass Premium Drawer Variant	7	④	真缺	`ExpansionPassPremiumDrawer` 本体未实现（走 Placeholder）	类型：`Shell/ItemDrawer.cs:420`；未实现：`:724`	实现资料片高级奖励抽屉内部	P1
+活动	Event Navigation Button	5	④	代码构造等价	左竖导航第 6 颗（活动入口）	`Shell/MainMenuRuntime.cs:825/:1120`	—	P1
+活动	Event Help Popup Small Image Variant	4	④	代码构造等价	小图帮助弹窗	`Shell/BaseEventPopup.cs:189`	—	P1
+活动	Event Help Popup Variant	4	④	代码构造等价	大图帮助弹窗	`Shell/BaseEventPopup.cs:188`	—	P1
+活动	Liveop Event Help Variant	4	④	代码构造等价	活动帮助弹窗变体（标题 Capline / 正文左对齐）	`Shell/BaseEventPopup.cs:190` · `Shell/LiveOpsEventWindow.cs:1476`	—	P1
+活动	Icon Expansion Pass Points Drawer Variant	4	④	代码构造等价	资料片点数格（`ExpansionPassPointDrawer`）	`Shell/ExpansionPassEventWindow.cs:907/:1549`	—	P1
+活动	Full Screen Event Announcement Variant	4	④	代码构造等价	整屏宣告变体（由 liveop 弹窗映射表选）	`Shell/BaseEventPopup.cs:191` · `Shell/LiveOpsHandler.cs:1552`	—	P1
+活动	Gacha Drawer Holder	3	④	代码构造等价	奖励格模板容器（运行期逐奖励实例化，无数据时建出来关着）	`Shell/GachaEventWindow.cs:814`	—	P1
+活动	Gacha Reward Claimed	2	④	代码构造等价	「已领」叠层（只有 Collected 开）	`Shell/DailyRewardPopup.cs:522` · `Shell/DailyData.cs:819`	—	P1
+活动	WF_Special offer_Bck_tier3	1	④	代码构造等价	礼包背景图 tier3（按 `m_RenderDataMap` 切进工程）	`Shell/OfferArt.cs:23`	—	P1
+活动	WF_Special offer_Bck_tier2	1	④	代码构造等价	礼包背景图 tier2	`Shell/OfferArt.cs:22`	—	P1
+活动	WF_Special offer_Bck_tier1	1	④	代码构造等价	礼包背景图 tier1	`Shell/OfferArt.cs:21`	—	P1
+活动	Offers Atlas	1	④	代码构造等价	图集本身不运行时加载；三张背景由 `工具/import_offer_backgrounds.py` 切进工程	`Shell/OfferArt.cs:26`	—	P1
+活动	Icon Expansion Pass Premium Drawer Variant (1)	1	④	真缺	资料片高级抽屉第二份，本体未实现	槽位：`Shell/OfferContainer.cs:614/:732`；未实现：`Shell/ItemDrawer.cs:724`	同 `Icon Expansion Pass Premium Drawer Variant`	P1
+活动	Icon Expansion Pass Premium Drawer Variant Variant	1	④	真缺	资料片高级抽屉第三份，本体未实现	槽位：`Shell/BaseOfferPopup.cs:473` · `Shell/OfferContainer.cs:708`；未实现：`Shell/ItemDrawer.cs:724`	同上	P1
+战役	Icon Campaign Points Drawer Variant	37	④	代码构造等价	战役点数格：`DrawerImpls` 有真实现（`CampaignPointDrawer`，2026-10-28 B90-N6），另有 45×45 图标态	`Shell/ItemDrawer.cs:724-728` · `Shell/CampaignRewardWindow.cs:738`	—	P1
+战役	Icon Premium Campaign Drawer Variant	18	④	真缺	`PremiumDrawer` 本体未实现（战役礼包里的高级格）	槽位：`Shell/BaseOfferPopup.cs:480` 起；未实现：`Shell/ItemDrawer.cs:724`	实现 PremiumDrawer 内部（一处实现、多窗复用）	P1
+战役	Ultramarines Campaign	5	④	代码构造等价	战役事件数据 SO（`CampaignEventData`），作为战役页数据源已读	`Shell/CampaignData.cs:9` · `:309` · `Shell/CampaignTab.cs:1281`	—	P1
+战役	Campaign Points Drawer	4	④	代码构造等价	战役点数抽屉母档（`CampaignPointDrawer` 真实现）	`Shell/ItemDrawer.cs:724-728` · `Shell/CampaignTab.cs:1886`	—	P1
+战役	Icon VIP Premium Campaign Drawer Variant	2	④	真缺	`VIPPremiumItem` 的 Icon 档 `PremiumIconDrawer` 未实现	类型：`Shell/ItemDrawer.cs:423`；未实现：`:724`	实现 PremiumIconDrawer	P1
+战役	Icon Premium Campaign Drawer Variant (1)	1	④	真缺	同族第二份	槽位：`Shell/OfferContainer.cs:614/:732`；未实现：`Shell/ItemDrawer.cs:724`	同 `Icon Premium Campaign Drawer Variant`	P1
+战役	Icon Premium Campaign Drawer Variant 2	1	④	真缺	同族第三份	槽位：`Shell/BaseOfferPopup.cs:481`；未实现：`Shell/ItemDrawer.cs:724`	同上	P1
+日常	Daily Shop Tab	19	④	代码构造等价	商店 Daily 页（prefab 根无脚本，子树与 `Shop Tab` 逐名相同；计时器 = 文字）	`Shell/ShopData.cs:118`	—	P1
+日常	Daily Missions Holder	15	④	代码构造等价	三行任务容器（行高 150→172.5、靠下对齐）	`Shell/MissionsTab.cs:272-284` · `Shell/ExpansionPassEventWindow.cs:1278`	—	P1
+日常	Weekly Mission	8	④	代码构造等价	周常行（`Weekly Mission Holder` 150→172.5）	`Shell/MissionsTab.cs:193/:299` · `Shell/DailyData.cs:731/:746`	—	P1
+日常	Reward Display Mission	4	④	代码构造等价	任务奖励格（横向档）	`Shell/MissionsTab.cs:742/:753`	—	P1
+日常	Mission Debug Buttons	4	④	代码构造等价	任务调试钮（原版 `MissionDebugButtons` 自己 SetActive(false)；照建）	`Shell/ExpansionPassEventWindow.cs:1385` · `Shell/MissionsTab.cs:18`	—	P1
+日常	Reward Display Mission Vertical Variant	4	④	代码构造等价	任务奖励格（竖向档，`count` 20/40/36）	`Shell/MissionsTab.cs:2181/:2207/:2238`	—	P1
+日常	Weekly Mission Milestone T5	1	④	代码构造等价	周常里程碑五档同一 builder（T1 有实读锚点，T2–T5 同族参数）	`Shell/MissionsTab.cs:1893/:2034`	—	P1
+日常	Weekly Mission Milestone T4	1	④	代码构造等价	同上	`Shell/MissionsTab.cs:1893/:2034`	—	P1
+日常	Weekly Mission Milestone T2	1	④	代码构造等价	同上	`Shell/MissionsTab.cs:1893/:2034`	—	P1
+日常	Weekly Mission Milestone T1	1	④	代码构造等价	周常里程碑（50 / auto[15~50] / base 36）	`Shell/MissionsTab.cs:1893/:2120`	—	P1
+日常	Weekly Mission Milestone T3	1	④	代码构造等价	同上	`Shell/MissionsTab.cs:1893/:2034`	—	P1
+锻造	Forge Menu Reward Button	11	④	代码构造等价	锻造奖励格（子节点次序 / 紫边高亮 / 进度条）	`Shell/ForgeTab.cs:77/:132/:1119`	—	P1
+锻造	Forge Points Drawer	4	④	真缺	`ForgePointDrawer` 本体未实现（走 Placeholder）	类型：`Shell/ItemDrawer.cs:421`；未实现：`:724`	实现锻造点数抽屉内部（含阵营图）	P1
+锻造	Icon Forge Points Drawer Variant	3	④	真缺	`ForgePointIconDrawer` 本体未实现	类型：`Shell/ItemDrawer.cs:421`；未实现：`:724`；另见 `Shell/CardDetailPopup.cs:1650`（卡的详情里那一组按用户要求去掉）	实现 Icon 档	P1
+锻造	Forge Army Selector	3	④	代码构造等价	锻造阵营条（含 `Viewport` 42px 渐隐带）	`Shell/ForgeTab.cs:135/:236`	—	P1
+锻造	Forge Army Item Button	2	④	代码构造等价	锻造阵营格（114.36×121.59 为变体自有值）	`Shell/ForgeTab.cs:142/:215/:218`	—	P1
+教程	Choose Army Deck FTUE Window	15	④	代码构造等价	FTUE 选卡组窗（根名逐字同）	`Shell/FTUESelectDeckWindow.cs:102` · `Shell/MenuTutorialFlow.cs:319`	—	P1
+教程	Tutorial Army Select Button	6	④	代码构造等价	教程阵营格模板（589.75×200，五层图 + 三行字）	`Shell/TutorialModePopup.cs:564/:556`	—	P1
+特效动画	0_RewardsAtlas	1	④	真缺	图集 18 张：**14 张已进工程、4 张没导**（`40k_campaign_bar_fill color` · `40k_rewards_forge_decoration 1_candle` · `…1_candle_light` · `…decoration 2`）	已用其余 14 张（`CardArt.MenuUi` 按名取）；缺的 4 张按名 0 命中	导这 4 张（战役进度条填充色 / 锻造柱装饰），或在用它们的地方出声	P1
+特效动画	SocialMediaIconsAtlas	1	④	真缺	图集 7 张：**6 张已用，1 张没导**（`Steam_icon_logo.svg`）	其余 6 张已用	导 Steam 图标（若设置窗/支持页要列 Steam 链接）	P2
+特效动画	Forge Icons	1	④	代码构造等价	13 张锻造阵营图标全部已进工程（按名取）	13/13 命中（`ArmyIcons` / `CardArt`）	—	P1
+特效动画	Missions Atlas	1	④	代码构造等价	7 张任务图标/底板全部已进工程	7/7 命中	—	P1
+特效动画	Army Medium Backgrounds	1	④	代码构造等价	13 张档案战役背景全部已进工程	13/13 命中	—	P1
+特效动画	Draft Mode Atlas	1	④	真缺	图集 4 张**全部没导**（`Victories_Background_V2` / `Victory_round_back_with light` / `Victory_round_v2` / `Victory_skull`）；轮抽胜/败场格现画金色/红色占位块，代码还写着「本地没有」	占位实现：`Shell/DraftModeWindow.cs:1760-1800`（`:1772` 那句「本地没有」**与本图集不符** —— 铁律 5 就地更正）	导这 4 张并接进 `Win Marks` / `Defeat Marks` / `Losses Info UI_ref`	P1
+特效动画	BattleAtlasUI	1	④	代码构造等价	战斗图集切图已在使用（`MyGame/.../Art/原版/battleatlasui/`）	`Shell/CardArt.cs:874`	—	P1
+特效动画	[Aeldari Portal] [System] Update Particle	1	④	真缺	VFX Graph 的 ComputeShader 内核；原版由 `Aeldari Portal.asset` / `Aeldari Dust.asset`（VisualEffectAsset）引用，13 颗 arena prefab 树里碰不到 ⇒ 灵族战场的 portal/dust 效果我们**整块没有**	只登记了输出 shader 与混合表：`MyGame/Assets/WarpforgeVFX/Runtime/ArenaOriginalShaderIndex.cs:57-68`；`OriginalShaderBlendTable.cs:75-79`；VFX 资产未导	导 `VisualEffectAsset`（本地 `bundle_battleprefabs_vfxandmisc_assets_all/VisualEffectAsset/` 3 份）或按原版重建等效粒子	P1
+特效动画	[Aeldari Portal] [System (4)] Update Particle	1	④	真缺	同上（System (4) 内核）	同上	同上	P1
+特效动画	[Aeldari Portal] [System (3)] Update Particle Strip	1	④	真缺	同上（System (3) 粒子条）	同上	同上	P1
+特效动画	[Aeldari Portal] [System (1)] Update Particle	1	④	真缺	同上（System (1)）	同上	同上	P1
+特效动画	[Aeldari Portal] [System (5)] Initialize Particle	1	④	真缺	同上（System (5) 初始化内核）	同上	同上	P1
+特效动画	[Aeldari Portal] [System (5)] Update Particle	1	④	真缺	同上	同上	同上	P1
+特效动画	[Aeldari Portal] [System (4)] Initialize Particle	1	④	真缺	同上	同上	同上	P1
+特效动画	[Aeldari Dust] [System] Initialize Particle	1	④	真缺	同上（Aeldari Dust 初始化内核）	同上	同上	P1
+特效动画	[Aeldari Portal] [System] Initialize Particle	1	④	真缺	同上	同上	同上	P1
+特效动画	[Aeldari Dust] [System] Update Particle	1	④	真缺	同上	同上	同上	P1
+特效动画	[Aeldari Portal] [System (3)] Initialize Particle Strip	1	④	真缺	同上	同上	同上	P1
+特效动画	[Aeldari Portal] [System (1)] Initialize Particle	1	④	真缺	同上	同上	同上	P1
+音频	Music	2	④	代码构造等价	原版三份 AudioMixer 的 Music 那份：我们用一份混好的 Main Mixer + `BattleMusic` 三轨线性淡变做等价（机制不同，见下 BattleGroup 条）	`CardPresentation/Core/WarpforgeAudio.cs:108`（组名表）· `CardPresentation/Battle/BattleMusic.cs:39`（三轨线性淡变）· `CardPresentation/Battle/BattleDriver.cs:2257`（战斗 BGM 接入点）	—	P1
+音频	BattleGroupHigh	1	④	真缺	原版 Music mixer 有三个子组（Low/Medium/High）+ 6 条快照落子组；我们单 mixer **没有**这三个组，代码自认「⛔ 别当成等价」	`Editor/AudioSetup.cs:405-418`（三份 mixer 实读 + 两条代价）；`Core/WarpforgeAudio.cs:250`（「也没有 BattleGroup Low/Medium/High 三个组」）	给 FX/Music 各加子组并把音源改挂子组（运行时路由改动）⇒ 快照才不与音量滑块抢	P1
+音频	BattleGroupMedium	1	④	真缺	同上	同上	同上	P1
+音频	Jingles	1	④	代码构造等价	Jingles 混音组（结算开关门那三支走它）	`Core/WarpforgeAudio.cs`（`JinglesGroup`）· `Battle/BattleDoors.cs:339`	—	P1
+音频	Snapshot	1	④	代码构造等价	6 条快照已建 + 真实 dB 值已写入（现读 `Main Mixer.mixer`：SFX On/Off · Music Low/Medium/High/None 各 1 条且 m_FloatValues 有值）	`Core/WarpforgeAudio.cs:243-283`（名字/取法）· `Editor/AudioSetup.cs:293`（CreateSnapshots）· `:SetSnapshotValues`（写值）	唯一残留 = 投影到父组（同 BattleGroup 那条）	P1
+音频	BattleGroupLow	1	④	真缺	同上	同上	同上	P1
+音频	Voices	1	④	代码构造等价	Voices 混音组（单位语音/教程语音都挂它）	`Core/WarpforgeAudio.cs`（`VoicesGroup`）· `Battle/BattleDriver.cs:7631` · `Battle/CardDisplayWindow.cs:697`	—	P1
+音频	NoVolume	1	④	代码构造等价	FX 快照 `NoVolume`（−80 dB）已建并写值	`Core/WarpforgeAudio.cs:311` · `Editor/AudioSetup.cs` 快照值表	—	P1
+联机	Match Log	2	④	代码构造等价	对局历史行（`logPrefab` / 节点名 `Match Log`，12 颗子件一句站）	`Shell/MatchLogRow.cs:273` · `Shell/BattleLogTab.cs:11`	—	P2

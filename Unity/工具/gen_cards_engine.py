@@ -5217,6 +5217,10 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         # 🆕 v41（`B96_GEN`）：`abilityMutations` —— 原版 `CardEffect.mutationType` 逐行（口径 → `ability_mutations_of`）
         _amu = ability_mutations_of(uid, name, r, ABILITY_MUTATIONS_REPORT)
         if _amu is not None: entry["abilityMutations"] = _amu
+        # 🆕 v44（`B99_W3` · 卡牌 `#11`）：`abilityEffectTexts` —— 原版 `CardEffect.effectText` 逐行
+        #     （口径 / 形状 / 为什么只扫 `cardAbilities` → `ability_effect_texts_of` 上面那段）
+        _aet = ability_effect_texts_of(uid, name, r, ABILITY_EFFECT_TEXTS_REPORT)
+        if _aet is not None: entry["abilityEffectTexts"] = _aet
         # 🆕 v42（`B96_GEN`）：`triggerAbilityIndices` —— `trigger → ability 下标`（口径 → `trigger_ability_indices_of`）
         _tai = trigger_ability_indices_of(uid, name, r, TRIGGER_ABILITY_INDICES_REPORT)
         if _tai is not None: entry["triggerAbilityIndices"] = _tai
@@ -5962,6 +5966,11 @@ def build():
         _amu = ability_mutations_of(cid, name, trow, ABILITY_MUTATIONS_REPORT)
         if _amu is not None:
             entry["abilityMutations"] = _amu
+        # 🆕 v44（`B99_W3` · 卡牌 `#11`）：`abilityEffectTexts` —— 原版 `CardEffect.effectText` 逐行
+        #     （口径 / 形状 / 为什么只扫 `cardAbilities` → `ability_effect_texts_of` 上面那段）
+        _aet = ability_effect_texts_of(cid, name, trow, ABILITY_EFFECT_TEXTS_REPORT)
+        if _aet is not None:
+            entry["abilityEffectTexts"] = _aet
         # 🆕 v42（`B96_GEN`）：`triggerAbilityIndices` —— `trigger → ability 下标`（口径 → `trigger_ability_indices_of`）
         _tai = trigger_ability_indices_of(cid, name, trow, TRIGGER_ABILITY_INDICES_REPORT)
         if _tai is not None:
@@ -6601,6 +6610,15 @@ def build():
           f" · `mut == 20(Cumulative)` **{ABILITY_MUTATIONS_REPORT['hit']}** 行（池内应为 0 ⇒ 休眠件）"
           f" · `no_truth` {ABILITY_MUTATIONS_REPORT['no_truth']}"
           f" · 坏格 **{len(ABILITY_MUTATIONS_REPORT['bad'])}** 处")
+
+    # ---- 🆕 v44（2026-10-29 · 执行代理 `B99_W3`）：`abilityEffectTexts` 列的读数 ----
+    _aet_cards = [c for c in cards if "abilityEffectTexts" in c]
+    _aet_hit = [c for c in _aet_cards if c["abilityEffectTexts"]]
+    print(f"  · `abilityEffectTexts`（v44 · `B99_W3` · 卡牌 `#11`）：落列 **{len(_aet_cards)}/{len(cards)}** 张 · "
+          f"行数 **{ABILITY_EFFECT_TEXTS_REPORT['rows']}**（池内应为 38）· 有行的卡 **{len(_aet_hit)}** 张（应为 31）· "
+          f"不同 `src` **{len(ABILITY_EFFECT_TEXTS_REPORT['distinct'])}**（应为 31）· "
+          f"`handBuff` 那一路 {ABILITY_EFFECT_TEXTS_REPORT['hand']} 行（应为 5）· "
+          f"`no_truth` {ABILITY_EFFECT_TEXTS_REPORT['no_truth']} · 坏格 **{len(ABILITY_EFFECT_TEXTS_REPORT['bad'])}** 处")
     print(f"             mut 分布：{_amu_dist}")
     # ---- 🆕 v42（2026-10-29 · 执行代理 `B96_GEN`）：`triggerAbilityIndices` 列的读数 ----
     _tai_cards = [c for c in cards if "triggerAbilityIndices" in c]
@@ -6664,7 +6682,7 @@ def build():
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。
                                #      ⚠️ 同表还顺带落了 **v41 `abilityMutations` + v42 `triggerAbilityIndices`** —— 那两列的代码在**第九十五会话**就提交了，只是表一直没重生成（现读盘上仍是 v40）。本次 `--write` 把它们一并落盘；两列都「只落数据、不接线」⇒ 零行为变化（`CardDatabase` **早已接**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c))`；缺的是**消费者** —— `CardDef.TriggerAbilityIndices` 今天还没人读）。
-        "version": 43,         # v42（2026-10-29 · 执行代理 `B96_GEN`）= 加两列：① `abilityMutations`（账 `:1254`，原版 `CardEffect.mutationType` 逐 `(ab,lg)` 行；**不看 buffType、只扫 buffEffect、只扫 cardAbilities**；`mut` 不稀疏落 0/10/20；口径 → `ability_mutations_of` 上面那段）② `triggerAbilityIndices`（账 `:1288` 的**数据半** = 上游 U1 `trigger → ability 下标` 表，形状 `[{trigger, ab:[…]}]`；口径 → `trigger_ability_indices_of` 上面那段）。🔴 两列都**只落数据、不接线** ⇒ 不改指纹（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）。
+        "version": 44,         # v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）= 加一列 `abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28` 逐 `(ab,lg,挂点)` 行，形状 `[{ab,lg,at,src}]`；口径 → `ability_effect_texts_of` 上面那段）。现读 38 行 / 31 值 / 31 卡；🔴 **只落数据、不接线**（消费端尚未接）⇒ 零行为变化（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）；⚠️ `--check` 会报「已过期」—— 需要一次 `--write` 落盘。⛔ 别把这一版当成「已经接了」。
         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
                                # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
                                # v37（2026-10-28 · 第八十九会话 · 执行代理 `E6`）= 三族「数据侧」列（账 L234 / L867 / L1044 / L847）
@@ -7204,6 +7222,102 @@ def fill_starting_card_in_hand(cards, truth_cards, truth_by_path, report):
         report["name"] += 1
         report["written"] += 1
     return report
+
+
+# ==========================================================================================
+#  🆕 v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）→ 逐卡 `abilityEffectTexts` 列
+#     = 原版 `CardEffect.effectText`（`+0x28`）的**逐 `(ability, logic, 挂点)` 行**落表。
+#
+#  判据链（🥇 = `资料/完全复刻/判据/activeAbilityTextReferenceId_真值.md` §三·2，2026-10-27 实读；
+#          本代理 2026-10-29 用 `cards_truth.json` 逐条复核过下面那组规模数）：
+#    卡 SO `abilityLogic[].buffEffect.effectText` / `abilityLogic[].handBuff.cardEffect.effectText`
+#      → `CardEffect.effectText`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardEffect.cs:12`；
+#        字段序 `+0x10 triggerEnchantAnim / +0x18 enchantingCard / +0x20 effectName / +0x28 effectText`）
+#      → `GameStaticData.GetEffectDesc(effect)`（`GameStaticData.cs:1639`）
+#      → term = `"Card_Abilities/" + effectText`（`:1772`）
+#      → `LocalizationManager.GetTranslation(term)` → `ModifyLocalization`
+#      → 🔴 **缺键时【原样返回 `effectText` 本身】**（`:1778-1782`）—— 不是回空串、也不是回键名。
+#    ⇒ 每个值都**必须**带得动 `Card_Abilities/<src>` 这一跳 ⇒ 消费端缺键要印 `src`，⛔ 别印整条键名。
+#
+#  形状：`[{"ab": i, "lg": j, "at": "buffEffect"|"handBuff", "src": "<effectText>"}, …]`
+#    · **`src` 必填**：`effectText` 为空 / 缺键 / 不是字符串 ⇒ **这一格不落行**
+#      （原版那格没有标题，`GetEffectDesc` 根本不会被调到 —— 空标题**不是**「一条空字符串行」）。
+#    · 排序 = `(ab, lg, at)`（`buffEffect` 在前）—— 与 `abilityBuffs`（v40）**同一口径** ⇒ 两列能逐行对齐。
+#    · 真值快照里**没有这张卡** ⇒ 返回 `None`（调用方**不落列** = 未知，⛔ 不是空表；三态见
+#      `CardDef.EffectTextOf` 的 doc）。
+#    · 🔴 **只扫 `cardAbilities`**（`+0x290`），**不扫** `activeAbility(+0x260)` / `alternativeAbility`：
+#      现读 1,351 张的 **38 个非空 `effectText` 全部**坐在 `cardAbilities[0]` 下（0 个在主动能力那棵树；
+#      后者那一层的列表键名还叫 `activeAbilityLogic` 而不是 `abilityLogic` —— `ability_buffs_of` 就栽在
+#      这个键名上，见它 2026-10-29 那段现核注）⇒ 多开一条永不出行的路 = 多一处没有判据的假实现。
+#
+#  现读规模（`cards_truth.json`，1,351 张；⛔ 跳过 `full_raw` —— 否则每个数翻倍）：
+#    **38 行 / 31 个不同 `src` / 31 张卡，31 张全在池**；其中 `handBuff.cardEffect` 那一路 **5 行**
+#    （`GSC45` 1 · `SAU55` 1 · `TAU51` 3），其余 **33 行**在 `buffEffect`。
+#    ⚠️ 2026-10-27 那份判据写「handBuff 6 行」—— **现读是 5 行**（`TAU51` 是 lg0/lg1/lg2 各一格 handBuff；
+#       `SAU55` 的 lg2、`GSC45` 的 lg1）。按本文件的口径为准。
+#    ✅ **`EffectIdolatrous` 那条「中英不一致」已不存在**（2026-10-29 现读 `官方本地化_en+zh-CN.json`：
+#       EN 与 ZH **都是** `[[vulnerable]] 1`）—— 2026-10-18 `A1956` 把 zh 的 `8` 改回 `1`（同卡
+#       `Card_Description/BL75` 中英也都是 1）⇒ ⚠️ 施工单/旧判据里那句「EN 1 / ZH 8 ⇒ 照抄各自语言列」
+#       **已过期**，⛔ 别拿它当断言期望值（写成「ZH == 8」会红）。
+#    ⚠️ `Card_Abilities/EffectBoltPistol` 是**孤儿键**（1,351 张 SO 里 0 引用）⇒ 本列永远取不到它，
+#       那是原版的事，**不是漏扫**。
+#    ⚠️ `EffectDisplayCardsAddToDeck`（`GSC55`）在**另一条链**上已经被消费
+#       （`RuleEngine/Core/EffectResolver.cs:7915` 的 `"Card_Abilities/" + title`）—— 两条链不是同一件事
+#       （那条是「展示卡窗标题」，本列是「技能面板/卡面的效果正文」），⛔ 别把其中一条当重复删掉。
+#
+#  ⚠️ **本列只落数据、不接线**（零行为变化）：`CardDef.AbilityEffectTexts` / `EffectTextOf` 在
+#     `Core/CardDef.cs` 类尾（已落）；DTO / 映射在 `RuleEngine/Data/CardDatabase.cs`、消费端在
+#     技能面板与卡面 —— 那两处**不在本代理白名单** ⇒ 补丁见 `资料/完全复刻/报告/B99_W3.md`。
+# ==========================================================================================
+ABILITY_EFFECT_TEXTS_REPORT = {"cards": 0, "no_truth": 0, "rows": 0,
+                               "cards_with_rows": 0, "hand": 0, "distinct": set(), "bad": []}
+
+
+def _add_effect_text(out, report, cid, name, ab, lg, at, ce):
+    """一个 `CardEffect` 格 → 可能一行（`effectText` 非空才落）。⛔ 只在这里判一次。"""
+    if not isinstance(ce, dict):
+        return                              # 这一格没有 `CardEffect` ⇒ 原版也读不到标题
+    src = ce.get("effectText")
+    if isinstance(src, bool) or (src is not None and not isinstance(src, str)):
+        report["bad"].append((cid, name, "%s ab%d.lg%d" % (at, ab, lg),
+                              "effectText 不是字符串：%r" % (src,)))
+        return
+    if not src:                             # None / "" ⇒ 这一格没有标题（⛔ 不落空行）
+        return
+    out.append({"ab": ab, "lg": lg, "at": at, "src": src})
+    report["rows"] += 1
+    report["distinct"].add(src)
+    if at == "handBuff":
+        report["hand"] += 1
+
+
+def ability_effect_texts_of(cid, name, trow, report):
+    """一张卡 → `[{"ab":…, "lg":…, "at":…, "src":…}, …]`；真值里没这张卡 ⇒ `None`（不落列）。
+
+    口径 / 形状 / 为什么只扫 `cardAbilities` → 上面那一段长注释（⛔ 别抄第二份）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        if not isinstance(ab, dict):
+            report["bad"].append((cid, name, "cardAbilities[%d]" % i, "不是对象"))
+            continue
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            if not isinstance(lg, dict):
+                report["bad"].append((cid, name, "ab%d.lg%d" % (i, j), "abilityLogic 不是对象"))
+                continue
+            _add_effect_text(out, report, cid, name, i, j, "buffEffect", lg.get("buffEffect"))
+            hb = lg.get("handBuff")
+            if isinstance(hb, dict):
+                _add_effect_text(out, report, cid, name, i, j, "handBuff", hb.get("cardEffect"))
+    out.sort(key=lambda r: (r["ab"], r["lg"], 0 if r["at"] == "buffEffect" else 1))
+    report["cards"] += 1
+    if out:
+        report["cards_with_rows"] += 1
+    return out
 
 
 def main():

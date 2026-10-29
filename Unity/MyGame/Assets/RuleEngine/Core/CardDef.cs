@@ -8055,7 +8055,7 @@ namespace RuleEngine
             //     ⚠️ 后两个词的 **0xe6 / 470 两个 trait 今天全池 0 张卡带**（现扫）；
             //        登记依据 = 「那个时机真的有人读它」（铁律：`Implemented` 不是承诺书，
             //        是「有没有代码会读它」）—— 两个词**各自都有一条上面的落点**。
-            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod, ConditionEval.Ward, ConditionEval.WardWb, ConditionEval.Tainted, KeywordTable.SummonRift,   // 🆕 2026-10-29（执行代理 `B98_N3`）：**末四词 = `ward`(140) · `wardWb`(145) · `tainted`(160) · `summonRift`(730)**。判据 = 原版**有真执行分支**（⛔ 原版**没有** `Implemented` 这种清单，它只是我们的脚手架）：① `ward`/`wardWb` = `EntityScript__get_isCurrentlyWarded.c`（`0x8c`∨`0x91`，全量只有 **4 个 `IsValid*Target`** 调用方）→ 落点 `EffectResolver.AddSide(stealthGate)` ＋ `RuleCore.CanUseAbilityTarget` ①；② `tainted` = `RawCardScript__IsValidActiveAbilityTarget.c:94-102` → 同函数 ③；③ `summonRift` = `BattleManager__IsValidActiveAbilityTarget.c:55-56`(0x2da) **＋ 攻击** `BattleManager__IsValidAttackTarget.c:211-213` → 同函数 ② ＋ `RuleCore.IsValidTarget` 的返回表达式（**本批补的攻击侧闸**）。⚠️ **结算层不挡是对的**（原版也不挡）：`AbilityLogic__GetTargets.c`（1,427 行）**0 处** `IsValidTarget` / `isCurrentlyWarded` ⇒ ward 只是「能否被点选」的谓词，效果池按 criteria 直取 —— 与 `ResolveTargets → AddSide(stealthGate:false)` **同形**。⚠️ 池内 **0 张**（`cards_engine.json` 1129 张现扫 `keywords`/`cardTraits`/`desc`/`descZh` 各 0 命中）⇒ 零行为变化。全文论证 → `资料/完全复刻/判据/B98_N2_ward与resolution.md` ＋ 报告 `B98_N3.md` §二/§三。⚠️ 写成行内块（铁律 18·b）：本文件在账里被引 70+ 处（多为「次要落点」、`--fix` 不管），⛔ 别新增行
+            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod, ConditionEval.Ward, ConditionEval.WardWb, ConditionEval.Tainted, KeywordTable.SummonRift, RuleCore.Coward, RuleCore.Precognition,   // 🆕 2026-10-30（`B99_B1` · 调度台裁定）：末两词 = `coward`(190) · `precognition`(640)，判据与落点见 `Prefixes` 那一条 + `RuleCore.Coward` / `RuleCore.Precognition` 的 doc（`BattleManager__IsValidAttackTarget.c:203-211` / `:136-141`）。⚠️ 它们**有真执行分支**（两条攻击闸）⇒ 按 `B98_N3` 「原版有真执行分支就必须登记」的先例进本清单；`:8660` 那句「不补的 45 个」里原本列着这两词，已于同日划掉并注明理由。   // 🆕 2026-10-29（执行代理 `B98_N3`）：**末四词 = `ward`(140) · `wardWb`(145) · `tainted`(160) · `summonRift`(730)**。判据 = 原版**有真执行分支**（⛔ 原版**没有** `Implemented` 这种清单，它只是我们的脚手架）：① `ward`/`wardWb` = `EntityScript__get_isCurrentlyWarded.c`（`0x8c`∨`0x91`，全量只有 **4 个 `IsValid*Target`** 调用方）→ 落点 `EffectResolver.AddSide(stealthGate)` ＋ `RuleCore.CanUseAbilityTarget` ①；② `tainted` = `RawCardScript__IsValidActiveAbilityTarget.c:94-102` → 同函数 ③；③ `summonRift` = `BattleManager__IsValidActiveAbilityTarget.c:55-56`(0x2da) **＋ 攻击** `BattleManager__IsValidAttackTarget.c:211-213` → 同函数 ② ＋ `RuleCore.IsValidTarget` 的返回表达式（**本批补的攻击侧闸**）。⚠️ **结算层不挡是对的**（原版也不挡）：`AbilityLogic__GetTargets.c`（1,427 行）**0 处** `IsValidTarget` / `isCurrentlyWarded` ⇒ ward 只是「能否被点选」的谓词，效果池按 criteria 直取 —— 与 `ResolveTargets → AddSide(stealthGate:false)` **同形**。⚠️ 池内 **0 张**（`cards_engine.json` 1129 张现扫 `keywords`/`cardTraits`/`desc`/`descZh` 各 0 命中）⇒ 零行为变化。全文论证 → `资料/完全复刻/判据/B98_N2_ward与resolution.md` ＋ 报告 `B98_N3.md` §二/§三。⚠️ 写成行内块（铁律 18·b）：本文件在账里被引 70+ 处（多为「次要落点」、`--fix` 不管），⛔ 别新增行
             // ✅ **破坏（2026-09-14 登记，用户点名要求）**：机制**早就在跑**，只是判据走的是
             //    `subtype` 那一列（`CreatePool.MatchesKind(c,"sabotage")` + `ResolveAtTurn`），
             //    不是 `keywords`。⚠️ **登记依据 = subtype 那一列在那个时机真的被读了**，
@@ -8654,10 +8654,10 @@ namespace RuleEngine
             //  真出现时如实报成「未实现关键词」+ 卡面打 `*`，这才是对的。
             //  🔴 **为什么不补另外 45 个**（现读逐条核过，别再来一遍）：
             //   · 原版枚举里有、但 `Card_Trait/*` **没有名字** ⇒ 是**隐藏 trait / 内部标记**
-            //     （`syphon` `coward` `corrupt` `poisonous` `activeAbility` `passiveAbility`
+            //     （`syphon` `corrupt` `poisonous` `activeAbility` `passiveAbility`
             //      `whileInPlayAbility` `survivorSpent` `transient` `reload` `notCollectable`
             //      `secret` `trap` `secretOrder` `secretIdentity` `fear` `meltdown` `massive` `psyker`
-            //      `reactor` `precognition` `psychicPower` `plasmaPower` `spikes` `horns` `daemonhost`
+            //      `reactor` `psychicPower` `plasmaPower` `spikes` `horns` `daemonhost` …｜🔴 **2026-10-30（调度台裁定 · 铁律 5 就地订正）：`coward` 与 `precognition` 已【从本名单划掉】并同时进了 `Prefixes` + `Implemented`** —— 理由是「闸已建 ⇒ 必须登记」：不登记则 `Normalize` 丢掉这两个词 ⇒ `UnitState._keywords` 灌不进 ⇒ 刚建的两条攻击闸（`RuleCore.IsValidTarget`）从卡数据永远不可达 = 死代码（违反铁律 11）。上面那句「登记它们只会加噪声」的旧理由，在 `ward`/`wardWb`/`tainted`/`summonRift`（`B98_N3`，2026-10-29）那批落进 `Implemented` 之后**已经不成立**
             //      `questCompleted` `mutation` `chaosOnly` `mekaniak` `piercing` `daemonicAllegiance`
             //      `notDestroyRemnant` `dontReturnFerocity` `oathInAllTurns` `oathDouble`
             //      `oathTripleActivation` `markOfChaos` …）—— 登记它们会给「未实现关键词」那张单
@@ -8683,6 +8683,7 @@ namespace RuleEngine
             new[] { "resolution", "resolution" }, new[] { "combo", "combo" },
             new[] { "support", "support" },
             new[] { "choose one", "chooseone" }, new[] { "chooseone", "chooseone" },
+            new[] { "coward", RuleCore.Coward }, new[] { "precognition", RuleCore.Precognition },   // 🆕 2026-10-30（`B99_B1` · 调度台裁定）：两条**攻击目标** trait，常量在 `RuleCore`（照 `Noncombatant`/`Unstoppable` 先例）。判据 = `BattleManager__IsValidAttackTarget.c:136-141`（precognition=640）/ `:203-211`（coward=190）。🔴 裁定理由 = **闸已建 ⇒ 必须登记**：不登记 `Normalize` 就丢掉这两个词 ⇒ `UnitState._keywords` 灌不进 ⇒ 闸从卡数据永远不可达（死代码，违反铁律 11）。⚠️ 前缀撞车已现核：`coward` vs `c*` 第 2 字符分岔、`precognition` vs `pray` 第 3 字符分岔（`pindown`/`pack`/`penitence`/`poisoned` 第 2 字符分岔）
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };
@@ -9351,6 +9352,102 @@ namespace RuleEngine
         public void AttachActiveAbilityTextReference(string refId)
         {
             ActiveAbilityTextReferenceId = refId;
+        }
+    }
+
+    // ==================================================================================================
+    //  🆕 v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）
+    //     —— `CardDef` 的**数据半**：`abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28`）
+    //
+    //  🔴 **为什么另起 `partial class CardDef` 块、写在【文件最末】**：完全同 `A4` / `E6` / `v42` 那三段的理由 ——
+    //     本文件里已有大量账落点按【行号】引用（现读最大 `CardDef.cs:9100` 一带）⇒ 在类尾插成员会让它们
+    //     整体漂移；追加在**文件最末**只增加尾部行号，上面一处都不动（＝预期零漂移，铁律 18·b）。
+    //
+    //  📌 **判据链**（🥇 = `资料/完全复刻/判据/activeAbilityTextReferenceId_真值.md` §三·2，2026-10-27 实读）：
+    //     卡 SO `abilityLogic[].buffEffect.effectText` / `abilityLogic[].handBuff.cardEffect.effectText`
+    //       → `CardEffect.effectText`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardEffect.cs:12`）
+    //       → `GameStaticData.GetEffectDesc(effect)`（`GameStaticData.cs:1639`）
+    //       → term = `"Card_Abilities/" + effectText`（`:1772`）
+    //       → `LocalizationManager.GetTranslation(term)` → `ModifyLocalization`
+    //       → 🔴 **缺键时【原样返回 `effectText` 本身】**（`:1778-1782`）—— 不是回空串、也不是回键名。
+    //     ⇒ 所以这个类只带**原文**（`Src`），拼键与「缺键印原文」都由消费端按上面那条链走
+    //       （拼键口 = <see cref="EffectTextTermOf"/>，全仓只此一处，⛔ 别在消费点各写一遍）。
+    //
+    //  📌 **数据口径**（⛔ 别在这里抄第二份 → `工具/gen_cards_engine.py` 的 `ability_effect_texts_of` 上面那段）：
+    //     只扫 `cardAbilities(+0x290)`（不含 `activeAbility(+0x260)` / `alternativeAbility`）；按 `(ab, lg, 挂点)` 出行；
+    //     只有 `effectText` **非空**才落行。卡表现读 = **38 行 / 31 个不同值 / 31 张卡**（`cards_truth.json` 逐条对得上）。
+    //
+    //  ⚠️ **今天没有任何消费者**（消费端 = 技能面板 / 卡面两处，2026-10-29 尚未接线）⇒ **接上之前零行为变化**。
+    //     ⛔ 别把「卡表有值」当成「已经接了」。
+    //     ⚠️ 数据只有 `--write` 重生成 `cards_engine.json` 之后才在盘上（本代理**不跑**生成器）。
+    // ==================================================================================================
+    public partial class CardDef
+    {
+        /// <summary>🆕 v44：一格「效果标题」（= 原版 `CardEffect.effectText`，`Card_Abilities/` 之后的那个 id）。
+        /// <para>⚠️ 同一个 `(Ab, Lg)` 可以**两行**（`buffEffect` 与 `handBuff.cardEffect` 各一格）⇒ 查表键是三元组。</para></summary>
+        public sealed class AbilityEffectTextSpec
+        {
+            /// <summary>`cardAbilities` 下标（`-1` = 坏格；本列**不会**出现主动能力那两个哨兵 `-1/-2`）。</summary>
+            public int Ab = -1;
+            /// <summary>`abilityLogic` 下标。</summary>
+            public int Lg = -1;
+            /// <summary>`true` = `abilityLogic[].handBuff.cardEffect`；`false` = `abilityLogic[].buffEffect`。</summary>
+            public bool IsHand;
+            /// <summary>原始挂点名（`"buffEffect"` / `"handBuff"`）—— 诊断用，判据只看 <see cref="IsHand"/>。</summary>
+            public string At = "";
+            /// <summary>原版 `CardEffect.effectText` **原文**（恒非空：空的那一格不落行）。</summary>
+            public string Src = "";
+        }
+
+        AbilityEffectTextSpec[] _abilityEffectTexts;
+
+        /// <summary>`abilityEffectTexts` 列**来自卡表**的正面信号（`false` = 整列**未知** / 旧表 &lt; v44 / 手写夹具）。
+        /// ⛔ 与「明确没有（`[]`）」不是一回事 —— 同 <see cref="HasTriggerAbilityIndices"/> 的口径。</summary>
+        public bool HasAbilityEffectTexts { get { return _abilityEffectTexts != null; } }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（与 `AttachTriggerAbilityIndices` /
+        /// `AttachAbilityMutations` 同族；理由 = `CardDef` 构造函数上那四十处账落点，⛔ 不往它加形参）。
+        /// `null` = 旧表（未知）。</summary>
+        public void AttachAbilityEffectTexts(AbilityEffectTextSpec[] rows)
+        {
+            _abilityEffectTexts = rows;
+        }
+
+        /// <summary>全部行（`null` = 未知）。消费端一般只要 <see cref="EffectTextOf"/>。</summary>
+        public AbilityEffectTextSpec[] AbilityEffectTexts { get { return _abilityEffectTexts; } }
+
+        /// <summary>三元组查一行；`null` = 没有这一格（或整列未知 —— 先看 <see cref="HasAbilityEffectTexts"/>）。</summary>
+        public AbilityEffectTextSpec AbilityEffectTextAt(int ability, int logic, bool isHand)
+        {
+            if (_abilityEffectTexts == null || ability < 0 || logic < 0) return null;
+            for (int i = 0; i < _abilityEffectTexts.Length; i++)
+            {
+                var s = _abilityEffectTexts[i];
+                if (s != null && s.Ab == ability && s.Lg == logic && s.IsHand == isHand) return s;
+            }
+            return null;
+        }
+
+        /// <summary>原版 `CardEffect.effectText` 原文（**三态**）。
+        /// <para>· 非空串 = 这一格有标题（键 = `Card_Abilities/` + 它）；</para>
+        /// <para>· `""` = **明确没有**（整列在、这一格空 ⇒ 原版不会去取词）；</para>
+        /// <para>· `null` = **判不了**（整列未知：旧表 / 夹具直建）。</para>
+        /// <para>⚠️ 缺键时**原版原样印这段原文**（`GameStaticData.cs:1778-1782`）⇒ 消费端⛔ 别把 `null`/`""` 当成同一件。</para></summary>
+        public string EffectTextOf(int ability, int logic, bool isHand)
+        {
+            if (_abilityEffectTexts == null) return null;
+            var s = AbilityEffectTextAt(ability, logic, isHand);
+            return s == null ? "" : (s.Src ?? "");
+        }
+
+        /// <summary>`Card_Abilities/&lt;effectText&gt;` 这条**取词键**（判据 `GameStaticData.cs:1772`；全仓唯一拼接口）。
+        /// <para>`null`/`""` ⇒ 返回 `null`（没有标题可拼）；否则回 `"Card_Abilities/" + src`。</para>
+        /// <para>⚠️ 取不到该键时原版**印 `effectText` 本身**（`:1778-1782`）⇒ 消费端拿 <see cref="EffectTextOf"/>
+        /// 的原文做兜底，⛔ 别把整条键名印到屏幕上。</para></summary>
+        public string EffectTextTermOf(int ability, int logic, bool isHand)
+        {
+            var src = EffectTextOf(ability, logic, isHand);
+            return string.IsNullOrEmpty(src) ? null : "Card_Abilities/" + src;
         }
     }
 

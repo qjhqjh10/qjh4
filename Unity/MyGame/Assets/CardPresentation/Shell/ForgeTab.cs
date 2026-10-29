@@ -422,7 +422,7 @@ namespace CardPresentation
             //   ⚠️ `deactivateOnDisable` 默认 true ⇒ 这一下同时把节点 `SetActive(false)`，与改前等价。
             var readyToggler = _readyRoot.gameObject.AddComponent<UIEffectCanvasGroupToggler>();
             readyToggler.deactivateOnDisable = true;
-            _readyToggler = _readyRoot.gameObject.AddComponent<UIEffectTogglerController>();
+            _readyToggler = _readyRoot.gameObject.AddComponent<UIEffectTogglerController>(); var readySnd = _readyRoot.gameObject.AddComponent<UIEffectTogglerPlaySound>(); readySnd.onSound = new PlaySoundOnTime { time = 0f, sound = WindowSounds.BoosterOpenOrksCue, is2d = true, repeat = false, loops = 1, timeInterval = 0f }; readySnd.offSound = null; if (!readySnd.Ready) Debug.LogWarning("[ForgeTab] `Ready for level up` 的 `UIEffectTogglerPlaySound` 两槽都空 ⇒ 可领光效亮起来不会出声");   // 🆕 B99_W4（音效 #15）：原版 `Forge Tab.prefab` 的 `Ready for level up` 上挂**两颗** toggler —— `UIEffectCanvasGroupToggler`（上一行那颗）+ `UIEffectTogglerPlaySound`（本句补上）。判据 = 该节点的 `UIEffectTogglerPlaySound` 实例：`onSound = {time:0, is2d:1, repeat:0, loops:1, timeInterval:0}`、**`offSound = {fileID:0}`（关的时候不出声）**；`sound` 解出 = cue `Booster Open Orks`（clip `Open_Cardpack_Goff`，⛔ 名字不同别按名猜）。⚠️ **必须在下面 `Rescan()` 之前**（`Controller.togglers` 是 `GetComponentsInChildren` 的快照，晚加 = 静默不响）。⛔ 别把这句挪到下面那条 `//` 注释之后（= 从不执行）。
             _readyToggler.Rescan(); _readyToggler.Toggle(false, 0f);   // 🔴 2026-10-26（X2）：`togglers` 只由 `Awake → Rescan()` 填，而**编辑/批处理下 `AddComponent` 不触发 `Awake`** ⇒ 列表恒空 ⇒ 下面每次 `Toggle` 都空转、`Ready for level up` 从建出来就一直 active（连带 `Tick` 的「关着冻时钟」成了死闸）。`Rescan` 幂等（先 `Clear` 再按 `GetComponentsInChildren(true)` 重填，见 `Effects/UIEffectTogglerController.cs` 的 `Rescan`）⇒ 运行期 `Awake` 已填过，这一句只重扫同一批，不重复注册。⛔ 别删（删了自检那 5 条又红、真机看不出来）。
 
             // ---- ③ `Rewards Scroll View`：奖励轨道（**横向可滚** —— 原版这一件是个 `ScrollRect(横, Elastic)`）
@@ -1395,5 +1395,16 @@ namespace CardPresentation
             on = false;
             return -1f;
         }
+
+        /// <summary>自检读口（`B99_W4` · 音效 #15）：`Ready for level up` 上那颗
+        /// `UIEffectTogglerPlaySound`。`null` = 没接上（⇒ 可领光效亮/灭都不出声）。
+        /// **只读** —— ⛔ 别拿它当第二个写入口（接线在 `Build()` 里那一条）。
+        /// ⚠️ 追加在类尾 = 不动上面任何行号（`账/` 有多条 A 行落点在本文件）。</summary>
+        public UIEffectTogglerPlaySound ReadySound
+        { get { return _readyRoot != null ? _readyRoot.GetComponent<UIEffectTogglerPlaySound>() : null; } }
+
+        /// <summary>自检读口（同上）：驱动那两颗 toggler 的 `UIEffectTogglerController`
+        /// （自检要直调 `Toggle` —— 批处理没有帧循环，只能自己推）。**只读**。</summary>
+        public UIEffectTogglerController ReadyToggler { get { return _readyToggler; } }
     }
 }

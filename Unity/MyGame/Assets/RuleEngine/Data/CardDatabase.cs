@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def));   // 🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c));   // 🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -4797,6 +4797,81 @@ namespace RuleEngine
                     continue;
                 }
                 list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger });
+            }
+            return list.ToArray();
+        }
+    }
+
+    // ==================================================================================================
+    //  🆕 v44（2026-10-29 · `B99_W3` · 卡牌 `#11` · 本块由 `B99_W6` 落地）：卡表 `abilityEffectTexts` 列
+    //     = 原版 `CardEffect.effectText(+0x28)` 的**逐 `(cardAbility, abilityLogic, isHand)` 行**落表。
+    //
+    //  判据 / 形状 / 「为什么只扫 `cardAbilities`」→ `工具/gen_cards_engine.py` 的 `ability_effect_texts_of`
+    //     上面那段（⛔ 别在这里抄第二份 —— 两处写同一条规则 = 迟早不一致）。
+    //
+    //  🔴 **`null`（缺列）= 整列未知**（旧表 &lt; v44 / 手写夹具）· **`[]` = 明确没有行** —— 两者不是一回事
+    //     （缺列时生成器**不落行** ⇒ 这里必须把「缺列」与「空数组」分开表达）。
+    //  ⚠️ 挂载那一句挤在 `:1749` 原有那一行里（同 v37 / v40 / v41 / v42 的理由：加行会把下游 A 行账落点推走）。
+    //  ⚠️ 本块追加在【文件最末】：账按【行号】引用本文件，中段插成员会让它们整体漂移。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        /// <summary>🆕 v44：`abilityEffectTexts` 的一行（= 原版 `CardEffect.effectText`）。
+        /// <para>🔴 字段名与 JSON 键名逐字一致（`JsonUtility` 直读）。</para>
+        /// <para>`(ab, lg, isHand)` 是**三元组键**：同一个 `(ab, lg)` 可以有**两行**
+        /// （`abilityLogic[].buffEffect` 与 `abilityLogic[].handBuff.cardEffect` 各一格）⇒ 靠 `isHand` 分开。</para></summary>
+        [Serializable]
+        public class AbilityEffectTextRowDto
+        {
+            public int ab = -1;
+            public int lg = -1;
+            public bool isHand;
+            /// <summary>`"buffEffect"` / `"handBuff"`（诊断用；判据看 <see cref="isHand"/>）。</summary>
+            public string at;
+            /// <summary>原版 `CardEffect.effectText` 原文（生成器口径：**空的那一格不落行**）。</summary>
+            public string src;
+        }
+
+        public partial class CardDto
+        {
+            /// <summary>🆕 v44：`[{"ab":…, "lg":…, "isHand":…, "at":…, "src":…}, …]`（生成器按 `(ab, lg, at)` 升序）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v44）；`[]` = 明确没有行。⛔ 不要 `?? new[0]`。</para></summary>
+            public AbilityEffectTextRowDto[] abilityEffectTexts;
+        }
+
+        /// <summary>🆕 v44：`abilityEffectTexts` 列 → <see cref="CardDef.AbilityEffectTextSpec"/>。
+        /// <para>⚠️ 行级坏值口径与 <see cref="MapAbilityMutations"/> 同族：`ab &lt; 0` / `lg &lt; 0` ⇒ 出声 + 丢弃该行；
+        /// 同一 `(ab, lg, isHand)` 撞键 ⇒ 出声 + **丢弃后一条**（`buffEffect` / `handBuff.cardEffect` 各是单对象，
+        /// 撞键 = 表坏了）。</para>
+        /// <para>🔴 缺列 ⇒ 返回 `null`（= 整列未知）；⛔ **别**返回 `new[0]`（那会把「未知」说成「明确没有行」）。</para></summary>
+        static CardDef.AbilityEffectTextSpec[] MapAbilityEffectTexts(CardDto c)
+        {
+            if (c == null || c.abilityEffectTexts == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.AbilityEffectTextSpec>(c.abilityEffectTexts.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilityEffectTexts)
+            {
+                if (r == null) continue;
+                if (r.ab < 0 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityEffectTexts` 有一行下标不合法"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // 三元组撞键 = 表坏了（`buffEffect` 与 `handBuff.cardEffect` 是两格，靠 `isHand` 分开）
+                long k = ((long)r.ab << 40) ^ ((long)(r.lg + 1) << 1) ^ (r.isHand ? 1L : 0L);
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityEffectTexts` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg}, isHand={r.isHand})** —— 后一条已丢弃。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new CardDef.AbilityEffectTextSpec
+                {
+                    Ab = r.ab, Lg = r.lg, IsHand = r.isHand,
+                    At = r.at ?? "", Src = r.src ?? "",
+                });
             }
             return list.ToArray();
         }

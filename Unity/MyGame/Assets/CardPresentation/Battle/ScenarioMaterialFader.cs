@@ -117,12 +117,12 @@ namespace CardPresentation
 
         public override void Advance(float dt)
         {
-            // ② 原版 `Update` 首句 `if(!doFade) return;`（`ScenarioMaterialFader__Update.c:15`）——
-            //    被冻住的那一次**既不推进 α、也不结算**（`disableOnFadeOut` / 还原材质都不会发生）。
+            // ② 原版 `Update` 首句 `if(!doFade) return;`（`ScenarioMaterialFader__Update.c:15`）—— 被冻住的那一次**既不推进 α、也不结算**（`disableOnFadeOut` / 还原材质都不会发生）。🔴 **下面三行 = 原版 `Update` 的次序**：① 每帧**先**把材质 `color` 写回（`:19-29` 的 `GetMaterial → get_color → set_color` 循环；α 用**递减前**的剩余时间）② 再判完成（`:31` `if (blendTime <= 0)`，到点才走 `OnComplete` / 还原材质 / `disableOnFadeOut`）③ **末尾**才 `blendTime -= dt`（`:75` / `:79` `LAB_180630d1a`）。⚠️ 改前是「先退计时、再 `if (_busy)` 写」⇒ **收尾那一帧 α 一次都没写**（`Complete()` 已把 `_busy` 清掉）⇒ 最后一个 α 停在前一帧的中间值上、永远到不了 `_toA`（2026-10-29 `B99_W3` · 施工单 特效 `#14`）。
             if (!_doFade) return;
             if (!_busy) return;
-            base.Advance(dt);                       // 到点会调 Complete()
-            if (_busy) ApplyFade(_opts.duration <= 0f ? 1f : Mathf.Clamp01(1f - _left / _opts.duration));
+            ApplyFade(_opts.duration <= 0f ? 1f : Mathf.Clamp01(1f - _left / _opts.duration));   // ① 先写（用**递减前**的 `_left` ⇒ 收尾帧 t=1）
+            if (_left <= 0f) Complete();                                                        // ② 再判完成（原版 `:31`）
+            _left -= dt;                                                                         // ③ 末尾才递减（原版 `:75` / `:79`）
         }
 
         void ApplyFade(float t)
