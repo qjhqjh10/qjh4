@@ -2584,7 +2584,7 @@ namespace RuleEngine
             RuleCore.SpendNormalMana(ctx, p, paid, "打出「" + card.Name + "」", costType: AchievementTally.EnergyCostCard);   // B93_E6：打出战术卡也是原版 `PayCardCost` ⇒ `Type = CardCost(1)`
             // `next …` 那族费用修正**用完即销** —— 和 `RuleCore.PlayCard`（单位那条）对称，
             // 两处都必须在**付费之后**调（见 `RuleCore.ConsumeOnceCostMods`）
-            RuleCore.ConsumeOnceCostMods(ctx, p, inst); if (card.Has(KeywordTable.Oath)) PayCardPlayedCostOath(ctx, p, inst);   // TEMP-REVERT战术卡的誓约钱由 `ChargePaidGroups` 按 `Oath N:` 前缀收（实测 `Angel's Wrath` 1+2 / `Catechism of Death` 0+3）；原版那一笔就是 `PayCardPlayedCostOath`（`chosenAbility 360` 支，`AbilityLogic__PlayAbility.c:2033`），⛔ 别两处都收（双计会烧光余能 ⇒ 付费组付不起 ⇒ 正文整组不结算）
+            RuleCore.ConsumeOnceCostMods(ctx, p, inst);   // 🔴 2026-10-29（B96_OATH · 账 455）：战术卡的誓约钱由 `ChargePaidGroups` 按 `Oath N:` 前缀收（实测 `Angel's Wrath` 1+2 / `Catechism of Death` 0+3）；原版那一笔就是 `PayCardPlayedCostOath`（`chosenAbility 360` 支，`AbilityLogic__PlayAbility.c:2033`），⛔ 别两处都收（双计会烧光余能 ⇒ 付费组付不起 ⇒ 正文整组不结算）
             ps.Hand.RemoveAt(handIdx);
             // 🆕 2026-10-17（B19）：**记一笔「本局打出过的牌」**（候选域 `played` 的唯一来源之一；
             //    单位卡那一笔在 `RuleCore.PlayCard`）。

@@ -3952,7 +3952,7 @@ namespace RuleEngine
             //   ⛔ 别改回 `ps.Energy -= costPaid;`（那样「花光法力」静默不触发）。
             SpendNormalMana(ctx, p, costPaid, "打出「" + card.Name + "」", costType: AchievementTally.EnergyCostCard);   // B93_E6：原版 `PayCardCost` ⇒ `EnergySpentSignal.Type = CardCost(1)`
             // `next …` 那族费用修正**用完即销** —— 必须在**付费之后**调（见 `ConsumeOnceCostMods`）
-            ConsumeOnceCostMods(ctx, p, inst);  if (card.Has(KeywordTable.Oath)) PayCardPlayedCostOath(ctx, p, inst);   // TEMP-REVERT原版手牌出牌只收卡费（`PayCardCost.c:23/27` 只读 `get_CurrentCost`）；誓约由**主动能力**收（`CardScript__UsedActiveAbility.c:41-44` → `PayActiveAbilityCostOath.c`）⇒ ⛔ 别在这里加誓约费（`PayCardPlayedCostOath` 的调用者只有一个 = `AbilityLogic__PlayAbility.c` 的 `chosenAbility 360` 支，`cardChosenInSelection == null` 时早退 ⇒ 手牌出牌根本走不到）
+            ConsumeOnceCostMods(ctx, p, inst);   // 🔴 2026-10-29（B96_OATH · 账 455）：原版手牌出牌只收卡费（`PayCardCost.c:23/27` 只读 `get_CurrentCost`）；誓约由**主动能力**收（`CardScript__UsedActiveAbility.c:41-44` → `PayActiveAbilityCostOath.c`）⇒ ⛔ 别在这里加誓约费（`PayCardPlayedCostOath` 的调用者只有一个 = `AbilityLogic__PlayAbility.c` 的 `chosenAbility 360` 支，`cardChosenInSelection == null` 时早退 ⇒ 手牌出牌根本走不到）
             ps.Hand.RemoveAt(handIdx);
 
             // 「打出了这张牌」——单位卡紧接着还会发一条 `Deploy`，**日志那边会把连着的那条合并掉**
@@ -16974,8 +16974,8 @@ namespace RuleEngine
             if (!inst.Card.Has(KeywordTable.Oath)) return;                     // `.c:10` `HasCurrentTrait(oath)`
             int amount = inst.Card.KwValue(KeywordTable.Oath);                 // `.c:21` `GetCurrentTraitValue(oath)`
             // 🔴 2026-10-29（B96_OATH · 账 455）：恢复 `PayCardPlayedCostOath.c` 1:1 —— `.c:22` 那句 `PlayerManager.UseMana(amount, Normal, …)` **无条件**（`.c` 全文没有「卡面有 `Oath N:` 付费组就跳过」这道闸；那是 `B94_FX4` 为了让两个出牌调用点不双计而加的，那两个调用点已按 §4.2 ①② 删除）⛔ 别再加条件：闸会把 360 支（本文件 `RunPlayChosenCardAbility`）那条**原版真会收钱**的路静默改掉
-            if (inst.Card.OathOps == null || inst.Card.OathOps.Count == 0) SpendNormalMana(ctx, p, amount, "誓约（" + (inst.Card.Name ?? "?") + "）",
-                            energySpentSignal: false, costType: 0);   // TEMP-REVERT
+            SpendNormalMana(ctx, p, amount, "誓约（" + (inst.Card.Name ?? "?") + "）",
+                            energySpentSignal: false, costType: 0);   // `.c:22` `PlayerManager.UseMana(amount, Normal, …)` —— ⛔ 不发 `EnergySpentSignal`；⛔ 别加条件（原版 `.c` 无条件）
             // `.c:24` `CheckIfCodexTriggered(…, shouldCheckCost: 0)` —— ⛔ 别传 true（那是 PayCardCost 那一支）
             CheckCodex(ctx, p, inst, shouldCheckCost: false);
         }
