@@ -35,8 +35,8 @@ namespace CardPresentation
     /// <summary>原版 `ConfigManager.GetConfig&lt;GameModesConfig&gt;()` 里本批**用得到的那一格**（远端 TitleData）。
     /// <para>🔶 自己设计（非原版）：原版是 `IConfigData` 资产 + `TypeReference mainRankedType`（默认 `typeof(IRankedEvent)`）；
     /// 本地**没有那份配置资产**（远端下发，判据 §三·3.1 行 4）⇒ 只留一个注入点。
-    /// `null` = 「本地确实拿不到」—— `GetActiveEvent(Type)` 走到那一支时会**出声后返回 null**（原版那里是 NRE）。
-    /// 执行代理 B89-E11 2026-10-28（简报授权：判据在远端）。</para></summary>
+    /// `null` = 「本地确实拿不到」—— `GetActiveEvent(Type)` 走到那一支时会**抛 NRE**（原版 `.c:106-108` `/* Subroutine does not return */` 就是 throw ⇒ 照抄，⛔ 别改回 `return null`）。
+    /// 执行代理 B89-E11 2026-10-28（简报授权：判据在远端）；2026-10-29 调度台裁定：默认值维持 `null`、该支照抄 NRE（`B97_W24` 订正本段）。</para></summary>
     public static class GameModesConfigSource
     {
         /// <summary>原版 `GameModesConfig.mainRankedType.Type`（`null` = 拿不到）。</summary>

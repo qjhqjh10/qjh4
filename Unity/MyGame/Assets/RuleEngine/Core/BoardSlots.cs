@@ -703,25 +703,25 @@ namespace RuleEngine
         //    · `nextSlotRequired != 1` 那一支（`:46-160`）：i 从 0 起，每轮**先右后左**：
         //        「右侧已占数 <= i」⇒ 第 i 格空 ⇒ 计数 +1，记下 `i + 1`（**正 = 右**）；
         //        「左侧已占数 <= i」⇒ 第 i 格空 ⇒ 计数 +1，记下 `~i`  （**负 = 左**，`:82`）；
-        //        计数 == required ⇒ 停；`max(右人数, 左人数) <= i` ⇒ 两侧数完、停。
+        //        计数 == required ⇒ 停；`i >= max(右格数, 左格数)`（= `BoardSpec.SlotsPerSide`，`.c:64-69`）⇒ 数完、停。
         //        → 返回**最后记下的那一个**（有符号格号，与 `TryGetCardInPos` / `OriginalIndexOfCard` 同一编码）。
         //    · 一个都没找到（`:160-175`）⇒ 原版 `CustomDebug.LogError`（带 pos / required / 两侧人数，
         //      `:143-158` 依次拼 7 个实参）＋ 回**右最外一格**（`GetRightSlotPos(-1)`）。
         //    · `nextSlotRequired == 1` 那一支（`:178-276`）**是坐标半**：吃 `pos.x` 的符号、
-        //      `AvailableLeftSlot/RightSlot`、督军 `GetEffectAnchor()`，末尾还 + `ExtraYOnBoard(+0x94)`
-        //      ⇒ **不属引擎半**（要屏幕坐标与英雄锚点）。本实现只覆盖它**唯一一条**引擎可判的结论：
-        //      **两侧都满 ⇒ `int.MinValue`**（调用方据此回督军锚点，与原版同档）；
-        //      该档还有空位时**本方法给不出答案** ⇒ 出声 + `int.MinValue`
-        //      （⛔ 不许静默猜一侧 —— 猜错就是把单位摆到对侧）。
+        //      `AvailableLeftSlot/RightSlot`、督军 `GetEffectAnchor()`，末尾还 + `ExtraYOnBoard(+0x94)`。
+        //      ✅ **2026-10-29（`B97_W11`）补上了 `pos.x == 0` 的中性支** —— 两个原版调用点都传 `Vector2.zero`
+        //      （ILSpy `AbilityLogic.cs:2038` 现读：`GetNextSlotPos(Vector2.zeroVector, slot)`）⇒ 中性支才是实走的那条：
+        //      **右满 ⇒ 左第 N 格 · 左满 ⇒ 右第 N 格 · 否则人少那一侧（平手走右）**（`.c:210-242` / `:263-265`）；
+        //      两侧都满 ⇒ `int.MinValue`（原版回督军 `GetEffectAnchor()`，由表现层接）。
         //
-        //  ⚠️ **今天 0 调用方**：原版两个调用点（`AbilityLogic__CreateTempAbilityTransform.c` /
-        //     `BattleManager__GetAnimTransform.c`）都是**动画锚点**，接线要 `BattleDriver.EnsureMinionSpotAnchor`
-        //     ＋**真机看效果**（子代理不跑 Unity）⇒ 另排。⛔ 没看真机前别接线。
+        //  ✅ **已接线（2026-10-29 `B97_W11`）**：`BattleDriver.EnsureMinionSpotAnchor` 现在调本方法，
+        //     `ourSlot = BoardSpec.WarlordSlot + 有符号格号`（原来那处 🔶 自设计的 `SimpleAI.FirstFreeSlot` 已推翻）；
+        //     ⚠️ 动画锚点的**最终位置只能真机看**（子代理不跑 Unity）⇒ **待真机复核**。
         // ============================================================================================
         /// <summary>
         /// 原版 `MinionManager.GetNextSlotPos` 的**引擎半**：从两侧**交替**取第 <paramref name="required"/> 个空格。
         /// <para>返回**有符号格号**（`+1..+4` 右 · `-1..-4` 左，见文件头的格号映射）；`int.MinValue` = 取不到
-        /// （两侧都满 / `required == 1` 的坐标半 / 参数非法，**都已出声**）。</para>
+        /// （`required == 1` 且两侧都满 ⇒ 原版回督军锚点 / 参数非法 —— 前者**不**出声，与原版同档）。</para>
         /// </summary>
         public static int NextSlotPos(PlayerState ps, int required)
         {
@@ -733,11 +733,11 @@ namespace RuleEngine
 
             if (required == 1)
             {
-                // 坐标半（见文件尾那段注）：引擎只能判「两侧都满」这一档。
-                if (RoomOnSide(ps, Left) <= 0 && RoomOnSide(ps, Right) <= 0)
-                    return int.MinValue;                       // 原版：回督军 `GetEffectAnchor()`
-                WarnNextSlotPos(ps, required, "`required == 1` 的坐标半（pos.x / 英雄锚点 / ExtraYOnBoard）不在引擎层");
-                return int.MinValue;
+                int lc = CountOnSide(ps, Left), rc = CountOnSide(ps, Right);
+                if (RoomOnSide(ps, Left) <= 0 && RoomOnSide(ps, Right) <= 0) return int.MinValue;// 两侧都满 ⇒ 原版回督军 GetEffectAnchor（且不加 +0x94）
+                if (RoomOnSide(ps, Right) <= 0) return -(lc + 1);       // 右满 ⇒ GetLeftSlotPos(leftCount)（`.c:210-226`）
+                if (RoomOnSide(ps, Left) <= 0) return rc + 1;           // 左满 ⇒ GetRightSlotPos(rightCount)（`.c:263-265`）
+                return lc < rc ? -(lc + 1) : rc + 1;                     // 中性支 `pos.x == 0`：人少那一侧、平手走右（`.c:237-242`）
             }
 
             int found = 0;
@@ -746,7 +746,7 @@ namespace RuleEngine
             {
                 int r = CountOnSide(ps, Right);
                 int l = CountOnSide(ps, Left);
-                if (System.Math.Max(r, l) <= i) break;          // `:61-62` 两侧都数完
+                if (i >= BoardSpec.SlotsPerSide) break;         // `:64-69` 上界 = **每侧格数**（`max(两侧 slotPos.Length)` = 4），⛔ 不是人数
                 if (r <= i)                                     // 右第 i 格空
                 {
                     taken++;
@@ -764,7 +764,7 @@ namespace RuleEngine
 
             // 一个都找不到 ⇒ 原版 `LogError` + 右最外一格（`:160-175`）
             WarnNextSlotPos(ps, required, "两侧都没有第 N 个空格");
-            return BoardSpec.SlotsPerSide;                      // 右最外 = +SlotsPerSide（有符号格号）
+            return BoardSpec.SlotsPerSide;                      // 「右最外」= 我方等价物：原版此处 `GetRightSlotPos(-1)` 会越界抛 IndexOutOfRange
         }
 
         /// <summary>原版 `:143-158` 那条 `CustomDebug.LogError` 的等价位 —— **⛔ 别静默返回**。</summary>

@@ -69,9 +69,10 @@ namespace RuleEngine
                 // 候选侧 = **己方**：引擎那一口 `CanUseActiveAbility` 的 `targetOwner` 写死成 `p`
                 // （`Core/RuleCore.cs:15341` 的 `CanUseAbilityTarget(ctx, p, u, p, targetSlot)`）
                 // ⇒ 只扫自己的棋盘，⛔ 别照「普通主动技」那一支扫敌方（会一条候选也产不出来）。
-                var mine = ctx.Players[me].Board;
-                for (int t = 0; t < BoardSpec.Size; t++)
+                var mine = ctx.Players[me].Board; var order = PlayOrderedSlots(mine);   // 原版 `.c:185-215`：`+0x470` 正序
+                for (int oi = 0; oi < order.Count; oi++)
                 {
+                    int t = order[oi];
                     if (mine[t] == null) continue;
                     if (RuleCore.CanUseActiveAbility(ctx, me, slot, t) != RuleCodes.OK) continue;
                     list.Add(new AiAction

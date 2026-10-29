@@ -600,9 +600,9 @@ namespace CardPresentation
         /// 消费 = <see cref="ResolveAllTimed"/> 的 `rng` 参数（只有传了 rng 才真抽；不传 = 旧行为全播）。</para></summary>
         public struct CardPick
         {
-            public string N;
+            public string N, so;
             public string A;
-            public int rc, ai, gj, gn;
+            public int rc, ai, gj, gn;   // 🔴 2026-10-29（执行代理 `B97_W43` · 账 `战斗逻辑驱动:804`）：**`so`（与 `N` 同行声明）= 这条候选来自卡 SO 的哪个字段**（`customRangedAttackParticles` / `customDeathParticles` / `summonAnimDelayed`；空 = 那条候选不是卡 SO 顶层字段）。用途 = 让消费端能把「登场延迟动画」(`summonAnimDelayed`) 与通用 `deploy` 件**分开** —— 原版那件在 `_MinionPlayedIntoField_d__314__MoveNext.c` 的 **state 3**（`LandOnGround` 之后），且过 `shouldTriggerSummon ∧ 非 ephemeral(5) / ambush(0x4b0)` 两道闸，与登场淡入**不是同一拍同一件**。⚠️ 键名只在 2026-10-29 起的运行时表里出现（`工具/gen_card_vfx_by_card.py` 的 `SO_VFX_FIELDS`）；`JsonUtility` 对缺键给 `null`。⚠️ **零行数变化的理由**：本文件有 4 个 A 档账落点（`:377` `:431` `:1757`(×2) `:1933` `:3450`），插一行就会让它们整体漂移 ⇒ `so` 与 `N` 合在一行声明。
         }
 
         static readonly Dictionary<string, Dictionary<string, List<CardPick>>> ByCard =
@@ -802,7 +802,7 @@ namespace CardPresentation
         /// 其余条目**不写这四个键**，`JsonUtility` 缺字段给默认 0。</summary>
         [System.Serializable] public class RtEntry
         {
-            public string n; public string c; public string a;
+            public string n; public string c; public string a; public string so;
             public int rc; public int ai; public int gj; public int gn;
         }
         [System.Serializable] public class RtEvent { public string ev; public RtEntry[] es; }
@@ -1268,7 +1268,7 @@ namespace CardPresentation
         /// 见 <see cref="CardPick"/> 的 doc）。**只此一处**做这个映射 —— `EnsureLoaded` 的两个分支都用它。</summary>
         static CardPick ToPick(RtEntry e)
         {
-            return new CardPick { N = e.n, A = e.a, rc = e.rc, ai = e.ai, gj = e.gj, gn = e.gn };
+            return new CardPick { N = e.n, A = e.a, rc = e.rc, ai = e.ai, gj = e.gj, gn = e.gn, so = e.so };
         }
 
         // ================== 🆕 2026-10-22（`W64` §B9）：登场淡入的**稀有度分档** ==================
@@ -1525,7 +1525,7 @@ namespace CardPresentation
             //   其余事件仍然只查自己那个桶（行为不变）。
             bool hit = evt == Trigger
                      ? TryResolveTriggerPicks(faction, cardIdOrName, times, triggerName, evtAbility, out picks)
-                     : TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks);
+                     : TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks) && (evt != Deploy || (picks = DropSummonDelayedPicks(picks)) != null);   // 🔴 2026-10-29（`B97_W43` · 账 `804`）：`summonAnimDelayed` **不是登场那一拍的件**（原版它在 `MinionPlayedIntoField` state 3），⇒ 从 `deploy` 桶的通用解析里剔掉；剔完一条不剩时这里返回 false ⇒ 下面按「逐卡没命中」落回登场淡入那一档（今读 `deploy` 逐卡桶**只有** SOR33 这一条 ⇒ 剔除前那张卡**连淡入都没有**）。
             if (!hit || picks == null || picks.Count == 0)
             {
                 // 🆕 2026-10-19（W · 触发逐卡）：`perCardOnly` = **只查逐卡那一档、不许掉兜底**。
@@ -3878,6 +3878,85 @@ namespace CardPresentation
             }
             finally { _probeDepth--; }
             return (faction != null ? $"[{faction}] " : "") + string.Join("  ", parts.ToArray());
+        }
+        // ==================================================================
+        //  🔴 2026-10-29（执行代理 `B97_W43` · 账 `战斗逻辑驱动:804`）：
+        //  **`summonAnimDelayed` 是 `MinionPlayedIntoField` state 3 的第二件，不是「登场那一拍」的件。**
+        //
+        //  判据（第一权威 → `d:/2/tools/decomp_full/CardScript._MinionPlayedIntoField_d__314__MoveNext.c:186-250` 逐句）：
+        //    state 3：`if (doTransformAnim) LandOnGround()` → 两道闸
+        //    `shouldTriggerSummon == 0 ∨ HasCurrentTrait(5 = ephemeral) ∨ HasCurrentTrait(0x4b0 = ambush)`
+        //      ⇒ 直接 `WaitForSeconds(AttackStepTime)` 进 state 4；
+        //    否则先 invoke 委托 `m_OnDisplaySummonMessage(+0x138)`、再把 `rawCardData(+0x28) + 0xB0`
+        //      的 AssetReference `Load` 出来、**`Instantiate(prefab, card.transform.position, 静态 quaternion)`**
+        //      （根实例化、不挂父件），最后一律 `WaitForSeconds(AttackStepTime)` 进 state 4。
+        //    `AttackStepTime` = `CardScript.__ctor` 的 `+0x1a0` = **0.1**（与 `DeploySequence.LandTailTime` 同源）。
+        //
+        //  `shouldTriggerSummon` = 第 6 个实参（含 `this`）/ 第 5 个业务形参
+        //  （工厂 `CardScript__MinionPlayedIntoField.c:20-25` 实读：`+0x3c ← param_6`、`+0x30 ← param_5`）。
+        //  **逐调用点实读（本代理现核；⚠️ 有一处订正 `B97_W37`）**：
+        //    · `_ResolvePlayCardFromHand_d__447:659` = `(…, p4=0, false, **1**)`  ⇒ **从手牌打出 = 触发**；
+        //    · `_ResolvePlayCardFromHand_d__447:892` = `(…, p4=1, false, **1**)`  ⇒ 同上（另一条 state 分支）；
+        //    · `BattleManager__ResolveTransformUnit.c:1207` = `(…, 0, keepStatus, **1**)` ⇒ **变身 = 触发**
+        //      （⚠️ 我们**没有**这条入口 —— 见 `RuleCore.ApplyDeployTurnState` 的 doc：`transformUnit(27)` 无生产端、
+        //       `chosenAbility == 85` 池内 0 可达 ⇒ 今天结构上到不了，如实记）；
+        //    · `_ResolveCardAutoSummoned_d__511:245` = `(…, 1, **masked**, **masked**)`
+        //      ⇒ **`AutoPlayFromHand` 这一档 = 不触发**。🔴 订正 `B97_W37` 报告里「栈上 bool（未解）」那一格：
+        //      第 6 个实参写的是 `in_stack_fffffffffffffe60 & 0xffffffffffffff00` = **低位清零 ⇒ false**
+        //      （同一个文件第 5 个实参 `keepStatus` 用的是同一种掩码 ⇒ 那是 `false` 的固定写法）；
+        //    · `_ResolveSummonUnit_d__510:295` 只给 **4 个实参** ⇒ 后两格吃默认 `false` ⇒ **效果召唤 = 不触发**。
+        //  ⇒ 我们侧第 1 道闸 = `BattleEvent.DeployFrom == DeploySource.HandPlayed`。
+        //    ⛔ **不是**「所有 `Deploy` 都触发」（那样每个效果召唤的单位都要多播一件）；
+        //    ⛔ 也**不要**把 `AutoPlayFromHand` 算进来（理由就是上面那条实读 —— `B97_W37` 报告正文写的是
+        //    「`PlayFromHand` / `AutoPlayFromHand` 都应触发」，那一格与本代理现核**不一致**，按二进制为准）。
+        //
+        //  第 2 道闸 = 场上那个单位**当前**有没有 `ephemeral` / `ambush`
+        //  （原版 `EntityScript.HasCurrentTrait` 读的是**带加/减益与光环**的运行时值 ⇒ 用 `UnitState.Has`，
+        //   ⛔ 不是 `CardDef.Has` 那个「卡面印的」静态事实）。
+        //
+        //  全池可达面（`B96_GEN` 普查，本代理复核）：1,359 个卡 SO 里该字段非空 **1 张**
+        //  = `SOR33 Saint Celestine` ⇒ prefab `Sororitas Saint Custom summon`。
+        //  ⇒ 下面这一族对**其余全部卡**在 `ResolveSummonDelayed` 那一步就返回 null（零成本）。
+        // ==================================================================
+
+        /// <summary>原版卡 SO 字段名 `RawCardScript.summonAnimDelayed`（= `rawCardData + 0xB0` 那个 AssetReference）——
+        /// 运行时表用它在 `CardPick.so` 上标出来源，见 <see cref="DropSummonDelayedPicks"/> 与
+        /// <see cref="ResolveSummonDelayed"/>。</summary>
+        public const string SummonDelayed = "summonAnimDelayed";
+
+        /// <summary>这条候选是不是卡 SO 的 `summonAnimDelayed`（判据见上面那一段长注释）。</summary>
+        static bool IsSummonDelayedPick(CardPick p)
+        {
+            return string.Equals(p.so ?? "", SummonDelayed, System.StringComparison.Ordinal);
+        }
+
+        /// <summary>**从 `deploy` 桶的候选里剔掉 `summonAnimDelayed`**（只给 <see cref="ResolveAllTimed"/> 用）。
+        /// <para>返回 `null` = **剔完一条都不剩** ⇒ 调用方按「逐卡没命中」处理、落回登场淡入那一档
+        /// （原版淡入与这件延迟动画**是两件两拍**，⛔ 别让后者顶掉前者 —— 剔除前 `SOR33` 就是这样：**连淡入都没有**）。</para>
+        /// <para>没有可剔的 ⇒ **原样返回同一个引用**（不分配、与改前逐位相同）。</para></summary>
+        static List<CardPick> DropSummonDelayedPicks(List<CardPick> picks)
+        {
+            if (picks == null) return null;
+            int drop = 0;
+            for (int i = 0; i < picks.Count; i++) if (IsSummonDelayedPick(picks[i])) drop++;
+            if (drop == 0) return picks;
+            if (drop == picks.Count) return null;
+            var kept = new List<CardPick>(picks.Count - drop);
+            for (int i = 0; i < picks.Count; i++) if (!IsSummonDelayedPick(picks[i])) kept.Add(picks[i]);
+            return kept;
+        }
+
+        /// <summary>🔴 2026-10-29（`B97_W43` · 账 `804`）：**这一拍要播的那件「召唤延迟动画」prefab 名**（没有 ⇒ `null`）。
+        /// <para>判据见上面那一段长注释。**两道闸不在这里** —— 它们要场上那个单位（`ephemeral` / `ambush`），
+        /// 而本类只看数据 ⇒ 由 `BattleDriver.PlaySummonDelayedVfx` 判。</para>
+        /// <para>⚠️ 与 <see cref="ResolvePerCard"/> **并存**：后者仍是「`deploy` 桶第一条」的**原始**查询
+        /// （与 `ResolveDeathParticle` 相对于 `ResolvePerCard(Death)` 的关系同形）。</para></summary>
+        public static string ResolveSummonDelayed(string faction, string cardIdOrName)
+        {
+            List<CardPick> picks;
+            if (!TryResolvePerCardPicks(Deploy, faction, cardIdOrName, out picks) || picks == null) return null;
+            for (int i = 0; i < picks.Count; i++) if (IsSummonDelayedPick(picks[i])) return picks[i].N;
+            return null;
         }
     }
 }

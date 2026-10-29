@@ -249,14 +249,14 @@ public static partial class RuleEngineTest
             if (back == null) return;
 
             int maxOther = W59MaxPlayOrder(ctx, back);
-            CheckTrue(back.PlayOrder > oldOrder,
-                      "★★ **复活 = 取新号**：新号 " + back.PlayOrder + " > 翻面前的 " + oldOrder
-                    + "（原版 `_ResolveMinionDeath` `List.Remove` 之后重新 `List.Add` 到**表尾**）；"
-                    + "🧨 删掉 `EffectResolver.DoReanimate` 里那句 `back.PlayOrder = ctx.TakePlayOrder();` "
-                    + "⇒ 沿用旧号 ⇒ 本行红");
-            CheckTrue(back.PlayOrder > maxOther,
-                      "★★ **新号大于所有现存在场者**（" + back.PlayOrder + " > " + maxOther + "）—— "
-                    + "「谁先响」上它要排到**所有人之后**（同一条 `🧨`）");
+            Check(back.PlayOrder, oldOrder,
+                      "★★ **复活 = 沿用原号**（" + back.PlayOrder + " == 翻面前的 " + oldOrder + "）—— "
+                    + "原版 `ResolveTransformFromRemnant` 的协程体里没有 `unitsInPlay` 的 Remove/Add，"
+                    + "`TransformFromRemnant` 原地换数据 ⇒ 进场号不变"
+                    + "｜🧨 在 `EffectResolver.DoReanimate` 里加回 `back.PlayOrder = ctx.TakePlayOrder();` ⇒ 实得新号 ⇒ 本行红");
+            // 🔴 **2026-10-29 口径订正**（`B97_W21` 现核）：原「复活 = 取新号 / 新号 > maxOther」两条**已作废**；
+            //    `maxOther` 这一行保留，只为不让下游账行号漂移（原判词 → `报告/B97_W21.md` §四·3）。
+            //    ⛔ 别把这两条改回去 —— 原版协程体里确实没有 `unitsInPlay` 的 Remove/Add。
         }
 
         // ---- ④-2 `PlayCard` 之后在场单位的号严格递增 ----

@@ -1292,7 +1292,7 @@ namespace CardPresentation
             Visible = true;
             gameObject.SetActive(true);
             _closePending = false;      // 🔴 P1-3：重开 ⇒ 丢掉上一帧还没落的待关（否则本帧末尾会把新窗关掉）
-            SetEffectRows(effects); SetupTutorialObj(d, EffectRowCount > 0);   // 🆕 2026-10-29（`B95_HUDCOL` · 账 `战斗界面_HUD:306`）：`forceHide` 的真来源 = `DisplayCardEffects` 的返回值 ⇒ 同一行喂进来      // ⚠️ 放在最后 —— 它要先把那块亮起来再改字（TMP 未激活量不出尺寸）
+            SetEffectRows(effects, HidesEffectRowsFor(def)); SetupTutorialObj(d, EffectRowCount > 0);   // 🆕 2026-10-29（`B95_HUDCOL` · 账 `战斗界面_HUD:306`）：`forceHide` 的真来源 = `DisplayCardEffects` 的返回值 ⇒ 同一行喂进来      // ⚠️ 放在最后 —— 它要先把那块亮起来再改字（TMP 未激活量不出尺寸）
             // 卡背必须放在 `SetActive(true)` **之后**（同 TMP 那条顺序纪律；卡背层是懒建的网格，不读 TMP）
             SetFrontVisible(!faceDown);
         }
@@ -2196,5 +2196,387 @@ namespace CardPresentation
         //  ⚠️ **今天仍不可达**：`TempBuff.buffType ∈ {8,17}` 没有生产者（见账 `特效动画:521` 的
         //     `CreateMarkCardEffect` 投影）⇒ 这是「投影接上之后唯一的展示口」，改在这里等它。
         // ═══════════════════════════════════════════════════════════════════════════════════
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-29（执行代理 `B97_W16` · 账 `特效动画:521` 的 **S4**）：
+        //  项源从「`UnitState.TempBuff`」换成原版 `EntityScript.activeEffects(+0x108)` 的**只读投影**
+        //  （`RuleEngine.EffectsToShow.Of`）—— 本段只做「投影 → 两列文字」＋「环境效果卡整组隐藏」。
+        //
+        //  ⚠️ **追加在类尾**（本文件被账按 `文件:行号` 引用 50+ 条；⛔ 别往上挪，见铁律 18·b）。
+        //  ⛔ **`SetEffectRows` 的槽位模型一个字没动**（判据 `判据/CardEffectsToShow_判据.md` §七：
+        //     「收窄版不接受」）；本段只在它**下游**接上（产 `EffectRow` 给它消费）。
+        //  判据（⛔ 别在这里抄第二份）：`判据/GetCardEffectsToShow_施工细则.md` §三 S4 ＋ §1.6 两张表
+        //    ＋ `d:/2/tools/decomp_full/GameStaticData__GetEffectDesc.c` / `CardEffectItem__LoadEffect.c`。
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// **原版 `CardEffectItem.LoadEffect` 的等价物**：把 <see cref="EffectsToShow.Of"/> 的投影逐条翻成
+        /// 「谁给的 / 给了什么」两列（判据 = `decomp_full/CardEffectItem__LoadEffect.c` 全文 195 行
+        /// ＋ `GameStaticData__GetEffectDesc.c` 492 行；逐分支表 → 施工细则 §1.6）。
+        ///
+        /// <para>序不动：<paramref name="items"/> 的**下标就是槽号**（原版 `EnableEffects` 逐项一槽、
+        /// 空文本项**照样占一槽** ⇒ 留洞，见 `SetEffectRows` 的槽位模型）。</para>
+        /// <para>`isPlayer` = 「被展示那张卡是不是我方的」（原版 `LoadEffect(item, effect, isPlayer, 0)`
+        /// 的 `isPlayer` 来自卡自己的 `+0x40`）—— 只用于 secret/quest 打码那四支。</para>
+        /// </summary>
+        public static List<EffectRow> RowsOfEffects(IReadOnlyList<ShownEffect> items, bool isPlayer)
+        {
+            var rows = new List<EffectRow>();
+            if (items == null) return rows;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var e = items[i];
+                switch (e.Family)
+                {
+                    case ShownFamily.Stat:
+                        // 同一次 `give` 的多条属性 = 原版**一条** `CardEffect`（`+0x108` 的合并键里没有
+                        // 属性维度）⇒ 按 `RowGroup` 合并成一行。⚠️ `RowGroup` 的生产点（S3-c）今天还没接
+                        // ⇒ 恒 0 ⇒ 不合并（这一段是「接上即生效」的正确消费端）。
+                        {
+                            var grp = new List<ShownEffect>(4) { e };
+                            if (e.RowGroup != 0)
+                            {
+                                int j = i + 1;
+                                while (j < items.Count
+                                       && items[j].Family == ShownFamily.Stat
+                                       && items[j].RowGroup == e.RowGroup)
+                                { grp.Add(items[j]); j++; }
+                                i = j - 1;
+                            }
+                            AddStatRows(rows, grp);
+                        }
+                        break;
+
+                    case ShownFamily.Trait:
+                        rows.Add(TextRow(e.Source, TraitRowText(e)));
+                        break;
+
+                    case ShownFamily.RemoveTrait:
+                        rows.Add(TextRow(e.Source, RemoveTraitRowText(e)));
+                        break;
+
+                    case ShownFamily.Mark:
+                        rows.Add(MarkRow(e));
+                        break;
+
+                    case ShownFamily.Enchantment:
+                        rows.Add(EnchantRow(e, isPlayer));
+                        break;
+
+                    default:
+                        // `ShownFamily.HandBuff` 投影**不产出**（手牌那族按原版映射成 Stat/Trait 行）。
+                        // 兜底：不要静默丢 —— 出一行**空行**（= 原版那个「空文本占一槽」），并出声一次。
+                        WarnOnce("unknown-family", $"[展示窗] 投影里出现了未分类的 `ShownFamily={(int)e.Family}` ⇒ 这一条按**空行**占槽（不静默）");
+                        rows.Add(new EffectRow("", ""));
+                        break;
+                }
+            }
+            return rows;
+        }
+
+        // ---- 属性那一族 -------------------------------------------------------------------------
+
+        /// <summary>把一组（同一次 `give` 的）属性投影加成 1..N 行。判据 = `GetEffectDesc.c:131-306` 的
+        /// `case 1 addStats`（按「哪几项非零」选键）＋ `case 70/85/9/95`（`set*` 那四档，**绝对值**）。</summary>
+        static void AddStatRows(List<EffectRow> rows, List<ShownEffect> g)
+        {
+            if (rows == null || g == null || g.Count == 0) return;
+
+            // `set*` 那几档：**不参与组合**（原版 `case 70/85/9/95` 各是独立一条记录、各印一行）
+            if (g.Count == 1)
+            {
+                var one = g[0];
+                string setKey = SetKeyOf(one);
+                if (setKey != null)
+                {
+                    rows.Add(TextRow(one.Source, FillBracket0(Loc.T("Battle/Effect/" + setKey), one.Value)));
+                    return;
+                }
+                rows.Add(TextRow(one.Source, SingleStatText(one)));
+                return;
+            }
+
+            // 组合键的**每一项**（原版组合表里**没有 armour** ⇒ 护甲单独成行）
+            var combo = new List<ShownEffect>(3);
+            var armour = new List<ShownEffect>(1);
+            for (int i = 0; i < g.Count; i++)
+            {
+                if (NormAttrOf(g[i]) == "armour") armour.Add(g[i]); else combo.Add(g[i]);
+            }
+
+            if (combo.Count == 0)
+            {
+                // 全是护甲（同一次 give 给两档护甲 = 原版一条 `ChangeArmour`，值相加）
+                rows.Add(TextRow(g[0].Source, ComboText(armour)));
+            }
+            else if (combo.Count == 1)
+            {
+                rows.Add(TextRow(combo[0].Source, SingleStatText(combo[0])));
+            }
+            else
+            {
+                rows.Add(TextRow(combo[0].Source, ComboText(combo)));
+            }
+
+            if (armour.Count > 0 && combo.Count > 0)
+                rows.Add(TextRow(armour[0].Source, ComboText(armour)));
+        }
+
+        /// <summary>单条属性 → 原版键文案（表 A 的「只有一项」那一列）。</summary>
+        static string SingleStatText(ShownEffect e)
+        {
+            string attr = NormAttrOf(e);
+            string key;
+            switch (attr)
+            {
+                case "attack": key = e.Timed ? "ChangeMeleeAttackOneTurn" : "ChangeMeleeAttack"; break;
+                case "ranged": key = e.Timed ? "ChangeRangedAttackOneTurn" : "ChangeRangedAttack"; break;
+                case "health": key = e.Timed ? "ChangeHealthOneTurn" : "ChangeHealth"; break;
+                case "armour": key = e.Timed ? "ChangeArmourOneTurn" : "ChangeArmour"; break;
+                default:
+                    // 认不出（⛔ 不猜、也不印键名）：出声一次 + 空串（= 原版「空文本占一槽」）
+                    WarnOnce("stat-attr:" + (e.Attr ?? ""), $"[展示窗] 投影里的属性名「{e.Attr}」认不出 ⇒ 这一条按**空行**占槽（不静默）");
+                    return "";
+            }
+            return FillBrace0(Loc.T("Battle/Effect/" + key), e.Value);
+        }
+
+        /// <summary>多条属性合成一条（原版表 A 的组合列）。`combo` 里只会出现 attack / ranged / health（与 armour）。</summary>
+        static string ComboText(List<ShownEffect> combo)
+        {
+            if (combo == null || combo.Count == 0) return "";
+            bool a = false, r = false, h = false;
+            int av = 0, rv = 0, hv = 0;
+            bool timed = combo[0].Timed;
+            for (int i = 0; i < combo.Count; i++)
+            {
+                switch (NormAttrOf(combo[i]))
+                {
+                    case "attack": a = true; av += combo[i].Value; break;
+                    case "ranged": r = true; rv += combo[i].Value; break;
+                    case "health": h = true; hv += combo[i].Value; break;
+                    case "armour": return ArmourComboText(combo, timed);
+                }
+            }
+
+            string key;
+            if (a && r && h) key = timed ? "ChangeAllStatsOneTurn" : "ChangeAllStats";
+            else if (a && r) key = timed ? "ChangeBothAttacksOneTurn" : "ChangeBothAttacks";
+            else if (a && h)
+            {
+                // ⚠️ 官方 10,862 键表里**只有永久版**（`ChangeMeleeAndHealth`），没有 OneTurn 变体
+                // （施工细则 §六·2 明写「没核到」）⇒ 限时这一档**照永久键**并出声，⛔ 不自造一个键。
+                key = "ChangeMeleeAndHealth";
+                if (timed) WarnOnce("combo-melee-health-timed",
+                    "[展示窗] 「近战 + 生命」的**限时**组合在原版表里没有 OneTurn 变体（判据未核到，施工细则 §六·2）"
+                    + " ⇒ 这一行按**永久键**印（不静默）");
+            }
+            else if (r && h)
+            {
+                key = "ChangeRangedAndHealth";
+                if (timed) WarnOnce("combo-ranged-health-timed",
+                    "[展示窗] 「远程 + 生命」的**限时**组合在原版表里没有 OneTurn 变体（施工细则 §六·2）"
+                    + " ⇒ 这一行按**永久键**印（不静默）");
+            }
+            else if (a) { return FillBrace0(Loc.T(timed ? "Battle/Effect/ChangeMeleeAttackOneTurn" : "Battle/Effect/ChangeMeleeAttack"), av); }
+            else if (r) { return FillBrace0(Loc.T(timed ? "Battle/Effect/ChangeRangedAttackOneTurn" : "Battle/Effect/ChangeRangedAttack"), rv); }
+            else if (h) { return FillBrace0(Loc.T(timed ? "Battle/Effect/ChangeHealthOneTurn" : "Battle/Effect/ChangeHealth"), hv); }
+            else return "";
+
+            string s = Loc.T("Battle/Effect/" + key);
+            if (string.IsNullOrEmpty(s)) return s;
+            // 占位符**按原版实参序**：{0} = 近战 · {1} = 远程 · {2} = 生命（`GetEffectDesc.c` 的 Concat 序）
+            int n = 0;
+            if (a) s = s.Replace("{" + (n++) + "}", Signed(av));
+            if (r) s = s.Replace("{" + (n++) + "}", Signed(rv));
+            if (h) s = s.Replace("{" + (n++) + "}", Signed(hv));
+            return s;
+        }
+
+        /// <summary>护甲的那几档（原版只有单属性键 `ChangeArmour[OneTurn]`，值相加）。</summary>
+        static string ArmourComboText(List<ShownEffect> combo, bool timed)
+        {
+            int v = 0;
+            for (int i = 0; i < combo.Count; i++) if (NormAttrOf(combo[i]) == "armour") v += combo[i].Value;
+            return FillBrace0(Loc.T(timed ? "Battle/Effect/ChangeArmourOneTurn" : "Battle/Effect/ChangeArmour"), v);
+        }
+
+        /// <summary>`setMeleeAttack(70)` / `setRangeAttack(85)` / `setHealth(9)` / `setCost(95)` 那四档的键
+        /// （`GetEffectDesc.c` 的 `case 70/85/9/95`）；不是这四档 ⇒ `null`。
+        /// <para>⚠️ 我们这几档的 `BuffType` **不总是** 70/85/9：`setHealth` 那条走的是
+        /// `AddStatMod("health", …, isSet: true)`（`EffectResolver.cs:14909`，buffType 灌成 `-1`）
+        /// ⇒ 必要时**按属性名兜底**（`attack→70` / `ranged→85` / `health→9`）。</para></summary>
+        static string SetKeyOf(ShownEffect e)
+        {
+            switch (e.BuffType)
+            {
+                case 70: return "SetMeleeAttack";
+                case 85: return "SetRangeAttack";
+                case 9: return "SetHealth";
+                case 95: return "SetCost";
+            }
+            if (!e.IsSet) return null;
+            switch (NormAttrOf(e))
+            {
+                case "attack": return "SetMeleeAttack";
+                case "ranged": return "SetRangeAttack";
+                case "health": return "SetHealth";
+            }
+            return null;
+        }
+
+        static string NormAttrOf(ShownEffect e) { return e.Attr == null ? "" : RuleCore.NormalizeAttr(e.Attr); }
+
+        static string Signed(int v) { return (v > 0 ? "+" : "") + v; }
+
+        /// <summary>`{0}` → 带符号数值（属性/关键词那几族）。</summary>
+        static string FillBrace0(string s, int v)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            if (s.IndexOf("{0}", System.StringComparison.Ordinal) < 0) return s;
+            return s.Replace("{0}", Signed(v));
+        }
+
+        /// <summary>`{[0]}` → **原值**（`Set*` / `ChangeAbilityCost` 那几族；原版是 `Int32.ToString`，不带 `+`）。</summary>
+        static string FillBracket0(string s, int v)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            if (s.IndexOf("{[0]}", System.StringComparison.Ordinal) < 0) return s;
+            return s.Replace("{[0]}", v.ToString());
+        }
+
+        // ---- 关键词 / 移除 / mark / 附魔 -----------------------------------------------------------------
+
+        /// <summary>关键词行（原版 `GetEffectDesc` `case 3 / 0x5a`，`GetEffectDesc.c:324-347`）：
+        /// 键 = `GetTrait[OneTurn]`，`{0}` = `TraitNameToString(trait)`；**`traitValue &gt; 0` 时再拼 `" " + N`**
+        /// （`.c:345-347` 的 `if (0 &lt; *(int*)(param+0x40))` —— ⚠️ 是 `&gt; 0`，**不是** `&gt; 1`，
+        /// 与 mark 行那处 `1 &lt; …` 不同，⛔ 别抄错一处）。
+        /// 另：`effectText(+0x28)` 非空 ⇒ 原版**优先用它**（`GetEffectDesc.c` 开头那几句）。</summary>
+        static string TraitRowText(ShownEffect e)
+        {
+            if (!string.IsNullOrEmpty(e.Body)) return e.Body;
+            string name = CardText.KeywordDisplay(e.Trait);
+            if (string.IsNullOrEmpty(name)) name = e.Trait ?? "";
+            if (e.TraitValue > 0) name += " " + e.TraitValue;
+            string s = Loc.T(e.Timed ? "Battle/Effect/GetTraitOneTurn" : "Battle/Effect/GetTrait");
+            if (string.IsNullOrEmpty(s)) return s;
+            if (s.IndexOf("{0}", System.StringComparison.Ordinal) < 0) return s;
+            return s.Replace("{0}", name);
+        }
+
+        /// <summary>`removeTrait(4)` 那一行（`GetEffectDesc.c:355-366` + `LAB_18087a68b` 的 `Concat`）：
+        /// 左列 `Battle/Effect/RemoveTrait`（= `移除` / `Remove`）＋ `": "` ＋ 关键词名。</summary>
+        static string RemoveTraitRowText(ShownEffect e)
+        {
+            string name = CardText.KeywordDisplay(e.Trait);
+            if (string.IsNullOrEmpty(name)) name = e.Trait ?? "";
+            return Loc.T("Battle/Effect/RemoveTrait") + ": " + name;
+        }
+
+        /// <summary>mark 那一行（`CardEffectItem__LoadEffect.c:53-99`）：左列 = `[[markOf&lt;神&gt;]]`
+        /// （`DefinedTrait` 那四个枚举名），`traitValue &gt; 1` 再追加 `" (xN)"`；右列 = **空串**
+        /// （`GetEffectDesc` 的 `case 8/0x11` 拼的是 `CardTraitDescription/&lt;MarkOfChaosType&gt;`
+        /// = `…/Khorne`，官方表里**没有**那条 ⇒ 画空白；判据链五条见类尾 `B95_FX` 那一段文档）。
+        /// <para>⚠️ 施工细则 §1.6 那张表把右列写成 `Battle/Effect/Khorne` —— **那一格是错的**
+        /// （`Battle/Effect/Khorne` = 「赋予+2近战攻击和[[先锋]]」，是**契约的效果正文**、不是 mark 行）；
+        /// 以 `.c` + `LoadEffect` 为准（本函数）。</para></summary>
+        static EffectRow MarkRow(ShownEffect e)
+        {
+            string godEnum = MarkGodTraitEnum(e.MarkOfChaosType);
+            string who = godEnum != null
+                ? CardIcons.RewriteMarks("[[" + godEnum + "]]", Loc.Current == AvailableLanguages.Chinese)
+                : "";                                     // 原版那一支 `text2 = ""`（none/Random）
+            if (e.TraitValue > 1) who += " (x" + e.TraitValue + ")";
+            return new EffectRow(who, "");
+        }
+
+        /// <summary>附魔那一族（`buffType 12 / 15 / 16`）：正常档右列**空串**（= 一个洞），
+        /// 只有 secret / quest 那四支走打码键（`CardEffectItem__LoadEffect.c:56-70`）。
+        /// <para>⚠️ 那 4 条键**不在官方 13 语表**（施工细则 §六·6）⇒ 取不到时**留空**并出声一次，
+        /// ⛔ 不把键名印到界面上。池内 `spellType == 120` **0 张** ⇒ 打码那支今天不可达。</para></summary>
+        static EffectRow EnchantRow(ShownEffect e, bool isPlayer)
+        {
+            if (e.SecretBuff && isPlayer)
+                return TextRow(MaskKey("Card_Trait/secretOrder"), MaskKey("Card_Trait/classified"));
+            if (e.QuestBuff && isPlayer)
+                return TextRow(MaskKey("Card_Trait/quest"), e.Body);
+            if (e.QuestBuff && !isPlayer)
+                return TextRow(MaskKey("Card_Trait/quest"), MaskKey("Card_Trait/questClassified"));
+            // 正常档：`GetEffectDesc` 对 `buffType 12/15/16` 返空串 ⇒ 原版 `IsTextEmpty` 为真 ⇒ **整格 Disable**
+            // （`CardEffectItem__IsTextEmpty.c` 只看 `effectText(+0x28)`）⇒ 左列的名字**也不显示**、这一格是一个洞。
+            return new EffectRow("", "");
+        }
+
+        /// <summary>
+        /// 两列文字 → 一行；**右列为空**时整行折成空行（= 原版那个「空文本占一槽的洞」）。
+        ///
+        /// <para>判据 = `CardEffectItem__IsTextEmpty.c`：它只读 **`effectText(+0x28)`**（右列），
+        /// 为 null/空 ⇒ `CardEffectsService.EnableEffects` 调 `Disable()`（整格 `SetActive(false)`，
+        /// 但槽号照走）⇒ **左列有名字也不算数**。</para>
+        /// <para>⚠️ 本项目的 `IsEmptyRow`（`SetEffectRows` 那一侧）判的是「**两列都空**」——
+        /// 两者在「左列有字、右列空」这一档上**不一致**。本函数在这里先把行折成「两列都空」，
+        /// 让既有槽位模型给出与原版同一结果，**⛔ 不动 `IsEmptyRow`**（那一格属槽位模型、
+        /// 本切片红线；偏差已记在报告 §没查清 里）。</para>
+        /// </summary>
+        static EffectRow TextRow(string who, string what)
+        {
+            if (string.IsNullOrEmpty(what)) return new EffectRow("", "");
+            return new EffectRow(who ?? "", what);
+        }
+
+        /// <summary>secret / quest 那四条键的取值口（缺键 ⇒ 空串 + 出声一次，⛔ 不印键名）。</summary>
+        static string MaskKey(string key)
+        {
+            if (Loc.HasEntry(key)) return Loc.T(key);
+            WarnOnce("mask:" + key, $"[展示窗] 打码词条「{key}」不在本地化表里（施工细则 §六·6）⇒ 这一格留空（⛔ 不印键名）");
+            return "";
+        }
+
+        /// <summary>同一个键只喊一次（换语档重开窗会重跑本段，⛔ 不刷屏）。</summary>
+        static readonly HashSet<string> _warned = new HashSet<string>();
+        static void WarnOnce(string tag, string msg)
+        {
+            if (tag == null) tag = "";
+            if (!_warned.Add(tag)) return;
+            Debug.LogWarning(msg);
+        }
+
+        // ---- 环境效果卡整组隐藏（原版 `DisplayCardEffects.c:88-105`）----------------------------------
+
+        /// <summary>原版 `RawCardScript.IsEnviromentaleffect`（`spellType ∈ {210, 200}`）⇒ 「受到以下影响」
+        /// **整组强制隐藏**（即使有行）。判据只此一处 = `EffectsToShow.IsEnvEffectCard`。
+        /// 池内 `spellType == 210` **39 张**（全 `type = defence`：`Aspect Shrine` / `Webway Entrance` …）。</summary>
+        public static bool HidesEffectRowsFor(CardDef def)
+        {
+            return def != null && EffectsToShow.IsEnvEffectCard(def.SpellType);
+        }
+
+        /// <summary><see cref="SetEffectRows(IReadOnlyList{EffectRow}, bool)"/> 的**只读结果**：
+        /// 整组现在露着没有（自检用；`_fxRoot` 没建出来 ⇒ false）。</summary>
+        public bool EffectsVisible { get { return _fxRoot != null && _fxRoot.gameObject.activeSelf; } }
+
+        /// <summary>
+        /// <see cref="SetEffectRows(IReadOnlyList{EffectRow})"/> 的**外层**：多一道原版的环境效果卡闸
+        /// （`DisplayCardEffects.c:88-105`），并回传「这块到底露没露」（= 原版那个返回值，调用方用它决定
+        /// 后续，见 `DisplayCardEffects` 尾段）。
+        ///
+        /// <para>🔴 **槽位模型一个字没动** —— 先原样调既有那个重载（它管 5 槽 / 空项占槽 / 截断），
+        /// 再按闸把整组压下去。⛔ 别把这里的判断塞进既有那个方法里（`判据/CardEffectsToShow_判据.md` §七：
+        /// 「收窄版不接受」）。</para>
+        /// </summary>
+        bool SetEffectRows(IReadOnlyList<EffectRow> rows, bool hideForEnvironmental)
+        {
+            SetEffectRows(rows);                                  // ← 既有槽位模型（未改动）
+            bool shown = EffectRowCount > 0;
+            if (hideForEnvironmental)
+            {
+                EffectRowCount = 0;                               // 原版：整组 `SetActive(false)` 并返回 0
+                if (_fxRoot != null) _fxRoot.gameObject.SetActive(false);
+                if (_fxTitle != null) _fxTitle.gameObject.SetActive(false);
+                shown = false;
+            }
+            return shown;
+        }
     }
 }

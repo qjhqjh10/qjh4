@@ -10,8 +10,8 @@
 //  🔴 **纪律三条**（照抄 `BattleContext.DamageToEnemy` 那一族的原话）：
 //    ① **只累加、不参与任何规则判定** —— 引擎的胜负 / 数值与它无关；
 //    ② 下标一律 `seat * 步长 + 槽位`，⛔ 不要散成二十个 int；
-//    ③ **归谁算**：伤害记给「**打出去的那一方**」（`1 - 被打单位的主人`）——
-//       与 `BattleContext.DamageToEnemy` **同一条口径**（打自己人不记「对敌伤害」）。
+//    ③ **归谁算**：伤害记给「**攻方座位**」= 原版 `DamageInfo.IsPlayer()` 读的 `actingCard.isPlayer`（`DamageInfo__IsPlayer.c` 全文一句 `return *(actingCard + 0x40)`）—— ⛔ **不是**「受害者座位取反」（差在「攻方与受害者同侧」那一档；`BattleContext.DamageToEnemy` 是另一条量，别混）。
+//       「`1 - 被打单位的主人`」只在**不知道攻方是谁**时当回落（`RuleCore.ApplyDamageCore` 的 `_rawDealer`，`RuleCore.cs:8485`）；调用方知道攻方 ⇒ 传第 4 个形参 `actingCardSeat`（2026-10-29 `B97_W12` · 账 1004）。
 //
 //  ⚠️ **中途退出 / 投降不记**（原版每拍 `TryUpdateSave` 上传，我们只在结算写一次 ——
 //     有意偏离，见判据 §B-2 最后一段）。
@@ -146,10 +146,10 @@ namespace RuleEngine
         /// <summary>座位号是否合法（`0` / `1`）。</summary>
         static bool SeatOk(int seat) { return seat == 0 || seat == 1; }
 
-        /// <summary>记一笔伤害。`dealerSeat` = **打出去的那一方**（不是被打的那个）。</summary>
-        public void AddDamage(int dealerSeat, DamageKind kind, int amount)
+        /// <summary>记一笔伤害。`dealerSeat` = **打出去的那一方**（不是被打的那个）；`actingCardSeat` = 原版 `DamageInfo.actingCard` 的座位（`DamageInfo.IsPlayer()` 那格，**有就以它为准**，⛔ 别传「受害者取反」）。</summary>
+        public void AddDamage(int dealerSeat, DamageKind kind, int amount, int actingCardSeat = -1)
         {
-            if (!SeatOk(dealerSeat) || amount <= 0) return;
+            if (SeatOk(actingCardSeat)) dealerSeat = actingCardSeat; if (!SeatOk(dealerSeat) || amount <= 0) return;   // 前半句 = 原版记给 `actingCard.isPlayer` 那一侧（`DamageInfo__IsPlayer.c` 全文一句 `return *(actingCard + 0x40)`）；缺省 `-1` ⇒ 沿用调用方给的 `dealerSeat`（老调用点逐字不变）
             int k = (int)kind;
             if (k <= (int)DamageKind.Unknown || k >= KindCount) return;   // `Unknown` 不计
             DamageByKind[dealerSeat * KindCount + k] += amount;
@@ -351,9 +351,9 @@ namespace RuleEngine
 
         /// <summary>记一笔**扣甲前**的伤害（`dealerSeat` = **打出去的那一方**）。闸与 <see cref="AddDamage"/> 逐条相同
         /// （座位不合法 / `amount &lt;= 0` / `Unknown` 一律不计）。</summary>
-        public void AddDamageRaw(int dealerSeat, DamageKind kind, int amount)
+        public void AddDamageRaw(int dealerSeat, DamageKind kind, int amount, int actingCardSeat = -1)
         {
-            if (!SeatOk(dealerSeat) || amount <= 0) return;
+            if (SeatOk(actingCardSeat)) dealerSeat = actingCardSeat; if (!SeatOk(dealerSeat) || amount <= 0) return;   // 同 `AddDamage`：原版记给 `actingCard.isPlayer` 那一侧，缺省 `-1` ⇒ 沿用调用方给的座位
             int k = (int)kind;
             if (k <= (int)DamageKind.Unknown || k >= KindCount) return;   // `Unknown` 不计（同 AddDamage）
             DamageByKindRaw[dealerSeat * KindCount + k] += amount;

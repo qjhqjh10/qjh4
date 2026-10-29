@@ -468,8 +468,8 @@ namespace RuleEngine
         /// · 类型 1 ⇒ ✅ **已接等价物** = <see cref="CancelAttackSideEffect"/>（= 原版 `CardScript__CancelAttack`
         ///   的状态闸；清缓冲 / `PrepareAttack` 两格在本仓**没有对应物**，理由见类尾 §十）；
         ///   只有调用方拿不到 `BattleContext`（旧的**两参**重载）时才退回「待接点」出声。
-        /// · 类型 0x17 ⇒ ⏳ **仍是待接点**：表现层把 `act.Target` 对应的卡体 `SetActive(false)`
-        ///   （`RuleEngine` 里没有 `GameObject`，那一层在 `CardPresentation`）⇒ 出声 + `CancelSideEffectsPendingForTest++`。</para>
+        /// · 类型 0x17 ⇒ ✅ **引擎半已接** = <see cref="OnCancelCreateHandCard"/>（表现层订阅口；`RuleEngine` 里没有
+        ///   `GameObject`）⇒ 有订阅者就调它、**不计数**；没有订阅者才退回「待接点」出声 + `CancelSideEffectsPendingForTest++`。</para>
         /// </summary>
         void ApplyCancelSideEffects(BattleContext ctx, QueuedAction act)
         {
@@ -484,12 +484,12 @@ namespace RuleEngine
                     // ⇒ 撤这条动作 = **这一记从来没打出去**（攻击在出队时才结算）⇒ 没有可回收的局面量
                     if (!CancelAttackSideEffect(ctx, act)) _cancelSideEffectsPending++;
                     break;
-                case 0x17:              // 23 = createHandCard
-                    // 待接：表现层 act.Target 的卡体 SetActive(false)
-                    _cancelSideEffectsPending++;
+                case 0x17:              // 23 = createHandCard ⇒ 原版 `targetCard.gameObject.SetActive(false)`（`.c:44-52`）；引擎里没有 GameObject
+                    if (OnCancelCreateHandCard != null) { OnCancelCreateHandCard(act.Target); break; }   // 表现层订阅口（`BattleDriver` 类尾订阅）；有订阅者 ⇒ 已按原版收回去，不计数
+                    _cancelSideEffectsPending++;   // 没有订阅者 ⇒ **仍是待接点**（出声 + 计数，⛔ 不静默）
                     UnityEngine.Debug.LogWarning(
                         "[ActionQueue] 撤掉一条 `createHandCard(0x17)` 动作 —— **没有**执行 `SetActive(false)`："
-                        + "表现层卡体不在 `RuleEngine`（账 L240 的待接点，需 `CardPresentation` 一侧开口）。"
+                        + "表现层没订阅 `ActionQueue.OnCancelCreateHandCard`（账 L240 的待接点）。"
                         + $"动作「{act}」，目标「{(act.Target != null ? act.Target.Name : "(null)")}」");
                     break;
             }
@@ -623,5 +623,33 @@ namespace RuleEngine
             // ⇒ 等价物到此为止 —— **不是**待接点，所以不计数、也不再报警。
             return true;
         }
+    }
+
+    // ==========================================================================================
+    //  🆕 2026-10-29（执行代理 `B97_W38` · 账 L240 的「类型 0x17 副作用」）——
+    //  **为什么单开一个 `partial` 段、且写在文件最末**：本文件被 `账/*.tsv` 按【行号】引用
+    //  （`ActionQueue.cs:14/7/185/224/233/245/261/277/292/402/487/582/599` 共 13 处）⇒ 在类体中间
+    //  插成员会让它们**整体漂移**（铁律 18·b）。新成员放在文件末尾 = **零漂移**。
+    //
+    //  ── §十一：`createHandCard(0x17)` 的 `SetActive(false)`（原版 `CancelBattleActionFromQueue.c:44-52`）──
+    //  判据（第一权威 · 全文现读 `d:/2/tools/decomp_full/BattleManager__CancelBattleActionFromQueue.c:1-57`）：
+    //    `case 0x17` ⇒ 取 `+0x10`（= `targetCard`）的 `gameObject` 后 `SetActive(false)`；随后统一 `RemoveAt(index)`。
+    //  ⇒ **那一句是纯 `CardPresentation` 的事**（`RuleEngine` 里没有 `GameObject`、也没有卡体）。
+    //    🔴 **结构差异、语义同一**（⛔ 不是「自己设计」：原版对目标卡体做的事一字不差，只是跨了程序集边界）：
+    //    引擎在撤这条动作时把 `act.Target`（= 原版 `targetCard`）交出去，由表现层把那张的卡体关掉。
+    //  ⚠️ **缺省 `null` = 行为与加这个钩子之前逐字相同**（出声 + `CancelSideEffectsPendingForTest++`）；
+    //    订阅方在 `CardPresentation`（`BattleDriver` 类尾）⇒ 账 L240 剩下的那一跳见 `报告/B97_W38.md` §B。
+    //  ⚠️ **今天是休眠件**：全仓 `actionType: 0x17` 的入队点 = 0（`grep` 只命中判据注释）⇒ 接上也零可观测。
+    //    照铁律 11 照做（只有先后、没有「不做」）。
+    // ==========================================================================================
+    public sealed partial class ActionQueue
+    {
+        /// <summary>
+        /// 原版 `CancelBattleActionFromQueue.c:44-52` 那句 **`targetCard.gameObject.SetActive(false)`** 的表现层订阅口。
+        /// 实参 = 原版 `targetCard`（`+0x10`）= 我们的 <see cref="QueuedAction.Target"/>（可能是 `null` —— 原版同一格会 NRE）。
+        /// <para>⛔ 只在「撤一条 `actionType == 0x17 (createHandCard)` 的动作」时被调，每次至多一次；
+        /// 没有订阅者 ⇒ 不出声也不报错地走回「待接点」那条（见 `ApplyCancelSideEffects`）。</para>
+        /// </summary>
+        public static System.Action<UnitState> OnCancelCreateHandCard;
     }
 }

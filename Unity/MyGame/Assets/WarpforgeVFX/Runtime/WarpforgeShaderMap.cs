@@ -253,6 +253,19 @@ namespace WarpforgeVFX
             //    判据全文 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M7。
             "Everguild/Cards/3D Card Blend Image",                     //   1（`AmbushEffect`）
             "Everguild/Cards/3D Card Stealth",                         //   1（`StealthEffect`）
+            // ---- 🆕 2026-10-29（B97_W23 查实 / B97_W29 落地）：**卡包外观** ----
+            // 🔴 **来由**：16 个 `Card Booster Pack*` 材质的 shader = 这一条，而它**没有 `.shader` 源**
+            //    （ShaderGraph 生成体：`m_Script = null`，只有 `compressedBlob` 里的编译字节码）
+            //    ⇒ 抄不成工程资产；构件**不属 addressable**，`LoadAsset<Shader>` 对它取不到。
+            //    ⇒ 走 `extract_missing_shaders.py --booster-shaders` 重打成 `wf_booster_shaders.bundle`，
+            //    由 `WarpforgeShaderLoader.BoosterShaderBundleRelPath` 加载。**走原件 = 零猜测**。
+            // ⚠️ 与上面那两条 `Everguild/Cards/*` 不同：这一件**真的有材质在用它**（16 份），不是「把已有行为写成数据」。
+            // ⚠️ 本工程另一条取件路 `CardPresentation.BoosterPackAssets`（经 prefab 传递）**先于**本表存在，
+            //    两条并存不是重复：那条要的是 prefab / 整块材质模板，这一条要的是**全局可按名取的 Shader**。
+            //    `B97W23_Assert` 第 2 段 / `B97W29_Assert` 分别钉住两边的实读数。
+            // ⚠️ **能不能在这台 6000.3.23f1 上 `SetPass` 还没验**（源包构建版 6000.2.6f2，与其它 64 个已在用的
+            //    原版 shader 同一批）⇒ 判据只能跑一次 Unity 的 `B97W23Assert.Run`（本轮不起 Unity）。
+            "Everguild/Cards/Shader Graphs/Booster Pack",              // 16（`Card Booster Pack*`）
         };
 
         /// <summary>原版 shader 名 → 本工程 shader 名</summary>

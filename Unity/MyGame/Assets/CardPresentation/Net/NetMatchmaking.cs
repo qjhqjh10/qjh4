@@ -128,7 +128,7 @@ namespace CardPresentation.Net
         /// <summary>把「这一局」的账清掉（保留 `ICancelled` / `FoeCancelled` —— 它们要活到下一次 `Reset`）。</summary>
         static void ClearMatch()
         {
-            _myDeck = null; _foeDeck = null;
+            _myDeck = null; _foeDeck = null; ClearDraftRoomProps();   // 🆕 步骤 4：房属性是**这一局**的状态，换局/取消一起清
             _myMode = _foeMode = null; _myFaction = _foeFaction = null; _myName = null;
             FoeName = null;
             _sentStart = false; _receivedStart = false;      // 🔴 A1323：两格都得清（只清一格 = 另一格带着上一局的意思）
@@ -551,8 +551,14 @@ namespace CardPresentation.Net
         /// <summary>
         /// 点 `Battle!` 时调。**返回 true = 这一局走联机**（调用方别再跑 12 秒 bot 链）。
         /// 返回 false 时 `why` 说明为什么没接管（没连上 / 不在大厅状态），**照旧打 bot**。
+        /// <para>🆕 **2026-10-29（B97_W39 · 步骤 4）**：末三个可选实参 = **本机的房属性** `C1/C4/C5`
+        /// （`draftC1` = 胜场 · `draftC4` = ELO · `draftC5` = 连败）。`draftC1 < 0`（默认）= **没带**
+        /// ⇒ 三格都不发（练习/排位/遭遇那几条路**一个字都不用改**）。
+        /// 轮抽那条路照 `NetRuntime.ComputeDraftMatchOptions(...)` 的三个返回值传进来
+        /// （算式唯一真源在那一个函数；⛔ 别在调用点自己算 800 / 新手档）。</para>
         /// </summary>
-        public static bool TryStart(PlayerDeck deck, string mode, string faction, out string why)
+        public static bool TryStart(PlayerDeck deck, string mode, string faction, out string why,
+                                    int draftC1 = -1, int draftC4 = 0, int draftC5 = 0)
         {
             why = null;
             var rt = NetRuntime.Instance;
@@ -564,6 +570,7 @@ namespace CardPresentation.Net
 
             Reset();
             _myDeck = deck; _myMode = mode ?? "Classic"; _myFaction = faction;
+            SetLocalDraftRoomProps(draftC1, draftC4, draftC5);   // 🆕 步骤 4：本机房属性（`draftC1 < 0` = 没带）。⚠️ 必须在 `Reset()` 之后
             // 🔴 **2026-09-28 收口**：原来这里自己取 `Environment.MachineName`（**第二份名字**）——
             //    用户当天把显示名定成「玩家123」这类占位名，联机层报的必须是**同一个名字**
             //    （判据 = `ProfileData.PlayerName` 的注释：「别再在别处写第二份」）。
@@ -581,12 +588,14 @@ namespace CardPresentation.Net
             }
             else
             {
-                s.Send(NetKind.Deck, new MsgDeck
+                var dm = new MsgDeck
                 {
                     deckJson = JsonUtility.ToJson(deck),
                     gameMode = mode,
                     faction = faction,          // 主机要用它定战场（`PlayerDeck` 自己不带阵营字段）
-                });
+                };
+                FillDraftRoomProps(dm);         // 🆕 步骤 4：带上**本机自己**的 C1/C4/C5（没带 ⇒ ver = 0，对面会出声）
+                s.Send(NetKind.Deck, dm);
             }
             return true;
         }
@@ -651,6 +660,7 @@ namespace CardPresentation.Net
                         _foeDeck = JsonUtility.FromJson<PlayerDeck>(m.deckJson);
                         _foeMode = m.gameMode;
                         _foeFaction = m.faction;
+                        AbsorbFoeDraftRoomProps(m.draftPropsVer, m.draftC1, m.draftC4, m.draftC5);   // 🆕 步骤 4：收对面的房属性（缺 ⇒ 出声 + 默认 0）
                         // 🆕 主机在这一刻就知道「对面是谁」了（握手包里带着对方的名字）
                         //    ⇒ `SearchingOpponentWindow` 的「找到对手」那一态有东西可填。
                         // ✅ **本路已经钳过**（2026-10-18 现核）：`s.PeerName` 来自 `MsgProof.name`，
@@ -704,6 +714,7 @@ namespace CardPresentation.Net
                         if (!string.IsNullOrEmpty(st.hostDeckJson))
                             _foeDeck = JsonUtility.FromJson<PlayerDeck>(st.hostDeckJson);
                         _foeFaction = st.hostFaction;
+                        AbsorbFoeDraftRoomProps(st.draftPropsVer, st.draftC1, st.draftC4, st.draftC5);   // 🆕 步骤 4：收主机的房属性（缺 ⇒ 出声 + 默认 0）
                         // 🔴 **A961（2026-10-18，主对话裁定「封口」）：这一行是同一笔账里【玩家看得见】的那个入口。**
                         //   `st.myName` **是对端可控的**（= 主机那台机器的显示名，`NetProtocol.cs:77` 的 `MsgStart.myName`，2026-10-19 现核），
                         //   而 `FoeName` 往下走两条**真在界面上**的路：
@@ -865,6 +876,7 @@ namespace CardPresentation.Net
                 hostDeckJson = JsonUtility.ToJson(_myDeck),
                 clientDeckJson = JsonUtility.ToJson(_foeDeck),
             };
+            FillDraftRoomProps(start);          // 🆕 步骤 4：带上**主机自己**的 C1/C4/C5（没带 ⇒ ver = 0，客机会出声）
             bool sent = s.Send(NetKind.Start, start);
             // 🔴 **A1323（2026-10-19）**：【我发过开局包】就落在这里（原来这句在 `GoToBattle` 里，两端共用）。
             //    ⚠️ 发送失败也记「已发」—— 这一局在**本机这一端**确实已经成立（种子 / 先手 / 战场都定了、
@@ -996,5 +1008,116 @@ namespace CardPresentation.Net
         // ⚠️ 这里原来有个 `Shuffled(PlayerDeck, seed)`（主机洗好两副牌的顺序再下发）—— **删掉了**：
         //    那套是给**镜像**端点的补丁（两端各洗各的会洗出不同牌堆）。现在两端跑**同一套绝对座位**
         //    ⇒ 同种子同输入，各洗各的必然一致。教训 → `NetProtocol.Fingerprint` 的注释。
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B97_W39` · 施工单 `B97_R6` §2·5 步骤 4）—— 房属性 C1/C4/C5 的收发
+        // ==================================================================
+        //  判据（⛔ 别在这儿抄第二份）→ `资料/完全复刻/判据/B97_R6_轮抽P2P房施工单.md` §1·1 / §1·2 / §2·5；
+        //  载荷形状与「为什么多一格 ver」写在 `NetProtocol.cs` **文件尾**那一节（本文件不重复）。
+        //
+        //  🔶 **自己设计（非原版）**：原版房属性挂在 **Photon 房间对象**（`RoomOptions.CustomRoomProperties`）上，
+        //     同一个池里的两端天然都能读；我们**单对单直连、没有房间对象** ⇒ 「谁给谁看」这一层本地
+        //     没有对等物。本实现取**最小对称映射**：每条消息只带**发送方自己的**那三个值
+        //     （客机在 `MsgDeck` 里、主机在 `MsgStart` 里）⇒ 两端各自凑齐「我 + 对面」两组，
+        //     **不新增消息、不改任何既有字段的语义**。裁定：调度台 2026-10-29（施工单 §2·5 已裁「要做」）。
+        //
+        //  ⚠️ **消费方如实记 = 只有日志**：原版那三个键的唯一用途是 SqlLobby 的过滤串
+        //     （`GetMatchmakingFilter`）；直连没有池 ⇒ 收下来只 `Debug.Log` 一行，供真机排查/将来接界面。
+        //     与 `Shell/FastModeBaseEvent.cs` 的「算对了、用不上」同一口径。
+        //
+        //  🔴 **⛔ 这三格绝不能进 `NetProtocol.Fingerprint` / `StateHash`**：C1/C4/C5 是**每人自己的**值
+        //     ⇒ 两端天然不同，进指纹必然分叉（而且会以「打到一半 desync」现形）。本文件里它们
+        //     **只落在下面的静态格里**，既不放进 `NetPendingBattle`、也不放进 `BattleContext`。
+        //     `Editor/B97W39_Assert.cs` 的 C 组专门盯这一条（谁把它们塞进指纹的输入面，那条就红）。
+
+        /// <summary>房属性载荷的版本号：**0 = 没带**（老端报文 / 本机没设）· **1 = 三格有效**。
+        /// 形状与理由 → `NetProtocol.cs` 文件尾那一节（为什么必须有这一格、为什么不 +`NetProtocol.Version`）。</summary>
+        public const int DraftPropsVersion = 1;
+
+        // 本机的三个（发送用）／对面的三个（收到用）。⚠️ **换局就清**（`ClearMatch` 里那一下）。
+        static int _myC1, _myC4, _myC5; static bool _myPropsSet;
+        static int _foeC1, _foeC4, _foeC5; static bool _foePropsSet;
+
+        /// <summary>本机这一局要发出去的那三个值的**版本标记**（0 = 没带）。两个发送点直接读它。</summary>
+        public static int OutgoingDraftPropsVer { get { return _myPropsSet ? DraftPropsVersion : 0; } }
+
+        /// <summary>登记本机的房属性（工具 = `NetRuntime.ComputeDraftMatchOptions(...)` 的三个返回值）。
+        /// <para>`c1 &lt; 0` = **没带** ⇒ 三格归零且 `_myPropsSet = false`（线上 ver = 0）；否则三格一起置真。
+        /// ⚠️ **只在 `TryStart` 里调**（它先跑 `Reset()` → `ClearMatch()` → 清空，所以必须排在那之后）；
+        /// ⛔ 别在别处直接写 `_myC1..` —— 那样会漏置 `_myPropsSet`，线上就变成「带了三个 0」，
+        /// 而对端会当成「对面报了 0 胜 0 ELO」而不是「没带」（正是简报点名不许静默的那一档）。</para></summary>
+        public static void SetLocalDraftRoomProps(int c1, int c4, int c5)
+        {
+            if (c1 < 0)
+            {   // 没给 = 没带。⚠️ 这里**不**警告：练习/排位/遭遇/挑战那几条路本来就没有房属性，天天刷日志没意义
+                _myC1 = _myC4 = _myC5 = 0; _myPropsSet = false;
+                return;
+            }
+            _myC1 = c1; _myC4 = c4; _myC5 = c5; _myPropsSet = true;
+            Debug.Log($"[Net] 本机房属性：C1(胜场)={c1} · C4(ELO)={c4} · C5(连败)={c5}"
+                    + " —— 会随交牌包/开局包带给对面（原版这三个键是 SqlLobby 的过滤键，本身**不参与对局**）");
+        }
+
+        /// <summary>本机的房属性（没设 ⇒ 返回 false、三格出 0）。**读口**，给断言与将来的界面；不参与任何胜负判断。</summary>
+        public static bool MyDraftRoomProps(out int c1, out int c4, out int c5)
+        {
+            c1 = _myC1; c4 = _myC4; c5 = _myC5;
+            return _myPropsSet;
+        }
+
+        /// <summary>**对面的**房属性（收到的那份；没带 / 还没收到 ⇒ 返回 false、三格出 0）。
+        /// <para>🔴 **只读不判**：不进 `Fingerprint`、不进 `StateHash`、不参与任何规则/胜负判断（见本节开头的红字）。</para></summary>
+        public static bool FoeDraftRoomProps(out int c1, out int c4, out int c5)
+        {
+            c1 = _foeC1; c4 = _foeC4; c5 = _foeC5;
+            return _foePropsSet;
+        }
+
+        /// <summary>发送侧：把本机那三个值填进交牌包（客机那条路，`TryStart` 里调）。</summary>
+        public static void FillDraftRoomProps(MsgDeck m)
+        {
+            if (m == null) return;
+            m.draftPropsVer = OutgoingDraftPropsVer;
+            m.draftC1 = _myC1; m.draftC4 = _myC4; m.draftC5 = _myC5;
+        }
+
+        /// <summary>发送侧：把本机那三个值填进开局包（主机那条路，`HostStartMatch` 里调）。</summary>
+        public static void FillDraftRoomProps(MsgStart m)
+        {
+            if (m == null) return;
+            m.draftPropsVer = OutgoingDraftPropsVer;
+            m.draftC1 = _myC1; m.draftC4 = _myC4; m.draftC5 = _myC5;
+        }
+
+        /// <summary>收包侧：把对面那一包里带的房属性收下来（`MsgDeck` 在主机侧、`MsgStart` 在客机侧各调一次）。
+        /// <para>返回值 = 「这一包**带了**房属性吗」。`ver &lt;= 0` ⇒ **出声**（红线：缺键不许静默当 0）并把三格
+        /// 按默认 0 记账；`ver &gt;= 1` ⇒ 存下 + 打一行日志；`ver` 比我们认识的新 ⇒ **出声但照读**这三格
+        /// （将来加字段时老端还能跑）。⛔ 整个过程**不抛**、不依赖这三个值的范围。</para>
+        /// <para>⚠️ 值是对端可控的 `int` ⇒ 只进日志：不当索引、不当容量、不做「越大越合理」的假设。</para></summary>
+        public static bool AbsorbFoeDraftRoomProps(int ver, int c1, int c4, int c5)
+        {
+            if (ver <= 0)
+            {
+                _foeC1 = _foeC4 = _foeC5 = 0; _foePropsSet = false;
+                Debug.Log("[Net] 对面这一包**没带**房属性（`draftPropsVer` 缺省 = 0：老版本客户端，或它本机没设）"
+                        + " ⇒ C1/C4/C5 按默认 0 记账。⛔ 这不是「对面报了 0」—— 那三格今天只进日志。");
+                return false;
+            }
+            _foeC1 = c1; _foeC4 = c4; _foeC5 = c5; _foePropsSet = true;
+            if (ver > DraftPropsVersion)
+                Debug.LogWarning($"[Net] 对面的房属性包版本是 {ver}（我们只认识 {DraftPropsVersion}）"
+                               + " —— 照读 C1/C4/C5 三格，多出来的字段忽略");
+            Debug.Log($"[Net] 对面的房属性：C1(胜场)={c1} · C4(ELO)={c4} · C5(连败)={c5}"
+                    + "（只记日志，不参与对局）");
+            return true;
+        }
+
+        /// <summary>`ClearMatch` 调：房属性是**这一局**的状态，换局 / 取消 / 打完一起清
+        /// （⛔ 别让它漏到下一局 —— 那会让下一局的对面看到上一局的胜场）。</summary>
+        public static void ClearDraftRoomProps()
+        {
+            _myC1 = _myC4 = _myC5 = 0; _myPropsSet = false;
+            _foeC1 = _foeC4 = _foeC5 = 0; _foePropsSet = false;
+        }
     }
 }

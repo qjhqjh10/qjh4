@@ -5877,7 +5877,7 @@ public static class ShopScene
         // 🆕 2026-10-29（调度台代接线 · `B97_REMOTE1`）：商店 7 条 REMOTE 的本地模拟口径（89/91/92/203）。
         B97REMOTE1Assert.Run(); _sink.Pass += B97REMOTE1Assert.Pass; _sink.Fail += B97REMOTE1Assert.Fail;
         // 🆕 2026-10-29（调度台代接线 · `B97_SHOP2`）：开箱奖励/来源卡配置/排程替身 + 限购售罄闸（A 组写盘全程在 OverrideDir 临时目录）。
-        B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail;
+        B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail; B97W15Assert.Run(win); _sink.Pass += B97W15Assert.Pass; _sink.Fail += B97W15Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W15`）：账 `商店:297` 售罄格变灰（灰走 SwitchMaterial 材质路径，⛔ 不是 `m_DisabledColor` 死值）；同一行追加 ⇒ 行数零变化
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）

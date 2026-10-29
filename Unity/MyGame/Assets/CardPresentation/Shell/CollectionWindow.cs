@@ -1686,7 +1686,7 @@ namespace CardPresentation
                 _cellUsed.Add(v);
                 // 🆕 2026-10-17（B10 · 账上「卡重复与升级 · 三件 UI ①」）：格子**底下那条「张数」**
                 //    （原版 `Collection Card/Content/Counter`）—— 判据 / 文案 / 几何全在 `BuildCardsCounter` 那一段。
-                BuildCardsCounter(cellT, i, r, list[i]);
+                BuildCardsCounter(cellT, i, r, list[i]); BuildCardsBanBadge(cellT, i, r, list[i]);   // 🆕 B97_BAN：藏卡 ban 徽标（原版 Collection Card/CardUI/Ban Icon，判据→判据/B97_藏卡ban徽标_施工单.md）
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
                 // 🆕 2026-10-23（`C3`）：点之前先来一下选中 punch（原版 `CollectionCard.SelectedHighlight(true)`）——
@@ -6596,6 +6596,68 @@ namespace CardPresentation
         /// **0 个组件实例**（`assets_full` 无引用）⇒ 本地**没有实例可拿**，所以是静态方法而不是 `.Instance.…`；
         /// 这是本仓「无实例的单例一律静态」的既有口径，⛔ 不是行为差异。</para></summary>
         public static string[] GetAlternateStylesOnly() { return AltStylesOnly(); }
+
+        // ============================================================ 藏卡 ban 徽标（B97_BAN · 2026-10-29 · 追加在类尾）
+        // 判据（**逐字段现读 prefab**，⛔ 不是照截图量的）：
+        //   `d:/2/tools/assetripper_out/ExportedProject/Assets/GameObject/Collection Card.prefab`
+        //   · `CardUI/Ban Icon`：中心锚 (0.5/0.5)、`sizeDelta 1.75×1.75` **卡单位**、`localScale 1`；
+        //     挂在 `CardUI`（`m_LocalScale = 150`）下 ⇒ 物理 **262.5×262.5 px**（350×512 卡根居中）。
+        //     `Image`：sprite `40k_Cross_icon_cross_big Banned card`（512²/PPU100/pivot 中）、Simple、
+        //     `m_PreserveAspect = 1`、白、`m_RaycastTarget = 0`。
+        //   · `CardUI/Ban Icon/Banned Text`：anchor x .1...9 / y .4...6、`sizeDelta 0`（stretch）
+        //     ⇒ 框 = **0.8 × 0.2** 个方叉（原版 210×52.5 px）居中；TMP `m_fontSizeBase 36` / autosize `0.25…72`
+        //     / Center·Middle / style 17(Bold+UpperCase) / 白 / 本地化键 `MenuDeck/Banned`（官方表 en `Banned` · zh `禁止`）。
+        //   · 显隐：`BasicCardUI.ToggleBanned` = `banIcon.gameObject.SetActive(banned)` ⇒ **默认关、banned 才开**。
+        //     banned 源 = `PlayEventData.IsCardBanned(cardId)`（无活动 ⇒ false ⇒ 放行，见 `IsCardBanned`）。
+        // 我方格子 262.5×384 = 原版 350×512 × 0.75 ⇒ 方叉 = 262.5×0.75 = **196.875 px**，中心 = 格中心。
+        // ⚠️ 徽标作 `cellT`（`Content <i>`）的子件 ⇒ 随容器一起建/销毁，**不会残留到别的卡**（判据 §三·1）。
+        // 判据全文 → `资料/完全复刻/判据/B97_藏卡ban徽标_施工单.md`。对照实现 → `Deck/DeckRuntime.cs` 的 `SetPoolBanIcon`。
+        void BuildCardsBanBadge(Transform parent, int i, PxRect cell, CardDef def)
+        {
+            const string BanSprite = "40k_Cross_icon_cross_big_Banned_card";
+            if (Art(BanSprite) == null)
+            {
+                // ⛔ 不许静默：图不在工程里 = 真缺口（与 BuildCardsCounter 同一口径）；整颗落在视口外才是正常路径（见下 return）。
+                Debug.LogWarning("[Collection] `" + BanSprite + "` 不在 Resources/Art ⇒ ban 徽标画不出来（缺口，不是被视口裁掉）");
+                return;
+            }
+
+            float pxPerUnit = CardsCellH * 150f / 512f;   // = 112.5（原版 1 卡单位 = 150 px，×0.75）
+            float side      = 1.75f * pxPerUnit;          // = 196.875 px（原版 1.75 卡单位 × 150 × 0.75）
+            float cx = cell.CX, cy = cell.CY;             // 卡体居中于整格（CardsCardRect = cell）⇒ 方叉中心 = 格中心
+            var iconR = new PxRect(cx - side * 0.5f, cy - side * 0.5f, cx + side * 0.5f, cy + side * 0.5f);
+
+            // keepAspect = 原版 `m_PreserveAspect = 1`（512² 方图 ⇒ 在正方框里正好铺满）。
+            // 队列 = QPageOverlay(3034) > 卡(3000)：原版 `CardUI`(含 Ban) 在 `Counter` 之后（画在张数条之上）；
+            // 我们方叉与张数条纵向不重叠 ⇒ 只要 >3000 即看不出差别（判据 §三·4 第 6 条）。
+            var icon = Rect(parent, BanSprite, iconR, "Ban Icon " + i, QPageOverlay, null, true);
+            if (icon == null) return;                     // 整颗在视口外（正常，静默）
+
+            // 子件「禁止」那行字：框 = 0.8 × 0.2 个方叉，居中（原版 anchor x .1...9 / y .4...6）。
+            float tw = side * 0.8f, th = side * 0.2f;
+            var trR = new PxRect(cx - tw * 0.5f, cy - th * 0.5f, cx + tw * 0.5f, cy + th * 0.5f);
+            float basePx = side * (36f / 262.5f);         // = 27（原版 fontSizeBase 36 是在 262.5 px 方叉里定的）
+            var lb = Text(icon.transform, Loc.T("MenuDeck/Banned"), trR.x1, trR.x2, trR.y1, trR.y2, 5, Color.white,
+                          "Banned Text", basePx,
+                          wrapPx: tw, autoMinPx: 8f, autoMaxPx: 72f * (pxPerUnit / 150f), autoBasePx: basePx);
+            if (lb != null)
+            {
+                lb.SetRenderQueue(QPageText);             // = 3033，> 卡(3000)
+                MenuDraw.SetVAlign(lb, Label.VAlign.Midline, trR);   // 原版 VerticalAlignment 4096；水平出厂即 Center(2)、⛔ 别调 Align*
+            }
+
+            bool banned = IsCardBanned(def);              // 数据源见下面 IsCardBanned
+            icon.gameObject.SetActive(banned);            // 原版 BasicCardUI.ToggleBanned = SetActive(banned)；⛔ 默认关
+            if (lb != null) lb.gameObject.SetActive(banned);
+        }
+
+        /// <summary>卡池卡格「被禁」的数据来源 = 原版 `PlayEventData.IsCardBanned(cardId)`（逐字同义）。
+        /// <para>语义逐字 = 原版：**无活动（`CurrentEventData == null`）⇒ `false` = 放行**（`PlayEvent.cs:377`
+        /// 那一条「缓存 null ⇒ 恒 false」）；禁卡表的生产路在远端（P3），本 build 恒 null ⇒ 恒 false = 原版空态。</para>
+        /// <para>⚠️ 判据**只留一处**：这里只是一句转调，⛔ 别在收藏窗里再写一份禁卡表比对（铁律：两处写同一条规则 = 迟早不一致）。
+        /// 事件数据源复用 `DeckRuntime.CurrentEventData`（卡组编辑池 `B97_MENU` 已用它喂同一颗徽标）。</para></summary>
+        static bool IsCardBanned(CardDef def)
+            => def != null && DeckRuntime.CurrentEventData != null && DeckRuntime.CurrentEventData.IsCardBanned(def.Id);
     }
 
 }

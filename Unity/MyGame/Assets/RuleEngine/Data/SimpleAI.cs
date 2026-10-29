@@ -349,9 +349,9 @@ namespace RuleEngine
                     //   `ScoreFromPlayingNow` 是按 `targetCard`（一个真实对象）算的，
                     //   而我们的 `Slot` 只是格号 ⇒ 侧必须另外带上，否则打分不知道目标属于谁。
                     //   判据 = `EffectText.PickTarget`（和 `CanPlayTactic` / 结算同一条路）。
-                    int tp = TargetSideOf(ctx, me, card);
-                    for (int s = 0; s < BoardSpec.Size; s++)
-                    {
+                    int tp = TargetSideOf(ctx, me, card); var torder = tp >= 0 ? PlayOrderedSlots(ctx.Players[tp].Board) : null;   // 原版 `.c:103` = `RawCardScript.GetValidTargets` ⇒ `unitsInPlay`(`+0x470`) 正序；`tp<0`（side=any/解析不出）保持格号序（那时 `TargetP` 本来就是 -1，另一条账）
+                    for (int oi = 0, sn = torder != null ? torder.Count : BoardSpec.Size; oi < sn; oi++)
+                    { int s = torder != null ? torder[oi] : oi;
                         if (RuleCore.CanPlayCard(ctx, me, i, s) != RuleCodes.OK) continue;
                         list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, HandInst = mine.Hand[i],
                                                 Slot = s, TargetP = tp, ManaCost = cost });
@@ -382,8 +382,8 @@ namespace RuleEngine
             }
 
             // ---- 技能 / 誓约 / 替代行动（原版都算 `activeAbility`）----
-            for (int s = 0; s < BoardSpec.Size; s++)
-            {
+            var sorder = PlayOrderedSlots(mine.Board);   // 原版 `.c:133` = `GetUnitsInPlayList(+0x570)`（由 `+0x470` 正序填）⇒ 施放者也走进场序
+            for (int si = 0; si < sorder.Count; si++) { int s = sorder[si];
                 var u = mine.Board[s];
                 if (u == null || !u.IsAlive || u.Exhausted || u.IsStunned) continue;
 
@@ -401,9 +401,9 @@ namespace RuleEngine
                     int side = RuleCore.AlternativeTargetSide(ctx, me, s, alt);
                     if (side >= 0)
                     {
-                        var tb = ctx.Players[side].Board;
-                        for (int t = 0; t < BoardSpec.Size; t++)
-                        {
+                        var tb = ctx.Players[side].Board; var torder = PlayOrderedSlots(tb);   // 原版 `.c:185-215`：`+0x470` 正序（替代行动与主动技能在原版是**同一个** `activeAbility` 分支）
+                        for (int aoi = 0; aoi < torder.Count; aoi++)
+                        { int t = torder[aoi];
                             if (tb[t] == null) continue;
                             if (!RuleCore.CanPickAlternativeTarget(ctx, me, s, alt, t)) continue;
                             list.Add(new AiAction { Kind = AiActionKind.ActiveAbility, Slot = s, AltKeyword = alt,
@@ -421,8 +421,8 @@ namespace RuleEngine
                 if (spec == null) { AddActiveAbilityEntry(ctx, me, s, list); continue; }   // 🆕 2026-10-27 `B88_E3`：第 ④ 档（原版通用 `activeAbilityLogic`）走这一个口
                 if (EffectTargets.NeedsPick(spec.Target))
                 {
-                    for (int t = 0; t < BoardSpec.Size; t++)
-                    {
+                    var aorder = PlayOrderedSlots(foeBoard);   // 原版 `.c:185-215`：`+0x470` 正序
+                    for (int boi = 0; boi < aorder.Count; boi++) { int t = aorder[boi];
                         if (foeBoard[t] == null) continue;
                         if (RuleCore.CanUseAbility(ctx, me, s, t) != RuleCodes.OK) continue;
                         list.Add(new AiAction { Kind = AiActionKind.ActiveAbility, Slot = s,
@@ -439,8 +439,8 @@ namespace RuleEngine
             // ⚠️ **独立一段、不并进上面那个单位循环**：上面那两圈都有 `u.Exhausted` 的前置跳过，
             //    而**残骸恒为 `Exhausted`**（见 `RuleCore` 造残骸那几行）⇒ 塞进去一条都产不出来，
             //    而且是**静默**的（AI 永远不收石头，没人报错）。
-            for (int s = 0; s < BoardSpec.Size; s++)
-            {
+            var worder = PlayOrderedSlots(mine.Board);   // 原版 `.c:246-295`：同一个 `+0x570`（`+0x470` 正序）
+            for (int wi = 0; wi < worder.Count; wi++) { int s = worder[wi];
                 if (RuleCore.CanCollectWaystone(ctx, me, s) != RuleCodes.OK) continue;
                 list.Add(new AiAction { Kind = AiActionKind.CollectWaystone, Slot = s });
             }
@@ -1479,7 +1479,7 @@ namespace RuleEngine
             var k = KnobsOf(d);
             if (k.MaxSkips <= 0 || list.Count <= 1) return;
 
-            list.Sort((x, y) => y.Score.CompareTo(x.Score));      // 降序（原版 `OrderByDescending(actionScore)`）
+            StableSortByScoreDesc(list);                          // 原版 `Enumerable.OrderByDescending(currentActions, a => a.actionScore)` 是**稳定**排序（`cpp2il/out_cpp2il_dev_ilspy/AI.cs:270-276` · `out_il2csharp/Assembly-CSharp/AI.cs:102`）；`List<T>.Sort` 是 introsort、等键次序不保证 ⇒ 见 `SimpleAI.StableSort.cs`
 
             // 原版：**共 `MaxSkips` 轮，每轮从表尾（最低分）往前扫一次**；删掉一条就进下一轮。
             for (int round = 0; round < k.MaxSkips; round++)

@@ -1359,9 +1359,9 @@ namespace CardPresentation
                                           P2CollectFont, P2CollectMin, QPageText, P2CollectMax, P2CollectBase, face: TmpFont.Face.LatinCardBody);
             if (_p2Collect != null) MenuDraw.SetVAlign(_p2Collect, Label.VAlign.Capline, Scr(P2CollectTextR));
             MenuDraw.Hit(_p2CollectBtn, "Hit", Scr(P2CollectR), QHit,
-                         () => Debug.LogWarning("[ParentEvent] 领奖（Collect）需要服务器：原版走 "
-                                              + "`TwoSidesEvent_OnGoingTab.CollectClicked` → `TwoSidesEvent.TryCollect` → "
-                                              + "PlayFab；本地没有 LiveOps 后端 ⇒ **不假装领取**。"),
+                         CollectClicked,   // 🆕 **2026-10-29（`B97_W9` 接线）**：回调**就是** `CollectClicked()` 本体 —— 改前这里是内联 lambda，而那个方法**零调用点**（账 `日常_奖励:770` 的落点是定义行、真行为却在这段内联里）
+                         //   ⚠️ 原先内联的那段告警与 `CollectClicked()` 里的**重复**，现已只在方法里留一份；⛔ 别再在内联里抄第二份（会把「等价已落」的假象做回去）
+                         //   （零行数改法：本 3 行与原 lambda 的 3 行等长 ⇒ 下游账落点行号不变）
                          // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B6）**：原版
                          //   `Two Sides Event Window/Event On Going Tab/Reward Display/Scoring Bar Event Score Info/
                          //   Generic Simplified UI Button` → **`ButtonClick Positive`**（pid 8549838806721213354）。

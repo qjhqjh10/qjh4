@@ -454,13 +454,13 @@ public static partial class RuleEngineTest
             var rem = Place(ctx, 0, 5, Unit("E17Rem", 1, 0, 1), exhausted: true);
             rem.IsRemnant = true;                            // 一具残骸（攻 0 / 1 血，按定义）
 
-            int seen = -1;
+            int seenFirst = -1, seenLast = -1;
             int got = 0;
             ctx.CardStateProbe = u =>
             {
                 if (!ReferenceEquals(u, rem)) return;
-                seen = (int)u.CardStateOf(ctx);
-                got++;
+                int st = (int)u.CardStateOf(ctx);
+                if (got == 1) seenFirst = st; seenLast = st; got++;
             };
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "E17Raise"), -1), RuleCodes.OK,
                       "🧪（④ 前提）打出 `Reanimate a friendly Remnant`（场上有一具残骸 ⇒ 残骸退路）");
@@ -470,14 +470,14 @@ public static partial class RuleEngineTest
             CheckTrue(back != null && ReferenceEquals(back, rem) && !back.IsRemnant,
                       "🧪（④ 前提）残骸**翻回成活的单位**了，而且**是同一个 `UnitState`**"
                     + "（`ReanimateRemnantInPlace` 原地返）" + LogTail(ctx));
-            Check(got, 1, "🧪（④ 前提）窗口探针恰被调用 **1** 次（= 残骸退路只翻回这一个；0 次 ⇒ 窗口没开、"
-                        + "下面几条是假绿；2 次 ⇒ 同一具残骸被标了两遍）");
-            Check(seen, (int)CardStateOptions.inPlayTransforming,
+            Check(got, 2, "🧪（④ 前提）窗口探针恰被调用 **2** 次（= 开窗一次 + 收尾一次；1 次 ⇒ 少了一处探针；0 次 ⇒ 窗口没开、"
+                        + "下面几条是假绿；>2 次 ⇒ 同一具残骸被标了多遍）");
+            Check(seenFirst, (int)CardStateOptions.inPlayTransforming,
                   "★★★（④）**复活窗口内 `cardState == 15 inPlayTransforming`**"
                 + "｜判据 = `case 0x48` from 支（`ResolveAction.c:6482` 内联 `SetAsUnitTransforming`）；"
                 + "🧨 删掉 `DoReanimate` 那句 `rem.MarkCardState(CardStateOptions.inPlayTransforming);` ⇒ 实得 2 ⇒ 本行红");
-            CheckTrue(seen != (int)CardStateOptions.inPlay,
-                      "★★★（④ 灭自证）窗口内**不是** `inPlay(2)`");
+            Check(seenLast, (int)CardStateOptions.inPlay,
+                      "★★★（④）**收尾时已回 `inPlay(2)`**（原版 `SetAsUnitInPlay` 在 `BroadcastUnitReanimated` 之后）");
             Check((int)rem.CardStateOf(null), (int)CardStateOptions.inPlay,
                   "★★（④）**窗口后复位成 `inPlay(2)`**（原版 onComplete 的 `SetAsUnitInPlay`）"
                 + "｜🧨 删掉循环体收尾的 `finally { rem.ClearCardStateMark(); }` ⇒ 永久 15 ⇒ 本行红");

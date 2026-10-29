@@ -869,11 +869,11 @@ namespace RuleEngine
         /// </summary>
         public static bool? AbilityLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
                                                       CardDef card, string triggerName, UnitState candidate,
-                                                      out string why)
+                                                      out string why, bool ignoreRandom = false)
         {
             bool amb;
             return AbilityLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, candidate,
-                                             out why, out amb);
+                                             out why, out amb, ignoreRandom);
         }
 
         /// <summary>🆕 v26：同 <see cref="AbilityLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,UnitState,out string)"/>，
@@ -881,7 +881,7 @@ namespace RuleEngine
         /// 与「列没落 / 认不出 / 没有 targetCard」那几档（判不了 ⇒ 放行 + 出声）**方向相反**。</summary>
         public static bool? AbilityLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
                                                       CardDef card, string triggerName, UnitState candidate,
-                                                      out string why, out bool ambiguous)
+                                                      out string why, out bool ambiguous, bool ignoreRandom = false)
         {
             ambiguous = false;
             why = null;
@@ -898,7 +898,7 @@ namespace RuleEngine
                 //   第二道闸「没有条件」= `CheckIfMeetsCriteria` 直接回真 ⇒ **第三道闸 `board(+0x38)` 照样要判**。
                 //   改前这一支直接放行 ⇒「有 board 条件、没有 target 条件」的那些 ability 的第三道闸
                 //   **从来没被求值过**（现读 99 条 `role="count"` 行里 25 条 `targetsAffected = 0`）。
-                if (why == null) return BoardLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, out why);
+                if (why == null) return BoardLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, out why, ignoreRandom);
                 return ambiguous ? (bool?)false : null;
             }
             if (candidate == null)
@@ -921,7 +921,7 @@ namespace RuleEngine
             // ---- 第三道闸：`boardCriteria`（`+0x38`）—— 原版 `BoardAnalysis.MeetsCriteria` ----
             // 判据 / 三态 / 数据来源 → <see cref="BoardLevelCriteriaAllows"/> 的 doc。
             string bwhy;
-            bool? board = BoardLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, out bwhy);
+            bool? board = BoardLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, out bwhy, ignoreRandom);
             if (board == false) { why = bwhy; return false; }
             if (board == null)
             {
@@ -1603,8 +1603,8 @@ namespace RuleEngine
         //    的 12 个实参里第 10 个恒 0）⇒ 本入口按 `false` 调。真命中 `RandomChance(8)` 时
         //    `CountEval` 的**掷法**本版未实现 ⇒ 判不了 + 出声（⛔ 不拿 `ctx.Rng.Next` 顶）。
         // ==========================================================================================
-        public static bool? BoardLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
-                                                     CardDef card, string triggerName, out string why)
+        public static bool? BoardLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,   // ignoreRandom = 原版 `CanTriggerAbility` 的第 7 实参（`CardScript__HasCancelAttackEffect.c` 传 0）
+                                                     CardDef card, string triggerName, out string why, bool ignoreRandom = false)
         {
             why = null;
             if (card == null) { why = "没有卡（判不了）"; return null; }
@@ -1616,7 +1616,7 @@ namespace RuleEngine
                 // ⛔ 不拿 `why` 文案去 `Contains` 判档（`CardDef.UniqueAbilityIndexForTrigger` 的 doc）。
                 if (locateWhy == null) return true;
                 why = amb ? "ability 定位不唯一 ⇒ board 条件判不了：" + locateWhy : locateWhy;
-                if (amb) return BoardLevelCriteriaAllowsByAbility(ctx, owner, thisCard, card, triggerName, out why); return null;
+                if (amb) return BoardLevelCriteriaAllowsByAbility(ctx, owner, thisCard, card, triggerName, out why, ignoreRandom); return null;
             }
             // `null` = 明确「这条 ability 没有 board 条件」（只有 `ConditionsVersioned` 才会走到）；
             // 旧表 ⇒ 返回 `ConditionUnknown` 的哨兵（见 `AbilityLevelConditionRowAt` 的三态 doc）。
@@ -1644,7 +1644,7 @@ namespace RuleEngine
             // 🔴 `cond` = 这一行的 `cond` 格（原版 `countCriteria.conditionsFilter`）—— **必须传**：
             //   现读 99 条 `role="count"` 行里 6 条非 0（`221`×2 / `331`×2 / `222` / `243`），
             //   不传就等于「把只数带条件的候选」静默变成「全数」（⛔ 那是多数）。
-            bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, false, row.Condition);
+            bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, ignoreRandom, row.Condition);
             if (ok == null) why = cgap ?? "board 条件判不了";
             return ok;
         }
@@ -2301,7 +2301,8 @@ namespace RuleEngine
         /// <summary>账 1217：「同 trigger 有多条 ability」时**逐条**判 `boardCriteria(+0x38)`（见上）。
         /// 三态与 <see cref="BoardLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,string,out string)"/> 相同。</summary>
         public static bool? BoardLevelCriteriaAllowsByAbility(BattleContext ctx, int owner, UnitState thisCard,
-                                                              CardDef card, string triggerName, out string why)
+                                                              CardDef card, string triggerName, out string why,
+                                                              bool ignoreRandom = false)
         {
             why = null;
             if (card == null) { why = "没有卡（判不了）"; return null; }
@@ -2334,11 +2335,95 @@ namespace RuleEngine
                     CountSet = row.CountSet,
                 };
                 string cgap;
-                bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, false, row.Condition);
+                bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, ignoreRandom, row.Condition);
                 if (ok == false) { why = $"ability#{r.AbilityIndex}（trigger={triggerName}）的 board 条件**不满足**"; return false; }
                 if (ok == null) gaps = gaps == null ? (cgap ?? "board 条件判不了") : gaps + "；" + (cgap ?? "board 条件判不了");
             }
             if (gaps != null) { why = gaps; return null; }
+            return true;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（执行代理 `B97_W4` · 账 `:770` `CardScript.HasCancelAttackEffect` 的 ② 那一半）
+        //      **按 `cardAbilities` 下标判「这一条 ability 的三道闸」** —— 「任一真即真」的调用点专用
+        //
+        //  判据（🥇 `decomp_full/CardAbility__CanTriggerAbility.c:127-140` + `CardScript__HasCancelAttackEffect.c:36-50`）：
+        //    原版对**同一 trigger 的每一条 ability**各判一次 `CanTriggerAbility`，
+        //    **任一为真** ⇒ `HasCancelAttackEffect` 返回真（`while(iVar3 …) { if (CanTriggerAbility(…)) return 1; }`）。
+        //  我们原有的 `AbilityLevelCriteriaAllows` / `ActingLevelCriteriaAllows` 走的是
+        //    「按 trigger 定位**唯一**一条」（`UniqueAbilityIndexForTrigger`，不唯一 ⇒ 不触发）
+        //    —— 那条口径对「触发整块正文」是对的，但**对「任一条过闸即算数」的语义是错的**
+        //    （同 trigger 两条 ability 时会把本来能取消攻击的附魔判成不能）。
+        //  ⇒ 本方法只做「**一条** ability 的三道闸」，由调用点自己 `foreach` 决定 OR/AND。
+        //  ⛔ 别拿它替换 `AbilityLevelCriteriaAllows` 的整条路（那一条的口径是 AND/唯一，见 `ActingLevelCriteriaAllowsByAbility`
+        //     上方那段「为什么取 AND 而不是 OR」的裁定）。
+        //  ⚠️ `abilityContext`（第一道闸）**仍按 trigger 取**（`AbilityContextOfTrigger` 只按 trigger 名索引，没有
+        //      per-ability 那一列）⇒ 同 trigger 多条 ability 共用同一个 context，与原始数据形状的差异如实记录。
+        // ==========================================================================================
+
+        /// <summary>
+        /// **单条 ability 的三道触发闸**（`targetCriteria(+0x30)` → `boardCriteria(+0x38)`，
+        /// 外加 `actingCardCriteria(+0x28)`），按 `cardAbilities` 下标定位。
+        ///
+        /// <para>三态（与 <see cref="AbilityLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,UnitState,out string,bool)"/> 同一套）：
+        /// `true` = 这一条全过 · `false` = 某一道**明确不满足** · `null` = **判不了**（列没落 / 没有候选 / 本版没建那一档）。</para>
+        /// <para>❗ 调用点决定 OR 还是 AND —— 本方法**只判一条**。`null` 在 OR 语义下 = 「这一条当作过」，
+        ///    在 AND 语义下 = 「整块判不了」；两种都由调用点按各自的 doc 处理。</para>
+        /// </summary>
+        public static bool? AbilityCriteriaAllowsAt(BattleContext ctx, int owner, UnitState thisCard,
+                                                    CardDef card, int abilityIndex,
+                                                    UnitState actingCandidate, UnitState targetCandidate,
+                                                    out string why, bool ignoreRandom = false)
+        {
+            why = null;
+            if (card == null || abilityIndex < 0) { why = "没有卡 / `cardAbilities` 下标无效 ⇒ 判不了"; return null; }
+
+            // ---- ③ `actingCardCriteria(+0x28)`（原版 `CanTriggerAbility.c:127-130`）----
+            var actSet = card.AbilityActingCriteriaAt(abilityIndex);
+            if (actSet != null)
+            {
+                if (actingCandidate == null) { why = "本路径拿不到 `actingCard`（原版这一跳是解引用 ⇒ 会 NRE）⇒ 判不了"; return null; }
+                string agap;
+                bool? aok = TargetCriteriaEval.Matches(ctx, owner, actSet, actingCandidate,
+                                                       AbilityLevelConditionRowAt(card, abilityIndex, "acting"),
+                                                       thisCard, targetCandidate, out agap);
+                if (aok == false) { why = $"ability#{abilityIndex} 的 acting 条件**不满足**"; return false; }
+                if (aok == null && !string.IsNullOrEmpty(agap)) why = agap;
+            }
+
+            // ---- ④ `targetCriteria(+0x30)`（`CanTriggerAbility.c:131-135`；被筛的是 `targetCard`）----
+            var tgtSet = card.AbilityLevelCriteriaAt(abilityIndex);
+            if (tgtSet != null)
+            {
+                if (targetCandidate == null) { why = "本路径没有 `targetCard`（原版这一跳是解引用 ⇒ 会 NRE）⇒ 判不了"; return null; }
+                string tgap;
+                bool? tok = TargetCriteriaEval.Matches(ctx, owner, tgtSet, targetCandidate,
+                                                       AbilityLevelConditionRowAt(card, abilityIndex, "target"),
+                                                       thisCard, targetCandidate, out tgap);
+                if (tok == false) { why = $"ability#{abilityIndex} 的 target 条件**不满足**"; return false; }
+                if (tok == null && !string.IsNullOrEmpty(tgap)) why = tgap;
+            }
+
+            // ---- ⑤ `boardCriteria(+0x38)`（`CanTriggerAbility.c:137-140`）----
+            var row = AbilityLevelConditionRowAt(card, abilityIndex, "count");
+            if (row != null)
+            {
+                if (row.Condition == CardDef.ConditionUnknown)
+                { why = "`unitConditions` 列没落（旧表 < v15）⇒ `role=\"count\"` 那一行**未知**"; return null; }
+                if (row.CountSet == null)
+                { why = "`role=\"count\"` 行没有 `countSet`（旧表 < v16 / 生成器没落）⇒ 被数集合未知"; return null; }
+                var gate = new CardDef.BoardGateSpec
+                {
+                    CountOption = row.CountOption,
+                    StatOption = row.StatOption,
+                    ReferenceValue = row.ReferenceValue,
+                    CountSet = row.CountSet,
+                };
+                string bgap;
+                bool? bok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out bgap, ignoreRandom, row.Condition);
+                if (bok == false) { why = $"ability#{abilityIndex} 的 board 条件**不满足**"; return false; }
+                if (bok == null) { why = bgap ?? "board 条件判不了"; return null; }
+            }
             return true;
         }
     }

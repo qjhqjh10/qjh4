@@ -208,6 +208,9 @@ namespace CardPresentation
         /// <summary>`minionAnimationClipInfo.minionClips[]`（`null` = 没有）。现读 2 条，
         /// 且两条的 `AnimationClip` 引用**都是 null**（`m_PathID = 0`）⇒ 即便打开了 `enable` 也什么都不播。</summary>
         public CardAnimBodyClip[] BodyClips;
+        /// <summary>🆕 2026-10-29（`B97_W20` · 账 `特效动画:492`）：`animInfo.tweenAnim`(`+0x80`) 指向的 `UnitTweenSO` 资产名
+        /// （`Resources/cardanim_clips.json` 的 `tw`；null/空 = 这一拍没有补间）。消费 = `UnitTweenTable.Get(TweenAnim)` → `Build(...)`。</summary>
+        public string TweenAnim; public bool TweenWait;   // `TweenWait` = 那个 SO 的 `waitAnimation`（1 = 等它播完再往下）
 
         /// <summary>这一拍**有没有一条真能生效**的 unit shake（`TargetUnit != 0`）。
         /// <para>🔴 **「表里有这一条」≠「一定会抖」**：`targetUnit == 0(undefined)` 时原版
@@ -292,6 +295,8 @@ namespace CardPresentation
             public int macEn;
             public float macD;
             public RtMinionClip[] macs;
+            // 🆕 2026-10-29（`B97_W20`）：`AnimInfo.tweenAnim`（缺键 ⇒ null / false = 改前行为）· `tww` = 该 SO 的 `waitAnimation`
+            public string tw; public int tww;
         }
 
         /// <summary>`ush[]` 的一条 —— 原版 `UnitShake.UnitShakeInfo`（`dump.cs:25498-25511`）。
@@ -394,7 +399,7 @@ namespace CardPresentation
                     RotZOn = r.mmRzE != 0, RotZDeg = r.mmRzM, RotZCurve = r.mmRzC,
                     // 🆕 2026-10-27（`B9_W12USHK`）：unit shake + 卡体 clip（缺键 ⇒ null / false / 0）
                     UnitShakes = MapUnitShakes(r.ush),
-                    BodyClipEnabled = r.macEn != 0, BodyClipDelay = r.macD, BodyClips = MapBodyClips(r.macs),
+                    BodyClipEnabled = r.macEn != 0, BodyClipDelay = r.macD, BodyClips = MapBodyClips(r.macs), TweenAnim = r.tw, TweenWait = r.tww != 0,
                 };
             }
             Loaded = true;

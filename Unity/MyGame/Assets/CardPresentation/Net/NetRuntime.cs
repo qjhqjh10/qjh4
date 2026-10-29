@@ -419,9 +419,9 @@ namespace CardPresentation
         //     （⛔ 不发明一个假的 RoomOptions）。判据见上。
 
         /// <summary>原版 `GameStaticData.newbieELO`（ILSpy `GameStaticData.cs:2424` 的 `.cctor` 写死 **800**；
-        /// 真体里是 `GameStaticData +0x264` 那个静态 int）。⚠️ `GameStaticData.cs` 不在本批白名单 ⇒ 值先放这里（值相同），
-        /// 将来那格若并进 `GameStaticData`，改指过去即可（⛔ 别在两处各存一份不同值）。</summary>
-        public const int DraftNewbieElo = 800;
+        /// 真体里是 `GameStaticData +0x264` 那个静态 int）。✅ 2026-10-29（B97_W42）：`GameStaticData.newbieELO`（`Shell/GameStaticData.cs:272`）已落地 ⇒ **改指过去**，
+        /// 编译期折叠、行为零变化；⛔ 别在两处各存一份不同值（结构上已不可能分叉，`B97W39_Assert` D2 仍钉值相等）。</summary>
+        public const int DraftNewbieElo = global::CardPresentation.GameStaticData.newbieELO;
 
         /// <summary>原版 `DraftEventBase.SetCustomMatchOptions` 算出的「房间属性」三格 + lobby 键表。</summary>
         public struct DraftMatchOptions

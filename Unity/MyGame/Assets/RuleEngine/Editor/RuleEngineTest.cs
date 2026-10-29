@@ -1202,7 +1202,7 @@ public static partial class RuleEngineTest
         //   **教程/决斗/回放闸** · `GamesPlayed` 的 F2 裁断（判模式、不判对手是不是真人）。
         //   测试体在 `CardPresentation/Editor/RuleEngineTest_EngineX2.cs`（同一 partial 类），
         //   判据 → `资料/待办判据_成就计数器_1025b.md`。
-        Step(TestEngineX2);
+        Step(TestEngineX2); { CheckB97W12DamageRawAndAttribution(); } { CheckB97W12AttributionEndToEnd(); }   // 🆕 2026-10-29：端到端那条原先**故意没接**（断的就是 `RuleCore.cs:8976-8977` 那条补丁，补丁已由 `B97_W19` 落地）⇒ 现在可以接；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_W12`）：账 `战斗逻辑驱动:1004` 伤害原值格（raw=扣甲前 / 可见=扣甲后）+ 归属按 `actingCard.isPlayer`；同一行追加 ⇒ 行数零变化。⛔ `CheckB97W12AttributionEndToEnd()` 必须等 `RuleCore.cs:8976-8977` 那条补丁落地后再接（断了会必红）
 
         // 🆕 2026-10-25（执行代理 `X18` · 界面线）：**成就计数源补完** —— 隐秘/破坏（`Ach_78` / `Ach_65`）·
         //   开包（`Ach_15`，数据面）· 轮抽战绩（`Ach_20`，`highestValue` 语义）· `Ach_24`（全解锁口径）·
@@ -1234,11 +1234,11 @@ public static partial class RuleEngineTest
         //   ⚠️ **缩进深一层**：`工具/gen_diag_runner.py` 只把 8 空格缩进的顶层语句当用例
         //   （同下面 `VerifyRunCaseCoverage` 那条注释）；裸写会被判成「一个不存在的用例」。
         {
-            EngineClosedDeckAssert.Run();
-            _pass += EngineClosedDeckAssert.Pass;
-            _fail += EngineClosedDeckAssert.Fail;
-            if (EngineClosedDeckAssert.Fail > 0)
-                _failures.Add($"EngineClosedDeckAssert：{EngineClosedDeckAssert.Fail} 条失败（明细见它自己的 ✗ 行）");
+            EngineClosedDeckAssert.Run(); B97W4Assert.Run();   // 🆕 B97_W4（调度台 2026-10-29 窄口授权）：战斗线小件断言（离场清扫 / 按记录摘 / 逐条 ability 闸）
+            _pass += EngineClosedDeckAssert.Pass; _pass += B97W4Assert.Pass;
+            _fail += EngineClosedDeckAssert.Fail; _fail += B97W4Assert.Fail;
+            if (EngineClosedDeckAssert.Fail + B97W4Assert.Fail > 0)
+                _failures.Add($"EngineClosedDeckAssert：{EngineClosedDeckAssert.Fail} 条失败 ／ B97W4Assert：{B97W4Assert.Fail} 条失败（明细见它们自己的 ✗ 行）");
         }
 
         // 🆕 2026-10-25（第八十会话 · 批次 2 · 代理 `R11`）：AI 打分判据落地的三条回归断言。
@@ -1291,7 +1291,7 @@ public static partial class RuleEngineTest
         { CheckB96CRCombatBits(); }
 
         // 🆕 2026-10-29（调度台代接线）：`B97_W1` —— 账 832 ② `RecordGrant` 的「施放者」列 · 账 1053 的 `questCounter` 归零。
-        { CheckB97W1Grants(); }
+        { CheckB97W1Grants(); } { CheckB97W30Extrinsic(); } Step(TestB97W28); B97W36Assert.Run(); _pass += B97W36Assert.Pass; _fail += B97W36Assert.Fail; Step(TestB97W34);   // 🆕 2026-10-29（调度台代接线 · `B97_W28`）：oath 费读 trait1275 · `opsOverride` · `skipBacklash` 两闸 · huntMark 死亡粒子 · `FireTriggerByNumber`；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_W30`）：账 `战斗逻辑驱动:64/:482/:636` `extrinsic` 三本账 + 消费侧闸（缺省 false 的可选形参，⛔ 不是无条件加闸）；同一行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_US` —— 账 521 `ResolveJamUnit` ② 的 `permanentBuff` 早退 ＋ 清修饰后夹血。
         { CheckB97USJam(); }
@@ -1300,13 +1300,13 @@ public static partial class RuleEngineTest
         { CheckB97US2Seq(); }
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER2` —— 账 921（被打出/被偷时发 `CardBeingDrawn`）+ 427（誓约重放条件里现算）。
-        { CheckB97ER2Gaps(); }
+        { CheckB97ER2Gaps(); } { CheckB97W2Gaps(); CheckB97W5DataColumnsAndPoolFilters(); }   // 🆕 2026-10-29（调度台代接线）：`B97_W2`（手牌费 Permanent / 210 手牌两跳 / 11 组 buff）· `B97_W5`（startingCardInHand 列 / BoardGate ConditionsFilter / selectFromChooseResolution / 单次变异）—— 同一物理行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER` —— 再裁 #54：`CanTriggerAbility` 第一道闸扩到全部 trigger。
         { CheckB97ERAbilityGates(); }
 
         // 🆕 2026-10-29（调度台代接线）：`B97_GEN2` —— 泛型补读 20 条（DynamicList 12 + ConfigProvider 2 + RefreshHandler 等）。
-        { CheckB97Gen2(); }
+        { CheckB97Gen2(); } { CheckB97W11Gaps(); } B97W38Assert.Run(); _pass += B97W38Assert.Pass; _fail += B97W38Assert.Fail; { CheckB97W35EnchantmentHop(); }   // 🆕 2026-10-29（调度台代接线 · `B97_W11`）：账 `战斗逻辑驱动:1121` `MinionManager.GetNextSlotPos` 的上界缺陷 + `required==1` 中性支（200 个局面全量对过、0 处不同）；同一行追加 ⇒ 行数零变化
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
@@ -1362,7 +1362,7 @@ public static partial class RuleEngineTest
         Section("🆕 B93_G1 · GetRandomOrder 钉位支（账 1308）+ 打出时摘 ephemeral（账 869）");
         {
             CheckB93G1RandomOrderStratagem();
-            CheckB93G1PlayedCardTail(); CheckB97RCGaps(); CheckB97RC2Gaps(); CheckB97AIGaps();   // 🆕 2026-10-29（调度台代接线 · `B97_RC`）：RuleCore 五件（ambush⇒FaceDown · Strike 待结算量 · 目标次序两口 · OnTurnSetup 逐条入队）
+            CheckB93G1PlayedCardTail(); CheckB97RCGaps(); CheckB97RC2Gaps(); CheckB97AIGaps(); CheckB97W10PlayOrderAndStableSort(); Step(CheckB97W19CancelAttackByUnits); B97W21Assert.Run(); _pass += B97W21Assert.Pass; _fail += B97W21Assert.Fail; B97W22Assert.Run(); _pass += B97W22Assert.Pass; _fail += B97W22Assert.Fail;   // 🆕 2026-10-29（调度台代接线）：`B97_W21`（选牌候选池/手牌两跳/残骸最早一拍）· `B97_W22`（装填机制/drop pod/FTUE/按记录摘）；同一行追加 ⇒ 行数零变化 Step(TestB97W1);   // 🆕 2026-10-29（调度台代接线 · `B97_RC`）：RuleCore 五件（ambush⇒FaceDown · Strike 待结算量 · 目标次序两口 · OnTurnSetup 逐条入队）
         }   // 🆕 B94_F1（账 534/455）：墓地放逐闩 + 誓约出牌费 —— 断言全文在 `RuleEngineTest_EngineB94F1.cs`
         { CheckB94F1CemeteryExileAndOathPay(); CheckB94Y1TroopKilled(); CheckB94W3DeathTurnPredicate(); B94B3EngineGaps(); CheckB94B2EngineGaps(); CheckB94B8Engine(); CheckB94Z3RuleCoreGaps(); CheckB94B1EngineGaps(); CheckB94Z2HandAbilityChannel(); CheckB94B12TransformUnit(); CheckB94B13RuleCoreWiring(); CheckB94B16Engine(); B94B15EngineGaps(); CheckB94B14EffectResolverGaps(); CheckB94B19TutorialGate(); CheckB94B21DormantBroadcasts(); CheckB94B20CreateAtPos(); CheckB94B24SeatAndActingCard(); CheckB94B23AbilityBuffs(); CheckB95WRSGaps(); CheckB97W3CemeteryDequeueAndTransformTail(); }   // 🆕 2026-10-29（调度台代接线；B95WRS = UnitState 866/636 两处）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
 

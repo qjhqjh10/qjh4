@@ -121,29 +121,21 @@ public static class BoosterPackExporter
     ///   · ⛔ **用户 2026-10-22 指示「只导出备用」，不接运行时**（我们的窗口画的是整屏纯色背景）。
     ///   · 判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §3（X1）§5·2。
     /// </summary>
-    static readonly string[] WindowRoots =
+    // 🆕 **2026-10-29（B97_W29）：那 17 条【不再自己抄一份】** —— 转调运行期那张表
+    // `CardPresentation.BoosterPackAssets.PrefabNames`（判据同下一格 `CardFxRoots` 转调 `CardFxNames`：
+    // 「表只此一份」）。⛔ 别再往本文件加卡包外观的名字。
+    // ⚠️ 前两条**是窗口**（不是卡包外观），它们在 `wf_menus_extra.bundle`，所以留在这里。
+    static readonly string[] WindowRoots = BuildWindowRoots();
+
+    static string[] BuildWindowRoots()
     {
-        "Booster Pack Open Window",
-        "Booster Info Popup",
-        // 🆕 2026-10-23：卡包外观 17（名字**逐字**照 bundle `m_Name`，别 Trim、别改大小写）。
-        "Booster Pack Standard",
-        "Booster Pack All Armies Variant",
-        "Booster Pack Standard Aeldari SaimHann",
-        "Booster Pack Standard Astra Militarum",
-        "Booster Pack Standard Chaos SM Black Legion",
-        "Booster Pack Standard Emperors Children",
-        "Booster Pack Standard Genestealers",
-        "Booster Pack Standard Necrons Sautekh",
-        "Booster Pack Standard Orks Goff",
-        "Booster Pack Standard Orks Goff Expansion",
-        "Booster Pack Standard Sororitas",
-        "Booster Pack Standard Space Marines Dark Angels",
-        "Booster Pack Standard Space Marines Space Wolves",
-        "Booster Pack Standard Space Marines Ultramarines",
-        "Booster Pack Standard Space Marines Ultramarines Expansion 1",
-        "Booster Pack Standard TauEmpire",
-        "Booster Pack Standard Tyranids Leviathan",
-    };
+        var boosterNames = CardPresentation.BoosterPackAssets.PrefabNames;
+        var a = new string[boosterNames.Length + 2];
+        a[0] = "Booster Pack Open Window";
+        a[1] = "Booster Info Popup";
+        System.Array.Copy(boosterNames, 0, a, 2, boosterNames.Length);
+        return a;
+    }
 
     /// <summary>开卡包粒子。**名字从 prefab 字段来、不是我猜的**：
     /// `Booster Pack Open Window` 的 `CardInBoosterPack.contentByRarities[]` 每条一个 `particles` PPtr，

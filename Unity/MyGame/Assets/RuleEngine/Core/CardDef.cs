@@ -264,7 +264,7 @@ namespace RuleEngine
         /// <para>🔴 `CountSet` 与 <see cref="ConditionSpec.CountSet"/> **同一个类**（原版都是
         /// `TargetCriteria` ＋ `BoardCriteria.playerTurn`，逐字同形）⇒ ⛔ 别另开一份字段表。</para>
         /// <para>`-1` = 未知/没落（同 <see cref="CountSetSpec.Unknown"/>）。</para></summary>
-        public sealed class BoardGateSpec
+        public sealed partial class BoardGateSpec
         {
             /// <summary>原版 `BoardCriteria.countOptions`（`0 AllTargets` / `10 EnemiesMinusAllies`）。</summary>
             public int CountOption = GateUnknown;
@@ -297,7 +297,7 @@ namespace RuleEngine
             int alt = HasAlternativeAbility;
             if (alt < 0) return null;                     // 未知 ⇒ 不许猜
             if (alt == 0) return false;                   // 原版不调 MeetsCriteria ⇒ 普通支
-            bool? met = CountEval.MeetsBoardCriteria(ctx, owner, NormalAbilityBoardCriteria, actor);
+            bool? met = CountEval.MeetsBoardCriteria(ctx, owner, NormalAbilityBoardCriteria, actor, out _, false, NormalAbilityBoardCriteria != null ? NormalAbilityBoardCriteria.ConditionsFilter : 0);   // 🆕 2026-10-29（B97_W5 · 账 676 的 (b) 格）：`countCriteria.conditionsFilter` 现在跟着 `BoardGateSpec` 走（判据 `BoardAnalysis__MeetsCriteria.c:110-113` 候选逐个过的是 countCriteria 自己的条件）—— 本行是**同行改写**，⛔ 别拆成两行（会把下游账落点推走）
             if (met == null) return null;
             return !met.Value;
         }

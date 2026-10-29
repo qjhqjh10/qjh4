@@ -12781,6 +12781,7 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起");
             }
 
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else

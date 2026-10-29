@@ -52,7 +52,7 @@ namespace CardPresentation
     public struct AllianceTrophyState
     {
         public int GroupScore;   // 公会总分（服务器下发）
-        public int SavedTier;    // 服务端记住的最高档
+        public int SavedTier, PlayerScore;   // SavedTier = 服务端记住的最高档（原版 `AllianceTrophySave.tier` +0x40）· PlayerScore = 原版 `AllianceTrophySave.playerScore`（+0x3c，`RewardService.CollectSingleReward` 里写死 1）
     }
 
     /// <summary>联盟奖杯本地模型（档位换算 / 目标里程碑 / 可见性）。</summary>
@@ -239,6 +239,27 @@ namespace CardPresentation
             if (VisibleCountOrMinusOne != -1) { why = "空定义表应返回 -1"; return false; }
 
             ResetForTest();
+            return true;
+        }
+
+        // ============================================================ 领取（追加区 · 2026-10-29 B97_W7 · 账 日常_奖励:680）
+        /// <summary>= 原版 `RewardService.CollectSingleReward` 里「奖励是联盟奖杯 ⇒ 写存档三格」那一支。
+        /// <para>判据（`d:/2/tools/decomp_full/RewardService__CollectSingleReward.c:120-126` 现读）：
+        /// `save+0x38 = 1` · `save+0x3c = 1` · `save+0x40 = quantity`；偏移与 `AllianceTrophySave : ChallengeProgress`
+        /// 的字段序逐格吻合（`groupScore 0x38 / playerScore 0x3c / tier 0x40`，见 `cpp2il/out_cpp2il_dev_ilspy/AllianceTrophySave.cs`）。</para>
+        /// <para>🔴 三格全是**硬赋**（`= 1` / `= 1` / `= quantity`），⛔ 不是 `+=`、也不是取 max。</para>
+        /// <para>原版是 `Enumerable.FirstOrDefault(trophies, x => x.Data.GetID() == 奖励.GetID())` —— **命中才写**，
+        /// 找不到那件奖杯 ⇒ 三格都不动、也不报错 ⇒ 本表没有该 id 时返回 `false`（本类默认无定义表，见 `WhyNoDefs`）。</para></summary>
+        public static bool MarkCollected(string trophyId, int quantity)
+        {
+            if (string.IsNullOrEmpty(trophyId)) return false;
+            var def = Find(trophyId);
+            if (def == null) return false;                          // 原版 FirstOrDefault 未命中：什么都不写
+            var st = StateOf(def);
+            st.GroupScore = 1;                                      // 原版 `.c:120`（+0x38）
+            st.PlayerScore = 1;                                     // 原版 `.c:122`（+0x3c）
+            st.SavedTier = quantity;                                // 原版 `.c:126`（+0x40）= 奖励数量
+            _states[def.Id] = st;
             return true;
         }
     }

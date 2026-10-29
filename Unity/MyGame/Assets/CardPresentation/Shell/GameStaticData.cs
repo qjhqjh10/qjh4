@@ -251,5 +251,24 @@ namespace CardPresentation
         /// 语义：`0 → 30` · `1 → 60` · `2 → -1(不限)` —— 换算在
         /// `LocalPlayerDataStore.TargetFramerateFor`（判据 = `SavePlayerData` 末段那三行）。</summary>
         public static int FPSLimit = 2;
+
+        // ============================================================ 2026-10-29（B97_W39 · 账 轮抽:30 · 施工单 §2·4 步骤 3）追加在类尾
+        // 判据（一手，逐行读过）：
+        //  · 声明 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/GameStaticData.cs:360`（`public static int newbieELO`）
+        //  · 值   = 同文件 `:2424` 的 `.cctor` 写死 **800**（紧隔壁 `:2425` 是 `isHumanELO = 1500` —— **另一个量**，⛔ 别拿它冒充玩家 ELO）
+        //  · 消费者 = `decomp_generic_trial/out_b94/DraftEventBase_object__object_.SetCustomMatchOptions__1813cb0.c`
+        //    （原版那一跳读的就是 `GameStaticData +0x264`；新手档判据 `elo <= newbieELO && won < 3 ⇒ C4 清 0`）
+        // 🔴 **原版这一格就长在 `GameStaticData` 上** ⇒ 本类才是它的原版位置；`Net/NetRuntime.DraftNewbieElo`
+        //    是「本类还没有这一格」时的暂存（那里 `ComputeDraftMatchOptions` 上方的注释自己写着
+        //    「将来那格若并进 `GameStaticData`，改指过去即可」）。
+        // ⚠️ **那「改指过去」的一行本轮没有就地做** —— 执行代理 `B97_W39` 的文件白名单不含
+        //    `Net/NetRuntime.cs`（铁律 13·3③：撞上别人名下的文件就交补丁、不硬改）。
+        //    可粘贴补丁 + 调用链自证 → `资料/完全复刻/报告/B97_W39.md` §三。在那一行落地之前，
+        //    两份字面量由 `Editor/B97W39_Assert.cs` 的 **D 组**（「两边同值」）钉住：改任一侧不同值 ⇒ 立刻红。
+        /// <summary>原版 `GameStaticData.newbieELO`（`.cctor` = **800**）。轮抽新手档那条判据的阈值：
+        /// `currentELO &lt;= newbieELO &amp;&amp; won &lt; 3 ⇒ 房间属性 C4(ELO) 清 0`
+        /// （算式唯一真源 = <see cref="Net.NetRuntime.ComputeDraftMatchOptions"/>；本格只管那个 800）。
+        /// <para>⚠️ 别拿本类别处的 `isHumanELO = 1500` 冒充玩家 ELO —— 那是原版 `.cctor` 里另一个量。</para></summary>
+        public const int newbieELO = 800;
     }
 }

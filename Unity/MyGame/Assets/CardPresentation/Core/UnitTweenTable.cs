@@ -544,5 +544,35 @@ namespace CardPresentation
             if (IsPlayerSideOf != null) return IsPlayerSideOf(t);
             return CardFeel.IsPlayerRow(t.position.z);
         }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B97_W20` · 账 `特效动画:492`）：`AnimInfo.tweenAnim` 的**读数口**
+        //  🔴 为什么新开一节（而不是塞进上面的 `Get` 旁边）：本文件被账按行号引用，新成员一律追加在类尾。
+        //  数据那一半（`Resources/cardanim_clips.json` 的 `tw` = `UnitTweenSO` 名 · `tww` = 它的 `waitAnimation`）
+        //  由 `工具/gen_cardanim_clips.py` 的 `_tween_block` 烘出；运行期按 `tw` 走 `Get()`、按 `tww`
+        //  决定「要不要等它播完」。**这个口只读、不改任何行为。**
+        // ==================================================================
+
+        /// <summary>这条补间串**要不要等它播完**（原版 `UnitTweenSO.waitAnimation`，`so + 0x18`）。
+        ///
+        /// <para>**返回值契约（🔴 三档，⛔ 别把前两档混成一个 `false`）**：
+        /// <c>-1</c> = **表里没有这个名字**（调用方必须当错误出声 —— 多半是 `cardanim_clips.json` 的 `tw`
+        /// 与 `UnitTweens.json` 对不上，或生成器把 name 解错了）；<c>0</c> = 有这一串、原版**不等**
+        /// （fire-and-forget）；<c>1</c> = 有这一串、原版**等它播完**再往下走。</para>
+        ///
+        /// <para>**判据（两处逐句同形）**：`BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:100-108`
+        /// 与 `BattleManager._ResolveAnim_d__466__MoveNext.c:131-137` —— `UnitTweenSO.BuildSequence(...)` 之后
+        /// `if (*(char *)(so + 0x18) != 0) { WaitForCompletion(seq); 状态机推到下一态; return; }`。
+        /// ⇒ 只有非 0 才挡后续步骤；`0` 时序列是 fire-and-forget（我们 `UnitTweenRuntime.Invoke` 的
+        /// `if (e.wait == 0) return false;` 就是同一条口径）。</para>
+        ///
+        /// <para>⚠️ **`waitAnimation` 与 `unitsShake` 是【并列】关系，不是 if/else**（2026-10-29 现读
+        /// `_d__468:62-84`：`while` 只有在「条目走完」时才 `goto LAB_1809ac553`，那个标签**正落在补间段前面**
+        /// ⇒ 先逐条 `ResolveUnitShake`，**随后照样**播补间）⇒ 调用方**别**写成「有 unit shake 就跳过补间」。</para></summary>
+        public static int WaitOf(string name)
+        {
+            var e = Get(name);
+            return e == null ? -1 : e.wait;
+        }
     }
 }

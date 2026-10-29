@@ -1684,7 +1684,7 @@ namespace CardPresentation
             // 🆕 **2026-10-19（A1175）账号页 / 登录弹窗那一族也要清**：它们全是**这一棵树里的**件
             //   （弹窗子树、四颗输入框、两颗错误行 `Label`）⇒ 与 `_langList` 同一条理由
             //   （不清 = 指着上一棵树里已销毁的件 ⇒ 假 null，守卫挡住不炸但那一格**永远不再更新**）。
-            _loginWindow = null; _loginCloseIcon = null; _lwErrorBox = null;
+            _loginWindow = null; _loginCloseIcon = null; _lwErrorBox = null; _lwCog = null; _cogAngle = 0f;
             _acEmail = null; _acPwd = null; _lwEmail = null; _lwPwd = null;
             _acError = null; _lwError = null; _acPid = null;
             _acRegisterBtn = null; _acULoginBtn = null; _acResetBtn = null; _acForgotBtn = null;
@@ -3131,7 +3131,7 @@ namespace CardPresentation
                                  "40K_icon_searching_skull", QLwContent, new Color(1f, 1f, 1f, 0.8431373f));
                 var load = loadQ != null ? loadQ.transform
                                          : Node(box, "Animated Loading Image", LwLoadL, LwLoadT, LwLoadR, LwLoadB);
-                Rect(load, "Cog", LwLoadL, LwLoadT, LwLoadR, LwLoadB, "40K_icon_searching_cog", QLwText,
+                _lwCog = Rect(load, "Cog", LwLoadL, LwLoadT, LwLoadR, LwLoadB, "40K_icon_searching_cog", QLwText,
                      new Color(1f, 1f, 1f, 0.8f));
                 _lwError = Text(box, "Error Message", "", LwErrL, LwErrR, LwErrBoxT, LwErrBoxB,
                                 LwFormFontPx, AcErrColor, QLwText,
@@ -5985,7 +5985,7 @@ namespace CardPresentation
             // 🆕 **A168**：FPS 滑块的「按 / 拖」（原版 `Slider.OnPointerDown/OnDrag`）。
             //    ⚠️ 没走 `WindowButton.onClick`：那条路**不带落点**（`Action` 无参），而滑块要的是「点在哪」；
             //      `Hit` 那一条只负责**吃下这一下**（别让射线穿到吸收层）。批处理里自检直调 `SetFpsFromCanvasX`。
-            UpdateFpsDrag();
+            UpdateFpsDrag(); AdvanceCog(Time.deltaTime);   // 🆕 B97_W14：`Cog` 那颗齿轮（原版 `SimpleRotation`，-20°/s）
             // 🆕 2026-10-19（N70 P0-4 · U3）：音频页三根滑块的指针路径 + 悬停/按下反馈
             //   （必须排在下面那道「只有联机页才继续」的早退**之前** —— 那三根在 Media 页）。
             UpdateAudioSliders();
@@ -6753,6 +6753,90 @@ namespace CardPresentation
                     + "② `QualitySettings.SetQualityLevel(qualityNumber)`（原版 6 档 / 我们 2 档 ⇒ 写了会被静默夹取）、"
                     + "③ `SUPERSAMPLING_ON` 关键字。判据 → `资料/完全复刻/判据/B94_R-G_画质档位映射.md` §三 / §五①。"
                     + "当前档 = " + GameStaticData.graphicsQuality + "。");
+        }
+
+        // ============================================================ 🆕 2026-10-29（第九十七会话 · 代理 B97_W14）：`Cog` 那颗齿轮的驱动
+        //
+        // 账 `未分类/其他:584`（原版 `SimpleRotation.Update()`）在**本窗**的那一份 —— 那颗 `Cog` 图早就建了
+        // （本文件 `BuildLoginWindow` 里 `_lwCog = Rect(load, "Cog", …)`），**缺的只是驱动**。
+        //
+        // 判据（**逐字段实读**，⛔ 不是按截图估的）：
+        //   · 原版 prefab = `bundle_menus_assets_all` 的 `Main Menu Settings Window` —— 具体那一颗是
+        //     `Login Window / ErrorMensajeContainer / Animated Loading Image / Cog`
+        //     （`GameObject/Cog_-3685809886447435866.json`；父链现解：Cog → Animated Loading Image →
+        //      ErrorMensajeContainer → Login Window → … → Menu Area；`Login Window` 那颗 `m_IsActive = 0`）；
+        //   · 它的 `SimpleRotation` 实例 = `MonoBehaviour/MonoBehaviour_-2329547480181669978.json`：
+        //     **`speed = {x:0, y:0, z:-20}`**（另一颗 `Cog` —— `ChooseNameWindow` 那棵、`…_3738674841765267565` —— 也是 -20）；
+        //   · 方法体 = `d:/2/tools/decomp_full/SimpleRotation__Update.c` **全文 26 行**：
+        //     `euler = transform.eulerAngles` → 逐轴 `euler[i] += speed[i] * Time.deltaTime` → `set_eulerAngles`
+        //     （`speed` 是 `Vector3`，字段偏移 +0x20/+0x24/+0x28）⇒ **按帧连续**转。
+        //   · 那颗 `Cog` 的图 = `MonoBehaviour_-7687775932348661850.json`：`m_Color (1,1,1,0.8)` ·
+        //     `m_RaycastTarget 0` · `m_PreserveAspect 0`；RectTransform `-1798389768563621978.json` =
+        //     anchorMin (0,0) / anchorMax (1,1) / sizeDelta 0 铺满 `Animated Loading Image`
+        //     —— 与本文件 `BuildLoginWindow` 那一行建的**完全一致**。
+        //
+        // 如实说四件事：
+        //   ① 原版读写的是**世界** `eulerAngles`；我们的齿轮挂在恒等父链上 ⇒ 用 `localRotation` 做同一件事（同值）。
+        //   ② 数学那一半复用 `Shell/LoadingMenu.cs:419` 的 `SimpleRotation.Step`（单轴 + `Repeat` 归一到 0..360 ——
+        //      `eulerAngles` 每次读回来本就归一，与它等价，而且避免角度无限增长）。
+        //   ③ **批处理下 `Update` 不跑** ⇒ 自检走 `PumpCogForTest`（同 `LoadingController.SetAngleForTest` / `SetFpsFromCanvasX` 的先例）。
+        //   ④ 只有**错误框显出来时**才看得见这颗齿轮（`ErrorMensajeContainer` 的 `SetActive(false)` 在 BuildLoginWindow 里）——
+        //      这一点不改变驱动：原版 `SimpleRotation` 也是「GameObject 关着 ⇒ `Update` 不跑」。
+
+        /// <summary>原版 `Main Menu Settings Window / … / Cog` 那颗 `SimpleRotation.speed.z`
+        /// （判据 = `MonoBehaviour_-2329547480181669978.json` 的 `speed`，**实读 -20**）。
+        /// ⛔ 别按「看着太快/太慢」调它。</summary>
+        const float CogDegPerSec = -20f;
+
+        /// <summary>齿轮累计角度（度）。原版那一格就是 `transform.eulerAngles` 本身；我们父链恒等 ⇒ 记局部角。
+        /// ⚠️ `Build()` 里与 `_lwCog` 一起清 0（新一棵树的 `Cog` 出生时旋转是 identity）。</summary>
+        float _cogAngle;
+
+        /// <summary>`Login Window / ErrorMensajeContainer / Animated Loading Image / Cog` 那一颗
+        /// （建它的那一行 = `BuildLoginWindow` 里的 `_lwCog = Rect(load, "Cog", …)`）。
+        /// 取不到（贴图缺失）⇒ null，<see cref="AdvanceCog"/> 直接不转（`MenuDraw` 自己会报缺图）。</summary>
+        ImageQuad _lwCog;
+
+        /// <summary>= 原版 `SimpleRotation.Update()`（`decomp_full/SimpleRotation__Update.c` 全文）：
+        /// `euler += speed * dt`，`dt` 必须是**缩放**时间（原版用的就是 `Time.deltaTime`）。
+        /// <para>⚠️ 真 Play 下由 <see cref="Update"/> 调；批处理下 `Update` 不跑 ⇒ 自检调 <see cref="PumpCogForTest"/>。</para></summary>
+        void AdvanceCog(float dt)
+        {
+            if (_lwCog == null) return;
+            // 🔴 **原版行为照抄**：`SimpleRotation` 挂在 `Cog` 上，而 `Update` **只在物体活着时才被调**
+            //   ⇒ `ErrorMensajeContainer` 关着（`BuildLoginWindow` 末尾那句 `SetActive(false)`，也是它唯一的
+            //   写点）时，那颗齿轮是**冻住**的、角度不累计。⛔ 别为了「反正看不见」把这道闸去掉。
+            if (!_lwCog.gameObject.activeInHierarchy) return;
+            _cogAngle = SimpleRotation.Step(_cogAngle, CogDegPerSec, dt);
+            // 父链恒等旋转 ⇒ `localRotation` 与 `eulerAngles` 同值（见本节头 ①）
+            _lwCog.transform.localRotation = Quaternion.Euler(0f, 0f, _cogAngle);
+        }
+
+        /// <summary>自检用：**按帧推进** <paramref name="dt"/> 秒（= 原版跑了这么多秒的 `Update`）。
+        /// 期望值来自 <see cref="CogDegPerSec"/> 的**判据出处**（原版 prefab 的 -20），⛔ 别在这里写常量。</summary>
+        public void PumpCogForTest(float dt) { AdvanceCog(dt); }
+
+        /// <summary>自检用：齿轮节点（null ⇒ 没建出来 —— 断言要**先断前提再看角度**，⛔ 不静默跳过）。</summary>
+        public Transform CogNodeForTest { get { return _lwCog != null ? _lwCog.transform : null; } }
+
+        /// <summary>自检用：累计角度（度，0..360）。</summary>
+        public float CogAngleForTest { get { return _cogAngle; } }
+
+        /// <summary>自检用：建一棵**只有 `Login Window` 子树**的最小夹具。
+        /// <para>⚠️ 刻意**不调 <see cref="Create"/>**：那条会写静态 `Instance`（别的宿主的断言要读它认「开的是哪一扇」）、
+        /// 还会在 `Open()` 里建 `NetRuntime` —— 两者都是**跨宿主的副作用**，夹具不该有。</para>
+        /// <para>它走的是**生产那一行** `_lwCog = Rect(load, "Cog", …)`（`BuildLoginWindow` 里），
+        /// ⛔ 不是「断言自己拿一颗假节点顶上」（那样就等于自证）。</para></summary>
+        public static SettingsWindow BuildCogFixtureForTest(Transform parent)
+        {
+            var go = new GameObject("SettingsWindow_Cog_Fixture");
+            if (parent != null) go.transform.SetParent(parent, false);
+            var w = go.AddComponent<SettingsWindow>();
+            w.type = WindowType.Popup;      // 与 `Create` 同一档（⛔ 别留哨兵 `UnsetType`：那会让 `HasType` 那条出声路径白响一次）
+            // `BuildLoginWindow(page)` 只把 `page` 当父节点用（矩形全是 `Lw*` 绝对坐标）⇒ 随便给一层即可
+            var page = Node(w.transform, "Cog Fixture Page", 0f, 0f, 1920f, 1080f);
+            w.BuildLoginWindow(page);
+            return w;
         }
     }
 

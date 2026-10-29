@@ -13960,10 +13960,11 @@ public static class BattleScene
                           $"★ 阈值必须**严格降序**（第 {i} 个 {th[i]} ＜ 第 {i - 1} 个 {th[i - 1]}）—— "
                         + "改成升序 = 「第 k 档 ↔ 第 k 个图标」静默左右颠倒");
             }
-            // 🔴 用户 2026-09-17 定：**奖励行不做**（奖励红水晶与评分都在服务器，单机用不上）⇒ 只留骷髅。
-            //    按**节点名**数（字段已删，数不到才说明真去干净了）
+            // 🔴 **2026-10-29 就地订正（`B97_W8` · 铁律 5）**：这条原来写「奖励行不做」——**已过期**，奖励行已按原版建出
+            //    （判据 → `判据/B97_R5_零散剩余施工单.md` · `报告/B97_W8.md`）。现在它断的是**生产态不变量**：
+            //    0 条奖励 ⇒ 奖励行整行隐藏（真实几何/显隐断言在 `B97W8Assert`，见本文件尾的接线）。
             Check(end.RewardRowPieces == 0,
-                  $"★ 奖励行一块都不建（`RewardsHolder` / 奖杯 / 评分文字；实得 {end.RewardRowPieces} 块）");
+                  $"★ 生产态（0 条奖励）下奖励行**不显示**（`RewardsHolder` 作底板属于节点自身 Image，故子件计数为 0；实得 {end.RewardRowPieces} 块）");
         }
 
         // ---- 7b. 对局历史：结算那处写下的**本地记录**（🆕 2026-09-27）----
@@ -36517,7 +36518,7 @@ public static class BattleScene
                     Check(driver.DeckSizeVisibleForTest && driver.HandSizeVisibleForTest,
                           "★ 再按回去 ⇒ **又亮**（一藏一显 ⇒ 这一条既不可能是「恒藏」也不可能是「恒显」）");
                     driver.SetCardHoldForTest(null);        // 还原成看真指针，别影响后面的段
-                    driver.ApplyTutorialVisibilityForTest(); B97_BD_Assert.CheckB97BD(driver);   // 🆕 2026-10-29（调度台代接线 · `B97_BD`）：账 255（`ChoicesMaxTargets` 数据优先）· 292（督军入场 ×1.3 + 落地回正）。接在 `BeginTutorial(0)` 之前 ⇒ 不污染后面那一段
+                    driver.ApplyTutorialVisibilityForTest(); B97_BD_Assert.CheckB97BD(driver); B97W18Assert.CheckB97W18(driver); B97W37_Assert.CheckB97W37(driver); B97W41Assert.Run(); pass += B97W41Assert.Pass; fail += B97W41Assert.Fail; B97W43_Assert.CheckB97W43(driver); pass += B97W43_Assert.Pass; fail += B97W43_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W18`）：账 `战斗界面_HUD:364` 回放候选面板 + `战斗逻辑驱动:1081` 重演装回 22 格（`slotsPerSide` 跳过）；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_BD`）：账 255（`ChoicesMaxTargets` 数据优先）· 292（督军入场 ×1.3 + 落地回正）。接在 `BeginTutorial(0)` 之前 ⇒ 不污染后面那一段
 
                     // ---- ⑤ 督军两拍（原版 `BattleManager.TutorialStartSequence`，**不是动作档**）----
                     driver.BeginTutorial(0);
@@ -46627,7 +46628,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。 Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

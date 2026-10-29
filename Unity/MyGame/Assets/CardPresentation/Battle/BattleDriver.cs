@@ -761,7 +761,7 @@ namespace CardPresentation
                 //      `资料/普查产出_1024/A8_断言归口.md` §JsonUtility）。`ReplayRecord` **没有显式构造**
                 //      ⇒ 属「会跑初始化器」那一档。⇒ 上面那句「取 `0` 才两条路都安全」的**结论不变**
                 //      （`0` 与初始化器默认值一致），但**理由要按新判据读**：缺键读到的是初始化器的值。
-                tutorialStage = _tutorialStage != null ? _tutorialStage.stage : 0,
+                tutorialStage = _tutorialStage != null ? _tutorialStage.stage : 0, vars = ReplayVars.Capture(Ctx != null ? Ctx.Vars : null),
                 // 🆕 2026-10-19（A1087）：开局这一格也要记（存**值 + 2** —— 哨兵纪律见 `ReplayStore.botSeatPlus2`）。
                 botSeatPlus2 = botSeat + 2,
                 // 🆕 2026-10-24（`A2` · `F2` 顺手发现 3）：**开局有没有换牌阶段**也进录像头
@@ -1063,7 +1063,7 @@ namespace CardPresentation
                                 + $"座位1 {exactFoe.Count} 张（⛔ 不在回放时重算 —— 原版双方各存一份牌组）");
                     BeginFromPendingCore(pb, attachNet: false, deckNote: null,
                                          botSeatOverride: rec.BotSeatForNewBattle,
-                                         exactMine: exactMine, exactFoe: exactFoe);
+                                         exactMine: exactMine, exactFoe: exactFoe, varsOverride: ReplayVarsForReplay(rec));
                 }
                 // 🔴 **2026-10-12（A381）：放录像的时候也别【结账】**。
                 // ⚠️ **置真必须在 `BeginFromPendingCore` 之后** —— 它里面走 `Begin(...)`，
@@ -1125,7 +1125,7 @@ namespace CardPresentation
                 // 开局那一格：`_beginFullHash` 由 `Begin` 在 `RuleCore.NewBattle` 之后立刻取好
                 // （**与录制端 `RecBegin` 同一个程序点** —— 为什么不在 `RecBegin` 里现取，见那个字段的 doc）。
                 _replayFt.CheckStart(_beginFullHash, Ctx);
-                _replayCursor = 0;
+                _replayCursor = 0; ReplayAskResetForReplay(rec);
                 _replayFinished = false;
                 _replaySame = false;
                 // 🔴🔴 **2026-10-24（执行代理 `W1` · 判据 `资料/普查产出_1024d/R2_回放表现判据.md` §1.1 / §7·①）：
@@ -1341,7 +1341,7 @@ namespace CardPresentation
         void FinishReplay()
         {
             if (_replayFinished) return;
-            _replayFinished = true;
+            _replayFinished = true; CloseReplayAskPanel();
             var rec = _replayRec;
             // 还原 `_logReplaying`（`PlayReplay` 的 `finally` 在真机那条路上**故意没还原**：
             // 它管着 `ApplyLoggedAction` 末尾的「`MulliganDone` 之后别急着开回合」，见那边的注释）。
@@ -1425,7 +1425,7 @@ namespace CardPresentation
                 if (_timeline.Count == 0) FinishReplay();
                 return;
             }
-            if (_timeline.Count != 0 || _clock < _blockingQuietAt) return;
+            if (_timeline.Count != 0 || _clock < _blockingQuietAt || ReplayAskGateBeforePush()) return;
             int i = _replayCursor++;
             if (!ApplyReplayActionAt(i))
             {
@@ -3916,15 +3916,15 @@ namespace CardPresentation
         public const float BoardCenterZ = -2.8108f;
 
         // ---- 14/15/16/17 档：空位（原版 `AbilityLogic.CreateTempAbilityTransform`）----
-        //  ⚠️ **这几格是「我们改的」，判据照抄不了**（如实标，铁律 3）：
-        //    · 原版 `CreateTempAbilityTransform(isPlayer, getEnemyPos, slot)` 内部走
-        //      `MinionManager.GetNextSlotPos` —— **以鼠标点击点为基准**取「第 `slot` 个可用格」；
-        //      而动画播出的那一刻**没有点击点**（那是「这张卡被召唤出来」的演出）⇒ 原版那条路子我们复刻不了。
-        //    · 我们改用**引擎自己那条「下一个空位」规则**（`SimpleAI.FirstFreeSlot`）：`slot=1` 取那一侧的
-        //      下一空格，`slot=2/3` 由它**向外推** `slot-1` 格。`getEnemyPos` 决定取**行动方自己的**还是**对面**那一侧。
-        //  ⚠️ **另一处「我们改的」**：原版每次调用都 **new 一个 GameObject 再 `Destroy`** 掉；
-        //     我们**复用同一颗**（`_animMinionSpot`）只挪位置 —— 批处理下没有帧循环、`Object.Destroy` 不生效
-        //     （本线 `准则与做法.md` §六·6），每次新建会漏一堆空对象。
+        //  ✅ **2026-10-29（`B97_W11`）改成照原版走 `MinionManager.GetNextSlotPos`**（原来那处 🔶 自设计的
+        //     `SimpleAI.FirstFreeSlot` + 向外推 `slot-1` 格 —— **已推翻**，白名单内就地改）：
+        //    · 原版 `CreateTempAbilityTransform(isPlayer, getEnemyPos, slot)` → `mm.GetNextSlotPos(Vector2.zero, slot)`
+        //      （ILSpy `AbilityLogic.cs:2038` 现读：`pos` **恒 `Vector2.zero`** ⇒ 走 `required==1` 的 `pos.x==0` 中性支）。
+        //      它返回**该督军 transform 下的局部坐标**；换算成格号 = `WarlordSlot + 有符号格号`（`+1..+4` 右 / `-1..-4` 左）。
+        //    · `required==1` 且两侧都满 ⇒ 原版回督军 `GetEffectAnchor()`（且**不加** `ExtraYOnBoard`）——
+        //      引擎半给 `int.MinValue`，这里落到该督军的 `CardView.EffectAnchor(true).position`。
+        //  ⚠️ **仍然「我们改的」**：原版每次调用都 **new 一个 GameObject 再 `Destroy`** 掉；
+        //     我们**复用同一颗**（`_animMinionSpot`）只挪位置（批处理下无帧循环、`Object.Destroy` 不生效，本线 `准则与做法.md` §六·6）。
         Transform _animMinionSpot;
         Transform EnsureMinionSpotAnchor(int seat, bool getEnemyPos, int slot)
         {
@@ -3940,11 +3940,11 @@ namespace CardPresentation
             // `getEnemyPos` 相对**行动方**翻一侧：0 = 行动方那一侧、1 = 对面那一侧。
             int sideSeat = getEnemyPos ? (1 - seat) : seat;
             bool foe = sideSeat != _me;
-            int first = (Ctx != null && Ctx.Players != null && sideSeat >= 0 && sideSeat < Ctx.Players.Length)
-                      ? RuleEngine.SimpleAI.FirstFreeSlot(Ctx.Players[sideSeat])
-                      : RuleEngine.BoardSpec.WarlordSlot + 1;
-            if (first < 0) first = RuleEngine.BoardSpec.WarlordSlot + 1;
-            int want = Mathf.Clamp(first + Mathf.Max(0, slot - 1), 0, RuleEngine.BoardSpec.Size - 1);
+            int signed = (Ctx != null && Ctx.Players != null && sideSeat >= 0 && sideSeat < Ctx.Players.Length)
+                       ? RuleEngine.BoardSlots.NextSlotPos(Ctx.Players[sideSeat], Mathf.Max(1, slot)) : int.MinValue;
+            var heroView = ViewAt(sideSeat, RuleEngine.BoardSpec.WarlordSlot);      // 两侧都满那一档要用它（原版 `GetEffectAnchor`）
+            if (signed == int.MinValue) { if (heroView != null) { _animMinionSpot.position = heroView.EffectAnchor(true).position; return _animMinionSpot; } signed = 1; }
+            int want = Mathf.Clamp(RuleEngine.BoardSpec.WarlordSlot + signed, 0, RuleEngine.BoardSpec.Size - 1);
             _animMinionSpot.position = ArenaSlots.RootPosition(want, foe, ArenaSlots.CardScale(foe));
             return _animMinionSpot;
         }
@@ -4073,7 +4073,7 @@ namespace CardPresentation
                                          // 🔴🆕 **2026-10-25（执行代理 `C` · `RE1` §1.4-A2）**：录像头里
                                          //   「双方实际用的牌」展开后的 `CardDef` 表（`PlayReplay` 传）。
                                          //   `null` = 老录像没记 ⇒ 走原来「按 `MsgStart` 的卡组重算」那条路，一字不变。
-                                         List<CardDef> exactMine = null, List<CardDef> exactFoe = null)
+                                         List<CardDef> exactMine = null, List<CardDef> exactFoe = null, GameplayVariables varsOverride = null)   // 🆕 2026-10-29（B97_W18 · 账 `战斗逻辑驱动:1081`）：录像里记的**规则参数**（`ReplayRecord.vars`）；`null` = 老录像没记 ⇒ 退回 `pb.Vars`（= 加这一格之前逐字相同，`PlayReplay` 那边已经出声过）。
         {
             if (pb == null) { Debug.LogError("[Net] `BeginFromPendingCore(null)` —— 不开局"); return; }
             SetMySeat(pb.MySeat);
@@ -4100,7 +4100,7 @@ namespace CardPresentation
             //     认不出的串由 `PlayModeNames.Parse` **出声**并退回 `Classic`）；
             //   · `pb.Vars` = 规则参数，**只看这副牌**（与单机那条路同一判据，§2.7 —— 这样
             //     「12 张的牌从练习窗开出去」那种局面重放时不会按 30 张重建）。
-            var vars = pb.Vars;
+            var vars = varsOverride ?? pb.Vars;   // 🆕 2026-10-29（B97_W18 · 账 `战斗逻辑驱动:1081`）：录像里记的规则参数优先
             // 🔴 **2026-10-13（A410）**：这一句原来**写死**「联机开局」——
             //   可**三个入口走的是同一个方法**：`attachNet: true` = 真联机开局（`BeginFromDeckLibrary()` 里
             //   `NetPendingBattle.Take()` 那一支）、`attachNet: false` + `_net != null` = **重连重建**
@@ -5087,7 +5087,7 @@ namespace CardPresentation
             // 🆕 2026-10-19（T07）：**战后收尾闸的计数也是「本局的账」** —— 与 `_settled` 同一条纪律。
             //   （`_settleCount` / `_leaveCount` 是**累计**计数，故意不清；这一格是「本局跑没跑过」。）
             _stopBattleAfterEndCount = 0;
-            _replaySession = false;
+            _replaySession = false; CloseReplayAskPanel();   // 🆕 2026-10-29（B97_W18）：上一局的回放选牌面板绝不能留到这一局
             // 🔴 **2026-10-24（执行代理 `W1` · `R2` §7·④落点 A）**：回放条**每次 `Begin` 都要复位成关** ——
             //   `_replayBar` 只建一次（`_hudBuilt` 闩住），而上一局若是回放局，`PlayReplay` 会把
             //   `Holder` 打开（`Setup(true)`）⇒ 不复位的话，**下一局普通对局里四颗回放钮会一直挂着**。
@@ -11364,7 +11364,7 @@ namespace CardPresentation
                 return;
             }
 
-            _choosePanel.OnDone = OnChooseDone;
+            _choosePanel.OnDone = OnChooseDone; RecordAskForReplay(op);   // 🆕 2026-10-29（B97_W18 · 账 `战斗界面_HUD:364`）：把这一处**摆出来的候选**记进录像（回放要照原样再摆一次）
             // 🔴 **2026-10-27（音频线 `B9` A-05 · 账 116）**：开选牌面板之前**先关聊天弹窗** ——
             //   原版 `BattleManager__ChoiceOfCardPlayer.c:27` 第一句就是
             //   `VoiceLinesController.ForcePopUpClose()`（`__ForcePopUpClose.c:5-9`：`+0x78 == 0`（弹窗正开着）
@@ -11393,7 +11393,7 @@ namespace CardPresentation
                 int pickOath = (picks != null && picks.Count > 0) ? picks[0] : -1;
                 if (pickOath >= 0)
                 {
-                    Ctx.SetOathAnswer(_me, pickOath == 1);
+                    Ctx.SetOathAnswer(_me, pickOath == 1); ReplayAskNotePickedIndex(pickOath);   // 🆕 2026-10-29（B97_W18）：把「点了第几张」回填进录像里这一处 ask
                     Ctx.Log($"（誓约二选一：玩家点了**{(pickOath == 1 ? "誓约版" : "平版")}**）");
                 }
                 else
@@ -11418,7 +11418,7 @@ namespace CardPresentation
                     Ctx.ChooseCardIds.Enqueue(picks[0] >= 0 && picks[0] < _askCands.Count
                                               ? _askCands[picks[0]].Id : "");
             }
-            _askCands = null;
+            _askCands = null; ReplayAskNotePicked(picks);   // 🆕 2026-10-29（B97_W18 · 账 `战斗界面_HUD:364`）：答案回填进录像
             _choosePanel.Close();
             NextAsk();
         }
@@ -13209,7 +13209,7 @@ namespace CardPresentation
             if (!TutorialAllowsCardDisplay) return;
             // 🆕 2026-10-24（`W20`）：末位实参 `isPlayer`（敌方伏击整排徽标不画那道闸，见 `ToCardData`）。
             _cardDisplay.Toggle(ToCardData(u, side == _me ? _myFaction : _foeFaction, side == _me), u.Card,
-                                CardDisplayWindow.RowsOf(u.TempBuffs, Enchantments.CountQuests(u.Instance) > 0));   // 2nd arg = 原版 `HasQuests(载体)`（`DisplayCardEffects.c:44-53`）
+                                CardDisplayWindow.RowsOfEffects(EffectsToShow.Of(u, side == _me), side == _me));   // 🆕 2026-10-29（B97_W18 · 账 `特效动画:521` 的 **S5**）：项源从旧口 `RowsOf(TempBuffs)` 换成**S1 投影** `EffectsToShow.Of`（原版 `DisplayCardEffects → GetCardEffectsToShow`），再由 **S4** `RowsOfEffects` 排 5 槽。`isPlayer` = 「这张卡是不是我方的」（原版 `CardEffect.originalIsPlayer(+0xA0)`）；⚠️ `ctx` 传 null（那只用于出声，写 `ctx.Log` 会让 P2P 两端指纹分叉）
             AfterCardWinToggle(BoardViewAt(slot, side == _me));
         }
 
@@ -21852,7 +21852,7 @@ namespace CardPresentation
 
             if (now != null && now.IsRemnant)
             {
-                bool aeldari; CardFeel.IsRemnantFamily(now.Card, out aeldari);
+                bool aeldari; CardFeel.IsRemnantFamily(now.Card, out aeldari); RemoveSelfBuffsFromQueues(e.Player, e.Slot);   // 🔴 2026-10-29（`B97_W3` · 账 483）：原版 `RemoveSelfBuffsFromQueues` 的**唯一**调用点 = `BattleManager._ResolveTransformIntoRemnant_d__554.MoveNext.c:39`（在 `TransformIntoRemnant` 之前）⇒ 表现层就接在「**刚翻面成残骸**」这一拍（`now.IsRemnant` 为真 = 引擎已 `Board[slot] = rem`，判据见上面那段）。⛔ 别挪到「单位离场/普通阵亡」上 —— 那不是原版这个调用点。⚠️ 引擎侧的 `shouldIgnoreDestroy:1` 语义**仍缺**（`RuleEngine/Core/ActionPump.cs:2084`，本件白名单外）
                 RemnantSfx.Play(RemnantSfx.Moment.ToRemnant, aeldari, BoardWorld(e.Player, e.Slot));
                 return;
             }
@@ -22474,7 +22474,7 @@ namespace CardPresentation
                 }
                 // 🔴 **2026-10-27（`B9_W29BDR2` · 接 `unitsShake`）**：同一件 `AnimInfo` 那一族（判据 `_d__468:62-77` / `_d__466:110-125`：
                 //   两条路都是「`shk` preset 之后紧接一层 `ush` 循环」，**不带 `e.Ranged` 闸**）⇒ 目标/远离方由 `ResolveUnitShakeTargetUnit` 解。
-                SchedulePieceUnitShakes(an, atkView, tgtView, e.Player, vfxAt);
+                SchedulePieceUnitShakes(an, atkView, tgtView, e.Player, vfxAt); SchedulePieceUnitTween(an, atkView, tgtView, vfxAt);   // 🆕 2026-10-29（B97_W18 · 账 `特效动画:492`）：`AnimInfo.tweenAnim` 与 `unitsShake` **并列**播（`_d__468:85-108` 是两段独立的 if，⛔ 不是 else-if）
             }
             // 队尾：整条链按原版**演完**才算完（`CardAnimClips.RangedChainDuration` 用逐件
             // `AnimInfo.GetAnimDuration()` 真值 —— 逐卡 `AnimTimes` → 共享件表 → **按 CardAnim 名查表**；
@@ -23376,7 +23376,7 @@ namespace CardPresentation
                 //   在卡的世界位置上（判据见 `FireDeployVfxInArenaSpace` 的 doc）⇒ 它要活在**竞技场空间**；
                 //   其余事件保持原样（各自的判据还没查全 —— 见报告）。
                 if (e.Kind == EvtKind.Deploy)
-                    FireDeployVfxInArenaSpace(evt, e, faction, perCardOnly);
+                    { FireDeployVfxInArenaSpace(evt, e, faction, perCardOnly); PlaySummonDelayedVfx(e); }   // 🔴 2026-10-29（`B97_W43` · 账 `804`）：`summonAnimDelayed` 与淡入同拍（判据与拍点推导见类尾那一族）
                 // 🔴 **2026-10-22（W63 · `新账-65` 第②条）：`Hit` 这一拍【一件粒子都不播】。**
                 //   判据（第一权威）= 原版 `CardScript._ReceiveDamage…MoveNext.c` —— 扣血之后**只**调
                 //   `BattleCardUI.DamageReceived`（伤害计数器 = 血痕 + 飘字），**不生成任何粒子**。
@@ -24118,7 +24118,7 @@ namespace CardPresentation
             // 🆕 2026-10-25（`AU1` · `J1` §9/§10）+ 2026-10-27（`B9_W29BDR2`）接上的 `unitsShake`：起播同帧的屏震 / 卡本体位移 / 单位抖-弹三档
             PlayBeatShake(p);
             PlayMinionMovement(self != null ? self : ViewAt(e.Player, e.Slot), target, p, e.Player == _me);
-            ScheduleUnitShakes(p.UnitShakes, self, target, e.Player, 0f);   // 判据 `_d__466:110-125` / `_d__465:130-145`，缺数据零调用
+            ScheduleUnitShakes(p.UnitShakes, self, target, e.Player, 0f); ScheduleUnitTween(p.TweenAnim, self, target, 0f, "beat:" + vfx);   // 判据 `_d__466:110-125` / `_d__465:130-145`，缺数据零调用；🆕 2026-10-29（B97_W18 · 账 `特效动画:492`）第三条同形出口（`_d__465:151-200` 也有 `+0x80` 补间段），`at` 传 0 —— 调用方 `PlayPlacedPieces` 已把 `startDelay` 折进 `at`（⛔ 别再加一次）
             PlayAbilityBeat(e, vfx, sp, p.EndPos, pt,
                             p.Move, p.OrientToVelocity, p.Ts, p.Tm, p.Ease,
                             null, place, self, target);
@@ -24563,8 +24563,9 @@ namespace CardPresentation
                 //   ⚠️ 今天零可见差（现读 `UnitAttack`/`UnitDamaged` 两桶 `vd` 全 0），但它是**结构**上的双计：
                 //   将来某张卡 `d>0` 且 `vd>0` ⇒ 会等 `2×` 才起播。
                 float at = Mathf.Max(0f, t0) + Mathf.Max(0f, clip.T);
-                ScheduleAction(at, () => PlayOneUnitAnim(e, clip, dur));
-                ExtendTimelineTail(_clock + at + Mathf.Max(0.05f, dur));
+                float twHold = ScheduleUnitTween(clip.Place.TweenAnim, v, (e.TargetPlayer >= 0 && e.TargetSlot >= 0) ? ViewAt(e.TargetPlayer, e.TargetSlot) : null, at + Mathf.Max(0f, clip.Place.StartDelay), "unit:" + clip.Anim);   // 🆕 2026-10-29（B97_W18 · 账 `特效动画:492`）：`AnimInfo.tweenAnim`（原版 `_d__466:127-141`，与 `ush` 并列）；`twHold` = `waitAnimation==1` 时这一串要等多久
+                ScheduleAction(at, () => PlayOneUnitAnim(e, clip, dur, twHold));
+                ExtendTimelineTail(_clock + at + Mathf.Max(0.05f, dur) + twHold);   // 🆕 2026-10-29（B97_W18）：原版「先等完补间序列，再 `WaitForSeconds(GetAnimDuration())`」= **相加**，不是取 max
             }
         }
 
@@ -24607,7 +24608,7 @@ namespace CardPresentation
         /// <summary>播一拍（技能动画 prefab + 卡体动画层）。
         /// <para><paramref name="duration"/> = 这一拍**演多久**（= <see cref="SkillBeatDuration"/>；
         /// ⛔ 别再读 `clip.Duration` —— 单候选时它被回归口径压成 0）。</para></summary>
-        void PlayOneUnitAnim(BattleEvent e, CardAnimClip clip, float duration)
+        void PlayOneUnitAnim(BattleEvent e, CardAnimClip clip, float duration, float tweenHold = 0f)   // 🆕 2026-10-29（B97_W18）：`tweenHold` = 这一拍的 `AnimInfo.tweenAnim` 要等多久（`waitAnimation==1` 才非 0）
         {
             // 🆕 2026-10-24（执行代理 `B1` · D3）：**自检口** —— 这一拍**真的起播**那一刻的 `_clock`。
             //   主对话用它验「Trigger 那条路的 t0 与改前 ③ 逐帧等价」：期望 ≈ `BatchAttackSkillAnimAtForTest`
@@ -24669,7 +24670,7 @@ namespace CardPresentation
             //    同样**没有 clip 定义可读**）。**必须 false**：`AnimFinished` 的复位是「回到 `Start()`
             //    那一刻的位置/旋转/缩放」，而我们的卡一直在被补间搬（让位 / 瞄准抬手 / 换格）
             //    ⇒ 复位到建控制器那一刻会把卡**弹回旧格**（静默错位）。取 false ⇒ 这一层只动它自己该动的。
-            if (!ctl.DoAnim(pb, disableFlying: true, onAnimationEnd: null, safeResetOnEnd: false))
+            if (!DoBodyAnimOrDefer(ctl, pb, tweenHold))
                 UnitSkillAnimEmpty++;
         }
 
@@ -25671,7 +25672,7 @@ namespace CardPresentation
             _animfxCtx = BuildCardContext(e);
             // 🆕 2026-10-19（T05 · 卡上特效改走挂载）：与 `PlaySignal` 的 Deploy 同一口径 ——
             //   `normalSummon` 是根实例化在卡的世界位置上 ⇒ 进竞技场空间（判据见 `FireDeployVfxInArenaSpace`）。
-            FireDeployVfxInArenaSpace(VfxMap.Deploy, e, faction, perCardOnly: false);
+            FireDeployVfxInArenaSpace(VfxMap.Deploy, e, faction, perCardOnly: false); PlaySummonDelayedVfx(e);   // 🔴 2026-10-29（`B97_W43`）：同 ①（AI 那条飞行的落地拍 = `LandAiDeployFlight` 末尾，见上）
             // 🔴 **2026-10-21（W61 第 2 批 · 第 2 条）**：这里原来还补一发**按阵营的召唤法阵** ——
             //   原版没有那一层（判据与删除记录 → `Core/VfxMap.cs` 那段注释）。⛔ 别加回来。
             _animfxCtx = default;
@@ -34803,9 +34804,9 @@ namespace CardPresentation
         //  命中条件 = 那个 cue 排期时抓的 `cueEvt.TargetPlayer/TargetSlot` 指向这张卡（= 原版 `action.targetCard`）。
         //
         //  🔴 **两条如实记的边界**（🔴 2026-10-29 `B95_WBD` 就地订正 —— 原文「EvtKind 里没有『效果被摘掉』这一档」**已过期**）：
-        //   ① **「效果被摘掉」那一档已经有信号** = `EvtKind.EnchantmentRemoved`（2026-10-27 `E7ENG` 加），已接在 `:23019` → `CancelPendingAnimsOf`（= `ResolveRemoveEffect` ② 的等价物）；
-        //      但 `RemoveSelfBuffsFromQueues` **仍无调用点** —— 它唯一的原版调用点 = `BattleManager._ResolveTransformIntoRemnant_d__554__MoveNext.c`（全树只此一处，
-        //      `ResolveRemoveEffect.c:7-10` / `ResolveAction.c:1727-1734` 是 `CancelAnimFromUnitFromQueue` 的调用点、⛔ 别混为一谈）⇒ 等「变残骸」那一拍接；引擎侧同一缺口见 `RuleEngine/Core/ActionPump.cs:2084`。
+        //   ① **「效果被摘掉」那一档已经有信号** = `EvtKind.EnchantmentRemoved`（2026-10-27 `E7ENG` 加），已接在 `:23042` → `CancelPendingAnimsOf`（= `ResolveRemoveEffect` ② 的等价物）；
+        //      而 `RemoveSelfBuffsFromQueues` 那一句**已接**（`B97_W3` 2026-10-29 就地订正：原文「仍无调用点」已过期）= `BattleDriver.cs:21855`（`PlayRemnantSfx` 的 `now.IsRemnant` 支）；它唯一的原版调用点 = `BattleManager._ResolveTransformIntoRemnant_d__554__MoveNext.c`（全树只此一处，
+        //      `ResolveRemoveEffect.c:7-10` / `ResolveAction.c:1727-1734` 是 `CancelAnimFromUnitFromQueue` 的调用点、⛔ 别混为一谈）⇒ **就是「变残骸」那一拍**（⛔ 别挪到阵亡/离场）；引擎侧同一缺口见 `RuleEngine/Core/ActionPump.cs:2084`。
         //      ⛔ **别挂到「单位离场/阵亡」上** —— 那不是原版这个调用点。
         //   ② **只撤 `cueVfx`**（= `playAnim`）：原版那一格也只认 `actionType == 11`，⛔ 别顺手撤
         //      `cueAction` / 事件（那会把结算回调与事件副作用一起吞掉）。
@@ -38129,5 +38130,504 @@ namespace CardPresentation
 
         /// <summary>原版 `DAT_1834b2bb0` 现读 = **0.2**（`waitMult != 1.0` 时 y 那一格，正负各一次）。</summary>
         const float HeroLandYOffset = 0.2f;
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（执行代理 `B97_W3` · 账 `战斗逻辑驱动:483`）· **只给自检用**
+        //
+        //  账 483 的表现层接线已落地：`PlayRemnantSfx` 的 `now.IsRemnant` 支（= 原版
+        //  `_ResolveTransformIntoRemnant_d__554.MoveNext.c:39` 那一句）现在会调
+        //  `RemoveSelfBuffsFromQueues(side, slot)`。要断「撤掉的条数 = 时间线实际减少数」「紧接着再撤必须 0 条」
+        //  就得**不真打一局也能造出待播 cue**，而 `_timeline` 里「`cueVfx != null`」那一族
+        //  才等于原版 `playAnim`（判据 → `CancelPendingAnimsOf` 的 doc），它唯一的写口 `ScheduleVfxCue`
+        //  是私有的、且会从 `_animfxLastEvent` 抓 `(TargetPlayer, TargetSlot)`。
+        //  ⇒ 下面这个口只做「临时换上下文 → 排一条 → 还原」，**不改任何生产语义**。
+        // ==========================================================================================
+        /// <summary>[自检] 排一条**演在 <paramref name="side"/> / <paramref name="slot"/> 上的 `playAnim` 等价 cue**
+        /// （`_timeline` 里 `cueVfx != null` 那一档），返回排完之后 `_timeline` 的条数。
+        /// <para>⛔ 只给断言用 —— 生产路径一律走 `ScheduleVfxCue` 的真实调用点（它自带正确的 `_animfxLastEvent`）。</para></summary>
+        public int ScheduleAnimCueForTest(int side, int slot, string name, float delay = 0.4f, float duration = 0.1f)
+        {
+            var sEvt = _animfxLastEvent;
+            _animfxLastEvent = new RuleEngine.BattleEvent
+            {
+                Kind = EvtKind.Play, Player = side, Slot = slot,
+                TargetPlayer = side, TargetSlot = slot, CardId = name,
+            };
+            try { ScheduleVfxCue(name, Vector3.zero, null, null, delay, duration); }
+            finally { _animfxLastEvent = sEvt; }
+            return _timeline.Count;
+        }
+
+        // ==========================================================================================
+        //  🆕 **2026-10-29（执行代理 `B97_W18`）· 账 `战斗界面_HUD:364`**
+        //  原版 `ChooseCardMenu.Setup(...)` 的 Replay 支 + `AutoProcessDone()` 协程。
+        //
+        //  🔴 **判据（第一权威 = 反编译方法体，2026-10-29 现读）**：
+        //   · `decomp_full/ChooseCardMenu__Setup.c:113-119`：`matchType == 0xA0(Replay)` 且
+        //     `_chooseCardUis != null` ⇒ `SelectCard(_chooseCardUis[target])`（**按下标**，
+        //     `target` = `Setup(…, int target = 0)` 的第 4 个形参）＋
+        //     `if (BattleManager.isReplayPlayActive == 0)` ⇒ `StartCoroutine(AutoProcessDone())`；
+        //   · `decomp_full/ChooseCardMenu._AutoProcessDone_d__21__MoveNext.c`：
+        //     `WaitForSeconds(2f)` → `ProcessChooseDone()`（**自己不选卡**，用的是已 `SelectCard` 好的那张）。
+        //   ⚠️ **ILSpy 版把下标印成了 `int index = default;`（丢常量）** ——
+        //     `out_il2csharp/Assembly-CSharp/ChooseCardMenu.cs:113-120` 才是 `this._chooseCardUis[target]`。
+        //   🔴 `isReplayPlayActive` 是**暂停**那个标志（`ClickPauseReplay` 置 1 / `ClickPlayReplay` 置 0，
+        //     `out_il2csharp/Assembly-CSharp/BattleManager.cs:5553/5560`）⇒ 我们的等价物 = `!_replayPaused`。
+        //
+        //  ⇒ 三件事：① 摆面板并按**记录的下标**预选 ② 只在「自动播放中」才自动收口 ③ 2 秒后收口、不选卡。
+        //  ⚠️ **批处理不摆**（`Application.isBatchMode`）：自检没有画面、也没有帧循环，
+        //     摆了只会让既有回放断言依赖一条纯表现的时序。真机那条路照做（这才是原版看得见的那一半）。
+        // ==========================================================================================
+
+        /// <summary>录制侧：当前这一处 ask 在 `_rec.asks` 里的下标（`-1` = 没有待回填的）。
+        /// ⚠️ `ShowAsk` 每摆一次就换一格；`OnChooseDone` 收答案时回填。</summary>
+        int _askRecIndex = -1;
+
+        /// <summary>录制侧：把这一处 ask 的「候选 + 标题卡」记进录像。
+        /// ⚠️ **只由 `ShowAsk` 在真的摆出候选之后调**（`hasOptions == true` 那一格）。
+        /// 候选必须**记摆出来的那一串**（⛔ 不能回放时重算 —— `choosecard` 的候选是随机抽的、吃 `ctx.Rng`）。</summary>
+        void RecordAskForReplay(EffectOp op)
+        {
+            _askRecIndex = -1;
+            if (_rec == null) return;            // 没在录像（含「正在放录像」那一趟 —— 它 `RecordReplays=false` ⇒ `_rec == null`）
+            if (Ctx == null) return;
+            var e = new ReplayAsk
+            {
+                action = _rec.actions.Count,     // = 下一条动作会拿到的下标（三个记账口都是 append）
+                verb = op != null ? (op.Verb ?? "") : "",
+                actingId = PendingCard != null ? PendingCard.Id : "",
+            };
+            if (_askCands != null && _askCands.Count > 0)
+            {
+                var ids = new string[_askCands.Count];
+                for (int i = 0; i < ids.Length; i++) ids[i] = _askCands[i] != null ? _askCands[i].Id : "";
+                e.candIds = ids;
+            }
+            else if (_chooseViews.Count > 0)
+            {
+                var txt = new string[_chooseViews.Count];
+                for (int i = 0; i < txt.Length; i++)
+                {
+                    var t = _chooseViews[i] != null ? _chooseViews[i].TitleText : null;
+                    txt[i] = t != null ? (t.text ?? "") : "";
+                }
+                e.candTexts = txt;
+            }
+            _rec.asks.Add(e);
+            _askRecIndex = _rec.asks.Count - 1;
+        }
+
+        /// <summary>录制侧：玩家点了第几张 ⇒ 回填进刚记的那一处 ask（`-1` = 没选就收了面板）。</summary>
+        void ReplayAskNotePicked(List<int> picks)
+        {
+            int at = _askRecIndex; _askRecIndex = -1;
+            if (_rec == null || at < 0 || at >= _rec.asks.Count) return;
+            var e = _rec.asks[at];
+            if (e != null) e.picked = (picks != null && picks.Count > 0) ? picks[0] : -1;
+        }
+
+        /// <summary>录制侧：誓约二选一那一格走自己的回填口（它不塞 `ChoosePicks`，见 `OnChooseDone` 的 oath 支）。</summary>
+        void ReplayAskNotePickedIndex(int idx)
+        {
+            int at = _askRecIndex; _askRecIndex = -1;
+            if (_rec == null || at < 0 || at >= _rec.asks.Count) return;
+            var e = _rec.asks[at];
+            if (e != null) e.picked = idx;
+        }
+
+        // ---- 回放侧 ------------------------------------------------------------------------------
+
+        /// <summary>这一趟回放要摆的那张 ask 表（`null` = 这份录像没记）。</summary>
+        List<ReplayAsk> _replayAsks;
+        /// <summary>已经摆到第几处（按 `asks` 表序推进）。</summary>
+        int _replayAskCursor;
+        /// <summary>面板现在是不是开着（开着时 `TickReplayPump` **不推下一条动作**）。</summary>
+        bool _replayAskOpen;
+        /// <summary>什么时候收口（`_clock` 口径 = 原版 `WaitForSeconds(2f)`）。</summary>
+        float _replayAskCloseAt;
+        /// <summary>回放面板的候选视图（与 `_chooseViews` **分开**：那一条是活局 ask 的，回放不碰它）。</summary>
+        readonly List<CardView> _replayAskViews = new List<CardView>();
+        int _replayAskShown, _replayAskSkipped;
+
+        /// <summary>原版 `new WaitForSeconds(2f)`（`ChooseCardMenu._AutoProcessDone_d__21__MoveNext.c:36`）。</summary>
+        const float ReplayAskHoldSeconds = 2.0f;
+
+        /// <summary>回放开局：把这一份录像的 ask 表挂上（`PlayReplay` 里紧跟 `_replayCursor = 0;` 那一句）。</summary>
+        void ReplayAskResetForReplay(ReplayRecord rec)
+        {
+            CloseReplayAskPanel();
+            _replayAsks = (rec != null && rec.asks != null && rec.asks.Count > 0) ? rec.asks : null;
+            _replayAskCursor = 0; _replayAskShown = 0; _replayAskSkipped = 0;
+            if (_replayAsks == null)
+                Debug.Log("[Replay] 这份录像**没有记选牌面板**（`asks` 空 —— 老档 / 录制端没接上）"
+                        + " ⇒ 回放里**不弹面板**（= 加这一格之前逐字相同；⛔ 这不是静默失败，是如实说明）");
+            else
+                Debug.Log($"[Replay] 这份录像记了 **{_replayAsks.Count} 处**选牌面板 ⇒ 回放会照原样摆出来、"
+                        + $"按记录的下标预选、{ReplayAskHoldSeconds:0.#} 秒后自动收口"
+                        + "（原版 `ChooseCardMenu.Setup` 的 Replay 支 + `AutoProcessDone`）");
+        }
+
+        /// <summary>`TickReplayPump` 在「推下一条动作之前」问它一次。
+        /// 返回 true = 这一帧**别推**（面板刚摆出来 / 还在这 2 秒里 / 刚收口）。
+        /// <para>🔴 原版那道闸 = `if (battleManager.isReplayPlayActive == 0)` 才起自动处理
+        /// （`ChooseCardMenu__Setup.c:118`）—— 暂停中**不自动收口**（面板就那么停着，与视频暂停一致）。</para></summary>
+        bool ReplayAskGateBeforePush()
+        {
+            if (_replayPaused) return false;                 // 原版：暂停 ⇒ 不起自动处理协程
+            if (_replayAskOpen)
+            {
+                if (_clock < _replayAskCloseAt) return true; // 还在这 2 秒里
+                CloseReplayAskPanel();                       // = 原版 `ProcessChooseDone()`：收面板、**不选卡**
+                return true;                                 // 这一帧先不推（下一帧再推）
+            }
+            if (Application.isBatchMode) return false;       // 批处理没有画面/帧循环 ⇒ 不摆（见本段头注）
+            return ShowReplayAskForAction(_replayCursor);
+        }
+
+        /// <summary>摆出「第 <paramref name="actionIndex"/> 条动作之前」那一处面板。
+        /// 返回 true = 摆出来了（调用方这一帧别推）。</summary>
+        bool ShowReplayAskForAction(int actionIndex)
+        {
+            while (_replayAsks != null && _replayAskCursor < _replayAsks.Count)
+            {
+                var e = _replayAsks[_replayAskCursor];
+                if (e == null) { _replayAskCursor++; continue; }
+                if (e.action < actionIndex)
+                {
+                    // 这一处**没等到**（上一次没摆成：面板缺失 / 候选全查不到）⇒ 如实报，跳过
+                    _replayAskSkipped++;
+                    Debug.LogWarning($"[Replay] 第 {e.action} 条动作那一处 `{e.verb}` 面板**没摆出来**"
+                                   + $"（游标已经推到第 {actionIndex} 条）⇒ 这一处跳过"
+                                   + "（不影响动作落地 —— 答案本来就在 `ctx.ChoosePicks` 里）");
+                    _replayAskCursor++; continue;
+                }
+                if (e.action > actionIndex) return false;    // 还没轮到
+                if (_choosePanel == null || Ctx == null)
+                {
+                    Debug.LogWarning("[Replay] 这一局没有选牌面板或没有引擎上下文（`_choosePanel == null` / `Ctx == null`）⇒ 这一处不摆");
+                    _replayAskCursor++; return false;
+                }
+                ClearReplayAskViews();
+                int n = 0;
+                if (e.candIds != null && e.candIds.Length > 0)
+                {
+                    for (int k = 0; k < e.candIds.Length; k++)
+                    {
+                        var c = CardDatabase.FindById(Ctx.CardPool, e.candIds[k]);
+                        if (c == null)
+                        {
+                            Debug.LogWarning($"[Replay] 选牌候选 `{e.candIds[k] ?? "<null>"}` 在卡池里查不到"
+                                           + " ⇒ 这一张不摆（其余照摆）");
+                            continue;
+                        }
+                        _replayAskViews.Add(CardView.Create(_choosePanel.transform, ToCardData(c, c.Faction),
+                                                            "ReplayChoose_" + c.Name));
+                    }
+                    n = _replayAskViews.Count;
+                }
+                else if (e.candTexts != null)
+                {
+                    for (int k = 0; k < e.candTexts.Length; k++)
+                        _replayAskViews.Add(MakeChoiceCard(e.candTexts[k] ?? "", null, "ReplayChooseOne_"));
+                    n = _replayAskViews.Count;
+                }
+                if (n == 0)
+                {
+                    Debug.LogWarning($"[Replay] 第 {e.action} 条那一处 `{e.verb}` 面板**一个候选都摆不出来** ⇒ 跳过");
+                    _replayAskCursor++; return false;
+                }
+                _choosePanel.OnDone = null;        // 回放不做输入：答案早就由 `NetApply.Apply` 排进 `ctx.ChoosePicks` 了
+                _choosePanel.Open(_replayAskViews, ChoosePanel.DefaultTitle,
+                                  string.IsNullOrEmpty(e.actingId) ? null : e.actingId);
+                // = 原版 `SelectCard(_chooseCardUis[target])` —— **按记录的下标**预选（⛔ 不是 0 号）
+                if (e.picked >= 0 && e.picked < n) _choosePanel.TogglePick(e.picked);
+                _replayAskOpen = true;
+                _replayAskCloseAt = _clock + ReplayAskHoldSeconds;
+                _replayAskShown++;
+                _replayAskCursor++;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>收掉回放选牌面板（= 原版 `ProcessChooseDone()` 的「收」那一半；**不选卡**）。
+        /// ⚠️ 幂等：面板没开也安全。</summary>
+        void CloseReplayAskPanel()
+        {
+            _replayAskOpen = false;
+            if (_choosePanel != null)
+            {
+                _choosePanel.OnDone = null;
+                if (_choosePanel.Visible) _choosePanel.Close();
+            }
+            ClearReplayAskViews();
+        }
+
+        void ClearReplayAskViews()
+        {
+            for (int i = 0; i < _replayAskViews.Count; i++)
+                if (_replayAskViews[i] != null) Kill(_replayAskViews[i].gameObject);
+            _replayAskViews.Clear();
+        }
+
+        /// <summary>回放侧：`ReplayRecord.vars` ⇒ 引擎那套参数。`null` = 这份录像没记（**出声**，⛔ 不静默退回）。
+        /// <para>⚠️ 它必须**在 `RuleCore.NewBattle` 之前**落到 `_vars` —— `deckSize` / `startingHand` /
+        /// `warlordLifeChange` / `shouldReshuffle` 这些格子在 `NewBattle` 那一趟就被读掉了，
+        /// 「开局之后再往 `Ctx.Vars` 里写」是**装不回来**的（R1 写的「`FromStart` 之后装回 `Ctx.Vars`」
+        /// 会晚一步；这里改走 `BeginFromPendingCore` 的 `varsOverride` 形参）。</para></summary>
+        GameplayVariables ReplayVarsForReplay(ReplayRecord rec)
+        {
+            if (rec == null) return null;
+            if (rec.vars == null)
+            {
+                Debug.LogWarning("[Replay] 这份录像**没有记规则参数**（`vars` 空 —— 老档 / 录制端没接上）"
+                               + " ⇒ 按开局包推出来的那一套跑（= 与加这一格之前逐字相同）。"
+                               + "⚠️ 若录制那一局用的是非默认参数（张数 / 起手 / 督军血 / 洗牌），"
+                               + "这里会演成另一局 —— 终局指纹会如实报出来");
+                return null;
+            }
+            Debug.Log($"[Replay] 按录像里记的**规则参数**装回（{ReplayVars.RestoredFieldCount}/"
+                    + $"{ReplayVars.TotalFieldCount} 格；`slotsPerSide` **跳过** —— 原版那个字段指半场、我们指每边）");
+            return rec.vars.ToVars();
+        }
+
+        // ---- 自检口（⛔ 生产路径一律走上面那几个方法）---------------------------------------------
+
+        /// <summary>自检口：回放里摆过几处选牌面板。</summary>
+        public int ReplayAskShownForTest { get { return _replayAskShown; } }
+        /// <summary>自检口：回放面板现在开着没有。</summary>
+        public bool ReplayAskPanelOpenForTest { get { return _replayAskOpen; } }
+        /// <summary>自检口：回放面板现在**预选的是第几张**（`-1` = 一张都没选 / 面板没开）。
+        /// 原版 `SelectCard(_chooseCardUis[target])` 的等价读数。</summary>
+        public int ReplayAskPickedForTest
+        {
+            get
+            {
+                if (_choosePanel == null || !_choosePanel.Visible) return -1;
+                var p = _choosePanel.Picked;
+                return (p != null && p.Count > 0) ? p[0] : -1;
+            }
+        }
+        /// <summary>自检口：把「这一帧该不该推下一条」那道闸走一遍（= `TickReplayPump` 里同一个实现）。</summary>
+        public bool ReplayAskGateForTest() { return ReplayAskGateBeforePush(); }
+        /// <summary>自检口：按第 <paramref name="actionIndex"/> 条动作摆一次面板（= `ReplayAskGateBeforePush`
+        /// 内部那同一个实现，只是**绕过批处理闸**，否则自检永远摆不出来）。</summary>
+        public bool ShowReplayAskForTest(int actionIndex) { return ShowReplayAskForAction(actionIndex); }
+        /// <summary>自检口：直接给回放用的 ask 表（写的是 `PlayReplay` 同一个字段，⛔ 不伪造第二份实现）。</summary>
+        public void SetReplayAsksForTest(List<ReplayAsk> asks)
+        {
+            CloseReplayAskPanel();
+            _replayAsks = asks;
+            _replayAskCursor = 0; _replayAskShown = 0; _replayAskSkipped = 0;
+        }
+        /// <summary>自检口：收掉回放面板（⛔ 生产只由 `ReplayAskGateBeforePush` / `FinishReplay` / `Begin` 调）。</summary>
+        public void CloseReplayAskForTest() { CloseReplayAskPanel(); }
+        /// <summary>自检口：当前这一趟回放的 ask 表里还有几处没摆。</summary>
+        public int ReplayAskRemainingForTest
+        {
+            get { return _replayAsks == null ? 0 : Mathf.Max(0, _replayAsks.Count - _replayAskCursor); }
+        }
+
+        // ==========================================================================================
+        //  🆕 **2026-10-29（执行代理 `B97_W18`）· 账 `特效动画:492`** —— `AnimInfo.tweenAnim(+0x80)` 的接线
+        //
+        //  🔴 **判据（第一权威 = 反编译方法体，2026-10-29 现读）**：
+        //   · `decomp_full/BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:85-108`（攻击路）与
+        //     `decomp_full/BattleManager._ResolveAnim_d__466__MoveNext.c:120-145`（通用动画路）：
+        //     `so = *(animInfo + 0x80)`；`so != null` ⇒ `seq = UnitTweenSO.BuildSequence(so, actor, target, 0, 0)`；
+        //     再 `if (*(char*)(so + 0x18) != 0) { WaitForCompletion(seq); 状态机推到下一态; return; }`
+        //     （`+0x18` = `waitAnimation`；**非 0 才挡后续步骤**，为 0 ⇒ fire-and-forget）。
+        //   · 🔴 **`unitsShake` 与这条补间是【并列】**：`_d__468:70` 的 `if (Count <= i) goto LAB_1809ac553`
+        //     那个标签**正落在补间段前面**，两段是**两个独立的 if**（同 `_d__466:108-125`）。
+        //     ⇒ ⛔ **别写** `if (UnitShakesOf(x).Length > 0) return;` 那种早退（`判据/B97_R3…` §2·3 的样例
+        //     代码第 3 行就是它，已于 2026-10-29 作废，见那份文件 §九·2）。
+        //   · 本 build **没有 `tweenWeaponAnim`**（`AnimInfo` 全类 20 字段只有 `tweenAnim(+0x80)`）⇒
+        //     `cardanim_clips.json` 的 `tww` = 那个 SO 的 `waitAnimation`，⛔ 不是武器补间（同上 §九·1）。
+        //   · 时刻：与同件 `shk` preset / `ush` 同一时刻 = 「这一件的起播时刻 **+ `startDelay`**」
+        //     （`ResolveAnimInfoRangeAttack` 进 state 1 那一刻）；沿用同族 `SchedulePieceUnitShakes` 的写法。
+        //   · 队尾：原版是「**先等完序列**，再 `WaitForSeconds(GetAnimDuration())`」= **相加**
+        //     ⇒ `waitAnimation==1` 时 `ExtendTimelineTail(_clock + at + dur + seqDuration)`。
+        //   · 卡体动画（`PlayOneUnitAnim` ②）：原版 state 2 之后才进 `ResolveAnimAnimationClip`
+        //     ⇒ `waitAnimation==1` 时 `ctl.DoAnim` **推迟 `seqDuration`** 再起（否则「卡体先动、补间后到」）。
+        // ==========================================================================================
+
+        /// <summary>建过 / 跳过 / 要等 的补间串数（自检盯它；与 `UnitTweenTable.BuiltCount` 分工不同：
+        /// 那个是**表**的计数，这个是**这一局真的排了几条**）。</summary>
+        public int UnitTweenPlayedForTest { get; private set; }
+        public int UnitTweenSkippedForTest { get; private set; }
+        public int UnitTweenHeldForTest { get; private set; }
+        /// <summary>自检：上一次建成的那一串的 `seq.Duration()`（秒；没建 = 0）。</summary>
+        public float LastUnitTweenDurationForTest { get; private set; }
+        /// <summary>自检：把上面四个计数清零。</summary>
+        public void ResetUnitTweenCountersForTest() { UnitTweenPlayedForTest = UnitTweenSkippedForTest = UnitTweenHeldForTest = 0; LastUnitTweenDurationForTest = 0f; }
+
+        static readonly HashSet<string> _warnedUnitTween = new HashSet<string>();
+
+        /// <summary>攻击路那一片 `AnimInfo`（`CardAnim` 名）的 `tweenAnim`。调用点 = `ScheduleAttackPresentation`
+        /// 的逐件 `for` 里、紧跟 `SchedulePieceUnitShakes(...)` 之后（**同一物理行**）。</summary>
+        void SchedulePieceUnitTween(string cardAnim, CardView actor, CardView target, float at)
+        {
+            var p = CardAnimClips.PlacementOf(cardAnim);
+            if (!p.HasValue) return;
+            // 攻击件现读**没有一条** `waitAnimation==1`（`tww==1` 的 12 行全在通用动画路）⇒ 这里返回值恒 0，
+            // 但照样接上：将来数据变了不用再改代码。
+            ScheduleUnitTween(p.Value.TweenAnim, actor, target,
+                              at + Mathf.Max(0f, p.Value.StartDelay), "attack:" + cardAnim);
+        }
+
+        /// <summary>建一串 `AnimInfo.tweenAnim` 并**按 `at` 排期**。返回「这一串要不要等」的时长
+        /// （`waitAnimation != 0` ⇒ `seq.Duration()`；否则 **0** —— 调用方只在非 0 时延队尾）。
+        /// <para>⚠️ 序列**当场建、先 `Pause()`**，到点再 `Play()`：`Duration()` 必须在**排期那一刻**就能读到
+        /// （队尾要用它），而 DOTween 的序列一建好就会开始走时间。</para></summary>
+        float ScheduleUnitTween(string tweenName, CardView actor, CardView target, float at, string why)
+        {
+            if (string.IsNullOrEmpty(tweenName)) return 0f;
+            var entry = UnitTweenTable.Get(tweenName);
+            if (entry == null)
+            {
+                UnitTweenSkippedForTest++;
+                if (_warnedUnitTween.Count < 16 && _warnedUnitTween.Add(tweenName))
+                    Debug.LogWarning($"[Battle] `tweenAnim` 指向的补间串 `{tweenName}` 在 `Resources/UnitTweens.json` 里**查不到**"
+                                   + $"（场景 `{why}`）⇒ 这一拍**不播补间**（其余演出照常）。"
+                                   + "跑一次 `python 工具/gen_unit_tweens.py`；表状态 = " + (UnitTweenTable.Loaded ? "已载入" : "⚠️ " + UnitTweenTable.LastError));
+                return 0f;
+            }
+            var seq = UnitTweenTable.Build(entry,
+                                           actor != null ? actor.transform : null,
+                                           target != null ? target.transform : null, why);
+            if (seq == null)
+            {
+                UnitTweenSkippedForTest++;
+                if (_warnedUnitTween.Count < 16 && _warnedUnitTween.Add("!" + tweenName))
+                    Debug.LogWarning($"[Battle] 补间串 `{tweenName}` 一条都没建出来（{UnitTweenTable.LastSkip}；场景 `{why}`）"
+                                   + " ⇒ 这一拍**不播补间**");
+                return 0f;
+            }
+
+            UnitTweenPlayedForTest++;
+            float dur = seq.Duration();
+            LastUnitTweenDurationForTest = dur;
+            if (at > VfxTimeEpsilon)
+            {
+                seq.Pause();                       // 建好即走时间 ⇒ 先按住，到点再放
+                ScheduleAction(at, () => { if (seq != null && seq.IsActive()) seq.Play(); });
+            }
+            bool wait = entry.wait != 0;
+            if (wait) UnitTweenHeldForTest++;
+            return wait ? dur : 0f;                // ⛔ `waitAnimation==0` 是 fire-and-forget（原版不进状态机）
+        }
+
+        /// <summary>`PlayOneUnitAnim` ② 的那一跳：`tweenHold > 0`（= 这一拍的补间要等）⇒ `ctl.DoAnim` **推迟**
+        /// `tweenHold` 秒再起（原版 state 2 之后才进 `ResolveAnimAnimationClip`）。
+        /// <para>⚠️ 推迟那一档**不参与** `UnitSkillAnimEmpty` 的计数（`DoAnim` 的返回值在延迟回调里拿不到
+        /// —— 那是诊断计数，不是行为；如实记在报告里）。</para></summary>
+        bool DoBodyAnimOrDefer(Card3DAnimationController ctl, CardAnimPlayback pb, float tweenHold)
+        {
+            if (ctl == null) return false;             // `pb` 是 struct（`CardAnimPlayback`）⇒ 没有 null 这一档
+            if (tweenHold > VfxTimeEpsilon)
+            {
+                ScheduleAction(tweenHold, () =>
+                {
+                    if (ctl == null) return;
+                    if (!ctl.DoAnim(pb, disableFlying: true, onAnimationEnd: null, safeResetOnEnd: false))
+                        UnitSkillAnimEmpty++;
+                });
+                return true;                       // 已排期 ⇒ 不当成「空动画」
+            }
+            return ctl.DoAnim(pb, disableFlying: true, onAnimationEnd: null, safeResetOnEnd: false);
+        }
+
+        /// <summary>自检口：直接按一条 `CardAnim` 名排一次补间（走生产同一条 `ScheduleUnitTween`）。
+        /// 返回「要不要等」的时长（0 = 不播 / 不等）。</summary>
+        public float ScheduleUnitTweenForTest(string cardAnim, CardView actor, CardView target, float at)
+        {
+            var p = CardAnimClips.PlacementOf(cardAnim);
+            if (!p.HasValue) return 0f;
+            return ScheduleUnitTween(p.Value.TweenAnim, actor, target, at + Mathf.Max(0f, p.Value.StartDelay), "test:" + cardAnim);
+        }
+        // ==================================================================
+        //  🔴 2026-10-29（执行代理 `B97_W43` · 账 `战斗逻辑驱动:804`）：
+        //  `CardScript.MinionPlayedIntoField` **state 3** 那件「召唤延迟动画」
+        //  （卡 SO `RawCardScript.summonAnimDelayed` = `rawCardData + 0xB0`）。
+        //
+        //  判据（第一权威 → `d:/2/tools/decomp_full/CardScript._MinionPlayedIntoField_d__314__MoveNext.c:186-250`，
+        //  逐句读；全文与「逐调用点实读表」写在 `Core/VfxMap.cs` 末尾 `SummonDelayed` 那一段，⛔ 别在两处各写一份口径）：
+        //    state 3 = `if (doTransformAnim) LandOnGround()` → 两道闸
+        //      （`shouldTriggerSummon == 0 ∨ HasCurrentTrait(5 ephemeral) ∨ HasCurrentTrait(0x4b0 ambush)` ⇒ 跳过）
+        //      → `Instantiate(prefab, card.transform.position, 静态 quaternion)`（**根实例化、不挂父件**）
+        //      → `WaitForSeconds(AttackStepTime = 0.1)` → state 4。
+        //    `shouldTriggerSummon` 逐调用点实读 ⇒ 我们只有 **`DeploySource.HandPlayed`** 这一档触发
+        //    （`AutoPlayFromHand` 是 `& 0xffffffffffffff00` ⇒ **false**；`Summon` / `Reanimate` 同样 false）。
+        //
+        //  **拍点 = 落地那一拍（与登场淡入同一拍）**，理由是 `Board/DeploySequence.cs` 已有的那段映射：
+        //    原版 state 0 `LandOnGround` ↔ 我们的 **0.4 handoff**（`OnDeployHandoff`）→ state 1 尾 `+0x154 = 0.05`
+        //    ↔ `HoldTime` → state 2 `UpdateMinionInPlayPosition(+0x150 = 0.2)` ↔ `LandTime`
+        //    ⇒ **state 3 入口 = 0.3+0.1+0.05+0.2 = 0.65 = 我们这条序列「落地」那一刻**
+        //    （`+0x154`/`+0x150` 的取值 = `CardScript.__ctor` 的 `0x3d4ccccd`/`0x3e4ccccd`，本代理实读）。
+        //    ⚠️ 与 `B97_W37` 报告 §4·2 的措辞（「排在落地拍**之后**」）**不冲突**：那是「在 `LandOnGround` 之后」，
+        //    而 `LandOnGround`（0.4）本来就在落地拍（0.65）之前。⛔ 别再另加一段固定间隔（那会是编出来的数值）。
+        //    ⚠️ 玩家那一路的 `Deploy` 事件在 `DoPlay`（0.75 s）才发 ⇒ 与淡入同为 0.75；两条路径**各自与自己的淡入同拍**，
+        //    相差 0.1 的那个尾巴属于既有的登场族口径（不在本条账内，⛔ 别在这里单独挪）。
+        //
+        //  全池可达面：**1 张**（`SOR33 Saint Celestine` ⇒ `Sororitas Saint Custom summon`）⇒
+        //    `VfxMap.ResolveSummonDelayed` 对其余卡恒 null，本办法在两道闸之前就返回。
+        // ==================================================================
+
+        /// <summary>原版 `DefinedTrait.ephemeral = 5` 的规范名。
+        /// ⚠️ `KeywordTable` 今天**没有**这个常量（只有别名表与卡面字面量写作 `"ephemeral"`，
+        /// `CardDef.cs` 的 `Implemented` / 别名表两处都是它）⇒ 在本类收一处，⛔ 别在各调用点散写。</summary>
+        const string EphemeralKeyword = "ephemeral";
+
+        /// <summary>state 3 的**两道闸**（纯判据；判据与逐调用点实读见本段头注释）。
+        /// <para>⚠️ 生产与自检**共用这一个口** —— 自检要能用「离盘的 `UnitState`」验闸 2，不必去动场上的真单位。</para>
+        /// <para><paramref name="u"/> 为 `null` ⇒ 闸 2 无法求值 ⇒ `false`（原版那时也摆不到「卡的位置」上）。</para></summary>
+        public static bool SummonAnimGate(DeploySource deployFrom, UnitState u)
+        {
+            // 第 1 道闸 = `shouldTriggerSummon`。⛔ 不要放宽成「所有 Deploy」、也不要收 `AutoPlayFromHand`
+            //   （那一档在原版第 6 个实参是 `& 0xffffffffffffff00` ⇒ false，实读见本段头注释）。
+            if (deployFrom != DeploySource.HandPlayed) return false;
+            if (u == null) return false;
+            // 第 2 道闸 = 原版那两句 `HasCurrentTrait`（读的是**运行时当前值**，含加/减益与光环）⇒ `UnitState.Has`。
+            if (u.Has(EphemeralKeyword)) return false;
+            if (u.Has(KeywordTable.Ambush)) return false;
+            return true;
+        }
+
+        /// <summary>把 <see cref="SummonAnimGate"/> 接到盘面上：取出这一拍落格的那个单位（取不到 ⇒ `false`）。</summary>
+        bool ShouldTriggerSummonAnim(BattleEvent e, out UnitState u)
+        {
+            u = null;
+            if (e == null || Ctx == null) return false;
+            if (e.DeployFrom != DeploySource.HandPlayed) return false;
+            if (e.Player < 0 || e.Player >= Ctx.Players.Length) return false;
+            var ps = Ctx.Players[e.Player];
+            if (ps == null || !BoardSpec.IsValid(e.Slot)) return false;
+            u = ps.Board[e.Slot];
+            return SummonAnimGate(e.DeployFrom, u);
+        }
+
+        /// <summary>播 state 3 那件「召唤延迟动画」（判据、拍点与可达面见本段头注释）。不是这件东西的卡 ⇒ 无事发生。</summary>
+        void PlaySummonDelayedVfx(BattleEvent e)
+        {
+            UnitState u;
+            if (!ShouldTriggerSummonAnim(e, out u)) return;
+            string faction = VfxFactionOf(e.Player, e.CardId, e.InstanceId, e.Slot);
+            string name = VfxMap.ResolveSummonDelayed(faction, e.CardId);
+            if (string.IsNullOrEmpty(name)) return;
+            var layout = e.Player == _me ? playerBoard : enemyBoard;
+            if (layout == null) return;
+            Vector3 hud = layout.DropTargetWorld(e.Slot);
+            Vector3 arena;
+            bool haveArena = TryArenaCardWorld(e.Player, e.Slot, out arena);
+            // 原版那一句是**根实例化**（`Instantiate(prefab, card.transform.position, 静态 quaternion)`，
+            //   ⛔ 不挂父件、不吃卡的缩放）⇒ 与「根特效要进竞技场空间」同一个现成口（`FireRootInArenaSpace`）。
+            //   AnimFX 模块读的是「特效创建那一刻」的 `_animfxCtx` ⇒ 与登场那一族同口径地补上、播完还原。
+            var sCtx = _animfxCtx;
+            var sEvt = _animfxLastEvent;
+            _animfxLastEvent = e;
+            _animfxCtx = BuildCardContext(e);
+            try { FireRootInArenaSpace(name, hud, haveArena ? arena : hud); }
+            finally { _animfxCtx = sCtx; _animfxLastEvent = sEvt; }
+        }
     }
 }

@@ -35,7 +35,8 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
                                           "mvt":0,"mvd":0,"mva":0,"mvvis":0,"mvxz":0,"mvy":0,
                                           "mvcx":[…],"mvcy":[…],"mvcz":[…],"mox":0,"moy":0,"moz":0,
                                           "shk":"Shake Hit Medium","shkd":0,"shka":0,"shkf":0,
-                                          "shkoa":0,"shkof":0}, … ] }
+                                          "shkoa":0,"shkof":0,
+                                          "tw":"Recoil Normal Tween","tww":0}, … ] }
   🆕 2026-10-23（`新账-83`）：`otv` 每行都有；`ease` 只写 `mv==1` 的行；
   `ao/ont/ofx/ofy/ofz/mn*/mx*` 只写 `ao==1` 的行（其余行缺省 = 0 / 空）—— 与
   `Resources/card_anim_order.json` 的 `CardAnimBeat` 同一套短名与同一份曲线格式。
@@ -44,6 +45,11 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
   **`minionAnimationClipInfo` → `mac*`（2 行，`enable` 全 0 / clip 全 null）**。两族原来**一整片零数据**；
   `unitsShake` 那一路的运行期消费口（`CardFeel.ResolveUnitShake`）早就在、一直是 0 调用点。
   判据与本列语义见 `_unit_shake_block` / `_minion_clip_block` 的 doc。
+  🆕 2026-10-29（执行代理 `B97_W20`）：**`tweenAnim`(`+0x80`) → `tw`（`UnitTweenSO` 名）+
+  `tww`（`waitAnimation` 0/1）**，现读 **244 行 / 23 个 SO / `tww==1` 13 行**。
+  名字走 AssetRipper 导出（`assets_full` 那份只有 PPtr）—— ⚠️ **真名取 `.asset` 的 `m_Name`、⛔ 不取文件名**
+  （AssetRipper 把逗号洗成 `_`）。判据与**两处现读纠错**（本 build **没有** `tweenWeaponAnim`；
+  `unitsShake` 与 `tweenAnim` 是**并列**、**不是** if/else）见 `_tween_block` 的 doc。
 
 🆕 2026-10-25（执行代理 `TL` · 消费端 `AU1` 已接、只差数据列）：**两族的「运行期投影」列名**
 --------------------------------------------------------------------------
@@ -97,6 +103,7 @@ import glob
 import io
 import json
 import os
+import re
 import sys
 
 # 🆕 2026-10-24（`W2`）：生成期发现的**非致命**问题（解不出 preset 名 / preset 不在数值表里 …）
@@ -119,6 +126,21 @@ SHAKE_IDX_DIR = r"d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour"
 SHAKE_SCRIPT_PID = 3633289390197731284
 # 运行期屏震数值表（`工具/gen_shake_presets.py` 的产物）—— 只用来**交叉校验**解析出的名字在不在里面
 SHAKE_PRESETS_JSON = r"d:/4/Unity/MyGame/Assets/Resources/WarpforgeVFX/shake_presets.json"
+
+# 🔴 2026-10-29（执行代理 `B97_W20` · 账 `特效动画:492`）：`AnimInfo.tweenAnim`(`+0x80`) 的两列。
+#   `assets_full` 那份 JSON **没有外部引用表** ⇒ 只有 `{m_FileID: 2, m_PathID: …}`，解不出名字；
+#   而 AssetRipper 的导出工程里**同一个组件已经解成了 guid**：
+#       <CardAnim>.asset  →  `tweenAnim: {fileID: 11400000, guid: fcf48dcf…, type: 2}`
+#   ⚠️ **名字取自 `.asset` YAML 的 `m_Name`，⛔ 不是文件名** —— AssetRipper 建文件名时把逗号洗成了 `_`
+#      （实测 `Recoil Normal 0_2s Tween.asset` 的 `m_Name` 是 `Recoil Normal 0,2s Tween`），
+#      拿文件名去查 `UnitTweens.json` 会 **0 命中**（那 8 个带逗号的名字全中招）。
+TWEEN_EXPORT_DIR = r"d:/2/tools/assetripper_out/ExportedProject/Assets"
+# 运行期那张 `UnitTweenTable` 读的表（74 条）—— **本脚本只用它做两道交叉校验**
+#   ① 解出来的 `tw` 名字**必须在里面**（否则运行期 `UnitTweenTable.Get` 返回 null ⇒ 这一拍静默不播）
+#   ② `tww` 必须与它的 `wait` 一致（两处不一致 ⇒ 出声）
+UNIT_TWEENS_JSON = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/UnitTweens.json"
+# `UnitTweenSO` 的原始导出（74 份，`m_Name` / `waitAnimation`）—— `tww` 的**第一权威**
+TWEEN_DATA_DIR = r"d:/4/Unity/数据/游戏数据/tween"
 
 
 def _curve_flat(curve):
@@ -454,6 +476,177 @@ def _minion_clip_block(ai):
     return out
 
 
+# ── 🆕 2026-10-29（执行代理 `B97_W20` · 账 `特效动画:492`）：`AnimInfo.tweenAnim` 两列 ──────────
+_RE_META_GUID = None
+_ASSET_META_IDX = None       # guid → 导出工程里 `<净名>`（AssetRipper 洗过的文件名）
+_ASSET_NAME_CACHE = {}       # guid → 真名（`.asset` YAML 的 `m_Name`）
+_TWEEN_NAME_CACHE = {}       # CardAnim 名 → 真名 / None（已出声）
+_UT_NAMES = None             # `UnitTweens.json` 的名字集合（None = 没查）
+_UT_WAITS = None             # 名字 → `wait`
+_TWEEN_WAITS = {}            # 名字 → `waitAnimation`（原始导出）；None = 没查
+
+
+def _asset_meta_index():
+    """`guid → 导出工程里 `.asset` 的文件名（**净名**）`。
+
+    AssetRipper 的 `<名>.asset.meta` 里就是这份资产的 guid。目录是**平铺**的
+    （现读 7,308 份 `.asset`），扫一遍 ~0.3 s，逐次构建只做一次。
+    ⚠️ **净名 ≠ 资产真名**：AssetRipper 建文件名时把逗号等字符洗成 `_`
+    （`Recoil Normal 0,2s Tween` → `Recoil Normal 0_2s Tween`）。真名一律去读 `.asset` 的 `m_Name`。
+    目录不在 ⇒ 回空字典并出声（⛔ 不静默猜名字）。
+    """
+    global _ASSET_META_IDX, _RE_META_GUID
+    if _ASSET_META_IDX is not None:
+        return _ASSET_META_IDX
+    if _RE_META_GUID is None:
+        _RE_META_GUID = re.compile(r"^guid:\s*([0-9a-fA-F]+)", re.M)
+    out = {}
+    if not os.path.isdir(TWEEN_EXPORT_DIR):
+        print("   ⚠️ AssetRipper 导出目录不在：%s ⇒ `tw`/`tww` **一列都不会写**" % TWEEN_EXPORT_DIR)
+        _ASSET_META_IDX = out
+        return out
+    for mp in glob.glob(os.path.join(TWEEN_EXPORT_DIR, "*.asset.meta")):
+        b = io.open(mp, "rb").read().decode("utf-8", "replace")
+        m = _RE_META_GUID.search(b)
+        if m:
+            out[m.group(1)] = os.path.basename(mp)[:-len(".asset.meta")]
+    _ASSET_META_IDX = out
+    return out
+
+
+def _unit_tween_names():
+    """`UnitTweens.json` 里的名字集合（= 运行期 `UnitTweenTable.Get` 认的那一批）；读不到 ⇒ `None`。"""
+    global _UT_NAMES, _UT_WAITS
+    if _UT_NAMES is not None:
+        return _UT_NAMES or None
+    try:
+        d = json.load(io.open(UNIT_TWEENS_JSON, encoding="utf-8"))
+        items = d.get("items") or []
+        _UT_NAMES = set(i.get("name") for i in items if i.get("name"))
+        _UT_WAITS = {i.get("name"): int(i.get("wait") or 0) for i in items if i.get("name")}
+    except Exception as e:                              # noqa: BLE001
+        print("   ⚠️ `%s` 读不了（%s）⇒ `tw` 的「名字必须在表里」这道校验**没做**"
+              % (os.path.basename(UNIT_TWEENS_JSON), e))
+        _UT_NAMES = set()
+        _UT_WAITS = {}
+    return _UT_NAMES or None
+
+
+def _tween_wait(name):
+    """`UnitTweenSO.waitAnimation`（原始导出 `数据/游戏数据/tween/<名>.json`）；读不到 ⇒ `None`。"""
+    if name in _TWEEN_WAITS:
+        return _TWEEN_WAITS[name]
+    p = os.path.join(TWEEN_DATA_DIR, name + ".json")
+    v = None
+    if os.path.exists(p):
+        try:
+            j = json.load(io.open(p, encoding="utf-8", errors="replace"))
+            v = int(j.get("waitAnimation") or 0)
+        except Exception as e:                          # noqa: BLE001
+            PROBLEMS.append("补间：`%s` 的原始导出读不了（%s）⇒ `tww` 不写" % (p, e))
+    _TWEEN_WAITS[name] = v
+    return v
+
+
+def _tween_so_name(guid, ca):
+    """`tweenAnim` 的 guid → `UnitTweenSO` 的**真名**（`.asset` YAML 的 `m_Name`）。解不出 ⇒ `None` + 出声。"""
+    if guid in _ASSET_NAME_CACHE:
+        return _ASSET_NAME_CACHE[guid]
+    idx = _asset_meta_index()
+    base = idx.get(guid)
+    nm = None
+    if base:
+        ap = os.path.join(TWEEN_EXPORT_DIR, base + ".asset")
+        if os.path.exists(ap):
+            b = io.open(ap, "rb").read().decode("utf-8", "replace")
+            m = re.search(r"^  m_Name: (.*)$", b, re.M)
+            if m:
+                nm = m.group(1).strip()
+    if not nm:
+        PROBLEMS.append("补间：CardAnim `%s` 的 `tweenAnim` guid `%s` **在 AssetRipper 导出里解不出资产名**"
+                        "（索引 = `%s` 的 `*.asset.meta`）⇒ `tw` 不写，⛔ 不猜" % (ca, guid, TWEEN_EXPORT_DIR))
+        _ASSET_NAME_CACHE[guid] = None
+        return None
+    names = _unit_tween_names()
+    if names is not None and nm not in names:
+        # 名字解出来了但不是 `UnitTweens.json` 认的那个 —— 两种可能：解错了资产 / 表里缺。
+        # 后者会让运行期 `UnitTweenTable.Get` 回 null（静默不播）⇒ 一律出声。
+        PROBLEMS.append("补间：CardAnim `%s` 解出的补间名 `%s` **不在** `%s` 里"
+                        "（运行期 `UnitTweenTable.Get` 会回 null ⇒ 这一拍静默不播）" % (ca, nm, os.path.basename(UNIT_TWEENS_JSON)))
+    _ASSET_NAME_CACHE[guid] = nm
+    return nm
+
+
+def _tween_block(ca, ai):
+    """`animInfo.tweenAnim`(`+0x80`) → `{"tw": <UnitTweenSO 名>, "tww": <waitAnimation 0/1>}`。
+
+    判据（🥇 二进制）：`dump.cs:25243`（`public UnitTweenSO tweenAnim; // 0x80`，**全类只有这一个补间字段**）
+    · 消费点 `BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:85-108`（攻击路）与
+      `BattleManager._ResolveAnim_d__466__MoveNext.c:108-137`（通用动画路，**逐句同形**）：
+      `AnimInfo+0x80 != null` ⇒ `UnitTweenSO.BuildSequence(src, tgt, null)`；随后
+      **`if (UnitTweenSO+0x18 != 0)`（= `waitAnimation`）⇒ `WaitForCompletion(seq)` 并把状态机推到下一态**
+      （`+0x18` = `waitAnimation` 的判据：`UnitTweenSO` 字段布局 `waitAnimation 0x18`，见 `判据/B97_R3_特效4条施工单.md` §2·1）。
+      `waitAnimation == 0` ⇒ **fire-and-forget**，不挡后续步骤（我们 `UnitTweenRuntime.Invoke` 的
+      `if (e.wait == 0) return false;` 是同一条口径）。
+
+    🔴 **2026-10-29 现读纠两处（本列落地时发现的，判据以二进制为准）**：
+      ① **这个 build 里没有 `tweenWeaponAnim`** —— `dump.cs` 的 `AnimInfo` 全类 20 个字段里只有
+         `tweenAnim`（`0x80`）；`decomp_full/` 与 `assets_full` 的 1,152 份 animInfo JSON **全库 0 命中**。
+         ⇒ ⛔ 别按「`tweenWeaponAnim` 备用支」去写第二列「另一个补间名」。
+      ② **`unitsShake` 与 `tweenAnim` 是【并列】的，不是 if/else**：
+         `_d__468:62-84` 的 `while` 只有在「条目走完（`Count <= i`）」时才 `goto LAB_1809ac553`，
+         而那个标签**正落在补间段前面** ⇒ 先逐条 `ResolveUnitShake`，**随后照样**播 `tweenAnim`。
+         循环后那句 `goto LAB_1809ac6ac` 只有「卡脚本中途变 null」才走得到。
+         ⇒ 现读 244 行「有补间」里有 **139 行同时有 `unitsShake`** —— 那 139 行**两样都要播**。
+         ⚠️ 这条推翻了 `判据/B97_R3_特效4条施工单.md` §2·3 的「if/else，139 行不播 tween」——
+         本脚本只出数据、不替运行期下结论；运行期怎么接见报告。
+
+    ⛔ **只在 `tweenAnim` 非空时写**（其余行缺省 = 没有这一族）。`tww` 与 `tw` **同写同不写**
+    （0 也写，好让「这一拍要不要等」在数据里自解释；缺键与 0 语义相同）。
+    """
+    ta = (ai.get("tweenAnim") or {})
+    pid = ta.get("m_PathID") or 0
+    if not pid:
+        return {}
+    # `assets_full` 只有 PPtr ⇒ 名字必须从 AssetRipper 导出的**同一个组件**里取 guid
+    ap = os.path.join(TWEEN_EXPORT_DIR, ca + ".asset")
+    if not os.path.exists(ap):
+        PROBLEMS.append("补间：CardAnim `%s` 在 AssetRipper 导出里**没有 `.asset`**（`%s`）⇒ `tw` 不写"
+                        "（判据缺口，⛔ 不猜）" % (ca, ap))
+        return {}
+    b = io.open(ap, "rb").read().decode("utf-8", "replace")
+    m = re.search(r"tweenAnim:\s*\{fileID:\s*(-?\d+),\s*guid:\s*([0-9a-fA-F]*)\s*", b)
+    if not m:
+        PROBLEMS.append("补间：CardAnim `%s` 的 `.asset` 里**找不到 `tweenAnim:` 行**"
+                        "（而 `assets_full` 那份有非 0 pathID = %s）⇒ `tw` 不写" % (ca, pid))
+        return {}
+    fid = int(m.group(1))
+    guid = m.group(2)
+    if fid == 0 or not guid or guid == "0" * 32:
+        PROBLEMS.append("补间：CardAnim `%s` 的 `tweenAnim` 在导出里是**空引用**"
+                        "（fileID=%s guid=%s），而 `assets_full` 那份 pathID = %s ⇒ `tw` 不写"
+                        % (ca, fid, guid, pid))
+        return {}
+    nm = _tween_so_name(guid, ca)
+    if not nm:
+        return {}
+    out = {"tw": nm}
+    w = _tween_wait(nm)
+    if w is None:
+        # 原始导出缺这一份 ⇒ `tww` 不写（缺键 = 0，与「不需要等」同义）；⛔ 不拿 UnitTweens 的值顶
+        # —— 两处不一致时以原始导出为准，缺了就缺了，出声。
+        PROBLEMS.append("补间：`%s` 在 `%s` 里**没有对应的 json** ⇒ `tww` 不写"
+                        % (nm, os.path.basename(TWEEN_DATA_DIR)))
+        return out
+    ut = _UT_WAITS or {}
+    if nm in ut and ut[nm] != w:
+        PROBLEMS.append("补间：`%s` 的 `waitAnimation` 两处不一致（原始导出 %d / `%s` 里 %d）"
+                        "⇒ 按原始导出写 `tww=%d`，但**运行期 `UnitTweenTable` 会按 %d 走**，要有人核"
+                        % (nm, w, os.path.basename(UNIT_TWEENS_JSON), ut[nm], w, ut[nm]))
+    out["tww"] = w
+    return out
+
+
 def build():
     am = json.load(io.open(ADDR_MAP, encoding="utf-8"))
     c2a = am["cardanim_to_asset"]
@@ -551,6 +744,14 @@ def build():
         macb = _minion_clip_block(ai)
         if macb:
             row.update(macb)
+        # ── 🆕 2026-10-29（执行代理 `B97_W20` · 账 `特效动画:492`）：`AnimInfo.tweenAnim`(`+0x80`) ──
+        #   ⑥ `tw`  = 该 CardAnim 的 `tweenAnim` 指向的 **`UnitTweenSO` 资产名**（现读 **244 行** / 23 个 SO）；
+        #      `tww` = 那个 SO 的 **`waitAnimation`**（`+0x18`；现读 `wait==1` 的 **13 行**）。
+        #   判据 + 两处现读纠错（本 build 无 `tweenWeaponAnim` · `unitsShake` 与它是**并列**不是 if/else）
+        #   见 `_tween_block` 的 docstring。
+        twb = _tween_block(ca, ai)
+        if twb:
+            row.update(twb)
         # 🔴 键 = **CardAnim 名**（`a`）。同一 prefab 名可以有多张 CardAnim、参数不同 ⇒ 各存各的。
         if ca in rows:                       # 理论上 c2a 的键唯一（现读 1,099/1,099）
             conflicts.append((ca, rows[ca]["n"], n))
@@ -616,6 +817,14 @@ def main():
           "`t==0` 原版解不出目标 ⇒ 空转）" % (len(_ush), _ush_n, _ush_eff))
     print("🆕 minionAnimationClip (`mac*`): %d 行（`macEn==1` **%d 行**；`clip` 非 null 的 **%d 条**）"
           % (len(_mac), _mac_on, _mac_clip))
+    # 🆕 2026-10-29（`B97_W20`）：`tweenAnim` 两列
+    _tw = [r for r in out["rows"] if r.get("tw")]
+    _tw_wait = [r for r in _tw if r.get("tww")]
+    _tw_ush = [r for r in _tw if r.get("ush")]
+    _tw_so = sorted(set(r["tw"] for r in _tw))
+    print("🆕 tweenAnim (`tw`)        : %d 行 / %d 个 UnitTweenSO；其中 `ush` 非空的 **%d 行**"
+          "（⚠️ 原版两者**并列**、不是 if/else ⇒ 这 %d 行两样都要播）；`tww==1` **%d 行**"
+          % (len(_tw), len(_tw_so), len(_tw_ush), len(_tw_ush), len(_tw_wait)))
     if _PRESET_IDX_RENAMED:
         print("   ⚠️ 索引里 `m_Name` 与文件名不一致（已按 `m_Name`）：%s" % _PRESET_IDX_RENAMED[:5])
     if _PRESET_IDX_BAD:

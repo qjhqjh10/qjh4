@@ -65,6 +65,7 @@ namespace CardPresentation.Net
         /// <summary>督军阵营 —— ⚠️ `PlayerDeck` **自己不带阵营字段**，而主机要用它定战场（`ArenaByArmy`）
         /// ⇒ 由**交牌那一方**报上来（它本来就查得到），别让主机去猜。</summary>
         public string faction;
+        public int draftPropsVer, draftC1, draftC4, draftC5;   // 🆕 2026-10-29（步骤 4）**发送方自己**的房属性；ver 0 = 没带 —— 判据见文件尾「步骤 4」那一节
     }
     [Serializable] public class MsgStart
     {
@@ -80,6 +81,7 @@ namespace CardPresentation.Net
         /// ⛔ 原文这里写「客机那边 `firstSeat = 1 - hostFirst`」—— 那是**镜像时代**的话，已作废（§5·3）。</summary>
         public int hostFirst;
         public string hostFaction, clientFaction;
+        public int draftPropsVer, draftC1, draftC4, draftC5;   // 🆕 2026-10-29（步骤 4）**主机自己**的房属性；ver 0 = 没带 —— 判据见文件尾「步骤 4」那一节
     }
     /// <summary>一条动作。字段是 <see cref="AiAction"/> 的**镜像**。
     /// 🔴 **2026-09-26 订正本篇注释**：原文写「`HandInst` 换成 `handId` ⇒ 引用哪一份牌**只能**用它、
@@ -799,4 +801,37 @@ namespace CardPresentation.Net
             }
         }
     }
+
+    // ==================================================================
+    //  🆕 2026-10-29（执行代理 `B97_W39` · 施工单 `B97_R6` §2·5 步骤 4）—— **房属性 C1/C4/C5 过网**
+    //
+    //  判据（⛔ 别在这儿抄第二份）→ `资料/完全复刻/判据/B97_R6_轮抽P2P房施工单.md` §1·1 / §1·2 / §2·5。
+    //  原版那一格 = `DraftEventBase_object__object_.SetCustomMatchOptions__1813cb0.c`：把
+    //  `won` / `currentELO`（新手档可能已清 0）/ `LossStreak` 写进
+    //  `RoomOptions.CustomRoomProperties["C1"]/["C4"]/["C5"]`，并把 lobby 键表置成 `C1..C5`。
+    //
+    //  【消息上的三个 int + 一个 ver】
+    //    · `MsgDeck.draftC1/C4/C5`  = **客机自己**那三个（客机→主机）；
+    //    · `MsgStart.draftC1/C4/C5` = **主机自己**那三个（主机→客机）；
+    //    · `draftPropsVer` 0 = **没带**（老端报文 / 本机没设）· 1 = 三格有效。
+    //
+    //  🔴 **为什么必须有 `draftPropsVer` 这一格**：`JsonUtility` 把**缺字段**一律填 0 ⇒
+    //     「对面没带」与「对面带了、恰好 0/0/0」在线上**完全同形**。红线是「缺键 ⇒ **出声 + 默认**、
+    //     ⛔ 不许静默当 0」（简报硬约束）⇒ 必须有一个**可判别**的在场标记；老报文里它本身也不存在，
+    //     读出来就是 0 = 没带，正好是我们要的语义。
+    //     ⚠️ 这与「不 +`NetProtocol.Version`」不冲突：我们只**新增字段**、没改任何既有字段的形状或语义
+    //     （同族先例 = `MsgChat` / `MsgDesync` / `MsgModeMismatch`，理由写在那几条的注释里）。
+    //     旧端收到新字段直接忽略；新端收到旧报文走 `NetMatchmaking.AbsorbFoeDraftRoomProps` 的
+    //     `ver == 0` 那一支（出声 + 三格按默认 0 记账）。
+    //
+    //  🔴🔴 **这三格绝不能进 `Fingerprint` / `StateHash`**：C1/C4/C5 是**每人自己的**值
+    //     （各人胜场 / 各人 ELO / 各人连败）⇒ 两端**天然不同**，进指纹必然分叉，而且会以
+    //     「打到一半 desync」的形式现形（`Fingerprint` 的注释记着镜像时代的同类教训）。
+    //     它们今天**只进日志**；读口只有 `NetMatchmaking.MyDraftRoomProps/FoeDraftRoomProps`。
+    //     施工单 §3·1 第 9 行原话：「房属性 ⛔ 不能进指纹（每人不同）；只读不判」。
+    //
+    //  ⚠️ **消费方如实记 = 无功能消费方**：原版那三个键的唯一用途是 Photon SqlLobby 的过滤串
+    //     （`GetMatchmakingFilter` 拼 `C1 < max AND C1 > min`）；我们是**单对单直连、没有匹配池**
+    //     ⇒ 过网之后只 `Debug.Log` 一行。与 `Shell/FastModeBaseEvent.cs` 那句
+    //     「这些键写进对象也没有消费方（算对了、用不上）」同一口径，⛔ 不发明一个假消费者。
 }

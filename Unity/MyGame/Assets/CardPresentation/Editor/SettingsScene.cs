@@ -5501,7 +5501,7 @@ public static class SettingsScene
             // 断言本体在 `Editor/B94W2_Assert.cs`（本宿主是它唯一的调用方）。
             // 🔴 必须在**关窗之前**跑：那一段要在**开着**的窗上点下拉（它自己会 `OpenTab(Graphics)`，
             //    并在 `finally` 里把档位 / 脏位 / 行集逐值放回）。
-            B94W2Assert.Run(_sink, win);
+            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化
 
             // 关窗
             Click(FindChild(Area(root), "Generic Close Button"), "Hit");

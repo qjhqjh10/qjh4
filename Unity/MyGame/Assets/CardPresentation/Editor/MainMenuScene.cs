@@ -7425,7 +7425,7 @@ public static class MainMenuScene
                         //   `alignLeft`），所以中心 = 矩形中心，`CheckAtWorld` 直接可比。
                         CheckAtWorld(FindChild(pdN, "text"), 943.70f, 1035.92f, 586.77f, 638.24f,
                                      "`Price Display > text` 的矩形 = 原版 **943.70,586.77→1035.92,638.24**"
-                                     + "（HLG 净位移 +5.15 = `51.47 × (1.2−1) ÷ 2`；旧值 938.55 是丢了这个半格的读数）");
+                                     + "（HLG 净位移 +5.15 = `51.47 × (1.2−1) ÷ 2`；旧值 938.55 是丢了这个半格的读数）"); B97W27Assert.Run(pf); _sink.Pass += B97W27Assert.Pass; _sink.Fail += B97W27Assert.Fail;   // 🆕 2026-10-29（调度台授权代接线 · `B97_W27`）：`Profile Tab` 改名窗**不该**有 `Login Window` 分支（我们建的是原版 `ChangeNameWindow` 变体）+ 设置窗那颗 `Cog` 的 −20°/s 回归。⚠️ 只能接在这里：本文件其它聚合行（`:8656` 一带）**没有 `pf`**（⇒ `CS0103`，调度台已踩过）；`pf` 在本块 `:7234` 声明、这里是本块的末尾。同一行追加 ⇒ 行数零变化
 
                         // ⑥ 交互：改名那条四跳链的终点（判据 ③）
                         if (tab != null)
@@ -8653,7 +8653,7 @@ public static class MainMenuScene
         ProfileAssertU2b.Run();
         _sink.Pass += ProfileAssertU2b.Pass; _sink.Fail += ProfileAssertU2b.Fail;
         ProfileDataAssertE13.Run();
-        _sink.Pass += ProfileDataAssertE13.Pass; _sink.Fail += ProfileDataAssertE13.Fail;
+        _sink.Pass += ProfileDataAssertE13.Pass; _sink.Fail += ProfileDataAssertE13.Fail; B97W13Assert.Run(); _sink.Pass += B97W13Assert.Pass; _sink.Fail += B97W13Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W13`）：账 `未分类_其他:295` 排位页 Top4 `FactionScore` 接线 + `FactionOfSprite` 反查；同一行追加 ⇒ 行数零变化（该文件账落点远在 :17410 之后，插行会漂）
 
         // 🆕 2026-10-28（执行代理 `B93_D2`）：日常/奖励线第 5 批 —— 活动/通行证窗口那 33 条里「代码侧能断」的全部
         //   （Raid 页头/页签/进度条位移 · 主菜单活动入口小进度条 · ExpansionPass 两页签 · 活动资产→Image 两条接线 ·

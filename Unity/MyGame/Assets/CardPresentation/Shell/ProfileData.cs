@@ -663,7 +663,7 @@ namespace CardPresentation
                     // `Ach_1` = `enemyType=10`（**督军**）+ 不过滤类/型 ⇒ 用结算那一刻的督军伤害。
                     if (string.Equals(a.Id, "Ach_1", StringComparison.Ordinal)) return damageToEnemyWarlord;
                     if (f == null) return 0;
-                    return tally.DamageOf(me, DamageKindOf(f));
+                    return tally.DamageRawOf(me, DamageKindOf(f));   // 🔴 2026-10-29（执行代理 `B97_W12` · 账 `战斗逻辑驱动:1004`）：原版 `DamageDeltToEnemyUnit__OnDamageDelt.c:81` 记的是 `DamageInfo.damageValue(+0x18)` = **扣甲前**（absorbed 也计），我们原来读的是**扣甲后**的 `DamageOf`（`DamageByKind`）⇒ 换成 raw 那一格（`AchievementTally.DamageByKindRaw`，写点 `RuleCore.ApplyDamageCore:8485`）。🔴 两个格子是**二选一**：本分支里只许出现 `DamageRawOf`（同时读会双计）。
 
                 // ---- 能力触发（`TriggerAbility`）：按 `triggerAbility` 数值取次数 ----
                 case "TriggerAbility":
@@ -1330,7 +1330,7 @@ namespace CardPresentation
 
         /// <summary>已装备边框的下标（0 = `Default`）。🆕 **2026-10-28（B90-N1 · FP-PROFILE-02）起【落盘】**。
         /// <para>🔶 自己设计（非原版）：原版「当前边框」在**服务器背包**里（`PlayerAvatarDataManager.SetCurrentItem`，
-        /// 判据 → `CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`），本地**没有「获得边框」这个动作**（领奖/活动链未做）；
+        /// 判据 → `CosmeticItemAvatarBorder__HandleOnCollect.c:12-20`），本地那份背包**不存在**（⇒ 领取链只装备、不入背包）；🆕 2026-10-29 起「获得边框」这个动作**已接**（`RewardService.HandleOnCollectEquivalent`，`aa != 0` ⇒ 调本文件的 `SetEquippedBorderById`）；
         /// **存哪儿也是我们挑的** = `SaveDto.equippedBorderIndex`（跟 `profile.json` 双写走），唯一写口 = `SetEquippedBorder`。
         /// 默认 0 = 原版那条 `Default`（`autoAssign=0`、无父活动）· 调度台 2026-10-28 裁定；越界由读口按 0 处理。</para></summary>
         public static int EquippedBorderIndex;

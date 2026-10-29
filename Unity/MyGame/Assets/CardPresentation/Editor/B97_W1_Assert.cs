@@ -26,7 +26,7 @@
 //   · `RevertGrantsCastBy` 改成按 `Source` 匹配 ⇒ 1/2 段全红（那条 `Source` 故意写成 tag，不是施放者名）。
 //   · `RemoveExtrinsicEffectsFrom` 里删掉 `n += RevertGrantsCastBy(...)` ⇒ 2 段红。
 //   · `ContainsExtrinsicEffectsFrom` 不认 `Caster` ⇒ 3 段首条红（「先查说没有、再摘却摘得掉」）。
-//   · `ApplyRevealedFlagsCore` 删掉 `carrier.QuestCounter = 0` ⇒ 4 段末条红（实得 3）。
+//   · `ApplyRevealedFlagsCore` 删掉 `carrier.QuestCounter = 0` ⇒ 4 段末条红（实得 3）。 ｜🔴 **§八 extrinsic（2026-10-29 · `B97_W31` 代 `B97_W30` 落盘）**：2 段（`B97W1RemoveExtrinsicByCaster`）与 3 段（`B97W1ContainsMatchesCaster`）的 `RecordGrant` 原来都不带 `extrinsic` ⇒ 等于把「施放者」和「extrinsic」当成同一件事；而原版那条口**第一条合取就是 `effect.extrinsic(+0x30) != 0`**（`decomp_full/CardScript__RemoveExtrinsicEffectsFrom.c:32`）⇒ 补闸后按原版语义这三条**本来就不该被摘**，那两段会红（**这是对的、不是回归**），三处已补 `extrinsic: true`；1 段那条 `RevertGrantsCastBy` 是直接调用（缺省 `extrinsicOnly: false`）⇒ 逐字不变。判据推演 → `资料/完全复刻/报告/B97_W30.md` §八。
 using RuleEngine;
 
 public static partial class RuleEngineTest
@@ -84,8 +84,8 @@ public static partial class RuleEngineTest
         if (u == null) return;
         int baseAtk = u.CurrentMeleeAttack;
 
-        u.RecordGrant("attack", 2, "B97W1_TAG_B", caster: "B97W1SrcB");
-        u.RecordGrant("attack", 5, "B97W1_TAG_C", caster: "B97W1SrcC");
+        u.RecordGrant("attack", 2, "B97W1_TAG_B", caster: "B97W1SrcB", extrinsic: true);   // `extrinsic: true` 的理由见文件头「§八 extrinsic」那条（⛔ 不带它 = 把「施放者」和「extrinsic」当同一件事）
+        u.RecordGrant("attack", 5, "B97W1_TAG_C", caster: "B97W1SrcC", extrinsic: true);   // 同上（`B97_W30` §八：两段本应红的那两条夹具）
         Check(u.CurrentMeleeAttack, baseAtk + 7, "前提：两条账都吃到（base+2+5）");
 
         int n = u.RemoveExtrinsicEffectsFrom("B97W1SrcB");
@@ -109,7 +109,7 @@ public static partial class RuleEngineTest
         if (u == null) return;
 
         Check(u.ContainsExtrinsicEffectsFrom("B97W1SrcD"), false, "前提：还没记任何账 ⇒ 假");
-        u.RecordGrant("attack", 1, "B97W1_TAG_D", caster: "B97W1SrcD");
+        u.RecordGrant("attack", 1, "B97W1_TAG_D", caster: "B97W1SrcD", extrinsic: true);   // 同上（3 段：「先查」也要认 extrinsic 那一格）
         Check(u.ContainsExtrinsicEffectsFrom("B97W1SrcD"), true,
               "🧨 「先查」认施放者（不认 ⇒ 实得假 ⇒ `removeEffectsFrom(47)` 那条动作根本不会入队 = 静默漏摘）");
         Check(u.ContainsExtrinsicEffectsFrom("B97W1Nobody"), false, "反例：别的名字不误报");

@@ -2635,5 +2635,36 @@ namespace RuleEngine
             }
             RuleCore.ExileFromCemetery(this, card);
         }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B97_W21` · 账 254 / 255 ①②）：**引擎算出的选牌选项**
+        //  ⛔ 追加在类尾（`账/*.tsv` 按 `文件:行号` 落点，插中间会让下游整体漂移）。
+        // ==================================================================
+        //  原版 `BattleManager.GetChoiceOptions` 的产物（`decomp_full/BattleManager__GetChoiceOptions.c:40-70`）
+        //  是**一份** options，同时给两边用：面板摆它（`ChooseCardMenu.Setup`）、
+        //  敌方档直接取 `options[0]`（`BattleManager__ChoiceOfCardEnemy.c:31-37`）。
+        //  ⇒ 我们这一侧由 `EffectResolver.BuildChoiceOptions` 算出来放这里（**同一份**），
+        //  面板将来改读它即满足「同一处算」。
+        //  ⚠️ 今天的状态（如实标）：面板是**先**抽的（`BattleDriver.DrawForDisplay` 走 `ctx.ShowRng`），
+        //  引擎是**后**算的 ⇒ 两份不是同一份。要真正合并必须改 `BattleDriver.ShowAsk`
+        //  （本代理白名单外，见报告 §一·2 残余②）。
+        // ==================================================================
+
+        /// <summary>**这一次选牌的 options**（= 原版 `GetChoiceOptions` 的返回表）。
+        /// 由 <see cref="RuleCore.BuildChoiceOptions"/> 每次重算时覆盖（不是累积表）。
+        /// ⚠️ 只读用途：⛔ 别在别处 `Add`（写入口只有那一个）。</summary>
+        public readonly List<CardDef> ChoiceOptions = new List<CardDef>();
+
+        /// <summary>上面的 options 是**哪一张卡**算出来的（原版 `choiceDefinition` 的宿主）。
+        /// 面板要判「这份是不是我问的那一次」就看它；`null` = 还没算过。</summary>
+        public CardDef ChoiceOptionsSource;
+
+        /// <summary>写入口（只给 `EffectResolver.BuildChoiceOptions` 调）：整份替换并记来源。</summary>
+        internal void SetChoiceOptions(List<CardDef> opts)
+        {
+            ChoiceOptions.Clear();
+            if (opts != null) ChoiceOptions.AddRange(opts);
+            ChoiceOptionsSource = (ActingUnit != null && ActingUnit.Card != null) ? ActingUnit.Card : PlayingCard;
+        }
     }
 }

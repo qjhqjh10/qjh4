@@ -2051,7 +2051,7 @@ namespace CardPresentation
         /// <item>**Currency 判型**（`.c:145-190`）：`reward.Item is Currency` ⇒ `CollectCurrencyReward`；
         ///   是 `EnergyContext` 那一档 ⇒ `GrantEnergy(quantity)`（见 <see cref="CollectCurrencyReward"/> 的 energy 支）。</item>
         /// <item>**其余**（`.c:187` 尾句 + 最后那三跳）⇒ `CollectItemReward(reward)`；`.c` 末尾还有
-        ///   `reward.Item.&lt;+0x1b8&gt;(quantity)` 一跳（那条虚槽名本机读不出 ⇒ 出声，⛔ 不猜）。</item>
+        ///   `reward.Item.&lt;+0x1b8&gt;(quantity)` 一跳 = `ObtainableItem.HandleOnCollect`（**Slot 8**，基类空实现 ⇒ 见 `HandleOnCollectEquivalent`）。</item>
         /// </list>
         /// <para>🔴 原版这一路**还要** `AssignEphemeralState`（限时物品）—— `.c:70-110` 在「非 Currency」那一支里；
         /// 我们的 `InventoryManager.AssignEphemeralState&lt;T&gt;` 已有，这里按 `RewardInfo.IsEphemeral` 调用。</para></summary>
@@ -2080,16 +2080,26 @@ namespace CardPresentation
             var held = currencies != null ? currencies.Get(reward.Id) : null;
             if (held != null && held.Item != null)
             {
-                CollectCurrencyReward(held.Item, reward.Quantity);
+                CollectCurrencyReward(held.Item, reward.Quantity); HandleOnCollectEquivalent(reward.Id);   // ⑥ 原版末尾统一跳（`.c:182`）：对 Currency 是空基类 ⇒ 零行为差异
                 return;
             }
 
-            // ④ 其余 ⇒ CollectItemReward(reward)（原版：`CollectItemReward(item, instanceID, quantity)`）
-            CollectItemRewardById(reward.Id, reward.InstanceId, reward.Quantity);
+            // ④ 联盟奖杯 / 其余物品 —— 原版这两支是**互斥**的（`decomp_full/RewardService__CollectSingleReward.c:110-127`
+            //    ＋ ILSpy `RewardService.cs` 的 IL_06ef / IL_0754）：`reward.Item is AllianceTrophyData` ⇒ 在
+            //    `AlliancesManager.trophyController.trophies` 里按 id `FirstOrDefault`，命中就写存档三格
+            //    （`groupScore=1 · playerScore=1 · tier=quantity`）**且不走** `CollectItemReward`；
+            //    其余类型 ⇒ `CollectItemReward(item, instanceID, quantity)`。两支之后都仍落到末尾的 `item.HandleOnCollect(quantity)`（⑥，见下）。
+            if (IsAllianceTrophyId(reward.Id)) AllianceTrophyModel.MarkCollected(reward.Id, reward.Quantity);
+            else CollectItemRewardById(reward.Id, reward.InstanceId, reward.Quantity);
 
             // ⑤ 限时物品 ⇒ 挂 ephemeral 状态（原版 `.c:70-110` 的 `AssignEphemeralState`）
             if (reward.IsEphemeral && held != null && held.Item != null && reward.EphemeralMs > 0)
                 InventoryManager.AssignEphemeralState<ICurrency>(held.Item, new EphemeralState(reward.EphemeralMs));
+
+            // ⑥ 原版末尾**统一跳** `reward.Item.&lt;+0x1b8&gt;(quantity)`（`.c:182-186`）—— 即 `ObtainableItem.HandleOnCollect`
+            //    （Slot 8，基类空实现）⇒ 全汇编唯一 override = `CosmeticItemAvatarBorder`（`if (AutoAssign)` 就装备）。
+            //    三支（奖杯 / 其余物品 / 货币）都落到这一跳；本工程只有 id ⇒ 按边框定义表 + `aa` 等价判（见方法体）。
+            HandleOnCollectEquivalent(reward.Id);
         }
 
         /// <summary>限时态到期判定。⚠️ **原版判的是「到某时刻」**（`EphemeralEndTime <= ServerDateTime`），
@@ -2107,5 +2117,52 @@ namespace CardPresentation
 
         /// <summary>自检收尾。</summary>
         public static void ResetForTest() { GrantEnergyOf = null; _warnedNetPeer = false; }
+
+        // ============================================================ 追加区 · 2026-10-29（B97_W7 · 账 日常_奖励:680）
+        /// <summary>`CollectSingleReward` 的 ④ 支要的「这件奖励是不是联盟奖杯」（原版 `reward.Item is AllianceTrophyData`，
+        /// 见 `RewardService__CollectSingleReward.c:110-127` 之前那一跳类型测试 — ILSpy `RewardService.cs` 写作 `typeof(AllianceTrophyData)`）。
+        /// <para>⚠️ 我们只有 id、没有物品运行时类型 ⇒ **两条证据合判**：
+        /// ① 物品类型实据表 <see cref="ItemDrawer.IdTypes"/>（`Spec` 填出来的 `Type`）；
+        /// ② **联盟奖杯定义表** <see cref="AllianceTrophyModel.Find"/> —— 能在这张表里查到 id，就等于「这个 id 的 SO 是 `AllianceTrophyData`」。
+        /// 🔴 ② 是**必需的**：`IdTypes` 至今只有 4 条实据（`Booster Pack …` / `DT Ultramarines …`），**没有一条联盟奖杯 id**
+        /// ⇒ 只靠 ① 这一支在生产里**恒不命中**（2026-10-29 `B97_W7` 现读 `Shell/ItemDrawer.cs:778-784`）。
+        /// 两条都不命中 ⇒ 走 `CollectItemReward`（与原版「其它类型」同档）。</para></summary>
+        static bool IsAllianceTrophyId(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            if (ItemDrawer.Spec(id, null, null).Type == "AllianceTrophyData") return true;
+            return AllianceTrophyModel.Find(id) != null;
+        }
+
+        // ============================================================ 追加区 · 2026-10-29（B97_W40 · 账 日常_奖励:681 的 ⑥ 物品层）
+        /// <summary>原版 `reward.Item.HandleOnCollect(quantity)`（`RewardService__CollectSingleReward.c:182-186`；
+        /// 虚槽 `+0x1b8` = `ObtainableItem` **Slot 8**）的本地等价物。
+        /// <para>🔴 判据（2026-10-29 `B97_W40` 三源现读，与 `B97_R9` 一致）：
+        /// ① 基类 `ObtainableItem.HandleOnCollect` = **空实现**（`dump.cs:18791` `RVA 0x4B33B0` = 全局空桩 `ret 0`；
+        ///   `decomp_full/ObtainableItem__HandleOnCollect.c` 体只有 `return;` —— ⚠️ 那份**首行是 `NetworkingPeer__OnMessage`**，
+        ///   属已记的「文件名与内容不符」，**体照读、名不认**）；
+        /// ② **全汇编唯一 override** = `CosmeticItemAvatarBorder.HandleOnCollect`（`dump.cs:18154` `RVA 0x6EDF40`，Slot 8）
+        ///   = `base(...)` + `if (AutoAssign) PlayerAvatarDataManager.Instance.SetCurrentItem(this)`
+        ///   （`decomp_full/CosmeticItemAvatarBorder__HandleOnCollect.c:12-23`；`AutoAssign` = `PlayerItem.autoAssign` `+0x34`
+        ///   的虚 getter，`dump.cs:18833` 只有这一条、无 override）。</para>
+        /// <para>⚠️ 我们只有 id、没有物品运行时类型 ⇒ 等价判据 = 「id 命中 <see cref="ProfileData.Borders"/> 且 `aa != 0`」
+        /// （`aa` = 原版 `autoAssign`）⇒ 装备它（= `SetCurrentItem`）；其余 id（称号 / 卡背 / 卡 / 牌组 / 货币…）
+        /// **什么都不做** = 原版空基类那一档。🔴 原版 `PlayerAvatarDataManager.Instance` 为 null 是 **NRE**；
+        /// 我们取不到就不写、不抛（与 ④ 支同一口径，见账 681 的差异列）。</para></summary>
+        static void HandleOnCollectEquivalent(string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId)) return;
+            var list = ProfileData.Borders;
+            if (list == null || list.Count == 0) return;      // 清单空 ⇒ `ProfileData.EnsureBorders` 那一处已经出过声（⛔ 不重复刷屏）
+            for (int i = 0; i < list.Count; i++)
+            {
+                var b = list[i];
+                if (b == null || b.id != itemId) continue;
+                if (b.aa == 0) return;                        // `if (AutoAssign)` 为假 ⇒ 原版也不装备（⛔ 别「反正拿到了就装」）
+                ProfileData.SetEquippedBorderById(itemId);    // = `PlayerAvatarDataManager.SetCurrentItem(this)`；清单里没有它会自己出声
+                return;
+            }
+            // 走到这里 = 这件奖励不是头像边框 ⇒ 原版基类空实现 ⇒ 什么都不做（没有第二条 override）
+        }
     }
 }

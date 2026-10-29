@@ -64,6 +64,13 @@
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoring.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiTargets.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoringData.cs" />
+    <!-- 🆕 2026-10-29（调度台 · 同步点）：`Data/` 是**逐个列举**（`Core/` 才是通配 `*.cs`），
+         所以写手新建的 Data partial 不加进来就是构建期 `CS0103`：
+           · `CardDatabasePartial_B97W5.cs` ⇒ `MapBoardGateWithConditions` / `MapStartingCardInHand`
+           · `SimpleAI.StableSort.cs`       ⇒ `StableSortByScoreDesc`（账 `:40` 稳定排序）
+         🔴 **以后任何新增的 `Data/*.cs` 都要在这里补一行** —— 漏了就是「探针读不出数」而不是「代码错」。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B97W5.cs" />
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.StableSort.cs" />
     <Compile Include="AiProbe.cs" />
     <!-- 🆕 `tutorial`（`G5`，2026-10-26 · 第 5 轮）：**教程局读数口**。
          🔴 它修的是 `F4_第4轮.md` §1·3 那一类「12 条 `AiScripted` 全卡在 G3（可观察量）」——

@@ -101,7 +101,7 @@ namespace CardPresentation
 {
     /// <summary>一局录像。**头 = `MsgStart`（种子/模式/双方卡组/战场/名字/先手），身子 = 动作序列**。</summary>
     [Serializable]
-    public class ReplayRecord
+    public partial class ReplayRecord
     {
         /// <summary>格式版本。**改结构【或改结算语义】就 +1**，读到不认识的版本**出声跳过**，别硬解。
         /// 🔴 **2026-10-01：1 → 2** —— 棋盘从「固定 9 格、可留洞」改成**连续无洞**模型
@@ -806,5 +806,196 @@ namespace CardPresentation
             }
             catch (Exception e) { Debug.LogError("[Replay] 清理失败：" + e.Message); }
         }
+    }
+
+    // ==========================================================================================
+    //  🆕 **2026-10-29（执行代理 `B97_W18`）· 账 `战斗界面_HUD:364` `ChooseCardMenu.AutoProcessDone`
+    //  ==========================================================================================
+
+    /// <summary>回放里「那一处选牌面板」的快照（一次 ask 一条）。
+    ///
+    /// <para>**为什么非记不可**：原版 `ChooseCardMenu.Setup(...)` 在 `matchType == Replay(160)` 时
+    /// 会把当时那块面板**照原样摆出来**，并 `SelectCard(_chooseCardUis[target])` 按**记录下来的下标**预选，
+    /// 然后 `AutoProcessDone` 协程 `WaitForSeconds(2f)` → `ProcessChooseDone()` 收口
+    /// （判据 = `d:/2/tools/decomp_full/ChooseCardMenu__Setup.c:113-119` +
+    /// `ChooseCardMenu._AutoProcessDone_d__21__MoveNext.c`；ILSpy 版把下标印成 `default`、
+    /// `out_il2csharp/Assembly-CSharp/ChooseCardMenu.cs:113-120` 才是 `this._chooseCardUis[target]`）。
+    /// 那个 `target` = 玩家当时点的第几张。</para>
+    ///
+    /// <para>🔴 我们**不能**在回放时重算候选：`choosecard` 的候选是
+    /// `BattleManager.GetChoiceOptions` **随机抽 `maxTargets` 张**（吃 `ctx.Rng`，见 `BattleDriver.ShowAsk`
+    /// 的 `DrawForDisplay`）⇒ 重算会消耗随机流、把后面的动作全冲掉。⇒ 必须记下当时摆出来的那一串。</para>
+    ///
+    /// <para>⚠️ `version` **不 +1**：纯**新增**字段（同 `tutorialStage` / `botSeatPlus2` / `mulliganPlus1`
+    /// 的先例）。老录像读出来 `asks` 是空表 ⇒ 回放**不弹面板** = 它本来的行为；
+    /// 「改结构就 +1」那条防的是**同一格换语义**。</para></summary>
+    [Serializable]
+    public class ReplayAsk
+    {
+        /// <summary>这一处 ask 属于录像里**第几条动作**（= 它之后落地的那条 `actions` 下标）。
+        /// ⚠️ 录制时取 `_rec.actions.Count` —— 那一刻正好等于**下一条**动作会拿到的下标
+        /// （`RecAct` / `RecRaw` / `RecMsg` 都是 append）。</summary>
+        public int action = -1;
+        /// <summary>这一处的动词（`choosecard` / `chooseone` / `chooseeffect` / `chooseoath`）—— 只作诊断。</summary>
+        public string verb = "";
+        /// <summary>摆出来的**候选卡 id**（`CardDef.Id`，按面板顺序）。非卡表型 ask 为 `null`。</summary>
+        public string[] candIds;
+        /// <summary>摆出来的**候选文字**（`chooseone` / `chooseeffect` / `chooseoath` 那一族）。卡表型 ask 为 `null`。</summary>
+        public string[] candTexts;
+        /// <summary>面板标题用的 `actingCardId`（原版 `SetUpTitleText` 收的那个 = 正在结算的那张卡）。
+        /// 空串 = 没记 / 没有来源卡（回放时回落 `ChoosePanel.DefaultTitle`）。</summary>
+        public string actingId = "";
+        /// <summary>玩家点的是**第几张**（按上面那串的顺序，0 起）。`-1` = 没选就收了面板。</summary>
+        public int picked = -1;
+    }
+
+    // ==========================================================================================
+    //  🆕 **2026-10-29（执行代理 `B97_W18`）· 账 `战斗逻辑驱动:1081` `MatchData.SetMatchRecording`
+    //  ==========================================================================================
+
+    /// <summary>录像里的**【规则参数】**（= 录制那一刻 `BattleContext.Vars` 的一份快照）。
+    ///
+    /// <para>**为什么非记不可**：原版 `MatchData.SetMatchRecording` 会把**当时那一局的
+    /// `GameplayVariablesData`** 装回 `MatchData.GameplayData(+0xa8)`
+    /// （逐字段 = `d:/2/tools/decomp_full/MatchData__SetMatchRecording.c:47-78`；源 = LiveOps 那个活动事件的 `+0x80`，
+    /// 由 `GameModes.GetActiveEvent(record.gameMode /* +0x14 */)` 取 —— 🔴 **是按「对局模式」查活动**，
+    /// 不是按某个 event id，见 `判据/B97_R1_判据补全.md` 的订正）。
+    /// 我们不记 ⇒ 回放一律按**当前默认参数**重建，而 `deckSize` / `startingHand` / `warlordLifeChange` /
+    /// `shouldReshuffle` 这些格子是在 `RuleCore.NewBattle` 那一趟就被读掉的 ⇒ **装不回来 = 另一局**。</para>
+    ///
+    /// <para>🔴 **三条坑（R1 现核，照做）**：
+    /// ① `GameplayVariables.overtimeTurn` 在我们这边是 **`int?`**，而 `JsonUtility` **不支持可空字段**
+    ///    （`GameplayVariables.cs` 那段 doc 已写「别把本类型塞进 `JsonUtility`，会静默丢掉这一个」）
+    ///    ⇒ 单独用 `overtimeTurn` + `overtimeTurnSet` 两个字段编码「值 / 有没有值」。
+    /// ② **`slotsPerSide` 同名不同义** —— 原版 = 左/右**半场**各几格（序列化 4 · ctor 3、运行时真值未跑到），
+    ///    我们 = **每边 9 格**（`GameplayVariables.slotsPerSide` 的 doc）⇒ **装回时必须跳过这一格**
+    ///    （`ToVars` 默认不写它；只有自检的「灭自证」才用 `includeSlotsPerSide: true`）。
+    /// ③ 存的是**我们自己**的 `GameplayVariables`（它比原版多 4 格：`startingHand` / `secondExtraCards` /
+    ///    `manaBonusSeat0` / `manaBonusSeat1`）⇒ 这 4 格**必须一起存**，否则起手张数 / 后手多抽 / 座位能量
+    ///    会回到模式默认值。</para>
+    ///
+    /// <para>⚠️ `version` **不 +1**：纯**新增**字段。老录像没有这一格 ⇒ `vars == null` ⇒ 回放退回
+    /// 「按开局包推出来的那套参数」= **与加这一格之前逐字相同**（而且会 `Debug.LogWarning` 出声，⛔ 不静默）。
+    /// 这与「改结算语义就 +1」不冲突：旧档在新代码下的**行为没变**，不存在「同一条动作演成另一个结果」。</para></summary>
+    [Serializable]
+    public class ReplayVars
+    {
+        // ---- 原版 `GameplayVariablesData` 的 18 格（`dump.cs:130170-130190`，`+0x10..+0x4B`）----
+        public int maxLegendaries;
+        public int numberOfCopiesOtherRarities;
+        public int numberOfCopiesLegendary;
+        /// <summary>⚠️ **不装回**（同名不同义，见类 doc 的坑 ②）。只记录，供对账与自检使用。</summary>
+        public int slotsPerSide;
+        public int warlordLifeChange;
+        public int deckSize;
+        /// <summary>配合 <see cref="overtimeTurnSet"/>：`false` ⇒ 我们那边是 `null`（这个模式没有加时）。</summary>
+        public int overtimeTurn;
+        public bool overtimeTurnSet;
+        public int startingMana;
+        public int startingManaSecond;
+        public int addedManaSecond;
+        public int manaPerTurn;
+        public int drawCardsPerTurn;
+        public int manaAccumulation;
+        public int handLimit;
+        public bool shouldReshuffle;
+        public bool showMulligan;
+        public bool assignDefensiveCardsInEditMode;
+        public bool alternativeTraitLogic;
+
+        // ---- 我们独有的 4 格（原版没有，但**必须一起存**，见类 doc 的坑 ③）----
+        public int startingHand;
+        public int secondExtraCards;
+        public int manaBonusSeat0;
+        public int manaBonusSeat1;
+
+        /// <summary>一共有几格参与「往返比对」—— 22（18 原版 + 4 我们独有）。断言用它当分母。</summary>
+        public const int TotalFieldCount = 22;
+        /// <summary>真正会**装回**的格数 = 22 − 1（`slotsPerSide`）。</summary>
+        public const int RestoredFieldCount = TotalFieldCount - 1;
+
+        /// <summary>从引擎那套参数抓一份快照。`null` ⇒ `null`（= 没记）。</summary>
+        public static ReplayVars Capture(GameplayVariables v)
+        {
+            if (v == null) return null;
+            return new ReplayVars
+            {
+                maxLegendaries = v.maxLegendaries,
+                numberOfCopiesOtherRarities = v.numberOfCopiesOtherRarities,
+                numberOfCopiesLegendary = v.numberOfCopiesLegendary,
+                slotsPerSide = v.slotsPerSide,
+                warlordLifeChange = v.warlordLifeChange,
+                deckSize = v.deckSize,
+                overtimeTurnSet = v.overtimeTurn.HasValue,
+                overtimeTurn = v.overtimeTurn.HasValue ? v.overtimeTurn.Value : 0,
+                startingMana = v.startingMana,
+                startingManaSecond = v.startingManaSecond,
+                addedManaSecond = v.addedManaSecond,
+                manaPerTurn = v.manaPerTurn,
+                drawCardsPerTurn = v.drawCardsPerTurn,
+                manaAccumulation = v.manaAccumulation,
+                handLimit = v.handLimit,
+                shouldReshuffle = v.shouldReshuffle,
+                showMulligan = v.showMulligan,
+                assignDefensiveCardsInEditMode = v.assignDefensiveCardsInEditMode,
+                alternativeTraitLogic = v.alternativeTraitLogic,
+                startingHand = v.startingHand,
+                secondExtraCards = v.secondExtraCards,
+                manaBonusSeat0 = v.manaBonusSeat0,
+                manaBonusSeat1 = v.manaBonusSeat1,
+            };
+        }
+
+        /// <summary>装回成引擎那套参数。**新建一份**（⛔ 不就地改 `GameplayVariables.Classic` ——
+        /// 那是缓存单例，改它会污染之后每一局，见 `BattleContext.Vars` 的 doc）。
+        /// <para><paramref name="includeSlotsPerSide"/> **只给自检的「灭自证」用**（证明「把这一格也装回 ⇒
+        /// 棋盘几何那一条会红」）；**生产一律用默认 `false`**。</para></summary>
+        public GameplayVariables ToVars(bool includeSlotsPerSide = false)
+        {
+            var v = new GameplayVariables
+            {
+                maxLegendaries = maxLegendaries,
+                numberOfCopiesOtherRarities = numberOfCopiesOtherRarities,
+                numberOfCopiesLegendary = numberOfCopiesLegendary,
+                warlordLifeChange = warlordLifeChange,
+                deckSize = deckSize,
+                overtimeTurn = overtimeTurnSet ? (int?)overtimeTurn : null,
+                startingMana = startingMana,
+                startingManaSecond = startingManaSecond,
+                addedManaSecond = addedManaSecond,
+                manaPerTurn = manaPerTurn,
+                drawCardsPerTurn = drawCardsPerTurn,
+                manaAccumulation = manaAccumulation,
+                handLimit = handLimit,
+                shouldReshuffle = shouldReshuffle,
+                showMulligan = showMulligan,
+                assignDefensiveCardsInEditMode = assignDefensiveCardsInEditMode,
+                alternativeTraitLogic = alternativeTraitLogic,
+                startingHand = startingHand,
+                secondExtraCards = secondExtraCards,
+                manaBonusSeat0 = manaBonusSeat0,
+                manaBonusSeat1 = manaBonusSeat1,
+            };
+            // 🔴 坑 ②：`slotsPerSide` 默认**不装**（保持 `GameplayVariables` 初始化器写的 9）。
+            if (includeSlotsPerSide) v.slotsPerSide = slotsPerSide;
+            return v;
+        }
+    }
+
+    // ==========================================================================================
+    //  🆕 **2026-10-29（执行代理 `B97_W18`）· `ReplayRecord` 的两组新成员**
+    //  （**partial**：接在类尾 ⇒ 类体内既有行号一个都不动，`账` 里 `ReplayStore.cs:358` 那类落点零漂）
+    // ==========================================================================================
+    public partial class ReplayRecord
+    {
+        /// <summary>🆕 **2026-10-29（账 `战斗逻辑驱动:1081`）**：录制那一刻的**规则参数**。
+        /// `null` = **没记**（老录像 / 录制端没接上）⇒ 回放退回「按开局包推出来的那套」，并**出声**。
+        /// 判据与三条坑 → <see cref="ReplayVars"/> 的类 doc。</summary>
+        public ReplayVars vars;
+
+        /// <summary>🆕 **2026-10-29（账 `战斗界面_HUD:364`）**：每一处选牌面板的**候选 + 选中下标**。
+        /// 空表 = **没记**（老录像）⇒ 回放里**不弹面板**（= 加这一格之前的行为）。
+        /// 判据 → <see cref="ReplayAsk"/> 的类 doc。</summary>
+        public List<ReplayAsk> asks = new List<ReplayAsk>();
     }
 }

@@ -77,7 +77,9 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "AeldariRecallTween",
+   "tww": 1
   },
   {
    "n": "Recall_Eldar_2_quick",
@@ -90,7 +92,9 @@
    "ts": 0.0,
    "tm": 0.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "AeldariRecallTween",
+   "tww": 1
   },
   {
    "n": "Recall_Eldar",
@@ -129,7 +133,9 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "AeldariRecallTween",
+   "tww": 1
   },
   {
    "n": "Recall_Eldar_2_quick_UI",
@@ -567,7 +573,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_artillery_arc",
@@ -589,7 +597,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_artillery_big",
@@ -643,7 +653,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_artillery_manticore_spread",
@@ -697,7 +709,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Blast_Big_Ork_Missiles",
@@ -719,7 +733,9 @@
      "du": 0.4,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Blast_Plasma",
@@ -732,7 +748,9 @@
    "ts": 1.6,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Heavy Delayed 1,5s Tween",
+   "tww": 0
   },
   {
    "n": "Blast_Plasma_MegaBlasta",
@@ -745,7 +763,9 @@
    "ts": 1.6,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Heavy Delayed 1,5s Tween",
+   "tww": 0
   },
   {
    "n": "BolterSweep",
@@ -781,7 +801,9 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BolterSweep_2",
@@ -794,7 +816,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_trail",
@@ -816,7 +840,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -838,7 +864,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -860,7 +888,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_random_EC",
@@ -882,7 +912,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_trail_EC Daemon",
@@ -904,7 +936,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_random_chaos",
@@ -926,7 +960,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_random_chaos",
@@ -948,7 +984,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_trail",
@@ -970,7 +1008,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1hit_trail_ork",
@@ -992,7 +1032,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Machine Gun Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shot_trail",
@@ -1014,7 +1056,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail",
@@ -1036,7 +1080,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail_EC",
@@ -1058,7 +1104,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail_EC Daemon",
@@ -1080,7 +1128,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_Titus_AA",
@@ -1102,7 +1152,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_autocannon",
@@ -1124,7 +1176,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail_chaos",
@@ -1146,7 +1200,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail_chaos",
@@ -1168,7 +1224,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail_nurgle",
@@ -1190,7 +1248,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_trail_ork_NEW",
@@ -1212,7 +1272,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Machine Gun Long Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_2shot_pointblank_EC",
@@ -1247,7 +1309,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_3shot_trail",
@@ -1269,7 +1333,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_3shot_trail_EC",
@@ -1291,7 +1357,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_3shot_trail_chaos",
@@ -1313,7 +1381,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_3shot_trail_ork",
@@ -1335,7 +1405,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_4shot_trail",
@@ -1357,7 +1429,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_4shot_trail_EC",
@@ -1379,7 +1453,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_stormbolter_4shots",
@@ -1401,7 +1477,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_stormbolter_4shots_Logan_AA",
@@ -1423,7 +1501,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_4shot_trail_chaos",
@@ -1445,7 +1525,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_4shot_trail_nurgle",
@@ -1467,7 +1549,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_4shot_trail_twinlink",
@@ -1489,7 +1573,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_5shot_trail",
@@ -1511,7 +1597,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_5shot_trail_EC",
@@ -1533,7 +1621,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_5shot_trail_chaos",
@@ -1555,7 +1645,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_gatling_1s",
@@ -1603,7 +1695,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_5shot_trail_ork_low",
@@ -1625,7 +1719,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_6shot_trail_EC Daemon",
@@ -1647,7 +1743,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_stormbolter_6shots",
@@ -1669,7 +1767,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_6shot_autocannon_EC",
@@ -1691,7 +1791,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_9shot_trail",
@@ -1713,7 +1815,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_9shot_trail_EC",
@@ -1758,7 +1862,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_9shot_trail_chaos",
@@ -1803,7 +1909,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Abaddon_AA_StormBolter",
@@ -1825,7 +1933,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autocannon",
@@ -1847,7 +1957,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autocannon_Firestrike",
@@ -1895,7 +2007,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Chaos_Melta",
@@ -1908,7 +2022,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_ChaosMissile",
@@ -1921,7 +2037,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Blacksword_Missile_offscreen",
@@ -1982,7 +2100,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Bolter_Wide Area",
@@ -2004,7 +2124,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_ChemVial",
@@ -2049,7 +2171,9 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DA_MissileVolley_Ballistus",
@@ -2062,7 +2186,9 @@
    "ts": 3.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_RiftCannon",
@@ -2120,7 +2246,9 @@
    "mny": 0.0,
    "mxy": 2.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DCannon",
@@ -2133,7 +2261,9 @@
    "ts": 1.5,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil DCannon",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DCannon_2",
@@ -2146,7 +2276,9 @@
    "ts": 1.25,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil DCannon_2",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DCannon_2_twinlink",
@@ -2159,7 +2291,9 @@
    "ts": 1.25,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil DCannon_2",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DCannon_twinlink",
@@ -2172,7 +2306,9 @@
    "ts": 1.25,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil DCannon",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Short",
@@ -2194,7 +2330,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DeathSpinner_spider",
@@ -2216,7 +2354,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DeathSpinner_spider_twinlink",
@@ -2238,7 +2378,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DeathSpinner_twinlink",
@@ -2260,7 +2402,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DeathSpinner_twinlink_large",
@@ -2304,7 +2448,9 @@
      "du": 0.5,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil DCannon",
+   "tww": 0
   },
   {
    "n": "WailingDoom",
@@ -2317,7 +2463,9 @@
    "ts": 0.0,
    "tm": 0.7,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Eldar_Lasblaster",
@@ -2352,7 +2500,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Long",
@@ -2374,7 +2524,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Long_twinlink",
@@ -2396,7 +2548,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Pistol",
@@ -2418,7 +2572,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Short",
@@ -2440,7 +2596,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Short_twinlink",
@@ -2462,7 +2620,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Ghazghkull_AA",
@@ -2484,7 +2644,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Gordrang",
@@ -2506,7 +2668,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_GrenadeLauncher",
@@ -2519,7 +2683,9 @@
    "ts": 0.8,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Grenade_ThumpGun",
@@ -2532,7 +2698,9 @@
    "ts": 0.8,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_GrenadierGauntlet",
@@ -2545,7 +2713,9 @@
    "ts": 0.0,
    "tm": 0.8,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_hellpistol",
@@ -2567,7 +2737,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Ork Missiles 1",
@@ -2580,7 +2752,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Kroot_KrootPistol",
@@ -2619,7 +2793,9 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Kroot_KrootScattergun",
@@ -2645,7 +2821,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 1s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Lascannon_2shots",
@@ -2658,7 +2836,9 @@
    "ts": 0.8,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 1s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Lascannon_twinlink",
@@ -2671,7 +2851,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 1s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Lascannon_twinlink_dread",
@@ -2684,7 +2866,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 1.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 1s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_laspistol",
@@ -2706,7 +2890,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_laspistol_Ursula_AA",
@@ -2728,7 +2914,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_laspistol_quick",
@@ -2750,7 +2938,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_basic",
@@ -2772,7 +2962,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_3shots",
@@ -2794,7 +2986,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_Hotshot_basic",
@@ -2816,7 +3010,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_Hotshot_2shots",
@@ -2838,7 +3034,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_Hotshot_3shots",
@@ -2860,7 +3058,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_Hotshot_auto_burst",
@@ -2882,7 +3082,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_Hotshot_pistol",
@@ -2904,7 +3106,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_auto",
@@ -3012,7 +3216,9 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_MissileToTarget",
@@ -3059,7 +3265,9 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_MissileToTarget",
@@ -3106,7 +3314,9 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Morgrim",
@@ -3128,7 +3338,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Needle gun_1shot",
@@ -3150,7 +3362,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_noisemarine",
@@ -3172,7 +3386,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Ork Heavy Lobba",
@@ -3321,7 +3537,9 @@
      "du": 0.5,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Ork Missiles 1",
@@ -3334,7 +3552,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Ork Missiles 2",
@@ -3347,7 +3567,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Hunta Rig Harpoon Hand",
@@ -3360,7 +3582,9 @@
    "ts": 0.8,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_RandomShitGo",
@@ -3382,7 +3606,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "RiftCannon_Laser",
@@ -3417,7 +3643,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_SaboteurExplosive",
@@ -3449,7 +3677,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Sonic Weapon 1",
@@ -3594,7 +3824,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Sororitas_MissileVolley",
@@ -3639,7 +3871,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Sororitas_MultiMelta_Junith",
@@ -3652,7 +3886,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Sororitas_MultiMelta",
@@ -3665,7 +3901,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Sororitas_SaintCelestine",
@@ -3678,7 +3916,9 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tau_Burst Cannon",
@@ -3752,7 +3992,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tau_IonAccelerator",
@@ -3804,7 +4046,9 @@
    "ts": 1.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Heavy Delayed 0,5s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tau_Pulse Blaster",
@@ -3817,7 +4061,9 @@
    "ts": 0.4,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tau_Pulse Bomb",
@@ -3887,7 +4133,9 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tau_Pulse Carbine",
@@ -3991,7 +4239,9 @@
    "ts": 0.4,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Heavy Delayed 0,5s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tau_Sniper Pulse Rifle",
@@ -4004,7 +4254,9 @@
    "ts": 0.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Tau_Vespid_laser",
@@ -4039,7 +4291,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_AcidSpit",
@@ -4084,7 +4338,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Barblauncher",
@@ -4106,7 +4362,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Cannon",
@@ -4128,7 +4386,9 @@
      "du": 0.3,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Heavy Delayed 0,8s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Big",
@@ -4150,7 +4410,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Small",
@@ -4172,7 +4434,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Small_Dual",
@@ -4194,7 +4458,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Psychophage",
@@ -4239,7 +4505,9 @@
      "du": 0.5,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Pyrovore",
@@ -4318,7 +4586,9 @@
      "du": 0.5,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Pyrovore OLD",
@@ -4363,7 +4633,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Screamer-Killer",
@@ -4408,7 +4680,9 @@
      "du": 0.5,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Spore Launch",
@@ -4487,7 +4761,9 @@
      "du": 0.5,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn",
@@ -4509,7 +4785,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn_Dual",
@@ -4531,7 +4809,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Tyranid_Stranglethorn",
@@ -4553,7 +4833,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DesolationMissile",
@@ -4566,7 +4848,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DesolationMissile_AOE",
@@ -4579,7 +4863,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_DesolationMissile",
@@ -4592,7 +4878,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_ValkyrieMissile",
@@ -4605,7 +4893,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_BulletImpact_Vox-pulse",
@@ -4627,7 +4917,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_BulletImpact_Vox-pulse digital",
@@ -4649,7 +4941,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_BulletImpact_Vox-pulse purple",
@@ -4671,7 +4965,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Webber",
@@ -4693,7 +4989,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_1shot",
@@ -4715,7 +5013,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_1shot",
@@ -4737,7 +5037,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_2shot",
@@ -4759,7 +5061,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_3shot",
@@ -4781,7 +5085,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_4shot",
@@ -4803,7 +5109,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_6shot",
@@ -4825,7 +5133,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_6shot_twinlink",
@@ -4847,7 +5157,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_8shot",
@@ -4869,7 +5181,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_Automatic",
@@ -4891,7 +5205,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_Shotgun",
@@ -4913,7 +5229,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_Shotgun",
@@ -4935,7 +5253,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -4957,7 +5277,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_1shotSniper",
@@ -4979,7 +5301,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_1shotSniper_trail",
@@ -5001,7 +5325,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_liberator_repeat",
@@ -5014,7 +5340,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_autogun_liberator_1shot",
@@ -5027,7 +5355,9 @@
    "ts": 0.3,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_9shot_trail_EC_twinlink",
@@ -5072,7 +5402,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_ChemVial_2",
@@ -5128,7 +5460,9 @@
      "du": 0.3,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Combi_Flamer_Infernus",
@@ -5163,7 +5497,9 @@
    "ts": 0.0,
    "tm": 0.2,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 0,2s Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_deathspinner_arc",
@@ -5185,7 +5521,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_deathspinner_arc_alt",
@@ -5297,7 +5635,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "FlamethrowerSingleAttack_1",
@@ -5653,7 +5993,9 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "NecronGauss",
@@ -5988,7 +6330,9 @@
      "du": 0.3,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_GrotRock",
@@ -6044,7 +6388,9 @@
      "du": 0.3,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Hammer_Slam_SW",
@@ -6113,7 +6459,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_JainasMor",
@@ -6170,7 +6518,9 @@
    "mny": 0.0,
    "mxy": 0.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_KrootJavelinThrow Movement",
@@ -6226,7 +6576,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Laser_Red",
@@ -6332,7 +6684,9 @@
    "mny": 1.0,
    "mxy": 1.0,
    "mnz": 0.0,
-   "mxz": 0.0
+   "mxz": 0.0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Njal Blizzard Attack",
@@ -6367,7 +6721,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 0,5 Tween",
+   "tww": 0
   },
   {
    "n": "Blast_Plasma_Sentinel_twinlink",
@@ -6380,7 +6736,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 0,5 Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_triple_Azrael_AA",
@@ -6393,7 +6751,9 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_blue_pointblank",
@@ -6406,7 +6766,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Light Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_blue_pointblank_double",
@@ -6419,7 +6781,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Light Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_burst_turqoise",
@@ -6432,7 +6796,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Blast_Plasma_Sentinel",
@@ -6445,7 +6811,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Heavy Delayed 1,5s Tween",
+   "tww": 0
   },
   {
    "n": "Blast_Plasma_Helbrute",
@@ -6458,7 +6826,9 @@
    "ts": 1.0,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal 0,5 Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_pink",
@@ -6480,7 +6850,9 @@
      "du": 0.3,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Heavy Delayed 0,8s Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_blue",
@@ -6493,7 +6865,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_blue_double",
@@ -6506,7 +6880,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_blue_triple",
@@ -6519,7 +6895,9 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_blue_twinlink",
@@ -6532,7 +6910,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_blue",
@@ -6545,7 +6925,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_blue_triple",
@@ -6558,7 +6940,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_pink",
@@ -6571,7 +6955,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_red",
@@ -6584,7 +6970,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_yellow",
@@ -6597,7 +6985,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Plasma_basic_turqoise",
@@ -6610,7 +7000,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_Rokkit-Harpoon big",
@@ -6666,7 +7058,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_Rokkit-Harpoon small",
@@ -6722,7 +7116,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Purple",
@@ -6744,7 +7140,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning",
@@ -6757,7 +7155,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Genestealer",
@@ -6770,7 +7170,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Genestealer_Benefictus",
@@ -6783,7 +7185,9 @@
    "ts": 0.9,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_NornEmissary",
@@ -6796,7 +7200,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Swarmlord",
@@ -6809,7 +7215,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Tyranid",
@@ -6822,7 +7230,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Tyranid",
@@ -6835,7 +7245,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Waaagh",
@@ -6848,7 +7260,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Waaagh_Board",
@@ -6874,7 +7288,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_down_Waaagh_Green",
@@ -6900,7 +7316,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_white",
@@ -6913,7 +7331,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_down_Intense_white",
@@ -6926,7 +7346,9 @@
    "ts": 0.65,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Sororitas_MissileVolley_board_down",
@@ -7021,7 +7443,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_StikkaThrow Movement",
@@ -7124,7 +7548,9 @@
      "du": 0.2,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Atk_StikkaThrow Movement",
@@ -7227,7 +7653,9 @@
      "du": 0.3,
      "dl": 1.0
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Sword_Slash_DA",
@@ -7430,7 +7858,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Heavy Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_tank_baneblade",
@@ -7452,7 +7882,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Heavy Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_tank_big",
@@ -7497,7 +7929,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Heavy Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_tank_huge",
@@ -7564,7 +7998,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Heavy Tween",
+   "tww": 0
   },
   {
    "n": "Ork_Trampla_Charge",
@@ -7599,7 +8035,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Psychic_Lightning_Red",
@@ -7621,7 +8059,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Aura_WhileInPlay_1",
@@ -8647,7 +9087,9 @@
    "ts": 0.0,
    "tm": 0.2,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Light Tween",
+   "tww": 0
   },
   {
    "n": "Impact_blunt_lightning_Big",
@@ -9465,7 +9907,9 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Mutation",
+   "tww": 1
   },
   {
    "n": "Buff_HideousMutation_EC",
@@ -9478,7 +9922,9 @@
    "ts": 0.0,
    "tm": 1.5,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Mutation",
+   "tww": 1
   },
   {
    "n": "Buff_Blue_SW_Wolf",
@@ -9790,7 +10236,9 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Subtle Shake",
+   "tww": 1
   },
   {
    "n": "ArmourEffect_Nurgle",
@@ -10804,7 +11252,9 @@
    "ts": 0.0,
    "tm": 0.45,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Subtle Shake",
+   "tww": 1
   },
   {
    "n": "Buff_Tyranid Atk",
@@ -10817,7 +11267,9 @@
    "ts": 0.0,
    "tm": 0.45,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Subtle Shake",
+   "tww": 1
   },
   {
    "n": "Buff_Tyranid",
@@ -10830,7 +11282,9 @@
    "ts": 0.0,
    "tm": 0.45,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Tyranid_Deform",
+   "tww": 1
   },
   {
    "n": "Buff_Tyranid HP",
@@ -10843,7 +11297,9 @@
    "ts": 0.0,
    "tm": 0.45,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Subtle Shake",
+   "tww": 1
   },
   {
    "n": "Buff_UM_Intense",
@@ -12097,7 +12553,9 @@
     0.0
    ],
    "mmRzE": 0,
-   "mmRzM": 0.0
+   "mmRzM": 0.0,
+   "tw": "Summon Troop Tween",
+   "tww": 0
   },
   {
    "n": "Teleport Trait Summon",
@@ -12153,7 +12611,9 @@
     0.0
    ],
    "mmRzE": 0,
-   "mmRzM": 0.0
+   "mmRzM": 0.0,
+   "tw": "Summon Troop Tween",
+   "tww": 0
   },
   {
    "n": "Teleport Trigger Board Effect Only",
@@ -12837,7 +13297,9 @@
    "ts": 1.25,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil DCannon_2",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Long",
@@ -12850,7 +13312,9 @@
    "ts": 0.5,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Shuriken_Short_Trait",
@@ -12993,7 +13457,9 @@
    "ts": 0.0,
    "tm": 1.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Heavy Delayed 0,8s Tween",
+   "tww": 0
   },
   {
    "n": "Explosion Fenrisian Monstrosities Extra Damage",
@@ -15205,7 +15671,9 @@
      "du": 0.4,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Lasrifle_offscreen_5x",
@@ -15780,7 +16248,9 @@
    "ts": 0.4,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Orbital Bombardment Enemy Warlord",
@@ -16386,7 +16856,9 @@
     0.0,
     1.0,
     1.0
-   ]
+   ],
+   "tw": "EC Heldrake Dissapear UP",
+   "tww": 0
   },
   {
    "n": "RallyEffect",
@@ -16771,7 +17243,9 @@
    "shka": 0.0,
    "shkf": 0.0,
    "shkoa": 0,
-   "shkof": 0
+   "shkof": 0,
+   "tw": "Levitate Slam",
+   "tww": 1
   },
   {
    "n": "Goff_Rok_Invasion",
@@ -17845,7 +18319,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "BulletImpact_Shuriken_Short",
@@ -17858,7 +18334,9 @@
    "ts": 0.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "SkorchaAttackEffect",
@@ -17967,7 +18445,9 @@
    "ts": 0.75,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Impact Lightning",
+   "tww": 0
   },
   {
    "n": "Smoke_Board",
@@ -18109,7 +18589,9 @@
    "ts": 1.2,
    "tm": 0.0,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "Sororitas_Destroy_Flames",
@@ -18365,7 +18847,9 @@
      "du": 0.2,
      "dl": 0.1
     }
-   ]
+   ],
+   "tw": "Recoil Normal Tween",
+   "tww": 0
   },
   {
    "n": "StealthEffect",
@@ -19084,7 +19568,9 @@
     0.0
    ],
    "mmRzE": 0,
-   "mmRzM": 0.0
+   "mmRzM": 0.0,
+   "tw": "Summon Troop Tween",
+   "tww": 0
   },
   {
    "n": "TideEffect",
@@ -19347,7 +19833,9 @@
    "ts": 0.0,
    "tm": 0.75,
    "te": 0.0,
-   "otv": 0
+   "otv": 0,
+   "tw": "Tyranid_Burrow_Tween",
+   "tww": 1
   },
   {
    "n": "Tyranid Spawn",

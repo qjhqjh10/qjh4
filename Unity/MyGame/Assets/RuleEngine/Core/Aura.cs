@@ -1029,7 +1029,7 @@ namespace RuleEngine
         //
         //  🔴 **我们只能覆盖到「棋盘上的单位」这一半，如实标着**（判据 = 账 482 / 636 的「差异」列）：
         //    · `UnitState.RemoveExtrinsicEffectsFrom(string)` 只到「限时增益（`TempBuff.SourceCard`）
-        //      + 记了来源的数值修饰（`_statMods.Source`）」两本账（`UnitState.cs` 那方法头注已写明）；
+        //      + 记了来源的数值修饰（`_statMods.Source`）+ 按施放者的 `_grants.Caster`」三本账，且**三本都过 `extrinsic != 0` 合取**（🆕 2026-10-29 `B97_W30` · 账 482/636 ⓐ：`GrantRecord.Extrinsic` / `TempBuff.Extrinsic` 两列已补；闸口在本方法**调下去的那一层** `UnitState.RemoveExtrinsicEffectsFrom` 里，本方法不必再判一遍 —— ⛔ 别在两处各判一次）；
         //    · **手牌那一半做不到** —— 手牌是 `CardInstance`（没有 `UnitState`），它的常驻修饰住在
         //      `ctx.CostMods`（`Key`/`Criteria`），与「extrinsic 效果」不是同一份模型。
         //    ⇒ 返回值只反映**棋盘上摘掉几条**；手牌那一半仍缺（与 636 的「差异」列同一口径）。

@@ -712,7 +712,7 @@ namespace RuleEngine
             ctx.Log($"{by}：「{op.Source}」要弃掉整手牌 —— 原版 `PlayAbility.c:293-345` 取 "
                   + "`GetCardsInHandList(inclMinions=1, inclSpells=1, inclWhispers=0, inclWeapons=1, "
                   + $"affected(本侧)={(mine ? 1 : 0)}, affected(对面)={(theirs ? 1 : 0)})`"
-                  + $"（`playersAffected={pa}` ⇒ {(pa < 0 ? "**读不到**，按原版 SO 缺省 0 = Both" : paName)}）");
+                  + $"（`playersAffected={pa}` ⇒ {(pa < 0 ? "**读不到** ⇒ 本版**两侧都不动**（`IsPlayerAffected` 对未列出的值一律 false；原版 SO 缺省才是 0 Both）" : paName)}）");
             int total = 0, done = 0;
             for (int s = 0; s < 2; s++)
             {

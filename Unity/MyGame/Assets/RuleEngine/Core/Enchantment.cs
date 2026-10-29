@@ -892,15 +892,10 @@ namespace RuleEngine
             if (ctx == null || carrier == null || carrier.Instance == null) return null;
             int owner, slot;
             BoardOwnerSlotOf(ctx, carrier.Instance, out owner, out slot);
-            if (ignoreRandom)
-                ctx.Log("附魔层：`FindCancelAttack(…, ignoreRandom: true)` —— 我们没有它的等价位"
-                      + "（`AbilityLevelCriteriaAllows` 不收这个实参）⇒ **按 false 判**"
-                      + "（原版只把它传给 board 条件里的随机项）");
             foreach (var e in carrier.Instance.ActiveEnchantments)
             {
                 if (e == null || e.Card == null) continue;
                 if (!HasAboutToAttackAbility(e.Card)) continue;                     // ③ `HasAbilityType(0x118)`
-                string why;
                 int abilityContext = RuleCore.AbilityContextOfAbilityV14(
                                          e.Card, TriggerNameAboutToAttack, KeywordTable.AboutToAttack);
                 if (!RuleCore.IsRightContext(ctx, owner, slot, abilityContext, carrier.Instance))
@@ -909,26 +904,31 @@ namespace RuleEngine
                           + $"（`abilityContext {abilityContext}`）⇒ 这一件取消不了这一记");
                     continue;
                 }
-                bool? act = RuleCore.ActingLevelCriteriaAllows(ctx, owner, carrier, e.Card,
-                                                               TriggerNameAboutToAttack, actingCard,
-                                                               targetCard, out why);
-                if (act == false)
+                // 🔴 2026-10-29（`B97_W4` · 账 `:770`）：原版**逐条 ability 判、任一真即真**（`CardScript__HasCancelAttackEffect.c:36-50`），
+                //   旧实现按 trigger 定位唯一一条 ⇒ 同 trigger 两条 ability 会被误判成「取消不了」。改为列表遍历 + 按卡面下标判三道闸。
+                //   ⚠️ 第一道闸（`abilityContext`）仍按 trigger 取（数据里没有 per-ability 那一列）。
+                var rows = e.Card.AbilityRowsForTrigger(TriggerNameAboutToAttack);
+                string why;
+                if (rows == null || rows.Count == 0)
                 {
-                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack 被 `actingCardCriteria` 挡掉：{why}");
-                    continue;
+                    why = rows == null ? "`abilityTargets` 列没落 ⇒ 判不了" : "这张附魔没有 AboutToAttack 的 ability ⇒ 判不了";
+                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack **判不了 ⇒ 放行**：{why}");
+                    return e;
                 }
-                if (act == null)
-                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack **第一道闸判不了 ⇒ 放行**（原版会 NRE）：{why}");
-                bool? tgt = RuleCore.AbilityLevelCriteriaAllows(ctx, owner, carrier, e.Card,
-                                                                TriggerNameAboutToAttack, targetCard, out why);
-                if (tgt == false)
+                for (int ri = 0; ri < rows.Count; ri++)
                 {
-                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack 被 `targetCriteria`/`boardCriteria` 挡掉：{why}");
-                    continue;
+                    int ab = rows[ri].AbilityIndex;
+                    bool? ok = RuleCore.AbilityCriteriaAllowsAt(ctx, owner, carrier, e.Card, ab,
+                                                                actingCard, targetCard, out why, ignoreRandom);
+                    if (ok == false)
+                    {
+                        ctx.Log($"附魔层：「{NameOf(e.Card)}」的 ability#{ab} 被 criteria 挡掉：{why}");
+                        continue;                                                   // 这一条不成立 ⇒ 试下一条
+                    }
+                    if (ok == null)
+                        ctx.Log($"附魔层：「{NameOf(e.Card)}」的 ability#{ab} **判不了 ⇒ 放行**（原版会 NRE）：{why}");
+                    return e;                                                       // ⑤ 任一条过闸即命中
                 }
-                if (tgt == null)
-                    ctx.Log($"附魔层：「{NameOf(e.Card)}」的 AboutToAttack **第二/三道闸判不了 ⇒ 放行**（原版会 NRE）：{why}");
-                return e;                                                          // ⑤
             }
             return null;
         }

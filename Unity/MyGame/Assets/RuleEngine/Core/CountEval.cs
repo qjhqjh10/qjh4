@@ -455,7 +455,7 @@ namespace RuleEngine
             // 🔴 `selectFromChooseResolution`（`+0x80`）**仍然没实现**：`AbilityLogic.cs:1075/1414/1628`
             //   把它当**候选池来源**的开关（不是筛）⇒ 保留 `gap`（池内现读 1 行 = `ASH82`）。
             //   ⚠️ 它同时卡在 `ta=50`（手牌族，本文件 ③ 判不了）⇒ 那一行本来就到不了这里。
-            if (s.SelectFromChooseResolution != 0) return "countSet.selectFromChooseResolution 未实现";
+            if (s.SelectFromChooseResolution != 0) return "countSet.selectFromChooseResolution 只接到【目标池】（CountEval.ApplySelectFromChooseResolution），【计数】路径未接";   // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格）：候选池那半已落（判据 AbilityLogic__GetTargets.c:1101-1140），计数路径仍未接 ⇒ 这里**照旧**判不了（⛔ 别把 gap 撤掉当「做完了」）
             return null;
         }
 
@@ -1080,6 +1080,64 @@ namespace RuleEngine
             if (set.MaxTargets > 0)
             { why = "ta=50：`maxTargets > 0`（原版要先截断再数）—— 本版未实现"; return false; }
             return true;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（第九十七会话 · 波 1 · 执行代理 `B97_W5`）—— 账 `:676` 的 (a) 格
+        //  `TargetCriteria.selectFromChooseResolution`（`+0x80`）的**消费端**
+        // ==========================================================================================
+        //  判据（🥇 `decomp_full/AbilityLogic__GetTargets.c:1101-1140`，逐句现读）：
+        //    候选池建好之后，
+        //      `if (criteria.selectFromChooseResolution(+0x80) != 0) {`
+        //        `chosen = manager.cardChosenInSelection(+0x2e8);`
+        //        `if (chosen != null) {`
+        //          `// ① 筛：倒序扫，把「卡 id(+0x28 → +0x38) != chosen.uniqueId」的逐条 RemoveAt`
+        //          `// ② 截成 1：再把下标 > 0 的全 RemoveAt（留第 0 条）`
+        //          `// ③ 清空：manager.cardChosenInSelection = null`
+        //        `}`
+        //      `}`
+        //  🔴 **语义是「候选池的来源」不是「筛条件」**（所以它不属于 `SetGap` 那张「未实现的筛」清单：
+        //    它会把池子**收窄成恰好一张**，或者——在没选过牌时——**原样不动**）。
+        //  ⚠️ **写点已经在了**（⛔ 本批不新增）：`EffectResolver.DoChooseCard` 把选中的那张同时写进
+        //    `ctx.LastChosenCard`（我们自己的槽）与 `ctx.CardChosenInSelection`（原版 `+0x2E8`）——
+        //    判据 `ChoiceOfCardEnemy.c:47` / `ClickChosenCardDone.c:22`。
+        //  ⚠️ **`null` 池 / `null` ctx ⇒ 原样返回**（原版这两处都在 `if (chosen != null)` 里面）。
+        //  📊 **可达性**：池内该 flag 非 0 的 criteria 行现读 88 行 / 78 张卡（最大 `ta=180` 43 行），
+        //    其中能走到本方法的（`ta` 我们支持的那几档）今天仍受 `SetGap` 的其它格限制 ⇒ **休眠件**
+        //    （铁律 11：照样建、⛔ 不判 D）。
+        // ==========================================================================================
+
+        /// <summary>原版 `AbilityLogic.GetTargets` 末尾那段 `selectFromChooseResolution` 收口：
+        /// **把候选池收窄成「刚在选牌窗里点定那一张」**，然后**清空** `ctx.CardChosenInSelection`。
+        ///
+        /// <para>⚠️ 调用方必须**只在** criteria 的 `selectFromChooseResolution != 0` 时调它
+        /// （传 <paramref name="flag"/>，本方法自己再判一次 —— 免得把「别的池子」也收窄成一张）。</para>
+        /// <para>`flag == 0` ⇒ 原样返回（一个都不动、也不清空 —— 原版那一支压根不执行）。</para>
+        /// <para>`flag != 0` 且没选过牌（`ctx.CardChosenInSelection == null`）⇒ **原样返回**。
+        /// 原版是 `if (chosen != null)` 才动手 ⇒ ⛔ 别在这儿清空成空表（那会把「全部候选」变成「没有候选」）。</para>
+        /// </summary>
+        /// <returns>筛过的池子（<paramref name="pool"/> 原对象可能被就地改，也可能换一份新的 —— 用返回值）。</returns>
+        public static System.Collections.Generic.List<UnitState> ApplySelectFromChooseResolution(BattleContext ctx, int flag,
+                                                                      System.Collections.Generic.List<UnitState> pool, string by = null)
+        {
+            if (flag == 0 || ctx == null || pool == null || pool.Count == 0) return pool;
+            var chosen = ctx.CardChosenInSelection;
+            if (chosen == null) return pool;                       // 原版 `if (chosen != null)`
+
+            int before = pool.Count;
+            // ① 筛（原版倒序扫 + RemoveAt ⇒ 结果与原序一致；我们用 RemoveAll 保持顺序，语义相同）
+            pool.RemoveAll(u => u == null || u.Card == null
+                                || !string.Equals(u.Card.Id, chosen.Id, System.StringComparison.Ordinal));
+            // ② 截成 1（原版第二轮循环 `if (iVar15 != 0) RemoveAt(iVar15)`）
+            if (pool.Count > 1) pool.RemoveRange(1, pool.Count - 1);
+            // ③ 清空（原版 `*plVar1 = 0`）
+            ctx.CardChosenInSelection = null;
+
+            ctx.Log($"{(string.IsNullOrEmpty(by) ? "目标池" : by)}：`selectFromChooseResolution` ⇒ 候选池按刚选定的"
+                  + $"「{chosen.Name}」收窄，{before} → {pool.Count} 张（原版 `AbilityLogic__GetTargets.c:1101-1140`："
+                  + "筛 → 截成 1 → 清 `cardChosenInSelection`）"
+                  + (pool.Count == 0 ? "；⚠️ **选中的那张不在候选池里 ⇒ 本行没有目标**（原版同样得到空表）" : ""));
+            return pool;
         }
     }
 }

@@ -663,7 +663,7 @@ namespace CardPresentation
                 //   （`Catalog Item Shop Container` dump：`Price Display` 86.36,416.86 → 247.86,442.54，
                 //   子件 `icon` = `40k_topmarquee_currency_gold`、ARF 高控宽 1:1；我们原来只画数字）。
                 var iconR = Rect(r, new PxRect(86.36f, 416.86f, 112.04f, 442.54f));
-                _win.Rect(cell, "40k_topmarquee_currency_gold", iconR, "Price Icon", QCellPrice, null, true);
+                var iconQ = _win.Rect(cell, "40k_topmarquee_currency_gold", iconR, "Price Icon", QCellPrice, null, true);   // 接住那颗 icon：售罄时它要**跟着价签钮一起灰**（原版它在 `Generic UI Button` 子树里、挂 `EverguildButtonMaterialModifier`，见 `wb.TintOn` 那句）
                 var textR = Rect(r, new PxRect(112.04f, 416.86f, 247.86f, 442.54f));
                 // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（价格）四格 = `13.46 / 40 / 39 / 0`
                 //   （出处 = `RA1212_切块表.md` 块 6 #19）。闸三条全真（`30 > 13.46`）。
@@ -697,7 +697,7 @@ namespace CardPresentation
                 var wb = hit.gameObject.AddComponent<WindowButton>();
                 int captured = idx;
                 wb.onClick = () => Buy(captured);
-                wb.Bind(priceQ, "40K_button");   // A17：悬停/按下换图（同一颗，原版命中就在按钮本身上）
+                wb.Bind(priceQ, "40K_button"); wb.TintOn(iconQ); if (ShopData.SoldOut(_page, idx)) wb.SetSoftDisabled(true);   // A17：悬停/按下换图（同一颗，原版命中就在按钮本身上）｜🔴 2026-10-29（`B97_W15` · 账 `商店:297` 残差）**售罄 ⇒ 变灰**：原版闸 = `CatalogItemContainer__Refresh.c:45-51`（`max<1` 或 `已购<max`）+ `:65-77` `PriceDisplayButton.set_Interactable(0)` → `EverguildButton__DoStateTransition` → `SwitchMaterial` → **换 `Everguild/UI/Greyscale` 材质**（闸 `colorTintGreyOnDisable=1`，70/70）⇔ 我们的 `SetSoftDisabled`/`RefreshGray`；⛔ **不是** `m_DisabledColor`（那批钮 70/70 `m_Transition=2`(SpriteSwap) + `customColorTintTransitions=0` + `m_DisabledSprite=null` ⇒ 自写颜色段被整段跳过，0.7843 是死值）。`TintOn(iconQ)` = 原版 `Price Display/icon` 在 `Generic UI Button` 子树里、挂 `EverguildButtonMaterialModifier` ⇒ 要**跟着一起灰**（我们摆成格的兄弟 ⇒ 走 A1725 第四组那个口；价格文本是纯白字、`Greyscale` 后逐像素不变）。🔶 自己设计（非原版）：**软禁用**（灰了照样点得动、点下去 `RefuseSoldOut` 拒绝 + 出声）—— 原版是硬禁用（`interactable=false`，点了什么都不发生），与本工程红线「点了必须有反应」冲突 · 调度台 2026-10-29 裁定（`判据/B97_R5_零散剩余施工单.md` §一·补 ①）
             }
         }
 
@@ -797,7 +797,7 @@ namespace CardPresentation
             if (wm != null) wm.HidePopUp(true);
             if (got == ShopData.BuySoldOut) return OnPurchaseSoldOut(idx, got); else if (!ShopData.PurchaseSucceeded(got)) return OnPurchaseFailed(idx, got); else Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 2000（用户 2026-10-24 从 9999 改）、不扣钱 —— 用户 2026-09-17 边界②）");   // 🔴 售罄那一档与「越界」分家：原版售罄**没有任何弹窗**（`B97_SHOP2` 2026-10-29）
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
-            Setup();
+            Setup();   // 🔴 2026-10-29（`B97_W15` · 账 `商店:297`）本句已经把 `Content` 整棵重建（`Setup → BuildGrid → BuildCell`），而 `BuildCell` 现在会按 `ShopData.SoldOut` 给价签钮上灰 ⇒ **买成功后那一格真的重画、并且变灰**。⛔ 施工单里那句「买成功后调 `RebuildForScroll()`」**不要再加**：同一帧会把格连建两遍（`RebuildForScroll` 的唯一调用点是滚动回调 `_gridScroll.OnChanged`）
             // ---- 到手之后那一扇窗：**两条路，按原版的档分开**（A439）----
             //
             // 🔴 判据（第一权威 = 反编译方法体）：**原版按「这一件是哪一档 offer」走两条完全不同的路**——

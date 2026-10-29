@@ -197,7 +197,7 @@ namespace CardPresentation
     ///
     /// <para>⚠️ **本类不碰战斗**：`To Battle` 只做「组牌 + 把牌交给既有开战通道 + 切场景」，
     /// 战斗内一行不动。</para></summary>
-    public class DraftModeWindow : GameWindow
+    public partial class DraftModeWindow : GameWindow   // 🆕 2026-10-29（B97_W26）：`partial` —— 联机（P2P）开战那半边追加在**文件末尾**的同类里（本文件被账按行号钉着 ⇒ ⛔ 别在主类中间追加成员）
     {
         public const string RootName = "Draft Mode Menu Demo";
 
@@ -3374,6 +3374,7 @@ namespace CardPresentation
         /// ⚠️ **战斗内一行不动**。</summary>
         public bool LaunchBattle()
         {
+            NetTookOver = false;      // 🆕 2026-10-29（B97_W26）：先归零，只有联机真接管了才置真（照 `LiveOpsEventWindow.StartMatch:1557` 的口径）
             if (State != DraftModeState.OngoingRun)
             { Debug.LogWarning("[Draft] `To Battle` 只在 OngoingRun 页有效（当前 " + State + "）"); return false; }
             if (string.IsNullOrEmpty(_warlordId))
@@ -3403,11 +3404,11 @@ namespace CardPresentation
                 nameZh = "选秀 " + _seed,
                 faction = WarlordFaction,
                 armyOrder = WarlordArmyId(),
-                // 🔶 自己设计（非原版）：轮抽副牌按 Skirmish 参数打（`gameMode = GameMode.Skirmish`） · `GameplayVariables.For` 里没有 ClosedDeck 那一档（落到 Classic 30 张），而轮抽牌恒 12 张（原版判据拿不到） · TODO(谁定的)｜原注：🔴 **我们挑的**：`GameplayVariables.For` 里**没有 ClosedDeck 那一档**
-                // （`RuleEngine/Core/GameplayVariables.cs:444-449` ⇒ 落到 Classic **30 张**），
-                // 而轮抽牌恒 12 张（4 包 × 3）⇒ 这副牌按 **Skirmish（12 张 / 4 传说）** 那套参数打；
-                // 真实模式号仍走 `SetPendingPlayMode(GameMode.ClosedDeck)`（日志/记录/骷髅口径用那个）。
-                gameMode = (int)GameMode.Skirmish,
+                // 🔶 自己设计（非原版）：轮抽副牌按 Skirmish 参数打（`gameMode = GameMode.Skirmish`） · ⚠️ 2026-10-29 就地订正旧理由（原写「`GameplayVariables.For` 里没有 ClosedDeck 那一档」= **已过期**）：`GameplayVariables.cs:554`（2026-10-24 `E2`）**已有** `if (mode == GameMode.ClosedDeck) return ClosedDeck;`（那一档复用 Skirmish，`IsSkirmish` 由 `deckSize < 30` 判 `:561`） · 调度台 2026-10-29 裁定（B97_W26 补全「谁定的」）
+                // 🔴 **仍然填 13、不填 7 的真实理由**：`NetPendingBattle.Vars`（`Net/NetBattle.cs:81`；施工单写的 `:114` 已过期，2026-10-29 现读）读的是 `PlayerDeck.IsSkirmish`
+                // = `DeckRules.cs:742` 的 `GameMode == (int)GameMode.Skirmish` ⇒ 填 7 会让它 false，12 张按经典那套打（零报错）；
+                // 而模式号仍走 `SetPendingPlayMode(GameMode.ClosedDeck)`（日志/记录/骷髅口径用那个）。
+                gameMode = NetDeckGameMode,        // = 13（单一真源；⛔ 别在这里再写一遍 `(int)GameMode.Skirmish`，理由见上三行）
                 difficulty = 0,
                 heroId = _warlordId,
                 cardback = null,
@@ -3418,6 +3419,21 @@ namespace CardPresentation
                 problems = new string[0],
                 overLegendary = new string[0],
             };
+            // 🆕 2026-10-29（B97_W26 · 账 轮抽:30 · 用户 2026-10-25「轮抽模式可以做」）
+            //   联机已连上 ⇒ 走 P2P（同族先例：`PracticeModePopup.cs:2995-3025` / `LiveOpsEventWindow.cs:1570-1600`）。
+            //   原版判据：轮抽开战走的是**匹配池**那一条（`DraftEventBase.GetMatchmakingFilter` 拼 SqlLobby 过滤串，
+            //   `decomp_generic_trial/out_b94/DraftEventBase_object__object_.GetMatchmakingFilter__1810840.c`；
+            //   房属性由 `NetworkCustomManager.DoCreateEventRoom → SetCustomMatchOptions` 写）⇒ 不是单机自娱。
+            //   🔴 两个会**静默错**的常量各只有一处真源：`NetModeName`（必须 `"ClosedDeck"`）· `NetDeckGameMode`（必须 13）。
+            var draftProps = NetRuntime.ComputeDraftMatchOptions(0, _run != null ? _run.matchesWon : 0, LossStreakOrZero());   // 🆕 2026-10-29（B97_W39 · 步骤 4）房属性 C1/C4/C5 过网 —— 算式**唯一真源** = `NetRuntime.ComputeDraftMatchOptions`（阈值/清零/键名全在那儿，⛔ 别在这三个实参里自己判 800 / 新手档）；`won` = 原版 `SaveGame.numberOfMatchesWon`。🔶 自己设计（非原版）：`currentELO` 传 0 —— 排位 MMR 是**服务器值**（判据 = `Shell/RankedData.cs` 文件头「原版排位分与每局增减都在服务器」），本地无真值 ⇒ 新手档恒成立、C4 恒 0 · 调度台 2026-10-29 裁定
+            if (Net.NetMatchmaking.TryStart(PrebuiltDecks.ToPlayerDeck(pre), NetModeName, WarlordFaction, out string netWhy,
+                                            draftProps.Won, draftProps.Elo, draftProps.LossStreak))
+            {
+                OnNetTookOver(pre, deck);
+                return true;                       // ⛔ 联机这条路**不写** `SetPendingBattleDeck` / `SetPendingPlayMode`（跨局泄漏，见 `OnNetTookOver` 的 doc）
+            }
+            Debug.Log("[Draft] 联机没接管（" + netWhy + "）⇒ 照旧单机开战");
+            Net.NetMatchmaking.ExplainNotTakingOver(netWhy);   // 红线：配了联机却没连上要出声（单机玩家不打扰）
             PrebuiltDecks.SetPendingBattleDeck(pre);
             BattleDriver.SetPendingPlayMode(GameMode.ClosedDeck);
             StartedBattle = true;
@@ -4476,6 +4492,110 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(key)) key = DeckRules.TermPrefix + "InvalidDeck";   // 原版隐藏卡那一支留 err=0（没有键）⇒ 落 catch-all
             if (manager != null) manager.ShowPopUp(Loc.T(key), Loc.T("MainMenu/General/OK"), null);
             return false;
+        }
+    }
+
+    // ============================================================ 账 轮抽:30 · 联机（P2P）开战那半边
+    /// <summary>轮抽的**联机（P2P）开战**这一半 —— 2026-10-29 `B97_W26`（账 `轮抽:30` · 用户 2026-10-25 裁定「轮抽模式可以做」）。
+    /// <para>⚠️ 为什么写成 `partial` 且放在**文件最末尾**：本文件被账按 `文件:行号` 钉着（194 处），
+    /// 在主类中间追加成员会让下游落点**全体**漂移（本工程的老账）⇒ 新成员一律进这一块；这样只剩 `LaunchBattle` 里那两处插入会让下游漂移（+1 / +14 行，清单见 `资料/完全复刻/报告/B97_W26.md` §6）。</para>
+    /// <para>⚠️ `LaunchBattle` 那条联机分支只做三件事：`NetMatchmaking.TryStart` → 接管就 <see cref="OnNetTookOver"/> 并**直接 return**
+    /// （不切场景，等对面）→ 没接管就出声并照旧走单机。⛔ 这条路上**没有** 12 秒 bot 支（轮抽从来不打 bot）。</para></summary>
+    public partial class DraftModeWindow
+    {
+        /// <summary>过网的那一串模式名 = **`"ClosedDeck"`**（`MsgDeck.gameMode` / `MsgStart.mode` 都用它）。
+        /// <para>🔴🔴 **判据（⛔ 改一个字符就是静默 bug）**：
+        /// ① 原版 `DraftEventBase.get_EventPlayMode` = **`return 7`**（`decomp_generic_trial/out_b94/DraftEventBase_object__object_.get_EventPlayMode__1814550.c`
+        ///    全文就是 `return 7;` —— 首行写作 `System_Int16__GetTypeCode` 是**链接器 ICF 折叠**（两份体都是 `mov eax,7; ret`），
+        ///    不是解错，见 CLAUDE.md 里「首行名不是自己，也可能是 ICF 折叠」那一条）· `PlayModes.ClosedDeck = 7`
+        ///    ⇒ 原版轮抽对局的 `MatchData.playMode` 就是这个数；
+        /// ② 我们这一侧的消费者：`DraftOutcomes`（`Shell/DraftModeWindow.cs` 的 `DraftOutcomes`）与 `CountDraftMatchesIn` 都按
+        ///    **对局记录 `Mode == PlayModeNames.Name(GameMode.ClosedDeck)`** 数战绩，而记录那格的唯一写点 =
+        ///    `BattleDriver.RecordBattleLog`（写 `PlayModeNames.Name(Ctx.PlayMode)`），而 `Ctx.PlayMode` 一路来自这条串
+        ///    （`MsgStart.mode → NetPendingBattle.Mode → PlayMode`）⇒ 这里发 `"Skirmish"` ⇒ 记录 Mode = `"Skirmish"`
+        ///    ⇒ **轮抽战绩永远不涨**（零报错、零提示）；
+        /// ③ 两端还都得是同一串，否则 `NetMatchmaking.HostStartMatch` 的模式闸会 `RevokeForModeMismatch`。</para></summary>
+        public static string NetModeName { get { return PlayModeNames.Name(GameMode.ClosedDeck); } }
+
+        /// <summary>交过网的那副牌里的 `gameMode` 字段 = **13（Skirmish）**（`LaunchBattle` 里 `pre.gameMode` 的唯一真源）。
+        /// <para>🔴 **为什么不是 7（= <see cref="NetModeName"/> 那一档）**：`NetPendingBattle.Vars`（`Net/NetBattle.cs:81-94`）**不看 `PlayMode`**，
+        /// 它读 `PlayerDeck.IsSkirmish`（`RuleEngine/Core/DeckRules.cs:742`：`GameMode == (int)GameMode.Skirmish`）⇒ 填 7 会让 `IsSkirmish = false`
+        /// ⇒ **12 张轮抽牌按经典 30 张那套参数打**（起手 3 / 手牌上限 10…），而且**不报错**。
+        /// 「规则参数走卡组 13 · 模式号走 `"ClosedDeck"`」与今天单机那条路**一模一样**，别把它当重复。</para>
+        /// <para>🔶 自己设计（非原版）：把轮抽副的 `CardDeck.gameMode` 填成 13 而不是 7 —— 原版走 `MatchData.playMode` 选参数表
+        /// （不受卡组这一格影响），我们这条链受 `NetPendingBattle.Vars` 约束，改它要动 `Net/*.cs`（不在本轮白名单）· 调度台 2026-10-29 裁定（B97_W26）。</para></summary>
+        public static int NetDeckGameMode { get { return (int)GameMode.Skirmish; } }
+
+        /// <summary>这一局**交给联机了**（`LaunchBattle` 里 `NetMatchmaking.TryStart` 返回真）。
+        /// 自检读口；`LaunchBattle` 开头先归零 ⇒ 绝不会把上一局的「已接管」带到这一局。</summary>
+        public bool NetTookOver { get; private set; }
+
+        /// <summary>窗内那扇 `Searching Oponent Popup`（出厂关着；第一次接管时才建）。</summary>
+        SearchingMatchPopup _search;
+
+        /// <summary>正在「等对面」那一段里（自检读口 —— **不是** `StartedBattle`：联机接管后 `StartedBattle` 也是真）。</summary>
+        public bool NetWaiting { get { return _search != null && _search.IsWaiting; } }
+
+        /// <summary>建窗内那扇 `Searching Oponent Popup` 并把取消接到 <see cref="CancelSearch"/>。
+        /// <para>🔴 第三个实参 **`false` = 交给常驻 `SearchOpponentManager` 推**：本窗**没有 `Update`**（`PracticeModePopup` 有，
+        /// 所以那边用默认的 `true`）⇒ 传 `true` 的话打字机/转盘一帧都不会动（判据 = `SearchingMatchPopup.Attach` 的 doc）。
+        /// 取舍同 `LiveOpsEventWindow.cs:571`。⛔ 别两边都推（一帧两次 ⇒ 12 秒变 6 秒）。</para></summary>
+        void AttachSearch()
+        {
+            _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup", false);
+            _search.OnCancel = CancelSearch;
+        }
+
+        /// <summary>联机**接管**了这一局之后本窗要做的一切（`TryStart` 返回真之后调）。
+        /// <para>🔴🔴 **这里绝对不许** `PrebuiltDecks.SetPendingBattleDeck` / `BattleDriver.SetPendingPlayMode` ——
+        /// 那两个是「读一次就清」的静态通道（`BattleDriver.cs:12977`），而联机这条路上**没有人读它们**
+        /// ⇒ 写了就会**漏到下一局单机**（本工程踩过的形状：上一局的牌/模式串到下一局）。
+        /// 自检 `Editor/B97W26_Assert.cs` 有一条专门挡它（灭自证：往里加任一 ⇒ 红）。</para>
+        /// <para>🆕 自检口：把这一支**单独暴露成公开方法**，是为了让断言**不起联机会话**也能走一遍真实的接管体
+        /// （否则只能测到「单机那条路」那半边）。⛔ 生产路径只有 `LaunchBattle` 一个调用点。</para></summary>
+        public void OnNetTookOver(PrebuiltDecks.Deck pre, DraftPacks.ClosedDeck deck)
+        {
+            NetTookOver = true;
+            StartedBattle = true;                       // 自检口径不变（「开战成立」）
+            _deck = deck;
+            if (_search == null) AttachSearch();
+            _search.OnCancel = CancelSearch;
+            _search.BeginNetWait();                     // 等真人：**不跑 12 秒**（那一支只给单机）
+            Debug.Log("[Draft] 这一局走**联机**（" + NetModeName + " · 规则参数档 " + NetDeckGameMode
+                    + "）—— 不切场景，等对面也点 `To Battle`"
+                    + (pre != null ? "；本机交了牌「" + pre.name + "」（" + (pre.cardIds != null ? pre.cardIds.Length : 0) + " 张）" : ""));
+        }
+
+        /// <summary>取消匹配（窗内那扇 `Cancel` / 点背板 / ESC 都走它）。
+        /// <para>⚠️ 这条链**是我们设计的、不是复刻** —— 原版那是服务端撤单（`MatchMakerManager.CancelSearch`），
+        /// 本地等价物 = `NetMatchmaking.Cancel`（它自己带「开局包已发 ⇒ 不假装取消成功」那道闸）。</para>
+        /// <para>⛔ 与练习窗的差别：这里**没有**「取消后去打 bot」那一支（轮抽从来不打 bot）—— 取消就是取消，玩家仍在 Ongoing 页。</para></summary>
+        public void CancelSearch()
+        {
+            Debug.Log("[Draft] 取消匹配（原版 `MatchMakerManager.CancelSearch`）");
+            if (_search != null) _search.AbortSearch();     // 先收窗（同 `LiveOpsEventWindow.CancelSearch` 的次序）
+            if (!NetTookOver) return;
+            if (Net.NetMatchmaking.Cancel("轮抽：对局发起方点了取消", out string why))
+            {
+                NetTookOver = false;
+                NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelled"));                 // 整句走词条
+            }
+            else
+            {
+                // **不假装取消成功**（`Settings/Online/MatchCancelFailed` 带 `{0}` 占位）
+                NetRuntime.Notice(Loc.T("Settings/Online/MatchCancelFailed").Replace("{0}", why));
+            }
+        }
+
+        /// <summary>原版 `GameModes.LossStreak`（`GameModes` → `RankedSharedData.lossStreak`）；取不到 handler ⇒ 0（**并且出声**）。
+        /// <para>⚠️ 与 `Shell/DraftEventBase.cs` 的 `SetCustomMatchOptions` 那条「handler null ⇒ 整段跳过」**不同**：那里是写房间属性
+        /// （原版 `.c` 的 `if (lVar3 != 0)` 守卫，照抄）；这里只是**过网展示**用的 C5 ⇒ 给 0 并说一句，⛔ 不假装原版那条守卫。</para></summary>
+        static int LossStreakOrZero()
+        {
+            var h = LiveOpsManager.GetHandler<GameModesHandler>();
+            if (h != null) return h.LossStreak;
+            Debug.LogWarning("[Draft] 房属性：`GetHandler<GameModesHandler>()` 是 null ⇒ C5(连败) 按 0 过网（只影响日志/展示）");
+            return 0;
         }
     }
 }

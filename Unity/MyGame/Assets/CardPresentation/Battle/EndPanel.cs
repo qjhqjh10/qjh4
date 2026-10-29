@@ -27,10 +27,10 @@
 //
 // 奖杯图：原版那张是 `40k_UI_icon_ranked_Skirmish`（dump 里 `Trophy` 节点挂的 sprite）。
 //
-// 🔴 **2026-09-17 用户拍板：奖励那一行我们不做** —— 奖励（红水晶数量）与评分**都在服务器**，
-//    单机版用不上 ⇒ **只留骷髅那行**（`SkullsHolder` + 三个骷髅），
-//    `RewardsHolder` / `HolderRating` / `Trophy` / `RatingText` **一个都不建**。
-//    上面 dump 里那两行尺寸**保留当参照**（将来真要做，照它摆就行），代码里不再生成。｜🔴🔴 **2026-10-28 就地订正（铁律 5 · B93_N6）：这条裁定【已作废】** —— 用户 2026-10-18 / 10-25 口径「全部都要做、只有先后之分」⇒ 奖励行**要做**；今天仍未建的**真原因**是两处硬阻塞（① 本屏是 uGUI 画布而 `ItemDrawer` 是 ÷108 世界单位 ⇒ 需要一个画布空间抽屉 ② 奖励数据来自服务器，须先裁定本地模拟口径），判据 → 账 `日常_奖励:155` 与 `报告/B93_N6.md` §L154。⛔ 别再拿「用户拍板不做」当理由。
+// 🔴 **2026-09-17 用户拍板「奖励那一行我们不做」—— 该裁定已作废，且奖励行已于 2026-10-29（`B97_W8`）建出**：
+//    `RewardsHolder`（495.2×49 底板）+ 每条奖励一行 `RewardHolder`（140×50 → `DrawerHolder` 65×50 → `Quantity`）
+//    照原版几何建在 `AllRewardsHolder` 下（代码 = 类尾 `BuildRewardsRow` / `SetRewards`；判据 = 那一段的长注释）。
+//    上面 dump 里那两行尺寸**保留当参照**。｜🔴 **2026-10-28（B93_N6）记的两处硬阻塞，2026-10-29 都已解**：① 画布空间的抽屉 = 用 `HudCanvas` 件自建（⛔ 不走 `ItemDrawer.Draw`，它是 ÷108 世界单位）② 奖励数据源在服务器 ⇒ 本地**恒 0 条** ⇒ 整行如实隐藏（⛔ 不造假数据）。账 → `日常/奖励:155`。
 //    （历史留痕：那段「奖杯图一度静默不画」的更正随奖励行一起去掉了；原版那张
 //      `40k_UI_icon_ranked_Skirmish` 仍在 `Resources/Art/ui_deck/` 里，将来要做直接取。）
 //
@@ -55,6 +55,7 @@
 //     ⚠️ **保留**：`Pos(px,py,z)` 与 `PxPerUnit` —— `CardDisplayWindow` / `MultiCardDisplay` / 自检**还在用**它们
 //       （那些件**没迁**，改它们不是本批的活）。
 using UnityEngine;
+using System.Collections.Generic;      // 🆕 2026-10-29（`B97_W8`）：`SetRewards(IReadOnlyList<RewardInfo>)`
 using RuleEngine;
 
 namespace CardPresentation
@@ -514,8 +515,11 @@ namespace CardPresentation
                                            dx, 0f, SkullW, SkullH, BattleDoors.ZContent);
             }
 
+            BuildRewardsRow();     // 🆕 2026-10-29（`B97_W8`）：原版 `AllRewardsHolder/RewardsHolder`（细节见类尾那段）
+
             // 奖励行（原版 `RewardsHolder` 495.2×49.0 + `HolderRating` 187×45 / Trophy 60.1×60 / RatingText）
-            // 🔴 **2026-09-17 用户拍板：不建** —— 奖励与评分都在服务器，单机版不做（见文件头）。只留上面的骷髅行。｜🔴 **2026-10-28 订正（B93_N6）：该裁定已作废**（10-18/10-25 口径 = 全部要做）；仍未建的**原因**见文件头那条订正与账 `日常_奖励:155`，⛔ 不是「原版没有 / 用户不做」。
+            // ✅ **2026-10-29（`B97_W8`）：`RewardsHolder` + 各行已建**（= 上面那句 `BuildRewardsRow()`，实现与判据见类尾）；
+            //    ⛔ 仍**不建**的是 `HolderRating` / `Trophy` / `RatingText`（评分那半，账里没有它 —— 见下面 §2/§3 的推导留着给下一步）。
             //
             // 🔴🔴 **2026-10-24（`A32`）：这一行的【布局后】真值算清了**（`RewardRowAnchorY` / `RewardRowPanelY`
             //    那两个常量就是它）。将来真要做奖励行**照这里摆**，⛔ 别抄静态 dump（序列化是 `(0,0)`）
@@ -735,8 +739,13 @@ namespace CardPresentation
             if (_title != null) _title.gameObject.SetActive(v);
         }
 
-        /// <summary>自检用：**奖励行应当一个都不建**（用户 2026-09-17 定：单机不做奖励与评分，只留骷髅）。
-        /// 按**节点名**数（字段已经删了，数不到才说明真去干净了）。</summary>
+        /// <summary>自检用：**还剩下的「评分那一半」件数**（`reward_plate` / `trophy` / `rating` 三种节点名）。
+        /// <para>🔴 **2026-10-29（`B97_W8`）就地订正（铁律 5）**：本属性原来的语义是「奖励行应当一个都不建」
+        /// —— **那个语义已过期**（奖励行 2026-10-29 照原版建出来了，见类尾 `BuildRewardsRow`）。
+        /// 现在它只剩一个用处：数 `HolderRating` / `Trophy` / `RatingText` 那半（**仍未建**，账里没有它）。
+        /// ⚠️ 奖励行的底板**不出现在这个计数里**是**结构事实、不是漏建** —— 原版 `RewardsHolder` 的
+        /// `Image`（`MB_4801`）就挂在**它自己那个节点上**，我们照抄 ⇒ 没有叫 `reward_plate` 的子节点。</para>
+        /// 按**节点名**数。</summary>
         public int RewardRowPieces
         {
             get
@@ -764,6 +773,9 @@ namespace CardPresentation
                 t.gameObject.SetActive(v);
             // 根自己开着（否则 SetActive(false) 之后没法再打开），只有子物体跟着切
             gameObject.SetActive(true);
+            // 🆕 2026-10-29（`B97_W8`）：奖励行有**自己的**显隐（原版 `ShowRewards`：0 条 ⇒ 整行藏），
+            //   ⛔ 别被上面那一刀（把所有子件一起点亮）盖掉。
+            if (v) ApplyRewardVisibility();
         }
 
         /// <summary>🔴 **2026-10-16（`T09` 批 2）：在 `parent` 里按【相对父中心的设计 px】建一枚 uGUI 图**
@@ -788,6 +800,305 @@ namespace CardPresentation
             rt.sizeDelta = new Vector2(wPx, hPx);
             HudCanvas.Reorder(rt, z);             // `MakeImagePiece` 先按默认 z 登记，这里挪到本层
             return p;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-10-29（`B97_W8` · 账 `日常/奖励:155` = 原版 `EndBattleRewardHolder.SetReward(RewardInfo)`）
+        //     **结算面板的奖励行**（原版 `EndBattlePanel/AllRewardsHolder/RewardsHolder[/RewardHolder]`）
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //
+        // ── 判据（**全部现读解包字段**，⛔ 不是拿我们自己的常量反算）──────────────────────────────
+        //   目录 = `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/`
+        //   · `RewardsHolder`（GO 现读 · `RectTransform_3458`）：`m_SizeDelta (495.2, 49)` · 锚 (0,0) · 轴心 (0.5,0.5)
+        //     · 它的 `Image` = `MonoBehaviour_4801`：`m_Type 0`（Simple）· `m_PreserveAspect 0` ⇒ **拉满 495.2×49**
+        //       · `m_Color` 全 1 · `m_RaycastTarget 1` · 贴图 = `40k_main_bt_nametag`（与骷髅行同一张底板）
+        //     · 父件 = `AllRewardsHolder`(`RT_2854`) 的 **`VerticalLayoutGroup`**（`MB_4902`：spacing 30 · LowerCenter）
+        //       ⇒ 行心 `ap.y = −106.88` = 面板中心 **−316.88**（= 本类常量 `RewardRowPanelY`，推导见 `Build()` 里 `SkullsHolder` 那段 §1）
+        //   · `RewardHolder`（`RT_3481`）：`m_SizeDelta (140, 50)`；由 `RewardsHolder` 的 `HorizontalLayoutGroup`
+        //       （`MB_4113`：**spacing 33** · `m_ChildAlignment 4 = MiddleCenter` · ChildControl / ForceExpand 全 0）排
+        //   · `DrawerHolder`（`RT_2954`）：`ap (5, 0)` · `m_SizeDelta (65, 50)` · 轴心 **(1, 0.5)** · 点锚 (0.5,0.5) · 里面的图标 = `Icon` 档抽屉的 `Image`（锚 (0,0)-(1,1) · sd (0,0) · **`m_PreserveAspect 1`** ⇒ 整框内接；判据见 `RewardIconFill`）
+        //   · `Quantity`（`RT_3139` + TMP `MB_3928`）：锚 **(0.5,0.5)-(1,0.5)** · 轴心 **(1,0.5)** · `ap (0, ≈0)` ·
+        //       `m_SizeDelta (0, 45)` ⇒ 框 = **70×45**（= 140×0.5 + 0）· `m_fontSize **40**` + **autoSizing `[18,40]` base 36** · 字色白 ·
+        //       `m_HorizontalAlignment 2` / `m_VerticalAlignment 8192` = **Center/Middle**
+        //   · `RewardHolder` 上的脚本（`MB_4091`）**只有两个字段**：`drawerHolder` → `DrawerHolder`、`quantityText` → `Quantity`
+        //   · 填充逻辑 = `d:/2/tools/decomp_full/EndBattleRewardHolder__SetReward.c`：
+        //       `ItemDrawer.Draw(drawerHolder, item, **1**, **10** /*DrawerOverride.Icon*/)` ⇒ 图标；
+        //       `quantityText.text = reward.Quantity.ToString()`。（`10 = Icon` 那一档 → `Shell/ItemDrawer.cs` 文件头那张调用表）
+        //   · 显隐 = `d:/2/tools/decomp_full/EndBattleDoors__ShowRewards.c`：奖励列表空且计数 0 ⇒ `RewardsHolder.SetActive(false)`；
+        //       有 N 条 ⇒ 逐条 `Instantiate(RewardHolder prefab, RewardsHolder)` + `SetReward(...)`。
+        //
+        // ── 🔴 两条硬约束（踩过就静默错）────────────────────────────────────────────────────
+        //   ① ⛔ **不能走 `ItemDrawer.Draw`**：它经 `MenuDraw.Node → LayoutSpace.Px`（**÷108 世界单位**），
+        //      在 uGUI 画布上会摆到 **1/108 的位置、而且不报错**（同族先例 `Battle/CardChoicePanel.cs:430`、
+        //      `Battle/CardDisplayWindow.cs:83-84`）⇒ 图标由 `HudPiece` 在画布空间自建，只借它**取图那一跳**。
+        //   ② **本地没有奖励源**（原版 `EndMatchResult.Rewards` 来自服务器）⇒ 生产路径恒 0 条 ⇒ **整行隐藏**，
+        //      屏上与今天完全一致 —— 这是**正确**的。⛔ 别为了「看得见」造假的奖励数据。
+
+        /// <summary>奖励行容器（原版 `RewardsHolder`）—— 2026-10-29（`B97_W8`）新建；`null` = 没建出来。</summary>
+        Transform _rewardsRow;
+        /// <summary>已经建出来的行（按需补建/销毁，见 `EnsureRewardRows`）。</summary>
+        readonly List<RewardRow> _rewardRows = new List<RewardRow>();
+        /// <summary>这一屏要显示的奖励（`SetRewards` 写；空 = 整行藏）。</summary>
+        readonly List<RewardInfo> _rewardItems = new List<RewardInfo>();
+
+        /// <summary>🔴 `RewardsHolder` 的**中心锚**坐标（相对 `AllRewardsHolder` 中心、y 向上）
+        /// = 容器半高 `50` + 布局组写出的 `ap.y`（`RewardRowAnchorY = −106.88`，**那是「锚在容器顶边」的口径**）
+        /// = **−56.88** ⇒ 面板中心 = −260 − 56.88 = **−316.88** = 常量 `RewardRowPanelY`（两处互证）。
+        /// <para>⚠️ 我们的节点用**中心锚**（与上面 `SkullsHolder` 的 `SkullRowLocalY = +23.81` 同一个换算）——
+        /// ⛔ **别把 `RewardRowAnchorY` 直接写进 `anchoredPosition`**：那样整行会**低 50 px**（静默、不报错）。</para></summary>
+        public const float RewardRowLocalY = -56.88f;
+
+        /// <summary>原版 `RewardsHolder` 的 rect（`RectTransform_3458` 的 `m_SizeDelta`）。</summary>
+        public const float RewardsRowW = 495.2f, RewardsRowH = 49f;
+        /// <summary>原版 `RewardHolder` 的 rect（`RectTransform_3481` 的 `m_SizeDelta`）。</summary>
+        public const float RewardRowW = 140f, RewardRowH = 50f;
+        /// <summary>原版 `RewardsHolder` 上 `HorizontalLayoutGroup` 的 spacing（`MonoBehaviour_4113`）。</summary>
+        public const float RewardRowSpacing = 33f;
+        /// <summary>原版 `DrawerHolder` 的 rect + 相对行心的右边缘偏移（`RectTransform_2954`：`ap (5,0)` · `sd (65,50)` · 轴心 (1,0.5)）。</summary>
+        public const float DrawerHolderW = 65f, DrawerHolderH = 50f, DrawerHolderApX = 5f;
+        /// <summary>原版 `Quantity` 的框高（`RectTransform_3139.m_SizeDelta.y`；框宽 = 140×0.5 + 0 = **70**）。</summary>
+        public const float QuantityBoxH = 45f;
+        /// <summary>原版 `Quantity` 的 TMP 字号（`MonoBehaviour_3928.m_fontSize = 40`）。
+        /// ✅ 2026-10-29（`B97_W41`）**已接上**原版那三档自适应（`m_fontSizeMin 18` / `Max 40` / `Base 36` = 类尾 `QuantityFs*`）。
+        /// 🔴 旧说法「`SetAutoFitBox` 吃墨高 px、与 TMP 字号不同量纲 ⇒ 接不上」**已不成立**：该口自己按 `NominalPx()` 折，
+        /// 只是 uGUI 档「1 个 fontSize = 多少画布 px」随面走（CJK 0.948 / 拉丁 1.0）⇒ 实参要乘 `FontSizeToPxNow(1)`（见 `FillRewardRow`）。</summary>
+        public const float QuantityFontPx = 40f;
+        /// <summary>奖励图标节点 = `DrawerHolder` 的 **×(本系数)**；2026-10-29（`B97_W41`）按原版改成 **1.0 = 整框**。
+        /// 判据（现读 `d:/2/tools/assetripper_out/ExportedProject/Assets/Icon *Drawer*.prefab` 共 14 份）：
+        /// `ItemDrawerComponents.image` 指的节点**一律锚 (0,0)-(1,1) · sd (0,0)**（= 拉满 65×50 的抽屉根）且 `m_PreserveAspect = 1`
+        /// ⇒ 原版图标是**内接**进 `DrawerHolder` 的（方形图 = 50×50）；逐变体只有 `scl` 不同（Wildcard 0.94 / Container 1.1 / Title 1.25）。</summary>
+        public const float RewardIconFill = 1.0f;
+
+        /// <summary>一行奖励（原版 `RewardHolder` 那一棵：`DrawerHolder` + `Quantity`）。自检读它。</summary>
+        public sealed class RewardRow
+        {
+            /// <summary>`RewardHolder`（140×50）。</summary>
+            public Transform Root;
+            /// <summary>`DrawerHolder`（65×50 · `ap (5,0)` · 轴心 (1,0.5)）—— 图标挂在它下面。</summary>
+            public Transform DrawerHolder;
+            /// <summary>`Quantity` 的框（锚 (0.5,0.5)-(1,0.5) · 轴心 (1,0.5) · `sd (0,45)`）。</summary>
+            public RectTransform QuantityBox;
+            /// <summary>数量字（TMP 字号自适应 `[18,40]` · base 36 · 白 · 整框 Center/Middle）。</summary>
+            public Label Quantity;
+            /// <summary>图标（取不到图 ⇒ `null`，并已出声）。</summary>
+            public HudPiece Icon;
+            /// <summary>图标名（`null` = 取不到图）。</summary>
+            public string IconArt;
+        }
+
+        /// <summary>奖励行容器（原版 `RewardsHolder`；`null` = 没建出来）。自检用。</summary>
+        public Transform RewardsRow { get { return _rewardsRow; } }
+
+        /// <summary>当前喂进来的奖励（自检用；空 = 整行藏）。⛔ 它只是**这一屏要显示什么**，不是发放链。</summary>
+        public IReadOnlyList<RewardInfo> Rewards { get { return _rewardItems; } }
+
+        /// <summary>第 <paramref name="i"/> 行（越界/没建 ⇒ `null`）。自检用。</summary>
+        public RewardRow RewardRowAt(int i)
+        {
+            return (i >= 0 && i < _rewardRows.Count) ? _rewardRows[i] : null;
+        }
+
+        /// <summary>第 <paramref name="i"/> 行的数量文本（越界 ⇒ `null`）。自检用。</summary>
+        public string QuantityTextOf(int i)
+        {
+            var r = RewardRowAt(i);
+            return (r != null && r.Quantity != null) ? r.Quantity.Text : null;
+        }
+
+        /// <summary>把这一屏要显示的奖励喂进来（原版 `EndBattleDoors.ShowRewards` 的奖励那一半）。
+        /// <para>**0 条 ⇒ 整行（连底板）藏** —— 原版 `EndBattleDoors__ShowRewards.c` 头一段那支。</para>
+        /// <para>⚠️ 原版是每次 `Instantiate` 一批；我们**复用**已有行、多余的销毁（画面等价、少建少拆）。
+        /// ⚠️ 调用时机：`Show()` 里会按当前这份清单重新算显隐（`SetVisible` 那一刀会把所有子件一起点亮，
+        /// 所以 `ApplyRewardVisibility` 必须在它之后跑一次）。</para></summary>
+        public void SetRewards(IReadOnlyList<RewardInfo> rewards)
+        {
+            int n = rewards == null ? 0 : rewards.Count;
+            _rewardItems.Clear();
+            for (int i = 0; i < n; i++) _rewardItems.Add(rewards[i]);
+
+            EnsureRewardRows(n);
+            // 🔴 **先亮再填**：TMP 在**未激活**的子树上量不出尺寸（`Label.RefreshBounds` 会静默放弃），
+            //   而这一行平时是藏着的（生产恒 0 条）⇒ 必须先把行点亮，`SetText` 那一次才量得到。
+            ApplyRewardVisibility();
+            for (int i = 0; i < n && i < _rewardRows.Count; i++) FillRewardRow(_rewardRows[i], _rewardItems[i]);
+
+            LayoutRewardRows(n);
+            ApplyRewardVisibility();     // 再收一次口（新建的行出厂是 `activeSelf = true`，多出来的那些要被关掉）
+        }
+
+        /// <summary>建奖励行容器（原版 `AllRewardsHolder/RewardsHolder`）。只建**容器 + 底板**；
+        /// 行（`RewardHolder`）由 <see cref="SetRewards"/> 按需要增删。</summary>
+        void BuildRewardsRow()
+        {
+            if (_rewardsHolder == null)
+            {
+                Debug.LogError("[EndPanel] 没有 `AllRewardsHolder` ⇒ 奖励行建不出来（静默半迁移更坏）");
+                return;
+            }
+            _rewardsRow = new GameObject("RewardsHolder", typeof(RectTransform)).transform;
+            _rewardsRow.SetParent(_rewardsHolder, false);
+            var rt = (RectTransform)_rewardsRow;
+            HudCanvas.SetPxSize(rt, RewardsRowW, RewardsRowH);
+            rt.anchoredPosition = new Vector2(0f, RewardRowLocalY);    // 中心锚 ⇒ = 容器半高 50 + 布局组的 ap.y(−106.88) = −56.88
+            HudCanvas.Add(rt, BattleDoors.ZContent);
+
+            // 底板：**挂在 `RewardsHolder` 节点自己身上**（原版就是那样 —— `MB_4801` 是这个 GO 的组件，
+            //   不是子节点）⇒ ⛔ 别按骷髅行那样再建一个 `reward_plate` 子件（那是另一棵树的形状）。
+            var tex = CardArt.Ui("40k_main_bt_nametag");
+            if (tex == null)
+            {
+                Debug.LogWarning("[EndPanel] 奖励行底板贴图 `40k_main_bt_nametag` 取不到 ⇒ 只剩一条透明行（⛔ 不静默）");
+            }
+            else
+            {
+                var img = _rewardsRow.gameObject.AddComponent<UnityEngine.UI.Image>();
+                img.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+                img.type = UnityEngine.UI.Image.Type.Simple;   // 原版 `m_Type 0`
+                img.preserveAspect = false;                    // 原版 `m_PreserveAspect 0` ⇒ 拉满 495.2×49
+                img.color = Color.white;                       // 原版 `m_Color` 全 1
+                img.raycastTarget = true;                      // 原版 `m_RaycastTarget 1`
+            }
+            // 生产恒 0 条（本地无奖励源）⇒ 建完即藏；`SetRewards` 会按实际条数重算
+            _rewardsRow.gameObject.SetActive(false);
+        }
+
+        /// <summary>按需补建 / 销毁 `RewardHolder` 行（原版：每条奖励 `Instantiate` 一颗）。</summary>
+        void EnsureRewardRows(int n)
+        {
+            if (_rewardsRow == null) return;
+
+            while (_rewardRows.Count < n)
+            {
+                var rowGo = new GameObject("RewardHolder", typeof(RectTransform));
+                rowGo.transform.SetParent(_rewardsRow, false);
+                var rrt = (RectTransform)rowGo.transform;
+                rrt.anchorMin = rrt.anchorMax = new Vector2(0.5f, 0.5f);
+                rrt.pivot = new Vector2(0.5f, 0.5f);
+                rrt.sizeDelta = new Vector2(RewardRowW, RewardRowH);
+                rrt.anchoredPosition = Vector2.zero;
+                HudCanvas.Add(rrt, BattleDoors.ZContent);
+                var view = new RewardRow { Root = rowGo.transform };
+
+                // `DrawerHolder`（`RT_2954`：`ap (5,0)` · 轴心 (1,0.5) ⇒ 右边缘在行心 +5）
+                var dgo = new GameObject("DrawerHolder", typeof(RectTransform));
+                dgo.transform.SetParent(rowGo.transform, false);
+                var drt = (RectTransform)dgo.transform;
+                drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f);
+                drt.pivot = new Vector2(1f, 0.5f);
+                drt.anchoredPosition = new Vector2(DrawerHolderApX, 0f);
+                drt.sizeDelta = new Vector2(DrawerHolderW, DrawerHolderH);
+                HudCanvas.Add(drt, BattleDoors.ZContent);
+                view.DrawerHolder = dgo.transform;
+
+                // `Quantity`（`RT_3139`：两端锚 (0.5,0.5)-(1,0.5) · 轴心 (1,0.5) · `sd (0,45)` ⇒ 框 70×45）
+                var qgo = new GameObject("Quantity", typeof(RectTransform));
+                qgo.transform.SetParent(rowGo.transform, false);
+                var qrt = (RectTransform)qgo.transform;
+                qrt.anchorMin = new Vector2(0.5f, 0.5f);
+                qrt.anchorMax = new Vector2(1f, 0.5f);
+                qrt.pivot = new Vector2(1f, 0.5f);
+                qrt.anchoredPosition = Vector2.zero;
+                qrt.sizeDelta = new Vector2(0f, QuantityBoxH);
+                HudCanvas.Add(qrt, BattleDoors.ZContent);
+                view.QuantityBox = qrt;
+
+                // 字：原版是**整框 Center/Middle** ⇒ 字块要对准**框心**，而框的轴心在右边缘
+                //   （(0.5 − 1) × 70 = **−35 px**）⇒ 单独写这个偏移，⛔ 别把轴心改成居中（那是改原版几何）。
+                float boxW = (qrt.anchorMax.x - qrt.anchorMin.x) * RewardRowW + qrt.sizeDelta.x;   // = 70
+                view.Quantity = HudCanvas.MakeText(qrt, "", (0.5f - qrt.pivot.x) * boxW, 0f, 2, Color.white,
+                                                  new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "quantity");
+                if (view.Quantity == null)
+                    Debug.LogError("[EndPanel] 奖励数量字建不出来（拿不到 TMP 字体）—— 这一行只剩图标");
+
+                _rewardRows.Add(view);
+            }
+
+            for (int i = _rewardRows.Count - 1; i >= n; i--)
+            {
+                var v = _rewardRows[i];
+                if (v.Root != null)
+                {
+                    if (v.Icon != null && v.Icon.gameObject != null) Object.DestroyImmediate(v.Icon.gameObject);
+                    Object.DestroyImmediate(v.Root.gameObject);
+                }
+                _rewardRows.RemoveAt(i);
+            }
+        }
+
+        /// <summary>把一条奖励填进一行（原版 `EndBattleRewardHolder.SetReward`）。</summary>
+        void FillRewardRow(RewardRow row, RewardInfo reward)
+        {
+            if (row == null) return;
+
+            // ---- 图标：原版 `ItemDrawer.Draw(drawerHolder, item, 1, 10 /*DrawerOverride.Icon*/)` ----
+            //  ⛔ 不走 `ItemDrawer.Draw`（÷108，见本节头 ①）；只借它**取图那一跳**：`Spec` 解出图名 → `CardArt.MenuUi`。
+            var spec = ItemDrawer.Spec(reward != null ? reward.Id : null, null, null);
+            var tex = string.IsNullOrEmpty(spec.Art) ? null : CardArt.MenuUi(spec.Art);
+            if (tex == null)
+            {
+                if (row.Icon != null)
+                {
+                    if (row.Icon.gameObject != null) Object.DestroyImmediate(row.Icon.gameObject);
+                    row.Icon = null;
+                }
+                row.IconArt = null;
+                Debug.LogWarning("[EndPanel] 奖励 `" + (reward != null ? reward.Id : "<null>") + "` 取不到图标"
+                               + "（`ItemSpec.Art` = " + (spec.Art ?? "null") + " · `Kind` = " + spec.Kind + "）"
+                               + " ⇒ 这一行只画数量（⛔ 不静默）");
+            }
+            else if (row.DrawerHolder != null)
+            {
+                float iconW = DrawerHolderW * RewardIconFill, iconH = DrawerHolderH * RewardIconFill;   // 原版 = 整框 65×50（见 `RewardIconFill` 的 doc）
+                if (row.Icon == null)
+                    row.Icon = ImageInParent(row.DrawerHolder, tex, "icon", 0f, 0f, iconW, iconH, BattleDoors.ZContent);
+                else row.Icon.SetTexture(tex);
+                if (row.Icon != null) row.Icon.SetNodeRect(iconW, iconH, true);   // 原版 `m_PreserveAspect = 1` ⇒ 方形图**内接**成 50×50
+                row.IconArt = spec.Art;
+            }
+
+            // ---- 数量：`quantityText.text = reward.Quantity.ToString()` ----
+            if (row.Quantity != null)
+            {
+                row.Quantity.SetText((reward != null ? reward.Quantity : 0).ToString());
+                // ⚠️ **必须排在 `SetText` 之后**：`Label.SetTextTmp` 每次都把 `_tmp.fontSize` 折回**档位值**
+                // 换算：`SetAutoFitBox` 的 min/max/base 是「画布 px」，内部要除以 `NominalPx()`（= 1 个 fontSize 折成 px）
+                //   ⇒ 要落成原版那三个 **fontSize** 值，实参先乘「本标签空间 + 本字面下 1 个 fontSize = 多少设计 px」。
+                float qk = row.Quantity.FontSizeToPxNow(1f, row.Quantity.ActualFace);   // CJK≈0.948 · 拉丁=1.0（uGUI 档）
+                row.Quantity.SetAutoFitBox(RewardRowW * 0.5f, QuantityBoxH,
+                                           QuantityFsMin * qk, QuantityFsMax * qk, QuantityFsBase * qk);
+                row.Quantity.RefreshBounds();     // 字号变了要重新量一次（否则 `WorldW/WorldH` 还是旧值）
+            }
+        }
+
+        /// <summary>按原版 `RewardsHolder` 的 `HorizontalLayoutGroup`（`MB_4113`：spacing **33** · alignment 4 MiddleCenter ·
+        /// ChildControl / ForceExpand 全 0）摆各行。
+        /// <para>算法判据（本机 uGUI `HorizontalOrVerticalLayoutGroup.cs:182-192`）：**只有 `surplusSpace > 0` 才按
+        /// alignment 挪起点**，内容溢出时 `pos` 停在 `padding.left = 0` ⇒ 内容从左边排起。</para>
+        /// <para>⚠️ **与今天原版画面的差异（如实记）**：原版 `RewardsHolder` 里还有第二颗子件 `HolderRating`
+        /// （186.9742×45 · **不在本账范围**）⇒ 我们只有奖励行 ⇒ 单条奖励时我们**居中**、原版**偏左**
+        /// （原版单条时 `RewardHolder` 中心 x = −109.987）。将来补 `HolderRating` 时**两者要一起重排**。</para></summary>
+        void LayoutRewardRows(int n)
+        {
+            if (_rewardsRow == null) return;
+            float content = n * RewardRowW + Mathf.Max(0, n - 1) * RewardRowSpacing;
+            float pos = content < RewardsRowW ? (RewardsRowW - content) * 0.5f : 0f;   // surplus > 0 才居中
+            for (int i = 0; i < n && i < _rewardRows.Count; i++)
+            {
+                var rt = _rewardRows[i].Root as RectTransform;
+                if (rt == null) continue;
+                rt.anchoredPosition = new Vector2(
+                    pos + RewardRowW * 0.5f + i * (RewardRowW + RewardRowSpacing) - RewardsRowW * 0.5f, 0f);
+            }
+        }
+
+        /// <summary>奖励行的显隐（原版 `EndBattleDoors__ShowRewards.c`：**0 条 ⇒ 整行连底板藏**；N 条 ⇒ 露前 N 行）。</summary>
+        void ApplyRewardVisibility()
+        {
+            if (_rewardsRow == null) return;
+            _rewardsRow.gameObject.SetActive(_rewardItems.Count > 0);
+            for (int i = 0; i < _rewardRows.Count; i++)
+                if (_rewardRows[i].Root != null)
+                    _rewardRows[i].Root.gameObject.SetActive(i < _rewardItems.Count);
         }
 
         // ── 🆕 2026-10-20（W57 · `T09` 步骤 A3-d）：**Editor-only 只读探针** ────────────────────
@@ -832,5 +1143,11 @@ namespace CardPresentation
             }
         }
 #endif
+
+        // ── 🆕 2026-10-29（`B97_W41` · 账 `日常/奖励:155`）：`Quantity` 的原版自适应三档 ────────────────
+        /// <summary>原版 `Quantity` 的 TMP 自适应（`MB_3928`：`m_fontSizeMin = 18` / `m_fontSizeMax = 40` / `m_fontSizeBase = 36`）。
+        /// ⚠️ **单位 = TMP 的 `fontSize`**，⛔ 不是画布 px —— `SetAutoFitBox` 那三个实参要先乘 `FontSizeToPxNow(1)`
+        /// （见 `FillRewardRow`：那个口内部按 `NominalPx()` 折回 fontSize 单位）。</summary>
+        public const float QuantityFsMin = 18f, QuantityFsMax = QuantityFontPx, QuantityFsBase = 36f;
     }
 }

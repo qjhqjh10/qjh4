@@ -360,6 +360,57 @@ namespace CardPresentation
         /// 原版那个具体类型落到我们的泛型形参上就是 `TS`（实例化时 = `DraftEventSave`）⇒ 可观察行为相同，
         /// 且不必收紧约束（收紧会连带改子类的类型实参，风险大于收益）。</para></summary>
         public new TS GetBaseSave() { return SaveGame; }
+
+        // ============================================================ 账 轮抽:30 · SetCustomMatchOptions（原版形状）
+        /// <summary>原版 `public override void SetCustomMatchOptions(RoomOptions options, int currentELO)`
+        /// （真体 = `d:/2/tools/decomp_generic_trial/out_b94/DraftEventBase_object__object_.SetCustomMatchOptions__1813cb0.c`，RVA `0x1813CB0`；
+        /// **泛型类方法 ⇒ `decomp_full` 无独立产物** —— 那是已知的「按 `// RVA:` 非负筛名单」口径 bug，不是「原版没有」）。
+        /// <para>逐句（`.c` 实读；键字面量与 lobby 键表 = ILSpy `Everguild.LiveOps/DraftEventBase.cs:4456/:4459/:4462/:4463-4473`，与 `.c` 的
+        /// `DAT_18429e1f8/…6d0/…7c8` 逐位对上）：
+        /// <code>
+        /// base.SetCustomMatchOptions(options, currentELO);   // 基类 = 全局空桩 RVA 0x4B33B0（机器码 `ret 0`）⇒ 零行为，但照抄这一跳
+        /// if (*(this + 0x20) == 0) return;                    // `.c`：`if (*(longlong *)(param_1 + 0x20) != 0)` 守卫（SaveGame）
+        /// won = SaveGame.numberOfMatchesWon;                  // `.c`：`this+0x20 → +0x48`（dump.cs:126282 `SaveGame@0x20` / :62837 `numberOfMatchesWon@0x48`）
+        /// ls  = GameModes.LossStreak;                         // `.c`：`GetHandler&lt;GameModes&gt;()` → `get_LossStreak`；
+        ///                                                     //       handler 为 null ⇒ `.c` 里 `if (lVar3 != 0)` **整段跳过**（一个键都不写）
+        /// if (currentELO &lt;= GameStaticData.newbieELO &amp;&amp; won &lt; 3) currentELO = 0;   // newbieELO = 800（GameStaticData.cs:360 / .cctor :2424）
+        /// CustomRoomProperties["C1"] = won;                   // ★ 清零**前**的 won（原版走索引器 set_Item）
+        /// CustomRoomProperties["C4"] = currentELO;            // ★ 可能已清零（原版走 Add）
+        /// CustomRoomProperties["C5"] = ls;                    // ★ 原版走 Add
+        /// CustomRoomPropertiesForLobby = new[]{"C1","C2","C3","C4","C5"};   // 恰好 5 个
+        /// </code></para>
+        /// <para>🔴 **ILSpy 把 `won` 的来路误写成 `eventDeck.defensiveCard`**（`out_cpp2il_dev_ilspy/Everguild.LiveOps/DraftEventBase.cs:4448-4451`）——
+        /// ⛔ **别照抄**：`this+0x20` 是 `SaveGame`（`LiveOpsEvent` 的 `Data@0x18 / SaveGame@0x20`），而 `CardDeck.defensiveCard` 是
+        /// `RawCardScript` 指针、**不可能**变成 `int`；照它写会把「胜场」读成一张卡的指针值（静默，而且「看着有依据」）。
+        /// 判据全文 → `资料/完全复刻/判据/B97_R6_轮抽P2P房施工单.md` §1·3。</para>
+        /// <para>值计算**只有一处** = <see cref="NetRuntime.ComputeDraftMatchOptions"/>（阈值 800 / 清零条件 / 键名 / lobby 表都在那里）
+        /// ⇒ ⛔ 别在这个方法里再写一遍（两份真源迟早不一致）。</para>
+        /// <para>⚠️ 消费方如实记 = **无**：原版这些房间属性是 Photon SqlLobby 匹配池的过滤键，我们直连没有池
+        /// ⇒ 与 `Shell/FastModeBaseEvent.cs:543` 同一口径「算对了、用不上」（⛔ 不发明一个假消费者）。</para></summary>
+        public override void SetCustomMatchOptions(RoomOptions options, int currentELO)
+        {
+            base.SetCustomMatchOptions(options, currentELO);      // ★ 原版第 1 句（基类空桩 ⇒ 零行为，照抄别省）
+            if (options == null) return;
+            if (SaveGame == null)
+            {   // 原版这一跳 NRE；我们出声 + 不写（同 GetMatchmakingFilter 的口径，⛔ 不静默）
+                Debug.LogError("[DraftEventBase] SetCustomMatchOptions：没有存档（原版这一跳 NRE）⇒ 不写房间属性");
+                return;
+            }
+            var handler = LiveOpsManager.GetHandler<GameModesHandler>();
+            if (handler == null)
+            {   // ★ 原版 `.c` 的形状：取不到 handler ⇒ `if (lVar3 != 0)` 整段跳过（**不是**「按连败 0 写进去」）—— 照抄
+                Debug.LogWarning("[DraftEventBase] SetCustomMatchOptions：`GetHandler<GameModesHandler>()` 是 null"
+                               + "（原版 `.c` 里这一支什么都不写）⇒ 本次不写房间属性");
+                return;
+            }
+            int won = SaveGame.numberOfMatchesWon;                 // ★ 原版 `save+0x48`（⛔ 不是 ILSpy 说的 `defensiveCard`）
+            int lossStreak = handler.LossStreak;                   // ★ 原版 `GameModes.LossStreak`
+            var m = NetRuntime.ComputeDraftMatchOptions(currentELO, won, lossStreak);   // 清零 / 键名 / lobby 表全在这一处
+            options.Set("C1", m.Won);                              // ★ 索引器（原版 `set_Item`）；值是**清零前**的 won
+            options.Set("C4", m.Elo);                              // 原版 C4/C5 走 `Add` —— 空表两者等价（施工单 §1·1）
+            options.Set("C5", m.LossStreak);
+            options.CustomRoomPropertiesForLobby = m.LobbyKeys;    // 恰好 ["C1","C2","C3","C4","C5"]
+        }
     }
 
     // 🔴 本文件**不给具体子类**：原版的两个具体子类（`DraftEvent` / `TimedDraftEvent`）各有自己的

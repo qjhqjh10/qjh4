@@ -112,7 +112,7 @@ namespace CardPresentation
         /// <summary>`Top4` 一格的数据（= 原版 `top4Factions[i]` 里运行期填进去的那三样）。</summary>
         public struct Top4Entry
         {
-            /// <summary>阵营徽记的图名（`CardArt.MenuUi` 那张；空 = 不画图、只出声）。</summary>
+            /// <summary>阵营徽记的图名（🆕 2026-10-29 `B97_W13`：必须是原版 `IconsByArmySO` 那 13 条之一 —— `FactionOfSprite` 按它反查 `CardArmy`；空 / 认不出 ⇒ 不画图、只出声）。</summary>
             public string FactionArt;
             /// <summary>大分（`Alliance Rating Display` 那一格）。空 ⇒ 该格退回原版空态串 `------`。</summary>
             public string Rating;
@@ -430,18 +430,15 @@ namespace CardPresentation
             //   （`Editor/MenuCheck.cs` 那句 `var q = t.GetComponentInChildren<ImageQuad>(); if (q == null) return false;`）
             //   而 `Editor/MainMenuScene.cs:7687` / `:7751` 那两条宿主断言正是拿 `icon` 节点量矩形
             //   ⇒ 删成裸节点会让那两条**与画面无关地变红**。⛔ 别改成 `Node(...)`。
-            // 🔴 **2026-10-24（`U2` V2）**：**有数据**时画阵营徽记（原版那颗 `icon` = 阵营图）；
-            //   **无数据**（或图名取不到）⇒ **透明块**（结构在、画面无 —— 上面 E12 那一段的理由）。
-            //   ⛔ 两种情形**只建一个** `icon` 节点（同名两颗会让宿主断言量错一颗）。
-            string factionArt = e.HasValue ? e.Value.FactionArt : null;
-            var factionTex = string.IsNullOrEmpty(factionArt) ? null : Art(factionArt);
-            if (e.HasValue && factionTex == null)
-                Debug.LogWarning("[Ranked] `Top4` 的 " + label + " 有分数、但**阵营徽记没画** —— "
-                               + "图名「" + (factionArt ?? "<空>") + "」取不到（⛔ 不拿纯色块顶替）");
-            if (factionTex != null)
-                MenuDraw.Rect(card, factionTex, ir, "icon", Q + L_Bg2, null, true);
-            else
-                Rect(card, null, ir, "icon", L_Bg2, Transparent);       // 空态：节点在、画面无
+            // 🆕 **2026-10-29（`B97_W13`）订正**：徽记图**不再在这里画** —— 原版那颗 `icon` 是 `FactionScore.factionImage`，
+            //   由 `FactionScore.Initialize` 按 `CardArmy` 取图写（判据 `FactionScore__Initialize.c:17-19`）；本方法只建**空态占位**。
+            //   ⛔ 只建一个 `icon` 节点（同名两颗会让宿主断言量错一颗；E12 那一段的理由仍然成立）。
+            //   ⚠️ 所以下面这格建的是**空态占位**：`Rect(card, null, …)` = `CardArt.Solid()` + **全透明 tint**（同 `BuildRow.FactionIconQuad`）。
+            //   有数据时 `FactionScore.Initialize` 会把 `factionImage` 换成真徽记并**转回不透明**（`Shell/FactionScore.cs` 的 `SetTint(Color.white)`）。
+            var icon = Rect(card, null, ir, "icon", L_Bg2, Transparent);   // 空态：节点在、画面无（贴图由 `fs.InitializeOrEmpty` 写）
+            // 原版这四格**本身就是一颗 `FactionScore`**（`RankedTab.top4Factions` 数组 ⇒ `FactionScore.Initialize(army, cur, high)`）；`Big` 的第二颗评级叫 `MaxRating`（⛔ 不是 `… (1)`）。
+            var fs = card.gameObject.AddComponent<CardPresentation.ScoreBars.FactionScore>();
+            // ⚠️ `Bind` 必须排在这两颗 `RatingRow` **之后**（`ArdOf` 按节点名找 `Alliance Rating Display` / `MaxRating`）；无数据（`e` 为 null）时不写 —— 原版那时整卡 `SetActive(false)`，见末尾。
             RatingRow(card, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
                                  r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
@@ -453,8 +450,11 @@ namespace CardPresentation
                                  r.y1 + FIconT + FIconH + FRtH + FMaxH),
                       SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true,
                       value: e.HasValue ? e.Value.MaxRating : null);    // A413/A1537：标称 28.2（原版 `字号=28.200000762939453`；align 4 居中）
-            // 🔴 **2026-10-24（`U2` V2）**：**无数据 ⇒ 整格不画**（`SetActive(false)`；⛔ 不留空框）。
-            //    ⚠️ 关在**最后**：上面的结构/矩形照建（宿主断言按原版矩形量 `#N` 与它三个子件）。
+            fs.Bind(icon, ArdOf(card, "Alliance Rating Display"), ArdOf(card, "MaxRating"));
+            if (e.HasValue)
+                fs.InitializeOrEmpty(FactionOfSprite(e.Value.FactionArt), ScoreOf(e.Value.Rating),
+                                     ScoreOf(e.Value.MaxRating), ScoreEmpty);   // 三句 = 原版 `FactionScore.Initialize` 的唯一实现
+            // 🔴 **2026-10-24（`U2` V2）**：**无数据 ⇒ 整格不画**（`SetActive(false)`；⛔ 不留空框）；关在**最后**（上面结构照建）。
             if (!e.HasValue) card.gameObject.SetActive(false);
         }
 
@@ -812,6 +812,42 @@ namespace CardPresentation
             var f = highest ? FactionHighestProvider : FactionScoreProvider;
             if (f == null) return null;
             return f(row);
+        }
+
+        // ============================================================ 🆕 2026-10-29（B97_W13）：`Top4` 那四颗 `FactionScoreBig` 的接线口
+        // 🔴 纪律：追加在**类尾**（本文件被账按行号引用 263/272/355/603/610/631/659 ⇒ 插中间会整体漂移）。
+
+        /// <summary>`Top4Entry.FactionArt`（那一格喂进来的**阵营徽记 sprite 名**）→ <see cref="CardArmy"/>。
+        /// <para>原版这一族拿到的是 **`CardArmy` 值本身** —— `RankedTab__InitializeFactionScores.c` 里
+        /// `FactionScore__Initialize(top4Factions[i], army, value, highestValue)` 的第 2 实参来自
+        /// `FeatureConfig.GetValidArmies()` 的元组；我们的 `Top4Data` 带的是**图名**（`Top4Entry.FactionArt`）
+        /// ⇒ 在这里按 `ArmyIcons.Table` 的 `Sprite` 字段反查回去。</para>
+        /// <para>⛔ **别按前缀拼名字**：`Genestealers` / `SpaceWolves` 不带 `Faction`、`Goff → FactionOrks`
+        /// （判据 → `Core/ArmyIcons.cs` 文件头 ② 与它那张 13 行表）。</para>
+        /// <para>认不出 / 空 ⇒ `Neutral`(0) 并**出声**（= 原版 `ArmyIconsSO` 没有这一条 ⇒ `GetArmyIcon` 返回 null、
+        /// ⛔ 不顶替别的阵营的徽记）。</para></summary>
+        public static CardArmy FactionOfSprite(string sprite)
+        {
+            if (!string.IsNullOrEmpty(sprite))
+            {
+                var t = ArmyIcons.All;                       // 13 条，顺序 = `IconsByArmySO` 的序列化顺序
+                for (int i = 0; i < t.Length; i++)
+                    if (t[i].Sprite == sprite) return (CardArmy)t[i].Army;
+            }
+            Debug.LogWarning("[Ranked] `Top4` 的阵营徽记图名「" + (sprite ?? "<空>") + "」不在 `ArmyIcons` 的 13 条里 "
+                           + "⇒ 按 `Neutral`(0) 处理（原版 `ArmyIconsSO` 没有这一条 ⇒ 取图返回 null、⛔ 不顶替别的阵营）");
+            return (CardArmy)ArmyIcons.Neutral;
+        }
+
+        /// <summary>`Top4Entry.Rating` / `MaxRating`（我们数据模型里是**字符串**）→ 原版 `FactionScore.Initialize`
+        /// 第 2 / 3 实参要的 `int`。空串 / 解析不出 ⇒ `null`（= 没有数据 ⇒ `InitializeOrEmpty` 落原版空态串 `------`）。
+        /// <para>为什么要这一步：原版那两格收到的就是 `LeaderboardResult` 里的真 `int`
+        /// （`RankedTab__InitializeFactionScores.c` 那句 `FactionScore__Initialize(top4Factions[i], army, value, highestValue)`），
+        /// 而我们的 `Top4Data` 是字符串形态 ⇒ 在这里归一。⛔ **别改成写死 `null`** —— 那会把已经喂进来的分数抹成 `------`。</para></summary>
+        static int? ScoreOf(string s)
+        {
+            int v;
+            return !string.IsNullOrEmpty(s) && int.TryParse(s, out v) ? (int?)v : null;
         }
     }
 }

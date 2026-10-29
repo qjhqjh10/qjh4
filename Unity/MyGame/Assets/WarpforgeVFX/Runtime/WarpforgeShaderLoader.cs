@@ -50,6 +50,20 @@ namespace WarpforgeVFX
         /// （W64 B11 第 5 条）的**真值来源**。</summary>
         public const string TmpBundleRelPath = "WarpforgeVFX/wf_tmp_shaders.bundle";
 
+        /// <summary>🆕 2026-10-29（B97_W23 查实 / B97_W29 落地）：**卡包外观 shader**（1 个：
+        /// `Everguild/Cards/Shader Graphs/Booster Pack`）。
+        ///
+        /// **为什么单开一个包**：原件在 `boosterpacks_assets_all.bundle` 里，而那个包**不是**我们运行时要加载的口；
+        /// 更关键的是它的 17 棵 prefab 产物 `wf_boosters_extra.bundle` 的 `m_Container` / `m_PreloadTable`
+        /// **只列 prefab + clip、不列 Shader** ⇒ `LoadAsset<Shader>` 与 `LoadAllAssets<Shader>()` 两条都取不到
+        /// （`报告/B97_W23.md` §二·2.2 实读：容器 38 条 / 预载 19 条；`B97W23_Assert` 第 2 段钉这条反证）。
+        /// ⇒ 走 `extract_missing_shaders.py --booster-shaders` 重打成本包（容器键 = **shader 名**）。
+        /// 消费者 = `WarpforgeShaderMap.UseOriginal` 的 `Everguild/Cards/Shader Graphs/Booster Pack` 那条
+        /// （16 个 `Card Booster Pack*` 材质；`CardPresentation.BoosterPackAssets` 是另一条「经 prefab 传递」的路）。
+        /// ⚠️ 本产物内层 CAB **沿用源包名**（`CAB-68791fd68434784bd588e5ce344e6773`）⇒ ⛔ 别在同一进程里
+        /// 同时 `LoadFromFile` 源包与它（Unity 按内层名判「同一个包」⇒ 整包被拒收）。</summary>
+        public const string BoosterShaderBundleRelPath = "WarpforgeVFX/wf_booster_shaders.bundle";
+
         /// <summary>战场 shader 包的**文件名通配**（**2026-09-21 加**）。
         ///
         /// **为什么是一组、不是一个固定文件名**：13 个**战场网格**的材质用到、而主包里没有的 shader
@@ -108,6 +122,8 @@ namespace WarpforgeVFX
                 bool builtinOk = LoadOne(BuiltinBundleRelPath, out bool builtinCollided);
                 // 🆕 2026-10-22（W64 B11）：第五个包 —— TMP 那 4 个（见 `TmpBundleRelPath`）。
                 LoadOne(TmpBundleRelPath, out _);
+                // 🆕 2026-10-29（B97_W29）：第六个包 —— 卡包外观那 1 个（见 `BoosterShaderBundleRelPath`）。
+                LoadOne(BoosterShaderBundleRelPath, out _);
                 // 🆕 2026-09-21：第四组 —— **战场**要用的那批，按 **`wf_arena_*.bundle` 通配**加载
                 //    （见 ArenaBundleRelPath 的说明）。⚠️ **必须是通配**：这批 shader 散在好几个源包里
                 //    （`battlesharedresources` + **各战场自己的场景包**），而

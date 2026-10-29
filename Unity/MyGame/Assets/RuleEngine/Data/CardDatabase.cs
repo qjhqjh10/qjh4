@@ -655,7 +655,7 @@ namespace RuleEngine
         /// <para>缺键哨兵 = `UnitConditionDto.MissingIndex`（`-99`）—— 同 `CountSetDto` 的理由
         /// （`0` 到处都是合法值）。</para></summary>
         [System.Serializable]
-        public class AbilityGateDto
+        public partial class AbilityGateDto   // 🆕 2026-10-29（`B97_W5`）：`partial` —— 新格 `conditionsFilter` 追加在【新文件】`CardDatabasePartial_B97W5.cs`（⛔ 别挪进本体内：中段加行会让下游账落点整体漂移）
         {
             const int MissingIndex = UnitConditionDto.MissingIndex;
             /// <summary>原版 `BoardCriteria.countOptions`（`0 AllTargets` / `10 EnemiesMinusAllies`）。</summary>
@@ -1695,7 +1695,7 @@ namespace RuleEngine
                     hasAlternativeAbility: dto.version >= 21 ? c.hasAlternativeAbility : -1,
                     quest: dto.version >= 21 ? c.quest : -1,
                     questTimes: dto.version >= 21 ? c.questTimes : -1,
-                    normalAbilityBoardCriteria: dto.version >= 21 ? MapBoardGate(c) : null);
+                    normalAbilityBoardCriteria: dto.version >= 21 ? MapBoardGateWithConditions(c) : null);   // 🆕 2026-10-29（B97_W5 · 账 676 的 (b) 格）：走包装口把 `countCriteria.conditionsFilter` 一并映射（⛔ 不改 `MapBoardGate` 本体 —— 那会在中段加行、把下游账落点推走）
 
                 // ================================================================================
                 //  🆕 v31（2026-10-26 · 执行代理 `B8_AH`）：**两个「构造后挂载」**
@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c));   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c));   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。

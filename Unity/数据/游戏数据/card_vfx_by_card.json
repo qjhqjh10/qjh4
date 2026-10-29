@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-24 10:20:00",
+ "generatedAt": "2026-10-29 19:43:34",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -85871,6 +85871,85 @@
      "inLibrary": true
     }
    ]
+  },
+  "e8cf1eb55ca41534abe38efc90b302e9": {
+   "play": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "28a0a24c1de623b49ab7ff36bb63e3aa",
+     "origCardId": "e8cf1eb55ca41534abe38efc90b302e9",
+     "joinKey": "id",
+     "assetName": "Trait_GainQuest_enemywarlord",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "28a0a24c1de623b49ab7ff36bb63e3aa",
+     "cardanim": "Trait_GainQuest_enemywarlord",
+     "prefab": "Trait_GainQuest",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 0,
+     "abilityTriggerName": "ThisCardPlayed",
+     "abilityEvent": "play",
+     "abilityEventWhy": "原版 `AbilityTrigger.ThisCardPlayed` → `play`",
+     "abilityEventClass": "mapped",
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
+     "inLibrary": true
+    }
+   ]
+  },
+  "9218576fd3e26554db5b4c239a36dbc7": {
+   "hit": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "72426af784f94aa40abc1fcc52e2b7b4",
+     "origCardId": "9218576fd3e26554db5b4c239a36dbc7",
+     "joinKey": "id",
+     "assetName": "Pray_Exit",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "72426af784f94aa40abc1fcc52e2b7b4",
+     "cardanim": "Pray_Exit",
+     "prefab": "Pray_Exit",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 60,
+     "abilityTriggerName": "UnitDamaged",
+     "abilityEvent": "hit",
+     "abilityEventWhy": "原版 `AbilityTrigger.UnitDamaged` → `hit`",
+     "abilityEventClass": "mapped",
+     "chosenAbility": 340,
+     "chosenAbilityName": "removeThisEnchantment",
+     "inLibrary": true
+    }
+   ],
+   "trigger": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "b805cd70c4b61784681ea473fef891ca",
+     "origCardId": "9218576fd3e26554db5b4c239a36dbc7",
+     "joinKey": "id",
+     "assetName": "Pray_Success",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "b805cd70c4b61784681ea473fef891ca",
+     "cardanim": "Pray_Success",
+     "prefab": "Pray_Success",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 31,
+     "abilityTriggerName": "TurnStartPlayer",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.TurnStartPlayer` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 60,
+     "chosenAbilityName": "buffMana",
+     "inLibrary": true
+    }
+   ]
   }
  },
  "envcardUnmatched": [
@@ -86071,32 +86150,32 @@
   }
  ],
  "stats": {
-  "cardsInPool": 1127,
-  "cardsCovered": 1127,
+  "cardsInPool": 1129,
+  "cardsCovered": 1129,
   "cardsUncovered": 0,
   "cardsCoveredByEvent": {
    "_assetRefs": 1127,
-   "trigger": 572,
-   "play": 533,
+   "trigger": 573,
+   "play": 534,
    "attack_ranged": 518,
    "trait_onplay": 137,
    "death": 101,
    "ability": 93,
    "trigger_unmapped": 26,
    "attack_melee": 11,
-   "deploy": 1,
-   "hit": 1
+   "hit": 2,
+   "deploy": 1
   },
   "entriesByConf": {
-   "authoritative": 4582
+   "authoritative": 4585
   },
   "cardsByConf": {
-   "authoritative": 1127
+   "authoritative": 1129
   },
-  "authoritativePerCardEntries": 3949,
-  "authoritativeVfxEntries": 2122,
-  "authoritativeCards": 1127,
-  "authoritativeCardsVfxOnly": 1056,
+  "authoritativePerCardEntries": 3952,
+  "authoritativeVfxEntries": 2125,
+  "authoritativeCards": 1129,
+  "authoritativeCardsVfxOnly": 1058,
   "authoritative": {
    "truthSnapshot": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json",
    "truthCards": 1351,
@@ -86105,20 +86184,20 @@
    "resolvedByCatalog": 0,
    "resolvedByCatalogGuids": [],
    "catalogBin": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin",
-   "authoritativePerCardEntries": 3949,
-   "authoritativeVfxEntries": 2122,
+   "authoritativePerCardEntries": 3952,
+   "authoritativeVfxEntries": 2125,
    "authoritativeAssetRefEntries": 1827,
-   "authoritativeCards": 1127,
-   "authoritativeCardsVfxOnly": 1056,
+   "authoritativeCards": 1129,
+   "authoritativeCardsVfxOnly": 1058,
    "authoritativeBySoField": {
     "customRangedAttackParticles": 518,
     "remnantBodyPrefab": 71,
     "cardImageReference [assets]": 1127,
     "summonAudio [assets]": 587,
-    "cardAbilities[0].abilityLogic[0].cardAnimations[0]": 747,
+    "cardAbilities[0].abilityLogic[0].cardAnimations[0]": 749,
     "cardAbilities[0].abilityLogic[0].cardAnimations[1]": 208,
     "cardAbilities[0].abilityLogic[0].cardAnimations[2]": 27,
-    "cardAbilities[1].abilityLogic[0].cardAnimations[0]": 154,
+    "cardAbilities[1].abilityLogic[0].cardAnimations[0]": 155,
     "cardAbilities[1].abilityLogic[0].cardAnimations[1]": 40,
     "cardAbilities[1].abilityLogic[0].cardAnimations[2]": 10,
     "cardAbilities[0].abilityLogic[1].cardAnimations[0]": 77,
@@ -86149,14 +86228,14 @@
     "activeAbility.activeAbilityLogic[0].cardAnimations[3]": 1
    },
    "authoritativeByEvent": {
-    "play": 795,
+    "play": 796,
     "attack_ranged": 518,
-    "trigger": 444,
+    "trigger": 445,
     "ability": 160,
     "death": 145,
     "trigger_unmapped": 45,
     "attack_melee": 13,
-    "hit": 1,
+    "hit": 2,
     "deploy": 1
    },
    "authoritativeUnresolved": {
@@ -86270,7 +86349,7 @@
    "poolCardsWithoutTruth": 0,
    "poolCardsWithoutTruthIds": [],
    "cardsJoinedBy": {
-    "id": 1127
+    "id": 1129
    },
    "nameJoinDroppedByFaction": [],
    "nameJoinAmbiguous": []
@@ -87149,14 +87228,14 @@
   "triggerBuckets": {
    "rows": {
     "ability": 160,
-    "mapped": 853,
-    "routed": 408,
+    "mapped": 855,
+    "routed": 409,
     "unmapped": 45
    },
    "cards": {
     "ability": 93,
-    "mapped": 584,
-    "routed": 265,
+    "mapped": 586,
+    "routed": 266,
     "unmapped": 26
    },
    "unmapped": {

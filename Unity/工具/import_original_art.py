@@ -451,6 +451,75 @@ UI_EXTRACT_IMAGES = [
 # 逐张的出处见 `资料/主菜单_原版规格.md` §二（表里 `Image[<图名>]` 那几列）。
 MENU_SRC = 'd:/2/Warpforge_tools/data/ui_extract'
 MENU_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu'
+# ---- 🆕 2026-10-29（B97_W17 · 锻造/开卡包）----
+# 锻造（开卡包）窗口那件 3D 卡包用的资源，全部来自 `bundle_boosterpacks_assets_all`：
+#   · `40K_shop_offer_booster_*` **16 张** = 商店货架/开包窗的商品图（2D，紧裁 sprite）
+#   · `WF_Booster Pack_*`        **16 张** = **3D 卡包**的每阵营贴图
+#                                  （材质 `Card Booster Pack <阵营>` 的 `_MainTex`，1024²，**没有 sprite 判据**）
+#   · `BoosterPack.obj`          **1 份** = 卡包网格（330 顶点 / 330 uv / 330 法线 / 560 三角，2 个 group）
+# 判据 → `资料/完全复刻/判据/B97_R5_零散剩余施工单.md` 的 `锻造:23` 那一行（含「16 不是 17」的订正）。
+# ⚠️ 落盘到**独立目录** `Art/boosterpack/`：这批是**3D 物体的贴图 + 网格**，和菜单 2D 切图
+#    （`ui_menu/`）不是一件事。⚠️ `CardArt` 目前**还没有** boosterpack 的取图口
+#    （决策 D4「3D 物件要不要真摆」未拍 ⇒ 本次只导资源、不接线）。
+# ⚠️ `40K_shop_offer_booster_*` 里 **5 张**（UM / Sautekh / Space Wolves / leviathan / generic）
+#    早先已经导到 `ui_menu/`（`MENU_IMAGES` 那几条，商店货架在用）。这里**再落一份**到
+#    `boosterpack/`，为的是让这个目录**自包含**（16 张齐）；`ui_menu/` 那 5 张**不动**。
+BOOSTERPACK_SRC = 'd:/2/新解包资源/assets_full/bundle_boosterpacks_assets_all'
+BOOSTERPACK_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/boosterpack'
+BOOSTERPACK_MESH = 'BoosterPack.obj'
+# (源资产名（不带扩展名）, 走哪条源路)
+#   'sprite'  = 走 ui_extract 的紧裁 sprite PNG，落盘前按 `m_Rect` 补回透明画布（与菜单图同一条路）
+#   'texture' = 没有 sprite 判据（`assets_full/.../Sprite/<名>.json` 不存在）⇒ 直拷 `Texture2D/` 满图
+BOOSTERPACK_IMAGES = [
+    # ---- 商店货架的商品图 16 张（`CardArt.MenuUi` 那批此前只导了其中 5 张）----
+    ('40K_shop_offer_booster_AM', 'sprite'),
+    ('40K_shop_offer_booster_BL', 'sprite'),
+    ('40K_shop_offer_booster_Dark Angels', 'sprite'),
+    ('40K_shop_offer_booster_Emperors Children', 'sprite'),
+    ('40K_shop_offer_booster_Genestealers', 'sprite'),
+    ('40K_shop_offer_booster_Ork Expansion', 'sprite'),
+    ('40K_shop_offer_booster_Ork', 'sprite'),
+    ('40K_shop_offer_booster_SaimHann', 'sprite'),
+    ('40K_shop_offer_booster_Sautekh', 'sprite'),
+    ('40K_shop_offer_booster_Sororitas', 'sprite'),
+    ('40K_shop_offer_booster_Space Wolves', 'sprite'),
+    ('40K_shop_offer_booster_Tau', 'sprite'),
+    ('40K_shop_offer_booster_UM Expansion 1', 'sprite'),
+    ('40K_shop_offer_booster_UM', 'sprite'),
+    ('40K_shop_offer_booster_generic', 'sprite'),
+    ('40K_shop_offer_booster_leviathan', 'sprite'),
+    # ---- 3D 卡包的每阵营贴图 16 张（`Card Booster Pack <阵营>` 材质的 `_MainTex`）----
+    ('WF_Booster Pack_Astra Militarum', 'texture'),
+    ('WF_Booster Pack_Black Legion', 'texture'),
+    ('WF_Booster Pack_Dark Angels', 'texture'),
+    ('WF_Booster Pack_Emperors Children', 'texture'),
+    ('WF_Booster Pack_Generic', 'texture'),
+    ('WF_Booster Pack_Genestealer Cults', 'texture'),
+    ('WF_Booster Pack_Goff Clan', 'texture'),
+    ('WF_Booster Pack_Leviathan Hive Fleet', 'texture'),
+    ('WF_Booster Pack_Orks_Beast Snagga', 'texture'),
+    ('WF_Booster Pack_Saim Hann Craftworld', 'texture'),
+    ('WF_Booster Pack_Sautekh Dinasty', 'texture'),
+    ('WF_Booster Pack_Sororitas', 'texture'),
+    ('WF_Booster Pack_Space Wolves', 'texture'),
+    ('WF_Booster Pack_Tau Empire', 'texture'),
+    ('WF_Booster Pack_UM_Guilliman', 'texture'),
+    ('WF_Booster Pack_Ultramarines', 'texture'),
+]
+# 16 个 `Card Booster Pack*` 材质**共享**的贴图（`_MatCap` / `_Normal_map` 各一张 + `_ExplodeTex` 六个变体）。
+# ⚠️ **这一组是按「目录里只有这几个同名候选 + 数量逐一对上」推的映射，不是 pathID 实证**
+#    （`assets_full` 没有 Texture2D 的 pathID→名字索引）。逐条推断依据 →
+#    `资料/完全复刻/报告/B97_W17.md` §三。⛔ 建 .mat 之前先按那份表复核一遍。
+BOOSTERPACK_SHARED_TEXTURES = [
+    'Booster Pack Explosion',              # `_ExplodeTex` 默认（16 个材质里 11 个共用同一个 pathID -5361050435185202371）
+    'Booster Pack Explosion Necron',
+    'Booster Pack Explosion SW 1',
+    'Booster Pack Explosion Tau',
+    'Booster Pack Explosion Tyranid',
+    'Booster Pack Explosions Sororitas',
+    'Matcap Booster Pack',                 # `_MatCap`（256²，16 个材质共用同一个 pathID）
+    'Card Booster Pack Normal',            # `_Normal_map`（256²，16 个材质共用同一个 pathID）
+]
 MENU_IMAGES = [
     # (切片名, 它落在哪个 bundle 目录下)
     # 🆕 2026-10-22（P1 · 账户界面批次）：称号格的**石板底**（原版 `Title Drawer Horizontal Variant > Background`，
@@ -1826,6 +1895,30 @@ def main() -> int:
                      for name, bundle in MENU_TEXTURE_IMAGES]
     print(f'菜单 UI 图（Texture2D 直拷）：{len(menu_tex_jobs)} 张')
     jobs += menu_tex_jobs
+
+    # ---- 🆕 2026-10-29（B97_W17）：锻造/开卡包那件 3D 卡包的资源（表与理由见 `BOOSTERPACK_IMAGES`）----
+    booster_jobs = []
+    for _name, _kind in BOOSTERPACK_IMAGES:
+        _dst = os.path.join(BOOSTERPACK_OUT, _name.replace(' ', '_') + '.png')
+        if _kind == 'sprite':
+            # 走菜单图同一条路：紧裁 sprite PNG + 按 `m_Rect` 补回透明画布（见 `copy_ui_sprite`）
+            booster_jobs.append((os.path.join(MENU_SRC, 'boosterpacks_assets_all', 'Sprite', _name + '.png'),
+                                 _dst, False))
+            menu_pad[_dst] = 'boosterpacks_assets_all'
+        else:
+            booster_jobs.append((os.path.join(BOOSTERPACK_SRC, 'Texture2D', _name + '.png'), _dst, False))
+    for _name in BOOSTERPACK_SHARED_TEXTURES:
+        booster_jobs.append((os.path.join(BOOSTERPACK_SRC, 'Texture2D', _name + '.png'),
+                             os.path.join(BOOSTERPACK_OUT, _name.replace(' ', '_') + '.png'), False))
+    booster_jobs.append((os.path.join(BOOSTERPACK_SRC, 'Mesh', BOOSTERPACK_MESH),
+                         os.path.join(BOOSTERPACK_OUT, BOOSTERPACK_MESH), False))
+    print(f'卡包（锻造）资源：{len(booster_jobs)} 件（商品图 '
+          f'{sum(1 for _n, _k in BOOSTERPACK_IMAGES if _k == "sprite")} + 阵营贴图 '
+          f'{sum(1 for _n, _k in BOOSTERPACK_IMAGES if _k == "texture")} + 共享材质贴图 '
+          f'{len(BOOSTERPACK_SHARED_TEXTURES)} + 网格 1） → {BOOSTERPACK_OUT}')
+    if not args.check:
+        os.makedirs(BOOSTERPACK_OUT, exist_ok=True)
+    jobs += booster_jobs
 
     # 战役阵营背景（13 张，另一个 bundle）—— 空格→下划线、落到 `ui_campaign/`
     bg_jobs = [(os.path.join(CAMPAIGN_BG_SRC, n + '.png'),
