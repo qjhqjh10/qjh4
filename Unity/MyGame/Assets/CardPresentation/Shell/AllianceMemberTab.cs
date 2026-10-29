@@ -1450,17 +1450,39 @@ namespace CardPresentation
                           new PxRect(1659.90f, 209.81f, 1718.05f, 269.81f),      // :307
                           "40k_general_bt_yellow_edit",
                           new PxRect(1662.00f, 212.49f, 1712.15f, 267.13f),      // :309
-                          () => { chrome.Apply(true, true); SocialPage.Say(
-                              "`Edit button`：进**改盟设置**那一态（语言 / 隐私两个下拉 + `Confirm` / `Cancel` 一起亮、"
-                            + "`Edit` 与语言/隐私摘要一起灭 —— 原版 `AllianceView.OnToggleEditClicked`）。"
-                            + "⚠️ 原版这一步还有两条本地落不了：`descriptionText.interactable`（我们那一格是 `Label`、"
-                            + "没有 `interactable`）与两个下拉的 `.value`（假下拉、没有选项表）；改设置本身要服务器。"); });
+                          () => {
+                              chrome.Apply(true, true);
+                              // 🔴 **2026-10-29（`B95_MISC` · 账 `社交:100` ④）就地订正（铁律 5）**：这段原文写
+                              //   「两条本地落不了：descriptionText.interactable（我们那一格是 Label）/ 两个下拉的 .value（假下拉、没有选项表）」
+                              //   —— **两条都过期了**：① 描述框现在是**真能输入**的 `TextInputField`（见 `chrome.DescInput`）；
+                              //   ② 两个下拉早就是 `AllianceDropdownBox`（`B90-N5` 建的，有选项表）。
+                              //   真残差只剩 **④ 两个下拉的「初值」**：原版 `OnToggleEditClicked.c:52-67` 读的是
+                              //   `alliance.privacy(+0x40)` 与 `IndexOf(GroupLanguages, alliance.region(+0x48))` —— 这两格是
+                              //   **服务器字段**（`Group` 由 `AlliancesManager.GetGroupById` 取；账 142/143 判 D）⇒ 本地无值。
+                              //   按已批口径：**留 prefab 出厂态 + 出声**，⛔ 不造本地初值。
+                              Debug.Log("[Alliance] `Edit button` → 编辑态：语言/隐私两个下拉**保持出厂态**（`OnToggleEditClicked.c:52-67` 那两个 `.value`"
+                                      + " 的初值来自服务器字段 `Group.privacy` / `Group.region`，本地无值 ⇒ ⛔ 不编）；描述框现在**真能输入**。");
+                              SocialPage.Say(
+                                  "`Edit button`：进**改盟设置**那一态（语言 / 隐私两个下拉 + `Confirm` / `Cancel` 一起亮、"
+                                + "`Edit` 与语言/隐私摘要一起灭 —— 原版 `AllianceView.OnToggleEditClicked`）。"
+                                + "⚠️ 两个下拉的**初值**来自服务器（语言 / 隐私是公会数据），本地拿不到 ⇒ 保持出厂那一项；"
+                                + "描述框可以输入，但**提交要服务器**。");
+                          });
                 confirmNode = YellowBtn(v, cf, "Confirm button",
                           new PxRect(1732.55f, 209.81f, 1790.70f, 269.81f),      // :310
                           "40k_general_bt_yellow_confirm",
                           new PxRect(1734.23f, 215.18f, 1787.20f, 261.95f),      // :312
-                          () => SocialPage.Say("`Confirm button`：原版**提交改盟设置**（`AllianceView.OnEditSave` —— 发一条改盟"
-                                             + "请求后退出编辑态）—— **要服务器**，本地没有那个源。"));
+                          () => {
+                              // 🆕 2026-10-29（`B95_MISC` · 账 社交:100 ③）：原版 `AllianceView.OnEditSave` = 把
+                              //   `description` / `privacy` / `region` 发云端改盟请求后退出编辑态。**本机没有服务器** ⇒
+                              //   按 P2 口径「UI 照原版做、数据本地模拟或出声」：**收下输入 + 明确说出来没保存**（⛔ 不静默无反应）。
+                              string typed = chrome.DescInput != null ? chrome.DescInput.Value : null;
+                              Debug.Log("[Alliance] `Confirm button`：描述框当前值 = \"" + (typed ?? "") + "\" —— 原版 `AllianceView.OnEditSave` "
+                                      + "发云端改盟请求；**本机没有服务器** ⇒ 只出声，不落盘、不改任何本地数据");
+                              chrome.Apply(false, true);
+                              SocialPage.Say("`Confirm button`：原版**提交改盟设置**（`AllianceView.OnEditSave`）—— "
+                                           + "**提交需要服务器**：本地已经收下你的输入（见日志），但**不会真的保存**。");
+                          });
                 cancelNode = YellowBtn(v, cf, "Cancel button",
                           new PxRect(1805.20f, 209.81f, 1863.35f, 269.81f),      // :313
                           "40k_general_bt_yellow_back",
@@ -1478,6 +1500,19 @@ namespace CardPresentation
                 //   ⛔ 不把「没数据」当成「Members 角色」把钮藏掉；有真 role（>0）时按 `role >= GroupRole.Admin(2)` 切。
                 int role = SocialData.SelfRoleId();
                 chrome.Apply(false, role <= 0 || role >= 2);
+                // 🆕 2026-10-29（`B95_MISC` · 账 社交:100 ③）：**描述那一格真的能输入** —— 原版它是
+                //   `EverguildInputField`（`TMP_InputField` 子类）「`Description input text`」，prefab 里一直都在；
+                //   本仓没有 uGUI `TMP_InputField` ⇒ 用等价物 `Shell/TextInputField.cs`（同一套 `40K_dropdown_bg`
+                //   九宫底 + 占位字 + 命中区 + 键盘）。矩形取原版那一格 `Description input text`（`g.Desc`）。
+                //   ⚠️ 出厂隐藏（原版 `Draw` 末尾那几句只切 `interactable`、不切显隐；但我们这一格是**另一个控件**，
+                //      非编辑态留着它会盖住下方说明 ⇒ 按「编辑态才出现」处理，并在 `EditChrome.Apply` 里跟着开合）。
+                var descInput = TextInputField.Create(content, g.Desc,
+                    new PromptContext.InputData("Description input text", "",
+                                                TMPro.TMP_InputField.ContentType.Standard, ""),
+                    0, MenuDraw.QText - 1);
+                if (descInput != null) { chrome.DescInput = descInput; descInput.gameObject.SetActive(false); }
+                else Debug.LogWarning("[Alliance] `descriptionText` 的输入框没建出来（`TextInputField.Create` 返回 null）"
+                                    + " —— 如实说：这一格仍然打不了字（⛔ 不假装能输）");
             }
 
             // 联盟简介（`Description input text`；原版样例是一串 Aliance Description，属调试残留 §C·2）
@@ -1658,7 +1693,7 @@ namespace CardPresentation
         /// 我们那两个是「合上的假下拉」（没有选项表、没有 Unity 内置 `Template`）⇒ 只能不显示值。</para></summary>
         sealed class EditChrome
         {
-            public Transform Languages, Privacy, Edit, Confirm, Cancel, Region;
+            public Transform Languages, Privacy, Edit, Confirm, Cancel, Region; public TextInputField DescInput;   // 🆕 2026-10-29（B95_MISC · 账 社交:100 ③）
             static void On(Transform t, bool on) { if (t != null) t.gameObject.SetActive(on); }
             /// <summary>`editing` = 进/出编辑态；`idleEdit` = **退出编辑时** `Edit` 要不要出现
             /// （出厂那一档由 `role &gt;= Admin` 决定；原版 `OnEditCancel` 是无条件开）。</summary>
@@ -1668,6 +1703,16 @@ namespace CardPresentation
                 On(Confirm, editing); On(Cancel, editing);
                 On(Region, !editing);
                 On(Edit, !editing && idleEdit);
+                // 🆕 2026-10-29（`B95_MISC` · 账 社交:100 ③）：进编辑态 = **真的能打字**。原版 `AllianceView.OnToggleEditClicked.c:23-31`
+                //   `descriptionText.interactable = !alliance.blockDescriptionChange && !me.blockDescriptionChange` ——
+                //   「interactable = 点进去就能输」那半我们照做；`blockDescriptionChange` 那两格是**服务器字段**（本地无值）
+                //   ⇒ 恒按「可编辑」处理（原版本机两格都为 0 时也是这一档），并在 `Confirm` 处出声说明提交要服务器。
+                //   退出编辑 ⇒ 收起键盘并**丢弃**未提交的改动（原版没有本地暂存这条路）。
+                if (DescInput != null)
+                {
+                    if (editing) DescInput.gameObject.SetActive(true);
+                    else { DescInput.EndEdit(false); DescInput.gameObject.SetActive(false); }
+                }
             }
         }
     }

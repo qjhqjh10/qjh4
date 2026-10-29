@@ -890,6 +890,9 @@ namespace CardPresentation
                 //     ⇒ 本支**今天不可达、但不是死代码**：投影接上后它就是这个条件的唯一展示口。
                 if (EffectsToShow.IsMarkBuffType(b.BuffType))
                 {
+                    // 🆕 2026-10-29（`B95_FX` · 账 `特效动画:195`）：**`what` 那一格原版是【空串】**（上面「本地判不了」已作废）
+                    //   判据链（5 条：键名 → 表里没有 → GetTranslation 回 null → TMP 画空白）→ 类尾 `MarkGodEffectTextIsEmpty` 的 doc
+                    what = "";
                     int god = b.TraitRec != null ? b.TraitRec.MarkOfChaosType : 0;   // `CardEffect.markOfChaosType(+0x78)`
                     string godEnum = MarkGodTraitEnum(god);                          // 10→markOfKhorne … 其余 ⇒ null
                     who = godEnum != null
@@ -1289,7 +1292,7 @@ namespace CardPresentation
             Visible = true;
             gameObject.SetActive(true);
             _closePending = false;      // 🔴 P1-3：重开 ⇒ 丢掉上一帧还没落的待关（否则本帧末尾会把新窗关掉）
-            SetEffectRows(effects);      // ⚠️ 放在最后 —— 它要先把那块亮起来再改字（TMP 未激活量不出尺寸）
+            SetEffectRows(effects); SetupTutorialObj(d, EffectRowCount > 0);   // 🆕 2026-10-29（`B95_HUDCOL` · 账 `战斗界面_HUD:306`）：`forceHide` 的真来源 = `DisplayCardEffects` 的返回值 ⇒ 同一行喂进来      // ⚠️ 放在最后 —— 它要先把那块亮起来再改字（TMP 未激活量不出尺寸）
             // 卡背必须放在 `SetActive(true)` **之后**（同 TMP 那条顺序纪律；卡背层是懒建的网格，不读 TMP）
             SetFrontVisible(!faceDown);
         }
@@ -1372,7 +1375,7 @@ namespace CardPresentation
             if (_bg != null) MenuDraw.ClearChildren(_bg);
             _lore = null;
             SetChrome(false);
-            SetEffectRows(null);         // 那块也跟着收（原版 `DisplayCardEffects` 每次重算）
+            SetEffectRows(null); HideTutorialObj();   // 🆕 2026-10-29（`B95_HUDCOL`）：教程指向物跟着收         // 那块也跟着收（原版 `DisplayCardEffects` 每次重算）
         }
 
         // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -1990,5 +1993,208 @@ namespace CardPresentation
             return null;
         }
 
+        // ============================================================ 🆕 2026-10-29（执行代理 `B95_HUDCOL`）
+        //  账 `战斗界面_HUD:306` —— `CardDisplayWindow.SetupTutorialObj(RawCardScript, bool forceHide)`
+        //  与它那棵 `Card Display/TutorialObjs` 子树（原版三个字段 = `tutorialObj` / `tutorialObjUnit` / `tutorialObjCost`）。
+        //  ⚠️ **追加在类尾**（插进中间会让本文件 50+ 条 `文件:行号` 账落点整体漂移，见 CLAUDE.md 铁律 18·b）。
+        //
+        //  ---- 判据（全部 2026-10-29 亲读）----
+        //  🥇 一：`decomp_full/CardDisplayWindow__SetupTutorialObj.c:26-72`（闸在 `:44-58`）。
+        //  🥈 二：`cpp2il/out_cpp2il_dev_ilspy/CardDisplayWindow.cs:1097-1141`（同体，结构更清楚）。两份合起来：
+        //     · ① `BattleManager.Instance == null` ⇒ **强制 forceHide**（`.c` 那句 `param_3 = 1`）；
+        //     · ② `LiveOpsManager.GetHandler<GameModes>()` 非空 · ③ 它 `GetActiveEvent<TutorialEvent>()` 非空 ·
+        //       ④ 事件 `+0x20` 与其 `+0x70` 那个字典非空 ⇒ 取字典 `Count`；
+        //     · 闸 = `!forceHide && enableTutorial(+0xe0) && Count < 6`；
+        //     · **闸过** ⇒ `tutorialObj.SetActive(true)` → `tutorialObjUnit.SetActive(IsUnit())` →
+        //       `tutorialObjCost.SetActive(cardType != Hero(10) && manaCost **非负**)`
+        //       （`.c` 里是 `~*(uint*)(card+0x78) >> 31` = 符号位为 0 = 非负，⛔ 不是 `> 0`）；
+        //     · **闸不过** ⇒ **只关 `tutorialObj`**（`Unit`/`Cost` 两格不动 —— 这是原版的控制流，照抄）。
+        //  🥇 三（三个字段的真身，逐 pid 现读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4750.json`）：
+        //     `tutorialObj = 904` → `GameObject/TutorialObjs.json`（其 RT `2599`，父 = `Card Display`）·
+        //     `tutorialObjUnit = 617` → `UnitObjs`（RT `3304`，孩子 = MeleeText/RangedText/HealthText）·
+        //     `tutorialObjCost = 468` → `EnergyText`（RT `3094`，孩子 = `Arrow`）· `enableTutorial = 1`。
+        //  🥇 四（四颗字，逐 pid 现读 `MonoBehaviour_3748/3881/3732/3759.json`）：
+        //     `Melee Attack` / `Ranged Attack` / `Health Points` / `Energy Cost` · `m_fontSize = 30`
+        //     · `m_HorizontalAlignment = 2`(Center) + `m_VerticalAlignment = 512`(Middle)
+        //     · 材质 `Asar-Regular Light Grey w outline thin`（`_FaceColor = (0.802,0.802,0.802)`，同 `TutorialOverlay` 那四颗）。
+        //  🥇 五（rect，`RectTransform_3304/3066/2707/2778/3094/2928.json` 现读；**相对父件中心、y 向上**）：
+        //     `UnitObjs (0,0) 100×100` · `MeleeText (-474,-218) 380×55` · `RangedText (-410,-289.59) 380×55`
+        //     · `HealthText (481,-273) 380×55` · `EnergyText (497,252) 340.269×59.342`
+        //     · `EnergyText/Arrow (-89.2,49.6) 206.22×76.17`（`m_Color = 0.6698` 灰、`m_PreserveAspect = 0`）。
+        //     ⚠️ `TutorialObjs` 自己那份 RT 是 **stretch 锚 + `sizeDelta (3501,2291)`** —— 按 CLAUDE.md 硬知识 6
+        //        那是「VLG 跑之前的模板位」（父 `Card Display` 只有 752×868）⇒ **不照抄**；四个孩子都是
+        //        中心锚 + 固定 `anchoredPosition`，容器尺寸对它们没有影响 ⇒ 这里按父件满框建。
+        //
+        //  ---- 闸 ②③④ 的数据源（如实记边界）----
+        //  🔴 原版那一串读的是 **LiveOps `TutorialEvent`**（PlayFab 远端下发）。关服之后本地永远拿不到
+        //     ⇒ 按 CLAUDE.md §18·0（只有和服务器有关的才允许自己设计）+ `B91_L6` 的 b 档裁定，
+        //     这里用**本地教程关卡号**模拟：`SetLocalTutorialProgress` 由驱动在**唯一那个路口**
+        //     （`BattleDriver.Begin` 的 `_tutorialStage = …` 那一行）喂进来。
+        //     ⇒ 闸的**结构**照原版（`!forceHide && enableTutorial && Count < 6`），**`Count` 的语义是本地模拟**，
+        //       ⛔ 别把它当原版数据源；也⛔ 别因为「模拟」就把它做成恒不可达的空壳（教程局真的会亮）。
+
+        /// <summary>原版序列化字段 `enableTutorial`（本窗 MB `+0xe0`；13 个战场逐场核过**恒 1**，判据 `B8_U`）。</summary>
+        public bool enableTutorial = true;
+
+        /// <summary>🔶 自己设计（非原版）：本地教程闸的「进度计数」= 本局教程关卡号（`0` = 不是教程局）。
+        /// 原版读 `TutorialEvent` 那个字典的 `Count`，而那条链的数据源在 **PlayFab 远端**（关服后判据不可得）
+        /// ⇒ 用本地关卡号顶替 · 调度台 2026-10-29 裁定（`B91_L6` 的 b 档：本地模拟 + 出声）。</summary>
+        static int _localTutorialStage;
+
+        /// <summary>🔶 自己设计（非原版）：本地教程闸的「本局在跑」那一格 —— 等价于原版
+        /// `GameModes.GetActiveEvent&lt;TutorialEvent&gt;() != null`；同样因为判据在远端（见上一格）。
+        /// 由 `BattleDriver.Begin` 唯一那个路口置位 · 调度台 2026-10-29 裁定。</summary>
+        static bool _localTutorialActive;
+
+        /// <summary>驱动每开一局喂一次（`stage &lt;= 0` = 不是教程局）。**唯一写口** ——
+        /// 落点 = `BattleDriver.Begin` 的 `_tutorialStage = tutorial == null ? null : tutorial.Stage;` 同一行。</summary>
+        public static void SetLocalTutorialProgress(int stage)
+        {
+            _localTutorialActive = stage > 0;
+            _localTutorialStage = stage > 0 ? stage : 0;
+        }
+
+        /// <summary>自检用：现在喂进来的本地教程进度（`0` = 不是教程局）。</summary>
+        public static int LocalTutorialProgressForTest { get { return _localTutorialActive ? _localTutorialStage : 0; } }
+
+        Transform _tutObj, _tutUnit, _tutCost;
+        Label[] _tutTexts;
+        HudPiece _tutArrow;
+
+        /// <summary>自检用：三个节点的 `activeSelf`（没建出来 ⇒ false，⛔ 不猜）。</summary>
+        public bool TutorialObjActiveForTest { get { return _tutObj != null && _tutObj.gameObject.activeSelf; } }
+        public bool TutorialObjUnitActiveForTest { get { return _tutUnit != null && _tutUnit.gameObject.activeSelf; } }
+        public bool TutorialObjCostActiveForTest { get { return _tutCost != null && _tutCost.gameObject.activeSelf; } }
+
+        /// <summary>建 `Card Display/TutorialObjs`（原版那棵树：`TutorialObjs ▸ {UnitObjs ▸ 三颗字,
+        /// EnergyText ▸ Arrow}`）。**只建一次**（`_tutObj != null` ⇒ 直接返回），开关只切 `activeSelf`
+        /// —— 同 `EffectList` 那条教训（`Hide` 里销毁了、`Show` 又不会重建 ⇒ 第二次打开只剩光卡）。</summary>
+        void BuildTutorialObjs()
+        {
+            if (_tutObj != null) return;
+            var cd = _root != null ? _root.Find("Card Display") : null;
+            if (cd == null)
+            {
+                Debug.LogWarning("[展示窗] `Card Display` 这一级没找到 ⇒ 教程指向物**建不了**（不静默）");
+                return;
+            }
+            // `TutorialObjs`：判据见上（原版那格是模板位，这里按父件满框 —— 容器尺寸对孩子无影响）
+            _tutObj = Node(cd, "TutorialObjs", CardWinBox.CardL, CardWinBox.CardT,
+                           CardWinBox.CardR, CardWinBox.CardB, CardDisplayC, ZGroup);
+            if (_tutObj == null) return;
+            // `UnitObjs`：原版 `100×100`、中心锚 `(0,0)`
+            _tutUnit = Node(_tutObj, "UnitObjs", CardDisplayC.x - 50f, CardDisplayC.y - 50f,
+                            CardDisplayC.x + 50f, CardDisplayC.y + 50f, CardDisplayC, ZGroup);
+
+            // 三颗字（`Melee Attack` / `Ranged Attack` / `Health Points`）。`ink` 与 `TutorialOverlay`
+            // 那四颗同一份判据（材质 `_FaceColor = (0.802,0.802,0.802)`）。
+            var ink = new Color(0.802f, 0.802f, 0.802f, 1f);
+            var unitC = CardDisplayC;      // `UnitObjs` 的中心 = `Card Display` 的中心
+            _tutTexts = new Label[3];
+            _tutTexts[0] = Text(_tutUnit, "MeleeText", "Melee Attack", Rel(486f, 758f, unitC.x, unitC.y), 5,
+                                30f, 380f, 55f, 0f, 0f, ZContent - 0.02f, ink, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinUi);
+            _tutTexts[1] = Text(_tutUnit, "RangedText", "Ranged Attack", Rel(550f, 829.59f, unitC.x, unitC.y), 5,
+                                30f, 380f, 55f, 0f, 0f, ZContent - 0.02f, ink, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinUi);
+            _tutTexts[2] = Text(_tutUnit, "HealthText", "Health Points", Rel(1441f, 813f, unitC.x, unitC.y), 5,
+                                30f, 380f, 55f, 0f, 0f, ZContent - 0.02f, ink, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinUi);
+
+            // `EnergyText`（= 原版 `tutorialObjCost`）+ 它的 `Arrow`。中心 = `Card Display` 中心 + (497, −252)
+            // ⇒ 绝对 (1457, 288)；`Arrow` 相对 `EnergyText` 中心 (-89.2, +49.6) ⇒ 绝对 (1367.8, 238.4)。
+            _tutCost = Node(_tutObj, "EnergyText", 1457f - 170.1345f, 288f - 29.671f,
+                            1457f + 170.1345f, 288f + 29.671f, CardDisplayC, ZGroup);
+            if (_tutCost != null)
+            {
+                Text(_tutCost, "EnergyTextLabel", "Energy Cost", Rel(1457f, 288f, 1457f, 288f), 5,
+                     30f, 340.269f, 59.342f, 0f, 0f, ZContent - 0.02f, ink, new Vector2(0.5f, 0.5f), TmpFont.Face.LatinUi);
+                // ⚠️ **如实记**：原版 `Arrow` 的 sprite 是 `m_FileID 8 / PathID 7052792951493041307`
+                //    （外部包，本地按 pid 没解出 sprite 名）⇒ 这里用教程线**已经在用**的那张箭头图
+                //    （`40k_general_bt_arrow`，`TutorialOverlay` 的四根箭头同源）。**这是我们挑的**，
+                //    不是原版判据 —— `m_Color (0.6698)` 与 `PA = 0` 是原版值。
+                var arrowTex = CardArt.Ui("40k_general_bt_arrow");
+                if (arrowTex != null)
+                    _tutArrow = Img(_tutCost, arrowTex, "Arrow", Rel(1367.8f, 238.4f, 1457f, 288f),
+                                    206.22f, 76.17f, ZContent - 0.03f, new Color(0.6698f, 0.6698f, 0.6698f, 1f));
+                else
+                    Debug.LogWarning("[展示窗] 教程指向物的 `Arrow` 贴图取不到 ⇒ 这一件不建（不静默）");
+            }
+
+            // 出厂关着（原版 `m_IsActive` 在 13 场里都是 1，但那是**预制体态**；真正的开关是闸）
+            _tutObj.gameObject.SetActive(false);
+        }
+
+        /// <summary>原版 `CardDisplayWindow.SetupTutorialObj(RawCardScript rawCardData, bool forceHide)`。
+        /// <para>`forceHide` 的**真来源** = `ShowBattleCard:664` 的 `bool showOptions = DisplayCardEffects(card)`
+        /// ⇒ 「这张卡有非空效果行就不画教程指向物」。我们的等价量 = <see cref="EffectRowCount"/>（同一份算式），
+        /// 由<see cref="Show(CardData,CardDef,IReadOnlyList{EffectRow},bool)"/> 在同一行喂进来。</para>
+        /// <para>⚠️ `d.type == "hero"` 是原版 `CardTypeOptions.Hero(10)` 的映射（本仓卡类字段的取值域
+        /// `unit/tactic/hero/defence`，见 `CardData.type` 的 doc）；`d.cost` 就是原版 `manaCost`。</para></summary>
+        public void SetupTutorialObj(CardData d, bool forceHide = false)
+        {
+            BuildTutorialObjs();
+            if (_tutObj == null) return;
+
+            // ① 原版 `BattleManager.Instance == null ⇒ forceHide = true`。
+            //   我们这一侧「战斗还在」= 没有任何一刻能在驱动之外开这扇窗（本窗只由 `BattleDriver` 调）
+            //   ⇒ 这一格的等价量恒真，**照原版留着这条式子**（⛔ 不是删掉它）。
+            bool battleAlive = true;
+            if (!battleAlive) forceHide = true;
+
+            // ②③④ 闸的数据源 = LiveOps `TutorialEvent` ⇒ 本地模拟（见类尾那段「闸 ②③④ 的数据源」）
+            bool evtActive = _localTutorialActive;
+            int count = _localTutorialStage;
+
+            bool pass = !forceHide && enableTutorial && evtActive && count < 6;
+            if (pass)
+            {
+                _tutObj.gameObject.SetActive(true);
+                bool isUnit = d.isUnit;                                   // 原版 `RawCardScript.IsUnit()`
+                if (_tutUnit != null) _tutUnit.gameObject.SetActive(isUnit);
+                // `cardType != Hero(10)` && `manaCost` **非负**（⛔ 不是 `> 0`，见类尾判据一）
+                bool isHero = string.Equals(d.type, "hero", System.StringComparison.OrdinalIgnoreCase);
+                bool costOn = !isHero && d.cost >= 0;
+                if (_tutCost != null) _tutCost.gameObject.SetActive(costOn);
+            }
+            else
+            {
+                // 原版闸不过那一支**只关 `tutorialObj`**（`Unit`/`Cost` 两格不动）—— 照抄，⛔ 别顺手多关两个
+                _tutObj.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>关窗时把整棵教程指向物收起来（原版那一支挂在 `ShowCard` 里，窗关着时它本来就
+        /// 不可见 —— 我们这棵建在**常驻的画布节点**上，所以得显式收）。落点 = `HideCore` 的
+        /// `SetEffectRows(null);` 同一行。</summary>
+        void HideTutorialObj()
+        {
+            if (_tutObj != null) _tutObj.gameObject.SetActive(false);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-29（`B95_FX` · 账 `特效动画:195`）：mark-of-chaos 那一支的 `what`（effectText）
+        //  ⚠️ **追加在类尾**（本文件被账按 `文件:行号` 引用；`RowsOf` 里只留两行注释，零行数变化）。
+        //
+        //  结论：原版 `CardEffectItem.LoadEffect` 在 `buffType ∈ {markOfChaos(8), lastMarkOfChaos(17)}`
+        //  那一支里，**effectText = 空串**（`RowsOf` 里 `what = ""` 就是照它）。判据链五条：
+        //   ① `GameStaticData__GetEffectDesc.c:396-413`（`case 8/0x11`）拼的键 =
+        //      `"CardTraitDescription/" + Enum.ToString(<*(int*)(param+0x78)>)`；
+        //   ② 那个枚举类型 token `DAT_184236ff8` = **`MarkOfChaosType`** —— 同一 token 出现在
+        //      `CardScript__GetAvailableMarksOfChaos.c:33/93-95`（那个方法返回 `List<MarkOfChaosType>`，
+        //      并用这个 token 做强转检查；ILSpy `CardScript.cs:18599` 的签名可证）
+        //      ⇒ 键 = **`CardTraitDescription/Khorne`**，**不是**表里那四条 `…/markOfKhorne`；
+        //      （对比：`LoadEffect.c:58-90` 拼 `[[…]]` 用的是**另一个** token `DAT_184257870` = `DefinedTrait`
+        //       —— 所以那里出 `markOfKhorne`、这里出 `Khorne`，两处**不是同一个枚举**，⛔ 别合并。）
+        //   ③ 官方表里只有 `CardTraitDescription/markOfKhorne|Nurgle|Slaanesh|Tzeentch|markOfChaos`
+        //      （现读 `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms`，85 条 `CardTraitDescription/*`）
+        //      ⇒ `…/Khorne` **查不到**；
+        //   ④ 查不到时 `I2.Loc.LocalizationManager.GetTranslation` 返回 **null**：
+        //      `GetTranslation.c:16-18` 先 `local = 0` 再 `TryGetTranslation(term, &local, …)`、最后**原样返回** `local`；
+        //      `TryGetTranslation.c:21-22` 一进来又 `*param_2 = 0`，扫完全部 source 仍未命中就 `return 0`（`:71`）
+        //      ⇒ out 参数恒 null（**不是**「缺键回键名」那种常见行为）；
+        //   ⑤ `CardEffectItem__LoadEffect.c:98-101` 把那个 null 原样写进 `param_1+0x28` 那颗 TMP ⇒ 原版**画空白**。
+        //  ⇒ 我们的等价物 = `what = ""`（**空串占一槽、但那一格不画** —— 与 `SetEffectRows` 的
+        //     `IsEmptyRow` 那一条空文本支同义，判据 `EnableCardEffectSlots.c:46-60`）。
+        //  ⚠️ **今天仍不可达**：`TempBuff.buffType ∈ {8,17}` 没有生产者（见账 `特效动画:521` 的
+        //     `CreateMarkCardEffect` 投影）⇒ 这是「投影接上之后唯一的展示口」，改在这里等它。
+        // ═══════════════════════════════════════════════════════════════════════════════════
     }
 }

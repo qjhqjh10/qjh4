@@ -403,6 +403,47 @@ namespace RuleEngine
         /// </summary>
         // 🔶 自己设计（非原版）：原版靠单体对象图直接调方法、不经事件；我们开这条窄口给表现层 · 判据 = 报告 §1b（`判据/T4_532与PremiumCampaign_判据.md` §1·②：原版 `ResolveAction` case 0x10 内联，无广播） · 调度台 2026-10-27 裁定
         EnchantmentRemoved,
+
+        // ==================================================================
+        //  🆕 2026-10-29（战斗线 C21 · 执行代理 `B96_CB` · 账 921）：**手牌被「抽出来给人看」**
+        //  ⚠️ **加在这张表的【末尾】**（枚举值只许追加，见上面 `Draw` 那段：插队会让别处存下来的整数值错位）。
+        //
+        //  为什么是两条而不是一条：原版**同一个方法**（`CardScript.ShowCardBeingDrawn(float stepTime)`）
+        //  被两个调用点用**两个不同的常量**调 —— 0.2 与 0.4 —— 而 `BattleEvent.Amount` 是 `int`，
+        //  装不下 `0.2f`/`0.4f` 这种浮点时长（装 0/1 就是又造一套自建编码）。
+        //  ⇒ 时长由 **Kind 自己**表达（每个 Kind 一个 `CardFeel` 常量），消费端不必解码、也不会错档。
+        //  ⛔ 别合并成一条带 `bool` 的（与本文件 `StatusApplied` / `TraitRemoved` 那次同一条纪律）。
+        // ==================================================================
+
+        /// <summary>
+        /// 🆕 **弃牌揭示** —— 这张手牌被「抽出来给人看」那一下（`stepTime = 0.2`）。
+        ///
+        /// <para>**判据 = 原版** `CardScript.ShowCardBeingDrawn`（`decomp_full/CardScript__ShowCardBeingDrawn.c:9-14` 全文）：
+        /// `cardState = 9(inHandMoving)` + `SetSortingLayer(HandMoving)` + `if (isPlayer == 0) TurnCardAround(this, stepTime, stepTime)`。
+        /// 本档的调用点 = `BattleManager._ResolveDiscardFromHand_d__544__MoveNext.c:95`，实参
+        /// `.rdata 0x1834b2bb0` 实读 **0.2f**（我们的常量 = `CardFeel.DiscardRevealStepTime`）。</para>
+        ///
+        /// <para>**字段**：`Player` = **原持有方**（= 原版 `EntityScript.isPlayer(+0x40)`）·
+        /// `Slot` **恒 -1** · `CardId` = 卡名 · `InstanceId` = 这一份的实例号。
+        /// ⚠️ 发出点 = `RuleCore.EmitCardBeingDrawn(ctx, seat, inst, isSteal: false)`（**唯一发射口**）。</para>
+        ///
+        /// <para>⚠️ **纯表现信号**：不改任何局面、不进动作流（`BattleEvent` 不进 `.json`）。</para>
+        /// </summary>
+        DiscardReveal,
+
+        /// <summary>
+        /// 🆕 **偷牌揭示** —— 从对手**牌库**偷来的那张被抽出来给人看那一下（`stepTime = 0.4`）。
+        ///
+        /// <para>**判据 = 原版** 同一条方法（见 <see cref="DiscardReveal"/>），本档调用点 =
+        /// `BattleManager._ResolveStealFromDeck_d__547__MoveNext.c:243`，实参 `.rdata 0x1834b3158` 实读
+        /// **0.4f**（我们的常量 = `CardFeel.StealRevealStepTime`）。
+        /// 🔴 **与弃牌那一档不同值、⛔ 别统一**（两条链各用自己的字面量，不是笔误）。</para>
+        ///
+        /// <para>**字段**：`Player` = **被偷那一方**（= 原版 `isPlayer`，因为牌彼时还在他的牌库里）·
+        /// `Slot` **恒 -1** · `CardId` = 卡名 · `InstanceId` = 这一份的实例号。
+        /// ⚠️ 发出点同 <see cref="DiscardReveal"/>（`isSteal: true`）。</para>
+        /// </summary>
+        StealReveal,
     }
 
     /// <summary>
@@ -805,7 +846,7 @@ namespace RuleEngine
     }
 }
 // ==========================================================================================
-//  ⚠️ **`EvtKind`（现读 21 个成员；⛔ 别写死条数，`RuleEngineTest` 那条计数断言才是真值）不是「原版广播族」的对应物 —— ⛔ 别拿两边的条数比**
+//  ⚠️ **`EvtKind`（现读 23 个成员；⛔ 别写死条数，`RuleEngineTest` 那条计数断言才是真值）不是「原版广播族」的对应物 —— ⛔ 别拿两边的条数比**
 //  （2026-10-26 · 完全复刻批次 8 · 执行代理 `B8_R` 查证，判据见下；2026-10-27 `E7ENG` 加 `EnchantmentRemoved` 后就地订正「20 → 21」）
 // ==========================================================================================
 //  起因：一轮只读普查怀疑「`EvtKind` 现读 20 个成员、而原版广播有 35 种 ⇒ 这是

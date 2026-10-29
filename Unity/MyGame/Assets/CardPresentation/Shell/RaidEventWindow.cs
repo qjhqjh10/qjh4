@@ -1526,13 +1526,13 @@ namespace CardPresentation
         /// <para>本地一张 liveops 图都不加载 ⇒ 两句都是空；**照原版出声**并把要卸的两个类型打出来。</para></summary>
         public void Reset()
         {
-            // 🔴 `Reset()` 是 MonoBehaviour 的**编辑器回调**（`AddComponent` 时会自动调一次）——
-            //   那时树还没建（`_page == null`）⇒ 原版这一跳也不可能发生 ⇒ 早退（⛔ 否则每次建窗都会白打一条告警）。
+            // 🔴 `Reset()` 是 MonoBehaviour 的**编辑器回调**（`AddComponent` 时会自动调一次）——那时树还没建（`_page == null`）
+            //   ⇒ 原版这一跳也不可能发生 ⇒ 早退（⛔ 否则每次建窗都会白打一条告警）。
             if (_page == null) return;
             var plan = RaidEventTabLogic.Reset(_header != null);
-            Debug.LogWarning("[Raid] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842926d0` 是字符串对象）⇒ 只出声、不编原文。"
-                           + "要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes)
-                           + "（本机没加载过 ⇒ 空）；headerController 在不在 = " + plan.HeaderUnloads + "。");
+            Debug.LogWarning("[Raid] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842926d0` 是字符串对象）⇒ 只出声、不编原文。要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes) + "；headerController 在不在 = " + plan.HeaderUnloads + "。");
+            for (int i = 0; i < plan.AssetTypes.Length; i++) LiveOpsAssetUtility.UnloadAssets(_raid, plan.AssetTypes[i]);   // 🔴 2026-10-29（B95_RD）：原版那两句 `Unload(事件,1)` / `Unload(事件,5)` 从「空跳」改成**真释放**（按 key 取 `EventAssets` 的 GUID → 引用计数 −1）
+            // ⛔ `plan.AssetTypes` 的顺序就是原版那两句的顺序（先 1 背景图，有 headerController 才再有 5 阵营图）。
         }
 
         /// <summary>关窗前先跑原版那一跳 `OnClose`（= 原版 `OnClose` 在 `base.OnClose` 前后各占一半，顺序照抄）。</summary>
@@ -1592,7 +1592,7 @@ namespace CardPresentation
         public void OnDestroy()
         {
             if (!RaidHeaderControllerLogic.ReleasesArmyIcon(_raid != null)) return;
-            Debug.Log("[Raid] `OnDestroy`：原版 `Unload(事件, 5)` 卸阵营图；本机没加载过 liveops 图 ⇒ 空。");
+            LiveOpsAssetUtility.UnloadAssets(_raid, (int)LiveOpsAssetRef.ArmyImage);   // 🔴 2026-10-29（B95_RD）：原版 `Unload(事件, 5)`（5 = `EventAssetReferenceType.ArmyImage`）—— 从「空跳」改成**真释放**
         }
 
         // ------------------------------------------------------------ `RaidProgressBarScaleAndPositionController`

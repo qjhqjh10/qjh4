@@ -350,6 +350,16 @@ namespace CardPresentation
         /// 在此 = `DraftEventData`；父类那句 `GetBaseData()`（`Shell/PlayEvent.cs:445`）返回的也是**同一个字段**的向上转型
         /// ⇒ 直接返回 `Data` 与「走基类再判型」结果一致。与 `PlayEvent.GetBaseData()` 同址形态（`Shell/PlayEvent.cs:445`）。</para></summary>
         public new DraftEventData GetBaseData() { return Data; }
+
+        /// <summary>原版 `public new DraftEventSaveGame GetBaseSave()`（`out_cpp2il_dev_ilspy/Everguild.LiveOps/DraftEventBase.cs:4171`；
+        /// **泛型类方法 ⇒ `decomp_full` 无独立产物**，读 ILSpy）：与上面那行 `GetBaseData()` **同形**的类型化读口。
+        /// <para>判据：同族三个兄弟都各有一个同名取口 —— `FastModeBaseEvent.cs:153`（`new FastModeSave`）·
+        /// `GameNewsEvent.cs:103`（`new GameMessagePersistence`）· `ExpansionPassEvent.cs:343`（`ExpansionPassSave`），
+        /// 只有本类漏了 ⇒ 2026-10-29 补齐（账 `轮抽:10`，调度台批准）。
+        /// ⚠️ **返回类型写 `TS` 而不是具体的 `DraftEventSave`**：本类约束是 `where TS : PlayEventSaveGame`，
+        /// 原版那个具体类型落到我们的泛型形参上就是 `TS`（实例化时 = `DraftEventSave`）⇒ 可观察行为相同，
+        /// 且不必收紧约束（收紧会连带改子类的类型实参，风险大于收益）。</para></summary>
+        public new TS GetBaseSave() { return SaveGame; }
     }
 
     // 🔴 本文件**不给具体子类**：原版的两个具体子类（`DraftEvent` / `TimedDraftEvent`）各有自己的

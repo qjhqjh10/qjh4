@@ -272,7 +272,7 @@ namespace RuleEngine
             // ---- ⑦ 落地 + 常驻重算 + CheckStun（原版 `:1076/:1207` · `:1580/:1726` · `:1629`）----
             //   顺序照 `DeployFree` 的写点（棋盘写入点唯一口径：`Recompose` **先**、`ApplyDeployTurnState` **后**）。
             Auras.Recompose(ctx);                                  // 棋盘变动 ⇒ 光环重算（9 个写入点同一纪律）
-            ApplyDeployTurnState(nu, keepStatus: keepEffects);      // 原版 `:1207` 的第 5 实参 = 同一个 keepEffects
+            MinionPlayedIntoField(ctx, nu, keepStatus: keepEffects); // 原版 `:1207`（落地钩子：`+0x2E0` 落地回合 + `+0x58` + 两个 canAct/canAttack 位；第 6 实参 `shouldTriggerSummon:1` 只在表现层有消费点 ⇒ 本仓不发召唤广播，见 `TransformUnit_B95A3.cs` §一/§二）
             CheckStun(ctx, nu);                                     // 原版 `:1629`
 
             ctx.Log($"{who}：「{old.Name}」{old.Health}血 变身成「{newCard.Name}」（格 {slot}"
@@ -388,7 +388,7 @@ namespace RuleEngine
         static void CarryTurnState(UnitState from, UnitState to)
         {
             if (from == null || to == null) return;
-            to.DeployedTurn = from.DeployedTurn;
+            to.DeployedTurn = from.DeployedTurn;   // ⚠️ 这一格随后会被 `MinionPlayedIntoField` **无条件覆盖**成 `ctx.Turn`（原版 `.c:42-52` 两支都写 `+0x2E0`）—— 搬它只为「⑦ 之前万一有观察点」
             to.PlayOrder = from.PlayOrder;
             to.OathUsesThisTurn = from.OathUsesThisTurn;
             to.DutyUsed = from.DutyUsed;

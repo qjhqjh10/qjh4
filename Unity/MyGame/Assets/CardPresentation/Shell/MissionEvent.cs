@@ -357,41 +357,41 @@ namespace CardPresentation
             base.Expire(onComplete);
         }
 
-        /// <summary>原版 `public override IUiContainer GetContainer()`（`…_GetContainer__102ea40.c`，**逐句**）：
+        /// <summary>原版 `public override IUiContainer GetContainer()`（`…_GetContainer__102ea40.c` + ILSpy `MissionEvent.cs:2292-2300`）：
         /// <code>
-        /// if (UseSmallContainer) { LiveOpsAssetUtility.LoadComponent(this, 1 /*Container*/); return; }
-        /// base.GetContainer();
+        /// if (UseSmallContainer) return LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(this, SubContainer);  // ★ 有 return
+        /// return base.GetContainer();
         /// </code>
-        /// <para>🔴 **2026-10-28（`B93_N4`）按 ILSpy `MissionEvent.cs:2292` 订正两处**：原版是 **`override`**（不是新虚方法）；
-        /// 基类那一跳 `LiveOpsEvent.GetContainer` **现在有落点**（`Shell/LiveOpsEvent.cs:1153`，走 `LiveOpsContainers.Load`
-        /// 注入点）⇒ 基类支**转调 `base.GetContainer()`**（原来那句「B33 没有落点 ⇒ 返 null」已过期）。
-        /// 只剩 `UseSmallContainer` 那一支仍无落点（本仓**没有** `LiveOpsAssetUtility.LoadComponent`）⇒ 出声 + null。</para></summary>
+        ///
+        /// <para>🔴 **2026-10-29（B95_RD）订正两处**：① 键是 **`SubContainer`(1)**、⛔ 不是 `Container`(0)（`.c` 现读 `LoadComponent(param_1, 1, …)`）；
+        /// ② 原版那句**是 `return`**（ILSpy `:2296` 逐字），不是「调了丢弃」。
+        /// `UseSmallContainer` 支现在**有落点** —— <see cref="LiveOpsAssetUtility.LoadContainerComponent"/>；基类支转调 `base`。</para></summary>
         public override IUiContainer GetContainer()
         {
-            if (UseSmallContainer)
-            {
-                Debug.LogWarning("[MissionEvent] GetContainer：走 `UseSmallContainer` 支 —— "
-                               + "`LiveOpsAssetUtility.LoadComponent(this, Container)` 本仓没有落点 ⇒ null"
-                               + "（基类支已按原版转调 base）");
-                return null;
-            }
+            if (UseSmallContainer) return LiveOpsAssetUtility.LoadContainerComponent(this, (int)LiveOpsComponentRef.SubContainer);
             return base.GetContainer();
         }
 
         /// <summary>原版 `public override void ReleaseContainer()`（`…_ReleaseContainer__102f1c0.c`，**逐句**）：
         /// <code>
-        /// if (UseSmallContainer) { LiveOpsAssetUtility.Unload(this, 1 /*Container*/); return; }
+        /// if (UseSmallContainer) { LiveOpsAssetUtility.Unload(this, SubContainer); return; }
         /// base.ReleaseContainer();
         /// </code>
-        /// ⚠️ 同 <see cref="GetContainer"/>：基类支转调 `base.ReleaseContainer()`（有落点）；`UseSmallContainer` 支无落点 ⇒ 出声。</summary>
+        /// <para>🔴 **2026-10-29（B95_RD）**：`UseSmallContainer` 支**已有落点**（原句「本仓没有 `LiveOpsAssetUtility.Unload`」已过期）——
+        /// <see cref="LiveOpsAssetUtility.UnloadComponents"/>：按 key 从 `EventComponents` 取引用 → 引用计数 −1
+        /// （原版 `AddressableReferenceCounter.Release`，`refCount` 到 0 才真释放）→ 到 0 才走 `ReleaseAsset` 缝。</para>
+        ///
+        /// <para>⚠️ 键 = **`SubContainer`(1)**，与 <see cref="GetContainer"/> 成对；判据 ILSpy `MissionEvent.cs:2302-2310`
+        /// + `MissionEvent_object__object___ReleaseContainer__102f1c0.c`（`Unload(param_1, 1, …)`）。
+        /// ⛔ 别写成 `Container`(0)。</para></summary>
         public override void ReleaseContainer()
         {
             if (UseSmallContainer)
             {
-                Debug.LogWarning("[MissionEvent] ReleaseContainer：走 `UseSmallContainer` 支 —— "
-                               + "`LiveOpsAssetUtility.Unload(this, Container)` 本仓没有落点 ⇒ 不做事");
+                LiveOpsAssetUtility.UnloadComponents(this, (int)LiveOpsComponentRef.SubContainer);   // 原版 `Unload(this, SubContainer)`：按 key 取引用 → 引用计数 −1 → 到 0 才走 `ReleaseAsset`
                 return;
             }
+
             base.ReleaseContainer();
         }
 

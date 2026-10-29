@@ -83,8 +83,8 @@ namespace RuleEngine
         /// <summary>原版 `CardEffect.usedEnchantment // +0x92` —— 这条**花掉**了没有（<see cref="Enchantments.Spend"/>）。</summary>
         public bool Used;
 
-        /// <summary>原版 `CardEffect.permanentBuff // +0x74` —— 为真 ⇒ **摘不掉**（`RemoveEffect` 拒绝）。</summary>
-        public bool Permanent;
+        /// <summary>原版 `CardEffect.permanentBuff // +0x74` —— 为真 ⇒ **摘不掉**（`RemoveEffect` 拒绝）。🆕 同行还装了两位（账 1053）：`SecretBuff` = 原版 `CardEffect.+0x90`（密令已揭示，置真点 `CardScript__AddEffect.c:853-855` 的 `spellType == 0x3c(60)`）；`QuestBuff` = 原版 `+0x91`（任务已揭示，置真点同文件 `:886-889` 的 `spellType == 0x78(120)`）—— 读点 = `EntityScript__RevealedSecret.c`（见 `Enchantments.RevealedSecret`）。</summary>
+        public bool Permanent; public bool SecretBuff; public bool QuestBuff;
 
         /// <summary>来源（日志用；= 施放/挂载它的那张卡名）。</summary>
         public string Source;
@@ -282,7 +282,7 @@ namespace RuleEngine
                 Enchantment = ench,
                 Trait = _tr, Permanent = permanent,
             };
-            ench.Effect = eff;
+            ench.Effect = eff; ApplyRevealedFlagsCore(ctx, carrier, eff, _st);   // 🆕 2026-10-29（B96_CR · 账 1053）：`+0x90 secretBuff` / `+0x91 questBuff` 的置真点（判据 `CardScript__AddEffect.c:853-855` / `:886-889`）
 
             carrier.ActiveEnchantments.Add(ench);   // `+0x110`
             carrier.ActiveEffects.Add(eff);         // `+0x108`
@@ -1906,6 +1906,83 @@ namespace RuleEngine
             if (ctx == null || ctx.Players == null || side < 0 || side >= ctx.Players.Length) return null;
             var ps = ctx.Players[side];
             return ps != null ? ps.Warlord : null;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B96_CR` · 账 1053 `EntityScript.RevealedSecret`）
+        // ==================================================================
+        //  判据（第一权威，逐句现读）：
+        //   · 置真点 = `CardScript__AddEffect.c:847-855`：`lVar8 = effect.enchantment(+0x88)`；
+        //       `if (*(int*)(lVar8 + 0x90) == 0x3c /* spellType 60 SecretOrder */) *(char*)(effect + 0x90) = 1;`
+        //       ⇒ 挂载那一刻，**密令**那条 `CardEffect` 的 `+0x90 secretBuff` 置 1。
+        //     同文件 `:886-889`：`if (spellType == 0x78 /* 120 Quest */) { 倒序扫 activeEffects(+0x108)，
+        //       把**别的**任务附魔逐条 `RemoveEffect`；然后 `*(char*)(effect + 0x91) = 1;` `+0x270 = 0` … }`
+        //       ⇒ 任务那条 `+0x91 questBuff` 置 1，且**同时只留一条**任务。
+        //   · 读点 = `EntityScript__RevealedSecret.c`（全文 78 行）：
+        //       `if (HasSecretOrders(this) < 1) return;` →
+        //       正序扫 `activeEffects(+0x108)`：`CardEffect__IsEnchantment` 为真 ∧ `effect.enchantment(+0x88) == param_2`
+        //       ∧ `*(char*)(effect + 0x90) != 0` ⇒ `*(char*)(effect + 0x90) = 0;` 然后 return。
+        //  ⚠️ **可达性**：池内 `spellType == 60(SecretOrder)` 的附魔有若干（秘令族），`spellType == 120(Quest)` = **0 张**
+        //     （`cards_engine.json` v40 全卡扫；`SpellTypeQuest` 的 doc 同一条）。⇒ `QuestBuff` 今天恒 false（休眠，铁律 11 照建）。
+        //     `RevealedSecret` 今天在本仓**没有调用方**（原版唯一调用点 `_ResolveRevealOrders…MoveNext` 那条链
+        //     的等价物 = `RuleCore.RevealSecretOrders`，它走的是 `Enchantments.EnqueueRemove` 那条路）——
+        //     本方法是留给那条链**将来改用「置 0」而不是「摘掉」**时的落点；⛔ 别偷偷把它接上改变现有行为。
+
+        /// <summary>**挂载那一刻**按附魔卡的 `spellType` 置 `secretBuff` / `questBuff` 两位
+        /// （判据 `CardScript__AddEffect.c:853-855` / `:886-889`，见上）。由 <see cref="Attach"/> 调用。</summary>
+        static void ApplyRevealedFlagsCore(BattleContext ctx, CardInstance carrier, ActiveCardEffect eff, int spellType)
+        {
+            if (eff == null || carrier == null) return;
+            if (spellType == SpellTypeSecretOrder) { eff.SecretBuff = true; return; }   // `AddEffect.c:853-855`
+            if (spellType != SpellTypeQuest) return;
+            // `AddEffect.c:886-889`：**倒序**扫 `activeEffects`，把别的任务附魔逐条摘掉 ⇒ 同时只留一条任务
+            var list = carrier.ActiveEffects;
+            if (list != null)
+            {
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    var other = list[i];
+                    if (other == null || ReferenceEquals(other, eff)) continue;
+                    if (other.EnchantmentCard == null || other.EnchantmentCard.SpellType != SpellTypeQuest) continue;
+                    if (ctx != null)
+                        ctx.Log($"附魔层：挂第 2 条任务附魔 ⇒ 先摘掉旧的那条「{NameOf(other.EnchantmentCard)}」"
+                              + "（原版 `CardScript__AddEffect.c:886-889` 的倒序 RemoveEffect 那一跳）");
+                    Remove(ctx, carrier, other);
+                }
+            }
+            eff.QuestBuff = true;
+        }
+
+        /// <summary>
+        /// **原版 `EntityScript.RevealedSecret(RawCardScript enchantment)`**（`decomp_full/EntityScript__RevealedSecret.c`
+        /// 全文 78 行，逐句见上）。
+        /// <para>语义：载体身上至少有一条密令附魔，且在 `activeEffects` 里找到「附魔卡就是 <paramref name="enchantmentCard"/>」
+        /// 且 **`secretBuff` 还亮着** 的那一条 ⇒ 把它**置 0**（= 这条密令「已揭示」）并返回真。</para>
+        /// <para>⚠️ 原版 `+0x90` 在**两个不同对象**上都有：`RawCardScript.spellType(+0x90)` 与
+        /// `CardEffect.secretBuff(+0x90)` —— ⛔ 别把那两格混成一个（本方法读的是 **`CardEffect` 那一格**，
+        /// 而 `HasSecretOrders` 读的是**附魔卡**那一格，两者判据不同）。</para>
+        /// </summary>
+        /// <returns>真的把某一条置 0 = 真；载体没有密令 / 找不到那条 / 它已经是 0 ⇒ 假。</returns>
+        public static bool RevealedSecret(BattleContext ctx, CardInstance carrier, CardDef enchantmentCard)
+        {
+            if (carrier == null || enchantmentCard == null) return false;
+            if (CountSecretOrders(carrier) <= 0) return false;      // 原版 `:19-21` 的 `HasSecretOrders(this) < 1 ⇒ return`
+            var list = carrier.ActiveEffects;
+            if (list == null) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var e = list[i];
+                if (e == null) continue;
+                if (!IsEnchantmentBuffType(e.BuffType)) continue;   // 原版 `CardEffect__IsEnchantment`
+                if (!ReferenceEquals(e.EnchantmentCard, enchantmentCard)) continue;   // 原版 `effect.enchantment(+0x88) == param_2`
+                if (!e.SecretBuff) continue;                        // 原版 `if (*(char*)(effect + 0x90) == 0) continue`
+                e.SecretBuff = false;                               // 原版 `*(char*)(effect + 0x90) = 0` 之后立刻 return
+                if (ctx != null)
+                    ctx.Log($"附魔层：「{NameOf(enchantmentCard)}」这条密令**已揭示**（`secretBuff` 置 0）"
+                          + "（原版 `EntityScript__RevealedSecret.c`）");
+                return true;
+            }
+            return false;
         }
     }
 }

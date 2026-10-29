@@ -9972,8 +9972,8 @@ namespace CardPresentation
             //    「转过时取外接矩形」的近似档 ⇒ **按近似处理，不另开第二套标架**（如实记在这里）。
             var fr = FaceContentRoot;
             if (!_clipWarned
-                && (Quaternion.Angle(fr.rotation, transform.rotation) > 0.01f
-                    || Quaternion.Angle(transform.rotation, Quaternion.identity) > 0.01f))
+                && (AngleMath.AngleDegTiny(fr.rotation, transform.rotation) > 0.01f   // 🔴 2026-10-29（B95_A2B17）不用 `Quaternion.Angle`：它在 <0.162° 盲区恒返回 0（`IsEqualUsingDot(dot) => dot > 0.999999f`）⇒ 0.01–0.162° 的转动**永不告警**。唯一实现 = `Core/AngleMath.cs`
+                    || AngleMath.AngleDegTiny(transform.rotation, Quaternion.identity) > 0.01f))
             {
                 _clipWarned = true;
                 Debug.LogWarning($"[CardView] 「{name}」**转过**（倾摆/扇形角 ≠ 0）却带裁切 —— "

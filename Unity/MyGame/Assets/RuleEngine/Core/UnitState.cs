@@ -2257,7 +2257,7 @@ namespace RuleEngine
         public int RemoveExtrinsicEffectsFrom(string sourceCardName)
         {
             if (string.IsNullOrEmpty(sourceCardName)) return 0;
-            int n = RemoveBuffsFromCard(sourceCardName);
+            int n = RemoveBuffsFromCard(sourceCardName); RevertGrantsFrom(sourceCardName);   // 🔴 2026-10-29（B95_WRS · 账 636 现核补）：原版摘的是 `activeEffects(+0x108)` 里**整条记录**（`CardScript__RemoveExtrinsicEffectsFrom.c` = 倒序扫、`extrinsic && enchantingCard == 参`），我们那几本账要一起过；`_grants` 是**护甲唯一的账**（`ApplyGrant` 的 `armour` 支走 `AddKeyword/RemoveKeyword`、⛔ 不进 `_statMods`）⇒ 漏了它 = 按来源撤时「近战/远程/血撤了、护甲留着」，同一个来源被拆成两种结果。⚠️ 残余如实标：`_statMods.Source` 只有 `Auras.GrantTag` 才被标成 `Extrinsic`（`IsExtrinsicSource`），**卡名来源恒 false** ⇒ 我们做不到原版那个 `extrinsic != 0` 闸（缺「施放者」这一列），这条按「来源匹配即撤」执行（与本方法原有那半一致）。
             for (int i = _statMods.Count - 1; i >= 0; i--)
             {
                 if (_statMods[i].Source != sourceCardName) continue;
@@ -2671,7 +2671,7 @@ namespace RuleEngine
             _remnantTraits.Clear();        // 90 档那条记录原版仍在，但非残骸支看不见 ⇒ 整本摘
             AuraRemnantStay = false;       // 光环那本账同属 activeEffects
             OathTripleGranted = false;
-            OathAllTurnsGranted = false; if (clearBacklash) AlreadyTriggeredBacklash = false;   // 原版 `.c:138-140`（⛔ 不能新增行：本文件下游有 A 行落点）
+            OathAllTurnsGranted = false; if (clearBacklash) AlreadyTriggeredBacklash = false; ActiveAbilityHidden = false; ActiveAbilitySuppressed = false;   // 原版 `.c:138-140`（`clearBacklash` 才清 `+0x222`）＋ `.c:154` `SetBaseCardTraits` ⇒ `CardScript__SetBaseCardTraits.c` 首句 `+0x220 hasActiveAbility = rawCard + 0x2a9`（字段名判据 `dump.cs:35444`）⇒ 我们的两个实例闸（教程 `ActiveAbilityHidden` / jam `ActiveAbilitySuppressed`）**一起清**，派生视图随即回到卡面值（⛔ 不能新增行：本文件下游有 A 行落点）
         }
 
         /// <summary>
@@ -3018,8 +3018,8 @@ namespace RuleEngine
         /// <summary>
         /// **按记录摘一条 `addTrait`**（原版 `CardScript__RemoveEffect.c` 的 `case 3`：从 `+0x108` 摘掉那条记录，
         /// 再 `HasDefaultTrait ? 留着 : RemoveTraitSilently(trait)`）。
-        /// 与 <see cref="RemoveEffectRecord"/> 的 `case 3` **同一口径**（那边是「调用方把记录的相关列投进来」，
-        /// 这边是「记录本身就在我们账上」）—— ⛔ 两份必须一起改。
+        /// 🔴 2026-10-29（B95_WRS 现核订正）与 <see cref="RemoveEffectRecord"/> 的 `case 3` **不是同一口径**：那边只有 `HasDefaultTrait` 一道闸，
+        /// 因为它**拿不到「哪一条记录」**（`_traitEffects` 不由它删 ⇒ 补第二道闸会让关键词永远摘不掉）—— 第二道闸只在本方法里，⛔ 别去那边补。
         ///
         /// <para>🆕 **2026-10-28（`B93_F4` · 账 L1041）就地补上第二道闸**：原版在 `HasDefaultTrait` 之后还有
         /// `!HasCurrentTraitActiveEffect(trait)` ⇒ **还有别的记录在给这条 trait 就留着关键词**（`RemoveEffect.c:63-72`）；
@@ -3571,5 +3571,67 @@ namespace RuleEngine
         {
             if (OwnerSeat == 0 || OwnerSeat == 1) OwnerSeat = 1 - OwnerSeat;
         }
+
+        // ============================================================================================
+        //  🆕 2026-10-29（第九十五会话 · 执行代理 `B96_CA` · 账 482）：
+        //      **`CardScript.ContainsExtrinsicEffectFrom(card, buffType, baseEnchantmentCard)` 的等价物**
+        //  ⛔ 追加在类尾（`账/*.tsv` 按 `文件:行号` 落点，插在中间会让下游整体漂移）。
+        // ============================================================================================
+        //  判据（🥇 `d:/2/tools/decomp_full/CardScript__ContainsExtrinsicEffectFrom.c` **全文**，2026-10-29 现读）：
+        //    遍历 `this.activeEffects(+0x108)` 逐条，四个条件的**合取**：
+        //      ① `effect.extrinsic(+0x30) != 0`（`CardEffect.extrinsic` 的 Tooltip 原文
+        //         = `Effect is tied to acting card, not target card`，`dump.cs:119080`）；
+        //      ② `effect.enchantingCard(+0x18) != null && == 参数那张卡`；
+        //      ③ `buffType(+0x38) == param_3`（`param_3 == 0` ⇒ **不筛**：`.c` 是 `if (param_3 != 0) { if (…) continue; }`）；
+        //      ④ `effect.baseEnchantmentCard(+0x98) == param_4`（`param_4 == null` ⇒ 要求这一格**也是 null**）。
+        //    唯一调用点 = `BattleManager__RemoveExtrinsicEffectsFrom.c:48/73/91`，
+        //    三次都是 `ContainsExtrinsicEffectFrom(卡, actingCard, 0, 0)` ⇒ ③④ 那两个筛今天**恒不启用**。
+        //
+        //  ⚠️ **我们只能做「来源匹配」那一半，如实标着**（与 `RemoveExtrinsicEffectsFrom` 的 doc 同一口径）：
+        //    我们的三本账（`_statMods.Source` / `_buffs.SourceCard` / `_grants.Source`）里**没有
+        //    `extrinsic` 这一列**（缺「施放者」与「这条是不是持续型能力挂的」两个字段）⇒ 判据退化成
+        //    「**有没有任何一条记在这个来源名下的记录**」。因此本谓词与 `RemoveExtrinsicEffectsFrom(source)`
+        //    **同口径**：它返回 true ⇔ 摘一次至少能摘掉一条。⛔ 别据此断言「这张卡有 extrinsic 效果」。
+        // ============================================================================================
+
+        /// <summary>
+        /// 账 482 的谓词：**这张卡身上有没有「来源 = <paramref name="sourceCardName"/>」的效果记录**
+        /// （= 原版 `CardScript.ContainsExtrinsicEffectFrom(card, 0, 0)` 的等价物，口径差见上面那一段）。
+        ///
+        /// <para>**为什么需要它**：原版 `RemoveExtrinsicEffectsFrom` 是**先查再排队** ——
+        /// 没有命中就**根本不入队**那条 `removeEffectsFrom(47)` 动作；照抄这一点才不会每张卡每次动作
+        /// 都排一条空动作。</para>
+        ///
+        /// <para>⚠️ 纯查询（**不改任何状态、不打日志**）⇒ 可以在判据里随便调。</para>
+        /// </summary>
+        public bool ContainsExtrinsicEffectsFrom(string sourceCardName)
+        {
+            if (string.IsNullOrEmpty(sourceCardName)) return false;
+            for (int i = 0; i < _statMods.Count; i++)
+                if (_statMods[i] != null && _statMods[i].Source == sourceCardName) return true;
+            for (int i = 0; i < _buffs.Count; i++)
+                if (_buffs[i] != null && _buffs[i].SourceCard == sourceCardName) return true;
+            for (int i = 0; i < _grants.Count; i++)
+                if (_grants[i] != null && _grants[i].Source == sourceCardName) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-29（`B96_CA` · 账 1288）：`TriggerOnceIfBoardCriteria(200)` 那条能力的「已经触发过」标志。**
+        ///
+        /// <para>**判据**：原版 `CardScript.UpdateWhileInPlay`（ILSpy `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:16033-16039`）：
+        /// <c>if (triggeredAbility &amp;&amp; UpdateTriggerOnce(...)) { triggeredAbility = false; }</c> ——
+        /// `triggeredAbility` 的初值 = `HasTriggerOnceAbility()`（任一 ability 的 `trigger == 200`），
+        /// **触发成功一次之后置 false、本局不再试**。原版那个字段读不到类型（`724 条无体`那一族）⇒
+        /// 我们按**每一份单位一个布尔位**建模，初值 `false`（= 「还没触发过」）。</para>
+        ///
+        /// <para>⚠️ **生命周期**：跟着 <see cref="UnitState"/> 走。变身（`RuleCore.TransformUnit`）会造新的
+        /// `UnitState` ⇒ 新的一位（= 原版 `CardScript` 换 `RawCardData` 后是新对象）。⛔ 别在回合开始清它 ——
+        /// 原版那是**整局一次**的位（`UpdateWhileInPlay` 里没有任何「按回合重置」的分支）。</para>
+        ///
+        /// <para>⚠️ 写点只有一处：`EffectResolver.TriggerOncePass`（触发成功后置真）。
+        /// 读点也只有那里。📊 池内 `abilityTriggers` 含 200 = **0 / 1,129** ⇒ 本格今天恒 `false`（零行为变化）。</para>
+        /// </summary>
+        public bool TriggerOnceFired;
     }
 }

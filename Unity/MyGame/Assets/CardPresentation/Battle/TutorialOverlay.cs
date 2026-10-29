@@ -499,7 +499,7 @@ namespace CardPresentation
             KillGo(_pointer != null ? _pointer.gameObject : null);
             _tipGo = null; _tipText = _tipContinue = null; _tipBg = null;
             _initGo = null; _initText1 = _initText2 = null;
-            _arrowL = _arrowR = null; _highlight = null; _pointer = null;
+            _arrowL = _arrowR = null; _highlight = null; _pointer = null; _ptrLight = null;   // 🆕 2026-10-29（B95_FX 账 524）：`light` 是 `_pointer` 的子件，随它一起被 KillGo 掉，这里只清引用
             _annoGo = null;
             for (int i = 0; i < 4; i++) { _annoLabels[i] = null; _annoArrows[i] = null; }
             _built = false;                       // ⇒ 下一次 `Build()` 会用**当前**档重建
@@ -818,11 +818,11 @@ namespace CardPresentation
             }
 
             // ---- 指点光标（`TutorialPointerCombat/Pointer 100×100` + `light`）----
-            if (arrowTex != null)
+            if (arrowTex != null || MenuUiTex(PointerArt) != null)   // 🆕 2026-10-29（B95_FX·账524）：本体现在用原版 `Cursor_Space Marine_01`（见类尾 `BuildPointerLight` 的 doc）
             {
-                _pointer = MakeImg(ptrParent, arrowTex, "Pointer", PointerPx / Px, ZPointer);
+                _pointer = MakeImg(ptrParent, MenuUiTex(PointerArt) ?? arrowTex, "Pointer", PointerPx / Px, ZPointer);   // 🆕 B95_FX：原来用按钮箭头 `40k_general_bt_arrow`（= 图没查到时挑的载体）
                 // 画布档：它那一整块子画布就是 `OverHand`/10（判据 → `T09c` §一 ③）
-                SetQ(_pointer, 600);
+                SetQ(_pointer, 600); BuildPointerLight();   // 🆕 B95_FX：`bgLight`（原版 `Pointer/light`）—— 白盒建在类尾，本行零行数变化
             }
 
             // ---- 教学标注四块（`TutorialObjs/UnitObjs`：MeleeText/RangedText/HealthText + `EnergyText`）----
@@ -1432,6 +1432,7 @@ namespace CardPresentation
             // 原版 `set_rotation`（world rotation）：Euler(0, 0|-180, 40)×(π/180)。我们照抄这两个角。
             _pointer.transform.localEulerAngles =
                 new Vector3(0f, left ? PointerRotYDegLeft : 0f, PointerRotZDeg);
+            ApplyPointerLight(0f);                    // 🆕 2026-10-29（`B95_FX` 账 524）：原版起手态 `bgLight` alpha = 0
             if (_pointer.gameObject.activeSelf != _ptrShow) _pointer.gameObject.SetActive(_ptrShow);
         }
 
@@ -1445,7 +1446,9 @@ namespace CardPresentation
             bool left = _ptrOrient == PointerOrient.Left;
             float s = PointerClickScale;
             _pointer.transform.localScale = left ? new Vector3(-s, s, s) : new Vector3(s, s, s);
-            // `bgLight` 置 1 / `clickAnim` 实例化：两样本件都没有（见 `ShowStartingPointer` 的 ⚠️）。
+            ApplyPointerLight(1f);                    // 🆕 2026-10-29（`B95_FX` 账 524）：原版点击态 `bgLight` alpha = 1
+            // `clickAnim` 实例化：原版这一份 prefab 的 `clickAnim = PPtr(0)` ⇒ **本来就不实例化**
+            // （判据 → `MonoBehaviour_4791.json` 现读；`ShowClickedPointer.c` 只在非空时才 `Instantiate`）。
         }
 
         /// <summary>原版 `GetAdjustedPos`（`GetAdjustedPos.c:1-45`，逐句）：`(clickPos.x + offX, clickPos.y + yOffset, z)`，
@@ -1495,5 +1498,95 @@ namespace CardPresentation
         public Vector3 PointerWorldPosForTest { get { return _pointer != null ? _pointer.transform.position : Vector3.zero; } }
         /// <summary>自检用：强行推进一次状态机（批处理没有帧循环；`Tick` 已含它，这里只给「只推指针」用）。</summary>
         public void TickPointerForTest(float dt) { TickPointer(dt); }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-29（`B95_FX` · 账 `特效动画:524`）：`bgLight`（= 原版 `Pointer/light`）整块
+        //  ⚠️ **全部追加在类尾** —— 本文件被账按 `文件:行号` 引用 20+ 处（最高到 `:1313`），
+        //     新成员一律往尾巴上放；`Build()` 里只留**一行**（就地改写既有行，零行数变化）调用它。
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `TutorialPointer` 的 prompt 光标：`Pointer`（本体）+ `Pointer/light`（暖黄高光）。
+        /// 本方法建第 2 件（=`bgLight`）。
+        ///
+        /// <para>判据（三级全现读）：
+        /// ① 🥇 prefab `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4791.json` 的
+        ///   `bgLight = PPtr(4907)` ⇒ `MonoBehaviour_4907.json` = 一颗 `UnityEngine.UI.Image`：
+        ///   `m_Sprite = PPtr(-592821608806009055)` · `m_Color = (1, 0.94569, 0.50472, 1)` ·
+        ///   `m_PreserveAspect = 1` · `m_RaycastTarget = 0`；宿主 `GameObject 1222`（名 **`light`**，
+        ///   父 = `Pointer`）的 `RectTransform_2821` = 锚点/轴心全居中 · `sizeDelta (100,100)` ·
+        ///   `m_AnchoredPosition (0,0)` · `m_LocalScale (1,1,1)` ⇒ **与 `Pointer` 同矩形、同原点**。
+        /// ② sprite 名 = **`Cursor_Space Marine_01Glow`**（pid `-592821608806009055`，
+        ///   `资料/完全复刻/资源/R0_资源覆盖账.tsv:8959` 现读；图已在
+        ///   `Resources/Art/ui_menu/Cursor_Space_Marine_01Glow.png`）。
+        /// ③ 行为 = `TutorialPointer.ShowStartingPointer`（`:1-140`）把 `bgLight` 的 alpha **置 0**、
+        ///   `ShowClickedPointer`（`:1-85`）**置 1** —— 也就是本件原来标着「未做」的那半条。
+        /// </para>
+        ///
+        /// <para>⚠️ **父 = `_pointer`**（原版 `light` 就是 `Pointer` 的子件）⇒ 指针的移位/缩放/旋转
+        /// **自动带上它**（点击态 `Pointer` 缩到 0.7，`light` 跟着缩）。
+        /// ⚠️ 与菜单侧同构实现对齐：`Shell/TutorialPointerUi.cs:316` 的 `_lightImg`（同 tint / 同矩形 /
+        /// `preserveAspect`）—— 两边一个口径，⛔ 别再各写一份参数。
+        /// ⚠️ **阵营那一档仍缺**：原版 `BattleManager.SetupDataDependentElements` 会
+        /// `tutorialPointerBattle.SetupCursor(deckWarlord.cardArmy)` 换成该阵营那一对
+        /// （ILSpy `BattleManager.cs:15316`），而 21 张里只有 Space Marine 这一对 import 进了 `Resources`
+        /// ⇒ 今天恒用序列化默认值（= 原版「该阵营不在 `CursorByArmySO` 表里」时的表现：
+        /// `SetupCursor` 只在 `GetCursorForArmy` 返回真时才 `pointer.sprite/bgLight.sprite = …`）。</para></summary>
+        void BuildPointerLight()
+        {
+            var glowTex = MenuUiTex(PointerLightArt);
+            if (glowTex == null)
+            {
+                Debug.LogWarning("[Tutorial] 拿不到 `" + PointerLightArt + "`（`Art/ui_menu/`）⇒ 指点光标的"
+                               + " `light` 子件（原版 `TutorialPointer.bgLight`）**建不出来** —— 你看到的是"
+                               + " **没有暖黄高光**的裸光标（判据 → `MonoBehaviour_4907.json`）");
+                return;
+            }
+            _ptrLight = MakeImg(_pointer.transform, glowTex, "light", PointerPx / Px, ZPointer);
+            if (_ptrLight == null) return;
+            _ptrLight.transform.localPosition = Vector3.zero;
+            SetQ(_ptrLight, 601);          // 世界档：与光标同档（透明队列下由父链/绘制序定先后）
+            ApplyPointerLight(0f);         // 出厂 alpha 0（= 原版起手态；`StartPointer` 会再写一次）
+        }
+
+        /// <summary>`bgLight` 本体的 sprite 名（= 原版序列化值 `Cursor_Space Marine_01`，
+        /// `MonoBehaviour_4107.json` 的 `m_Sprite = PPtr(-2590500462584155290)`，
+        /// 名字出处 `资料/完全复刻/资源/R0_资源覆盖账.tsv:8957`）。取不到时退回 `arrowTex`。
+        /// ⚠️ 「那颗恒在」与「朝向」两条残差已判为等价（见账 `特效动画:524` 的差异列）。</summary>
+        const string PointerArt = "Cursor_Space_Marine_01";
+        /// <summary>`bgLight` 的 sprite 名（原版序列化值 `Cursor_Space Marine_01Glow`，pid `-592821608806009055`）。
+        /// ⚠️ 运行期原版还会按阵营换图（见 `BuildPointerLight` 末段），我们只有这一对。</summary>
+        const string PointerLightArt = "Cursor_Space_Marine_01Glow";
+        /// <summary>`bgLight` 的 `m_Color`（`MonoBehaviour_4907.json` 现读 = (1, 0.94569, 0.50472, 1) 暖黄）。</summary>
+        static readonly Color PointerLightTint = new Color(1f, 0.94569f, 0.50472f, 1f);
+        /// <summary>光标的**暖黄高光**（原版 `TutorialPointer.bgLight` = `Pointer/light`）。
+        /// ⚠️ **它是 `_pointer` 的子件**（原版就是），`localPosition = 0`、同尺寸 100×100；
+        /// 显隐靠 **alpha**（起手 0 / 点击态 1），⛔ 不要用 `SetActive` 开关（原版也没关过）。</summary>
+        HudPiece _ptrLight;
+
+        /// <summary>自检读口：`light` 子件建出来没有（= 那张光晕图取到了没有）。</summary>
+        public bool PointerLightDrawn { get { return _ptrLight != null; } }
+
+        /// <summary>自检读口：`light` 当前的 **alpha**（原版起手态 = 0、点击态 = 1）。
+        /// ⚠️ **从件上真读**（uGUI 读 `Image.color.a`、世界档读 `ImageQuad` 的 tint）—— 不是读我们自己记的字段，
+        /// 否则「写了但没生效」会照样绿。</summary>
+        public float PointerLightAlphaForTest
+        {
+            get
+            {
+                if (_ptrLight == null) return -1f;
+                Color c = _ptrLight.Tint;
+                return c.a;
+            }
+        }
+
+        /// <summary>把 `light` 的 alpha 写成 `a`（**乘上暖黄 tint 的三个色键**，`MonoBehaviour_4907.json` 现读）。
+        /// 原版 `ShowStartingPointer` 写 **0**、`ShowClickedPointer` 写 **1** —— 两处都走本口，
+        /// ⛔ 别在调用点各写一份颜色（色键只此一处）。</summary>
+        void ApplyPointerLight(float a)
+        {
+            if (_ptrLight == null) return;
+            _ptrLight.SetTint(new Color(PointerLightTint.r, PointerLightTint.g, PointerLightTint.b,
+                                        Mathf.Clamp01(a)));
+        }
     }
 }

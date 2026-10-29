@@ -354,6 +354,10 @@ SO_VFX_FIELDS = [
     ("summonAnimDelayed", EV_DEPLOY,
      "`RawCardScript.summonAnimDelayed`（逐卡登场延迟特效）"),
 ]
+# 🆕 2026-10-29（`B96_GEN` · 账 `战斗逻辑驱动:804`）：上面那张表里的**原版字段名**集合 ——
+#   运行时条目用 `so` 键把来源标出来（`summonAnimDelayed` 与别的 `deploy` 件要能分开）。
+#   ⛔ 别拿 `cardAnimations` 那族的 `soField` 来判（那是另一套字符串，如 `cardAbilities[...]`）。
+SO_VFX_FIELD_NAMES = {f for f, _ev, _doc in SO_VFX_FIELDS}
 # 卡 SO 里**不带 VFX**、但同样是「逐卡资产绑定」的字段 → 收进 `byCard[*]._assetRefs`（**不挂事件**）
 SO_ASSET_FIELDS = [
     ("cardImageReference", "art", "原版立绘贴图（同一 GUID 解出 Sprite + Texture2D，同名）"),
@@ -2445,7 +2449,11 @@ def main():
     #   ⛔ 丢弃的两类：`_assetRefs`（立绘/语音引用，不是「播哪个特效」）· `_unclassified`
     #      （连事件都判不出来的候选）—— 运行时按事件查，这两类查不到、留着只增加体积。
     #   🔴 **形状是给 `JsonUtility` 用的**（它不支持字典）⇒ 一律**数组 + 短键**：
-    #      `{"cards":[{"id":…, "events":[{"ev":…, "es":[{"n":prefab,"c":conf,"a":cardanim}]}]}]}`
+    #      `{"cards":[{"id":…, "events":[{"ev":…, "es":[{"n":prefab,"c":conf,"a":cardanim[,"so":SO字段名]}]}]}]}`
+    #      🆕 2026-10-29（`B96_GEN`）：`so` = **可选键**，只出现在 `SO_VFX_FIELDS` 那三个来源的条目上
+    #      （`customRangedAttackParticles` / `customDeathParticles` / `summonAnimDelayed`）；
+    #      用途 = 让消费端能单独挑出 `summonAnimDelayed(+0xB0)`（账 `804`：原版它与通用 deploy 件是**两拍**）。
+    #      ⚠️ `Core/VfxMap.cs` 的 DTO 今天**没有** `so` 字段 ⇒ `JsonUtility` 忽略未知键 ⇒ **零行为变化**。
     rt_cards, rt_entries, rt_noprefab = [], 0, 0
     rt_skip_field = 0        # 🆕 `A2083`：因语义不同而**不进运行时**的条目数（见 `RT_SKIP_SOFIELDS`）
     # 🆕 2026-10-15（账 `A2082`）：**逐卡这一档必须能按【卡名】查到** ——
@@ -2495,6 +2503,19 @@ def main():
                 #   ⚠️ **只有 `rc == 1` 才写这四个键**（全池现读 1 条 CardAbility = `GOF12 Spanner`）；
                 #   其余条目缺省 0（JsonUtility 缺字段给默认值）。
                 _re = {"n": nm, "c": _e.get("conf") or "", "a": _e.get("cardanim") or ""}
+                # 🆕 2026-10-29（`B96_GEN` · 账 `战斗逻辑驱动:804`）：把**原版 SO 字段名**带到运行时条目上
+                #   （可选键 `so`），让消费端能把 `summonAnimDelayed(+0xB0)` 与别的 `deploy` 件分开。
+                #   · 为什么加：原版它有**独立的触发时刻**（`_MinionPlayedIntoField_d__314__MoveNext.c` 的
+                #     state 3：`shouldTriggerSummon` ∧ 非 ephemeral(5)/ambush(0x4b0) 才 `Load` + `Instantiate`
+                #     到卡位，**在 `LandOnGround` 之后**）—— 而今天它和通用 `deploy` 件挤在同一个 `deploy` 桶里
+                #     ⇒ 消费端分不出「哪条是逐卡登场延迟特效」。
+                #   · **零行为变化**：`Core/VfxMap.cs` 的 DTO 今天**没有** `so` 字段，`JsonUtility` 会忽略未知键
+                #     ⇒ 加了这个键不影响任何既有播放；等 `VfxMap` 加字段后才生效（数据先就位）。
+                #   · 只给 `SO_VFX_FIELDS` 里的那几个来源打（`cardAnimations` 那族的 `soField` 是另一套字符串，
+                #     不带 `so`，⛔ 别把两种混成一种）。
+                _so = _e.get("soField") or ""
+                if _so.split("[")[0] in SO_VFX_FIELD_NAMES:
+                    _re["so"] = _so
                 if _e.get("randomAbilityChoice"):
                     _re["rc"] = 1
                     _re["ai"] = int(_e.get("abilityIndex") or 0)

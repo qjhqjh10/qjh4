@@ -2738,7 +2738,7 @@ namespace CardPresentation
         public void OnClose()
         {
             if (!gameObject.activeSelf) return;      // 原版 `base.OnClose` 那道「没开就不收尾」的闸
-            ExpansionPassEventTabLogic.OnClose(_event != null, _whereBtn != null);
+            ExpansionPassEventTabLogic.OnClose(_event != null, _whereBtn != null); if (ExpansionPassMissionsTabLogic.ReleasesEventAssetsOnClose(_event != null)) LiveOpsAssetUtility.ReleaseEventAssetsById(_event.Id);   // 🔴 2026-10-29（B95_RD）：账 228 的**执行侧**（原版 `ExpansionPassMissionsTab.OnClose` 第 2 句）
             Reset();
         }
 
@@ -2748,8 +2748,8 @@ namespace CardPresentation
         /// LiveOpsAssetUtility.Unload(事件, 1);                           // 卸背景图
         /// getCardsButton.onClick.RemoveAllListeners();                   // 摘「Where get cards」那颗钮的监听
         /// </code>
-        /// <para>⚠️ 第 ② 句本地恒空（我们不加载 liveops 资产）；第 ③ 句我们的等价 = 把该钮的命中委托置空
-        /// （本仓没有 `UnityEvent` ⇒ 见 <see cref="GetCardsClickBound"/> 的读口）。</para></summary>
+        /// <para>🔴 **2026-10-29（B95_RD）订正**：第 ② 句**不再是空跳** —— 走 <see cref="LiveOpsAssetUtility.UnloadAssets"/>（按
+        /// key 取 `EventAssets` 的 GUID → 引用计数 −1 → 到 0 才释放）；第 ③ 句我们的等价 = 把该钮的命中委托置空。</para></summary>
         public void Reset()
         {
             // 🔴 `Reset()` 是 MonoBehavour 的**编辑器回调**（`AddComponent` 时会自动调一次）——
@@ -2757,9 +2757,9 @@ namespace CardPresentation
             //   ⛔ 否则会在每次建窗时白打一条告警、并把 `_getCardsClickBound` 提前置成 false。
             if (_content == null) return;
             var plan = ExpansionPassEventTabLogic.Reset(_event != null, _whereBtn != null);
-            Debug.LogWarning("[ExpansionPass] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842afd40` 那个字面量全仓只此一处，⛔ 交叉不出；`DAT_1842926d0` 是 `Unload<Int32Enum>` 的泛型上下文、⛔ 不是字符串 —— 2026-10-29 `B94_B4` 就地订正）"
-                           + " ⇒ 我们只出声、不编原文。要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes)
-                           + "（本地一张都没加载 ⇒ 空）；摘监听 = " + plan.RemovesGetCardsListener + "。");
+            Debug.LogWarning("[ExpansionPass] `Reset`：原版那句 `LogWarning` 的**原文没解出**（`DAT_1842afd40` 那个字面量全仓只此一处，⛔ 交叉不出；`DAT_1842926d0` 是 `Unload<Int32Enum>` 的泛型上下文、⛔ 不是字符串 —— 2026-10-29 `B94_B4` 就地订正）⇒ 我们只出声、不编原文。要卸的 liveops 图 = " + string.Join("/", plan.AssetTypes) + "；摘监听 = " + plan.RemovesGetCardsListener + "。");
+            for (int i = 0; i < plan.AssetTypes.Length; i++) LiveOpsAssetUtility.UnloadAssetByEventId(_event.Id, plan.AssetTypes[i]);   // 🔴 2026-10-29（B95_RD）：账 225 第 ② 句 `Unload(事件,1)` —— 从「空跳」改成**真释放**
+            if (ExpansionPassMissionsTabLogic.ReleasesEventAssetsOnReset(_event != null)) LiveOpsAssetUtility.ReleaseEventAssetsById(_event.Id);   // 🔴 账 231 = `ExpansionPassMissionsTab.Reset` 的执行侧（原版全文 1 句）
             _getCardsClickBound = !plan.RemovesGetCardsListener;
         }
 

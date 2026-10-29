@@ -66,12 +66,21 @@ namespace CardPresentation
             C(!DailyData.CollectReward(D, true), "已领的 Premium 格再领 ⇒ false（⛔ 不重复发奖）");
 
             // 灭自证：两轨**互相独立**（普通轨已领 ≠ Premium 已领，反之亦然）。同一格两侧同时断言，挡「两边一起改」。
+            // 🔴 2026-10-29（B95_A2P）就地订正一条 α：原来作「普通轨未领 + Premium 已领 ⇒ Premium 侧 Collected」，
+            //   与 `DailyRewardItemContainer__GetCurrentState.c:40-44` 相反 —— 原版 `cVar2 = cVar4`（Premium **派生**自普通轨），
+            //   只有 `cVar4 == 2 (Collected)` 那一支才读 Premium 记账位 ⇒ 普通轨 `Unlocked` 时 Premium 不可能是 Collected。
             DailyData.ForceRewardClaimedForTest(2, false);
             DailyData.ForceRewardPremiumClaimedForTest(2, true);
             C(DailyData.RewardStateOf(2, false) == RewardState.Unlocked,
-              "Premium 已领**不**把普通轨写成 Collected（🧨 共用一格就会写脏 ⇒ 这里红）");
+              "普通轨未领 ⇒ Unlocked（Premium 侧写 true 不得写脏普通轨）");
+            C(DailyData.RewardStateOf(2, true) == RewardState.Unlocked,
+              "普通轨未领 ⇒ Premium 侧**也只能是 Unlocked**（`.c:43` `cVar2 = cVar4` 那一支）—— 灭自证：把 Premium 做成与普通轨无关的第二条轨 ⇒ 这里回 Collected、红");
+            DailyData.ForceRewardClaimedForTest(2, true);          // 普通轨已领 ⇒ 进原版唯一会读 Premium 记账位的那一支
             C(DailyData.RewardStateOf(2, true) == RewardState.Collected,
-              "同一格 Premium 侧仍是 Collected（与上一条相反方向，挡「两条一起改回旧写法」）");
+              "普通轨已领 + Premium 已领 ⇒ Collected（`.c:44` 的 `premClaimed <= index` 为假 ⇒ 保持 cVar4）");
+            DailyData.ForceRewardPremiumClaimedForTest(2, false);
+            C(DailyData.RewardStateOf(2, true) == RewardState.Unlocked,
+              "普通轨已领 + Premium **未领** ⇒ Unlocked（`.c:44` 那一支）—— 🧨 Premium 与普通轨共用一格 ⇒ 这里回 Collected、红");
 
             // 还原（自检之间不靠隐式状态）
             for (int i = 0; i < DailyData.RewardDays; i++)
@@ -94,7 +103,22 @@ namespace CardPresentation
             C(mr != null, "前提：`MissionRewardsDisplay` 类型在（原版 `Setup` 的宿主）");
             MethodInfo setup = null;
             if (mr != null)
-                setup = mr.GetMethod("Setup", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            {
+                // 🔴 **按「名称 + 参数个数」取，⛔ 别用无参 `GetMethod(名字)`** —— 一旦有人给
+                //   `MissionRewardsDisplay` 加**同名重载**（例如带 `ILiveOps` 的两参版 `SetupWithExtraRewards`
+                //   当初差点就叫 `Setup`），无参 `GetMethod` 会抛 `AmbiguousMatchException`，**炸掉整条
+                //   `ShellScene.Run`**（本项目已因同类问题炸过整月）。
+                //   也**不走 `FirstOrDefault`** —— 那会把「有歧义」静默当成「找到了」，本断言就不再挡错。
+                //   ⚠️ 不按 `typeof(List<Cell>)` 精确取签名，是因为 `Cell` 是 `MissionRewardsDisplay` 里的
+                //   `internal struct`，Editor 程序集**拿不到那个类型**（跨程序集）⇒ 只能用参数个数这一档。
+                var cands = new List<MethodInfo>();
+                foreach (var mi in mr.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+                    if (mi.Name == "Setup" && mi.GetParameters().Length == 1) cands.Add(mi);
+                C(cands.Count == 1,
+                  "前提：`MissionRewardsDisplay.Setup` **恰好一条**单参重载（现命中 " + cands.Count + " 条）—— "
+                  + "按「名称 + 参数个数」取，⛔ 别用无参 `GetMethod(名字)`（加同名重载会 `AmbiguousMatchException` 炸整条 Run）");
+                if (cands.Count >= 1) setup = cands[0];
+            }
             C(setup != null, "前提：`MissionRewardsDisplay.Setup` 存在（原版同名入口；`DailyData.LoginRewardCellList` 现在转调它）");
             if (setup == null) return;
 
@@ -114,16 +138,22 @@ namespace CardPresentation
             C(l != null, "前提：返回的是可枚举表");
             if (l == null) return;
 
-            int count = 0; int sum = 0; bool anyNeg = false;
+            int count = 0; int sum = 0; bool anyNeg = false; System.Type cellType = null;
             foreach (var cell in l)
             {
                 count++;
                 if (cell == null) continue;
-                var fq = cell.GetType().GetField("Quantity");
+                if (cellType == null) cellType = cell.GetType();
+                var fq = cellType.GetField("Quantity", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 int q = fq != null ? Convert.ToInt32(fq.GetValue(cell)) : 0;
                 if (q < 0) anyNeg = true;
                 sum += q;
             }
+            // 🔴 2026-10-29（B95_A2P）就地订正一条 α：`MissionRewardsDisplay.Cell.Quantity` 是 **`internal`** 字段
+            //   （`Shell/MissionInfoDisplays.cs:382-386`），而 `GetField(裸名)` 默认只找 `Public` ⇒ 恒返 null ⇒ 恒读 0
+            //   ⇒ 「合计 > 0」那条**不管实现对错都红**。本行是**独立断言**（⛔ 不是 `if (前提) 断言` 的静默跳过写法）。
+            C(cellType != null && cellType.GetField("Quantity", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) != null,
+              "前提：`MissionRewardsDisplay.Cell.Quantity` 反射读得到（它是 **`internal`** 字段 ⇒ `GetField` 必须带 `NonPublic`；不带就恒读 0 ⇒ 下一条变成假红）");
             C(count > 0, "归并后至少一格（🧨 `Setup` 改成返回空表 ⇒ 这里红）");
             C(sum > 0, "归并后数量合计 > 0（同 id 求和那一半仍在）");
             C(!anyNeg, "归并后没有负数数量（`Sum` 那一段没写成减）");

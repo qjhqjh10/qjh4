@@ -94,16 +94,49 @@ public static class B94B18Assert
     // ============================================================ C 生产注册点（真建出来的那棵树）
     static void SectionC_生产注册点()
     {
-        MenuCheck.Section(_sink, "C 生产注册点：主菜单里那 4 颗（原版 `Awake` 自注册 ⇒ 本仓建节点时显式登记）");
+        MenuCheck.Section(_sink, "C 生产注册点：主菜单里那 4 颗（原版 `Awake` 自注册 ⇒ 本仓建节点时显式登记；"
+                                + "断言前先走一趟生产刷新路径把活树那几条重新登记）");
 
         // 🔴 R8 订正（2026-10-29 FX5 · 判据 `B94_DG2_battle_menu.md` §二·#11）：原来读 `Instance`，而它
         //   **只在 `Awake` 里赋值**、编辑模式批处理下恒 null（`Shell/MainMenuRuntime.cs:874-877` 自己记过这条坑、
         //   `:1697-1707` 就是 `InstanceOrFind()`）⇒ C0 是假红（并且它一红就让 C1–C6 从来没执行过）。改用 `InstanceOrFind()`。
-        bool hasMenu = MainMenuRuntime.InstanceOrFind() != null;
+        var menu = MainMenuRuntime.InstanceOrFind();
+        bool hasMenu = menu != null;
         C(hasMenu, true,
           "C0 **前提断言**：宿主里有一棵常驻主菜单（`MainMenuRuntime.InstanceOrFind()` ≠ null）—— "
         + "不成立 ⇒ C1..C6 **没跑**（本文件不静默跳过：这一条会红）。推荐宿主 = `Editor/MainMenuScene.cs`");
         if (!hasMenu) return;
+
+        // 🔴 **2026-10-29（B95_A1 · 判据 `B94_DG2_battle_menu.md` §四·2 ＋ 本轮现核源码）—— C1..C5 为什么在第一趟真跑时恒红，以及这里怎么处置**
+        //   **事实（可核）**：宿主 `Editor/MainMenuScene.cs` 里有 **4 台探针 `MainMenuRuntime`** ——
+        //   A374 `:1833`（`pgo`，拆在 `:2142`）＋ A855 `:16809/:16827/:16837`（`g1/g2/g3`，拆在 `:16842`），全都
+        //   `AddComponent<MainMenuRuntime>()` → **`Build()`** → `DestroyImmediate`。
+        //   **而 `Build()` 会登记这四条**（`Shell/MainMenuRuntime.cs:1122-1127` 三颗导航钮 + `:2848-2849` 排位模式卡），
+        //   登记进的是**全局静态表** `MenuUniqueIds`（原版 `GameObjectUniqueIdentifier.Awake` 也是全局表、「后来的赢」）
+        //   ⇒ 探针一 `Build()`，**活树那四条就被顶掉**；探针一 `DestroyImmediate`，表里那四条就**指向已销毁节点**
+        //   （本仓的节点是**裸 `Transform`**、没有原版 `OnDestroy` 自注销那一半 —— 见 `Shell/MenuTutorialFlow.cs` 的
+        //   `RegisterUnique` doc）⇒ `MenuUniqueIds.Find` 回 null ⇒ C1..C5 恒红（C6 因为两边都是 null 反而**空转绿**）。
+        //   🔑 **这与生产建树对不对无关**：原版在同一份宿主下也一样 —— 探针节点的 `OnDestroy` 只摘得掉它自己那几条，
+        //   活树那几条早在探针 `Awake` 的「后来的赢」里被摘走了。⇒ 归档 = **α（断言写错：它读的是一个会被宿主探针
+        //   彻底改写的全局静态表，却没在断言前把活树的登记恢复回来）**，⛔ **不是** β 实现缺陷。
+        //   ⇒ **处置**：断言前先走一趟**生产刷新路径** `RebuildNavForLiveOpsRefresh()`
+        //   （原版 = `MainMenuWindow.RefreshSignal` → `NavigationPanelController.OnEventsRefreshed` ＋
+        //   `RefreshLiveOpContainers`；本仓 `Shell/MainMenuRuntime.cs:4201` 内部复用的**正是 `Build()` 调的那两个口**
+        //   —— `BuildNavigationPanel`（`:1040`）与 `_placeAllCards`（`:2517/:2615`））把活树那几条**重新登记**上去，再断言。
+        //   🧨 **灭自证**：把 `BuildNavigationPanel` 末尾那三行 `RegisterUnique` / `BuildModeCard` 里那两行删掉 ⇒
+        //      重建时它们同样不会被登记 ⇒ **C1..C5 照样红**（本条并没有把「登记」这件事换成「断言自己登记」）。
+        if (MenuUniqueIds.Find("HomeMenuButton") == null)
+            Debug.LogWarning("[B18] C 段：重建前 `HomeMenuButton` 解析不到 —— 宿主里那 4 台**探针**菜单（A374 / A855）"
+                           + "建过又拆，把全局表那四条登记带成了**悬空引用**（本仓没有原版 `OnDestroy` 自注销那一半）。"
+                           + "⇒ 下面走生产刷新路径重新登记（⛔ 不是「跳过断言」）。");
+        menu.RebuildNavForLiveOpsRefresh();
+
+        // ⚠️ **已知缺（出声，⛔ 不硬造）**：`CardCollectionReferenceCardPointer` 是原版那 12 个唯一 id 里**唯一**一颗
+        //   本仓**没有节点**的（原版它在收藏窗的 `Reference Card Pointer`；判据 → 报告 §三）。
+        //   ⇒ C 段**只断另外四条生产注册点**；不许为了让它变绿去造一颗节点（那是自设计，违反铁律 18·0）。
+        if (MenuUniqueIds.Find("CardCollectionReferenceCardPointer") == null)
+            Debug.LogWarning("[B18] C 段：`CardCollectionReferenceCardPointer` 未登记 —— **已知缺**：本仓没有原版那颗 "
+                           + "`Reference Card Pointer` 节点（⛔ 不硬造，铁律 18·0）；C1..C6 只断另外四条。");
 
         // 三颗导航钮：id 与 idx 的对应 = 原版场景那三份 MonoBehaviour 的 `id` 实读（Home=0 / Collection=1 / Rewards=3）
         Tr(MenuUniqueIds.Find("HomeMenuButton") != null,
@@ -117,8 +150,11 @@ public static class B94B18Assert
         var ranked = MenuUniqueIds.Find("RankedModeMenuButton");
         Tr(ranked != null,
            "C4 ★ 排位模式卡已按 `RankedModeMenuButton` 登记（`MainMenuRuntime.BuildModeCard` 里按卡名判）");
-        Tr(ranked != null && ranked.name == "Base Game Mode Container 1x2 - Ranked",
-           "C5 ★ 登记的那一颗**就是**排位那张模式卡（不是同名的别家族件）");
+        // 🔴 C5 多加一个「在**这棵活树**里」：光比名字挡不住「同名的别家族件」，也挡不住「指向已销毁/别的树上的节点」
+        //   （`MainMenuRuntime.cs:2830-2856` 的视口裁切会**不建**整张卡，那时 `Find` 命中的只能是别人）。
+        Tr(ranked != null && ranked.name == "Base Game Mode Container 1x2 - Ranked"
+                          && ranked.transform.IsChildOf(menu.transform),
+           "C5 ★ 登记的那一颗**就是**排位那张模式卡（名字对得上、而且挂在本台菜单的树里 —— 不是同名的别家族件）");
 
         // 消费者一侧：唯一消费者 `TutorialPointerData.Target` 必须能取回**同一颗 gameObject**
         var data = new TutorialPointerData { id = "RewardsMenuButton" };

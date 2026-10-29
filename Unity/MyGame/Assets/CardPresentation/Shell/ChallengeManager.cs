@@ -181,22 +181,42 @@ namespace CardPresentation
         /// ⛔ 本文件不新造）；④ **提示词条键没解出来** ⇒ 不编文案、只打日志（报告已记）。</para></summary>
         public static void CancelDueling(bool fromClick)
         {
+            // 🔴 **原版那道总闸**（`decomp_full/ChallengeManager__CancelDueling.c:21`）：`if (*(int*)(this+0x28) != 0) { … }`
+            //   —— `state == 0` 时**整条 no-op**（连 `HidePopUp` / `CancelSearch` 都不跑）。改前我们无条件跑完全程。
+            if (State == DuelState.Idle) return;
+
+            // 原版 `.c:30-33` 那句三元：`state == 1` ⇒ `CustomErrors/PracticeUserNotFound` ·
+            //   `state == 2` ⇒ `CustomErrors/PracticeUserNotOnline` · 其余（3/4/5…）⇒ 空串。
+            //   三条键**已经解出**（`il2cpp_out/stringliteral.json`：RVA `0x425d6a8` / `0x425d7a8` / `0x42b80e0`=空串），
+            //   官方 13 语言表两键都有正文（en `User not found` / zh `找不到用户`；en `User is not online` / zh `用户不在线`）。
+            // ⚠️ 必须**在本方法清状态之前**采：`CancelPracticeInvitation` / `Reset` 都会把 `State` 打回 `Idle`。
+            string key = State == DuelState.ReceivedInvite ? "CustomErrors/PracticeUserNotFound"
+                       : State == DuelState.ReceivedInviteAlt ? "CustomErrors/PracticeUserNotOnline"
+                       : "";
+
             bool wasInviting = State == DuelState.InviteSent || State == DuelState.InviteSentAlt;   // 原版 `state == 3 || 4`
             if (wasInviting) CancelPracticeInvitation();     // 原版这一支先发 type=2 的私聊
+            var wm = WindowsManager.Get();                   // 原版末尾 `ShowPopUp` 用的是同一个单例（`.c:60`）
             if (!fromClick)                                  // 原版 `param_2 == 0` ⇒ `WindowsManager.HidePopUp(0)`
             {
-                // 🔴 **就地订正（本代理 2026-10-28）**：原版那句是 **关弹窗**（`WindowsManager__HidePopUp.c`）而不是「关某一扇具体窗」——
-                //   改前这里写的是 `DuelPopupWindow.LastOpened.Close()`（那是我们自己挑的替身）。
-                var wm = WindowsManager.Get();
+                // 原版那句是 **关弹窗**（`WindowsManager__HidePopUp.c`）而不是「关某一扇具体窗」。
                 if (wm != null) wm.HidePopUp();              // = 原版 `WindowsManager.HidePopUp(manager, 0)`（没有弹窗时它是空动作）
                 else UnityEngine.Debug.LogWarning("[Challenge] `CancelDueling`：取不到 `WindowsManager`（原版这一跳 NRE）⇒ 弹窗那一步跳过（出声）");
             }
-            CancelSearchStep();                              // ③ 原版那句 `ChallengeManager.CancelSearch()`
+            else key = "";                                   // 原版 `.c:50-56`：只有 `fromClick == false` 才把 state 推出的 key 交给末尾
+            CancelSearchStep();                              // 原版 `.c:57` 那句 `ChallengeManager.CancelSearch()`
+            // 原版 `.c:58-70`：`if (!string.IsNullOrEmpty(key)) WindowsManager.ShowPopUp(key, localize:1, …)`
+            if (!string.IsNullOrEmpty(key))
+            {
+                if (wm != null) wm.ShowPopUp(Loc.T(key), Loc.T("MainMenu/General/OK"), null);   // 原版 `localize:1`
+                else UnityEngine.Debug.LogWarning("[Challenge] `CancelDueling`：取不到 `WindowsManager`（原版这一跳 NRE）⇒ 提示词条 '"
+                                                + key + "' 没弹出来（出声）");
+            }
             Reset();
             var h = DuelCancelled;
             if (h != null) h(fromClick);
             UnityEngine.Debug.Log("[Challenge] `CancelDueling(fromClick: " + fromClick + ")`：状态已清、弹窗已收、搜索已取消"
-                      + "（⚠️ 原版末尾那两句提示词条键 `18425d6a8/18425d7a8/1842b80e0` **没解出来** ⇒ 不编提示文案）");
+                      + (string.IsNullOrEmpty(key) ? "（原版末尾没有提示要弹）" : "（已弹出提示词条 `" + key + "`）"));
         }
 
         /// <summary>≡ 原版 `ChallengeManager.CancelSearch()`（四句：`CustomDebug.Log("Cancel Search")` →

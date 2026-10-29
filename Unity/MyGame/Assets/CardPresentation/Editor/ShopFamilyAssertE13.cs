@@ -139,6 +139,22 @@ public static class ShopFamilyAssertE13
             st6.DrawRewards(items, null, (r, q) => true);
             C(st6.CurrencyGroupCount, 0, "B14 ★ `typeOf == null` ⇒ 谓词② 一律 false（第二组空），⛔ 不默认 true");
             C(st6.DrawnCount, 3, "B15 …但第一组照画（三条都在）= 「判不了」不是「丢掉」");
+
+            // ---- B16/B17/B18：谓词① **已解** = `x.Item.ShowOnRewardScreen`（B95_RS 2026-10-29）
+            //   判据三条：① `decomp_full/CarouselOfferPopupDrawer.__c___DrawRewards_b__4_0.c`（打的是 `ObtainableItem` 的
+            //   vtable `+0x1C8`，无参虚 bool）；② `out_cpp2il_dev_ilspy/ObtainableItem.cs:28/30`（该类型**无参虚 bool 只有**
+            //   `ShowOnRewardScreen` 与 `CanBeCollected`）；③ `ScoringPoint.cs:28` 是 `ShowOnRewardScreen => false` 的**唯一覆盖**，
+            //   而 `EndBattleDoors.cs:374` 正是 `if (item.ShowOnRewardScreen)` 在筛领奖格。
+            //   🧨 怎么改会红：把 `ShowOnRewardScreen` 改成恒 true（= 回到「不过滤」）⇒ B16/B18 红；
+            //      把判据换成 `CanBeCollected`（`Currency` 覆盖它）⇒ B17 红。
+            Tr(!OfferContainer.Carousel.ShowOnRewardScreen("ScoringPoint"),
+               "B16 ★ 谓词①：原版类型名 `ScoringPoint` ⇒ **不画**（`ShowOnRewardScreen => false` 的唯一覆盖）");
+            Tr(OfferContainer.Carousel.ShowOnRewardScreen("RawCardScript")
+               && OfferContainer.Carousel.ShowOnRewardScreen("Currency"),
+               "B17 …且 `RawCardScript` / `Currency` 都**照画**（灭自证：换成 `CanBeCollected` 判据 ⇒ `Currency` 这条红）");
+            var st7 = new OfferContainer.Carousel.State();
+            st7.DrawRewards(items, r => r.Id == "X1" ? "ScoringPoint" : "RawCardScript", (r, q) => true);
+            C(st7.DrawnCount, 2, "B18 ★ 接进 `DrawRewards`：`typeOf` 说 X1 是 `ScoringPoint` ⇒ **不画它**（改回「恒不过滤」⇒ 3 ⇒ 红）");
         }
         finally { OfferContainer.Carousel.Filter = savedFilter; }
     }

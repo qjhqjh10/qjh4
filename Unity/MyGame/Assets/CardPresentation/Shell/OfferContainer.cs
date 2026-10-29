@@ -980,24 +980,24 @@ namespace CardPresentation
             //     · `ListExtensions.SpliceWhere<T>(IList<T> list, Func<T,bool> predicate, int count = 0)`
             //       = `Where(pred).ToList()` **并从 `list` 里摘掉命中的**（ILSpy `:2362-2420`）⇒ 两组不重复。
             //
-            // 🔴 **两个谓词，一条已解、一条仍未解**（原来两条都记「查不到」—— 铁律 5 就地订正）：
-            //   · 谓词②（`b__4_1`）= **`x.Item is Currency`**。判据：ILSpy 那份的 `isinst` 形状与
-            //     `MainMenuOfferContainer.OnInitialize` 里 `playEvent as ShopOfferEvent` **逐字节同形**
-            //     （`typeof(Currency)` + `obj3 = 1` 那一支 + `obtainableItem = null; if (!flag) obtainableItem = item;`）
-            //     ⇒ **已解**（我们这一侧要的是「物品的原版类型名」，那个口径与 A43 的 `Content.ItemType` 同一份）。
-            //   · 谓词①（`b__4_0`）= `ObtainableItem` 上的**一个虚 `bool`**（槽 `+0x1C8`），ILSpy / cpp2il
-            //     **都没解出方法名** ⇒ **仍未解**，⛔ 不猜；走可注入的 <see cref="Filter"/>（`null` = 不过滤 + 出声一次）。
-
-            /// <summary>= 原版 `CarouselOfferPopupDrawer.thresholdForEnableAutoScroll`
-            /// （**ctor 实读 `*(int*)(this+0x28) = 4`**，`CarouselOfferPopupDrawer__.ctor.c:3`）。</summary>
+            // 🔴 **两个谓词都【已解】**（B95_RS 2026-10-29 就地订正：谓词① 原记「仍未解」）：谓词② = `x.Item is Currency`（不变）；谓词① = **`x.Item.ShowOnRewardScreen`**。
+            //   判据三条：① `.c`（`decomp_full/CarouselOfferPopupDrawer.__c___DrawRewards_b__4_0.c`）打的是 `ObtainableItem` 的 vtable `+0x1C8`（无参虚 bool）；
+            //   ② `out_cpp2il_dev_ilspy/ObtainableItem.cs:28/30` 该类型**无参虚 bool 只有** `ShowOnRewardScreen` 与 `CanBeCollected`；
+            //   ③ 判别 = `ScoringPoint.cs:28` **唯一覆盖** `ShowOnRewardScreen => false`，而 `EndBattleDoors.cs:374` 正是 `if (item.ShowOnRewardScreen)` 在筛领奖格；`CanBeCollected` 是「能不能领」，与「画不画」无关。
+            //   ⚠️ 两个谓词的**输入**都由调用方给（我们这套 `RewardSpec` 里没有 `Item` 的类型）：`typeOf == null` ⇒ ①拍不过滤、②组为空，两档都出声（⛔ 不默认 true）。
+            /// <summary>原版 ctor 实读 `*(int*)(this+0x28) = 4`（`CarouselOfferPopupDrawer__.ctor.c:3`）。</summary>
             public const int ThresholdForEnableAutoScroll = 4;
 
-            /// <summary>谓词②：`x.Item is Currency`（判据见本节头）。`itemType` = 原版 `ObtainableItem` 的
-            /// **子类型名**（例 `"Currency"`）—— 同一份口径见 `Content.ItemType`
-            /// （⚠️ 由调用方给：我们这套 `RewardSpec` 里没有 `Item` 的类型）。</summary>
+            /// <summary>谓词②：`x.Item is Currency`（`itemType` = 原版 `ObtainableItem` 子类型名，口径同 `Content.ItemType`）。</summary>
             public static bool IsCurrency(string itemType)
             {
                 return itemType == "Currency";
+            }
+
+            /// <summary>谓词①：`x.Item.ShowOnRewardScreen`（判据见本节头）。`typeOf` 为 `null`（判不了类型）⇒ 调用方**不过滤**，⛔ 不静默丢。</summary>
+            public static bool ShowOnRewardScreen(string itemType)
+            {
+                return itemType != "ScoringPoint";
             }
 
             /// <summary>轮播抽屉的**对象那一半**（原版 `CarouselOfferPopupDrawer`：`currentItemDrawers` +
@@ -1080,19 +1080,19 @@ namespace CardPresentation
                 {
                     if (rewards == null) return;
 
-                    // ---- ① `Where(谓词①)` ----
+                    // ---- ① `Where(谓词①)` ----（谓词① **已解** = `x.Item.ShowOnRewardScreen`，判据见 `Carousel` 段头）
                     var first = new List<CampaignData.RewardSpec>();
                     var f = Filter;
-                    if (f == null && !_filterUnresolvedSaid)
+                    if (f == null && typeOf == null && !_filterUnresolvedSaid)
                     {
                         _filterUnresolvedSaid = true;
-                        Debug.LogWarning("[OfferContainer.Carousel] `DrawRewards` 第 ① 拍 `Where(谓词①)` **没落地**："
-                                       + "谓词是 `ObtainableItem` 上的一个虚 `bool`（槽 `+0x1C8`），"
-                                       + "ILSpy / cpp2il 都没解出方法名 ⇒ 走可注入的 `Carousel.Filter`，"
-                                       + "**默认 null = 不过滤**（⛔ 不猜一个谓词出来）。");
+                        Debug.LogWarning("[OfferContainer.Carousel] `DrawRewards` 第 ① 拍 `Where(谓词①)` 判不了："
+                                       + "调用方没给 `typeOf`（我们这套 `RewardSpec` 里没有 `Item` 的类型）"
+                                       + " ⇒ 这一拍**不过滤**（原版恒判得出，我们判不出时不丢东西）；"
+                                       + "给了 `typeOf` 就按 `ShowOnRewardScreen` 过。");
                     }
                     int idx = 0;
-                    foreach (var r in rewards) { if (f == null || f(idx, r)) first.Add(r); idx++; }
+                    foreach (var r in rewards) { if (f != null ? f(idx, r) : (typeOf == null || ShowOnRewardScreen(typeOf(r)))) first.Add(r); idx++; }
 
                     // ---- ② `SpliceWhere(谓词②)`：**命中的从 `first` 里摘走** ⇒ 两组不重复 ----
                     var second = new List<CampaignData.RewardSpec>();

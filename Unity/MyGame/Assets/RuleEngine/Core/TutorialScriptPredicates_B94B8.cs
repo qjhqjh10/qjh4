@@ -34,12 +34,12 @@ namespace RuleEngine
         /// </summary>
         public static bool IsPremulliganScriptAvailable(TutorialStageData stage)
         {
-            if (stage == null) return false;
-            var pre = stage.preMulligan;
-            if (pre == null) return false;
-            if (!pre.scriptedTurn) return false;            // 原版 `*(+0x50+0x18) != 0`
-            if (pre.actions == null || pre.actions.Length < 1) return false;   // 原版 `Count >= 1`
-            return true;
+            // 🔴 单一正本 = `Core/TutorialPremulligan.cs`：`stage/pre/scriptedTurn/actions/Count` 五道闸逐句照
+            //    `BattleManager__IsPremulliganScriptAvailable.c:1-33` / `__GetPremulliganScriptedData.c:1-45` 写在那边；
+            //    本条**只转调** —— ⛔ 别两边各写一套（铁律 6：两处写同一条规则 = 迟早不一致）。
+            //    原版闸：`*(+0x50+0x18)`(scriptedTurn) != 0 ∧ `*(+0x50+0x20)`(actions) 非空 ∧ `Count >= 1`。
+            return TutorialPremulligan.IsPremulliganScriptAvailable(stage);
+            // （转调后语义逐位相同：`RuleEngineTest_EngineB94B8` 那四条断言仍然断同一批行为。）
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace RuleEngine
         /// </summary>
         public static TutorialTurn PremulliganScriptedActions(TutorialStageData stage)
         {
-            return IsPremulliganScriptAvailable(stage) ? stage.preMulligan : null;
+            return TutorialPremulligan.GetPremulliganScriptedData(stage);   // 单一正本同上（转调；语义 = 原版 `GetPremulliganScriptedData` 的五道闸）
         }
 
         /// <summary>

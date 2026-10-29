@@ -257,9 +257,9 @@ namespace CardPresentation
         ///   .FirstOrDefault();
         /// </code>
         /// 🔴 那个 `typeof(IRankedEvent)` 的特殊支**只在问排位接口时进**；问别的类型时直接走 LINQ。
-        /// <para>⚠️ 差异 ④：本地没有 `IRankedEvent`（接口未建）也没有远端 `GameModesConfig`
-        /// ⇒ 入口由 <see cref="RankedEventInterfaceType"/> 注入（默认 null = 这一支**进不去**，
-        /// 与「本机没有任何调用方能传进那个类型」等价）；`mainRankedType` 由 <see cref="GameModesConfigSource"/> 注入。</para></summary>
+        /// <para>⚠️ 差异 ④：本地**有** `IRankedEvent`（`Shell/RankedEventBase.cs:228`）但**没有** `GameModesConfig`
+        /// ⇒ 入口由 <see cref="RankedEventInterfaceType"/> 注入（默认 null = 这一支**不进入**，等价于原版
+        /// `mainRankedType == typeof(IRankedEvent)` 那一档：进了支也只是跳过递归、落到同一条 LINQ）；`mainRankedType` 由 <see cref="GameModesConfigSource"/> 注入。</para></summary>
         public ILiveOps GetActiveEvent(Type gameModeType)
         {
             if (gameModeType == null)
@@ -425,11 +425,11 @@ namespace CardPresentation
 
         // ============================================================ 注入点（差异 ④）
         /// <summary>原版 `typeof(IRankedEvent)`（`GetActiveEvent(Type)` 里那个比较的类型）。
-        /// <para>TODO（欠账，⛔ 不是「自己设计」）：`IRankedEvent` 在**原版里确凿存在**（`dump.cs:57719`
-        /// `RankedFastMode …, IRankedEvent, …`；`:62773` `[Inherits(typeof(IRankedEvent), …)]`），本仓**还没建**这个接口
-        /// （`Shell/PlayEvent.cs` 只有 `PlayEvent<TSave,TData>` 的同名公开成员）⇒ 本注入点只是**占位**。
-        /// 待办：建 `IRankedEvent` ⇒ 直接 `typeof(IRankedEvent)`，**删掉这一格**。
-        /// `null` = 排位特殊支不可进入。执行代理 B89-E11 2026-10-28 · `B89_RXb` 改成 TODO。</para></summary>
+        /// <para>✅ 2026-10-29（`B95_MISC` 现核订正 · 铁律 5）：`IRankedEvent` **本仓已建** —— `Shell/RankedEventBase.cs:228`
+        /// （`public interface IRankedEvent : ILiveOps`；`RankedEventBase<TSave,TData>` 在 `:95` 实现它；`Editor/B94X1_Assert.cs` B1-B5 在用）。
+        /// 旧注「本仓**还没建**这个接口 / `Shell/PlayEvent.cs` 只有同名成员」**已过期**，就地改掉。
+        /// ⚠️ **这一格仍为 null 的真原因** = `GameModesConfig.mainRankedType` 本地拿不到（全解包 `grep rankedRanks` = **0 命中**）——
+        /// 若改成 `typeof(IRankedEvent)`，`mainRankedType == null` 那一支会按原版抛 NRE，`CurrentSeasonNumber` 跟着抛（原版**离线**确实如此，见账 其他:218 差异列）。</para></summary>
         public static Type RankedEventInterfaceType;
 
         /// <summary>自检收尾用（⛔ 只给断言）。</summary>
@@ -778,12 +778,20 @@ namespace CardPresentation
             Debug.LogWarning("[GameModes] 上一次练习局**没有收尾**（`matchStarted` 仍为 true）⇒ 按原版 `PracticeEvent.Initialize` "
                            + "判一次负并提示玩家（原版：`MatchFinished(battleWinner = Enemy)` + 弹 `" + PracticeOngoingMatchTerm + "`）");
             ApplyPracticeOutcome(BattleWinner.Enemy);   // = 原版 `base.MatchFinished(new RankedMatchResult{ Enemy }, null)`
-            var wm = WindowsManager.Instance;           // 原版 `MenuActions.QueueAction(() => WindowsManager.ShowPopUp(…))`
-            if (wm != null)
-                wm.ShowPopUp(Loc.T(PracticeOngoingMatchTerm), Loc.T("MainMenu/General/OK"), null);
-            else
-                Debug.LogWarning("[GameModes] 没有 `WindowsManager` 实例 ⇒ 续局提示 '" + PracticeOngoingMatchTerm
-                               + "' 只记日志（原版走 `MenuActions.QueueAction` → `WindowsManager.ShowPopUp`）");
+            // ★ 原版这一跳**是排队的**（判据 `cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/PracticeEvent.cs:34-63`：
+            //   `MenuActions.QueueAction(() => WindowsManager.ShowPopUp("Demo/MainMenu/OngoingMatch", localizeTexts:true, closeOnEsc:false))`）。
+            //   改前我们直接 `wm.ShowPopUp(...)` ⇒ 绕过了排队器（账 日常:582 的残差 = 「没走排队器」，裁定 4：排队器早已在
+            //   `Shell/LiveOpsHandler.cs:1273/1292`，⛔ 别再新建一份）。
+            //   ⚠️ `ApplyPracticeOutcome(Enemy)` 那一句**不排队** —— 原版它是 `MatchFinished` 的等价物。
+            MenuActions.QueueAction(() =>
+            {
+                var wm = WindowsManager.Instance;
+                if (wm != null)
+                    wm.ShowPopUp(Loc.T(PracticeOngoingMatchTerm), Loc.T("MainMenu/General/OK"), null);
+                else
+                    Debug.LogWarning("[GameModes] 没有 `WindowsManager` 实例 ⇒ 续局提示 '" + PracticeOngoingMatchTerm
+                                   + "' 只记日志（原版走 `MenuActions.QueueAction` → `WindowsManager.ShowPopUp`）");
+            });
             return true;
         }
 

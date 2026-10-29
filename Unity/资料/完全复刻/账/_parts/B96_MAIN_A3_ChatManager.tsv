@@ -1,0 +1,2 @@
+域	原版类	方法	判据出处	判据要点	状态	我们的落点	差异	等级	轮次	备注
+社交/聊天	ChatManager	GetChatSoundAsset(ChatMessage chatMsgIndex, bool isPlayer)	ChatManager.cs:170 · decomp_full/ChatManager__GetChatSoundAsset.c	按消息枚举 + 双方督军取语音 clip（精确档 / 按阵营档的 customSound 优先）	A	BattleDriver.cs:10427-10450（SpeakIntro）+ UnitChatPanel.CustomSound（:1764）；精确档/阵营档两档断言在 Editor/BattleScene.cs:22196-22380	无	P2	B94_F3	2026-10-29 复核：与主表一致，本批无改动 ｜ 🆕 2026-10-29 B96_L4 现核：两条回落链逐跳对上、差异列本来就是「无」⇒ 核销

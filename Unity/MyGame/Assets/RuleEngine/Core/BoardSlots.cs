@@ -695,6 +695,88 @@ namespace RuleEngine
             return false;
         }
 
+        // ============================================================================================
+        //  🆕 2026-10-29（执行代理 `B95_RBW` · 账 `战斗逻辑驱动` L1121 · 判据波 `B94_R-W` §四 A-11）
+        //     原版 `MinionManager.GetNextSlotPos(Vector2 pos, int nextSlotRequired)` 的【引擎半】。
+        //
+        //  判据（第一权威 `d:/2/tools/decomp_full/MinionManager__GetNextSlotPos.c`，276 行 2026-10-29 现读）：
+        //    · `nextSlotRequired != 1` 那一支（`:46-160`）：i 从 0 起，每轮**先右后左**：
+        //        「右侧已占数 <= i」⇒ 第 i 格空 ⇒ 计数 +1，记下 `i + 1`（**正 = 右**）；
+        //        「左侧已占数 <= i」⇒ 第 i 格空 ⇒ 计数 +1，记下 `~i`  （**负 = 左**，`:82`）；
+        //        计数 == required ⇒ 停；`max(右人数, 左人数) <= i` ⇒ 两侧数完、停。
+        //        → 返回**最后记下的那一个**（有符号格号，与 `TryGetCardInPos` / `OriginalIndexOfCard` 同一编码）。
+        //    · 一个都没找到（`:160-175`）⇒ 原版 `CustomDebug.LogError`（带 pos / required / 两侧人数，
+        //      `:143-158` 依次拼 7 个实参）＋ 回**右最外一格**（`GetRightSlotPos(-1)`）。
+        //    · `nextSlotRequired == 1` 那一支（`:178-276`）**是坐标半**：吃 `pos.x` 的符号、
+        //      `AvailableLeftSlot/RightSlot`、督军 `GetEffectAnchor()`，末尾还 + `ExtraYOnBoard(+0x94)`
+        //      ⇒ **不属引擎半**（要屏幕坐标与英雄锚点）。本实现只覆盖它**唯一一条**引擎可判的结论：
+        //      **两侧都满 ⇒ `int.MinValue`**（调用方据此回督军锚点，与原版同档）；
+        //      该档还有空位时**本方法给不出答案** ⇒ 出声 + `int.MinValue`
+        //      （⛔ 不许静默猜一侧 —— 猜错就是把单位摆到对侧）。
+        //
+        //  ⚠️ **今天 0 调用方**：原版两个调用点（`AbilityLogic__CreateTempAbilityTransform.c` /
+        //     `BattleManager__GetAnimTransform.c`）都是**动画锚点**，接线要 `BattleDriver.EnsureMinionSpotAnchor`
+        //     ＋**真机看效果**（子代理不跑 Unity）⇒ 另排。⛔ 没看真机前别接线。
+        // ============================================================================================
+        /// <summary>
+        /// 原版 `MinionManager.GetNextSlotPos` 的**引擎半**：从两侧**交替**取第 <paramref name="required"/> 个空格。
+        /// <para>返回**有符号格号**（`+1..+4` 右 · `-1..-4` 左，见文件头的格号映射）；`int.MinValue` = 取不到
+        /// （两侧都满 / `required == 1` 的坐标半 / 参数非法，**都已出声**）。</para>
+        /// </summary>
+        public static int NextSlotPos(PlayerState ps, int required)
+        {
+            if (ps == null || ps.Board == null || required <= 0)
+            {
+                WarnNextSlotPos(ps, required, "参数非法");
+                return int.MinValue;
+            }
+
+            if (required == 1)
+            {
+                // 坐标半（见文件尾那段注）：引擎只能判「两侧都满」这一档。
+                if (RoomOnSide(ps, Left) <= 0 && RoomOnSide(ps, Right) <= 0)
+                    return int.MinValue;                       // 原版：回督军 `GetEffectAnchor()`
+                WarnNextSlotPos(ps, required, "`required == 1` 的坐标半（pos.x / 英雄锚点 / ExtraYOnBoard）不在引擎层");
+                return int.MinValue;
+            }
+
+            int found = 0;
+            int taken = 0;
+            for (int i = 0; ; i++)
+            {
+                int r = CountOnSide(ps, Right);
+                int l = CountOnSide(ps, Left);
+                if (System.Math.Max(r, l) <= i) break;          // `:61-62` 两侧都数完
+                if (r <= i)                                     // 右第 i 格空
+                {
+                    taken++;
+                    found = i + 1;
+                    if (taken == required) break;
+                }
+                if (l <= i)                                     // 左第 i 格空
+                {
+                    taken++;
+                    found = ~i;                                 // `:82` 就是 `~i`
+                    if (taken == required) break;
+                }
+            }
+            if (found != 0) return found;
+
+            // 一个都找不到 ⇒ 原版 `LogError` + 右最外一格（`:160-175`）
+            WarnNextSlotPos(ps, required, "两侧都没有第 N 个空格");
+            return BoardSpec.SlotsPerSide;                      // 右最外 = +SlotsPerSide（有符号格号）
+        }
+
+        /// <summary>原版 `:143-158` 那条 `CustomDebug.LogError` 的等价位 —— **⛔ 别静默返回**。</summary>
+        static void WarnNextSlotPos(PlayerState ps, int required, string why)
+        {
+            int l = ps != null && ps.Board != null ? CountOnSide(ps, Left) : -1;
+            int r = ps != null && ps.Board != null ? CountOnSide(ps, Right) : -1;
+            UnityEngine.Debug.LogError("[BoardSlots] ⚠️ NextSlotPos(required " + required + ") 取不到："
+                + why + "；左侧 " + l + " / 右侧 " + r
+                + "（原版同点 CustomDebug.LogError 并回右最外一格）");
+        }
+
         /// <summary>原版 `GetCardInPos` 那条 `CustomDebug.LogWarning` 的等价位 —— **⛔ 别静默返回**
         /// （原版串里带 index 与两侧人数；字面量读不出，语义等价）。</summary>
         static void WarnCardInPos(PlayerState ps, int signedIndex)

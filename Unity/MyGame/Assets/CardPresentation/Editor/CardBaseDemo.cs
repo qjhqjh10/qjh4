@@ -540,15 +540,15 @@ public static class CardBaseDemo
         Check(Mathf.Approximately(AutoCardRotation.EvalTimeAfterMovement, 2f),
               $"`EVAL_TIME_AFTER_MOVEMENT` = **2 秒**（实读 {AutoCardRotation.EvalTimeAfterMovement}，出处 `.cctor` 的 0x40000000）");
 
-        // ① 角度 = clamp(位移 × 上限, ±上限)
+        Check(CardFaceProbe.AngleDegTiny(Quaternion.Euler(0f, 0f, 0.05f), Quaternion.identity) > 0.04f, "① 角度 = clamp(位移 × 上限, ±上限)｜量角器自证：0.05° 读得到（`Quaternion.Angle` 在 <0.162° 盲区恒返回 0 ⇒ 改回它本条红）");
         var q5 = AutoCardRotation.GetRotation(0.5f, 10f, Vector3.down);
         var q10 = AutoCardRotation.GetRotation(100f, 10f, Vector3.down);
-        Check(Mathf.Abs(Quaternion.Angle(q5, Quaternion.AngleAxis(5f, Vector3.down))) < 0.01f
+        Check(Mathf.Abs(CardFaceProbe.AngleDegTiny(q5, Quaternion.AngleAxis(5f, Vector3.down))) < 0.01f
               && Mathf.Abs(Quaternion.Angle(Quaternion.identity, q5) - 5f) < 0.01f,
               $"角度算式 = **位移 × 上限**：0.5 单位 ⇒ {Quaternion.Angle(Quaternion.identity, q5):F2}°（要 5°）");
         Check(Mathf.Abs(Quaternion.Angle(Quaternion.identity, q10) - 10f) < 0.01f,
               $"……而且夹在 **±10°**：位移 100 单位也只到 {Quaternion.Angle(Quaternion.identity, q10):F2}°");
-        Check(Mathf.Abs(Quaternion.Angle(AutoCardRotation.GetRotation(-100f, 10f, Vector3.down),
+        Check(Mathf.Abs(CardFaceProbe.AngleDegTiny(AutoCardRotation.GetRotation(-100f, 10f, Vector3.down),
                                         Quaternion.AngleAxis(-10f, Vector3.down))) < 0.01f,
               "……反方向同理（−100 单位 ⇒ −10°）");
 
@@ -559,8 +559,8 @@ public static class CardBaseDemo
               $"卡往**右**动 ⇒ 卡面转向 +X（前缘往里倒，实测法线 x = {(right * Vector3.back).x:F3}；换轴就变号）");
         Check((up * Vector3.up).z > 0.15f,
               $"卡往**上**动 ⇒ 顶边转向 +Z（往远离相机的方向倒，实测顶边 z = {(up * Vector3.up).z:F3}）");
-        Check(Quaternion.Angle(AutoCardRotation.TargetRotationFor(0f, 0f, 10f, 10f), Quaternion.identity) < 0.01f,
-              "位移为 0 ⇒ 目标是**回正**（所以停住会自己站直，不是停在歪的那一下）");
+        Check(CardFaceProbe.AngleDegTiny(AutoCardRotation.TargetRotationFor(0f, 0f, 10f, 10f), Quaternion.identity) < 0.01f,
+              "位移为 0 ⇒ 目标是**回正**（停住会自己站直，不是停在歪的那一下）；量角器 = `AngleDegTiny`（`Quaternion.Angle` 在 <0.162° 盲区读 0 ⇒ 会空转绿）");
 
         // ③ 结构：倾摆只动卡面那层；**卡根的扇形角不许被抹掉**
         var homePos = card.transform.localPosition;
@@ -3927,7 +3927,7 @@ public static class CardBaseDemo
             for (int k = 0; k < 36; k++)
             {
                 CardTween.Advance(1f / 60f);
-                maxRot = Mathf.Max(maxRot, Quaternion.Angle(Quaternion.identity, tr.localRotation));
+                maxRot = Mathf.Max(maxRot, CardFaceProbe.AngleDegTiny(Quaternion.identity, tr.localRotation));   // 🔴 不用 `Quaternion.Angle`：这里阈值 1e-3° ≪ 盲区 0.162° ⇒ 真值 0.1° 也读成 0、这条会空转绿（2026-10-29 B95_A2B17）
                 hi = Mathf.Max(hi, Vector3.Dot(tr.position - start, Vector3.right));
             }
             Check(hi > 0.05f,

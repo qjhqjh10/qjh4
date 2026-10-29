@@ -1,50 +1,50 @@
 // BattleBigChat.cs — 原版 `BattleManager.DisplayBigChat` 的两个重载（教程 / 战役里「督军大聊天」那一层）
 //
 // ═════════════════════════════════════════════════════════════════════════════
-//  判据链（第一权威 = 反编译；**这一支的「显示调用」在原版里被剥掉了**，如实记在下面 ③）
-// ═════════════════════════════════════════════════════════════════════════════
-//  ① **重载 A** `decomp_full/BattleManager__DisplayBigChat.c:13-26` +
-//     ILSpy `out_cpp2il_dev_ilspy/BattleManager.cs:21664`：
+//  判据链（第一权威 = 反编译 + **VA 反汇编**；🔴 2026-10-29 定案：本 build 两个重载【都是空桩】—— 不是「被剥」，是真的不显示）
+//  （2026-10-29 按 §18·0 从「自设计显示」翻成「照抄空桩」；旧结论保留在本文件末尾的 [旧 …] 段）
+//  ① **重载 A** `decomp_full/BattleManager__DisplayBigChat.c:13-26` + ILSpy `:21664`（VA `@0x1809604B0`）：
 //       `DisplayBigChat(string chatMsgText, CardScript talkingUnit)`
 //       · `if (string.IsNullOrEmpty(chatMsgText)) LogWarning("$Trying to send empty chat")`（`.c:24-26`）；
-//       · `else if (talkingUnit == null) { LogError("$DisplayChatBox without talkingUnit defined"); **return**; }`
-//         （`.c:18-22`，`.c` 里那句 `return` 是真的早退）；
-//       · 否则取 `talkingUnit.rawCardData.fullHeroSprite`（ILSpy `:21672`）—— **然后就没有下文了**。
-//  ② **重载 B（唯一实现）** `BattleManager__DisplayBigChat.c` 同一支 + ILSpy `:21683`：
-//       `DisplayBigChat(string chatMsgText, Sprite talkingUnitSprite)` —— 两道 guard **逐字同上**
-//       （文案空 ⇒ warning；sprite 空 ⇒ error），**显示调用同样读不到**。
-//  ③ 🔴 **「真正的显示调用」判据拿不到**（两棵树都只剩 guard）：
-//     · `decomp_full` 那一份的正文 = 两个 `CustomDebug__Log*` + 两次 `return`，**没有第三个调用**；
-//     · ILSpy 那一份在 `sprite = …fullHeroSprite` 之后就断了（方法体里那句被反编译器整条丢掉，
-//       与 `CLAUDE.md` 记的「ILSpy 丢内联/常量」是同一族）。
-//     ⇒ 版式与「用哪一颗框」**没有第一手判据**，只能靠**可查的三条侧面证据**定，逐条如下：
-//        (a) **场景树里没有第四颗聊天框**：13 个 `battlearena*` 场景的 2D 全树里，`Unit Chat` 下
-//            只有 `PlayerChatDisplay` / `EnemyChatDisplay` / `RadioChat` 三颗 `VoiceLineBox`
-//            （`资料/说明书/01_战斗_对战/2D层_battlearena1全树.md:255-306`；三颗 `sd` **逐字相同**
-//            = `648.774 × 236.505`）⇒ **「大」不是「框更大」**，是「谁在说」。
-//        (b) **`DisplayBigChat` 的第二参数是 `Sprite`**（不是 CardScript）⇒ 它**拿不到「哪一方」**
-//            ⇒ 显示目标必须是**与阵营无关的那一颗** ⇒ 三颗里只有 `RadioChat`（`VoiceLinesOnSceneType.Radio`
-//            = 2，`UnitsVoiceLinesPanel__GetChatBox.c`：`0→+0x20 / 1→+0x28 / 2→+0x30`）。
-//        (c) 同族调用 `DisplayWarlordChatMessage` 的那条 tip 走的就是 `ShowChatBox(panel, **2**, data)`
-//            （我们 `BattleDriver` 那一段已按它落地：`UnitChatPanel.Speak(2, …)`）。
-//     ⇒ **本文件按 `RadioChat` 那一颗实现**，并把「选这一颗」如实标成 `🔶 自己设计`（见 `Show` 的 doc）。
+//       · `else if (talkingUnit == null) { LogError("$DisplayChatBox without talkingUnit defined"); return; }`（`.c:18-22`）；
+//       · 否则 **tail-call `RawCardScript$$get_fullHeroSprite` 并把返回值丢弃**（VA：`jmp 0x18094c780` = 该属性 getter）。
+//  ② **重载 B** `decomp_full/BattleManager__DisplayBigChat.c` 同一支 + ILSpy `:21683`（VA `@0x180960580`）：
+//       `DisplayBigChat(string chatMsgText, Sprite talkingUnitSprite)` —— 两道 guard **逐字同上**；
+//       「文案非空 ∧ sprite 非空」⇒ **直接 `ret`**（VA：0x1809605F6 `je` → 收尾），**没有第三个调用**。
+//  ③ 🔴 **定案（2026-10-29 · 调度台按用户 §18·0 裁定）**：两个重载在本 build **都是空桩** ——
+//     · 旧说法「显示调用被反编译剥掉了」**不成立**：VA 反汇编里正常路径本来就没有调用（A 只有属性 getter、B 直接返回）；
+//     · ⇒ 正确复刻 = **被调用、但什么也不显示**（= 原版可观测行为：`*ChatBig` 在正常支**看不到气泡**）。
+//     · ⛔ 旧版那段「按三条侧面证据选 `RadioChat` 来显示」= 在**原版没有的功能上自造**，已按 §18·0 删除该行为；
+//       那三条侧面证据（场景只有 3 颗框 / Sprite 参数拿不到阵营 / 同族 tip 走 Radio）**只作历史留痕**，不再是实现依据。
 //  ④ **调用方**（`AiScripted__ExecuteAction.c` / ILSpy `AiScripted.cs:1933-1946` · `:2406` · `:2057`）：
-//       · `AiChatBig(65)` ⇒ 文案 = `action.GetLocalizedText()`，空则 `ChatManager.GetChatMessage(Intro, false)`；
-//         **说话人 = `manager.GetHero(playerHeroY: false)`**（= 敌方督军）⇒ 走重载 A；
-//       · 另一支（`PlayerChatBig(55)` 与「按卡取立绘」那条）先 `rawCard.fullHeroSpriteReference.Load()`
-//         拿到 Sprite ⇒ 走**重载 B**。
-//       ⇒ 两个入口都进重载 B（A 只是把 CardScript 换成它的 `fullHeroSprite` 再转发）—— 与本文件的形状一致。
-//  ⑤ **立绘 = `fullHeroSprite`，不是卡面插图**：`RuleEngine` 侧没有 `rawCardData`，我们的等价物
-//     = `CardArt.TryDeckHero(card.Id, out tex)` —— 那个函数**判据本身就是 `fullHeroSpriteReference`**
-//     （`Core/CardArt.cs` 那段 doc 逐条写着：56 张里 36 张 SO 原文 + 20 张 GUID→容器）。
-//     ⚠️ 取不到时 `TryDeckHero` **自己会 Warning**（⛔ 不静默），这里再退回 `CardArt.Portrait`（卡面插图，
-//     **这一档是兜底，不是原版做法**）。
-//  ⑥ **时长**：`VoiceLineData(chatMessage, sprite, audioClip, duration, cardType)`（`VoiceLineData.cs`）——
-//     大聊天没有音频 ⇒ `duration = GetCurrentClipLength(null)` = **2.0 s**（我们 `UnitChatPanel.Duration(null)`
-//     逐字同值：`if (clip == null) return 2.0f`）⇒ 委托给 `Speak` 就自动是 2.0，**不另抄一个常量**。
+//       · `AiChatBig(65)`：文案 = `GetLocalizedText()`，空则 `ChatManager.GetChatMessage(Intro, false)`；
+//         且 **actingUnitType == EnemyMinion(40)** 时**不**走 BigChat 而是走 `DisplayChatBox`（`.c:296-337`）；
+//         **说话人 = `manager.GetHero(playerHeroY: false)`**（= 敌方督军）⇒ 走重载 A（空桩）。
+//       · `PlayerChatBig(55)`：**actingUnitType == PlayerMinion(30)** 时走 `DisplayChatBox`（`.c:611-620`）；否则 ⇒ 重载 B（空桩）。
+//       ⇒ 「大聊天」在正常支**什么都不显示**；那句「A 只是把 CardScript 换成 fullHeroSprite 再转发 B」**也是错的**（VA 见 ①）。
+//  ⑤ **立绘（历史）**：`fullHeroSprite` ↔ 我们 `CardArt.TryDeckHero`；⚠️ **空桩之后这条链不再被调用**，
+//     保留 `FullHeroSprite` / `ApplyPortrait` 只为判据若翻转（原版改回可见）时能启用；⛔ 别在空桩路径里调它。
+//  ⑥ **时长（历史）**：`VoiceLineData` 的 `duration` = 2.0 s（`GetCurrentClipLength(null)`）—— **空桩之后不消费**；
+//     脚本本身的等待仍由 `waitBefore/waitAfter` 决定（见 `TutorialScript.PlayScriptedTurn` 的 `A899` 节）。
 //
-//  ⚠️ 与普通小气泡的关系：`DisplayChatBox`（单位说话）走 Player/Enemy 两颗（带卡面插图），
-//     `DisplayBigChat` 走 Radio 那一颗（带**督军整身立绘**）⇒ **两条路是两条，别合并**。
+//  ⚠️ 与普通小气泡的关系：`DisplayChatBox`（单位说话，走 Player/Enemy 两颗、带卡面插图）**照常显示**；
+//     `*ChatBig` 的「普通气泡」分支只在小兵目标那一支出现（④ 的两个 minion 条件）⇒ **两条路是两条，别合并**。
+//
+//  📌 本文件的公开面（`Display` 两个重载 / `Shown` / `LastText` / `LastError` / `ResetCounters`）**签名不变**：
+//     调用点（`BattleDriver.ApplyTutorialActionView`）无需改；⚠️ 但它那句「大框聊天已显示」的 `Ctx.Log` 文案需它的 owner 改（本代理无权）。
+//
+//  ── 以下为 2026-10-29 之前的旧判据链（保留原文以便对账，⛔ 不是现状）─────────────────────────
+//  [旧 ①] A 取 `talkingUnit.rawCardData.fullHeroSprite`（ILSpy `:21672`）—— **然后就没有下文了**。
+//  [旧 ②] B 两道 guard（文案空 ⇒ warning；sprite 空 ⇒ error），**显示调用同样读不到**。
+//  [旧 ③] 「显示调用判据拿不到（两棵树都只剩 guard）」—— 已由 VA 反汇编**证伪**（见现行 ③）。
+//  [旧 ③-a/b/c] 三条侧面证据：场景 `Unit Chat` 只有 3 颗框（`资料/说明书/01_战斗_对战/2D层_battlearena1全树.md:255-306`）·
+//      Sprite 参数拿不到阵营 · 同族 tip 走 `ShowChatBox(2, …)` ⇒ 当时据此选了 `RadioChat`（现作废）。
+//  [旧 ④] 「两个入口都进重载 B（A 把 CardScript 换成 fullHeroSprite 再转发）」—— VA 证伪（A 不转发，见现行 ①）。
+//  [旧 ⑤] 立绘 = `fullHeroSprite`；我们 `CardArt.TryDeckHero`（判据 = `fullHeroSpriteReference`，56 张里 36 张 SO 原文 + 20 张 GUID→容器）。
+//  [旧 ⑥] 时长 = `UnitChatPanel.Duration(null)` = 2.0 s（与 `GetCurrentClipLength(null)` 同值）。
+//
+//  🔴 结论：**照抄空桩** —— 调用照旧、**不显示**、**一次出声**说明「这不是缺陷是复刻」；⛔ 别改回可见。
+// ═════════════════════════════════════════════════════════════════════════════
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -52,15 +52,15 @@ namespace CardPresentation
 {
     /// <summary>
     /// 原版 `BattleManager.DisplayBigChat(string, CardScript)` / `(string, Sprite)` 两个重载。
-    /// <para>**只在 `UnitChatPanel` 已经有第三颗 `RadioChat` 时才有东西可显示**（原版那颗在场景里是
-    /// `(inactive)`，运行时才亮）。</para>
+    /// <para>🔴 2026-10-29 定案：两个重载在本 build **都是空桩**（VA `@0x1809604B0` / `@0x180960580`）⇒
+    /// 本类**被调用但不显示任何东西**（照抄原版）；⛔ 别把它改回可见。</para>
     /// </summary>
     public static class BattleBigChat
     {
         /// <summary>原版 `VoiceLinesOnSceneType.Radio` = **2**（`UnitsVoiceLinesPanel__GetChatBox.c` 的 `+0x30`）。
-        /// 为什么是这一颗（而不是 Player/Enemy）→ 文件头 ③(b)(c)。`🔶 自己设计（非原版）`：显示目标是我们
-        /// 从三条侧面证据定的 · 原版显示调用被剥（`BattleManager__DisplayBigChat.c` 全文只剩 guard）·
-        /// 调度台 2026-10-26 派活（`判据/B9_剩余C_派活包.md` §2·P-12）。</summary>
+        /// ⚠️ **2026-10-29 起只是历史常量**：空桩之后不再用它选框；保留它只为判据若翻转成「可见」时能直接复用（见文件头 ③）。
+        /// 旧的 `🔶 自己设计` 依据（三条侧面证据）**已作废**，原文留痕在文件头 [旧 ③-a/b/c]。
+        /// ⛔ 别在空桩路径里再调 `Speak(Radio)`。</summary>
         public const int Side = 2;
         /// <summary>`RadioChat` 那一颗立绘件的**对象名**（`UnitChatPanel.MakeBubble` 里 `"chat_card_" + name`）。</summary>
         public const string PortraitNodeName = "chat_card_RadioChat";
@@ -72,13 +72,13 @@ namespace CardPresentation
         /// 后缀，保证显示的就是传进来的那句（⛔ 别改成能命中的值，那会把原文换掉）。</summary>
         public const string DefaultEvt = "BigChat";
 
-        /// <summary>自检：成功显示了几句。</summary>
+        /// <summary>自检：**成功显示了几句** —— 空桩之后恒 **0**（这是判据，不是缺陷；`Shown++` 已删）。</summary>
         public static int Shown { get; private set; }
-        /// <summary>自检：最后一次显示的文案。</summary>
+        /// <summary>自检：最后一次**收到**的文案（空桩不显示，但入参会记下来，便于对账）。</summary>
         public static string LastText { get; private set; }
-        /// <summary>自检：最后一次**真的换上了**传入的立绘（`false` = 退回了卡面插图 / 节点没找到）。</summary>
+        /// <summary>自检：最后一回是否**真的换上了**立绘 —— 空桩之后恒 `false`（`ApplyPortrait` 已无调用点）。</summary>
         public static bool LastPortraitApplied { get; private set; }
-        /// <summary>自检：最后一次失败的原因（`"empty"` / `"noportrait"` / `"nopanel"` / `"speak"`（面板拒收）/ `null` = 没失败）。</summary>
+        /// <summary>自检：最后一次的 guard 档（`"empty"` / `"noportrait"` / `null` = 没挡）。</summary>
         public static string LastError { get; private set; }
 
         /// <summary>清计数（自检每段之前调）。</summary>
@@ -90,73 +90,73 @@ namespace CardPresentation
         static bool _warnedNoRadio;
 
         /// <summary>原版重载 A：`DisplayBigChat(string chatMsgText, CardScript talkingUnit)`。
-        /// 取 `talkingUnit.rawCardData.fullHeroSprite` 后**转发给重载 B**（= 原版唯一实现）。
-        /// <returns>true = 显示了（两道 guard 都没挡）。</returns></summary>
+        /// ⚠️ **VA 更正（2026-10-29）**：A **不转发** 重载 B —— 它的正常路径是 `tail-call RawCardScript$$get_fullHeroSprite` 后**丢弃返回值并返回**（`@0x1809604B0`）。
+        /// <returns>true = 已按原版处理完（⚠️ **不是**「显示了」：两个重载在本 build 都是空桩）。</returns></summary>
         public static bool Display(UnitChatPanel panel, string text, RuleEngine.CardDef talkingUnit,
                                    float seconds = 0f, string evt = DefaultEvt)
         {
-            Texture2D hero = FullHeroSprite(talkingUnit);
-            return Display(panel, text, hero,
-                           talkingUnit != null ? talkingUnit.Id : null, seconds, evt);
+            if (string.IsNullOrEmpty(text)) { LastError = "empty"; Debug.LogWarning("[BattleBigChat] " + EmptyChatWarning); return AcknowledgeStub(); }   // 原版两道 guard 之一（A 与 B 各自独立一份，= 原版形状）
+            if (talkingUnit == null) { LastError = "noportrait"; Debug.LogError("[BattleBigChat] " + NoUnitError); return AcknowledgeStub(); }        // 原版另一道 guard（A 是 `talkingUnit == null`，B 是 `sprite == null`）
+            return AcknowledgeStub();   // 原版：取 `rawCardData.fullHeroSprite` 后**丢弃**（VA：tail-call 到 getter 即返回）—— 我们不取、不显示、不转 B
         }
 
-        /// <summary>原版重载 B：`DisplayBigChat(string chatMsgText, Sprite talkingUnitSprite)` —— **唯一实现**。
-        /// <para>两道 guard 逐字照原版（⚠️ 空文案 ⇒ **warning 且不显示**；立绘 null ⇒ **error 且不显示**）。</para>
-        /// <para>显示 = `UnitChatPanel.Speak(Radio, …, clip: null, expectVoice: false)` ——
-        /// 即原版 `UnitsVoiceLinesPanel.ShowChatBox(type, VoiceLineData)`：气泡 + 打字机 + 2.0 s 寿命
-        /// 全走那一处（⛔ 本文件不另建一套框/几何，见 `CLAUDE.md`「两处写同一条规则」）。</para>
-        /// <para>🔶 自己设计（非原版）：立绘的**写入口**。`UnitChatPanel.Speak` 只收 `artKey`（→ 卡面插图），
-        /// 而大聊天要的是 `fullHeroSprite`（方形督军立绘）⇒ 显示之后按节点名取那一颗 quad 换纹理。
-        /// 为什么必须自己定：`UnitChatPanel` 的立绘口没有 texture 形参，而它在**别人的白名单**里，本轮不能改。
-        /// 判据 = 原版 `VoiceLineData.sprite` 那一格就是 `fullHeroSprite`（`AiScripted.cs:2046-2057`）。
-        /// 调度台 2026-10-26 派活。⛔ 节点名或比例取不到时**出声**并退回卡面插图，不静默。
-        /// 📌 将来 `UnitChatPanel.Speak` 若加了 texture 口，**删掉这条桥**。</para>
+        /// <summary>原版重载 B：`DisplayBigChat(string chatMsgText, Sprite talkingUnitSprite)`。
+        /// 🔴 **2026-10-29 定案（调度台裁定 · 用户 §18·0 口径「含原版 bug / 死支 / 空桩一律照抄」）**：两个重载在本 build **都是空桩** ——
+        /// VA `@0x180960580`：正常路径（文案非空 ∧ sprite 非空）**直接 return**，没有第三个调用；
+        /// 早退两支只调 `CustomDebug.LogWarning`（空文案）/ `CustomDebug.LogError`（sprite null）。
+        /// ⇒ 本方法照抄：**被调用、但什么也不显示**（⛔ 别改回可见：那会造出原版没有的大聊天）。
+        /// <para>两道 guard 与原版逐字同串（`$Trying to send empty chat` / `$DisplayChatBox without talkingUnit defined`）。</para>
+        /// <para>返回值 **true** = 「已按原版处理完」，**不是**「显示了」；`Shown` 不 ++。调用方**不许**在 true/false 上分支去补普通气泡
+        /// （原版 BigChat 之后是公共出口，不回落小气泡）。</para>
+        /// <para>⚠️ 原版 `*ChatBig` 的「普通气泡」只出现在 acting 是小兵那一支（`PlayerChatBig`+`PlayerMinion(30)` / `AiChatBig`+`EnemyMinion(40)`）⇒
+        /// 那个分档属调用方（BattleDriver），见方法体内注。今天教程数据 `*ChatBig` 0 条 ⇒ 零可观测差。</para>
+        /// <para>形参 `panel` / `artKey` / `seconds` / `evt` 不再消费；`ApplyPortrait`（旧立绘桥）因此当前无调用点，保留待判据翻转。</para>
         /// </summary>
         public static bool Display(UnitChatPanel panel, string text, Texture2D portrait,
                                    string artKey = null, float seconds = 0f, string evt = DefaultEvt)
         {
             LastText = text;
             LastPortraitApplied = false;
+
+            // 🔴 2026-10-29（调度台裁定 · §18·0「含原版 bug / 死支 / 空桩一律照抄」）：
+            //    原版 `BattleManager.DisplayBigChat` 两个重载在本 build **都是空桩**（VA 实证，不是「反编译丢体」）：
+            //      · 重载 A `@0x1809604B0`：两道 guard 之后 **tail-call `RawCardScript$$get_fullHeroSprite` 并把返回值丢弃**后返回；
+            //      · 重载 B `@0x180960580`：「文案非空 ∧ sprite 非空」时**直接 return**（正常路径**没有第三个调用**）。
+            //    ⇒ 本方法照抄：**被调用、但什么也不显示**。⛔ 别把它改回可见（那会造出原版没有的大聊天）。
+            //    VA 同时证明 **重载 A 并不转发重载 B**（A 的 tail-call 是属性 getter）⇒ 两者各自独立为空桩。
+            //
+            // ⚠️ 调用方（BattleDriver.ApplyTutorialActionView）注意：原版 `*ChatBig` 两支**不是无条件进这里** ——
+            //    `AiScripted__ExecuteAction.c:611-620`（PlayerChatBig 0x37）与 `:296-337`（AiChatBig 0x41）：
+            //      · `PlayerChatBig(55)`：actingUnitType **== PlayerMinion(30)** ⇒ 走 `DisplayChatBox`（**普通气泡**）；否则 ⇒ 本方法（空桩）。
+            //      · `AiChatBig(65)`：actingUnitType **== EnemyMinion(40)** ⇒ 走 `DisplayChatBox`；否则 ⇒ 本方法（空桩）。
+            //    ⇒ 「先试本方法、失败再回退小气泡」那个写法**与原版不同**：原版的「普通气泡」只在小兵目标那一支出现。
+            //    今天 6 关教程 `*ChatBig` **0 条**（`E5P12` 实测）⇒ 零可观测差；但接数据前请调用方把上面两行分档补上。
+            //
+            // ⚠️ 账更正（铁律 5）①：账 294/295 原写「重载 A 取 `fullHeroSprite` 后**转发给**重载 B」—— VA 证明**不转发**。
+            // ⚠️ 账更正 ②：账 294/295 原写「显示调用本体被剥（反编译丢体）」—— VA 证明**不是丢体、是真的空桩**（两条正常路径都没有第三个调用）。
+            // ⚠️ 账更正 ③：旧注释把「显示目标 = RadioChat」记成 `🔶 自己设计` —— 那是**在原版没有的功能上自造**；本次按 §18·0 删掉该行为（代码保留、不显示）。
+            //
             if (string.IsNullOrEmpty(text))
             {
                 LastError = "empty";
-                Debug.LogWarning("[BattleBigChat] " + EmptyChatWarning);
-                return false;
+                Debug.LogWarning("[BattleBigChat] " + EmptyChatWarning);   // 原版 `CustomDebug.LogWarning`（这一支唯一行为）
+                return AcknowledgeStub();   // ⚠️ 原版没有失败分支 ⇒ 调用方**不许**因它退回小气泡（回退 = 造原版没有的行为）
             }
             if (portrait == null)
             {
                 LastError = "noportrait";
-                Debug.LogError("[BattleBigChat] " + NoUnitError);
-                return false;
+                Debug.LogError("[BattleBigChat] " + NoUnitError);          // 原版 `CustomDebug.LogError`（这一支唯一行为）
+                return AcknowledgeStub();   // 同上：原版照样不显示、也不会改走普通气泡
             }
-            if (panel == null)
-            {
-                LastError = "nopanel";
-                Debug.LogError("[BattleBigChat] 没有 `UnitChatPanel` ⇒ 大聊天**没显示**（不静默）；"
-                             + "它由 `BattleDriver.BuildHud` 建，非战斗 HUD 环境下调到这里就是装配缺口。");
-                return false;
-            }
-            if (!panel.HasRadio && !_warnedNoRadio)
-            {
-                _warnedNoRadio = true;
-                Debug.LogWarning("[BattleBigChat] 这一颗面板**没有第三颗 `RadioChat`**（`HasRadio == false`）"
-                               + " ⇒ 大聊天会退回 `Speak` 的失败路径（原版那颗在场景里是 `(inactive)`，运行时才亮）。");
-            }
-
-            // 原版 `ShowChatBox(Radio, new VoiceLineData(text, sprite, audioClip: null, duration, cardType))`
-            bool ok = panel.Speak(Side, artKey, evt, artKey, null, text, null,
-                                  null, null, null, false, false);   // clip=null · expectVoice=false
-            if (!ok)
-            {
-                LastError = "speak";
-                Debug.LogWarning("[BattleBigChat] `UnitChatPanel.Speak(2, …)` 返回 false ⇒ 大聊天**没显示**（不静默）。");
-                return false;
-            }
-
-            ApplyPortrait(panel, portrait);
             LastError = null;
-            Shown++;
-            return true;
+            // 形参 `panel` / `artKey` / `seconds` / `evt` 现在**全不消费**（空桩没有显示口）—— 保留签名只为不改调用方与接口形状。
+            // `ApplyPortrait`（立绘桥）因此**当前无调用点**；保留它 + 它的 doc，等判据若翻转成「可见」再启用（⛔ 别删）。
+            // `Shown` 计数**不 ++**（保持 0）：那个计数只能代表「真的显示了」，空桩不许把它刷成 1。
+            // `EmptyChatWarning` / `NoUnitError` 两句串仍是原版原文（`$` 前缀保留），审计时可直接 grep。
+            // `Side`（RadioChat=2）与 `PortraitNodeName` 现在无消费者（保留常量，见 `ApplyPortrait` 的 doc）。
+            // 语音不在这里放：原版 BigChat 的 VoiceLineData 是 `audioClip: null`；脚本自带的 `sound` 由 ExecuteAction 末尾 `PlaySoundAsset` 放。
+            // 📌 保留 `BattleBigChat` 这个类型与两个 `Display` 签名：调用点不改；将来判据若翻转只需把这里改回可见。
+            return AcknowledgeStub();   // 返回值 = 「已按原版处理完」，**不是**「显示了」
         }
 
         /// <summary>原版 `talkingUnit.rawCardData.fullHeroSprite` 的等价物。
@@ -204,5 +204,27 @@ namespace CardPresentation
             if (aspect > 0f) piece.SetAspect(aspect);             // 换图会把贴图比例带进来，拽回原版矩形
             LastPortraitApplied = true;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-29（调度台裁定）· 空桩的唯一出声口
+        // ==================================================================
+        //  两个 `Display` 都走这里：**一次** `Debug.Log` 说明「原版此功能是空桩、我们照抄」，
+        //  然后返回 **true**（= 已按原版处理完；**不是**「显示了」）。`Shown` 一律不 ++。
+
+        /// <summary>空桩的一次性出声 + 统一返回值（唯一一处，理由见 `Display(Texture2D)` 的 doc）。
+        /// <para>⚠️ 返回 **true** 的语义 = 「已按原版处理完」；调用方**不许**据此再补一句「已显示」的日志，也不许在 false 上回退普通气泡
+        /// （原版 BigChat 之后就是公共出口）。</para></summary>
+        static bool AcknowledgeStub()
+        {
+            if (!_warnedStub)
+            {
+                _warnedStub = true;
+                Debug.Log("[BattleBigChat] 原版 `BattleManager.DisplayBigChat`（A `@0x1809604B0` / B `@0x180960580`）"
+                        + "在本 build **是空桩**（A 取完 `rawCardData.fullHeroSprite` 丢弃；B 两道 guard 之后直接 return）"
+                        + " ⇒ 我们照抄：**不显示**。这不是缺陷、是复刻（用户 §18·0 口径 · 调度台 2026-10-29 裁定）；⛔ 别把它改回可见。");
+            }
+            return true;
+        }
+        static bool _warnedStub;
     }
 }

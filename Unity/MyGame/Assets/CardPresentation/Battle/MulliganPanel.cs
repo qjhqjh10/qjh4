@@ -966,6 +966,7 @@ namespace CardPresentation
         {
             _marked.Clear();
             BuildCardButtons(hand);
+            WriteMulliganCardStates();          // 🆕 账 907：进换牌区那一刻统一置 13（= 原版 `SetStateAsMulligan(false)`）
             SetVisible(true);
         }
 
@@ -1295,6 +1296,7 @@ namespace CardPresentation
             _selBgs.Clear();
             _selTexts.Clear();
             _fxCardBtns.Clear();
+            _cardStates.Clear();     // 🆕 账 907：这一批的 13/14 随卡一起作废（`CardStateOf` 之后回 `inHand`）
 
             // 🔴 **2026-10-13**：把起手牌**放回搬进来之前**的位姿（`Open` 存、这里还）。
             //   ⛔ **别依赖换牌结束后的 `RefreshAll()` 替我们复位** —— 它重摆的是 `_dealt`
@@ -1438,6 +1440,7 @@ namespace CardPresentation
         {
             if (i < 0 || i >= _cards.Count) return;
             if (_marked.Contains(i)) _marked.Remove(i); else _marked.Add(i);
+            WriteMulliganCardState(i);          // 🆕 账 907：`cardState = 13 + toBeDiscarded`（原版 `SetStateAsMulligan`）
             // 🆕 2026-10-15（`T06` · 战斗音响）：**换牌选中/取消**那一拍（原版 `Toggle` cue）。
             //   判据 = `BattleCardUI__SetAsMulliganSelected.c:99` —— 它在那条
             //   `SoundAssetCollection__get_Toggle` → `SoundManager__Play2D(...,0)` 上，
@@ -1453,6 +1456,60 @@ namespace CardPresentation
         }
 
         public bool IsMarked(int i) { return _marked.Contains(i); }
+
+        // ==================================================================
+        //  🆕 2026-10-29（战斗线 C21 · 执行代理 `B96_CB` · 账 907）：
+        //     原版 `CardScript.SetStateAsMulligan(bool toBeDiscarded)` 的 **cardState 那两句**
+        // ==================================================================
+        //  判据（`decomp_full/CardScript__SetStateAsMulligan.c` 全文三句）：
+        //    ① `isPlayer(+0x40)` ⇒ 把这张卡挂到换牌区父节点（**我们早就在做** —— `BuildCardButtons`
+        //       把起手牌整批搬进换牌区那一行，见它的 doc）；
+        //    ② `cardState(+0x228) = 13 + toBeDiscarded`（13 选中 / 14 弃掉）；
+        //    ③ `CardCollider2D.SetColliderNotInHand(13/14)`（我们这边 = 卡本身的 collider 一直是开的，见
+        //       `BattleDriver.OnMulliganCardSeen` 的 doc）。
+        //  🔴 **为什么这一格写在面板里**：原版写它的是 `MulliganManager` → `CardScript`（换牌期那张卡
+        //     的对象图）；我们换牌期的手牌**没有 `UnitState`**（那是棋盘单位的），而「这张牌在不在换牌区 /
+        //     标没标记」的**唯一事实来源**就是本面板的 `_cards` + `_marked`。
+        //     ⇒ 本类负责**写**（下面两张表），读口 = `CardStateOf(...)`；
+        //     **数值判据只此一处** = `RuleEngine.MulliganCardState.Of`（⛔ 别在这里再写 `13/14`）。
+        //  ⚠️ `_cardStates` 与 `_cards` **一一对齐**（同 `_cardBtns` / `_texts` / `_selBgs` 的口径）。
+        readonly List<int> _cardStates = new List<int>();
+
+        /// <summary>把**全部**换牌区里的牌重写一遍 cardState（`Open` 用：刚进来一律 13 = 「留着」）。</summary>
+        void WriteMulliganCardStates()
+        {
+            _cardStates.Clear();
+            for (int i = 0; i < _cards.Count; i++) WriteMulliganCardState(i);
+        }
+
+        /// <summary>写**一张**的 cardState（`ToggleMark` 用）。越界 ⇒ 只出声、不抛。</summary>
+        void WriteMulliganCardState(int i)
+        {
+            if (i < 0 || i >= _cards.Count) return;
+            int v = (int)RuleEngine.MulliganCardState.Of(_marked.Contains(i));   // 原版 `13 + toBeDiscarded`
+            while (_cardStates.Count <= i) _cardStates.Add((int)RuleEngine.CardStateOptions.inHand);
+            _cardStates[i] = v;
+        }
+
+        /// <summary>这张牌**此刻**的原版 `cardState`（`CardStateId` 的数值）—— 在换牌区里 ⇒ 13/14；不在 ⇒ `inHand(1)`。
+        /// <para>读口给驱动层喂 `CardHighlight.TouchInput.CardState`（判据见上面那段）。</para></summary>
+        public int CardStateOf(CardView c)
+        {
+            if (c == null) return (int)RuleEngine.CardStateOptions.inHand;
+            int i = _cards.IndexOf(c);
+            return i >= 0 ? CardStateOf(i) : (int)RuleEngine.CardStateOptions.inHand;
+        }
+
+        /// <summary>第 <paramref name="i"/> 张的 `cardState`（下标口径同 `_cards`）。</summary>
+        public int CardStateOf(int i)
+        {
+            if (i < 0 || i >= _cards.Count) return (int)RuleEngine.CardStateOptions.inHand;
+            return i < _cardStates.Count ? _cardStates[i]
+                                         : (int)RuleEngine.CardStateOptions.inHand;
+        }
+
+        /// <summary>自检用：写过几次 cardState（含 `Open` 那一趟）—— 用来断「写点真的跑了」。</summary>
+        public int MulliganCardStateWrites { get { return _cardStates.Count; } }
 
         /// <summary>标记的样子：卡**置灰**（`Unplayable` 那一档）+ 按钮换成按下态那张图
         /// + 钮上的字换档（标记 ⇒ `Battle/Mulligan/Undo`）。**判据只此一处**（`CardBtnWord`）。</summary>

@@ -191,11 +191,11 @@ namespace RuleEngine
             return skirmish ? GameplayVariables.Skirmish.maxLegendaries : int.MaxValue;
         }
 
-        /// <summary>这副卡组要几张阵营卡。零值住在 <see cref="GameplayVariables"/>。</summary>
-        public static int CardCount(bool skirmish)
-        {
-            return GameplayVariables.For(skirmish ? GameMode.Skirmish : GameMode.Classic).deckSize;
-        }
+        /// <summary>这副卡组要几张卡。零值住在 <see cref="GameplayVariables"/>。
+        /// <para>🆕 2026-10-29（`B96_W2` · 账 `轮抽:33`）加**模式档**重载 `CardCount(GameMode)`：原版的张数闸取自
+        /// `CardDeck.gameMode`(+0x70) 指向的事件参数 `+0x24`（`DeckUtility__ValidateDeck.c:47-56`：**只有没设模式才落 30**）⇒ `ClosedDeck(7)` = 12。</para></summary>
+        public static int CardCount(bool skirmish) { return GameplayVariables.For(skirmish ? GameMode.Skirmish : GameMode.Classic).deckSize; }
+        public static int CardCount(GameMode mode) { return GameplayVariables.For(mode).deckSize; }
 
         public static bool IsLegendary(string rarity)
         {
@@ -445,8 +445,8 @@ namespace RuleEngine
             }
             return removed;
         }
-
-        public static DeckError Validate(PlayerDeck deck, Func<string, CardDef> lookup, bool skirmish = false)
+        // 🆕 2026-10-29（`B96_W2` · 账 `轮抽:33`）：`mode` 给了就以它为准（张数 = `CardCount(mode)`，`ClosedDeck` ⇒ 12；`skirmish` 那档被忽略），不给则照旧按 `skirmish` 两档 —— **既有调用点行为一字不变**。判据 = `DeckUtility__ValidateDeck.c:47-56`（原版张数取自 `CardDeck.<0x70>` 指向的事件参数 `+0x24`、没设模式才落 30）。
+        public static DeckError Validate(PlayerDeck deck, Func<string, CardDef> lookup, bool skirmish = false, GameMode? mode = null)
 
         {
             if (deck == null) return DeckError.NoWarlord;
@@ -480,7 +480,7 @@ namespace RuleEngine
             if (defensive != null && defensive.Type != "defence") return DeckError.DefensiveNotDefence;
 
             // ④ 张数
-            int want = CardCount(skirmish);
+            int want = mode.HasValue ? CardCount(mode.Value) : CardCount(skirmish);
             if (cards.Count > want) return DeckError.TooManyCards;
             if (cards.Count < want) return DeckError.TooFewCards;
 

@@ -290,6 +290,36 @@ namespace CardPresentation
         public bool success;
         public string error;
         public int newRating;
+        /// <summary>🔶 自己设计（非原版）：原版 `OnlineMatchResult.EndMatchData`（`EndMatchResult`，服务器结算返回体）。
+        /// 本机无服务器（P3）⇒ 只搬 `FastModeBaseEvent.OnMatchProcessSuccess` 读到的那三格
+        /// （`NewRating(+0x14)` · `armyStats(+0x40)` · boost 表 `(+0x50)`）。填值属「服务器相关」⇒ 按 §18·0 打 🔶。
+        /// 账 272 · B96_WB 2026-10-29。</summary>
+        public EndMatchData EndMatchData;
+    }
+
+    /// <summary>🔶 自己设计（非原版）：原版 `EndMatchResult` 的子集（只搬 `OnMatchProcessSuccess` 读的三格）。
+    /// 判据 = `FastModeBaseEvent_object__object___OnMatchProcessSuccess__1a110c0.c` ·
+    /// `cpp2il/out_cpp2il_dev_ilspy/FastModeBaseEvent.cs:1553`（ILSpy 逐名）：`NewRating` ·
+    /// `ArmyStats`（`SaveGame.armyStats = …` 直赋）· `RatingBoostState`（`RankedScoreBoostSave[]`，逐个更新 `RankedScoreBoost`）。
+    /// ⚠️ `ArmyStats` 用本工程 `List&lt;ArmyStatsEntry&gt;`（与 `PlayEventSaveGame.armyStats` 同型、才能直赋；原版是 `Dictionary&lt;CardArmy,ArmyStatsV3&gt;`）。
+    /// 账 272 · B96_WB 2026-10-29。</summary>
+    public class EndMatchData
+    {
+        public int NewRating;                            // +0x14
+        public List<ArmyStatsEntry> ArmyStats;           // +0x40
+        public RankedScoreBoostSave[] RatingBoostState;  // +0x50
+    }
+
+    /// <summary>🔶 自己设计（非原版）：原版 `RankedScoreBoostSave` 的子集（本机无该类 · 只在注释里出现过）。
+    /// 字段序照 `RankedScoreBoostData`（`preventScoreLoss/scoreBoostAmount/matchesCount`，判据见
+    /// `FastModeBaseEvent.cs:107`）。只作为 `EndMatchData.RatingBoostState` 的元素类型 + 按 `id` 命中用。
+    /// 账 272 · B96_WB 2026-10-29。</summary>
+    public class RankedScoreBoostSave
+    {
+        public string id;
+        public bool preventScoreLoss;
+        public int scoreBoostAmount;
+        public int matchesCount;
     }
 
     /// <summary>原版 `MatchData`（对局数据）**只搬 `MakeOpponentInfo` 读的那几格**。
@@ -551,9 +581,15 @@ namespace CardPresentation
             Debug.Log("[PlayEvent] MatchFoundCallback, otherPlayerName " + (otherPlayerName ?? "<null>") + ", OpponentId " + (PlayEventMatchContext.Current != null ? PlayEventMatchContext.Current.opponentId : "<null>"));
         }
 
-        /// <summary>原版 `MakeOpponentInfo(MatchData)`（判据 = `decomp_b91/PlayEvent_object__object_.MakeOpponentInfo__11273c0.c`，逐格）：
+        /// <summary>原版 `MakeOpponentInfo(MatchData)`（判据 = `decomp_generic_trial/out_b94/PlayEvent_object__object_.MakeOpponentInfo__11273c0.c`，逐格）：
         /// `OpponentId(+0x10)` / `OpponentName(+0x18 = enemyRawBattleData.deckName)` / `PlayerHeroId(+0x20)` / `OpponentHeroId(+0x28)` / `Result(+0x40)=0` /
-        /// `RankedGame(+0x58)` / `Season(+0x44)`（原版那格是 `int?`）。⚠️ 后两格原版的函数名未解（VA `0x18042E360` → `0x1800021F0`，key=4 / key=1）⇒ 见下面那行的 🔶。</summary>
+        /// `RankedGame(+0x58)` / `Season(+0x44)`（原版那格是 `int?`）。
+        /// 🔴 **2026-10-29（账 561 · 两把钥匙定名）**：后两格原版的两个 getter 已解出，**不是"未解"** ——
+        /// `.c:38-46` 先把 `this` 转成接口 `DAT_1842ad4f0`（= **`IRankedEvent`**，`(this as IRankedEvent)`），再两次接口分派
+        /// `FUN_1800021f0(idx, IRankedEvent, obj)`：
+        /// · `idx = 4` → `RankedGame`：`klass` 槽 `4` = **`IRankedEvent.get_IsRanked()`（bool）** ⇒ `? 1 : 0`（`dump.cs:130546-130547`）
+        /// · `idx = 1` → `Season`：`klass` 槽 `1` = **`IRankedEvent.get_SeasonNumber()`（int）** ⇒ 包成 `int?`（`dump.cs:130537-130538`）
+        /// （钥匙口径 = `资料/全量反编译_入口与用法.md` §「VA 反汇编的两把通用钥匙」：`FUN_1800021F0(idx,…)` 的 `idx` = `dump.cs` 的 `Slot:`）</summary>
         protected virtual LastOpponentInfo MakeOpponentInfo(MatchData matchData)
         {
             var info = new LastOpponentInfo();
@@ -564,7 +600,12 @@ namespace CardPresentation
             info.OpponentAlliance = matchData.opponentAlliance;
             info.PlayerHeroId = matchData.playerHeroId;
             info.PlayerAlliance = matchData.playerAlliance;
-            info.RankedGame = RankedData.IsRanked ? 1 : 0; info.Season = RankedData.SeasonNumber;   // 🔶 自己设计（非原版）：原版这两格来自 ranked 对象的两跳（函数名未解：VA 0x18042E360→0x1800021F0，key=4 命中?1:0 / key=1 的 int）⇒ 本地近似 = RankedData.IsRanked / SeasonNumber · A3 2026-10-28
+            // 两跳 = `IRankedEvent.get_IsRanked()`（Slot 4，bool → ?1:0）与 `IRankedEvent.get_SeasonNumber()`（Slot 1，int）
+            // —— 见上方 summary 的「两把钥匙定名」。等价物：`RankedData` 就是我们的排位活动状态（`IsRanked` / `SeasonNumber`
+            // 与那两个 getter 同义）。⚠️ 残差（如实记）：原版有 `this is IRankedEvent` 那道闸（非排位 PlayEvent ⇒ RankedGame=0、
+            // Season=null）；本机没有 `IRankedEvent` 接口（见 `GetEventDeck` 第 ③ 支那条注释）⇒ 无法表达那道闸，
+            // 非排位事件若走到这里会读到全局 `RankedData`。排位活动的两格与 getter 逐义一致。
+            info.RankedGame = RankedData.IsRanked ? 1 : 0; info.Season = RankedData.SeasonNumber;   // 账 561（B96_WB 2026-10-29）：getter 已定名并撤 🔶（见上两段注释）
             return info;
         }
 
@@ -953,6 +994,24 @@ namespace CardPresentation
         {
             if (Handler != null) return null;          // ② 已扫完没命中 ⇒ 原版就在这里返回 null，**不进 ③**
             return PlayEventRankedDeck.TryGet();       // ③ = `GameModes.GetActiveEvent<IRankedEvent>().GetEventDeck()`
+        }
+    }
+
+    /// <summary>禁卡表的**写入口**（🆕 2026-10-29 · B96_MENU · 账 菜单/外壳:58 ①）。
+    /// <para>原版由 `BannedCardsSO`（资产引用）+ `OnAfterRead` 填；我们**没有那个 SO**，所以给活动装载侧一个
+    /// 显式写入口：灌 id 表 → 立刻重建缓存（等价于「读到一个带 `bannedCards` 的事件后跑 `OnAfterRead`」）。</para>
+    /// <para>🔴 **数据来源仍是服务器/活动侧（P3 远端）**，本 build 判据空（`Shell/DeckSelectionPopup.cs:937-942`）⇒
+    /// 生产路目前没人调用它；一旦活动线拿到禁卡表就调它。⛔ 别在里面编造 id 表 —— 只接受调用方给的。</para>
+    /// <para>⚠️ 建成**扩展类追加在本文件末尾**（不是 `PlayEventData` 类体里）：该文件被账按 `文件:行号` 引用了几十个
+    /// 落点（420..976 现读有效），往类体中间插成员会让它们整体漂移（铁律 18·b 零行变异）。</para></summary>
+    public static class PlayEventDataExtensions
+    {
+        /// <summary>= 「读到一个带 `bannedCards` 的事件后跑 `OnAfterRead`」：设 id 表并重建缓存（null ⇒ 清表）。</summary>
+        public static void SetBannedCards(this PlayEventData evt, IEnumerable<string> cardIds)
+        {
+            if (evt == null) return;
+            evt.bannedCardIds = cardIds == null ? null : new System.Collections.Generic.List<string>(cardIds);
+            evt.OnAfterRead();
         }
     }
 }

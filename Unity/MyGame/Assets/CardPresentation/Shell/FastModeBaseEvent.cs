@@ -334,6 +334,19 @@ namespace CardPresentation
             SaveGame.matchStarted = false;
             SaveGame.lastOpponentInfo = null;
             if (result != null) { SaveGame.currentRating = result.newRating; if (!string.IsNullOrEmpty(Data.LeaderboardKey)) LeaderboardData.LocalScore(Data.LeaderboardKey, result.newRating, LeaderboardScoringMode.SetValue); }   // 原版：`LeaderboardManager.LocalScore(Data.LeaderboardKey, EndMatchData.NewRating, (LeaderboardScoringMode?)2)`；`SetValue == 2` 已核（`Shell/LeaderboardData.cs:51`）
+            // 原版 `.c:66-78` / ILSpy `FastModeBaseEvent.cs:1606-1614`：
+            //   `if (result.EndMatchData.ArmyStats.Count > 0) SaveGame.armyStats = result.EndMatchData.ArmyStats;`（直赋）
+            // 账 272 · B96_WB 2026-10-29：`EndMatchData` DTO 已由 `Shell/PlayEvent.cs` 补齐（`ArmyStats` + `RatingBoostState`）。
+            if (result != null && result.EndMatchData != null)
+            {
+                var emd = result.EndMatchData;
+                if (emd.ArmyStats != null && emd.ArmyStats.Count > 0) SaveGame.armyStats = emd.ArmyStats;
+                // ⚠️ boosts 支（`.c:79-160` / ILSpy `:1615-1700`）**未搬、如实记**：原版是
+                //   `foreach (b in RankedScoreBoostHandler.GetBoostsFor(this)) b.<slot47>(RatingBoostState.FirstOrDefault(按 id 命中))`，
+                //   消费方法 `b.<slot47>`（`RankedScoreBoostEvent` 的 Save 计数器更新）与按 id 命中都要 **B11 排位加成线的真身**
+                //   （`RankedScoreBoostEvent/Data/Save` 完整类 + 赛季存档）—— 本文件的 `RankedScoreBoostEvent`（`:109`）是**最小替身**、
+                //   无 `id`、无消费口 ⇒ ⛔ 不猜 slot47 语义（铁律 2）；数据输入已就位（`emd.RatingBoostState`），接线归 B11。
+            }
             SaveEventProgress(null, null);
             Debug.Log("[FastMode] OnMatchProcessSuccess：'" + GetID() + "' 局内态已清、存档已落"
                     + "（原版这一跳是『服务器确认后』才走的；本地没有服务器 ⇒ 由 RecordMatchFinished 直接调进来）");

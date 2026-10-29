@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c);   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c));   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -4599,6 +4599,206 @@ namespace RuleEngine
             if (rows == null) return;                      // 缺列 = 未知 ⇒ 表里没有这个 id
             if (_abilityBuffsById.ContainsKey(def.Id)) _abilityBuffsById[def.Id] = rows;
             else _abilityBuffsById.Add(def.Id, rows);
+        }
+    }
+
+    // ==================================================================================================
+    //  🆕 v41 候选（2026-10-29 · 执行代理 `B95_WCD`）：卡表 `abilityMutations` 列
+    //     = 原版 `CardEffect.mutationType`（`+0x80`）的**逐 `(cardAbility, abilityLogic)` 行**落表。
+    //
+    //  判据（第一权威 = `d:/2/tools/decomp_full/`，2026-10-29 逐句亲读）：
+    //    `RawCardScript__IsCumulativeMutation.c:17-47` —— 扫 `cardAbilities(+0x290)` →
+    //    每个 `CardAbility.abilityLogic(+0x50)` → 该行的 `buffEffect(+0x50)` → `mutationType(+0x80) == 0x14(20)`
+    //    ⇒ **任一命中即真**。⚠️ `buffEffect` 是**单个对象**（不是列表）⇒ 键 = `(ab, lg)`，一行一格。
+    //    唯一读点 = `CardScript__HasSingleUseMutation`（`IsCumulativeMutation` 真 ⇒ 直接返 0）
+    //    ← `AbilityLogic.GetTargets` 在 `criteria.traitsFilter == 780 (mutation)` 时用它做去重。
+    //
+    //  🔴 **为什么【不能】复用 v40 的 `abilityBuffs` 列**：那一列**只落 `buffType != 0` 的行**
+    //     （判据 `AddEffect.c:964-966`：`buffType == 0` 什么都不做）⇒ 一张「`buffType == 0` 但
+    //     `mutationType == 20`」的卡会被整行漏掉，而原版谓词**根本不看 `buffType`**。
+    //     ⇒ 两列用途不同，⛔ 别拿一列顶另一列（顶了就是「静默少数行」）。
+    //
+    //  ⚠️ **生成器那一半还没做**（`工具/gen_cards_engine.py` 需出 v41 的 `abilityMutations`；
+    //     行形状 = `[{ab, lg, mut}]`，`mut` 照原值落 `0/10/20`，**不稀疏**）⇒ 今天卡表里没有这个键
+    //     ⇒ `MapAbilityMutations` 返 `null` = **整列未知** ⇒ `CardDef.IsCumulativeMutation()` 恒 `false`
+    //     = 加这一列之前**逐字相同**的行为（零行为变化、不改 `PinnedPoolMd5`）。
+    //     ⛔ 别为了让谓词「有值」拿 `abilityBuffs` 拼一份（上面那行理由）。
+    //
+    //  ⚠️ 挂载那一句挤在 `:1749` 原有那一行里（同 v37 / v40 的理由：加行会把下游 A 行账落点推走）。
+    //  ⚠️ 本块追加在【文件最末】：账按【行号】引用本文件，中段插成员会让它们整体漂移。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        /// <summary>🆕 v41：`abilityMutations` 的一行（= 原版 `CardEffect.mutationType`）。
+        /// <para>🔴 字段名与 JSON 键名逐字一致（`JsonUtility` 直读）。
+        /// `ab` / `lg` 的哨兵同 <see cref="AbilityBuffRowDto"/>：`ab = -1` = `activeAbility` ·
+        /// `-2` = `alternativeAbility`；`lg` = 该能力对象里 `abilityLogic` / `activeAbilityLogic` 的下标。</para>
+        /// <para>🔴 `mut` 三态：`0 none` / `10 Normal` / `20 Cumulative` 是**真值**，`-1` = 坏值/缺键
+        /// （⛔ 别把缺键当 `0` —— 原版只认 `== 20`，`0` 与 `10` 都返 false，但「未知」要能被上层查到）。</para></summary>
+        [Serializable]
+        public class AbilityMutationRowDto
+        {
+            public int ab = -1;
+            public int lg = -1;
+            public int mut = -1;
+        }
+
+        public partial class CardDto
+        {
+            /// <summary>🆕 v41：逐 `abilityLogic` 行的 `buffEffect.mutationType`（形状同 `abilityBuffs`，
+            /// 但**不带 `at`** —— 原版 `IsCumulativeMutation` 只扫 `buffEffect`，不扫 `handBuff`，
+            /// 判据 `.c:26-45` 的三层 `+0x50`）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v41）；`[]` = 明确没有行。⛔ 不要 `?? new[0]`。</para></summary>
+            public AbilityMutationRowDto[] abilityMutations;
+        }
+
+        /// <summary>🆕 v41：`abilityMutations` 列 → <see cref="CardDef.AbilityMutationSpec"/>。
+        /// <para>⚠️ 行级坏值口径与 `MapAbilityBuffs` 同族：缺 `ab`/`lg` ⇒ 出声 + 丢弃该行；
+        /// 同一 `(ab, lg)` 撞键 ⇒ 出声 + 丢后一条（原版 `.c` 是一行一对象，撞键 = 表坏了）；
+        /// `mut &lt; 0` ⇒ 出声 + 该行带 `-1`（**保留**，因为 `MutationTypeAt` 的三态要看得见它）。</para></summary>
+        static CardDef.AbilityMutationSpec[] MapAbilityMutations(CardDto c)
+        {
+            if (c == null || c.abilityMutations == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.AbilityMutationSpec>(c.abilityMutations.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilityMutations)
+            {
+                if (r == null) continue;
+                if (r.ab < -2 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityMutations` 有一行下标不合法"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                long k = ((long)(r.ab + 2) << 40) ^ (long)r.lg;
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityMutations` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（原版 `buffEffect` 是单对象，撞键 = 表坏了）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (r.mut < 0)
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityMutations` 有一行缺 `mut`"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— 该格记 `-1`（未知），⛔ 别当 `0 none`。");
+                list.Add(new CardDef.AbilityMutationSpec { Ab = r.ab, Lg = r.lg, MutationType = r.mut });
+            }
+            return list.ToArray();
+        }
+
+        // ==============================================================================================
+        //  🆕 账 `战斗逻辑驱动:1300`（`SupportMethods.GetCardListFromIds`）的**原形状**实现
+        //     （2026-10-29 · 执行代理 `B95_WCD`）
+        //
+        //  判据（第一权威 = `decomp_full/SupportMethods__GetCardListFromIds.c:1-47`，逐句亲读）：
+        //    ① `for i in 0..ids.Count`；
+        //    ② `cardCollection.Find(x => x.uniqueId == id)`；
+        //    ③ **`list.Add(找到的那个)` —— 找不到也 Add(null)** ⇒ 结果表与输入**等长、下标对齐、带 null 洞**。
+        //
+        //  🔴 **为什么要有它**（与既有 <see cref="DeckLookup"/> 不是一件事）：
+        //    `DeckLookup` 是「单值解析 + 调用方自己跳过 null」（我们的本地装配口）；
+        //    原版这条是「**保洞**」—— 因为调用方按**下标**继续用（`DeckAndWarlordData__SetupSerializedData.c:325`，
+        //    入参 = 在线对手的 `SerializedPlayerDeckData.cardLibrary`）。**丢掉 null 会让后面的下标整体错位**。
+        //    ⇒ 接 P3 / 联机对手卡组时**必须**走这个口（账 `:1300` 的备注已写死这条）。
+        //
+        //  ⚠️ **今天 0 调用者**（唯一调用点在 P3 序列化卡组那条链上）⇒ 零行为变化。
+        //  ⚠️ 匹配键 = 我们的 `CardDef.Id`（= 原版 `RawCardScript.uniqueId`）；**不回落卡名**
+        //     （原版 `Find` 只比 uniqueId —— 回落卡名会在这条「保洞」语义上造出原版没有的命中）。
+        // ==============================================================================================
+        /// <summary>≡ 原版 `SupportMethods.GetCardListFromIds(string[] enemyDeckIDs, List&lt;RawCardScript&gt; cardCollection)`。
+        /// <para>逐个 id 在 <paramref name="pool"/> 里按 <see cref="CardDef.Id"/> 找；**找不到填 <c>null</c>**
+        /// ⇒ 返回数组长度恒等于 <paramref name="ids"/> 的长度（原版 `list.Add(Find(...))`，判据 `.c:38-40`）。</para>
+        /// <para>`ids == null` ⇒ 返回空数组（原版会在 `ids.Count` 上 NRE；我们出声 + 空表，同
+        /// <see cref="HasHidden"/> 那套「原版抛、我们出声」的口径）。</para>
+        /// <para>⚠️ 查不到的条目**不逐条刷错误日志** —— 原版这里是**静默填 null**（洞是它的正常形状）；
+        /// 要不要把洞当错由调用方判（⛔ 别在这里替它决定）。</para></summary>
+        public static CardDef[] CardListFromIds(string[] ids, IEnumerable<CardDef> pool)
+        {
+            if (ids == null)
+            {
+                Debug.LogError("[RuleEngine] CardListFromIds 收到 null ids —— 原版会 NRE；返回空表。");
+                return new CardDef[0];
+            }
+            var byId = IdIndex(pool ?? new CardDef[0]);
+            var outList = new CardDef[ids.Length];
+            for (int i = 0; i < ids.Length; i++)
+            {
+                CardDef c;
+                outList[i] = !string.IsNullOrEmpty(ids[i]) && byId.TryGetValue(ids[i], out c) ? c : null;
+            }
+            return outList;
+        }
+    }
+
+    // ==================================================================================================
+    //  🆕 v42（2026-10-29 · 执行代理 `B96_GEN` · 账 `战斗逻辑驱动:1288`）：卡表 `triggerAbilityIndices` 列
+    //     = 原版 `RawCardScript.GetAbilitiesForTriggerRawcard(trigger)` 的**数据半**
+    //       （上游 U1「`trigger → ability 下标` 表」，判据 `资料/完全复刻/判据/B92_战斗判据_B6.md` §3·2 / §3·11）。
+    //
+    //  🔴 **为什么必须新开一列、⛔ 不能拿 v-old 的 `abilityTriggers` 顶**：那一列是
+    //     `sorted(set(trigger))`（**只有数值、没有 ability 下标**）⇒ 同一 trigger 下挂多条 ability 时分不开
+    //     「该跑哪一条 / 哪几条」，而原版 `GetAbilitiesForTriggerRawcard` 返回的是**列表**。
+    //     现读池内 **65 组**「同一 trigger 多 ability」⇒ 这一列对它们**有实际信息量**。
+    //
+    //  ⚠️ **本列今天零消费者**（消费端 = `CardDef.CollectTriggerOps` 的「按 trigger 收 op」那半，由 `B96_CR` 做）
+    //     ⇒ **零行为变化、不改 `PinnedPoolMd5` / `PinnedPlayMd5`**。
+    //  ⚠️ **挂载那一句挤在 `:1749` 原有那一行里**（同 v37 / v40 / v41 的理由：加行会把下游 A 行账落点整体推走）。
+    //  ⚠️ **本块追加在【文件最末】**：账按【行号】引用本文件，中段插成员会让它们整体漂移。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        /// <summary>🆕 v42：`triggerAbilityIndices` 的一行 = 「一条 `abilityLogic` 的 trigger」。
+        /// <para>🔴 字段名与 JSON 键名逐字一致（`JsonUtility` 直读）。只扫 `cardAbilities(+0x290)`
+        /// —— `activeAbility(+0x260)` / `alternativeAbility` **不在**原版这一格。</para>
+        /// <para>⚠️ `lg = -1` = 这条 ability **没有任何 `abilityLogic` 行**（原版 `GetAbilitiesForTriggerRawcard`
+        /// 只按 trigger 过滤、不看 logic 条数 ⇒ 这种 ability 也要有它那一行）。</para></summary>
+        [Serializable]
+        public class TriggerAbilityIndexDto
+        {
+            /// <summary>`cardAbilities` 下标（`-1` = 坏值/缺键）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标；`-1` = 这条 ability 没有 logic 行。</summary>
+            public int lg = -1;
+            /// <summary>原版 `AbilityTrigger` 数值（`-1` = 坏值/缺键，⛔ 不是 `0 ThisCardPlayed`）。</summary>
+            public int trigger = -1;
+        }
+
+        public partial class CardDto
+        {
+            /// <summary>🆕 v42：`[{"ab":…, "lg":…, "trigger":…}, …]`（按 `(ab, lg)` 升序）。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v42）；`[]` = 明确没有。⛔ 不要 `?? new[0]`。</para></summary>
+            public TriggerAbilityIndexDto[] triggerAbilityIndices;
+        }
+
+        /// <summary>🆕 v42：`triggerAbilityIndices` 列 → <see cref="CardDef.TriggerAbilityIndexSpec"/>。
+        /// <para>⚠️ 行级坏值口径与 <see cref="MapAbilityMutations"/> 同族：`ab &lt; 0` / `lg &lt; -1` /
+        /// `trigger &lt; 0` ⇒ 出声 + 丢弃该行；同一 `(ab, lg)` 撞键 ⇒ 出声 + **丢弃后一条**
+        /// （原版是一条 logic 一个 `CardEffect`，撞键 = 表坏了）。</para></summary>
+        static CardDef.TriggerAbilityIndexSpec[] MapTriggerAbilityIndices(CardDto c)
+        {
+            if (c == null || c.triggerAbilityIndices == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.TriggerAbilityIndexSpec>(c.triggerAbilityIndices.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.triggerAbilityIndices)
+            {
+                if (r == null) continue;
+                if (r.ab < 0 || r.lg < -1 || r.trigger < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `triggerAbilityIndices` 有一行下标不合法"
+                                 + $"（ab={r.ab}, lg={r.lg}, trigger={r.trigger}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                long k = ((long)r.ab << 40) ^ (long)(r.lg + 1);
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `triggerAbilityIndices` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（原版一条 logic 一个 `CardEffect`，"
+                                 + "撞键 = 表坏了）。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger });
+            }
+            return list.ToArray();
         }
     }
 }

@@ -147,5 +147,76 @@ namespace RuleEngine
                   + "（原版 `CardScript__ResolveDeadCard.c:266-278` → `TriggerSacrifice` → `OnTrigger(220)`）");
             return 1;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B96_CR` · 账 559）：
+        //  `TriggerSacrificeOnDeath` 的**正确调用点**（原来那处已在 `B93_FX1` 撤回）
+        // ==================================================================
+        /// <summary>
+        /// 账 559 `BattleManager.ResolveTriggerSacrifice` 的**正确调用点** —— 原版
+        /// `CardScript__ResolveDeadCard.c:266-278`（死亡广播对**每个观察者**各调一次）里的那一支：
+        /// `targetCard == this`（**观察者就是本次 action 的 `targetCard`**）∧ `HasCurrentTrait(sacrifice)` ∧
+        /// `IsPlayerTurn(bm) == card.isPlayer` ⇒ `CardScript.TriggerSacrifice(观察者)`。
+        ///
+        /// <para>🔴 **为什么不是「真死那一刻」**：`BattleManagerSupport__BroadcastDeadUnit.c:82-90` 只遍历
+        /// `unitsInPlay`、且每张先过 `CardScript__IsInPlay()`（只认 2 / 15 / 3 / 17），而**真死那张是
+        /// `waitingToDie(5)`** ⇒ 那一支对「真死」形态**不可达**（`B93_FX1` 因此撤回了 `B93_F7` 挂上去的调用）。
+        /// 可达形态只有一个：**仍在场、且是本次 action 的 `targetCard`、但没死**的观察者。</para>
+        ///
+        /// <para>⚠️ **`action.targetCard` 我们还没有显式通道**：本版用 `ctx.LastTarget`
+        /// （= 最近一次 `ResolveTargets` 写下的目标）当等价物；`actionTarget` 形参给了就优先用它。
+        /// 池内带 `sacrifice`(trait 470) 的卡 **0 张** ⇒ **今天零可观测**；数据一变就要回来补
+        /// 真正的通道（把 `chosen` 从 `DoDeal` 一路喂进 `CleanupDeaths(actionTarget: …)`）。</para>
+        ///
+        /// <para>220（自己的 `sacrifice` 触发）与 225（别人的 `OtherCardSacrifice`）两跳都在
+        /// <see cref="TriggerSacrificeOnDeath"/> → `FireTriggerAlways` 里（尾部
+        /// `BroadcastWhen(WhenEventKind.Triggers("sacrifice"))` 覆盖手牌两跳）⇒ ⛔ 别在这里再发一次。</para>
+        static void CleanupTargetSacrificeFor(BattleContext ctx, UnitState actionTarget)
+        {
+            if (ctx == null) return;
+            var at = actionTarget ?? ctx.LastTarget;
+            if (at == null || at.Card == null) return;
+            if (!at.IsAlive) return;                        // 原版先过 `IsInPlay()`；真死那张是 5 ⇒ 不可达
+            int owner, slot;
+            if (!FindUnit(ctx, at, out owner, out slot)) return;   // 不在棋盘 = 不在场
+            if (!at.IsInPlayState(ctx)) return;             // `IsInPlay()` = {2,15,3,17}
+            TriggerSacrificeOnDeath(ctx, at, owner, slot);   // 220（自己的 sacrifice）与 225（别人的 OtherCardSacrifice）都在里面发
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B96_CR` · 账 279）：
+        //  `chosenAbility 15 (doDamageAndDestroySelf)` 的「施放者自己送走」那一半
+        // ==================================================================
+        /// <summary>
+        /// 账 279 `BattleManager.DealMultiDamageAndDestroySelf` 的「施放者自己离场」那一半 ——
+        /// 原版 `BattleManager._ResolveMultiDamageAndDestroySelf_d__457__MoveNext.c` 的 **state 1**：
+        /// `CardScript__SetAsUnitDestroyed(caster)` → `CardScript__TriggerUnitDeathActions(caster, caster, 2, 0)`
+        /// → `AddReassembleMinionsOrder(caster.isPlayer)` → `CardScript__ResolveDeadCard` → `BroadcastDeadUnit`。
+        ///
+        /// <para>**调用点** = `UseActiveAbilityCore` 的行循环：`chosenAbility == 15` 那一行
+        /// **先** `ctx.DyingThisAction.Add(u)`（`UnitState.CardStateOf` 由它派生 `waitingToDie(5)`，
+        /// 判据 `CardScript__SetAsUnitDestroyed.c:26` 的 `+0x228 = 5`，只对 {2,15,3,17} 生效），
+        /// **再**跑该行配到的正文 op（伤害），**最后**调本方法把施放者真送走 ——
+        /// 本方法 = state 1 那三跳的等价物：置 0 血（⛔ 不减护甲，同 `EffectResolver.DoDestroy`）
+        /// ＋ `CleanupDeaths`（= `TriggerUnitDeathActions` / `ResolveDeadCard` / `BroadcastDeadUnit`
+        /// 那一整串在我们这边的唯一入口）。</para>
+        ///
+        /// <para>⚠️ **已知次序差（如实记）**：原版 state 1 在**伤害之前**就把施放者的死亡链跑完；
+        /// 我们拆成「先标将死 → 结算伤害 → 再离场」，因为我们的 op 执行体以 `u` 作为**来源**，
+        /// 先摘掉会让 `FindUnit` 取不到源。池内 `chosenAbility == 15` 的卡 **0 张**
+        /// （`cards_engine.json` v40 1,129 张全卡扫；`cards_truth.json` 3 张：
+        /// `GOF80 Grot Orderly` / `SOR66 Armorium Cherub` / 一张 `Self-Destruction` GUID）
+        /// ⇒ **今天零可观测**。数据一变（加进池）就要回来核这段次序差。</para>
+        static void DestroyUnitSelfCore(BattleContext ctx, int p, UnitState u)
+        {
+            if (ctx == null || u == null) return;
+            if (!u.IsAlive) return;                                 // 同一行的效果已经把它打死了 ⇒ 不重复走
+            int o, s;
+            if (!FindUnit(ctx, u, out o, out s) || o != p) return;   // 已经不在场（被打死 / 被挪走）
+            u.Health = 0;                                            // 原版「摧毁」不减护甲（同 `DoDestroy`）
+            CleanupDeaths(ctx, o, s, deathType: DeathTypeOfSource(ctx));
+            ctx.Log($"{u.Name}：`chosenAbility 15 (doDamageAndDestroySelf)` —— 施放者结算伤害后自我摧毁"
+                  + "（原版 `BattleManager._ResolveMultiDamageAndDestroySelf…MoveNext.c` state 1）");
+        }
     }
 }

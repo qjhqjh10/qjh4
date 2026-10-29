@@ -902,14 +902,14 @@ public static class CardFaceProbe
                     // 模拟「拖到一半」：`AutoCardRotation` 写的就是**这个节点自己的** `localRotation`
                     var fanRot = v.transform.localRotation;                 // 卡根的扇形角（布局写的）
                     v.FaceLayerRoot.localRotation = Quaternion.Euler(6f, 8f, 0f);
-                    float before = Quaternion.Angle(v.FaceLayerRoot.localRotation, Quaternion.identity);
+                    float before = AngleDegTiny(v.FaceLayerRoot.localRotation, Quaternion.identity);
                     Check(before > 5f, $"新账-67 前提：先把倾摆**拧到 {before:F1}°**（不拧就验不到复位）");
                     v.SetFace(CardFace.Board);
-                    float after = Quaternion.Angle(v.FaceLayerRoot.localRotation, Quaternion.identity);
+                    float after = AngleDegTiny(v.FaceLayerRoot.localRotation, Quaternion.identity);   // 🔴 不用 `Quaternion.Angle`：<0.162° 盲区恒返回 0 ⇒ 这条会空转绿（2026-10-29 B95_A2B17）
                     Check(after < 0.01f,
-                          $"新账-67 `SetFace(Board)` 把倾摆**复位成 identity**（{before:F1}° → {after:F3}°）");
+                          $"新账-67 `SetFace(Board)` 把倾摆**复位成 identity**（{before:F1}° → {after:F4}°）");
                     Check(!tilt.enabled, "新账-67 ⋯⋯倾摆组件在场上也**关着**（原版场上整张 `2DCard` 关掉）");
-                    Check(Quaternion.Angle(v.transform.localRotation, fanRot) < 0.01f,
+                    Check(AngleDegTiny(v.transform.localRotation, fanRot) < 0.01f,
                           "新账-67 ⋯⋯复位只动 `2DCard` 这一级，**卡根的扇形角没被动**");
                 }
             }
@@ -3192,5 +3192,23 @@ public static class CardFaceProbe
                 + "｜🧨 描边挂回立绘层 ⇒ 光带被 `ArtWindowMesh` 裁在开口里 ⇒ 红");
         }
         finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>🆕 **2026-10-29（B95_A2B17）**：小角度量角器（单位：度）—— **与 `BattleScene.AngleDegTiny`
+    /// 逐字同一算式**（权威说明见 `Editor/BattleScene.cs:48485-48504`，⛔ 别在这里改数值口径）。
+    ///
+    /// 🔴 为什么不能用 `Quaternion.Angle`：它先过 `IsEqualUsingDot`（本机 IL 现读阈值 `1 − 1e-6`）⇒
+    /// **夹角 &lt; `2·acos(1−1e-6)` = 0.16206° 时恒返回精确 0**。于是「该为 0 ⇒ `&lt; 0.01`」这一类断言
+    /// 在真值 0.1° 时**照样绿**（空转绿，把实现删掉也绿）；反过来「该 ≠ 0 ⇒ `&gt; 0.01`」会假红。
+    /// 这里按四元数定义算 `θ = 2·atan2(|xyz|, |w|)`（`|w|` 折掉 `q / −q` 双覆盖），**不设任何 dot 阈值**。
+    ///
+    /// <para>⚠️ 本算式在本仓现有**三份**（`BattleScene:48500` · `B94X1_Assert:342` · 本处）：前两份各自
+    /// private ⇒ 只能各留一份，本处这份是 `public`（`CardBaseDemo` 直接调它，⛔ 别再散出第四份）。
+    /// 三份应合并进共用件 —— 已报调度台（本代理白名单改不到 `BattleScene.cs`）。</para></summary>
+    public static float AngleDegTiny(Quaternion a, Quaternion b)
+    {
+        // 🔴 2026-10-29（B95_A2B17 批 2）：算式收口到 `CardPresentation/Core/AngleMath.cs`（全仓唯一实现）；
+        //    本函数只保留原名给本文件 + `CardBaseDemo` 的调用点（⛔ 别在这里再写第二份算式）。
+        return AngleMath.AngleDegTiny(a, b);
     }
 }

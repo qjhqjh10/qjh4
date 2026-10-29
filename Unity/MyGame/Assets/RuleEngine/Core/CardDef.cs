@@ -8088,7 +8088,7 @@ namespace RuleEngine
             // 时机点在 `EffectResolver.PlayTactic`（效果之后、进弃牌堆之前 —— 照原版同一函数里的先后）。
             Synapse,
             // 起义（2026-09-13 A2）：**之后每部署一个部队时**触发自己那条 `Uprising:` 正文。
-            // 时机点在 `RuleCore.PlayCard`（`ResolveDeploy` 之后、`Rally` 之前）。
+            // 时机点在 `RuleCore.PlayCard` —— 🔴 2026-10-29（B95_WRE 批 3）：原文「`ResolveDeploy` 之后、`Rally` 之前」**已作废**；按原版次序（`_ResolvePlayCardFromHand_d__447__MoveNext.c:1081` Rally → `:1426` 广播轮）本跳现在排在**最后的广播轮**（`ResolveFaithAbility`(605) 之后，与 `190/550` 同轮 —— 判据 `判据/B95_Rally闸_核查.md` §八·1 的 7d）。
             // ⚠️ 卡面**两种写法都有**：带前缀（`Neophyte Initiate` = `Uprising: Deal 1 damage…`，
             //    卡图核对过）和正文裸写（`Hybrid Metamorph` 的 OCR 掉了前缀）—— 后者走
             //    `CollectBareKeywordBody`。**裸写那种的正文归属是「本卡唯一的带正文关键词」**，
@@ -9192,6 +9192,100 @@ namespace RuleEngine
             }
             return null;
         }
+    }
+
+
+    // ==================================================================================================
+    //  🆕 v42（2026-10-29 · 执行代理 `B96_GEN` · 账 `战斗逻辑驱动:1288`）
+    //     —— `CardDef` 的**数据半**：`triggerAbilityIndices`（原版 `GetAbilitiesForTriggerRawcard` 的输入）
+    //
+    //  🔴 **为什么另起 `partial class CardDef` 块、写在【文件最末】**：完全同上面 `A4` / `E6` 那两段的理由 ——
+    //     本文件里已有大量账落点按【行号】引用（现读最大 `CardDef.cs:9100` 一带）⇒ 在类尾插成员会让它们
+    //     整体漂移。追加在**文件最末**只增加尾部行号，上面一处都不动（＝预期零漂移）。
+    //
+    //  📌 **本块只加字段 + 访问口**（白名单：`CardDef.cs` 只加字段与解析）。
+    //     ⚠️ **今天没有任何消费者** ⇒ 接上之前**零行为变化**：
+    //        「按 trigger 收 op」那半（`CollectTriggerOps` / `FireTriggerOnce`）由 `B96_CR` 做，
+    //        与 `CardAbility.trigger` 对应的 **ability 下标** 正是它缺的那一格（判据 `B92_战斗判据_B6.md` §4 U1）。
+    //     ⛔ 别把「卡表有值」当成「已经接了」（同 `E6` 那段对 `whileInPlayAnim` 的提醒）。
+    //
+    //  📌 数据口径（逐行读过；⛔ 别在这里抄第二份 → `工具/gen_cards_engine.py` 的 `trigger_ability_indices_of` 上面那段）：
+    //     只扫 `cardAbilities(+0x290)`（不含 `activeAbility(+0x260)`）；同一 trigger 可多条 ability；
+    //     含 `abilityLogic` 为空的那条（原版只按 trigger 过滤，不看 logic 条数）。
+    //     池内现读：`trigger == 200(TriggerOnceIfBoardCriteria)` 的卡 **0 张** ⇒ `UpdateTriggerOnce` 仍是休眠件。
+    // ==================================================================================================
+    public partial class CardDef
+    {
+        /// <summary>🆕 v42：一行「一条 `abilityLogic` 的 trigger」（= 原版 `TriggerAbilities` 的选 ability 那一跳）。
+        /// <para>`Trigger = -1` = 坏值/缺键（⛔ 不是 `0 ThisCardPlayed`）；`Lg = -1` = 这条 ability 没有 logic 行。</para></summary>
+        public sealed class TriggerAbilityIndexSpec
+        {
+            /// <summary>`cardAbilities` 下标。</summary>
+            public int Ab = -1;
+            /// <summary>`abilityLogic` 下标；`-1` = 这条 ability 没有任何 logic 行。</summary>
+            public int Lg = -1;
+            /// <summary>原版 `AbilityTrigger` 数值。</summary>
+            public int Trigger = -1;
+        }
+
+        TriggerAbilityIndexSpec[] _triggerAbilityIndices;
+
+        /// <summary>`triggerAbilityIndices` 列**来自卡表**的正面信号（`false` = 整列**未知** / 旧表 &lt; v42 / 手写夹具）。
+        /// ⛔ 与「明确没有（`[]`）」不是一回事 —— 同 <see cref="HasAbilitySummon"/> 的口径。</summary>
+        public bool HasTriggerAbilityIndices { get { return _triggerAbilityIndices != null; } }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（与 `AttachAbilitySummon` /
+        /// `AttachAbilityMutations` 同族；理由 = `CardDef` 构造函数上那四十处账落点，⛔ 不往它加形参）。
+        /// `null` = 旧表（未知）。</summary>
+        public void AttachTriggerAbilityIndices(TriggerAbilityIndexSpec[] rows)
+        {
+            _triggerAbilityIndices = rows;
+        }
+
+        /// <summary>全部行（`null` = 未知）。消费端一般只要 <see cref="AbilityIndicesForTrigger"/> /
+        /// <see cref="TriggerAbilityRowsOf"/>。</summary>
+        public TriggerAbilityIndexSpec[] TriggerAbilityIndices { get { return _triggerAbilityIndices; } }
+
+        /// <summary>带 <paramref name="trigger"/> 的那些行（含 `Lg`；原版 `GetAbilitiesForTriggerRawcard` 的列表）。
+        /// <para>🔴 **三态**：<c>null</c> = **列未知**（旧表 &lt; v42，判不了）；
+        /// 空数组 = **明确没有**这条 trigger；非空 = 这些行。</para>
+        /// <para>⚠️ 同一条 ability 有 N 条 logic ⇒ 这里就是 **N 行**（同一 `Ab`）。**⛔ 别去重、别只取第一条**。</para></summary>
+        public TriggerAbilityIndexSpec[] TriggerAbilityRowsOf(int trigger)
+        {
+            if (_triggerAbilityIndices == null) return null;
+            List<TriggerAbilityIndexSpec> hit = null;
+            for (int i = 0; i < _triggerAbilityIndices.Length; i++)
+            {
+                var s = _triggerAbilityIndices[i];
+                if (s == null || s.Trigger != trigger) continue;
+                if (hit == null) hit = new List<TriggerAbilityIndexSpec>(2);
+                hit.Add(s);
+            }
+            return hit == null ? EmptyTriggerRows : hit.ToArray();
+        }
+
+        /// <summary>带 <paramref name="trigger"/> 的 **`cardAbilities` 下标**（**去重升序** —— 同一 ability 的
+        /// 多条 logic 只算一次；「该跑哪一条 ability」用它，「该取哪一行 logic 的 op」用
+        /// <see cref="TriggerAbilityRowsOf"/>）。
+        /// <para>三态同 <see cref="TriggerAbilityRowsOf"/>：`null` = 列未知 · 空数组 = 明确没有。</para></summary>
+        public int[] AbilityIndicesForTrigger(int trigger)
+        {
+            var rows = TriggerAbilityRowsOf(trigger);
+            if (rows == null) return null;
+            if (rows.Length == 0) return EmptyInts;
+            // 表按 (ab, lg) 排好序，但**不靠顺序去重**（手工改表 / 老表都可能乱序）。
+            var ab = new List<int>(rows.Length);
+            var seen = new HashSet<int>();
+            for (int i = 0; i < rows.Length; i++)
+            {
+                if (seen.Add(rows[i].Ab)) ab.Add(rows[i].Ab);
+            }
+            ab.Sort();
+            return ab.ToArray();
+        }
+
+        static readonly int[] EmptyInts = new int[0];
+        static readonly TriggerAbilityIndexSpec[] EmptyTriggerRows = new TriggerAbilityIndexSpec[0];
     }
 
 }

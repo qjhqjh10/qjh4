@@ -323,5 +323,31 @@ namespace CardPresentation
                 if (string.Equals(subtype, RaceKeywords[i], System.StringComparison.Ordinal)) return true;
             return false;
         }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        //  ⑦ 本地化记号渲染（原版 `ModifyLocalization`，账 745）
+        // ─────────────────────────────────────────────────────────────────────────
+
+        /// <summary>原版 `SupportMethods.ModifyLocalization(string)`（`decomp_full/SupportMethods__ModifyLocalization.c`，497 行）。
+        /// 把官方词条里的四种记号按**固定顺序**展开成 TMP 能画的东西：
+        /// <list type="number">
+        /// <item>`((Key,a,b))` → `Modular_Description/&lt;Key&gt;` 的本地化，`{0}`/`{1}` 代参</item>
+        /// <item>`$$ID$$`      → `Card_Name/&lt;ID&gt;` 的本地化</item>
+        /// <item>`[[枚举名]]`  → `GameStaticData.TraitNameToString(值, true)`</item>
+        /// <item>`(N)`（N=0..8）→ `" &lt;sprite name=ManaN&gt;"`（前导空格是真的）</item>
+        /// </list>
+        /// <para>🔴 **本方法【委托】既有等价物 <see cref="CardIcons.RewriteMarks"/>**，⛔ 不在这里再抄一份四支
+        /// （铁律：两处写同一条规则 = 迟早不一致）。`CardIcons.RewriteMarks` 就是这条 497 行纯函数的逐支移植
+        /// （判据、逐条缺口语义、四支顺序见它的 doc），本成员只是把「同名可达」这一层补上（账 745 的残差 = 方法不存在）。
+        /// </para>
+        /// <para>语档：原版 `ModifyLocalization` 用**当前语档**的 `LocalizationManager`；这里按
+        /// `Loc.Current == AvailableLanguages.Chinese` 取中文列（其它语档由 `CardIcons.OfficialTerm` 的
+        /// `Loc.Lang13Current` 走当前语言列，与本 flag 无关 —— 该口径见 `RewriteMarks` 的 doc）。</para>
+        /// <para>空/`null` 入参：原版 `IsNullOrEmpty ⇒ return baseString ?? ""`（`.c:489-493`）—— 照抄。</para></summary>
+        public static string ModifyLocalization(string baseString)
+        {
+            if (string.IsNullOrEmpty(baseString)) return baseString ?? "";
+            return CardIcons.RewriteMarks(baseString, Loc.Current == AvailableLanguages.Chinese);
+        }
     }
 }

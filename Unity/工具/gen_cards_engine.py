@@ -4659,10 +4659,173 @@ def ability_buffs_of(cid, name, trow, report):
     for i, a in enumerate(trow.get("cardAbilities") or []):
         _scan_ability(i, a)
     # `activeAbility` / `alternativeAbility`：`ab` 用 `-1` / `-2` 哨兵（与 `abilityTargetCriteria` 同一套）
+    # ⚠️ 2026-10-29（`B96_GEN` 现核）：这两句**扫不到任何行** —— 卡 SO 里主动能力那棵树叫
+    #    `activeAbility.activeAbilityLogic`（不是 `abilityLogic`），而 `_scan_ability` 只读
+    #    `obj.get("abilityLogic")`。实测 `cards_raw.json`：`activeAbility.abilityLogic` 0 行、
+    #    `activeAbility.activeAbilityLogic` **143 张 / 204 行**。⇒ 本列今天**没有** `ab = -1/-2` 的行。
+    #    ⛔ 本代理**没有改**这两句（改它会让 v40 那列的内容变化、需要重钉基线）；
+    #    已作为「顺手发现」写进报告，交由调度台裁定。
     _scan_ability(-1, trow.get("activeAbility"))
     _scan_ability(-2, trow.get("alternativeAbility"))
     out.sort(key=lambda r: (r["ab"], r["lg"], 0 if r["at"] == "buffEffect" else 1))
     report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
+#  🆕 v41（2026-10-29 · 执行代理 `B96_GEN` · 账 `战斗逻辑驱动:1254`）→ 逐卡 `abilityMutations` 列
+#     = 原版 `CardEffect.mutationType (+0x80)` 的**逐 `(cardAbility, abilityLogic)` 行**落表。
+#
+#  判据（第一权威 = `d:/2/tools/decomp_full/RawCardScript__IsCumulativeMutation.c:17-47`，逐句亲读）：
+#    · 外层 = `param_1 + 0x290` = `cardAbilities`（`List<CardAbility>`）；
+#    · 中层 = `CardAbility + 0x50` = `abilityLogic`（`List<AbilityLogic>`）；
+#    · 内层 = `AbilityLogic + 0x50` = `buffEffect`（**单个对象**，不是列表）；
+#    · 判定 = `*(int *)(buffEffect + 0x80) == 0x14`（`MutationType.Cumulative = 20`）⇒ 任一命中即真。
+#
+#  🔴 **三条与 `abilityBuffs`（v40）的关键区别，⛔ 别照着 v40 抄**：
+#   ① **不看 `buffType`** —— 原版谓词**根本不读** `+0x38`。v40 那列只落 `buffType != 0`
+#      （`AddEffect.c:964-966` 的 default 支什么都不做）⇒ 拿它拼会把「`buffType == 0` 但
+#      `mutationType == 20`」的行整行漏掉（`cards_raw` 里这种行有 2,288 格）。**两列用途不同**。
+#   ② **只扫 `buffEffect`，不扫 `handBuff.cardEffect`** —— 判据里只有三层 `+0x50`，没有手牌那棵树。
+#   ③ **只扫 `cardAbilities(+0x290)`，不扫 `activeAbility(+0x260)` / `alternativeAbility`** ——
+#      谓词的外层列表就是 `+0x290` 这一格。⇒ 本列**不产出** `ab = -1/-2` 的行
+#      （`CardDatabase.MapAbilityMutations` 支持那两个哨兵，但本列用不到，别以为漏了）。
+#
+#  形状：`[{"ab": i, "lg": j, "mut": 0|10|20}, …]`（**按 (ab, lg) 升序**）。
+#    · `mut` = `buffEffect.mutationType` **原值**；**不稀疏** —— `0 none` 也照落（原版只认 `== 20`，
+#      但「这一行存在且是 none」与「这一行不存在」在 `MutationTypeAt` 上是 `0` 与 `-1` 两回事）。
+#    · `buffEffect` 缺 / 不是 dict ⇒ **该 (ab, lg) 没有行**（原版那一格是 null ⇒ 不可达路径）。
+#    · `mutationType` 缺键 / 不是 int ⇒ `mut = -1`（坏值，出声；⛔ 别当 `0 none`）。
+#    · 真值快照里**没有这张卡** ⇒ 返回 `None`（调用方**不落列** = 未知，⛔ 不是空表）。
+#
+#  现读规模（1,351 张 `cards_raw.json`，跳过 `full_raw`）：`buffEffect` 行 **1,873**，
+#    `mutationType` **值全 0** ⇒ 本列落地后 `IsCumulativeMutation()` 全池仍恒 `false`（**休眠件**，
+#    零行为变化；铁律 11：休眠 ≠ 不做）。`spellType == 130(Mutation)` = 0、
+#    `cardTraits._trait == 780` = 0 ⇒ 三条可达性都指向休眠，⛔ 别拿「接上没反应」当「没接」。
+#
+#  ⚠️ 消费端 = `CardDef.IsCumulativeMutation()`（`CardDefPartial_B94B16.cs:274`，已落）
+#     ← `CardScript.HasSingleUseMutation` ← `AbilityLogic.GetTargets` 的 `traitsFilter == 780` 支。
+#     挂载口 = `CardDatabase.cs:1749` 那一行的 `def.AttachAbilityMutations(MapAbilityMutations(c))`（已落）。
+# ==========================================================================================
+ABILITY_MUTATIONS_REPORT = {"cards": 0, "no_truth": 0, "rows": 0, "hit": 0,
+                            "by_mut": {}, "bad": []}
+
+
+def ability_mutations_of(cid, name, trow, report):
+    """一张卡 → `[{"ab":…, "lg":…, "mut":…}, …]`；真值里没这张卡 ⇒ `None`（不落列）。
+
+    口径 / 形状 / 三条与 `abilityBuffs` 的区别 → 上面那一段长注释（⛔ 别抄第二份）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        if not isinstance(ab, dict):
+            report["bad"].append((cid, name, "cardAbilities[%d]" % i, "不是对象"))
+            continue
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            if not isinstance(lg, dict):
+                report["bad"].append((cid, name, "ab%d.lg%d" % (i, j), "abilityLogic 不是对象"))
+                continue
+            be = lg.get("buffEffect")
+            if not isinstance(be, dict):
+                continue                      # 这一格没有 `CardEffect` ⇒ 原版也读不到（谓词那条路不存在）
+            mt = be.get("mutationType")
+            if isinstance(mt, bool) or not isinstance(mt, int):
+                report["bad"].append((cid, name, "ab%d.lg%d" % (i, j),
+                                      "mutationType 缺失/不是整数：%r" % (mt,)))
+                mt = -1                       # 坏值：落 -1（⛔ 别当 0 none）
+            out.append({"ab": i, "lg": j, "mut": mt})
+            report["by_mut"][mt] = report["by_mut"].get(mt, 0) + 1
+            report["rows"] += 1
+            if mt == 20:
+                report["hit"] += 1
+    out.sort(key=lambda r: (r["ab"], r["lg"]))
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
+#  🆕 v42（2026-10-29 · 执行代理 `B96_GEN` · 账 `战斗逻辑驱动:1288`）→ 逐卡 `triggerAbilityIndices` 列
+#     = 原版 `RawCardScript.GetAbilitiesForTriggerRawcard(trigger)` 的**数据半**
+#     （上游 U1「`trigger → ability 下标` 表」，判据 `判据/B92_战斗判据_B6.md` §3·2 / §3·11）。
+#
+#  判据（第一权威 = `d:/2/tools/decomp_full/`，2026-10-29 亲读）：
+#    · `RawCardScript__UpdateTriggerOnce.c:1-16` —— 纯转发 `TriggerAbilities(200, …)`；
+#      唯一调用点 = `CardScript__UpdateWhileInPlay.c:23`（闸 = `HasTriggerOnceAbility()` = 任一 ability `trigger == 200`）。
+#    · `RawCardScript__GetAbilitiesForTriggerRawcard`（由 `TriggerAbilities` 调用）——
+#      **从 `cardAbilities(+0x290)` 按 trigger 过滤出列表**（同一 trigger 可多条）。
+#    ⇒ 数据形状 = 「trigger → 该 trigger 下**哪些 `cardAbilities` 下标**」，⚠️ **不是**去重集合。
+#
+#  🔴 **为什么不能拿现成的 `abilityTriggers` 顶**：v-old 那一列是 `sorted(set(trigger))`
+#     ——**只有数值、没有 ability 下标**。同一 trigger 下**多条 ability** 时（现读 **89 张卡**）就分不开
+#     「该跑哪一条 / 哪几条」，而原版要的是**列表**。
+#
+#  形状：`[{"ab": int, "lg": int, "trigger": int}, …]`（按 `(ab, lg)` 升序）。
+#    · **`lg = -1` = 这条 ability 没有任何 `abilityLogic` 行** —— 仍然落一行：
+#      原版 `GetAbilitiesForTriggerRawcard` 只按 trigger 过滤、**不看 logic 条数**
+#      （空 logic 的 ability 由下游「没有动作可排队」自然空转，⛔ 别在这里替它删）。
+#    · `trigger` 不是整数（缺键/坏值）⇒ **跳过该 ability 并出声**（⛔ 不猜 0 = `ThisCardPlayed`，同 `ability_triggers_of`）。
+#    · 真值快照里**没有这张卡** ⇒ 返回 `None`（调用方**不落列** = 未知，⛔ 不是空表）。
+#    · 只扫 `cardAbilities` —— 原版这一格就是 `+0x290`（`activeAbility(+0x260)` 不在内）。
+#
+#  🔴 **为什么是「每行带 ab + lg」而不是「按 trigger 分组」**：代码半已经落好了
+#     （`RuleEngine/Core/CardDefPartial_B96CA.cs:35-37` 的文件头白纸黑字写着期望形状
+#      `[{"ab":<cardAbilities下标>,"lg":<abilityLogic下标>,"trigger":<数值>}]`，消费口是
+#      `AttachTriggerOpsByNumber(Dictionary<int, List<EffectOp>>)` + `TriggerOpsByNumber(int)`）。
+#     ⇒ 按 `(ab, lg)` 出行，`CardDatabase` 才能把**那一行的正文 op** 找出来挂进 `trigger` 那一格。
+#     ⛔ 别改成「按 trigger 分组」——那样 `CardDatabase` 拿不到 `lg`、挂不上 op。
+#
+#  现读规模（1,351 张）：有 ability 的卡里 **89 张**同一 trigger 挂多条 ability ⇒ 这列今天**有实际信息量**
+#   （`abilityTriggers` 那列对它们只能给出一个数值）。⚠️ 但 **`trigger == 200` 的卡 = 0 张**（本 build）
+#   ⇒ `UpdateTriggerOnce` 那条路仍是**休眠**（铁律 11：照建，零行为变化）。
+#
+#  ⚠️ **本列只落数据**：`CardDatabase` 那一跳（按 `(ab, lg)` 找正文 op → `AttachTriggerOpsByNumber`）
+#     与 `CardDef` 的取值口由代码半做；本代理只出**数据列 + DTO + 原始行访问口**，
+#     ⛔ 不动 `CollectTriggerOps` / `FireTriggerOnce` / `TriggerOpsByNumber`。
+# ==========================================================================================
+TRIGGER_ABILITY_INDICES_REPORT = {"cards": 0, "no_truth": 0, "rows": 0,
+                                  "triggers": 0, "empty_logic": 0, "multi": 0, "bad": []}
+
+
+def trigger_ability_indices_of(cid, name, trow, report):
+    """一张卡 → `[{"ab":…, "lg":…, "trigger":…}, …]`；真值里没这张卡 ⇒ `None`（不落列）。
+
+    口径 / 形状 / 为什么每行带 `ab`+`lg` → 上面那一段长注释（⛔ 别抄第二份）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    trig_seen = {}
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        if not isinstance(ab, dict):
+            report["bad"].append((cid, name, "cardAbilities[%d]" % i, "不是对象"))
+            continue
+        tg = ab.get("trigger")
+        if isinstance(tg, bool) or not isinstance(tg, int):
+            report["bad"].append((cid, name, "cardAbilities[%d].trigger" % i, tg))
+            continue                 # ⛔ 不猜 0
+        logic = ab.get("abilityLogic") or []
+        if not logic:
+            out.append({"ab": i, "lg": -1, "trigger": tg})
+            report["empty_logic"] += 1
+            report["rows"] += 1
+            trig_seen.setdefault(tg, set()).add(i)
+            continue
+        for j, lg in enumerate(logic):
+            if not isinstance(lg, dict):
+                report["bad"].append((cid, name, "ab%d.lg%d" % (i, j), "abilityLogic 不是对象"))
+                continue
+            out.append({"ab": i, "lg": j, "trigger": tg})
+            report["rows"] += 1
+            trig_seen.setdefault(tg, set()).add(i)
+    out.sort(key=lambda r: (r["ab"], r["lg"]))
+    report["cards"] += 1
+    report["triggers"] += len(trig_seen)
+    report["multi"] += sum(1 for v in trig_seen.values() if len(v) > 1)
     return out
 
 
@@ -5051,6 +5214,12 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         # 🆕 v40（`B23`）：`abilityBuffs` —— 原版 `CardEffect` 的逐行载荷（口径 → `ability_buffs_of` 上面那段）
         _abf = ability_buffs_of(uid, name, r, ABILITY_BUFFS_REPORT)
         if _abf is not None: entry["abilityBuffs"] = _abf
+        # 🆕 v41（`B96_GEN`）：`abilityMutations` —— 原版 `CardEffect.mutationType` 逐行（口径 → `ability_mutations_of`）
+        _amu = ability_mutations_of(uid, name, r, ABILITY_MUTATIONS_REPORT)
+        if _amu is not None: entry["abilityMutations"] = _amu
+        # 🆕 v42（`B96_GEN`）：`triggerAbilityIndices` —— `trigger → ability 下标`（口径 → `trigger_ability_indices_of`）
+        _tai = trigger_ability_indices_of(uid, name, r, TRIGGER_ABILITY_INDICES_REPORT)
+        if _tai is not None: entry["triggerAbilityIndices"] = _tai
         _alc = ability_level_criteria_of(uid, name, r, truth_by_path or {},
                                          ABILITY_LEVEL_CRITERIA_REPORT)
         if _alc is not None: entry["abilityLevelCriteria"] = _alc
@@ -5789,6 +5958,14 @@ def build():
         _abf = ability_buffs_of(cid, name, trow, ABILITY_BUFFS_REPORT)
         if _abf is not None:
             entry["abilityBuffs"] = _abf
+        # 🆕 v41（`B96_GEN`）：`abilityMutations` —— 原版 `CardEffect.mutationType` 逐行（口径 → `ability_mutations_of`）
+        _amu = ability_mutations_of(cid, name, trow, ABILITY_MUTATIONS_REPORT)
+        if _amu is not None:
+            entry["abilityMutations"] = _amu
+        # 🆕 v42（`B96_GEN`）：`triggerAbilityIndices` —— `trigger → ability 下标`（口径 → `trigger_ability_indices_of`）
+        _tai = trigger_ability_indices_of(cid, name, trow, TRIGGER_ABILITY_INDICES_REPORT)
+        if _tai is not None:
+            entry["triggerAbilityIndices"] = _tai
         # ---- 🆕 v26（执行代理 `E2` · `A3-2`）：**ability 级** `targetCriteria`（36 格）------------
         # 判据 / 形状 / 为什么带 `ab`、为什么不落 `lg` → `ability_level_criteria_of` 上面那段长注释。
         # ⚠️ **每张卡都落**（没有行 = `[]`；真值里没有这张卡才不落列）。
@@ -6408,6 +6585,30 @@ def build():
           f" · `no_truth` {ABILITY_BUFFS_REPORT['no_truth']}"
           f" · 坏格 **{len(ABILITY_BUFFS_REPORT['bad'])}** 处")
     print(f"             buffType 分布：{_abf_dist}")
+    # ---- 🆕 v41（2026-10-29 · 执行代理 `B96_GEN`）：`abilityMutations` 列的读数 ----
+    _amu_cards = [c for c in cards if "abilityMutations" in c]
+    _amu_hit = [c for c in _amu_cards if c["abilityMutations"]]
+    _amu_dist = " · ".join(f"`{k}`={v}" for k, v in sorted(ABILITY_MUTATIONS_REPORT["by_mut"].items()))
+    print(f"  · `abilityMutations`（v41 · `B96_GEN` · 账 `:1254`）：落列 **{len(_amu_cards)}/{len(cards)}** 张 · "
+          f"行数 **{ABILITY_MUTATIONS_REPORT['rows']}**"
+          f" · `mut == 20(Cumulative)` **{ABILITY_MUTATIONS_REPORT['hit']}** 行（池内应为 0 ⇒ 休眠件）"
+          f" · `no_truth` {ABILITY_MUTATIONS_REPORT['no_truth']}"
+          f" · 坏格 **{len(ABILITY_MUTATIONS_REPORT['bad'])}** 处")
+    print(f"             mut 分布：{_amu_dist}")
+    # ---- 🆕 v42（2026-10-29 · 执行代理 `B96_GEN`）：`triggerAbilityIndices` 列的读数 ----
+    _tai_cards = [c for c in cards if "triggerAbilityIndices" in c]
+    _tai_nonempty = [c for c in _tai_cards if c["triggerAbilityIndices"]]
+    _tai_c200 = [c for c in _tai_cards
+                 if any(r.get("trigger") == 200 for r in (c["triggerAbilityIndices"] or []))]
+    print(f"  · `triggerAbilityIndices`（v42 · `B96_GEN` · 账 `:1288`）：落列 **{len(_tai_cards)}/{len(cards)}** 张 · "
+          f"非空 **{len(_tai_nonempty)}** 张 · 行 **{TRIGGER_ABILITY_INDICES_REPORT['rows']}**"
+          f"（其中 `lg == -1`（该 ability 无 logic）**{TRIGGER_ABILITY_INDICES_REPORT['empty_logic']}** 行）"
+          f" · 不同 trigger **{TRIGGER_ABILITY_INDICES_REPORT['triggers']}** 个"
+          f" · **同一 trigger 多 ability**（组）{TRIGGER_ABILITY_INDICES_REPORT['multi']}"
+          f" · `no_truth` {TRIGGER_ABILITY_INDICES_REPORT['no_truth']}"
+          f" · 坏格 **{len(TRIGGER_ABILITY_INDICES_REPORT['bad'])}** 处")
+    print(f"             `trigger == 200(TriggerOnceIfBoardCriteria)` 的卡：**{len(_tai_c200)}** 张"
+          f"（池内应为 0 ⇒ `UpdateTriggerOnce` 仍是休眠件）")
     # 🔴 分诊表（`判据/B94_R-W_战斗38条分诊.md` §二 B-3）点名的那 11 个分组，**本 build 只有 3 个有数据**。
     #    ⛔ 不在这里硬编码「应该有哪些」—— 变的是数据不是代码；这里只把「点名但 0 行」的打出来。
     _named = (5, 6, 10, 11, 25, 30, 40, 45, 70, 85, 95)
@@ -6436,7 +6637,8 @@ def build():
         print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["rows_bad"][:5]))
 
     return {
-        "version": 40,         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
+        "version": 42,         # v42（2026-10-29 · 执行代理 `B96_GEN`）= 加两列：① `abilityMutations`（账 `:1254`，原版 `CardEffect.mutationType` 逐 `(ab,lg)` 行；**不看 buffType、只扫 buffEffect、只扫 cardAbilities**；`mut` 不稀疏落 0/10/20；口径 → `ability_mutations_of` 上面那段）② `triggerAbilityIndices`（账 `:1288` 的**数据半** = 上游 U1 `trigger → ability 下标` 表，形状 `[{trigger, ab:[…]}]`；口径 → `trigger_ability_indices_of` 上面那段）。🔴 两列都**只落数据、不接线** ⇒ 不改指纹（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）。
+        # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
                                # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
                                # v37（2026-10-28 · 第八十九会话 · 执行代理 `E6`）= 三族「数据侧」列（账 L234 / L867 / L1044 / L847）
                                #     ① `activeAbilityManaCost` / `activeAbilityPsychicCost` /

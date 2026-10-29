@@ -2238,7 +2238,7 @@ namespace CardPresentation
         /// <summary>**远程攻击的收招** —— 原版是**两段**，我们原来只有第一段。
         ///
         /// <para>**段1**（原版 `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104`）：
-        /// 一个 `Sequence` 里三条**同时**（时长全是 `attackStepTime` = 0.1，无 `SetEase` ⇒
+        /// 一个 `Sequence` 里三条**同时**（时长全是 `attackStepTime` = 0.1 —— 判据 = `CardScript+0x1A0` 的**卡实例字段**；⛔ 不是 `_PrepareAttack_d__353` 里的**全局 0.25**（`DAT_1834b2e7c`）：那是**另一条序列**——收手支 `DOLocalMove`/`DORotateQuaternion` 各 0.25、**没有** `DOScale`、之后还 `WaitForSeconds(AttackStepTime)`，两条别混；无 `SetEase` ⇒
         /// DOTween 默认 `OutQuad`）：`DOLocalMove(handHomePos)` + `DORotateQuaternion(identity)`
         /// + `DOScale(DefaultScale)`；然后 `WaitForCompletion`（= 这三条跑完），再
         /// `WaitForSeconds(attackStepTime)` 0.1 ⇒ **合计 0.2 s 才发 VFX**

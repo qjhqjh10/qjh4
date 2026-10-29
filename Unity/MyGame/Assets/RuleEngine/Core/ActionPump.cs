@@ -140,7 +140,7 @@ namespace RuleEngine
                 //     （隔离口径：本批其余改动全开，只差这一行）。
                 //   ⚠️ `ActionPump.cs` 本批原本无人写 ⇒ 这一行由 `G14` 打开（简报明确授权，见报告 §①）。
                 //   ⛔ 仍**不要**换成 `Auras.Recompose` —— 它会重放夹血 / 重授誓约（`BL18`/`UM18` 的 `net` +4）。
-                Auras.RefreshInPlayNumericAndKeywords(_ctx);   // ✅ 2026-10-26（批次 9 · 执行代理 `E7P06` · 账 669 · 本行【已打开】）：判据 = `FinishResolvingAction` 尾部 `BroadcastWhileInPlay` 连发 20 / **240** 两档（原版 `RawCardScript.cs:1239-1253`），240 = 「先摘再重加」的快照刷新 ⇒ 就挂在这里（`EmitWhileInPlayPass` **之前**）。⚠️ 上一格阻塞（批次 6 `G14`：接上后 `BL18` / `UM18` 的电池读数各 **+4** ⇒ 指纹 `4865c48b… ≠ 39c4f77e…`）由**调度台**裁定带入基线（⛔ 子代理不重钉基线）；隔离读数与逐条解释 → `报告/B9_E7P06_ActionPump与CountEval.md` §三。· 🔴 2026-10-27（B9 · `W18AR`）：本行**不动** `Exhausted` / `CannotAttackThisTurn` —— 窄口刷新是「摘了又原样挂回」，`UnitState.EndAuraRecompute` 只在 `fast`/`flank` 豁免**真的丢了**（光环来源离场）时才重算（判据与理由 → `UnitState` 类尾那段「光环重算周期内 act 两位的重算时机」）；⛔ 别为了「让刷新别碰这两位」把本行注释回去（那是账 669 的接线）。
+                RuleCore.WhileInPlayVariablePass(_ctx); RuleCore.TriggerOncePass(_ctx); PumpActionQueues(_ctx); Auras.RefreshInPlayNumericAndKeywords(_ctx); /* 🆕 2026-10-29（B96_CR · 账 1376 `EntityScript.get_displaySummonSickness`）：原版 `BattleManager__FinishResolvingAction.c:105`（非玩家回合）/ `:115`（玩家回合）在**每条动作收尾**都调 `MinionManager__ActivateMinions(行动方, isPlayerTurn)` + `PlayerManager__ActivateHero` ⇒ 我们的等价物 = `RuleCore.BroadcastActivateMinions`（`RecomputeActAndAttack` = `CardScript__ActivateMinion.c:14-82` 整份体；只激活 `ctx.Active` 那一侧，与 `MinionManager.ActivateMinions` 只吃一侧同形）。⚠️ 排在 `PumpActionQueues` 之后 = 原版 `ActionsLeftInQueue() < 1`；⛔ 别挪进 `PumpActionQueues`（一动作会跑很多次）。池内 `support` 之外无新增可观测（`displaySummonSickness` 只由 `summonSickness ∧ ¬fast ∧ ¬flank` 派生，见 `RuleCore.DisplaySummonSickness`） */ RuleCore.BroadcastActivateMinions(_ctx, true);   // 🆕 2026-10-29（B96_CA · 账 482 / 1288）：240 那一族的「**先摘**」半（`WhileInPlayVariablePass` → 命中时入队 `removeEffectsFrom(47)`）与 `trigger 200` 的「试一次」（`TriggerOncePass` → `FireTriggerOnce`）必须排在**下面那句「重加」之前** —— 判据 = 原版 `RawCardScript.cs:1239-1253` 的 `UpdateWhileInPlay` 是「先摘掉此前加的全部、再重加一份」，重加那半 = `Auras.RefreshInPlayNumericAndKeywords`。⚠️ 二者都可能**入队** ⇒ 中间紧跟一次 `PumpActionQueues` 排空，否则本方法末尾那条「顶层动作结束后队列仍有 N 条」的结构性兜底会误报。📊 池内 `abilityTriggers` 含 240 = 33 张（带光环规格的被跳过）、含 200 = 0 张 ⇒ 净行为 = 零（已用 `ruleprobe play check` 指纹核对，见报告）。⛔ 本行**零行数变化**（同一行内前置），别拆成多行 —— 本文件有账落点按行号引用。   // ✅ 2026-10-26（批次 9 · 执行代理 `E7P06` · 账 669 · 本行【已打开】）：判据 = `FinishResolvingAction` 尾部 `BroadcastWhileInPlay` 连发 20 / **240** 两档（原版 `RawCardScript.cs:1239-1253`），240 = 「先摘再重加」的快照刷新 ⇒ 就挂在这里（`EmitWhileInPlayPass` **之前**）。⚠️ 上一格阻塞（批次 6 `G14`：接上后 `BL18` / `UM18` 的电池读数各 **+4** ⇒ 指纹 `4865c48b… ≠ 39c4f77e…`）由**调度台**裁定带入基线（⛔ 子代理不重钉基线）；隔离读数与逐条解释 → `报告/B9_E7P06_ActionPump与CountEval.md` §三。· 🔴 2026-10-27（B9 · `W18AR`）：本行**不动** `Exhausted` / `CannotAttackThisTurn` —— 窄口刷新是「摘了又原样挂回」，`UnitState.EndAuraRecompute` 只在 `fast`/`flank` 豁免**真的丢了**（光环来源离场）时才重算（判据与理由 → `UnitState` 类尾那段「光环重算周期内 act 两位的重算时机」）；⛔ 别为了「让刷新别碰这两位」把本行注释回去（那是账 669 的接线）。
 
                 // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 的表现口 ----
                 //  落点在**这里**（= 一条**顶层动作**结束、队列已排空），对原版
@@ -785,10 +785,10 @@ namespace RuleEngine
             if (set == null)
             {
                 // `why == null` ⇒ 明确「这条 ability 没有这一格条件」（`ta = any` / 没落行）⇒ 放行；
-                // 歧义 ⇒ **不触发**（简报口径：⛔ 不猜是第几条）；
+                // 歧义 ⇒ **逐条 ability 各判一次**（见 `ActingLevelCriteriaAllowsByAbility`）；
                 // 其余（列没落 / 认不出 / 没有这条 ability）⇒ 判不了（调用点出声 + 放行）。
                 if (why == null) return true;
-                return ambiguous ? (bool?)false : null;
+                if (ambiguous) return ActingLevelCriteriaAllowsByAbility(ctx, owner, thisCard, card, triggerName, candidate, targetCard, out why); return null;
             }
             if (candidate == null)
             {
@@ -1616,7 +1616,7 @@ namespace RuleEngine
                 // ⛔ 不拿 `why` 文案去 `Contains` 判档（`CardDef.UniqueAbilityIndexForTrigger` 的 doc）。
                 if (locateWhy == null) return true;
                 why = amb ? "ability 定位不唯一 ⇒ board 条件判不了：" + locateWhy : locateWhy;
-                return amb ? (bool?)false : null;
+                if (amb) return BoardLevelCriteriaAllowsByAbility(ctx, owner, thisCard, card, triggerName, out why); return null;
             }
             // `null` = 明确「这条 ability 没有 board 条件」（只有 `ConditionsVersioned` 才会走到）；
             // 旧表 ⇒ 返回 `ConditionUnknown` 的哨兵（见 `AbilityLevelConditionRowAt` 的三态 doc）。
@@ -1906,7 +1906,7 @@ namespace RuleEngine
             // ⚠️ 今天池内 **0 张**卡的 `keywords` 里真的有这两个词（`cards_engine.json` v32 现扫），
             //   所以本行**零行为变化**，补的是「卡面/数据一出现就自动生效」这一层（铁律 11）。
             if (keyword == KeywordTable.Courtesy) return "Courtesy";        // 43
-            if (keyword == KeywordTable.Relentless) return "Relentless"; if (keyword == KeywordTable.TriggerOnceIfBoardCriteria) return "TriggerOnceIfBoardCriteria";   // 230 / 200（200 这一格 = B90·B1 补：`RawCardScript__UpdateTriggerOnce.c:13` 那一趟的名字）
+            if (keyword == KeywordTable.Relentless) return "Relentless"; if (keyword == KeywordTable.TriggerOnceIfBoardCriteria) return "TriggerOnceIfBoardCriteria"; if (keyword == KeywordTable.Requiem) return "Requiem";   // 230 / 200（200 这一格 = B90·B1 补：`RawCardScript__UpdateTriggerOnce.c:13` 那一趟的名字）/ 430（`B95_WPUMP` 2026-10-29 补，判据见类尾 §十一）
             return null;
         }
 
@@ -2129,7 +2129,7 @@ namespace RuleEngine
         /// 回 `.c` 而不是就地改（铁律 11 例外①之外一律先记账）。⚠️ **ⓐⓑ 今天都没有生产者**（2026-10-29 `B94_B15` 现读：全仓 `actionType:` 回填 **12 处** = 本文件 0x41/0x3e ＋ 其余 11 处 **1/1/4/16/16/51/61/77/77/79/87**，其中**无 0x2d(45) / 0x1a(26)**；`QueuedAction.DeathType` **全树 0 写点**）⇒ 两条豁免结构上走不到，纯增量。</para>
         ///
         /// <para>**撤之前会补副作用**（`attack` 的 `CancelAttack` / `createHandCard` 的 `SetActive(false)`）——
-        /// 由 `ActionQueue.RemoveQueuedActionAt` → `ApplyCancelSideEffects` 统一做，⛔ 别在这里另写一份；⚠️ 那两个副作用**今天只出声（计数 `CancelSideEffectsPendingForTest`）、未接真调用**（账 L240 保持 B 的确切原因，落 `RuleCore` / 表现层）。</para>
+        /// 由 `ActionQueue.RemoveQueuedActionAt` → `ApplyCancelSideEffects` 统一做，⛔ 别在这里另写一份；🔴 **2026-10-29 `B95_WPUMP` 现读**：`attack` 那一支**已接等价物**（传的是带 `ctx` 的重载 ⇒ 走 `ActionQueue.CancelAttackSideEffect` 的状态闸），`createHandCard(0x17)` 那一支仍是待接点（表现层 `SetActive(false)`）。</para>
         /// </summary>
         /// <returns>这条泳道撤掉几条。</returns>
         public static int CancelEffectsFromDisappearingUnitFromQueue(BattleContext ctx, UnitState jammedUnit,
@@ -2162,9 +2162,184 @@ namespace RuleEngine
                     + ", " + ((BattleActionType)a.ActionType) + "（原版 `BattleManager.CancelEffectsFromDisappearingUnitFromQueue.c` "
                     + "同一句 `CustomDebug.LogWarning(\"Removing action from queue from card \" + cardName + \", \" + …)`；"
                     + "原版打的是 `BattleActionType` 枚举名（`System.Enum::ToString`），我们同形；枚举 = `Core/TutorialScript.cs:96` 的 91 档（2026-10-29 `B94_B15` 现读订正：旧文「还没建那个枚举」已过期）");
-                if (q.RemoveQueuedActionAt(lane, i)) n++;
+                if (q.RemoveQueuedActionAt(ctx, lane, i)) n++;   // 带 ctx：`attack(1)` 的撤销副作用要判 `IsAttackingOnBoard`
             }
             return n;
+        }
+
+        // ==========================================================================================
+        //  §十一 🔴 **2026-10-29（执行代理 `B95_WPUMP` · 账 L952 / L558 的「trigger 名」那一跳）：
+        //  `requiem` → `Requiem`(430)**
+        // ==========================================================================================
+        //  ⚠️ **为什么这一格只补了一行 `if`、解释写在这儿**：本文件被 `账/*.tsv` 按 `文件:行号` 引用
+        //     （`:2013` / `:2045` / `:2089` / `:2135` 四处落点在本段之后），在 `ExtraTriggerName`
+        //     里插注释行会让它们**整体漂移** ⇒ 判据搬到类尾（与 §八 / §九 同一条纪律）。
+        //
+        //  ── 一、判据（第一权威 · 逐句现读）────────────────────────────────────────────────────
+        //   · 名字那一半：`CardDef.AbilityTriggerNumberOfName` 的 `{"Requiem", 430}` / `{"OtherCardRequiem", 435}`
+        //     （`CardDef.cs:1932`，早就存在）。
+        //   · **430 是「用安魂那张自己」**：`BattleManager__ResolveTriggerRequiem.c:218`
+        //     `RawCardScript__OnTrigger(raw, 0x1ae(430), …)`；`RuleCore.ResolveTriggerRequiem` 里
+        //     `FireTriggerAlways(ctx, u, KeywordTable.Requiem, …)` 走的就是这一条。
+        //   · **435 是「别的卡看见别人用了」**：`CardScript__TriggerOtherCardRequiem.c:14` → `0x1b3(435)`，
+        //     走的是 `WhenEventKind.Triggers("requiem")` 那条 **when-kind** 映射
+        //     （`EffectResolver.WhenTriggerNameForKind` 的 `case "requiem": return "OtherCardRequiem"`），
+        //     ⛔ **不是** `TriggerNameOfKeyword`。
+        //   ⇒ 同一个关键词在两条路上落到两个不同 trigger 号，**各自有各自的映射口**；本行只服务「自己」那条。
+        //
+        //  ── 二、缺它会怎样（与 `courtesy` / `relentless` 逐字同形）──────────────────────────────
+        //   `AbilityContextOfAbilityV14(card, null, "requiem")` 的 `triggerName` 那一跳会回 `null`
+        //   ⇒ 返回 `AbilityContextUnknown(-1)` ⇒ ability 级四道闸**静默不判**；
+        //   `RandomAbilityChoiceOps` 也拿不到 `tn` ⇒ 「随机抽一条 abilityLogic」那一跳不跑。
+        //
+        //  ── 三、可达性（时间限定 = 本 build）────────────────────────────────────────────────
+        //   现扫 `cards_engine.json`（1,129 张）与 `cards_truth.json`（1,351 张）：卡面带 `requiem` 的 **0 张**、
+        //   `abilityTriggers` 含 **430** 的 **0 张**、`chosenAbility == 390 (AddTriggerRequiem)` 的 **0 张**
+        //   ⇒ **本行零行为变化**（休眠机制照样补，铁律 11；⛔ 不判 D —— 数据一变即可达）。
+        // ==========================================================================================
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（第九十五会话 · 执行代理 `B96_CA` · 账 853 的**准备那一件**）：
+        //      **`removeEffect(16)` 的【按一条记录摘】入队口**（`RuleCore.EnqueueRemoveEffect`）
+        // ==========================================================================================
+        //  为什么需要它（判据 = 账 853 的「差异」列 + 本文件 §七 那一段）：现网 `removeEffect(16)` 的
+        //  动作体**全是就地整批摘**（`unit.RemoveTempBuff(buff)` / `Enchantments.Remove(...)`）
+        //  ⇒ `CardScript.RemoveEffect` 的**逐 case** 修了也**不可观测**（结构上没有人按「一条记录」摘）。
+        //  本口 = 原版 `CardScript.SendRemoveEffect`（`decomp_full/CardScript__SendRemoveEffect.c:1-87`）组
+        //  `BattleAction{actionType = 0x10 (16)}` 那一跳的等价物 —— **动作体 = 按一条记录摘**
+        //  （`EffectResolver.ResolveRemoveEffect` → `UnitState.RemoveEffectRecord` 的逐 case switch）。
+        //
+        //  📌 **本口今天 0 调用点**（= 账 853 说的「先接分派入口，再逐 case 对齐」）。
+        //     接线方式（交给持有那些文件的写手，一行换一行）：
+        //       · `RuleCore.cs:16510`  `() => unit.RemoveTempBuff(buff)` ⇒ 见报告 §「可粘贴补丁」
+        //       · `Enchantment.cs:983` 附魔那条（buffType 12/15/16 走 `Enchantments.Remove`，**不换**）
+        //  ⚠️ **`TempBuff` 没有 `buffType` 列** ⇒ `TempBuff → EffectRecord` 的桥**不能凭空造**
+        //     （造一个 `BuffType` 出来 = 猜，会静默走错 case）⇒ 本口的入参**只收 `EffectRecord`**。
+        // ==========================================================================================
+
+        /// <summary>
+        /// 账 853 准备件：**把「按一条记录摘」排进队列**（= 原版 `CardScript.SendRemoveEffect` 组
+        /// `actionType = 16 removeEffect` 那一跳；判据 `decomp_full/CardScript__SendRemoveEffect.c:1-87`，
+        /// `:27` 的 `local_208[0] = 0x10`）。
+        ///
+        /// <para>动作体 = <see cref="RuleCore.ResolveRemoveEffect"/>（逐 case 的**唯一**结算口，
+        /// 里面调 `RemoveEffectRecordFrom`）。⛔ 别在调用点再写一份「整批摘」——那正是账 853 要拆掉的东西。</para>
+        /// </summary>
+        /// <param name="carrier">载体（原版 `CardScript`）。</param>
+        /// <param name="rec">要摘的**那一条**记录（原版 `CardEffect`）。</param>
+        /// <param name="fromJam">原版 `fromJam`（只给附魔那一档的 quest 广播用，见 `RemoveEffectRecord` 的 doc）。</param>
+        /// <param name="lane">消费序。缺省 `DelayedInstant`（与现网那几条 `removeEffect` 入队一致），
+        /// ⛔ 别随手改成 `Instant` —— 那会改结算顺序。</param>
+        public static bool EnqueueRemoveEffect(BattleContext ctx, UnitState carrier,
+                                               UnitState.EffectRecord rec, bool fromJam = false,
+                                               ActionPriority lane = ActionPriority.DelayedInstant,
+                                               string label = null)
+        {
+            if (ctx == null || carrier == null || rec == null) return false;
+            return EnqueueAbility(ctx, lane,
+                                  label ?? ("removeEffect(16):" + carrier.Name + " · buffType " + rec.BuffType),
+                                  () => ResolveRemoveEffect(ctx, carrier, rec, fromJam),
+                                  actor: carrier,
+                                  actionType: 16);   // 判据 `CardScript__SendRemoveEffect.c:27` 的 `0x10`
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（执行代理 `B96_CR` · 账 1217 `RawCardScript.GetAbilitiesForTriggerRawcard`）：
+        //  「归一口」（`UniqueAbilityIndexForTrigger`）**切成逐条**（`AbilityRowsForTrigger`）
+        // ==========================================================================================
+        //  判据（第一权威，逐句）：`CardAbility__CanTriggerAbility.c:127-140` —— 原版 `TriggerAbilities`
+        //    遍历 `cardAbilities(+0x290)` 的**每一条** ability，各判各的 `CanTriggerAbility`
+        //    （`acting(+0x28) → target(+0x30) → board(+0x38)` 一条 `&&` 链，`RawCardScript__TriggerAbilities.c:207`）；
+        //    通过的那几条各结算。
+        //  我们的外形是「同一 trigger 的正文 op 合成一整块」⇒ 只能近似：**逐条 ability 各判一次，
+        //    只要有一条「明确不满足」就整块不触发（AND）**。
+        //  ⚠️ **为什么取 AND 而不是 OR**：OR（甲档）在「ab0 没有这一格条件行、ab1 有」的卡上
+        //    **恒真空转**（无行的 ab0 放行 ⇒ 整闸永远为真），主对话 2026-10-25 已否掉
+        //    （见 `AbilityFamilyTargetAllows` 上方那段裁定）。AND 是保守方向：宁可少触发一次
+        //    （= 原版那一条不结算），也不把不该跑的 op 跑出来。
+        //  ⚠️ **可达面（2026-10-29 现扫 `cards_engine.json` v40 / 1,129 张）**：
+        //    同时满足「同一 trigger 有 ≥2 条 ability」且「该 trigger 落在 `AbilityLevelGateApplies` 那五族」的
+        //    卡 = **1 张**：`DA22 Techmarine`（trigger 50 ×2）。它两条 ability 的 `abilityActingCriteria`
+        //    都是「friendly Vehicle」⇒ 逐条 AND 与 OR 同结论 ⇒ 本改动的**可观测面 = DA22 那一条
+        //    UnitAttack 触发从「被误判『定位不唯一 ⇒ 不触发』」变成会触发**（之前是真 bug）。
+        //  ⛔ 别拿本方法去替换 `AbilityLevelCriteriaAllows`（target 闸）的整条路 —— 那一族已有
+        //    「口径乙」（`AbilityFamilyTargetAllows`，按 op 动词 → 能力族名认行），两套并存是**故意的**。
+
+        /// <summary>账 1217：「同 trigger 有多条 ability」时**逐条**判 `actingCardCriteria(+0x28)`（见上）。
+        /// 三态与 <see cref="ActingLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,UnitState,UnitState,out string)"/> 相同。</summary>
+        public static bool? ActingLevelCriteriaAllowsByAbility(BattleContext ctx, int owner, UnitState thisCard,
+                                                               CardDef card, string triggerName, UnitState candidate,
+                                                               UnitState targetCard, out string why)
+        {
+            why = null;
+            if (card == null) { why = "没有卡（判不了）"; return null; }
+            if (!card.AbilityActingCriteriaVersioned)
+            {
+                why = "`abilityActingCriteria` 列没落（旧表 < v27）⇒ **未知**（⛔ 不是「没有条件」）";
+                return null;
+            }
+            var rows = card.AbilityRowsForTrigger(triggerName);
+            if (rows == null) { why = "`abilityTargets` 列没落 / 认不出 trigger 名 ⇒ 判不了"; return null; }
+            if (rows.Count == 0) { why = $"这张卡没有 trigger = {triggerName} 的 ability ⇒ 判不了"; return null; }
+            if (candidate == null) { why = "本路径拿不到 `actingCard`（原版这一跳是解引用 ⇒ 会 NRE）⇒ 判不了"; return null; }
+            string gaps = null;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                var set = card.AbilityActingCriteriaAt(r.AbilityIndex);
+                if (set == null) continue;              // 这条 ability 明确没有这一格条件 ⇒ 放行这一条
+                var cond = AbilityLevelConditionRowAt(card, r.AbilityIndex, "acting");   // ⑧ `conditionsFilter`
+                string gap;
+                bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, targetCard, out gap);
+                if (ok == false) { why = $"ability#{r.AbilityIndex}（trigger={triggerName}）的 acting 条件**不满足**"; return false; }
+                if (ok == null) gaps = gaps == null ? gap : gaps + "；" + gap;
+            }
+            if (gaps != null) { why = gaps; return null; }
+            return true;
+        }
+
+        /// <summary>账 1217：「同 trigger 有多条 ability」时**逐条**判 `boardCriteria(+0x38)`（见上）。
+        /// 三态与 <see cref="BoardLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,string,out string)"/> 相同。</summary>
+        public static bool? BoardLevelCriteriaAllowsByAbility(BattleContext ctx, int owner, UnitState thisCard,
+                                                              CardDef card, string triggerName, out string why)
+        {
+            why = null;
+            if (card == null) { why = "没有卡（判不了）"; return null; }
+            var rows = card.AbilityRowsForTrigger(triggerName);
+            if (rows == null) { why = "`abilityTargets` 列没落 / 认不出 trigger 名 ⇒ 判不了"; return null; }
+            if (rows.Count == 0) { why = $"这张卡没有 trigger = {triggerName} 的 ability ⇒ 判不了"; return null; }
+            string gaps = null;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                var row = AbilityLevelConditionRowAt(card, r.AbilityIndex, "count");
+                if (row == null) continue;              // 这条 ability 明确没有 board 条件 ⇒ 放行这一条
+                if (row.Condition == CardDef.ConditionUnknown)
+                {
+                    gaps = gaps == null ? "`unitConditions` 列没落（旧表 < v15）⇒ board 条件未知"
+                                        : gaps + "；board 条件未知";
+                    continue;
+                }
+                if (row.CountSet == null)
+                {
+                    gaps = gaps == null ? "`role=\"count\"` 行没有 `countSet` ⇒ 被数集合未知"
+                                        : gaps + "；board 被数集合未知";
+                    continue;
+                }
+                var gate = new CardDef.BoardGateSpec
+                {
+                    CountOption = row.CountOption,
+                    StatOption = row.StatOption,
+                    ReferenceValue = row.ReferenceValue,
+                    CountSet = row.CountSet,
+                };
+                string cgap;
+                bool? ok = CountEval.MeetsBoardCriteria(ctx, owner, gate, thisCard, out cgap, false, row.Condition);
+                if (ok == false) { why = $"ability#{r.AbilityIndex}（trigger={triggerName}）的 board 条件**不满足**"; return false; }
+                if (ok == null) gaps = gaps == null ? (cgap ?? "board 条件判不了") : gaps + "；" + (cgap ?? "board 条件判不了");
+            }
+            if (gaps != null) { why = gaps; return null; }
+            return true;
         }
     }
 }

@@ -2514,4 +2514,87 @@ namespace RuleEngine
         /// </summary>
         public UnitState EventActingCard;
     }
+
+    // ==========================================================================================
+    //  🆕 2026-10-29（第九十五会话 · 执行代理 `B96_CA` · 账 534）：
+    //      **`BattleManager.AddRemoveFromCemetery` 的等价物（"从墓地放逐" 的入队口）**
+    //  为什么追加在文件末：`BattleContext.cs` 有 40+ 处账落点按【行号】引用 ⇒ 类体里插成员会让它们整
+    //  体漂移；`partial` 追加在全部落点之后 = 零漂移（先例 = B94_B24 那块）。
+    // ==========================================================================================
+    //  判据（🥇 `d:/2/tools/decomp_full/BattleManager__AddRemoveFromCemetery.c`，2026-10-29 逐句现读）：
+    //    `BattleAction___ctor(action, 0x3c (60) removeFromCemetery, isPlayer = param_4,
+    //                         actingCard = param_5, blockPlayerActions = param_6, 0)`（`.c:31`）
+    //    → `action.card = param_2`（`.c:32`）→ `AddAutoActionToQueue(mgr, action, priority = param_3, 0)`；
+    //    且 `param_2 == 0`（卡为空）时**根本不入队**（`.c:32` 的 `if (param_2 != 0)`）。
+    //  结算体 = `BattleManager__ResolveRemoveFromCemetery.c` → `CardScript.RemoveCardFromCemetery`
+    //    （`decomp_full/CardScript__RemoveCardFromCemetery.c` **全文一句** `*(card + 0x24b) = 0`）
+    //    ⇒ 我们的等价物 = `RuleCore.ExileFromCemetery(ctx, inst)`（`RuleCore.cs:16911`，
+    //    `+0x24b` = `shouldCheckIfIsInCemetery` = 永久放逐闩，读点 = `GetCardsInCemetery` 那一句）。
+    //  🔴 **唯一生产端** = `AbilityLogic__PlayAbility.c:1986-1999` 的 `chosenAbility == 0x15e (350)`
+    //    （逐目标入队一条）⇒ 调用方 = `EffectResolver.RunRemoveFromCemeteryRow`（本代理新增）。
+    //  📊 池内 `chosenAbility == 350` = **0 / 1,351** ⇒ 休眠件（铁律 11 照样建，零行为变化）。
+    // ==========================================================================================
+    public partial class BattleContext
+    {
+        /// <summary>
+        /// **把一张墓地里的牌入队「从墓地放逐」**（= 原版 `BattleManager.AddRemoveFromCemetery`
+        /// 与 `ResolveRemoveFromCemetery` 两段合起来的等价物；判据 → 上面那一段）。
+        ///
+        /// <para>**形状**：入队**一条**动作（`actionType = 60`），动作体 = <see cref="RuleCore.ExileFromCemetery"/>。
+        /// 原版是「入队 → `ResolveAction` 的 `case 0x3c` → `RemoveCardFromCemetery`」，我们这边动作队列
+        /// 本身就承载「出队时再结算」这件事（`ActionPump`），所以**不另造动作类型枚举**、只回填同一个数值。</para>
+        ///
+        /// <para>⚠️ **卡为空 ⇒ 不入队 + 出声**（原版 `.c:32` 只在 `param_2 != 0` 时才组动作；
+        /// 我们多一句日志，免得「什么都没发生」看起来像静默失败）。</para>
+        /// </summary>
+        /// <param name="card">要放逐的那一张（原版 `param_2 : CardScript` ⇒ 我们的 `CardInstance`）。</param>
+        /// <param name="priority">原版 `param_3`。取值域 = <see cref="ActionPriority"/>（`1` = `Instant`，判据
+        /// `CardAbility__ctor.c:5` 的缺省 `+0x18 = 1`；`PlayAbility.c:1996` 传的也是 `ability.priority`）。
+        /// `0/1/2/3` 之外的数**不猜**：按 `Instant` 处理并出声。</param>
+        /// <param name="actingCard">原版 `param_5`（施动卡）。只进日志与队列归属，不改结算。</param>
+        /// <param name="isPlayer">原版 `param_4`（`PlayAbility.c:1996` 实参是 **0**）。</param>
+        /// <param name="blockPlayerActions">原版 `param_6`（`PlayAbility.c:1996` 传的是 `abilityData(+0x48)`）。</param>
+        /// <returns>真的入队了 ⇒ `true`。</returns>
+        public bool AddRemoveFromCemetery(CardInstance card, int priority = 1,
+                                          UnitState actingCard = null, bool isPlayer = false,
+                                          bool blockPlayerActions = false)
+        {
+            if (card == null)
+            {
+                Log($"⚠️ `AddRemoveFromCemetery`：要放逐的那张卡是空的 ⇒ **不入队**"
+                  + "（原版 `BattleManager__AddRemoveFromCemetery.c:32` 的 `if (param_2 != 0)` 同理，"
+                  + "那一支只记一条 `LogWarning` 就结束）");
+                return false;
+            }
+            ActionPriority lane;
+            switch (priority)
+            {
+                case 0: lane = ActionPriority.Player; break;
+                case 1: lane = ActionPriority.Instant; break;
+                case 2: lane = ActionPriority.Interrupt; break;
+                case 3: lane = ActionPriority.DelayedInstant; break;
+                default:
+                    Log($"⚠️ `AddRemoveFromCemetery`：`priority = {priority}` 不在 `ActionPriority` 的 0..3 里"
+                      + " ⇒ 按「默认道 Instant(1)」处理（⛔ 不猜别的档；判据 `CardAbility__ctor.c:5`）");
+                    lane = ActionPriority.Instant;
+                    break;
+            }
+            string who = actingCard != null ? actingCard.Name : "?";
+            bool ok = RuleCore.EnqueueAbility(this, lane,
+                                              $"removeFromCemetery(60):{card.Card?.Name ?? "?"}",
+                                              () => RuleCore.ExileFromCemetery(this, card),
+                                              actor: null,          // 原版这条 auto 动作没有「施放者必须在场」的闸
+                                              actionType: 60);      // 判据 `BattleManager__AddRemoveFromCemetery.c:31` 的 `0x3c`
+            if (!ok)
+            {
+                Log($"⚠️ `AddRemoveFromCemetery`：「{card.Card?.Name ?? "?"}」（施动 = {who}）的"
+                  + "「从墓地放逐」**没能入队** —— 这一张这次不会被放逐");
+                return false;
+            }
+            Log($"入队一条「从墓地放逐」：「{card.Card?.Name ?? "?"}」（施动 = {who}，"
+              + $"isPlayer = {(isPlayer ? 1 : 0)}，blockPlayerActions = {(blockPlayerActions ? 1 : 0)}）"
+              + "—— 原版 `BattleManager__AddRemoveFromCemetery.c:31-35` 组的是 `actionType 0x3c (60)`");
+            return true;
+        }
+    }
 }

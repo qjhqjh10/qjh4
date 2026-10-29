@@ -241,14 +241,14 @@ namespace RuleEngine
         ///   ⚠️ 我们的棋盘是**连续无洞数组**、落点由 `BoardSlots.Insert(ps, u, requestedSlot)` 的
         ///   「插推」实现（原版是 `List.Insert`）⇒ 本函数**只回答格号**，真正落位仍走 `Insert`。</para>
         ///
-        /// <para>📊 **可达性**（🔴 2026-10-28 `P3` 现读订正 —— 原文「`createAtPos` 全池 71 处 / 贴卡三档」**已过期**）：
-        ///   `cards_truth.json` 现读**召唤族 48 行 = 33 张卡**带 `createAtPos`；其中 `0 self` / `1 cardTarget` **仍是 0 处**。
-        ///   ⚠️ **调用方只应把 `{0 self, 1 cardTarget, 3 friendlyHero}` 三档传进本函数**；其余档（含最常见的
-        ///   **`14 nextFriendlyMinionSpot`**）**一律出声 + 用默认落点**（⛔ 别传本函数）⇒ 与「全部按默认落点」相比，
-        ///   **真差异只有 11 行**（不是 71 处、也不是 63 处）。
-        ///   ⚠️ **本函数今天仍没有调用点**：`SummonCriteria.createAtPos` 在我们的 DTO 上还没有格子
-        ///   （`grep -rn createAtPos Assets` = 只有注释）。接线三件：① `CardDef`/`EffectSpec` 加字段（卡牌线）
-        ///   ② 生成器带出数据 ③ `RuleCore.DeployFreeCore` 接受「请求格」（A2 已加可选形参 `int requestSlot = -1`）。
+        /// <para>📊 **可达性**（🔴 2026-10-29 `B95_WRE` 现读订正 —— 原文「`0 self` / `1 cardTarget` 仍是 0 处」「本函数今天仍没有调用点」两句**双双作废**）：
+        ///   ⚠️ **错因**：原来读 `cards_truth.json`（**稀疏导出**，`defaults.omitted` 明写 `0 / 0.0 / "" / false / [] / null` 一律省略）⇒ 按「有没有这个键」数 `0` 值**必然**数出 0；要读 0 值只能读原始 SO（`cards_raw.json` 的 `full_raw`）。
+        ///   现读真值（`报告/B94_Z3.md` §3·3 的普查；`chosenAbility ∈ {70,71,72,75,77}` 的召唤行共 **109 行**）：
+        ///   `createAtPos = 0 (self)` **73 行**（61 战术 + **12 单位**）· `= 14` 35 行 · `= 3` 1 行（`Rites of Possession`）。
+        ///   ⇒ 那 **12 行属场上单位卡**（`TL6` / `SAU13` / `TL14` / `TAU67` / `GOF61` / `UM17` / `GOF94` / `SAU34` / `TL24` / `SAU1` / `SAU28` …），
+        ///   施放者就在场上 ⇒ 原版落到「**贴着它**」，**与默认落点真的不同**（不是「接上也不改落点」）。
+        ///   ✅ **接线已完成**：消费者 = `EffectResolver.cs:4001` 的 `DeployFree(..., requestSlot: SummonRequestSlotFor(ctx, owner, op))`；
+        ///   取数口 = 同文件类尾 `SummonRequestSlotFor`（走 `CardDef.AbilitySummonAt(op.AbilityIndex, op.LogicIndex)`）。
         /// </summary>
         /// <param name="anchor">「贴着谁落位」（原版 `card`）。`null` / 督军 ⇒ 默认落点。</param>
         /// <returns>请求格号（可能已被占 —— 交给 `BoardSlots.Insert` 插推）；`-1` = 两侧都满。</returns>

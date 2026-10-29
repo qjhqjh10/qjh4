@@ -22,12 +22,12 @@
 // `currentCombatAttack`（`EntityScript__get_currentCombatAttack.c`）：
 //   · 残骸（`+0x65` = `isRemnant` 且 `+0x66` = `isLeavingRemnant` 为假）⇒ **0**；
 //   · 否则按 `currentAttackType(+0x120)`：`2` = 远程取 `CurrentRangeAttack`，其余取 `CurrentMeleeAttack`；
-//   · `dropPod(230)` 那一支读 `+0xe0` 的存档值 —— 我们**没建**那一格，池内 **0 张**带 `dropPod`
-//     ⇒ 按普通档算；如实标着，⛔ 别拿「猜一个字段」冒充原版。
+//   · `dropPod(230)` **最优先**（先于残骸那档，`.c:22-35`）：`+0xe0` = `currentDropPodAttack`，
+//     出厂 = **0**（`GameStaticData__.cctor.c:272`；只有 `AddEffect` 的 `+0x48` 差额会改它）。
 //
 // ⚠️ **这个文件是「同一条规则的唯一写法」**：`RuleCore` 的两处（实际反击 / Strike 预判）与
-//    `Data/SimpleAI` 的评分都应当转调这里。2026-10-23 起 `RuleCore` 两处已接；
-//    `SimpleAI` 那一处等 `新账-88` 代理交回文件后接（它当前另有整文件写权）。
+//    `Data/SimpleAI` / `Data/AiScoring` / `CardPresentation/Battle/BattleDriver` 的评分/预览都转调这里
+//    （2026-10-23 起 `RuleCore` 两处已接；`SimpleAI.cs:604` / `AiScoring.cs:582` / `BattleDriver.cs:34424` 已接）。
 //    ⛔ 别在别处再写一份 `ranged && Has(LongRange)` —— 那正是本条要治的「只做了一半」。
 
 namespace RuleEngine
@@ -70,7 +70,7 @@ namespace RuleEngine
 
         /// <summary>
         /// 原版 `EntityScript.currentCombatAttack`：按**当前攻击型**取近战/远程那一档；
-        /// 残骸 = 0（`+0x65 && !+0x66`）。`dropPod` 的存档值那一支没建模（池内 0 张，见文件头）。
+        /// **`dropPod` 最优先 ⇒ `DropPodAttack`（= 0）**；残骸 = 0（`+0x65 && !+0x66`）。
         ///
         /// 🔴🆕 **2026-10-24（`C1` §5）订正**：原来这里只判 `u.IsRemnant` ⇒ 少了
         /// `!isLeavingRemnant(+0x66)` 那一维。原版 `get_currentCombatAttack.c:40-47`：
@@ -81,8 +81,8 @@ namespace RuleEngine
         public static int CurrentCombatAttack(BattleContext ctx, int owner, UnitState u)
         {
             if (u == null) return 0;
-            // 🔴 `+0x65 && !+0x66` ⇒ 0（见上面那段 2026-10-24 订正）
-            if (u.IsRemnant && !u.IsLeavingRemnant) return 0;
+            // 🔴 `+0x65 && !+0x66` ⇒ 0（见上面那段 2026-10-24 订正）；dropPod 那道闸在它**之前**（`.c:22-35`）
+            if (u.Has(KeywordTable.DropPod)) return DropPodAttack; if (u.IsRemnant && !u.IsLeavingRemnant) return 0;
             bool ranged = u.CurrentAttackType == UnitState.AttackTypeRanged;
             return RuleCore.FieldAttack(ctx, owner, u, ranged);
         }
@@ -121,15 +121,15 @@ namespace RuleEngine
         /// ① 带 `dropPod(0xe6)` ⇒ 读 **`+0xe0` 那一格存档攻击力**（ObscuredInt，`.c:24-38`）；
         /// ② 否则 残骸（`+0x65 != 0 && +0x66 == 0`）⇒ **0**（`.c:15-17`）；
         /// ③ 否则 `attackType == 2`（远程）⇒ `CurrentRangeAttack`，其余 ⇒ `CurrentMeleeAttack`（`.c:18-23`）。
-        /// <para>与 <see cref="CurrentCombatAttack"/> 的差别**只两点**：打法由**实参**给（那边读
-        /// `+0x120`）；`dropPod` 那一格**我们没建** —— 那边如实按普通档算（池内 0 张），
-        /// 这里**返回 `null`**（判不了），⛔ 不拿普通档冒充空投舱攻击。</para>
+        /// <para>与 <see cref="CurrentCombatAttack"/> 的差别**只两点**：打法由**实参**给（那边读 `+0x120`）；
+        /// 那边 dropPod 那道闸在**残骸之前**、这里同样按 ① 先判（两边读同一个 <see cref="DropPodAttack"/>）。
+        /// ⚠️ **差值那一半没建模**：`CardScript__AddEffect.c:304-322` 的 `+0x48` 会把 `currentDropPodAttack` 加上差额，我们没有那个每实例量。</para>
         /// <para>可达性：池内带 `droppod` 的卡 **0 张**（2026-10-26 现读）⇒ 今天恒走 ②③。</para>
         /// </summary>
         public static int? CombatDamage(UnitState u, int attackType)
         {
             if (u == null) return 0;
-            if (u.Has(KeywordTable.DropPod)) return null;         // 原版 `.c:24-38` 的存档值我们没建
+            if (u.Has(KeywordTable.DropPod)) return DropPodAttack; // 原版 `.c:24-38` 读 `+0xe0`（出厂 0）；差额档见上
             if (u.IsRemnant && !u.IsLeavingRemnant) return 0;     // 原版 `.c:15-17`
             return attackType == 2 ? u.RangedAttack : u.Attack;   // 原版 `.c:18-23`
         }
@@ -166,9 +166,9 @@ namespace RuleEngine
         /// <para>原版三个调用点 = `BattleManager__RecordAttackPendingDamage.c:84`（登记待结算伤害）·
         /// `AI__ScoreFromBuffedAttack.c:77`（AI 估值）· `CardHighlight__ToggleCombatPreviewHighlight.c:53`
         /// （战斗预览高亮）。</para>
-        /// <para>⚠️ **本版尚未接线**（如实标）：我们的引擎**没有「待结算伤害队列」**（伤害逐段现结），
-        /// 原版那三个调用点在 <c>Core/</c> 里只对应 `Data/AiScoring.cs:578` 与
-        /// `Data/SimpleAI.cs:604`（两个文件都不在本代理白名单）⇒ 本方法目前**没有调用方**。
+        /// <para>✅ **三处调用点已接**（2026-10-29 现读，**行号 = 调用那一行**）：`Data/SimpleAI.cs:604`
+        /// （`ScoreFromAttack`，`B89·E7` 改调本预测版）· `Data/AiScoring.cs:582`（`BestAttackScore`）·
+        /// `CardPresentation/Battle/BattleDriver.cs:34424`（战斗预览，`B91_W3`）。⚠️ 我们的引擎**没有「待结算伤害队列」**（伤害逐段现结）。
         /// ⛔ 别把它塞进 <see cref="NoCounter"/> —— 那会改掉**实际结算**那条链（原版那里没有第 5 道）。</para>
         /// <para>`IsUnit(守方)` 在原版 = `cardType == 10(Hero) || 0(Minion)`（`RawCardScript__IsUnit.c:3-8`）
         /// ⇒ **督军也算**；我们棋盘上的候选恒是单位/督军 ⇒ 这一道恒真，不另判。</para>
@@ -192,5 +192,29 @@ namespace RuleEngine
             }
             return true;
         }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（执行代理 `B95_WPUMP` · 账 L1025 的 dropPod 残差）：空投舱那一格的**出厂值**
+        //  判据（第一权威 · 逐句现读）：
+        //    · `GameStaticData__.cctor.c` 的 `+0x1f8 = 0` / `+0x1fc = 2` 两行；
+        //      字段序 `dropPodAttack` → `dropPodMaxHealth` → `guildMaxUsers`(20) →
+        //      `refreshUserDataTimeNormal`(180) → `refreshUserDataTimeNearEvent`(20) → `TimeToClosePopups`(1.0f)
+        //      （`GameStaticData.cs:255-263`）⇒ 0x1f8 = `dropPodAttack` = **0**、0x1fc = `dropPodMaxHealth` = **2**。
+        //    · 两个都是 `static readonly`（同上）⇒ **没有序列化覆盖**，cctor 那一行就是真值。
+        //    · 写点：`CardScript__CardSetup.c:183` / `CardScript__ActivateTraitsOnSummonOrEnchantment.c:129`
+        //      （加 `dropPod` trait 时重置成出厂值）· `CardScript__AddEffect.c:304-322`（`+0x48` 差额加）
+        //      · `CardScript__RemoveEffect.c:117-135` / `CardScript__ResetToValuesInHand.c:123-133`（回退）。
+        //  ⚠️ **差额那一层没建模**：`AddEffect` 的 `+0x48` 是**每实例**量，我们只有 trait + 出厂值。
+        //     池内带 `droppod` 的卡 **0 张**（现扫 `cards_engine.json` / `cards_truth.json`）
+        //     ⇒ 今天不可观察；数据一变即可达，届时补 `+0x48` 那一档（⛔ 别拿普通攻击顶替）。
+        // ==========================================================================================
+
+        /// <summary>原版 `GameStaticData.dropPodAttack`（`GameStaticData__.cctor.c:272` 的 `+0x1f8 = 0`）——
+        /// 「还在空投舱里」那张卡的**当前战斗攻击力**出厂值。判据链见本段头注释。</summary>
+        public const int DropPodAttack = 0;
+
+        /// <summary>原版 `GameStaticData.dropPodMaxHealth`（`GameStaticData__.cctor.c:273` 的 `+0x1fc = 2`）——
+        /// 空投舱独立血池的**满血值**（`currentDropPodHealth`；消费者 = `RuleCore` 的空投舱伤害支）。</summary>
+        public const int DropPodMaxHealth = 2;
     }
 }

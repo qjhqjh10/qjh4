@@ -478,7 +478,13 @@ namespace CardPresentation
         /// 然后通知宿主重建整页。⚠️ **不扣任何资源**（用户 2026-09-17 边界②）。</summary>
         void Confirm()
         {
-            RerolledTo = DailyData.RerollDaily(Index);
+            // 🔴 2026-10-29（`B95_D1` · 账 `日常:487`）：原版这一跳叫 `MissionEvent<T,TData>.RerollChallenge(challenge, onComplete)`
+            //   （判据 `decomp_full/…__RerollChallenge__102f210.c`）。
+            //   · **改前调谁** = `DailyData.RerollDaily(Index)`（本体）；
+            //   · **改后调谁** = `DailyData.RerollChallenge(Index)`（`Shell/DailyData.cs:2713` 的名字对齐入口）；
+            //   · **为什么等价** = 那个入口的**整段体只有一句** `return RerollDaily(i);`（纯转发，⛔ 没有第二份换任务逻辑）
+            //     ⇒ 返回值与副作用逐位相同，唯一变化是「原版同名方法终于有调用方」。
+            RerolledTo = DailyData.RerollChallenge(Index);
             Close();                       // 先关再回调（照 `PromptPopup.Choose`）—— 回调里可能再开窗
             Debug.Log("[MissionReroll] `Confirm` ⇒ 换了第 " + (Index + 1) + " 条任务：「" + RerolledTo
                       + "」（⚠️ **不扣钱**：用户 2026-09-17 拍板「不做真实经济、资源固定 2000」（用户 2026-10-24 从 9999 改）」；"

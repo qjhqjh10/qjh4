@@ -2584,7 +2584,7 @@ namespace RuleEngine
             RuleCore.SpendNormalMana(ctx, p, paid, "打出「" + card.Name + "」", costType: AchievementTally.EnergyCostCard);   // B93_E6：打出战术卡也是原版 `PayCardCost` ⇒ `Type = CardCost(1)`
             // `next …` 那族费用修正**用完即销** —— 和 `RuleCore.PlayCard`（单位那条）对称，
             // 两处都必须在**付费之后**调（见 `RuleCore.ConsumeOnceCostMods`）
-            RuleCore.ConsumeOnceCostMods(ctx, p, inst); if (card.Has(KeywordTable.Oath)) PayCardPlayedCostOath(ctx, p, inst);   // 🆕 2026-10-29（B94_F2 · 账 455 · F1 交办 `报告/B94_F1.md` §六·④）：**战术卡**的誓约再付一次 —— 原版 `BattleManager.PayCardPlayedCostOath`（`.c:1-31`）；🔴 2026-10-29（B94_FX4 · DG1 γ1）：**双计不在这个调用点修** —— 由 `PayCardPlayedCostOath` **本体**里那道「卡面已有 `Oath N:` 付费组（`CardDef.OathOps` 非空）⇒ 跳过 `SpendNormalMana`」的闸兜住（`.c:24` 的 Codex 那一跳照跑），两个调用点同受益 ⇒ ⛔ 别删这一句
+            RuleCore.ConsumeOnceCostMods(ctx, p, inst);   // 🔴 2026-10-29（B96_OATH · 账 455）：战术卡的誓约钱由 `ChargePaidGroups` 按 `Oath N:` 前缀收（实测 `Angel's Wrath` 1+2 / `Catechism of Death` 0+3）；原版那一笔就是 `PayCardPlayedCostOath`（`chosenAbility 360` 支，`AbilityLogic__PlayAbility.c:2033`），⛔ 别两处都收（双计会烧光余能 ⇒ 付费组付不起 ⇒ 正文整组不结算）
             ps.Hand.RemoveAt(handIdx);
             // 🆕 2026-10-17（B19）：**记一笔「本局打出过的牌」**（候选域 `played` 的唯一来源之一；
             //    单位卡那一笔在 `RuleCore.PlayCard`）。
@@ -10022,7 +10022,7 @@ namespace RuleEngine
             //   那一族是**非单位卡**的 `HandTrapWhens`（两边互斥，见 `BroadcastHandWhen` 的注释）。
             //   原版次序 = `:43-52`（当前回合方手牌）→ `:53-70`（另一方手牌），本函数按这个顺序遍历。
             if (!boardAndPersistentOnly)
-                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind)); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject);   // 🔴 2026-10-29（B94_Z2 · 账 B94_Z2）：原版两条广播器的 ②③ 手牌两跳 —— `BroadcastUnitDamaged.c:62-86`（`ResolveDamageDealt` ⇒ 60/185/187/720）与 `BroadcastUnitRegiment.c:41-64`（`TriggerOtherCardRegiment` ⇒ 646）。⚠️ `damageType` 这一格本调用点拿不到（`EmitHit` 只传 `absorbed`）⇒ 传 `-1`（**只发 60**，⛔ 不拿 `0 Normal` 顶）；补齐要 `RuleCore.EmitHit` 把 `DamageKind` 带进来（见 `报告/B94_Z2.md` §施工单）
+                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind)); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-29（B94_Z2 · 账 B94_Z2）：原版两条广播器的 ②③ 手牌两跳 —— `BroadcastUnitDamaged.c:62-86`（`ResolveDamageDealt` ⇒ 60/185/187/720）与 `BroadcastUnitRegiment.c:41-64`（`TriggerOtherCardRegiment` ⇒ 646）。⚠️ `damageType` 这一格本调用点拿不到（`EmitHit` 只传 `absorbed`）⇒ 传 `-1`（**只发 60**，⛔ 不拿 `0 Normal` 顶）；补齐要 `RuleCore.EmitHit` 把 `DamageKind` 带进来（见 `报告/B94_Z2.md` §施工单）
         }
 
         /// <summary>
@@ -16090,7 +16090,25 @@ namespace RuleEngine
             ctx.Log($"{by}：**Jam** 「{jammed.Name}」（清掉全部效果 + 摘掉全部 trait + 挂 jam"
                   + (jammed.IsWarlord ? "；督军 ⇒ 主动技能照旧" : "；非督军 ⇒ 主动技能被压掉") + "）");
 
-            // ---- ③ 「别人被 jam」：按来源撤 extrinsic（原版同一次广播的 else 支）----
+            // ---- ③ 致死检查（原版第 ⑥ 步 `CheckIfDead(undefined)`，紧跟在 `ApplyJam()` 之后；🔴 2026-10-29 `B95_WRE` 账 521①：本块已上移 —— 改前它排在 ④ 之后，与原版相反，现按 `CardScript__ReactToUnitJammed.c:178` 改回）----
+            //   ⚠️ 顺序是**原版写死的**：致死在这里判，广播在它之后
+            //      （`ReactToUnitJammed` 的 ⑥ 在函数体内，`BroadcastUnitJammed` 在 `ResolveJamUnit` 里）。
+            if (dead)
+            {
+                int slot = -1;
+                if (who >= 0)
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                        if (ReferenceEquals(ctx.Players[who].Board[s], jammed)) { slot = s; break; }
+                if (slot >= 0)
+                    CleanupDeaths(ctx, who, slot, killer: -1, maySurvive: true,
+                                  actingCard: ctx.ActingUnit);
+                else
+                    // ⛔ 不许静默：找不到格位 = 我们记的 `who` 和棋盘不一致，必须说出来。
+                    ctx.Log($"（`Jam` 后「{jammed.Name}」血 ≤ 0，但**在 P{who} 的棋盘上找不到它的格位**"
+                          + " ⇒ 死亡结算没跑，需要查 `OwnerOf` / 棋盘写入）");
+            }
+
+            // ---- ④「别人被 jam」：按来源撤 extrinsic（原版同一次广播的 else 支；🔴 2026-10-29 `B95_WRE` 账 521①：必须排在致死检查之后 = `BroadcastUnitJammed` 在 `CheckIfDead` 之后，⛔ 别挪回上面）----
             //   原版：`BroadcastUnitJammed` 对**场上每张牌 + 双方手牌**各调一次
             //   `ReactToUnitJammed(那张, 被 jam 的)`；`那张 != 被 jam 的` ⇒ else 支
             //   `RemoveExtrinsicEffectsFrom(被 jam 的) + UpdateWhileInPlay(false)`。
@@ -16112,27 +16130,9 @@ namespace RuleEngine
             if (stripped > 0)
                 ctx.Log($"（「{jammed.Name}」被 jam ⇒ 从场上/手牌撤掉它给的 {stripped} 条外来效果）");
 
-            // ---- ④ 致死检查（原版第 ⑥ 步 `CheckIfDead(undefined)`，紧跟在 `ApplyJam()` 之后）----
-            //   ⚠️ 顺序是**原版写死的**：致死在这里判，广播在它之后
-            //      （`ReactToUnitJammed` 的 ⑥ 在函数体内，`BroadcastUnitJammed` 在 `ResolveJamUnit` 里）。
-            if (dead)
-            {
-                int slot = -1;
-                if (who >= 0)
-                    for (int s = 0; s < BoardSpec.Size; s++)
-                        if (ReferenceEquals(ctx.Players[who].Board[s], jammed)) { slot = s; break; }
-                if (slot >= 0)
-                    CleanupDeaths(ctx, who, slot, killer: -1, maySurvive: true,
-                                  actingCard: ctx.ActingUnit);
-                else
-                    // ⛔ 不许静默：找不到格位 = 我们记的 `who` 和棋盘不一致，必须说出来。
-                    ctx.Log($"（`Jam` 后「{jammed.Name}」血 ≤ 0，但**在 P{who} 的棋盘上找不到它的格位**"
-                          + " ⇒ 死亡结算没跑，需要查 `OwnerOf` / 棋盘写入）");
-            }
-
             // ---- ⑤ 广播（`BroadcastUnitJammed`）----
             //   ⚠️ 原版这个广播器**一发 `OnTrigger` 都没有**（接收方 `ReactToUnitJammed` 体内 0 处），
-            //      它的「广播」等于上面 ③ 那一轮清理 ⇒ 我们这里发的 `UnitJammed` 事件
+            //      它的「广播」等于上面 ④ 那一轮清理 ⇒ 我们这里发的 `UnitJammed` 事件
             //      **是我们给这条广播起的名字**（🔶 见 `WhenEventKind.UnitJammed` 的 doc）。
             BroadcastWhen(ctx, WhenEventKind.UnitJammed, who, jammed.Card,
                           subject: jammed, actor: jammed, target: null);
@@ -18448,6 +18448,8 @@ namespace RuleEngine
         {
             if (ctx == null || u == null || u.Card == null) return false;
             if (u.Card.AbilityTriggerPresence("TriggerOnceIfBoardCriteria") != 1) return false;
+            // 🔴 2026-10-29（B96_CA · 账 1288）：闸从「写死的卡面关键词」改成**按触发数值取**（`CardDef.TriggerOpsByNumber(200)`，见 `CardDefPartial_B96CA.cs`）—— 数据半（生成器落 `trigger 数值 → ability op`）挂进来之后，本闸自动跟着走。⚠️ 全池仍 0 张（现扫 `abilityTriggers` 含 200 = 0/1,129）⇒ 零行为变化。⚠️ 今天**只能当闸**：正文仍由 `FireTriggerAt` 按关键词取（要让它读挂进来的那张表，`FireTriggerAt` 需加 `opsOverride` 形参，而它在 `RuleCore.cs`、不在本代理白名单 ⇒ 已交回补丁）
+            List<EffectOp> onceOps = u.Card.TriggerOpsByNumber(200); if (onceOps == null || onceOps.Count == 0) return false;
             return FireTriggerAt(ctx, u, KeywordTable.TriggerOnceIfBoardCriteria, owner, slot);
         }
 
@@ -18473,10 +18475,11 @@ namespace RuleEngine
         //     其它 `ta` **不猜**：出声 + 这一行不结算（⛔ 不许退回「己方全体」那种近似 —— 那会静默打错人）。
         // ==========================================================================================
         /// <summary>`UseActiveAbilityCore` 逐行执行时的分派点：`ca == 370/400` 走
-        /// <see cref="RunGrantedTriggerRow"/>，其余照旧 <see cref="RunActiveRowOps"/>。</summary>
+        /// <see cref="RunGrantedTriggerRow"/>、`ca == 85` 走 <see cref="RunTransformUnitRow"/>（账 172/548）、`ca == 350` 走 <see cref="RunRemoveFromCemeteryRow"/>（账 534），其余照旧 <see cref="RunActiveRowOps"/>。</summary>
         internal static int RunActiveRowOpsOrGrantedTrigger(BattleContext ctx, int p, UnitState u,
                                                             int row, int ca, int ta, UnitState chosen)
         {
+            if (ca == 85) return RunTransformUnitRow(ctx, p, u, row, ta, chosen); if (ca == 350) return RunRemoveFromCemeteryRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B96_CA · 账 172 / 548 与 534）：`85 = transformUnitWithBuff`（判据 `AbilityLogic__PlayAbility.c:904-941`）—— 原版在这一支组一条 `transformUnit(27)` 动作，我们没有 27 号动作道 ⇒ 生产端**直调** `RuleCore.TransformUnit`（下游 `TransformUnit_B94B12.cs` 已逐跳落齐）；`350 = removeFromCemetery`（判据 `AbilityLogic__PlayAbility.c:1986-1999` 逐目标 `AddRemoveFromCemetery`）
             if (ca == 370 || ca == 400) return RunGrantedTriggerRow(ctx, p, u, row, ta, chosen, courtesy: ca == 400);
             if (ca == 360) return RunPlayChosenCardAbility(ctx, p, u, chosen);   // 🆕 2026-10-29（B94_F2 · 账 455）：`chosenAbility 360 = playChosenCardAbility`（`AbilityEffect.cs:64`）—— 原版 `AbilityLogic__PlayAbility.c:2014-2070` 那一支（判据见 `RunPlayChosenCardAbility` 的 doc）
             return RunActiveRowOps(ctx, p, u, row, ta, chosen);
@@ -19058,6 +19061,476 @@ namespace RuleEngine
                     ctx.Log("（召唤落点：`createAtPos=" + cap + "` 不在 {0 self, 1 cardTarget, 3 friendlyHero} 三档内"
                           + " —— 原版 `AddMinionOccupation(area,0)` + LogWarning、落点仍取默认；我们的棋盘无占用表 ⇒ 只出声）");
                     return -1;
+            }
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（`B95_WRE` 批 2 · 账 647）—— `BroadcastUnitDamaged` 的「**外加那一支**」
+        //  ⛔ 追加在类尾（铁律 18·b）：上面 288 条 `A` 行落点按 `文件:行号` 引用本文件，
+        //     插在中间会让它们整体漂；本段在最后一个 A 落点（`:18440`）之后 ⇒ 零漂移。
+        // ==========================================================================================
+        /// <summary>
+        /// **原版 `BattleManagerSupport.BroadcastUnitDamaged.c:31-45` 那条「外加那一支」**：
+        /// 棋盘循环里对**不在场（`!IsInPlay`）的施害卡**照样调一次 `ResolveDamageDealt`。
+        ///
+        /// <para>**判据（第一权威，逐句现读 `decomp_full/BattleManagerSupport__BroadcastUnitDamaged.c`）**：
+        /// 循环体（`:24-61`）分两支 ——
+        /// · `IsInPlay(card)` 为真 ⇒ 只要 `card != damagedUnit` 就发（`:44-53`）；
+        /// · `IsInPlay(card)` 为假 ⇒ `:31-45` 再判一次：**`damageInfo.damageType(+0x1c) == 4 (Attack)`
+        ///   ∧ `damageInfo.actingCard(+0x10) != null` ∧ `actingCard == card`** ⇒ **照发**。
+        /// ⇒ 语义 = 「**打人的那张自己，哪怕已经不在场了，也照样收到这一次『你造成了伤害』**」。</para>
+        ///
+        /// <para>🔴 **为什么它必须单独补**：我们这一层的棋盘跳走
+        /// <see cref="SnapshotBoardListeners"/> 快照，而 `Damaged` 这一族的
+        /// `BoardJumpIncludesPendingDeath` = `false` ⇒ **待死单位根本进不了快照**；
+        /// 而原版那条例外针对的正是「`!IsInPlay` 但还在 `allCardsInPlay(+0x470)` 里」的那一格。
+        /// 判据的另一半（被打者本人先跑一次）已经在 `RuleCore.EmitHit` 的
+        /// `PreCallBoardListener` 里。两处**不许合并**：预调只覆盖**被打者**，本支只覆盖**施害卡**。</para>
+        ///
+        /// <para>⚠️ **判档（如实标）**：**池内 `abilityTriggers` 含 185 / 187 的卡 = 0 张**
+        /// （`cards_engine.json` 1,129 张现扫，2026-10-29）⇒ 这条链今天**零可观测**；
+        /// 但**文本型**监听（`When a friendly unit is damaged, …`）是可达的 —— 本支只按
+        /// `damageType == 4 (Attack)` 开口，正是原版那条闸。
+        /// 铁律 11：休眠机制照样做。</para>
+        ///
+        /// <para>⛔ **三条不许**：① 别把 `damageType` 缺省值（`-1` = 本调用点不知道）当成 `4` 放行；
+        /// ② 别对**在场**的施害卡再发一次（上面那一趟棋盘循环已经发过 —— 原版是同一条循环）；
+        /// ③ 别在别处另写一份 `OwnerOf ?? OwnerSeat` 的归属三目（`RuleCore.SeatOf` 是唯一口径）。</para>
+        /// </summary>
+        /// <param name="subject">被打的那个单位（原版 `damagedUnit`）。</param>
+        /// <param name="actingCard">施害卡（原版 `damageInfo.actingCard`；`null` ⇒ 本支不启用）。</param>
+        /// <param name="damageType">原版 `DamageInfo.damageType`（`4` = `Attack`）；`-1` = 不知道。</param>
+        static void BroadcastUnitDamagedExtraAttacker(BattleContext ctx, UnitState subject,
+                                                      UnitState actingCard, int damageType)
+        {
+            if (ctx == null || ctx.IsOver || subject == null || actingCard == null) return;
+            if (damageType != 4) return;                        // 原版 `:32` 只放 `damageType == 4 (Attack)`
+            if (ReferenceEquals(actingCard, subject)) return;   // 原版 `:35` 那半句：施害卡 == 被打者 ⇒ 由预调那一跳管
+            int owner = OwnerOf(ctx, actingCard);
+            bool pending = ctx.IsPendingDeath(actingCard);
+            if (owner >= 0 && !pending) return;                 // 在场且未待死 ⇒ 上面那一趟棋盘循环已经发过
+            // 归属：离场后 `OwnerOf` 常回 -1 ⇒ 回落 `OwnerSeat`（原版 `isPlayer(+0x40)` **离场不清**）
+            int seat = owner >= 0 ? owner : actingCard.OwnerSeat;
+            if (seat < 0 || seat > 1)
+            {
+                ctx.Log($"（`Damaged` 外加那一支：施害卡「{actingCard.Name}」已不在场、归属判不出"
+                      + " ⇒ 跳过 —— 原版这里读的是卡上那个 `isPlayer`，我们两个来源都是未知）");
+                return;
+            }
+            // `EffectChain` 上限：本支绕过了 `BroadcastWhen` 入口那道闸（同 `PreCallBoardListener` 的纪律）
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain) return;
+            int subjOwner = OwnerOf(ctx, subject);
+            using (EventSlotsScope.TargetAndCard(ctx, null, subject.Card))
+                FireBoardWhenListener(ctx, actingCard, WhenEventKind.Damaged, subjOwner, subject.Card,
+                                      subject, null, null, -1,
+                                      allowPendingDeath: true, pinnedOwner: seat,
+                                      actingCard: actingCard);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（第九十五会话 · 执行代理 `B96_CA`）：账 172 / 548 / 534 / 482 / 636 的五个落点
+        //  ⛔ **新成员一律追加到类尾**（`账/*.tsv` 按 `文件:行号` 落点，插在中间会让下游整体漂移）。
+        //  本段上面的 `RunActiveRowOpsOrGrantedTrigger` 里那两行 `ca == 85` / `ca == 350` 分派是
+        //  **同一行内追加**（零行数变化），所以本文件行号**整体未动**。
+        // ==========================================================================================
+
+        /// <summary>
+        /// **账 172（+ 548 闭环）：`chosenAbility 85 = transformUnitWithBuff` 的生产端分派**
+        /// （判据 🥇 `decomp_full/AbilityLogic__PlayAbility.c:904-941`，逐句现读；🥈 `:1986-1999` 同族）。
+        ///
+        /// <para>**原版这一支做了什么**（`.c:904-941`）：
+        /// ① `GetCardToSummon(abilityLogic, abilityLogic.summonCriteria(+0x58), abilityData, manager, possibleTargets(+0x78))`
+        ///    ⇒ 候选表；② `summonCriteria.buffEffect(+0x50).GetNewInstanceOfThisEffect()` + `AdjustCardEffect`
+        ///    ⇒ 要挂上去的那条效果，并填 `effect.owner(+0x18) = abilityData.thisCard(+0x10)`、
+        ///    `effect.isPlayer(+0xA0) = thisCard.isPlayer(+0x40)`；
+        /// ③ 候选非空 ⇒ **取第 0 张**当 `transformedIntoCard`，调
+        ///    `BattleManager.AddTransformCardWithBuff(targetCard = abilityData.targetCard(+0x18),
+        ///     transformedIntoCard, priority = ability.priority(+0x44), checkIfCasterInPlay = mgr(+0x74),
+        ///     casterCard = abilityData.thisCard, buffEffect, keepEffects = summonCriteria.keepEffects(+0x2A),
+        ///     blockPlayerActions = abilityData(+0x48))`。
+        ///    ⇒ `AddTransformCardWithBuff`（`decomp_full/BattleManager__AddTransformCardWithBuff.c` 全文 108 行）
+        ///    组一条 **`actionType = 0x1b (27) transformUnit`** 的动作入队（`:38`/`:106`）。</para>
+        ///
+        /// <para>🔴 **我们的等价做法 = 生产端直调**（我们没有 27 号动作道，也不打算为它新造一条 ——
+        /// 下游 `RuleCore.TransformUnit`（`TransformUnit_B94B12.cs:178`）已经把
+        /// `ResolveTransformUnit.c` 的 7 跳逐句落齐，含 keepEffects 两支 + `MinionPlayedIntoField`。
+        /// 原版「先入队、再由 `ResolveAction` 的 `case 0x1b` 结算」与「当场结算」的**净结果相同**
+        /// （这条动作是 auto 动作、没有可被打断的窗口），差别只在**入队优先级**这一格。</para>
+        ///
+        /// <para>⚠️ **三处如实标注的缺口**（⛔ 不猜、⛔ 不假装做了）：
+        /// ① **「变成哪张卡」今天取不到** —— 原版取 `summonCriteria.unitsToSummon` 那张 PPtr 的卡。
+        ///    我们的 `abilitySummon` 列（`CardDef.AbilitySummonSpec`）**只覆盖
+        ///    `cardAbilities[].abilityLogic[]`**（生成器 `ability_summon_of`，判据 `gen_cards_engine.py:4471-4504`），
+        ///    **不含 `activeAbilityLogic`**；而 `summonCriteria` 那一列本身**不带 `unitsToSummon` 的名字**
+        ///    （七格全是 int）⇒ 本方法只能用**卡面正文**里的 `become` op（`EffectOp.Payload` 的 `|` 列表，
+        ///    = `DoBecome` 用的同一份名源）当唯一名源；取不到就**出声 + 这一行不结算**。
+        /// ② **`keepEffects`** 取 `AbilitySummonAt(op.AbilityIndex, op.LogicIndex).KeepEffects`；
+        ///    判不出（`-1`）⇒ 出声 + 不结算（这一位决定「保留当前血量/关键词覆盖层」还是「整份重置 + 吃召唤病」，
+        ///    猜错会静默改对局强度）。⚠️ 对 `activeAbilityLogic` 行 `AbilitySummonAt` 今天**必然**返 `null`
+        ///    （`Ab` 是 `cardAbilities` 下标，而 active 行不是那个对象）⇒ 该行今天走「不结算」支，**这是数据缺口，不是逻辑缺口**。
+        /// ③ **`buffEffect(+0x50)` 那一格没接**：原版会随变身一起挂一条效果（`AddTransformCardWithBuff` 的
+        ///    `+0x70 = buffEffect`）。`RuleCore.TransformUnit` 的签名里没有这条效果的入口
+        ///    （那是 `TransformUnit_B94B12.cs` 的口，不在本代理白名单）⇒ 如实记缺口，⛔ 不在这里另造一条
+        ///    `Give` 去近似（那会与 `ApplyOneGain` 的模型打架）。</para>
+        ///
+        /// <para>📊 **可达性**：池内 `chosenAbility == 85` = **0 / 1,351**（`cards_truth.json` 现扫）
+        /// ⇒ 休眠件（铁律 11：照样建，零行为变化）。</para>
+        /// </summary>
+        internal static int RunTransformUnitRow(BattleContext ctx, int p, UnitState u, int row, int ta, UnitState chosen)
+        {
+            if (ctx == null || u == null || u.Card == null) return 0;
+            var ops = ActiveRowOpsOf(u, row);
+
+            // ---- ① 目标（原版 `abilityData.targetCard(+0x18)`）—— 与 `RunGrantedTriggerRow` 同一份解析，⛔ 不另写 ----
+            var spec = (ops.Count > 0) ? ops[0].Target : null;
+            List<UnitState> targets;
+            if (spec != null) targets = ResolveTargets(ctx, p, spec, u, chosen, null, ops[0]);
+            else if ((ta == 30 || ta == 220) && chosen != null && chosen.IsAlive) targets = new List<UnitState> { chosen };
+            else
+            {
+                ctx.Log($"⚠️「{u.Name}」的 `chosenAbility 85`（transformUnit）**解不出目标集**（`ta={ta}`，这一行没有配到正文 op）"
+                      + " ⇒ 本版**不猜**，这一行不结算（目标集判据 = `AbilityLogic__GetTargets.c:192-207`：只有 `ta = 30/220` 读调用方给的那个目标）");
+                return 0;
+            }
+            if (targets == null) return 0;
+            targets.RemoveAll(t => t == null || !t.IsAlive);
+            if (targets.Count == 0)
+            {
+                ctx.Log($"「{u.Name}」的 `chosenAbility 85`（transformUnit）：目标集为空 ⇒ 什么都不换（原版 `.c:938` 对空候选也是空转）");
+                return 0;
+            }
+
+            // ---- ② keepEffects（原版 `summonCriteria.keepEffects(+0x2A)`）----
+            int ab = (ops.Count > 0) ? ops[0].AbilityIndex : -1;
+            int lg = (ops.Count > 0) ? ops[0].LogicIndex : -1;
+            var sm = (ab >= 0 && lg >= 0) ? u.Card.AbilitySummonAt(ab, lg) : null;
+            int keepRaw = (sm != null) ? sm.KeepEffects : -1;
+            if (keepRaw != 0 && keepRaw != 1)
+            {
+                ctx.Log($"⚠️「{u.Name}」的 `chosenAbility 85`（transformUnit）**判不出 `keepEffects`**"
+                      + $"（`abilitySummon` 那格里是 {(keepRaw < 0 ? "缺键/未落列" : keepRaw.ToString())}）"
+                      + " ⇒ 本版**不猜**，这一行不结算（这一位决定「保留当前血量/关键词覆盖层」还是"
+                      + "「整份重置成手牌数值 + 吃召唤病」，猜错会静默改对局强度。判据 `PlayAbility.c:935` 的 `*(*(param_1+0x58)+0x2a)`）");
+                return 0;
+            }
+            bool keepEffects = keepRaw == 1;
+
+            // ---- ③ 变成哪张卡（唯一名源 = 卡面 `become` op 的 `Payload`；见 doc 缺口①）----
+            CardDef newCard = null;
+            int found = 0;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (!string.Equals(ops[i].Verb, "become", System.StringComparison.Ordinal)) continue;
+                foreach (string raw in (ops[i].Payload ?? "").Split('|'))
+                {
+                    string nm = raw.Trim();
+                    if (nm.Length == 0) continue;
+                    found++;
+                    var cand = CreatePool.FindByName(ctx.CardPool, nm);
+                    if (cand != null) newCard = cand;
+                }
+            }
+            if (newCard == null || found != 1)
+            {
+                ctx.Log($"⚠️「{u.Name}」的 `chosenAbility 85`（transformUnit）**取不到「变成哪张卡」**"
+                      + $"（卡面 `become` 候选命中 {found} 个，取到的卡 {(newCard == null ? "为空" : newCard.Name)}）"
+                      + " ⇒ 本版**不猜**，这一行不结算。真缺口 = `summonCriteria.unitsToSummon` 的"
+                      + "**主动能力版**没有进卡表（生成器只落 `cardAbilities[].abilityLogic[]` 那一份，"
+                      + "判据 `gen_cards_engine.py` 的 `ability_summon_of`）");
+                return 0;
+            }
+
+            // ---- ④ 逐目标变身（原版 `AddTransformCardWithBuff` 一次只服务一个 targetCard）----
+            int done = 0, noCell = 0;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                var t = targets[i];
+                int o, s;
+                FindBoardCell(ctx, t, out o, out s);
+                if (o < 0 || s < 0) { noCell++; continue; }
+                if (RuleCore.TransformUnit(ctx, o, s, newCard, keepEffects, by: $"{u.Name}（chosenAbility 85）"))
+                    done++;
+            }
+            ctx.Log($"{u.Name} 的主动能力 `chosenAbility 85`（transformUnit）：{done}/{targets.Count} 个目标变成了「{newCard.Name}」"
+                  + $"（keepEffects = {(keepEffects ? "真" : "假")}）"
+                  + (noCell > 0 ? $"；{noCell} 个目标不在棋盘上 ⇒ 没变（原版 `.c:938` 只在场面卡上组动作）" : "")
+                  + "。⚠️ 原版随后还会挂 `buffEffect(+0x70)` 那条效果 —— 我们这版没接（见本方法 doc 缺口③）");
+            return done > 0 ? 1 : 0;
+        }
+
+        /// <summary>
+        /// **账 534：`chosenAbility 350 = removeFromCemetery` 的生产端分派**
+        /// （判据 🥇 `decomp_full/AbilityLogic__PlayAbility.c:1986-1999`，逐句现读）。
+        ///
+        /// <para>**原版这一支**：`while` 遍历 `possibleTargets(abilityLogic+0x78)`，逐个调
+        /// `BattleManager.AddRemoveFromCemetery(manager, 该卡, priority = ability.priority(+0x44),
+        /// isPlayer = 0, actingCard = abilityData.thisCard(+0x10), blockPlayerActions = abilityData(+0x48))`
+        /// —— 每个目标入队**一条**动作；`AddRemoveFromCemetery`（`decomp_full/BattleManager__AddRemoveFromCemetery.c:31-35`）
+        /// 组的是 `BattleAction___ctor(action, 0x3c (60) removeFromCemetery, isPlayer, actingCard, block, 0)`，
+        /// 结算体 = `ResolveRemoveFromCemetery` → `CardScript.RemoveCardFromCemetery`（全文一句 `*(card+0x24b) = 0`
+        /// = 永久放逐）⇒ 我们的等价 = `RuleCore.ExileFromCemetery(ctx, inst)`（`RuleCore.cs:16911`）。</para>
+        ///
+        /// <para>⚠️ **如实标注的口径差**：原版的 `possibleTargets` 是 `AbilityLogic.GetTargets` 按
+        /// `targetCriteria`（`ta = 60` 墓地表）**筛过**的那一份；我们这一版：
+        /// · 目标解析走**与 `RunGrantedTriggerRow` 完全同一份** `ResolveTargets`（⛔ 不另写第二份目标集）；
+        /// · 而 `ta = 60`（墓地）在 `ResolveTargets` 里**没有对应档**（我们的目标层只到 `UnitState`，
+        ///   墓地表是 `CardInstance`）⇒ 这一档今天解出空表 ⇒ 下面的「解不出目标集」支会**出声**。
+        ///   ⛔ 不许退化成「扫整份墓地全摘」（那是**多摘**，会静默改对局）——铁律 11 例外①之外不猜。</para>
+        ///
+        /// <para>📊 **可达性**：池内 `chosenAbility == 350` = **0 / 1,351** ⇒ 休眠件。</para>
+        /// </summary>
+        internal static int RunRemoveFromCemeteryRow(BattleContext ctx, int p, UnitState u, int row, int ta, UnitState chosen)
+        {
+            if (ctx == null || u == null || u.Card == null) return 0;
+            var ops = ActiveRowOpsOf(u, row);
+            var spec = (ops.Count > 0) ? ops[0].Target : null;
+            List<UnitState> targets;
+            if (spec != null) targets = ResolveTargets(ctx, p, spec, u, chosen, null, ops[0]);
+            else if ((ta == 30 || ta == 220) && chosen != null) targets = new List<UnitState> { chosen };
+            else
+            {
+                ctx.Log($"⚠️「{u.Name}」的 `chosenAbility 350`（removeFromCemetery）**解不出目标集**（`ta={ta}`）"
+                      + " ⇒ 本版**不猜**，这一行不结算。原版目标 = `possibleTargets`（`ta = 60` 墓地表经 `targetCriteria` 筛）；"
+                      + "我们的 `ResolveTargets` 只有 `UnitState` 目标、**没有墓地那一档**（墓地表是 `CardInstance`）");
+                return 0;
+            }
+            if (targets == null) return 0;
+            targets.RemoveAll(t => t == null);
+            if (targets.Count == 0) return 0;
+
+            int queued = 0;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                var t = targets[i];
+                var inst = t.Instance;
+                if (inst == null)
+                {
+                    ctx.Log($"「{u.Name}」的 `chosenAbility 350`：目标「{t.Name}」没有 `CardInstance` ⇒ 这一张入不了队");
+                    continue;
+                }
+                // 原版逐目标各入队一条（`.c:1996` 在 `while` 里）；我们走同一个入口。
+                if (ctx.AddRemoveFromCemetery(inst, priority: 1, actingCard: u)) queued++;
+            }
+            ctx.Log($"{u.Name} 的主动能力 `chosenAbility 350`（removeFromCemetery）：给 {queued}/{targets.Count} 张"
+                  + "各入队一条「从墓地放逐」（原版 `AbilityLogic__PlayAbility.c:1986-1999` 逐目标 `AddRemoveFromCemetery`）");
+            return queued > 0 ? 1 : 0;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（`B96_CA`）：账 482 / 636 —— 「按施放者整份摘 extrinsic 效果」的两半
+        // ==========================================================================================
+        //  原版是**两条**（判据 🥇 `d:/2/tools/decomp_full/`，逐句现读）：
+        //   · `BattleManager.RemoveExtrinsicEffectsFrom(BattleManager mgr, CardScript actingCard, int priority)`
+        //     （`BattleManager__RemoveExtrinsicEffectsFrom.c` 151 行）—— **先查后排队**：
+        //       ① 扫 `unitsInPlay(+0x470)`，逐张 `ContainsExtrinsicEffectFrom(卡, actingCard, 0, 0)`；
+        //       ② 再扫当前方手牌（`IsPlayerTurn` 定 `+0xd0`/`+0xd8` → `+0x50` 列表）、③ 另一方手牌；
+        //       ③ 任一命中 ⇒ 记日志 + 组一条 `actionType = 0x2f (47)` 的动作 + `AddAutoActionToQueue(mgr, action, priority, 0)`。
+        //     ⚠️ **只入队一条**（不是每张卡一条）—— `.c:96-146` 那一段在循环**外**。
+        //   · `BattleManagerSupport.BroadcastRemoveEffectsFrom(BattleManager mgr, CardScript actingCard)`
+        //     （`BattleManagerSupport__BroadcastRemoveEffectsFrom.c`）—— **动作 47 的结算体**：
+        //       棋盘逐张 `IsInPlay` 判真再 `RemoveExtrinsicEffectsFrom(卡)`（无 actingCard 实参）+ 双方手牌全量。
+        //  我们这一侧：`Auras.RemoveExtrinsicBySource(ctx, sourceCardName)`（`Aura.cs:1046`，含 `IsInPlay` 闸）
+        //  就是「整份摘」的唯一入口 ⇒ 本段**只**补「先查后排队」那半 + 47 的动作体，⛔ 不另写遍历
+        //  （与 `Aura.cs` 那条 doc「谁接谁调用即可」一致）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// **账 482：`BattleManager.RemoveExtrinsicEffectsFrom` 的等价物（先查后排队）**。
+        /// 判据 → 上面那一段。命中时**只入队一条** `actionType = 47` 的动作，动作体 =
+        /// <see cref="BroadcastRemoveEffectsFrom"/>（= 原版 47 的结算体）。
+        ///
+        /// <para>⚠️ **只覆盖棋盘那一半，如实标着**（与 `Aura.RemoveExtrinsicBySource` 的 doc 同一口径）：
+        /// 我们的「extrinsic 账」有三本（`_statMods` / `_buffs` / `_grants`），**手牌卡的常驻修饰住在
+        /// `ctx.CostMods`，不是同一份模型** ⇒ 手牌两跳只能做「查」不能做「摘」。
+        /// 本方法因此**只扫棋盘**；手牌那一半仍缺（= 账 636 已记的残余，⛔ 不是新缺口）。</para>
+        ///
+        /// <para>🔴 **`extrinsic != 0` 那道闸我们做不到**（缺「施放者」这一列）：原版只摘
+        /// `effect.extrinsic(+0x30) != 0 && effect.enchantingCard(+0x18) == actingCard &&
+        /// effect.baseEnchantmentCard(+0x98) == null` 那一批，我们是「**来源匹配即撤**」⇒ 会**多撤**。
+        /// 这条已由 `UnitState.RemoveExtrinsicEffectsFrom` 的 doc 记死（2026-10-29 `B95_WRS`），此处不重复。</para>
+        ///
+        /// <returns>入队了几条动作（0 = 没有任何卡挂着这个施放者的 extrinsic 效果 ⇒ 原版也不排队）。</returns>
+        internal static int RemoveExtrinsicEffectsFrom(BattleContext ctx, UnitState actingCard, int priority)
+        {
+            if (ctx == null || ctx.IsOver || actingCard == null) return 0;
+            string src = actingCard.Name;
+            if (string.IsNullOrEmpty(src)) return 0;
+
+            UnitState hit = null;
+            for (int p = 0; p < 2 && hit == null; p++)
+            {
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var t = ps.Board[s];
+                    if (t == null) continue;
+                    if (!t.ContainsExtrinsicEffectsFrom(src)) continue;
+                    hit = t;
+                    break;
+                }
+            }
+            if (hit == null) return 0;      // 原版 `.c:96` 那一段只在命中时才组动作
+
+            ctx.Log($"「{actingCard.Name}」的 extrinsic 效果还在场上（「{hit.Name}」等）"
+                  + " ⇒ 入队一条 `removeEffectsFrom(47)`（原版 `BattleManager__RemoveExtrinsicEffectsFrom.c:95-146` 先查后排队，**只入队一条**）");
+
+            bool ok = EnqueueAbility(ctx, ActionPriority.Instant,
+                                     "removeEffectsFrom(47):" + actingCard.Name,
+                                     () => BroadcastRemoveEffectsFrom(ctx, src),
+                                     actor: null,       // 原版这条 auto 动作没有「施放者必须在场」的闸（它是清理动作）
+                                     actionType: 47);   // 判据 `BattleManager__ResolveAction.c:4168` 的 `case 0x2f`
+            if (!ok)
+            {
+                // ⛔ 不许静默：这一条没能入队 = extrinsic 效果留着不摘
+                ctx.Log($"⚠️「{actingCard.Name}」的 `removeEffectsFrom(47)` **没能入队** —— 这一批 extrinsic 效果这次没摘");
+                return 0;
+            }
+            return 1;
+        }
+
+        /// <summary>
+        /// **账 636：动作类型 47 的结算体** —— 原版 `BattleManagerSupport.BroadcastRemoveEffectsFrom`。
+        /// 判据 → 上面那一段（三跳：棋盘 `IsInPlay` 逐张 / 当前方手牌 / 另一方手牌）。
+        ///
+        /// <para>我们这一侧 = `Auras.RemoveExtrinsicBySource(ctx, sourceCardName)`（唯一遍历口，
+        /// 内含 `IsInPlay` 闸 = 原版棋盘那一跳的 `CardScript__IsInPlay`）。**手牌两跳仍缺**
+        /// （同 <see cref="RemoveExtrinsicEffectsFrom"/> 的 doc）。</para>
+        /// </summary>
+        internal static int BroadcastRemoveEffectsFrom(BattleContext ctx, string sourceCardName)
+        {
+            if (ctx == null || ctx.IsOver || string.IsNullOrEmpty(sourceCardName)) return 0;
+            int n = Auras.RemoveExtrinsicBySource(ctx, sourceCardName);
+            ctx.Log($"`removeEffectsFrom(47)`：「{sourceCardName}」挂的外来效果摘掉 {n} 条"
+                  + "（原版 `BattleManagerSupport__BroadcastRemoveEffectsFrom.c` 三跳；"
+                  + "我们只覆盖棋盘那一跳 —— 手牌两跳仍缺，见本方法的 doc）");
+            return n;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（`B96_CA`）：账 482 的**调用点** —— `WhileInPlayVariable(240)` 不再可触发时
+        // ==========================================================================================
+        //  判据（🥇 `decomp_full/RawCardScript__TriggerAbilities.c:207-221`，逐句）：
+        //    `if (!CardAbility.CanTriggerAbility(ability, trigger, mgr, thisCard, …)) {`
+        //       `if (trigger == 0xf0 /*240*/) {`
+        //          `if (ability.trigger(+0x10) == 0xf0) { if (mgr == 0) break;`
+        //             `BattleManager__RemoveExtrinsicEffectsFrom(mgr, thisCard, 1); } } }`
+        //  ⇒ **某张卡自己的 240 能力这次触发不了 ⇒ 把「这个施放者」挂的外来效果整份摘掉**（priority 恒 1）。
+        //
+        //  ⚠️ **顺序必须与 240 的「重挂」配对**：原版同一趟 `UpdateWhileInPlay` 是
+        //    「先摘掉此前加的全部、再重加一份」（`RawCardScript.cs:1239-1253` 两档）⇒
+        //    我们的等价「重加」= `Auras.RefreshInPlayNumericAndKeywords`（`ActionPump.ActionScope.Dispose` 里那一行）。
+        //    所以本趟**必须排在它之前**调用（见 `ActionPump.cs` 那一行的接线注释）。
+        //
+        //  🔴 **「触发不了」怎么判（等价物）**：我们没有「按 trigger 数值取 ability 并过
+        //    `CanTriggerAbility`」这条链（`_triggerOps` 按卡面关键词建键）⇒ 判据换成
+        //    「**这张卡有没有一条我们能真正跑起来的 240 正文**」：
+        //      · 有（`Card.TriggerOpsByNumber(240)` 非空，见 `CardDefPartial_B96CA.cs`）⇒ 算「触发得了」；
+        //      · 或者它的 240 由**光环层**承载（`Card.AuraSpecs` 非空 / `Card.MeleeEqualsHealth`）⇒ 也算「触发得了」
+        //        （判据 = `Aura.cs` 的 doc：`Aura` 就是 WhileInPlay 那一族的宿主；`RefreshMeleeEqualsHealth`
+        //         明写它就是 SAU27 那条 240 的重挂）；
+        //      · 两样都没有 ⇒ **这一版确实跑不了它的 240** ⇒ 按原版摘掉。
+        //  📊 **可达性**：池内 `abilityTriggers` 含 240 的 **33 张**（`cards_engine.json` 现扫），
+        //    其中带光环规格的在上面第二档被跳过；剩下那些今天**本来就跑不了 240**（`_triggerOps` 里
+        //    从来没有 240 那个键）⇒ 本趟的净效果 = 把「我们从未挂上去的东西」再确认一次没有，
+        //    绝大部分时候 `RemoveExtrinsicEffectsFrom` 直接返 0（没有任何卡挂着它的 extrinsic 效果）。
+        //    零可观测这一条**由 `ruleprobe play check` 指纹核对**（本代理已跑，见报告）。
+        // ==========================================================================================
+
+        /// <summary>账 482 的调用点：`WhileInPlayVariable(240)` 重挂那一趟的「触发不了就摘」半支。
+        /// 判据与等价口径 → 上面那一段。⚠️ 必须在 `Auras.RefreshInPlayNumericAndKeywords` **之前**调。</summary>
+        internal static void WhileInPlayVariablePass(BattleContext ctx)
+        {
+            if (ctx == null || ctx.IsOver) return;
+            for (int p = 0; p < 2; p++)
+            {
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ps.Board[s];
+                    if (u == null || u.Card == null) continue;
+                    if (u.Card.AbilityTriggerPresence(240) != 1) continue;   // 原版 `AbilityTrigger.WhileInPlayVariable = 0xf0`；数值口 = `CardDef.AbilityTriggerPresence(int)`（`CardDef.cs:2462`）
+                    // 「240 能跑起来」的两档（见上面那段口径）
+                    if (u.Card.TriggerOpsByNumber(240) != null) continue;
+                    var auras = u.Card.AuraSpecs;
+                    if ((auras != null && auras.Count > 0) || u.Card.MeleeEqualsHealth) continue;
+                    // 原版 `.c:218` 的 priority 恒 1
+                    RemoveExtrinsicEffectsFrom(ctx, u, 1);
+                }
+            }
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（`B96_CA`）：账 1288 的**调用方那一半** —— `CardScript.UpdateWhileInPlay` 的
+        //  「trigger 200 试一次、成功就再也不试」
+        // ==========================================================================================
+        //  判据（ILSpy `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:16033-16039`，逐句）：
+        //    `if (triggeredAbility && UpdateTriggerOnce(...)) { triggeredAbility = false; }`
+        //  其中 `triggeredAbility` 的初值 = `HasTriggerOnceAbility()`（任一 ability `trigger == 200`）
+        //  ⇒ 我们这里的等价闸 = `CardDef.AbilityTriggerPresence("TriggerOnceIfBoardCriteria") == 1`
+        //    （**数值表**，与本文件 `FireTriggerOnce` 那道闸同一份）。
+        //  ⚠️ **频率** = 每次「场上重算」一趟（= 原版每次 `UpdateWhileInPlay`）—— 所以本趟必须和
+        //    `WhileInPlayVariablePass` 一样挂 `ActionPump.ActionScope.Dispose`（一条顶层动作一次），
+        //    ⛔ 别挂进 `PumpActionQueues`（那个一动作多播，`ActionScope` 的 doc 已记过同族教训）。
+        //  📊 池内 `abilityTriggers` 含 200 = **0 / 1,129** ⇒ 本趟今天一次都不进循环体内部（零行为变化）。
+        // ==========================================================================================
+
+        /// <summary>账 853 准备件：「按一条记录摘」这条路**走到过几次**（只给自检；引擎里零生产消费者，
+        /// 口径同 `AbilityLevelCriteriaWarningsForTest`）。用途 = 让「逐 case 改了却看不见」这件事**可观测**
+        /// （那正是账 853 之所以要「先接分派入口」的理由）。</summary>
+        internal static int RemoveEffectResolveCountForTest { get; private set; }
+
+        /// <summary>自检复位（⛔ 引擎里别调）。</summary>
+        internal static void ResetRemoveEffectCountersForTest() { RemoveEffectResolveCountForTest = 0; }
+
+        /// <summary>
+        /// **账 853 准备件：`removeEffect(16)` 动作体的唯一结算口**（= 原版
+        /// `CardScript.RemoveEffect(CardEffect removedEffect, bool fromJam)` 的**逐 case** 那一跳）。
+        ///
+        /// <para>判据：`decomp_full/CardScript__RemoveEffect.c:43-277`（全文逐 case，见
+        /// `UnitState.RemoveEffectRecord` 的 doc）—— 本方法只做三件事：
+        /// ① 走 <see cref="RemoveEffectRecordFrom"/>（其中 `permanentBuff` 早退 / 逐 case 数值 / 两条特判）；
+        /// ② 计一次数（<see cref="RemoveEffectResolveCountForTest"/>，让「按记录摘」这条路**可观测** ——
+        ///   账 853 的症结正是「改了也看不见」）；
+        /// ③ 如实出声（这一档今天仍有缺口：`case 3/90` 无条件 `RemoveAll`（多摘）· `case 5` 不清残留攻/血
+        ///   （少清）· `case c/f/10` 整档漏（附魔，归 `Enchantment.Remove`）· `case 2d` 攻击半未落）。
+        ///   ⛔ 这些缺口**不在本方法里补**（那是账 853「逐 case」那件活，另一批）。</para>
+        ///
+        /// <para>📌 调用点 = `ActionPump.EnqueueRemoveEffect` 的动作体（今天 0 调用点，见它的 doc）。</para>
+        /// </summary>
+        internal static void ResolveRemoveEffect(BattleContext ctx, UnitState carrier,
+                                                 UnitState.EffectRecord rec, bool fromJam)
+        {
+            if (ctx == null || carrier == null || rec == null) return;
+            RemoveEffectResolveCountForTest++;
+            bool done = RemoveEffectRecordFrom(ctx, carrier, rec, fromJam, by: carrier.Name);
+            ctx.Log(done
+                ? $"{carrier.Name}：按记录摘掉一条 `buffType {rec.BuffType}` 的效果"
+                : $"{carrier.Name}：`buffType {rec.BuffType}` 那条带 `permanentBuff` ⇒ **没摘**（原版 `.c:35-38` 早退）");
+        }
+
+        /// <summary>账 1288 的调用点：给场上每张有 `TriggerOnceIfBoardCriteria(200)` 的卡**试一次**，
+        /// 成功就把 <see cref="UnitState.TriggerOnceFired"/> 置真、本局不再试
+        /// （= 原版 `CardScript.UpdateWhileInPlay` 里 `triggeredAbility = false` 那一句）。</summary>
+        internal static void TriggerOncePass(BattleContext ctx)
+        {
+            if (ctx == null || ctx.IsOver) return;
+            for (int p = 0; p < 2; p++)
+            {
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ps.Board[s];
+                    if (u == null || u.Card == null) continue;
+                    if (u.TriggerOnceFired) continue;                                             // 原版 `triggeredAbility == false` ⇒ 连试都不试
+                    if (u.Card.AbilityTriggerPresence("TriggerOnceIfBoardCriteria") != 1) continue; // 原版 `HasTriggerOnceAbility()`
+                    if (!FireTriggerOnce(ctx, u, p, s)) continue;                                  // 试一次；没成功 ⇒ 下趟再试（原版同）
+                    u.TriggerOnceFired = true;
+                    ctx.Log($"「{u.Name}」的 `TriggerOnceIfBoardCriteria`(200) 触发成功 ⇒ 本局**不再重试**"
+                          + "（原版 `CardScript.UpdateWhileInPlay` 把 `triggeredAbility` 置 false）");
+                }
             }
         }
 

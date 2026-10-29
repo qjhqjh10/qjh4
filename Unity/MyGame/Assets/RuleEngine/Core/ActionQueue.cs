@@ -191,7 +191,7 @@ namespace RuleEngine
     /// 不在 `NextActionInQueue` 里面 ⇒ 本类照原版把闸留给调用方（泵点）。
     /// ⛔ 别在这里加「Resolving 时返回 false」—— 那会让「谁在泵队」这件事多一处口径。
     /// </summary>
-    public sealed class ActionQueue
+    public sealed partial class ActionQueue
     {
         /// <summary>道数 = 4（`ActionPriority` 的 0..3）。</summary>
         public const int LaneCount = 4;
@@ -418,7 +418,7 @@ namespace RuleEngine
                 return false;
             }
             var act = list[index];
-            ApplyCancelSideEffects(act);
+            ApplyCancelSideEffects(_cancelCtx, act);
             list.RemoveAt(index);
             return true;
         }
@@ -464,25 +464,25 @@ namespace RuleEngine
         /// 的闸是「调用者自己必须处于 `inPlayAttacking(3)/0x11`」，那只能是**攻方自己**。
         /// ⇒ 按 `.c` 走 `actingCard`（= 我们的 <see cref="QueuedAction.Actor"/>）。</para>
         ///
-        /// <para>⚠️ **待接点（本批不许跨文件）**：两个副作用在原版都落在**别的层**——
-        /// · 类型 1 ⇒ `待接：RuleCore.CancelAttack(act.Actor)`（`RuleEngine/Core/RuleCore.cs` 属 Chain R，
-        ///   本批白名单只有 `ActionQueue.cs` / `ActionPump.cs`）；
-        /// · 类型 0x17 ⇒ `待接：表现层把 act.Target 对应的卡体 SetActive(false)`
-        ///   （`RuleEngine` 里没有 `GameObject`，那一层在 `CardPresentation`，同样不在白名单）。
-        /// ⇒ 今天走到这两支**一律出声**（`LogWarning` + `CancelSideEffectsPendingForTest++`），⛔ 不静默。</para>
+        /// <para>🔴 **两支的现状（2026-10-29 `B95_WPUMP` 现读）**：
+        /// · 类型 1 ⇒ ✅ **已接等价物** = <see cref="CancelAttackSideEffect"/>（= 原版 `CardScript__CancelAttack`
+        ///   的状态闸；清缓冲 / `PrepareAttack` 两格在本仓**没有对应物**，理由见类尾 §十）；
+        ///   只有调用方拿不到 `BattleContext`（旧的**两参**重载）时才退回「待接点」出声。
+        /// · 类型 0x17 ⇒ ⏳ **仍是待接点**：表现层把 `act.Target` 对应的卡体 `SetActive(false)`
+        ///   （`RuleEngine` 里没有 `GameObject`，那一层在 `CardPresentation`）⇒ 出声 + `CancelSideEffectsPendingForTest++`。</para>
         /// </summary>
-        void ApplyCancelSideEffects(QueuedAction act)
+        void ApplyCancelSideEffects(BattleContext ctx, QueuedAction act)
         {
             if (act == null) return;
             switch (act.ActionType)
             {
-                case 1:                 // attack（`BattleActionType.attack`）
-                    // 待接：RuleCore.CancelAttack(act.Actor)
-                    _cancelSideEffectsPending++;
-                    UnityEngine.Debug.LogWarning(
-                        "[ActionQueue] 撤掉一条 `attack(1)` 动作 —— **没有**执行 `CancelAttack`："
-                        + "`RuleCore.CancelAttack` 尚未接线（账 L240 的待接点，Chain R 下一批）。"
-                        + $"动作「{act}」，施放者「{(act.Actor != null ? act.Actor.Name : "(null)")}」");
+                case 1:                 // attack（`BattleActionType.attack`）⇒ 原版 `CardScript__CancelAttack(actingCard, 0)`
+                    // 原版四句：① 清待结算伤害缓冲（`.c:19-34`，本仓伤害逐段现结 ⇒ 无缓冲可清）
+                    // ② `cardState ∉ {3 inPlayAttacking, 0x11}` ⇒ LogWarning + return（`.c:35-40`）
+                    // ③ `param_2 == 0` ⇒ 跳过 `+0x350` 那道闸（`CancelBattleActionFromQueue.c:37` 传 0）
+                    // ④ `PrepareAttack(0,1,0)` 重新举刀（`.c:45`，我们无帧状态）⇒ 等价物 = 状态闸，见类尾 §十
+                    // ⇒ 撤这条动作 = **这一记从来没打出去**（攻击在出队时才结算）⇒ 没有可回收的局面量
+                    if (!CancelAttackSideEffect(ctx, act)) _cancelSideEffectsPending++;
                     break;
                 case 0x17:              // 23 = createHandCard
                     // 待接：表现层 act.Target 的卡体 SetActive(false)
@@ -542,5 +542,86 @@ namespace RuleEngine
         /// ⇒ 这条豁免结构上走不到，纯增量、行为零变化）。要用它时与 <see cref="ActionType"/> 一起回填。</para>
         /// </summary>
         public int DeathType;
+    }
+
+    // ==========================================================================================
+    //  🆕 2026-10-29（执行代理 `B95_WPUMP` · 账 L240 的「类型 1 副作用」）——
+    //  **为什么单开一个 `partial` 段、且写在文件最末**：本文件被 `账/*.tsv` 按 `文件:行号` 引用
+    //  （`TryDequeue` / `At` / `RemoveQueuedActionAt` / `RemoveQueuedAction` / `QueuedAction.Target`
+    //   / `QueuedAction.DeathType` 共 6 处落点在类体内）⇒ 在类体中间插行会让它们**整体漂移**。
+    //  新成员放在文件末尾 = **零漂移**。
+    //
+    //  ── §十：`CancelAttack` 的等价物（原版 `CardScript__CancelAttack(longlong this, char param_2)`）──
+    //  判据（第一权威 · 全文现读 `d:/2/tools/decomp_full/CardScript__CancelAttack.c:1-48`）：
+    //    :19-34  ① `+0xf8`（待结算伤害缓冲：`count +0x18` / 数组 `+0x10`）非空 ⇒
+    //            `+0x1c++`、`+0x18 = 0`、`Array.Clear(缓冲, 0, count)` —— **清掉待结算伤害**
+    //    :35-40  ② `+0x228`（cardState）∉ `{3 inPlayAttacking, 0x11 inPlayAminingAttack}` ⇒
+    //            `CustomDebug.LogWarning` 后 **return**（连 `PrepareAttack` 都不跑）
+    //    :41-44  ③ `param_2 != 0 && +0x350 == 0` ⇒ LogWarning + return
+    //            （本引擎唯一的调用方 `BattleManager__CancelBattleActionFromQueue.c:37` 传的是 **0** ⇒ 这一支不进）
+    //    :45-46  ④ `PrepareAttack(this, 0, 1, 0)` + `StartCoroutine`
+    //  ⇒ **四格里三格在本仓没有对应物、一格有**：
+    //    · ① 我们**伤害逐段现结**、没有待结算缓冲（同一结论见 `RuleCore.cs:16679`）⇒ 无物可清；
+    //    · ② **有** = `RuleCore.IsAttackingOnBoard`（原版 cardState 那道闸在我们模型里的落点，账 `A1983`）；
+    //    · ③ 调用方恒传 0 ⇒ 结构上进不来；
+    //    · ④ `PrepareAttack` 是「举刀」那个帧状态机 ⇒ 我们的攻击**在出队时才结算**，
+    //       撤掉这条动作 = 这一记从来没打出去 ⇒ 没有「已经摆好的局面」要退回。
+    // ==========================================================================================
+    public sealed partial class ActionQueue
+    {
+        /// <summary>「这一次撤动作时能不能拿到 <see cref="BattleContext"/>」的**单线程传递格**。
+        /// 只有 <see cref="RemoveQueuedActionAt(BattleContext, ActionPriority, int)"/> 在调两参版本时临时置它，
+        /// 出来就还原（`try/finally`）⇒ ⛔ 别在别处读写它，也别指望它跨调用存活。</summary>
+        BattleContext _cancelCtx;
+
+        /// <summary>
+        /// <see cref="RemoveQueuedActionAt(ActionPriority, int)"/> 的**带上下文**重载 ——
+        /// 只为让 `attack(1)` 的撤销副作用能走 <see cref="CancelAttackSideEffect"/>（那道状态闸要 `ctx.Players`）。
+        /// 两参版本逐字复用（下标/道合法性那套判据 ⛔ 别抄第二份）。
+        /// </summary>
+        public bool RemoveQueuedActionAt(BattleContext ctx, ActionPriority lane, int index)
+        {
+            var prev = _cancelCtx;
+            _cancelCtx = ctx;
+            try { return RemoveQueuedActionAt(lane, index); }
+            finally { _cancelCtx = prev; }
+        }
+
+        /// <summary>
+        /// 原版 **`CardScript__CancelAttack(actingCard, 0)`** 的等价物（撤一条 `attack(1)` 动作之前补）。
+        ///
+        /// <para>返回 `true` = **已按原版处置完**（不计 `CancelSideEffectsPendingForTest`）；
+        /// `false` = 仍是「待接点」（调用方计数并出声）。逐句判据与「三格无对应物」的理由 → 本段头 §十。</para>
+        ///
+        /// <para>⚠️ **这里一行 `ctx.Log` 都不许打**：`ctx.Events` 没有 drain 却被算进 `Fingerprint`
+        /// ⇒ 只在一端发生的日志会让 P2P 两端指纹分叉（判定失败也不再写第二条）。</para>
+        /// </summary>
+        static bool CancelAttackSideEffect(BattleContext ctx, QueuedAction act)
+        {
+            if (act == null) return true;              // 没有条目 ⇒ 无事可做
+            if (ctx == null) return false;             // 旧两参入口：拿不到场上状态 ⇒ 照旧走「待接点」出声
+            if (act.Actor == null)
+            {
+                // 原版 `CancelBattleActionFromQueue.c:30` 在 `actingCard == 0` 时走 `FUN_1803f47a0`（NRE，不返回）。
+                // ⛔ 我们不复制崩溃语义：出声一次，然后**照样把条目撤掉**（调用方继续 RemoveAt）。
+                UnityEngine.Debug.LogWarning(
+                    "[ActionQueue] 撤掉一条 `attack(1)` 动作，但它的施放者是 null —— 原版这一格是 NRE"
+                  + "（`CancelBattleActionFromQueue.c:30` 的 `FUN_1803f47a0`）；我们出声后照常撤。"
+                  + $"动作「{act}」");
+                return true;
+            }
+            if (!RuleCore.IsAttackingOnBoard(ctx, act.Actor))
+            {
+                // 原版 `CancelAttack.c:35-40`：cardState 不在 {3, 0x11} ⇒ LogWarning 后 return（不 PrepareAttack）。
+                UnityEngine.Debug.LogWarning(
+                    "[ActionQueue] 撤掉一条 `attack(1)` 动作 —— 「" + (act.Actor.Name ?? "?")
+                  + "」已不在棋盘上/已死；原版 `CardScript__CancelAttack.c:35-40` 在这一格是 "
+                  + "`CustomDebug.LogWarning` 后直接 return（不重新举刀）");
+                return true;
+            }
+            // 状态闸通过：原版还剩 ①清缓冲（我们没有那个缓冲）、④PrepareAttack（我们攻击出队才结算）。
+            // ⇒ 等价物到此为止 —— **不是**待接点，所以不计数、也不再报警。
+            return true;
+        }
     }
 }

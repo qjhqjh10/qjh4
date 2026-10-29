@@ -1055,6 +1055,20 @@ namespace RuleEngine
                 {
                     var u = ps.Board[s];
                     if (u == null) continue;
+                    // 🔴 2026-10-29（B95_WRS · 账 636 补）：原版棋盘那一跳是
+                    //   `if (CardScript__IsInPlay(card)) CardScript__RemoveExtrinsicEffectsFrom(card);`
+                    //   （`decomp_full/BattleManagerSupport__BroadcastRemoveEffectsFrom.c:28-32`：逐条取
+                    //   `unitsInPlay(+0x470)` 的元素，**先** `IsInPlay()` 判真、**再**调摘除）。
+                    //   `CardScript__IsInPlay.c` = `cardState(+0x228) ∈ {2 inPlay, 15 inPlayTransforming,
+                    //   3 inPlayAttacking, 17 inPlayAminingAttack}` —— **`5 waitingToDie` 为假**。
+                    //   我们的等价物 = `UnitState.IsInPlayState(ctx)`（`UnitStateCardState.cs:197`，
+                    //   派生自 `CardStateOf`：`ctx.IsPendingDeath` ∨ `ctx.DyingThisAction` ⇒ 5）。
+                    //   ⚠️ 补闸前的前提已核：待死单位**仍挂在 `Board` 上**（`RuleCore.CleanupDeaths` 才
+                    //   `BoardSlots.RemoveAt`）⇒ 不补闸就会把「已判死、只剩动画窗口」的单位也扫进去。
+                    //   📌 可观测性：本方法现读**全仓 0 个调用点**（`grep -rn RemoveExtrinsicBySource` 只命中它
+                    //   自己的声明）⇒ 本次补闸**零可观测**、不改 `play check` 指纹。接线那天起，差别只有一格：
+                    //   「进了待死队列的单位」不再被撤 extrinsic —— 与原版一致（原版那一跳它就是收不到的）。
+                    if (!u.IsInPlayState(ctx)) continue;
                     n += u.RemoveExtrinsicEffectsFrom(sourceCardName);
                 }
             }

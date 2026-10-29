@@ -626,7 +626,10 @@ namespace CardPresentation
             //   写色必须走 `SetTint`，见 `Battle/ImageQuad.cs:398/410`）。**结果与原来逐位相同**
             //   （`DailyData.RowTint` 现在也转调同一个 `ColorFor`），区别是判据只有一处、且能写断言。
             var bgQ = Draw(parent, "40K_missions_display_Daily_horizontal", row, "Background", RewardsWindow.QPanel);
-            new MissionBackgroundHighlighter { background = bgQ }.Setup(DailyData.ProgressView(index));
+            // ⚠️ 2026-10-29（`B95_D1` · 账 `日常:469`）：`Setup` 不再在这里直接调 —— 改由原版同名入口
+            //   `MissionContainer.SetChallenge` 的第 ⑤ 件（`MissionInfoDisplay.Initialize`）统一跑。
+            //   `displayRule` 出厂 `(DisplayRule)(-1)` = 每一位都置 1 ⇒ `ShouldShow` 恒真 ⇒ `Setup` 照样每次跑，行为逐位不变。
+            var bgHl = new MissionBackgroundHighlighter { background = bgQ };
 
             // 🔴 **`description` 与 `timer` 是互斥的**（2026-09-23 取证 · 2026-10-04 定性）：
             //    原版 `MissionInfoDisplay.DisplayRule` 是 `[Flags]` 枚举
@@ -697,8 +700,12 @@ namespace CardPresentation
             //    `progress` 窗口 10/40 → **25/35** · `Button Text` 无窗口 → **5/35/12**。
             //    ⚠️ 页内三行是作者态（`40/[10~40]`、`44/[12~44]`）—— 运行时不可能是它（没有 GUID）。
             //    全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
+            Label descLabel = null;
             if (!claimed)
-                AlignL(Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f, 0f, 36f), desc);
+            {
+                descLabel = Txt(parent, desc, DailyData.DailyDesc(index), Color.white, "description", 35f, 15f, 0f, 36f);
+                AlignL(descLabel, desc);
+            }
 
             // `timer`  N(1, 0,1, 1,1, .5,.5, 3.13226,-43.873, -267.097,62.253)   白 α0.59 · `H=Left`
             var tim = UguiRect.Child(row, new Vector2(0f, 1f), new Vector2(1f, 1f), UguiRect.P50c,
@@ -806,8 +813,9 @@ namespace CardPresentation
             //   · `…/Special Missions/Daily Login Container/…` · `…/Daily Skulls Mission Container/…`
             //   · `Missions Tab/Weekly Mission Holder/Weekly Mission/…` —— **四颗全 `mTerm=MainMenu/General/Collect`
             //   · `m_Enabled = 1`** ⇒ 四颗都接（官方值 `Collect` / `收集`）。
+            WindowButton collectBtn = null;
             if (!claimed)
-                BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
+                collectBtn = BuildButton(parent, btn, "40K_button", new Color(1f, 0.53f, 0f, 1f), Loc.T("MainMenu/General/Collect"), 35f, "Generic UI Button",
                             () => CollectThenRebuild(index), DailyData.CanCollectDaily(index),
                             5f, 35f, 12f);
 
@@ -878,6 +886,12 @@ namespace CardPresentation
             //   （`UiContainer.OnInitialize`）；我们的建树即初始化 ⇒ 在这里补那一跳。
             //   ⚠️ 它**今天恒早返回**（本仓没有教程任务，原版第一句 `t == null ⇒ return`）——
             //   补它不是为了行为，是为了让「教程任务改名/挂 id/interactable」那条链**有落点可核**。
+            // ★ 2026-10-29（`B95_D1` · 账 `日常:469`）：原版那六件统一走**同名入口** `MissionContainer.SetChallenge`
+            //   （判据 `decomp_full/MissionContainer__SetChallenge.c`，六件逐句见那个类的注释）。
+            //   ⚠️ 我们的「件」是**建树期按 `if (!claimed)` 决定建不建**（A44 甲，规则只有一处）⇒ 已领取那一行
+            //   没有描述 / 没有 Collect ⇒ 传 null；原版「藏」= `SetActive(false)`，等价。
+            MissionContainer.SetChallenge(parent, DailyData.ProgressView(index), descLabel, DailyData.DailyDesc(index),
+                                          collectBtn, () => CollectThenRebuild(index), new MissionInfoDisplay[] { bgHl });
             OnInitialize(index);
         }
 
@@ -1521,14 +1535,16 @@ namespace CardPresentation
 
         /// <summary>`Mission Header`：标题条（`Daily Missions` 那一条）。
         /// `isSkulls` 只是文案不同（原版同一份 prefab 换了 `name`/`Refill Counter` 的文本）。</summary>
-        public void BuildMissionHeader(Transform parent, PxRect hostRect, bool isSkulls)
+        public void BuildMissionHeader(Transform parent, PxRect hostRect, bool isSkulls, bool isPremium = false)
         {
             // N(3, 0,1, 1,1, .5,1, 1.34,-2.2287, -2.6799,52.7713)
             var h = UguiRect.Child(hostRect, new Vector2(0f, 1f), UguiRect.A11, new Vector2(0.5f, 1f),
                                    new Vector2(1.34f, -2.2287f), new Vector2(-2.6799f, 52.7713f));
             // 🔴 **2026-09-23 补**：这条的底是 `Image(sprite=null, type=Sliced)` + **`Gradient2`**（紫→棕那套），
             //    见 `HeaderGradient` 的注释（`Image` 没 sprite 也会渲染成一块纯色矩形）。
-            DrawTex(parent, HeaderGradient(false, h.H / h.W), h, "Mission Header bg", RewardsWindow.QPanel);
+            // 🆕 **2026-10-29（账 492 · B96_WB）**：premium 任务（`MissionHeaderDisplay.Setup` 里
+            //    `if (mission.IsPremium) gradientHeader.EffectGradient = premiumColor`）走 **`PremiumGradient`**（恒定棕）。
+            DrawTex(parent, isPremium ? PremiumGradient(h.H / h.W) : HeaderGradient(false, h.H / h.W), h, "Mission Header bg", RewardsWindow.QPanel);
             // `name`  N(3, 0.03,0.5, 0.84,0.5, .5,.5, 0,0, ~0,50)   'Daily Missions' fs36
             var nm = UguiRect.Child(h, new Vector2(0.03f, 0.5f), new Vector2(0.84f, 0.5f), UguiRect.P50c,
                                     Vector2.zero, new Vector2(3.8147e-06f, 50f));
@@ -1604,6 +1620,23 @@ namespace CardPresentation
                                             0f, new float[] { 0f, 0.3706f, 0.5941f, 0.7176f, 0.8588f, 1f },
                                             new float[] { 1f, 0.773f, 0.498f, 0.463f, 0.098f, 0.098f }, aspectHoverW);
             return CardArt.GradientKeys(new Color(0.247f, 0.188f, 0.380f), new Color(0.475f, 0.306f, 0.153f),
+                                        0f, new float[] { 0f, 0.2706f, 0.9059f, 1f },
+                                        new float[] { 1f, 1f, 0.098f, 0.098f }, aspectHoverW);
+        }
+
+        /// <summary>**Premium 任务的页头渐变**（原版 `MissionHeaderDisplay.premiumColor`）。判据 =
+        /// `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-6158290902691785974.json` 的 `premiumColor` 字段（2026-10-29 现读）：
+        /// · 颜色 **恒为棕** `(0.4745,0.3059,0.1529)`（key0 = key1 同 rgb，`ctime0=0` / `ctime1=1`）；
+        /// · alpha 键与普通页头同一条（`atime0 0.2706 → α1` · `atime1 0.9059 → α0.098`）。
+        /// ⇒ 与 <see cref="HeaderGradient"/>(false) 的**唯一差别 = 起点色也换成棕**（普通是紫 `(0.247,0.188,0.380)`）。
+        /// <para>🔴 **2026-10-29（账 492 · B96_WB）**：`MissionHeaderDisplay.Setup` 的 premium 支
+        /// （`.c:34` = `FUN_1800021f0(10,…)` = `IMission.get_IsPremium`）在本地**无数据触发** ——
+        /// `MissionProgressView` 没有 `IsPremium` 那一格（premium 由服务端 `IMission.get_IsPremium` 给）。
+        /// ⇒ 本方法**休眠**，`BuildMissionHeader` 的 `isPremium` 今天恒 `false`（= 原版「非 premium 任务走默认渐变」，行为逐位不变）。
+        /// 账 492 · B96_WB 2026-10-29。</para></summary>
+        static Texture2D PremiumGradient(float aspectHoverW)
+        {
+            return CardArt.GradientKeys(new Color(0.4745f, 0.3059f, 0.1529f), new Color(0.4745f, 0.3059f, 0.1529f),
                                         0f, new float[] { 0f, 0.2706f, 0.9059f, 1f },
                                         new float[] { 1f, 1f, 0.098f, 0.098f }, aspectHoverW);
         }
@@ -2366,14 +2399,18 @@ namespace CardPresentation
         /// 地址 `0x42AB248`，正是该函数里 `DAT_1842ab248` 那一条）。
         /// 🔴 **只在这一下真的领到时才重建** 那条语义不变：`CollectThenRebuild` 仍靠返回值兜一层（同一份布尔）。
         /// 🔴 灰化是**换材质**，所以下面那句 `q.SetRenderQueue` 不是可有可无的（见那里的判据链）。</para></summary>
-        void BuildButton(Transform parent, PxRect r, string art, Color tint, string label, float fontPx, string name,
+        WindowButton BuildButton(Transform parent, PxRect r, string art, Color tint, string label, float fontPx, string name,
                          System.Action onClick, bool interactable = true,
                          float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
         {
+            // 🆕 2026-10-29（`B95_D1` · 账 `日常:469`）：返回那颗钮，供 `MissionContainer.SetChallenge` 的第 ③④ 件
+            //   （`collectButton.interactable` / `RemoveAllListeners + AddListener`）落点用。⚠️ 返回值只是**多给的**，
+            //   其余 4 个宿主照样当语句调用、行为不变。
+            WindowButton hit = null;
             var q = Draw(parent, art, r, name, RewardsWindow.QContent, tint, true);
             if (q != null)
             {
-                var hit = q.gameObject.AddComponent<WindowButton>();
+                hit = q.gameObject.AddComponent<WindowButton>();
                 hit.onClick = onClick;
                 // 🆕 2026-10-03 A17：原版这几颗 `Generic UI Button` 都是 SpriteSwap（普查 §块 4 第 1、3、4、5 行）
                 // —— 按钮就挂在那张图上 ⇒ `BindSelf` 直接绑自己（`40K_button` → `40K_button_hover`）
@@ -2412,6 +2449,7 @@ namespace CardPresentation
             //   `Pragati-Regular Off White Cold`（`_FaceColor = (0.912, 0.981, 0.961)`、顶点白）
             //   ⇒ 四个宿主（每日行 / 登录卡 / 骷髅卡 / 周常）的 `Collect` 都吃这一档。
             Txt(parent, t, label, OffWhiteColdInk, name + " Text", fontPx, autoMinPx, autoMaxPx, autoBasePx);
+            return hit;
         }
 
         /// <summary>🔴🔴 **本方法当前【零调用点】**（2026-10-10 · A1271 改判之后）—— **用之前先读这段**。
@@ -2586,6 +2624,65 @@ namespace CardPresentation
             {
                 return columns <= globalIndex;
             }
+        }
+    }
+
+    /// <summary>原版 `MissionContainer`（`collectButton(+0x48)` / `infoDisplays(+0x50)` / `description(+0x40)`）的**同名落点**：
+    /// 本类只承载 `SetChallenge` 这一件（账 `日常:469`）。
+    /// <para>判据 = `decomp_full/MissionContainer__SetChallenge.c`（95 行，六件逐句，行号见每件注释）：</para>
+    /// <list type="number">
+    /// <item>`progress == null` ⇒ `gameObject.SetActive(false)` 并早退（`.c:29-35`）。</item>
+    /// <item>`gameObject.SetActive(true)`（`.c:37-41`；原版随后还存了 `this+0x60 = progress`）。</item>
+    /// <item>`description = ModifyLocalization(progress.GetLocalizedDescription())`（`.c:44-50`）。</item>
+    /// <item>`collectButton.interactable = progress.CanCollect`（`.c:52-56`，虚槽 `+0x198`）。</item>
+    /// <item>`collectButton.onClick.RemoveAllListeners()` + `AddListener(OnCollect)`（`.c:57-65`）。</item>
+    /// <item>`foreach d in infoDisplays: d.Initialize(mission, progress)`（`.c:66-83`）。</item>
+    /// </list>
+    /// <para>🔴 **两处如实差异（⛔ 别删）**：① 第 ③ 件里的 `SupportMethods.ModifyLocalization` 等价物**还没有**
+    /// （账 `日常:744` 负责在 `CardPresentation/Core/SupportMethods.cs` 建）⇒ 今天我们只把调用点算好的描述串写进去；
+    /// ② 原版 `progress` 是引用类型，`null` 那一支会走；我们的 `MissionProgressView` 是 `readonly struct`、建树期恒有值
+    /// ⇒ 形参用 `MissionProgressView?` 把那一支的**结构形状**保住（今天恒 `HasValue`）。</para></summary>
+    internal static class MissionContainer
+    {
+        internal static bool SetChallenge(Transform row, MissionProgressView? progress, Label description, string descriptionText,
+                                          WindowButton collectButton, System.Action onCollect,
+                                          IReadOnlyList<MissionInfoDisplay> infoDisplays)
+        {
+            // ① 原版 `.c:29-35`：`progress == null` ⇒ 整行关并早退
+            if (!progress.HasValue)
+            {
+                if (row != null) row.gameObject.SetActive(false);
+                else Debug.LogWarning("[MissionContainer] `SetChallenge`：progress 为 null 且行节点也为 null ⇒ 无法关行（出声）");
+                return false;
+            }
+            var p = progress.Value;
+
+            // ② 原版 `.c:37-41`：`gameObject.SetActive(true)`
+            if (row != null) row.gameObject.SetActive(true);
+            else Debug.LogWarning("[MissionContainer] `SetChallenge`：行节点为 null ⇒ 原版那句 `SetActive(true)` 没有落点（出声）");
+
+            // ③ 原版 `.c:44-50`：`description = ModifyLocalization(GetLocalizedDescription())`
+            //    （`ModifyLocalization` 那一跳今天没有等价物，见类注释差异 ①）
+            if (description != null)
+            {
+                if (!string.IsNullOrEmpty(descriptionText)) description.SetText(descriptionText);
+                else Debug.LogWarning("[MissionContainer] `SetChallenge`：描述文案为空 ⇒ 保留原文本（原版 `.c:44` 取 `GetLocalizedDescription()`）");
+            }
+
+            // ④ 原版 `.c:52-56`：`collectButton.interactable = progress.CanCollect`
+            if (collectButton != null) collectButton.Interactable = p.CanCollect;
+
+            // ⑤ 原版 `.c:57-65`：`RemoveAllListeners()` + `AddListener(OnCollect)`（我们的等价 = `onClick` 句柄直接重赋）
+            if (collectButton != null && onCollect != null) collectButton.onClick = onCollect;
+
+            // ⑥ 原版 `.c:66-83`：逐件 `MissionInfoDisplay.Initialize(mission, progress)`
+            if (infoDisplays != null)
+                for (int i = 0; i < infoDisplays.Count; i++)
+                {
+                    var d = infoDisplays[i];
+                    if (d != null) d.Initialize(p);
+                }
+            return true;
         }
     }
 }

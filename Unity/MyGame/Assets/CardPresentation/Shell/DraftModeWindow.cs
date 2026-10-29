@@ -176,8 +176,8 @@ namespace CardPresentation
         public string warlordId;
         /// <summary>原版 `selectedPacks`(+0x90)，我们存包的唯一键（`DraftPacks.PackDto.key`，⛔ 不是 `packId`）。</summary>
         public string[] pickedKeys;
-        /// <summary>原版 `selectedCards`(+0x98)。</summary>
-        public string[] selectedCards;
+        /// <summary>原版 `selectedCards`(+0x98) · 旁边的 `cardbackId`(+0xa8)（2026-10-29 `B96_W2` 补：它是 `GetEventDeck` 里 `d.<0x28>` 的来源，空 ⇒ 阵营默认卡背）。</summary>
+        public string[] selectedCards; public string cardbackId;
         /// <summary>原版 `DraftEventSaveGame.currentReRolls` —— 本局已经重掷过几次。
         /// `RefreshReRollPrice` 拿它去 `GetReRollCosts` 里找**当前那一档**价格
         /// （`DraftModeSelectPacksStateDemo__RefreshReRollPrice.c`：`GetReRollCosts(data, save+0xB0)`）。</summary>
@@ -1063,7 +1063,7 @@ namespace CardPresentation
             _selectedCards.Clear();
             _offered = new List<DraftPacks.PackDto>();
             _warlordId = null;
-            _deck = null;
+            _deck = null; DraftPacks.InvalidateClosedDeckCache();   // = 原版「新事件对象 ⇒ 空 `<0x38>`」（账 `轮抽:12`）
             _deckTab = 0;
             StartedBattle = false;
             // 🔴 新的一局 ⇒ 新的 `DraftEventSaveGame`（原版 `FreeEventEntrance` 成功那一支才建）。
@@ -1074,7 +1074,7 @@ namespace CardPresentation
                 joinState = (int)DraftJoinState.NotJoined,
                 payState = (int)DraftPayState.NotPaid,
                 matchesWon = 0, matchesLost = 0, rewardsCollected = false,
-                seed = seed, warlordId = null, reRolls = 0,
+                seed = seed, warlordId = null, reRolls = 0, cardbackId = null,
                 pickedKeys = new string[0], selectedCards = new string[0],
                 consumedDraftMatches = CountDraftMatchesIn(BattleLogData.All),
             };
@@ -1106,7 +1106,7 @@ namespace CardPresentation
             _selectedCards.Clear();
             if (_run.selectedCards != null) _selectedCards.AddRange(_run.selectedCards);
             _offered = new List<DraftPacks.PackDto>();
-            _deck = null;
+            _deck = null; DraftPacks.InvalidateClosedDeckCache();   // 原版 `Open` = 新事件实例 ⇒ 空 `<0x38>`（账 `轮抽:12`）
             _deckTab = 0;
             StartedBattle = false;
             _warlords = RollWarlords(_seed, WarlordsPerDraft);
@@ -3391,8 +3391,8 @@ namespace CardPresentation
             }
             // `ClosedDeck.warlordId` 是 **int**（原版 `GetClosedDeckByPackIds` 的标记位、不参与选卡 —— D1 已核）；
             // 我们的战将 id 是字符串（`AM3`）⇒ 这里放**阵营 id** 当标记。🔴 这一条是我们挑的。
-            var deck = DraftPacks.BuildClosedDeck(WarlordArmyId(), _pickedKeys);
-            if (deck == null) return false;
+            var deck = DraftPacks.BuildClosedDeck(WarlordArmyId(), _pickedKeys, _run != null ? _run.cardbackId : null);
+            if (deck == null || !DraftBattleGate.Passes(deck, _warlordId, Manager)) return false;
             _deck = deck;
 
             // 交给既有通道：`PrebuiltDecks.PendingSource` + `BattleDriver._pendingPlayMode`
@@ -4451,6 +4451,31 @@ namespace CardPresentation
             Debug.LogWarning("[Draft] Haven't found cardlist on the draft mode with id " + "<DraftRunSave:" + (path ?? "<no-path>") + ">"
                            + ". Fixing it now（原版这一句里的 eventId 取自 `save+0x10`，我们存档没有那一格 ⇒ 打路径）");
             return run;
+        }
+    }
+
+    /// <summary>开战前的原版闸 `DraftEventBase.ValidateEventDeck` 的**接线**（2026-10-29 `B96_W2` · 账 `轮抽:33`）。
+    /// <para>判据 = `d:/2/tools/decomp_generic_trial/out_b94/DraftEventBase_object__object_.ValidateEventDeck__1814330.c`
+    /// （33 行，真体三步：`base.ValidateEventDeck(deck, false)` · `!CheckHiddenCardsInDeck` · `pickedPacks.Count >= draftRounds - 1`）
+    /// ⇒ 落在 <see cref="DraftPacks.ValidateEventDeck"/>。</para>
+    /// <para>⚠️ 原版那条链上**符号层找不到直接调用者**：`ValidateEventDeck` 是 `override`/`virtual`，虚调用在 `.c` 里长成
+    /// `(**(code **)(*p + 0xNN))(...)` ⇒ 「0 命中」是搜索方式的结果、不是「不可达」（CLAUDE.md 里那条「0 调用点 ≠ 死代码」）。
+    /// 我们这一侧的等价接线点 = 「`To Battle` 组完牌、交给开战通道之前」。</para>
+    /// <para>本类放**文件末尾**（与 <see cref="DraftRunRepair"/> 同一个做法）—— ⛔ 不改 `DraftModeWindow` 的账行号。</para></summary>
+    public static class DraftBattleGate
+    {
+        /// <summary>过闸 ⇒ `true`；不过 ⇒ 出声 + 弹提示（原版 `ValidateEventDeck` 为假时 `To Battle` 不会开局），返 `false`。</summary>
+        public static bool Passes(DraftPacks.ClosedDeck deck, string warlordCardId, WindowsManager manager)
+        {
+            DeckError err;
+            string msg;
+            if (DraftPacks.ValidateEventDeck(deck, warlordCardId, null, out err, out msg)) return true;
+            Debug.LogWarning("[Draft] 这副牌过不了原版 `ValidateEventDeck`：" + msg
+                           + " ⇒ 不打（三步判据见 `DraftPacks.ValidateEventDeck` 的 doc）");
+            string key = DeckRules.ErrorTextKey(err);
+            if (string.IsNullOrEmpty(key)) key = DeckRules.TermPrefix + "InvalidDeck";   // 原版隐藏卡那一支留 err=0（没有键）⇒ 落 catch-all
+            if (manager != null) manager.ShowPopUp(Loc.T(key), Loc.T("MainMenu/General/OK"), null);
+            return false;
         }
     }
 }

@@ -148,8 +148,10 @@ namespace CardPresentation
         {
             const string CollectKey = "Missions/CollectCounter";     // 原版 `.c` 里的键名（不是我们编的）
             const string CompleteKey = "Missions/CompleteCounter";
-            string collectBody = Loc.T(CollectKey) == null ? null : Loc.T(CollectKey).Replace("{0}", "");
-            string completeBody = Loc.T(CompleteKey) == null ? null : Loc.T(CompleteKey).Replace("{0}", "");
+            string collectTmpl = Loc.T(CollectKey);
+            string completeTmpl = Loc.T(CompleteKey);
+            string collectBody = collectTmpl == null ? null : collectTmpl.Replace("{0}", "");
+            string completeBody = completeTmpl == null ? null : completeTmpl.Replace("{0}", "");
 
             // 前提（硬）：两个官方词条都真的取到、正文非空且不同（否则下面两条无从区分）
             C(!string.IsNullOrEmpty(collectBody) && !string.IsNullOrEmpty(completeBody)
@@ -182,13 +184,40 @@ namespace CardPresentation
                                                 : (wasCollectable ? DailyData.State.Collectable : DailyData.State.InProgress));
             }
 
-            C(!string.IsNullOrEmpty(unclaimed) && unclaimed.Contains(collectBody),
+            C(MatchesTimerTemplate(unclaimed, collectTmpl),
               "★ ③a 周常**未领** ⇒ 串里是 `Missions/CollectCounter` 的正文（原版 `.c` 的 else 支）；实得「" + unclaimed + "」");
-            C(!string.IsNullOrEmpty(claimed) && claimed.Contains(completeBody),
+            C(MatchesTimerTemplate(claimed, completeTmpl),
               "★ ③b 周常**已领** ⇒ 串里是 `Missions/CompleteCounter` 的正文（同一条判据的 if 支）；实得「" + claimed + "」"
               + " —— 灭自证：改回写死 `CollectCounter` ⇒ 这一条红");
             C(unclaimed != claimed,
               "★ ③c 两态**不同串**（两条相反方向的断言合起来 ⇒ 只改一侧也躲不过）");
+        }
+
+        // ============================================================ ③ 的比对器（追加在类尾 = 零行号漂移）
+        //   🔴 **2026-10-29（`B95_A2P`）就地订正一条 α**：③a / ③b 原来写的是
+        //      `actual.Contains(Loc.T(键).Replace("{0}", ""))`。
+        //      而原版收尾那一句是 `System_String__Format(模板, GetTimeString(ts))`
+        //      （`decomp_full/MissionTimerDisplay__Update.c:100`：`uVar4 = SupportMethods__GetTimeString(...)`
+        //        随后 `uVar4 = System_String__Format(lVar6, uVar4, 0)`）⇒ **`{0}` 一定被填入时间串**。
+        //      我们这一侧周常的目标时刻在本地不存在（原版由服务端下发）⇒ `TimerDisplay.TextFor(null, …)`
+        //      按设计填 **`--`**（`Shell/TimerDisplay.cs:240` 的 `Compose(prefix, "--")`，且**出声一次**）。
+        //      ⇒ `"准备在 {0} 收集".Replace("{0}","")` = `"准备在  收集"`（双空格）
+        //         **永远不是实得串 `"准备在 -- 收集"` 的子串** ⇒ 那两条**不论实现对错都红**（假红）。
+        //      ✅ 分档本身是对的：未领 ⇒ CollectCounter（「准备在 -- 收集」）、已领 ⇒ CompleteCounter
+        //         （「在 -- 可用」），③c（两态不同串）本来就是绿的。
+        //   ⇒ 正确比法 = 把模板按 `{0}` 切成【前缀 / 后缀】分别比（对 `--` 与任何真时间串都成立）。
+        /// <summary>`actual` 是否符合 `template`（模板里 `{0}` = 时间串那一格，**任意值都算数**）。
+        /// 判据：原版 `MissionTimerDisplay__Update.c:100` 的 `string.Format(模板, timeString)`。
+        /// 模板里没有 `{0}` 时按「原样包含」比（`TimerDisplay.Compose` 的 else 支是「模板 + 时间串」）。</summary>
+        static bool MatchesTimerTemplate(string actual, string template)
+        {
+            if (string.IsNullOrEmpty(actual) || string.IsNullOrEmpty(template)) return false;
+            int at = template.IndexOf("{0}", StringComparison.Ordinal);
+            if (at < 0) return actual.Contains(template);
+            string head = template.Substring(0, at);
+            string tail = template.Substring(at + 3);
+            return actual.StartsWith(head, StringComparison.Ordinal)
+                && actual.EndsWith(tail, StringComparison.Ordinal);
         }
     }
 }

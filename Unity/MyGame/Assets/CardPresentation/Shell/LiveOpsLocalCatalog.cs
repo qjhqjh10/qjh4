@@ -1259,23 +1259,362 @@ namespace CardPresentation
         public static void ReleaseEventAssets(ILiveOps liveOps)
         {
             if (liveOps == null) return;                       // .c：`if (param_1 == 0) return;`（**不是** NRE）
-            string id = liveOps.GetID();
-            var local = LiveOpsLocalCatalog.Find(id);
-            if (local == null)
+            ReleaseEventAssetsById(liveOps.GetID());           // 🔴 2026-10-29（B95_RD）：正文搬到下面那个**按 id** 的重载（本仓有「只有 id、没有 ILiveOps 实例」的调用点）⇒ ⛔ 不是两份实现
+        }
+
+        /// <summary>按事件 **id** 释放（原版没有这个重载；行为与上面那支**逐字相同**）。`.c` 119 行 / ILSpy `:921`：
+        /// `data = GetData<LiveOpsEventData>(liveOps)` → `if (data == null || data.drawData == null || data.drawData.EventComponents == null) NRE;` →
+        /// `foreach (c in drawData.EventComponents) { r = c.<+0x18>; r == null ? CustomDebug.LogError("Trying to unload null assetReference") : AddressablesManager.Release(r); }` → 对 `EventAssets` 再来一遍。
+        /// <para>⚠️ **差异（如实记）**：原版那两个列表在 `LiveOpsEventData.drawData` 上，而**我们的 `drawData` 不装那三格**
+        /// （铁律 6：本地目录 `LiveOpsLocalEvent` 已有 `Assets` / `Components`，⛔ 不建第二份表）⇒ 从 `LiveOpsLocalCatalog.Find` 取。
+        /// 释放动作没有 Addressables 管线 ⇒ 走 `ReleaseAsset` 注入点，**没装就出声**（⛔ 不静默）。</para></summary>
+        public static void ReleaseEventAssetsById(string eventId)
+        {
+            var local = LiveOpsLocalCatalog.Find(eventId);
+            if (local == null) { Debug.LogError("[LiveOps] ReleaseEventAssets：本地目录里没有事件 '" + (eventId ?? "<null>") + "' 的条目（原版这一跳读 `liveOps.GetBaseData().drawData`，我们那张表在本地目录）⇒ 没有可释放的引用"); return; }
+            // ① `drawData.EventComponents` 那半（`KeyValuePair<int,string>`：组件键 → guid）
+            if (local.Components != null) for (int i = 0; i < local.Components.Length; i++) ReleaseOneAssetRef(local.Components[i].Value, "EventComponents[" + local.Components[i].Key + "]");
+            // ② `drawData.EventAssets` 那半
+            if (local.Assets != null) for (int i = 0; i < local.Assets.Length; i++) ReleaseOneAssetRef(local.Assets[i] != null ? local.Assets[i].Guid : null, "EventAssets[" + (local.Assets[i] != null ? local.Assets[i].Key.ToString() : "?") + "]");
+        }
+    }
+}
+
+// ============================================================ 资产引用的【装载 / 引用计数 / 释放】那一层（B95_RD · 2026-10-29 追加）
+// 原版三件**全在本机可读、逐句照抄**（不是自设计）：
+//   · `AddressablesManager.AddressableReferenceCounter`
+//     `.c`：`decomp_full/AddressablesManager.AddressableReferenceCounter__Load_object_.c` / `…__Release.c`
+//     ILSpy：`cpp2il/out_cpp2il_dev_ilspy/AddressablesManager.cs:23-543`
+//     · `refCount` 在 `+0x18`；`Load` **只在 `refCount == 0` 时真去装载**（`.c:52`），末尾 `refCount = refCount + 1`（`.c:97`）
+//     · `Release(forceRelease)`：`force ? 0 : refCount-1`（下限 0）；非 0 ⇒ 返 false；到 0 ⇒ `assetReference.ReleaseAsset()` ⇒ 返 true
+//   · `AddressablesManager.Release(AssetReference, cacheGroup, forceRelease)`（ILSpy `:2699-2745`）：
+//     `TryGetValue(runtimeKey)`；**取不到 ⇒ `Debug.LogWarning("Trying to release non loaded asset")` + false**；
+//     取到 ⇒ `counter.Release()`，真释放则从 cache `Remove(runtimeKey)` 并返 true
+//   · `LiveOpsAssetUtility.LoadComponent<T>` / `Unload<T>`
+//     `decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__LoadComponent_object_.c`（24 行）·
+//     `…__Unload___Il2CppFullySharedGenericType_.c` · ILSpy `LiveOpsAssetUtility.cs:268/293/365/722/735/753`
+//     · 先按 key 从事件数据取引用（`GetComponentReference` / `GetAssetReference`），再交给上面的管理器
+//     · `Unload<T>(data, key)` 按 **T** 分两支：`T == EventComponentReferenceType ⇒ drawData.EventComponents`；
+//       `T == EventAssetReferenceType ⇒ drawData.EventAssets`（ILSpy `:753` 一带的 typeof 链）
+//       ⇒ 我们这边没有那两个枚举作泛型实参（调用点传的是 `int`），故拆成 `UnloadComponents` / `UnloadAssets` 两个同名成员，⛔ 不靠猜
+// 🔶 唯一的自设计 = **装载后端缝**：本机没有 Addressables 管线 ⇒
+//   `LoadAssetInstance`（GUID → 实例）与既有的 `ReleaseAsset`（GUID → 释放）两个注入点是后端缝；
+//   没装就出声、⛔ 不静默（与 `ReleaseEventAssets` 同一条口径 —— 账 310 已按这个形状判 A）。
+//   调度台（B93 2026-10-28 定 `ReleaseAsset` 的形状；B95 2026-10-29 定 `LoadAssetInstance` 同形）。
+namespace CardPresentation
+{
+    /// <summary>`IUiContainer` 的最小实现：包一个**已经装载出来的** `Component`。
+    /// <para>原版 `UiContainer` 是 MonoBehaviour 一族；我们只借它的 `ComponentId` 读口
+    /// （`IUiContainer` 本身是 🔶 最小读口，见 `Shell/LiveOpsEvent.cs:1056-1062`）。</para>
+    /// <para>⛔ 它不是 `MonoBehaviour`（纯数据包装）⇒ 不需要同名 `.cs` 脚本资产。</para></summary>
+    internal sealed class LiveOpsLoadedContainer : IUiContainer
+    {
+        /// <summary>装载它用的那个引用（原版 `AssetReference.RuntimeKey`）。</summary>
+        public readonly string Guid;
+        /// <summary>装出来的组件本身（原版 `AddressablesManager.Load&lt;T&gt;` 的返回值）。</summary>
+        public readonly UnityEngine.Component Instance;
+
+        public LiveOpsLoadedContainer(string guid, UnityEngine.Component instance) { Guid = guid; Instance = instance; }
+
+        /// <summary>`IUiContainer.ComponentId`（原版 `LoadableReference.targetId` 的等价物）。</summary>
+        public string ComponentId { get { return Guid; } }
+    }
+
+    public static partial class LiveOpsAssetUtility
+    {
+        /// <summary>装载后端缝：引用（GUID）→ 已装载的资产实例。
+        /// <para>原版这一步在 `AddressablesManager.AddressableReferenceCounter.Load` 里
+        /// （`.c:52` 的 `refCount == 0` 分支 ⇒ `Addressables.LoadAssetAsync`）。</para>
+        /// <para>🔶 自己设计（非原版）：本机没有 Addressables 管线（判据 = `AddressablesManager.Load` 的实现依赖
+        /// `Addressables` 包的 `LoadAssetAsync`，本机无该包实例、也无 `AssetReference` 类型实例）⇒ 留后端缝。
+        /// 调度台 B95 2026-10-29 定（形状沿用账 310 `ReleaseAsset` 那条已判 A 的先例）。</para></summary>
+        public static Func<string, UnityEngine.Object> LoadAssetInstance;
+
+        /// <summary>引用计数表（原版 `AddressablesManager.CacheReferences` 的 `General` 那组，
+        /// ILSpy `AddressablesManager.cs:2071`）。key = `AssetReference.RuntimeKey` = 我们这边的 GUID。</summary>
+        static readonly Dictionary<string, LiveOpsAssetCounter> _cache = new Dictionary<string, LiveOpsAssetCounter>();
+
+        /// <summary>原版 `AddressablesManager.AddressableReferenceCounter`（ILSpy `:23-31`：`assetReference` + `refCount` 两格）。</summary>
+        internal sealed class LiveOpsAssetCounter
+        {
+            /// <summary>原版 `assetReference`（`+0x10`）。</summary>
+            public string Guid;
+            /// <summary>原版 `refCount`（`+0x18`）。</summary>
+            public int RefCount;
+            /// <summary>装载出来的实例（原版 `assetReference` 句柄指向的那个对象）。</summary>
+            public UnityEngine.Object Instance;
+        }
+
+        // ------------------------------------------------------------ 自检口
+
+        /// <summary>原版 `Counter.RefCount`（ILSpy `:29`）。表里没有 ⇒ 0。</summary>
+        public static int RefCountOf(string guid)
+        {
+            LiveOpsAssetCounter c;
+            return guid != null && _cache.TryGetValue(guid, out c) ? c.RefCount : 0;
+        }
+
+        /// <summary>表里现存几条引用（原版 `CacheReferences[group].Count`）。</summary>
+        public static int CachedReferenceCount { get { return _cache.Count; } }
+
+        /// <summary>自检口：清表并把后端缝还原成「没装」（原版没这个口，只在 `ForceReleaseAll` 里整表清）。</summary>
+        public static void ResetCacheForTest() { _cache.Clear(); LoadAssetInstance = null; ReleaseAsset = null; }
+
+        // ------------------------------------------------------------ 装载（原版 Counter.Load + Manager.Load）
+
+        /// <summary>原版 `Counter.Load`（`.c:52` / `.c:97` + ILSpy `:41-543`）：
+        /// `refCount == 0` 才真去装载；**末尾 `refCount++`**；返回那一个实例（表里那份，不是每调一次新建）。</summary>
+        static UnityEngine.Object LoadOne(string guid, string where)
+        {
+            LiveOpsAssetCounter c;
+            if (!_cache.TryGetValue(guid, out c))
             {
-                Debug.LogError("[LiveOps] ReleaseEventAssets：本地目录里没有事件 '" + (id ?? "<null>") + "' 的条目"
-                             + "（原版这一跳读 `liveOps.GetBaseData().drawData`，我们那张表在本地目录）⇒ 没有可释放的引用");
+                c = new LiveOpsAssetCounter { Guid = guid, RefCount = 0 };
+                _cache[guid] = c;
+            }
+            if (c.RefCount == 0)                                   // .c:52 `if (refCount == 0)` 才装载
+            {
+                if (LoadAssetInstance == null)
+                {
+                    Debug.LogError("[LiveOps] LoadComponent(" + where + ")：引用 guid " + guid + " 解析到了，"
+                                 + "但**没有接 `LiveOpsAssetUtility.LoadAssetInstance`**（原版 = `AddressablesManager.Instance.Load<T>(ref)`）"
+                                 + " ⇒ 装不出来，返回 null");
+                    return null;
+                }
+                var inst = LoadAssetInstance(guid);
+                if (inst == null)
+                {
+                    Debug.LogError("[LiveOps] LoadComponent(" + where + ")：`LoadAssetInstance` 对 guid " + guid + " 返回 null"
+                                 + "（那个资产没有进 `Resources`、也没有后端能取到）⇒ 返回 null，⛔ 不假装装上了");
+                    return null;
+                }
+                c.Instance = inst;
+            }
+            c.RefCount = c.RefCount + 1;                            // .c:97 `refCount = refCount + 1`
+            return c.Instance;
+        }
+
+        // ------------------------------------------------------------ 释放（原版 Counter.Release + Manager.Release）
+
+        /// <summary>原版 `AddressablesManager.Release`（ILSpy `:2699-2745`）+ `Counter.Release`（`.c` 全文 / ILSpy `:511-541`）：
+        /// 取不到计数 ⇒ `LogWarning("Trying to release non loaded asset")` + false；
+        /// 取到 ⇒ `force ? 0 : max(0, refCount-1)`，非 0 ⇒ false，到 0 ⇒ 真释放 + 出表 + true。</summary>
+        static bool ReleaseOne(string guid, bool forceRelease, string where)
+        {
+            LiveOpsAssetCounter c;
+            if (guid == null || !_cache.TryGetValue(guid, out c))
+            {
+                Debug.LogWarning("[LiveOps] Trying to release non loaded asset（" + where + "，guid "
+                               + (guid ?? "<null>") + "）");   // 原文逐字（ILSpy `:2715`）
+                return false;
+            }
+            int next = forceRelease ? 0 : Math.Max(0, c.RefCount - 1);   // `.c`：`-1 < refCount-1 ? refCount-1 : 0`
+            c.RefCount = next;
+            if (next != 0) return false;
+            ReleaseOneAssetRef(guid, where);        // ⛔ 与 `ReleaseEventAssets` **同一个出口**（`ReleaseAsset` 缝），不写第二份
+            _cache.Remove(guid);
+            return true;
+        }
+
+        // ------------------------------------------------------------ 按键取引用（原版 GetComponentReference / GetAssetReference）
+
+        /// <summary>原版 `GetComponentReference(ILiveOps, EventComponentReferenceType)`（`.c` 全文：`liveops == null ||
+        /// GetBaseData() == null ⇒ NRE`）⇒ 我们返**GUID 字符串**（原版返 `AssetReference`；本地目录里存的就是 GUID）。</summary>
+        public static string GetComponentGuid(ILiveOps liveOps, int type)
+        {
+            if (liveOps == null) return null;
+            return GetComponentGuid(liveOps.GetBaseData(), type);
+        }
+
+        /// <summary>同上，data 侧重载（ILSpy `:255`）。取不到 ⇒ **null**（原版 `FirstOrDefault` 没命中时同样是 null）。</summary>
+        public static string GetComponentGuid(LiveOpsEventData data, int type)
+        {
+            var local = LocalOf(data);
+            if (local == null || local.Components == null) return null;
+            for (int i = 0; i < local.Components.Length; i++)
+                if (local.Components[i].Key == type) return local.Components[i].Value;
+            return null;
+        }
+
+        /// <summary>原版 `GetAssetReference(LiveOpsEventData, EventAssetReferenceType)` 的 GUID 版
+        /// （`LiveOpsLocalCatalog.cs` 已有的那个重载返 `LiveOpsLocalAsset`，这里只取 GUID）。</summary>
+        public static string GetAssetGuid(ILiveOps liveOps, int type)
+        {
+            if (liveOps == null) return null;
+            return GetAssetGuid(liveOps.GetBaseData(), type);
+        }
+
+        /// <summary>同上，data 侧重载。</summary>
+        public static string GetAssetGuid(LiveOpsEventData data, int type)
+        {
+            var local = LocalOf(data);
+            var a = local != null ? local.FindAsset(type) : null;
+            return a != null ? a.Guid : null;
+        }
+
+        /// <summary>`LiveOpsEventData` → 离线目录里那一条（与 `ReleaseEventAssets` 同一个取法，⛔ 不建第二份表）。</summary>
+        static LiveOpsLocalEvent LocalOf(LiveOpsEventData data)
+        {
+            if (data == null) return null;
+            return LiveOpsLocalCatalog.Find(data.GetID());
+        }
+
+        // ------------------------------------------------------------ 原版 `LoadComponent<T>`
+
+        /// <summary>原版 `LoadComponent&lt;T&gt;(ILiveOps, EventComponentReferenceType)`（`.c` 24 行，2 句）：
+        /// `ref = GetComponentReference(liveOps, type)` → `AddressablesManager.Instance.Load&lt;T&gt;(ref)`。
+        /// `liveOps == null` ⇒ 原版 `GetComponentReference` 里 NRE；我们出声 + null（本仓统一口径）。</summary>
+        public static T LoadComponent<T>(ILiveOps liveOps, int type) where T : UnityEngine.Component
+        {
+            if (liveOps == null)
+            {
+                Debug.LogError("[LiveOps] LoadComponent(" + type + ")：事件是 null ⇒ 原版在 `GetComponentReference` 里 NRE；我们返 null");
+                return null;
+            }
+            return LoadComponent<T>(liveOps.GetBaseData(), type);
+        }
+
+        /// <summary>同上，data 侧重载（ILSpy `:293`，形状完全一样，只是少了那一次 `GetBaseData()`）。</summary>
+        public static T LoadComponent<T>(LiveOpsEventData data, int type) where T : UnityEngine.Component
+        {
+            string guid = GetComponentGuid(data, type);
+            if (string.IsNullOrEmpty(guid))
+            {
+                Debug.LogError("[LiveOps] LoadComponent(" + type + ")：事件 '" + (data != null ? data.GetID() : "<null>")
+                             + "' 的 `EventComponents` 里没有 key=" + type + "（原版 `FirstOrDefault` 没命中 ⇒ 引用为 null ⇒ "
+                             + "`Trying to unload null assetReference` 那一族）⇒ 返回 null");
+                return null;
+            }
+            return LoadOne(guid, "EventComponents[" + type + "]") as T;
+        }
+
+        /// <summary>原版 `TryLoadComponent&lt;T&gt;`（ILSpy `:365`）：装载失败返 false（⛔ 不抛）。</summary>
+        public static bool TryLoadComponent<T>(ILiveOps liveOps, int type, out T component) where T : UnityEngine.Component
+        {
+            component = LoadComponent<T>(liveOps, type);
+            return component != null;
+        }
+
+        /// <summary>同上，data 侧重载（ILSpy `:315`）。</summary>
+        public static bool TryLoadComponent<T>(LiveOpsEventData data, int type, out T component) where T : UnityEngine.Component
+        {
+            component = LoadComponent<T>(data, type);
+            return component != null;
+        }
+
+        /// <summary>原版 `LoadAsset&lt;T&gt;(ILiveOps, EventAssetReferenceType)`（ILSpy `:391`）：取 `EventAssets` 的引用再装载。</summary>
+        public static T LoadAsset<T>(ILiveOps liveOps, int type) where T : UnityEngine.Object
+        {
+            if (liveOps == null) return null;
+            return LoadAsset<T>(liveOps.GetBaseData(), type);
+        }
+
+        /// <summary>同上，data 侧重载（ILSpy `:486`）。</summary>
+        public static T LoadAsset<T>(LiveOpsEventData data, int type) where T : UnityEngine.Object
+        {
+            string guid = GetAssetGuid(data, type);
+            if (string.IsNullOrEmpty(guid))
+            {
+                Debug.LogError("[LiveOps] LoadAsset(" + type + ")：事件 '" + (data != null ? data.GetID() : "<null>")
+                             + "' 的 `EventAssets` 里没有 key=" + type + " ⇒ 返回 null（⛔ 不兜底别的图）");
+                return null;
+            }
+            return LoadOne(guid, "EventAssets[" + type + "]") as T;
+        }
+
+        // ------------------------------------------------------------ 原版 `Unload<T>(ILiveOps|data, T key)` 的两支
+
+        /// <summary>原版 `Unload&lt;EventComponentReferenceType&gt;(liveOps, key)`（ILSpy `:735` → `:753` 的 component 分支）：
+        /// 按 key 取 `EventComponents` 的引用 → `Unload(reference)`。</summary>
+        public static void UnloadComponents(ILiveOps liveOps, int type)
+        {
+            if (liveOps == null) return;                                  // 原版 `Unload<ILiveOps,T>`：liveOps 为 null 直接不做事
+            UnloadComponents(liveOps.GetBaseData(), type);
+        }
+
+        /// <summary>同上，data 侧重载。</summary>
+        public static void UnloadComponents(LiveOpsEventData data, int type)
+        {
+            string guid = GetComponentGuid(data, type);
+            if (string.IsNullOrEmpty(guid)) return;      // 🔴 判据 ILSpy `LiveOpsAssetUtility.cs:920-925`：`ref = GetReference(...); if (ref != null) Unload(ref);`
+            ReleaseOne(guid, false, "EventComponents[" + type + "]");   // ⇒ key 没命中时原版**什么都不做、也不出声**，⛔ 别在这里 LogError
+        }
+
+        /// <summary>原版 `Unload&lt;EventAssetReferenceType&gt;(liveOps, key)`（ILSpy `:753` 的 asset 分支）：
+        /// 按 key 取 `EventAssets` 的引用 → `Unload(reference)`。
+        /// <para>🔴 有真实生产调用方：`RaidEventTab.Reset` / `RaidHeaderController.OnDestroy` 的 `Unload(事件,1)`（背景图）
+        /// 与 `Unload(事件,5)`（阵营图）—— 1/5 是 <see cref="LiveOpsAssetRef"/> 的值，⛔ 不是 component 的。</para></summary>
+        public static void UnloadAssets(ILiveOps liveOps, int type)
+        {
+            if (liveOps == null) return;
+            UnloadAssets(liveOps.GetBaseData(), type);
+        }
+
+        /// <summary>同上，data 侧重载。</summary>
+        public static void UnloadAssets(LiveOpsEventData data, int type)
+        {
+            string guid = GetAssetGuid(data, type);
+            if (string.IsNullOrEmpty(guid)) return;      // 🔴 同 `Unload<T>` 的形状：`ref == null ⇒ 什么都不做`（ILSpy `:920-925`）
+            ReleaseOne(guid, false, "EventAssets[" + type + "]");
+        }
+
+        /// <summary>原版 `Unload(AssetReference)`（ILSpy `:722`）：引用为 null ⇒ `CustomDebug.LogError("Trying to unload null assetReference")`；
+        /// 否则 `AddressablesManager.Instance.Release(ref)`（= 我们的 <see cref="ReleaseAsset"/> 缝）。</summary>
+        public static void UnloadReference(string guid, string where)
+        {
+            if (string.IsNullOrEmpty(guid))
+            {
+                Debug.LogError("[LiveOps] Trying to unload null assetReference（" + where + "）");                 // 原文逐字
                 return;
             }
-            // ① `drawData.EventComponents` 那半（`KeyValuePair<int,string>`：组件键 → guid）
-            if (local.Components != null)
-                for (int i = 0; i < local.Components.Length; i++)
-                    ReleaseOneAssetRef(local.Components[i].Value, "EventComponents[" + local.Components[i].Key + "]");
-            // ② `drawData.EventAssets` 那半
-            if (local.Assets != null)
-                for (int i = 0; i < local.Assets.Length; i++)
-                    ReleaseOneAssetRef(local.Assets[i] != null ? local.Assets[i].Guid : null,
-                                       "EventAssets[" + (local.Assets[i] != null ? local.Assets[i].Key.ToString() : "?") + "]");
+            ReleaseOne(guid, false, where);
+        }
+
+        // ------------------------------------------------------------ `LiveOpsContainers` 的四个默认实现
+
+        /// <summary>原版 `LoadComponent&lt;UiContainer&gt;(liveOps, Container)` 的 `IUiContainer` 版
+        /// （`LiveOpsContainers.Load` 的默认值；`MissionEvent.GetContainer` 的 `UseSmallContainer` 支直接调它）。</summary>
+        public static IUiContainer LoadContainerComponent(ILiveOps liveOps, int type)
+        {
+            var c = LoadComponent<UnityEngine.Component>(liveOps, type);
+            return c != null ? (IUiContainer)new LiveOpsLoadedContainer(GetComponentGuid(liveOps, type), c) : null;
+        }
+
+        /// <summary>`LiveOpsContainers.Load` 的默认值（= 上面那个的别名；原版就一个 `LoadComponent`）。</summary>
+        public static IUiContainer LoadContainer(ILiveOps liveOps, int type) { return LoadContainerComponent(liveOps, type); }
+
+        /// <summary>`LiveOpsContainers.Unload` 的默认值 = 原版 `Unload&lt;EventComponentReferenceType&gt;(liveOps, Container)`。</summary>
+        public static void UnloadContainer(ILiveOps liveOps, int type) { UnloadComponents(liveOps, type); }
+
+        /// <summary>`LiveOpsContainers.LoadForData` 的默认值（原版 data 侧重载）。</summary>
+        public static IUiContainer LoadContainerForData(LiveOpsEventData data, int type)
+        {
+            var c = LoadComponent<UnityEngine.Component>(data, type);
+            return c != null ? (IUiContainer)new LiveOpsLoadedContainer(GetComponentGuid(data, type), c) : null;
+        }
+
+        /// <summary>`LiveOpsContainers.UnloadForData` 的默认值。</summary>
+        public static void UnloadContainerForData(LiveOpsEventData data, int type) { UnloadComponents(data, type); }
+    }
+}
+
+// ============================================================ 按【事件 id】的重载（B95_RD · 2026-10-29 追加）
+// 原版只有 `ILiveOps` 那一个入口（`ReleaseEventAssets(ILiveOps)` / `Unload<T>(ILiveOps, T)`）。
+// 本仓有一类调用点**手里只有 id、没有 `ILiveOps` 实例**（例：`ExpansionPassEventWindow._event` 是 POCO `ExpansionPassEvent`，
+// 它的 `Id` 字段就是 `ILiveOps.GetID()` 的本地替身）⇒ 补两个**转调型**重载。
+// ⚠️ 它们**不是**第二份实现：数据来源、释放动作、错误文案全走同一条路（见各自 doc）。
+namespace CardPresentation
+{
+    public static partial class LiveOpsAssetUtility
+    {
+        /// <summary>按事件 **id** 释放某一个 `EventAssets` 引用（= 原版 `Unload&lt;EventAssetReferenceType&gt;(ILiveOps, key)`，
+        /// 只是把「事件」换成 id）。key 没命中 ⇒ **什么都不做**（同 `Unload&lt;T&gt;` 的 `if (ref != null)`）。</summary>
+        public static void UnloadAssetByEventId(string eventId, int type)
+        {
+            var local = LiveOpsLocalCatalog.Find(eventId);
+            var a = local != null ? local.FindAsset(type) : null;
+            if (a == null || string.IsNullOrEmpty(a.Guid)) return;
+            ReleaseOne(a.Guid, false, "EventAssets[" + type + "]");
         }
     }
 }

@@ -2173,34 +2173,34 @@ namespace CardPresentation
             return large ? "40K_genearl_icon_Campaign_points_big" : "40K_genearl_icon_Campaign_points";
         }
 
-        /// <summary>原版 `CampaignPointDrawer.Draw` / `DrawForArmy` 的等价实现：
-        /// 主图 = `GetIcon(Large)`（big）；`item.CardArmy` 非 `Neutral` 时再叠 `DrawForArmy` 那两层（阵营徽记 + 阵营名）。
-        /// ⚠️ 三层矩形照同族 `Wildcard`（`IconFill` / `ArmyFill` / `NameStrip`），是我们挑的（原版抽屉几何没量）。</summary>
+        /// <summary>原版 `CampaignPointDrawer.Draw(CampaignPoints item)` ⇒ **`DrawForArmy(item.CardArmy)`** 的等价实现。
+        /// 🔴 **2026-10-29（B96_W1）就地订正（铁律 5）—— 原版这格只画【一层】，而且是【替换】不是叠加**：证据 + 出处全在方法体首段那十行注释里。
+        /// 🔶 自己设计（非原版）：`Square()` 那套**居中方块**是我们挑的 —— 理由在方法体末段。</summary>
         static void CampaignPoint(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
         {
-            string art = CampaignPointIconName(true);
+            // `CampaignPointDrawer__DrawForArmy.c:22-27`（现读）**只有两段**：
+            //   ① `if (armyText) armyText.text = GameStaticData.CardArmyToString(army);`
+            //   ② `if (image) { image.sprite = ArmyUtilities.GetArmyIcon(army); image.enabled = image.m_Sprite != null; }`
+            // ⇒ **主图 = 阵营徽记**（`image` 被**替换**，不是叠加）· `CampaignPoints.GetIcon` 不在这支里（`CampaignPoints__GetIcon.c` 全量反编译 **零调用点**）。
+            // 🔴 两处 prefab 事实（`Icon Campaign Points Drawer Variant.prefab` = `Campaign Tab.prefab` 内嵌的那一份，逐字段现读）：
+            //   · `armyText: {fileID: 0}` ⇒ **阵营名那层原版根本不画**（只有非 Icon 变体 `Campaign Points Drawer.prefab` 才有 `Army` 节点）；
+            //   · 那张 `Image` 的出厂 sprite 恰好是 `40K_genearl_icon_Campaign points_big`（guid `d2b2111c…`）—— 运行时被 `DrawForArmy` **换掉** ⇒ 它**不是**这格的最终画面（原来按它画 = 画错）。
+            // ⚠️ 几何：`Content/Image` 的 `anchorMin/Max = (0,0) → (1,1)` + `m_PreserveAspect = 1` ⇒ 铺满抽屉框、等比内接 ⇒ `ArmyFill = 1`（= `Square(box, 1)`）。
+            // 第 1 段（`armyText`）：本变体是空引用 ⇒ 原版跳过 ⇒ 我们只在 `st.NamePx > 0` 时才补这一层（`CampaignPointStyle()` 给 0 = 不画，与 prefab 一致）。
+            // 第 2 段（`image`）：取不到徽记 ⇒ 原版把 `Image` **关掉**（整格不画、也**不补占位板**）。
+            string fac = ArmyName(item.CardArmy);          // `Neutral(0)` ⇒ `GetArmyIcon` 落空 ⇒ 原版把那张 `Image` 关掉
+            if (fac == null) return;
+            string art = DeckRuntime.FactionIcon(fac);
             var tex = Tex(art);
-            if (tex == null)
-            {
-                Placeholder(node, box, item, qty, st, ref res);
-                res.MissingArt = true;
-                return;
-            }
+            if (tex == null) { res.MissingArt = true; return; }
             res.Art = art;
-            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
-
-            // `DrawForArmy`：阵营徽记 + 阵营名（`army == Neutral(0)` ⇒ 两层都不画 —— 原版那张 `Image` 本就为空）
-            string fac = ArmyName(item.CardArmy);
-            if (fac != null)
-            {
-                var fatex = Tex(DeckRuntime.FactionIcon(fac));
-                if (fatex == null) res.MissingArt = true;
-                else MenuDraw.Rect(node, fatex, Square(box, st.ArmyFill), NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
-                float k = box.H / DecorRefH;
-                if (st.NamePx > 0f)
-                    ClippedText(node, NameStrip(box, st.NamePx), Loc.T("Armies/" + fac), Color.white, NodeArmyName,
-                                st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
-            }
+            MenuDraw.Rect(node, tex, Square(box, st.ArmyFill), NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
+            // 🔶 自己设计（非原版）：`Square()` 那套**居中方块**是我们挑的 —— 原版由 `Content` 锚点直接铺满，我们没有那层 `Content` 包装；
+            //   必须自己定：没有锚点层可照抄（抽屉直接画在 `node` 上）· 执行代理 B96_W1 2026-10-29 定。
+            float k = box.H / DecorRefH;
+            if (st.NamePx > 0f)
+                ClippedText(node, NameStrip(box, st.NamePx), Loc.T("Armies/" + fac), Color.white, NodeArmyName,
+                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
             if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);
         }
 
@@ -2211,7 +2211,7 @@ namespace CardPresentation
         //     上游服务端发奖按 b 档本地模拟 · 调度台 2026-10-28 裁定
 
         /// <summary>造一条「战役点奖励」的 <see cref="ItemSpec"/>（`Type="CampaignPoints"` ⇒ `PickDrawer` 走真表 → `CampaignPointDrawer`）。
-        /// <paramref name="army"/> = 原版 `CampaignPointDrawer.DrawForArmy(army)` 的阵营（`0`=Neutral ⇒ 只画点图标、不画徽记）。</summary>
+        /// <paramref name="army"/> = 原版 `CampaignPointDrawer.DrawForArmy(army)` 的阵营（`0`=Neutral ⇒ 原版把那张 `Image` 关掉、整格不画；⚠️ `Art` 只是提示，`CampaignPoint` 画的是阵营徽记）。</summary>
         public static ItemSpec CampaignPointSpec(int army, int amount)
         {
             return new ItemSpec

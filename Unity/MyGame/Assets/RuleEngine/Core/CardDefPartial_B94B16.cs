@@ -281,5 +281,53 @@ namespace RuleEngine
             }
             return false;
         }
+
+        // ==========================================================================================
+        //  六、账 `:1217` 的**带下标**形状（2026-10-29 · 执行代理 `B95_WCD` 追加在类尾）
+        // ==========================================================================================
+        /// <summary>「列表形状」里的一行：原版 `CardAbility` 本体我们只落了
+        /// `trigger` / `targetsAffected` / `furtherMultiplier`（<see cref="AbilityTargetSpec"/>），
+        /// **原版的列表元素还带着它自己的 `criteria`** ⇒ 消费端要按 `cardAbilities` 下标去隔壁列
+        /// （`AbilityTargetCriteria`）取那一格的 criteria。**所以下标必须跟着出来**。</summary>
+        public sealed class AbilityRowForTrigger
+        {
+            /// <summary>`cardAbilities` 下标（= `_abilityTargets` / `AbilityTargetCriteria` 的下标，三列同序）。</summary>
+            public int AbilityIndex;
+            /// <summary>该下标的 <see cref="AbilityTargetSpec"/>（`null` = 这一条读不到，仍占位保下标）。</summary>
+            public AbilityTargetSpec Spec;
+        }
+
+        /// <summary>↔ <see cref="AbilitiesForTrigger(int)"/> 的**带下标**版本（同一个过滤规则、同一列
+        /// `AbilityTargets`；本方法只多带一个 `cardAbilities` 下标）。
+        ///
+        /// <para>🔴 **为什么要有它**：原版 `RawCardScript.GetAbilitiesForTriggerRawcard` 返回的是
+        /// `List&lt;CardAbility&gt;`，每个元素**自带 criteria**；我们把 criteria 拆到了 `AbilityTargetCriteria`
+        /// ⇒ 只给 <see cref="AbilityTargetSpec"/> 的话，消费端**没法把它对回 criteria**
+        /// （账 `:1217` 备注里那条 A-15「`ActionPump` 的 `UniqueAbilityIndexForTrigger` 切成逐条」正是卡在这一步）。
+        /// ⛔ 别拿列表下标当 `cardAbilities` 下标 —— 过滤之后两者不等。</para>
+        ///
+        /// <para>三态与 <see cref="AbilitiesForTrigger(int)"/> **逐字相同**：
+        /// `null` = 判不了（列没落 / 旧表 / 名字认不出）· 空表 = 明确没有 · 非空 = 命中列表（按 `cardAbilities` 原序）。</para></summary>
+        public IReadOnlyList<AbilityRowForTrigger> AbilityRowsForTrigger(int abilityTrigger)
+        {
+            if (!AbilityTargetsVersioned) return null;          // 列没落 ⇒ 未知（与 AbilitiesForTrigger 同口径）
+            var list = new List<AbilityRowForTrigger>();
+            for (int i = 0; i < _abilityTargets.Count; i++)
+            {
+                var s = _abilityTargets[i];
+                if (s != null && s.Trigger == abilityTrigger)
+                    list.Add(new AbilityRowForTrigger { AbilityIndex = i, Spec = s });
+            }
+            return list;
+        }
+
+        /// <inheritdoc cref="AbilityRowsForTrigger(int)"/>
+        public IReadOnlyList<AbilityRowForTrigger> AbilityRowsForTrigger(string triggerName)
+        {
+            if (string.IsNullOrEmpty(triggerName)) return null;
+            int n = AbilityTriggerNumber(triggerName);
+            if (n < 0) return null;                             // 认不出名字 ⇒ 判不了（⛔ 不当「没有」）
+            return AbilityRowsForTrigger(n);
+        }
     }
 }

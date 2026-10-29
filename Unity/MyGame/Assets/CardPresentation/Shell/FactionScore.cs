@@ -142,19 +142,19 @@ namespace CardPresentation.ScoreBars
             }
         }
 
-        /// <summary>建 `icon` 节点。图先给一张**全透明**的纯色块（见 `Build` 的注释）；
-        /// <see cref="Initialize"/> 拿到阵营图后覆盖它。</summary>
+        /// <summary>建 `icon` 节点：**`RectTransform` 容器** + 铺满它的 `Image` 图块（全透明纯色占位，
+        /// <see cref="Initialize"/> 拿到阵营图后覆盖）。🔴 原版矩形写在**节点自己**身上 —— 判据 `报告/B94_B17.md` §5·2 五元组。</summary>
         Transform IconNodeAt(PxRect r, Color emptyTint)
         {
-            var tex = CardArt.Solid();
-            if (tex != null)
-            {
-                var q = MenuDraw.Rect(transform, tex, r, "icon", QIcon, emptyTint);
-                if (q != null) { factionImage = q; return q.transform; }
-            }
-            // 连纯色块都拿不到 ⇒ **节点仍然要留**（宿主/断言按名字找它），只是没有图
-            Debug.LogWarning("[FactionScore] `icon` 的占位图建不出来（`CardArt.Solid()` 为空）⇒ 只留空节点");
-            return MenuDraw.Node(transform, "icon", r);
+            // 🔴 2026-10-29（B95_A2B17）：原来直接 `MenuDraw.Rect(...)` ⇒ `ImageQuad.Create` 建的是**裸 `Transform`**
+            //    （`Battle/ImageQuad.cs:124` `new GameObject(name)`）⇒ `icon` 节点没有 `RectTransform`、矩形表达不了
+            //    ⇒ B17 自检 F2a/F4a 红（`GetChild(0) as RectTransform` = null）。同族先例 = `PurchasePremiumWindow` 的
+            //    `Army Icon`（`:797` 容器）+ `:509` 图块 —— 本处照它的形状：容器承载矩形、图块铺满容器。
+            var node = MenuDraw.Node(transform, "icon", r);      // 连纯色块都拿不到时**节点也要留**（宿主/断言按名字找它）
+            var q = MenuDraw.Rect(node, CardArt.Solid(), r, "Image", QIcon, emptyTint);   // 同一份 `r` ⇒ 图块 localPosition = 0；`tex == null` 时 `Rect` 自己返 null
+            if (q != null) factionImage = q;
+            else Debug.LogWarning("[FactionScore] `icon` 的占位图建不出来（`CardArt.Solid()` 为空）⇒ 只留空节点");
+            return node;
         }
 
         /// <summary>建一颗评级节点并挂 <see cref="AllianceRatingDisplay"/>。

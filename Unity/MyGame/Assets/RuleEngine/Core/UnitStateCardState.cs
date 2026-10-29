@@ -222,4 +222,37 @@ namespace RuleEngine
         /// <summary>🧪 **仅测试可见**：`CardStateOf` 的同步探针（见上面那段说明）。生产恒 `null`。</summary>
         public System.Action<UnitState> CardStateProbe;
     }
+
+    // ==================================================================================================
+    //  🆕 2026-10-29（战斗线 C21 · 执行代理 `B96_CB` · 账 907）：换牌期那两档 `cardState`（13 / 14）
+    // ==================================================================================================
+    //  原版 `CardScript.SetStateAsMulligan(bool toBeDiscarded)`（`decomp_full/CardScript__SetStateAsMulligan.c` 全文三句）：
+    //    ① `isPlayer(+0x40)` ⇒ 把这张卡挂到换牌区父节点；
+    //    ② `cardState(+0x228) = 13 + toBeDiscarded`（`13 inMulliganSelected` / `14 inMulliganDiscarded`）；
+    //    ③ `CardCollider2D.SetColliderNotInHand(13/14)`。
+    //
+    //  🔴 **为什么这两档不写进 `UnitState._cardStateMark`**：那一格是**棋盘单位**的「结算瞬态」
+    //    （`MarkCardState` 只收 3/15/17），而换牌期的牌**在手里**、没有 `UnitState`
+    //    （`UnitState` 只存在于 `PlayerState.Board` 上，见 `CardStateOf` 的 ③）。
+    //    ⇒ 这两档的**写点**在换牌面板（原版那边写它的是 `MulliganManager` → `CardScript`），
+    //      **读点**在 `CardHighlight.CardBoardHighlight.OnTouchUpAsButton` 的
+    //      `case inMulliganSelected/inMulliganDiscarded`（`CardHighlight.cs:804-805`，
+    //      判据 = 原版 `CardScript__OnTouchUpAsButton.c:52-61`）。
+    //    ⇒ 本类只提供**唯一一条数值判据**（`13 + toBeDiscarded`），⛔ 别在面板里再写一次 `13/14`。
+    /// <summary>原版 `CardScript.SetStateAsMulligan(bool)` 的 `cardState` 那一半（见上面那段判据）。</summary>
+    public static class MulliganCardState
+    {
+        /// <summary>`cardState = 13 + toBeDiscarded`（原版第二句，逐字）。</summary>
+        /// <param name="toBeDiscarded">`true` = 这张牌**打算换掉**（14）· `false` = 留着（13）。</param>
+        public static CardStateOptions Of(bool toBeDiscarded)
+        {
+            return toBeDiscarded ? CardStateOptions.inMulliganDiscarded : CardStateOptions.inMulliganSelected;
+        }
+
+        /// <summary>这一档算不算「换牌期」—— 原版 `OnTouchUpAsButton.c:52` 那两个 case 的判别式。</summary>
+        public static bool IsMulligan(CardStateOptions s)
+        {
+            return s == CardStateOptions.inMulliganSelected || s == CardStateOptions.inMulliganDiscarded;
+        }
+    }
 }

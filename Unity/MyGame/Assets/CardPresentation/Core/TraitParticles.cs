@@ -167,8 +167,50 @@ namespace CardPresentation
         /// 原版是 `Instantiate` 在卡的 `effectsAnchor` 下（`ResolveTraitAnim` 那条路）⇒ 这里挂在卡的 transform 下。</summary>
         public static bool Play(string trait, Transform at, string why = null)
         {
+            return PlayCore(trait, at, at, why);
+        }
+
+        /// <summary>🆕 2026-10-29（`B95_FX` · 账 `特效动画:503`）：原版 **`CardScript.ActivateTraitParticlesFromCodeInTarget`**
+        /// 那一档的口 —— **粒子挂在【目标卡】身上，但取件仍按【触发者自己的】`cardArmy`**。
+        ///
+        /// <para>判据（两源一致）：🥇 `d:/2/tools/decomp_full/CardScript__ActivateTraitParticlesFromCodeInTarget.c:1-86`
+        /// ｜🥈 `out_cpp2il_dev_ilspy/CardScript.cs:16744-16781`。
+        /// 与 `…FromCode`（本类 <see cref="Play"/>）**唯一的差别**就在 `ResolveTraitAnim` 的三个卡锚点：
+        /// · `…FromCode`：`ResolveTraitAnim(anim, **this**, targetCard, this, …)`（`.c:75`；ILSpy 把第 4 个实参误印成 `default`）
+        /// · `…InTarget`：`ResolveTraitAnim(anim, **targetCard**, targetCard, targetCard, …)`（`.c:75`；ILSpy 同病）
+        /// ⇒ 原版 `BattleManager._ResolveTraitAnim`（状态机 `d__465`）把 `actingCard` 一路传给
+        /// `DelayedVFXPlay(animInfo, startParent, …, actingCard, targetCard, …)`（`…MoveNext.c:112-118`，
+        /// 其中 `startParent = actingCard.CardUI + 0x1a0`）⇒ **实例挂在 `actingCard`（= 目标）的锚点下**。
+        /// 而**取哪一条 prefab** 两个方法完全同形：`BattleMgr.GetTraitEffect(trait, FromCode, **this**.rawCardData.cardArmy)`
+        /// （`.c:70-72`，`this` = 触发者、不是目标）⇒ 阵营取自 `sourceAt`。</para>
+        ///
+        /// <para>参数：`targetAt` = 挂点（原版 `targetCard`）；`sourceAt` = 触发者那张卡（**只为取阵营**，
+        /// 传 `null` 时退回用 `targetAt` 取，并出声一次）。</para>
+        /// ⚠️ 原版 `…InTarget` **全仓只有 1 个调用点**：`CardScript.TriggerOnMinionDeath` 里
+        /// `deadCard.ActivateTraitParticlesFromCodeInTarget(huntMark, hero)`（ILSpy `:15697`）——
+        /// 带猎杀标记的单位阵亡时，粒子挂在**它自己督军**身上。我们引擎今天**没有对应信号**
+        /// （`EvtKind.Death` 不带标记数、`DyingThisAction` 在表现层播放前已清）⇒ 本口**暂时没有调用者**
+        /// （见账 `特效动画:503` 的备注），⛔ 别为了让它有调用者去拼一条「猜出来的」触发条件。</summary>
+        public static bool PlayInTarget(string trait, Transform targetAt, Transform sourceAt, string why = null)
+        {
+            if (targetAt == null) return false;
+            if (sourceAt == null)
+            {
+                if (_noSourceWarned.Add(trait ?? ""))
+                    Debug.LogWarning($"[TraitParticles] `PlayInTarget(\"{trait}\")` 没给触发者（`sourceAt = null`）"
+                                   + " ⇒ 阵营只能按**目标卡**取（原版取自触发者 `this.rawCardData.cardArmy`，"
+                                   + "跨阵营时会取错 `overrideByArmies` 那一档）");
+                sourceAt = targetAt;
+            }
+            return PlayCore(trait, targetAt, sourceAt, why);
+        }
+
+        /// <summary>`Play` / `PlayInTarget` 的共用实现：**挂在 `at`、按 `armyFrom` 取件**。
+        /// ⛔ 别在调用点各写一遍（那会变成两份「怎么取件」）。</summary>
+        static bool PlayCore(string trait, Transform at, Transform armyFrom, string why)
+        {
             if (at == null) return false;
-            var name = PrefabFor(trait, ArmyOf(at));   // 🆕 原版这一档也按卡阵营取 override
+            var name = PrefabFor(trait, ArmyOf(armyFrom));   // 🆕 原版这一档也按卡阵营取 override
             if (string.IsNullOrEmpty(name)) return false;
             var p = WarpforgeEffectPlayer.Play(name, at, Vector3.zero, 1f);
             if (p == null)
@@ -242,5 +284,9 @@ namespace CardPresentation
         // player 里零成本：探针本身不参与任何判断，`NoteKeyForTest` 只在 Editor 记读数。
         static void NoteKeyForTest(string raw, string key, int abilityIndex) { }
 #endif
+
+        // —— 🆕 2026-10-29（`B95_FX` · 账 `特效动画:503`）：`PlayInTarget` 缺触发者时的「出声一次」集合 ——
+        //   **追加在类尾**（`EnsureFromCode` / `Play` 这些被账按行号引用的成员位置一律不动）。
+        static readonly HashSet<string> _noSourceWarned = new HashSet<string>();
     }
 }

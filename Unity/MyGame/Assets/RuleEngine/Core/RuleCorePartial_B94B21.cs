@@ -103,15 +103,15 @@ namespace RuleEngine
         /// （用途：让 <see cref="BroadcastTurnSetup"/> 与原版 `OnTrigger(155)` 的「没能力就空转」等价。）</summary>
         static bool HasTurnSetupBody(UnitState u)
         {
-            if (u == null) return false;
-            if (u.Card != null && u.Card.AbilityTriggerPresence(TurnSetupTriggerName) == 1) return true;
-            if (u.HasFx(TurnSetupTriggerName)) return true;
-            if (Enchantments.HasAny(u))
-            {
-                var m = Enchantments.Matching(u, TurnSetupTriggerName);
-                if (m != null && m.Count > 0) return true;
-            }
-            return false;
+            // 🔴 2026-10-29（`B95_WRC` · 顺手发现 #1 收口）：本方法与下面的 `HasSupportBody` 原来是
+            //    **逐字相同的两份复制**（只差触发名）—— 项目铁律「两处写同一条规则 = 迟早不一致」。
+            //    现在两份都转调到文件尾那一个 `HasAbilityTriggerBody(u, name)`。
+            //    ⚠️ **行数守恒**（本方法仍 12 行）：账 642/876 的落点 `:71` / `:150` 都在本方法
+            //    之后，缩行会让它们漂移 ⇒ 用注释把行数补回去，⛔ 别删这些注释行。
+            //    语义一字未改：`u == null` → 卡上 `AbilityTriggerPresence == 1` → `HasFx` → 附魔卡。
+            //    （原来那 7 行判定体搬进了 `HasAbilityTriggerBody`，判据来源与注释一并搬过去，
+            //      本方法只剩这一句转调 —— 保留旧名的理由：两个调用点零改动、git blame 不断。）
+            return HasAbilityTriggerBody(u, TurnSetupTriggerName);
         }
 
         // ==========================================================================================
@@ -186,12 +186,52 @@ namespace RuleEngine
         /// （用途：让 <see cref="BroadcastSupportOnSummon"/> 与原版 `OnTrigger(550)` 的「没能力就空转」等价。）</summary>
         static bool HasSupportBody(UnitState u)
         {
-            if (u == null || u.Card == null) return false;
-            if (u.Card.AbilityTriggerPresence(SupportTriggerName) == 1) return true;
-            if (u.HasFx(SupportTriggerName)) return true;
+            // 🔴 2026-10-29（`B95_WRC`）：同上 —— 转调到文件尾的 `HasAbilityTriggerBody(u, name)`。
+            //    ⚠️ **语义差一格，如实记**：改前本方法多一句 `u.Card == null ⇒ false`（连 `HasFx` /
+            //    附魔都不查），而 `HasTurnSetupBody` 是先判 `u == null` 再 `u.Card != null && …`。
+            //    合并后统一取**松的那一支**（TurnSetup 的形状）。**零可观测**：两个调用方都只喂
+            //    `PlayerState.Board` 上的 `UnitState`，那种实例 `Card` 恒非空（构造自 `CardDef`）⇒
+            //    这一格在可达输入上永远不命中。⛔ 若将来出现 `Card == null` 的 `UnitState`，回来补判。
+            //    行数守恒同 `HasTurnSetupBody`（账 876 的落点 `:150` 在本方法之后）。
+            //    —— 补两行注释把行数补回去，正是为了保住 `:150` 那个落点不漂。
+            return HasAbilityTriggerBody(u, SupportTriggerName);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（`B95_WRC` · 顺手发现 #1 收口）：**「这张在场单位有没有某条 ability trigger」的唯一判据**
+        // ==========================================================================================
+        //
+        // **为什么抽出来**：`HasTurnSetupBody` 与 `HasSupportBody` 原来是**逐字相同的两份复制**
+        //   （只差触发名）。项目铁律「两处写同一条规则 = 迟早不一致」⇒ 收成一处。
+        //
+        // **三档判据（逐句来自原来那两份，一字未改）**：
+        //   ① 卡上原生 —— `UnitState.Card.AbilityTriggerPresence(name) == 1`（= `cards_engine.json`
+        //      的 `abilityTriggers` 全卡 walk，见 `CardDef.AbilityTriggerPresence`）；
+        //   ② 运行期挂的 Fx —— `UnitState.HasFx(name)`（`_triggerOps` 的键 = 小写规范名，见
+        //      `TurnSetupTriggerName` 的 remarks）；
+        //   ③ 附魔卡挂的 —— `Enchantments.Matching(u, name)` 非空。
+        //
+        // **为什么要这道筛子**（原版不需要，是因为原版 `OnTrigger` 对没这条能力的卡内部空转）：
+        //   我们的 `FireTriggerAlways` 对「没正文但有系统触发的词」会发一条 `EvtKind.Trigger`
+        //   ⇒ 无条件扫全场会给一堆本来无该能力的卡**凭空发事件**、污染 `play all dump` 指纹。
+        //   同一套取舍的既有先例 = `RuleCorePartial_B94B8.cs` 的 `HasQuestResolvedBody`。
+        //
+        // ⚠️ **`u.Card == null` 这一格**：合并前 `HasSupportBody` 是 `u.Card == null ⇒ false`、
+        //   `HasTurnSetupBody` 是「先判 `u == null`、再 `u.Card != null && …`」⇒ 后者在 `Card == null`
+        //   时仍会往下查 `HasFx` / 附魔。本方法统一取**后者（松的那一支）**。零可观测：两个调用方
+        //   只喂 `PlayerState.Board` 上的 `UnitState`，那种实例 `Card` 恒非空。
+        //   ⛔ 若将来出现 `Card == null` 的 `UnitState`，回来按原版语义补判（⛔ 别默默让它松着）。
+
+        /// <summary>这张在场单位有没有 <paramref name="triggerName"/> 这条 ability trigger
+        /// （卡上原生 / 运行期 Fx / 附魔卡挂的，三档任一即真）。见上面那段判据。</summary>
+        static bool HasAbilityTriggerBody(UnitState u, string triggerName)
+        {
+            if (u == null || string.IsNullOrEmpty(triggerName)) return false;
+            if (u.Card != null && u.Card.AbilityTriggerPresence(triggerName) == 1) return true;
+            if (u.HasFx(triggerName)) return true;
             if (Enchantments.HasAny(u))
             {
-                var m = Enchantments.Matching(u, SupportTriggerName);
+                var m = Enchantments.Matching(u, triggerName);
                 if (m != null && m.Count > 0) return true;
             }
             return false;

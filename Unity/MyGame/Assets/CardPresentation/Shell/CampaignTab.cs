@@ -1417,23 +1417,23 @@ namespace CardPresentation
                 panTitle.SetWrapping(false);        // 🆕 2026-10-11（A281）：还原本条 TMP 的 `m_TextWrappingMode = 0`
                 MenuDraw.AlignRight(panTitle, panTitleR);
             }
-            // `Points`（HLG：Quantity + 战役点图标）—— 实算 rect 见正版 §四
-            // 🔴 **2026-10-17（T20）**：原版 `ChangeState` 在 **state 2** 关掉的是**整个 `pointsObject`**
-            //   （反编译 `CampaignPremiumPointsPanel__ChangeState.c:42-47`：`SetActive(pointsObject, 0)`）
-            //   ⇒ 这里先建一个**容器节点**，两颗子件都挂在它下面，三态切换只开关这一层。
+            // `Points`（HLG：Quantity + 战役点图标）—— 实算 rect 见正版 §四；原版 `ChangeState` 在 **state 2** 关掉的是**整个 `pointsObject`**（`CampaignPremiumPointsPanel__ChangeState.c:42-47`：`SetActive(pointsObject, 0)`）⇒ 先建容器节点，两颗子件都挂它下面，三态切换只开关这一层。
             var panPointsR = new PxRect(458.43f, 910.43f, 606.22f, 980.15f);
             _premPoints = RewardsWindow.Node(p, "Points", panPointsR);
             var panQtyR = new PxRect(458.43f, 916.33f, 535.41f, 974.24f);
-            var panQty = _win.Text(_premPoints, "200", panQtyR.x1, panQtyR.x2, panQtyR.y1, panQtyR.y2, 5,
+            // 原版 `CampaignPremiumPointsPanel__Initialize.c:40-43`：`pointsText.<m_text setter>(pointReward.ToString())`
+            //   —— `pointReward` 在**服务端** ⇒ 走注入位 `PremiumPoints()`（默认 200，🔶 判据见它自己的 doc）。
+            var panQty = _win.Text(_premPoints, PremiumPoints().ToString(), panQtyR.x1, panQtyR.x2, panQtyR.y1, panQtyR.y2, 5,
                                    Color.white, "Quantity", 61.23f, face: TmpFont.Face.LatinCardBody);
             if (panQty != null)
             {
                 panQty.SetRenderQueue(QPanelPts);
                 MenuDraw.AlignLeft(panQty, panQtyR);
             }
-            _win.Rect(_premPoints, "40K_genearl_icon_Campaign_points_big",
-                      new PxRect(541.22f, 910.43f, 606.22f, 980.15f),
-                      "Point Icon", QPanelPts, null, true);
+            // 原版 `Initialize.c:35-38`：`CampaignPointDrawer.DrawForArmy(pointDrawer, campaign.<0x18> 的 army)` ⇒ 走抽屉库（`CampaignPointDrawer` 档），⛔ 别再手挂一张图。
+            //   🆕 2026-10-29（B96_W1）：那个槽**已定名** = `LiveOpsEventData.get_Army`（vtable `+0x1b8` = **Slot 8**；`campaign.<+0x18>` 是 `LiveOpsEvent<,>.Data`）⇒ 传当前战役阵营（见 `CampaignArmyOfSelected`）。
+            var ptRes = ItemDrawer.DrawCampaignPointsReward(_premPoints, new PxRect(541.22f, 910.43f, 606.22f, 980.15f), PremiumPoints(), CampaignArmyOfSelected(), CampaignPointStyle());
+            if (ptRes.Art == null) Debug.LogWarning("[Campaign] `Premium Panel` 的点图标那一格**没画**（`ItemDrawer` 的 `CampaignPointDrawer` 档取不到阵营徽记）—— 原版那格是 `DrawForArmy(campaign.Data.Army)` ⇒ `image.sprite = GetArmyIcon(army)`，取不到时原版同样把那张 `Image` 关掉（= 不画，⛔ 不是 `CampaignPoints.GetIcon`）");
             // `Generic Simplified UI Button`（state 0 = `Collect` · state 1 = `Premium`；state 2 整颗关）
             var btn = new PxRect(404.36f, 974.24f, 660.29f, 1029.71f);
             _premAction = RewardsWindow.Node(p, "Generic Simplified UI Button", btn);
@@ -1782,10 +1782,10 @@ namespace CardPresentation
             if (_premState == PremStateNotPurchased)
             {
                 LastCollectBranch = 1;
-                Debug.LogWarning("[Campaign] `Premium Panel` 的 Collect 没落地：原版 state 1 会 "
-                               + "`WindowsManager.OpenWindow(那扇付费窗的 prefab 引用, boxed int)`"
-                               + "（`…CollectButtonClicked.c:24-38`）；prefab 引用在组件的序列化字段 `+0x40`、"
-                               + "那个 int 来自 `campaign.<+0x18>+0x1b8` —— 两样本地都拿不到 ⇒ **不猜成某扇窗**。");
+                int army = CampaignArmyOfSelected();             // 原版 `campaign.<+0x18>.<+0x1b8>` = `LiveOpsEventData.get_Army`（Slot 8）
+                WindowsManager.OpenPurchasePremiumWindow(army);  // 原版 `OpenWindow(组件 +0x40 那扇 Purchase Premium Window, boxed army)`
+                Debug.Log("[Campaign] `Premium Panel` 的 Collect（state 1）⇒ 开 `Purchase Premium Window`、聚焦阵营 = "
+                        + army + "（判据 = `CampaignPremiumPointsPanel__CollectButtonClicked.c:24-38`）。");
             }
             // state 2 / 还没建（`_premState == -1`）：原版**整段 return**，这里也什么都不做（⛔ 别加 Log，
             // 「无动作」本身就是判据 —— 自检靠 `LastCollectBranch == -1` 反证）。
@@ -1863,5 +1863,45 @@ namespace CardPresentation
         /// <summary>= 原版 `backgroundShinyEffect`（同一颗 GO 上的 `UIEffect`(Shiny)）的等价层。</summary>
         WildcardShineLayer _premBgShine;
         string _premBgArtName;
+
+        // ============================================================ 🆕 2026-10-29（B95_RS · 账 `商店:38`）
+        /// <summary>原版 `CampaignPremiumPointsPanel.Initialize` 第 ⑥ 句 `pointsText.<m_text setter>(pointReward.ToString())`
+        /// （`d:/2/tools/decomp_full/CampaignPremiumPointsPanel__Initialize.c:40-43`，现读）。
+        /// <para>`pointReward`（这一档给多少战役点）由**服务端**下发，本地 0 命中 ⇒ 做成注入位。</para>
+        /// <para>🔶 自己设计（非原版）：默认值 **200** —— 原版判据在服务端（`CampaignEventData` 的 premium 奖励表，本地只有 UM 一套且不含该格）· 必须自己定：判据拿不到 · 调度台 2026-10-29 指派（B95_RS）。</para></summary>
+        public static int PremiumPointsForTest = 200;
+
+        /// <summary>现在该印的点数 = <see cref="PremiumPointsForTest"/>（原版 `pointReward` 的注入位）。</summary>
+        public static int PremiumPoints() { return PremiumPointsForTest; }
+
+        /// <summary>点图标那一格的抽屉版式 —— 原版是 `CampaignPointDrawer.DrawForArmy(pointDrawer, army)`
+        /// （`CampaignPremiumPointsPanel__Initialize.c:35-38`）；本仓等价件 = `ItemDrawer.CampaignPoint`（`CampaignPointDrawer` 档）。
+        /// <para>🔴 **2026-10-29（B96_W1）就地订正（铁律 5）**：原版这格**只画一层** —— `image` ← `GetArmyIcon(army)`（**替换**，不是叠加；见 `ItemDrawer.CampaignPoint` 头注）。</para>
+        /// <para>`Content/Image` = `anchors(0,0)-(1,1)` + `m_PreserveAspect=1` ⇒ 铺满抽屉框、等比内接 ⇒ `ArmyFill = 1`；</para>
+        /// <para>prefab 里 `armyText` / `quantity` **都是空引用** ⇒ 名字/数量两层给 0（不画）。</para>
+        /// <para>🔶 自己设计（非原版）：`Square()` 那套**居中方形**是我们挑的 —— 原版由 `Content` 锚点铺满、我们没有那层包装 · 必须自己定：抽屉直接画在 `node` 上 · 调度台 2026-10-29 指派（B95_RS）/ B96_W1 落地。</para></summary>
+        static ItemDrawerStyle CampaignPointStyle()
+        {
+            var st = ItemDrawerStyle.Default(QPanelPts, QPanelPts, QPanelPts);
+            st.NodeName = "Campaign Points Drawer";
+            st.ArmyFill = 1f;      // 徽记铺满 min(W,H) —— 原版 `Content/Image` 的 anchors(0,0)-(1,1) + preserveAspect
+            st.QuantityPx = 0f;    // 不画数量（prefab `quantity: {fileID: 0}`）
+            st.NamePx = 0f;        // 不画阵营名（prefab `armyText: {fileID: 0}`）
+            return st;
+        }
+
+        /// <summary>= 原版 `campaign.Data.Army`（`CampaignPremiumPointsPanel.Initialize` 第 ③ 句与 `CollectButtonClicked` state 1 都取它）。
+        /// <para>🔴 **槽名已定（2026-10-29 · B96_W1）**：`campaign.<+0x18>` = `LiveOpsEvent&lt;TSave,TData&gt;.Data`（ILSpy `this + 24`），
+        /// 再走它的 vtable `+0x1b8` —— 虚表基址 `0x138`、每档 16 字节（本文件 `ItemDrawer.cs:869` 已算过）⇒ `+0x1b8` = **Slot 8**；
+        /// `d:/2/tools/il2cpp_out/dump.cs` 里 `LiveOpsEventData.get_Army` 正是 `Slot: 8`（`get_Expansion` 是 9）⇒ **= `data.Army`**。
+        /// 旁证：ILSpy 把那个间接调用的返回类型推成 `CardArmy`，且 `CollectButtonClicked` 把结果 box 成 `CardArmy` 交给
+        /// `PurchasePremiumWindow.TryOpen(data as CardArmy?)`（两源互证）。</para>
+        /// <para>本仓等价物 = 当前选中的战役阵营（`CampaignData.Selected` 是阵营名串）→ 用 `CampaignData.TryPremium` 换成 `CardArmy` 值。
+        /// 认不出（不该发生）⇒ `0` = `Neutral`，与 `DrawForArmy` 取不到徽记时把 `Image` 关掉同效。</para></summary>
+        static int CampaignArmyOfSelected()
+        {
+            CampaignData.PremiumItem it;
+            return CampaignData.TryPremium(CampaignData.Selected, out it) ? it.Army : 0;
+        }
     }
 }

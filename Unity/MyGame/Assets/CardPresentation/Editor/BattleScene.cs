@@ -15361,7 +15361,7 @@ public static class BattleScene
                                       $"★ 命中区**跟卡转**：槽 1 的卡根拧到 30° 之后，它**画出来的那张卡**的两个对角点"
                                     + $"仍然判给槽 1（实得 {hA} / {hB}）—— 改前（自算的轴对齐框）这两点落在框外 ⇒ 必红");
                                 s1.transform.localRotation = oldRot;             // ⛔ 一定要复原
-                                Check(s1.transform.localRotation == oldRot,
+                                Check(AngleMath.AngleDegTiny(s1.transform.localRotation, oldRot) < 1e-3f,
                                       "（本组收尾）槽 1 的卡根转角已复原（⛔ 不复原会污染下面「换位」那一段）");
                             }
                         }
@@ -17312,11 +17312,11 @@ public static class BattleScene
                                 authored.SetParent(carrier, false);
                                 authored.localRotation = Quaternion.Euler(0f, 0f, 37f);
                                 BattleDriver.FlattenNewEffectRotation(carrier, 0, false);
-                                Check(authored.localRotation != Quaternion.identity,
+                                Check(AngleMath.AngleDegTiny(authored.localRotation, Quaternion.identity) > 1e-3f,
                                       "★ R26 不变式：`orient = false`（只有位移 / 纯挂载）时**不碰**作者朝向"
                                     + "｜🧨 去掉 `FlattenNewEffectRotation` 里的 `if (!orient)` ⇒ 红");
                                 BattleDriver.FlattenNewEffectRotation(carrier, 0, true);
-                                Check(authored.localRotation == Quaternion.identity,
+                                Check(AngleMath.AngleDegTiny(authored.localRotation, Quaternion.identity) < 1e-3f,
                                       "★ R26：`orient = true` ⇒ 新生实例的**局部旋转归零**（朝向只由载体决定）"
                                     + "｜🧨 把那一整段删掉 ⇒ 红（症状：每个技能特效都多叠一个作者朝向，与原版差一截）");
                                 Object.DestroyImmediate(carrier.gameObject);
@@ -24684,7 +24684,7 @@ public static class BattleScene
                         // ④ 不带 OrientationNoise 的信号（`…No rotation`）⇒ 恒等（原版那份就是空的）
                         var noRot = new CardFeel.ShakeSignal("test-noori",
                             new[] { new CardFeel.ShakeBandSignal(1f, 1f, 1) }, null, 0);
-                        Check(CardFeel.ShakeOrientation(0.3f, 7f, 0.05f, noRot, 4f, 1f) == Quaternion.identity,
+                        Check(AngleMath.AngleDegTiny(CardFeel.ShakeOrientation(0.3f, 7f, 0.05f, noRot, 4f, 1f), Quaternion.identity) < 1e-3f,
                               "★ 信号没有 `OrientationNoise`（`Warpforge 6D Shake No rotation` 那一份）⇒ 旋转恒等");
 
                         // ⑤ **灭自证**：默认信号在多个相位上的旋转必须与**独立参考实现**一致（`ShakeOrientationRef`）
@@ -26135,7 +26135,7 @@ public static class BattleScene
                     float t12Ang0 = Quaternion.Angle(t12Q0, t12StartRot[t12Key]);
                     if ((t12P0 - t12StartPos[t12Key]).magnitude > 1e-3f || t12Ang0 > 0.25f
                         || (t12P25 - t12Home).magnitude > 1e-3f
-                        || Quaternion.Angle(t12Q25, Quaternion.identity) > 0.05f)
+                        || AngleMath.AngleDegTiny(t12Q25, Quaternion.identity) > 0.05f)
                     {
                         t12PoseBad++;
                         Debug.LogError($"[T12] 位姿不符 `{t12Key}`：p0={t12P0:F4} 期望 {t12StartPos[t12Key]:F4}"
@@ -26187,7 +26187,7 @@ public static class BattleScene
                       && Vector3.Distance(t12Ci.HomePosition, t12Home) < 1e-3f
                       && t12Parent != null
                       && t12Parent.localPosition == Vector3.zero
-                      && t12Parent.localRotation == Quaternion.identity,
+                      && AngleMath.AngleDegTiny(t12Parent.localRotation, Quaternion.identity) < 1e-3f,
                       "★ T12 坐标前提：`boardCam` 本位 = (0, 2.222075, −13.57198)、父节点在原点（identity）"
                     + " —— 不成立 ⇒ clip 的局部值整体偏 100"
                     + (t12Ci != null ? $"；实得本位 {t12Ci.HomePosition:F4}" : ""));
@@ -26208,7 +26208,7 @@ public static class BattleScene
                 Step(t12Need + 0.1f - (t12Ci != null ? t12Ci.Elapsed : 0f));
                 Check(t12Ci != null && !t12Ci.IsPlaying
                       && Vector3.Distance(drv.boardCam.transform.localPosition, t12Home) < 1e-3f
-                      && Quaternion.Angle(drv.boardCam.transform.localRotation, Quaternion.identity) < 0.05f,
+                      && AngleMath.AngleDegTiny(drv.boardCam.transform.localRotation, Quaternion.identity) < 0.05f,
                       "★ T12：播完 ⇒ 运镜停、相机回到本位（位置/旋转都回）"
                     + (t12Ci != null ? $"（t={t12Ci.Elapsed:F3} / len={t12Ci.ClipLength:F3}）" : ""));
 
@@ -48494,13 +48494,13 @@ public static class BattleScene
     /// 而「相机真的转了 / 旋转复位 / gain×包络各乘一次」**结构上永远绿**
     /// （把 rot 那一路整条删掉也照样绿）。2026-10-23 那一轮的日志正是「打印 0.000°，实际 0.0396°」。
     ///
-    /// 这里直接按四元数定义算 `θ = 2·atan2(|xyz|, |w|)`（取 `|w|` 折掉 `q` / `−q` 的双覆盖），
-    /// **不设任何 dot 阈值**。大角度下它与 `Quaternion.Angle` 数值一致（差在浮点末位），
-    /// 只是**不会把 0.16° 以下当成 0**。</summary>
+    /// 🔴 **2026-10-29（B95_A2B17 批 2）：算式已收口到 `CardPresentation/Core/AngleMath.cs`（全仓唯一实现）**，
+    /// 本函数只剩一行转调；下面这段盲区说明仍是全仓权威口径（`AngleMath` 文件头引用它）。
+    /// 不设任何 dot 阈值 ⇒ 只是**不会把 0.16° 以下当成 0**（大角度与 `Quaternion.Angle` 差在浮点末位）。</summary>
     static float AngleDegTiny(Quaternion a, Quaternion b)
     {
-        Quaternion d = a * Quaternion.Inverse(b);
-        return 2f * Mathf.Atan2(new Vector3(d.x, d.y, d.z).magnitude, Mathf.Abs(d.w)) * Mathf.Rad2Deg;
+        // 🔴 2026-10-29（B95_A2B17 批 2）：算式**收口**到 `CardPresentation/Core/AngleMath.cs`（全仓唯一实现）；本函数只保留原名给本类调用点。
+        return AngleMath.AngleDegTiny(a, b);
     }
 
     /// <summary>🆕 **2026-10-23（R9 尾账）`OrientationNoise` 的【参考实现】** —— 照判据文档**独立**算一遍，

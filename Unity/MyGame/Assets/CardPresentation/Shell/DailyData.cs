@@ -1557,7 +1557,7 @@ namespace CardPresentation
         /// <para>**改坏法**：① 把 `AddSkulls` 那两行删掉 ⇒ 骷髅卡恒 `x0`（`RewardsScene` / `BattleScene`
         /// 里「累加」那几条全红）；② 把 `+=` 改成 `=` ⇒ 「第二局 +2」那条会得 2 而不是 3。
         /// 🆕 ③（A429）删掉末尾那句 `Persist("一局结算")` ⇒ 「重启后进度还在」那条红
-        /// （本局推进的进度没落盘 ⇒ 重启即回出厂）。</para>
+        /// （本局推进的进度没落盘 ⇒ 重启即回出厂）。｜🔴 **2026-10-29（`B95_WBD` · 账 489）**：**本方法只许由本文件的 `UpdateChallengeProgress` 转调**（原版 `MissionEvent.UpdateChallengeProgress(payload)` 的名字对齐口）；结算那一拍已改成调后者；⛔ **别在两处各推一次**（= **双记**、进度涨两倍，而且没有报错）。</para>
         /// </summary>
         public static void OnBattleEnd(bool win, int damageToEnemy, int troopsPlayed, int skulls, int playMode,
                                        int damageToEnemyWarlord = -1, int attacksDeclared = -1, int rangedAttacksDeclared = -1)

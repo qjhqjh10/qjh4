@@ -373,7 +373,7 @@ namespace CardPresentation
 
         /// <summary>= 原版 `replayButton.interactable = (replaysVersion != "-1")`（`BattleLogItem__Initialize.c:206`）。
         /// <para>`replaysVersionOrFile` 可以喂原版那格版本串，也可以喂我们的本地录像文件名 ——
-        /// 两者「没有」的判据见 <see cref="NoReplaySentinel"/> 那段注释。</para></summary>
+        /// 两者「没有」的判据见 <see cref="NoReplaySentinel"/> 那段注释。｜🔴 **2026-10-29（`B95_WBD`）就地订正 —— 本方法【不是】`MatchData.SetMatchRecording` 的等价物**（账 `战斗逻辑驱动:1081` 的原落点指错了）：`SetMatchRecording(BattleRecordData, PlayerDataManager)` = 「**录像 → 装成一份 MatchData 再开局**」（唯一调用点 `Everguild.MatchMakerManager__StartReplayMatch.c:50`），我们的等价物 = `BattleDriver.PlayReplay`（经 `NetPendingBattle.FromStart` + `TryExpandRecordedDecks` 重建这一局）＋本文件的 `Load`；本方法只对应 `BattleLogItem.Initialize` 那颗回放钮的**可点态**。</para></summary>
         public static bool ReplayAvailable(string replaysVersionOrFile)
             => !string.IsNullOrEmpty(replaysVersionOrFile) && replaysVersionOrFile != NoReplaySentinel;
 

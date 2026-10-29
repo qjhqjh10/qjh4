@@ -154,13 +154,13 @@ namespace CardPresentation
         {
             /// <summary>这副牌挂在哪位战将身上（原版 `GetClosedDeckByPackIds(warlordId, …)` 的第一个参数）。</summary>
             public int warlordId;
-            /// <summary>摊平后的卡 id，**按选包顺序、包内按 `cardIds` 原序**。
-            /// 长度 = 包数 × <see cref="CardsPerPack"/>（4 包 ⇒ 12）。**允许重复**（包内自重）。</summary>
+            /// <summary>摊平后的卡 id，**按选包顺序、包内按 `cardIds` 原序**；长度 = 包数 × <see cref="CardsPerPack"/>。**允许重复**（包内自重）。</summary>
             public string[] cardIds;
             /// <summary>每个包的唯一键（<see cref="PackDto.key"/>），与 <see cref="packIds"/> 一一对应。</summary>
             public string[] packKeys;
-            /// <summary>每个包的原版 `packId`（回写存档 / 对账原版用）。</summary>
-            public string[] packIds;
+            public string[] packIds;      // 每个包的原版 `packId`（回写存档 / 对账原版用）
+            public int gameMode;          // 原版 `CardDeck.gameMode`(@0x70)；轮抽恒 `(int?)7` = `PlayModes.ClosedDeck`（`GetEventDeck__1810280.c:145-147`）
+            public string cardbackId;     // 原版 `CardDeck.cardbackId`(@0x28) ← `save.<0xa8>`；空 ⇒ 阵营默认卡背（`.c:143,152-183`）
         }
 
         // ---------------------------------------------------------------- 载入
@@ -391,19 +391,19 @@ namespace CardPresentation
 
         /// <summary>4 个包 → 12 张的 ClosedDeck。组不出来时**报错并返回 `null`**
         /// （要自己处理错误请用 <see cref="TryBuildClosedDeck"/>）。</summary>
-        public static ClosedDeck BuildClosedDeck(int warlordId, IList<string> pickedPackIds)
+        public static ClosedDeck BuildClosedDeck(int warlordId, IList<string> pickedPackIds, string cardbackId = null)
         {
             ClosedDeck deck;
             string err;
-            if (TryBuildClosedDeck(warlordId, pickedPackIds, out deck, out err)) return deck;
+            if (TryBuildClosedDeck(warlordId, pickedPackIds, out deck, out err, cardbackId)) return deck;
             Debug.LogError("[Draft] 组不出 ClosedDeck：" + err);
             return null;
         }
 
         /// <summary>同 <see cref="BuildClosedDeck"/>，但把失败原因交出去（⛔ 不静默）。</summary>
-        /// <param name="pickedPackIds">选中的包，**按选包顺序**（`key` 优先，裸 `packId` 也认）。</param>
+        /// <param name="pickedPackIds">选中的包，**按选包顺序**（`key` 优先，裸 `packId` 也认）。</param> <param name="cardbackId">卡背（原版 `save.<0xa8>` ⇒ `d.<0x28>`）；空 ⇒ 阵营默认卡背兜底（`FinishClosedDeck`）。</param>
         public static bool TryBuildClosedDeck(int warlordId, IList<string> pickedPackIds,
-                                             out ClosedDeck deck, out string error)
+                                             out ClosedDeck deck, out string error, string cardbackId = null)
         {
             deck = null;
             error = null;
@@ -438,14 +438,14 @@ namespace CardPresentation
                 for (int k = 0; k < p.cardIds.Length; k++) cards.Add(p.cardIds[k]);
             }
 
-            deck = new ClosedDeck
-            {
-                warlordId = warlordId,
-                cardIds = cards.ToArray(),
-                packKeys = keys,
-                packIds = pids,
-            };
-            return true;
+            // 原版 `GetEventDeck` 的后三跳都在 `FinishClosedDeck` 里（判据 = `out_b94/…GetEventDeck__1810280.c`）：
+            //   ① 缓存复用 `this.<0x38>`（命中时**只改**督军 / 卡表两格）② `d.<0x28> = save.<0xa8>`（卡背）
+            //   ③ `d.<0x70> = (int?)7`（`PlayModes.ClosedDeck`）④ 卡背为空 ⇒ `ArmyUtilities.GetDefaultCardback(army)` 兜底。
+            //   ⚠️ 缓存是**进程级「一局一格」**（`_closedDeck`）；新开一局必须 `InvalidateClosedDeckCache()`。
+            //   （② 里那个 `<0x28>` 是 **`cardbackId`**、不是卡组名 —— 判据见 `FinishClosedDeck` 的 doc。）
+            deck = FinishClosedDeck(warlordId, cards.ToArray(), keys, pids, cardbackId, out error);
+            if (deck != null) return true;
+            return false;
         }
 
         // ---------------------------------------------------------------- 卡池（账 `卡组:290` 的调用点用）
@@ -488,6 +488,126 @@ namespace CardPresentation
             for (int i = 0; i < ids.Length; i++)
                 if (CardDatabase.FindById(p, ids[i]) != null) n++;
             return n;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-29（`B96_W2` · 账 `轮抽:12` / `轮抽:33`）—— 原版 `DraftEventBase.GetEventDeck` 的后三跳
+        //  与 `ValidateEventDeck` 的真体。🥇 **只有 Ghidra `.c` 可用**（同一类里 ILSpy 版被
+        //  `Cpp2ILHelpers.NoteDecompilerIssue` 打成满屏 `0`、`out_il2csharp` 是 `NotImplementedException` 壳）：
+        //    · `d:/2/tools/decomp_generic_trial/out_b94/DraftEventBase_object__object_.GetEventDeck__1810280.c`（188 行）
+        //    · `d:/2/tools/decomp_generic_trial/out_b94/DraftEventBase_object__object_.ValidateEventDeck__1814330.c`（33 行）
+        //  ⚠️ 本段**追加在类尾**（⛔ 不插进已有成员之间）⇒ 本文件上面所有账落点的行号一字不动（CLAUDE.md §二「新成员追加类尾」）。
+        // ================================================================================================
+
+        /// <summary>进程内缓存的那一副（= 原版 `DraftEventBase.<0x38>`：`.c:30` `plVar1 = (longlong *)(param_1 + 0x38)`）。
+        /// 🔴 **一局 = 一个缓存**（原版每个事件对象一格；命中时**只改**督军 / 卡表两格）；新开一局或换存档必须调
+        /// <see cref="InvalidateClosedDeckCache"/>，否则会把上一局的缓存接着改（原版是「新事件对象 ⇒ 新 `<0x38>`」）。</summary>
+        static ClosedDeck _closedDeck;
+
+        /// <summary>丢掉 <see cref="_closedDeck"/>（开新局 / 接着存档开局 / 自检重跑时调）。原版对等物 = 新事件实例 ⇒ 空 `<0x38>`。</summary>
+        public static void InvalidateClosedDeckCache() { _closedDeck = null; }
+
+        /// <summary><see cref="TryBuildClosedDeck"/> 的后半段 = 原版 `GetEventDeck` 的 miss 分支与末尾兜底
+        /// （`.c:90-149` + `:152-183`）。**四跳逐条**：
+        /// ① `this.<0x38>` 已有 ⇒ **只改** `+0x40`（督军）/ `+0x58`（卡表）两格，返回**同一实例**（`.c:33-89`）；
+        /// ② miss ⇒ `new CardDeck(warlord, cards)` + `d.<0x28> = save.<0xa8>`（`.c:143`）—— 🔴 `CardDeck` 的声明序里
+        ///    `+0x28` 是 **`cardbackId` 而不是卡组名**（`Warpforge_code/…/CardDeck.cs` 字段序：`deckName +0x10` ·
+        ///    `deckId +0x18` · `prebuiltDeckId +0x20` · **`cardbackId +0x28`** · `warcryId +0x30` …；卡组名由
+        ///    `DeckUtility__ValidateDeck.c:78-84` 用督军的本地化名补）。⇒ 账里那句「卡组名」是本轮订正的（铁律 5）。
+        /// ③ `d.<0x70> = (int?)7` = `PlayModes.ClosedDeck`（`.c:145-147`）；
+        /// ④ 两条分支**共用**的末尾：`d.<0x28>` 为空 ⇒ `ArmyUtilities.GetDefaultCardback(army).<0x38>` 兜底（`.c:152-183`；
+        ///    army 取 `warlord.<0x2c>`，督军为空那一支用常量 `10`）；原版这里查不到就**抛**（`.c:184-186`）⇒ 我们返 `null` + 交错误。
+        /// <para>⚠️ 我们这格 `warlordId` 存的是**阵营 id**（`DraftModeWindow.LaunchBattle` 的既有约定，见那里的注释）
+        /// ⇒ 阵营名走 `ArmyIcons.Faction`（原版读的 `warlord.<0x2c>` 本来就是同一个 `CardArmy` 值）。</para></summary>
+        static ClosedDeck FinishClosedDeck(int warlordId, string[] cards, string[] keys, string[] pids,
+                                          string cardbackId, out string error)
+        {
+            error = null;
+            var d = _closedDeck;                              // 原版 `this.<0x38>`（`.c:30`）
+            if (d == null)                                    // miss 分支（`.c:90-149`）
+            {
+                d = new ClosedDeck
+                {
+                    warlordId = warlordId,
+                    cardIds = cards,
+                    packKeys = keys,
+                    packIds = pids,
+                    cardbackId = cardbackId ?? "",
+                    gameMode = (int)GameMode.ClosedDeck,      // 原版 `.c:145-147` `Nullable<int>(7)`
+                };
+                _closedDeck = d;
+            }
+            else                                              // 命中分支（`.c:33-89`）：**只改两格**
+            {
+                d.warlordId = warlordId;                      // `d.<0x40>`
+                d.cardIds = cards;                            // `d.<0x58>`
+                d.packKeys = keys;                            // 我们自己的两列（原版 `CardDeck` 没有这两格）必须跟着
+                d.packIds = pids;                             // cardIds 一起换，否则 DTO 自相矛盾（本地形状的一致性，非原版行为）
+            }
+            // 两条分支共用（`.c:152-183`）：卡背为空 ⇒ 阵营默认卡背
+            if (string.IsNullOrEmpty(d.cardbackId))
+            {
+                string faction = ArmyIcons.Faction(warlordId);
+                if (string.IsNullOrEmpty(faction)) faction = ArmyIcons.Faction(10);   // `.c:168` 常量 10（督军为空那一支）
+                string fallback = CardbackTable.DefaultFor(faction);                 // = `ArmyUtilities.GetDefaultCardback`
+                if (string.IsNullOrEmpty(fallback))
+                {
+                    error = "默认卡背查不到（阵营 `" + faction + "`）—— 原版这一支会抛（`GetEventDeck__1810280.c:176-186`）";
+                    return null;
+                }
+                d.cardbackId = fallback;
+            }
+            return d;
+        }
+
+        /// <summary>原版 `DraftEventBase.ValidateEventDeck(CardDeck deck, bool validateOwnership)`
+        /// （`out_b94/…ValidateEventDeck__1814330.c`，33 行）：**三步**，顺序照 `.c`：
+        /// ① `base.ValidateEventDeck(deck, **false**)`（`.c:13-17`，第三个实参恒 `0` ⇒ 形参 `validateOwnership` **被忽略**）——
+        ///    基类那条 = `DeckUtility.ValidateDeck(deck, out err, false)`（`PlayEvent…__11283b0.c:13`）⇒ 我们的 <see cref="DeckRules.Validate"/>；
+        /// ② `!GameStaticData.CheckHiddenCardsInDeck(deck)`（同 `.c:20`，在基类里）⇒ 我们的 `PracticeModePopup.HasHiddenCards`；
+        /// ③ `pickedPacks.Count >= draftRounds - 1`（`.c:21-25`：`uVar2 = this.<0x18>+0x98 /*draftRounds*/ - 1; if (uVar2 <= list.Count) true`）。
+        /// <para>🔴 ①②联立 = **交满 12 张**（`DeckRules.Validate` 的张数闸是「恰好 `deckSize`」）⇒ 4 包 × 3 张；与 ③ 的 `≥3`
+        /// 再联立后**实际只有「选满 4 包」才过** —— 原版同样如此（不是我们加严）。</para>
+        /// <para>⚠️ `draftRounds` 在我们这里的等价物 = <see cref="RoundsPerDraft"/>（🔶 我们挑的 4；原版服务端下发）。</para></summary>
+        /// <param name="deck">要验的那一副（`TryBuildClosedDeck` 的产物）。</param>
+        /// <param name="warlordCardId">督军**卡 id**（⚠️ `ClosedDeck.warlordId` 存的是阵营 id，不能拿它去卡池查督军）。</param>
+        /// <param name="lookup">卡 id → 卡；`null` ⇒ 走 <see cref="CardPool"/>。</param>
+        /// <param name="deckError">原版那 6 档错误码的等价位；通过 = <see cref="DeckError.None"/>（⚠️ 隐藏卡那一支原版留 `0`，我们照抄）。</param>
+        public static bool ValidateEventDeck(ClosedDeck deck, string warlordCardId, Func<string, CardDef> lookup,
+                                             out DeckError deckError, out string error)
+        {
+            deckError = DeckError.None;
+            error = null;
+            if (deck == null || deck.cardIds == null)
+            {
+                error = "deck 为空（原版这一支 NRE，`.c:29-31`）";
+                deckError = DeckError.NoWarlord;
+                return false;
+            }
+            var pool = lookup ?? new Func<string, CardDef>(id => CardDatabase.FindById(CardPool(), id));
+            var pd = new PlayerDeck(null, warlordCardId, null, deck.cardIds, deck.gameMode);   // `gameMode` 透传 = 原版 `d.<0x70>`
+            // ① base.ValidateEventDeck(deck, false) —— `.c:13-17`
+            deckError = DeckRules.Validate(pd, pool, mode: GameMode.ClosedDeck);
+            if (deckError != DeckError.None)
+            {
+                error = "`DeckRules.Validate` ⇒ " + deckError + "（键 `" + DeckRules.ErrorTextKey(deckError) + "`）";
+                return false;
+            }
+            // ② !CheckHiddenCardsInDeck —— 在基类里（`PlayEvent…__11283b0.c:20`）；原版这一支**不改错误码**（`.c` 里 local_res18 仍 0）
+            string hidden;
+            if (PracticeModePopup.HasHiddenCards(pd, out hidden))
+            {
+                error = "卡组里有隐藏卡：" + hidden;
+                return false;
+            }
+            // ③ pickedPacks.Count >= draftRounds - 1 —— `.c:21-25`
+            int need = RoundsPerDraft - 1;
+            int got = deck.packKeys == null ? 0 : deck.packKeys.Length;
+            if (need <= got) return true;
+            error = "已选 " + got + " 包，原版要求 ≥ `draftRounds - 1` = " + need
+                  + " 包（`.c:21-25`；`RoundsPerDraft` = " + RoundsPerDraft + " 是 🔶 我们挑的）";
+            deckError = DeckError.TooFewCards;
+            return false;
         }
     }
 }

@@ -1205,7 +1205,7 @@ namespace CardPresentation
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string locKey,
                        float ih, float ix1, float ix2, float iy1, float fontPx,
                        string nodeName = null, string label = null, Color? hiTint = null,
-                       Color? iconTint = null, System.DateTime? timerEndUtc = null)
+                       Color? iconTint = null, System.DateTime? timerEndUtc = null, Texture overIconTex = null)
         {
             var b = New(parent, nodeName ?? ("Main Menu Navigation Button - " + name), NavBtnW, NavBtnH);
             // 🆕 **2026-10-11（`A1522④`）：把「这一颗 + 它的 (顶,底)」记进表** —— `SelectNav` 换高亮时
@@ -1248,6 +1248,7 @@ namespace CardPresentation
                 var img = New(b, "Image", ix2 - ix1, ih);
                 img.localPosition = Center(ix1, ix2, iy1, iy1 + ih);
             }
+            if (overIconTex != null) BuildNavOverIcon(b, overIconTex, ix1, ix2, iy1, ih);   // 账 549：原版 `Over Image`（`Image` 内接 0.08..0.92）
 
             // `Text Background`(nametag) 的 y 偏移实证 = **+118.3**、`Badge` = **+91.7**（§五 C 表，五个按钮一致）
             // ⚠️ 这两块矩形**同时**是命中区并集的组成部分（下面 `hitR`）⇒ 只写一份、两处共用，
@@ -2571,6 +2572,22 @@ namespace CardPresentation
             //     ⇒ 与实拍**逐列相同**。⛔ **不要动 first-fit 算法**。
             //   🧨 **改坏法**：把任意两个 `Put` 换回去（或把某个 `1×2` 改档）⇒ 列位变更、
             //     `Editor/MainMenuScene.cs` 那五条 `CheckCard`（**逐卡钉死 x / 高 / 行顶**）里对应的会红。
+            // 🆕 **2026-10-29（`B95_MISC` · 账 菜单:427/434/438）：按事件数据整片重摆。**
+            //   原版 `RefreshLiveOpContainers(forceClean) == true` ⇒ `CleanupContainers`（全销毁 —— 本委托每轮
+            //   都从空 `used` 表重排，天然等价）+ 对 `GetEventsForDisplayingInMenu()` 每份 `InstantiateLiveOp(data)`。
+            //   ⇒ **有在期活动时，下面手挑那 5 张一张都不建**（原版主菜单容器全部由事件实例化，没有静态卡）。
+            //   ⚠️ `forceClean == false` 的**增量回收复用**（`SetData` / `Release`）**未做**：容器族
+            //   （`LiveopMenuContainer` / `ContainerBuilder<T>` / `holder(+0x98)` / 容器 list(+0xb0)）本仓仍缺
+            //   ⇒ 两支同路走整片重建。⛔ 别以为传 false 会走增量。
+            //   🔶 §18·0 边界：卡片**数据源** = `LiveOpsLocalCatalog`（本地模拟 liveop，关服后判据在远端）；
+            //   本机 13 份活动 SO 的日期全在 2025 年 ⇒ 今天 `ModeCardsFromLiveOpEvents` 恒返回 `null` ⇒ 走下面兜底。
+            var evCards = ModeCardsFromLiveOpEvents(LiveOpsClock.NowUtc);
+            if (evCards != null)
+            {
+                for (int i = 0; i < evCards.Count; i++)
+                    Put(evCards[i].NodeName, evCards[i].Art, evCards[i].Title, evCards[i].H, evCards[i].Kind);
+                return;                       // 有事件数据 ⇒ ⛔ 不再建下面那 5 张手挑卡
+            }
             Put("Base Game Mode Container 1x2 - Skirmish", "40k_main_GameMode_Skirmish",
                 Loc.T("MainMenu/GameModes/Skirmish"), CardHTall, "skirmish");                   // col0（1×2 · 独占整列）
             Put("Base Game Mode Container 1x2 - Ranked", "Container_Image_Ranked",
@@ -2721,6 +2738,16 @@ namespace CardPresentation
                         Debug.Log("[Menu] 模式卡 `选秀` ⇒ 开 `" + DraftModeWindow.RootName + "`"
                                 + "（原版 `Draft Mode Menu Demo`；⚠️ **这张卡开哪扇窗是我们定的** —— 原版由 liveop 事件数据给）");
                     }
+                    return;
+                // 🆕 2026-10-29（`B95_MISC` · 账 菜单:434）：**由 liveop 事件数据实例化出来的卡**（见
+                //   `ModeCardsFromLiveOpEvents`）。原版这种卡点下去开哪扇窗**由事件数据给**
+                //   （`EventComponents[MainWindow(10)]`）；本机没有那份引用 ⇒ 走唯一共用口 `OpenEventHub`，
+                //   与左竖导航第 6 颗（EVENT）同一条路（判据 → `WindowsManager.OpenEventHub` 的 doc）。
+                //   🔶 事件类型 → 哪一扇窗的映射本地解不出（服务端字段）⇒ 按 Parent 开、并出声，⛔ 不静默。
+                case "event":
+                    WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Parent);
+                    Debug.Log("[Menu] 模式卡（事件驱动）⇒ 开 `ParentEventWindow`（`OpenEventHub`）；"
+                            + "⚠️ 原版这一跳按事件数据的 `EventComponents[MainWindow]` 选窗，本地拿不到 ⇒ 出声");
                     return;
                 default:
                     Debug.LogWarning("[Menu] 模式卡 `" + kind + "` 没有对应动作（**出声**）");
@@ -3823,10 +3850,10 @@ namespace CardPresentation
                 Debug.LogWarning("[Menu] 活动钮 title：在期活动 `" + (ev != null ? ev.EventId : "?")
                                + "` 的 label 4/0 都取不到词条 ⇒ 保留 `EVENT` 兜底（原版是空态）");
             if (ev != null && ev.EndUtc > now) endUtc = ev.EndUtc;
-            // overIcon：原版 `LoadAsset(ev, 9)` → `Over Image`（117.86² @901.1,92.9）。本机没有这批活动图 ⇒ 出声、**留 C**。
-            Debug.LogWarning("[Menu] 活动钮 **overIcon 未建**（原版 `SetButtonInfo` 的另一半 = `LoadAsset(ev,9)` → "
-                           + "`Over Image` 117.86² @901.1,92.9）：本机 liveops 图标集里没有 over-icon 那一张 ⇒ "
-                           + "**如实出声、不拿 Icon 顶上**（这一格仍记 C）");
+            // overIcon（账 549）：本兜底支没有在期 Parent 活动 ⇒ 原版 `HasAsset(ev,9)==false` ⇒ 不建 `Over Image`（原版空态）。在期活动支在 `BuildEventNavButtons` 逐颗接（`OverIconTexOf`）。
+            // 图**在本地**：`bundle_armyicons_assets_all` 的 `40k_DeckSelection_icon_Faction*`（13 张阵营图，已导入 `Resources/Art/ui_deck`）；4 个 OverIcon GUID 逐条定名见 `OverIconSpriteByGuid`。
+            // 原版 `SetButtonInfo`：`Over Image`（`Image` 子件，锚点内接 0.08..0.92 = 117.86²，绝对 901.1,92.9→1018.9,210.8，钮根 876.9,80.1）。
+            Debug.Log("[Menu] 活动钮 overIcon：本兜底支无在期 Parent 活动 ⇒ 不建 `Over Image`（原版 `HasAsset(ev,9)==false` 空态）；在期活动支由 `BuildEventNavButtons` 逐颗调 `OverIconTexOf`");
         }
 
         /// <summary>建 `Timer`（`TimerDisplay`）那一格 + `Timer Text`。判据见本节头。
@@ -4003,7 +4030,8 @@ namespace CardPresentation
                               label: EventNavTitleOrFallback(ev),
                               hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
                               iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f),
-                              timerEndUtc: ev.EndUtc > LiveOpsClock.NowUtc ? ev.EndUtc : (System.DateTime?)null);
+                              timerEndUtc: ev.EndUtc > LiveOpsClock.NowUtc ? ev.EndUtc : (System.DateTime?)null,
+                              overIconTex: OverIconTexOf(ev));
                 }
                 Debug.Log("[Menu] 事件钮按原版 `BuildEventButtons` 建了 " + evNavItems.Count + " 颗（在期 Parent 活动）"
                         + " —— 第 i 颗顶 = 143.41 + (5+i)×153.33；判据 = 原版 `NavigationPanelController__BuildEventButtons.c`");
@@ -4366,24 +4394,23 @@ namespace CardPresentation
         /// <para>原版三跳：① 若 `helpshiftManager` 非空 ⇒ 调它的**空方法**（`RVA 0x4B33B0` = 全局共享空桩
         /// ⇒ **什么都不做**，这一跳永远不需要实现）；② `photonManager.LeaveRoom()`（离开联机房间）；
         /// ③ `StartCoroutine(FullyQuitApplication())`（= 等 0.5 秒再 `Application.Quit()`）。</para>
-        /// <para>⚠️ **残差一跳（如实记）**：② 的对位原语是 `BattleDriver.LeaveNetRoom`（`private`，
-        /// `Battle/BattleDriver.cs:12833`）与 `NetSession.Close(say:false, …)`，两者都在本件白名单之外
-        /// ⇒ 这里**只能出声**（红线：⛔ 不许静默略过）。等 Net/战斗线给一个公开包装后，把
-        /// <see cref="QuitApplication"/> 里那句警告换成那一行调用即可（别的都不用动）。</para>
+        /// <para>✅ 2026-10-29（`B95_MISC`）**第②跳已落地**：走 `CardPresentation.Net.NetRoomExit.LeaveRoomIfAny`
+        /// （新文件 `Net/NetRoomExit.cs`，复用**同一个原语** `NetSession.Close`；`force` 语义与
+        /// `_leaveRoomCount` 计数仍只在对局内的 `BattleDriver.LeaveNetRoom` 那边，⛔ 没搬过来 ——
+        /// 红线「两处写同一条规则 = 迟早不一致」）。没有会话 ⇒ 出声，⛔ 不静默略过。</para>
         /// <para>⚠️ 没有宿主实例时（例如卡组编辑那一屏没有 `MainMenuRuntime`）⇒ 出声并**直接退**
         /// （原版那条协程挂在常驻单例上，本仓没有对应常驻物 ⇒ 只能如实降级，⛔ 不假装等过 0.5 秒）。</para></summary>
         public static void QuitApplication()
         {
             // ① 原版 `helpshiftManager` 那一跳 = 空桩（RVA 0x4B33B0 `ret 0`）⇒ 不做任何事。
-            // ② `photonManager.LeaveRoom()` —— 本件白名单外，出声。
-            bool inRoom = false;
-            try { inRoom = NetRuntime.Instance != null && NetRuntime.Instance.Session != null
-                         && NetRuntime.Instance.Session.State != CardPresentation.Net.NetState.Off; }
-            catch { /* 联机层未初始化 ⇒ 当作没有房间 */ }
-            if (inRoom)
-                Debug.LogWarning("[Menu] 退出前应「先离开联机房间」（原版 `QuitApplication` 第②跳 "
-                               + "`photonManager.LeaveRoom()`）—— 这一跳的落点 `BattleDriver.LeaveNetRoom` / "
-                               + "`NetSession.Close` 都在本件白名单外 ⇒ **本批没做**（如实出声，⛔ 不是静默略过）");
+            // ② `photonManager.LeaveRoom()` —— 2026-10-29（`B95_MISC`）接上：走 Net 层的公开包装
+            //    `Net/NetRoomExit.LeaveRoomIfAny`（新文件，⛔ 没动任何既有 Net 文件 ⇒ 账零漂）。
+            bool leftRoom = false;
+            try { leftRoom = CardPresentation.Net.NetRoomExit.LeaveRoomIfAny("Settings/Online/Wire/PeerLeftMatch"); }
+            catch (System.Exception ex) { Debug.LogWarning("[Menu] 退出前「离开联机房间」抛异常（如实报）：" + ex); }
+            if (!leftRoom)
+                Debug.Log("[Menu] 退出前「离开联机房间」（原版 `QuitApplication` 第②跳 `photonManager.LeaveRoom()`）："
+                        + "当刻没有在跑的对局会话（单机局 / 大厅未连 / 已离开过）⇒ 无事可做（⛔ 不是静默略过）");
             // ③ `StartCoroutine(FullyQuitApplication())`
             var host = Instance != null ? Instance : InstanceOrFind();
             if (host != null && host.isActiveAndEnabled)
@@ -4572,6 +4599,174 @@ namespace CardPresentation
         int _modeCardRebuildRequests;
         /// <summary>自检口：见 <see cref="_modeCardRebuildRequests"/>。</summary>
         public int ModeCardRebuildRequestsForTest { get { return _modeCardRebuildRequests; } }
+
+        // ============================================================================================
+        //  账 菜单:427/434/438 —— `MainMenuWindow` 的容器族三条（类尾追加，⛔ 别插到中间去：
+        //  本文件被账按 `文件:行号` 引用，插进中间会让下游落点整体漂移）
+        //
+        //  原版三条是同一套容器增删的三个面（判据全文 → `decomp_full/MainMenuWindow__CleanupContainers.c` /
+        //  `__InstantiateLiveOp.c` / `__RefreshLiveOpContainers.c`）：
+        //    · `CleanupContainers(仍在用的, 当前全部)` —— 把「不在仍在用表里」的容器 `Destroy`
+        //    · `InstantiateLiveOp(LiveopsMainMenuData)` —— 对每份 `GetEventsForDisplayingInMenu()` 出来的数据调
+        //      `ContainerBuilder<T>.MakeContainer(data.Event, 35 /*MainMenuContainer*/, holder(+0x98), …)` 并塞进 list(+0xb0)
+        //    · `RefreshLiveOpContainers(bool forceClean)` —— `forceClean` ⇒ 先 `CleanupContainers` 再全部
+        //      `InstantiateLiveOp`；否则按「仍在用」做**增量回收复用**（`SetData` / `Release`）
+        //
+        //  🔴 本轮**只做 `forceClean == true` 那一支**；`false` 的增量回收复用**未做**（原因见调用点注释）。
+        //  ⛔ 别把下面这两个成员当成「容器族已复刻」—— 它们是**内联整片重摆**的等价物，不是 `LiveopMenuContainer`。
+
+        /// <summary>一张模式卡的构造规格（= `_placeAllCards` 里那个 `Put` 的入参）。</summary>
+        internal struct ModeCardSpec
+        {
+            public string NodeName, Art, Title, Kind;
+            public float H;
+        }
+
+        /// <summary>**这一轮模式卡该建成什么样** —— 原版 `LiveOpsManager.GetEventsForDisplayingInMenu()` 的等价物。
+        /// <para>返回 `null` = **本机此刻没有任何「显示在主菜单」的在期活动** ⇒ 调用点回落到手挑那 5 张
+        /// （那 5 张本来就是按用户原版实拍挑的，见 `_placeAllCards` 上方那段）。返回**空表** = 有活动但一份都解不出
+        /// 容器/图（已逐个出声）⇒ 调用点**不建任何卡**（原版拿不到容器引用时同样不实例化）。</para>
+        /// <para>筛选 = `ActiveParentEventsForNav(utc)` **∩** `ShowInMainMenu`
+        /// （判据：13 份 SO 的 `showInMainMenu` 字段实测只有 `ExpansionUM1` / `SWRelease` 两个 Parent 是 true）。</para></summary>
+        internal static List<ModeCardSpec> ModeCardsFromLiveOpEvents(System.DateTime utc)
+        {
+            var all = ActiveParentEventsForNav(utc);
+            var picked = new List<LiveOpsLocalEvent>();
+            for (int i = 0; i < all.Count; i++) if (all[i] != null && all[i].ShowInMainMenu) picked.Add(all[i]);
+            if (picked.Count == 0) return null;                       // 无在期活动 ⇒ 调用点用手挑兜底
+
+            var specs = new List<ModeCardSpec>();
+            for (int i = 0; i < picked.Count; i++)
+            {
+                var ev = picked[i];
+                // 原版建卡用的是 `data.Event` 在 `EventComponents[MainMenuContainer(35)]` 上的引用（→ 容器 prefab 根名）。
+                string prefab = EventMainMenuContainerPrefabOf(ev);
+                if (string.IsNullOrEmpty(prefab))
+                {
+                    Debug.LogWarning("[Menu] 在期活动 `" + ev.EventId + "` 的 `EventComponents[MainMenuContainer]` 在本地解不出容器 prefab"
+                                   + " ⇒ 这一份不建卡（原版拿不到容器引用时同样不实例化；出声，不静默）");
+                    continue;
+                }
+                string art = EventContainerArtOf(ev, prefab);
+                if (string.IsNullOrEmpty(art))
+                {
+                    Debug.LogWarning("[Menu] 在期活动 `" + ev.EventId + "` 的容器 `" + prefab + "` 取不到卡面图"
+                                   + " ⇒ 这一份不建卡（⛔ 不拿别的图顶替；出声，不静默）");
+                    continue;
+                }
+                // 尺寸档 = 容器 prefab 名（原版「哪个模式用哪一档」由事件数据决定，名字里带 `1x1` 的就是小档）。
+                bool tall = prefab.IndexOf("1x1", System.StringComparison.Ordinal) < 0;
+                specs.Add(new ModeCardSpec
+                {
+                    NodeName = prefab,
+                    Art = art,
+                    Title = EventCardTitleOf(ev) ?? string.Empty,
+                    Kind = "event",
+                    H = tall ? CardHTall : CardH,
+                });
+            }
+            return specs;
+        }
+
+        /// <summary>某个活动在 `EventComponents[MainMenuContainer(35)]` 上引用的**容器 prefab 根名**（本地能解的那一半：
+        /// GUID → <see cref="MainMenuContainerPrefabByGuid"/>）。解不出 ⇒ `null`（调用点出声 + 不建卡）。</summary>
+        internal static string EventMainMenuContainerPrefabOf(LiveOpsLocalEvent ev)
+        {
+            if (ev == null) return null;
+            var comps = ev.Components;
+            if (comps == null) return null;
+            for (int c = 0; c < comps.Length; c++)
+            {
+                if (comps[c].Key != (int)LiveOpsComponentRef.MainMenuContainer) continue;
+                string name;
+                if (MainMenuContainerPrefabByGuid.TryGetValue(comps[c].Value ?? "", out name)) return name;
+            }
+            return null;
+        }
+
+        // ============================================================ 账 549 / 307 / 308：活动钮 overIcon（原版 `OpenEventButton.SetButtonInfo` 的 `LoadAsset(ev,9)`）
+        //
+        // 判据（逐条现读，2026-10-29）：
+        //   · 原版 `OpenEventButton__SetButtonInfo.c`：`if (HasAsset(ev,9)) { sprite = LoadAsset(ev,9); if (sprite!=null){ overImage.sprite=sprite; overImage.enabled=true; } }`
+        //     —— 9 = `EventAssetReferenceType.OverIcon`（`LiveOpsAssetRef.OverIcon`）；sprite 为 null ⇒ **不显**（overImage 先被 `set_enabled(0)`）。
+        //   · 4 个 over-icon 资产（本地 4 份 Parent 活动的 `EventAssets[key=9]`）的 GUID → 图名，走 **图集定名**：
+        //     `bundle_armyicons_assets_all` 里 `40k_DeckSelection_icon_Faction*` 共 13 张（`SpriteAtlas` `m_PackedSprites[i]` ↔ `m_PackedSpriteNamesToIndex[i]`，
+        //     逐 i 与 `m_RenderDataMap[i].first`（= 各 Sprite/*.json 的 `m_RenderDataKey`）**13/13 对上**）。4 个 OverIcon GUID 的 `m_PathID` 落在这 13 个里：
+        //       5037de52… → pathID 7674745271217441289 → idx 1 → FactionOrks（SO = `Expansion Orks1`，`filter.army=20`=`Goff`）
+        //       5c839d39… → pathID -3968368857819713195 → idx 5 → FactionUM（`Expansion UM1`，army 10）
+        //       9fcb1488… → pathID -958632179373150210 → idx 4 → FactionEmperorsChildren（`Release Emperors Children`，army 120）
+        //       cd1608df… → pathID -6086487946335603667 → idx 12 → FactionSpaceWolves（`Release Space Wolves`，army 130）
+        //     ⚠️ 双重独立印证：① 图集下标对齐；② 每份 SO 自己 `EventAssets[key=9]` 的 GUID 与它所属阵营一致（3 源一致）。
+        //     🔴 **订正 §五·1**：那 4 个 over-icon GUID **不是**「图集外那 4 张 ranked/gamemode 图」，而是**图集内 4 张阵营图**（数量 4=4 是巧合）。
+        //   · 图**在本地**：13 张都在 `Resources/Art/ui_deck/40k_DeckSelection_icon_Faction*.png`（`CardArt.MenuUi` 有 ui_menu→ui_deck→ui 兜底）。
+
+        /// <summary>OverIcon 资产 GUID → 已导入的图名（键 = `EventAssets[key=9]` 的 `m_AssetGUID`；⚠️ 这 4 条 `SubObjectName` 在 SO 里是空串，只能靠这张表反推）。</summary>
+        static readonly Dictionary<string, string> OverIconSpriteByGuid = new Dictionary<string, string>
+        {
+            { "5037de524241841dcb39def0f8200334", "40k_DeckSelection_icon_FactionOrks" },
+            { "5c839d39738144fc784b3666a64db57f", "40k_DeckSelection_icon_FactionUM" },
+            { "9fcb1488cd4be4902b1fbac59e1ab3b8", "40k_DeckSelection_icon_FactionEmperorsChildren" },
+            { "cd1608dfc27c748e88545ea269e9b0e8", "40k_DeckSelection_icon_FactionSpaceWolves" },
+        };
+
+        static readonly HashSet<string> _overIconWarned = new HashSet<string>();
+
+        /// <summary>= 原版 `SetButtonInfo` 的 `LoadAsset(ev,9)`（这一步取到的才是要画的 Sprite）。返回 **null**：
+        /// 该事件没有 key=9 资产（原版 `HasAsset(9)==false`，正常空态，**不出声**）或取不到 sprite（出声）。</summary>
+        /// <remarks>🔴 走 `LiveOpsAssetUtility.LoadAsset<Sprite>(liveOps, 9)`（= 账 307 的 ILiveOps 重载；它内部再调 data 重载 = 账 308）
+        /// ⇒ 这一处消费**同时**把两个重载接上了（原版 307/308 的消费者就是 `SetButtonInfo` / `SetAndRefreshProgressBar`）。</remarks>
+        internal static Texture2D OverIconTexOf(LiveOpsLocalEvent ev)
+        {
+            if (ev == null) return null;
+            if (ev.FindAsset((int)LiveOpsAssetRef.OverIcon) == null) return null;     // 原版 `HasAsset(ev,9)==false` ⇒ 不画（空态、不出声）
+            EnsureLiveOpsLoadSeam();
+            var data = LocalLiveOpsEvent.MapData(ev);                                 // 纯 POCO（无存档、无副作用）
+            var liveOps = new LocalLiveOpsEvent(ev);
+            liveOps.LoadEventData(data, null, null);                                  // 只为 `GetBaseData()` 有值（save/handler 传 null）
+            var sprite = LiveOpsAssetUtility.LoadAsset<Sprite>(liveOps, (int)LiveOpsAssetRef.OverIcon);
+            if (sprite == null)
+            {
+                if (_overIconWarned.Add("load:" + ev.EventId))
+                    Debug.LogWarning("[Menu] 活动钮 overIcon：`LoadAsset(ev,9)` 取不到 sprite（GUID 未登记 / 图没进 Resources）⇒ 不建 `Over Image`（⛔ 不拿 Icon 顶上）");
+                return null;
+            }
+            return sprite.texture;
+        }
+
+        /// <summary>把 `LiveOpsAssetUtility.LoadAssetInstance` 这个后端缝接到本类（**首次消费即接线**；幂等 —— `== null` 才接，`ResetCacheForTest` 清空后会自动重接）。</summary>
+        static void EnsureLiveOpsLoadSeam()
+        {
+            if (LiveOpsAssetUtility.LoadAssetInstance == null)
+                LiveOpsAssetUtility.LoadAssetInstance = ResolveLiveOpsAssetInstance;
+        }
+
+        /// <summary>GUID → `UnityEngine.Object`（原版 `AddressablesManager.Load<T>(ref)` 的本地等价物）。本缝只接 overIcon 这一族（阵营图）；
+        /// 其余 GUID ⇒ null + 出声一次（⛔ 不静默，也不假装装上了）。</summary>
+        static UnityEngine.Object ResolveLiveOpsAssetInstance(string guid)
+        {
+            string name;
+            if (!string.IsNullOrEmpty(guid) && OverIconSpriteByGuid.TryGetValue(guid, out name))
+            {
+                var tex = CardArt.MenuUi(name);
+                if (tex != null)
+                    return Sprite.Create(tex, new UnityEngine.Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+                if (_overIconWarned.Add("tex:" + name))
+                    Debug.LogWarning("[Menu] overIcon 图 `" + name + "` 不在 `Resources/Art/ui_deck` ⇒ Sprite 装不出（导入口 = `工具/import_original_art.py`）");
+                return null;
+            }
+            if (_overIconWarned.Add("guid:" + (guid ?? "<null>")))
+                Debug.LogWarning("[Menu] LiveOps `LoadAssetInstance`：GUID `" + (guid ?? "<null>") + "` 不在 overIcon 表里 ⇒ 返回 null（本缝只接 overIcon 一族）");
+            return null;
+        }
+
+        /// <summary>建 `Over Image` = 原版 `Event Navigation Button/Image/Over Image`：`Image`（140²）**内接 0.08..0.92**（锚点拉伸、`sizeDelta≈0`）
+        /// ⇒ 117.86²。绝对 901.1,92.9→1018.9,210.8（钮根 876.9,80.1 + 内接）—— 与本类 `Image` 用同一坐标帧（`ix1..ix2 × iy1..iy1+ih`）。</summary>
+        void BuildNavOverIcon(Transform b, Texture tex, float ix1, float ix2, float iy1, float ih)
+        {
+            float insetX = (ix2 - ix1) * 0.08f, insetY = ih * 0.08f;
+            // 队列 `QContent + 1` = 压在 `Image`（`QContent`）之上；该处与 `Text` 不重叠（文字在钮底），故与 `QText` 同值无画面冲突。
+            RectTex(b, tex, ix1 + insetX, ix2 - insetX, iy1 + insetY, iy1 + ih - insetY, "Over Image", QContent + 1, keepAspect: true);
+        }
     }
 
     // ============================================================ 活动钮红点（类型 + provider）

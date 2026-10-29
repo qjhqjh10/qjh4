@@ -341,7 +341,7 @@ public static class B94X1_Assert
     /// `Quaternion.Angle` 数值一致（差在浮点末位），只是不会把 0.16° 以下当成 0。</para></summary>
     static float AngleDegTiny(Quaternion a, Quaternion b)
     {
-        Quaternion d = a * Quaternion.Inverse(b);
-        return 2f * Mathf.Atan2(new Vector3(d.x, d.y, d.z).magnitude, Mathf.Abs(d.w)) * Mathf.Rad2Deg;
+        // 🔴 2026-10-29（B95_A2B17 批 2）：算式收口到 `CardPresentation/Core/AngleMath.cs`（全仓唯一实现），本函数只保留原名给本文件调用点。
+        return AngleMath.AngleDegTiny(a, b);
     }
 }

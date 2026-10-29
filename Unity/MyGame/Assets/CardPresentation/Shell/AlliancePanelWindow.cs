@@ -275,6 +275,14 @@ namespace CardPresentation
         // 头像框 `Border`（RT 3040）：图 `Player Profile Border` 256×286、`m_PreserveAspect = 1` ⇒ 等比内接
         static readonly PxRect AvatarBorderR = new PxRect(-11.283f, 60.573f, 201.246f, 209.590f);
 
+        // 🆕 2026-10-29（`B95_MISC` · 本批①）：头像立绘 `Avatar Item Small/Image Container/Image` 的**布局框**。
+        //   判据 = `python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Alliance Panel" --depth 6 --no-sprite` 现读：
+        //   `Image Container` = `10.0,63.6 → 180.0,182.8`（170.02×119.21 · `localScale 0.8`），`Image` 是它的 stretch 子件（同框）。
+        //   ⚠️ 同一份 dump 另给 `Image` 的 `视觉框=×2 → 340.05×238.43` —— 那是 `EverguildButtonMaterialModifier` 的
+        //   **运行时视觉缩放**，本窗**不复制那个倍率**（本窗 `Border` 那一格用的是 ×1.25 的**视觉**框 `AvatarBorderR`，
+        //   两者口径本来就不同，如实记在这里 ⛔ 别当成不一致去「统一」）。贴图 `preserveAspect` 内接。
+        static readonly PxRect AvatarImageR = new PxRect(10.0f, 63.6f, 180.0f, 182.8f);
+
         // `Name:` / 名字（`NameHolder` = VLG 第 0 格，高 42.573 ⇒ y[62.498, 105.071]）
         static readonly PxRect NameRowR = new PxRect(180.000f, 62.498f, 556.959f, 105.071f);
         static readonly PxRect NameLabelR = new PxRect(180.000f, 63.436f, 273.941f, 103.636f);
@@ -408,6 +416,10 @@ namespace CardPresentation
         //  ⚠️ 下面这几个字段**只在画布档有意义**（世界档恒 null / 空表）—— 判据与口径见文件头那一节。
         HudPiece _shade;                       // `Close Background`（原版 rt=1 + `BackgroundCloseButton`）
         HudPiece _bg;                          // `BG`（原版 rt=0 —— **只给自检读**，⛔ 别改成射线靶）
+        // 🆕 2026-10-29（`B95_MISC` · 本批①）：头像那两件 —— `Avatar Item Small/Image Container/{Border, Image}`。
+        //   `_avatarImg` **惰性建**（没有头像数据就一个节点都不建 = 原版 `m_Sprite = 0` 那一态）；
+        //   `_avatarBorderImg` 恒建（出厂那张 `Player_Profile_Border`）。
+        HudPiece _avatarBorderImg, _avatarImg;
         BattleHudButton _closeBtn;             // 压暗层上的 `IPointerClickHandler`（= 原版 `BackgroundCloseButton`）
         /// <summary>原版 `m_RaycastTarget = 1` 的那 7 颗 TMP（挡住射线、**零处理器** —— 点它们不关窗）。</summary>
         readonly List<Label> _blockLabels = new List<Label>();
@@ -646,8 +658,12 @@ namespace CardPresentation
             // ---- ④ 头像框（`Avatar Item Small` → `Image Container` → `Border`）----
             // `Avatar Item Small` 自己是个 `Button` 但 `m_interactable = 0` ⇒ 不可点、不加命中区。
             // ⚠️ `Image`（立绘）`m_Sprite = 0`（运行期灌）· `Highlight` `m_Enabled = 0` · `Raycast Target` `act=F`
-            //    ⇒ **原版出厂态就都不画** ⇒ 本件只摆框（缺口①）。
-            Img(_root, Art("Player_Profile_Border"), AvatarBorderR, RootR, "Border", QAvatar,
+            // 🔴 **2026-10-29（`B95_MISC` · 本批①）就地订正（铁律 5）**：原写「本件只摆框（缺口①）」——**缺口① 现补上**。
+            //   判据 `AvatarDisplay__ChangeAvatar.c:34` 的 `op_Equality(param_2, 0)` ⇒ **传 null 整段跳过、不画**；
+            //   `:53-70` ⇒ 有图才 `sprite = get_Image(item)` + `set_enabled(img, sprite != null)`。
+            //   ⛔ 「没数据就画 DefaultAvatar」是**错口径**（那条回落只在「拿到 Avatar 对象但图取不到」时走）。
+            //   立绘节点**惰性建**（`Apply` 里第一次拿到真贴图才建）⇒ 没数据时一个节点都不建，与原版 `m_Sprite = 0` 同态。
+            _avatarBorderImg = Img(_root, Art("Player_Profile_Border"), AvatarBorderR, RootR, "Border", QAvatar,
                 null, keepAspect: true);
 
             // ---- ⑤ `EnemyInfo`：`Name:` / 名字 · `Title:` / 称号 ----
@@ -856,24 +872,25 @@ namespace CardPresentation
         /// · `notInAnAllianceMessage`（那个 TMP 的 `gameObject`）—— **联盟名为空 ⇒ 开**（并把文案设成
         ///   `GetTranslation("Battle/AlliancePanel/NotInAnAlliance")`），否则关。<br/>
         /// ⚠️ 原版判「称号空不空」用的是**称号**那一个实参（`param_3`）、判「有没有联盟」用的是**联盟名**
-        /// （`param_7`）—— 本方法逐条照抄，⛔ 别把两者合并成一个「有没有档案」。</summary>
-        public void Open(string playerName, string title, string allianceName)
-        {
-            // 🆕 2026-10-28（B88-B7 · 账 187③）：三实参这一版 = 「不知道徽章」⇒ 走原版回落（默认徽章 + TIER1）。
-            Open(playerName, title, allianceName, null, 0);
-        }
-
-        /// <summary>🆕 **2026-10-28（B88-B7 · 账 187③）**：带联盟徽章的那一版 —— 原版 `Open` 的第 8 个实参
+        /// （`param_7`）—— 本方法逐条照抄，⛔ 别把两者合并成一个「有没有档案」。
+        /// <para>🆕 **2026-10-28（B88-B7 · 账 187③）**：带联盟徽章的那一版 —— 原版 `Open` 的第 8 个实参
         /// `GroupBadge allianceBadge`（`BattleAlliancePanel.cs:55`）。我们收的是**拆平后的两格**：
         /// `badgeId` = `GroupBadge.featuredTrophy.reward.uniqueId`、`badgeTier` = `GroupBadge.tierLevel`
-        /// （id → 图 见 `AllianceBadgeArt`）。`badgeId` 为空 ⇒ **原版同一条回落**（`DefaultTrophy`），⛔ 不是我们挑的图。</summary>
-        public void Open(string playerName, string title, string allianceName, string badgeId, int badgeTier, int playerScore = -1, int allianceScore = -1)
+        /// （id → 图 见 `AllianceBadgeArt`）。`badgeId` 为空 ⇒ **原版同一条回落**（`DefaultTrophy`），⛔ 不是我们挑的图。
+        /// <para>🆕 **2026-10-29（`B95_MISC` · 本批①）**：原「三实参版 + 七实参版」两个重载**合并成这一个**（全可选形参），
+        /// 末尾追加两格头像 —— `avatarArt` / `avatarBorderArt` 都是**我们自己的美术键**（`Avatar_&lt;阵营>_&lt;名>`，
+        /// 走 `CardArt.Cosmetics`，见 `Resources/Art/avatars/`）；⛔ 本仓**没有** `PlayerAvatar` / `CosmeticItemAvatarBorder`
+        /// 这两个类（全仓 0 命中），所以不照原版那两个类型签名。老调用点（3 实参 / 7 实参）**零改动**。</para></summary>
+        public void Open(string playerName, string title, string allianceName,
+                         string badgeId = null, int badgeTier = 0,
+                         int playerScore = -1, int allianceScore = -1,
+                         string avatarArt = null, string avatarBorderArt = null)
         {
             // 🆕 2026-10-20（A3-e）：上一扇（或上一次点击）留下的「待关」**不许**落到刚开的这一扇上
             //   —— 没有这一句时，「关窗点击落账 → 同帧有人又 Open」会让新窗在 `LateUpdate` 立刻被关掉。
             _closePending = false;
             gameObject.SetActive(true);
-            Apply(playerName, title, allianceName, badgeId, badgeTier, playerScore, allianceScore);
+            Apply(playerName, title, allianceName, badgeId, badgeTier, playerScore, allianceScore, avatarArt, avatarBorderArt);
             StartAppear();          // 🆕 2026-10-27（E9 · 账 187①）：原版末尾的 DOFade + DOScale
             _visible = true;
         }
@@ -1063,8 +1080,43 @@ namespace CardPresentation
 
         void Apply(string playerName, string title, string allianceName,
                    string badgeId = null, int badgeTier = 0,
-                   int playerScore = -1, int allianceScore = -1)
+                   int playerScore = -1, int allianceScore = -1,
+                   string avatarArt = null, string avatarBorderArt = null)
         {
+            // ============================================================ 🆕 2026-10-29（`B95_MISC` · 本批①）
+            //  原版 `AvatarDisplay.Initialize(PlayerAvatar, CosmeticItemAvatarBorder)` → `ChangeAvatar(item)`：
+            //   · `AvatarDisplay__ChangeAvatar.c:34` `op_Equality(param_2, 0)` ⇒ **传 null 整段跳过**（`sprite` 不换、`enabled` 不动）
+            //     ⇒ 我们这一档 = **不建/隐藏节点、不换图**（⛔ 「没数据就画 DefaultAvatar」是错口径）
+            //   · `:53-70` ⇒ 有图才 `sprite = CosmeticItem.get_Image(item)` + `set_enabled(img, sprite != null)`
+            //  头像框：`avatarBorderArt` 空 ⇒ **保持出厂那张** `Player_Profile_Border`（不改）。
+            if (!string.IsNullOrEmpty(avatarBorderArt))
+            {
+                var bt = Art(avatarBorderArt);
+                if (bt != null && _avatarBorderImg != null) _avatarBorderImg.SetTexture(bt);
+            }
+            if (string.IsNullOrEmpty(avatarArt))
+            {
+                if (_avatarImg != null) _avatarImg.gameObject.SetActive(false);   // = 原版 `param_2 == 0` 那支：不画
+            }
+            else
+            {
+                var at = CardArt.Cosmetics(avatarArt);
+                if (at == null)
+                {
+                    Debug.LogWarning("[AlliancePanel] 头像立绘 `" + avatarArt + "` 取不到（`Resources/Art/avatars/`）"
+                                   + " ⇒ 这一层**不画**（⛔ 不回落 DefaultAvatar；判据 `AvatarDisplay__ChangeAvatar.c:34`）");
+                    if (_avatarImg != null) _avatarImg.gameObject.SetActive(false);
+                }
+                else
+                {
+                    // 节点**惰性建**（`Img` 的 `tex == null` 会直接返回 null ⇒ 不能拿 null 贴图建）
+                    if (_avatarImg == null)
+                        _avatarImg = Img(_root, at, AvatarImageR, RootR, "Image", QAvatar + 1, null, keepAspect: true);
+                    else _avatarImg.SetTexture(at);
+                    if (_avatarImg != null) _avatarImg.gameObject.SetActive(true);
+                    else Debug.LogWarning("[AlliancePanel] 头像立绘节点建不出来（`Img` 返回 null）—— 如实说，不静默");
+                }
+            }
             if (_nameLb != null) _nameLb.SetText(playerName ?? "");
             bool hasTitle = !string.IsNullOrEmpty(title);
             if (_titleHolder != null) _titleHolder.gameObject.SetActive(hasTitle);

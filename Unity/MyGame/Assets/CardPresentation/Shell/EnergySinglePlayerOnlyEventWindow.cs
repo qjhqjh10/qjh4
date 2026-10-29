@@ -1390,16 +1390,16 @@ namespace CardPresentation
 
         /// <summary>原版 `public void OnDestroy()`（`__OnDestroy.c` 全文 1 句）：
         /// `LiveOpsAssetUtility.ReleaseEventAssets(事件);`。
-        /// <para>⚠️ 本地不加载 liveops 资产（`LiveOpsAssetUtility` 在本仓没有等价物，见账 708 那一行）
-        /// ⇒ 这一跳**恒空**；只在「确实有事件」时出声，⛔ 不静默跳过一整跳、也不假装释放过。</para>
+        /// <para>🔴 **2026-10-29（B95_RD）订正**：原来写「本仓没有等价物 ⇒ 恒空」**已过期** —— `ReleaseEventAssets` 早在
+        /// `Shell/LiveOpsLocalCatalog.cs` 实现（账 310 已 A），按离线目录里 `EventComponents` / `EventAssets` 的 GUID 逐条释放；原版**没有** `HasScoringItem` 那道闸（`__OnDestroy.c` 全文 1 句），`LiveOp == null` 时它自己早退。</para>
         /// <para>⚠️ 幂等：Unity 在销毁时调一次，自检也会显式调一次 ⇒ 用 <see cref="_liveOpReleased"/> 去重。</para></summary>
         public void OnDestroy()
         {
             if (_liveOpReleased) return;
             _liveOpReleased = true;
-            if (HasScoringItem)
-                Debug.Log("[Energy] `OnDestroy`：原版这一跳 = `LiveOpsAssetUtility.ReleaseEventAssets(事件)`；"
-                        + "本机没有加载过任何 liveops 资产（没有该运行时的等价物）⇒ 释放为空。");
+            LiveOpsAssetUtility.ReleaseEventAssets(LiveOp);   // 🔴 2026-10-29（B95_RD）：从「只出声」改成**真释放**（原版全文 1 句）
+            // ⛔ 原版**没有** `HasScoringItem` 那道闸（`__OnDestroy.c` 全文就 1 句）；`LiveOp == null` 时
+            //    `ReleaseEventAssets` 首句就 `return`（原版同一句）⇒ 不需要额外判空。
         }
 
         // ------------------------------------------------------------ ⑤ `TryOpen`

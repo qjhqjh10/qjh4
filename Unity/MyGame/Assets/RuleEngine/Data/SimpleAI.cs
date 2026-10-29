@@ -311,19 +311,19 @@ namespace RuleEngine
         /// **不在这儿复制第二份合法性判据**（两处写迟早不一致，工程铁律）。
         ///
         /// ⚠️ 近战和远程**各列一条**（原版就是这样：`attackMelee` / `attackRanged` 是两条动作，
-        ///    各自打分再挑高的）。老版本那句「远程攻击力更高就用远程」是另一种近似。
+        ///    各自打分再挑高的）。老版本那句「远程攻击力更高就用远程」是另一种近似。｜🔴 原版那两个字节闸 `+0x244/+0x246`（`allowPlayerActionsFlag`/`allowEnemyActionsFlag`，真名 `dump.cs:30814-30822`；写点 = `BattleManager._NextTurn_d__395__MoveNext.c:380-383`：**玩家0 回合置前者、否则置后者** = 回合归属；`ResolveEndTurn.c:336-337` / `StopBattleAfterBattleEnd.c:48-49` 收手清 0）**覆盖「出牌 + 在场单位行动」两段**（读点五处：`CanPlayCard` 手牌段 · `CanAttackCard`/`CanUseActiveAbility`/`CanUseWaystone`/`ReadyToUseActiveAbility` 棋盘段），且**只在 `allowAutoActions == false` 时查**（`CanAttackCard` 的 `param_3` / `CanPlayCard` 的 `param_5` 就是旁路位）⇒ 我们的等价物 = 调用点 `BattleDriver.cs:14466` 的 `Ctx.Active != _me && AiShouldDriveOpponent`（本函数只在自己回合被调、只枚举自己那侧）⇒ **不加 `isPlayer/allowAutoActions` 形参**（加了就是无人能置假的死代码）。⚠️ `+0x245 resolvingTurnEndFlag`（`CanPlayCard` 的**总旁路**）我们**没有**等价位 —— 将来真要接 `CanPlayCard` 时先落这一格。2026-10-29 `B95_WBD` 现读（五处读法由 `B95_WRS` 补核）。
         /// </summary>
-        public static List<AiAction> EnumerateActions(BattleContext ctx)
+        public static List<AiAction> EnumerateActions(BattleContext ctx, int forSide = -1)   // 🆕 2026-10-29（`B95_WBD` · 账 324）：`forSide` 显式给**非行动方**时，原版那两档闸（`+0x244/+0x246` = 回合归属）就把**手牌段**挡掉；`-1` = 取 `ctx.Active`（老调用点一个都不改）
         {
             var list = new List<AiAction>();
             if (ctx == null || ctx.IsOver) return list;
 
-            int me = ctx.Active, foe = 1 - me;
+            int me = (forSide < 0 || forSide >= ctx.Players.Length) ? ctx.Active : forSide, foe = 1 - me;   // 原版 `isPlayer` 那个形参
             var mine = ctx.Players[me];
             var foeBoard = ctx.Players[foe].Board;
 
-            // ---- 手牌 ----
-            for (int i = 0; i < mine.Hand.Count; i++)
+            // ---- 手牌（原版 `+0x244/+0x246` 闸 = 「这一方是不是本回合的行动方」⇒ 只包**这一段**：⛔ 别包整表，`endTurn` 必须仍在）----
+            for (int i = 0; i < (me == ctx.Active ? mine.Hand.Count : 0); i++)
             {
                 var card = mine.Hand[i].Card;      // 第 7 行第 2 步：手牌存实例，评分看的是模板
                 if (card == null) continue;

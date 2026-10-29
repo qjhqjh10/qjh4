@@ -1073,13 +1073,13 @@ namespace CardPresentation
     public static partial class LiveOpsContainers   // partial：`ReleaseEventAssets` 那半已于 2026-10-29（B94_T1）搬去 `LiveOpsAssetUtility`（见文件尾注记）
     {
         /// <summary>参数 = (事件, 组件引用类型)。返回 null = 装载失败（原版 `LoadComponent` 拿不到引用时也返回 null）。</summary>
-        public static Func<ILiveOps, int, IUiContainer> Load;
+        public static Func<ILiveOps, int, IUiContainer> Load = LiveOpsAssetUtility.LoadContainer;   // 🔴 2026-10-29（B95_RD）：**默认已接真实现**（原版 `LoadComponent<T>` 那份），不再是 null ⇒ 原样返回 null 只是「装不出来」，⛔ 不是「没接」
         /// <summary>参数 = (事件, 组件引用类型)。原版 `Unload` 在没装过时是 no-op。</summary>
-        public static Action<ILiveOps, int> Unload;
+        public static Action<ILiveOps, int> Unload = LiveOpsAssetUtility.UnloadContainer;
 
         /// <summary>`LiveOpsEventData` 那一层的那一对（原版两层各有一份，见 `LiveOpsEventData.cs:162-170`）。</summary>
-        public static Func<LiveOpsEventData, int, IUiContainer> LoadForData;
-        public static Action<LiveOpsEventData, int> UnloadForData;
+        public static Func<LiveOpsEventData, int, IUiContainer> LoadForData = LiveOpsAssetUtility.LoadContainerForData;
+        public static Action<LiveOpsEventData, int> UnloadForData = LiveOpsAssetUtility.UnloadContainerForData;
 
         /// <summary>`LiveOpsComponentRef.Container`（判据 `LiveOpsLocalCatalog.cs:139`：`Container = 0`）。</summary>
         public const int ComponentContainer = 0;
@@ -1089,7 +1089,7 @@ namespace CardPresentation
         /// <summary>自检口（⚠️ 只给断言用）。</summary>
         public static void ResetForTest()
         {
-            Load = null; Unload = null; LoadForData = null; UnloadForData = null; LiveOpsAssetUtility.ReleaseAsset = null;
+            Load = LiveOpsAssetUtility.LoadContainer; Unload = LiveOpsAssetUtility.UnloadContainer; LoadForData = LiveOpsAssetUtility.LoadContainerForData; UnloadForData = LiveOpsAssetUtility.UnloadContainerForData; LiveOpsAssetUtility.ResetCacheForTest();   // 🔴 2026-10-29（B95_RD）：还原成**默认真实现**（原来置 null ⇒ 断言里「没接」与「装不出来」混成一档）；要「没接」请显式赋 null
         }
     }
 

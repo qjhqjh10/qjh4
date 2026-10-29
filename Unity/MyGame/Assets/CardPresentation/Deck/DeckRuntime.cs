@@ -3123,9 +3123,9 @@ namespace CardPresentation
                 //      · `isBanned` —— 原版走 `PlayEventData.IsCardBanned(currentEventData, card)`，只在绑了
                 //        活动/自定义模式时非 null；**我们还没有禁卡表**（`DeckError.InvalidDeckBannedCards`
                 //        一直是「永远不回」的那两个之一，见本文件 `:5773`）⇒ 恒 false。
-                //    代码路径照留（判定式与原版逐字同义）：一旦有了数据源，把 `banned` 换成真读即可。
+                //    🆕 2026-10-29（B96_MENU）：banned 改真读 IsCardBanned(def.Id)（类尾 seam）；数据源仍缺 ⇒ 恒 false，到位即生效。
                 bool owned = CardProgress.Owned(def.Id, def.Rarity) > 0;
-                bool banned = false;
+                bool banned = IsCardBanned(def.Id);
                 // ⚠️ `Unplayable` **会自己 `SetGrey(1)`**（`Core/CardView.cs:6916-6928`）—— 这一档正是原版
                 //    「未拥有 / 被禁」要的卡面灰，所以**不额外调 `SetGrey`**（省得两处各写一遍灰度）。
                 //    ✅ 这也正是简报里那条「先例」的反面用法：`BattleDriver.cs:23763` 是「`SetHighlight` 之后再
@@ -9458,6 +9458,34 @@ namespace CardPresentation
             RefreshAll();
             LastAltArtSwapNote = "已换：" + cur + " → " + want;
             Say("已换成异画：" + CardText.Name(def));
+        }
+
+        // ============================================================ 禁卡 seam（账 菜单/外壳:58 · 原版 `PlayEventData.IsCardBanned`）
+        //
+        // 判据（`.c` 逐句）：`decomp_full/CollectionCard__UpdateCardVisuals.c` —— 卡面灰度 = `isOwned ? isBanned : 1`
+        //   （= `!isOwned || isBanned` 才灰），`BasicCardUI.ToggleBanned(isBanned)` 只负责那颗 ban 图标。
+        //   本窗卡池卡格 = `CollectionCard` 那一族 ⇒ `banned` 一旦为真，`SetHighlight(Unplayable)` 自动灰卡面（已有）。
+        //
+        // 🔴 **数据源 gap（如实标，⛔ 别伪造禁卡表）**：禁卡表来自 LiveOps 活动数据（远端 CCD / `BannedCardsSO`），
+        //   本 build 判据空（`Shell/DeckSelectionPopup.cs:937-942` 已记；`PlayEventData` 的 `IsCardBanned` 也是
+        //   「缓存 null ⇒ 恒 false」）。⇒ `CurrentEventData` 默认 null ⇒ `IsCardBanned` 恒 false（＝原版空态）。
+        //
+        // 🔶 自己设计（非原版）：原版按 `LiveOpsManager.GetHandler<GameModes>().GetActiveEvent(mode)` 取，而本窗
+        //   **没有「这卡组属哪个 mode」的状态**（账 菜单/外壳:58 ③）。⇒ 用一个静态注入点代替「按 mode 查事件」。
+        //   **为什么必须自定**：mode 这一格是活动/服务器侧的（P3 远端），本地没有来源。调度台 B96_MENU 2026-10-29 定。
+
+        /// <summary>卡池卡格判断「被禁」的数据来源 = 原版 `currentEventData`（`PlayEventData`）。
+        /// <para>默认 `null` ⇒ <see cref="IsCardBanned"/> 恒 `false`（＝原版「缓存 null ⇒ 恒 false」）。
+        /// 活动线把禁卡表灌进一个 `PlayEventData`（`Shell/PlayEvent.cs` 的扩展 `evt.SetBannedCards(ids)`）后赋给它即可。</para>
+        /// <para>⚠️ 它是 `static`：跨窗/跨局会保留 —— 目前只有自检会设置它，生产路无人写 ⇒ 恒 null。活动线接线时
+        /// 记得「离开该模式时置 null」。</para></summary>
+        public static PlayEventData CurrentEventData;
+
+        /// <summary>= 原版 `PlayEventData.IsCardBanned(RawCardScript)` 在本窗卡池卡格这一处的调用（逐字同义）。
+        /// 数据为空 ⇒ `false`（放行）。</summary>
+        static bool IsCardBanned(string cardId)
+        {
+            return CurrentEventData != null && CurrentEventData.IsCardBanned(cardId);
         }
     }
 }

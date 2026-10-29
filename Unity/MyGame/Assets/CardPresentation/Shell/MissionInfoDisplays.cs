@@ -571,12 +571,60 @@ namespace CardPresentation
     /// （`Setup` 就是它 + ② 那一段说明）—— 现在的差别只是 ② 那句缺口**挂在生产路径上**了。</para></summary>
     internal sealed partial class MissionRewardsDisplay
     {
+        static bool _warnedNoEvent;
+
         /// <summary>原版 `Setup` 的第 ②③ 段（第 ① 段 = 建树期，见类注释）。
-        /// ⛔ `MergeSameItem` 是唯一实现 —— 本方法只负责把「原版这里还有 `ApplyExtraRewards` 一跳」写死在一处。</summary>
+        /// ⛔ `MergeSameItem` 是唯一归并实现 —— 本方法只负责原版那一跳 `ApplyExtraRewards`。</summary>
         internal static List<Cell> Setup(List<Cell> rewardSource)
         {
-            // 原版第 ② 段（`ApplyExtraRewards(mission, null)`）本仓没有落点 ⇒
-            // 直接吃调用点给的奖励表。这一句注释就是那个缺口的落痕（账 508 的「差异」列同此）。
+            // ⚠️ **本仓的每日任务不是 `ILiveOps` 事件**（`Shell/DailyData.cs` 的 `_daily` 是本地表）⇒ 调用点拿不到 `mission`
+            //   ⇒ 走 `evt = null` 那一支（回退调用点给的奖励表并出声一次）。原版那一跳本身已在这一支的上游实现好。
+            // 🔴 **别把这个带 `evt` 的版本也叫 `Setup`**：`Editor/ShellScene_B94S2SelfCheck.cs:108` 用
+            //   `Type.GetMethod("Setup", Static|Public|NonPublic)` 取方法 —— 同名两参重载会让它抛
+            //   `AmbiguousMatchException`（整个 `ShellScene.Run` 那条断言炸）。⇒ 起名 `SetupWithExtraRewards`。
+            return SetupWithExtraRewards(null, rewardSource);
+        }
+
+        /// <summary>原版 `MissionRewardsDisplay.Setup(IMission, MissionChallengeProgress)` 的 **第 ② 段**：
+        /// `LiveOpsManager.GetHandler&lt;RewardEventHandler&gt;().ApplyExtraRewards(mission, null)`
+        /// （判据 `decomp_full/MissionRewardsDisplay__Setup.c:110-114`；handler 实现 = `Shell/RewardEventHandler.cs:66`，
+        /// 取句柄口 = `Shell/LiveOpsManager.cs:143`）。
+        /// <para>原版第二实参是 **null**（`.c` 里 `AvailableRewards()` / `CurrentMilestone()` 算完**没被读**、`obj2` 全程未用）
+        /// ⇒ 返回值**替代**奖励源；返回 null / handler 取不到 ⇒ 回退调用点给的奖励表并**出声**。⛔ 不许静默。</para>
+        /// <para>⛔ 归并仍只走 <see cref="MergeSameItem"/>（同一份判据），本方法不写第二份。</para></summary>
+        internal static List<Cell> SetupWithExtraRewards(ILiveOps evt, List<Cell> rewardSource)
+        {
+            if (evt != null)
+            {
+                var h = LiveOpsManager.GetHandler<RewardEventHandler>();
+                if (h == null)
+                {
+                    Debug.LogWarning("[MissionInfoDisplays] `MissionRewardsDisplay.Setup`：`RewardEventHandler` 未注册"
+                                   + "（`LiveOpsManager.GetHandler` 返 null）⇒ 追加奖励那一跳跳过、回退调用点给的奖励表（原版这一支同样取不到 handler）");
+                }
+                else
+                {
+                    var extra = h.ApplyExtraRewards(evt, null);      // 原版 `.c:110-114`（第二实参 = null）
+                    if (extra != null)
+                    {
+                        var merged = new List<Cell>();
+                        foreach (var r in extra)
+                        {
+                            if (r == null) continue;
+                            merged.Add(new Cell { ItemId = r.Id, Quantity = r.Quantity });
+                        }
+                        return MergeSameItem(merged);                // 原版：结果**替代**奖励源
+                    }
+                    Debug.LogWarning("[MissionInfoDisplays] `MissionRewardsDisplay.Setup`：`ApplyExtraRewards` 返回 null ⇒ 回退调用点给的奖励表（出声）");
+                }
+            }
+            else if (!_warnedNoEvent)
+            {
+                _warnedNoEvent = true;
+                Debug.Log("[MissionInfoDisplays] `MissionRewardsDisplay.Setup`：本仓每日任务不是 `ILiveOps` 事件 ⇒ 原版第 ② 段"
+                        + "（`ApplyExtraRewards(mission, null)`）**没有 mission 可传** ⇒ 走「调用点给的奖励表」这一支（只出声一次）。"
+                        + "要真正接线，需要调用点（`DailyData.LoginRewardCellList`）持有对应事件。");
+            }
             return MergeSameItem(rewardSource);
         }
     }

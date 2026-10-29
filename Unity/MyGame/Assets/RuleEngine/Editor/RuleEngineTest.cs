@@ -1278,6 +1278,18 @@ public static partial class RuleEngineTest
         // ⚠️ `gen_diag_runner` 只认「一行一个 `Step(...)`」⇒ 不能与上一句挤同一行。🔴 2026-10-29（`B94_FX8` · DG1 #15）：已随上一条一起上移到覆盖闸**之前**。
         Step(TestF2B94);
 
+        // 🆕 2026-10-29（调度台代接线）：账 324 `GetAvailableActions` 的手牌闸（`EnumerateActions` 的 `forSide`）。
+        // ⚠️ 一行一个 `Step(...)`；且**必须先接线**，否则 `RunCoverageCompiledCases` 会把「有 Test* 但没 Step」判红。
+        Step(TestEngineB95WBDHandGate);
+        // 🆕 2026-10-29（调度台代接线）：`B95_WRE` 批 3 —— 出牌触发次序（Rally 早于 Deploy 广播）+ 施害卡通道。
+        Step(CheckB95WREAttackerPlumbing);
+
+        // 🆕 2026-10-29（调度台代接线）：`B96_CB` —— 921 弃/偷牌揭示两档 · 1037 手牌探针 · 372/422 开局桥 · 907 换牌态。
+        { CheckB96CBEngine(); }
+
+        // 🆕 2026-10-29（调度台代接线）：`B96_CR` —— 279 先标将死 · 876/550 · 1376 ActivateMinions · 559 Sacrifice · 1053 SecretBuff · 1217 逐条 AND。
+        { CheckB96CRCombatBits(); }
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -1334,7 +1346,7 @@ public static partial class RuleEngineTest
             CheckB93G1RandomOrderStratagem();
             CheckB93G1PlayedCardTail();
         }   // 🆕 B94_F1（账 534/455）：墓地放逐闩 + 誓约出牌费 —— 断言全文在 `RuleEngineTest_EngineB94F1.cs`
-        { CheckB94F1CemeteryExileAndOathPay(); CheckB94Y1TroopKilled(); CheckB94W3DeathTurnPredicate(); B94B3EngineGaps(); CheckB94B2EngineGaps(); CheckB94B8Engine(); CheckB94Z3RuleCoreGaps(); CheckB94B1EngineGaps(); CheckB94Z2HandAbilityChannel(); CheckB94B12TransformUnit(); CheckB94B13RuleCoreWiring(); CheckB94B16Engine(); B94B15EngineGaps(); CheckB94B14EffectResolverGaps(); CheckB94B19TutorialGate(); CheckB94B21DormantBroadcasts(); CheckB94B20CreateAtPos(); CheckB94B24SeatAndActingCard(); CheckB94B23AbilityBuffs(); }   // 🆕 2026-10-29（调度台代接线）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
+        { CheckB94F1CemeteryExileAndOathPay(); CheckB94Y1TroopKilled(); CheckB94W3DeathTurnPredicate(); B94B3EngineGaps(); CheckB94B2EngineGaps(); CheckB94B8Engine(); CheckB94Z3RuleCoreGaps(); CheckB94B1EngineGaps(); CheckB94Z2HandAbilityChannel(); CheckB94B12TransformUnit(); CheckB94B13RuleCoreWiring(); CheckB94B16Engine(); B94B15EngineGaps(); CheckB94B14EffectResolverGaps(); CheckB94B19TutorialGate(); CheckB94B21DormantBroadcasts(); CheckB94B20CreateAtPos(); CheckB94B24SeatAndActingCard(); CheckB94B23AbilityBuffs(); CheckB95WRSGaps(); }   // 🆕 2026-10-29（调度台代接线；B95WRS = UnitState 866/636 两处）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
 
         // ---- 汇总 ----
         int total = _pass + _fail;
@@ -16342,7 +16354,9 @@ public static partial class RuleEngineTest
             // 🔴 **2026-10-27（批次 9 · `E7ENG` · 账 532 的 1b）**：20 → **21**（新增
             //    `EnchantmentRemoved` —— 「一条附魔效果被摘掉」；**这是我们为表现层新开的窄口**
             //    （🔶 自己设计），判据 → `判据/T4_532与PremiumCampaign_判据.md` §1b）。
-            Check(kinds.Count, 21, "`EvtKind` 现在 **21** 种"
+            Check(kinds.Count, 23, "`EvtKind` 现在 **23** 种"
+                                 + "（21 + `DiscardReveal` / `StealReveal`（2026-10-29 `B96_CB` · 账 921："
+                                 + "`CardScript.ShowCardBeingDrawn` 的 0.2 / 0.4 两档）"
                                  + "（19 + `TraitRemoved`（`E1` 第四段 · W9：关键词被摘掉，"
                                  + "`Expiring State` 那一支靠它）"
                                  + " + `StatusApplied`（`G1b` · `C2` §6：关键词再次施加）"
@@ -30142,6 +30156,14 @@ public static partial class RuleEngineTest
             //   （判据 → `EffectResolver.PlayTargetPoolAsIfDeployed` 的方法体）。
             //   ⛔ 别把这一条改成黑名单 / 让扫描跳过它：将来「真**落地**」的新入口还是要被这张表拦下来。
             { "PlayTargetPoolAsIfDeployed", "F2 预览支：临时 UnitState 算目标池，不落地" },
+            // 🆕 **2026-10-29（`B95_A3` · 交接 §四 A3）**：`TransformUnit`（`Core/TransformUnit_B94B12.cs:178`）
+            //   = 原版 `BattleManager.ResolveTransformUnit` 的**在场单位变身**入口（原版是同一个 `CardScript` 上换
+            //   `rawCardData`；我们 `Instance` / `Card` 都 readonly ⇒ 发新 `UnitState` 顶替原格，**实例号沿用**）。
+            //   它的落地钩子已照原版接齐：`MinionPlayedIntoField`（`Core/TransformUnit_B95A3.cs:150`，
+            //   对应 `.c:1207`）= 写 `DeployedTurn`（= 原版 `+0x2E0`，`.c:42-52`）+ `ApplyDeployTurnState(keepStatus)`
+            //   （= `.c:69-71` / `:179` / `:180`）。⚠️ 它**不**发召唤广播（原版那条链没调 `ResolveUnitSummoned`，
+            //   反证见 `TransformUnit_B95A3.cs` §二），⛔ 别拿「新单位落地」当理由给它加 195/190/605/680。
+            { "TransformUnit",   "⑤ 在场单位变身（原版 `ResolveTransformUnit`；同一个 `keepEffects` 位控制召唤病）" },
         };
 
         var found = new SortedDictionary<string, string>();   // 方法名 → 文件:行（取第一处）
