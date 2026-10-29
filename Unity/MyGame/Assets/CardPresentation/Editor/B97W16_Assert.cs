@@ -336,7 +336,10 @@ public static class B97W16Assert
     {
         MenuCheck.Section(_sink, "B 两列文字（`RowsOfEffects`）：mark 专名 / removeTrait 拼接 / 环境卡闸谓词");
 
+        // [B98_A10 2026-10-29] 本节标题订正：右列**不再是空串** —— `B98_A6` 起 mark 行右列 = `Battle/Effect/<神名>` 的译文
         // ---- B1：mark 行的左列 = `[[markOfKhorne]]`，`traitValue > 1` 追加 ` (xN)`；右列空 ------------
+        //      ⚠️ 上面那句「右列空」是 `B95_FX` 的**错结论**（只查了 `CardTraitDescription/*` 那一族，而 `GetEffectDesc` 走的是
+        //      `Battle/Effect/*`），**照录在此作历史**、说明「原来为什么判空」；现行判据见下一条 B1-b。
         {
             var e = new ShownEffect
             {
@@ -354,7 +357,10 @@ public static class B97W16Assert
                    $"B1 mark 行左列含 `Card_Trait/markOfKhorne`（血之黑暗契约；实得「{r.Who}」）");
                 Tr(r.Who != null && r.Who.EndsWith(" (x2)", System.StringComparison.Ordinal),
                    $"B1-a …而且尾巴是 `\" (x2)\"`（`traitValue > 1` 才追加；实得「{r.Who}」）");
-                C(r.What, "", "B1-b …右列 = **空串**（`GetEffectDesc` 拼的是 `CardTraitDescription/Khorne`，官方表没有 ⇒ 画空白）");
+                Tr(!string.IsNullOrEmpty(r.What) && r.What != "Battle/Effect/Khorne",
+                   $"B1-b …右列 = `Battle/Effect/Khorne` 的译文（**不是空串**；`LoadEffect.c:98-101` `goto LAB_18060aaa7` ⇒ `.c:148-153` 写右列），实得「{r.What}」"
+                 + "｜🧨 退回 `new EffectRow(who, \"\")` 或改回 `CardTraitDescription/*` 那一族 ⇒ 本条红"
+                 + "｜[B98_A10 2026-10-29] 期望值**不写死译文**：中文列原版也带 `[[先锋]]` 这种中文 token（`B98_A6` §六·3）");
             }
             finally { Loc.RestoreForTest(wasLang); }
         }

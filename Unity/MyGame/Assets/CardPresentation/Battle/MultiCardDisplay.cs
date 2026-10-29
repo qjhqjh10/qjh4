@@ -87,10 +87,11 @@
 //      —— **已过期**：引擎已发 `EvtKind.ShowCardsWindow`（`RuleEngine/Core/BattleEvent.cs` 那个枚举项的 doc，
 //      判据 → `资料/普查产出_1023e/J2_引擎结构自检.md` §二），表现层由 `BattleDriver.OpenShowCardsWindow` 消费
 //      （`IsPlayerTurn` 那道闸 + 「卡名 → `CardData`」都在那边）。
-//      ⚠️ **两条入口【分开看】**（⛔ 别混为一谈）：
+//      ⚠️ **入口只剩一条**（2026-10-29 铁律 5 订正：「点我方牌堆 ⇒ 摊开牌库」这条**我们挑的**入口
+//        已按**用户 2026-10-29 裁定**删除 —— 原版 `DeckManager` 无任何指针/点击接口、`OnTouchDown` 在 `inDeck`
+//        那一支只调 `ShowDeckSize`，那扇窗全库唯一打开口 = 效果 470 的 `EvtKind.ShowCardsWindow`）：
 //        · **原版那一条** = `EvtKind.ShowCardsWindow`（效果 470，全池只有 `GSC55`）；
-//        · **我们挑的那一条** = **点我方牌堆** → `BattleDriver.ShowMyDeck`（原版没有这个入口；
-//          自检 `Editor/BattleScene.cs` 那一节靠它，⛔ **别删**）。
+//        · 自检夹具改用窗自己的 `Show(...)`/`Hide()`（`Editor/BattleScene.cs`），⛔ 别再加固 `ShowMyDeck`。
 //
 // ⚠️ 遮罩与标题**建一次就留着**，开关只切 `activeSelf`（照 `CardDisplayWindow` 的教训：
 //    每次重建、`Hide` 又销毁的话，第二次打开只剩一张光卡）。

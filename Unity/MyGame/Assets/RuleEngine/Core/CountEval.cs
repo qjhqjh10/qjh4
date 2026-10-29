@@ -120,7 +120,7 @@ namespace RuleEngine
             }
 
             var set = spec.CountSet;
-            string why = SetGap(set);
+            string why = SetGap(set, false);   // `mult`/`avail` 这两支**没有**计数池那两跳（它们不收集候选）⇒ 保留旧口径（见 `SetGap` 的 `boardPoolWired`）
             if (why != null) { gap = why; return null; }
 
             int count;
@@ -176,7 +176,7 @@ namespace RuleEngine
                 gap = $"`targetsAffected={ta}`（原版累加 `traitsFilter` 的值）本版未实现";
                 return null;
             }
-            string why = SetGap(set);
+            string why = SetGap(set, false);   // 同 `Meets`：本支不收集候选 ⇒ 没有计数池那两跳，保留旧口径
             if (why != null) { gap = why; return null; }
             int count;
             // `countOptions = 0`（AllTargets = 每个命中 +1）—— 纯 `TargetCriteria` 没有这一格，
@@ -337,7 +337,7 @@ namespace RuleEngine
             }
             if (ta == 0) return true;
 
-            string why = SetGap(set);
+            string why = SetGap(set, true);   // 只有这一支（账 676 的计数路径）接上了「去重 → 收窄」两跳
             if (why != null) { gap = why; return null; }
 
             int count;
@@ -351,7 +351,7 @@ namespace RuleEngine
             //   ⚠️ `countOptions == 10`（同方 −1 / 异方 +1）时**截断发生在加权之前**（原版先
             //   `GetTargets` 把列表截短、`BoardAnalysis__MeetsCriteria.c:104-118` 才按截短的列表累加）
             //   ⇒ 那一档必须拿到**候选本身**才排得出顺序，所以要按需收集。
-            bool needCands = set.MaxTargets >= 1 && gate.CountOption == 10;
+            bool needCands = (set.MaxTargets >= 1 && gate.CountOption == 10) || set.SelectFromChooseResolution > 0 || set.TraitsFilter == 780;   // 🆕 2026-10-29（B98_G6 · 账 676 的「计数路径」格）：`selectFromChooseResolution`（候选池**来源** = 收窄）与 `traitsFilter == 780`（单次变异去重）都作用在**候选本身**上 ⇒ 必须真有候选才能做（判据 `AbilityLogic__GetTargets.c:1101-1140` / `:155-172` + `:1370-1385`）。⚠️ 只收 `> 0`：`Unknown(-1)` 是「没落」，`SetGap` 会先把它判成 gap，⛔ 不拿它当「有此位」
             var cands = needCands ? new System.Collections.Generic.List<UnitState>() : null;
             var candSides = needCands ? new System.Collections.Generic.List<int>() : null;
             if (CountSet(ctx, owner, set, cond, gate.CountOption, actor, out count, out why,
@@ -360,6 +360,7 @@ namespace RuleEngine
                 gap = why ?? "集合判不了";
                 return null;
             }
+            if (cands != null) cands = CountEval.ApplySelectFromChooseResolution(ctx, set.SelectFromChooseResolution, RuleCore.FilterSingleUseMutationTargets(ctx, cands, actor != null ? actor.Instance : null, set.TraitsFilter, "计数池"), "计数池");   // 🆕 2026-10-29（B98_G6 · 账 676 的「计数路径」格）：原版 `MeetsCriteria` 数候选走的就是 `AbilityLogic.GetTargets(…)` ⇒ 候选池**同样**要过末尾两段，**顺序照原版**：`traitsFilter == 780` 去重（内层，`.c:155-172`）→ `selectFromChooseResolution` 收窄（最外层，`.c:1101-1140`）→ 下面那一步 `maxTargets` 截断（`.c:1164`）。⛔ 别把顺序倒过来（去重要在收窄之前：收窄后只剩 1 张，先去重会把它剔掉 = 静默多数一张）
             int? trimmed = ApplyMaxTargets(set, count, cands, candSides, owner, gate.CountOption, out why);
             if (trimmed == null) { gap = why ?? "`maxTargets` 截断判不了"; return null; }
             count = trimmed.Value;
@@ -441,7 +442,7 @@ namespace RuleEngine
         /// 那张卡也仍然判不了**。⇒ 顺序应当是「先做手牌族（`ta=50`）再回来看这一格」。</item>
         /// </list></para>
         /// </summary>
-        static string SetGap(CardDef.CountSetSpec s)
+        static string SetGap(CardDef.CountSetSpec s, bool boardPoolWired = false)
         {
             // 🆕 2026-10-26（`W6K11` · 账 `收藏:188`）：原来这 9 格在这里整条挡成 `null` ——
             //   它们**早在 `TargetCriteriaEval.Matches` 里实现了**（全仓唯一那份 36 格判据）⇒ 撤掉。
@@ -452,10 +453,10 @@ namespace RuleEngine
             // ⚠️ `excludeTargetted`（`TargetCriteria +0x20`）：ILSpy 全树**只有声明、0 个读者**
             //   （`CheckIfMeetsCriteria` / `CheckIfRawCardMeetsCriteria` 都不读它）⇒ 它不参与判定，
             //   挡着反而会把整行误判成「判不了」。
-            // 🔴 `selectFromChooseResolution`（`+0x80`）**仍然没实现**：`AbilityLogic.cs:1075/1414/1628`
-            //   把它当**候选池来源**的开关（不是筛）⇒ 保留 `gap`（池内现读 1 行 = `ASH82`）。
-            //   ⚠️ 它同时卡在 `ta=50`（手牌族，本文件 ③ 判不了）⇒ 那一行本来就到不了这里。
-            if (s.SelectFromChooseResolution != 0) return "countSet.selectFromChooseResolution 只接到【目标池】（CountEval.ApplySelectFromChooseResolution），【计数】路径未接";   // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格）：候选池那半已落（判据 AbilityLogic__GetTargets.c:1101-1140），计数路径仍未接 ⇒ 这里**照旧**判不了（⛔ 别把 gap 撤掉当「做完了」）
+            // 🔴 `selectFromChooseResolution`（`+0x80`）= **候选池来源**的开关（不是筛）：只有**接了两跳的那一条路**
+            //   （`MeetsBoardCriteria`，`boardPoolWired = true`）能放行棋盘族；`mult`/`avail` 两支不收集候选 ⇒ 照旧 gap。
+            //   ⚠️ 池内该旗非 0 的 `role="count"` 行只有 `ASH82`，而它是 `ta=50`（手牌族）⇒ 今天仍走这句。
+            if (s.SelectFromChooseResolution != 0 && (s.SelectFromChooseResolution == CardDef.CountSetSpec.Unknown || !boardPoolWired || (s.TargetsAffected != 10 && s.TargetsAffected != 55))) return "countSet.selectFromChooseResolution 只接到【棋盘族（ta=10/55）的计数路径】（MeetsBoardCriteria 里那两跳：去重 → 收窄）；以下三种仍判不了：① 非棋盘族（手牌/墓地/牌库的候选是 `CardInstance` 而不是 `UnitState`，与账 1282(b)(c) 同一根）② 不收集候选的那两支（`mult` / `avail`）③ 该格**未知（没落）**";   // 🆕 2026-10-29（B98_G6 · 账 676 的 (a) 格）：**收窄成「旗有、但候选不是棋盘单位」才 gap** —— 棋盘族已由 `MeetsBoardCriteria` 的两跳接上（判据 `AbilityLogic__GetTargets.c:1101-1140` / `:155-172`）。⚠️ `-1`（没落）与「非棋盘族」一样判不了 ⇒ ⛔ 别把它当 0 放行（放行 = 把「判不了」静默当成「没这个位」）
             return null;
         }
 
@@ -1120,7 +1121,7 @@ namespace RuleEngine
         public static System.Collections.Generic.List<UnitState> ApplySelectFromChooseResolution(BattleContext ctx, int flag,
                                                                       System.Collections.Generic.List<UnitState> pool, string by = null)
         {
-            if (flag == 0 || ctx == null || pool == null || pool.Count == 0) return pool;
+            if (flag == 0 || ctx == null || pool == null) return pool;   // 🆕 2026-10-29（B98_G6 · 账 676 计数池接线顺手订正）：原来这里还有 `|| pool.Count == 0` ⇒ **空池时不清 `cardChosenInSelection`**。原版 `.c:1101-1140` 的清空在 `if (chosen != null)` 里、**与池空不空无关**（筛完可能是 0 张，照样清）⇒ 去掉那半，否则「选了牌、但候选池本来就空」那次收窄会把选中项**留给下一条带同一旗的效果**
             var chosen = ctx.CardChosenInSelection;
             if (chosen == null) return pool;                       // 原版 `if (chosen != null)`
 

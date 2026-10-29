@@ -6471,6 +6471,13 @@ def build():
         else:
             offname_same.append(_c["id"])
 
+    # ---- 🆕 v43（`B98_D1` · 账 `607` ① 格）：`startingCardInHand` 列 ---------------------------
+    # 口径 / 三态 / 映射链 → `fill_starting_card_in_hand` 上面那一段（⛔ 别在本处另写一份）。
+    # 🔴 **必须落在上面那段「官方显示名」之后**：消费端 `RuleCore.SetupStartWith` 用
+    #    `CreatePool.FindByName` 按**本表最终名字**查 ⇒ 拿改名前的源表名会静默查不到
+    #    （实测 `BL37` 源表叫 `Abaddons Chosen`、官方显示名 `Abaddon's Chosen`）。
+    fill_starting_card_in_hand(cards, truth_cards, truth_by_path, STARTING_CARD_IN_HAND_REPORT)
+
     # ---- 🆕 2026-10-19（`A1959`/`A1960`）：`choicesDefinition` 的跑完读数 --------------------
     #   `pool_180` = 池内「`targetsAffected == 180` 且 `maxTargets > 0`」的卡（解析层要发 `choosecard` 的那批）。
     #   `pool_180_no_filter` = 其中 `filterSpecificCards` 为空的那几张（原版回落 `BattleManager+0x308`；
@@ -6609,6 +6616,24 @@ def build():
           f" · 坏格 **{len(TRIGGER_ABILITY_INDICES_REPORT['bad'])}** 处")
     print(f"             `trigger == 200(TriggerOnceIfBoardCriteria)` 的卡：**{len(_tai_c200)}** 张"
           f"（池内应为 0 ⇒ `UpdateTriggerOnce` 仍是休眠件）")
+    # 🆕 v43（`B98_D1` · 账 `607` ① 格）：`startingCardInHand` 覆盖读数。
+    _sch = STARTING_CARD_IN_HAND_REPORT
+    print(f"开局上手     `startingCardInHand` 落列 **{_sch['written']}/{len(cards)}** 张"
+          f"（空串=明确没有 **{_sch['empty']}** 张 · 池内卡名 **{_sch['name']}** 张"
+          f" · 真值里没这张卡（不落键=未知）**{_sch['no_truth']}** 张"
+          f"；原版 `RawCardScript.startingCardInHand +0x148`）")
+    if _sch["name"]:
+        for _c in cards:
+            if _c.get("startingCardInHand"):
+                print(f"             · {_c['id']} {_c['name']} → 开局上手「{_c['startingCardInHand']}」")
+    for _cid, _nm, _pid in _sch["unresolved"]:
+        print(f"  ⚠️ `startingCardInHand` 的 PPtr 解不出：{_cid} {_nm} · `m_PathID`={_pid} "
+              "⇒ **不落键**（未知；⛔ 不拿卡名猜）")
+    for _cid, _nm, _uid, _so in _sch["not_in_pool"]:
+        print(f"  ⚠️ `startingCardInHand` 指向的卡**不在池内**（{_uid}）：{_cid} {_nm} "
+              f"⇒ 落 SO 名「{_so}」（消费端 `FindByName` 今天查不到它）")
+    print(f"             兄弟字段 `startingTroopsInPlay` 非空 **{_sch['troops_nonempty']}** 张 —— "
+          "本版**不出列**（C# 侧 0 个消费口 ⇒ 出了是死数据）")
     # 🔴 分诊表（`判据/B94_R-W_战斗38条分诊.md` §二 B-3）点名的那 11 个分组，**本 build 只有 3 个有数据**。
     #    ⛔ 不在这里硬编码「应该有哪些」—— 变的是数据不是代码；这里只把「点名但 0 行」的打出来。
     _named = (5, 6, 10, 11, 25, 30, 40, 45, 70, 85, 95)
@@ -6637,7 +6662,9 @@ def build():
         print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["rows_bad"][:5]))
 
     return {
-        "version": 42,         # v42（2026-10-29 · 执行代理 `B96_GEN`）= 加两列：① `abilityMutations`（账 `:1254`，原版 `CardEffect.mutationType` 逐 `(ab,lg)` 行；**不看 buffType、只扫 buffEffect、只扫 cardAbilities**；`mut` 不稀疏落 0/10/20；口径 → `ability_mutations_of` 上面那段）② `triggerAbilityIndices`（账 `:1288` 的**数据半** = 上游 U1 `trigger → ability 下标` 表，形状 `[{trigger, ab:[…]}]`；口径 → `trigger_ability_indices_of` 上面那段）。🔴 两列都**只落数据、不接线** ⇒ 不改指纹（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）。
+                               # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。
+                               #      ⚠️ 同表还顺带落了 **v41 `abilityMutations` + v42 `triggerAbilityIndices`** —— 那两列的代码在**第九十五会话**就提交了，只是表一直没重生成（现读盘上仍是 v40）。本次 `--write` 把它们一并落盘；两列都「只落数据、不接线」⇒ 零行为变化（`CardDatabase` **早已接**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c))`；缺的是**消费者** —— `CardDef.TriggerAbilityIndices` 今天还没人读）。
+        "version": 43,         # v42（2026-10-29 · 执行代理 `B96_GEN`）= 加两列：① `abilityMutations`（账 `:1254`，原版 `CardEffect.mutationType` 逐 `(ab,lg)` 行；**不看 buffType、只扫 buffEffect、只扫 cardAbilities**；`mut` 不稀疏落 0/10/20；口径 → `ability_mutations_of` 上面那段）② `triggerAbilityIndices`（账 `:1288` 的**数据半** = 上游 U1 `trigger → ability 下标` 表，形状 `[{trigger, ab:[…]}]`；口径 → `trigger_ability_indices_of` 上面那段）。🔴 两列都**只落数据、不接线** ⇒ 不改指纹（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）。
         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
                                # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
                                # v37（2026-10-28 · 第八十九会话 · 执行代理 `E6`）= 三族「数据侧」列（账 L234 / L867 / L1044 / L847）
@@ -7101,6 +7128,82 @@ def fix_own_armour(entry):
             entry["keywords"] = kws
             return
     entry["keywords"] = kws + ["Armour " + m.group(1)]
+
+
+# ==========================================================================================
+#  🆕 v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` 的 ① 格）→ 逐卡 `startingCardInHand` 列
+#
+#  判据（第一权威 = `d:/2/tools/decomp_full/`，2026-10-29 现读）：
+#    · `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247` —— 开局对**双方督军**各读一次
+#      `hero.rawCard(+0x28).startingCardInHand(+0x148)`，**非空 ⇒ `AddNewCardToHand`**；
+#      ⛔ 原版**不看卡面文字**（我们以前的 `CardDef.StartWithInHand` 是文本解析，只能当兜底）。
+#    · 消费端（已落、⛔ 别改）：`CardDef.StartWithNames`（`Core/CardDefPartial_B97W5.cs:91`）
+#      ← `RuleCore.SetupStartWith` 的 `StartWithNamesLogged`（`Core/RuleCore.cs:1133`）；
+#      数据入口 = `CardDatabasePartial_B97W5.cs` 的 `CardDto.startingCardInHand`。
+#
+#  🔴 **三态契约**（与 C# 那两处 doc 逐字一致，⛔ 别把「未知」和「明确没有」合并）：
+#    · 真值快照里**没有这张卡** ⇒ **不落键**（= 未知；消费端退回卡面文本那份 = 改前行为）；
+#    · `m_PathID == 0`（原版那格是空 PPtr）⇒ 落 **`""`**（= 明确没有 ⇒ 一张都不发）；
+#    · 有引用 ⇒ 解成**卡池里的显示名** —— `RuleCore.SetupStartWith` 用 `CreatePool.FindByName`
+#      按名查，所以必须是**我们池里的名字**，不是 SO 的 `cardName`（改过名的卡上两者不同）。
+#
+#  映射链（两跳，⛔ 别自己编）：`m_PathID` → `truth_by_path`（`path_id → uniqueId`，与
+#    `choicesDefinition.filterSpecificCards` **同一条桥**）→ `cards[].id → cards[].name`（本表自己的名字）。
+#    · 引用解不出（快照里没有那个 `path_id`）⇒ **不落键**（未知）+ 出声；
+#    · 解得 `uid` 但那张卡**不在池内** ⇒ 退 SO `cardName` + 出声（池内卡才有 `FindByName` 命中）。
+#
+#  现读（1,351 张快照）：`m_PathID != 0` 只 **3 张** —— `SW1 Logan Grimnar` → `Tyrnak and Fenrir` ·
+#    `BL36 Sylar Hexscorn` → `Abaddon's Chosen` · 教学版 Sylar（解出的 uid 不在池内）。
+#    与 `Core/CardDefPartial_B97W5.cs` 文件头写的「非空只 3 张」逐字吻合。
+#
+#  ⛔ **为什么本段放在 `def main():` 之前、而不是与其它列 helper 排在一起**：
+#    `账/战斗逻辑驱动.tsv` 有 6 处按【行号】引用本文件（现读 1282 / 4245 / 4245 / 4281 / 4388 / 4793），
+#    在那之前插行会让它们整体漂移。放在这里 = 那 6 处一个字节都不动。
+#
+#  ⚠️ `startingTroopsInPlay`（同一张 SO 上的兄弟字段）本版**不出列**：C# 侧今天没有任何消费口
+#    （`grep -rn startingTroopsInPlay Assets --include=*.cs` = 0 命中）⇒ 出了就是没人读的死数据。
+#    它的**非空张数**照样打在读数里（作「这一格将来要不要做」的规模判据）。
+# ==========================================================================================
+STARTING_CARD_IN_HAND_REPORT = {"written": 0, "empty": 0, "name": 0, "no_truth": 0,
+                                "troops_nonempty": 0, "unresolved": [], "not_in_pool": []}
+
+
+def fill_starting_card_in_hand(cards, truth_cards, truth_by_path, report):
+    """给 `cards` 逐张落 `startingCardInHand`；口径 / 三态 → 上面那一段（⛔ 别抄第二份）。"""
+    by_uid = {}
+    for c in cards:
+        by_uid.setdefault(c.get("id"), c)
+    for c in cards:
+        trow = truth_cards.get(c.get("id"))
+        if trow is None:
+            report["no_truth"] += 1
+            continue                      # 缺键 = 未知（⛔ 不是 ""）
+        if trow.get("startingTroopsInPlay"):
+            report["troops_nonempty"] += 1
+        ref = trow.get("startingCardInHand")
+        pid = (ref or {}).get("m_PathID") if isinstance(ref, dict) else None
+        if not pid:
+            c["startingCardInHand"] = ""  # 原版那格是空 PPtr = 明确没有
+            report["empty"] += 1
+            report["written"] += 1
+            continue
+        uid = truth_by_path.get(pid)
+        if uid is None:
+            report["unresolved"].append((c.get("id"), c.get("name"), pid))
+            continue                      # 不落键 = 未知（⛔ 不拿卡名猜）
+        tgt = by_uid.get(uid)
+        if tgt is not None:
+            c["startingCardInHand"] = tgt.get("name")
+        else:
+            so = (truth_cards.get(uid) or {}).get("cardName")
+            if not so:
+                report["unresolved"].append((c.get("id"), c.get("name"), pid))
+                continue
+            c["startingCardInHand"] = so
+            report["not_in_pool"].append((c.get("id"), c.get("name"), uid, so))
+        report["name"] += 1
+        report["written"] += 1
+    return report
 
 
 def main():

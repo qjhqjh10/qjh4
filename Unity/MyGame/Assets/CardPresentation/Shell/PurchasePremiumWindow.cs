@@ -462,7 +462,7 @@ namespace CardPresentation
             if (o.HasValue)
             {
                 if (_infoTitle != null) _infoTitle.SetText(TxtInfoTitle);
-                if (_infoBody != null) _infoBody.SetText(TxtInfoBody.Replace("{0}", "?"));   // 原版是 string.Format(词条, points)
+                if (_infoBody != null) _infoBody.SetText(TxtInfoBody.Replace("{0}", "?"));   // 原版是 string.Format(词条, points)｜🔶 自己设计（非原版）：表拿不到时显示 '?' · MissionsConfig 实例 SO 三源 0 份（远端 LiveOps config）· 调度台 2026-10-29 裁定
                 if (_priceText != null) _priceText.SetText(o.Value.PriceText ?? TxtPrice);
                 if (_priceBtn != null) _priceBtn.SetActive(!o.Value.Purchased);
                 if (_purchased != null) _purchased.gameObject.SetActive(o.Value.Purchased);

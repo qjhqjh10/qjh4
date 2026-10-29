@@ -599,7 +599,7 @@ namespace CardPresentation
             MissingArt.Clear();
             _tabButtonsList.Clear(); _tabHi.Clear(); _tabLabels.Clear(); _pages.Clear();
             ClearEventTabs(); _tabOverflowWarned = false;
-            _p1TapLabels.Clear(); _p2ScoreLabels.Clear();
+            _p1TapLabels.Clear(); _p2ScoreLabels.Clear(); _p2Lines.Clear(); _p2FillArea = null; _p2FillQuad = null; _p2LastMilestones = null;
             _p1Title = _p2HeaderTitle = _p2RewardTile = _p2Collect = _p2TotalVictories = _p2Timer = null;
             _p1Back = _p2Back = _p2CollectBtn = _scoreLevels = null;
 
@@ -1262,14 +1262,14 @@ namespace CardPresentation
             if (yta != null)
             {
                 MenuDraw.AlignLeft(yta, Scr(P2YourTeamAR));
-                MenuDraw.SetVAlign(yta, Label.VAlign.Capline, Scr(P2YourTeamAR));
+                MenuDraw.SetVAlign(yta, Label.VAlign.Capline, Scr(P2YourTeamAR)); _p2YourTeamLabels[0] = yta;   // 🆕 B98_K3（账 `:774` 注入口）
             }
             var ytb = MenuDraw.TextBox(page, Scr(P2YourTeamBR), "Your Team", Color.white, "Your Team Text_Team B",
                                        P2YourTeamFont, P2YourTeamMin, QPageText, P2YourTeamMax, 36f, face: TmpFont.Face.LatinCardBody);
             if (ytb != null)
             {
                 MenuDraw.AlignRight(ytb, Scr(P2YourTeamBR));
-                MenuDraw.SetVAlign(ytb, Label.VAlign.Capline, Scr(P2YourTeamBR));
+                MenuDraw.SetVAlign(ytb, Label.VAlign.Capline, Scr(P2YourTeamBR)); _p2YourTeamLabels[1] = ytb;   // 🆕 B98_K3（账 `:774` 注入口）
             }
 
             // 两行队名（骷髅加成 + 队伍名）
@@ -1303,7 +1303,7 @@ namespace CardPresentation
             {
                 if (isA) MenuDraw.AlignLeft(cap, Scr(captain));
                 else MenuDraw.AlignRight(cap, Scr(captain));
-                MenuDraw.SetVAlign(cap, Label.VAlign.Capline, Scr(captain));
+                MenuDraw.SetVAlign(cap, Label.VAlign.Capline, Scr(captain)); _p2CaptainLabels[isA ? 0 : 1] = cap;   // 🆕 B98_K3（账 `:774`）
             }
         }
 
@@ -1313,7 +1313,7 @@ namespace CardPresentation
 
             // `Scoring Bar Event Score Info`（MilestoneScoreBar：竖向进度条 + 5 档记分行）
             var bar = MenuDraw.Node(rp, "Scoring Bar Event Score Info", Scr(P2ScoreBarR));
-            var prog = MenuDraw.Node(bar, "Progress Bar", Scr(P2ProgressR));
+            var prog = _p2ProgressBar = MenuDraw.Node(bar, "Progress Bar", Scr(P2ProgressR));   // 🆕 B98_K3：存字段 = 账 `:772` 的 Fill 宿主
             MenuDraw.Rect(prog, Tex(ArtMiniBar, "进度条底"), Scr(P2ProgressBgR), "Background", QBar, Color.white);
             // `Fill Area/Fill` 出厂进度 0 ⇒ 不画（同 `Energy` 口径）
 
@@ -1332,13 +1332,13 @@ namespace CardPresentation
                 //   sprite `m_Border = (0,0,0,0)` ⇒ `m_FillCenter = 0` 对 **Simple** 不生效，
                 //   原版就是「整块拉伸的金色版」、中心被上面的 `Chest` 盖住 ⇒ 用 `Rect` 照画。
                 //   队列取 `QPageArt`（在 `Chest` 的 `QPageArt1` 之下）。
-                MenuDraw.Rect(row, Tex("Crate_Border_Highlight", "奖励箱高亮框"),
+                var hlQ = MenuDraw.Rect(row, Tex("Crate_Border_Highlight", "奖励箱高亮框"),
                               Center(new PxRect(1642.3f, top - 52.9f, 1831.8f, top + 116.0f), 150.86f, 134.43f),
                               "Highlight Crate", QPageArt, new Color(0.9803922f, 0.8010414f, 0.0588235f, 1f));
-                MenuDraw.Rect(row, Tex(CrateArt[i], "第 " + (i + 1) + " 档箱子"),
+                var chestQ = MenuDraw.Rect(row, Tex(CrateArt[i], "第 " + (i + 1) + " 档箱子"),
                               Center(new PxRect(1682.0f, top - 13.1f, 1796.4f, top + 88.9f), 99.45f, 88.70f),
                               "Chest", QPageArt1, Color.white);
-                MenuDraw.Rect(row, Tex(ArtSkull, "骷髅"), Center(new PxRect(1555.6f, top + 0.9f, 1629.8f, top + 75.1f),
+                var skullQ = MenuDraw.Rect(row, Tex(ArtSkull, "骷髅"), Center(new PxRect(1555.6f, top + 0.9f, 1629.8f, top + 75.1f),
                                                                 64.51f, 64.51f),
                               "Skull", QPageArt1, Color.white);
                 var sc = MenuDraw.TextBox(row, Scr(new PxRect(1426.9f, top + 10.7f, 1553.8f, top + 65.3f)),
@@ -1347,7 +1347,7 @@ namespace CardPresentation
                 {
                     MenuDraw.AlignRight(sc, Scr(new PxRect(1426.9f, top + 10.7f, 1553.8f, top + 65.3f)));
                     MenuDraw.SetVAlign(sc, Label.VAlign.Midline, Scr(new PxRect(1426.9f, top + 10.7f, 1553.8f, top + 65.3f)));
-                    _p2ScoreLabels.Add(sc);
+                    _p2ScoreLabels.Add(sc); BindScoreLine(row, sc, chestQ, hlQ, skullQ);   // 🆕 B98_K3：挂 `GenericScoreBarLine`（账 `:772` 的行那一半）
                 }
             }
 
@@ -1407,7 +1407,7 @@ namespace CardPresentation
             {
                 if (isA) MenuDraw.AlignLeft(nm, Scr(nameR));
                 else MenuDraw.AlignRight(nm, Scr(nameR));
-                MenuDraw.SetVAlign(nm, Label.VAlign.Capline, Scr(nameR));
+                MenuDraw.SetVAlign(nm, Label.VAlign.Capline, Scr(nameR)); _p2TeamNameLabels[isA ? 0 : 1] = nm;   // 🆕 B98_K3（账 `:774`：原版是本页局部变量、无 store/port）
             }
             if (!isA) BuildTeamBonus(row, bonusR, sdfR, skullR);
         }
@@ -1902,6 +1902,293 @@ namespace CardPresentation
             MainMenuRuntime.EnsureEventNavBadgeProviderForTabs();   // 数据源（本地活动目录；与活动钮共用一条 provider）
             comp.Recount();
             if (!Application.isPlaying) comp.Step(1f);              // 批处理下没有帧循环（同 `BadgeWiring.Attach`）
+        }
+
+        // ============================================================ 追加区 · 2026-10-29（`B98_K3`）
+        //  账 `日常_奖励:772`（`TwoSidesEvent_OnGoingTab.InitializeMilestones`）与
+        //  `:774`（`TwoSidesEvent_OnGoingTab.OnOpen`）的**数据注入口**。
+        //  🔴 追加在**类尾**：本文件有多条账按 `文件:行号` 钉着（最大 = `:1785`）⇒ 往中间插一行就整片漂移。
+        //  🔴 建树那一半**早就逐件在**（`BuildOnGoingPage` / `BuildRewardDisplay`）；缺的是「数据进来往哪儿写」。
+        //     本块把原来散在**局部变量**里的两行队名 / 两行队长 / 两行 `Your Team` / 比分条容器**存成字段**
+        //     （四处改动全是在既有物理行尾追加 ⇒ **零行数变化**），再给出与原版同名同序的注入口。
+        //
+        //  判据（2026-10-29 `B98_H5` 解全，未重查）：
+        //   · `:772` = `decomp_full/TwoSidesEvent_OnGoingTab__InitializeMilestones.c`（60 行）
+        //     + `TwoSidesEvent_OnGoingTab.__c__DisplayClass12_0___InitializeMilestones_b__0.c`（state 三档公式）
+        //     + `cpp2il/out_cpp2il_dev_ilspy/RewardProgressBarPanel.cs:71-110`（面板六句，本仓已建）
+        //   · `:774` = `decomp_full/TwoSidesEvent_OnGoingTab__OnOpen.c`（205 行，建树半逐件在 `BuildOnGoingPage`）
+
+        /// <summary>第 2 页两行队名（`Team A Name` / `Team B Name` 那两行的 Label）。
+        /// 原版是 `OnOpen` 里的**局部变量**（`BuildTeamNameRow` 的 `nm`）⇒ 没有 store/port；存成字段才写得上。</summary>
+        Label[] _p2TeamNameLabels = new Label[2];
+        /// <summary>第 2 页两行队长名（`Team A captain name` / `Team B captain name`）。同上，原版是局部变量。</summary>
+        Label[] _p2CaptainLabels = new Label[2];
+        /// <summary>第 2 页两行 `Your Team`（左 / 右）。原版按「哪边是我」显隐其中一行。</summary>
+        Label[] _p2YourTeamLabels = new Label[2];
+        /// <summary>= 原版 `Scoring Bar Event Score Info/Progress Bar` 那颗节点（`+0x20 progressBar` 的父）。</summary>
+        Transform _p2ProgressBar;
+        /// <summary>本页的 `RewardProgressBarPanel` 等价物（原版 `TwoSidesEvent_OnGoingTab+0x60`，本仓 `Shell/RewardProgressBarPanel.cs` 已建）。</summary>
+        RewardProgressBarPanel _p2RewardPanel;
+        Transform _p2FillArea;
+        ImageQuad _p2FillQuad;
+        bool _p2TeamNoteShown;
+        /// <summary>5 行里程碑的 `GenericScoreBarLine`（原版 `MilestoneScoreBar.scoringLines`，`+0x28`）。
+        /// 顺序 = `Score Bar Line Level 1..5`，与 `ScoreRowTop` 同序。</summary>
+        readonly List<CardPresentation.ScoreBars.GenericScoreBarLine> _p2Lines = new List<CardPresentation.ScoreBars.GenericScoreBarLine>();
+        /// <summary>最近一次 `InitializeMilestones` 组好的里程碑表（`InitializeLines` 要按档位喂给每一行）。</summary>
+        GenericScoringMilestone[] _p2LastMilestones;
+        bool _p2ChestOpenNoted;
+
+        /// <summary>把一行 `Score Bar Line Level N` 挂上原版那颗 `GenericScoreBarLine` 并绑五件。
+        /// <para>🔴 **为什么要挂它而不是自己写「换箱子图 / 亮高亮框」**：那两条规则的判据在
+        /// `GenericScoreBarLine.Initialize`（`decomp_full/GenericScoreBarLine__Initialize.c`），
+        /// 本仓已逐句落地（`Shell/GenericScoreBarLine.cs`）⇒ 这里**只给引用**，⛔ 不抄第二份。</para>
+        /// <para>⚠️ `chestOpen`（原版 `+0x30`，`Collected` 那一档的**开箱图**）**本批没解到**：
+        /// 那 46 个实例的 `chestOpen` PPtr 是 `m_FileID = 7`（**另一个 CAB**），本批没做跨包解析
+        /// ⇒ 绑 null，并在真走到 `Collected` 那一档时**出声一次**（⛔ 不静默画空白）。</para></summary>
+        void BindScoreLine(Transform row, Label scoreLabel, ImageQuad chest, ImageQuad highlight, ImageQuad skull)
+        {
+            if (row == null || scoreLabel == null) return;
+            var line = row.gameObject.AddComponent<CardPresentation.ScoreBars.GenericScoreBarLine>();
+            if (line == null)
+            {
+                Debug.LogWarning("[Event] `Score Bar Line` 挂不上 `GenericScoreBarLine` ⇒ 这一行的箱子/高亮不会随里程碑变");
+                return;
+            }
+            line.Bind(scoreLabel, chest, null, highlight != null ? highlight.gameObject : null, skull);
+            _p2Lines.Add(line);
+        }
+
+        /// <summary>`40k_generial_bar_fill`（原版那颗 `Slider` 的 `fillImage`）。
+        /// 判据 = `Two Sides Event Window/Event On Going Tab/Reward Display/Scoring Bar Event Score Info/Progress Bar/Fill Area/Fill`。</summary>
+        const string P2BarFillArt = "40k_generial_bar_fill";
+
+        /// <summary>`Progress Bar/Fill Area` 的设计空间矩形 —— 原版 RT 逐字
+        /// （`aMin (0.25,0)` · `aMax (0.75,1)` · `pivot (.5,.5)` · `pos (-0.325, 1.187)` · `sizeDelta (-11.519, -46.131)`，
+        /// 父 = `Progress Bar`，其 `m_LocalScale = 0.8695655` 已含在 `P2ProgressR` 那一层）。
+        /// ⚠️ 我们**没有建 `Fill Area`**（原版它在 `m_Value = 0` 时宽度/高度由 Slider 写成 0 ⇒ 一个像素都不画）
+        /// ⇒ 第一次真正有进度时才建（见 <see cref="SetP2MilestoneFill"/>）。</summary>
+        static PxRect P2FillAreaR
+        {
+            get
+            {
+                return UguiRect.Child(P2ProgressR, new Vector2(0.25f, 0f), new Vector2(0.75f, 1f),
+                                      new Vector2(0.5f, 0.5f), new Vector2(-0.325f, 1.187f),
+                                      new Vector2(-11.519f, -46.131f));
+            }
+        }
+
+        /// <summary>最近一次 <see cref="InitializeMilestones"/> 算出的归一化进度（0..1；自检读口）。
+        /// = 原版 `Slider.normalizedValue` 那一格的等价物。</summary>
+        public float LastMilestoneProgress { get; private set; }
+
+        // ⚠️ 第 2 页另有一条 `Scoring slider`（`Scoring slider` 那条横条）= **两队比分**，与本类
+        //    `MilestoneScoreBar` 的「账号记分」**不是同一个量** ⇒ 本批**不动它**（⛔ 别把两个进度混成一个）。
+
+        /// <summary>≡ 原版 `TwoSidesEvent_OnGoingTab.InitializeMilestones()`（`.c` 60 行）。
+        /// <para>原版体（逐句）：</para>
+        /// <code>
+        /// currentScore     = ev.&lt;vtable 0x558&gt;();                    // 活动当前分
+        /// currentMilestone = ev.Data(+0x20).currentMilestone(+0x34);   // 已领到第几档
+        /// milestones = ev.&lt;list&gt;(vtable 0x1e8)
+        ///              .Select((m, i) =&gt; new GenericScoringMilestone {
+        ///                  rewards = m.&lt;vtable 0x188&gt;(),
+        ///                  score   = m.score(+0x10),
+        ///                  state   = (currentScore &lt; m.score) ? 0 : ((i &lt; currentMilestone) ? 2 : 1) })
+        ///              .ToArray();
+        /// rewardProgressBarPanel.Initialize(currentScore, milestones, onCollect, null, null);
+        /// </code>
+        /// <para>🔴 **state 三档**（`…DisplayClass12_0__…b__0.c` 的 `iVar1`）：`0` = 未达 · `2` = 已领 · `1` = 可领。
+        /// 而 `Collect` 钮的可交互闸 = `Any(m =&gt; m.state == 1)`（`RewardProgressBarPanel.HasMilestoneToCollect`，
+        /// 谓词实体 = `*(int*)(milestone + 0x10) == 1`）⇒ 本方法**不再抄第二份判据**，直接调它。</para>
+        /// <para>⚠️ **数据仍在远端**（`TwoSidesEventData.currentMilestone` + `rewards[]`，本机 13 份 SO 里 0 份）
+        /// ⇒ 本机没有调用点，方法体今天空转。⛔ 不许拿 prefab 出厂串（`1256`）冒充数据。</para></summary>
+        /// <param name="currentScore">原版 `ev.&lt;vtable 0x558&gt;()`。</param>
+        /// <param name="currentMilestone">原版 `Data.currentMilestone`（`+0x34`）= **已领到的档数**，不是分数。</param>
+        /// <param name="milestones">原版 `ev.&lt;list&gt;(vtable 0x1e8)` —— 活动定义的里程碑表（按档序）。</param>
+        public void InitializeMilestones(int currentScore, int currentMilestone, IReadOnlyList<ScoringMilestone> milestones)
+        {
+            if (milestones == null)
+            {
+                Debug.LogError("[Event] `InitializeMilestones`：里程碑表是 null（原版这一跳 NRE）⇒ 不动");
+                return;
+            }
+            var arr = new GenericScoringMilestone[milestones.Count];
+            for (int i = 0; i < arr.Length; i++)
+            {
+                var m = milestones[i];
+                if (m == null)
+                {
+                    Debug.LogError("[Event] `InitializeMilestones`：`milestones[" + i + "]` 是 null（原版这一跳 NRE）⇒ 这一档留空");
+                    continue;
+                }
+                // `rewards = m.<vtable 0x188>()` —— `ScoringMilestone.Rewards` 的具体形状是数组还是列表
+                // 由子类定，这里按 `IReadOnlyList` 逐格搬（⛔ 不 `as` 成数组后静默 null）
+                var src = m.Rewards;
+                CardPresentation.CampaignData.RewardSpec[] rewards = null;
+                if (src != null)
+                {
+                    rewards = new CardPresentation.CampaignData.RewardSpec[src.Count];
+                    for (int k = 0; k < rewards.Length; k++) rewards[k] = src[k];
+                }
+                int score = m.ScoreToUnlock;                       // 原版 `m.score(+0x10)`
+                arr[i] = new GenericScoringMilestone
+                {
+                    state = MilestoneState(currentScore, score, i, currentMilestone),
+                    score = score,
+                    rewards = rewards,
+                };
+            }
+
+            _p2LastMilestones = arr;              // `MilestoneScoreBar` 的 `InitializeLines` 那一半要按档位喂给每一行
+            EnsureP2RewardPanel();
+            // 原版 `RewardProgressBarPanel__Initialize(panel, currentScore, milestones, onCollect, null, null)`
+            // ⇒ `resourceIcon` / `resourceName` 两个实参都是 **null**（本页那颗 Scoring Image 没有可选图）
+            _p2RewardPanel.Initialize(currentScore, arr, CollectClicked, null, null);
+
+            // 🔴 Collect 钮的可交互闸（原版面板里那一句；我们那颗钮是 `MenuDraw.Hit` 建的 `WindowButton`）
+            bool canCollect = RewardProgressBarPanel.HasMilestoneToCollect(arr);
+            var wb = _p2CollectBtn != null ? _p2CollectBtn.GetComponentInChildren<WindowButton>(true) : null;
+            if (wb != null) wb.Interactable = canCollect;
+            else Debug.LogWarning("[Event] `InitializeMilestones`：Collect 钮上没有 `WindowButton` ⇒ 可领状态没写"
+                                + "（原版写 `collectButton.interactable`）");
+        }
+
+        /// <summary>原版 `InitializeMilestones` 那个 `Select` 里的**三档 state**（`…DisplayClass12_0__…b__0.c`
+        /// 的 `iVar1`，逐字）：`iVar1 = (currentScore &lt; m.score) ? 0 : ((i &lt; currentMilestone) + 1);`
+        /// <list type="bullet">
+        /// <item>`0` = `Locked`（分数没到这一档）</item>
+        /// <item>`2` = `Collected`（分数到了，且**已领到第 `currentMilestone` 档** ⇒ `i &lt; currentMilestone`）</item>
+        /// <item>`1` = `Unlocked`（分数到了，还没领 ⇒ 可领）</item>
+        /// </list>
+        /// <para>🔴 两个边界都是**严格小于**（`currentScore &lt; score` 与 `i &lt; currentMilestone`）——
+        /// 改任一处成 `&lt;=` 都会让「刚好够分」或「刚好这一档」翻到另一档（自检有反例断言）。</para></summary>
+        /// <param name="currentScore">活动当前分。</param>
+        /// <param name="score">这一档的门槛分（`m.score`，原版 `+0x10`）。</param>
+        /// <param name="index">这一档在表里的下标 `i`。</param>
+        /// <param name="currentMilestone">活动数据里的「已领到第几档」（原版 `Data.currentMilestone`，`+0x34`）。</param>
+        public static GenericScoringMilestoneState MilestoneState(int currentScore, int score, int index, int currentMilestone)
+        {
+            if (currentScore < score) return GenericScoringMilestoneState.Locked;                       // 0
+            return index < currentMilestone ? GenericScoringMilestoneState.Collected                   // 2
+                                            : GenericScoringMilestoneState.Unlocked;                   // 1
+        }
+
+        /// <summary>按需建本页的 `RewardProgressBarPanel` 并接好两个钩子。</summary>
+        void EnsureP2RewardPanel()
+        {
+            if (_p2RewardPanel != null) return;
+            _p2RewardPanel = new RewardProgressBarPanel();
+            _p2RewardPanel.ScoreBar = new CardPresentation.MilestoneScoreBar();
+            // `MilestoneScoreBar.Initialize` 只转「阈值表 + 图标 id + 当前分」这一跳；真正落笔的这两件由钩子做
+            _p2RewardPanel.ScoreBar.OnSetMilestones = (thresholds, iconId, score) =>
+            {
+                // ① 行那一半 = 原版 `MilestoneScoreBar.InitializeLines` → 每行 `GenericScoreBarLine.Initialize`
+                //    （写档位数字 + 换箱子图 + 按 `state == Unlocked` 亮 `Highlight Crate`）
+                if (_p2LastMilestones != null)
+                {
+                    if (_p2Lines.Count > _p2LastMilestones.Length)
+                        Debug.LogError(CardPresentation.ScoreBars.MilestoneScoreBar.ErrorMoreLinesThanThresholds);   // 原版同一句错误串（判据唯一来源）
+                    int n = _p2Lines.Count < _p2LastMilestones.Length ? _p2Lines.Count : _p2LastMilestones.Length;
+                    for (int i = 0; i < n; i++)
+                    {
+                        var line = _p2Lines[i];
+                        if (line == null) continue;
+                        if (_p2LastMilestones[i] != null
+                            && _p2LastMilestones[i].state == GenericScoringMilestoneState.Collected
+                            && !_p2ChestOpenNoted)
+                        {
+                            _p2ChestOpenNoted = true;
+                            Debug.LogWarning("[Event] 里程碑走到 `Collected` 档，但原版 `chestOpen`（开箱图，`GenericScoreBarLine +0x30`）"
+                                           + "在本批**没解到**（PPtr 在 `m_FileID = 7` 的另一个 CAB）⇒ 那一档箱子会变成空白");
+                        }
+                        line.Initialize(_p2LastMilestones[i], null);
+                    }
+                }
+                // ② 竖进度条那一格
+                SetP2MilestoneFill(score, thresholds);
+            };
+            _p2RewardPanel.SetText = (target, text) =>
+            {
+                var lb = target as Label;
+                if (lb != null) lb.SetText(text ?? string.Empty);
+            };
+            // `SetIcon` 不接：本页没有 `scoringImage` 那一格的载体（原版是 prefab 里的 Image，出厂无图）。
+        }
+
+        /// <summary>把归一化进度落到那条**竖**进度条上。
+        /// <para>🔴 方向 = **`BottomToTop`** —— 判据 = 原版那颗 `Slider` 的序列化字段
+        /// `m_Direction: 2`（`bundle_menus_assets_all/GameObject/Progress Bar_5909127448625655302.json`
+        /// 的 `MonoBehaviour`：`m_MinValue 0` · `m_MaxValue 1` · `m_Value 0` · `m_WholeNumbers 0` ·
+        /// `m_Interactable 0` · `m_FillRect → Fill`）⇒ `Fill` 占 `Fill Area` **下部 `normalizedValue` 那一截**。
+        /// <para>归一化值本身**不另写一份**算式：`AllianceEventScoreInfo.InterpolateMilestones` 就是
+        /// `MilestoneScoreBar.SetProgressBar` 那一句的唯一实现。</para></summary>
+        void SetP2MilestoneFill(int score, int[] thresholds)
+        {
+            float n = (thresholds != null && thresholds.Length > 0)
+                    ? AllianceEventScoreInfo.InterpolateMilestones(score, thresholds)
+                    : 0f;
+            LastMilestoneProgress = n;
+            if (_p2ProgressBar == null)
+            {
+                Debug.LogWarning("[Event] `SetP2MilestoneFill`：`Progress Bar` 节点不在 ⇒ 进度不画");
+                return;
+            }
+            if (_p2FillQuad != null)
+            {
+                // `ImageQuad` 没有「改矩形」的口（它的几何在建时烘进 mesh）⇒ 每次重建
+                if (Application.isPlaying) Object.Destroy(_p2FillQuad.gameObject);
+                else Object.DestroyImmediate(_p2FillQuad.gameObject);
+                _p2FillQuad = null;
+            }
+            if (n <= 0f) return;          // 原版出厂 `m_Value = 0` ⇒ Fill 高 0 ⇒ 一个像素都不画（同 `Energy` 口径）
+
+            if (_p2FillArea == null) _p2FillArea = MenuDraw.Node(_p2ProgressBar, "Fill Area", Scr(P2FillAreaR));
+            var fa = P2FillAreaR;
+            float h = (fa.y2 - fa.y1) * Mathf.Clamp01(n);
+            var fr = new PxRect(fa.x1, fa.y2 - h, fa.x2, fa.y2);
+            _p2FillQuad = MenuDraw.Rect(_p2FillArea, Tex(P2BarFillArt, "记分条填充"), Scr(fr), "Fill", QBar, Color.white);
+            if (_p2FillQuad == null)
+                Debug.LogWarning("[Event] `SetP2MilestoneFill`：`Fill` 的载体建不出来（`MenuDraw.Rect` 返回 null）⇒ 进度没画");
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent_OnGoingTab.OnOpen()` 的**数据那一半**（建树半见 `BuildOnGoingPage`）。
+        /// <para>⚠️ 原版那一段的输入全是远端 `TwoSidesEventData`（队伍名 / 队长 / 比分 / 里程碑），本机 0 份
+        /// ⇒ 与原版一样**只覆盖非空实参**（`ApplyTeamInfo` 那条「空值不覆盖 + 出声」口径），⛔ 不编数字也不清空。</para></summary>
+        /// <param name="mySide">哪一边是「我」（0 = A · 1 = B · -1 = 不知道）。原版由队伍数据自带，我们显式给。</param>
+        public void ApplyOnGoingTeams(string nameA, string captainA, string nameB, string captainB, int mySide)
+        {
+            FillOne(0, nameA, captainA);
+            FillOne(1, nameB, captainB);
+
+            // `Your Team` 两行：原版按「哪边是我」只亮一行。`mySide` 未知 ⇒ **两行都不动**（保持出厂）
+            if (mySide == 0 || mySide == 1)
+            {
+                for (int i = 0; i < _p2YourTeamLabels.Length; i++)
+                {
+                    var lb = _p2YourTeamLabels[i];
+                    if (lb == null) continue;
+                    lb.gameObject.SetActive(i == mySide);
+                }
+            }
+            else if (!_p2TeamNoteShown)
+            {
+                _p2TeamNoteShown = true;
+                Debug.Log("[Event] `ApplyOnGoingTeams`：`mySide` 未知 ⇒ `Your Team` 两行保持出厂（原版运行期由队伍数据决定）");
+            }
+        }
+
+        void FillOne(int side, string teamName, string captain)
+        {
+            var nl = side == 0 ? _p2TeamNameLabels[0] : _p2TeamNameLabels[1];
+            var cl = side == 0 ? _p2CaptainLabels[0] : _p2CaptainLabels[1];
+            if (nl == null || cl == null)
+            {
+                Debug.LogWarning("[Event] `ApplyOnGoingTeams(" + side + ")`：队名/队长有一颗不在 ⇒ **整格跳过**（⛔ 不半填）");
+                return;
+            }
+            if (!string.IsNullOrEmpty(teamName)) nl.SetText(teamName);
+            if (!string.IsNullOrEmpty(captain)) cl.SetText(captain);
         }
 
     }

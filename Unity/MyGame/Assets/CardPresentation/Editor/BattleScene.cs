@@ -15661,8 +15661,10 @@ public static class BattleScene
             //    🔴 **2026-10-24 第二处订正**：本段原来还写「⛔ 我们引擎**还不发**这条事件 ⇒ 那一半没接」——
             //    **已过期**：引擎已发 `EvtKind.ShowCardsWindow`（`J2_引擎结构自检.md` §二），
             //    表现层由 `BattleDriver.OpenShowCardsWindow` 消费 ⇒ 下面新增了 B-30①/②/③ 那一组断言。
-            //    ⚠️ **两条入口分开看**：原版那一条 = `EvtKind.ShowCardsWindow`；
-            //       **点我方牌堆** = 我们挑的（`driver.ShowMyDeck`，本节上面那些断言全靠它，⛔ 别删）。
+            //    🔴 **2026-10-29（`B98_N1`）**：「**点我方牌堆 ⇒ 摊开牌库**」那条入口**已按用户裁定删除**
+            //       （原版没有它；判据 → `BattleDriver.cs` 里 `HitMyDeckPile` 上方那段删除记号的 ①②③）⇒
+            //       本节原来靠 `driver.ShowMyDeck(true)` 开窗，**夹具改用窗自己的唯一打开口**
+            //       `MultiCardDisplay.Show(cards, header)`；原版那一条（`EvtKind.ShowCardsWindow`）**没变**。
             {
                 var mcd = driver.MultiCards;
                 Check(mcd != null, "多张展示窗建出来了（原版 `UIMultiCardDisplay`）");
@@ -15670,12 +15672,19 @@ public static class BattleScene
 
                 if (mcd != null)
                 {
-                    driver.ShowMyDeck(true);
+                    // 🔴 **2026-10-29（`B98_N1`）夹具改造（入口已按用户裁定删除）**：
+                    //   「点我方牌堆 ⇒ 摊开牌库」那条入口**不存在了** ⇒ 直接走窗自己的打开口
+                    //   `Show(cards, header)`。**张数仍取「牌库剩的张数」** —— 下面那几条
+                    //   版面 / 滚动 / 裁切 / 间距断言的量级因此**一点没变**（原义保持不变）。
+                    int deckN = c2.Players[0].Deck.Count;
+                    var deckProbe = new List<CardData>(deckN);
+                    for (int di = 0; di < deckN; di++) deckProbe.Add(CardData.Placeholder(di));
+                    mcd.Show(deckProbe, "测试标题");
                     Step(0.05f);
-                    Check(mcd.Visible, "★ 点牌堆 → **摊开牌库**");
-                    Check(mcd.HeaderShown == "你的牌库", $"★ 标题：「{mcd.HeaderShown}」");
-                    Check(mcd.CardCount > 0 && mcd.CardCount == c2.Players[0].Deck.Count,
-                          $"★ 摊开 {mcd.CardCount} 张 = 牌库剩的 {c2.Players[0].Deck.Count} 张");
+                    Check(mcd.Visible, "★ 开窗 → **摊开一批卡**（口 = `MultiCardDisplay.Show`；原版唯一入口是效果 470）");
+                    Check(mcd.HeaderShown == "测试标题", $"★ 标题**透传**：「{mcd.HeaderShown}」");
+                    Check(mcd.CardCount > 0 && mcd.CardCount == deckN,
+                          $"★ 摊开 {mcd.CardCount} 张 = 传入的 {deckN} 张（= 牌库剩的张数）");
                     // 一排的宽度 —— 🔴🔴 **2026-10-24（`W64·B-25`）整段重写**：
                     //   原来断的是「装不下就等比缩（45% 地板）」那套我们自己的近似。
                     //   **原版不缩**：`ScrollRect(horizontal, Clamped)` + `RectMask2D`，卡按自然尺寸画、
@@ -15884,7 +15893,10 @@ public static class BattleScene
                         {
                             // ① 多卡窗开窗 = **无声**（原版 `openSound` 空）
                             WindowSounds.ResetCounters();
-                            driver.ShowMyDeck(true);       // ⚠️ 不 `Step`：Show 是同步建好就 Visible ⇒
+                            // 🔴 **2026-10-29（`B98_N1`）**：入口「点我方牌堆」已按用户裁定删除 ⇒
+                            //   夹具改用窗自己的打开口 `Show(cards, header)`（本节验的是**窗级声音**）。
+                            mcdSnd.Show(new List<CardData> { CardData.Placeholder(0), CardData.Placeholder(1) }, null);
+                                                           // ⚠️ 不 `Step`：Show 是同步建好就 Visible ⇒
                                                            //    夹一帧跑别的系统会污染 `WindowSounds` 的计数。
                             Check(mcdSnd.Visible && WindowSounds.Played == 0,
                                   "★ R9①（多卡窗）：**开窗不出声**（原版 MB_4182 的 `openSound` 是空引用）"
@@ -15945,7 +15957,7 @@ public static class BattleScene
                                 + $"（播放次数实得 {WindowSounds.Played}）");
                         }
                     }
-                    driver.ShowMyDeck(false);
+                    mcd.Hide();     // 🔴 2026-10-29（`B98_N1`）：入口已删 ⇒ 收尾直接关窗
                     Check(!mcd.Visible, "关掉");
                 }
 
@@ -34149,7 +34161,9 @@ public static class BattleScene
                                 && mcd4.BackgroundCloseButtonForTest != null)
                             {
                                 // ① 手搓那条路**已经退场**：按下 / 松手都不关窗
-                                wb4.ShowMyDeck(true);
+                                // 🔴 **2026-10-29（`B98_N1`）**：「点我方牌堆 ⇒ 摊开牌库」入口已按用户裁定删除 ⇒
+                                //   夹具改用窗自己的打开口 `Show(cards, header)`（本节验的是**窗的关闭路**）。
+                                mcd4.Show(new List<CardData> { CardData.Placeholder(0), CardData.Placeholder(1) }, null);
                                 Check(wb4.MultiCardsVisibleForTest, "★ A462：（前提）多卡摊开窗开得起来");
                                 BattleDriver.PointerWorldForTest = LayoutSpace.ToWorld(0.5f, 0.5f);   // 随便一点（不是牌堆）
                                 BattleDriver.PointerHeldForTest = true;
@@ -34181,8 +34195,9 @@ public static class BattleScene
                                 Check(wb4.TickMultiCardsForTest() && wb4.MultiCardsVisibleForTest,
                                       "★ A462：指在牌堆上 —— **松手那一帧也不再靠手搓关**（那条已退场；"
                                     + "关这一下由全屏背景关闭件收）"
-                                    + "｜🧨 把「`if (tapped) Hide()` + `if (tapped && onDeck) ShowMyDeck(true);`」"
-                                    + "加回去 ⇒ 本条红（窗会被 hide 完立刻 show，永远关不掉）");
+                                    + "｜🧨 把「`if (tapped) Hide()`」加回 `TickMultiCards` ⇒ 本条红"
+                                    + "（那正是「两条关闭路并存」= 一次点击走两遍；"
+                                    + "原来那句「点牌堆再 show 回来」的入口已按用户 2026-10-29 裁定删除）");
 
                                 // ③ uGUI：点「继续」⇒ 只挂起 → 面板 `LateUpdate` 落账（批处理手动落）
                                 int mcdClick4 = mcd4.UguiCloseClickCountForTest;
@@ -34203,10 +34218,11 @@ public static class BattleScene
                                     + $"（探针文件 {(File.Exists(mcdProbe4) ? "有" : "**没有**")}；"
                                     + "没记录时 `ClickLog.End()` 会早退、`LastBlock` 是上一笔 ⇒ 所以同时看文件）");
                                 Check(mcd4.ApplyPendingCloseForTest() && !mcd4.Visible,
-                                      "★ A462：……落账 ⇒ 关掉一次，而且**同一按不会被 `ShowMyDeck(true)` 开回来**"
+                                      "★ A462：……落账 ⇒ 关掉一次，而且**同一按不会把窗开回来**"
+                                    + "（原版那扇窗没有「点牌堆再开一次」这条路 —— 那条入口已按用户 2026-10-29 裁定删除）"
                                     + "｜🧨 改回手搓那两句 ⇒ 本条与上面那条**结构上不可能同时满足**");
                             }
-                            wb4.ShowMyDeck(false);      // 收尾：别让窗挂着影响后面几段
+                            mcd4.Hide();                // 收尾：别让窗挂着影响后面几段（🔴 `B98_N1`：入口已删，直接关窗）
                         }
 
                         // ============================================================
@@ -36518,7 +36534,7 @@ public static class BattleScene
                     Check(driver.DeckSizeVisibleForTest && driver.HandSizeVisibleForTest,
                           "★ 再按回去 ⇒ **又亮**（一藏一显 ⇒ 这一条既不可能是「恒藏」也不可能是「恒显」）");
                     driver.SetCardHoldForTest(null);        // 还原成看真指针，别影响后面的段
-                    driver.ApplyTutorialVisibilityForTest(); B97_BD_Assert.CheckB97BD(driver); B97W18Assert.CheckB97W18(driver); B97W37_Assert.CheckB97W37(driver); B97W41Assert.Run(); pass += B97W41Assert.Pass; fail += B97W41Assert.Fail; B97W43_Assert.CheckB97W43(driver); pass += B97W43_Assert.Pass; fail += B97W43_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W18`）：账 `战斗界面_HUD:364` 回放候选面板 + `战斗逻辑驱动:1081` 重演装回 22 格（`slotsPerSide` 跳过）；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_BD`）：账 255（`ChoicesMaxTargets` 数据优先）· 292（督军入场 ×1.3 + 落地回正）。接在 `BeginTutorial(0)` 之前 ⇒ 不污染后面那一段
+                    driver.ApplyTutorialVisibilityForTest(); B97_BD_Assert.CheckB97BD(driver); B97W18Assert.CheckB97W18(driver); B97W37_Assert.CheckB97W37(driver); B97W41Assert.Run(); pass += B97W41Assert.Pass; fail += B97W41Assert.Fail; B98A2_Assert.Run(); pass += B98A2_Assert.Pass; fail += B98A2_Assert.Fail; B98A6_Assert.Run(); pass += B98A6_Assert.Pass; fail += B98A6_Assert.Fail; B98N1Assert.Run(); B98N1Assert.CheckB98N1(driver); pass += B98N1Assert.Pass; fail += B98N1Assert.Fail; B98G4_Assert.CheckB98G4(driver); pass += B98G4_Assert.Pass; fail += B98G4_Assert.Fail; B98M1_Assert.Run(); pass += B98M1_Assert.Pass; fail += B98M1_Assert.Fail; B98P1_Assert.Run(); pass += B98P1_Assert.Pass; fail += B98P1_Assert.Fail; B98H4_Assert.Run();   B97W43_Assert.CheckB97W43(driver); pass += B97W43_Assert.Pass; fail += B97W43_Assert.Fail; // [B98_Q2 2026-10-29 代接线] N1(A反射+B按住牌堆/不再摊开)·G4(driver：240/254/255/233/94/1037+召唤闸)·M1(卡牌四条)·P1(卡框矩形)·H4(喂入点/模式闸，自建驱动自销毁)。接在本段末（⑤ `BeginTutorial(0)` 之前）⇒ 不污染后面那一段；⚠️ 顺手发现：本行原来那句 `B97W43_Assert.CheckB97W43(driver)` 被夹在 `//` 之后 ⇒ 从来没执行过   // [B98 调度台 2026-10-29 代接线] A2=结算行数字自适应 · A6=mark 行右列 B97W43_Assert.CheckB97W43(driver); pass += B97W43_Assert.Pass; fail += B97W43_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W18`）：账 `战斗界面_HUD:364` 回放候选面板 + `战斗逻辑驱动:1081` 重演装回 22 格（`slotsPerSide` 跳过）；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_BD`）：账 255（`ChoicesMaxTargets` 数据优先）· 292（督军入场 ×1.3 + 落地回正）。接在 `BeginTutorial(0)` 之前 ⇒ 不污染后面那一段
 
                     // ---- ⑤ 督军两拍（原版 `BattleManager.TutorialStartSequence`，**不是动作档**）----
                     driver.BeginTutorial(0);
@@ -39177,8 +39193,10 @@ public static class BattleScene
                         if (mc964 != null)
                         {
                             CloseAll964();
-                            drvE964.ShowMyDeck(true);
-                            Check(mc964.Visible, "★ A964/E2④：（前提）摊开牌库 ⇒ 多卡窗开起来了");
+                            // 🔴 **2026-10-29（`B98_N1`）**：「点我方牌堆 ⇒ 摊开牌库」入口已按用户裁定删除 ⇒
+                            //   夹具改用窗自己的打开口 `Show(cards, header)`（本节只验「继续」那颗的几何）。
+                            mc964.Show(new List<CardData> { CardData.Placeholder(0), CardData.Placeholder(1) }, null);
+                            Check(mc964.Visible, "★ A964/E2④：（前提）多卡窗开起来了");
                             if (mc964.Visible)
                             {
                                 var cb964 = mc964.ContinueBarWorldPos;

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "note": "🔶 本地模拟的轮抽活动（非原版下发）。原版这份由服务端（PlayFab/CCD）下发，服务器已关服 ⇒ 判据在远端；本文件是我们挑的一份替代数据，消费方 = CardPresentation/Shell/DraftLocalEvent.cs。⛔ 与原版卡包表 draft_packs.json 无关，不要往那边挪字段。",
+  "eventId": "LocalSimDraftEvent",
+  "timed": true,
+  "titleTerm": "Demo/DraftMode/SelectWarlord",
+  "titleLiteral": "",
+  "specificArmies": ["Ultramarines", "Goff"],
+  "armyTotals": [1240, 980],
+  "eventImage": "40K_Chat_icon_Alliance_v2",
+  "premiumCost": 150,
+  "premiumTenCost": 1500,
+  "premiumCurrency": "40k_topmarquee_currency_crystal",
+  "startOffsetMinutes": -60,
+  "endOffsetMinutes": 180,
+  "expirable": true,
+  "expireOffsetMinutes": 240,
+  "forceExpireAfterSeconds": 0
+}

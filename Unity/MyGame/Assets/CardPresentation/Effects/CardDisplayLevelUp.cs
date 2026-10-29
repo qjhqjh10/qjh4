@@ -284,7 +284,7 @@ namespace CardPresentation
                                + "导入清单 → `报告/B8_AB_特效动画C档.md` §五·8");
             }
             // ③
-            PlayShake();
+            PlayShake(); BeginPulse();     // `impulseSource.GenerateImpulse()` ＋ 原版 clip 的「根脉冲」（见类尾 `BeginPulse`）
             // ④ + ⑤
             fadeBackground.SetActive(true);
             StartFade(fadeBackground.Color.a, DoAnimFadeTo, DoAnimFadeTime, deactivateAtEnd: false);
@@ -321,7 +321,7 @@ namespace CardPresentation
         public void AnimationFinished()
         {
             FinishedCount++;
-            InputBlocked = false;
+            InputBlocked = false; ResetPulse();   // 收尾把根脉冲比值归 1（判据 `判据/升级动画scale曲线_节点映射.md` §五·A「收尾」）
             if (onAnimationFinished != null) onAnimationFinished();
         }
 
@@ -345,7 +345,7 @@ namespace CardPresentation
         {
             if (dt <= 0f) return;
             StepFade(dt);
-            StepShake(dt);
+            StepShake(dt); StepPulse(dt);   // 根脉冲（原版 clip 第 ① 条 scale 曲线，判据见类尾）
         }
 
         void Update() { Tick(Time.deltaTime); }
@@ -437,6 +437,136 @@ namespace CardPresentation
                 if (a == null || a.clip == null) return false;
                 return a.isPlaying || !Application.isPlaying;
             }
+        }
+
+        // ================================================================== 根脉冲（原版 clip 第 ① 条 `m_ScaleCurves`）
+        //
+        //  🥇 判据 = `Level Up Card` clip 的 `m_ScaleCurves[0]`（`path: ''` = **动画根自己**）：
+        //    `d:/2/新解包资源/assets_full/bundle_scenes_scenes_mainmenuwarpforge/AnimationClip/AnimationClip_10.json`
+        //    （= `assetripper_out/ExportedProject/Assets/AnimationClip/Level Up Card.anim:18-95`）：
+        //
+        //      t=0            (250,     250,     250     )  si/so = 0
+        //      t=1.4333333    (250,     250,     250     )  si/so = 0
+        //      t=1.45         (288.97699, 288.98001, 254.30411)  si/so = 0
+        //      t=1.5833334    (250,     250,     250     )  si/so = **72.92988 / 68.22313 / 68.66892**
+        //      t=1.8333334    (250,     250,     250     )  si/so = 0
+        //
+        //  · `path: ''` 的根是谁 = 场景里的 **`CardUI`**（卡视图根，`m_LocalScale = 250`），
+        //    ⛔ **不是** `Upgrade Panel`（那个只是控制器组件的宿主）。证据链 → `判据/升级动画scale曲线_节点映射.md` §二·1。
+        //  · 250 是「1 卡单位 = 250 画布 px」的量纲 ⇒ 有意义的只有**相对值**：288.977/250 = **1.155907959** …
+        //  · ⛔ **不能写进 clip**：我们的 `Animation` 挂在**窗根**（`Shell/CardDetailPopup.cs:3298`）⇒ `path: ''`
+        //    会把**整扇窗**放大 250 倍；写成 `Card Display/CardUI` 又会在 **1.45 s（正好是峰值）**
+        //    被 `ChangeFrame → RebuildKeepingState()` 撞上。⇒ 走**代码补间**（判据 §五·A 那三条理由）。
+        //  · 写入口 = `CardView.SetExtraScale`（⛔ **不直接写 `transform.localScale`** —— 会被下一次
+        //    `SetPose`/`SetHighlightScale` 的 `ApplyScale()` 静默冲掉）。
+        //  · 我们的基准缩放 = `CardView.BaseScale`（槽 0 是 250/108 = 2.3148148，**别写死**）⇒
+        //    这里只算**比值**，乘上去由 `CardView` 做。
+        //  · 末键之后曲线恒 1 ⇒ 用 `PulseEndTime` 自己收尾；`AnimationFinished` 再兜一次（⛔ 别只归 x/y 忘了 z）。
+        //  ⚠️ 目标节点被 `RebuildKeepingState()` 重建后要**重新取**（接线方负责；本件检测到 null 就收尾，
+        //    不会把「卡永久大 15.6%」那种最坏情况留在场上）。
+
+        /// <summary>原版那条 scale 曲线的目标（**卡视图根** = 槽 0 的 `CardView`；原版是场景里的 `CardUI`）。
+        /// <para>⚠️ 没接线时**出声一次**、脉冲不作用（⛔ 不静默）；重建卡之后由接线方重新赋值。</para></summary>
+        public CardView pulseTarget;
+
+        /// <summary>曲线关键帧时刻（秒，与原版 clip 逐位相同）。</summary>
+        public const float PulseRiseTime = 1.4333332777f;
+        public const float PulsePeakTime = 1.4500000477f;
+        public const float PulseFallTime = 1.5833333731f;
+        public const float PulseEndTime = 1.8333333731f;
+
+        /// <summary>峰值比值（原版 288.97699 / 250 等三轴，逐位）—— 断言直接对它比。</summary>
+        public const float PulsePeakX = 1.155907958984375f;    // 288.97698974609375 / 250
+        public const float PulsePeakY = 1.1559200439453125f;   // 288.9800109863281  / 250
+        public const float PulsePeakZ = 1.0172164306640625f;   // 254.30410766601562 / 250
+
+        /// <summary>末键的斜率（原版 72.92987823486328 / 68.22312927246094 / 68.6689224243164，÷250 换算成**比值**量纲）。</summary>
+        const float PulseSlopeX = 0.29171951293945312f;
+        const float PulseSlopeY = 0.27289251708984376f;
+        const float PulseSlopeZ = 0.27467568969726563f;
+
+        /// <summary>当前比值（缺省 = 1）。断言/诊断读口。</summary>
+        public Vector3 PulseRatio { get { return _pulseRatio; } }
+        /// <summary>脉冲是否在跑。</summary>
+        public bool PulseActive { get { return _pulseRunning; } }
+        /// <summary>`BeginPulse` 被调的次数（= `DoAnim` 的次数，除非手工调）。</summary>
+        public int PulseStarts { get; private set; }
+
+        Vector3 _pulseRatio = Vector3.one;
+        float _pulseT;
+        bool _pulseRunning;
+        bool _warnedNoPulseTarget;
+
+        /// <summary>起一次根脉冲（`DoAnim` 里调；手工调用于自检）。**先归 1 再计时**，重复调用不会叠加。</summary>
+        public void BeginPulse()
+        {
+            PulseStarts++;
+            _pulseT = 0f;
+            _pulseRunning = true;
+            _pulseRatio = Vector3.one;
+            if (pulseTarget == null && !_warnedNoPulseTarget)
+            {
+                _warnedNoPulseTarget = true;
+                Debug.LogWarning("[CardDisplayLevelUp] `pulseTarget` 没接线 ⇒ 原版 `Level Up Card` clip 第 ① 条"
+                               + " scale 曲线（`CardUI` 250→288.98→250，即 ×1.1559 的根脉冲）**不作用**"
+                               + "（应传槽 0 的 `CardView`；⛔ 不是静默：这条只出声一次）");
+            }
+            ApplyPulse();
+        }
+
+        /// <summary>收尾：比值归 1（`AnimationFinished` 与「末键之后」都调它）。重复调用无害。</summary>
+        public void ResetPulse()
+        {
+            _pulseRunning = false;
+            _pulseT = 0f;
+            _pulseRatio = Vector3.one;
+            if (pulseTarget != null) pulseTarget.SetExtraScale(Vector3.one);
+        }
+
+        void StepPulse(float dt)
+        {
+            if (!_pulseRunning) return;
+            _pulseT += dt;
+            ApplyPulse();
+        }
+
+        void ApplyPulse()
+        {
+            if (!_pulseRunning) return;
+            if (_pulseT >= PulseEndTime) { ResetPulse(); return; }     // 末键之后曲线恒 1
+            if (pulseTarget == null) return;                           // 目标被重建/销毁 ⇒ 不写，等收尾
+            var cs = PulseCurves();
+            _pulseRatio = new Vector3(cs[0].Evaluate(_pulseT), cs[1].Evaluate(_pulseT), cs[2].Evaluate(_pulseT));
+            pulseTarget.SetExtraScale(_pulseRatio);
+        }
+
+        static AnimationCurve[] _pulseCurves;
+
+        /// <summary>三轴各一条（原版就是三条独立曲线，x 与 y 在峰值差 0.000012、z 是另一档）。
+        /// ⚠️ **逐键必须给 `inTangent/outTangent`**：`new Keyframe(t, v)` 是 0 斜率、与原版一致，
+        /// 但末键那一对非 0（72.93/68.22/68.67 ÷250）—— 少了它整段就变成「冲到峰值再硬落」，
+        /// 原版那一下 **0.99929 的欠冲**也会消失（端点断言抓不到，只有中段能抓）。</summary>
+        static AnimationCurve[] PulseCurves()
+        {
+            if (_pulseCurves != null) return _pulseCurves;
+            _pulseCurves = new[]
+            {
+                PulseCurve(PulsePeakX, PulseSlopeX),
+                PulseCurve(PulsePeakY, PulseSlopeY),
+                PulseCurve(PulsePeakZ, PulseSlopeZ),
+            };
+            return _pulseCurves;
+        }
+
+        static AnimationCurve PulseCurve(float peak, float slope)
+        {
+            var c = new AnimationCurve(
+                new Keyframe(0f, 1f),
+                new Keyframe(PulseRiseTime, 1f),
+                new Keyframe(PulsePeakTime, peak),
+                new Keyframe(PulseFallTime, 1f, slope, slope),
+                new Keyframe(PulseEndTime, 1f));
+            return c;
         }
     }
 }

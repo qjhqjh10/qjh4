@@ -114,8 +114,8 @@ namespace RuleEngine
         //   `MoveDeckTopToHand` 前后各一句。
 
         /// <summary>
-        /// 原版 `BattleManager.SetNextCardAsDeckDrawing(isPlayer)`：把该侧牌库**第一张还在牌库里**的卡
-        /// 置成 `cardState 16 (inDeckDrawing)`。判据与「为什么不接进 `Draw`」见上面那一段。
+        /// 原版 `BattleManager.SetNextCardAsDeckDrawing(isPlayer)`：把该侧牌库**顶**那张（本仓 = 列表**末尾**；从末尾往前找第一张未被标记的）置成 `cardState 16 (inDeckDrawing)`。
+        /// 判据见上面那一段。⚠️ [B98_A10 2026-10-29] 该段末句「没有接进 `Draw`」**已过期** —— `B98_G1` 已把它接进 `RuleCore.Draw`（`RuleCore.cs:2965`，先标再抽）；「截断 / 未接」那两处叙述按这条读。
         /// </summary>
         /// <param name="seat">`0` / `1`（= 原版那个 `isPlayer` 布尔换成座位号，本仓一律用座位）。</param>
         /// <returns>被置位的那一张（牌库空 / 已有标记 ⇒ `null`）。</returns>
@@ -125,9 +125,9 @@ namespace RuleEngine
             var ps = ctx.Players[seat];
             if (ps == null || ps.Deck == null) return null;
             var marks = ctx.DeckDrawingInstanceIds;
-            // 原版从下标 0 起扫，取**第一张** `cardState == inDeck(0)` —— 我们已经标记过的那几张
-            // 等价于原版「cardState 已经是 16 ⇒ 条件 `== 0` 为假 ⇒ 跳过」。
-            for (int i = 0; i < ps.Deck.Count; i++)
+            // 🔴 原版从下标 0 起扫（`SetNextCardAsDeckDrawing.c:19-40`），但**原版下标 0 = 牌库顶**；我们的 `Deck` 是镜像约定（**末尾才是顶**，判据 = `RuleCore.cs:3127` 的注释 + `MoveDeckTopToHand` 取 `Count-1`）⇒ 必须**从末尾往前**扫，标的才是牌库顶那张（2026-10-29 `B98_A10` 订正：原来从 0 起扫 ⇒ 标的是**牌库底**）。
+            // 已经标记过的那几张等价于原版「cardState 已经是 16 ⇒ 条件 `== 0` 为假 ⇒ 跳过」。
+            for (int i = ps.Deck.Count - 1; i >= 0; i--)
             {
                 var inst = ps.Deck[i];
                 if (inst == null) continue;

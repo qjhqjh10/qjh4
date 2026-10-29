@@ -480,14 +480,14 @@ namespace CardPresentation
                 _protLastOpen = now;
             }
 
-            // 🆕 **2026-10-17（音效线 `W_G`）**：拆包那一声（原版 `BoosterPackVisualItem.openBoosterPack`，
-            //   `BoosterPackVisualItem__Initialize.c` 末段 `SoundManager.Play2D(cue, **3 = Jingles**)`）。
-            // 🔴 **落点是我们挑的**：原版这一声在「卡包实物被点开、卡片开始飞出」那一刻（`BoosterPackVisualItem`），
-            //   而 `BoosterPackVisualItem`（卡包实物那件东西）我们**没建**（开包窗是直接铺 5 张卡的）⇒ 唯一对应的
-            //   可听时刻就是本窗铺内容这一拍 ⇒ 落在 `Build()` 末尾之前（`Army` 已定、还没铺卡）。
-            //   如实标注，⛔ 别把它当成原版的同一跳。
-            //   阵营 → cue 的映射判据 → `WindowSounds.BoosterOpenCue`。
-            WindowSounds.PlayJingles(WindowSounds.BoosterOpenCue(Army), "开包窗铺内容（拆包声）");
+            // ✅ **2026-10-29（`B98_A5` · 账 `锻造:23`）：拆包那一声【已回到原版的位置】。**
+            //   原版它在 `BoosterPackVisualItem.Initialize` 末段（`SoundManager.Play2D(openBoosterPack, Jingles)`），
+            //   而卡包实物现在按原版建出来了（`BuildVisualItemLayer`，本方法的下面那一句）⇒ 这一声由那里播。
+            //   🔴 原来这里那句 `WindowSounds.PlayJingles(WindowSounds.BoosterOpenCue(Army), …)` **已删**：
+            //   留着就是**两声**（同一个包拆两次），而原版只有 `Initialize` 那一跳。
+            //   ⚠️ 取不到包面那件东西（bundle 不在 / 阵营认不出）时这一声也不响 —— 与原版「没有那件东西」一致，
+            //   且那条路会**出声**（`BoosterPackAssets` 与 `BuildVisualItemLayer` 各有一条 `LogWarning`）。
+            //   阵营 → cue 的映射判据 → `WindowSounds.BoosterOpenCue`（唯一一张表）。
 
             // ① 背景：**纯色块**（原版 `backgroundImage` 的 `m_Sprite = 0`）——
             //    有传奇就换成 `thereIsALegendaryCardbackgroundColor`。
@@ -508,7 +508,7 @@ namespace CardPresentation
             _anchorNode = anchor;
             _anchorBase = anchor != null ? anchor.localPosition : Vector3.zero;
 
-            for (int i = 0; i < 5; i++) BuildSlot(cards, i);
+            for (int i = 0; i < 5; i++) BuildSlot(cards, i); BuildVisualItemLayer(anchor, cards);   // ← 账 `锻造:23`（同一行：⛔ 不在这里加行，见报告「行号纪律」）
 
             // ⑤ `Tap to discover`（原版**开窗是关着的**）
             DiscoverNode = MenuDraw.Node(transform, "Tap to discover", HintR);
@@ -1439,6 +1439,239 @@ namespace CardPresentation
             }, to, CardHighlight.OutlineAnimTime);
             DG.Tweening.TweenSettingsExtensions.SetTarget(tw, m);
             DG.Tweening.TweenSettingsExtensions.SetEase(tw, DG.Tweening.Ease.Linear);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-29（`B98_A5` · 账 `锻造:23`）：卡包实物 `BoosterPackVisualItem`（原版那件独立 3D prefab）**
+        //
+        //  原版：`BoosterPackOpenWindow.Initialize` 里
+        //        `Instantiate(prefab, boosterPackAnchor)` → `BoosterPackVisualItem.Initialize(inst, **null**, this)`；
+        //        判据 = `d:/2/tools/decomp_full/BoosterPackOpenWindow__Initialize.c`
+        //               （`Object__Instantiate(param_3, +0xa8)` → 存 `+0xd0` → `BoosterPackVisualItem__Initialize(inst, 0, this, 0)`）。
+        //  锚点：`boosterPackAnchor` = RectTransform `-3486917825874871261` = 节点 **`Booster Animation Parent`**
+        //        （窗口 MB `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_9012570135841684515.json` 逐字实读）
+        //        ⇒ 就是本窗 `Build()` 里那颗 `anchor`。
+        //  取件：`CardPresentation/BoosterPackAssets.cs` —— 17 棵原版 prefab 连同材质/贴图/shader 全在
+        //        `StreamingAssets/WarpforgeVFX/wf_boosters_extra.bundle` 里，**零属性拷贝**直接实例化。
+        //  🔴 **它自己那条 2 s clip 一起带进来**（`Booster Open <阵营>`，legacy、`m_PlayAutomatically = true`）：
+        //        炸开（`material._ExplodeRange` / `_InflateDistance`）+ 粒子 + 阵营字淡出，**t = 2.0 的
+        //        AnimationEvent = `StartCardAnimationEvent`** ⇒ 转调本窗 <see cref="StartOpenAnimations"/>。
+        //  ⛔ 不做：自己拿 quad 拼一个包面（那是自设计，账里已写死不许）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 prefab 根的 `m_LocalScale = **150**`（画布单位）⇒ ÷108 = 我们的世界单位（108 px/单位）。
+        /// 判据 = `bundle_boosterpacks_assets_all` 的 17 棵 prefab **根 `Transform` 逐棵实读**（17/17 都是 150）。</summary>
+        public const float VisualItemScale = 150f / 108f;
+
+        /// <summary>原版 prefab 根的 `m_LocalPosition = (7.547150, 8.989313, −14.145021)`（画布单位 · 17/17 相同）。
+        /// x / y **÷108 照搬**；**z 不照搬** —— 见 <see cref="VisualItemZ"/> 那一段。</summary>
+        public static readonly Vector3 VisualItemOffsetPx = new Vector3(7.5471497f, 8.989313f, -14.145021f);
+
+        /// <summary>🔶 自己设计（非原版·**仅量值**）：卡包实物的 z = **−0.25**（世界单位）· 5 张卡所在 `Cards` 那层 = **−0.5**。
+        /// <para>🔴 **方向判据已查实（`B98_A8` 2026-10-29 · 铁律 5 就地订正 A5 那句「本机拿不到判据」）**：相机
+        /// `Camera_602`（主菜单场景）`m_LocalRotation` = 恒等 ⇒ 视线沿 **+z**；原版全部画布 `Canvas/*` 的
+        /// `m_LocalRotation` **也是恒等**，而 `ScreenSpaceCamera` 根画布 `Canvas_1077` 由 Unity 摆在「相机前方
+        /// `planeDistance`(=100)」且旋转 = 相机旋转 ⇒ 画布 local **+z 恒 = 相机 forward** ⇒ **local −z 恒 = 朝相机 = 更近**。
+        /// 故 `Booster pack Background`(z=0) 最远、包实物(`anchor −202` ⇒ 更负)更近 ⇒ **包在背景前是确定的**（不是读反）。
+        /// ⚠️ 仍属我们选的只有**量值**：原版在画布像素单位、且 `Canvas_1077` 的 `m_LocalScale` 序列化为 (0,0,0)
+        /// （运行时由 Unity 定）⇒ 绝对深度不可搬；本工程相机正交（`LayoutSpace.Apply`）⇒ z 不改尺寸、只决定「谁压谁」。
+        /// ⚠️ 不这么摆会怎样：包面是不透明网格（Geometry 队列、写深度），本窗背景是一张铺满屏的**透明** quad
+        /// （`Sprites/Default`、队列 3170、后画）⇒ 两者同在 z = 0 时**背景会把包面整块盖住** ⇒ 包必须更近。
+        /// ⚠️ 5 张卡那层的前后**另有机制**（原版走画布排序，⛔ 不是 z）—— 见 `CardsFrontZ` 的整段。
+        /// 判据 → `Camera_602`(rot 恒等·perspective fov40) · `Canvas_1077`(rm=1·plane 100) ·
+        /// `RectTransform_-3486917825874871261.json`(anchor z=−202)。方向判据 `B98_A8` 2026-10-29；量值 `B98_A5` 2026-10-29。</para></summary>
+        public const float VisualItemZ = -0.25f;
+
+        /// <summary>🔶 自己设计（非原版·**机制等价**）：`Cards` 那一层的 z。**原版不靠 z 放卡** —— `Cards` 是一颗
+        /// **嵌套 WorldSpace `Canvas`（`m_OverrideSorting=1 · m_SortingOrder=2`，`Canvas_938644307404471331.json`）**，卡按画布排序批次叠在最上；我们 UI 走深度测试、没有这条排序罐 ⇒ 只能用「比包面更近」(= `VisualItemZ − 0.25`) 复现「卡在最前」。幅度是我们的。</summary>
+        public const float CardsFrontZ = -0.5f;
+
+        /// <summary>这一包装的卡包实物（`null` = 没建出来，原因由 `BuildVisualItemLayer` 出声）。</summary>
+        public BoosterPackVisualItem VisualItem { get { return _visualItem; } }
+        BoosterPackVisualItem _visualItem;
+
+        /// <summary>这一包用的是哪一棵 prefab（自检读口；`null` = 没取到）。</summary>
+        public string VisualItemPrefab { get { return _visualItemPrefab; } }
+        string _visualItemPrefab;
+
+        /// <summary>`Booster Animation Parent`（= 原版 `boosterPackAnchor`）那一颗 —— 自检读口。
+        /// ⚠️ 抖卡容器抖的就是它，所以「抖没抖」也只能量它（`StepBursts` 写它的 `localPosition`）。</summary>
+        public Transform AnchorNode { get { return _anchorNode; } }
+
+        /// <summary><see cref="StartOpenAnimations"/> 真正**重开**过几次（自检读口：原版每一拍 `Animation.Play()`
+        /// 都算一次；「时间线已跑完 ⇒ 不重播」那一档**不计**）。</summary>
+        public int OpenAnimStarts { get; private set; }
+
+        /// <summary>建卡包实物（原版 `Instantiate(prefab, boosterPackAnchor)` + `Initialize(null, this)`）。
+        /// ⚠️ 调用点在 `Build()` 里那句 `for (… BuildSlot …)` 的**同一行末尾** —— 🔴 **刻意不加行**：
+        /// 本文件有 20+ 条账的 `文件:行号` 落点，往上插一行就会让它们全部漂移（见报告「行号纪律」）。</summary>
+        void BuildVisualItemLayer(Transform anchor, Transform cards)
+        {
+            _visualItem = null;
+            _visualItemPrefab = null;
+
+            // ① 5 张卡那一层挪到包面**前面**（理由 = `VisualItemZ` 那一整段）。
+            //    ⚠️ 必须在 5 个 slot 建完之后改：slot 的 localPosition.z 是「建的时候父节点 z = 0」算出来的 0
+            //    （`MenuDraw.Local` 会减父节点的设计空间位置）⇒ 之后再挪 `Cards` 的 z，整叠卡一起跟着走，相对关系不变。
+            if (cards != null)
+            {
+                var cp = cards.localPosition;
+                cards.localPosition = new Vector3(cp.x, cp.y, CardsFrontZ);
+            }
+
+            if (anchor == null)
+            {
+                Debug.LogWarning("[BoosterPack] 找不到 `Booster Animation Parent`（= 原版 `boosterPackAnchor`）"
+                                 + " ⇒ 卡包实物**挂不上**（原版是 `Instantiate(prefab, boosterPackAnchor)`）");
+                return;
+            }
+
+            string prefabName;
+            if (!BoosterPackAssets.TryGetPrefabForArmy(Army, out prefabName)) return;   // 它自己已经出过声
+            GameObject prefab;
+            if (!BoosterPackAssets.TryGetPrefab(prefabName, out prefab) || prefab == null) return;   // 同上
+
+            var go = Instantiate(prefab, anchor);      // = 原版 `Object.Instantiate(prefab, boosterPackAnchor)`
+            go.name = "BoosterPackVisualItem";
+            go.transform.localPosition = new Vector3(VisualItemOffsetPx.x / 108f, VisualItemOffsetPx.y / 108f, VisualItemZ);
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one * VisualItemScale;
+
+            var item = go.GetComponent<BoosterPackVisualItem>();
+            if (item == null) item = go.AddComponent<BoosterPackVisualItem>();
+
+            var mr = go.GetComponent<MeshRenderer>();
+            if (mr == null) mr = go.GetComponentInChildren<MeshRenderer>(true);
+            if (mr == null)
+                Debug.LogWarning("[BoosterPack] 卡包实物上找不到 `MeshRenderer`（原版 `myRenderer`）⇒ 包面画不出来"
+                                 + "（判据：17 棵 prefab 的根上都有 `MeshFilter` + `MeshRenderer`）");
+
+            item.Bind(mr, FindArmyTexts(go.transform), WindowSounds.BoosterOpenCue(Army), BoosterTermOf(Army),
+                      OriginalShakePresets());
+            LiftPackParticles(go.transform);
+
+            item.Initialize(null, this);               // 原版：`BoosterPackVisualItem__Initialize(inst, **0**, this, 0)`
+            _visualItem = item;
+            _visualItemPrefab = prefabName;
+            Debug.Log("[BoosterPack] 卡包实物已建（prefab `" + prefabName + "`）：" + item.Dump());
+        }
+
+        /// <summary>原版 `armyTexts[2]` = prefab 里那两颗**世界空间** TMP（节点名 `Army Text` / `Army Text 2`）。
+        /// 先按名字取（名字来自 prefab 实读）；名字对不上就退回「子树里全部 `TextMeshPro`」（⛔ 不是
+        /// `TextMeshProUGUI` —— 原版那两颗 `m_isOrthographic = 0`）。</summary>
+        static TMPro.TextMeshPro[] FindArmyTexts(Transform root)
+        {
+            if (root == null) return new TMPro.TextMeshPro[0];
+            var all = root.GetComponentsInChildren<TMPro.TextMeshPro>(true);
+            var named = new System.Collections.Generic.List<TMPro.TextMeshPro>();
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].gameObject.name.StartsWith("Army Text", System.StringComparison.Ordinal))
+                    named.Add(all[i]);
+            return named.Count > 0 ? named.ToArray() : all;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：把包面自带的粒子提到「背景之上、卡之下」那一档。
+        /// <para>**为什么必须自己定**：原版粒子与 UI 是两条队列（3D 在 UI 之前画），而本工程的**背景 quad 是
+        /// 透明队列 3170、后于默认 3000 画** ⇒ 不动它们的话，炸包粒子会被那块白底整个盖住。
+        /// 落点用本窗既有的档位（背景 = `QShade` 3170、卡从 `QCard` 3171 起）⇒ 粒子落 **3171**，
+        /// ⛔ 不新造数字。谁定的：执行代理 `B98_A5` 2026-10-29（未跑 Unity 验收）。
+        /// ⚠️ 必须 `new Material(...)`：`sharedMaterial` 是**包里的资产**，直接改会污染整个进程里那份。</para></summary>
+        void LiftPackParticles(Transform root)
+        {
+            if (root == null) return;
+            var rs = root.GetComponentsInChildren<ParticleSystemRenderer>(true);
+            for (int i = 0; i < rs.Length; i++)
+            {
+                var r = rs[i];
+                if (r == null || r.sharedMaterial == null) continue;
+                var m = new Material(r.sharedMaterial);
+                m.renderQueue = QCard;
+                r.sharedMaterial = m;
+            }
+        }
+
+        /// <summary>本窗的 `Army` → 原版 prefab 上那个 `boosterName` I2 词条键。
+        /// **对照不是挑的**：17 份 MB 的 `boosterName` 逐条实读 = `Armies/<阵营>_short`
+        /// （只有 `Armies/Sautekh_short` 带 `_short`）+ `MenuShop/Alpha/AllArmies`；而本窗只可能给出 4 个阵营或 null
+        /// （`ArmyOfArt`）。5 个键在 `Resources/official_loc_13lang.json` 里**逐条命中**（2026-10-29 现核）。</summary>
+        public static string BoosterTermOf(string army)
+        {
+            switch (army)
+            {
+                case "Ultramarines": return "Armies/Ultramarines";
+                case "Sautekh": return "Armies/Sautekh_short";
+                case "SpaceWolves": return "Armies/SpaceWolves";
+                case "Leviathan": return "Armies/Leviathan";
+                default: return "MenuShop/Alpha/AllArmies";      // 全卡池（`Booster Pack All Armies Variant`）
+            }
+        }
+
+        /// <summary>原版 prefab 上那两条 `shakePresets` —— **17 份 MB 逐字节相同**（2026-10-29 现核：
+        /// `json.dumps(sort_keys=True)` 只有 1 种），判据 →
+        /// `bundle_boosterpacks_assets_all/MonoBehaviour/MonoBehaviour_-1083784694647810962.json` 的 `shakePresets[]`。
+        /// <para>⚠️ 原版还有一格 `presetSO`（`CameraShakePreset`，pid −4069090446645055156，在**别的包**里、本机取不到）
+        /// ⇒ `overwrite* = 0` 的那两格（`attackTime` · `direction`）用的是 SO 的缺省值、**查不到** ——
+        /// 这里原样留 0 / 零向量，⛔ 不猜（与 `BoosterPackAnim` 对稀有度抖动那条口径一致）。</para></summary>
+        public static BoosterShakePreset[] OriginalShakePresets()
+        {
+            return new[]
+            {
+                new BoosterShakePreset
+                {
+                    delay = 1.0f,
+                    overwriteSustainTime = true, sustainTime = 1.0f,
+                    overwriteAmplitude = true, amplitude = 10.0f,
+                    overwriteFrequency = true, frequency = 10.0f,
+                    overwriteDirection = false, direction = Vector3.zero,
+                    overwriteAttackTime = false, attackTime = 0.0f,
+                    overwriteDecayTime = false, decayTime = 0.0f,
+                },
+                new BoosterShakePreset
+                {
+                    delay = 2.0f,
+                    overwriteSustainTime = true, sustainTime = 0.25f,
+                    overwriteAmplitude = true, amplitude = 100.0f,
+                    overwriteFrequency = true, frequency = 1.0f,
+                    overwriteDirection = false, direction = Vector3.zero,
+                    overwriteAttackTime = false, attackTime = 0.0f,
+                    overwriteDecayTime = true, decayTime = 0.5f,
+                },
+            };
+        }
+
+        /// <summary>原版 `OverwriteCameraShakePreset.Play()`（卡包实物那两条预设）。
+        /// ⚠️ **等价物**：菜单层没有可抖的相机 ⇒ 走本窗**既有**的「抖卡容器」那一条（`_bursts` + `StepBursts`），
+        /// ⛔ 这里不另写一套公式（包络与时长是 `BoosterPackAnim` 里我们挑的，见那份文件头）。
+        /// 幅度与原版**同量纲**（与 `contentByRarities[].shakes` 那张表同一档）。</summary>
+        public void PlayCameraShake(float amplitude, float delay, float decay)
+        {
+            if (amplitude <= 0f) return;      // 幅度取 preset 缺省值那档：本地查不到 ⇒ 不猜（同 `StartShakes`）
+            _bursts.Add(new ShakeBurst
+            {
+                At = _fxClock + Mathf.Max(0f, delay),
+                Amp = amplitude,
+                Decay = decay,
+                Z = 0f,
+            });
+        }
+
+        /// <summary>原版 `BoosterPackOpen()`（`BoosterPackOpenWindow__BoosterPackOpen.c`）= `windowAnimation.Play()` +
+        /// `backgroundAnimation.Play("Booster Window - Background Shake On Open")`。
+        /// 唯一调用方 = 卡包实物那条 2 s clip 在 **t = 2.0** 打的 AnimationEvent `StartCardAnimationEvent`。
+        /// <para>⚠️ **我们这一版是「提前播」**：`Build()` 之后 `Advance` 第一拍就把开包时间线跑起来了
+        /// （自检也这么推），而原版要等包炸完（2.0 s）⇒ 这里**只在时间线还没跑完时**把两条时钟归零（= `Play()`）；
+        /// 已经跑完就只记一行日志，⛔ **不重播**（重播会让 5 张卡在 2 s 时再缩一次）。这条偏差见报告 §缺口。</para></summary>
+        public void StartOpenAnimations()
+        {
+            if (WindowOpenDone)
+            {
+                Debug.Log("[BoosterPack] `StartCardAnimationEvent`（原版 2.0 s 那一拍）打进来，但本窗开包时间线"
+                          + "**已经跑完**了（我们是 Build 后立刻起播，原版等包炸完）⇒ 不重播。见 `StartOpenAnimations` 的注释");
+                return;
+            }
+            _openT = 0f;
+            _bgShakeT = 0f;
+            OpenAnimStarts++;
         }
     }
 }

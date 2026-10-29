@@ -74,7 +74,7 @@ namespace CardPresentation
             string fac = faction.ToLowerInvariant();
             string kind = tactic ? "_strat" : "";
             if (tier <= 0) tier = TierOf(rarity, faction);
-            tier = Mathf.Clamp(tier, 1, MaxTier);
+            tier = Mathf.Clamp(tier, 1, MaxTier); { var so = CardArtClanFrames.FrameTexture(ArmyIcons.Id(faction), tier, tactic); if (so != null) return so; }   // 原版 `CardFramesByArmy` SO 优先（`Core/CardArtClanFrames`）；未导 ⇒ 落回下面自绘那套
             if (tier > 1)
             {
                 var t = Get(Root + "cards/frame_" + fac + kind + "_tier" + tier);
@@ -114,7 +114,7 @@ namespace CardPresentation
             // 🆕 2026-10-18：档位与 `Frame` **同一份口径**（0 = 走 `TierOf`，否则夹到 1..MaxTier）——
             //   判据与说明只写在 `Frame` 的 `<param name="tier">` 上，⛔ 别在这里再写一套。
             if (tier <= 0) tier = TierOf(rarity, faction);
-            tier = Mathf.Clamp(tier, 1, MaxTier);
+            tier = Mathf.Clamp(tier, 1, MaxTier); tier = CardArtClanFrames.SdfTier(ArmyIcons.Id(faction), tier, tactic);   // 原版 SO 那一格（唯一复用：Leviathan tier4 部队 ⇒ tier3 的 SDF）
             if (tier > 1)
             {
                 var t = Get(Root + "card_sdf/" + fac + kind + "_tier" + tier);

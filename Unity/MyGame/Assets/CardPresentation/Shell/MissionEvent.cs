@@ -181,7 +181,7 @@ namespace CardPresentation
     /// 容器的取/放。</para>
     /// <para>🔴 **它不改任务进度本身** —— 进度由挑战自己算、广播回来（`UpdateChallengeProgress` 那条
     /// 教程门属另一条账，见判据 §四·b）。</para></summary>
-    public abstract class MissionEvent<TS, TD> : LiveOpsEvent<TS, TD>
+    public abstract partial class MissionEvent<TS, TD> : LiveOpsEvent<TS, TD>
         where TS : MissionPersistence
         where TD : MissionData
     {
@@ -217,11 +217,11 @@ namespace CardPresentation
 
         // ── 挑战监听的唯一入口/出口（原版是 `*this + 0x5d0` 那一个方法槽）────────────────────
         /// <summary>挑战广播回来时调（原版 `MissionEvent` 上 `+0x5d0` 那个方法）。
-        /// 本批**只搬接线**：真语义（重算进度 / 教程门 `!FirstTwoTutorialCompleted() &amp;&amp; DailyLoginChallenge`）
-        /// 属另一条账（判据 §四·b 最后一行）⇒ 这里给出**空的覆盖点**并出声（⛔ 不假装已实现）。</summary>
+        /// 🔴 **2026-10-29（B98_A11）落成真体** —— 原来是**空实现**（真缺口：任何 `MissionChallenge` 子类的进度都落不下去）；
+        /// 体 = `ApplyProgressPayload(payload)`，逐句判据见**文末 partial 块**（⛔ 不是「接线一通就算实现」，那里写清了四跳）。</summary>
         protected virtual void OnChallengeProgressChanged(MissionChallengeUpdatePayload payload)
         {
-            // 有意留空：进度重算 + 教程门不在本批 6 条账里。
+            ApplyProgressPayload(payload);                                  // 真体在文末 partial 块（判据逐句在那儿）
         }
 
         /// <summary>原版 `protected void DisableChallenge(MissionChallenge challenge)`
@@ -1077,5 +1077,114 @@ namespace CardPresentation
             }
             return string.Format(Loc.T(MissionChallenge.DescriptionKeyPrefix + c.GetID()), MaxValue);
         }
+    }
+
+    // ============================================================ B98_A11（2026-10-29）· `UpdateChallengeProgress` 真体
+    // 🔴 **这一节补的是【真缺口】**：`OnChallengeProgressChanged`（`:222`）原来是**空实现**
+    //    ⇒ 任何 `MissionChallenge` 子类（`TroopsKilledCount` / `EnergySpent` / 未来的 `SkullsCount` 一族）
+    //    都只把「怎么改进度」广播出去，**没有任何人真的去改** ⇒ 挑战进度永远不动。
+    //
+    // 判据（🥇 泛型方法体，本机有）= `decomp_generic_trial/out/MissionEvent_object__object___UpdateChallengeProgress__102f660.c`
+    //   （196 行；Ghidra 的形参序是 `(this, payload, rgctx)` —— **`param_3` 是 Il2CppRgctx**，
+    //    证据 = 它只被用来取泛型静态数据，而 `InitializeChallenge` 同族 `.c` 的 `param_3` 用法一模一样）。
+    //   逐句（`.c` 行号 → 我们的写法）：
+    //   <code>
+    //   :51-54   if (payload.Challenge == null) return;                       // `*(payload+0x10) == 0` ⇒ return（不出声）
+    //   :59-77   if (!PlayerDataManager.FirstTwoTutorialCompleted()           // ★ 教程门
+    //             && payload.Challenge is not DailyLoginChallenge) return;    //   `isinst DailyLoginChallenge` 失败 ⇒ return
+    //   :82-84   progress = GetProgressFor(payload.Challenge);                // 存档进度表 FirstOrDefault（按 challengeId）
+    //   :86-98   if (progress == null || progress.IsComplete()) { LogWarning; return; }
+    //   :102     int before = progress.currentValue;                          // 读 `+0x40`
+    //   :105-107 changed = payload.UpdateFunction(progress);                  // ★ 真正落地的那一跳（写 `+0x40` / `+0x18`）
+    //   :108-116 if (!changed) { LogWarning; return; }
+    //   :118-127 if (progress.resetProgress && this is MainMenuMission) {      // 镜像到活动上的「失败」状态
+    //                this.FailedValue(+0x34) = before; this.HasFailed(+0x30) = before > 0; }
+    //   :128-190 拼 ToolTipData → PlayfabWrapper.GenericCloudScriptHandler(0x38b, …)   // ★ 服务端上传
+    //   </code>
+    //
+    // 🔴 **本仓没有的尾段两件**（如实标，⛔ 不是「已经一样」）：
+    //   ① `MainMenuMission`（原版 `HasFailed +0x30` / `FailedValue +0x34` 那一格镜像）—— 我们没建那个子类
+    //      （`grep MainMenuMission` 只有注释），而且它**只影响主菜单的失败弹窗**，与「进度数值」无关。
+    //   ② 云脚本 `0x38b` 上传（`PlayfabWrapper__GenericCloudScriptHandler`）与其回调
+    //      `MissionEvent.__c__DisplayClass20_0…__UpdateChallengeProgress_b__0.c`（服务端回包后写存档）。
+    //      🔶 自己设计（非原版）：关服 ⇒ 判据在远端（项目 §四 P3 那一档）；我们只做**本地落地**（进度真写进存档对象），
+    //      上传那一跳**不发也不重试**。玩家看得到的那部分（进度数值）与联网时一致，差的是「服务端备份」。
+    //      依据 = `CLAUDE.md` 18·0「只有和服务器有关的才允许自己设计」· 调度台 2026-10-29 判。
+    public abstract partial class MissionEvent<TS, TD>
+        where TS : MissionPersistence
+        where TD : MissionData
+    {
+        /// <summary>原版 `MissionEvent&lt;TS,TD&gt;.UpdateChallengeProgress(ChallengeUpdatePayload payload)`（虚槽 `+0x5d0`）
+        /// 的**本地真体**（逐句判据见本节头）。返回「这一次真的改了进度」。
+        /// <para>⚠️ 原版 `payload == null` 时 NRE（`.c` 第一跳就解引用 `payload+0x10`）；我们出声 + `false`（全工程口径）。</para>
+        /// <para>⚠️ 原版 `UpdateFunction == null` 时 NRE；我们出声 + `false`。</para>
+        /// <para>🔴 **`progress.IsComplete()` 会挡住一条容易忽略的活路**：`IsComplete()` 的算式是
+        /// 「`AvailableRewards()` 的条数 ≤ `collectedRewards`」（见 `MissionChallengeProgress.IsCompleteCore`）
+        /// ⇒ **一个 `rewards` 为空的挑战天生「已完成」**，它的进度**一律推进不下去**（原版同）。
+        /// 所以装载方给挑战配 `rewards` 时必须至少一条里程碑，否则这条挑战在两边都是死的。</para></summary>
+        public bool ApplyProgressPayload(MissionChallengeUpdatePayload payload)
+        {
+            if (payload == null)
+            {
+                Debug.LogError("[MissionEvent] UpdateChallengeProgress：payload 是 null（原版这一跳 NRE）⇒ 不改");
+                return false;
+            }
+            var challenge = payload.Challenge;
+            if (challenge == null) return false;                        // `.c:51-54`（原版就是静默 return）
+
+            // ★ 教程门（`.c:59-77`）：前两段教程没完成 ⇒ **只放行 `DailyLoginChallenge`**，其余一律不算。
+            if (!MissionChallenge.FirstTwoTutorialCompleted() && !(challenge is DailyLoginChallenge)) return false;
+
+            var progress = GetProgressFor(challenge);                    // `.c:82-84`
+            if (progress == null || progress.IsComplete())                // `.c:86-98`
+            {
+                Debug.LogWarning("[MissionEvent] UpdateChallengeProgress：`" + challenge.GetLocalizedDescription()
+                               + "` 的进度行取不到、或这条挑战**已完成** ⇒ 不再推进（原版同）");
+                return false;
+            }
+
+            int before = progress.currentValue;                          // `.c:102`（读 `+0x40`，只服务下面那格镜像）
+            if (payload.UpdateFunction == null)
+            {
+                Debug.LogError("[MissionEvent] UpdateChallengeProgress：payload.UpdateFunction 是 null（原版这一跳 NRE）⇒ 不改");
+                return false;
+            }
+            bool changed = payload.UpdateFunction(progress);              // `.c:105-107` ★ 真正落地的那一跳
+            if (!changed)                                                // `.c:108-116`
+            {
+                Debug.LogWarning("[MissionEvent] UpdateChallengeProgress：`" + challenge.GetLocalizedDescription()
+                               + "` 的推进函数返回「值没变」⇒ 不标记待上传、什么都不做（原版同）");
+                return false;
+            }
+
+            // 原版 `:118-127` 那格镜像（`MainMenuMission.HasFailed/FailedValue`）本仓没有该类；
+            // `:128-190` 的云脚本上传是服务端那条（🔶 见本节头）。只在**它真有话要说**时出声一次。
+            if (progress.resetProgress) WarnProgressResetMirrorOnce(before);
+            return true;
+        }
+
+        /// <summary>`progress.resetProgress == true` 时原版会去写 `MainMenuMission` 的失败状态 —— 我们没建那个类 ⇒
+        /// 这一次**什么也不做**，但必须出声（⛔ 不许静默少一件事）。每次重建只吼一次。</summary>
+        static bool _warnedResetMirror;
+        static void WarnProgressResetMirrorOnce(int before)
+        {
+            if (_warnedResetMirror) return;
+            _warnedResetMirror = true;
+            Debug.Log("[MissionEvent] UpdateChallengeProgress：这条进度带 `resetProgress`（原版会把上值 " + before
+                    + " 镜像到 `MainMenuMission.HasFailed/FailedValue`），本仓没有 `MainMenuMission` 子类 ⇒ **这一格没落**"
+                    + "（只影响主菜单的失败弹窗，不影响进度数值）。");
+        }
+    }
+
+    // ============================================================ B98_A11（续）· 教程门的注入口
+    public abstract partial class MissionChallenge
+    {
+        /// <summary>原版 `UpdateChallengeProgress` 第一道业务闸读的是 `PlayerDataManager.FirstTwoTutorialCompleted()`
+        /// （`PlayerDataManager__FirstTwoTutorialCompleted.c` = `IsTutorialIndexCompleted(0) &amp;&amp; IsTutorialIndexCompleted(1)`）。
+        /// 与 <see cref="MatchPlayMode"/> / <see cref="MatchIsReplay"/> / <see cref="MatchIsTutorial"/> **同一手法**：
+        /// 原版直接问全局单例，我们把那一跳换成可注入的静态委托 —— 结构不同、**语义相同**，默认值就是真实现
+        /// ⇒ 按 `CLAUDE.md` 18·0「⛔ 不许打标记」第②类（实现风格），**不挂 `🔶`**。
+        /// ⚠️ 只给自检用来把「前两段教程已完成」摆成确定态；⛔ 产品代码不许改它。</summary>
+        public static Func<bool> FirstTwoTutorialCompleted = MenuTutorialFlow.FirstTwoTutorialCompleted;
     }
 }

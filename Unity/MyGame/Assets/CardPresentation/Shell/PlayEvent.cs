@@ -319,7 +319,7 @@ namespace CardPresentation
         public string id;
         public bool preventScoreLoss;
         public int scoreBoostAmount;
-        public int matchesCount;
+        public int matchesCount; public Dictionary<int, int> matchCount;   // 🔴原版的**唯一字段** = `Dictionary<CardArmy,int> matchCount`（`dump.cs` TypeDefIndex 3584；`GetWins(army)` 读它）；上面两格是 `RankedScoreBoostData` 的字段、**不是** Save 的 ⇒ 一并留着只作数据面，⛔ 别当 Save 形状。B98_H5 2026-10-29（零行数变化：追加在同一物理行）
     }
 
     /// <summary>原版 `MatchData`（对局数据）**只搬 `MakeOpponentInfo` 读的那几格**。

@@ -10280,7 +10280,7 @@ namespace CardPresentation
         float _hlMul = 1f;
         DG.Tweening.Tween _hlTween;
 
-        void ApplyScale() { transform.localScale = Vector3.one * (_baseScale * _hlMul); }
+        void ApplyScale() { transform.localScale = Vector3.Scale(Vector3.one * (_baseScale * _hlMul), _extraScale); }
 
         /// <summary>自检用：高亮系数（原版 `ScaleFactor` = 1.05；`selectedTargetInBoard` 也是这一档）。</summary>
         public float HighlightMul { get { return _hlMul; } }
@@ -14692,13 +14692,13 @@ namespace CardPresentation
             if (_keywords != null && !_keywords.richText) { _keywords.richText = true; BuildTextLayers(Data); }
         }
 
-        /// <summary>`BuildTextLayers` 里描述那一层用的文本（= `Data.keywords` 加上当前后缀）。
-        /// 🔴 **判据只此一处**：两条建字路（初始态 `:5006` / 简化态 `:5247`）都走它，
-        /// ⛔ 别在两处各拼一次（那正是「两处写同一条规则 = 迟早不一致」）。</summary>
+        /// <summary>`BuildTextLayers` 里描述那一层用的文本（= `Data.keywords` + **原版那个尾随换行** + 当前后缀）。
+        /// 🔴 判据只此一处（初始态 `:5006` / 简化态 `:5247` 都走它，⛔ 别在两处各拼一次）。**换行是原版的**：
+        /// `GetLocalizedCardDescWithLineBreak()` = 非空描述 `AppendLine()`（`.c:14-20` · ILSpy `:2460-2472`），后缀拼在它**之后**。</summary>
         string DescTextWithSuffix(string baseText)
         {
-            if (string.IsNullOrEmpty(_descSuffix)) return baseText;
-            return (baseText ?? "") + "<i>" + _descSuffix + "</i>";
+            string body = string.IsNullOrEmpty(baseText) ? (baseText ?? "") : baseText + "\n";
+            return string.IsNullOrEmpty(_descSuffix) ? body : body + "<i>" + _descSuffix + "</i>";
         }
 
         // ------------------------------------------------------------------
@@ -15300,5 +15300,24 @@ namespace CardPresentation
             }
             return true;   // 只剩 SimplifiedView(10) ⇒ 原版 break（保持原样）⇒ 我们保持「开」
         }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B98_M1` · 判据 卡-18）：**额外缩放** —— 升级动画的「根脉冲」写入口
+        // ==================================================================
+        //  判据 = 原版 `Level Up Card` clip 的第 ① 条 `m_ScaleCurves`（`path: ''` = **动画根自己** =
+        //  场景 `MainMenu Warpforge` 里的 `CardUI`，也就是「卡视图根」）：250 → 288.977/288.98/254.304 → 250，
+        //  相对值 = ×1.155907959 / ×1.155920044 / ×1.017216431（峰值在 clip 的 1.45 s）。
+        //  映射与「为什么走代码补间、⛔ 不写进 clip」→ `资料/完全复刻/判据/升级动画scale曲线_节点映射.md` §三·2 ① / §五·A。
+        //  ⛔ **写入口只此一处**：`ApplyScale` 把它乘在 `_baseScale × _hlMul` 后面。直接写 `transform.localScale`
+        //    会被下一次 `SetPose` / `SetHighlightScale`（都走 `ApplyScale`）**静默冲掉** —— 与 `_hlMul` 那条同一个理由。
+        Vector3 _extraScale = Vector3.one;
+
+        /// <summary>额外缩放（缺省 `Vector3.one`）。**读回口**；写入走 <see cref="SetExtraScale"/>。</summary>
+        public Vector3 ExtraScale { get { return _extraScale; } }
+
+        /// <summary>设「额外缩放」并当场落到 `localScale`（走 <see cref="ApplyScale"/>）。传 `Vector3.one` = 复位。
+        /// <para>⚠️ 调用方（`Effects/CardDisplayLevelUp`）负责在同一次升级演出收尾时复位 —— 这里不认业务语义
+        /// （与其他「只认一个量」的口同一条分工）。</para></summary>
+        public void SetExtraScale(Vector3 s) { _extraScale = s; ApplyScale(); }
     }
 }

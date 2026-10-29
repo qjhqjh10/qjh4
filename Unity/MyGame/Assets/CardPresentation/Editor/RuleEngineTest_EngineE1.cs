@@ -5,7 +5,7 @@
 //      `damageCriteria` 三格（`ca` / `pa` / `dmg`）**读得进来**（读数 = 193 行、`ca` 分布、长度对齐）；
 //   B. **版本守卫**：v23 旧表（没有这三格）⇒ `ChosenAbility/PlayersAffected/Damage = null = 未知`
 //      ＋ 恰好一条 `< 24` 的 `LogWarning`，且归位退回 v23 那一档（⛔ 不许静默当成「没有种类」）；
-//   C. **按能力种类归位**（`CardDef.AttachByAbilityKind`）：84 / 87 张 `gate=1` 的卡挂上了目标集，
+//   C. **按能力种类归位**（`CardDef.AttachByAbilityKind`）：86 / 87 张 `gate=1` 的卡挂上了目标集，
 //      并把「`cardAbilities` 的 `ta` 被贴到替代行动 op 上」那 14 处**来源错**从源头修掉
 //      （`EffectText.Parse(..., alternativeActionBody: true)`）。
 //
@@ -29,7 +29,7 @@
 //      v24 的口径与逐张 before→after → `资料/普查产出_1024b/E1_chosenAbility与ta来源.md`。
 //
 // 🔴 每条断言都带 `🧨`（**什么改动能让它红**）—— 没写 `🧨` 的断言一律当没写。
-// 🔴 期望值一律写死字面量（84 / 45 / 30 / 100 …），⛔ 不从实现常量反算（那就是自证）。
+// 🔴 期望值一律写死字面量（86 / 45 / 30 / 100 …），⛔ 不从实现常量反算（那就是自证）。
 // ⚠️ 本宿主**不建场景、不存盘**；合成探针卡跑完用真池重建名字索引（同 `G12` 的做法）。
 using System;
 using System.Collections.Generic;
@@ -58,7 +58,7 @@ public static class EngineE1Assert
             E1KindColumnsReadings(pool);
             Section("B · 版本守卫：v23 旧表 ⇒ 三格 null + 恰好一条 `< 24` 警告 + 退回 v23 归位");
             E1VersionGuard(pool);
-            Section("C · 按能力种类归位（84 / 87）与 `cardAbilities` 来源错的修复");
+            Section("C · 按能力种类归位（86 / 87）与 `cardAbilities` 来源错的修复");
             E1Attribution(pool);
         }
         finally
@@ -276,7 +276,7 @@ public static class EngineE1Assert
 
     static void E1Attribution(List<CardDef> pool)
     {
-        // ---- C-a 汇总：132 张有行的卡，每一张都有结论；84 张挂上 ----
+        // ---- C-a 汇总：132 张有行的卡，每一张都有结论；86 张挂上 ----
         {
             int withRows = 0, attached = 0, gate0 = 0, noOp = 0, ambiguous = 0, unknown = 0, other = 0, emptyMap = 0;
             foreach (var c in pool)
@@ -296,16 +296,15 @@ public static class EngineE1Assert
             Check(emptyMap, 0,
                   "★ **没有一张卡有行却没有结论**（⛔ 不许静默）"
                 + "｜🧨 某个闸门直接 `return` 却不写 `ActiveAbilityMap` ⇒ 红");
-            Check(attached, 84,
-                  "★ **挂到 op 上的 = 84 张**（v23 只挂 38 张；余下 46 张按种类挂上）"
+            Check(attached, 86,
+                  "★ **挂到 op 上的 = 86 张**（v23 只挂 38 张；余下 46 张按种类挂上；+`AM22`（G6）+`SOR13`（G8））"
                 + "｜🧨 种类表漏一族 / 相邻派生行没排除 ⇒ 掉下去 ⇒ 红");
             Check(gate0, 45, "★ `gate=0`（本 build 死数据）**45 张**（D11 现读，不变）");
-            Check(noOp + ambiguous + unknown + other, 3,
-                  "★ 仍然读不到 = **3 张**（`AM22` 的 `chooseone` 1 条 op 盖两个分支 · "
-                + "`SOR13` 同族两行不同 `ta` · `SW9` 的 `followAfterResolution(320)` 未映射）"
-                + "｜🧨 把这三张硬配上去（按行号挑第一行）⇒ 本行仍绿但 C-c 的反例会红");
+            Check(noOp + ambiguous + unknown + other, 1,
+                  "★ 仍然读不到 = **1 张**（`SW9` 的 `followAfterResolution(320)` 属「后续结算」、无可挂 op ⇒ 现报 `kind-continuation`）"
+                + "｜🧨 把这一张硬配上去（按行号挑第一行）⇒ 本行仍绿但 C-c 的反例会红");
             Check(attached + gate0 + noOp + ambiguous + unknown + other, 132,
-                  "★ **灭自证**：84 + 45 + 3 = 132（每一张有行的卡都落在某一档里）"
+                  "★ **灭自证**：86 + 45 + 1 = 132（每一张有行的卡都落在某一档里）"
                 + "｜🧨 有卡既没挂也没归因（例如某闸门吞掉）⇒ 加起来不等于 132 ⇒ 红");
         }
 
@@ -406,30 +405,31 @@ public static class EngineE1Assert
                     + "｜🧨 只对 `TriggerOps` 做归位、漏 `OathOps` ⇒ 红");
         }
 
-        // ---- C-c 反例：这三张**必须仍然读不到**（⛔ 不许靠「挑第一行」蒙过去）----
+        // ---- C-c 逐张：`SOR13`（G8 起挂上）/ `AM22`（G6 起挂上）的真值；`SW9` 仍必须读不到 ----
         {
             var c = CardDatabase.FindById(pool, "SOR13");
-            CheckTrue(c != null && c.ActiveAbilityMap == "gap:kind-ambiguous",
-                      "★ `SOR13`（同族两行 `ta=10`/`120` ≠ 两条 `give` op）⇒ `gap:kind-ambiguous`"
-                    + "｜🧨 放宽成「同族挑第一个」⇒ 变成 `attached` ⇒ 红（那条路会静默贴错目标）");
+            CheckTrue(c != null && c.ActiveAbilityMap == "attached",
+                      "★ `SOR13`（同族两行 `ta=10`/`120` ↔ 两条 `give` 各唯一命中）⇒ `attached`（G8 起执行器只跑本行 op）"
+                    + "｜🧨 回到 `gap:kind-ambiguous`（`TryAttachRowsByOpTarget` 再上闸）⇒ 红");
             var ops = c != null ? c.TriggerOps(KeywordTable.Pray) : null;
-            int unset = 0;
-            if (ops != null) foreach (var o in ops) if (o != null && o.SubjectTargetsAffected == -1) unset++;
-            Check(unset, 2, "★ 且那两条 `give` 的 `ta` 仍是 `-1`（读不到）｜🧨 挂上去 ⇒ 红");
+            int troopHit = 0, warlordHit = 0;
+            if (ops != null) foreach (var o in ops) { if (o != null && o.SubjectTargetsAffected == 10 && o.ActiveAbilityRow == 0) troopHit++; if (o != null && o.SubjectTargetsAffected == 120 && o.ActiveAbilityRow == 1) warlordHit++; }
+            Check(troopHit, 1, "★ 部队那条 `give` ⇒ `ta=10`（第 0 行）｜🧨 两条都贴同一个 ta ⇒ 红");
+            Check(warlordHit, 1, "★ 督军那条 `give` ⇒ `ta=120`（第 1 行）｜🧨 同上 ⇒ 红");
         }
         {
             var c = CardDatabase.FindById(pool, "AM22");
-            CheckTrue(c != null && c.ActiveAbilityMap == "gap:kind-no-op",
-                      "★ `AM22`（1 条 `chooseone` op 里盖着伤害 + 增益两个分支）⇒ `gap:kind-no-op`"
-                    + "｜🧨 把 `chooseone` 塞进任何一族 ⇒ 红（一条 op 两个目标集，贴一个是错的）");
+            CheckTrue(c != null && c.ActiveAbilityMap == "attached",
+                      "★ `AM22`（1 条 `chooseone` op 盖伤害 + 增益两个分支）⇒ `attached`（G6：挂到唯一那条 `ca=30` 行）"
+                    + "｜🧨 删掉闸 ① / 挂到 `ca=10` 行 ⇒ 回到 `gap:kind-no-op` ⇒ 红");
             var ops = c != null ? c.TriggerOps(KeywordTable.Duty) : null;
-            CheckTrue(ops != null && ops.Count == 1 && ops[0].SubjectTargetsAffected == -1,
-                      "★ 那条 `chooseone` 的 `ta` 仍是 `-1`｜🧨 同上");
+            CheckTrue(ops != null && ops.Count == 1 && ops[0].SubjectTargetsAffected == 90 && ops[0].ActiveAbilityRow == 1,
+                      "★ 那条 `chooseone` 的 `ta = 90`、行号 = 1（`ca=30` 那行）｜🧨 挂到行 0 ⇒ 二选一结算两次 ⇒ 红");
         }
         {
             var c = CardDatabase.FindById(pool, "SW9");
-            CheckTrue(c != null && c.ActiveAbilityMap == "gap:kind-unknown",
-                      "★ `SW9`（`chosenAbility = 320 followAfterResolution`，故意不映射）⇒ `gap:kind-unknown`"
+            CheckTrue(c != null && c.ActiveAbilityMap == "gap:kind-continuation",
+                      "★ `SW9`（`chosenAbility = 320 followAfterResolution`）= **`gap:kind-continuation`** —— 2026-10-29（`B98_K6`）把它从 `kind-unknown` 换成准确原因：`320/325` 是「后续结算」标记、没有 op 可挂（判据 `PlayAbility.c:2474` → action 58 → `OnTrigger(410)`），原版自己也不触发"
                     + "｜🧨 把它硬映射到 `forceattack` ⇒ 红（那不是「查到了」，是猜）");
             var ops = c != null ? c.TriggerOps(KeywordTable.Ferocity) : null;
             CheckTrue(ops != null && ops.Count == 2 && ops[0].SubjectTargetsAffected == -1,

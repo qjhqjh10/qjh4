@@ -1443,7 +1443,7 @@ namespace RuleEngine
                                                      CardDef.ConditionSpec structuredCondition = null,
                                                      EffectOp op = null)
         {
-            var list = ResolveTargetsCore(ctx, owner, spec, source, chosen, structuredCondition, op); list = CountEval.ApplySelectFromChooseResolution(ctx, SelectFromChooseResolutionOf(source, op), FilterSingleUseMutationTargets(ctx, list, source != null ? source.Instance : null, TraitsFilterOf(source, op), "目标池"), "目标池");   // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格 + 账 1254）：原版 `AbilityLogic__GetTargets` 末尾两段 —— **顺序照原版**：`traitsFilter == 780` 的单次变异去重（`.c:155-172`）在内层、`selectFromChooseResolution`（`.c:1101-1140`）在外层
+            var list = (op != null && op.SubjectTargetsAffected == 60) ? ResolveCemeteryTargetsAsUnits(ctx, owner, spec, op) : ResolveTargetsCore(ctx, owner, spec, source, chosen, structuredCondition, op); list = CountEval.ApplySelectFromChooseResolution(ctx, SelectFromChooseResolutionOf(source, op), FilterSingleUseMutationTargets(ctx, list, source != null ? source.Instance : null, TraitsFilterOf(source, op), "目标池"), "目标池");   // 🔴 2026-10-29（B98_G2 · 账 534②）：`ta = 60`（`inCemeteryFiltered`）**不再落到棋盘扫描** —— 原版那一支（`AbilityLogic__GetTargets.c:949-960` → `BattleManager.GetCardsInCemetery`）的候选是**墓地的 `CardInstance`**，而本函数只收 `UnitState` ⇒ 走 `ResolveCemeteryTargetsAsUnits`（候选由 `ResolveCemeteryTargets` 算出、经 `Debug.LogWarning` 出声，返回**空表**：墓地里的牌不在棋盘上，⛔ 不当成「棋盘上一个都没选到」）。⛔ 别在这里 `ctx.Log`（会进 `ctx.Events` ⇒ 动联机指纹）；取走/搬运那半仍在 `ReturnFromCemetery` / `DoDeployOnce` 各自的入口。  // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格 + 账 1254）：原版 `AbilityLogic__GetTargets` 末尾两段 —— **顺序照原版**：`traitsFilter == 780` 的单次变异去重（`.c:155-172`）在内层、`selectFromChooseResolution`（`.c:1101-1140`）在外层
             NoteTriggerTargetSink(ctx, list);
             return list;
         }
@@ -3723,21 +3723,21 @@ namespace RuleEngine
             if (op.DeployFrom == "deck") { source = ps.Deck; srcName = "牌库"; }
             else if (op.DeployFrom == "graveyard")
             {
-                // 🔴 **2026-10-23（引擎线 `新账-97` ③/⑧）：候选取 `DeadUnits`（本局阵亡流水），
-                //    不再拿 `Discard` 充数。** 判据：
-                //      · 卡面这类写法 = `… that died this game`（`GSC55 Eve of the Uprising`）；
-                //      · `DeadUnits` 记着 `Owner` / `DeathTurn` / 现在还有 **`Instance`**，
-                //        同名两份、以及「手牌超上限打进弃牌堆的单位卡」都能分开；
-                //      · 顺序 = 死亡先后（表是追加的）。
-                //    ⚠️ 取走时走 `TakeFromGraveyard(owner, instance)`（`Discard` 与 `DeadUnits`
-                //    两条一起摘 —— 那条规则只写在 `BattleContext` 一处）。
+                // 🔴 **2026-10-23（引擎线 `新账-97` ③/⑧）：候选取 `DeadUnits`（本局阵亡流水），不再拿 `Discard` 充数。**
+                //    🔴 **2026-10-29（`B98_K4` · 账 533）就地订正（铁律 5）**：候选来源**换成墓地那一口**
+                //    （`CemeteryDeadUnits` → `ResolveCemeteryTargets` → `RuleCore.GetCardsInCemetery`）——
+                //    原版这一支的候选 = **墓地（弃牌堆）**，不是「死亡流水」：多出「手牌超上限被弃掉的单位卡」、
+                //    排除残骸与放逐（`GetCardsInCemetery` 已判；判据 `BattleManager__GetCardsInCemetery.c`）。
+                //    ⚠️ 取走那半不变（`TakeFromGraveyard`，`Discard` 与 `DeadUnits` 两条一起摘）。
+                //    ⚠️ 顺序 = `Discard` 的进墓先后（旁表里的 `DeathTurn` 只给 `ReturnFromCemetery` 的窗口用）。
+                //    ⚠️ `deploy` 这一支**没有**「died since last turn」那种窗口（文本里出现窗口的几张都走 `return`）⇒ 不判 `DeathTurn`。
                 source = new List<CardInstance>();
-                foreach (var d in ctx.DeadUnits)
+                foreach (var d in CemeteryDeadUnits(ctx, owner, null, op))
                 {
                     if (d == null || d.Owner != owner || d.Instance == null || d.Card == null) continue;
                     if (!source.Contains(d.Instance)) source.Add(d.Instance);
                 }
-                srcName = "本局阵亡的部队";
+                srcName = "墓地（本局阵亡的部队）";
             }
 
             // ==========================================================================================
@@ -4517,10 +4517,10 @@ namespace RuleEngine
         /// ⚠️ 两条队列**必须同进同出**（见 `BattleContext.ChooseCardIds` 的 ①）——
         ///    少出一个下标会让**后面每一处选择全部错位**，而且**不报错**。
         /// </summary>
-        static CardDef TakePickCard(BattleContext ctx, List<CardDef> cands, string by, string what,
-                                    List<string> unresolved)
+        static CardDef TakePickCard(BattleContext ctx, int owner, EffectOp op, List<CardDef> cands, string by,
+                                    string what, List<string> unresolved)
         {
-            ctx.ChooseSites++; var __choiceOpts = BuildChoiceOptions(ctx, cands);   // 🔴 2026-10-29（`B97_W21` · 账 254/255 ①）：原版 `ChoiceOfCardPlayer/Enemy` 在**开面板之前**先调 `BattleManager.GetChoiceOptions`（`decomp_full/BattleManager__GetChoiceOptions.c:40-70`）把 `min(池, maxTargets)` 张抽好 ⇒ 引擎这一趟**必须按同一条随机流消耗**（原写成「只抽 1 下」⇒ 之后每一次随机全部错位）。⚠️ 面板那条答案仍按 `Id` 在**完整候选表**里找（原版是从这 N 张里挑 —— 结构性残余，见报告§一·2②）
+            ctx.ChooseSites++; var __choiceOpts = TakePeekedChoiceOptions(ctx, owner, op, cands) ?? BuildChoiceOptions(ctx, cands);   // 🔴 2026-10-29（`B97_W21` · 账 254/255 ①）：原版 `ChoiceOfCardPlayer/Enemy` 在**开面板之前**先调 `BattleManager.GetChoiceOptions`（`decomp_full/BattleManager__GetChoiceOptions.c:40-70`）把 `min(池, maxTargets)` 张抽好 ⇒ 引擎这一趟**必须按同一条随机流消耗**。🆕 2026-10-29（`B98_H2`）：**面板那一刻已经「偷看」算过一份**（`PeekChoiceOptions`，不消耗随机表）⇒ 这里先试**复用**它（四条同等条件下与真抽逐位等价，见 `TakePeekedChoiceOptions` 的头注释）；没有就照旧真抽。⚠️ 面板那条答案仍按 `Id` 在**完整候选表**里找（原版是从这 N 张里挑 —— 结构性残余，见报告§一·2②）
             if (ctx.ChooseCardIds.Count > 0)
             {
                 // **有 `Id` 就以 `Id` 为准**（它才认得准）：`picks[0]` 那个下标是**面板摆出来的
@@ -4809,7 +4809,7 @@ namespace RuleEngine
                 return false;
             }
 
-            var pick = TakePickCard(ctx, cands, by, op.Source + "（选牌）", unresolved);
+            var pick = TakePickCard(ctx, owner, op, cands, by, op.Source + "（选牌）", unresolved);
 
             // ---- ①b 🔴🆕 2026-10-23（`W63·审查-日志3键`）：**从敌方手牌里选牌 ⇒ 亮出那一张** ----
             //  原版判据（全量反编译）：`CemeteryManager__AddDisplayedCardActionToCemetery.c`
@@ -6838,11 +6838,11 @@ namespace RuleEngine
             int mark = ctx.Players[sideOwner].LastTurnStartMark;
 
             // ---- ① 先挑（**不改表**：`TakeFromGraveyard` 会从 `DeadUnits` 里删条目）----
-            //   顺序 = `DeadUnits` 的**正序**（它是按死亡时间 append 的）= 原版 cemetery 列表序
+            //   🔴 2026-10-29（`B98_K4` · 账 533）候选来源换成**墓地那一口**（判据 / 口径 → `CemeteryDeadUnits` 的 doc）；顺序 = `Discard` 的进墓先后
             var picks = new List<DeadUnit>();
-            for (int i = 0; i < ctx.DeadUnits.Count && picks.Count < limit; i++)
+            var __cem = CemeteryDeadUnits(ctx, owner, spec, op); for (int i = 0; i < __cem.Count && picks.Count < limit; i++)
             {
-                var d = ctx.DeadUnits[i];
+                var d = __cem[i];
                 if (d == null || d.Card == null) continue;
                 if (d.Owner != sideOwner) continue;
                 if (!d.Card.IsUnit) continue;                     // 原版只收「在场过的单位」
@@ -9970,7 +9970,7 @@ namespace RuleEngine
             //   ⇒ 多单位同时听同一个事件时，「先部署的那个先响」。
             //   ⚠️ 排序发生在**快照之后、预调之外**（`preCalled` / `preCalled2` 已经被排除出快照，
             //   它们的先后仍由调用方决定 —— 原版那条预调本来就在循环之前，不在这一趟里）。🔴 账 628（B88 · `E2`）：原版 `BroadcastCardPlayed` 的棋盘循环是 `if (cardScript != actingCard)` —— **只排除、不预调**（`out_cpp2il_dev_ilspy/BattleManagerSupport.cs:669-686`）⇒ `Play` 这一族先把「被打出那张」（= `subject`）剔掉；⛔ 别改用 `preCalled`（那是「先预调再排除」，会多响一次）。
-            if (kind == WhenEventKind.Play && subject != null) listeners.RemoveAll(l => ReferenceEquals(l.Unit, subject)); RuleCore.StableSortByPlayOrder(listeners, l => l.Unit.PlayOrder);
+            if (kind == WhenEventKind.Play && subject != null) listeners.RemoveAll(l => ReferenceEquals(l.Unit, subject)); RuleCore.StableSortByPlayOrder(listeners, l => l.Unit.PlayOrder); if (kind == WhenEventKind.Damaged && preCalled != null) FireBoardDamagedByNumber(ctx, preCalled, who, damageType, actingCard, subject); if (kind == WhenEventKind.Damaged && preCalled2 != null) FireBoardDamagedByNumber(ctx, preCalled2, who, damageType, actingCard, subject);   // 🔴 2026-10-29（`B98_K4` · 账 646）：**预调那一跳也要按数值发** —— 原版 `BroadcastUnitDamaged.c:19` 先对**被打者自己**调一次 `ResolveDamageDealt`（那条同样发 60/185/187，判据 `.c:160/:191`），棋盘循环随后用 `op_Inequality` 跳过它 ⇒ 两处各一次，⛔ 别只在循环里发（那会让被打者自己漏掉）。`preCalled2` 本族恒 `null`（只有 `Attack` 用），留着是为了形状一致
             if (listeners.Count > 0)
             {
                 // ⚠️ `LastTargets` 是**代词机制**的存放位置：`it` / `this troop` 全从它取。
@@ -10000,6 +10000,7 @@ namespace RuleEngine
                                               //   判据仍是 `BoardJumpIncludesPendingDeath` 一处。
                                               allowPendingDeath: boardIncludesPending,
                                               pinnedOwner: l.Owner, actingCard: actingCard);
+                        if (kind == WhenEventKind.Damaged && !ctx.IsOver) FireBoardDamagedByNumber(ctx, l.Unit, l.Owner, damageType, actingCard, subject);   // 🔴 2026-10-29（`B98_K4` · 账 646）：**棋盘侧按 trigger 数值发 60/185/187**（原版 `CardScript__ResolveDamageDealt.c:160/:191` 对**每一张在场卡** `OnTrigger`，⛔ 不是按卡面文本）—— 文本监听那一跳照旧在上面（我们的等价实现），这一跳只补「数据面真有正文的 trigger 数值」；池内 `abilityTriggers` 含 185/187 各 0 张、含 60 的 3 张其正文**不在** `TriggerOpsByNumber` 里（卡面文本走 `WhenTriggers`，不进 `_triggerOps`）⇒ 今天零可观测
                         if (ctx.IsOver) break;
                     }
                 }
@@ -10044,7 +10045,7 @@ namespace RuleEngine
             //   那一族是**非单位卡**的 `HandTrapWhens`（两边互斥，见 `BroadcastHandWhen` 的注释）。
             //   原版次序 = `:43-52`（当前回合方手牌）→ `:53-70`（另一方手牌），本函数按这个顺序遍历。
             if (!boardAndPersistentOnly)
-                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind), actingCard);   // 🔴 2026-10-29（`B97_ER` · #54）：同上（`actingCard` 透传给第一道闸） if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-29（B94_Z2 · 账 B94_Z2）：原版两条广播器的 ②③ 手牌两跳 —— `BroadcastUnitDamaged.c:62-86`（`ResolveDamageDealt` ⇒ 60/185/187/720）与 `BroadcastUnitRegiment.c:41-64`（`TriggerOtherCardRegiment` ⇒ 646）。⚠️ `damageType` 这一格本调用点拿不到（`EmitHit` 只传 `absorbed`）⇒ 传 `-1`（**只发 60**，⛔ 不拿 `0 Normal` 顶）；补齐要 `RuleCore.EmitHit` 把 `DamageKind` 带进来（见 `报告/B94_Z2.md` §施工单）
+                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind), actingCard); if (!boardAndPersistentOnly && kind == WhenEventKind.Attack) BroadcastUnitAttackedHandHops(ctx, target, subject);   // 🔴 2026-10-29（B98_G2 · 账 645）：原版 `BattleManagerSupport__BroadcastUnitAttacked.c:64-88` 的 ④⑤ **手牌两跳**（`GetCardsInHandRef(IsPlayerTurn())` → `GetCardsInHandRef(!IsPlayerTurn())`，逐张 `ResolveUnitAttacked(card, actingCard, targetCard, attackType)`）。实参 = **被打者 `target` / 攻击者 `subject`**（原版那五跳的 `param_3` = targetCard、`param_2` = actingCard；`RuleCore` 那个调用点传的是 `subject: attacker` / `target: target`）。⚠️ `boardAndPersistentOnly` 时关掉：原版 `BroadcastEarnedSkull` 那一族只有棋盘一跳（见本参数 doc）。  // 🔴 2026-10-29（`B97_ER` · #54）：同上（`actingCard` 透传给第一道闸） if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-29（B94_Z2 · 账 B94_Z2）：原版两条广播器的 ②③ 手牌两跳 —— `BroadcastUnitDamaged.c:62-86`（`ResolveDamageDealt` ⇒ 60/185/187/720）与 `BroadcastUnitRegiment.c:41-64`（`TriggerOtherCardRegiment` ⇒ 646）。⚠️ `damageType` 这一格本调用点拿不到（`EmitHit` 只传 `absorbed`）⇒ 传 `-1`（**只发 60**，⛔ 不拿 `0 Normal` 顶）；补齐要 `RuleCore.EmitHit` 把 `DamageKind` 带进来（见 `报告/B94_Z2.md` §施工单）
         }
 
         /// <summary>
@@ -12171,7 +12172,7 @@ namespace RuleEngine
             }
             else if (grantSource != null && p.Attr != "energy")
             {
-                appliedMod = u.RecordGrant(NormalizeAttr(p.Attr), val, grantSource, extrinsic: ctx.ResolvingExtrinsic);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原版 `CardEffect.extrinsic(+0x30)`（判据 `decomp_full/AbilityLogic__PlayAbility.c:1197-1200`）的作用域量；⛔ 缺了这一跳 = 「关键词算 extrinsic、属性不算」，同一个效果被拆成两半
+                appliedMod = u.RecordGrant(NormalizeAttr(p.Attr), val, grantSource, caster: GrantCasterCardName(ctx), extrinsic: ctx.ResolvingExtrinsic);   // 🔴 2026-10-29（B98_G2 · 账 832 ①）：**施放者那一格补上** —— 原版 `CardEffect.enchantingCard(+0x18) = abilityData.thisCard(+0x10)`（`decomp_full/AbilityLogic__PlayAbility.c` 那三句；`AbilityData` 字段表 `dump.cs` `thisCard 0x10` / `actingCard 0x18`）⇒ 取数口 = `GrantCasterCardName`（= 本仓既有的「能力属主」判据 `ActingUnit ?? CreationSource`，与 `BattleContext.NewInstance` 盖 `createdBy` 那一格**同一份**）。⚠️ **今天零可观测**：本格的 `extrinsic` 仍是 `ctx.ResolvingExtrinsic || IsExtrinsicSource(source)`（`source` = 黑暗契约种类名，不是 `Auras.GrantTag`）⇒ 带 `Caster` 的那几条记录 `Extrinsic` 恒假，而 `ContainsExtrinsicEffectsFrom` / `RevertGrantsCastBy(extrinsicOnly:)` 要求 `Extrinsic` 才认它   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原版 `CardEffect.extrinsic(+0x30)`（判据 `decomp_full/AbilityLogic__PlayAbility.c:1197-1200`）的作用域量；⛔ 缺了这一跳 = 「关键词算 extrinsic、属性不算」，同一个效果被拆成两半
             }            else
             {
                 switch (NormalizeAttr(p.Attr))
@@ -18495,9 +18496,9 @@ namespace RuleEngine
         {
             if (ctx == null || u == null || u.Card == null) return false;
             if (u.Card.AbilityTriggerPresence("TriggerOnceIfBoardCriteria") != 1) return false;
-            // 🔴 2026-10-29（B96_CA · 账 1288）：闸从「写死的卡面关键词」改成**按触发数值取**（`CardDef.TriggerOpsByNumber(200)`，见 `CardDefPartial_B96CA.cs`）—— 数据半（生成器落 `trigger 数值 → ability op`）挂进来之后，本闸自动跟着走。⚠️ 全池仍 0 张（现扫 `abilityTriggers` 含 200 = 0/1,129）⇒ 零行为变化。⚠️ 今天**只能当闸**：正文仍由 `FireTriggerAt` 按关键词取（要让它读挂进来的那张表，`FireTriggerAt` 需加 `opsOverride` 形参，而它在 `RuleCore.cs`、不在本代理白名单 ⇒ 已交回补丁）
+            // 🔴 2026-10-29（B96_CA · 账 1288）：闸从「写死的卡面关键词」改成**按触发数值取**（`CardDef.TriggerOpsByNumber(200)`，见 `CardDefPartial_B96CA.cs`）—— 数据半（生成器落 `trigger 数值 → ability op`）挂进来之后，本闸自动跟着走。⚠️ 全池仍 0 张（现扫 `abilityTriggers` 含 200 = 0/1,129）⇒ 零行为变化。✅ 2026-10-29（`B98_K4` · 账 1287）：正文那一半**已接通** —— 下一行把 `onceOps` 当 `opsOverride` 传给 `FireTriggerAt`（`B97_W28` 加的形参）⇒ 数据半挂进来就能真结算（改前它只当闸、正文仍按卡面关键词取，而全池 0 张卡面写这个词 ⇒ 恒空）。
             List<EffectOp> onceOps = u.Card.TriggerOpsByNumber(200); if (onceOps == null || onceOps.Count == 0) return false;
-            return FireTriggerAt(ctx, u, KeywordTable.TriggerOnceIfBoardCriteria, owner, slot);
+            return FireTriggerAt(ctx, u, KeywordTable.TriggerOnceIfBoardCriteria, owner, slot, opsOverride: onceOps);   // 🔴 2026-10-29（`B98_K4` · 账 1287）：数据半那张表**真喂进正文口**（原版 `TriggerAbilities(200, …)` 按 ability 取正文；我们的等价物 = `opsOverride`）。⚠️ 池内 `abilityTriggers` 含 200 = 0/1,129 ⇒ 本行**零行为变化**（`onceOps` 非空才走得到这里）
         }
 
         // ==========================================================================================
@@ -19498,11 +19499,11 @@ namespace RuleEngine
                     var u = ps.Board[s];
                     if (u == null || u.Card == null) continue;
                     if (u.Card.AbilityTriggerPresence(240) != 1) continue;   // 原版 `AbilityTrigger.WhileInPlayVariable = 0xf0`；数值口 = `CardDef.AbilityTriggerPresence(int)`（`CardDef.cs:2462`）
-                    // 「240 能跑起来」的两档（见上面那段口径）
-                    if (u.Card.TriggerOpsByNumber(240) != null) continue;
-                    var auras = u.Card.AuraSpecs;
-                    if ((auras != null && auras.Count > 0) || u.Card.MeleeEqualsHealth) continue;
-                    // 原版 `.c:218` 的 priority 恒 1
+                    // 🔴 2026-10-29（B98_G2 · 账 482 残余 ⓒ）：近似口径（「有没有能跑的 240 正文 / 光环承载」）换成**逐 ability 真链**
+                    //   —— 判据与实现 → 类尾 `WhileInPlayVariableAbilityRunnable`：`IsRightContext(+0x14)` → `actingCardCriteria(+0x28)` → `targetCriteria(+0x30)` → `boardCriteria(+0x38)`
+                    if (WhileInPlayVariableAbilityRunnable(ctx, p, s, u)) continue;
+                    // 「判不了」**不算**跑不了（放行，见那个方法的 doc）；**所有** ability 都「明确不满足」才走到下面这一句
+                    //   （原版 `.c:207-221`：`CanTriggerAbility` 为假 ∧ `ability.trigger == 0xf0` ⇒ `RemoveExtrinsicEffectsFrom(mgr, thisCard, 1)`；priority 恒 1）
                     RemoveExtrinsicEffectsFrom(ctx, u, 1);
                 }
             }
@@ -19641,15 +19642,15 @@ namespace RuleEngine
         /// 而 `ChoiceOfCardEnemy.c:34` 会对空表 `get_Item(0)`（原版自己会炸/走出未定义）⇒ 我们不照抄那次越界，
         /// 改成「不摆 + 出声 + 保持旧行为」。判据为空（数据缺列）· 调度台 2026-10-29 施工单 §1·2 授权。</para>
         /// </summary>
-        public static List<CardDef> BuildChoiceOptions(BattleContext ctx, List<CardDef> cands)
+        public static List<CardDef> BuildChoiceOptions(BattleContext ctx, List<CardDef> cands, int limitOverride = int.MinValue)
         {
             var opts = new List<CardDef>();
             if (ctx == null || cands == null || cands.Count == 0) return opts;
-            int limit = ChoiceLimitOf(ctx);
+            int limit = limitOverride != int.MinValue ? limitOverride : ChoiceLimitOf(ctx);   // 🆕 `B98_H2`：开面板那一刻 `ctx.PlayingCard` 还没指向这一问 ⇒ 上限必须由调用方给（见类尾 `PeekChoiceOptions`）
             if (limit <= 0)
             {
                 // 🔶 自己设计（非原版）：缺值 ⇒ 不摆（理由见上面那一段）
-                ctx.Log($"（选牌：这张卡的 `choicesDefinition.maxTargets` = {limit}（缺值/不摆）"
+                if (_choicePeekCursor < 0) ctx.Log($"（选牌：这张卡的 `choicesDefinition.maxTargets` = {limit}（缺值/不摆）"
                       + " ⇒ **不摆选项**，按旧口径等概率挑 1 张；原版这一档会返回空表）");
                 return opts;
             }
@@ -19661,7 +19662,7 @@ namespace RuleEngine
             for (int i = 0; i < n; i++)
             {
                 if (left.Count == 0) break;           // 原版 `.c:54` 的 `if (Count != 0)`：池空了就跳过这一圈
-                int k = ctx.GetRandomInt(0, left.Count);
+                int k = NextChoiceRandom(ctx, left.Count);   // 🆕 `B98_H2`：偷看模式下只读预烧表、推进**本地**游标（⛔ 不碰 `ctx.RandomNumbersIndex`）
                 if (k >= left.Count) k = 0;           // 原版 `.c:57-59` 的 `if (Count <= iVar3) iVar3 = 0;`
                 var item = left[k];
                 if (item == null) continue;
@@ -19685,8 +19686,8 @@ namespace RuleEngine
                 }
             }
 
-            ctx.SetChoiceOptions(opts);
-            ctx.Log($"（选牌：按原版 `GetChoiceOptions` 抽出 {opts.Count} 张候选"
+            if (_choicePeekCursor < 0) ctx.SetChoiceOptions(opts);   // 🆕 `B98_H2`：偷看模式⛔ 不写 ctx（面板那一刻写入 = 让「只有本地那一侧跑面板」的 A/B 两端状态不等）
+            if (_choicePeekCursor < 0) ctx.Log($"（选牌：按原版 `GetChoiceOptions` 抽出 {opts.Count} 张候选"
                   + $"（池 {cands.Count} · `maxTargets` {limit}）—— 引擎消耗了 {opts.Count} 次随机）");
             return opts;
         }
@@ -19775,6 +19776,609 @@ namespace RuleEngine
                 ran = true;
             }
             return ran;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（执行代理 `B98_G2` · 波 5b · 账 645 / 832 ① / 534 ② / 482 残余 ⓒ）
+        //  **一律追加在类尾**（铁律 18·b：本文件有 265 处账落点按 `文件:行号` 引用，
+        //  插在中间 = 下游整体漂移）。下面每个成员都是**新增**，上面的行号一个没动。
+        // ==========================================================================================
+
+        // ------------------------------------------------------------------------------------------
+        //  一、账 645（`BattleManagerSupport.BroadcastUnitAttacked` 的 ④⑤ 手牌两跳）
+        // ------------------------------------------------------------------------------------------
+        //  判据（🥇 `decomp_full/BattleManagerSupport__BroadcastUnitAttacked.c:64-88`，逐句）：
+        //    `uVar2 = BattleManager__IsPlayerTurn(mgr)` → `GetCardsInHandRef(uVar2)` 逐张
+        //    → `GetCardsInHandRef(!IsPlayerTurn())` 逐张，每张调
+        //    `CardScript__ResolveUnitAttacked(接收者, actingCard=param_2, targetCard=param_3, attackType)`
+        //    ⇒ 两条手牌跳**没有任何筛选、也没有 `op_Inequality`**（与棋盘那一跳不同）。
+        //  接收端 `CardScript__ResolveUnitAttacked.c:27-29` 的第一句是
+        //    `RawCardScript.OnTrigger(0x32 = **50**, mgr, thisCard=接收者, actingCard=param_2, targetCard=param_3, 0)`
+        //    —— **不分侧别、不看 `attackType`、无条件**（`attackType` 只在后面的 300/301 两支里用）。
+        //  🔴 **trigger 名 = `UnitAttack`（50），不是 `UnitAttacked`**：`AbilityTrigger` 枚举
+        //    （`dump.cs:20250`）与我们的名字表（`CardDef.cs:1920`）都是 `UnitAttack`；
+        //    施工单/账 645 备注里那个 `HandHops(ctx, "UnitAttacked", …)` 的**名字是错的**
+        //    （`AbilityTriggerPresence("UnitAttacked")` 会一路回「未知」⇒ 一条都不入队，静默空转）。
+        //  ⚠️ **本跳今天零可观测**（如实标）：池内 `abilityTriggers` 含 50 的 **13 张**里
+        //    `abilityContext` 全是 `40 InPlayOrDying` 或「缺行 ⇒ Play(0)」，**没有一张是 `10 Hand`**
+        //    ⇒ `FireHandAbilityTrigger` 的区域闸会把它们全部拒掉（＝原版也拒）。
+        //  ⚠️ **仍未做的两档（同一条接收端的后半段，⛔ 别当漏项）**：
+        //    · `OnTrigger(300 Mob)`（`attackType == 1`）/ `OnTrigger(0x12d = 301 Regiment)`
+        //      （`attackType == 2`）—— 要求「接收者与攻击者**同侧**」；池内 300 = 16 张、301 = 13 张，
+        //      `abilityContext` 分别是「缺行 ⇒ Play(0)」（300 全部）与 `40/50`（301）
+        //      ⇒ 手牌跳今天同样全被区域闸拒（零可观测），但**代码里确实没有这一跳**（本笔不做，记账）。
+        //    · `OnTrigger(0x244 = 580 Strike)` —— 在 `actingCard == thisCard` 那一支里
+        //      （`ResolveUnitAttacked.c:96`）⇒ 手牌卡永远不是攻击者 ⇒ **结构上不可达**。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// **账 645：`BattleManagerSupport.BroadcastUnitAttacked` 的 ④⑤ 手牌两跳**（判据见上面那一段）。
+        /// 与 <see cref="BroadcastUnitDamagedHandHops"/> / <see cref="BroadcastTurnStartedHandHops"/>
+        /// 同一个执行口 <see cref="HandHops"/>（⛔ 别另写一份遍历）。
+        /// </summary>
+        /// <param name="attackedUnit">原版 `targetCard`（被打者）—— 接收端第一句的 `targetCard=param_3`。</param>
+        /// <param name="actingCard">原版 `actingCard`（攻击者）—— 同一个调用里的 `actingCard=param_2`。</param>
+        public static int BroadcastUnitAttackedHandHops(BattleContext ctx, UnitState attackedUnit, UnitState actingCard)
+        {
+            if (ctx == null || ctx.IsOver || attackedUnit == null) return 0;
+            return HandHops(ctx, "UnitAttack", "attacked:50", attackedUnit, actingCard);
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  二、账 832 ①（`RecordGrant` 的施放者实参 = 原版 `CardEffect.enchantingCard(+0x18)`）
+        // ------------------------------------------------------------------------------------------
+        //  判据（🥇 `decomp_full/AbilityLogic__PlayAbility.c` 逐句 ＋ `dump.cs` 的 `AbilityData` 字段表）：
+        //    `AbilityData` = `{ thisCard +0x10 · actingCard +0x18 · targetCard +0x20 · baseEnchantmentCard +0x28 … }`
+        //    （`dump.cs:19559-19562`）；`PlayAbility` 里那一句是
+        //    **`*(CardEffect + 0x18 /*enchantingCard*/) = *(AbilityData + 0x10 /*thisCard*/)`**
+        //    ⇒ **`enchantingCard` = `abilityData.thisCard` = 「这条 ability 的属主」**，
+        //       ⛔ **不是** `actingCard`（那是 `+0x18` 的另一格、= 「引起这次结算的那张牌」）。
+        //  本仓等价位（🟢 同一份判据已在两处立过）：
+        //    · `BattleContext.NewInstance` 盖 `createdBy`：`ActingUnit != null ? ActingUnit.Card : CreationSource`
+        //      （`BattleContext.cs:719`，注释里明写原版吃的是 `AbilityLogic.PlayAbility` 的 `AbilityData.thisCard`）；
+        //    · `BattleContext.ChoiceOptionsSource`（`:2667`）同一个写法。
+        //    ⇒ 本方法就是那一格（**别在别处再抄第三份**）。
+        //  ⚠️ **已知残差（沿用 `CreationSource` 那段 doc 的如实标注）**：`ResolveDeploy` / `ResolveAtTurn`
+        //    那几条常驻作业把「刚部署的那个单位」当 `source` 传 ⇒ 那些路上 `ActingUnit` 是**事件宾语**
+        //    而不是能力属主（原版这一格会是附魔/常驻效果的那张牌）。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// 原版 `CardEffect.enchantingCard(+0x18)`（= `AbilityData.thisCard(+0x10)`）的取数口 ——
+        /// **这条增益是哪张卡给的**。判据与口径 → 上面那一段。
+        /// <para>⚠️ 可见性是 `public` **不是** `internal`：自检在 **Editor 程序集**里、和 `Core` 不是一个
+        /// 程序集（同 `NormalizeAttr` 的理由 ⇒ `B98G2_Assert` 要能直接断它）。</para>
+        /// </summary>
+        public static string GrantCasterCardName(BattleContext ctx)
+        {
+            if (ctx == null) return null;
+            var card = ctx.ActingUnit != null ? ctx.ActingUnit.Card : ctx.CreationSource;
+            return card != null ? card.Name : null;
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  三、账 534 ②（`ta = 60` inCemeteryFiltered —— 墓地目标）
+        // ------------------------------------------------------------------------------------------
+        //  判据（🥇 `decomp_full/AbilityLogic__GetTargets.c:949-960` ＋ `BattleManager__GetCardsInCemetery.c` 全文）：
+        //    `if (targetsAffected == 0x3c) { local = GetCardsInCemetery(mgr, includeMinions +0x17,
+        //      includeSpells +0x18, includeWhispers +0x19, includeWeapons +0x1a, bVar16, bVar17); }`
+        //    —— 五个 include 格与两个**侧别**格全部来自 `TargetCriteria`（`dump.cs` 字段表 `+0x14..+0x1A`）；
+        //    侧面两格由 `abilityData.isPlayerTurn(+0x40)` 把 `friendlyUnits/enemyUnits` 翻转后得到
+        //    （`GetTargets.c:210-219`）⇒ 净语义 = 「**施放方视角的己方 / 敌方**」。
+        //  我们的等价物 = `RuleCore.GetCardsInCemetery`（已有；判据与形状 → 它自己的 doc）。
+        //  🔴 **为什么不能直接塞进 `ResolveTargets`**：那一支的返回值是 `List<CardInstance>`（墓地里的牌
+        //    不在棋盘上），而 `ResolveTargets` 全仓 20 处调用点都按 `List<UnitState>` 用
+        //    ⇒ 本方法**单开一个口**，`ResolveTargets` 那一侧只做「别扫棋盘」（见 `ResolveTargetsAs` 那一段）。
+        //  📊 **可达性**：池内 `abilityTargets[].ta` 含 60 的 = **8 张**（`EC39` / `GSC44` / `SAU39` /
+        //    `SAU57`(×5) / `GOF94` / `SOR42` / `UM61` / `GSC55`）；它们的正文动词全是 `deploy` / `return`
+        //    ⇒ **今天都先被 `ReturnFromCemetery` / `DoDeployOnce` 各自的入口吃掉**（那两处仍自己扫
+        //    `DeadUnits`，本笔**不切**，理由见 `报告/B98_G2.md` §534②）。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// **账 534 ②：`ta = 60`（`inCemeteryFiltered`）的候选** —— 墓地（`PlayerState.Discard`）里
+        /// 符合这条 ability 的 `TargetCriteria` 的那些**牌**。判据 → 上面那一段。
+        /// <para>⚠️ **两侧/卡种的开关优先读数据**（`CardDef.AbilityTargetCriteriaAt(ab, lg)` 的
+        /// `IncludeMinions/IncludeSpells/IncludeWhispers/FriendlyUnits/EnemyUnits` 五格）；
+        /// 读不到（旧表 / 这条 op 没归位 / 该行没落）⇒ 退回**目标短语**推出来的那一档（如实出声）。</para>
+        /// <para>⚠️ 顺序 = 原版 `GetCardsInCemetery` 的「座位 0 的墓地 ++ 座位 1 的墓地、各自按进墓先后」
+        /// （与我们每人一条 `Discard` 的存储形状一一对应；`GetCardsInCemetery` 的 doc 已记这条口径差）。</para>
+        /// </summary>
+        public static List<CardInstance> ResolveCemeteryTargets(BattleContext ctx, int owner,
+                                                                EffectTargetSpec spec, EffectOp op)
+        {
+            var res = new List<CardInstance>();
+            if (ctx == null || ctx.Players == null || owner < 0 || owner >= ctx.Players.Length) return res;
+
+            const int K = CardDef.CountSetSpec.Unknown;
+            var card = ctx.ActingUnit != null ? ctx.ActingUnit.Card : ctx.CreationSource;
+            var set = (op != null && card != null && op.AbilityIndex >= 0)
+                    ? card.AbilityTargetCriteriaAt(op.AbilityIndex, op.LogicIndex) : null;
+
+            bool incMinions, incSpells, incWhispers, selfSide, foeSide;
+            if (set != null && set.IncludeMinions != K && set.IncludeSpells != K && set.IncludeWhispers != K
+                && set.FriendlyUnits != K && set.EnemyUnits != K)
+            {
+                incMinions = set.IncludeMinions != 0;
+                incSpells = set.IncludeSpells != 0;
+                incWhispers = set.IncludeWhispers != 0;
+                selfSide = set.FriendlyUnits != 0;
+                foeSide = set.EnemyUnits != 0;
+            }
+            else
+            {
+                if (spec == null) { incMinions = true; incSpells = true; incWhispers = true; selfSide = true; foeSide = false; }
+                else
+                {
+                    string kind = spec.Kind, side = spec.Side;
+                    incMinions = kind == null || kind == "unit" || kind == "troop" || kind == "any";
+                    incSpells = kind == "tactic" || kind == "spell" || kind == "stratagem" || kind == "any";
+                    incWhispers = kind == null || kind == "whisper" || kind == "any";
+                    selfSide = side != "enemy";
+                    foeSide = side == "enemy" || side == "any";
+                }
+                UnityEngine.Debug.LogWarning($"[RuleEngine] `ta=60`（墓地目标）：「{(op != null ? op.Source : (spec != null ? spec.Raw : "?"))}」"
+                    + "的 `abilityTargetCriteria` 行读不到 ⇒ 卡种/侧别按**目标短语**推"
+                    + $"（minions={incMinions} spells={incSpells} whispers={incWhispers} self={selfSide} enemy={foeSide}）。"
+                    + "判据 = 原版 `TargetCriteria` 的五个 include 格（`AbilityLogic__GetTargets.c:949-960`）。");
+            }
+
+            var all = RuleCore.GetCardsInCemetery(ctx, incMinions, incSpells, incWhispers,
+                                                 inclWeapons: true,
+                                                 inclPlayer: owner == 0 ? selfSide : foeSide,
+                                                 inclEnemy: owner == 0 ? foeSide : selfSide);
+            var crit = spec != null ? CardCriteria.FromTarget(spec) : null;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var inst = all[i];
+                if (inst == null || inst.Card == null) continue;
+                if (crit != null && !crit.Matches(inst.Card)) continue;
+                res.Add(inst);
+            }
+            return res;
+        }
+
+        /// <summary>`ResolveTargets` 那一条收口在 `ta = 60` 时走的支（见 <see cref="ResolveCemeteryTargets"/>）。
+        /// **返回空表**：墓地里的牌不在棋盘上，⛔ 别让调用方把「空表」读成「棋盘上一个都没选到」。
+        /// ⚠️ 出声只走 `Debug.LogWarning`（**不写 `ctx.Log`** —— 那会进 `ctx.Events` ⇒ 动联机指纹）。</summary>
+        static List<UnitState> ResolveCemeteryTargetsAsUnits(BattleContext ctx, int owner,
+                                                             EffectTargetSpec spec, EffectOp op)
+        {
+            var picks = ResolveCemeteryTargets(ctx, owner, spec, op);
+            if (picks.Count > 0)
+                UnityEngine.Debug.LogWarning($"[RuleEngine] `ta=60`（墓地目标）：「{(op != null ? op.Source : (spec != null ? spec.Raw : "?"))}」"
+                    + $"的候选在**墓地**有 {picks.Count} 张（{Names(picks)}）—— `ResolveTargets` 只收棋盘上的 `UnitState` "
+                    + "⇒ 本支返回空表（原版这一支的候选本来就不在棋盘上）；取走/搬运那半在 "
+                    + "`ReturnFromCemetery` / `DoDeployOnce` 各自的入口。");
+            return new List<UnitState>();
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  四、账 482 残余 ⓒ（`WhileInPlayVariable(240)` 的「跑不跑得起来」= 逐 ability 真链）
+        // ------------------------------------------------------------------------------------------
+        //  判据（🥇 `decomp_full/RawCardScript__TriggerAbilities.c:207-221`）：
+        //    `if (!CardAbility.CanTriggerAbility(ability, 0xf0, mgr, thisCard, actingCard, targetCard, ignoreRandom))`
+        //    `{ if (ability.trigger(+0x10) == 0xf0) { if (mgr == 0) break; RemoveExtrinsicEffectsFrom(mgr, thisCard, 1); } }`
+        //    ⇒ **逐条 ability** 各判一次；`CanTriggerAbility` 的四道闸
+        //      （`CardAbility__CanTriggerAbility.c:126-141`）= trigger 命中 ∧ `IsRightContext(+0x14)` ∧
+        //      `CheckIfMeetsCriteria(actingCardCriteria +0x28)` ∧ `CheckIfMeetsCriteria(targetCriteria +0x30)` ∧
+        //      `BoardAnalysis.MeetsCriteria(boardCriteria +0x38)`。
+        //  🔴 **旧口径（已废）**：「有没有能跑的 240 正文 / 光环承载」这条近似（判据为空，见本文件
+        //    `WhileInPlayVariablePass` 上方那段 2026-10-29 `B96_CA` 的注释 —— ⛔ 别再按它判）。
+        //  ⚠️ **三态纪律**（与 `AbilityCriteriaAllowsAt` 同一套）：`null`（判不了）**不算**「跑不了」
+        //    —— 否则数据缺列会把整族 240 的效果**静默摘掉**（`RemoveExtrinsicEffectsFrom` 是「摘」侧）。
+        //  📊 可达性：池内 33 张含 240，其中 `abilityContext == 10 (InHand)` 的只有 `ASH85` / `BL52`
+        //    ⇒ 这两张**在场**时它们的 240 跑不了（原版 = `IsRightContext` 拒）⇒ 摘；在**手牌**里同理跑不了，
+        //    但我们这一趟只扫棋盘（原版 `BroadcastWhileInPlay` 扫棋盘 + 双方手牌 —— **这个差还在**，见报告）。
+        // ------------------------------------------------------------------------------------------
+
+        static readonly HashSet<string> _whileInPlayVariableNoted = new HashSet<string>();
+
+        static void NoteWhileInPlayVariableUndecided(CardDef card, string why)
+        {
+            string key = (card.Id ?? card.Name ?? "?") + "|" + why;
+            if (!_whileInPlayVariableNoted.Add(key)) return;
+            UnityEngine.Debug.LogWarning($"[RuleEngine] 「{card.Name}」（{card.Id}）的 `WhileInPlayVariable(240)` "
+                + $"**判不了**（{why}）⇒ 这一趟**不摘**它挂的 extrinsic 效果（「判不了 ≠ 不满足」）。"
+                + "判据 = `RawCardScript__TriggerAbilities.c:207-221` + `CardAbility__CanTriggerAbility.c:126-141`。");
+        }
+
+        /// <summary>
+        /// 账 482 残余 ⓒ：这张卡的 `WhileInPlayVariable(240)` **至少有一条 ability 跑得起来**吗。
+        /// `true` = 不摘（含「判不了 ⇒ 放行」）· `false` = **每一条**都「明确不满足」⇒ 调用方摘。
+        /// 判据与三态纪律 → 上面那一段。
+        /// <para>⚠️ 可见性 `public` 只为自检能直接断它（同 `NormalizeAttr` 的理由）。</para>
+        /// </summary>
+        public static bool WhileInPlayVariableAbilityRunnable(BattleContext ctx, int owner, int slot, UnitState u)
+        {
+            if (ctx == null || u == null || u.Card == null) return true;      // 判不了 ⇒ 不摘
+            var rows = u.Card.AbilityRowsForTrigger("WhileInPlayVariable");
+            if (rows == null || rows.Count == 0)
+            {
+                NoteWhileInPlayVariableUndecided(u.Card, rows == null
+                    ? "`abilityTargets` 列没落 / 认不出 trigger 名"
+                    : "`abilityTargets` 里没有 240 这一行");
+                return true;                                                  // 判不了 ⇒ 不摘
+            }
+            // ① `IsRightContext`（`CanTriggerAbility.c:126`）—— 数据只有**按 trigger** 的 context
+            //    （`CardDef.AbilityContextOfTrigger`；原版那格在 `CardAbility +0x14` 上是**逐 ability**，
+            //    生成器把 `ab` 丢了 ⇒ 同一 trigger 多条 ability 共用一份，如实标着）。
+            int actx = AbilityContextOfAbilityV14(u.Card, "WhileInPlayVariable", null);
+            if (actx != CardDef.AbilityContextUnknown && !IsRightContext(ctx, owner, slot, actx, u.Instance))
+                return false;                                                 // 载体明确不在那条 ability 要求的区域
+            // ②③④ `actingCardCriteria` / `targetCriteria` / `boardCriteria` —— 逐条 ability 判。
+            //   常规重算那一趟原版传 `actingCard = null` / `targetCard = null`（`CardScript.cs:16018-16031`）
+            //   ⇒ 这里也传 null（`AbilityCriteriaAllowsAt` 对「有 criteria 行但候选为 null」回 `null` = 判不了）。
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                if (r == null) continue;
+                string why;
+                bool? ok = AbilityCriteriaAllowsAt(ctx, owner, u, u.Card, r.AbilityIndex,
+                                                   actingCandidate: null, targetCandidate: null,
+                                                   out why, ignoreRandom: false);
+                if (ok != false) return true;                                 // 过闸 / 判不了 ⇒ 这一条算跑得起来
+            }
+            return false;                                                     // 每一条都「明确不满足」
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（执行代理 `B98_H2` · 账 254 / 255 的**时序根治**）：**开面板之前把 options 算好**
+        //  ⛔ 追加在类尾（`账/*.tsv` 按 `文件:行号` 落点，插中间会让下游整体漂移）。
+        // ==========================================================================================
+        //  【问题】现读代码的调用序（⛔ 不是猜测）：
+        //    面板  `BattleDriver.BeginPlay:11118` → `PlayAsks:11004`（`:11007` 调 `PlayerChooseOps`）
+        //          → `BeginAsk:11083` → `ShowAsk:11210`（**摆候选那一句在 `:11233`**）
+        //    引擎  `DoPlay:14006` → `RuleCore.PlayCard` → `DoChooseCard:4802` → `TakePickCard:4523`
+        //          → `BuildChoiceOptions`（**到这一步才抽 options**）
+        //  ⇒ **面板在引擎结算之前** ⇒ `ctx.ChoiceOptions` 那一刻还是**上一次**那份（stale）⇒ 面板走旧兜底。
+        //  原版是「开面板前先 `GetChoiceOptions` 抽好 options，再 `ChooseCardMenu.Setup(options)`」。
+        //
+        //  【🔴 为什么不能「提前真抽」—— 本件最重要的裁定，证据全在代码里】
+        //    **面板只在本地那一侧跑**：远端对局是把动作经 `LocalAct:284 → _net.OnLocalAction` 送过去、
+        //    由 `NetApply.Apply`（`BattleDriver:351`）**直接落引擎**，**远端不跑面板**。
+        //    ⇒ 「在面板那一刻消耗 `ctx.GetRandomInt`」只发生在行动方 ⇒
+        //      ① P2P 两端随机表游标错位（`NetProtocol.Fingerprint:557` 连 `Events.Count` 都算进去）；
+        //      ② 本地录像重放（`ApplyLoggedAction:340`）同样不跑面板 ⇒ 同样错位。
+        //    ⇒ **抽取必须仍发生在「两端都会跑」的那一处 = `TakePickCard`**。
+        //    （另一条死路：`ChooseCardCandidates` 是**纯读**口，`RuleEngineTest.cs:9265` 有一条断言钉着
+        //      「不掷骰、不记账」，且 8 处测试在调它 ⇒ ⛔ 别把推演塞进那个函数。）
+        //
+        //  【✅ 本件的做法：**偷看（peek）预烧随机表，一个数都不消耗**】
+        //    `BattleContext.RandomNumbers[100]` 是**开局一次烧好、之后只读**的定长表，`GetRandomInt`
+        //    只是「按游标取一格 + 游标 ++」（`BattleContextRandom.cs:62-72`）⇒ 面板完全可以**照同一条算式
+        //    推演**出「结算时那 N 张会是什么」，而**不动游标**；然后引擎在 `TakePickCard` 里**复用**这份推演。
+        //    复用条件四条：① 同一条 ask（**内容键** = `Verb`+`Source`+`ChooseSrc`+`Payload`，⛔ 不是 `EffectOp` 实例 ——
+        //    面板与结算各跑一次 `EffectText.Parse`，实例永远是两个）② 游标没动过（`RandomNumbersIndex` 与推演时相等）
+        //    ③ 结算时的候选表与推演时**逐项同 id 同序** ④ `maxTargets` 相同。
+        //    四条同时成立 ⇒「真抽」的结果**必定**就是推演那 N 张（同起点、同算式、同池）⇒ 复用 = **逐位等价
+        //    于真抽**：游标按推演的消耗格数前推、`ctx.SetChoiceOptions` 与那条 `ctx.Log` 原样补上
+        //    ⇒ `ctx.Events` / 随机流 / 残局指纹**一个字节都不变**（本件**不是**随机流改动）。
+        //    四条不满足 ⇒ **丢弃推演、走真抽**（= 今天的行为），并 `UnityEngine.Debug.LogWarning` 出声
+        //    （⛔ 不用 `ctx.Log`：那会让「跑了面板的那一侧」多一条事件，动到 `NetProtocol.Fingerprint`）。
+        //  ⚠️ **如实标的残差**：这张卡若在「选牌那一步」**之前**还有消耗随机数的步骤（②不成立），或结算时
+        //    候选池与开面板时不同（③不成立）⇒ 面板摆的是推演那一份、引擎抽的是另一份 ⇒ 按 `Id` 回落。
+        //    **这不是退步**（今天面板抽的是 `ctx.ShowRng`、与引擎**必然**不同），但**不是 100% 命中**。
+        // ==========================================================================================
+
+        /// <summary>偷看模式：`&gt;= 0` = 只读预烧表、推进**这个本地游标**（⛔ 不碰 `ctx.RandomNumbersIndex`）；
+        /// `-1` = 正常模式（走 `ctx.GetRandomInt`，推进真游标）。⚠️ 静态可变，只用于**同一次同步调用**内的
+        /// 偷看（`PeekChoiceOptions` 里 `try/finally` 复位）—— 结算单线程 ⇒ 不构成并发面。</summary>
+        static int _choicePeekCursor = -1;
+
+        /// <summary>偷看模式下的随机源 —— **逐句镜像** `BattleContext.GetRandomInt`（`BattleContextRandom.cs:62-72`）：
+        /// `max &lt;= min+1` ⇒ 取 `min` 且**不消耗**；否则取表 `[游标 % 长度]`、游标 ++、返回 `min + v % (max-min)`。
+        /// ⛔ 两处必须同步改（断言 `PeekMirrorsRealDraw` 盯着这条）。</summary>
+        static int NextChoiceRandom(BattleContext ctx, int maxExcl)
+        {
+            if (_choicePeekCursor < 0) return ctx.GetRandomInt(0, maxExcl);
+            var t = ctx.RandomNumbers;
+            if (t == null) return 0;                    // 与 `GetRandomInt` 的 `RandomNumbers == null` 支同口径
+            if (maxExcl <= 1) return 0;                 // 原版口径 `maxValueExcl <= minValueIncl + 1` ⇒ 不消耗
+            int v = t[_choicePeekCursor % t.Length];
+            _choicePeekCursor++;
+            return v % maxExcl;                         // = `0 + v % (max - 0)`
+        }
+
+        /// <summary>一次「开面板前算好的 options」—— 面板摆的那一份 = 引擎结算时要复用的那一份。</summary>
+        sealed class ChoicePeek
+        {
+            public string Key;              // 同一条 ask 的**内容键**（`Verb`+`Source`+`ChooseSrc`+`Payload`）——
+                                            // 🔴 2026-10-29（`B98_H2`）：⛔ 不能按 `EffectOp` 实例认！面板那条 op 来自
+                                            // `PlayerChooseOps` 里的一次 `EffectText.Parse`，结算那条来自**另一次** `Parse`
+                                            // ⇒ **永远是两个对象**（`EffectText.Parse` 不缓存）。内容键只用来**配对**，
+                                            // 真正的安全由「游标 + 候选 + 上限」三条复核兜住（配对错了也只会退成真抽）。
+            public int Owner;
+            public int StartIndex;          // 推演那一刻的 `ctx.RandomNumbersIndex`
+            public int Draws;               // 推演消耗了几格（真抽会推进同样多格）
+            public int Limit;               // `maxTargets`（结算时要复核相同）
+            public List<string> CandIds;    // 推演时的候选表（按 `CardDef.Id`、同序）
+            public List<CardDef> Options;
+        }
+
+        /// <summary>每局一份的推演暂存（`ConditionalWeakTable`，与 `QuestAux` / `SkullAux` 同一套模式）。</summary>
+        sealed class ChoicePeekAux
+        {
+            public readonly List<ChoicePeek> Items = new List<ChoicePeek>();
+        }
+
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, ChoicePeekAux>
+            ChoicePeekByCtx = new System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, ChoicePeekAux>();
+
+        static ChoicePeekAux ChoicePeekAuxOf(BattleContext ctx)
+        {
+            ChoicePeekAux aux;
+            if (ChoicePeekByCtx.TryGetValue(ctx, out aux)) return aux;
+            aux = new ChoicePeekAux();      // ⚠️ 显式 `new`（`GetOrCreateValue` 在泛型/无参构造上有坑，见 `RuleCore` 类尾那条）
+            ChoicePeekByCtx.Add(ctx, aux);
+            return aux;
+        }
+
+        static List<string> ChoiceCandIds(List<CardDef> cands)
+        {
+            var ids = new List<string>();
+            if (cands == null) return ids;
+            for (int i = 0; i < cands.Count; i++) ids.Add(cands[i] != null ? cands[i].Id : null);
+            return ids;
+        }
+
+        /// <summary>结算时的候选表与推演时**逐项同 id 同序**（含张数）—— 复用条件 ③ 的判据。</summary>
+        static bool ChoiceSameCandIds(List<string> ids, List<CardDef> cands)
+        {
+            int n = ids != null ? ids.Count : 0;
+            int m = cands != null ? cands.Count : 0;
+            if (n != m) return false;
+            for (int i = 0; i < n; i++)
+            {
+                string b = cands[i] != null ? cands[i].Id : null;
+                if (!string.Equals(ids[i], b, System.StringComparison.Ordinal)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>一条 ask 的**内容键**（⛔ 不是 `EffectOp` 实例 —— 面板/结算两次 `EffectText.Parse` 产的永远是两个对象）。
+        /// 用 `Source`（那一句原文）+ `Verb` + `ChooseSrc` + `Payload` 四样：同一张卡里两条一样的 ask ⇒ 同键 ⇒
+        /// 按**插入序**（= ask 序 = 结算序）先进先出配对，仍然对得上。</summary>
+        static string ChoiceAskKey(EffectOp op)
+        {
+            if (op == null) return null;
+            return (op.Verb ?? "") + "\u0001" + (op.Source ?? "") + "\u0001"
+                 + (op.ChooseSrc ?? "") + "\u0001" + (op.Payload ?? "");
+        }
+
+        static ChoicePeek ChoiceFind(ChoicePeekAux aux, string key, int owner)
+        {
+            if (aux == null || key == null) return null;
+            for (int i = 0; i < aux.Items.Count; i++)
+            {
+                var e = aux.Items[i];
+                if (e != null && e.Owner == owner && string.Equals(e.Key, key, System.StringComparison.Ordinal)) return e;
+            }
+            return null;
+        }
+
+        static void ChoiceDrop(ChoicePeekAux aux, string key, int owner)
+        {
+            var e = ChoiceFind(aux, key, owner);
+            if (e != null) aux.Items.Remove(e);
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-29（`B98_H2` · 账 254 / 255）：**开面板之前**把这一问的 options 算出来（**不消耗随机数**、
+        /// 不写 `ctx`、不进 `ctx.Events`）。返回值就是面板该摆的那几张；空表 = 这一问不摆（调用方回落到旧兜底）。
+        ///
+        /// <para>为什么要有 `source` 这个形参：开面板那一刻 `ctx.PlayingCard` / `ctx.ActingUnit` **还没指向这一问**
+        /// （`ctx.PlayingCard` 的唯一写点 `EffectResolver.cs:371` 在结算里）⇒ `ChoiceLimitOf(ctx)` 此刻读到的是
+        /// **上一张卡**（stale）⇒ `maxTargets` 必须由调用方（面板，手上就有 `PendingCard`）直接给。</para>
+        ///
+        /// <para>⚠️ 调用方 = 表现层 `BattleDriver.ShowAsk`（**本代理白名单外**，见报告 §三 的一行接线补丁）。
+        /// 没接上时代码一切照旧（引擎在 `TakePickCard` 里真抽），只是面板仍走旧兜底。</para>
+        /// </summary>
+        public static List<CardDef> PeekChoiceOptions(BattleContext ctx, int owner, EffectOp op,
+                                                      List<CardDef> cands, CardDef source)
+        {
+            var none = new List<CardDef>();
+            if (ctx == null || op == null || cands == null || cands.Count == 0) return none;
+            int limit = source != null ? source.ChoicesMaxTargets : -1;
+            if (limit <= 0) return none;        // 与 `BuildChoiceOptions` 的「缺值/不摆」同口径（面板回落）
+
+            var aux = ChoicePeekAuxOf(ctx);
+            int start = ctx.RandomNumbersIndex;
+            string key = ChoiceAskKey(op);
+            var hit = ChoiceFind(aux, key, owner);
+            if (hit != null && hit.StartIndex == start && hit.Limit == limit && ChoiceSameCandIds(hit.CandIds, cands))
+                return new List<CardDef>(hit.Options);      // 幂等：面板重摆不问第二遍（也⛔ 不重复推演）
+
+            int cur = start;
+            List<CardDef> opts;
+            _choicePeekCursor = start;
+            try { opts = BuildChoiceOptions(ctx, cands, limit); cur = _choicePeekCursor; }
+            finally { _choicePeekCursor = -1; }
+            if (opts == null || opts.Count == 0) return none;   // 空表不缓存（面板回落旧兜底）
+
+            ChoiceDrop(aux, key, owner);                        // 同一条 ask 的旧推演作废（换这一份新的）
+            aux.Items.Add(new ChoicePeek
+            {
+                Key = key,
+                Owner = owner,
+                StartIndex = start,
+                Draws = cur - start,
+                Limit = limit,
+                CandIds = ChoiceCandIds(cands),
+                Options = new List<CardDef>(opts),
+            });
+            while (aux.Items.Count > 8) aux.Items.RemoveAt(0);   // 只留最近 8 份（吃不到的都是被真抽顶掉的残留）
+            return new List<CardDef>(opts);
+        }
+
+        /// <summary>
+        /// 引擎侧（`TakePickCard` 用）：有**符合四条同等条件**的推演就复用，返回 options；否则返回 `null`（走真抽）。
+        ///
+        /// <para>复用时**逐位等价于真抽**：游标按推演的消耗格数前推 + `ctx.SetChoiceOptions` + 那条 `ctx.Log`
+        /// 原样补上 ⇒ `ctx.Events` 与随机流与「没跑面板的远端 / 重放」完全一致（⛔ 别在这里少写一句，
+        /// 少一句就是 A/B 两端 `Events.Count` 不等）。</para>
+        /// </summary>
+        static List<CardDef> TakePeekedChoiceOptions(BattleContext ctx, int owner, EffectOp op, List<CardDef> cands)
+        {
+            ChoicePeekAux aux;
+            if (ctx == null || op == null || !ChoicePeekByCtx.TryGetValue(ctx, out aux)) return null;
+            var e = ChoiceFind(aux, ChoiceAskKey(op), owner);
+            if (e == null) return null;
+            aux.Items.Remove(e);                     // 一次 ask 只吃一份（⛔ 别留着被下一问重放）
+            int limit = ChoiceLimitOf(ctx);
+            if (e.StartIndex != ctx.RandomNumbersIndex || e.Limit != limit || !ChoiceSameCandIds(e.CandIds, cands))
+            {
+                UnityEngine.Debug.LogWarning($"[选牌] 开面板前算好的 options 与结算时对不上（游标 {e.StartIndex}→{ctx.RandomNumbersIndex}"
+                                           + $" · 上限 {e.Limit}/{limit} · 候选 {e.CandIds.Count}/{cands.Count}）"
+                                           + " ⇒ 丢弃那份推演、按真抽走（面板摆的与引擎抽的会不同 —— 账 254/255 的已知残差）");
+                return null;
+            }
+            ctx.RandomNumbersIndex = e.StartIndex + e.Draws;   // 与真抽终态**逐位相同**（表只读、游标只前进）
+            ctx.SetChoiceOptions(e.Options);                   // 与真抽那句同一份副作用（⛔ 不许省）
+            ctx.Log($"（选牌：按原版 `GetChoiceOptions` 抽出 {e.Options.Count} 张候选"
+                  + $"（池 {cands.Count} · `maxTargets` {limit}）—— 引擎消耗了 {e.Options.Count} 次随机）");
+            return new List<CardDef>(e.Options);
+        }
+
+        /// <summary>丢掉这一局全部「开面板前算好的 options」（换牌 / 重连 / 自检夹具复位用；正常打局**不需要**叫）。</summary>
+        public static void ClearChoicePeek(BattleContext ctx)
+        {
+            ChoicePeekAux aux;
+            if (ctx != null && ChoicePeekByCtx.TryGetValue(ctx, out aux)) aux.Items.Clear();
+        }
+
+        /// <summary>自检读口：这一局还挂着几份没被结算吃掉的推演。</summary>
+        public static int ChoicePeekCountForTest(BattleContext ctx)
+        {
+            ChoicePeekAux aux;
+            if (ctx == null || !ChoicePeekByCtx.TryGetValue(ctx, out aux)) return 0;
+            return aux.Items.Count;
+        }
+
+        /// <summary>自检口：把 <see cref="TakePeekedChoiceOptions"/> 暴露出来（编辑器程序集看不见 `internal`，
+        /// 本仓没有 `InternalsVisibleTo`）。⛔ 只有自检该调它 —— 正常结算走 `TakePickCard`。</summary>
+        public static List<CardDef> TakePeekedChoiceOptionsForTest(BattleContext ctx, int owner, EffectOp op,
+                                                                   List<CardDef> cands)
+        {
+            return TakePeekedChoiceOptions(ctx, owner, op, cands);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-29（`B98_K4` · 账 533 / 646）——
+        //  ① **墓地候选的「DeadUnit 形状」适配口**（`ReturnFromCemetery` / `DoDeployOnce` 都用它）；
+        //  ② **棋盘侧按 trigger 数值发 60/185/187**（`BroadcastWhenCore` 的 `Damaged` 两跳用它）。
+        //  ⚠️ 两个方法都**追加在类尾**（铁律 18·b：本文件有大量账落点，插中间 = 整体漂移）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// **墓地候选（`ResolveCemeteryTargets`）→ `DeadUnit` 形状**，供 <see cref="ReturnFromCemetery"/>
+        /// 与 `DoDeployOnce` 的 graveyard 支沿用**原来的挑法**（窗口 / 侧别 / 卡种 / 具名）。
+        ///
+        /// <para>🔴 **账 533 的消费端切换（2026-10-29 `B98_K4`）**：这两处原来**自己扫 `ctx.DeadUnits`**
+        /// （= 本局死亡流水），而原版这一支的候选 = **墓地**（`BattleManager.GetCardsInCemetery`，
+        /// 判据 `decomp_full/BattleManager__GetCardsInCemetery.c`）⇒ 本方法把「墓地那一口」
+        /// （<see cref="ResolveCemeteryTargets"/> → `RuleCore.GetCardsInCemetery`）**重新包成 `DeadUnit`**，
+        /// 让两处的挑法一个字不用改（⛔ 不是第二份规则）。</para>
+        ///
+        /// <para>**形状差（如实写清）**：
+        /// ① `Owner` = 那一份实例落在**谁的 `Discard`** 里（原版墓地本身就是按 side 分表的）；
+        /// ② `DeathTurn` = 旁表（`ctx.DeadUnits` 的 `Instance.Id → DeathTurn`）查来的；
+        ///   **查不到 ⇒ `-1`** —— 那一档 = 「手牌超上限被弃掉的单位卡」（原版墓地里有、我们没记过死亡回合）
+        ///   ⇒ 调用方的「`died since last turn` / `died this turn`」窗口会把它**排除**
+        ///   （判不了就不猜；`B98_G2` 报告 §一② 里留的那条口径裁定，本次按「排除」落）。
+        /// ③ `IsRemnant` 恒 `false`：`GetCardsInCemetery` **已经**把残骸与放逐整条排除了
+        ///   （`remnantIds` / `ExileFromCemetery`），这里再填 `true` 只会误导读者。</para>
+        /// </summary>
+        static List<DeadUnit> CemeteryDeadUnits(BattleContext ctx, int owner, EffectTargetSpec spec, EffectOp op)
+        {
+            var res = new List<DeadUnit>();
+            if (ctx == null) return res;
+            var insts = ResolveCemeteryTargets(ctx, owner, spec, op);
+            if (insts == null || insts.Count == 0) return res;
+
+            // 旁表：实例号 → 死亡回合（`CardInstance` 本身不带这一格，见上面 §形状差 ②）
+            Dictionary<int, int> deathTurn = null;
+            for (int i = 0; i < ctx.DeadUnits.Count; i++)
+            {
+                var d = ctx.DeadUnits[i];
+                if (d == null || d.Instance == null) continue;
+                if (deathTurn == null) deathTurn = new Dictionary<int, int>();
+                deathTurn[d.Instance.Id] = d.DeathTurn;
+            }
+
+            for (int i = 0; i < insts.Count; i++)
+            {
+                var inst = insts[i];
+                if (inst == null || inst.Card == null) continue;
+                int who = -1;
+                for (int side = 0; side < ctx.Players.Length && side < 2; side++)
+                {
+                    var ps = ctx.Players[side];
+                    if (ps == null || ps.Discard == null) continue;
+                    if (ps.Discard.Contains(inst)) { who = side; break; }
+                }
+                if (who < 0) continue;                     // 不在任何一方的弃牌堆里 ⇒ 状态不一致，跳过（宁可少一张也不瞎猜）
+                int turn = -1;                             // -1 = 没有死亡记录（侧手牌超上限弃掉的单位卡）
+                if (deathTurn != null) { int dt; if (deathTurn.TryGetValue(inst.Id, out dt)) turn = dt; }   // ⚠️ `TryGetValue` 的 `out` 在**没命中**时会写 `default(TValue)`（= 0，**不是** -1）⇒ 必须另用一个局部量接，否则「没有死亡记录」会被静默读成「第 0 回合死的」
+                res.Add(new DeadUnit { Card = inst.Card, Instance = inst, Owner = who, DeathTurn = turn });
+            }
+            return res;
+        }
+
+        /// <summary>
+        /// **棋盘侧按 trigger 数值发 `60 / 185 / 187`**（账 646 的棋盘那半）。
+        ///
+        /// <para>**判据（第一权威，逐句现读 `decomp_full/CardScript__ResolveDamageDealt.c`）**：
+        /// · `:160` `OnTrigger(0x3c = 60 UnitDamaged)` —— **无条件**（只要 `battleManager != 0`）；
+        /// · `:191` `switch(damageInfo.damageType)`：`0 Normal / 3 Ability` ⇒ `0xb9 = 185 UnitDamagedByAbility`；
+        ///   `4 Attack / 6 Blast` ⇒ `0xbb = 187 UnitDamagedByAttack`。
+        /// 原版对**每一张在场卡**都会跑这一趟（棋盘循环 `BattleManagerSupport__BroadcastUnitDamaged.c:20-61`），
+        /// 所以本方法由 `BroadcastWhenCore` 的 `Damaged` 两跳逐张调用。</para>
+        ///
+        /// <para>⚠️ `130 Rage` **不在本方法里**：它的等价实现已经在 `RuleCore.HurtCore`
+        /// （`FireTriggerOnBoard(ctx, u, KeywordTable.Penitence)`，判据 `.c:98` 那一跳，含「双重忏悔再发一次」）。
+        /// 那 5 张 `Penitence` 卡的 `TriggerOpsByNumber(130)` **非空**（`penitence` 在 `RoutableTriggers` 里、
+        /// 正文真收进了 `_triggerOps`，且 `abilityTargetCriteria` 有 `ab = 0` 行）⇒ 在这里再发一次 = **双响**，
+        /// 所以本方法**只发 60/185/187**。⛔ 别「为了对齐清单」把 130 也塞进来。</para>
+        ///
+        /// <para>⚠️ **今天零可观测**（如实标）：池内 `abilityTriggers` 含 185/187 各 **0** 张；
+        /// 含 60 的 3 张（`Child of Torment` / `Noise Marine` / `Pray Enchantment`）的正文走的是
+        /// **`WhenTriggers`（卡面文本）**、**不进** `_triggerOps` ⇒ `TriggerOpsByNumber(60)` 为空
+        /// ⇒ `FireTriggerByNumber` 一进来就 `return false`（不写 `ctx.Log`，不进 `ctx.Events`）。
+        /// ⇒ 指纹预期**不变**；等数据半（`triggerAbilityIndices` 的正文归位）真长出 60/185/187 才生效。</para>
+        /// </summary>
+        static void FireBoardDamagedByNumber(BattleContext ctx, UnitState u, int owner, int damageType,
+                                             UnitState actingCard, UnitState targetCard)
+        {
+            if (ctx == null || u == null || u.Card == null) return;
+            int player, slot;
+            if (!FindSlot(ctx, u, out player, out slot)) return;   // 棋盘跳只扫在场单位（原版那一趟遍历的是 `allCardsInPlay`）
+            FireTriggerByNumber(ctx, u, 60, player, slot, actingCard, targetCard);
+            if (damageType == 0 || damageType == 3) FireTriggerByNumber(ctx, u, 185, player, slot, actingCard, targetCard);
+            else if (damageType == 4 || damageType == 6) FireTriggerByNumber(ctx, u, 187, player, slot, actingCard, targetCard);
+        }
+
+        // 🔴 **只为自检开门**（纪律同 `FireTriggerAtForTest` / `HurtWithSourceForTest`：**不改任何行为**，
+        //    只让 Editor 程序集调得到这几个 private 口）。⛔ 生产侧别调。
+        /// <summary>自检门：<see cref="CemeteryDeadUnits"/>（账 533 的候选来源）。</summary>
+        public static List<DeadUnit> CemeteryDeadUnitsForTest(BattleContext ctx, int owner,
+                                                              EffectTargetSpec spec, EffectOp op)
+        {
+            return CemeteryDeadUnits(ctx, owner, spec, op);
+        }
+
+        /// <summary>自检门：<see cref="ReturnFromCemetery"/>（账 533 的**消费端**整条路）。</summary>
+        public static int ReturnFromCemeteryForTest(BattleContext ctx, int owner, string by, EffectOp op,
+                                                    EffectTargetSpec spec, string deadScope, List<CardInstance> moved)
+        {
+            return ReturnFromCemetery(ctx, owner, by, op, spec, deadScope, moved);
+        }
+
+        /// <summary>自检门：<see cref="FireBoardDamagedByNumber"/>（账 646 的棋盘那半）。</summary>
+        public static void FireBoardDamagedByNumberForTest(BattleContext ctx, UnitState u, int owner, int damageType,
+                                                           UnitState actingCard, UnitState targetCard)
+        {
+            FireBoardDamagedByNumber(ctx, u, owner, damageType, actingCard, targetCard);
         }
 
     }

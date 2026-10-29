@@ -56,7 +56,7 @@ namespace CardPresentation
         public bool isPremium;
         /// <summary>原版 `DraftModeState`（`dump.cs:126782`，值见 `DraftModeWindow.DraftModeState`）：
         /// `Intro=0` / `PayScreen=2` / `SelectWarlord=5` / `SelectPack=10` / `OngoingRun=15` / `Finished=20` /
-        /// `Collected=22`。`Expire` 用它分两支（见那条注释）。</summary>
+        /// `Collected=22`。⚠️ **本地没有人写这一格**：`Expire` 读的是 <see cref="CurrentDraftState"/> 的**反推**（见那条）。</summary>
         public int draftState;
     }
 
@@ -312,23 +312,23 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>本局当前状态（原版 `DraftEventBase + 0x28` 那一格 = `DraftModeState`）。
-        /// <para>⚠️ 我们的正本是 `DraftModeWindow` 的静态 run（`DraftRunSave`）—— 它没有存 `draftState` 这一格
-        /// （页签状态由窗自己算）⇒ 这里**按 `DraftModeWindow` 的算法反推**：
-        /// `joinState == Finished(2)` ⇒ `Finished(20)`；否则 `payState == NotPaid &amp;&amp; joinState == Joined` ⇒ `Intro(0)`；
-        /// 其余 ⇒ `SelectWarlord(5)`（= 原版 `UpdateState` 那两条判据，见 `DraftModeWindow.UpdateState` 的注释）。
-        /// 这是**反推**，不是原版那一格本身 —— 所以 `Expire` 里「`== 15` 正在跑」这一支**基本走不到**
-        /// （原版那一格在跑对局时会被置 15，我们这边没有对应的写点）。</para></summary>
+        /// <summary>本局当前状态（原版 `DraftEventBase + 0x28` 那一格 = `DraftModeState`；真体判据
+        /// `decomp_generic_trial/out_b94/DraftEventBase_object__object_.Expire__180f230.c:33/:68`
+        /// —— `*(int *)(this + 0x28) < 5` 与 `== 0xf` 两处比较）。
+        /// <para>⚠️ 我们的正本是 `DraftModeWindow` 的静态 run（`DraftRunSave`）—— 它**没有持久化** `draftState` 这一格
+        /// （页签状态由窗自己算）⇒ 这里按 `DraftModeWindow.UpdateState` 的 ①②③ **逐句反推**（真源 = 本文件类尾那三个
+        /// `DraftState*` 小函数）。🔴 2026-10-29（B98_M2）补齐 `SelectPack(10)` / `OngoingRun(15)` 两档 —— 否则
+        /// `Expire` 的 `== OngoingRun(15)`（「收尾正在跑的那一局」）永远走不到。</para></summary>
         public virtual int CurrentDraftState
         {
             get
             {
+                // 反推唯一真源 = 本文件类尾那三个 `DraftState*` 小函数（原版 `UpdateState` ①②③ 的逐句等价物）
                 var run = DraftModeWindow.RunForTest;
-                if (run == null) return (int)DraftModeState.Intro;
-                if (run.joinState == (int)DraftJoinState.Finished) return (int)DraftModeState.Finished;
-                if (run.joinState == (int)DraftJoinState.Joined && run.payState == (int)DraftPayState.NotPaid)
-                    return (int)DraftModeState.Intro;
-                return (int)DraftModeState.SelectWarlord;
+                if (run == null) return (int)DraftModeState.Intro;                          // 没有一局 ⇒ 原版那格还是初值 0
+                if (DraftStateFinished(run)) return (int)DraftModeState.Finished;            // 原版 ①：三条收尾判据
+                if (string.IsNullOrEmpty(run.warlordId)) return DraftStateNotStarted(run);  // 原版 ②：还没选战将
+                return DraftStatePacksPicked(run);                                          // 原版 ③：< RoundsPerDraft ? 10 : 15
             }
         }
 
@@ -411,10 +411,43 @@ namespace CardPresentation
             options.Set("C5", m.LossStreak);
             options.CustomRoomPropertiesForLobby = m.LobbyKeys;    // 恰好 ["C1","C2","C3","C4","C5"]
         }
+
+        // ============================================================ 状态反推助手（原版 `UpdateState` ①②③ 的逐句等价物）
+        // 🔴 为什么拆成三个小函数、并且**追加在类尾**：本文件被账按**行号**钉着
+        // （`轮抽.tsv` / `泛型与启动链_补读.tsv` 共 9 条落点，最大 = `:390 SetCustomMatchOptions`）
+        // ⇒ 新逻辑一律追加类尾，既有行一行不挪（纪律见 `CLAUDE.md`「新成员一律追加到类尾」）。
+        // 逐句来源 = `DraftModeWindow.UpdateState()`（它自己就是原版 `UpdateState` 的等价物，那三条判据的**唯一真源**）：
+        //   ① `joinState == Finished(2) || matchesLost >= maxTries || matchesWon+matchesLost >= matches.Length`
+        //   ② `selectedWarlord == null` ⇒ `(joinState == Joined && payState == notPaid) ? 0 : 5`
+        //   ③ 否则 `selectedPacks.Count < draftRounds ? 10 : 15`
+
+        /// <summary>原版 `UpdateState` ①（三条任一成立 ⇒ 已收尾）。`maxTries` / `matches.Length` 本地取
+        /// `DraftModeWindow.MaxTries` / `MatchesToFinish`（服务端值 ⇒ 那两条本地口径写死在窗那一侧）。</summary>
+        static bool DraftStateFinished(DraftRunSave run)
+        {
+            return run.joinState == (int)DraftJoinState.Finished
+                || run.matchesLost >= DraftModeWindow.MaxTries
+                || run.matchesWon + run.matchesLost >= DraftModeWindow.MatchesToFinish;
+        }
+
+        /// <summary>原版 `UpdateState` ②：还没选战将 ⇒ `joinState == Joined &amp;&amp; payState == NotPaid` ？ `Intro(0)` : `SelectWarlord(5)`。</summary>
+        static int DraftStateNotStarted(DraftRunSave run)
+        {
+            bool intro = run.joinState == (int)DraftJoinState.Joined && run.payState == (int)DraftPayState.NotPaid;
+            return (int)(intro ? DraftModeState.Intro : DraftModeState.SelectWarlord);
+        }
+
+        /// <summary>原版 `UpdateState` ③：已选战将 ⇒ `selectedPacks.Count &lt; draftRounds` ？ `SelectPack(10)` : `OngoingRun(15)`。
+        /// 🔴 `OngoingRun(15)` = **正在跑一局**（包选满、还没收尾）—— `Expire` 的「收尾这一轮」那一支就由它决定可达。</summary>
+        static int DraftStatePacksPicked(DraftRunSave run)
+        {
+            int picked = run.pickedKeys != null ? run.pickedKeys.Length : 0;
+            return (int)(picked < DraftPacks.RoundsPerDraft ? DraftModeState.SelectPack : DraftModeState.OngoingRun);
+        }
     }
 
     // 🔴 本文件**不给具体子类**：原版的两个具体子类（`DraftEvent` / `TimedDraftEvent`）各有自己的
-    // 入口与账行，都**不在本批**；而 `PlayEvent.EventPlayMode` 是抽象（每个活动声明自己打哪个模式），
-    // 本批**没有判据**说轮抽对应 `PlayModes` 里的哪一个 ⇒ 硬写一个就是编。
-    // ⇒ `DraftEventBase<TS,TD>` 保持抽象，具体子类由「轮抽模式」那条线落地时再写（那时才有 EventPlayMode 的判据）。
+    // 入口与账行，都**不在本批**；`PlayEvent.EventPlayMode` 是抽象 —— 原版 `DraftEventBase.get_EventPlayMode`
+    // 返回 **`7` = `PlayModes.ClosedDeck`**（判据 → `判据/B97_R6_轮抽P2P房施工单.md` §三·1；断言 `Editor/B97W26_Assert.cs` A1）。
+    // ⇒ `DraftEventBase<TS,TD>` 保持抽象；具体子类落地时 `EventPlayMode` 照抄 `ClosedDeck`（⛔ 不是 `Classic`）。
 }

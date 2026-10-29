@@ -3408,11 +3408,11 @@ namespace RuleEngine
         /// <para>**同族有多行时**：全部行的 `(ta, fm)` **逐格相同**才挂（那几行可互换，贴谁都一样），
         /// 否则 `gap:kind-ambiguous`（⛔ 不挑第一行 = 位置假设）。</para>
         ///
-        /// <para>返回挂载结论：`attached` / `gap:kind-ambiguous` / `gap:kind-no-op` / `gap:kind-unknown`。</para>
+        /// <para>返回挂载结论：`attached` / `gap:kind-ambiguous` / `gap:kind-no-op` / `gap:kind-unknown` / `gap:kind-continuation`（后者 = 全组 `ca ∈ {320,325}` 的「后续结算」标记，见 `IsContinuationOnlyGroup`）。</para>
         /// </summary>
         string AttachByAbilityKind(List<ActiveAbilityLogicSpec> grp, IReadOnlyList<EffectOp> ops)
         {
-            bool anyAttached = false, anyAmbiguous = false, anyNoOp = false;
+            bool anyAttached = TryAttachEitherOrRow(grp, ops), anyAmbiguous = false, anyNoOp = false, continuationOnly = IsContinuationOnlyGroup(grp);   // 🆕 2026-10-29（B98_G6 · 账 1282(a) 的 `AM22`）：`Give A or B` 折成的 `chooseone + RandomPick` **单条** op 盖着两族分支 ⇒ 按族匹配两边都空。它必须**整体执行一次**，挂到唯一的那条 `ca ∈ {30,31}` 行（判据 + 为什么不能挂在别处 = `CardDefPartial_B98G6.cs` 文件头「执行器耦合」）
             foreach (string fam in ActiveAbilityKindFamilyNames)
             {
                 var use = new List<KeyValuePair<ActiveAbilityLogicSpec, int>>();
@@ -3433,7 +3433,7 @@ namespace RuleEngine
                 var fops = new List<EffectOp>();
                 foreach (var op in ops)
                     if (op != null && op.ActiveAbilityRow < 0            // ⛔ 已归给别的族 ⇒ 不覆盖
-                        && ActiveAbilityFamilyHasVerb(fam, op.Verb)) fops.Add(op);
+                        && (ActiveAbilityFamilyHasVerb(fam, op.Verb) || ChooseOneBranchHasVerb(fam, op))) fops.Add(op);   // 🆕 2026-10-29（B98_G6）：`chooseone + RandomPick` 的选项是 `Payload` 里的**原文**（没有子 op）⇒ 下潜一层、用同一个解析器解出分支动词再比（⛔ 不另抄动词表）
                 if (fops.Count == 0) { anyNoOp = true; continue; }
 
                 int ta0 = ActiveRowInt(use[0].Key.TargetsAffected, use[0].Value);
@@ -3443,7 +3443,7 @@ namespace RuleEngine
                     if (ActiveRowInt(use[i].Key.TargetsAffected, use[i].Value) != ta0
                         || ActiveRowInt(use[i].Key.FurtherMultiplier, use[i].Value) != fm0)
                     { same = false; break; }
-                if (!same) { anyAmbiguous = true; continue; }
+                if (!same) { if (TryAttachRowsByOpTarget(use, fops)) anyAttached = true; else anyAmbiguous = true; continue; }   // 🆕 2026-10-29（B98_G6 · 账 1282(a) 的 `SOR13`）：同族多行 `ta` 不同 ⇒ 旧口径直接 `gap:kind-ambiguous`；改成**按 op 的目标形逐条配对**（`CardDefPartial_B98G6.cs`）。⚠️ `SOR13` 今天仍落 gap —— 卡在「执行器对 `ca ∈ {30,31}` 的行执行全部已挂 op」那道闸上（文件头「执行器耦合」＋ `报告/B98_G6.md` §三 的补丁）
                 if (ta0 < 0 && fm0 < 0) continue;
 
                 foreach (var op in fops)
@@ -3464,7 +3464,7 @@ namespace RuleEngine
             if (anyAttached) return "attached";
             if (anyAmbiguous) return "gap:kind-ambiguous";
             if (anyNoOp) return "gap:kind-no-op";
-            return "gap:kind-unknown";
+            return continuationOnly ? "gap:kind-continuation" : "gap:kind-unknown";   // 🔴 2026-10-29（`B98_K6` · 账 1379/1281 (a)）：全组 `chosenAbility ∈ {320,325}` = 「后续结算」标记，**没有可挂的 op**（机制已在 `EffectResolver.EmitFollowUpResolution` + `RuleCore.cs:12884` 的 410 派发里）⇒ 换一个**说清原因**的结论，⛔ 不硬配
         }
 
         /// <summary>🆕 v24：`ta` 是不是**相邻派生**集合（`AdjacentAnchor` 那六个数）——
@@ -3484,7 +3484,7 @@ namespace RuleEngine
         /// 族名与动词的对应见 <see cref="ActiveAbilityFamilyHasVerb"/>。
         /// <para>⚠️ 只收**在主动能力正文里真的出现过 / 语义无歧义**的那几族；`followAfterResolution(320)` /
         /// `followResolutionIfPreviousMeetsCriteria(325)` 语义是「跟着上一条结算」（不是一种效果）
-        /// ⇒ **故意不映射**（留 `gap:kind-unknown`，⛔ 硬猜会贴错目标集）。</para></summary>
+        /// ⇒ **故意不映射**（⛔ 硬猜会贴错目标集）。🆕 2026-10-29（`B98_K6` · 账 1379/1281 (a)）：整组的 `ca` **全是** 320/325 时，`AttachByAbilityKind` 返回 `gap:kind-continuation`（不是 `kind-unknown`）—— 它没有 op 可挂，机制已在 `EffectResolver.EmitFollowUpResolution` 那一侧，见类尾 `IsContinuationOnlyGroup`。</para></summary>
         static string ActiveAbilityKindFamily(int chosenAbility)
         {
             switch (chosenAbility)
@@ -8055,7 +8055,7 @@ namespace RuleEngine
             //     ⚠️ 后两个词的 **0xe6 / 470 两个 trait 今天全池 0 张卡带**（现扫）；
             //        登记依据 = 「那个时机真的有人读它」（铁律：`Implemented` 不是承诺书，
             //        是「有没有代码会读它」）—— 两个词**各自都有一条上面的落点**。
-            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod,
+            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod, ConditionEval.Ward, ConditionEval.WardWb, ConditionEval.Tainted, KeywordTable.SummonRift,   // 🆕 2026-10-29（执行代理 `B98_N3`）：**末四词 = `ward`(140) · `wardWb`(145) · `tainted`(160) · `summonRift`(730)**。判据 = 原版**有真执行分支**（⛔ 原版**没有** `Implemented` 这种清单，它只是我们的脚手架）：① `ward`/`wardWb` = `EntityScript__get_isCurrentlyWarded.c`（`0x8c`∨`0x91`，全量只有 **4 个 `IsValid*Target`** 调用方）→ 落点 `EffectResolver.AddSide(stealthGate)` ＋ `RuleCore.CanUseAbilityTarget` ①；② `tainted` = `RawCardScript__IsValidActiveAbilityTarget.c:94-102` → 同函数 ③；③ `summonRift` = `BattleManager__IsValidActiveAbilityTarget.c:55-56`(0x2da) **＋ 攻击** `BattleManager__IsValidAttackTarget.c:211-213` → 同函数 ② ＋ `RuleCore.IsValidTarget` 的返回表达式（**本批补的攻击侧闸**）。⚠️ **结算层不挡是对的**（原版也不挡）：`AbilityLogic__GetTargets.c`（1,427 行）**0 处** `IsValidTarget` / `isCurrentlyWarded` ⇒ ward 只是「能否被点选」的谓词，效果池按 criteria 直取 —— 与 `ResolveTargets → AddSide(stealthGate:false)` **同形**。⚠️ 池内 **0 张**（`cards_engine.json` 1129 张现扫 `keywords`/`cardTraits`/`desc`/`descZh` 各 0 命中）⇒ 零行为变化。全文论证 → `资料/完全复刻/判据/B98_N2_ward与resolution.md` ＋ 报告 `B98_N3.md` §二/§三。⚠️ 写成行内块（铁律 18·b）：本文件在账里被引 70+ 处（多为「次要落点」、`--fix` 不管），⛔ 别新增行
             // ✅ **破坏（2026-09-14 登记，用户点名要求）**：机制**早就在跑**，只是判据走的是
             //    `subtype` 那一列（`CreatePool.MatchesKind(c,"sabotage")` + `ResolveAtTurn`），
             //    不是 `keywords`。⚠️ **登记依据 = subtype 那一列在那个时机真的被读了**，
@@ -8629,15 +8629,15 @@ namespace RuleEngine
             //    `keywords` / `desc` / `descZh` 命中 **0 条**；`cards_raw.json` 1,351 张的 `cardTraits`
             //    命中 **0 条**（唯三命中是**卡名** `Royal Warden` / `Forward Deployment` /
             //    `Iconward Malak Vorenth` —— 卡名不过 `Normalize`）⇒ 加这四条**不改动任何现有解析结果**。
-            //    ⚠️ **不进 `Implemented`**（如实）：今天真正读到它们的只有**主动能力候选闸**这一处；
-            //    原版 `ward` 还管**战术卡 / 通用目标**（`BattleManager__IsValidSpellTarget.c:51-53` ·
-            //    `RawCardScript__IsValidTarget.c:23-28`），那一半还没接 ⇒ 登记成「已实现」= 说谎
-            //    （带 ward 的卡会被 `UnimplementedKeywords` 少报一条）。
-            //    🔴 **2026-10-25 就地订正（铁律 5 · 执行代理 `X3`）**：「那一半还没接」**已经接了** ——
-            //    落点 = `EffectResolver.AddSide` 的敌方侧目标池闸（`stealthGate`），判据与可达性
-            //    （池内 **0 张**）写在那个方法的 doc 里。⚠️ 但它**仍不进 `Implemented`**：理由变了 ——
-            //    现在是「`ward` 还有别的入口没逐条核过（主动能力 / 战术 / 效果目标三处已接，
-            //    其余动词若绕过 `AddSide` 就挡不住）」，⛔ 别把它当成「已完整实现」。
+            //    🔴 **2026-10-29 就地订正（铁律 5 · 执行代理 `B98_N3`）：四词【已全部进 `Implemented`】。**
+            //    旧文（2026-10-25 `X3`）写「仍不进」的理由 =「`ward` 还有别的入口没逐条核过」，该理由**已核销**：
+            //      · 战术卡 / 通用目标 = `BattleManager__IsValidSpellTarget.c:51-53` · `RawCardScript__IsValidTarget.c:23-28`
+            //        ⇒ 落点 `EffectResolver.AddSide(stealthGate)`（已接）；主动能力 `IsValidActiveAbilityTarget.c:51-54` ⇒ `CanUseAbilityTarget` ①（已接）；
+            //      · 「其余动词若绕过 `AddSide` 就挡不住」= **伪缺口**（结算层结论见下）。
+            //    判据（原版结算层**也不挡**）= `AbilityLogic__GetTargets.c`（1,427 行）**0 处** `IsValidTarget` / `isCurrentlyWarded` 调用；
+            //    且 `isCurrentlyWarded` 全量只有 **4 个 `IsValid*Target`** 调用方 ⇒ ward 只是「能否被点选」的谓词，
+            //    效果池按 criteria 直取 —— 与 `ResolveTargets` 不传 `stealthGate` **同形**。
+            //    ⛔ 别因为它「池内 0 张」就把它从 `Implemented` 拿掉（铁律 11：原版有的都要有）。
             new[] { "wardwb", ConditionEval.WardWb },
             new[] { "ward", ConditionEval.Ward },
             new[] { "tainted", ConditionEval.Tainted },
@@ -9286,6 +9286,72 @@ namespace RuleEngine
 
         static readonly int[] EmptyInts = new int[0];
         static readonly TriggerAbilityIndexSpec[] EmptyTriggerRows = new TriggerAbilityIndexSpec[0];
+    }
+
+    // ============================================================================================
+    //  🆕 2026-10-29（第九十八会话 · 波 10 · 执行代理 `B98_K6` · 账 1379 / 1281 的 (a) 格）
+    //    「后续结算」行（`chosenAbility ∈ {320 followAfterResolution, 325 followResolutionIfPreviousMeetsCriteria}`）
+    //  ⛔ 追加在文件尾（新 partial 块）：`CardDef.cs` 有账落点（现读 86 处，最大 `:9100`）⇒ 只有文件尾零漂移（铁律 18·b）。
+    // ============================================================================================
+    public partial class CardDef
+    {
+        /// <summary>这一组 `activeAbilityLogic` 行的 `chosenAbility` **全是「后续结算」标记**吗。
+        ///
+        /// <para>**为什么这一档没有 op 可挂**：`320` / `325` 不是「这一行做什么」，而是「这次结算完之后
+        /// **再跑一次**别处那条 ability」—— 原版 `AbilityLogic__PlayAbility.c:2474` 走
+        /// `BattleManager__AddFollowAfterResolution`（`BattleAction` 类型 `0x3a = 58`）→
+        /// `BattleManager__ResolveFollowAfterResolution.c:380` → `CardScript__FollowUpResolutionPlayed.c:7`
+        /// → `OnTrigger(0x19a = 410)`。我们这一半**已经在别处实现**（`EffectResolver.EmitFollowUpResolution`
+        /// ＋ `RuleCore.cs:12884` 的 410 派发，账 517 ② `B97_W28`）⇒ 把它硬配到某条正文 op 上，
+        /// 只会把 `ta`/`fm` 贴到一条它并不拥有的 op 上（= 位置假设，本项目红线）。</para>
+        ///
+        /// <para>**现池唯一命中 = `SW9 Fenrisian Wolf`**（`activeAbilityLogic[0].ca = [320]`，2026-10-29 现扫
+        /// `cards_engine.json` v43：全池 `ca ⊆ {320,325}` 的组 **1 个**）。而且**原版自己也不调度它** ——
+        /// `EffectResolver.FollowUpSchedulerOf` 的 doc 把 `SW9` 列在「5 张在表外、且原版本身不触发」里
+        /// （它的 410 能力在当前 build 的 `abilityLogic` 里找不到任何 320/325）⇒ **没有行为要复刻**，
+        /// 本档只把结论从「读不到（`kind-unknown`）」改成一个**说清原因**的值。</para>
+        ///
+        /// <para>⚠️ 空组 / 某行没有 `chosenAbility` / 出现任何别的 `ca` ⇒ **false**（⛔ 不把「不知道」当「后续结算」）。</para></summary>
+        static bool IsContinuationOnlyGroup(List<ActiveAbilityLogicSpec> grp)
+        {
+            if (grp == null || grp.Count == 0) return false;
+            for (int i = 0; i < grp.Count; i++)
+            {
+                var s = grp[i];
+                if (s == null || s.ChosenAbility == null || s.ChosenAbility.Length == 0) return false;
+                for (int j = 0; j < s.ChosenAbility.Length; j++)
+                {
+                    int ca = s.ChosenAbility[j];
+                    if (ca != 320 && ca != 325) return false;
+                }
+            }
+            return true;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B98_P1` · 判据 卡-16）：**主动能力文本的文案引用 id**
+        // ==================================================================
+        //  判据 = 原版 `RawCardScript.GetLocalizedAbilityDesc(suffix)`
+        //    （`cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:2374-2446` ·
+        //     `decomp_full/RawCardScript__GetLocalizedAbilityDesc.c:19-27`）：
+        //    键 = `"Card_Abilities/" + (activeAbilityTextReferenceId 非空 ? 它 : uniqueId) + suffix`。
+        //  消费点 = `SkillPanel.AbilityKeyId`（`Battle/SkillPanel.cs` 类尾，**已落**）⇒ 由
+        //    `BattleDriver.ShowSkillPanel` 把本属性传进 `SkillPanel.Show(..., abilityTextReferenceId:)`。
+        //  数据 = `cards_engine.json` 的 `activeAbilityTextReferenceId`（现读 2 行非空：SOR30/SOR25）。
+        //  🔴 **属性 + 构造后挂载**（同 `AttachCardDescriptionTextReference` 那一族）：⛔ 不新增构造参数
+        //    —— 构造函数那 40 处是账的落点，加一格会让它们整体漂移。
+        //  ⚠️ 三态：`null` = 列缺席/夹具直建（判不了）；`""` = 明确写了空（⇒ 回退 `Id`）。
+
+        /// <summary>原版 `RawCardScript.activeAbilityTextReferenceId`（`null` = 判不了 / `""` = 没有 ref、回退 `Id`）。
+        /// <para>由 <see cref="CardDatabase.Parse"/> 建完卡之后挂上（<see cref="AttachActiveAbilityTextReference"/>）。</para></summary>
+        public string ActiveAbilityTextReferenceId { get; private set; }
+
+        /// <summary>构造后挂载口（**只许 `CardDatabase.Parse` 调**；夹具直建时保持 `null` = 判不了）。
+        /// <para>⛔ **不要在这里把 `null` 归一成空串** —— 三态要分开（见上面那段注）。</para></summary>
+        public void AttachActiveAbilityTextReference(string refId)
+        {
+            ActiveAbilityTextReferenceId = refId;
+        }
     }
 
 }

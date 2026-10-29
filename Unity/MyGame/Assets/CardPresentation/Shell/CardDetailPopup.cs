@@ -2931,7 +2931,7 @@ namespace CardPresentation
             // 「点它关窗」的常驻遮罩（alpha 0.773、且带命中区）。拿它当 `fadeBackground` 会在 `ChangeFrame` 收尾
             // 把它 `SetActive(false)` ⇒ **整个窗背后不再变暗**（画面错，且玩家看不到「点空白关窗」那块）。
             // ⇒ 保持空：组件 `FadeOutImage` 会出声一次（不静默），`DoAnim` ⑤ / `ChangeFrame` ③ 无效果。
-            LevelUpEffect.fadeBackground = default(CardDisplayLevelUp.FadeImage);
+            LevelUpEffect.fadeBackground = default(CardDisplayLevelUp.FadeImage); LevelUpEffect.pulseTarget = SlotView(0);   // 🔴 2026-10-29（`B98_P1` · 卡-18 收尾）：原版 `Level Up Card` 的 `m_ScaleCurves[0]`（`path: ''`）打的是卡视图根（`CardUI`）⇒ `pulseTarget` = **槽 0 的 `CardView`**（本窗 `Card` 永远建在槽 0）。放在 `RewireLevelUpTargets` 而不是 `EnsureUpgradeAnimation`：后者在 clip 已接好时**提前 return**（只有首次升级拿得到目标），而本方法在「`DoAnim` 之前」与「`ChangeFrame`(1.45 s) → `RebuildKeepingState()` **之后**」**两条路都走到** ⇒ 正好满足「重建后必须重指」。⚠️ **同一物理行追加**（铁律 18·b）：加行会把下游账落点（`:3494` 等）整体推走。
         }
 
         /// <summary>按名在**最新那棵**子树里取一格「可淡图」（`ImageQuad` 优先、任意 `Renderer` 兜底 ——

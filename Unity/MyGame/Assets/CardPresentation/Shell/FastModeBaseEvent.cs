@@ -326,7 +326,7 @@ namespace CardPresentation
         /// if (EndMatchData.&lt;boost 表&gt; 有内容) 逐个更新 RankedScoreBoost;
         /// </code>
         /// ⇒ 语义 = **服务器确认后**才把「这局」落进存档（我方 `matchStarted` 清、对手信息清、分数更新）。
-        /// 🔴 **2026-10-28 B93·N2 就地订正（铁律 5）**：原来这里写「`NewRating` / `armyStats` 本来就在 `RecordMatchFinished` 里写完了」——**前半对、后半不成立**：`armyStats` 在整条链路里**没有任何写入点**（`PlayEventSaveGame.armyStats` 只有 `GetArmyStats` 读）。⚠️ **仍未搬的两支（判据已定，缺的是数据不是判据）**：① `if (EndMatchData.armyStats.Count &gt; 0) SaveGame.armyStats = …`；② `if (EndMatchData.&lt;boost 表&gt;.Count &gt; 0) foreach (b in RankedScoreBoostHandler.GetBoostsFor(this)) b.&lt;0x428&gt;(EndMatchData.&lt;boost 表&gt;.FirstOrDefault(…))` —— 两支都要读 `result.EndMatchData`，而我们的 `OnlineMatchResult`（`Shell/PlayEvent.cs`，**D3 名下**）只有 `success/error/newRating` 三格 ⇒ 本文件改不动，已作为跨文件依赖交调度台。
+        /// 🔴 **2026-10-28 B93·N2 就地订正（铁律 5）**：原来这里写「`NewRating` / `armyStats` 本来就在 `RecordMatchFinished` 里写完了」——**前半对、后半不成立**：`armyStats` 在整条链路里**没有任何写入点**（`PlayEventSaveGame.armyStats` 只有 `GetArmyStats` 读）。✅ **两支都已落地（2026-10-29 `B98_H5`，就地订正旧说法「仍未搬」）**：① `if (EndMatchData.armyStats.Count &gt; 0) SaveGame.armyStats = …`（`B96_WB` 补 DTO 后接上）；② boosts 支 —— 原版 `foreach (b in RankedScoreBoostHandler.GetBoostsFor(this)) b.&lt;0x428&gt;(RatingBoostState.FirstOrDefault(按 id 命中))`，`0x428` 已解 = 虚槽 47 = `LiveOpsEvent.UpdateSaveGame`（落点 `RankedBoostEvent.UpdateSaveGame`，`Shell/RankedData.cs` 类尾）。**残差（如实记）**：`RatingBoostState` 本身是**服务器结算返回体**（P3）⇒ 本地恒 `null` ⇒ 这一支今天空转（与原版「服务器没返回」同形）。
         /// 其余差异：原版这三行的闸是 `Data != null &amp;&amp; result != null &amp;&amp; result.EndMatchData != null`（否则 NRE），我们是 `SaveGame != null` + `result != null`；原版 `LocalScore` 不看 key 是否为空，我们多了一道 `!IsNullOrEmpty(LeaderboardKey)`（更保守，如实记）。</summary>
         protected virtual void OnMatchProcessSuccess(OnlineMatchResult result)
         {
@@ -341,11 +341,11 @@ namespace CardPresentation
             {
                 var emd = result.EndMatchData;
                 if (emd.ArmyStats != null && emd.ArmyStats.Count > 0) SaveGame.armyStats = emd.ArmyStats;
-                // ⚠️ boosts 支（`.c:79-160` / ILSpy `:1615-1700`）**未搬、如实记**：原版是
-                //   `foreach (b in RankedScoreBoostHandler.GetBoostsFor(this)) b.<slot47>(RatingBoostState.FirstOrDefault(按 id 命中))`，
-                //   消费方法 `b.<slot47>`（`RankedScoreBoostEvent` 的 Save 计数器更新）与按 id 命中都要 **B11 排位加成线的真身**
-                //   （`RankedScoreBoostEvent/Data/Save` 完整类 + 赛季存档）—— 本文件的 `RankedScoreBoostEvent`（`:109`）是**最小替身**、
-                //   无 `id`、无消费口 ⇒ ⛔ 不猜 slot47 语义（铁律 2）；数据输入已就位（`emd.RatingBoostState`），接线归 B11。
+                // boosts 支（`.c:79-160` / ILSpy `:1615-1700`）：`foreach (b in RankedScoreBoostHandler.GetBoostsFor(this)) b.<slot47>(RatingBoostState.FirstOrDefault(按 id 命中))`
+                // 🔴 `slot47` **已解**（2026-10-29 `B98_H5`）：`dump.cs` LiveOpsEvent 区 `Slot: 47` = `UpdateSaveGame(LiveOpsEventPersistence)`（ILSpy `Everguild.LiveOps/LiveOpsEvent.cs:148/944`）
+                //   ⇒ 落点 = `RankedBoostEvent.UpdateSaveGame`（`Shell/RankedData.cs` 类尾）；`FirstOrDefault` 没命中时原版传 null、而 `UpdateSaveGame(null)` 空转（ILSpy：`if (save != null)`）⇒ 同形状照抄
+                if (emd.RatingBoostState != null && emd.RatingBoostState.Length > 0)   // 原版闸 = boost 表 `Count > 0`
+                    foreach (var b in RankedData.GetBoostsFor(GetID())) b.UpdateSaveGame(FindBoostState(emd, b.Id));   // `GetBoostsFor(this)` = 本活动挂的加成（我们按 `RankedBoostEvent.Includes(eventId)`）
             }
             SaveEventProgress(null, null);
             Debug.Log("[FastMode] OnMatchProcessSuccess：'" + GetID() + "' 局内态已清、存档已落"
@@ -742,6 +742,19 @@ namespace CardPresentation
             string sql = GetSqlFilter(maxRating, minRating, group, isRanked, blacklist, gamesLost);
             Debug.Log("GetMatchmakingFilter Ranked with Filter: " + sql);    // 原版字面量（ILSpy `FastModeBaseEvent.cs:939`）
             return sql;
+        }
+
+        /// <summary>= 原版 `EndMatchData.RatingBoostState.FirstOrDefault(x =&gt; x.id == &lt;boost 的 id&gt;)`
+        /// （`OnMatchProcessSuccess__1a110c0.c`：`System_Predicate&lt;RankedScoreBoostSave&gt;` 闭包按 **boost 的 id** 命中）。
+        /// 没命中 ⇒ 原版把 `null` 交给 `UpdateSaveGame`（空转）⇒ 我们同样返回 `null`。
+        /// 账 272 · `B98_H5` 2026-10-29。</summary>
+        static RankedScoreBoostSave FindBoostState(EndMatchData emd, string boostId)
+        {
+            var arr = emd == null ? null : emd.RatingBoostState;
+            if (arr == null) return null;
+            for (int i = 0; i < arr.Length; i++)
+                if (arr[i] != null && arr[i].id == boostId) return arr[i];
+            return null;
         }
 
         static bool _warnedSqlC2, _warnedSqlC3;

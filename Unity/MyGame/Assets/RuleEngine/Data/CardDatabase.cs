@@ -71,7 +71,7 @@ namespace RuleEngine
             /// `[]` = 表里**明确说了这张卡没有异画**。`CardDatabase.Parse` 原样把两者分开传下去。</para></summary>
             public string[] alternateArts;
             public string targetingTextReferenceId;   // 🆕 2026-10-27（`A4`）：原版 `RawCardScript.targetingTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachTargetingTextReference` 的 doc，⛔ 不抄第二份）
-            public string cardDescriptionTextReferenceId;   // 🆕 2026-10-27（`A8` · §12·94）：原版 `RawCardScript.cardDescriptionTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachCardDescriptionTextReference` 的 doc，⛔ 不抄第二份）。消费点 = `BattleDriver.OfficialDescKey` → `FaceTextFull` 那 4 处取键。
+            public string cardDescriptionTextReferenceId; public string activeAbilityTextReferenceId;   // 🆕 2026-10-27（`A8` · §12·94）：原版 `RawCardScript.cardDescriptionTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachCardDescriptionTextReference` 的 doc，⛔ 不抄第二份）。消费点 = `BattleDriver.OfficialDescKey` → `FaceTextFull` 那 4 处取键。｜🆕 2026-10-29（`B98_P1` · 卡-16）：`activeAbilityTextReferenceId` = 原版 `RawCardScript.activeAbilityTextReferenceId`（同列族；语义/三态 → `CardDef.AttachActiveAbilityTextReference` 的 doc）；消费点 = `BattleDriver.ShowSkillPanel` → `SkillPanel.AbilityKeyId`。⚠️ 两个字段挤一行是**故意的**（铁律 18·b：加行会把下游账落点整体推走）。
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
@@ -1737,7 +1737,7 @@ namespace RuleEngine
                 def.AttachTargetingTextReference(c.targetingTextReferenceId);
                 // 🆕 2026-10-27（执行代理 `A8` · §12·94）：**卡面正文的文案引用 id**（v35 列；`null` = 列缺席 ⇒ 判不了）。
                 //   消费点 = `BattleDriver.OfficialDescKey` → `FaceTextFull` 的 4 处取键（逐字照原版三元）。
-                def.AttachCardDescriptionTextReference(c.cardDescriptionTextReferenceId);
+                def.AttachCardDescriptionTextReference(c.cardDescriptionTextReferenceId); def.AttachActiveAbilityTextReference(c.activeAbilityTextReferenceId);   // 🆕 2026-10-29（`B98_P1` · 卡-16）：主动能力文本的引用 id（消费点 = `BattleDriver.ShowSkillPanel` → `SkillPanel.AbilityKeyId`）。⚠️ 同一物理行追加（铁律 18·b）。
                 // 🆕 v35（待生成器落列；2026-10-27 · `B9_W65ABIL`）：`ActiveAbility` 对象自己的四个标量 ——
                 //   同样**构造后挂载**（理由同上）。缺键 ⇒ DTO 初值 `-1` = 未知。今天零行为变化。
                 //   语义 / 三跳表 / 45-56 张督军的实测口径 → `Core/CardDefActiveAbility.cs` 文件头。
@@ -1746,7 +1746,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c));   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def));   // 🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。

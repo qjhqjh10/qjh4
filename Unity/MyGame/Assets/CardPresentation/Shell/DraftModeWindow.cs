@@ -4318,7 +4318,7 @@ namespace CardPresentation
                     d == null || System.Array.IndexOf(TimedDraftLocal.Armies, d.Faction) < 0);
                 Debug.Log("[Draft] Timed 选将：按 specificArmies 过滤卡池（去掉 " + removed + " 张；剩余 "
                         + _warlords.Count + " 张；🔶 armies 是我们模拟的）");
-                RebuildWarlordCards();
+                RebuildWarlordCards(); ApplyTimedWarlordTitle();   // 🆕 2026-10-29（B98_K5 · 账 `轮抽:147` 的标题幅面）：原版 `OnOpen` 的 `title = GetLabel(Title)`；本行尾调用 = 零行数变化
             }
         }
 
@@ -4596,6 +4596,38 @@ namespace CardPresentation
             if (h != null) return h.LossStreak;
             Debug.LogWarning("[Draft] 房属性：`GetHandler<GameModesHandler>()` 是 null ⇒ C5(连败) 按 0 过网（只影响日志/展示）");
             return 0;
+        }
+
+        // ============================================================ 账 `轮抽:147` · Timed 选将页的标题幅面（2026-10-29 `B98_K5`）
+        /// <summary>Timed 选将页的**标题幅面**：原版 `DraftModeWarlordSelectionStateTimed.OnOpen` 开头那两跳
+        /// `title = LiveOpsAssetUtility.GetLabel(eventData, Title)` → `title.text = …`
+        /// （`out_cpp2il_dev_ilspy/DraftModeWarlordSelectionStateTimed.cs:41`；判据全文 → `判据/B98_R2_非战斗11条裁定.md` §一.11）。
+        /// <para>词条从<b>模拟事件</b>取（<see cref="DraftLocalEvent.TitleText"/> —— 走的就是 `GetEventLabel(…, Title)` 那一跳）：
+        /// 🔶 那份事件是本地造的（服务器已关服，原版的 `EventLabels` 在远端事件数据里）。**取不到 ⇒ 不动页面既有标题 + 出声**
+        /// （⛔ 不编词条、⛔ 不拿别的键顶）。</para>
+        /// <para>调用点只有 `BuildTimedFamily` 的 Timed 支（`:4321` 那一行尾）⇒ Demo 变体
+        /// （`TimedDraftLocal.Enabled = false`）**走不到**这里。追加在类尾 = 既有账落点零漂移。</para></summary>
+        void ApplyTimedWarlordTitle()
+        {
+            string text = DraftLocalEvent.TitleText();
+            if (string.IsNullOrEmpty(text))
+            {
+                Debug.Log("[Draft] Timed 选将页标题：事件里没有可用的 Title 词条 ⇒ 保留页面既有标题"
+                        + "（原版 `GetLabel(Title)` 取不到时也是空态）");
+                return;
+            }
+            var node = _pageWarlord != null ? _pageWarlord.Find("Title") : null;
+            var label = node != null ? node.GetComponent<Label>() : null;
+            if (label == null)
+            {
+                Debug.LogWarning("[Draft] Timed 选将页标题：拿不到 `Title` 那颗标签（原版这一跳写的是 `title.text`）"
+                               + " ⇒ 标题没换（本文件的选将页节点结构变了？ ⛔ 不静默）");
+                return;
+            }
+            label.SetText(text);      // 文字与既有标题相同时 `Label.SetText` 自己早退 ⇒ 不会闪
+            Debug.Log("[Draft] Timed 选将页标题 = '" + text + "'（词条 `"
+                    + (DraftLocalEvent.LastTitleTerm ?? "<literal>") + "`；🔶 词条由本地模拟事件提供，"
+                    + "原版在远端事件数据的 `EventLabels` 里）");
         }
     }
 }

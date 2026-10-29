@@ -98,6 +98,33 @@ namespace CardPresentation
         public int IndexOf(int army) { return Array.IndexOf(Armies ?? Array.Empty<int>(), army); }
         public int WinsFor(int army) { int i = IndexOf(army); return (i >= 0 && WinsByArmy != null && i < WinsByArmy.Length) ? WinsByArmy[i] : 0; }
         public int BoostsLeftFor(int army) { int i = IndexOf(army); return (i >= 0 && BoostsLeftByArmy != null && i < BoostsLeftByArmy.Length) ? BoostsLeftByArmy[i] : 0; }
+
+        /// <summary>= 原版 `LiveOpsEvent&lt;RankedScoreBoostSave,RankedScoreBoostData&gt;.UpdateSaveGame(LiveOpsEventPersistence)`（虚槽 **47**）：
+        /// 把服务器给的 `RankedScoreBoostSave` 写成这份事件的存档（原版 `this+0x20 = save`）再 `LoadEventData(data, save, null)` 重算派生量。
+        /// 我们的等价 = 存下该状态 + 按 `RankedScoreBoostSave.matchCount`（原版 `RankedScoreBoostSave` 的**唯一字段**
+        /// `Dictionary&lt;CardArmy,int&gt; matchCount`，`GetWins(army)` 读它）刷新本表每格的 `WinsByArmy`。
+        /// 判据（2026-10-29 `B98_H5` 现读）：`d:/2/tools/il2cpp_out/dump.cs` 的 `LiveOpsEvent` 区 `Slot: 47` =
+        /// `UpdateSaveGame`（RVA 表 `|-LiveOpsEvent&lt;object, object&gt;.UpdateSaveGame`）· ILSpy `Everguild.LiveOps/LiveOpsEvent.cs:148/944`
+        /// （体：`if (save != null) { this+0x20 = save; LoadEventData(data, save, null); }`）· `RankedScoreBoostSave`（`dump.cs` TypeDefIndex 3584）。
+        /// ⚠️ 原版 `LoadEventData` 里另有几格派生量我们**没有对应字段**（`RankedScoreBoostData` 的 `scoreBoostAmount/matchesCount` 那几格
+        /// 在本仓不存在）⇒ 这里**只搬「胜场」那一格**，其余如实留空（⛔ 不编）。账 272。</summary>
+        public RankedScoreBoostSave Save;
+
+        /// <summary>见上一段的判据。`save == null` ⇒ 原版 `if (save != null)` 直接跳过 ⇒ 我们也空转（原版调用点传的正是
+        /// `FirstOrDefault(按 id 命中)` 的结果，没命中就是 null）。</summary>
+        public void UpdateSaveGame(RankedScoreBoostSave save)
+        {
+            if (save == null) return;
+            Save = save;
+            var armies = Armies ?? Array.Empty<int>();
+            if (save.matchCount == null) return;
+            if (WinsByArmy == null || WinsByArmy.Length < armies.Length) WinsByArmy = new int[armies.Length];
+            for (int i = 0; i < armies.Length; i++)
+            {
+                int w;
+                if (save.matchCount.TryGetValue(armies[i], out w)) WinsByArmy[i] = w;
+            }
+        }
     }
 
     /// <summary>排位数据层。**唯一一份**：段位换算、连败、赛季、本地点数都在这里。</summary>

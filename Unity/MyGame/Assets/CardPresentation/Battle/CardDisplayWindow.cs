@@ -878,22 +878,22 @@ namespace CardPresentation
                 //     收尾 `if (1 < *(param+0x40))`（= `traitValue > 1`）⇒ 追加 `" (x" + N + ")"`（`:96-99`）。
                 //   🥈 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardEffectItem.cs` 的 `LoadEffect` 逐句可读，
                 //     与 🥇 完全一致（`"[[…]]"` / `" (x"` / `")"` 三个字面量都在）。
-                //   ⚠️ **`what` 那一格原版仍走 `GetEffectDesc(effect)`**（`.c` 里 mark 支末尾 `goto IL_0527` 同样是
-                //     `effectText.text = GetEffectDesc(effect)`）⇒ 本行下面 `what` 那一段**不动**。
-                //   ⚠️ 原版 `GetEffectDesc` 的 `case 8/0x11`（`GameStaticData__GetEffectDesc.c:396-413`）拼的是
-                //     `"CardTraitDescription/" + <MarkOfChaosType 枚举名>`，而官方 10,862 键表里**只有**
-                //     `CardTraitDescription/markOfKhorne` 等四条、**没有** `…/Khorne` ⇒ 原版那一格到底回空串还是回键名，
-                //     本地判不了（`GetTranslation` 缺键的返回口径未证）⇒ ⛔ 不发明，`what` 保持现状并记账。
+                //   🔴 **2026-10-29（`B98_A6`）就地订正**：`what` 那一格原版**不是空串** —— mark 支末尾
+                //     `goto LAB_18060aaa7`（`.c:98-101`）之后照样执行 `effectText.text = GetEffectDesc(effect)`（`.c:148-153`）。
+                //   🔴 `GetEffectDesc` 的 `case 8/0x11`（`GameStaticData__GetEffectDesc.c:396-413`）拼的是
+                //     **`"Battle/Effect/" + <MarkOfChaosType 枚举名>`**（前缀是字面量：`out_il2csharp/GameStaticData.cs:1348-1353`），
+                //     四条键 `Battle/Effect/{Khorne,Nurgle,Slaanesh,Tzeentch}` 官方 10,862 键表里**全在**
+                //     ⇒ `what` = 那一条的译文（取不到才留空 + 出声）。⚠️ `B95_FX` 记的 `CardTraitDescription/*` 是**另一族**。
                 //   🔴 **今天的可达性如实写**：`TempBuffs` 里**没有** `buffType == 8/17` 的条目 ——
                 //     mark 的记录账是 `ApplyTraitEffect(buffType: **addTrait(3)**)`（`EffectResolver.cs:12537`），
-                //     而 buffType 8 的那条是 `EntityScript.CreateMarkCardEffect` 的**投影产物**（账 `特效动画:521`，未接）
-                //     ⇒ 本支**今天不可达、但不是死代码**：投影接上后它就是这个条件的唯一展示口。
+                //     而 buffType 8 的那条是 `EntityScript.CreateMarkCardEffect` 的**投影产物**（账 `特效动画:521`，S4/S5 已接）
+                //     ⇒ 本支（旧口这一条 `TempBuff` 路）**今天不可达、但不是死代码**；真正的展示口已是 `RowsOfEffects`。
                 if (EffectsToShow.IsMarkBuffType(b.BuffType))
                 {
-                    // 🆕 2026-10-29（`B95_FX` · 账 `特效动画:195`）：**`what` 那一格原版是【空串】**（上面「本地判不了」已作废）
-                    //   判据链（5 条：键名 → 表里没有 → GetTranslation 回 null → TMP 画空白）→ 类尾 `MarkGodEffectTextIsEmpty` 的 doc
-                    what = "";
+                    // 🔴 2026-10-29（`B98_A6`）**就地订正 `B95_FX`**：右列原版**不是空串** —— `.c:98-101` 写完左列
+                    //   就 `goto LAB_18060aaa7`，那里（`.c:148-153`）`effectText = GetEffectDesc`；键族 = `Battle/Effect/<神名>`。
                     int god = b.TraitRec != null ? b.TraitRec.MarkOfChaosType : 0;   // `CardEffect.markOfChaosType(+0x78)`
+                    what = MarkGodEffectText(god);                                   // 右列 = 契约正文（类尾 doc）
                     string godEnum = MarkGodTraitEnum(god);                          // 10→markOfKhorne … 其余 ⇒ null
                     who = godEnum != null
                         ? CardIcons.RewriteMarks("[[" + godEnum + "]]", Loc.Current == AvailableLanguages.Chinese)
@@ -2170,31 +2170,31 @@ namespace CardPresentation
         }
 
         // ═══════════════════════════════════════════════════════════════════════════════════
-        //  🆕 2026-10-29（`B95_FX` · 账 `特效动画:195`）：mark-of-chaos 那一支的 `what`（effectText）
-        //  ⚠️ **追加在类尾**（本文件被账按 `文件:行号` 引用；`RowsOf` 里只留两行注释，零行数变化）。
+        //  🔴 2026-10-29（`B98_A6`）**就地订正 `B95_FX`**：mark-of-chaos 那一支的 `what`（effectText）
+        //  ⚠️ **改在类尾**（本文件被账按 `文件:行号` 引用；`RowsOf` 里只换了 2 行、零行数变化）。
         //
-        //  结论：原版 `CardEffectItem.LoadEffect` 在 `buffType ∈ {markOfChaos(8), lastMarkOfChaos(17)}`
-        //  那一支里，**effectText = 空串**（`RowsOf` 里 `what = ""` 就是照它）。判据链五条：
-        //   ① `GameStaticData__GetEffectDesc.c:396-413`（`case 8/0x11`）拼的键 =
-        //      `"CardTraitDescription/" + Enum.ToString(<*(int*)(param+0x78)>)`；
-        //   ② 那个枚举类型 token `DAT_184236ff8` = **`MarkOfChaosType`** —— 同一 token 出现在
-        //      `CardScript__GetAvailableMarksOfChaos.c:33/93-95`（那个方法返回 `List<MarkOfChaosType>`，
-        //      并用这个 token 做强转检查；ILSpy `CardScript.cs:18599` 的签名可证）
-        //      ⇒ 键 = **`CardTraitDescription/Khorne`**，**不是**表里那四条 `…/markOfKhorne`；
-        //      （对比：`LoadEffect.c:58-90` 拼 `[[…]]` 用的是**另一个** token `DAT_184257870` = `DefinedTrait`
-        //       —— 所以那里出 `markOfKhorne`、这里出 `Khorne`，两处**不是同一个枚举**，⛔ 别合并。）
-        //   ③ 官方表里只有 `CardTraitDescription/markOfKhorne|Nurgle|Slaanesh|Tzeentch|markOfChaos`
-        //      （现读 `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms`，85 条 `CardTraitDescription/*`）
-        //      ⇒ `…/Khorne` **查不到**；
-        //   ④ 查不到时 `I2.Loc.LocalizationManager.GetTranslation` 返回 **null**：
-        //      `GetTranslation.c:16-18` 先 `local = 0` 再 `TryGetTranslation(term, &local, …)`、最后**原样返回** `local`；
-        //      `TryGetTranslation.c:21-22` 一进来又 `*param_2 = 0`，扫完全部 source 仍未命中就 `return 0`（`:71`）
-        //      ⇒ out 参数恒 null（**不是**「缺键回键名」那种常见行为）；
-        //   ⑤ `CardEffectItem__LoadEffect.c:98-101` 把那个 null 原样写进 `param_1+0x28` 那颗 TMP ⇒ 原版**画空白**。
-        //  ⇒ 我们的等价物 = `what = ""`（**空串占一槽、但那一格不画** —— 与 `SetEffectRows` 的
-        //     `IsEmptyRow` 那一条空文本支同义，判据 `EnableCardEffectSlots.c:46-60`）。
-        //  ⚠️ **今天仍不可达**：`TempBuff.buffType ∈ {8,17}` 没有生产者（见账 `特效动画:521` 的
-        //     `CreateMarkCardEffect` 投影）⇒ 这是「投影接上之后唯一的展示口」，改在这里等它。
+        //  结论（三源一致）：原版 `CardEffectItem.LoadEffect` 在 `buffType ∈ {markOfChaos(8), lastMarkOfChaos(17)}`
+        //  那一支里，**effectText = `Battle/Effect/<神名>` 的译文**（左列 = 专名、右列 = 契约正文，**两列都有字**）。
+        //  判据链（本条只列结论，逐句出处 → 类尾 `MarkGodEffectKey` 上面那一段）：
+        //   ① `CardEffectItem__LoadEffect.c:98-101`：写完左列（`param_1+0x20`）就 **`goto LAB_18060aaa7`**；
+        //   ② 那个 label 在 `.c:148-153`：`plVar6 = *(param_1 + 0x28)`（右列）→ `uVar3 = GetEffectDesc(param_2)`
+        //      → 写进右列 ⇒ **mark 支的右列照样被写**（`B95_FX` 原判「空串」= 错）；
+        //   ③ `GameStaticData__GetEffectDesc.c:396-413` 的 `case 8: case 0x11:` =
+        //      `Concat("Battle/Effect/", Enum.ToString(MarkOfChaosType))` → `GetTranslation` → `ModifyLocalization`；
+        //      前缀是**字面量**（`out_il2csharp/GameStaticData.cs:1348-1353`）—— ⛔ 不是 `CardTraitDescription/`
+        //      （那一族属于**另一个**方法，同文件 `:1012-1030`；`B95_FX` 就是在这一步串了族）；
+        //   ④ `MarkOfChaosType`（`dump.cs:45915-45925`）= `Khorne 10 / Nurgle 20 / Slaanesh 30 / Tzeentch 40`
+        //      ⇒ 四条键 = `Battle/Effect/{Khorne,Nurgle,Slaanesh,Tzeentch}`；
+        //   ⑤ 那四条键**官方表里都在**（现读 `Resources/official_loc_13lang.json` 下标 787-790）：
+        //      `Give +2 Melee Attack and [[vanguard]]` / `Give +1 Health and [[regeneration]] 1` /
+        //      `Give +2 Melee Attack and +2 Ranged Attack` / `Give +2 Health and [[camouflage]]`。
+        //  ⇒ `IsTextEmpty()`（`CardEffectItem__IsTextEmpty.c`，**只读 `+0x28`**）为假 ⇒ **整格显示**。
+        //    我们原来右列硬写空串 ⇒ 那一行在真实界面上是**空白**（S5 已接 `BattleDriver.cs:13212` ⇒ **在线可见**）。
+        //  ⚠️ 取不到键时**留空 + 出声**（`MarkGodEffectText` 里；⛔ 不印键名）—— 今天四条都在，这道闸只是兜底。
+        //  ⚠️ 中文列的 `[[先锋]]` 是**中文 token**：原版 `ModifyLocalization` 只按 `Enum.GetValues` 的枚举名替换
+        //     （`SupportMethods__ModifyLocalization.c:337-357`）⇒ 中文 token 原版**也不展开**、原样留着 `[[先锋]]`；
+        //     我们 `CardIcons.RewriteMarks` 同口径 ⇒ **两边一致**（⛔ 不是缺口、别加中文别名表）。
+        //  ⚠️ 可达性：`RowsOfEffects` 那条由 `EffectsToShow.Of` 的 mark 聚合拉（S5 已接）；旧口 `RowsOf` 无生产调用点。
         // ═══════════════════════════════════════════════════════════════════════════════════
 
         // ═══════════════════════════════════════════════════════════════════════════════════
@@ -2474,13 +2474,13 @@ namespace CardPresentation
             return Loc.T("Battle/Effect/RemoveTrait") + ": " + name;
         }
 
-        /// <summary>mark 那一行（`CardEffectItem__LoadEffect.c:53-99`）：左列 = `[[markOf&lt;神&gt;]]`
-        /// （`DefinedTrait` 那四个枚举名），`traitValue &gt; 1` 再追加 `" (xN)"`；右列 = **空串**
-        /// （`GetEffectDesc` 的 `case 8/0x11` 拼的是 `CardTraitDescription/&lt;MarkOfChaosType&gt;`
-        /// = `…/Khorne`，官方表里**没有**那条 ⇒ 画空白；判据链五条见类尾 `B95_FX` 那一段文档）。
-        /// <para>⚠️ 施工细则 §1.6 那张表把右列写成 `Battle/Effect/Khorne` —— **那一格是错的**
-        /// （`Battle/Effect/Khorne` = 「赋予+2近战攻击和[[先锋]]」，是**契约的效果正文**、不是 mark 行）；
-        /// 以 `.c` + `LoadEffect` 为准（本函数）。</para></summary>
+        /// <summary>mark 那一行（`CardEffectItem__LoadEffect.c:53-101`）：左列 = `[[markOf&lt;神&gt;]]`
+        /// （`DefinedTrait` 那四个枚举名），`traitValue &gt; 1` 再追加 `" (xN)"`；右列 = **契约正文**
+        /// （`.c:98-101` 写完左列就 `goto LAB_18060aaa7` ⇒ `.c:148-153` 用 `GetEffectDesc` 写右列；
+        /// `GetEffectDesc.c:396-413` 的 `case 8/0x11` = `Battle/Effect/&lt;神名&gt;`，四条键官方表里都在）。
+        /// 🔴 **2026-10-29（`B98_A6`）就地订正 `B95_FX`**：原来这里写「右列空串 / 键是 `CardTraitDescription/…`」
+        /// —— **两条都错**（错因 = 只查了 `CardTraitDescription/*` 那一族，而 `GetEffectDesc` 走的是另一族键）。
+        /// 三源判据 → 类尾 `MarkGodEffectKey` 上方那一段（⛔ 别在这儿抄第二份）。</summary>
         static EffectRow MarkRow(ShownEffect e)
         {
             string godEnum = MarkGodTraitEnum(e.MarkOfChaosType);
@@ -2488,7 +2488,7 @@ namespace CardPresentation
                 ? CardIcons.RewriteMarks("[[" + godEnum + "]]", Loc.Current == AvailableLanguages.Chinese)
                 : "";                                     // 原版那一支 `text2 = ""`（none/Random）
             if (e.TraitValue > 1) who += " (x" + e.TraitValue + ")";
-            return new EffectRow(who, "");
+            return TextRow(who, MarkGodEffectText(e.MarkOfChaosType));
         }
 
         /// <summary>附魔那一族（`buffType 12 / 15 / 16`）：正常档右列**空串**（= 一个洞），
@@ -2577,6 +2577,73 @@ namespace CardPresentation
                 shown = false;
             }
             return shown;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-10-29（执行代理 `B98_A6` · 账 `特效动画:195`）：mark 行的**右列**
+        //  ⚠️ **追加在类尾**（本文件被账按 `文件:行号` 引用 50+ 条，见 CLAUDE.md 铁律 18·b）。
+        //
+        //  这一段**就地推翻 `B95_FX` 的结论**（它把原版 mark 行的右列判成空串）。三源现读：
+        //  🥇 一：`d:/2/tools/decomp_full/CardEffectItem__LoadEffect.c:98-101` —— mark 支把左列
+        //     （`param_1 + 0x20`）写成 `"[[markOf<神>]]" (+ " (xN)")` 之后 **`goto LAB_18060aaa7`**；
+        //     那个 label 在 `.c:148-153`：`plVar6 = *(param_1 + 0x28)`（右列）→
+        //     `uVar3 = GameStaticData__GetEffectDesc(param_2)` → 写进右列 ⇒ **mark 行右列照样被写**。
+        //  🥇 二：`d:/2/tools/decomp_full/GameStaticData__GetEffectDesc.c:396-413` —— `case 8: case 0x11:`
+        //     读 `param_1 + 0x78`（`CardEffect.markOfChaosType`）→ `Enum.ToString(MarkOfChaosType)` →
+        //     `Concat(<前缀>, 枚举名)` → `GetTranslation` → `ModifyLocalization` → return。
+        //  🥇 三（前缀是什么，决定性）：`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/GameStaticData.cs:1348-1353`
+        //     把那条 `Concat` 的第一个实参印成了**字面量** `"Battle/Effect/"`（⛔ 不是 `CardTraitDescription/` ——
+        //     那一族属于**另一个方法**，同文件 `:1012-1030`；`B95_FX` 就是在这一步串了族）。
+        //  🥇 四：`MarkOfChaosType`（`d:/2/tools/il2cpp_out/dump.cs:45915-45925`）= `none 0` / `Khorne 10` /
+        //     `Nurgle 20` / `Slaanesh 30` / `Tzeentch 40` / `Random 50` ⇒ 四条键 `Battle/Effect/{Khorne,…}`。
+        //  🥇 五：四条键**官方表里都在**（现读 `Resources/official_loc_13lang.json`：10,862 键、下标 787-790）——
+        //     `Khorne` = `Give +2 Melee Attack and [[vanguard]]` / `赋予+2近战攻击和[[先锋]]` ·
+        //     `Nurgle` = `Give +1 Health and [[regeneration]] 1` / `赋予+1生命值和[[再生]] 1` ·
+        //     `Slaanesh` = `Give +2 Melee Attack and +2 Ranged Attack` / `赋予+2近战攻击和+2远程攻击` ·
+        //     `Tzeentch` = `Give +2 Health and [[camouflage]]` / `赋予+2生命值和[[伪装]]`。
+        //  ⇒ 原版 mark 行 = 左「[[markOf<神>]]」+ 右「契约正文」**两列都有字** ⇒ `IsTextEmpty()`
+        //     （`CardEffectItem__IsTextEmpty.c`，**只读 `+0x28`**）为假 ⇒ **整格显示**。我们原来右列硬写空串
+        //     ⇒ 那一行在真实界面上是**空白**（S5 已接 `BattleDriver.cs:13212` ⇒ 今天就在屏幕上）。
+        //  ⚠️ 中文列的值里带**中文 token** `[[先锋]]`：原版 `ModifyLocalization` 只按 `Enum.GetValues` 的
+        //     **枚举名**替换（`SupportMethods__ModifyLocalization.c:337-357`）⇒ 中文 token 原版**也不展开**、
+        //     原样留着 `[[先锋]]`；我们 `CardIcons.RewriteMarks` 同口径 ⇒ **两边一致**（⛔ 不是缺口）。
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`MarkOfChaosType` → 原版 `GetEffectDesc` 用 `"Battle/Effect/" + 枚举名` 拼出来的**词条键**
+        /// （枚举成员名现读 `dump.cs:45915-45925`：`Khorne 10` / `Nurgle 20` / `Slaanesh 30` / `Tzeentch 40`）。
+        /// 其余（`none 0` / `Random 50` / 任何未知值）⇒ <c>null</c>：那两支原版拼出的键在官方表里不存在，
+        /// `GetTranslation` 回 null ⇒ 原版右列也是空 ⇒ `IsTextEmpty()` 为真、**整格不显示**。</summary>
+        static string MarkGodEffectKey(int markOfChaosType)
+        {
+            switch (markOfChaosType)
+            {
+                case EffectsToShow.MarkKhorne: return "Battle/Effect/Khorne";
+                case EffectsToShow.MarkNurgle: return "Battle/Effect/Nurgle";
+                case EffectsToShow.MarkSlaanesh: return "Battle/Effect/Slaanesh";
+                case EffectsToShow.MarkTzeentch: return "Battle/Effect/Tzeentch";
+            }
+            return null;
+        }
+
+        /// <summary>mark 行**右列**的文字 = 原版 `GameStaticData.GetEffectDesc(effect)` 的 mark 支
+        /// （`.c:396-413`：`GetTranslation("Battle/Effect/" + 枚举名)` → `ModifyLocalization`）。
+        /// <para>缺键 ⇒ **留空 + 出声一次**，⛔ **不把键名印到界面上**。判法 = `Loc.T(key) == key`：
+        /// `Core/Loc.cs:3532` 在「手写表 / 数据面 bulk / 官方全表」整条链都没命中时**返回键名本身**。
+        /// ⛔ **别改用 `Loc.HasEntry`** —— 它只查手写 `Table`、不查 bulk 与官方全表
+        /// （`Core/Loc.cs:3594-3609`，末句就是 `return Table.ContainsKey(key)`），会把 `Battle/Effect/Khorne` 这一类**误判成没有**。</para>
+        /// <para>`ModifyLocalization` 那一跳在我们侧 = <see cref="CardIcons.RewriteMarks"/>
+        /// （展开 `[[vanguard]]` 那一族；中文列里的中文 token 两边都原样留着，口径一致）。</para></summary>
+        static string MarkGodEffectText(int markOfChaosType)
+        {
+            string key = MarkGodEffectKey(markOfChaosType);
+            if (key == null) return "";
+            string what = Loc.T(key);
+            if (string.IsNullOrEmpty(what) || what == key)
+            {
+                WarnOnce("mark:" + key, $"[展示窗] mark 词条「{key}」取不到 ⇒ 这一格右列留空（⛔ 不印键名）");
+                return "";
+            }
+            return CardIcons.RewriteMarks(what, Loc.Current == AvailableLanguages.Chinese);
         }
     }
 }

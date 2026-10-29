@@ -1109,15 +1109,15 @@ namespace RuleEngine
         /// 读数/接线口（🆕 2026-10-26 `E4P08`）：**某张卡的主动技 `manaCost`**
         /// （原版 `ActiveAbility.manaCost // +0x14`）。
         ///
-        /// <para>产品路径**默认 `null` = 未知** —— 那份数据列还没落进 `cards_engine.json`
-        /// （见 `ScoreFromManaBuff` 的 doc：真值在 `cards_truth.json`，但要经
-        /// `工具/gen_cards_engine.py` + `Core/CardDef.cs` 两处改动，均不在本代理白名单）。</para>
+        /// <para>🔴 2026-10-29（`B98_K6` · 账 233 ①）：**产品路径已接线** —— 卡表 v37+ 已有
+        /// `activeAbilityManaCost` 那一列（`CardDef.ActiveAbilityManaCost`，见下面那格字段初值器）。
+        /// 卡表缺这一列 / 夹具直接 `new CardDef(...)` ⇒ 该格 `-1`（未知）⇒ 钩子返回 `-1` ⇒ `AbilityManaCostInRange` 判 false（⛔ 不猜成 0）。</para>
         ///
-        /// <para>⚠️ 只有 `ScoreFromManaBuff` 的 ⑥⑦ 两段读它；默认 `null` ⇒ 两段各恒 0
-        /// ⇒ **行为零变化**（2026-10-26 实核：`play check` 指纹 `af8e8178…` 未动）。</para>
-        /// <para>⛔ **别在游戏代码里给它赋值**（同 <see cref="TraceCriteria"/> 的口径：只给探针/自检用）。</para>
+        /// <para>⚠️ 只有 `ScoreFromManaBuff` 的 ⑥⑦ 两段读它；真实池内 `hasActiveAbility==1` 的 87 张
+        /// **`activeAbilityManaCost` 现读全是 0** ⇒ `cost > manaLeft` 恒假 ⇒ **行为零变化**（指纹不动）。</para>
+        /// <para>⚠️ 自检（<see cref="AiScoringSelfTest"/>）会把这一格临时改成假钩子 ⇒ **末尾必须复位回产品接线**（`= c =&gt; c != null ? c.ActiveAbilityManaCost : -1`），⛔ 别复位成 `null`（那会把产品路径永久留空）。</para>
         /// </summary>
-        public static Func<CardDef, int> ActiveAbilityManaCost;
+        public static Func<CardDef, int> ActiveAbilityManaCost = c => c != null ? c.ActiveAbilityManaCost : -1;   // 🔴 2026-10-29（`B98_K6` · 账 233 ①）：**产品路径默认接线** = 卡表 v37+ 的 `CardDef.ActiveAbilityManaCost`（原版 `ActiveAbility.manaCost(+0x14)`）；未知（旧表 / 夹具）恒 `-1` ⇒ `AbilityManaCostInRange` 判 false（⛔ 不猜成 0）
 
         /// <summary>「这个单位的主动技费用落在 `(manaLeft, limit]` 吗」——**⑥⑦ 共用的唯一判据**
         /// （原版两段的算式逐字相同：`hasActiveAbility &amp;&amp; manaCost &gt; manaLeft &amp;&amp; manaCost &lt;= limit`）。
@@ -1264,14 +1264,14 @@ namespace RuleEngine
 
                 // ⑥⑦：钩子默认 null ⇒ 恒 0（列未落）；赋一个假的钩子 ⇒ 两段各 +1（证明算式是活的）
                 AiScoring.ActiveAbilityManaCost = null;
-                check("行29 ③ 钩子为 null ⇒ ⑥⑦ 恒 0（今天的真实读数）",
+                check("行29 ③ 钩子手工置 null ⇒ ⑥⑦ 恒 0（`null` 那一档还活着；产品默认已接线，见字段初值器）",
                       AiScoring.ScoreFromManaBuff(ctx, side, e) == 1f, "只有 ⑤ 那 1 分");
                 AiScoring.ActiveAbilityManaCost = c => (c != null && c.Id == hero.Id) ? 5 : 4;
                 // 督军 cost 5 落在 (3,5] ⇒ +1；场上那个 cost 4 ⇒ +1
                 AddUnit(ctx, side, BoardSpec.WarlordSlot + 1, Troop("E4P08M", 1, 2));
                 check("行29 ④ 钩子给值 ⇒ 督军 +1 / 场上 +1（⑥⑦ 算式是活的）",
                       AiScoring.ScoreFromManaBuff(ctx, side, e) == 3f, "1(手牌) + 1(督军) + 1(场上)");
-                AiScoring.ActiveAbilityManaCost = null;             // ⛔ 复位：产品路径必须回到「未知」
+                AiScoring.ActiveAbilityManaCost = c => c != null ? c.ActiveAbilityManaCost : -1;             // 🔴 2026-10-29（`B98_K6` · 账 233 ①）：复位回**产品接线**（⛔ 别改回 `null` —— 那是「列未落」时代的占位，会把自检跑完后的产品钩子永久留空）
             }
         }
     }

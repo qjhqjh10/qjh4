@@ -1450,24 +1450,24 @@ namespace RuleEngine
         /// 它正是同一个形状：「对这张卡连发 `TriggerAbilities(card,0)` + `(card,500)`、`isEnchantment = 1`」。
         /// ⚠️ **残差①（2026-10-29 `B97_TUT` 定性，判据 = `判据/B97_可推A七条_审查.md` §一·1）**：`trigger 0`（ThisCardPlayed）
         /// 在我们引擎里**没有关键词**、正文就由 `Desc` 承载（`gen_cards_engine.py:1282` 收词表原话：「0 `ThisCardPlayed` … 走 `ResolveDeploy` / `Desc` 那条路，**没有关键词**」；同口径 `CardDef.cs:4534`）
-        /// ⇒ `EffectText.Parse(card.Desc)` **就是**本仓 `cardAbilities[trigger==0]` 的唯一取数口，**不再算残余差**。残差② = 按 `ourId` 从卡池重新查 `CardDef`，原版取的是 `data[0].actingCard` **活跃实例**（身份/运行时状态丢失）。数据 0 条 ⇒ 零可观测。</summary>
+        /// ⇒ `EffectText.Parse(card.Desc)` **就是**本仓 `cardAbilities[trigger==0]` 的唯一取数口，**不再算残余差**。🔴 **残差② 2026-10-29（`B98_G7`）已闭**：不再按 `ourId` 回查卡池，改认 `data[0].acting` 的**活跃实例**（`TutorialRules.ResolveActingCardInstance`；原版 `.c:194/207` 直接把那个活对象当第一实参）。数据 0 条 ⇒ 零可观测。</summary>
         bool RunResolveCard(BattleContext ctx, TutorialAction a, ref ScriptedActionDone done)
         {
             done.Kind = ScriptedActionType.ResolveCard;
             var d = First(a);
             if (ctx == null || d == null) { Fail(ctx, a.Kind, "这条动作没有 `data[0]`"); return false; }
             var r = d.acting;
-            if (r == null || string.IsNullOrEmpty(r.ourId))
+            int side = -1, slot = -1, handIdx = -1;
+            var card = TutorialRules.ResolveActingCardInstance(ctx, r, out side, out slot, out handIdx);
+            // 🔴 原版 `.c:194-210` 直接拿 `data[0].actingCard(+0x18)` 那个**活对象**当第一实参，
+            //    没有「按 id 回查卡池」这一步 ⇒ 实例身份 / 运行时状态（变形、新建、`list[0]` 退回档）都保住。
+            if (card == null)
             {
-                // 原版 `.c:202`：`data[0].actingCard == null` ⇒ **整支跳过，什么都不做（也不抛）**。
+                // 原版 `.c:191/202`：`data[0].actingCard == null` ⇒ **整支跳过，什么都不做（也不抛）**。
                 Note(ctx, a.Kind);
-                ctx.Log("教程 `ResolveCard(140)`：`data[0].actingCard` 为空 ⇒ 原版整段跳过（`.c:202`）");
+                ctx.Log("教程 `ResolveCard(140)`：`data[0].actingCard` 为空 / 认不出是哪一张**活跃实例** ⇒ 原版整段跳过（`.c:202`）");
                 return false;
             }
-            var lookup = TutorialRules.PoolLookup(ctx);
-            var card = lookup == null ? null : lookup(r.ourId);
-            if (card == null)
-            { Fail(ctx, a.Kind, "`ourId = " + r.ourId + "` 在卡池里找不到（⛔ 不猜一张顶上去）"); return false; }
             var hero = ctx.Players[1].Warlord;
             bool any = Enchantments.TriggerEnchantment(ctx, 1, card, hero, null, false);
             done.Seat = 1; done.Slot = BoardSpec.WarlordSlot;
@@ -2076,6 +2076,50 @@ namespace RuleEngine
             if (c == null || r == null) return false;
             if (!string.IsNullOrEmpty(r.name) && c.Name == r.name) return true;
             return !string.IsNullOrEmpty(r.ourId) && c.Id == r.ourId;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（`B98_G7` · 账 `战斗逻辑驱动:93` 残差②）：
+        //  `ResolveCard(140)` 要的是 `data[0].actingCard` 的【活跃实例】，不是按 id 回查卡池
+        // ==================================================================
+        //  判据（🥇 `d:/2/tools/decomp_full/AiScripted__ExecuteAction.c:187-213`，现读逐句）：
+        //    `lVar13 = List.get_Item(param_3 + 0x48, 0)`（= `scriptedActionData[0]`）→
+        //    `uVar11 = *(lVar13 + 0x18)`（= `actingCard`）→ `op_Inequality(uVar11, 0)`：
+        //    **为空 ⇒ 整支跳过**；非空 ⇒ 再取一次 `*(lVar13 + 0x18)` 把它**直接当第一实参**
+        //    送进 `RawCardScript__TriggerAbilities`（先是 trigger 0、再是 trigger 500）。
+        //   ⇒ **原版跑的就是场上/手上那个活对象**，全程没有「按 id 去卡池另查一张」这一步。
+        //  ⇒ 我们的等价物 = 先用本类那两条 `GetChosenCard` 等价物定位活跃实例
+        //    （<see cref="FindBoardUnit"/> / <see cref="FindHandIndex"/> —— 它们是**唯一正本**，
+        //     ⛔ 别在这里另写第三份；认不出时按原版 `.c:38` 退回 `list[0]` 的裁定已在它们里面），
+        //    再取那一份的 `Card`。
+        //  ⚠️ **为什么不能用 `PoolLookup(ourId)`**：教程数据只有 `actingUnitType`/`actingUnit`
+        //    （生成器产物，没有 PPtr），按 id 查池会把「**活实例不是池里那张**」的三种情形
+        //    —— ① 变形/新建的卡不在池里 ② `list[0]` 退回档取到的是另一张 ③ 卡名与 id 不同源
+        //    —— **静默换成池里那张**。那正是 2026-10-29 审查记下的残差②（`B97_可推A七条_审查.md` §一·1）。
+        //  📊 数据侧 6 关 `actionTypeNote` 无 140 ⇒ 今天零可观测（休眠机制，铁律 11 照样做）。
+        /// <summary>`ResolveCard(140)` 的取卡口：`data[0].acting` → **活跃实例的 `CardDef`**。
+        /// 认不出（没有对局 / 档位认不出 / 场上与手上都没有）⇒ `null`（调用方按原版「整支跳过」处理）。
+        /// <paramref name="side"/>/<paramref name="slot"/>/<paramref name="handIdx"/> 回填定位结果
+        /// （`slot = -1` 表示不在棋盘上、`handIdx = -1` 表示不在手牌里），日志与断言用。</summary>
+        public static CardDef ResolveActingCardInstance(BattleContext ctx, TutorialUnitRef r,
+                                                        out int side, out int slot, out int handIdx)
+        {
+            side = -1; slot = -1; handIdx = -1;
+            if (ctx == null || r == null) return null;
+            string why;
+            var kind = (ScriptedActionUnit)r.unitType;
+            if (kind == ScriptedActionUnit.PlayerCardInHand || kind == ScriptedActionUnit.EnemyCardInHand)
+            {
+                handIdx = FindHandIndex(ctx, r, out why);
+                side = SideOfUnitType(r.unitType);
+                if (handIdx < 0 || side < 0 || side > 1) return null;
+                var hand = ctx.Players[side].Hand;
+                return (handIdx < hand.Count && hand[handIdx] != null) ? hand[handIdx].Card : null;
+            }
+            if (!FindBoardUnit(ctx, r, out side, out slot, out why)) return null;
+            var board = ctx.Players[side].Board;
+            var u = (slot >= 0 && slot < board.Length) ? board[slot] : null;
+            return (u != null) ? u.Card : null;
         }
     }
 }

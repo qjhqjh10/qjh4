@@ -371,7 +371,7 @@ namespace RuleEngine
                     for (int r = 0; r <= 1; r++)
                     {
                         bool ranged = r == 1;
-                        if (RuleCore.IsValidTarget(ctx, me, s, foe, t, ranged) != RuleCodes.OK) continue;
+                        if (RuleCore.IsValidTarget(ctx, me, s, foe, t, ranged) != RuleCodes.OK || RuleCore.AttackTargetGate(ctx, me, u, foeBoard[t], ranged) != RuleCodes.OK) continue;   // 🆕 2026-10-29（`B98_G3` · 账 `:324/:325`）：**动作表那一侧的「攻击目标」闸**（目标将死不排 ＋ 攻方攻击力≤0 / 近战 pindown），判据唯一一份 = `RuleCorePartial_B98G3AI.cs` 的 `AttackTargetGate`（原版 `BattleManager__GetAvailableAttackActions.c:126/:152` + `:128-140/:154-166`）。⛔ **别把它并进 `IsValidTarget`** —— 实测 `play check` ①-b 50→414 张（那个口同时服务技能目标，`RuleCore.cs:5625` 有回退记录）。
                         list.Add(new AiAction
                         {
                             Kind = ranged ? AiActionKind.AttackRanged : AiActionKind.AttackMelee,

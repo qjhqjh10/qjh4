@@ -893,7 +893,7 @@ namespace RuleEngine
                     //    实测踩到：`Company Ancient` 的 `+1 Melee and +1 Ranged Attack` 一开始只加了远程。
                     if (op.Attr != null)
                     {
-                        t.RecordGrant(RuleCore.NormalizeAttr(op.Attr), op.Value, GrantTag);
+                        t.RecordGrant(RuleCore.NormalizeAttr(op.Attr), op.Value, GrantTag, caster: src.Name);   // 🆕 2026-10-29（执行代理 `B98_G5` · 账 636 / 832②）：`caster` 灌的是原版 `CardEffect.enchantingCard`(`+0x18`) = **光环来源那张卡**。判据链：`decomp_full/AbilityLogic__PlayAbility.c:1199`（`*(undefined8 *)(local_res8 + 0x18) = *(undefined8 *)(param_3 + 0x10)` = `newEffect.enchantingCard = abilityData.thisCard`，`AbilityData.thisCard` 在 `+0x10`，见 ILSpy `AbilityData.cs:42-43`）→ 那条 `AbilityData` 的 `thisCard` 在 while-in-play 链上就是**光环来源卡**（`CardScript__UpdateWhileInPlay.c:19` 把 `param_1`（本卡）当 `thisCard` 传给 `RawCardScript__UpdateWhileInPlay` → `TriggerAbility` 的 `pooledAbilityData.SetNewData(thisCard, …)`，ILSpy `RawCardScript.cs:1768`）。⇒ 我们这侧的对应格 = `src.Name`（`Aura.ApplyAura` 的 `src` = 光环来源单位）。⛔ 别传 `GrantTag` 顶替 —— 那是 `Source`（来源**标签**），原版 `Source` 与 `enchantingCard` 是两格不同字段；也⛔ 别传「被罩住的那个单位」。
                         continue;
                     }
                     if (op.Keyword != null)

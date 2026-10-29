@@ -430,14 +430,14 @@ public static partial class RuleEngineTest
             Check(withRows, 132, "★ 有行的卡 132 张都拿到了一个归位结论（没有一张是空串）");
             // 🔴 **2026-10-24 读数更新（铁律 5 · `E1` 把卡表推到 v24、按能力种类归位）**：
             //    v23 那套「1 对象 / 1 行 / 1 条 op」只挂 38 张；v24 按 `chosenAbility` 分族后 **84 张**。
-            //    只剩 3 张给不出结论：`AM22`（`chooseone` 一条 op 盖两个分支 = `gap:kind-no-op`）·
-            //    `SOR13`（同族两行 ta=10/120 = `gap:kind-ambiguous`）· `SW9`（`ca=320 followAfterResolution`
-            //    故意不映射 = `gap:kind-unknown`）。
-            Check(attached, 84,
-                  "★ 挂上 op 的卡 = **84 张**（v24 按能力种类归位；v23 是 38）"
+            //    🔴 **2026-10-29 再更新（`B98_G6` + `B98_G8`）**：**86 张** —— `AM22`（`chooseone` 一条 op
+            //    盖两族分支，`B98_G6` 落在唯一那条 `ca=30` 行）与 `SOR13`（同族两行 ta=10/120 逐 op 配对，
+            //    `B98_G8` 删掉执行器耦合闸后启用）都挂上了 ⇒ 只剩 **1 张**：`SW9`（`ca=320`，`gap:kind-unknown`）。
+            Check(attached, 86,
+                  "★ 挂上 op 的卡 = **86 张**（v24 按能力种类归位；v23 是 38；`B98_G6/G8` 之后 +2）"
                 + "｜🧨 退回「只认 1 对象/1 行/1 条 op」⇒ 掉到 38；按行号硬配 ⇒ 冲上 100+");
-            Check(gapKind, 3,
-                  "★ 给不出结论的 = **3 张**（`AM22` / `SOR13` / `SW9`，三类各一张，全是**真歧义**）"
+            Check(gapKind, 1,
+                  "★ 给不出结论的 = **1 张**（只剩 `SW9` = `gap:kind-unknown`；`AM22` / `SOR13` 已挂上）"
                 + "｜🧨 把歧义档也硬挂 ⇒ 掉到 0（那会静默贴错目标）");
             Check(gate0, 45, "★ `gate=0` 死数据 45 张（不挂）｜🧨 挂上去 ⇒ 掉到 0");
             Check(other, 0,

@@ -2251,7 +2251,7 @@ namespace RuleEngine
         /// <para>🔴 **2026-10-29（执行代理 `B97_W1` · 账 832 ②）：`RecordGrant` 现在有「施放者」那一列了** —— `GrantRecord.Caster`
         /// = 原版 `CardEffect.enchantingCard(+0x18)`；本方法经 <see cref="RevertGrantsCastBy"/> 按它整份撤 ⇒ `_grants` / `TempBuff.SourceCard` / `_statMods.Source` 三本账都过。
         /// ⚠️ 残余如实标：① 按**卡名**匹配（原版比对象引用 ⇒ 同名两张会多撤，既有零件限制）；② 原版那条 `extrinsic(+0x30) != 0` 闸我们没有等价物；
-        /// ③ **生产点还没灌**（`EffectResolver.ApplyOneGain` / `Aura` 都还传 3 个实参）⇒ 今天 `Caster` 恒 `null`（休眠，铁律 11 照建）。</para>
+        /// ③ ✅ **2026-10-29（执行代理 `B98_G5` · 账 636 / 832②）就地订正**：原来这里写「两个生产点都还传 3 个实参 ⇒ `Caster` 恒 `null`」—— **光环路已接线**（`Aura.cs:896` `ApplyAura` 现在传 `caster: src.Name`，判据 `AbilityLogic__PlayAbility.c:1199` = `enchantingCard = abilityData.thisCard`）；仍缺的只有 `EffectResolver.ApplyOneGain` 那一路。</para>
         /// </summary>
         /// <returns>撤掉了几条（限时增益 + 匹配来源的数值修饰）</returns>
         public int RemoveExtrinsicEffectsFrom(string sourceCardName)
@@ -2610,9 +2610,9 @@ namespace RuleEngine
         /// `orderInPlay(+0x44)` / `isPraying(+0x67)` **一个都不动**（`.c` 全文没碰它们）
         /// ⇒ 两个计数器（我们的 `CardInstance.CompanionCounter` 那本）**跨翻回保留**。</para>
         ///
-        /// <para>⚠️ **没建的两位**（如实标，铁律 2）：`currentDropPodHealth/Attack(+0xcc/+0xe0)`
-        /// 我们**没有这两个字段**（drop pod 在我们这边是关键词 `droppod` 的 `KwValue`，
-        /// 见 `CardDef.cs` 的 DropPod 那一族注释）⇒ 原版 ④ 里那两句**不搬**。
+        /// <para>⚠️ **那两位**：`currentDropPodHealth/Attack(+0xcc/+0xe0)` ➔ **已建**为 `UnitState.CurrentDropPodHealth` /
+        /// `CurrentDropPodAttack`（字段在本文件 `:3893` / `:3895`，`B97_W22` 2026-10-29 落）。
+        /// ⚠️ **本方法仍不搬**原版 ④ 那两句 —— 原版 `ResetToValuesInHand.c:110-133` 是**无条件**写，而 `SetupDropPodStats`（本文件 `:3903`）带 `cardType==10 ∧ Has(dropPod)` 闸；两处口径本来就不同，按 `.c:110-133` 补属下一批（🔴 铁律 5：原文写「我们**没有这两个字段**」已不成立，就地订正）。
         /// ✅ `alreadyTriggeredBacklash(+0x222)` ⇒ 我们的 `UnitState.AlreadyTriggeredBacklash`（字段在类尾 `:3366`；判据 `CardScript__ResetToValuesInHand.c:138-140`：`if (param_2 != 0) *(byte*)(this + 0x222) = 0;`，**只在 `clearBacklash` 为真时清**）—— **本方法末尾已按 `clearBacklash` 清**（旧文写「没有字段 / 形参今天仍不起作用」，2026-10-28 `B92_B6` 按现读订正，铁律 5）；
         /// 读点 = `RuleCore` 的「本回合死过」那一族，**与 `ctx.DiedThisTurn` 是两套表示**（原版每卡一位、`DiedThisTurn` 是本回合全局）⇒ 交叉规则「同回合死过 ⇒ 回手 ⇒ 再上场」上两者**不等价、尚未收口**（要收口得改 `RuleCore` 的读写点，属 B1 的文件）。</para>
         /// </summary>
@@ -2746,8 +2746,8 @@ namespace RuleEngine
         ///   `cardType==0x28 && spellType==0x78 && !fromJam` 时 `BroadcastQuestResolved` + `questCounter=0`
         ///   ⇒ **不在本方法**（`Enchantment.Remove` 那一套），`fromJam` 这个形参就是给它留的。
         /// · `0x2D(45) addStatsDropPod`（`:98-152`）：`currentDropPodHealth(+0xcc) -= healthChange(+0x60)`、
-        ///   `currentDropPodAttack(+0xe0) -= meleeAttackChange(+0x48)`。我们在这一档**只有血量那半**能落
-        ///   （drop pod 血量 = `KwValue(droppod)`）⇒ 攻击那半如实记「未建」。
+        ///   `currentDropPodAttack(+0xe0) -= meleeAttackChange(+0x48)`。🔴 2026-10-29（`B98_K6` · 账 852 ③）：
+        ///   **两半都已落**到原版那两格（`UnitState.CurrentDropPodHealth` / `CurrentDropPodAttack`），⛔ 不再用 `KwValue(droppod)`（那条 `🔶 自己设计` 标记随本次改动撤销）。
         /// · `default`（`:262-272`）：`buffType != 0x28(40 replaceAbility) ⇒ return`；40 档 =
         ///   `hasActiveAbility(+0x220) = 卡面 hasActiveAbility(+0x2A9)` + `activeAbilityRef(+0x118) = null`。
         ///   ⚠️ 我们的 `Ability` **恒读卡面**（`Card.Ability`，没有运行时覆盖位）⇒ 这一档
@@ -2778,16 +2778,16 @@ namespace RuleEngine
                 case 5:                     // swapStats：`ChangeBaseAttack(卡面近战)` + `ChangeMaxHealth(卡面血)` + 夹血（`.c:202-238`）
                     if (Card != null)
                     {
-                        AttackBase = Card.Attack;   // ⚠️ 原版这两句还会**顺手清残留**（`ChangeBaseAttack.c` 倒序摘 `meleeAttackChange != 0` 的记录 · `ChangeMaxHealth.c` 把这类记录的 `healthChange` 清 0）—— 我们 `_statMods` 把它们拆成两条、拿不到「同一条记录」⇒ 未落，见报告 §没查清
-                        MaxHealthBase = Card.Health;
+                        int __swpFold = RestoreSwapStatsBase();   // 🔴 2026-10-29（`B98_K6` · 账 852 ②）：原版 case 5 先调 `ChangeBaseAttack(卡面近战)` / `ChangeMaxHealth(卡面血)`，**这两个方法还会顺手清残留**（倒序摘「非 extrinsic ∧ buffType==1 ∧ 有增量」的整条；extrinsic 的血增量折进 base）—— 两半都在**类尾** `RestoreSwapStatsBase`（判据 `decomp_full/CardScript__ChangeBaseAttack.c` / `CardScript__ChangeMaxHealth.c`）
+                        AttackBase = Card.Attack; MaxHealthBase = Card.Health + __swpFold;
                     }
                     ClampHealthToMax();
                     SyncAttackTypeAfterStatChange();
                     break;
 
-                case 45:                    // addStatsDropPod：只有血量那半有落点（见 doc）—— // 🔶 自己设计（非原版）：drop pod 血量用 `KwValue(droppod)` 表达（原版是 `currentDropPodHealth +0xcc` 字段）· 判据拿不到：我们的 drop pod 是 `RuleCore.OpenDropPod` 那条独立机制、没有那两个字段（既有口径见 `CardDef.cs` 的 DropPod 族注释）· 调度台 E10TB 2026-10-26（照既有模型延伸，未新增口径）
-                    if (rec.HealthChange > 0) RemoveKeyword(KeywordTable.DropPod, rec.HealthChange);
-                    else if (rec.HealthChange < 0) AddKeyword(KeywordTable.DropPod, -rec.HealthChange);
+                case 45:                    // addStatsDropPod（`.c:98-152`）：`currentDropPodHealth(+0xcc) -= healthChange(+0x60)` + `currentDropPodAttack(+0xe0) -= meleeAttackChange(+0x48)`。🔴 2026-10-29（`B98_K6` · 账 852 ③）：**改回原版那两格**（`UnitState.CurrentDropPodHealth` / `CurrentDropPodAttack`，`B97_W22` 已建）—— 原 `KwValue(droppod)` 那套 `🔶 自己设计` 标记随本次改动撤销。⚠️ **加的那一半**（`EffectResolverPartial_B97W2.cs:313-332` 的 `case 45`）仍写 `droppod` 关键词，本批白名单外 ⇒ 已在报告里列为下一批（池内 `buffType 45` = **0 行**，休眠，⛔ 今天无观测）
+                    if (rec.HealthChange != 0) CurrentDropPodHealth -= rec.HealthChange;
+                    if (rec.MeleeChange != 0) CurrentDropPodAttack -= rec.MeleeChange;
                     break;
 
                 case 12: case 15: case 16:  // 附魔三档（原版 `.c:220-253`）—— 🔴 B97_W4：给了 `EnchantEffect` ⇒ 真摘（走 `Enchantments.Remove` 那唯一一处）；没给 ⇒ 无声过（旧口径缺这一档，反指由调用点补）
@@ -3452,7 +3452,7 @@ namespace RuleEngine
                 if (r.Trait != trait) continue;
                 if (r.BuffType == BuffTypeAddTrait || r.BuffType == BuffTypeAddTraitRemnant) return true;
             }
-            return false;
+            if (AuraKwValue(trait) > 0) return true; return false;   // 🆕 2026-10-29（执行代理 `B98_G5` · 账 1041 · 口径 = `判据/B98_R4_波5补判据.md` §1041 的 **B 案**）：原版**没有 `Aura` 这个类** —— 它的「光环」就是每趟 `UpdateWhileInPlay` **先摘后重加**进同一个 `activeEffects(+0x108)` 的 `buffType=3` 记录（判据 `EntityScript__HasCurrentTraitActiveEffect.c:15-48` 扫的正是那张表）⇒ 光环授出的 trait 在原版**看得见**。我们这侧光环只写 `_keywords`/`_auraKw`、不进 `_traitEffects` ⇒ 读 `_auraKw` 补上这一路。⚠️ 位置**必须在残骸闸（上一行）之后** —— 原版 `isRemnant(+0x65) && !isLeavingRemnant(+0x66)` 是整段早退，光环不豁免。⛔ 别改成「往 `_traitEffects` 塞记录」（`ApplyTraitEffect` 内部会 `AddKeyword`，而 `AddAuraKeyword` 已写过一次 ⇒ `KwValue` 翻倍）｜⚠️ 如实标一处已知窗口：`ClearAuraGrants` 是「先全清、再重加」，若 `RemoveTraitEffect` 恰好落在那个窗口里会读到 0 ⇒ 多摘一次关键词（缓解：该窗口内本不该有 `RemoveTraitEffect`，见 R4 §1041「风险」）
         }
 
         // ==================================================================
@@ -3654,9 +3654,9 @@ namespace RuleEngine
         //       本来就是同一个限制，见账 547 ③；⛔ 别只在这一处改口径）；
         //    ② 原版第 ① 条 `extrinsic` 我们没有真正等价物（`StatMod.Extrinsic` 只有光环那条路为真）
         //       ⇒ 本方法**不做**该闸，沿用 `RemoveExtrinsicEffectsFrom` 既有口径「按住键匹配即撤」。
-        //  📌 **今天恒 0（休眠，铁律 11 照建）**：`RecordGrant` 的 `caster` 生产点**还没接线** ——
-        //    现读两处调用都只传 3 个实参（`EffectResolver.cs:12127` 的 `ApplyOneGain`、`Aura.cs:896` 的光环路）
-        //    ⇒ 全池 0 条带 `Caster` 的账。接线要那位文件的所有者做（本代理白名单不含这两个文件）。
+        //  📌 ✅ **2026-10-29（执行代理 `B98_G5` · 账 636 / 832②）就地订正** —— 原来这里写着「两处调用都只传 3 个实参 ⇒ 全池 0 条带 `Caster` 的账」：
+        //    **光环路已接线**（`Aura.cs:896` 的 `ApplyAura` 现在传 `caster: src.Name`；判据 = `decomp_full/AbilityLogic__PlayAbility.c:1199`
+        //    `newEffect.enchantingCard(+0x18) = abilityData.thisCard(+0x10)` ⇒ 光环那一路的施放者 = **光环来源那张卡**）；仍未接的是 `EffectResolver.cs:12174` 的 `ApplyOneGain`。
         // ============================================================================================
 
         /// <summary>
@@ -4069,6 +4069,57 @@ namespace RuleEngine
                 if (r != null && r.Extrinsic && r.Source == sourceCardName) return true;
             }
             return false;
+        }
+
+        /// <summary>🆕 2026-10-29（第九十八会话 · 波 10 · 执行代理 `B98_K6` · 账 852 ②）
+        /// **原版 `CardScript__ChangeBaseAttack` / `CardScript__ChangeMaxHealth` 的「残留清理」** ——
+        /// `RemoveEffect` 的 `case 5 swapStats`（`CardScript__RemoveEffect.c:202-238`）先调这两个方法，
+        /// 它们除了把值**回卡面**，还会把 `activeEffects(+0x108)` 里**同一族**的旧记录顺手清掉。
+        ///
+        /// <para>**判据（逐句现读 `d:/2/tools/decomp_full/`，并用 `cpp2il/out_cpp2il_dev_ilspy/CardScript.cs:17297-17380`
+        /// 交叉确认）**：
+        /// · `CardScript__ChangeBaseAttack.c`：倒序扫 `activeEffects`，命中
+        ///   `extrinsic(+0x30)==0 ∧ buffType(+0x38)==1(addStats) ∧ meleeAttackChange(+0x48)!=0` ⇒ `RemoveAt`（**整条摘**）；
+        ///   扫完 `currentBaseMeleeAttack(+0x7c) = 卡面近战(+0xa4)`。
+        /// · `CardScript__ChangeMaxHealth.c`：倒序扫，命中 `extrinsic==0 ∧ buffType==1 ∧ healthChange(+0x60)!=0` ⇒
+        ///   `meleeAttackChange==0 ? RemoveAt : healthChange=0`；`extrinsic!=0 ∧ buffType==1 ∧ healthChange!=0` ⇒ **累加进 base**；
+        ///   扫完 `currentMaxHealth(+0xa4) = 卡面血(+0x9c) + 累加值`，再把 `currentHealth` 夹到新上限。</para>
+        ///
+        /// <para>🔴 **映到我们这两本账**：`_statMods` 把「近战 / 远程 / 生命」拆成**各自一条** `StatMod`
+        /// （原版是同一条 `CardEffect` 上的三个增量字段）⇒「`meleeAttackChange != 0` 才把 `healthChange` 清 0」
+        /// 那一支**在本账里恒不命中**（能与它同源的那条近战修饰已被上面那圈整条摘掉），剩下的都走 `RemoveAt` 支
+        /// ⇒ 与 `.c` 语义等价。⚠️ `ranged` **不摘**（原版这两个方法只碰近战与生命两格）。</para>
+        ///
+        /// <para>🔴 **累加值不回写、也不删 `extrinsic` 那批记录**（原版也不删）⇒ 返回后由调用方加进
+        /// `MaxHealthBase`；于是 `MaxHealth` = 卡面血 + 2×Σ(extrinsic 血增量)。**原版就是这样双计**
+        /// （`EntityScript__get_currentMaxHealthProcessed.c` 的「base」与「extrinsic」两段都会加），
+        /// 照抄（§18·0：原版 bug 也照抄），⛔ 别「修好」。</para>
+        ///
+        /// <para>⚠️ `setMeleeAttack` / `setRangeAttack` / `setHealth` 那三档的 `BuffType` 推成 `-1`
+        /// （见 `AddStatMod`）⇒ 已被 `BuffType != 1` 挡在外面，与 `.c` 的 `buffType==1` 同口径。</para>
+        ///
+        /// <para>返回 = 原版 `ChangeMaxHealth` 里那个累加值（`iVar8`）。</para></summary>
+        int RestoreSwapStatsBase()
+        {
+            // ── ChangeBaseAttack：摘「非 extrinsic ∧ addStats ∧ 近战」的整条 ──
+            for (int i = _statMods.Count - 1; i >= 0; i--)
+            {
+                var m = _statMods[i];
+                if (m == null || m.Extrinsic || m.IsSet || m.BuffType != 1) continue;
+                if (m.Attr != "attack") continue;
+                _statMods.RemoveAt(i);
+            }
+            // ── ChangeMaxHealth：非 extrinsic 的生命增量摘掉；extrinsic 的累加进 base ──
+            int fold = 0;
+            for (int i = _statMods.Count - 1; i >= 0; i--)
+            {
+                var m = _statMods[i];
+                if (m == null || m.IsSet || m.BuffType != 1) continue;
+                if (m.Attr != "health") continue;
+                if (m.Extrinsic) { fold += m.Value; continue; }
+                _statMods.RemoveAt(i);
+            }
+            return fold;
         }
     }
 }

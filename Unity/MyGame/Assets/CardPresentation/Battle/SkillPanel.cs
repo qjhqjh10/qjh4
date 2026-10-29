@@ -1538,7 +1538,7 @@ namespace CardPresentation
                          // 🆕 2026-10-27（`B9` E4BDR · 账 755）：原版 `GetCurrentLocalizedAbilityDescription`
                          //   三档后缀链的输入（见类尾 `AbilityDescription`）。全部可选 ⇒ 既有调用点零改动。
                          string cardId = null, bool requiresLoading = false, bool abilityLoaded = false,
-                         int abilityNeedsLoading = -1, bool hasRemovedReload = false)
+                         int abilityNeedsLoading = -1, bool hasRemovedReload = false, string abilityTextReferenceId = null)
         {
             Build();
             ShownName = cardName;
@@ -1551,7 +1551,7 @@ namespace CardPresentation
 
             if (_name != null) _name.SetText(cardName);
             _descBase = AbilityDescription(ability, cardId, requiresLoading, abilityLoaded,
-                                           abilityNeedsLoading, hasRemovedReload);
+                                           abilityNeedsLoading, hasRemovedReload, abilityTextReferenceId);
             // 🔴 2026-10-26（B3·E6）：原版把「可选目标」那一段**拼进描述**（`SetupActiveSkill` 的
             //   `text7 = desc + " " + targetAvailableText`），`TargetsAvailableText` 那颗节点**零写入**。
             //   ⇒ 这里改成「描述 + 后缀」，那颗节点只为树同构留位（判据见类尾 `_targetsSuffix` 那一段）。
@@ -2131,8 +2131,10 @@ namespace CardPresentation
         /// 有 `cardId` ⇒ **裸键 = `Card_Abilities/&lt;id&gt;`**（原版 `Desc()`），缺键才回 `CardText.EffectSentence`。
         /// <para>⚠️ 缺键判据用 `Loc.T(key) != key`（`Loc.HasEntry` **只认手写表**，`Card_Abilities/*` 那一族在官方全表里 ⇒ 拿 `HasEntry` 会恒 false）。</para></summary>
         string AbilityDescription(EffectSpec ability, string cardId, bool requiresLoading,
-                                  bool abilityLoaded, int abilityNeedsLoading, bool hasRemovedReload)
+                                  bool abilityLoaded, int abilityNeedsLoading, bool hasRemovedReload,
+                                  string abilityTextReferenceId = null)
         {
+            cardId = AbilityKeyId(cardId, abilityTextReferenceId);   // 原版 `Desc()` 的 id = `activeAbilityTextReferenceId ?? uniqueId`
             string bare = AbilityBareText(ability, cardId);
             if (string.IsNullOrEmpty(cardId)) return bare;
             if (requiresLoading)
@@ -2241,6 +2243,26 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(v)) return v;
             bool zhCol = CardText.Zh && Loc.Current == AvailableLanguages.Chinese;
             return CardIcons.HasOfficialMarks(v) ? CardIcons.RewriteMarks(v, zhCol) : v;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-29（执行代理 `B98_M1` · 判据 卡-16）：`Card_Abilities/<id>` 的 **id 那一半**
+        // ==================================================================
+        //  判据 = 原版 `RawCardScript.GetLocalizedAbilityDesc(suffix)`
+        //    （`cpp2il/out_cpp2il_dev_ilspy/RawCardScript.cs:2374-2446` ·
+        //     `decomp_full/RawCardScript__GetLocalizedAbilityDesc.c:19-27`）：
+        //    键 = `"Card_Abilities/" + (activeAbilityTextReferenceId 非空 ? 它 : uniqueId) + suffix`。
+        //  ⚠️ 现读 `cards_engine.json` 只有 **2 张**卡带 ref：`SOR30 → SOR30_new` · `SOR25 → SOR25_new`。
+        //     不带它 ⇒ 这两张取到的是**旧版**词条（`Card_Abilities/SOR30` = `Gain +armour 1`，
+        //     而 `SOR30_new` = `Heal 3 to a friendly unit`）—— 玩家可见的错文本。
+        //  🔴 **本类只认这个 id**；`activeAbilityTextReferenceId` 那一列来自
+        //     `CardDef.ActiveAbilityTextReferenceId`（本批**没有**改 `CardDef`/`CardDatabase`/`BattleDriver`，
+        //     可粘贴补丁 → `资料/完全复刻/报告/B98_M1.md` §四）⇒ 今天走到这里的 `abilityTextReferenceId` 仍是 `null`，
+        //     **行为与改前逐字相同**（零回归）。接上那三处之后这 2 张自动改用新词条。
+        /// <summary>原版 `Card_Abilities/&lt;id&gt;` 里那个 `id`：**ref 非空就用 ref、否则回 `uniqueId`**。判据见上。</summary>
+        public static string AbilityKeyId(string uniqueId, string activeAbilityTextReferenceId)
+        {
+            return string.IsNullOrEmpty(activeAbilityTextReferenceId) ? uniqueId : activeAbilityTextReferenceId;
         }
     }
 }

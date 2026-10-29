@@ -350,7 +350,7 @@ namespace CardPresentation
 
             // 容器节点（**有真实位置** —— 原版每个节点都有自己的 rect；自检要按它的位置量）
             var nmNode = RewardsWindow.Node(_root, "Normal Missions", nm);
-            var smNode = RewardsWindow.Node(nmNode, "Special Missions", sm);
+            var smNode = _gridHolderNode = RewardsWindow.Node(nmNode, "Special Missions", sm);   // 🆕 B98_K3：= 原版 `MissionsTab.missionsHolder`（账 `:526`）
             var dmNode = RewardsWindow.Node(nmNode, "Daily Missions", dm);
             var dhNode = RewardsWindow.Node(dmNode, "Daily Missions Holder", dh);
             var wmhNode = RewardsWindow.Node(_root, "Weekly Mission Holder", wmh);
@@ -2534,11 +2534,11 @@ namespace CardPresentation
         ///   里 `MissionConfig{ type, maxAmount }` 决定每组几格），本地 0 份 SO ⇒ 建出来**永远是空区**；
         /// ② 原版那个布局件 **`FlexibleGridLayout` 在本工程不存在**（全仓 0 命中）⇒ 要建得先新建一个布局类，
         ///   而它没有任何可填的数据。
-        /// ⇒ 按铁律 11 例外①「**原版判据（数据）本身拿不到**」如实留空并出声；⛔ 别造一个假网格。</para></summary>
-        void InstantiateGridMissions()
+        /// ⇒ 按铁律 11 例外①「**原版判据（数据）本身拿不到**」如实留空并出声；⛔ 别造一个假网格。🆕 **2026-10-29（`B98_K3`）真体已落** = 类尾 `InstantiateGridMissionsCore`。🔴 **两处旧判据就地订正（铁律 5）**：①「`FlexibleGridLayout` 类不存在」**与这条无关** —— `MissionsTab__InstantiateGridMissions.c` **一次都没碰过那个组件**（`columns` 只进 `IMission.set_UseSmallContainer`，接口 Slot 9；原版那 3 个实例全在商店 `Content` 上）② 格子不是按「mission」建，是按 `GetBaseSave().challengeProgress` 的**每一条**建。实参 `IEnumerable<IGridMissionSource>` = 原版 `IEnumerable<IMission>` 的等价物。</para></summary>
+        void InstantiateGridMissions(IEnumerable<IGridMissionSource> missions)
         {
-            Debug.Log("[Missions] `InstantiateGridMissions` 未落地：本仓 0 条网格任务（数据在远端 `MissionsConfig`）"
-                    + "且 `FlexibleGridLayout` 类不存在 ⇒ 建出来也永远是空区（判据见本方法 summary）。");
+            InstantiateGridMissionsCore(GridHolder(), missions);   // 真体在类尾（本文件下游有账按行号钉着 ⇒ 这里只留一句）
+            // ⛔ 别把循环写回这里：`GridMissionLayoutLogic` 与 `MissionContainer` 都被账按行号引用
         }
 
         /// <summary>原版 `MissionContainer.OnCollect()`（`decomp_full/MissionContainer__OnCollect.c`，33 行）：
@@ -2608,7 +2608,7 @@ namespace CardPresentation
         /// `MissionContainer.SetChallenge(container, 挑战)` 且序号 +1；每次迭代前还给该 mission 写一个
         /// `bool = (columns &lt;= 序号)` 的开关（IMission 接口 key `9`，**成员语义未解 ⇒ ⛔ 不猜名字**）。
         /// 🔴 **建树那一半仍然不落**：`missionsHolder` 与 `FlexibleGridLayout` 本工程都不存在、格子数据也不在本地
-        /// （见 <see cref="InstantiateGridMissions"/> 的 summary）⇒ 本类只承载**可以判死的那几条纯函数**。</para></summary>
+        /// （见 <see cref="InstantiateGridMissions"/> 的 summary）⇒ 本类只承载**可以判死的那几条纯函数**。🔶 自己设计（非原版）：用 GridMissionLayoutLogic 纯函数替代 FlexibleGridLayout 的列数规则 · 该组件本机全仓 0 命中、数据在远端 · 调度台 2026-10-29 裁定</para></summary>
         public static class GridMissionLayoutLogic
         {
             /// <summary>原版 `.c:53-67`：**列数**。`1`/`2` 条 ⇒ 2 列；`3` 条 ⇒ 1 列；其它 ⇒ 0（原版那一支什么都不写）。</summary>
@@ -2624,6 +2624,124 @@ namespace CardPresentation
             {
                 return columns <= globalIndex;
             }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  追加区 · 2026-10-29（`B98_K3` · 账 `:526` 的**建树那一半**）
+        //  🔴 追加在**类尾**：本文件有多条账按 `文件:行号` 钉着（`InstantiateGridMissions` = `:2538` ·
+        //     `GridMissionLayoutLogic` 类声明 = `:2612`）⇒ 往中间插一行就整片漂移。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>= 原版 `MissionsTab.missionsHolder`（`+0x30`，`ContainerHolder`）。
+        /// <para>🔴 **这一个格子是解码出来的，不是猜的**：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-6485706199792675073.json`
+        /// （脚本 = `MonoScript_-146134410205992060` = `MissionsTab`）的 `missionsHolder.m_PathID -7417265825195092225`
+        /// → `MonoBehaviour_-7417265825195092225`（脚本类名 = **`ContainerHolder`**，`maxAmount = 0`）→
+        /// `m_GameObject -3261567823877957889` → `GameObject/Special Missions_8671611484050626303.json`。
+        /// ⇒ 原版把**网格任务**塞进 **`Special Missions`** 那个节点（另一份 `MissionsTab` 实例指向同名的 `Special Missions`）。</para></summary>
+        Transform _gridHolderNode;
+        /// <summary>本页的 `ContainerHolder`（原版同一个字段的等价物；`MakeContainer` 见
+        /// <see cref="InstantiateGridMissionsCore"/> 的说明 —— 本机**没有**容器资产，故恒未注入）。</summary>
+        ContainerHolder _gridHolder;
+        static bool _gridNoCarrierNoted;
+
+        /// <summary>原版 `IEnumerable&lt;IMission&gt;` 在这一支里**只被读两格**（`.c` 逐句现读）：
+        /// ① `GetBaseSave()`（接口 Slot 1）→ 取 `MissionPersistence.challengeProgress`（`+0x48`）当逐格数据源；
+        /// ② `set_UseSmallContainer(bool)`（接口 Slot 9）→ 每次迭代前写一个 `columns &lt;= 全局序号` 的开关；
+        /// ③ 另外它自己是 `IContainerProvider`（`TryAdd` 的实参）。
+        /// <para>⚠️ 为什么单开一个接口而不是直接用 `IMission`：本仓 `IMission`（`Shell/MissionEvent.cs`）目前是
+        /// **空标记接口**（`public interface IMission { }`），且那个文件不在本批文件所有权里 ⇒ 没法加那两格。
+        /// 这与 `Shell/OfferContainer.cs` 单开 `IContainerProvider` 是同一条既有处置（C# 接口是名义的）。</para></summary>
+        public interface IGridMissionSource : IContainerProvider
+        {
+            /// <summary>原版 `IMission.GetBaseSave()`（Slot 1）。本方法只读它的 `challengeProgress`。</summary>
+            MissionPersistence GetBaseSave();
+            /// <summary>原版 `IMission.UseSmallContainer`（Slot 8 读 / Slot 9 写）。</summary>
+            bool UseSmallContainer { get; set; }
+        }
+
+        /// <summary>原版 `MissionsTab.InstantiateGridMissions(IEnumerable&lt;IMission&gt;)`
+        /// （`decomp_full/MissionsTab__InstantiateGridMissions.c` 129 行，2026-10-29 `B98_K3` 逐句现读）。</summary>
+        /// <code>
+        /// list    = missions.ToList();
+        /// n       = list.Where(谓词 DAT_18427ab10).Count();
+        /// columns = (n == 1 || n == 2) ? 2 : (n == 3 ? 1 : 0);
+        /// foreach (mission in list) {
+        ///     progress = mission.GetBaseSave().challengeProgress;          // 数组，长度 = 该任务现有几条挑战
+        ///     for (i = 0; i &lt; progress.Length; i++) {
+        ///         mission.UseSmallContainer = (columns &lt;= globalIndex);   // 接口 Slot 9
+        ///         if (!missionsHolder.TryAdd(mission, out container)) continue;   // 满员 ⇒ 不再建
+        ///         container.SetChallenge(progress[i]);
+        ///         globalIndex++;
+        ///     }
+        /// }
+        /// </code>
+        /// <para>🔴 **格子不是按「任务」建的，是按「挑战进度」建的** —— 一个任务有 3 条进度就建 3 格
+        /// （`globalIndex` 跨任务连号，`UseSmallContainer` 那个开关也按**全局**序号判）。</para>
+        /// <para>⚠️ **两处判不死的残差（如实标，⛔ 不编）**：</para>
+        /// <list type="number">
+        /// <item>谓词 `DAT_18427ab10` 的体**没解出** ⇒ 计数按**全表**算（等价于「谓词恒真」）。</item>
+        /// <item>容器载体：原版 `ContainerHolder.TryAdd` 里那一跳是
+        ///   `ContainerBuilder&lt;MissionContainer&gt;.MakeContainer` → `LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(data, type)`，
+        ///   而本机 **0 份** 这类资产（`MissionsConfig` 三源否定同一条）⇒ 我们走既有的注入点
+        ///   `ContainerHolder.MakeContainer`，**没注入就只记一格 null + 出声一次**（⛔ 不假装建出载体）。</item>
+        /// </list>
+        /// <para>⚠️ 数据仍在远端（`MissionsConfig.configs` / `challenges`）⇒ 本机**没有调用点**，
+        /// 今天这个方法一次都不会被调到（`Build()` 只调 `InstantiateNormalMissions`，与原版 `CreateMissions`
+        /// 的差别就在这里）。</para></summary>
+        public static void InstantiateGridMissionsCore(ContainerHolder holder, IEnumerable<IGridMissionSource> missions)
+        {
+            if (holder == null)
+            {
+                Debug.LogError("[Missions] `InstantiateGridMissions`：holder 是 null（原版 `this+0x30` 为空）⇒ 不建");
+                return;
+            }
+            if (missions == null)
+            {
+                Debug.LogError("[Missions] `InstantiateGridMissions`：missions 是 null（原版 `ToList()` 这一跳会抛）⇒ 不建");
+                return;
+            }
+            var list = new List<IGridMissionSource>(missions);
+            int columns = GridMissionLayoutLogic.ColumnCount(list.Count);      // 谓词未解 ⇒ 按全表计数（见残差 ①）
+            int globalIndex = 0;
+
+            for (int mi = 0; mi < list.Count; mi++)
+            {
+                var mission = list[mi];
+                if (mission == null)
+                {
+                    Debug.LogError("[Missions] `InstantiateGridMissions`：missions[" + mi + "] 是 null（原版这一跳 NRE）⇒ 跳过");
+                    continue;
+                }
+                var save = mission.GetBaseSave();
+                var progress = save != null ? save.challengeProgress : null;
+                if (progress == null) continue;                                // `.c`：`lVar4 + 0x48` 为 0 ⇒ 该任务没有挑战
+                for (int i = 0; i < progress.Length; i++)
+                {
+                    mission.UseSmallContainer = GridMissionLayoutLogic.WritesSwitch(columns, globalIndex);
+
+                    IUiContainer container;
+                    if (!holder.TryAdd(mission, out container)) continue;         // 满员（`maxAmount`）
+                    if (container == null && !_gridNoCarrierNoted)
+                    {
+                        _gridNoCarrierNoted = true;
+                        Debug.LogWarning("[Missions] `InstantiateGridMissions`：`ContainerHolder.MakeContainer` 没注入 ⇒ "
+                                       + "载体建不出来（原版走 `LiveOpsAssetUtility.LoadComponent<UiContainer>`，本机 0 份该资产）；"
+                                       + "`globalIndex` 照原版推进，但没有任何一行被画出来");
+                    }
+                    // ⚠️ 残差：即便载体注入了，`MissionContainer.SetChallenge(progress)`（**一个实参**）
+                    //    在本仓也还没有落点（我们那一版 `SetChallenge` 收的是**建好的行**的七件）。
+                    globalIndex++;
+                }
+            }
+        }
+
+        /// <summary>本页的 `ContainerHolder`（`maxAmount = 0` = 不限量，与原版那个实例的序列化值一致；
+        /// 宿主节点 = <see cref="_gridHolderNode"/> = `Special Missions`）。</summary>
+        ContainerHolder GridHolder()
+        {
+            if (_gridHolder == null)
+                _gridHolder = new ContainerHolder(0, _gridHolderNode);   // `MakeContainer` 留空 = 未注入（见残差 ②）
+            return _gridHolder;
         }
     }
 
