@@ -246,7 +246,7 @@ public static partial class RuleEngineTest
         var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
         var own = Place(ctx, 0, 3, gateCard);
         var foe = Place(ctx, 1, 1, Unit("E3GateFoe", 1, 2, 5));
-        var mate = Place(ctx, 0, 4, Unit("E3GateMate", 1, 2, 5));
+        var mate = Place(ctx, 0, 5, Unit("E3GateMate", 1, 2, 5));
         CheckTrue(own != null && own.Card == gateCard,
                   "③ （前提）合成卡真的挂到了场上那个 `UnitState` 上");
 
@@ -345,7 +345,7 @@ public static partial class RuleEngineTest
                                   actingVersioned: false);
         var ctx4 = ProbeBattle(new CardDef[0], new CardDef[0]);
         var oown = Place(ctx4, 0, 3, oldCard);
-        var omate = Place(ctx4, 0, 4, Unit("E3OldMate", 1, 2, 5));
+        var omate = Place(ctx4, 0, 5, Unit("E3OldMate", 1, 2, 5));
         bool queued6 = RuleCore.EnqueueAbility(ctx4, ActionPriority.Instant, "E3·旧表",
                                                () => { }, actor: oown,
                                                abilityTrigger: "UnitAttack", abilityTarget: null,
@@ -412,7 +412,7 @@ public static partial class RuleEngineTest
         {
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             var meB = Place(ctx, 0, 3, listenerB);
-            var mateAtk = Place(ctx, 0, 4, Unit("E3MateAtk", 1, 3, 8));
+            var mateAtk = Place(ctx, 0, 5, Unit("E3MateAtk", 1, 3, 8));
             var foe = Place(ctx, 1, 1, Unit("E3FoeTgt", 1, 2, 8));
             int hp0 = mateAtk.Health;
             int warn = RuleCore.AbilityActingCriteriaWarningsForTest;
@@ -438,7 +438,7 @@ public static partial class RuleEngineTest
             // 正例：acting = 监听者自己（「是我杀的」）⇒ ta=20 self 通过 ⇒ 结算
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             var me = Place(ctx, 0, 3, listenerD);
-            var mate = Place(ctx, 0, 4, Unit("E3DMate", 1, 2, 8));
+            var mate = Place(ctx, 0, 5, Unit("E3DMate", 1, 2, 8));
             var foeU = Place(ctx, 1, 1, Unit("E3DFoe", 1, 2, 8));
             var dead = new UnitState(ctx.NewInstance(Unit("E3Dead1", 1, 2, 5)), false);
             int sum0 = SumHealth(ctx, 1);
@@ -456,7 +456,7 @@ public static partial class RuleEngineTest
             // 负例：acting = 另一个友方 ⇒ ta=20 self 不通过 ⇒ 不结算
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             var me = Place(ctx, 0, 3, listenerD);
-            var mate = Place(ctx, 0, 4, Unit("E3DMate2", 1, 2, 8));
+            var mate = Place(ctx, 0, 5, Unit("E3DMate2", 1, 2, 8));
             var foeU = Place(ctx, 1, 1, Unit("E3DFoe2", 1, 2, 8));
             var dead = new UnitState(ctx.NewInstance(Unit("E3Dead2", 1, 2, 5)), false);
             int sum0 = SumHealth(ctx, 1);
@@ -474,7 +474,7 @@ public static partial class RuleEngineTest
             //    🧨 若把 `subject`（死者）顶成 actingCard ⇒ 这一档会「筛掉、不跑」⇒ 血不变 ⇒ 红。
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             var me = Place(ctx, 0, 3, listenerD);
-            var mate = Place(ctx, 0, 4, Unit("E3DMate3", 1, 2, 8));
+            var mate = Place(ctx, 0, 5, Unit("E3DMate3", 1, 2, 8));
             var foeU = Place(ctx, 1, 1, Unit("E3DFoe3", 1, 2, 8));
             var dead = new UnitState(ctx.NewInstance(Unit("E3Dead3", 1, 2, 5)), false);
             int sum0 = SumHealth(ctx, 1);

@@ -6929,14 +6929,14 @@ public static class RewardsScene
                     {
                         fader.DoScenarioBlend(new ScenarioBlendOptions
                         {
-                            // 🔴 `duration` 必须是 **2**（不是 1）：α 从 1.0 推到 0.5、推进 0.5 s
-                            //   ⇒ 恒定速率（原版 `MoveTowards`，步长 = `dt/duration` 的**绝对 α 量**）走 **0.25** ⇒ α = **0.75**；
-                            //   若被写成 Lerp ⇒ t = 0.25 ⇒ α = **0.875** ⇒ 下面那条仍红。
-                            //   ⛔ `duration = 1` 时两种语义**都得 0.5**（差值恰好等于步长、一步贴到目标）⇒ 那条断言**零鉴别力**。
+                            // 🔴 `duration` 必须是 **2**：α 从 1.0 推到 0.5，下面推**两次** 0.5 s。
+                            //   `Advance` 的次序 = 「①先写 → ②判完成 → ③末尾递减」（`B99_W3`，见 `ScenarioMaterialFader.cs:118-126`）
+                            //   ⇒ **首帧 t=0 不推进**：第一次 t=0 → 1.0、第二次 t=0.25 → **0.75**；
+                            //   恒速 `MoveTowards` 得 0.75、Lerp 得 0.875 ⇒ 下面那条能分出两种语义。
                             duration = 2f, direction = true, targetValue = 0.5f,
                             filterOptions = new ScenarioBlendOptions.BlendFilterOptions(),
                         });
-                        fader.Advance(0.5f);
+                        fader.Advance(0.5f); fader.Advance(0.5f);   // 🔴 2026-10-30（B101_W2）：实现改成原版次序（首帧不推进）⇒ 推两次才到 t=0.25 ⇒ α=0.75；⛔ 别改回一次
                     }
                     finally { Application.logMessageReceived -= matH; }
                     var instFader = mrFader.sharedMaterial;
@@ -6951,10 +6951,10 @@ public static class RewardsScene
                     CheckTrue(instFader != null && Mathf.Abs(instFader.color.a - 0.75f) < 0.01f,
                               "★ A1967 残尾·ScenarioMaterialFader：实例 alpha 推到 0.75（实得 "
                             + (instFader == null ? "null" : instFader.color.a.ToString("F4")) + "）"
-                            + "｜🧨 探针是 `duration=2` + `target=0.5` + `Advance(0.5)`：恒定速率（原版 `MoveTowards`）得 **0.75**、"
+                            + "｜🧨 探针是 `duration=2` + `target=0.5` + **两次** `Advance(0.5)`：恒定速率（原版 `MoveTowards`）得 **0.75**、"
                             + "Lerp 得 **0.875** ⇒ 把 `ApplyFade` 里的 `Mathf.MoveTowards` 改成 `Mathf.Lerp` ⇒ 本条红；"
-                            + "⛔ 别把 `duration` 改回 1（那样两种语义都得 0.5、本条**失去鉴别力**，原版在 "
-                            + "`ScenarioMaterialFader__Update.c` 里是「步长 = `dt/blendTime` 的绝对 α 量」）");
+                            + "把 `Advance` 次序改回「先递减」（2026-10-29 之前那一版）⇒ 两次后得 **0.5** ⇒ 也红（对次序敏感）；"
+                            + "原版 `ScenarioMaterialFader__Update.c` 是「步长 = `dt/blendTime` 的绝对 α 量」）");
 
                     Object.DestroyImmediate(goFader);
                     Object.DestroyImmediate(srcFader);

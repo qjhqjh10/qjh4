@@ -4122,4 +4122,72 @@ namespace RuleEngine
             return fold;
         }
     }
+
+    // ============================================================================================
+    //  🆕 2026-10-30（执行代理 `B101_R5` · 账 637 W1 · steal 的第五跳）
+    //  ⛔ 追加在文件尾（`UnitState.cs:3444 / :3607 / :3635 / :3773` 等有账落点 ⇒ 只有尾部零漂移，铁律 18·b）。
+    // ============================================================================================
+    public partial class UnitState
+    {
+        /// <summary>
+        /// **`CardScript.RemoveAllExtrinsicEffects()` 的等价位** —— 摘掉这个单位身上**全部** extrinsic 效果，
+        /// **不按来源、不按施放者**。
+        ///
+        /// <para>**判据**：`cpp2il/out_il2csharp/Assembly-CSharp/CardScript.cs:11949-11968` 逐句 ——
+        /// 倒序扫 `activeEffects(+0x108)`，`effect.extrinsic(+0x30) == true` 就 `RemoveEffect(它, false)`；
+        /// 唯一调用点 = `BattleManager._ResolveStealMinion_d__551__MoveNext`（`IL:BattleManager.cs:38713`，
+        /// 位置 = `RemoveMinion`（`:38712`）之后、`ChangeOwner`（`:38714`）**之前**）
+        /// ⇒ 不摘的话「前主人给它挂的 extrinsic 增益」会跟着跑到对面（静默改对局）。</para>
+        ///
+        /// <para>⛔ **别复用 `RemoveAllAppliedEffectsForJam`**：那个是 jam 的口径（连**非** extrinsic 一起摘、
+        /// 清 `_grantedOps` / `_grantedText`、只跳 `Permanent`）—— 与「只摘 extrinsic」不是一件事。</para>
+        ///
+        /// <para>四本账（`_buffs` / `_grants` / `_statMods` / `_traitEffects`）+ 光环那一份（<see cref="ClearAuraGrants"/>；
+        /// 光环本就是 extrinsic 来源，随后由 `Auras.Recompose` / 动作边界的窄口按新归属重加）。
+        /// 返回摘掉的条数（光环那一份是 `void`，不计入）。</para>
+        /// </summary>
+        public int RemoveAllExtrinsicEffects()
+        {
+            int n = 0;
+            // ① 限时增益（`TempBuff.Extrinsic` = 原版 `CardEffect.extrinsic(+0x30)`）
+            for (int i = _buffs.Count - 1; i >= 0; i--)
+            {
+                var b = _buffs[i];
+                if (b == null || !b.Extrinsic) continue;
+                if (RemoveTempBuff(b)) n++;
+            }
+            // ② 关键词带出来的属性增益（`GrantRecord.Extrinsic`）—— 照 `RemoveAllAppliedEffectsForJam` 的 ② 同形
+            for (int i = _grants.Count - 1; i >= 0; i--)
+            {
+                var g = _grants[i];
+                if (g == null || !g.Extrinsic) continue;
+                _grants.RemoveAt(i);
+                ApplyGrant(g, -1);
+                n++;
+            }
+            // ③ 光环那一份（`_auraKw` / `_auraFx` / `_statMods(GrantTag)`）
+            ClearAuraGrants();
+            // ④ 残留的数值修饰（`addStats` 直接建的、没进 `_grants` 的那一批）—— 只摘 extrinsic
+            for (int i = _statMods.Count - 1; i >= 0; i--)
+            {
+                var m = _statMods[i];
+                if (m == null || !m.Extrinsic) continue;
+                bool health = m.Attr == "health";
+                _statMods.RemoveAt(i);
+                if (health) ClampHealthToMax();
+                n++;
+            }
+            // ⑤ 第四本账 `addTrait` 记录（`TraitEffectRecord.Extrinsic`）
+            if (_traitEffects.Count > 0)
+            {
+                for (int i = _traitEffects.Count - 1; i >= 0; i--)
+                {
+                    var r = _traitEffects[i];
+                    if (r == null || !r.Extrinsic) continue;
+                    if (RemoveTraitEffect(r)) n++;   // 它自己从 `_traitEffects` 摘 ⇒ 倒序安全（同 `RevertTraitEffectsFrom`）
+                }
+            }
+            return n;
+        }
+    }
 }

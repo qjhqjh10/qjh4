@@ -3676,7 +3676,7 @@ namespace CardPresentation
         /// 返回**真正画出来的个数**（自检拿它断言；`CardData.badges` 为空时是 0）。
         ///
         /// ⚠️ 取不到图（`CardArt.Trait` 返回 null）时**这一位空着**，不画错的 —— 红线。
-        /// ⚠️ 层是**懒建**的：没有徽标的卡一个对象都不多建（手牌、战术卡都不建）。
+        /// ⚠️ 层是**懒建**的：没有徽标的卡一个对象都不多建（战术卡恒不建；手牌单位卡**数据里有徽标就会建**，只是被下面那道形态闸关着、看不见 —— 见 `badgeFaceVisible`）。
         /// </summary>
         public int SetBadges(List<Badge> badges)
         {
@@ -3685,15 +3685,15 @@ namespace CardPresentation
             if (badges != null)
                 for (int i = 0; i < badges.Count && i < Badges.MaxSlots; i++) _badges.Add(badges[i]);
 
-            int want = badges != null ? Mathf.Min(badges.Count, Badges.MaxSlots) : 0;
+            int want = badges != null ? Mathf.Min(badges.Count, Badges.MaxSlots) : 0;   /* 🆕 2026-10-30（执行代理 `B101_R4` · 报告 `B101_R4_演出与预览判据.md` §二）：徽标另有一道【形态】闸（下面的 `badgeFaceVisible`）。判据：原版 7 个位**物理上挂在 `3DBody` 下**（`Core/Badges.cs:29` 的父链 `TraitIconContainer ← TraitIcons ← 3DBody ← Board Elements ← CardPrefab`），而手牌档 `BattleCardUI.SetObjectVisibility` 会 `ToggleBody3D(0)` 把它关掉（`d:/2/tools/decomp_full/BattleCardUI__SetObjectVisibility.c`，手牌·我方档 `bVar7 = 0`）；🔴 那一档 `UpdateTraitIcons` **照样会跑**（同文件 `bVar6` 为真）⇒ **原版是「父节点被关」，不是「不刷新」**（这也是 `Badges.cs:73` 找遍 `ToggleTraitIcons`/`FadeAllTraitsIcons` 找不到调用者的原因 —— 根本没有那个调用者）。我们的层挂在 `2DCard`（`FaceRoot`，坐标是 3DBody 空间，见 `:3904-3911`）⇒ 不继承那个关闭状态，在此补同一效果（结构等价、语义一致，⛔ 不是自设计）。⚠️ 只能掐**可见性**、⛔ 别改成「非场上就不建层」——`Editor/CardBaseDemo.cs:2431` 那条 `badgeCounter0` 前提验的是字号/对齐，与形态无关，不建层会当场打红。同一物理行追加 = 零行数变化（本文件有账按行号引，铁律 18·b）。 */ bool badgeFaceVisible = _faceMode == CardFace.Board;
             for (int i = 0; i < Badges.MaxSlots; i++)
             {
                 bool on = i < want;
                 if (on && _badgeIcons.Count <= i) BuildBadgeSlot(i, badges[i]);
                 if (_badgeIcons.Count <= i) continue;          // 建不出来（缺图/缺底板）⇒ 空着
 
-                _badgePlates[i].enabled = on;
-                _badgeIcons[i].enabled = on;
+                _badgePlates[i].enabled = on && badgeFaceVisible;
+                _badgeIcons[i].enabled = on && badgeFaceVisible;
                 if (!on)
                 {
                     SetBadgeCross(i, false);
@@ -3716,7 +3716,7 @@ namespace CardPresentation
                     if (b.counter > 0) PlaceBadgeCounter(i);
                 }
             }
-            return Mathf.Min(want, _badgeIcons.Count);
+            return badgeFaceVisible ? Mathf.Min(want, _badgeIcons.Count) : 0;   // 返回值语义 =「真正画出来的个数」（见方法 doc）⇒ 被形态闸关掉的那 7 位不计入
         }
 
         /// <summary>现在画着几个徽标（自检用）。</summary>
@@ -15506,5 +15506,31 @@ namespace CardPresentation
         /// <para>⚠️ 调用方（`Effects/CardDisplayLevelUp`）负责在同一次升级演出收尾时复位 —— 这里不认业务语义
         /// （与其他「只认一个量」的口同一条分工）。</para></summary>
         public void SetExtraScale(Vector3 s) { _extraScale = s; ApplyScale(); }
+
+        // ==================================================================
+        //  🆕 2026-10-30（`B101_R8` · 判据 抽屉 B6）：**稀有度宝石的强制档** —— 只给 `CardDrawer` 用
+        // ==================================================================
+        //  判据：原版 `CardDrawer.Draw` 走 `BasicCardUI.SetRawCardData(item, null)`，那里写的是
+        //    `cardRarityHolderController.SetCardRarity(0, maxCardRarity)`；
+        //    而 `CardRarityHolderController__SetCardRarity.c` 是
+        //    `sprite = rarityLevelSprites[clamp(rarity-1, 0, len-1)]` ⇒ 传 0 **被夹成下标 0**
+        //    ⇒ 原版 `Card Drawer` 里那颗宝石**恒为最低档（common）**，与卡的真实稀有度无关。
+        //  （`Card Drawer.prefab` 现读：`rarityLevelSprites` 5 张，`[0]` = `1_40k_cardframe_rarity_common_0`。）
+        //
+        //  ⚠️ **只动宝石这一层**：不改 `_frame`（卡框按 `CardTier` 取，与稀有度无关，见 `CardArt.TierOf`），
+        //    也不改任何调用点的默认行为 —— `Build` 里那颗宝石仍按 `d.rarity` 建，这里只是**事后改贴图**。
+        //  ⚠️ **调用时机**：要在 `SetQueue(...)` **之后** —— `StampQueue` 会按 (源材质, 队列) 换一份克隆材质，
+        //    先换贴图会被那一步盖回去（静默）。同一档再 `SetQueue` 是空操作（`cur.renderQueue == _queue` 早退）。
+        /// <summary>把稀有度宝石换成指定档（`common`/`rare`/`epic`/`legendary`/`special`；不认识 ⇒ `common`）。
+        /// 取不到图 ⇒ **什么都不做**（卡照常，不静默失败 —— 与 `Build` 里那条同一个口径）。</summary>
+        public void SetRarityGem(string rarity)
+        {
+            if (_gem == null) return;
+            var tex = RarityGem(rarity);
+            if (tex == null) return;
+            var m = _gem.sharedMaterial;
+            if (m == null) return;
+            m.mainTexture = tex;
+        }
     }
 }

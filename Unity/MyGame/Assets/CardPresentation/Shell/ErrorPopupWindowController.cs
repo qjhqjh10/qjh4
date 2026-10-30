@@ -78,8 +78,8 @@ namespace CardPresentation
         /// <summary>`CustomError.X` ⇒ `"CustomErrors/X"`（原版第 ② 步）。</summary>
         public static string TermOf(CustomError customError) { return TermPrefix + customError.ToString(); }
 
-        /// <summary>这一条在词条表里吗（自检/调用方可以先用它判断，免得印键名）。</summary>
-        public static bool HasTerm(CustomError customError) { return Loc.HasEntry(TermOf(customError)); }
+        /// <summary>这一条在词条表里吗（自检/调用方可以先用它判断，免得印键名）。🔴 **2026-10-30（`B101_W1` 同步点 β2）就地订正**：本口原来走 `Loc.HasEntry` —— 那**只查手写 `Table`**（754 条），**不等于**「取不到文案」；`T()` 的取值是三档（`Table` → bulk → **官方 13 语言全表 10,862 键**）⇒ `CustomErrors/InternetUnreachable` 在第三档里（现读 True）、第一档里没有 ⇒ 旧写法**恒 false**（假红 + 无辜回落）。改走新增的 <see cref="Loc.HasAnyTerm"/>（三档一起算）。判据 = `CLAUDE.md` §三「判会不会印键名必须三档一起算」。🟢 判别式：把这一句改回 `Loc.HasEntry` ⇒ `Shop` 的 **S5** 立刻红。</summary>
+        public static bool HasTerm(CustomError customError) { return Loc.HasAnyTerm(TermOf(customError)); }
 
         /// <summary>= 原版 `ErrorPopupWindowController.ShowErrorMessage(CustomError, Action, string)`（**逐句**，判据见文件头）。
         /// <para>`actionAfterError` = 原版 `ShowPopUp` 那颗 OK 钮的回调（原版注释里叫 Retry）。</para></summary>
@@ -92,12 +92,12 @@ namespace CardPresentation
             // ②③ 取词条 —— 缺键时**回落 + 出声**（⛔ 不印 `CustomErrors/xxx` 键名）
             string term = TermOf(customError);
             string text;
-            if (Loc.HasEntry(term)) text = Loc.T(term);
+            if (Loc.HasAnyTerm(term)) text = Loc.T(term);   // 🆕 2026-10-30（`B101_W1` β2）：三档一起算（`HasEntry` 只查手写 `Table` ⇒ 官方全表里的键被误判成缺键）
             else
             {
                 Debug.LogWarning("[Error] 词条 `" + term + "` 在本地化表里**没有** ⇒ 回落到 `" + TermFallback
                                + "`（原版这里会印空/键名；我们出声并给一条通用错误文案）");
-                text = Loc.HasEntry(TermFallback) ? Loc.T(TermFallback) : "";
+                text = Loc.HasAnyTerm(TermFallback) ? Loc.T(TermFallback) : "";   // 🆕 2026-10-30（`B101_W1` β2 顺手同族）：`CustomErrors/UnhandledError` 也**不在手写 `Table`** 里（在官方 13 全表里）⇒ 旧写法回落成**空串**（一块空白 = 静默失败）
             }
 
             // ④ cloudscriptTrace 非空 ⇒ 追加一行（原版 `"\n<size=3>(" + trace + ")"`）

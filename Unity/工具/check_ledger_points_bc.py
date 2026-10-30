@@ -28,8 +28,16 @@ import sys
 LEDGER = r"d:/4/Unity/资料/完全复刻/账"
 ASSETS = r"d:/4/Unity/MyGame/Assets"
 
-# 一段落点：路径 + 行号（可带区间）+ 可选括号里的名字
-SEG = re.compile(r"([A-Za-z0-9_./\\-]+\.cs):(\d+)(?:-(\d+))?(?:\s*[（(]([^）)]{0,40})[）)])?")
+# 一段落点：① 路径 + 行号（可带区间）+ 可选括号里的名字；② 🆕 2026-10-30（`B101_E4` 报的工具盲区）
+# **裸 `:行号`**（同一格里前面已经出现过 `.cs` ⇒ 继承那个文件）。整份落点用 `finditer` 顺序扫，
+# 裸段只在「同一格内前面出现过文件」时才算 —— ⛔ 别在别处（如判据正文里的 `:123`）误当落点。
+# 括号名上限 40 → **80** 字符（原来的 40 会把长签名整段丢弃 ⇒ 那一格静默漏检）。
+# 🆕 2026-10-30：路径也收 `.py`（账里有 `工具/gen_cards_engine.py:行号`）—— 原来只认 `.cs`
+# ⇒ 那种段会被当成**裸 `:行号`**、继承到上一个 `.cs` 名下（`RuleCore.cs:4263` 就是这么误报的）。
+SEG = re.compile(
+    r"([A-Za-z0-9_./\\-]+\.(?:cs|py)):(\d+)(?:-(\d+))?(?:\s*[（(]([^）)]{0,80})[）)])?"
+    r"|:(\d+)(?:-(\d+))?(?:\s*[（(]([^）)]{0,80})[）)])?"
+)
 
 
 def load(path):
@@ -59,6 +67,11 @@ def resolve(rel):
     cands = [
         os.path.join(ASSETS, p).replace("\\", "/"),
         os.path.join(ASSETS, "CardPresentation", p).replace("\\", "/"),
+        # 🆕 `.py` 工具：`工具/gen_cards_engine.py` / `d:/4/Unity/工具/…`
+        os.path.join("d:/4/Unity", p).replace("\\", "/"),
+        os.path.join("d:/4", p).replace("\\", "/"),
+        # 正则的路径字符集不含中文 ⇒ `工具/xxx.py` 只会捕到 `xxx.py`，这里按 basename 兜到 `工具/`
+        os.path.join("d:/4/Unity/工具", p.split("/")[-1]).replace("\\", "/"),
     ]
     for c in cands:
         if os.path.isfile(c):
@@ -112,11 +125,20 @@ def main():
                 continue
             counts["rows"] += 1
             land = c[i_land]
-            segs = SEG.findall(land)
+            # 🆕 顺序扫：`path.cs:NN` 记住当格的文件；裸 `:NN` 继承它（同一格里多个文件时，
+            # 裸段跟**最近一个**文件）。⛔ 一格内没出现过 `.cs` 的裸段不算落点。
+            segs = []
+            last_rel = None
+            for m in SEG.finditer(land):
+                if m.group(1):
+                    last_rel = m.group(1)
+                    segs.append((m.group(1), m.group(2), m.group(4)))
+                elif m.group(5) and last_rel:
+                    segs.append((last_rel, m.group(5), m.group(7)))
             if not segs:
                 counts["no_line"] += 1
                 continue
-            for rel, ln, ln2, nm in segs:
+            for rel, ln, nm in segs:
                 counts["segs"] += 1
                 path = resolve(rel)
                 if path is None:
@@ -135,11 +157,15 @@ def main():
                 if nm:
                     head = nm.strip().strip("`").split("·")[0].strip()
                     head = re.split(r"[：:，,、\s]", head)[0]
-                    # 括号里常写 `Class.Method` 或 `Class.Method<T>` ⇒ 取最后一段标识符
+                    # 括号里常写 `Class.Method` / `Class.Method<T>` / **`Method(实参列表)`**
+                    # ⇒ 取最后一段标识符，并在 `(` / `<` 处截断（🆕 2026-10-30：原来没收 `(`，
+                    #   `SetAndRefreshProgressBar(iconSpriteAvailable)` 这类会被整串拿去比 ⇒ 假阳性）。
                     head = head.split(".")[-1]
-                    head = re.sub(r"<.*$", "", head)
+                    head = re.split(r"[（(<]", head)[0]
                     head = head.strip("`'\"*")
-                    if head and head not in line_txt:
+                    # 🆕 2026-10-30：**大小写不敏感**再比一次 —— 账里常写小写/驼峰混写
+                    # （`drop` vs `CurrentDropPodAttack`），按大小写敏感判会出假阳性。
+                    if head and head.lower() not in line_txt.lower():
                         counts["NAME-ABSENT"] += 1
                         bad.append(("NAME-ABSENT", name, n,
                                     c[i_cls] + "." + c[i_meth][:40],

@@ -2475,7 +2475,7 @@ namespace RuleEngine
         static CardDef.BoardGateSpec MapBoardGate(CardDto c)
         {
             var d = c.normalAbilityBoardCriteria;
-            if (d == null) return null;      // 缺席 = `targetsAffected=any` 的恒真默认值（见 DTO 的 doc）
+            if (c.hasNormalAbilityBoardCriteria == 0 || (c.hasNormalAbilityBoardCriteria < 0 && d == null)) return null;      // 🔴 v45（2026-10-30）：**以显式布尔为准** —— `d` 那棵树被 `JsonUtility` 无条件物化（缺失的可序列化类字段 ⇒ 默认实例），`d == null` 恒假；`hasNormalAbilityBoardCriteria == 0` 才是「原版没有闸」的真判据（判据 `报告/B100_X10.md` §A）。同一物理行 ⇒ 零行数漂移
             var s = new CardDef.BoardGateSpec();
             s.CountOption = CountSetInt(c, "normalAbilityBoardCriteria.countOptions", d.countOptions);
             s.StatOption = CountSetInt(c, "normalAbilityBoardCriteria.triggerIf", d.triggerIf);
@@ -4902,6 +4902,21 @@ namespace RuleEngine
                 Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityEffectTexts` 有一行挂点名未知"
                              + $"（at=\"{r.at}\", ab={r.ab}, lg={r.lg}）—— **退回按 `isHand` 判**。");
             return r.isHand;
+        }
+
+        /// <summary>🆕 v45（2026-10-30 · 第一百零一会话 · 数据契约）：**显式布尔** —— 原版这张卡
+        /// **有没有**非默认的 `normalAbilityBoardCriteria`（`0` = 没有 / `1` = 有）。
+        /// <para>🔴 为什么不能看 `normalAbilityBoardCriteria` 这棵树是不是 `null`：`JsonUtility` 会把**缺失的可序列化
+        /// 类字段物化成默认实例** ⇒ `NormalAbilityBoardCriteria == null` 恒假（死判据），且三格初值 `MissingIndex(-99)`
+        /// 会被翻成 `Unknown(-1)` 并 `LogError` ⇒ 每次 `Load()` 刷 ≈4,508 行错误。判据 → `报告/B100_X10.md` §A ·
+        /// `待接线与排队项.md`「🧾 数据契约」。</para>
+        /// <para>⚠️ 旧表（&lt; v45）没有这一键 ⇒ `0` = 「没有闸」，对 1,127/1,129 张恰好正确；只有 `SW9`/`SW21`
+        /// 两张会退化成恒真（旧表本来也判不了）。</para></summary>
+        public partial class CardDto
+        {
+            /// <summary>`-1` = **旧表 / 手写夹具没有这一键**（`JsonUtility` 走默认构造 ⇒ 字段初值保留）
+            /// ⇒ 退回改前的判法（`d != null` 就当有闸）；`0` = 明确「原版没有闸」；`1` = 有闸。</summary>
+            public int hasNormalAbilityBoardCriteria = -1;
         }
     }
 }

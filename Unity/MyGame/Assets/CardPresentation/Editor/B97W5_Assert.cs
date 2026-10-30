@@ -45,29 +45,39 @@ public static partial class RuleEngineTest
     {
         // ⚠️ 合成卡会进全局名字索引 ⇒ 用完复原（同 `RuleEngineTest_EngineE6` 的先例）
         var realPool = CardDatabase.Load();
-        CardDef withCond = null, missingKey = null, noGate = null;
+        CardDef withCond = null, missingKey = null, noGate = null, gateNoCriteria = null, legacy = null;
         try
         {
             const string jsonCond =
-                "{\"version\":40,\"count\":1,\"cards\":[{\"id\":\"B97W5GateA\",\"name\":\"B97W5 闸探针A\","
+                "{\"version\":45,\"count\":1,\"cards\":[{\"id\":\"B97W5GateA\",\"name\":\"B97W5 闸探针A\","
               + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
               + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
               + "\"keywords\":[],\"cardTraits\":[],"
-              + "\"hasAlternativeAbility\":1,"
+              + "\"hasAlternativeAbility\":1,\"hasNormalAbilityBoardCriteria\":1,"
               + "\"normalAbilityBoardCriteria\":{\"countOptions\":0,\"triggerIf\":1,\"referenceValue\":0,"
               + "\"conditionsFilter\":331,\"countSet\":{\"targetsAffected\":10,\"friendlyUnits\":1}}}]}";   // 🔴 2026-10-30（`B100_F18` · G4）：原来结尾只有 `}}}`（关 countSet / boardCriteria / 卡对象），**少了关闭 `cards` 数组的 `]` 与根对象的 `}`** ⇒ `CardDatabase.Parse` 抛 `JSON parse error: Missing a comma or ']' after an array element`。对齐同段 `jsonNoGate` 的 `}]}`。
             const string jsonMissing =
-                "{\"version\":40,\"count\":1,\"cards\":[{\"id\":\"B97W5GateB\",\"name\":\"B97W5 闸探针B\","
+                "{\"version\":45,\"count\":1,\"cards\":[{\"id\":\"B97W5GateB\",\"name\":\"B97W5 闸探针B\","
               + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
               + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
               + "\"keywords\":[],\"cardTraits\":[],"
-              + "\"normalAbilityBoardCriteria\":{\"countOptions\":0,\"triggerIf\":1,\"referenceValue\":0,"
+              + "\"hasNormalAbilityBoardCriteria\":1,\"normalAbilityBoardCriteria\":{\"countOptions\":0,\"triggerIf\":1,\"referenceValue\":0,"
               + "\"countSet\":{\"targetsAffected\":10,\"friendlyUnits\":1}}}]}";   // ⛔ 故意不给 `conditionsFilter`（🔴 2026-10-30 `B100_F18` · G4：结尾补 `]}` —— 同 `jsonCond`，原来少了数组/根对象的闭合）
             const string jsonNoGate =
-                "{\"version\":40,\"count\":1,\"cards\":[{\"id\":\"B97W5GateC\",\"name\":\"B97W5 闸探针C\","
+                "{\"version\":45,\"count\":1,\"cards\":[{\"id\":\"B97W5GateC\",\"name\":\"B97W5 闸探针C\","
               + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
               + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
-              + "\"keywords\":[],\"cardTraits\":[]}]}";                              // 没有整条 criteria
+              + "\"keywords\":[],\"cardTraits\":[],\"hasNormalAbilityBoardCriteria\":0}]}";                              // 没有整条 criteria
+            const string jsonGateNoCriteria =   // v45：**显式有闸**但整段 criteria 不落 ⇒ 闸在、三格 Unknown
+                "{\"version\":45,\"count\":1,\"cards\":[{\"id\":\"B97W5GateD\",\"name\":\"B97W5 闸探针D\","
+              + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
+              + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
+              + "\"keywords\":[],\"cardTraits\":[],\"hasNormalAbilityBoardCriteria\":1}]}";
+            const string jsonLegacy =           // 兼容路：**没有**那个布尔（旧表 / 手写夹具）⇒ DTO 初值 -1 ⇒ 退回改前判法
+                "{\"version\":44,\"count\":1,\"cards\":[{\"id\":\"B97W5GateE\",\"name\":\"B97W5 闸探针E\","
+              + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
+              + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
+              + "\"keywords\":[],\"cardTraits\":[]}]}";
 
             var la = CardDatabase.Parse(jsonCond);
             if (la != null && la.Count == 1) withCond = la[0];
@@ -75,6 +85,10 @@ public static partial class RuleEngineTest
             if (lb != null && lb.Count == 1) missingKey = lb[0];
             var lc = CardDatabase.Parse(jsonNoGate);
             if (lc != null && lc.Count == 1) noGate = lc[0];
+            var ld = CardDatabase.Parse(jsonGateNoCriteria);
+            if (ld != null && ld.Count == 1) gateNoCriteria = ld[0];
+            var le = CardDatabase.Parse(jsonLegacy);
+            if (le != null && le.Count == 1) legacy = le[0];
         }
         finally
         {
@@ -84,7 +98,9 @@ public static partial class RuleEngineTest
         CheckTrue(withCond != null, "A0 （前提）合成卡 A 解析出 1 张");
         CheckTrue(missingKey != null, "A0' （前提）合成卡 B 解析出 1 张");
         CheckTrue(noGate != null, "A0'' （前提）合成卡 C 解析出 1 张");
-        if (withCond == null || missingKey == null || noGate == null) return;
+        CheckTrue(gateNoCriteria != null, "A0''' （前提）合成卡 D 解析出 1 张");
+        CheckTrue(legacy != null, "A0'''' （前提）合成卡 E 解析出 1 张");
+        if (withCond == null || missingKey == null || noGate == null || gateNoCriteria == null || legacy == null) return;
 
         var g = withCond.NormalAbilityBoardCriteria;
         CheckTrue(g != null, "A1 （前提）`normalAbilityBoardCriteria` 落成 `BoardGateSpec`（不是 null）");
@@ -109,24 +125,33 @@ public static partial class RuleEngineTest
         //   🔴 **真修法是生成器侧落一个显式布尔**（如 `hasNormalAbilityBoardCriteria`，见 `报告/B100_X10.md` §一·A5
         //   与排队表）—— 那要动 `工具/gen_cards_engine.py` + 数据层契约（且 ⛔ 不能用「三格都 == 缺键哨兵」反推），
         //   不在本条断言写手的白名单里。本条在「生成器落布尔」之前**仍是一条真判别式**（盯住「别默认成 0」）。
-        CheckTrue(noGate.NormalAbilityBoardCriteria != null,
-                  "★ A5 （前提）缺整条 `normalAbilityBoardCriteria` 的卡，`CardDef` 侧**不是 null** —— "
-                + "`JsonUtility` 把缺键的 `[Serializable]` 字段物化成了默认对象（`报告/B100_X10.md` §一·A1）"
-                + "｜🧨 这条红 = 物化行为变了（真出 null）⇒ 那才轮到「`== null` 才是缺席」那套契约重新成立");
-        if (noGate.NormalAbilityBoardCriteria != null)
+        // 🔴 **2026-10-30（第一百零一会话 · 数据契约 v45）就地改口径（铁律 5）**：上面这段原来是「`JsonUtility` 物化 ⇒
+        //   `!= null`」的旧契约；生成器现在已落**显式布尔** `hasNormalAbilityBoardCriteria`（`0` = 原版没有闸 / `1` = 有闸），
+        //   `CardDatabase.MapBoardGate` **以它为准** ⇒ `0` 必须回 `null`。旧契约那半改成**新夹具 D**（显式 1 但 criteria 不落），
+        //   另加 **A6** 锁「旧表/手写夹具（没这个键）仍走物化回退」—— 那条是 `CardDto.hasNormalAbilityBoardCriteria = -1` 的初值。
+        CheckTrue(noGate.NormalAbilityBoardCriteria == null,
+                  "★ A5 **显式 `hasNormalAbilityBoardCriteria:0` ⇒ `CardDef` 侧就是 null**（= 原版没有闸、恒真默认）"
+                + "｜🧨 把 `CardDatabase.cs` 的 `MapBoardGate` 那道布尔闸删掉 ⇒ 物化出默认对象 ⇒ 红");
+        CheckTrue(gateNoCriteria.NormalAbilityBoardCriteria != null,
+                  "★ A5' 显式 `hasNormalAbilityBoardCriteria:1` 但整段 criteria 不落 ⇒ 闸**在**（三格 Unknown）"
+                + "｜🧨 把布尔闸写成「三格都 == MissingIndex 就当没有」⇒ 反推错、本条红");
         {
-            var gC = noGate.NormalAbilityBoardCriteria;
+            var gC = gateNoCriteria.NormalAbilityBoardCriteria;
             Check(gC.CountOption, CardDef.CountSetSpec.Unknown,
-                  "★★ A5-a 「缺键物化」的 `countOptions` = **`Unknown(-1)`**（⛔ 不是 0 = 不筛）"
+                  "★★ A5-a criteria 不落时 `countOptions` = **`Unknown(-1)`**（⛔ 不是 0 = 不筛）"
                 + "｜🧨 把 `CountSetInt` 缺键那一支改成 `return 0;` ⇒ 实得 0 ⇒ 红（= 把「没落的列」静默当成合法值）");
             Check(gC.StatOption, CardDef.CountSetSpec.Unknown,
                   "★★ A5-b `triggerIf` 同理 = **`Unknown(-1)`**｜🧨 同上（缺键那一支返回 0 ⇒ 红）");
             Check(gC.ReferenceValue, CardDef.CountSetSpec.Unknown,
                   "★★ A5-c `referenceValue` 同理 = **`Unknown(-1)`**｜🧨 同上（缺键那一支返回 0 ⇒ 红）");
             CheckTrue(gC.CountSet == null,
-                  "★★ A5-d 「缺键物化」的 `countSet` = **null**（`CountSetDto` 没被物化 ⇒ `MapCountSetDto` 落 null + 出声）"
+                  "★★ A5-d criteria 不落时 `countSet` = **null**（`CountSetDto` 没被物化 ⇒ `MapCountSetDto` 落 null + 出声）"
                 + "｜🧨 让 `MapCountSetDto` 在 null 时新建一个空 `CountSetSpec` ⇒ 红（那会把「没落的列」当成「空 criteria」）");
         }
+        // A6 · 兼容路：旧表 / 手写夹具**没有这个键** ⇒ DTO 初值 `-1` ⇒ 退回改前判法（物化出默认对象、不是 null）
+        CheckTrue(legacy.NormalAbilityBoardCriteria != null,
+                  "★ A6 旧表/手写夹具（没有 `hasNormalAbilityBoardCriteria` 键）⇒ **退回物化**、不是 null"
+                + "｜🧨 把 `CardDto.hasNormalAbilityBoardCriteria` 的初值从 `-1` 改成 `0` ⇒ 旧表/既有夹具的闸全部静默消失 ⇒ 红");
     }
 
     // ==========================================================================================

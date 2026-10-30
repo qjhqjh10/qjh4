@@ -1677,8 +1677,8 @@ namespace CardPresentation
 
             // 胜场格（`Stages Container` GridLayoutGroup：cell 80² · spacing (23.7,30.04) · 2 列 · MiddleCenter）
             var winMarks = MenuDraw.Node(scaled, "Win Marks", new PxRect(697.90f, 373.80f, 1471.60f, 708.80f));
-            // `Background Back`：原版那颗 `Image` **组件级禁用**（`m_Enabled = 0`）⇒ 原版不画 ⇒ 不建
-            _winMarksHolder = winMarks;
+            // 🆕 2026-10-30（B101_R3）：`Background Back` 自己那颗 `Image` **组件级禁用**（`m_Enabled=0`）⇒ 不画它本身；但**子件 `Background` 原版是画的**（`Victories_Background_V2` · 915×392 · Simple · 白 · 非 PA），以前整层漏建（判据 → `报告/B101_R3_资源接线施工单.md` §A1：`menu_dump --rt 7401000208585950046`）
+            var bgBack = MenuDraw.Node(winMarks, "Background Back", new PxRect(727.78f, 381.97f, 1420.24f, 707.83f)); MenuDraw.Rect(bgBack, Tex("Victories_Background_V2"), new PxRect(737.13f, 400.82f, 1411.16f, 689.58f), "Background", QPanelBack, null); _winMarksHolder = winMarks;
             RebuildStageMarks();
 
             // 败场（`Defeats:` + 3 格：原版 `Losses container` HLG spacing 9.86 · 格子 67.74²）
@@ -1742,7 +1742,7 @@ namespace CardPresentation
         {
             var holder = _winMarksHolder;
             if (holder == null) return;
-            for (int i = holder.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(holder.GetChild(i).gameObject);
+            for (int i = holder.childCount - 1; i >= 0; i--) { var ch = holder.GetChild(i); if (ch.name == "Stage Info UI_ref") RewardsWindow.DestroySafe(ch.gameObject); }   // B101_R3：只清格子，跳过背景层 `Background Back`（原版也挂在 holder 下；`:2795` 会二次调用）
             _winMarks.Clear();
             int wins = Victories;
             int n = Mathf.Max(DraftPacks.RoundsPerDraft, wins);
@@ -1758,20 +1758,20 @@ namespace CardPresentation
                 float x = x0 + c * (StageCell + StageGapX), y = y0 + r * (StageCell + StageGapY);
                 var cell = new PxRect(x, y, x + StageCell, y + StageCell);
                 var cellNode = MenuDraw.Node(holder, "Stage Info UI_ref", cell);
-                // 空槽 = 半透明黑块（原版那格 `imageObject` 的 `winIndicatorPrefab` 图在外部依赖里、本地没有）
-                MenuDraw.Rect(cellNode, CardArt.Solid(), cell, "Slot", QArt, new Color(0f, 0f, 0f, 0.45f));
-                // 🆕 亮的那一格（= 原版 `imageObject.SetActive(i < current)`）—— 图本地没有 ⇒ 画金色块占位
-                var mark = MenuDraw.Rect(cellNode, CardArt.Solid(), cell, "Mark", QArt1,
-                                         new Color(1f, 0.68f, 0.18f, 0.95f));
+                // 空槽 = 原版 `Stage Info UI_ref` 自身的 Image：`Rank Skull Empty` · Simple · tint (1,0.561,0.561,1) · 非 PA（B101_R3 现读）
+                MenuDraw.Rect(cellNode, Tex("Rank_Skull_Empty"), cell, "Slot", QArt, new Color(1f, 0.561f, 0.561f, 1f));
+                // 亮的那一格 = 原版子件 `Completed`（= `imageObject`）：`Rank Skull` · Simple · PA=1 · 原版 87.13×113.60 ⇒ 按 80 格折 82.2×107.2、中心比格心低 1.6（B101_R3 现读）
+                var markR = new PxRect(cell.CX - 41.1f, cell.CY - 52.0f, cell.CX + 41.1f, cell.CY + 55.2f);
+                var mark = MenuDraw.Rect(cellNode, Tex("Rank_Skull"), markR, "Mark", QArt1, null, true);
                 if (mark != null)
                 {
                     mark.gameObject.SetActive(i < wins);
                     if (i < wins) _winMarks.Add(mark.transform);
                 }
             }
-            if (n > 0 && CardArt.MenuUi("40k_Victory_Mark") == null)
-                Debug.Log("[Draft] 胜场格的**亮格图**（原版 `winIndicatorPrefab.imageObject`）在外部依赖里、**本地没有**"
-                        + " ⇒ 亮的那几格画的是金色占位块（⛔ 没拿别的图顶）。胜场 = " + wins + " / 画了 " + n + " 格");
+            // （B101_R3 已删）原「`40k_Victory_Mark` 本地没有 ⇒ 画金色块」那条日志：那个图名是**自造的**，
+            //   现在按原版真名接线（空槽 `Rank_Skull_Empty` / 亮格 `Rank_Skull`）⇒ 没有可报的缺口；
+            //   缺图统一由 `_missingArt` 兜住（`Editor/DraftWindowAssertD2.cs` 的 `A7_MissingArt` 断 `Count == 0`）。
         }
 
         /// <summary>败场格（原版 `SetupStageMarks(defeatMarkHolder, save.lost, data.maxTries, …)`）——
@@ -1787,12 +1787,12 @@ namespace CardPresentation
             for (int i = 0; i < MaxTries; i++)
             {
                 var cell = new PxRect(lx, OnLossesR.CY - LossCell * 0.5f, lx + LossCell, OnLossesR.CY + LossCell * 0.5f);
-                MenuDraw.Node(holder, "Losses Info UI_ref", cell);
-                // 空槽 = 一颗半透明黑块（原版 `Losses Info UI_ref` 的图 `ext10:-5957999898718987630` 在
-                // 外部依赖里、本地没有 ⇒ 画占位，⛔ 不拿别的骷髅图顶）
-                MenuDraw.Rect(holder, CardArt.Solid(), cell, "Slot", QArt, new Color(0f, 0f, 0f, 0.45f));
-                var mark = MenuDraw.Rect(holder, CardArt.Solid(), cell, "Mark", QArt1,
-                                         new Color(0.85f, 0.16f, 0.13f, 0.95f));
+                var cellNode = MenuDraw.Node(holder, "Losses Info UI_ref", cell);   // B101_R3：原来这个节点建了却没接子件
+                // 底 = 原版 `Losses Info UI_ref` 自身的 Image：`Victory_round_back_with light`（256×256 · Simple ·
+                //   **alpha 0.639** · 非 PA）；⛔ 别拿 `Victory_skull` 顶（那张原版 0 处引用，B101_R3 现读）
+                MenuDraw.Rect(cellNode, Tex("Victory_round_back_with_light"), cell, "Slot", QArt, new Color(1f, 1f, 1f, 0.639f));
+                const float failInset = 1.89f;   // 原版子件 `Fail` 的局部 (2,2)–(69.8,69.8) / 71.8 格 ⇒ 67.74 格里 1.89
+                var mark = MenuDraw.Rect(cellNode, Tex("40k_DraftMode_icon_cross"), new PxRect(cell.x1 + failInset, cell.y1 + failInset, cell.x2 - failInset, cell.y2 - failInset), "Mark", QArt1, null);
                 if (mark != null)
                 {
                     mark.gameObject.SetActive(i < losses);
@@ -1800,9 +1800,9 @@ namespace CardPresentation
                 }
                 lx += LossCell + LossGap;
             }
-            if (CardArt.MenuUi("40k_Defeat_Mark") == null)
-                Debug.Log("[Draft] 败场格的原版图（`Losses Info UI_ref` 的 sprite）在外部依赖里、**本地没有**"
-                        + " ⇒ 现在画的是半透明黑块占位（⛔ 没拿别的图顶）。败场 = " + losses + " / " + MaxTries);
+            // （B101_R3 已删）原「`40k_Defeat_Mark` 本地没有 ⇒ 画黑块」那条日志：图名自造，
+            //   现在按原版真名接线（`Victory_round_back_with light` + `40k_DraftMode_icon_cross`）；
+            //   缺图由 `_missingArt` 兜住（`A7_MissingArt` 断 `Count == 0`），⛔ 别再在这里刷日志。
         }
         /// <summary>真的**亮着**的胜场格数（自检读口 —— 断「胜场真的是从战绩来的」）。</summary>
         public int FilledWinMarks { get { return _winMarks.Count; } }
@@ -4629,5 +4629,15 @@ namespace CardPresentation
                     + (DraftLocalEvent.LastTitleTerm ?? "<literal>") + "`；🔶 词条由本地模拟事件提供，"
                     + "原版在远端事件数据的 `EventLabels` 里）");
         }
+
+        // ---- 🆕 2026-10-30（B101_R3）：轮抽结算页四张图的**落盘名**（自检读口；`CardArt.MenuUi` 的查找名）----
+        //   放在**文件末尾**：本文件被账按行号钉着（`账/卡组编辑.tsv` 等）⇒ ⛔ 别在主类中间插成员（同 `:200` 那条纪律）。
+        //   判据 → `资料/完全复刻/报告/B101_R3_资源接线施工单.md` §A1（原版 `Draft Mode Menu Demo` 的 `Stage Info UI_ref` /
+        //   `Losses Info UI_ref` / `Win Marks > Background Back > Background` 逐字段现读）。
+        public const string ArtBg = "Victories_Background_V2";
+        public const string ArtWinSlot = "Rank_Skull_Empty";
+        public const string ArtWinMark = "Rank_Skull";
+        public const string ArtLossSlot = "Victory_round_back_with_light";
+        public const string ArtLossMark = "40k_DraftMode_icon_cross";
     }
 }

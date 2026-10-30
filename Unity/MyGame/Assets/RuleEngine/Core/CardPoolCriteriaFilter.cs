@@ -20,13 +20,13 @@
 //     · 52 `inHandAndPlayFiltered`     （`:917`，0x34）
 //     · 60 `inCemeteryFiltered`        （`:926`，0x3c）
 //     · 65 `inDeckFiltered`            （`:963`，0x41）
-//     · 180 `choiceResolution`         （`:123`，全卡池回落 —— 那一支原版直接调 `CheckIfRawCardMeetsCriteria`）
-//     · 190 `lastPlayedIfMeetsCriteria`（名字本身写着「若合条件」）
+//     · ~~180 `choiceResolution`~~      **已删除（2026-10-30）**：判据 = ILSpy 可读版 `BattleManager.cs:25622 GetChoiceFullPool` —— 选牌候选池归 `rawCard.choicesDefinition`，⛔ 不是 `abilityLogic.targetCriteria`（详见本文件 `:73-76`）
+//     · ~~190 `lastPlayedIfMeetsCriteria`~~ **已删除（2026-10-30）**，判据 `AbilityLogic__GetTargets.c:1378-1380` 是 `return`，不过末尾 `CheckIfMeetsCriteria` 循环（池内 0 行）
 //   ⛔ **其余 `ta` 一律不筛**（返回原池）。理由：`20/30/40/70/80` 是**身份选择**（self/target/attacker/
 //   abilityOwner/actingCard），`10/55` 是**棋盘**档，`150` 是「上一条能力的」目标，`200/201` 是引用卡，
 //   它们选出来的**从来不是一批卡** ⇒ 拿卡面级 `MatchesRawCard` 去套会**筛错东西**。
 //   ⚠️ 这比施工单写的 `ta ∉ {20,30,40,70,80}` **更窄**：施工单把 `ta=10/150` 也算进「可套」，
-//   而那两档在当前卡池里分别是 17 行 / 1 行 —— 更窄只会少筛、不会多筛（安全方向）。
+//   而那两档在那 23 行里分别是 17 行 / 1 行（2026-10-30 现读；⚠️ 全池 `ta=10` 共 399 行 —— 这里只数带 stat 过滤的）—— 更窄只会少筛、不会多筛（安全方向）。
 //
 // ============================ 身份档那半为什么不做 ============================
 //   手牌池原版走的是 `CheckIfMeetsCriteria`（带 `self(20)/target(30)/attacker(40)/abilityOwner(70)/
@@ -39,15 +39,15 @@
 //   并用 `StructuredConditionNotice` 出声一次（与 `ApplyTargetCriteriaFilter` 同一条纪律）。
 //
 // ============================ 现池影响面（2026-10-30 现读）============================
-//   `cards_engine.json` v43 / 1,129 张：`abilityTargetCriteria` 带**四组数值 stat 过滤**的 = 23 行 / 14 张，
-//   `ta` 分布 `10×17 · 50×3 · 0×1 · 180×1 · 150×1`。落到本类射程的只有 **4 行**：
-//     · ta=50 三行（`AM31`/`GOF24`/`UM20`，全是 `manaCostFilter=1 + option=2(EqualOrHigher)`）；
-//     · ta=180 一行（`UM114 Lead From the Front`，`rarityFilter=3 + option=3(EqualOrLower)` + `armyFilter=1`）。
-//   ⚠️ **`UM114` 那一行会真的改变结果**（如实标，⛔ 不是 bug）：`rarity <= 3` 会剔掉 `Special(=5)` 与
-//   `Legendary(=4)`，而我们的文本筛 `CreatePool.FilterChoose` 的 `non-legendary` **只剔 `legendary`**
-//   （`CreatePool.IsLegendary` 只比 `"legendary"`）⇒ 池内 3 张 `Special` 的 Ultramarines 卡今天会漏进来。
-//   原版语义（`CardRarity` = `None0/Common1/Rare2/Epic3/Legendary4/Special5`，见 `CardRarity.cs`）
-//   是**该剔**的 ⇒ 本类接上后与原始一致、但**可能动 `play check` 指纹**（须调度台核/重钉）。
+//   `cards_engine.json` 1,129 张（2026-10-30 现读，当日 `version` = 45；⚠️ 该字段每次重生成都会变）：`abilityTargetCriteria` 带**四组数值 stat 过滤**的 = 23 行 / 14 张，
+//   `ta` 分布 `10×17 · 50×3 · 0×1 · 180×1 · 150×1`。**删掉 180/190 之后**落到本类射程的只有 **3 行**：
+//     · ta=50 三行（`AM31`/`GOF24`/`UM20`，全是 `manaCostFilter=1 + option=2(EqualOrHigher)`）。
+//   ⚠️ ta=180 那一行（`UM114 Lead From the Front`，`rarityFilter=3 + option=3(EqualOrLower)` + `armyFilter=1`）
+//   **已不在射程**（2026-10-30 删 `case 180`，判据见本文件 `:73-76`）；它曾会真的改变结果 —— `rarity <= 3` 剔 `Special(=5)`
+//   与 `Legendary(=4)`，而我们的文本筛 `CreatePool.FilterChoose` 的 `non-legendary` **只剔 `legendary`**
+//   （`CreatePool.IsLegendary` 只比 `"legendary"`）⇒ 池内 3 张 `Special` 的 Ultramarines 卡（`UM52/53/54`）会漏进来。
+//   原版语义（`CardRarity` = `None0/Common1/Rare2/Epic3/Legendary4/Special5`，见 `CardRarity.cs`）是**该剔**的
+//   ⇒ `B99_D1` 已实测删 180 后 `play check` 指纹回到基线；这一格留作备忘，⛔ 别照它把 `case 180` 加回去。
 //
 // ⚠️ 本文件属 `Core/` —— **不允许依赖 UnityEngine**（`StructuredConditionNotice` 在 `RuleCore` 里，见下）。
 using System.Collections.Generic;
@@ -70,7 +70,7 @@ namespace RuleEngine
                 case 52:   // inHandAndPlayFiltered     （`:917`，0x34）
                 case 60:   // inCemeteryFiltered        （`GetTargets.c:926`，0x3c）
                 case 65:   // inDeckFiltered            （`GetTargets.c:963`，0x41）
-                // 🔴 2026-10-30 删除 `case 180`（原 `choiceResolution）`：`B99_D1` 实测它会把选牌池筛空 ⇒ `EffectResolver.cs:4556` 越界崩 3 张卡。
+                // 🔴 2026-10-30 删除 `case 180`（原 `choiceResolution`）：`B99_D1` 实测它会把选牌池筛空 ⇒ `EffectResolver.cs:4556` 越界崩 3 张卡。
                 //   判据（ILSpy 可读版 `BattleManager.cs:25622 GetChoiceFullPool`）：选牌候选池归 **`rawCard.choicesDefinition`**，⛔ 不是 `abilityLogic.targetCriteria`；且 `ta==180` 且 `filterSpecificCards` 非空时池子**就是那张表**、一格 36 格都不跑。
                 //   ⚠️ 池内 `ta=180` 共 43 行（全部 `filterSpecificCards` 空 + `selectFromChooseResolution=1`）⇒ 今天只有 3 张真走进 `pool` 支，其余 40 张是同一颗雷。
                 // 🔴 2026-10-30 删除 `case 190`（`lastPlayedIfMeetsCriteria`）：判据 `AbilityLogic__GetTargets.c:1378-1380` 的 `iVar6==0xbe` 支是 `goto LAB_180818485` = `return *puVar13;` —— **不过末尾那句 `CheckIfMeetsCriteria` 循环**。

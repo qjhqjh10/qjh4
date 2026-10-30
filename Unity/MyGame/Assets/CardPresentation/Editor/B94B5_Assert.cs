@@ -133,7 +133,7 @@ public static class B94B5_Assert
             C(win.CrateOpened, true,
               "B9 ★★ 回包回调 ⇒ `crateOpened = true`（原版第 2 句 `crateOpenned = 1`）。🧨 只写 `crateRewards` 漏写这一格 ⇒ 本条红");
 
-            Tr(win.CrateFlowStep(0f), "B10 ★ 回包到了 ⇒ 状态机推到终点（没有 clip ⇒ state 0 不等）");
+            Tr(win.CrateFlowStep(1000f), "B10 ★ 回包到了 ⇒ 推足时长（`clip.length × 0.85`）⇒ 状态机推到终点（`gacha_crate_opening.mp4` 已导入 ⇒ state 0 有等待，`0f` 合法地推不动）");
             C(win.CrateFlowState, -1, "B11 ★ 终点：状态机复位（原版 state 2 收尾）");
             C(win.VideoBackgroundActive, false, "B12 收尾第 3 句：`videoBackground.SetActive(false)`");
         }

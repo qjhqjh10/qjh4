@@ -2226,9 +2226,9 @@ public static class ShopScene
                       + "—— 给卡包那四件也填 ⇒ 变 11/16 ⇒ 红（实读：" + dump439 + "）");
 
             // ★ ⑤ **红线**：商品档却**没有奖励表** ⇒ 必须**出声**（不许静默失败）
-            //   ⚠️ 用**越界**那一支造出这个状态（本店 10 件都填齐了，而 `Shell/ShopData.cs` 不在本件白名单
-            //      ⇒ 不往里塞假货）：`ShopTabPage.Buy(99)` → `DoBuy(99)` ⇒ `inRange = false` ⇒
-            //      `ShopData.GrantsOf` 回 `null` ⇒ `ShopWindow.DoBuy` 那条 `LogWarning`。
+            //   🔴 **2026-10-30（B101_W2）**：原来用**越界**（`Buy(99)`）造这一态 —— **已不可达**：第 96 会话把
+            //      「越界」改成 `BuyNotFound` 早退（`ShopTabPage.cs:798` 的 `PurchaseSucceeded` 闸）⇒ 走不到那句 `LogWarning`。
+            //      ⇒ 改成**注入坏数据**：把某件「商品档（非卡包）· 有奖励表 · 无限购（`AvailableMax=0`）」的 `Grants` 临时置 null，跑完还原。
             win.tabButtons.Click(1);
             int w439 = 0; string last439 = null;
             Application.LogCallback h439 = (cond, st, type) =>
@@ -2238,7 +2238,7 @@ public static class ShopScene
             };
             Application.logMessageReceived += h439;
             var pgD439b = win.PageOf(1);
-            if (pgD439b != null) pgD439b.Buy(99);
+            if (pgD439b != null) { var ofs439 = ShopData.Offers(1); int k439 = System.Array.FindIndex(ofs439, so => so.Type != "Booster Pack" && so.Grants != null && so.AvailableMax == 0); if (k439 >= 0) { var saved439 = ofs439[k439].Grants; ofs439[k439].Grants = null; try { pgD439b.Buy(k439); } finally { ofs439[k439].Grants = saved439; } } }
             Application.logMessageReceived -= h439;
             CheckTrue(w439 >= 1,
                       $"★ ⑤ 商品档却没有奖励表 ⇒ **出声**（红线：不许静默失败；实测 {w439} 条"
@@ -2888,7 +2888,7 @@ public static class ShopScene
                 // ---- ② 卡位容器 + ⑤ 5 张卡（**位姿逐个对 clip 末帧**）----
                 CheckAt(FindChild(t, "Booster Animation Parent"), 910f, 1010f, 490f, 590f,
                         "`Booster Animation Parent`（100×100，中心 = 屏心）");
-                CheckAt(FindChild(t, "Cards"), 910f, 1010f, 490f, 590f, "`Cards`（与父同矩形）");
+                { var ct = FindChild(t, "Cards"); var cw = LayoutSpace.RectCenter(910f, 490f, 1010f, 590f); float cd2 = Vector2.Distance(new Vector2(ct != null ? ct.position.x : 999f, ct != null ? ct.position.y : 999f), new Vector2(cw.x, cw.y)); CheckTrue(ct != null && cd2 <= 0.01f && Mathf.Abs(ct.localPosition.z - BoosterPackOpenWindow.CardsFrontZ) < 0.01f, $"`Cards`（与父同矩形）在 XY 面上落在原版矩形中心（差 {cd2:F4} 世界单位 = {cd2 * 108f:F2}px；只比 x/y）且局部 z = 🔶 `CardsFrontZ` = {BoosterPackOpenWindow.CardsFrontZ}（实得 {(ct == null ? -999f : ct.localPosition.z):F4}）｜🧨 把 `Cards` 挪歪 ⇒ XY 那一半红；删 `BuildVisualItemLayer` 里 `cards.localPosition.z = CardsFrontZ` 那句 ⇒ z 那一半红（判据 = `BoosterPackOpenWindow.cs:1485-1487`：原版靠嵌套 WorldSpace Canvas 排序，我们走深度测试，这一档是等价机制）"); }
                 float[] wantX = { -730f, -360f, 0f, 360f, 730f };
                 const float AncS = 0.876259982585907f;      // `Booster Animation Parent` 的 RT 实测
                 const float CardK = 151f * AncS;            // = 132.3153（clip 末帧 scale 151 × 父级缩放）
@@ -3781,8 +3781,8 @@ public static class ShopScene
                       + "（`bundle_menus_assets_all/MonoBehaviour/WildcardUltramarines1.json` 的 `m_Script` 解出的类）");
                 Check(ItemDrawer.ImplOfDrawerClass("WildcardDrawer"), ItemDrawer.DrawerWildcard,
                       "A79①-2：**原版抽屉类 → 我们的实现**（左 = 原版 `WildcardDrawer : ItemDrawer<Wildcard>`，右 = 我们的常量）");
-                Check(ItemDrawer.ImplOfDrawerClass("TitleIconDrawer"), null,
-                      "A79①-2b：**判据有、实现没有的抽屉类 ⇒ `null`**（`TitleIconDrawer` 在映射表里、我们没实现它）"
+                Check(ItemDrawer.ImplOfDrawerClass("GenericArmyItemDrawer"), null,
+                      "A79①-2b：**判据有、实现没有的抽屉类 ⇒ `null`**（`GenericArmyItemDrawer` 在类型表 `Shell/ItemDrawer.cs:427` 里、我们没实现它；`TitleIconDrawer` 本轮已实现 ⇒ 换成唯一还剩的这一档）"
                       + " —— 这条同时证明上面那条**不是恒真**（表若写成「有类名就给实现」它会红）");
                 string viaA79;
                 Check(ItemDrawer.PickDrawer(ItemDrawer.Spec("WildcardUltramarines1", null, null),

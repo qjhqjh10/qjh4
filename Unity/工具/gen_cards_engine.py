@@ -2548,6 +2548,17 @@ def board_gate_of(cid, name, nab, truth_by_path, report):
         out[k] = v
     # `playerTurn` 由 `count_set_of` 一并收（它就在 `BoardCriteria` 上、与 `count` 行同源）。
     out["countSet"] = count_set_of(cid, name, cc, nab, truth_by_path, report)
+    # 🆕 v45（2026-10-30 · 第一百零一会话 · `B101_R2` 现核）：`countCriteria.conditionsFilter`（`TargetCriteria +0x38`）。
+    #   消费端 `CardDatabase.MapBoardGateWithConditions` 读的是 **`normalAbilityBoardCriteria.conditionsFilter`**
+    #   （gate 对象顶层，⛔ 不是 `countSet` 里面）；缺键 ⇒ 出声 + 落 -1（未知）。
+    #   判据 `decomp_full/BoardAnalysis__MeetsCriteria.c:110-113`（候选逐个过的是 countCriteria 自己的条件）。
+    #   现读真值：`SW9` / `SW21` 都是 **0**（`cards_raw.json` 的 `full_raw` 逐张读）⇒ 落上也是 `0` = 不筛。
+    _cf = _gate_int(cc, "conditionsFilter")
+    if _cf is None:
+        report["bad"].append((cid, name, "normalAbilityBoardCriteria.countCriteria.conditionsFilter",
+                              cc.get("conditionsFilter")))
+        _cf = -1
+    out["conditionsFilter"] = _cf
     return out
 
 
@@ -2588,6 +2599,13 @@ def ability_gate_of(cid, name, trow, truth_by_path, report):
             out[col] = v
             report["quest"] += 1
     gate = board_gate_of(cid, name, trow.get("normalAbilityBoardCriteria"), truth_by_path, report)
+    # 🆕 v45（2026-10-30 · 第一百零一会话 · 数据契约）：**显式布尔** `hasNormalAbilityBoardCriteria`。
+    #   为什么必须落这一格：`JsonUtility` 会把**缺失的可序列化类字段**物化成默认实例 ⇒
+    #   `CardDef.NormalAbilityBoardCriteria == null` **恒假**（死判据），且三格初值 `MissingIndex(-99)`
+    #   会被翻成 `Unknown(-1)` 并 `LogError` ⇒ 每次 `CardDatabase.Load()` 刷 ≈4,508 行错误。
+    #   ⛔ 写 JSON `null` 救不了（显式 null 同样被物化）；⛔ 别用「三格都 == MissingIndex」去猜。
+    #   判据 → `资料/完全复刻/报告/B100_X10.md` §A · `资料/完全复刻/待接线与排队项.md`「🧾 数据契约」。
+    out["hasNormalAbilityBoardCriteria"] = 1 if gate is not None else 0
     if gate is not None:
         out["normalAbilityBoardCriteria"] = gate
     report["cards"] += 1
@@ -6682,7 +6700,8 @@ def build():
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。
                                #      ⚠️ 同表还顺带落了 **v41 `abilityMutations` + v42 `triggerAbilityIndices`** —— 那两列的代码在**第九十五会话**就提交了，只是表一直没重生成（现读盘上仍是 v40）。本次 `--write` 把它们一并落盘；两列都「只落数据、不接线」⇒ 零行为变化（`CardDatabase` **早已接**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c))`；缺的是**消费者** —— `CardDef.TriggerAbilityIndices` 今天还没人读）。
-        "version": 44,         # v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）= 加一列 `abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28` 逐 `(ab,lg,挂点)` 行，形状 `[{ab,lg,at,src}]`；口径 → `ability_effect_texts_of` 上面那段）。现读 38 行 / 31 值 / 31 卡；🔴 **只落数据、不接线**（消费端尚未接）⇒ 零行为变化（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）；⚠️ `--check` 会报「已过期」—— 需要一次 `--write` 落盘。⛔ 别把这一版当成「已经接了」。
+        "version": 45,         # v45（2026-10-30 · 第一百零一会话 · 数据契约）= 新增**显式布尔** `hasNormalAbilityBoardCriteria`（0/1，逐卡；`board_gate_of` 返回 None ⇒ 0）。理由：`JsonUtility` 把缺失的可序列化类字段物化成默认实例 ⇒ `NormalAbilityBoardCriteria == null` 恒假 + 每次 `Load()` 刷 ≈4,508 行错误（`报告/B100_X10.md` §A）。⚠️ 本版**只落数据**：读取侧（`CardDef` / `CardDatabase`）还没接，接之前行为不变。⛔ 别拿「三格都 == MissingIndex」去猜。
+        # v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）= 加一列 `abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28` 逐 `(ab,lg,挂点)` 行，形状 `[{ab,lg,at,src}]`；口径 → `ability_effect_texts_of` 上面那段）。现读 38 行 / 31 值 / 31 卡；🔴 **只落数据、不接线**（消费端尚未接）⇒ 零行为变化（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）；⚠️ `--check` 会报「已过期」—— 需要一次 `--write` 落盘。⛔ 别把这一版当成「已经接了」。
         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
                                # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
                                # v37（2026-10-28 · 第八十九会话 · 执行代理 `E6`）= 三族「数据侧」列（账 L234 / L867 / L1044 / L847）

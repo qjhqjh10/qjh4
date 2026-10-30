@@ -96,7 +96,13 @@ public static partial class RuleEngineTest
     /// <para>⚠️ 卡面文本刻意写 `a friendly dies`（`Clean` 会吃掉冠词 ⇒ `OwnerIs = RelFriendly`、**没有别的筛**）——
     /// 这样 `WhenEvents.Matches` 会**放行**，剩下的交给 ability 级闸：本件验的就是**那道闸**。
     /// 若改写成 `a friendly troop dies`，`Subjects` 会再加一层兵种筛，会把「闸没跑」和「Matches 没命中」混在一起。</para></summary>
-    static CardDef B99E9CostCard(string id, int friendlyUnits, int enemyUnits)
+    /// <param name="eventPhrase">🔴🆕 **2026-10-30（`B101_R1`）：事件短语**（默认 = 原那句「友军死」）。
+    /// 为什么要有这一格：`Lower cost by 1 when a **friendly** dies` 的极性是 `RelFriendly`，而
+    /// `WhenEvents.cs:1720-1731` 那支是 `if (who != listener) return false;` ⇒ **敌方死连闸都进不去**
+    /// （`FireCostWhen` 返 null）。「镜像正例：敌方死 ⇒ 降费」那条必须用 `an enemy dies` 的句子，
+    /// ⛔ 而「镜像负例」必须留着 `friendly`（它验的是「文本命中、但 ability 级 criteria 要敌方 ⇒ 拒」）。</param>
+    static CardDef B99E9CostCard(string id, int friendlyUnits, int enemyUnits,
+                                string eventPhrase = "a friendly dies")
     {
         var ta = new List<CardDef.AbilityTargetSpec>
         {
@@ -110,7 +116,7 @@ public static partial class RuleEngineTest
                 Criteria = B99E9Criteria10(friendlyUnits, enemyUnits),
             },
         };
-        return new CardDef(id, id, "tactic", "Lower cost by 1 when a friendly dies.", "common", "Test",
+        return new CardDef(id, id, "tactic", "Lower cost by 1 when " + eventPhrase + ".", "common", "Test",
                            cost: 5, attack: 0, health: 0, rangedAttack: 0, keywords: null,
                            abilityTriggersVersioned: true,
                            abilityTargets: ta.ToArray(),
@@ -126,7 +132,17 @@ public static partial class RuleEngineTest
     {
         var ta = new List<CardDef.AbilityTargetSpec>
         {
-            new CardDef.AbilityTargetSpec { Trigger = 0, TargetsAffected = new[] { 10 } },
+            // 🔴🆕 **2026-10-30（`B101_R1`）：`10` → `30`。** 原版 `AbilityLogic__GetTargets.c:192-207`
+            //   只有 `ta == 30 (target)` / `220` 两支会读调用方给的 `targetCard`（我们 = `chosen`；
+            //   `EffectResolver.cs:1938` 的 override 条件是 `SubjectTargetsAffected < 0 ∥ == 30 ∥ == 220`），
+            //   其余档（含 `10 allFiltered`）**一律忽略它**。夹具写 `10` ⇒ `AssignAbilityTargets`
+            //   （`EffectText.cs:2137-2158`：`ta.Length == ops.Count` ⇒ `ops[i].SubjectTargetsAffected = ta[i]`）
+            //   把 10 贴到 op 上 ⇒ 那道 override 不生效 ⇒ Vanguard 落到目标池里第一个而不是 `chosen`。
+            //   ⚠️ **这是真卡的形状**：`ASH70 Swooping Hawk Exarch` 这条就是 `ta = 30`
+            //      （本文件 ② 段的数据前提断言自己就写着 `targetsAffected = 30`）。
+            //   ⛔ **别跟着改 `B99E9Criteria10` 的 `TargetsAffected = 10`** —— 那是 **ability 级 criteria 的
+            //      `CountSetSpec`**（另一个字段），本件靠它才避开 `ta=30` 的身份短路（见文件头「判据订正」）。
+            new CardDef.AbilityTargetSpec { Trigger = 0, TargetsAffected = new[] { 30 } },
         };
         var rows = new List<CardDef.TargetCriteriaRowSpec>
         {
@@ -229,10 +245,19 @@ public static partial class RuleEngineTest
         }
 
         // ---- 镜像：友军死 ⇒ criteria 要敌方的卡**不**降费；敌方死 ⇒ 降费 ----
+        // 🔴🆕 **2026-10-30（`B101_R1` · 判据 = `WhenEvents.cs:1720-1731`）：正例必须换一句卡面文本。**
+        //   `Lower cost by 1 when a **friendly** dies` 的事件极性是 `RelFriendly` ⇒ `Matches` 里那支
+        //   `if (who != listener) return false;` ⇒ **敌方死根本进不了这道闸**（`FireCostWhen` 返 null、
+        //   `BroadcastCostWhen:10663` 的 `if (hits == null) continue;`）⇒ 改前那条断言**结构上不可能成立**
+        //   （实测 b100d / b100g 都是「期望 4 实得 5」）。
+        //   ⚠️ 负例**不能**跟着换：它验的是「文本命中、但 ability 级 criteria 要敌方 ⇒ 拒」
+        //      （换成 `an enemy dies` 之后它连文本都过不去，那条判别力就废了）。
         {
-            var allowEnemy = B99E9CostCard("B99E9CostAllowEnemy", friendlyUnits: 0, enemyUnits: 1);
-            var ctx = Battle(new CardDef[0], new[] { allowEnemy });
-            int hi = HandIdx(ctx, 1, "B99E9CostAllowEnemy");     // 卡在 P1 手里
+            var denyEnemy = B99E9CostCard("B99E9CostDenyEnemy", friendlyUnits: 0, enemyUnits: 1);
+            var allowEnemy = B99E9CostCard("B99E9CostAllowEnemy", friendlyUnits: 0, enemyUnits: 1,
+                                           eventPhrase: "an enemy dies");
+            var ctx = Battle(new CardDef[0], new[] { denyEnemy, allowEnemy });
+            int hi = HandIdx(ctx, 1, "B99E9CostDenyEnemy");     // 镜像负例那张（文本 = friendly）
             CheckTrue(hi >= 0, "① （前提）镜像卡在 P1 手里");
             if (hi < 0) return;
             var inst = ctx.Players[1].Hand[hi];
@@ -243,10 +268,19 @@ public static partial class RuleEngineTest
             Check(RuleCore.CostOf(ctx, 1, inst), before,
                   "★ ① 镜像负例：友军（对 P1 是己方）死、criteria 要敌方 ⇒ 不降费");
 
+            int hi2 = HandIdx(ctx, 1, "B99E9CostAllowEnemy");   // 镜像正例那张（文本 = enemy）
+            CheckTrue(hi2 >= 0, "① （前提）镜像正例卡也在 P1 手里");
+            if (hi2 < 0) return;
+            var inst2 = ctx.Players[1].Hand[hi2];
+            int before2 = RuleCore.CostOf(ctx, 1, inst2);
+            Check(before2, before, "① （前提）两张镜像卡同价（否则下面的 `-1` 说不清是谁降的）");
+
             var deadFoe = Place(ctx, 0, 3, Unit("B99E9DeadFoe", 1, 1, 1));
             RuleCore.BroadcastWhen(ctx, WhenEventKind.Die, 0, deadFoe.Card, subject: deadFoe);
-            Check(RuleCore.CostOf(ctx, 1, inst), before - 1,
+            Check(RuleCore.CostOf(ctx, 1, inst2), before2 - 1,
                   "★ ① 镜像正例：敌方（对 P1 是敌方）死、criteria 要敌方 ⇒ 降 1 费");
+            Check(RuleCore.CostOf(ctx, 1, inst), before,
+                  "★ ① 镜像正例的对照：文本写 `friendly` 的那张**不跟着降**（极性按句面判）");
         }
     }
 
@@ -280,7 +314,7 @@ public static partial class RuleEngineTest
         var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
         var carrier = Place(ctx, 0, 3, rally);
         var foe = Place(ctx, 1, 1, Unit("B99E9RallyFoe", 1, 1, 3));
-        var friend = Place(ctx, 0, 4, Unit("B99E9RallyFriend", 1, 1, 3));
+        var friend = Place(ctx, 0, 5, Unit("B99E9RallyFriend", 1, 1, 3));
         CheckTrue(carrier != null && carrier.Card == rally, "② （前提）合成 Rally 卡真的挂到了场上那个 `UnitState` 上");
 
         // 正例：目标是敌方 ⇒ criteria（enemyUnits = 1）满足 ⇒ 入队

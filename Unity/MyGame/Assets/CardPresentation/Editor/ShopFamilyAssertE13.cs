@@ -302,10 +302,11 @@ public static class ShopFamilyAssertE13
         try
         {
             C(win.PurchasePremiumClicks, 0, "F1 前提：还没点过");
-            bool opened = win.PurchasePremiumClick();
+            ExpansionPassPremiumOffers.ClearForTest(); bool opened = win.PurchasePremiumClick();   // 🔴 2026-10-30（B101_W2）：出厂表非空 ⇒ 本夹具原期望（false）已过期；先造「本地报价表空」这一态
             C(opened, false,
-              "F2 ★★ **打不开**：原版第 ③ 句 `GetComponentReference(premiumOfferData, 0xc)` 要远端 premium 报价资产"
-              + "（本地没有）⇒ 不许假装打开购买窗");
+              "F2 ★★ **空表 ⇒ 打不开**：原版第 ③ 句 `GetComponentReference(premiumOfferData, 0xc)` 要远端 premium 报价资产"
+              + "（本地拿不到 ⇒ 表空）⇒ 不许假装打开购买窗；有表 ⇒ 真开窗那一态见 `B97_REMOTE1_Assert` R6（⛔ 不在此抄第二份）");
+            ExpansionPassPremiumOffers.ResetForTest();   // 复原出厂表（F3/F4 与后续段不受影响）
             C(win.PurchasePremiumClicks, 1,
               "F3 ★ 警示里要带事件 id ⇒ 说明这条链**真的走到了那一步**（不是空函数）；`Start` 那一拍 = "
               + "`BuildNotPremiumBranch` 里 `MenuDraw.Hit` 挂的就是它（无第二处 AddListener）");

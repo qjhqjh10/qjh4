@@ -3423,7 +3423,7 @@ public static class BattleScene
                 var d = CardData.Simple("BadgeProbe", 3, 3, 4);
                 d.artId = "UM78";  // 借一张有立绘的卡，截图里好看（立绘按 **id** 取名）
                 d.badges = badges;
-                var probe = CardView.Create(driver.transform, d, "BadgeProbe");
+                var probe = CardView.Create(driver.transform, d, "BadgeProbe", CardFace.Board);   // 🔴 2026-10-30（`B101_R4`）：徽标是**战斗卡专属**（原版 `BattleCardUI.boardTraitIcons`），`CardFace.Full` 档原版**不可能**有徽标 ⇒ 探针必须用 `Board` 档，否则本段 7 条 Check + `:3465` 那处读数在「按形态掐可见性」之后全部空转
                 probe.transform.localPosition = new Vector3(-0.62f, 0.86f, -0.5f);
                 probe.transform.localScale = Vector3.one * 1.9f;
                 Check(probe.BadgesShown == 4, $"4 枚都画出来了（实际 {probe.BadgesShown}）");
@@ -13430,8 +13430,10 @@ public static class BattleScene
                         var pool = RuleEngine.CardDatabase.Load();
                         foreach (var cd in pool)
                         {
-                            // 🔴 2026-10-25：**附魔不是单位** —— 它的 trigger 60 是附魔能力（如 `Pray_Exit`），不算单位技能动画。
-                            if (string.Equals(cd.Type, "enchantment", System.StringComparison.OrdinalIgnoreCase)) continue;
+                            // 🔴 2026-10-30（`B101_F1` · 铁律 5）：这里原来有一句「附魔不是单位 ⇒ 跳过」—— **删掉**。
+                            //   判据 = `B101_R4` §6·8：原版 `Pray Enchantment` trigger-60 那条 ability 的 `cardAnimations`
+                            //   里就带 `Pray_Exit`，走 `AbilityLogic.cardAnimations` → `PlayAnim` → `AddCardAnim(actingCard = 载体)`
+                            //   ⇒ **原版确实会播、演在载体身上**。按单位卡筛 = 不看 `type`，只数 `AnimTimes` 的行。
                             for (int i = 0; i < cd.AnimTimes.Count; i++)
                             {
                                 string tn = cd.AnimTimes[i] != null ? cd.AnimTimes[i].TriggerName : null;
@@ -13443,12 +13445,12 @@ public static class BattleScene
                     Check(uaRows == 13,
                           $"★ W63/技能动画：原版 `UnitAttack(50)` 在卡池里 **13 行 / 11 张卡**（实得 {uaRows}）"
                         + "—— 判据 = `CardDef.AnimTimes` 的 `tn == UnitAttack`；判据全文 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B");
-                    Check(udRows == 1,
-                          $"★ W63/技能动画：原版 `UnitDamaged(60)` 在卡池里 **1 行**（`BL20`，实得 {udRows}）"
-                        + "—— 🔴 2026-10-23 Trait 权威化后另外 3 条已剔掉（2 条「删重复」· 1 条「无依据不播」、进 `notPlayed` 出声），见下一条的 1");
-                    Check(VfxMap.CardTableUnitAttackEntries == 12 && VfxMap.CardTableUnitDamagedEntries == 1
-                          && VfxMap.CardTableUnitAnimEntries == 13,
-                          $"★ W63/技能动画：运行期两桶 = **12 + 1 = 13 条**（实得 {VfxMap.CardTableUnitAttackEntries} + "
+                    Check(udRows == 2,
+                          $"★ W63/技能动画：原版 `UnitDamaged(60)` 在卡池里 **2 行**（`BL20` + `Pray Enchantment`，实得 {udRows}）"
+                        + "—— 🔴 2026-10-30 `B101_F1` 恢复 `Pray_Exit`（原版走 `AbilityLogic.cardAnimations`，判据 `B101_R4` §6·8）；另 3 条 2026-10-23 已剔掉（2 条「删重复」· 1 条「无依据不播」、进 `notPlayed` 出声）");
+                    Check(VfxMap.CardTableUnitAttackEntries == 12 && VfxMap.CardTableUnitDamagedEntries == 2
+                          && VfxMap.CardTableUnitAnimEntries == 14,
+                          $"★ W63/技能动画：运行期两桶 = **12 + 2 = 14 条**（实得 {VfxMap.CardTableUnitAttackEntries} + "
                         + $"{VfxMap.CardTableUnitDamagedEntries} = {VfxMap.CardTableUnitAnimEntries}）"
                         + "—— ⚠️ 12 不是 13：`SAU31` 的第 13 行是**纯计时拍** `Wait_1s`（`animAdressable` 为空），"
                         + "运行期表按设计不收「没有件」的行（时长仍由 `AnimTimes` 那句 1.0 s 管）"
@@ -13464,8 +13466,8 @@ public static class BattleScene
                         Check(uaCards.Length == 11 && uaHit == 11,
                               $"★ W63/技能动画：11 张 `UnitAttack` 卡**按卡 id 逐个命中**（{uaHit}/{uaCards.Length}）"
                             + "—— 🧨 把键换成卡名 / 改动 `EnsureLoaded` 的抄桶条件 ⇒ 命中数掉、本条红");
-                        Check(udCards.Length == 1 && udHit == 1,
-                              $"★ W63/技能动画：1 张 `UnitDamaged` 卡（`BL20`；2026-10-23 权威化后只剩这一条）**按卡 id 命中**（{udHit}/{udCards.Length}）");
+                        Check(udCards.Length == 2 && udHit == 2,
+                              $"★ W63/技能动画：2 张 `UnitDamaged` 卡（`BL20` · `Pray Enchantment`；后者 2026-10-30 `B101_F1` 恢复）**按卡 id 命中**（{udHit}/{udCards.Length}）");
                     }
                     // ④ 受击那一档解出来的件**非空**（`BL20` = 唯一那条 authoritative）
                     {
@@ -46696,7 +46698,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。 Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。 B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

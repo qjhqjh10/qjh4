@@ -27,7 +27,7 @@ using System.Collections.Generic;
 namespace RuleEngine
 {
     /// <summary>原版 `EntityScript.GetCardEffectsToShow` 的第一道过滤 + mark 四神聚合（判据见文件头）。</summary>
-    public static class EffectsToShow
+    public static partial class EffectsToShow
     {
         // ── markOfChaosType 枚举值（`dump.cs` / 施工细则 §1.3）──────────────────────────
         /// <summary>无 mark。</summary>
@@ -470,7 +470,7 @@ namespace RuleEngine
                 if (!UnitState.IsEffectListEntry(outp[i].BuffType, hasQuests)) outp.RemoveAt(i);
 
             // ---- ⑩ 序（见 `SortShown`）--------------------------------------------------------------
-            SortShown(outp);
+            SortShown(outp); AttachEffectTexts(outp, ctx);   // 🆕 2026-10-30（执行代理 `B101_F2`）：补 `CardEffect.effectText(+0x28)` 的归属四元组（同一物理行追加 ⇒ 行数零变化；实现见文件尾那一段 partial）
             return outp;
         }
 
@@ -629,5 +629,147 @@ namespace RuleEngine
         /// <summary>原 `buffType 70/85/9` 那三档（**覆盖**语义，不是增量）。
         /// 🆕 偏离施工细则的结构草图：S1 表 A3 那两档要靠 `StatMod.IsSet` 才判得出，草图里漏了这一格。</summary>
         public bool IsSet;
+        // ================================================================================================
+        //  🆕 2026-10-30（执行代理 `B101_F2`）：原版 `CardEffect.effectText(+0x28)` 的**归属四元组**。
+        //  `EffectTextCard == null` ⇒ 这一条**没有/判不了**原文（走原来的合成键）。
+        //  ⚠️ 为什么不是在 `Body` 上复用：`Body` 已被附魔行占用（`:377` = 那张附魔卡的描述），
+        //     而本组是「**它属于哪条 ability 的 buffEffect/handBuff**」—— 两件事，合成一格会互相盖掉。
+        //  覆盖边界 → `AttachEffectTexts` 的 doc（⛔ 别在这儿抄第二份）。
+        // ================================================================================================
+        /// <summary>给这条效果的那个**卡**（`null` = 判不到 / 没有）。查值口 = `EffectTextCard.EffectTextOf(Ab, Lg, IsHand)`。</summary>
+        public CardDef EffectTextCard;
+        /// <summary>原 `cardAbilities` 下标（`-1` = 没有）。</summary>
+        public int EffectAb;
+        /// <summary>原 `abilityLogic` 下标（`-1` = 没有）。</summary>
+        public int EffectLg;
+        /// <summary>`true` = 那一格在 `handBuff.cardEffect` 上（`buffEffect` 那一路是 `false`）。</summary>
+        public bool EffectIsHand;
+    }
+}
+
+namespace RuleEngine
+{
+    // ==================================================================================================
+    //  🆕 2026-10-30（执行代理 `B101_F2` · 报告 `报告/B101_F2_effectText接线.md`）：
+    //  把原版 `CardEffect.effectText(+0x28)` 那条链**喂到展示层**。
+    //
+    //  ⛔ **整段追加在【文件尾】**（上面 `EffectsToShow` 主类被 `账/特效动画.tsv:521` 按行号引用
+    //     `:193 / :201 / :478 / :502 / :559 / :578 / :599`）⇒ 往主类里插方法会整体推走那些落点（铁律 18·b）。
+    //     本段因此把 `EffectsToShow` 显式声明成 `partial`（那一处是**同一物理行改写**，行数零变化）。
+    //
+    //  🔴 **为什么要有「归属四元组」这一层**（判据 = 原版三层，逐句读）：
+    //   · ① `GameStaticData__GetEffectDesc.c:8-25`：`CardEffect.effectText(+0x28)` 非空 ⇒ **右列直接用它**
+    //        （键 = `"Card_Abilities/" + 原文` → `I2 GetTranslation` → `SupportMethods.ModifyLocalization`；
+    //         **取不到就把原文原样印出来**）。⇒ 文案来源是「**这条记录自己**」的字段，不是「这张卡」的。
+    //   · ② `AbilityLogic__PlayAbility.c:1189-1205`：`CardEffect__GetNewInstanceOfThisEffect` 从
+    //        **`abilityData.buffEffect`**（`param_1 + 0x50`）克隆一条 `CardEffect`（`MemberwiseClone` 连 `+0x28` 一起拷）
+    //        ⇒ **effectText 是「哪条 ability 的 buffEffect」的字段**。
+    //   · ③ `handBuff` 那一档同理（`PlayAbility.c:1320-1350`，`HandEffect__GetNewInstanceOfThisEffect`）。
+    //
+    //  ⚠️ **我们的模型里没有这个字段**：`StatMod` / `TraitEffectRecord` / `ActiveCardEffect` 都不带
+    //     `effectText`，`EffectOp` 上的 `AbilityIndex/LogicIndex` 在「正文没解析出结构化块」时是 `-1`
+    //     （见 `EffectText.AbilityIndex` 的 doc）⇒ **不能当成可靠来源**。
+    //     ⇒ 本段用**数据面匹配**补这一跳：拿这条记录自己的 **来源卡名** + **`buffType`** 去那张卡的
+    //     `abilityBuffs` 列（`CardDatabase.AbilityBuffsOf`，`ab/lg/at` 逐行）里找**唯一**那一行，
+    //     再取 `CardDef.EffectTextOf(ab, lg, isHand)`（三态：原文 / `""` 明确没有 / `null` 判不了）。
+    //     · 两个候选给出**不同**原文 ⇒ **判不了**，不出原文 + 出声（⛔ 不挑一条 —— 那是静默选错）。
+    //
+    //  📌 **覆盖边界**（如实，⛔ 别当全覆盖）：
+    //     只有 `ShownEffect.Source` **真的是那张卡的卡名**时才能对上：
+    //       ✅ 附魔行（`ActiveCardEffect.Source` = `playedInst.Card.Name`，`Enchantments.AttachGrantedByPlayedCard` 现读）
+    //       ✅ 限时行（`TempBuff.SourceCard` = `ctx.PlayingCard.Name`）
+    //       ❌ 永久 `addStats` / `addTrait` 行 —— 战术卡那条路 `Source` 恒 `"战术卡"`（`EffectResolver.ResolveOps:355`），
+    //          光环那条是 `Auras.GrantTag` ⇒ **对不上任何卡名** ⇒ 这些行今天不出原文（池内 2 张：`SW40` / `SW36`）
+    //       ❌ 纯 `changeCost` 那一格根本不进「受到以下影响」表（不是本表的一行）
+    //   ⇒ 池内 31 张有 `abilityEffectTexts` 的卡，**27 张**的原文行能被这条链取到（判据逐卡见报告 §二）。
+    // ==================================================================================================
+    public static partial class EffectsToShow
+    {
+        /// <summary>
+        /// 给投影里每条效果补上「原版 `CardEffect.effectText`」的归属四元组（<see cref="ShownEffect.EffectTextCard"/> 那四个字段）。
+        /// **纯读**：只写自己那条 `ShownEffect`（值类型、就在调用方给的 List 里），不碰 `UnitState` / `CardInstance` / Rng。
+        /// <para>⚠️ 卡表读不到（`ruleprobe` / 资源缺失）⇒ **整段不做事并出声**（不是「这些卡没有原文」）。</para>
+        /// </summary>
+        public static void AttachEffectTexts(List<ShownEffect> rows, BattleContext ctx)
+        {
+            if (rows == null || rows.Count == 0) return;
+
+            Dictionary<string, CardDef> byName = null;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var e = rows[i];
+                if (e.EffectTextCard != null) continue;
+                if (e.SecretBuff || e.QuestBuff) continue;          // 打码那两支走 `EnchantRow` 的四条键（⛔ 别在这儿盖掉）
+                string name = e.Source;
+                if (string.IsNullOrEmpty(name)) continue;
+
+                if (byName == null)
+                {
+                    byName = BuildSourceCardIndex(ctx);
+                    if (byName == null) return;                     // 卡表读不到 ⇒ 整段不做事（已出声）
+                }
+
+                CardDef def;
+                if (!byName.TryGetValue(name, out def) || def == null) continue;
+                if (!def.HasAbilityEffectTexts) continue;
+
+                var buffs = CardDatabase.AbilityBuffsOf(def);
+                if (buffs == null || buffs.Count == 0) continue;
+
+                string text = null; bool conflict = false;
+                int ab = -1, lg = -1; bool hand = false;
+                for (int k = 0; k < buffs.Count; k++)
+                {
+                    var b = buffs[k];
+                    if (b == null || b.BuffType != e.BuffType) continue;
+                    string t = def.EffectTextOf(b.Ab, b.Lg, b.IsHandBuff);
+                    if (string.IsNullOrEmpty(t)) continue;          // `null` 判不了 / `""` 明确没有 ⇒ 都不是「有原文」
+                    if (text == null) { text = t; ab = b.Ab; lg = b.Lg; hand = b.IsHandBuff; continue; }
+                    if (!string.Equals(text, t, System.StringComparison.Ordinal)) { conflict = true; break; }
+                }
+
+                if (conflict)
+                {
+                    LogOut(ctx, $"[效果投影] 「{def.Name}」的 `buffType {e.BuffType}` 能对上**两条 `effectText` 不同**的 ability 行 "
+                               + "⇒ **判不了**该用哪一条（这一行不出原文；原版 `CardEffect.effectText` 是逐条记录的字段）");
+                    continue;
+                }
+                if (text == null) continue;
+
+                e.EffectTextCard = def; e.EffectAb = ab; e.EffectLg = lg; e.EffectIsHand = hand;
+                rows[i] = e;
+            }
+        }
+
+        /// <summary>卡名 → `CardDef`（只用于把 <see cref="ShownEffect.Source"/> 反解成卡）。
+        /// <para>⚠️ 同名多张（现读池内 4 组：`Terminator` / `Terminator Champion` / `Maulerfiend` / `Reconnaissance Mission`）
+        /// ⇒ 那一格**置 `null` = 判不了**（⛔ 不取「第一个」—— `CardDatabase.Find` 的旧语义正好是「谁在前谁赢」，那是巧合不是判据）。</para>
+        /// <returns>`null` = 卡表读不到（调用方据此整段不做事）。</returns></summary>
+        static Dictionary<string, CardDef> BuildSourceCardIndex(BattleContext ctx)
+        {
+            List<CardDef> pool;
+            try { pool = CardDatabase.Load(); }
+            catch (System.Exception ex)
+            {
+                LogOut(ctx, $"[效果投影] 卡表读不出来（{ex.GetType().Name}: {ex.Message}）⇒ **effectText 这一跳整段不做事**"
+                           + "（⛔ 不是「这些卡没有原文」）");
+                return null;
+            }
+            if (pool == null || pool.Count == 0)
+            {
+                LogOut(ctx, "[效果投影] 卡表是空的（资源没加载？）⇒ **effectText 这一跳整段不做事**（⛔ 不是「这些卡没有原文」）");
+                return null;
+            }
+            var idx = new Dictionary<string, CardDef>(pool.Count, System.StringComparer.Ordinal);
+            for (int i = 0; i < pool.Count; i++)
+            {
+                var d = pool[i];
+                if (d == null || string.IsNullOrEmpty(d.Name)) continue;
+                CardDef old;
+                if (!idx.TryGetValue(d.Name, out old)) idx[d.Name] = d;
+                else if (old != null) idx[d.Name] = null;           // 同名 ⇒ 判不了（见 doc）
+            }
+            return idx;
+        }
     }
 }

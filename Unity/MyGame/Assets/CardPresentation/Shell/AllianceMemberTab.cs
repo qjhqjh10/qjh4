@@ -1904,11 +1904,11 @@ namespace CardPresentation
             // 头像（`Avatar Item Small`：Highlight + Border + Image）—— 立绘走 `CardArt.Cosmetics`
             var av = new PxRect(r.x1 + 50.57f, r.y1 + 11.87f, r.x1 + 149.44f, r.y1 + 114.93f);
             var avn = MenuDraw.Node(row, "Avatar Item Small", av);
-            v.Rect(avn, "Player_Avatar_selected", new PxRect(av.x1, av.y1 - 3.53f, av.x2 + 3.34f, av.y2 - 36.37f),
+            v.Rect(avn, "Player_Avatar_selected", AllianceMemberRowAvatarGeo.HighlightRect(av),
                    "Highlight", 2, null, true);
             var imgC = MenuDraw.Node(avn, "Image Container", new PxRect(av.x1, av.y1, av.x2, av.y1 + 65.69f));
-            v.Cosmetic(imgC, m.AvatarArt, new PxRect(av.x1, av.y1 - 2.70f, av.x2, av.y1 + 62.99f), "Image", 2);
-            v.Rect(avn, "Player_Profile_Border", new PxRect(av.x1, av.y1 + 6.57f, av.x2, av.y1 + 72.26f),
+            v.Cosmetic(imgC, m.AvatarArt, AllianceMemberRowAvatarGeo.ImageRect(av), "Image", 2);
+            v.Rect(avn, "Player_Profile_Border", AllianceMemberRowAvatarGeo.BorderRect(av),
                    "Border", 2, null, true);
             // 在线状态点
             if (m.Online)
@@ -2428,6 +2428,42 @@ namespace CardPresentation
             var tex = _art(name);
             if (tex == null) return;              // 取不到就留在旧图上（`MissingArt` 已记）
             q.SetTexture(tex);
+        }
+    }
+
+    /// <summary>🆕 **2026-10-30（`B101_W3`）**：`Avatar Item Small` 三层的**视觉矩形** —— 原版
+    /// `RectTransform.m_LocalScale`（`Highlight ×1.9` / `Border ×1.25` / `Image ×2.0`）**绕各自布局框中心**放大后的结果。
+    /// <para>判据（逐条实算）→ `资料/完全复刻/报告/B101_P1_prefab视觉参数普查.md` §2·1 与 §3·1：
+    /// prefab **9/9 实例同值**；`AvatarDisplay__ChangeAvatar` / `__ChangeBorder` **只 `set_sprite`、不碰 scale**
+    /// ⇒ 倍数全在 prefab 里、运行期不变（铁律 5·c）。</para>
+    /// <para>🔴 收成纯函数的两个理由：① `AllianceMemberRow.Build` 原来三处各自内联一个 `PxRect`、**倍率一个都没乘**
+    /// （成员行立绘只有原版的 50%）；② 纯函数才能让自检拿布局框直接算 —— ⛔ 别在断言里抄第二份数字
+    /// （`Editor/B101W3_Assert.cs` 的 A 段）。</para>
+    /// <para>⚠️ 倍率**转调** `Shell/AvatarTab.cs` 的 `ScaleHighlight / ScaleBorder / ScaleImage` 与 `ScaleAboutCenter`
+    /// （全工程唯一一份；`ProfileTab` / `RankedTab` 那两格同一条），⛔ 别在这儿另写 1.9 / 1.25 / 2.0。</para>
+    /// <para>⚠️ 画序仍是 `Highlight → Border → Image`（立绘压框）—— `Player_Profile_Border` 中心是不透明黑，
+    /// 放大后三者重叠更多，⛔ 画反了立绘会整块黑（同 `AvatarTab` 的 `W18` 那条）。</para></summary>
+    public static class AllianceMemberRowAvatarGeo
+    {
+        /// <summary>`Highlight`（图 `Player_Avatar_selected`）：布局框 `(av.x1, av.y1−3.53, av.x2+3.34, av.y2−36.37)` ×1.9 ⇒ 194.20 宽。</summary>
+        public static PxRect HighlightRect(PxRect av)
+        {
+            return AvatarTab.ScaleAboutCenter(
+                new PxRect(av.x1, av.y1 - 3.53f, av.x2 + 3.34f, av.y2 - 36.37f), AvatarTab.ScaleHighlight);
+        }
+
+        /// <summary>`Image`（立绘）：布局框 `(av.x1, av.y1−2.70, av.x2, av.y1+62.99)` ×2.0 ⇒ 197.74 宽。</summary>
+        public static PxRect ImageRect(PxRect av)
+        {
+            return AvatarTab.ScaleAboutCenter(
+                new PxRect(av.x1, av.y1 - 2.70f, av.x2, av.y1 + 62.99f), AvatarTab.ScaleImage);
+        }
+
+        /// <summary>`Border`（图 `Player_Profile_Border`）：布局框 `(av.x1, av.y1+6.57, av.x2, av.y1+72.26)` ×1.25 ⇒ 123.59 宽。</summary>
+        public static PxRect BorderRect(PxRect av)
+        {
+            return AvatarTab.ScaleAboutCenter(
+                new PxRect(av.x1, av.y1 + 6.57f, av.x2, av.y1 + 72.26f), AvatarTab.ScaleBorder);
         }
     }
 }

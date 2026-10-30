@@ -393,9 +393,9 @@ namespace CardPresentation
         /// <para>🔴 **订正痕迹（铁律 5）**：本行原来写「别的档**没有判据**」，2026-10-04 订正成「本表没抄」
         /// —— **现在已抄齐**；`GetDrawerClass` 里那条「没抄的档 ⇒ 返回 `null` + 出声」的守卫
         /// **同批换成照原版的「按键找不到 ⇒ 回落主档」**（`GetDrawer.c:23-33` / `GetReference.c:62-72`）。</para>
-        /// <para>⚠️ **表里的类 ≠ 我们实现的抽屉**：本工程真正照原版画法实现的只有野牌那两档
-        /// （见 <see cref="DrawerImpls"/>）；别的类查得到、但 `ImplOfDrawerClass` 返回 `null`
-        /// ⇒ `PickDrawer` **出声 + 兜底**（⛔ 不静默画成别的样子）。</para>
+        /// <para>⚠️ **表里的类 ≠ 我们实现的抽屉**：`DrawerImpls` **现读覆盖 24 档**（2026-10-30 `B101_E3` 补齐后：
+        /// 野牌两档 + `Deck`/`DeckAndCardback`/`CampaignPoints`/`Currency` + 17 个新类）；**仍缺** `CardDrawer` /
+        /// `CardAlternateArtDrawer` / `GenericArmyItemDrawer` ⇒ 那三个类 ⇒ `PickDrawer` **出声 + 兜底**（⛔ 不静默画成别的样子）。</para>
         /// <para>⚠️ **一个值 ≠ 全部情况（铁律 5·c）**：同一条记录的**不同 override 档可以是不同的类** ——
         /// 表里现成就有 4 处：`ForgePoints` 主档 `ForgePointDrawer` / `Icon` 档 `ForgePointIconDrawer` ·
         /// `VIPPremiumItem` 主档 `PremiumDrawer` / `Icon` 档 `PremiumIconDrawer` ·
@@ -503,7 +503,7 @@ namespace CardPresentation
                     }
                     Note("impl|" + cls,
                          "原版类型 `" + type + "` ⇒ 抽屉类 **`" + cls + "`** —— 但这个抽屉**我们没实现**"
-                         + "（`DrawerImpls` 只覆盖野牌那两档）⇒ 兜底，**不静默画成别的样子**");
+                         + "（`DrawerImpls` 里**没有这个类** —— 现读覆盖 **24 档**；缺的只有 `CardDrawer` / `CardAlternateArtDrawer` / `GenericArmyItemDrawer`）⇒ 兜底，**不静默画成别的样子**");
                 }
                 else
                 {
@@ -714,9 +714,9 @@ namespace CardPresentation
         }
 
         /// <summary>**原版抽屉类 → 我们的实现**（`cls:impl`）—— 真表那一跳的最后一跳。
-        /// <para>⚠️ **只覆盖两个**：本工程**真正照原版画法实现的抽屉只有野牌那两档**
-        /// （<see cref="DrawerWildcard"/> 照 `WildcardDrawer__Draw.c` 三层、<see cref="DrawerWildcardIcon"/>
-        /// 照 `WildcardIconDrawer__Draw.c`；其余 18 个原版抽屉**没实现**）。
+        /// <para>⚠️ **现读覆盖 24 档**（2026-10-30 `B101_E3`：野牌两档 + `Deck`/`DeckAndCardback`/`CampaignPoints`/`Currency`
+        /// + 17 个新类，各档实现在 `Shell/ItemDrawer&lt;名&gt;.cs`，判据见各自头注）；**仍缺 3 个原版类**：
+        /// `CardDrawer` / `CardAlternateArtDrawer`（卡在「本机没有 `BasicCardUI` 等价件」）· `GenericArmyItemDrawer`（本工程零消费点）。
         /// ⇒ 表里列不到的类返回 `null`，<see cref="PickDrawer"/> **出声 + 兜底**，⛔ 不静默画成别的样子。</para>
         /// <para>🔴 `"WildcardDrawer:WildcardDrawer"` 这种「左右同名」**是巧合，不是恒等**：左边是**原版**
         /// 那个类的名字，右边是**我们**给实现的常量名（<see cref="DrawerWildcard"/>）。
@@ -724,7 +724,7 @@ namespace CardPresentation
         public static readonly string[] DrawerImpls =
         {
             "WildcardDrawer:" + DrawerWildcard,          // 原版 `WildcardDrawer : ItemDrawer<Wildcard>`
-            "WildcardIconDrawer:" + DrawerWildcardIcon, "DeckDrawer:" + DrawerDeck, "DeckAndCardbackDrawer:" + DrawerDeckAndCardback, "CampaignPointDrawer:" + DrawerCampaignPoint,  // 原版 `WildcardIconDrawer : ItemDrawer<Wildcard>`；后两条 = 2026-10-26（批次 3 · Q1）新建（判据 = `DeckDrawer.cs:7` `DeckAndCardbackDrawer : DeckDrawer`）；`CampaignPointDrawer` = 2026-10-28（B90-N6，账 战役:53/55）
+            "WildcardIconDrawer:" + DrawerWildcardIcon, "DeckDrawer:" + DrawerDeck, "DeckAndCardbackDrawer:" + DrawerDeckAndCardback, "CampaignPointDrawer:" + DrawerCampaignPoint, "CurrencyDrawer:" + DrawerCurrency, "AvatarDrawer:" + DrawerAvatar, "AvatarBorderDrawer:" + DrawerAvatarBorder, "CardbackDrawer:" + DrawerCardback, "CosmeticDrawer:" + DrawerCosmetic, "ContainerDrawer:" + DrawerContainer, "RandomCardDrawer:" + DrawerRandomCard, "TitleDrawer:" + DrawerTitle, "TitleIconDrawer:" + DrawerTitleIcon, "TitleDrawerHorizontal:" + DrawerTitleHorizontal, "PremiumDrawer:" + DrawerPremium, "PremiumIconDrawer:" + DrawerPremiumIcon, "ExpansionPassPremiumDrawer:" + DrawerExpansionPremium, "ForgePointDrawer:" + DrawerForgePoint, "ForgePointIconDrawer:" + DrawerForgePointIcon, "ExpansionPassPointDrawer:" + DrawerExpansionPassPoint, "AllianceBadgeDrawer:" + DrawerAllianceBadge, "XSollaOfferDrawer:" + DrawerXSolla, "CardDrawer:" + DrawerCard, "CardAlternateArtDrawer:" + DrawerCardAltArt,  // 原版 `WildcardIconDrawer : ItemDrawer<Wildcard>`；后两条 = 2026-10-26（批次 3 · Q1）新建（判据 = `DeckDrawer.cs:7` `DeckAndCardbackDrawer : DeckDrawer`）；`CampaignPointDrawer` = 2026-10-28（B90-N6，账 战役:53/55）；`CurrencyDrawer` + 其后 18 个类 = 2026-10-30（B101_E3 抽屉补齐，判据 = `判据/B100_D1_抽屉18档_施工单.md` 表 B）
         };
 
         /// <summary>原版抽屉类 → 我们的实现（表里查不到 ⇒ `null` = **这个抽屉我们没实现**）。</summary>
@@ -847,11 +847,11 @@ namespace CardPresentation
             if (drawer == null) return res;                                 // ② 不画
             res.Drawer = drawer;
             res.Node = MenuDraw.Node(parent,                                       // ③「Instantiate」
-                string.IsNullOrEmpty(style.NodeName) ? "Item Drawer" : style.NodeName, box);
+                string.IsNullOrEmpty(style.NodeName) ? "Item Drawer" : style.NodeName, box); ResetDecorationLayers(res.Node);   // B0（施工单 §一-2 / §四-3）：原版基类 `Draw` 进门先复位 converted/ephemeral/claimedWarning/premiumHighlight 四个装饰状态（四句虚表调用）；同一物理行追加（铁律 18·b · 账 A 落点行号不动）
 
             switch (drawer)                                                        // ④ 抽屉自己的 Draw（实现只此一份 = `Dispatch`，`Refresh()` 也走它）
             {
-                case DrawerWildcard: case DrawerWildcardIcon: case DrawerIcon: case DrawerDeck: case DrawerDeckAndCardback: case DrawerCampaignPoint:
+                case DrawerWildcard: case DrawerWildcardIcon: case DrawerIcon: case DrawerDeck: case DrawerDeckAndCardback: case DrawerCampaignPoint: case DrawerCurrency: case DrawerAvatar: case DrawerAvatarBorder: case DrawerCardback: case DrawerCosmetic: case DrawerContainer: case DrawerRandomCard: case DrawerTitle: case DrawerTitleIcon: case DrawerTitleHorizontal: case DrawerPremium: case DrawerPremiumIcon: case DrawerExpansionPremium: case DrawerForgePoint: case DrawerForgePointIcon: case DrawerExpansionPassPoint: case DrawerAllianceBadge: case DrawerXSolla: case DrawerCard: case DrawerCardAltArt:
                     Dispatch(drawer, res.Node, box, item, quantity, style, ref res); break;
                 default: Placeholder(res.Node, box, item, quantity, style, ref res); break;
             }
@@ -1922,7 +1922,7 @@ namespace CardPresentation
                 case DrawerWildcardIcon: WildcardIcon(node, box, item, quantity, style, ref res); break;
                 case DrawerIcon: Icon(node, box, item, quantity, style, ref res); break;
                 case DrawerDeck: Deck(node, box, item, quantity, style, ref res); break;
-                case DrawerDeckAndCardback: DeckAndCardback(node, box, item, quantity, style, ref res); break; case DrawerCampaignPoint: CampaignPoint(node, box, item, quantity, style, ref res); break;   // 🆕 2026-10-28（B90-N6）
+                case DrawerDeckAndCardback: DeckAndCardback(node, box, item, quantity, style, ref res); break; case DrawerCampaignPoint: CampaignPoint(node, box, item, quantity, style, ref res); break; case DrawerCurrency: DrawCurrency(node, box, item, quantity, style, ref res); break; case DrawerAvatar: Avatar(node, box, item, quantity, style, ref res); break; case DrawerAvatarBorder: AvatarBorder(node, box, item, quantity, style, ref res); break; case DrawerCardback: Cardback(node, box, item, quantity, style, ref res); break; case DrawerCosmetic: Cosmetic(node, box, item, quantity, style, ref res); break; case DrawerContainer: Container(node, box, item, quantity, style, ref res); break; case DrawerRandomCard: RandomCard(node, box, item, quantity, style, ref res); break; case DrawerTitle: case DrawerTitleHorizontal: Title(node, box, item, quantity, style, ref res); break; case DrawerTitleIcon: TitleIcon(node, box, item, quantity, style, ref res); break; case DrawerPremium: Premium(node, box, item, quantity, style, ref res); break; case DrawerPremiumIcon: PremiumIcon(node, box, item, quantity, style, ref res); break; case DrawerExpansionPremium: ExpansionPremium(node, box, item, quantity, style, ref res); break; case DrawerForgePoint: ForgePoint(node, box, item, quantity, style, ref res); break; case DrawerForgePointIcon: ForgePointIcon(node, box, item, quantity, style, ref res); break; case DrawerExpansionPassPoint: ExpansionPassPoint(node, box, item, quantity, style, ref res); break; case DrawerAllianceBadge: AllianceBadge(node, box, item, quantity, style, ref res); break; case DrawerXSolla: XSollaOffer(node, box, item, quantity, style, ref res); break; case DrawerCard: CardDrawerItem(node, box, item, quantity, style, ref res); break; case DrawerCardAltArt: CardAltArtItem(node, box, item, quantity, style, ref res); break;   // 🆕 2026-10-28（B90-N6）；`DrawerCurrency` 起的 18 档 = 2026-10-30（B101_E3）；最后两档（卡牌）= 2026-10-30（B101_R8，判据 = `Shell/ItemDrawerCard.cs` 文件头）
                 default: Placeholder(node, box, item, quantity, style, ref res); break;
             }
         }
@@ -1944,7 +1944,7 @@ namespace CardPresentation
         /// 证据 = 追加区头注 ①（2026-10-26 全树扫的 374 份 MB + 类名归类）。</summary>
         public static bool ShowInfoOnClickOf(string drawer)
         {
-            if (drawer == DrawerWildcard || drawer == DrawerDeck || drawer == DrawerDeckAndCardback) return true;
+            if (drawer == DrawerWildcard || drawer == DrawerDeck || drawer == DrawerDeckAndCardback || drawer == DrawerAvatarBorder || drawer == DrawerForgePoint || drawer == DrawerTitle || drawer == DrawerExpansionPremium || drawer == DrawerCard || drawer == DrawerCardAltArt) return true;   // 后四个 = 2026-10-30（B101_E3）：施工单 §三-2 里**全票一致为 1** 的四档（AvatarBorderDrawer 5/5 · ForgePointDrawer 1/1 · TitleDrawer 3/3 · ExpansionPassPremiumDrawer 9/9）；混合档（Cardback/Container/Premium/PremiumIcon/TitleHorizontal/AllianceBadge/Avatar/RandomCard）仍留 0、由调用方 `SetShowInfoOnClick` 定
             if (drawer == DrawerWildcardIcon) return false;
             if (drawer == DrawerIcon)
                 Note("showinfo|" + drawer, "原版没有 `IconDrawer` 这个类（`cpp2il` 全库 0 个），"

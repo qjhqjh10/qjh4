@@ -20,10 +20,10 @@
 //      那几个出厂 `m_IsActive = 0`，且**不是** `Draw` 这一跳的件 ⇒ 本件不建，⛔ 别顺手补上。）
 //
 //  ── 三条如实记的边界 ────────────────────────────────────────────────────────────
-//  ① **背景图不在 `Resources/`**：`40k_Rewards_icon_base card` 源图在
-//     `CardPresentation/Art/原版/0_mainmenu/40k_Rewards_icon_base_card.png`，但没跑导入腿
-//     （`工具/import_original_art.py --only-menu`）⇒ `CardArt.MenuUi` 取不到 ⇒ **不画背景 + 出声一次**
-//     （⛔ 不拿别的图冒充）。
+//  ① 🔴 **2026-10-30 就地订正（铁律 5 · `B101_E3`）**：本行原来写「背景图**不在** `Resources/`」—— **已过期**：
+//     `B100_F3` 已把这族导进 `Resources/Art/ui_menu/`（现读 6 张全在：`40k_Rewards_icon_base_card` + `_common/_rare/_epic/_legendary` + `_SDF`）
+//     ⇒ `CardArt.MenuUi` 取得到、背景层**会画**；下面那段「取不到 ⇒ 不画 + 出声一次」的兜底**保留**（图上真缺时仍不静默、⛔ 不拿别的图冒充）。
+//     ⚠️ 原句「源图在 `CardPresentation/Art/原版/0_mainmenu/`、没跑导入腿」是**当时**的事实，只留作订正痕迹。
 //  ② **ARF 的兜底是 TODO（还没查清，⛔ 不是「自己设计」）**：原版「高控宽 0.66」= 高度定宽度；容器比抽屉
 //     **更窄**时 ARF 怎么缩**没读过**（`AspectRatioFitter` 是 Unity 内置组件、行为必可查）⇒ 暂按
 //     `min(box.H, box.W / 0.66)` 近似（见下面 `ar` 那两行）。
@@ -184,5 +184,13 @@ namespace CardPresentation
         /// <summary>数量那颗的**测量用**右边界：名条内宽右端（= `Label.x2 − paddingRight`）。
         /// 单独拎出来只为一件事：`MenuDraw.Text` 的 `wrapPx` 必须是**正数**，否则 auto-fit 整条闸不生效。</summary>
         static float math_MaxQtyX2(float labelX2) { return labelX2 - CurLabelPadR; }
+
+        /// <summary>原版抽屉类名 `CurrencyDrawer`（= `ItemTypeSets` 里 `Currency` 那一条的主档与 `Icon` 档）。
+        /// <para>🔴 **2026-10-30（`B101_E3`）补登记**（施工单 §一-3 / 表 A6）：这一档的实现早就在本文件里，
+        /// 但 `DrawerImpls` 里**没有它** ⇒ `PickDrawer` 走兜底（落到 `IconDrawer`）再在 `Icon()` 里转交
+        /// `DrawCurrency`；功能到得了、但路上会打一条「这个抽屉我们没实现」的**假告警**
+        /// （`Note("impl|" + cls)`，key = `impl|CurrencyDrawer`）。现在三处（`DrawerImpls` / `Draw` 的 switch /
+        /// `Dispatch` 的 switch）都登记了 ⇒ 直接命中，且 `Drawer` 字段报的是**原版类名**。</para></summary>
+        public const string DrawerCurrency = "CurrencyDrawer";
     }
 }

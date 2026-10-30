@@ -124,7 +124,7 @@ public static partial class RuleEngineTest
         var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
         var own = Place(ctx, 0, 3, card);
         var foe = Place(ctx, 1, 1, Unit("B97ERFoe", 1, 2, 5));
-        var mate = Place(ctx, 0, 4, Unit("B97ERMate", 1, 2, 5));
+        var mate = Place(ctx, 0, 5, Unit("B97ERMate", 1, 2, 5));
         CheckTrue(own != null && own.Card == card, "② （前提）合成卡挂在场上那个 `UnitState` 上");
 
         int warn0 = RuleCore.AbilityActingCriteriaWarningsForTest;
@@ -163,7 +163,7 @@ public static partial class RuleEngineTest
                                new Dictionary<int, CardDef.CountSetSpec> { { 0, E2Criteria10(1, 0) } });
         var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
         var own = Place(ctx, 0, 3, card);
-        var mate = Place(ctx, 0, 4, Unit("B97ERMate2", 1, 2, 5));
+        var mate = Place(ctx, 0, 5, Unit("B97ERMate2", 1, 2, 5));
 
         int lw0 = RuleCore.AbilityLevelCriteriaWarningsForTest;
         bool q = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "B97ER·解耦", () => { }, actor: own,
@@ -196,7 +196,7 @@ public static partial class RuleEngineTest
                                new Dictionary<int, CardDef.CountSetSpec> { { 0, E2Criteria10(1, 0) } });
         var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
         var foe = Place(ctx, 1, 1, Unit("B97ERHandFoe", 1, 2, 5));
-        var mate = Place(ctx, 0, 4, Unit("B97ERHandMate", 1, 2, 5));
+        var mate = Place(ctx, 0, 5, Unit("B97ERHandMate", 1, 2, 5));
 
         bool q1 = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "B97ER·手牌正例", () => { },
                                           abilityActingTrigger: "OtherUnitSummoned",

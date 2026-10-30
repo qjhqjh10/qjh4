@@ -187,7 +187,12 @@ public static partial class RuleEngineTest
         ToP1Turn(ctx, 4);
         var atk = Place(ctx, 0, 3, Unit("FAtk19D", 1, 3, 9), exhausted: false);
         var u280 = Place(ctx, 1, 2, f280, exhausted: true);
-        var plain = Place(ctx, 1, 4, Unit("FPlain19D", 1, 1, 9), exhausted: true);
+        // 🔴🆕 **2026-10-30（`B101_R1`）：`4` → `5`。** `BoardSpec.WarlordSlot == 4`（`BoardSpec.cs:30`），
+        //   开局 `RuleCore.cs:655` 正是 `p.Board[4] = p.Warlord` ⇒ 把普通部队摆 4 号格会**把督军挤出盘面**；
+        //   而 `DeclareAttack`（`RuleCore.cs:6687`）的 target 就是 `Board[tgtSlot]`、
+        //   `TryCancelAttackByUnits`（`:17409`）第一句要 `target.IsWarlord` ⇒ 改前那一记压根没进 280 那条路
+        //   （实测 b100g `:341265` 声明攻击 OK、`:341281` 280 实得 0、`:341296` 出声句也没有）。
+        var plain = Place(ctx, 1, 5, Unit("FPlain19D", 1, 1, 9), exhausted: true);
         var lord = ctx.Players[1].Warlord;
 
         var cands = RuleCore.CheckUnitsCancellingAttack(ctx, atk, lord);

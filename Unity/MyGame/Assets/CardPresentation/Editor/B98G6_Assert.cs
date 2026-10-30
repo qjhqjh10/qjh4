@@ -104,7 +104,7 @@ public static class B98G6_Assert
         var ctx = Battle();
         var u1 = Place(ctx, 0, 2, Unit("G6CntA", 1, 1, 5), exhausted: false);
         var u2 = Place(ctx, 0, 3, Unit("G6CntB", 1, 1, 5), exhausted: false);
-        Place(ctx, 1, 3, Unit("G6CntFoe", 1, 1, 5), exhausted: true);
+        var foe = Place(ctx, 1, 3, Unit("G6CntFoe", 1, 1, 5), exhausted: true);   // `B101_R2`：A6 要给它挂 `mutation`
 
         var setPlain = Set(10, 0);
         int count0 = Measure(ctx, setPlain, u1, null);
@@ -150,19 +150,29 @@ public static class B98G6_Assert
            "★★ A5 灭自证：池空时**也要清** `cardChosenInSelection`（原版 `.c:1101-1140` 的清空与池空不空无关）"
          + "｜🧨 把 `ApplySelectFromChooseResolution` 的 `pool.Count == 0` 早退加回去 ⇒ 选中项会留给下一条效果 ⇒ 红");
 
-        // ---- A6/A7：`traitsFilter == 780` 的单次变异去重 ----
+        // ---- A6/A7：`traitsFilter == 780`（mutation）—— 原版两跳都要被验到 ----
+        //  ① 筛 = `FilterMethods__MeetsTraitCriteria.c:12-60` ③（候选**当前**带 `mutation`）
+        //     → 我们的 `TargetCriteriaEval.TraitPasses`（`:710-721`，`u.Has(key)`）
+        //  ② 剔 = `AbilityLogic__GetTargets.c:1370-1385` + `CardScript__HasSingleUseMutation.c`
+        //     （扫**施放者**的 `activeEffects(+0x108)`，比 `CardEffect.enchantment(+0x88)` 是不是这张候选卡）
+        //  🔴 2026-10-30（`B101_R2` · 320826）：改前夹具**只做了 ②**；`B100_F36` 补上 `TraitNameOf(780)` 之后
+        //     ① 开始生效 —— 而这 4 张候选（u2 / foe / 两尊督军）**没有一张带 `mutation`** ⇒ ① 全筛掉 ⇒ 恒 0。
+        //     「期望 count0-1 = 3」= 「① 未生效、② 生效」那一版的读数（= 改前的错读数），不是原版语义。
+        //  ⇒ 夹具改成「① 有东西可留、② 只剔一张」：u2 / foe 各挂 `mutation`，施放者 u1 身上挂 u2 那一条 ⇒ 期望 **1**。
+        //  🧨 判别式（四种写法各自红在哪）：① 没实现（`TraitNameOf` 没有 780）⇒ `Measure` 拿 `null` ⇒ -1 ⇒ 红 ·
+        //     ② 没接（`needCands` 少了 `|| set.TraitsFilter == 780`）⇒ 2 ⇒ 红 ·
+        //     ② 剔过头（忽略 `ReferenceEquals` / 拿候选自己的实例比）⇒ 0 ⇒ 红 ·
+        //     ① 不生效（把非 mutation 的也算进来）⇒ 3 ⇒ 红（正好是那条错期望）
+        u2.AddKeyword("mutation", 1);
+        foe.AddKeyword("mutation", 1);
+        Tr(u2.Has("mutation") && foe.Has("mutation"),
+           "★ A6 前提：两张候选**都**带 `mutation`（`TraitPasses` 读实例上的*当前* trait，⛔ 不读卡模板）");
         u1.Instance.ActiveEffects.Add(new ActiveCardEffect { EnchantmentCard = u2.Card, BuffType = 15 });
         var setMut = Set(10, 0, traits: 780);
-        int cMut = Measure(ctx, setMut, u1, null);
-        C(cMut, count0 - 1, "★★ A6 `traitsFilter = 780` ⇒ 剔掉**已经挂过同一条单次变异**的候选（"
-                          + count0 + " → " + (count0 - 1) + "）"
-                        + "｜🧨 把 `needCands` 里的 `|| set.TraitsFilter == 780` 去掉 ⇒ 这条永远不减 ⇒ 红"
-                        + "｜🧨 把去重挪到收窄**之后**也行（本条测不出次序，见 §C；次序由代码位置保证）"
-                        // 🔴 2026-10-30（`B100_F34` · 320744 · `报告/B100_X15.md` §四 · #14）：**本条现在红，是【产品侧】缺口、不是本文件写错**。
-                        + "｜⏳ 现状 = 红：**依赖产品补 `TargetCriteriaEval.TraitNameOf` 的 `case 780: return \"mutation\";`**"
-                        + "（见 `报告/B100_X15.md` §四 · #14）—— 未补前 `TraitPasses` 判不了 ⇒ 整条 criteria 回 **-1** ⇒ 本条必红。"
-                        + "⚠️ 补 `case 780` 之后**期望值也要重定**：原版 `FilterMethods__MeetsTraitCriteria.c` 会先按 mutation trait "
-                        + "筛候选，而本夹具的单位都没挂该 trait ⇒ 结果会变 **0**、不是 `count0-1`（届时夹具 + 期望一起改，⛔ 别只改期望值）");
+        C(Measure(ctx, setMut, u1, null), 1,
+          "★★ A6 `traitsFilter = 780` ⇒ 先按 mutation 筛候选（剩 u2 + foe），再剔掉**施放者已挂过的那一条**（u2）⇒ 期望 **1**"
+        + "（⚠️ 不是旧的 `count0 - 1`：两尊督军没有 mutation，被 ① 筛掉）"
+        + "｜🧨 不实现 ① ⇒ -1；② 没接 ⇒ 2；② 剔过头 ⇒ 0；① 不生效 ⇒ 3");
         var setPlain2 = Set(10, 0);
         int cNoMut = Measure(ctx, setPlain2, u1, null);
         C(cNoMut, count0, "★ A7 `traitsFilter = 0` ⇒ 一个都不剔（⛔ 别在别处无条件去重 —— 那会把目标池剔一半）");

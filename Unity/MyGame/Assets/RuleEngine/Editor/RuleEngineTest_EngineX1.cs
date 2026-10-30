@@ -246,7 +246,7 @@ public static partial class RuleEngineTest
         var mine = Place(ctx, 0, 3, Unit("Anchor", 1, 2, 4));      // `thisCard`（载体）
         var ally = Place(ctx, 0, 5, Unit("Ally", 1, 2, 4));        // 己方候选（⚠️ 不能拿 `mine` 当候选：
                                                                    //   那样会先被 `includeSelf=0` 淘汰 ⇒ 量不到阵营闸）
-        var foe = Place(ctx, 1, 4, Unit("Foe", 1, 2, 4));
+        var foe = Place(ctx, 1, 5, Unit("Foe", 1, 2, 4));
 
         // ta=100 + `enemyUnits=1 / friendlyUnits=0`（其余格显式给值 ⇒ 不留 Unknown）
         var set = new CardDef.CountSetSpec

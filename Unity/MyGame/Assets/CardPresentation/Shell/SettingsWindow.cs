@@ -2604,14 +2604,14 @@ namespace CardPresentation
                 var links = Node(page, "Social Media Links", AcSocL, AcSocT, AcSocR, AcSocB);
                 for (int i = 0; i < AcSocNode.Length; i++)
                 {
-                    var n = Node(links, AcSocNode[i], AcSocX1[i], AcSocY1[i], AcSocX2[i], AcSocY2[i]);
-                    // 🔴 **图名是原版 `Image.m_Sprite` 解出来的名字** —— 那五张**本地还没有**
-                    //    （`Discord-Logo-Color` / `Instagram_icon` / `fb-icon` /
-                    //     `Twitter_Social_Icon_Rounded_Square_Color` / `YouTube_full-color_icon_(2017).svg`
-                    //     —— 五张在 `d:/2/Warpforge_tools/data/ui_extract/atlasgroup_assets_all/Sprite/` 里都有，
-                    //     只是**没导进本工程**）⇒ `Rect` 会返回 null、`Tex` 会**出声**（`MissingArt` + 一条 warning，
-                    //     ⛔ 不静默）。**导图是另一条线**（`工具/import_original_art.py` 的 `MENU_IMAGES`），
-                    //     不在本件白名单 ⇒ 已写进报告。那时**本行一个字都不用改**、图自己就亮了。
+                    var n = Node(links, AcSocNode[i], AcSocX1[i], AcSocY1[i], AcSocX2[i], AcSocY2[i]); Rect(n, "Image", AcSocX1[i], AcSocY1[i], AcSocX2[i], AcSocY2[i], AcSocArt[i], QContent, null, true);
+                    // 🆕 2026-10-30（B101_R3）：**这五张图以前从来没画过** —— `AcSocArt[]` 只有名字、循环里没有 `Rect` 调用
+                    //    （上面那一行是本次补的；五张 logo 已由 `B100_F3` 的 A7-A11 导进 `Resources/Art/ui_menu/`）。
+                    //    原版（`Social Media Links` 子树现读）：Image = 各家 logo · Simple · 白 · **PA=1** ·
+                    //    视觉 114.7 宽（Discord 85.5 高 / IG·FB·Twitter 67.5 / Youtube 72）⇒ `keepAspect = true`。
+                    //    ⚠️ `YouTube_full-color_icon_(2017).svg` 的落盘名自带 `.svg`（`…svg.png`），`CardArt.MenuUi`
+                    //    只拼 `ui_menu/<名>` ⇒ 这个名字**原样传**才对得上（⛔ 别去掉 `.svg`）。
+                    //    ⛔ 图名一律取自 `AcSocArt[]`（= 原版 `Image.m_Sprite` 解出来的），别另写字符串；自检 = `Editor/B101R3_Assert.cs` 的 `RunSettings()`。
                     // ⚠️ **悬停不换图**：原版这五颗的 `m_SpriteState` 指的是 `40K_button_hover`/`_pressed`
                     //    （同一个 pid 与别处那颗 `40K_button` 完全一致 ⇒ prefab 里的 copy-paste 残留），
                     //    而**常态图是各家自己的 logo** ⇒ 照它换图会把 logo 换成一块通用按钮底。
@@ -6838,6 +6838,11 @@ namespace CardPresentation
             w.BuildLoginWindow(page);
             return w;
         }
+
+        // ---- 🆕 2026-10-30（B101_R3）：自检读口 ----
+        //   挂在 `SettingsWindow` partial 的**末尾**（本文件被账按行号钉着，最深引用 `:6700` ⇒ 这里加行不漂移）。
+        /// <summary>`Tex()` 记账的缺图表（`MissingArt` 是 private，自检读不到）。判据 → `报告/B101_R3_资源接线施工单.md` §A3。</summary>
+        public List<string> MissingArtForTest { get { return MissingArt; } }
     }
 
     /// <summary>画质档的**持久化**（原版 `GameStaticData.graphicsQuality`(+0x120) 由

@@ -120,7 +120,7 @@ public static partial class RuleEngineTest
         int me = ctx.Active;
         var cEnemy = Place(ctx, me, 2, E8bAbilityCard("E8bEnemySide", "Damage 2 EnemyUnit", E8bCrit(1, 0)));
         var cFriend = Place(ctx, me, 3, E8bAbilityCard("E8bFriendSide", "Heal 2 FriendlyUnit", E8bCrit(0, 1)));
-        var cAny = Place(ctx, me, 4, E8bAbilityCard("E8bAnySide", "Damage 2 EnemyUnit", E8bCrit(1, 1)));
+        var cAny = Place(ctx, me, 6, E8bAbilityCard("E8bAnySide", "Damage 2 EnemyUnit", E8bCrit(1, 1)));
         var cUnknown = Place(ctx, me, 5, E8bAbilityCard("E8bUnknownSide", "Damage 2 EnemyUnit", E8bCrit(1, 0), versioned: false));
         string why;
         Check((int)RuleCore.AbilityPickSideOf(ctx, me, cEnemy, out why), 1,

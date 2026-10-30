@@ -11218,7 +11218,7 @@ namespace CardPresentation
             if (op.Verb == "choosecard")
             {
                 string srcName, detail, why;
-                var cands = RuleCore.ChooseCardCandidates(Ctx, _me, op, out srcName, out detail, out why);
+                var cands = ChoicePanelPool.PanelChoiceCandidates(Ctx, _me, op, PendingCard, _pendingInst, _pendingIdx, out srcName, out detail, out why);   // 🔴 2026-10-30（`B101_E2` · 账 254 `ChoiceOfCardPlayer`）：**面板这一侧算候选必须剔掉「正在打出的那一张」**（只对 `ChooseSrc == "hand"` 且「这一份此刻真的还在自己手牌里」成立时剔一份）—— 判据 = 报告 `资料/完全复刻/报告/B100_V1.md` §「254」＋ `B100_X12.md` 条目 4 / 7 /「注意」第 1 条 ＋ 原版 `BattleManager__GetChoiceOptions.c:36`（**池与 options 在同一刻算**：`GetChoiceFullPool(...)` 是 `GetChoiceOptions` 的**第一句**）。我们的调用序是「面板早于 `DoPlay` → 引擎在牌离手之后算」（`EffectResolver.cs:4802` → `:4736 case "hand": ps.Hand.ConvertAll(h => h.Card)`）⇒ 面板池**多一张**（就是这张牌自己）⇒ ① `TakePeekedChoiceOptions` 的「候选逐项同 id 同序」复核次次失败、每局刷 `LogWarning`（`EffectResolver.cs:20231`）② 面板会把正在打出的那张摆成选项（`Path of the Seer` 每局必现，原版永不会出现）。⛔ **这不等于改随机流**：剔的只是**交给玩家看的那份候选表**，`PeekChoiceOptions` / `TakePeekedChoiceOptions` / `BuildChoiceOptions` 的随机消费**一格没动**（引擎照旧在结算那一刻按原版抽 ⇒ `play check` / `play all dump` 必须逐字节不变）；正因为剔完两刻的池逐项相同，四条复核才命中、面板摆的才真是引擎抽的那一份。逐族核对与实现 → 本文件末尾的 `ChoicePanelPool`（同一物理行替换，零行数漂移，铁律 18·b）。
                 if (why == null && cands != null && cands.Count > 0)
                 {
                     // 🔴 **先随机抽 min(上限, 候选数) 张再给玩家挑**（判据见 `ChooseShowDefault` 那段，
@@ -38954,6 +38954,87 @@ namespace CardPresentation
                 return RuleCore.CanPickAlternativeTarget(Ctx, _me, _selectedSlot, alt, t)
                      ? RuleCodes.OK : RuleCodes.ErrTarget;
             return AbilityTargetCodeOr(u, t);   // ④ 主动能力问 `CanUseActiveAbility`，其余仍 `CanUseAbility`
+        }
+    }
+}
+
+namespace CardPresentation
+{
+    /// <summary>
+    /// 🔴 2026-10-30（`B101_E2` · 账 254 `ChoiceOfCardPlayer`）：**选牌面板这一侧的「候选池」唯一入口** ——
+    /// 职责只有一条：在 <see cref="RuleCore.ChooseCardCandidates"/> 之上**剔掉「正在被打出的那一张」**，
+    /// 让「面板那一刻的池」与「引擎结算那一刻的池」逐项同 id 同序。
+    ///
+    /// <para><b>判据（原版 + 两份复核报告）</b>：原版 `BattleManager__GetChoiceOptions.c:36` 的**第一句**就是
+    /// `GetChoiceFullPool(...)` —— **池与 options 在同一刻算**，原版没有「面板先算一份、结算再算一份」这回事。
+    /// 我们这边拆成了两刻：面板早于 `DoPlay`（`BattleDriver.BeginPlay` → `ShowAsk`），引擎在**牌离手之后**算
+    /// （`EffectResolver.cs:4802` → `:4736 case "hand": ps.Hand.ConvertAll(h => h.Card)`）⇒ `hand` 族的面板池
+    /// **多一张**（正是这张牌自己）。复核出处：`资料/完全复刻/报告/B100_V1.md` §「254」·
+    /// `B100_X12.md` 条目 4 / 7 /「注意」第 1 条。</para>
+    ///
+    /// <para><b>为什么「剔 <c>PendingCard</c>」不等于「改随机流」</b>：剔的是**交给玩家看的那份候选表**，
+    /// `PeekChoiceOptions` / `TakePeekedChoiceOptions` / `BuildChoiceOptions` 的**随机消费一格没动** ——
+    /// 引擎照旧在结算那一刻按原版 `GetChoiceOptions` 抽（`play check` / `play all dump` 必须逐字节不变）。
+    /// 反过来：正因为两刻的池逐项相同，那四条复核才命中、面板摆的才真的是引擎抽的那一份
+    /// （`EffectResolver.cs:20221 TakePeekedChoiceOptions`）。</para>
+    ///
+    /// <para><b>逐族核对（`B100_X12`「注意」第 1 条点名要做的那一步，2026-10-30 现核）</b>：
+    /// 只有 <c>hand</c> 族会因「这张牌离手」而变一张。其余五族与**我们自己的手牌**结构上无关 ——
+    /// <c>enemyhand</c> 读 `foe.Hand` · <c>deck</c> 读 `ps.Deck` · <c>dead</c> 读 `ctx.DeadUnits` ·
+    /// <c>played</c> 读 `ctx.PlayedCards` · <c>pool</c> / <c>specific</c> 读 `ctx.CardPool` ⇒ **一律不动它们**。
+    /// 现池逐族张数（`RuleCore.PlayerChooseOps` 实扫，见断言 `B101E2_Assert` A 段）：`hand` 4 · `deck` 13 ·
+    /// `enemyhand` 4 · `dead` 5 · `played` 1 · `pool` 30 · `specific` 6。
+    /// ⚠️ **已知残余（只报不改）**：`played` 族若**在同一个出牌结算里**问牌（`ctx.NotePlayed` 在 `ResolveOps`
+    /// 之前就落账，`RuleCore.cs:4114`），两刻的池也会差一张（结算那刻**多出**正在打的那张）——
+    /// 现池唯一一张 `played` 卡（`UM97 Suppressor`）走的是**誓约主动技能**、不经过出牌 ⇒ 今天零影响。
+    /// ⛔ 别顺手把语义改成「剔 `played`」—— 那会造出原版没有的行为（先报，由调度台裁定）。
+    /// </para>
+    /// </summary>
+    public static class ChoicePanelPool
+    {
+        /// <summary>面板侧候选池 = <see cref="RuleCore.ChooseCardCandidates"/> 的结果**再剔掉正在打出的那一张**。
+        /// <para>形参口径与面板现场一一对应：<paramref name="pendingCard"/> = `BattleDriver.PendingCard` ·
+        /// <paramref name="pendingInst"/> = `_pendingInst` · <paramref name="pendingIdx"/> = `_pendingIdx`
+        /// （后者只在 `_pendingInst` 取不到时兜底，见 `PendingCard` 的注释）。</para>
+        /// <para>⛔ 这个方法是**纯读 + 只改传进来的那份候选表**：不消耗随机、不写 `ctx`、不出事件。</para></summary>
+        public static List<CardDef> PanelChoiceCandidates(BattleContext ctx, int owner, EffectOp op,
+                    CardDef pendingCard, CardInstance pendingInst, int pendingIdx,
+                    out string srcName, out string detail, out string why)
+        {
+            var cands = RuleCore.ChooseCardCandidates(ctx, owner, op, out srcName, out detail, out why);
+            ExcludePendingHandCard(ctx, owner, op, cands, pendingCard, pendingInst, pendingIdx);
+            return cands;
+        }
+
+        /// <summary>把「正在打出的那一张」从面板候选里剔**一份**（就地改 <paramref name="cands"/>）。
+        ///
+        /// <para>三条闸（缺一条就不剔 —— 宁可不动，也不造原版没有的行为）：</para>
+        /// <list type="number">
+        ///   <item><b>只对 <c>ChooseSrc == "hand"</c></b>：其余族的池与本方手牌无关（逐族见类头注释）。</item>
+        ///   <item><b>只在这一份此刻真的还在自己手牌里时</b>：出牌那一批（`BeginPlay`）成立 —— 真正的出牌发生在
+        ///     面板关掉之后；主动技能 / 英雄议程那一批（`Resolve` 的 `_pendingInst = u.Instance`、`_pendingIdx = -1`）
+        ///     **不成立**（那一份在场上，手牌没变）⇒ 剔了就是错剔掉另一张同名卡。判据 = 本类的
+        ///     <paramref name="pendingInst"/> / <paramref name="pendingIdx"/> 与现场完全同源。</item>
+        ///   <item><b>按 <c>Id</c> 剔**一份**、不按位置剔</b>：`ChooseCardCandidates` 出来的表已经过筛选，
+        ///     位置与手牌下标不再一一对应；而「手牌少一份某 id」与「筛后表少一份该 id」在**逐项同 id 同序**上等价
+        ///     （同 id 的几份在候选表里是同一张卡模板，剔哪一份都得到同一个 id 序列）。</item>
+        /// </list>
+        /// </summary>
+        public static void ExcludePendingHandCard(BattleContext ctx, int owner, EffectOp op, List<CardDef> cands,
+                    CardDef pendingCard, CardInstance pendingInst, int pendingIdx)
+        {
+            if (ctx == null || op == null || cands == null || cands.Count == 0) return;
+            if (op.Verb != "choosecard" || op.ChooseSrc != "hand") return;
+            if (pendingCard == null || string.IsNullOrEmpty(pendingCard.Id)) return;
+            if (owner < 0 || owner >= ctx.Players.Length || ctx.Players[owner] == null) return;
+            var hand = ctx.Players[owner].Hand;
+            if (hand == null) return;
+            // 「这一份此刻还在手牌里吗」—— 与 `BattleDriver.PendingCard` 同一个取值次序（先实例、后下标兜底）
+            bool inHand = pendingInst != null ? hand.IndexOf(pendingInst) >= 0
+                                              : (pendingIdx >= 0 && pendingIdx < hand.Count);
+            if (!inHand) return;
+            int i = cands.FindLastIndex(x => x != null && x.Id == pendingCard.Id);
+            if (i >= 0) cands.RemoveAt(i);
         }
     }
 }

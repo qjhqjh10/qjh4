@@ -617,7 +617,10 @@ namespace CardPresentation.Net
         ///    进指纹只会让「换一张同名牌」这种真差异被号码盖掉（`Fingerprint` 的注）。
         ///    ⚠️ **唯一例外** = `HandEffect.OnlyInstanceId`：它**不是**牌的序号，而是「这条记录只补给哪一份」
         ///    的**语义字段**（`CardInstance.HandEffect` 的注），而且号跟着 `ctx` 走、两端必然相同 ⇒ 进；
-        /// ② `ctx.Events` / `ActionLog` —— 表现层随时抽干（`StateHash` 的注）；
+        /// ② `ctx.Events` / `ActionLog` —— 🔴 **2026-10-30 就地订正（铁律 5 · `B101_Q1` 现核）**：原句写「表现层**随时抽干**」，
+        ///    而 `ctx.Events` **没有任何 drain**（`StateHash` 的注已经改口：表现层抽的是 `Ctx.Signals`）⇒ 这句话是错的。
+        ///    真实理由 = **它是只增不减的诊断/日志面**：任何「只在一端发生」的引擎调用只要写了 `ctx.Log`，两端就会分叉
+        ///    （实测差 `4×31² = 3844`，而两端 `PlayerHash` 完全相同）⇒ **它不进指纹**。⛔ 别拿「会被抽干」当理由。
         /// ③ `CostMod.Criteria` 的**整对象 / 引用身份** —— 它是卡池里的共享筛选器对象，
         ///    没有规范化序列化 ⇒ 只取它那几个**字符串判据**（`KindWord`/`Keyword`/`Name`）+ `WarlordOnly`；
         /// ④ `TempControls[i].Unit` 的**对象引用** —— 只取它的归属/回合/原格号（引用身份跨进程不可比）

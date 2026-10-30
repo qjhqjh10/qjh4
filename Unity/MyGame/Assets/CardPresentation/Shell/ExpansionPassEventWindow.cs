@@ -1099,11 +1099,11 @@ namespace CardPresentation
                 null, null, null, null, null, clickCue: WindowSounds.PositiveCue);
 
             // ---- `Premium Glow`（`40k_Rewards_icon_base card SDF` · 视觉框 408.90×506.71）----
-            // 这张图**没导入 `Resources/`**（源 = `Art/原版/0_mainmenu/40k_Rewards_icon_base_card.png`，
-            // 而 prefab 用的是 `..._card SDF` 变体）⇒ 只建节点、不画。
-            MenuDraw.Node(root, "Premium Glow", PremiumGlowR);
-            Note("`Premium Glow`：原版 `40k_Rewards_icon_base card SDF` 未导入 `Resources/`"
-                 + "（源 = `Assets/CardPresentation/Art/原版/0_mainmenu/40k_Rewards_icon_base_card.png`）⇒ 这一件没画");
+            // 🆕 2026-10-30（B101_R3）：图已由 `B100_F3`（B6）导进 `Resources/Art/ui_menu/40k_Rewards_icon_base_card_SDF.png`。
+            //   原版（`bundle_menus_assets_all/GameObject/Premium Glow.json` 现读）：Simple(type 0) · 白 · **非 PA** · enabled=1；显隐 = `m.IsPremium`
+            MenuDraw.Rect(root, Tex("40k_Rewards_icon_base_card_SDF", "Premium Glow"), PremiumGlowR, "Premium Glow", QCardArt, null, false);
+            // （B101_R3 已删）原 `Note("…未导入 Resources/ ⇒ 这一件没画")`：图已在盘上，节点现在**真的画图**了；
+            //   显隐仍由下方 `ApplyRewardDrawer` 那句 `FindDeep("Premium Glow").SetActive(m.IsPremium)` 驱动（未改动）；⛔ 别拿 `40k_Rewards_icon_base_card.png`（非 SDF 那张）顶。
 
             // ---- `Collect Highlight Effect`（`Border_Line_FX` 九宫 50 · ppuMul 0.5 · 图 alpha 实读 = 0）----
             var hi = MenuDraw.Node(root, "Collect Highlight Effect", CollectHiR);

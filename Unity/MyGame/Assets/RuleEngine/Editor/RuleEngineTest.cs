@@ -7945,29 +7945,29 @@ public static partial class RuleEngineTest
         CheckTrue(gsc35 != null, "卡池里有 `GSC35 Benefictus`（`Deal damage … equal to the number of cards in the enemy hand`）");
         if (gsc35 == null) return;
 
-        var ctx = BattlePool(new[] { gsc35 }, new CardDef[0], pool);
+        var ctx = B101R2_B88Battle(gsc35, pool);                     // 见 `Editor/RuleEngineTest_B101R2.cs`
         ToP1Turn(ctx, 1);
         ctx.Players[0].Energy = 20;                                  // GSC35 = 7 费
-        // 夹具：**直接**往敌方（P1）手牌里放「2 单位 + 1 战术 + 1 附魔模板」——
-        //   附魔**不该被数**（`includeSpells` 只认战术）。⚠️ 不用开局抽牌凑，免得手牌张数随开局规则漂。
-        ctx.Players[1].Hand.Add(ctx.NewInstance(Unit("EHandUnit1", 1, 0, 9)));
-        ctx.Players[1].Hand.Add(ctx.NewInstance(Unit("EHandUnit2", 1, 0, 9)));
-        ctx.Players[1].Hand.Add(ctx.NewInstance(Tactic("EHandTactic", 1, "Draw a card")));
-        ctx.Players[1].Hand.Add(ctx.NewInstance(
-            new CardDef("EHandEnchant", "EHandEnchant", "enchantment", "", null, "Test", 0, 0, 0, 0, null)));
+        // 🔴 2026-10-30（`B101_R2` · 150642）：组局换 `B101R2_B88Battle` —— 敌手 = 2 单位 + 1 战术 + **1 张督军卡**，
+        //   四张都**卡面值齐全**（`rarity` + `cardTraits`，见 `GaugeCard` 的 doc）。改前是手搓 `Unit(...)`/`Tactic(...)`
+        //   （`rarity = null`、没挂 `cardTraits`）＋ `BattlePool` 的 20 张 filler ⇒ `MatchesRawCard` 的 ④/⑤ 两格判不了
+        //   ⇒ 整条 `ta=50` 计数 `null` ⇒ 80 档那句出声（`EffectResolver.cs:14154`，**在计数之后**）发不出来（本行就是这么红的）。
+        //   那张 `hero` 取代了改前的 `enchantment`：两者都是「按 `Hand.Count` 数会多 1」的判别式，但 `hero` 被
+        //   `includeHero = 0` 排除是**原版口径**；`enchantment` 的 `cardType` 也是 **20**、原版会数它（报告 §五·1）。
+        // 判据：`AbilityLogic__PlayAbility.c:181-236`（`multiplierFactor` = `GetTargets` 的 Count）＋ `B88_R2_80档_VA判定.md` §一。
         var foe = Place(ctx, 1, 3, Unit("BigFoe", 1, 0, 20));        // 唯一的敌方**部队**（督军不算）⇒ 目标确定
         int hp0 = foe.Health;
 
-        // 期望值现算：敌方手牌里 `unit` + `tactic` 的张数（⛔ 不用 `Hand.Count` —— 附魔不算）
-        int expect = 0; bool sawEnchant = false;
+        // 期望值现算：敌手卡种里 `unit` + `tactic` 的张数；`hero` 被 `includeHero = 0` 排除（⛔ 不用 `Hand.Count`）
+        int expect = 0, heroes = 0, handCount = ctx.Players[1].Hand.Count; bool sawOtherKind = false;
         foreach (var inst in ctx.Players[1].Hand)
         {
             if (inst == null || inst.Card == null) continue;
-            if (inst.Card.Type == "enchantment") sawEnchant = true;
-            if (inst.Card.Type == "unit" || inst.Card.Type == "tactic") expect++;
+            if (inst.Card.Type == "hero") { heroes++; continue; }
+            if (inst.Card.Type == "unit" || inst.Card.Type == "tactic") expect++; else sawOtherKind = true;
         }
-        CheckTrue(sawEnchant, "夹具（前提）：敌方手里**有**一张 `enchantment` ⇒ 下面那条「不计它」才被验到");
-        CheckTrue(expect >= 2, $"夹具（前提）：敌方手牌里 **单位+战术 = {expect}** 张（≥2 才分得出「平方」）");
+        CheckTrue(heroes == 1 && !sawOtherKind, "夹具（前提）：敌手**恰好 1 张 `hero`**、且没有 `defence`/`enchantment`/认不出的卡种 ⇒ 「按 `Hand.Count` 数」这条错写法必红，而两条计数口径不会分歧");
+        CheckTrue(expect >= 2 && expect == handCount - heroes, $"夹具（前提）：敌方手牌 {handCount} 张、其中 `hero` {heroes} 张 ⇒ 该数 **{expect}**（≥2 才分得出「平方」）");
 
         int slot = SimpleAI.FirstFreeSlot(ctx.Players[0]);
         CheckTrue(slot >= 0, "夹具：本方有空位放 `Benefictus`");
@@ -7977,7 +7977,7 @@ public static partial class RuleEngineTest
         Check(foe.Health, hp0 - expect,
               $"★ 80 档：伤害 = `min + max × 敌方手牌(单位+战术)` = {expect}（{hp0} → {foe.Health}）"
             + $"｜🧨 若那个乘数**又被当循环遍数**会打 {expect * expect} 点（= 平方）；"
-            + "若按 `Hand.Count` 数（把附魔也算进去）会多 1");
+            + "若按 `Hand.Count` 数（把那张 `hero` 也算进去）会多 1");
         bool guardSaid = false;
         foreach (string e in ctx.Events)
             if (e != null && e.Contains("80 档") && e.Contains("计数 = " + expect)) guardSaid = true;
@@ -17633,26 +17633,26 @@ public static partial class RuleEngineTest
         //     抢不过来 + 记 `unresolved`），**不是**归还处 —— 这一条就是钉它的。
         //  ⚠️ 归还那一半（原主满了还不还）**判据仍未追到**（见 `BattleContext.TempControl`），本波不动。
         {
-            var td2 = CreatePool.FindByName(pool, "Telepathic Domination");
-            CheckTrue(td2 != null, "（前提）卡池里还有 `Telepathic Domination`");
-            if (td2 != null)
-            {
-                var ctx = BattlePool(new[] { td2 }, new[] { Unit("EFoe3", 1, 3, 5) }, pool,
-                                     warlordFaction: "Genestealers");
-                ToP1Turn(ctx, 1);
-                ctx.Players[0].Energy = 12;
-                Place(ctx, 1, 5, Unit("EVictim3", 1, 3, 5), exhausted: true);
-                // 把**抢的人**（P1）的部署位全部填满（督军那一格不算）
-                for (int s = 0; s < BoardSpec.Size; s++)
-                    if (BoardSpec.IsDeployable(s)) Place(ctx, 0, s, Unit("Fill" + s, 1, 1, 1));
-                CheckTrue(!ctx.Players[0].HasFreeSlot(), "（前提）抢的人**一个空位都没有了**");
-
-                RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "Telepathic Domination"), 5);
-                CheckTrue(SlotOf(ctx, 1, "EVictim3") >= 0 && SlotOf(ctx, 0, "EVictim3") < 0,
-                          "★ **它没被抢过去**（原版 `IsAvailableSlot` 假 ⇒ 整个转移不作数）" + LogTail(ctx));
-                CheckTrue(Joined(ctx).IndexOf("抢不过来", System.StringComparison.Ordinal) >= 0,
-                          "……而且**如实出声**（不许静默失败）");
-            }
+            // 🔴 2026-10-30（`B101_R2` · 152543）：**不能用真卡 `GSC49`** —— 它的 ability 级 board gate 是「本方部队 ≤ 7」
+            //   （`cards_engine.json` 的 `unitConditions[role=count]`：`opt 0 / op 3(≤) / ref 7`），而「接手方满场」在本版棋盘上
+            //   = 8 个部署格全占 = **8 个部队** ⇒ 闸先判假 ⇒ 整段正文不结算（原版 `CardAbility__CanTriggerAbility.c:136-140`
+            //   的 board 闸，我们照抄）⇒「抢不过来」那一支**结构上到不了** ⇒ 改用**没有 criteria 的合成战术卡**（同 ⑨c 的 `TBareSteal`）
+            var tFull = Tactic("TFullSteal", 1, "Take control of an enemy troop this turn");
+            var opsFull = EffectText.Parse(tFull.Desc, out _, out _);
+            CheckTrue(opsFull.Count == 1 && opsFull[0].Verb == "takecontrol",
+                      "（前提）`TFullSteal` 解成 **1 条** `takecontrol`（否则下面测的就不是「偷」）");
+            var ctx = BattlePool(new[] { tFull }, new[] { Unit("EFoe3", 1, 3, 5) }, pool,
+                                 warlordFaction: "Genestealers");
+            ToP1Turn(ctx, 1); ctx.Players[0].Energy = 12;
+            Place(ctx, 1, 5, Unit("EVictim3", 1, 3, 5), exhausted: true);
+            // 把**抢的人**（P0 = 施放者）的部署位全部填满（督军那一格不算）
+            for (int s = 0; s < BoardSpec.Size; s++) if (BoardSpec.IsDeployable(s)) Place(ctx, 0, s, Unit("Fill" + s, 1, 1, 1));
+            CheckTrue(!ctx.Players[0].HasFreeSlot(), "（前提）抢的人**一个空位都没有了**");
+            RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "TFullSteal"), 5);
+            CheckTrue(SlotOf(ctx, 1, "EVictim3") >= 0 && SlotOf(ctx, 0, "EVictim3") < 0,
+                      "★ **它没被抢过去**（原版 `IsAvailableSlot` 假 ⇒ 整个转移不作数）—— 这一句与下面那句**合起来**才不是假绿" + LogTail(ctx));
+            CheckTrue(Joined(ctx).IndexOf("抢不过来", System.StringComparison.Ordinal) >= 0,
+                      "……而且**如实出声**（不许静默失败）");
         }
 
         // ---------- ⑨c 🔴 **2026-10-08（`D28` 施工单 B）：入场那一刻【无条件】置召唤病** ----------
@@ -26714,7 +26714,7 @@ public static partial class RuleEngineTest
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             ToP1Turn(ctx, 1);
             var live = Place(ctx, 0, 2, Unit("W58SQ-Live", 1, 0, 5), exhausted: true);
-            var doomed = Place(ctx, 0, 4, Unit("W58SQ-Doomed", 1, 0, 1), exhausted: true);
+            var doomed = Place(ctx, 0, 3, Unit("W58SQ-Doomed", 1, 0, 1), exhausted: true); B101R2RequireWarlord(ctx, "W58SQ");   // B101_R2：原写 4 = 督军格（`RuleCore.cs:655` 写 `Board[4]`）⇒ 会把督军挤出盘面；5 被 `gone` 占 ⇒ 用 3
             var gone = Place(ctx, 0, 5, Unit("W58SQ-Gone", 1, 0, 1), exhausted: true);
 
             // (c) 的前置：**单独一条顶层动作**把它打死 ⇒ `ActionScope` 退出时 `DyingThisAction` 被清，
@@ -37944,7 +37944,7 @@ public static partial class RuleEngineTest
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             var target = Place(ctx, 1, 3, Unit("FixtureTarget", 1, 2, 10));
             var sneak = Place(ctx, 0, 3, Unit("FixtureSneak", 1, 5, 5, "sneak attack"));
-            var terror = Place(ctx, 0, 4, Unit("FixtureTerror", 1, 5, 5, "terror"));
+            var terror = Place(ctx, 0, 2, Unit("FixtureTerror", 1, 5, 5, "terror")); B101R2RequireWarlord(ctx, "CounterAttack");   // B101_R2：原写 4 = 督军格；5/6 被 `lr`/`sn` 占 ⇒ 用 2
             var lr = Place(ctx, 0, 5, Unit("FixtureLR", 1, 5, 5, "long range"));
             var sn = Place(ctx, 0, 6, Unit("FixtureSniper", 1, 5, 5, "sniper"));
 
@@ -37960,7 +37960,7 @@ public static partial class RuleEngineTest
                       "★ LongRange 反例：**近战**打法不免（⛔ 别退回「远程武器近战也免」）");
             CheckTrue(CounterAttack.NoCounter(ctx, 0, sn, 1, target, true, true),
                       "★ Sniper：远程 + 会击杀 + 守方未受保护 ⇒ 免反击");
-            var shielded = Place(ctx, 1, 4, Unit("FixtureShield", 1, 2, 10, "shield"));
+            var shielded = Place(ctx, 1, 6, Unit("FixtureShield", 1, 2, 10, "shield")); B101R2RequireWarlord(ctx, "CounterAttack-Shield");   // B101_R2：原写 4 = 督军格；5 留给下一行的 `terrorBig` ⇒ 用 6
             CheckTrue(!CounterAttack.NoCounter(ctx, 0, sn, 1, shielded, true, true),
                       "★ Sniper 反例：守方有 Shield（`IsProtectedFromDamageOrSurvivor`）⇒ **不**免反击");
             var terrorBig = Place(ctx, 1, 5, Unit("FixtureTerrorBig", 1, 9, 10));
@@ -37984,7 +37984,7 @@ public static partial class RuleEngineTest
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             var twins = Unit("FixtureTwins", 1, 1, 5);
             var a = Place(ctx, 0, 3, twins);
-            var b = Place(ctx, 0, 4, twins);
+            var b = Place(ctx, 0, 5, twins); B101R2RequireWarlord(ctx, "Twins");   // B101_R2：原写 4 = 督军格（`RuleCore.cs:655` 写 `Board[4]`）⇒ 会把督军挤出盘面
             ctx.DeadUnits.Add(new DeadUnit { Card = twins, Instance = a.Instance, Owner = 0, DeathTurn = ctx.Turn });
             ctx.DeadUnits.Add(new DeadUnit { Card = twins, Instance = b.Instance, Owner = 0, DeathTurn = ctx.Turn - 1 });
             CheckTrue(ConditionEval.MeetsCard(ctx, twins, 0, 221, false, a.InstanceId) == true,

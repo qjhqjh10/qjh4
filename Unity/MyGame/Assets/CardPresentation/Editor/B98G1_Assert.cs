@@ -154,23 +154,35 @@ public static class B98G1_Assert
         Tr(ReferenceEquals(ps.Board[slot], leaver), "A0″ **前提断言**：它真在棋盘上（`CleanupDeaths` 按格扫）");
 
         int ran = 0;
-        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "g1-remnant", () => ran++,
-                                actor: leaver, abilityTarget: leaver, actionType: 0);
-        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "g1-other", () => { },
-                                actor: other, abilityTarget: other, actionType: 0);
-        Tr(HasLabel(ctx, "g1-remnant"), "A1 **前提断言**：载体自己的那条入队成功");
-        Tr(HasLabel(ctx, "g1-other"), "A1′ **前提断言**：邻居那条也入队成功（A4 的对照款）");
-
         bool becameRemnant;
         bool stillQueued;
-        // 🔴 **在外层 `BeginAction` 里读** —— `Hurt` 自带的作用域是**内层**（嵌套空转、不泵）
-        //   ⇒ 此刻看到的队列就是「残骸支跑完、泵点还没兜底」的那一瞬。
+        bool neighbourKept;
+        int ranInside;
+        // 🔴🆕 **2026-10-30（`B101_R1` · 判据 = `ActionPump.cs:80-89`）：入队与读数都必须在这个 `using` 里。**
+        //   `ActionScope` 的**构造函数**先 `PumpActionQueues(ctx)` 再置 `Resolving = true`
+        //   （= 「结掉上一个顶层入口的残留」的结构性兜底）⇒ **在 `using` 之前入队，进入作用域那一下
+        //   就把它们当场跑掉**：实测 b100g `:315688` A4=False（邻居条目已被跑完移除）、`:315705` A5=1
+        //   （载体那条的体真跑了）。A3 当时是 ✓，但那是「跑掉了」不是「撤掉了」——本段判别力靠下面同读三格。
         using (RuleCore.BeginAction(ctx))
         {
+            RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "g1-remnant", () => ran++,
+                                    actor: leaver, abilityTarget: leaver, actionType: 0);
+            RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "g1-other", () => { },
+                                    actor: other, abilityTarget: other, actionType: 0);
+            Tr(HasLabel(ctx, "g1-remnant"), "A1 **前提断言**：载体自己的那条入队成功");
+            Tr(HasLabel(ctx, "g1-other"), "A1′ **前提断言**：邻居那条也入队成功（A4 的对照款）");
+
+            // 🔴 **在这一层 `BeginAction` 里读** —— `Hurt` 自带的作用域是**内层**（嵌套空转、不泵）
+            //   ⇒ 此刻看到的队列就是「残骸支跑完、泵点还没兜底」的那一瞬。
             RuleCore.HurtWithSourceForTest(ctx, leaver, 99, "G1");
             becameRemnant = ps.Board[slot] != null && ps.Board[slot].IsRemnant
                             && !ReferenceEquals(ps.Board[slot], leaver);
             stillQueued = HasLabel(ctx, "g1-remnant");
+            // 🔴 **A4 / A5 也必须在块内读**：`Dispose` 会 `PumpActionQueues`（`ActionPump.cs:96`）
+            //    ⇒ 出了这个块，邻居那条已经跑掉、`ran` 也已经记上 ⇒ 在块外读**永远红**
+            //    （那是夹具的错，不是产品的 —— 同「前提断言先写」那一族）。
+            neighbourKept = HasLabel(ctx, "g1-other");
+            ranInside = ran;
         }
 
         Tr(becameRemnant, "A2 **前提断言**：这一下真的把 `G1Leaver` 翻成了残骸（补丁的落点就在那条支里）");
@@ -178,9 +190,9 @@ public static class B98G1_Assert
            "A3 ★★ 残骸支在【入队之后立刻】撤掉载体自己的排队动作"
            + "｜🧨 删掉 `RuleCore.cs:9871` 那句 `CancelEffectsFromDisappearingUnit(ctx, u, u, true)` ⇒ "
            + "条目会留到泵点才被 `CarrierReplacedByRemnant` 兜底 ⇒ 本行在**内层**读到它在 ⇒ 红");
-        Tr(HasLabel(ctx, "g1-other"),
+        Tr(neighbourKept,
            "A4 ★ 别的载体的条目**一条都没动**（`(u, u, true)` 的 ① `casterCard == jammedUnit` 那一道筛）");
-        C(ran, 0, "A5 被撤掉的那条**没有执行**（撤 ≠ 跑；🧨 若只剩泵点兜底，此格同样是 0 —— 判别力在 A3）");
+        C(ranInside, 0, "A5 被撤掉的那条**没有执行**（撤 ≠ 跑；🧨 若只剩泵点兜底，此格同样是 0 —— 判别力在 A3）");
     }
 
     // ============================================================ B 账 534①：ca == 350 进计划表

@@ -694,7 +694,7 @@ namespace CardPresentation
 
         // ---- Footer（R:159-166）----
         const float DoneX = 13f, DoneY = 1020.5f, DoneW = 188.5f, DoneH = 50.2f;
-        const float DoneHlX = 67.2f, DoneHlY = 933.5f, DoneHlW = 81.4f, DoneHlH = 223.2f;
+        public const float DoneHlX = -3.7f, DoneHlY = 1004.4f, DoneHlW = 223.2f, DoneHlH = 81.4f;
         const float CntX = 251.6f, CntY = 1020f, CntW = 75f, CntH = 50f;
         const float FootIcX = 201.6f, FootIcY = 1025f, FootIcW = 50f, FootIcH = 40f;
 
@@ -943,13 +943,13 @@ namespace CardPresentation
         /// 原版靠兄弟序（`Background` 是 `Content Area` 的第一个孩子）⇒ 侧栏压在它上面。</summary>
         const int QAreaBg = 2980;
         const int QSide = 3000;      // 侧栏底板
-        const int QDoneHl = 3001;    // Done 的外发光（原版它纵跨到卡组列表区，单独一层）
+        const int QDoneHl = 3001;    // Done 的外发光（🔴2026-10-30 B101_W3 订正：原版 `m_LocalRotation.z = 90°` ⇒ 视觉 223.2×81.4 **横条**罩住 Done 钮，⚠️不是竖条）
         /// <summary>🆕 **2026-10-17（D31）**：费用曲线抽屉的**底板**（原版 `Deck Information cost drawer/Background`）。
         /// 它只该压在**侧栏底板**（`QSide`）之上、又必须在**槽**（`QPanel`）**之下** ——
         /// 它与那 9 根槽 / 那两列字**真重叠 234×294.6 px** ⇒ ⛔ 不能与 `QPanel` 同层
         /// （同层既会撞上「同一层不许压住」那条断言、谁盖谁也不定）。
         /// 取 `QSide + 1`（= **3001**，与 `_cosmDrawerBack` 那条**同一个写法**）：本件 y 411..705.6、
-        /// `QDoneHl` 那颗 `foot_hl` y 933..1157 ⇒ **纵向不重叠**；与美容品那一页签也互斥 ⇒ 安全。</summary>
+        /// `QDoneHl` 那颗 `foot_hl` y 1004.4..1085.8 ⇒ **纵向不重叠**；与美容品那一页签也互斥 ⇒ 安全。</summary>
         const int QCurveBg = QSide + 1;   // 3001
         // 🔴 **2026-09-23 重排**（第 12 条 第 5 项）：原版卡组行的兄弟序是
         //    **`Background` → `Rarity Gradient` → `Border`**（行底最下）；我们原来是

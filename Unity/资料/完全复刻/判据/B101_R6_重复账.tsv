@@ -1,0 +1,764 @@
+组号	域	原版类	方法(原字符串)	文件:行	状态	规范化签名	组内条数	判断	依据(原版方法)
+1	未分类/其他	AlternateArtStyleItem	Release(AddressableCacheGroup cacheGroup)	未分类_其他.tsv:27	D	AlternateArtStyleItem.Release(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 AlternateArtStyleItem#1.Release#0
+1	未分类/其他	AlternateArtStyleItem<T>	Release(AddressableCacheGroup cacheGroup = 1)	泛型与启动链_补读.tsv:538	D	AlternateArtStyleItem.Release(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 AlternateArtStyleItem#1.Release#0
+2	未分类/其他	AlternateArtStyleItem	TryGetItem(AlternateArtSyle alternateArtSyle, out T returnItem)	未分类_其他.tsv:28	D	AlternateArtStyleItem.TryGetItem(AlternateArtSyle,out T)	2	真重复(同一原版方法)	原版 AlternateArtStyleItem#1.TryGetItem#0
+2	未分类/其他	AlternateArtStyleItem<T>	TryGetItem(AlternateArtSyle alternateArtSyle, out T returnItem)	泛型与启动链_补读.tsv:537	D	AlternateArtStyleItem.TryGetItem(AlternateArtSyle,out T)	2	真重复(同一原版方法)	原版 AlternateArtStyleItem#1.TryGetItem#0
+3	未分类/其他	AlternateArtStyleItem	TryRelease(AlternateArtSyle alternateArtSyle)	未分类_其他.tsv:29	D	AlternateArtStyleItem.TryRelease(AlternateArtSyle)	2	真重复(同一原版方法)	原版 AlternateArtStyleItem#1.TryRelease#0
+3	未分类/其他	AlternateArtStyleItem<T>	TryRelease(AlternateArtSyle alternateArtSyle)	泛型与启动链_补读.tsv:539	D	AlternateArtStyleItem.TryRelease(AlternateArtSyle)	2	真重复(同一原版方法)	原版 AlternateArtStyleItem#1.TryRelease#0
+4	未分类/其他	ArmyItem	Release(AddressableCacheGroup cacheGroup)	未分类_其他.tsv:38	D	ArmyItem.Release(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 ArmyItem#1.Release#0
+4	未分类/其他	ArmyItem<T>	Release(AddressableCacheGroup cacheGroup = 1)	泛型与启动链_补读.tsv:541	D	ArmyItem.Release(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 ArmyItem#1.Release#0
+5	未分类/其他	ArmyItem	TryGetItem(CardArmy cardArmy, out T returnItem)	未分类_其他.tsv:39	A	ArmyItem.TryGetItem(CardArmy,out T)	2	真重复(同一原版方法)	原版 ArmyItem#1.TryGetItem#0
+5	未分类/其他	ArmyItem<T>	TryGetItem(CardArmy cardArmy, out T returnItem)	泛型与启动链_补读.tsv:540	A	ArmyItem.TryGetItem(CardArmy,out T)	2	真重复(同一原版方法)	原版 ArmyItem#1.TryGetItem#0
+6	未分类/其他	ArmyItem	TryRelease(CardArmy armyToRelease)	未分类_其他.tsv:40	D	ArmyItem.TryRelease(CardArmy)	2	真重复(同一原版方法)	原版 ArmyItem#1.TryRelease#0
+6	未分类/其他	ArmyItem<T>	TryRelease(CardArmy armyToRelease)	泛型与启动链_补读.tsv:542	D	ArmyItem.TryRelease(CardArmy)	2	真重复(同一原版方法)	原版 ArmyItem#1.TryRelease#0
+7	未分类/其他	AssetProvider	Awake()	未分类_其他.tsv:42	A	AssetProvider.Awake()	2	真重复(同一原版方法)	原版 AssetProvider#1.Awake#0
+7	未分类/其他	AssetProvider<T>	Awake()	泛型与启动链_补读.tsv:543	A	AssetProvider.Awake()	2	真重复(同一原版方法)	原版 AssetProvider#1.Awake#0
+8	未分类/其他	AssetProvider	GetAssets()	未分类_其他.tsv:43	D	AssetProvider.GetAssets()	2	真重复(同一原版方法)	原版 AssetProvider#1.GetAssets#0
+8	未分类/其他	AssetProvider<T>	GetAssets()	泛型与启动链_补读.tsv:544	D	AssetProvider.GetAssets()	2	真重复(同一原版方法)	原版 AssetProvider#1.GetAssets#0
+9	未分类/其他	AssetReferenceTyped	Load(AddressableCacheGroup cacheGroup)	未分类_其他.tsv:44	D	AssetReferenceTyped.Load(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 AssetReferenceTyped#1.Load#0
+9	未分类/其他	AssetReferenceTyped<TObject>	Load(AddressableCacheGroup cacheGroup = 1)	泛型与启动链_补读.tsv:547	D	AssetReferenceTyped.Load(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 AssetReferenceTyped#1.Load#0
+10	未分类/其他	AssetReferenceTyped	Release(AddressableCacheGroup cacheGroup, bool releaseAll)	未分类_其他.tsv:45	D	AssetReferenceTyped.Release(AddressableCacheGroup,bool)	2	真重复(同一原版方法)	原版 AssetReferenceTyped#1.Release#0
+10	未分类/其他	AssetReferenceTyped<TObject>	Release(AddressableCacheGroup cacheGroup = 1, bool releaseAll = False)	泛型与启动链_补读.tsv:548	D	AssetReferenceTyped.Release(AddressableCacheGroup,bool)	2	真重复(同一原版方法)	原版 AssetReferenceTyped#1.Release#0
+11	未分类/其他	AssetReferenceTyped	ValidateAsset(string path)	未分类_其他.tsv:47	D	AssetReferenceTyped.ValidateAsset(string)	2	真重复(同一原版方法)	原版 AssetReferenceTyped#1.ValidateAsset#0
+11	未分类/其他	AssetReferenceTyped<TObject>	ValidateAsset(string path)	泛型与启动链_补读.tsv:546	D	AssetReferenceTyped.ValidateAsset(string)	2	真重复(同一原版方法)	原版 AssetReferenceTyped#1.ValidateAsset#0
+12	日常/奖励	BaseEventProgressClaimButtonController	CollectionClick()	日常_奖励.tsv:8	A	BaseEventProgressClaimButtonController.CollectionClick()	2	真重复(同一原版方法)	原版 BaseEventProgressClaimButtonController#1.CollectionClick#0
+12	日常/奖励	BaseEventProgressClaimButtonController<TState>	CollectionClick()	泛型与启动链_补读.tsv:161	A	BaseEventProgressClaimButtonController.CollectionClick()	2	真重复(同一原版方法)	原版 BaseEventProgressClaimButtonController#1.CollectionClick#0
+13	日常/奖励	BaseEventProgressClaimButtonController	Initialize(TState currentState, CurrencyValue normalPrice, Action onCollect)	日常_奖励.tsv:9	A	BaseEventProgressClaimButtonController.Initialize(TState,CurrencyValue,Action)	2	真重复(同一原版方法)	原版 BaseEventProgressClaimButtonController#1.Initialize#0
+13	日常/奖励	BaseEventProgressClaimButtonController<TState>	Initialize(TState currentState, CurrencyValue normalPrice, Action onCollect)	泛型与启动链_补读.tsv:160	A	BaseEventProgressClaimButtonController.Initialize(TState,CurrencyValue,Action)	2	真重复(同一原版方法)	原版 BaseEventProgressClaimButtonController#1.Initialize#0
+14	日常/奖励	BaseEventProgressRewardDrawerController	ChangeState(TState currentState)	日常_奖励.tsv:10	D	BaseEventProgressRewardDrawerController.ChangeState(TState)	2	真重复(同一原版方法)	原版 BaseEventProgressRewardDrawerController#1.ChangeState#0
+14	日常/奖励	BaseEventProgressRewardDrawerController<TState>	ChangeState(TState currentState)	泛型与启动链_补读.tsv:164	D	BaseEventProgressRewardDrawerController.ChangeState(TState)	2	真重复(同一原版方法)	原版 BaseEventProgressRewardDrawerController#1.ChangeState#0
+15	日常/奖励	BaseEventProgressRewardDrawerController	Initialize(IReadOnlyList<RewardInfo> rewards, bool isPremium, TState currentState)	日常_奖励.tsv:11	A	BaseEventProgressRewardDrawerController.Initialize(IReadOnlyList<RewardInfo>,bool,TState)	2	真重复(同一原版方法)	原版 BaseEventProgressRewardDrawerController#1.Initialize#0
+15	日常/奖励	BaseEventProgressRewardDrawerController<TState>	Initialize(IReadOnlyList<RewardInfo> rewards, bool isPremium, TState currentState)	泛型与启动链_补读.tsv:162	A	BaseEventProgressRewardDrawerController.Initialize(IReadOnlyList<RewardInfo>,bool,TState)	2	真重复(同一原版方法)	原版 BaseEventProgressRewardDrawerController#1.Initialize#0
+16	日常/奖励	BaseEventProgressRewardDrawerController	OverridePremiumBadge(Sprite sprite)	日常_奖励.tsv:12	A	BaseEventProgressRewardDrawerController.OverridePremiumBadge(Sprite)	2	真重复(同一原版方法)	原版 BaseEventProgressRewardDrawerController#1.OverridePremiumBadge#0
+16	日常/奖励	BaseEventProgressRewardDrawerController<TState>	OverridePremiumBadge(Sprite sprite)	泛型与启动链_补读.tsv:163	A	BaseEventProgressRewardDrawerController.OverridePremiumBadge(Sprite)	2	真重复(同一原版方法)	原版 BaseEventProgressRewardDrawerController#1.OverridePremiumBadge#0
+17	社交/聊天	BaseInboxEvent<TSave, TData>	GetMessage()	泛型与启动链_补读.tsv:619	A	BaseInboxEvent.GetMessage()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetMessage#0
+17	社交/聊天	BaseInboxEvent	GetMessage()	社交_聊天.tsv:177	A	BaseInboxEvent.GetMessage()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetMessage#0
+18	社交/聊天	BaseInboxEvent<TSave, TData>	GetMessageContent()	泛型与启动链_补读.tsv:620	A	BaseInboxEvent.GetMessageContent()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetMessageContent#0
+18	社交/聊天	BaseInboxEvent	GetMessageContent()	社交_聊天.tsv:178	A	BaseInboxEvent.GetMessageContent()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetMessageContent#0
+19	社交/聊天	BaseInboxEvent<TSave, TData>	GetRewards()	泛型与启动链_补读.tsv:622	A	BaseInboxEvent.GetRewards()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetRewards#0
+19	社交/聊天	BaseInboxEvent	GetRewards()	社交_聊天.tsv:179	A	BaseInboxEvent.GetRewards()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetRewards#0
+20	社交/聊天	BaseInboxEvent<TSave, TData>	GetTitle()	泛型与启动链_补读.tsv:618	A	BaseInboxEvent.GetTitle()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetTitle#0
+20	社交/聊天	BaseInboxEvent	GetTitle()	社交_聊天.tsv:180	A	BaseInboxEvent.GetTitle()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.GetTitle#0
+21	社交/聊天	BaseInboxEvent<TSave, TData>	IsRead()	泛型与启动链_补读.tsv:623	A	BaseInboxEvent.IsRead()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.IsRead#0
+21	社交/聊天	BaseInboxEvent	IsRead()	社交_聊天.tsv:181	A	BaseInboxEvent.IsRead()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.IsRead#0
+22	社交/聊天	BaseInboxEvent<TSave, TData>	RedeemableAt()	泛型与启动链_补读.tsv:621	A	BaseInboxEvent.RedeemableAt()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.RedeemableAt#0
+22	社交/聊天	BaseInboxEvent	RedeemableAt()	社交_聊天.tsv:182	A	BaseInboxEvent.RedeemableAt()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.RedeemableAt#0
+23	社交/聊天	BaseInboxEvent<TSave, TData>	StartDate()	泛型与启动链_补读.tsv:624	A	BaseInboxEvent.StartDate()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.StartDate#0
+23	社交/聊天	BaseInboxEvent	StartDate()	社交_聊天.tsv:183	A	BaseInboxEvent.StartDate()	2	真重复(同一原版方法)	原版 BaseInboxEvent#2.StartDate#0
+24	未分类/其他	BaseProgressBarScaleAndPositionController	Initialize(TState currentState, TState previousState, int level)	未分类_其他.tsv:74	D	BaseProgressBarScaleAndPositionController.Initialize(TState,TState,int)	2	真重复(同一原版方法)	原版 BaseProgressBarScaleAndPositionController#1.Initialize#0
+24	未分类/其他	BaseProgressBarScaleAndPositionController<TState>	Initialize(TState currentState, TState previousState, int level)	泛型与启动链_补读.tsv:549	D	BaseProgressBarScaleAndPositionController.Initialize(TState,TState,int)	2	真重复(同一原版方法)	原版 BaseProgressBarScaleAndPositionController#1.Initialize#0
+25	未分类/其他	BaseProgressBarScaleAndPositionController	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, TState stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	未分类_其他.tsv:75	D	BaseProgressBarScaleAndPositionController.SetPositionAndScale(Vector2,Vector2,TState,Vector2,Vector2)	2	真重复(同一原版方法)	原版 BaseProgressBarScaleAndPositionController#1.SetPositionAndScale#0
+25	未分类/其他	BaseProgressBarScaleAndPositionController<TState>	SetPositionAndScale(Vector2 positionToModify, Vector2 scaleToModify, TState stateToApply, Vector2 positionOffset, Vector2 scaleOffset)	泛型与启动链_补读.tsv:550	D	BaseProgressBarScaleAndPositionController.SetPositionAndScale(Vector2,Vector2,TState,Vector2,Vector2)	2	真重复(同一原版方法)	原版 BaseProgressBarScaleAndPositionController#1.SetPositionAndScale#0
+26	战斗逻辑驱动	BattleManager	ResolveDrawCard(BattleAction battleAction)	战斗逻辑驱动.tsv:510	A	BattleManager.ResolveDrawCard(BattleAction)	2	真重复(同一原版方法)	原版 BattleManager#0.ResolveDrawCard#0
+26	战斗逻辑驱动	BattleManager	ResolveDrawCard(BattleAction)	战斗逻辑驱动.tsv:511	A	BattleManager.ResolveDrawCard(BattleAction)	2	真重复(同一原版方法)	原版 BattleManager#0.ResolveDrawCard#0
+27	未分类/其他	BiDirectionalDictionary	Add(KeyValuePair<TKey, TValue> item)	未分类_其他.tsv:76	D	BiDirectionalDictionary.Add(KeyValuePair<TKey,TValue>)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Add#0
+27	未分类/其他	BiDirectionalDictionary<TKey, TValue>	Add(KeyValuePair<TKey, TValue> item)	泛型与启动链_补读.tsv:555	D	BiDirectionalDictionary.Add(KeyValuePair<TKey,TValue>)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Add#0
+28	未分类/其他	BiDirectionalDictionary	Add(TKey key, TValue value)	未分类_其他.tsv:77	D	BiDirectionalDictionary.Add(TKey,TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Add#0
+28	未分类/其他	BiDirectionalDictionary<TKey, TValue>	Add(TKey key, TValue value)	泛型与启动链_补读.tsv:554	D	BiDirectionalDictionary.Add(TKey,TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Add#0
+29	未分类/其他	BiDirectionalDictionary	Clear()	未分类_其他.tsv:78	D	BiDirectionalDictionary.Clear()	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Clear#0
+29	未分类/其他	BiDirectionalDictionary<TKey, TValue>	Clear()	泛型与启动链_补读.tsv:556	D	BiDirectionalDictionary.Clear()	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Clear#0
+30	未分类/其他	BiDirectionalDictionary	Contains(KeyValuePair<TKey, TValue> item)	未分类_其他.tsv:79	D	BiDirectionalDictionary.Contains(KeyValuePair<TKey,TValue>)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Contains#0
+30	未分类/其他	BiDirectionalDictionary<TKey, TValue>	Contains(KeyValuePair<TKey, TValue> item)	泛型与启动链_补读.tsv:557	D	BiDirectionalDictionary.Contains(KeyValuePair<TKey,TValue>)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Contains#0
+31	未分类/其他	BiDirectionalDictionary	ContainsKey(TKey key)	未分类_其他.tsv:80	D	BiDirectionalDictionary.ContainsKey(TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.ContainsKey#0
+31	未分类/其他	BiDirectionalDictionary<TKey, TValue>	ContainsKey(TKey key)	泛型与启动链_补读.tsv:558	D	BiDirectionalDictionary.ContainsKey(TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.ContainsKey#0
+32	未分类/其他	BiDirectionalDictionary	ContainsValue(TValue value)	未分类_其他.tsv:81	D	BiDirectionalDictionary.ContainsValue(TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.ContainsValue#0
+32	未分类/其他	BiDirectionalDictionary<TKey, TValue>	ContainsValue(TValue value)	泛型与启动链_补读.tsv:559	D	BiDirectionalDictionary.ContainsValue(TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.ContainsValue#0
+33	未分类/其他	BiDirectionalDictionary	CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)	未分类_其他.tsv:82	D	BiDirectionalDictionary.CopyTo(KeyValuePair<TKey,TValue>[],int)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.CopyTo#0
+33	未分类/其他	BiDirectionalDictionary<TKey, TValue>	CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)	泛型与启动链_补读.tsv:560	D	BiDirectionalDictionary.CopyTo(KeyValuePair<TKey,TValue>[],int)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.CopyTo#0
+34	未分类/其他	BiDirectionalDictionary	GetEnumerator()	未分类_其他.tsv:83	D	BiDirectionalDictionary.GetEnumerator()	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.GetEnumerator#0
+34	未分类/其他	BiDirectionalDictionary<TKey, TValue>	GetEnumerator()	泛型与启动链_补读.tsv:561	D	BiDirectionalDictionary.GetEnumerator()	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.GetEnumerator#0
+35	未分类/其他	BiDirectionalDictionary	GetKey(TValue value)	未分类_其他.tsv:84	D	BiDirectionalDictionary.GetKey(TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.GetKey#0
+35	未分类/其他	BiDirectionalDictionary<TKey, TValue>	GetKey(TValue value)	泛型与启动链_补读.tsv:552	D	BiDirectionalDictionary.GetKey(TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.GetKey#0
+36	未分类/其他	BiDirectionalDictionary	GetValue(TKey key)	未分类_其他.tsv:85	D	BiDirectionalDictionary.GetValue(TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.GetValue#0
+36	未分类/其他	BiDirectionalDictionary<TKey, TValue>	GetValue(TKey key)	泛型与启动链_补读.tsv:553	D	BiDirectionalDictionary.GetValue(TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.GetValue#0
+37	未分类/其他	BiDirectionalDictionary	Remove(KeyValuePair<TKey, TValue> item)	未分类_其他.tsv:86	D	BiDirectionalDictionary.Remove(KeyValuePair<TKey,TValue>)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Remove#0
+37	未分类/其他	BiDirectionalDictionary<TKey, TValue>	Remove(KeyValuePair<TKey, TValue> item)	泛型与启动链_补读.tsv:563	D	BiDirectionalDictionary.Remove(KeyValuePair<TKey,TValue>)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Remove#0
+38	未分类/其他	BiDirectionalDictionary	Remove(TKey key)	未分类_其他.tsv:87	D	BiDirectionalDictionary.Remove(TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Remove#0
+38	未分类/其他	BiDirectionalDictionary<TKey, TValue>	Remove(TKey key)	泛型与启动链_补读.tsv:562	D	BiDirectionalDictionary.Remove(TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.Remove#0
+39	未分类/其他	BiDirectionalDictionary	TryGetKey(TValue value, out TKey key)	未分类_其他.tsv:88	D	BiDirectionalDictionary.TryGetKey(TValue,out TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.TryGetKey#0
+39	未分类/其他	BiDirectionalDictionary<TKey, TValue>	TryGetKey(TValue value, out TKey key)	泛型与启动链_补读.tsv:551	D	BiDirectionalDictionary.TryGetKey(TValue,out TKey)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.TryGetKey#0
+40	未分类/其他	BiDirectionalDictionary	TryGetValue(TKey key, out TValue value)	未分类_其他.tsv:89	D	BiDirectionalDictionary.TryGetValue(TKey,out TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.TryGetValue#0
+40	未分类/其他	BiDirectionalDictionary<TKey, TValue>	TryGetValue(TKey key, out TValue value)	泛型与启动链_补读.tsv:564	D	BiDirectionalDictionary.TryGetValue(TKey,out TValue)	2	真重复(同一原版方法)	原版 BiDirectionalDictionary#2.TryGetValue#0
+41	未分类/其他	Cache	ForceChangedValueNotification()	未分类_其他.tsv:105	D	Cache.ForceChangedValueNotification()	2	真重复(同一原版方法)	原版 Cache#1.ForceChangedValueNotification#0
+41	未分类/其他	Cache<T>	ForceChangedValueNotification()	泛型与启动链_补读.tsv:565	D	Cache.ForceChangedValueNotification()	2	真重复(同一原版方法)	原版 Cache#1.ForceChangedValueNotification#0
+42	卡牌面/渲染	CardTextCountersController	Toggle(bool option, bool cardSimplifiedView)	卡牌面_渲染.tsv:75	A	CardTextCountersController.Toggle(bool,bool)	2	真重复(同一原版方法)	原版 CardTextCounterContainer#0.Toggle#0/CardTextCountersController#0.Toggle#0
+42	卡牌面/渲染	CardTextCountersController	Toggle(bool value, bool simplifiedView)	卡牌面_渲染.tsv:76	A	CardTextCountersController.Toggle(bool,bool)	2	真重复(同一原版方法)	原版 CardTextCounterContainer#0.Toggle#0/CardTextCountersController#0.Toggle#0
+43	未分类/其他	CatalogConfig	MarkUpload()	未分类_其他.tsv:148	D	CatalogConfig.MarkUpload()	2	非重复(不同原版方法)	原版 UploadCounter#0.MarkUpload#0
+43	未分类/其他	CatalogConfig	MarkUpload<T>()	未分类_其他.tsv:149	D	CatalogConfig.MarkUpload()	2	非重复(不同原版方法)	原版 CatalogConfig#0.MarkUpload#1
+44	日常/奖励	ChallengeLogMgr	LogAddEffect(CardEffect battleActionCardEffect)	日常_奖励.tsv:34	A	ChallengeLogMgr.LogAddEffect(CardEffect)	2	真重复(同一原版方法)	原版 ChallengeLogMgr#0.LogAddEffect#0
+44	日常/奖励	ChallengeLogMgr	LogAddEffect(CardEffect)	日常_奖励.tsv:783	A	ChallengeLogMgr.LogAddEffect(CardEffect)	2	真重复(同一原版方法)	原版 ChallengeLogMgr#0.LogAddEffect#0
+45	日常/奖励	ChallengeLogMgr	LogHeal(BattleAction battleAction)	日常_奖励.tsv:37	A	ChallengeLogMgr.LogHeal(BattleAction)	2	真重复(同一原版方法)	原版 ChallengeLogMgr#0.LogHeal#0
+45	日常/奖励	ChallengeLogMgr	LogHeal(BattleAction)	日常_奖励.tsv:782	A	ChallengeLogMgr.LogHeal(BattleAction)	2	真重复(同一原版方法)	原版 ChallengeLogMgr#0.LogHeal#0
+46	日常/奖励	ChallengeLogMgr	TroopKilled(BattleAction battleAction)	日常_奖励.tsv:42	A	ChallengeLogMgr.TroopKilled(BattleAction)	2	真重复(同一原版方法)	原版 ChallengeLogMgr#0.TroopKilled#0
+46	日常/奖励	ChallengeLogMgr	TroopKilled(BattleAction)	日常_奖励.tsv:781	A	ChallengeLogMgr.TroopKilled(BattleAction)	2	真重复(同一原版方法)	原版 ChallengeLogMgr#0.TroopKilled#0
+47	收藏	CollectionDisplay	GetItemCount()	收藏.tsv:114	A	CollectionDisplay.GetItemCount()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.GetItemCount#0
+47	收藏	CollectionDisplay<T>	GetItemCount()	泛型与启动链_补读.tsv:45	A	CollectionDisplay.GetItemCount()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.GetItemCount#0
+48	收藏	CollectionDisplay	GetItemObject(T item)	收藏.tsv:115	A	CollectionDisplay.GetItemObject(T)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.GetItemObject#0
+48	收藏	CollectionDisplay<T>	GetItemObject(T item)	泛型与启动链_补读.tsv:51	A	CollectionDisplay.GetItemObject(T)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.GetItemObject#0
+49	收藏	CollectionDisplay	GetItems()	收藏.tsv:116	A	CollectionDisplay.GetItems()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.GetItems#0
+49	收藏	CollectionDisplay<T>	GetItems()	泛型与启动链_补读.tsv:37	A	CollectionDisplay.GetItems()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.GetItems#0
+50	收藏	CollectionDisplay	Initialize(List<T> collection, GameplayVariablesData gameplayVariablesData)	收藏.tsv:117	A	CollectionDisplay.Initialize(List<T>,GameplayVariablesData)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.Initialize#0
+50	收藏	CollectionDisplay<T>	Initialize(List<T> collection, GameplayVariablesData gameplayVariablesData)	泛型与启动链_补读.tsv:36	A	CollectionDisplay.Initialize(List<T>,GameplayVariablesData)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.Initialize#0
+51	收藏	CollectionDisplay	OnDisable()	收藏.tsv:118	A	CollectionDisplay.OnDisable()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnDisable#0
+51	收藏	CollectionDisplay<T>	OnDisable()	泛型与启动链_补读.tsv:39	A	CollectionDisplay.OnDisable()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnDisable#0
+52	收藏	CollectionDisplay	OnEnable()	收藏.tsv:119	A	CollectionDisplay.OnEnable()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnEnable#0
+52	收藏	CollectionDisplay<T>	OnEnable()	泛型与启动链_补读.tsv:38	A	CollectionDisplay.OnEnable()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnEnable#0
+53	收藏	CollectionDisplay	OnEndDragEvent(Transform target)	收藏.tsv:120	A	CollectionDisplay.OnEndDragEvent(Transform)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnEndDragEvent#0
+53	收藏	CollectionDisplay<T>	OnEndDragEvent(Transform target)	泛型与启动链_补读.tsv:40	A	CollectionDisplay.OnEndDragEvent(Transform)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnEndDragEvent#0
+54	收藏	CollectionDisplay	OnListDrag(Vector2 listPos)	收藏.tsv:121	A	CollectionDisplay.OnListDrag(Vector2)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnListDrag#0
+54	收藏	CollectionDisplay<T>	OnListDrag(Vector2 listPos)	泛型与启动链_补读.tsv:52	A	CollectionDisplay.OnListDrag(Vector2)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.OnListDrag#0
+55	收藏	CollectionDisplay	RefreshCells()	收藏.tsv:122	A	CollectionDisplay.RefreshCells()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.RefreshCells#0
+55	收藏	CollectionDisplay<T>	RefreshCells()	泛型与启动链_补读.tsv:48	A	CollectionDisplay.RefreshCells()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.RefreshCells#0
+56	收藏	CollectionDisplay	RefreshCollection()	收藏.tsv:123	A	CollectionDisplay.RefreshCollection()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.RefreshCollection#0
+56	收藏	CollectionDisplay<T>	RefreshCollection()	泛型与启动链_补读.tsv:44	A	CollectionDisplay.RefreshCollection()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.RefreshCollection#0
+57	收藏	CollectionDisplay	ReorderCollectionByHierarchy(Transform transformToChangeIndex)	收藏.tsv:124	A	CollectionDisplay.ReorderCollectionByHierarchy(Transform)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.ReorderCollectionByHierarchy#0
+57	收藏	CollectionDisplay<T>	ReorderCollectionByHierarchy(Transform transformToChangeIndex)	泛型与启动链_补读.tsv:47	A	CollectionDisplay.ReorderCollectionByHierarchy(Transform)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.ReorderCollectionByHierarchy#0
+58	收藏	CollectionDisplay	ResetRelayTarget()	收藏.tsv:125	D	CollectionDisplay.ResetRelayTarget()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.ResetRelayTarget#0
+58	收藏	CollectionDisplay<T>	ResetRelayTarget()	泛型与启动链_补读.tsv:41	D	CollectionDisplay.ResetRelayTarget()	2	真重复(同一原版方法)	原版 CollectionDisplay#1.ResetRelayTarget#0
+59	收藏	CollectionDisplay	Select(CollectionItem<T> collectable, PointerEventData.InputButton button)	收藏.tsv:126	A	CollectionDisplay.Select(CollectionItem<T>,PointerEventData.InputButton)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.Select#0
+59	收藏	CollectionDisplay<T>	Select(CollectionItem<T> collectable, PointerEventData.InputButton button)	泛型与启动链_补读.tsv:49	A	CollectionDisplay.Select(CollectionItem<T>,PointerEventData.InputButton)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.Select#0
+60	收藏	CollectionDisplay	Select(T item)	收藏.tsv:127	D	CollectionDisplay.Select(T)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.Select#0
+60	收藏	CollectionDisplay<T>	Select(T item)	泛型与启动链_补读.tsv:50	D	CollectionDisplay.Select(T)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.Select#0
+61	收藏	CollectionDisplay	SetCell(ICell cell, int index)	收藏.tsv:128	A	CollectionDisplay.SetCell(ICell,int)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.SetCell#0
+61	收藏	CollectionDisplay<T>	SetCell(ICell cell, int index)	泛型与启动链_补读.tsv:46	A	CollectionDisplay.SetCell(ICell,int)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.SetCell#0
+62	收藏	CollectionDisplay	ToggleFilters(bool state)	收藏.tsv:129	A	CollectionDisplay.ToggleFilters(bool)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.ToggleFilters#0
+62	收藏	CollectionDisplay<T>	ToggleFilters(bool state)	泛型与启动链_补读.tsv:43	A	CollectionDisplay.ToggleFilters(bool)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.ToggleFilters#0
+63	收藏	CollectionDisplay	UpdateCollection(List<T> collection)	收藏.tsv:130	A	CollectionDisplay.UpdateCollection(List<T>)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.UpdateCollection#0
+63	收藏	CollectionDisplay<T>	UpdateCollection(List<T> collection)	泛型与启动链_补读.tsv:42	A	CollectionDisplay.UpdateCollection(List<T>)	2	真重复(同一原版方法)	原版 CollectionDisplay#1.UpdateCollection#0
+64	收藏	CollectionFilter	ClearFilters()	收藏.tsv:131	A	CollectionFilter.ClearFilters()	2	真重复(同一原版方法)	原版 CollectionFilter#1.ClearFilters#0
+64	收藏	CollectionFilter<T>	ClearFilters()	泛型与启动链_补读.tsv:57	A	CollectionFilter.ClearFilters()	2	真重复(同一原版方法)	原版 CollectionFilter#1.ClearFilters#0
+65	收藏	CollectionFilter	FillToggleList(List<CollectionFilterToggle> currentList, int maxElements)	收藏.tsv:132	A	CollectionFilter.FillToggleList(List<CollectionFilterToggle>,int)	2	真重复(同一原版方法)	原版 CollectionFilter#1.FillToggleList#0
+65	收藏	CollectionFilter<T>	FillToggleList(List<CollectionFilterToggle> currentList, int maxElements)	泛型与启动链_补读.tsv:58	A	CollectionFilter.FillToggleList(List<CollectionFilterToggle>,int)	2	真重复(同一原版方法)	原版 CollectionFilter#1.FillToggleList#0
+66	收藏	CollectionFilter	Filter(List<T> collection)	收藏.tsv:133	A	CollectionFilter.Filter(List<T>)	2	真重复(同一原版方法)	原版 CollectionFilter#1.Filter#0
+66	收藏	CollectionFilter<T>	Filter(List<T> collection)	泛型与启动链_补读.tsv:56	A	CollectionFilter.Filter(List<T>)	2	真重复(同一原版方法)	原版 CollectionFilter#1.Filter#0
+67	收藏	CollectionFilter	NotifyChange()	收藏.tsv:134	A	CollectionFilter.NotifyChange()	2	真重复(同一原版方法)	原版 CollectionFilter#1.NotifyChange#0
+67	收藏	CollectionFilter<T>	NotifyChange()	泛型与启动链_补读.tsv:55	A	CollectionFilter.NotifyChange()	2	真重复(同一原版方法)	原版 CollectionFilter#1.NotifyChange#0
+68	收藏	CollectionFilter	OnFilterChange()	收藏.tsv:135	A	CollectionFilter.OnFilterChange()	2	真重复(同一原版方法)	原版 CollectionFilter#1.OnFilterChange#0
+68	收藏	CollectionFilter<T>	OnFilterChange()	泛型与启动链_补读.tsv:54	A	CollectionFilter.OnFilterChange()	2	真重复(同一原版方法)	原版 CollectionFilter#1.OnFilterChange#0
+69	收藏	CollectionFilter	SetupFilter(CollectionFilterController<T> controller)	收藏.tsv:136	A	CollectionFilter.SetupFilter(CollectionFilterController<T>)	2	真重复(同一原版方法)	原版 CollectionFilter#1.SetupFilter#0
+69	收藏	CollectionFilter<T>	SetupFilter(CollectionFilterController<T> controller)	泛型与启动链_补读.tsv:53	A	CollectionFilter.SetupFilter(CollectionFilterController<T>)	2	真重复(同一原版方法)	原版 CollectionFilter#1.SetupFilter#0
+70	收藏	CollectionFilterController	ClearFilters()	收藏.tsv:137	A	CollectionFilterController.ClearFilters()	2	真重复(同一原版方法)	原版 CollectionFilterController#1.ClearFilters#0
+70	收藏	CollectionFilterController<T>	ClearFilters()	泛型与启动链_补读.tsv:63	A	CollectionFilterController.ClearFilters()	2	真重复(同一原版方法)	原版 CollectionFilterController#1.ClearFilters#0
+71	收藏	CollectionFilterController	Filter(List<T> collection)	收藏.tsv:138	A	CollectionFilterController.Filter(List<T>)	2	真重复(同一原版方法)	原版 CollectionFilterController#1.Filter#0
+71	收藏	CollectionFilterController<T>	Filter(List<T> collection)	泛型与启动链_补读.tsv:62	A	CollectionFilterController.Filter(List<T>)	2	真重复(同一原版方法)	原版 CollectionFilterController#1.Filter#0
+72	收藏	CollectionFilterController	NotifyFilterChange()	收藏.tsv:139	A	CollectionFilterController.NotifyFilterChange()	2	真重复(同一原版方法)	原版 CollectionFilterController#1.NotifyFilterChange#0
+72	收藏	CollectionFilterController<T>	NotifyFilterChange()	泛型与启动链_补读.tsv:61	A	CollectionFilterController.NotifyFilterChange()	2	真重复(同一原版方法)	原版 CollectionFilterController#1.NotifyFilterChange#0
+73	收藏	CollectionFilterController	SetupFilters()	收藏.tsv:140	A	CollectionFilterController.SetupFilters()	2	真重复(同一原版方法)	原版 CollectionFilterController#1.SetupFilters#0
+73	收藏	CollectionFilterController<T>	SetupFilters()	泛型与启动链_补读.tsv:60	A	CollectionFilterController.SetupFilters()	2	真重复(同一原版方法)	原版 CollectionFilterController#1.SetupFilters#0
+74	收藏	CollectionFilterController	Toggle(bool option, bool withAnimation)	收藏.tsv:141	A	CollectionFilterController.Toggle(bool,bool)	2	真重复(同一原版方法)	原版 CollectionFilterController#1.Toggle#0
+74	收藏	CollectionFilterController<T>	Toggle(bool option, bool withAnimation)	泛型与启动链_补读.tsv:59	A	CollectionFilterController.Toggle(bool,bool)	2	真重复(同一原版方法)	原版 CollectionFilterController#1.Toggle#0
+75	收藏	CollectionItem	AnimateIn()	收藏.tsv:147	A	CollectionItem.AnimateIn()	2	真重复(同一原版方法)	原版 CollectionItem#1.AnimateIn#0
+75	收藏	CollectionItem<T>	AnimateIn()	泛型与启动链_补读.tsv:73	A	CollectionItem.AnimateIn()	2	真重复(同一原版方法)	原版 CollectionItem#1.AnimateIn#0
+76	收藏	CollectionItem	Config(T item, CollectionDisplay<T> display, bool animate, bool isSelected)	收藏.tsv:148	A	CollectionItem.Config(T,CollectionDisplay<T>,bool,bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.Config#0
+76	收藏	CollectionItem<T>	Config(T item, CollectionDisplay<T> display, bool animate, bool isSelected)	泛型与启动链_补读.tsv:65	A	CollectionItem.Config(T,CollectionDisplay<T>,bool,bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.Config#0
+77	收藏	CollectionItem	Config(T item, GameplayVariablesData gameplayVariablesData)	收藏.tsv:149	A	CollectionItem.Config(T,GameplayVariablesData)	2	真重复(同一原版方法)	原版 CollectionItem#1.Config#0
+77	收藏	CollectionItem<T>	Config(T item, GameplayVariablesData gameplayVariablesData)	泛型与启动链_补读.tsv:72	A	CollectionItem.Config(T,GameplayVariablesData)	2	真重复(同一原版方法)	原版 CollectionItem#1.Config#0
+78	收藏	CollectionItem	HoverHighlight(bool state)	收藏.tsv:150	A	CollectionItem.HoverHighlight(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.HoverHighlight#0
+78	收藏	CollectionItem<T>	HoverHighlight(bool state)	泛型与启动链_补读.tsv:81	A	CollectionItem.HoverHighlight(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.HoverHighlight#0
+79	收藏	CollectionItem	OnBeginDrag(PointerEventData eventData)	收藏.tsv:151	A	CollectionItem.OnBeginDrag(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnBeginDrag#0
+79	收藏	CollectionItem<T>	OnBeginDrag(PointerEventData eventData)	泛型与启动链_补读.tsv:75	A	CollectionItem.OnBeginDrag(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnBeginDrag#0
+80	收藏	CollectionItem	OnDeselect()	收藏.tsv:152	D	CollectionItem.OnDeselect()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnDeselect#0
+80	收藏	CollectionItem<T>	OnDeselect()	泛型与启动链_补读.tsv:79	D	CollectionItem.OnDeselect()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnDeselect#0
+81	收藏	CollectionItem	OnDisable()	收藏.tsv:153	D	CollectionItem.OnDisable()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnDisable#0
+81	收藏	CollectionItem<T>	OnDisable()	泛型与启动链_补读.tsv:70	D	CollectionItem.OnDisable()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnDisable#0
+82	收藏	CollectionItem	OnDrag(PointerEventData eventData)	收藏.tsv:154	A	CollectionItem.OnDrag(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnDrag#0
+82	收藏	CollectionItem<T>	OnDrag(PointerEventData eventData)	泛型与启动链_补读.tsv:76	A	CollectionItem.OnDrag(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnDrag#0
+83	收藏	CollectionItem	OnEnable()	收藏.tsv:155	D	CollectionItem.OnEnable()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnEnable#0
+83	收藏	CollectionItem<T>	OnEnable()	泛型与启动链_补读.tsv:66	D	CollectionItem.OnEnable()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnEnable#0
+84	收藏	CollectionItem	OnEndDrag(PointerEventData eventData)	收藏.tsv:156	A	CollectionItem.OnEndDrag(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnEndDrag#0
+84	收藏	CollectionItem<T>	OnEndDrag(PointerEventData eventData)	泛型与启动链_补读.tsv:77	A	CollectionItem.OnEndDrag(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnEndDrag#0
+85	收藏	CollectionItem	OnEndDragEvent(Transform obj)	收藏.tsv:157	A	CollectionItem.OnEndDragEvent(Transform)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnEndDragEvent#0
+85	收藏	CollectionItem<T>	OnEndDragEvent(Transform obj)	泛型与启动链_补读.tsv:69	A	CollectionItem.OnEndDragEvent(Transform)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnEndDragEvent#0
+86	收藏	CollectionItem	OnPointerClick(PointerEventData eventData)	收藏.tsv:158	A	CollectionItem.OnPointerClick(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnPointerClick#0
+86	收藏	CollectionItem<T>	OnPointerClick(PointerEventData eventData)	泛型与启动链_补读.tsv:74	A	CollectionItem.OnPointerClick(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnPointerClick#0
+87	收藏	CollectionItem	OnPointerEnter(PointerEventData eventData)	收藏.tsv:159	A	CollectionItem.OnPointerEnter(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnPointerEnter#0
+87	收藏	CollectionItem<T>	OnPointerEnter(PointerEventData eventData)	泛型与启动链_补读.tsv:84	A	CollectionItem.OnPointerEnter(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnPointerEnter#0
+88	收藏	CollectionItem	OnPointerExit(PointerEventData eventData)	收藏.tsv:160	A	CollectionItem.OnPointerExit(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnPointerExit#0
+88	收藏	CollectionItem<T>	OnPointerExit(PointerEventData eventData)	泛型与启动链_补读.tsv:83	A	CollectionItem.OnPointerExit(PointerEventData)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnPointerExit#0
+89	收藏	CollectionItem	OnSelect()	收藏.tsv:161	D	CollectionItem.OnSelect()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnSelect#0
+89	收藏	CollectionItem<T>	OnSelect()	泛型与启动链_补读.tsv:78	D	CollectionItem.OnSelect()	2	真重复(同一原版方法)	原版 CollectionItem#1.OnSelect#0
+90	收藏	CollectionItem	OnStartDragEvent(Transform obj)	收藏.tsv:162	A	CollectionItem.OnStartDragEvent(Transform)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnStartDragEvent#0
+90	收藏	CollectionItem<T>	OnStartDragEvent(Transform obj)	泛型与启动链_补读.tsv:68	A	CollectionItem.OnStartDragEvent(Transform)	2	真重复(同一原版方法)	原版 CollectionItem#1.OnStartDragEvent#0
+91	收藏	CollectionItem	SelectedHighlight(bool state)	收藏.tsv:163	A	CollectionItem.SelectedHighlight(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.SelectedHighlight#0
+91	收藏	CollectionItem<T>	SelectedHighlight(bool state)	泛型与启动链_补读.tsv:80	A	CollectionItem.SelectedHighlight(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.SelectedHighlight#0
+92	收藏	CollectionItem	SetSortMode(bool state)	收藏.tsv:164	A	CollectionItem.SetSortMode(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.SetSortMode#0
+92	收藏	CollectionItem<T>	SetSortMode(bool state)	泛型与启动链_补读.tsv:82	A	CollectionItem.SetSortMode(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.SetSortMode#0
+93	收藏	CollectionItem	ToggleDrag(bool state)	收藏.tsv:166	A	CollectionItem.ToggleDrag(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.ToggleDrag#0
+93	收藏	CollectionItem<T>	ToggleDrag(bool state)	泛型与启动链_补读.tsv:67	A	CollectionItem.ToggleDrag(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.ToggleDrag#0
+94	收藏	CollectionItem	ToggleListenToPointerEvents(bool option)	收藏.tsv:167	D	CollectionItem.ToggleListenToPointerEvents(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.ToggleListenToPointerEvents#0
+94	收藏	CollectionItem<T>	ToggleListenToPointerEvents(bool option)	泛型与启动链_补读.tsv:71	D	CollectionItem.ToggleListenToPointerEvents(bool)	2	真重复(同一原版方法)	原版 CollectionItem#1.ToggleListenToPointerEvents#0
+95	收藏	CollectionTab	GetCollection()	收藏.tsv:179	A	CollectionTab.GetCollection()	2	真重复(同一原版方法)	原版 CollectionTab#1.GetCollection#0
+95	收藏	CollectionTab<T>	GetCollection()	泛型与启动链_补读.tsv:90	A	CollectionTab.GetCollection()	2	真重复(同一原版方法)	原版 CollectionTab#1.GetCollection#0
+96	收藏	CollectionTab	GetItems()	收藏.tsv:180	A	CollectionTab.GetItems()	2	真重复(同一原版方法)	原版 CollectionTab#1.GetItems#0
+96	收藏	CollectionTab<T>	GetItems()	泛型与启动链_补读.tsv:86	A	CollectionTab.GetItems()	2	真重复(同一原版方法)	原版 CollectionTab#1.GetItems#0
+97	收藏	CollectionTab	OnItemSelected(CollectionItem<T> item, PointerEventData.InputButton button)	收藏.tsv:181	A	CollectionTab.OnItemSelected(CollectionItem<T>,PointerEventData.InputButton)	2	真重复(同一原版方法)	原版 CollectionTab#1.OnItemSelected#0
+97	收藏	CollectionTab<T>	OnItemSelected(CollectionItem<T> item, PointerEventData.InputButton button)	泛型与启动链_补读.tsv:89	A	CollectionTab.OnItemSelected(CollectionItem<T>,PointerEventData.InputButton)	2	真重复(同一原版方法)	原版 CollectionTab#1.OnItemSelected#0
+98	收藏	CollectionTab	OnOpen()	收藏.tsv:182	A	CollectionTab.OnOpen()	2	真重复(同一原版方法)	原版 CollectionTab#1.OnOpen#0
+98	收藏	CollectionTab<T>	OnOpen()	泛型与启动链_补读.tsv:88	A	CollectionTab.OnOpen()	2	真重复(同一原版方法)	原版 CollectionTab#1.OnOpen#0
+99	收藏	CollectionTab	Setup(GameWindow window)	收藏.tsv:183	A	CollectionTab.Setup(GameWindow)	2	真重复(同一原版方法)	原版 CollectionTab#1.Setup#0
+99	收藏	CollectionTab<T>	Setup(GameWindow window)	泛型与启动链_补读.tsv:87	A	CollectionTab.Setup(GameWindow)	2	真重复(同一原版方法)	原版 CollectionTab#1.Setup#0
+100	未分类/其他	ComponentReference	GameObjectReady(AsyncOperationHandle<GameObject> arg)	未分类_其他.tsv:168	D	ComponentReference.GameObjectReady(AsyncOperationHandle<GameObject>)	2	真重复(同一原版方法)	原版 ComponentReference#1.GameObjectReady#0
+100	未分类/其他	ComponentReference<TComponent>	GameObjectReady(AsyncOperationHandle<GameObject> arg)	泛型与启动链_补读.tsv:570	D	ComponentReference.GameObjectReady(AsyncOperationHandle<GameObject>)	2	真重复(同一原版方法)	原版 ComponentReference#1.GameObjectReady#0
+101	未分类/其他	ComponentReference	InstantiateAsync(Transform parent, bool instantiateInWorldSpace)	未分类_其他.tsv:169	D	ComponentReference.InstantiateAsync(Transform,bool)	2	真重复(同一原版方法)	原版 ComponentReference#1.InstantiateAsync#0
+101	未分类/其他	ComponentReference<TComponent>	InstantiateAsync(Transform parent, bool instantiateInWorldSpace = False)	泛型与启动链_补读.tsv:568	D	ComponentReference.InstantiateAsync(Transform,bool)	2	真重复(同一原版方法)	原版 ComponentReference#1.InstantiateAsync#0
+102	未分类/其他	ComponentReference	InstantiateAsync(Vector3 position, Quaternion rotation, Transform parent)	未分类_其他.tsv:170	D	ComponentReference.InstantiateAsync(Vector3,Quaternion,Transform)	2	真重复(同一原版方法)	原版 ComponentReference#1.InstantiateAsync#0
+102	未分类/其他	ComponentReference<TComponent>	InstantiateAsync(Vector3 position, Quaternion rotation, Transform parent)	泛型与启动链_补读.tsv:567	D	ComponentReference.InstantiateAsync(Vector3,Quaternion,Transform)	2	真重复(同一原版方法)	原版 ComponentReference#1.InstantiateAsync#0
+103	未分类/其他	ComponentReference	Load()	未分类_其他.tsv:171	D	ComponentReference.Load()	2	真重复(同一原版方法)	原版 ComponentReference#1.Load#0
+103	未分类/其他	ComponentReference<TComponent>	Load()	泛型与启动链_补读.tsv:575	D	ComponentReference.Load()	2	真重复(同一原版方法)	原版 ComponentReference#1.Load#0
+104	未分类/其他	ComponentReference	LoadAssetAsync()	未分类_其他.tsv:172	D	ComponentReference.LoadAssetAsync()	2	真重复(同一原版方法)	原版 ComponentReference#1.LoadAssetAsync#0
+104	未分类/其他	ComponentReference<TComponent>	LoadAssetAsync()	泛型与启动链_补读.tsv:569	D	ComponentReference.LoadAssetAsync()	2	真重复(同一原版方法)	原版 ComponentReference#1.LoadAssetAsync#0
+105	未分类/其他	ComponentReference	Release(AddressableCacheGroup cacheGroup)	未分类_其他.tsv:173	D	ComponentReference.Release(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 ComponentReference#1.Release#0
+105	未分类/其他	ComponentReference<TComponent>	Release(AddressableCacheGroup cacheGroup = 1)	泛型与启动链_补读.tsv:573	D	ComponentReference.Release(AddressableCacheGroup)	2	真重复(同一原版方法)	原版 ComponentReference#1.Release#0
+106	未分类/其他	ComponentReference	ReleaseAsset()	未分类_其他.tsv:174	D	ComponentReference.ReleaseAsset()	2	真重复(同一原版方法)	原版 ComponentReference#1.ReleaseAsset#0
+106	未分类/其他	ComponentReference<TComponent>	ReleaseAsset()	泛型与启动链_补读.tsv:574	D	ComponentReference.ReleaseAsset()	2	真重复(同一原版方法)	原版 ComponentReference#1.ReleaseAsset#0
+107	未分类/其他	ComponentReference	ValidateAsset(string path)	未分类_其他.tsv:176	D	ComponentReference.ValidateAsset(string)	2	真重复(同一原版方法)	原版 ComponentReference#1.ValidateAsset#0
+107	未分类/其他	ComponentReference<TComponent>	ValidateAsset(string path)	泛型与启动链_补读.tsv:572	D	ComponentReference.ValidateAsset(string)	2	真重复(同一原版方法)	原版 ComponentReference#1.ValidateAsset#0
+108	未分类/其他	ConfigProvider	Initialize(Dictionary<string, string> titleData)	未分类_其他.tsv:177	A	ConfigProvider.Initialize(Dictionary<string,string>)	2	真重复(同一原版方法)	原版 ConfigProvider#1.Initialize#0
+108	未分类/其他	ConfigProvider<T>	Initialize(Dictionary<string, string> titleData)	泛型与启动链_补读.tsv:576	A	ConfigProvider.Initialize(Dictionary<string,string>)	2	真重复(同一原版方法)	原版 ConfigProvider#1.Initialize#0
+109	未分类/其他	ConfigProvider	OnDestroy()	未分类_其他.tsv:178	A	ConfigProvider.OnDestroy()	2	真重复(同一原版方法)	原版 ConfigProvider#1.OnDestroy#0
+109	未分类/其他	ConfigProvider<T>	OnDestroy()	泛型与启动链_补读.tsv:578	A	ConfigProvider.OnDestroy()	2	真重复(同一原版方法)	原版 ConfigProvider#1.OnDestroy#0
+110	未分类/其他	ConfigProvider	UnpackInternal(Dictionary<string, string> titleData)	未分类_其他.tsv:179	A	ConfigProvider.UnpackInternal(Dictionary<string,string>)	2	真重复(同一原版方法)	原版 ConfigProvider#1.UnpackInternal#0
+110	未分类/其他	ConfigProvider<T>	UnpackInternal(Dictionary<string, string> titleData)	泛型与启动链_补读.tsv:577	A	ConfigProvider.UnpackInternal(Dictionary<string,string>)	2	真重复(同一原版方法)	原版 ConfigProvider#1.UnpackInternal#0
+111	未分类/其他	Decorator	Awake()	未分类_其他.tsv:241	A	Decorator.Awake()	2	真重复(同一原版方法)	原版 Decorator#1.Awake#0
+111	未分类/其他	Decorator<T>	Awake()	泛型与启动链_补读.tsv:579	A	Decorator.Awake()	2	真重复(同一原版方法)	原版 Decorator#1.Awake#0
+112	未分类/其他	Decorator	OnDecorableUpdated(object sender, EventArgs e)	未分类_其他.tsv:242	A	Decorator.OnDecorableUpdated(object,EventArgs)	2	真重复(同一原版方法)	原版 Decorator#1.OnDecorableUpdated#0
+112	未分类/其他	Decorator<T>	OnDecorableUpdated(object sender, EventArgs e)	泛型与启动链_补读.tsv:580	A	Decorator.OnDecorableUpdated(object,EventArgs)	2	真重复(同一原版方法)	原版 Decorator#1.OnDecorableUpdated#0
+113	未分类/其他	Decorator	OnDisable()	未分类_其他.tsv:243	A	Decorator.OnDisable()	2	真重复(同一原版方法)	原版 Decorator#1.OnDisable#0
+113	未分类/其他	Decorator<T>	OnDisable()	泛型与启动链_补读.tsv:582	A	Decorator.OnDisable()	2	真重复(同一原版方法)	原版 Decorator#1.OnDisable#0
+114	未分类/其他	Decorator	OnEnable()	未分类_其他.tsv:244	A	Decorator.OnEnable()	2	真重复(同一原版方法)	原版 Decorator#1.OnEnable#0
+114	未分类/其他	Decorator<T>	OnEnable()	泛型与启动链_补读.tsv:581	A	Decorator.OnEnable()	2	真重复(同一原版方法)	原版 Decorator#1.OnEnable#0
+115	未分类/其他	Decorator	OnObjectUpdated(T decorable)	未分类_其他.tsv:245	A	Decorator.OnObjectUpdated(T)	2	真重复(同一原版方法)	原版 Decorator#1.OnObjectUpdated#0
+115	未分类/其他	Decorator<T>	OnObjectUpdated(T decorable)	泛型与启动链_补读.tsv:583	A	Decorator.OnObjectUpdated(T)	2	真重复(同一原版方法)	原版 Decorator#1.OnObjectUpdated#0
+116	轮抽	DraftEventBase<TS, TD>	CollectRewards(Action<RewardInfo[]> onSuccess, Action onError)	泛型与启动链_补读.tsv:763	D	DraftEventBase.CollectRewards(Action<RewardInfo[]>,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.CollectRewards#0
+116	轮抽	DraftEventBase	CollectRewards(Action<RewardInfo[]> onSuccess, Action onError)	轮抽.tsv:5	D	DraftEventBase.CollectRewards(Action<RewardInfo[]>,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.CollectRewards#0
+117	轮抽	DraftEventBase<TS, TD>	FinishRun(Action onFinish)	泛型与启动链_补读.tsv:762	A	DraftEventBase.FinishRun(Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.FinishRun#0
+117	轮抽	DraftEventBase	FinishRun(Action onFinish)	轮抽.tsv:7	A	DraftEventBase.FinishRun(Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.FinishRun#0
+118	轮抽	DraftEventBase<TS, TD>	FreeEventEntrance(Action onSuccess, Action onError)	泛型与启动链_补读.tsv:761	A	DraftEventBase.FreeEventEntrance(Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.FreeEventEntrance#0
+118	轮抽	DraftEventBase	FreeEventEntrance(Action onSuccess, Action onError)	轮抽.tsv:8	A	DraftEventBase.FreeEventEntrance(Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.FreeEventEntrance#0
+119	轮抽	DraftEventBase<TS, TD>	GetBaseData()	泛型与启动链_补读.tsv:755	A	DraftEventBase.GetBaseData()	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetBaseData#0
+119	轮抽	DraftEventBase	GetBaseData()	轮抽.tsv:9	A	DraftEventBase.GetBaseData()	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetBaseData#0
+120	轮抽	DraftEventBase<TS, TD>	GetBaseSave()	泛型与启动链_补读.tsv:756	A	DraftEventBase.GetBaseSave()	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetBaseSave#0
+120	轮抽	DraftEventBase	GetBaseSave()	轮抽.tsv:10	A	DraftEventBase.GetBaseSave()	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetBaseSave#0
+121	轮抽	DraftEventBase<TS, TD>	GetCardsFromPacks(DraftEventSaveGame desiredSaveGame)	泛型与启动链_补读.tsv:746	A	DraftEventBase.GetCardsFromPacks(DraftEventSaveGame)	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetCardsFromPacks#0
+121	轮抽	DraftEventBase	GetCardsFromPacks(DraftEventSaveGame desiredSaveGame)	轮抽.tsv:11	A	DraftEventBase.GetCardsFromPacks(DraftEventSaveGame)	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetCardsFromPacks#0
+122	轮抽	DraftEventBase<TS, TD>	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	泛型与启动链_补读.tsv:758	A	DraftEventBase.GetMatchmakingFilter(int,int,int)	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetMatchmakingFilter#0
+122	轮抽	DraftEventBase	GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)	轮抽.tsv:13	A	DraftEventBase.GetMatchmakingFilter(int,int,int)	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetMatchmakingFilter#0
+123	轮抽	DraftEventBase<TS, TD>	GetRandomPack(RawCardScript warlord, int packCount)	泛型与启动链_补读.tsv:752	A	DraftEventBase.GetRandomPack(RawCardScript,int)	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetRandomPack#0
+123	轮抽	DraftEventBase	GetRandomPack(RawCardScript warlord, int packCount)	轮抽.tsv:15	A	DraftEventBase.GetRandomPack(RawCardScript,int)	2	真重复(同一原版方法)	原版 DraftEventBase#2.GetRandomPack#0
+124	轮抽	DraftEventBase<TS, TD>	LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler)	泛型与启动链_补读.tsv:742	A	DraftEventBase.LoadEventData(LiveOpsEventData,LiveOpsEventPersistence,ILiveOpsHandler)	2	真重复(同一原版方法)	原版 DraftEventBase#2.LoadEventData#0
+124	轮抽	DraftEventBase	LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler)	轮抽.tsv:17	A	DraftEventBase.LoadEventData(LiveOpsEventData,LiveOpsEventPersistence,ILiveOpsHandler)	2	真重复(同一原版方法)	原版 DraftEventBase#2.LoadEventData#0
+125	轮抽	DraftEventBase<TS, TD>	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	泛型与启动链_补读.tsv:749	A	DraftEventBase.OnMatchFinished(float,RankedMatchResult,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchFinished#0
+125	轮抽	DraftEventBase	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	轮抽.tsv:18	A	DraftEventBase.OnMatchFinished(float,RankedMatchResult,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchFinished#0
+126	轮抽	DraftEventBase<TS, TD>	OnMatchFound(string otherPlayerName)	泛型与启动链_补读.tsv:748	A	DraftEventBase.OnMatchFound(string)	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchFound#0
+126	轮抽	DraftEventBase	OnMatchFound(string otherPlayerName)	轮抽.tsv:19	A	DraftEventBase.OnMatchFound(string)	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchFound#0
+127	轮抽	DraftEventBase<TS, TD>	OnMatchProcessSuccess(OnlineMatchResult result)	泛型与启动链_补读.tsv:750	D	DraftEventBase.OnMatchProcessSuccess(OnlineMatchResult)	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchProcessSuccess#0
+127	轮抽	DraftEventBase	OnMatchProcessSuccess(OnlineMatchResult result)	轮抽.tsv:20	D	DraftEventBase.OnMatchProcessSuccess(OnlineMatchResult)	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchProcessSuccess#0
+128	轮抽	DraftEventBase<TS, TD>	OnMatchWon()	泛型与启动链_补读.tsv:751	A	DraftEventBase.OnMatchWon()	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchWon#0
+128	轮抽	DraftEventBase	OnMatchWon()	轮抽.tsv:21	A	DraftEventBase.OnMatchWon()	2	真重复(同一原版方法)	原版 DraftEventBase#2.OnMatchWon#0
+129	轮抽	DraftEventBase<TS, TD>	PayEventEntrance(bool is10X, Action onSuccess, Action onError)	泛型与启动链_补读.tsv:760	D	DraftEventBase.PayEventEntrance(bool,Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.PayEventEntrance#0
+129	轮抽	DraftEventBase	PayEventEntrance(bool is10X, Action onSuccess, Action onError)	轮抽.tsv:22	D	DraftEventBase.PayEventEntrance(bool,Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.PayEventEntrance#0
+130	轮抽	DraftEventBase<TS, TD>	PickPack(PrebuiltPack pack, Action onSuccess, Action onFail)	泛型与启动链_补读.tsv:753	A	DraftEventBase.PickPack(PrebuiltPack,Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.PickPack#0
+130	轮抽	DraftEventBase	PickPack(PrebuiltPack pack, Action onSuccess, Action onFail)	轮抽.tsv:23	A	DraftEventBase.PickPack(PrebuiltPack,Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.PickPack#0
+131	轮抽	DraftEventBase<TS, TD>	ReRollPack(Action onSuccess, Action onFail)	泛型与启动链_补读.tsv:754	A	DraftEventBase.ReRollPack(Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.ReRollPack#0
+131	轮抽	DraftEventBase	ReRollPack(Action onSuccess, Action onFail)	轮抽.tsv:25	A	DraftEventBase.ReRollPack(Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.ReRollPack#0
+132	轮抽	DraftEventBase<TS, TD>	RefundRun(Action<RewardInfo[]> onComplete, Action onError)	泛型与启动链_补读.tsv:764	A	DraftEventBase.RefundRun(Action<RewardInfo[]>,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.RefundRun#0
+132	轮抽	DraftEventBase	RefundRun(Action<RewardInfo[]> onComplete, Action onError)	轮抽.tsv:26	A	DraftEventBase.RefundRun(Action<RewardInfo[]>,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.RefundRun#0
+133	轮抽	DraftEventBase<TS, TD>	ResetCollectedDraft(Action onComplete)	泛型与启动链_补读.tsv:744	A	DraftEventBase.ResetCollectedDraft(Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.ResetCollectedDraft#0
+133	轮抽	DraftEventBase	ResetCollectedDraft(Action onComplete)	轮抽.tsv:27	A	DraftEventBase.ResetCollectedDraft(Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.ResetCollectedDraft#0
+134	轮抽	DraftEventBase<TS, TD>	SaveCards(TS desiredSaveGame, List<LoadableReference<RawCardScript>> cardsToSave, string eventIDToUse, Action onSuccess, Action onFail)	泛型与启动链_补读.tsv:747	A	DraftEventBase.SaveCards(TS,List<LoadableReference<RawCardScript>>,string,Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.SaveCards#0
+134	轮抽	DraftEventBase	SaveCards(TS desiredSaveGame, List<LoadableReference<RawCardScript>> cardsToSave, string eventIDToUse, Action onSuccess, Action onFail)	轮抽.tsv:28	A	DraftEventBase.SaveCards(TS,List<LoadableReference<RawCardScript>>,string,Action,Action)	2	真重复(同一原版方法)	原版 DraftEventBase#2.SaveCards#0
+135	轮抽	DraftEventBase<TS, TD>	SelectEvent()	泛型与启动链_补读.tsv:743	A	DraftEventBase.SelectEvent()	2	真重复(同一原版方法)	原版 DraftEventBase#2.SelectEvent#0
+135	轮抽	DraftEventBase	SelectEvent()	轮抽.tsv:29	A	DraftEventBase.SelectEvent()	2	真重复(同一原版方法)	原版 DraftEventBase#2.SelectEvent#0
+136	轮抽	DraftEventBase<TS, TD>	SetCustomMatchOptions(RoomOptions options, int currentELO)	泛型与启动链_补读.tsv:759	A	DraftEventBase.SetCustomMatchOptions(RoomOptions,int)	2	真重复(同一原版方法)	原版 DraftEventBase#2.SetCustomMatchOptions#0
+136	轮抽	DraftEventBase	SetCustomMatchOptions(RoomOptions options, int currentELO)	轮抽.tsv:30	A	DraftEventBase.SetCustomMatchOptions(RoomOptions,int)	2	真重复(同一原版方法)	原版 DraftEventBase#2.SetCustomMatchOptions#0
+137	轮抽	DraftEventBase<TS, TD>	UpdateState()	泛型与启动链_补读.tsv:757	A	DraftEventBase.UpdateState()	2	真重复(同一原版方法)	原版 DraftEventBase#2.UpdateState#0
+137	轮抽	DraftEventBase	UpdateState()	轮抽.tsv:31	A	DraftEventBase.UpdateState()	2	真重复(同一原版方法)	原版 DraftEventBase#2.UpdateState#0
+138	轮抽	DraftEventBase<TS, TD>	Validate(TS save)	泛型与启动链_补读.tsv:745	A	DraftEventBase.Validate(TS)	2	真重复(同一原版方法)	原版 DraftEventBase#2.Validate#0
+138	轮抽	DraftEventBase	Validate(TS save)	轮抽.tsv:32	A	DraftEventBase.Validate(TS)	2	真重复(同一原版方法)	原版 DraftEventBase#2.Validate#0
+139	菜单/外壳	Draggable<T>	Initialize(T item)	泛型与启动链_补读.tsv:717	A	Draggable.Initialize(T)	2	真重复(同一原版方法)	原版 Draggable#1.Initialize#0
+139	菜单/外壳	Draggable	Initialize(T item)	菜单_外壳.tsv:118	A	Draggable.Initialize(T)	2	真重复(同一原版方法)	原版 Draggable#1.Initialize#0
+140	菜单/外壳	Draggable<T>	OnDrag()	泛型与启动链_补读.tsv:718	A	Draggable.OnDrag()	2	真重复(同一原版方法)	原版 Draggable#1.OnDrag#0
+140	菜单/外壳	Draggable	OnDrag()	菜单_外壳.tsv:120	A	Draggable.OnDrag()	2	真重复(同一原版方法)	原版 Draggable#1.OnDrag#0
+141	菜单/外壳	Draggable<T>	OnRelease()	泛型与启动链_补读.tsv:719	A	Draggable.OnRelease()	2	真重复(同一原版方法)	原版 Draggable#1.OnRelease#0
+141	菜单/外壳	Draggable	OnRelease()	菜单_外壳.tsv:123	A	Draggable.OnRelease()	2	真重复(同一原版方法)	原版 Draggable#1.OnRelease#0
+142	菜单/外壳	DraggableController<T>	OnBeginDrag(PointerEventData eventData)	泛型与启动链_补读.tsv:721	A	DraggableController.OnBeginDrag(PointerEventData)	2	真重复(同一原版方法)	原版 DraggableController#1.OnBeginDrag#0
+142	菜单/外壳	DraggableController	OnBeginDrag(PointerEventData eventData)	菜单_外壳.tsv:124	A	DraggableController.OnBeginDrag(PointerEventData)	2	真重复(同一原版方法)	原版 DraggableController#1.OnBeginDrag#0
+143	菜单/外壳	DraggableController<T>	OnDrag(PointerEventData eventData)	泛型与启动链_补读.tsv:722	A	DraggableController.OnDrag(PointerEventData)	2	真重复(同一原版方法)	原版 DraggableController#1.OnDrag#0
+143	菜单/外壳	DraggableController	OnDrag(PointerEventData eventData)	菜单_外壳.tsv:125	A	DraggableController.OnDrag(PointerEventData)	2	真重复(同一原版方法)	原版 DraggableController#1.OnDrag#0
+144	菜单/外壳	DraggableController<T>	OnEndDrag(PointerEventData eventData)	泛型与启动链_补读.tsv:723	A	DraggableController.OnEndDrag(PointerEventData)	2	真重复(同一原版方法)	原版 DraggableController#1.OnEndDrag#0
+144	菜单/外壳	DraggableController	OnEndDrag(PointerEventData eventData)	菜单_外壳.tsv:126	A	DraggableController.OnEndDrag(PointerEventData)	2	真重复(同一原版方法)	原版 DraggableController#1.OnEndDrag#0
+145	菜单/外壳	DraggableController<T>	SetDraggable(T content)	泛型与启动链_补读.tsv:720	A	DraggableController.SetDraggable(T)	2	真重复(同一原版方法)	原版 DraggableController#1.SetDraggable#0
+145	菜单/外壳	DraggableController	SetDraggable(T content)	菜单_外壳.tsv:127	A	DraggableController.SetDraggable(T)	2	真重复(同一原版方法)	原版 DraggableController#1.SetDraggable#0
+146	菜单/外壳	DynamicList<T>	Add(T element)	泛型与启动链_补读.tsv:731	A	DynamicList.Add(T)	2	真重复(同一原版方法)	原版 DynamicList#1.Add#0
+146	菜单/外壳	DynamicList	Add(T element)	菜单_外壳.tsv:142	A	DynamicList.Add(T)	2	真重复(同一原版方法)	原版 DynamicList#1.Add#0
+147	菜单/外壳	DynamicList<T>	Clear()	泛型与启动链_补读.tsv:734	A	DynamicList.Clear()	2	真重复(同一原版方法)	原版 DynamicList#1.Clear#0
+147	菜单/外壳	DynamicList	Clear()	菜单_外壳.tsv:143	A	DynamicList.Clear()	2	真重复(同一原版方法)	原版 DynamicList#1.Clear#0
+148	菜单/外壳	DynamicList<T>	Get(T element)	泛型与启动链_补读.tsv:728	A	DynamicList.Get(T)	2	真重复(同一原版方法)	原版 DynamicList#1.Get#1
+148	菜单/外壳	DynamicList	Get<T1>(T element)	菜单_外壳.tsv:144	D	DynamicList.Get(T)	2	真重复(同一原版方法)	原版 DynamicList#1.Get#1
+149	菜单/外壳	DynamicList<T>	Get(int index)	泛型与启动链_补读.tsv:729	A	DynamicList.Get(int)	2	真重复(同一原版方法)	原版 DynamicList#1.Get#1
+149	菜单/外壳	DynamicList	Get<T1>(int index)	菜单_外壳.tsv:145	D	DynamicList.Get(int)	2	真重复(同一原版方法)	原版 DynamicList#1.Get#1
+150	菜单/外壳	DynamicList<T>	GetAll()	泛型与启动链_补读.tsv:730	A	DynamicList.GetAll()	2	真重复(同一原版方法)	原版 DynamicList#1.GetAll#1
+150	菜单/外壳	DynamicList	GetAll<T1>()	菜单_外壳.tsv:146	D	DynamicList.GetAll()	2	真重复(同一原版方法)	原版 DynamicList#1.GetAll#1
+151	菜单/外壳	DynamicList<T>	GetIndexType(int index)	泛型与启动链_补读.tsv:727	A	DynamicList.GetIndexType(int)	3	真重复(与组内 菜单_外壳.tsv:147 同指)	原版 DynamicList#1.GetIndexType#0
+151	菜单/外壳	DynamicList	DynamicList<T>.GetIndexType(int index)	菜单_外壳.tsv:147	D	DynamicList.GetIndexType(int)	3	真重复(与组内 泛型与启动链_补读.tsv:727 同指)	原版 DynamicList#1.GetIndexType#0
+151	菜单/外壳	DynamicList	DynamicList.GetIndexType(int index)	菜单_外壳.tsv:148	D	DynamicList.GetIndexType(int)	3	非重复(与组内其余不同原版方法)	原版 DynamicList#0.GetIndexType#0
+152	菜单/外壳	DynamicList<T>	GetList()	泛型与启动链_补读.tsv:725	A	DynamicList.GetList()	2	真重复(同一原版方法)	原版 DynamicList#1.GetList#0
+152	菜单/外壳	DynamicList	GetList()	菜单_外壳.tsv:149	A	DynamicList.GetList()	2	真重复(同一原版方法)	原版 DynamicList#1.GetList#0
+153	菜单/外壳	DynamicList<T>	IndexOf(T element)	泛型与启动链_补读.tsv:733	A	DynamicList.IndexOf(T)	2	真重复(同一原版方法)	原版 DynamicList#1.IndexOf#0
+153	菜单/外壳	DynamicList	IndexOf(T element)	菜单_外壳.tsv:150	A	DynamicList.IndexOf(T)	2	真重复(同一原版方法)	原版 DynamicList#1.IndexOf#0
+154	菜单/外壳	DynamicList<T>	Inser(T element, int index)	泛型与启动链_补读.tsv:732	A	DynamicList.Inser(T,int)	2	真重复(同一原版方法)	原版 DynamicList#1.Inser#0
+154	菜单/外壳	DynamicList	Inser(T element, int index)	菜单_外壳.tsv:151	A	DynamicList.Inser(T,int)	2	真重复(同一原版方法)	原版 DynamicList#1.Inser#0
+155	菜单/外壳	DynamicList<T>	ListType()	泛型与启动链_补读.tsv:726	A	DynamicList.ListType()	3	真重复(与组内 菜单_外壳.tsv:152 同指)	原版 DynamicList#1.ListType#0
+155	菜单/外壳	DynamicList	DynamicList<T>.ListType()	菜单_外壳.tsv:152	D	DynamicList.ListType()	3	真重复(与组内 泛型与启动链_补读.tsv:726 同指)	原版 DynamicList#1.ListType#0
+155	菜单/外壳	DynamicList	DynamicList.ListType()	菜单_外壳.tsv:153	D	DynamicList.ListType()	3	非重复(与组内其余不同原版方法)	原版 DynamicList#0.ListType#0
+156	菜单/外壳	DynamicList<T>	Remove(T element)	泛型与启动链_补读.tsv:735	A	DynamicList.Remove(T)	2	真重复(同一原版方法)	原版 DynamicList#1.Remove#0
+156	菜单/外壳	DynamicList	Remove(T element)	菜单_外壳.tsv:154	A	DynamicList.Remove(T)	2	真重复(同一原版方法)	原版 DynamicList#1.Remove#0
+157	菜单/外壳	DynamicList<T>	RemoveAt(int index)	泛型与启动链_补读.tsv:736	A	DynamicList.RemoveAt(int)	2	真重复(同一原版方法)	原版 DynamicList#1.RemoveAt#0
+157	菜单/外壳	DynamicList	RemoveAt(int index)	菜单_外壳.tsv:155	A	DynamicList.RemoveAt(int)	2	真重复(同一原版方法)	原版 DynamicList#1.RemoveAt#0
+158	未分类/其他	Enchantments	TryGetCard(T cardEffect, out RawCardScript cardToReturn)	未分类_其他.tsv:273	A	Enchantments.TryGetCard(T,out RawCardScript)	2	真重复(同一原版方法)	原版 CardEffectToCard#1.TryGetCard#0
+158	未分类/其他	Enchantments	TryGetCard<T>(T cardEffect, out RawCardScript cardToReturn)	未分类_其他.tsv:756	A	Enchantments.TryGetCard(T,out RawCardScript)	2	真重复(同一原版方法)	原版 CardEffectToCard#1.TryGetCard#0
+159	日常/奖励	EventProgressBarController	Initialize(ScoringDataInfo scoringInfo, ObtainableItem scoreItem, bool isLastMilestone)	日常_奖励.tsv:182	A	EventProgressBarController.Initialize(ScoringDataInfo,ObtainableItem,bool)	2	真重复(同一原版方法)	原版 EventProgressBarController#0.Initialize#0/ScoreObject#0.Initialize#0
+159	日常/奖励	EventProgressBarController	Initialize(ScoringDataInfo scoringInfo, ObtainableItem spriteIcon, bool isLastMilestone)	日常_奖励.tsv:183	A	EventProgressBarController.Initialize(ScoringDataInfo,ObtainableItem,bool)	2	真重复(同一原版方法)	原版 EventProgressBarController#0.Initialize#0/ScoreObject#0.Initialize#0
+160	日常/奖励	FastModeBaseEvent	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	日常_奖励.tsv:260	A	FastModeBaseEvent.GetArmyState(CardArmy,IReadOnlyList<RankedScoreBoostEvent>)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetArmyState#0
+160	日常/奖励	FastModeBaseEvent<TS, TD>	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	泛型与启动链_补读.tsv:166	A	FastModeBaseEvent.GetArmyState(CardArmy,IReadOnlyList<RankedScoreBoostEvent>)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetArmyState#0
+161	日常/奖励	FastModeBaseEvent	GetArmyStats(CardArmy army)	日常_奖励.tsv:261	A	FastModeBaseEvent.GetArmyStats(CardArmy)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetArmyStats#0
+161	日常/奖励	FastModeBaseEvent<TS, TD>	GetArmyStats(CardArmy army)	泛型与启动链_补读.tsv:165	A	FastModeBaseEvent.GetArmyStats(CardArmy)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetArmyStats#0
+162	日常/奖励	FastModeBaseEvent	GetBaseData()	日常_奖励.tsv:262	A	FastModeBaseEvent.GetBaseData()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetBaseData#0
+162	日常/奖励	FastModeBaseEvent<TS, TD>	GetBaseData()	泛型与启动链_补读.tsv:168	A	FastModeBaseEvent.GetBaseData()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetBaseData#0
+163	日常/奖励	FastModeBaseEvent	GetBaseSave()	日常_奖励.tsv:263	A	FastModeBaseEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetBaseSave#0
+163	日常/奖励	FastModeBaseEvent<TS, TD>	GetBaseSave()	泛型与启动链_补读.tsv:172	A	FastModeBaseEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetBaseSave#0
+164	日常/奖励	FastModeBaseEvent	GetEventDeck()	日常_奖励.tsv:264	A	FastModeBaseEvent.GetEventDeck()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetEventDeck#0
+164	日常/奖励	FastModeBaseEvent<TS, TD>	GetEventDeck()	泛型与启动链_补读.tsv:169	A	FastModeBaseEvent.GetEventDeck()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetEventDeck#0
+165	日常/奖励	FastModeBaseEvent	GetEventDeck(CardArmy army)	日常_奖励.tsv:265	A	FastModeBaseEvent.GetEventDeck(CardArmy)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetEventDeck#0
+165	日常/奖励	FastModeBaseEvent<TS, TD>	GetEventDeck(CardArmy army)	泛型与启动链_补读.tsv:167	A	FastModeBaseEvent.GetEventDeck(CardArmy)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetEventDeck#0
+166	日常/奖励	FastModeBaseEvent	GetSqlFilter(int maxRating, int minRating, string guildId, bool isRanked, IEnumerable<string> blacklistedUsers, int gamesLost)	日常_奖励.tsv:267	D	FastModeBaseEvent.GetSqlFilter(int,int,string,bool,IEnumerable<string>,int)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetSqlFilter#0
+166	日常/奖励	FastModeBaseEvent<TS, TD>	GetSqlFilter(int maxRating, int minRating, string guildId, bool isRanked, IEnumerable<string> blacklistedUsers, int gamesLost)	泛型与启动链_补读.tsv:171	D	FastModeBaseEvent.GetSqlFilter(int,int,string,bool,IEnumerable<string>,int)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.GetSqlFilter#0
+167	日常/奖励	FastModeBaseEvent	OnMatchDraw()	日常_奖励.tsv:268	A	FastModeBaseEvent.OnMatchDraw()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.OnMatchDraw#0
+167	日常/奖励	FastModeBaseEvent<TS, TD>	OnMatchDraw()	泛型与启动链_补读.tsv:176	A	FastModeBaseEvent.OnMatchDraw()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.OnMatchDraw#0
+168	日常/奖励	FastModeBaseEvent	OnMatchLost()	日常_奖励.tsv:271	A	FastModeBaseEvent.OnMatchLost()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.OnMatchLost#0
+168	日常/奖励	FastModeBaseEvent<TS, TD>	OnMatchLost()	泛型与启动链_补读.tsv:175	A	FastModeBaseEvent.OnMatchLost()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.OnMatchLost#0
+169	日常/奖励	FastModeBaseEvent	OnMatchWon()	日常_奖励.tsv:273	A	FastModeBaseEvent.OnMatchWon()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.OnMatchWon#0
+169	日常/奖励	FastModeBaseEvent<TS, TD>	OnMatchWon()	泛型与启动链_补读.tsv:174	A	FastModeBaseEvent.OnMatchWon()	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.OnMatchWon#0
+170	日常/奖励	FastModeBaseEvent	RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess)	日常_奖励.tsv:274	A	FastModeBaseEvent.RecordMatchFinished(int,int,int,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.RecordMatchFinished#0
+170	日常/奖励	FastModeBaseEvent<TS, TD>	RecordMatchFinished(int matchWon, int targetMilestone, int enemyMilestone, Action<OnlineMatchResult> callbackOnSuccess)	泛型与启动链_补读.tsv:173	A	FastModeBaseEvent.RecordMatchFinished(int,int,int,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.RecordMatchFinished#0
+171	日常/奖励	FastModeBaseEvent	SetCustomMatchOptions(RoomOptions options, int currentElo)	日常_奖励.tsv:275	A	FastModeBaseEvent.SetCustomMatchOptions(RoomOptions,int)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.SetCustomMatchOptions#0
+171	日常/奖励	FastModeBaseEvent<TS, TD>	SetCustomMatchOptions(RoomOptions options, int currentElo)	泛型与启动链_补读.tsv:170	A	FastModeBaseEvent.SetCustomMatchOptions(RoomOptions,int)	2	真重复(同一原版方法)	原版 FastModeBaseEvent#2.SetCustomMatchOptions#0
+172	日常/奖励	GameNewsEvent	GetBaseData()	日常_奖励.tsv:281	A	GameNewsEvent.GetBaseData()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.GetBaseData#0
+172	日常/奖励	GameNewsEvent<TPersistence, TData>	GetBaseData()	泛型与启动链_补读.tsv:181	A	GameNewsEvent.GetBaseData()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.GetBaseData#0
+173	日常/奖励	GameNewsEvent	GetBaseSave()	日常_奖励.tsv:282	A	GameNewsEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.GetBaseSave#0
+173	日常/奖励	GameNewsEvent<TPersistence, TData>	GetBaseSave()	泛型与启动链_补读.tsv:182	A	GameNewsEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.GetBaseSave#0
+174	日常/奖励	GameNewsEvent	IsRead()	日常_奖励.tsv:285	A	GameNewsEvent.IsRead()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.IsRead#0
+174	日常/奖励	GameNewsEvent<TPersistence, TData>	IsRead()	泛型与启动链_补读.tsv:179	A	GameNewsEvent.IsRead()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.IsRead#0
+175	日常/奖励	GameNewsEvent	StartDate()	日常_奖励.tsv:287	A	GameNewsEvent.StartDate()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.StartDate#0
+175	日常/奖励	GameNewsEvent<TPersistence, TData>	StartDate()	泛型与启动链_补读.tsv:180	A	GameNewsEvent.StartDate()	2	真重复(同一原版方法)	原版 GameNewsEvent#2.StartDate#0
+176	未分类/其他	IdentifiableWrapper	GetID()	未分类_其他.tsv:362	A	IdentifiableWrapper.GetID()	2	真重复(同一原版方法)	原版 IdentifiableWrapper#1.GetID#0
+176	未分类/其他	IdentifiableWrapper<T>	GetID()	泛型与启动链_补读.tsv:593	A	IdentifiableWrapper.GetID()	2	真重复(同一原版方法)	原版 IdentifiableWrapper#1.GetID#0
+177	收藏	Inventory	Add(IIdentifiable item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount)	收藏.tsv:219	A	Inventory.Add(IIdentifiable,int,string,Dictionary<string,string>,bool)	2	真重复(同一原版方法)	原版 Inventory#1.Add#0
+177	收藏	Inventory<T>	Add(IIdentifiable item, int amount, string instanceId, Dictionary<string, string> customData, bool overrideAmount = False)	泛型与启动链_补读.tsv:105	A	Inventory.Add(IIdentifiable,int,string,Dictionary<string,string>,bool)	2	真重复(同一原版方法)	原版 Inventory#1.Add#0
+178	收藏	Inventory	Create(IIdentifiable item, string instanceId, Dictionary<string, string> customData)	收藏.tsv:220	A	Inventory.Create(IIdentifiable,string,Dictionary<string,string>)	2	真重复(同一原版方法)	原版 Inventory#1.Create#0
+178	收藏	Inventory<T>	Create(IIdentifiable item, string instanceId, Dictionary<string, string> customData)	泛型与启动链_补读.tsv:103	A	Inventory.Create(IIdentifiable,string,Dictionary<string,string>)	2	真重复(同一原版方法)	原版 Inventory#1.Create#0
+179	收藏	Inventory	Get(Func<T, bool> predicate)	收藏.tsv:221	A	Inventory.Get(Func<T,bool>)	2	真重复(同一原版方法)	原版 Inventory#1.Get#0
+179	收藏	Inventory<T>	Get(Func<T, bool> predicate)	泛型与启动链_补读.tsv:112	A	Inventory.Get(Func<T,bool>)	2	真重复(同一原版方法)	原版 Inventory#1.Get#0
+180	收藏	Inventory	Get(IIdentifiable item, bool autoCreate)	收藏.tsv:222	A	Inventory.Get(IIdentifiable,bool)	2	真重复(同一原版方法)	原版 Inventory#1.Get#0
+180	收藏	Inventory<T>	Get(IIdentifiable item, bool autoCreate = False)	泛型与启动链_补读.tsv:110	A	Inventory.Get(IIdentifiable,bool)	2	真重复(同一原版方法)	原版 Inventory#1.Get#0
+181	收藏	Inventory	Get(string id)	收藏.tsv:223	A	Inventory.Get(string)	2	真重复(同一原版方法)	原版 Inventory#1.Get#0
+181	收藏	Inventory<T>	Get(string id)	泛型与启动链_补读.tsv:111	A	Inventory.Get(string)	2	真重复(同一原版方法)	原版 Inventory#1.Get#0
+182	收藏	Inventory	GetItemInstances(bool useQuantity)	收藏.tsv:224	A	Inventory.GetItemInstances(bool)	2	真重复(同一原版方法)	原版 Inventory#1.GetItemInstances#0
+182	收藏	Inventory<T>	GetItemInstances(bool useQuantity = True)	泛型与启动链_补读.tsv:109	A	Inventory.GetItemInstances(bool)	2	真重复(同一原版方法)	原版 Inventory#1.GetItemInstances#0
+183	收藏	Inventory	GetItems()	收藏.tsv:225	A	Inventory.GetItems()	2	真重复(同一原版方法)	原版 Inventory#1.GetItems#0
+183	收藏	Inventory<T>	GetItems()	泛型与启动链_补读.tsv:108	A	Inventory.GetItems()	2	真重复(同一原版方法)	原版 Inventory#1.GetItems#0
+184	收藏	Inventory	GetWhere(Func<T, bool> predicate)	收藏.tsv:226	A	Inventory.GetWhere(Func<T,bool>)	2	真重复(同一原版方法)	原版 Inventory#1.GetWhere#0
+184	收藏	Inventory<T>	GetWhere(Func<T, bool> predicate)	泛型与启动链_补读.tsv:113	A	Inventory.GetWhere(Func<T,bool>)	2	真重复(同一原版方法)	原版 Inventory#1.GetWhere#0
+185	收藏	Inventory	OnFinishUnpack()	收藏.tsv:227	D	Inventory.OnFinishUnpack()	2	真重复(同一原版方法)	原版 Inventory#1.OnFinishUnpack#0
+185	收藏	Inventory<T>	OnFinishUnpack()	泛型与启动链_补读.tsv:104	D	Inventory.OnFinishUnpack()	2	真重复(同一原版方法)	原版 Inventory#1.OnFinishUnpack#0
+186	收藏	Inventory	OnItemCountModify(T item, int amount)	收藏.tsv:228	A	Inventory.OnItemCountModify(T,int)	2	真重复(同一原版方法)	原版 Inventory#1.OnItemCountModify#0
+186	收藏	Inventory<T>	OnItemCountModify(T item, int amount)	泛型与启动链_补读.tsv:101	A	Inventory.OnItemCountModify(T,int)	2	真重复(同一原版方法)	原版 Inventory#1.OnItemCountModify#0
+187	收藏	Inventory	OnItemCountModifyInternal(IIdentifiable itemChanged, int amountChanged)	收藏.tsv:229	A	Inventory.OnItemCountModifyInternal(IIdentifiable,int)	2	真重复(同一原版方法)	原版 Inventory#1.OnItemCountModifyInternal#0
+187	收藏	Inventory<T>	OnItemCountModifyInternal(IIdentifiable itemChanged, int amountChanged)	泛型与启动链_补读.tsv:100	A	Inventory.OnItemCountModifyInternal(IIdentifiable,int)	2	真重复(同一原版方法)	原版 Inventory#1.OnItemCountModifyInternal#0
+188	收藏	Inventory	RegisterSubset(Type type, InventorySubset set)	收藏.tsv:230	A	Inventory.RegisterSubset(Type,InventorySubset)	2	真重复(同一原版方法)	原版 Inventory#1.RegisterSubset#0
+188	收藏	Inventory<T>	RegisterSubset(Type type, InventorySubset set)	泛型与启动链_补读.tsv:102	A	Inventory.RegisterSubset(Type,InventorySubset)	2	真重复(同一原版方法)	原版 Inventory#1.RegisterSubset#0
+189	收藏	Inventory	TryGetItem(Func<T, bool> predicate, out IItemInfo<T> item)	收藏.tsv:231	A	Inventory.TryGetItem(Func<T,bool>,out IItemInfo<T>)	2	真重复(同一原版方法)	原版 Inventory#1.TryGetItem#0
+189	收藏	Inventory<T>	TryGetItem(Func<T, bool> predicate, out IItemInfo<T> item)	泛型与启动链_补读.tsv:107	A	Inventory.TryGetItem(Func<T,bool>,out IItemInfo<T>)	2	真重复(同一原版方法)	原版 Inventory#1.TryGetItem#0
+190	收藏	Inventory	TryGetItem(string id, out IItemInfo<T> item)	收藏.tsv:232	A	Inventory.TryGetItem(string,out IItemInfo<T>)	2	真重复(同一原版方法)	原版 Inventory#1.TryGetItem#0
+190	收藏	Inventory<T>	TryGetItem(string id, out IItemInfo<T> item)	泛型与启动链_补读.tsv:106	A	Inventory.TryGetItem(string,out IItemInfo<T>)	2	真重复(同一原版方法)	原版 Inventory#1.TryGetItem#0
+191	收藏	Inventory	UpdateItemCollection()	收藏.tsv:233	A	Inventory.UpdateItemCollection()	2	真重复(同一原版方法)	原版 Inventory#1.UpdateItemCollection#0
+191	收藏	Inventory<T>	UpdateItemCollection()	泛型与启动链_补读.tsv:99	A	Inventory.UpdateItemCollection()	2	真重复(同一原版方法)	原版 Inventory#1.UpdateItemCollection#0
+192	收藏	ItemDrawer	ItemDrawer.Awake()	收藏.tsv:263	D	ItemDrawer.Awake()	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.Awake#0
+192	收藏	ItemDrawer	ItemDrawer<T>.Awake()	收藏.tsv:264	A	ItemDrawer.Awake()	3	真重复(与组内 泛型与启动链_补读.tsv:114 同指)	原版 ItemDrawer#1.Awake#0
+192	收藏	ItemDrawer<T>	Awake()	泛型与启动链_补读.tsv:114	D	ItemDrawer.Awake()	3	真重复(与组内 收藏.tsv:264 同指)	原版 ItemDrawer#1.Awake#0
+193	收藏	ItemDrawer	Draw(ObtainableItem item, int amount, ItemDrawerOptions options)	收藏.tsv:265	A	ItemDrawer.Draw(ObtainableItem,int,ItemDrawerOptions)	3	真重复(与组内 收藏.tsv:266 同指)	原版 ItemDrawer#0.Draw#0
+193	收藏	ItemDrawer	Draw(ObtainableItem item, int quantity, ItemDrawerOptions options)	收藏.tsv:266	D	ItemDrawer.Draw(ObtainableItem,int,ItemDrawerOptions)	3	真重复(与组内 收藏.tsv:265 同指)	原版 ItemDrawer#0.Draw#0
+193	收藏	ItemDrawer<T>	Draw(ObtainableItem item, int amount = 1, ItemDrawerOptions options)	泛型与启动链_补读.tsv:116	A	ItemDrawer.Draw(ObtainableItem,int,ItemDrawerOptions)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#1.Draw#0
+194	收藏	ItemDrawer	Draw(T item, int quantity)	收藏.tsv:267	D	ItemDrawer.Draw(T,int)	2	真重复(同一原版方法)	原版 ItemDrawer#1.Draw#0
+194	收藏	ItemDrawer<T>	Draw(T item, int quantity = 1)	泛型与启动链_补读.tsv:126	A	ItemDrawer.Draw(T,int)	2	真重复(同一原版方法)	原版 ItemDrawer#1.Draw#0
+195	收藏	ItemDrawer	GetItemName(T item)	收藏.tsv:269	A	ItemDrawer.GetItemName(T)	2	真重复(同一原版方法)	原版 ItemDrawer#1.GetItemName#0
+195	收藏	ItemDrawer<T>	GetItemName(T item)	泛型与启动链_补读.tsv:125	A	ItemDrawer.GetItemName(T)	2	真重复(同一原版方法)	原版 ItemDrawer#1.GetItemName#0
+196	收藏	ItemDrawer	ItemDrawer.HandlePointerClick()	收藏.tsv:270	D	ItemDrawer.HandlePointerClick()	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.HandlePointerClick#0
+196	收藏	ItemDrawer	ItemDrawer<T>.HandlePointerClick()	收藏.tsv:271	A	ItemDrawer.HandlePointerClick()	3	真重复(与组内 泛型与启动链_补读.tsv:130 同指)	原版 ItemDrawer#1.HandlePointerClick#0
+196	收藏	ItemDrawer<T>	HandlePointerClick()	泛型与启动链_补读.tsv:130	A	ItemDrawer.HandlePointerClick()	3	真重复(与组内 收藏.tsv:271 同指)	原版 ItemDrawer#1.HandlePointerClick#0
+197	收藏	ItemDrawer	OnPointerClick(PointerEventData eventData)	收藏.tsv:273	A	ItemDrawer.OnPointerClick(PointerEventData)	2	真重复(同一原版方法)	原版 ItemDrawer#1.OnPointerClick#0
+197	收藏	ItemDrawer<T>	OnPointerClick(PointerEventData eventData)	泛型与启动链_补读.tsv:129	A	ItemDrawer.OnPointerClick(PointerEventData)	2	真重复(同一原版方法)	原版 ItemDrawer#1.OnPointerClick#0
+198	收藏	ItemDrawer	ItemDrawer.OverrideOnClickAction(Action onClick)	收藏.tsv:275	D	ItemDrawer.OverrideOnClickAction(Action)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.OverrideOnClickAction#0
+198	收藏	ItemDrawer	ItemDrawer<T>.OverrideOnClickAction(Action onClick)	收藏.tsv:276	A	ItemDrawer.OverrideOnClickAction(Action)	3	真重复(与组内 泛型与启动链_补读.tsv:124 同指)	原版 ItemDrawer#1.OverrideOnClickAction#0
+198	收藏	ItemDrawer<T>	OverrideOnClickAction(Action onClick)	泛型与启动链_补读.tsv:124	A	ItemDrawer.OverrideOnClickAction(Action)	3	真重复(与组内 收藏.tsv:276 同指)	原版 ItemDrawer#1.OverrideOnClickAction#0
+199	收藏	ItemDrawer	ItemDrawer.OverridePremiumBadge(Sprite sprite)	收藏.tsv:277	D	ItemDrawer.OverridePremiumBadge(Sprite)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.OverridePremiumBadge#0
+199	收藏	ItemDrawer	ItemDrawer<T>.OverridePremiumBadge(Sprite sprite)	收藏.tsv:278	A	ItemDrawer.OverridePremiumBadge(Sprite)	3	真重复(与组内 泛型与启动链_补读.tsv:121 同指)	原版 ItemDrawer#1.OverridePremiumBadge#0
+199	收藏	ItemDrawer<T>	OverridePremiumBadge(Sprite sprite)	泛型与启动链_补读.tsv:121	A	ItemDrawer.OverridePremiumBadge(Sprite)	3	真重复(与组内 收藏.tsv:278 同指)	原版 ItemDrawer#1.OverridePremiumBadge#0
+200	收藏	ItemDrawer	ItemDrawer.Refresh()	收藏.tsv:279	D	ItemDrawer.Refresh()	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.Refresh#0
+200	收藏	ItemDrawer	ItemDrawer<T>.Refresh()	收藏.tsv:280	A	ItemDrawer.Refresh()	3	真重复(与组内 泛型与启动链_补读.tsv:115 同指)	原版 ItemDrawer#1.Refresh#0
+200	收藏	ItemDrawer<T>	Refresh()	泛型与启动链_补读.tsv:115	A	ItemDrawer.Refresh()	3	真重复(与组内 收藏.tsv:280 同指)	原版 ItemDrawer#1.Refresh#0
+201	收藏	ItemDrawer	ItemDrawer.SetConvertedItem(RewardInfo convertedTo)	收藏.tsv:283	D	ItemDrawer.SetConvertedItem(RewardInfo)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.SetConvertedItem#0
+201	收藏	ItemDrawer	ItemDrawer<T>.SetConvertedItem(RewardInfo convertedTo)	收藏.tsv:284	A	ItemDrawer.SetConvertedItem(RewardInfo)	3	真重复(与组内 泛型与启动链_补读.tsv:118 同指)	原版 ItemDrawer#1.SetConvertedItem#0
+201	收藏	ItemDrawer<T>	SetConvertedItem(RewardInfo convertedTo)	泛型与启动链_补读.tsv:118	A	ItemDrawer.SetConvertedItem(RewardInfo)	3	真重复(与组内 收藏.tsv:284 同指)	原版 ItemDrawer#1.SetConvertedItem#0
+202	收藏	ItemDrawer	ItemDrawer.SetEphemeralDisplay(EphemeralState state)	收藏.tsv:285	D	ItemDrawer.SetEphemeralDisplay(EphemeralState)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.SetEphemeralDisplay#0
+202	收藏	ItemDrawer	ItemDrawer<T>.SetEphemeralDisplay(EphemeralState state)	收藏.tsv:286	A	ItemDrawer.SetEphemeralDisplay(EphemeralState)	3	真重复(与组内 泛型与启动链_补读.tsv:119 同指)	原版 ItemDrawer#1.SetEphemeralDisplay#0
+202	收藏	ItemDrawer<T>	SetEphemeralDisplay(EphemeralState state)	泛型与启动链_补读.tsv:119	A	ItemDrawer.SetEphemeralDisplay(EphemeralState)	3	真重复(与组内 收藏.tsv:286 同指)	原版 ItemDrawer#1.SetEphemeralDisplay#0
+203	收藏	ItemDrawer	SetItemName(string newName)	收藏.tsv:287	D	ItemDrawer.SetItemName(string)	2	真重复(同一原版方法)	原版 ItemDrawer#1.SetItemName#0
+203	收藏	ItemDrawer<T>	SetItemName(string newName)	泛型与启动链_补读.tsv:117	D	ItemDrawer.SetItemName(string)	2	真重复(同一原版方法)	原版 ItemDrawer#1.SetItemName#0
+204	收藏	ItemDrawer	ItemDrawer.ToggleClaimedWarning(bool toggle)	收藏.tsv:288	D	ItemDrawer.ToggleClaimedWarning(bool)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.ToggleClaimedWarning#0
+204	收藏	ItemDrawer	ItemDrawer<T>.ToggleClaimedWarning(bool toggle)	收藏.tsv:289	A	ItemDrawer.ToggleClaimedWarning(bool)	3	真重复(与组内 泛型与启动链_补读.tsv:120 同指)	原版 ItemDrawer#1.ToggleClaimedWarning#0
+204	收藏	ItemDrawer<T>	ToggleClaimedWarning(bool toggle)	泛型与启动链_补读.tsv:120	A	ItemDrawer.ToggleClaimedWarning(bool)	3	真重复(与组内 收藏.tsv:289 同指)	原版 ItemDrawer#1.ToggleClaimedWarning#0
+205	收藏	ItemDrawer	ItemDrawer.ToggleHighlight(bool toggle)	收藏.tsv:290	D	ItemDrawer.ToggleHighlight(bool)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.ToggleHighlight#0
+205	收藏	ItemDrawer	ItemDrawer<T>.ToggleHighlight(bool toggle)	收藏.tsv:291	D	ItemDrawer.ToggleHighlight(bool)	3	真重复(与组内 泛型与启动链_补读.tsv:127 同指)	原版 ItemDrawer#1.ToggleHighlight#0
+205	收藏	ItemDrawer<T>	ToggleHighlight(bool toggle)	泛型与启动链_补读.tsv:127	A	ItemDrawer.ToggleHighlight(bool)	3	真重复(与组内 收藏.tsv:291 同指)	原版 ItemDrawer#1.ToggleHighlight#0
+206	收藏	ItemDrawer	ItemDrawer.ToggleLock(bool toggle)	收藏.tsv:292	D	ItemDrawer.ToggleLock(bool)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.ToggleLock#0
+206	收藏	ItemDrawer	ItemDrawer<T>.ToggleLock(bool toggle)	收藏.tsv:293	D	ItemDrawer.ToggleLock(bool)	3	真重复(与组内 泛型与启动链_补读.tsv:128 同指)	原版 ItemDrawer#1.ToggleLock#0
+206	收藏	ItemDrawer<T>	ToggleLock(bool toggle)	泛型与启动链_补读.tsv:128	A	ItemDrawer.ToggleLock(bool)	3	真重复(与组内 收藏.tsv:293 同指)	原版 ItemDrawer#1.ToggleLock#0
+207	收藏	ItemDrawer	ItemDrawer.TogglePremiumHighlight(bool toggle)	收藏.tsv:294	D	ItemDrawer.TogglePremiumHighlight(bool)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#0.TogglePremiumHighlight#0
+207	收藏	ItemDrawer	ItemDrawer<T>.TogglePremiumHighlight(bool toggle)	收藏.tsv:295	A	ItemDrawer.TogglePremiumHighlight(bool)	3	真重复(与组内 泛型与启动链_补读.tsv:122 同指)	原版 ItemDrawer#1.TogglePremiumHighlight#0
+207	收藏	ItemDrawer<T>	TogglePremiumHighlight(bool toggle)	泛型与启动链_补读.tsv:122	A	ItemDrawer.TogglePremiumHighlight(bool)	3	真重复(与组内 收藏.tsv:295 同指)	原版 ItemDrawer#1.TogglePremiumHighlight#0
+208	收藏	ItemDrawer	ToggleShowInfoOnClick(bool option)	收藏.tsv:296	A	ItemDrawer.ToggleShowInfoOnClick(bool)	3	真重复(与组内 收藏.tsv:297 同指)	原版 ItemDrawer#0.ToggleShowInfoOnClick#0
+208	收藏	ItemDrawer	ToggleShowInfoOnClick(bool toggle)	收藏.tsv:297	D	ItemDrawer.ToggleShowInfoOnClick(bool)	3	真重复(与组内 收藏.tsv:296 同指)	原版 ItemDrawer#0.ToggleShowInfoOnClick#0
+208	收藏	ItemDrawer<T>	ToggleShowInfoOnClick(bool option)	泛型与启动链_补读.tsv:123	A	ItemDrawer.ToggleShowInfoOnClick(bool)	3	非重复(与组内其余不同原版方法)	原版 ItemDrawer#1.ToggleShowInfoOnClick#0
+209	未分类/其他	ItemInfo	Add(int amount, string instanceId)	未分类_其他.tsv:373	A	ItemInfo.Add(int,string)	2	真重复(同一原版方法)	原版 ItemInfo#1.Add#0
+209	未分类/其他	ItemInfo<T>	Add(int amount, string instanceId)	泛型与启动链_补读.tsv:597	A	ItemInfo.Add(int,string)	2	真重复(同一原版方法)	原版 ItemInfo#1.Add#0
+210	未分类/其他	ItemInfo	AssignEphemeralState(EphemeralState rewardEphemeralState)	未分类_其他.tsv:374	A	ItemInfo.AssignEphemeralState(EphemeralState)	2	真重复(同一原版方法)	原版 ItemInfo#1.AssignEphemeralState#0
+210	未分类/其他	ItemInfo<T>	AssignEphemeralState(EphemeralState rewardEphemeralState)	泛型与启动链_补读.tsv:599	A	ItemInfo.AssignEphemeralState(EphemeralState)	2	真重复(同一原版方法)	原版 ItemInfo#1.AssignEphemeralState#0
+211	未分类/其他	ItemInfo	Convert<TOut>()	未分类_其他.tsv:375	A	ItemInfo.Convert()	2	真重复(同一原版方法)	原版 ItemInfo#1.Convert#1
+211	未分类/其他	ItemInfo<T>	Convert()	泛型与启动链_补读.tsv:595	A	ItemInfo.Convert()	2	真重复(同一原版方法)	原版 ItemInfo#1.Convert#1
+212	未分类/其他	ItemInfo	SetAmount(int amount)	未分类_其他.tsv:376	A	ItemInfo.SetAmount(int)	2	真重复(同一原版方法)	原版 ItemInfo#1.SetAmount#0
+212	未分类/其他	ItemInfo<T>	SetAmount(int amount)	泛型与启动链_补读.tsv:598	A	ItemInfo.SetAmount(int)	2	真重复(同一原版方法)	原版 ItemInfo#1.SetAmount#0
+213	未分类/其他	ItemInfo	SetInfo(LoadableReference<T> setItem, int setQty, string instanceId)	未分类_其他.tsv:377	A	ItemInfo.SetInfo(LoadableReference<T>,int,string)	2	真重复(同一原版方法)	原版 ItemInfo#1.SetInfo#0
+213	未分类/其他	ItemInfo<T>	SetInfo(LoadableReference<T> setItem, int setQty, string instanceId)	泛型与启动链_补读.tsv:596	A	ItemInfo.SetInfo(LoadableReference<T>,int,string)	2	真重复(同一原版方法)	原版 ItemInfo#1.SetInfo#0
+214	日常/奖励	LiveOpsEvent	CreateNewSave(TData data)	日常_奖励.tsv:322	A	LiveOpsEvent.CreateNewSave(TData)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.CreateNewSave#0
+214	日常/奖励	LiveOpsEvent<TSave, TData>	CreateNewSave(TData data)	泛型与启动链_补读.tsv:191	A	LiveOpsEvent.CreateNewSave(TData)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.CreateNewSave#0
+215	日常/奖励	LiveOpsEvent	LiveOpsEvent.GetBaseData()	日常_奖励.tsv:325	D	LiveOpsEvent.GetBaseData()	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.GetBaseData#0
+215	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.GetBaseData()	日常_奖励.tsv:326	A	LiveOpsEvent.GetBaseData()	3	真重复(与组内 泛型与启动链_补读.tsv:184 同指)	原版 LiveOpsEvent#2.GetBaseData#0
+215	日常/奖励	LiveOpsEvent<TSave, TData>	GetBaseData()	泛型与启动链_补读.tsv:184	D	LiveOpsEvent.GetBaseData()	3	真重复(与组内 日常_奖励.tsv:326 同指)	原版 LiveOpsEvent#2.GetBaseData#0
+216	日常/奖励	LiveOpsEvent	LiveOpsEvent.GetBaseSave()	日常_奖励.tsv:327	D	LiveOpsEvent.GetBaseSave()	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.GetBaseSave#0
+216	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.GetBaseSave()	日常_奖励.tsv:328	A	LiveOpsEvent.GetBaseSave()	3	真重复(与组内 泛型与启动链_补读.tsv:185 同指)	原版 LiveOpsEvent#2.GetBaseSave#0
+216	日常/奖励	LiveOpsEvent<TSave, TData>	GetBaseSave()	泛型与启动链_补读.tsv:185	A	LiveOpsEvent.GetBaseSave()	3	真重复(与组内 日常_奖励.tsv:328 同指)	原版 LiveOpsEvent#2.GetBaseSave#0
+217	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.GetEndDate(bool useExpiration)	日常_奖励.tsv:330	A	LiveOpsEvent.GetEndDate(bool)	3	真重复(与组内 泛型与启动链_补读.tsv:196 同指)	原版 LiveOpsEvent#2.GetEndDate#0
+217	日常/奖励	LiveOpsEvent	LiveOpsEvent.GetEndDate(bool useExpiration)	日常_奖励.tsv:331	D	LiveOpsEvent.GetEndDate(bool)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.GetEndDate#0
+217	日常/奖励	LiveOpsEvent<TSave, TData>	GetEndDate(bool useExpiration = False)	泛型与启动链_补读.tsv:196	A	LiveOpsEvent.GetEndDate(bool)	3	真重复(与组内 日常_奖励.tsv:330 同指)	原版 LiveOpsEvent#2.GetEndDate#0
+218	日常/奖励	LiveOpsEvent	LiveOpsEvent.GetID()	日常_奖励.tsv:333	D	LiveOpsEvent.GetID()	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.GetID#0
+218	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.GetID()	日常_奖励.tsv:334	A	LiveOpsEvent.GetID()	3	真重复(与组内 泛型与启动链_补读.tsv:183 同指)	原版 LiveOpsEvent#2.GetID#0
+218	日常/奖励	LiveOpsEvent<TSave, TData>	GetID()	泛型与启动链_补读.tsv:183	D	LiveOpsEvent.GetID()	3	真重复(与组内 日常_奖励.tsv:334 同指)	原版 LiveOpsEvent#2.GetID#0
+219	日常/奖励	LiveOpsEvent	LiveOpsEvent.Initialize()	日常_奖励.tsv:338	D	LiveOpsEvent.Initialize()	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.Initialize#0
+219	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.Initialize()	日常_奖励.tsv:339	A	LiveOpsEvent.Initialize()	3	真重复(与组内 泛型与启动链_补读.tsv:187 同指)	原版 LiveOpsEvent#2.Initialize#0
+219	日常/奖励	LiveOpsEvent<TSave, TData>	Initialize()	泛型与启动链_补读.tsv:187	A	LiveOpsEvent.Initialize()	3	真重复(与组内 日常_奖励.tsv:339 同指)	原版 LiveOpsEvent#2.Initialize#0
+220	日常/奖励	LiveOpsEvent	LiveOpsEvent.LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler)	日常_奖励.tsv:341	D	LiveOpsEvent.LoadEventData(LiveOpsEventData,LiveOpsEventPersistence,ILiveOpsHandler)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.LoadEventData#0
+220	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler)	日常_奖励.tsv:342	A	LiveOpsEvent.LoadEventData(LiveOpsEventData,LiveOpsEventPersistence,ILiveOpsHandler)	3	真重复(与组内 泛型与启动链_补读.tsv:188 同指)	原版 LiveOpsEvent#2.LoadEventData#0
+220	日常/奖励	LiveOpsEvent<TSave, TData>	LoadEventData(LiveOpsEventData data, LiveOpsEventPersistence saveGame, ILiveOpsHandler handler)	泛型与启动链_补读.tsv:188	A	LiveOpsEvent.LoadEventData(LiveOpsEventData,LiveOpsEventPersistence,ILiveOpsHandler)	3	真重复(与组内 日常_奖励.tsv:342 同指)	原版 LiveOpsEvent#2.LoadEventData#0
+221	日常/奖励	LiveOpsEvent	LiveOpsEvent.ResetEventProgress()	日常_奖励.tsv:351	D	LiveOpsEvent.ResetEventProgress()	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.ResetEventProgress#0
+221	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.ResetEventProgress()	日常_奖励.tsv:352	A	LiveOpsEvent.ResetEventProgress()	3	真重复(与组内 泛型与启动链_补读.tsv:194 同指)	原版 LiveOpsEvent#2.ResetEventProgress#0
+221	日常/奖励	LiveOpsEvent<TSave, TData>	ResetEventProgress()	泛型与启动链_补读.tsv:194	A	LiveOpsEvent.ResetEventProgress()	3	真重复(与组内 日常_奖励.tsv:352 同指)	原版 LiveOpsEvent#2.ResetEventProgress#0
+222	日常/奖励	LiveOpsEvent	SaveEventProgress(Action onSuccess, Action onFail)	日常_奖励.tsv:353	A	LiveOpsEvent.SaveEventProgress(Action,Action)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.SaveEventProgress#0
+222	日常/奖励	LiveOpsEvent<TSave, TData>	SaveEventProgress(Action onSuccess, Action onFail)	泛型与启动链_补读.tsv:195	A	LiveOpsEvent.SaveEventProgress(Action,Action)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.SaveEventProgress#0
+223	日常/奖励	LiveOpsEvent	LiveOpsEvent.SelectEvent()	日常_奖励.tsv:354	D	LiveOpsEvent.SelectEvent()	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.SelectEvent#0
+223	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.SelectEvent()	日常_奖励.tsv:355	A	LiveOpsEvent.SelectEvent()	3	真重复(与组内 泛型与启动链_补读.tsv:186 同指)	原版 LiveOpsEvent#2.SelectEvent#0
+223	日常/奖励	LiveOpsEvent<TSave, TData>	SelectEvent()	泛型与启动链_补读.tsv:186	A	LiveOpsEvent.SelectEvent()	3	真重复(与组内 日常_奖励.tsv:355 同指)	原版 LiveOpsEvent#2.SelectEvent#0
+224	日常/奖励	LiveOpsEvent	UpdateData(LiveOpsEventData data)	日常_奖励.tsv:357	A	LiveOpsEvent.UpdateData(LiveOpsEventData)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.UpdateData#0
+224	日常/奖励	LiveOpsEvent<TSave, TData>	UpdateData(LiveOpsEventData data)	泛型与启动链_补读.tsv:192	A	LiveOpsEvent.UpdateData(LiveOpsEventData)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.UpdateData#0
+225	日常/奖励	LiveOpsEvent	LiveOpsEvent.UpdateSaveGame(LiveOpsEventPersistence saveGame)	日常_奖励.tsv:358	D	LiveOpsEvent.UpdateSaveGame(LiveOpsEventPersistence)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEvent#0.UpdateSaveGame#0
+225	日常/奖励	LiveOpsEvent	LiveOpsEvent<TSave, TData>.UpdateSaveGame(LiveOpsEventPersistence saveGame)	日常_奖励.tsv:359	A	LiveOpsEvent.UpdateSaveGame(LiveOpsEventPersistence)	3	真重复(与组内 泛型与启动链_补读.tsv:193 同指)	原版 LiveOpsEvent#2.UpdateSaveGame#0
+225	日常/奖励	LiveOpsEvent<TSave, TData>	UpdateSaveGame(LiveOpsEventPersistence saveGame)	泛型与启动链_补读.tsv:193	A	LiveOpsEvent.UpdateSaveGame(LiveOpsEventPersistence)	3	真重复(与组内 日常_奖励.tsv:359 同指)	原版 LiveOpsEvent#2.UpdateSaveGame#0
+226	日常/奖励	LiveOpsEvent	Validate(TSave save)	日常_奖励.tsv:360	D	LiveOpsEvent.Validate(TSave)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.Validate#0
+226	日常/奖励	LiveOpsEvent<TSave, TData>	Validate(TSave save)	泛型与启动链_补读.tsv:190	D	LiveOpsEvent.Validate(TSave)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.Validate#0
+227	日常/奖励	LiveOpsEvent	ValidateEventData(LiveOpsEventData data, LiveOpsEventPersistence save, out TData formatedData, out TSave formatedSave)	日常_奖励.tsv:361	A	LiveOpsEvent.ValidateEventData(LiveOpsEventData,LiveOpsEventPersistence,out TData,out TSave)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.ValidateEventData#0
+227	日常/奖励	LiveOpsEvent<TSave, TData>	ValidateEventData(LiveOpsEventData data, LiveOpsEventPersistence save, out TData formatedData, out TSave formatedSave)	泛型与启动链_补读.tsv:189	A	LiveOpsEvent.ValidateEventData(LiveOpsEventData,LiveOpsEventPersistence,out TData,out TSave)	2	真重复(同一原版方法)	原版 LiveOpsEvent#2.ValidateEventData#0
+228	日常/奖励	LiveOpsEventWindow	Close()	日常_奖励.tsv:372	A	LiveOpsEventWindow.Close()	2	真重复(同一原版方法)	原版 LiveOpsEventWindow#1.Close#0
+228	日常/奖励	LiveOpsEventWindow<T>	Close()	泛型与启动链_补读.tsv:199	A	LiveOpsEventWindow.Close()	2	真重复(同一原版方法)	原版 LiveOpsEventWindow#1.Close#0
+229	日常/奖励	LiveOpsEventWindow	InitializeWindow(ILiveOps liveOpsEvent)	日常_奖励.tsv:373	A	LiveOpsEventWindow.InitializeWindow(ILiveOps)	3	真重复(与组内 日常_奖励.tsv:374 同指)	原版 LiveOpsEventWindow#0.InitializeWindow#0
+229	日常/奖励	LiveOpsEventWindow	InitializeWindow(ILiveOps liveopsEvent)	日常_奖励.tsv:374	A	LiveOpsEventWindow.InitializeWindow(ILiveOps)	3	真重复(与组内 日常_奖励.tsv:373 同指)	原版 LiveOpsEventWindow#0.InitializeWindow#0
+229	日常/奖励	LiveOpsEventWindow<T>	InitializeWindow(ILiveOps liveOpsEvent)	泛型与启动链_补读.tsv:197	A	LiveOpsEventWindow.InitializeWindow(ILiveOps)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEventWindow#1.InitializeWindow#0
+230	日常/奖励	LiveOpsEventWindow	OnRefresh()	日常_奖励.tsv:375	A	LiveOpsEventWindow.OnRefresh()	2	真重复(同一原版方法)	原版 LiveOpsEventWindow#1.OnRefresh#0
+230	日常/奖励	LiveOpsEventWindow<T>	OnRefresh()	泛型与启动链_补读.tsv:198	A	LiveOpsEventWindow.OnRefresh()	2	真重复(同一原版方法)	原版 LiveOpsEventWindow#1.OnRefresh#0
+231	日常/奖励	LiveOpsEventWindow	SetupData(object data, GameWindowOptions options)	日常_奖励.tsv:376	A	LiveOpsEventWindow.SetupData(object,GameWindowOptions)	2	真重复(同一原版方法)	原版 LiveOpsEventWindow#1.SetupData#0
+231	日常/奖励	LiveOpsEventWindow<T>	SetupData(object data, GameWindowOptions options)	泛型与启动链_补读.tsv:200	A	LiveOpsEventWindow.SetupData(object,GameWindowOptions)	2	真重复(同一原版方法)	原版 LiveOpsEventWindow#1.SetupData#0
+232	日常/奖励	LiveOpsEventWindowWithTabs	InitializeWindow(ILiveOps liveOpsEvent)	日常_奖励.tsv:377	A	LiveOpsEventWindowWithTabs.InitializeWindow(ILiveOps)	3	真重复(与组内 日常_奖励.tsv:378 同指)	原版 LiveOpsEventWindowWithTabs#0.InitializeWindow#0
+232	日常/奖励	LiveOpsEventWindowWithTabs	InitializeWindow(ILiveOps liveopsEvent)	日常_奖励.tsv:378	A	LiveOpsEventWindowWithTabs.InitializeWindow(ILiveOps)	3	真重复(与组内 日常_奖励.tsv:377 同指)	原版 LiveOpsEventWindowWithTabs#0.InitializeWindow#0
+232	日常/奖励	LiveOpsEventWindowWithTabs<T>	InitializeWindow(ILiveOps liveOpsEvent)	泛型与启动链_补读.tsv:202	A	LiveOpsEventWindowWithTabs.InitializeWindow(ILiveOps)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsEventWindowWithTabs#1.InitializeWindow#0
+233	日常/奖励	LiveOpsEventWindowWithTabs	SetupData(object data, GameWindowOptions options)	日常_奖励.tsv:379	A	LiveOpsEventWindowWithTabs.SetupData(object,GameWindowOptions)	2	真重复(同一原版方法)	原版 LiveOpsEventWindowWithTabs#1.SetupData#0
+233	日常/奖励	LiveOpsEventWindowWithTabs<T>	SetupData(object data, GameWindowOptions options)	泛型与启动链_补读.tsv:201	A	LiveOpsEventWindowWithTabs.SetupData(object,GameWindowOptions)	2	真重复(同一原版方法)	原版 LiveOpsEventWindowWithTabs#1.SetupData#0
+234	日常/奖励	LiveOpsHandler	BeforeRefresh()	日常_奖励.tsv:380	D	LiveOpsHandler.BeforeRefresh()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.BeforeRefresh#0
+234	日常/奖励	LiveOpsHandler<TEvent>	BeforeRefresh()	泛型与启动链_补读.tsv:218	D	LiveOpsHandler.BeforeRefresh()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.BeforeRefresh#0
+235	日常/奖励	LiveOpsHandler	ClearEvents()	日常_奖励.tsv:381	A	LiveOpsHandler.ClearEvents()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ClearEvents#0
+235	日常/奖励	LiveOpsHandler<TEvent>	ClearEvents()	泛型与启动链_补读.tsv:221	A	LiveOpsHandler.ClearEvents()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ClearEvents#0
+236	日常/奖励	LiveOpsHandler	DeserializeSharedData(JObject sharedData)	日常_奖励.tsv:382	A	LiveOpsHandler.DeserializeSharedData(JObject)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.DeserializeSharedData#0
+236	日常/奖励	LiveOpsHandler<TEvent>	DeserializeSharedData(JObject sharedData)	泛型与启动链_补读.tsv:211	A	LiveOpsHandler.DeserializeSharedData(JObject)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.DeserializeSharedData#0
+237	日常/奖励	LiveOpsHandler	ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete)	日常_奖励.tsv:383	A	LiveOpsHandler.ExpireEvent(ILiveOps,PopupOptions,bool,Action)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ExpireEvent#0
+237	日常/奖励	LiveOpsHandler<TEvent>	ExpireEvent(ILiveOps newEvent, PopupOptions options, bool showExpirePopup, Action onComplete)	泛型与启动链_补读.tsv:209	A	LiveOpsHandler.ExpireEvent(ILiveOps,PopupOptions,bool,Action)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ExpireEvent#0
+238	日常/奖励	LiveOpsHandler	GetBlockedEvents()	日常_奖励.tsv:385	A	LiveOpsHandler.GetBlockedEvents()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.GetBlockedEvents#0
+238	日常/奖励	LiveOpsHandler<TEvent>	GetBlockedEvents()	泛型与启动链_补读.tsv:224	A	LiveOpsHandler.GetBlockedEvents()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.GetBlockedEvents#0
+239	日常/奖励	LiveOpsHandler	GetEvent(string id)	日常_奖励.tsv:386	A	LiveOpsHandler.GetEvent(string)	3	真重复(与组内 泛型与启动链_补读.tsv:225 同指)	原版 LiveOpsHandler#1.GetEvent#0
+239	日常/奖励	LiveOpsHandler	GetEvent<T>(string id)	日常_奖励.tsv:387	A	LiveOpsHandler.GetEvent(string)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsHandler#1.GetEvent#1
+239	日常/奖励	LiveOpsHandler<TEvent>	GetEvent(string id)	泛型与启动链_补读.tsv:225	A	LiveOpsHandler.GetEvent(string)	3	真重复(与组内 日常_奖励.tsv:386 同指)	原版 LiveOpsHandler#1.GetEvent#0
+240	日常/奖励	LiveOpsHandler	GetEvents(bool includeBlockedEvents)	日常_奖励.tsv:388	A	LiveOpsHandler.GetEvents(bool)	3	真重复(与组内 泛型与启动链_补读.tsv:223 同指)	原版 LiveOpsHandler#1.GetEvents#0
+240	日常/奖励	LiveOpsHandler	GetEvents<T>(bool includeBlockedEvents)	日常_奖励.tsv:389	A	LiveOpsHandler.GetEvents(bool)	3	非重复(与组内其余不同原版方法)	原版 LiveOpsHandler#1.GetEvents#1
+240	日常/奖励	LiveOpsHandler<TEvent>	GetEvents(bool includeBlockedEvents = False)	泛型与启动链_补读.tsv:223	A	LiveOpsHandler.GetEvents(bool)	3	真重复(与组内 日常_奖励.tsv:388 同指)	原版 LiveOpsHandler#1.GetEvents#0
+241	日常/奖励	LiveOpsHandler	HandleBeforeRefresh()	日常_奖励.tsv:390	A	LiveOpsHandler.HandleBeforeRefresh()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.HandleBeforeRefresh#0
+241	日常/奖励	LiveOpsHandler<TEvent>	HandleBeforeRefresh()	泛型与启动链_补读.tsv:217	A	LiveOpsHandler.HandleBeforeRefresh()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.HandleBeforeRefresh#0
+242	日常/奖励	LiveOpsHandler	InitializeHandler()	日常_奖励.tsv:391	A	LiveOpsHandler.InitializeHandler()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.InitializeHandler#0
+242	日常/奖励	LiveOpsHandler<TEvent>	InitializeHandler()	泛型与启动链_补读.tsv:220	A	LiveOpsHandler.InitializeHandler()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.InitializeHandler#0
+243	日常/奖励	LiveOpsHandler	QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action<Action> eventAction)	日常_奖励.tsv:392	A	LiveOpsHandler.QueueEventPopup(ILiveOps,PopupOptions,Action<Action>)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.QueueEventPopup#0
+243	日常/奖励	LiveOpsHandler<TEvent>	QueueEventPopup(ILiveOps newEvent, PopupOptions options, Action<Action> eventAction)	泛型与启动链_补读.tsv:210	A	LiveOpsHandler.QueueEventPopup(ILiveOps,PopupOptions,Action<Action>)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.QueueEventPopup#0
+244	日常/奖励	LiveOpsHandler	RefreshHandler()	日常_奖励.tsv:393	A	LiveOpsHandler.RefreshHandler()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RefreshHandler#0
+244	日常/奖励	LiveOpsHandler<TEvent>	RefreshHandler()	泛型与启动链_补读.tsv:214	A	LiveOpsHandler.RefreshHandler()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RefreshHandler#0
+245	日常/奖励	LiveOpsHandler	RefreshHandler(LiveopsHandlerData data)	日常_奖励.tsv:394	A	LiveOpsHandler.RefreshHandler(LiveopsHandlerData)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RefreshHandler#0
+245	日常/奖励	LiveOpsHandler<TEvent>	RefreshHandler(LiveopsHandlerData data)	泛型与启动链_补读.tsv:216	A	LiveOpsHandler.RefreshHandler(LiveopsHandlerData)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RefreshHandler#0
+246	日常/奖励	LiveOpsHandler	RefreshHandlerLocally()	日常_奖励.tsv:395	A	LiveOpsHandler.RefreshHandlerLocally()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RefreshHandlerLocally#0
+246	日常/奖励	LiveOpsHandler<TEvent>	RefreshHandlerLocally()	泛型与启动链_补读.tsv:215	A	LiveOpsHandler.RefreshHandlerLocally()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RefreshHandlerLocally#0
+247	日常/奖励	LiveOpsHandler	RegisterManager(LiveOpsManager manager)	日常_奖励.tsv:396	A	LiveOpsHandler.RegisterManager(LiveOpsManager)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RegisterManager#0
+247	日常/奖励	LiveOpsHandler<TEvent>	RegisterManager(LiveOpsManager manager)	泛型与启动链_补读.tsv:204	A	LiveOpsHandler.RegisterManager(LiveOpsManager)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.RegisterManager#0
+248	日常/奖励	LiveOpsHandler	ResetEvents()	日常_奖励.tsv:397	A	LiveOpsHandler.ResetEvents()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ResetEvents#0
+248	日常/奖励	LiveOpsHandler<TEvent>	ResetEvents()	泛型与启动链_补读.tsv:222	A	LiveOpsHandler.ResetEvents()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ResetEvents#0
+249	日常/奖励	LiveOpsHandler	ScheduleEventPopups()	日常_奖励.tsv:398	A	LiveOpsHandler.ScheduleEventPopups()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ScheduleEventPopups#0
+249	日常/奖励	LiveOpsHandler<TEvent>	ScheduleEventPopups()	泛型与启动链_补读.tsv:207	A	LiveOpsHandler.ScheduleEventPopups()	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ScheduleEventPopups#0
+250	日常/奖励	LiveOpsHandler	ScheduleHandlerRefresh(DateTime refreshTime)	日常_奖励.tsv:399	A	LiveOpsHandler.ScheduleHandlerRefresh(DateTime)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ScheduleHandlerRefresh#0
+250	日常/奖励	LiveOpsHandler<TEvent>	ScheduleHandlerRefresh(DateTime refreshTime)	泛型与启动链_补读.tsv:213	A	LiveOpsHandler.ScheduleHandlerRefresh(DateTime)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ScheduleHandlerRefresh#0
+251	日常/奖励	LiveOpsHandler	SetupEvents(List<ILiveOps> ops, List<ILiveOps> blockedEvents, JObject sharedData)	日常_奖励.tsv:400	A	LiveOpsHandler.SetupEvents(List<ILiveOps>,List<ILiveOps>,JObject)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.SetupEvents#0
+251	日常/奖励	LiveOpsHandler<TEvent>	SetupEvents(List<ILiveOps> ops, List<ILiveOps> blockedEvents, JObject sharedData)	泛型与启动链_补读.tsv:206	A	LiveOpsHandler.SetupEvents(List<ILiveOps>,List<ILiveOps>,JObject)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.SetupEvents#0
+252	日常/奖励	LiveOpsHandler	SetupEvents(List<TEvent> allEvents)	日常_奖励.tsv:401	A	LiveOpsHandler.SetupEvents(List<TEvent>)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.SetupEvents#0
+252	日常/奖励	LiveOpsHandler<TEvent>	SetupEvents(List<TEvent> allEvents)	泛型与启动链_补读.tsv:219	A	LiveOpsHandler.SetupEvents(List<TEvent>)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.SetupEvents#0
+253	日常/奖励	LiveOpsHandler	ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)	日常_奖励.tsv:402	A	LiveOpsHandler.ShowTriggerEventPopup(ILiveOps,PopupOptions,Action)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ShowTriggerEventPopup#0
+253	日常/奖励	LiveOpsHandler<TEvent>	ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)	泛型与启动链_补读.tsv:208	A	LiveOpsHandler.ShowTriggerEventPopup(ILiveOps,PopupOptions,Action)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ShowTriggerEventPopup#0
+254	日常/奖励	LiveOpsHandler	TryScheduleHandlerRefresh(long milis)	日常_奖励.tsv:403	A	LiveOpsHandler.TryScheduleHandlerRefresh(long)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.TryScheduleHandlerRefresh#0
+254	日常/奖励	LiveOpsHandler<TEvent>	TryScheduleHandlerRefresh(long milis)	泛型与启动链_补读.tsv:212	A	LiveOpsHandler.TryScheduleHandlerRefresh(long)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.TryScheduleHandlerRefresh#0
+255	日常/奖励	LiveOpsHandler	UpdateCachedSave(LiveOpsEventPersistence saveGame)	日常_奖励.tsv:404	A	LiveOpsHandler.UpdateCachedSave(LiveOpsEventPersistence)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.UpdateCachedSave#0
+255	日常/奖励	LiveOpsHandler<TEvent>	UpdateCachedSave(LiveOpsEventPersistence saveGame)	泛型与启动链_补读.tsv:203	A	LiveOpsHandler.UpdateCachedSave(LiveOpsEventPersistence)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.UpdateCachedSave#0
+256	日常/奖励	LiveOpsHandler	ValidateData(LiveopsHandlerData data)	日常_奖励.tsv:405	A	LiveOpsHandler.ValidateData(LiveopsHandlerData)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ValidateData#0
+256	日常/奖励	LiveOpsHandler<TEvent>	ValidateData(LiveopsHandlerData data)	泛型与启动链_补读.tsv:205	A	LiveOpsHandler.ValidateData(LiveopsHandlerData)	2	真重复(同一原版方法)	原版 LiveOpsHandler#1.ValidateData#0
+257	其他/基础设施	LoadableReference	Equals(LoadableReference<T> other)	其他_基础设施.tsv:288	A	LoadableReference.Equals(LoadableReference<T>)	2	真重复(同一原版方法)	原版 LoadableReference#1.Equals#0
+257	其他/基础设施	LoadableReference<T>	Equals(LoadableReference<T> other)	泛型与启动链_补读.tsv:14	A	LoadableReference.Equals(LoadableReference<T>)	2	真重复(同一原版方法)	原版 LoadableReference#1.Equals#0
+258	其他/基础设施	LoadableReference	Equals(object obj)	其他_基础设施.tsv:289	A	LoadableReference.Equals(object)	2	真重复(同一原版方法)	原版 LoadableReference#1.Equals#0
+258	其他/基础设施	LoadableReference<T>	Equals(object obj)	泛型与启动链_补读.tsv:15	A	LoadableReference.Equals(object)	2	真重复(同一原版方法)	原版 LoadableReference#1.Equals#0
+259	其他/基础设施	LoadableReference	GetHashCode()	其他_基础设施.tsv:290	A	LoadableReference.GetHashCode()	2	真重复(同一原版方法)	原版 LoadableReference#1.GetHashCode#0
+259	其他/基础设施	LoadableReference<T>	GetHashCode()	泛型与启动链_补读.tsv:16	A	LoadableReference.GetHashCode()	2	真重复(同一原版方法)	原版 LoadableReference#1.GetHashCode#0
+260	其他/基础设施	LoadableReference	OnBeforeRead(JToken rawJson)	其他_基础设施.tsv:296	A	LoadableReference.OnBeforeRead(JToken)	2	真重复(同一原版方法)	原版 LoadableReference#1.OnBeforeRead#0
+260	其他/基础设施	LoadableReference<T>	OnBeforeRead(JToken rawJson)	泛型与启动链_补读.tsv:19	A	LoadableReference.OnBeforeRead(JToken)	2	真重复(同一原版方法)	原版 LoadableReference#1.OnBeforeRead#0
+261	其他/基础设施	LoadableReference	OnBeforeWrite()	其他_基础设施.tsv:297	A	LoadableReference.OnBeforeWrite()	2	真重复(同一原版方法)	原版 LoadableReference#1.OnBeforeWrite#0
+261	其他/基础设施	LoadableReference<T>	OnBeforeWrite()	泛型与启动链_补读.tsv:17	A	LoadableReference.OnBeforeWrite()	2	真重复(同一原版方法)	原版 LoadableReference#1.OnBeforeWrite#0
+262	其他/基础设施	LoadableReference	SetReferenceById(string id)	其他_基础设施.tsv:298	A	LoadableReference.SetReferenceById(string)	2	真重复(同一原版方法)	原版 LoadableReference#1.SetReferenceById#0
+262	其他/基础设施	LoadableReference<T>	SetReferenceById(string id)	泛型与启动链_补读.tsv:5	A	LoadableReference.SetReferenceById(string)	2	真重复(同一原版方法)	原版 LoadableReference#1.SetReferenceById#0
+263	其他/基础设施	LoadableReference	SetReferenceByObject(T reference)	其他_基础设施.tsv:299	A	LoadableReference.SetReferenceByObject(T)	2	真重复(同一原版方法)	原版 LoadableReference#1.SetReferenceByObject#0
+263	其他/基础设施	LoadableReference<T>	SetReferenceByObject(T reference)	泛型与启动链_补读.tsv:6	A	LoadableReference.SetReferenceByObject(T)	2	真重复(同一原版方法)	原版 LoadableReference#1.SetReferenceByObject#0
+264	其他/基础设施	LoadableReference	ValidateReferences()	其他_基础设施.tsv:302	D	LoadableReference.ValidateReferences()	2	真重复(同一原版方法)	原版 LoadableReference#1.ValidateReferences#0
+264	其他/基础设施	LoadableReference<T>	ValidateReferences()	泛型与启动链_补读.tsv:7	D	LoadableReference.ValidateReferences()	2	真重复(同一原版方法)	原版 LoadableReference#1.ValidateReferences#0
+265	其他/基础设施	LoadableReference	WriteJson()	其他_基础设施.tsv:303	A	LoadableReference.WriteJson()	2	真重复(同一原版方法)	原版 LoadableReference#1.WriteJson#0
+265	其他/基础设施	LoadableReference<T>	WriteJson()	泛型与启动链_补读.tsv:18	A	LoadableReference.WriteJson()	2	真重复(同一原版方法)	原版 LoadableReference#1.WriteJson#0
+266	其他/基础设施	LoginManager	CheckDataLoaded()	其他_基础设施.tsv:305	D	LoginManager.CheckDataLoaded()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+266	其他/基础设施	LoginManager	CheckDataLoaded()	泛型与启动链_补读.tsv:770	D	LoginManager.CheckDataLoaded()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+267	其他/基础设施	LoginManager	CheckInternetConnection()	其他_基础设施.tsv:306	D	LoginManager.CheckInternetConnection()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+267	其他/基础设施	LoginManager	CheckInternetConnection()	泛型与启动链_补读.tsv:776	D	LoginManager.CheckInternetConnection()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+268	其他/基础设施	LoginManager	CheckNewVersion()	其他_基础设施.tsv:307	D	LoginManager.CheckNewVersion()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+268	其他/基础设施	LoginManager	CheckNewVersion()	泛型与启动链_补读.tsv:772	D	LoginManager.CheckNewVersion()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+269	其他/基础设施	LoginManager	CheckNewVersionSucceed()	其他_基础设施.tsv:308	D	LoginManager.CheckNewVersionSucceed()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+269	其他/基础设施	LoginManager	CheckNewVersionSucceed()	泛型与启动链_补读.tsv:774	D	LoginManager.CheckNewVersionSucceed()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+270	其他/基础设施	LoginManager	CheckPlayerDeck()	其他_基础设施.tsv:309	D	LoginManager.CheckPlayerDeck()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+270	其他/基础设施	LoginManager	CheckPlayerDeck()	泛型与启动链_补读.tsv:791	D	LoginManager.CheckPlayerDeck()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+271	其他/基础设施	LoginManager	DoNewVersionOperations(System.Version oldVersion)	其他_基础设施.tsv:310	D	LoginManager.DoNewVersionOperations(System.Version)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+271	其他/基础设施	LoginManager	DoNewVersionOperations(System.Version oldVersion)	泛型与启动链_补读.tsv:773	D	LoginManager.DoNewVersionOperations(System.Version)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+272	其他/基础设施	LoginManager	DownloadFinishCallback(AssetBundleManager.DownloadInfo downloadInfo)	其他_基础设施.tsv:311	D	LoginManager.DownloadFinishCallback(AssetBundleManager.DownloadInfo)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+272	其他/基础设施	LoginManager	DownloadFinishCallback(AssetBundleManager.DownloadInfo downloadInfo)	泛型与启动链_补读.tsv:789	D	LoginManager.DownloadFinishCallback(AssetBundleManager.DownloadInfo)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+273	其他/基础设施	LoginManager	DownloadInAppProducts()	其他_基础设施.tsv:312	D	LoginManager.DownloadInAppProducts()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+273	其他/基础设施	LoginManager	DownloadInAppProducts()	泛型与启动链_补读.tsv:790	D	LoginManager.DownloadInAppProducts()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+274	其他/基础设施	LoginManager	DuplicateConnection()	其他_基础设施.tsv:313	D	LoginManager.DuplicateConnection()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+274	其他/基础设施	LoginManager	DuplicateConnection()	泛型与启动链_补读.tsv:793	D	LoginManager.DuplicateConnection()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+275	其他/基础设施	LoginManager	Initialize()	其他_基础设施.tsv:314	D	LoginManager.Initialize()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+275	其他/基础设施	LoginManager	Initialize()	泛型与启动链_补读.tsv:768	D	LoginManager.Initialize()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+276	其他/基础设施	LoginManager	IsAccountLoginError(PlayFabErrorCode errorCode)	其他_基础设施.tsv:315	D	LoginManager.IsAccountLoginError(PlayFabErrorCode)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+276	其他/基础设施	LoginManager	IsAccountLoginError(PlayFabErrorCode errorCode)	泛型与启动链_补读.tsv:782	D	LoginManager.IsAccountLoginError(PlayFabErrorCode)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+277	其他/基础设施	LoginManager	LoadPlugins()	其他_基础设施.tsv:317	D	LoginManager.LoadPlugins()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+277	其他/基础设施	LoginManager	LoadPlugins()	泛型与启动链_补读.tsv:777	D	LoginManager.LoadPlugins()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+278	其他/基础设施	LoginManager	OnDestroy()	其他_基础设施.tsv:318	D	LoginManager.OnDestroy()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+278	其他/基础设施	LoginManager	OnDestroy()	泛型与启动链_补读.tsv:769	D	LoginManager.OnDestroy()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+279	其他/基础设施	LoginManager	ProceedSuccessfulLogin(LoginResult loginResult)	其他_基础设施.tsv:319	D	LoginManager.ProceedSuccessfulLogin(LoginResult)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+279	其他/基础设施	LoginManager	ProceedSuccessfulLogin(LoginResult loginResult)	泛型与启动链_补读.tsv:783	D	LoginManager.ProceedSuccessfulLogin(LoginResult)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+280	其他/基础设施	LoginManager	ProcessData()	其他_基础设施.tsv:320	D	LoginManager.ProcessData()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+280	其他/基础设施	LoginManager	ProcessData()	泛型与启动链_补读.tsv:787	D	LoginManager.ProcessData()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+281	其他/基础设施	LoginManager	ProcessLoginResult(bool success, LoginResult loginResult, PlayFabError error, string gpgsError)	其他_基础设施.tsv:321	D	LoginManager.ProcessLoginResult(bool,LoginResult,PlayFabError,string)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+281	其他/基础设施	LoginManager	ProcessLoginResult(bool success, LoginResult loginResult, PlayFabError error, string gpgsError)	泛型与启动链_补读.tsv:780	D	LoginManager.ProcessLoginResult(bool,LoginResult,PlayFabError,string)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+282	其他/基础设施	LoginManager	ProcessNormalLoginResult(bool success, LoginResult loginResult, PlayFabError error)	其他_基础设施.tsv:322	D	LoginManager.ProcessNormalLoginResult(bool,LoginResult,PlayFabError)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+282	其他/基础设施	LoginManager	ProcessNormalLoginResult(bool success, LoginResult loginResult, PlayFabError error)	泛型与启动链_补读.tsv:779	D	LoginManager.ProcessNormalLoginResult(bool,LoginResult,PlayFabError)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+283	其他/基础设施	LoginManager	ProgressUpdateCallback(LoginState state, float progress)	其他_基础设施.tsv:323	D	LoginManager.ProgressUpdateCallback(LoginState,float)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+283	其他/基础设施	LoginManager	ProgressUpdateCallback(LoginState state, float progress)	泛型与启动链_补读.tsv:788	D	LoginManager.ProgressUpdateCallback(LoginState,float)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+284	其他/基础设施	LoginManager	RegisterPushNotifications()	其他_基础设施.tsv:324	D	LoginManager.RegisterPushNotifications()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+284	其他/基础设施	LoginManager	RegisterPushNotifications()	泛型与启动链_补读.tsv:771	D	LoginManager.RegisterPushNotifications()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+285	其他/基础设施	LoginManager	ReloadGame()	其他_基础设施.tsv:325	D	LoginManager.ReloadGame()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+285	其他/基础设施	LoginManager	ReloadGame()	泛型与启动链_补读.tsv:786	D	LoginManager.ReloadGame()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+286	其他/基础设施	LoginManager	RetryLogin()	其他_基础设施.tsv:326	D	LoginManager.RetryLogin()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+286	其他/基础设施	LoginManager	RetryLogin()	泛型与启动链_补读.tsv:785	D	LoginManager.RetryLogin()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+287	其他/基础设施	LoginManager	SetBackupLogin()	其他_基础设施.tsv:327	D	LoginManager.SetBackupLogin()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+287	其他/基础设施	LoginManager	SetBackupLogin()	泛型与启动链_补读.tsv:781	D	LoginManager.SetBackupLogin()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+288	其他/基础设施	LoginManager	SetProgress(LoginState loginState)	其他_基础设施.tsv:329	D	LoginManager.SetProgress(LoginState)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+288	其他/基础设施	LoginManager	SetProgress(LoginState loginState)	泛型与启动链_补读.tsv:784	D	LoginManager.SetProgress(LoginState)	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+289	其他/基础设施	LoginManager	ThrowCustomError(CustomError customError, Action<string> actionAfterError, string cloudscriptTrace)	其他_基础设施.tsv:331	D	LoginManager.ThrowCustomError(CustomError,Action<string>,string)	2	真重复(同一原版方法)	原版 LoginManager#0.ThrowCustomError#0
+289	其他/基础设施	LoginManager	ThrowCustomError(CustomError customError, Action<string> actionAfterError = null, string cloudscriptTrace = "")	泛型与启动链_补读.tsv:794	D	LoginManager.ThrowCustomError(CustomError,Action<string>,string)	2	真重复(同一原版方法)	原版 LoginManager#0.ThrowCustomError#0
+290	其他/基础设施	LoginManager	TryCompleteLogin()	其他_基础设施.tsv:332	D	LoginManager.TryCompleteLogin()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+290	其他/基础设施	LoginManager	TryCompleteLogin()	泛型与启动链_补读.tsv:792	D	LoginManager.TryCompleteLogin()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+291	其他/基础设施	LoginManager	TryLoginToPlayfab()	其他_基础设施.tsv:333	D	LoginManager.TryLoginToPlayfab()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+291	其他/基础设施	LoginManager	TryLoginToPlayfab()	泛型与启动链_补读.tsv:778	D	LoginManager.TryLoginToPlayfab()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+292	其他/基础设施	LoginManager	UnpackPlayerData()	其他_基础设施.tsv:334	D	LoginManager.UnpackPlayerData()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+292	其他/基础设施	LoginManager	UnpackPlayerData()	泛型与启动链_补读.tsv:775	D	LoginManager.UnpackPlayerData()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+293	其他/基础设施	LoginManager	_003CCheckInternetConnection_003Eb__25_0()	其他_基础设施.tsv:335	D	LoginManager._003CCheckInternetConnection_003Eb__25_0()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+293	其他/基础设施	LoginManager	_003CCheckInternetConnection_003Eb__25_0()	泛型与启动链_补读.tsv:795	D	LoginManager._003CCheckInternetConnection_003Eb__25_0()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+294	其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_0()	其他_基础设施.tsv:336	D	LoginManager._003CProcessLoginResult_003Eb__29_0()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+294	其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_0()	泛型与启动链_补读.tsv:796	D	LoginManager._003CProcessLoginResult_003Eb__29_0()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+295	其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_1()	其他_基础设施.tsv:337	D	LoginManager._003CProcessLoginResult_003Eb__29_1()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+295	其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_1()	泛型与启动链_补读.tsv:797	D	LoginManager._003CProcessLoginResult_003Eb__29_1()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+296	其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_2()	其他_基础设施.tsv:338	D	LoginManager._003CProcessLoginResult_003Eb__29_2()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+296	其他/基础设施	LoginManager	_003CProcessLoginResult_003Eb__29_2()	泛型与启动链_补读.tsv:798	D	LoginManager._003CProcessLoginResult_003Eb__29_2()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+297	其他/基础设施	LoginManager	_003CThrowCustomError_003Eb__43_0()	其他_基础设施.tsv:339	D	LoginManager._003CThrowCustomError_003Eb__43_0()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+297	其他/基础设施	LoginManager	_003CThrowCustomError_003Eb__43_0()	泛型与启动链_补读.tsv:799	D	LoginManager._003CThrowCustomError_003Eb__43_0()	2	真重复(同一原版方法)	逐字相同(类与方法字符串完全一致)
+298	日常/奖励	MissionEvent	DisableChallenge(MissionChallenge challenge)	日常_奖励.tsv:476	A	MissionEvent.DisableChallenge(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.DisableChallenge#0
+298	日常/奖励	MissionEvent<TS, TD>	DisableChallenge(MissionChallenge challenge)	泛型与启动链_补读.tsv:230	A	MissionEvent.DisableChallenge(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.DisableChallenge#0
+299	日常/奖励	MissionEvent	Expire(Action onComplete)	日常_奖励.tsv:477	A	MissionEvent.Expire(Action)	2	真重复(同一原版方法)	原版 MissionEvent#2.Expire#0
+299	日常/奖励	MissionEvent<TS, TD>	Expire(Action onComplete)	泛型与启动链_补读.tsv:237	A	MissionEvent.Expire(Action)	2	真重复(同一原版方法)	原版 MissionEvent#2.Expire#0
+300	日常/奖励	MissionEvent	GetBaseData()	日常_奖励.tsv:478	A	MissionEvent.GetBaseData()	2	真重复(同一原版方法)	原版 MissionEvent#2.GetBaseData#0
+300	日常/奖励	MissionEvent<TS, TD>	GetBaseData()	泛型与启动链_补读.tsv:233	A	MissionEvent.GetBaseData()	2	真重复(同一原版方法)	原版 MissionEvent#2.GetBaseData#0
+301	日常/奖励	MissionEvent	GetBaseSave()	日常_奖励.tsv:479	A	MissionEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 MissionEvent#2.GetBaseSave#0
+301	日常/奖励	MissionEvent<TS, TD>	GetBaseSave()	泛型与启动链_补读.tsv:234	A	MissionEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 MissionEvent#2.GetBaseSave#0
+302	日常/奖励	MissionEvent	GetNextRefreshTime()	日常_奖励.tsv:481	A	MissionEvent.GetNextRefreshTime()	2	真重复(同一原版方法)	原版 MissionEvent#2.GetNextRefreshTime#0
+302	日常/奖励	MissionEvent<TS, TD>	GetNextRefreshTime()	泛型与启动链_补读.tsv:231	A	MissionEvent.GetNextRefreshTime()	2	真重复(同一原版方法)	原版 MissionEvent#2.GetNextRefreshTime#0
+303	日常/奖励	MissionEvent	GetProgressFor(MissionChallenge challenge)	日常_奖励.tsv:482	A	MissionEvent.GetProgressFor(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.GetProgressFor#0
+303	日常/奖励	MissionEvent<TS, TD>	GetProgressFor(MissionChallenge challenge)	泛型与启动链_补读.tsv:228	A	MissionEvent.GetProgressFor(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.GetProgressFor#0
+304	日常/奖励	MissionEvent	IsActive(MissionChallenge challenge)	日常_奖励.tsv:485	A	MissionEvent.IsActive(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.IsActive#0
+304	日常/奖励	MissionEvent<TS, TD>	IsActive(MissionChallenge challenge)	泛型与启动链_补读.tsv:229	A	MissionEvent.IsActive(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.IsActive#0
+305	日常/奖励	MissionEvent	LocalizedDescription(MissionChallenge challenge)	日常_奖励.tsv:486	A	MissionEvent.LocalizedDescription(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.LocalizedDescription#0
+305	日常/奖励	MissionEvent<TS, TD>	LocalizedDescription(MissionChallenge challenge)	泛型与启动链_补读.tsv:227	A	MissionEvent.LocalizedDescription(MissionChallenge)	2	真重复(同一原版方法)	原版 MissionEvent#2.LocalizedDescription#0
+306	日常/奖励	MissionEvent	ReleaseContainer()	日常_奖励.tsv:487	A	MissionEvent.ReleaseContainer()	2	真重复(同一原版方法)	原版 MissionEvent#2.ReleaseContainer#0
+306	日常/奖励	MissionEvent<TS, TD>	ReleaseContainer()	泛型与启动链_补读.tsv:236	A	MissionEvent.ReleaseContainer()	2	真重复(同一原版方法)	原版 MissionEvent#2.ReleaseContainer#0
+307	日常/奖励	MissionEvent	RerollChallenge(MissionChallenge challenge, Action onComplete)	日常_奖励.tsv:488	A	MissionEvent.RerollChallenge(MissionChallenge,Action)	2	真重复(同一原版方法)	原版 MissionEvent#2.RerollChallenge#0
+307	日常/奖励	MissionEvent<TS, TD>	RerollChallenge(MissionChallenge challenge, Action onComplete)	泛型与启动链_补读.tsv:232	A	MissionEvent.RerollChallenge(MissionChallenge,Action)	2	真重复(同一原版方法)	原版 MissionEvent#2.RerollChallenge#0
+308	日常/奖励	MissionEvent	UpdateSaveGame(LiveOpsEventPersistence save)	日常_奖励.tsv:491	A	MissionEvent.UpdateSaveGame(LiveOpsEventPersistence)	2	真重复(同一原版方法)	原版 MissionEvent#2.UpdateSaveGame#0
+308	日常/奖励	MissionEvent<TS, TD>	UpdateSaveGame(LiveOpsEventPersistence save)	泛型与启动链_补读.tsv:235	A	MissionEvent.UpdateSaveGame(LiveOpsEventPersistence)	2	真重复(同一原版方法)	原版 MissionEvent#2.UpdateSaveGame#0
+309	未分类/其他	MultiKeyDictionary	ContainsKey(T1 key1, T2 key2)	未分类_其他.tsv:450	D	MultiKeyDictionary.ContainsKey(T1,T2)	2	真重复(同一原版方法)	原版 MultiKeyDictionary#3.ContainsKey#0
+309	未分类/其他	MultiKeyDictionary<T1, T2, T3>	ContainsKey(T1 key1, T2 key2)	泛型与启动链_补读.tsv:600	D	MultiKeyDictionary.ContainsKey(T1,T2)	2	真重复(同一原版方法)	原版 MultiKeyDictionary#3.ContainsKey#0
+310	日常/奖励	MultiKeyLiveOpsHandler	ExtractKey(string key, string value)	日常_奖励.tsv:533	D	MultiKeyLiveOpsHandler.ExtractKey(string,string)	2	真重复(同一原版方法)	原版 MultiKeyLiveOpsHandler#1.ExtractKey#0
+310	日常/奖励	MultiKeyLiveOpsHandler<TEvent>	ExtractKey(string key, string value)	泛型与启动链_补读.tsv:238	D	MultiKeyLiveOpsHandler.ExtractKey(string,string)	2	真重复(同一原版方法)	原版 MultiKeyLiveOpsHandler#1.ExtractKey#0
+311	日常/奖励	PlayEvent	CancelMatch()	日常_奖励.tsv:552	A	PlayEvent.CancelMatch()	2	真重复(同一原版方法)	原版 PlayEvent#2.CancelMatch#0
+311	日常/奖励	PlayEvent<TSave, TData>	CancelMatch()	泛型与启动链_补读.tsv:245	A	PlayEvent.CancelMatch()	2	真重复(同一原版方法)	原版 PlayEvent#2.CancelMatch#0
+312	日常/奖励	PlayEvent	ChangeState(PlayEventSaveGame.JoinStates stateToChange)	日常_奖励.tsv:553	A	PlayEvent.ChangeState(PlayEventSaveGame.JoinStates)	2	真重复(同一原版方法)	原版 PlayEvent#2.ChangeState#0
+312	日常/奖励	PlayEvent<TSave, TData>	ChangeState(PlayEventSaveGame.JoinStates stateToChange)	泛型与启动链_补读.tsv:239	A	PlayEvent.ChangeState(PlayEventSaveGame.JoinStates)	2	真重复(同一原版方法)	原版 PlayEvent#2.ChangeState#0
+313	日常/奖励	PlayEvent	GetBaseData()	日常_奖励.tsv:555	A	PlayEvent.GetBaseData()	2	真重复(同一原版方法)	原版 PlayEvent#2.GetBaseData#0
+313	日常/奖励	PlayEvent<TSave, TData>	GetBaseData()	泛型与启动链_补读.tsv:241	A	PlayEvent.GetBaseData()	2	真重复(同一原版方法)	原版 PlayEvent#2.GetBaseData#0
+314	日常/奖励	PlayEvent	GetBaseSave()	日常_奖励.tsv:556	A	PlayEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 PlayEvent#2.GetBaseSave#0
+314	日常/奖励	PlayEvent<TSave, TData>	GetBaseSave()	泛型与启动链_补读.tsv:240	A	PlayEvent.GetBaseSave()	2	真重复(同一原版方法)	原版 PlayEvent#2.GetBaseSave#0
+315	日常/奖励	PlayEvent	GetEventDeck(CardArmy army)	日常_奖励.tsv:558	A	PlayEvent.GetEventDeck(CardArmy)	2	真重复(同一原版方法)	原版 PlayEvent#2.GetEventDeck#0
+315	日常/奖励	PlayEvent<TSave, TData>	GetEventDeck(CardArmy army)	泛型与启动链_补读.tsv:253	A	PlayEvent.GetEventDeck(CardArmy)	2	真重复(同一原版方法)	原版 PlayEvent#2.GetEventDeck#0
+316	日常/奖励	PlayEvent	Initialize()	日常_奖励.tsv:560	A	PlayEvent.Initialize()	2	真重复(同一原版方法)	原版 PlayEvent#2.Initialize#0
+316	日常/奖励	PlayEvent<TSave, TData>	Initialize()	泛型与启动链_补读.tsv:242	A	PlayEvent.Initialize()	2	真重复(同一原版方法)	原版 PlayEvent#2.Initialize#0
+317	日常/奖励	PlayEvent	MatchFinished(RankedMatchResult result, Action<OnlineMatchResult> onCompleted)	日常_奖励.tsv:562	A	PlayEvent.MatchFinished(RankedMatchResult,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 PlayEvent#2.MatchFinished#0
+317	日常/奖励	PlayEvent<TSave, TData>	MatchFinished(RankedMatchResult result, Action<OnlineMatchResult> onCompleted)	泛型与启动链_补读.tsv:247	A	PlayEvent.MatchFinished(RankedMatchResult,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 PlayEvent#2.MatchFinished#0
+318	日常/奖励	PlayEvent	OnMatchDraw()	日常_奖励.tsv:563	A	PlayEvent.OnMatchDraw()	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchDraw#0
+318	日常/奖励	PlayEvent<TSave, TData>	OnMatchDraw()	泛型与启动链_补读.tsv:251	A	PlayEvent.OnMatchDraw()	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchDraw#0
+319	日常/奖励	PlayEvent	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	日常_奖励.tsv:564	A	PlayEvent.OnMatchFinished(float,RankedMatchResult,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchFinished#0
+319	日常/奖励	PlayEvent<TSave, TData>	OnMatchFinished(float matchWon, RankedMatchResult result, Action<OnlineMatchResult> callback)	泛型与启动链_补读.tsv:246	A	PlayEvent.OnMatchFinished(float,RankedMatchResult,Action<OnlineMatchResult>)	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchFinished#0
+320	日常/奖励	PlayEvent	OnMatchFound(string otherPlayerName)	日常_奖励.tsv:565	A	PlayEvent.OnMatchFound(string)	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchFound#0
+320	日常/奖励	PlayEvent<TSave, TData>	OnMatchFound(string otherPlayerName)	泛型与启动链_补读.tsv:244	A	PlayEvent.OnMatchFound(string)	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchFound#0
+321	日常/奖励	PlayEvent	OnMatchLost()	日常_奖励.tsv:566	A	PlayEvent.OnMatchLost()	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchLost#0
+321	日常/奖励	PlayEvent<TSave, TData>	OnMatchLost()	泛型与启动链_补读.tsv:250	A	PlayEvent.OnMatchLost()	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchLost#0
+322	日常/奖励	PlayEvent	OnMatchWon()	日常_奖励.tsv:567	A	PlayEvent.OnMatchWon()	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchWon#0
+322	日常/奖励	PlayEvent<TSave, TData>	OnMatchWon()	泛型与启动链_补读.tsv:249	A	PlayEvent.OnMatchWon()	2	真重复(同一原版方法)	原版 PlayEvent#2.OnMatchWon#0
+323	日常/奖励	PlayEvent	SetCustomMatchOptions(RoomOptions options, int currentElo)	日常_奖励.tsv:568	A	PlayEvent.SetCustomMatchOptions(RoomOptions,int)	2	真重复(同一原版方法)	原版 PlayEvent#2.SetCustomMatchOptions#0
+323	日常/奖励	PlayEvent<TSave, TData>	SetCustomMatchOptions(RoomOptions options, int currentElo)	泛型与启动链_补读.tsv:252	A	PlayEvent.SetCustomMatchOptions(RoomOptions,int)	2	真重复(同一原版方法)	原版 PlayEvent#2.SetCustomMatchOptions#0
+324	日常/奖励	PlayEvent	SetDefaultDeck(CardDeck deck, bool upload)	日常_奖励.tsv:569	A	PlayEvent.SetDefaultDeck(CardDeck,bool)	2	真重复(同一原版方法)	原版 PlayEvent#2.SetDefaultDeck#0
+324	日常/奖励	PlayEvent<TSave, TData>	SetDefaultDeck(CardDeck deck, bool upload = True)	泛型与启动链_补读.tsv:254	A	PlayEvent.SetDefaultDeck(CardDeck,bool)	2	真重复(同一原版方法)	原版 PlayEvent#2.SetDefaultDeck#0
+325	日常/奖励	PlayEvent	StartMatch()	日常_奖励.tsv:570	A	PlayEvent.StartMatch()	2	真重复(同一原版方法)	原版 PlayEvent#2.StartMatch#0
+325	日常/奖励	PlayEvent<TSave, TData>	StartMatch()	泛型与启动链_补读.tsv:243	A	PlayEvent.StartMatch()	2	真重复(同一原版方法)	原版 PlayEvent#2.StartMatch#0
+326	日常/奖励	PlayEvent	UploadDefaultDeck()	日常_奖励.tsv:572	D	PlayEvent.UploadDefaultDeck()	2	真重复(同一原版方法)	原版 PlayEvent#2.UploadDefaultDeck#0
+326	日常/奖励	PlayEvent<TSave, TData>	UploadDefaultDeck()	泛型与启动链_补读.tsv:255	D	PlayEvent.UploadDefaultDeck()	2	真重复(同一原版方法)	原版 PlayEvent#2.UploadDefaultDeck#0
+327	日常/奖励	PlayEvent	ValidateEventDeck(CardDeck deck, bool validateOwnership)	日常_奖励.tsv:573	A	PlayEvent.ValidateEventDeck(CardDeck,bool)	2	真重复(同一原版方法)	原版 PlayEvent#2.ValidateEventDeck#0
+327	日常/奖励	PlayEvent<TSave, TData>	ValidateEventDeck(CardDeck deck, bool validateOwnership = True)	泛型与启动链_补读.tsv:248	A	PlayEvent.ValidateEventDeck(CardDeck,bool)	2	真重复(同一原版方法)	原版 PlayEvent#2.ValidateEventDeck#0
+328	其他/基础设施	PlayerDataManager	GetOnlineData(PlayerDataKey key, bool checkPublicData)	其他_基础设施.tsv:403	A	PlayerDataManager.GetOnlineData(PlayerDataKey,bool)	2	非重复(不同原版方法)	原版 PlayerDataManager#0.GetOnlineData#0
+328	其他/基础设施	PlayerDataManager	GetOnlineData<T>(PlayerDataKey key, bool checkPublicData)	其他_基础设施.tsv:404	A	PlayerDataManager.GetOnlineData(PlayerDataKey,bool)	2	非重复(不同原版方法)	原版 PlayerDataManager#0.GetOnlineData#1
+329	未分类/其他	Points	Points.Collect(int amount)	未分类_其他.tsv:489	D	Points.Collect(int)	3	非重复(与组内其余不同原版方法)	原版 Points#0.Collect#0
+329	未分类/其他	Points	Points<T>.Collect(int amount)	未分类_其他.tsv:490	A	Points.Collect(int)	3	真重复(与组内 泛型与启动链_补读.tsv:601 同指)	原版 Points#1.Collect#0
+329	未分类/其他	Points<T>	Collect(int amount)	泛型与启动链_补读.tsv:601	D	Points.Collect(int)	3	真重复(与组内 未分类_其他.tsv:490 同指)	原版 Points#1.Collect#0
+330	未分类/其他	Points	GetID()	未分类_其他.tsv:491	A	Points.GetID()	2	真重复(同一原版方法)	原版 Points#1.GetID#0
+330	未分类/其他	Points<T>	GetID()	泛型与启动链_补读.tsv:602	A	Points.GetID()	2	真重复(同一原版方法)	原版 Points#1.GetID#0
+331	未分类/其他	QuantityBoundItemInfo	Add(int amount, string instanceId)	未分类_其他.tsv:498	A	QuantityBoundItemInfo.Add(int,string)	2	真重复(同一原版方法)	原版 QuantityBoundItemInfo#1.Add#0
+331	未分类/其他	QuantityBoundItemInfo<T>	Add(int amount, string instanceId)	泛型与启动链_补读.tsv:603	A	QuantityBoundItemInfo.Add(int,string)	2	真重复(同一原版方法)	原版 QuantityBoundItemInfo#1.Add#0
+332	个人资料/成就/排行	RankedEventBase	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	个人资料_成就_排行.tsv:210	A	RankedEventBase.GetArmyState(CardArmy,IReadOnlyList<RankedScoreBoostEvent>)	2	真重复(同一原版方法)	原版 RankedEventBase#2.GetArmyState#0
+332	个人资料/成就/排行	RankedEventBase<TSave, TData>	GetArmyState(CardArmy army, IReadOnlyList<RankedScoreBoostEvent> extraBoosts)	泛型与启动链_补读.tsv:2	A	RankedEventBase.GetArmyState(CardArmy,IReadOnlyList<RankedScoreBoostEvent>)	2	真重复(同一原版方法)	原版 RankedEventBase#2.GetArmyState#0
+333	个人资料/成就/排行	RankedEventBase	GetBaseData()	个人资料_成就_排行.tsv:211	A	RankedEventBase.GetBaseData()	2	真重复(同一原版方法)	原版 RankedEventBase#2.GetBaseData#0
+333	个人资料/成就/排行	RankedEventBase<TSave, TData>	GetBaseData()	泛型与启动链_补读.tsv:3	A	RankedEventBase.GetBaseData()	2	真重复(同一原版方法)	原版 RankedEventBase#2.GetBaseData#0
+334	个人资料/成就/排行	RankedEventBase	ToggleRankedMode(bool isRanked)	个人资料_成就_排行.tsv:213	A	RankedEventBase.ToggleRankedMode(bool)	2	真重复(同一原版方法)	原版 RankedEventBase#2.ToggleRankedMode#0
+334	个人资料/成就/排行	RankedEventBase<TSave, TData>	ToggleRankedMode(bool isRanked)	泛型与启动链_补读.tsv:4	A	RankedEventBase.ToggleRankedMode(bool)	2	真重复(同一原版方法)	原版 RankedEventBase#2.ToggleRankedMode#0
+335	未分类/其他	ReferenceList	LoadReferences()	未分类_其他.tsv:513	D	ReferenceList.LoadReferences()	2	真重复(同一原版方法)	原版 ReferenceList#1.LoadReferences#0
+335	未分类/其他	ReferenceList<T>	LoadReferences()	泛型与启动链_补读.tsv:605	D	ReferenceList.LoadReferences()	2	真重复(同一原版方法)	原版 ReferenceList#1.LoadReferences#0
+336	其他/基础设施	ReflectionHelper	New(Type t)	其他_基础设施.tsv:677	D	ReflectionHelper.New(Type)	2	非重复(不同原版方法)	原版 ReflectionHelper#0.New#0
+336	其他/基础设施	ReflectionHelper	New<T>(Type t)	其他_基础设施.tsv:679	D	ReflectionHelper.New(Type)	2	非重复(不同原版方法)	原版 ReflectionHelper#0.New#1
+337	日常/奖励	ScoringEvent	GetBaseData()	日常_奖励.tsv:692	A	ScoringEvent.GetBaseData()	2	真重复(同一原版方法)	原版 ScoringEvent#2.GetBaseData#0
+337	日常/奖励	ScoringEvent<TS, TD>	GetBaseData()	泛型与启动链_补读.tsv:258	A	ScoringEvent.GetBaseData()	2	真重复(同一原版方法)	原版 ScoringEvent#2.GetBaseData#0
+338	日常/奖励	ScoringEvent	GetState(ScoringMilestone milestone)	日常_奖励.tsv:693	A	ScoringEvent.GetState(ScoringMilestone)	2	真重复(同一原版方法)	原版 ScoringEvent#2.GetState#0
+338	日常/奖励	ScoringEvent<TS, TD>	GetState(ScoringMilestone milestone)	泛型与启动链_补读.tsv:260	A	ScoringEvent.GetState(ScoringMilestone)	2	真重复(同一原版方法)	原版 ScoringEvent#2.GetState#0
+339	日常/奖励	ScoringEvent	IsMilestoneCollected(ScoringMilestone milestone)	日常_奖励.tsv:694	A	ScoringEvent.IsMilestoneCollected(ScoringMilestone)	2	真重复(同一原版方法)	原版 ScoringEvent#2.IsMilestoneCollected#0
+339	日常/奖励	ScoringEvent<TS, TD>	IsMilestoneCollected(ScoringMilestone milestone)	泛型与启动链_补读.tsv:259	A	ScoringEvent.IsMilestoneCollected(ScoringMilestone)	2	真重复(同一原版方法)	原版 ScoringEvent#2.IsMilestoneCollected#0
+340	商店	ShopStore	GetBaseData()	商店.tsv:292	A	ShopStore.GetBaseData()	2	真重复(同一原版方法)	原版 ShopStore#2.GetBaseData#0
+340	商店	ShopStore<TSave, TData>	GetBaseData()	泛型与启动链_补读.tsv:33	A	ShopStore.GetBaseData()	2	真重复(同一原版方法)	原版 ShopStore#2.GetBaseData#0
+341	商店	ShopStore	GetPurchaseCount(string id)	商店.tsv:294	A	ShopStore.GetPurchaseCount(string)	2	真重复(同一原版方法)	原版 ShopStore#2.GetPurchaseCount#0
+341	商店	ShopStore<TSave, TData>	GetPurchaseCount(string id)	泛型与启动链_补读.tsv:35	A	ShopStore.GetPurchaseCount(string)	2	真重复(同一原版方法)	原版 ShopStore#2.GetPurchaseCount#0
+342	商店	ShopStore	TryPurchase(IShopOffer offer, Action onComplete, Action onError)	商店.tsv:297	A	ShopStore.TryPurchase(IShopOffer,Action,Action)	2	真重复(同一原版方法)	原版 ShopStore#2.TryPurchase#0
+342	商店	ShopStore<TSave, TData>	TryPurchase(IShopOffer offer, Action onComplete, Action onError)	泛型与启动链_补读.tsv:34	A	ShopStore.TryPurchase(IShopOffer,Action,Action)	2	真重复(同一原版方法)	原版 ShopStore#2.TryPurchase#0
+343	日常/奖励	SignalEventTrigger	Register(Action callback)	日常_奖励.tsv:702	A	SignalEventTrigger.Register(Action)	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.Register#0
+343	日常/奖励	SignalEventTrigger<T>	Register(Action callback)	泛型与启动链_补读.tsv:261	A	SignalEventTrigger.Register(Action)	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.Register#0
+344	日常/奖励	SignalEventTrigger	TryTrigger(T signal)	日常_奖励.tsv:703	A	SignalEventTrigger.TryTrigger(T)	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.TryTrigger#0
+344	日常/奖励	SignalEventTrigger<T>	TryTrigger(T signal)	泛型与启动链_补读.tsv:262	A	SignalEventTrigger.TryTrigger(T)	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.TryTrigger#0
+345	日常/奖励	SignalEventTrigger	Unregister()	日常_奖励.tsv:704	A	SignalEventTrigger.Unregister()	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.Unregister#0
+345	日常/奖励	SignalEventTrigger<T>	Unregister()	泛型与启动链_补读.tsv:264	A	SignalEventTrigger.Unregister()	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.Unregister#0
+346	日常/奖励	SignalEventTrigger	ValidateSignal(T signal)	日常_奖励.tsv:705	A	SignalEventTrigger.ValidateSignal(T)	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.ValidateSignal#0
+346	日常/奖励	SignalEventTrigger<T>	ValidateSignal(T signal)	泛型与启动链_补读.tsv:263	A	SignalEventTrigger.ValidateSignal(T)	2	真重复(同一原版方法)	原版 SignalEventTrigger#1.ValidateSignal#0
+347	未分类/其他	SingletonBehaviour	Awake()	未分类_其他.tsv:585	D	SingletonBehaviour.Awake()	2	真重复(同一原版方法)	原版 SingletonBehaviour#1.Awake#0
+347	未分类/其他	SingletonBehaviour<T>	Awake()	泛型与启动链_补读.tsv:607	D	SingletonBehaviour.Awake()	2	真重复(同一原版方法)	原版 SingletonBehaviour#1.Awake#0
+348	未分类/其他	SingletonBehaviour	OnDestroy()	未分类_其他.tsv:586	D	SingletonBehaviour.OnDestroy()	2	真重复(同一原版方法)	原版 SingletonBehaviour#1.OnDestroy#0
+348	未分类/其他	SingletonBehaviour<T>	OnDestroy()	泛型与启动链_补读.tsv:608	D	SingletonBehaviour.OnDestroy()	2	真重复(同一原版方法)	原版 SingletonBehaviour#1.OnDestroy#0
+349	未分类/其他	SingletonInitializableBehaviour	Awake()	未分类_其他.tsv:587	A	SingletonInitializableBehaviour.Awake()	2	真重复(同一原版方法)	原版 SingletonInitializableBehaviour#1.Awake#0
+349	未分类/其他	SingletonInitializableBehaviour<T>	Awake()	泛型与启动链_补读.tsv:610	A	SingletonInitializableBehaviour.Awake()	2	真重复(同一原版方法)	原版 SingletonInitializableBehaviour#1.Awake#0
+350	未分类/其他	SingletonInitializableBehaviour	OnDestroy()	未分类_其他.tsv:588	A	SingletonInitializableBehaviour.OnDestroy()	2	真重复(同一原版方法)	原版 SingletonInitializableBehaviour#1.OnDestroy#0
+350	未分类/其他	SingletonInitializableBehaviour<T>	OnDestroy()	泛型与启动链_补读.tsv:611	A	SingletonInitializableBehaviour.OnDestroy()	2	真重复(同一原版方法)	原版 SingletonInitializableBehaviour#1.OnDestroy#0
+351	未分类/其他	SingletonInitializableBehaviour	OnInitializationComplete()	未分类_其他.tsv:589	A	SingletonInitializableBehaviour.OnInitializationComplete()	2	真重复(同一原版方法)	原版 SingletonInitializableBehaviour#1.OnInitializationComplete#0
+351	未分类/其他	SingletonInitializableBehaviour<T>	OnInitializationComplete()	泛型与启动链_补读.tsv:609	A	SingletonInitializableBehaviour.OnInitializationComplete()	2	真重复(同一原版方法)	原版 SingletonInitializableBehaviour#1.OnInitializationComplete#0
+352	收藏	ToggleCollectionFilter	ClearFilters()	收藏.tsv:311	A	ToggleCollectionFilter.ClearFilters()	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.ClearFilters#0
+352	收藏	ToggleCollectionFilter<T, TOption>	ClearFilters()	泛型与启动链_补读.tsv:135	A	ToggleCollectionFilter.ClearFilters()	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.ClearFilters#0
+353	收藏	ToggleCollectionFilter	FillToggleList(List<CollectionFilterToggle> currentList, int listLimit)	收藏.tsv:312	A	ToggleCollectionFilter.FillToggleList(List<CollectionFilterToggle>,int)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.FillToggleList#0
+353	收藏	ToggleCollectionFilter<T, TOption>	FillToggleList(List<CollectionFilterToggle> currentList, int listLimit)	泛型与启动链_补读.tsv:136	A	ToggleCollectionFilter.FillToggleList(List<CollectionFilterToggle>,int)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.FillToggleList#0
+354	收藏	ToggleCollectionFilter	Filter(List<T> collection)	收藏.tsv:313	A	ToggleCollectionFilter.Filter(List<T>)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.Filter#0
+354	收藏	ToggleCollectionFilter<T, TOption>	Filter(List<T> collection)	泛型与启动链_补读.tsv:133	A	ToggleCollectionFilter.Filter(List<T>)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.Filter#0
+355	收藏	ToggleCollectionFilter	FilterItem(T card)	收藏.tsv:314	D	ToggleCollectionFilter.FilterItem(T)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.FilterItem#0
+355	收藏	ToggleCollectionFilter<T, TOption>	FilterItem(T card)	泛型与启动链_补读.tsv:134	D	ToggleCollectionFilter.FilterItem(T)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.FilterItem#0
+356	收藏	ToggleCollectionFilter	OnFilterChange()	收藏.tsv:315	A	ToggleCollectionFilter.OnFilterChange()	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.OnFilterChange#0
+356	收藏	ToggleCollectionFilter<T, TOption>	OnFilterChange()	泛型与启动链_补读.tsv:132	A	ToggleCollectionFilter.OnFilterChange()	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.OnFilterChange#0
+357	收藏	ToggleCollectionFilter	SetupFilter(CollectionFilterController<T> controller)	收藏.tsv:316	A	ToggleCollectionFilter.SetupFilter(CollectionFilterController<T>)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.SetupFilter#0
+357	收藏	ToggleCollectionFilter<T, TOption>	SetupFilter(CollectionFilterController<T> controller)	泛型与启动链_补读.tsv:131	A	ToggleCollectionFilter.SetupFilter(CollectionFilterController<T>)	2	真重复(同一原版方法)	原版 ToggleCollectionFilter#2.SetupFilter#0
+358	教程/引导	TutorialPointer	StartPointer(TutorialPointerActions pointerAction, Vector3 startPos, Vector2 endPos, PointerRelativePos pointerOrientation)	教程_引导.tsv:94	A	TutorialPointer.StartPointer(TutorialPointerActions,Vector3,Vector2,PointerRelativePos)	2	真重复(同一原版方法)	原版 TutorialPointer#0.StartPointer#0
+358	特效动画	TutorialPointer	StartPointer(TutorialPointerActions pointerAction, Vector3 startPos, Vector2 endPos, PointerRelativePos pointerOrientation = PointerRelativePos.right)	特效动画.tsv:524	A	TutorialPointer.StartPointer(TutorialPointerActions,Vector3,Vector2,PointerRelativePos)	2	真重复(同一原版方法)	原版 TutorialPointer#0.StartPointer#0
+359	收藏	UiBadgeNotificationManager	Refresh()	收藏.tsv:333	A	UiBadgeNotificationManager.Refresh()	2	非重复(不同原版方法)	原版 UiBadgeNotificationManager#0.Refresh#0
+359	收藏	UiBadgeNotificationManager	Refresh<T>()	收藏.tsv:335	A	UiBadgeNotificationManager.Refresh()	2	非重复(不同原版方法)	原版 UiBadgeNotificationManager#0.Refresh#1
+360	未分类/其他	UiContainer	HandleClick()	未分类_其他.tsv:714	D	UiContainer.HandleClick()	2	真重复(同一原版方法)	原版 UiContainer#1.HandleClick#0
+360	未分类/其他	UiContainer<T>	HandleClick()	泛型与启动链_补读.tsv:616	D	UiContainer.HandleClick()	2	真重复(同一原版方法)	原版 UiContainer#1.HandleClick#0
+361	未分类/其他	UiContainer	Initialize(T e)	未分类_其他.tsv:715	D	UiContainer.Initialize(T)	2	真重复(同一原版方法)	原版 UiContainer#1.Initialize#0
+361	未分类/其他	UiContainer<T>	Initialize(T e)	泛型与启动链_补读.tsv:613	D	UiContainer.Initialize(T)	2	真重复(同一原版方法)	原版 UiContainer#1.Initialize#0
+362	未分类/其他	UiContainer	Initialize(object data)	未分类_其他.tsv:716	D	UiContainer.Initialize(object)	3	真重复(与组内 未分类_其他.tsv:717 同指)	原版 UiContainer#0.Initialize#0
+362	未分类/其他	UiContainer	Initialize(object payload)	未分类_其他.tsv:717	D	UiContainer.Initialize(object)	3	真重复(与组内 未分类_其他.tsv:716 同指)	原版 UiContainer#0.Initialize#0
+362	未分类/其他	UiContainer<T>	Initialize(object payload)	泛型与启动链_补读.tsv:612	D	UiContainer.Initialize(object)	3	非重复(与组内其余不同原版方法)	原版 UiContainer#1.Initialize#0
+363	未分类/其他	UiContainer	OnClick()	未分类_其他.tsv:718	D	UiContainer.OnClick()	2	真重复(同一原版方法)	原版 UiContainer#1.OnClick#0
+363	未分类/其他	UiContainer<T>	OnClick()	泛型与启动链_补读.tsv:617	D	UiContainer.OnClick()	2	真重复(同一原版方法)	原版 UiContainer#1.OnClick#0
+364	未分类/其他	UiContainer	OnDestroy()	未分类_其他.tsv:719	D	UiContainer.OnDestroy()	2	真重复(同一原版方法)	原版 UiContainer#1.OnDestroy#0
+364	未分类/其他	UiContainer<T>	OnDestroy()	泛型与启动链_补读.tsv:614	D	UiContainer.OnDestroy()	2	真重复(同一原版方法)	原版 UiContainer#1.OnDestroy#0
+365	未分类/其他	UiContainer	OnInitialize(T liveOps)	未分类_其他.tsv:720	D	UiContainer.OnInitialize(T)	2	真重复(同一原版方法)	原版 UiContainer#1.OnInitialize#0
+365	未分类/其他	UiContainer<T>	OnInitialize(T liveOps)	泛型与启动链_补读.tsv:615	D	UiContainer.OnInitialize(T)	2	真重复(同一原版方法)	原版 UiContainer#1.OnInitialize#0
+366	菜单/外壳	WindowTabBase<T>	Setup(GameWindow window)	泛型与启动链_补读.tsv:741	A	WindowTabBase.Setup(GameWindow)	3	真重复(与组内 菜单_外壳.tsv:833 同指)	原版 WindowTabBase#1.Setup#0
+366	菜单/外壳	WindowTabBase	WindowTabBase<T>.Setup(GameWindow window)	菜单_外壳.tsv:833	A	WindowTabBase.Setup(GameWindow)	3	真重复(与组内 泛型与启动链_补读.tsv:741 同指)	原版 WindowTabBase#1.Setup#0
+366	菜单/外壳	WindowTabBase	WindowTabBase.Setup(GameWindow window)	菜单_外壳.tsv:834	A	WindowTabBase.Setup(GameWindow)	3	非重复(与组内其余不同原版方法)	原版 WindowTabBase#0.Setup#0

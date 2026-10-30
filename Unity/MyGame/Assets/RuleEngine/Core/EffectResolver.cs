@@ -3531,7 +3531,7 @@ namespace RuleEngine
                 }
                 // 🔴 第 7 行第 2 步 + **用户 2026-09-18 拍的口径**：**变身 = 另发新实例、状态不跟**
                 //   （卡都换了；改前那套按 `CardDef` 键，换 def 之后键就变了 ⇒ 旧行为本来也是「不跟」）。
-                ps.Hand[i] = ctx.NewInstance(pick);
+                BroadcastRemoveFromGameByName(ctx, cur.Card.Name, null); RemoveHandEffectsCastBy(ctx, cur); { var __keOpt = KeepEffectsOf(cur.Card); bool __ke = __keOpt ?? false; if (!__keOpt.HasValue) ctx.Log($"{by}：「{cur.Card.Name}」变身时判不出 `keepEffects`（卡表缺键/未落列）⇒ 按 `false`（原版 `ResetToValuesInHand` 那一支）走，如实记录"); var __ni = new CardInstance(pick, cur.Id); CarryInstanceState(cur, __ni, __ke); if (!__ke) ResetHandCardToValuesInHand(ctx, cur, by, op.Source); ps.Hand[i] = __ni; }   // 🔴 2026-10-30（`B101_R5` · 账 637 W3）：手牌目标的 `ResolveTransformUnit` 四跳 —— `C:BattleManager__ResolveTransformUnit.c:416` broadcast → `:417-516` 两手 `RemoveEffectsFromCard` → `:559-703 keepEffects` 两支 → `:791` SetRawCardData。原版是**同一个 `CardScript` 换定义、`+0x22c` 实例号不变**（`IL:BattleManager.cs:11385` 起的 `obj8`）⇒ 我们发新实例但**沿用 `cur.Id`**；⛔ 别改回 `ctx.NewInstance(pick)`（会换号、丢掉原版那条不变性）
                 changed++;
                 ctx.Log($"{ps.Name} 的手牌「{cur.Card.Name}」变成了「{pick.Name}」");
             }
@@ -9388,7 +9388,7 @@ namespace RuleEngine
         ///   · **`Fast` 要显式清 `Exhausted`**：`AddKeyword("fast")` 只写关键词，
         ///     而 `Exhausted` **只在构造时**按关键词算过一次（见 `UnitState.AddKeyword`）
         ///     ⇒ 不显式清的话「给予它迅捷」会**给个关键词却动不了**（静默）。
-        ///   · **棋盘动过就要 `Auras.Recompose`** —— 两侧的棋盘都变了（别处 9 个写入点同一条纪律）。
+        ///   · **棋盘动过** —— 由动作边界 `ActionPump.cs:143` 的 `RefreshInPlayNumericAndKeywords`（= `RecomposeCore(numericOnly)`，`Aura.cs:1003-1017`）窄口覆盖：同一动作收尾时数值 + 关键词两层会按**新归属**重算；本方法**不显式**调 `Auras.Recompose`（2026-10-30 `B101_R5` 现读订正：原文写「就要 Recompose」而正文没有，`numericOnly` 不覆盖的费用/誓约对该单位不适用）。
         /// </summary>
         static bool DoTakeControl(BattleContext ctx, int owner, string by, EffectOp op,
                                   UnitState chosen, List<string> unresolved)
@@ -9433,7 +9433,7 @@ namespace RuleEngine
                           + $"（棋盘不连续）—— **不覆盖**，抢过来的 {t.Name} 改放该侧最外的空格 {to}");
 
                 // 从原主那边摘掉 = 原版 `RemoveMinion` ⇒ **要补位**（外侧的人整体内移一格）
-                BroadcastRemoveFromGame(ctx, t, null); BoardSlots.RemoveAt(ctx.Players[fromP], fromSlot);   // 🔴 2026-10-29（B94_F2 · 账 637）：原版 `_ResolveStealMinion_d__551__MoveNext.c:46` 在移动（`:79`）**之前**调 `BroadcastRemoveFromGame(bm, 抢的那张, 0)` ⇒ 场上其余每张 IsInPlay 卡按来源撤它给的外来效果（三跳判据见 `BattleManagerSupport__BroadcastRemoveFromGame.c`）。⛔ 别挪到移动之后（那时它已归对面）
+                BroadcastRemoveFromGame(ctx, t, null); BoardSlots.RemoveAt(ctx.Players[fromP], fromSlot); t.RemoveAllExtrinsicEffects();   // 🔴 2026-10-30（B101_R5 · 账 637 W1）：原版 `IL:BattleManager.cs:38713` 在 `RemoveMinion`（= 本行 `RemoveAt`）之后、`ChangeOwner`（= 下一行 `SetOwnerSeat`）**之前**调 `RemoveAllExtrinsicEffects` —— 摘**全部** extrinsic（不按来源），否则前主人给的增益会跟着跑到对面（静默改对局）。判据 = `IL:CardScript.cs:11949-11968`（倒序扫 `activeEffects`、`extrinsic(+0x30)==true` 就 `RemoveEffect`）。⛔ 别用 `RemoveAllAppliedEffectsForJam` 顶（那是 jam 口径）｜🔴 2026-10-29（B94_F2 · 账 637）：原版 `_ResolveStealMinion_d__551__MoveNext.c:46` 在移动（`:79`）**之前**调 `BroadcastRemoveFromGame(bm, 抢的那张, 0)` ⇒ 场上其余每张 IsInPlay 卡按来源撤它给的外来效果（三跳判据见 `BattleManagerSupport__BroadcastRemoveFromGame.c`）。⛔ 别挪到移动之后（那时它已归对面）
                 ctx.Players[dest].Board[to] = t; t.SetOwnerSeat(dest);   // 【B94_B22 2026-10-29 · B24 接线 B1】原版 `CardScript.ChangeOwner()` 翻 `isPlayer`；与「挪 Board[]」**成对**。用绝对值（此刻确知落点）而不是 `ChangeOwner()` —— 后者在从未写过座位（`-1`）时会因「未知不翻」漏掉
                 // 🔴 2026-10-28（B91 · A1）：**不再登记 `ctx.TempControls`** —— 原版是**永久**（判据：`ChangeOwner`
                 //   全库 2 个调用点、`EndTurn` 里没有把 `isPlayer` 翻回去的路）。被删掉的那 4 行是 `TempControls.Add(new
@@ -17143,9 +17143,9 @@ namespace RuleEngine
             }
 
             // ---- ③ 原版 `:64-78`：`BroadcastRemoveFromGame(bm, card0, card1)` **紧跟 4 次 `PlayerHand.RemoveFromGameCard`** ----
-            BroadcastRemoveFromGame(ctx, a, b);   // 🔴 2026-10-29（B94_F2 · 账 637 现读订正）：改前这里只打一句日志「没有对象」——**错**。棋盘那一跳是**真等价**（`BattleManagerSupport__BroadcastRemoveFromGame.c:20-61`：场上每张 IsInPlay 且 != a,b 的卡各 `RemoveFromGameCard(它, a)` / `(它, b)` ⇒ else 支 = 按来源撤 extrinsic）；只有 4 次 `PlayerHand.RemoveFromGameCard` 在我们模型里无对象（在场单位不在 `Hand` 列表）。原版 4 个调用点：exchange 已接（这里）、steal 已接（`DoTakeControl`）、残骸翻面已接（`RuleCore.CleanupDeaths`）、transformUnit 整支未实现（账 548）。
+            BroadcastRemoveFromGame(ctx, a, b); RemoveHandEffectsCastBy(ctx, a.Instance); RemoveHandEffectsCastBy(ctx, b.Instance);   // 🔴 2026-10-30（B101_R5 · 账 637 W2）：原版 `IL:BattleManager.cs:35383-35387` 四次 `PlayerHand.RemoveFromGameCard` = 摘「extrinsic ∧ `enchantingCard == 那张`」的**手牌效果**（体见 `IL:PlayerHand.cs:720-748`）⇒ 我们的等价口 = `RemoveHandEffectsCastBy`（它自扫**两方**手牌 ⇒ 两张卡各一次 = 原版四次）。⛔ 别再写「没有对象 ⇒ 跳过」：`HandEffectRecords` 上已经有对象。｜🔴 2026-10-29（B94_F2 · 账 637 现读订正）：改前这里只打一句日志「没有对象」——**错**。棋盘那一跳是**真等价**（`BattleManagerSupport__BroadcastRemoveFromGame.c:20-61`：场上每张 IsInPlay 且 != a,b 的卡各 `RemoveFromGameCard(它, a)` / `(它, b)` ⇒ else 支 = 按来源撤 extrinsic）。原版 4 个调用点：exchange（这里）、steal（`DoTakeControl`）、残骸翻面（`RuleCore.CleanupDeaths`）、transformUnit（`TransformUnit_B94B12.TransformUnit`）**四处现读全部已接**。
             ctx.Log($"{by}：「{op.Source}」—— 原版 `BroadcastRemoveFromGame` 的棋盘跳已照做（撤掉被换位那两张给别人的外来效果）；"
-                  + "4 次 `PlayerHand.RemoveFromGameCard` 在我们模型里**没有对象**（在场单位本来就不在 `Hand` 列表里）⇒ 跳过");
+                  + "4 次 `PlayerHand.RemoveFromGameCard`（`IL:35383-35387`）已由上一行的 `RemoveHandEffectsCastBy` ×2（自扫两方）照做（2026-10-30 `B101_R5` 就地订正：改前这里写「没有对象 ⇒ 跳过」——错）");
 
             // ---- ④ 换位：两个格位**直接对调**（原版 `ReplaceUnit` = 同位替换、不补位）----
             ctx.Players[pa].Board[sa] = b;
@@ -20550,6 +20550,53 @@ namespace RuleEngine
                 if (ps.IsInCemetery(inst)) return true;
             }
             return false;                                        // 不在任何一方的弃牌堆里 ⇒ 状态不一致：宁可少一张也不瞎猜（同 `CemeteryDeadUnits` 的 `who < 0` 支）
+        }
+    }
+}
+
+// ==============================================================================================
+//  🆕 2026-10-30（执行代理 `B101_R5` · 账 637 W3）：`BroadcastRemoveFromGame` 的「按卡名」薄壳
+//  ⛔ 追加在**文件尾**（`EffectResolver.cs` 有账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>
+        /// **`BroadcastRemoveFromGame` 的按卡名版** —— 给**手牌目标**的变身用（`DoBecome` 那一格）：
+        /// 手牌是 `CardInstance`，没有 `UnitState`，而原版 `ResolveTransformUnit` 对**手牌目标**同样会调
+        /// `BroadcastRemoveFromGame(targetCard, null)`（`C:BattleManager__ResolveTransformUnit.c:416`，
+        /// `IL:BattleManager.cs:11385`，手牌目标只是跳过 `SetAsUnitTransforming` 那一跳）。
+        ///
+        /// <para>**判据**：`C:BattleManagerSupport__BroadcastRemoveFromGame.c:20-137` —— 棋盘那一跳 =
+        /// 场上每张 `IsInPlay()` ∧ != 被移出那张 的卡，逐张 `RemoveFromGameCard(它, 被移出那张)`
+        /// ⇒ else 支 = `ReactToUnitJammed` 的「按来源撤 extrinsic」。
+        /// 手牌那两跳（`:106` / `:136` 那一段）由调用点自己调 `RemoveHandEffectsCastBy` 承担
+        /// （它扫两方手牌、判据 = `IL:PlayerHand.cs:720-748`），⛔ 本方法不重复扫手牌。</para>
+        ///
+        /// <para>⚠️ **如实标的限制**：原版排的是**对象引用**，我们只能按**卡名**匹配
+        /// （与 `UnitState.RemoveExtrinsicEffectsFrom` 同一条既有口径 ⇒ 同名两张会多撤）。</para>
+        /// </summary>
+        internal static void BroadcastRemoveFromGameByName(BattleContext ctx, string aName, string bName)
+        {
+            if (ctx == null || (string.IsNullOrEmpty(aName) && string.IsNullOrEmpty(bName))) return;
+            int touched = 0;
+            for (int p = 0; p < 2; p++)
+            {
+                var ps = ctx.Players[p];
+                if (ps == null) continue;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = ps.Board[s];
+                    if (u == null || !u.IsAlive) continue;                       // 原版的闸 = `IsInPlay()`；我们棋盘上活着的即在场
+                    if (u.Card != null && u.Card.Name == aName) continue;        // 原版排除被移出那张自己
+                    if (u.Card != null && u.Card.Name == bName) continue;
+                    if (!string.IsNullOrEmpty(aName)) touched += u.RemoveExtrinsicEffectsFrom(aName);
+                    if (!string.IsNullOrEmpty(bName)) touched += u.RemoveExtrinsicEffectsFrom(bName);
+                }
+            }
+            ctx.Log($"`BroadcastRemoveFromGameByName`（手牌目标变身）：场上撤掉 {touched} 条由「{aName}」给的外来效果"
+                  + "（原版 `BattleManagerSupport__BroadcastRemoveFromGame.c:20-137` 的棋盘那一跳；手牌两跳在调用点用 `RemoveHandEffectsCastBy`）");
         }
     }
 }

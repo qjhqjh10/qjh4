@@ -2226,7 +2226,7 @@ namespace CardPresentation
 
             for (int i = 0; i < items.Count; i++)
             {
-                var e = items[i];
+                var e = items[i]; if (TryAddEffectTextRow(rows, e)) continue;   // 🆕 2026-10-30（执行代理 `B101_F2`）：原版 `GetEffectDesc` 的**第一跳** —— `CardEffect.effectText(+0x28)` 非空 ⇒ 右列就是它（同一物理行追加 ⇒ 行数零变化；判据见方法 doc）
                 switch (e.Family)
                 {
                     case ShownFamily.Stat:
@@ -2644,6 +2644,43 @@ namespace CardPresentation
                 return "";
             }
             return CardIcons.RewriteMarks(what, Loc.Current == AvailableLanguages.Chinese);
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-30（执行代理 `B101_F2` · 报告 `报告/B101_F2_effectText接线.md`）：
+        //  原版 `GameStaticData.GetEffectDesc` 的**第一跳**（`GameStaticData__GetEffectDesc.c:8-25`）：
+        //     `CardEffect.effectText(+0x28)` 非空 ⇒  键 = `"Card_Abilities/" + 原文`
+        //     → `I2 LocalizationManager.GetTranslation(键)` → `SupportMethods.ModifyLocalization`
+        //     → **取不到（空）就把原文原样印出来**（`:21-25`）。
+        //  这一跳**排在 `switch(buffType)` 之前** ⇒ 它**替换的是右列**，与「这条记录是哪一族」无关。
+        //
+        //  ⚠️ 我们在投影里没有 `effectText` 字段（模型的残差 → `EffectsToShow.AttachEffectTexts` 的 doc），
+        //     只在**能反解出归属**的那几族上带四元组（`ShownEffect.EffectTextCard/EffectAb/EffectLg/EffectIsHand`）。
+        //     `EffectTextCard == null` ⇒ 这一条**照旧走原来的合成键**（⛔ 1,098 张无 `effectText` 的卡文本一个字不变）。
+        //
+        //  ⚠️ **追加在类尾**（本文件被账按 `文件:行号` 引用 10+ 条；⛔ 别往上挪，见铁律 18·b）。
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `GetEffectDesc` 的第一跳（`effectText` 非空 ⇒ 右列 = `Card_Abilities/&lt;原文&gt;`）。
+        /// <para>命中 ⇒ 往 <paramref name="rows"/> 追加一行并返回 `true`（调用方 `continue`，⛔ 不再走那一族的合成键）。</para>
+        /// <para>没命中（`EffectTextCard == null` / `EffectTextOf` 的 `""`「明确没有」或 `null`「判不了」）⇒ 返回 `false`，走原路。</para>
+        /// <para>⚠️ 左列 = <c>e.Source</c>（原版 `CardEffect.enchantingCard(+0x18)`，`CardEffectItem__LoadEffect.c:110-140` 那一格）
+        /// —— 附魔行原来整格是**一个洞**（`EnchantRow` 的正常档），有了 `effectText` 之后
+        /// `CardEffectItem__IsTextEmpty`（只读 `+0x28`）为假 ⇒ **整格显示**，左列也就跟着出来了。</para>
+        /// <para>⚠️ 打码那两支（secret / quest）**不走这里**：`AttachEffectTexts` 已经跳过那两种行（池内 `spellType 60/70/120` = 0 张）。</para></summary>
+        static bool TryAddEffectTextRow(List<EffectRow> rows, ShownEffect e)
+        {
+            if (rows == null || e.EffectTextCard == null) return false;
+            string src = e.EffectTextCard.EffectTextOf(e.EffectAb, e.EffectLg, e.EffectIsHand);
+            if (string.IsNullOrEmpty(src)) return false;                 // `""` 明确没有 / `null` 判不了 ⇒ 都不是「有原文」
+            string key = e.EffectTextCard.EffectTextTermOf(e.EffectAb, e.EffectLg, e.EffectIsHand);
+            string what = key == null ? src : Loc.T(key);
+            // 缺键判法 = `Loc.T(key) == key`（`Core/Loc.cs` 整条链都没命中时返回键名本身）⇒ 那时**印原文**（`.c:21-25`）。
+            // ⛔ 别改用 `Loc.HasEntry`：它只查手写 `Table`、不查 bulk 与官方全表（`Card_Abilities/*` 全在官方表那两档）。
+            if (string.IsNullOrEmpty(what) || what == key) what = src;
+            what = CardIcons.RewriteMarks(what, Loc.Current == AvailableLanguages.Chinese);   // = 原版 `ModifyLocalization` 那一跳
+            rows.Add(TextRow(e.Source, what));
+            return true;
         }
     }
 }

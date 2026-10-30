@@ -18,7 +18,12 @@
 //       ⚠️ 那两个常量是 `internal`，本文件在**编辑器程序集**里取不到 ⇒ 这里比的是**原版字面量 0.2 / 0.4**
 //       （那才是尺子；拿我们的常量去比我们自己的实现 = 自证）。
 //
-//  ② **`UnitDamaged` 桶收进了附魔卡**（X3 #12 / #13 / #14，三处同一根因）
+//  ② 🔴 **2026-10-30 作废（铁律 5 · `B101_F1`）—— 下面这一整段 ② 的判据是错的，`SectionB` 已删**：
+//     真判据 = `报告/B101_R4_演出与预览判据.md` §6·8 —— 原版 `Pray Enchantment` 的 trigger-60 ability
+//     的 `cardAnimations` 里**就带 `Pray_Exit`**，走 `AbilityLogic.cardAnimations` → `PlayAnim` →
+//     `AddCardAnim(actingCard = 载体)` ⇒ 原版**会播**（演在载体身上）。`B100_F11` 当年为了让自己那条
+//     计数断言过，把原版真实行为从数据里删了 ⇒ 已由 `B101_F1` 撤销；`SectionA`（两档时长）**仍有效**。
+//     （以下原文留痕）② **`UnitDamaged` 桶收进了附魔卡**（X3 #12 / #13 / #14，三处同一根因）
 //     · 判据**已经写死在 C# 里**（`CardPresentation/Editor/BattleScene.cs:13423-13430` +
 //       `CardPresentation/Core/VfxMap.cs:3521`，两处逐字同口径）：
 //       「**附魔不是单位** —— 它的 trigger 60 是附魔能力（如 `Pray_Exit`），不算单位技能动画」
@@ -93,7 +98,6 @@ public static class B100F11_Assert
         _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
 
         SectionA();
-        SectionB();
     }
 
     // ------------------------------------------------------------ ① 两个揭示档的时长登记
@@ -175,134 +179,4 @@ public static class B100F11_Assert
          + " —— 🧨 退回 `default: 0`（= 改前那种「不占时间线」）⇒ 本条红");
     }
 
-    // ------------------------------------------------------------ ② `UnitDamaged` 桶不许收附魔卡
-    static void SectionB()
-    {
-        MenuCheck.Section(_sink, "B100_F11 · ② `UnitDamaged` 桶**不收附魔卡**"
-                              + "（判据 = `BattleScene.cs:13423-13430` / `VfxMap.cs:3521`：附魔不是单位）");
-
-        // 生产那一句会读设备/计数，这里只借它的「逐卡归口」那一半；首尾各清一次计数
-        VfxMap.ResetUnpinnedForTest();
-        VfxMap.EnsureLoaded();
-
-        var pool = CardDatabase.Load();
-        if (pool == null || pool.Count == 0)
-        {
-            Tr(false, "B0（前提）：卡池载得到（`CardDatabase.Load()` 回空 ⇒ 下面几条**一条都没验**，不是通过）");
-            VfxMap.ResetUnpinnedForTest();   // 早退也别把计数留给下游
-            return;
-        }
-        Tr(pool.Count > 1000, $"B0（前提）：卡池载到 {pool.Count} 张卡");
-
-        // 池里现算「`UnitDamaged` 有几行（有 prefab 的）」，两遍：**跳过附魔** / **含附魔**
-        int rowsWithoutEnch = 0, rowsWithEnch = 0, enchRows = 0;
-        var enchIds = new HashSet<string>(StringComparer.Ordinal);
-        for (int i = 0; i < pool.Count; i++)
-        {
-            var cd = pool[i];
-            if (cd == null || cd.AnimTimes == null || cd.AnimTimes.Count == 0) continue;
-            bool ench = string.Equals(cd.Type, "enchantment", StringComparison.OrdinalIgnoreCase);
-            if (ench) enchIds.Add(cd.Id);
-            int n = 0;
-            for (int k = 0; k < cd.AnimTimes.Count; k++)
-            {
-                var t = cd.AnimTimes[k];
-                if (t == null) continue;
-                if (!string.Equals(t.TriggerName, VfxMap.UnitDamagedTriggerName, StringComparison.OrdinalIgnoreCase)) continue;
-                if (string.IsNullOrEmpty(t.Prefab)) continue;
-                n++;
-            }
-            rowsWithEnch += n;
-            if (ench) enchRows += n; else rowsWithoutEnch += n;
-        }
-        Tr(enchIds.Count > 0, $"B0-b（前提）：卡池里有 `type == \"enchantment\"` 的卡（{enchIds.Count} 张）");
-        // 🔴 **灭自证那一半**：这条证明「跳过附魔」这个动作**真的在区分东西** ——
-        //    若数据侧哪天把附魔那条 `UnitDamaged` 行删了，B2 会变成「1 == 1」的空转绿灯，本条先红把它抓住。
-        Tr(enchRows > 0,
-           $"B3（灭自证）：附魔卡里**确实有** `{VfxMap.UnitDamagedTriggerName}` 行（{enchRows} 行 / "
-         + $"{enchIds.Count} 张附魔里的有行者）—— 有它，B2 那条「桶条数 == 跳过附魔的池现算」才**不是空转**；"
-         + "🧨 数据侧把这一行删掉 ⇒ 本条红（B2 就退化成两边都是 0/1 的自证）");
-
-        // B2 桶条数 == 池现算（跳过附魔）—— 这正是 `VfxMap.SelfCheckUnitSkillAnims` 第 ④ 支的口径
-        C(VfxMap.CardTableUnitDamagedEntries, rowsWithoutEnch,
-          $"B2：`UnitDamaged` 桶条数 == 按卡池现算（**跳过附魔**，`TriggerName == UnitDamaged` 且有 prefab）"
-        + $" —— 🧨 生成器不做卡型过滤（`Pray_Exit` 回到 `hit` 桶）⇒ 桶里 2 条、池现算 1 条 ⇒ 本条红");
-
-        // B1 生产那一整口（①②③④ 四支全跑）必须一条违规都没有
-        {
-            string[] bad = VfxMap.SelfCheckUnitSkillAnims();
-            Tr(bad != null && bad.Length == 0,
-               "B1：`VfxMap.SelfCheckUnitSkillAnims()` **零违规**（搬全了 / 不多不少 / 不是抄 / 计数一致）"
-             + (bad == null || bad.Length == 0 ? "" : " —— 违规：" + string.Join(" | ", bad)));
-        }
-
-        // B4 桶里**没有任何**附魔卡（结构性：即便哪天条数又对上了，也不许靠「别的卡多一条、附魔少一条」凑数）
-        {
-            string[] ids = VfxMap.UnitAnimCardIds(VfxMap.UnitDamaged);
-            var offenders = new List<string>();
-            for (int i = 0; i < ids.Length; i++)
-                if (!string.IsNullOrEmpty(ids[i]) && enchIds.Contains(ids[i])) offenders.Add(ids[i]);
-            C(string.Join(",", offenders.ToArray()), "",
-              $"B4：`unit_damaged_anim` 桶里**没有附魔卡**（桶里 {ids.Length} 张：{string.Join("/", ids)}）"
-            + " —— 🧨 手工把附魔塞进桶 ⇒ 本条红（它会在单位受击那一拍播附魔自己的动画）");
-        }
-
-        // B5 数据侧：运行期表里**没有**附魔卡的 `hit` 行，且 `notPlayed[]` 里有那条 `enchantment-not-unit` 的记账
-        {
-            var asset = Resources.Load<TextAsset>(VfxMap.CardTableResourcePath);
-            if (asset == null)
-            {
-                Tr(false, $"B5（前提）：`Resources/{VfxMap.CardTableResourcePath}.json` 载得到"
-                        + " —— 载不到的话下面两条是空断言，如实红");
-            }
-            else
-            {
-                VfxMap.RtFile dto = null;
-                try { dto = JsonUtility.FromJson<VfxMap.RtFile>(asset.text); }
-                catch (Exception ex) { Debug.LogWarning(_sink.P + "B5 读逐卡表失败：" + ex.Message); }
-                Tr(dto != null && dto.cards != null && dto.cards.Length > 0,
-                   "B5（前提）：逐卡表解析得出来（" + (dto == null || dto.cards == null ? 0 : dto.cards.Length) + " 张卡）");
-                int hitRowsOfEnch = 0; string which = "";
-                if (dto != null && dto.cards != null)
-                {
-                    for (int i = 0; i < dto.cards.Length; i++)
-                    {
-                        var card = dto.cards[i];
-                        if (card == null || string.IsNullOrEmpty(card.id) || !enchIds.Contains(card.id)) continue;
-                        if (card.events == null) continue;
-                        for (int e = 0; e < card.events.Length; e++)
-                        {
-                            var ev = card.events[e];
-                            if (ev == null || !string.Equals(ev.ev, VfxMap.Hit, StringComparison.Ordinal)) continue;
-                            int n = ev.es == null ? 0 : ev.es.Length;
-                            hitRowsOfEnch += n;
-                            which += (which.Length == 0 ? "" : " · ") + (card.nm ?? card.id) + ":" + n;
-                        }
-                    }
-                }
-                C(hitRowsOfEnch, 0,
-                  $"B5：逐卡表的 `hit` 桶里**一条附魔行都没有**（实得 {hitRowsOfEnch} 条{which}）"
-                + " —— `VfxMap` 会把 `hit` 桶无差别搬进 `UnitDamaged`（`VfxMap.cs:1218`）⇒ 数据侧留着它就等于留着那个缺陷");
-
-                int enchNP = 0; bool whyOk = false; string names = "";
-                if (dto != null && dto.notPlayed != null)
-                {
-                    for (int i = 0; i < dto.notPlayed.Length; i++)
-                    {
-                        var x = dto.notPlayed[i];
-                        if (x == null) continue;
-                        if (!string.Equals(x.outcome, "enchantment-not-unit", StringComparison.Ordinal)) continue;
-                        enchNP++;
-                        names += (names.Length == 0 ? "" : " · ") + (x.nm ?? x.id) + "/" + x.a;
-                        if (!string.IsNullOrEmpty(x.why)) whyOk = true;
-                    }
-                }
-                Tr(enchNP > 0 && whyOk,
-                   $"B5-b：`notPlayed[]` 里**记着**被挡下的附魔行（{enchNP} 条：{names}，带 `why` = {whyOk}）"
-                 + " —— ⛔ 不许静默丢件：挡掉的那一条必须留下「为什么挡」的账");
-            }
-        }
-
-        VfxMap.ResetUnpinnedForTest();   // 不把计数留给下游（见文件头「怎么接」）
-    }
 }

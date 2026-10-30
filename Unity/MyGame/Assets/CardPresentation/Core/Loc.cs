@@ -3943,5 +3943,24 @@ namespace CardPresentation
     {
         return T(WarcryKey(warcryId));
     }
+
+    /// <summary>「运行时到底**能不能取到**这条文案」——**三档一起算**（`Table` → bulk → 官方 13 语言全表）。
+    /// <para>🔴 **2026-10-30（`B101_W1` 同步点 β2）为什么要开这个口**：`HasEntry` 的语义是「**手写 `Table`** 里有没有」
+    /// （754 条），它**不等于**「取不到文案」——`T()` 的取值是**四段**的：
+    /// ① 手写 `Table` → ② 数据面 bulk（`official_names.json`）→ ③ **官方 13 语言全表（`official_loc_13lang.json`，
+    /// 现读 10,862 键）** → ④ 缺键档（回键名 + 出声）。只查 ① 就把「②③ 里明明有」的键误判成缺键
+    /// ⇒ 调用方无辜回落 + 多打一条警告。**判据 = `CLAUDE.md` §三「判『会不会把键名印到屏幕上』必须**三档一起算**」**。
+    /// 实例：`CustomErrors/InternetUnreachable` 在 ③ 里（现读 True）、不在 ① 里 ⇒ `Shell/ErrorPopupWindowController`
+    /// 的两处 `HasEntry` 闸判 false ⇒ 真回落（`Shop` 的 S5 断言就是这么红的）。</para>
+    /// <para>⚠️ **本口只管「有没有」、不改任何取值**：取文案照旧走 <see cref="T"/>（三档顺序与回退/出声都归它）。
+    /// ⛔ 别拿它替代 `HasEntry` 的既有调用点 —— 那条的语义（「手写表里有没有」）在别处**是对的**
+    /// （例如「这条是不是我们自己登记的键」那种判断）；只有「**怕印键名**」这一族才该换成本口。</para>
+    /// <para>⚠️ 第 ③ 档按 <c>"en"</c> 列判（与自检里 `Lang13Of(键, "en")` 的先例同口径：那一列官方全表恒有值）；
+    /// `HasBulk` / `HasEntry` 都自带 null 守卫，本口再加一道（`Lang13Of(null,…)` 返回 null，不会抛）。</para></summary>
+    public static bool HasAnyTerm(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return false;
+        return HasEntry(key) || HasBulk(key) || !string.IsNullOrEmpty(Lang13Of(key, "en"));
+    }
     }
 }

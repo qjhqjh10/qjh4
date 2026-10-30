@@ -539,7 +539,7 @@ public static class CardFaceProbe
                 new Badge { sprite = "longrange",  counter = 0, active = true },
                 new Badge { sprite = "ferocity",   counter = 0, active = true },
             };
-            var bv = CardView.Create(root.transform, bd, "chk_a1661_card");
+            var bv = CardView.Create(root.transform, bd, "chk_a1661_card", CardFace.Board);   // 🔴 2026-10-30（`B101_W1` · 本批回归 γ3）：徽标自 `B101_R4` 起**只按 `CardFace.Board` 可见**（判据 `BattleCardUI__SetObjectVisibility.c`）⇒ 探针必须用 Board 档，否则本段 7 条 Check 与 `BadgesShown` 全部空转成 0（先例 = `Editor/BattleScene.cs:3426` / `Editor/CardBaseDemo.cs:6250`）
             Check(bv.BadgesShown == 7, $"A1661 前提：7 枚徽标都建出来了（实际 {bv.BadgesShown}）"
                                      + "—— 建不出来下面几条**没验到**，别读成通过"
                                      + "（夹具直给 `bd.badges`，**不过 `InPlayIconKeys`**；"
@@ -709,7 +709,7 @@ public static class CardFaceProbe
                 new Badge { sprite = "armour", counter = 0, active = true  },
                 new Badge { sprite = "blast",  counter = 0, active = false },
             };
-            var v = CardView.Create(root.transform, bd, "chk_a1676_card");
+            var v = CardView.Create(root.transform, bd, "chk_a1676_card", CardFace.Board);   // 🔴 2026-10-30（`B101_W1` · 本批回归 γ3）：同上 —— 徽标只在 Board 档可见 ⇒ 不传就 `BadgesShown == 0`，本段 4 条 Check 全部空转
             Check(v.BadgesShown == 2,
                   $"A1676 前提：两位徽标都建出来了（实际 {v.BadgesShown}）—— 建不出来下面**没验到**");
             bool crossTex = CardArt.Ui("40k_Combat_Icon_Cross") != null;

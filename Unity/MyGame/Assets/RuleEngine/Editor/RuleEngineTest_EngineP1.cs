@@ -223,7 +223,7 @@ public static partial class RuleEngineTest
         ctx.Players[0].Energy = 99;
         Check(ctx.Active, 0, "🧪 W67T3 夹具：P1 是当前行动方（`TAU6` 是 `your turn` 的从句，换边它就不触发）");
         Place(ctx, 0, 2, gof86, exhausted: true);
-        Place(ctx, 0, 4, gunDrone, exhausted: true);
+        Place(ctx, 0, 5, gunDrone, exhausted: true);
         ctx.ClearSignals();
         RuleCore.ResolveAtTurn(ctx, "turn_start");
         int gofN = 0, droneN = 0;

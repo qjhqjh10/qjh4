@@ -1871,73 +1871,24 @@ def strip_unbacked_inference(by_card, cards, stats_partial):
 
 
 # ==========================================================================================
-#  🔴 2026-10-30（执行代理 `B100_F11`）：**附魔不是单位** ⇒ `hit`（= 单位受击 `UnitDamaged`）那一拍不收附魔卡
+#  🔴 2026-10-30（执行代理 `B101_F1`）：**撤销 `B100_F11` 的 `strip_enchantment_unit_anims`**
 # ==========================================================================================
-#  判据（**唯一，照抄 C# 尺子，⛔ 别在别处再判一遍**）：
-#    · `CardPresentation/Editor/BattleScene.cs:13423-13430`：「**附魔不是单位** —— 它的 trigger 60 是附魔能力
-#      （如 `Pray_Exit`），不算单位技能动画」⇒ 数 `UnitDamaged` 行时 `cd.Type == "enchantment"` 一律跳过；
-#    · `CardPresentation/Core/VfxMap.cs:3521`（`SelfCheckUnitSkillAnims` 第 ① 支）同一条口径。
-#  为什么必须在**生成器**里挡（而不是在 `VfxMap` 里再写第二份卡型判断）：
-#    `VfxMap.LoadTableFromJson` 把 `hit` 桶**无差别搬进** `UnitDamaged`（`VfxMap.cs:1218`）⇒ 只要数据里
-#    留着这一行，`CardTableUnitDamagedEntries` 就会比按卡池现算的多 1（`VfxMap.cs:3598` 那条闸红），
-#    而且这张**附魔**会被当成「有单位受击动画的卡」在单位受击那一拍播出去。
-#  ⚠️ **过滤键必须是 `type == "enchantment"`，⛔ 不是 `cardType == 20`**：实测 `cards_engine.json` 里
-#    `cardType == 20` 有 **487 张**（tactic 446 + defence 39 + enchantment 2）—— 它只是「不是单位牌」的
-#    大类（战术/防御/附魔共用这一格），按它过滤会把 **446 张战术卡**的受击件一起删掉（静默大范围错）。
-#    `type == "enchantment"` 现读 **2 张**，与 C# 尺子逐字同义。
-#  ⛔ **别把它挪去 `EvtKind.EnchantmentRemoved` 那一拍**：那条链今天没有任何「该播哪件」的原版判据
-#    （`EventTiming.ZeroDurationKinds` 那条注释：我们两个发出点都在同步结算里、`BattleDriver` 侧无消费者），
-#    搬过去 = 拿猜测顶替判据。
-#  ⚠️ **不许静默丢件**：挡下来的那条要进运行时的 `notPlayed[]`（`outcome = enchantment-not-unit` + `why`），
-#    消费端（`VfxMap.EnsureLoaded`）会逐条出声。
-
-
-def strip_enchantment_unit_anims(by_card, cards, not_played):
-    """把**附魔卡**的 `hit` 桶整桶拿掉（判据见上面那一段）。
-
-    返回 `st`（进 `stats.enchantmentNotUnit`）。`not_played` 就地追加。
-    """
-    ench = {}
-    for c in cards:
-        if (c.get("type") or "").strip().lower() == "enchantment":
-            ench[c["id"]] = (c.get("name") or "", c.get("faction") or "")
-    st = {"cardTypeKey": "type == \"enchantment\"（⛔ 不是 cardType == 20：那 487 张里有 446 张是战术卡）",
-          "cards": sorted(ench), "dropped": [], "byCard": {}}
-    if not ench:
-        return st
-    _why = ("⛔ **附魔不是单位 ⇒ 单位受击（`UnitDamaged`）这一拍不播**（判据："
-            "`Editor/BattleScene.cs:13423-13430` + `Core/VfxMap.cs:3521`，2026-10-30 `B100_F11`）。"
-            "原版这条 trigger 60 是**附魔能力**（`chosenAbility` 见条目上的 `chosenAbilityName`），"
-            "不是单位技能动画；而 `VfxMap.LoadTableFromJson` 会把 `hit` 桶**无差别搬进** `UnitDamaged`"
-            "（`VfxMap.cs:1218`）⇒ 留在表里会让 `CardTableUnitDamagedEntries` 多算一张附魔、"
-            "并在单位受击那一拍把附魔自己的动画播出去。⛔ 别把它改挂到 `EnchantmentRemoved` 那一拍 ——"
-            "那条链今天没有任何「该播哪件」的原版判据（拿出判据再来做，见 `EventTiming.ZeroDurationKinds` 那条注释）。")
-    for cid in sorted(ench):
-        m = by_card.get(cid)
-        if not m:
-            continue
-        lst = m.get(EV_HIT)
-        if not isinstance(lst, list) or not lst:
-            continue
-        nm, fa = ench[cid]
-        for it in lst:
-            rec = {
-                "id": cid, "nm": nm, "fa": fa, "ev": EV_HIT,
-                "n": (it or {}).get("prefab") or "", "a": (it or {}).get("cardanim") or "",
-                "soField": (it or {}).get("soField"),
-                "abilityTriggerName": (it or {}).get("abilityTriggerName"),
-                "chosenAbilityName": (it or {}).get("chosenAbilityName"),
-                "conf": (it or {}).get("conf"),
-                "outcome": "enchantment-not-unit", "why": _why,
-            }
-            st["dropped"].append(rec)
-            st["byCard"][cid] = st["byCard"].get(cid, 0) + 1
-            # 运行时那份 `notPlayed[]` 只写 `RtNotPlayed` 认识的键（其余进 `stats` 的全量账）
-            not_played.append({k: rec[k] for k in ("id", "nm", "fa", "ev", "n", "a", "outcome", "why")})
-        del m[EV_HIT]
-        if not any(m.values()):
-            by_card.pop(cid, None)
-    return st
+#  🔴 2026-10-30 B101_F1：撤销 B100_F11 的 strip —— 判据 @B101_R4 §6·8（原版走 AbilityLogic.cardAnimations）
+#  判据（`资料/完全复刻/报告/B101_R4_演出与预览判据.md` **§6·8**，它就地订正了自己 §一 / §1·3 / §1·4 / §1·5）：
+#    · 原版真身 = `dump.cs:19457` `AbilityLogic.cardAnimations // 0x18`；唯一消费者 = `AbilityLogic__PlayAnim.c`，
+#      由 `AbilityLogic__PlayAbility.c:273/1531/2465` 调用，末尾
+#      `BattleManager__AddCardAnim(..., actingCard(+0x10), targetCard(+0x20), isPlayer(+0x48), 0)`
+#      ⇒ **`Pray Enchantment` 的 trigger-60 那条 ability 的 `cardAnimations` 里就带 `Pray_Exit`，
+#      原版会播、演在载体单位身上**（它走的是「附魔自己 ability 的 `cardAnimations`」这条独立通道，
+#      与「单位技能动画」不是一回事）。
+#    · ⇒ F11 为了让我们自己那条计数断言（`BattleScene.cs:13423-13430` / `VfxMap.cs:3521` 的「附魔不是单位」）
+#      过闸，把**原版真实行为**从数据里删掉了 —— 事实层面是错的。本文件原来那一段「附魔不是单位 ⇒
+#      `hit` 桶不收附魔卡」的论证**已作废**（⛔ 别再照它加过滤）。
+#  ⚠️ **今天仍播不出来**（这一点 F11 是对的，与本撤销不冲突）：`Enchantments.Matching` 认不出这条 ability
+#    （`desc` 为空、能力在 `chosenAbility`），而 `VfxMap` 是按**被打的那张卡**查表、附魔卡不会受伤
+#    ⇒ 这一条现在 = **合法数据 + 空转**。
+#  ⛔ **别把它改挂到 `EvtKind.EnchantmentRemoved` 那一拍**：那条链今天没有任何「该播哪件」的原版判据
+#    （`EventTiming.ZeroDurationKinds` 那条注释）⇒ 搬过去 = 拿猜测顶替判据。
 
 
 # ---------------------------------------------------------------- 主流程
@@ -2249,16 +2200,9 @@ def main():
         PROBLEMS.append("去兜底：**还剩 %d 条推断/未知**（%s）—— 这一档本该归零"
                         % (inf_st["leftInferred"], inf_st["leftByConf"]))
 
-    # ---- 🔴 2026-10-30（执行代理 `B100_F11`）：**附魔不是单位** ⇒ 它的 `hit`（= `UnitDamaged`）那一拍不收 ----
-    #   判据 / 为什么必须在数据侧挡 → `strip_enchantment_unit_anims` 上面那一段。⛔ 别在 `VfxMap` 里再判一遍。
-    en_st = strip_enchantment_unit_anims(by_card, cards, not_played)
-    print("[3·e/4] 附魔不是单位：`type == \"enchantment\"` %d 张 ⇒ 挡下 `hit` 行 **%d 条**%s"
-          % (len(en_st["cards"]), len(en_st["dropped"]),
-             "" if not en_st["dropped"]
-             else "（" + " · ".join("%s/%s" % (x["nm"] or x["id"], x["a"] or x["n"]) for x in en_st["dropped"]) + "）"))
-    for _r in en_st["dropped"]:
-        print("        ⛔ 不播：%-28s %-13s %-34s → %s（trigger=%s）"
-              % (_r["id"], _r["ev"], _r["a"] or _r["n"], _r["n"], _r["abilityTriggerName"]))
+    # ---- 🔴 2026-10-30（`B101_F1`）：**`B100_F11` 那道「附魔不是单位 ⇒ 摘掉 `hit` 行」已撤销** ----
+    #   判据 / 为什么撤销 → 上面 `strip_enchantment_unit_anims` 原址那一段（`B101_R4` §6·8：原版走
+    #   `AbilityLogic.cardAnimations` ⇒ 这一行是**合法原版数据**）。⇒ 这里**不做任何卡型过滤**。
 
     # ---- 🔴 2026-10-24（`W2` · `R4`）：`cardAbilities[]` 的**三级归口**账 + 桶不变量硬闸 ----
     #   判据 → `trigger_event()` 的 doc（`mapped` / `ability(400)` / `routed` / `unmapped`）。
@@ -2503,10 +2447,8 @@ def main():
             #   （两条出路见 `strip_unbacked_inference` 的注释：删重复 / 无依据不播）。
             #   `leftInferred` 必须 = 0；非 0 会同时进 `problems`。
             "inferenceGone": inf_st,
-            # 🔴 2026-10-30（执行代理 `B100_F11`）：**附魔不是单位** ⇒ `hit`（= `UnitDamaged`）那一拍不收附魔卡。
-            #   判据 → `strip_enchantment_unit_anims` 上面那一段（`BattleScene.cs:13423-13430`）。
-            #   `dropped` = 逐条（带 `soField` / `abilityTriggerName` / `chosenAbilityName` / `conf` 可复核）。
-            "enchantmentNotUnit": en_st,
+            # 🔴 2026-10-30（`B101_F1`）：`enchantmentNotUnit` 那一格**已随 strip 一起撤销**（⛔ 别再加回来）——
+            #   判据 → 本文件 `strip_enchantment_unit_anims` 原址那一段（`B101_R4` §6·8）。
             # 🔴 2026-10-24（`W2` · `R4`）：`cardAbilities[]` 的**三级归口账**
             #   （`rows` / `cards` 按档；`unmapped.byName` = 留档不播的那些触发名）。
             #   断言/台账直接读这一节，⛔ 别在脚本里另算一遍。
@@ -2694,9 +2636,9 @@ def main():
                  "（删重复 / 无依据不播），改前的 22 条（17 `inferred-name` + 5 `unknown`）现在一个都不在表里。"
                  "**不播的那些去哪了**：`notPlayed[]`（每条的 `id/nm/fa/ev/n/a/why`）—— 消费端**必须出声**，"
                  "⛔ 不许静默。"
-                 "🆕 **2026-10-30（执行代理 `B100_F11`）**：`notPlayed[].outcome` 多了第三种 **`enchantment-not-unit`**"
-                 "（= **附魔不是单位** ⇒ 它的 `hit` / 单位受击那一拍不播；判据 `Editor/BattleScene.cs:13423-13430`，"
-                 "账见 `stats.enchantmentNotUnit`）—— 它**不是**「无依据」，是「有依据、但那个时机不属于它」。"
+                 "🔴 **2026-10-30（`B101_F1`）**：`B100_F11` 加的第三种 `outcome = enchantment-not-unit` **已撤销**"
+                 "（附魔卡的 `hit` 行是**合法原版数据**，原版走 `AbilityLogic.cardAnimations` 演在载体单位身上；"
+                 "判据 → `B101_R4` §6·8）⇒ 现在 `notPlayed[]` 只剩 `duplicate` / `unbacked` 两种。"
                  "🆕 **2026-10-24（`W2` · `R4`）**：`events[].ev` 里可能出现 **`trigger_unmapped`** —— 它"
                  "**不是事件**（`VfxMap` 不查这个名字 ⇒ 一条都不播），只留档「原版有这个触发、我们引擎今天"
                  "没有对应发射口」的那批行；⛔ 别让运行期把它并进 `ability`（那会把别的时机的动画播在"

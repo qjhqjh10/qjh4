@@ -6247,7 +6247,7 @@ public static class CardBaseDemo
                   "★ 前提：两枚徽标图取得到（`CardArt.Trait`）—— 取不到时那一位**空着**，条数断言会假绿/假红");
             var bd = CardData.Simple("FiguresAtomBadge", 3, 3, 4);
             bd.badges = two;
-            var vb = CardView.Create(root.transform, bd, "figatom_badge");
+            var vb = CardView.Create(root.transform, bd, "figatom_badge", CardFace.Board);   // 🔴 2026-10-30（`B101_R4`）：徽标只在 `Board` 档可见（判据 `BattleCardUI__SetObjectVisibility.c` —— 原版是「`3DBody` 父节点被关」不是「不刷新」）⇒ 探针必须用 `Board` 档，否则 `:6254/:6258/:6267/:6274` 四条空转
             Check(vb != null, "★ 前提：带徽标的探针卡建出来了");
             if (vb != null)
             {

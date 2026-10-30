@@ -1,0 +1,47 @@
+prefab	nodePath	param	original	ours	verdict	fix
+Avatar Item Small	Avatar Item Small/Image Container/Highlight	m_LocalScale	(1.9, 1.9, 1.9)	Shell/AllianceMemberTab.cs:1907-1908（画 102.2×70.9，未乘）	❌	x1.9 绕布局框中心放大（AvatarTab.ScaleAboutCenter, Shell/AvatarTab.cs:214）
+Avatar Item Small	Avatar Item Small/Image Container/Border	m_LocalScale	(1.25, 1.25, 1.25)	Shell/AllianceMemberTab.cs:1911-1912（画 98.9×65.7，未乘）	❌	x1.25 同上
+Avatar Item Small	Avatar Item Small/Image Container/Image	m_LocalScale	(2, 2, 1)	Shell/AllianceMemberTab.cs:1910（画 98.9×65.7，未乘）	❌	x2.0 同上；画序保持 Border 后 Image 前
+Avatar Item Small (Alliance Panel · arena1)	Avatar Item Small/Image Container/Image	m_LocalScale	(2, 2, 1) ⇒ 视觉 340.05×238.43	Shell/AlliancePanelWindow.cs:284 AvatarImageR（未缩放布局框）+ :1114 建 quad	❌	换成 ScaleAboutCenter(布局框,2.0) 或实算 x[-75.01,265.01] y[1.29,239.72]
+Avatar Item Small (Alliance Panel · arena1)	Avatar Item Small/Image Container/Border	m_LocalScale	(1.25, 1.25, 1.25) ⇒ 212.5×149.0	Shell/AlliancePanelWindow.cs:276 AvatarBorderR（已烘 1.25）	✅	—
+Avatar Item Small (Player Profile)	Avatar Menu Item/Image Container/{Highlight,Border,Image}	m_LocalScale	1.9 / 1.25 / 2.0	Shell/AvatarTab.cs:207 + :321/:334/:335	✅	—
+Avatar Item Small (Player Profile 格子)	Avatar Item Small_Ref/Image Container/{Highlight,Border,Image}	m_LocalScale	1.9 / 1.25 / 2.0	Shell/AvatarTab.cs:429/:444/:448	✅	—
+Avatar Item Small (Profile/Ranked 页)	…/Avatar Item Small/Image Container/{Highlight,Border,Image}	m_LocalScale	1.9 / 1.25 / 2.0	Shell/ProfileTab.cs:622-629 · Shell/RankedTab.cs:285-292	✅	—
+Avatar Item Small (战斗名牌)	EnemyInfo/…/Avatar Item Small/{Border,Image}	m_LocalScale	1.25 / 2.0（叠加父链 0.8）	Battle/BattleDriver.cs:29990 · HudAvatarSize(:29949)	✅	—
+Deck Editing Menu	Content Area/Sidebar/Footer/Done/Done Highlight	m_LocalRotation	z=90.000° ⇒ 视觉 223.22×81.36（横条）	Deck/DeckRuntime.cs:697 DoneHlW=81.4/DoneHlH=223.2（画成竖条）	❌	W/H 互换：W=223.2 H=81.4 X=-3.7 Y=1004.4（保中心）；顺手改 :946 注释
+Deck Editing Menu	Content Area/Sidebar/Footer/Done/Done Highlight	Image.m_Color	(1.0000, 0.5672, 0.1098, 1.0000)	Deck/DeckRuntime.cs:2477（FX_Square_UI_SDF，最终 tint 静态读不出）	？	要读 :8910 的 UIEffectTogglerImage 逐字段表 或 真机看
+Deck Editing Menu	Content Area/Header/Filler	m_Color+Gradient2	443.256×85 纯黑 + α 键 1→1@0.8646→0（末尾渐隐）	Deck/DeckRuntime.cs 全文 0 命中（未建）	？	先真机确认页头是否偏亮；补则照 §2·3
+Alliance Member Entry	background / background/Image / connection status	Image.m_Color	(1,.3596,0,1) / (.4811,.1822,0,1) / (0,1,.0736,1)	Shell/AllianceMemberTab.cs:1887-1890 · :1914	✅	—
+Alliance Member Entry	Ratings/{Draft,Ranked} Rating/Secondary Icon	m_IsActive	0	不建（原版永不点亮）	✅	—
+Alliance Ranking Row	Background / BackgroundHighlight	Image.m_Color	(.8302,.1919,.4280,.1647) / (.9779,1,0,.1647)	Shell/LeaderboardRow.cs:113-116	✅	—
+AllianceRankingRow Variant	Name Holder/Guild Name	m_IsActive	0	运行期 ToggleComponents(true) 点亮 ⇒ 不是缺陷	✅	—
+Chat	ChatBackground / CloseBackground / Orange Tab button_bg	Image.m_Color	α.8667 / α.5176 / (1,.4275,0)	Shell/ChatPanel.cs:225 / :79 / :456	✅	—
+Chat	Player Options Panel	Image.m_Color	(.3113,.2012,.2012,1)	Shell/ChatPanel.cs:339	✅	—
+Chat	Tab Buttons/Orange Tab Toggle	m_IsActive	0	运行期模板（tabButtonPrefab）	✅	—
+CardUI / Card Drawer / Card Alternate Art Drawer	2DCard/Front/Textbackgrounds/TextBackground Big UI	Image.m_Color	(0,0,0,0.6471)	Core/CardView.cs:4476 · :8111（TextBgAlpha）	✅	—
+CardUI / Card Drawer	2DCard/Front/Card Info/Name and description/**	m_LocalScale	(0.01,0.01,0.01)（738 行，全库最大一类）	等价：Show()/alpha（Core/CardView.cs:2386）	✅	⛔ 别按 0.01 复刻
+CardUI	2DCard/Front/Card Info/Cost Container Big / 2DCard/Cardback Container / Created By Text / Card Ready for level up	m_IsActive	0	Core/CardView.cs:4765 节点序表 · BattleDriver:9841-9849	✅	—
+CardUI	New Card Badge	Image.m_Color + m_IsActive	(.5472,.0876,.0542,1) + 0	Core/CardView.cs:15276-15310 · Editor/ShopScene.cs:2988	✅	—
+Card Drawer / Card Alternate Art Drawer	（根）	m_LocalRotation	每实例 z=-1.978 ~ 9.941°（19 个各不同）+ Booster pack stars y=180°	未逐宿主核（Editor/ShopScene.cs:2834 只覆盖一张）	？	属于「摆位」不是组件参数；逐个宿主核
+Deck Editing Menu	Sidebar/Deck Details/Deck Information cost drawer	m_LocalScale + m_IsActive	1.48 + 0	Deck/DeckRuntime.cs:542-555（CurveScale=1.48）· :618	✅	—
+Deck info Popup / Practice Mode Menu	Deck Information cost drawer	m_LocalScale	1.8 / 1.2	Core/CostCurveDrawer.cs:5-6	✅	—
+Draft 两窗	Deck Information cost drawer	m_LocalScale	1.1326	Shell/DraftModeWindow.cs:649-662（已烘进矩形）	✅	—
+Deck Editing Menu	Window Options/Deck Name/Image · WIldcard Counter/Background · 三颗 Highlight	Image.m_Color	(0.0627,0,0,1) · (0.4623×3,1) · 红	Deck/DeckRuntime.cs:1907-1939 · :1696 · :1860-1900	✅	—
+Base Game Mode Container 1x1	TextDarkening / Border / Clock Icon	Image.m_Color	α.6117647 / .33962 / (.7373×3)	Shell/MainMenuRuntime.cs:2912 · :3013 · :3030	✅	—
+Missions Tab	Normal Missions/{Daily,Special} Missions	m_LocalScale	(1.15,1.15,1.15)	Shell/MissionsTab.cs:23 · :104-127	✅	—
+Rewards Base Submenu Variant	Forge Tab/Background Elements/Column Right	m_LocalScale	(-1.04,1.04,1.04)	Shell/ForgeTab.cs:187	✅	—
+Rewards Base Submenu Variant	Forge Tab/…/Candle + Light Candle	m_LocalScale	0.961539	未单列（同柱同批）	？	并入 ForgeTab 复核
+Booster Pack Open Window	Booster Animation Parent	m_LocalScale	(0.87626×3)	Editor/ShopScene.cs:2834 · :2902-2903	✅	—
+Alliance Event Score Info	Progress Bar / Chest / Skull	m_LocalScale	(0.869565×3)	Shell/EnergySinglePlayerOnlyEventWindow.cs:157	✅	—
+Alliance Event Score Panel	Alliance Event Score Panel	m_LocalScale	(0.95581×3)	Editor/DraftAssertD3.cs:1369-1371	✅	—
+Campaign Tab	Points/Point Icon (+子件) / Campaign Glow	m_LocalScale	2 / 1.2 / 1.5	Shell/CampaignTab.cs:397 · Editor/RewardsScene.cs:2472	✅	—
+Player Profile Window	Profile Tab/Ranking/{Current,Highest} Rank/Content/DivisionImage	m_LocalScale	(1.25,1.25,1.08) / (1.2,1.2,1.08)	Shell/ProfileTab.cs:1048（cardW×DivArtSideRatio，自挑）	？	与 prefab 布局框×scale 不是同一路；动要连 VLG 槽高一起算
+Player Profile Window	MainRating/Mission Milestones Progress/steps/RankedSealStep	m_LocalScale	(1.3×3)（5 颗）	模式卡那一排已建（MainMenuRuntime.BuildRankedSealRow，×1）	？	Profile 页那一排未核
+Player Profile Window	…/FactionScoreSmall*/Alliance Rating Display	m_LocalScale	(0.5037×3)（8 颗）	Shell/FactionScore.cs（出厂矩形逐实例覆盖，倍率不在代码里）	？	核 SmallSize 是否已烘 0.5037（B94_B17 §五）
+Player Profile Window	…/Name and Title Holder/Edit Name Button	m_LocalScale	(0,0,0)	未找到对应件	？	原版用缩放 0 隐藏；确认我们是否关着
+Social Submenu Variant	GeneralDetails/Content/Config fields/Cancel button/Image	m_LocalScale + m_LocalRotation	(-1,1,1) + z=180°	未见对应（Cancel 是通用件）	？	镜像钮；通用按钮件是否支持
+Draft Mode Menu Demo / Timed	Debug Battle Button Button/CircleButton	m_LocalScale	(-1,1,1)	调试钮（正式版不存在）	？	无需复刻，仅记录
+Draft Mode Ongoing State	MainContent / MainContent/Scaled Content/Glows	m_LocalScale	(1.06×3) / (1.1,1,1)	未核	？	下一波
+Generic Multi Card Display	CardUI Reference	m_LocalScale	(223.14×3)	Battle/MultiCardDisplay.cs:61 · :271	✅	—
+Draft 两窗	Energy View panel/CardUI-Warlord	m_LocalScale	(75.6675×3)	Shell/DraftModeWindow.cs:644	✅	—
+Draft 两窗	Energy View panel/Cardback(±)	m_LocalRotation	z=+1.60° / -3.43°	Shell/DraftModeWindow.cs:641-643 · :3079	✅	—

@@ -595,6 +595,10 @@ MENU_IMAGES = [
     ('UI_Army_Selection_Back_Pressed',        'atlasindividual_assets_0_mainmenu'),   # 选中 / 按下
     ('UI_Army_Selection_Back_Progression',    'atlasindividual_assets_0_mainmenu'),   # 进度条填充（九宫 20,0,20,0）
     ('Rank Skull',                            'duplicateassetisolation_assets_all'),  # Draft 卡的 `Victory Counter Icon`
+    # 🆕 2026-10-30（`B101_R3` · Draft 结算页的**败场格**）：原版 `Win Marks > ... > Victory_round_back_with light`
+    #   的子件叉号（`Shell/DraftModeWindow.cs` 结算页）。源切片在 5 个 bundle 里都有同名副本，这里点名
+    #   `atlasindividual_assets_0_mainmenu`（与同窗其它图同源）。判据 → `报告/B101_R3_资源接线施工单.md` A1。
+    ('40k_DraftMode_icon_cross',              'atlasindividual_assets_0_mainmenu'),   # 败场格叉号
     ('40k_gamemode_icon_skirmish',            'armyicons_assets_all'),                # 遭遇战按钮图标
     # ---- 阶段二「日常」这一层（2026-09-23 加，出处 `资料/日常_原版规格.md` §九）----
     # ⚠️ 每张的**用在哪**见那份规格；下面只标「不查就不知道」的那几条。
