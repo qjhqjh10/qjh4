@@ -128,6 +128,9 @@ namespace CardPresentation
                 return false;
             }
 
+            // 🔴 6 只依赖包必须先于主包加载并保持不卸载（主包材质/shader 的引用是 `archive:/CAB-booster*/CAB-booster*`，
+            //    那些内层 CAB 在【别的 bundle】里；探针实测：先加载 ⇒ 空槽 200→0、坏 shader 172→0。见文件尾 `EnsureDepBundlesLoaded`）。
+            EnsureDepBundlesLoaded();
             try { _bundle = AssetBundle.LoadFromFile(path); }
             catch (Exception e)
             {
@@ -299,6 +302,105 @@ namespace CardPresentation
         static bool Has(string normalizedKey, string needle)
         {
             return normalizedKey.IndexOf(needle, StringComparison.Ordinal) >= 0;
+        }
+
+        // ---------------------------------------------------------------- 依赖包（6 只 · 2026-10-30 `B102_D10`）
+        /// <summary>主产物把 16 个材质 / 4 个 shader 拆成了 6 只**独立依赖包**（照原版 `boosterpacks_assets_all`
+        /// 的 externals 形状；探针 `Editor/BoosterPackMaterialProbe.cs` 验绿）。
+        /// ⚠️ **文件头 §① 记的是 2026-10-30 拆包【之前】的形状**（当时材质在同一个包里、5,972,456 B）——
+        /// 现在主包 5,974,300 B，16 个材质 / 4 个 shader 在下面 6 只包里。
+        /// ⚠️ **这张文件名表在三处各有一份**：权威 = `工具/extract_missing_shaders.py` 的
+        /// `BOOSTER_IMPORTS[].dep`；编辑期副本 = `Editor/BoosterPackMaterialProbe.cs` 的 `DepBundles`；
+        /// 运行时 = 本表。**改一处必须三处一起改**（同 `PrefabNames` 那个老问题）。
+        /// 内层 CAB 名（`CAB-booster*`）运行时不按名字取 —— 主包的 `archive:/<内层CAB>/<内层CAB>` 引用会自动解到它们。</summary>
+        static readonly string[] DepBundleNames =
+        {
+            "wf_booster_matsdup.bundle",
+            "wf_booster_matsbs.bundle",
+            "wf_booster_matsmenu.bundle",
+            "wf_booster_matsfont.bundle",
+            "wf_booster_fxshaders.bundle",
+            "wf_booster_fxbuiltin.bundle",
+        };
+
+        /// <summary>已加载的依赖包句柄（**按文件名索引**，这样重试时只补缺的那几只）。
+        /// **必须一直持有引用、⛔ 绝不能 `Unload`** —— 主包的材质/shader 引用靠它们解。</summary>
+        static readonly Dictionary<string, AssetBundle> _depBundles = new Dictionary<string, AssetBundle>();
+        static bool _depsTried;
+
+        /// <summary>在主包 `LoadFromFile` **之前**把 6 只依赖包加载好并**保持不卸载**。
+        /// · **幂等**：逐只按名字查 `_depBundles`，已加载且句柄还活着 ⇒ 跳过，**绝不再 `LoadFromFile` 同一份**；
+        /// · 缺文件 / 抛异常 / 返回 null ⇒ **逐只出声**（点名少了哪一只 + 后果），但**不阻断**主包加载
+        ///   （prefab / clip 仍能取到，只是引用那只包材质的粒子会以 **null 材质** 渲染）。
+        /// 返回「6 只是否全部到位」（诊断用；`TryEnsureLoaded` 不拿它当失败条件）。
+        /// ⚠️ 被 `AssetBundle.UnloadAllAssetBundles` 扫掉之后（`EffectSweepBatch` 那种两阶段模式）句柄会变 null，
+        ///   这里会认出来并**只重载那一只** —— 别改成只看 `_depsTried` 一个布尔，也别改成「一只失败就整表重载」。</summary>
+        static bool EnsureDepBundlesLoaded()
+        {
+            if (_depsTried && AllDepBundlesAlive()) return true;
+
+            _depsTried = true;
+            int bad = 0, ok = 0;
+            for (int i = 0; i < DepBundleNames.Length; i++)
+            {
+                string name = DepBundleNames[i];
+                AssetBundle loaded;
+                if (_depBundles.TryGetValue(name, out loaded) && loaded != null)
+                {
+                    ok++;                 // 幂等：这只已在进程里且句柄还活着 ⇒ 绝不再 LoadFromFile 同一份
+                    continue;
+                }
+                _depBundles.Remove(name); // 旧句柄已被 UnloadAllAssetBundles 销毁 ⇒ 丢掉，下面重载这一只
+
+                string path = Path.Combine(Application.streamingAssetsPath, "WarpforgeVFX/" + name);
+                if (!File.Exists(path))
+                {
+                    bad++;
+                    Debug.LogWarning("[BoosterPack] 依赖包缺失：`" + path + "` ⇒ 它里面的材质/shader 取不到，"
+                                     + "引用它们的粒子会以 **null 材质** 渲染"
+                                     + "（重打：`python -I -X utf8 工具/extract_missing_shaders.py --booster-mats`）。");
+                    continue;
+                }
+
+                AssetBundle b = null;
+                try { b = AssetBundle.LoadFromFile(path); }
+                catch (Exception e)
+                {
+                    bad++;
+                    Debug.LogWarning("[BoosterPack] 依赖包 `" + name + "` 的 `AssetBundle.LoadFromFile` 抛异常："
+                                     + e.Message + " ⇒ 引用它的粒子会以 **null 材质** 渲染。");
+                    continue;
+                }
+                if (b == null)
+                {
+                    bad++;
+                    // 同一份内容已在进程里加载过时 `LoadFromFile` 返回 null（Unity 限制）。依赖包的容器里
+                    // 只有材质、没有像主包 prefab 名那样可认领的键 ⇒ 只能出声，⛔ 别假装加载上了。
+                    Debug.LogWarning("[BoosterPack] 依赖包 `" + name + "` 的 `LoadFromFile` 返回 null"
+                                     + "（同内容已在进程里加载过？）⇒ 引用它的粒子可能以 **null 材质** 渲染。");
+                    continue;
+                }
+                _depBundles[name] = b;
+                ok++;
+            }
+
+            if (bad == 0)
+                Debug.Log("[BoosterPack] 6 只依赖包已加载并保持不卸载（材质 / shader 的内层 CAB 引用由它们解）。");
+            else
+                Debug.LogWarning("[BoosterPack] 依赖包只到位 " + ok + "/" + DepBundleNames.Length
+                                 + " 只，缺 " + bad + " 只 ⇒ 对应的粒子会以 **null 材质** 渲染。");
+            return bad == 0;
+        }
+
+        /// <summary>6 只依赖包是不是都已在进程里、句柄还活着（幂等快路径；⛔ 不触发任何加载）。</summary>
+        static bool AllDepBundlesAlive()
+        {
+            for (int i = 0; i < DepBundleNames.Length; i++)
+            {
+                AssetBundle b;
+                if (!_depBundles.TryGetValue(DepBundleNames[i], out b) || b == null) return false;
+            }
+            return true;
         }
     }
 }

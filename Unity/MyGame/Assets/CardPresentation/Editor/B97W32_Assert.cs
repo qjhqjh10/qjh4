@@ -45,10 +45,10 @@ public static class B97W32Assert
 
     const string BundleRelPath = "WarpforgeVFX/wf_boosters_extra.bundle";
 
-    /// <summary>`--booster-mats` 之后的实测字节数（2026-10-29 本代理实跑，连跑两次 sha256 相同
-    /// `7ec0508f61469252bab2508cb9e612873adff5d28bf5ac9c6e939a586c4d14e3`）。
-    /// ⚠️ 改前是 **5,972,456 B**；源包换版 / 工具再改会变 —— 那时先跑 `--booster-mats --check`，再改这里。</summary>
-    const long ExpectedBundleBytes = 7578817L;
+    /// <summary>`--booster-mats` 之后主产物的实测字节数（2026-10-30 分包形状现读 = 5,974,300 B，
+    /// 与 `StreamingAssets/WarpforgeVFX/wf_boosters_extra.bundle` 的 `FileInfo.Length` 一致；材质/shader 拆成 6 只依赖包后从 7,578,817 缩回）。
+    /// ⚠️ 改前是 **5,972,456 B**（复现：`python -I -X utf8 工具/extract_missing_shaders.py --booster-mats --check`）。</summary>
+    const long ExpectedBundleBytes = 5974300L;
 
     /// <summary>17 棵 prefab 的容器键（`m_Container` 38 条 = 19 资产 × 2 种写法 ⇒ 17 prefab + 2 clip）。
     /// 并完外部 CAB 之后这两张表**必须原样**（⛔ 别把材质也登记进容器：W23 §4.3 第 2 条钉的是

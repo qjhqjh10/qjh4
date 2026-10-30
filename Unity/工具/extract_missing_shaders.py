@@ -136,10 +136,12 @@ Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`�
 | 默认（extra） · `--builtin` · `--arenas` | **`repack()`** | `wf_shaders_extra` · `wf_builtin` · `wf_arena_*` | ⛔ **不改**（沿用源包 CAB 名 —— ⚠️ **有条件的**，见 A801 那段） | 别份**照裁**（只留它的 Shader） |
 | `--prefabs` · 🆕 `--arena-anims` · 🆕 `--booster-mats` | **`repack_tree()`** | `wf_prefabs_extra` · `wf_menus_extra` · `wf_boosters_extra` · 卡包那几包 · 🆕 `wf_arena_anims_{arena1,arena2,shared}` | ✅ **整组改名**（`new_base` / `new_base_1/2/…`） | 依赖树引用到的别份**整份留**（按需切流） |
 
-> 🆕 **2026-10-29（B97_W32）补一行：`merge_imports_into_bundle()` 不是第三个口** —— 它**不写盘**，
-> 只在 `repack_tree()` 已有产物上并入「本来在**别的包**里」的对象（每个仍然走 `repack_tree()` 打小包），
-> 最后照旧交给 `_write_bundle()`。`_write_bundle(` 的调用点因此变成 **3 处**（前两处 + 本函数末尾一处），
-> 口径完全一致（容器/预载表 / 留哪几个内层文件 / 丢流仍是它一处说了算）。
+> 🆕 **2026-10-29（B97_W32）补一行：`merge_imports_into_bundle()` 不是第三个重打包口** ——
+> 主产物仍走 `repack_tree()`，最后照旧交给 `_write_bundle()`（容器/预载表 / 留哪几个内层文件 / 丢流
+> 仍是它一处说了算）。`_write_bundle(` 的调用点因此是 **3 处**（前两处 + 本函数末尾一处），口径完全一致。
+> 🔴 **2026-10-30（`B102_D10`）就地订正**：原来这里写「它**不写盘**」——**不成立了**。现在它**还写 6 只
+> 独立依赖包**（`DEST_DIR/wf_booster_*.bundle`，每只都是 `repack_tree()` 打的完整小包，此处只是原样落盘，
+> 没有另起一套打包逻辑）；写主产物仍只经 `_write_bundle()`。
 
 · **两个口共用的只有一段**：`_write_bundle()` —— **唯一写盘口**（重写 `m_Container` + 决定留哪几个
   内层文件 + 丢流 + 落盘）。全库 `_write_bundle(` 的**写盘调用点 3 处** = 上表那两行 ＋
@@ -267,40 +269,55 @@ DEST_BOOSTER_SHADERS = os.path.join(DEST_DIR, "wf_booster_shaders.bundle")
 #   ⇒ **`BOOSTER_GROUPS[1]` 加根/加材质救不了**：`repack_tree` 只在**它自己那个源包**里按名字找
 #     （`extra_materials` 也只在 `g["src"]` 里搜），这 16 个材质在源包里**一个都没有**。
 #
-# 🔴 做法 = **把那些对象当独立内层 CAB 并进同一个产物，并把引用改写成「包内」**：
+# 🔴 做法 = **照原版分包：那 6 批各自打成【独立的依赖 bundle】，主产物只改引用**：
 #   ① 每个源包用 `repack_tree(..., extra_materials/extra_shaders=…)` 打一个小包（**证明可用的现成口**，
 #      `Vanguard_Frame VAT Dissolve` / `--arenas` 都用它），内层 CAB 名换成 `CAB-booster*`（⛔ 别沿用源包名：
 #      与仍加载着的别的产物撞名 ⇒ Unity 判「同一个包」整包拒收，见 `_write_bundle` 那段实测）；
-#   ② 把这些内层文件（含 `.resS`）并进产物 + 走 `_write_bundle` 的 `keep_extra_files` 整份保留；
-#   ③ 把**所有**内层 CAB 里「指向源 CAB」的 PPtr 改写成 `_ext_fid(宿主, 新CAB)`（= 包内兄弟 CAB 引用）。
+#   ② 每个小包**原样写成自己的 bundle**：`StreamingAssets/WarpforgeVFX/wf_booster_<组>.bundle`（`dep` 那一列）；
+#   ③ 小包内部 + 主产物里「指向源 CAB」的 PPtr 都改写成 `_ext_fid(宿主, 新CAB)`
+#      = `archive:/<新CAB>/<新CAB>`（**跨 bundle** 的写法，与原版逐字同形，见 `merge_imports_into_bundle` 头）；
+#   ④ 两边的 `AssetBundle.m_Dependencies` 都补上「自己引用了的那几只新包」（小写 CAB 名）。
+#
+# 🔴🔴 **2026-10-30（`B102_D10`）就地推翻上面那版「并进同一个产物」的做法**：真机实锤
+#   **Unity 运行时不认「同一个 bundle 里的兄弟 CAB」的引用** —— 合并后运行时读数仍是
+#   **200 个空材质槽 / 172 个坏 shader**，而 189 个同 CAB（`m_FileID=0`）的槽**全部正常**
+#   （两个数字逐槽对得上；报告 `资料/完全复刻/报告/B102_D10_卡包材质定性.md`）。
+#   同一条结论在 `ArenaPrefabProbe` pilot（`_tmp_view/w67_arena_prefab_probe.log:691`）早就写死了。
+#   ⇒ 现在走「独立 bundle」，判据 = 原版自己就是这么分的（`boosterpacks_assets_all.bundle` 的 10 条
+#   externals 全指别的包）。⚠️ 这条路**仍要探针验** → `CardPresentation/Editor/BoosterPackMaterialProbe.cs`。
 #
 # ⚠️ **为什么连 shader 一起搬**（而不是只搬材质）：材质搬进来之后它的 `m_Shader` 仍然指
 #   `archive:/CAB-805d8e…`（shaders_assets_all）/`CAB-5ffb81…`（unitybuiltinassets），
 #   那两份虽然运行时确实加载着（`wf_shaders` / `wf_builtin` 的内层名就是它们），
-#   但「产物自包含」比「靠另一份包的 CAB 名撞上」更稳 —— 而且这一步**不会让任何今天能用的东西变坏**
-#   （这 23 个材质今天本来就是悬空的）。实测改后：材质槽 200→**0**、悬空 shader 8→**23**→（并完 shader）**0**。
+#   但「我们自己的包说清自己依赖谁」比「靠另一份包的 CAB 名撞上」更稳。
+#   ⚠️ 旧版这里写「实测改后 200→0 / 8→0」——**那是错的尺子**（只统计「包内找不找得到」，
+#   不证明 Unity 认）。真机读数 200/172 见上一段。
+#   `dep` = 这只小包写成哪个**文件**（`wf_booster_<组>.bundle`，组名小写；
+#   ⚠️ 别与既有的 `wf_booster_shaders.bundle`（`--booster-shaders` 打的 Booster Pack shader）撞名）。
 BOOSTER_IMPORTS = [
     dict(src=os.path.join(BUNDLE_DIR, "duplicateassetisolation_assets_all.bundle"),
-         cab="CAB-boostermatsdup", kind="material",
+         cab="CAB-boostermatsdup", dep="wf_booster_matsdup.bundle", kind="material",
          names=["Spark Additive Extra Color", "ParticlesUnlit", "Glow Rays Additive Extra Color",
                 "Smoke Sprite Sheet Extra Blend", "smoke_light", "Crosshair_2_Thin", "Sororitas_Icon",
                 "Hexagon_tiled", "Smoke5_extra color", "Crosshair Ring Extra", "levelup_ring"]),
     dict(src=os.path.join(BUNDLE_DIR, "battlesharedresources_assets_all.bundle"),
-         cab="CAB-boostermatsbs", kind="material",
+         cab="CAB-boostermatsbs", dep="wf_booster_matsbs.bundle", kind="material",
          names=["Shine trail Additive Extra", "Smoke Sprite Sheet Extra Additive", "Waterfall_Clouds"]),
     dict(src=os.path.join(BUNDLE_DIR, "menusharedresources_assets_all.bundle"),
-         cab="CAB-boostermatsmenu", kind="material", names=["Aura_2"]),
+         cab="CAB-boostermatsmenu", dep="wf_booster_matsmenu.bundle", kind="material", names=["Aura_2"]),
     # ⚠️ 这一份是 **TMP 字体图集的材质**（`Pragati-Regular Atlas Material`）：原版把字体 shader 放在
     #    fonts 包里（`m_Shader` 是 `m_FileID=0` 同包引用）⇒ 搬过来自然一起带走，不用另列 shader。
     dict(src=os.path.join(BUNDLE_DIR, "fonts_assets_all.bundle"),
-         cab="CAB-boostermatsfont", kind="material", names=["Pragati-Regular Atlas Material"]),
+         cab="CAB-boostermatsfont", dep="wf_booster_matsfont.bundle", kind="material",
+         names=["Pragati-Regular Atlas Material"]),
     # 材质引用到的 4 个 shader（3 个在 shaders_assets_all、1 个在内置包）
     dict(src=os.path.join(BUNDLE_DIR, "shaders_assets_all.bundle"),
-         cab="CAB-boosterfxshaders", kind="shader",
+         cab="CAB-boosterfxshaders", dep="wf_booster_fxshaders.bundle", kind="shader",
          names=["Everguild/FX/Extra Color", "Everguild/FX/Alpha Mask One Layer",
                 "Universal Render Pipeline/Particles/Unlit"]),
     dict(src=os.path.join(BUNDLE_DIR, "Warpforge_unitybuiltinassets.bundle"),
-         cab="CAB-boosterfxbuiltin", kind="shader", names=["Mobile/Particles/Additive"]),
+         cab="CAB-boosterfxbuiltin", dep="wf_booster_fxbuiltin.bundle", kind="shader",
+         names=["Mobile/Particles/Additive"]),
 ]
 
 BOOSTER_GROUPS = [
@@ -945,12 +962,12 @@ def repack(src_path, out_path):
     return kept
 
 
-def _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=()):
+def _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=(), extra_dependencies=None):
     """**重打包的公共尾段**（`repack` 与 `repack_tree` 共用；2026-10-01 从 `repack` 抽出来）。
 
-    🔴 **A523（2026-10-14）：本函数是【唯一写盘口】** —— 全库 `_write_bundle(` 的调用点**恰好 2 处**
-       （`repack()` / `repack_tree()`，= 文件头那张归属表的两行）⇒ ⛔ 别在别处另起一段写盘逻辑
-       （「重写 `m_Container` + 留哪些内层文件 + 丢流」这三件必须只有一处实现）。
+    🔴 **A523（2026-10-14）：本函数是【唯一写盘口】** —— 全库 `_write_bundle(` 的调用点现在是 **3 处**
+       （`repack()` / `repack_tree()` / `merge_imports_into_bundle()` 末尾，2026-10-29 起）⇒ ⛔ 别在别处
+       另起一段写盘逻辑（「重写 `m_Container` + 留哪些内层文件 + 丢流」这三件必须只有一处实现）。
 
     `entries` = `{(m_FileID, path_id): [容器名, …]}` —— **一个资产可以登记多个名字**（别名），
     这样 Unity 侧 `LoadAsset(name)` 无论用裸名还是小写路径写法都能命中。
@@ -961,10 +978,24 @@ def _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=()):
     `keep_extra_files` = 除主 SerializedFile 之外**必须保留**的内层文件（`repack_tree` 用：
     依赖树落同包另一个 CAB 时，丢掉它 = 引用断掉）。🔴 **A173** 起它是**整组**给的
     （那个 CAB + 它的 `.resS`/`.resource`，且整组已经改过名 —— 见 `repack_tree` 的 ③·a）。
+    `extra_dependencies` = 🆕 2026-10-30（`B102_D10`）**追加进 `AssetBundle.m_Dependencies` 的依赖包**
+    （独立 bundle 那条路要它；`None` = 不动，别的模式的产物一个字节都不变）。
+    🔴 字段名**不是** `m_AssetBundleDependencies` —— 那个名字在本机全库 0 命中，UnityPy 的 typetree 里
+    也只有 `m_Dependencies`；原版写的是**小写 `cab-<hash>`**（判据见 `_set_bundle_dependencies`）。
 
     ⚠️ **三条都是实测踩出来的，缺一条就静默失败**（原始判据全部保留在下面注释里）。
     """
     ab = ab_reader.read()
+    if extra_dependencies is not None:
+        cur = list(getattr(ab, "m_Dependencies", None) or [])
+        low = {c.lower() for c in cur}
+        for c in extra_dependencies:
+            if c.lower() not in low:
+                cur.append(c.lower())
+                low.add(c.lower())
+        ab.m_Dependencies = sorted(cur)
+        print(f"[7a] m_Dependencies 补到 {len(ab.m_Dependencies)} 条（新增 "
+              f"{sorted(c.lower() for c in extra_dependencies)}）")
     # 🔴 **`preloadIndex` 是「对 `m_PreloadTable` 的索引」—— 两张表必须一起写！**（2026-09-19 实测）
     #    容器写成 `preloadIndex=0 / preloadSize=1` 而 `m_PreloadTable` 是**空**的时候，
     #    Unity 会在 `AddAssetsToPreload`（`LoadAllAssets` 的预加载那一步）里**直接段错误** ——
@@ -1057,26 +1088,34 @@ def _cab_of_ptr(host_sf, fid):
 
 
 def merge_imports_into_bundle(product_path, imports, dry_run=False):
-    """🆕 2026-10-29（B97_W32）：把 `imports` 里那几批「其实在别的包里」的对象
-    **当成独立内层 CAB 并进 `product_path`**，并把所有指向它们的 PPtr 改写成「包内兄弟 CAB」。
+    """2026-10-29（B97_W32）建 · 🔴 **2026-10-30（B102_D10）改成「分包」**：
+    把 `imports` 里那几批「其实在别的包里」的对象**各自打成独立的依赖 bundle**
+    （`StreamingAssets/WarpforgeVFX/<dep>`），再把 `product_path` 和工作包里指向它们的 PPtr
+    改写成 `archive:/<新CAB>/<新CAB>`（跨 bundle 引用）。
 
-    每个 import 项：`dict(src=源包, cab=新内层 CAB 名, kind="material"|"shader", names=[…])`。
+    🔴 **为什么不再并成同包兄弟 CAB**：2026-10-30 真机实锤 —— 并完之后运行时读数仍是
+       **200 个空材质槽 / 172 个坏 shader**，而 189 个**同 CAB**（`m_FileID=0`）的槽全部正常；
+       ⇒ **Unity 不认「同一个 bundle 里的兄弟 CAB」的引用**（判据/对账 →
+       `资料/完全复刻/报告/B102_D10_卡包材质定性.md`；同一条结论 `ArenaPrefabProbe` pilot 2026-10-23 已实锤）。
+    原版自己就是**分包**的（`boosterpacks_assets_all.bundle` 的 10 条 externals 全指别的包）⇒ 照它来。
 
-    做法三步（**每一步都用现成口，没有新的写盘逻辑**）：
-      ① 每个源包走 `repack_tree(…, extra_materials/extra_shaders=…, cab_name=<新CAB>)` 打一个临时小包
+    每个 import 项：`dict(src=源包, cab=新内层 CAB 名, dep=独立包文件名, kind="material"|"shader", names=[…])`。
+
+    做法四步（写盘仍只走 `_write_bundle` 这一个口 + 每只小包自己的 `bf.save`）：
+      ① 每个源包走 `repack_tree(…, extra_materials/extra_shaders=…, cab_name=<新CAB>)` 打一个小包
          —— 依赖树 / 资源流瘦身 / `m_StreamData` 改路径 / 内层改名都由它做（实测贴图字节逐一相同）；
-      ② 把它的内层文件（含 `.resS`）搬进产物 `bf.files`，并加进 `_write_bundle` 的 `keep_extra_files`
-         （⛔ 少留 `.resS` = 那个 CAB 里的贴图「有对象、没数据」，而且一个字都不报）；
-         顺手删掉小包里那个**多余的 `AssetBundle` 对象**（产物里只该有主 CAB 那一个）；
-      ③ 把**每一份**内层 CAB 里「目标落在源 CAB、且 pid 在导入集合里」的 PPtr 改成
-         `_ext_fid(宿主, 新CAB)`（`m_FileID` 重指、`m_PathID` 不动 —— `repack_tree` 保 pid）。
+      ② 每只小包**继续保有自己的 `AssetBundle` 对象**（独立包必须有），原样写到 `DEST_DIR/<dep>`；
+         内层名仍是 `CAB-booster*`（**故意改过防撞名** ⇒ ⛔ 别改回源包名，撞名 = 整包被拒收）；
+      ③ 主产物 + 每只小包**各自的** SerializedFile 里，「指向源 CAB、且目标是材质/shader」的 PPtr
+         改成 `_ext_fid(宿主, 新CAB)`（`m_FileID` 重指、`m_PathID` 不动 —— `repack_tree` 保 pid）；
+      ④ 主产物与每只小包的 `AssetBundle.m_Dependencies` 都补上「自己引用了的那几只」（小写 CAB 名）。
 
-    返回值：`True` = 成功（或 `dry_run`）；`False` = 没做（缺源包/已并过/写不出来）。
+    返回值：`True` = 成功（或 `dry_run`）；`False` = 没做（缺源包/形态不对/写不出来）。
 
-    ⚠️ **幂等**：产物里已经有目标 CAB 名时**直接报错返回** —— 重复并会产出 `…_2` 之类的影子 CAB，
-       那份引用谁都不认（静默坏包）。
-    ⚠️ **未验的只有一件事**：这份多 CAB 产物在 Unity 6000.3.23f1 上能不能正常 `LoadFromFile`
-       （本代理不跑 Unity）。判据 → `CardPresentation/Editor/B97W32_Assert.cs`。
+    ⚠️ **幂等/形态**：产物里已经有目标 CAB 名时**直接报错返回** —— 那是旧的「并进同包」形态，
+       先重跑 `--booster-mats` 让 `repack_tree` 重出干净的主包。
+    ⚠️ **这条路在 Unity 6 上仍要探针验** → `CardPresentation/Editor/BoosterPackMaterialProbe.cs`
+       （`-executeMethod BoosterPackMaterialProbe.Run`，由调度台跑）。
     """
     import tempfile
 
@@ -1090,15 +1129,23 @@ def merge_imports_into_bundle(product_path, imports, dry_run=False):
     main_key = next(k for k, v in bf.files.items() if v is sf)
     if any(g["cab"] in bf.files for g in imports):
         print(f"[M1] 🔴 产物里已经有 `{[g['cab'] for g in imports if g['cab'] in bf.files]}` ⇒ "
-              f"**看起来已经并过了**，中止（重复并会产出没人认的影子 CAB）")
+              f"那是**旧的「并进同包」形态**（2026-10-30 `B102_D10` 已判死：Unity 不认兄弟 CAB 的引用），中止。"
+              f"先重跑 `--booster-mats`（`repack_tree` 会从源包重出一份干净的主包）再来。")
         return False
     keep = [k for k in bf.files if k != main_key]
     print(f"[M1] 产物 `{os.path.basename(product_path)}`：主 CAB `{main_key}` · "
-          f"先留内层文件 {keep} · 要并 {len(imports)} 批")
+          f"先留内层文件 {keep} · 要分包 {len(imports)} 批")
 
-    tmpdir = tempfile.mkdtemp(prefix="wf_booster_merge_")
+    for g in imports:
+        if not g.get("dep"):
+            print(f"[M1] 🔴 `{g['cab']}` 缺 `dep`（独立依赖包的文件名）⇒ 中止（`BOOSTER_IMPORTS` 要补）")
+            return False
+
+    tmpdir = tempfile.mkdtemp(prefix="wf_booster_split_")
     src_cab_of = {}            # 新CAB -> 源 CAB 名
     try:
+        # ---- ② 每批打一个独立小包（先都打出来：改写要跨包查 pid / 类型）----
+        parts = []             # [(g, gbf, gsf)]
         for g in imports:
             if not os.path.isfile(g["src"]):
                 print(f"[M2] 🔴 源包不在：{g['src']} ⇒ 中止（⛔ 不产出半成品）")
@@ -1114,7 +1161,7 @@ def merge_imports_into_bundle(product_path, imports, dry_run=False):
             out = os.path.join(tmpdir, g["cab"] + ".bundle")
             kw = {"extra_materials": g["names"]} if g["kind"] == "material" else {"extra_shaders": g["names"]}
             print(f"[M2] 从 `{os.path.basename(g['src'])}` 抽 {len(g['names'])} 个 {g['kind']} "
-                  f"→ 内层 CAB `{g['cab']}`（源 CAB `{src_sf_name}`）")
+                  f"→ 依赖包 `{g['dep']}`（内层 CAB `{g['cab']}` · 源 CAB `{src_sf_name}`）")
             kept = repack_tree(g["src"], out, [], cab_name=g["cab"], **kw)
             if kept is None:
                 print(f"[M2] 🔴 `{g['cab']}` 没打出来 ⇒ 中止")
@@ -1123,12 +1170,47 @@ def merge_imports_into_bundle(product_path, imports, dry_run=False):
             gbf = list(genv.files.values())[0]
             gsf = next(v for v in gbf.files.values() if type(v).__name__ == "SerializedFile")
             gkey = next(k for k, v in gbf.files.items() if v is gsf)
-            for pid in [p for p, o in gsf.objects.items() if o.type.name == "AssetBundle"]:
-                del gsf.objects[pid]          # 产物里只留主 CAB 那一个 AB 对象
-            for k, v in gbf.files.items():
-                bf.files[k] = v
-                keep.append(k)
+            parts.append((g, gbf, gsf))
             print(f"[M2]   ✓ `{gkey}`：{len(gsf.objects)} 个对象 · 内层文件 {sorted(gbf.files)}")
+
+        if dry_run:
+            print("[M3] --check：只体检，未写文件")
+            print(f"[M3] --check：真要跑时会另写出 {len(parts)} 只依赖包 —— "
+                  + " · ".join(f"`{g['dep']}`（内层 `{g['cab']}`）" for g, _, _ in parts)
+                  + "；主产物里只剩它自己那一份 CAB + 它的流")
+            return True
+
+        # ---- ③ 引用改写（主产物 + 每只小包各自的 SerializedFile）----
+        #  指向「源 CAB」的材质/shader 引用一律改成 `archive:/<新CAB>/<新CAB>` = **跨 bundle** 的写法。
+        by_cab = {g["cab"]: {pid: o.type.name for pid, o in gsf.objects.items()} for g, _, gsf in parts}
+        new_of_src = {src: new for new, src in src_cab_of.items()}
+
+        n_fix, per_group = _rewrite_import_ptrs(bf, new_of_src, by_cab)
+        if n_fix is None:
+            return False
+        print(f"[M3] 主产物引用改写 {n_fix} 条（"
+              + " · ".join(f"{k}×{v}" for k, v in sorted(per_group.items())) + "）")
+
+        # ---- ④ 每只小包：包内引用改写 → 写盘 → 依赖表 ----
+        os.makedirs(DEST_DIR, exist_ok=True)
+        written = []
+        for g, gbf, gsf in parts:
+            n2, _pg2 = _rewrite_import_ptrs(gbf, new_of_src, by_cab)
+            if n2 is None:
+                return False
+            deps = _referenced_import_cabs(gsf, imports)
+            _set_bundle_dependencies(gsf, deps)
+            dest = os.path.join(DEST_DIR, g["dep"])
+            data = gbf.save(packer="original")
+            with open(dest, "wb") as f:
+                f.write(data)
+            written.append(dest)
+            print(f"[M3]   ✓ `{g['dep']}`：{len(data)} B · 包内引用改写 {n2} 条 · "
+                  f"`m_Dependencies` 补 {sorted(deps) or '无'}")
+
+        # ---- ⑤ 主产物的依赖表：补上「它自己引用了的那几只」 ----
+        main_deps = _referenced_import_cabs(sf, imports)
+        print(f"[M3] 主产物 `m_Dependencies` 将补 {sorted(main_deps) or '无'}（写盘在 [M4]）")
     finally:
         try:
             import shutil
@@ -1136,20 +1218,36 @@ def merge_imports_into_bundle(product_path, imports, dry_run=False):
         except Exception:
             pass
 
-    if dry_run:
-        print("[M3] --check：只体检，未写文件")
-        return True
+    # ---- 收口：容器/预载表照旧（只列 prefab + clip）；⚠️ 产物里**只留它自己的** CAB + 流 ----
+    ab = next(o for o in sf.objects.values() if o.type.name == "AssetBundle")
+    entries = {}
+    for name, info in ab.read().m_Container:
+        pp = info.asset
+        entries.setdefault((pp.m_FileID, pp.m_PathID), []).append(name)
+    _write_bundle(bf, sf, ab, entries, product_path, keep_extra_files=keep,
+                  extra_dependencies=main_deps)
+    print(f"[M4] ✅ 分成独立依赖包：`{os.path.basename(product_path)}` "
+          f"{os.path.getsize(product_path)} B · 内层文件 {len(bf.files)} 份 · "
+          f"另写出 {len(written)} 只依赖包（{', '.join(os.path.basename(p) for p in written)}）")
+    return True
 
-    # ---- ③ 引用改写：把「指向源 CAB、且 pid 在导入集合里」的 PPtr 重指到新 CAB ----
-    by_cab = {}
-    for k, v in bf.files.items():
-        if type(v).__name__ == "SerializedFile":
-            by_cab[k] = {pid: o.type.name for pid, o in v.objects.items()}
+
+def _rewrite_import_ptrs(bf, new_of_src, by_cab):
+    """把一个 bundle 的 `Files`（`bf`）里所有内层 SerializedFile 中
+    「目标落在源 CAB、且 pid 在导入集合里」的 PPtr 重指到新 CAB（`m_FileID` 重指、`m_PathID` 不动）。
+
+    🔴 `_ext_fid` 写出来的就是 `archive:/<新CAB>/<新CAB>` —— 这是**跨 bundle** 的写法，**原版自己就在用**：
+       `.../StreamingAssets/aa/StandaloneWindows64/boosterpacks_assets_all.bundle` 主 CAB 的 `externals`
+       **10/10** 都是这个形状（指向 10 只依赖包里的内层 CAB），它自己的 `AssetBundle.m_Dependencies`
+       就是那 10 个**小写 `cab-<hash>`**（2026-10-30 实读）。
+    ⚠️ 返回 `None` = 有引用解不出来（调用方负责出声 + 中止，⛔ 不写半个包）。
+    """
     want_kinds = ("Material", "Shader")
-    new_of_src = {src: new for new, src in src_cab_of.items()}
     n_fix, per_group = 0, collections.Counter()
-    for host_key, host in by_cab.items():
-        for pid, o in list(bf.files[host_key].objects.items()):
+    for host in list(bf.files.values()):
+        if type(host).__name__ != "SerializedFile":
+            continue
+        for pid, o in list(host.objects.items()):
             try:
                 tree = o.read_typetree()
             except Exception:
@@ -1159,42 +1257,76 @@ def merge_imports_into_bundle(product_path, imports, dry_run=False):
                 fid, tpid = ptr.get("m_FileID", 0), ptr.get("m_PathID", 0)
                 if not tpid or fid == 0:
                     continue
-                src = _cab_of_ptr(bf.files[host_key], fid)
+                src = _cab_of_ptr(host, fid)
                 new = new_of_src.get(src)
                 if not new or new == getattr(host, "name", None):
                     continue
                 if by_cab.get(new, {}).get(tpid) not in want_kinds:
                     continue                      # 只改「指向材质/shader」的引用（别的 pid 语义不明就不动）
-                nf, how = _ext_fid(bf.files[host_key], new)
+                nf, how = _ext_fid(host, new)
                 if nf is None:
                     print(f"[M3] 🔴 解不出 `{new}` 的 m_FileID：{how} ⇒ 中止")
-                    return False
+                    return None
                 ptr["m_FileID"] = nf
                 changed = True
                 n_fix += 1
                 per_group[new] += 1
             if changed:
                 o.save_typetree(tree)
-    print(f"[M3] 引用改写 {n_fix} 条（"
-          + " · ".join(f"{k}×{v}" for k, v in sorted(per_group.items())) + "）")
+    return n_fix, per_group
 
-    # ---- 收口：容器/预载表照旧（只列 prefab + clip），内层文件整份保留 ----
-    ab = next(o for o in sf.objects.values() if o.type.name == "AssetBundle")
-    entries = {}
-    for name, info in ab.read().m_Container:
-        pp = info.asset
-        entries.setdefault((pp.m_FileID, pp.m_PathID), []).append(name)
-    _write_bundle(bf, sf, ab, entries, product_path, keep_extra_files=keep)
-    print(f"[M4] ✅ 并完：`{os.path.basename(product_path)}` "
-          f"{os.path.getsize(product_path)} B · 内层文件 {len(bf.files)} 份")
-    return True
+
+def _referenced_import_cabs(sf, imports):
+    """`sf.externals` 里「指向这批新 CAB 中某一只」的那些名字（**原大小写**，即 `CAB-booster*`）。
+
+    用来算 `AssetBundle.m_Dependencies`：**改完引用之后**再调，才有东西可数。
+    """
+    want = {g["cab"].lower(): g["cab"] for g in imports}
+    hit = set()
+    for e in (getattr(sf, "externals", None) or []):
+        p = getattr(e, "path", None)
+        if p is None and isinstance(e, (list, tuple)) and len(e) >= 2:
+            p = e[1]
+        if p is None and isinstance(e, dict):
+            p = e.get("path")
+        if not isinstance(p, str) or not p:
+            continue
+        base = p[9:] if p.startswith("archive:/") else p
+        name = base.split("/")[0].lower()
+        if name in want:
+            hit.add(want[name])
+    return hit
+
+
+def _set_bundle_dependencies(sf, cabs):
+    """把 `cabs`（新 CAB 名，原大小写）**追加**进 `sf` 里那个 `AssetBundle` 的 `m_Dependencies`，写成**小写**。
+
+    🔴 判据 = 原版：`AssetBundle.m_Dependencies` 是 `['cab-<hash>', …]`（小写）。
+       ⚠️ **`m_AssetBundleDependencies` 这个字段名在本机全库 0 命中**（`assets_full` 24.7 万文件里
+       一处都没有；UnityPy 的 AssetBundle typetree 里也只有 `m_Dependencies`）⇒ 别按那个名字写。
+    """
+    ab_reader = next((o for o in sf.objects.values() if o.type.name == "AssetBundle"), None)
+    if ab_reader is None:
+        return []
+    ab = ab_reader.read()
+    cur = list(getattr(ab, "m_Dependencies", None) or [])
+    low = {c.lower() for c in cur}
+    for c in cabs:
+        if c.lower() not in low:
+            cur.append(c.lower())
+            low.add(c.lower())
+    ab.m_Dependencies = sorted(cur)
+    ab_reader.save_typetree(ab)
+    return ab.m_Dependencies
 
 
 def run_booster_mats(args):
-    """🆕 2026-10-29（B97_W32）：**重打卡包那一个产物**（`wf_boosters_extra.bundle`）并把它缺的
-    粒子材质/shader 并进去 —— 只碰这一个文件，⛔ 不重打别的那几包。
+    """2026-10-29（B97_W32）建 · 🔴 2026-10-30（`B102_D10`）改成**分包**：
+    **重打卡包那一个产物**（`wf_boosters_extra.bundle`），再把它缺的粒子材质/shader
+    **各自写成 6 只独立依赖包** `wf_booster_{matsdup,matsbs,matsmenu,matsfont,fxshaders,fxbuiltin}.bundle`
+    —— 只碰这 7 个文件，⛔ 不重打别的那几包。
 
-    ⚠️ 与 `--prefabs` 的关系：`--prefabs` 打完同一组之后**也会**走同一次合并（`BOOSTER_GROUPS[1].imports`），
+    ⚠️ 与 `--prefabs` 的关系：`--prefabs` 打完同一组之后**也会**走同一次分包（`BOOSTER_GROUPS[1].imports`），
        所以两条路产出的文件内容一致；本模式存在的理由 = 「只想修这一包」时不必顺带重打 74 MB 的
        `battleprefabs` 源包（`--prefabs` 会重建 `wf_prefabs_extra` / `wf_menus_extra` 等别的产物）。
     """
@@ -1207,6 +1339,8 @@ def run_booster_mats(args):
     print(f"[BM1] ✓ 主 CAB `{g['cab']}`：{len(kept)} 个对象（含整棵依赖树）")
     if args.check:
         print("[BM1] --check：只体检，未写文件")
+        print(f"[BM1] --check：真要跑时**另写出 {len(g['imports'])} 只依赖包**（主产物里只剩它自己的 CAB + 流）—— "
+              + " · ".join(f"`{x['dep']}`（内层 `{x['cab']}`）" for x in g["imports"]))
         return 0
     return 0 if merge_imports_into_bundle(g["out"], g["imports"]) else 1
 
@@ -2190,14 +2324,15 @@ def run_prefabs(args):
             print(f"[P6] 🔴 这一组没打出来（根一件都没找到？）—— 上面 [P1] 那几行会点名是哪一件")
             return 1
         print(f"[P6] ✓ {os.path.basename(g['out'])} 打出 {len(k2)} 个对象（含整棵依赖树）")
-        # 🆕 2026-10-29（B97_W32）：这 17 棵 prefab 的粒子材质/shader 在**别的包**里 ⇒ 并进来
-        #   （不改这一步会留 200 个缺材质槽 / 8 个悬空 shader；→ `BOOSTER_IMPORTS` 上面那段）。
+        # 🆕 2026-10-29（B97_W32）· 🔴 2026-10-30（B102_D10）改成**分包**：这 17 棵 prefab 的粒子材质/shader
+        #   在**别的包**里 ⇒ 各自打成 6 只独立依赖包（不改这一步会留 200 个缺材质槽 / 8 个悬空 shader；
+        #   → `BOOSTER_IMPORTS` 上面那段）。
         if g.get("imports"):
             if args.check:
-                print(f"[P6] ⓘ 这一组还有 {len(g['imports'])} 批外部依赖要并在同一个产物里"
-                      f"（`--check` 不并、不写文件）")
+                print(f"[P6] ⓘ 这一组另有 {len(g['imports'])} 批外部依赖要打成独立依赖包"
+                      f"（`--check` 不打、不写文件）")
             elif not merge_imports_into_bundle(g["out"], g["imports"]):
-                print(f"[P6] 🔴 {os.path.basename(g['out'])} 的外部依赖没并进去（见上面 [M*] 几行）")
+                print(f"[P6] 🔴 {os.path.basename(g['out'])} 的外部依赖没分成独立包（见上面 [M*] 几行）")
                 return 1
 
     # ---- 🆕 2026-10-22（`A2` §1·2 X2）：主菜单那 8 个 `Wildcard_Use_*`（`MAINMENU_GROUPS`）----
