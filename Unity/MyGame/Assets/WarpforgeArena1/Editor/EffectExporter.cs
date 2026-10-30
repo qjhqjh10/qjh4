@@ -3013,8 +3013,11 @@ public static class EffectExporter
         var d = new WFMatDef
         {
             name = om.name,
-            shader = om.shader ? om.shader.name : "",
-            renderQueue = TruthQueue(om.name, om.shader ? om.shader.name : ""),
+            // 🆕 2026-10-31（B104 · 287 近似 shader 的数据侧根治）：写【原版名】而不是替身名，
+            //    让运行时 `TryResolve` 走 `UseOriginal` 白名单取原件。判据 = 原版 prefab 材质上的 shader 名；
+            //    A/B 已用 `WF_PREFER_ORIGINAL` 做过（噪声底内，E 3→2）→ `判据/B104_本会话待办与裁定.md` §三。
+            shader = om.shader ? WarpforgeVFX.WarpforgeShaderMap.OriginalNameFor(om.shader.name, om.name) : "",
+            renderQueue = TruthQueue(om.name, om.shader ? WarpforgeVFX.WarpforgeShaderMap.OriginalNameFor(om.shader.name, om.name) : ""),
         };
         var sh = om.shader;
         var fl = new List<string>(); var fv = new List<float>();

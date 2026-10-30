@@ -68,6 +68,28 @@ namespace WarpforgeVFX
             return false;
         }
 
+        /// <summary>🆕 2026-10-31（B104 · **287 近似 shader 的 A/B 实验开关，默认关**）。
+        /// 取值语义与 <see cref="ForceBuiltIn"/> 对称：不设 = 关 · `1` = 全开 · 其它 = 逗号分隔子串清单。
+        /// 打开后：`TryResolve` 对命中的名字**先问原版 bundle**，取到就用原件（取不到则照旧回落）。
+        /// ⚠️ 只给 `EffectSweepBatch` / 探针做「原件 vs 我们那份」的同一把尺子 A/B；⛔ 别在正常跑里开
+        /// （bundle shader 在编辑器里对部分效果会渲成品红，那是已知现象）。</summary>
+        public static readonly string PreferOriginal =
+            System.Environment.GetEnvironmentVariable("WF_PREFER_ORIGINAL") ?? "";
+
+        /// <summary>这个原版名要不要优先走原件（A/B 实验）。语义见 <see cref="PreferOriginal"/>。</summary>
+        public static bool PreferOriginalFor(string originalName)
+        {
+            if (string.IsNullOrEmpty(PreferOriginal)) return false;
+            if (PreferOriginal == "1") return true;
+            foreach (var t in PreferOriginal.Split(','))
+            {
+                var s = t.Trim();
+                if (s.Length > 0 && originalName != null &&
+                    originalName.IndexOf(s, System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            return false;
+        }
+
         public static readonly HashSet<string> UseOriginal = new HashSet<string>
         {
             // ---- 2026-09-18 第一批（原件在随包 bundle 里、且我们原本用的是「按名字挑的近似」）----
@@ -571,6 +593,14 @@ namespace WarpforgeVFX
         {
             shader = null; source = null;
             if (string.IsNullOrEmpty(originalName)) return false;
+
+            // 🆕 2026-10-31（B104 · 287 近似 shader A/B）：实验开关命中的名字**先问原版 bundle**；
+            // 取不到就照旧往下走（与开关关闭时逐位相同）。默认关。
+            if (PreferOriginalFor(originalName) && WarpforgeShaderLoader.TryGetShader(originalName, out shader))
+            {
+                source = "原版bundle（A/B 实验 WF_PREFER_ORIGINAL）";
+                return true;
+            }
 
             // 🔴 「改走原件」白名单**排在最前面**：这几个名字跳过自建替代，直接去 bundle 取原版本体。
             //    放在 `PreferBuiltIn` 之前是**故意**的 —— 它比「优先自建」这个总开关优先级更高，

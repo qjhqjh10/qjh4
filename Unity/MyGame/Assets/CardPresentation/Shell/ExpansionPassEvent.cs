@@ -290,6 +290,34 @@ namespace CardPresentation
             try { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); }
             catch (Exception e) { Debug.LogWarning("[ExpansionPass] 删测试档失败：" + path + "：" + e.Message); }
         }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-31（`B104_P3`）：写盘成败的**判据口** + 两条**回滚**（写盘失败时撤销内存改动）
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>这一趟允不允许碰盘（= 私有 `StoreOn` 的只读口）。
+        /// <para>🔴 **为什么需要它**：<see cref="Save"/> 在「落盘门关着」时**恒返回 `false`**（那是设计上的空操作，
+        /// 批处理自检不该碰玩家真档）；只有 `PersistOn == true` 时候的 `false` 才是**真写盘失败**。
+        /// ⇒ 调用方（`Score` / `PurchaseMilestone` / `PurchaseLevelUp`）必须两者一起判，⛔ 别把「门关着」当失败。</para></summary>
+        public static bool PersistOn { get { return StoreOn; } }
+
+        /// <summary>把某档的领取计数**直接写成** <paramref name="count"/>（`&lt;= 0` ⇒ 删键）。
+        /// <para>唯一的用户 = `PurchaseMilestone` 写盘失败时的**回滚**（原版失败由服务器回滚，本地只能自己撤）。
+        /// ⛔ 别拿 `ClearClaim` 顶替：它删键会让「之前领过 N 次」一起丢掉。</para></summary>
+        public void SetClaimCount(int level, int count)
+        {
+            if (count <= 0) _claims.Remove(level.ToString());
+            else _claims[level.ToString()] = count;
+        }
+
+        /// <summary><see cref="Score"/> 的**逆运算**（`score &lt; 0 ⇒ spentScore += score；否则 totalScore -= score`）。
+        /// <para>唯一的用户 = `PurchaseLevelUp` 写盘失败时的**回滚**。⛔ 别用 `Score(-amount)` 顶替 ——
+        /// 那会走负数那支（写进 `spentScore`），与原文的净效果不同。</para></summary>
+        public void Unscore(int amount)
+        {
+            if (amount < 0) SpentScore += amount;
+            else TotalScore -= amount;
+        }
     }
 
     /// <summary>原版 `Everguild.LiveOps.ExpansionPassEvent : ScoringEvent&lt;ExpansionPassSave, ExpansionPassData&gt;`
@@ -480,11 +508,14 @@ namespace CardPresentation
 
         /// <summary>= 原版 `Score(int amount)`（`ExpansionPassEvent__Score.c` / ILSpy `:1151-1166`）：
         /// 负数 ⇒ `-amount` 走 spent 那一路；非负 ⇒ `+amount` 走 total 那一路（都落在 <see cref="ExpansionPassSave.Score"/>）。
-        /// <para>本地多一步：写完落盘（原版由服务器存）。</para></summary>
-        public void Score(int amount)
+        /// <para>本地多一步：写完落盘（原版由服务器存）。</para>
+        /// <para>🆕 **2026-10-31（`B104_P3`）**：落盘那一句的返回值**原来被丢掉了** —— 写失败也当成功（静默）。
+        /// 现在走 <see cref="PersistAfterMutation"/>：真写不下去 ⇒ **当场撤销这次加减分**并出声。</para></summary>
+        /// <returns>这一改算不算成功（`false` 只在「落盘门开着却写失败」时出现；门关着 = 设计上的空操作，算成功）。</returns>
+        public bool Score(int amount)
         {
             Save.Score(amount);
-            Save.Save();
+            return PersistAfterMutation("Score(" + amount + ")", () => Save.Unscore(amount));
         }
 
         /// <summary>= 原版 `PurchaseMilestone(int milestoneIndex, Action&lt;RewardInfo[]&gt; onComplete, Action&lt;string&gt; onError)`。
@@ -512,9 +543,18 @@ namespace CardPresentation
                 if (onError != null) onError(why); else Debug.LogWarning("[ExpansionPass] PurchaseMilestone 失败：" + why);
                 return;
             }
+            int prevClaim = Save.RewardClaimCount(milestoneIndex);   // 回滚用的**改前值**（必须在 AddClaim 之前取）
             Save.AddClaim(milestoneIndex);
-            Save.Save();
             var rewards = m.RewardArray ?? Array.Empty<CampaignData.RewardSpec>();
+            // 🆕 **2026-10-31（`B104_P3`）**：原来 `Save.Save()` 的返回值直接丢掉 ⇒ **写盘失败也照常 `onComplete`
+            //   （= 玩家看到「已领取」，重启后却还是没领）**。现在：真写失败 ⇒ **撤销这一拍领取** + 走 `onError`，
+            //   ⛔ 不回调 `onComplete`（原版这一支是服务器事务：受理失败就不发奖）。
+            if (!PersistAfterMutation("PurchaseMilestone(" + milestoneIndex + ")", () => Save.SetClaimCount(milestoneIndex, prevClaim)))
+            {
+                string why2 = "里程碑 " + milestoneIndex + " 的领取**没能落盘**（存档写不进去）⇒ 这次不算领到";
+                if (onError != null) onError(why2); else Debug.LogWarning("[ExpansionPass] PurchaseMilestone 失败：" + why2);
+                return;
+            }
             if (onComplete != null) onComplete(rewards);
         }
 
@@ -543,7 +583,14 @@ namespace CardPresentation
             }
             int need = m.ScoreToUnlock - PlayerScore;
             if (need > 0) Save.Score(need);
-            Save.Save();
+            // 🆕 **2026-10-31（`B104_P3`）**：同一族 —— 写盘失败原来照样 `onComplete()`。现在撤销补分 + 走 `onError`。
+            Action undo = need > 0 ? (Action)(() => Save.Unscore(need)) : null;
+            if (!PersistAfterMutation("PurchaseLevelUp(" + milestoneIndex + ")", undo))
+            {
+                string why2 = "里程碑 " + milestoneIndex + " 的升级**没能落盘**（存档写不进去）⇒ 这次不算买到";
+                if (onError != null) onError(why2); else Debug.LogWarning("[ExpansionPass] PurchaseLevelUp 失败：" + why2);
+                return;
+            }
             if (onComplete != null) onComplete();
         }
 
@@ -563,6 +610,26 @@ namespace CardPresentation
                 PurchaseMilestone(i, null, null);
             }
             if (onComplete != null) onComplete();
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-31（`B104_P3`）：落盘 + 失败回滚（追加在类尾）
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>把内存改动落到盘上；**真写失败就当场撤销**并出声，并告诉调用方「这次不算数」。
+        /// <para>🔴 **两种 `false` 要分清**（判据 = <see cref="ExpansionPassSave.PersistOn"/>）：
+        /// ① 落盘门**关着**（批处理 / 自检没注入 `OverrideDir`）⇒ `Save()` 恒 false，那是**设计上的空操作**
+        ///    ⇒ 本方法返回 `true`、**不出声**；
+        /// ② 落盘门**开着却写失败** ⇒ 真失败 ⇒ 跑 <paramref name="rollback"/> 撤销内存改动 + `LogError` + 返回 `false`。
+        /// ⛔ 别把 ① 当失败（会把每条批处理自检都染红）。</para></summary>
+        bool PersistAfterMutation(string what, Action rollback)
+        {
+            bool ok = Save.Save();
+            if (ok || !ExpansionPassSave.PersistOn) return true;
+            if (rollback != null) rollback();
+            Debug.LogError("[ExpansionPass] `" + what + "` 的存档**没能落盘**（" + ExpansionPassSave.StorePath
+                         + "）⇒ **已撤销这次改动**（原版这一步在服务器上；本地写不下去就当没做，⛔ 不假装成功）");
+            return false;
         }
     }
 }

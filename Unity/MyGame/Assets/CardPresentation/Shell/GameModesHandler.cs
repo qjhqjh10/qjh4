@@ -609,7 +609,7 @@ namespace CardPresentation
             //    （同族写法 `Shell/FastModeBaseEvent.cs:334` = `SaveGame.matchStarted = false;`；
             //      `PracticeEvent` 的 `callbackOnSuccess` 体本地不可读）⇒ 本地等价 = 在这里清。
             //    ⛔ 不清会让 `InitializePracticeForMenuStart` 每一场都判「未收尾」⇒ 多记一负。
-            if (PracticeSave != null) { if (!_practiceMatchStartedFromDiskOngoing) { PracticeSave.matchStarted = false; SavePracticeMatchStarted(); } }   // ★ 清位 + **写穿**；⚠️ 本进程是从盘上读回「还在打」时**不清** —— 回灌的都是**更旧**的场次（见类尾 🔴）
+            if (PracticeSave != null) { if (!_practiceMatchStartedFromDiskOngoing) { PracticeSave.matchStarted = false; NotePracticePersist(SavePracticeMatchStarted(), "练习局收尾清位"); } }   // ★ 清位 + **写穿**（🆕 2026-10-31 `B104_P3`：写盘结果不再丢，真失败会 `LogError` 说清后果）；⚠️ 本进程是从盘上读回「还在打」时**不清** —— 回灌的都是**更旧**的场次（见类尾 🔴）
             LastPracticeMatchWonCells = matchWon;
             // ② 原版 `RecordPracticeMatchFinished(…)` = 云脚本（P3）⇒ 本地只把「这一场的结算输入」记下来并出声
             Debug.Log("[GameModes] 练习局收尾：winner = " + winner + " · matchWon = " + matchWon
@@ -741,22 +741,27 @@ namespace CardPresentation
         /// <summary>原版 `PracticeEvent.StartMatchNoCheck(CardDeck playerDeck)` 的本地落地（账 571）。
         /// <para>三句逐字照 `Shell/PlayEvent.cs:535`（同一基类体的本仓实现）：
         /// `UpdateLocalJoinState(Joined)` = `ChangeState(Joined)` · `matchStarted = true` · `randomSeed` 只在 0 时抖一次。</para>
-        /// <para>⚠️ 原版 `PracticeEvent.StartMatch()` 之后那句 `onPracticeMatchStarted` 云脚本 = **P3** ⇒ 出声不执行。</para></summary>
-        public void StartPracticeMatchNoCheck(string deckId)
+        /// <para>⚠️ 原版 `PracticeEvent.StartMatch()` 之后那句 `onPracticeMatchStarted` 云脚本 = **P3** ⇒ 出声不执行。</para>
+        /// <returns>🆕 **2026-10-31（`B104_P3`）**：`matchStarted = true` 有没有**真的写进盘** —— `false` 只在
+        /// 「落盘门开着却写失败」时出现（门关着 = 批处理 / 自检档的设计性空操作 ⇒ 算成功）。
+        /// ⚠️ 原来这方法返回 `void`、`SavePracticeMatchStarted()` 的返回值被丢掉 ⇒ 写失败也当开局记好了。</returns></summary>
+        public bool StartPracticeMatchNoCheck(string deckId)
         {
             var s = PracticeSave;
             if (s == null)
             {
                 Debug.LogError("[GameModes] StartPracticeMatchNoCheck：`PracticeSave` 是 null"
                              + "（原版这一跳 NRE）⇒ 不置位");
-                return;
+                return false;
             }
             s.UpdateLocalJoinState(PlayEventSaveGame.JoinStates.Joined);   // 原版 `ChangeState(Joined)`
-            s.matchStarted = true; SavePracticeMatchStarted();              // ★ 原版写 `+0x44` 的**唯一**处是 `OnMatchFound`（见类尾判据）；本地练习没有匹配回包 ⇒ 等价点 = 这拍，顺手写穿
+            s.matchStarted = true;
+            bool persisted = NotePracticePersist(SavePracticeMatchStarted(), "练习局开局置位");   // ★ 原版写 `+0x44` 的**唯一**处是 `OnMatchFound`（见类尾判据）；本地练习没有匹配回包 ⇒ 等价点 = 这拍，顺手写穿
             if (s.randomSeed == 0) s.randomSeed = Environment.TickCount;    // 🔶 自己设计（非原版）：practice randomSeed · **原版这格从未被写**（PlayEvent 全族无写点，恒 0）、我们回放/重连需要它 · 调度台 2026-10-29 裁定
             Debug.Log("[GameModes] 练习局开局：卡组 id = " + (deckId ?? "<null>") + " ⇒ `joinState = Joined` + "
                     + "`matchStarted = true`（🔴 原版 `StartMatchNoCheck` 其实这三格**都不写**，见类尾判据；本地等价 = 这三句）"
                     + "；原版随后那句 `onPracticeMatchStarted` 云脚本 = P3（本地没有服务器）");
+            return persisted;
         }
 
         /// <summary>原版 `PracticeEvent.Initialize()` 的本地落地（账 583）：**进主菜单时**若上一场练习局没收尾
@@ -774,7 +779,7 @@ namespace CardPresentation
                 return false;
             }
             LoadPracticeMatchStarted(); if (!s.matchStarted) return false;   // ★ 原版那道闸（`+0x44`）；读盘 = 原版「重启后从服务器读回存档」
-            s.matchStarted = false; SavePracticeMatchStarted();              // 先清 + 写穿：否则下一次进主菜单还会再判一次（原版清位在结算回调里）
+            s.matchStarted = false; NotePracticePersist(SavePracticeMatchStarted(), "练习局未收尾清位");   // 先清 + 写穿：否则下一次进主菜单还会再判一次（原版清位在结算回调里）；🆕 2026-10-31 `B104_P3`：写盘结果不再丢
             Debug.LogWarning("[GameModes] 上一次练习局**没有收尾**（`matchStarted` 仍为 true）⇒ 按原版 `PracticeEvent.Initialize` "
                            + "判一次负并提示玩家（原版：`MatchFinished(battleWinner = Enemy)` + 弹 `" + PracticeOngoingMatchTerm + "`）");
             ApplyPracticeOutcome(BattleWinner.Enemy);   // = 原版 `base.MatchFinished(new RankedMatchResult{ Enemy }, null)`
@@ -949,6 +954,26 @@ namespace CardPresentation
             Debug.Log("[GameModes] 从本地存档读回练习活动 `matchStarted` = " + ongoing
                     + "（原版这一步是从服务器取回 `PracticeEventSaveGame`）");
             return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-31（`B104_P3`）：`SavePracticeMatchStarted()` 返回值的三处消费（追加在类尾）
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>把 <see cref="SavePracticeMatchStarted"/> 的写盘结果**落到行为上**（原来三处调用点都把返回值丢了）。
+        /// <para>🔴 **两种 `false` 要分清**（判据 = <see cref="SaveCenter.StoreOn"/>）：
+        /// ① 落盘门**关着**（批处理 / 自检没注入 `SaveCenter.OverrideRoot`）⇒ 设计上的空操作 ⇒ 返回 `true`、**不出声**；
+        /// ② 门**开着却写失败** ⇒ 真失败 ⇒ `LogError`（带后果）+ 返回 `false`。</para>
+        /// <returns>这次算不算成功（`false` = 真写失败）。</returns></summary>
+        /// <param name="ok">`SavePracticeMatchStarted()` 的返回值。</param>
+        /// <param name="what">是哪一处调用（只进日志）。</param>
+        public static bool NotePracticePersist(bool ok, string what)
+        {
+            if (ok || !SaveCenter.StoreOn) return true;            // 门关着 = 设计上的空操作，不算失败
+            Debug.LogError("[GameModes] " + what + " 的 `matchStarted` **没能落盘**（" + (SaveCenter.LastWriteError ?? "未知原因")
+                         + "）⇒ 重启后这一格会退回**盘上的旧值**：进主菜单时可能把上一场再判一次负，"
+                         + "或把还在打的局当成已收尾（原版这一步在服务器上 = P3，本地写不下去就得如实报）");
+            return false;
         }
     }
 }

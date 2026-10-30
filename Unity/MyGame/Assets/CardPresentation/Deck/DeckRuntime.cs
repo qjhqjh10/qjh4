@@ -3671,8 +3671,8 @@ namespace CardPresentation
         /// 返回是否真的变了。</summary>
         public bool EquipCardback(string name)
         {
-            if (string.IsNullOrEmpty(name)) return false;
-            if (CardArt.Cosmetic(name) == null) return false;       // 不认识的卡背名：不写进存档（不静默失败）
+            if (string.IsNullOrEmpty(name)) { Debug.LogWarning("[Deck] 装备卡背：名字为空 ⇒ **不装备**（不许静默）"); return false; }   // 🆕 B104_P26（P5-6）
+            if (CardArt.Cosmetic(name) == null) { Debug.LogWarning("[Deck] 装备卡背：**不认识的卡背名**「" + name + "」⇒ 不写进存档（不许静默）"); return false; }   // 🆕 B104_P26（P5-6）：原来这里无日志
             if (State.Deck.CardbackId == name) return false;
             State.Deck.CardbackId = name;
             MarkDeckDirty();                                   // 🆕 A363：**只标脏**（原来这里就落盘 —— 原版是 `Drop.c:26` 那句 `[+0x60] = 0`）
@@ -3694,7 +3694,7 @@ namespace CardPresentation
             if (px.y < CosmoY || px.y > CosmoY + CosmoH) return false;
             var name = CosmeticNameAt(px);
             if (name == null) return false;                      // 最后一行之后的空白 / 落在两侧留白里
-            if (right) EquipCardback(name);
+            if (right) { if (!EquipCardback(name)) Debug.Log("[Deck] 右键卡背「" + name + "」：**没换成**（不认识 / 已经就是这一张 —— 见 `EquipCardback` 的出声）"); }   // 🆕 B104_P26（P5-6）：原来丢掉返回值、什么都不说
             // 🆕 **2026-10-17：左键按下不再「什么都不做」——它是【拖拽那条路】的起点**
             //   （原版左键单独点仍然什么都不做：`OnCosmeticClick` 只认右键；松手没动过 ⇒ 我们这里也不做）
             //   ⇒ 这里只**记下起点**，起不起拖由 `HandlePointer` 里那道「移动越过阈值 + `IsScrollDragThreshold`」判。
@@ -4947,9 +4947,9 @@ namespace CardPresentation
             _noticeText = s ?? "";
             // 🆕 2026-09-24：**打一条日志** —— 这行字以前只画在屏幕上，日志里看不见，
             //    于是「点了一下、屏幕上闪了一句」在 `ClickLog` 的「实际触发了什么」那一栏里是**空的**。
-            // 🔴 **2026-10-17（D35 删件）**：**屏幕上那行字（`notice`）已删**（原版侧栏没有它）——
-            //    本函数现在的产物 = 这份 `_noticeText` 状态 + 下面这条日志（自检读 `UiLastSay`）。
-            //    ⛔ 别顺手把 `Debug.Log` 也删了 —— 那就是**静默失败**。
+            // 🔴 **2026-10-17（D35 删件）**：屏幕上那行字（`notice`）已删（原版侧栏没有它）。
+            // 🔴 **2026-10-31（B104_P26 · P5-1）原版反馈出处（逐句实读）**：原版**没有**「屏上闪一句」的出口 —— 不合法只走
+            //    `TrySaveDeck.c:94 ShowPopUp`（我方 = `ShowInvalidDeckPopUp`）；成功/失败都靠 `TrySaveDeck→UploadDeck→OnSave→Close()`（失败原版也静默关窗）⇒ 本函数只留日志。
             Debug.Log("[Deck] " + _noticeText);
         }
 
@@ -5302,7 +5302,7 @@ namespace CardPresentation
             CollectionData.InvalidateLibrary();     // ⚠️ 必须排在 `Close()` 之前（理由见上面那段）
 
             var win = HostWindow;
-            win.Close();                            // = 原版 `DeckEditingWindow__Close.c:19-20` 的 `GameWindow.Close()`
+            if (win is DeckEditingWindow dew) dew.CloseFromRuntime(); else win.Close();   // 🆕 B104_P26（P2-2）：宿主窗自己走 `CloseFromRuntime()` —— 本跳已查过脏/已丢弃，⛔ 别再经 `Close()` 的查脏闸二次弹窗。= 原版 `DeckEditingWindow__Close.c:19-20` 的 `GameWindow.Close()`
             Debug.Log("[Deck] 离场：关掉宿主窗「" + win.name + "」⇒ 底下那扇由 `ShowPreviousWindow` 带回来"
                       + "（⛔ 不切场景 —— 原版就是「叠窗 + 关窗」）");
 

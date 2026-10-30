@@ -181,7 +181,19 @@ namespace CardPresentation
         /// （`BattleCameraSreenSize__ResolutionHasChanged.c` 就两行：`BattleCameraSreenSize__Initialize(param_1, 1, 0)`）。
         /// <para>⇒ **实况那条路是 `instant: true`**：一步到位、不补间、并且**会抬那两个 Action**；
         /// `animTime = 3.0` 那条补间路在本 build 里**没有调用点**（见 <see cref="Initialize"/>）。</para></summary>
-        void ResolutionHasChanged() { Initialize(true); }
+        void ResolutionHasChanged()
+        {
+            // 🆕 **2026-10-31（B104_P26 · P6）**：静态事件是**我们加的等价物**（原版由 `Scaffold.Core.Events.Signal` 总线管生命周期），
+            //   而 **编辑模式下 `DestroyImmediate` 不派 `OnDestroy`** ⇒ 已销毁的实例还会被信号打到。
+            //   入口先判「我还活着」：死了 ⇒ 出声 + **当场退订** + return（⛔ 别进 `Initialize` 去读一堆已销毁的引用）。
+            if (this == null)
+            {
+                Debug.LogWarning("[BattleCameraSreenSize] 已销毁的实例仍被 `ScreenResolutionChanged` 打到 ⇒ **当场退订**并 return（不许静默）");
+                UnregisterResolutionSignal();
+                return;
+            }
+            Initialize(true);
+        }
 
         /// <summary>= 原版 `Initialize(bool instant = false)`（`BattleCameraSreenSize__Initialize.c` 逐句）：
         /// <code>

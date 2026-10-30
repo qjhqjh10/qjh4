@@ -346,7 +346,29 @@ namespace CardPresentation
 
         static void ApplyChallengeVisible(bool v)
         {
-            if (_challengeRoot != null) _challengeRoot.SetActive(v);
+            // 🆕 **2026-10-31（B104_P26 · P6）**：`ChallengeEngine.VisibleChanged` 是**静态事件**，而
+            //   `_challengeApply`/`_challengeRoot` 也是静态的 —— 编辑模式下 `DestroyImmediate` 不派 `OnDestroy`，
+            //   没有任何地方会退订 ⇒ 顶栏被销毁后信号仍打到这一条。入口先判「我还活着」：
+            //   根已死（Unity 假 null）⇒ 出声 + **当场退订**（连 `ChallengeEngine` 的总线一起 `Detach`）+ return。
+            if (_challengeRoot == null)
+            {
+                Debug.LogWarning("[TopBar] `ChallengeEngine.VisibleChanged` 打到**已销毁**的挑战钮根 ⇒ **当场退订**并 return（不许静默）");
+                DetachChallengeButton();
+                return;
+            }
+            _challengeRoot.SetActive(v);
+        }
+
+        /// <summary>🆕 **2026-10-31（B104_P26 · P6）**：把「挑战」钮那条静态接线**摘干净**
+        /// （`ChallengeEngine.VisibleChanged` 的订阅 + `ChallengeEngine` 自己挂的徽标总线）。
+        /// 生产里不该有人调（同 `ChallengeEngine.Detach` 的口径）；自检收工 / 编辑模式销毁**显式**调它 ——
+        /// 因为 `DestroyImmediate` 不派 `OnDestroy`（已知坑）。幂等。</summary>
+        public static void DetachChallengeButton()
+        {
+            if (_challengeApply != null) ChallengeEngine.VisibleChanged -= _challengeApply;
+            _challengeApply = null;
+            _challengeRoot = null;
+            ChallengeEngine.Detach();
         }
 
 

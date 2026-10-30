@@ -691,13 +691,13 @@ namespace CardPresentation
         /// （本窗所有调用点都传 0 = null），再 `Close()` → `WindowsManager.OpenWindow(context.Deck)`
         /// —— 交给编辑器的是**卡组对象本身**，不是下标。</para>
         ///
-        /// <para>🔴 **我们多出来的那半个合取项（如实记，铁律 11）**：`OverrideDeck != null` = 这一副是
-        /// **外部送进来的**（预组 / 选卡组弹窗那一档），它在 `DeckLibrary` 里**没有下标**，而我们的
-        /// 编辑器入口 `CollectionWindow.GoEdit(int)` 只认库下标 ⇒ 原版那一跳**接不上**。
-        /// 留着一颗点不动的钮 = 玩家可见的静默失败（`OnButton("Edit Deck")` 里那条守卫只打得进日志），
-        /// 所以这一档**把它藏掉**。⚠️ 等编辑器有了「按卡组对象开」的入口，**删掉 `OverrideDeck == null`
-        /// 这半个合取项**即回到原版（⛔ 别顺手改成用 `IsPlayerDeck` 判）。</para></summary>
-        bool EditDeckShown() { return (int)State < 2 && OverrideDeck == null; }
+        /// <para>🔴 **2026-10-31（B104_P26 · P2-1）就地订正（铁律 5）**：原来多一个合取项 `OverrideDeck == null`（外部送进来的没有库下标 ⇒ 藏钮）。
+        /// **那会截断原版唯一的导入入口**：聊天 `DeckShare` 在 `Import(1)` 态开的就是这一档，原版那颗钮**露着**、点了进编辑器
+        /// （`__EditDeck.c` 先过 `CanImportDeck`、再把 `context.Deck` 交给 `OpenWindow&lt;DeckEditingWindow&gt;`）。我们已有「按卡组对象开」的入口 =
+        /// `CollectionData.PendingNewDeck` + `CollectionWindow.GoNewDeck()`（未入库 ⇒ `Done` 过后校验才 `Insert` = 原版 `UploadUnsyncedDeck`）
+        /// ⇒ 合取项删掉、回到原版 `state < 2`（⛔ 别改成用 `IsPlayerDeck` 判 —— 那一半与它无关；判据见上）。
+        /// </para></summary>
+        bool EditDeckShown() { return (int)State < 2; }
 
         /// <summary>按 `State` / `SelectButtonProvided` / `IsPlayerDeck` 摆 8 颗钮的显隐。
         /// **只有这一份实现** —— `Build()` 末尾调一次；自检改完 `State` 再调它一次就能复验。</summary>
@@ -1267,7 +1267,7 @@ namespace CardPresentation
             if (deck != null) { win.OverrideDeck = deck; win.OverrideInfo = info; }
             win.State = state;
             win.IsPlayerDeck = isPlayerDeck;
-            win.SelectButtonProvided = true;             // 原版这一条恒非空（`UpdateInfo` 每次都给）
+            win.SelectButtonProvided = onSelect != null || !string.IsNullOrEmpty(selectButtonText);   // 原版 = `context.SelectButton != null`：选卡组窗（T24）传非空 ⇒ 露；聊天 `DeckShare` 传 null ⇒ 藏（P2-1）
             win.SelectButtonText = selectButtonText;
             win.OnSelectDeck = onSelect;
             // 原版 `UpdateInfo`：`CheckOwnership = (state != 3)`（= `DeckInfoContext` 构造函数那条 `param_3 != 3`）。
@@ -2170,18 +2170,17 @@ namespace CardPresentation
         {
             if (key == "Edit Deck")
             {
-                // 🆕 **2026-10-17（T24）**：`OverrideDeck != null` = 这一副是**外面送进来的**（预组卡组 /
-                //   选卡组弹窗那一档），没有 `CollectionData` 下标 ⇒ 进不了编辑器。
-                //   🔴 **2026-10-21（真缺陷 · 本笔）**：这一支现在**正常走不到**了 —— 那颗钮已经由
-                //   `EditDeckShown()` 在 `OverrideDeck != null` 时**藏掉**（原版会让它露着、并把
-                //   `context.Deck` 交给编辑器，我们接不上；理由与判据都在 `EditDeckShown` 那一处）。
-                //   ⚠️ **这条守卫仍然留着**（第二道闸）：任何将来「露出来了又没下标」的组合走到这里，
-                //   都**在这儿停住并出声**，⛔ 绝不落到下面 `CollectionWindow.GoEdit(DeckIndex)` 去把 −1 交出去。
-                if (OverrideDeck != null)
+                // 🆕 **2026-10-17（T24）**：`OverrideDeck != null` = 这一副是**外面送进来的**（选卡组弹窗 / 聊天分享）。
+                //   🔴 **2026-10-31（B104_P26 · P2-1）就地订正（铁律 5）**：这里原来一律 `LogWarning + return`
+                //   （「我们没有它的库下标 ⇒ 不开编辑器」）—— 那正是**聊天卡组分享的死路**：原版
+                //   `DeckInfoPopup__EditDeck.c` 对**同一个 `CardDeck` 类型**直接
+                //   `WindowsManager.OpenWindow<DeckEditingWindow>(context.Deck)`。
+                //   ⇒ 我们现在有等价交接口（`CollectionData.PendingNewDeck` + `CollectionWindow.GoNewDeck()`，
+                //   见 `HandToEditor()`）⇒ 这一支改为**真的交给编辑器**；`Import` 态放到下面 `CanImportDeck` 闸之后
+                //   （原版顺序：先校验、再交接），⛔ 别在这一支里提前 return 把闸绕过去。
+                if (OverrideDeck != null && State != DeckInfoState.Import)
                 {
-                    Debug.LogWarning("[DeckInfo] `Edit Deck`：这一副来自选卡组弹窗（预组卡组、不在收藏库里）"
-                                     + " ⇒ **不打开卡组编辑器**（我们这一侧没有它的库下标）。"
-                                     + "原版那个 `CardDeck` 是同一种类型、那条路进得去 —— 这是**我们的模型差异**，如实出声。");
+                    HandToEditor();
                     return;
                 }
                 // 🆕 **A65②**：原版 `DeckInfoPopup.EditDeck` 的**头一道闸**（`DF:DeckInfoPopup__EditDeck.c:21-45`）：
@@ -2209,7 +2208,9 @@ namespace CardPresentation
                     MessageToast.ShowError(msg, false);   // `msg` = `CantImportDeckMessage(...)`，已是明文（原版 `localize = 0`，尾参那个 `0` 是 IL2CPP `MethodInfo*`）
                     return;
                 }
-                // 「进编辑」**只有一份实现**（`CollectionWindow.GoEdit`）—— 收藏窗那条路也走它
+                // 「进编辑」**只有一份实现**（`CollectionWindow.GoEdit`）—— 收藏窗那条路也走它；
+                // 外部送进来的（无库下标）走 `HandToEditor()`（P2-1：原版交的是**卡组对象**，不是下标）。
+                if (OverrideDeck != null) { HandToEditor(); return; }
                 CollectionWindow.GoEdit(DeckIndex);
                 Close();
                 return;
@@ -2235,18 +2236,20 @@ namespace CardPresentation
                 //   原来这里紧接着就**无条件**打「已选中」，而它内部那次落盘失败会被吞掉
                 //   （`BattleDriver.PickSavedDeck` 是**从磁盘重读**的 ⇒ 切场景后这一下选择**静默失效**、
                 //   战斗拿的是磁盘上那套旧的）。
-                //   ⚠️ **关窗那一下照旧无条件**（`Close()` 不动位置）—— 本件只把失败**说出来**，
-                //   ⛔ 不动玩家可见流程（「失败时该不该留窗 / 弹提示」= 另一笔账，报告 §五·2）。
+                //   🔴 **2026-10-31（B104_P26 · P5-2）就地订正（铁律 5）**：原来失败也**无条件 `Close()`** ——
+                //   玩家看到窗关了、以为选中了，而磁盘/战斗拿的是上一套（静默失败）。
+                //   现在：成功才关窗；失败**留窗**并上屏（原版 `Select` 不会失败 —— 它上传云端；本地落盘才会）。
+                //   🔶 自己设计（非原版）：失败出口用本窗既有红横幅 `MessageToast.ShowError`（同 `CanImportDeck` 那条闸）·
+                //   原版没有对应文案（`MenuDeck/Error/*` 里没有「选中失败」）；`LastSelectError` 是诊断串 ⇒ 去掉 `**` 再上屏 ·
+                //   调度台 2026-10-31 裁定（P5-2）。
                 if (CollectionData.Select(DeckIndex))
+                {
                     Debug.Log("[DeckInfo] 已选中「" + CurInfo.Name + "」");
-                // 🔴 **2026-10-13（A646）**：这一句从 `Debug.Log` 改成 **`Debug.LogWarning`**（⛔ 正文一字不动，只换通道）。
-                //   当初用**普通级**的理由是「与 A548 那两句（`DeleteDeck` / `DuplicateDeck` 的失败支）**同通道**」，
-                //   而 **A610（2026-10-13）已把那两句统一成 `LogWarning`**（见下面 `Delete Deck` / `Duplicate Deck`
-                //   那两行各自的 A610 注释）⇒ **那条理由已经失效**，这一句就此成了本窗**唯一**「失败走普通级」的地方
-                //   （口径不齐本身就会误导下一个会话 —— 本文件里 `Blocked()` / `没有登记过这颗钮` / 各种取不到图
-                //   一律 `LogWarning`，「失败 = 警告级」是 A610/A611 之后本工程的统一口径）。
-                else Debug.LogWarning("[DeckInfo] 选中卡组失败：" + CollectionData.LastSelectError);
-                Close();
+                    Close();
+                    return;
+                }
+                Debug.LogWarning("[DeckInfo] 选中卡组失败：" + CollectionData.LastSelectError);
+                MessageToast.ShowError(("选中卡组失败：" + CollectionData.LastSelectError).Replace("**", ""), false);
                 return;
             }
             if (key == "Practice Deck")
@@ -2999,6 +3002,34 @@ namespace CardPresentation
             var wl = CurWarlord;                       // ⚠️ `CurInfo` 是 **struct**（`CollectionData.DeckInfo`）⇒ 别写 `CurInfo != null`（CS0019）
             if (wl != null) CardArt.ReleaseFullHeroSprite(wl.Id);
             base.Close();
+        }
+
+        // ============================================================ 🆕 2026-10-31（B104_P26 · P2-1）
+        //   ⚠️ 追加在**类尾**（本文件在账里被按 `文件:行号` 引用 20+ 处）⇒ 上面的行号零漂移。
+
+        /// <summary>`Edit Deck` 在 **`OverrideDeck != null`** 时的那一跳 = 原版
+        /// `DeckInfoPopup__EditDeck.c` 的 `WindowsManager.OpenWindow&lt;DeckEditingWindow&gt;(context.Deck)`
+        /// （**交的是卡组对象本身**，不是库下标）。
+        ///
+        /// <para>我们的等价交接口 = `CollectionData.PendingNewDeck` + `CollectionWindow.GoNewDeck()`：
+        /// `DeckRuntime.Build` 开局 `TakePendingNewDeck()` 把它装成**编辑副本**，`Done` 过 `ValidateDeck`
+        /// 才 `Library.Insert`（= 原版 `UploadUnsyncedDeck`；新建卡组**不入库**那条口径同
+        /// `SelectDecksTab__CreateDeck.c`）。⚠️ 顺序照原版：**先 `Close()` 自己、再开编辑器**。</para>
+        /// <para>🔴 调用点必须**先过 `CanImportDeck` 闸**（`Import` 态；判据 = `__EditDeck.c:21-45`）——
+        /// 本方法**不重复**那道判据（同一规则的第二份迟早不一致）。</para></summary>
+        void HandToEditor()
+        {
+            if (OverrideDeck == null)
+            {
+                Debug.LogWarning("[DeckInfo] `HandToEditor()` 被空 `OverrideDeck` 调到 ⇒ **什么都不开**（不许静默）。");
+                return;
+            }
+            CollectionData.PendingNewDeck = OverrideDeck;
+            CollectionData.PendingEditDeck = -1;          // 两个交接口互斥（同 `CollectionData.CreateDeck` 的口径）
+            Debug.Log("[DeckInfo] `Edit Deck`：把**外部送进来的**卡组「" + CurInfo.Name + "」交给卡组编辑器"
+                    + "（**尚未入库** —— `Done` 过了校验才 `Insert` = 原版 `UploadUnsyncedDeck`）");
+            Close();                                      // 原版顺序：`EditButtonAction?.Invoke()` → `Close()` → `OpenWindow`
+            CollectionWindow.GoNewDeck();
         }
     }
 }

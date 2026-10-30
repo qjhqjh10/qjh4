@@ -481,6 +481,16 @@ namespace CardPresentation
             EvtKind.GainFaith,      // 纯资源变化（HUD 计数），不起播任何占时动作
             EvtKind.GainSpirit,
             EvtKind.GainQuest,
+            // 🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-b`）：任务点【下降】也登记成零时长。**
+            //   判据（第一权威）= 原版 `ManaTypeHolder.TryDOVfx`
+            //   （`d:/2/tools/decomp_full/ManaTypeHolder__TryDOVfx.c`）：取 `vfxOnValueDown` 那件 prefab 后
+            //   `Load()` → `Instantiate(…, 本节点 transform.position, prefab 自己的 rotation)`，
+            //   **方法里 0 处 `yield` / `WaitForSeconds`** ⇒ 和 `GainFaith` / `GainSpirit` / `GainQuest`
+            //   那一族一样**不占时间线**（起播之后由 prefab 自己的 `destroyTime` 收尾）。
+            //   ⚠️ **不是 `TimedKinds`** —— 那要在 `DurationOf` / `SourceOf` 各补一个 `case`，而本档
+            //   **没有任何「演多久」的判据**（原版就是 fire-and-forget）。同理 ⛔ 别写成
+            //   「按 `Quest UI Trigger` 的时长排」：那会把下一条事件推后一段原版不存在的等待。
+            EvtKind.QuestSpent,
             EvtKind.CollectWaystone,// 收集粒子是**并行**的一发（原版 `CollectWaystoneEffect` 不 `yield`）
             EvtKind.AmbushExit,     // 原版 `SetAmbush(card,false)` 是普通方法、不阻塞（见 `SourceOf`）
             EvtKind.SecretOrder,    // 日志/揭密那一拍；我们没有它的演出（`RuleCore` 无发出点）
@@ -1054,7 +1064,7 @@ namespace CardPresentation
         ///   （它是真值表的中位数，恰好等于旧常数 1.0；见那个常量的 doc）。</item>
         /// </list>
         ///
-        /// <para>⚠️ **不在这张表里的种类**（`Play` / `Return` / `Gain*` / `CollectWaystone` / `SecretOrder`）
+        /// <para>⚠️ **不在这张表里的种类**（`Play` / `Return` / `Gain*` / `QuestSpent` / `CollectWaystone` / `SecretOrder`）
         /// `DurationOf` 走 `default: 0` —— **它们不占时间**，没有「无出处」的数值可言 ⇒ 回 `true`
         /// （⛔ 别把它当「这些事件也有出处」来引用）。</para>
         ///
@@ -1249,5 +1259,245 @@ namespace CardPresentation
             2.5f,   // twoHalfSecDelay
             3.0f,   // threeSecDelay（`fourSecDelay` 实测也是 3.0）
         };
+    }
+
+    // ==================================================================================
+    //  🆕 2026-10-31（执行代理 `B104_V2` · 特效/动画 V-2）：**播放 trace（默认关闭）**
+    // ==================================================================================
+    //  目的：把「动画/演出时长」从**抽点断言**变成**可回归的对账** —— 战斗里每一拍被调度的
+    //  演出都记一行 TSV，再用 `d:/4/Unity/工具/compare_anim_trace.py` 和原版全表
+    //  （`数据/游戏数据/card_anim_order.json` + `animinfo_lookup.json`，928 卡 / 1,527 refs / 551 CardAnim）
+    //  逐卡比「件名序列 / 起始偏移 / 阻塞时长」。
+    //
+    //  判据与背景 → `资料/完全复刻/判据/B99_A2_动画时长_判据.md` ·
+    //              `资料/普查产出_第三十三会话/R10_卡牌打出后演出时间线.md`。
+    //
+    //  🔴 **默认关闭、默认行为零改变**：开关只有两个 ——
+    //    ① 环境变量 `WF_ANIM_TRACE=1`（真机 / 批处理起进程**之前**设）；
+    //    ② `SetEnabledForTest(...)`（**只给自检用**，`Editor/B104_V2_Assert.cs`）。
+    //    关着的时候 `Append` 第一句就 return（**连 `EventTiming.DurationOf` 都不算**），
+    //    **不建目录、不建文件** ⇒「关着 = 零产物」由 `B104_V2_Assert` 的 A0 硬断。
+    //
+    //  ⚠️ **接在哪儿**：`BattleDriver.PendingSignalQueue.Add`（`_timeline` 的唯一写入口）——
+    //    事件拍 / 按表展开的拍 / `cueVfx` / `cueAction` **四族在同一处收口**（⛔ 不散在各调用点）。
+    // ----------------------------------------------------------------------------------
+    /// <summary>🆕 2026-10-31（执行代理 `B104_V2`）：**战斗表现层的播放 trace 落盘器**（默认关闭）。
+    ///
+    /// <para>**列**（TSV，顺序 = <see cref="Columns"/>）：`seq / cardId / evtKind / piece /
+    /// startOffset / holdSeconds / seat / cueKind / firstOfEvent`。</para>
+    /// <list type="bullet">
+    /// <item>`cardId` = `BattleEvent.CardId`（⚠️ **是英文卡名不是卡 id** —— 引擎就是这么装的）；</item>
+    /// <item>`evtKind` = `EvtKind` 的枚举名（`beat` / `cueVfx` / `cueAction` 三类**沿用它们所属事件**的种类，
+    ///   非事件 cue 为空串）；</item>
+    /// <item>`piece` = 这一拍播的那件（按表展开的拍 = `CardAnimBeat.vfx`，`cueVfx` = 那件名，
+    ///   事件拍 = **空串** —— 事件拍的那几件由 `VfxMap` 在**播放那一刻**解，排期时还没有名字）；</item>
+    /// <item>`startOffset` = 这一拍在 `_clock` 口径上的**绝对起播时刻**（秒）。对账器按「同一组首拍」归一成相对偏移
+    ///   （见 `compare_anim_trace.py` 的 `--relative`，默认开）；</item>
+    /// <item>`holdSeconds` = **这一拍阻塞多久**（三种 cue 的取法见 `PendingSignalQueue.Trace` 的 doc；查不到 = 0）；</item>
+    /// <item>`seat` = 座位 0/1（非事件 cue = -1）；</item>
+    /// <item>`cueKind` = `event` / `beat` / `cueVfx` / `cueAction`；</item>
+    /// <item>`firstOfEvent` = 1 表示「本组首拍」（按表展开的拍按 `beatTail == false` 判，事件拍恒 1）
+    ///   —— 对账器靠它切组。</item>
+    /// </list>
+    ///
+    /// <para>**落盘位置**：`Application.persistentDataPath/WarpforgeAnimTrace/&lt;yyyyMMdd_HHmmss&gt;.tsv`，
+    /// 第一行是列名。**边记边写**（`AutoFlush`）—— 进程被杀也留得到手的行（⛔ 不攒到「战斗结束」再一口气写：
+    /// 那时崩溃/退出就全丢，而这正是最需要它的场景）。</para>
+    ///
+    /// <para>⚠️ **本类只记「被调度的」** —— `DropSignals` 之后撤掉的 cue 也会留在 trace 里（那是调度事实）。
+    /// 对账器的口径见它文件头。</para>
+    /// </summary>
+    public static class AnimTrace
+    {
+        /// <summary>开关的环境变量名（`1` / `true`，不区分大小写；其它值 = 关）。</summary>
+        public const string EnvVar = "WF_ANIM_TRACE";
+        /// <summary>落盘目录名（在 `Application.persistentDataPath` 下）。</summary>
+        public const string DirName = "WarpforgeAnimTrace";
+
+        /// <summary>列名（顺序即 TSV 的列序）。🔴 改这里 ⇒ `Editor/B104_V2_Assert.cs` 的 A2 会红（那是故意的）。</summary>
+        public static readonly string[] Columns =
+        {
+            "seq", "cardId", "evtKind", "piece", "startOffset", "holdSeconds", "seat", "cueKind", "firstOfEvent",
+        };
+
+        /// <summary>表头行（不含换行）。</summary>
+        public static string HeaderLine { get { return string.Join("\t", Columns); } }
+
+        static int _envCached = -1;      // -1 = 还没问过环境变量；0 = 关；1 = 开
+        static bool _testOverride;       // 自检强开/强关（⛔ 生产不设）
+        static bool _testOverrideValue;
+        static string _path;             // 本会话正在写的文件（null = 还没写第一行）
+        static System.IO.FileStream _fs; // 🆕 2026-10-31（修 `B104_V2` 自检红）：显式开流 —— 见 `EnsureWriter`
+        static System.IO.StreamWriter _writer;
+        static int _rows;                // 已写的数据行（不含表头）
+        static int _seq;
+        static bool _ioErrorReported;
+
+        /// <summary>环境变量是不是要求开 trace（每次**现读** —— 自检改环境变量之后能立刻看到）。</summary>
+        public static bool EnvWantsTrace()
+        {
+            try
+            {
+                string v = System.Environment.GetEnvironmentVariable(EnvVar);
+                if (string.IsNullOrEmpty(v)) return false;
+                v = v.Trim();
+                return v == "1" || string.Equals(v, "true", System.StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>现在开不开（自检强开关优先；否则读环境变量，结果缓存）。</summary>
+        public static bool Enabled
+        {
+            get
+            {
+                if (_testOverride) return _testOverrideValue;
+                if (_envCached < 0) _envCached = EnvWantsTrace() ? 1 : 0;
+                return _envCached == 1;
+            }
+        }
+
+        /// <summary>本会话正在写的文件（`null` = 关着 / 还没写第一行）。</summary>
+        public static string FilePath { get { return _path; } }
+
+        /// <summary>本会话已写的数据行数（不含表头）。</summary>
+        public static int Rows { get { return _rows; } }
+
+        /// <summary>trace 根目录。⚠️ **只是算路径**——关着的时候不会把它建出来。</summary>
+        public static string DirPath
+        {
+            get
+            {
+                try { return System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, DirName); }
+                catch { return null; }
+            }
+        }
+
+        /// <summary>记一行（**开关关着 = 立即 return、零副作用**）。</summary>
+        public static void Append(string cardId, string evtKind, string piece, float startOffset,
+                                  float holdSeconds, int seat, string cueKind, bool firstOfEvent)
+        {
+            if (!Enabled) return;
+            try
+            {
+                var w = EnsureWriter();
+                if (w == null) return;
+                _rows++;
+                _seq++;
+                w.Write(_seq.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                w.Write('\t'); w.Write(Clean(cardId));
+                w.Write('\t'); w.Write(Clean(evtKind));
+                w.Write('\t'); w.Write(Clean(piece));
+                w.Write('\t'); w.Write(startOffset.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+                w.Write('\t'); w.Write(holdSeconds.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+                w.Write('\t'); w.Write(seat.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                w.Write('\t'); w.Write(Clean(cueKind));
+                w.Write('\t'); w.Write(firstOfEvent ? "1" : "0");
+                w.Write('\n');
+            }
+            catch (System.Exception e)
+            {
+                if (_ioErrorReported) return;
+                _ioErrorReported = true;
+                UnityEngine.Debug.LogError($"[AnimTrace] 写 trace 失败（本会话不再重复出声）：{e.Message}"
+                                         + $"｜文件 = `{_path}`");
+            }
+        }
+
+        /// <summary>把缓冲刷到盘上（`AutoFlush` 已经每行刷；这个是给收尾/断言用的显式口）。</summary>
+        public static void Flush()
+        {
+            try
+            {
+                if (_writer != null) _writer.Flush();
+                // 🔴 2026-10-31（修自检红）：`StreamWriter.Flush` 只把 .NET 缓冲推给 `FileStream`；
+                //   再让 `FileStream` 把**文件长度/内容**落给 OS（`Flush(true)` = 连磁盘一起）。
+                //   ⚠️ 某些平台/非 NTFS 不支持这一档 ⇒ 与 `Shell/SaveCenter.AtomicWrite` 同口径：吞掉、不影响主流程。
+                if (_fs != null) { try { _fs.Flush(true); } catch (System.Exception) { } }
+            }
+            catch { }
+        }
+
+        /// <summary>关掉当前文件（换文件 / 收尾 / 自检读回之前用）。
+        /// <para>⚠️ 关掉之后再 `Append` ⇒ **同一路径续写**（`FileMode.Append`、不重写表头，见 `EnsureWriter`），
+        /// 不会把已经写好的行截掉。</para></summary>
+        public static void Close()
+        {
+            try { if (_writer != null) { _writer.Flush(); _writer.Dispose(); } } catch { }
+            _writer = null;
+            _fs = null;
+        }
+
+        static System.IO.StreamWriter EnsureWriter()
+        {
+            if (_writer != null) return _writer;
+            string path = _path;
+            if (string.IsNullOrEmpty(path))
+            {
+                string dir = DirPath;
+                if (string.IsNullOrEmpty(dir)) return null;
+                System.IO.Directory.CreateDirectory(dir);
+                path = System.IO.Path.Combine(dir,
+                    System.DateTime.Now.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture) + ".tsv");
+            }
+            else
+            {
+                string d = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(d)) System.IO.Directory.CreateDirectory(d);
+            }
+            _path = path;
+            // 🔴 2026-10-31（修 `B104_V2_Assert` 的 A1d/A1e/A1f 红）：**显式开 `FileStream`**，两件事都不再靠默认值 ——
+            //   ① `FileShare.ReadWrite`：读端（自检 / 对账器 / 另开的进程）**永远不被这个写句柄挡住**；
+            //      ⛔ 原来 `new StreamWriter(path, false, enc)` 的共享模式依赖运行库默认值，不保证。
+            //   ② 续写档：**已经有行**（`_rows > 0`，例如自检里 `Close()` 之后再写）⇒ `FileMode.Append` 且**不重写表头**；
+            //      否则 `FileMode.Create` + 写表头。
+            bool appendExisting = _rows > 0 && System.IO.File.Exists(path);
+            _fs = new System.IO.FileStream(path, appendExisting ? System.IO.FileMode.Append : System.IO.FileMode.Create,
+                                           System.IO.FileAccess.Write, System.IO.FileShare.ReadWrite);
+            _writer = new System.IO.StreamWriter(_fs, new System.Text.UTF8Encoding(false)) { AutoFlush = true };
+            if (!appendExisting)
+            {
+                _writer.Write(HeaderLine);
+                _writer.Write('\n');
+            }
+            return _writer;
+        }
+
+        /// <summary>字段清洗：tab / CR / LF 一律换成空格（否则一列会被撑成两列）。</summary>
+        static string Clean(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            if (s.IndexOf('\t') < 0 && s.IndexOf('\r') < 0 && s.IndexOf('\n') < 0) return s;
+            return s.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+        }
+
+        // ------------------------------------------------------------------
+        //  自检口（`Editor/B104_V2_Assert.cs` 用；⛔ 生产别调）
+        // ------------------------------------------------------------------
+        /// <summary>自检专用：强开 / 强关。<paramref name="path"/> 非空 = 写到那个文件；
+        /// 空 = 走默认目录（`persistentDataPath/WarpforgeAnimTrace/…`）。</summary>
+        public static void SetEnabledForTest(bool on, string path = null)
+        {
+            Close();
+            _testOverride = true;
+            _testOverrideValue = on;
+            _path = on ? path : null;
+            _rows = 0;
+            _seq = 0;
+            _ioErrorReported = false;
+        }
+
+        /// <summary>自检专用：撤掉强开/强关，回到「看环境变量」那一档（同时让环境变量缓存失效）。</summary>
+        public static void ClearTestOverride()
+        {
+            Close();
+            _testOverride = false;
+            _testOverrideValue = false;
+            _envCached = -1;
+            _path = null;
+            _rows = 0;
+            _seq = 0;
+            _ioErrorReported = false;
+        }
     }
 }

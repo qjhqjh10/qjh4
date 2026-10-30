@@ -40,6 +40,7 @@ pathID `1276427422462347950`；出处见算式文档 §2·6）—— 没有 `raw
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_shake_presets.py"
   加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+  加 `--check` = 只比对「现有产物 vs 生成器算出来的」逐字段一致（忽略 `generated` 时间戳），零写盘；不一致退出码 1。
 """
 import datetime
 import glob
@@ -57,10 +58,13 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：\n  "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_shake_presets.py"\n  加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('用法：\n  "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_shake_presets.py"\n  加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n  加 `--check` = 只比对「现有产物 vs 生成器算出来的」逐字段一致（忽略 `generated` 时间戳），零写盘；不一致退出码 1。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
     _wf_help_sys.exit(0)
 
 DRY = "--dry" in sys.argv[1:]
+# 🆕 2026-10-31（B104）：`--check` = 幂等闸。生成产物里带 `generated` 时间戳 ⇒ 「两次逐字节一致」永远不成立；
+#   闸的正确口径是「除时间戳外逐字段一致」。默认行为（不带参）= 真写盘，保持不变。
+CHECK = "--check" in sys.argv[1:]
 
 SRC_DIR = r"d:/2/新解包资源/assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour"
 # 旧解包：文件名带 pathID ⇒ 唯一能把 PPtr 的 pathID 翻成信号 SO 名字的地方
@@ -178,6 +182,24 @@ def main():
         "signals": signals,
         "presets": [out[n] for n in sorted(out)],
     }
+    if CHECK:
+        if not os.path.exists(OUT):
+            print("**`--check` 失败**：产物不存在 %s" % OUT)
+            return 1
+        try:
+            prev = json.load(io.open(OUT, encoding="utf-8"))
+        except Exception as e:
+            print("**`--check` 失败**：现有产物读不出来 %s（%s）" % (OUT, e))
+            return 1
+        a = dict(doc); b = dict(prev)
+        # 生成产物带 `generated` 时间戳 ⇒ 逐字节一致永远不成立；闸的正确口径 = 除时间戳外逐字段一致。
+        a.pop("generated", None); b.pop("generated", None)
+        if a != b:
+            print("**`--check` 不一致**：%s 与生成器算出来的不是同一份" % OUT)
+            return 1
+        print("`--check` OK：%s 与生成器逐字段一致（忽略 `generated` 时间戳）；%d 个 preset / %d 份信号"
+              % (OUT, len(out), len(signals)))
+        return 0
     if DRY:
         print("干跑（未写盘）：%s（%d 个 preset / %d 份信号）；要落盘请去掉 --dry"
               % (OUT, len(out), len(signals)))

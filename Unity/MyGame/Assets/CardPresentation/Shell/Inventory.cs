@@ -1894,7 +1894,7 @@ namespace CardPresentation
         /// ③ 真正做的两件事 = 记两个计数（`inventoryOpsThisSession++` / `lastInventoryOperationTime = CurrentMillis()`）
         /// ＋ 在「无待卖卡 ∧ 不在卖 ∧ 无冷却」时起一次 `SellSpareCardsRecursive()`。</para>
         /// <para>⚠️ **我们只落 ①②③ 的计数与「该卖卡了」这一跳**：`SellSpareCardsRecursive` 属收藏/卖卡域（不在本批白名单）⇒ 用
-        /// <see cref="SellSpareCardsRequested"/> 事件代替（谁做卖卡谁订阅）。⚠️ 原版那句 `new Dictionary&lt;string,int&gt;()` 一建就是空
+        /// <see cref="SellSpareCardsRequested"/> 事件代替（谁做卖卡谁订阅）。🔴 **2026-10-31（B104_P1）判 D**：原版这条链的两条上游都在**服务端/云端** —— 实际触发是 `ProcessReturnedItemsData`（云脚本结果，`decomp_full/PlayerDataManager__ProcessReturnedItemsData.c:78`；调用方 `ProcessClaimedSeasonPrize`），而 `GrantItemsCrate` 本身**二进制三源 0 调用点**（`判据/B88_死代码普查.tsv` 第 482 行那组）⇒ 本地没有「开箱后云端回传物品」这条来源 ⇒ **保持零调用、⛔ 别在本地自造触发点**（另：本工程 `CardProgress` 默认给足、不做真实经济）。⚠️ 原版那句 `new Dictionary&lt;string,int&gt;()` 一建就是空
         /// ⇒ `Keys.Count == 0` 恒真 ⇒ `CustomDebug.Log("Sell All Spare")` **每次都打**（原版自己的一处死结，照抄成一条 Note）。</para>
         /// <para>⚠️ **落点差异**：原版这是 `PlayerDataManager`（`Shell/ProfileData.cs`，归 B27）的实例方法；我们落在背包层旁，
         /// B27 接手时一行转调即可。</para></summary>

@@ -292,6 +292,11 @@ namespace RuleEngine
         ///
         /// <para>⚠️ **同名卡组**：`UpdateOrder` 会按顺序各取一套，所以「A、A」这种会有歧义 —— 这是按名认的
         /// 固有代价；原版有 `deckId` 所以没有这个问题。出声时会把这一类也报出来。</para>
+        ///
+        /// <para>🔴 **2026-10-31（B104_P4）就地订正（铁律 5）**：上面「与原版的一处【不得不】不同」那段 **已不成立** ——
+        /// `PlayerDeck` 现在有 `DeckId`（`partial`，本文件尾），并且本类另有一个
+        /// <see cref="UpdateOrder(IList{PlayerDeck})"/> **按对象身份**重排的重载（原版 `UpdateOrder(List&lt;CardDeck&gt;)`
+        /// 的语义对位）。**生产代码（收藏窗拖拽）已改走那个重载**；本方法只为旧调用点（`Editor/*` 自检夹具）保留。</para>
         /// </summary>
         /// <returns>`false` = 参数非法 / 重排后落盘失败（`LastError` 说原因）。</returns>
         public bool UpdateOrder(IList<string> namesInOrder)
@@ -647,5 +652,127 @@ namespace RuleEngine
                 return SaveLegacyText(DeckStore.Path, DeckStore.Serialize(_decks, _current), out error);
             return DeckStore.SaveAll(_decks, _current, out error);
         }
+        // ================================================================================================
+        //  🆕 2026-10-31（B104_P4）· 卡组**身份**（原版 `CardDeck.deckId`）—— 追加在类尾（零行号漂移）
+        //
+        //  为什么要有：原版全链按 **`deckId`** 认卡组，不看名字 ——
+        //    · 重排：`DeckInventory._003CUpdateOrder_003Eb__0` = `d.deckId == this.deck.Item.deckId`
+        //      （`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/DeckInventory.cs:578-581` 现读；
+        //       `.c` 侧同址 = `DeckInventory.__c__DisplayClass4_0___UpdateOrder_b__0.c` 的 `System_String__Equals`
+        //       比 `+0x18` = `CardDeck.deckId`）。
+        //    · 活动卡组槽：`PlayEventSaveGame.defaultDeckId`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlayEventSaveGame.cs`
+        //      现读，字段与 `deckName` 分开）⇒ `IPlayEvent.SetDeck/GetEventDeck` 存的是 **id**。
+        //  ⛔ 别拿名字当 id：同名卡组（重命名 / 导入）会选错。本仓里 `PlayerDeck` 没有 id 字段，
+        //  本次在同一个命名空间里用 `partial` 补上（父机类文件 `Core/DeckRules.cs` 未动一行）。
+        //  ⚠️ 旧存档没这个键 ⇒ `null`；第一次需要时才补发（`EnsureDeckId`）。
+        // ================================================================================================
+
+        /// <summary>新发一个卡组 id（与原版 `CardDeck.deckId` 同用途：**跨进程稳定的身份串**）。
+        /// ❗ `Guid.NewGuid().ToString("N")` = 32 位小写十六进制，**不含冒号 / `;`** —— 卡组分享串里那两个字符是分隔符。</summary>
+        public static string NewDeckId() { return Guid.NewGuid().ToString("N"); }
+
+        /// <summary>某套卡组的 <see cref="PlayerDeck.DeckId"/>（下标越界 / 还没发过 id ⇒ `null`）。</summary>
+        public string DeckIdAt(int index)
+        {
+            if (index < 0 || index >= _decks.Count) return null;
+            var id = _decks[index].DeckId;
+            return string.IsNullOrEmpty(id) ? null : id;
+        }
+
+        /// <summary>按 id 反查下标（查不到 / 空 id ⇒ `-1`）。与**按名反查**
+        /// <see cref="RuleEngine.DeckLibrary"/> 的同族口不同：这里对的是**唯一身份**（同名不歧义）。</summary>
+        public int IndexOfDeckId(string deckId)
+        {
+            if (string.IsNullOrEmpty(deckId)) return -1;
+            for (int i = 0; i < _decks.Count; i++)
+                if (string.Equals(_decks[i].DeckId, deckId, StringComparison.Ordinal)) return i;
+            return -1;
+        }
+
+        /// <summary>取某套卡组的 id；还没有就**现发一个并落盘**（返回那个 id）。
+        /// 下标越界 ⇒ `null`。落盘失败也返回 id（内存里已经稳定），警告由 `SaveOrWarn` 打。</summary>
+        public string EnsureDeckId(int index)
+        {
+            if (index < 0 || index >= _decks.Count) return null;
+            var d = _decks[index];
+            if (!string.IsNullOrEmpty(d.DeckId)) return d.DeckId;
+            d.DeckId = NewDeckId();
+            SaveOrWarn("EnsureDeckId");          // A398 口径：返回值是字符串、装不下落盘成败 ⇒ 走响声口
+            return d.DeckId;
+        }
+
+        /// <summary>**按对象身份**重排卡组库 —— 原版 `DeckInventory.UpdateOrder(List&lt;CardDeck&gt; newOrder)`
+        /// 的语义对位（原版在里面按 `deckId` 对；我们这边的 `newOrder` 就是**库里那些对象本体**，
+        /// 对象引用就是身份 ⇒ 不存在「同名拿错」这一档）。
+        ///
+        /// <para>行为与按名那个重载**逐条对齐**：① 表里没有的卡组**保留原位接在末尾**
+        /// （绝不丢，且**出声**）；② 重复出现的对象只算一次；③ `_current` 跟着**那一套**走
+        /// （不跟下标）；④ 尾句 `return Save()`。</para>
+        /// <para>⛔ 不要把它写成「先转名字再调上一个重载」—— 那就是原病（同名时按名对不上身份）。</para></summary>
+        /// <returns>`false` = 参数非法 / 重排后落盘失败（<see cref="LastError"/> 说原因）。</returns>
+        public bool UpdateOrder(IList<PlayerDeck> newOrder)
+        {
+            if (newOrder == null || newOrder.Count == 0 || _decks.Count == 0) return false;
+
+            var selected = (_current >= 0 && _current < _decks.Count) ? _decks[_current] : null;
+
+            var ordered = new List<PlayerDeck>(_decks.Count);
+            int missing = 0;
+            foreach (var d in newOrder)
+            {
+                if (d == null) continue;
+                bool already = false;
+                for (int k = 0; k < ordered.Count; k++) if (ReferenceEquals(ordered[k], d)) { already = true; break; }
+                if (already) continue;                       // 同一对象重复出现 ⇒ 只算一次
+                bool inLib = false;
+                for (int k = 0; k < _decks.Count; k++) if (ReferenceEquals(_decks[k], d)) { inLib = true; break; }
+                if (!inLib) { missing++; continue; }         // 不属于本库 ⇒ 不插进来（与按名那个的 `missing` 同形）
+                ordered.Add(d);
+            }
+            // 没出现在新顺序里的 ⇒ 保留原相对顺序接在末尾（⛔ 不丢）。
+            int kept = 0;
+            for (int i = 0; i < _decks.Count; i++)
+            {
+                bool listed = false;
+                for (int k = 0; k < ordered.Count; k++) if (ReferenceEquals(ordered[k], _decks[i])) { listed = true; break; }
+                if (!listed) { ordered.Add(_decks[i]); kept++; }
+            }
+
+            if (missing > 0 || kept > 0)
+                UnityEngine.Debug.LogWarning("[DeckLibrary] `UpdateOrder`（按对象身份）："
+                    + (missing + kept) + " 套卡组**没有出现在新顺序里**（不属于本库 "
+                    + missing + " 条）⇒ 它们**按原相对顺序接在末尾**（⛔ 没有丢）。");
+
+            _decks.Clear();
+            _decks.AddRange(ordered);
+
+            _current = selected != null ? _decks.IndexOf(selected) : -1;
+            return Save();
+        }
+
+        /// <summary>⚠️ **原版没有这个口**（父机类不对外暴露「只改内存选中项」）：
+        /// **只改内存里的 `_current`、不落盘** —— 给「选中失败后把高亮放回去」那一档用
+        /// （底盘本来就没改，所以不能再调 `Select`——那会又试一次写盘）。</summary>
+        public void RestoreSelection(int index)
+        {
+            if (index >= 0 && index < _decks.Count) _current = index;
+            else _current = -1;
+        }
+    }
+
+    /// <summary>⚠️ 这一块是 **2026-10-31（B104_P4）追加在「`DeckLibrary.cs` 文件尾」**的 partial：
+    /// 给 <see cref="PlayerDeck"/> 补上原版的 **`CardDeck.deckId`**。
+    /// <para>判据 ⇒ 本文件 `DeckLibrary` 类尾那一段注释（重排谓词 + `PlayEventSaveGame.defaultDeckId`）。</para>
+    /// <para>⚠️ 为何用 `partial` 而不是去 `Core/DeckRules.cs` 里插一行：那个文件下游有账的 `文件:行` 落点，
+    /// 插行会把它们全部打漂（铁律 18·b）；而 `JsonUtility` 反射看的是**类型**、不看声明在哪个文件
+    /// ⇒ 写在这里同样会进存档。</para>
+    /// <para>⚠️ **拷贝点**：`PlayerDeck.Clone()`（`Core/DeckRules.cs:772`）不拄本字段 ⇒ 复制出来的新卡组**没有 id**
+    /// （下一次用到时 `EnsureDeckId` 现发），这正是要的（两套卡组不能共用同一个身份）。
+    /// `DeckLibrary.CommitCurrent` 逐字段拷、**不动**库里那一套的 `DeckId` ⇒ 编辑保存后身份不变。</para>
+    public partial class PlayerDeck
+    {
+        /// <summary>原版 `CardDeck.deckId`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardDeck.cs:12` 现读）。
+        /// 空/null = 旧存档里还没发过 id。取用一律走 `DeckLibrary.EnsureDeckId`（它会补发 + 落盘）。</summary>
+        public string DeckId;
     }
 }

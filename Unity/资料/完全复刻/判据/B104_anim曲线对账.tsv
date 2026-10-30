@@ -1,0 +1,6 @@
+clip	曲线族	原版值	我们值	差异	判据来源
+47 条合计	m_RotationCurves/m_EulerCurves/m_PositionCurves/m_ScaleCurves/m_FloatCurves/m_QuaternionCurves/m_CompressedRotationCurves/m_PPtrCurves	476 条（200/4/23/19/229/0/0/1）	同左	0 差异（逐 key time/value/inSlope/outSlope/tangentMode/weightedMode/inWeight/outWeight，容差 2e-4）	d:/2/10.13游戏/.../84 包 AnimationClip typetree vs d:/4/Unity/MyGame/Assets/WarpforgeVFX/Animations/*.anim（47 个，排除 10-27 新增 Division Up/Level Up Card/Rank Up）
+47 条合计	m_Events（m_AnimationEvents）	11 条	11 条	0 差异（functionName/time/data）	同上
+47 条合计	m_SampleRate / m_LoopTime / m_WrapMode	24/25/60；legacy 无 settings；wrap 0/1/2/8	24/25/60；loop 0；wrap 0/1/2/8	0 差异	同上
+46 条 legacy	m_AnimationClipSettings.m_StopTime	原版 legacy 无该字段（46/46 m_AnimationClipSettings=null）；有效时长=末键，0.25–100.2 s	1（46/46）	字段级差异：导出器统一写 1；若 Unity 按 StopTime 取长则 46 条被截到 1 s（未跑 Unity，判不了）	原版 bundle AnimationClip；工程 .anim
+Card Explosion	m_MuscleClip / m_StreamedClip	m_MuscleClipSize=2808；m_StreamedClip curveCount=3；m_DenseClip frameCount=51/curveCount=0 @60；m_Legacy=false；其余曲线族全 0	无 m_MuscleClipSize/m_MuscleClip；所有 m_*Curves 全 0；m_Legacy=0；StopTime 0.81666666	资产不等价：原版 3 条 streamed 曲线，我们空壳；运行期 WarpforgeAnimatorBridge 从 Assets/StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle 取原件（实读 m_MuscleClipSize=2808）	原版 battleprefabs pid 8359881181387397000；工程 Card Explosion.anim；运行包 wf_prefabs_extra.bundle

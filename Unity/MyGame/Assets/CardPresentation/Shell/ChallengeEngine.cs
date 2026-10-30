@@ -155,5 +155,19 @@ namespace CardPresentation
             _visible = false;
             ChallengeData.Reset();
         }
+
+        // ============================================================ ⑥ 🆕 2026-10-31（B104_P26 · P6）：退订观测口
+        //   ⚠️ 追加在**类尾**（本文件在账里被按 `文件:行号` 引用 4 处：90 / 105 / 111 / 113）⇒ 上面的行号零漂移。
+        //   ⚠️ 本类是 **static class**（没有实例可销毁）⇒ 那条「入口先判我还活着」不适用；
+        //      真正会留下**已销毁对象**的是订阅方（`Shell/TopBar.cs` 的 `_challengeApply`，
+        //      编辑模式下 `DestroyImmediate` 不派 `OnDestroy`）⇒ 那里已加「根死了 ⇒ 出声 + 当场退订」，
+        //      退订走 `TopBar.DetachChallengeButton()` → 本类的 `Detach()`。
+
+        /// <summary>订阅者个数（自检读口 —— 同 `BattleCameraSreenSize.ResolutionSignalSubscriberCountForTest`
+        /// 那条口径：「退订了没有」只能从这里观测，⛔ 不从被测实现反算期望值）。</summary>
+        public static int VisibleListenerCount
+        {
+            get { var h = VisibleChanged; return h == null ? 0 : h.GetInvocationList().Length; }
+        }
     }
 }

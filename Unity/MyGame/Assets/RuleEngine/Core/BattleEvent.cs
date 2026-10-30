@@ -452,6 +452,44 @@ namespace RuleEngine
         /// 发出点 = `EffectResolver.DoCreate` 的 `case "hand" / "enemyhand"` 破坏那一支（唯一）。⚠️ 纯表现信号：不改局面、不进动作流。
         /// 🔴 但它进 `ctx.Events.Count` ⇒ **改 `NetProtocol.Fingerprint`**（须与一次 `play check` 重钉同批）。</summary>
         SabotageCreated,
+
+        /// <summary>
+        /// 🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-b`）：任务点被**减掉一个阈值**的那一拍** ——
+        /// `Amount` = 被减掉的点数（现读恒 = `RuleCore.QuestPointStepFor(ctx)`：经典档 3 / Alt 档 4）·
+        /// `Player` = 扣点那一方 · `Slot` 恒 `-1`（阵营资源是**玩家的**、不属于任何格位 —— 与
+        /// <see cref="GainQuest"/> 同一条约定）· `Effect` = 诊断文字。
+        ///
+        /// <para>**判据（第一权威）= 原版 `ManaTypeHolder.SetMana → TryDOVfx`**
+        /// （`d:/2/tools/decomp_full/ManaTypeHolder__TryDOVfx.c` 逐句读）：值变化时**按方向取槽** ——
+        /// `last(+0x70) &lt; 新值` ⇒ `vfxOnValueUp(+0x30)`，否则 ⇒ `vfxOnValueDown(+0x38)`；
+        /// 然后 `AssetReference.Load()` → `Instantiate(prefab, 本节点 transform.position, prefab 自己的 rotation)`，
+        /// **方法里 0 处 `yield` / `WaitForSeconds` ⇒ 非阻塞**（所以 `EventTiming` 把本档登记成**零时长**，
+        /// 与 `GainFaith` / `GainSpirit` / `GainQuest` 那一族同档）。</para>
+        ///
+        /// <para>**交叉验证（2026-10-31 同一轮现读）**：ILSpy 命名版
+        /// `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ManaTypeHolder.cs` 里 `SetMana` 的尾巴就是
+        /// `if (!silently) { if (useTweenOnValueChange) DoTextAnim(); **TryDOVfx(targetValue);** }`（直接命名调用）；
+        /// 任务点那档的子类 `ManaTypeQPHolder : ManaTypeHolder` 覆写 `SetMana` 时也调 `base.TryDOVfx(targetValue)`。
+        /// 字段偏移以 `d:/2/tools/il2cpp_out/dump.cs:39200-39232` 为准：
+        /// `useVfxOnValueChange +0x28` · `vfxOnValueUp +0x30` · `vfxOnValueDown +0x38` · `currentValue +0x70`
+        /// ⇒ 与 `TryDOVfx.c` 里读的那四个偏移逐一对上。</para>
+        ///
+        /// <para>**实例实读（13 场 × 每场 2 份 `QuestPointsHolder`，共 26 份）**：
+        /// `useVfxOnValueChange = 1` · `vfxOnValueUp = 5bbc15aa244637d4b97044b12cb02b00`（`Quest UI Gain`）·
+        /// `vfxOnValueDown = 2223a4d235c6dbb44bc92c2db85bc13d`（**`Quest UI Trigger`**）。
+        /// 例：`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/
+        /// MonoBehaviour_4525.json:24`。映射在 `CardPresentation/Core/VfxMap.cs` 的 `ByEvent`。</para>
+        ///
+        /// <para>🔴 **「扣」⛔ 不伪装成 `GainQuest` 的正数**（调度台 2026-10-31 裁定）：原版那两个槽是
+        /// **两件不同的 prefab**（`Quest UI Gain` vs `Quest UI Trigger`），合成一条会丢掉「向下」这一档的
+        /// 语义；而且 `GainQuest` 的既有消费端（事件广播 / 日志 / 成就）会把这个 `Amount` 当成「加了 N 点」。</para>
+        ///
+        /// <para>⚠️ **发出点只此一处** = `EffectResolver.QuestPointThreshold`（全仓唯一一处
+        /// `ps.QuestPoints -= step`；原版的阈值扣减也只发生在 `PlayerManager.AddQuestPoints` 里）。
+        /// ⚠️ 纯表现信号：走 `ctx.Signals.Add`（与 <see cref="GainQuest"/> 同一条路）、**不进 `ctx.Events`**
+        /// ⇒ **不动 `NetProtocol.Fingerprint`**、不进动作流、不影响本地录像 / 联机。</para>
+        /// </summary>
+        QuestSpent,
     }
 
     /// <summary>

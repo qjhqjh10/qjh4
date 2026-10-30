@@ -292,11 +292,11 @@ namespace CardPresentation
             if (h != null) h(army);
         }
 
-        /// <summary>战斗/任务给锻造点（原版 `ForgeHandler.CollectPoints(Points point, int amount)`，
-        /// `Everguild/LiveOps/ForgeHandler.cs:324` —— 原版是**服务端**加点）。
-        /// 🔴 **2026-10-27（B88-E7）**：本仓原来**没有生产侧的加点入口**（只有 `SetLevelForTest` 改数）
-        /// ⇒ 补这一格。⚠️ **生产调用点还欠**：`BattleDriver` 的结算那一拍（本波那文件有别的写手，
-        /// 见 `资料/完全复刻/调度台日志.md` 的文件所有权表）⇒ 现在**谁都不会调它**，如实记在这里。</summary>
+        /// <summary>给锻造点（原版 `ForgeHandler.CollectPoints(Points point, int amount)`，`Everguild/LiveOps/ForgeHandler.cs:324`）。
+        /// 🔴 **2026-10-31（B104_P1 · 铁律 5 就地订正）**：原版这条**点上账的唯一来源是服务器奖励项** ——
+        /// `ForgePoints : Points&lt;ForgeHandler&gt;` → `Points&lt;T&gt;.Collect` → `CollectPoints`；奖励由 `RewardService.Collect` 发
+        /// （`RewardService.cs:681-694` 的 `typeof(Points)` 支），而 `ForgePoints` 只出现在服务端奖励表（`CSVReader.cs:202`）⇒ 本地没有该来源。
+        /// **判 D（服务器侧 ⇒ 不接生产调用点）**：`AddPoints` 保持零调用入口，⛔ 别在结算里自造「打赢给几点」。</summary>
         public static void AddPoints(string army, int amount)
         {
             if (string.IsNullOrEmpty(army) || amount == 0) return;

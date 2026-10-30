@@ -328,18 +328,17 @@ public static partial class RuleEngineTest
         //      ⚠️ 曾经是 7 —— 其中 `BroadcastTurnStartHandHops` 那一层已被 DG1 γ2 删掉
         //      （T24 的「只入队」契约优先）。
         //   数字全部是 `W61CountPumpPoints` 2026-10-30 现算的结果，不是估值；判别力未变。
-        Check(nRule, 22, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 22"
-                     + "（2026-10-30 现读 = 22。比上一档 20 多两处 = `:1975` 的**行尾注释提及** ＋ `:17428` `TryCancelAttackByUnits`；"
-                     + "上一档那三处现读 = `:6584` Landing **续攻出队**那一拍 · `:8135` `RevealSecretOrders` wrapper · "
-                     + "`:15381` `UseActiveAbility`（`A3` 的主动能力入口）"
-                     + " —— 都是**该包的地方包了**，不是扫描器多算）");
+        Check(nRule, 23, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 23"
+                     + "（2026-10-31 现读 = 23：上一档 22 + `B104_D` 的 `BeginTurnTail` 作用域 —— "
+                     + "抽牌推迟把 `BeginTurnCore` 拆成 pre/post 两段，post 段必须自立作用域"
+                     + " ⇒ 该包；判据 `B104_T21与多目标_时间线_施工单.md` D1）");
         Check(nEff, 6, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 6"
                      + "（2026-10-30 现读 = 6：`PlayTacticCore` :2538 · `BroadcastWhen` 壳 :9914 · `GrantDarkPact` 壳 :12394 · "
                      + "**`BroadcastCreatedCardWithWarlordPreCall` :18238**（2026-10-28 `B89_RD` 订正：3→4 —— `E6` 账 L638/L639 的新件把「预调督军 + 棋盘广播」成对包进同一作用域，`ActionScope` 嵌套安全 `ActionPump.cs:88`）· "
                      + "`HandHops` :18892 · `BroadcastUnitDamagedHandHops` :19034（2026-10-29 `B94_Z2`）；"
                      + "⚠️ 曾短暂是 7 —— 原 `:18882 BroadcastTurnStartHandHops` 那层作用域已按 DG1 γ2 删掉（T24「只入队」契约优先）；"
                      + "旧写的 :2042/:8341/:10185 是**过期行号**）");
-        Check(nRule + nEff, 28, "★ T26 **泵点总数 = 28**（22 + 6；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+        Check(nRule + nEff, 29, "★ T26 **泵点总数 = 29**（23 + 6；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
     }
 
     /// <summary>`T26` 的行扫描：**整行正则** —— 行内**任意位置**出现

@@ -238,19 +238,24 @@ namespace CardPresentation
             }
             // 🔴 原版 `CampaignNode.Collect` 的闸**只有** `State ∈ {10, 40}`（`CampaignNode__Collect.c:29-33`）⇒ **没有逐档拒绝**：
             //    原来那两句 `if (_prem[i]) …高级档已经领过了` / `if (_base[i]) …基础档已经领过了` 是原版没有的，还会把**可重复节点的重复领**挡死 ⇒ 已删，⛔ 别加回来。
-            MarkSuccessorsUnlocked(i);                     // 原版 `Collect` 末段：相邻 `locked(0)` 节点 → `unlocked(10)`（会话内有效）
+            // 🆕 **2026-10-31（`B104_P3`）次序改了**：原来是「改 `_base`/`_prem` → `MarkSuccessorsUnlocked` → `SaveToSave()`」，
+            //    而 `SaveToSave()` 的返回值被丢掉 ⇒ **写盘失败也 `return true`（窗上显示「已领取」，重启后却没有）**。
+            //    现在 = **改标记 → 落盘 → 成功了才做那两件副作用**；落盘失败 ⇒ 撤销标记 + `why` 说清 + `false`。
+            //    （`MarkSuccessorsUnlocked` 与 `NotifyCampaignCompletionIfAllClaimed` 都**只读**标记表 ⇒ 挪到落盘之后语义不变。）
             if (tier == TierPremium)
             {
                 _prem[i] = true;                           // 原版：高级档**只**写 premList、⛔ 不写 basicList（`…_g__OnCollect_2.c:140-165`）
+                if (!SaveToSave()) { _prem[i] = false; why = "这一格的进度**没能落盘**（存档写不进去）⇒ 这次领取不算数"; return false; }
+                MarkSuccessorsUnlocked(i);                 // 原版 `Collect` 末段：相邻 `locked(0)` 节点 → `unlocked(10)`（会话内有效）
                 // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_16`（完成战役）的唯一写点（判据 §B-3 #8）。
                 NotifyCampaignCompletionIfAllClaimed();
-                SaveToSave();                              // 🆕 2026-10-27（E3CMP）：进度落盘
                 return true;
             }
             _base[i] = true;
+            if (!SaveToSave()) { _base[i] = false; why = "这一格的进度**没能落盘**（存档写不进去）⇒ 这次领取不算数"; return false; }
+            MarkSuccessorsUnlocked(i);                     // 原版 `Collect` 末段（同上）
             // 🆕 同上：这一格领完可能就是**最后一格** ⇒ 每次成功领取都问一次（幂等，见那个方法）。
             NotifyCampaignCompletionIfAllClaimed();
-            SaveToSave();                                  // 🆕 2026-10-27（E3CMP）：进度落盘
             return true;
         }
 
@@ -340,7 +345,8 @@ namespace CardPresentation
         public static void Select(string army)
         {
             if (string.IsNullOrEmpty(army)) return;
-            foreach (var a in Armies) if (a == army) { Selected = a; SaveToSave(); return; }   // 🆕 2026-10-27（E3CMP）：选中的阵营也落盘
+            // 🆕 **2026-10-31（`B104_P3`）**：落盘失败 ⇒ **撤销选中**（否则窗上显示新阵营、重启却回旧的）。
+            foreach (var a in Armies) if (a == army) { string prev = Selected; Selected = a; if (!SaveToSave()) { Selected = prev; } return; }   // 🆕 2026-10-27（E3CMP）：选中的阵营也落盘
         }
 
         /// <summary>节点图上某一格的**显示名**（我们只有 `NodeId`；原版节点上也不印名字，这里给 tooltip/诊断用）。</summary>
@@ -667,7 +673,9 @@ namespace CardPresentation
         }
 
         /// <summary>把当前进度写回盘（`Claim` 成功 / `Select` 之后）。`StoreOn == false` 时它自己会丢弃并出声。</summary>
-        static void SaveToSave()
+        /// <returns>🆕 **2026-10-31（`B104_P3`）**：这次算不算成功 —— 落盘门**关着**（批处理 / 自检）⇒ 设计上的空操作
+        /// ⇒ `true`；门**开着却写失败** ⇒ `false`（已 `LogError` 出声）。调用方据此**撤销内存改动 / 不报成功**。</returns>
+        static bool SaveToSave()
         {
             var b = new SaveBlob { selected = Selected };
             for (int i = 0; i < Nodes.Length; i++)
@@ -675,7 +683,11 @@ namespace CardPresentation
                 if (_base[i]) b.baseClaimed.Add(Nodes[i].Id);
                 if (_prem[i]) b.premClaimed.Add(Nodes[i].Id);
             }
-            SaveCenter.Set(SaveKeys.ActiveCampaign, b);
+            bool ok = SaveCenter.Set(SaveKeys.ActiveCampaign, b);   // 🔴 原来这句的返回值被丢掉 ⇒ 写盘失败也当成功
+            if (ok || !SaveCenter.StoreOn) return true;
+            UnityEngine.Debug.LogError("[Campaign] 战役进度**没能落盘**（" + (SaveCenter.LastWriteError ?? "`SaveCenter` 没给出原因")
+                         + "）⇒ 这次领取 / 选择**不算数**（原版进度由服务器持久；本地写不下去就当没做，⛔ 不假装成功）");
+            return false;
         }
 
         // ============================================================ 会话内解锁（原版 `Collect` 的当场副作用）

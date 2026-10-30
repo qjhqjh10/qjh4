@@ -90,8 +90,11 @@ namespace CardPresentation
             layoutElement.preferredWidth = rect.height;             // `.c`：`get_rect` 的第 4 个 float 直喂 set_preferredWidth
         }
 
-        /// <summary>原版 `OnValidate()`：两个引用为空时**自己补上**（`GetComponent` 抓同节点的件）。</summary>
-        protected override void OnValidate()
+        /// <summary>原版 `OnValidate()`：两个引用为空时**自己补上**（`GetComponent` 抓同节点的件）。
+        /// ⚠️ 2026-10-31（`B104` · player 构建实测）：**不能写 `override`** —— `UIBehaviour` 没有这个方法，
+        ///    编辑器程序集里碰巧编过、**player 构建 `CS0115`**（`PlayerBuild.Run` 日志 :2473）。
+        ///    Unity 按名字调消息方法，`protected void OnValidate()` 即可。</summary>
+        protected void OnValidate()
         {
             if (!rectTransform) rectTransform = GetComponent<RectTransform>();
             if (!layoutElement) layoutElement = GetComponent<LayoutElement>();

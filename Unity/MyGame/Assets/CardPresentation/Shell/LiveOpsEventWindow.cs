@@ -1908,8 +1908,11 @@ namespace CardPresentation
                               + pick.PrebuiltDeck.defensiveNameZh + "」" + pick.PrebuiltDeck.defensiveId + "）");
                     return;
                 }
-                int idx = CollectionData.IndexOf(pick.Info.Name);
-                if (idx >= 0)
+                // 🔴 **2026-10-31（B104_P4）**：原来拿**卡组名**回查下标（`CollectionData.IndexOf(pick.Info.Name)`）
+                //   ⇒ 同名卡组永远落到第一套（选错牌组、且不报错）。`DeckPick.OwnIndex` = 列表构造那一刻的库内下标
+                //   （`DeckSelectionPopup.Shown()` 里就是 `i`），它才是身份。⛔ 别退回按名回查。
+                int idx = pick.OwnIndex;
+                if (idx >= 0 && idx < CollectionData.DeckCount())
                 {
                     DeckIndex = idx;
                     PickedPrebuilt = null;
@@ -1917,6 +1920,8 @@ namespace CardPresentation
                     SyncArmyToShownDeck();  // 🆕 E11：同预组支
                     RefreshDeckColumn();
                 }
+                else Debug.LogWarning("[Event] 选卡组回调拿到的下标 " + idx + " 不在库里（" + CollectionData.DeckCount()
+                                    + " 套）⇒ **不选**（出声，不静默无事发生）");
             }, DeckGameMode, info => DeckRules.SameFaction(info.Faction, SelectedArmyFaction), CurrentDeckModeForSelection());   // 🆕 2026-09-26 模式筛 + 🆕 B90-N3：第 4 个实参谓词 = 原版 `d.Army == currentArmy` ｜ 🆕 B92_N9：第 5 个实参 = 原版 `context.Deck.GameMode`（`_TryOpen_b__10_0` 的**二选一**闸，见 `DeckSelectionPopup.ModePasses`）
             Manager.OpenWindow(w);
             LastDeckSelection = w;
@@ -2115,28 +2120,45 @@ namespace CardPresentation
         }
 
         // ------------------------------------------------------------ 每活动卡组槽（原版 `IPlayEvent.GetDeck/SetDeck`）
-        /// <summary>「活动 id → 该活动上次选的那副卡组名」。原版这一格住在**活动存档**里
-        /// （`IPlayEvent.GetDeck()` / `SetDeck(deck)`；判据 = `RankedDeckSelector__Initialize.c` 的接口槽 **9**、
-        /// `RankedDeckSelector__ChangeDeck.c` 里 `FUN_1800121a0(8, …)` 那一跳）；我们的活动对象在
-        /// `Shell/LiveOpsEvent.cs`（**不在本批白名单**）⇒ 这一格先放在本类。
-        /// <para>🔶 自己设计（非原版）：**只存内存、跨进程不持久**。为什么必须这样：落盘要走 `SaveCenter`，
-        /// 而它只收**键表里有的 key**（`SaveCenter.ValidateKey` → `SaveKeys.IsKnown`），`Shell/SaveKeys.cs`
-        /// 不在本批白名单 ⇒ 加不了新 key（⛔ 也不该借一个原版 key 混写）。后果：同一进程里两个活动交替玩
-        /// **已经各记各的**（= 原版语义），**重开游戏会丢**。谁定的 + 日期：调度台 B90 2026-10-28。</para></summary>
-        static readonly Dictionary<string, string> _eventDeckSlot = new Dictionary<string, string>();
+        /// <summary>「活动 id → 该活动上次选的那副卡组」。原版这一格住在**活动存档**里，存的是**卡组身份串**
+        /// （`PlayEventSaveGame.defaultDeckId`，`d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlayEventSaveGame.cs` 现读；
+        /// 接口 = `IPlayEvent.GetDeck()` / `SetDeck(deck)`，判据 = `RankedDeckSelector__Initialize.c` 的接口槽 **9**、
+        /// `RankedDeckSelector__ChangeDeck.c` 里 `FUN_1800121a0(8, …)` 那一跳）。
+        /// <para>🔴 **2026-10-31（B104_P4）订正（铁律 5）**：本段原文写「只存内存、跨进程不持久」——
+        /// **已过期**（B92_N9 起写 `_ours_EventDeckSlot` 落盘）；同时把**身份从「卡组名」换成「卡组 id」**
+        /// （原版存的就是 id；按名在两个同名卡组之间会选错）。旧档只有名字 ⇒ 读档时保留名字作**回落**。</para>
+        /// <para>⚠️ 本仓的 `PlayerDeck` 原本没有 id 字段 ⇒ 2026-10-31 用 `partial` 补了 `PlayerDeck.DeckId`
+        /// （`RuleEngine/Data/DeckLibrary.cs` 文件尾；旧档第一次用到时由 `EnsureDeckId` 补发并落盘）。</para></summary>
+        struct EventDeckSlotRec { public string DeckId; public string DeckName; }
+        static readonly Dictionary<string, EventDeckSlotRec> _eventDeckSlot = new Dictionary<string, EventDeckSlotRec>();
 
         /// <summary>`Open()` 用哪一套当「当前」：先查**本活动**记的那副（原版 `currentEvent.GetDeck()`）；
-        /// 没记过 / 没有 `EventId` / 那副已经不在库里 ⇒ 回落全局当前（= 改前的行为，⛔ 不是新语义）。</summary>
+        /// 没记过 / 没有 `EventId` / 那副已经不在库里 ⇒ 回落全局当前（= 改前的行为，⛔ 不是新语义）。
+        /// <para>查法：**先按 id**（原版 `defaultDeckId`）；只有「旧档那条记录里没有 id」时才按名回落（并出声）。</para></summary>
         int EventDeckIndex()
         {
             if (!string.IsNullOrEmpty(EventId))
             {
-                string name;
-                if (_eventDeckSlot.TryGetValue(EventId, out name) && !string.IsNullOrEmpty(name))
+                EventDeckSlotRec rec;
+                if (_eventDeckSlot.TryGetValue(EventId, out rec))
                 {
-                    int i = CollectionData.IndexOf(name);
+                    int i = CollectionData.IndexOfDeckId(rec.DeckId);
                     if (i >= 0) return i;
-                    Debug.Log("[Event] 活动 `" + EventId + "` 记的那副「" + name + "」已经不在库里 ⇒ 回落全局当前");
+                    if (string.IsNullOrEmpty(rec.DeckId) && !string.IsNullOrEmpty(rec.DeckName))
+                    {
+                        // 🔴 旧档（B92_N9 起的记录只存名字）⇒ 按名回落。⚠️ 同名卡组之间这一步有歧义（取第一套），
+                        //    所以**出声**；下一次 `RememberEventDeck` 会把它升级成 id。
+                        i = CollectionData.IndexOf(rec.DeckName);
+                        if (i >= 0)
+                        {
+                            Debug.LogWarning("[Event] 活动 `" + EventId + "` 的卡组槽是**旧档**（只有名字「"
+                                           + rec.DeckName + "」、没有 id）⇒ 按名回落，**同名卡组之间有歧义**；"
+                                           + "本窗一重建就会升级成 id。");
+                            return i;
+                        }
+                    }
+                    Debug.Log("[Event] 活动 `" + EventId + "` 记的那副（id = `" + (rec.DeckId ?? "")
+                              + "` · 名 =「" + (rec.DeckName ?? "") + "」）已经不在库里 ⇒ 回落全局当前");
                 }
             }
             return CollectionData.CurrentIndex();
@@ -2145,21 +2167,31 @@ namespace CardPresentation
         /// <summary>把「现在画着的这一副」记回本活动（= 原版 `currentEvent.SetDeck(deck)`）。
         /// 由 `RefreshDeckColumn` 收尾调（改卡组的 4 条路都经过它）。
         /// 预组档不记（原版 `SetDeck` 收的是 `CardDeck`，预组走我们另一条通道 `PickedPrebuilt`）；
-        /// 空态（没有卡组对象）也不记 —— ⛔ 别把「空」写成一条记录（那会让下次开窗误判成「记过」）。</summary>
+        /// 空态（没有卡组对象）也不记 —— ⛔ 别把「空」写成一条记录（那会让下次开窗误判成「记过」）。
+        /// 🔴 存的**主动是 id**（原版 `PlayEventSaveGame.defaultDeckId`）；名字跟着存一份只为诊断 / 旧档回落。</summary>
         void RememberEventDeck()
         {
             if (string.IsNullOrEmpty(EventId)) return;          // 没有事件实例 ⇒ 原版这一跳根本不存在
             if (PickedPrebuilt != null) return;
             var raw = CollectionData.Raw(DeckIndex);
             if (raw == null || string.IsNullOrEmpty(raw.Name)) return;
-            _eventDeckSlot[EventId] = raw.Name; SaveEventDeckSlots();   // 2026-10-28（B92_N9）：写进 `_ours_` 存档（原版住在活动存档里）
+            string id = CollectionData.EnsureDeckId(DeckIndex);   // 旧档第一次用到时现发 + 落盘（失败由它自己出声）
+            _eventDeckSlot[EventId] = new EventDeckSlotRec { DeckId = id, DeckName = raw.Name };
+            SaveEventDeckSlots();                               // 2026-10-28（B92_N9）：写进 `_ours_` 存档（原版住在活动存档里）
         }
 
-        /// <summary>自检口：读某活动记的那副卡组名（没记过 ⇒ null）。</summary>
+        /// <summary>自检口：读某活动记的那副**卡组名**（没记过 ⇒ null）。身份判据看 <see cref="EventDeckSlotIdFor"/>。</summary>
         public static string EventDeckSlotFor(string eventId)
         {
-            string name;
-            return !string.IsNullOrEmpty(eventId) && _eventDeckSlot.TryGetValue(eventId, out name) ? name : null;
+            EventDeckSlotRec rec;
+            return !string.IsNullOrEmpty(eventId) && _eventDeckSlot.TryGetValue(eventId, out rec) ? rec.DeckName : null;
+        }
+
+        /// <summary>自检口：读某活动记的那副**卡组 id**（没记过 / 旧档没 id ⇒ null）。</summary>
+        public static string EventDeckSlotIdFor(string eventId)
+        {
+            EventDeckSlotRec rec;
+            return !string.IsNullOrEmpty(eventId) && _eventDeckSlot.TryGetValue(eventId, out rec) ? rec.DeckId : null;
         }
 
         /// <summary>自检口：清空每活动槽（⚠️ 只给断言用；⛔ 正式代码别调）。</summary>
@@ -2212,12 +2244,14 @@ namespace CardPresentation
         //  ⚠️ 形状：`JsonUtility` **不能序列化 Dictionary** ⇒ 落成「行数组」。
         //  ⚠️ 读不到 / 坏档 ⇒ 空表 + **出声**（`SaveCenter` 自己会说话）⇒ 退回「回落全局当前」的旧行为，⛔ 不静默造一条记录。
         // ================================================================================================
-        /// <summary>我们自定的存档键：**活动 id → 该活动上次选的卡组名**。</summary>
+        /// <summary>我们自定的存档键：**活动 id → 该活动上次选的那副卡组**（🔴 2026-10-31 起**主动是卡组 id**，
+        /// 与原版 `PlayEventSaveGame.defaultDeckId` 同形；`DeckName` 只是诊断 / 旧档回落）。</summary>
         public const string EventDeckSlotKey = SaveKeys.OursPrefix + "EventDeckSlot";
 
-        /// <summary>落盘一行。（`JsonUtility` 要 public 字段 + `[System.Serializable]`）</summary>
+        /// <summary>落盘一行。（`JsonUtility` 要 public 字段 + `[System.Serializable]`）
+        /// 🔴 **2026-10-31（B104_P4）新增 `DeckId`**：旧档没有这个键 ⇒ 反序列化成 `null` ⇒ 走「按名回落」那一支，不丢记录。</summary>
         [System.Serializable]
-        public class EventDeckSlotRow { public string EventId; public string DeckName; }
+        public class EventDeckSlotRow { public string EventId; public string DeckId; public string DeckName; }
 
         /// <summary>`EventDeckSlotKey` 的 payload（一份 JSON 对象）。</summary>
         [System.Serializable]
@@ -2235,8 +2269,11 @@ namespace CardPresentation
             int n = 0;
             foreach (var row in f.Items)
             {
-                if (row == null || string.IsNullOrEmpty(row.EventId) || string.IsNullOrEmpty(row.DeckName)) continue;
-                _eventDeckSlot[row.EventId] = row.DeckName; n++;
+                // 旧档（B92_N9 起）只有 DeckName、没有 DeckId ⇒ **照样读进来**，解析时按名回落（见 `EventDeckIndex`）。
+                if (row == null || string.IsNullOrEmpty(row.EventId)) continue;
+                if (string.IsNullOrEmpty(row.DeckId) && string.IsNullOrEmpty(row.DeckName)) continue;
+                _eventDeckSlot[row.EventId] = new EventDeckSlotRec { DeckId = row.DeckId, DeckName = row.DeckName };
+                n++;
             }
             Debug.Log("[Event] 读到每活动卡组槽 " + n + " 条（`" + EventDeckSlotKey + "`）");
         }
@@ -2246,8 +2283,14 @@ namespace CardPresentation
         {
             var f = new EventDeckSlotFile();
             foreach (var kv in _eventDeckSlot)
-                if (!string.IsNullOrEmpty(kv.Key) && !string.IsNullOrEmpty(kv.Value))
-                    f.Items.Add(new EventDeckSlotRow { EventId = kv.Key, DeckName = kv.Value });
+                if (!string.IsNullOrEmpty(kv.Key)
+                    && (!string.IsNullOrEmpty(kv.Value.DeckId) || !string.IsNullOrEmpty(kv.Value.DeckName)))
+                    f.Items.Add(new EventDeckSlotRow
+                    {
+                        EventId = kv.Key,
+                        DeckId = kv.Value.DeckId,
+                        DeckName = kv.Value.DeckName,
+                    });
             if (!SaveCenter.Set(EventDeckSlotKey, f))
                 Debug.LogWarning("[Event] 每活动卡组槽**没落盘**（`" + EventDeckSlotKey + "`）⇒ 这一局里记的，重开游戏会丢");
         }

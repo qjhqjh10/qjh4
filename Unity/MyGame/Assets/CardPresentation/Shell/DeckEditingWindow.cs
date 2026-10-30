@@ -179,8 +179,39 @@ namespace CardPresentation
         /// 那三条在 `MainMenuRuntime.SetNavPanelVisible` 里逐句照做了，⛔ 别在这儿重写一份。</summary>
         public override void Close()
         {
+            // 🆕 **2026-10-31（B104_P26 · P2-2）**：经 `WindowsManager` / 外部的关法（`CloseAllWindows`、
+            //   `CloseWindow<T>()`、`GameWindow.Close()` 那些入口）也要**查脏** —— 原版的「关窗」只有
+            //   关闭钮走 `TryClose`（`__TryClose.c:9` 判 `syncedToServer==0` ⇒ `ConfirmDiscard`），而
+            //   我们多出一条「管理器直接 `Close()`」的路：那条路以前**静默丢弃**玩家的改动。
+            //   ⚠️ 运行时自己的离场链（`DeckRuntime.LeaveByHostWindow`）走 `CloseFromRuntime()` 绕开本闸 ——
+            //   那一跳**已经查过脏 / 玩家已选 Discard**（`RollBackEditingCopy` 会清脏），不能再弹一次。
+            //   🔶 自己设计（非原版）：原版 `DeckEditingWindow__Close.c` 本身**不查脏**（只有关闭钮 TryClose 查）·
+            //   我们的管理器多出一条 Close 路，不补这道闸就会静默丢改动 · 调度台 2026-10-31 裁定（P2-2）。
+            if (!_bypassDirty && _runtime != null && _runtime.DeckDirty)
+            {
+                Debug.Log("[DeckWin] 经 `WindowsManager`/外部 `Close()` 关窗：卡组是**脏的** ⇒ 走查脏"
+                          + "（= 原版关闭钮 `TryClose` 那条链；⛔ 不为「关掉就算」而静默丢弃改动）");
+                _runtime.TryClose();      // 脏 ⇒ 弹「丢弃改动?」并**留在窗里**；玩家选 Discard 后由离场链再关
+                return;
+            }
             MainMenuRuntime.SetNavPanelVisible(true, true);
             base.Close();
         }
+
+        // ============================================================ 🆕 2026-10-31（B104_P26 · P2-2）
+        //   ⚠️ 追加在**类尾**（本文件在账里被按 `文件:行号` 引用 3 处：126 / 161 / 180）⇒ 上面的行号零漂移。
+
+        /// <summary>运行时自己的离场链用这一口（`DeckRuntime.LeaveByHostWindow`）—— 那一跳已经查过脏
+        /// （`TryClose` 的干净支 / 玩家点了 `Discard` 且 `RollBackEditingCopy` 已清脏）⇒ **不许再弹一次**。
+        /// ⛔ 别让 `LeaveByHostWindow` 直接 `Close()`：会经上面新加的查脏闸、脏标记没清时**二次弹窗**。</summary>
+        public void CloseFromRuntime()
+        {
+            _bypassDirty = true;
+            try { Close(); }
+            finally { _bypassDirty = false; }
+        }
+
+        /// <summary>正在走「运行时离场链」⇒ `Close()` 不再查脏（见 <see cref="CloseFromRuntime"/>）。</summary>
+        bool _bypassDirty;
     }
 }

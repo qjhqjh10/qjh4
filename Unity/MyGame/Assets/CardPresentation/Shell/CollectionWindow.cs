@@ -5329,14 +5329,25 @@ namespace CardPresentation
         /// 原版就是这条：点格 ⇒ 选中，由窗里的 `Edit Deck` 才进编辑。
         /// 🔴 **2026-10-13（A600）**：`CollectionData.Select` 的返回值现在**要读** —— 它内部那次落盘失败会让
         /// 「你选的那一套」**切场景后失效**（`BattleDriver.PickSavedDeck` 从磁盘重读 ⇒ 战斗拿旧的那套）。
-        /// ⚠️ 下面那趟重建**照旧无条件跑**：内存里的选中态未必没变（落盘失败那一支**是**变了的），
-        /// 而且格子高亮读的就是 `CurrentIndex()`（见 `BuildDeckCell` 的 `i == CollectionData.CurrentIndex()`）。</summary>
+        /// 🔴 **2026-10-31（B104_P4）改了失败档的收尾**（原文：「重建**照旧无条件跑**」—— 那句已过期，留痕）：
+        /// 选中**失败** ⇒ **出声（原版错误出口）+ 把当前卡组/高亮放回原来那套 + 不开详情窗**。
+        /// 为什么不再照旧重建/开窗：失败那一档是「内存改了、盘上没改」⇒ 再重建就把它画成「选中了」、
+        /// 再开详情窗就等于替玩家确认了一次没落盘的选择。原版对位 = 写失败走
+        /// `ErrorPopupWindowController.ShowErrorMessage`（`CustomErrors/ErrorDataSync` 这一档；
+        /// 判据 → `Shell/ErrorPopupWindowController.cs` 文件头 + 官方全表里这条键在）。
+        /// ⚠️ **回滚只在这里做**（`CollectionData.Select` 内部**不**回滚 —— A600 的既有断言钉着「失败时内存已换」那条语义）。</summary>
         public void SelectDeck(int i)
         {
             if (i != CollectionData.CurrentIndex())
             {
+                int prev = CollectionData.CurrentIndex();
                 if (!CollectionData.Select(i))
+                {
                     Debug.LogWarning("[Collection] 选中第 " + i + " 套失败：" + CollectionData.LastSelectError);
+                    CollectionData.RestoreSelection(prev);      // 高亮 / 当前卡组**不动**（内存摆回原值；盘上本来就没改）
+                    ErrorPopupWindowController.ShowErrorMessage(CustomError.ErrorDataSync);
+                    return;
+                }
                 var pr = PageRoot(0);
                 // 🆕 2026-10-17（`A1642`）：两层容器之下 ⇒ 改递归找（同 `ApplyDeckFilterChanged` 那条注释）
                 var holder = pr != null ? FindDeep(pr, "Deck Scroll View") : null;
@@ -6225,8 +6236,9 @@ namespace CardPresentation
         /// 并**落盘**（原版 `DeckInventory.UpdateOrder`）。
         /// <para>算法照 `ReorderCollectionByHierarchy`（RVA `0x15ED470` 实读）：新下标取自**目标格在移动前的**下标
         /// ⇒ `Remove(from)` 之后直接 `Insert(to)`（移动前 `to` 那格的槽位，移除后正好前移一格给它）。</para>
-        /// <para>⚠️ **按名重排**（`DeckLibrary.UpdateOrder` 的口）：我们没有 `deckId`，`PlayerDeck` 只有 `Name`
-        /// （老账见 `Shell/CollectionData.cs` 文件头）⇒ 同名卡组有歧义，`UpdateOrder` 自己会出声。</para></summary>
+        /// <para>🔴 **2026-10-31（B104_P4）就地订正（铁律 5）**：本行原来写「**按名重排** … 同名卡组有歧义」——
+        /// **已改成按对象身份**（`DeckLibrary.UpdateOrder(IList&lt;PlayerDeck&gt;)`：`newOrder` 里就是库里那些对象本体，
+        /// 与 `PlayerDeck` 有没有 `deckId` 字段无关；同名也不再歧义）。原版对位 = 在 `UpdateOrder` 里比 `deckId`。</para></summary>
         /// <returns>真的写进库并落盘了吗。</returns>
         bool MoveDeckInOrder(int fromPos, int toPos)
         {
@@ -6243,36 +6255,45 @@ namespace CardPresentation
             if (fromPos == toPos) return false;
 
             int n = CollectionData.DeckCount();
-            var names = new List<string>(n);
+            // 🔴 **2026-10-31（B104_P4）改成按【对象身份】重排**（原来把整库转成名字数组交出去 ⇒ 同名卡组重排错）。
+            //   判据 = 原版 `DeckInventory.UpdateOrder(List<CardDeck> newOrder)` 在里面比的正是身份
+            //   （`_UpdateOrder_b__0` = `d.deckId == this.deck.Item.deckId`；见 `DeckLibrary.UpdateOrder(IList<PlayerDeck>)` 的类尾注释）。
+            //   ⛔ 别退回「转名字再交出去」—— 那是本条要修的缺陷。
+            var order = new List<PlayerDeck>(n);
             for (int i = 0; i < n; i++)
             {
                 var d = CollectionData.Raw(i);
-                names.Add(d != null ? (d.Name ?? "") : "");
+                if (d == null)
+                {
+                    Debug.LogWarning("[Collection] 卡组拖拽重排被跳过：库里有空格（第 " + i + " 套取不到）⇒ 位置语义对不上，**不动数据**");
+                    return false;
+                }
+                order.Add(d);
             }
             // 🔴 **只重排模式筛那一段**（`baseIdx` 那些槽位）；别的模式的卡组**留在原位**。
             //   原版是 `UpdateOrder(filteredCollection)`（只把这一组交给背包）—— 我们这份 `UpdateOrder`
-            //   按名字摆整张表，所以必须**自己把非本组的那几格钉回原位**，否则它们会被挤走
+            //   按**整张表**摆，所以必须**自己把非本组的那几格钉回原位**，否则它们会被挤走
             //   （那会是一次「拖一格动全库」的静默破坏）。⚠️ 这是对齐原版**结果**的补丁，不是原版写法。
-            var baseNames = new List<string>(baseIdx.Count);
-            for (int k = 0; k < baseIdx.Count; k++) baseNames.Add(names[baseIdx[k]]);
-            string moved = baseNames[fromPos];
-            baseNames.RemoveAt(fromPos);
-            baseNames.Insert(toPos, moved);          // 新下标 = 目标格**移动前**的序号（同原版 Remove/Insert）
-            for (int k = 0; k < baseIdx.Count; k++) names[baseIdx[k]] = baseNames[k];
+            var baseDecks = new List<PlayerDeck>(baseIdx.Count);
+            for (int k = 0; k < baseIdx.Count; k++) baseDecks.Add(order[baseIdx[k]]);
+            var movedDeck = baseDecks[fromPos];
+            baseDecks.RemoveAt(fromPos);
+            baseDecks.Insert(toPos, movedDeck);      // 新下标 = 目标格**移动前**的序号（同原版 Remove/Insert）
+            for (int k = 0; k < baseIdx.Count; k++) order[baseIdx[k]] = baseDecks[k];
 
             // 🔴 **落盘走 `CollectionData.ReorderDecks`（= 原版 `DeckInventory.UpdateOrder` 的薄口）**。
             //   2026-10-25（`R17`）收掉了 `R13` 那条绕路（`DeckLibrary.Load()` → `UpdateOrder` → `InvalidateLibrary`）：
             //   绕路会**重读一次盘**、丢掉 `CollectionData` 的进程级缓存 ⇒ 将来有人在内存里改了卡组**没落盘**时它会丢。
             //   薄口直接改缓存那一份（`DeckLibrary.UpdateOrder` 原地改 `_decks` 后 `return Save()`）⇒ 顺序当场就是新的，
             //   `RebuildDeckCells` 不必再作废缓存就画得对；失败原因由 `ReorderDecks` 写进 `LastReorderError`（⛔ 别在这里再拼一遍）。
-            if (!CollectionData.ReorderDecks(names))
+            if (!CollectionData.ReorderDecks(order))
             {
                 Debug.LogWarning("[Collection] 卡组拖拽重排失败（是哪一种看 `LastReorderError`，⛔ 别在这里再判一遍）："
                                + CollectionData.LastReorderError);
                 return false;
             }
             // ⚠️ 成功那一支的日志在下面（那两行没动；失败那一支的人话由 `ReorderDecks` 负责）。
-            Debug.Log("[Collection] 卡组拖拽重排：「" + moved + "」→ 第 " + (toPos + 1) + " 格"
+            Debug.Log("[Collection] 卡组拖拽重排：「" + (movedDeck.Name ?? "") + "」→ 第 " + (toPos + 1) + " 格"
                       + "（本组 " + baseIdx.Count + " 套，" + fromPos + " → " + toPos + "）");
             return true;
         }

@@ -1092,8 +1092,10 @@ namespace RuleEngine
         /// `TargetPlayer/TargetSlot/TargetCardId` 是标量；表现层也是按 0/1 个目标处理的，
         /// 见 `BattleDriver.ExpandAbilityBeats` 的多目标拍注释）⇒ **如实记：取第一个**。</para>
         ///
-        /// <para>⚠️ 只在**有延后结算体**的那几条路上 arm（今天是回合起止的棋盘单位那一趟）；
-        /// 其余发射点（监听者 / 天赋 / 605 / 410 …）**保持 `-1`**，理由见
+        /// <para>⚠️ 只在**有延后结算体**的那几条路上 arm（今天两处：回合起止的**棋盘单位**那一趟、
+        /// **手牌陷阱**那一趟 —— 🔴 2026-10-31（`B104_T21` · T21-b）补上后者，两处共用
+        /// `EffectResolver.ResolveWithTriggerTargetSink` 一处 save/restore）；
+        /// 其余发射点（监听者 / 天赋 / 605 / 410 …）**保持 `null`**，理由见
         /// `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md`。</para>
         /// </summary>
         public BattleEvent TriggerTargetSink;
@@ -2666,5 +2668,60 @@ namespace RuleEngine
             if (opts != null) ChoiceOptions.AddRange(opts);
             ChoiceOptionsSource = (ActingUnit != null && ActingUnit.Card != null) ? ActingUnit.Card : PlayingCard;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-31（`B104_D1`）：**回合初抽牌推迟到抬头 1.5 s 之后**（原版 `_NextTurn` 的等待支）
+        //  ⛔ 追加在类尾（`账/*.tsv` 按 `文件:行号` 落点，插中间会让下游整体漂移）。
+        // ==================================================================
+
+        /// <summary>**开关：本局是否把「回合初抽牌」推迟到抬头 1.5 s 之后。**
+        ///
+        /// <para>**判据** = `d:/2/tools/decomp_full/BattleManager._NextTurn_d__395__MoveNext.c`：
+        /// 本地玩家那一支（`:444` 判 `param_1+0x28 != 0`）走 `:483` `ShowHeadsUpMessage(YourTurn)` →
+        /// `:485 WaitForSeconds(1.5)` → `:488 state = 2` ⇒ `:76-78 case 2` → `:360-362`
+        /// （`BroadcastTurnSetup` + `TurnStartCardDraw`）**在等待之后**；
+        /// 对手那一支（`:358` 的 else）**不经过**那道等待，直接 `LAB_1809aaf0c` = `:360-362`。</para>
+        ///
+        /// <para>🔴 **默认 `false`** ⇒ 回放 / 联机 / 自检 / 任何直接调 `RuleCore.BeginTurn` 的路径
+        /// **行为逐字不变**（它们本来就是同步引擎调用，没有「等 1.5 s」这件事）。
+        /// 生产只由 `BattleDriver` 在**本地人类回合**那几拍显式打开（`BattleDriver.PrepareTurnDrawDeferral`）。
+        /// ⛔ 别在引擎里自己猜「这是不是真人局」。</para></summary>
+        public bool DeferTurnDraw;
+
+        /// <summary>推迟**哪一侧**的回合初抽牌（座位号 = 本地人类）。`-1` = 未设置。
+        /// 只在 <see cref="DeferTurnDraw"/> 为真时参与判定（`RuleCore.ShouldDeferTurnDraw`）。</summary>
+        public int DeferSeat = -1;
+
+        /// <summary>**有一次推迟的回合初抽牌还没补上**。
+        /// <para>它由 `RuleCore.BeginTurnCore` 在推迟那一刻置真，由 `RuleCore.ResolvePendingTurnDraw`
+        /// （**唯一补抽口**，生产调用点 = `BattleDriver.HoldForTurnHeadsUp` 那条 1.5 s 的排期）清掉。</para>
+        /// <para>⚠️ 它为真期间手牌比「抽完」少那几张 —— 那是**原版那 1.5 s 的等价物**，不是数据缺失。
+        /// `RuleCore.EndTurnCore` 有一条兜底：换边之前一定先把它补上（⛔ 不允许静默少抽一张）。</para></summary>
+        public bool PendingTurnDraw;
+
+        // ==========================================================================================
+        //  🆕 2026-10-31（执行代理 `B104_MT`）· **当前 activeAbility 的目标表（结算期有效）**
+        //  ⚠️ 位置 = **类尾**（铁律 18·b：本文件有很多账按 `文件:行号` 引用 ⇒ 新成员一律追加在这里）
+        // ==========================================================================================
+        /// <summary>**当前这一条主动能力的目标表**（原版 `AbilityLogic.PlayAbility` 里那份
+        /// `abilityTargets = GetTargets(...)` 的 `CardScript` 列表，`decomp_full/AbilityLogic__PlayAbility.c:262`）。
+        ///
+        /// <para>**谁写**：`RuleCore.AbilityTargetListFromCriteria`（`publishTable: true` 那一跳，只有
+        /// `UseActiveAbilityCore` 会传）—— 写的就是「过了 36 格筛 + `maxTargets` 截断之后**真的**那几个单位」。
+        /// **谁读**：`EffectResolver.ResolveTargetsCore` 的 `spec.Random` 分支 —— 有这张表就**直接吃表**、
+        /// **不再抽随机数**（原版效果层消费的就是这张表，`GetTargets` 的那一次抽取已经在产表时发生过了）。
+        /// **谁清**：`UseActiveAbilityCore` 的**入口**与**出口**各清一次（⛔ 别指望 GC / 下一局 / 回放替你清）。</para>
+        ///
+        /// <para>⚠️ **`null` = 这一次没有表**（不是「空表」）：只有主动能力那一支会产表，
+        /// `UseAbility` / `UseAlternative` / 战术卡 / 触发都没有 ⇒ 消费端保持改前口径（自己抽一次）。</para>
+        /// <para>⚠️ 与 <see cref="AbilityTargetTableOwner"/> **成对使用**：只有**表主人的 op** 才允许消费，
+        /// 否则这条能力结算期间**别人**（嵌套触发 / 队列里别的卡）的随机目标会被这张表顶掉。</para>
+        /// </summary>
+        public List<UnitState> AbilityTargetTable;
+
+        /// <summary><see cref="AbilityTargetTable"/> 的施放者（= 原版 `AbilityData.thisCard`）。
+        /// 消费闸 = `ReferenceEquals(source, AbilityTargetTableOwner)`（`source` = `ResolveTargetsCore` 的施放者形参）。
+        /// ⚠️ 与表同生同灭：产表时一起写、`UseActiveAbilityCore` 两端一起清。</summary>
+        public UnitState AbilityTargetTableOwner;
     }
 }

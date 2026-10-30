@@ -1082,17 +1082,18 @@ public static class BattleScene
                 //   不是「放宽判据」，是那一族**真的多了两个成员**：`UnitAttack(50)` / `UnitDamaged(60)`
                 //   两桶**只有逐卡**（原版没有「通用技能动画」）⇒ 与 `play`/`ability` 同一族。
                 //   「恰好等于 `IsOriginalNoGenericEvent` 那一族」这条不变式**没动**（改的只是那个数）。
-                Check(noGenericSeen.Count == 7
+                Check(noGenericSeen.Count == 8
                       && noGenericSeen.Contains(VfxMap.PlayCard)
                       && noGenericSeen.Contains(VfxMap.Ability)
                       && noGenericSeen.Contains(VfxMap.Death)
                       && noGenericSeen.Contains(VfxMap.Return)
                       && noGenericSeen.Contains(VfxMap.AttackMelee)
                       && noGenericSeen.Contains(VfxMap.UnitAttack)
-                      && noGenericSeen.Contains(VfxMap.UnitDamaged),
-                      "★ 七个事件**都不该由 `ByEvent` 兜底**（`VfxMap.IsOriginalNoGenericEvent`）："
+                      && noGenericSeen.Contains(VfxMap.UnitDamaged) && noGenericSeen.Contains(VfxMap.GainSpirit),
+                      "★ 八个事件**都不该由 `ByEvent` 兜底**（`VfxMap.IsOriginalNoGenericEvent`）："
                     + "`play` / `ability` / `return` / `attack_melee`（原版没有这一档）· `death`（真件走 `CardFeel` 那条二选一）"
                     + "· `unit_attack_anim` / `unit_damaged_anim`（`UnitAttack(50)`/`UnitDamaged(60)`，**只有逐卡**）"
+                    + "· `gain_spirit`（`Waystone UI Gain` 原版无 HUD 槽，2026-10-31 撤销映射）"
                     + $"（实得 {string.Join("/", noGenericSeen.ToArray())}）"
                     + "｜🧨 任何一个挂回替代品 ⇒ 红（`W64` B1/B2/B3/B4 + `W63` §B）");
                 // 🔴 **2026-10-22（P6 · `W64` B8 收口）就地改**：原来这条要 2 个已知缺口
@@ -43930,10 +43931,12 @@ public static class BattleScene
                           $"★ 虫群合并②：落在「还活着那一格」（`e.Slot` = {sSwarm}；实得 {driver.SwarmMergeLastSlot}）"
                         + "｜🧨 用别的格号（例如写死 `slot+1`）⇒ 红");
 
-                    // ③ 存活那张的虫群图标亮起来（`CardView.SetSwarm(true)` 的**游戏内首个调用点**）
-                    Check(vSwarm.SwarmVisible,
-                          "★ 虫群合并③：存活那张的虫群图标**亮起来**（`CardView.SetSwarm(true)`）"
-                        + "｜🧨 删掉 `PlaySwarmMergeFeel` 里那句 `v.SetSwarm(true)` ⇒ 红（这条链仍然是断的）");
+                    // ★ 虫群合并③（`B104_A2` · 2026-10-31 改口径）：原版 `SwarmIconController.Toggle(true)`
+                    //   只在**拖拽预览**（`BattleManager__Update.c:608`），`CardScript__ExecuteSwarm.c` 全文没有它；
+                    //   松手/取消即清（`:418/:303/:208/:620`）。旧那条「合并后图标亮」是把偏离钉成绿灯，已删。
+                    //   ⇒ 改为行为断言：预览亮 / 反例灭 / 松手灭 / 合并拍不亮（含灭自证）。
+                    B104_A2_Assert.RunBehavior(driver);
+                    pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed;
 
                     // ④ 3D 音 cue 真的在 `WFSoundBank` 里（A31 §六·② 那条缺口已由 G3 补齐）
                     Check(driver.SwarmMergeCueFound,
@@ -46702,7 +46705,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail;  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail; if (driver != null && driver.Ctx != null) { B104_T21_Assert.RunPresentation(driver); B104_T21_Assert.RunEngine(driver.Ctx); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; }  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

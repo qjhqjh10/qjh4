@@ -163,7 +163,16 @@ namespace CardPresentation
         static bool _loaded;        // 懒加载过没有（无论读盘成功与否）
         static bool _persist = true; // 自检里置 false（见上面那一段）
 
-        static string SavePath { get { return System.IO.Path.Combine(Application.persistentDataPath, SaveFileName); } }
+        static string SavePath
+        {
+            get
+            {
+                // 🆕 2026-10-31（`B104_P3`）：自检可以用 `OverridePath` 指到别处（含**非法路径**，用来强制写盘失败）
+                return string.IsNullOrEmpty(OverridePath)
+                     ? System.IO.Path.Combine(Application.persistentDataPath, SaveFileName)
+                     : OverridePath;
+            }
+        }
 
         static void EnsureLoaded()
         {
@@ -190,9 +199,13 @@ namespace CardPresentation
             }
         }
 
-        static void Save()
+        /// <summary>落盘。🆕 **2026-10-31（`B104_P3`）**：改成**返回成败**（原来是 `void`，异常只 `LogWarning`
+        /// ⇒ 所有调用方都以为写成功了）。
+        /// <returns>`true` = 写下去了 **或** 本进程按设计不落盘（`_persist == false`，自检档）；
+        /// `false` = **真的写失败**（已 `LogError` 出声，调用方据此撤销内存改动 / 不报成功）。</returns></summary>
+        static bool Save()
         {
-            if (!_persist) return;
+            if (!_persist) return true;       // 自检档 = 设计上的空操作，⛔ 不是失败
             try
             {
                 var d = new CardProgressSave();
@@ -200,11 +213,13 @@ namespace CardPresentation
                 foreach (var kv in _owned) d.owned.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
                 foreach (var kv in _wild) d.wildcards.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
                 System.IO.File.WriteAllText(SavePath, JsonUtility.ToJson(d, true));
+                return true;
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning("[CardProgress] 等级存档写不出（" + SavePath + "）：" + ex.Message
-                               + " ⇒ 本次改动只在内存里（关掉游戏会丢）");
+                Debug.LogError("[CardProgress] 等级存档**写不出**（" + SavePath + "）：" + ex.Message
+                             + " ⇒ 本次改动只在内存里（关掉游戏会丢）");
+                return false;
             }
         }
 
@@ -233,7 +248,10 @@ namespace CardPresentation
             _owned[id] = v;
             return v;
         }
-        public static void AddOwned(string id, string rarity, int n)
+        /// <returns>🆕 **2026-10-31（`B104_P3`）**：拥有数是不是**真的写进了盘** —— `false` 只在
+        /// 「落盘门开着却写失败」时出现（门关着 = 批处理 / 自检档的设计性空操作 ⇒ 算成功）。
+        /// 调用方（`CardDetailPopup.DoCraft`）据此**不报「创建副本成功」**。</returns>
+        public static bool AddOwned(string id, string rarity, int n)
         {
             // 🔴 **2026-10-25（迁移第二步）**：写口也走背包（正本）。
             //   ⚠️ **前提（⛔ 别改）**：收藏的**播种口径必须仍是 `CardProgress.Owned`**
@@ -247,8 +265,12 @@ namespace CardPresentation
             if (info != null) info.SetAmount(System.Math.Max(0, info.Amount + n));
             else _owned[id] = Owned(id, rarity) + n;          // 兜底：卡不在背包里
             // 背包也落一次（`InventoryStore` 自带「批处理不碰玩家存档」那道门 ⇒ 自检里是空操作）
-            InventoryStore.Save(InventoryName, Inventories.Cards);
-            Save();                                   // 🆕 2026-10-18：落盘（见「存档」那一段）
+            // 🆕 **2026-10-31（`B104_P3`）**：两个落盘口的返回值原来都丢掉 ⇒ 写失败也当成功。现在两个都判：
+            //   · 落盘门关着（`InventoryStore.StoreOn == false` / `_persist == false`）= 设计上的空操作 ⇒ 算成功；
+            //   · 门开着却写失败 ⇒ `false`（两个口各自已经出过声，这里只把「算不算成功」这件事交回调用方）。
+            bool invOk = InventoryStore.Save(InventoryName, Inventories.Cards);
+            bool progOk = Save();                                   // 🆕 2026-10-18：落盘（见「存档」那一段）
+            return (invOk || !InventoryStore.StoreOn) && progOk;
         }
         /// <summary>这张卡的等级 —— **等价于原版 `RawCardScript.get_CardTier()` 的 1 基写法**（1..`MaxLevel`）。
         ///
@@ -303,15 +325,12 @@ namespace CardPresentation
             return _wild.TryGetValue(k, out v) ? Mathf.Max(0, v) : WildcardsPerRarity;
         }
 
-        /// <summary>扣 1 张通配符；不够返回 false（**不改任何数**）。点了「创建副本」成功时才调。</summary>
-        public static bool TrySpendWildcard(string rarity)
-        {
-            int have = Wildcards(rarity);
-            if (have <= 0) return false;
-            _wild[(rarity ?? "").ToLowerInvariant()] = have - 1;
-            Save();
-            return true;
-        }
+        /// <summary>🆕 **2026-10-31（`B104_P3`）就地删除**：这里原来是**单参**重载 `TrySpendWildcard(string rarity)`
+        /// （「不分阵营」那一桶的旧口）。全仓 `grep "TrySpendWildcard"` 现读 = **零个调用点**
+        /// （只有 `Shell/Deck/DeckRuntime.cs` 的一段注释提到这个名字），而它自己是 `Save(); return true;`
+        /// —— **写盘失败照样报扣成功**（本波要修的就是这一族）。
+        /// ⇒ **删掉**，而不是留一份「旧口径 + 不看返回值」的实现等人误用（同文件 `Wildcards(string)` 的 doc 也写着
+        /// 「⛔ 新代码别再用这一支」）。要扣通配符一律走两维重载 <see cref="TrySpendWildcard(string,string)"/>。</summary>
 
         /// <summary>多余副本数 = 拥有 − min(拥有, 卡组上限)（**原版 `CardCounterDisplay.Initialize` 的判据**）。</summary>
         public static int Spares(string id, string rarity)
@@ -414,13 +433,23 @@ namespace CardPresentation
         }
 
         /// <summary>扣 1 张 `(army, rarity)` 的通配符；不够返回 `false`（**不改任何数**）。
-        /// 调用方必须判返回值（原版 = 服务端受理才发奖励）。</summary>
+        /// 调用方必须判返回值（原版 = 服务端受理才发奖励）。
+        /// <para>🆕 **2026-10-31（`B104_P3`）**：`Save()` 的返回值原来被丢掉 ⇒ **扣减没落盘也回 `true`**
+        /// （玩家白扣一张：进程里少了、重启又回来了）。现在：真写失败 ⇒ **把这张退回去** + `LogError` + `false`。</para></summary>
         public static bool TrySpendWildcard(string army, string rarity)
         {
             int have = Wildcards(army, rarity);
             if (have <= 0) return false;
-            _wild[WildKey(army, rarity)] = have - 1;
-            Save();
+            string key = WildKey(army, rarity);
+            int prev; bool hadKey = _wild.TryGetValue(key, out prev);   // 回滚用（缺键 = 用出厂值，回滚要删键）
+            _wild[key] = have - 1;
+            if (!Save())
+            {
+                if (hadKey) _wild[key] = prev; else _wild.Remove(key);
+                Debug.LogError("[CardProgress] 扣通配符**没能落盘**（「" + (army ?? "?") + "/" + rarity
+                             + "」）⇒ 这一张**已退回**、这次扣减不算数（⛔ 不白扣玩家的卡）");
+                return false;
+            }
             return true;
         }
 
@@ -528,7 +557,8 @@ namespace CardPresentation
             if (!TrySpendWildcard(army, rarity))
             {
                 Debug.LogWarning("[CardProgress] 合成异画**失败**：`" + (army ?? "?") + "/" + rarity
-                               + "` 的通配符 0 张（原版同一支：`TryGetItem` 找不到 ⇒ 直接 return，不发奖励）");
+                               + "` 的通配符 0 张（原版同一支：`TryGetItem` 找不到 ⇒ 直接 return，不发奖励）"
+                               + "**或**这次扣减没能落盘（2026-10-31 `B104_P3`：那种情况 `TrySpendWildcard` 会把那张退回、并自己 `LogError`）");
                 return false;
             }
             Inventories.AltArts.Add(new AltArtUnlock { CardId = cardId, Style = style }, 1); Inventories.Wildcards.UpdateItemCollection();   // 🔴 2026-10-27（`B9_W63WC` 改动请求 1）：扣成功才发刷新信号（原版 `WildcardInventory.UpdateItemCollection` 里 `Signal.Raise` 的等价物）；不发 ⇒ 扫光只在自检里亮
@@ -536,6 +566,40 @@ namespace CardPresentation
                     + "扣 1 张「" + (army ?? "?") + "/" + rarity + "」通配符（剩 "
                     + Wildcards(army, rarity) + "）—— 原版 `CardServices.CraftAlternateArt`");
             return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-31（`B104_P3`）：写盘成败的两个口 + 扣减的补偿（追加在类尾）
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>本进程按不按设计落盘（`_persist` 的只读口，**不是** `_persist` 本身）。
+        /// <para>🔴 用途 = 区分 <see cref="Save"/> 那两种「不成功」：`PersistOn == false` ⇒ 设计上的空操作（自检档）；
+        /// `PersistOn == true` 而 `Save()` 回 `false` ⇒ **真写盘失败**。调用方⛔ 别把前者当失败。</para></summary>
+        public static bool PersistOn { get { return _persist; } }
+
+        /// <summary>自检专用：把「本进程落不落盘」拨回来（`ResetForTest()` 会把它拨成 `false` 且**没有恢复口**）。
+        /// <para>⛔ 只给自检用 —— 拨成 `true` 的同时**必须**把 <see cref="OverridePath"/> 指到临时/非法位置，
+        /// 否则下一次 `Save()` 会写进开发机上的玩家存档。</para></summary>
+        public static void SetPersistForTest(bool on) { _persist = on; }
+
+        /// <summary>自检用的**存档路径改写口**（`null` / 空 ⇒ 用 `persistentDataPath` 下的默认位）。
+        /// <para>存在理由：本类原来**没有**任何办法制造一次「写盘失败」，而本波要验的正是那条失败支。
+        /// 自检把它指到一个**非法路径**（含 `\0` / 非法字符）⇒ `File.WriteAllText` 抛 ⇒ `Save()` 回 `false`。
+        /// ⚠️ `_persist == false` 时 `Save()` 是空操作（恒 `true`），与路径无关。⛔ 生产路径不设它。</para></summary>
+        public static string OverridePath;
+
+        /// <summary>把 <see cref="TrySpendWildcard(string,string)"/> 扣掉的那一张**退回**。
+        /// <para>唯一用户 = `CardDetailPopup.DoCraft` 的补偿支：扣减落了盘、但紧随其后的「拥有数 +1」没落盘
+        /// ⇒ 不退回就是**白扣玩家一张**。⛔ 别在别处调用（正常路径没有「撤销领取」）。</para>
+        /// <returns>退回之后有没有落盘（`false` = 连退回也写不下去，盘上仍是被扣过的值 —— 已出声）。</returns></summary>
+        public static bool RefundWildcard(string army, string rarity)
+        {
+            int have = Wildcards(army, rarity);
+            _wild[WildKey(army, rarity)] = have + 1;
+            bool ok = Save();
+            if (!ok) Debug.LogError("[CardProgress] 通配符**退回失败**（「" + (army ?? "?") + "/" + rarity
+                                  + "」）⇒ 盘上仍是被扣过的值（内存已退）");
+            return ok;
         }
     }
 
@@ -2507,7 +2571,18 @@ namespace CardPresentation
                                + "」现有 " + CardProgress.Wildcards(Card.Faction, Card.Rarity) + " 张）⇒ 不做后面的 +1、不播特效");
                 return false;
             }
-            CardProgress.AddOwned(Card.Id, Card.Rarity, 1); Inventories.Wildcards.UpdateItemCollection();   // 🔴 2026-10-27（`B9_W63WC` 改动请求 1）：扣成功才发刷新信号（原版 `UpdateItemCollection` 里 `Signal.Raise` 的等价物）
+            // 🆕 **2026-10-31（`B104_P3`）**：`AddOwned` 的两个落盘口原来都不判 ⇒ 没写下去也当成功。
+            //   现在：拥有数没落盘 ⇒ **把刚扣的那张通配符退回**（否则玩家白扣一张）+ 出声 + 回 `false`
+            //   （⛔ 不播特效、⛔ 不报「创建副本」成功 —— 原版这一支是「服务端受理才 owned+1」）。
+            if (!CardProgress.AddOwned(Card.Id, Card.Rarity, 1))
+            {
+                bool refunded = CardProgress.RefundWildcard(Card.Faction, Card.Rarity);
+                Debug.LogError("[CardDetail] 创建副本**失败**：「" + Card.Name + "」的拥有数**没能落盘** ⇒ 扣掉的那张通配符"
+                             + (refunded ? "**已退回**" : "**退回也没落盘**（见上一条 `CardProgress` 的 LogError；盘上仍是被扣过的值）")
+                             + "；这次不算成功、不播特效");
+                return false;
+            }
+            Inventories.Wildcards.UpdateItemCollection();   // 🔴 2026-10-27（`B9_W63WC` 改动请求 1）：扣成功才发刷新信号（原版 `UpdateItemCollection` 里 `Signal.Raise` 的等价物）
             Debug.Log("[CardDetail] 创建副本：「" + Card.Name + "」拥有数 → "
                       + CardProgress.Owned(Card.Id, Card.Rarity)
                       + "；扣 1 张「" + Card.Faction + "/" + Card.Rarity + "」通配符（剩 "

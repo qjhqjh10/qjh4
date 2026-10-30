@@ -168,6 +168,15 @@ namespace CardPresentation
         /// <para>它是那条 `ScreenResolutionChangeSignal` 的处理器（文件头 ⑦②）⇒ 分辨率一变就被调一次。</para></summary>
         public void AdjustCameraViewport()
         {
+            // 🆕 **2026-10-31（B104_P26 · P6）**：`ScreenResolutionChanged` 是静态事件，而编辑模式下
+            //   `DestroyImmediate` 不派 `OnDestroy`（`Detach()` 不跑）⇒ 已销毁的实例还会被信号打到。
+            //   入口先判「我还活着」：死了 ⇒ 出声 + **当场退订** + return（⛔ 别去碰已销毁的相机/矩阵）。
+            if (this == null)
+            {
+                Debug.LogWarning("[Aspect] 已销毁的实例仍被 `ScreenResolutionChanged` 打到 ⇒ **当场 `Detach()`**并 return（不许静默）");
+                Detach();
+                return;
+            }
             AdjustedCount++;
             var vp = ComputeViewport((float)Screen.width / Mathf.Max(1f, Screen.height),
                                      minAspectRatio, maxAspectRatio);
@@ -230,6 +239,14 @@ namespace CardPresentation
         /// <para>⚠️ 批处理没有帧循环 ⇒ 这条**只在真机上抬**（文件头 D）。</para></summary>
         void OnBeginCameraRendering(ScriptableRenderContext ctx, Camera cam)
         {
+            // 🆕 **2026-10-31（B104_P26 · P6）**：同上 —— `RenderPipelineManager.beginCameraRendering` 是静态挂钩，
+            //   编辑模式下 `DestroyImmediate` 不派 `OnDestroy` ⇒ 死实例照样被调 ⇒ 入口先判活、死了当场退订。
+            if (this == null)
+            {
+                Debug.LogWarning("[Aspect] 已销毁的实例仍被 `beginCameraRendering` 打到 ⇒ **当场 `Detach()`**并 return（不许静默）");
+                Detach();
+                return;
+            }
             if (!cleanFrameBuffer) return;
             GL.Clear(false, true, ClearColor);
             cleanFrameBuffer = false;

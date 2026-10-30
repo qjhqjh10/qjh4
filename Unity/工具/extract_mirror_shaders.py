@@ -79,6 +79,10 @@ DEST = r"D:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/wf_arena_mirror.b
 WANT = (
     "Hidden/Everguild/PlanarReflectionsBlit",
     "Hidden/Everguild/GrainyBlurForPlanarReflections",
+    # 🆕 2026-10-31（B104 · VFX 收尾）：Coffee 滤镜族唯一缺的那只；
+    #    与上面两台镜面 shader 同源（`globalgamemanagers.assets` path_id 77），工程资产那条路是死的，
+    #    只能走「载体包 + 运行时加载」。判据 → `报告/B104_UnityOnly.md`。
+    "Hidden/UI/Default (UIEffect)",
 )
 
 SHADER_CLASS_ID = 48   # ClassIDType.Shader（⚠️ **不是 83**，实测）

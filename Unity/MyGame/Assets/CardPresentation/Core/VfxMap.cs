@@ -75,6 +75,20 @@ namespace CardPresentation
         public const string GainFaith    = "gain_faith";      // 获得信仰（修女会）
         public const string GainSpirit   = "gain_spirit";     // 收集灵魂石（灵族）
         public const string GainQuest    = "gain_quest";      // 获得任务点（暗黑天使）
+        /// <summary>🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-b`）：任务点【下降】那一拍**
+        /// （`EvtKind.QuestSpent`，= 满阈值后减掉一个阈值）。
+        ///
+        /// <para>**判据（第一权威）= 原版 `ManaTypeHolder.TryDOVfx`**
+        /// （`d:/2/tools/decomp_full/ManaTypeHolder__TryDOVfx.c`）：值变化按方向取槽 ——
+        /// `last(+0x70) &lt; 新值` 走 `vfxOnValueUp(+0x30)`、否则走 `vfxOnValueDown(+0x38)`，
+        /// 随后 `Instantiate` 在该计数节点的 `transform.position`（**非阻塞**）。
+        /// 13 场 × 2 份 `QuestPointsHolder` 实读：`vfxOnValueDown = 2223a4d235c6dbb44bc92c2db85bc13d`
+        /// = prefab **`Quest UI Trigger`**（26 处 / 13 场；例
+        /// `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4525.json:24`）。</para>
+        ///
+        /// ⚠️ 落点 = **和 `GainQuest` 同一个任务点图标**（原版是同一个 `ManaTypeHolder` 实例的两个槽）
+        /// ⇒ 走 `BattleDriver.IsResourceUiEvent` 那族（HUD 锚点，绕开「`Slot &lt; 0` 就 return」那道闸）。</summary>
+        public const string QuestSpent   = "quest_spent";    // 任务点下降（暗黑天使）
         /// <summary>🆕 2026-09-25：**玩家点走一颗灵魂石**（灵族）。⚠️ 和 `GainSpirit` **不是同一件事** ——
         /// 那条是「玩家资源变了」（挂 HUD 计数图标上），这条是「**在那颗石头原来那一格**播收集特效」。 </summary>
         public const string CollectWaystone = "collect_waystone";
@@ -287,7 +301,8 @@ namespace CardPresentation
         //      其中 `death` 是「原版有真件、但播放口在 `CardFeel`」，不是「原版没有」）；
         //   ② <see cref="IsKnownGapEvent"/>          —— **有真件、我们还没接上**（回 null 但**出声**）。
         /// <summary>① 这些事件**不该由 `ByEvent` 兜底**（`ResolveFallback` 对它们**静默**回 `null`）。
-        /// 两种都算：**原版没有这一档**（`play` / `ability` / `return` / `attack_melee`），
+        /// 两种都算：**原版没有这一档**（`play` / `ability` / `return` / `attack_melee` /
+        /// 🔴 2026-10-31 补的 **`gain_spirit`**：13 场 26 份 `SpiritStoneHolder` 的 `useVfxOnValueChange` 全是 0），
         /// 以及**原版有、但播放口不在本表**（`death`：真件由 `CardFeel.PickDeathFx` 那条二选一放）。
         /// ⚠️ 所以这个名字说的是「`ByEvent` 里留空是对的」，⛔ **不是**「原版没有这件东西」。</summary>
         public static bool IsOriginalNoGenericEvent(string evt)
@@ -301,7 +316,13 @@ namespace CardPresentation
                 //   （`UnitAttack(50)` / `UnitDamaged(60)` 都写在卡的 `cardAbilities[]` 里）
                 //   ⇒ 没这张卡的候选就该静默回 null（⛔ 别让 `WarnNoFactionVariant` 把它当漏配喊出来）。
                 || evt == UnitAttack
-                || evt == UnitDamaged;
+                || evt == UnitDamaged
+                // 🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-a`）：`gain_spirit` 也进这一族 ——
+                //   原版**没有**「灵魂石计数增加」的 UI 特效槽。判据（全量，不是抽查）：13 场 × 2 份
+                //   `SpiritStoneHolder` 共 26 份 `ManaTypeHolder` 实例，**`useVfxOnValueChange` 全部 = 0**、
+                //   `vfxOnValueUp` / `vfxOnValueDown` **全部是空串**；`Waystone UI Gain` 那件 prefab 在全库
+                //   **0 个引用**。逐条证据写在 `ByEvent` 里 `gain_spirit` 那一段注释（⛔ 别把那一行挂回去）。
+                || evt == GainSpirit;
         }
 
         /// <summary>② **有真件、但本机还接不上**的事件（回 `null` **且出声一次**，⛔ 绝不拿替代品顶）。
@@ -431,12 +452,39 @@ namespace CardPresentation
             //    「特效名 → 它的原版触发事件 + 接进 battle.gd 哪个分支」）里，这三件**明明白白写着是 `UI` 类**：
             //      · `Faith UI Gain`    —— 「信仰值(☀)获得时**计数 UI 闪光**」，接在信仰计数 UI 更新处
             //      · `Quest UI Gain`    —— 「任务点获得时计数 UI 闪光」，接在 QP UI 更新处
-            //      · `Waystone UI Gain` —— 「灵族路标石(灵魂石)收集计数 UI 闪光」，接在灵魂石收集结算处
+            //      · `Waystone UI Gain` —— ⛔ **2026-10-31（`B104_W64` · `B6-a`）就地作废这一条**：
+            //        原版灵魂石计数器（`SpiritStoneHolder`）`useVfxOnValueChange = 0`、两个槽都是空串
+            //        （13 场 26 份实例逐一实读）⇒ **原版没有「灵魂石计数 UI 闪光」这个槽**；
+            //        这份台账是**我们自己的 Godot 复刻**，不是原版判据。逐条反证见下面 `gain_spirit` 那一段。
             //    ⇒ 它们挂的是 **HUD 上那个资源图标**，**不是棋盘格位**。位置见 `BattleDriver.PlaySignal`。
             //    `effect_index.json` 的判定：三件都是 **对得上 / 高置信**（ratio 0.99 / 1.00 / 0.98）。
             { GainFaith,    "Faith UI Gain" },
-            { GainSpirit,   "Waystone UI Gain" },
+            // 🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-a`）：`gain_spirit` 这一行【已删】——
+            //   原版【没有】「灵魂石计数增加」这个 UI 特效槽。**
+            //   判据（第一权威 = 原版序列化字段，全量扫，不是抽查）：
+            //     · 13 个战场场景包里 `ManaTypeHolder` 家族**全部 104 份实例**（每场 8 份）逐份打开，
+            //       按 GameObject 归组只有四类 —— `QuestPointsHolder`（use=1，up=`Quest UI Gain` / down=`Quest UI Trigger`）·
+            //       `FaithHolder`（use=1，up=`Faith UI Gain` / down 空）· `ManaHolder`（use=0）·
+            //       **`SpiritStoneHolder`（use=0，up/down 都是空串，26/26）** ⇒ **灵魂石计数器一个槽都没配**。
+            //       例：`bundle_scenes_scenes_battlearenaaeldari/MonoBehaviour/MonoBehaviour_4194.json`
+            //       （`m_GameObject` = 该场 `GameObject/SpiritStoneHolder.json` 那颗）。
+            //     · `Waystone UI Gain` 这件 prefab **全库没有一个 MonoBehaviour / CardAnim 引用它**：
+            //       按它的**地址able guid `59882d0a76d568c47b826ca963af7cb8`** 搜 `assets_full`，只命中
+            //       `bundle_battleprefabs_vfxandmisc_assets_all/AssetBundle/AssetBundle_1.json`
+            //       （= 它自己所在 bundle 的容器表，不是引用）；同族 `Waystone UI Spend`
+            //       （地址able guid `a8c733f4…`）则**多命中一处** —— CardAnim `Eldar_TriggerSpiritstone_Mana`
+            //       （`bundle_aeldarisaimhanncardanims_assets_all/MonoBehaviour/`），那是**逐卡**动画
+            //       （走 `ByCard` 那条路），**不是** HUD 计数槽。
+            //   原来这一行取自 `d:/2/Warpforge_tools/data/vfx_wiring_j1..5.tsv` —— 那是**我们自己的 Godot 复刻台账**，
+            //   不是原版判据（与 `W64` B1–B8 销掉的那批同源）。
+            //   ⚠️ 已列进 `IsOriginalNoGenericEvent`（`Resolve` 回 null **且不出声**）——
+            //     否则 `ResolveFallback` 会把「原版本来就没有」喊成「漏配」。
             { GainQuest,    "Quest UI Gain" },
+            // 🔴 **2026-10-31（`B104_W64` · `B6-b`）：任务点【下降】= 原版 `ManaTypeHolder.vfxOnValueDown`。**
+            //   同一份序列化实例的**另一个槽**（`Quest UI Trigger`，guid `2223a4d2…`）——
+            //   ⛔ 别和上面 `Quest UI Gain` 合并（两件不同的 prefab，方向语义相反）。
+            //   判据全文 → `QuestSpent` 常量那段 + `EvtKind.QuestSpent` 的 doc。
+            { QuestSpent,   "Quest UI Trigger" },
             // 🔴 **2026-10-22（`W64` §B4）：`return` 这一行【已删】—— 原版回手链【0 粒子】。**
             //   判据（第一权威）= `BattleManager._ResolveRecallToHand_d__542__MoveNext.c` 逐句读：
             //   **0 处 `Instantiate` / 粒子**；`BattleCardUI__PlayBackToHandAnimation.c` 只 `Animation.Play`
@@ -3798,6 +3846,13 @@ namespace CardPresentation
         {
             PlayCard, Deploy, AttackMelee, AttackRanged, Hit, Heal, Death, Ability, Trigger,
             Return, GainFaith, GainSpirit, GainQuest,
+            // 🔴 **2026-10-31（`B104_W64` · `B6-b`）：加 `QuestSpent`** —— 同一形状第五次
+            //   （前四次：`CollectWaystone` / `Draw`+`AmbushExit` / `UnitAttack`+`UnitDamaged` / …）。
+            //   不进这张表 ⇒ `Unmapped()` / `Describe()` 两个自检口**覆盖不到它**
+            //   （`BattleScene` 那条「`VfxMap.Events` 里每个事件都解析得出」的断言也就看不见它）。
+            //   ⚠️ `GainSpirit` **仍在这张表里**（它是引擎真会发的事件），只是它现在由
+            //   `IsOriginalNoGenericEvent` 解释成「原版没有这一档」⇒ `Unmapped()` 会一直看到它，**预期**。
+            QuestSpent,
             // 🔴 **2026-10-14（第二十七会话）补 `CollectWaystone`** —— 常量早就在 `:43`、
             //    `BattleDriver.PlaySignal` 也有它的 case，**就是没进这张表** ⇒
             //    `Unmapped()` / `Describe()` 两个自检口**覆盖不到它**（本表自己的注释就写着
@@ -3856,7 +3911,8 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-22（`W63` §B + `W64` B1–B8）就地订正（铁律 5）**：原来这里写「正常应当为空」——
         /// **不再成立**。今天**必然**出现在这个列表里的有三族，而且「回 null」都是**正确结果**：
         ///   ① 原版本来就没有通用件 ⇒ <see cref="IsOriginalNoGenericEvent"/>
-        ///      （`play` / `ability` / `death` / `return` / `attack_melee`）；
+        ///      （`play` / `ability` / `death` / `return` / `attack_melee` / `unit_attack_anim` /
+        ///       `unit_damaged_anim` / 🔴 2026-10-31 补的 `gain_spirit`）；
         ///   ② 有真件、本机接不上 ⇒ <see cref="IsKnownGapEvent"/>
         ///      （今天只有 `ambush_exit`；🔴 2026-10-22（P6）`collect_waystone` 已接上、不在此列）；
         ///   ③ 只能按阵营配、而今天一个阵营都没配（`draw` —— 🔴 2026-10-22 B5 之后连 `ByFaction` 也没了）。
@@ -3960,6 +4016,146 @@ namespace CardPresentation
             if (!TryResolvePerCardPicks(Deploy, faction, cardIdOrName, out picks) || picks == null) return null;
             for (int i = 0; i < picks.Count; i++) if (IsSummonDelayedPick(picks[i])) return picks[i].N;
             return null;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-31（执行代理 `B104_VfxMap` · 触发链 `B9_特效触发链.tsv` 第 3 条「未接」）
+        //  **原版 `BattleManager.PreloadTraitEffect(CardTrait, army)` 的等价物 —— trait 特效预热**
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  判据（第一权威 → `d:/2/tools/decomp_full/BattleManager__PreloadTraitEffect.c` 全文 41 行）：
+        //    ① `effects = CardTraitCollection.GetTraitEffects(trait)` —— 这个 trait 名下**全部**
+        //       `TraitEffect` 行（不分 trigger 档；我们的等价读口 = `TraitFrames.AllRowsFor(trait)`，
+        //       判据 `CardTraitCollection__GetTraitEffects.c:1-29`）。
+        //    ② 逐条：`te.GetEffect(army)`（= 按阵营 override；我们的 `TraitFrames.PrefabOf(row, army)`）
+        //       → 那个 `AnimInfo` 的 `AssetReference.Load()` → `AnimInfo.PreloadAssets()`。
+        //    ③ `AnimInfo__PreloadAssets.c` 的**全部**内容只有三句：
+        //       `Load()` 到对象 → **`Instantiate` 一次** → **立刻 `Destroy`**（= 把贴图/shader/网格拉进显存）。
+        //       它**不挂锚点、不 `SetData`、不进任何字典** ⇒ ⛔ 别把它做成「真的播一次」。
+        //  调用点（全树唯一）：`BattleCardManager.PreloadCard`（`BattleCardManager__PreloadCard.c:49`）
+        //    ← `BattleCacheInitializer._Initialize_d__0__MoveNext.c:97/158`，**开局前**对**双方牌库每一张卡**
+        //    的 `CardTraits`（= `RawCardScript.CardTraits +0x230`）逐条调本方法。
+        //    ⇒ 我们的对应口 = 下面的 <see cref="PreloadTraitEffectsOfCard"/> / <see cref="PreloadTraitEffectsOfCards"/>。
+        //    ⚠️ **我们的接线现状（如实记，⛔ 别当成已跑起来）**：本文件只提供**机制**；
+        //      生产调用点那一行在 `BattleDriver.Begin`（本代理白名单外，已把补丁交调度台）。见报告 `B104_VfxMap.md`。
+        //  ⚠️ **本机影响面 ≈ 0，如实标**：原版是 Addressables 按需载入，所以预热能省掉「第一次播某个 trait 框」的卡顿；
+        //    我们的效果 prefab 由 `WarpforgeEffectLibrary`（ScriptableObject）**直接引用** ⇒ 载 SO 时那几个包本来就在。
+        //    这一档补的是**机制**（原版确实有这个动作、我们原来一条都没有），⛔ 不是「不预热就卡」。
+        //  🔶 自己设计（非原版）：**实例化用的库 = 我们的效果库**。原版从 `AssetReference.Load()` 拿对象；
+        //    我们这一侧 prefab 的唯一按名取口是 `WarpforgeEffectLibrary`（判据 = 本仓铁律「同一条规则只留一处」）。
+        //    调度台 2026-10-31 裁定（本波白名单只到本文件）。
+
+        /// <summary>已经预热过的 prefab 名（同一件只 `Instantiate` 一次；`ResetTraitPreloadForTest` 可清）。</summary>
+        static readonly HashSet<string> _traitPreloaded = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>因为「效果库里没有这件」而**没预热成**的名字（诊断出声去重）。</summary>
+        static readonly HashSet<string> _traitPreloadWarned = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>已预热的**不同** prefab 个数（自检读数）。</summary>
+        public static int PreloadedTraitPrefabCount { get { return _traitPreloaded.Count; } }
+
+        /// <summary>真正执行过 `Instantiate`（= 本次运行里第一次见到这件）的次数 ——
+        /// 与 <see cref="PreloadedTraitPrefabCount"/> **分开**：两者不相等就说明去重/重复实例化出了问题。</summary>
+        public static int TraitPrefabsInstantiatedTotal { get; private set; }
+
+        /// <summary>「效果库里没有这件」的次数（⛔ 不算预热成功）。</summary>
+        public static int TraitPreloadFailures { get; private set; }
+
+        /// <summary>自检用：已预热的 prefab 名（拷贝，按名排序）。</summary>
+        public static string[] PreloadedTraitPrefabsForTest()
+        {
+            var a = new List<string>(_traitPreloaded);
+            a.Sort(System.StringComparer.Ordinal);
+            return a.ToArray();
+        }
+
+        /// <summary>自检用：清零三个计数器与去重表（**不动**已载入的效果库/绑定表）。</summary>
+        public static void ResetTraitPreloadForTest()
+        {
+            _traitPreloaded.Clear();
+            _traitPreloadWarned.Clear();
+            TraitPrefabsInstantiatedTotal = 0;
+            TraitPreloadFailures = 0;
+        }
+
+        /// <summary>原版 `BattleManager.PreloadTraitEffect(trait, army)` —— 预热这个 trait 名下的**全部**特效件。
+        /// <para>返回：这次**解析出 prefab 名**的不同件数（= 原版那句 `foreach (te in effects)` 里
+        /// 能 `Load()` 到东西的条数；`0` = 这个 trait 没有任何可载的件 / 表里没有它 —— **原版同形、不出声**）。</para>
+        /// <para>`army` = 原版 `TraitEffect.GetEffect(army)` 那个阵营 id；`-1` = 不按阵营覆盖（= 走默认件）。</para></summary>
+        public static int PreloadTraitEffect(string trait, int army = -1)
+        {
+            var rows = TraitFrames.AllRowsFor(trait);
+            if (rows == null || rows.Length == 0) return 0;       // 原版 GetTraitEffects 返回 0 ⇒ 遍历 0 次
+
+            int distinct = 0;
+            var seen = new List<string>(rows.Length);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                string name = TraitFrames.PrefabOf(rows[i], army);
+                if (string.IsNullOrEmpty(name)) continue;          // 原版 effectAnim 是空引用 ⇒ 那条没有可载的件
+                bool dup = false;
+                for (int j = 0; j < seen.Count; j++)
+                    if (string.Equals(seen[j], name, System.StringComparison.Ordinal)) { dup = true; break; }
+                if (dup) continue;                                 // 同一件只预热一次（原版逐条 Load，重复的 Load 是空操作）
+                seen.Add(name);
+                distinct++;
+                WarmEffectPrefab(name);
+            }
+            return distinct;
+        }
+
+        /// <summary>原版 `BattleCardManager.PreloadCard` 里「逐条 `CardTraits` 调 `PreloadTraitEffect`」那一半。
+        /// <para>`card.CardTraits` = 原版 `RawCardScript.CardTraits(+0x230)`；**没喂（`null`）= 判不了** ⇒ 返回 0，⛔ 不猜。</para>
+        /// <para>`army &lt; 0` 时按 `card.Faction` 取（= 原版 `PreloadCard` 传的 `rawCardData + 0x2c` 阵营 id）。</para></summary>
+        public static int PreloadTraitEffectsOfCard(RuleEngine.CardDef card, int army = -1)
+        {
+            if (card == null) return 0;
+            var traits = card.CardTraits;
+            if (traits == null) return 0;
+            int a = army;
+            if (a < 0) a = TraitFrames.ArmyOfFaction(card.Faction);
+            int n = 0;
+            for (int i = 0; i < traits.Count; i++)
+            {
+                var t = traits[i];
+                if (t == null || string.IsNullOrEmpty(t.Name)) continue;
+                n += PreloadTraitEffect(t.Name, a);
+            }
+            return n;
+        }
+
+        /// <summary>对一批卡各走一次 <see cref="PreloadTraitEffectsOfCard"/>（补丁调用点 = 开局那份双方牌表）。</summary>
+        public static int PreloadTraitEffectsOfCards(IEnumerable<RuleEngine.CardDef> cards)
+        {
+            if (cards == null) return 0;
+            int n = 0;
+            foreach (var c in cards) n += PreloadTraitEffectsOfCard(c);
+            return n;
+        }
+
+        /// <summary>`AnimInfo.PreloadAssets()` 的等价物：**载到 prefab → `Instantiate` 一次 → 立刻销毁**。
+        /// <para>⚠️ 批处理/编辑模式下 `Object.Destroy` **不生效**（本仓铁律：没有帧循环）⇒ 那里必须 `DestroyImmediate`。</para></summary>
+        static void WarmEffectPrefab(string prefabName)
+        {
+            if (_traitPreloaded.Contains(prefabName)) return;
+
+            var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+            WarpforgeVFX.WFEffectEntry entry = null;
+            if (lib == null || !lib.TryGet(prefabName, out entry) || entry == null || entry.prefab == null)
+            {
+                TraitPreloadFailures++;
+                if (_traitPreloadWarned.Add(prefabName))
+                    Debug.LogWarning($"[VfxMap] 预热 trait 特效 `{prefabName}` 时效果库里没有这件"
+                                   + "（原版这一档在 `AssetReference.Load()` 处拿到空）⇒ 这一件不预热（出声，不静默）。"
+                                   + "重跑：Tools > Warpforge > 生成效果库");
+                return;
+            }
+
+            _traitPreloaded.Add(prefabName);
+            TraitPrefabsInstantiatedTotal++;
+            var go = UnityEngine.Object.Instantiate(entry.prefab);
+            go.name = entry.name + " (Preload)";            // 日志里一眼分清「预热件」与真播件
+            if (Application.isPlaying) UnityEngine.Object.Destroy(go);
+            else UnityEngine.Object.DestroyImmediate(go);
         }
     }
 }

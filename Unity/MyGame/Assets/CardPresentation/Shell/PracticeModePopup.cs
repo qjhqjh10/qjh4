@@ -2422,13 +2422,19 @@ namespace CardPresentation
                     if (pick.PrebuiltDeck != null) PlayerDeckChanged(pick.PrebuiltDeck.faction);
                     return;
                 }
-                int idx = CollectionData.IndexOf(pick.Info.Name);
-                if (idx >= 0)
+                // 🔴 **2026-10-31（B104_P4）**：这里原来拿**卡组名**回查下标（`CollectionData.IndexOf(pick.Info.Name)`）
+                //   ⇒ **同名卡组会落到第一套**（选错牌组、且全程不报错）。`DeckPick.OwnIndex` 是列表构造那一刻
+                //   就带上的**库内下标**（`DeckSelectionPopup.Shown()` 里 = `i`），它才是身份。
+                //   判据 → 同文件 `DeckPick.OwnIndex` 的 doc + `Shown()`。⛔ 别退回按名回查。
+                int idx = pick.OwnIndex;
+                if (idx >= 0 && idx < CollectionData.DeckCount())
                 {
                     PickDeck(idx);
                     // 🆕 2026-10-26（批次 6 · G15）：同上 —— 换了自己的卡组之后阵营筛选跟到新卡组。
                     PlayerDeckChanged(CollectionData.DeckAt(idx).Faction);
                 }
+                else Debug.LogWarning("[Practice] 选卡组回调拿到的下标 " + idx + " 不在库里（" + CollectionData.DeckCount()
+                                    + " 套）⇒ **不选**（出声，不静默无事发生）");
             }, (int)SelectedGameMode);   // 🆕 2026-10-17（U4-1）：按**开关当前的赛制**筛「我的卡组」页
             // 🔴 **2026-10-17（U4-1）就地订正（铁律 5）**：这里原来写「原版练习窗里有个 `Game mode` 开关我们**没建**
             //    ⇒ 写死经典」—— **已经建了**（`BuildGameModeToggle`），模式按 `SelectedGameMode` 走。
@@ -3098,15 +3104,24 @@ namespace CardPresentation
             }
             else
             {
-                // `BattleDriver.PickSavedDeck` 读的就是 `DeckLibrary.Current`
                 // 🔴 **2026-10-13（A600）**：这一步是**全链里最要命的一处** —— 紧接着（非批处理时）
                 //   就 `LoadScene` 切走，而 `PickSavedDeck` 是**从磁盘重读**的 ⇒ `Select` 内部那次落盘失败
-                //   会让**这一局打的是磁盘上那套旧牌**（原来完全静默）。
-                //   ⚠️ 本件只把失败**说出来**；⛔「失败时该不该照样开战 / 该不该弹提示」= 改玩家可见流程，
-                //   另一笔账（报告 §五·2），别顺手在这里加 `return`。
+                //   会让**这一局打的是磁盘上那套旧牌**。
+                // 🔴 **2026-10-31（B104_P4）**：这里原来只 `LogWarning` 就**照常开战**（原文注释写着
+                //   「⛔ 失败时该不该照样开战 = 另一笔账」—— 那笔账现在结掉，留痕）⇒ 现在：
+                //   **出声（原版错误出口）+ 把当前卡组摆回去 + 挡住开战**。
+                //   原版对位 = 写失败走 `ErrorPopupWindowController.ShowErrorMessage`（`CustomErrors/ErrorDataSync` 档；
+                //   判据 → `Shell/ErrorPopupWindowController.cs` 文件头）。⚠️ 回滚只在这里做，
+                //   `CollectionData.Select` 内部**不**回滚（A600 的既有断言钉着「失败时内存已换」）。
+                int prevSel = CollectionData.CurrentIndex();
                 if (!CollectionData.Select(DeckIndex))
-                    Debug.LogWarning("[Practice] 选中第 " + DeckIndex + " 套失败（⚠️ 这一局会拿磁盘上那套旧的）："
+                {
+                    Debug.LogWarning("[Practice] 选中第 " + DeckIndex + " 套失败 ⇒ **不开战**（原来会拿磁盘上那套旧的）："
                                      + CollectionData.LastSelectError);
+                    CollectionData.RestoreSelection(prevSel);       // 当前卡组 / 高亮**不动**
+                    ErrorPopupWindowController.ShowErrorMessage(CustomError.ErrorDataSync);
+                    return;
+                }
             }
             // 🆕 2026-10-03：**本局对手**（`Deck info Popup` 的 `Practice Deck` 那条链指定过才有）。
             //   原版它是 `MatchMakerManager.StartMatch(…, enemyDeck)` 的**形参**，直接带进对局；

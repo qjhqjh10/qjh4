@@ -356,7 +356,10 @@ namespace CardPresentation
         }
 
         /// <summary>把「拥有数（背包）+ 限购（extra）」一起落盘。</summary>
-        static void PersistShop()
+        /// <returns>🆕 **2026-10-31（`B104_P3`）**：这次算不算成功 —— 落盘门**关着**（批处理 / 自检）⇒ 设计上的空操作
+        /// ⇒ `true`；门**开着却写失败** ⇒ `false`（`InventoryStore` 已出声，这里再补一条带后果的 LogError）。
+        /// ⚠️ 原来返回值被丢掉 ⇒ **买到了却重启清零**，而 `Buy` 照样回「名字 ×N」（= 谎报买到）。</returns>
+        static bool PersistShop()
         {
             var extras = new Dictionary<string, int>();
             for (int p = 0; p < Pages.Length; p++)
@@ -364,7 +367,11 @@ namespace CardPresentation
                 var arr = Offers(p);
                 for (int j = 0; j < arr.Length; j++) extras[KeyOf(p, arr[j].Name)] = arr[j].Available;
             }
-            InventoryStore.Save(InventoryName, Inventories.Shop, extras);
+            bool ok = InventoryStore.Save(InventoryName, Inventories.Shop, extras);
+            if (ok || !InventoryStore.StoreOn) return true;
+            Debug.LogError("[Shop] 商店存档**没能落盘**（" + (InventoryStore.LastStoreError ?? "没给出原因")
+                         + "）⇒ 这次购买**不算数**（重启会清零，⛔ 不假装买到了）");
+            return false;
         }
 
         /// <summary>自检用的目录改写口（转给 <see cref="InventoryStore.OverrideDir"/>）。</summary>
@@ -477,8 +484,17 @@ namespace CardPresentation
             // 🆕 2026-10-25：**拥有数的正本 = 背包**（`Inventories.Shop`）—— 不再自己记字典
             var it = ItemFor(pageIndex, i);
             if (it != null) Inventories.Shop.Add(it, 1);
-            if (o[i].Available > 0) o[i].Available--;      // struct 存在数组里 ⇒ 改的是数组那一格（`Offers` 返回的就是它）
-            PersistShop();                                  // 写点必须落盘（否则重启清零）
+            bool cutAvailable = o[i].Available > 0;
+            if (cutAvailable) o[i].Available--;            // struct 存在数组里 ⇒ 改的是数组那一格（`Offers` 返回的就是它）
+            // 🆕 **2026-10-31（`B104_P3`）**：原来 `PersistShop()` 的返回值被丢掉 ⇒ 写盘失败也回「名字 ×N」（谎报买到）。
+            //   现在：真写失败 ⇒ **把内存改动撤回去**（盘上那份没变，内存也回到盘上的样子）+ 回失败哨兵
+            //   （调用方 `Shell/ShopTabPage.cs` 走原版 `OnPurchasedFailed` 那一支）。
+            if (!PersistShop())
+            {
+                if (it != null) Inventories.Shop.Add(it, -1);
+                if (cutAvailable) o[i].Available++;
+                return BuyPersistFailed;
+            }
             return o[i].Name + " ×" + OwnedOf(pageIndex, i);
         }
 
@@ -711,7 +727,7 @@ namespace CardPresentation
         /// `false` ⇒ 调用方走原版 `OnPurchasedFailed` 那一支（错误弹窗 + 出声）。
         /// <para>⚠️ **2026-10-29（`B97_SHOP2`）**：`BuySoldOut`（限购售罄）也算**失败**，但调用方要**分开走**——
         /// 原版售罄那一档**没有任何弹窗**（按钮不可点），错误窗只属于服务端回包失败。见 `ShopTabPage.RefuseSoldOut`。</para></summary>
-        public static bool PurchaseSucceeded(string buyResult) { return buyResult != BuyNotFound && buyResult != BuySoldOut; }
+        public static bool PurchaseSucceeded(string buyResult) { return buyResult != BuyNotFound && buyResult != BuySoldOut && buyResult != BuyPersistFailed; }
 
         // ============================================================ 🆕 2026-10-29（执行代理 `B97_SHOP2`）
         //   账 `商店:297` —— 原版「限购售罄」那一道闸（调度台 2026-10-29 裁定「要做」）。
@@ -744,5 +760,11 @@ namespace CardPresentation
         /// <para>⚠️ 与 <see cref="BuyNotFound"/> **必须分开**：越界 ⇒ 原版 `OnPurchasedFailed`（错误弹窗 10 =
         /// `InternetUnreachable`）；售罄 ⇒ 原版**没有任何弹窗**（按钮根本不可点）。判据见本节头。</para></summary>
         public const string BuySoldOut = "售罄";
+
+        /// <summary>🆕 **2026-10-31（`B104_P3`）**：`Buy` 在「买到手了但**没能落盘**」时返回的哨兵。
+        /// <para>和另外两个哨兵一样算**失败**（<see cref="PurchaseSucceeded"/> 为 false ⇒ 调用方走原版 `OnPurchasedFailed`
+        /// 那一支：错误弹窗 + 出声）。差别在**成因**：越界 / 售罄都是本地闸，这一个是真的写盘不进去
+        /// （此时 `Buy` 已把内存改动**撤回**，盘上那份没变）。</para></summary>
+        public const string BuyPersistFailed = "落盘失败";
     }
 }

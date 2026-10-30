@@ -301,7 +301,11 @@ namespace CardPresentation
             // ---- ⑤ 原版末句：`deviceId` 为空 ⇒ 当场再存一次（「首次运行把它补上」）。
             //      ⚠️ 本仓 `deviceId` **恒空**（没有登录链）⇒ 这一支每次都命中、每次读档都会再写一次 ——
             //      这是文件头「差异③」点名的原版形状，⛔ 别加自造闸把它跳掉。
-            if (string.IsNullOrEmpty(d.deviceId)) SavePlayerData();
+            //      🆕 **2026-10-31（`B104_P3`）**：返回值不再丢 —— 写失败时 `SavePlayerData` 自己已 `LogWarning`，
+            //      这里再把「谁触发的那一次写」和后果补清楚（原版这支也是不看返回值：那边 `SavePlayerData` 是 `void`）。
+            if (string.IsNullOrEmpty(d.deviceId) && !SavePlayerData())
+                Debug.LogWarning("[LocalPlayerData] 读档末句那次「补 deviceId」的**重写没成功**：" + LastError
+                               + "（⛔ 不是静默：下一次设置变更 / 退出时会再试；原版同一支也是写一次就算了）");
         }
 
         // ================================================================== ③ 写（= SavePlayerData）
@@ -427,7 +431,8 @@ namespace CardPresentation
 
         static void OnQuitting()
         {
-            try { SavePlayerData(); }
+            // 🆕 2026-10-31（`B104_P3`）：返回值原来丢掉 ⇒ 退出前那一次存总档没写下去也当成功。
+            try { if (!SavePlayerData()) Debug.LogWarning("[LocalPlayerData] 退出前存总档**没成功**：" + LastError); }
             catch (Exception e) { Debug.LogWarning("[LocalPlayerData] 退出前存总档失败：" + e.Message); }
         }
 

@@ -1948,14 +1948,59 @@ namespace RuleEngine
                     }
                 }
 
+            // ============================================================
+            //  🔴 2026-10-31（`B104_D1`）：**pre-wait / post-wait 的分界点就在这里**
+            // ============================================================
+            //  原版 `BattleManager._NextTurn_d__395__MoveNext.c` 是**一条协程**，本地玩家那一支
+            //  在 `:483-489` `ShowHeadsUpMessage(Battle/HUD/YourTurn)` → `WaitForSeconds(1.5)` → `:488 state = 2`
+            //  ⇒ `:76-78 case 2` → `:465-473` → `LAB_1809aaf0c`（= `:359-362` `BroadcastTurnSetup` +
+            //  `TurnStartCardDraw`）**在等待之后**才跑；对手那一支（`:358` 的 else）**不经过**那道等待。
+            //  ⇒ 上面那些（`Turn++` / 能量 / `PlayerManager.TurnStart` / `DeckManager.SetYourTurn`，
+            //     原版 `:140-357`）是 **pre-wait**；从 `turn_setup` 相位起（原版 `:360` 之后）是 **post-wait**。
+            //  ⚠️ **已知近似（如实标着）**：`EnqueueTurnSetupEffectRemovals` / 失明到期**仍在 pre-wait** ——
+            //     原版它们住在 `BroadcastTurnSetup → CardScript.OnTurnSetup`，严格属于 post-wait。
+            //     它们是**入队**动作（`Instant` 道），相对 `turn_start` 触发段的可观测次序两边相同
+            //     ⇒ 本批不搬（搬它要动光环重算的相对位置，风险大于收益）。
+            //     （`Prayed` 清理与后面的逐卡 `OnTurnStart` 都在 post-wait 这一侧，不需要动。）
+            var turnScript = CurrentTurnScriptedData(ctx);
+            // ⚠️ `evenIfOver` = 只有 `BeginTurnForReplayExpansion`（回放展开）传 true ⇒ **那条路永不推迟**。
+            if (!evenIfOver && ShouldDeferTurnDraw(ctx))
+            {
+                ctx.PendingTurnDraw = true;
+                ctx.DeferSeat = ctx.Active;
+                ctx.Log($"回合 {ctx.Turn}（{p.Name}）：**回合初抽牌推迟到抬头 1.5 s 之后**"
+                      + "（原版 `BattleManager._NextTurn_d__395__MoveNext.c:483-489 WaitForSeconds(1.5)`"
+                      + " → `:76-78 case 2` → `:360-362 BroadcastTurnSetup + TurnStartCardDraw`）");
+                return;
+            }
+            BeginTurnTail(ctx, turnScript);
+        }
+
+        /// <summary>🔴 2026-10-31（`B104_D1`）：<see cref="BeginTurnCore"/> 的**后半段（post-wait）**。
+        ///
+        /// <para>**为什么要拆**：原版 `BattleManager._NextTurn_d__395__MoveNext.c` 在本地玩家那一支会
+        /// 先播「你的回合」抬头、再 `WaitForSeconds(1.5)`，**然后**才 `BroadcastTurnSetup` + 抽牌
+        /// （`:483-489` → `state 2` → `:360-362`）。我们的引擎是同步的，所以「等 1.5 s」落成
+        /// **推迟 + 一个补跑口**（<see cref="ResolvePendingTurnDraw"/>，由表现层的 1.5 s 排期驱动）。</para>
+        ///
+        /// <para>**这一段包含**（次序照原版 `:360-385`）：`turn_setup` 相位 → `BroadcastTurnSetup` →
+        /// 回合初抽牌（三道闸）→ 光环重算 / 逐卡 `OnTurnStart` → `turn_start` 触发段 →
+        /// `BroadcastActivateMinions` / `BroadcastTurnStarted` → 天赋。</para>
+        ///
+        /// <para>⚠️ **两种调用**：① 不推迟时由 <see cref="BeginTurnCore"/> 当场调（= 回放 / 联机 / 自检 /
+        /// 对手回合，行为与拆分前逐字相同）；② 推迟时由 <see cref="ResolvePendingTurnDrawCore"/> 在 1.5 s 后调。
+        /// ⛔ 别在别处再调一次（会抽两次，`PendingTurnDraw` 闸只挡②那条路）。</para></summary>
+        static void BeginTurnTail(BattleContext ctx, TutorialTurn turnScript)
+        {
+            var p = ctx.ActivePlayer;
             // ---- 🔴 `turn_setup` 相位（原版 `OnTurnSetup` · **抽牌之前**）----
             //    原版在这里做的是「**按 owner 清理过期的 activeEffects**」（`CardScript__OnTurnSetup.c`
             //    遍历 `activeEffects` 列表、按 `+0xa0` 的归属匹配 ⇒ `SendRemoveEffect`）—— 对应我们上面
             //    那两段（**限时增益到期** `RevertBuffs` · **失明到期**）。
-            //    ⚠️ **本相位目前没有独立钩子**：我们的 `ResolveAtTurn` 只认 `turn_start` / `turn_end`
-            //       —— 原版 `OnTurnSetup` 那份「清理」已经由上面两段直接做了，**加一个空钩子没有意义**。
-            //       真出现「只在 `OnTurnSetup` 触发的效果」时，在这里加 `ResolveAtTurn(ctx, "turn_setup")` 即可
-            //       （`ResolveAtTurn` 对未知相位是**安全**的：`EffectText.SplitAtTurn` 出来的 `at[0] != phase` ⇒ continue）。
+            //    ✅ **2026-10-31（`B104_D1`）就地订正（铁律 5）**：这里原来写「本相位没有独立钩子、加一个空钩子
+            //       没有意义」—— **已过期**：`ResolveAtTurn(ctx, "turn_setup")` 早在 `B88-E1`/`B95_WRC` 就接上了
+            //       （见下面那一行）。原版这一相位在 `BroadcastTurnSetup → CardScript.OnTurnSetup` 里 ⇒ **post-wait**。
+            //       ⚠️ 它**不替代**上面那两段清理（限时增益到期 / 失明到期）—— 那两段仍在 pre-wait，见分界点注释。
 
             // 加时里**多抽一张**（原版 `_NextTurn` 只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1）
             // 🆕 2026-09-26：常规张数从 `ctx.Vars.drawCardsPerTurn` 读（两模式都是 1 —— 留着是
@@ -1972,7 +2017,7 @@ namespace RuleEngine
             //     判据与差别见 <see cref="CurrentTurnScriptedData"/> 的注释。
             //  ⚠️ **数据非零**（2026-10-19 现读 `tutorial_stages.json`）：**S1 有 9 个回合**为真
             //     （含第 1 回合 `Player 1`）、**S2 第 1 回合**为真 ⇒ 接上之后那些回合**一张都不抽**。
-            var turnScript = CurrentTurnScriptedData(ctx); ResolveAtTurn(ctx, "turn_setup"); BroadcastTurnSetup(ctx);   // 🔴 2026-10-29（`B95_WRC` · 账 `642`）：补上 `BroadcastTurnSetup` 那**三跳**（棋盘 + 双方手牌，`RuleCorePartial_B94B21.cs:71`）的接线 —— `B94_B21` 建了本体但没接线。判据 = `BattleManager._NextTurn_d__395__MoveNext.c:360/362/371/385`：能量 → **`BroadcastTurnSetup`** → `TurnStartCardDraw`（抽牌）⇒ 位置就在抽牌三道闸**之前**这一行。🔴 必须在 `BeginAction` 作用域**内**调（`BeginTurnCore` 由 `:1664` 的 `using (BeginAction(ctx))` 包着，此处正在其中）—— `HandHops` 自带 `BeginAction`，若在作用域外它会成为最外层 ⇒ 多跑一次 `RefreshMeleeEqualsHealth` + `WhileInPlay` 发射 ⇒ 改指纹。⚠️ 池内 `TurnSetup(155)` 0/1129 ⇒ 零可观测。   // 🔴 2026-10-27（B88-E1 · 账行 `BattleManagerSupport.BroadcastTurnSetup`）：原版 `OnTurnSetup` 这一相位我们**从来没有发射口**（`grep turn_setup` 全仓只有注释）⇒ 在这里补上钩子；位置 = 抽牌三道闸之前（原版 `_NextTurn`：TurnStart → BroadcastTurnSetup → 抽牌）。⚠️ 已知边界：`EffectText.SplitAtTurn` 今天只产出 `turn_start` / `turn_end` ⇒ 这条相位**暂时没有消费者**（池内 abilityTriggers 155 = 0 张，休眠机制照 铁律 11 建）
+            ResolveAtTurn(ctx, "turn_setup"); BroadcastTurnSetup(ctx);   // 🔴 2026-10-29（`B95_WRC` · 账 `642`）：补上 `BroadcastTurnSetup` 那**三跳**（棋盘 + 双方手牌，`RuleCorePartial_B94B21.cs:71`）的接线 —— `B94_B21` 建了本体但没接线。判据 = `BattleManager._NextTurn_d__395__MoveNext.c:360/362/371/385`：能量 → **`BroadcastTurnSetup`** → `TurnStartCardDraw`（抽牌）⇒ 位置就在抽牌三道闸**之前**这一行。🔴 必须在 `BeginAction` 作用域**内**调（`BeginTurnCore` 由 `:1664` 的 `using (BeginAction(ctx))` 包着，此处正在其中）—— `HandHops` 自带 `BeginAction`，若在作用域外它会成为最外层 ⇒ 多跑一次 `RefreshMeleeEqualsHealth` + `WhileInPlay` 发射 ⇒ 改指纹。⚠️ 池内 `TurnSetup(155)` 0/1129 ⇒ 零可观测。   // 🔴 2026-10-27（B88-E1 · 账行 `BattleManagerSupport.BroadcastTurnSetup`）：原版 `OnTurnSetup` 这一相位我们**从来没有发射口**（`grep turn_setup` 全仓只有注释）⇒ 在这里补上钩子；位置 = 抽牌三道闸之前（原版 `_NextTurn`：TurnStart → BroadcastTurnSetup → 抽牌）。⚠️ 已知边界：`EffectText.SplitAtTurn` 今天只产出 `turn_start` / `turn_end` ⇒ 这条相位**暂时没有消费者**（池内 abilityTriggers 155 = 0 张，休眠机制照 铁律 11 建）
             bool dontDraw = turnScript != null && turnScript.dontDrawCard;
             // ---- 🔴 2026-10-20（`W58-TURN-B`）：抽牌的三道闸，次序照原版 ----
             //  原版 `BattleManager__TurnStartCardDraw.c`（全文 60 行，逐句）：
@@ -2300,6 +2345,62 @@ namespace RuleEngine
                 SpawnTalents(ctx, ctx.Active);
         }
 
+        /// <summary>🔴 2026-10-31（`B104_D1`）：**这一趟要不要把 post-wait 那半推迟到抬头 1.5 s 之后**。
+        ///
+        /// <para>**判据**（逐句）= `BattleManager._NextTurn_d__395__MoveNext.c`：
+        /// `:444` 判「本地玩家那一支」→ `:483` `ShowHeadsUpMessage(YourTurn)` → `:485 WaitForSeconds(1.5)`
+        /// → `:488 state = 2` ⇒ `:76-78 case 2` → `:360-362` 才 `BroadcastTurnSetup` + 抽牌；
+        /// 另一支（`:358` 的 else，对手）**不经过**那道等待，直接 `:360-362`。</para>
+        ///
+        /// <para>三道闸：① <see cref="BattleContext.DeferTurnDraw"/>（**默认关** ⇒ 回放 / 联机 / 自检
+        /// 走同步老路、零回归）；② <see cref="BattleContext.Active"/> == <see cref="BattleContext.DeferSeat"/>
+        /// （只有本地人类那一侧等）；③ **教程局第 1 回合不等** —— 原版 `:451-475` 整段 `goto` 跳过
+        /// （`IsTutorialMatch ∧ turnCounter == 1`，与 `BattleDriver.ShowYourTurnHeadsUp` 的早退同一条）。</para></summary>
+        static bool ShouldDeferTurnDraw(BattleContext ctx)
+        {
+            if (!ctx.DeferTurnDraw) return false;
+            if (ctx.DeferSeat < 0 || ctx.Active != ctx.DeferSeat) return false;
+            if (MatchTypes.IsTutorialMatch(ctx.MatchType) && ctx.Turn == 1) return false;
+            return true;
+        }
+
+        /// <summary>🔴 2026-10-31（`B104_D1`）：**唯一「补抽」口** —— 把 <see cref="ShouldDeferTurnDraw"/>
+        /// 推迟掉的那半（`turn_setup` → `BroadcastTurnSetup` → 抽牌 → `turn_start` → … → 天赋）跑完。
+        ///
+        /// <para>**生产调用点只此一处**：`BattleDriver.HoldForTurnHeadsUp` 末尾
+        /// `ScheduleAction(_clock + TurnHeadsUpHold, …)`（= 原版那 1.5 s 之后）。
+        /// ⛔ 别在别处再调一次 —— 重复调确实不会抽两次（<see cref="BattleContext.PendingTurnDraw"/> 挡着），
+        /// 但会让「谁在驱动这一拍」变成两处，以后必然不一致。</para>
+        ///
+        /// <para>⚠️ 自己开一个 `BeginAction` 作用域：原版这一拍是协程续跑，我们这边必须有自己的泵点，
+        /// 否则这一段入队的动作没人结算（`ActionScope` 嵌套安全，见它的 doc）。</para></summary>
+        public static void ResolvePendingTurnDraw(BattleContext ctx)
+        {
+            if (ctx == null || !ctx.PendingTurnDraw) return;
+            using (BeginAction(ctx)) { ResolvePendingTurnDrawCore(ctx); return; }
+        }
+
+        /// <summary><see cref="RuleCore.ResolvePendingTurnDraw"/> 包住的原文（照同族「入口 / Core」形状）。</summary>
+        static void ResolvePendingTurnDrawCore(BattleContext ctx)
+        {
+            ctx.PendingTurnDraw = false;
+            if (ctx.IsOver)
+            {
+                ctx.Log("（推迟的回合初抽牌作废：这一局已经结束）");
+                return;
+            }
+            if (ctx.Active != ctx.DeferSeat)
+            {
+                // ⛔ 不静默：这一格说明「换边发生在 1.5 s 之内」，是排期/闸的缺陷，要能被看见。
+                ctx.Log($"⚠️ 推迟的回合初抽牌**没补上**：排期时的行动方是 {ctx.DeferSeat}，"
+                      + $"现在是 {ctx.Active} —— 抬头那 1.5 s 与回合切换撞了（⛔ 原版不会走到这里，请查排期）");
+                return;
+            }
+            ctx.Log($"回合 {ctx.Turn}（{ctx.ActivePlayer.Name}）：抬头 1.5 s 到了 ⇒ 补上回合初的抽牌与 `turn_start` 相位"
+                  + "（原版 `_NextTurn:76-78 case 2` → `:360-385`）");
+            BeginTurnTail(ctx, CurrentTurnScriptedData(ctx));
+        }
+
         /// <summary>回合结束：能量作废 → 移交。返回 <see cref="CheckWinner"/> 的结果。</summary>
         public static int EndTurn(BattleContext ctx)
         {
@@ -2310,6 +2411,13 @@ namespace RuleEngine
         static int EndTurnCore(BattleContext ctx)
         {
             if (ctx.IsOver) return ctx.Winner;
+
+            // 🔴 2026-10-31（`B104_D1`）：**推迟的回合初抽牌必须在换边之前补上** ——
+            //   换边之后 `ctx.Active` 已经不是排期时那一侧，`ResolvePendingTurnDrawCore` 只能放弃那一抽
+            //   （并出声）。生产不会走到这里（那 1.5 s 是 `BeginBlockingWindow`、时钟也刚在 90 s 之外），
+            //   这是**兜底**：宁可当场补上，也不要静默少一张牌。
+            //   ⚠️ 位置在 `IsOver` 之后：已经结束的局不该再抽牌（`PendingTurnDraw` 由补抽口自己清）。
+            if (ctx.PendingTurnDraw) ResolvePendingTurnDraw(ctx);
 
             // ---- 🔴 2026-10-20（`W58-TURN-B`）：**狂暴（berzerk，trait 360）必须攻击** ----
             //  原版有**两道**闸，判据都读过：
@@ -15234,12 +15342,12 @@ namespace RuleEngine
         /// 把 `Editor/RuleEngineTest.cs:33120/33141` 那对结构断言的计数顶破；见上一段）——
         /// 代价是「调用点纪律」替代「运行时自检」，两个调用点都写在相邻行。</para>
         /// </summary>
-        static void AttachAbilityTargets(BattleContext ctx, int owner, UnitState source, EffectSpec spec, UnitState chosen)
+        static void AttachAbilityTargets(BattleContext ctx, int owner, UnitState source, EffectSpec spec, UnitState chosen, CardDef.CountSetSpec criteria = null, bool publishTable = false)
         {
             if (ctx == null || ctx.Signals == null || ctx.Signals.Count == 0) return;
             var e = ctx.Signals[ctx.Signals.Count - 1];
             if (e == null) return;
-            e.AbilityTargetList = AbilityTargetsFor(ctx, owner, source, spec, chosen);
+            e.AbilityTargetList = (criteria != null ? AbilityTargetListFromCriteria(ctx, owner, criteria, source, chosen, publishTable) : null) ?? AbilityTargetsFor(ctx, owner, source, spec, chosen);   // 🆕 2026-10-31（`B104_MT`）：给了 `criteria`（= 这一行 ability 的 `targetCriteria`）就先走**多目标表**；它返 `null`（这一档本批没接 / 判不了）才退回改前的单数路 —— 零回归。判据与「为什么只接五档」见**类尾** `AbilityTargetListFromCriteria` 的 doc。🆕 `publishTable: true` = 同时把这张表挂到 `ctx.AbilityTargetTable`（结算期有效），供效果层消费（⛔ 只有 `UseActiveAbilityCore` 传 true）
         }
 
         /// <summary>
@@ -15439,7 +15547,7 @@ namespace RuleEngine
         /// <summary><see cref="RuleCore.UseActiveAbility"/> 包住的原文。</summary>
         static int UseActiveAbilityCore(BattleContext ctx, int p, int slot, int targetSlot)
         {
-            int code = CanUseActiveAbility(ctx, p, slot, targetSlot);
+            int code = CanUseActiveAbility(ctx, p, slot, targetSlot); ctx.AbilityTargetTable = null; ctx.AbilityTargetTableOwner = null;   // 🆕 2026-10-31（`B104_MT`）：**入口清空「当前 activeAbility 目标表」**（它只对**这一次** ability 有效；出口在下面 `CheckWinner` 那一行再清一次 ⇒ 不会串到后续 op / 后续卡）
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
@@ -15513,7 +15621,7 @@ namespace RuleEngine
                      targetCardId: chosen != null ? chosen.Name : null,
                      instanceId: u.InstanceId, priority: 1);   // 🆕 2026-10-27（`B88-E14`）这一支 = 主动能力执行（`ResolveActiveAbilityRows` / `effect: activeAbility`）⇒ 与 ① 同一支、**固定 1**（施工单 §二 ④，判据 `decomp_full/RawCardScript__ResolveActiveAbility.c:47`）
             // ⚠️ 必须紧跟上一句（中间⛔ 不许再发别的事件），见 `AttachAbilityTargets` 的 doc。
-            AttachAbilityTargets(ctx, p, u, null, chosen);
+            AttachAbilityTargets(ctx, p, u, null, chosen, ActiveAbilityTargetCriteriaForPlan(u, plan), publishTable: true);   // 🆕 2026-10-31（`B104_MT` · 施工单 MT-b）：把**这一条 ability 那一行**的 `targetCriteria`（`CardDef.ActiveAbilityTargetCriteriaAt(ab, lg)`，含 `ta` / `maxTargets` / `targetSelectMethod`）递进去 —— 改前只递 `null` ⇒ `AbilityTargetsFor` 恒 ≤1 个目标。多行怎么取一行 = `ActiveAbilityTargetCriteriaForPlan` 的 doc（调度台裁定 ①：按行独立、不合并）。🆕 `publishTable: true` = 产出的表同时挂到 `ctx.AbilityTargetTable`，供效果层直接消费（原版：效果吃 `GetTargets` 这张表，⛔ 不另抽一次）
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动主动能力");
 
             // ---- 逐行执行（`RawCardScript__ResolveActiveAbility.c:58-67`，顺序 = `activeAbilityLogic` 的次序）----
@@ -15552,7 +15660,7 @@ namespace RuleEngine
                 ctx.Log($"⚠️ {u.Name} 的主动能力里有 **{unimplemented.Count}** 行本版**没实现**："
                       + string.Join(" · ", unimplemented) + "（如实报出来，⛔ 不假装做过了）");
 
-            CheckWinner(ctx);
+            ctx.AbilityTargetTable = null; ctx.AbilityTargetTableOwner = null; CheckWinner(ctx);   // 🆕 2026-10-31（`B104_MT`）：**出口清表**（与入口那一行成对；这条能力的目标表到此失效，⛔ 别让它活到下一次动作）
             return executed > 0 ? RuleCodes.OK : RuleCodes.ErrUnimplemented;
         }
 
@@ -17797,6 +17905,314 @@ namespace RuleEngine
         public static bool AbilityFamilyGateIsActiveForTest(CardDef carrierCard, string triggerName)
         {
             return AbilityFamilyGateIsActive(carrierCard, triggerName, null);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-10-31（执行代理 `B104_MT` · 施工单 `判据/B104_T21与多目标_时间线_施工单.md` **MT-b**）
+        //  **多目标生产端的目标表** = 原版 `AbilityLogic.GetTargets`（每条 `abilityLogic` 行各一次）的等价物
+        //
+        //  ⚠️ 位置 = **类尾**（铁律 18·b：本文件 400+ 处账按 `文件:行号` 引用 ⇒ 新成员一律追加在这里）。
+        //
+        //  🔴 **判据（🥇 `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`，全文 1,427 行逐句现读）**：
+        //   · `param_2` = `TargetCriteria`：`+0x10 targetsAffected` · `+0x40 maxTargets` · `+0x44 targetSelectMethod`
+        //     （字段表 → `d:/2/tools/il2cpp_out/dump.cs:23823-23872`）；
+        //   · **建池**（按 `ta` 分发，`:184-1079`）：
+        //       `20 self` `:184-191` ⇒ `[thisCard]`、**不筛**（`goto LAB_180818485`）；
+        //       `30 target`（与 `220` 同出口）`:192-207` ⇒ `[targetCard(param_5)]`、**不筛**；
+        //       `10 allFiltered`（与 `210`）`:972-990` ⇒ `GetUnitsInPlayList(includeHero +0x16 · includeMinions +0x17 ·
+        //         includeRemnants +0x1b · friendly +0x14 · enemy +0x15)` → `GetUnitsInPlayPooledList.c:47-86`；
+        //       `110 adjacentToTargetIfMeetsCriteria` `:1046-1060` ⇒ `GetAdjacentUnits(targetCard)`；
+        //       `150 previousAbilityFiltered` `:867-883` ⇒ `AddRange(上一条 ability 的目标表)`；
+        //   · **逐候选筛**（`:1081-1163`）= `FilterMethods.CheckIfMeetsCriteria` —— 我们的等价物 =
+        //     `TargetCriteriaEval.Matches`（⛔ 别另写一份）；`20/30` 已在建池那一支 `return`，**不走**这一层；
+        //   · **截断**（`:1164-1371`）：`if (!checkMaxTargets || maxTargets < 1 || pool.Count <= maxTargets) 跳过`；
+        //     `switch (targetSelectMethod)`：`1 highestAttack`（`OrderBy(isRemnant)` → `ThenByDescending(max(近战,远程))`）·
+        //     `2/3 valueInPlay`（`GetValueInPlay()`）· `5 lastAdded`（表尾取 N）· `6 lowestHealth`（`OrderBy(CurrentIntrinsicHealth)`）·
+        //     `7 firstAdded`（表头取 N）· `default`（`0 random` / `4 cardTarget`）= 逐个 `BattleManager.GetRandomInt(0, Count)`
+        //     抽一个并从池里删；非 `default` 六档末尾统一 `Take(maxTargets)`；
+        //   · **随机源** = `ctx.GetRandomInt`（开局预烧 100 个整数 + 按下标取；⛔ 别在结算路径上写 `ctx.Rng.Next`）。
+        //
+        //  🔴 **本批只接 `ta ∈ {10, 20, 30, 110, 150}`**（施工单裁定的那一批）；其余 `ta`（含 `0 any` —— 池内 0 张、
+        //     原版休眠，裁定 ④ 不接线）一律返回 `null` ⇒ 调用方退回改前的单数路（**零回归**）。
+        //  🔴 **`ta=150` 落到手牌的那一半不产**（`BattleEventTarget` 只能表达棋盘格）：只产出仍在棋盘上的那些并**出声**一次
+        //     （裁定 ②：走 T21-a 的手牌锚通道；该通道完成前这一档记「部分做」，⛔ 不发明坐标）。
+        //  🔴 **不写 `ctx.Log`**（`ctx.Events` 进 `NetProtocol.Fingerprint`）—— 出声一律 `UnityEngine.Debug.LogWarning` + 去重表。
+        //  🔴 **`2/3 valueInPlay` / 未知 `targetSelectMethod` 且真要截断** ⇒ 返回 `null`（本版没有 `GetValueInPlay` 等价字段，
+        //     ⛔ 不拿随机或池序冒充）。现池 193 行 `activeAbilityTargets` 的 `targetSelectMethod` 只有 `0`(191) / `7`(2) ⇒ 今天零可观测。
+        // ==========================================================================================
+
+        static readonly HashSet<string> _abilityTargetTableNoted = new HashSet<string>();
+
+        /// <summary>多目标表这一路的一次性出声（去重；⛔ 不走 `ctx.Log` —— 那会改 `ctx.Events.Count` / 联机 `Fingerprint`）。</summary>
+        static void NoteAbilityTargetTable(string key, string message)
+        {
+            if (_abilityTargetTableNoted.Count > 512) _abilityTargetTableNoted.Clear();
+            if (!_abilityTargetTableNoted.Add(key)) return;
+            UnityEngine.Debug.LogWarning("[RuleEngine] " + message);
+        }
+
+        /// <summary>`CardScript.GetHighestAttackValue()`（`decomp_full/CardScript__GetHighestAttackValue.c:5-13`：
+        /// `max(CurrentMeleeAttack, CurrentRangeAttack)`）—— 只供 `maxTargets` 的 `highestAttack` 排序用。
+        /// <para>⚠️ `CountEval.HighestAttackKey` 是同一口径，但那是 `CountEval` 的**私有**件（跨类拿不到）⇒ 这里只能再写一行；
+        /// 值语义与它逐字一致，⛔ 别在这里改算法。</para></summary>
+        static int HighestAttackKeyOf(UnitState u)
+        {
+            if (u == null) return int.MinValue;
+            int melee = u.CurrentMeleeAttack, ranged = u.CurrentRangeAttack;
+            return melee >= ranged ? melee : ranged;
+        }
+
+        /// <summary>
+        /// 把**一条 ability 行**的 `targetCriteria` 展开成「这条能力实际会落到哪些牌」—— 原版
+        /// `AbilityLogic.GetTargets`（判据全文见上面那段类尾注释）。
+        ///
+        /// <para>**返回值三态**（调用方必须分清，⛔ 别拿空表冒充两种不同的东西）：
+        /// `null` = **本版判不了 / 这一档没接**（调用方退回 <see cref="AbilityTargetsFor"/> 的改前口径）；
+        /// **空表** = 原版这一档**真的选不出目标**（例如 `ta=30` 但这次没有点选目标、`ta=110` 锚点不在棋盘上）。</para>
+        ///
+        /// <para>⚠️ **只读**：不改棋盘、不改任何局面状态。**唯一副作用** = 命中 `maxTargets` 截断且
+        /// `targetSelectMethod ∈ {0 random, 4 cardTarget}` 时会推进一格 `ctx.GetRandomInt` —— 原版在**同一位置**同样消费随机数
+        /// （`AbilityLogic__GetTargets.c:1258`），所以这是照抄而不是新增。</para>
+        /// </summary>
+        static List<BattleEventTarget> AbilityTargetListFromCriteria(
+            BattleContext ctx, int owner, CardDef.CountSetSpec criteria, UnitState source, UnitState chosen, bool publishTable = false)
+        {
+            if (ctx == null || criteria == null || ctx.Players == null || ctx.Players.Length < 2) return null;
+            if (owner < 0 || owner > 1) return null;
+            int ta = criteria.TargetsAffected;
+            if (ta != 10 && ta != 20 && ta != 30 && ta != 110 && ta != 150) return null;   // 本批只接这五档（见类尾注释）
+            string cardId = source != null && source.Card != null ? source.Card.Id : "?";
+
+            var pool = new List<UnitState>(4);
+            switch (ta)
+            {
+                case 20:   // self（`:184-191`）：写这条 logic 的那张卡；**不筛**
+                    if (source != null) pool.Add(source);
+                    break;
+
+                case 30:   // target（`:192-207`）：只读玩家点的那个；**不筛**
+                    if (chosen != null) pool.Add(chosen);
+                    break;
+
+                case 10:   // allFiltered（`:972-990`）
+                    {
+                        if (criteria.FriendlyUnits == CardDef.CountSetSpec.Unknown
+                            || criteria.EnemyUnits == CardDef.CountSetSpec.Unknown)
+                        {
+                            NoteAbilityTargetTable("ta10flags:" + cardId,
+                                $"「{source?.Name}」的 ability 目标表是 `ta=10 allFiltered`，但 `friendlyUnits`/`enemyUnits` 这一格**没落**"
+                              + " ⇒ 这一档本版**判不了**，退回改前的单数路（⛔ 不猜「己方或敌方」）。");
+                            return null;
+                        }
+                        // 建池：原版 `GetUnitsInPlayList` 按 `friendlyUnits/enemyUnits` 两组取；`AddSide` 会跳过**已死**的单位
+                        //（原版 `GetUnitsInPlayPooledList.c:47-86` 也在「不在场且非 dying 档」时跳过 ⇒ 同向）。
+                        if (criteria.FriendlyUnits > 0) AddSide(pool, ctx.Players[owner], false, false, -1);
+                        if (criteria.EnemyUnits > 0) AddSide(pool, ctx.Players[1 - owner], true, false, owner);
+                        // 卡种白名单（`includeHero +0x16` = 督军 / `includeMinions +0x17` = 部队）+ `includeRemnants +0x1b`。
+                        // ⚠️ `includeSpells/includeWhispers` 在棋盘上无边（原版按 `cardType 20/40` 排除，我们棋盘只有 0/10 两类）。
+                        for (int i = pool.Count - 1; i >= 0; i--)
+                        {
+                            var u = pool[i];
+                            if (u == null) { pool.RemoveAt(i); continue; }
+                            if (u.IsWarlord && criteria.IncludeHero == 0) { pool.RemoveAt(i); continue; }
+                            if (!u.IsWarlord && criteria.IncludeMinions == 0) { pool.RemoveAt(i); continue; }
+                            if (u.IsRemnant && criteria.IncludeRemnants == 0) { pool.RemoveAt(i); continue; }
+                        }
+                        break;
+                    }
+
+                case 110:  // adjacentToTargetIfMeetsCriteria（`:1046-1060`）：目标**相邻**（同一方棋盘行内左右格）
+                    {
+                        int ap, aslot;
+                        if (chosen == null || !FindSlot(ctx, chosen, out ap, out aslot)) break;   // 锚点不在棋盘上 ⇒ 空表（原版同）
+                        var slots = new List<int>(2);
+                        BoardSpec.AdjacentSlots(aslot, slots);
+                        for (int i = 0; i < slots.Count; i++)
+                        {
+                            var u = ctx.Players[ap].Board[slots[i]];
+                            if (u != null) pool.Add(u);      // 邻居**不看死活**（同 `MinionManager__GetAdjacentUnits.c:52-70`）
+                        }
+                        break;
+                    }
+
+                case 150:  // previousAbilityFiltered（`:867-883`）：上一条 ability 的目标表
+                    {
+                        var prev = ctx.PreviousAbilityTargets;
+                        if (prev != null)
+                            for (int i = 0; i < prev.Count; i++) if (prev[i] != null) pool.Add(prev[i]);
+                        // 🔴 裁定 ②：原版这一档的目标**可以在手牌里**；我们这一格只装场上单位 ⇒ 手牌那半**不产**，如实出声。
+                        NoteAbilityTargetTable("ta150:" + cardId,
+                            $"「{source?.Name}」的 ability 目标表是 `ta=150 previousAbilityFiltered`：原版的目标**可以在手牌里**，"
+                          + "而 `BattleEventTarget` 只能表达棋盘格 ⇒ 本版**只产出仍在棋盘上的那些**（**部分做**，等 T21-a 的手牌锚通道；"
+                          + "裁定 ② 2026-10-31）。");
+                        break;
+                    }
+            }
+
+            // ---- 逐候选筛（原版 `:1081-1163` = `FilterMethods.CheckIfMeetsCriteria`）----
+            //   `20/30` 在建池那一支已经 `return`（原版同）⇒ 不走这一层；其余三档都要过整份 36 格。
+            if (ta != 20 && ta != 30)
+            {
+                for (int i = pool.Count - 1; i >= 0; i--)
+                {
+                    string gap;
+                    bool? ok = TargetCriteriaEval.Matches(ctx, owner, criteria, pool[i], null, source, chosen, out gap);
+                    if (ok == false) { pool.RemoveAt(i); continue; }
+                    if (ok == null)
+                        NoteAbilityTargetTable("nojudge:" + cardId + ":" + ta + ":" + gap,
+                            $"「{source?.Name}」的 ability 目标表（`ta={ta}`）有候选**判不了**：{gap} ⇒ 按本版约定**保留**该候选"
+                          + "（⛔ 不静默淘汰；判据 `AbilityLogic__GetTargets.c:1081-1163`）。");
+                }
+            }
+
+            // ---- 截断（原版 `:1164-1371`）----
+            int max = criteria.MaxTargets;      // `-1`（没落）与 `<= 0` 同向 = 不截（同 `CountEval.ApplyMaxTargets` 的口径）
+            if (max >= 1 && pool.Count > max)
+            {
+                int method = criteria.TargetSelectMethod;
+                switch (method)
+                {
+                    case 7:      // firstAdded（`:1339-1361`）：表头取 N
+                        pool.RemoveRange(max, pool.Count - max);
+                        break;
+
+                    case 5:      // lastAdded（`:1274-1313`）：表尾取 N
+                        pool.RemoveRange(0, pool.Count - max);
+                        break;
+
+                    case 1:      // highestAttack（`:1172-1214`）：`OrderBy(isRemnant)` → `ThenByDescending(GetHighestAttackValue)`
+                    case 6:      // lowestHealth（`:1314-1338`）：`OrderBy(CurrentIntrinsicHealth)`
+                        {
+                            int m = method;
+                            var idx = new List<int>(pool.Count);
+                            for (int i = 0; i < pool.Count; i++) idx.Add(i);
+                            idx.Sort((a, b) =>
+                            {
+                                if (m == 1)
+                                {
+                                    int ra = pool[a] != null && pool[a].IsRemnant ? 1 : 0;
+                                    int rb = pool[b] != null && pool[b].IsRemnant ? 1 : 0;
+                                    int c = ra.CompareTo(rb);                       // ① `OrderBy(isRemnant)`：非残骸在前
+                                    if (c != 0) return c;
+                                    int ka = HighestAttackKeyOf(pool[a]), kb = HighestAttackKeyOf(pool[b]);
+                                    return kb != ka ? kb.CompareTo(ka) : a.CompareTo(b);   // ② 降序 + ③ 平手保持池序（LINQ 是稳定排序）
+                                }
+                                int ha = pool[a] != null ? pool[a].CurrentIntrinsicHealth : int.MaxValue;
+                                int hb = pool[b] != null ? pool[b].CurrentIntrinsicHealth : int.MaxValue;
+                                int hc = ha.CompareTo(hb);                              // `OrderBy(CurrentIntrinsicHealth)` 升序
+                                return hc != 0 ? hc : a.CompareTo(b);                   // 平手保持池序
+                            });
+                            var keepSorted = new List<UnitState>(max);
+                            for (int i = 0; i < max; i++) keepSorted.Add(pool[idx[i]]);
+                            pool = keepSorted;
+                            break;
+                        }
+
+                    case 2:
+                    case 3:
+                        NoteAbilityTargetTable("sel:" + cardId + ":" + method,
+                            $"「{source?.Name}」的 ability 目标表要按 `targetSelectMethod={method} (valueInPlay)` 截到 {max} 个，"
+                          + "而本版**没有** `CardScript.GetValueInPlay()` 的等价字段 ⇒ **退回改前的单数路**（⛔ 不拿随机 / 池序冒充）。"
+                          + "判据 `AbilityLogic__GetTargets.c:1215-1261`。");
+                        return null;
+
+                    default:     // `0 random` / `4 cardTarget`（原版两支都进同一个随机抽循环，`:1252-1273`）
+                        if (method != 0 && method != 4)
+                        {
+                            NoteAbilityTargetTable("sel:" + cardId + ":" + method,
+                                $"「{source?.Name}」的 ability 目标表 `targetSelectMethod={method}` 不在 0..7（或没落）⇒ "
+                              + "**退回改前的单数路**（⛔ 不猜）。");
+                            return null;
+                        }
+                        {
+                            var keepRandom = new List<UnitState>(max);
+                            while (keepRandom.Count < max && pool.Count > 0)
+                            {
+                                int i = ctx.GetRandomInt(0, pool.Count);   // 预烧表 + 下标（`:1258`），⛔ 不是 `ctx.Rng.Next`
+                                keepRandom.Add(pool[i]);
+                                pool.RemoveAt(i);
+                            }
+                            pool = keepRandom;
+                            break;
+                        }
+                }
+            }
+
+            // ---- 转成事件层的四元组（`BattleEventTarget`；⛔ 只认棋盘格）----
+            var list = new List<BattleEventTarget>(pool.Count);
+            var tableUnits = new List<UnitState>(pool.Count);   // 🆕 2026-10-31（`B104_MT`）：**进得了棋盘格的那几个**（= 效果层能消费的那一支；与 `list` 一一对应）
+            for (int i = 0; i < pool.Count; i++)
+            {
+                var u = pool[i];
+                int tp, tslot;
+                if (u == null || !FindSlot(ctx, u, out tp, out tslot))
+                {
+                    NoteAbilityTargetTable("offboard:" + cardId + ":" + ta,
+                        $"「{source?.Name}」的 ability 目标表里有一个目标**不在棋盘上**（`ta={ta}`）⇒ 表现层表达不了，已跳过；"
+                      + "`ta=150` 落在手牌的那一半要等 T21-a 的手牌锚通道（裁定 ②，记「部分做」）。");
+                    continue;
+                }
+                list.Add(new BattleEventTarget { Player = tp, Slot = tslot, CardId = u.Name, InstanceId = u.InstanceId });
+                tableUnits.Add(u);
+            }
+            // 🆕 2026-10-31（`B104_MT`）：**发布「当前 activeAbility 的目标表」**（只有 `UseActiveAbilityCore` 传 `publishTable: true`）
+            //   —— 效果层（`ResolveTargetsCore` 的 `spec.Random` 分支）有这张表就**直接吃表、不再抽随机数**
+            //   （原版效果消费的就是 `GetTargets` 那张表；那一抽已经在**产表时**发生过一次，⛔ 别再抽第二次）。
+            //   ⚠️ 清空由 `UseActiveAbilityCore` 的入口/出口两行负责（⛔ 这里不管生命周期）。
+            if (publishTable && tableUnits.Count > 0) { ctx.AbilityTargetTable = tableUnits; ctx.AbilityTargetTableOwner = source; }
+            return list;
+        }
+
+        /// <summary>
+        /// 一条主动能力（可能有多行 `activeAbilityLogic`）里，**哪一行**的 `targetCriteria` 该进那一条
+        /// `EvtKind.Ability` 的 `AbilityTargetList`。
+        ///
+        /// <para>**调度台裁定 ①（2026-10-31）：多行目标表按行独立、不合并** —— 原版是**每行各一次**
+        /// `GetTargets + PlayAnim`（`AbilityLogic__PlayAbility.c:262/273`，第二处 `:1524-1531`），
+        /// 而我们一条 `EvtKind.Ability` 管整条 ability ⇒ 只能挑**一行**的整张表（⛔ 不取并集、⛔ 不取交集）。</para>
+        ///
+        /// <para>**挑法**（两道，先后有序）：① 先挑 `ta ∈ {10,110,150}` 的行 —— 只有这三档会产出 >1 个目标，
+        /// 也就是唯一需要「逐目标播放」的那一批（施工单 §B·4 的 8 卡 / 11 拍全部落在这三档）；
+        /// ② 没有的话挑**第一行**有 criteria 的（`20/30` 只产 1 张，与改前的单数路同宽）。</para>
+        ///
+        /// <para>⚠️ **这条挑法是本版的表现层近似**（原版按行各播一份，我们的消费端一条事件只有一张表）；
+        /// 它只影响「多行且各行目标不同」的卡 —— 现读 `activeAbilityLogic` 有多行的卡里，落在 2 拍上的行都是单行
+        /// （见 `资料/完全复刻/报告/B104_MT.md`）。⛔ 别拿它当「原版也只挑一行」的判据。</para>
+        /// </summary>
+        static CardDef.CountSetSpec ActiveAbilityTargetCriteriaForPlan(UnitState u, List<int[]> plan)
+        {
+            if (u == null || u.Card == null || plan == null || plan.Count == 0) return null;
+            for (int i = 0; i < plan.Count; i++)   // ① 多目标那三档优先
+            {
+                var step = plan[i];
+                if (step == null || step.Length < 4) continue;
+                int ta = step[1];
+                if (ta != 10 && ta != 110 && ta != 150) continue;
+                var set = u.Card.ActiveAbilityTargetCriteriaAt(step[3], step[2]);
+                if (set != null) return set;
+            }
+            for (int i = 0; i < plan.Count; i++)   // ② 退而取第一行有 criteria 的
+            {
+                var step = plan[i];
+                if (step == null || step.Length < 4) continue;
+                var set = u.Card.ActiveAbilityTargetCriteriaAt(step[3], step[2]);
+                if (set != null) return set;
+            }
+            return null;
+        }
+
+        /// <summary>自检门：<see cref="AbilityTargetListFromCriteria"/>（只读；`null` = 这一档本批没接）。
+        /// ⚠️ `maxTargets` + `random` 那一档会**推进一格** `ctx.GetRandomInt`（原版同位置也消费）⇒ 夹具请用固定 seed。</summary>
+        public static List<BattleEventTarget> AbilityTargetListFromCriteriaForTest(
+            BattleContext ctx, int owner, CardDef.CountSetSpec criteria, UnitState source, UnitState chosen)
+        {
+            return AbilityTargetListFromCriteria(ctx, owner, criteria, source, chosen);
+        }
+
+        /// <summary>自检门：<see cref="ActiveAbilityTargetCriteriaForPlan"/>（只读）。</summary>
+        public static CardDef.CountSetSpec ActiveAbilityTargetCriteriaForPlanForTest(UnitState u, List<int[]> plan)
+        {
+            return ActiveAbilityTargetCriteriaForPlan(u, plan);
         }
     }
 }

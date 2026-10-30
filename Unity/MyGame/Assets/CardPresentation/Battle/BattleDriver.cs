@@ -5430,6 +5430,12 @@ namespace CardPresentation
             //   ⚠️ 位置在这**之后**（`myCards` / `foeCards` 已经是解析好的那两份、`_pool` 已在），
             //      且在 `RuleCore.NewBattle` **之前** —— 建表只读卡数据，不动局面。
             BuildOpeningDeckData(myDeck, foeDeck, myCards, foeCards);
+            // 🆕 2026-10-31（`B104_VfxMap`）：原版 `BattleCacheInitializer._Initialize` →
+            //   `BattleCardManager.PreloadCard` → `BattleManager.PreloadTraitEffect`。
+            //   判据 = `decomp_full/BattleManager__PreloadTraitEffect.c` + `AnimInfo__PreloadAssets.c`
+            //   （`Load()` → `Instantiate` → `Destroy`）；机制实现见 `VfxMap.PreloadTraitEffectsOfCard`。
+            VfxMap.PreloadTraitEffectsOfCards(myCards);
+            VfxMap.PreloadTraitEffectsOfCards(foeCards);
             WarnMissingPresentationData();
 
             // `cardPool: pool` —— `create` 造牌要从**整个卡池**按阵营 + 兵种筛候选
@@ -5842,6 +5848,7 @@ namespace CardPresentation
                 return;
             }
 
+            PrepareTurnDrawDeferral();      // 🔴 2026-10-31（`B104_D2`）：本地人类回合的回合初抽牌推迟到抬头 1.5 s 之后
             RuleCore.BeginTurn(Ctx);       // 先手第 1 回合：能量 2、抽 1
             SyncTutorialTurn();            // 🆕 A938：回合变了 ⇒ 脚本指针归零（原版 `UpdateTurn`）
             ResetClock();                  // 第 1 回合的表也得上（原版 `ClockManager.StartTimer`）
@@ -9106,6 +9113,7 @@ namespace CardPresentation
         /// 拆出来是因为中间可能插「选进攻卡」那个面板（选完才走到这儿）。</summary>
         void BeginBattleAfterSetup()
         {
+            PrepareTurnDrawDeferral();        // 🔴 2026-10-31（`B104_D2`）：同 `BeginBattle` 那条
             RuleCore.BeginTurn(Ctx);          // 换完才真正开打（原版 `StartBattlePhase`）
             SyncTutorialTurn();               // 🆕 A938：回合变了 ⇒ 脚本指针归零（原版 `UpdateTurn`）
             // 🆕 2026-10-12（A175）：**换牌结束那一刻** —— 原版 `CombatAutoZoom.Initialize()` 就在这里
@@ -14588,8 +14596,12 @@ namespace CardPresentation
         /// <para>**判据（逐句）**：`:444` 判 `param_1+0x28 != 0`（= 本地玩家分支）→ `:450` `Play2D(StartTurn)`
         /// → `:451-475` **教程局第 1 回合整段跳过** → `:480-481` `GetTranslation(0x4288a48 /*Battle/HUD/YourTurn*/)`
         /// → `:483` `ShowHeadsUpMessage(词条, opaqueBackground:1, bgColorRed:0)` → `:485` `WaitForSeconds(1.5f)`
-        /// （⚠️ **那是协程自己的停顿，不是横幅时长** —— 横幅 1.7 s 见 `TipDuration`；我们不搬那 1.5 s 停顿，
-        /// 抽牌在 `RuleCore.BeginTurn` 里已经同步做完了，见 `W63` 简报 §5）。</para>
+        /// （⚠️ **那是协程自己的停顿，不是横幅时长** —— 横幅 1.7 s 见 `TipDuration`）。
+        /// 🔴 **2026-10-31（`B104_D2`）就地订正（铁律 5）**：这里原来写「我们不搬那 1.5 s 停顿，
+        /// 抽牌在 `RuleCore.BeginTurn` 里已经同步做完了」—— **已作废**：那 1.5 s 不只是停顿，
+        /// 它把 `BroadcastTurnSetup` + 回合初抽牌整个推到了等待之后（`:483-489` → `state 2` → `:360-362`）。
+        /// 现在引擎侧在本地人类回合把 post-wait 那半**推掉**（`RuleCore.ShouldDeferTurnDraw`），
+        /// 由 <see cref="HoldForTurnHeadsUp"/> 在 1.5 s 后补跑（`RuleCore.ResolvePendingTurnDraw`）。</para>
         ///
         /// <para>**调用点两处**（⛔ 别在别处再叫）：
         /// ① <see cref="ResetClock"/>（单机 / 联机各自的「玩家回合开始」都从这儿过）；
@@ -14639,6 +14651,23 @@ namespace CardPresentation
             ExtendTimelineTail(at);
             BeginBlockingWindow(at);
             TurnHeadsUpHolds++;
+            // 🔴 2026-10-31（`B104_D2`）：**这 1.5 s 走完那一拍 = 原版 `WaitForSeconds(1.5)` 之后的续跑**
+            //   （`BattleManager._NextTurn_d__395__MoveNext.c:483-489` → `state 2` → `:360-362`
+            //    `BroadcastTurnSetup` + `TurnStartCardDraw`）。
+            //   引擎侧在本地人类回合把 post-wait 那一半**推掉**了（`RuleCore.ShouldDeferTurnDraw`），
+            //   这里就是**唯一补跑口**（`RuleCore.ResolvePendingTurnDraw`，幂等：没推的话是空操作）。
+            //   ⚠️ 两条边界：① 重开一局（`Ctx` 换人）⇒ 这条排期属于上一局，直接丢弃；
+            //   ② 对手回合 / 教程第 1 回合根本走不到这里（`ShowYourTurnHeadsUp` 的早退）。
+            var ctxAtSchedule = Ctx;
+            ScheduleAction(TurnHeadsUpHold, () =>
+            {
+                if (Ctx == null || Ctx != ctxAtSchedule) return;
+                RuleCore.ResolvePendingTurnDraw(Ctx);
+                // ⚠️ 这一拍改的是**引擎状态**（手牌 +1、`turn_start` 触发可能打死人），
+                //   而它不在任何 `RefreshAll` 的调用点后面 ⇒ 必须自己补一次视图同步，
+                //   否则那张牌要等玩家下一次操作才出现（原版是协程续跑后照常演入场动画）。
+                RefreshAll();
+            });
         }
 
         /// <summary>🆕 2026-10-25（`AU1`）：回合抬头之后那一拍 = **1.5 s**（`DAT_1834b3090` 实读；
@@ -16712,6 +16741,7 @@ namespace CardPresentation
             RuleCore.EndTurn(Ctx);
             // ⚠️ 换边之后**必须再 BeginTurn** —— 它才是「给当前行动方发能量、抽牌、解疲劳」的那一步。
             //    少了这一步，对手整个回合都是 0 能量，一张牌都出不来（踩过：AI 场上永远只有督军）。
+            PrepareTurnDrawDeferral();    // 🔴 2026-10-31（`B104_D2`）：交到对手回合 ⇒ 引擎侧那道闸自然不推迟（`ctx.Active != _me`）
             RuleCore.BeginTurn(Ctx);
             SyncTutorialTurn();           // 🆕 A938：回合变了 ⇒ 脚本指针归零（原版 `UpdateTurn`）
             _aiTimer = NextAiFirstActionDelay();   // 账 54：AI 回合**第一个动作前**单独一掷
@@ -19126,6 +19156,7 @@ namespace CardPresentation
         {
             // ⚠️ **先落地、后记账** —— `trace` 里那一条要是「这条动作做完之后」的状态，回放才逐条对得上。
             RuleCore.EndTurn(Ctx);
+            PrepareTurnDrawDeferral();    // 🔴 2026-10-31（`B104_D2`）：交回本地人类 ⇒ 回合初抽牌推迟到抬头 1.5 s 之后
             RuleCore.BeginTurn(Ctx);
             SyncTutorialTurn();           // 🆕 A938：回合变了 ⇒ 脚本指针归零（原版 `UpdateTurn`）
             // 🆕 2026-10-17（A904）：回合推进**同样会结算到 ask 点**（回合末/回合初的触发）
@@ -20005,7 +20036,7 @@ namespace CardPresentation
             /// <summary>那个目标的稳定身份（`BattleEventTarget.InstanceId`；`0` = 没有）。</summary>
             public int beatTgtInstance;
         }
-        readonly List<PendingSignal> _timeline = new List<PendingSignal>();
+        readonly PendingSignalQueue _timeline = new PendingSignalQueue();   // 2026-10-31 B104_V2: thin queue (anim trace hooks in Add; see PendingSignalQueue at class end)
         float _clock;
 
         // ==================================================================
@@ -21936,6 +21967,14 @@ namespace CardPresentation
                 case EvtKind.GainFaith:  return VfxMap.GainFaith;
                 case EvtKind.GainSpirit: return VfxMap.GainSpirit;
                 case EvtKind.GainQuest:  return VfxMap.GainQuest;
+                // 🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-b`）：任务点【下降】那一拍。**
+                //   判据（第一权威）= 原版 `ManaTypeHolder.TryDOVfx`
+                //   （`d:/2/tools/decomp_full/ManaTypeHolder__TryDOVfx.c`）：`last(+0x70) < 新值` 走
+                //   `vfxOnValueUp(+0x30)`、否则走 `vfxOnValueDown(+0x38)`；26 份 `QuestPointsHolder`
+                //   实例实读 down = `Quest UI Trigger`（guid `2223a4d2…`）。
+                //   ⚠️ 它和 `GainQuest` **落同一个 HUD 图标**（同一个 `ManaTypeHolder` 实例的两个槽）⇒
+                //     已经在 `IsResourceUiEvent` 里，走 HUD 锚点那条路（⛔ 别让它落到 `slot < 0 → return`）。
+                case EvtKind.QuestSpent: return VfxMap.QuestSpent;
                 // 🆕 2026-09-25 收集灵魂石（灵族）：**格位上**那一条（`Slot` = 石头原来那一格）——
                 //    ⚠️ 它**不在** `IsResourceUiEvent` 里，走下面普通那条路（按格位取世界坐标）。
                 case EvtKind.CollectWaystone: return VfxMap.CollectWaystone;
@@ -23297,6 +23336,58 @@ namespace CardPresentation
                     return;
                 }
             }
+
+            // 🔴🆕 **2026-10-31（执行代理 `B104_T21` · 施工单 T21-a）：手牌里那张卡发的那一拍 `Trigger` ——
+            //   `slot < 0` 的 `Trigger` 原来被下面那句 `if (slot < 0) return;` 整条吞掉**
+            //   （手牌陷阱 `Cult Propaganda` / `Poisoned Supplies` 的 `TurnEnd` 动画行、`ThisCardDrawnAsTrap`、
+            //    手牌里的监听者……只要 `UnitState` 为 null 就 `Slot = -1`）。
+            //
+            //   【判据（第一权威，逐句）】
+            //   · `CardScript__GetEffectAnchor.c:9-19`：卡状态 ∈ {0,1,4,8,9,10,12,16}（手牌 / 牌堆 / 中央展示）
+            //     ⇒ 锚 = `BattleCardUI+0x30` = `card2DController` = **`2DCard` 那一级**；
+            //     其余（场上）⇒ `+0x1A0 = effectsAnchor`。我们的对应物 = `CardView.EffectAnchor(false)`
+            //     （手牌档 = `FaceRoot`，见 `CardView.EffectAnchor` 的 doc：⛔ 别在调用点自己判）。
+            //   · `AbilityLogic__PlayAnim.c:185-222`：按目标列表逐张 `CardScript.IsInHand(target)` ——
+            //     **不在手牌** ⇒ 正常播；**在手牌且 `target+0x40`（`isPlayer`）为真** ⇒ 正常播
+            //     （锚仍走上面那条 `GetEffectAnchor`，于是落在**那张手牌卡**上）；
+            //     **对手手牌** ⇒ `CustomDebug.LogWarning` 之后**跳过这个目标**。
+            //
+            //   【我们的等价物】`HandCardViewOf` 取**本机手牌**里的那张 `CardView`（对手手牌只有卡背
+            //     `ImageQuad`，没有 `CardView`）⇒ 取不到就**跳过并出声**（与判据里「对手手牌」那一支同形，
+            //     ⛔ 不静默；同一张卡只喊一次，见 `NoteTriggerHandAnchor`）。
+            //
+            //   ⚠️ **只放行 `EvtKind.Trigger`**：`slot = -1` 还有别的来路（`Play` 上面那一支已处理；
+            //     `ThisCardDrawnAsTrap` 这类从牌库发的件没有视图）⇒ 一律走「取不到 ⇒ 出声」。
+            //   ⚠️ **多目标不变**：这里只喂 1 个目标（`BattleEvent.Target*` 是标量），
+            //     与 `BattleContext.TriggerTargetSink` 的「只填第一个」同一条口径。
+            if (slot < 0 && e.Kind == EvtKind.Trigger)
+            {
+                CardView handSelf = HandCardViewOf(e.Player, e.CardId, e.InstanceId);
+                if (handSelf == null)
+                {
+                    NoteTriggerHandAnchor(e, "**没有手牌视图**");
+                    _animfxCtx = default;
+                    return;
+                }
+                // 目标侧照旧只读事件那两位（`BattleDriver.PlayAbilityBeat` 的既有读口，⛔ 别写第二份判定）
+                CardView handTarget = (e.TargetPlayer >= 0 && e.TargetSlot >= 0)
+                                    ? ViewAt(e.TargetPlayer, e.TargetSlot) : null;
+                _handTriggerPlayAttempts++;      // 自检口：这一支真的进来了（见 `HandTriggerPlayAttemptsForTest`）
+                // 🔴 C5（2026-10-25）：`cardArmy` 口径 —— 见 `VfxFactionOf` 的 doc
+                string handFaction = VfxFactionOf(e.Player, e.CardId, e.InstanceId, e.Slot);
+                _animfxLastEvent = e;
+                _animfxCtx = BuildCardContext(e);       // AnimFX 模块要用「为哪两张卡播的」
+                Transform handAnchor = handSelf.EffectAnchor(false);    // 判据只此一处（`CardView.EffectAnchor`）
+                int nHand = PlayPlacedPieces(e, evt, handFaction, perCardOnly, triggerKeyword,
+                                             handSelf, handTarget,
+                                             handAnchor != null ? handAnchor.position : Vector3.zero,
+                                             handAnchored: true);
+                if (nHand == 0)
+                    NoteTriggerHandAnchor(e, "在逐卡表里**没有任何候选件**（这一拍什么都不会播）");
+                _animfxCtx = default;
+                return;
+            }
+
             if (slot < 0) return;                       // 不在场上（比如从牌库直接进弃牌堆）
 
             var layout = owner == _me ? playerBoard : enemyBoard;
@@ -23539,7 +23630,11 @@ namespace CardPresentation
                              CardView selfOverride = null, CardView targetOverride = null,
                              // 🆕 2026-10-27（执行代理 `A4`）：多目标逐目标播放 —— 这一拍**自己的**目标
                              //   （`-1` = 不覆盖，退回事件自己的 `TargetPlayer/TargetSlot`）。
-                             int beatTgtPlayer = -1, int beatTgtSlot = -1, int beatTgtInstance = 0)
+                             int beatTgtPlayer = -1, int beatTgtSlot = -1, int beatTgtInstance = 0,
+                             // 🔴🆕 2026-10-31（执行代理 `B104_T21` · 施工单 T21-a）：起锚点锚在**这张卡的手牌档**。
+                             //   判据 `CardScript__GetEffectAnchor.c:9-19`；见 `PlayPlacedPieces` 的同名形参。
+                             //   `false`（既有 5 个调用点全部）⇒ 逐字节不变。
+                             bool handAnchored = false)
         {
             if (string.IsNullOrEmpty(vfx)) return;   // 纯延时拍：没有特效（时长已由 `ExpandAbilityBeats` 算进调度）
 
@@ -23551,6 +23646,17 @@ namespace CardPresentation
 
             Vector3 pos = Vector3.zero;
             Transform anchor = ResolveAnimAnchor((PositionOption)sp, e.Player, self, target);
+            // 🔴🆕 2026-10-31（`B104_T21` · T21-a）：`handAnchored` 且这一拍要「**这张卡自己**」（`0 self`）
+            //   ⇒ 直接用**手牌档**锚（原版 `GetEffectAnchor` 手牌那一支），⛔ 不再听 `AnimAnchors.OnBoardOf`
+            //   那条「视图在不在棋盘上」的推断 —— 调用方已经**在手牌里找到了它**（`HandCardViewOf`），
+            //   比推断更硬。`1 cardTarget` / `2 abilityTarget` **不动**（目标真在棋盘上时锚就该是目标那张卡）。
+            if (handAnchored && self != null && sp == (int)PositionOption.self) anchor = self.EffectAnchor(false);
+            // 🔴🆕 2026-10-31（`B104_T21` · T21-a）：手牌档 —— `0/1/2` 三档里 `1 cardTarget` / `2 abilityTarget`
+            //   在**没有目标**时会解析成 null（`AnimAnchors.CardAnchor(null)` 出声后回 null）。
+            //   原版那一格是 `FUN_1803f47a0()`（**抛异常**、反编译标 `Subroutine does not return`）——
+            //   我们⛔ 不抛（会把一局打断）⇒ **退回这张手牌卡自己的锚**（= 原版 `GetEffectAnchor` 手牌档那一支）。
+            //   🔶 自己设计（非原版）：目标锚为空时的降级 · 因为原版在这一格抛异常、我们选择不中断对局 · 调度台 2026-10-31 裁定（施工单 T21-a）
+            if (anchor == null && handAnchored && self != null) anchor = self.EffectAnchor(false);
             if (anchor == null)
             {
                 // 那一档取不到（`AnimAnchors` 已经出过声）。两条退路：
@@ -24014,7 +24120,14 @@ namespace CardPresentation
         /// 与改前逐字一致，⛔ 不拿默认参数硬套锚点。</para></summary>
         int PlayPlacedPieces(BattleEvent e, string evt, string faction, bool perCardOnly, string keyword,
                              CardView self, CardView target, Vector3 fallbackPos,
-                             bool cardAnimRowsOnly = false, float baseAt = 0f)
+                             bool cardAnimRowsOnly = false, float baseAt = 0f,
+                             // 🔴🆕 2026-10-31（执行代理 `B104_T21` · 施工单 T21-a）：**这一件锚在那张卡的【手牌档】**。
+                             //   判据 `CardScript__GetEffectAnchor.c:9-19`（手牌卡状态 ∈ {0,1,4,8,9,10,12,16}
+                             //   ⇒ `card2DController` = 我们的 `CardView.EffectAnchor(false)` = `FaceRoot`）。
+                             //   `true` ⇒ 起锚点 / `Slot < 0` 的降级都改用 `self.EffectAnchor(false)`，
+                             //   ⛔ 不再往 `createCardPos(140)`（中央展示位）上掉。
+                             //   出场的既有调用点**一个都不传** ⇒ 行为逐字节不变。
+                             bool handAnchored = false)
         {
             if (e == null || string.IsNullOrEmpty(evt)) return 0;
             var items = VfxMap.ResolveAllTimed(evt, faction, e.CardId, AnimTimesOf(e.CardId, faction),
@@ -24042,13 +24155,13 @@ namespace CardPresentation
                 if (place.HasValue && place.Value.MoveBody)
                     beatDur = Mathf.Max(0f, place.Value.MoveBodyDelay) + Mathf.Max(0f, place.Value.MoveBodyTime);
                 if (at <= VfxTimeEpsilon)
-                    PlayPlacedOne(e, it.Name, place, self, target, fallbackPos);
+                    PlayPlacedOne(e, it.Name, place, self, target, fallbackPos, handAnchored);
                 else
                 {
                     // 与 `FireEventAll` 同一个错开口径（`ResolvedVfx.T` = 组内顺序时长之和 + 自身 `vfxDelayTime`）。
                     string nm = it.Name; var pl = place;
                     ScheduleAction(at,
-                        () => PlayPlacedOne(e, nm, pl, self, target, fallbackPos), beatDur);
+                        () => PlayPlacedOne(e, nm, pl, self, target, fallbackPos, handAnchored), beatDur);
                 }
                 fired++;
             }
@@ -24056,8 +24169,10 @@ namespace CardPresentation
         }
 
         /// <summary><see cref="PlayPlacedPieces"/> 的单件（见那一大段的判据）。</summary>
+        /// <param name="handAnchored">🔴🆕 2026-10-31（`B104_T21` · 施工单 T21-a）：这一件锚在**这张卡的手牌档**
+        /// （判据 `CardScript__GetEffectAnchor.c:9-19` ⇒ `CardView.EffectAnchor(false)`）。见 `PlayPlacedPieces` 的同名形参。</param>
         void PlayPlacedOne(BattleEvent e, string vfx, CardAnimPlacement? place,
-                           CardView self, CardView target, Vector3 fallbackPos)
+                           CardView self, CardView target, Vector3 fallbackPos, bool handAnchored = false)
         {
             if (string.IsNullOrEmpty(vfx)) return;
             if (!place.HasValue)
@@ -24096,7 +24211,7 @@ namespace CardPresentation
             ScheduleUnitShakes(p.UnitShakes, self, target, e.Player, 0f); ScheduleUnitTween(p.TweenAnim, self, target, 0f, "beat:" + vfx);   // 判据 `_d__466:110-125` / `_d__465:130-145`，缺数据零调用；🆕 2026-10-29（B97_W18 · 账 `特效动画:492`）第三条同形出口（`_d__465:151-200` 也有 `+0x80` 补间段），`at` 传 0 —— 调用方 `PlayPlacedPieces` 已把 `startDelay` 折进 `at`（⛔ 别再加一次）
             PlayAbilityBeat(e, vfx, sp, p.EndPos, pt,
                             p.Move, p.OrientToVelocity, p.Ts, p.Tm, p.Ease,
-                            null, place, self, target);
+                            null, place, self, target, handAnchored: handAnchored);
         }
 
         /// <summary>🔴🆕 **2026-10-24（执行代理 `W1` · AN1 `R6` · **S0**）：单位死亡时**它自己的死亡触发能力动画**
@@ -24674,7 +24789,12 @@ namespace CardPresentation
 
         static bool IsResourceUiEvent(EvtKind k)
         {
-            return k == EvtKind.GainFaith || k == EvtKind.GainSpirit || k == EvtKind.GainQuest;
+            // 🔴 **2026-10-31（`B104_W64` · `B6-b`）：`QuestSpent` 也在这里** —— 原版它和 `GainQuest`
+            //   是**同一个** `ManaTypeHolder` 实例的两个槽（`vfxOnValueUp` / `vfxOnValueDown`），
+            //   落点 = 同一个任务点图标 ⇒ 必须走 HUD 锚点那条路，否则会被 `PlaySignal` 的
+            //   `if (slot < 0) return;` 静默吃掉（这与 2026-09-15 那四个资源事件是同一个形状）。
+            return k == EvtKind.GainFaith || k == EvtKind.GainSpirit || k == EvtKind.GainQuest
+                || k == EvtKind.QuestSpent;
         }
 
         // ==================================================================
@@ -24785,6 +24905,9 @@ namespace CardPresentation
                 return new Vector2(mine ? MyFaithX01 : FoeFaithX01, mine ? MyFaithY01 : FoeFaithY01);
             if (k == EvtKind.GainSpirit)
                 return new Vector2(mine ? MyStoneX01 : FoeStoneX01, mine ? MyStoneY01 : FoeStoneY01);
+            // 🔴 **2026-10-31（`B104_W64` · `B6-b`）：这一句同时服务 `GainQuest` 与 `QuestSpent`** ——
+            //   原版两者是**同一颗** `QuestPointsHolder` 节点的两个槽（`vfxOnValueUp` / `vfxOnValueDown`，
+            //   26 份实例实读）⇒ 落点逐字相同，⛔ 别给「下降」另算一个点（那会变成两套坐标）。
             return new Vector2(mine ? MyQuestX01 : FoeQuestX01, mine ? MyQuestY01 : FoeQuestY01);
         }
 
@@ -25048,8 +25171,8 @@ namespace CardPresentation
             SwarmMergeFeelCount++;
             SwarmMergeLastSlot = e.Slot;
 
-            // ① 存活那张的**虫群图标**（原版 `ActivateTraitAnim` 那一族）
-            v.SetSwarm(true);
+            // ① **这里不亮虫群图标**：原版 `DisplaySwarm` 只在拖拽预览（`BattleManager__Update.c:608`），
+            //    `CardScript__ExecuteSwarm.c` 全文没有它 ⇒ 合并后不存在常驻图标（`B104_A2` 报告 §2·3）。
 
             // ② 合并件（挂在存活那格；⚠️ 偏离 ① —— 原版挂在被并掉那张）
             var mergeVfx = WarpforgeVFX.WarpforgeEffectPlayer.Play(SwarmMergeVfxName, v.transform, Vector3.zero, 1f, -1f);
@@ -26929,11 +27052,11 @@ namespace CardPresentation
             {
                 EndPreviewReturn();
                 _previewOwner = -1;
-                _previewRequested = -1;
+                _previewRequested = -1;   RefreshSwarmPreview();   // 收工 = 清全部（原版 `RemoveSwarm(mm, 0)`：`:418/:303/:208/:620`）
                 return;
             }
             _previewOwner = (which == playerBoard) ? _me : (1 - _me);
-            _previewRequested = requestedSlot;
+            _previewRequested = requestedSlot;   RefreshSwarmPreview();   // 🔴 2026-10-31（`B104_A2`）：拖拽预览的虫群图标（判据见类尾）
         }
 
         /// <summary>
@@ -39033,6 +39156,342 @@ namespace CardPresentation
         /// 1.5 s 阻塞窗 + 一次 `StartTurn` 音效，把别的节推红。⛔ 也别让产品路径多出这一拍。</para>
         /// </summary>
         public void SimulateResetClockForTest() { ResetClock(); }
+
+        // ==================================================================
+        //  🆕 2026-10-31（执行代理 `B104_V2` · 特效/动画 V-2）：**播放 trace 的唯一收口**
+        // ==================================================================
+        //  这一节**只为一件事**存在：在「排队那一刻」把这一拍被调度成什么交给 `AnimTrace`
+        //  （落成 TSV，供 `工具/compare_anim_trace.py` 与原版全表对账）。
+        //
+        //  🔴 **为什么要单造一个容器类（而不是在 5 个 `_timeline.Add` 调用点各加一行）**：
+        //    ① 那 5 个调用点（`PlaySignals` 事件拍 / `ExpandAbilityBeats` 两处 / `ScheduleVfxCue` /
+        //       `ScheduleAction` / `SchedulePresentationCallback`）**散在 30k+ 行的不同位置**，
+        //       每处插一行 = 该文件下游行号整体位移，而本文件的账行**按 `文件:行号` 引用**（铁律 18·b 的反面）；
+        //    ② `_timeline` 是**唯一**的写入口 ⇒ 换成这个容器即可**一处收口**、**零行数变化**
+        //       （字段声明那一行**就地改型**：`List<PendingSignal>` → `PendingSignalQueue`，行数不变）。
+        //  ⚠️ 开关关着时 `Add` 只多一次 `AnimTrace.Enabled`（缓存 bool）读 ⇒ **零默认行为改变**。
+        // ------------------------------------------------------------------
+
+        /// <summary>🆕 2026-10-31（执行代理 `B104_V2`）：`_timeline` 的容器 —— **唯一**写入口 = `Add`。
+        /// <para>⚠️ 这不是「新调度器」：它只是 `List&lt;PendingSignal&gt;` 的薄壳，**语义逐字不变**
+        /// （`Add` / `Count` / 索引器 / `RemoveAt` / `Clear` 全部原样转发）。</para>
+        /// <para>⚠️ 2026-10-31 就地改型（铁律 5 留痕）：字段原来是 `List&lt;PendingSignal&gt;` ——
+        /// `List&lt;T&gt;.Add` 不是 `virtual`、`PendingSignal` 又是私有结构 ⇒ **没有第二个口**能在
+        /// 「排队那一刻」收口，而把 `Add` 拆成 5 处调用点改又会整体位移行号。</para></summary>
+        sealed class PendingSignalQueue
+        {
+            readonly List<PendingSignal> _items = new List<PendingSignal>();
+
+            public int Count { get { return _items.Count; } }
+            public PendingSignal this[int i] { get { return _items[i]; } set { _items[i] = value; } }
+            public void RemoveAt(int i) { _items.RemoveAt(i); }
+            public void Clear() { _items.Clear(); }
+
+            public void Add(PendingSignal p)
+            {
+                if (AnimTrace.Enabled) Trace(p);
+                _items.Add(p);
+            }
+
+            /// <summary>把「这一拍被调度成什么」交给 <see cref="AnimTrace"/>（**只在开关开时被调**）。
+            ///
+            /// <para>`holdSeconds`（**阻塞时长**）按 cue 三族分别取，说明写在这里 ⛔ 别在别处猜：</para>
+            /// <list type="bullet">
+            /// <item>**事件拍**（`cueKind = event`）= `EventTiming.DurationOf(evt)` —— 与 `PlaySignals`
+            ///   推进 `t` 用的是**同一个值**（`t += EventTiming.DurationOf(e)`），所以它就是「这一条事件
+            ///   把时间线占多久」。⚠️ 它在排期后**一帧内**取，本局棋盘状态与 `PlaySignals` 那次一致。</item>
+            /// <item>**按表展开的拍**（`cueKind = beat`）= 这一拍自己的 `AnimInfo.GetAnimDuration()`
+            ///   （= `CardAnimBeat.Duration` = `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`，
+            ///   判据 → `CardAnimBeat.Duration` 的 doc）。</item>
+            /// <item>**`cueVfx` / `cueAction`** = **0**：这两族的排期函数把 `duration` **只用来推队尾、
+            ///   没存进信号**（`ScheduleVfxCue` / `ScheduleAction` 的实参）⇒ 排队这一刻**拿不到**。
+            ///   如实记 0，⛔ 不要拿「下一条的 `at` 减这一条的 `at`」反算（那是**间隔**不是阻塞）。</item>
+            /// </list>
+            ///
+            /// <para>`piece` / `seat` / `firstOfEvent` 的取法：按表展开的拍取 `beatVfx` / `beatTail`；
+            /// 事件拍与非事件 cue 的 `piece` 见 <see cref="AnimTrace"/> 的类头（事件拍那几件在
+            /// `VfxMap` 里、**播放那一刻**才有名字 ⇒ 这里只能记空串，⛔ 别猜）。</para></summary>
+            internal static void Trace(PendingSignal p)
+            {
+                string cueKind = !string.IsNullOrEmpty(p.cueVfx) ? "cueVfx"
+                               : (p.cueAction != null) ? "cueAction"
+                               : p.beat ? "beat" : "event";
+                string cardId = p.evt != null ? p.evt.CardId : "";
+                string kind = p.evt != null ? p.evt.Kind.ToString() : "";
+                string piece = p.beat ? p.beatVfx : p.cueVfx;
+                float hold = 0f;
+                if (p.beat) hold = p.beatData != null ? p.beatData.Duration : 0f;
+                else if (p.cueVfx == null && p.cueAction == null && p.evt != null) hold = EventTiming.DurationOf(p.evt);
+                int seat = p.evt != null ? p.evt.Player : -1;
+                bool first = p.beat ? !p.beatTail : true;
+                AnimTrace.Append(cardId, kind, piece, p.at, hold, seat, cueKind, first);
+            }
+        }
+
+        /// <summary>🆕 2026-10-31（执行代理 `B104_V2` · **自检专用**）：走**与 `PendingSignalQueue.Add`
+        /// 完全相同**的提取 + 落盘路径记一行 trace（`Editor/B104_V2_Assert.cs` 用它验
+        /// 「打开后一次模拟调度能记到行」）。
+        /// <para>⛔ **不进时间线**（只走 `Trace`，不碰 `_items`）⇒ 不影响任何调度状态、不留待播 cue；
+        /// ⛔ 生产代码别调（它只为让自检能造出「一拍按表展开的拍」这个形状）。</para>
+        /// <para>`holdSeconds` 通过 `CardAnimBeat.vd` 注入 ⇒ `Duration` 恰好 = 传入值
+        /// （`ts/tm/te` 默认为 0），所以它同时断「阻塞时长取自 `beatData.Duration`」这条口径。</para></summary>
+        public static void AnimTraceProbeForTest(string cardId, string beatVfx, float startOffset,
+                                                 float holdSeconds, int seat)
+        {
+            var beat = new CardAnimBeat { vfx = beatVfx, vd = holdSeconds };
+            var evt = new BattleEvent { Kind = EvtKind.Ability, CardId = cardId, Player = seat };
+            PendingSignalQueue.Trace(new PendingSignal
+            {
+                evt = evt, at = startOffset, beat = true, beatTail = false, beatVfx = beatVfx, beatData = beat,
+            });
+        }
+
+        // ==================================================================
+        //  🔴🆕 2026-10-31（执行代理 `B104_T21` · 施工单 T21-a）：
+        //  手牌档锚通道 —— 「这条 `Trigger` 的主语落在哪张手牌卡上」
+        // ==================================================================
+        //  判据（第一权威，逐句）：
+        //   · `CardScript__GetEffectAnchor.c:9-19`：卡状态 ∈ {0,1,4,8,9,10,12,16}（手牌 / 牌堆 / 中央展示）
+        //     ⇒ 锚 = `BattleCardUI+0x30` = `card2DController` = **`2DCard` 那一级** ⇒ 我们 `CardView.EffectAnchor(false)`。
+        //   · `AbilityLogic__PlayAnim.c:185-222`：逐目标 `CardScript.IsInHand(target)` ——
+        //     在手牌且 `target+0x40`（`isPlayer`）为真 ⇒ 正常播（锚 = 那张手牌卡的 `GetEffectAnchor`）；
+        //     **对手手牌** ⇒ `CustomDebug.LogWarning` 之后**跳过这个目标** ⇒ 我们「跳过并出声」。
+        //  ⚠️ **对手手牌的模型差异（如实记）**：原版对手手牌也有 `CardScript`（只是 `isPlayer == false`
+        //     ⇒ 上面那支跳过）；我们对手手牌**只有卡背 `ImageQuad`、没有 `CardView`** ⇒ `HandCardViewOf`
+        //     用 `owner != _me` 先挡掉 —— 结论同原版（跳过），只是「为什么拿不到」的层次不同。
+
+        /// <summary>🔴🆕 **T21-a**：这张事件的主语**在手牌里**的那张卡视图。`null` = 拿不到（调用方**必须出声**）。
+        /// <para>**配对口径（从强到弱）**：① `instanceId &gt; 0` ⇒ **只按 `CardView.Inst.Id` 认**
+        /// （同名两张手牌⛔ 不能靠名字猜 —— 与 `HandIndexOf` 的「先按实例身份反查」同一条纪律）；
+        /// ② 没有实例号 ⇒ 按卡名 `CardView.Data.id` 认（本仓约定 `CardData.id` = **卡名**，见 `ToCardData`）；
+        /// 同名多张时取**第一张**并**出声一次**（无实例号时唯一能做的，⛔ 不静默）。</para>
+        /// <para>⚠️ 只剩**本机**手牌：对手手牌没有 `CardView`（见本节头注）。</para></summary>
+        CardView HandCardViewOf(int owner, string cardId, int instanceId)
+        {
+            if (owner != _me) return null;
+            if (instanceId <= 0 && string.IsNullOrEmpty(cardId)) return null;
+            CardView sameName = null;
+            int sameNameCount = 0;
+            for (int i = 0; i < _handViews.Count; i++)
+            {
+                var v = _handViews[i];
+                if (v == null) continue;
+                if (instanceId > 0)
+                {
+                    if (v.Inst != null && v.Inst.Id == instanceId) return v;
+                    continue;                       // 有实例号 ⇒ 名字不同的那张不参与
+                }
+                if (!string.IsNullOrEmpty(cardId) && v.Data.id == cardId)
+                {
+                    if (sameName == null) sameName = v;
+                    sameNameCount++;
+                }
+            }
+            if (instanceId > 0) return null;
+            if (sameNameCount > 1)
+                NoteT21HandAnchorOnce("同名多张|" + (cardId ?? "?"),
+                    $"手牌里「{cardId}」有 {sameNameCount} 张、事件没带实例号 ⇒ 手牌锚取**第一张**"
+                    + "（有实例号就能精确配对；⛔ 不静默）");
+            return sameName;
+        }
+
+        /// <summary>T21-a：手牌锚这一族「跳过 / 取不到」的**出声**（同一 `(卡, 座位, 原因)` 只喊一次）。
+        /// 与 `NoteTrapDrawnOnce` 同族：⛔ 不静默、也不刷屏（每一拍都喊会把战斗日志冲掉）。</summary>
+        static readonly HashSet<string> _t21HandAnchorNotes = new HashSet<string>(System.StringComparer.Ordinal);
+
+        static void NoteT21HandAnchorOnce(string key, string message)
+        {
+            if (!_t21HandAnchorNotes.Add(key ?? "?")) return;
+            Debug.LogWarning("[Battle] T21 手牌档锚：" + message);
+        }
+
+        /// <summary>T21-a：`EvtKind.Trigger` 落在「手牌档」却拿不到锚 / 没有候选件时的统一出声口。</summary>
+        void NoteTriggerHandAnchor(BattleEvent e, string why)
+        {
+            if (e == null) return;
+            string side = e.Player == _me ? "本机手牌" : ("对手（座位 " + e.Player + "）手牌");
+            NoteT21HandAnchorOnce((e.CardId ?? "?") + "|" + e.Player + "|" + why,
+                $"「{e.CardId}」的 `Trigger` 那一拍（`Slot = {e.Slot}`）：{why} ⇒ 这一拍不播（{side}）。"
+                + "判据 `AbilityLogic__PlayAnim.c:185-222`（对手手牌那一支原版也是 `LogWarning` 后跳过）。");
+        }
+
+        // ------------------------------------------------------------------
+        //  🔴 自检口（`B104_T21`）—— 纪律同 `HasTriggerSourceForTest` / `UnitSkillAnimEmpty`：
+        //  **不改任何行为**，只把既有的私有件开一条缝 / 记一个计数。
+        //  ⚠️ 加在类尾：`账/*.tsv` 按 `文件:行号` 引用，插在中间会让下游行号整体漂移。
+        // ------------------------------------------------------------------
+
+        /// <summary>T21-a 手牌档那一支**真的进来过几次**（`selfcheck` 用；`0` = 那句 `slot < 0` 的 early-return
+        /// 还吞着整条 `Trigger`）。</summary>
+        int _handTriggerPlayAttempts;
+        /// <summary>见 <see cref="_handTriggerPlayAttempts"/>（Editor 程序集读不到 `private`）。</summary>
+        public int HandTriggerPlayAttemptsForTest { get { return _handTriggerPlayAttempts; } }
+
+        /// <summary>自检口：`HandCardViewOf` 的只读入口（判据与实现见那个方法的 doc）。</summary>
+        public CardView HandCardViewOfForTest(int owner, string cardId, int instanceId)
+        {
+            return HandCardViewOf(owner, cardId, instanceId);
+        }
+
+        /// <summary>自检口：一条事件直接交给 `PlaySignal`（⛔ 不改行为；`PlaySignal` 本体一个字没动）。</summary>
+        public void PlaySignalForTest(BattleEvent e) { PlaySignal(e); }
+
+        /// <summary>自检口：`PlayAbilityBeat` 的**手牌档**入口 —— 用来量「起锚点落在哪颗 Transform 上」
+        /// （`CardEffects.Play` 钩子会收到 `parent = anchor`）。
+        /// 参数口径见 `PlayAbilityBeat`；这里把 `move` 档全关（`otv`/`ts`/`tm` 归零 ⇒ `!orient &amp;&amp; !move`
+        /// ⇒ 走「直接挂在锚点上」那一支，钩子里拿到的就是锚点本身）。
+        /// ⚠️ 与既有的 `PlayAbilityBeatForTest`（`偏差 6` 那一条，形参带 `moveOn/otv/ts/tm`）**不是同一个口**，
+        /// 所以单开一个名字 —— ⛔ 别把两条并成一个（那条断的是位移，本条断的是锚点）。</summary>
+        public void PlayAbilityBeatHandForTest(BattleEvent e, string vfx, int sp, int ep, int pt,
+                                               CardView selfOverride, CardView targetOverride, bool handAnchored)
+        {
+            PlayAbilityBeat(e, vfx, sp, ep, pt, false, false, 0f, 0f, null,
+                            null, null, selfOverride, targetOverride, -1, -1, 0, handAnchored);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-31（`B104_A2`）：**虫群图标的拖拽预览**
+        //
+        //  判据（`d:/2/tools/decomp_full/`，现读）：
+        //   · `CardScript__DisplaySwarm` → `SwarmIconController.Toggle(true)` 的**唯一生产调用点** =
+        //     `BattleManager__Update.c:608`（`case 2` 拖动中）：拖动那张 `HasCurrentTrait(650)` +
+        //     它指向的最接近格上的卡与它**同名** ⇒ `DisplaySwarm(那张)`；随后 `:612`
+        //     `MinionManager__RemoveSwarm(mm, 那张)` 清掉其余。
+        //   · 松手 / 取消 / 离开落区一律清：`case 3` 成功 `:418`、取消 `:303`、拖回手牌 `:208`、
+        //     离开落区 `:620` 都是 `RemoveSwarm(mm, 0)` ⇒ **图标只在拖动中亮、松手即灭**。
+        //   · `CardScript__ExecuteSwarm.c` 全文**没有** `DisplaySwarm` ⇒ **合并那一拍不亮图标**
+        //     （`PlaySwarmMergeFeel` 的 ① 已删）。⚠️ G1 注释里「原版 `ActivateTraitAnim` 那一族」
+        //     引错了：那个方法只调 `BattleCardUI.DisplayStatusAnim`。
+        //
+        //  同名判据照引擎 `IsSwarmHost`：`host.Card.Name == 拖动那张的卡名`；拖动那张的卡名从
+        //  `CardView.Data.id` 取（`BattleDriver.ToCardData` 里 **`id` 就是名字**，见 `ToCardData(UnitState…)` 的 `id = u.Name`）。
+        //  ⚠️ 原版还对**拖动卡自己**判一次 `HasCurrentTrait(650)`；同名 ⇒ 同一张卡定义 ⇒ host 侧
+        //     `Has(Swarm)` 等价（跨阵营同名的两个不同定义是理论边角，现池没有带 swarm 的重复名）。
+        // ==================================================================
+
+        /// <summary>自检用：强制指定「正拖着的那张」（批处理没有真鼠标 ⇒ `CardInteraction.Dragging` 恒 null）。
+        /// 生产路径**永远不设**它 —— `RefreshSwarmPreview` 里真实拖拽优先。</summary>
+        CardView _swarmPreviewDragForTest;
+
+        /// <summary>按当前预览态刷新虫群图标：**只留「落点后成为右邻的那张同名卡」**，其余全灭。
+        /// `_previewRequested &lt; 0` = 收工 ⇒ 全灭。</summary>
+        void RefreshSwarmPreview()
+        {
+            int keepOwner = -1, keepSlot = -1;
+            var drag = (interaction != null && interaction.Dragging != null) ? interaction.Dragging : _swarmPreviewDragForTest;
+            if (drag != null && drag.Data.isUnit && _previewRequested >= 0 && Ctx != null
+                && _previewOwner >= 0 && _previewOwner < Ctx.Players.Length
+                && !string.IsNullOrEmpty(drag.Data.id))
+            {
+                var ps = Ctx.Players[_previewOwner];
+                if (ps != null && ps.Board != null)
+                {
+                    int side, insertAt;
+                    if (BoardSlots.Resolve(ps, _previewRequested, out side, out insertAt))
+                    {
+                        // 新牌落下后占 `newSlot`；它的「右邻」（引擎 `BoardSlots.RightNeighbor` = slot+1）是：
+                        //   · 右半场：插入把它外侧的牌推开 ⇒ 现在的 `Board[newSlot]` 会滑到 `newSlot+1`；
+                        //   · 左半场：`newSlot+1` 朝督军那侧、不受插入影响 ⇒ 就是现在的 `Board[newSlot+1]`。
+                        int newSlot = BoardSlots.SlotOf(side, insertAt);
+                        int hostSlot = (side == BoardSlots.Right) ? newSlot : newSlot + 1;
+                        if (BoardSpec.IsValid(hostSlot))
+                        {
+                            var host = ps.Board[hostSlot];
+                            if (host != null && host.IsAlive && host.Card != null
+                                && host.Has(KeywordTable.Swarm)
+                                && host.Card.Name == drag.Data.id)
+                            {
+                                keepOwner = _previewOwner;
+                                keepSlot = hostSlot;
+                            }
+                        }
+                    }
+                }
+            }
+            // 先清其余、后点亮（原版顺序：`DisplaySwarm(host)` 之后 `RemoveSwarm(mm, host)` ⇒ 最终只留 host）
+            ClearSwarmIconsExcept(keepOwner, keepSlot);
+            if (keepSlot >= 0)
+            {
+                var hv = ViewAt(keepOwner, keepSlot);
+                if (hv != null) hv.SetSwarm(true);
+            }
+        }
+
+        /// <summary>把场上所有「亮着虫群图标」的视图关掉，只留 keepOwner/keepSlot 那一格（-1 = 全关）。
+        /// 只在**真的亮着**时才调 `SetSwarm(false)`（它起一条 0.3 s 淡出），⛔ 不每帧对全盘空转。</summary>
+        void ClearSwarmIconsExcept(int keepOwner, int keepSlot)
+        {
+            ClearSwarmIconsIn(_myUnits, _me, keepOwner, keepSlot);
+            ClearSwarmIconsIn(_foeUnits, 1 - _me, keepOwner, keepSlot);
+        }
+
+        void ClearSwarmIconsIn(Dictionary<int, CardView> views, int owner, int keepOwner, int keepSlot)
+        {
+            if (views == null) return;
+            foreach (var kv in views)
+            {
+                var v = kv.Value;
+                if (v == null || !v.SwarmVisible) continue;
+                if (owner == keepOwner && kv.Key == keepSlot) continue;
+                v.SetSwarm(false);
+            }
+        }
+
+        /// <summary>自检用：手动摆「正拖着 <paramref name="dragged"/>、瞄着 <paramref name="requestedSlot"/>」
+        /// 的虫群预览态（产品里由 `CardInteraction.Dragging` + `OnDropPreview` 每帧驱动）。
+        /// `requestedSlot &lt; 0` / `dragged == null` ⇒ 收工（等价于松手/取消）。
+        /// ⚠️ 它**只走产品同一个 `RefreshSwarmPreview()`**，⛔ 别在自检里另写一套判据。</summary>
+        public void SimulateSwarmPreviewForTest(CardView dragged, bool mine, int requestedSlot)
+        {
+            _swarmPreviewDragForTest = (requestedSlot >= 0) ? dragged : null;
+            OnDropPreview(requestedSlot < 0 ? null : (mine ? playerBoard : enemyBoard), requestedSlot);
+        }
+
+        // ==================================================================
+        //  🔴 2026-10-31（`B104_D2`）：**回合初抽牌推迟到抬头 1.5 s 之后** —— 驱动侧开关与门
+        //  ⛔ 追加在类尾（`账/*.tsv` 按 `文件:行号` 落点，插中间会让下游整体漂移）。
+        // ==================================================================
+
+        /// <summary>自检口用的强制值（`null` = 按运行环境自动，见 <see cref="TurnDrawDeferralEnabled"/>）。</summary>
+        bool? _turnDrawDeferralForTest;
+
+        /// <summary>**本局是否启用「回合初抽牌推迟到抬头 1.5 s 之后」**（原版 `_NextTurn` 的 `WaitForSeconds(1.5)` 支）。
+        ///
+        /// <para>判据 = `BattleManager._NextTurn_d__395__MoveNext.c:444-491`：本地玩家（`param_1+0x28 != 0`）
+        /// 那一支 `ShowHeadsUpMessage(YourTurn)` → `WaitForSeconds(1.5)` → `state 2` → `:360-362`
+        /// 才 `BroadcastTurnSetup` + 抽牌；对手那一支不等待。</para>
+        ///
+        /// <para>🔴 **默认 = 「真机开、批处理关」**：`-batchmode` 跑的都是自检/回放宿主
+        /// （`BattleScene.Run` 等），它们按**同步零延迟**写断言（`driver.Begin(...)` 之后立刻数手牌），
+        /// 沿用旧口径才不会凭空多出 1.5 s 的「还没抽」。真机（player / 编辑器 Play）照原版推迟。
+        /// 自检要验推迟本身 ⇒ <see cref="SetTurnDrawDeferralForTest"/> 显式开。</para></summary>
+        public bool TurnDrawDeferralEnabled
+        {
+            get { return _turnDrawDeferralForTest ?? !Application.isBatchMode; }
+        }
+
+        /// <summary>自检口：强制开/关「回合初抽牌推迟」（`null` = 回到「真机开、批处理关」的默认）。
+        /// ⚠️ 只影响**下一次** `PrepareTurnDrawDeferral`（即下一次 `RuleCore.BeginTurn` 之前）。</summary>
+        public void SetTurnDrawDeferralForTest(bool? on) { _turnDrawDeferralForTest = on; }
+
+        /// <summary>🔴 2026-10-31（`B104_D2`）：**每一处生产的 `RuleCore.BeginTurn` 之前**调一次，
+        /// 把「本局要不要推迟回合初抽牌」写进 `ctx`。
+        ///
+        /// <para>**门**（照施工单）：本地人类回合才推迟（`ctx.Active == DeferSeat`，引擎侧判）；
+        /// **回放 / 联机不推迟**（`_replaySession` / `_net != null` ÷ 它们各自有确定性的时序）；
+        /// **AI 回合**天然不推迟（`ctx.Active != _me`）；**教程第 1 回合**由引擎侧
+        /// `RuleCore.ShouldDeferTurnDraw` 跳过（原版 `_NextTurn:451-475` 整段 `goto`）。</para>
+        ///
+        /// <para>⛔ 别在别的 `RuleCore.BeginTurn` 之前调 —— 自检（`RuleEngineTest` / 各 `*_Assert`）
+        /// 直接调引擎，不经过这里 ⇒ 它们走同步老路。</para></summary>
+        void PrepareTurnDrawDeferral()
+        {
+            if (Ctx == null) return;
+            bool on = TurnDrawDeferralEnabled && _net == null && !_replaySession;
+            Ctx.DeferTurnDraw = on;
+            Ctx.DeferSeat = _me;
+            if (!on) Ctx.PendingTurnDraw = false;
+        }
     }
 }
 

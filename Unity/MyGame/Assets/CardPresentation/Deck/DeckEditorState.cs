@@ -257,7 +257,7 @@ namespace CardPresentation
         // ------------------------------------------------------------ 卡组
 
         /// <param name="gameMode">本副卡组的模式（`0` 经典 · `13` 遭遇）。照原版
-        /// `SelectDecksTab.CreateDeck`（`GetEmptyDeck()` 之后立刻打上当前模式）—— **建组时定死**。</param>
+        /// `SelectDecksTab.CreateDeck`（`GetEmptyDeck()` 之后立刻打上当前模式）—— **建组时定死**。🔴 **2026-10-31（B104_P1）**：本方法**只被自检夹具调**，生产入口**不在**这里 —— 玩家那条 = `Shell/CollectionData.CreateDeck`（→ `PendingNewDeck` → `DeckRuntime.Build` 读掉），同一份 `new PlayerDeck(...)`；原版 `Create deck` 入口已由那条路接上 ⇒ ⛔ **别为本方法另接一条生产路**。</param>
         public void NewDeck(string name, int gameMode = 0)
         {
             // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：默认名走词条 `MenuDeck/NewDeckName`
@@ -518,7 +518,7 @@ namespace CardPresentation
         public bool ClearWarlord() { if (Deck.WarlordId == null) return false; Deck.WarlordId = null; return true; }
         public bool ClearDefensive() { if (Deck.DefensiveId == null) return false; Deck.DefensiveId = null; return true; }
 
-        /// <summary>清空整副（保留名字，换督军时用得上）。</summary>
+        /// <summary>清空整副（保留名字，换督军时用得上）。🔴 **2026-10-31（B104_P1）：原版没有「清空整副」的玩家入口** —— 卡组页头只有 `Create / Import / Unlock / Clear Filter`（判据 → `资料/阶段二_卡组线_原版规格.md:70`），`Deck Info Popup` 的 `Deck Options` 五颗钮里也没有（`Shell/DeckInfoPopup.cs` 文件头那 8 个字段 = 编辑/选择/分享/聊天分享/删除/复制/练习/切换信息，无清空）；新建空卡组走 `Shell/CollectionData.CreateDeck`（= 原版 `GetEmptyDeck`）⇒ **保持死实现，⛔ 别接线**（玩家逐张移除即可）。</summary>
         public void ClearCards()
         {
             Deck.CardIds.Clear();

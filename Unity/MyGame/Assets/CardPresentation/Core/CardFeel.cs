@@ -1334,13 +1334,13 @@ namespace CardPresentation
         /// <summary>
         /// 挨打震镜头。**原版是震主相机**（执行链见上面那一节的注释），不是逐个单位位移。
         ///
-        /// **我们怎么落地**（这一段是**迁移**，不是原版做法）：
-        ///   我们的战场只有**一台正交相机**、**没有 uGUI Canvas**，HUD 是**世界空间 quad**、
-        ///   而且和棋盘挂在同一个根下 ⇒ **「震战场不震 UI」在现在的结构下做不到**。
-        ///   要复刻原版的观感（战场晃、UI 不晃），这里用「**相机与 HUD 根同向平移**」：
-        ///   相机往 `dir` 走 `d`，HUD 根也往 `dir` 走 `d`。正交相机下屏幕坐标 ∝ (world − cam)，
-        ///   两者同向等量 ⇒ **HUD 在屏幕上纹丝不动**，而棋盘/卡牌/特效整体晃 `d`。
-        ///   （⚠️ 是**同向**不是反向 —— 相机 +d 会让内容在屏幕上 −d，HUD 要留在原地就得也跟着 +d。）
+        /// **我们怎么落地**（相机 + HUD 根同向平移）—— 🔴 **2026-10-31（B104）判据已找到，不是手感**：
+        ///   · 13 个战场的 `CameraShakerManager`（`assets_full/bundle_scenes_scenes_battlearena*/MonoBehaviour/`）
+        ///     **全部** `useCanvasShake = 0` · `canvas = null`（主菜单那份 `= 1`）；震源 = `Cinemachine Vcam` 上的
+        ///     `ImpulseSource` + `ImpulseListener`（`m_UseCameraSpace = 1`），由 `BoardCamera` 的 `CinemachineBrain` 消费，
+        ///     **`UI Camera` 没有 Brain/listener** ⇒ 原版靠两台相机分工得到「战场晃 / UI 不晃」。
+        ///   · 我们单相机：屏幕档 uGUI（`HudCanvas`）自己跟着相机；`hudRoot` 下的世界档载体只能靠**相机 + HUD 根做
+        ///     同一个刚体变换**（平移 `d` + 绕相机位置转 `q`）才留在屏幕上 —— 等价。（⚠️ 同向：相机 +d ⇒ 屏幕 −d，HUD 也跟着 +d。）
         ///
         /// 方向（🔴 **2026-10-23（R9 尾账）已改走原版公式**）：参数 `direction` = preset 真件的
         /// `preset.direction`（3D 世界方向），屏幕竖直分量 = <see cref="ShakeScreenUpOf"/> =
@@ -1476,14 +1476,14 @@ namespace CardPresentation
             };
 
             float total = LastShakeDuration;
-            // `attackTime = 0` ⇒ **当场**上到峰值。别等第一次 Update ——
-            // 批处理里没有帧循环（和 `DealIn` 里 alpha 那条同款注释），等更新会把第一帧漏掉。
-            apply(0f);
+            // ⚠️ 只有 `delay == 0` 才当场施加：原版 `DoShake` 在 delay 里是 `WaitForSeconds`（相机不动，
+            //    判据 `_DoShake_d__33__MoveNext.c:259-270`）；`attackTime = 0` 那拍仍需立刻上峰值（批处理无帧循环）。
+            if (delay <= 0f) apply(0f);
 
             var seq = DOTween.Sequence();
             seq.Append(DOTween.To(() => 0f, t => apply(t), total, total).SetEase(Ease.Linear));
 
-            var t = CardTween.Use(seq, Ease.Linear, cam).SetDelay(delay);
+            var t = CardTween.Use(seq, Ease.Linear, cam).SetDelay(delay > 0f ? delay : 0f);   // 原版把负 delay 夹到 0
             // ⚠️ **跑完/被打断都要把相机和 HUD 放回原位** —— 不复位的话镜头会**永久**歪着
             //    （`DealIn` 里「打断也要把 alpha 补回 1」是同一条规矩）。
             //    DOTween 正常跑完时也会触发 `OnKill`，所以这一条就够。

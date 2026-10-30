@@ -10,6 +10,11 @@
 //
 // ⚠️ **`PlayerDeck` 没有 id 字段**（`RuleEngine/Core/DeckRules.cs` 的 `PlayerDeck`：只有 Name/WarlordId/DefensiveId/CardIds）
 //    ⇒ 本轮拿 **Name** 当稳定标识（重命名会让选中态丢，**如实记**；将来加 id 要动存档格式）。
+// 🔴 **2026-10-31（B104_P4）就地订正（铁律 5）**：上面那条**已经补上了** —— `PlayerDeck` 现在有 `DeckId`
+//    （原版 `CardDeck.deckId` 的对位）。它是**用 `partial` 追加在 `RuleEngine/Data/DeckLibrary.cs` 文件尾**的
+//    （`Core/DeckRules.cs` 一个字没动，避开那边的账行号）；旧存档没这个键 ⇒ `null`，第一次用到时
+//    `DeckLibrary.EnsureDeckId` 补发并落盘。**认卡组的新代码请走 `DeckIdAt` / `IndexOfDeckId` / `DeckPick.OwnIndex`**，
+//    ⛔ 别再按名字认（同名会选错）。
 using System.Collections.Generic;
 using UnityEngine;          // 🆕 2026-10-13（A503）：四个口落盘失败时要**出声**（`Debug.LogWarning`）
 using RuleEngine;
@@ -167,9 +172,12 @@ namespace CardPresentation
         }
 
         /// <summary>按**卡组名**反查下标（查不到给 −1）。
-        /// ⚠️ 又是「名字当 id」那条老账（`PlayerDeck` 没有 id 字段，见文件头）——
+        /// ⚠️ 又是「名字当 id」那条老账（`PlayerDeck` 原本没有 id 字段，见文件头）——
         /// 同名卡组**取第一个**；重命名会让外面拿着的名字失效，**如实记**。
-        /// 用途：`Deck Selection Popup` 的回调只给一份 `DeckInfo`，要拿回下标。</summary>
+        /// 🔴 **2026-10-31（B104_P4）就地订正（铁律 5）**：本行原文写「用途：`Deck Selection Popup` 的回调只给一份
+        /// `DeckInfo`，要拿回下标」—— **已过期**：那条回调现在用 `DeckPick.OwnIndex`（列表构造时就带着库内下标，
+        /// 同名不歧义）。今天剩下的调用点只有：① `LiveOpsEventWindow.EventDeckIndex` 的**旧档回落**（记录里只有名字、
+        /// 没有 id）；② `Editor/*` 的自检夹具。**新代码要认卡组请走 `IndexOfDeckId` / `pick.OwnIndex`**。</summary>
         public static int IndexOf(string deckName)
         {
             if (string.IsNullOrEmpty(deckName)) return -1;
@@ -549,5 +557,45 @@ namespace CardPresentation
             if (!ok) Debug.LogWarning("[CollectionData] 卡组已退回内存，但落盘又失败了一次：" + SaveFailReason());
             return ok;
         }
+
+        // ================================================================================================
+        //  🆕 2026-10-31（B104_P4）· 卡组**身份**（原版 `CardDeck.deckId`）的 Shell 薄口 —— 追加在类尾
+        //
+        //  判据（原版按 id、不按名字认卡组）→ `RuleEngine/Data/DeckLibrary.cs` 新增那一节的类尾注释。
+        //  ⚠️ 这里只转发，⛔ 别在本类再判一遍「同名怎么办」（两处写同一条规则 = 迟早不一致）。
+        // ================================================================================================
+
+        /// <summary>第 <paramref name="i"/> 套卡组的身份 id（还没发过 / 越界 ⇒ `null`）。</summary>
+        public static string DeckIdAt(int i) { return Lib.DeckIdAt(i); }
+
+        /// <summary>取第 <paramref name="i"/> 套的 id；没有就**现发一个并落盘**（越界 ⇒ `null`）。</summary>
+        public static string EnsureDeckId(int i) { return Lib.EnsureDeckId(i); }
+
+        /// <summary>按 id 反查下标（查不到 ⇒ `-1`）。**同名卡组之间不歧义** —— 这正是它与 <see cref="IndexOf"/> 的分水岭。</summary>
+        public static int IndexOfDeckId(string deckId) { return Lib.IndexOfDeckId(deckId); }
+
+        /// <summary>**按对象身份**重排整套卡组并落盘（原版 `DeckInventory.UpdateOrder(List&lt;CardDeck&gt;)` 的对位）。
+        /// <para>与按名那个重载的分工：**新代码走这一个** —— `newOrder` 里放的就是 <see cref="Raw"/> 取出来的那些对象本体，
+        /// 同名卡组也各归各位；按名那个重载只为旧调用点（自检夹具）留着。</para>
+        /// <para>语义 / 失败面全部沿用 `DeckLibrary.UpdateOrder(IList&lt;PlayerDeck&gt;)`（⛔ 别在这里重判）。</para></summary>
+        public static bool ReorderDecks(IList<PlayerDeck> newOrder)
+        {
+            LastReorderError = "";
+            if (!Lib.UpdateOrder(newOrder))         // 它内部 `Save()`（A398 口径）⇒ ⛔ 别在后面再加一次
+            {
+                LastReorderError = string.IsNullOrEmpty(Lib.LastError)
+                    ? "**没重排** —— 对象表为空 / 库里一套卡组都没有（`DeckLibrary.UpdateOrder` 的第一道闸）"
+                    : "重排了，但**没写进存档**：" + SaveFailReason() + "（内存里是新序、盘上还是旧的 ⇒ 重启就回去）";
+                Debug.LogWarning("[CollectionData] 卡组重排失败：" + LastReorderError);
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>⚠️ **原版没有这个口**：把「当前选中那一套」**只在内存里**摆回 <paramref name="index"/>（**不落盘**）。
+        /// <para>给「选中失败 ⇒ 高亮/当前卡组不许动」那一档收尾用（`CollectionWindow.SelectDeck` /
+        /// `PracticeModePopup.StartBotBattle`）。⛔ 别改成再调一次 <see cref="Select"/> —— 那会**再试一次写盘**。
+        /// ⚠️ 与 `Select` 的分工：`Select` 失败时**内存已改**（A600 的既有断言钉着这条语义），本口是调用点自己回滚。</para></summary>
+        public static void RestoreSelection(int index) { Lib.RestoreSelection(index); }
     }
 }

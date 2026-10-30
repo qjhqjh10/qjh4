@@ -275,10 +275,19 @@ namespace CardPresentation
         /// <para>⇒ 我们同一跳：键非空 ⇒ `Loc.T(键)` 重取译文写回描述串、立刻重算一次。</para>
         /// <para>⚠️ 原版由 `LocalizationManager` 在 `ChangedLanguage` 时回调订阅者；
         /// 我们的广播口 = `Loc.LanguageChanged`（`Core/Loc.cs` 类尾，`SetLanguage` **真改了值**才发）。
-        /// 订阅在 <see cref="OnEnable"/>、注销在 <see cref="OnDisable"/> —— 组件随 Label 的 GameObject
-        /// 一起销毁，所以注销挂在 `OnDisable`（而不是只写 `OnDestroy`）。</para></summary>
+        /// 订阅在 <see cref="Awake"/>、注销在 <see cref="OnDestroy"/>（🔴 **2026-10-31（B104_P26）就地订正**：
+        /// 原来这里写「`OnEnable` / `OnDisable`」—— 与本文件实际那两行不符）。</para></summary>
         public void LocalizationChange()
         {
+            // 🆕 **2026-10-31（B104_P26 · P6）**：`Loc.LanguageChanged` 是静态事件，编辑模式下
+            //   `DestroyImmediate` 不派 `OnDestroy` ⇒ 死实例照样被换语言广播打到（读 `_prefixKey`/`Refresh` 碰已销毁的 Label）。
+            //   入口先判「我还活着」：死了 ⇒ 出声 + **当场退订** + return。
+            if (this == null)
+            {
+                Debug.LogWarning("[TimerDisplay] 已销毁的实例仍被 `Loc.LanguageChanged` 打到 ⇒ **当场退订**并 return（不许静默）");
+                Loc.LanguageChanged -= LocalizationChange;
+                return;
+            }
             if (string.IsNullOrEmpty(_prefixKey)) return;
             _prefix = Loc.T(_prefixKey);
             Refresh();

@@ -1908,13 +1908,35 @@ namespace RuleEngine
             }
             else if (spec.Random && spec.Count < pool.Count)
             {
-                // **种子定死**：用 ctx 的 Rng，别用 UnityEngine.Random
-                var copy = new List<UnitState>(pool);
-                for (int i = 0; i < spec.Count && copy.Count > 0; i++)
+                // 🆕 2026-10-31（执行代理 `B104_MT`）：**这次主动能力已经有一张目标表 ⇒ 直接吃表、不再抽随机数**。
+                //   判据（第一权威）：原版 `AbilityLogic__PlayAbility.c:262` 算出的 `abilityTargets`（= `GetTargets`
+                //   的返回表）**就是**效果层的目标集 —— `:273 PlayAnim(bm, data, abilityTargets, 0)` 之后逐目标结算；
+                //   而那一张表在生成时已经在 `AbilityLogic__GetTargets.c:1258` 抽过**一次**随机数
+                //   （`maxTargets` + `random` 截断）。⇒ 效果层再抽一次 = **同一次能力抽两遍**（我们改前的形状）。
+                //   闸三样（缺一不用表、退回下面那条旧路）：
+                //     ① 表非空 ∧ ② **表主人 == 这次 op 的施放者**（`source`；⛔ 别让这条能力结算期间别人的随机目标被顶掉）
+                //     ∧ ③ 候选仍在这次 op 的 `pool` 里（阵营/兵种/关键词/条件/生死都已由上面的筛选判过）。
+                var tbl = ctx.AbilityTargetTable;
+                bool fromTable = false;
+                if (tbl != null && tbl.Count > 0 && source != null && ReferenceEquals(source, ctx.AbilityTargetTableOwner))
                 {
-                    int k = ctx.GetRandomInt(0, copy.Count);
-                    list.Add(copy[k]);
-                    copy.RemoveAt(k);
+                    for (int i = 0; i < tbl.Count; i++)
+                    {
+                        var t = tbl[i];
+                        if (t == null || !t.IsAlive || list.Contains(t) || !pool.Contains(t)) continue;
+                        list.Add(t); fromTable = true;
+                    }
+                }
+                if (!fromTable)
+                {
+                    // **种子定死**：用 ctx 的 Rng，别用 UnityEngine.Random
+                    var copy = new List<UnitState>(pool);
+                    for (int i = 0; i < spec.Count && copy.Count > 0; i++)
+                    {
+                        int k = ctx.GetRandomInt(0, copy.Count);
+                        list.Add(copy[k]);
+                        copy.RemoveAt(k);
+                    }
                 }
             }
             else
@@ -4583,10 +4605,12 @@ namespace RuleEngine
             var sub = EffectText.ParseSegment(opts[pick]);
             if (sub.Ops == null) { unresolved.Add(op.Source + "（选项解析失败）"); return false; }
 
-            int done = 0;
-            foreach (var o in sub.Ops)
-                if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved)) done++;
-            return done > 0;
+            // 🔴 2026-10-31（`B104_D` · 同族全扫）：**与所有触发路同形** —— 选项正文也是一段效果，
+            //   同样要走 `ResolveOps`（`for each` 重复 / `instead` 配对 / `equal to` 取值 / 付费分组）。
+            //   改前是 `foreach (var o in sub.Ops) ResolveOne(...)`，把这几层**整条绕过**。
+            //   📊 池内 `chooseone` op 现扫 **18 条**，选项文本**没有一条**含 `for each`/`equal to`
+            //   ⇒ 今天**零读数变化**，属**堵形状**（⛔ 不是修了一条可见缺陷）。
+            return ResolveOps(ctx, owner, null, sub.Ops, by, chosen: chosen, keepResolvedTargets: true);
         }
 
         // ==================================================================
@@ -5397,11 +5421,13 @@ namespace RuleEngine
                         unresolved.Add(op.Source + "（「" + pick.Card + "」的正文解析不出来）");
                         return false;
                     }
-                    int done = 0;
-                    foreach (var o in ops)
-                        // 🆕 2026-10-22（`W64` · `B-16`）：这些 op 来自**被选中的那张卡**（`cd`）⇒ 结构化条件按它判。
-                        if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved, card: cd)) done++;
-                    return done > 0;
+                    // 🔴 2026-10-31（`B104_D` · 同族全扫）：选中那张卡的正文 = 一段**完整的卡面正文**，
+                    //   与「打出去」同形 ⇒ 走 `ResolveOps`（`sourceCard: cd` = 结构化条件/乘数/`instead`
+                    //   都按**被选中的那张卡**判）。改前 `foreach ResolveOne` 绕过了 `for each` 重复层。
+                    //   📊 走这条路的池内只有 6 张（`Righteous Fury` / `Master of Arms` / `Paragon of Ultramar` /
+                    //   `More Dakka` / `Ramshackle` / `Wreckin' Ball`），正文**都不含** `for each`
+                    //   ⇒ 今天零读数变化，属**堵形状**。
+                    return ResolveOps(ctx, owner, null, ops, by, chosen: chosen, sourceCard: cd, keepResolvedTargets: true);
                 }
 
                 // ---- ④-b 条目是**一段载荷**：合成一条 `give`，复用「批量给」那条路 ----
@@ -7129,10 +7155,31 @@ namespace RuleEngine
                                       //   `action+0x20`，ability 结算时 `AbilityLogic.GetTargets` 优先用它
                                       //   （`GetTargets` 里 `has_pick_target` 那一支 ⇒ 我们的 `chosen`）。
                                       //   ⚠️ 只有「出牌两段式」那条路会传；其余调用点保持 `null`（行为不变）。
-                                      UnitState chosen = null)
+                                      UnitState chosen = null,
+                                      // 🆕 2026-10-31（`B104_D`）：**来源卡**可以显式给 —— 手牌陷阱 / 常驻效果
+                                      //   没有 `UnitState`（`source == null`），但它们的正文仍然属于**那张卡**
+                                      //   （结构化乘数 / `instead` 配对 / 逐目标掷骰 / 引用卡取值都要它）。
+                                      //   ⚠️ 缺省 `null` ⇒ 回落 `source.Card` ⇒ **所有既有调用点行为逐字不变**。
+                                      CardDef sourceCard = null,
+                                      // 🆕 2026-10-31（`B104_D`）：**逐 op 重种「上一条效果的目标」**（缺省关）。
+                                      //   只有 `DeployJobDeferred`（部署触发常驻）传 true —— 那一段的原契约是
+                                      //   「**每条 op 之前**重设 `LastTargets`」（见那个方法的注释：不重设的话
+                                      //   第二条的 `it` 会指到第一条打中的目标上）。缺省 `false` ⇒ 所有既有
+                                      //   调用点行为逐字不变。
+                                      bool reseedPerOp = false,
+                                      // 🔴🆕 2026-10-31（`B104_D` · 回归修复）：**别把调用方的 `LastTargets` 还原回去**
+                                      //   —— 「嵌套在另一条 ability 里」的那几个调用点（`DoChooseOne` / `DoChooseEffect` ④-a /
+                                      //   `DoRepeat`）老行为是 `foreach ResolveOne`，它**会把这一趟打中的目标留在槽里**
+                                      //   给外层下一条 op 的 `it` 用（真卡 = `Catechism of Death`：
+                                      //   `…or to your Warlord this turn. Oath 3: Give it an additional +2 Attack` ——
+                                      //   第二条 `it` 指的就是二选一打中的那个目标）。
+                                      //   缺省 `false` = 老行为（还原）⇒ 其余调用点逐字不变。
+                                      bool keepResolvedTargets = false)
         {
             if (ctx == null || ops == null || ops.Count == 0) return false;
             ctx.ResetDamageExcess();   // 🆕 波 3 `E2`：每条 ability 起手清零（= 原版每次 `PlayAbility` 新建 `DamageInfo`）
+            // 这一条 ability 的**来源卡**（显式给的优先；否则取施放者的卡；都没有 = null）。
+            CardDef cardOfSource = sourceCard != null ? sourceCard : (source != null ? source.Card : null);
 
             // 🔑 **`this troop` / `this unit` / `it` 指的是「触发的那一个」** —— 但解析器把这一族代词
             //    统一归到 `prev`（`EffectTargetSpec.Side == "prev"`，那是给战术卡的
@@ -7234,7 +7281,7 @@ namespace RuleEngine
             //  ⚠️ **位置**：必须排在下面 `ChargePaidGroups` **之前**（同出牌那条路：先配对裁决、
             //     再收钱 —— 收费会改 `Energy`，而已有卡的 `instead` 条件会读余额，如 `SOR6`）。
             var plan = InsteadSkips(ctx, owner, ops, null, pairConditional: false, source: source,
-                                    card: source != null ? source.Card : null);
+                                    card: cardOfSource);
             var skip = plan.Skip;
 
             // ================================================================
@@ -7250,7 +7297,7 @@ namespace RuleEngine
             int abilityRepeats = 1;
             {
                 int mn; string mgap;
-                if (TryStructuredMultiTrigger(ctx, owner, ops, source != null ? source.Card : null, source,
+                if (TryStructuredMultiTrigger(ctx, owner, ops, cardOfSource, source,
                                               out mn, out mgap))
                 {
                     abilityRepeats = mn;
@@ -7288,6 +7335,13 @@ namespace RuleEngine
             {
                 if (skip[i]) continue;             // 🆕 `A1685`：这条被 `instead` 替换掉了
                 if (!paidOk[i]) continue;          // 这一条所属的付费前缀**没收到钱** ⇒ 整组不结算
+                // 🆕 2026-10-31（`B104_D`）：**逐 op 重种「上一条效果的目标」**（缺省关，见形参 `reseedPerOp`）。
+                //   与 `ResolveOps` 入口那次种法**同一条式子**（`prime = seed ?? source`）——
+                //   只有 `DeployJobDeferred` 传 true（它原来就是每条 op 之前重设的）。
+                if (reseedPerOp && prime != null)
+                {
+                    ctx.LastTargets.Clear(); ctx.LastTargets.Add(prime); ctx.LastTarget = prime;
+                }
                 anyRunnable = true;
                 // 🆕 2026-10-23（`A12`）：`instead` 的条件已由 `InsteadSkips` 在**动手之前**判过
                 //    ⇒ 这里不再判第二次（同出牌路；理由见 `InsteadSkips` 的 doc「条件只判一次」）。
@@ -7314,7 +7368,7 @@ namespace RuleEngine
                 if (IsPerCountIncrement(amtOp))
                 {
                     if (!TryFoldPerCount(ctx, owner, source, by, amtOp, source,
-                                         source != null ? source.Card : null, unresolved, out runOp))
+                                         cardOfSource, unresolved, out runOp))
                         continue;                  // 计数数不出来 ⇒ 整条跳过（日志/unresolved 已写）
                 }
                 else if (amtOp.CountScope == "died")
@@ -7326,7 +7380,7 @@ namespace RuleEngine
                       + " 原版这两张卡的 `multiCountCriteria` 现读 `ta = 0 (any)` ⇒ 不重复）");
                 }
                 else if (!TryComputeRepeats(ctx, owner, source, amtOp,
-                                            source != null ? source.Card : null, source, by, unresolved,
+                                            cardOfSource, source, by, unresolved,
                                             out opRepeats))
                     continue;                      // 计数数不出来 ⇒ 整条跳过（日志/unresolved 已写）
 
@@ -7342,7 +7396,7 @@ namespace RuleEngine
                 for (int k = 0; k < opRepeats; k++)
                 {
                     ResolveOne(ctx, owner, source, by, Prepaid(runOp), chosen, unresolved,
-                               card: source != null ? source.Card : null);
+                               card: cardOfSource);
                     NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：触发路同一个口径（逐 op 同步）
                 }
             }
@@ -7358,9 +7412,13 @@ namespace RuleEngine
             // 🆕 2026-10-24（引擎线 `A1` 第 1 件）：**先记「上一条能力的目标」、再还原调用方的槽**
             //   —— 顺序反了就会把调用方那一批当成「这次能力的目标」。
             NotePreviousAbilityTargets(ctx);
-            ctx.LastTargets.Clear();
-            ctx.LastTargets.AddRange(savedTargets);
-            ctx.LastTarget = savedLast;
+            // 🔴 2026-10-31（`B104_D`）：`keepResolvedTargets` = 这一趟的目标**留给外层**（嵌套调用点用，见形参 doc）。
+            if (!keepResolvedTargets)
+            {
+                ctx.LastTargets.Clear();
+                ctx.LastTargets.AddRange(savedTargets);
+                ctx.LastTarget = savedLast;
+            }
             return anyRunnable;
         }
 
@@ -7964,7 +8022,7 @@ namespace RuleEngine
             if (ctx == null || card == null) return;
             string tn = TriggerNameOfWhenKind(kind, selfOnly);
             if (tn == null) { WarnUnmappedListenerKind(kind); return; }   // 🔴 2026-10-26（批次 6 · `G14` ③）：不再静默 —— 未映射 ⇒ 效果照跑、动画不播，必须出声（见 `WarnUnmappedListenerKind`）
-            if (!EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind)) return;
+            if (EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind) == null) return;
             ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）");
         }
 
@@ -8130,7 +8188,7 @@ namespace RuleEngine
                         }
                     }
                     if (EmitCardTrigger(ctx, u.Card, l.Owner, u, TN,
-                                        effectPrefix + ":" + (dead != null ? dead.Name : "?")))
+                                        effectPrefix + ":" + (dead != null ? dead.Name : "?")) != null)
                         ctx.Log($"「{u.Card.Name}」收到「{(dead != null ? dead.Name : "?")} {how}」"
                               + $" → 触发事件 `{TN}`（原版 AbilityTrigger = {triggerId}）");
                 }
@@ -8341,27 +8399,41 @@ namespace RuleEngine
         /// `cardAbilities[i]` 下标）—— 写进 <see cref="BattleEvent.AbilityIndex"/>，并把 `#i` 后缀
         /// 拼进 `Keyword` 当**传输副本**（`BattleDriver` 只转 `Keyword`，见 `BattleEvent.AbilityIndex` 的 doc）。
         /// `-1`（默认）⇒ `Keyword` 一个字节都不变。</para></summary>
-        static bool EmitCardTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
+        /// <para>🔴🆕 **2026-10-31（执行代理 `B104_T21` · 施工单 T21-b）**：返回值从 `bool` 改成
+        /// **真发出去的那条 `BattleEvent`**（`null` = 没发），与同族的 <see cref="EmitTurnTriggerRaw"/> 统一 ——
+        /// 「结算那一拍才选得出来的目标」要**事后填进同一个对象**（<see cref="BattleContext.TriggerTargetSink"/>），
+        /// 所以发射体必须**把刚发的那条事件交给调用方存住**（⛔ 别让调用方再 `ctx.Signals[...]` 反查）。
+        /// ⚠️ 判据没变（闸、字段、事件进 `Signals` 的方式逐字相同）。</para></summary>
+        static BattleEvent EmitCardTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
                                     string triggerName, string effect, int abilityIndex = -1,
                                     // 🆕 2026-10-24（`W2` · `C5` Q2）：走**表现闸**（只看动画行）而不是语义闸。
                                     //   只有 `EmitWhileInPlayPass` 传 true（判据 → `HasAnimRowOnly` 的 doc）。
                                     bool animRowOnly = false)
         {
-            if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return false;
+            if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return null;
             if (animRowOnly)
             {
-                if (!HasAnimRowOnly(card, triggerName)) return false;
+                if (!HasAnimRowOnly(card, triggerName)) return null;
             }
-            else if (!HasTriggerSource(card, triggerName, ctx, effect)) return false;
+            else if (!HasTriggerSource(card, triggerName, ctx, effect)) return null;
             int slot = -1, p = owner;
             if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
             else if (unit != null) { slot = -1; p = owner; }
-            ctx.Emit(EvtKind.Trigger, p, slot, card.Name,
-                     keyword: BattleEvent.KeywordWithAbility(triggerName, abilityIndex),
-                     effect: effect,
-                     instanceId: unit != null ? unit.InstanceId : 0,
-                     abilityIndex: abilityIndex);
-            return true;
+            // ⚠️ 逐字段与 `BattleContext.Emit(kind, player, slot, cardId, keyword:, effect:, instanceId:, abilityIndex:)`
+            //    那一条重载**完全相同**（其余格取默认值），只是把对象留在手上交给调用方。
+            var evt = new BattleEvent
+            {
+                Kind = EvtKind.Trigger,
+                Player = p,
+                Slot = slot,
+                CardId = card.Name,
+                Keyword = BattleEvent.KeywordWithAbility(triggerName, abilityIndex),
+                Effect = effect,
+                InstanceId = unit != null ? unit.InstanceId : 0,
+                AbilityIndex = abilityIndex,
+            };
+            ctx.Emit(evt);
+            return evt;
         }
 
         /// <summary>🔴🆕 **2026-10-25（引擎线 `A3` · `C5` Q1）：「天赋」那一拍（`talent`）的发射口。**
@@ -8393,7 +8465,7 @@ namespace RuleEngine
         internal static void EmitTalentTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit)
         {
             const string TN = "Talent";                       // `AbilityTrigger.Talent = 46`
-            if (!EmitCardTrigger(ctx, card, owner, unit, TN, "talent:turnStart")) return;
+            if (EmitCardTrigger(ctx, card, owner, unit, TN, "talent:turnStart") == null) return;
             ctx.Log($"「{card.Name}」回合开始 → 触发事件 `{TN}`（原版 `AbilityTrigger.Talent = 46`）");
         }
 
@@ -8417,7 +8489,7 @@ namespace RuleEngine
                                                    string triggerName, int triggerId, int abilityIndex = -1)
         {
             if (ctx == null || card == null) return;
-            if (!EmitCardTrigger(ctx, card, owner, unit, triggerName, "ability:" + triggerName, abilityIndex)) return;
+            if (EmitCardTrigger(ctx, card, owner, unit, triggerName, "ability:" + triggerName, abilityIndex) == null) return;
             ctx.Log($"「{card.Name}」的阵营能力激活完毕 → 触发事件 `{triggerName}`"
                   + $"（原版 AbilityTrigger = {triggerId}"
                   + (abilityIndex >= 0 ? $" · cardAbilities[{abilityIndex}]" : "") + "）");
@@ -8561,32 +8633,39 @@ namespace RuleEngine
         /// （`turn_start` 走这条；`turn_end` 走 <see cref="EmitAtTurnTriggers"/> 的两遍）。
         /// <para>🆕 **2026-10-25（`E4` · `E4-1`）**：返回值改成**真发出去的那条 `BattleEvent`**
         /// （`null` = 没发）—— 棋盘单位那一趟要靠它把「结算时才选出来的目标」事后填进去，
-        /// 见 <see cref="BattleContext.TriggerTargetSink"/>。</para></summary>
-        static BattleEvent EmitTurnTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit, string phase)
+        /// 见 <see cref="BattleContext.TriggerTargetSink"/>。</para>
+        /// <param name="instanceId">🔴🆕 **2026-10-31（`B104_T21` · 施工单 T21-b）：手牌那一趟的 `CardInstance.Id`**
+        /// （`0` = 没写）。没有它手牌卡的 `InstanceId` 恒 0 ⇒ 手牌里**同名两张**时表现层没法配对
+        /// （`BattleDriver.HandCardViewOf` 的实例号那一路就永远命中不了）。⚠️ 单位那一趟仍然用
+        /// `unit.InstanceId`（本形参只在 `unit == null` 时生效），⛔ 别把两者混用。</param></summary>
+        static BattleEvent EmitTurnTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit, string phase,
+                                           int instanceId = 0)
         {
             if (ctx == null || card == null) return null;
             string tn = TurnTriggerNameOf(card, phase, ctx);
             if (tn == null) return null;
             // ⚠️ 上面已经过闸（`TurnTriggerNameOf` 内部就是 `HasTriggerSource`）⇒ 这里**不再过第二次**，
             //    否则「有 ability、没动画行」那条出声日志会打两遍。
-            return EmitTurnTriggerRaw(ctx, card, owner, unit, tn, phase);
+            return EmitTurnTriggerRaw(ctx, card, owner, unit, tn, phase, instanceId);
         }
 
         /// <summary>🔥 **F 族发射口（指名版）**：只发 <paramref name="triggerName"/> 那一个名字。
         /// 闸 = <see cref="HasTriggerSource"/>（动画行 **或** 真值 ability 双闸）。
         /// 返回**真发出去的那条事件**（`null` = 没发，判据同 <see cref="EmitTurnTrigger"/>）。</summary>
         static BattleEvent EmitTurnTriggerNamed(BattleContext ctx, CardDef card, int owner, UnitState unit,
-                                         string triggerName, string phase)
+                                         string triggerName, string phase, int instanceId = 0)
         {
             if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return null;
             if (!HasTriggerSource(card, triggerName, ctx, "turn:" + phase)) return null;
-            return EmitTurnTriggerRaw(ctx, card, owner, unit, triggerName, phase);
+            return EmitTurnTriggerRaw(ctx, card, owner, unit, triggerName, phase, instanceId);
         }
 
         /// <summary>🔥 **F 族发射体**：不再过闸（调用方已经判过 —— 判据只留一处）。
-        /// 返回**真发出去的那条事件**（给 <see cref="AtTurnUnitJobDeferred"/> 事后填目标用）。</summary>
+        /// 返回**真发出去的那条事件**（给 <see cref="AtTurnUnitJobDeferred"/> / <see cref="AtTurnHandJobDeferred"/>
+        /// 事后填目标用）。</summary>
+        /// <param name="instanceId">见 <see cref="EmitTurnTrigger"/> 的同名形参（只在 `unit == null` 时生效）。</param>
         static BattleEvent EmitTurnTriggerRaw(BattleContext ctx, CardDef card, int owner, UnitState unit,
-                                       string triggerName, string phase)
+                                       string triggerName, string phase, int instanceId = 0)
         {
             int slot = -1, p = owner;
             if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
@@ -8599,7 +8678,8 @@ namespace RuleEngine
                 CardId = card.Name,
                 Keyword = triggerName,
                 Effect = phase,
-                InstanceId = unit != null ? unit.InstanceId : 0,
+                // 🔴🆕 2026-10-31（`B104_T21` · T21-b）：手牌那一趟（`unit == null`）带 `CardInstance.Id`
+                InstanceId = unit != null ? unit.InstanceId : instanceId,
             };
             ctx.Emit(evt);
             return evt;
@@ -8656,10 +8736,10 @@ namespace RuleEngine
                                           List<AtTurnUnitJob> unitJobs, List<AtTurnHandJob> handJobs,
                                           List<AtTurnPersistJob> persistJobs, bool ownerIsActiveOnly = false)
         {
-            BattleEvent EmitOne(CardDef c, int owner, UnitState unit)
+            BattleEvent EmitOne(CardDef c, int owner, UnitState unit, int instanceId = 0)
             {
                 if (c == null || (ownerIsActiveOnly && owner != active)) return null;   // 🆕 2026-10-28（`B93_F2` · 账 643）：`TurnStartPlayer(31)` 只发给 **owner == 行动方** 的卡（原版 `CardScript__OnTurnStart.c:140` 的 `param_2 == *(char*)(card+0x40)`）
-                if (onlyName == null) return EmitTurnTrigger(ctx, c, owner, unit, phase);
+                if (onlyName == null) return EmitTurnTrigger(ctx, c, owner, unit, phase, instanceId);
                 // ⚠️ 两张名字都有的卡今天**不存在**（现读全池 18 张 `Turn*` 卡各占一个名字：
                 //    TurnEnd 11 · TurnBeforeEnd 1 · TurnStart 3 · TurnStartPlayer 3）。
                 //    真出现时原版的**两条广播都会响**（两次 `OnTrigger`）⇒ 我们两遍各发一次，并出声。
@@ -8669,7 +8749,7 @@ namespace RuleEngine
                     ctx.Log($"[EffectResolver] 「{c.Name}」同时标了 `TurnEnd` 与 `TurnBeforeEnd` 两种"
                           + $" {phase} trigger ⇒ 两条广播各发一次"
                           + "（原版 `BroadcastTurnBeforeEnd` 与 `BroadcastTurnEnd` 是两趟，都会响）");
-                return EmitTurnTriggerNamed(ctx, c, owner, unit, onlyName, phase);
+                return EmitTurnTriggerNamed(ctx, c, owner, unit, onlyName, phase, instanceId);
             }
 
             // ① 棋盘（`allCardsInPlay`）：顺序 = `unitJobs` 的**进场序**
@@ -8689,8 +8769,18 @@ namespace RuleEngine
                 }
 
             // ② **当前玩家手牌**（`GetCardsInHandRef(IsPlayerTurn())`）
-            //    ⚠️ 手牌那一趟**不存事件**：没有棋盘格位可填（`Target*` 也只能是 `-1`）。
-            foreach (var j in handJobs) EmitOne(j.Card, j.Owner, null);
+            //    ⚠️ 手牌那一趟**没有棋盘格位可填**（`Target*` 只能是 `-1`），但 🔴🆕 **2026-10-31（`B104_T21` ·
+            //    施工单 T21-b）起它要「存事件」了**：手牌陷阱那一拍的 `EvtKind.Trigger`（`Slot = -1`）现在由
+            //    表现层走**手牌档锚通道**（`BattleDriver.HandCardViewOf`）；结算那一拍（`AtTurnHandJobDeferred`）
+            //    照样要能把「那一刻才选出来的目标」事后填进同一条事件。
+            //    ⇒ 与棋盘那一趟同形（**结构体 ⇒ 按下标写回**），并把 `CardInstance.Id` 带上
+            //    （手牌里同名两张时表现层靠它配对；⛔ 没有它就恒 0）。
+            for (int i = 0; i < handJobs.Count; i++)
+            {
+                var j = handJobs[i];
+                var evt = EmitOne(j.Card, j.Owner, null, j.Instance != null ? j.Instance.Id : 0);
+                if (evt != null) { j.TriggerEvent = evt; handJobs[i] = j; }
+            }
 
             // ③ **对手手牌**（原版第三个循环）—— **今天这一趟恒空，所以没有循环体**：
             //    `EffectText.SplitAtTurn` 只认 `you` 视角的手牌陷阱（见它的 doc），
@@ -8764,7 +8854,7 @@ namespace RuleEngine
                     o.Source = c.Name + "：" + at[1];      // 日志要看出「是哪张陷阱干的」
                 // 🆕 2026-10-19（`T21` · 缺口 F）：**记下是哪张手牌**（回合起止那一拍要按它的卡名
                 //   发事件 —— `Cult Propaganda` / `Poisoned Supplies` 的逐卡动画就挂在这一拍）。
-                handJobs.Add(new AtTurnHandJob { Owner = active, Card = c, Ops = ops });
+                handJobs.Add(new AtTurnHandJob { Owner = active, Card = c, Instance = h0, Ops = ops });
             }
 
             // ② 🆕 **双方棋盘上的 at-turn 单位**（2026-09-14 A5 批 2）——
@@ -8945,7 +9035,26 @@ namespace RuleEngine
             ctx.FactionSourceCard = j.Card;
             try
             {
-                foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, mine, card: j.Card);
+                // 🔴🆕 **2026-10-31（执行代理 `B104_T21` · 施工单 T21-b）：手牌陷阱这一拍的
+                //   `EvtKind.Trigger` 也要 arm 起来。**
+                //   判据与棋盘那一趟**同一条**（`AbilityLogic__PlayAbility.c:257-264`：原版
+                //   `GetTargets → PlayAnim` 是同一次调用；我们是「广播那一拍发事件、结算这一拍才选目标」）
+                //   ⇒ 结算期把目标填进**广播发出时的那条事件**（`j.TriggerEvent`，`EmitAtTurnTriggerPass` 存的）。
+                //   ⚠️ save/restore 由 `ResolveWithTriggerTargetSink` 一处负责（⛔ 别在这里再写一份 try/finally）。
+                ResolveWithTriggerTargetSink(ctx, j.TriggerEvent, () =>
+                {
+                    // 🔴🆕 **2026-10-31（`B104_D` 收口）：改成与【棋盘那趟】同形的 `ResolveOps`。**
+                    //   改前是 `foreach (var o in j.Ops) ResolveOne(...)` —— 它**绕过**了
+                    //   `ResolveOps` 里的 `for each` 重复层（`TryComputeRepeats`）⇒ 手牌陷阱的
+                    //   `for each … in your hand` **整条丢掉**、永远只结算 1 遍
+                    //   （实测：手牌 5 张的 `deal 1 damage … for each card in your hand` 只掉 1 点）。
+                    //   判据 = 原版 `AbilityLogic.PlayAbility` 的 `local_178` 次数对所有 ability 一视同仁
+                    //   （`PlayAbility.c:181-236` 乘数 · `:729` 循环上界），手牌陷阱与棋盘触发在那一层没有分叉。
+                    //   ⚠️ `sourceCard: j.Card` —— 手牌陷阱没有 `UnitState`，但正文属于**那张手牌**
+                    //   （结构化乘数 / `instead` 配对 / 引用卡取值都要它；缺省 `null` 会退回纯文本口径）。
+                    //   ⚠️ `out unresolved` 那份现在由 `ResolveOps` 自己报（标签从「段（卡名）」变成「「标签」」）。
+                    ResolveOps(ctx, j.Owner, null, j.Ops, label, sourceCard: j.Card);
+                });
             }
             finally { ctx.FactionSourceCard = prevFactionSrc; }
             ReportUnresolved(ctx, label + "段（" + (j.Card != null ? j.Card.Name : "?") + "）", mine);
@@ -8968,20 +9077,13 @@ namespace RuleEngine
                 //   ⇒ 一定看得到；落格号也必须**当场**取 —— 目标常常被这条效果打死）。
                 //   ⚠️ 保存/还原是必须的：效果会嵌套（`Repeat this effect` / 连锁触发），
                 //   和外层 `LastTargets` 那套同一个理由。
-                var prevSink = ctx.TriggerTargetSink;
-                var prevDone = ctx.TriggerTargetSinkDone;
-                ctx.TriggerTargetSink = j.TriggerEvent;
-                ctx.TriggerTargetSinkDone = false;
-                try
+                //   🔴 2026-10-31（`B104_T21` · T21-b）：save/restore 收进 `ResolveWithTriggerTargetSink`
+                //   一处（手牌那一趟与这里共用同一条判据，⛔ 别各写一份）。
+                ResolveWithTriggerTargetSink(ctx, j.TriggerEvent, () =>
                 {
                     // 施放者传**这个单位** —— 「return to your hand」「heal 1」那种自我指代才认得对
                     ResolveOps(ctx, j.Owner, j.Unit, j.Ops, label);
-                }
-                finally
-                {
-                    ctx.TriggerTargetSink = prevSink;
-                    ctx.TriggerTargetSinkDone = prevDone;
-                }
+                });
             }
             finally { ctx.EffectChain--; }
         }
@@ -8996,7 +9098,13 @@ namespace RuleEngine
             ctx.FactionSourceCard = j.Card;
             try
             {
-                foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, mine, card: j.Card);
+                // 🔴🆕 **2026-10-31（`B104_D` 收口 · 同族第二个洞）：改成与【棋盘 / 手牌陷阱】同形的 `ResolveOps`。**
+                //   改前是 `foreach (var o in j.Ops) ResolveOne(...)` —— 与手牌陷阱那条**同一个洞**：
+                //   绕过 `ResolveOps` 的 `for each` 重复层（`TryComputeRepeats`）⇒ 常驻效果正文里的
+                //   `for each …` 整条丢掉、永远只结算 1 遍（判据同 `AtTurnHandJobDeferred` 那段：
+                //   原版 `AbilityLogic.PlayAbility.c:181-236` 的 `local_178` 对所有 ability 一视同仁）。
+                //   ⚠️ `sourceCard: j.Card` —— 常驻效果没有 `UnitState`，但它属于**写出它的那张卡**。
+                ResolveOps(ctx, j.Owner, null, j.Ops, label, sourceCard: j.Card);
             }
             finally { ctx.FactionSourceCard = prevFactionSrc; }
             ReportUnresolved(ctx, label + "段（" + (j.Card != null ? j.Card.Name : "?") + "）", mine);
@@ -9030,6 +9138,18 @@ namespace RuleEngine
             public int Owner;
             public CardDef Card;
             public List<EffectOp> Ops;
+            /// <summary>🔴🆕 **2026-10-31（执行代理 `B104_T21` · 施工单 T21-b）：这一张手牌的牌实例**
+            /// （`PlayerState.Hand` 里的那一份）。用途两个：
+            /// ① 广播那一拍把它的 `Id` 写进 `EvtKind.Trigger.InstanceId` —— 手牌里**同名两张**时
+            ///    表现层（`BattleDriver.HandCardViewOf`）靠它精确配对（没有它就恒 0 ⇒ 只能按名字取第一张）；
+            /// ② 与棋盘那一趟的 `UnitState.Instance` 同构（原版手牌 / 场上都是**同一个 `CardScript`**，
+            ///    见 `TriggerCarrier` 的文件头）。`null` = 拿不到（出声由 emit 端打）。</summary>
+            public CardInstance Instance;
+            /// <summary>🔴🆕 **2026-10-31（`B104_T21` · T21-b）：广播那一趟为这张手牌发出的那条
+            /// `EvtKind.Trigger`**（`null` = 这一趟没发）。与 `AtTurnUnitJob.TriggerEvent` 同形 ——
+            /// 结算体（`AtTurnHandJobDeferred`）靠它把「那一刻才选出来的目标」事后填进去。
+            /// ⚠️ `turn_end` 会**跑两遍**（`TurnBeforeEnd` → `TurnEnd`）⇒ 留**后一遍**那条（同 `AtTurnUnitJob`）。</summary>
+            public BattleEvent TriggerEvent;
         }
 
         /// <summary>🆕 2026-10-19（`T21` · 缺口 F）：回合起止段里「**已登记的常驻效果**」那一类作业 ——
@@ -9633,8 +9753,14 @@ namespace RuleEngine
             ctx.FactionSourceCard = pe.Source;
             try
             {
-                foreach (var o in pe.Ops)
-                    ResolveOne(ctx, owner, unit, "部署触发", o, null, mine, card: pe.Source);
+                // 🔴 2026-10-31（`B104_D` · 同族全扫）：与手牌陷阱 / 常驻效果 / 棋盘那趟同形 —— 走 `ResolveOps`
+                //   （`for each` 重复 / 结构化乘数 / `instead` / `equal to` / 付费分组）。
+                //   🔴 **`reseedPerOp: true` 是这一段的老契约**：改前是
+                //   `foreach (var o in pe.Ops) ResolveOne(...)`，且**每条之前**都把 `LastTargets` 重设成
+                //   「刚部署的那个」—— 不重设的话，**第二条 op 的 `it` 会指到第一条打中的目标上**
+                //   （静默错打，见 `ResolveDeploy` 里那段注释）。`ResolveOps` 入口只种一次 ⇒ 用这个开关补回。
+                //   ⚠️ `sourceCard: pe.Source` —— 能力属主是写出这条效果的那张卡。
+                ResolveOps(ctx, owner, unit, pe.Ops, "部署触发", sourceCard: pe.Source, reseedPerOp: true);
             }
             finally
             {
@@ -13298,6 +13424,26 @@ namespace RuleEngine
             ps.QuestPoints -= step;
             ps.QuestMilestone++;
 
+            // 🔴 **2026-10-31（执行代理 `B104_W64` · 施工单 `B6-b`）：任务点【下降】这一拍要发一条表现事件。**
+            //   判据（第一权威）= 原版 `ManaTypeHolder.SetMana → TryDOVfx`
+            //   （`d:/2/tools/decomp_full/ManaTypeHolder__TryDOVfx.c` 逐句读）：值变化时**按方向取槽** ——
+            //   `last(+0x70) < 新值` ⇒ `vfxOnValueUp(+0x30)`、否则 ⇒ `vfxOnValueDown(+0x38)`；
+            //   取到的那件 `AssetReference.Load()` 后 `Instantiate(prefab, 本节点 transform.position, prefab 自己的 rotation)`，
+            //   **方法内 0 处 `yield` / `WaitForSeconds` ⇒ 非阻塞**（⇒ `EventTiming` 登记成零时长）。
+            //   13 场 × 每场 2 份 `QuestPointsHolder`（共 26 份）实读：`useVfxOnValueChange = 1`、
+            //   `vfxOnValueUp = Quest UI Gain`、`vfxOnValueDown = Quest UI Trigger`（guid `2223a4d2…`）。
+            //   ⚠️ 走 `ctx.Signals.Add`（与上面 `DoFactionResource` 加资源那一句同一条路）：**不进 `ctx.Events`**
+            //      ⇒ 不动 `NetProtocol.Fingerprint`、不进动作流（判据写在 `EvtKind.QuestSpent` 的 doc）。
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = EvtKind.QuestSpent,
+                Player = owner,
+                Slot = -1,                       // 阵营资源是**玩家的**，不属于任何格位（同 `GainQuest`）
+                Amount = step,
+                Effect = $"任务点 -{step}",
+                Turn = ctx.Turn,
+            });
+
             // 施放者阵营 = 自己督军那张卡的 `faction`（和 `DoCreate` 同一条判据）
             string faction = null;
             if (ps.Warlord != null && ps.Warlord.Card != null) faction = ps.Warlord.Card.Faction;
@@ -15795,8 +15941,14 @@ namespace RuleEngine
                 //   价都贴在 `repeat` op **自己**身上，它重复的那条 `cost = 0`）
                 //   ⇒ 本行今天不改任何真卡读数，是**堵形状**（`A1369` 报告 §五·2）。
                 //   真读数见本笔报告的离线驱动。
-                foreach (var o in op.RepeatOps)
-                    if (ResolveOne(ctx, owner, null, by, Prepaid(o), chosen, unresolved)) done++;
+                // 🔴 2026-10-31（`B104_D` · 同族全扫）：改走 `ResolveOps` —— 重复的那批 op 同样要吃
+                //   `for each` 重复层 / 结构化乘数 / `instead` / `equal to`（改前 `foreach ResolveOne` 全绕过）。
+                //   🔴 **必须先整批包 `Prepaid`**：`A1415` 的契约是「重复的那批 op **一个钱都不再收**」
+                //   （原版收费在 ability 层，repeat 重复的是 logic、不回到收费那一层）——
+                //   不包的话 `ChargePaidGroups` / `ResolveOneCore` 会**再收一遍**（复活那个已修的 bug）。
+                var prepaid = new List<EffectOp>(op.RepeatOps.Count);
+                foreach (var o in op.RepeatOps) prepaid.Add(Prepaid(o));
+                done += ResolveOps(ctx, owner, null, prepaid, by, chosen: chosen, keepResolvedTargets: true) ? 1 : 0;
             }
             finally { ctx.EffectChain--; }
             return done > 0;
@@ -16803,7 +16955,7 @@ namespace RuleEngine
                     + $"（{why ?? "判得出是 false"}）—— 两处判据打架（`ArmedTrap` 本来就由 `IsTrapCard` 算出）⇒ 按 260 走。"));
                 return false;
             }
-            bool emitted = EmitCardTrigger(ctx, inst.Card, owner, null, "ThisCardDrawnAsTrap", "trapDrawn");
+            bool emitted = EmitCardTrigger(ctx, inst.Card, owner, null, "ThisCardDrawnAsTrap", "trapDrawn") != null;
             NoteTrapDrawnOnce(inst.Card, "武装陷阱被抽到", ($"[RuleEngine] 「{inst.Card.Name}」是**被抽到的武装陷阱** ⇒ 原版这一跳发 trigger"
                 + " **250 `ThisCardDrawnAsTrap`**（`CardScript__CardDrawn.c:16-31`），并**取代**它的 260。"
                 + $"⚠️ 事件{(emitted ? "已发" : "**没发**（这张卡的卡表里没有 250 那条 ability）")}；"
@@ -20711,6 +20863,66 @@ namespace RuleEngine
                   + (played ? "发了一条血渴高亮" : "**没有发**（四道闸没过：无 bloodthirst / 本回合不是第 1 次 / 不在行动侧 / 将死）")
                   + "（判据 `AbilityLogic__PlayAbility.c:1960-1972`：只对目标表**第一个**调 `SendHighlightBloodThirstAction`）");
             return played ? 1 : 0;
+        }
+
+        // ==================================================================
+        //  🔴🆕 2026-10-31（执行代理 `B104_T21` · 施工单 T21-b）：
+        //  「广播那一拍先发事件、结算那一拍才选出目标」的**唯一 arm 口**
+        // ==================================================================
+        //  判据（第一权威）：`AbilityLogic__PlayAbility.c:257-264` —— 原版是
+        //    `abilityLogic.targetCriteria(+0x28)` → `AbilityLogic.GetTargets(...)` → `possibleTargets(+0x78)`
+        //    → `PlayAnim(logic, manager, abilityData, possibleTargets)`，**全在同一次调用里**；
+        //    而 `AbilityLogic__PlayAnim.c:185-222` 就按这个列表逐目标各 `AddCardAnim` 一次。
+        //  我们这边「广播（发 `EvtKind.Trigger`）」与「结算（`ResolveOps`）」是**两拍**
+        //    （`EmitAtTurnTriggers` 整趟发完 → 再 `EnqueueAbility` 入队）⇒ 发射体把**它自己刚发的那个
+        //    `BattleEvent` 对象**存进作业（`AtTurnUnitJob.TriggerEvent` / `AtTurnHandJob.TriggerEvent`），
+        //    结算这一拍在这里 arm、由 `ResolveTargets` 的唯一收口（`NoteTriggerTargetSink`）当场写回。
+        //    `BattleContext.Signals` 存的是**同一个对象引用**、表现层要等整段引擎调用返回才 `DrainSignals`
+        //    ⇒ 事后填的字段一定看得到（不重排、不多发一条事件）。
+        //  ⚠️ **save/restore 必须**：效果会嵌套（`Repeat this effect` / 连锁触发 / 结算里再广播），
+        //    与外层 `LastTargets` 那套同一个理由。
+        //  ⚠️ `evt == null`（这一趟没发事件）⇒ **原样执行**、不动外层那一格（等价于改前「只在有事件时 arm」）。
+        //  ⛔ **判据只此一处** —— 两个队列体（棋盘 `AtTurnUnitJobDeferred` / 手牌 `AtTurnHandJobDeferred`）
+        //    都走它；别在调用点各写一份 try/finally（两处写同一条规则 = 迟早不一致）。
+        static void ResolveWithTriggerTargetSink(BattleContext ctx, BattleEvent evt, System.Action resolve)
+        {
+            if (resolve == null) return;
+            if (ctx == null || evt == null)
+            {
+                // ⚠️ 必须仍然执行结算体（它才是效果本身）—— arm 只是「顺手把目标记下来」。
+                resolve();
+                return;
+            }
+            var prevSink = ctx.TriggerTargetSink;
+            var prevDone = ctx.TriggerTargetSinkDone;
+            ctx.TriggerTargetSink = evt;
+            ctx.TriggerTargetSinkDone = false;
+            try { resolve(); }
+            finally
+            {
+                ctx.TriggerTargetSink = prevSink;
+                ctx.TriggerTargetSinkDone = prevDone;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        //  🔴 自检口（`B104_T21`）—— 纪律同 `HasTriggerSourceForTest` / `AbilityNoAnimRowMessageForTest`：
+        //  **不改任何行为**，只把既有的私有件开一条缝（Editor 程序集看不见 `private`）。
+        //  ⚠️ 加在文件末（= 类尾这一部分）：不影响本文件任何已引用行号。
+        // ------------------------------------------------------------------
+
+        /// <summary>自检口：F 族发射体的裸入口（`unit` 恒 `null` = 手牌那一趟，`instanceId` 由调用方给）。</summary>
+        public static BattleEvent EmitTurnTriggerRawForTest(BattleContext ctx, CardDef card, int owner,
+                                                            string triggerName, string phase, int instanceId)
+        {
+            return EmitTurnTriggerRaw(ctx, card, owner, null, triggerName, phase, instanceId);
+        }
+
+        /// <summary>自检口：arm / save / restore 的唯一口（判据见 <see cref="ResolveWithTriggerTargetSink"/>）。</summary>
+        public static void ResolveWithTriggerTargetSinkForTest(BattleContext ctx, BattleEvent evt,
+                                                               System.Action resolve)
+        {
+            ResolveWithTriggerTargetSink(ctx, evt, resolve);
         }
     }
 }

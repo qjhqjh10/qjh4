@@ -310,6 +310,16 @@ namespace CardPresentation
 
             if (closeAll) CloseAllWindows();
 
+            // 🆕 **2026-10-31（`B104_P3`）**：`TryOpen` 的返回值原来被丢掉 ⇒ **开窗失败也把窗记成「已打开」**
+            //   （`currentWindow` / `popUpWindow` / `openWindows` 全写进去了，下一次 `ShowPreviousWindow` /
+            //   `TopWindow` 会拿到一具打不开的窗）。这里先存一份「登记前的值」，失败时原样退回去。
+            //   ⚠️ 原版 `GameWindow.TryOpen` 是 **void**（没有返回值）—— 这个 `bool` 是**我们**给
+            //   「组件已销毁」加的短路（见 `GameWindow.OpenByState`），所以它回 `false` 只有**一种**原因：
+            //   窗在「登记」与「打开」这一拍之间被销毁。已销毁的窗不能再读 `win.name` ⇒ 先存名字。
+            GameWindow prevCurrent = currentWindow;
+            GameWindow prevPopUp = popUpWindow;
+            string winNameForLog = win != null ? win.name : "<已销毁>";
+
             if (win.type == WindowType.Fullscreen)
             {
                 // 原版：全屏窗开时**场上一扇都不留**（`if (openWindows.Count > 0) HideAllWindows()`）
@@ -327,7 +337,20 @@ namespace CardPresentation
 
             win.Manager = this;
             if (!openWindows.Contains(win)) openWindows.Add(win);
-            win.TryOpen(data);
+            if (!win.TryOpen(data))     // 🆕 2026-10-31（`B104_P3`）：返回值不再丢 —— 失败 ⇒ 下面把登记退回去
+            {
+                // = 原版那三句**净效果为「什么都没开」**（原版没有这一支：它的 `TryOpen` 是 void，
+                //   而 `this == null` 那种局面原版直接 NRE）。⛔ 不静默：出声 + 撤销 `openWindows` / `currentWindow` /
+                //   `popUpWindow` 这本笔账 ⇒ 外部看到的仍然是「开窗失败」，与 `TryOpen` 的返回值一致。
+                //   ⚠️ 两处**撤不回来**的副作用如实标注：① `closeAll` 关掉的那些；② 弹窗支里对上一扇的 `ToBackground()`。
+                if (openWindows.Contains(win)) openWindows.Remove(win);
+                if (ReferenceEquals(currentWindow, win)) currentWindow = prevCurrent;
+                if (ReferenceEquals(popUpWindow, win)) popUpWindow = prevPopUp;
+                Debug.LogError($"[Win] `OpenWindow`：`{winNameForLog}` 的 `TryOpen` 返回 **false**（窗已销毁）"
+                             + $" ⇒ 开窗**没有成功**，已撤销登记（`currentWindow` 退回 `{(prevCurrent != null ? prevCurrent.name : "<null>")}`）。"
+                             + "⛔ 别把这一扇当成「已经开好了」（判据 = `GameWindow.OpenByState` 的 `this == null` 短路）");
+                return;
+            }
             // 🆕 A49：新开的窗成了**最上面那一扇** ⇒ 把「选中」挪到它里面第一颗。
             // 🔴 **2026-10-07（A77㉑⑥）就地订正（铁律 5）**：这里原来写「照 `StandaloneInputModule.ActivateModule`」——
             //    **两句都不对**（判据 = 本机 UGUI 源码
