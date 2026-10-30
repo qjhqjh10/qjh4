@@ -4825,8 +4825,8 @@ namespace RuleEngine
         {
             public int ab = -1;
             public int lg = -1;
-            public bool isHand;
-            /// <summary>`"buffEffect"` / `"handBuff"`（诊断用；判据看 <see cref="isHand"/>）。</summary>
+            public bool isHand;   // ⚠️ 现读 `cards_engine.json` **没有这个键**（生成器只落 `ab/lg/at/src`）⇒ `false` 是默认值、⛔ 不是判据
+            /// <summary>`"buffEffect"` / `"handBuff"` —— 🔴 **`IsHand` 的判据就是它**（`isHand` 键可缺，缺了恒 `false`）。</summary>
             public string at;
             /// <summary>原版 `CardEffect.effectText` 原文（生成器口径：**空的那一格不落行**）。</summary>
             public string src;
@@ -4843,6 +4843,8 @@ namespace RuleEngine
         /// <para>⚠️ 行级坏值口径与 <see cref="MapAbilityMutations"/> 同族：`ab &lt; 0` / `lg &lt; 0` ⇒ 出声 + 丢弃该行；
         /// 同一 `(ab, lg, isHand)` 撞键 ⇒ 出声 + **丢弃后一条**（`buffEffect` / `handBuff.cardEffect` 各是单对象，
         /// 撞键 = 表坏了）。</para>
+        /// <para>🔴 `isHand` 由 <see cref="ResolveIsHand"/> 从挂点名 `at` 推（⛔ 不直接读 JSON 的 `isHand` 键 ——
+        /// 现读 38 行全都没有那个键，缺键默认 `false`）。</para>
         /// <para>🔴 缺列 ⇒ 返回 `null`（= 整列未知）；⛔ **别**返回 `new[0]`（那会把「未知」说成「明确没有行」）。</para></summary>
         static CardDef.AbilityEffectTextSpec[] MapAbilityEffectTexts(CardDto c)
         {
@@ -4859,21 +4861,47 @@ namespace RuleEngine
                     continue;
                 }
                 // 三元组撞键 = 表坏了（`buffEffect` 与 `handBuff.cardEffect` 是两格，靠 `isHand` 分开）
-                long k = ((long)r.ab << 40) ^ ((long)(r.lg + 1) << 1) ^ (r.isHand ? 1L : 0L);
+                bool isHand = ResolveIsHand(r, c);   // 🔴 判据 = `at`（⛔ 不是 JSON 的 `isHand` 键，见 ResolveIsHand 的 doc）
+                long k = ((long)r.ab << 40) ^ ((long)(r.lg + 1) << 1) ^ (isHand ? 1L : 0L);
                 if (!seen.Add(k))
                 {
                     Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityEffectTexts` 有**重复的 "
-                                 + $"(ab={r.ab}, lg={r.lg}, isHand={r.isHand})** —— 后一条已丢弃。"
+                                 + $"(ab={r.ab}, lg={r.lg}, isHand={isHand}, at={r.at ?? "(null)"})** —— 后一条已丢弃。"
                                  + "重跑 工具/gen_cards_engine.py。");
                     continue;
                 }
                 list.Add(new CardDef.AbilityEffectTextSpec
                 {
-                    Ab = r.ab, Lg = r.lg, IsHand = r.isHand,
+                    Ab = r.ab, Lg = r.lg, IsHand = isHand,
                     At = r.at ?? "", Src = r.src ?? "",
                 });
             }
             return list.ToArray();
+        }
+
+        /// <summary>🆕 v44-fix（2026-10-30 · `B100_F9`）：一行 `abilityEffectTexts` 的 `isHand`。
+        /// <para>🔴 **判据 = 挂点名 `at`，不是 JSON 的 `isHand` 键** —— `cards_engine.json` 现读 38 行
+        /// **全都没有** `isHand`（生成器 `ability_effect_texts_of` 的口径只落 `ab/lg/at/src`，
+        /// 见 `工具/gen_cards_engine.py:7242` 的形状行），而 `bool` 缺键恒 `false`
+        /// ⇒ 按 `r.isHand` 判会把 5 条 `handBuff` 行**静默当成 `buffEffect`**（同 `(ab,lg)` 撞键后被丢，
+        /// 现场日志 `b100_battle.log:103443/103459`）。</para>
+        /// <para>三档：`at == "handBuff"` ⇒ `true` · `at == "buffEffect"` ⇒ `false`
+        /// （这一档若 `isHand` 键显式为 `true` = 数据自相矛盾 ⇒ 出声、按 `at`）·
+        /// `at` 缺/空/未知 ⇒ 退回 `r.isHand`（旧表 &lt; v44 与手写夹具的兼容路）。</para></summary>
+        static bool ResolveIsHand(AbilityEffectTextRowDto r, CardDto c)
+        {
+            if (r.at == "handBuff") return true;
+            if (r.at == "buffEffect")
+            {
+                if (r.isHand)
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityEffectTexts` 有一行 `at` 与 `isHand` 矛盾"
+                                 + $"（at=buffEffect, isHand=true, ab={r.ab}, lg={r.lg}）—— **按 `at` 当 `buffEffect`**。");
+                return false;
+            }
+            if (!string.IsNullOrEmpty(r.at))
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityEffectTexts` 有一行挂点名未知"
+                             + $"（at=\"{r.at}\", ab={r.ab}, lg={r.lg}）—— **退回按 `isHand` 判**。");
+            return r.isHand;
         }
     }
 }

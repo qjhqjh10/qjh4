@@ -129,7 +129,7 @@ public static class B99A1_Assert
 
         Check(f(null) == false,
               "★ B1 `null` ⇒ 假（⛔ 不抛）");
-        var unitTargeted = B99A1Card("B99A1UnitT", "troop", targeted: 1);
+        var unitTargeted = B99A1Card("B99A1UnitT", "unit", targeted: 1, subtype: "troop");
         var tacticTargeted = B99A1Card("B99A1TacT", "tactic", targeted: 1);
         var tacticPlain = B99A1Card("B99A1TacP", "tactic", targeted: 0);
         var tacticUnknown = B99A1Card("B99A1TacU", "tactic", targeted: -1);
@@ -299,11 +299,16 @@ public static class B99A1_Assert
         }
     }
 
-    /// <summary>夹具卡：`type` / `targeted` 由调用方给（其余走 `CardDef` 缺省）。
-    /// <para>⚠️ `Targeted` 是**三态 int**（`-1` 未知 / `1` 是 / 其余 0）—— ⛔ 别把它当 bool。</para></summary>
-    static CardDef B99A1Card(string id, string type, int targeted)
+    /// <summary>夹具卡：`type`（**卡种**）· `targeted` · `subtype`（**兵种**）由调用方给（其余走 `CardDef` 缺省）。
+    /// <para>⚠️ `Targeted` 是**三态 int**（`-1` 未知 / `1` 是 / 其余 0）—— ⛔ 别把它当 bool。</para>
+    /// <para>🔴 **2026-10-30（`B100_F14` · 报告 `B100_X3` #36）：`type`（卡种）与 `subtype`（兵种）是两个不同的字段。**
+    /// `IsUnit` **只读 `type`**（`RuleEngine/Core/CardDef.cs:5981` `Type == "unit" || Type == "hero"`）。
+    /// 原来把兵种 `"troop"` 写进 `type` ⇒ `IsUnit` 恒假 ⇒ 这张「单位卡」实际掉进「非单位」那一档，
+    /// 于是 §B2 想守的 `!d.IsUnit` 那半**从落地起一次也没被执行到**（第一次真跑就是 `§B2a` 前提红 + `★ B2` 红，
+    /// 见 `报告/B100_X3` #36/#37）。⛔ 再往 `type` 里写 `troop`/`Infantry` 这类兵种名 ⇒ `§B2a` 前提红。</para></summary>
+    static CardDef B99A1Card(string id, string type, int targeted, string subtype = null)
     {
         return new CardDef(id, id, type, "", null, "SpaceWolves", 1, 1, 3, 0, null,
-                           subtype: type, targeted: targeted);
+                           subtype: subtype ?? type, targeted: targeted);
     }
 }

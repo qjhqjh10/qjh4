@@ -172,8 +172,8 @@ public static class B97W18Assert
         var oldRec = JsonUtility.FromJson<ReplayRecord>("{\"version\":4}");
         Tr(oldRec != null && oldRec.asks != null && oldRec.asks.Count == 0,
            "A7 **向后兼容**：老档 JSON 没有 `asks` 键 ⇒ 读成**空表**（不抛、不留 null ⇒ `ReplayAskResetForReplay` 走「不弹面板」那一支）");
-        Tr(oldRec != null && oldRec.vars == null,
-           "A7a **向后兼容**：老档 JSON 没有 `vars` 键 ⇒ 读成 `null`（= 没记 ⇒ `ReplayVarsForReplay` **出声**后用默认，⛔ 不静默）");
+        Tr(oldRec != null && !CardPresentation.ReplayVars.IsRecorded(oldRec.vars),
+           "A7a **向后兼容**：老档 JSON 没有 `vars` 键 ⇒ `JsonUtility` 会把它**物化成全 0 对象**（不是 `null`）⇒ 只认 `ReplayVars.IsRecorded` = **false**（= 没记 ⇒ `ReplayVarsForReplay` **出声**后用默认，⛔ 不静默）｜判据 → 报告/B100_X3 #17 · 报告/B100_F10");
     }
 
     // ==================================================================

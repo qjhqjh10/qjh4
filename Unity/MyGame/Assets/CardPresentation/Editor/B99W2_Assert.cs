@@ -79,6 +79,19 @@ public static class B99W2Assert
                 wm.OpenWindow(win);
                 ownWin = true;
             }
+            if (win != null && win.CurrentState != WindowState.Open)
+            {
+                // 🔴 **2026-10-30（`B100_F6`）就地订正（铁律 5）**：宿主 `CollectionScene` 在同一个 `RunCore`
+                //   里先跑了一大串导航/开窗段 —— 弹窗支那句 `currentWindow.ToBackground()`
+                //   （`Shell/WindowsManager.cs:322`）会把收藏窗压成 `Background`（甚至 `Closed`）
+                //   ⇒ 轮到本组时 `CurrentState` 已经不是 `Open`（实测 `b100_collection.log:237540`，窗对象本身是活的：
+                //   本组其余 30 条全过）。这里先把它恢复成「开着」，⛔ **不削弱 A0**（下一行照旧硬断 `== Open`）。
+                //   ⚠️ 用**无参** `TryOpen()`（= 原版 `ShowPreviousWindow` 那一跳）：`Background` 支只做
+                //   `SetActive(true) + state=Open + ToFocus()`、**不重建内容**；且**不喂 `data`** ⇒ 不像
+                //   `OpenWindow(win, null)` 那样把 `Data` 清空、也不会触发全屏支那句 `HideAllWindows()`
+                //   （那会把宿主此刻开着的别的窗一起藏掉）。
+                win.TryOpen();
+            }
             Tr(win != null && win.CurrentState == WindowState.Open, "（前提 A0）收藏窗是开的（下面整组都按它读）");
             if (win == null) return;
 

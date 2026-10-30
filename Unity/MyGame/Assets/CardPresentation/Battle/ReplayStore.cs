@@ -874,7 +874,7 @@ namespace CardPresentation
     ///    `manaBonusSeat0` / `manaBonusSeat1`）⇒ 这 4 格**必须一起存**，否则起手张数 / 后手多抽 / 座位能量
     ///    会回到模式默认值。</para>
     ///
-    /// <para>⚠️ `version` **不 +1**：纯**新增**字段。老录像没有这一格 ⇒ `vars == null` ⇒ 回放退回
+    /// <para>⚠️ `version` **不 +1**：纯**新增**字段。老录像没有这一格 ⇒ **哨兵 `varsRecorded` = `false`**（🔴 2026-10-30 `B100_F10` 就地订正：原文写「`vars == null`」—— **不成立**，`JsonUtility` 会把缺键的**可序列化类字段物化成一份全 0 对象**，`null` 那条分支恒不成立 ⇒ 老录像会拿全 0 参数开一局；见 `varsRecorded` 的 doc 与 `报告/B100_X3` #17）⇒ 回放退回
     /// 「按开局包推出来的那套参数」= **与加这一格之前逐字相同**（而且会 `Debug.LogWarning` 出声，⛔ 不静默）。
     /// 这与「改结算语义就 +1」不冲突：旧档在新代码下的**行为没变**，不存在「同一条动作演成另一个结果」。</para></summary>
     [Serializable]
@@ -891,6 +891,10 @@ namespace CardPresentation
         /// <summary>配合 <see cref="overtimeTurnSet"/>：`false` ⇒ 我们那边是 `null`（这个模式没有加时）。</summary>
         public int overtimeTurn;
         public bool overtimeTurnSet;
+        /// <summary>🆕 2026-10-30（`B100_F10` · 报告 `B100_X3` #17）：**「这份快照记过没有」的哨兵** —— `Capture` 置 `true`；老档 JSON 没有这个键 ⇒ 读到 `false`（= 没记）。
+        /// 🔴 **为什么必须加**：`ReplayRecord.vars` 是**可序列化类字段** ⇒ `JsonUtility.FromJson` 会把缺键的它**物化成一份全 0 对象**（⛔ 不是 `null`）⇒ 只判 `vars == null` 的分支**恒不成立**，老录像会拿 `deckSize=0` / `startingMana=0` 走 `ToVars()` 开一局。写法照 <see cref="overtimeTurnSet"/> 同族（非可空字段编码「值 / 有没有值」）。
+        /// 哨兵取 `false`：`false` **既是 `bool` 的默认值、也是初始化器值**（`JsonUtility` 跑不跑无参构造都给 `false`），与 `ReplayRecord.tutorialStage` / `botSeatPlus2` 同一条纪律。**唯一读法** = <see cref="IsRecorded"/>；⛔ 别在别处直读这个字段。</summary>
+        public bool varsRecorded;
         public int startingMana;
         public int startingManaSecond;
         public int addedManaSecond;
@@ -909,10 +913,15 @@ namespace CardPresentation
         public int manaBonusSeat0;
         public int manaBonusSeat1;
 
-        /// <summary>一共有几格参与「往返比对」—— 22（18 原版 + 4 我们独有）。断言用它当分母。</summary>
-        public const int TotalFieldCount = 22;
-        /// <summary>真正会**装回**的格数 = 22 − 1（`slotsPerSide`）。</summary>
-        public const int RestoredFieldCount = TotalFieldCount - 1;
+        /// <summary>一共有几格参与「往返比对」—— 24 = 18 原版 + 2 **编码位**（`overtimeTurnSet` / `varsRecorded`）+ 4 我们独有。断言（`B97W18` B6a）用它当分母。
+        /// ⚠️ 2026-10-30（`B100_F10`）：原写 22 —— 那一版没把 `overtimeTurnSet` 这个编码位算进去（实得 23，B6a 从落地起就差 1，见 `B100_X3` #18）；加 `varsRecorded` 后同步到 **24**。</summary>
+        public const int TotalFieldCount = 24;
+        /// <summary>真正会**装回**的格数 = 24 − 3（`slotsPerSide` **跳过** + `overtimeTurnSet` / `varsRecorded` 是编码位、不是规则格）。</summary>
+        public const int RestoredFieldCount = TotalFieldCount - 3;
+
+        /// <summary>「这份录像**到底有没有记过**规则参数」—— ⛔ **不能判 `== null`**（`JsonUtility` 会把缺键的可序列化类字段物化成全 0 对象，见 <see cref="varsRecorded"/> 的 doc）。
+        /// `false`（含 `v == null`）= 没记 ⇒ 调用方**出声**后用默认值（⛔ 不静默）；生产唯一消费点 = `BattleDriver.ReplayVarsForReplay`。</summary>
+        public static bool IsRecorded(ReplayVars v) { return v != null && v.varsRecorded; }
 
         /// <summary>从引擎那套参数抓一份快照。`null` ⇒ `null`（= 没记）。</summary>
         public static ReplayVars Capture(GameplayVariables v)
@@ -920,6 +929,7 @@ namespace CardPresentation
             if (v == null) return null;
             return new ReplayVars
             {
+                varsRecorded = true,      // 🆕 哨兵置真 ⇒「记过」（老档读出来是 false，见 `varsRecorded` 的 doc）
                 maxLegendaries = v.maxLegendaries,
                 numberOfCopiesOtherRarities = v.numberOfCopiesOtherRarities,
                 numberOfCopiesLegendary = v.numberOfCopiesLegendary,
@@ -989,7 +999,7 @@ namespace CardPresentation
     public partial class ReplayRecord
     {
         /// <summary>🆕 **2026-10-29（账 `战斗逻辑驱动:1081`）**：录制那一刻的**规则参数**。
-        /// `null` = **没记**（老录像 / 录制端没接上）⇒ 回放退回「按开局包推出来的那套」，并**出声**。
+        /// 「没记」**只能判** `ReplayVars.IsRecorded(vars) == false`（🔴 2026-10-30 `B100_F10` 订正：原文写「`null` = 没记」—— **不成立**，`JsonUtility` 会把缺键的可序列化类字段物化出来 ⇒ 老档读出来是**一份全 0 对象**）⇒ 回放退回「按开局包推出来的那套」，并**出声**。
         /// 判据与三条坑 → <see cref="ReplayVars"/> 的类 doc。</summary>
         public ReplayVars vars;
 

@@ -45,7 +45,12 @@ public static partial class RuleEngineTest
     /// </summary>
     static void B95WBDHandGateCase()
     {
-        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        // 🔴 2026-10-30（`B100_F18` · G1）：`Battle(...)` → `ProbeBattle(...)`。
+        //   原夹具用 `Battle` ⇒ `Deck()` 塞 **20 张 filler**、`NewBattle` 再起手 3/4 张
+        //   （`RuleEngineTest.cs:2582` / `RuleCore.cs:285`）⇒ 手上不是「恰好 1 张」（实测 4 / 5），
+        //   下面两条前提与两条结论全部塌掉。`ProbeBattle` = 只有督军 + 指定的那几张（`RuleEngineTest.cs:2629`）。
+        //   ⛔ 期望值不改（改成 4/5 会把判别式废掉：那样「闸放不放行」不再是唯一变量）。
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
         int me = ctx.Active, foe = 1 - me;
         var mine = ctx.Players[me];
         var theirs = ctx.Players[foe];

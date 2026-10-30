@@ -214,10 +214,14 @@ public static partial class RuleEngineTest
         Check(BoardSlots.NextSlotPos(ps, 2) != B97W11OldCountBounded(ps, 2), true,
               "E2 ★★ 生产实现与旧上界的转录**必须不同**：谁把上界改回去、或把 B1 的期望值跟着改成 +4，这里都红");
 
-        // E3：反向 —— 空场 required = 2 两者**恰好相同**（-1）。这条把 E1/E2 钉死在「必须是那个特定的局面」上，
-        //     ⛔ 别让后人以为「随便挑个局面就能区分」而把夹具换成盖不住的那种。
+        // E3：🔴 2026-10-30 `B100_F34` 修正前提 —— 原写「空场 required = 2 两者**恰好相同**（-1）」，与事实**相反**。
+        //     实况：旧上界的转录在空场 i=0 就 `max(0,0) <= 0` break ⇒ `found = 0` ⇒ 回落 `BoardSpec.SlotsPerSide`(**+4**)；
+        //     生产实现给 **-1**（同文件 B4 就断言了 -1）⇒ 两者恰好**不同**，原来的 `==` 是恒红（正确的实现也被判失败）。
+        //     ⇒ 这正好是「缺陷① 在空场也暴露」的正面证据。
         var empty = B97W11Board(0, 0);
-        Check(B97W11OldCountBounded(empty, 2) == BoardSlots.NextSlotPos(empty, 2), true,
-              "E3 空场 `required = 2`：两种上界**答案相同**（-1）⇒ 能区分缺陷①的局面只有「两侧人数都 ≈ 格数」那种（B1/E1）");
+        Check(B97W11OldCountBounded(empty, 2), BoardSpec.SlotsPerSide,
+              "E3a 旧上界的转录在**空场**也回 +4（i=0 就 break ⇒ found=0 ⇒ 落 SlotsPerSide）—— 缺陷①在空场同样暴露");
+        Check(B97W11OldCountBounded(empty, 2) != BoardSlots.NextSlotPos(empty, 2), true,
+              "E3 空场 `required = 2`：两种上界**不同**（旧 +4 / 新 -1）⇒ E1/E2 那道灭自证在空场照样成立");
     }
 }

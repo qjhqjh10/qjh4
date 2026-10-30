@@ -2110,7 +2110,7 @@ namespace CardPresentation
                 //    （外部包，本地按 pid 没解出 sprite 名）⇒ 这里用教程线**已经在用**的那张箭头图
                 //    （`40k_general_bt_arrow`，`TutorialOverlay` 的四根箭头同源）。**这是我们挑的**，
                 //    不是原版判据 —— `m_Color (0.6698)` 与 `PA = 0` 是原版值。
-                var arrowTex = CardArt.Ui("40k_general_bt_arrow");
+                var arrowTex = CardArt.MenuUi("40k_general_bt_arrow");   // 🔴 2026-10-30（`B100_X11` D1，铁律 5）：这张图只在 `Resources/Art/ui_menu/`（`CardArt.Ui` 只查 `ui/`）⇒ 原来教程指向箭头**永远建不出来**（2026-10-18 W2 第四轮扫 `CardArt.Ui` 时漏了这一处）
                 if (arrowTex != null)
                     _tutArrow = Img(_tutCost, arrowTex, "Arrow", Rel(1367.8f, 238.4f, 1457f, 288f),
                                     206.22f, 76.17f, ZContent - 0.03f, new Color(0.6698f, 0.6698f, 0.6698f, 1f));

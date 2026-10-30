@@ -205,7 +205,7 @@ public static partial class RuleEngineTest
         CheckTrue(RuleCore.DeathObserverGateAllowsForTest(ctx1, f1),
                   "C0 （前提）闸放行（`IsRemnant=false` ∧ `AlreadyTriggeredBacklash=false`）");
         int atk1 = w1.Attack;
-        RuleCore.ApplyDamage(ctx1, f1, 5, "自检");
+        RuleCore.HurtWithSourceForTest(ctx1, f1, 5, "自检");
         RuleCore.PumpActionQueues(ctx1);
         CheckTrue(!f1.IsAlive, "C0 （前提）炮灰真的死了");
         Check(w1.Attack, atk1 + 3,
@@ -220,7 +220,7 @@ public static partial class RuleEngineTest
         CheckTrue(!RuleCore.DeathObserverGateAllowsForTest(ctx2, f2),
                   "C2 （前提）闸拦下（`+0x222` 已置位）");
         int atk2 = w2.Attack;
-        RuleCore.ApplyDamage(ctx2, f2, 5, "自检");
+        RuleCore.HurtWithSourceForTest(ctx2, f2, 5, "自检");
         RuleCore.PumpActionQueues(ctx2);
         CheckTrue(!f2.IsAlive, "C2 （前提）炮灰真的死了");
         Check(w2.Attack, atk2,
@@ -259,7 +259,7 @@ public static partial class RuleEngineTest
         Check(f.KwValue("huntmark"), 2, "D0 （前提）死者身上挂着 2 层猎杀标记");
 
         ctx.ClearSignals();
-        RuleCore.ApplyDamage(ctx, f, 5, "自检");
+        RuleCore.HurtWithSourceForTest(ctx, f, 5, "自检");
         RuleCore.PumpActionQueues(ctx);
         CheckTrue(!f.IsAlive, "D0 （前提）炮灰真的死了");
 
@@ -279,7 +279,7 @@ public static partial class RuleEngineTest
         ToP1Turn(ctx2, 1);
         var f2 = Place(ctx2, 1, 3, plain, exhausted: true);
         ctx2.ClearSignals();
-        RuleCore.ApplyDamage(ctx2, f2, 5, "自检");
+        RuleCore.HurtWithSourceForTest(ctx2, f2, 5, "自检");
         RuleCore.PumpActionQueues(ctx2);
         int amount2 = -1, count2 = 0;
         foreach (var e in ctx2.Signals)

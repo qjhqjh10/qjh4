@@ -392,7 +392,7 @@ namespace CardPresentation
                                  + "（`RankedDivisionInfo.Build` 的产出变了？）");
                 return;
             }
-            if (ClassicTimerDeadline.HasValue)   // 原版 `TimerDisplay.UpdateTimer` **取不到目标时刻那一支是 `return;`**（静默、⛔ 不印 `--`）⇒ 本地恒无（类尾 `ClassicTimerDeadline`）⇒ **整棵不建**；将来有数据源时把本行换成那个真判据即可恢复下面那一支（§2·4「留开关，不硬删」）
+            if (!ClassicTimerDeadline.HasValue)   // 🔴 **2026-10-30（`B100_F5` · 闸写反了就地订正）**：原读 `if (ClassicTimerDeadline.HasValue)` = **有**才不建（意图相反），而它恒 null ⇒ 那条「整棵不建」一次都没走过 ⇒ 非活动期一直多画一行 `结束于：`。原版 `TimerDisplay.UpdateTimer` **取不到目标时刻那一支是 `return;`**（静默、⛔ 不印 `--`）⇒ 本地恒无（类尾 `ClassicTimerDeadline`）⇒ **整棵不建**；将来有数据源时把本行换成那个真判据即可恢复下面那一支（§2·4「留开关，不硬删」）
             {   // ⛔ 不建 `Timer` / 不建 `Timer Icon` / 一个字都不印 —— 「没有数据」不是「印个占位」
                 Debug.Log("[Event] 经典式左列的 `Content/Timer` **整棵不建** —— 原版 `TimerDisplay.UpdateTimer` 在取不到目标时刻时是 `return;`（静默、不印 `--`）；本窗的经典式左列只在**没有 FastMode 活动**时建 ⇒ 根本没有结束时刻（判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4）。"); return; }
             var tm = MenuDraw.Node(content, "Timer", new PxRect(TmrL, TmrT, TmrR, TmrB));
@@ -629,7 +629,7 @@ namespace CardPresentation
             // 🆕 **2026-10-24（E15）**：这颗 `Timer` = **活动倒计时**（原版 `TimerDisplay` 喂的是活动结束时刻）。
             //   非活动期**不建** —— 否则屏幕上会同时出现两行「结束于：」（经典式左列自带
             //   `Ranked Division Info ▸ Content ▸ Timer`，那才是常驻形态）；原版任何一扇窗都没有两个倒计时。
-            if (HasActiveSkirmishEvent && TimerDeadline.HasValue) BuildTimer(root);   // 🔴 2026-10-30（B99_A4 · 反向清单 §五 #1）：原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默 ⇒ 无截止时刻（类尾 `TimerDeadline`，本地恒 null）**整棵不建**，⛔ 不印 `--`
+            TimerDeadline = ActiveEventDeadline(); if (HasActiveSkirmishEvent && TimerDeadline.HasValue) BuildTimer(root);   // 🔴 2026-10-30（`B100_F5`）· **赋值必须写在本行**（插行会让本文件下游账落点漂移，铁律 18·b）：原版 `SkirmishEventWindow__TryOpen.c` 开窗时就把 `活动.GetEndDate()` 喂 `TimerDisplay__Initialize`（目标**定死**在 `+0x78`）⇒ 本字段按**在期 FastMode 活动的 `endDate`** 取值，本机无活动数据时才为 null（原来是恒 null 的字段 ⇒ 活动期永远没有倒计时）。🔴 2026-10-30（B99_A4 · 反向清单 §五 #1）：原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默 ⇒ 无截止时刻**整棵不建**，⛔ 不印 `--`
             else Debug.Log("[Event] `Timer`（活动倒计时）**没建** —— 缺截止时刻（`TimerDeadline` 为 null，原版那一支是 `return;` 静默、⛔ 不印 `--`）"
                          + "或本窗不是活动期；非活动期那一行由经典式左列的 `Ranked Division Info ▸ Content ▸ Timer` 承担（它同样受 `ClassicTimerDeadline` 闸）");
             BuildBanned(root);
@@ -1028,16 +1028,32 @@ namespace CardPresentation
         static System.DateTime? ClassicTimerDeadline { get { return null; } }
 
         // ============================================================ 界面 #5（B99_A6 · 2026-10-30 · 追加在类尾）
-        /// <summary>**活动期**那颗 `Timer`（`BuildTimer`）的结束时刻 —— **本地恒 null**（= 没有这条数据，不是「我们挑的 0」）。
-        /// <para>判据（⛔ 不是猜）：原版 `SkirmishEventWindow.TryOpen` 拿 `ev.endDate` 喂 `timerDisplay.Initialize(endDate)`；
-        /// `TimerDisplay__UpdateTimer.c` **第一条** `if (*(char *)(this+0x78) == '\0') return;` ⇒ 取不到目标时刻是**静默**
-        /// （不写字、不动 GameObject）。FastMode 活动实例由服务端 LiveOps 下发、本机 13 份活动 SO 里 FastMode 类 **0 份**
-        /// ⇒ 没有截止时刻 ⇒ 按 §2·4「留开关，不硬删」**整棵不建**（调用点 `BuildExtras` 那道闸），⛔ 不印 `--`、
-        /// ⛔ 不把 prefab 占位串 `23d 5h` 当倒计时留在屏上（那是**假数**）。
-        /// 🔴 **2026-10-30（`B99_A6` · 铁律 5）**：`B99_A4` 把 `TimerDisplay` 改成静默后，本窗若照旧建树就会**露出
-        /// 「结束于：23d 5h」这个死占位**（比 `--` 更糟）⇒ 本字段 + 调用点那道闸一起落在这一批。</para>
-        /// <para>将来接上 FastMode 活动数据时，**只改这一格**（赋那个 `endDate`）⇒ `BuildTimer` 的建树路径原样恢复。</para>
+        /// <summary>**活动期**那颗 `Timer`（`BuildTimer`）的结束时刻 = **在期 FastMode 活动实例的 `endDate`**；
+        /// 取不到（本机活动表为空 / 不在期）⇒ `null` ⇒ 按 §2·4「留开关，不硬删」**整棵不建**（调用点 `BuildExtras` 那道闸）。
+        /// <para>判据（⛔ 不是猜）：原版 `SkirmishEventWindow__TryOpen.c` —— `TimerDisplay__Initialize(*(param_1+0xc0),
+        /// <活动实例 `*(param_1+0x70)` 的 GetEndDate()>, key, 0)`；同一方法里 `SetActive(timerDisplay, active != 0)`。
+        /// 即「有在期活动 ⇒ 按**它的**结束时刻建；活动不 active 才关」。`TimerDisplay__UpdateTimer.c` **第一条**
+        /// `if (*(char *)(this+0x78) == '\0') return;` ⇒ 取不到目标时刻是**静默**（不写字、不动 GameObject）。</para>
+        /// <para>🔴 **2026-10-30（`B100_F5` · 铁律 5 + §18·0 就地订正）**：原来这里是**恒 `null` 的字段**（`B99_A6`）——
+        /// 后果 = **活动期永远没有倒计时**（闸恒不成立，E15 的 B3 红）。按 §18·0「需要拍板默认复刻原版」改成**开窗时按在期活动赋值**
+        /// （<see cref="ActiveEventDeadline"/>，调用点 = `BuildExtras` 那道闸**同一行**）；数据表空（= 本机没有 FastMode 活动实例、
+        /// 服务端才下发）时仍为 `null`，不是「写死不给」。⚠️ 它是**静态字段** ⇒ 每次建窗都必须重赋一次（否则上一场的时刻会漏过来）。</para>
         /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 本文件在账里被按 `文件:行号` 引用 26 处，最大落点 `:954`）。</para></summary>
-        public static System.DateTime? TimerDeadline;   // 🔶 自己设计（非原版）：活动期 `Timer` 的截止时刻开关（本地恒 null ⇒ 那一行整棵不建）· 为什么必须自定：截止时刻来自 LiveServer，关服后判据在远端 ⇒ 按「不给假数」不显示原版 prefab 的占位串 `23d 5h` · 调度台 2026-10-30 裁定
+        public static System.DateTime? TimerDeadline;
+
+        /// <summary><see cref="TimerDeadline"/> 的**取值口** —— `BuildExtras` 每次建窗都调一次（同一行写在那道闸前面）。
+        /// <para>为什么是**开窗时取一次**、而不是让 `TimerDisplay` 每秒现取：原版 `SkirmishEventWindow__TryOpen.c` 就是
+        /// 开窗时 `TimerDisplay__Initialize(timerDisplay, 活动.GetEndDate(), …)` 把目标**定死**在 `+0x78`
+        /// ⇒ 到点走 `remain <= 0` 那一支（清字 + `SetActive(false)` + `OnRunOutOfTime`）。若改成每秒按「当前有没有在期活动」现取，
+        /// 活动一过期目标就变 `null` ⇒ 落到「目标未知」那一支（`return;`）⇒ 屏上**冻住最后一格倒计时**，与原版不符。</para>
+        /// <para>⚠️ `ToLocalTime()`：`EndUtc` 是 `DateTimeKind.Utc`，而 `TimerDisplay` 拿本机 `DateTime.Now` 相减（**不认 `Kind`**）
+        /// ⇒ 不转的话整整差一个时区（本机 UTC+8 = 少 8 小时）。</para></summary>
+        public static System.DateTime? ActiveEventDeadline()
+        {
+            if (!HasActiveSkirmishEvent) return null;      // 判据与本窗左列 / 建树那道闸**同一处**（含自检注入口）
+            LiveOpsLocalEvent ev;
+            return LiveOpsLocalCatalog.TrySelectActiveFastMode(LiveOpsLocalCatalog.NowUtc, out ev, out _) && ev != null
+                 ? ev.EndUtc.ToLocalTime() : (System.DateTime?)null;
+        }
     }
 }

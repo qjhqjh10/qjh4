@@ -439,8 +439,8 @@ public static class ArtBaker
             //   立绘（`art_*.png`）与卡背（`back_*.png`）运行期**没有任何人读像素**
             //   （`CardArt.Portrait` / `CardBack` 只把贴图交给材质采样）。
             //   ⚠️ 改前是 `path.Contains("/cards/")` ⇒ **2336 张立绘也各留一份 CPU 侧副本**（现读 cards/ 下 300 张 `frame_*`）。
-            //   ⚠️ 卡框命名 = `frame_*`；`frame_uv.json` 查不到的那几张仍要能回读 ⇒ 这一支保持 `true`。
-            bool isFrame = path.Contains("/cards/frame_");
+            //   ⚠️ 卡框有**两处**：`cards/frame_*`（自绘兜底 150 张）+ `cards/clan/frame_clan_*`（原版 SO 那一路 104 张，`CardArtClanFrames.FrameTexture`）；`frame_uv.json` 查不到的那几张仍要能回读 ⇒ 这一支保持 `true`。🔴 2026-10-30（B100_F13）：改前只判 `/cards/frame_` ⇒ clan 那 104 张 `.meta` **全 `isReadable:0`** ⇒ `CardView.FrameMaskData`/`FrameArtWindow` 的 `isReadable` 闸恒 false ⇒ 战术/防御卡的卡框开口裁切静默失效（受影响 = 52 张 `stratagem` 卡框）；⛔ 别放宽成裸 `"frame_"`（会把无关贴图也烤一份 CPU 副本）。
+            bool isFrame = path.Contains("/cards/frame_") || path.Contains("/cards/clan/frame_");
             bool isBackdrop = path.EndsWith("arena1_bg.png");
 
             ti.textureType = TextureImporterType.Default;      // 我们自己按 UV 摆，不要 Sprite

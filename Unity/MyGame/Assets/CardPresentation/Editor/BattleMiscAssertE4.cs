@@ -348,6 +348,22 @@ public static class BattleMiscAssertE4
             }
 
             // ---- C3 · deploy 仍然弹气泡（回归闸：别把出场气泡一起关掉）----
+            // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #28）：本章前面那两条闸之外，2026-10-29 的 `B98_G4`
+            //   给 `Deploy` 加了一道**声音闸**（`BattleDriver.SpeakFor` 的
+            //   `case EvtKind.Deploy: if (!ShouldTriggerSummonAnim(e, out _)) return;` —— `BattleDriver.cs:7510`），
+            //   它的第 1 道闸是 `if (deployFrom != DeploySource.HandPlayed) return false;`（`BattleDriver.cs:38569`）。
+            //   原来这个夹具**没给 `DeployFrom`** ⇒ 默认 `Unknown = 0`（`RuleEngine/Core/BattleEvent.cs:477-479`）
+            //   ⇒ 闸直接返回 ⇒ 气泡永不弹（`ShownSide` 实得 `-1`）。探针单位确实是从手牌/初始部署落到棋盘那一格上的，
+            //   这里补的是「它怎么进来的」这一位。
+            //   ⚠️ 闸的第 2 道是「不带 `ephemeral` / `ambush`」（`BattleDriver.cs:38571-38574`）——
+            //   探针挑的是棋盘上第一张真单位、**本件不跑 Unity 也抢不到它的选择** ⇒ 所以先钉一条**硬前提**，
+            //   前提红了说明探针挑得不对（该换一张），⛔ 不是把断言删掉。
+            bool c3GateOk = CheckTrue(
+                BattleDriver.SummonAnimGate(DeploySource.HandPlayed,
+                                            driver.Ctx.Players[probeSeat].Board[probeSlot]),
+                "（前提）C3：探针单位过得了 `SummonAnimGate` 的两道闸（从手牌进场 ∧ 不带 ephemeral/ambush）"
+              + "—— 不过 ⇒ 下面 C3 那三断**没验到**（别读成通过）");
+            if (c3GateOk)
             using (var sc = VoiceLines.SetExactForTest(probe.Id, "deploy", clipWithText))
             {
                 driver.UnitChat.HideAll();
@@ -355,7 +371,8 @@ public static class BattleMiscAssertE4
                 int skipBefore = driver.SummonChatMissingSkipsForTest;
                 driver.SpeakForForTest(new BattleEvent
                 {
-                    Kind = EvtKind.Deploy, Player = probeSeat, Slot = probeSlot, CardId = probe.Id
+                    Kind = EvtKind.Deploy, Player = probeSeat, Slot = probeSlot, CardId = probe.Id,
+                    DeployFrom = DeploySource.HandPlayed     // ← 见上面那段判据（不给 = 默认 `Unknown` ⇒ 声音闸直接返回）
                 });
                 CheckInt(driver.UnitVoiceAudioOnlyCountForTest, audioBefore,
                          "★ C3：`deploy` **不**走纯音频那一路（它要的是气泡 + 声音）");

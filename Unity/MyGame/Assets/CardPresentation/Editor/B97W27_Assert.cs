@@ -191,6 +191,16 @@ public static class B97W27Assert
             var box = load != null ? load.parent : null;
             Tr(box != null, "前提 C-1：`Cog → Animated Loading Image → ErrorMensajeContainer` 那条父链还在");
             if (box == null) return;
+            // 🔴 **2026-10-30（`B100_F6`）就地订正（铁律 5）**：祖先 `Login Window` **出厂是关着的**
+            //   （`BuildLoginWindow` 末句 `lw.gameObject.SetActive(false)` = `Shell/SettingsWindow.cs:3169`）
+            //   ⇒ 只亮 `ErrorMensajeContainer` 时 `activeInHierarchy` 仍是 **false**（祖先 inactive）。
+            //   实测（2026-10-30 `b100_menu.log:161928` 起）：C-2 红 ⇒ 下面 C1/C2/C4 三条**恒 0**。
+            //   ⛔ 别改用「Cog 自己 activeSelf」判活跃 —— 那正是本条要挡的假绿。
+            var lwNode = box.parent;
+            Tr(lwNode != null && lwNode.name == SettingsWindow.LwNodeName,
+               "前提 C-1b：`ErrorMensajeContainer` 的父节点 == `Login Window`（整棵弹窗根；出厂 inactive）");
+            if (lwNode == null) return;
+            lwNode.gameObject.SetActive(true);              // = 原版 `LoginButtonClick` 把整扇弹窗亮起来那一刻
             box.gameObject.SetActive(true);
             Tr(w.CogNodeForTest.gameObject.activeInHierarchy,
                "前提 C-2：亮起来之后 `Cog` 在活跃层级里（否则下面在转空气）");
@@ -202,8 +212,9 @@ public static class B97W27Assert
                "C2 **有符号变化量 = −20°/s**（🧨 改 +20 ⇒ +20 ⇒ 红；改 0 ⇒ 0 ⇒ 红 —— 两个方向都红）");
 
             w.PumpCogForTest(2f);
-            Nr(w.CogAngleForTest, 320f, 0.001f,
-               "C4 再单帧推进 2 秒 ⇒ 320°（🧨 把 `speed * dt` 写成 `speed`（漏按帧）⇒ 得 340 ⇒ 红）");
+            Nr(w.CogAngleForTest, 300f, 0.001f,
+               "C4 再单帧推进 2 秒 ⇒ **300°**（340 + (−20)×2；🔴 2026-10-30 订正：原期望写 320 —— 那正是**漏乘 dt** 的坏读数，把改坏法的值当成了期望值）"
+             + "（🧨 把 `speed * dt` 写成 `speed` ⇒ 一帧只减 20 ⇒ 得 320 ⇒ 红）");
         }
         finally
         {

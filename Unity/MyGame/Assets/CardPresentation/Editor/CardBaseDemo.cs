@@ -801,15 +801,15 @@ public static class CardBaseDemo
             //   ① 渲完就还原 ⇒ ③ 落在缺省档 tier1、开口整个在硬矩形里 ⇒ 结构性红）。
             CardView.DebugFrameTier = TacticArtClampProbeTier;
             // 逐样本的**画窗边**（字面量 · 口径 = 最大开口连通域 ∪ 半透明内斜面 ∪ 3 px 外扩，见上方 doc）：
-            //   AM52  ← `frame_astramilitarum_strat_tier4` 贴图列 **257..766**（`FramePxXEdge` 映射后
-            //           = −0.839481 / +0.839481，左右对称）⇒ 比立绘板 ±0.871792 **窄**
-            //   SOR59 ← `frame_sororitas_strat_tier4` 贴图列 **255..769** ⇒ −0.846065 / +0.849357（左右不对称）
+            //   AM52  ← `frame_clan_40k_Cardframes_stratagem_Astra_Militarum_tier4` 贴图列 **257..766**（`FramePxXEdge` 映射后
+            //           = −0.839481 / +0.839481，左右对称）⇒ 比立绘板 ±0.871792 **窄**（🔴 2026-10-30 订正：原写「clan 图文件名带空格 ⇒ 取不到、落回旧图」—— `B100_F12` 已把 24 张空格名归一为下划线 ⇒ 现在**真的取得到**了；该图与旧 `frame_astramilitarum_strat_tier4.png` **md5 相同** ⇒ 画窗边两个数一个字不用改）
+            //   SOR59 ← `frame_clan_40k_Cardframe_stratagem_Sororitas_tier4`（s98 起 SO 优先档；与旧 `frame_sororitas_strat_tier4.png` **逐字节相同** ⇒ 画窗边一字不差，⛔ 别因为换了图就改这两个数）贴图列 **255..769** ⇒ −0.846065 / +0.849357
             // ⚠️ 这两个数**不是**从运行时的 ③b 读数抄来的（铁律：断言不许自证）：它们由 frame PNG 的像素
             //   按上面那条口径离线算出；跑完后与运行时读数逐位一致只是**交叉验证**。
             AssertArtClampForSample("Armoured Squadron", "战术卡 `Armoured Squadron`（AM52）", "tactic", HardHalfW,
-                                    -0.839481f, 0.839481f, "frame_astramilitarum_strat_tier4");
+                                    -0.839481f, 0.839481f, "frame_clan_40k_Cardframes_stratagem_Astra_Militarum_tier4");
             AssertArtClampForSample("Sacred Altar", "防御卡 `Sacred Altar`（SOR59）", "defence", HardHalfW,
-                                    -0.846065f, 0.849357f, "frame_sororitas_strat_tier4");
+                                    -0.846065f, 0.849357f, "frame_clan_40k_Cardframe_stratagem_Sororitas_tier4");
             CardView.DebugFrameTier = prevTier;
         }
         finally { CardView.DebugFrameTier = prevTier; CardView.DebugDisableArtClamp = prevOff; }

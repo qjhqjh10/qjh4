@@ -215,14 +215,18 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  ④ `actor == null` 时第一道闸（`actingCardCriteria`）**出声**、不静默
+    //  ④ `actor == null` 时第一道闸（`actingCardCriteria`）的两种来路：**判得了 ⇒ 静默** / **判不了 ⇒ 出声**、不静默
     // ==================================================================
 
     /// <summary>
     /// 原版这一闸的被筛对象是 `actingCard`；战术卡那条路上它就是**那张牌自己**
     /// （`RawCardScript__OnCardPlayedWithTarget.c:40` → `TriggerAbilities(…, thisCard, cardPlayed, targetCard)`；
     /// `RawCardScript__TriggerAbilities.c:207` → `CanTriggerAbility(…, actingCard, …)`）。
-    /// 我们**没有**「已打出的那张战术牌」的 `UnitState` ⇒ 判不了 ⇒ **放行 + 出声**。
+    /// 我们**没有**「已打出的那张战术牌」的 `UnitState`（`thisCard` 传 `null`）；
+    /// 🔴 **2026-10-30（`B100_F37` · 铁律 5 订正）**：原写「⇒ 判不了 ⇒ **放行 + 出声**」——
+    /// **实际自 2026-10-29 `B97_ER` 起**，只要给了 `abilityOwnerSeat` 就**判得了**（`owner` 有了、
+    /// 宿主卡用 `abilityHostCard`）⇒ **静默放行**；只有「连座位都拿不到」（`seat < 0` 且无 `actor`）
+    /// 才是「判不了 ⇒ 放行 + 出声」。本件两档各一条断言（④ 与 ④′）。
     /// </summary>
     static void E9T4ActingGateNoActorSpeaks()
     {
@@ -234,6 +238,11 @@ public static partial class RuleEngineTest
         var foe = Place(ctx, 1, 3, E9Vehicle("E9FoeAct"));
         foe.Health = 0;      // 让后面那道 `targetCriteria` 闸也过（否则会被它拦掉，测不到本闸）
 
+        // 🔴 2026-10-30（`B100_F37` · 铁律 5 订正）：原写「`actor == null` ⇒ 判不了 ⇒ 放行 + 出声」。
+        //   **实际自 2026-10-29 `B97_ER`（再裁 #54）起，第一道闸多了一条 `abilityOwnerSeat` 通道**
+        //   （`ActionPump.cs:372-400`：`actor == null && abilityOwnerSeat >= 0` ⇒ `aw = abilityOwnerSeat`、
+        //   `ahost = abilityHostCard` ⇒ 判得了、**不出声**）⇒ 「判不了」只剩「**连座位都拿不到**」这一档。
+        //   所以本格把座位改成 `-1`（= 那条真正判不了的来路），并在下面补一格 `seat >= 0 ⇒ 不出声` 的负例。
         int before = RuleCore.AbilityActingCriteriaWarningsForTest;
         bool enq = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "E9 acting/no-actor", () => { },
                                              actor: null,
@@ -241,13 +250,29 @@ public static partial class RuleEngineTest
                                              abilityTarget: foe,
                                              abilityActingGate: true,
                                              abilityHostCard: p90,
-                                             abilityOwnerSeat: 0);
-        CheckTrue(enq, "★ ④ `actor == null` + `abilityActingGate` ⇒ **放行**（判不了，⛔ 不掐死）");
+                                             abilityOwnerSeat: -1);
+        CheckTrue(enq, "★ ④ `actor == null` + **连座位都拿不到**（`seat = -1`）+ `abilityActingGate` ⇒ **放行**（判不了，⛔ 不掐死）");
         Check(RuleCore.AbilityActingCriteriaWarningsForTest - before, 1,
-              "★★ ④ **出声**：改前这一档**完全静默**（`if` 没有 `else`）"
-            + "｜🧨 删掉那个 `else if` 分支 ⇒ 0 ⇒ 红（而「静默放行」正是这条要挡的）");
+              "★★ ④ **出声**：宿主卡与 `owner` **都**求不出时不许静默（改前这一档**完全静默** —— `if` 没有 `else`）"
+            + "｜🧨 删掉 `if (aseatWhy != null)` 那个分支 ⇒ 0 ⇒ 红（而「静默放行」正是这条要挡的）");
+
+        // ---- ④′ 2026-10-29 `B97_ER` 的**新通道**：给了 `abilityOwnerSeat` ⇒ 判得了 ⇒ **不出声**、照旧放行 ----
+        int beforeSeat = RuleCore.AbilityActingCriteriaWarningsForTest;
+        bool enqSeat = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "E9 acting/seat", () => { },
+                                                  actor: null,
+                                                  abilityTrigger: "ThisCardPlayed",
+                                                  abilityTarget: foe,
+                                                  abilityActingGate: true,
+                                                  abilityHostCard: p90,
+                                                  abilityOwnerSeat: 0);
+        CheckTrue(enqSeat, "★ ④′ `actor == null` + `seat = 0` ⇒ 照旧**放行**（宿主卡这一条 ability 没有 acting 条件 ⇒ 判过了）");
+        Check(RuleCore.AbilityActingCriteriaWarningsForTest - beforeSeat, 0,
+              "★★ ④′ **不出声** —— `B97_ER` 的座位通道真的接上了（战术卡的 `owner` 由 `abilityOwnerSeat` 给）"
+            + "｜🧨 把 `else if (actor == null && abilityOwnerSeat >= 0)` 那条通道删掉 ⇒ 落回「判不了」⇒ 1 ⇒ 红");
 
         // ---- 灭自证：同一调用但**不开**这道闸 ⇒ 计数不动（证明那 +1 来自本闸，不是别处顺带喊的）----
+        //   ⚠️ 座位用 `-1`（不是 0）：这一档只有「闸被误启用 ⇒ 判不了 ⇒ +1」才看得见
+        //      （座位给 0 的话闸一开就判得出来、计数照样是 0 ⇒ 这条灭自证会失去判别力）。
         int before2 = RuleCore.AbilityActingCriteriaWarningsForTest;
         RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "E9 acting/gate-off", () => { },
                                   actor: null,
@@ -255,7 +280,7 @@ public static partial class RuleEngineTest
                                   abilityTarget: foe,
                                   abilityActingGate: false,
                                   abilityHostCard: p90,
-                                  abilityOwnerSeat: 0);
+                                  abilityOwnerSeat: -1);
         Check(RuleCore.AbilityActingCriteriaWarningsForTest - before2, 0,
               "★ ④ `abilityActingGate = false`（调用点声明「本路径不跑第一道闸」）⇒ 计数**不动**"
             + "｜🧨 把闸的开位判断去掉 ⇒ 1 ⇒ 红");

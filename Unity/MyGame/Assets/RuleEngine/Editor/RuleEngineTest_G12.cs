@@ -423,7 +423,7 @@ public static partial class RuleEngineTest
                     case "gate-0": gate0++; break;
                     case "gap:kind-no-op":
                     case "gap:kind-ambiguous":
-                    case "gap:kind-unknown": gapKind++; break;
+                    case "gap:kind-unknown": case "gap:kind-continuation": gapKind++; break;   // 🔴 2026-10-30（`B100_F19` · G3 #14-16）：第五档 = `gap:kind-continuation`（`CardDef.cs:3467`；`SW9` 的 `ca=320` 落这一档）
                     default: other++; break;
                 }
             }
@@ -432,19 +432,19 @@ public static partial class RuleEngineTest
             //    v23 那套「1 对象 / 1 行 / 1 条 op」只挂 38 张；v24 按 `chosenAbility` 分族后 **84 张**。
             //    🔴 **2026-10-29 再更新（`B98_G6` + `B98_G8`）**：**86 张** —— `AM22`（`chooseone` 一条 op
             //    盖两族分支，`B98_G6` 落在唯一那条 `ca=30` 行）与 `SOR13`（同族两行 ta=10/120 逐 op 配对，
-            //    `B98_G8` 删掉执行器耦合闸后启用）都挂上了 ⇒ 只剩 **1 张**：`SW9`（`ca=320`，`gap:kind-unknown`）。
+            //    `B98_G8` 删掉执行器耦合闸后启用）都挂上了 ⇒ 只剩 **1 张**：`SW9`（`ca=320`）。🔴 2026-10-30（`B100_F19` · G3 #14-16）：`B98_K6` 已把它改判 **`gap:kind-continuation`**（第五档，`CardDef.cs:3467`）⇒ 归因档里要收这一档，否则它落 `other`（#15 红、#16 合计 131）。
             Check(attached, 86,
                   "★ 挂上 op 的卡 = **86 张**（v24 按能力种类归位；v23 是 38；`B98_G6/G8` 之后 +2）"
                 + "｜🧨 退回「只认 1 对象/1 行/1 条 op」⇒ 掉到 38；按行号硬配 ⇒ 冲上 100+");
             Check(gapKind, 1,
-                  "★ 给不出结论的 = **1 张**（只剩 `SW9` = `gap:kind-unknown`；`AM22` / `SOR13` 已挂上）"
+                  "★ 没挂 op 但**归因清楚**的 = **1 张**（`SW9` = `gap:kind-continuation`（`ca=320`「后续结算」标记，`CardDef.cs:3467`）；`AM22` / `SOR13` 已挂上）"
                 + "｜🧨 把歧义档也硬挂 ⇒ 掉到 0（那会静默贴错目标）");
             Check(gate0, 45, "★ `gate=0` 死数据 45 张（不挂）｜🧨 挂上去 ⇒ 掉到 0");
             Check(other, 0,
                   "★ 其余归位结论 0 张（老那几档 `gap:shape` / `gap:no-keyword` 今天已是空集）"
                 + "｜🧨 出现这一类 = 归位逻辑分叉了，要回来看是不是两套闸并存");
             Check(attached + gapKind + gate0, 132,
-                  "★ **灭自证**：四档加起来正好 132（每一张有行的卡都被归了一类，没有漏账）"
+                  "★ **灭自证**：五档（attached / gate-0 / 四类 gap，含 `gap:kind-continuation`）加起来正好 132（每一张有行的卡都被归了一类，没有漏账）"
                 + "｜🧨 有卡悄悄落进「既没挂也没归因」⇒ 加起来对不上 ⇒ 红");
         }
     }

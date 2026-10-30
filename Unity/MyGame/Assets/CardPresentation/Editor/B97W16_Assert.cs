@@ -148,19 +148,19 @@ public static class B97W16Assert
                 });
                 var rows = EffectsToShow.Of(u, true);
                 bool perm = false, timed = false;
-                string permText = null;
+                string permText = null; ShownEffect permRow = default(ShownEffect);
                 for (int i = 0; i < rows.Count; i++)
                 {
                     if (rows[i].Family != ShownFamily.Stat || rows[i].Attr != "attack") continue;
                     if (rows[i].Value != 2) continue;
-                    if (!rows[i].Timed && !perm) { perm = true; permText = CardDisplayWindow.RowsOfEffects(new[] { rows[i] }, true)[0].What; }
+                    if (!rows[i].Timed && !perm) { perm = true; permRow = rows[i]; }
                     if (rows[i].Timed) timed = true;
                 }
                 Tr(perm, "A3 永久 `+2 melee`（`AddStatMod` 无时长）⇒ 投影里有一条 **`Timed == false`** 的 Stat 行");
                 Tr(timed, "A3-a 限时 `+2 melee`（`TempBuff`）⇒ 投影里有一条 **`Timed == true`** 的 Stat 行");
                 // 🔴 判据 = `GetEffectDesc.c:145-306` 的「五个 until* 任一为真才走 OneTurn 键」
-                C(permText, "Get +2 Melee Attack",
-                  "A3-b 永久那条右列 == `Get +2 Melee Attack`（**不含** `one turn`）");
+                SwitchLang(AvailableLanguages.English); permText = perm ? CardDisplayWindow.RowsOfEffects(new[] { permRow }, true)[0].What : null; RestoreLang();
+                C(permText, "Get +2 Melee Attack", "A3-b 永久那条右列 == `Get +2 Melee Attack`（**不含** `one turn`）；⚠️ 期望是**英文**字面量 ⇒ 先切英文档（实现 `Loc.T` 跟语档走，中文档给「获得 +2 近战攻击」）；分诊 → `报告/B100_X3.md` #30");
                 Tr(permText != null && permText.IndexOf("one turn", System.StringComparison.Ordinal) < 0,
                    "A3-c 判别式：永久那条**必不包含** `one turn`（写死 `Timed = true` 时这条红）");
             }
@@ -276,8 +276,8 @@ public static class B97W16Assert
             };
             var ui = CardDisplayWindow.RowsOfEffects(rows, true);
             C(ui.Count, 1, "A9 `+2 melee and +2 ranged`（同一 `RowGroup`）⇒ **1 行**（原版 = 一条 `ChangeBothAttacks`）");
-            C(ui.Count > 0 ? ui[0].What : null, "Get +2 Melee Attack and +2 Ranged Attack",
-              "A9-a …右列 = `ChangeBothAttacks`（`{0}`/`{1}` 按近战/远程的实参序填）");
+            SwitchLang(AvailableLanguages.English); var uiEn = CardDisplayWindow.RowsOfEffects(rows, true); RestoreLang();
+            C(uiEn.Count > 0 ? uiEn[0].What : null, "Get +2 Melee Attack and +2 Ranged Attack", "A9-a …右列 = `ChangeBothAttacks`（`{0}`/`{1}` 按近战/远程的实参序填）；⚠️ 期望是**英文**字面量 ⇒ 先切英文档（同 A3-b）；分诊 → `报告/B100_X3.md` #31");
             // 反例：`RowGroup == 0`（今天生产端的真实状态）⇒ 不合并、出 2 行
             var rows2 = new List<ShownEffect>
             {
@@ -457,4 +457,13 @@ public static class B97W16Assert
             }
         }
     }
+
+    // ---- 语档切换（断言侧工具，2026-10-30 `B100_F23`）----------------------------------------
+    //   A3-b / A9-a 的期望串是**英文**字面量，而实现 `TraitRowText`/`SingleStatText` 走
+    //   `Loc.T("Battle/Effect/…")`（**跟语档**：中文档给「获得 +2 近战攻击」）⇒ 必须先切英文档
+    //   再算文字，否则断言拿中文串比英文字面量。⚠️ 与 A6 的写法同源（那里就地 try/finally）。
+    //   分诊 → `报告/B100_X3.md` #30 / #31。
+    static AvailableLanguages _langWas;
+    static void SwitchLang(AvailableLanguages to) { _langWas = Loc.Current; Loc.RestoreForTest(to); }
+    static void RestoreLang() { Loc.RestoreForTest(_langWas); }
 }

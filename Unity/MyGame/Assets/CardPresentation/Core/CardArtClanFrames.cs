@@ -36,8 +36,8 @@
 //  · 原版**高亮（SDF）贴图** = 128×128 灰度距离场，Sprite 的 `m_Rect` 恒 `(24, 6, 81, 110)`；
 //    我们**已经全部导进来了**：`Resources/Art/card_sdf/<faction>[_strat]_tier<N>.png`（13×4×2 = 104/104 现读齐），
 //    且与原版 Texture2D **逐字节相同**（2026-10-29 `B98_M1` 用 md5 核过 troop 与 stratagem 两族）。
-//  · 原版**卡框贴图我们一张都没导**：今天 `CardArt.Frame()` 走的 `Art/cards/frame_*.png` 是**自绘**的
-//    1024×1024（15 个阵营 × 10 个文件 = 150 张；多出来的 `frame_ember` / `frame_tide` 是**我们自己设计**的
+//  · 原版**卡框贴图 104/104 已导**（2026-10-30 `B100_F12` 现核）：`CardArt.Frame()` 先取它们、取不到才落回自绘的
+//    `Art/cards/frame_*.png`（**自绘兜底** 1024×1024；15 个阵营 × 10 个文件 = 150 张；多出来的 `frame_ember` / `frame_tide` 是**我们自己设计**的
 //    两个阵营 `Ember` / `Tide`（`ArmyIcons.Id` 认不出、恒 `-1`）⇒ 它们**只能**走自绘那一路，⛔ 不是死文件）。
 //    ⇒ **导入目标名 = `ImportResourceName()`（`frame_clan_<ResourceName>`）**：原图 **1024² 原样**拷进
 //    `Resources/Art/cards/clan/frame_clan_<ResourceName>.png`（**⛔ 不裁、不缩放**；为什么必须 1024² + `frame_`
@@ -50,8 +50,8 @@
 //  （那张图原版有、但 SO 没在 tier4 用）⇒ `SdfTier()` 就是这唯一一处修正。
 //
 // ============================ 还没做的（如实记）============================
-//  · 104 张卡框贴图**没导**（写入白名单不含资产导入）⇒ `FrameTexture()` 今天恒 `null`，
-//    `CardArt.Frame()` 落回自绘那套 ⇒ **零行为变化**。导入清单 → `资料/完全复刻/报告/B98_P1.md` §甲。
+//  · ~~104 张卡框贴图**没导**~~ **2026-10-30 `B100_F12` 订正：已导 104/104**（其中 24 张原先把空格留在了文件名里、已归一下划线；
+//    `.meta` 同改、GUID 不变）⇒ `FrameTexture()` 104 格全命中，取不到时才落回自绘那套。导入清单 → `资料/完全复刻/报告/B98_P1.md` §甲。
 //
 // ============================ 🔴 2026-10-29 订正（`B98_P1` · 铁律 5）============================
 //  本文件头原来（`B98_M1` 写）说：「那颗 RectTransform 的尺寸还没读 ⇒ 直接拉伸会随档位变形
@@ -342,8 +342,8 @@ namespace CardPresentation
         }
 
         /// <summary>取卡框贴图（`Resources/Art/cards/clan/&lt;ImportResourceName&gt;`）。
-        /// <para>**今天恒 `null`** —— 那 104 张原版贴图还没导进来（本批白名单不含资产导入）。
-        /// 返回 `null` 时 `CardArt.Frame()` 落回自绘那套 ⇒ 零行为变化；导进来之后立刻生效，不用改调用点。</para>
+        /// <para>**已就位 104/104**（2026-10-30 `B100_F12` 现核）：104 张原版贴图全在盘上；在此之前只有 80 格取得到，
+        /// 是因为 24 张文件名**保留了空格**（`Astra Militarum`/`Emperor Children`/`Space Wolves` × 4 档 × 2 类）—— 已按盘侧重命名成下划线形（`.meta` 同改、GUID 不变）⇒ 104 格全命中；仍取不到时返回 `null`、落回自绘那套。</para>
         /// <para>⚠️ 导入目标名 = <see cref="ImportResourceName"/>（`frame_clan_*`），⛔ 不是 <see cref="ResourceName"/>。</para></summary>
         public static Texture2D FrameTexture(int army, int tier, bool tactic)
         {

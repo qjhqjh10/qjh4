@@ -460,7 +460,7 @@ public static partial class RuleEngineTest
             {
                 if (!ReferenceEquals(u, rem)) return;
                 int st = (int)u.CardStateOf(ctx);
-                if (got == 1) seenFirst = st; seenLast = st; got++;
+                if (got == 0) seenFirst = st; seenLast = st; got++;   // 🔴 2026-10-30（`B100_F18` · G4）：探针 off-by-one —— 第 1 次调用（开窗、仍是 15）才是 `seenFirst`；`got == 1` 记的是**第 2 次**（此时已 `ClearCardStateMark` ⇒ 2），它同时把 `seenLast` 覆盖掉。
             };
             CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "E17Raise"), -1), RuleCodes.OK,
                       "🧪（④ 前提）打出 `Reanimate a friendly Remnant`（场上有一具残骸 ⇒ 残骸退路）");

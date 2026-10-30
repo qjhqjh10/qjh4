@@ -57,13 +57,27 @@ public static partial class RuleEngineTest
     static void B97ER2DiscardRevealUsesDiscardingSeat()
     {
         var mine = Unit("B97ER2DA", 1, 1, 1);
-        var ctx = Battle(new[] { mine }, new CardDef[] { });
+        // 🔴 2026-10-30（`B100_F18` · G1）：`Battle` → `ProbeBattle`。`Battle` 的 `Deck()` 塞 20 张 filler
+        //   再起手发 3/4 张 ⇒ 「手牌 1 张」前提不成立（实测 4）。⛔ 期望值仍是 1（改成 4 会废掉判别式）。
+        var ctx = ProbeBattle(new[] { mine }, new CardDef[] { });
         Check(ctx.Players[0].Hand.Count, 1, "前提：我方手牌 1 张");
         if (ctx.Players[0].Hand.Count != 1) return;
         var inst = ctx.Players[0].Hand[0];
         int mark = ctx.Signals.Count;
 
-        var ops = new List<EffectOp> { new EffectOp { Verb = "discardwholehand", Source = "B97ER2 弃牌" } };
+        // 🔴 2026-10-30（`B100_F34` · 330135/330150 那一组 · **α 夹具**，⛔ 产品无缺陷）：
+        //   `DoDiscardWholeHand` 按 `playersAffected` 决定动哪一侧
+        //   （`EffectResolverPartial_B88E2.PlayersAffectedOf`：`op.LogicIndex < 0` 或读不到载体卡
+        //   ⇒ 回 `-1` ⇒ 代码里那句写死「**两侧都不动**」⇒ 弃牌根本没发生 ⇒ `DiscardReveal` 自然不发）。
+        //   改前夹具只给了 `{Verb, Source}` ⇒ `LogicIndex` 停在 `-1`、`ctx.ActingUnit/PlayingCard` 都是 null ⇒ `pa = -1`。
+        //   **`-1` = 「读不到 ⇒ 不猜」是正确行为**（`PlayersAffectedOf` 的 doc 写死），所以修夹具、不改期望。
+        //   载体位 = `ctx.PlayingCard`（本入口 `source` 传 null ⇒ `ActingUnit` 恒 null，回落位只剩它；
+        //   且本重载**不覆写** `PlayingCard` —— 只有重载 #1 的 `EffectResolver.cs:371` 会覆写）。
+        ctx.PlayingCard = B97ER2WholeHandCarrier();
+        var ops = new List<EffectOp>
+        {
+            new EffectOp { Verb = "discardwholehand", Source = "B97ER2 弃牌", AbilityIndex = 0, LogicIndex = 0 },
+        };
         RuleCore.ResolveOps(ctx, 0, null, ops, by: "B97ER2");
 
         Check(ctx.Players[0].Hand.Count, 0, "前提：手牌已被弃空（否则说明这一条根本没走到弃牌那一跳）");
@@ -94,7 +108,8 @@ public static partial class RuleEngineTest
     static void B97ER2StealRevealUsesVictimSeat()
     {
         var theirs = Unit("B97ER2SB", 1, 1, 1);
-        var ctx = Battle(new CardDef[] { }, new[] { theirs });
+        // 🔴 2026-10-30（`B100_F18` · G1）：同上 —— `ProbeBattle`（只有督军 + 指定牌），否则后手起手 4 张。
+        var ctx = ProbeBattle(new CardDef[] { }, new[] { theirs });
         Check(ctx.Players[1].Hand.Count, 1, "前提：对手手牌 1 张");
         if (ctx.Players[1].Hand.Count != 1) return;
         var inst = ctx.Players[1].Hand[0];
@@ -151,5 +166,36 @@ public static partial class RuleEngineTest
         Check(RuleCore.OathExtraReplays(ctx, 0), 2,
               "🧨 本方第二张也带上 ⇒ 跟着变 2（证明它真的**逐张现数**，不是缓存/写死）");
         Check(RuleCore.OathExtraReplays(ctx, 1), 1, "对面同理（各数各的侧）");
+    }
+
+    // ==================================================================
+    //  夹具 · `discardwholehand` 的 `playersAffected` 载体卡（2026-10-30 `B100_F34` 新增）
+    // ==================================================================
+    /// <summary>
+    /// `discardwholehand` 取值用的**载体卡**：`PlayersAffectedOf` 只认「`ActiveAbilityLogicGroup(ActiveAbilityObject)`
+    /// **恰好 1 行** ∧ `PlayersAffected[LogicIndex] >= 0`」（`EffectResolverPartial_B88E2.cs:819-833`）。
+    /// <para>口径：`playersAffected = 0`（**Both**）= 原版 `AbilityLogic.playersAffected` 的 SO 缺省值，
+    /// 也是 `AbilityLogic__PlayAbility.c:293-345` 取 `GetCardsInHandList(…, affected 己, affected 敌)` 时
+    /// 两侧都为真的那一档（本夹具 P1 手牌为空 ⇒ 实际只弃 P0 那 1 张）。</para>
+    /// <para>⚠️ 形状照 <see cref="RuleEngineTest.B94Z3ActiveAbilityCard360"/> 同一套（`hasActiveAbility = 1`
+    /// + 一行 `gate = 1` + `activeAbilityLogicVersioned = true`），只是把 `chosenAbility` 换成 `165 (discardWholeHand)`。</para>
+    /// </summary>
+    static CardDef B97ER2WholeHandCarrier()
+    {
+        var row = new CardDef.ActiveAbilityLogicSpec
+        {
+            Ability = CardDef.ActiveAbilityObject,   // -1 = 普通支（`PlayersAffectedOf` 读的就是这一组）
+            Gate = 1,
+            Trigger = 400,                            // 原版逐行传的虚拟时机（`ThisUnitAbilityUsed`）
+            NeedsLoading = 0,
+            TargetsAffected = new[] { 0 },            // 0 = any（`LogicCount` 靠这几列任一行取长度）
+            FurtherMultiplier = new[] { 0 },
+            ChosenAbility = new[] { 165 },            // 165 = discardWholeHand
+            PlayersAffected = new[] { 0 },            // 0 = Both（原版 SO 缺省）
+        };
+        return new CardDef("B97ER2Carrier", "B97ER2Carrier", "unit", "", null, "Test", 1, 1, 1, 0,
+                           hasActiveAbility: 1,
+                           activeAbilityLogic: new[] { row },
+                           activeAbilityLogicVersioned: true);
     }
 }

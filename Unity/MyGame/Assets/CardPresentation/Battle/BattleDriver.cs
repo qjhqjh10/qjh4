@@ -17234,7 +17234,7 @@ namespace CardPresentation
                 //       选牌窗 / 摊开窗 / 放大窗开着时输入被它们吃掉 ⇒ 这条读口（按牌堆）也轮不到
                 //       （`TickMultiCards` / `TickCardDisplayClick` 先 return true）。
                 if (Ctx == null || Ctx.IsOver || InMulligan || Ctx.Turn <= 0) return false;
-                if (!PointerHeldRaw()) return false;
+                if (!PointerHeld()) return false;                      // [B100_F24 2026-10-30] 这一处原来走 `PointerHeldRaw`（直接读 `Mouse/Touchscreen`）⇒ 批处理里 `Mouse.current == null` 恒 false ⇒ `CardHoldPeek` 结构上永远是假、`B98N1 §B1` 验不了。`PointerHeld()` 只比它多一个 `PointerHeldForTest` 钉死口（生产恒 null）⇒ **生产语义逐位不变**，与同文件 `:32945` 那句「两个名字共用同一份设备读取」的口径一致
                 // 旧近似（按棋盘格 / 按自己手牌）已删 —— 那两档原版都不显牌数；`OnTouchDown.c:34-59` 只有 `case 0`（牌库里的卡）与 `case 1 ∧ !isPlayer`（敌方手牌）会调 `ShowDeckSize`
                 return HitMyDeckPile(WorldPointer());   // 我们的等价物 = 「按住 且 指针压在**我方牌堆**上」（`case 0`）
             }
@@ -38351,7 +38351,7 @@ namespace CardPresentation
             _replayAskViews.Clear();
         }
 
-        /// <summary>回放侧：`ReplayRecord.vars` ⇒ 引擎那套参数。`null` = 这份录像没记（**出声**，⛔ 不静默退回）。
+        /// <summary>回放侧：`ReplayRecord.vars` ⇒ 引擎那套参数。**「没记」= `ReplayVars.IsRecorded` 为假**（🔴 2026-10-30 `B100_F10`：⛔ **不能**判 `== null` —— `JsonUtility` 会把缺键的可序列化类字段物化成全 0 对象；**出声**，⛔ 不静默退回）。
         /// <para>⚠️ 它必须**在 `RuleCore.NewBattle` 之前**落到 `_vars` —— `deckSize` / `startingHand` /
         /// `warlordLifeChange` / `shouldReshuffle` 这些格子在 `NewBattle` 那一趟就被读掉了，
         /// 「开局之后再往 `Ctx.Vars` 里写」是**装不回来**的（R1 写的「`FromStart` 之后装回 `Ctx.Vars`」
@@ -38359,12 +38359,12 @@ namespace CardPresentation
         GameplayVariables ReplayVarsForReplay(ReplayRecord rec)
         {
             if (rec == null) return null;
-            if (rec.vars == null)
+            if (!ReplayVars.IsRecorded(rec.vars))
             {
-                Debug.LogWarning("[Replay] 这份录像**没有记规则参数**（`vars` 空 —— 老档 / 录制端没接上）"
+                Debug.LogWarning("[Replay] 这份录像**没有记规则参数**（哨兵 `varsRecorded` 为假 —— 老档 / 录制端没接上；"
+                               + "⚠️ 老档 `JsonUtility` 会把 `vars` 物化成**全 0 对象**，所以 ⛔ 不能用 `== null` 判）"
                                + " ⇒ 按开局包推出来的那一套跑（= 与加这一格之前逐字相同）。"
-                               + "⚠️ 若录制那一局用的是非默认参数（张数 / 起手 / 督军血 / 洗牌），"
-                               + "这里会演成另一局 —— 终局指纹会如实报出来");
+                               + "⚠️ 若录制那一局用的是非默认参数（张数 / 起手 / 督军血 / 洗牌），这里会演成另一局 —— 终局指纹会如实报出来");
                 return null;
             }
             Debug.Log($"[Replay] 按录像里记的**规则参数**装回（{ReplayVars.RestoredFieldCount}/"

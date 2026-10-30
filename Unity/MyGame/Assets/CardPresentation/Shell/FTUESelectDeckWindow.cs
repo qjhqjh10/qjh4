@@ -440,9 +440,10 @@ namespace CardPresentation
         public static Texture2D HeroArt(RuleEngine.CardDef hero)
         {
             if (hero == null) return null;
-            string n = (hero.Name ?? "").Replace(' ', '_');
-            var full = string.IsNullOrEmpty(n) ? null : CardArt.MenuUi("UI_Deck_Warlord_" + n);
-            if (full != null) return full;
+            // 🔴 2026-10-30（`B100_X11` D2）：原来的「`UI_Deck_Warlord_` + 卡名换下划线」是**自造命名规则**
+            //   （`CardArt.TryDeckHero` 在 2026-10-22 已推翻并改走 `_deckArtById` 表）⇒ 56 位督军里只有 37 位碰巧命中。
+            //   改走同一张表，⛔ 别再自造第二条取名规则。
+            if (CardArt.TryDeckHero(hero.Id, out var full) && full != null) return full;
             return CardArt.Portrait(hero.Id);
         }
 

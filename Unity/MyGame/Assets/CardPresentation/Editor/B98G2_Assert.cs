@@ -157,6 +157,7 @@ public static class B98G2_Assert
           "A3 ★ 前提：夹具卡的 `AbilityTriggerPresence(\"UnitAttack\") == 1`（否则下面两条测的是别的闸）");
 
         var ctx = new BattleContext(0xB98_0001);
+        ctx.Players[0] = new PlayerState(); ctx.Players[1] = new PlayerState();
         ctx.Active = 0;
         var attacker = Place(ctx, 0, 4, Unit("G2Attacker"));
         var attacked = Place(ctx, 1, 4, Unit("G2Attacked"));
@@ -180,6 +181,7 @@ public static class B98G2_Assert
         // A6 灭自证：没有这条 trigger 的卡 ⇒ 一次都不尝试（证明 A4/A5 读的是 presence 闸、不是「扫了就计数」）
         var noTrig = Unit("G2NoTrig");
         var ctx2 = new BattleContext(0xB98_0002);
+        ctx2.Players[0] = new PlayerState(); ctx2.Players[1] = new PlayerState();
         ctx2.Active = 0;
         var atk2 = Place(ctx2, 0, 4, Unit("G2Attacker2"));
         var tgt2 = Place(ctx2, 1, 4, Unit("G2Attacked2"));
@@ -206,6 +208,7 @@ public static class B98G2_Assert
         MenuCheck.Section(_sink, "B · 账 832① `RecordGrant` 的施放者 = 原版 `CardEffect.enchantingCard(+0x18)`");
 
         var ctx = new BattleContext(0xB98_0011);
+        ctx.Players[0] = new PlayerState(); ctx.Players[1] = new PlayerState();
         var casterCard = Unit("G2CasterCard");
         var playedCard = Unit("G2PlayedCard");
         var u = Place(ctx, 0, 4, casterCard);
@@ -247,6 +250,7 @@ public static class B98G2_Assert
         MenuCheck.Section(_sink, "C · 账 534② `ta = 60`（inCemeteryFiltered）的墓地候选 + `ResolveTargets` 不扫棋盘");
 
         var ctx = new BattleContext(0xB98_0021);
+        ctx.Players[0] = new PlayerState(); ctx.Players[1] = new PlayerState();
         ctx.Active = 0;
         var mineUnit = Unit("G2MineUnit");
         var mineTactic = Tactic("G2MineTactic");
@@ -299,6 +303,7 @@ public static class B98G2_Assert
 
         // D1 前提 + D2：列没落 ⇒ `判不了` ⇒ **不摘**（⛔ 不许把「判不了」当成「不满足」）
         var ctx = new BattleContext(0xB98_0031);
+        ctx.Players[0] = new PlayerState(); ctx.Players[1] = new PlayerState();
         ctx.Active = 0;
         var bare = Unit("G2Bare240");
         var uBare = Place(ctx, 0, 4, bare);

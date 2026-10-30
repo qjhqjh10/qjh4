@@ -191,8 +191,20 @@ public static class B99G2_Assert
 
         Tr(CampaignData.AllNodesClaimed(),
           "C6 ★ 「完成」判据 = **末节点 ∈ 基础档列表**（`Campaign__get_IsComplete.c:29-31`），不是「47 格全真」｜🧨 改回全量循环 ⇒ 红");
-        Tr(CampaignData.NotifyCampaignCompletionIfAllClaimed(),
-          "C7 完成判定 → `Ach_16` 记 1（`SetAchievementValueAtLeast`，幂等写点）");
+        // 🔴 2026-10-30 `B100_F25`（#40）：原来这里断 `NotifyCampaignCompletionIfAllClaimed()` **返回 true** —— 错。
+        //    `CampaignData.Claim` 每成功领一格都会调它（`CampaignData.cs:252`）⇒ 上面那个循环领到**末节点**时
+        //    它**已经**把 `Ach_16` 记成 1 并返回过 true 了；C7 再调一次当然返回 false（幂等早退，
+        //    `CampaignData.cs:280` 的 `>= 1` 闸）。⇒ 断言要拆成「值真的记上了」＋「再调不重复记」，
+        //    判别力反而更强（改前只覆盖「这一次调用返回 true」）。
+        C(ProfileData.AchievementValue(ProfileData.IdAchCompleteCampaign), 1,
+          "C7 ★ 完成判定 → `Ach_16` 记 **1**（`Claim` 领到末节点时**当场**经 `NotifyCampaignCompletionIfAllClaimed`"
+        + " → `SetAchievementValueAtLeast` 写入；`Run()` 开头已把它归 0 ⇒ 这里恰为 1）"
+        + "｜🧨 把 `Claim` 里那次 `NotifyCampaignCompletionIfAllClaimed()` 删掉 ⇒ 实得 0 ⇒ 红");
+        Tr(!CampaignData.NotifyCampaignCompletionIfAllClaimed(),
+          "C7′ 幂等：「完成」再判一次**不重复记**（`AchievementValue >= 1` 早退 ⇒ 返回 false，值仍 1）"
+        + "｜🧨 把 `CampaignData.cs:280` 那道 `>= 1` 闸删掉 ⇒ 这里返回 true ⇒ 红");
+        C(ProfileData.AchievementValue(ProfileData.IdAchCompleteCampaign), 1,
+          "C7″ 再判一次之后 `Ach_16` **仍是 1**（`SetAchievementValueAtLeast` 只涨不落，⛔ 不会变成 2）");
 
         CampaignData.ResetForTest();
     }

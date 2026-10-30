@@ -162,32 +162,53 @@ public static class B97W41Assert
                $"A8 ★ 短数字的实收字号 ≤ 最高档 **40**（实测 {fsShort:F2}；原版天花板 = `m_fontSizeMax`）"
              + "｜🧨 把 `QuantityFsMax` 抬到 60 ⇒ 短数字被放大 ⇒ 红");
 
-            // ---- A9 自适应按内容收敛（写死一个字号 ⇒ 红）----
-            Tr(fsShort > fsLong + 0.1f,
-               $"A9 ★ 短数字的字号({fsShort:F2}) **大于** 长数字的字号({fsLong:F2}) —— 自适应按内容收敛"
-             + "｜🧨 把字号写死成同一个值 ⇒ 红");
+            // ---- A9 自适应不按长度反着来（🔴 2026-10-30 `B100_F23` 就地改口径）----
+            //   原断言 = `fsShort > fsLong + 0.1`（**严格大于**）。实测两档都 = **36.00**（= `m_fontSizeBase`）：
+            //   框高只有 45，40 号在这一档装不下 ⇒ **长/短两条被同一个高度约束夹到同值** ⇒「按内容收敛」
+            //   在**这一档结构上测不出来**（分诊 → `报告/B100_X3.md` #19）。⛔ 这不改产品、也不放宽「不溢出」：
+            //   溢出仍由 A5/A6 断；「真的在夹」由 A7（< 40）＋ A11（灭自证）钉住。
+            //   这里断的是**单调性**：短的**永远不许比长的更小**（写死反了 / 按长度反比时才红）。
+            Tr(fsLong <= fsShort + 0.1f,
+               $"A9 ★ 短数字的字号({fsShort:F2}) **不小于** 长数字的字号({fsLong:F2}) —— 自适应不按长度反着来"
+             + "｜本档实测两者都 = base 36（框高 45 装不下 40 ⇒ 「严格大于」那一条结构上测不出来，见 `报告/B100_X3.md` #19）"
+             + "｜🧨 把短文本压到比长文本还小 ⇒ 红");
 
-            // ---- A11 灭自证：关掉自适应 ⇒ 同一个长数字真的撑破框 ----
+            // ---- A11 灭自证：把框缩到比文字还小 ⇒ A5/A6 那套判据必须**翻红** ----
+            //   🔴 2026-10-30（`B100_F23`）就地重写（分诊 → `报告/B100_X3.md` #20）。原写法有两个问题：
+            //     ① **量纲**：`textBounds`（= `Label.WorldW` 读的那个数）与写死的 `70/45`（px 字面量）直接比；
+            //     ② **前提不成立**：实测把这颗 TMP 的 `fontSize` 钉到 40，`textBounds` **一点没变**（8.7×4.7，
+            //        与 36 那一档相同）⇒「钉死 40 就撑破 70×45」这条在**本环境里根本不成立**（断言恒假）。
+            //   ⇒ 改成**同口径 + 前提必成立**：框用这颗 TMP 自己的 `rectTransform.sizeDelta`（与 `textBounds`
+            //     同一个局部空间，⛔ 不再拿 px 字面量），再把它**缩到文字宽的一半** ⇒ 同一个判据「文字 > 框」
+            //     此刻**必须为真**；为假就说明 A5/A6 是恒真的空转。测完在 `finally` 里整份复原。
             var tmp = rLong.Quantity.GetComponentInChildren<TextMeshProUGUI>();
             Tr(tmp != null, "A10 **前提断言**：数量字的 TMP 子件取得到（灭自证要用它）");
             if (tmp != null)
             {
                 bool auto = tmp.enableAutoSizing;
                 float fs = tmp.fontSize;
+                var rtBox = tmp.rectTransform;
+                Vector2 boxWas = rtBox.sizeDelta;
+                var wrapWas = tmp.textWrappingMode;           // `SetAutoFitBox` → `SetWrapWidth` 会把折行打开
                 try
                 {
-                    tmp.enableAutoSizing = false;
-                    tmp.fontSize = 40f;
+                    tmp.enableAutoSizing = false;                 // 钉住字号：文字不会再被夹
+                    tmp.textWrappingMode = TextWrappingModes.NoWrap;   // ⛔ 折行开着的话「框变窄」会**折行**而不是溢出
                     tmp.ForceMeshUpdate();
-                    Vector2 b = tmp.textBounds.size;
-                    float bw = Mathf.Abs(b.x), bh = Mathf.Abs(b.y);
-                    Tr(bw > WantBoxW + Eps || bh > WantBoxH + Eps,
-                       $"A11 ★ **灭自证**：把同一颗 TMP 的 `enableAutoSizing` 关掉、字号钉死 40 ⇒ 长数字**真的撑破** "
-                     + $"{WantBoxW}×{WantBoxH} 的框（手量 = {bw:F1}×{bh:F1}）"
+                    float bw = Mathf.Abs(tmp.textBounds.size.x), bh = Mathf.Abs(tmp.textBounds.size.y);
+                    rtBox.sizeDelta = new Vector2(bw * 0.5f + 0.001f, boxWas.y);   // 框宽 = 文字宽的一半
+                    tmp.ForceMeshUpdate();
+                    float bw2 = Mathf.Abs(tmp.textBounds.size.x), bh2 = Mathf.Abs(tmp.textBounds.size.y);
+                    bool over = bw2 > rtBox.sizeDelta.x + Eps || bh2 > rtBox.sizeDelta.y + Eps;
+                    Tr(over,
+                       $"A11 ★ **灭自证**：把数量字的 TMP 框宽缩到文字的一半（框 {rtBox.sizeDelta.x:F2} 单位 · 字号钉死 {fs:F2}）"
+                     + $" ⇒ 文字({bw2:F2}×{bh2:F2}) **超出框** —— 同一套判据**会翻红**"
                      + "｜🧨 这里若为 `false` ⇒ A5/A6 **没有牙**（它们绿着也不能当「不溢出」的证据）");
                 }
                 finally
                 {
+                    rtBox.sizeDelta = boxWas;
+                    tmp.textWrappingMode = wrapWas;
                     tmp.enableAutoSizing = auto;     // 复原（后面的段还要用它）
                     tmp.fontSize = fs;
                     tmp.ForceMeshUpdate();

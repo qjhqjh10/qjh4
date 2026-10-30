@@ -1902,14 +1902,14 @@ public static class BattleScene
                             if (gateIdx < 0 && t.IndexOf("Ctx.IsOver", System.StringComparison.Ordinal) >= 0
                                 && t.IndexOf("InMulligan", System.StringComparison.Ordinal) >= 0
                                 && t.IndexOf("Ctx.Turn <= 0", System.StringComparison.Ordinal) >= 0) gateIdx = i;
-                            if (heldIdx < 0 && t.IndexOf("if (!PointerHeldRaw()) return false;", System.StringComparison.Ordinal) >= 0) heldIdx = i;
+                            if (heldIdx < 0 && t.IndexOf("if (!PointerHeld()) return false;", System.StringComparison.Ordinal) >= 0) heldIdx = i;   // 🔴 2026-10-30：生产调用已从 `PointerHeldRaw()` 换成 `PointerHeld()`（后者只多一个自检钉死口，生产语义不变；`B100_F24`/`B100_F27`）⇒ 按旧字面量搜会恒 `-1`
                             if (deckIdx < 0 && t.IndexOf("return HitMyDeckPile(WorldPointer());", System.StringComparison.Ordinal) >= 0) deckIdx = i;
                         }
                         Check(peekDecl >= 0 && forcedIdx > peekDecl && gateIdx > forcedIdx
                               && heldIdx > gateIdx && deckIdx > heldIdx,
                               "★ R10④：`CardHoldPeek` 的 **`duringBattleFlag` 等价物**在正确位置 ——"
                             + " 自检钉死口（`_cardHoldForTest`）→ **闸**（`Ctx == null || Ctx.IsOver || InMulligan || Ctx.Turn <= 0 ⇒ false`）"
-                            + " → `PointerHeldRaw()` → `return HitMyDeckPile(WorldPointer());`（= 原版 `CardScript__OnTouchDown.c:34-59` 的 **`case 0`**「按着**牌库里的那张卡**」那一支；`case 1 ∧ !isPlayer`（敌方手牌）本仓接不上、`case 2`（棋盘卡）原版只改高亮**不显牌数**）"
+                            + " → `PointerHeld()` → `return HitMyDeckPile(WorldPointer());`（= 原版 `CardScript__OnTouchDown.c:34-59` 的 **`case 0`**「按着**牌库里的那张卡**」那一支；`case 1 ∧ !isPlayer`（敌方手牌）本仓接不上、`case 2`（棋盘卡）原版只改高亮**不显牌数**）"
                             + $"（行序 {forcedIdx} < {gateIdx} < {heldIdx} < {deckIdx}）"
                             + " ⇒ 换牌期 / 第 0 回合 / 终局：**按住手牌也不出张数**"
                             + "｜🧨 删掉 `Ctx.Turn <= 0` 或 `Ctx.IsOver` 那一项 ⇒ 红");
@@ -2311,7 +2311,7 @@ public static class BattleScene
                 }
                 // 一次「选中 → 提交技能」的读数（`r[0] == -1` = 没打开）
                 //   {opened, pickSide, cmdSide, warnDelta（整趟）, warnPerAsk（再问两次的增量）, sideStable}
-                //   🔴 `r[4]` 是**确定的**：`CommandTargetSide()` → `AbilityPickOwner` 在非敌方档
+                //   🔴 `r[4]` 是**确定的**：`CommandTargetSide()` → `AbilityPickOwner` 在 **Unknown 档**（原写「非敌方档」，2026-10-30 `B100_F24` 就地订正：`Any` 已改走哨兵 `-2`、不出声）
                 //      **每次调用**都 `NoteAbilitySideGap` +1（那道「每张卡每类原因只喊一次」的闩
                 //      只压 `LogWarning`、不压计数 —— 见 `NoteAbilitySideGap` 的 doc）
                 //      ⇒ 问两次 = +2。这一格顶替原来那条「再问一次仍然 +1」的松口径。
@@ -2393,9 +2393,18 @@ public static class BattleScene
                 // ---- ③ (1,1) ⇒ 3 · (0,0) ⇒ 0，两档都退回敌方 + 出声 ----
                 {
                     var r = probe20(cAny20);
-                    Check(r[0] == 1 && r[1] == 3 && r[2] == 1 - me20 && r[3] >= 1 && r[5] == 1,
-                          $"★ R20③：`(1,1)` 档 ⇒ 读数 **3**（敌我双方都算）、仍退回敌方（{r[2]}）、出声 ≥1（实 {r[3]}）"
-                        + "｜🧨 把 `(1,1)` 静默映射成 Enemy ⇒ 读数那条红；把它映射成 Friendly / `_me` ⇒ 退回敌方那条红");
+                    // 🔴 2026-10-30 就地改口径（`B100_F24` · 铁律 5 · `报告/B100_X3` #2）：2026-10-30 `B99_A1`（AUD8-Any 并集）
+                    //   把 `Any` 档从「退回敌方 + 出声」改成 **哨兵 −2（敌我并集、敌先友后）、不出声** ——
+                    //   判据 = `BattleDriver.AbilityPickOwner` 的 `if (side == RuleCore.AbilityPickSide.Any) return TargetSideBoth;`
+                    //   （`BattleDriver.cs:15480`；`const int TargetSideBoth = -2` 在 `:38931`，**private** ⇒ 这里写字面量，
+                    //   它的值由 `B99A1_Assert` §C1~C5 钉住）。原版 `Any` = 「敌我并集」（`AbilityLogic__GetTargets.c` 的
+                    //   `GetUnitsInPlayList(…, both = friendly!=0 || enemy!=0)`）；`NoteAbilitySideGap` 只留给 **Unknown（判不出）**。
+                    //   ⛔ 不是「把断言调到实现现在返回什么」：方向相反的那一句（把 Any 映射回 Enemy）仍然会红。
+                    Check(r[0] == 1 && r[1] == 3 && r[2] == -2 && r[3] == 0 && r[4] == 0 && r[5] == 1,
+                          $"★ R20③：`(1,1)` 档 ⇒ 读数 **3**（敌我双方都算）、目标侧 = **哨兵 −2（两侧并集）**（{r[2]}）、"
+                        + $"出声 **0**（整趟 {r[3]} / 再问两次 {r[4]}）"
+                        + "｜🧨 把 `(1,1)` 静默映射成 Enemy ⇒ 目标侧那条红；映射成 Friendly / `_me` ⇒ 同样红；"
+                        + "又去 `NoteAbilitySideGap` ⇒ 出声那两条红");
                 }
                 {
                     var r = probe20(cZero20);
@@ -9680,9 +9689,9 @@ public static class BattleScene
                 //   原来是我们自译的 `{0} 近战`（⇒「+2 近战」），官方 zh-CN = **`获得 {0} 近战攻击一回合`**
                 //   ⇒ 中文档现在印「获得 +2 近战攻击一回合」。⛔ 期望值仍写字面量。
                 Check(driver.CardDisplay.EffectWhat(0) == "获得 +2 近战攻击一回合", $"第 1 行「给了什么」：{driver.CardDisplay.EffectWhat(0)}");
-                Check(driver.CardDisplay.EffectWhat(1) == "先锋",
-                      $"第 2 行是**关键词**（🔴 **2026-10-19（A1316②）起走 `CardText.KeywordDisplay`**"
-                    + $" = 跟语档的显示名，中文档 = 「先锋」）：{driver.CardDisplay.EffectWhat(1)}");
+                Check(driver.CardDisplay.EffectWhat(1) == "获得 先锋 1 一回合" && driver.CardDisplay.EffectWhat(1) != "先锋",
+                      $"第 2 行是**关键词**（`Battle/Effect/GetTraitOneTurn` + `{{0}}` = 关键词显示名 ＋ traitValue）：{driver.CardDisplay.EffectWhat(1)}"
+                    + "｜🧨 判别式：裸「先锋」= `CardText.KeywordZh` 的产物 ⇒ 退回它时这条红");
                 // 🆕 2026-10-18（第十五轮 · `G5`）：属性那一行现在走**原版词条**
                 //   （`Battle/Effect/ChangeMeleeAttackOneTurn`）。判据 → `Core/Loc.cs` 那一块：
                 //   消费链 = `CardEffectItem.LoadEffect` → `GameStaticData.GetEffectDesc`
@@ -9706,9 +9715,9 @@ public static class BattleScene
                     //   `KeywordZh` 时**两条同时红**（「文案与断言一起改回旧值」不可能同时满足）。
                     {
                         string kwEn = driver.CardDisplay.EffectWhat(1);
-                        Check(kwEn == "Vanguard",
-                              $"★ A1316②：英文档下**关键词那一行** = `Loc` 英文列「Vanguard」（实得「{kwEn}」）"
-                            + "｜🧨 改坏法：那一行写回 `CardText.KeywordZh`（恒中文口）⇒ 红");
+                        Check(kwEn == "Get Vanguard 1 one turn",
+                              $"★ A1316②：英文档下**关键词那一行** = `Get {{0}} one turn`（`{{0}}` = `Vanguard 1`；实得「{kwEn}」）"
+                            + "｜🧨 改坏法：那一行写回 `CardText.KeywordZh`（恒中文口）⇒ 得到「Get 先锋 1 one turn」⇒ 红");
                         Check(kwEn != "先锋",
                               "★ A1316②（**判别式**）：恒中文的 `KeywordZh` 在那一格给的是「先锋」"
                             + " ⇒ 新口径下**必不等于**它（老实现写回来时这条当场红）");
@@ -9771,10 +9780,14 @@ public static class BattleScene
                         Check(e9Base == 2, $"（前提）①′ 那两条展示用 buff 还在（现有 {e9Base} 条）");
                         // 探针 buff：`UntilMyNextTurn = false` ⇒ 收尾那句 `RevertBuffs(true, 0)` 正好收掉它们，
                         // ⛔ 不会碰上面那两条 `UntilMyNextTurn = true` 的。
+                        // 🔴 2026-10-30（`B100_F23`）就地改夹具：原用 `probe1/2/3`，而新口 `RowsOfEffects`/`GetEffectDesc`
+                        //   **只认 attack/ranged/health/armour 四项**（`EffectsToShow.IsNonStatAttr`；原版 `GetEffectDesc.c` 的 `case 1`）
+                        //   ⇒ 认不出的名字产**空行**（`NonEmptyRowsOf` 不计）⇒ 5 条只剩 2 条。换成真实属性、值各异。
+                        var e9Attrs = new[] { "ranged", "health", "armour" };
                         for (int e9I = 1; e9I <= 3; e9I++)
                             e9U.AddTempBuff(new UnitState.TempBuff
                             {
-                                Name = "probe" + e9I, Value = e9I, Owner = 0, UntilMyNextTurn = false,
+                                Name = e9Attrs[e9I - 1], Value = e9I, Owner = 0, UntilMyNextTurn = false,
                                 Src = "槽位探针", SourceCard = "槽位探针" + e9I,
                             });
                         Check(e9U.TempBuffs.Count == 5, "（态 A）现在正好 5 条 buff = 原版槽数");
@@ -9809,7 +9822,7 @@ public static class BattleScene
                         Check(e9Dup == 0,
                               $"★ 5 个槽的「给了什么」**两两不同**（{string.Join(" / ", e9Aw)}）—— "
                             + "⛔ 不是同一行抄 5 遍；这一条**只用位置与相异，不依赖上面那两条夹具的文字**");
-                        Check(driver.CardDisplay.EffectWhat(0) == "获得 +2 近战攻击一回合" && driver.CardDisplay.EffectWhat(1) == "先锋",
+                        Check(driver.CardDisplay.EffectWhat(0) == "获得 +2 近战攻击一回合" && driver.CardDisplay.EffectWhat(1) == "获得 先锋 1 一回合",
                               "★ …而且前两槽仍是 ①′ 那两条（本节**只加不改**，没动既有夹具）");
                         // **没有第 6 个槽** —— `EffectWho` 的界是**数组真实长度**：只有 5 个 ⇒ 答 `null`；
                         //   若有人把数组建成 6 个，它会答**空串**（非 null）⇒ 同样红。
@@ -9822,7 +9835,7 @@ public static class BattleScene
                         // ---- 态 B：**超一格**（6 条）⇒ 只画前 5（截断成「丢尾巴」）----
                         e9U.AddTempBuff(new UnitState.TempBuff
                         {
-                            Name = "probe4", Value = 4, Owner = 0, UntilMyNextTurn = false,
+                            Name = "attack", Value = 4, Owner = 0, UntilMyNextTurn = false,
                             Src = "槽位探针", SourceCard = "槽位探针4",
                         });
                         Check(TapUnit(driver, ctx, 0, mine) == TapOutcome.NotBlockedAndOpened, "（态 B · 6 条）再开窗");
@@ -16214,10 +16227,38 @@ public static class BattleScene
                     string wantReady = zhNow ? "单位未准备好" : "Unit isn't ready";
 
                     // ---- ① 拖出去、松手时没落到有效目标 ⇒ 提示行出那句 ----
+                    // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #15）：这条的原版判据是 `NeedsTargetOnDrag`
+                    //   = `Targeted == 1 && !IsUnit`（`BattleDriver.cs:38900`；2026-10-30 `B99_A1`（AUD8-拖空出声）
+                    //   **有意**把出声面收窄到这一档，部队卡/无目标战术卡拖空**一声不吭**）。
+                    //   原来这里挑的是**手牌第一张**（日志 175164 现读 = `Hand_Scout`，单位卡）⇒ 新口径下不出字是**对的**。
                     int missIdx = -1;
                     for (int i = 0; i < c2.Players[0].Hand.Count; i++)
-                        if (driver.HandViewAt(i) != null) { missIdx = i; break; }
-                    Check(missIdx >= 0, "★ 手上还有牌，可以做「拖空松手」那一条");
+                    {
+                        var hi = c2.Players[0].Hand[i];
+                        if (driver.HandViewAt(i) == null) continue;
+                        if (hi == null || hi.Card == null) continue;
+                        if (hi.Card.Targeted == 1 && !hi.Card.IsUnit) { missIdx = i; break; }
+                    }
+                    if (missIdx < 0)
+                    {
+                        // 手牌里没有那一档 ⇒ 从卡池挑一张塞进手牌（这一段只造「面」，不参与判据）
+                        CardDef td = null;
+                        for (int i = 0; i < c2.CardPool.Count && td == null; i++)
+                            if (c2.CardPool[i] != null && c2.CardPool[i].Targeted == 1 && !c2.CardPool[i].IsUnit) td = c2.CardPool[i];
+                        Check(td != null, "（前提）卡池里找得到一张「目标型非单位卡」（`Targeted==1 && !IsUnit`）");
+                        if (td != null)
+                        {
+                            c2.Players[0].Hand.Add(c2.NewInstance(td));
+                            driver.RefreshAll();                       // `SyncHand` 会给新牌建视图
+                            for (int i = 0; i < c2.Players[0].Hand.Count; i++)
+                            {
+                                var hv = driver.HandViewAt(i);
+                                if (hv != null && ReferenceEquals(hv.Inst, c2.Players[0].Hand[i])) { missIdx = i; break; }
+                            }
+                        }
+                    }
+                    Check(missIdx >= 0, "★ 手上有一张**目标型非单位卡**（`Targeted==1 && !IsUnit` = `NeedsTargetOnDrag`）可以做「拖空松手」"
+                                      + "｜🧨 挑成单位卡 / 无目标战术卡 ⇒ 新口径下它本来就**不该**出字 ⇒ 下半条会红得莫名其妙");
                     if (missIdx >= 0)
                     {
                         var mv = driver.HandViewAt(missIdx);
@@ -34513,6 +34554,15 @@ public static class BattleScene
                                             "教程提示的「继续」是 uGUI（`TutorialTip` 的 `ContinueText`）；"
                                           + "⚠️ 这一处**没有逐字的原版沿判据**（`TutorialTipScript` 方法体拿不到）——"
                                           + "取抬起是为了与棋盘那几条**同一条边**，避免一次点击被两条沿各耗一次（如实记）" },
+                                    // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #16）：`B95_WBD`（2026-10-29）新加的
+                                    //   「教程 Continue 钮」那条抬起沿 —— 原版那颗钮是 uGUI 按钮点击（`m_OnClick` = 抬起），
+                                    //   判据就写在方法头（`BattleDriver.cs:37818-37824` 那三句 + 注释）。⛔ 这条**不是**
+                                    //   「多了一处没有判据的抬起沿」，是白名单没跟上。
+                                    new[] { "HandleTipContinueClick",
+                                            "if (!ReleasedThisFrame()) return false;",
+                                            "教程提示条那颗 `Continue` = uGUI 按钮点击 ⇒ 抬起；判据 = 原版 `TutorialTipScript.ClickContinue`"
+                                          + " 三句（`BattleDriver.cs:37806-37819` 那一段头注释）。"
+                                          + "⚠️ 与上面 `HandleTutorialTipDismiss` **同一行文本** ⇒ 靠方法名分开（这条纪律本身就写在下面那行解析里）" },
                                 };
                                 var upCallSites = new List<string>();
                                 var upHits = new bool[upWhitelist.Length];
@@ -34542,7 +34592,7 @@ public static class BattleScene
                                     if (!upHits[k]) upMissing.Add(upWhitelist[k][0] + " · `" + upWhitelist[k][1] + "`");
                                 Check(upCallSites.Count == 0 && upMissing.Count == 0,
                                       "★ A462·抬起沿（源级·与上面「按下沿只剩 4 处」那条**对称**）：`BattleDriver.cs` 里"
-                                    + " `ReleasedThisFrame()` 的代码调用点**只有白名单那 7 处**"
+                                    + " `ReleasedThisFrame()` 的代码调用点**只有白名单那 " + upWhitelist.Length + " 处**"
                                     + $"（扫到 {upIdx.Count} 处 / 白名单 {upWhitelist.Length} 处）"
                                     + " —— 多一处 = 有人把别的东西也改成抬起了（**没有判据**）；"
                                     + "少一处 = 白名单里某一处被改回按下 / 搬去别的方法"
@@ -45020,7 +45070,7 @@ public static class BattleScene
                 }
             }
 
-            UnityEngine.Object.DestroyImmediate(driver);
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; UnityEngine.Object.DestroyImmediate(driver);   // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红）
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46646,7 +46696,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。 Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。 Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

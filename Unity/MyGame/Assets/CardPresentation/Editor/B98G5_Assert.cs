@@ -99,16 +99,20 @@ public static class B98G5_Assert
     }
 
     /// <summary>带一条**数值光环**的源牌（`Your troops have +1 Attack`）。
-    /// ⚠️ 这句必须能被 `Auras.TryParse` 收下 —— 收不下 A0 会红（⛔ 不许静默跳过）。</summary>
+    /// ⚠️ 这句必须能被 `Auras.TryParse` 收下 —— 收不下 A0 会红（⛔ 不许静默跳过）。
+    /// 🔴 2026-10-30 `B100_F25`：`type` **必须是 `"unit"`**，写 `"troop"` 光环一条都挂不上 ——
+    ///    `Aura.SubjectFilters` 把 `troops` 记成 `CardCriteria.KindWord`，判据走
+    ///    `CreatePool.MatchesKind`（`KindWords` 表 `:1396` `{"troop","type","unit"}`）⇒ 比的是 `CardDef.Type == "unit"`。
+    ///    `subtype: "troop"` 保留（那一维是卡面兵种，与筛选无关）。</summary>
     static CardDef AuraSource(string name)
     {
-        return new CardDef(name, name, "troop", "Your troops have +1 Attack", "common", "Test",
+        return new CardDef(name, name, "unit", "Your troops have +1 Attack", "common", "Test",
                            1, 1, 3, 0, null, subtype: "troop");
     }
 
     static CardDef Troop(string name, int attack, int health)
     {
-        return new CardDef(name, name, "troop", "", "common", "Test", 1, attack, health, 0, null,
+        return new CardDef(name, name, "unit", "", "common", "Test", 1, attack, health, 0, null,
                            subtype: "troop");
     }
 

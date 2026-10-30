@@ -113,7 +113,12 @@ public static class B98K2_Assert
 
     static UnitState Place(BattleContext ctx, int p, int slot, CardDef card)
     {
-        var u = new UnitState(ctx.NewInstance(card), false);
+        // 🔴 2026-10-30 `B100_F25`：`{ Exhausted = false }` 必须写（全仓 56 处同类夹具都写，现读 grep 78 处）。
+        //    ctor（`UnitState.cs:916`）恒 `Exhausted = !HasDeployExemption(this)` = true；而动作收尾的
+        //    `RuleCore.RecomputeActAndAttack:3547` 按 `SummonSickness`（夹具没设 = 假）+ `AttacksThisTurn` 重算，
+        //    也会把它冲回 false ⇒ 不钉住的话 A1 会拿到 `ErrExhausted(6)`（13 条红的根因）。
+        //    ⚠️ 别改成 `SummonSickness = true` —— 那是「刚部署」的语义，不是「这一拍已行动」。
+        var u = new UnitState(ctx.NewInstance(card), false) { Exhausted = false };
         u.DeployedTurn = ctx.Turn;
         u.PlayOrder = ctx.TakePlayOrder();
         ctx.Players[p].Board[slot] = u;

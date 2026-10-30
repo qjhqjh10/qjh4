@@ -106,6 +106,7 @@ public static class B98N3_Assert
         MenuCheck.Section(_sink, "B · 攻击侧 `summonRift` 闸 — 判据 `BattleManager__IsValidAttackTarget.c:211-213`");
 
         var ctx = new BattleContext(0xB98_0031);
+        ctx.Players[0] = new PlayerState(); ctx.Players[1] = new PlayerState();
         ctx.Active = 0;
         var atk = Place(ctx, 0, 3, Unit("N3Atk"));
         var rift = Place(ctx, 1, 5, Unit("N3RiftTgt", "summonRift"));
@@ -131,6 +132,7 @@ public static class B98N3_Assert
 
         // ---- 灭自证：原版读的是**目标**（param_3），不是攻方（param_2）----
         var ctx2 = new BattleContext(0xB98_0032);
+        ctx2.Players[0] = new PlayerState(); ctx2.Players[1] = new PlayerState();
         ctx2.Active = 0;
         var riftAtk = Place(ctx2, 0, 3, Unit("N3RiftAtk", "summonRift"));
         var tgt2 = Place(ctx2, 1, 5, Unit("N3Tgt2"));
@@ -149,6 +151,7 @@ public static class B98N3_Assert
         MenuCheck.Section(_sink, "C · 能力侧**不许被削弱**（`RuleEngineTest_EngineE7.E7Case2SummonRift` 的镜像）");
 
         var ctx = new BattleContext(0xB98_0033);
+        ctx.Players[0] = new PlayerState(); ctx.Players[1] = new PlayerState();
         ctx.Active = 0;
         var caster = Place(ctx, 0, 3, Unit("N3Caster"));
         var foeRift = Place(ctx, 1, 5, Unit("N3FoeRift", "summonRift"));

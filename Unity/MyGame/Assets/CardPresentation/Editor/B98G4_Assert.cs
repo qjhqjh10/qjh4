@@ -88,11 +88,20 @@ public static class B98G4_Assert
            "240a（前提）`ActionQueue.OnCancelCreateHandCard` 已经有人订阅（= `BattleDriver.Begin()` 那一行）"
          + "｜🧨 没订阅 ⇒ 引擎那边会退回「出声 + 计数」的待接点（账 240 原文）");
 
-        // 前提 ②：棋盘上得有一个单位，并且它的视图**此刻是激活的**（它是这条副作用的承受方）
-        //   ⚠️ `CardView.Inst` 是 `CardInstance`（`CardView.cs:1239`），`UnitState.Instance` 才是同一样东西
+        // 前提 ②：得有一张**此刻是激活的**卡视图（它是这条副作用的承受方）。
+        // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #22 落地 · 铁律 11「夹具自建，⛔ 别依赖宿主现场」）：
+        //   原来这里**只找棋盘单位** ⇒ 宿主现场「棋盘有单位、但没有激活视图」时整段没验到（含 240c~240e）。
+        //   而账 240 的原件其实是**手牌那一档**：`actionType 0x17 = createHandCard` = 造一张**手牌**，
+        //   原版撤它时关的正是**那张手牌**的卡体 ——
+        //   `BattleManager__CancelBattleActionFromQueue.c:44-52`：`targetCard.gameObject.SetActive(false)`。
+        //   我们的等价读口 `FindCardViewOfUnit` 三档顺序是「我方棋盘 → 敌方棋盘 → **我方手牌**」
+        //   （`BattleDriver.cs:38658-38670`，手牌那档按 `CardView.Inst` 身份比）⇒ 手牌档是**原件路径**、
+        //   棋盘档是顺带覆盖 ⇒ 先棋盘、取不到就退手牌，两条路都验同一句产品代码。
+        //   ⚠️ `CardView.Inst` 是 `CardInstance`（`CardView.cs:1276`），`UnitState.Instance` 才是同一样东西。
         var ctx = drv.Ctx;
         CardView pick = null;
         UnitState pickUnit = null;
+        string pickFrom = "（没找到）";
         var views = Object.FindObjectsByType<CardView>(FindObjectsSortMode.None);
         for (int side = 0; side < 2 && pick == null; side++)
         {
@@ -107,18 +116,35 @@ public static class B98G4_Assert
                     var v = views[i];
                     if (v == null || v.Inst == null || !ReferenceEquals(v.Inst, u.Instance)) continue;
                     if (!v.gameObject.activeSelf) continue;
-                    pick = v; pickUnit = u; break;
+                    pick = v; pickUnit = u; pickFrom = "棋盘 side=" + side + " slot=" + slot; break;
                 }
             }
         }
-        Tr(pick != null, "240b（前提）棋盘上有一个单位，且它的卡视图**此刻是激活的** —— 本段要关掉它再打开");
+        if (pick == null)
+        {
+            // 退路：手牌里那张「刚被造出来」的卡（= 0x17 的字面语义）。视图的 `Inst` 就是它的实例身份，
+            // 这里只是按 `UnitState` 的形状把它交给产品那个口（`FindCardViewOfUnit` 只读 `Instance`）。
+            var hand = drv.HandViewsForTest;
+            for (int i = 0; hand != null && i < hand.Count && pick == null; i++)
+            {
+                var h = hand[i];
+                if (h == null || h.Inst == null || !h.gameObject.activeSelf) continue;
+                pick = h;
+                pickUnit = new UnitState(h.Inst, false);
+                pickFrom = "手牌 idx=" + i + "「" + (h.Inst.Card != null ? h.Inst.Card.Name : "?") + "」";
+            }
+        }
+        Tr(pick != null && pickUnit != null,
+           "240b（前提）有一张**此刻是激活的**卡视图当承受方（先棋盘、取不到退手牌 —— 0x17 的字面语义是"
+         + "「造一张手牌」，原版撤的是**那张手牌**的卡体）｜取到：" + pickFrom
+         + "｜🧨 两条路都取不到 ⇒ 240c~240e 没验到（⛔ 别读成通过）");
         if (pick == null) return;
 
         bool was = drv.CancelCreateHandCardForTest(pickUnit);
-        Tr(was, "240c（前提）调用前那张视图**确实是激活的**（`activeSelf == true`）");
+        Tr(was, "240c（前提）调用前那张视图**确实是激活的**（`activeSelf == true`）｜承受方 = " + pickFrom);
         Tr(!pick.gameObject.activeSelf,
-           "240d ★ 撤一条 `createHandCard(0x17)` ⇒ 那张卡体 **`SetActive(false)`**"
-         + "（原版 `targetCard.gameObject.SetActive(false)`；🧨 方法里没真的关 ⇒ 红）");
+           "240d ★ 撤一条 `createHandCard(0x17)` ⇒ 那张卡体 **`SetActive(false)`**｜承受方 = " + pickFrom
+         + "（原版 `targetCard.gameObject.SetActive(false)`；🧨 方法里没真的关 / `FindCardViewOfUnit` 认不出它 ⇒ 红）");
         pick.gameObject.SetActive(true);                 // 还原现场（这一段只验副作用，不留痕）
         Tr(pick.gameObject.activeSelf, "240e（还原）把那张视图重新激活（本段不留副作用）");
     }
@@ -314,9 +340,26 @@ public static class B98G4_Assert
                 if (ps.Board[i] != null) { selfSlot = i; break; }
         Tr(selfSlot >= 0, "1037a（前提）我方棋盘上有一个单位（预览的 `self`）");
         if (selfSlot < 0) return;
+        // `self` 还得有一张**登记在册的棋盘视图** —— `BattleBoardPreview` 第一句就是
+        //   `if (!TryLocateBoardView(self, …)) return info;`（`BattleDriver.cs:34442`），
+        //   而它认的是 `_myUnits` 那张表 ⇒ 宿主此刻若还没给棋盘建视图，这一支永远退回假。
+        //   `RefreshAll()` 就是产视图那条路（`Place20` 那一族夹具用的同一个口）⇒ 先同步一次再判。
+        drv.RefreshAll();
+        Tr(drv.BoardViewAt(selfSlot, true) != null,
+           "1037b-1（前提）我方那一格有**棋盘卡视图**（`TryLocateBoardView(self)` 认的是 `_myUnits` 那张表）"
+         + "｜🧨 没有 ⇒ 1037c/1037d 没验到（别读成通过）");
+        if (drv.BoardViewAt(selfSlot, true) == null) return;
 
-        // 前提：手牌里有一张**单位卡**视图
+        // 前提：手牌里有一张**单位卡**视图（`CardView.Inst` 指向一张 `IsUnit` 的卡实例）
+        // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #23 落地 · 铁律 11「夹具自建，⛔ 别依赖宿主现场」）：
+        //   宿主现场那一刻手牌可能只剩战术卡（日志 `[HANDTEXT] hand=1` = `舰队之主`）⇒ 本段 1037c/1037d
+        //   **一次都没验到**。夹具改成两支：① 现场真有单位卡手牌就用它；② 没有就**自建一张**
+        //   （`CardView.Create` + 手动挂 `Inst`）—— 产品那条路只读 `other.Inst` / `other.Data` / `other.OwnAttackType`，
+        //   而且它判断「是不是在手里」靠的是 `TryLocateBoardView(other, …) == false`（不在棋盘上），
+        //   自建这张天生不在棋盘 ⇒ **走的正是「单位卡在手里」那条支**（与原版 `GetThisCardPlayedDamage` 的 `other` 同形）。
         CardView handUnit = null;
+        string huFrom = "（没找到）";
+        GameObject huRoot = null;
         for (int i = 0; i < ps.Hand.Count; i++)
         {
             var inst = ps.Hand[i];
@@ -324,18 +367,38 @@ public static class B98G4_Assert
             var vs = Object.FindObjectsByType<CardView>(FindObjectsSortMode.None);
             for (int k = 0; k < vs.Length; k++)
                 if (vs[k] != null && ReferenceEquals(vs[k].Inst, inst)) { handUnit = vs[k]; break; }
-            if (handUnit != null) break;
+            if (handUnit != null) { huFrom = "现场手牌 idx=" + i + "「" + inst.Card.Name + "」"; break; }
         }
-        Tr(handUnit != null, "1037b（前提）手牌里有一张**单位卡**的视图（带 `Inst` 引用）");
+        if (handUnit == null)
+        {
+            CardDef unitDef = null;
+            for (int i = 0; i < ctx.CardPool.Count && unitDef == null; i++)
+                if (ctx.CardPool[i] != null && ctx.CardPool[i].IsUnit) unitDef = ctx.CardPool[i];
+            Tr(unitDef != null, "1037b-0（前提）卡池里找得到一张单位卡（自建夹具要用）");
+            if (unitDef != null)
+            {
+                huRoot = new GameObject("chk_b98g4_1037_unit");
+                var huInst = ctx.NewInstance(unitDef);
+                var v = CardView.Create(huRoot.transform, BattleDriver.ToCardData(unitDef, unitDef.Faction),
+                                        "chk_b98g4_1037_card",
+                                        CardFace.Hand);   // 手牌那一档的展示场景（`SyncHand` 建手牌视图用的就是它）
+                v.Inst = huInst;                       // ← 产品读的就是这一格（`CardView.Inst`，`CardView.cs:1276`）
+                handUnit = v;
+                huFrom = "自建夹具「" + unitDef.Name + "」";
+            }
+        }
+        Tr(handUnit != null, "1037b（前提）手牌里有一张**单位卡**的视图（带 `Inst` 引用）｜取到：" + huFrom
+                           + "｜🧨 取不到 ⇒ 1037c/1037d 没验到（⛔ 别读成通过）");
         if (handUnit == null) return;
 
         var info = drv.BoardPreviewAgainstCardForTest(me, selfSlot, handUnit,
                                                      isAttacker: false, changeAttackType: false, formUnityAbility: false);
         Tr(info.Valid,
-           "1037c ★ 手牌里的**单位卡**也能出预览（`Valid == true`）—— 🧨 把 `BattleBoardPreview` 的 "
+           "1037c ★ 手牌里的**单位卡**也能出预览（`Valid == true`）｜夹具：" + huFrom + " —— 🧨 把 `BattleBoardPreview` 的 "
          + "`|| !TryLocateBoardView(other, …)` 去掉（退回「只喂战术卡」）⇒ `other` 落不到棋盘 ⇒ `Valid == false` ⇒ 红");
         C(info.OtherIsTactic, false,
            "1037d ★ 单位卡**不点亮**攻击类型底光（`OtherIsTactic` 只对计策卡为真 —— 原版 `.c:44/:132`）");
+        if (huRoot != null) Object.DestroyImmediate(huRoot);      // 自建夹具用完就拆（不留现场）
 
         // 引擎取数口自洽：`ThisCardPlayedDamage` 就是逐条 entries 的和（两处必须同一份）
         int checkedCards = 0, bad = 0;

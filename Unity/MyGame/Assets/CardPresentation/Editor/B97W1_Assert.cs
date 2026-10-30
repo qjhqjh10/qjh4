@@ -142,8 +142,13 @@ public static partial class RuleEngineTest
             ps.Deck.Clear();                                            // 牌库抽空
             ctx.Vars.shouldReshuffle = true;
             RuleCore.Draw(ctx, 0);
-            CheckTrue(ps.Deck.Contains(inst),
-                      "（前提）它**回填进牌库**了 —— 否则下面 D1 对一条没走过的路径断言（假绿）" + LogTail(ctx, 4));
+            CheckTrue(ps.Hand.Contains(inst),
+                      "（前提）它**回填后立刻被抽进了手牌** —— 否则下面 D1 对一条没走过的路径断言（假绿）"
+                    + "｜🔴 2026-10-30（`B100_F37` · 铁律 5 订正）：原写「它**回填进牌库**了（`ps.Deck.Contains`）」—— "
+                    + "**实际**产品是对的、断言的前提写错了：`RuleCore.cs:3070` 回填成功后会**继续往下抽**"
+                    + "（原版 `_ResolveDrawCard_d__432__MoveNext.c:197` 也是回填后回到 `DrawCardFromDeck`），"
+                    + "而牌库里只剩这一张 ⇒ `MoveDeckTopToHand`（`:3133-3141`）当场把它抽走 ⇒ `ps.Deck` 里当然没有它"
+                    + LogTail(ctx, 4));
             Check(inst.QuestCounter, 0,
                   "★ D1 回填**之前**按原版 `CardScript__ResetToValuesInHand(card, 1)` 清过 "
                   + "`questCounter(+0x270)`（`_ResolveDrawCard_d__432__MoveNext.c:89 → :98` 的次序："

@@ -110,8 +110,16 @@ public static class B97W6Assert
             Tr(lb != null, "`Banned Text` 上有 `Label` 组件");
             if (lb != null)
             {
-                var rt = lb.transform as RectTransform;
-                Tr(rt != null, "`Banned Text` 有 RectTransform（量框用）");
+                // 🔴 **2026-10-30（`B100_F6`）就地订正（铁律 5）**：`Banned Text` 是 `TxtPx → Txt → Label.Create`
+                //   建的，而 `Label.Create` 走 `ugui:false` ⇒ **裸 `Transform`、没有 `RectTransform`**
+                //   （`Battle/Label.cs:163` → `CreateCore` 的 `new GameObject(goName)`，全工程同口径）。
+                //   框宽/框高其实写在**它那颗 TMP 自己的 `rectTransform`** 上：`SetWrapWidth` 写 `sizeDelta.x = 框宽`
+                //   （`Core/TmpFont.cs:555`）、`SetAutoFitBox` 写 `sizeDelta.y = 框高`（`Battle/Label.cs:1305-1306`），
+                //   **都是世界单位**（× 108 = 设计 px）。取法与同族先例逐字相同（`Editor/CollectionScene.cs:1521-1528` 的 W64 修）。
+                //   ⛔ 别改用 `lb.WorldW/WorldH` —— 那两个是 `textBounds`（**字墨**尺寸），不是框（`Label.cs:153-155`）。
+                var tmp0 = lb.GetComponentInChildren<TMPro.TMP_Text>(true);
+                var rt = tmp0 != null ? tmp0.rectTransform : null;
+                Tr(rt != null, "`Banned Text` 的 TMP 子节点有 RectTransform（框宽高写在它身上，量框用）");
                 if (rt != null)
                 {
                     // `SetWrapWidth` 把 sizeDelta.x 写成折行宽、`SetAutoFitBox` 写 sizeDelta.y = 框高（都是世界单位）

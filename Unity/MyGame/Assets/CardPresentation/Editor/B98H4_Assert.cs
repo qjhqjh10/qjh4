@@ -406,9 +406,70 @@ public static class B98H4_Assert
 
         UnityEngine.Object.DestroyImmediate(go2);
 
-        Check(MissionChallenge.MatchPlayMode == null && MissionChallenge.MatchIsReplay == null
-              && MissionChallenge.MatchIsTutorial == null,
-              "6 复原：销毁 driver ⇒ `OnDestroy` 把三个闸置回 `null`（= 原版「没在打局 ⇒ `ValidateMatchConditions()` 放行」；删掉那三个 `= null` 这条会红）");
+        // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #27 落地）：**先把三个闸各自的值读出来再判**。
+        //   原来这条只有「三个都是 null」一个布尔 ⇒ 判不出是「一个都没复原」还是「只复原了两个」，
+        //   而这两种在根因上完全不同（见下面那条环境事实断言）。
+        bool pmNull = MissionChallenge.MatchPlayMode == null;
+        bool rpNull = MissionChallenge.MatchIsReplay == null;
+        bool tuNull = MissionChallenge.MatchIsTutorial == null;
+        int nullCount = (pmNull ? 1 : 0) + (rpNull ? 1 : 0) + (tuNull ? 1 : 0);
+        string vals = $"PlayMode={(pmNull ? "null" : "非 null")} / Replay={(rpNull ? "null" : "非 null")}"
+                    + $" / Tutorial={(tuNull ? "null" : "非 null")}（null 数 {nullCount}/3）";
+
+        if (Application.isPlaying)
+        {
+            Check(nullCount == 3,
+                  "6 复原：销毁 driver ⇒ `OnDestroy` 把三个闸置回 `null`（= 原版「没在打局 ⇒ `ValidateMatchConditions()` 放行」；"
+                + "删掉那三个 `= null` 这条会红）｜实读 " + vals);
+        }
+        else
+        {
+            // 🔴 **环境事实（判据同 `BattleScene.cs:45040-45060` 那条 `A388(b)`，2026-10-12 实测）**：
+            //   `BattleDriver` **不带 `[ExecuteAlways]`**，自检又跑在**编辑模式**（`B98H4_Assert.Run` 是
+            //   `-executeMethod` 入口，不是 Play）⇒ Unity **不派生命周期消息**，`DestroyImmediate` 不会调
+            //   `OnDestroy` ⇒ 那三句 `= null` 一句都没执行。**这是环境，不是缺陷**（真路径归「真 Play」那条）。
+            //   所以编辑模式这一档断的是**两种可自洽的结果之一**：
+            //     · 3/3 复原 —— 环境改派了 `OnDestroy`（好消息，把 Play 那档提成无条件即可）；
+            //     · 0/3 复原 —— 上面那条环境事实（今天就是这一档）；
+            //     · **1/3 或 2/3 = 产品缺陷**（`OnDestroy` 真跑了却漏置/多置）⇒ 红。
+            Check(nullCount == 0 || nullCount == 3,
+                  "6 复原（编辑模式这一档）：要么 3/3 全复原（环境派了 `OnDestroy`）、要么 0/3 一个都没动"
+                + "（= 编辑器不派生命周期消息，判据同 `BattleScene.cs` 的 `A388(b)`）——"
+                + "**只复原一半 = 产品缺陷**（`OnDestroy` 里漏了一句 `= null`）｜实读 " + vals);
+        }
+
+        // ---- 6-b · 产品那一句的**源码级**钉子 ----
+        //   🔴 为什么需要它：编辑模式下 `OnDestroy` 根本不跑（上面那条环境事实），
+        //   「那三句 `= null` 还在不在」在批处理里**行为上验不到**。而删掉它们正是本段最该防的回归
+        //   （原版「没有 `BattleManager` ⇒ `ValidateMatchConditions()` 放行」那一支就靠它）。
+        //   做法同本仓既有的源码级钉子（`BattleScene.cs` 的 `R13⑤`）：读那一行源码，逐句核。
+        //   ⛔ 一旦真 Play 能跑了（D39 那条路），把这段降级成「只在编辑模式下跑」。
+        {
+            string drvPath = System.IO.Path.Combine(Application.dataPath, "CardPresentation/Battle/BattleDriver.cs");
+            bool found = false, ok = false; string see = "（读不到 BattleDriver.cs）";
+            if (System.IO.File.Exists(drvPath))
+            {
+                var lines = System.IO.File.ReadAllLines(drvPath);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    string t = lines[i];
+                    if (t.IndexOf("DetachStaticHooks();", System.StringComparison.Ordinal) < 0) continue;
+                    if (t.IndexOf("void OnDestroy", System.StringComparison.Ordinal) >= 0) continue;
+                    // `OnDestroy` 那一句 = 「`DetachStaticHooks();` + 三句 `MissionChallenge.X = null`」**同一物理行**
+                    //   （`BattleDriver.cs:4157`；⛔ 别把它们拆开 —— 拆开会让「提前 return / 抛异常」只挡住后半）
+                    bool all = t.IndexOf("MissionChallenge.MatchPlayMode = null", System.StringComparison.Ordinal) >= 0
+                            && t.IndexOf("MissionChallenge.MatchIsReplay = null", System.StringComparison.Ordinal) >= 0
+                            && t.IndexOf("MissionChallenge.MatchIsTutorial = null", System.StringComparison.Ordinal) >= 0;
+                    if (!all && t.IndexOf("MissionChallenge.MatchPlayMode", System.StringComparison.Ordinal) < 0) continue;
+                    found = true; ok = all; see = "BattleDriver.cs:" + (i + 1);
+                    break;
+                }
+            }
+            Check(found && ok,
+                  "6-b（源码级）`BattleDriver.OnDestroy` 里那三句 `MissionChallenge.Match{PlayMode,Replay,Tutorial} = null` 都在、"
+                + "且与 `DetachStaticHooks();` **同一物理行**（行 4157）—— 编辑模式验不了 `OnDestroy`，这一半只能这么钉"
+                + "｜🧨 删掉任一句 ⇒ 红（「没在打局 ⇒ 放行」那一支就跟着没了）｜落点 " + see + "｜实读 " + vals);
+        }
 
         UnityEngine.Object.DestroyImmediate(go);           // 第 5 段那位也收掉（`Run` 里把 `go` 置 null，不再销毁）
     }

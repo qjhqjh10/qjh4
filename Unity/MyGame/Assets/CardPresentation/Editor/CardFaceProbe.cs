@@ -1641,8 +1641,8 @@ public static class CardFaceProbe
             bool tacticOk8 = ht.TextState == CardTextState.TacticOnlyDescription
                           && ht.KeywordsText.gameObject.activeSelf && !ht.TitleText.gameObject.activeSelf;
             float em8 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * st.KeywordsText.fontSize;
-            Check(tacticOk8 && Mathf.Abs(em8 - 0.252f) < 0.004f,
-                  $"CF-6 战术 + option 1 ⇒ **态 8**（只有 Big 战术效果文字，`DescTextTactic Big` fs25.2 ⇒ em 0.252；"
+            Check(tacticOk8 && Mathf.Abs(em8 - 0.26f) < 0.004f,   // 🔴 2026-10-30（B100_F7/K4）：s99 `FitToBox` 按原版 TMP autosize ⇒ `DescTextTactic Big` 名义 fs25.2 但 `m_fontSizeMax = 26`（`CardView.cs:5563` `DescTacticBigBandMax = 2.60`）⇒ 装得下就顶到 em 0.26，旧 0.252 是名义值
+                  $"CF-6 战术 + option 1 ⇒ **态 8**（只有 Big 战术效果文字，`DescTextTactic Big` 装得下 ⇒ autosize 顶到 `m_fontSizeMax=26` ⇒ em 0.26；"
                 + $"实测态 {ht.TextState} · em {em8:F4}）");
             Check(!ht.TextBgVisible, "CF-6 态 8 ⇒ **不画文字底板**（原版 7/8 的 activate 名单里没有 `Textbackgrounds`）");
             CardView.SetHandTextFormat(2);

@@ -1022,6 +1022,56 @@ MENU_IMAGES = [
     #   （`40K_Info_button_draft menu` / `40K_Cards_button_draft menu`）挑 `atlasindividual_assets_0_mainmenu`。
     # ⚠️ 名字**带空格** ⇒ 落盘名按本表惯例 `name.replace(' ', '_')` = `UI_Draft_event_result_bar_holder.png`。
     ('UI_Draft event result bar holder',      'atlasindividual_assets_0_mainmenu'),  # 轮抽进度条描边（633×282）
+    # ---- 🆕 2026-10-30（B100_F3 · 美术资源缺口）：Draft 结算页 · 社交图标 · **抽屉族底图** ----
+    # 判据 → `资料/完全复刻/判据/B100_D3_资源缺口_施工单.md` §一 #1-12（源包 / sprite PID / rect 逐件现读）
+    #        + `资料/完全复刻/判据/B100_D1_抽屉18档_施工单.md` §四·1（`40k_Rewards_icon_base card` = 跨 20 档的硬前置）。
+    # 源全部在 `ui_extract`（已切好的 sprite PNG；同名 5 个 bundle 各一份、md5 相同 ⇒ 取哪份都对），
+    # 尺寸由 `ui_sprite_pad` 按 `assets_full/.../Sprite/<名>.json` 的 `m_Rect` 判 —— 19 张里：
+    #   · 17 张 `m_Rect` == PNG 实际尺寸 ⇒ `asis`（逐字节拷）；
+    #   · `Discord-Logo-Color`（sprite 画布 256² / 实图 188×215）与
+    #     `YouTube_full-color_icon_(2017).svg`（300² / 实图 300×211）⇒ **补回透明画布**。
+    #     那是原版的**整块 sprite**（原版画的也是它），⛔ 不是「裁坏了」。
+    # ⚠️ 名字带空格的落盘名由本表惯例 `name.replace(' ', '_')` 定（`CardArt.MenuUi` 查的是下划线版）。
+    # ⚠️ `Steam_icon_logo.svg` / `YouTube_full-color_icon_(2017).svg` 的**切片名自带 `.svg`** ⇒ 落盘名就是
+    #    `Steam_icon_logo.svg.png` / `YouTube_full-color_icon_(2017).svg.png` —— `CardArt.MenuUi` 只拼 `.png`，
+    #    名字里的 `.svg` 原样保留，取得到。
+    # ⚠️ **`40k_general_wildcard_*` 不在这里** —— 那一族（4 大 + 4 小）已于 2026-10-04 由
+    #    `工具/sync_battle_ui_art.py` 的 `NAMES_DECK` 落到 `Resources/Art/ui_deck/`
+    #    （`CardArt.MenuUi` 三级兜底 → `ui_deck/` 命中）。⛔ 别重复加进本表。
+    # -- A 组 · Draft 结算页（`Draft Mode Atlas`，4 张；我们 `DraftModeWindow` 现画色块占位）--
+    ('Victories_Background_V2',                   'atlasgroup_assets_all'),   # 结算页背景 915×392（原版 `Background` 节点）
+    ('Victory_round_back_with light',             'atlasgroup_assets_all'),   # 败场圆徽 256×256（`Losses Info UI_ref`）→ 落盘 …_with_light
+    ('Victory_round_v2',                          'atlasgroup_assets_all'),   # 胜场/阶段圆徽 102×102（`Stage Info UI_ref`）
+    ('Victory_skull',                             'atlasgroup_assets_all'),   # 骷髅 118×154（menus 里没找到 `m_Sprite` 直接引用，照铁律 11 仍导）
+    # -- A 组 · 奖励图集（`0_RewardsAtlas`，1 张）--
+    ('40k_campaign_bar_fill color',               'atlasgroup_assets_all'),   # 进度条**填充色** 42×18 → 落盘 …_fill_color
+    #    ⚠️ 与上面已登记的 `40k_campaign_bar_fill`（不带 `color`）**是两张不同 sprite**，⛔ 别拿前者顶后者。
+    # -- A 组 · 社交图标（`SocialMediaIconsAtlas`，7 张；`SettingsWindow.cs:996-997` / `:725` 已在取）--
+    ('Steam_icon_logo.svg',                       'atlasgroup_assets_all'),   # 300×300（**代码尚未引用**——原版 Steam 账号链接钮）
+    ('Discord-Logo-Color',                        'atlasgroup_assets_all'),   # 188×215（画布 256²）
+    ('Instagram_icon',                            'atlasgroup_assets_all'),   # 300×300
+    ('fb-icon',                                   'atlasgroup_assets_all'),   # 256×256
+    ('Twitter_Social_Icon_Rounded_Square_Color',  'atlasgroup_assets_all'),   # 256×256
+    ('YouTube_full-color_icon_(2017).svg',        'atlasgroup_assets_all'),   # 300×211（画布 300²）
+    ('Button_External_Link',                      'atlasgroup_assets_all'),   # 85×85（支持页外链钮 `ArtExtLink`）
+    # -- B 组 · 抽屉族底图（`Content/Background` 那一层，跨 20 档的硬前置）----------------------
+    # 判据 = 逐 prefab 现读 `Content/Background` 的 sprite（`menu_dump.py … --depth 2`）：
+    #   `Currency Drawer` / `Avatar Drawer` / `Container Drawer` / `Alliance Badge Drawer` /
+    #   `XSolla Offer Drawer` / `Campaign Points Drawer` / `Premium Drawer` ⇒ **全是 `40k_Rewards_icon_base card`**；
+    #   `Random Card Drawer` 的 `Base Background` = 它、`Background` = `…_common`；
+    #   `Title Drawer` 的 `Background` = `40k_Rewards_icon_title card`（同族，见下面最后一条）。
+    # 原版 `m_Rect` = 328×498 / 523（`SDF` 那张 128×128）⇒ 与 PNG 实际尺寸一致，走 `asis`。
+    ('40k_Rewards_icon_base card',                'atlasindividual_assets_0_mainmenu'),  # 抽屉背景正图 328×498 → 落盘 …_base_card
+    ('40k_Rewards_icon_base card_common',         'atlasindividual_assets_0_mainmenu'),  # 328×523（`Random Card Drawer` 的 Background）
+    ('40k_Rewards_icon_base card_rare',           'atlasindividual_assets_0_mainmenu'),  # 328×523
+    ('40k_Rewards_icon_base card_epic',           'atlasindividual_assets_0_mainmenu'),  # 328×523
+    ('40k_Rewards_icon_base card_legendary',      'atlasindividual_assets_0_mainmenu'),  # 328×523
+    #   ⚠️ `… card SDF` 在 `menus_assets_all`（**不在** atlasindividual）—— 128×128，只这一处有它的 Sprite json。
+    #      消费点 = `ExpansionPassEventWindow` 的 `Premium Glow`（`Shell/ExpansionPassEventWindow.cs:1101-1106`
+    #      如实登记着「没导入 `Resources/` ⇒ 这一件没画」）⇒ 图已就位，但那一层**还要一次 `.cs`
+    #      接线**才画得出来（`:1105` 现在只 `Note`，没走 `CardArt.MenuUi`）。
+    ('40k_Rewards_icon_base card SDF',            'menus_assets_all'),                   # 128×128 → 落盘 …_base_card_SDF
+    ('40k_Rewards_icon_title card',               'atlasindividual_assets_0_mainmenu'),  # 329×499（`Title Drawer` 的 Background，同族）→ 落盘 …_title_card
 ]
 
 # ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----

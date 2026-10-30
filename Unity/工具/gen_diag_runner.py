@@ -62,7 +62,10 @@ GEN = os.path.join(ROOT, "工具", "gen_diag_runner.py")
 CASE_CALL = r"^\s{8}(?:Step\(([A-Z]\w+)\)|([A-Z]\w+)\(\));(?:\s*//.*)?\s*$"
 # 「一条裸调用语句」——用来抓**认不出的**那些（`Section(...)` 是宿主调用，白名单）。
 BARE_CALL = r"^\s{8}(\w+)\(.*\);\s*(?://.*)?$"
-HOST_CALLS = {"Section"}          # `Run()` 里除用例之外的宿主调用（不算用例，也不报错）
+HOST_CALLS = {"Section", "Guard"}   # `Run()` 里除用例之外的宿主调用（不算用例，也不报错）
+                                    # 🆕 2026-10-30（`B100`）：`Guard("X", X.Run)` = 给裸断言套的 try/catch 护栏，
+                                    #   它**不是**用例（用例名在第一个实参里，且已经通过 `X.Run()` 被收进表）。
+                                    #   `Step` 同理（它在 ② 那一遍单独跳过）。
 CASE_DECL = r"^([^\n]*)\bvoid\s+((?:Test|Report)[A-Z_]\w*)\s*\(([^)\n]*)\)"
 
 
@@ -84,12 +87,33 @@ def run_body(src):
 def run_cases(src):
     """`Run()` 的用例表（顺序 = 文件里的顺序）。"""
     body = run_body(src)
-    cases = [a or b for a, b in re.findall(CASE_CALL, body, re.M)]
+
+    # 🔴 2026-10-30（第一百会话）：`Run()` 里允许**一行挤多条 `Step(X)`** ——
+    # 上一会话为了「加接线但不挪行号」（账的 A 落点怕漂移）把 23 条挤进了同一行，
+    # 而旧实现只认「整行一个 Step」⇒ 那 23 条**静默漏掉** ⇒ 产物比反射少 24 条、每轮都报「诊断入口过期」。
+    # ⇒ 改成**按位置扫全文**：两条正则（整行式 + 文内式）合并、按出现位置排序、同位置去重。
+    picks = {}
+    # ① 所有 `Step(X);` —— **不管一行几条**（这是上一会话挤行留下的坑）
+    for m in re.finditer(r"Step\(\s*([A-Z]\w+)\s*\)\s*;", body):
+        line_start = body.rfind("\n", 0, m.start()) + 1
+        if "//" in body[line_start:m.start()]:
+            continue                       # 行内注释里的示例写法，不算用例
+        picks[m.start()] = m.group(1)
+    # ② 整行一条的裸调用 `X();`（`Step` 之外的写法）
+    for m in re.finditer(BARE_CALL, body, re.M):
+        name = m.group(1)
+        if name in HOST_CALLS or name == "Step":
+            continue
+        if m.start() in picks:
+            continue
+        picks[m.start()] = name
+    cases = [name for _, name in sorted(picks.items())]
 
     # 加固 ①：认不出的裸调用一律报出来（不许静默当「没有」）
     unknown = sorted({m.group(1) for line in body.split("\n")
                       for m in [re.match(BARE_CALL, line)]
-                      if m and not re.match(CASE_CALL, line) and m.group(1) not in HOST_CALLS})
+                      if m and not re.match(CASE_CALL, line)
+                         and m.group(1) not in HOST_CALLS and m.group(1) != "Step"})
     if unknown:
         raise SystemExit(f"🔴 `Run()` 里有【认不出的调用语句】：{unknown}\n"
                          f"   要么它是新写法（那就改本脚本的 CASE_CALL），要么加进 HOST_CALLS。"
@@ -123,7 +147,7 @@ def case_method_names():
     return names
 
 
-def render(cases):
+def render(cases, subcases=()):
     """整份产物文本（LF）。"""
     per = 6
     lines = []
@@ -131,6 +155,11 @@ def render(cases):
         chunk = ", ".join('"%s"' % c for c in cases[k:k + per])
         lines.append("        " + chunk + ",")
     names_block = "\n".join(lines)
+    sub_lines = []
+    for k in range(0, len(subcases), per):
+        chunk = ", ".join('"%s"' % c for c in subcases[k:k + per])
+        sub_lines.append("        " + chunk + ",")
+    sub_block = "\n".join(sub_lines) if sub_lines else "        // （无）"
     body = "\n".join('        Safe("%s", () => %s());' % (c, c) for c in cases)
     return u'''// RuleEngineTest_Diag.cs — **诊断入口**：一条用例抛异常不掐死整轮（2026-10-01 加）
 //
@@ -171,6 +200,15 @@ public static partial class RuleEngineTest
     static readonly string[] RunCaseNames = new string[]
     {
 __NAMES__
+    };
+
+    /// <summary>🔴 **2026-10-30（第一百会话）**：**子用例** —— 名字是 `Test*` 口径、但**由另一个用例内部调用**
+    /// （例如 `TestB97W28` 里调 `TestB97W28DeathObserverGate`）。它们**不在 `Run()` 的用例表里**是**故意的**：
+    /// 直接塞进表里会跑两遍。对账时把它们从「漏跑」里减掉，否则每次都是假红。
+    /// 🧨 真正「写了但没人调」的用例**仍然会红**（生成器只收录「被谁调用过」的那些）。</summary>
+    static readonly string[] DiagSubCases = new string[]
+    {
+__SUBCASES__
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -258,10 +296,18 @@ __NAMES__
 
         // ---- ② `Run()` 的用例表 ↔ 反射看到的用例方法集合 ----
         var compiled = DiagCompiledCaseMethods();
-        var missing = new List<string>();   // 类里有、`Run()` 的用例表里没有 ⇒ **两个入口都少跑它**
+        var missing = new List<string>();   // 类里有、`Run()` 的用例表里没有、**也没人调用** ⇒ 真的两个入口都不跑
         var unknown = new List<string>();   // 用例表里有、类里没有 ⇒ 本该编译期就挡住（挡住了说明判据漏了）
-        foreach (var n in compiled) if (!exp.Contains(n)) missing.Add(n);
-        foreach (var n in exp) if (!compiled.Contains(n)) unknown.Add(n);
+        foreach (var n in compiled)
+            if (!exp.Contains(n) && Array.IndexOf(DiagSubCases, n) < 0) missing.Add(n);
+        // 🔴 2026-10-30：`unknown` 的口径改成「**这个名字在类里有没有**」，⛔ 不再用 `LooksLikeCaseMethod` ——
+        //   `Step(CheckB96CBEngine)` / `Step(RunB99E6)` 这类**以 `Check`/`Run` 打头的入口**也是用例，
+        //   用 `Test`/`Report` 前缀去判会把它们报成「类里不存在」（假红）。
+        var allMethods = new HashSet<string>();
+        foreach (var m in typeof(RuleEngineTest).GetMethods(
+                     BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            allMethods.Add(m.Name);
+        foreach (var n in exp) if (!allMethods.Contains(n)) unknown.Add(n);
         Check(missing.Count, 0, $"用例方法（反射 {compiled.Count} 个）全在 `Run()` 的用例表里"
                               + (missing.Count > 0
                                  ? $" —— **缺 {missing.Count} 个**：{DiagFew(missing)}"
@@ -291,8 +337,14 @@ __NAMES__
             var exp = new List<string>(RunCaseNames);
             var missing = new List<string>();
             int extra = 0;
-            foreach (var n in compiled) if (!exp.Contains(n)) missing.Add(n);
-            foreach (var n in exp) if (!compiled.Contains(n)) extra++;
+            // 🔴 2026-10-30：与 `VerifyDiagCoverage` 同口径 —— **子用例**（父用例内部调用的）不算「缺」；
+            //   「多」按「这个名字在类里有没有」判，⛔ 不再用 `Test`/`Report` 前缀（`Check*`/`Run*` 入口也是用例）。
+            var allMethods = new HashSet<string>();
+            foreach (var m in typeof(RuleEngineTest).GetMethods(
+                         BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                allMethods.Add(m.Name);
+            foreach (var n in compiled) if (!exp.Contains(n) && Array.IndexOf(DiagSubCases, n) < 0) missing.Add(n);
+            foreach (var n in exp) if (!allMethods.Contains(n)) extra++;
             if (missing.Count == 0 && extra == 0) return;
             missing.Sort(StringComparer.Ordinal);
             Debug.LogError(P + "   \\u2717 [诊断入口过期] `RuleEngineTest_Diag.cs` 跟不上 `Run()` 的用例表 —— "
@@ -325,7 +377,43 @@ __BODY__
             UnityEditor.EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
 }
-'''.replace("__NAMES__", names_block).replace("__BODY__", body)
+'''.replace("__NAMES__", names_block).replace("__SUBCASES__", sub_block).replace("__BODY__", body)
+
+
+def partial_texts():
+    """`RuleEngineTest` 各 partial 分册的全文（给「子用例」判定用）。"""
+    texts = []
+    for path in glob.glob(os.path.join(ASSETS, "**", "*.cs"), recursive=True):
+        text = io.open(path, encoding="utf-8", errors="replace").read()
+        if "partial class RuleEngineTest" in text:
+            texts.append(text)
+    return texts
+
+
+def sub_case_names(inv, cases):
+    """🔴 2026-10-30：名字是 `Test*` 口径、但**由别的用例内部调用**的那些。
+    判据 = 除声明外还至少出现一次 `名字(`。它们**故意**不在 `Run()` 的表里（否则跑两遍）。"""
+    texts = partial_texts()
+    out = []
+    for n in sorted(set(inv) - set(cases)):
+        hits = sum(len(re.findall(r"\b" + re.escape(n) + r"\s*\(", t)) for t in texts)
+        if hits > 1:
+            out.append(n)
+    return out
+
+
+def declared_method_names():
+    """🔴 2026-10-30：`RuleEngineTest` 各分册里**声明过的所有方法名**（不分 `Test`/`Check`/`Run` 前缀）。
+    给「用例表里有没有类里不存在的名字」用 —— 旧口径拿 `Test`/`Report` 前缀去判，
+    `Step(CheckB96CBEngine)` / `Step(RunB99E6)` 这类入口会被误报成「类里不存在」。"""
+    names = set()
+    for path in glob.glob(os.path.join(ASSETS, "**", "*.cs"), recursive=True):
+        text = io.open(path, encoding="utf-8", errors="replace").read()
+        if "partial class RuleEngineTest" not in text:
+            continue
+        for m in re.finditer(r"\b(?:static|void)\b[^\n{};]*?\b(\w+)\s*\(", text):
+            names.add(m.group(1))
+    return names
 
 
 def main():
@@ -333,10 +421,12 @@ def main():
     src = io.open(SRC, encoding="utf-8").read()
     cases = run_cases(src)
     inv = case_method_names()
+    subs = sub_case_names(inv, cases)
 
-    only_class = sorted(set(inv) - set(cases))   # 类里有、`Run()` 没跑
-    only_run = sorted(set(cases) - set(inv))     # `Run()` 跑了、类里没有（本该编译期就挡住）
-    print(f"`Run()` 用例表 {len(cases)} 条 · 用例方法（口径）{len(inv)} 个")
+    only_class = sorted(set(inv) - set(cases) - set(subs))   # 类里有、`Run()` 没跑、也没人调
+    declared = declared_method_names()
+    only_run = sorted(set(cases) - declared)     # `Run()` 跑了、类里根本没有这个方法
+    print(f"`Run()` 用例表 {len(cases)} 条 · 用例方法（口径）{len(inv)} 个 · 子用例（父用例内部调用）{len(subs)} 个")
     if only_class:
         print("🔴 「用例方法」里有 %d 个 **不在** `Run()` 的用例表里（⇒ `Run()` 与诊断入口**都少跑**）：%s"
               % (len(only_class), "、".join(only_class)))
@@ -345,7 +435,7 @@ def main():
         print("🔴 `Run()` 的用例表里有 %d 个名字在类里不存在：%s（编译期本该就挡住 ⇒ 先看判据）"
               % (len(only_run), "、".join(only_run)))
 
-    out = render(cases)
+    out = render(cases, subs)
 
     if check_only:
         disk = io.open(OUT, "rb").read() if os.path.exists(OUT) else b""

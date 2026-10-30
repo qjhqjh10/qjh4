@@ -1913,7 +1913,7 @@ namespace CardPresentation
         /// ⚠️ A476 / A491 / A545 那 8 条消息**逐字节没变**（`butClause` 传的仍是 `"但**点阵后端" + why + "**"`）。</summary>
         void NoteNotApplied(string which, string butClause, string wanted, string symptom)
         {
-            string path = name;
+            if (this == null) { if (_dotAlignNoted.Add(which + "|<destroyed>")) Debug.Log("[Label] ⚠️ 这一处要" + wanted + "，" + butClause + " ⇒ " + symptom + "（**这个 Label 已被销毁**：上层持着已销毁引用，节点全路径报不出来 —— 见 B100_X2）"); return; } string path = name;
             for (var t = transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
             if (!_dotAlignNoted.Add(which + "|" + path)) return;
             Debug.Log("[Label] ⚠️ 这一处要" + wanted + "，" + butClause + " ⇒ " + symptom

@@ -1,9 +1,9 @@
 // RuleEngineTest_EngineB96CB.cs — 第九十五会话 · 战斗线 C21 · 执行代理 `B96_CB`
 //
 // 为什么另开文件：`RuleEngineTest` 是 `public static partial class`（兄弟分册一大堆）。
-//   本件只放本批新增/接线那四件的断言；宿主 `RuleEngineTest.cs` **本笔没动**（它不在本批白名单）
-//   ⇒ ⚠️ **本件的入口 `CheckB96CBEngine()` 还没有被宿主调用**，这是**已知的接线待办**（如实记，
-//   不在报告里假装已接通）。接法照 `B94_B8` 那一件：宿主 `Run()` 里加 `{ CheckB96CBEngine(); }`。
+//   本件只放本批新增/接线那四件的断言。✅ **接线已完成**（2026-10-30 `B100_F2` 就地订正，原写「还没被宿主调用」已过期）：
+//   宿主 `RuleEngineTest.cs:1288` = `{ Step(CheckB96CBEngine); }`（`aa5a5dee` 同批落地；2026-10-30 由调度台把裸块改为 `Step`，
+//   防「本件一条断言抛异常就掐死整轮」—— 2026-10-30 那次 `ArgumentOutOfRangeException` 正是这么吃掉 918 条，见 `报告/B100_X1.md` §②）。⛔ 别改回裸块。
 //
 // 覆盖（判据 = `d:/2/tools/decomp_full/`，逐句亲读 2026-10-29）：
 //   ① 账 921  `CardScript.ShowCardBeingDrawn` 的两档发射（`EvtKind.DiscardReveal` / `StealReveal`）
@@ -21,7 +21,7 @@ using RuleEngine;
 
 public static partial class RuleEngineTest
 {
-    /// <summary>本件的唯一入口（⚠️ 宿主还没接线 —— 见文件头）。⛔ 不用 `Test` 前缀（避开 `VerifyRunCaseCoverage`）。</summary>
+    /// <summary>本件的唯一入口（✅ 宿主已接线 → `RuleEngineTest.cs:1288` 的 `{ Step(CheckB96CBEngine); }`）。⛔ 不用 `Test` 前缀（避开 `VerifyRunCaseCoverage`）。</summary>
     public static void CheckB96CBEngine()
     {
         Section("🆕 B96_CB：ShowCardBeingDrawn 两档（921）· ThisCardPlayedDamage 手牌档（1037）"
@@ -135,10 +135,23 @@ public static partial class RuleEngineTest
     static void B96CBT4HeroDeckTransform()
     {
         var hero = HeroOf("B96Hero", "Test", 2, 30);
-        var d0 = new List<CardDef> { hero, Unit("B96Old1", 1, 1, 1), Unit("B96Old2", 1, 1, 1) };
-        var ctx = RuleCore.NewBattle(d0, new List<CardDef> { HeroOf("B96Hero2", "Test", 2, 30) },
-                                     seed: 0, shuffle: false);
+        // 🔴 牌库必须多过起手张数：`NewBattle` 会把 type=="hero" 那张抽出来当督军（`RuleCore.cs:628`），
+        //    经典局 `startingHand = 3`（`GameplayVariables.cs:101/369`）⇒ 只传 3 张时牌库只剩 2 张、
+        //    起手第 3 抽直接走疲劳支（`RuleCore.cs:3070-3111`）⇒ 牌库为空、下面 `Deck[0]` 越界。
+        //    （2026-10-30 `B100_X1` 诊断：批处理整轮中断的根因。）
+        //    牌库 = 非督军张数，至少 4 张：3 张被起手抽走 + 留 1 张给 (a)(b)。
+        //    抽牌取**列表末尾**（`RuleCore.cs:3114-3135`）⇒ filler 放后面先被抽走，`Deck[0]` 仍是 `B96Old1`。
+        var d0 = new List<CardDef> { hero, Unit("B96Old1", 1, 1, 1), Unit("B96Old2", 1, 1, 1),
+                                     Unit("B96F1", 1, 1, 1), Unit("B96F2", 1, 1, 1) };
+        // 对手是先手位的另一侧（`FirstSeat = 0` ⇒ P2 多抽 `secondExtraCards = 1` 张，共 4 抽）
+        // ⇒ 它的牌堆同样要够，否则 P2 督军静默吃 10 点疲劳（本测试不断言它，但夹具不该带这种副作用）。
+        var d1 = new List<CardDef> { HeroOf("B96Hero2", "Test", 2, 30),
+                                     Unit("B96G1", 1, 1, 1), Unit("B96G2", 1, 1, 1), Unit("B96G3", 1, 1, 1),
+                                     Unit("B96G4", 1, 1, 1), Unit("B96G5", 1, 1, 1) };
+        var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false);
         int deckBefore = ctx.Players[0].Deck.Count;
+        CheckTrue(deckBefore > 0,
+                  "前提：牌库非空（否则下面三条全是空转 —— 2026-10-30 那次越界就是这么来的）");
 
         // (a) 数据缺 ⇒ 不换（**这就是今天的生产路径**）
         CheckTrue(!RuleCore.CheckForHeroDeckTransform(ctx, 0, null, null),
@@ -154,9 +167,17 @@ public static partial class RuleEngineTest
         CheckTrue(ctx.Players[0].Deck[0].Id != oldFirstId,
                   "🧨 换的是**新的一份实例**（原版换的是整副牌的对象，⛔ 不是复用旧实例）");
 
-        // (c) 判据不满足（牌表里没有那张替换卡）⇒ 不换
+        // (c) 判据本体：牌表里没有那张替换卡 ⇒ `DeckMeetsCriteria` 为假（走**真判据档** AtLeast/1）
+        //     ⚠️ 门那一层表达不了这一档：`RuleCorePartial_B96CB.cs:202` 传的是 0/0（原版 `deckCriteria+0x18/+0x1c`
+        //     本机没有）⇒ 落 `BoardAnalysis_B94B8.cs:66-70` 的 default 分支（LogError 后 return true，**照抄原版**）
+        //     ⇒ 「牌表里没有替换卡 ⇒ 不换」今天在**门级**不可达。`deckCriteria` 列落地那天，把门那层换成真
+        //     mode/targetCount，再把下面两条换回门级断言。⛔ 不许为了让本条变绿而给门塞一个我们挑的 mode（铁律 18·0）。
         var noMatch = new List<CardDef> { Unit("B96X", 1, 1, 1) };
-        CheckTrue(!RuleCore.CheckForHeroDeckTransform(ctx, 1, hero, noMatch),
-                  "🧨 牌表里没有那张替换卡 ⇒ **不换**（`DeckMeetsCriteria` 为假）");
+        Check(BoardAnalysis.DeckMeetsCriteria(noMatch, c => c != null && c.Id == hero.Id,
+                                              BoardAnalysis.ModeAtLeast, 1), false,
+              "🧨 牌表里没有那张替换卡 ⇒ `DeckMeetsCriteria(AtLeast 1)` 为假");
+        Check(BoardAnalysis.DeckMeetsCriteria(newDeck, c => c != null && c.Id == hero.Id,
+                                              BoardAnalysis.ModeAtLeast, 1), true,
+              "有那张替换卡 ⇒ 为真");
     }
 }

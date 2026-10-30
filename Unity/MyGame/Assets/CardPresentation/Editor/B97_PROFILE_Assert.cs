@@ -84,7 +84,10 @@ public static class B97ProfileAssert
             SameBool(s, r.Division.Find("Sparks Burn/Promote Letter Effect"), false,
                      "`Promote Letter Effect` 的 `shape.enabled = false`");
             SameBool(s, sbRank.Find("Glow Big"), false, "`Rank Up/Sparks Burn/Glow Big` 的 `shape.enabled = false`");
-            SameBool(s, sbRank.Find("Sparks Burn"), true, "`Rank Up/Sparks Burn` 的 `shape.enabled = true`");
+            // 🔴 **2026-10-30（`B100_F6`）就地订正（铁律 5）**：原来传的是 `sbRank.Find("Sparks Burn")`，
+            //   而 `sbRank` **本身就是** `Sparks Burn`（`:72`）⇒ 它没有同名子件 ⇒ `Find` 返 null ⇒ `Ps(null)` 静默给 null。
+            //   反证：紧接着下一行的 `Ps(sbRank).noise.enabled` 是 ✓（同一颗节点上有 `ParticleSystem`）。
+            SameBool(s, sbRank, true, "`Rank Up/Sparks Burn` 的 `shape.enabled = true`");
 
             // Noise（4 颗火花粒子）/ Trail（2 颗 Trails）
             MenuCheck.True(s, Ps(sbRank).noise.enabled, "★ `Rank Up/Sparks Burn` 的 **Noise** 模块开着（原版 4 颗火花都有）");

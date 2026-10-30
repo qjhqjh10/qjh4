@@ -55,14 +55,14 @@ public static partial class RuleEngineTest
               + "\"keywords\":[],\"cardTraits\":[],"
               + "\"hasAlternativeAbility\":1,"
               + "\"normalAbilityBoardCriteria\":{\"countOptions\":0,\"triggerIf\":1,\"referenceValue\":0,"
-              + "\"conditionsFilter\":331,\"countSet\":{\"targetsAffected\":10,\"friendlyUnits\":1}}}";
+              + "\"conditionsFilter\":331,\"countSet\":{\"targetsAffected\":10,\"friendlyUnits\":1}}}]}";   // 🔴 2026-10-30（`B100_F18` · G4）：原来结尾只有 `}}}`（关 countSet / boardCriteria / 卡对象），**少了关闭 `cards` 数组的 `]` 与根对象的 `}`** ⇒ `CardDatabase.Parse` 抛 `JSON parse error: Missing a comma or ']' after an array element`。对齐同段 `jsonNoGate` 的 `}]}`。
             const string jsonMissing =
                 "{\"version\":40,\"count\":1,\"cards\":[{\"id\":\"B97W5GateB\",\"name\":\"B97W5 闸探针B\","
               + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
               + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
               + "\"keywords\":[],\"cardTraits\":[],"
               + "\"normalAbilityBoardCriteria\":{\"countOptions\":0,\"triggerIf\":1,\"referenceValue\":0,"
-              + "\"countSet\":{\"targetsAffected\":10,\"friendlyUnits\":1}}}";     // ⛔ 故意不给 `conditionsFilter`
+              + "\"countSet\":{\"targetsAffected\":10,\"friendlyUnits\":1}}}]}";   // ⛔ 故意不给 `conditionsFilter`（🔴 2026-10-30 `B100_F18` · G4：结尾补 `]}` —— 同 `jsonCond`，原来少了数组/根对象的闭合）
             const string jsonNoGate =
                 "{\"version\":40,\"count\":1,\"cards\":[{\"id\":\"B97W5GateC\",\"name\":\"B97W5 闸探针C\","
               + "\"type\":\"unit\",\"desc\":\"Deal 1 damage\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
@@ -101,10 +101,32 @@ public static partial class RuleEngineTest
                   "★ A4 **缺键 ⇒ -1（未知），⛔ 不是 0**（`0` 是合法值 = 不筛；两者混了就会把"
                 + "「没落的列」静默当成「不筛」）｜🧨 把映射里 `GateConditionsFilterMissing` 那支改成 `s.ConditionsFilter = 0;` ⇒ 红");
 
-        CheckTrue(noGate.NormalAbilityBoardCriteria == null,
-                  "★ A5 没有整条 `normalAbilityBoardCriteria` ⇒ `NormalAbilityBoardCriteria == null`"
-                + "（= 原版恒真的默认 criteria，**不是**判不了）｜🧨 让 `MapBoardGateWithConditions` 在 `c == null` 时"
-                + "新建一个空 spec ⇒ 红");
+        // 🔴 2026-10-30（`B100_F34` · 332744 · **α/δ**）：改前是 `CheckTrue(…NormalAbilityBoardCriteria == null)` ——
+        //   那是一条**不可能成立**的设计：`CardDto.normalAbilityBoardCriteria` 是 `[Serializable]` 类字段，
+        //   `JsonUtility.FromJson` 对**缺键会物化出一份默认对象、不是 null**（判据 → `报告/B100_X10.md` §一·A1/A3；
+        //   现池 1127/1129 张全是这样，唯二例外是 `SW9`/`SW21`）。
+        //   ⇒ 改断「物化出来的那棵树的形状」：三个整数格 = `Unknown(-1)`（⛔ 不是 0 = 不筛）、`CountSet = null`。
+        //   🔴 **真修法是生成器侧落一个显式布尔**（如 `hasNormalAbilityBoardCriteria`，见 `报告/B100_X10.md` §一·A5
+        //   与排队表）—— 那要动 `工具/gen_cards_engine.py` + 数据层契约（且 ⛔ 不能用「三格都 == 缺键哨兵」反推），
+        //   不在本条断言写手的白名单里。本条在「生成器落布尔」之前**仍是一条真判别式**（盯住「别默认成 0」）。
+        CheckTrue(noGate.NormalAbilityBoardCriteria != null,
+                  "★ A5 （前提）缺整条 `normalAbilityBoardCriteria` 的卡，`CardDef` 侧**不是 null** —— "
+                + "`JsonUtility` 把缺键的 `[Serializable]` 字段物化成了默认对象（`报告/B100_X10.md` §一·A1）"
+                + "｜🧨 这条红 = 物化行为变了（真出 null）⇒ 那才轮到「`== null` 才是缺席」那套契约重新成立");
+        if (noGate.NormalAbilityBoardCriteria != null)
+        {
+            var gC = noGate.NormalAbilityBoardCriteria;
+            Check(gC.CountOption, CardDef.CountSetSpec.Unknown,
+                  "★★ A5-a 「缺键物化」的 `countOptions` = **`Unknown(-1)`**（⛔ 不是 0 = 不筛）"
+                + "｜🧨 把 `CountSetInt` 缺键那一支改成 `return 0;` ⇒ 实得 0 ⇒ 红（= 把「没落的列」静默当成合法值）");
+            Check(gC.StatOption, CardDef.CountSetSpec.Unknown,
+                  "★★ A5-b `triggerIf` 同理 = **`Unknown(-1)`**｜🧨 同上（缺键那一支返回 0 ⇒ 红）");
+            Check(gC.ReferenceValue, CardDef.CountSetSpec.Unknown,
+                  "★★ A5-c `referenceValue` 同理 = **`Unknown(-1)`**｜🧨 同上（缺键那一支返回 0 ⇒ 红）");
+            CheckTrue(gC.CountSet == null,
+                  "★★ A5-d 「缺键物化」的 `countSet` = **null**（`CountSetDto` 没被物化 ⇒ `MapCountSetDto` 落 null + 出声）"
+                + "｜🧨 让 `MapCountSetDto` 在 null 时新建一个空 `CountSetSpec` ⇒ 红（那会把「没落的列」当成「空 criteria」）");
+        }
     }
 
     // ==========================================================================================
@@ -256,7 +278,12 @@ public static partial class RuleEngineTest
         var self = Unit("B97W5SelfMut", 1, 1, 1);
         var other = Unit("B97W5OtherMut", 1, 1, 1);
         caster.Instance.ActiveEffects.Add(new ActiveCardEffect { EnchantmentCard = self, BuffType = 15 });
+        // 🔴 2026-10-30 `B100_F25`（#50–#52）：这两张原来**只造了 `CardDef`、从没进过手牌** ⇒ `HandIdx` 回 −1
+        //    ⇒ `PlayCard` 走 `ErrBadHand(1)`、`u1/u2` 拿到 null、D6/D6'/D6'' 三条一起红。
+        //    `self`/`other` 是**白盒 `CardDef`**（不经牌库）⇒ 必须先 `ctx.NewInstance` 塞进手牌再打（⛔ 不改期望值）。
+        ctx.Players[0].Hand.Add(ctx.NewInstance(self));
         CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "B97W5SelfMut"), 2), RuleCodes.OK, "D6 （前提）候选一上场");
+        ctx.Players[0].Hand.Add(ctx.NewInstance(other));
         CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "B97W5OtherMut"), 3), RuleCodes.OK, "D6' （前提）候选二上场");
         var u1 = B97W5UnitByName(ctx, 0, "B97W5SelfMut");
         var u2 = B97W5UnitByName(ctx, 0, "B97W5OtherMut");
@@ -336,6 +363,10 @@ public static partial class RuleEngineTest
         var inst = B97W5HandByName(ctx, 0, "B97W5DiscardMe");
         CheckTrue(inst != null, "E2 （前提）那张手牌还在手里");
         if (inst == null) return;
+        // 🔴 2026-10-30 `B100_F25`（#53）：`Battle(...)` 的 `Deck()` 塞 20 张 `filler`、起手 3 张 ⇒
+        //    手牌里除了 `payload` 还有 **`filler19`**，弃牌命中的可能是它（那就不带这条费用修正）⇒
+        //    E7 恒红。这里**只留被弃的那一张**，把「弃的是谁」钉死（⛔ 不改期望值、不改产品）。
+        ctx.Players[0].Hand.RemoveAll(h => !ReferenceEquals(h, inst));
         ctx.CostMods.Add(new CostMod { Player = 0, Key = inst.Card.Id, Delta = -1, HandInstanceId = inst.Id });
         int costModsBefore = ctx.CostMods.Count;
         int handBefore = ctx.Players[0].Hand.Count;

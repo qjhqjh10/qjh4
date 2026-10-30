@@ -289,7 +289,7 @@ public static partial class RuleEngineTest
         CheckTrue(RuleCore.AbilityActingCriteriaWarningsForTest > warn2,
                   "★ ③ 「判不了」也要**出声**（第一道闸计数 +1）");
 
-        // ---- 歧义例：2 条同 trigger 的 ability ⇒ **不触发** + 出声 ----
+        // ---- 歧义例：2 条同 trigger 的 ability ⇒ **不触发** + 出声（⚠️ 2026-10-30 `B100_F37` 订正：自 2026-10-29 `B96_CR` 起出声的是**第二道闸**，第一道闸逐条 AND 判得出来 ⇒ 见下面那两条断言）----
         var ambCard = E3Synthetic("E3Amb", "", new[] { 50, 50 },
                                   new Dictionary<int, CardDef.CountSetSpec>
                                   {
@@ -305,15 +305,28 @@ public static partial class RuleEngineTest
         Check(ab, -1, "★★ ③ 歧义：`UniqueAbilityIndexForTrigger` 返回 **-1**（⛔ 不猜第几条）");
         CheckTrue(amb, "★★ ③ 歧义被**单独标出来**（`ambiguous = true`）"
                      + "｜🧨 把歧义并进「没落」那一档 ⇒ 这一位 false ⇒ 红");
-        int warn3 = RuleCore.AbilityActingCriteriaWarningsForTest;
+        int warn3 = RuleCore.AbilityActingCriteriaWarningsForTest; int lwarn3 = RuleCore.AbilityLevelCriteriaWarningsForTest;
         bool queued4 = RuleCore.EnqueueAbility(ctx3, ActionPriority.Instant, "E3·歧义",
                                                () => { }, actor: aown,
                                                abilityTrigger: "UnitAttack", abilityTarget: afoe,
                                                abilityActingCard: afoe, abilityActingGate: true);
         CheckTrue(!queued4, "★★ ③ 歧义 ⇒ **不触发**（简报口径：定位不唯一就不猜、不出手）"
                           + "｜🧨 歧义时放行 ⇒ 红（那等于「随便挑一条」）");
-        CheckTrue(RuleCore.AbilityActingCriteriaWarningsForTest > warn3,
-                  "★★ ③ 歧义**出声**（第一道闸计数 +1）");
+        // 🔴 2026-10-30（`B100_F37` · 铁律 5 订正）：原写「歧义 ⇒ 第一道闸**出声**（计数 +1）」。
+        //   **实际自 2026-10-29 `B96_CR`（账 1217）起，第一道闸把「歧义」改成【逐条 ability 各判一次（AND）】**
+        //   （`ActionPump.cs:2270 ActingLevelCriteriaAllowsByAbility`）：本夹具两条 ability 的 acting criteria
+        //   都是 `E2Criteria10(1,0)`、候选 `afoe` 是**真敌方** ⇒ 两条都满足 ⇒ 闸回 `true` ⇒ **不出声**。
+        //   拦住这次入队的是**第二道闸**（`ActionPump.cs` 第二道闸的 `verdict == false` 分支：
+        //   「ability 级触发条件 **不满足** … ability 定位不唯一」⇒ `return false` + `LogWarning`）⇒
+        //   `queued4` 仍为 false（下面 :313 那条绿靠的是它）。⇒ 本格改成**两条一起断**：
+        //   ① 第一道闸**不出声**（⚠️ 方向与改前相反）；② 第二道闸**恰好出声一次**（证明这一格不是静默丢）。
+        Check(RuleCore.AbilityActingCriteriaWarningsForTest, warn3,
+                  "★★ ③ 歧义时**第一道闸不出声** —— 2026-10-29 `B96_CR` 起它逐条 AND，本夹具两条都满足 ⇒ 判得出来"
+                + "｜🧨 把 `ActingLevelCriteriaAllowsByAbility` 改回「判不了 ⇒ null」⇒ 实得 1 ⇒ 红");
+        Check(RuleCore.AbilityLevelCriteriaWarningsForTest - lwarn3, 1,
+                  "★★ ③ 拦住它的是**第二道闸**（`ability 定位不唯一` ⇒ 不触发 + 出声一次）"
+                + "—— 本格证明 `queued4 = false` 不是「静默丢」"
+                + "｜🧨 去掉第二道闸 `return false` 前那条 `LogWarning` / 让歧义静默放行 ⇒ 实得 0 ⇒ 红");
 
         // ---- 灭自证：`abilityActingGate = false` ⇒ 这道闸**不启用**（= 改前行为）----
         int warn4 = RuleCore.AbilityActingCriteriaWarningsForTest;

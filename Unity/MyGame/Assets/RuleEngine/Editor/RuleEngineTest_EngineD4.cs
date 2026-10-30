@@ -97,10 +97,10 @@ public static partial class RuleEngineTest
         // 🔴 2026-10-28（B91 · 执行代理 `A4` · 铁律 5 就地改期望值 38 → 39）：
         //   **v39 = 加卡表 `abilitySummon` 一列**（原版 `SummonCriteria` 七格：`createAtPos` / `moveToPos` / `summonAllTargets` /
         //   `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**）—— 生成器
-        //   `工具/gen_cards_engine.py:6247` 当时就是 `"version": 39`（口径 → `ability_summon_of` 上面那段）；🔴 **2026-10-29（`B94_B23` 加 `abilityBuffs` 列）⇒ 生成器与产物现读都是 `"version": 40`**（见下面断言文案顶部那条 v40）；上一档 **v38**（B90 波 2 · 执行代理 `F3`）= 加卡表 `enchantment` 一列（附魔「打出即挂」的正向数据）；
+        //   `工具/gen_cards_engine.py:6247` 当时就是 `"version": 39`（口径 → `ability_summon_of` 上面那段）；🔴 **2026-10-30 现读 = `"version": 44`**（`gen_cards_engine.py:6685` ＋ `Resources/cards_engine.json` 首行同值；v41–v44 见下面断言文案）—— 原来这条写「2026-10-29（`B94_B23` 加 `abilityBuffs` 列）⇒ 现读都是 40」，那之后又 bump 了四档；上一档 **v38**（B90 波 2 · 执行代理 `F3`）= 加卡表 `enchantment` 一列（附魔「打出即挂」的正向数据）；
         //   v33 = `enchantTrait` · v34 = `cardType`（消费点 `CardDef.IsTrapCard` → `CardInstance.ArmedTrap`）各列照旧；v35/v36/v37 的来历见下面那条断言的文案。
-        Check(dto.version, 40,
-              "★ A1 卡表 `version` = **40**（🔴 2026-10-29 B94 · 执行代理 `B23` = 加 `abilityBuffs` 一列（v40，账 `B94_B23`）；上一档 **v39** = 2026-10-28 B91 · 执行代理 `A4` = 加 `abilitySummon` 一列（原版 `SummonCriteria` 七格，**只落数据、不接线**）；上一档 v38 = B90 波 2 · 执行代理 `B3` = 加 `enchantment` 一列；再上一档 v37 = 第八十九会话 · 执行代理 `E6` = 三族「数据侧」列（账 L234 / L867 / L1044 / L847）；v36 = 执行代理 `A1c` = 加 `abilityDamage` 一列 "
+        Check(dto.version, 44,
+              "★ A1 卡表 `version` = **44**（🔴 2026-10-30 `B100_F19` 订正 40→44：v41 `abilityMutations` / v42 `triggerAbilityIndices`（`B96_GEN`）· v43 `startingCardInHand`（`B98_D1`）· v44 `abilityEffectTexts`（`B99_W3`）—— 生成器 `工具/gen_cards_engine.py:6685` 与 `Resources/cards_engine.json` 首行现读都是 44；上一档 **v40** = 2026-10-29 B94 · 执行代理 `B23` = 加 `abilityBuffs` 一列（账 `B94_B23`）；再上一档 **v39** = 2026-10-28 B91 · 执行代理 `A4` = 加 `abilitySummon` 一列（原版 `SummonCriteria` 七格，**只落数据、不接线**）；再上一档 v38 = B90 波 2 · 执行代理 `B3` = 加 `enchantment` 一列；再上一档 v37 = 第八十九会话 · 执行代理 `E6` = 三族「数据侧」列（账 L234 / L867 / L1044 / L847）；v36 = 执行代理 `A1c` = 加 `abilityDamage` 一列 "
             + "（`damageCriteria` 四格 `min/max/opt/type`，80/90 档 per-target 掷骰的数据面）；"
             + "🔴 2026-10-27 批次 A（执行代理 `G1`）= 加三列 "
             + "`cardDescriptionTextReferenceId` / `activeAbilityTextReferenceId` / `targetingTextReferenceId`"

@@ -200,8 +200,21 @@ public static class B99C1_Assert
         Tr(CardPoolCriteriaFilter.IsCardPoolTargetsAffected(52), "B0-c `ta=52 inHandAndPlayFiltered` ⇒ 是卡池档");
         Tr(CardPoolCriteriaFilter.IsCardPoolTargetsAffected(60), "B0-d `ta=60 inCemeteryFiltered` ⇒ 是卡池档");
         Tr(CardPoolCriteriaFilter.IsCardPoolTargetsAffected(65), "B0-e `ta=65 inDeckFiltered` ⇒ 是卡池档");
-        Tr(CardPoolCriteriaFilter.IsCardPoolTargetsAffected(180), "B0-f `ta=180 choiceResolution` ⇒ 是卡池档");
-        Tr(CardPoolCriteriaFilter.IsCardPoolTargetsAffected(190), "B0-g `ta=190 lastPlayedIfMeetsCriteria` ⇒ 是卡池档");
+        // 🔴 2026-10-30（`B100_F14` · 报告 `B100_X3` #38/#39）：这两条**原来是反的** —— 实现侧在
+        //   `CardPoolCriteriaFilter.IsCardPoolTargetsAffected` 里于**同一批（2026-10-30）删掉了 `case 180` / `case 190`**，
+        //   两处一起改才不打架。下面每条都把判据抄进文案（⛔ 不是「调到实现现在返回 false」）。
+        Tr(!CardPoolCriteriaFilter.IsCardPoolTargetsAffected(180),
+           "B0-f `ta=180 choiceResolution` ⇒ **不是**卡池档（180 的候选池归 `rawCard.choicesDefinition`，"
+         + "不套 `abilityLogic.targetCriteria` 那 36 格）"
+         + "｜判据 ILSpy `cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:25622` `GetChoiceFullPool`："
+         + "`:25633 list = choicesDefinition.filterSpecificCards;` + `:25634 if (choicesDefinition.targetsAffected != TargetsAffected.choiceResolution)` "
+         + "才从 `targets` 建池 —— 即 `ta==180` 时池子**就是** `filterSpecificCards`（空则回 `cardsTargetedInChosenResolution`），36 格一格不跑"
+         + "｜🧨 把 `case 180` 加回去 ⇒ `B99_D1` 实测会让选牌池筛空、`EffectResolver.cs:4556` 越界崩 3 张卡");
+        Tr(!CardPoolCriteriaFilter.IsCardPoolTargetsAffected(190),
+           "B0-g `ta=190 lastPlayedIfMeetsCriteria` ⇒ **不是**卡池档（原版那一支直接返回，不过末尾那句 `CheckIfMeetsCriteria` 循环）"
+         + "｜判据 `decomp_full/AbilityLogic__GetTargets.c:173-182`：`if (iVar6 == 0xbe) { … CemeteryManager__GetCardsPlayed(…) … goto LAB_180818485; }`，"
+         + "而 `LAB_180818485`（`:1378-1380`）= `return *puVar13;`；末尾那句筛在 `:1095` `FilterMethods__CheckIfMeetsCriteria(param_3,uVar8,param_5,param_2,0)` "
+         + "｜🧨 把 `case 190` 加回去 ⇒ 这一格被 36 格筛一遍（原版没有这一步）");
         Tr(!CardPoolCriteriaFilter.IsCardPoolTargetsAffected(10), "B0-h `ta=10 allFiltered`（棋盘档）⇒ **不是**卡池档");
         Tr(!CardPoolCriteriaFilter.IsCardPoolTargetsAffected(150), "B0-i `ta=150 previousAbilityFiltered` ⇒ **不是**卡池档");
         Tr(!CardPoolCriteriaFilter.IsCardPoolTargetsAffected(20), "B0-j `ta=20 self`（身份档）⇒ **不是**卡池档");
@@ -257,8 +270,13 @@ public static class B99C1_Assert
     {
         MenuCheck.Section(_sink, "C U3·T1 ③：`reloadduty` 的 `n++` 按「清空前捕获的 `ActiveAbilityUsed`」计");
 
+        // 费 = 1（🔴 2026-10-30 `B100_F14` · 报告 `B100_X3` #40：原来写 3 ⇒ 本段是「第 1 回合 · 先手」，
+        //   `MaxEnergy = startingMana(1) + TurnCount(1) × manaPerTurn(1) = 2`（`RuleCore.BeginTurnCore` 那句式子 ·
+        //   `GameplayVariables.cs:102` 的经典档 1/1/1）⇒ `CanPlayTactic` 的 `needNow > ps.Energy` 回 `ErrCost(2)`
+        //   （`EffectResolver.cs:2025`），C1/C2 全是它的级联。本段只验 `reloadduty` 的**计数口径**、与费用无关
+        //   ⇒ 取最小值 1；⛔ 别拿「把断言改成期望 ErrCost」来换绿（那是把要验的东西删掉）。
         var reload = new CardDef("B99C1_Reload", "B99C1_Reload", "tactic",
-                                 "Reload the Duty abilities of all your units", null, "Test", 3, 0, 0, 0, (string[])null);
+                                 "Reload the Duty abilities of all your units", null, "Test", 1, 0, 0, 0, (string[])null);
         var dutyCard = new CardDef("B99C1_Duty", "B99C1_Duty", "unit", "", "common", "Test",
                                    2, 3, 5, 0, new[] { "Duty" }, subtype: "Infantry");
 

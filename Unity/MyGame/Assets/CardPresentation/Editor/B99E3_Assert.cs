@@ -256,7 +256,10 @@ public static class B99E3_Assert
           "B2 🔴 `ta=50` + `keywordFilter=10 (Vehicle)` ⇒ **1**（只有那张载具）"
         + "｜🧨 把 `CardPoolSetSupported` 的 `keywordFilter` 挡回去（旧 `HandSetSupported` 的行为）⇒ "
         + "整行 `null` ⇒ 红（正是 `GSC75 Roaming Outriders` 那条 `multiplier` 失效的原因）");
-        Tr(!string.IsNullOrEmpty(gap), "B2′ 这一格**判得了**（返回非 null）⇒ 不该再留 `gap`（实得 gap=" + (gap ?? "null") + "）");
+        // 🔴 2026-10-30 `B100_F34` 修正极性（原为 `!IsNullOrEmpty` = 写反了）：
+        //    文案要的是「判得了 ⇒ gap **应空**」；`gap == null` 正是**正确**状态（`CountTargets` 返回了数字）。
+        //    改前恒红（正确的实现也被判失败），而且故障态（多留 gap）反而会绿 —— 极性反了 = 判别力为零。
+        Tr(string.IsNullOrEmpty(gap), "B2′ 这一格**判得了**（返回非 null）⇒ 不该再留 `gap`（实得 gap=" + (gap ?? "null") + "）");
 
         // ---- B3 ta=51：手牌 + 牌库 ----
         var s51 = Set(51, friendly: 1, enemy: 0, minions: 1, spells: 0);

@@ -94,8 +94,13 @@ public static partial class RuleEngineTest
         CheckTrue(cmd != null, "★ ① （前提）`RuleCore.AbilityActingGateCard` 还在");
         if (cmd == null) return;
         // `Deploy` 那一格 = `subject`（判据 `CardScript__ResolveUnitSummoned.c:31` acting=param_2=被召唤者）。
-        var dummy = Unit("B97ERDummy", 1, 1, 1);
-        var cand = (UnitState)cmd.Invoke(null, new object[] { WhenEventKind.Deploy, null, dummy });
+        // 🔴 2026-10-30（`B100_F18` · G4）：反射目标 `AbilityActingGateCard(string, UnitState, UnitState)`
+        //   （`EffectResolver.cs:7773`）两个形参都是 `UnitState`，而 `Unit(...)` 返回的是 `CardDef`
+        //   ⇒ 原来那一下直接抛 `Object of type 'RuleEngine.CardDef' cannot be converted to type 'RuleEngine.UnitState'`。
+        //   这里造一个真的 `UnitState`（同 `RuleEngineTest_EngineB95WRS.cs` 的写法），
+        //   并且把 `actingCard` 传 **null** —— `Deploy` 那一格若被错接成 `actingCard` ⇒ 回 null ⇒ 判据更硬。
+        var dummy = new UnitState(CardInstance.Detached(Unit("B97ERDummy", 1, 1, 1)), false);
+        var cand = (UnitState)cmd.Invoke(null, new object[] { WhenEventKind.Deploy, dummy, null });
         CheckTrue(ReferenceEquals(cand, dummy),
                   "★★ ① `Deploy` 那一族的 `actingCard` = 被召唤的那个单位（= `subject`）"
                 + "｜🧨 删掉这一格（回 null）⇒ 那一族永远「判不了 ⇒ 放行」⇒ 红");

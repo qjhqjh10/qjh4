@@ -29,8 +29,10 @@
 //   · B4：把 `30` 做成「落常规筛」⇒ 敌方目标被阵营闸淘汰 ⇒ 从 1 变 0 ⇒ **B4 红**。
 //   · C2：把 `90` 合并回 `30`（`return ReferenceEquals`）⇒ 敌方目标也过 ⇒ 从 0 变 1 ⇒ **C2 红**。
 //   · D1：把 `52` 只数手牌（= 退回 `50`）⇒ 2 ≠ 3 ⇒ **D1 红**；只数场上 ⇒ 1 ≠ 3 ⇒ **D1 红**。
-//   · E1：把 `isRemnant` 主键删掉（回到「只按攻降序」）⇒ 选中的是敌方高攻那一张 ⇒ `sum = +1 ≠ -1`
+//   · E1：把 `isRemnant` 主键删掉（回到「只按攻降序」）⇒ 选中的是敌方高攻那一张 ⇒ `sum = +1`（应 −1，即不满足 ≤0）
 //          ⇒ `MeetsBoardCriteria` 从 true 变 false ⇒ **E1 红**；E2 是它的因果对照（去掉残骸标记后**必须**变假）。
+//          🔴 2026-10-30 `B100_F25`：闸从 `EqualTo(-1)` 改成 `EqualOrLower(0)` —— `-1` 是 `Unknown` 哨兵，
+//             这一档表达不出来（详见 `SectionE` 里那段注释）。唯一候选下两者逐值等价。
 //   · F1：把 `cardTarget(4)` 改回旧文案「判据未取到」/ 或把它当成别的支 ⇒ 文案不再同时含
 //          `cardTarget` 与「随机」⇒ **F1 红**。
 //
@@ -280,11 +282,18 @@ public static class B99T2_Assert
         set.MaxTargets = 1;
         set.TargetSelectMethod = 1;      // highestAttack
 
+        // 🔴 2026-10-30 `B100_F25`（#41/#42）：原来 `StatOption = 1 (EqualTo)` ＋ `ReferenceValue = -1`，
+        //    而 `-1` **同时**是 `CountSetSpec.Unknown` 的哨兵（`CountEval.cs:396`
+        //    `gate.StatOption != 8 && gate.ReferenceValue == CountSetSpec.Unknown` ⇒ gap ⇒ null）
+        //    ⇒ 这一档**恒判不了**（日志尾巴的 gap 就是「referenceValue 未知（没落）」）。
+        //    ⚠️ 结构性限制：`EnemiesMinusAllies + EqualTo(-1)` 在本版**表达不出来**（那个值被哨兵占了）。
+        //    改用 `EqualOrLower(0)` ＋ 参照 0：本局面只有 1 个候选（`maxTargets = 1`）⇒ 净和恒 ∈ {−1, +1}
+        //    ⇒ 「≤ 0」与「== −1」**逐值等价**，判别力不降（删掉 isRemnant 主键 ⇒ 变 +1 ⇒ 仍会红）。
         var gate = new CardDef.BoardGateSpec
         {
             CountOption = 10,            // EnemiesMinusAllies：同方 −1 / 异方 +1
-            StatOption = 1,              // EqualTo
-            ReferenceValue = -1,
+            StatOption = 3,              // EqualOrLower（替代不能表达的 EqualTo(-1)）
+            ReferenceValue = 0,
             CountSet = set,
         };
 
@@ -295,7 +304,7 @@ public static class B99T2_Assert
 
         bool? r1 = CountEval.MeetsBoardCriteria(ctx, 0, gate, null, out string ge1);
         Tr(r1 == true,
-          "E1 🔴 净和 == **−1** ⇒ `EqualTo(−1)` 成立（= 选中了**非残骸**的 A）｜"
+          "E1 🔴 净和 == **−1** ⇒ `EqualOrLower(0)` 成立（= 选中了**非残骸**的 A；唯一候选时 ≡ `== −1`）｜"
         + "🧨 把 `isRemnant` 主键删掉（回到「只按攻降序」）⇒ 选中攻 9 的敌方 B ⇒ 净和 +1 ⇒ 变 false ⇒ 红"
         + "（gap = 「" + (ge1 ?? "") + "」）");
 
@@ -303,7 +312,7 @@ public static class B99T2_Assert
         b.IsRemnant = false;
         bool? r2 = CountEval.MeetsBoardCriteria(ctx, 0, gate, null, out string ge2);
         Tr(r2 == false,
-          "E2 🔴 只把 B 的 `IsRemnant` 撤掉（其余一字不改）⇒ 净和变 **+1** ⇒ `EqualTo(−1)` **不成立** —— "
+          "E2 🔴 只把 B 的 `IsRemnant` 撤掉（其余一字不改）⇒ 净和变 **+1** ⇒ `EqualOrLower(0)` **不成立** —— "
         + "这条证明 E1 的差**就是** `isRemnant` 主键带来的，不是别的格（gap = 「" + (ge2 ?? "") + "」）");
     }
 

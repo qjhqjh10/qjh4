@@ -511,7 +511,7 @@ namespace CardPresentation
             EvtKind.Deploy, EvtKind.Attack, EvtKind.Hit, EvtKind.Death, EvtKind.Ability,
             EvtKind.Trigger, EvtKind.Draw, EvtKind.Heal, EvtKind.Retaliation,
             // 🆕 2026-10-25（`AU1`）：回手/洗回牌库（原版 `yield return` 两段协程，见 `ReturnHoldOf`）
-            EvtKind.Return,
+            EvtKind.Return, EvtKind.DiscardReveal, EvtKind.StealReveal,   // 🆕 2026-10-30（执行代理 `B100_F11`）：弃牌/偷牌的「揭示」那一拍**各占自己的 `stepTime`**（0.2 / 0.4，判据 = `CardFeel.DiscardRevealStepTime` / `StealRevealStepTime` 的 doc：`.rdata` 实读 + 生产调用点 `_ResolveDiscardFromHand_d__544:95` / `_ResolveStealFromDeck_d__547:243`）。改前这两档**没登记** ⇒ `DurationOf` 落 `default: 0`、`IsSourced` 回 false（`BattleScene` 的 `unsourced == 2` 变 4、`A2·J2③` 报「未登记 2 档」）。⚠️ 写在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
         };
 
         /// <summary>自检用：`DurationOf` 里登记成「零时长」的那一档吗（不触发未登记告警）。</summary>
@@ -694,7 +694,7 @@ namespace CardPresentation
                 //   远程打法守方才 `ResolveAttackRangedAnim`；近战那一支 `:1132-1150` 守方什么都不播 ⇒ 0）。
                 //   本重载**拿不到 `Ranged` / 卡** ⇒ 回「远程档的兜底」（前摇 + `RangedVfxFallback`），
                 //   ⛔ 别把它当成生产值：生产走 `DurationOf(BattleEvent)` → `RetaliationHoldOf`。
-                case EvtKind.Retaliation: return AttackStepRanged + RangedVfxFallback;
+                case EvtKind.Retaliation: return AttackStepRanged + RangedVfxFallback; case EvtKind.DiscardReveal: return CardFeel.DiscardRevealStepTime; case EvtKind.StealReveal: return CardFeel.StealRevealStepTime;   // 🆕 2026-10-30（`B100_F11`）**揭示那一拍按 `CardFeel.ShowCardBeingDrawn` 的 `stepTime` 排**（弃牌 0.2 / 偷牌 0.4，两档**不同值、⛔ 别统一**）—— 消费口 `BattleDriver.PlayCardBeingDrawn:37859` 用的就是同一对常量；⛔ 别退回 0（那会让下一拍在揭示动画中途就开场）。挤在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
 
                 // 🆕 2026-10-24（`A2` · `J2` 顺手发现 3）：**不再一把兜住** —— 只有登记成
                 // 「零时长」的那一档才静默回 0；没登记的**出声 + 计数**（见 `ZeroDurationKinds` 上面那段）。
@@ -1196,6 +1196,24 @@ namespace CardPresentation
                                               + "`WaitForSeconds(GetAnimDuration())`；**协程跑完才**落伤害 `:1136-1147`）"
                                               + " ⇒ 前摇 `AttackStepRanged` 0.2 + **守方那件**的 `ChainDuration`"
                                               + "（拿不到 ⇒ `RangedVfxFallback` 0.75，出声）；⚠️ 只覆盖**远程档**，近战档守方不播 = 0";
+                // 🆕 2026-10-30（执行代理 `B100_F11`）：**弃牌 / 偷牌的揭示那一拍** —— 两档**各用各的**
+                //   `stepTime`（⛔ 别统一成一个数；原版两条链各传自己的字面量）。
+                //   判据全文 = `CardFeel.DiscardRevealStepTime` / `StealRevealStepTime` 的 doc：
+                //   `.rdata 0x1834b2bb0` = 0.2f · `.rdata 0x1834b3158` = 0.4f（`工具/read_literal.py` 实读）；
+                //   调用点 `BattleManager._ResolveDiscardFromHand_d__544__MoveNext.c:95` /
+                //   `BattleManager._ResolveStealFromDeck_d__547__MoveNext.c:243`，两处都是
+                //   `CardScript.ShowCardBeingDrawn(card, <那个常量>)` ⇒ 这一拍就演这么久。
+                //   ⚠️ 它们进 `TimedKinds` 是**登记**（改前没登记 ⇒ `DurationOf` 落 `default: 0`、
+                //   `IsSourced` 回 false ⇒ `BattleScene` 的 `unsourced == 2` 变 4）。
+                case EvtKind.DiscardReveal: return "**弃牌揭示**：`stepTime` = **0.2**（`.rdata 0x1834b2bb0` 实读，"
+                                              + "= `CardFeel.DiscardRevealStepTime`；调用点 "
+                                              + "`BattleManager._ResolveDiscardFromHand_d__544__MoveNext.c:95` "
+                                              + "`CardScript.ShowCardBeingDrawn(card, DAT_1834b2bb0)` ⇒ 摆进 `HandMoving` 层"
+                                              + "（我方）/ 卡背翻面（敌方，时长 = 延迟 = 0.2）就演这么久）";
+                case EvtKind.StealReveal: return "**偷牌揭示**：`stepTime` = **0.4**（`.rdata 0x1834b3158` 实读，"
+                                              + "= `CardFeel.StealRevealStepTime`；调用点 "
+                                              + "`BattleManager._ResolveStealFromDeck_d__547__MoveNext.c:243`）"
+                                              + "—— 🔴 与弃牌那一档**不同值、⛔ 别统一**（两条链各用各的字面量，不是笔误）";
                 // 🆕 2026-10-24（`A2`）：登记成零时长的那一档照旧回「（无）」；**未登记**的出声 + 明写。
                 // 🔴 2026-10-24（执行代理 `E2`）：与 `DurationOf` 同一条口径 —— 「登记了但没 `case`」
                 //   走 `ReportMissingCase`（⛔ 别把它也说成「没在登记表里」，那是两件事）。

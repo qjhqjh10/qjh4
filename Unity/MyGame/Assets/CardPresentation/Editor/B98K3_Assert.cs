@@ -289,7 +289,10 @@ public static class B98K3Assert
 
         var nested = tCfg.GetNestedType("MissionConfig", BindingFlags.Public | BindingFlags.NonPublic);
         Tr(nested != null, "E3 嵌套类 `MissionsConfig.MissionConfig` 在（原版 TypeDefIndex 1487）");
-        Tr(nested != null && nested.GetField("type") != null && nested.GetField("maxAmount") != null,
+        // 🔴 **2026-10-30（`B100_F6`）就地订正（铁律 5）**：`type` 是 **`internal`**（`Shell/MissionsConfig.cs:65`
+        //   `internal MissionType type;`）⇒ 默认 BindFlags（只看 public）取不到它。`maxAmount` 是 public ⇒ 两条要分开取。
+        const BindingFlags AnyInstance = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+        Tr(nested != null && nested.GetField("type", AnyInstance) != null && nested.GetField("maxAmount", AnyInstance) != null,
            "E3b 它有两格 `type` / `maxAmount`");
         object nc = null;
         try { nc = nested != null ? Activator.CreateInstance(nested) : null; } catch (Exception) { }

@@ -205,26 +205,59 @@ public static class B98M1_Assert
 
         int[] armies = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130 };
         int miss = 0, badRect = 0;
+        // 🔴 2026-10-30 就地订正（`B100_F24` · 铁律 5 · `报告/B100_X3` #24）：这条原来断的是
+        //   「**拍的**启发式域」(`宽 590–690 · 高 900–980`)，它把一格**真值**判成了越界 ——
+        //   army 40 / tier 4 / stratagem = `(191.04291, 11, 640.93036, 998)`（`CardArtClanFrames.cs:178`）。
+        //   **回源现核（本代理亲读）**：原版那个 Sprite 是
+        //   `d:/2/新解包资源/assets_full/bundle_necronssautekhcardassets_assets_all/Sprite/Orc Frame_6974505386267810414.json`，
+        //   它的 `m_RD.textureRect` = `{x:191.04290771484375, y:11.0, width:640.9303588867188, height:998.0}`
+        //   —— 与表里那一行**逐字相同**（同 bundle 里 army40/tier4/troop 那行 `(191.04291, 29.07612, 640.93036, 961.8478)`
+        //   也对上 `Orc Frame_-7166691385669469535.json`）⇒ **不是转录回退，是真的**。
+        //   998 高是正当的：`m_Rect` 高也是 998、纹理 1024（`textureRect` 落 `y=11…1009`）。
+        //   ⇒ 判据换成**原版自带的硬约束**：`textureRect` 必须落在 `m_Rect`（104/104 同一块 `(171,11,682,998)`，见
+        //   `CardArtClanFrames.SpriteRectX/Y/W/H`）里面，外加「宽高 > 0」。⛔ 别再拿「看着像卡框的宽高」当域。
+        const float MRX = CardArtClanFrames.SpriteRectX, MRY = CardArtClanFrames.SpriteRectY;
+        const float MRR = CardArtClanFrames.SpriteRectX + CardArtClanFrames.SpriteRectW;   // m_Rect 右边界 = 853
+        const float MRT = CardArtClanFrames.SpriteRectY + CardArtClanFrames.SpriteRectH;   // m_Rect 上边界 = 1009
         for (int a = 0; a < armies.Length; a++)
             for (int tier = 1; tier <= 4; tier++)
                 for (int k = 0; k < 2; k++)
                 {
                     CardArtClanFrames.Entry e;
                     if (!CardArtClanFrames.TryGet(armies[a], tier, k == 1, out e)) { miss++; continue; }
-                    if (e.X < 0f || e.Y < 0f || e.W < 590f || e.W > 690f || e.H < 900f || e.H > 980f) badRect++;
+                    if (e.W <= 0f || e.H <= 0f) { badRect++; continue; }
+                    if (e.X < MRX - 1e-3f || e.Y < MRY - 1e-3f) { badRect++; continue; }
+                    if (e.X + e.W > MRR + 1e-3f || e.Y + e.H > MRT + 1e-3f) { badRect++; continue; }
                 }
         C(miss, 0, "C2 13×4×2 = 104 格**全部**在表里（缺一格 = 漏一个原版槽位）");
-        C(badRect, 0, "C3 每条 `m_Rect` 都在合理域（x/y ≥ 0 · 宽 590–690 · 高 900–980，原版逐条现算）");
+        C(badRect, 0, "C3 每条 `textureRect`（`Entry.X/Y/W/H`，⛔ 不是 `m_Rect`）都落在原版 Sprite 的 "
+                    + "`m_Rect (171,11,682,998)` 里（= `x≥171 ∧ y≥11 ∧ x+W≤853 ∧ y+H≤1009`）+ 宽高 > 0"
+                    + "｜🧨 把某一格写成 `(0,0,0,0)`（= `frames_resolved.json` 里那种缺失回退）或越出 `m_Rect` ⇒ 红");
         Near(CardArtClanFrames.PixelsToUnits, 100f, 1e-6f, "C3-b `m_PixelsToUnits` = 100（原版 104/104 全 100）");
 
         CardArtClanFrames.Entry e10;
         Tr(CardArtClanFrames.TryGet(10, 1, false, out e10), "C4 **前提**：army 10 的 tier1 部队槽在表里");
         if (CardArtClanFrames.TryGet(10, 1, false, out e10))
         {
-            Near(e10.X, 199.07613f, 1e-4f, "C4 Ultramarines/1 部队 卡框矩形 x = 199.07613（原版 `m_Rect`）");
+            Near(e10.X, 199.07613f, 1e-4f, "C4 Ultramarines/1 部队 卡框矩形 x = 199.07613（原版 `textureRect`）");
             Near(e10.Y, 30.068026f, 1e-4f, "C4-b …y = 30.068026");
             Near(e10.W, 611.89716f, 1e-4f, "C4-c …宽 611.89716");
             Near(e10.H, 939.85583f, 1e-4f, "C4-d …高 939.85583");
+        }
+        // 🆕 2026-10-30（`B100_F24` · `报告/B100_X3` #24）：把**当初被判越界的那一格**钉成逐值断言 ——
+        //   这样将来「有人拿启发式把 998 改成 980」或者「这一格回退成 (0,0,0,0)」都会红，而不用再靠`域`的宽窄去猜。
+        //   判据（本代理亲读原版资产）：
+        //   `d:/2/新解包资源/assets_full/bundle_necronssautekhcardassets_assets_all/Sprite/Orc Frame_6974505386267810414.json`
+        //   → `m_RD.textureRect` = `{191.04290771484375, 11.0, 640.9303588867188, 998.0}`（`m_Rect` = `(171,11,682,998)`）。
+        CardArtClanFrames.Entry e40s;
+        Tr(CardArtClanFrames.TryGet(40, 4, true, out e40s), "C4-c **前提**：army 40 的 tier4 战术槽在表里");
+        if (CardArtClanFrames.TryGet(40, 4, true, out e40s))
+        {
+            Near(e40s.X, 191.04291f, 1e-4f, "C4-e Sautekh/4 战术 `textureRect` x = 191.04291（原版 `Orc Frame_6974505386267810414.json`）");
+            Near(e40s.Y, 11f, 1e-4f, "C4-f …y = 11（= 贴到 `m_Rect` 下沿，合法）");
+            Near(e40s.W, 640.93036f, 1e-4f, "C4-g …宽 640.93036");
+            Near(e40s.H, 998f, 1e-4f, "C4-h …高 998 ⚠️ **不是 980**：原版就是 `y=11…1009` 占满 `m_Rect` 高"
+                                    + "｜🧨 按「看着像卡框」把它压到 980 以内 ⇒ 这一行红（真值被改）");
         }
         C(CardArtClanFrames.FrameTextureName(10, 1, false), "40k_Cardframe_troop_Ultramarines_tier1",
           "C5 纹理名（army 10–90 的写法：`40k_Cardframe_` + 小写 troop）");
@@ -256,10 +289,10 @@ public static class B98M1_Assert
                         sdfMiss++;
         C(sdfMiss, 0, "C7 原版 104 张 **SDF（高亮）**图都在 `Resources/Art/card_sdf/`（13×4×2 逐条 `Resources.Load` 核，⛔ 不走 `CardArt.Sdf` 的 `generic` 兜底）");
 
-        // C8：卡框贴图**还没导** ⇒ 钩子回退、零回归
-        Tr(CardArtClanFrames.FrameTexture(10, 1, false) == null,
-           "C8 **如实记**：原版卡框贴图（104 张）还没导进来 ⇒ `FrameTexture()` 回 `null`"
-         + "（导入清单 + 裁切矩形 → `报告/B98_M1.md` §三；导进来之后本条会红，那时的红是**好事**）");
+        // C8：卡框贴图**已导完** ⇒ 必须取得到（2026-10-30 反转：原断「还没导」）
+        Tr(CardArtClanFrames.FrameTexture(10, 1, false) != null,
+           "C8 **原版卡框贴图 104/104 已就位** ⇒ `FrameTexture()` 取得到（🔴 2026-10-30 `B100_F12` 就地反转："
+         + "原文断「还没导 ⇒ 回 null」，而 24 张带空格的文件名已归一为下划线 ⇒ 现读 104/104 命中）");
         Tr(CardArt.Frame("Ultramarines", null, false, 1) != null,
            "C8-b 取不到原版 ⇒ `CardArt.Frame` 落回自绘那套（今天**零行为变化**，不是空白框）");
         Tr(CardArt.Sdf("Leviathan", null, false, 4) != null,

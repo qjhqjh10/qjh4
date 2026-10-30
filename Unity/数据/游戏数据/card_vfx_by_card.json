@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-29 19:43:34",
+ "generatedAt": "2026-10-30 07:03:53",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -85900,31 +85900,6 @@
    ]
   },
   "9218576fd3e26554db5b4c239a36dbc7": {
-   "hit": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "72426af784f94aa40abc1fcc52e2b7b4",
-     "origCardId": "9218576fd3e26554db5b4c239a36dbc7",
-     "joinKey": "id",
-     "assetName": "Pray_Exit",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "72426af784f94aa40abc1fcc52e2b7b4",
-     "cardanim": "Pray_Exit",
-     "prefab": "Pray_Exit",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 60,
-     "abilityTriggerName": "UnitDamaged",
-     "abilityEvent": "hit",
-     "abilityEventWhy": "原版 `AbilityTrigger.UnitDamaged` → `hit`",
-     "abilityEventClass": "mapped",
-     "chosenAbility": 340,
-     "chosenAbilityName": "removeThisEnchantment",
-     "inLibrary": true
-    }
-   ],
    "trigger": [
     {
      "conf": "authoritative",
@@ -86163,11 +86138,11 @@
    "ability": 93,
    "trigger_unmapped": 26,
    "attack_melee": 11,
-   "hit": 2,
-   "deploy": 1
+   "deploy": 1,
+   "hit": 1
   },
   "entriesByConf": {
-   "authoritative": 4585
+   "authoritative": 4584
   },
   "cardsByConf": {
    "authoritative": 1129
@@ -87225,16 +87200,42 @@
    ],
    "leftByConf": {}
   },
+  "enchantmentNotUnit": {
+   "cardTypeKey": "type == \"enchantment\"（⛔ 不是 cardType == 20：那 487 张里有 446 张是战术卡）",
+   "cards": [
+    "9218576fd3e26554db5b4c239a36dbc7",
+    "e8cf1eb55ca41534abe38efc90b302e9"
+   ],
+   "dropped": [
+    {
+     "id": "9218576fd3e26554db5b4c239a36dbc7",
+     "nm": "Pray Enchantment",
+     "fa": "Sororitas",
+     "ev": "hit",
+     "n": "Pray_Exit",
+     "a": "Pray_Exit",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "abilityTriggerName": "UnitDamaged",
+     "chosenAbilityName": "removeThisEnchantment",
+     "conf": "authoritative",
+     "outcome": "enchantment-not-unit",
+     "why": "⛔ **附魔不是单位 ⇒ 单位受击（`UnitDamaged`）这一拍不播**（判据：`Editor/BattleScene.cs:13423-13430` + `Core/VfxMap.cs:3521`，2026-10-30 `B100_F11`）。原版这条 trigger 60 是**附魔能力**（`chosenAbility` 见条目上的 `chosenAbilityName`），不是单位技能动画；而 `VfxMap.LoadTableFromJson` 会把 `hit` 桶**无差别搬进** `UnitDamaged`（`VfxMap.cs:1218`）⇒ 留在表里会让 `CardTableUnitDamagedEntries` 多算一张附魔、并在单位受击那一拍把附魔自己的动画播出去。⛔ 别把它改挂到 `EnchantmentRemoved` 那一拍 ——那条链今天没有任何「该播哪件」的原版判据（拿出判据再来做，见 `EventTiming.ZeroDurationKinds` 那条注释）。"
+    }
+   ],
+   "byCard": {
+    "9218576fd3e26554db5b4c239a36dbc7": 1
+   }
+  },
   "triggerBuckets": {
    "rows": {
     "ability": 160,
-    "mapped": 855,
+    "mapped": 854,
     "routed": 409,
     "unmapped": 45
    },
    "cards": {
     "ability": 93,
-    "mapped": 586,
+    "mapped": 585,
     "routed": 266,
     "unmapped": 26
    },
@@ -87493,6 +87494,16 @@
     "a": "PenitenceTraitTrigger",
     "outcome": "duplicate",
     "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `trigger` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "9218576fd3e26554db5b4c239a36dbc7",
+    "nm": "Pray Enchantment",
+    "fa": "Sororitas",
+    "ev": "hit",
+    "n": "Pray_Exit",
+    "a": "Pray_Exit",
+    "outcome": "enchantment-not-unit",
+    "why": "⛔ **附魔不是单位 ⇒ 单位受击（`UnitDamaged`）这一拍不播**（判据：`Editor/BattleScene.cs:13423-13430` + `Core/VfxMap.cs:3521`，2026-10-30 `B100_F11`）。原版这条 trigger 60 是**附魔能力**（`chosenAbility` 见条目上的 `chosenAbilityName`），不是单位技能动画；而 `VfxMap.LoadTableFromJson` 会把 `hit` 桶**无差别搬进** `UnitDamaged`（`VfxMap.cs:1218`）⇒ 留在表里会让 `CardTableUnitDamagedEntries` 多算一张附魔、并在单位受击那一拍把附魔自己的动画播出去。⛔ 别把它改挂到 `EnchantmentRemoved` 那一拍 ——那条链今天没有任何「该播哪件」的原版判据（拿出判据再来做，见 `EventTiming.ZeroDurationKinds` 那条注释）。"
    }
   ],
   "factionArmyIds": {

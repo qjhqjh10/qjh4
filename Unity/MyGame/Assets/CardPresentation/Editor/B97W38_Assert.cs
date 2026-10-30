@@ -249,13 +249,20 @@ public static class B97W38Assert
     {
         MenuCheck.Section(_sink, "E 账 L576 值等价：`BattleContext.TakePlayOrder` = 后置 `++`（原版 `SetUnitOrderInPlay.c:30-48`）");
 
+        // 🔴 2026-10-30 `B100_F25`（#55–#57）：原来断「新局首号 = 0」是**过期期望** ——
+        //    `RuleCore.NewBattle` 开局就给**两个督军各发过一次号**（`RuleCore.cs:663`
+        //    `p.Warlord.PlayOrder = ctx.TakePlayOrder();`）⇒ 计数器已到 2。产品（后置 `++`）本身没错，
+        //    错的是断言没算这段基线。改成「取基线再比增量」，判别力不变：前置 `++` 会让下面每一条都偏 1。
         var ctx = NewCtx();
+        int base0 = ctx.TakePlayOrder();               // 新局基线（= 开局已发掉的那几号之后的值）
         int o0 = ctx.TakePlayOrder();
         int o1 = ctx.TakePlayOrder();
-        C(o0, 0, "E1 ★ 首号 = 0（原版 `+0x3a8` 计数器初值 0，先取当前值再自增）（🧨 改成前置 `++` ⇒ 首号变 1，红）");
-        C(o1, 1, "E2 第二次取 1（后置 `++` 的单调走势）");
+        C(o0, base0 + 1, "E1 ★ 后置 `++`：取到的号 = **基线 + 1**（原版 `+0x3a8`「先取当前值再自增」）"
+                       + "｜🧨 改成前置 `++` ⇒ 实得 基线 + 2 ⇒ 红");
+        C(o1, o0 + 1, "E2 第二次再 +1（后置 `++` 的单调走势）");
 
         var ctx2 = NewCtx();
-        C(ctx2.TakePlayOrder(), 0, "E3 新局重新从 0 起（⛔ 不是静态计数器）");
+        int base2 = ctx2.TakePlayOrder();
+        C(base2, base0, "E3 新局重新从**同一基线**起（⛔ 不是静态计数器 —— 若是静态的，这里会是 `base0 + 2`）");
     }
 }

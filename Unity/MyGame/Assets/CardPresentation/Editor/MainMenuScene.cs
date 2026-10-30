@@ -20447,7 +20447,7 @@ public static class MainMenuScene
         try
         {
             Loc.PersistOverride = true;                                  // 自检不许动玩家的真设置
-            LiveOpsClock.NowProvider = () => ev.StartUtc.AddHours(1);     // 钉在事件期内（原版取图与「在不在期」无关，但别让时钟漂）
+            LiveOpsClock.NowProvider = null;     // 🔴 2026-10-30（B100_F8，**不钉事件期**）：原来钉 `ev.StartUtc+1h` 会污染 4 条断言 —— ① 重摆走「有在期活动就整片改摆事件卡」那一支（`MainMenuRuntime.cs:2584`，非 null ⇒ `return`，⛔ 不再建手挑那 5 张）⇒ 手挑的 `…- Ranked` 重摆后不存在（M6）；② 它的卡图断言与灭自证那条实测都是 `<无>`（M7/M8）；③ 事件卡 `kind="event"` ⇒ 首次建就走容器表（`PlaceModeCardViaContainer`，`:5064` 只放行 `kind == "event"`），而 `finally` 只还原时钟**不重建** ⇒ 探针之后同一行跑的 `MC-1 无在期活动 ⇒ 容器表为空` 读到 1（M9）。**归属注入与「在不在期」无关**（`ModeCardOwnerEvent` 先看注入口，`:4102`）⇒ 只设 `ModeCardOwnerOverrideForTest` 就能验到「换事件容器图」；置 `null` = 真实时间（今天 13 份活动 SO 的日期全在 2025 年 ⇒ 无在期活动 ⇒ 与探针之前同一档；比「删掉这一句」更稳：不受别处泄漏的 `NowProvider` 影响），`finally` 照旧还原 `origClock`
             MainMenuRuntime.ModeCardOwnerOverrideForTest = nm => nm == CardNode ? ev : null;
 
             bool changed = Loc.SetLanguage(origLang == AvailableLanguages.Chinese ? AvailableLanguages.English : AvailableLanguages.Chinese);
@@ -20455,7 +20455,7 @@ public static class MainMenuScene
             var q2n = menu.Find(CardNode);
             var q2 = q2n != null ? q2n.Find("Background Image") : null;
             var q2q = q2 != null ? q2.GetComponent<ImageQuad>() : null;
-            CheckTrue(q2q != null && q2q.Texture != null, "（前提·事件容器图）重摆之后那张卡与它的 `Background Image` 还在");
+            CheckTrue(q2q != null && q2q.Texture != null, "（前提·事件容器图）重摆之后那张卡与它的 `Background Image` 还在" + "｜🧨 这一条若红、且树里冒出 `… Raid or Army Release` ⇒ 说明重摆走了「有在期活动就整片改摆事件卡」那一支（`MainMenuRuntime.cs:2584`）—— 本探针**不钉时钟**（见 `:20450`），所以先查「此刻真有一场活动在期」而不是改这条断言");
             string withEvent = q2q != null && q2q.Texture != null ? q2q.Texture.name : "<无>";
             CheckTrue(withEvent == wantTexName,
                       "★ 模式卡**归属到事件** ⇒ 卡图换成**事件容器图**（原版 `LiveopMenuContainer.OnInitialize` 换 `backgroundImage.sprite`）"

@@ -42,13 +42,17 @@ public static partial class RuleEngineTest
 
     // ------------------------------------------------------------ A：berzerk 的候选枚举次序
     /// <summary>
-    /// 判别式 = **进场序 ≠ 格号序**，且**评分全部平手**：
+    /// 判别式 = **进场序 ≠ 格号序**，且**两个目标评分平手**：
     /// 敌方先摆 8 号格、再摆 2 号格（⇒ 进场序 `[8, 2]`，格号序 `[2, 8]`），
-    /// 打分器恒返回同一个数 ⇒ 「打谁」**只**由枚举次序决定。
+    /// 打分器给这两张**同一个数** ⇒ 「打谁」**只**由枚举次序决定。
     /// <para>新口径（进场序正序）⇒ 先遇到 **8 号格** ⇒ `dead/3`；</para>
     /// <para>旧口径（格号升序 0→8）⇒ 先遇到 **2 号格** ⇒ `3/dead`（🧨 正是本条要挡的回归）。</para>
-    /// <para>⚠️ 敌方 4 号格上永远是督军，但它**没有进场号**（`PlayOrder = -1`）⇒
-    /// `StableSortByPlayOrder` 把没取号的排末尾 ⇒ 它不会抢在 t8 前面被选中（这也是判别式成立的前提）。</para>
+    /// <para>🔴 **2026-10-30（`B100_F37` · 铁律 5 订正）**：原写「敌方 4 号格上永远是督军，但它**没有进场号**
+    /// （`PlayOrder = -1`）⇒ `StableSortByPlayOrder` 把没取号的排末尾 ⇒ 它不会抢在 t8 前面」—— **这句是错的**：
+    /// `RuleCore.cs:663` 自 2026-10-21（`08e1d726`，比本断言早 8 天）起就给督军 `ctx.TakePlayOrder()` ⇒
+    /// 它的进场号**最小**；而 `ValidTargetSlots`（`RuleCore.cs:17188`）按 `PlayOrder` 升序枚举 ⇒
+    /// 平手时**督军第一个被选中**（实测实得 `3/3`、`t8`/`t2` 满血）。⇒ 夹具必须显式把 4 号格压到最低分
+    /// （`TieExceptSlotScorer`），判别式才仍然只由「那两个目标之间的枚举次序」决定。</para>
     /// </summary>
     static void B97RC2BerzerkTargetOrder()
     {
@@ -56,18 +60,21 @@ public static partial class RuleEngineTest
         var saved = AiScorerHook.Scorer;
         try
         {
-            // 常量评分器：`PreferSlot = -1` 不命中任何格号 ⇒ 所有目标同分（平手）
-            var tie = new PreferSlotScorer { PreferSlot = -1, PreferScore = 1f, OtherScore = 1f };
+            // 两个目标**同分**（平手）；敌方 4 号格的督军压到最低分
+            // —— 它一定在候选表里、而且进场号最小（`RuleCore.cs:663`）⇒ 不压分它会第一个被选中（见上面那段订正）
+            var tie = new TieExceptSlotScorer { ExcludeSlot = RuleCore.WarlordSlot, TieScore = 1f, ExcludeScore = 0f };
             AiScorerHook.Scorer = tie;
             string r = B97RC2BerzerkTrace();
 
             CheckTrue(tie.Calls >= 2,
-                $"★（前提）狂暴选靶**真的问了评分器**（实测 {tie.Calls} 次，要求 ≥ 2 = 两个目标各一次）"
+                $"★（前提）狂暴选靶**真的问了评分器**（实测 {tie.Calls} 次，要求 ≥ 2 = 两个目标各一次；"
+              + "本夹具实际是 **3** 次 —— 第三个候选是敌方 4 号格的督军，由 `ExcludeSlot` 压到 0 分）"
               + "｜🧨 候选表空了 / 钩子没装上 ⇒ 下面的结论是假的 ⇒ 红");
             Check(r, "dead/3",
                 "★★ berzerk 的候选按**进场序正序**枚举 ⇒ 平手时打**先进场**的那张（8 号格）"
               + "（判据 `BattleManager__GetAvailableAttackActions.c:100-190` 正序扫 `mgr+0x470` ＋ `AI__SelectBestAction.c` 严格 `>`）"
-              + "｜🧨 改回「敌方格号升序 0→8」⇒ 先遇到 2 号格 ⇒ 实得 `3/dead`（账 1248 的 B 档就是这一格）");
+              + "｜🧨 改回「敌方格号升序 0→8」⇒ 先遇到 2 号格 ⇒ 实得 `3/dead`（账 1248 的 B 档就是这一格）"
+              + "｜🧨 夹具不给督军压分 ⇒ 平手第一个是**督军** ⇒ 实得 `3/3`（2026-10-30 订正的正是这一格）");
         }
         finally
         {
@@ -76,7 +83,8 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>A 的夹具：狂暴单位（5 攻）在 3 号格，敌方**先摆 8 号格、再摆 2 号格**
-    /// 各一个**完全等价**的 3 费 3 血目标（谁被打死只可能由「枚举次序」决定，因为评分被钉成常量）。
+    /// 各一个**完全等价**的 3 费 3 血目标（谁被打死只可能由「枚举次序」决定，因为这两张的评分被钉成同一个值；
+    /// 🔴 2026-10-30 起敌方 4 号格的督军由 `TieExceptSlotScorer` 压到最低分 —— 它不再参与平手，见上面的订正）。
     /// 返回 `"8 号格那张的生死/2 号格那张的生死"` —— 用血量/生死而不是格号，
     /// 避开「阵亡补位会把单位挪走」那一层（本工程棋盘是连续无洞模型）。</summary>
     static string B97RC2BerzerkTrace()
@@ -87,9 +95,37 @@ public static partial class RuleEngineTest
         z.AddKeyword(RuleCore.Berzerk, 1);
         var t8 = Place(ctx, 1, 8, Unit("B97RC2T8", 3, 0, 3));   // 先进场（进场号更小）
         var t2 = Place(ctx, 1, 2, Unit("B97RC2T2", 3, 0, 3));   // 后进场（格号更小）
+        // 🔴 2026-10-30（`B100_F37` · 铁律 5）：原注释写「敌方 4 号格的督军**没有进场号**（`PlayOrder = -1`）」
+        //   —— **实际是错的**（`RuleCore.cs:663` 自 2026-10-21 起就 `TakePlayOrder()`）⇒ 先钉死这个前提，
+        //   免得下一个人再按那句错注释去改夹具。
+        var wl = ctx.Players[1].Warlord;
+        CheckTrue(wl != null && ctx.Players[1].Board[RuleCore.WarlordSlot] == wl,
+                  "★（前提）敌方 4 号格上常驻督军 —— 它是狂暴的**第三个**候选（`RuleCore.cs:655`）");
+        CheckTrue(wl != null && t8.PlayOrder > wl.PlayOrder,
+                  "★★（前提）督军**有**进场号、而且比 t8 小 ⇒ 不给它压分的话平手第一个就是它（实得 `3/3`）"
+                + "｜🧨 有人把督军改回 `PlayOrder = -1` ⇒ 红（那时本夹具的两个目标才够用，`ExcludeSlot` 变成空转）");
         RuleCore.EndTurn(ctx);
         return (t8.IsAlive ? t8.Health.ToString() : "dead")
              + "/" + (t2.IsAlive ? t2.Health.ToString() : "dead");
+    }
+
+    /// <summary>自检用的假评分器：**除了 `<see cref="ExcludeSlot"/>` 那一格，其余目标全部同分**
+    /// （`ExcludeSlot` 拿最低分）。
+    /// <para>为什么要它：本件 A 的判别式要求「两个目标平手、谁被选中只由枚举次序决定」，而**敌方 4 号格上
+    /// 永远有督军**（`RuleCore.cs:655`）且它的进场号**最小**（`RuleCore.cs:663`）⇒ 用「人人同分」的
+    /// `PreferSlotScorer` 时平手第一个是**督军**，判别式会被它抢走（2026-10-30 实测实得 `3/3`）。</para>
+    /// <para>⚠️ 它**不改**判别式的形状：两个目标之间仍是严格平手 ⇒ 仍由枚举次序决定。</para></summary>
+    sealed class TieExceptSlotScorer : IAiScorer
+    {
+        public int ExcludeSlot;
+        public float TieScore = 1f, ExcludeScore = 0f;
+        public int Calls;
+
+        public float ScoreAttack(BattleContext ctx, int side, int slot, int foeSlot, bool ranged)
+        {
+            Calls++;
+            return foeSlot == ExcludeSlot ? ExcludeScore : TieScore;
+        }
     }
 
     // ------------------------------------------------------------ B：`targetWillDieFromThis` 的判死口径

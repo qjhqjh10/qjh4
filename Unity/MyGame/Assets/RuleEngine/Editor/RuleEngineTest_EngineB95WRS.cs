@@ -97,8 +97,14 @@ public static partial class RuleEngineTest
         var u = new UnitState(CardInstance.Detached(Unit("B95WRSArm", 1, 1, 3)), false);
         Check(u.Armor, 0, "② （前提）这张卡自己没有护甲");
 
-        u.RecordGrant("armour", 2, "B95SrcA");
-        u.RecordGrant("armour", 1, "B95SrcB");
+        // 🔴 2026-10-30（`B100_F18` · G2）：两条都要 `extrinsic: true` ——
+        //   `RemoveExtrinsicEffectsFrom` 三本账**全走 `extrinsicOnly: true`**（`UnitState.cs:2260`，
+        //   = 原版 `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的第一条合取 `extrinsic(+0x30) != 0`），
+        //   而 `RecordGrant` 的 `extrinsic` 缺省 `false`、`IsExtrinsicSource("B95SrcA")` 也是 false
+        //   ⇒ 夹具原来造出来的是**非 extrinsic** 记录，那条摘法**结构上就不该动它**（不是实现错）。
+        //   ⛔ 别把断言期望值改小；这条断言要的就是「extrinsic 那条路」。
+        u.RecordGrant("armour", 2, "B95SrcA", extrinsic: true);
+        u.RecordGrant("armour", 1, "B95SrcB", extrinsic: true);
         Check(u.Armor, 3, "② （前提）两个来源的护甲都在：2 + 1 = 3");
         Check(u.PendingGrants.Count, 2, "② （前提）`_grants` 里两条");
 

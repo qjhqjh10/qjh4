@@ -1281,7 +1281,7 @@ namespace CardPresentation
 
             Root = transform;
             foreach (Transform c in Root) DestroySafe(c.gameObject);
-            _btns.Clear(); _missingArt.Clear();
+            _btns.Clear(); _missingArt.Clear(); ClearBuildRegistrations();
             // 🆕 A24：界面上一次建的 `WindowButton` 跟着子树一起销毁了 ⇒ 这两份登记也要清
             //（不清的话 `UiHoverAt` 会去 `Enter/Exit` 一颗已经销毁的组件 —— 静默无效）
             // 🆕 2026-10-05（A32②）：抽屉那两份登记同理（`_fltHoverBtns` / `_cosmoHoverBtns`）
@@ -9677,6 +9677,32 @@ namespace CardPresentation
             RuleEngine.DeckLibrary.ReadLegacyText = path => SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, path);
             RuleEngine.DeckLibrary.SaveLegacyText = (string path, string json, out string err) => SaveCenter.SaveThroughLegacy(SaveKeys.PlayerDecks, path, json, out err);
             RuleEngine.DeckLibrary.CentralSaveExists = () => SaveCenter.StoreOn && SaveCenter.Exists(SaveKeys.PlayerDecks);
+        }
+
+        /// <summary>B100_X2（2026-10-30）：**重建前**清空「上一次 Build 登记过」的那些表。
+        /// <para>🔴 为什么必须有：`Build()` 开头 `DestroySafe` 在批处理下是 `DestroyImmediate`
+        /// （`:8720-8724`）⇒ 旧子件**当场**死亡；而这些表只 `Add` 不清 ⇒ 第 2 次 `Build()` 之后
+        /// 下标 `0..11` 仍是**上一趟的僵尸 Label**，`RefreshDeckList` 一读就在 `Label.NoteNotApplied`
+        /// 里抛 `MissingReferenceException`（`B100_X2` 实爆；生产路 = 关掉卡组编辑器再打开）。
+        /// ⛔ 别删这一句、也别把它的调用挪到 `BuildAreaBackground()` 之后（那时已经晚了）。
+        /// ⚠️ 放在文件尾的 partial 里是为了**行数守恒**（本文件被账按行号引用 124 处）。</para></summary>
+        void ClearBuildRegistrations()
+        {
+            _deckRowBg.Clear(); _deckRowGrad.Clear(); _deckRowBorder.Clear();
+            _deckRowCost.Clear(); _deckRowName.Clear();
+            _deckRowCostText.Clear(); _deckRowCountText.Clear();
+            for (int i = 0; i < _rowPieces.Length; i++) { if (_rowPieces[i] != null) _rowPieces[i].Clear(); }
+            _tabLabel.Clear(); _tabHiRoot.Clear(); _tabHi.Clear(); _tabIcon.Clear();
+            _infoOnly.Clear(); _cardsInfoOnly.Clear();
+            _curveFill.Clear(); _curveFillX0.Clear(); _curveLabel.Clear(); _curveBar.Clear();
+            _fltTitles.Clear();
+            // 🔴 `_cosmOnly` 也在本清单里（`B100_F1` 现核，2026-10-30；审计号 `B100_X2` §同类隐患① 那 12 组之外）：
+            //   它两个 `Add` 点（`:3466` 空收藏提示 · `:3615` 侧栏卡背底）都落在「字段 `== null`（= 已销毁）才重建」
+            //   那个支里 ⇒ **只增不清** ⇒ 每 `Build()` 追加 2 条僵尸 GameObject 引用（无界增长、永不释放）。
+            //   ⚠️ 读者都有 null 闸（`:6151` / `:6930`）⇒ **不崩、计数也不偏**，所以它不是上一轮崩溃的原因，
+            //   但它是同一条修复（「重建前清空上一趟登记」）的一部分。⛔ 别删：
+            //   `_cosmCells` / `_poolBars` 那两张**按下标覆写**、靠「已销毁 == null」自愈，**不需要**在这里清。
+            _cosmOnly.Clear();
         }
     }
 }

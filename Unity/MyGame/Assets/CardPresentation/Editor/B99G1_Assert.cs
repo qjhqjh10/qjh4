@@ -294,9 +294,9 @@ public static class B99G1_Assert
                 if (nt != null)
                 {
                     float nom = v.NameFontSize;
-                    Tr(nt.fontSize <= nom + 1e-3f,
-                       $"G1 ★ 单位卡卡名**没被放大**：fs {nt.fontSize:F4} ≤ 名义 {nom:F4}"
-                     + "（原版 `NameTextUnit` 的 `m_fontSizeMax` = 19 = 名义 ⇒ 上界就是它）"
+                    Tr(nt.fontSize <= 1.90f + 1e-3f,   // 🔴 2026-10-30（B100_F7/K3）：上界 = 原版 autosize 硬上限 `NameUnitBandMax` 1.90（`CardView.cs:5552`，private const ⇒ 抄字面量）；名义 `NameFontSize` = 1.8988 是它量化前的同一个值（差 0.0012 > 旧容差 1e-3）⇒ 旧 `nom + 1e-3` **结构上不可能过**
+                       $"G1 ★ 单位卡卡名**没被放大**：fs {nt.fontSize:F4} ≤ autosize 上界 1.9000（名义 {nom:F4}）"
+                     + "（原版 `NameTextUnit` 的 `m_fontSizeMax` = 19 ⇒ 运行时顶到 1.90；`FitToBox` 的量化步是 0.005）"
                      + "｜🧨 卡名那支把 `NameTacticBand*`（1/24）当档位传进去 ⇒ 涨到 2.4 一档 ⇒ 红");
                     Tr(OnGrid(nt.fontSize),
                        $"G1c 单位卡卡名 fs {nt.fontSize:F4} 落 0.005 网格｜🧨 去掉量化 ⇒ 红");

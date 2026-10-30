@@ -115,6 +115,16 @@ public static class B97W14Assert
         var box = load != null ? load.parent : null;
         Tr(box != null, "前提 " + tag + "-1b：`Cog → Animated Loading Image → ErrorMensajeContainer` 那条父链还在");
         if (box == null) return;
+        // 🔴 **2026-10-30（`B100_F6`）就地订正（铁律 5）**：祖先 `Login Window` **出厂是关着的**
+        //   （`BuildLoginWindow` 末句 `lw.gameObject.SetActive(false)` = `Shell/SettingsWindow.cs:3169`）
+        //   ⇒ 只亮 `ErrorMensajeContainer` 时 `activeInHierarchy` 仍是 false（祖先 inactive），
+        //   下面整组会「在转空气」（同 `Editor/B97W27_Assert.cs` 的 C-1b，那边 2026-10-30 已实测红）。
+        //   ⚠️ 本件挂在 `SettingsScene`（本轮四宿主没跑到）⇒ 这条是**预防性**的，一并修掉。
+        var lwNode = box.parent;
+        Tr(lwNode != null && lwNode.name == SettingsWindow.LwNodeName,
+           "前提 " + tag + "-1b2：`ErrorMensajeContainer` 的父节点 == `Login Window`（整棵弹窗根；出厂 inactive）");
+        if (lwNode == null) return;
+        lwNode.gameObject.SetActive(true);
         box.gameObject.SetActive(true);
         Tr(cog.gameObject.activeInHierarchy, "前提 " + tag + "-1c：把框亮起来之后 `Cog` 在活跃层级里（否则下面全在转空气）");
     }

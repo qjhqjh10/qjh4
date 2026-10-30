@@ -17,9 +17,11 @@ using RuleEngine;
 
 public static partial class RuleEngineTest
 {
-    /// <summary>本件的**唯一入口**（接线 = `RuleEngineTest.cs` 的 `Run()` 里一行 `Step(CheckB95WREAttackerPlumbing)`）。
-    /// ⚠️ 方法名**不以 `Test` 打头**（照同族 `CheckB94B20…` 的惯例）。</summary>
-    public static void CheckB95WREAttackerPlumbing()
+    /// <summary>本件的**唯一入口**（接线 = `RuleEngineTest.cs` 的 `Run()` 里一行 `Step(TestB95WREAttackerPlumbing)`）。
+    /// 🔴 2026-10-30（第一百会话）改名：原来是 `CheckB95WREAttackerPlumbing`，而诊断入口的对账口径是
+    /// 「`Test`/`Report` 打头才算用例」⇒ 它每轮都被报成「`Run()` 里有个类里不存在的名字」（**假红**）。
+    /// 名字本身就是那个口径，改成 `Test` 前缀最省事；行数零变化。</summary>
+    public static void TestB95WREAttackerPlumbing()
     {
         Section("🆕 B95_WRE 批 2/3：`attacker` 形参的两条零回归性质 ＋ 批 3 的次序重排（源码行序）");
         B95WRECaseDefaultIsUnchanged();

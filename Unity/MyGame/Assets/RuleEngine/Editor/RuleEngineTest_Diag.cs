@@ -97,7 +97,20 @@ public static partial class RuleEngineTest
         "TestE6AbilityLevelGateFamilies", "TestE8AbilityOwnerAndListenerOrder", "TestEngineE9", "TestEngineX1", "TestEngineX2", "TestEngineX18",
         "TestEngineX6", "TestEngineX6b", "TestEngineX12", "TestR11Option5MightActGate", "TestR11Option35BaseInsideMultiplier", "TestR11ArmourIgnoredInDamageScore",
         "TestB4AiDiscriminants", "TestW6PrebuiltDecks", "TestW6CardSell", "TestW6LevelCurve", "TestW6LoadableRefHooks", "TestB94F4EngineGaps",
-        "TestF2B94",
+        "TestF2B94", "TestEngineB95WBDHandGate", "TestB95WREAttackerPlumbing", "CheckB96CBEngine", "TestB97W28", "TestB97W34",
+        "TestB99E2", "TestB99E5", "RunB99E6", "TestB98K4", "TestB98K6", "TestB97W1",
+        "CheckB100F17Gaps", "CheckB100F21RemnantSlay", "CheckB97W19CancelAttackByUnits",
+    };
+
+    /// <summary>🔴 **2026-10-30（第一百会话）**：**子用例** —— 名字是 `Test*` 口径、但**由另一个用例内部调用**
+    /// （例如 `TestB97W28` 里调 `TestB97W28DeathObserverGate`）。它们**不在 `Run()` 的用例表里**是**故意的**：
+    /// 直接塞进表里会跑两遍。对账时把它们从「漏跑」里减掉，否则每次都是假红。
+    /// 🧨 真正「写了但没人调」的用例**仍然会红**（生成器只收录「被谁调用过」的那些）。</summary>
+    static readonly string[] DiagSubCases = new string[]
+    {
+        "TestB97W28DeathObserverGate", "TestB97W28FireTriggerByNumber", "TestB97W28HuntMarkOnDeathSignal", "TestB97W28OathCostByTrait", "TestB97W28OpsOverride", "TestB97W34AttackActionGates",
+        "TestB97W34DeckDrawingMark", "TestB97W34StartWithNames", "TestB98K4BoardDamagedByNumber", "TestB98K4CemeteryConsumer", "TestB98K4Trigger200Body", "TestB98K6AiHook",
+        "TestB98K6DropPodRemoval", "TestB98K6ScriptedStageAndContinuation", "TestB98K6SwapStats", "TestB99E2SwapBaseClamp",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -185,10 +198,18 @@ public static partial class RuleEngineTest
 
         // ---- ② `Run()` 的用例表 ↔ 反射看到的用例方法集合 ----
         var compiled = DiagCompiledCaseMethods();
-        var missing = new List<string>();   // 类里有、`Run()` 的用例表里没有 ⇒ **两个入口都少跑它**
+        var missing = new List<string>();   // 类里有、`Run()` 的用例表里没有、**也没人调用** ⇒ 真的两个入口都不跑
         var unknown = new List<string>();   // 用例表里有、类里没有 ⇒ 本该编译期就挡住（挡住了说明判据漏了）
-        foreach (var n in compiled) if (!exp.Contains(n)) missing.Add(n);
-        foreach (var n in exp) if (!compiled.Contains(n)) unknown.Add(n);
+        foreach (var n in compiled)
+            if (!exp.Contains(n) && Array.IndexOf(DiagSubCases, n) < 0) missing.Add(n);
+        // 🔴 2026-10-30：`unknown` 的口径改成「**这个名字在类里有没有**」，⛔ 不再用 `LooksLikeCaseMethod` ——
+        //   `Step(CheckB96CBEngine)` / `Step(RunB99E6)` 这类**以 `Check`/`Run` 打头的入口**也是用例，
+        //   用 `Test`/`Report` 前缀去判会把它们报成「类里不存在」（假红）。
+        var allMethods = new HashSet<string>();
+        foreach (var m in typeof(RuleEngineTest).GetMethods(
+                     BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            allMethods.Add(m.Name);
+        foreach (var n in exp) if (!allMethods.Contains(n)) unknown.Add(n);
         Check(missing.Count, 0, $"用例方法（反射 {compiled.Count} 个）全在 `Run()` 的用例表里"
                               + (missing.Count > 0
                                  ? $" —— **缺 {missing.Count} 个**：{DiagFew(missing)}"
@@ -218,8 +239,14 @@ public static partial class RuleEngineTest
             var exp = new List<string>(RunCaseNames);
             var missing = new List<string>();
             int extra = 0;
-            foreach (var n in compiled) if (!exp.Contains(n)) missing.Add(n);
-            foreach (var n in exp) if (!compiled.Contains(n)) extra++;
+            // 🔴 2026-10-30：与 `VerifyDiagCoverage` 同口径 —— **子用例**（父用例内部调用的）不算「缺」；
+            //   「多」按「这个名字在类里有没有」判，⛔ 不再用 `Test`/`Report` 前缀（`Check*`/`Run*` 入口也是用例）。
+            var allMethods = new HashSet<string>();
+            foreach (var m in typeof(RuleEngineTest).GetMethods(
+                         BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                allMethods.Add(m.Name);
+            foreach (var n in compiled) if (!exp.Contains(n) && Array.IndexOf(DiagSubCases, n) < 0) missing.Add(n);
+            foreach (var n in exp) if (!allMethods.Contains(n)) extra++;
             if (missing.Count == 0 && extra == 0) return;
             missing.Sort(StringComparer.Ordinal);
             Debug.LogError(P + "   \u2717 [诊断入口过期] `RuleEngineTest_Diag.cs` 跟不上 `Run()` 的用例表 —— "
@@ -609,6 +636,20 @@ public static partial class RuleEngineTest
         Safe("TestW6LoadableRefHooks", () => TestW6LoadableRefHooks());
         Safe("TestB94F4EngineGaps", () => TestB94F4EngineGaps());
         Safe("TestF2B94", () => TestF2B94());
+        Safe("TestEngineB95WBDHandGate", () => TestEngineB95WBDHandGate());
+        Safe("TestB95WREAttackerPlumbing", () => TestB95WREAttackerPlumbing());
+        Safe("CheckB96CBEngine", () => CheckB96CBEngine());
+        Safe("TestB97W28", () => TestB97W28());
+        Safe("TestB97W34", () => TestB97W34());
+        Safe("TestB99E2", () => TestB99E2());
+        Safe("TestB99E5", () => TestB99E5());
+        Safe("RunB99E6", () => RunB99E6());
+        Safe("TestB98K4", () => TestB98K4());
+        Safe("TestB98K6", () => TestB98K6());
+        Safe("TestB97W1", () => TestB97W1());
+        Safe("CheckB100F17Gaps", () => CheckB100F17Gaps());
+        Safe("CheckB100F21RemnantSlay", () => CheckB100F21RemnantSlay());
+        Safe("CheckB97W19CancelAttackByUnits", () => CheckB97W19CancelAttackByUnits());
 
         VerifyDiagCoverage();
 

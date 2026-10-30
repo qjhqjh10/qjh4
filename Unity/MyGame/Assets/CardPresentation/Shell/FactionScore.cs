@@ -176,7 +176,10 @@ namespace CardPresentation.ScoreBars
                 var tex = FactionIconTexture(faction);
                 if (tex != null)
                 {
-                    factionImage.SetTexture(tex);
+                    // 🔴 **2026-10-30（`B100_F5`）**：原来走**单参** `SetTexture(tex)` —— 它会把 `_aspect` 冲成**贴图自己的**比例（icon 是 256² 方图 ⇒ 1.0），
+                    //   把宿主 `MenuDraw.Rect` 按**裁切后**的框设好的 `SetAspect(143.098/117.71 = 1.2157)` 覆盖掉 ⇒ 徽记被压窄 17.7%
+                    //   （排位行实测宽 117.71，期望 143.10；`ImageQuad.cs:190-235` 的 doc 自己点名的坑）⇒ 改 `keepAspect: true`（只换图、比例不动）。
+                    factionImage.SetTexture(tex, keepAspect: true);
                     factionImage.SetTint(Color.white);      // 出厂那张是透明占位 ⇒ 有图之后必须转回不透明
                 }
                 else

@@ -1476,7 +1476,7 @@ namespace RuleEngine
         /// 🔴🔴 **2026-10-10（第十四会话 · `A1398`）：本表的【入表判据】—— 普查 47 词后定案。**
         ///
         /// 🔴 **<see cref="Implemented"/> 不是入表依据，两张表本来就不同**（实测
-        ///    `Implemented` **70** 词 − **两表共有的 23 词** = **47 词**）。⚠️ **`70 / 23 / 47` 是 2026-10-11 那一版的快照**：2026-10-26（`B8_D` 任务 2）往 `Implemented` 补了 `Jam` / `SneakAttack` 两个词（判据见那一格的注释）⇒ `Implemented` 现值比 70 多 2；**`47` 不受影响**（它数的是下面那三段「正文型关键词」清单，本批一个词都没动）。
+        ///    `Implemented` **70** 词 − **两表共有的 23 词** = **47 词**）。⚠️ **`70 / 23 / 47` 是 2026-10-11 那一版的快照**：2026-10-26（`B8_D` 任务 2）往 `Implemented` 补了 `Jam` / `SneakAttack` 两个词（判据见那一格的注释）⇒ `Implemented` 现值比 70 多 2；**`47` 不受影响**（它数的是下面那三段「正文型关键词」清单，本批一个词都没动）。🔴 **2026-10-30（`B100_F4`）追加**：`Requiem` 同时进了 `RoutableTriggers` / `BodyKeywords` / `Implemented` ⇒ 快照数变成 `RoutableTriggers` 25 → **26** · 两表共有 23 → **24**（`Implemented` 那侧另有 `B8_D` 的 2 个）；**`47` 仍不变**（同一理由：它数的是下面那三段清单，本笔一个词都没动）。⛔ 别把这一行当 `Implemented − 共有 = 47` 的算术校验 —— `47` 是**独立数出来**的。
         ///    ⚠️ **2026-10-11 就地订正（铁律 5）**：这句原来写「− 本表 **23** 词 = 47 词」，
         ///    **那个 23 是错的、算法也不对**（`68 − 23 = 45`，与 47 对不上 —— 那时
         ///    `Implemented` 还是 68）。**现核**（数得出来的）：
@@ -1635,7 +1635,7 @@ namespace RuleEngine
             // 🆕 2026-10-21（引擎线 `T03·b`）：**花光法力（`SpentAllMana:`）** —— 正文要收得下来，
             //   否则 `FireTriggerAt(..., SpentAllMana, …)` 恒走「没有正文」那一支（只发事件、静默）。
             //   ⚠️ 全池今天 **0 张卡**带这个词 ⇒ 不可观测、不改动任何现有解析（铁律 11 先接上）。
-            KeywordTable.SpentAllMana };
+            KeywordTable.SpentAllMana, KeywordTable.Requiem };   // 🆕 2026-10-30（`B100_F4`）：安魂（`Requiem:`，触发 430）—— 与上面那一族同形（触发 id ＋ 可选的「词: 正文」）。不入表 ⇒ `TriggerOps("requiem")` **恒 null** ⇒ `ResolveTriggerRequiem`（`RuleCore.cs:14340`）里那句 `FireTriggerAt(..., KeywordTable.Requiem, …)` 必走「没有正文」那一支 ⇒ **430 连 `EvtKind.Trigger` 都不发**（435「别人看见」那一半照旧广播）。判据/两层语义 → `Requiem` 常量的 doc；全池 0 张卡带它（现扫 0 命中）⇒ 不改动任何现有解析。⚠️ 本行是「同一行内追加」：⛔ 别为了好看把它拆成多行（本文件下游有账落点，插行 = 行号漂移）。
 
         // ==================================================================
         //  狂喜 X 的**阈值 X**（2026-09-14）
@@ -1787,7 +1787,7 @@ namespace RuleEngine
             //   **同一族**（触发 id ＋ 可选的 `词: 正文` 两用词）⇒ 两个名单都进，否则
             //   `Skirmish. SpentAllMana: …` 那种多 ability 卡面会被上一条**静默吞并**。
             //   ⚠️ 全池今天 0 张卡带它 ⇒ 不改动任何现有解析。
-            KeywordTable.SpentAllMana,
+            KeywordTable.SpentAllMana, KeywordTable.Requiem,   // 🆕 2026-10-30（`B100_F4`）：安魂（触发 id ＋ 可选的「词: 正文」两用词）⇒ 与 `landing` / `abouttoattack` / `spentallmana` **同族**，两个名单都要进。不进本表 ⇒ `Rally: …. Requiem: …` 那种多 ability 卡面里 `Requiem:` 那段会被上一条**静默吞并**（`TriggerBodyAt` 靠 `StartsAnotherThing` → `IsBodyKeywordHead` 断句）。⚠️ 全池 0 张卡带它 ⇒ 不改动任何现有解析。判据 → `Requiem` 常量的 doc。⚠️ 同一行内追加，⛔ 别拆成多行（插行 = 下游账落点漂移）。
         };
 
         /// <summary>
@@ -7793,12 +7793,12 @@ namespace RuleEngine
         /// **入口那条闸**（`BattleManager__ResolveTriggerRequiem.c:29` 现读）：
         /// `if (targetCard != null &amp;&amp; !CardScript.IsInPlayOrDying(targetCard)) ⇒ FinishResolvingAction; return`
         /// —— **不满足 `IsInPlayOrDying` 就什么都不做**（`ResolveTriggerSacrifice.c` 同一句）。
-        /// 我们那一侧（`RuleCore.UseAlternative` 族）**尚未搬这条闸** ⇒ 属 `F1`，已写改动请求（R4-F1）。
+        /// ✅ **2026-10-30（`B100_F4`）就地订正（铁律 5）**：这条闸**早就搬进来了** —— 原文「我们那一侧（`RuleCore.UseAlternative` 族）**尚未搬这条闸** ⇒ 属 `F1`」**已过期**：入口 = `RuleCore.ResolveTriggerRequiem`（`RuleCore.cs:14340`，函数体第一句就是上面那条 `IsUnitInPlayOrDying` 闸），接线 = `RuleCorePartial_B99E8.cs:76`。
         ///
         /// **可达性（如实记）**：全池 **0 张**卡带它（`cards_engine.json` 全文扫 `requiem` 0 命中；
         /// `Data/SimpleAI.cs:174-175` 也记着同一读数）⇒ 休眠机制，按铁律 11 先补「认得出」这一层。
-        /// ⚠️ **没有进 <see cref="Implemented"/>**：那一栏的判据是「那个时机**真的有人读它**」，
-        /// 而我们的 `ResolveTriggerRequiem` 入口还没接（见上面的改动请求）⇒ 今天不冒充已实现。
+        /// ✅ **2026-10-30（`B100_F4`）：本词现已在 <see cref="Implemented"/> 里**（那一栏的判据 =「那个时机**真的有人读它**」—— 入口已接，见上），
+        /// 同时进了 <see cref="RoutableTriggers"/> / <see cref="BodyKeywords"/>（否则 `Requiem:` 的正文**永远收不下来**、430 支只发事件不结算）—— 原文「入口还没接 ⇒ 今天不冒充已实现」**已过期**。
         /// </summary>
         public const string Requiem = "requiem";
 
@@ -8055,7 +8055,7 @@ namespace RuleEngine
             //     ⚠️ 后两个词的 **0xe6 / 470 两个 trait 今天全池 0 张卡带**（现扫）；
             //        登记依据 = 「那个时机真的有人读它」（铁律：`Implemented` 不是承诺书，
             //        是「有没有代码会读它」）—— 两个词**各自都有一条上面的落点**。
-            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod, ConditionEval.Ward, ConditionEval.WardWb, ConditionEval.Tainted, KeywordTable.SummonRift, RuleCore.Coward, RuleCore.Precognition,   // 🆕 2026-10-30（`B99_B1` · 调度台裁定）：末两词 = `coward`(190) · `precognition`(640)，判据与落点见 `Prefixes` 那一条 + `RuleCore.Coward` / `RuleCore.Precognition` 的 doc（`BattleManager__IsValidAttackTarget.c:203-211` / `:136-141`）。⚠️ 它们**有真执行分支**（两条攻击闸）⇒ 按 `B98_N3` 「原版有真执行分支就必须登记」的先例进本清单；`:8660` 那句「不补的 45 个」里原本列着这两词，已于同日划掉并注明理由。   // 🆕 2026-10-29（执行代理 `B98_N3`）：**末四词 = `ward`(140) · `wardWb`(145) · `tainted`(160) · `summonRift`(730)**。判据 = 原版**有真执行分支**（⛔ 原版**没有** `Implemented` 这种清单，它只是我们的脚手架）：① `ward`/`wardWb` = `EntityScript__get_isCurrentlyWarded.c`（`0x8c`∨`0x91`，全量只有 **4 个 `IsValid*Target`** 调用方）→ 落点 `EffectResolver.AddSide(stealthGate)` ＋ `RuleCore.CanUseAbilityTarget` ①；② `tainted` = `RawCardScript__IsValidActiveAbilityTarget.c:94-102` → 同函数 ③；③ `summonRift` = `BattleManager__IsValidActiveAbilityTarget.c:55-56`(0x2da) **＋ 攻击** `BattleManager__IsValidAttackTarget.c:211-213` → 同函数 ② ＋ `RuleCore.IsValidTarget` 的返回表达式（**本批补的攻击侧闸**）。⚠️ **结算层不挡是对的**（原版也不挡）：`AbilityLogic__GetTargets.c`（1,427 行）**0 处** `IsValidTarget` / `isCurrentlyWarded` ⇒ ward 只是「能否被点选」的谓词，效果池按 criteria 直取 —— 与 `ResolveTargets → AddSide(stealthGate:false)` **同形**。⚠️ 池内 **0 张**（`cards_engine.json` 1129 张现扫 `keywords`/`cardTraits`/`desc`/`descZh` 各 0 命中）⇒ 零行为变化。全文论证 → `资料/完全复刻/判据/B98_N2_ward与resolution.md` ＋ 报告 `B98_N3.md` §二/§三。⚠️ 写成行内块（铁律 18·b）：本文件在账里被引 70+ 处（多为「次要落点」、`--fix` 不管），⛔ 别新增行
+            Survivor, Poisoned, Resistant, Bastion, Sacrifice, DropPod, ConditionEval.Ward, ConditionEval.WardWb, ConditionEval.Tainted, KeywordTable.SummonRift, RuleCore.Coward, RuleCore.Precognition, Requiem,   // 🆕 2026-10-30（`B99_B1` · 调度台裁定）：末两词 = `coward`(190) · `precognition`(640)，判据与落点见 `Prefixes` 那一条 + `RuleCore.Coward` / `RuleCore.Precognition` 的 doc（`BattleManager__IsValidAttackTarget.c:203-211` / `:136-141`）。⚠️ 它们**有真执行分支**（两条攻击闸）⇒ 按 `B98_N3` 「原版有真执行分支就必须登记」的先例进本清单；`:8660` 那句「不补的 45 个」里原本列着这两词，已于同日划掉并注明理由。   // 🆕 2026-10-29（执行代理 `B98_N3`）：**末四词 = `ward`(140) · `wardWb`(145) · `tainted`(160) · `summonRift`(730)**。判据 = 原版**有真执行分支**（⛔ 原版**没有** `Implemented` 这种清单，它只是我们的脚手架）：① `ward`/`wardWb` = `EntityScript__get_isCurrentlyWarded.c`（`0x8c`∨`0x91`，全量只有 **4 个 `IsValid*Target`** 调用方）→ 落点 `EffectResolver.AddSide(stealthGate)` ＋ `RuleCore.CanUseAbilityTarget` ①；② `tainted` = `RawCardScript__IsValidActiveAbilityTarget.c:94-102` → 同函数 ③；③ `summonRift` = `BattleManager__IsValidActiveAbilityTarget.c:55-56`(0x2da) **＋ 攻击** `BattleManager__IsValidAttackTarget.c:211-213` → 同函数 ② ＋ `RuleCore.IsValidTarget` 的返回表达式（**本批补的攻击侧闸**）。⚠️ **结算层不挡是对的**（原版也不挡）：`AbilityLogic__GetTargets.c`（1,427 行）**0 处** `IsValidTarget` / `isCurrentlyWarded` ⇒ ward 只是「能否被点选」的谓词，效果池按 criteria 直取 —— 与 `ResolveTargets → AddSide(stealthGate:false)` **同形**。⚠️ 池内 **0 张**（`cards_engine.json` 1129 张现扫 `keywords`/`cardTraits`/`desc`/`descZh` 各 0 命中）⇒ 零行为变化。全文论证 → `资料/完全复刻/判据/B98_N2_ward与resolution.md` ＋ 报告 `B98_N3.md` §二/§三。⚠️ 写成行内块（铁律 18·b）：本文件在账里被引 70+ 处（多为「次要落点」、`--fix` 不管），⛔ 别新增行 ｜ 🆕 2026-10-30（`B100_F4`）：本行同时新增 `Requiem`（安魂 430）—— 判据 = 「那个时机**真的有人读它**」（入口 `RuleCore.ResolveTriggerRequiem`，`RuleCore.cs:14340`，第一句就是原版 `IsInPlayOrDying` 闸；接线 `RuleCorePartial_B99E8.cs:76`），与 `Sacrifice` / `DropPod` / `Unstoppable` 同一把尺子、⛔ 不是承诺书。⚠️ 全池 **0 张卡**带它（`cards_engine.json` v44 / 1129 张扫 `requiem` 0 命中）⇒ **零行为变化**，只是把「将来一有卡就白打一个 `*`」这个缺口提前堵上（铁律 11）。
             // ✅ **破坏（2026-09-14 登记，用户点名要求）**：机制**早就在跑**，只是判据走的是
             //    `subtype` 那一列（`CreatePool.MatchesKind(c,"sabotage")` + `ResolveAtTurn`），
             //    不是 `keywords`。⚠️ **登记依据 = subtype 那一列在那个时机真的被读了**，

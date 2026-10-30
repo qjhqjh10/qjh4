@@ -9910,7 +9910,7 @@ namespace RuleEngine
             ctx.DiedThisTurn++;      // `For each one that dies …` 按它计数（回合开始清零，见 `BeginTurn`）
             bool leftPlay = false;
             if ((u.Has(KeywordTable.Remnant) || u.Has(KeywordTable.Waystone)) && !u.IsRemnant)
-            { u.MarkCardState(CardStateOptions.inPlayTransforming); try { BroadcastRemoveFromGame(ctx, u, null); RemoveHandEffectsCastBy(ctx, u.Instance); /* 🔴 2026-10-29（B98_G1 · 账 241 · 第三个调用点）：原版 `_ResolveTransformIntoRemnant_d__554__MoveNext.c:40-42` 在两手 `RemoveEffectsFromCard` 之后、`SetAsUnitTransforming` 之前调 `BattleManager__RemoveSelfBuffsFromQueues`，而那条全文两句 = `CancelEffectsFromDisappearingUnit(bm, card, card, 1)` ⇒ 实参形状必须是 `(u, u, true)` 而**不是** `(u, null, true)`（后者会多撤「Actor 相同但 Target 为空」那些）。⛔ **必须用【旧】 `u`** —— 本行下面的 `var rem = new UnitState(...)` 会换人，而队列里 `QueuedAction.Actor` 引用的是旧那个。零行数变化（铁律 18·b：本文件 365 处账落点按行号引）。 */ CancelEffectsFromDisappearingUnit(ctx, u, u, true); u.ResetToValuesInHand(clearBacklash: false);   // 🔴 2026-10-29（`B97_W1` · 账 866）：**原版 `_ResolveTransformIntoRemnant_d__554__MoveNext.c:43` 这一跳** —— `CardScript__ResetToValuesInHand(card, 0)`（**第二个实参 = 0 ⇒ 不清 `AlreadyTriggeredBacklash(+0x222)`**，逐句体见 `CardScript__ResetToValuesInHand.c:138-140` 的 `if (param_2 != 0) *(byte*)(this+0x222) = 0;`）。位置照原版：**`BroadcastRemoveFromGame` → 两手 `RemoveEffectsFromCard` → `RemoveSelfBuffsFromQueues` → `SetAsUnitTransforming` → `ResetToValuesInHand(0)` → `TransformIntoRemnant`**（本行前面那两句 = 前两跳，`u.MarkCardState(15)` = `SetAsUnitTransforming`，紧跟其后就是这一句）。它做的三件我们够得到的：① 清 `Instance.ActiveEffects` / `ActiveEnchantments`（残骸**要**被清）；② 数值回卡面（随后 `rem` 的 object initializer 再把残骸那三格覆盖成 1/0）；③ **不清** `AlreadyTriggeredBacklash`（原版保留 ⇒ 下面 `AlreadyTriggeredBacklash = u.AlreadyTriggeredBacklash` 把它搬给新对象）。⚠️ 副作用如实记：它也会把 `u.AttacksThisTurn` 清 0（原版 `+0x48 = 0`）⇒ 本行下面那条 2026-10-29 的「`AttacksThisTurn` 也要搬」拿到的是 0 —— 与原版一致（原版残骸的 `+0x48` 本来就是 0），⛔ 别为此改回「不重置」。  // 🔴 2026-10-28（B88·A2   // 🔴 2026-10-28（B88·A2 · 账 637 #3 残骸翻面，55 张）：原版 `ResolveTransformIntoRemnant` 三跳 = ① `BroadcastRemoveFromGame(bm, targetCard, null)`（`IL:BattleManager.cs:39259`）→ ②③ 两手 `RemoveEffectsFromCard(target)`（`:39261/:39262`）。① 的接收端 = `CardScript.ReactToUnitJammed` 的 **else 支** = 「按来源撤 extrinsic（`UnitState.RemoveExtrinsicEffectsFrom`）+ `UpdateWhileInPlay(false)`」，**不是**置 `cardState=11`；②③ 的等价口 = `RemoveHandEffectsCastBy`（`EffectResolver.cs` 是同一个 `partial class RuleCore`，一次扫两方手牌）。⛔ 不调 `MarkRemovedFromGame`（原版这 4 条路一次都不置 11，三源合判见 `判据/B88_R4_637三族_施工单.md` §三）。⛔ 别顺手挂 `Auras.Recompose`（`UpdateWhileInPlay(false)` 那半已由 `ActionPump.cs:143` 的窄口在**每个动作边界**跑，再挂一次 = 快照重折两次）。⛔ 别新增行 —— 这一句就写在 `{` 行上（铁律 18·b：`RuleCore.cs` 有 365 处账落点）｜🔴 2026-10-28（B93_E17）：本行开头的 `u.MarkCardState(CardStateOptions.inPlayTransforming); try {` 是 cardState 写点 ③（变残骸）—— 原版 `ResolveAction.c:6370` 的 `case 0x48` into 支 → `ResolveTransformIntoRemnant`（`ILSpy BattleManager.cs:12097`）→ `SetAsUnitTransforming`（`CardScript.cs:15656` 置 15）；本分支收尾行上的 `} finally { u.ClearCardStateMark(); }` = 原版 `SetAsUnitInPlay` 回 2（`CardScript.cs:15617` 的幂等闸：已是 15 就跳过）。窗口 = 同步结算内，⛔ 不动任何读点、⛔ 不改 IsInPlayState（2 与 15 本来就同真）。零行数变化（铁律 18·b）。
+            { u.MarkCardState(CardStateOptions.inPlayTransforming); try { BroadcastRemoveFromGame(ctx, u, null); RemoveHandEffectsCastBy(ctx, u.Instance); /* 🔴 2026-10-29（B98_G1 · 账 241 · 第三个调用点）：原版 `_ResolveTransformIntoRemnant_d__554__MoveNext.c:40-42` 在两手 `RemoveEffectsFromCard` 之后、`SetAsUnitTransforming` 之前调 `BattleManager__RemoveSelfBuffsFromQueues`，而那条全文两句 = `CancelEffectsFromDisappearingUnit(bm, card, card, 1)` ⇒ 实参形状必须是 `(u, u, true)` 而**不是** `(u, null, true)`（后者会多撤「Actor 相同但 Target 为空」那些）。⛔ **必须用【旧】 `u`** —— 本行下面的 `var rem = new UnitState(...)` 会换人，而队列里 `QueuedAction.Actor` 引用的是旧那个。零行数变化（铁律 18·b：本文件 365 处账落点按行号引）。 */ CancelEffectsFromDisappearingUnit(ctx, u, u, true); u.ResetToValuesInHand(clearBacklash: false); u.Health = 0;   /* 🔴 2026-10-30（`B100_F21` · 判据 = `报告/B100_X8.md` §二·2 / §三）：`ResetToValuesInHand` 末尾那句 `Health = MaxHealth`（`UnitState.cs:2646`）会把这个**已被判死的墓碑对象**复活成满血 ⇒ `FlushDeaths` 随后入队的 `TryCreditKill` 撞第 ④ 道闸 `if (victim.IsAlive) return false;`（本文件 `:6265`）⇒ `Slay` 不响、猎杀标记数丢。**原版不是这样**：这一跳（`_ResolveTransformIntoRemnant_d__554__MoveNext.c:43`）跑在 `BattleManager__AddTransformIntoRemnant.c:99` 那条**排队 action** 体内，而 Slay 记账在 `CardScript__ResolveDeadCard.c:~232-259` 的 death action 里 ⇒ 记账那一刻 `isRemnant` 仍是 0、血仍是死时的值 ⇒ **原版把「打死一个会变残骸的真单位」算作击杀**。本对象此刻已不在棋盘上（`:9931` 已换成 `rem`），只被 `TryCreditKill` 的闸 ④ 与 `BroadcastWhen(Die, …, subject: u, …)` 读到 ⇒ 留着满血只会让下游把它当活人。⛔ 零行数变化（铁律 18·b：本文件有 400+ 处按行号引用的账落点） */   // 🔴 2026-10-29（`B97_W1` · 账 866）：**原版 `_ResolveTransformIntoRemnant_d__554__MoveNext.c:43` 这一跳** —— `CardScript__ResetToValuesInHand(card, 0)`（**第二个实参 = 0 ⇒ 不清 `AlreadyTriggeredBacklash(+0x222)`**，逐句体见 `CardScript__ResetToValuesInHand.c:138-140` 的 `if (param_2 != 0) *(byte*)(this+0x222) = 0;`）。位置照原版：**`BroadcastRemoveFromGame` → 两手 `RemoveEffectsFromCard` → `RemoveSelfBuffsFromQueues` → `SetAsUnitTransforming` → `ResetToValuesInHand(0)` → `TransformIntoRemnant`**（本行前面那两句 = 前两跳，`u.MarkCardState(15)` = `SetAsUnitTransforming`，紧跟其后就是这一句）。它做的三件我们够得到的：① 清 `Instance.ActiveEffects` / `ActiveEnchantments`（残骸**要**被清）；② 数值回卡面（随后 `rem` 的 object initializer 再把残骸那三格覆盖成 1/0）；③ **不清** `AlreadyTriggeredBacklash`（原版保留 ⇒ 下面 `AlreadyTriggeredBacklash = u.AlreadyTriggeredBacklash` 把它搬给新对象）。⚠️ 副作用如实记：它也会把 `u.AttacksThisTurn` 清 0（原版 `+0x48 = 0`）⇒ 本行下面那条 2026-10-29 的「`AttacksThisTurn` 也要搬」拿到的是 0 —— 与原版一致（原版残骸的 `+0x48` 本来就是 0），⛔ 别为此改回「不重置」。  // 🔴 2026-10-28（B88·A2   // 🔴 2026-10-28（B88·A2 · 账 637 #3 残骸翻面，55 张）：原版 `ResolveTransformIntoRemnant` 三跳 = ① `BroadcastRemoveFromGame(bm, targetCard, null)`（`IL:BattleManager.cs:39259`）→ ②③ 两手 `RemoveEffectsFromCard(target)`（`:39261/:39262`）。① 的接收端 = `CardScript.ReactToUnitJammed` 的 **else 支** = 「按来源撤 extrinsic（`UnitState.RemoveExtrinsicEffectsFrom`）+ `UpdateWhileInPlay(false)`」，**不是**置 `cardState=11`；②③ 的等价口 = `RemoveHandEffectsCastBy`（`EffectResolver.cs` 是同一个 `partial class RuleCore`，一次扫两方手牌）。⛔ 不调 `MarkRemovedFromGame`（原版这 4 条路一次都不置 11，三源合判见 `判据/B88_R4_637三族_施工单.md` §三）。⛔ 别顺手挂 `Auras.Recompose`（`UpdateWhileInPlay(false)` 那半已由 `ActionPump.cs:143` 的窄口在**每个动作边界**跑，再挂一次 = 快照重折两次）。⛔ 别新增行 —— 这一句就写在 `{` 行上（铁律 18·b：`RuleCore.cs` 有 365 处账落点）｜🔴 2026-10-28（B93_E17）：本行开头的 `u.MarkCardState(CardStateOptions.inPlayTransforming); try {` 是 cardState 写点 ③（变残骸）—— 原版 `ResolveAction.c:6370` 的 `case 0x48` into 支 → `ResolveTransformIntoRemnant`（`ILSpy BattleManager.cs:12097`）→ `SetAsUnitTransforming`（`CardScript.cs:15656` 置 15）；本分支收尾行上的 `} finally { u.ClearCardStateMark(); }` = 原版 `SetAsUnitInPlay` 回 2（`CardScript.cs:15617` 的幂等闸：已是 15 就跳过）。窗口 = 同步结算内，⛔ 不动任何读点、⛔ 不改 IsInPlayState（2 与 15 本来就同真）。零行数变化（铁律 18·b）。
                 // 🔴 第 7 行第 1 步：**沿用同一个实例** —— 翻面成残骸**没有换牌**，
                 //    所以从残骸再被摧毁时，进弃牌堆的还得是原来那一份（第 2 步之后才有意义）。
                 var rem = new UnitState(u.Instance, false)
@@ -10057,7 +10057,7 @@ namespace RuleEngine
             //   （队列内相对次序不变，只是两条信号都挪到出队那一刻）。
             if (deathTriggersAllowed) FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot, deferSignal: true);   // 账 871 ③ 同一道闸（见上面 `deathTriggersAllowed`）
             {   // 🔴 2026-10-30（`B99_B1` · RE1·R6）：死讯信号 —— 排在反噬(80)之后、不稳定(81)之前（判据见上面那段）
-                var _dp = p; var _ds = slot; var _du = u; int _dhunt = _du != null ? _du.KwValue("huntmark") : 0;   // 🆕 2026-10-29（B97_W28 · 账 特效动画:503）：猎杀标记数**在入队这一刻拍下来**（出队时 `_du` 的 trait 可能已被反噬 / 翻面改过）
+                var _dp = p; var _ds = slot; var _du = u; int _dhunt = huntMarks;   // 🔴 2026-10-30（`B100_F21` · 判据 = `报告/B100_X8.md` §二·3 / §三·5）：**改成读上面 `:9794` 那一格快照 `huntMarks`**（在残骸翻面支 `:9913` 之前取）。原来这里现读 `_du.KwValue("huntmark")`，而残骸支的 `ResetToValuesInHand` 已 `_keywords.Clear()` 再按卡面重建（`UnitState.cs:2642-2645`）⇒ 运行时挂上去的 `huntmark` 没了 ⇒ `EvtKind.Death.Amount` 恒 0（应为 2）。原版 `CardScript__TriggerOnMinionDeath.c:77` 在 death action 里直调，早于 `ResetToValuesInHand`（`_ResolveTransformIntoRemnant_d__554__MoveNext.c:43`）⇒ 读到的是 2。⚠️ 普通真死支两处读数本来就相等（9794 与这里之间没有任何关键词写点），行为逐字不变。⛔ 零行数变化   // 🆕 2026-10-29（B97_W28 · 账 特效动画:503）：猎杀标记数**在入队这一刻拍下来**（出队时 `_du` 的 trait 可能已被反噬 / 翻面改过）
                 EnqueueAbility(ctx, ActionPriority.Instant, "death-signal:" + (_du.Name ?? "?"),
                                () => ctx.Emit(EvtKind.Death, _dp, _ds, _du.Name,
                                               instanceId: _du.InstanceId, amount: _dhunt),   // 🆕 2026-10-29（B97_W28 · 账 特效动画:503 `ActivateTraitParticlesFromCodeInTarget`）：原版 `CardScript__TriggerOnMinionDeath.c:77` 是**直调**（闸 = 观察者==死者 ∧ `huntMark > 0`）—— 发侧把**猎杀标记数**放进 `EvtKind.Death` 的 `Amount`（全仓 0 个消费者读 Death 的 Amount ⇒ 不改 `ctx.Events.Count`、Fingerprint 不变）；表现侧消费（`BattleDriver.PlayDeathFeel`）由 `B97_W18` 接。⛔ 别为此新增 `EvtKind.TraitStacked`（会动指纹）
@@ -12789,7 +12789,7 @@ namespace RuleEngine
                 body,
                 actor: u, requireActorInPlay: ActorMustBeInPlayForTrigger(_carrierCard, null, keyword),
                 extraTrigger: extraTrigger, abilityContext: _abilityCtx,
-                requireActorInPlayOrDying: requireActorInPlayOrDying, abilityTrigger: _kwTriggerName, abilityTarget: chosen, abilityHostCard: _carrierCard);   // 🔴 2026-10-30（B99_E9 · #21①）：补上 target/board 两道闸的实参 —— `_kwTriggerName` 在 `:12690` 已算好；`chosen` = 原版 `targetCard`（Rally 那条 `:4114` 传的就是玩家点选目标）；`abilityHostCard` 保证附魔那一路（`only != null`，`_carrierCard = only.Card`）判的是**附魔卡自己**而不是宿主。⛔ 没同批补 `abilityActingGate`（那一格没查清，另立账）
+                requireActorInPlayOrDying: requireActorInPlayOrDying, abilityTrigger: AbilityFamilyGateIsActive(_carrierCard, _kwTriggerName, only) ? null : _kwTriggerName, abilityTarget: chosen, abilityHostCard: _carrierCard);   // 🔴 2026-10-30（B100_F17 · `报告/B100_X5.md` C 组 #21–26）：**定位不唯一的卡不再把 trigger 名喂给 `EnqueueAbility`** —— 那种卡由上面 `AbilityFamilyGateOpsForTrigger`（X6 口径乙）按**族**逐 op 近似；`EnqueueAbility` 那道 ability 级闸对「定位不唯一」的处置是**整条不触发**（⛔ 不猜第几条）⇒ 两道一起判 = **正文整份被掐死**（实测 `BL33`/`DA38`/`ASH30`/`DA33`/`SOR31` 的 Rally 一律返 false，族闸计数却是对的）。判据/口径 → `AbilityFamilyGateIsActive` 的 doc ｜🔴 2026-10-30（B99_E9 · #21①）：补上 target/board 两道闸的实参 —— `_kwTriggerName` 在 `:12690` 已算好；`chosen` = 原版 `targetCard`（Rally 那条 `:4114` 传的就是玩家点选目标）；`abilityHostCard` 保证附魔那一路（`only != null`，`_carrierCard = only.Card`）判的是**附魔卡自己**而不是宿主。⛔ 没同批补 `abilityActingGate`（那一格没查清，另立账）
             return queued;
         }
 
@@ -17758,5 +17758,45 @@ namespace RuleEngine
         /// ⇒ `IsDefenderUnit` / `targetIsDefender` 两处也已一并对齐（同一支、同源）。
         /// 池内 **0 张** ⇒ 零行为变化。</para></summary>
         public const string Precognition = "precognition";
+
+        // ==========================================================================================
+        //  🆕 2026-10-30（执行代理 `B100_F17` · `报告/B100_X5.md` C 组 #21–26）
+        // ==========================================================================================
+        /// <summary>
+        /// **这条触发是不是走「族闸」那一路**（= <see cref="AbilityFamilyGateOpsForTrigger"/> 真的会启用）。
+        ///
+        /// <para>判据**逐字照抄**那个方法自己的窄闸：`only == null` ∧ 载体卡 / trigger 名都拿得到
+        /// ∧ <see cref="CardDef.UniqueAbilityIndexForTrigger"/> 回 `-1` **且** `ambiguous`
+        /// （= 这张卡有 ≥2 条同一 `ability.trigger` 的 ability ⇒ 定位不唯一）。</para>
+        ///
+        /// <para>🔴 **为什么必须把它单列出来**：定位不唯一的卡，原版是**逐 ability 各判各结算**
+        /// （`RawCardScript__TriggerAbilities.c:207` 那条循环），我们只能按**能力种类族名**逐 op 近似
+        /// （`X6` 口径乙）—— 那正是族闸做的事。而 `EnqueueAbility` 那道 ability 级 `targetCriteria` 闸
+        /// 对「定位不唯一」的处置是 **整条不触发**（⛔ 不猜第几条，判据见 `ActionPump.EnqueueAbility`
+        /// 里那段注释）⇒ **两道闸一起判 = 整份正文被掐死**，比任何一道单独判都窄。
+        /// 实测（`报告/B100_X5.md` #21–26）：`BL33`/`DA38`/`ASH30`/`DA33`/`SOR31` 的 `Rally`
+        /// 一律返 `false`，**而族闸的 skip 计数是对的**（族闸判了、入队却被另一道闸拒了）。</para>
+        ///
+        /// <para>⇒ 口径：**定位不唯一 ⇒ 只走族闸**（调用点据此把 `abilityTrigger` 传 `null`，
+        /// 那一道闸与它后面的 `boardCriteria` 闸都随之关闭）；
+        /// **唯一定位得到的卡 / 本卡根本没有这条 ability ⇒ 照旧走 `EnqueueAbility` 那道闸**
+        /// （= `B99_E9` #21① 那句「唯一定位得到的卡走 `EnqueueAbility` 那条闸」的另一半）。</para>
+        /// </summary>
+        /// <param name="carrierCard">这条 ability 的**宿主卡**（单位 = `u.Card`、附魔 = `only.Card`）。</param>
+        /// <param name="triggerName">原版 `AbilityTrigger` **枚举名**（`ThisCardPlayed` / `UnitAttack` …）。</param>
+        /// <param name="only">`null` = 载体自己那条触发；非 `null` = 附魔卡那些能力（族闸对它们不启用）。</param>
+        static bool AbilityFamilyGateIsActive(CardDef carrierCard, string triggerName, ActiveEnchantment only)
+        {
+            if (only != null || carrierCard == null || string.IsNullOrEmpty(triggerName)) return false;
+            string why;
+            bool amb;
+            return carrierCard.UniqueAbilityIndexForTrigger(triggerName, out why, out amb) < 0 && amb;
+        }
+
+        /// <summary>自检门：<see cref="AbilityFamilyGateIsActive"/>（纪律同 `FireTriggerAtForTest`：只开门、不改行为）。</summary>
+        public static bool AbilityFamilyGateIsActiveForTest(CardDef carrierCard, string triggerName)
+        {
+            return AbilityFamilyGateIsActive(carrierCard, triggerName, null);
+        }
     }
 }

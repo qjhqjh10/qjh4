@@ -72,7 +72,9 @@ public static partial class RuleEngineTest
               "前提：`GSC51` 的卡级汇总 = `true`（`CardDef.HasPermanentHandCostBuff`，数据侧已落）");
 
         var plain = Unit("B97W2A_PLAIN", 1, 1, 1);
-        var ctx = Battle(new[] { plain }, new CardDef[] { });
+        // 🔴 2026-10-30（`B100_F18` · G1）：`Battle` → `ProbeBattle`。`Battle`/`Deck()` 塞 20 张 filler 再起手
+        //   发 3/4 张 ⇒ 下面「普通卡在手里（1 张）」的前提不成立（实测 4）。⛔ 期望值仍是 1。
+        var ctx = ProbeBattle(new[] { plain }, new CardDef[] { });
         Check(ctx.Players[0].Hand.Count, 1, "前提：普通卡在手里（1 张）");
         if (ctx.Players[0].Hand.Count != 1) return;
         var inst = ctx.Players[0].Hand[0];
@@ -135,7 +137,10 @@ public static partial class RuleEngineTest
                                   abilityTriggers: new[] { 210 },
                                   abilityTriggersVersioned: true);
         var plain = Unit("B97W2B_PLAIN", 1, 1, 1);
-        var ctx = Battle(new[] { with210, plain }, new[] { with210, plain });
+        // 🔴 2026-10-30（`B100_F18` · G1）：`Battle` → `ProbeBattle`。原来 `Deck()` 那 20 张 filler 排在指定牌
+        //   **之后**（抽牌是 `pop_back`，垫牌在牌库头）⇒ 起手把指定牌抽完之后**接着抽 filler**，
+        //   实测双方手上 3 / 4 张（= 2 张指定 + 1~2 张 filler）⇒ 下面「两边各 2 张」全塌。⛔ 期望值仍是 2。
+        var ctx = ProbeBattle(new[] { with210, plain }, new[] { with210, plain });
         Check(ctx.Players[0].Hand.Count, 2, "前提：我方手牌 2 张");
         Check(ctx.Players[1].Hand.Count, 2, "前提：对手手牌 2 张");
 

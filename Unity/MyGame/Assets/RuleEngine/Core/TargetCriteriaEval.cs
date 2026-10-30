@@ -748,7 +748,7 @@ namespace RuleEngine
                 case 680: return "frenzied";
                 case 910: return "tide"; case 975: return "blind";
                 case 980: return "vanguard";
-                case 1170: return "markerlight"; case 1200: return "ambush";
+                case 1170: return "markerlight"; case 1200: return "ambush"; case 780: return "mutation";   // 🔴 2026-10-30（`B100_F36` · `报告/B100_X15.md` #14 · 账 534②）：本行末尾那格 `case 780: return "mutation";` 是**新补的** —— 此前**没有这一格** ⇒ switch 落 `default: return null` ⇒ `TraitPasses` / `RawCardMeetsTraitCriteria` 拿不到名字、返回 `null`（判不了）⇒ **带 `traitsFilter = 780 (mutation)` 的整条 criteria 恒不生效**（`[G6]` A6 从 b100e 起读数一直是 `-1`，与 `CountEval.cs:363` 无关）。判据 = ① 原版枚举 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs:78` `mutation = 780`；② 本仓 id→名表 `CardDefPartial_B94B16.cs:61` `{ "mutation", 780 }`；③ 名字这一跳走 `TraitKeyOfName`：`KeywordTable.Normalize("mutation")` 返回 null（`Prefixes` 没登记它，见 `CardDef.cs:8661` 那张「隐藏 trait」名单）⇒ 落兜底 `HeadOf`+去空白/数字+小写 ⇒ `"mutation"` 幂等。⚠️ 池内带 `trait 780` 的卡 = **0 张**（`B97W5_RowsAndDedupe.cs:26`）⇒ 今天是**休眠数据路径**；补上后只有合成夹具（`B98G6_Assert` A6）会走到，且原版 `MeetsTraitCriteria` 会**先按 mutation 筛候选**（`FilterMethods__MeetsTraitCriteria.c:12-60` 的 ③）⇒ 没有该 trait 的单位一律不满足。
                 case 1185: return "pray";
                 case 1240: return "stomp";
                 // 🔴 2026-10-25（引擎线 `F1`）**就地订正（铁律 5）**：原来是 `return "huntMark";`

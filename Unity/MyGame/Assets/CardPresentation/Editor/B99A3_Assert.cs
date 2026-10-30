@@ -201,7 +201,16 @@ public static class B99A3_Assert
             CardTween.Mode = DG.Tweening.UpdateType.Manual;
             var v = CardView.Create(root.transform, data, "chk_b99a3_spell_card", CardFace.Board);
             // 预备：先把两格数值层 / 两颗底光建出来并捕获基准（原版 `originalSize` 惰性捕获）
-            v.SetOwnAttackType(AttackTypes.None);
+            // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #34 就地订正夹具）：底光是**惰性**建的 ——
+            //   `CardView.HighlightOneAttackStat` 里那一句是 `if (lit) EnsureGlow();`（`Core/CardView.cs:9317`），
+            //   `EnsureGlow` 自己还有 `if (_glowTried) return;`。原来这里**一上来就喂 `None`**
+            //   ⇒ 整个夹具里没有任何一次「点亮」⇒ 两颗底光**从来没被建过** ⇒ `AttackGlowBuilt` 恒 false
+            //   ⇒ §D 的底光段（§D⑥ 那条正控 + 「都不亮」那几条）**一次都没验到**。
+            //   ⇒ 现在先点亮一次（近战）把它们逼出来，再回 `None` 跑 §D②~⑤。图在：
+            //   `Resources/Art/ui/40K_melee_glow.png` / `40K_ranged_glow.png`（现读）。
+            v.SetOwnAttackType(AttackTypes.Melee);      // ← 只为一件事：让 `EnsureGlow()` 真的跑一趟
+            CardTween.Advance(0.2f);
+            v.SetOwnAttackType(AttackTypes.None);       // 回到本段要的初态（两颗底光已建、且都灭着）
             CardTween.Advance(0.2f);
 
             bool statsOk = v.StatShown(CardView.StatMelee) >= 0 && v.StatShown(CardView.StatRanged) >= 0;
@@ -359,9 +368,18 @@ public static class B99A3_Assert
     // ==================================================================
     static void CheckNoUnifiedCanApply()
     {
+        // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #35）：**扫描域原来扫了整个 `AppDomain`** ⇒
+        //   命中的两处 `CanApply()` 全是 **UnityEditor 自带的**（`UnityEditor.PackageManager.UI.Internal.
+        //   PackageManifestImporterEditor.CanApply()` / `UnityEditor.AssetImporters.AssetImporterEditor.CanApply()`）
+        //   —— 它们既不是我们的代码、也不在「原版 ILspy 全树 0 文件」那句话的射程里 ⇒ 这条断的是**别人**。
+        //   本仓**没有 asmdef**（`find Assets -name *.asmdef` = 0）⇒ 我们的代码只有两个程序集：
+        //   `Assembly-CSharp`（运行期）与 `Assembly-CSharp-Editor`（`Editor/` 目录下）。
+        //   ⇒ 只扫这两个（并跳过编译器生成的 `<...>` 类型 / 动态程序集）。
+        var ours = new Dictionary<string, bool> { { "Assembly-CSharp", true }, { "Assembly-CSharp-Editor", true } };
         var hits = new List<string>();
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
         {
+            if (!ours.ContainsKey(asm.GetName().Name)) continue;
             Type[] types;
             try { types = asm.GetTypes(); }
             catch (ReflectionTypeLoadException e) { types = e.Types; }
@@ -382,8 +400,11 @@ public static class B99A3_Assert
             }
         }
         Check(hits.Count == 0,
-              "§G 全仓**没有** `CanApply` 方法（原版 ILspy 全树 0 文件；判定按机制各写一份 = 47 个 `Can*`/`IsValid*`）"
+              "§G **我们的代码里**没有 `CanApply` 方法（扫描域 = `Assembly-CSharp` + `Assembly-CSharp-Editor` 两个程序集；"
+            + "原版 ILspy 全树 0 文件；判定按机制各写一份 = 47 个 `Can*`/`IsValid*`）"
             + $"｜实测 {hits.Count} 处" + (hits.Count > 0 ? "：" + string.Join(", ", hits) : "")
-            + "｜🧨 真建一个 ⇒ 与 15 个原版同名判据「同一条规则写两遍」");
+            + "｜🧨 真建一个 ⇒ 与 15 个原版同名判据「同一条规则写两遍」"
+            + "｜⚠️ 别把扫描域放大回整个 `AppDomain`：`UnityEditor` 自带两个同名方法（`AssetImporterEditor.CanApply()` /"
+            + " `PackageManifestImporterEditor.CanApply()`）⇒ 那会让这条**恒红**，断的还是别人的代码");
     }
 }

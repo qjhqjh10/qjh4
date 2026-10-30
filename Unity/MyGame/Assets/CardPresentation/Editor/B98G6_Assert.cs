@@ -23,8 +23,10 @@
 // ============================ 🔴 灭自证（每条「什么改动能让它红」）============================
 //   · A1（前提）：棋盘上有我方 2 + 敌方 1 个单位 ⇒ 计数 **≥ 3**。没有它，下面「变 1」分不清是收窄
 //     还是棋盘本来就空。
-//   · A2：`selectFromChooseResolution = 1` ＋ `ctx.CardChosenInSelection = u1.Card` ⇒ 计数**恰好 1**
+//   · A2：`selectFromChooseResolution = 1` ＋ `ctx.CardChosenInSelection = u2.Card` ⇒ 计数**恰好 1**
 //     ｜🧨 把 `CountEval.cs` 那两跳删掉（回到「计数池不过末尾两段」）⇒ 实测仍是 count0 ⇒ 红。
+//     ⚠️ 2026-10-30 `B100_F34`：这里原来写 `u1.Card` —— 但 `IncludeSelf = 0` 会把 acting unit（u1）淘汰
+//        ⇒ 选中 u1 必得 0。改成选 u2（全池 88/88 张带该旗的卡 `includeSelf` 都是 0 ⇒ 从不选自己）。
 //   · A3：旗开着、选中项**不在棋盘上** ⇒ 计数 **0**（原版筛完就是空表，⛔ 不当成「全部候选」）。
 //   · A4（灭自证 · 反向）：同一棋盘、同一选中项，但 `selectFromChooseResolution = 0` ⇒ 计数**仍是 count0**
 //     且 `ctx.CardChosenInSelection` **没被清空** ｜🧨 把收窄写成「无条件执行」⇒ 两条同时红。
@@ -109,10 +111,17 @@ public static class B98G6_Assert
         Tr(count0 >= 3, $"★ A1 （前提）棋盘上我方 2 + 敌方 1 ⇒ 计数 ≥ 3（实测 {count0}）"
                       + "｜🧨 若 `CountSet` 压根没收集候选/棋盘没摆上 ⇒ 本条红（下面所有「变 1」都会失去意义）");
 
-        // ---- A2：旗开着 + 选中 u1 ⇒ 恰好 1 ----
+        // ---- A2：旗开着 + 选中 u2 ⇒ 恰好 1 ----
+        // 🔴 2026-10-30（`B100_F34` · 320645 · **α 夹具**）：选中的必须是**候选池里真有**的那一张。
+        //   `Set(...)` 把 `IncludeSelf` 写死 `0`，而 `TargetCriteriaEval.cs:246-253` 在 `includeSelf == 0`
+        //   时**把 acting unit 自己（u1）淘汰**（`if (self && set.IncludeSelf == 0) return false;`）
+        //   ⇒ 原来「选中 u1」时 u1 永远不在池里 ⇒ 收窄后必为 0（`B100_F26` 把 `count` 改成收窄后的数之后才显形）。
+        //   **为什么改「选 u2」而不是「IncludeSelf 改 1」**：现读全池 —— `selectFromChooseResolution == 1`
+        //   的 **88/88 行 `includeSelf` 全 = 0**（`cards_engine.json`）⇒ 原版用这个旗时**从不允许选自己**，
+        //   所以保留 `IncludeSelf = 0` + 改选一个非自身的候选（u2）**更贴原版**。
         var setSel = Set(10, 1);
-        int cSel = Measure(ctx, setSel, u1, u1.Card);
-        C(cSel, 1, "★★ A2 `selectFromChooseResolution = 1` ＋ 选中 u1 ⇒ 计数**恰好 1**"
+        int cSel = Measure(ctx, setSel, u1, u2.Card);
+        C(cSel, 1, "★★ A2 `selectFromChooseResolution = 1` ＋ 选中 **u2**（非 acting unit ⇒ 在候选池里）⇒ 计数**恰好 1**"
                  + "｜🧨 把 `CountEval.MeetsBoardCriteria` 里那两跳（去重 → 收窄）删掉 ⇒ 实测等于 A1 的 "
                  + count0 + " ⇒ 红");
 
@@ -148,7 +157,12 @@ public static class B98G6_Assert
         C(cMut, count0 - 1, "★★ A6 `traitsFilter = 780` ⇒ 剔掉**已经挂过同一条单次变异**的候选（"
                           + count0 + " → " + (count0 - 1) + "）"
                         + "｜🧨 把 `needCands` 里的 `|| set.TraitsFilter == 780` 去掉 ⇒ 这条永远不减 ⇒ 红"
-                        + "｜🧨 把去重挪到收窄**之后**也行（本条测不出次序，见 §C；次序由代码位置保证）");
+                        + "｜🧨 把去重挪到收窄**之后**也行（本条测不出次序，见 §C；次序由代码位置保证）"
+                        // 🔴 2026-10-30（`B100_F34` · 320744 · `报告/B100_X15.md` §四 · #14）：**本条现在红，是【产品侧】缺口、不是本文件写错**。
+                        + "｜⏳ 现状 = 红：**依赖产品补 `TargetCriteriaEval.TraitNameOf` 的 `case 780: return \"mutation\";`**"
+                        + "（见 `报告/B100_X15.md` §四 · #14）—— 未补前 `TraitPasses` 判不了 ⇒ 整条 criteria 回 **-1** ⇒ 本条必红。"
+                        + "⚠️ 补 `case 780` 之后**期望值也要重定**：原版 `FilterMethods__MeetsTraitCriteria.c` 会先按 mutation trait "
+                        + "筛候选，而本夹具的单位都没挂该 trait ⇒ 结果会变 **0**、不是 `count0-1`（届时夹具 + 期望一起改，⛔ 别只改期望值）");
         var setPlain2 = Set(10, 0);
         int cNoMut = Measure(ctx, setPlain2, u1, null);
         C(cNoMut, count0, "★ A7 `traitsFilter = 0` ⇒ 一个都不剔（⛔ 别在别处无条件去重 —— 那会把目标池剔一半）");
@@ -165,6 +179,17 @@ public static class B98G6_Assert
         Tr(g9 != null && g9.Contains("selectFromChooseResolution"),
            "★★ A9 墓地族（`ta=60`）＋旗 ⇒ **仍 gap**（同上）｜🧨 同上 ⇒ 红");
         var setHandPlain = Set(50, 0, includeHero: 0, includeMinions: 1, includeSpells: 1);
+        // 🔴 2026-10-30（`B100_F29` · #26 · α 夹具）：先把前提写死 —— 手牌候选也要带 `cardTraits`，
+        //   否则 `RawCardMeetsTraitCriteria` 在「旗」那一支**之前**就先判不了（`TargetCriteriaEval.cs:1033-1040`，
+        //   次序 = 原版 `FilterMethods__RawCardMeetsTraitCriteria.c:12-73`），A10 测到的就不再是旗那一位。
+        var hand = ctx.Players[0].Hand;
+        Tr(hand != null && hand.Count > 0,
+           "★ A10 前提：P0 手牌非空（`ta=50` 手牌族才有候选；⛔ 手牌空时本条会**空转绿**）");
+        CardDef hand0 = (hand != null && hand.Count > 0) ? hand[0].Card : null;
+        Tr(u1.Card.CardTraitsKnown && hand0 != null && hand0.CardTraitsKnown,
+           "★ A10 前提：夹具卡与手牌候选**都挂了 `cardTraits`**（空表）⇒ trait 那一格判得了"
+         + "｜🧨 去掉 `Unit()` 里的 `AttachCardTraits(new string[0])` ⇒ 本条红（手牌族退回 `cardTraits` gap，"
+         + "A10 会变成「测夹具」而不是「测旗」）");
         string g10 = GapOf(ctx, setHandPlain, u1);
         Tr(g10 == null,
            "★ A10 **灭自证**：手牌族 + **旗关** ⇒ 不因 `selectFromChooseResolution` gap（证明 A8/A9 的 gap 是**这一位**在起作用，"
@@ -409,9 +434,23 @@ public static class B98G6_Assert
         };
     }
 
+    /// <summary>手搓一张单位卡。🔴 **`cardTraits` / `rarity` 两格必须显式给**
+    /// （与 `B99E3_Assert.Card` / `B99E8_Assert` / `B99T2_Assert` / `B99C1_Assert` 同族先例同形）：
+    /// <para>① `TargetCriteriaEval.RawCardMeetsTraitCriteria` 在 `traitsFilter == 0` 短路**之前**就查
+    /// `HasDefaultTrait(summonRift)`（次序照抄原版 `FilterMethods__RawCardMeetsTraitCriteria.c:12-73` 的 ①②③）
+    /// ⇒ `_cardTraits == null` ⇒ `CardDef.CardTraitsWhy` 那句 gap。</para>
+    /// <para>② 同一方法的第 ⑤ 步**无条件**读 `RarityOf(card)`（原版那张卡恒有 `+0x28` 的 rarity ——
+    /// `FilterMethods__CheckIfRawCardMeetsCriteria.c:74-79` 直接读它，`option == 0` 时由
+    /// `MeetsStatCriteria` 自己放行）⇒ 我们的 `Rarity` 为空也 gap。</para>
+    /// <para>⇒ 挂**空表**（= 真卡「`cardTraits` 已挂、只是空」）。⛔ 别挂 `summonRift`：那会让
+    /// `traitsFilter == 0` 判 **false**（.c 第 ① 步的门），正好把 A7/A10「不筛」那条口径测反。</para>
+    /// <para>⚠️ 这两格都**不参与**棋盘族的判定（`TargetCriteriaEval.Matches` 的 rarity 由
+    /// `rarityFilterOption` 开闸、`TraitPasses` 读的是实例上的当前关键词）⇒ A1–A7 / A11 / A12 的前提不变。</para></summary>
     static CardDef Unit(string name, int cost, int atk, int hp, params string[] kws)
     {
-        return new CardDef(name, name, "unit", "", null, "Test", cost, atk, hp, 0, kws);
+        var c = new CardDef(name, name, "unit", "", "common", "Test", cost, atk, hp, 0, kws);
+        c.AttachCardTraits(new string[0]);
+        return c;
     }
 
     /// <summary>督军（`subtype` 必须给 `"Warlord"` —— 与 `RuleEngineTest.HeroOf` 同一口径）。</summary>
