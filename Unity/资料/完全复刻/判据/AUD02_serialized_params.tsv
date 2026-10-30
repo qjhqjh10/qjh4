@@ -1,6 +1,6 @@
 prefab	节点路径	组件	字段	原版值	我们落点(文件:行)	判档	改法	判据
 Deck Editing Menu	Deck Editing Menu/Content Area/Background	Image	m_Type	Sliced(1)	Deck/DeckRuntime.cs	？	机制齐（Sliced → `MenuDraw.Nine`、Tiled → `MenuDraw.Tiled`、Simple → `Rect`），逐节点是否照原版 type 未核	本行
-Deck Editing Menu	Deck Editing Menu/Content Area/Background	Image	m_PixelsPerUnitMultiplier	0.009999999776482582	Deck/DeckRuntime.cs	？	`m_Type=Simple` ⇒ ppuMul 对 Simple 不生效（uGUI 只在 Sliced/Tiled 用）；需确认该 Image 的 type 是否 Simple	同节点 `m_Type` 行
+Deck Editing Menu	Deck Editing Menu/Content Area/Background	Image	m_PixelsPerUnitMultiplier	0.009999999776482582	Deck/DeckRuntime.cs:938 · :1439-1460	A	—	该 Image **`m_Sprite = null`** ⇒ uGUI 画出的是纯色板（ppuMul / Sliced 对它**不生效**）；颜色全来自同节点的 `UIGradient`（color1/color2 + angle 82），我们已按渐变底实现
 Deck Editing Menu	Deck Editing Menu/Content Area/Header/Filters	Image	m_Type	Sliced(1)	Deck/DeckRuntime.cs	？	机制齐（Sliced → `MenuDraw.Nine`、Tiled → `MenuDraw.Tiled`、Simple → `Rect`），逐节点是否照原版 type 未核	本行
 Deck Editing Menu	Deck Editing Menu/Content Area/Header/Filters/Label	TextMeshProUGUI	m_fontSize	40.0	Deck/DeckRuntime.cs	？	需逐节点对字号（部分已核：Deck `WcCountFontPx=32.6` = 原版 32.6 · Leaderboard 50.3/40/30/43.2 · Chat 选项 30/12/30）	本行
 Deck Editing Menu	Deck Editing Menu/Content Area/Header/Filters/Label	TextMeshProUGUI	m_fontSizeBase	32.0	Deck/DeckRuntime.cs	？	需逐节点对字号（部分已核：Deck `WcCountFontPx=32.6` = 原版 32.6 · Leaderboard 50.3/40/30/43.2 · Chat 选项 30/12/30）	本行
