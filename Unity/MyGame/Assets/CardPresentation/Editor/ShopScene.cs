@@ -1575,7 +1575,7 @@ public static class ShopScene
             //   （`Shell/ShopWindow.cs` 的 `Loc.T("MenuShop/RefreshCounter")`，键 = 原版那颗 `RefreshText`
             //   的 `Localize.mTerm` 原文）⇒ **顺手把文案也断上**（本段原来只断「节点在不在 / 是文字还是图标」，
             //   一个字都没断 ⇒ 「字有没有接上词条」看不见）。
-            CheckTrue(Loc.HasEntry("MenuShop/RefreshCounter"),
+            CheckTrue(Loc.HasAnyTerm("MenuShop/RefreshCounter"),
                       "（前提）词条 `MenuShop/RefreshCounter` 在表里（⛔ 不在 ⇒ 下面那条两边一起退化成键名 = 假绿）");
             if (asText)
                 Check(TextOf(FindChild(tc, "RefreshText")), Loc.T("MenuShop/RefreshCounter"),
@@ -1651,7 +1651,7 @@ public static class ShopScene
                         + $"时钟 {cLow}s · 漂移余量 {driftTol}s");
             }
 
-            // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · 2 列 · UpperLeft` ----
+            // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · **4** 列 · UpperLeft`（🔴 2026-10-30 `B103_F5` 订正原写「2 列」：那是把 `m_ConstraintCount: 2` 当列数，而 `m_Constraint = 0`(Flexible) 下它是死值 ⇒ 真值 `floor(1590.24 ÷ 335.6)` = 4，判据 → `判据/AUD05_state_matrix_商店窗.md` §1·1）----
             var offers = ShopData.Offers(p);
             var content = FindPath(pg, "Packs Scroll View/Viewport/Content");
             CheckTrue(content != null, "`Content`（栅格挂点）建了");
@@ -1831,15 +1831,15 @@ public static class ShopScene
                     // 真机 `[SCROLLPROBE] raw=1.0000` 实测一格本来就是 ±1，`MenuScroll` 按 `NotchPx / 1` 换算
                     // ⇒ 下面那行 `-6f × ScrollUnitsPerNotch` **自洽抵消**（= 6 格）；判据 → `D_N29`）。
                     // 🔴 2026-10-05（A28）：档位改成 **Elastic** 之后**滚轮不再被夹**（照 UGUI `OnScroll`：**Clamped 才夹回**）
-                    //    ⇒ 本页只有 4.62px 可滚，**喂 6 格（6px）**才越得出去，随后由 `Tick` 的 `SmoothDamp`
+                    //    ⇒ 🔴 2026-10-30（`B103_F5`）：4 列之后**四页都只有 1 行**（内容 482 < 视口 952.38）⇒ `MaxOffset` = 0，喂 6 格（6px）照样越得出去（Elastic 不夹），随后由 `Tick` 的 `SmoothDamp`
                     //    回弹到上界（`smoothTime = m_Elasticity`；回弹那一支同 `RewardsScene` 的写法）。
-                    //    **真红法**：去掉 `_gridScroll.Elastic = true;` ⇒ 第一条立刻红（量到的是被夹回的 4.62、不是 6）。
+                    //    **真红法**：去掉 `_gridScroll.Elastic = true;` ⇒ 第一条立刻红（量到的是被夹回的 **0**、不是 6）。
                     gs.Wheel(-6f * MenuScroll.ScrollUnitsPerNotch);
                     CheckNear(gs.Offset, 6f, 0.5f, "往下滚 6 格 ⇒ 偏移 +6px（1px/格；Elastic ⇒ **不被夹**，允许越界）");
                     CheckTrue(gs.OutOfRange,
                               $"…此刻**确实越出了**可滚范围（{gs.Offset:F2} > 上界 {gs.MaxOffset:F2} —— Clamped 到不了这个态）");
                     for (int i = 0; i < 400; i++) gs.Tick(1f / 60f);          // 松手/停滚 ⇒ 回弹
-                    CheckNear(gs.Offset, gs.MaxOffset, 0.5f, "…随后 `SmoothDamp` **回弹到上界 4.62**（越界是暂态）");
+                    CheckNear(gs.Offset, gs.MaxOffset, 0.5f, "…随后 `SmoothDamp` **回弹到上界 `MaxOffset`**（越界是暂态；4 列之后本页 1 行 ⇒ 上界 0）");
                     CheckTrue(!gs.OutOfRange, "回弹到位 ⇒ 不再越界");
                     gs.SetOffset(0f);
                 }
@@ -1853,7 +1853,7 @@ public static class ShopScene
             //   （`ShopTabPage.TxtEmpty` → `Loc.T("MenuCollection/NoDecksFound")` —— 与收藏窗 Deck 页**同一条键**，
             //   原版那一颗 `Warning` 的 `Localize.mTerm`）⇒ 同批把文案断上。
             //   ⚠️ 显隐那半条在上面（恒 `act=F`）；这里断的是**字**。
-            CheckTrue(Loc.HasEntry("MenuCollection/NoDecksFound"),
+            CheckTrue(Loc.HasAnyTerm("MenuCollection/NoDecksFound"),
                       "（前提）词条 `MenuCollection/NoDecksFound` 在表里（⛔ 不在 ⇒ 下面那条两边一起退化成键名 = 假绿）");
             var ewt = ew != null ? FindChild(ew, "Warning") : null;
             Check(ewt != null ? TextOf(ewt) : null, Loc.T("MenuCollection/NoDecksFound"),
@@ -5059,7 +5059,7 @@ public static class ShopScene
                 for (int mi = 0; mi < moTerms.Length; mi++)
                 {
                     var bt2 = amop.BtnText(3 + mi);          // 下标 3..6 = Promote / Demote / Kick / Quit
-                    CheckTrue(Loc.HasEntry(moTerms[mi]),
+                    CheckTrue(Loc.HasAnyTerm(moTerms[mi]),
                               $"（前提）词条 `{moTerms[mi]}` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     Check(bt2 != null ? bt2.Text : "-", Loc.T(moTerms[mi]),
                           $"★ `{amop.ButtonNames()[3 + mi]}` 那颗的字 = `Loc.T(\"{moTerms[mi]}\")`（随语档；"
@@ -5879,7 +5879,7 @@ public static class ShopScene
         // 🆕 2026-10-29（调度台代接线 · `B97_SHOP2`）：开箱奖励/来源卡配置/排程替身 + 限购售罄闸（A 组写盘全程在 OverrideDir 临时目录）。
         B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail; /* 🆕 B102_D6：W15 的宿主换成**现建的活窗**（原来传的 `win` 在 `:4602` 开报价弹窗那一拍已被收割销毁 ⇒ Unity 假 null）；跑完立刻销毁 */ var w15Host = ShopWindow.Create(WindowsManager.EnsureHost()); w15Host.Manager.OpenWindow(w15Host); B97W15Assert.Run(w15Host); Object.DestroyImmediate(w15Host.gameObject); _sink.Pass += B97W15Assert.Pass; _sink.Fail += B97W15Assert.Fail; B102PACK_Assert.Run(); _sink.Pass += B102PACK_Assert.Pass; _sink.Fail += B102PACK_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W15`）：账 `商店:297` 售罄格变灰（灰走 SwitchMaterial 材质路径，⛔ 不是 `m_DisabledColor` 死值）；同一行追加 ⇒ 行数零变化
 
-        Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+        B103F4_Assert.RunShop(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B103F5_Assert.RunShopGrid(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记统一成 `失败重列：`（原来写的是 `失败 N：` —— 同一件事四个宿主四种标记：
         //   `ShellScene`/`RewardsScene` 用 `✗`、`CollectionScene` 用 `✗`（拼在 StringBuilder 里）、

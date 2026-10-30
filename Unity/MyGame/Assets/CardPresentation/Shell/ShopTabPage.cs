@@ -63,13 +63,13 @@ namespace CardPresentation
         { _win = win; _root = root; _page = page; }
 
         /// <summary>🆕 **2026-10-18**：商品「类型」行（原版 `type`，例 `Booster Pack`）的显示文案。
-        /// 官方表有 `MenuShop/ShopItemType/&lt;去空格的类型&gt;` 这一族 ⇒ 有键走词条，没键原样
-        /// （⛔ 先 `HasEntry` 守一道：`Loc.T` 缺键会把键名印出来）。</summary>
+        /// 官方表有 `MenuShop/ShopItemType/&lt;去空格的类型&gt;` 这一族（现读手写表 5 条 / 官方全表 15 条）⇒ 有键走词条，没键原样
+        /// （⛔ 先 `HasAnyTerm` 守一道：三档一起算；只用 `HasEntry` 会让 10 类只落官方全表的类型印原始英文）。</summary>
         static string TypeText(string type)
         {
             if (string.IsNullOrEmpty(type)) return type;
             string key = "MenuShop/ShopItemType/" + type.Replace(" ", "");
-            return Loc.HasEntry(key) ? Loc.T(key) : type;
+            return Loc.HasAnyTerm(key) ? Loc.T(key) : type;
         }
 
         // ============================================================ 矩形（原版实测）
@@ -106,11 +106,11 @@ namespace CardPresentation
         public static readonly Vector2 PacksSoft = new Vector2(0f, 25f);
 
         /// <summary>`…/Content` 上的 `GridLayoutGroup`（原文 `MonoBehaviour`）：
-        /// **cell 335.6 × 475** · `spacing (0,0)` · `padding (0,0,7,0)` · `Flexible` / `count 2` · `UpperLeft` / `Horizontal`。
-        /// ⚠️ `ShopTab.Setup` 会把它乘上 `contentLayoutElementsSizeMultiplierSmallScreens`（**1.18**）——
-        ///    那是**小屏 UI** 那档；我们的版面固定 16:9 ⇒ **乘 1.0**（别照抄 1.18）。</summary>
+        /// **cell 335.6 × 475** · `spacing (0,0)` · `padding (0,0,7,0)` · `m_Constraint 0`(**Flexible**) · `UpperLeft` / `Horizontal`。
+        /// 🔴 序列化里的 `m_ConstraintCount = 2` 是**死值**（UGUI 只在 `FixedColumnCount`/`FixedRowCount` 两档读它）⇒ 真实列数走 Flexible 那条 `floor(Content 宽 ÷ cellSize.x)` = **4**（判据 → `判据/AUD05_state_matrix_商店窗.md` §1·1）。
+        /// ⚠️ `ShopTab.Setup` 小屏档还会乘 `contentLayoutElementsSizeMultiplierSmallScreens`（**1.18**）—— 本文件**尚未接**那一档（§4·2 #2/#3）；16:9 下两档都是 4 列，所以接不接都不翻列数。</summary>
         public const float CellW = 335.6f, CellH = 475f, GridPadT = 7f;
-        public const int GridCols = 2;
+        public static int GridCols { get { return Mathf.Max(1, Mathf.FloorToInt(ScrollView.W / CellW)); } }   // 🔴 2026-10-30（`B103_F5`）：原版 `GridLayoutGroup` 是 **Flexible**，列数 = `floor(Content 宽 ÷ cellSize.x)`；Content 拉伸（`ContentSizeFitter` 只控高）⇒ 宽 ≡ 视口宽 1590.24 ⇒ **4 列**（4×335.6 = 1342.4 ≤ 1590.24 < 5×335.6）。⛔ 别写回 `m_ConstraintCount` 的 2 —— 那是死值。
 
         /// <summary>`Empty Collection Warning`：实测 **164.76,42.62 → 1970.00,1080.00**（**比父还宽，左右都溢出**）。</summary>
         public static readonly PxRect EmptyWarn = new PxRect(164.76f, 42.62f, 1970.00f, 1080.00f);
@@ -403,7 +403,7 @@ namespace CardPresentation
             DrawerCells = 0; FallbackCells = 0;
             // `ContentSizeFitter(Vertical = Preferred)`：内容高 = 行数 × 475 + 7（原版就是这个式子）
             float contentH = (offers.Length + GridCols - 1) / GridCols * CellH + GridPadT;
-            float contentW = GridCols * CellW;
+            float contentW = ScrollView.W;   // 🔴 2026-10-30（`B103_F5`）：原版 `Content` 是**拉伸**的（`ContentSizeFitter` 只控高、anchors (0,0)-(1,1)）⇒ 宽 = 视口宽 **1590.24**，⛔ 不是 `列数×格宽`（那只占左半边 1342.4、右余 247.84 —— `m_ChildAlignment = 0 UpperLeft` 不留左侧）。
 
             if (_gridScroll == null)
             {

@@ -3507,7 +3507,7 @@ namespace RuleEngine
                 case 420: case 430: case 440: case 450: case 460: case 461: case 462:
                 case 465: case 466: case 467: case 468:
                     return "trigger";                     // `AddTrigger*` 族（登记一个触发，不是效果本身）
-                default:                                  return null;       // 320 / 325 / 470+ / 未列
+                default:                                  return (chosenAbility == 230 || chosenAbility == 233) ? "forceattack" : null;       // 🆕 2026-10-30（`B103_W5b` · 账 `战斗逻辑驱动:1282`/`:1380`）：`230 forceAttack` / `233 forceAttackFriendly`（判据 `AbilityLogic__PlayAbility.c:2641-2658` / `:2679-2694`；`AbilityEffect.cs:42/44`）—— 执行器 `DoForceAttack` 早已按 `230/231/233` 处理（见它的 doc）；**行数零变化追加**。`231 forceAttackDontCountAttack` **故意不映射**：`DoForceAttack` 今天**没有 `dontCount` 这一位**，映射上去会让「这次强制攻击**不消耗**攻击者的行动」这一半**静默丢失**（比留在 `gap:kind-unknown` 更糟）。⚠️ 池内 `230/233` = 0 张 ⇒ 零行为变化  // 320 / 325 / 470+ / 未列
             }
         }
 
@@ -3515,7 +3515,7 @@ namespace RuleEngine
         static readonly string[] ActiveAbilityKindFamilyNames =
         {
             "draw", "damage", "heal", "buff", "resource", "summon", "create",
-            "destroy", "jam", "stun", "handmove", "trigger",
+            "destroy", "jam", "stun", "handmove", "trigger", "forceattack",   // 🆕 2026-10-30（`B103_W5b`）：末位新增 `forceattack`（`230/233`）—— 必须与生成器 `ABILITY_KIND_FAMILY` 同步（`EngineX6.cs:98-99` 跨语言对账）。行数零变化追加
         };
 
         /// <summary>🆕 v24：这一族的 op **动词**（`EffectOp.Verb` 的取值表）。
@@ -3540,9 +3540,9 @@ namespace RuleEngine
                 case "destroy":  return verb == "destroy";
                 case "jam":      return verb == "jam" || verb == "blind";
                 case "stun":     return verb == "stun";
-                case "handmove": return verb == "choosecard" || verb == "return" || verb == "discardfromhand" || verb == "discardwholehand" || verb == "disappearunit" || verb == "stealminionself";   // 🆕 2026-10-28（`B91_A4` · 判据 `判据/B91_P1_五族机制判据.md` §七·#6）：后四个 = `B91_A1` 本轮在 `EffectResolver` 动词表里落地的四个 verb（`EffectResolver.cs:1158-1161`）—— 原版 `CardScript` 把 discard 族 / `disappearUnit` / `stealMinion` 都归「手牌·牌库搬移」这一族。⚠️ **今天零消费者，为完整而加**：现池 active ability 落在这五族的行数 = 0，且 `EffectText` 对这四个 verb **0 生产者**（`EffectResolver.cs:1161` 自承休眠件）⇒ 加完**行为不变**（所以本行不加行、不重钉）。⚠️ **仍未收录**（今天同样落到 `gap:kind-no-op`、但**可能有活消费者**、要 `play check` A/B 才敢加）：`exchange` / `stealhand` / `stealdeck` / `takecontrol` / `copycemetery`。
+                case "handmove": return verb == "choosecard" || verb == "return" || verb == "discardfromhand" || verb == "discardwholehand" || verb == "disappearunit" || verb == "stealminionself" || verb == "exchange" || verb == "stealhand" || verb == "stealdeck" || verb == "copycemetery";   // 🆕 2026-10-30（`B103_W5b` · 账 `战斗逻辑驱动:1282`/`:1380`）：末四个 = `190 exchangeSelfForMinion` / `170 stealFromHand` / `175 stealFromDeck` / `210 copyUnitInCemetery` 的动词 —— 四个执行器（`DoExchange` / `DoStealFromHand` / `DoStealFromDeck` / `DoCopyUnitInCemetery`）**早就在**（`EffectResolver.cs:1158-1161` 的动词表），缺的只是这一族认不认它们。⚠️ **今天零消费者**：池内这四码 **0 张**（`cards_truth.json` 1,351 张现扫）、`EffectText` 对这四个 verb **0 生产者**（全池卡面正文里 steal/exchange/cemetery 的效果句命中 = 0）⇒ 加完**行为不变**。⚠️ **行数零变化追加**。⚠️ **仍未收录**：`takecontrol`（那是 `stealMinion(180)` 那一族、族名是别的）   // 🆕 2026-10-28（`B91_A4` · 判据 `判据/B91_P1_五族机制判据.md` §七·#6）：后四个 = `B91_A1` 本轮在 `EffectResolver` 动词表里落地的四个 verb（`EffectResolver.cs:1158-1161`）—— 原版 `CardScript` 把 discard 族 / `disappearUnit` / `stealMinion` 都归「手牌·牌库搬移」这一族。⚠️ **今天零消费者，为完整而加**：现池 active ability 落在这五族的行数 = 0，且 `EffectText` 对这四个 verb **0 生产者**（`EffectResolver.cs:1161` 自承休眠件）⇒ 加完**行为不变**（所以本行不加行、不重钉）。⚠️ **仍未收录**（今天同样落到 `gap:kind-no-op`、但**可能有活消费者**、要 `play check` A/B 才敢加）：`takecontrol`（原 `exchange`/`stealhand`/`stealdeck`/`copycemetery` 已于 2026-10-30 `B103_W5b` 收入本族 —— 见本行前半段；当时那句「要 `play check` 才敢加」的口径**已按现状更新**：池内四码 0 张、无生产者 ⇒ 零行为变化）。
                 case "trigger":  return verb == "triggerability" || verb == "extratrigger" || verb == "reanimate";
-                default:         return false;
+                default:         return family == "forceattack" && verb == "forceattack";   // 🆕 2026-10-30（`B103_W5b`）：`forceattack` 族的唯一动词就是它自己（`EffectResolver.cs:1068` 的动词表；`EffectText` 已有生产者 —— `Murderous Desires` 等四张）。行数零变化追加
             }
         }
 

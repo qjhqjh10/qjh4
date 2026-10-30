@@ -679,17 +679,17 @@ namespace CardPresentation
         /// <summary>= 原版 `&lt;OnSetReferrer&gt;b__13_0(string err)`（**逐句**，判据
         /// `out_cpp2il_dev_ilspy/ReferralPopupWindow.cs:183-196`）：`term = "CustomErrors/" + err` →
         /// `errorMessage.text = GetTranslation(term)` → `referButton.interactable = true`。
-        /// <para>⚠️ 词条缺键时**回落** `CustomErrors/UnhandledError` 并出声（本地化表里 `CustomErrors/*` 27/30 命中，
-        /// 缺 `Undefined`/`CouponCodeNotFound`/`CouponAlreadyRedeemed`）—— ⛔ 不把 `CustomErrors/xxx` 印到屏幕上。</para></summary>
+        /// <para>⚠️ 词条缺键时**回落** `CustomErrors/UnhandledError` 并出声（现读 `CustomErrors/*`：手写表 1 条、官方全表 41 条
+        /// ⇒ 闸必须三档一起算 `Loc.HasAnyTerm`，否则真错误串全落兜底）—— ⛔ 不把 `CustomErrors/xxx` 印到屏幕上。</para></summary>
         public void ShowReferralError(string err)
         {
             string term = "CustomErrors/" + (err ?? "");
             string text;
-            if (Loc.HasEntry(term)) text = Loc.T(term);
+            if (Loc.HasAnyTerm(term)) text = Loc.T(term);
             else
             {
-                Debug.LogWarning("[Referral] 错误词条 `" + term + "` 不在本地化表里 ⇒ 回落 `CustomErrors/UnhandledError`");
-                text = Loc.HasEntry("CustomErrors/UnhandledError") ? Loc.T("CustomErrors/UnhandledError") : "";
+                Debug.LogWarning("[Referral] 错误词条 `" + term + "` 三档（手写表 / bulk / 官方全表）都取不到 ⇒ 回落 `CustomErrors/UnhandledError`");
+                text = Loc.HasAnyTerm("CustomErrors/UnhandledError") ? Loc.T("CustomErrors/UnhandledError") : "";
             }
             if (_error != null) _error.SetText(text);
             else Debug.LogWarning("[Referral] `Input View/error` 那颗字没建出来 ⇒ 错误串只进日志：`" + text + "`");

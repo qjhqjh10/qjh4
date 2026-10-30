@@ -1,0 +1,121 @@
+FP 编号	域	功能点	可观测路径	现状	证据(文件:行号)	缺的那一跳
+FP-ENG-014	战斗逻辑驱动	事件触发链与广播	己方受伤 ⇒ 对方手牌的触发真的被扫到并摘掉	✅	RuleEngine/Editor/B100F17_Assert.cs:111; CardPresentation/Editor/B97W21_Assert.cs:160	—
+FP-ENG-015	战斗逻辑驱动	战斗引擎·其它（查询/缓存/辅助）	条件不满足时技能入口拒绝并出声	✅	CardPresentation/Editor/B97_ER_Assert.cs:132; CardPresentation/Editor/B97_ER_Assert.cs:135	—
+FP-ENG-016	战斗逻辑驱动	对手 AI	AI 手上高费牌才换、判得出斩杀	✅	RuleEngine/Editor/RuleEngineTest_EngineA2.cs:473; RuleEngine/Editor/RuleEngineTest.cs:29202	—
+FP-ENG-017	战斗逻辑驱动	战斗查询与辅助	出牌后手牌/棋盘查询读得到、张数对得上	🟡	RuleEngine/Editor/RuleEngineTest.cs:5867; RuleEngine/Core/RuleCore.cs:14951	GetGameState 零断言且生产零调用点；Hand/Board/Deck 只当读数出口，没单独验收
+FP-ENG-018	战斗逻辑驱动	卡牌静态数据与本地化取值	带空投舱但无 landing 的单位出手 ⇒ 一条 landing 触发都不发	✅	RuleEngine/Editor/RuleEngineTest_S14.cs:2322; RuleEngine/Editor/RuleEngineTest_S14.cs:2352	—
+FP-ENG-019	战斗逻辑驱动	通用工具（时间/字符串/校验/随机）	记一条已移除 reload ⇒ 条件由真变假	✅	RuleEngine/Editor/RuleEngineTest_EngineA2.cs:353; RuleEngine/Editor/RuleEngineTest_EngineA2.cs:355	先手判定接入对局那一跳无链（ByInitiative 只做了入参→返回的纯函数检查）
+FP-ENG-020	战斗逻辑驱动	卡牌状态查询与判定	同单位连挂两条任务附魔 ⇒ 只留一条、数得出 1	✅	RuleEngine/Editor/RuleEngineTest_EngineB96CR.cs:83; RuleEngine/Editor/RuleEngineTest.cs:25050	—
+FP-ENG-021	战斗逻辑驱动	对局配置与 Bot 随机	很简单档 ⇒ bot 砍掉低分动作	🟡	RuleEngine/Core/BattleContextRandom.cs:46; CardPresentation/Editor/B97W21_Assert.cs:117	预烧的 100 格随机数表内容无人验（清零/写死仍绿），只验了游标消耗
+FP-ENG-022	战斗逻辑驱动	战斗初始化与战役衔接	按 R 重开/点掉教程提示 ⇒ 新局第 1 回合	✅	CardPresentation/Editor/BattleScene.cs:17527; CardPresentation/Editor/BattleScene.cs:36725	—
+FP-ENG-023	战斗逻辑驱动	战斗内界面交互（点击/显示/调试）	进攻面板点继续/跳过教程 ⇒ 卡视图清空、当场判负	✅	CardPresentation/Editor/BattleScene.cs:28633; CardPresentation/Editor/BattleScene.cs:36802	—
+FP-ENG-024	战斗逻辑驱动	卡牌状态切换与动画	推登场链 ⇒ 0.7s 切场上；落空格 ⇒ 溶解	✅	CardPresentation/Editor/BattleScene.cs:21126; CardPresentation/Editor/BattleScene.cs:29448	—
+FP-ENG-025	战斗逻辑驱动	战斗内声音与回放	推进到受击那一拍才响 unitDamage；AI 回话真说出去	✅	CardPresentation/Editor/BattleScene.cs:40236; CardPresentation/Editor/BattleScene.cs:22703	—
+FP-ENG-026	战斗逻辑驱动	随机与种子	同一 seed 两次抽将 ⇒ 逐位相同、同局不重复	✅	CardPresentation/Editor/B94B10_Assert.cs:220; CardPresentation/Editor/B94B10_Assert.cs:229	—
+FP-ENG-027	战斗逻辑驱动	战斗统计与成就口径	满任务点战术打出 ⇒ 隐秘计数 +1、成就 Ach_78 +1	✅	RuleEngine/Editor/RuleEngineTest_EngineX18.cs:78; RuleEngine/Editor/RuleEngineTest_EngineX18.cs:86	—
+FP-VFX-01	特效动画	镜头震动与震屏预设	挨打/落地 ⇒ 相机按 preset 平移+旋转、HUD 不动	✅	CardPresentation/Editor/BattleScene.cs:24363; CardPresentation/Editor/BattleScene.cs:24449	—
+FP-VFX-02	特效动画	粒子生成/池化/碰撞通知	环境 spawner 发射 ⇒ 模板实例化；碰撞事件 ⇒ 补间起播	✅	CardPresentation/Editor/BattleScene.cs:5836; CardPresentation/Editor/BattleScene.cs:11555	—
+FP-VFX-03	特效动画	AnimFX 模块族	SetData/Exit/DoDestroy ⇒ 模块逐个收到、宿主不销毁	✅	CardPresentation/Editor/BattleScene.cs:45705; CardPresentation/Editor/BattleScene.cs:45721	—
+FP-VFX-04	特效动画	材质与透明度淡入淡出/闪烁	材质淡出逐帧写 α 到 0；准星淡入推完 ⇒ 完全不透明	✅	CardPresentation/Editor/B99W3_Assert.cs:96; CardPresentation/Editor/BattleScene.cs:10122	—
+FP-VFX-05	特效动画	UI 特效开关与描边	给卡设描边并推 0.2s ⇒ 材质 _Outline 亮	🟡	CardPresentation/Editor/CardBaseDemo.cs:2240	UIEffectToggler* 全族 Editor 零引用、UIBorderGlow 只断存在性 ⇒「开关」那一半没有 A→B
+FP-VFX-06	特效动画	补间与卡牌动画控制	起播卡体动画推 0.33s ⇒ 回调收尾；飞行闸落地再飞回	✅	CardPresentation/Editor/BattleScene.cs:13380; CardPresentation/Editor/BattleScene.cs:13388	—
+FP-VFX-07	特效动画	LUT 调色与后处理	两张 LUT 按 _Blend=0.25 混 ⇒ 像素落在 A/B 之间且更近 A	✅	CardPresentation/Editor/BattleScene.cs:11916; CardPresentation/Editor/BattleScene.cs:11929	—
+FP-VFX-08	特效动画	相机画幅/视野适配与镜头光晕	起播开场运镜 ⇒ 相机回本位；跑完 ⇒ 光晕强度归 0	✅	CardPresentation/Editor/BattleScene.cs:26241; CardPresentation/Editor/BattleScene.cs:26324	—
+FP-VFX-09	特效动画	战斗内卡牌/单位表现	挂 5 条效果点开大卡窗 ⇒ 露 5 行、第 6 条被丢弃	✅	CardPresentation/Editor/BattleScene.cs:9798; CardPresentation/Editor/BattleScene.cs:9845	—
+FP-SHELL-01	菜单/外壳	开窗/关窗与场景转场	点齿轮开设置窗、点暗层关窗、点页签换页	✅	CardPresentation/Editor/MainMenuScene.cs:1599; CardPresentation/Editor/MainMenuScene.cs:1613; CardPresentation/Editor/ShellScene.cs:9745	—
+FP-SHELL-02	菜单/外壳	主菜单与模式入口	点练习卡开练习窗、点挑战开好友挑战弹窗	✅	CardPresentation/Editor/MainMenuScene.cs:2934; CardPresentation/Editor/MainMenuScene.cs:15155	—
+FP-SHELL-03	菜单/外壳	通用按钮/开关/输入控件	悬停/按下变色、不可用时变灰	✅	CardPresentation/Editor/ShellScene.cs:4443; CardPresentation/Editor/ShellScene.cs:8137	—
+FP-SHELL-04	菜单/外壳	布局与自适应	网格/安全区摆位与滚动区可滚	🟡	CardPresentation/Editor/MainMenuScene.cs:744; CardPresentation/Editor/MainMenuScene.cs:2601; CardPresentation/Shell/MainMenuRuntime.cs:3884	缺「分辨率/宽高比变化 ⇒ ModifyFlexibleLayout 重排」的驱动+同段断言；FocusOn 聚焦无驱动
+FP-SHELL-05	菜单/外壳	页签与各类抽屉	点页签换页、点卡组抽屉开详情窗	✅	CardPresentation/Editor/ShellScene.cs:9808; CardPresentation/Editor/DeckScene.cs:10276	—
+FP-SHELL-06	菜单/外壳	tooltip（悬停说明）	悬停图标弹提示面板并钉在图标上	✅	CardPresentation/Editor/ShopScene.cs:2646; CardPresentation/Editor/ShopScene.cs:2653	—
+FP-SHELL-07	菜单/外壳	弹窗与提示条	点改名开窗、提交后窗关且名字更新	✅	CardPresentation/Editor/MainMenuScene.cs:7436; CardPresentation/Editor/MainMenuScene.cs:7440	—
+FP-SHELL-08	菜单/外壳	拖拽件	起拖显示预览/拖影并跟指针	✅	CardPresentation/Editor/DeckScene.cs:2376; CardPresentation/Editor/DeckScene.cs:2603	—
+FP-SHELL-09	菜单/外壳	渲染与着色工具	父件改色子块跟随、卡根移动影子重算	✅	CardPresentation/Editor/ShellScene.cs:1984; CardPresentation/Editor/BattleScene.cs:42441	—
+FP-SHELL-10	菜单/外壳	菜单杂件（资源条/手牌横排/升级面板）	开资源条 overlay 队列抬高再还原	✅	CardPresentation/Editor/ShellScene.cs:10620; CardPresentation/Editor/ShellScene.cs:10622	—
+FP-SHELL-11	菜单/外壳	菜单调试件（按钮连通性/测试窗/显隐调试）	无玩家可见路径	D 档不适用	CardPresentation/Shell/CampaignTab.cs:9	原版构成 10 条全 D（调试件）；全仓无玩家可见调试窗
+FP-SHELL-12	菜单/外壳	编译器生成件与通知平台接口	无独立可见行为	D 档不适用	CardPresentation/Shell/BadgeNotifications.cs:133	原版构成 12 条全 D（编译器生成/平台接口）；INotificationProvider 只是契约（红点 UI 属别的 FP）
+FP-DAILY-01	日常/奖励	活动框架与调度	触发过期信号使事件激活并进组	✅	CardPresentation/Shell/LiveOpsFilter.cs:1362; CardPresentation/Editor/ShellScene.cs:10640	—
+FP-DAILY-02	日常/奖励	活动窗与页签	点事件钮开活动承载窗并置顶	✅	CardPresentation/Editor/MainMenuScene.cs:18349; CardPresentation/Editor/MainMenuScene.cs:18354	—
+FP-DAILY-03	日常/奖励	任务与挑战	一局结算推进每日进度、点挑战钮弹确认框	✅	CardPresentation/Editor/MainMenuScene.cs:16194; CardPresentation/Editor/B93D3_Assert.cs:95	—
+FP-DAILY-04	日常/奖励	每日奖励与连续登录	点领取后状态已领并弹奖窗	✅	CardPresentation/Editor/RewardsScene.cs:2278; CardPresentation/Editor/RewardsScene.cs:2280	—
+FP-DAILY-05	日常/奖励	通行证	点 Missions 页签换页、买高级档开付费窗	✅	CardPresentation/Editor/ShellScene.cs:9808; CardPresentation/Editor/B97_REMOTE1_Assert.cs:88	—
+FP-DAILY-06	日常/奖励	突袭活动	点 Raid 事件钮把突袭窗开在最上	✅	CardPresentation/Editor/ShellScene.cs:9875; CardPresentation/Editor/ShellScene.cs:9878	—
+FP-DAILY-07	日常/奖励	计分活动与里程碑进度	塞在期活动后建出奖励列与 5 档记分条	✅	CardPresentation/Editor/SkirmishWindowAssertE15.cs:254; CardPresentation/Editor/SkirmishWindowAssertE15.cs:265	—
+FP-DAILY-08	日常/奖励	奖励发放与领奖窗	点 Unlock 回调执行且奖窗自动关	✅	CardPresentation/Editor/RewardsScene.cs:6655; CardPresentation/Editor/RewardsScene.cs:6662	—
+FP-DAILY-09	日常/奖励	公告与问卷	开收件箱建出出厂消息行	✅	CardPresentation/Editor/RewardsScene.cs:10923; CardPresentation/Editor/RewardsScene.cs:10953	—
+FP-DAILY-10	日常/奖励	对战类活动	胜利结算写胜场计数与下游	✅	CardPresentation/Editor/B94W1_Assert.cs:75; CardPresentation/Editor/B97W26_Assert.cs:201	—
+FP-DAILY-11	日常/奖励	活动调试件（开关窗/发奖窗）	无玩家可见路径	D 档不适用	CardPresentation/Shell/RaidEvent.cs:762	原版构成 29 条全 D（调试件）；活动侧只有 CustomDebug.Log
+FP-DAILY-12	日常/奖励	编译器生成的匿名类型	无独立行为	D 档不适用	CardPresentation/Shell/LiveOpsFilter.cs:940	原版构成 21 条全 D（匿名类型），无玩家可见链路
+FP-SOCIAL-01	社交	聊天频道收发消息/预览/消息选项	在聊天窗打字点发送，本机那一页多一行	✅	CardPresentation/Editor/B102CHAT_Assert.cs:196; CardPresentation/Editor/B102CHAT_Assert.cs:210	—
+FP-SOCIAL-02	社交	好友列表/加好友/挑战入口	好友页输名字点加好友或立即决斗，下游收到	✅	CardPresentation/Editor/B102FRIEND_Assert.cs:194; CardPresentation/Editor/B102FRIEND_Assert.cs:283	—
+FP-SOCIAL-03	社交	公会浏览/加入/成员管理/排行	联盟搜框打字滤列表；点奖杯格开详情	🟡	CardPresentation/Editor/B102ALLY_Assert.cs:179; CardPresentation/Editor/MainMenuScene.cs:13901	加入要服务器（只出声）、成员管理/成员选项弹窗零驱动断言
+FP-SOCIAL-04	社交	收件箱未读/逐条领取/本地消息	打开收件箱看到出厂两条消息	🟡	CardPresentation/Editor/RewardsScene.cs:10952; CardPresentation/Editor/RewardsScene.cs:10953	逐条领取（Claim→InboxData.TryClaim）与未读红点零驱动断言，只断建树与条数
+FP-SOCIAL-05	社交	各社交窗红点徽章数据模型	红点按原版类名登记，不出现可见动作	🟡	CardPresentation/Editor/B94Y3_Assert.cs:103; CardPresentation/Editor/MainMenuScene.cs:1183	只静态断类名/定义；无「社交窗发生事件 ⇒ 徽章亮/计数变」的链
+FP-SOCIAL-06	社交	社交杂项（公会面板/外链/举报）	战斗中点敌方名牌 ⇒ 公会面板开起来	🟡	CardPresentation/Editor/BattleScene.cs:39701; CardPresentation/Editor/B101R3_Assert.cs:269	只有战斗内公会面板成链；外链只断图标贴图、举报只断九宫格
+FP-NET-01	联机	连上大厅并断线后自动重连	对局中掐断客机，主机等重连、客机自动回来追进度	✅	CardPresentation/Editor/NetSelfTest.cs:550; CardPresentation/Editor/NetSelfTest.cs:557	—
+FP-NET-02	联机	搜索对手并匹配进房	两端点开战→进匹配；大厅阶段可撤单	✅	CardPresentation/Editor/NetSelfTest.cs:708; CardPresentation/Editor/NetSelfTest.cs:785	「房间列表」子项缺（P2P 直连无此物），主链成立
+FP-NET-03	联机	对局中收发指令与换牌定序	两端各换牌，主机定序后两端指纹一致	✅	CardPresentation/Editor/NetBattleTest.cs:255; CardPresentation/Editor/NetBattleTest.cs:260	—
+FP-NET-04	联机	进出战斗房间与连接状态显示	对局中对面掉线，弹提示并进等重连	✅	CardPresentation/Editor/NetSelfTest.cs:538; CardPresentation/Editor/NetBattleTest.cs:752	—
+FP-NET-05	联机	在线数据与「是否接受他人邀请」开关	设置里开关「是否接受他人邀请」	❌	CardPresentation/Shell/SettingsWindow.cs:5971; CardPresentation/Net/NetMatchmaking.cs:59	生产无任何等价物（全仓 Accept/AllowInvite 0 命中）；原版数据在 PlayFab PlayerProfile.Tags（P3，若能判服务器类可改 D，需调度台裁定）
+FP-NET-06	联机	按兴趣组区域（AOI）同步可见对象	无（原版 Photon 分组可见性）	D 档不适用	—	原版 Photon CellTreeNode 单进程无等价物；索引亦判 D
+FP-FORGE-01	锻造	打开锻造页、切阵营看等级与点数	锻造页切阵营，右上等级/点数跟着变	✅	CardPresentation/Editor/RewardsScene.cs:3599; CardPresentation/Editor/RewardsScene.cs:3613	—
+FP-FORGE-02	锻造	领取锻造奖励（单格/一次全领/红点）	领格子奖励后状态变已领	🟡	CardPresentation/Editor/RewardsScene.cs:3643; CardPresentation/Shell/ForgeTab.cs:1241	断言驱动的是单格 ForgeData.Claim，玩家那颗钮走 ClaimCell→ClaimAll（原版「点任意格=全领」），该 UI 路径零断言
+FP-FORGE-03	锻造	锻造点/材料图标与数量显示	锻造页格子上画锻造点图标与数量	🟡	CardPresentation/Editor/ShopScene.cs:3751; CardPresentation/Shell/ForgeTab.cs:1100	只有抽屉类映射表静态断言，没有「图标+数量真画出来」的断言
+FP-FORGE-04	锻造	买卡包→开包动画→逐张翻卡看详情	买卡包自动开包，推进后逐张点开看详情	✅	CardPresentation/Editor/ShopScene.cs:2844; CardPresentation/Editor/ShopScene.cs:3142	—
+FP-FORGE-05	锻造	看卡包内容说明弹窗	点卡包主图开出卡包详情弹窗	🟡	CardPresentation/Editor/ShopScene.cs:2319; CardPresentation/Shell/ShopTabPage.cs:562	自检直调 OpenBoosterInfo(0)；玩家入口 InfoHit 是我们自定、原版等价 TryOpenContainerArmy 零断言 ⇒ 缺「点入口→弹窗」
+FP-FORGE-06	锻造	用制作台造异画	详情窗造异画：看费用/条件/确认	🟡	CardPresentation/Editor/CollectionScene.cs:9001; CardPresentation/Shell/CardDetailPopup.cs:2405	只覆盖「创建副本」；异画支（WillCraftAlternateArt→CraftAlternateArt）全仓零断言
+FP-CAMP-01	战役	打开战役页、切阵营看进度	点左栏进战役页，切阵营看该阵营进度	🟡	CardPresentation/Editor/RewardsScene.cs:3335; CardPresentation/Editor/RewardsScene.cs:5567	页签→页成链；「切阵营→进度条/点数变」无驱动（SelectArmy/阵营格点击零断言）
+FP-CAMP-02	战役	节点轨道滚动与节点解锁状态	横向滚战役轨道，看节点解锁/锁定色	🟡	CardPresentation/Editor/RewardsScene.cs:5886; CardPresentation/Editor/RewardsScene.cs:5749	滚动→视口内节点/命中区成链；解锁/锁定染色只是静态并列
+FP-CAMP-03	战役	领取节点奖励并结算整条战役	点节点开奖窗，按 Unlock 真领并弹奖励窗	✅	CardPresentation/Editor/RewardsScene.cs:5756; CardPresentation/Editor/RewardsScene.cs:5984	—
+FP-CAMP-04	战役	解锁高级战役（购买入口与按钮态）	高级列购买/锁定态	D 档不适用	CardPresentation/Shell/CampaignTab.cs:1279	原版是服务器购买；本仓按用户裁决 IsPremiumLocked 恒 false ⇒ 真数据下购买入口不可达（锁定态只由夹具造）
+FP-CAMP-05	战役	按战役进度选阵营/选卡组开战	活动窗选卡组/阵营后点开战	🟡	CardPresentation/Editor/MainMenuScene.cs:8873; CardPresentation/Editor/MainMenuScene.cs:9665	事件窗「选卡组/选阵营→开战」成链；「按战役进度」这一跳生产里不存在（CampaignTab 无开战入口）
+FP-CAMP-06	战役	战役数据与红点/背景	切阵营换战役背景，红点按可领节点亮	🟡	CardPresentation/Editor/RewardsScene.cs:5567; CardPresentation/Editor/MainMenuScene.cs:1219	背景只与 CampaignData.Background 静态比、红点只静态计数，无「切阵营/领奖→背景或红点变」
+FP-DRAFT-01	轮抽	进入轮抽活动并看当前场次与宝箱档	主菜单点选秀卡→报名→选将→选包→看场次	🟡	CardPresentation/Editor/DraftWindowAssertD2.cs:119; CardPresentation/Editor/DraftWindowAssertD2.cs:182	主菜单 Draft 卡点击→开窗无断言；宝箱档按用户 2026-10-24「轮抽不做奖励」整块不建（铁律 11 例外②，非缺口）
+FP-DRAFT-02	轮抽	选卡包并看卡组信息与能量配比	点卡包→手里 +3 张、右栏卡数/卡组信息刷新	🟡	CardPresentation/Editor/DraftWindowAssertD2.cs:203; CardPresentation/Editor/DraftAssertD3.cs:1074	选包后 9 行费用分布数值从未断言（D3:1085 自述只断行数+三件在）
+FP-DRAFT-03	轮抽	在轮抽里选督军	选将页点 Select ⇒ 选中高亮、Continue 可点	✅	CardPresentation/Editor/DraftAssertD3.cs:918; CardPresentation/Editor/DraftAssertD3.cs:922	—
+FP-DRAFT-04	轮抽	切免费/付费档并看进行中页	报名页点免费/付费→进行中页看胜败格	🟡	CardPresentation/Editor/DraftAssertD3.cs:476; CardPresentation/Shell/DraftModeWindow.cs:4265	付费档 ClickPremiumDraft 零断言；切档→进度/动画无链路
+FP-DRAFT-05	轮抽	领取轮抽奖励并关过期弹窗	（原版有；本版按用户裁决不建）	D 档不适用	CardPresentation/Shell/DraftModeWindow.cs:1725; CardPresentation/Editor/DraftAssertD3.cs:729	用户 2026-10-24 拍板「轮抽不做奖励」（铁律 11 例外②）；BuildRewardPanel 零调用点、D3(E) 反向钉住
+FP-DRAFT-06	轮抽	看轮抽排行榜与胜场	打开轮抽榜→联盟页签/联盟行/骷髅图标	🟡	CardPresentation/Editor/MainMenuScene.cs:11700; CardPresentation/Editor/MainMenuScene.cs:11711	榜只用注入假行断版面；胜场→榜单链路无断言（ApplyScoringMode 只在零宿主的 SelfCheck）
+FP-TUT-01	教程	教程指针与提示条	教程步骤→提示条/指针→点掉后收起	✅	CardPresentation/Editor/BattleScene.cs:36725; CardPresentation/Editor/BattleScene.cs:36737	—
+FP-TUT-02	教程	主菜单新手引导	选阵营送卡组窗点 Continue→发卡组并记阵营	🟡	CardPresentation/Editor/MainMenuScene.cs:17585; CardPresentation/Editor/MainMenuScene.cs:17601	万能卡指引 WildcardTutorial 全仓零断言；首战入口 AddPointer 未驱动
+FP-TUT-03	教程	战斗内教程（含点空白跳过）	教程聊天等待→点空处跳过→气泡收	✅	CardPresentation/Editor/BattleScene.cs:37497; CardPresentation/Editor/BattleScene.cs:37500	—
+FP-TUT-04	教程	教程阶段完成条件	主菜单教程链按阶段推进→下一阶段/指针	🟡	CardPresentation/Editor/B93S4Assert.cs:137; CardPresentation/Shell/MenuTutorialFlow.cs:512	无断言驱动 Tick→CheckCompletion→Advance；只读静态完成位
+FP-TUT-05	教程	教程存档与事件	点教程卡开模式窗→点第 3 关→右栏换→点 Play	🟡	CardPresentation/Editor/MainMenuScene.cs:6086; CardPresentation/Editor/MainMenuScene.cs:6321	完成位 MarkStageDone 批处理里直接不写且零断言；战役里藏指针零断言
+FP-LOC-01	本地化	在设置里切换界面语言	设置里点语言行→语言切换、框内语名变	✅	CardPresentation/Editor/BattleScene.cs:20042; CardPresentation/Editor/BattleScene.cs:20047	—
+FP-LOC-02	本地化	按词条键取译文并填参数	选阵营→标题显示官方译文；切语言→fill 填参	✅	CardPresentation/Editor/ShellScene.cs:6323; CardPresentation/Editor/SettingsScene.cs:4866	—
+FP-LOC-03	本地化	语言表从远端加载并按平台改键名	启动拉取远端语言表	D 档不适用	CardPresentation/Core/Loc.cs:2968	原版语言表在远端 CCD、本地不可达；本仓只读 Resources 本地表
+FP-LOC-04	本地化	缺词条送云端翻译并回填	缺键→发云端→回包回填	D 档不适用	CardPresentation/Core/Loc.cs:3421	原版云端翻译服务已不存在；本仓缺键只回键名+告警
+FP-AUDIO-01	音频	播放对手与单位语音台词	AI 回话/单位登场→气泡逐字显示→语音条	✅	CardPresentation/Editor/BattleScene.cs:22703; CardPresentation/Editor/BattleFxAssertE17.cs:137	—
+FP-AUDIO-02	音频	战斗音乐随强度档淡入淡出	督军掉血→BGM 切 High/Low；主菜单起主题曲	✅	CardPresentation/Editor/BattleScene.cs:16783; CardPresentation/Editor/ShellScene.cs:4808	—
+FP-AUDIO-03	音频	播音效与多源混音	开箱/开窗播 cue→节流；双音乐源交叉淡变	🟡	CardPresentation/Editor/B97_SHOP_Assert.cs:124; CardPresentation/Editor/ShellScene.cs:4779	混音组路由无宿主断言（AudioSnapshotCheck 零宿主）；频谱只在未接宿主的 VoiceWaveProbe
+FP-AUDIO-04	音频	卡牌与震动的音效挂点	拖牌登场→起飞/落地 cue；受击拍→damage cue	✅	CardPresentation/Editor/BattleScene.cs:41141; CardPresentation/Editor/BattleScene.cs:40245	—
+FP-PROFILE-01	个人资料	打开玩家档案并切页签	点头像/点榜行开档案→切页签/改名/账号弹窗	✅	CardPresentation/Editor/MainMenuScene.cs:8621; CardPresentation/Editor/ProfileWindowAssertE12.cs:313	—
+FP-PROFILE-02	个人资料	装备并展示头像/边框/称号	头像页点格子预览→点 Select 装备	✅	CardPresentation/Editor/MainMenuScene.cs:8514; CardPresentation/Editor/MainMenuScene.cs:8520	—
+FP-PROFILE-03	个人资料	看成就与奖杯	打开成就页→点奖杯格→详情弹窗	✅	CardPresentation/Editor/MainMenuScene.cs:8482; CardPresentation/Editor/MainMenuScene.cs:8072	—
+FP-PROFILE-04	个人资料	看排行榜	打开排行榜→注入自己那行→高亮行底	✅	CardPresentation/Editor/MainMenuScene.cs:10599; CardPresentation/Editor/MainMenuScene.cs:10849	—
+FP-PROFILE-05	个人资料	看排位段位与赛季	看段位大图/段位名；升段窗动画；加分活动旗	🟡	CardPresentation/Editor/B99G3_Assert.cs:104; CardPresentation/Shell/RankedDivisionChangeWindow.cs:1510	升段结算窗入口未接活界面（只 Editor 调）；AdvanceSeason/ArmyState/DivisionOfV2 零断言
+FP-PROFILE-06	个人资料	各窗红点用的徽章数据模型	造可领态→导航红点计数一致→领完归零	✅	CardPresentation/Editor/B94T1_Assert.cs:170; CardPresentation/Editor/B94T1_Assert.cs:212	—
+FP-MISC-01	未分类	编译器生成物	无玩家可见入口	D 档不适用	—	编译器生成物；272 条全 D，无生产入口可驱动
+FP-MISC-02	未分类	第三方框架（EnhancedScroller/I2/RESTClient）	无（原版插件不参与复刻）	D 档不适用	—	第三方插件不可复刻；我们的 MenuScroll/Loc/Net 等价物另有归属与验收
+FP-MISC-03	未分类	UI 材质与顶点特效	背景渐变方向正确、加不进的卡张数条变灰	🟡	CardPresentation/Editor/MainMenuScene.cs:778; CardPresentation/Editor/MainMenuScene.cs:790; CardPresentation/Editor/DeckScene.cs:3678	没驱动 SetShear/SetGrey/空射线图/镜像那一跳；SetShear 除生产定义外全仓零引用
+FP-MISC-04	未分类	任务/挑战进度累计与条件判定	对局结算后成就进度按伤害/骷髅/信仰累加	✅	CardPresentation/Editor/ProfileDataAssertE13.cs:149; CardPresentation/Editor/ProfileDataAssertE13.cs:153	「出牌→Tally」那一路仍缺（AddCardPlayed 在 Editor 零直接断言）
+FP-MISC-05	未分类	通用 UI 控件	加载遮罩转起来后指针点不到、滚轮落空	✅	CardPresentation/Editor/ShellScene.cs:1302; CardPresentation/Editor/ShellScene.cs:1303	—
+FP-MISC-06	未分类	资产提供与加载包装	商店买第 4 件卡包→拥有数 +1 并自动开包	✅	CardPresentation/Editor/ShopScene.cs:2844; CardPresentation/Editor/ShopScene.cs:2845	—
+FP-MISC-07	未分类	配置/存档字段与表读取	跨天回主菜单→每日任务进度与骷髅清空	✅	CardPresentation/Editor/MainMenuScene.cs:16101; CardPresentation/Editor/MainMenuScene.cs:16102	—
+FP-MISC-08	未分类	战斗内表现散件（残骸/卡材质/伤害阈值）	单位阵亡→残骸播出生动画且材质贴立绘	✅	CardPresentation/Editor/BattleScene.cs:17244; CardPresentation/Editor/BattleScene.cs:17263	—
+FP-MISC-09	未分类	调试/测试与编辑器诊断件	无（出厂自关）	D 档不适用	—	调试诊断件出厂自关、玩家不可见；仅 ProfileTab.StripRichText
+FP-MISC-10	未分类	按阵营/稀有度/卡种取美术资源	拖卡背到装备栏→换装成那一张	✅	CardPresentation/Editor/DeckScene.cs:2418; CardPresentation/Editor/DeckScene.cs:2422	—
+FP-MISC-11	未分类	启动、单例与平台/生命周期杂件	画质档变化后材质 shader 换到对应预设	🟡	CardPresentation/Editor/B94W2_Assert.cs:74; CardPresentation/Shell/SettingsWindow.cs:1152	画质→shader 一条成链；「平台显隐」那一半只有注释（DisplayPlatform 全仓只有 2 处注释），无驱动断言
+FP-MISC-12	未分类	Photon 房间内杂项	无	D 档不适用	—	Photon 本身不可复刻；我们自有 P2P 网联另有归属（FP-NET-*）
+FP-MISC-13	未分类	活动/商店/客服杂项（收件箱/推荐）	打开收件箱→按消息条数建行；提交推荐→按钮恢复	✅	CardPresentation/Editor/RewardsScene.cs:11261; CardPresentation/Editor/ShopScene.cs:5544	—
+FP-MISC-14	未分类	表现/动效杂件（旋转/位移/假 3D 摆动）	卡向右位移→卡面绕对应轴倾摆	✅	CardPresentation/Editor/CardBaseDemo.cs:556; CardPresentation/Editor/CardBaseDemo.cs:559	—
+FP-MISC-15	未分类	杂项兜底散件	活动 handler 刷新→按序 Initialize 并触发 EventsRefreshed	✅	CardPresentation/Editor/B97_GEN2_Assert.cs:278; CardPresentation/Editor/B97_GEN2_Assert.cs:296	—
+FP-INFRA-01	其他基础设施	玩家档案数据（经验/等级/声望/战绩）	对局结算→成就进度/档位/积分写入并落盘	✅	CardPresentation/Editor/ProfileDataAssertE13.cs:149; CardPresentation/Editor/MainMenuScene.cs:8481	—
+FP-INFRA-02	其他基础设施	登录、账户与云存档	点 Switch Account→登录窗亮起；登录态→按钮显隐	✅	CardPresentation/Editor/SettingsScene.cs:1220; CardPresentation/Editor/SettingsScene.cs:1196	—
+FP-INFRA-03	其他基础设施	云脚本/PlayFab 封装与服务端开关	无	D 档不适用	—	P3 服务器类（114 条全 D），无本地玩家可见链路
+FP-INFRA-04	其他基础设施	资源包与 Addressables 的加载/引用缓存	同一张图取两次→第二次命中缓存不重复 IO	✅	CardPresentation/Editor/B93F5Assert.cs:301; CardPresentation/Editor/B93F5Assert.cs:309	—
+FP-INFRA-05	其他基础设施	平台服务（Steam 成就/云存档/DLC/Google Play）	无	D 档不适用	—	P3 平台服务类，31 条全 D
+FP-INFRA-06	其他基础设施	全局静态数据（阵营/稀有度/卡种显示名）	切阵营→顶栏阵营名与图标跟着换	✅	CardPresentation/Editor/RewardsScene.cs:12851; CardPresentation/Editor/RewardsScene.cs:12856	—
+FP-INFRA-07	其他基础设施	启动引导与主线程上下文切换	场景启动→各初始化件收敛后继续	🟡	CardPresentation/Editor/B103W6_Assert.cs:188; CardPresentation/Shell/SceneInitializer.cs:307	只测 IsSettled/AllSettled 纯谓词；Awake/AsyncInitialization/FetchAllInitializables 的启动协程整条未验收
+FP-INFRA-08	其他基础设施	序列化/反射/时间/通用扩展与客服日志	无稳定玩家可见路径	🟡	CardPresentation/Editor/RewardsScene.cs:4518; CardPresentation/Core/Loc.cs:258	只断 UITransformTweenController 挂载；Loc.Contains 在 Editor 零引用
+FP-INFRA-09	其他基础设施	调试件（发自定义卡/挑卡网格）	无	D 档不适用	—	调试件出厂自关，26 条全 D

@@ -815,10 +815,10 @@ namespace CardPresentation
                 Debug.LogWarning("[DeckSel] 点行开信息窗：这一格标着「预组」但没有 `PrebuiltDeck` ⇒ 不开（出声，不静默）");
                 return;
             }
-            // 文案 = 原版那扇窗的 `selectString`（`MenuDeck/Tip/SelectDeck`）。⚠️ `Core/Loc.cs` 还没有这条 ⇒
-            //   `Loc.HasEntry` 判一下，缺了回**官方英文原值**并出声（⛔ 别印键名、也别静默回空串）。
+            // 文案 = 原版那扇窗的 `selectString`（`MenuDeck/Tip/SelectDeck`）。⚠️ 三档（手写表 / bulk / 官方全表）都没有这条 ⇒
+            //   `Loc.HasAnyTerm` 判一下，缺了回**官方英文原值**并出声（⛔ 别印键名、也别静默回空串）。
             string label;
-            if (Loc.HasEntry(SelectDeckTerm)) label = Loc.T(SelectDeckTerm);
+            if (Loc.HasAnyTerm(SelectDeckTerm)) label = Loc.T(SelectDeckTerm);
             else
             {
                 label = "Select deck";      // 官方 EN 值（`官方本地化_en+zh-CN.json` → terms[键][0]）

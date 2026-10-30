@@ -882,6 +882,10 @@ namespace CardPresentation
 
         public override void Open() { Build(); }
 
+        // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
+        // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底 —— 本窗的奖励名/数量走 `RewardsData` 口，逐颗绑定记在报告里当剩余项）。
+        public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
+
         /// <summary>关窗：先发 `OnClose(Rewards)`（**参数是 `Rewards`**，反编译里那两个 `+0x38` 实读），再走基类。</summary>
         public override void Close()
         {

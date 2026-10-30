@@ -223,19 +223,38 @@ public static class B98K2_Assert
     // ============================================================ D：FTUE「低血无敌」的读点（账 706 ③）
     static void SectionD_FtueLowLifeInvulnerable()
     {
-        MenuCheck.Section(_sink, "D · 账 706 ③：`+0x2e4` 那一格在**掉血之后**读一次（`ResolveDamageDealt.c:186`）");
+        MenuCheck.Section(_sink, "D · 账 706 ③：`+0x2e4` 那一格在**掉血之前**读一次（`ResolveDamageDealt.c:186`）");
+        // 🔴 **2026-10-30 就地订正（铁律 5 · `B103_R5` 三源实读）**：这里原来写「**掉血之后**读一次」，
+        //   **是错的**。原版读的是**掉血【前】**的血 —— 三条证据：① `BroadcastUnitDamaged` 在
+        //   `ReceiveDamage` **之前**（`_ResolveAttack…:1286 → :1290`）② 同函数用
+        //   `currentHealth − max(1, damage − armour)` 算 `finalHealth` 喂 `ShouldTriggerEcastasy`
+        //   ③ 函数首句 `damageAbsorbed || damageValue==0 ⇒ return`。
+        //   ⇒ 本段夹具整体重排：**能把两种口径分开的只有「pre ≥ 11 且 post < 11」那一档**（D1），
+        //     再加一条正例（pre 本来就 < 11，D1b）。⛔ 别再把 D1 写回「30 血挨 20 ⇒ 给」。
 
-        // D1：flag = 真 ∧ 掉血后 < 11 ⇒ 静默获得 invulnerable
+        // D1 ★ 判别档：掉血**前** 30（≥ 11）⇒ **不给**（旧口径「看掉血后 10」会给 ⇒ 这条能把两者分开）
         var ctx = NewCtx();
         ToP1Turn(ctx, 3);
         var tank = Place(ctx, 0, 3, Unit("K2Tank", 1, 0, 30));
         tank.ShouldBecomeInvulnerableWithLowLife = true;
         Tr(!tank.Has(ConditionEval.Invulnerable), "D0 **前提断言**：这条血牛一开始**没有** Invulnerable");
         RuleCore.HurtWithSourceForTest(ctx, tank, 20, "K2");
-        C(tank.Health, 10, "D0′ **前提断言**：30 − 20 = 10（< 11，落进那一格）");
-        Tr(tank.Has(ConditionEval.Invulnerable),
-           "D1 ★★ 掉血后生命 < 11 ∧ `+0x2e4` 真 ⇒ 静默获得 `invulnerable`（`AddTraitSilently(0x136)`）"
-         + "｜🧨 删掉 `RuleCore.cs:8968` 那句 ⇒ 这里 false ⇒ 红");
+        C(tank.Health, 10, "D0′ **前提断言**：30 − 20 = 10（**掉血后** < 11，但**掉血前**是 30）");
+        Tr(!tank.Has(ConditionEval.Invulnerable),
+           "D1 ★★ **掉血【前】**生命 ≥ 11 ⇒ **不给**（哪怕掉完只剩 10）—— 原版 `ResolveDamageDealt.c:186` 读的是掉血前的 `currentHealth`"
+         + "｜🧨 把读点改回「扣血之后」（`RuleCore.cs:9010` 那行的 `u.Health + actual` 去掉 `+ actual`）⇒ 这里变 true ⇒ 红");
+
+        // D1b ★ 正例：掉血**前** 10（< 11）⇒ 给
+        var ctx1b = NewCtx();
+        ToP1Turn(ctx1b, 3);
+        var tank1b = Place(ctx1b, 0, 3, Unit("K2Tank1b", 1, 0, 10));
+        tank1b.ShouldBecomeInvulnerableWithLowLife = true;
+        Tr(!tank1b.Has(ConditionEval.Invulnerable), "D0b **前提断言**：这条残血一开始**没有** Invulnerable");
+        RuleCore.HurtWithSourceForTest(ctx1b, tank1b, 3, "K2");
+        C(tank1b.Health, 7, "D0b′ **前提断言**：10 − 3 = 7（**掉血前**就是 10 < 11）");
+        Tr(tank1b.Has(ConditionEval.Invulnerable),
+           "D1b ★ 掉血**前**生命 < 11 ∧ `+0x2e4` 真 ⇒ 静默获得 `invulnerable`（`AddTraitSilently(0x136)`、**value 0 且幂等**）"
+         + "｜🧨 删掉 `RuleCore.cs:9010` 那句 / 把 `AddKeyword(...,0)` 写回 `(...,1)` ⇒ 红");
 
         // D2：阈值是 **< 11**，不是 <= 11
         var ctx2 = NewCtx();

@@ -1475,8 +1475,8 @@ namespace CardPresentation
                           () => {
                               // 🆕 2026-10-29（`B95_MISC` · 账 社交:100 ③）：原版 `AllianceView.OnEditSave` = 把
                               //   `description` / `privacy` / `region` 发云端改盟请求后退出编辑态。**本机没有服务器** ⇒
-                              //   按 P2 口径「UI 照原版做、数据本地模拟或出声」：**收下输入 + 明确说出来没保存**（⛔ 不静默无反应）。
-                              string typed = chrome.DescInput != null ? chrome.DescInput.Value : null;
+                              //   按 P2 口径「UI 照原版做、数据本地模拟或出声」：**收下输入 + 明确说出来没保存**（⛔ 不静默无反应）｜🆕 2026-10-30（`B103_W2`）：取值**照原版 `m_Text.Trim()`**（`out_cpp2il_dev_ilspy/AllianceView.cs:568` 的 `desc`；成功回调 `:559-566` 再 Trim 回写一次）—— 原来读的是**未 Trim** 的原值。
+                              string typed = chrome.DescInput != null ? (chrome.DescInput.Value ?? "").Trim() : null;
                               Debug.Log("[Alliance] `Confirm button`：描述框当前值 = \"" + (typed ?? "") + "\" —— 原版 `AllianceView.OnEditSave` "
                                       + "发云端改盟请求；**本机没有服务器** ⇒ 只出声，不落盘、不改任何本地数据");
                               chrome.Apply(false, true);
@@ -1688,9 +1688,9 @@ namespace CardPresentation
         /// · **进编辑**：那四件**开**、`regionText` 与 `toggleEditButton` **关**。</para>
         /// <para>⚠️ 原版另有两条**本地落不了**（如实留白，⛔ 不假装做了）：
         /// ① `descriptionText.interactable = !alliance.blockDescriptionChange &amp;&amp; !me.blockDescriptionChange`
-        /// ——我们那一格是 `Label`，没有 `interactable`；
-        /// ② 进编辑时两个下拉的 `.value`（`(int)privacy` / `IndexOf(GroupLanguages, region)`）——
-        /// 我们那两个是「合上的假下拉」（没有选项表、没有 Unity 内置 `Template`）⇒ 只能不显示值。</para></summary>
+        /// ——🔴 **2026-10-30（`B103_W2`）就地订正（铁律 5）**：原文写「我们那一格是 `Label`，没有 `interactable`」**已过期** —— 2026-10-29（`B95_MISC`）起那一格是**真输入框** `TextInputField`（`DescInput`），「能不能输」由**编辑态才 `SetActive(true)`** 等价实现；`blockDescriptionChange` 两格是**服务器字段**（本地无值）⇒ 恒按可编辑处理；
+        /// ② 进编辑时两个下拉的 `.value`（`(int)privacy` / `IndexOf(GroupLanguages, region)`）—— 🔴 **同上就地订正**：原文写「我们那两个是『合上的假下拉』（没有选项表、没有 `Template`）」**已过期**（`B90-N5` 2026-10-28 起 = `AllianceDropdownBox`，选项表与 `Template` 都真有）
+        /// ⇒ 真残差只剩「**初值**」这两格（服务器字段 `Group.privacy` / `Group.region`，本地无值）。</para></summary>
         sealed class EditChrome
         {
             public Transform Languages, Privacy, Edit, Confirm, Cancel, Region; public TextInputField DescInput;   // 🆕 2026-10-29（B95_MISC · 账 社交:100 ③）

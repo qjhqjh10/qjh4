@@ -16,6 +16,15 @@
 //     menusharedresources / fonts 四个包）⇒ 不是「原版本身没有」；
 //   · 改前实测：材质槽 **200 悬空** · 材质→shader **8 悬空**；改后 **0 / 0**（同一统计脚本）。
 //
+// 🔴🔴 **2026-10-30（`B103_W7`）：第 4 段（贴图槽）就地重写 —— 原来那条尺子是错的。**
+//   旧判据 `texNull == 0` 要求「**shader 声明的每一个贴图槽都绑了图**」，而原版材质本身就留空
+//   1057 个（`unity_Lightmaps*` / `unity_ShadowMasks` 879 + TMP 四个 136 + URP 粒子两项 42）
+//   ⇒ 那条断言**在原版身上也不可达**。实读 1248 个空槽 = 1057（原版本来空）+ **191（真悬空）**。
+//   191 的来源 = **`material → texture` 这一层从来没被闭合过**（`BOOSTER_IMPORTS` 原来只有
+//   material / shader 两类）⇒ `B103_W7` 已在打包侧补上（搬 `ring_warp`/`Glow`/`drops_cloud`/
+//   `Default-Particle` 四张 + 改写 7 条 `m_TexEnvs`），本文件改成
+//   **「空槽集合 ⊆ 原版材质同样为空的允许清单」**（表见类尾 `AllowedEmptyTextureProps`，107 对，逐条带出处）。
+//
 // ============================ 怎么跑（⚠️ 本代理无权跑 Unity，本轮未跑）============================
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
 //     -projectPath "D:\4\Unity\MyGame" -executeMethod B97W32Assert.Run -logFile "d:/4/_tmp_view/b97w32.log"
@@ -141,8 +150,20 @@ public static class B97W32Assert
         }
         Check(missing == 0, "16 个「原本不在包里」的材质全部出现在渲染器上（缺 " + missing + "）");
 
-        // ---------------------------------------------------------------- 4 · 贴图槽（14 张流式贴图搬过来之后要还在）
-        int texSlots = 0, texNull = 0;
+        // ---------------------------------------------------------------- 4 · 贴图槽
+        // 🔴 **2026-10-30（`B103_W7`）就地重写这一段**：原来那条 `texNull == 0` 是**一把错尺子**
+        //    —— `Material.GetTexturePropertyNames()` 给的是 **shader 声明的全部贴图属性**，
+        //    而原版材质本身就没绑的槽（`unity_Lightmaps*` / `unity_ShadowMasks` / TMP 的四个 /
+        //    URP 粒子的 `_BumpMap`/`_EmissionMap`）**永远为空** ⇒ 那条断言在原版身上都不可达。
+        //    实读 1248 个空槽 = **1057 个「原版本来就空」+ 191 个真悬空**（诊断 → `报告/B103_D1.md` §1）。
+        //    191 个已由 `B103_W7` 修掉（搬 4 张贴图进依赖包 + 改写 7 条 `m_TexEnvs`）；
+        //    现在这条断言改成 **「空槽集合 ⊆ 原版同样为空的允许清单」**（表见类尾 `AllowedEmptyTextureProps`）。
+        // ⚠️ 本段沿用 `sharedMaterial`（只取第 1 个材质）—— 第 2 段走的是 `sharedMaterials`，两者口径不同
+        //    （`报告/B103_D1.md` 附录 A5）。本件**没改这个口径**：改了会让「191 / 1057」这两个已对账的
+        //    基线一起变，等于把这次修复的验收坐标挪走。要统一请单独一轮做（调度台决定）。
+        int texSlots = 0, texNull = 0, texNullAllowed = 0, texNullUnexplained = 0;
+        var pairCount = new Dictionary<string, int>();
+        var pairAllowed = new Dictionary<string, bool>();
         for (int i = 0; i < prefabs.Count; i++)
         {
             var rs = prefabs[i].GetComponentsInChildren<Renderer>(true);
@@ -155,13 +176,43 @@ public static class B97W32Assert
                 {
                     texSlots++;
                     var tex = m.GetTexture(names[t]);
-                    if (tex == null) { texNull++; Debug.Log(P + "  空贴图槽：" + m.name + "." + names[t]); }
+                    if (tex != null) continue;
+                    texNull++;
+                    string key = m.name + "." + names[t];
+                    int c;
+                    pairCount.TryGetValue(key, out c);
+                    pairCount[key] = c + 1;
+                    bool ok;
+                    if (!pairAllowed.TryGetValue(key, out ok))
+                    {
+                        ok = IsAllowedEmptyTexture(m.name, names[t]);
+                        pairAllowed[key] = ok;
+                    }
+                    if (ok) texNullAllowed++;
+                    else { texNullUnexplained++; }
                 }
             }
         }
-        Debug.Log(P + "贴图槽 " + texSlots + " 个 · 空 " + texNull + " 个");
-        // ⚠️ 只断「非 null」：**流数据是否真在**这一层验不了（UnityPy 侧已逐张比过字节，见报告 §四）。
-        Check(texNull == 0, "渲染器上材质的贴图槽没有一个是 null");
+        Debug.Log(P + "贴图槽 " + texSlots + " 个 · 空 " + texNull + " 个（原版同样为空 " + texNullAllowed
+                  + " · 🔴 原版有值却空着 " + texNullUnexplained + "）");
+        var keys = new List<string>(pairCount.Keys);
+        keys.Sort(StringComparer.Ordinal);
+        for (int i = 0; i < keys.Count; i++)
+        {
+            bool ok = pairAllowed[keys[i]];
+            Debug.Log(P + "  空贴图槽：" + keys[i] + " ×" + pairCount[keys[i]]
+                      + (ok ? "（原版同样为空 ✔）" : "（🔴 原版有值 ⇒ 真回归）"));
+        }
+        // 🔴 **非空转**：`texSlots > 0` 一起断 —— 包被拒收 / 一棵 prefab 都没取回时
+        //    `pairCount` 是空的、`texNullUnexplained` 恒 0，上面那条会**空转绿**（本仓踩过 3 次的坑）。
+        Check(texSlots > 0 && texNullUnexplained == 0,
+              "空贴图槽集合 ⊆【原版材质同样为空】的允许清单（贴图槽 " + texSlots + " 个；实测 "
+              + pairCount.Count + " 种 (材质,属性) 对；不允许的 " + texNullUnexplained + " 个槽 —— 有就说明贴图又悬空了）");
+        // 🔴 灭自证：单点钉住「允许清单里没有 `_MainTex` / `_BaseMap`」——
+        //    允许清单是按 (材质名, 属性名) 匹配的，如果有人手滑把这两条写进去，
+        //    上面那条会变绿而这里会红（原版这 7 条**全都有值**，它们才是本件修的东西）。
+        Check(!AllowListMentions("_MainTex") && !AllowListMentions("_BaseMap"),
+              "允许清单里**没有** `_MainTex` / `_BaseMap`（原版这 7 条全都有值 —— 它们才是本件修的东西）");
 
         // ---------------------------------------------------------------- 5 · 容器/预载表的钉子仍然成立
         AssetBundle bundle;
@@ -192,4 +243,82 @@ public static class B97W32Assert
     //   两个只读口把计数并进宿主的 `_sink`，否则它的 ✗ 只印不计（= 静默）。追加在类尾 ⇒ 本文件既有账落点零漂移。
     public static int OkCount { get { return _ok; } }
     public static int BadCount { get { return _bad; } }
+
+    // ================================================================ 允许为空的贴图槽清单（`B103_W7` · 2026-10-30）
+    // 判据 = **原版材质 JSON** 的 `m_SavedProperties.m_TexEnvs` 里同名项的
+    //        `second.m_Texture == { m_FileID: 0, m_PathID: 0 }` ⇒ 「shader 声明了、原版就没绑」。
+    // 出处 = `d:/2/新解包资源/assets_full/bundle_<包>/Material/Material_<pid>.json`（每行的注释就是这一对）。
+    // 为什么需要这张表：`Material.GetTexturePropertyNames()` 返回的是 **shader 声明的全部槽**，不是
+    //   「材质真绑了的」—— 拿它断「一个都不许空」等于要求原版做它没做的事（诊断 → `报告/B103_D1.md` §1.2）。
+    // 🔴 **⛔ 别把 `_MainTex` / `_BaseMap` 那 7 条塞进来** —— 原版全都有值，它们是 `B103_W7` 修掉的真缺口
+    //    （191 个运行时槽）；再空 = 真回归，第 4 段会红。
+    // 规模：**107 个 (材质,属性) 对**；按运行时槽数摊开 = **1057**（`unity_*` 879 + TMP 136 + URP 42）。
+    //       —— 这与 `ShellScene` 的实读「贴图槽 1459 · 空 1248（= 1057 + 191）」逐数对得上。
+    static readonly string[] Unity3Props =
+        { "unity_Lightmaps", "unity_LightmapsInd", "unity_ShadowMasks" };
+    static readonly string[] Tmp4Props =
+        { "_BumpMap", "_Cube", "_FaceTex", "_OutlineTex" };
+    static readonly string[] UrpParticle2Props =
+        { "_BumpMap", "_EmissionMap" };
+
+    static readonly Dictionary<string, string[]> AllowedEmptyTextureProps = new Dictionary<string, string[]>
+    {
+        // ---- 组 A（31 个材质 × 3 个 `unity_*` 槽）：原版该三项都存在、`m_Texture = {0,0}` ----
+        //    `Everguild/FX/Extra Color` / `Everguild/FX/Alpha Mask One Layer` / 卡包外观 shader 都声明这三项，
+        //    Unity 只有在**烘焙过的光照贴图场景**里才会去填；原版材质里全是 {0,0}。
+        { "Glow Rays Additive Extra Color UI", Unity3Props },      // boosterpacks_assets_all/Material_7108491343267576609.json
+        { "Embers Extra Color", Unity3Props },                     // boosterpacks_assets_all/Material_-2237545402817537697.json
+        { "Spark Additive Extra Color", Unity3Props },             // duplicateassetisolation_assets_all/Material_-8031580538284717323.json
+        { "Ring_Warped_extra color UI", Unity3Props },             // boosterpacks_assets_all/Material_-6836153499158306411.json
+        { "Glow Rays Additive Extra Color", Unity3Props },         // duplicateassetisolation_assets_all/Material_-3866995267438876787.json
+        { "Glow Additive Extra Color UI", Unity3Props },           // boosterpacks_assets_all/Material_-388003590706267446.json
+        { "Aura_2", Unity3Props },                                 // menusharedresources_assets_all/Material_1954984720533256764.json
+        { "Smoke Sprite Sheet Extra Additive", Unity3Props },      // battlesharedresources_assets_all/Material_-5076812091876950191.json
+        { "Smoke Sprite Sheet Extra Blend", Unity3Props },         // duplicateassetisolation_assets_all/Material_-6711203846430893277.json
+        { "SmallDots Add", Unity3Props },                          // boosterpacks_assets_all/Material_-7172907109476874863.json
+        { "Sororitas_Icon", Unity3Props },                         // duplicateassetisolation_assets_all/Material_2386124791906240890.json
+        { "Smoke5_extra color", Unity3Props },                     // duplicateassetisolation_assets_all/Material_-8460820609251426512.json
+        { "Hexagon_tiled", Unity3Props },                          // duplicateassetisolation_assets_all/Material_-8975087252871707060.json
+        { "Crosshair_2_Thin", Unity3Props },                       // duplicateassetisolation_assets_all/Material_-8848298278991051372.json
+        { "Crosshair Ring Extra", Unity3Props },                   // duplicateassetisolation_assets_all/Material_5733879997349476095.json
+        //   16 个「卡包外观」材质（shader `Everguild/Cards/Shader Graphs/Booster Pack`）—— 同样三项 {0,0}
+        { "Card Booster Pack Standard", Unity3Props },             // boosterpacks_assets_all/Material_3143908562808481385.json
+        { "Card Booster Pack Tyranids Leviathan", Unity3Props },   // boosterpacks_assets_all/Material_-5379894290471149958.json
+        { "Card Booster Pack Tau Empire", Unity3Props },           // boosterpacks_assets_all/Material_-1038931975123322646.json
+        { "Card Booster Pack Space Marines Ultramarines", Unity3Props },               // Material_2781682559873082159.json
+        { "Card Booster Pack Space Marines Ultramarines Expansion 1", Unity3Props },   // Material_8637464849487199629.json
+        { "Card Booster Pack Space Marines Space Wolves", Unity3Props },               // Material_-1005157760323407856.json
+        { "Card Booster Pack Space Marines Dark Angels", Unity3Props },                // Material_2997788394506672207.json
+        { "Card Booster Pack Sororitas", Unity3Props },            // boosterpacks_assets_all/Material_-6395674202644108821.json
+        { "Card Booster Pack Orks Goff", Unity3Props },            // boosterpacks_assets_all/Material_5985970350592098103.json
+        { "Card Booster Pack Orks Goff Expansion", Unity3Props },  // boosterpacks_assets_all/Material_8749820902701657744.json
+        { "Card Booster Pack Necrons Sautekh", Unity3Props },      // boosterpacks_assets_all/Material_-2518919678889035147.json
+        { "Card Booster Pack Genestealers", Unity3Props },         // boosterpacks_assets_all/Material_7922706269947121124.json
+        { "Card Booster Pack Emperors Children", Unity3Props },    // boosterpacks_assets_all/Material_-1814310203973018340.json
+        { "Card Booster Pack ChaosSM Black Legion", Unity3Props }, // boosterpacks_assets_all/Material_-6578417608764191686.json
+        { "Card Booster Pack Astra Militarum", Unity3Props },      // boosterpacks_assets_all/Material_-3363119327302140448.json
+        { "Card Booster Pack Aledari SaimHann", Unity3Props },     // boosterpacks_assets_all/Material_87272187708828613.json
+        // ---- 组 B（TMP 字体图集）：`TextMeshPro/Distance Field` 声明四项、原版没绑 ----
+        { "Pragati-Regular Atlas Material", Tmp4Props },           // fonts_assets_all/Material_-5050103597772954521.json
+        // ---- 组 C（URP 粒子）：`Universal Render Pipeline/Particles/Unlit` 声明两项、原版没绑 ----
+        { "ParticlesUnlit", UrpParticle2Props },                   // duplicateassetisolation_assets_all/Material_6242070269927333232.json
+        { "levelup_ring", UrpParticle2Props },                     // duplicateassetisolation_assets_all/Material_-1981429699457920947.json
+        { "Waterfall_Noise", UrpParticle2Props },                  // boosterpacks_assets_all/Material_8966088880632587443.json
+        { "Waterfall_Clouds", UrpParticle2Props },                 // battlesharedresources_assets_all/Material_-986066795884241450.json
+        { "SandParticle_add", UrpParticle2Props },                 // boosterpacks_assets_all/Material_1009379366977535475.json
+    };
+
+    static bool IsAllowedEmptyTexture(string material, string prop)
+    {
+        string[] props;
+        return AllowedEmptyTextureProps.TryGetValue(material, out props) && Array.IndexOf(props, prop) >= 0;
+    }
+
+    /// <summary>允许清单里**任何一条**是否放行这个属性名（第 4 段那条灭自证用）。</summary>
+    static bool AllowListMentions(string prop)
+    {
+        foreach (var kv in AllowedEmptyTextureProps)
+            if (Array.IndexOf(kv.Value, prop) >= 0) return true;
+        return false;
+    }
 }

@@ -2615,7 +2615,7 @@ namespace RuleEngine
             //   与 `RuleCore.PlayCardCore` 那一笔**同一个口径、同一个点**（判据 §B-3 #3：
             //   「单位走 `PlayCard`、战术走 `PlayTactic` —— **两条都要**」）。
             //   ⚠️ 分类逻辑**不在这里重写** —— 唯一分类口 = `RuleCore.CardPlayedTagMask`。
-            ctx.Tally.AddCardPlayed(p, RuleCore.CardPlayedTagMask(card, inst));
+            ctx.Tally.AddCardPlayed(p, RuleCore.CardPlayedTagMask(card, inst)); CardPlayedSignals.RaiseFromCardPlayed(p, card, inst);   // 🆕 2026-10-30（`B103_W1` · 账 `日常/奖励:39`）：原版 `CardPlayedSignal` 的两个生产者之一是 `ChallengeLogMgr.LogPlayTactic`（`ChallengeLogMgr__LogPlayTactic.c:347-350` 的 `Signal.Raise(signal)`），它与 `tacticsPlayed +1`（`.c:403`）在**同一个方法里**；我们这两件事本来就同点（`Tally.AddCardPlayed` 记账 / `CardPlayedSignals` 广播）⇒ 本句与前一拍**同一物理行追加 = 零行数漂移**（账按 `EffectResolver.cs:2618` 钉着这一行）。⛔ 别搬成单独一行。
             // 战术卡到这儿才算真打出去 —— 事件要在**校验与扣费都过了之后**发
             // （和单位卡那条 `Play` 对称，日志/表现层两边都能看见战术卡）
             // 🆕 2026-10-18（`A985⑥①`）：**把「这张战术卡有没有指目标、指的是哪一格」记进事件**。
@@ -5656,7 +5656,7 @@ namespace RuleEngine
                 },
                 Source = source,
                 Uses = uses,
-                RecordId = recordId,   // 🔴 「同一次挂载」的记录号（见 `CardInstance.HandEffect.RecordId`）
+                RecordId = recordId, Seq = inst != null ? inst.NextEffectSeq() : 0,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：加序戳（原版 `activeEffects(+0x108)` 的 `List.Add` 序；`inst == null` = 「只登记记录、不贴牌」⇒ 没有载体就没有序戳，投影排队尾）｜🔴 「同一次挂载」的记录号（见 `CardInstance.HandEffect.RecordId`）
                 // 🔴 **2026-10-18（`W4` 整改 · 审查问题 5）**：`Extrinsic` **只认显式形参**。
                 //    ⛔ **原来写的是 `extrinsic || ctx.ActingUnit != null`** —— 那是「结算这一刻
                 //    有个在场单位」，与真旗标（`AbilityData.whileInPlay // +0x40`）**不是一回事**：
@@ -5868,7 +5868,7 @@ namespace RuleEngine
             {
                 Op = src.Op,
                 Source = src.Source,
-                RecordId = src.RecordId,   // ⚠️ **照抄**（补挂的是同一条记录，不是新的一条）
+                RecordId = src.RecordId, Seq = src.Seq,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：序戳**照抄**（补挂的是同一条记录 ⇒ ⛔ 别另取号，与下面 `RecordId` 同口径）｜⚠️ **照抄**（补挂的是同一条记录，不是新的一条）
                 Expire = src.Expire,
                 ExpireTurn = src.ExpireTurn,
                 Uses = src.Uses,
@@ -11694,7 +11694,7 @@ namespace RuleEngine
         /// </summary>
         static bool DoGive(BattleContext ctx, int owner, string by, EffectOp op,
                            UnitState chosen, List<string> unresolved, int sign)
-        {
+        { int rowGroup = ctx.NextRowGroup();   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：**一次 `give` 子句发一个组号**（本子句解出的多条 `PayloadOp` ⇒ 原版是同一条 `CardEffect` 的四项增量 ⇒ 出表合成一行）
             var payload = GivePayload.Parse(op.Payload);
             if (payload == null)
             {
@@ -11957,7 +11957,7 @@ namespace RuleEngine
                         continue;
                     }
                     ApplyOneGain(ctx, owner, t, p, sign, op.Duration, by, null, unresolved,
-                                 op.AddTraitRemnant);
+                                 op.AddTraitRemnant, rowGroup);   // 🆕 2026-10-30（`B103_W3` · S3-c）：把本子句的组号传下去（属性/限时两条路都靠它合并成一行）
                 }
             }
             // 🔴 **2026-10-20（`W58-TURN-A`）**：只有能量时**别报「给了 N 个目标」** ——
@@ -12011,7 +12011,7 @@ namespace RuleEngine
                                  // 🆕 2026-10-26（批次 4 · `F2`）：这一项增益的**投递类型**
                                  //   是不是原版 `buffType 90 addTraitRemnant`（来自 `EffectOp.AddTraitRemnant`）。
                                  //   ⛔ 别在别处另写一份判据 —— 闸③ 只在 `EffectResolver.cs` 那一处判。
-                                 bool viaAddTraitRemnant = false)
+                                 bool viaAddTraitRemnant = false, int rowGroup = 0)   // 🆕 2026-10-30（`B103_W3` · S3-c）：同一次 `give` 子句的合并组号（0 = 不分组）
         {
             int val = p.Value * sign;
 
@@ -12185,10 +12185,10 @@ namespace RuleEngine
                     //   「限时 → 记一条」那一段（`AddTempBuff` 会在那里建同一条修饰），
                     //   否则一次施加会记两条修饰（数值翻倍、且到期只摘得掉一条）。
                     case "attack":
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val, extrinsic: ctx.ResolvingExtrinsic);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 `RecordGrant` 那一跳（限时那一种不走这里、由 `AddTempBuff` 建）
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 `RecordGrant` 那一跳（限时那一种不走这里、由 `AddTempBuff` 建）
                         break;
                     case "ranged":
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val, extrinsic: ctx.ResolvingExtrinsic);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳
                         break;
                     // 🔴 **2026-10-25（Stage 2b + K1）**：生命**正加**当场加到当前生命（原版
                     //   `CardScript__AddEffect.c:331-346` `healthChange >= 1 ⇒ currentHealth += healthChange`，
@@ -12199,7 +12199,7 @@ namespace RuleEngine
                     //   ⚠️ 以前这里是两条都 `Health += val` + 物化 `MaxHealth` ⇒ 负值会**多减一次**。
                     case "health":
                         if (val >= 1) u.Health += val;
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val, extrinsic: ctx.ResolvingExtrinsic);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳（`u.Health += val` 那一半是当场加血、与修饰账无关）
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳（`u.Health += val` 那一半是当场加血、与修饰账无关）
                         break;
                     // 负甲 clamp 0（原版 `:3320`：防「负甲反而加伤」）
                     //
@@ -12307,7 +12307,7 @@ namespace RuleEngine
                     Value = val,
                     Owner = owner,
                     UntilMyNextTurn = duration == "nextturn",
-                    Src = by,
+                    Src = by, RowGroup = rowGroup,   // 🆕 2026-10-30（`B103_W3` · S3-c）：限时那一路也带组号（`AddTempBuff` 会把它透传进它建的那条 `Mod`）
                     // 真卡名（`by` 在战术卡那条路上恒为「战术卡」，不足以定位「本卡施加的」）
                     SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
                     // 带来源那条路（`RecordGrant`）已经建好了修饰 ⇒ 复用它，⛔ 别再建一条。
@@ -18530,7 +18530,7 @@ namespace RuleEngine
             if (ca == 85) return RunTransformUnitRow(ctx, p, u, row, ta, chosen); if (ca == 350) return RunRemoveFromCemeteryRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B96_CA · 账 172 / 548 与 534）：`85 = transformUnitWithBuff`（判据 `AbilityLogic__PlayAbility.c:904-941`）—— 原版在这一支组一条 `transformUnit(27)` 动作，我们没有 27 号动作道 ⇒ 生产端**直调** `RuleCore.TransformUnit`（下游 `TransformUnit_B94B12.cs` 已逐跳落齐）；`350 = removeFromCemetery`（判据 `AbilityLogic__PlayAbility.c:1986-1999` 逐目标 `AddRemoveFromCemetery`）
             if (ca == 370 || ca == 400) return RunGrantedTriggerRow(ctx, p, u, row, ta, chosen, courtesy: ca == 400); if (ca == 160) return RunDiscardFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 165) return RunDiscardWholeHandRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B97_W5 · 账 850 / 独立账 BL37）：`160 = discardFromHand` / `165 = discardWholeHand`（判据 `AbilityLogic__PlayAbility.c:577-603` / `:293-345`）—— 结算体复用既有 `DoDiscardFromHand` / `DoDiscardWholeHand`（含 `RemoveCostEffects`），两条款行见 `B97W5_RowsAndDedupe.cs`；池内 `chosenAbility 160` = 0 张、`165` = 0 张 ⇒ 休眠档
             if (ca == 360) return RunPlayChosenCardAbility(ctx, p, u, chosen); if (ca == 320) return RunFollowAfterResolutionRow(ctx, p, u, chosen); if (ca == 390) return RunTriggerRequiemRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B99_E8` · 账 870 (b)）：`390 = AddTriggerRequiem` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2073-2088` → `AddTriggerRequiem(targetCard, actingCard, …)` → `ResolveAction.c:5574` `case 0x40` → `ResolveTriggerRequiem`：跑 430/435 的是 `actingCard`=caster、`targetCard` 只当入口闸；见 `RunTriggerRequiemRow` 的 doc）。📊 池内 `chosenAbility 390` = 0/1,129 ⇒ 休眠件（铁律 11 照建），零可观测 🆕 2026-10-29（B94_F2 · 账 455）：`chosenAbility 360 = playChosenCardAbility`（`AbilityEffect.cs:64`）—— 原版 `AbilityLogic__PlayAbility.c:2014-2070` 那一支（判据见 `RunPlayChosenCardAbility` 的 doc）；🆕 2026-10-29（`B99_E3` · 账 1281/1379 的 (a) 格）：`320 = followAfterResolution` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` → `CardScript__FollowUpResolutionPlayed.c:5-9`，见 `RunFollowAfterResolutionRow` 的 doc）
-            if (ca == 380) return RunSetReferenceCardRow(ctx, p, u, row, ta, chosen); if (ca == 480) return RunHighlightBloodThirstRow(ctx, p, u, row, ta, chosen); return RunActiveRowOps(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0 · 施工单 `判据/B102_R4_C类大工程两条.md` §①）：`380 setReferenceCard`（判据 `AbilityLogic__PlayAbility.c:2128-2160`）与 `480 highlightBloodThirst`（判据 `:1960-1972`）—— 两支的**执行体本来就已存在**（`SetReferenceCards` / `EmitBloodThirst`），缺的只是这一跳分派。⚠️ 池内 `activeAbilityLogic` 里这两码 **0 行**（`cards_engine.json` 1,129 张现扫：`ca` 直方图 0/10/20/30/40/60/70/75/100/130/140/238/300/320/325/420/462/467/468，无 380/480）⇒ 休眠接线、**零行为变化、指纹不变**。⛔ 本行**必须保持一行**（行数守恒）
+            if (ca == 380) return RunSetReferenceCardRow(ctx, p, u, row, ta, chosen); if (ca == 480) return RunHighlightBloodThirstRow(ctx, p, u, row, ta, chosen); if (ca == 220) return RunResetActionsRow(ctx, p, u, row, ta, chosen); if (ca == 280) return RunRevealOrderRow(ctx, p, u, row, ta, chosen); if (ca == 290) return RunMissActionRow(ctx, p, u, row, ta, chosen); if (ca == 330) return RunDrawUntilEqualRow(ctx, p, u, row, ta, chosen); if (ca == 375) return RunTriggerSacrificeRow(ctx, p, u, row, ta, chosen); if (ca == 135) return RunStunMultiplierRow(ctx, p, u, row, ta, chosen); if (ca == 340) return RunRemoveThisEnchantmentRow(ctx, p, u, row, ta, chosen); if (ca == 200) return RunExchangeRandomFriendlyMinionRow(ctx, p, u, row, ta, chosen); if (ca == 345) return RunRemoveEnchantmentRow(ctx, p, u, row, ta, chosen); if (ca == 80) return RunTransformSelfRow(ctx, p, u, row, ta, chosen); if (ca == 162) return RunDisappearFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 310) return RunDisplayFromHandRow(ctx, p, u, row, ta, chosen); return RunActiveRowOps(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0 · 施工单 `判据/B102_R4_C类大工程两条.md` §①）：`380 setReferenceCard`（判据 `AbilityLogic__PlayAbility.c:2128-2160`）与 `480 highlightBloodThirst`（判据 `:1960-1972`）—— 两支的**执行体本来就已存在**（`SetReferenceCards` / `EmitBloodThirst`），缺的只是这一跳分派。⚠️ 池内 `activeAbilityLogic` 里这两码 **0 行**（`cards_engine.json` 1,129 张现扫：`ca` 直方图 0/10/20/30/40/60/70/75/100/130/140/238/300/320/325/420/462/467/468，无 380/480）⇒ 休眠接线、**零行为变化、指纹不变**。⛔ 本行**必须保持一行**（行数守恒）
         }
 
         /// <summary>🔴 **2026-10-28（B90·B1）**：`chosenAbility 370 (Relentless) / 400 (Courtesy)` ——

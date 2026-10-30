@@ -3097,7 +3097,7 @@ namespace CardPresentation
         //    ⇒ 两处画法**只能有一份**（CLAUDE.md §三）。出处：`资料/普查产出_0923/A2_Deck页.md` §三
         //    与 `A1_外壳与弹窗.md` §3；2026-09-24 亲核：逐项**吻合到 &lt;0.5px**。
         //
-        // 作者尺寸 **250×405**，RSR 把它们缩到 **225×364.5**（`_cellWidth/_cellHeight`）⇒ 内部每一件都 **×0.9**。
+        // 作者尺寸 **250×405**，RSR 把它们缩到 **225×364.5**（`_cellWidth/_cellHeight`）⇒ 内部每一件都 **×0.9**。 🔴 **2026-10-30（执行代理 `B103_F6`）就地改判**：上面那句「×0.9」**只在桌面档成立** —— 小屏档格子是 **281.25×455.625**（`_mobileSizeScale = 1.25`，判据 → `判据/AUD05_state_matrix_收藏窗.md` §1·2 / §2·2 Deck 行），而 `DeckCell` 的内层几何原来一律乘 `DeckCellK = 0.9`、锚在 `r.x1/r.y1` ⇒ 只画出 225×364.5、**右空 56.25 / 下空 91.125**（`B103_F5` 接上小屏档之后才可见的缺陷）。⇒ 改用**按格子实际尺寸等比**：`sx = r.W / 250`（x 轴）· `sy = r.H / 405`（y 轴）；✅ **桌面档逐位不变**（r.W = 225 ⇒ sx = 0.9 = `DeckCellK`；r.H = 364.5 ⇒ sy = 0.9）。⚠️ 四个调用点（收藏窗 Deck 页 / 选卡组弹窗 / `ShellScene` 两格）给小屏 r 时**自动撑满**，调用点不必各算系数。⛔ 本段刻意保持**行数不变**（下面 `DeckCell` 有账落点）。
 
         /// <summary>格内各件相对格左上的比例（作者 250×405 下的值 ×0.9 已在调用处用 `K`）。</summary>
         public const float DeckCellK = 0.9f;
@@ -3316,7 +3316,7 @@ namespace CardPresentation
                                          //   （缺省 ⇒ 既有调用点逐位不变）。见 <see cref="DeckCellClickCue"/>。
                                          string clickCue = DeckCellClickCue, bool playClickSound = true)
         {
-            const float K = DeckCellK;
+            const float AuthorW = 250f, AuthorH = 405f; float sx = r.W / AuthorW, sy = r.H / AuthorH;   // 🔴 B103_F6：内层几何按格子实际尺寸等比（作者系 250×405）。桌面 r = 225×364.5 ⇒ sx = sy = 0.9 = `DeckCellK` ⇒ **逐位不变**；小屏 r = 281.25×455.625 ⇒ sx = sy = 1.125 ⇒ 撑满。x 一律 `* sx`、y 一律 `* sy`（⛔ 别合回一个标量）。
             // 🔴 **2026-10-12（A198② 阶段 1）：取裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
             //    ⚠️ **本函数里两条路要的是两份不同的视图，⛔ 别合成一份**（A188 的硬约束就在这里落地）：
             //      · 渲染 / 裁检 / 文字那几层吃 **`clipR` = `RenderClip`（= `V − pad`）**；
@@ -3413,15 +3413,15 @@ namespace CardPresentation
                 bool wholeTexture = Mathf.Abs(front.width - front.height) <= Mathf.Max(16f, front.width * 0.05f);
                 float boxX = wholeTexture ? DcImgX : DcBackX;
                 float boxW = wholeTexture ? DcImgW : DcBackW;
-                var maskCell = new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
-                                          r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K);
+                var maskCell = new PxRect(r.x1 + DcBackX * sx, r.y1 + DcBackY * sy,
+                                          r.x1 + (DcBackX + DcBackW) * sx, r.y1 + (DcBackY + DcBackH) * sy);
                 PxRect visMask;
                 // 整块（遮罩格）在视口外 ⇒ 原版 `RectMask2D` **一个像素都不画** ⇒ 不建这颗（同 `Rect` 的语义）
                 if (ClipRect(maskCell, clipR, out visMask))
                 {
                     var fq = Rect(cell, front,
-                         new PxRect(r.x1 + boxX * K, r.y1 + DcImgY * K,
-                                    r.x1 + (boxX + boxW) * K, r.y1 + (DcImgY + DcImgH) * K),
+                         new PxRect(r.x1 + boxX * sx, r.y1 + DcImgY * sy,
+                                    r.x1 + (boxX + boxW) * sx, r.y1 + (DcImgY + DcImgH) * sy),
                          "Deck Image", q, null, false, visMask);
                     // 🔴 **必须换成「忽略贴图 alpha」那一档** —— 见 `CardView.MakeOpaqueQuad` 的注释：
                     //   原版 668 张卡的立绘是**抠图**（全透明 > 5%），普通 `Sprites/Default` 会把它们画成
@@ -3435,8 +3435,8 @@ namespace CardPresentation
                 var back = CardArt.DeckCardback(info.CardbackId, info.Faction);
                 if (back != null)
                     Rect(cell, back,
-                         new PxRect(r.x1 + DcBackX * K, r.y1 + DcBackY * K,
-                                    r.x1 + (DcBackX + DcBackW) * K, r.y1 + (DcBackY + DcBackH) * K),
+                         new PxRect(r.x1 + DcBackX * sx, r.y1 + DcBackY * sy,
+                                    r.x1 + (DcBackX + DcBackW) * sx, r.y1 + (DcBackY + DcBackH) * sy),
                          "CardBack", q, null, false, clipR);
                 if (NoWarlordArtLog++ < 3)
                     Debug.LogWarning("[MenuDraw] 卡格 `" + name + "` 取不到督军**卡面插图**（`WarlordId`=\""
@@ -3445,14 +3445,14 @@ namespace CardPresentation
             }
 
             Rect(cell, CardArt.MenuUi("40K_bt_deck"),
-                 new PxRect(r.x1 + DcFrameX * K, r.y1 + DcFrameY * K,
-                            r.x1 + (DcFrameX + DcFrameW) * K, r.y1 + (DcFrameY + DcFrameH) * K),
+                 new PxRect(r.x1 + DcFrameX * sx, r.y1 + DcFrameY * sy,
+                            r.x1 + (DcFrameX + DcFrameW) * sx, r.y1 + (DcFrameY + DcFrameH) * sy),
                  "Frame", q, null, false, clipR);
 
             // 卡名：⚠️ 文字没法像图那样截 uv ⇒ **按原版 `RectMask2D` 切成半个字**（`ClipText`）
             //（🆕 2026-10-04：此前只做「**整块**在视口外就不建」、压在视口边上的字照画出去 —— 那条缺口已补）
-            var nameR = new PxRect(r.x1 + DcNameX * K, r.y1 + DcNameY * K,
-                                   r.x1 + (DcNameX + DcNameW) * K, r.y1 + (DcNameY + DcNameH) * K);
+            var nameR = new PxRect(r.x1 + DcNameX * sx, r.y1 + DcNameY * sy,
+                                   r.x1 + (DcNameX + DcNameW) * sx, r.y1 + (DcNameY + DcNameH) * sy);
             if (Visible(nameR, clipR))
             {
                 // 🔴 **2026-10-11（A1503 ②）：接上原版那颗 TMP 的【auto + 字距】。**
@@ -3460,8 +3460,8 @@ namespace CardPresentation
                 //   **`auto[8~32]`** · 居中 · **Capline** · 白 · **字距 `m_characterSpacing = −2`**。
                 //   ⚠️ 我们原来：**高写成 35.8**（`DcNameH`）、**不传 auto、不传字距**
                 //   —— 而 `MenuDraw.Text` 本来就有 auto 那三个口、`Label.SetCharSpacing` 也早就有 ⇒ **只是没接**。
-                var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * K, qText,
-                              autoMinPx: 8f * K, autoMaxPx: DcNamePx * K, autoBasePx: 30f * K);
+                var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * sy, qText,
+                              autoMinPx: 8f * sy, autoMaxPx: DcNamePx * sy, autoBasePx: 30f * sy);   // B103_F6：字号按**竖向**比例 `sy`（横向由 auto-fit 收进框；桌面 sy = 0.9 ⇒ 逐位不变）
                 if (nl != null)
                 {
                     nl.SetCharSpacing(-2f);      // 原版 `m_characterSpacing = −2`
@@ -3496,24 +3496,24 @@ namespace CardPresentation
                 //   ⚠️ 改名牵动 `Editor/CollectionScene.cs` 与 `Editor/MainMenuScene.cs` 里**按名字取件**的断言
                 //   （本批三处一起改），⛔ 别再留短名。
                 Rect(cell, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
-                     new PxRect(r.x1 + DcFacX * K, r.y1 + DcFacY * K,
-                                r.x1 + (DcFacX + DcFacW) * K, r.y1 + (DcFacY + DcFacH) * K),
+                     new PxRect(r.x1 + DcFacX * sx, r.y1 + DcFacY * sy,
+                                r.x1 + (DcFacX + DcFacW) * sx, r.y1 + (DcFacY + DcFacH) * sy),
                      "Faction Icon", qOverlay, null, true, clipR);
 
             // 🆕 **模式图标**（作者系 `170.5, 273.68`，右下）—— 原版 `enabled = (icon != null)`：
             //    图取不到就**整层不建**（`Rect` 遇 null 直接 return null，天然满足）
             if (gameMode.HasValue)
                 Rect(cell, CardArt.MenuUi(GameModeIconFile(gameMode.Value)),
-                     new PxRect(r.x1 + DcModeX * K, r.y1 + DcModeY * K,
-                                r.x1 + (DcModeX + DcModeW) * K, r.y1 + (DcModeY + DcModeH) * K),
+                     new PxRect(r.x1 + DcModeX * sx, r.y1 + DcModeY * sy,
+                                r.x1 + (DcModeX + DcModeW) * sx, r.y1 + (DcModeY + DcModeH) * sy),
                      "Game Mode Icon", qOverlay, null, true, clipR);
 
             // 🆕 **难度角标**（作者系 `159.19, 15.74`，右上）—— 四档三张图（`0/5 一条杠 · 10 两条 · 15 三条`）。
             //    ⚠️ 原版节点名叫 `DificultyLevel`（**拼错了**，照抄别改，断言要按这个名字找）
             if (showDifficulty && difficulty.HasValue)
                 Rect(cell, CardArt.MenuUi(DifficultyMarkFile(difficulty.Value)),
-                     new PxRect(r.x1 + DcDiffX * K, r.y1 + DcDiffY * K,
-                                r.x1 + (DcDiffX + DcDiffW) * K, r.y1 + (DcDiffY + DcDiffH) * K),
+                     new PxRect(r.x1 + DcDiffX * sx, r.y1 + DcDiffY * sy,
+                                r.x1 + (DcDiffX + DcDiffW) * sx, r.y1 + (DcDiffY + DcDiffH) * sy),
                      "DificultyLevel", qOverlay, null, true, clipR);
 
             if (selected && !sortMode)
@@ -3527,20 +3527,20 @@ namespace CardPresentation
                 //       那一行 = `Highlight … Highlight Rounded Square 150×155 九宫73,75,73,75 | Sliced`。
                 //   ⛔ 改前走的是 `Rect`（**Simple 拉伸**）到 `289.75×427.27` ⇒ 圆角与四条边被不对称拉变形
                 //   （横向 289.75/150 ≈ 1.93、纵向 427.27/155 ≈ 2.76 倍）。
-                //   ⚠️ 角块画出来 = **73/75 作者 px × K**（本函数 `K = DeckCellK = 0.9`，即这一格显示 0.9 倍：
-                //   作者系 250×405 → 显示 225×364.5）⇒ `borderOutPx` 必须乘 `K`，否则角块比原版大 1/0.9 倍、
+                //   ⚠️ 角块画出来 = **73/75 作者 px × 缩放**（🔴 B103_F6 起 = `sx`/`sy`；桌面 `sx = sy = 0.9 = DeckCellK`：
+                //   作者系 250×405 → 桌面 225×364.5 / 小屏 281.25×455.625）⇒ `borderOutPx` 必须乘同一个比例，否则角块比原版大 1/0.9 倍、
                 //   而 UV 切分仍按贴图真实边宽（`border`）—— 两件事分开（`Nine` 的两个形参各管一头）。
                 //   原版这颗 `m_PixelsPerUnitMultiplier` 没设（= 1）⇒ 不再额外除。
                 //   ⚠️ **画法变更，待并排渲验收**（现行口径：验收动作攒到复刻完成，本批不跑 Unity）。
                 Nine(cell, CardArt.MenuUi("Highlight_Rounded_Square"),
                      // 原版 `Highlight` 矩形 = 作者系 `−19.8, −10.9 → 270.0, 416.3`（`menu_dump --rt -1941218197625697718`）
-                     new PxRect(r.x1 + DcHiX * K, r.y1 + DcHiY * K,
-                                r.x1 + (DcHiX + DcHiW) * K, r.y1 + (DcHiY + DcHiH) * K),
+                     new PxRect(r.x1 + DcHiX * sx, r.y1 + DcHiY * sy,
+                                r.x1 + (DcHiX + DcHiW) * sx, r.y1 + (DcHiY + DcHiH) * sy),
                      new Vector4(73f, 75f, 73f, 75f), 150f, 155f,
                      // 🔴 **A1529①**：原版 `Highlight` 是 `Deck` 的 child[0]（最底）⇒ 必须落在 `q` **之下**。
                      //   ⛔ 别再传 `qOverlay`（那是「最顶」，金环会糊在卡面上 —— 这条账就是这么来的）。
                      qBelow, new Color(1f, 0.773f, 0f, 1f), true, "Highlight Rounded Square",
-                     new Vector4(73f * K, 75f * K, 73f * K, 75f * K));
+                     new Vector4(73f * sx, 75f * sy, 73f * sx, 75f * sy));   // B103_F6：`borderOutPx` = (左, 下, 右, 上) ⇒ 左/右吃 `sx`、下/上吃 `sy`（桌面 sx = sy = 0.9 ⇒ 逐位不变）
             }
 
             // 点击区：**视口外的不建、压在视口边上的截到视口内** —— 判据与 `Hit` 同一条

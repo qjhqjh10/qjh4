@@ -303,7 +303,7 @@ namespace CardPresentation
             //   常量就是上面那个此前**一直没用上**的 `DescLineSpacing`）⇒ 多行正文的行距补上。
             MenuDraw.SetLineSpacing(_desc, DescLineSpacing);
             // `Tap To continue`：fs 30 · 基准 60 · auto[18~30] · 折行 1 · 色 (0.627,0.616,0.631) · Center/**Capline**(8192)
-            var tapText = Loc.HasEntry(TapTerm) ? Loc.T(TapTerm)
+            var tapText = Loc.HasAnyTerm(TapTerm) ? Loc.T(TapTerm)
                                                : (Loc.Current == AvailableLanguages.Chinese ? TapZh : TapEn);
             _tap = MenuDraw.TextBox(_texts, TapR, tapText, TapColor, "Tap To continue",
                                     TapFont, TapFontMin, QText, TapFontMax, TapFontBase, face: TmpFont.Face.LatinCardBody);
@@ -359,7 +359,7 @@ namespace CardPresentation
         internal static string OfficialTerm(string key, string en, string zh)
         {
             if (string.IsNullOrEmpty(key)) return "";
-            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (Loc.HasAnyTerm(key)) return Loc.T(key);
             bool zhUi = Loc.Current == AvailableLanguages.Chinese;
             string v = Loc.Lang13Of(key, zhUi ? "zh" : "en");
             if (!string.IsNullOrEmpty(v)) return v;

@@ -2591,5 +2591,90 @@ namespace CardPresentation
         /// <summary>自检读口：TMP 现在的 `overflowMode`（点阵后端如实报出厂档
         /// <see cref="TextOverflowModes.Overflow"/>）。⛔ 它只是**档位**，「超框真的出省略号」要真机看图。</summary>
         public TextOverflowModes OverflowNow { get { return _tmp != null ? _tmp.overflowMode : TextOverflowModes.Overflow; } }
+
+        // ---- 类尾 · B103_A03（AUD03 #94 · 2026-10-30）：换语言 ⇒ 按来源重取文本
+        //   ⚠️ 一律追加在**类尾**（本文件被账按 `文件:行号` 引用，最后一次是 `:2591`）⇒ 零行号漂移（铁律 18·b）。
+        //
+        //   原版形状 = I2 `Localize` 组件：**记 term**，换语言时由本地化系统广播 ⇒ 自己重取一次，
+        //   ⛔ **不重建整窗**（本仓同形先例 = `Shell/TimerDisplay.Awake/OnDestroy/LocalizationChange`）。
+        //   我们这边「term」写成**取文本的委托**（`System.Func<string>`）而不只是键 —— 因为这些窗的文案
+        //   多数来自 `DailyData.*` 这类**口**（口内部才 `Loc.T`）⇒ 委托比键更贴合现成代码，且换语言时
+        //   连「跟着数据变」的那一档（如 `StreakLostValue` 拼进去的数字）也一并重算。
+        //   🔴 **可选的 `reapply`**：`SetText` 会重排（`RefreshBounds` 按新宽度重新居中），
+        //   而 `MenuDraw.AlignLeft/AlignRight` 是**按当时宽度算的绝对位置** ⇒ 重取之后必须再对齐一次，
+        //   否则左/右对齐的标签会跑回框心。中心对齐（默认锚点）不需要。
+
+        /// <summary>本标签「文字从哪来」（`null` = 一次性文本，换语言不重取）。</summary>
+        System.Func<string> _textProvider;
+        /// <summary>重取之后要补的重排（对齐/折行/字距那几刀）；`null` = 不用补。</summary>
+        System.Action _textReapply;
+
+        /// <summary>登记/换绑「这条文字怎么取」——**换语言时由 `Loc` 广播重取**（对标 I2 `Localize` 的 term）。
+        /// <para>⚠️ 只登记、**不立刻取**：调用方通常刚把同一句传给了 `MenuDraw.Text`，再取一次是白量一遍版面。
+        /// 想立刻对齐一次就自己调 <see cref="Relocalize"/>。</para>
+        /// <para><paramref name="reapply"/> = 重取后要补的那几刀（见本节头注释）。传 `null` 表示「居中摆放、不用补」。</para>
+        /// <para>传 `provider = null` ⇒ 退绑（本标签变回一次性文本）。</para></summary>
+        public void BindText(System.Func<string> provider, System.Action reapply = null)
+        {
+            _textProvider = provider;
+            _textReapply = reapply;
+            if (provider == null) Loc.UnbindLocalized(this);
+            else Loc.BindLocalized(this);
+        }
+
+        /// <summary>按登记的来源重取一次（`Loc` 在换语言广播里调；也可由窗自己调）。⛔ 不建任何件、不动滚动位。</summary>
+        public void Relocalize()
+        {
+            var p = _textProvider;
+            if (p == null) return;
+            try { SetText(p()); }
+            catch (System.Exception e)
+            {
+                // 红线：不许静默失败（取文本的那个口炸了要看得见；它不连带别的标签 —— 逐个 `Label` 兜）。
+                Debug.LogError("[Label] 换语言重取文本时，取文本/写文本那一跳抛了异常（这条标签停在旧文案上）：" + e);
+                return;
+            }
+            _relocalizeCount++;
+            var re = _textReapply;
+            if (re != null)
+            {
+                try { re(); }
+                catch (System.Exception e)
+                {
+                    // 红线：不许静默失败（配置写错时要看得见是「哪一颗标签的重排」炸的）。
+                    Debug.LogError("[Label] 重取文本后的重排回调抛了异常（这条标签的位置可能没对上）：" + e);
+                }
+                return;
+            }
+            // 没有重排回调 ⇒ 至少把版面量一遍：**未激活**（切走的页签 / 收起的弹窗）时
+            // `SetText` 里那次 `ForceMeshUpdate` 会早退（`ForceRelayout` 的 P7 那段讲的就是这个坑）
+            // ⇒ 走它那条 `PushLayoutInactive()` 分支量出来。
+            if (_tmp != null && !_tmp.isActiveAndEnabled) ForceRelayout();
+        }
+
+        /// <summary>自检读口：这条标签登记了来源没有（原版 = 那颗 `Localize` 组件在不在）。</summary>
+        public bool HasTextProvider { get { return _textProvider != null; } }
+
+        /// <summary>自检读口：这条标签被重取过几次（只增不减）。</summary>
+        public int RelocalizeCountForTest { get { return _relocalizeCount; } }
+        int _relocalizeCount;
+
+        /// <summary>把一个窗（或任意子树）里**登记过来源**的 `Label` 全部重取一次；返回**真重取了几颗**。
+        /// <para>窗的 `OnLanguageChanged` 用它把「有绑定 ⇒ 只重取、⛔ 不重建」与「一颗都没绑 ⇒ 才能退回老路」分清楚
+        /// （见 `Shell/DailyStreakPopup.OnLanguageChanged`）。</para>
+        /// <para>⚠️ 走 `GetComponentsInChildren(true)` ⇒ **未激活的子件也算**（断签面板那种同一窗里两套面板）。</para></summary>
+        public static int RelocalizeUnder(Transform root)
+        {
+            if (root == null) return 0;
+            var all = root.GetComponentsInChildren<Label>(true);
+            int n = 0;
+            for (int i = 0; i < all.Length; i++)
+            {
+                var lb = all[i];
+                if (lb == null || lb._textProvider == null) continue;
+                lb.Relocalize(); n++;
+            }
+            return n;
+        }
     }
 }

@@ -19,7 +19,7 @@
 //    7 个源（_statMods / _traitEffects / TempBuffs / CardInstance.ActiveEffects / HandEffects / …）
 //    已合成「一条有序 List」+ 每条 `Seq` 序戳（S2，`UnitState.NextEffectSeq`）＋ 表现侧消费
 //    （S4 `CardDisplayWindow.RowsOfEffects`，2026-10-29 `B97_W16`）；**生产接线 = S5**（`BattleDriver.cs:13212`，2026-10-29 `B97_W18`）⇒ 本类**今天有真消费者**。
-//    ⚠️ 仍缺的 3 段（如实标，⛔ 别当成「已做」）→ 见 `Of()` 上面那段「今天做不到的两段」＋ 账 `特效动画:521` 的残差。
+//    ⚠️ 仍缺的几段（S3-c 生产端 / S3-f 写点 / S7；如实标，⛔ 别当成「已做」）→ 见 `Of()` 上面那段「今天还差的三段」＋ 账 `特效动画:521` 的残差。
 //
 // ⚠️ 本文件属 `Core/` —— **不允许依赖 UnityEngine**。
 using System.Collections.Generic;
@@ -181,12 +181,12 @@ namespace RuleEngine
         //  🔴 **本方法是纯读**：不改任何 `UnitState` 字段、不发事件、不写 `ctx.Log`（除非调用方给了 `ctx`
         //     且遇到**认不出的载荷**那种必须出声的场合）⇒ `ruleprobe play` 指纹必须逐字节不变。
         //
-        //  ⚠️ **今天做不到的两段（别当成已做）**：
-        //    · 附魔行 / 手牌行的 `Seq`：`ActiveCardEffect` 与 `HandEffect` 上还没有序戳
-        //      （施工细则 S3-d / S3-f，落点在 `Enchantment.cs` / `CardInstance.cs` / `RuleCore.cs`，**不在本切片白名单**）
-        //      ⇒ 它们 `Seq = 0`、排到队尾（见 `SortShown`）。`RemoveTrait` 是 `HashSet`（无序无戳）同理。
-        //    · `RowGroup`（同一次 `give` 多条合成一行，S3-c）：`EffectResolver.DoGive` 本波在白名单内，但**生产端盖不了戳** ——
-        //      `UnitState.StatMod` **没有 `RowGroup` 字段**、`AddStatMod` 也没有这个形参（两者都在 `UnitState.cs`，不属本代理）⇒ 今天恒 `0`（= 不合并）。⛔ 别只在读取端（本文件）凑一个组号：那样同一次 give 的多条属性照样各印一行。
+        //  ⚠️ **今天还差的三段（别当成已做）**：
+        //    · 附魔行 `Seq`：字段 + 读点已通（`ActiveCardEffect.Seq` / `Seq = e.Seq`），写点 = `Enchantments.Attach`（⏳ 临时借载体自己那个单位的计数器）。
+        //    · 手牌行 `Seq`：字段 + 读点已通（`HandEffect.Seq` / `Seq = he.Seq`），**写点未接**（`EffectResolver.AttachHandEffect`）⇒ 今天仍 `0`、排队尾。
+        //    · `RowGroup`（S3-c）：**数据槽 + 投影已建**（`StatMod.RowGroup` / `AddStatMod(…, rowGroup:)` / `TempBuff.RowGroup`），
+        //      但**生产端没接**（`EffectResolver.DoGive` 的 `ctx.NextRowGroup()`）⇒ 今天仍恒 `0` = 不合并；接线补丁 → `报告/B103_W3.md` §四。
+        //      （`RemoveTrait` 已结：2026-10-30 `B103_W3` 改读 `UnitState.RemovedTraitSeq` 的有序簿记。）
         // ============================================================================================
 
         /// <summary>`BuffType.removeTrait = 4`（`dump.cs:45430-45462`）。</summary>
@@ -235,7 +235,7 @@ namespace RuleEngine
                     IsSet = m.IsSet,
                     Timed = false,
                     Source = m.Source,
-                    Seq = m.Seq,
+                    Seq = m.Seq, RowGroup = m.RowGroup,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：组号透传（生产端补丁见 `报告/B103_W3.md` §四；未接 ⇒ 恒 0 = 不合并）
                 });
             }
 
@@ -289,7 +289,7 @@ namespace RuleEngine
                         IsSet = b.Mod != null && b.Mod.IsSet,
                         Timed = true,
                         Source = src,
-                        Seq = b.Seq,
+                        Seq = b.Seq, RowGroup = b.Mod != null ? b.Mod.RowGroup : 0,   // 🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：限时那条的组号在它自带的 `Mod` 上（`AddTempBuff` 透传）
                     });
                 }
             }
@@ -342,7 +342,7 @@ namespace RuleEngine
                 });
             }
 
-            // ---- ⑤ RemoveTrait：`RemovedTraits`（`HashSet` ⇒ 无序、无戳 ⇒ 排队尾，见施工细则 §六·4）----
+            // ---- ⑤ RemoveTrait：`RemovedTraits`（`HashSet` 只负责去重；**出表序**读另有的一本有序簿记 `RemovedTraitSeq`，见施工细则 §六·4 + 2026-10-30 `B103_W3`）----
             foreach (var t in u.RemovedTraits)
             {
                 if (string.IsNullOrEmpty(t)) continue;
@@ -351,7 +351,7 @@ namespace RuleEngine
                     Family = ShownFamily.RemoveTrait,
                     BuffType = BuffTypeRemoveTrait,
                     Trait = t,
-                    Seq = 0,
+                    Seq = u.RemovedTraitSeq(t),   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 残差「RemoveTrait 无序」）：原来硬写 `0` ⇒ 全族排队尾、族内按名字字典序（`SortShown` 的 tie-break）；现在读 `MarkTraitRemoved` 记下的**有序**簿记（判据 `CardScript__AddEffect.c:680-694`）
                 });
             }
 
@@ -375,7 +375,7 @@ namespace RuleEngine
                         Source = e.Source,
                         // 原版 `GetEffectDesc` 的「附魔且 `spellType == 120`」支印**那张附魔卡的卡面描述**
                         Body = e.EnchantmentCard != null ? e.EnchantmentCard.Desc : null,
-                        Seq = 0,
+                        Seq = e.Seq,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-d）：读附魔记录自己的加序戳（原来硬写 `0` ⇒ 全族排队尾）
                     });
                 }
 
@@ -410,7 +410,7 @@ namespace RuleEngine
                                 TraitValue = p.Value,
                                 Timed = timed,
                                 Source = he.Source,
-                                Seq = 0,
+                                Seq = he.Seq,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：读手牌记录自己的加序戳（⏳ 写点未接 ⇒ 今天恒 0，行为不变）
                             });
                         }
                         else if (!string.IsNullOrEmpty(p.Attr))
@@ -424,7 +424,7 @@ namespace RuleEngine
                                 Value = p.Value,
                                 Timed = timed,
                                 Source = he.Source,
-                                Seq = 0,
+                                Seq = he.Seq,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：同上（属性那一段）
                             });
                         }
                         else
@@ -485,17 +485,17 @@ namespace RuleEngine
             public string Source;
         }
 
-        /// <summary>「队尾」用的序：`Seq &lt;= 0`（没有序戳：RemoveTrait / 附魔 / 手牌）排到最后。</summary>
+        /// <summary>「队尾」用的序：`Seq &lt;= 0` 的族（**棋盘外的**附魔 / 手牌 / `CostMod` / `FerocityStay`）排到最后。⚠️ `RemoveTrait` 与**棋盘上**的附魔自 2026-10-30 `B103_W3` 起**已有**序戳。</summary>
         static int RankOfSeq(int seq) { return seq > 0 ? seq : int.MaxValue; }
 
         /// <summary>
         /// 把投影排成「原版 `+0x108` 的 `List.Add` 序」。
         ///
         /// <para>🔶 自己设计（非原版）：`Seq` 相同时的族内次序（`Family` → `Trait/Attr` 名 → `BuffType` → 值），
-        /// 以及「没有序戳的族（RemoveTrait / 附魔 / 手牌）排到队尾」。**为什么必须自己定**：原版只有**一条**
+        /// 以及「没有序戳的族（附魔 / 手牌 / `CostMod` / `FerocityStay`）排到队尾」。**为什么必须自己定**：原版只有**一条**
         /// `List&lt;CardEffect&gt;`、序天然存在；我们把它拆成了 7 本账（`_statMods` / `_tempBuffs` /
         /// `_traitEffects` / `_auraKw` / `_removedTraits` / `ActiveEffects` / `HandEffects`），
-        /// 后三本**今天没有序戳**（S3-d / S3-f 在白名单外）⇒ 跨族次序只能由我们给一条**全序**
+        /// 后两本**今天没有序戳**（S3-d / S3-f 在白名单外；`_removedTraits` 自 2026-10-30 `B103_W3` 起另有一本有序簿记）⇒ 跨族次序只能由我们给一条**全序**
         /// （`List.Sort` **不稳定**，⛔ 只比 `Seq` 会让相等项的顺序随实现漂移）。
         /// · 调度台 2026-10-29 裁定（承施工细则 §三 S1 的同一条要求）。</para>
         /// </summary>
@@ -849,7 +849,7 @@ namespace RuleEngine
                         Timed = cm.ExpireTurn >= 0,
                         Source = cm.Tag,                        // ⚠️ `CostMod` 今天**没有「谁给的」这一格**（`Tag` 只有光环灌 `Auras.GrantTag`）⇒ 这一支的左列/原文**取不到**（会印一行空的 = 原版「空文本占一槽」）。补法 = 给 `CostMod` 加一格**不进指纹**的 owner（`NetProtocol.PlayerHash` 把 `Tag` 滚进了哈希 ⇒ ⛔ 别往 `Tag` 里塞卡名，那会改 `StateHash`/`play check` 指纹 —— 详见报告）
                         OwnerCard = cm.Tag,
-                        Seq = 0,                                // `CostMod` 没有序戳 ⇒ 排队尾（同 `RemoveTrait` / 附魔那两族）
+                        Seq = 0,                                // `CostMod` 没有序戳 ⇒ 排队尾（同 `FerocityStay` / 附魔那两族；⚠️ `RemoveTrait` 自 2026-10-30 `B103_W3` 起**已有**戳、不在此列）
                     });
                 }
             }

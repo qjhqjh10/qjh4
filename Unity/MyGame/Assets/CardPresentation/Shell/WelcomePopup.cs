@@ -210,7 +210,7 @@ namespace CardPresentation
             MenuDraw.SetLineSpacing(_desc, TutorialMessagePopup.DescLineSpacing);
 
             // `Tap To continue`：fs 30 · 基准 60 · auto[18~30] · 折行 1 · 色 (0.627,0.616,0.631) · Center/**Capline**(8192)
-            var tapText = Loc.HasEntry(TutorialMessagePopup.TapTerm)
+            var tapText = Loc.HasAnyTerm(TutorialMessagePopup.TapTerm)
                         ? Loc.T(TutorialMessagePopup.TapTerm)
                         : (Loc.Current == AvailableLanguages.Chinese ? "点击以继续" : "Click to continue");
             _tap = MenuDraw.TextBox(_texts, TutorialMessagePopup.TapR, tapText,

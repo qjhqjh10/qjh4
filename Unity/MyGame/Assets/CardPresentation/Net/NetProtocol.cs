@@ -360,7 +360,7 @@ namespace CardPresentation.Net
             int at = s.IndexOf(Sep);
             string key = at < 0 ? s : s.Substring(0, at);
             // 认不出 = 旧端发来的自然语言 / `RuleCodes.Describe` 那种本机整句 ⇒ **原样回显**（白赚的兼容）
-            if (!Loc.HasEntry(key)) return s;
+            if (!Loc.HasAnyTerm(key)) return s;
             string tpl = Loc.T(key);
             if (at < 0) return tpl;
             string[] parts = s.Substring(at + 1).Split(Sep);

@@ -86,7 +86,9 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(mode)) return "";
             string key;
-            if (ModeLocKeys.TryGetValue(mode, out key) && Loc.HasEntry(key)) return Loc.OfficialCurrent(key);
+            // 闸与取值口必须同一套口径：取值走 `Loc.OfficialCurrent`（官方全表）⇒ 闸用三档宽谓词
+            // （原来用 `HasEntry` 只查手写表 —— 典型错配；现读 `Battle/MatchType/*` 7 条三档都有 ⇒ 行为不变）。
+            if (ModeLocKeys.TryGetValue(mode, out key) && Loc.HasAnyTerm(key)) return Loc.OfficialCurrent(key);
             if (ModeWarned.Add(mode))
                 Debug.LogWarning($"[BattleLog] 模式串「{mode}」没有官方 `Battle/MatchType/*` 词条"
                                + " ⇒ **按枚举名原样显示**（⛔ 不编词；键表见 `Battle/MatchType/*` 那 7 条）");

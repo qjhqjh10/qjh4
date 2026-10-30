@@ -178,9 +178,9 @@ namespace CardPresentation
             // 原版 `CosmeticItemCardback.LocalizedName` = I2(`"Cardbacks/" + nameTextReference`)。
             // ⚠️ 我们这一行只有 `so`（= 原版 m_Name；56/243 与 nameTextReference 不同）⇒ 见文件头那条。
             c.Title = Loc.BulkOr("Cardbacks/" + it.so, ReverseName(it.so));
-            c.Description = Loc.HasEntry(DescTerm) ? Loc.T(DescTerm) : null;
+            c.Description = Loc.HasAnyTerm(DescTerm) ? Loc.T(DescTerm) : null;
             if (c.Description == null)
-                Debug.LogWarning("[ItemDisplay] 词条表里没有 `" + DescTerm + "` ⇒ `Description` 那一格留空（⛔ 不编）");
+                Debug.LogWarning("[ItemDisplay] 词条 `" + DescTerm + "` 三档（手写表 / bulk / 官方全表）都取不到 ⇒ `Description` 那一格留空（⛔ 不编）");
             c.Lore = Loc.LoreByUniqueId(it.uniqueId);
             return c;
         }

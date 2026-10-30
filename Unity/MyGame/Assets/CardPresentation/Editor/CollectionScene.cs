@@ -1247,7 +1247,7 @@ public static class CollectionScene
                 CheckTrue(string.Equals(gotTerm, term, System.StringComparison.Ordinal),
                           $"★（A1498）左栏第 {i + 1} 键的**词条键名** = `{term}`"
                         + $"（原版 `Localize.mTerm` 原文；实现表 `CollectionWindow.Buttons[{i}].Term` 实测 `{gotTerm}`）");
-                CheckTrue(Loc.HasEntry(term),
+                CheckTrue(Loc.HasAnyTerm(term),
                           $"（前提）左栏第 {i + 1} 键的词条 `{term}` 在表里（⛔ 不在 ⇒ 实现与断言两边一起退化成键名）");
                 wantLabels[i] = Loc.T(term).ToUpperInvariant();
             }
@@ -2164,7 +2164,7 @@ public static class CollectionScene
                 var ePage = new[] { "Deck 页(0)", "Cards 页(1)", "卡背页(2)", "异画页(3)" };
                 for (int pi = 0; pi < eKeys.Length; pi++)
                 {
-                    CheckTrue(Loc.HasEntry(eKeys[pi]),
+                    CheckTrue(Loc.HasAnyTerm(eKeys[pi]),
                               $"（前提）词条 `{eKeys[pi]}` 在表里（⛔ 不在 ⇒ {ePage[pi]} 那条两边一起退化成键名 = 假绿）");
                     var ewN = FindChild(win.PageRoot(pi), "Empty Collection Warning");
                     var wlb = ewN != null ? FindChild(ewN, "Warning") : null;
@@ -2244,8 +2244,8 @@ public static class CollectionScene
                 //   （`Shell/CollectionWindow.cs` 那两处 `Loc.T(...)`）⇒ 宿主跑在**出厂语言 = 中文**时，
                 //   原来写死的 `"Import Deck"` / `"Create Deck"` 必红。原文本身没丢：两条词条的**英文列**
                 //   = 原版 prefab 那颗 TMP 的 `m_text` 原文（本批按 pid 亲读）—— 见 `Core/Loc.cs` 的注释。
-                CheckTrue(Loc.HasEntry("MenuDeck/MenuButtons/ImportDeck")
-                          && Loc.HasEntry("MenuDeck/MenuButtons/CreateDeck"),
+                CheckTrue(Loc.HasAnyTerm("MenuDeck/MenuButtons/ImportDeck")
+                          && Loc.HasAnyTerm("MenuDeck/MenuButtons/CreateDeck"),
                           "（前提）两条 `MenuDeck/MenuButtons/*` 词条在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名）");
                 CheckText(TextOf(FindChild(tabsRoot, "Import Text")), Loc.T("MenuDeck/MenuButtons/ImportDeck"),
                           "`Import` 钮文案（键 `MenuDeck/MenuButtons/ImportDeck`，原版 TMP 原文 `Import Deck`；随语档）");
@@ -3742,7 +3742,7 @@ public static class CollectionScene
                                 const string zTitle = "MenuDeck/Share/Title";
                                 const string zAlli = "MenuDeck/Share/ShareOnAlliance";
                                 const string zGlob = "MenuDeck/Share/ShareOnGlobal";
-                                CheckTrue(Loc.HasEntry(zTitle) && Loc.HasEntry(zAlli) && Loc.HasEntry(zGlob),
+                                CheckTrue(Loc.HasAnyTerm(zTitle) && Loc.HasAnyTerm(zAlli) && Loc.HasAnyTerm(zGlob),
                                           "（前提）三条词条都在表里 —— ⛔ 缺了 ⇒ 下面几条两边一起退化成键名 = 假绿");
 
                                 // ---- ① 内容 / 兄弟序 / 标题 / 锚点档 ----
@@ -4185,7 +4185,7 @@ public static class CollectionScene
                 // （出处 = 本文件 `DeckSelectionPopup` 那一节的 `CheckAt(ewn, 194.5f, 1759.5f, 208.6f, 986.7f, …)`）。
                 const float EmptyWarnBoxW = 1565f;          // = 1759.50 − 194.50
                 {
-                    CheckTrue(Loc.HasEntry("MenuCollection/NoDecksFound"),
+                    CheckTrue(Loc.HasAnyTerm("MenuCollection/NoDecksFound"),
                               "（前提）`MenuCollection/NoDecksFound` 在语言表里"
                             + "（缺键时 `Loc.T` 返回的是**键名本身** —— 那时下面量的是键名，等于没验）");
                     // 造「筛选之后一副都不剩」那一态：拿一个**没有任何卡组在用**的模式号去筛。
@@ -4238,7 +4238,7 @@ public static class CollectionScene
                 //   —— 原版 hAlign=Left ⇒ 它是从 872.9 起、右沿 1359.9）。
                 const float DiWlBoxW = 487f;                // = 1359.9 − 872.9
                 {
-                    CheckTrue(Loc.HasEntry("MenuDeck/Error/NoWarlord"),
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Error/NoWarlord"),
                               "（前提）`MenuDeck/Error/NoWarlord` 在语言表里");
                     var dwPop = DeckInfoPopup.Create(win.Manager, 0, DeckInfoPopup.DeckInfoState.View);
                     CheckTrue(dwPop != null, "（前提）自建一扇 `Deck Info Popup`");
@@ -4275,7 +4275,7 @@ public static class CollectionScene
                 //    它证明的是「这段字放得进我们给它的那一格」，⛔ 不是「与原版一致」。
                 const float PrWlBoxW = 352.86f;             // = 1726.64 − 1373.78
                 {
-                    CheckTrue(Loc.HasEntry("MenuDeck/Error/NoWarlord"),
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Error/NoWarlord"),
                               "（前提）`MenuDeck/Error/NoWarlord` 在语言表里（与 ② 同一条键）");
                     var pwPop = PracticeModePopup.Create(win.Manager);
                     CheckTrue(pwPop != null, "（前提）自建一扇 `Practice Mode Menu`");
@@ -4936,7 +4936,7 @@ public static class CollectionScene
                     //   （`Shell/DeckInfoPopup.cs` 的 `Loc.T("MenuDeck/Error/HiddenCards") + hiddenWhy`）
                     //   ⇒ 原来写死的子串「隐藏卡」**只在中文列里出现**（英文列 = `This deck contains hidden cards…`）
                     //   ⇒ 宿主一跑英文档这条必红。期望值换成该词条的**整句**（比原来的子串**更强**，且两语档都成立）。
-                    CheckTrue(Loc.HasEntry("MenuDeck/Error/HiddenCards"),
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Error/HiddenCards"),
                               "（前提）词条 `MenuDeck/Error/HiddenCards` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                     CheckTrue(hpTxt != null && hpTxt.Contains(Loc.T("MenuDeck/Error/HiddenCards")),
                               "…并且**弹出提示说清原因**（不许静默；**随语档**，键 `MenuDeck/Error/HiddenCards`）"
@@ -5208,8 +5208,8 @@ public static class CollectionScene
                     //   `Loc.T("MenuDeck/Error/ImportBadString")`，见 `Core/Loc.cs` 的 `ImportBadString`）。
                     //   原来写死的那两句中文**只是中文列的副本** ⇒ 宿主一切英文档这两条必红（**单语档断言**）。
                     //   期望值改成 `Loc.T(键)` ⇒ 两语档都成立（中文档下取到的字与改前**逐字相同**，值不变）。
-                    CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")
-                              && Loc.HasEntry("MenuDeck/Error/ImportBadString"),
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Error/ImportEmpty")
+                              && Loc.HasAnyTerm("MenuDeck/Error/ImportBadString"),
                               "（前提）词条 `MenuDeck/Error/Import{Empty,BadString}` 都在表里"
                             + "（⛔ 不在 ⇒ 下面两条两边一起退化成**键名** = 假绿）");
                     // ① 空串
@@ -6512,7 +6512,7 @@ public static class CollectionScene
                 //   （`Shell/CollectionWindow` 的 `Loc.T("MainMenu/MainButtons/ButtonLabel/Back")`，
                 //   键 = 原版那颗 `Button Text` 的 `mTerm` 原文）⇒ 顺手把它的**文案**也断上
                 //   （原来这一节只断折行/框宽，一个字都没断 ⇒ 「字有没有接上词条」看不见）。
-                CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
+                CheckTrue(Loc.HasAnyTerm("MainMenu/MainButtons/ButtonLabel/Back"),
                           "（前提）词条 `MainMenu/MainButtons/ButtonLabel/Back` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                 Check(bl != null ? bl.Text : null, Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
                       "★ `Back` 那颗钮的**文案** = `Loc.T(\"MainMenu/MainButtons/ButtonLabel/Back\")`（随语档；"
@@ -6769,8 +6769,8 @@ public static class CollectionScene
                 //   ⇒ 它是正经词条，已接上（本文件下面那条断言就是正面判据）。
                 //   ⚠️ 上面那句「键在表里」是**必须的**：键不在 ⇒ `Loc.T` 返回键名本身、渲染那一侧同样返回
                 //   键名 ⇒ 只比相等会**假绿**（两边一起退化）。
-                CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army") && Loc.HasEntry("MenuDeck/HUD/Rarity")
-                          && Loc.HasEntry("MenuDeck/Filters/Type") && Loc.HasEntry("Battle/Tips/EnergyCost"),
+                CheckTrue(Loc.HasAnyTerm("MenuDeck/Filters/Army") && Loc.HasAnyTerm("MenuDeck/HUD/Rarity")
+                          && Loc.HasAnyTerm("MenuDeck/Filters/Type") && Loc.HasAnyTerm("Battle/Tips/EnergyCost"),
                           "（前提）四行小标题词条都在 `Loc` 表里（⛔ 有一条不在 ⇒ 下面四条两边一起退化成键名 = 假绿）");
                 CheckText(TextOf(FindChild(fltPanel, "Title Army")), Loc.T("MenuDeck/Filters/Army"),
                           "小标题 `Army` 在（原版 `Title` TMP fs32；键 `MenuDeck/Filters/Army`，随语档；顶部视野内）");
@@ -6878,7 +6878,7 @@ public static class CollectionScene
                     //   （`Core/FilterPanelModel.InputPlaceholder` → `Loc.T("MenuDeck/HUD/SearchFilter")`）
                     //   ⇒ 宿主跑中文档时写死的 `"Search"` 必红。原文（`Search`）留在 `Loc` 的英文列里
                     //   （= 原版 `Placeholder` 那颗 TMP 的 `m_text` 原文）。
-                    CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/HUD/SearchFilter"),
                               "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                     CheckText(TextOf(nf), Loc.T("MenuDeck/HUD/SearchFilter"),
                               "清空后搜索框回到占位符（键 `MenuDeck/HUD/SearchFilter`，随语档；"
@@ -7509,7 +7509,7 @@ public static class CollectionScene
                                               $"★ `Title` = 官方名（键 `Cardbacks/{row.so}`；期望值由自检**独立读 json** 算出）");
 
                                 // ---- Description = `itemDescriptionKey`（卡背 = `Item_Description/CardbackGeneric`）----
-                                CheckTrue(Loc.HasEntry("Item_Description/CardbackGeneric"),
+                                CheckTrue(Loc.HasAnyTerm("Item_Description/CardbackGeneric"),
                                           "（前提）`Item_Description/CardbackGeneric` 在词条表里");
                                 CheckText(TextOf(FindChild(idw.transform, "Description")),
                                           Loc.T("Item_Description/CardbackGeneric"),
@@ -7565,7 +7565,7 @@ public static class CollectionScene
             // 🔴 **2026-10-18（第三轮整改 · 审查 P4）改「随语档」**：本页页头标题从第三轮起走词条
             //   （`Shell/CollectionWindow.BuildCosmeticsPage` 的 `Loc.T("MenuCollection/Label/Cosmetics")`，
             //   键 = 原版那颗 `label` 的 `mTerm` 原文）⇒ 宿主跑中文档时写死的 `"Your cosmetics collection"` 必红。
-            CheckTrue(Loc.HasEntry("MenuCollection/Label/Cosmetics"),
+            CheckTrue(Loc.HasAnyTerm("MenuCollection/Label/Cosmetics"),
                       "（前提）词条 `MenuCollection/Label/Cosmetics` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
             CheckText(TextOf(FindChild(cpage, "Header Label")), Loc.T("MenuCollection/Label/Cosmetics"),
                       "页头标题 = `Loc.T(\"MenuCollection/Label/Cosmetics\")`（随语档；"
@@ -7574,7 +7574,7 @@ public static class CollectionScene
             //   （`Shell/CollectionWindow.BuildFilterHeader` 的 `Loc.T("MenuDeck/Filters/Filters")` —— 与
             //   卡组编辑窗页头那颗**同一条键**）⇒ 宿主跑中文档时写死的 `"Filters"` 必红。
             //   原文 = 原版那颗 TMP 的 `m_text`（`Filters`），留在 `Loc` 的英文列里（中文列 = 原版实拍「过滤器」）。
-            CheckTrue(Loc.HasEntry("MenuDeck/Filters/Filters"),
+            CheckTrue(Loc.HasAnyTerm("MenuDeck/Filters/Filters"),
                       "（前提）词条 `MenuDeck/Filters/Filters` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
             CheckText(TextOf(FindChild(cpage, "Filters Label")), Loc.T("MenuDeck/Filters/Filters"),
                       "页头 `Filters` 文案在（键 `MenuDeck/Filters/Filters`，随语档；"
@@ -7583,7 +7583,7 @@ public static class CollectionScene
             //   （`Shell/CollectionWindow.BuildFilterHeader` 的 `Loc.T("MenuDeck/Filters/ClearFilters")`）
             //   ⇒ 宿主跑中文档时写死的 `"Clear filters"` 必红。原文 = 原版那颗 TMP 的 `m_text`（`Clear filters`），
             //   留在 `Loc` 的英文列里。⛔ 下面找底图那句（节点名 `"Clear filters"`）**不动**。
-            CheckTrue(Loc.HasEntry("MenuDeck/Filters/ClearFilters"),
+            CheckTrue(Loc.HasAnyTerm("MenuDeck/Filters/ClearFilters"),
                       "（前提）词条 `MenuDeck/Filters/ClearFilters` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
             CheckText(TextOf(FindChild(cpage, "Clear filters Text")), Loc.T("MenuDeck/Filters/ClearFilters"),
                       "页头 `Clear filters` 文案在（键 `MenuDeck/Filters/ClearFilters`，随语档；"
@@ -8032,7 +8032,7 @@ public static class CollectionScene
                     //     ⚠️ 断言本身**一个字没动**（`Loc.T(键)` 那句两版都成立 —— 键在表 ⇒ 闸门与裸调用同值）。
                     //   ⚠️ 上面那条 `HasEntry` **仍然不是装饰**：键若不在表里，`Loc.T` 回的是**键名本身**
                     //      ⇒ 实现印键名、期望也是键名，这条会**假绿**（看不出「词条丢了」）—— 它挡的是这个。
-                    CheckTrue(Loc.HasEntry("MenuDeck/Filters/ShowOwnedOnly"),
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Filters/ShowOwnedOnly"),
                               "（前提）词条 `MenuDeck/Filters/ShowOwnedOnly` 在表里"
                             + "（⛔ 不在 ⇒ 下一条红得看不出原因）");
                     CheckText(TextOf(FindChild(co, "Label")), Loc.T("MenuDeck/Filters/ShowOwnedOnly"),
@@ -11106,7 +11106,7 @@ public static class CollectionScene
                         var ci = FindChild(FindChild(FindChild(FindChild(chat.transform, "Holder"), "Chat"), "Enter Text"),
                                            "InputField (TMP)");
                         var cph = ci != null ? FindChild(ci, "Placeholder") : null;
-                        CheckTrue(Loc.HasEntry("MainMenu/Chat/TypeMessage"),
+                        CheckTrue(Loc.HasAnyTerm("MainMenu/Chat/TypeMessage"),
                                   "（前提）词条 `MainMenu/Chat/TypeMessage` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                         CheckText(TextOf(cph), Loc.T("MainMenu/Chat/TypeMessage"),
                                   "★ 聊天窗输入框占位 = `Loc.T(\"MainMenu/Chat/TypeMessage\")`（随语档；"
@@ -11276,8 +11276,16 @@ public static class CollectionScene
                 CheckTrue(shopContent != null, "商店 `Card Shop Tab/Packs Scroll View/Viewport/Content` 在");
                 // 视口 = 329.76,127.62 → 1920.00,1080.00（原版实测）
                 // ⇒ 带内沿：上 127.62 + 25 = **152.62**、下 1080.00 − 25 = **1055.00**
-                // 第 1 行格底（133.62..610.62）与第 2 行格底（608.62..1080.00，硬裁到视口底）各压一条 ⇒ 两条都该出现
-                CheckSoftCuts(ScanSoftCuts(shopContent, false, ShopTabPage.ScrollView), new[] { 152.62f, 1055.00f }, 0.6f,
+                // 🔴 **2026-10-30（`B103_D4` 订正 · 铁律 5）**：原来这里写「第 1 行格底与第 2 行格底各压一条 ⇒ 两条都该出现」，
+                //   那是**2 列时代**的读数 —— `B103_F5` 已按原版判据把列数改回 **4**（判据 →
+                //   `判据/AUD05_state_matrix_商店窗.md` §1·1：`GridLayoutGroup` 是 **Flexible**，列数 =
+                //   `floor(Content 宽 1590.24 ÷ 335.6)` = 4；`m_ConstraintCount = 2` 在 Flexible 下是**死值**）。
+                //   本页现读 **4 件商品 ⇒ ceil(4 / 4) = 1 行** ⇒ 唯一那一行 = `127.62 + 7` 起、
+                //   高 475 ⇒ **134.62 .. 609.62** ⇒ 只压到**上带**内沿 152.62；
+                //   609.62 < 1055.00 ⇒ 下带里**本来就没有几何**，那条切线**不该出现**。
+                //   ⚠️ 这**不是删断言**：`CheckSoftCuts` 会逐条核「每个实测切线都必须落在 `want` 里」⇒
+                //   列数若退回 2 列（2 行、第 2 行底压到视口底 ⇒ 切线 1055 回来），这里立刻红。
+                CheckSoftCuts(ScanSoftCuts(shopContent, false, ShopTabPage.ScrollView), new[] { 152.62f }, 0.6f,
                               "商店 `Packs Scroll View` 的格子（原版 `m_Softness = (0,25)`）");
                 Check(ScanSoftCuts(shopContent, true, ShopTabPage.ScrollView).Count, 0,
                       "商店这一处**一条竖切线都没有** —— `m_Softness = (0,25)` 只渐变上下");
@@ -11571,8 +11579,8 @@ public static class CollectionScene
                 //   `Loc.T("MenuDeck/Error/ImportBadString")`）⇒ 原来写死的那两句中文**只是中文列的副本**，
                 //   宿主一切英文档这条就**假绿**（第三句与英文的短键本来也不等）。
                 //   期望值换成 `Loc.T(键)` —— 负判据照样成立（两语档下第三句都与那两个短键不同）。
-                CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")
-                          && Loc.HasEntry("MenuDeck/Error/ImportBadString"),
+                CheckTrue(Loc.HasAnyTerm("MenuDeck/Error/ImportEmpty")
+                          && Loc.HasAnyTerm("MenuDeck/Error/ImportBadString"),
                           "（前提）词条 `MenuDeck/Error/Import{Empty,BadString}` 都在表里（⛔ 不在 ⇒ 下一条恒真）");
                 CheckTrue(!string.IsNullOrEmpty(why)
                           && why != Loc.T("MenuDeck/Error/ImportEmpty")
@@ -12781,7 +12789,7 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else

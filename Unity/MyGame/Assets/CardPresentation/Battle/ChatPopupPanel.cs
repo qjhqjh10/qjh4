@@ -159,12 +159,12 @@ namespace CardPresentation
         /// <summary>第 i 颗钮印什么字。
         /// 🔴 **2026-10-14（`A1845`/`A1804`）**：改成**官方词条优先**（`Loc` 表里的官方 zh-CN/EN）；
         /// 取不到才退回 <see cref="ButtonLabels"/> 那一份英文枚举名，并**出声**（红线：不许静默）。
-        /// ⚠️ `Loc.T` **缺键会返回【键名本身】**（不是 null/空串）⇒ 必须先判 `Loc.HasEntry`。</summary>
+        /// ⚠️ `Loc.T` **缺键会返回【键名本身】**（不是 null/空串）⇒ 必须先判 `Loc.HasAnyTerm`（三档一起算）。</summary>
         public static string LabelFor(int i)
         {
             if (i < 0 || i >= ChatTerms.Length) return "";
             string key = ChatTerms[i];
-            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (Loc.HasAnyTerm(key)) return Loc.T(key);
             if (!_warnedNoEntry)
             {
                 _warnedNoEntry = true;

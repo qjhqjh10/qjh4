@@ -868,7 +868,7 @@ namespace RuleEngine
         /// ⚠️ 只由 `ApplyOneGain` 的 `lose` 支调用；内部幂等。</summary>
         public void MarkTraitRemoved(string trait)
         {
-            if (!string.IsNullOrEmpty(trait)) _removedTraits.Add(trait);
+            if (!string.IsNullOrEmpty(trait)) { _removedTraits.Add(trait); NoteRemovedTraitOrder(trait); }   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 `特效动画:521` 残差「RemoveTrait 无序」）：同时记一条**有序**簿记（判据 `CardScript__AddEffect.c:680-694`：先 `RemoveActiveEffects(4, trait)` 去重、再 `List.Add` ⇒ **重复 lose 会把这条换到队尾**，不只是集合去重）。实现见类尾 `NoteRemovedTraitOrder`
         }
 
         /// <summary>🆕 只看不写（自检/报表用）：这本账里现在有哪些 trait。</summary>
@@ -1148,7 +1148,7 @@ namespace RuleEngine
             //   ⇒ **原版只清 `T` 这一条**。裁定全文 → `判据/战斗逻辑驱动_Stage2前置_第2轮.md` §三·1。
             //   ⚠️ 症状（改前）：加**任何** trait 都会把「已移除」整本清空 ⇒ `HasRemovedTrait(reload 490)`
             //   在「摘掉 reload 之后又拿到别的 trait」时**假变真**（`ConditionEval:468` 的 siege 280 会误判可装填）。
-            if (_removedTraits.Count > 0) _removedTraits.Remove(keyword);
+            if (_removedTraits.Count > 0) { _removedTraits.Remove(keyword); _removedOrder.RemoveAll(x => x.Key == keyword); }   // 🆕 2026-10-30（执行代理 `B103_W3`）：那一句 = 原版 `AddEffect` 的 `case 3` 第一句 `RemoveActiveEffects(removeTrait, trait)` ⇒ 那条 `removeTrait` 记录被摘掉、出表那一行也随之消失 ⇒ 有序簿记要一起摘（否则投影里会多出一行）
             SyncKeywordState(keyword, add);
             // 🔴 2026-10-26（`E10TB` · P-05 ①）：**残骸期间挂上来的**另记一本（`Has` 的残骸档只读它）。
             //   原版残骸只认 `activeEffects` 里 `buffType 90 (addTraitRemnant)` 那一条；而闸③
@@ -1641,7 +1641,7 @@ namespace RuleEngine
             public int Value;
             public int Owner;                // 施放者玩家号（`until your next turn` 按他的回合算）
             public bool UntilMyNextTurn; public bool UntilOpponentNextTurn;   // 判据 = CardScript__OnTurnSetup.c:+0x33/+0x34/+0x35 三档。my-next-turn=true ⇒ 施放者下回合开始撤 · opponent-next-turn=true ⇒ **对面**回合开始撤（Owner≠player）· 两者都 false ⇒ 本回合结束撤；UntilOpponentNextTurn 优先
-            public string Src; public int Seq;   // Src = 来源卡名（日志用）｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（同 `StatMod.Seq`，由 `AddTempBuff` 在登记那一刻取；今天无消费者 = 休眠）。⚠️ `BuffType` / `TraitValue` 本类**不在这里**定义 —— 它们是 `UnitStateEffectDisplay.cs` 里的**派生属性**（⛔ 别加同名字段，会撞属性）
+            public string Src; public int Seq; public int RowGroup;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = 同一次 `give` 的合并组号（`AddTempBuff` 建 `Mod` 时透传进 `StatMod.RowGroup`）｜Src = 来源卡名（日志用）｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（同 `StatMod.Seq`，由 `AddTempBuff` 在登记那一刻取；今天无消费者 = 休眠）。⚠️ `BuffType` / `TraitValue` 本类**不在这里**定义 —— 它们是 `UnitStateEffectDisplay.cs` 里的**派生属性**（⛔ 别加同名字段，会撞属性）
             /// <summary>
             /// **施加它的那张卡的卡名**（2026-09-13 A4 批 1 加）。
             ///
@@ -1681,7 +1681,7 @@ namespace RuleEngine
         public void AddTempBuff(TempBuff b)
         {
             if (b != null && !b.IsKeyword && b.Mod == null)
-                b.Mod = AddStatMod(b.Name, b.Value, null, b.Extrinsic);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原来写死 `false` ⇒ 限时增益的那条修饰**永远不会**被「按来源撤」认成 extrinsic。现在跟 `TempBuff.Extrinsic` 走（**同一份判据**，⛔ 别让两本账各说各话）
+                b.Mod = AddStatMod(b.Name, b.Value, null, b.Extrinsic, rowGroup: b.RowGroup);   // 🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：限时那一路也要带组号（否则「带时长的一次 give 多属性」照样各印一行）   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原来写死 `false` ⇒ 限时增益的那条修饰**永远不会**被「按来源撤」认成 extrinsic。现在跟 `TempBuff.Extrinsic` 走（**同一份判据**，⛔ 别让两本账各说各话）
             if (b != null && b.Extrinsic && b.Mod != null) b.Mod.Extrinsic = true; if (b != null && b.Seq == 0) b.Seq = NextEffectSeq(); _buffs.Add(b);   // 🆕 2026-10-29（`B97_W30`）：调用方**自带** `Mod` 的那条路（`ApplyOneGain`）也要标上 —— 否则「账说 extrinsic、修饰说不是」；🆕 2026-10-29（`B97_US2` · S2）：加序戳（同上，登记那一刻取）
         }
 
@@ -1850,7 +1850,7 @@ namespace RuleEngine
             /// <summary>`true` = `setMeleeAttack` / `setRangeAttack` / `setHealth` 那三档（**覆盖**语义）。</summary>
             public bool IsSet;
             /// <summary>`Source` = 来源标签（`Auras.GrantTag` / 黑暗契约种类 / `"虫群合并"` / `null`），只用于「整份收回」｜🆕 2026-10-26（`B8_Q`）`Trait` = 原版 `CardEffect.trait`(`+0x3c`，`DefinedTrait` 名)｜`BuffType` = 原版 `CardEffect.buffType`(`+0x38`)：`1` = `addStats`、`-1` = 明确不是从 `CardEffect` 来的、`0` = 未知（判据 → 类尾 `HasWhileInPlayAbility` ⑥ 那一段）｜🆕 2026-10-29（执行代理 `B97_US` · 账 521）`Permanent` = 原版 `CardEffect.permanentBuff`(`+0x74`，`dump.cs:119100`，Tooltip `Can't be jammed`)：真 ⇒ 被 jam 时**摘不掉**（`decomp_full/CardScript__RemoveEffect.c:43-45` 第一句 `return`）。⚠️ 数据槽 + 消费点已建，**生产点尚未接线**（`EffectResolver` 那几处 `AddStatMod` 都还没传它）⇒ 今天恒 `false`（休眠，铁律 11 照建；与 `GrantRecord.Caster` 同一处置）。</summary>
-            public string Source; public string Trait; public int BuffType; public bool Permanent; public int Seq;   // 🆕 2026-10-29（`B97_US` · 账 521）：`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）
+            public string Source; public string Trait; public int BuffType; public bool Permanent; public int Seq; public int RowGroup;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）
         }
 
         readonly List<StatMod> _statMods = new List<StatMod>();
@@ -1864,7 +1864,7 @@ namespace RuleEngine
         ///   被所有改属性的地方调到（见该方法注释）。🆕 `buffType` / `trait` = 原版 `CardEffect.buffType(+0x38)` / `CardEffect.trait(+0x3c)` 两列，**今天只有类尾 `HasWhileInPlayAbility` 的 ⑥ 支消费**；缺省 `buffType = 0` ⇒ 按 `isSet ? -1 : 1(addStats)` 推断（⚠️ `RuleCore` 虫群合并那条也走这一支、它不是 `CardEffect`，只是今天 `Trait` 为空 ⇒ 不影响任何结果）。🆕 2026-10-29（`B97_US` · 账 521）`permanent` = 原版 `CardEffect.permanentBuff(+0x74)`，写进 <see cref="StatMod.Permanent"/>；唯一消费点 = <see cref="RemoveAllAppliedEffectsForJam"/> ④（被 jam 时那条**不清**）。
         /// </summary>
         public StatMod AddStatMod(string attr, int value, string source = null,
-                                  bool extrinsic = false, bool isSet = false, int buffType = 0, string trait = null, bool permanent = false)
+                                  bool extrinsic = false, bool isSet = false, int buffType = 0, string trait = null, bool permanent = false, int rowGroup = 0)
         {
             // 🔴 **2026-10-25（K1 / K8）**：原版 `CardScript__AddEffect.c:208-213` 对
             //   `buffType == 0x46 setMeleeAttack` / `0x55 setRangeAttack` **先**
@@ -1879,7 +1879,7 @@ namespace RuleEngine
             }
             var m = new StatMod
             {
-                Attr = attr, Value = value, Source = source, Extrinsic = extrinsic, IsSet = isSet, BuffType = (buffType != 0 ? buffType : (isSet ? -1 : 1)), Trait = trait, Permanent = permanent,   // 🆕 2026-10-29（`B97_US` · 账 521）：`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)`
+                Attr = attr, Value = value, Source = source, Extrinsic = extrinsic, IsSet = isSet, BuffType = (buffType != 0 ? buffType : (isSet ? -1 : 1)), Trait = trait, Permanent = permanent, RowGroup = rowGroup,   // 🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：组号透传（缺省 0 = 不合并）｜🆕 2026-10-29（`B97_US` · 账 521）：`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)`
             };
             if (m.Seq == 0) m.Seq = NextSeqFor("st:" + attr, source); _statMods.Add(m);   // 🆕 2026-10-29（`B97_US2` · S2）：加序戳（光环重算时按来源复用旧戳，见类尾 `NextSeqFor`）
             return m;
@@ -2626,7 +2626,7 @@ namespace RuleEngine
             _grantedText.Clear();
             _auraFx.Clear();
             _auraKw.Clear();
-            _removedTraits.Clear();
+            _removedTraits.Clear(); _removedOrder.Clear();   // 🆕 2026-10-30（执行代理 `B103_W3`）：有序簿记与集合同清（这一段 = 原版 `activeEffects.Clear()`）
             ExtraTriggers.Clear(); _traitEffects.Clear();   // 🆕 2026-10-28 `B92_B6`：`_traitEffects` 同属原版 `activeEffects(+0x108)`（判据 `.c:45-70` 整表 Clear）⇒ 一起清（⛔ 零行数变化：下方有账的 A 行落点）
 
             // ③ questCounter(+0x270)
@@ -3697,7 +3697,7 @@ namespace RuleEngine
         //  ⚠️ **今天无消费者**（投影 S1 + 表现 S4 是别的切片，⛔ 本代理不碰）⇒ 零可观测变化（休眠，铁律 11 照建）。
         int _effectSeq;
         /// <summary>取下一枚加序戳（从 1 起、单调递增）。见上面 A 段。</summary>
-        public int NextEffectSeq() { return ++_effectSeq; }
+        public int NextEffectSeq() { return Instance != null ? Instance.NextEffectSeq() : ++_effectSeq; }   // 🆕 2026-10-30（执行代理 `B103_W3`）：**转发**到 `CardInstance`（唯一发号口，见 `CardInstance.cs` 类尾那段）—— 附魔/手牌那两本账长在实例上，两个计数器各自发号会让跨族序**不可比**；只有 `Instance == null`（纯夹具单位）才退回自己这份
 
         //  🔶 自己设计（非原版）：`_auraSeq` / `_auraKwSeq` 这两个「序戳快照表」· 为什么必须自己定：
         //  原版**没有「重算」这件事**（光环记录只在来源进场时 `List.Add` 一次），而 `Auras.Recompose`
@@ -4230,6 +4230,53 @@ namespace RuleEngine
         {
             if (Has(KeywordTable.Tide)) TideCounter = KwValue(KeywordTable.Tide);
             if (Has(KeywordTable.Companion)) CompanionCounter = KwValue(KeywordTable.Companion);
+        }
+    }
+}
+
+namespace RuleEngine
+{
+    // ============================================================================================
+    //  🆕 2026-10-30（执行代理 `B103_W3` · 账 `特效动画:521` 残差「`RemoveTrait` 用的是无序 `HashSet`」）：
+    //  **「曾被移除的 trait」要**有序**，而且序戳必须与 `_statMods` / `_traitEffects` / 光环 / 限时
+    //  那几本**同一本计数器**（= 原版 `activeEffects(+0x108)` 那一条 `List.Add` 序；
+    //  判据 `CardScript__AddEffect.c:680-694`：先 `RemoveActiveEffects(4, trait)` 去重、再 `List.Add`）。
+    //  ⛔ 追加在**文件尾**（第六份 `partial` 段）：`账/*.tsv` 按 `文件:行号` 落点，插中间会让下游整体漂移。
+    //
+    //  🔶 自己设计（非原版的数据形状）：原版那本账是**一条 `List<CardEffect>`**、序天然存在；我们把
+    //     `removeTrait(4)` 那一族单独存成 `HashSet<string>`（那是对的 —— 它服务的是 `HasRemovedTrait`
+    //     的去重语义），序就丢了 ⇒ 这里补一本**旁挂的有序簿记**（trait 名 ↔ 序戳）。
+    //     **为什么必须自己定**：原版没有第二个字面量可抄；序戳只能来自 `NextEffectSeq()` 这一个计数器，
+    //     且必须与 Stat / Trait / Aura / TempBuff 同源，否则各族之间的先后不可比。
+    //     · 调度台 2026-10-30（承 `报告/B101_R7_效果行消费端.md` §五 Step 4(a) 的施工单）。
+    //
+    //  ⚠️ **挂在 `UnitState` 上而不是 `CardInstance`**：与它服务的 `_removedTraits` 同一格
+    //     （原版 `HasRemovedTrait` 读的就是这张卡自己的 `+0x108`；我们场上的等价物是 `UnitState`）。
+    //     手牌那一侧的同族缺口（S3-f）见 `报告/B103_W3.md` §四。
+    // ============================================================================================
+    public partial class UnitState
+    {
+        /// <summary>见本段段首。`Key` = trait 名 · `Value` = 加序戳（`NextEffectSeq()`）。</summary>
+        readonly List<KeyValuePair<string, int>> _removedOrder = new List<KeyValuePair<string, int>>();
+
+        /// <summary>记/换一条「已被移除」的有序簿记 —— 唯一写入点 = <see cref="MarkTraitRemoved"/>。
+        /// <para>判据 `CardScript__AddEffect.c:680-694`：原版先把**同 trait 的旧记录**摘掉、再 `List.Add`
+        /// 新的一条 ⇒ **重复 lose 会把这一条换到队尾**（不是留在原位）。这里逐字照抄那个形状。</para></summary>
+        void NoteRemovedTraitOrder(string trait)
+        {
+            if (string.IsNullOrEmpty(trait)) return;
+            _removedOrder.RemoveAll(x => x.Key == trait);
+            _removedOrder.Add(new KeyValuePair<string, int>(trait, NextEffectSeq()));
+        }
+
+        /// <summary>某条「已被移除」的 trait 的加序戳（没有 ⇒ `0` = 排队尾）。
+        /// 消费者 = `EffectsToShow.Of` 的 RemoveTrait 分支（原版那一行本来就带 `CardEffect` 的 `List.Add` 序）。</summary>
+        public int RemovedTraitSeq(string trait)
+        {
+            if (string.IsNullOrEmpty(trait)) return 0;
+            for (int i = 0; i < _removedOrder.Count; i++)
+                if (_removedOrder[i].Key == trait) return _removedOrder[i].Value;
+            return 0;
         }
     }
 }

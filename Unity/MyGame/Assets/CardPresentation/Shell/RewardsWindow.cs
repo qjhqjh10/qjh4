@@ -344,6 +344,12 @@ namespace CardPresentation
                 if (q != null && q.gameObject.activeInHierarchy) n++;
             return n;
         }
+
+        // ============================================================ 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案
+        // 判据：原版每个 TMP 上挂着 `Localize`（I2），换语言时由本地化系统广播 ⇒ **组件自己重取**，⛔ 不重建整窗。
+        // 本窗走 `Label.BindText` 那一族（`Core/Loc.cs` 类尾登记表 + `Battle/Label.cs` 类尾 `Relocalize`），**⛔ 不再 `Open()`**。
+        // 一颗都没登记来源时**才**退回整窗重建（非回归兜底；本窗正文由各页签类建，逐颗绑定 = 剩余项，见报告）。
+        public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
     }
 
 }

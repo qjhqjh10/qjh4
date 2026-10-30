@@ -1320,10 +1320,10 @@ namespace CardPresentation
             return lb;
         }
 
-        /// <summary>词条 → 文案。**远端 I2 表本地没有** ⇒ `Loc` 里没这一条时用 prefab 的静态原文
+        /// <summary>词条 → 文案。**三档（手写表 / bulk / 官方 13 语言全表）都取不到**时用 prefab 的静态原文
         /// （= 原版出厂就是那句英文）。⛔ **别把「查不到」写成猜测** —— 这里显式回落到原版原文。</summary>
         static string LocOr(string term, string prefabEn)
-            => Loc.HasEntry(term) ? Loc.T(term) : prefabEn;
+            => Loc.HasAnyTerm(term) ? Loc.T(term) : prefabEn;
 
         /// <summary>取图 + 记账（`MenuDraw.Rect` 取不到图会**静默 return null** ⇒ 整层消失）。</summary>
         Texture2D Art(string name)

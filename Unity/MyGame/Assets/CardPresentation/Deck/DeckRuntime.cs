@@ -887,7 +887,7 @@ namespace CardPresentation
             SmallScreenUI.PersistOverride = true;
             SmallScreenUI.Set(on);
             SmallScreenUI.PersistOverride = keep;
-            RefreshPool();
+            RefreshPool(); if (_tab == 2) RefreshCosmetics();   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：换档后卡背页也要重排（原来只刷了卡池 ⇒ 小屏档的卡背页验不到）
         }
 
         // ---- Card Filters 筛选栏（**在左**，R:174-217）----
@@ -1394,7 +1394,7 @@ namespace CardPresentation
                 Debug.LogWarning("[DeckRuntime] 缺 " + _missingArt.Count + " 张原版 UI 图（会画成纯白占位，"
                                  + "**不是静默**）：" + string.Join("、", _missingArt));
 
-            _tab = 0; RefreshAll(); WildcardDisplayEnable();   // B99_W5（界面 1）：原版 `TryOpen:123` 把 tab0 的 `Toggle.isOn` 置 1 ⇒ **每次开窗都回 Cards 页**（我们复用窗对象、原版每次新实例，不重置就会停在上次那页）；`WildcardDisplayEnable` = 原版 `WildcardDisplay.OnEnable` 那一拍（**只 Register、开窗永不播**，见方法 doc）
+            _tab = 0; _deckScroll = 0f; _poolScroll = 0f; _fltScroll = 0f; _cosmScroll = 0f; _filtersOpen = false; _cosmoFltOpen = false; RefreshAll(); WildcardDisplayEnable();   // B103_R1（AUD03 #5）：原版每次进编辑都是**新实例**（`WindowsManager.CloseWindowCO` 关窗即 Destroy）⇒ 四路滚动位与两个筛选抽屉逻辑位**一律出厂态**；⛔ 别改成 `SetTab(0)`（那会把旧 `_tab` 当 `oldTab` 传给 `WildcardShineAfterTab` ⇒ 旧页是 2 时多播一下扫光）。B99_W5（界面 1）：原版 `TryOpen:123` 把 tab0 的 `Toggle.isOn` 置 1 ⇒ **每次开窗都回 Cards 页**（我们复用窗对象、原版每次新实例，不重置就会停在上次那页）；`WildcardDisplayEnable` = 原版 `WildcardDisplay.OnEnable` 那一拍（**只 Register、开窗永不播**，见方法 doc）
 
             // 🔴 2026-10-04（A24）：**这里【故意】不建 `PointerLayer`** —— 悬停的派发由本类自己的
             //   `HandlePointer`（下面 `UpdateButtonHover`）做，理由有三条，写在这里免得下一个人「顺手补上」：
@@ -2748,8 +2748,8 @@ namespace CardPresentation
         /// ① 本窗的机制是**区域判断**（见本节开头那段：抽屉里的点击**不由 `PointerLayer` 派发**）
         ///    ⇒ 这一个布尔就是 `HandlePointer` / `UiClickPx` / `HandleScroll` 那几处区域的开关。
         /// ② ⚠️ **如实标注（我们自己的口径，别当成原版行为）**：**原版在那 0.3 秒里到底屏不屏蔽点击，
-        ///    我们没核过** —— `CollectionFilterController&lt;T>.Toggle` 的方法体在泛型里、`decomp_full` 无产物
-        ///    （见 `资料/卡组编辑界面_查证_0920.md`）⇒「滑出去了就点不到才对」是**我们挑的**口径
+        ///    我们没核过** —— 🔴 **2026-10-30 订正（铁律 5，`B103_R2` 现核）**：方法体**读得到** —— `D:/2/tools/decomp_generic_trial/out/CollectionDisplay_object___ToggleFilters__15eec60.c` + `out_cpp2il_dev_ilspy/CollectionFilterController.cs:159-207`
+        ///    ⇒ 实读：`Toggle` 只 `SetActive` + `DOAnchorPosX`，**全程不写任何尺寸、也不屏蔽点击** ⇒「滑出去了就点不到才对」**仍然是我们挑的**口径
         ///    （同 `Shell/CollectionWindow.SetDrawerInteractive` 的 R10/R11 那两条如实标注）。
         ///    ⛔ 不是实读出来的原版行为。</summary>
         void SetDrawerInteractive(FilterDrawer d, bool on, bool force)
@@ -3393,13 +3393,13 @@ namespace CardPresentation
         //     `Sidebar/Deck Details/Cosmetic Drawer` = **0.25,485.50 → 335.56,885.50**（335.31×400）；
         //     切到本页时 `DeckEditingPanel.ToggleCosmetics` **关掉卡组列表/计数/费用**三个抽屉、只开它。
         const float CosmoX = 330.23f, CosmoY = 155.97f, CosmoW = 1589.78f, CosmoH = 924.06f;
-        const float CosmoCellW = 250f, CosmoCellH = 405f;
+        public static float CosmoCellW { get { return 250f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float CosmoCellH { get { return 405f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：与卡池同一条，`smallScreenUI` 时 ×1.5（桌面 250×405 不变）。
         /// <summary>列数 = `floor(视口宽 ÷ 格宽)`（**算出来的，不是 `_segments`**）。</summary>
-        static readonly int CosmoCols = Mathf.Max(1, Mathf.FloorToInt(CosmoW / CosmoCellW));
+        public static int CosmoCols { get { return Mathf.Max(1, Mathf.FloorToInt(CosmoW / CosmoCellW)); } }   // 🔴 2026-10-30 AUD05 S1：桌面 floor(1589.78/250)=6 · 小屏 floor(1589.78/375)=4
         /// <summary>内容**整体居中**的左边距（= (视口宽 − 列数×格宽) ÷ 2 = 44.89）。</summary>
-        static readonly float CosmoPadX = (CosmoW - CosmoCols * CosmoCellW) * 0.5f;
+        public static float CosmoPadX { get { return (CosmoW - CosmoCols * CosmoCellW) * 0.5f; } }
         /// <summary>一屏盖几行（多算一行，滚动时正好接上）。</summary>
-        static readonly int CosmoRows = Mathf.CeilToInt(CosmoH / CosmoCellH) + 1;
+        public static int CosmoRows { get { return Mathf.CeilToInt(CosmoH / CosmoCellH) + 1; } }
         /// <summary>`Sidebar/Deck Details/Cosmetic Drawer`（原版 rect，切到本页才显示）</summary>
         const float DrawerX = 0.25f, DrawerY = 485.5f, DrawerW = 335.31f, DrawerH = 400f;
 
@@ -3427,7 +3427,7 @@ namespace CardPresentation
         {
             // ---- 卡背网格（**懒得建中间节点**：直接挂在 `Root` 下、按 px 摆，与 `Img` 同一条路）----
             //      格子是**按需建 quad**的（`ImageQuad.Create` 不收 null 贴图 ⇒ 第一帧才有图）
-            for (int i = 0; i < CosmoRows * CosmoCols; i++) _cosmCells.Add(null);
+            while (_cosmCells.Count < CosmoRows * CosmoCols) _cosmCells.Add(null);   // B103_R1（AUD03 #14）：原来这里是 `for (… i < N) _cosmCells.Add(null);` ⇒ **每次 Build 追加 N 条**（`ClearBuildRegistrations` 有意不清这张表，见 `:9704`）⇒ 无界增长。改成与布局函数 `:3531` 同一条式子（只补不长）。
 
             // ---- 侧栏「已装备的卡背」（原版 `Cosmetic Drawer`）----
             // ⚠️ `ImageQuad.Create` **不收 null 贴图**（返回 null）⇒ 起手没有默认卡背时先不建，
@@ -4297,7 +4297,7 @@ namespace CardPresentation
             //   ⚠️ 与 `MaxDeckScrollPx`（自检口）**同一条式子**，两处一起改。
             float maxScroll = Mathf.Max(0f, shown.Count * RowPitch - RowSpacing - ListH);
             _deckScroll = Mathf.Clamp(_deckScroll, 0f, maxScroll);
-            int firstRow = Mathf.FloorToInt(_deckScroll / RowPitch);
+            int firstRow = Mathf.FloorToInt(_deckScroll / RowPitch); if (_dragging) _dragSlotView = _dragRow - firstRow;   // B103_R1（AUD03 #7）：`_dragSlotView` 记的是**视图槽**，滚一格后它指的已经不是被拖那行了（原版拖拽件是 reparent 到 root 的，不存在槽号错位）⇒ 每次刷行按「数据行 − firstRow」重算。⚠️ 被拖行滚出可见区时没有任何槽受保护（那一档另算，见 `判据/B103_R1_AUD03施工单.md` #7）
             float off = _deckScroll - firstRow * RowPitch;
 
             for (int i = 0; i < RowVisible; i++)
@@ -4745,7 +4745,7 @@ namespace CardPresentation
 
         void RefreshHeader()
         {
-            // 🔴 **2026-10-12（A365）：`Validate()` 必须先跑** —— 它**有副作用**：卡组合法时会把
+            if (Root == null || _deckNameText == null || _deckNameHint == null) { Debug.LogWarning("[DeckRuntime] `RefreshHeader()` 落在一具**已销毁 / 没建全**的实例上（Root / name_t / name_h 有一件是 null）⇒ 不刷、当场退订（出声，⛔ 不静默）。批处理（`Application.isPlaying == false`）里 `DestroyImmediate` **不派 `OnDestroy`**（判据 = `资料/普查产出_1012/D9_Battle六红诊断.md:14`）⇒ 静态 `Inventories.Wildcards.Updated` 会留着一具尸体 · B103_F1"); UnhookWildcardUpdate(); return; }   // 🔴 **2026-10-12（A365）：`Validate()` 必须先跑** —— 它**有副作用**：卡组合法时会把
             //    空名字补成**督军卡名**（原版 `DeckUtility__ValidateDeck.c:70-76`，逐条见
             //    `DeckEditorState.Validate` 的注释）。名字那两件（文本 + 占位提示）在它**之后**取，
             //    否则这一帧还印着空名字、下一帧才跳过来。下面 `foot_hl` 用的就是**同一个** err
@@ -6019,7 +6019,7 @@ namespace CardPresentation
         {
             if (e == DeckError.None) return "";
             string key = string.Format(MenuDeckErrorKeyFmt, MenuDeckErrorNumber(e));
-            return Loc.HasEntry(key) ? key : MenuDeckErrorKeyFallback;
+            return Loc.HasAnyTerm(key) ? key : MenuDeckErrorKeyFallback;
         }
 
         // ============================================================ 分享 / 导入
@@ -9135,8 +9135,9 @@ namespace CardPresentation
         /// <summary>`WildcardUpdateSignal` 那一跳（原版 `WildcardDisplay.UpdateCounters` 的等价物）。</summary>
         void OnWildcardsUpdated()
         {
-            if (_wcShine == null) return;   // 层没挂上（shader 取不到 / 还没切到过计数条可见的那一页）⇒ 无画面可播
-            _wcShine.Play(true);            // 原版 `UIEffectTweener.Play(_, 1, 0)` = `Play(resetTime: true)`
+            if (Root == null) { Debug.LogWarning("[DeckRuntime] 万能卡库存信号打到一具**已销毁**的实例上（`Root == null`）⇒ 当场退订、什么都不刷（出声，⛔ 不静默；退订后每个死实例只会响这一次）。批处理里 `DestroyImmediate` **不派 `OnDestroy`**（判据 = `资料/普查产出_1012/D9_Battle六红诊断.md:14`）⇒ 静态 `Inventories.Wildcards.Updated` 会留尸体 · B103_F1"); UnhookWildcardUpdate(); return; } if (!CardDisplayPage) return;   // B103_R1（AUD03 #8）：原版 `WildcardDisplay__UpdateCounters.c` **无条件** `UIEffectTweener__Play(this+0x48,1,0)`（那个 UIEffect 从 prefab 建起就挂着，不需要「先切过一次页」）；我们原来首句 `if (_wcShine == null) return;` ⇒ 开窗直落 Cards 页时**库存变动永不播**。切到 Cosmetics 页时整条计数条 `SetActive(false)`（原版那一刻同样看不见）⇒ 这条闸等价。
+            WildcardShineAfterTab(2);       // 传 2 = 「切前在 Cosmetics 页」那一档 ⇒ 内含「惰性 AttachNine → Play(true) → HookWildcardUpdate（幂等）」，与原版 `Play` 那一跳同净效果
+            RefreshHeader();                // 顺手发现 F3（原版同一函数的**第二句** `WildcardDisplay__SetCountersText(this,0)`）：我们原来只播扫光、四格数字不动 ⇒ 库存变了数字不变
         }
         /// <summary>自检读口：`Updated` 订着吗（原版 = `Signal` 注册着）。</summary>
         public bool WcSignalHookedForTest { get { return _wcSignalOn; } }
@@ -9747,6 +9748,42 @@ namespace CardPresentation
                 new PxRect(DoneHlX, DoneHlY, DoneHlX + DoneHlW, DoneHlY + DoneHlH),
                 new Vector4(FootHlBorderPx, FootHlBorderPx, FootHlBorderPx, FootHlBorderPx),
                 FootHlSpritePx, FootHlSpritePx, QDoneHl, null, FootHlFillCenter, "foot_hl");
+        }
+
+        // ============================================================ 🆕 B103_R1（AUD03 #5 / #7 / #14）：自检读口
+        // ⛔ 只读、不参与生产逻辑（新成员一律追加在**类尾**：本文件被账按 `文件:行号` 钉着，插在成员之间会让下游整体漂移）。
+        // 为什么要有：这三条缺陷的断言（「第二次 Build 后四路滚动位/两个抽屉逻辑位归零」·「拖拽+滚动后被保护槽 == 数据行 − firstRow」·
+        //   「两次 Build 后格数不增长」）必须先有读数口才写得出 —— 原来只有 `DeckScrollPx` / `FiltersOpen` 两条。
+        /// <summary>卡池那一路滚动量（px）。原版每次进编辑是新实例 ⇒ 开窗恒 0。</summary>
+        public float UiPoolScrollPx { get { return _poolScroll; } }
+        /// <summary>卡牌筛选抽屉那一路滚动量（px）。</summary>
+        public float UiFilterScrollPx { get { return _fltScroll; } }
+        /// <summary>卡背页那一路滚动量（px）。</summary>
+        public float UiCosmScrollPx { get { return _cosmScroll; } }
+        /// <summary>卡背筛选抽屉的逻辑开合位（⛔ 与卡牌那个 `FiltersOpen` 是两个量）。</summary>
+        public bool UiCosmoFiltersOpen { get { return _cosmoFltOpen; } }
+        /// <summary>`_cosmCells` 的**条数**（不是「屏上画了几格」—— 那是 `CosmoCellShown`）。</summary>
+        public int UiCosmCellCount { get { return _cosmCells.Count; } }
+        /// <summary>拖拽时被保护的那一槽（= 视图槽，见 `RefreshDeckList` 里 `_dragSlotView` 的重算）。</summary>
+        public int UiDragSlotViewForTest { get { return _dragSlotView; } }
+        /// <summary>被拖那一行的**数据行号**（`_dragRow`）。</summary>
+        public int UiDragRowForTest { get { return _dragRow; } }
+        /// <summary>正在拖没有。</summary>
+        public bool UiDraggingForTest { get { return _dragging; } }
+        /// <summary>一行的高度（`RowPitch`，= 57.7）—— 断言按它算「滚一行」。</summary>
+        public float UiRowPitchForTest { get { return RowPitch; } }
+        /// <summary>自检：**只置「正在拖 + 被拖数据行」两格**（⛔ 不碰视图数组、不建件）——
+        /// 用来验 `RefreshDeckList` 里那行「保护槽按 `_dragRow − firstRow` 重算」（AUD03 #7）。
+        /// 判据：置完之后滚一行，`UiDragSlotViewForTest` 必须跟着数据行走；改回旧写法（不重算）它会停在旧槽上。</summary>
+        public void UiSetDragStateForTest(bool dragging, int dragRow) { _dragging = dragging; _dragRow = dragRow; }
+        /// <summary>自检：**直接摆出「上一次开窗留下的残渣」**（四路滚动位 + 两个抽屉逻辑位）。
+        /// <para>为什么不用 `UiScrollDeck` / `UiToggleFilters` 去造脏态：那两条都会被**内容高**夹取（空卡组 ⇒ 恒 0），
+        /// 造不出脏态 ⇒ 复位断言会变成空断。这里直接写字段，测的正是 `Build()` 尾那句复位。</para>
+        /// <para>判据：原版每次进编辑都是新实例 ⇒ 这六格恒出厂态（AUD03 #5）。</para></summary>
+        public void UiSetBuildResidueForTest(float deck, float pool, float filt, float cosm, bool filtersOpen, bool cosmoFiltersOpen)
+        {
+            _deckScroll = deck; _poolScroll = pool; _fltScroll = filt; _cosmScroll = cosm;
+            _filtersOpen = filtersOpen; _cosmoFltOpen = cosmoFiltersOpen;
         }
     }
 }

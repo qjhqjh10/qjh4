@@ -1,0 +1,178 @@
+文件	行号	调用表达式	该宽还是该窄	理由	风险
+Unity/MyGame/Assets/CardPresentation/Battle/BattleDriver.cs	7765	if (Loc.HasEntry(HandFullTerm)) return CardText.Term(HandFullTerm);	宽	用途=给玩家看的手牌已满提示；窄会在键只落 bulk/官方全表时错印硬编码兜底句	零（该键今天在 Table+13lang）
+Unity/MyGame/Assets/CardPresentation/Battle/BattleDriver.cs	11871	if (Loc.HasEntry(key)) return string.Format(CardText.Term(key), args);	宽	LogTerm：战斗日志取词条的显示口；窄会把官方有词的键判成缺键、多打假 warning 并印过渡兜底	零（Battle/Cemetery/* 20 条都在 Table）
+Unity/MyGame/Assets/CardPresentation/Battle/BattleDriver.cs	16573	return (key != null && Loc.HasEntry(key)) ? Loc.T(key) : RuleCodes.Describe(rc);	宽	HintForCodeWithKey：玩家提示；窄会让只落第二/三档的键退成 RuleCodes 自拟人话	中（BattleScene:7245/7273/27362/27369 用同一谓词造期望值，须同刻改）
+Unity/MyGame/Assets/CardPresentation/Battle/BattleDriver.cs	30773	string s = (key != null && Loc.HasEntry(key))	宽	疲劳横幅文案；同 HintForCodeWithKey 的两态判据	中（BattleScene:27362/27369 同刻改）
+Unity/MyGame/Assets/CardPresentation/Battle/BattleDriver.cs	31923	return Loc.HasEntry(GuestTerm) ? Loc.T(GuestTerm) : "";	宽	名牌兜底 MenuLogin/Guest（有就给玩家看，缺了才空串）	零（键在 Table+13lang）
+Unity/MyGame/Assets/CardPresentation/Battle/CardDisplayWindow.cs	2531	if (Loc.HasEntry(key)) return Loc.T(key);	宽	打码词条的取值口（有就显示，缺了才留空+出声）	零（Card_Trait/secretOrder|classified|questClassified 三档皆无，今天两谓词同结果）
+Unity/MyGame/Assets/CardPresentation/Battle/ChatPopupPanel.cs	167	if (Loc.HasEntry(key)) return Loc.T(key);	宽	聊天钮标签：官方词条优先、取不到才回英文枚举名	零（Battle/Chat/* 6 条在 Table）
+Unity/MyGame/Assets/CardPresentation/Battle/TipPrebattle.cs	199	string text = Loc.HasEntry(key) ? Loc.T(key) : raw;	宽	准备提示条文案（有词条就用，没有才回原文）	零（PrebattleTips/* 三档皆 0 条 ⇒ 今天无变化）
+Unity/MyGame/Assets/CardPresentation/Core/CardIcons.cs	705	if (Loc.HasEntry(term))	窄	来源选择器：HasEntry 选的是「手写表 zh/en 两列」那一支，前后已分别有 Lang13Current(703) 与 HasBulk(710)；宽化会让取列分支失效	低
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs	120	if (Loc.HasEntry(t)) return Loc.ZhOf(t);	窄	取 Table 的中文列（Loc.ZhOf 只读 Table）；宽化无意义	零
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs	133	if (Loc.HasEntry(t)) return Term(t);            // 中文档 ⇒ 中文列；英文档 ⇒ 英文列	窄	按语档取 Table 两列（Term 内部同样依赖 Table）	零
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs	149	if (Loc.HasEntry(t)) return Loc.EnOf(t);        // ⚠️ 恒英文（`EnOf` 不跟语档）	窄	取 Table 的英文列（Loc.EnOf 只读 Table）	零
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs	750	if (!Loc.HasEntry(term)) return Loc.T(term);       // 表里没有 ⇒ 让它出声 + 回键名（不静默）	窄	字体闸：HasEntry 决定走「Zh ? Loc.T : EnOf」那一支；宽化会把 bulk/13lang 键送进 EnOf（返回 null）＝回归	高（改宽会破）
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs	766	if (Loc.HasEntry(term)) return Term(term);	窄	第一档分派：后面 769 已显式走 Lang13Current、781-784 已显式走官方全表 ⇒ 三档本来就齐	零
+Unity/MyGame/Assets/CardPresentation/Core/CardView.cs	4840	if (Loc.HasEntry(CreatedByTerm))	宽	卡面「由 {0} 创建」：有词条就用，缺了才回写死中/英	零（键在 Table+13lang）
+Unity/MyGame/Assets/CardPresentation/Core/CardView.cs	5474	if (Loc.HasEntry(key)) return Loc.T(key);               // ② 手写表（键已是枚举名的那几族）	宽	兵种行显示名：这一支排在 HasBulk 之后，宽化可接住只在官方全表的键（今天 Card_Race 在 Table 是超集 ⇒ 零变化）	低
+Unity/MyGame/Assets/CardPresentation/Core/CardView.cs	5477	if (!string.Equals(oldKey, key, System.StringComparison.Ordinal) && Loc.HasEntry(oldKey))	窄	老键（卡表写法）是我们自己的历史键，只对手写表有意义；宽化会把前缀换代掩盖掉	低
+Unity/MyGame/Assets/CardPresentation/Deck/DeckRuntime.cs	6022	return Loc.HasEntry(key) ? key : MenuDeckErrorKeyFallback;	宽	这里选的是「用哪个键」：可解析就用真键，否则兜底键；窄会让第三档有词的键退成 InvalidDeck	零（MenuDeck/Error/{2,4,5} 三档皆无，今天同结果）＋须与 DeckScene:7184 同刻改口径
+Unity/MyGame/Assets/CardPresentation/Editor/B94B9_Assert.cs	72	Tr(Loc.HasBulk("Card_Trait/markOfKhorne") || Loc.HasEntry("Card_Trait/markOfKhorne"),	宽	已是 `HasBulk || HasEntry` 的两档组合，换成 HasAnyTerm 一行覆盖三档	零
+Unity/MyGame/Assets/CardPresentation/Editor/B99A3_Assert.cs	311	Check(Loc.HasEntry(key), $"§E② `Loc` 里登记了 `{key}`（别名键；官方那条叫 `Card_Trait/sneak`）");	窄	别名键登记哨兵 + 紧跟 KeywordZh（Loc.ZhOf 只读 Table）⇒ 必须窄	高
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	4935	Check(Loc.HasEntry(ChoosePanel.TitleTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	4938	Check(Loc.HasEntry(ChoosePanel.SelectTerm) && Loc.HasEntry(ChoosePanel.TitleTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	7245	bool costInTable = Loc.HasEntry(keyCost);	宽	两态期望值镜像实现的谓词：实现改宽后这里必须同刻改（`costInTable` 决定期望=Loc.T 还是 Describe）	中（与 BattleDriver:16573 同刻）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	7273	Check(Loc.HasEntry(keyInTable), $"（前提）`{keyInTable}` 在 `Loc` 表里（它有值 ⇒ 能验有键态）");	宽	同一族前提：构造「有键态」用的键；实现改宽后语义变成「可解析态」	中（与 :16573 同刻）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	7869	if (!Loc.HasEntry("Battle/Tips/" + k)) missTips.Add(k);	窄	注册表完备哨兵：期望值写死「缺 CantAttackCoward/CantAttackTainted」，判的是手写表登记面（官方同样没有那两条）	低
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	8035	Check(Loc.HasEntry(WaitBanner.WaitTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	9707	Check(Loc.HasEntry("Battle/Effect/ChangeMeleeAttackOneTurn"),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	12314	Check(Loc.HasEntry("Battle/HUD/TargetsAvailable"),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	19388	Check(Loc.HasEntry(SettingsPanel.ResignTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	19536	&& Loc.HasEntry(SettingsPanel.AutoZoomTermKey)	宽	谓词与后面 `AutoZoomLabelText == Loc.T(...)` 绑在一起；宽化才对得上取值口	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	19896	Check(Loc.HasEntry(k), $"★ §W6（坑表 #18）`Loc` 表里**真有** `{k}`");	宽	§W6 同族前提断言：后面逐语档比 Loc.T 非空且 != 键名 ⇒ 真正的保证是可解析	零（该族键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	26885	Check(Loc.HasEntry(BattleDriver.OvertimeTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	27212	Check(Loc.HasEntry("Battle/Tips/DamageFatigue")	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	27213	&& Loc.HasEntry("Battle/Tips/DamageFatigueEnemy"),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	27362	Check(Loc.HasEntry(keyInTable), $"★ 前提：词条 `{keyInTable}` 在语言表里");	宽	疲劳两态期望值（同族 :7273）	中（与 BattleDriver:30773 同刻）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	27369	Check(!Loc.HasEntry("Battle/Tips/__SelftestNotInTable__") && viaFallback != viaTerm	宽	负例键 `Battle/Tips/__SelftestNotInTable__` 是三档皆无的虚构键 ⇒ 宽窄同结果；宽化让措辞与「走兜底句」的语义一致	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	28689	Check(Loc.HasEntry(MulliganPanel.UndoTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	28840	Check(Loc.HasEntry(MulliganPanel.PromptTerm) && Loc.HasEntry(MulliganPanel.ReplaceTerm)	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	28841	&& Loc.HasEntry(MulliganPanel.DoneTerm) && Loc.HasEntry(MulliganPanel.TurnFirstTerm)	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	28842	&& Loc.HasEntry(MulliganPanel.TurnSecondTerm) && Loc.HasEntry(MulliganPanel.UndoTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	29947	Check(Loc.HasEntry(ChoosePanel.SelectTerm) && Loc.HasEntry(ChoosePanel.TitleTerm)	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	29948	&& Loc.HasEntry(MulliganPanel.DoneTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	36665	Check(Loc.HasEntry(TutorialOverlay.ContinueTerm),	宽	前提断言：只在「这些键取得到文案」时才比得上（比较基准是 Loc.T ⇒ 三档都算）	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	44833	if (Loc.HasEntry(hintPrefix + deadHintKeys[i])) stillThere.Add(deadHintKeys[i]);	窄	删除哨兵：判「我们自拟的 Battle/Hint/* 已从手写表删掉」；紧邻的 44837-44842 已另断「官方 13 语言表按前缀 0 条」⇒ 两档分开断，别合并	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	44835	if (Loc.HasEntry(logPrefix + deadLogKeys[i])) stillThere.Add(deadLogKeys[i]);	窄	删除哨兵：判「我们自拟的 Battle/Log/* 已从手写表删掉」；紧邻的 44837-44842 已另断「官方 13 语言表按前缀 0 条」⇒ 两档分开断，别合并	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	44845	Check(!Loc.HasEntry("Battle" + "/Settings/Title")	窄	删除哨兵：判「W62 那四条配套键没被建回我们的手写表」	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	44846	&& !Loc.HasEntry("Battle" + "/Settings/AiDifficulty")	窄	删除哨兵：判「W62 那四条配套键没被建回我们的手写表」	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	44847	&& !Loc.HasEntry("Battle" + "/MultiCard/TapToClose")	窄	删除哨兵：判「W62 那四条配套键没被建回我们的手写表」	零
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs	44848	&& !Loc.HasEntry("Battle" + "/CardWindow/TapToClose"),	窄	删除哨兵：判「W62 那四条配套键没被建回我们的手写表」	零
+Unity/MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs	4969	if (!Loc.HasEntry(CardText.CardNameTermPrefix + c.Name))	窄	注册表完备哨兵：判「起始卡每张都建了 Card_Name/* 词条」；官方表 1198 条 ⇒ 宽化会把这条断言变成空转（假绿）	高（改宽会放水）
+Unity/MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs	4978	foreach (var a in armies) if (!Loc.HasEntry(CardText.ArmyTermPrefix + a)) missA++;	窄	同上：判 16 个阵营都建了 Armies/* 词条	高（改宽会放水）
+Unity/MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs	5450	foreach (var s in printed) if (!Loc.HasEntry(RaceKeyPrefix + s)) missing++;	窄	被测实现 CardView.RaceTerm 不吃第三档（bulk→Table→老键），宽化会让「会印的都有词条」假绿	高（改宽会假绿）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	1250	CheckTrue(Loc.HasEntry(term),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	2167	CheckTrue(Loc.HasEntry(eKeys[pi]),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	2247	CheckTrue(Loc.HasEntry("MenuDeck/MenuButtons/ImportDeck")	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	2248	&& Loc.HasEntry("MenuDeck/MenuButtons/CreateDeck"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	3745	CheckTrue(Loc.HasEntry(zTitle) && Loc.HasEntry(zAlli) && Loc.HasEntry(zGlob),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	4188	CheckTrue(Loc.HasEntry("MenuCollection/NoDecksFound"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	4241	CheckTrue(Loc.HasEntry("MenuDeck/Error/NoWarlord"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	4278	CheckTrue(Loc.HasEntry("MenuDeck/Error/NoWarlord"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	4939	CheckTrue(Loc.HasEntry("MenuDeck/Error/HiddenCards"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	5211	CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	5212	&& Loc.HasEntry("MenuDeck/Error/ImportBadString"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	6515	CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	6772	CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army") && Loc.HasEntry("MenuDeck/HUD/Rarity")	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	6773	&& Loc.HasEntry("MenuDeck/Filters/Type") && Loc.HasEntry("Battle/Tips/EnergyCost"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	6881	CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	7512	CheckTrue(Loc.HasEntry("Item_Description/CardbackGeneric"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	7568	CheckTrue(Loc.HasEntry("MenuCollection/Label/Cosmetics"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	7577	CheckTrue(Loc.HasEntry("MenuDeck/Filters/Filters"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	7586	CheckTrue(Loc.HasEntry("MenuDeck/Filters/ClearFilters"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	8035	CheckTrue(Loc.HasEntry("MenuDeck/Filters/ShowOwnedOnly"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	11109	CheckTrue(Loc.HasEntry("MainMenu/Chat/TypeMessage"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	11574	CheckTrue(Loc.HasEntry("MenuDeck/Error/ImportEmpty")	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	11575	&& Loc.HasEntry("MenuDeck/Error/ImportBadString"),	宽	前提断言：比较基准是 Loc.T(键) ⇒ 真正的保证是「取得到文案」而不是「手写表有」	零（该键今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs	12283	CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");	窄	A1025 族：后面 ③ 用 Loc.EnOf（只读 Table）⇒ 必须窄；同族 DeckScene:1266 / MainMenuScene:16917 / SettingsScene:5584 / ShellScene:8249 / ShopScene:5796	高（宽化会让 EnOf 那三条失去前提）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	1266	CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");	窄	A1025 族：后面用 Loc.EnOf（只读 Table）⇒ 必须窄	高（同上）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	1310	CheckTrue(Loc.HasEntry(kImp), $"★（A1852）`{kImp}` 在表里（不在 ⇒ `Loc.T` 返回键名 = 界面印键名）");	窄	A1852：紧接两条 Loc.EnOf/Loc.ZhOf（只读 Table）⇒ 必须窄	高（宽化会破）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4393	CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4423	CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4429	CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4598	CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army") && Loc.HasEntry("MenuDeck/HUD/Rarity")	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4599	&& Loc.HasEntry("MenuDeck/Filters/Type") && Loc.HasEntry("Battle/Tips/EnergyCost"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4928	CheckTrue(Loc.HasEntry("MenuDeck/HUD/DeckDescription/Minions")	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	4929	&& Loc.HasEntry("MenuDeck/HUD/DeckDescription/Spells"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	6966	CheckTrue(Loc.HasEntry(kFew),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	6973	CheckTrue(Loc.HasEntry(DeckRules.Describe(DeckError.WrongFaction))	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	6974	&& Loc.HasEntry(DeckRules.Describe(DeckError.EffectOnlyCard)),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	6987	CheckTrue(!Loc.HasEntry("MenuDeck/Error/EffectOnlyCard"),	窄	删除哨兵：判「我们那条自造键 MenuDeck/Error/EffectOnlyCard 不在手写表里」	零
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	7010	try { got = Loc.HasEntry(null); }	窄	测的是 HasEntry 自己的契约：null 不抛、返回 false（宽谓词另有 null 守卫，但这条钉的是 HasEntry）	零
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	7017	CheckTrue(!Loc.HasEntry("MenuDeck/Error/__没有这条键__"),	窄	对照哨兵：虚构键查不到 ⇒ 判的是 HasEntry 的实现契约	零
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	7179	CheckTrue(Loc.HasEntry(DeckRuntime.MenuDeckErrorKeyFallback),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	7184	CheckTrue(!Loc.HasEntry(numKey5),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	7694	CheckTrue(Loc.HasEntry("MenuDeck/NewDeckName"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	8501	CheckTrue(Loc.HasEntry(zhTerm ?? ""),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	8534	CheckTrue(Loc.HasEntry(DeckRuntime.TermSaveFailed),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	8655	CheckTrue(Loc.HasEntry("MenuDeck/HUD/EditDeckName"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	8781	CheckTrue(Loc.HasEntry("MenuDeck/Filters/Army"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	8805	CheckTrue(Loc.HasEntry("MenuCollection/NoCardsFound"),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs	9302	CheckTrue(!Loc.HasEntry(ghostKey),	宽	前提断言：后面对比的是 Loc.T(键)（或 Loc.T 的缺键行为）⇒ 真正的保证是「可解析」	零（键今天都在 Table；:7184 须与 DeckRuntime:6022 同刻改）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	3189	CheckTrue(Loc.HasEntry("MainMenu/RankedWindow/ChangeDeck"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	3202	CheckTrue(Loc.HasEntry("Demo/CardCostBalance"), "（前提）词条 `Demo/CardCostBalance` 在表里");	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	3272	CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	3278	CheckTrue(Loc.HasEntry("Demo/ToBattle"), "（前提）词条 `Demo/ToBattle` 在表里");	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	3281	CheckTrue(Loc.HasEntry("Demo/DeckSelectionDemo/SelectDeck"), "（前提）词条 `Demo/DeckSelectionDemo/SelectDeck` 在表里");	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	3284	CheckTrue(Loc.HasEntry("Event_Description/Generic/GameMode"), "（前提）词条 `Event_Description/Generic/GameMode` 在表里");	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	7089	CheckTrue(Loc.HasEntry("Demo/AvatarMenu/SelectAvatar"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	7403	CheckTrue(Loc.HasEntry("MainMenu/Register/PleaseChooseName"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	8190	if (Loc.HasEntry(achKey))	宽	★真实缺陷：Achievements/* 212 条**一条都不在 Table**（只在 bulk+官方全表）⇒ 这道 HasEntry 闸恒假，里面那条判别式断言**从未执行过**	高（改宽才让断言活过来）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	11990	CheckTrue(i < socialTabTerms.Length && Loc.HasEntry(socialTabTerms[i]),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12145	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Join") && Loc.HasEntry("SocialMenu/Alliances/Create"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12182	CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12221	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/OpenAlliances"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12335	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/CreateAlliance"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12346	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/NameInput")	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12347	&& Loc.HasEntry("SocialMenu/Alliances/DescriptionInput"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12360	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/SelectLanguage")	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12361	&& Loc.HasEntry("SocialMenu/Alliances/SelectPrivacy"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12375	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Dismiss"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12417	CheckTrue(Loc.HasEntry("Demo/FriendsMenu/EnterPlayerName"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12444	CheckTrue(Loc.HasEntry("Demo/FriendsMenu/SearchPlayer"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12452	CheckTrue(Loc.HasEntry("Demo/FriendsMenu/YourFriends"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12884	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Members")	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	12885	&& Loc.HasEntry("SocialMenu/Alliances/Ranking"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	13121	CheckTrue(Loc.HasEntry("Settings/General/Title")	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	13122	&& Loc.HasEntry("SocialMenu/Alliances/Trophies"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	14070	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Trophies/NextTier"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	14203	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	14681	CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	16307	CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	16315	CheckTrue(Loc.HasEntry("SocialMenu/Alliances/JointToEarnRewards")	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	16316	&& Loc.HasEntry("MainMenu/RankedWindow/Leaderboard"),	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	16917	CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");	窄	A1025 族：后面 ③ 用 Loc.EnOf ⇒ 必须窄	高
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	16977	if (!Loc.HasEntry(k)) continue;      // 官方有、我们没建这个键 ⇒ 不在本条范围	窄	覆盖度统计：只统计「官方有、我们手写表也建了」的键（比 ZhOf 与官方 zh 列）；宽化会把统计口径改成「只要官方有」⇒ 自我循环	高（宽化会破这条的独立性）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	17002	if (Loc.HasEntry(key)) return Loc.T(key);	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs	17389	if (Loc.HasEntry(key)) return Loc.T(key);	宽	前提断言 / 自检侧期望值取值口：比较基准是 Loc.T ⇒ 真正的保证是「取得到文案」	零（该键今天都在 Table；:17002/17389 是自检自己的小 helper，补 bulk 一档即可）
+Unity/MyGame/Assets/CardPresentation/Editor/NetSelfTest.cs	165	for (int i = 0; i < keys.Length; i++) if (!Loc.HasEntry(keys[i])) miss.Add(keys[i]);	窄	P6 双语族：后面 ② 用 Loc.EnOf（只读 Table）⇒ 必须窄（Settings/Online/* 135 条本来也只在 Table）	高
+Unity/MyGame/Assets/CardPresentation/Editor/NetSelfTest.cs	173	if (Loc.HasEntry(keys[i]) && Loc.T(keys[i]) == keys[i]) c2.Add(keys[i]);	窄	同族反档判据（键在 Table 且值==键名）；宽化会让权威取值口掺进第三档	高
+Unity/MyGame/Assets/CardPresentation/Editor/RewardsScene.cs	2250	CheckTrue(Loc.HasEntry("Missions/Completed"),	宽	前提断言：后面对比 Loc.T(键)	零（Missions/Completed 在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/RewardsScene.cs	4668	CheckTrue(Loc.HasEntry("MainMenu/Forge/Help") && !string.IsNullOrEmpty(helpOfficial),	宽	前提断言：官方词条在表、且非空（后面比的是 Loc.T 取到的串）	零（MainMenu/Forge/Help 在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	1324	CheckTrue(Loc.HasEntry("Settings/General/Title")	窄	「键名照原版 Localize.mTerm」的登记哨兵：判的是我们手写表里登记的是原版键名（不是「取不取得到文案」）	低
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	1325	&& Loc.HasEntry("MainMenu/Settings/LanguageName/Simplified Chinese")	窄	「键名照原版 Localize.mTerm」的登记哨兵：判的是我们手写表里登记的是原版键名（不是「取不取得到文案」）	低
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	1326	&& Loc.HasEntry("MainMenu/Settings/ButtonLabel/SelectLanguage"),	窄	「键名照原版 Localize.mTerm」的登记哨兵：判的是我们手写表里登记的是原版键名（不是「取不取得到文案」）	低
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	4632	CheckTrue(Loc.HasEntry(probes[i].Key),	宽	前提断言：缺键时 Loc.T 返回键名本身 ⇒ 真正的保证是可解析	零
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	4690	CheckTrue(Loc.HasEntry("Settings/Online/TitleNoteBody"),	宽	同上（Settings/Online/TitleNoteBody，键在 Table）	零
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	4717	bool devKeyExists = Loc.HasEntry("Settings/Online/TitleNote");	窄	孤儿键哨兵：判「我们表里还留着 Settings/Online/TitleNote 这条开发说明」→ 据此断言它没被画到屏上；宽化会改哨兵语义	零（该键只在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs	5584	CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");	窄	A1025 族：后面用 Loc.EnOf ⇒ 必须窄	高
+Unity/MyGame/Assets/CardPresentation/Editor/ShellScene.cs	5120	foreach (var n in need) if (!Loc.HasEntry(KB + n)) missKey++;	宽	前提断言：这一族键取不到时下面取值会是 null（比的是 Loc.T）	零
+Unity/MyGame/Assets/CardPresentation/Editor/ShellScene.cs	5165	CheckTrue(Loc.HasEntry("Battle/Mulligan/secondTurn") && Loc.HasEntry("Battle/Mulligan/Instructions"),	宽	前提断言 + 后面对比 Loc.T	零
+Unity/MyGame/Assets/CardPresentation/Editor/ShellScene.cs	8249	CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");	窄	A1025 族：后面用 Loc.EnOf ⇒ 必须窄	高
+Unity/MyGame/Assets/CardPresentation/Editor/ShopScene.cs	1578	CheckTrue(Loc.HasEntry("MenuShop/RefreshCounter"),	宽	前提断言：后面对比 Loc.T	零（MenuShop/RefreshCounter 在 Table）
+Unity/MyGame/Assets/CardPresentation/Editor/ShopScene.cs	1856	CheckTrue(Loc.HasEntry("MenuCollection/NoDecksFound"),	宽	前提断言：后面对比 Loc.T	零
+Unity/MyGame/Assets/CardPresentation/Editor/ShopScene.cs	5062	CheckTrue(Loc.HasEntry(moTerms[mi]),	宽	前提断言：后面对比 Loc.T	零
+Unity/MyGame/Assets/CardPresentation/Editor/ShopScene.cs	5796	CheckTrue(Loc.HasEntry(k), $"★（A1025）本批键都在表里：`{k}`");	窄	A1025 族：后面用 Loc.EnOf ⇒ 必须窄	高
+Unity/MyGame/Assets/CardPresentation/Net/NetProtocol.cs	363	if (!Loc.HasEntry(key)) return s;	宽	收侧「这是不是我们的键」：窄会把第三档有词的走线串原样回显到界面	低（发送侧键几乎都在 Table）
+Unity/MyGame/Assets/CardPresentation/Shell/AlliancePanelWindow.cs	1326	=> Loc.HasEntry(term) ? Loc.T(term) : prefabEn;	宽	LocOr：有词条就用，取不到才用 prefab 出厂英文	零
+Unity/MyGame/Assets/CardPresentation/Shell/AvatarTab.cs	96	if (Loc.HasEntry(term)) return Loc.T(term);	宽	按钮文案：有词条就用，否则官方中/英两列兜底	零
+Unity/MyGame/Assets/CardPresentation/Shell/BaseEventPopup.cs	463	if (Loc.HasEntry(term)) return FillArgs(Loc.T(term), which, term);	窄	显式档链（bulk→Table→官方全表），472 已兜第三档；宽化会与前半段的 HasBulk 重复	零
+Unity/MyGame/Assets/CardPresentation/Shell/CampaignTab.cs	1098	string fmt = Loc.HasEntry(PointsTerm) ? Loc.T(PointsTerm) : Loc.T("MainMenu/Campaign/Points");	宽	积分模板：有原版键就用（官方表有 Rewards Menu/Points），否则借同格式键	零（该键当前在 Table）
+Unity/MyGame/Assets/CardPresentation/Shell/CampaignTab.cs	1568	if (Loc.HasEntry(term)) return Loc.T(term);	宽	PremiumTerm：有词条就用，否则官方中/英两列	零
+Unity/MyGame/Assets/CardPresentation/Shell/DeckInfoPopup.cs	2543	string shareMsg = Loc.HasEntry(ShareSuccessTerm)	宽	分享成功 toast：官方词条优先，缺了才回我们自拟那句	零（键在 Table+13lang）
+Unity/MyGame/Assets/CardPresentation/Shell/DeckSelectionPopup.cs	821	if (Loc.HasEntry(SelectDeckTerm)) label = Loc.T(SelectDeckTerm);	宽	「Select Deck」钮文案：官方词条优先，缺了才回官方英文原值+出声	零（键在 Table+13lang）
+Unity/MyGame/Assets/CardPresentation/Shell/FTUESelectDeckWindow.cs	419	if (Loc.HasEntry(d.InfoTerm))	窄	else 分支已用 Lang13Of 覆盖第三档（TutorialData/TutorialFTUEDeck/* 只在 13lang）；宽化无收益	零
+Unity/MyGame/Assets/CardPresentation/Shell/FTUESelectDeckWindow.cs	589	string name = Loc.HasEntry(key) ? Loc.T(key) : null;	窄	同名：else 分支已有 Lang13Of→SO deckName 三级兜底；宽化无收益	零
+Unity/MyGame/Assets/CardPresentation/Shell/ItemDisplayWindow.cs	181	c.Description = Loc.HasEntry(DescTerm) ? Loc.T(DescTerm) : null;	宽	卡背 Description：有词条就显示，缺了才留空+出声	零（Item_Description/CardbackGeneric 在 Table+13lang）
+Unity/MyGame/Assets/CardPresentation/Shell/LiveOpsLocalCatalog.cs	991	if (Loc.HasEntry(term)) return Loc.T(term);	窄	显式三档链（bulk→Table→官方全表），992/995/997 已把后两档写完	零
+Unity/MyGame/Assets/CardPresentation/Shell/MatchLogRow.cs	89	if (ModeLocKeys.TryGetValue(mode, out key) && Loc.HasEntry(key)) return Loc.OfficialCurrent(key);	宽	闸查 Table、取值却走 Loc.OfficialCurrent（官方全表）—— 谓词与取值来源错配，是最典型的一处；宽化才对得上	零（Battle/MatchType/* 7 条今天都在 Table）
+Unity/MyGame/Assets/CardPresentation/Shell/MenuTutorialFlow.cs	855	if (Loc.HasEntry(key)) return Loc.T(key);	宽	官方词条取值口：Table→Lang13；宽化可顺带吃 bulk（今天该族键在 13lang）	低
+Unity/MyGame/Assets/CardPresentation/Shell/ProfileData.cs	1650	if (Loc.HasEntry(term)) return Loc.T(term);	宽	★真实缺陷：Modular_Description/* 342 条只在 bulk/官方全表、Table 0 条 ⇒ 窄谓词今天必然把键名当文案印到界面	高（改宽即修）
+Unity/MyGame/Assets/CardPresentation/Shell/ReferralPopupWindow.cs	688	if (Loc.HasEntry(term)) text = Loc.T(term);	宽	★真实缺陷：CustomErrors/* 41 条里 40 条只在官方全表、Table 只有 1 条 ⇒ 窄谓词会让真错误串全落 UnhandledError	高（改宽即修）
+Unity/MyGame/Assets/CardPresentation/Shell/ReferralPopupWindow.cs	692	text = Loc.HasEntry("CustomErrors/UnhandledError") ? Loc.T("CustomErrors/UnhandledError") : "";	宽	★真实缺陷：CustomErrors/UnhandledError 本身只在官方全表、Table 无 ⇒ 今天错误文案恒为空串	高（改宽即修）
+Unity/MyGame/Assets/CardPresentation/Shell/SettingsWindow.cs	2379	if (Loc.HasEntry(key)) return Loc.T(key);	宽	AcTerm：账号/支持页文案，有词条就用、缺了才回原版英文并记账	中（AccountMissingTermKeys 哨兵会随之变空，自检 SettingsScene:4632/5584 读它）
+Unity/MyGame/Assets/CardPresentation/Shell/SettingsWindow.cs	2410	if (Loc.HasEntry(key)) return Loc.T(key);	宽	UiTerm：与 AcTerm 同一条规矩（媒体页/图像页）	中（同上哨兵口径）
+Unity/MyGame/Assets/CardPresentation/Shell/ShopTabPage.cs	72	return Loc.HasEntry(key) ? Loc.T(key) : type;	宽	★真实缺陷：MenuShop/ShopItemType/* 15 条里 10 条只在官方全表、Table 只有 5 条 ⇒ 窄谓词让那 10 类印原始英文 type	高（改宽即修）
+Unity/MyGame/Assets/CardPresentation/Shell/TutorialMessagePopup.cs	306	var tapText = Loc.HasEntry(TapTerm) ? Loc.T(TapTerm)	宽	Tap To continue 文案（有词条就用，缺了才回官方中/英）	零（Demo/Welcome/TapToContinue 在 Table）
+Unity/MyGame/Assets/CardPresentation/Shell/TutorialMessagePopup.cs	362	if (Loc.HasEntry(key)) return Loc.T(key);	宽	OfficialTerm：Table→Lang13→硬编码兜底；宽化可吃 bulk（今天该族在 13lang）	低
+Unity/MyGame/Assets/CardPresentation/Shell/WelcomePopup.cs	213	var tapText = Loc.HasEntry(TutorialMessagePopup.TapTerm)	宽	Tap To continue 文案（同 TutorialMessagePopup:306）	零

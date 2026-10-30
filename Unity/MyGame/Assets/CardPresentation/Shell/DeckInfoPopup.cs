@@ -2540,7 +2540,7 @@ namespace CardPresentation
             //     字符数根本不会显示 —— 那就是 `N35` 当时的症状）。
             //   ⚠️ 与旧弹窗的**一处有意差别**：原版那条提示**只有一句话、不含卡组串**（串已经写进系统
             //     剪贴板了）⇒ 这里也**不再把串印出来**（原来印串是「让玩家自己抄」的权宜做法）。
-            string shareMsg = Loc.HasEntry(ShareSuccessTerm)
+            string shareMsg = Loc.HasAnyTerm(ShareSuccessTerm)
                 ? Loc.T(ShareSuccessTerm)                              // 官方原文（无 `{0}`）
                 : DeckRuntime.ShareCopiedText(s.Length);               // 表里**没有**这条键才落它（两宿主共用）
             MessageToast.Show(shareMsg, false);

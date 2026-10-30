@@ -208,7 +208,7 @@ namespace CardPresentation
         /// 父节点名 `Deck Scroll View` ⇒ **那是卡组编辑/收藏卡组页的格，不是卡池小卡**。
         /// 卡池那三份的 `PrototypeCell` 是 `Collection Card`（`GameObject/Collection Card.json`）。
         /// 🔑 判据不看「谁引了哪份 MB」，看 **`PrototypeCell` 指哪个 prefab**。</para></summary>
-        public const float CardsCellW = 262.5f, CardsCellH = 384f;
+        public static float CardsCellW { get { return 262.5f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float CardsCellH { get { return 384f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：格宽高按 `smallScreenUI` ×`_mobileSizeScale`(1.5)（原版 `RecyclableScrollRect.Initialize` 逐句实读）。桌面档 262.5×384 不变；⛔ 别再写回 const。
         /// <summary>列数 = `floor(1589.7 ÷ (262.5 + 0))` = **6**。
         ///
         /// <para>🔴 **2026-10-24（`E6`）：算法**读得到**了**（A3 当年记「运行时算的、算法读不到」）——
@@ -217,7 +217,7 @@ namespace CardPresentation
         /// `_useFixedCellSize != 0` 时现算**；卡池那三份正好是 1 ⇒ 序列化的 `_segments`
         /// （跨这几页分别是 4 / 5 / 6）**不参与**，真正说话的是这一句）。
         /// ⚠️ 分母是 **`_cellWidth + _spacingX`**（不是 `+spacingY`），Content 宽 = 视口宽。</para></summary>
-        public const int CardsCols = 6;
+        public static int CardsCols { get { return Mathf.Max(1, Mathf.FloorToInt(CardsViewport.W / (CardsCellW + 0f))); } }   // 🔴 2026-10-30 AUD05 S1：走原版式子 `floor(Content.w ÷ (_cellWidth+_spacingX))`（`VerticalRecyclingSystem__ConfigureColumnNumber.c`）⇒ 桌面 floor(1589.7/262.5)=6 · 小屏 floor(1589.7/393.75)=4。⛔ 别写回常量 6。
         /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 &lt; 视口 1589.7 ⇒ 两侧各留 **7.35**。
         ///
         /// <para>🔴 **2026-10-24（`E6`）出处**：`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c`
@@ -957,7 +957,7 @@ namespace CardPresentation
         /// ③ **用户实拍**（`C:/Users/qjh36/Desktop/warpforge参考图/收藏—卡组的参考图.png`）量出来的第 1 格
         ///    左沿 = **400.4 ± 3**（把实拍按卡框宽 221.4 归一后换算），而「居中」那一式给的是 **400.45**
         ///    （原文那套 `padL 10` 给 340.9 —— 差 **59.6px**，实拍上肉眼可见，见报告里的并排图）。</summary>
-        public const float DeckCellW = 225f, DeckCellH = 364.5f, DeckSpacingX = 20f;
+        public static float DeckCellW { get { return 225f * (SmallScreenUI.Enabled ? 1.25f : 1f); } } public static float DeckCellH { get { return 364.5f * (SmallScreenUI.Enabled ? 1.25f : 1f); } } public const float DeckSpacingX = 20f;   // 🔴 2026-10-30 `B103_F5` 就地订正（铁律 5；订正 `B103_R2` 的「四页统一 ×1.5」）：本页 `_mobileSizeScale` = **1.25** —— 判据 = prefab `MonoBehaviour_8316412282010198741` 逐字段（`判据/AUD05_state_matrix_收藏窗.md` §1·2）⇒ 小屏 **281.25×455.625 · 5 列**（`floor(1589.1 ÷ (281.25+20))`）。**`DeckSpacingX` 不乘**（原版只缩放 `_cellWidth/_cellHeight`，`_spacingX` 原值 20）。桌面 225×364.5 + 20 不变。
         /// <summary>⚠️ **2026-10-12**：`DeckPadL = 10` 那个常量**已删**（它的语义是错的 —— 见 `DeckCellW` 的
         /// 订正）。原版 prefab 里那个 `m_Padding.left = 10` 仍在，但**它是死值**（组件 `m_Enabled=0`）。
         /// ⛔ 别再按「视口左沿 + 10」算首格（那是**错的**，实拍会差 59.6px）。</summary>
@@ -971,7 +971,7 @@ namespace CardPresentation
         /// <summary>列数 = `floor(1589.1 ÷ (225+20))` = **6**
         /// （原版是 `VerticalRecyclingSystem.ConfigureColumnNumber` 运行时按视口宽算的，
         /// `_segments` 那个序列化值（=5）被 `_controlSegmentSize=1` 覆盖 ⇒ **别拿 `_segments` 当列数**）。</summary>
-        public const int DeckCols = 6;
+        public static int DeckCols { get { return Mathf.Max(1, Mathf.FloorToInt(DeckViewport.W / (DeckCellW + DeckSpacingX))); } }   // 🔴 2026-10-30 AUD05 S1：走原版式子 `floor(Viewport.w ÷ (_cellWidth + _spacingX))`⇒ 桌面 floor(1589.1/(225+20))=**6** · 小屏 floor(1589.1/(281.25+20))=**5**（`B103_F5` 按 `_mobileSizeScale` 1.25 订正）。⛔ 别写回常量 6。
 
         /// <summary>格子在**列方向**上的原点偏移 = `RecyclableScrollRect` 的**整体居中**量。
         /// <para>判据（反编译逐句，`d:/2/tools/decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c`）：
@@ -1145,7 +1145,7 @@ namespace CardPresentation
             //   （`Collection Menu Variant ▸ CardsTab ▸ Collection Display ▸ Scroll View`；
             //   五处主滚动区同值，判据见 `MenuScroll.Elastic` 的注释与核查报告 §2·15）⇒ 拖过头要有橡皮筋回弹。
             CardsScroll.Elastic = true;
-            CardsScroll.Owner = gameObject;
+            CardsScroll.Owner = page.gameObject;   // B103_R1（AUD03 #29）：原来是**窗根** —— `PointerLayer.HitScroll` 靠 `Owner.activeInHierarchy` 跳过「切走的页」，而页切走时只 `SetActive(false)` 页节点本身、窗根仍 active ⇒ 隐藏页的滚动区照样吃滚轮（Cards 与 Deck 视口只差 0.7px ⇒ 后登记的那个恒赢）。正确样板 = 筛选面板 `:2796` 的 `_fltScroll.Owner = panel.gameObject`。
             // 🔴 **A465**：构建循环那一路「整块在视口外就不建」也要吃这颗节点
             //   （⛔ 别改成让 `Intersects` 沿 `Owner` 找 —— `Owner` 是窗根、节点在它下面，找不到）。
             CardsScroll.ClipNode = cardsVp;
@@ -1516,7 +1516,7 @@ namespace CardPresentation
             var page = PageRoot(1);
             if (page == null) return;
             // 🔴 **2026-10-17（T09 第 1 步）**：池里的视图挂在**将要被销毁的页树**下 ⇒ 先清池，别留悬空引用。
-            _cellPool.Clear(); _cellKeyOrder.Clear(); _cellUsed.Clear();
+            _cellPool.Clear(); _cellKeyOrder.Clear(); _cellUsed.Clear(); PointerLayer.UnregisterOwnedBy(page.gameObject);   // B103_R1（AUD03 #24）：拆整页之前先撤**本页**的滚动登记（旧 `MenuScroll` 的 `Owner` = 本页节点，节点要留着、只拆子件 ⇒ 不撤就一直留在表里、仍能被滚轮命中，`OnChanged` 还指着已销毁的 holder）。⚠️ 必须与 #29（Owner 改成页节点）同批：Owner 还是窗根时这句会**把另外三页的滚动区一起撤掉**。
             for (int i = page.childCount - 1; i >= 0; i--) DestroySafe(page.GetChild(i).gameObject);
             BuildCardsPage(page);
         }
@@ -1633,7 +1633,7 @@ namespace CardPresentation
                     if (v == null) continue;
                     v.gameObject.SetActive(true);
                     _cellPool[key] = v;
-                    _cellKeyOrder.Add(key);
+                    if (!_cellKeyOrder.Contains(key)) _cellKeyOrder.Add(key);   // B103_R1（AUD03 #23）：去重 —— 同一个 key 重建时会被重新 Create（旧值是 Unity 假 null）⇒ 原来每重建一次就把同一个 key 再 Add 一遍
                     CardsCellCreatedLastRefresh++;
                 }
                 BuildWatch.CellPhase(reused
@@ -1790,7 +1790,7 @@ namespace CardPresentation
         // ⚠️ 上一版据 A4 写成 `168.27,85 → 1920,1080`（1751.73 宽）⇒ 列数算出 **7**；
         //    真视口 1584.56 宽 ⇒ **floor(1584.56 ÷ 250) = 6 列**。两个数只差 0.87px 时看不出对错，这次差一列。
         public const float CosmoL = 335.44f, CosmoT = 155.94f, CosmoR = 1920.01f, CosmoB = 1080f;
-        public const float CosmoCellW = 250f, CosmoCellH = 405f;
+        public static float CosmoCellW { get { return 250f * (SmallScreenUI.Enabled ? 1.2f : 1f); } } public static float CosmoCellH { get { return 405f * (SmallScreenUI.Enabled ? 1.2f : 1f); } }   // 🔴 2026-10-30 `B103_F5` 就地订正（铁律 5；订正 `B103_R2` 的「四页统一 ×1.5」）：本页 `_mobileSizeScale` = **1.2**（prefab `MonoBehaviour_7909812686046290645`）⇒ 小屏 **300×486 · 5 列**（`floor(1584.57 ÷ 300)`）。**收藏窗自己那一套**（视口 = `CosmoR − CosmoL` = 1584.57）—— 与 `DeckRuntime` 的 1589.78 **不同源** ⇒ ⛔ 别合并成一个常量。桌面 250×405 不变。
         /// <summary>列数 = `floor(视口宽 ÷ 格宽)`（**算出来的，不是 `_segments`**）。</summary>
         public static int CosmoCols { get { return Mathf.Max(1, Mathf.FloorToInt((CosmoR - CosmoL) / CosmoCellW)); } }
         /// <summary>内容**整体居中**的左边距（`CreateCellPool` 的 `((W − cols·cellW) + cellW)·0.5` 那条）
@@ -1861,7 +1861,7 @@ namespace CardPresentation
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CosmoCols));
             CosmoScroll = MenuScroll.TopAligned(CosmoView, rows * CosmoCellH, 100f);   // 原版 `Cardback Display/Scroll View` = 100（D_N29）
             CosmoScroll.Elastic = true;                 // 原版 `m_MovementType = 1`（同上一条，同窗五处同值）
-            CosmoScroll.Owner = gameObject;
+            CosmoScroll.Owner = page.gameObject;   // B103_R1（AUD03 #29）：同上，按**页节点**归属（原版 ScrollRect 挂在页自己的 `Scroll View` 上）
             CosmoScroll.ClipNode = cosmoVp;             // 🔴 A465（同卡池页那一条）
             CosmoScroll.OnChanged = () => RebuildCosmoCells(holder);
             PointerLayer.RegisterScroll(CosmoScroll);
@@ -1923,7 +1923,7 @@ namespace CardPresentation
                         //    两条独立路径核过同一个矩形：① `rect = -42.5,-70.87,337.5,550.8`；
                         //    ② 锚点 (-0.17,-0.185)-(1.18,1.175) + sizeDelta (0,0)（拉伸）⇒
                         //       x: −0.17×250 = **−42.5** ✓ · y: −(1.175−1)×405 = **−70.875** ✓。
-                        var sr = new PxRect(r.x1 - 42.5f, r.y1 - 70.875f, r.x1 + 295f, r.y1 + 479.925f);
+                        var sr = CosmoSdfRect(r);   // 🔴 **2026-10-30（执行代理 `B103_F6`）**：光晕四个偏移原来**写死桌面值**（格子 250×405）⇒ 小屏档（300×486，`_mobileSizeScale = 1.2`）里光晕 **295 宽 < 本体 300 宽**、只包住左上。⇒ 改走 `CosmoSdfRect(r)`：按 `r.W/250`、`r.H/405` 等比；✅ 桌面 r = 250×405 ⇒ 两个比例恰为 `1.0f` ⇒ **逐位不变**。算式/判据 → `CosmoSdfRect` 的 doc；本段刻意保持**行数不变**（本文件被账按 `文件:行号` 钉着）。
                         // 🔴 **2026-10-08（A181）走公共件 `MenuDraw.Rect`**（全工程唯一那份「与视口求交 + uv 跟着截」）——
                         //    原来直调 `ImageQuad.Create` ⇒ 这一层**比格大一圈**（左 −42.5 / 上 −70.875），
                         //    压在视口边上那几格会**整块画到视口外**（原版这一页的 `Viewport` 挂着
@@ -2165,7 +2165,7 @@ namespace CardPresentation
         /// <summary>网格视口 **330.22, 287.67 → 1920.01, 1080**（1589.78 × 792.33）。</summary>
         public static readonly PxRect StyleView = new PxRect(330.22f, 287.67f, 1920.01f, 1080f);
         /// <summary>格 **262.5 × 384**（作者 350×512，同 Cards 页）。</summary>
-        public const float StyleCellW = 262.5f, StyleCellH = 384f;
+        public static float StyleCellW { get { return 262.5f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float StyleCellH { get { return 384f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：本页 `_mobileSizeScale` = **1.5**（prefab `MonoBehaviour_7174171443954770645`，与卡池同值）⇒ 小屏 **393.75×576 · 4 列**。⚠️ **2026-10-30 `B103_F5` 订正**：本行原写「四页视口宽都不同源」—— **不成立**：prefab 里本页与卡池**同一个** `sizeDelta.x = −163.05`（视口同 1589.95）；我方这两个常量（1589.79 / 1589.7）的 0.09 差是两次独立实测的舍入差，**不是两个不同 prefab**。⇒ ⛔ 别把 Deck(1589.1)/Cardback(1584.57) 收口给这两个，但「Cards 与 Styles 必须分开」**没有判据**。
 
         /// <summary>列数 = `floor(1589.78 ÷ 262.5)` = **6**。</summary>
         public static int StyleCols { get { return Mathf.Max(1, Mathf.FloorToInt(StyleView.W / StyleCellW)); } }
@@ -2367,7 +2367,7 @@ namespace CardPresentation
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)StyleCols));
             StyleScroll = MenuScroll.TopAligned(StyleView, rows * StyleCellH, 100f);   // 原版 `Alternate Art Tab/…/Scroll View` = 100（D_N29）
             StyleScroll.Elastic = true;                 // 原版 `m_MovementType = 1`（同上一条）
-            StyleScroll.Owner = gameObject;
+            StyleScroll.Owner = page.gameObject;   // B103_R1（AUD03 #29）：同上
             StyleScroll.ClipNode = styleVp;             // 🔴 A465（同卡池页那一条）
             StyleScroll.OnChanged = () => RebuildStyleCells(holder);
             PointerLayer.RegisterScroll(StyleScroll);
@@ -2479,7 +2479,7 @@ namespace CardPresentation
             if (page == null) return;
             // 🔴 **2026-10-18（T09 / `A1813`）**：池里的视图挂在**将要被销毁的页树**下 ⇒ 先清池，别留悬空引用
             //   （与 `RebuildCardsPage` 那一句同由）。
-            _stylePool.Clear(); _styleKeyOrder.Clear(); _styleUsed.Clear();
+            _stylePool.Clear(); _styleKeyOrder.Clear(); _styleUsed.Clear(); PointerLayer.UnregisterOwnedBy(page.gameObject);   // B103_R1（AUD03 #24）：同 `RebuildCardsPage` 那一句（拆整页之前撤本页滚动登记；须与 #29 同批）
             for (int i = page.childCount - 1; i >= 0; i--) DestroySafe(page.GetChild(i).gameObject);
             _styleEmpty = null;
             _styleLogo = null;
@@ -2653,7 +2653,7 @@ namespace CardPresentation
                     if (v == null) continue;
                     v.gameObject.SetActive(true);
                     _stylePool[key] = v;
-                    _styleKeyOrder.Add(key);
+                    if (!_styleKeyOrder.Contains(key)) _styleKeyOrder.Add(key);   // B103_R1（AUD03 #23）：同卡池页那一句（去重）
                     StyleCellCreatedLastRefresh++;
                 }
                 BuildWatch.CellPhase(reused
@@ -3808,7 +3808,7 @@ namespace CardPresentation
             //      `UnregisterOwnedBy` **必须在清子件之前**（与登记的顺序成对）。
             //   📌 为什么现在补：`Editor/CollectionScene.cs` 的换语档真鉴别式（`A1517`，按符号搜 `win.Build()`）
             //      会**原地重建三次**，那是本函数的第二次以后调用 —— 见 `资料/普查产出_第十八会话/W5_断言宿主.md`「风险」。
-            PointerLayer.UnregisterOwnedBy(gameObject);
+            PointerLayer.UnregisterOwnedBy(gameObject); _cellPool.Clear(); _cellKeyOrder.Clear(); _cellUsed.Clear(); _stylePool.Clear(); _styleKeyOrder.Clear(); _styleUsed.Clear();   // B103_R1（AUD03 #23）：六张池表必须与子件一起清 —— 原版每次开窗是新实例（`WindowsManager.CloseWindowCO` 关窗即 Destroy），而 `BuildShell` 首句 `DestroyChildren` 会把池里那些 `CardView` 一起销毁 ⇒ 不清就是「池里全是 Unity 假 null（复用恒 miss）+ `_cellKeyOrder` 同键重复 Add」。⚠️ 必须在 `BuildShell`（下一个非注释语句）之前。⚠️ B103_R1(#29) 起 `Owner` 已是**页节点** ⇒ 本行那句 `UnregisterOwnedBy(gameObject)` 不再命中任何滚动区（页节点已随子件销毁 ⇒ 下次 `RegisterScroll` 的 `PruneScrolls` 会剔掉）。
             // 🔴 **2026-10-19（`A1498`）：`lastIsMaster: false`** —— 本窗左栏**四项全是真页签**。
             //   判据（原版 prefab 本轮现读，逐级解父链）：`Collection Menu Variant` 根 →
             //   `TabbedWindowComponents`（MB `2277236495604703957`）→ `tabButtons` = MB `1756822263936377557`
@@ -4207,7 +4207,7 @@ namespace CardPresentation
             float contentH = rows * (DeckCellH + DeckSpacingY) - DeckSpacingY;
             DeckScroll = MenuScroll.TopAligned(DeckViewport, contentH, 100f);   // 原版 `Deck Scroll View` = 100（D_N29）
             DeckScroll.Elastic = true;                  // 原版 `m_MovementType = 1`（同上一条）
-            DeckScroll.Owner = gameObject;
+            DeckScroll.Owner = page.gameObject;   // B103_R1（AUD03 #29）：同上
             DeckScroll.ClipNode = deckVp;               // 🔴 A465（同上）
             DeckScroll.OnChanged = () => RebuildDeckCells(holder);
             PointerLayer.RegisterScroll(DeckScroll);
@@ -6348,6 +6348,7 @@ namespace CardPresentation
         {
             PointerLayer.UnregisterDragsOwnedBy(gameObject);
             UnhookWildcardUpdate();     // B9_W63WC：`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订就被按着（原版 `OnDisable` 的 `Signal.Unregister`）
+            CardsState.Filter = DeckFilter.None; CosmoState.Filter = DeckFilter.None; StylesState.Filter = DeckFilter.None;   // B103_R1（AUD03 #28）：三份状态是 **static**（跨窗口实例保留），而原版关窗即 Destroy ⇒ 新实例的筛选是出厂态。⛔ 别动 `ShowInCollectionOnly` / `SortByInventoryOptions` —— 那两个是口径开关、不是玩家筛选（见 `:879-884`）。
             base.Close();
         }
 
@@ -6709,6 +6710,47 @@ namespace CardPresentation
         public string WildcardCounterTextForTest(int i)
         {
             return (i >= 0 && i < _wcCount.Length && _wcCount[i] != null) ? _wcCount[i].Text : null;
+        }
+
+        // ============================================================ 🆕 B103_R1（AUD03 #23）：池表的自检读口
+        // ⛔ 只读、不参与生产逻辑（新成员追加在**类尾**：本文件被账按 `文件:行号` 钉着）。
+        /// <summary>卡池视图池里那个**键表**有几条（同一 key 重复 `Add` = 每次重建 +N）。</summary>
+        public int UiCellKeyCountForTest { get { return _cellKeyOrder.Count; } }
+        /// <summary>键表里有几个**重复键**（正常恒 0）。</summary>
+        public int UiCellKeyDuplicateCountForTest
+        {
+            get
+            {
+                var seen = new System.Collections.Generic.HashSet<string>();
+                int dup = 0;
+                for (int i = 0; i < _cellKeyOrder.Count; i++) if (!seen.Add(_cellKeyOrder[i])) dup++;
+                return dup;
+            }
+        }
+        /// <summary>异画页视图池键表条数。</summary>
+        public int UiStyleKeyCountForTest { get { return _styleKeyOrder.Count; } } public void UiSetSmallScreenUIForTest(bool on) { bool keep = SmallScreenUI.PersistOverride; SmallScreenUI.PersistOverride = true; SmallScreenUI.Set(on); SmallScreenUI.PersistOverride = keep; if (DeckScroll != null) RebuildDeckListNow(); if (CardsScroll != null) RebuildCardsPage(); if (CosmoScroll != null) RefreshCosmoAfterFilter(); if (StyleScroll != null) RebuildStylesPage(); Debug.Log("[Collection] 小屏 UI 切档 ⇒ 重排 卡组/卡池/卡背/异画 四页（自检口，不落盘）"); }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：形状照 `DeckRuntime.UiSetSmallScreenUIForTest`。⛔ 三处都**按已建页的 scroll 字段判存在**，不调 `PageRoot`（那会懒建页）。
+        /// <summary>某一路滚动区**当前**登记的 `Owner`（#29 的读口；`page` = 0=Deck · 1=Cards · 2=Cosmo · 3=Style）。
+        /// ⚠️ 只读字段、**不调 `PageRoot`**（那会懒建页）—— 比对交给调用方：`Owner == win.PageRoot(page).gameObject`。</summary>
+        public GameObject UiScrollOwnerForTest(int page)
+        {
+            var s = page == 0 ? DeckScroll : page == 1 ? CardsScroll : page == 2 ? CosmoScroll : page == 3 ? StyleScroll : null;
+            return s != null ? s.Owner : null;
+        }
+
+        // ============================================================ 🆕 B103_F6：卡背光晕那一格的几何（自检读口 · 纯函数）
+        /// <summary>卡背格里的 <c>Cardback Shadow SDF</c> 那一层的矩形 —— **原版作者系相对量**：
+        /// 相对 250×405 的格子左上 = `x −42.5 · y −70.875 · w 337.5 · h 550.8`
+        /// （⇒ 右沿 `−42.5+337.5 = 295`、下沿 `−70.875+550.8 = 479.925`；出处 = `资料/普查产出_0923/A4_装饰页与驱动链.md:91`
+        /// 的 `-42.5,-70.87,337.5,550.8`，以及锚点 `(-0.17,-0.185)-(1.18,1.175)` 的复核）。
+        /// <para>🔴 **2026-10-30（执行代理 `B103_F6`）**：改前这四个数是**写死的桌面值** ⇒ 小屏卡背格（`300×486`，
+        /// `_mobileSizeScale = 1.2`）里光晕只有 **295 宽 < 本体 300 宽**、只包住左上。现在按 `r.W/250`、`r.H/405` 等比。
+        /// ✅ **桌面档逐位不变**（r = 250×405 ⇒ 两个比例都恰好是 `1.0f`）。</para>
+        /// <para>⛔ **别把右/下那两数当「宽高」再乘一次** —— 它们是**相对格左上的绝对偏移**（`r.x1 + 295·sx`），
+        /// 不是 `r.x1 + (337.5−42.5)·sx` 以外的什么形状（两者相等，但写 295 才是「矩形随之等比缩放」）。</para></summary>
+        public static PxRect CosmoSdfRect(PxRect r)
+        {
+            float sx = r.W / 250f, sy = r.H / 405f;
+            return new PxRect(r.x1 - 42.5f * sx, r.y1 - 70.875f * sy, r.x1 + 295f * sx, r.y1 + 479.925f * sy);
         }
     }
 

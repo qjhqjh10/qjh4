@@ -278,14 +278,14 @@ public static class B97W16Assert
             C(ui.Count, 1, "A9 `+2 melee and +2 ranged`（同一 `RowGroup`）⇒ **1 行**（原版 = 一条 `ChangeBothAttacks`）");
             SwitchLang(AvailableLanguages.English); var uiEn = CardDisplayWindow.RowsOfEffects(rows, true); RestoreLang();
             C(uiEn.Count > 0 ? uiEn[0].What : null, "Get +2 Melee Attack and +2 Ranged Attack", "A9-a …右列 = `ChangeBothAttacks`（`{0}`/`{1}` 按近战/远程的实参序填）；⚠️ 期望是**英文**字面量 ⇒ 先切英文档（同 A3-b）；分诊 → `报告/B100_X3.md` #31");
-            // 反例：`RowGroup == 0`（今天生产端的真实状态）⇒ 不合并、出 2 行
+            // 反例：`RowGroup == 0` = **未分组**档 ⇒ 不合并、出 2 行（消费端的负向对照）
             var rows2 = new List<ShownEffect>
             {
                 new ShownEffect { Family = ShownFamily.Stat, Attr = "attack", Value = 2 },
                 new ShownEffect { Family = ShownFamily.Stat, Attr = "ranged", Value = 2 },
             };
             C(CardDisplayWindow.RowsOfEffects(rows2, true).Count, 2,
-              "A9-b 反例：`RowGroup == 0` ⇒ **不合并**、出 2 行（这是**今天**的真实行为 —— 生产端 S3-c 还没接）");
+              "A9-b 反例：`RowGroup == 0`（= **未分组**）⇒ **不合并**、出 2 行 —— 这是**消费端**的负向对照（注入式，与本条目的生产端无关）。⚠️ 2026-10-30（`B103_W3`）订正原口径：生产端 S3-c **已接**（`DoGive` → `ctx.NextRowGroup()`），真 `give` 会带非 0 组号 ⇒ 本条**不会**因此变红；端到端那条改由 `B103W3_Assert` 的 B6 覆盖");
         }
 
         // ---- A10 / A11：两条排除档 --------------------------------------------------------------

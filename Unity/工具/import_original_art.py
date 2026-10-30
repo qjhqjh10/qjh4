@@ -772,6 +772,13 @@ MENU_IMAGES = [
     ('40k_Crate_Tier3_Silver',                    'boosterpacks_assets_all'),
     ('40k_Crate_Tier4_Gold',                      'boosterpacks_assets_all'),
     ('40k_Crate_Tier5_Warp',                      'boosterpacks_assets_all'),
+    # 🆕 2026-10-30（B103_R9 · AUD09 第二轮 D3 里的第二张）：`GachaEventWindow` 卡包窗的**高级箱子**。
+    #   判据 = 原 packed sprite 现读：`ui_extract/boosterpacks_assets_all/Sprite/40k_Crate_Tier5_Warp_premium.png`
+    #   **512×512**，同目录 `assets_full/bundle_boosterpacks_assets_all/Sprite/40k_Crate_Tier5_Warp_premium.json`
+    #   的 `m_Rect = (0,0,512,512)` / `textureRectOffset = (0,0)` ⇒ 与 PNG 实际尺寸一致，`copy_ui_sprite` 走 `asis`。
+    #   ⚠️ 与上面那条 `40k_Crate_Tier5_Warp` **不是同一张**（md5 `3fddd566…` vs `de174a6b…`，都是 512²）——
+    #   原版那两者是「普通箱 / premium 箱」两张图，⛔ 别拿前者顶后者。
+    ('40k_Crate_Tier5_Warp_premium',              'boosterpacks_assets_all'),
     # 🆕 2026-10-13（A389）：上面那 5 张是**闭合**态，这 5 张是**开启**态 —— 周常里程碑那 6 格的
     #   `holder/CheckMark` 就画它们（达成 → `activeCheckmark` = `_open`；未达成 → `disabledCheckmark` = 闭合）。
     #   判据 = `Weekly Mission Milestone T1..T5` 各自 MB 的这两个字段（pid 经 `_tmp_view/sprite_pids_ALL.json`
@@ -1148,6 +1155,14 @@ MENU_FROM_ART = [
     #   （与切片库那张 `40K_dropdown_bg.png` **逐字节相同**，md5 `2e40bc4d1923680c93fef6d42445aea4`，2026-10-12 核过）。
     #   判据 → `Battle/SettingsPanel.cs` 那组 `Az*` 常量。
     '40K_settings_icon_checkmark',
+    # 🆕 2026-10-30（B103_R9 · AUD09 第二轮 D3 的第一张）：`Shell/GachaEventWindow.cs:658` 一直在要
+    #   `CardArt.MenuUi("Glow_UI_sharp_W40K")`，而它**从没进过 `Resources/`** ⇒ 每次开包窗都退回
+    #   `Glow_UI_W40K`（同目录另一张，md5 `5c3acf11…`）并出声。
+    #   源只存在于**工程自己的图集切片库**：`Art/原版/去重资源/Glow_UI_sharp_W40K.png`（123×123）——
+    #   `ui_extract` 与 `assets_full` 全库 `find -iname "Glow_UI_sharp*"` **0 命中**（2026-10-30 现核）
+    #   ⇒ 只能走本表（`MENU_FROM_ART`），不能进 `MENU_IMAGES`（那条路拼的是 `ui_extract/<bundle>/Sprite/`）。
+    #   ⚠️ 名字里没有空格 ⇒ 落盘名原样 = `Glow_UI_sharp_W40K.png`，与 `CardArt.MenuUi` 的查法一致。
+    'Glow_UI_sharp_W40K',
 ]
 
 # ---- 督军**异画**（Alternate Art）7 张 —— 2026-09-24 加（阶段二第 3 层「卡组线」Styles 页）--------

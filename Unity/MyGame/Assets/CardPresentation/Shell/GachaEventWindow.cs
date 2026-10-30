@@ -350,8 +350,8 @@ namespace CardPresentation
             // `openSound` / `closeSound` 实读都是空 PPtr ⇒ 一个 clip 都不赋，走家族默认。
             win.Manager = mgr;
             WindowsManager.AttachToAnchor(win);
-            if (mgr != null) mgr.OpenWindow(win);
-            else { Debug.LogWarning("[Gacha] 没有 `WindowsManager` ⇒ 只建出来、没进窗口管理器。"); win.Open(); }
+            if (mgr == null) Debug.LogWarning("[Gacha] 没有 `WindowsManager` ⇒ 只建出来、没进窗口管理器（由调用方自己开；本方法**不再自开**）。");   // ⛔ B103_R1（AUD03 #120）：原来这里是 `if (mgr != null) mgr.OpenWindow(win); else { …; win.Open(); }` ⇒ 与唯一调用方 `WindowsManager.OpenByRef` 的 `:940` 撞成**首开双 Build**（第二次那一跳走全屏支 `HideAllWindows` 把本窗打回 `Closed` 再重建）。原版 `Create` 不自开。若将来有自检直接调 `Create` ⇒ 自己补 `wm.OpenWindow(win)`。
+            // （原兜底 `win.Open()` 一并去掉：那条会在窗还没进管理器时先建一遍树，与 `OpenByRef` 那条路重复。）
             return win;
         }
 
@@ -653,13 +653,13 @@ namespace CardPresentation
         {
             var n = MenuDraw.Node(_chest, name, r);
             n.localRotation = Quaternion.Euler(0f, 0f, angleZ);   // 原版 `m_LocalRotation` 实读
-            // 原版 sprite = `Glow UI sharp W40K`（本地只在 `Art/原版/去重资源/` 里、未进 `Resources/`）
-            // ⇒ 回退已导入的 `Glow_UI_W40K`（软光晕，形状略钝），出声一次。
+            // 原版 sprite = `Glow UI sharp W40K` —— 🆕 **2026-10-30（`B103_R9`）已导入 `Resources/Art/ui_menu/`** ⇒ 直接用它。
+            // 兜底仍是 `Glow_UI_W40K`（软光晕，形状略钝）；只有真取不到才回退并出声一次。
             if (CardArt.MenuUi("Glow_UI_sharp_W40K") == null)
-                Note("箱体光晕：原版 `Glow UI sharp W40K` 未导入 `Resources/`"
+                Note("箱体光晕：原版 `Glow UI sharp W40K` 取不到"
                     + "（源 = `Assets/CardPresentation/Art/原版/去重资源/Glow_UI_sharp_W40K.png`）"
                     + " ⇒ 回退 `Glow_UI_W40K`");
-            MenuDraw.Rect(n, Tex(ArtGlow, "箱体阴影光晕"), r, "Image", QChestShadow, ShadowTint);
+            var glowTex = CardArt.MenuUi("Glow_UI_sharp_W40K"); if (glowTex == null) glowTex = Tex(ArtGlow, "箱体阴影光晕"); MenuDraw.Rect(n, glowTex, r, "Image", QChestShadow, ShadowTint);   // 🔴 2026-10-30（`B103_R9`）：原来这里**恒定**传 `ArtGlow` ⇒ 图导入之后守卫闭嘴、画的仍是兜底图（**静默用错图**）
         }
 
         void BuildPriceButton(Transform chest)

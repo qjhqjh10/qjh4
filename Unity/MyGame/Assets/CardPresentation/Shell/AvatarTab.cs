@@ -93,7 +93,7 @@ namespace CardPresentation
         /// 本函数**保留**（缺键时仍有英文兜底；已有调用点行为不变），⛔ 不必改回直接 `Loc.T`。</para></summary>
         static string AvatarButtonTerm(string term, string en, string zh)
         {
-            if (Loc.HasEntry(term)) return Loc.T(term);
+            if (Loc.HasAnyTerm(term)) return Loc.T(term);
             if (Loc.Current == AvailableLanguages.Chinese) return zh;
             if (Loc.Current == AvailableLanguages.English) return en;
             string v13 = Loc.Lang13Current(term);      // 其余 10 语言：官方列（缺列回退英文）

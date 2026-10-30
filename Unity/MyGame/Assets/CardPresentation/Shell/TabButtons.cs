@@ -283,8 +283,8 @@ namespace CardPresentation
             {
                 var d = list[i] as System.Action<WindowTabBase>;
                 if (d == null) continue;
-                var target = d.Target as UnityEngine.Object;
-                if (target != null && target == null) continue;   // Unity 假 null ⇒ 那个容器已经被销毁 ⇒ 这条是死的
+                // 🔴 判定只写一处（类尾 `IsDeadHandler`）：`target != null && target == null` 两边都绑 Unity 重载 ⇒ 恒假
+                if (IsDeadHandler(d)) continue;   // Unity 假 null ⇒ 那个容器已经被销毁 ⇒ 这条是死的
                 keep += d;
             }
             return keep;
@@ -306,10 +306,36 @@ namespace CardPresentation
             for (int i = 0; i < list.Length; i++)
             {
                 var d = list[i] as System.Action<WindowTabBase>;
-                var target = d != null ? d.Target as UnityEngine.Object : null;
-                if (target != null && target == null) dead++;
+                // 🔴 同一谓词（类尾 `IsDeadHandler`）；⛔ 别就地再写一遍 —— 换回 `!= null && == null` 会恒假
+                if (IsDeadHandler(d)) dead++;
             }
             return dead;
         }
+
+        // ======================================================================== 🆕 B103_W6：死 handler 的唯一谓词
+        //
+        // 🔴 **判据 = `资料/完全复刻/报告/B103_D1.md` §2.2**（`B102AUD03R` 四条红的同一根因，诊断已定案）：
+        //    `target != null && target == null` 里 `target` 的静态类型是 `UnityEngine.Object` ⇒ 两边**都**绑到重载
+        //    `op_Inequality` / `op_Equality`，而这两个重载互为取反（对**已销毁**对象 `op_Equality(x, null) == true`）
+        //    ⇒ 整个式子 = `!X && X` = **恒 false** ⇒ 「数死 handler」与「摘死 handler」两条路**从落地起就是死的**
+        //    （生产侧死 handler 一直在累积，**静默**）。
+        //    ⇒ 正确写法必须**先把引用本身和 null 分开**：`!ReferenceEquals(uo, null) && uo == null`。
+        // ⚠️ 全类只此一处表述（铁律「两处写同一条规则 = 迟早不一致」）：`DropDeadHandlers` 与
+        //    `DeadHandlerCountForTest` 都调它，⛔ 别在调用点再就地写一遍。
+
+        /// <summary>「这条 handler 的宿主**已经被销毁**了吗」（`DropDeadHandlers` / `DeadHandlerCountForTest` 共用）。
+        /// <para>⚠️ **`null` delegate、静态方法的 delegate、以及 Target 是纯托管对象（闭包）的一律返回 false** ——
+        /// 它们不是「死的」，⛔ 别顺手摘掉（`B102AUD03R_Assert` A2 那条灭自证盯的就是「活着的容器都留着」）。</para>
+        /// <para>自检读口见下面那个 `...ForTest` 包装（`IsDeadHandler` 本身是私有的，编辑器程序集够不着）。</para></summary>
+        static bool IsDeadHandler(System.Delegate d)
+        {
+            if (d == null) return false;
+            var uo = d.Target as UnityEngine.Object;            // 纯托管 Target（静态方法 / 闭包）⇒ 这里是**字面 null**
+            return !ReferenceEquals(uo, null) && uo == null;   // 🔴 假 null 必须先用 `ReferenceEquals` 分档，再用 Unity 重载
+        }
+
+        /// <summary>自检读口：`IsDeadHandler` 的公开包装（断言宿主 / `Editor/B103W6_Assert.cs` 用）。
+        /// ⚠️ 生产路径别用它 —— 它只是把那条唯一谓词露出来，语义与内部调用完全一致。</summary>
+        public static bool IsDeadHandlerForTest(System.Delegate d) { return IsDeadHandler(d); }
     }
 }

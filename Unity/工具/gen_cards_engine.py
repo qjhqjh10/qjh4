@@ -2175,6 +2175,13 @@ ABILITY_KIND_FAMILY = {
     70: "summon", 71: "summon", 72: "summon", 75: "summon", 77: "summon",
     100: "create", 101: "create",
     110: "destroy", 120: "jam", 130: "stun", 135: "stun",
+    # 🆕 2026-10-30（`B103_W5b`）：`230 forceAttack` / `233 forceAttackFriendly`
+    #   （判据 `AbilityLogic__PlayAbility.c:2641-2658` / `:2679-2694`）。**必须与 C# 同步**
+    #   （`CardDef.ActiveAbilityKindFamily` 的 default 那一格 + `ActiveAbilityKindFamilyNames`），
+    #   否则 `Editor/RuleEngineTest_EngineX6.cs:98-99` 的跨语言对账会红。
+    #   ⚠️ `231 forceAttackDontCountAttack` **故意不映射**（`DoForceAttack` 没有 `dontCount` 那位）。
+    #   ⚠️ 池内 `230/233` = 0 张 ⇒ 本次只改映射表，**不重生成** `cards_engine.json`（产物不变）。
+    230: "forceattack", 233: "forceattack",
     140: "handmove", 150: "handmove", 160: "handmove", 162: "handmove",
     165: "handmove", 170: "handmove", 175: "handmove", 180: "handmove",
     185: "handmove", 190: "handmove", 200: "handmove", 210: "handmove",

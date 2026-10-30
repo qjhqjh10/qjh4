@@ -2371,7 +2371,7 @@ namespace CardPresentation
         /// —— **已过期**（那一批已进表）⇒ 现在**正常路径走第一档**；第二档留着当**新增键时的安全网**
         /// （⛔ 别删：删了以后任何一条漏进表的键都会**静默印英文**，而且没人知道）。</para>
         /// <para>⚠️ **不能写成 `Loc.T(键) ?? 兜底`**：`Loc.T` **缺键返回的是键名本身**（不是 null）
-        /// ⇒ 那样会把**键名印到屏幕上**。必须先 `Loc.HasEntry`（判据 = `Loc.T` 的 doc）。</para>
+        /// ⇒ 那样会把**键名印到屏幕上**。必须先 `Loc.HasAnyTerm`（三档一起算；判据 = `Loc.T` 的 doc）。</para>
         /// <para>⚠️ 本函数**同时是支持页的漏斗**（`Term` → `AcTerm`）—— 支持页那九条键也走同一条路，
         /// 所以那条 `warning` 里说的「账号页」现在是**这一批新页的统称**（键名照原样印出来，不影响判读）。</para></summary>
         static string AcTerm(string key, string origEn)
@@ -2381,10 +2381,10 @@ namespace CardPresentation
             {
                 _acMissingKeys.Add(key);
                 Debug.LogWarning($"[Settings] 账号页 / 支持页的词条键 `{key}` **还不在 `Core/Loc.cs` 的表里** ⇒ "
-                               + $"本格退原版英文原文「{origEn}」（⛔ 不是静默：整张缺键清单见 "
+                               + $"本格按官方表取值（bulk / 官方 13 语言全表）、三档都没有才退原版英文原文「{origEn}」（⛔ 不是静默：整张缺键清单见 "
                                + "`SettingsWindow.AccountMissingTermKeys`，A1175 / A1185 那两笔都写了这条口子）。");
             }
-            return origEn;
+            return Loc.HasAnyTerm(key) ? Loc.T(key) : origEn;
         }
 
         /// <summary>**页签 / 通用标签的两步漏斗** —— 表里有就用表、没有退 `en`（**原版英文原文**）。
@@ -2412,10 +2412,10 @@ namespace CardPresentation
             {
                 _acMissingKeys.Add(key);
                 Debug.LogWarning($"[Settings] {where}的词条键 `{key}` **还不在 `Core/Loc.cs` 的表里** ⇒ "
-                               + $"本格退原版英文原文「{origEn}」（⛔ 不是静默：整张缺键清单见 "
+                               + $"本格按官方表取值（bulk / 官方 13 语言全表）、三档都没有才退原版英文原文「{origEn}」（⛔ 不是静默：整张缺键清单见 "
                                + "`SettingsWindow.AccountMissingTermKeys`）。");
             }
-            return origEn;
+            return Loc.HasAnyTerm(key) ? Loc.T(key) : origEn;
         }
 
         /// <summary>账号那一格的状态（登录态 / 邮箱 / player id）—— 原版在 `PlayerDataManager` + PlayFab 上。

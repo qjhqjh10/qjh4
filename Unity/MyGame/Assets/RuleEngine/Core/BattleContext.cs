@@ -824,7 +824,7 @@ namespace RuleEngine
 
         // ---- 🆕 2026-10-18（`W4` 整改 · 审查问题 6）「同一次手牌效果挂载」的记录号 ----
 
-        int _nextHandEffectRecordId = 1;
+        int _nextHandEffectRecordId = 1; int _nextEffectRowGroup;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 `特效动画:521` S3-c）：`RowGroup` 的发号器（同一次 `give` 子句一个号）。🔶 自己设计（非原版）：原版一条 `CardEffect` 天生带齐四项增量、不需要组号；我们一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组
 
         /// <summary>
         /// 发一个**「同一次手牌效果挂载」的记录号** —— 一次调用发给 N 张牌，N 张身上那 N 条
@@ -834,7 +834,7 @@ namespace RuleEngine
         /// ⚠️ **跟着 `BattleContext` 走**（每局从 1 开始）⇒ 同种子必然同序号（对局可复现）；
         ///    ⛔ 别用 `Guid` / `UnityEngine.Random`。
         /// </summary>
-        public int NextHandEffectRecord() { return _nextHandEffectRecordId++; }
+        public int NextHandEffectRecord() { return _nextHandEffectRecordId++; } public int NextRowGroup() { return ++_nextEffectRowGroup; }   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：发一个「同一次 `give` 子句」的合并组号（从 1 起、跟着对局走 ⇒ 同种子同序号；不进 `NetProtocol.PlayerHash`）
 
         // ---- 🆕 2026-10-19（第五十五会话 · `A1567`）本局已挂过几件附魔 ----------------
         //

@@ -503,7 +503,7 @@ namespace CardPresentation
             var claimTxt = MenuDraw.Text(claimBtn, ClaimTx, Loc.T("MainMenu/General/Claim"),
                                          Color.white, "Button Text", 40f, QText,
                                          ClaimTx.W, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
-            if (claimTxt != null) claimTxt.SetWrapping(false);
+            if (claimTxt != null) claimTxt.SetWrapping(false); if (claimTxt != null) claimTxt.BindText(() => Loc.T("MainMenu/General/Claim"), () => { claimTxt.SetWrapping(false); MenuDraw.SetVAlign(claimTxt, Label.VAlign.Capline, ClaimTx); });   // B103_A03（AUD03 #94）：这颗是 `Loc.T("MainMenu/General/Claim")` ⇒ 换语言按来源重取（`reapply` 重放「关折行 + Capline 纵对齐」两刀：`SetText` 之后版面按新串重排过）
             // 原版 `Button Text` 的 `m_VerticalAlignment = 8192 (Capline)`（TMP 字段实读）
             if (claimTxt != null) MenuDraw.SetVAlign(claimTxt, Label.VAlign.Capline, ClaimTx);
             MenuDraw.Hit(claimBtn, "Hit", ClaimBtn, QOverlay, OnClaimClick,
@@ -1422,5 +1422,9 @@ namespace CardPresentation
             if (!RendererExtensions.IsVisibleFrom(rt, cam)) return;      // 原版：不在屏幕内 ⇒ 静默
             WindowSounds.PlayFx(WindowSounds.BoosterCardClickCue, "InboxWindow 入场 slotting（原版 MessageContainer.slottingSound）");
         }
+
+        // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
+        // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底）。本窗登记过来源的 = 领取钮那颗 `MainMenu/General/Claim`。
+        public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
     }
 }

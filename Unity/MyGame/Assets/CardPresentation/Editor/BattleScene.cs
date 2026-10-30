@@ -4932,10 +4932,10 @@ public static class BattleScene
                             + "（🔴 2026-10-18 订正：这条**不是**「本地没有词条 ⇒ 编一个」——"
                             + "  `Battle/ChooseCard/Instructions` 就在 `Core/Loc.cs` 里，键与英文 TMP 原文都是本地实据；"
                             + "  本地取不到的只有 `…-<uniqueId>` 那一档）");
-                        Check(Loc.HasEntry(ChoosePanel.TitleTerm),
+                        Check(Loc.HasAnyTerm(ChoosePanel.TitleTerm),
                               $"★（坑表 #18）`Loc` 表里**真有**这个键：`{ChoosePanel.TitleTerm}`"
                             + " —— 原版有 ≠ 我们表里有，两边都要核");
-                        Check(Loc.HasEntry(ChoosePanel.SelectTerm) && Loc.HasEntry(ChoosePanel.TitleTerm),
+                        Check(Loc.HasAnyTerm(ChoosePanel.SelectTerm) && Loc.HasAnyTerm(ChoosePanel.TitleTerm),
                               "★（坑表 #18）选牌面板用到的两条键在 `Loc` 表里都查得到"
                             + $"（`{ChoosePanel.TitleTerm}` / `{ChoosePanel.SelectTerm}`）");
                         drv.Choose.Close();
@@ -7242,7 +7242,7 @@ public static class BattleScene
             //      而那时行为其实是对的（✅ 这一批就真的补进去了 ⇒ 这条自适应当场兑现）。
             //      ⇒ 按【表里到底有没有】自动选期望值，两态都有话说。
             //      （有键态下 `hCostWant` 那条是**定义式**、不作主判据；主判据是下面「不许含前缀」那条。）
-            bool costInTable = Loc.HasEntry(keyCost);
+            bool costInTable = Loc.HasAnyTerm(keyCost);
             int missBefore = Loc.MissingCount; foreach (var bad in Loc.CheckTargetedText()) Check(false, bad);   // 🆕 2026-10-27（调度台接线 · `B9_W61TARG` §4·4）：`Card_Targeted/*` 31 条键此前**零覆盖**（`CheckTargetedText()` 全仓 0 调用点）；追加在本行 ⇒ 行数不变
             string hCost = BattleDriver.HintForCode(RuleCodes.ErrCost);
             string hCostWant = costInTable ? Loc.T(keyCost) : RuleCodes.Describe(RuleCodes.ErrCost);
@@ -7270,7 +7270,7 @@ public static class BattleScene
             //     本口仍然要留着：它让自检能**指名**喂一个确实在表里的键（见下一行的符号）。
             //     这里挑 `Battle/Tips/HandFull`（`Loc.cs` 表里确有其条，`G5` 那一轮补的）。
             const string keyInTable = BattleDriver.HandFullTerm;
-            Check(Loc.HasEntry(keyInTable), $"（前提）`{keyInTable}` 在 `Loc` 表里（它有值 ⇒ 能验有键态）");
+            Check(Loc.HasAnyTerm(keyInTable), $"（前提）`{keyInTable}` 在 `Loc` 表里（它有值 ⇒ 能验有键态）");
             string hIn = BattleDriver.HintForCodeWithKey(RuleCodes.ErrCost, keyInTable);
             Check(!string.IsNullOrEmpty(hIn) && hIn != keyInTable && !hIn.Contains("Battle/Tips/"),
                   $"★ **有键态 → 印词条值**：实测「{hIn}」"
@@ -8032,7 +8032,7 @@ public static class BattleScene
             Check(wait.ShownText == want,
                   $"★ 条上写的字：「{wait.ShownText}」= `Loc.T({WaitBanner.WaitTerm})`「{want}」"
                 + "（原版 TMP 原文 = `Waiting for enemy`）");
-            Check(Loc.HasEntry(WaitBanner.WaitTerm),
+            Check(Loc.HasAnyTerm(WaitBanner.WaitTerm),
                   $"★（坑表 #18）`Loc` 表里**真有**这个键：`{WaitBanner.WaitTerm}` —— 原版有 ≠ 我们表里有");
             // 🆕 2026-10-16（`A2102⑤` / `B5` 表一 R6）：**这颗文字自己有框与字号**，我们原来一个都没接
             //   （落 `Label` 默认档 —— 同族里唯一没接框的一件）。判据 = 框 **1270×70** 画布 px +
@@ -9704,7 +9704,7 @@ public static class BattleScene
                 //   —— 老实现把「近战」写死在 `AttrZh` 里，**两档一模一样**，下面那条当场红。
                 {
                     var effLangWas = Loc.Current;
-                    Check(Loc.HasEntry("Battle/Effect/ChangeMeleeAttackOneTurn"),
+                    Check(Loc.HasAnyTerm("Battle/Effect/ChangeMeleeAttackOneTurn"),
                           "★ 属性那一行的**原版键**在表里（坑表 #18：原版有 ≠ 我们表里有）");
                     Loc.RestoreForTest(AvailableLanguages.English);
                     driver.SimulateTapUnit(0, mine);      // 关
@@ -12311,7 +12311,7 @@ public static class BattleScene
                         Check(!BattleDriver.ShouldShowAbilityTargetsCounterForTest(ctx.Players[0].Board[casterSlot].Card) && sp.TargetsText == "", $"★ 面板那行的**闸**：ability 级 `targetsAvailableCounter(+0x40)` 我们读不到（`CardDef` 只落卡级 `+0x298`）⇒ 原版那一支 **整段不拼**（`TargetsText` 应空，实得「{sp.TargetsText}」）｜🧨 把闸改成恒拼 ⇒ 红");
                         sp.SetTargetsAvailable(wantT);   // 显式喂「该拼」那一档（拼法由下一行断；面板默认那一档 = 上面那条闸）
                         Check(sp.TargetsText == (zhT ? (wantT + " 可用") : (wantT + " available")), $"★ 面板那行「{sp.TargetsText}」= 原版拼法「{wantT}{(zhT ? " 可用" : " available")}」—— 判据 = `Replace(\"{{0}}\", n)` + 词条值 `{{0}} 可用` / `{{0}} available`");
-                        Check(Loc.HasEntry("Battle/HUD/TargetsAvailable"),
+                        Check(Loc.HasAnyTerm("Battle/HUD/TargetsAvailable"),
                               "★（坑表 #18）`Loc` 表里**真有** `Battle/HUD/TargetsAvailable`");
 
                         var langWasTargets = Loc.Current;
@@ -19385,7 +19385,7 @@ public static class BattleScene
                 Check(sp != null && sp.ResignText == Loc.T(SettingsPanel.ResignTerm),
                       $"投降按钮上写着「{(sp == null ? "" : sp.ResignText)}」"
                     + $" = `Loc.T({SettingsPanel.ResignTerm})`（当前语档 {Loc.Current}）");
-                Check(Loc.HasEntry(SettingsPanel.ResignTerm),
+                Check(Loc.HasAnyTerm(SettingsPanel.ResignTerm),
                       $"★（坑表 #18）`Loc` 表里**真有** `{SettingsPanel.ResignTerm}`");
                 // ⚠️ 战斗日志与结算副标题（`RuleCore.Forfeit` / `EndPanel`）**仍然是中文** ——
                 //    它们不属于这次改的这处 UI，等「彻底的完全翻译」那一轮一起过。
@@ -19533,7 +19533,7 @@ public static class BattleScene
                     //   🧨 改坏法：① 把 `SettingsPanel.cs:622` 写回 `AutoZoomLabelEn` ⇒ **中文档**下第 1 条红；
                     //              ② 把表里 EN 列改成「Auto Zoom」（大写 Z）⇒ 第 2 条红。
                     Check(sp.AutoZoomRowBuilt
-                       && Loc.HasEntry(SettingsPanel.AutoZoomTermKey)
+                       && Loc.HasAnyTerm(SettingsPanel.AutoZoomTermKey)
                        && sp.AutoZoomLabelText == Loc.T(SettingsPanel.AutoZoomTermKey),
                           $"★ A424：`Auto Zoom` 那一行建出来了、文字 = `Loc.T({SettingsPanel.AutoZoomTermKey})`"
                         + $"「{Loc.T(SettingsPanel.AutoZoomTermKey)}」（= **当前语档**下那条词条；实得「{sp.AutoZoomLabelText}」）");
@@ -19893,7 +19893,7 @@ public static class BattleScene
                     };
                     var w6LangWas = Loc.Current;
                     foreach (var k in w6Keys)
-                        Check(Loc.HasEntry(k), $"★ §W6（坑表 #18）`Loc` 表里**真有** `{k}`");
+                        Check(Loc.HasAnyTerm(k), $"★ §W6（坑表 #18）`Loc` 表里**真有** `{k}`");
                     foreach (var lang in new[] { AvailableLanguages.Chinese, AvailableLanguages.English })
                     {
                         Loc.RestoreForTest(lang);
@@ -26882,7 +26882,7 @@ public static class BattleScene
                 Check(drv.OvertimeSplashText == Loc.T(BattleDriver.OvertimeTerm),
                       $"★ splash 那行字「{drv.OvertimeSplashText}」= `Loc.T({BattleDriver.OvertimeTerm})`"
                     + $"（当前语档 {Loc.Current}；原版 TMP 原文 `OVERTIME!`）");
-                Check(Loc.HasEntry(BattleDriver.OvertimeTerm),
+                Check(Loc.HasAnyTerm(BattleDriver.OvertimeTerm),
                       $"★（坑表 #18）`Loc` 表里**真有** `{BattleDriver.OvertimeTerm}`");
                 drv.TickOvertime(1.0f);                       // 淡入结束
                 Check(Mathf.Abs(drv.OvertimeSplashAlpha - 1f) < 0.01f,
@@ -27209,8 +27209,8 @@ public static class BattleScene
                         //   期望值用**官方两列原文**填数，⛔ 不拿 `Loc.T` 当期望（那是自证）。
                         {
                             string fatFoe = BattleDriver.DamageFatigueText(false, 2);
-                            Check(Loc.HasEntry("Battle/Tips/DamageFatigue")
-                                  && Loc.HasEntry("Battle/Tips/DamageFatigueEnemy"),
+                            Check(Loc.HasAnyTerm("Battle/Tips/DamageFatigue")
+                                  && Loc.HasAnyTerm("Battle/Tips/DamageFatigueEnemy"),
                                   "★ 两条疲劳键都在 `Loc` 表里（我方 + 对手；对手那条本轮才补）");
                             Check(fatFoe == "敌人的卡组已空。你的敌人因疲劳受到2点伤害。"
                                || fatFoe == "Enemy deck is empty. Your enemy takes 2 damage from fatigue.",
@@ -27359,14 +27359,14 @@ public static class BattleScene
 
                         // ⑩ 文案的两态（`Battle/Tips/*` 那族键本地**一个 value 都没有** ⇒ 今天走兜底句）
                         const string keyInTable = "Battle/HUD/TargetsAvailable";   // 表里确实有这条（`Loc.cs` 实读）
-                        Check(Loc.HasEntry(keyInTable), $"★ 前提：词条 `{keyInTable}` 在语言表里");
+                        Check(Loc.HasAnyTerm(keyInTable), $"★ 前提：词条 `{keyInTable}` 在语言表里");
                         string viaTerm = BattleDriver.DamageFatigueTextWithKey(keyInTable, true, 7);
                         Check(viaTerm != fat5 && viaTerm.Contains("7") && !viaTerm.Contains("{0}")
                               && !viaTerm.Contains("Battle/"),
                               $"★ 键**在表里** ⇒ 走**词条**（`{keyInTable}` → 「{viaTerm}」）：`{{0}}` 已填数、⛔ 不印键名");
                         string viaFallback = BattleDriver.DamageFatigueTextWithKey(
                                                  "Battle/Tips/__SelftestNotInTable__", true, 7);
-                        Check(!Loc.HasEntry("Battle/Tips/__SelftestNotInTable__") && viaFallback != viaTerm
+                        Check(!Loc.HasAnyTerm("Battle/Tips/__SelftestNotInTable__") && viaFallback != viaTerm
                               && viaFallback.Contains("7") && !viaFallback.Contains("{0}")
                               && !viaFallback.Contains("Battle/"),
                               $"★ 键**不在表里** ⇒ 走**兜底句**（「{viaFallback}」）：⛔ 既不印键名、也不留 `{{0}}`"
@@ -28686,7 +28686,7 @@ public static class BattleScene
                 //    （`MulliganFrame.{ChangeCardButtonOnClick,SetupMulligan,UpdateButtonText}` 三处逐字相同）
                 //    ⇒ 上面那条「一直写着 `Replace`」只覆盖了**未标记**那一档。
                 //    ⚠️ 结尾**必须复原**（后面几节还要用这块面板，且不许留标记）。
-                Check(Loc.HasEntry(MulliganPanel.UndoTerm),
+                Check(Loc.HasAnyTerm(MulliganPanel.UndoTerm),
                       $"★（坑表 #18）`Loc` 表里**真有** `{MulliganPanel.UndoTerm}` —— 原版有 ≠ 我们表里有");
                 {
                     bool markedBeforeU = mp.IsMarked(0);
@@ -28837,9 +28837,9 @@ public static class BattleScene
                 Check(mp.PromptText == Loc.T(MulliganPanel.PromptTerm),
                       $"★ 提示行 = `Loc.T({MulliganPanel.PromptTerm})`（当前语档 {Loc.Current}）「{mp.PromptText}」"
                     + " —— ⛔ 不再带「（回车 = 完成）」那种只在中文档出现的尾巴");
-                Check(Loc.HasEntry(MulliganPanel.PromptTerm) && Loc.HasEntry(MulliganPanel.ReplaceTerm)
-                   && Loc.HasEntry(MulliganPanel.DoneTerm) && Loc.HasEntry(MulliganPanel.TurnFirstTerm)
-                   && Loc.HasEntry(MulliganPanel.TurnSecondTerm) && Loc.HasEntry(MulliganPanel.UndoTerm),
+                Check(Loc.HasAnyTerm(MulliganPanel.PromptTerm) && Loc.HasAnyTerm(MulliganPanel.ReplaceTerm)
+                   && Loc.HasAnyTerm(MulliganPanel.DoneTerm) && Loc.HasAnyTerm(MulliganPanel.TurnFirstTerm)
+                   && Loc.HasAnyTerm(MulliganPanel.TurnSecondTerm) && Loc.HasAnyTerm(MulliganPanel.UndoTerm),
                       "★（坑表 #18）换牌面板用到的 **6 条键**在 `Loc` 表里全查得到"
                     + $"（`{MulliganPanel.PromptTerm}` / `{MulliganPanel.ReplaceTerm}` / `{MulliganPanel.UndoTerm}`"
                     + $" / `{MulliganPanel.DoneTerm}` / `{MulliganPanel.TurnFirstTerm}` / `{MulliganPanel.TurnSecondTerm}`）");
@@ -29944,8 +29944,8 @@ public static class BattleScene
                 Check(panel.CardButtonCount > 0 && panel.CardBtnWordAt(0) == Loc.T(ChoosePanel.SelectTerm),
                       $"★ 每张候选下那颗钮写「{panel.CardBtnWordAt(0)}」= `Loc.T({ChoosePanel.SelectTerm})`"
                     + $"（原版 TMP 原文 `Select`；当前语档 {Loc.Current}）");
-                Check(Loc.HasEntry(ChoosePanel.SelectTerm) && Loc.HasEntry(ChoosePanel.TitleTerm)
-                   && Loc.HasEntry(MulliganPanel.DoneTerm),
+                Check(Loc.HasAnyTerm(ChoosePanel.SelectTerm) && Loc.HasAnyTerm(ChoosePanel.TitleTerm)
+                   && Loc.HasAnyTerm(MulliganPanel.DoneTerm),
                       "★（坑表 #18）选牌面板用到的三条键在 `Loc` 表里全查得到"
                     + $"（`{ChoosePanel.TitleTerm}` / `{ChoosePanel.SelectTerm}` / `{MulliganPanel.DoneTerm}`）");
                 Check(driver.ChooseOptionCount == 3,
@@ -36662,7 +36662,7 @@ public static class BattleScene
 
                         // （前提）词条在表里 —— ⛔ 不在 ⇒ `Loc.T` 回的是**键名本身**，
                         //   实现印键名、期望也是键名 ⇒ **假绿**（看不出「词条丢了」）。
-                        Check(Loc.HasEntry(TutorialOverlay.ContinueTerm),
+                        Check(Loc.HasAnyTerm(TutorialOverlay.ContinueTerm),
                               $"（前提）词条 `{TutorialOverlay.ContinueTerm}` 在表里"
                             + "（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
                         // 期望值的**独立出处**（⛔ 不从被测实现、也不从 `Loc.T` 现算）：
@@ -45076,43 +45076,43 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; RunR13(); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红）
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; RunR13(); driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红）
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
             //    `BattleDriver` **不带 `[ExecuteAlways]`**（`Battle/BattleDriver.cs:22` 那一行），而自检跑在
             //    **编辑模式**（本文件 `Run` 里那句 `EditorSceneManager.NewScene`；同一轮 A341 那条断言
             //    自己盖过章 `Application.isPlaying == false`）⇒ **编辑器不派生命周期消息** ⇒
-            //    `DestroyImmediate(组件)` **不会**调 `OnDestroy` ⇒ `DetachStaticHooks()` 压根没被调过。
+            //    `DestroyImmediate(组件)` **不会**调 `OnDestroy` ⇒ 那时 `DetachStaticHooks()` 压根没被调过（⚠️ 2026-10-30 起 `:45079` 由 AUD03 #76 **显式**调它了，见下）。
             //    **实测**（`d:/4/_tmp_view/battle.log:39055`）：卸前 17 → 现存 **17**；而 (a) 段**直接调**
             //    `DetachStaticHooks()` 是 **19 → 0**（`:38912`）⇒ **那个方法本身没毛病**，是这一档的前提不成立。
             //    ⛔ **不许把这一档写成绿、也不许删掉**（铁律 11 + 「弱断言分不出两种状态 = 没断」）：
-            //      编辑模式这半分**改断「环境事实」**（组件真没了 ∧ 钩子**原封不动**，两件都是实读）。
-            //    🔴 **真路径（真卸载 ⇒ 清零）批处理里验不了** ⇒ 归 `资料/真Play待验清单.md` **D39**
-            //      （「离开战场场景 → 再进一次」，走真卸载而不是 `DestroyImmediate`）。
-            bool realUnload388 = Application.isPlaying;
+            // 🔴 **2026-10-30 订正（`B103_F2` 现核）：这一段的前提变了 —— 两个模式现在都读 0，故不再按 `Application.isPlaying` 分档。**
+            //    **原来为什么是「原封不动」**：编辑模式（`Application.isPlaying == false`）下
+            //      `DestroyImmediate(组件)` **不派** `OnDestroy`（`BattleDriver` 不带 `[ExecuteAlways]`），
+            //      而当时全文件唯一那处 `DetachStaticHooks()` 就在 `OnDestroy` 第一句 ⇒ 卸完钩子仍是 `hookedBeforeB` 条。
+            //    **现在为什么变 0**：紧邻本段上一行（`:45079`）由 `B103_R1` 的 AUD03 #76 **在卸 driver 之前**
+            //      显式调了 `driver.DetachStaticHooks()`（紧跟一条 `StaticHookCount == 0` 断言）⇒ 现存当场归零；
+            //      实测 `d:/4/_tmp_view/battle.log:231424` 那条 `[A388(b)]` 警告已印「钩子仍挂着 **0** 条」。
+            //    ⇒ 照 2026-10-12 这一段自己写的预告办：「把上面 Play 那一档提成无条件即可」。
+            //    ⚠️ **原来那条「编辑器不派生命周期消息」仍然成立**（`BattleDriver` 那行没动），
+            //      只是它**不再是本档的后置条件** —— 清零现在归 #76 那句显式调用，不归 `OnDestroy`。
+            //    ⚠️ **这条不会变成恒真**：上面 `:34632` 那条前提 `hookedBeforeB > 0` 挡住「本来就没挂过 ⇒ 0→0」
+            //      （实测卸前 **25** 条，日志 `d:/4/_tmp_view/battle.log:164912`）。
+            //    ⚠️ **「`DetachStaticHooks()` 这个方法本身对不对」另有一处真测**：上面 (a) 半（`:33828`）直接调它，
+            //      断的是「摘前 N → 摘掉 N → 现存 0」⇒ 与这里不重叠（这里只管「卸载之后确实是 0」）。
+            //    🔴 **真路径（真卸载 ⇒ 清零、不靠显式 Detach）批处理里仍然验不了** ⇒ 归
+            //      `资料/真Play待验清单.md` **D39**（「离开战场场景 → 再进一次」，走真卸载而不是 `DestroyImmediate`）。
+            //    📌 本段不再用 `Application.isPlaying`（原 `bool realUnload388` 已删）—— 不是漏写，两档断言的就是同一件事。
+            //    📌 原 `else` 支那句 `Debug.LogWarning("[A388(b)] …")` 一并删掉（两档合一后每轮都会印 = 刷屏）；
+            //      它原本的内容已逐字搬进上面「原来为什么」那四行，⛔ 别把它加回来。
             int hookedAfterB = BattleDriver.StaticHookCount;
-            if (realUnload388)
-            {
-                Check(hookedAfterB == 0,
-                      $"★ A388：**组件真被卸载**之后一条静态钩子都不剩（卸前 {hookedBeforeB} → 现存 {hookedAfterB}）"
-                    + " —— 这一档 `DestroyImmediate` 会派 `OnDestroy`（它第一句就是 `DetachStaticHooks()`）"
-                    + "；🧨 改坏法：`OnDestroy` 不摘（或摘漏一条）⇒ 现存 ≥ 1 ⇒ 红");
-            }
-            else
-            {
-                Debug.LogWarning($"[A388(b)] 编辑模式（`Application.isPlaying == false`）：`DestroyImmediate(组件)` "
-                               + "**不派 `OnDestroy`**（`BattleDriver` 不带 `[ExecuteAlways]`）⇒ 钩子仍挂着 "
-                               + $"{hookedAfterB} 条、且指着**已销毁**的 driver。这一档**验不了**「真卸载 ⇒ 清零」"
-                               + "—— 真路径 = 离开战场场景 → 再进一次，只有真 Play 能跑到"
-                               + "（`资料/真Play待验清单.md` D39）。");
-                Check(driver == null && hookedAfterB == hookedBeforeB,
-                      $"★ A388（编辑模式这一档）：组件**真没了**（`== null`）而钩子**原封不动**"
-                    + $"（{hookedBeforeB} → {hookedAfterB}）—— 这是「编辑器不派生命周期消息」那条环境事实，"
-                    + "**不是**「实现了清零」（清零那半只有真 Play 能验，D39）"
-                    + "；🧨 改坏法：给 `BattleDriver` 加 `[ExecuteAlways]`（或让这一路真派上 `OnDestroy`）"
-                    + " ⇒ 现存变 0 ⇒ 本条红 —— 那是「环境变了、好消息」，把上面 Play 那一档提成无条件即可");
-            }
+            Check(driver == null && hookedAfterB == 0,
+                  $"★ A388：**组件真被卸载**之后一条静态钩子都不剩（卸前 {hookedBeforeB} → 现存 {hookedAfterB}）"
+                + " —— 两个模式一致：编辑模式的清零来自 `:45079` 那句显式 `DetachStaticHooks()`，"
+                + "真 Play 下 `OnDestroy` 还会再摘一次（那会儿已是 0 条 ⇒ 幂等）"
+                + "；🧨 改坏法：删掉 `:45079` 的 `driver.DetachStaticHooks()` ⇒ 编辑模式切回「钩子原封不动」"
+                + $"（现存会回到 {hookedBeforeB} 条）⇒ 红");
             // ⚠️ 销毁的是**组件**（不是 `driver.gameObject` —— 那是 `sceneRoot`）。
             // ⚠️ **仍然没验的那条真路径**：离开战场场景 → 再进一次（场景卸载 → 新 driver）—— 那要真 Play（D39）。
         }
@@ -46702,7 +46702,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail;  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

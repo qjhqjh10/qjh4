@@ -2886,6 +2886,17 @@ namespace CardPresentation
 
         /// <summary>自检口：Premium 轨第 day 格拨到「已领 / 未领」（同 `ForceRewardClaimedForTest` 一族）。⛔ 运行时别调。</summary>
         public static void ForceRewardPremiumClaimedForTest(int day, bool claimed) { _rewardPremClaimed[RI(day)] = claimed; }
+
+        /// <summary>🆕 **2026-10-30（`B103_F3` · 只读口）**：第 `i` 条的**英文原始 `Desc`**（= `_daily[i].Desc` 本身，
+        /// ⛔ **不**走 <see cref="DailyDesc"/> 那条本地化路）。
+        /// <para>🔴 **为什么必须有它**：`RerollDaily` 的候选过滤比的是 **`_daily[].Desc`（英文原文）**
+        /// （见 <see cref="RerollDaily"/> 里那句 `_daily[j].Desc == _rerollPoolCur[k].Desc`），
+        /// 而 <see cref="DailyDesc"/> 在 `Term` 非空时返回的是 **`Loc.T(Term)` 之后的中文** ⇒
+        /// **任何拿 `DailyDesc` 去和 `_daily[].Desc` 比（或用它造重摇池）的自检都会静默失效**
+        /// （`Editor/RewardsScene.cs` 的「池子不够时那条兜底」就是这样，B103_D3 #17/#18）。
+        /// ⛔ 别改 `RerollDaily` 的比较口径去迎合自检 —— 生产池与 `_daily` 两侧都是英文原文，产品是对的。</para>
+        /// <para>⚠️ **只读**：不写任何状态、不出声、不落盘。运行时同样安全（`At(i)` 本来就只读）。</para></summary>
+        public static string DailyRawDescForTest(int i) { return At(i).Desc; }
     }
 
     /// <summary>

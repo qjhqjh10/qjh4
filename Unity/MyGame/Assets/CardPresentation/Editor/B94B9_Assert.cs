@@ -69,7 +69,7 @@ public static class B94B9_Assert
         Tr(EffectsToShow.IsMarkBuffType(8) && EffectsToShow.IsMarkBuffType(17)
            && !EffectsToShow.IsMarkBuffType(3),
            "P1 前提：`EffectsToShow.IsMarkBuffType` 只认 8 / 17（判据 `CardEffectItem__LoadEffect.c:53`）");
-        Tr(Loc.HasBulk("Card_Trait/markOfKhorne") || Loc.HasEntry("Card_Trait/markOfKhorne"),
+        Tr(Loc.HasBulk("Card_Trait/markOfKhorne") || Loc.HasAnyTerm("Card_Trait/markOfKhorne"),
            "P2 前提：官方表里有 `Card_Trait/markOfKhorne`（整条断言链依赖它取得到专名）"
            + "｜🧨 词条丢了 ⇒ 下面几条会退化成印枚举名，本条先红");
 

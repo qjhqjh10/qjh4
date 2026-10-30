@@ -4629,7 +4629,7 @@ public static class SettingsScene
                     {
                         // ⚠️ 先核「键**在表里**」：键名写错时 `Loc.T` 会**把键名原样返回**
                         //    （`Loc.T` 的缺键语义）⇒ 那样「拿键名当期望值」可能**看着对**。这一条把它挡住。
-                        CheckTrue(Loc.HasEntry(probes[i].Key),
+                        CheckTrue(Loc.HasAnyTerm(probes[i].Key),
                                   $"（波 1b 前提）键 `{probes[i].Key}` **在表里**（⛔ 缺键时 `Loc.T` 返回键名本身）");
                         var t = probes[i].Find();
                         string got = t != null ? TextOf(t) : null;
@@ -4687,7 +4687,7 @@ public static class SettingsScene
                 {
                     var noteOn = FindChild(FindChild(root, "Online Tab"), "Note");
                     CheckTrue(noteOn != null, "（`A1048` 前提）`Online Tab > Note` 取得到（下面才有对象可量）");
-                    CheckTrue(Loc.HasEntry("Settings/Online/TitleNoteBody"),
+                    CheckTrue(Loc.HasAnyTerm("Settings/Online/TitleNoteBody"),
                               "（`A1048` 前提）`Settings/Online/TitleNoteBody` 在表里"
                             + "（⛔ 缺键时 `Loc.T` 返回键名本身 ⇒ 下面那条会拿键名当期望值、假绿）");
                     string gotZh = null, gotEn = null;

@@ -3186,7 +3186,7 @@ public static class MainMenuScene
                     //      ⛔ 别把它挪到 `pw.ToggleDeckInfo()` **之后**：那一格会把 `General container` 关掉，
                     //      而 `FindChild` **含 inactive**（`Editor/MenuCheck.cs` 的 `GetComponentsInChildren(true)`）
                     //      ⇒ 会「找得到、字也在」、看着仍绿 = 假绿。
-                    CheckTrue(Loc.HasEntry("MainMenu/RankedWindow/ChangeDeck"),
+                    CheckTrue(Loc.HasAnyTerm("MainMenu/RankedWindow/ChangeDeck"),
                               "（前提）词条 `MainMenu/RankedWindow/ChangeDeck` 在表里"
                             + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(chgT), Loc.T("MainMenu/RankedWindow/ChangeDeck"),
@@ -3199,7 +3199,7 @@ public static class MainMenuScene
                     //    而 `CheckAt` 比的是 **`localPosition`**（只对直接子件成立）⇒ 第一版差 565.73px。
                     CheckAtWorld(FindChild(gen0, "Deck Information Cost/balance text"),
                                  1276.27f, 1540.27f, 326.95f, 381.27f, "`Cost/balance text`（fs34 auto[1-34] · 居中）");
-                    CheckTrue(Loc.HasEntry("Demo/CardCostBalance"), "（前提）词条 `Demo/CardCostBalance` 在表里");
+                    CheckTrue(Loc.HasAnyTerm("Demo/CardCostBalance"), "（前提）词条 `Demo/CardCostBalance` 在表里");
                     // 🔴 **2026-10-11（`A1501`）**：期望值改成 `Loc.T(原版 mTerm)`（原来写死英文）。
                     //    🧨 鉴别式：实现改回直接画资产里的 `m_text` ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 红。
                     CheckText(TextOf(FindChild(gen0, "Deck Information Cost/balance text")), Loc.T("Demo/CardCostBalance"),
@@ -3269,19 +3269,19 @@ public static class MainMenuScene
                 //      见那一大段的注释。
                 //   ⚠️ 这一颗是**窗根的直接子件**（不是 `Deck info` 那棵子树里的）⇒ 用 `FindChild(pw.transform, …)`，
                 //      与 `Battle Text` / `tooltip` / `Toggle Label` 那三颗同一个取法。
-                CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
+                CheckTrue(Loc.HasAnyTerm("MainMenu/MainButtons/ButtonLabel/Back"),
                           "（前提）词条 `MainMenu/MainButtons/ButtonLabel/Back` 在表里"
                         + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                 CheckText(TextOf(FindChild(pw.transform, "Back Text")), Loc.T("MainMenu/MainButtons/ButtonLabel/Back"),
                           "`Back Text` 文案 = 原版那颗 TMP 的 `mTerm`（`MainMenu/MainButtons/ButtonLabel/Back`；"
                         + "原来这里是**写死的英文** `Back`）");
-                CheckTrue(Loc.HasEntry("Demo/ToBattle"), "（前提）词条 `Demo/ToBattle` 在表里");
+                CheckTrue(Loc.HasAnyTerm("Demo/ToBattle"), "（前提）词条 `Demo/ToBattle` 在表里");
                 CheckText(TextOf(FindChild(pw.transform, "Battle Text")), Loc.T("Demo/ToBattle"),
                           "开战钮文案 = 原版那颗 TMP 的 `mTerm`（`Demo/ToBattle`；原来这里是写死的 `Battle!`）");
-                CheckTrue(Loc.HasEntry("Demo/DeckSelectionDemo/SelectDeck"), "（前提）词条 `Demo/DeckSelectionDemo/SelectDeck` 在表里");
+                CheckTrue(Loc.HasAnyTerm("Demo/DeckSelectionDemo/SelectDeck"), "（前提）词条 `Demo/DeckSelectionDemo/SelectDeck` 在表里");
                 CheckText(TextOf(FindChild(pw.transform, "tooltip")), Loc.T("Demo/DeckSelectionDemo/SelectDeck"),
                           "`tooltip` 文案 = 原版 `mTerm`（`Demo/DeckSelectionDemo/SelectDeck`）");
-                CheckTrue(Loc.HasEntry("Event_Description/Generic/GameMode"), "（前提）词条 `Event_Description/Generic/GameMode` 在表里");
+                CheckTrue(Loc.HasAnyTerm("Event_Description/Generic/GameMode"), "（前提）词条 `Event_Description/Generic/GameMode` 在表里");
                 CheckText(TextOf(FindChild(pw.transform, "Toggle Label")), Loc.T("Event_Description/Generic/GameMode"),
                           "`Toggle Label` 文案 = 原版 `mTerm`（`Event_Description/Generic/GameMode`）");
                 // 🔴 **2026-10-22（`D1`）：出厂赛制 = 原版 `Skirmish(13)`** —— 判据 = 原版
@@ -7086,7 +7086,7 @@ public static class MainMenuScene
                         //   改成 `Loc.T("Demo/AvatarMenu/SelectAvatar")`（官方两列 `Select your avatar` / `选择你的头像`）。
                         //   期望值**随语档**取（⛔ 不再写死英文字面量 —— 那样中文档下必红，且等于把实现钉在英文上）。
                         //   🧨 鉴别式：实现改回写死英文 ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 下面这条红。
-                        CheckTrue(Loc.HasEntry("Demo/AvatarMenu/SelectAvatar"),
+                        CheckTrue(Loc.HasAnyTerm("Demo/AvatarMenu/SelectAvatar"),
                                   "（前提）词条 `Demo/AvatarMenu/SelectAvatar` 在表里");
                         CheckText(TextOf(FindChild(disp2, "Select Item")), Loc.T("Demo/AvatarMenu/SelectAvatar"),
                                   "小标题文案 = `Loc.T(\"Demo/AvatarMenu/SelectAvatar\")`（随语档）");
@@ -7400,7 +7400,7 @@ public static class MainMenuScene
                         //   改成 `Loc.T("MainMenu/Register/PleaseChooseName")`（官方两列 `Choose your player name`
                         //   / `选择你的玩家名字`）。期望值**随语档**取（⛔ 不再写死英文字面量）。
                         //   🧨 鉴别式：实现改回写死英文 ⇒ 中文档读到英文 ≠ `Loc.T(键)` ⇒ 下面这条红。
-                        CheckTrue(Loc.HasEntry("MainMenu/Register/PleaseChooseName"),
+                        CheckTrue(Loc.HasAnyTerm("MainMenu/Register/PleaseChooseName"),
                                   "（前提）词条 `MainMenu/Register/PleaseChooseName` 在表里");
                         CheckText(TextOf(FindChild(cnw, "MessageText")), Loc.T("MainMenu/Register/PleaseChooseName"),
                                   "文案 = `Loc.T(\"MainMenu/Register/PleaseChooseName\")`（随语档）");
@@ -8187,7 +8187,7 @@ public static class MainMenuScene
                                 }
                             }
                             string achKey = "Achievements/" + a0.Id;
-                            if (Loc.HasEntry(achKey))
+                            if (Loc.HasAnyTerm(achKey))   // 🔴 2026-10-30（`B103_R3`）宽化：`Achievements/*` 手写表 0 条、官方表 212 条 ⇒ 原来这道闸**恒假**、里面那条断言从未执行；换 `HasAnyTerm` 后才真正生效
                             {
                                 string achOfficial = Loc.T(achKey);
                                 if (!string.IsNullOrEmpty(achOfficial)
@@ -11987,7 +11987,7 @@ public static class MainMenuScene
                         CheckTrue(br != null && br.gameObject.activeSelf,
                                   $"左栏第 {i + 1} 键**真在画面上**（原版 `tabButtonPrefab = null` ⇒ 末项不是母版，⛔ 别被关掉）"
                                 + "（`CheckAtWorld` 含 inactive 也找得到，所以必须有这一条）");
-                        CheckTrue(i < socialTabTerms.Length && Loc.HasEntry(socialTabTerms[i]),
+                        CheckTrue(i < socialTabTerms.Length && Loc.HasAnyTerm(socialTabTerms[i]),
                                   $"（前提）左栏第 {i + 1} 键的词条 `{socialTabTerms[i]}` 在表里"
                                 + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                         CheckText(TextOf(FindChild(br, "Text")), Loc.T(socialTabTerms[i]).ToUpperInvariant(),
@@ -12142,7 +12142,7 @@ public static class MainMenuScene
                     //   ⇒ 宿主跑中文档时写死的 `"Join"` / `"Create"` 必红。
                     //   🔴 第一颗的键**必须**与 `LabelJoin`（那个属性）用**同一把** —— 它运行期会被
                     //   `SetJoinLabel` 重设（详情态换 `Back`、回来换回本键），下面 §详情态 那一节还有一条钉它。
-                    CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Join") && Loc.HasEntry("SocialMenu/Alliances/Create"),
+                    CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/Join") && Loc.HasAnyTerm("SocialMenu/Alliances/Create"),
                               "（前提）两条页签词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(FindChild(hdr, "Generic Tab UI Button Search")), Loc.T("SocialMenu/Alliances/Join"),
                               "第一个键的文案 = `Loc.T(\"SocialMenu/Alliances/Join\")`（随语档；"
@@ -12179,7 +12179,7 @@ public static class MainMenuScene
                                       "★ 搜索框占位 `Search` **不折行**（原版 `折行=0`，`字号=50 auto[18~50]`）");
                         // 🔴 **2026-10-18（第五轮）**：占位符那句字**走词条**了（`Shell/AlliancesTab.cs` 的
                         //   `Loc.T("MenuDeck/HUD/SearchFilter")` —— 与卡组线那几颗**同一条 mTerm**）⇒ 同批断文案。
-                        CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                        CheckTrue(Loc.HasAnyTerm("MenuDeck/HUD/SearchFilter"),
                                   "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                         CheckText(TextOf(phF != null ? FindChild(phF, "Placeholder") : null),
                                   Loc.T("MenuDeck/HUD/SearchFilter"),
@@ -12218,7 +12218,7 @@ public static class MainMenuScene
                         // 🔴 **2026-10-18（第六轮）**：这颗 `Title` 的字从本轮起**走词条**
                         //   （`Shell/AlliancesTab.cs` 的 `Loc.T("SocialMenu/Alliances/OpenAlliances")`，
                         //   键 = 原版那颗 `Title` 的 `Localize.mTerm` 原文）⇒ 同批断文案。
-                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/OpenAlliances"),
+                        CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/OpenAlliances"),
                                   "（前提）词条 `SocialMenu/Alliances/OpenAlliances` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                         CheckText(TextOf(FindChild(FindChild(lv, "Open Alliances"), "Title")),
                                   Loc.T("SocialMenu/Alliances/OpenAlliances"),
@@ -12332,7 +12332,7 @@ public static class MainMenuScene
                         // 🔴 **2026-10-18（第六轮）**：这颗的字也从本轮起**走词条** ⇒ 同批断文案。
                         //   ⚠️ 它在上面的 `cav`（出厂关着的 `Create Alliance View`）里 ⇒ `TextOf` 读 `Label.Text`
                         //   **字段**（不是渲染）⇒ 读得到。
-                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/CreateAlliance"),
+                        CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/CreateAlliance"),
                                   "（前提）词条 `SocialMenu/Alliances/CreateAlliance` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                         CheckText(TextOf(FindChild(cav, "Create Alliance Text")),
                                   Loc.T("SocialMenu/Alliances/CreateAlliance"),
@@ -12343,8 +12343,8 @@ public static class MainMenuScene
                                       "★ A414（表 #14）`Name input title` 的 `m_fontSizeBase` = 原版 **36.0**");
                         // 🔴 **2026-10-18（第八轮）**：建盟页那两行标题的**字**也从本轮起走词条 ⇒ 同批断文案
                         //   （同 `cav` 那道「出厂关着 ⇒ `TextOf` 读字段」的口径）。
-                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/NameInput")
-                                  && Loc.HasEntry("SocialMenu/Alliances/DescriptionInput"),
+                        CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/NameInput")
+                                  && Loc.HasAnyTerm("SocialMenu/Alliances/DescriptionInput"),
                                   "（前提）两条词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
                         CheckText(TextOf(nt), Loc.T("SocialMenu/Alliances/NameInput"),
                                   "★ `Name input title` 的字 = `Loc.T(\"SocialMenu/Alliances/NameInput\")`"
@@ -12357,8 +12357,8 @@ public static class MainMenuScene
                         //   ⇒ 同批断文案（⚠️ 同为 `cav` 里出厂关着的件 ⇒ `TextOf` 读字段）。
                         //   🔴 这两条键与设置窗那条 `MainMenu/Settings/ButtonLabel/SelectLanguage` **是两条不同的键**
                         //     （中文同为「选择语言」但**不许合并** —— 键名照原版 `mTerm`）。
-                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/SelectLanguage")
-                                  && Loc.HasEntry("SocialMenu/Alliances/SelectPrivacy"),
+                        CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/SelectLanguage")
+                                  && Loc.HasAnyTerm("SocialMenu/Alliances/SelectPrivacy"),
                                   "（前提）两条下拉标题词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
                         CheckText(TextOf(FindChild(cav, "Select Language")), Loc.T("SocialMenu/Alliances/SelectLanguage"),
                                   "★ `Select Language` 标题的字 = `Loc.T(\"SocialMenu/Alliances/SelectLanguage\")`"
@@ -12372,7 +12372,7 @@ public static class MainMenuScene
                         //     （上面 `CardPresentation/Shell/AlliancesTab.cs` 明断 `Invitations.Count + OpenAlliances.Count == 0`、`CardPresentation/Shell/AlliancesTab.cs` 断
                         //      `Invitation List Entry == null`）⇒ **邀请行一行都不建**、那个节点不存在。
                         //   ⇒ 这里**只钉「键在表里」**（防「键不在 ⇒ 界面上印键名」那一档），并**如实记**这一格没有渲染断言。
-                        CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Dismiss"),
+                        CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/Dismiss"),
                                   "（前提）词条 `SocialMenu/Alliances/Dismiss` 在表里"
                                 + "（⚠️ 邀请行那两颗钮**本地一行都不建** ⇒ 渲染值断不了，只钉键在不在）");
                         CheckFontBase(ptTx, 39f,
@@ -12414,7 +12414,7 @@ public static class MainMenuScene
                     // 🔴 **2026-10-18（第七轮）改「随语档」**：占位文案从本轮起走词条
                     //   （`Shell/FriendsTab.cs` 的 `PlaceholderText` → `Loc.T("Demo/FriendsMenu/EnterPlayerName")`）
                     //   ⇒ 宿主跑中文档时写死的 `"Enter player name"` 必红。原文留在 `Loc` 的英文列里。
-                    CheckTrue(Loc.HasEntry("Demo/FriendsMenu/EnterPlayerName"),
+                    CheckTrue(Loc.HasAnyTerm("Demo/FriendsMenu/EnterPlayerName"),
                               "（前提）词条 `Demo/FriendsMenu/EnterPlayerName` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(FindChild(fp, "Search Field")), Loc.T("Demo/FriendsMenu/EnterPlayerName"),
                               "占位文案 = `Loc.T(\"Demo/FriendsMenu/EnterPlayerName\")`（随语档；"
@@ -12441,7 +12441,7 @@ public static class MainMenuScene
                                  "`Instant duel Button`");
                     // 🔴 **2026-10-18（N60）**：`Search Player` 那行字从本轮起走词条
                     //   （`Shell/FriendsTab.cs` → `Loc.T("Demo/FriendsMenu/SearchPlayer")`）⇒ 写死英文必红。
-                    CheckTrue(Loc.HasEntry("Demo/FriendsMenu/SearchPlayer"),
+                    CheckTrue(Loc.HasAnyTerm("Demo/FriendsMenu/SearchPlayer"),
                               "（前提）词条 `Demo/FriendsMenu/SearchPlayer` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(FindChild(fp, "Search Player")), Loc.T("Demo/FriendsMenu/SearchPlayer"),
                               "`Search Player` 那行字 = `Loc.T(\"Demo/FriendsMenu/SearchPlayer\")`（随语档；"
@@ -12449,7 +12449,7 @@ public static class MainMenuScene
                     var fl = FindChild(fr, "Friends List");
                     // 🔴 **2026-10-18（第七轮）改「随语档」**：这一行从本轮起走词条
                     //   （`Shell/FriendsTab.cs` 的 `Loc.T("Demo/FriendsMenu/YourFriends")`）⇒ 写死的 `"Your friends:"` 必红。
-                    CheckTrue(Loc.HasEntry("Demo/FriendsMenu/YourFriends"),
+                    CheckTrue(Loc.HasAnyTerm("Demo/FriendsMenu/YourFriends"),
                               "（前提）词条 `Demo/FriendsMenu/YourFriends` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                     CheckText(TextOf(FindChild(fl, "Friends Title")), Loc.T("Demo/FriendsMenu/YourFriends"),
                               "`Friends Title` 的字 = `Loc.T(\"Demo/FriendsMenu/YourFriends\")`（随语档；"
@@ -12881,8 +12881,8 @@ public static class MainMenuScene
                                 //   ⚠️ 这里拿**第一颗建出来的行**读字（`TextOf` 读 `Label.Text` 字段 ⇒ 与显隐无关）。
                                 {
                                     var e0 = FindChild(oaList, "Entry");
-                                    CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Members")
-                                              && Loc.HasEntry("SocialMenu/Alliances/Ranking"),
+                                    CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/Members")
+                                              && Loc.HasAnyTerm("SocialMenu/Alliances/Ranking"),
                                               "（前提）词条 `SocialMenu/Alliances/{Members,Ranking}` 都在表里"
                                             + "（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
                                     CheckText(TextOf(e0 != null ? FindChild(e0, "Members Header") : null),
@@ -13118,8 +13118,8 @@ public static class MainMenuScene
                                 //   ⚠️ 第一颗的键 = **`Settings/General/Title`** —— 原版**自己复用了设置窗那条通用词条**
                                 //   （不是我们挑的；这就是「同一条 term 挂两个窗」的又一例）；
                                 //   第二颗 = `SocialMenu/Alliances/Trophies`。配对判据（父链逐节同名）写在那两处实现里。
-                                CheckTrue(Loc.HasEntry("Settings/General/Title")
-                                          && Loc.HasEntry("SocialMenu/Alliances/Trophies"),
+                                CheckTrue(Loc.HasAnyTerm("Settings/General/Title")
+                                          && Loc.HasAnyTerm("SocialMenu/Alliances/Trophies"),
                                           "（前提）两条词条都在表里（⛔ 不在 ⇒ 下面两条两边一起退化成键名 = 假绿）");
                                 CheckText(TextOf(tabRow != null ? FindChild(FindChild(tabRow, "Generic Tab UI Button Info"), "Button Text") : null),
                                           Loc.T("Settings/General/Title"),
@@ -14067,7 +14067,7 @@ public static class MainMenuScene
                                             //   词条，而**词条表在远端 CCD** ⇒ 只能照抄那个串本身）」—— **后半不成立**：
                                             //   那颗 `Localize` 的 **`mTerm` 就在 prefab 上**（键名本地读得到），取不到的只是**译文**；
                                             //   而中文列本来就是我们自己译的 ⇒ 完全可以接（同 `LabelBack` 那次同类错，见 §15）。
-                                            CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Trophies/NextTier"),
+                                            CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/Trophies/NextTier"),
                                                       "（前提）词条 `SocialMenu/Alliances/Trophies/NextTier` 在表里"
                                                     + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                                             CheckText(TextOf(pNext), Loc.T("SocialMenu/Alliances/Trophies/NextTier"),
@@ -14200,7 +14200,7 @@ public static class MainMenuScene
                                                         + "（原版显隐走 `Toggle.graphic` 的 alpha，不是 `SetActive`）");
                                             // 🔴 **2026-10-18（第十一轮）改「随语档」**：这一行走词条了
                                             //   （`Shell/TrophyInfoPopup.cs` 的 `FeatureLabel` → `Loc.T(键)`）。
-                                            CheckTrue(Loc.HasEntry("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"),
+                                            CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/Trophies/FeaturedTrophyLabel"),
                                                       "（前提）词条 `SocialMenu/Alliances/Trophies/FeaturedTrophyLabel` 在表里"
                                                     + "（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                                             CheckText(TextOf(FindChild(pChk, "Label")),
@@ -14678,7 +14678,7 @@ public static class MainMenuScene
                                 //   （判据 = `d:/2/tools/il2cpp_out/stringliteral.json` 的 RVA `0x42BFC18`；
                                 //    见 `Shell/AlliancesTab.cs` 的 `LabelBack` 那段订正）。⇒ 期望值改成 `Loc.T(键)`。
                                 //   🧨 鉴别式同上一轮：把 `LabelBack` 改回 `const "Back"` ⇒ 中文档读到 `Back` ≠ `Loc.T(键)` ⇒ 红。
-                                CheckTrue(Loc.HasEntry("MainMenu/MainButtons/ButtonLabel/Back"),
+                                CheckTrue(Loc.HasAnyTerm("MainMenu/MainButtons/ButtonLabel/Back"),
                                           "（前提）词条 `MainMenu/MainButtons/ButtonLabel/Back` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名）");
                                 CheckText(TextOf(FindChild(FindChild(nmv, "Alliance Header Buttons"),
                                                            "Generic Tab UI Button Search")),
@@ -16304,7 +16304,7 @@ public static class MainMenuScene
                 //   `Loc.T("MenuDeck/HUD/SearchFilter")` —— 与 `AlliancesTab` 的搜索框占位、以及卡组线那几颗
                 //   **同一条 mTerm**）⇒ 同批断文案。
                 //   ⚠️ 它祖先关着，但 `TextOf` 读的是 `Label.Text` **字段**（不是渲染结果）⇒ 照样读得到。
-                CheckTrue(Loc.HasEntry("MenuDeck/HUD/SearchFilter"),
+                CheckTrue(Loc.HasAnyTerm("MenuDeck/HUD/SearchFilter"),
                           "（前提）词条 `MenuDeck/HUD/SearchFilter` 在表里（⛔ 不在 ⇒ 下一条两边一起退化成键名 = 假绿）");
                 CheckText(TextOf(jb != null ? FindChild(jb, "Button Text") : null), Loc.T("MenuDeck/HUD/SearchFilter"),
                           "★ `Join Alliances Button/Button Text` 的字 = `Loc.T(\"MenuDeck/HUD/SearchFilter\")`（随语档；"
@@ -16312,8 +16312,8 @@ public static class MainMenuScene
                 // 🔴 **2026-10-18（第六轮）**：本面板另三处写死英文也从本轮起**走词条** ⇒ 同批断文案。
                 //   ⚠️ 它们（`Join Alliance text` / 两颗 `Leaderboard`）都在**出厂关着**的子树里 ⇒
                 //   `TextOf` 读 `Label.Text` **字段**（不是渲染）⇒ 读得到。
-                CheckTrue(Loc.HasEntry("SocialMenu/Alliances/JointToEarnRewards")
-                          && Loc.HasEntry("MainMenu/RankedWindow/Leaderboard"),
+                CheckTrue(Loc.HasAnyTerm("SocialMenu/Alliances/JointToEarnRewards")
+                          && Loc.HasAnyTerm("MainMenu/RankedWindow/Leaderboard"),
                           "（前提）词条 `SocialMenu/Alliances/JointToEarnRewards` 与 `MainMenu/RankedWindow/Leaderboard`"
                         + " 都在表里（⛔ 不在 ⇒ 下面三条两边一起退化成键名 = 假绿）");
                 CheckText(TextOf(FindChild(panel.NoAllianceGo.transform, "Join Alliance text")),
@@ -16999,7 +16999,7 @@ public static class MainMenuScene
         {
             string UiTerm(string key, string fallback)
             {
-                if (Loc.HasEntry(key)) return Loc.T(key);
+                if (Loc.HasAnyTerm(key)) return Loc.T(key);
                 var v = Loc.Lang13Of(key, Loc.Current == AvailableLanguages.Chinese ? "zh" : "en");
                 return string.IsNullOrEmpty(v) ? fallback : v;
             }
@@ -17386,7 +17386,7 @@ public static class MainMenuScene
         {
             string FtueTerm(string key, string en, string zh)
             {
-                if (Loc.HasEntry(key)) return Loc.T(key);
+                if (Loc.HasAnyTerm(key)) return Loc.T(key);
                 bool zhUi = Loc.Current == AvailableLanguages.Chinese;
                 string v = Loc.Lang13Of(key, zhUi ? "zh" : "en");
                 return string.IsNullOrEmpty(v) ? (zhUi ? zh : en) : v;
@@ -18444,7 +18444,7 @@ public static class MainMenuScene
             }
         }
 
-        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ==="); EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail;   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
+        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; B103W2_Assert.Run(); _sink.Pass += B103W2_Assert.Pass; _sink.Fail += B103W2_Assert.Fail; EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `本文件`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准

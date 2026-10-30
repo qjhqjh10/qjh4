@@ -2524,6 +2524,15 @@ namespace CardPresentation
         /// **⛔ 不扣资源、不改存档、不假装买成功**（`🔶 自己设计` 的标记写在本方法体内那一行注释里）。</summary>
         public void OnBuyOriginalCardClicked()
         {
+            // 🆕 **原版第一句**（`AlternateArtPanel__BuyOriginalCard.c:26-28`；ILSpy `AlternateArtPanel.cs:639`）：
+            //   `WindowsManager.ShowPopUp("MenuShop/WaitingPopup", localizeTexts:true, closeOnEsc:false, 无钮)`
+            //   = **本地可做的那一段**（同 `Shell/ShopTabPage.cs:770-789` 的现成写法，⛔ 不加延迟）。
+            //   ⚠️ `:1889-1892` 那段注释把这一句写成「确认弹窗」，与 `.c` 不符（已就地订正，见下）。
+            var wm = Manager != null ? Manager : WindowsManager.Instance;
+            if (wm != null) wm.ShowMessagePopUp(ShopTabPage.WaitingPopupTerm, null, null, null, null, closeOnEsc: false);
+            // 请求发不出去（服务器已关服）⇒ 走原版**失败回调**第一句 `WindowsManager.HidePopUp(forceHide:true)`
+            //   （`AlternateArtPanel.__c___BuyOriginalCard_b__24_1.c:15`）。
+            if (wm != null) wm.HidePopUp(true);
             string say = Loc.HasAnyTerm("CustomErrors/InternetUnreachable") ? Loc.T("CustomErrors/InternetUnreachable") : "离线：购买原画需要连接服务器（服务器已关服 ⇒ 本地不扣资源、不改存档）。";   // 🔶 自己设计（非原版）：离线只出声、不假装买成功 · 原版这一跳是 PlayFab CloudScript 购买（价格 `ItemsConfig.GetOriginalArtPrice` 与扣费/入库都在服务端），服务器已关服、判据在远端 · 调度台 2026-10-30 裁定；词条 = 官方 `CustomErrors/InternetUnreachable`（与 `Shell/ErrorPopupWindowController` 的 `CustomError.InternetUnreachable` 同一条，官方 13 语言全表命中 ⇒ 不会印键名）
             Debug.LogWarning("[CardDetail] `Buy Original Card` **离线**：购买原画要连服务器（原版 PlayFab CloudScript）⇒ **不扣资源、不改存档**、只出声：" + say);
             if (!MessageToast.ShowError(say, false))

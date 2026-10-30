@@ -196,7 +196,7 @@ namespace CardPresentation
                 // 原版：`term = "PrebattleTips/" + raw`，再查 I2。我们照同一口径查词条；
                 //   查不到就把 raw 本身当文案（**只在它不像键的时候**），否则出声。
                 var key = "PrebattleTips/" + raw;
-                string text = Loc.HasEntry(key) ? Loc.T(key) : raw;
+                string text = Loc.HasAnyTerm(key) ? Loc.T(key) : raw;
                 if (string.IsNullOrEmpty(text)) continue;
                 if (text == newTip) continue;      // 原版：与上一条相同 ⇒ 重抽
                 return text;

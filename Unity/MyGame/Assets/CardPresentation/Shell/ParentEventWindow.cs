@@ -563,8 +563,8 @@ namespace CardPresentation
             win.Manager = mgr;
             win._initialPage = (int)page;
             WindowsManager.AttachToAnchor(win);
-            if (mgr != null) mgr.OpenWindow(win);
-            else { Debug.LogWarning("[ParentEvent] 没有 `WindowsManager` ⇒ 只建出来、没进窗口管理器。"); win.Open(); }
+            if (mgr == null) Debug.LogWarning("[ParentEvent] 没有 `WindowsManager` ⇒ 只建出来、没进窗口管理器（由调用方自己开；本方法**不再自开**）。");   // ⛔ B103_R1（AUD03 #120）：原来 `if (mgr != null) mgr.OpenWindow(win); else { …; win.Open(); }` 与唯一调用方 `WindowsManager.OpenByRef` 的 `:940` 撞成**首开双 Build**（`Parent.SwitchPage` 也跟着跑两遍）。原版 `Create` 不自开。
+            // （原兜底 `win.Open()` 一并去掉：那条会先建一遍树，与 `OpenByRef` 那条路重复。）
             return win;
         }
 

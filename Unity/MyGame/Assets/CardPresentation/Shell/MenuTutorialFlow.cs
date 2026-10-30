@@ -847,12 +847,12 @@ namespace CardPresentation
             Debug.Log("[MenuTutorial] 整屏简报：`" + (titleKey ?? "-") + "` / `" + (bodyKey ?? "-") + "`");
         }
 
-        /// <summary>官方词条取值：`Loc.Table` 优先，其次 13 语言表（`official_loc_13lang.json`）。
+        /// <summary>官方词条取值：`Loc.Table` 优先，其次 13 语言表（`official_loc_13lang.json`）；闸用三档宽谓词。
         /// 取不到 ⇒ `null`（⛔ 不印键名、不编文案）。</summary>
         static string Official(string key)
         {
             if (string.IsNullOrEmpty(key)) return null;
-            if (Loc.HasEntry(key)) return Loc.T(key);
+            if (Loc.HasAnyTerm(key)) return Loc.T(key);
             return Loc.Lang13Of(key, Loc.Current == AvailableLanguages.Chinese ? "zh" : "en");
         }
 

@@ -1781,21 +1781,21 @@ namespace CardPresentation
         /// <summary>遮罩用的纯色贴图（`ImageQuad` 得有一张图才肯建）。宽高比按传入的来。
         /// ⚠️ **`MultiCardDisplay` 也用这一个**（两张遮罩是同一个作用，别写第二份）。
         /// 🔴 2026-09-28 本文件重写时**一度把它弄丢**（`MultiCardDisplay` 三处调用立刻编译不过）——
-        ///    别再删：它不是本窗私有的。</summary>
-        static Texture2D _solid;
-        static float _solidAspect;
-        internal static Texture2D SolidTexFor(float aspect)
+        ///    别再删：它不是本窗私有的。🔴 **2026-10-30（B103_A03 · AUD03 #77）：单值缓存 → 按宽高比分桶**（见方法内注释）。</summary>
+        static readonly System.Collections.Generic.Dictionary<int, Texture2D> _solidByAspect = new System.Collections.Generic.Dictionary<int, Texture2D>();
+        public static int UiSolidTexBucketCountForTest { get { return _solidByAspect.Count; } }
+        public static Texture2D SolidTexFor(float aspect)   // `public`：断言宿主在**编辑器程序集**里（本仓没有 `InternalsVisibleTo`，同 `EffectResolver.cs:7818` 那条记录）⇒ 要能被 `Editor/B103A03_Assert.cs` 直调
         {
-            if (_solid != null && Mathf.Abs(_solidAspect - aspect) < 0.01f) return _solid;
+            int key = Mathf.RoundToInt(aspect * 100f);                     // 桶键量化：1f 与 1.0004f 同桶（旧写法是 |Δaspect|<0.01 才算命中，口径等价）
+            if (_solidByAspect.TryGetValue(key, out var hit) && hit != null) return hit;   // 命中即复用；⛔ 不新建
             int h = 32;
             int w = Mathf.Max(4, Mathf.RoundToInt(h * aspect));
-            _solid = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
             var px = new Color[w * h];
             for (int i = 0; i < px.Length; i++) px[i] = Color.white;
-            _solid.SetPixels(px);
-            _solid.Apply();
-            _solidAspect = aspect;
-            return _solid;
+            tex.SetPixels(px);
+            tex.Apply();
+            _solidByAspect[key] = tex; return tex;                         // ⛔ **一张都不销毁**：四个调用点都把贴图交给已建好的 quad（`CardDisplayWindow.cs:609` · `MultiCardDisplay.cs:490/560/567/586`），当场销毁会变粉/黑块；distinct aspect 只 3～4 个 ⇒ 上界固定
         }
 
         /// <summary>语音钮**按卡决定建不建**（原版 `CardDisplayWindow.SetCardVoiceOver`。
@@ -2525,11 +2525,11 @@ namespace CardPresentation
             return new EffectRow(who ?? "", what);
         }
 
-        /// <summary>secret / quest 那四条键的取值口（缺键 ⇒ 空串 + 出声一次，⛔ 不印键名）。</summary>
+        /// <summary>secret / quest 那四条键的取值口（三档都取不到 ⇒ 空串 + 出声一次，⛔ 不印键名）。</summary>
         static string MaskKey(string key)
         {
-            if (Loc.HasEntry(key)) return Loc.T(key);
-            WarnOnce("mask:" + key, $"[展示窗] 打码词条「{key}」不在本地化表里（施工细则 §六·6）⇒ 这一格留空（⛔ 不印键名）");
+            if (Loc.HasAnyTerm(key)) return Loc.T(key);
+            WarnOnce("mask:" + key, $"[展示窗] 打码词条「{key}」三档（手写表 / bulk / 官方全表）都取不到（施工细则 §六·6）⇒ 这一格留空（⛔ 不印键名）");
             return "";
         }
 

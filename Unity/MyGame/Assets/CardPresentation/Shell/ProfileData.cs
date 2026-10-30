@@ -1643,11 +1643,11 @@ namespace CardPresentation
         }
 
         /// <summary>`I2.Loc.LocalizationManager.GetTranslation(term)` 的等价读口（**同一个兜底**：
-        /// 表里没有 ⇒ 返回 `term` 本身，并**出声一次**（原版 I2 也会打一条 missing-translation 日志，
+        /// **三档（手写 `Table` / bulk / 官方 13 语言全表）都没有** ⇒ 返回 `term` 本身，并**出声一次**（原版 I2 也会打一条 missing-translation 日志，
         /// 只是那一条不在我们的日志体系里）。⛔ 这里**不改返回值** —— 改了就与原版不同。</summary>
         static string LocalizedText(string term)
         {
-            if (Loc.HasEntry(term)) return Loc.T(term);
+            if (Loc.HasAnyTerm(term)) return Loc.T(term);
             if (_descKeyWarned.Add(term))
                 Debug.LogWarning("[Profile] 词条缺键 `" + term + "` ⇒ 退回键名本身"
                                + "（= 原版 `I2.Loc.LocalizationManager.GetTranslation` 的兜底行为）");

@@ -1091,5 +1091,9 @@ namespace CardPresentation
             InitializeTrackPanel(_premiumTrack, _premiumBuyButton, owned: true);
             RefreshData(true);
         }
+
+        // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
+        // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底）。本窗的倒计时那一格由 `TimerDisplay` 自己的 `LocalizationChange` 重取。
+        public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
     }
 }

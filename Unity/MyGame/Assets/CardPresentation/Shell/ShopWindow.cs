@@ -164,7 +164,7 @@ namespace CardPresentation
             //   `TabButtons.CurrentVisualIndex`（`RefreshHighlights`），只调 `ChangeTab` 会让高亮停在第 0 键上。
             int startVisual = StartVisualIndex();
             if (tabButtons != null) tabButtons.Click(startVisual);
-            RefreshHighlights();
+            RefreshHighlights(); _openData = null;   // B103_R1（AUD03 #38）：`OpenData` 是**一次 Open 的上下文**，原版每次开窗都重新喂一份（`OpenWindow(win, data, …)`，`cpp2il/…/WindowsManager.cs:1286-1352`）⇒ 消费完即清。本仓开商店只走 `OpenByRef`（`:940` 那次 `OpenWindow(win, null, …)`），`_openData` 不自己清就**跨 Hide→带回来**一直留着 ⇒ `StartVisualIndex` 每次都被旧 army 强制落 Crates 页。⚠️ 必须排在 `Click(startVisual)` **之后**：那一跳里 `ShopTabPage.OnOpen → Setup → TryOpenContainerArmy` 还要读它（`Shell/ShopTabPage.cs:1197-1216`）。
         }
 
         /// <summary>🔴 **2026-10-19（`N117` 顺手）**：`Open()` 该落在左栏第几颗 —— **与
@@ -191,9 +191,9 @@ namespace CardPresentation
         /// 左栏页签文字是 `BuildBar` 建时取的词条（`TabBtnSpec.Term`），要下次开窗才换 —— 如实记账。</summary>
         public override void OnLanguageChanged()
         {
-            if (tabs == null) return;
-            for (int i = 0; i < tabs.Count; i++)
+            if (tabs != null) for (int i = 0; i < tabs.Count; i++)
                 if (tabs[i] is ShopTabPage p) p.RefreshLanguageTexts();
+            RefreshTabBarTexts();   // B103_R1（顺手发现 F1 · AUD03 #94 同族第二面）：原来这一跳**只刷页内文案**，左栏页签名要等下次开窗才换
         }
 
         /// <summary>点了还没做的件 —— **出声**（红线：不许静默失败）。</summary>
@@ -338,6 +338,26 @@ namespace CardPresentation
                 Debug.Log("[Shop] `OpenData.forcedOpened = true` —— 原版这根字段**本地无读写点**（唯一构造点只赋 `army`）"
                         + " ⇒ 我们原样携带、**不改变行为**（⛔ 不发明语义）");
             return w;
+        }
+
+        // ============================================================ 🆕 B103_R1（顺手发现 F1）：左栏页签名按当前语言重取
+        // 判据：原版每颗 `TabButtonLabel` 上各挂一颗 I2 `Localize`（见 `Shell/MainMenuSubmenuWindow.cs` 里 `BuildTabButton` 那段
+        //   「屏上的字改走 `Loc.T(spec.Term)`」的注释）⇒ 换语言时由本地化系统广播重取；我们是一次性建文本 ⇒ 得自己再走一遍。
+        // ⛔ 只重取**字**：不重建整条左栏（几何 / 高亮 / 红点一个都不动）。
+        void RefreshTabBarTexts()
+        {
+            var specs = ButtonsNow();
+            if (_btnRoot == null || specs == null) return;
+            int n = Mathf.Min(_btnRoot.Length, specs.Length);
+            for (int i = 0; i < n; i++)
+            {
+                if (_btnRoot[i] == null) continue;
+                var t = _btnRoot[i].Find("Text");
+                var lb = t != null ? t.GetComponent<Label>() : null;
+                if (lb == null) continue;                       // 母版那一格/建失败的那颗 ⇒ 跳过（不是静默缺陷：断言只看真页签）
+                string s = string.IsNullOrEmpty(specs[i].Term) ? (specs[i].Label ?? "") : Loc.T(specs[i].Term);
+                lb.SetText(s.ToUpperInvariant());
+            }
         }
     }
 

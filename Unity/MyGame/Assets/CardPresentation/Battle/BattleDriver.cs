@@ -4318,7 +4318,7 @@ namespace CardPresentation
         {
             if (seat != 0 && seat != 1) { Debug.LogError("[Net] `SetMySeat(" + seat + ")` 只认 0/1"); return; }
             bool flipped = seat != _me;   // 座位**真的变了**才算「翻座位」（同值再调 = 幂等，只打日志）
-            _me = seat;
+            _me = seat; CardPlayedSignals.LocalSeat = seat;   // 🆕 B103_R1：`CardPlayedSignal.isPlayer` 那一格承载在 `CardPlayedSignals.LocalSeat`（缺省 0 = 单机恒 0）；联机客机是 1 ⇒ 挑战（`MissionChallenge`）在客机侧才会推进。判据 → `RuleEngine/Core/CardPlayedSignal.cs` 文件头末段。
             Debug.Log($"[Net] 本机座位 = {_me}（视图侧跟着它翻：`_me` 那一侧画在下面）");
             if (!rebuildViews) return;    // 🔴 **产品路径（三处单参调用）到这里为止** —— 与改前逐字等价
             if (!flipped) return;         // 同值再调 ⇒ 什么都不用重建（幂等）
@@ -4520,7 +4520,7 @@ namespace CardPresentation
             //   通道里有东西就**整条走它**：关卡数据 / 两副牌 / 执行器全在 `BeginTutorial` 里现取。
             //   ⚠️ 位置在**联网那一支之前**：教程是单机模式，不可能同时是联机局，先判它更直白。
             //   ⚠️ 通道**读一次就清**（同 `NetPendingBattle.Take` / `TakePendingPlayMode` 的先例）。
-            int tutIndex = TakePendingTutorialStage();
+            int tutIndex = TakePendingTutorialStage(); var pendingPlayMode = TakePendingPlayMode();   // B103_R1（AUD03 #74/#75）：**先取再分支** —— 教程（下一行）与联机（下面 `pbNet != null`）两支都会提前 return，原来它们跑完 `_pendingPlayMode` 原样留在静态通道里 ⇒ 下一局普通对战把残留的 `Tutorial(4)` / `ClosedDeck` 当入口模式号（`:5411` 挑 bot 预组 · `:5507` 写 `Ctx.PlayMode` → `InstallMissionChallengeMatchGates`）。通道口径 = 「读一次就清」（同 `NetPendingBattle.Take`）。
             if (tutIndex >= 0) { BeginTutorial(tutIndex); return; }
             // 🆕 2026-09-26（N3）：**联机局** —— 主机算好的那份开局参数在等着（`NetBattle` 放进去的）
             //    ⇒ 整条走它：种子/两副牌/谁先手/战场全是主机定的，本地一样都不许自己算。
@@ -4567,7 +4567,7 @@ namespace CardPresentation
             //   遭遇战 `Skirmish 13`（`FastModeBaseEvent`）· 排位 `Classic 0`
             //   （`RankedV2Event.get_EventPlayMode` VA 0x1804BD440 = `33 C0 C3` = `xor eax,eax; ret`）。
             //   通道空（自检直接调这一条 / 没入口窗声明）⇒ 退回「这副牌自己带的模式」= 今天的行为。
-            GameMode playMode = TakePendingPlayMode() ?? (saved != null && saved.IsSkirmish
+            GameMode playMode = pendingPlayMode ?? (saved != null && saved.IsSkirmish
                                                           ? GameMode.Skirmish : GameMode.Classic);
             Debug.Log($"[Battle] 本局模式：{vars.deckSize} 张（{(vars.IsSkirmish ? "遭遇 Skirmish" : "经典 Classic")}）"
                     + $"· 卡组 {(saved != null ? "「" + saved.Name + "」" : "（自动凑）")}"
@@ -7762,7 +7762,7 @@ namespace CardPresentation
         /// 而这条文案**必须与实现同源**，⛔ 别在断言里另抄一份 —— 「两处写同一条规则」）。</para></summary>
         public static string HandFullText()
         {
-            if (Loc.HasEntry(HandFullTerm)) return CardText.Term(HandFullTerm);
+            if (Loc.HasAnyTerm(HandFullTerm)) return CardText.Term(HandFullTerm);
             // 🔴 2026-10-14（第二十七会话 + `W4`/`A1803`）就地改期望值：Battle/Tips/HandFull 原来是我们自译的
             //   「手牌已满，抽到的牌直接进弃牌堆」，官方 = zh「手牌已满」/ **EN `Hand is full`**（兜底同步跟官方值）。
             return CardText.Zh ? "手牌已满"
@@ -11868,7 +11868,7 @@ namespace CardPresentation
         /// 那会在没有中文字体的机器上印出方块。</para></summary>
         static string LogTerm(string key, string en, string zh, params object[] args)
         {
-            if (Loc.HasEntry(key)) return string.Format(CardText.Term(key), args);
+            if (Loc.HasAnyTerm(key)) return string.Format(CardText.Term(key), args);
             Loc.T(key);                          // 缺键：出声 + 记账（⛔ 不静默）；它回的是键名，丢弃
             return string.Format(CardText.Zh ? zh : en, args);
         }
@@ -16513,7 +16513,7 @@ namespace CardPresentation
         /// 🆕 **2026-10-18（`A985⑧` · 第一步）**：**引擎码 → 给玩家看的那一句**。
         ///
         /// 规则（判据 → <see cref="RuleCodes.TermKey"/> 的 doc + `资料/普查产出_1018/G5_战斗本地化剩余.md` §4·B）：
-        ///   · `RuleCodes.TermKey(rc)` **非 null** **且** `Loc.HasEntry(那个键)` 为真 ⇒ 走**原版词条**（`Loc.T(键)`）；
+        ///   · `RuleCodes.TermKey(rc)` **非 null** **且** `Loc.HasAnyTerm(那个键)` 为真（三档一起算）⇒ 走**原版词条**（`Loc.T(键)`）；
         ///   · 其余（**没有键** 或 **键不在词条表里**）⇒ `RuleCodes.Describe(rc)`（我们那 18 条中文整句）。
         ///
         /// 🔴 **兜底那一半必须留**：`Battle/Tips/*` 那族原版键**本地一个 value 都没有**
@@ -16530,7 +16530,7 @@ namespace CardPresentation
         ///   「表里有没有这条」**，而 `Loc.T` **缺键时返回【键名本身】**（见 `Loc.T` 的 doc）
         ///   ⇒ 上面那四条键让提示行**印出 `Battle/Tips/NotEnoughRoom` 这种字符串**（比「未知错误码 19」
         ///   更难懂）—— 而且**四条全都印键名**、一条人话都没有（`ErrCost` 付不起时也一样）。
-        ///   ⇒ 现在多一道 `Loc.HasEntry(键)`：**键在表里才取词条**，否则回人话。
+        ///   ⇒ 现在多一道 `Loc.HasAnyTerm(键)`：**三档取得到才取词条**，否则回人话。
         ///
         /// ⛔ **不许写成 <c>Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc)</c>** ——
         ///   那是 `RuleCodes.cs` 头注里导出的「该长成的样子」，**它有个洞**：`Loc.T` **从不返回 null**
@@ -16543,7 +16543,7 @@ namespace CardPresentation
         ///   **人话诊断**（`grep` 全仓 20+ 处），那些地方把它换成键名是**退化**。
         ///
         /// ⚠️ **与同族 `HandFullText` 的写法现在一致了（原来不一致，如实标过）**：两条都走
-        ///   `if (Loc.HasEntry(键)) … else 兜底`。差别只剩**兜底那一句的来源** ——
+        ///   `if (Loc.HasAnyTerm(键)) … else 兜底`。差别只剩**兜底那一句的来源** ——
         ///   本条 = `RuleCodes.Describe` 的通用整句；那条 = 手写的那句「手牌已满…」。两条都对。
         /// </summary>
         public static string HintForCode(int rc)
@@ -16570,7 +16570,7 @@ namespace CardPresentation
             // 🔴 缺键、或键不在词条表里 ⇒ **回 `Describe` 的人话**（⛔ 不是印键名、⛔ 不是印空串）。
             //    ⛔ 别改回 `Loc.T(key) ?? Describe(rc)`：`Loc.T` **从不返回 null**（缺键回键名本身），
             //      `??` 那一半永不触发 ⇒ 界面会印 `Battle/Tips/NotEnoughRoom`（2026-10-18 修掉的那个退化）。
-            return (key != null && Loc.HasEntry(key)) ? Loc.T(key) : RuleCodes.Describe(rc);
+            return (key != null && Loc.HasAnyTerm(key)) ? Loc.T(key) : RuleCodes.Describe(rc);
         }
 
         void ClearSelection()
@@ -26049,13 +26049,13 @@ namespace CardPresentation
         //     「事件到点各播各的」⇒ 本演出与后续事件**并行**（如实记，见报告 §三）。
 
         /// <summary>`_PlayEnemyCard/_PlayPlayerCard` 的参：**DOMove** 时长 —— `DAT_1834b3178` 实读 0.15。</summary>
-        const float PlayedCardCenterMoveTime = 0.15f;
+        const float PlayedCardCenterMoveTime = CardFeel.CardCenterMoveTime;
         /// <summary>state 0 的 `DORotate(Vector3.zero)` 时长 / 随后的 `WaitForSeconds` —— 同源 `DAT_1834b2dc4` = 0.1。</summary>
-        const float PlayedCardCenterStraightenTime = 0.1f;
+        const float PlayedCardCenterStraightenTime = CardFeel.CardCenterStraighten;
         /// <summary>state 1 之后的等待 = `hold × 0.66`（`_DAT_1834b3184` 实读）。</summary>
-        const float PlayedCardCenterHoldMul = 0.66f;
+        const float PlayedCardCenterHoldMul = CardFeel.CardCenterHoldMul;
         /// <summary>state 2 之后的等待 = `hold × 2.6`（`_DAT_1834b3190` 实读）。</summary>
-        const float PlayedCardCenterWaitMul = 2.6f;
+        const float PlayedCardCenterWaitMul = CardFeel.CardCenterWaitMul;   // 🔴 2026-10-30（`B103_R5` P1）：四个 `const` 统一引 `CardFeel`，⛔ 不留第二张表
         /// <summary>`BattleManager.timeToPlayEnemyCard` = **0.12 s**（=`0.6 / 5`；判据 → `PlayAutoPlayCenterDisplay` 上面那段）。
         /// ⚠️ `PlayEnemyCard` 传给本方法的两个实参**不是同一个数**：翻面/缩放 = `0.12 × 0.6 = 0.072`、
         /// 停留 = `0.12`（`DAT_1834b3180` = 0.6 实读）。</summary>
@@ -30770,7 +30770,7 @@ namespace CardPresentation
         /// <para>⛔ **产品代码一律走单参那条**。</para></summary>
         public static string DamageFatigueTextWithKey(string key, bool mine, int fatigue)
         {
-            string s = (key != null && Loc.HasEntry(key))
+            string s = (key != null && Loc.HasAnyTerm(key))
                      ? CardText.Term(key)
                      : (mine ? (CardText.Zh ? "牌库已空 —— 督军受到 {0} 点疲劳伤害"
                                             : "Deck is empty - the warlord takes {0} fatigue damage")
@@ -31920,7 +31920,7 @@ namespace CardPresentation
         {
             if (!string.IsNullOrEmpty(name)) return name;
             const string GuestTerm = "MenuLogin/Guest";
-            return Loc.HasEntry(GuestTerm) ? Loc.T(GuestTerm) : "";
+            return Loc.HasAnyTerm(GuestTerm) ? Loc.T(GuestTerm) : "";
         }
 
         void UpdateHud()
@@ -39017,7 +39017,7 @@ namespace CardPresentation
             int owner = e.TargetPlayer >= 0 ? e.TargetPlayer : e.Player;   // 收牌方（见方法头）
             DisplayEnemyCardInCenter(ToCardData(def, def.Faction), def, owner,
                                      showFront: true,             // 原版 `changeVisibility: true`
-                                     scaleTime: 0.3f, hold: 0.3f);
+                                     scaleTime: CardFeel.CardCenterSabotageTimeToDraw, hold: CardFeel.CardCenterSabotageStepTime);   // 🔴 2026-10-30（`B103_R5` P2）：两个 0.3 在源里是**同一个** `.rdata` 地址，分两个名字只为可读
         }
 
         /// <summary>自检用（🆕 2026-10-30 `B102_D9`）：拨一拍 `ResetClock()`（= 原版 `ClockManager.StartTimer` 的等价物）。

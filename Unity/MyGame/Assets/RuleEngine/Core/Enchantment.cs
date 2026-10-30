@@ -116,7 +116,7 @@ namespace RuleEngine
         /// <para>数据源 = `cards_engine.json` 的 `enchantTrait` 列 → `CardDef.EnchantTrait`
         /// （由 <see cref="Enchantments.Attach"/> 按「载体卡 → 附魔卡」的次序取）。</para>
         /// </summary>
-        public string Trait;
+        public string Trait; public int Seq;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 `特效动画:521` 残差 S3-d）：`Seq` = 原版 `activeEffects(+0x108)` 的 `List.Add` 序（我们把它拆成多本账 ⇒ 靠它还原出表顺序）。写点 = `Enchantments.Attach`（建记录那一刻；`0` = 还没盖戳 ⇒ 投影排队尾）。发号口 = `CardInstance.NextEffectSeq()`（**唯一一处**，与 `_statMods` / `_traitEffects` 同一个号源）
     }
 
     /// <summary>
@@ -280,7 +280,7 @@ namespace RuleEngine
                 Source = source,
                 ActingUnit = acting,
                 Enchantment = ench,
-                Trait = _tr, Permanent = permanent,
+                Trait = _tr, Permanent = permanent, Seq = carrier.NextEffectSeq(),   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-d）：加序戳（**唯一发号口** = `CardInstance.NextEffectSeq`，与 `_statMods` / `_traitEffects` 同一个号源 ⇒ 跨族先后可比）
             };
             ench.Effect = eff; ApplyRevealedFlagsCore(ctx, carrier, eff, _st);   // 🆕 2026-10-29（B96_CR · 账 1053）：`+0x90 secretBuff` / `+0x91 questBuff` 的置真点（判据 `CardScript__AddEffect.c:853-855` / `:886-889`）
 

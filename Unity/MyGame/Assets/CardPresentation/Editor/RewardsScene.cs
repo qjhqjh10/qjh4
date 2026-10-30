@@ -2247,7 +2247,7 @@ public static class RewardsScene
                 var progFull63 = FindChild(rowFull63, "progress");
                 CheckTrue(progFull63 != null,
                           "到顶那一行的 `progress` **还在**（`displayRule = 1` ⇒ 未领取才显示；到顶不算「已完成」）");
-                CheckTrue(Loc.HasEntry("Missions/Completed"),
+                CheckTrue(Loc.HasAnyTerm("Missions/Completed"),
                           "（前提）词条 `Missions/Completed` 在表里（⛔ 不在 ⇒ 下一条红得看不出原因）");
                 Check(TextOf(progFull63), Loc.T("Missions/Completed"),
                       "到顶 ⇒ 显示 `completedMessage` 那一行的**词条文案**"
@@ -4665,7 +4665,7 @@ public static class RewardsScene
                 //   期望值在这里**独立去取词条** `Loc.T("MainMenu/Forge/Help")`（判据 = 官方表，⛔ 不是被测实现）——
                 //   把 `HelpTipBody` 改回空白占位 / 写成别的串 ⇒ 本条红；面板正文写死成别的串 ⇒ 下一条红。
                 string helpOfficial = Loc.T("MainMenu/Forge/Help");
-                CheckTrue(Loc.HasEntry("MainMenu/Forge/Help") && !string.IsNullOrEmpty(helpOfficial),
+                CheckTrue(Loc.HasAnyTerm("MainMenu/Forge/Help") && !string.IsNullOrEmpty(helpOfficial),
                           "（前提）官方词条 `MainMenu/Forge/Help` 在 `Loc` 表里、且非空"
                           + "（缺键时 `Loc.T` 回的是键名本身 ⇒ 下面那条等于没验）");
                 CheckTrue(!string.IsNullOrEmpty(ForgeTab.HelpTipBody) && ForgeTab.HelpTipBody == helpOfficial,
@@ -7076,8 +7076,22 @@ public static class RewardsScene
             }
 
             // ---- 图缺不缺（不许静默）----
+            // 🔴 2026-10-30（`B103_D1` 诊断 · 铁律 5）：**到这个位置 `cw` 已经被销毁了** —— `:6628 cw.Close()` 之后
+            //   某次 `wm2.OpenWindow(...)` 的 `ReapClosedWindows` 把它收割掉了（「关窗 = 延后到下一次开窗时销毁」，
+            //   见 `B102_D9`）。原来 `:7079/:7080/:7086` 全都**在一具尸体上量**（`Dump()` / `NoIconItems` 读托管字段
+            //   照样正常打印，看不出来），直到 `:7092 cw.transform` 才抛 `MissingReferenceException`
+            //   ⇒ 整个宿主零输出、**连合计行都不印**。照 `ShellScene.cs:10118` 的 `B102_D9` 样板**重造一具**，
+            //   ⛔ 不复用已关掉的旧实例（原版 `CloseWindowCO` 非 baseMenu 支末句就是 `Object.Destroy`）。
+            if (cw == null)
+            {
+                Debug.LogWarning(P + "   ⚠️ `cw` 已被 `ReapClosedWindows` 销毁 ⇒ 按 B102_D9 样板重造一具（⛔ 不是跳过）");
+                cw = CampaignRewardWindow.Create(wm2);
+                wm2.OpenWindow(cw, ctx0);
+            }
             Debug.Log(P + "   " + cw.Dump());
-            CheckTrue(cw.NoIconItems.Count >= 0, "`NoIconItems` 清单存在（没有图标的物品**逐条打日志**，不是静默）");
+            // 🔴 2026-10-30（`B103_D1` 顺手发现 A1）：原来写的是 `cw.NoIconItems.Count >= 0` —— **恒真**（Count 不可能为负），
+            //   等于什么都没断。要断的是「清单本身在」（⛔ 不是「它非空」：没图标的物品是**逐条打日志**，允许为空）。
+            CheckTrue(cw.NoIconItems != null, "`NoIconItems` 清单存在（没有图标的物品**逐条打日志**，不是静默）");
 
             // ---- 实拍一张（断言测不出「像不像」；`资料/阶段二_锻造厂与战役页_原版规格.md` §十四）----
             // 把 UM0 那窗重新开出来再拍（前面几段换过 context）
@@ -7102,7 +7116,7 @@ public static class RewardsScene
             //   今天无后果（下一句就 `cw.Close()`），但**若有人在这两句之间加断言 ⇒ 会静默量到空窗**。
             //   ⛔ 别改成无参 `TryOpen()`、也⛔ 别改成 `OpenWindow(cw, ctx0)` —— 那两条都被判过是错的
             //   （A447：调用方要按「原版那一跳调的是**哪条重载**」来选；这一句的语义就是「重开一次、马上关」）。
-            CheckTrue(cw.TryOpen(null), "（A94 收尾）把战役奖励窗开回来 —— 下面那句 `Close()` 才不是空断");
+            if (cw == null) { Debug.LogWarning(P + "   ⚠️ `cw`（战役奖励窗）已被 `ReapClosedWindows` 销毁（`:7106` 那一下点关之后又开过别的窗）⇒ 按 `B102_D9` 样板重造一具（⛔ 不是跳过）· B103_F1"); cw = CampaignRewardWindow.Create(wm2); } CheckTrue(cw.TryOpen(null), "（A94 收尾）把战役奖励窗开回来 —— 下面那句 `Close()` 才不是空断");
             cw.Close();
 
             // 🆕 **2026-10-15（A796）**：压暗层「**点了会不会关**」—— 走公共口
@@ -7113,7 +7127,7 @@ public static class RewardsScene
             //   上面已经关过一次 ⇒ 这里先开回来：⚠️ 用**无参** `TryOpen()`（**不碰 `Data`**）——
             //      上一句带参 `TryOpen(null)` 已经把 `_ctx` 清成 null（见 `:5660-5668` 那段订正），
             //      本窗那一刻本来就是**空窗**，本口**不读内容**（只认 `ShadeHit` 节点 + 状态两跳）。
-            CheckTrue(cw.TryOpen(), "（A796 现场）把战役奖励窗开回来 —— 下面那条要在**开着**的窗上点");
+            if (cw == null) { Debug.LogWarning(P + "   ⚠️ `cw`（战役奖励窗）已被 `ReapClosedWindows` 销毁 ⇒ 按 `B102_D9` 样板重造一具（⛔ 不是跳过）· B103_F1"); cw = CampaignRewardWindow.Create(wm2); } CheckTrue(cw.TryOpen(), "（A796 现场）把战役奖励窗开回来 —— 下面那条要在**开着**的窗上点");
             MenuDraw.CheckShadeClickRule(CheckTrue, "战役奖励窗", cw.transform, cw.ShadeHit,
                                          () => cw.CurrentState);
             CampaignData.ResetForTest();
@@ -7267,8 +7281,14 @@ public static class RewardsScene
                     //   （`IconPlaceholder`，矩形就是 140²）—— 两种都接受（别的窗里两种都出现过，
                     //   本文件那一条就是这么取的）⇒ 期望值**不能写死四角 alpha**，改成
                     //   「**量的几何 + 原版的 `m_Softness.x = 200`**」（见下）。
+                    // 🔴 **2026-10-30（B103_D3 · D 组 #1）**：这一格是 `Booster Pack Ultramarines` ⇒
+                    //   `Everguild.LiveOps.ShopContainer` ⇒ **`ContainerDrawer`**（`Shell/ItemDrawer.cs:409` 的真表那一跳），
+                    //   而 `B101_E3`（10-30）把那一档**实装了** ⇒ 它画的是 **`Content/Image`**，
+                    //   **没有** `Icon` / `IconPlaceholder`（`Shell/ItemDrawerContainer.cs`）。
+                    //   ⇒ 取层改**三级兜底**：新抽屉的主图 `Image` → 旧的真图 `Icon` → 占位板 `IconPlaceholder`
+                    //   （三种都接受 = 既保住原意「钉软边落在抽屉主图层上」，也不把还没实装的那些档做死）。
                     var wPickIcon = wPick != null
-                        ? (FindChild(wPick, "Icon") ?? FindChild(wPick, "IconPlaceholder")) : null;
+                        ? (FindChild(wPick, "Image") ?? FindChild(wPick, "Icon") ?? FindChild(wPick, "IconPlaceholder")) : null;
                     var wIconQ = wPickIcon != null ? wPickIcon.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(wIconQ != null, "（A238 前提）那一格的主图（或占位板）画出来了");
                     if (wIconQ != null)
@@ -7286,16 +7306,27 @@ public static class RewardsScene
                             // 期望值 = **原版的剖面**（`MenuDraw.SoftAlpha` 的几何那半 = 原版 `RectMask2D`
                             // 语义）：`alpha(x) = clamp01((1920 − x) / 200)` —— 右沿 1920 + `m_Softness.x = 200`
                             // 都是**原版字面量**，x 是**量出来的角**（⛔ 不读 `CampaignRewardWindow.ScrollSoft`）。
-                            //   ⚠️ 那块 quad 整块落在带里（左沿 ≥ 1760 > 带内沿 1720）⇒ 只削 alpha、不切几何，
-                            //   `ScanSoftCuts` 在它身上查不到任何切线 —— 所以这里必须量**顶点色**。
+                            //   ⚠️ **2026-10-30（B103_F3）**：原来这里写「那块 quad 整块落在带里 ⇒ 只削 alpha、不切几何」
+                            //   —— 那句只对**旧的 140² 主图**（1760..1900）成立；现在的 `ContainerDrawer` 主图是
+                            //   `Content/Image` 的 ×1.2 视觉框（左沿退到带内沿 1720 之外）⇒ `ApplySoftEdges` 会**沿 1720 切一刀**，
+                            //   宿主留在**含矩形中心的那一格**（= 右格）⇒ 下面量到的是右格的四角。逐角按 x 核剖面的写法两种情形都对。
                             CheckNear(icc[0].a, Mathf.Clamp01((1920f - qx1) / 200f), 0.01f,
                                       "★ …**左角 alpha = (1920 − 左沿)/200**（原版 `m_Softness.x = 200`；"
                                       + $"实测 {icc[0].a:F3}，左沿 {qx1:F1}）");
                             CheckNear(icc[1].a, Mathf.Clamp01((1920f - qx2) / 200f), 0.01f,
                                       "★ …**右角 alpha = (1920 − 右沿)/200**（由内向外递减；"
                                       + $"实测 {icc[1].a:F3}，右沿 {qx2:F1}）");
-                            CheckTrue(icc[0].a < 0.999f && icc[1].a < 0.999f,
-                                      "★ …两个角**都被削**（硬边那一版 `CornerColors == null` ⇒ 等于全 1 —— "
+                            // 🔴 **2026-10-30（B103_D3 · D 组 #1）**：这里原来断「**两个角都被削**」——
+                            //   那条对**旧的 140² 主图**（1760..1900，整块落在带内）成立；现在的 `ContainerDrawer`
+                            //   主图是 `Content/Image` 的 **×1.2 视觉框**（铺满 `Content` 再放大，左沿退到渐隐带
+                            //   **内沿 1720 之外**）⇒ 按原版剖面 `clamp01((1920 − x)/200)` 那个角**本来就该是 1.0**
+                            //   （上面两条 `CheckNear` 已按量到的角逐角核过剖面）。
+                            //   ⇒ 本条要钉的**原意**是「这一层真吃了软边、不是硬边全 1」= **至少一侧被削**；
+                            //   ⛔ 不是「无所谓」：硬边那一版 `CornerColors == null`（更早那条红）或四角全 1（本条红）。
+                            float minCornerA = Mathf.Min(icc[0].a, icc[1].a);
+                            CheckTrue(minCornerA < 0.999f,
+                                      $"★ …**至少一侧的角被削**（实测左 {icc[0].a:F3} / 右 {icc[1].a:F3}；"
+                                      + "硬边那一版 `CornerColors == null` ⇒ 等于全 1 —— "
                                       + "这正是「同一条带里两种观感」那条欠账的判据）");
                             CheckTrue(icc[0].a > icc[1].a + 0.05f,
                                       "…斜坡方向：**左边比右边亮**（带是从视口右沿 1920 往内 200px 渐隐的；"
@@ -7566,7 +7597,16 @@ public static class RewardsScene
             var prClip = new PxRect(0f, 300f, 1920f, 932.5f);
             var prSt = ItemDrawerStyle.Default(RewardWindow.QItem, RewardWindow.QItemIcon, RewardWindow.QItemIcon);
             prSt.Clip = prClip; prSt.ClipSoftness = Vector2.zero;      // 硬边（这一处不是渐隐带）
-            const string prId = "Booster Pack Ultramarines";
+            const string prId = "WildcardUltramarines1";
+            // 🔴 **2026-10-30（B103_D3 · D 组 #2）就地说明**：探针的物品**原来**是
+            //   `Booster Pack Ultramarines` —— `B101_E3`（10-30）把 `ContainerDrawer` 实装了之后，它的数量文字
+            //   不再落在「`box.x2 − 10` 右对齐」那个位置，而是 prefab 推出来的 `Content/Label/Quantity` 框
+            //   （`Shell/ItemDrawerLayout.cs:169-171`）⇒ 右沿实测 **1878.1**、**根本没碰到 1920**
+            //   ⇒ 「必须被夹在 1920 上」这条前提对它**不成立**（10-28 那一版走过 `Placeholder` 兜底，是 1920.0）。
+            //   ⇒ 换成**仍走我们这条 `Quantity()` 版式（右对齐到 `box.x2 − 10`）**的物品：
+            //   `WildcardUltramarines1` ⇒ `Wildcard` 档 ⇒ 末尾那句 `Quantity(node, box, qty, st)` 用的就是本条要验的那条路。
+            //   ⛔ 别把探针的 box 右移去凑 1920 —— 那条改动会让「真被截」退化成「碰巧越界」，鉴别力下降。
+            //   ⛔ 也别删这条 —— 它钉的是「抽屉里的**文字**也吃裁切」（图那一半另有一条）。
             var pr1 = new GameObject("A302 Probe 压边").transform;
             ItemDrawer.Draw(pr1, new PxRect(1780f, 400f, 1980f, 700f),
                             ItemDrawer.Spec(prId, CampaignData.ItemIcon(prId), CampaignData.ItemShortName(prId)),
@@ -8575,7 +8615,7 @@ public static class RewardsScene
         // ⛔ **期望值写原版字体资产名**（`Asar-Regular SDF` / `Pragati-Regular SDF`），
         //    ⛔ 不读 `TmpFont.FaceResource` 那张加载表（那是被测实现 = 自证）。
         // **改坏法**：把对应站点那一行的 `face:` 实参删掉 ⇒ 该条立刻红（退回 `NotoSerifCJK-Regular SDF`）。
-        Section("★ A1024③ 第 1/2 批：R0 站点换面抽查（原版 Asar / Pragati）");
+        Section("★ A1024③ 第 1/2 批：R0 站点换面抽查（原版 Asar / Pragati）"); if (dr == null) { Debug.LogWarning(P + "   ⚠️ `dr`（每日奖励窗）已被销毁 —— `:8533 wm2.CloseAllWindows()` 关掉它、`:8537 wm2.OpenWindow(ds)` 的 `ReapClosedWindows` 再把它收割（关窗是**延后销毁**，同 `B102_D9`）⇒ 下面 R0/R1 两块要量 `dr.transform` / `dr.entries`，会在**一具尸体**上抛 `MissingReferenceException`（原来就在 `:8651` 崩、整条宿主零输出）⇒ 按 `B102_D9` 样板**重造一具**（⛔ 不复用已关掉的旧实例、也⛔ 不是跳过）。⚠️ 重造后走 **`dr.Open()` 而不是 `wm2.OpenWindow(dr)`**：本窗 `type = Fullscreen`，而 `OpenWindow` 的全屏支会 `HideAllWindows()` —— 那会把下面 R0/R1 正要量的 `ds`（连登窗，`:8537` 刚开）一起藏掉 · B103_F1"); dr = DailyRewardPopup.Create(wm2); dr.Open(); }
         {
             string FontName(Transform n)
             {
@@ -8668,6 +8708,18 @@ public static class RewardsScene
                     + (hasCjk2 ? "；这不是没接面，是文本本身是中文" : ""));
                 if (!hasCjk2) Check(FontName2(c.Node), c.Want, $"★ {c.What}：TMP 指向 **{c.Want}**（原版 `m_fontAsset`）");
             }
+            // 🔴 **2026-10-30（B103_D3 · A 组）**：R0/R1 的 `dr` 读数到上面那一格**已经全部取完**（最后一处是
+            //   `Tracks Side Bar/Premium Track/Price Display Button 2 Variant/Price`）⇒ **把 `dr` 藏起来**。
+            //   ⚠️ 为什么是 `SetActive(false)` 而**不是 `Close()`**：`dr` 是 `:8592` 重造出来的，走的是
+            //   **`dr.Open()`**（只 `Build()`，既不改 `CurrentState`（出厂 `Closed`）也不改激活态）⇒
+            //   整棵树**活着、留在命中表里**；而 `PointerLayer.PointerReachable` **只拦 `Background`、不拦 `Closed`**
+            //   （那条约定「`Closed` 的窗本来就 `SetActive(false)`」在「只 `Open()` 不 `OpenWindow`」时就破了）。
+            //   它那颗**整屏**吸收层档 = `QContent − 1` = **3009**，与连登窗 `ds` 的吸收层**同档同 z** ⇒
+            //   平局判据「后兄弟优先」（`dr` 比 `ds` 晚 `AttachToAnchor`）⇒ **`dr` 每一点都赢**
+            //   ⇒ `ds` / 收件箱 / 任务行三处的真路径命中全被它吃掉（B103_D3 的 #3/#5/#6/#16 四条红）。
+            //   ⛔ **别改成 `dr.Close()`** —— 那会进 `_pendingDestroy`，下一次 `OpenWindow` 就把它**销毁**；
+            //   而 R0/R1 的读数已经取完、没必要冒这个险（`CurrentState` 也不用动）。
+            dr.gameObject.SetActive(false);
         }
         // ==================================================== ★ **A1126（A2 档）** · 2026-10-09
         // 断签面板那颗 `Reset Streak` 的 `Button Text` **原来没传 autosize 实参**（= 固定 55px），
@@ -9125,7 +9177,7 @@ public static class RewardsScene
             //   本节要读/点它的 `Collect` 与 `Reward Holder` ⇒ **每次 `Build()` 之后把轨滚到最右**再取节点。
             //   ⚠️ 这是**测试驱动**、不是被测行为（原版 `ScrollRect` 组件被禁 ⇒ 玩家滚不动；本节只借它把那一格挪进视口）。
             //   🆕 **2026-10-28（B93_FX4）**：这一跳提成文件级 `RevealClaim(ds)`（`§B93_E11` 的 B4 也要用 ⇒ 只留一份）。
-            wm2.OpenWindow(ds);                                        // 重开（上面 `CheckAbsorbRule` 把它点关了）⇒ 内容重建
+            if (ds == null) { Debug.LogWarning(P + "   ⚠️ `ds`（连登窗）已被销毁 —— 这两句之间**只要插进了任何别人的 `OpenWindow`**，`ReapClosedWindows` 就会把这具刚被 `CheckAbsorbRule` 点关的窗收掉（`keep` 只护本次正开的那一扇，见 `WindowsManager.ReapClosedWindows` 的 doc）⇒ 按 `B102_D9` 样板**重造一具**（⛔ 不是跳过）· B103_F1"); ds = DailyStreakPopup.Create(wm2); } wm2.OpenWindow(ds);                                        // 重开（上面 `CheckAbsorbRule` 把它点关了）⇒ 内容重建
             RevealClaim(ds);                                           // 见上面那段：把可领那一格滚进视口
 
             var eClaim = ds.entries.Count > dClaim ? ds.entries[dClaim] : null;
@@ -9757,7 +9809,11 @@ public static class RewardsScene
                 // 🔴 层级：三件按原版**兄弟序** `Highlight` → `Blackout` → `Badge`（后者压前者）；
                 //   整组还要**夹在**「物品自己的内容」与「整屏暗角」之间（⛔ 全用同一个队列 ⇒ 红；
                 //   放到暗角之上 ⇒ 高亮/角标在整屏压暗里比周围亮一截，看得见的错）。
-                int qIcon = QueueOf(FindChild(prD, "Icon"));
+                // 🔴 **2026-10-30（B103_D3 · D 组 #4）**：`prD` 是 `Item_Booster Pack Ultramarines` ⇒ `ContainerDrawer`
+                //   ⇒ **没有 `Icon`**（它画 `Content/Image`，见 `Shell/ItemDrawerContainer.cs`）⇒ 旧写法量到
+                //   `int.MinValue` ⇒ 整条判假（文案里只印 `qHl … qBd`，看着像「夹得住」其实 `qIcon` 没量到）。
+                //   ⇒ 与 A238 同一套三级兜底：`Image`（新抽屉主图）→ `Icon`（真图）→ `IconPlaceholder`（占位板）。
+                int qIcon = QueueOf(FindChild(prD, "Image") ?? FindChild(prD, "Icon") ?? FindChild(prD, "IconPlaceholder"));
                 int qHl = QueueOf(FindChild(ph, "Highlight"));
                 int qBl = QueueOf(FindChild(ph, "Blackout"));
                 int qBd = QueueOf(FindChild(ph, "Badge"));
@@ -10693,6 +10749,39 @@ public static class RewardsScene
             wm2.CloseAllWindows();
         }
 
+        // 🔴 **2026-10-30（`B103_F1`）**：**把这扇宿主自己的奖励窗重新拿回「活着」** ——
+        //   `:8125` / `:8533` 那两句 `wm2.CloseAllWindows()` 会把 `win` **也**关掉，而「关窗 = 销毁」
+        //   （2026-10-30 `B102_AUD03R` 接进来的：原版 `WindowsManager.CloseWindowCO` 的非 baseMenu 支 =
+        //   `Hide()` → 摘表 → `Object.Destroy`；本仓把**销毁时机**延到「下一次开窗」，见 `ReapClosedWindows`）
+        //   ⇒ `:8192 wm2.OpenWindow(dr)` 那一拍就把 `win` 连同 `root` / `area` / `bar` / `tab` / `camp` **销毁**了。
+        //   ⚠️ 下面 §八 之后还有一大段（§六 收件箱之后一直到 A353）要量这棵树 ⇒ 改前**一碰就崩**：
+        //   2026-10-30 现场 = `:10823 tab.GetComponent<MissionsTab>()` 抛
+        //   `MissingReferenceException · UnityEngine.RectTransform`（整条宿主零输出）。
+        //   ⇒ 死了就按 `B102_D9` 样板**重造一具**并把引用重绑（⛔ 不复用已销毁的旧实例、⛔ 也不是跳过），
+        //   并**还原成 `:8125` 关窗之后那一态**：**树在、不可见**（`SetActive(false)`）。为什么是「不可见」而不是「开着」：
+        //   ① 当年那扇窗就是「关掉、还在」，下面那些 `FindChild` / `GetComponentsInChildren(true)` 全按「树在、看不见」写；
+        //   ② 中间还有两张实拍（`:11127 05_收件箱_空态` / `:11852 06_重摇任务`）—— 奖励窗整屏露着会改掉那两张的现场。
+        //   ⚠️ 重造走 **`win.Open()` 而不是 `wm2.OpenWindow(win)`**：本窗 `type = Fullscreen`，
+        //   `OpenWindow` 的全屏支会 `HideAllWindows()`，而且会把它**登记进 `openWindows`** ⇒ `:11566` / `:11599`
+        //   那两句 `CloseAllWindows()` 又把它收掉一次（同一个坑的第二遍）。
+        if (tab == null || camp == null || forge == null || win == null)
+        {
+            Debug.LogWarning(P + "   ⚠️ `win`（奖励窗）已被 `CloseAllWindows()` + `ReapClosedWindows` **销毁**"
+                            + "（关窗 = 延后销毁，见 `B102_AUD03R`）⇒ 下面 §八 之后那一大段要量它的树 ⇒ 按 `B102_D9` 样板"
+                            + "**重造一具**并重绑引用（⛔ 不是跳过）；重造后**保持不可见** = 还原「关掉但还活着」那一态 · B103_F1");
+            win = RewardsWindow.Create(wm2);
+            win.Open();                                   // = 生产 `OpenByState` 的 `Closed` 支里唯一建树的那一句（`Build` + `BuildTabContents` + `EnsureTabsSetup` + `Click(start)`)
+            root = win.transform;
+            area = FindChild(root, "Content Area");
+            bar = FindChild(area, "Tab Buttons");
+            tab = FindChild(FindChild(area, "Tabs"), "Missions Tab");
+            camp = FindChild(FindChild(area, "Tabs"), "Campaign Tab");
+            forge = FindChild(FindChild(area, "Tabs"), "Forge Tab");   // ← `:12796` 那一节（锻造页徽记）要用它；⛔ 漏了它那一整节就空转
+            win.gameObject.SetActive(false);              // 还原 `:8125` 之后：树在、不可见（⛔ 别改成开着 —— 会改掉两张实拍的现场）
+            CheckTrue(tab != null && camp != null && forge != null,
+                      "（B103_F1 重造前提）重造出来的奖励窗里 `Missions Tab` / `Campaign Tab` / `Forge Tab` 都在（缺 ⇒ 下面整段空转）");
+        }
+
         Section("§八 战果 → 任务进度（接 `Battle/EndPanel` 那条链，2026-09-23 接的）");
         // 三张每日任务卡（🆕 **2026-10-17（A2070③）照用户实拍改过**）：
         //   0 = `Deal 45 damage to enemy warlords`（0/45 · 300 活动点）·
@@ -11545,6 +11634,7 @@ public static class RewardsScene
         //      `Closed` 支会重建内容 —— 本口只认 `ShadeHit` 节点 + 状态两跳，不读内容）。
         //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下一句 `wm2.CloseAllWindows()` 与它无关，
         //      更下面本文件那段「不许再把本块挪回 `CheckAbsorbRule` 之后」说的**不是**本块）。
+        if (inbox == null) { Debug.LogWarning(P + "   ⚠️ `inbox`（收件箱窗）已被销毁 —— 上面 `:11585 CheckAbsorbRule` 点关它之后，**这两句之间只要插进了任何 `OpenWindow`**，`ReapClosedWindows` 就会把它收掉（`keep` 只护本次正开的那一扇）⇒ 按 `B102_D9` 样板重造一具（⛔ 不是跳过）· B103_F1"); inbox = InboxWindow.Create(wm2); inbox.Open(); }
         CheckTrue(inbox.TryOpen(), "（A796 现场）把收件箱窗开回来 —— 下面那条要在**开着**的窗上点");
         MenuDraw.CheckShadeClickRule(CheckTrue, "收件箱窗", inbox.transform, inbox.ShadeHit,
                                      () => inbox.CurrentState);
@@ -11869,7 +11959,18 @@ public static class RewardsScene
                         CheckTrue(pop2 != null && pop2 != pop, "…**又开了一扇新的**（不是把旧的翻出来）");
                         CheckTrue(pop2 != null && pop2.CurrentState == WindowState.Open, "…而且开着");
                         // 🆕 2026-10-20：窗外空地 (100,1000) 同是**设计 px** ⇒ 过换算口（`owner` = 压暗层节点）。
-                        var outsideP = MenuCheck.PointerFramePxFromDesign(new Vector2(100f, 1000f), darkN);
+                        // 🔴 **2026-10-30（B103_D3 · B 组）**：`owner` ⛔ **不能再用 `darkN`** —— 它来自 `pop`（`:11751`），
+                        //   而 `pop` 在 `:11904` 被 `Cancel` 关掉、`:11915` 那次 `OpenWindow` 的 `ReapClosedWindows`
+                        //   当场把它 `Destroy` 了 ⇒ `darkN` 是**已销毁节点的引用**（Unity 的假 null）。
+                        //   `PointerFramePxFromDesign(owner: null)` **静默**返回 `(-99999,-99999)`（`Shell/MenuDraw.cs:114-124`）
+                        //   ⇒ 点到屏外、`ClickAt` 返 false ⇒ D3 的 #7–#15 九条全红。
+                        //   ⇒ 一律从**当前那扇活的**（`pop2`）重取同一层的节点。
+                        var dark2 = pop2 != null ? FindChild(pop2.transform, "Menu Dark Background") : null;
+                        CheckTrue(dark2 != null,
+                                  "（前提）当前那扇重摇窗（`pop2`）的 `Menu Dark Background` 取得到"
+                                  + " —— 取不到的话 `PointerFramePxFromDesign` 会**静默**退化成 (-99999,-99999)，"
+                                  + "下面那条就变成「点了屏外」");
+                        var outsideP = MenuCheck.PointerFramePxFromDesign(new Vector2(100f, 1000f), dark2);
                         CheckTrue(pl.ClickAt(outsideP.x, outsideP.y), "点窗外那块压暗背景（真路径）");
                         CheckTrue(pop2 != null && pop2.CurrentState == WindowState.Closed, "按暗背景 ⇒ 关窗");
                         Check(DailyData.DailyDesc(0), bDesc, "…任务仍然没动");
@@ -11878,11 +11979,27 @@ public static class RewardsScene
                         // ---- `Confirm`：**换一条新任务**（逐项都不同）----
                         CheckTrue(pl.ClickAt(tx, ty), "第三次开窗（点垃圾桶）");
                         var pop3 = MissionRerollPopup.LastOpened;
+                        // 🔴 **2026-10-30（B103_D3 · B 组）· 前提断言**：这一拍以前是**假绿** ——
+                        //   `pop2` 没被关掉时，点 `(tx,ty)` 打到的是 `pop2` 的 `CloseHit`（`ClickAt` 照样返 true）
+                        //   ⇒ 「开出来了」那条实质上是在看一扇**早就 Closed** 的窗。修好 `darkN` 那两处之后
+                        //   `pop2` 会真的关掉，但这条前提**必须显式钉住**（⛔ 不许靠「反正现在是对的」）。
+                        CheckTrue(pop3 != null && pop3 != pop2,
+                                  "…**是一扇新的**（不是把刚才那扇 `pop2` 翻出来 —— 旧写法这一下打到的是 "
+                                  + "`pop2` 的 `CloseHit`，而 `pop3 = LastOpened` 拿到的是那扇 Closed 的窗 ⇒ 曾假绿）");
                         CheckTrue(pop3 != null && pop3.CurrentState == WindowState.Open, "…开出来了");
                         // ⚠️ 点位 = 那颗钮（`Generic UI Button` 框 `978.85..1328.85`）的**中心** `1153.85`
                         //   —— 在 `icon` 烘过缩放后的左边缘 `1160.10` **左边**（`icon` 是空节点、没有命中区，不挡点击）
                         // 🆕 2026-10-20：同 `Cancel` —— 设计 px → 指针帧（`owner` = `Confirm` 那颗钮）。
-                        var confirmP = MenuCheck.PointerFramePxFromDesign(new Vector2(1153.85f, 579f), confirmN);
+                        // 🔴 **2026-10-30（B103_D3 · B 组）**：`owner` 同上 —— `confirmN` 来自**已销毁的 `pop`** ⇒
+                        //   从**当前这扇 `pop3`** 重取；路径与 `:11790-11792` 逐段同形
+                        //   （`Buttons/Price Display/Generic UI Button`）⇒ 父链缩放与旧那一份完全相同。
+                        var confirm2 = pop3 != null
+                            ? FindChild(FindChild(FindChild(pop3.transform, "Buttons"), "Price Display"), "Generic UI Button")
+                            : null;
+                        CheckTrue(confirm2 != null,
+                                  "（前提）当前那扇重摇窗（`pop3`）的 `Buttons/Price Display/Generic UI Button` 取得到"
+                                  + " —— 取不到的话 `PointerFramePxFromDesign` 会**静默**退化成 (-99999,-99999)");
+                        var confirmP = MenuCheck.PointerFramePxFromDesign(new Vector2(1153.85f, 579f), confirm2);
                         CheckTrue(pl.ClickAt(confirmP.x, confirmP.y), "点 `Confirm`（真路径）");
                         CheckTrue(pop3 != null && pop3.CurrentState == WindowState.Closed, "按 `Confirm` ⇒ 关窗");
                         Check(DailyData.RerollCount, bCount + 1, "**重摇计数 +1**（`Confirm` 才换任务，原版走 `RerollChallenge`）");
@@ -11958,9 +12075,22 @@ public static class RewardsScene
                         //      `Closed` 支重建内容（`MissionRerollPopup.Open()` = `LastOpened = this` + `Build()`）；
                         //      `popA` 在**本块之后零引用**，而下面 ① 那一大段用的是 `mtComp` / 现取的 `rowFull`… 与它无关
                         //      （本文件那条「点原来那个位置开不出重摇窗」的对照取的是**本块之后**的 `LastOpened`）。
-                        CheckTrue(popA.TryOpen(), "（A796 现场）把重摇窗开回来 —— 下面那条要在**开着**的窗上点");
-                        MenuDraw.CheckShadeClickRule(CheckTrue, "重摇任务窗", popA.transform,
-                                                     FindChild(popA.transform, "CloseHit"), () => popA.CurrentState);
+                        // 🔴 **2026-10-30（`B103_F1`）**：**`popA` 那时已经是一具尸体了** ——
+                        //   ① `:11969` 拿到它（活、Open）；② `:11972 CheckAbsorbRule` **点窗外 ⇒ 把它关掉**并记进 `_pendingDestroy`；
+                        //   ③ `:11982 pl.ClickAt(tx,ty)` 又点了一次垃圾桶 ⇒ 那一下会 `Create` **另一扇**重摇窗并 `OpenWindow`
+                        //      ⇒ `ReapClosedWindows(keep: 新那扇)` 把 `popA` **当场 Destroy**（同 `B102_D9` / `B103_D1` 那条机制）。
+                        //   原注释（下面那段 ✅）写的是「`popA` 是无参 `TryOpen()` 走 `Closed` 支重建内容」——**那前提在「关窗 = 销毁」之后不成立了**。
+                        //   ⇒ 拿一具**活着**的来开：优先用 `pop4`（`:11983` 刚被 `Cancel` 关掉、还活着、没被任何 `OpenWindow` 收过），
+                        //   退化才用 `LastOpened`。⛔ 两具都是尸体时**不许静默跳过** —— 下面那条前提断言会当场红。
+                        if (popA == null) { Debug.LogWarning(P + "   ⚠️ `popA`（重摇任务窗）已被 `ReapClosedWindows` 销毁（`:11982` 那一下开新窗收的）⇒ 重取一具活的 · B103_F1"); popA = pop4 != null ? pop4 : MissionRerollPopup.LastOpened; }
+                        CheckTrue(popA != null, "（B103_F1 重取前提）重摇窗还拿得到**一具活的实例**（拿不到 ⇒ 下面那条 `TryOpen` 等于没查）");
+                        if (popA != null)
+                            CheckTrue(popA.TryOpen(), "（A796 现场）把重摇窗开回来 —— 下面那条要在**开着**的窗上点");
+                        if (popA != null)
+                            MenuDraw.CheckShadeClickRule(CheckTrue, "重摇任务窗", popA.transform,
+                                                         FindChild(popA.transform, "CloseHit"), () => popA.CurrentState);
+                        else
+                            CheckTrue(false, "（B103_F1）重摇窗那一站**没得跑**：`popA` / `pop4` / `LastOpened` 全是尸体 —— **需要人来看**（⛔ 不是跳过）");
 
                         // ================= ① 垃圾桶按「**已领取**」隐藏（谓词 = `IsComplete`）=================
                         // 判据 = `MissionReRollButton : MissionInfoDisplay` + `displayRule = WhenActive(1)`（全包 8 个实例实测）
@@ -12053,11 +12183,25 @@ public static class RewardsScene
                         //    `Confirm`、`Debug.LogWarning` 的下标**差 1**）⇒ 用 `SetRerollPoolForTest` 换一个
                         //    **两条都已在列表里**的小池子把它逼出来。第一条**故意 == 被顶替的那条描述**
                         //    （旧实现会在游标 0 处把它原样取回来 ⇒ 下面第一条会红）。
-                        string fOld = DailyData.DailyDesc(0);
+                        // 🔴 **2026-10-30（B103_D3 · C 组）**：这里原来用 `DailyData.DailyDesc(0/1)` 造池 ——
+                        //   那是**本地化后的显示串**（`Term` 非空 ⇒ `Loc.T(Term)`，`Shell/DailyData.cs:166-187`），
+                        //   而 `RerollDaily` 的候选过滤比的是 **`_daily[].Desc`（英文原始串）**
+                        //   （`Shell/DailyData.cs:640-648`）⇒ 池里两条**一条都匹配不上** ⇒ 候选 = 2 条 ⇒
+                        //   走的是**正常随机**路（不是要验的那条兜底）⇒ #17/#18 两条红。
+                        //   ⇒ 池子必须用**英文原始 `Desc`**（新加的只读口 `DailyRawDescForTest`；
+                        //   ⛔ 别去改产品的比较口径 —— 生产池与 `_daily` 都是英文原文，产品是对的）。
+                        string fOld = DailyData.DailyRawDescForTest(0);
+                        // 🔴 **2026-10-30（B103_F3 · 前提断言）**：兜底那条的判据是「池里**唯一一条与它不同的**」
+                        //   —— 若两条原始 `Desc` 恰好相同（`_daily[0] == _daily[1]`），那个「唯一不同的一条」
+                        //   **根本不存在**，下面两条会红成「看起来像功能坏了」。先把前提钉住（⛔ 不静默跳过）。
+                        CheckTrue(!string.IsNullOrEmpty(fOld)
+                                  && fOld != DailyData.DailyRawDescForTest(1),
+                                  $"（前提）池里两条**原始 `Desc` 不同**（实得「{fOld}」/「{DailyData.DailyRawDescForTest(1)}」）"
+                                  + " —— 相同的话「唯一那条与它不同的」不存在，下面的兜底断言无从谈起");
                         DailyData.SetRerollPoolForTest(new[]
                         {
                             new DailyData.Task { Desc = fOld,             Target = 7, RewardText = "70" },
-                            new DailyData.Task { Desc = DailyData.DailyDesc(1), Target = 9, RewardText = "90" },
+                            new DailyData.Task { Desc = DailyData.DailyRawDescForTest(1), Target = 9, RewardText = "90" },
                         });
                         string fGot = DailyData.RerollDaily(0);
                         CheckTrue(fGot != fOld, $"池子不够、走**兜底轮换**时也**不会摇回同一条**：「{fOld}」⇒「{fGot}」");
@@ -12844,7 +12988,7 @@ public static class RewardsScene
         }
 
         Debug.Log(P + win.Dump());
-        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。

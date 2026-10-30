@@ -4184,5 +4184,67 @@ namespace CardPresentation
                                direction: dir,
                                rotationGain: dir.magnitude * ShakeAmplitudeForUnitSize(size));
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  原版 `CardScript.DisplayEnemyCardInCenter` 的时序（账 `战斗逻辑驱动:1383` / `:506`）
+        //  —— 追加在本类类尾（⛔ 别插进已有成员之间：本文件下游有账按行号引，见铁律 18·b）
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  判据（🥇 `d:/2/tools/decomp_full/CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c:25-119`
+        //        逐段读；常量用 `工具/read_literal.py` 从 `GameAssembly.dll` **4 字节 float 实读**；
+        //        交叉源 `out_cpp2il_dev_ilspy/CardScript.cs:1160-1355`，ILSpy 里带真形参名）：
+        //   · **state 0**（`.c:25-56`）：`if (changeVisibility) SetCardVisibility(Front=0)` →
+        //       `DOMove(transform, GetEnemyCardPlayedDisplayPosition(), **0.15**)`（并行，不等）→
+        //       `DORotate(Vector3.zero, **0.1**)` → `WaitForSeconds(**0.1**)`。
+        //       🔴 rotate 的时长与那句 `WaitForSeconds` **是同一个常量** `DAT_1834b2dc4`。
+        //   · **state 1**（`.c:57-78`）：`if (!changeVisibility) TurnCardAround(timeToDraw, 0)` →
+        //       `DOScale(GetEnemyCardPlayedDisplayScale(), **timeToDraw**)` → `WaitForSeconds(stepTime × **0.66**)`。
+        //   · **state 2**（`.c:79-99`）：`DisplayCreatedByText(cardUI, cardState(+0x228), 0)` →
+        //       `ToggleHighlight(false,false,false)` → `WaitForSeconds(stepTime × **2.6**)`。
+        //   · **state 3**（`.c:100-119`）：`if (changeVisibility) SetCardVisibility(Back=1)` →
+        //       `cardUI+0xd8.gameObject.SetActive(false)` → 结束。
+        //
+        //  🔴 **它是真阻塞**，不是「播个动画就完」：调用点
+        //     `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` 是
+        //     `yield return StartCoroutine(card.DisplayEnemyCardInCenter(0.3f, 0.3f, changeVisibility: true))`
+        //     ⇒ 那张牌**在它之后**才进手（`:134-142`）、`BroadcastCardCreated`/`AddEffect`/`FinishResolvingAction`
+        //     也都在它之后（`:117-128`）。⇒ 阻塞时长直接决定「下一个动作什么时候能开始」。
+        //
+        //  ⚠️ **两个形参的分工**（`0.3f / 0.3f` 那一档）：
+        //     · `timeToDraw`（`+0x30`）= **只管 state 1 的 `DOScale` 时长**；`changeVisibility == true` 时
+        //       **不调** `TurnCardAround` ⇒ 它**不产生任何等待**。
+        //     · `stepTime`（`+0x34`）= **两段等待的基数**（×0.66 与 ×2.6）⇒ 阻塞的主体（1.078 里的 0.978）。
+
+        /// <summary>`DOMove` 的时长 = **0.15 s**（`.rdata 0x1834b3178`，4B float 实读）。
+        /// ⚠️ 它是**并行补间**：state 0 只等 0.1 s 就往下走 ⇒ **不进** <see cref="CardCenterBlockingSeconds"/>。</summary>
+        internal const float CardCenterMoveTime = 0.15f;
+        /// <summary>state 0 的 `DORotate` 时长 **且** 随后那句 `WaitForSeconds` —— 同一个常量
+        /// `.rdata 0x1834b2dc4` = **0.1 s**（4B float 实读）。</summary>
+        internal const float CardCenterStraighten = 0.1f;
+        /// <summary>state 1 的等待系数 = **0.66**（`.rdata 0x1834b3184`，4B float 实读；
+        /// 用法是 `WaitForSeconds(stepTime × 它)`，`stepTime` 是 float ⇒ 取 4 字节那一档）。</summary>
+        internal const float CardCenterHoldMul = 0.66f;
+        /// <summary>state 2 的等待系数 = **2.6**（`.rdata 0x1834b3190`，4B float 实读）。</summary>
+        internal const float CardCenterWaitMul = 2.6f;
+        /// <summary>造破坏卡进手牌那一跳的 `timeToDraw` = **0.3 s**（`.rdata 0x1834b2dc8`，4B float 实读；
+        /// 调用点 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-101`）。</summary>
+        internal const float CardCenterSabotageTimeToDraw = 0.3f;
+        /// <summary>同一跳的 `stepTime` = **0.3 s** —— 🔴 **与 <see cref="CardCenterSabotageTimeToDraw"/>
+        /// 是同一个 `.rdata` 地址**（原版那一句两个实参都传 `DAT_1834b2dc8`）。⛔ 别把它与
+        /// `PlayEnemyCard` 的 `attackStepTime × 0.6`（`DAT_1834b3180`）混成一个。</summary>
+        internal const float CardCenterSabotageStepTime = 0.3f;
+
+        /// <summary>`CardScript.DisplayEnemyCardInCenter` 这条协程**阻塞后续**的秒数
+        /// （= 三处 `WaitForSeconds` 之和；`DOMove` 的 0.15 是并行补间、不计）。
+        ///
+        /// <para>算式：`CardCenterStraighten + stepTime × CardCenterHoldMul + stepTime × CardCenterWaitMul`。
+        /// 传 <see cref="CardCenterSabotageStepTime"/>（0.3）⇒ **1.078 s**。</para>
+        ///
+        /// <para>🔴 **它是 `stepTime` 的真函数、不是常数**（`PlayEnemyCard` 那一档传 0.12 ⇒ 0.4912 s）——
+        /// ⛔ 别为了省事把方法体写成 `return 1.078f;`（自检 `B103R5_Assert` E5 就是钉这一点）。</para>
+        ///
+        /// <para>⚠️ **建不出展示载体时，这个时长仍然照排**：原版那条协程不会因为「造不出东西」而缩短，
+        /// 所以「没播」不许变成「时间线少排 1.078 s」（否则后面的信号会抢在空窗里开播）。</para></summary>
+        public static float CardCenterBlockingSeconds(float stepTime)
+            => CardCenterStraighten + stepTime * CardCenterHoldMul + stepTime * CardCenterWaitMul;
     }
 }

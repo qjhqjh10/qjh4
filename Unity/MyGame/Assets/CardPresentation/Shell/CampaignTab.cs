@@ -1095,7 +1095,7 @@ namespace CardPresentation
                 //   本行写成「有就用真键、没有先借同格式的 `MainMenu/Campaign/Points`」：
                 //   等主对话把 `Rewards Menu/Points` 补进 Loc，这一句**自动换成原版文案**（中文 = 官方「积分：」）。
                 const string PointsTerm = "Rewards Menu/Points";
-                string fmt = Loc.HasEntry(PointsTerm) ? Loc.T(PointsTerm) : Loc.T("MainMenu/Campaign/Points");
+                string fmt = Loc.HasAnyTerm(PointsTerm) ? Loc.T(PointsTerm) : Loc.T("MainMenu/Campaign/Points");
                 _points.SetText(fmt.Replace("{0}", CampaignData.Points.ToString()));
                 MenuDraw.AlignLeft(_points, _pointsR);
             }
@@ -1561,11 +1561,11 @@ namespace CardPresentation
         /// 🔴 **2026-10-17（T20）为什么需要它**：原版的三个词条键
         /// `Rewards Menu/Points` / `MainMenu/General/Collect` / `MainMenu/PurchasePremium/Premium`
         /// **都不在 `Core/Loc.cs` 的表里**，而本轮白名单**禁止改 `Loc.cs`**。
-        /// 等主对话把这三条补进 Loc，本函数**自动改用 `Loc.T`**（判据：`Loc.HasEntry`）。
+        /// 等主对话把这三条补进 Loc，本函数**自动改用 `Loc.T`**（判据：`Loc.HasAnyTerm`，三档一起算）。
         /// 只支持中/英两套（与 `Loc` 的口径一致）；其它语言按 Loc 的规则回退英文。</summary>
         static string PremiumTerm(string term, string en, string zh)
         {
-            if (Loc.HasEntry(term)) return Loc.T(term);
+            if (Loc.HasAnyTerm(term)) return Loc.T(term);
             return Loc.Current == AvailableLanguages.Chinese ? zh : en;
         }
 

@@ -1,0 +1,61 @@
+FP 编号	域	功能点	可观测路径	现状	证据(文件:行号)	缺的那一跳
+FP-DECK-001	卡组编辑	卡组编辑窗（四页签）	开编辑器 → Cards / Info / Cosmetics 三页切换 → 每页内容与卡池显隐	✅	CardPresentation/Editor/DeckScene.cs:813（版面节入口）; DeckScene.cs:4778（三页 RefreshTabVisibility 逐页断）; DeckScene.cs:4894（切回 Cards 仍全在）; DeckScene.cs:9362（UiSetTab(0) 驱动）	—
+FP-DECK-002	卡组编辑	卡组数据结构与规则校验	加牌/删牌/换督军 → 张数与费用曲线变；不合法 → 屏幕错误横幅	✅	CardPresentation/Editor/DeckScene.cs:2165（TestEditing：加/删/同名上限/传说上限/换督军清卡）; DeckScene.cs:2638（张数变 ⇒ 该格 x N 也变）; DeckScene.cs:9830（加不进卡 ⇒ 错误横幅）	—
+FP-DECK-003	卡组编辑	卡组编辑 · 其它（桶）	悬停/拖拽/卡组格命中区/卡背预览	✅	CardPresentation/Editor/DeckScene.cs:867（拖拽：卡背预览/松手投递/拖 vs 滚动阈值）; DeckScene.cs:5616（悬停换图）; DeckScene.cs:5702（悬停变色）	桶里个别构成（PrebuiltPack/DeckArmyFilter）无独立链，靠 005/卡池筛选间接覆盖
+FP-DECK-004	卡组编辑	卡组详情弹窗	点卡组抽屉 → 卡组详情窗弹出（含点击音/按 state 显隐 8 颗钮）	✅	CardPresentation/Editor/DeckScene.cs:9835（TestItemDrawerDeckClick：点抽屉开窗+音）; CollectionScene.cs:4322（Deck info Popup 8 颗钮按 state 显隐）	—
+FP-DECK-005	卡组编辑	导入/预组卡组	开导入窗 → 输错串 → 人话报错不关窗 → 真串 → 导入成功关窗	✅	CardPresentation/Editor/CollectionScene.cs:5110（Import Deck Popup：版面 + 导入闭环）; CollectionScene.cs:5219-5250（空串/乱串/真串三档）	—
+FP-DECK-006	卡组编辑	编译器生成类型（无玩家语义）	无玩家可见入口	D 档不适用	功能点索引_卡组编辑_part.tsv（状态分布 A0·D9）; 账里无实现行	不适用：原版本身无玩家语义（铁律 11 例外①）
+FP-DECK-007	卡组编辑	按游戏模式选卡组（页签）	进 Deck 页先出模式页 → 点模式卡 → 列表按模式筛 → Back 回模式页	✅	CardPresentation/Editor/CollectionScene.cs:1510（进页先出模式页）; CollectionScene.cs:1685-1696（点模式卡 ⇒ 页关+列表筛）; CollectionScene.cs:1823-1831（回模式页再点另一张 ⇒ 按新模式筛）; CollectionScene.cs:1767（Back 返回链）	—
+FP-COLL-001	收藏	收藏 · 卡池与筛选	点筛选 → 卡池可见张数按条件变 → 清空恢复	✅	CardPresentation/Editor/CollectionScene.cs:6547-6553（筛 legendary ⇒ 可见数 all→N，清空回 all）; CollectionScene.cs:5369（卡池网格 6 列几何）	—
+FP-COLL-002	收藏	收藏 · 物品与库存	买/得卡 ⇒ 拥有数落盘 ⇒ 重读仍在；CardProgress.Owned == 背包值	✅	CardPresentation/Editor/CollectionScene.cs:5740（写→清背包→重读→还在）; CollectionScene.cs:5779（Owned 与 Inventories.Cards 逐值相等）	—
+FP-COLL-003	收藏	收藏筛选器	点筛选格（Rarity/Cost/Type/Name/Army）→ 结果集变；再点一次取消	✅	CardPresentation/Editor/CollectionScene.cs:6816-6863（卡牌页逐格真点）; CollectionScene.cs:8072-8129（卡背页逐格真点 + 多选并集）	—
+FP-COLL-004	收藏	收藏页与页签	点左栏四键 → CurrentTab 变 + 页节点 activeSelf + 高亮只亮一个	✅	CardPresentation/Editor/CollectionScene.cs:5307-5335（tabButtons.Click → 页切换/高亮）; CollectionScene.cs:1216-1290（四键文案+真在画面）	—
+FP-COLL-005	收藏	收藏 · 其它（桶）	异画库存/徽章定义/卡背显示/计数徽标…	🟡	间接：CollectionScene.cs:5740/5779（库存）· CollectionScene.cs:7471（卡背显示）· B94T1_Assert.cs:194（徽章定义）	桶内 AlternatеArtInventory / BoostCollection / DepthSorting / CollectionCardCounter 无一条「A 触发→B 出现」的独立断言
+FP-COLL-006	收藏	物品徽章与通知	状态变化 ⇒ 徽章 provider 计数变 ⇒ 红点	✅	CardPresentation/Editor/B94T1_Assert.cs:194-224（provider 计数/派生关系）; RewardsScene.cs:8139（两态：开窗 0 → 刷新 1）	—
+FP-COLL-007	收藏	收藏 · 异画页签	点异画格 → 一次 punch 打在格容器 + 顺带开卡片详情窗	✅	CardPresentation/Editor/CollectionScene.cs:9989-10025（真点 AltArtHit ⇒ punch + 详情窗）; CollectionScene.cs:9806（Styles 页 6 列 · 本地 7 张）	—
+FP-COLL-008	收藏	收藏 · 卡背页签	点一张卡背 → Item Display Window（大图+信息面板+风味条）	✅	CardPresentation/Editor/CollectionScene.cs:7471（点卡背 ⇒ Item Display Window 打开）; CollectionScene.cs:7167（卡背网格列数算出）	—
+FP-CARD-001	卡牌面/渲染	卡面渲染（图文/数值/图标/高亮）	建一张卡 → 卡框/立绘/数值/徽标/高亮逐层可量	✅	CardPresentation/Editor/CardBaseDemo.cs:157（分辨率无关）; CardBaseDemo.cs:296-388（卡面层级/兵种行/3D 卡体/描边并层）; CardBaseDemo.cs:1741-1786（高亮端到端：真涨攻 ⇒ 涨色）	—
+FP-CARD-002	卡牌面/渲染	卡面 tooltip 与词条说明	指针压数值/关键词 → tooltip 显示；压在护甲上 → 不显示	✅	CardPresentation/Editor/BattleScene.cs:24996（放近战数值 ⇒ tooltip 立刻显示）; BattleScene.cs:25102（护甲上无 tooltip）; BattleScene.cs:25849（悬停关键词 ⇒ trait tooltip）	—
+FP-CARD-003	卡牌面/渲染	卡牌面 · 其它（桶）	卡面层级/手牌布局/材质等散件	🟡	CardPresentation/Editor/CardBaseDemo.cs:343-388（层级三项/场上特效锚点/手牌四件/位姿补间）	桶内散件（卡材质、伤害阈值等）无端到端链；多为并列参数断言
+FP-CARD-004	卡牌面/渲染	环境效果卡（战场环境切换）	选环境卡 → 钮出现 → 按展示窗 → 环境 Apply（雾/环境光/clip）	✅	CardPresentation/Editor/BattleScene.cs:4695（选真卡 ⇒ 钮出现 + 按下弹展示窗）; BattleScene.cs:4946-5014（EnvironmentConditions 与 EnvironmentApplier 生效链）	—
+FP-HUD-001	战斗界面/HUD	战斗界面 · 场上卡与状态框	点技能面板 → 灯态/目标；AbilityClicked → TryUsingActiveAbility；状态动画	✅	CardPresentation/Editor/BattleScene.cs:12374-12479（灯态 Available/Pressed 与松手）; BattleScene.cs:12588-12611（AbilityClicked→SkillPanelConfirmRelease→TryUsingActiveAbility）; BattleScene.cs:10702（状态框那一套）	—
+FP-HUD-002	战斗界面/HUD	手牌/牌库/坟场/能量/计时 HUD	引擎抽牌/出牌 ⇒ 画面手牌数、牌库张数、能量数字跟上	✅	CardPresentation/Editor/BattleScene.cs:977（画面手牌==引擎手牌）; BattleScene.cs:19034（视图销毁后重新对齐）; BattleScene.cs:4479（牌库张数/手牌数底板四小件）	—
+FP-HUD-003	战斗界面/HUD	目标标线/选卡菜单/攻击钮	指针悬停即选中 + 0.1s 安全窗；选打法 ⇒ ChangeAttackType 同拍点亮底光	✅	CardPresentation/Editor/B94X2_Assert.cs:51（准星/瞄准线 UpdateTrail/MoveCrosshair）; BattleScene.cs:34275（悬停即选中 + 安全窗）; BattleScene.cs:10434（选近战 ⇒ 这张卡自己的底光点亮，原版 ChangeAttackType 同拍）; BattleScene.cs:9181（打法选择器 3 钮实例行为）	⚠️ `AttackButtonClick→FinishResolvingAction` 那一跳只有注释（BattleScene.cs:36227），未见断言；断言覆盖的是「选打法 ⇒ 底光/音效」那半
+FP-HUD-004	战斗界面/HUD	战斗场景加载与开场	加载页/战前提示条 → 开场独白 → 进换牌	❌	CardPresentation/Battle/TipPrebattle.cs:94（Create 全工程 0 个生产调用点，只有 GameStaticDataCheck.cs:128-137 在测它）	缺：战前提示条实例化与「加载→开场」这条链；原版 EverguildSceneManager/LoginScreenManager 登录链在 P3
+FP-HUD-005	战斗界面/HUD	开局换牌界面	点卡看牌（不标记）· 标记只走钮 → 文案 Replace↔Undo 切换 → Done	✅	CardPresentation/Editor/BattleScene.cs:28681-28705（点钮 ⇒ Replace/Undo 文案与标记态互换）; BattleScene.cs:28837（PromptText）; BattleScene.cs:18149（遭遇模式无换牌）	—
+FP-HUD-006	战斗界面/HUD	战斗界面/HUD · 其它（桶）	ManaBuff/BattleCardManager/CursorManager/EntityObjectsManager…	🟡	CardPresentation/Editor/BattleScene.cs:1770（战斗侧只有…那条口径说明）	桶很大（A114·C13·D73），逐件未串成链；下一轮按构成类逐个查
+FP-HUD-007	战斗界面/HUD	战斗日志与坟场日志	点坟场钮 → 日志面板开 → 点卡链接 → 面板关	✅	CardPresentation/Editor/BattleScene.cs:6883-7189（墓地/战斗日志开合 + 点卡链接后 HideCemeteryLogBtn）	—
+FP-HUD-008	战斗界面/HUD	战斗回放 HUD 与结算界面	打完一局 → EndPanel 结果/骷髅；回放 → 终局指纹	✅	CardPresentation/Editor/BattleScene.cs:13835（EndPanel Outcome/ResultText）; BattleMiscAssertE4.cs:120（回放终局指纹）; BattleScene.cs:14045（奖励与结算开门视频同时出现）	—
+FP-HUD-009	战斗界面/HUD	战斗内提示与悬浮	提示条/错误横幅/悬浮 tooltip	✅	CardPresentation/Editor/BattleScene.cs:24996（tooltip 显隐）; BattleScene.cs:7366（拒绝点 ⇒ NotifyCantDoAction 计数增）; BattleChatAssertE7.cs:331（提示真的画上了）	—
+FP-HUD-010	战斗界面/HUD	战斗相机与运镜	拖拽/缩放/边界；运镜停 → 相机回本位	✅	CardPresentation/Editor/BattleScene.cs:33032（缩放/拖拽/世界边界/平滑）; BattleScene.cs:26018（运镜停、相机回本位）	—
+FP-HUD-011	战斗界面/HUD	战斗设置窗	点设置钮 → 面板开；滑条/Resign 文案；SkipTutorial 已接线	✅	CardPresentation/Editor/BattleScene.cs:19394（点设置 ⇒ 面板打开）; BattleScene.cs:19385-19433（Resign 词条 + SkipTutorial 回调已接）; BattleScene.cs:7711（ESC 开设置）	—
+FP-HUD-012	战斗界面/HUD	练习模式入口窗	练习窗 → 这一副是我的/挑对手 → 选定即开打	✅	CardPresentation/Editor/CollectionScene.cs:4487（Practice Deck：挑对手·选定即开打）; CollectionScene.cs:4983（Army Selector + 吸收层）	—
+FP-HUD-013	战斗界面/HUD	战斗相机与自动缩放	分辨率变化 → 自动缩放/镜头位移	✅	CardPresentation/Editor/BattleScene.cs:19364（CombatAutoZoom.ForceRef）; BattleScene.cs:33032（缩放档位）	—
+FP-HUD-014	战斗界面/HUD	客服/帮助上报	无（P3 服务端 Helpshift）	D 档不适用	功能点索引_战斗界面_HUD_part.tsv（状态分布 D13）	不适用：服务器类，判据在远端
+FP-HUD-015	战斗界面/HUD	战斗环境条件管理	选环境 → EnvironmentApplier.Apply（雾/光/clip 逐项）	✅	CardPresentation/Editor/BattleScene.cs:4946-5014（环境数据在位 + EnableEnvironment 三段）	—
+FP-SHOP-001	商店	打开商店窗并切货架页签	点左栏 5 个键 → 各页层与参数生效	✅	CardPresentation/Editor/ShopScene.cs:1541-1544（tabButtons.Click 逐页）; ShopScene.cs:1878-1880（VIP 两态）	—
+FP-SHOP-002	商店	浏览货架格并点买一件	点商品格 → 拥有数 +1 → 画面文字跟上 → 落盘	✅	CardPresentation/Editor/ShopScene.cs:1967-1985（点买 ⇒ Owned+1 + 画面上 x(N+1)）; ShopScene.cs:2045（落盘写→重读）	「掏钱」与「限购 −1」两步按用户边界②（不做真实经济，资源固定 2000）刻意不存在 — 🔶 自己设计
+FP-SHOP-003	商店	报价详情弹窗	点商品 ⇒ 报价弹窗（奖励抽屉/限购/倒计时）⇒ 弹窗内购买 ⇒ 收尾	🟡	CardPresentation/Editor/ShopScene.cs:2307-2360（Booster Info Popup 开出来 + 字段逐条）	断在「点商品主图 ⇒ 弹窗」：入口 `ShopTabPage.OpenBoosterInfo` 是我们定的（原版 `ShopOfferContainer.OnClick→OpenContainer` 那一族没有）；断言直接调，不真点
+FP-SHOP-004	商店	价格与奖励物件显示	报价数据 → 价格钮/货币值/免费/删除线/各抽屉	🟡	CardPresentation/Editor/ShopScene.cs:46-340（19 档 override + 槽位类映射表逐条）	链断在「报价数据 → 槽装配」：现断言是并列的参数矩阵，没有一条「换一条报价 ⇒ 价格/奖励物件跟着换」
+FP-SHOP-005	商店	限时报价的倒计时与到期	页面建时标签 vs 活值 vs 本机时钟三路互证	✅	CardPresentation/Editor/ShopScene.cs:1602-1640（活值 vs 独立时钟反自证，死串必红）	—
+FP-SHOP-006	商店	买卡包 → 开包窗 → 逐张翻开 → 奖励入账	买卡包 ⇒ 开包窗 ⇒ 点槽翻牌 ⇒ 翻完点卡开详情	✅	CardPresentation/Editor/ShopScene.cs:2835（Booster Pack Open Window 位姿）; ShopScene.cs:3126-3205（点槽翻牌/推进状态/翻完点卡开详情）	「奖励入账」那一跳落在 FP-SHOP-002 的拥有数链上（✅），本节只串到开包演出
+FP-SHOP-007	商店	高级购买窗（Premium Campaign）	点购买 ⇒ 空表返回 false 出声 / 有表 ⇒ 开 PurchasePremiumWindow	✅	CardPresentation/Editor/B97_REMOTE1_Assert.cs:79-90（空表 false + 有表真开窗）	—
+FP-SHOP-008	商店	商店的活动页签（Gacha/ExpansionPass/Campaign）	点活动页签 → 该活动窗/页	🟡	CardPresentation/Editor/RewardsScene.cs:5583-5740（CampaignTab 轨道）	断在「商店左栏活动页签 → 对应活动窗」：ShopScene 只断到页签层与参数，Gacha/Raid/ExpansionPass 三扇窗无跨窗链
+FP-SHOP-009	商店	轮播式奖励区	拖/翻页 → 槽位换条目	❌	CardPresentation/Editor/ShopScene.cs:1989-2006（只断 Carousel 的环绕偏移/IndexAt/Pages 数学）; ShopScene.cs:1987（注释明写「UI 与输入还没接」）	缺：轮播的 UI 节点与拖拽/翻页输入（`CarouselOfferPopupDrawer` 的 `DrawRewards` 过滤谓词判据不可及）
+FP-SHOP-010	商店	多货币模型与背包层	货币变动 → 扣费 → 背包条目变	🟡	CardPresentation/Editor/ShopScene.cs:2010-2042（Inventory<T>/ItemInfo<T> 语义）	断在「货币 → 扣费」：我们是单资源 + 本地存档（🔶 自己设计，用户边界②）
+FP-SHOP-011	商店	真实货币支付与账单	无（P3 PlayFab/Steam 微交易）	D 档不适用	功能点索引_商店_part.tsv（D49）	不适用：服务器类
+FP-SHOP-012	商店	商店的外链与外部渠道	无（P3 XSolla/DLC/广告位）	D 档不适用	功能点索引_商店_part.tsv（D18）	不适用：服务器类
+FP-SHOP-013	商店	商店的服务端报价与存档数据层	服务端报价 → 本地静态表	🟡	功能点索引_商店_part.tsv（C1·D55）; ShopData 本地静态表	断在「服务端报价 → 表」：判据在远端（P3），本地表是等价物
+FP-ENG-001	战斗逻辑驱动	关键词与词条（含光环/buff）	打一张带光环/词条的卡 ⇒ 场上单位数值与关键词变，离场收回	✅	RuleEngine/Editor/RuleEngineTest.cs:136（光环结算：增量维护/收回/叠加/回合限定）; CardPresentation/Editor/BadgeFilterAssert.cs:57-98（47 条 in-play 图标白名单）	—
+FP-ENG-002	战斗逻辑驱动	攻击与伤害结算	真打一局 ⇒ 实际掉血 == 预览合计	✅	RuleEngine/Editor/RuleEngineTest.cs:28486-28507（预览合计必须等于真打一局的掉血，9→7）	—
+FP-ENG-003	战斗逻辑驱动	召唤/造牌/偷牌/变身	真打一局 ⇒ 挂上去的正文真在单位身上	✅	RuleEngine/Editor/RuleEngineTest.cs:18717（族 A 端到端：真打一局）	—
+FP-ENG-004	战斗逻辑驱动	回合流转与能量	结束回合 ⇒ 下一位开始 + 能量按玩家重算	✅	RuleEngine/Editor/RuleEngineTest.cs:298（TestBeginTurn）; RuleEngineTest.cs:299（TestEnergyIsPerPlayer）; RuleEngineTest.cs:255（TestW58GainEnergy）	—
+FP-ENG-005	战斗逻辑驱动	棋盘与站位	放牌 ⇒ 插入推人；离场 ⇒ 外侧补位（连续无洞）	✅	RuleEngine/Editor/RuleEngineTest.cs:79（TestBoardContiguousModel）; RuleEngineTest.cs:76（TestBoardMatchesPresentation）	—
+FP-ENG-006	战斗逻辑驱动	出牌与目标选择	打一张需要目标的牌 ⇒ 目标侧按卡面正文定	✅	RuleEngine/Editor/RuleEngineTest.cs:306（TestPlaySlotRejected）; RuleEngineTest.cs:307（TestPlayOccupiedSlotInserts）; BattleScene.cs:18947（战术卡目标侧，真实卡+真实引擎）	—
+FP-ENG-007	战斗逻辑驱动	死亡/残骸/墓地	单位死 ⇒ 残骸留场 + 坟场事件记账	✅	RuleEngine/Editor/RuleEngineTest.cs:224（TestRemnant）; RuleEngineTest.cs:233（TestCemeteryEvents）; RuleEngineTest.cs:337-347（嵌套死亡/死亡顺序）	—
+FP-ENG-008	战斗逻辑驱动	开局换牌	换掉的牌回牌库 + 按列表序补	✅	RuleEngine/Editor/RuleEngineTest.cs:295（TestMulligan）	—
+FP-ENG-009	战斗逻辑驱动	胜负判定与结算	打到一方血 0 ⇒ 结算码/结果码正确	✅	RuleEngine/Editor/RuleEngineTest.cs:505（TestBattleVictoryCode）; RuleEngineTest.cs:9284（结算：真打一局）	—
+FP-ENG-010	战斗逻辑驱动	手牌与牌库流转	抽卡/弃牌 ⇒ 手牌与牌库守恒（整局不变量）	✅	RuleEngine/Editor/RuleEngineTest.cs:24167（整局不变量：手里的牌不许同时在 Removed）; RuleEngineTest.cs:4603（TestW58HandLimitDraw）	—
+FP-ENG-011	战斗逻辑驱动	棋盘随从增删与重整	放满侧/被顶掉 ⇒ 槽号重排	✅	RuleEngine/Editor/RuleEngineTest.cs:307（占用槽插推）; RuleEngineTest.cs:79（连续无洞模型）	—
+FP-ENG-012	战斗逻辑驱动	战斗动作队列与结算流水	19 个入口返回时 ActionQueue 必须为空	✅	RuleEngine/Editor/RuleEngineTest.cs:881（TestW61ActionQueue 四道原语）; RuleEngineTest.cs:969（19 入口队列必须空）	—
+FP-ENG-013	战斗逻辑驱动	战斗结束/投降/断线重连	投降 ⇒ 对方胜；掉线/重连 ⇒ 结局与指纹一致	✅	RuleEngine/Editor/RuleEngineTest.cs:29685（投降 Forfeit）; RuleEngineTest.cs:29732（掉线那一档）	—

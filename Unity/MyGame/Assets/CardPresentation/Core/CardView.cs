@@ -4834,10 +4834,10 @@ namespace CardPresentation
         static string CreatedByLine(string creatorName)
         {
             if (string.IsNullOrEmpty(creatorName)) return null;
-            // 🔴 **先判 `Loc.HasEntry`、再取词条** —— 这一跳是 `A985④` 点名要的：
+            // 🔴 **先判 `Loc.HasAnyTerm`（三档一起算）、再取词条** —— 这一跳是 `A985④` 点名要的：
             //    少了它，`Loc.cs` 那条一旦被删/改名，`Loc.T` 会把**键名本身**（`Battle/HUD/CreatedBy`）
             //    印到卡面上，而**卡面看不出这是缺陷**（它就是一行白字）⇒ 正是本工程点名的静默失败。
-            if (Loc.HasEntry(CreatedByTerm))
+            if (Loc.HasAnyTerm(CreatedByTerm))
                 return Loc.T(CreatedByTerm).Replace("{0}", creatorName);   // `{0}` = 创建者的卡名
             // 键不在表里 ⇒ **退回改之前那两句硬拼**（中文档 / 英文档都保持原样）+ **出声**（⛔ 不静默）
             if (!_warnedCreatedByKey)
@@ -5455,7 +5455,7 @@ namespace CardPresentation
         /// ⚠️ 同一个值**只出声一次**：卡面每次刷新都会走这条路，逐次出声会把日志刷爆。</para>
         /// <para>🔴 **2026-10-25（`K4`）**：键先过 <see cref="RaceKeyBySubtype"/> 换成**原版枚举名**
         /// （战术/防御那 6 个写法不同的），查表顺序 = ① 官方数据面（`Loc.HasBulk`，原版就是 `GetTranslation`）
-        /// → ② 手写表（`Loc.HasEntry`）→ ③ **老键**（卡表写法那一条，今天实际生效的就是它）。
+        /// → ② 手写表或官方全表（`Loc.HasAnyTerm`）→ ③ **老键**（卡表写法那一条，今天实际生效的就是它）。
         /// 三者都取不到才回英文原文 + 出声。
         /// 🔴 **2026-10-25（`E`）就地订正（铁律 5）**：本行原写「今天渲染逐字节不变（官方 `Card_Race/*` 还没进数据面、
         /// 手写表也只有空格版）」—— **已过期**：官方 23 条已进数据面、手写表那 6 条也已换成枚举名 + 官方值
@@ -5471,7 +5471,7 @@ namespace CardPresentation
                 string v = Loc.BulkOr(key, null);
                 if (!string.IsNullOrEmpty(v)) return v;
             }
-            if (Loc.HasEntry(key)) return Loc.T(key);               // ② 手写表（键已是枚举名的那几族）
+            if (Loc.HasAnyTerm(key)) return Loc.T(key);             // ② 手写表 / 官方全表（bulk 已在 ① 取过）
 
             string oldKey = RaceTermPrefix + race;                  // ③ 老键（卡表写法）：今天实际走这条
             if (!string.Equals(oldKey, key, System.StringComparison.Ordinal) && Loc.HasEntry(oldKey))

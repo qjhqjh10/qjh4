@@ -456,8 +456,8 @@ namespace RuleEngine
         /// `Tally.AddCardPlayed(p, RuleCore.CardPlayedTagMask(card, inst))`，而 `CardPlayedTagMask`
         /// 对所有 `type == "tactic"` 的卡置 `CardPlayedTag.Tactic` 位（`RuleCore.cs:3883`）
         /// ⇒ 与 <c>CardsPlayedOf(seat, CardPlayedTag.Tactic)</c> **同一个格**（本口只是转发，⛔ 不是第二本账）。</para>
-        /// <para>⚠️ 原版那个 `CardPlayedSignal` 带 **cost**（`EntityScript.get_CurrentCost`）—— 我们的事件流里
-        /// 没有「打出成本」这一格，属**另一行**的残差（本口不承担）。</para></summary>
+        /// <para>⚠️ 原版那个 `CardPlayedSignal` 已按结构复刻（`RuleEngine/Core/CardPlayedSignal.cs`，两个发点与本口同一拍）；它带的 **cost**（`EntityScript.get_CurrentCost`）那一格
+        /// **原版零消费方** ⇒ ⛔ 不建（判据 `判据/B102_R2_日常奖励B类五条.md` §一·b）—— 本口只承担 `tacticsPlayed` 这一格。</para></summary>
         public int TacticsPlayedOf(int seat) { return CardsPlayedOf(seat, CardPlayedTag.Tactic); }
     }
 }

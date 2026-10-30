@@ -307,9 +307,9 @@ namespace CardPresentation
         static bool IsSettled(IBaseInitializable i)
         {
             if (i == null) return true;
-            // ⚠️ 被 Unity 销毁的件（== null 的 UnityEngine.Object）也算 settled —— 否则永远等。
-            var obj = i as UnityEngine.Object;
-            if (obj != null && obj == null) return true;
+            // ⚠️ 被 Unity 销毁的件（`== null` 的 `UnityEngine.Object`）也算 settled —— 否则 `:280` 那条协程等待会永远等。
+            var obj = i as UnityEngine.Object;      // 静态类型是 UnityEngine.Object ⇒ 下面必须先用 ReferenceEquals 分出「字面 null」
+            if (!ReferenceEquals(obj, null) && obj == null) return true;   // 🔴 别写成 `obj != null && obj == null`：两边都绑 Unity 重载 ⇒ 恒假（同 `TabButtons.IsDeadHandlerForTest` 那个坑，`报告/B103_D1.md` §2.2）
             return i.Status == InitializationStatus.Initialized || i.Status == InitializationStatus.Error;
         }
 
@@ -574,5 +574,19 @@ namespace CardPresentation
             if (o != null) return o.name;
             return i != null ? i.GetType().Name : "(null)";
         }
+
+        // ======================================================================== 🆕 B103_W6：settled 判定的自检读口
+        //
+        // 🔴 这两条只是把 `:302-313` 那两个**私有**静态判定露出来（`Editor/B103W6_Assert.cs` 用），
+        //    **不改变任何语义** —— 协程 `while (!AllSettled(group))` 走的就是它们本身。
+        // ⚠️ 为什么要有读口：`IsSettled` 里「被销毁的件也算 settled」那一支（`:312`）**曾经恒假**
+        //    （`obj != null && obj == null` 两边都押 Unity 重载），而这条分支只有跑协程才看得见 ——
+        //    编辑模式驱动不了那个 `while`，所以用一个纯函数读口钉住它的行为（判据 `报告/B103_D1.md` §2.2）。
+
+        /// <summary>自检读口：`IsSettled` 的公开包装（语义与协程等待里那条完全相同）。</summary>
+        public static bool IsSettledForTest(IBaseInitializable i) { return IsSettled(i); }
+
+        /// <summary>自检读口：`AllSettled` 的公开包装（= `while (!AllSettled(group)) yield return null;` 那一跳）。</summary>
+        public static bool AllSettledForTest(List<IBaseInitializable> group) { return AllSettled(group); }
     }
 }

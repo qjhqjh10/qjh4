@@ -208,7 +208,7 @@ namespace RuleEngine
             ///  `dump.cs:19557-19566` 那两格就是 `AbilityData` 上的 `+0x40/+0x41`）
             /// ⇒ **语义 = 「这条是【在场上才成立】的能力给的」**。
             /// </summary>
-            public bool Extrinsic; public bool Permanent;   // 🆕 2026-10-28（B91·W4b）`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)` —— 该条【摘不掉】（判据 = `CardScript__RemoveEffect.c` 第一句 `permanentBuff != 0 ⇒ return` / `RemoveBuffHandCostEffects.c:35` 最外层闸）。⚠️ 数据槽而已：生产点 = `RuleCore.AttachHandEffect`、消费点 = `RuleCore.ExpireHandBuffs` / `ClearHandEffect`（均 W1 的文件）—— 账 L846 的「记录层灌值」另一半在那两处，⛔ 别在此文件另造判断
+            public bool Extrinsic; public bool Permanent; public int Seq;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：`Seq` = 原版 `activeEffects(+0x108)` 的 `List.Add` 序（投影靠它还原表序）。写点 = `EffectResolver.AttachHandEffect`（补挂那条**照抄**原记录的号）—— ⏳ **本批未接**（那个文件在别的代理手上）⇒ 今天恒 `0` = 投影排队尾，**行为与改前逐字相同**｜🆕 2026-10-28（B91·W4b）`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)` —— 该条【摘不掉】（判据 = `CardScript__RemoveEffect.c` 第一句 `permanentBuff != 0 ⇒ return` / `RemoveBuffHandCostEffects.c:35` 最外层闸）。⚠️ 数据槽而已：生产点 = `RuleCore.AttachHandEffect`、消费点 = `RuleCore.ExpireHandBuffs` / `ClearHandEffect`（均 W1 的文件）—— 账 L846 的「记录层灌值」另一半在那两处，⛔ 别在此文件另造判断
 
             /// <summary>
             /// 🆕 **2026-10-23（`W64 B-09`）：这条记录只补给【这一份】实例**（`0` = 不限）。
@@ -516,5 +516,23 @@ namespace RuleEngine
             if (card.Has(KeywordTable.Tide)) TideCounter = card.KwValue(KeywordTable.Tide);
             if (card.Has(KeywordTable.Companion)) CompanionCounter = card.KwValue(KeywordTable.Companion);
         }
+
+        // ============================================================================================
+        //  🆕 2026-10-30（执行代理 `B103_W3`）：「一张卡的 `activeEffects` 序戳」的**唯一发号口**。
+        //
+        //  判据：原版 `EntityScript.activeEffects // +0x108` 是**一条** `List<CardEffect>`，出表序 =
+        //     `List.Add` 序（`EntityScript__GetCardEffectsToShow.c:34`）。我们把它拆成七本账
+        //     （`UnitState` 的 `_statMods/_traitEffects/_tempBuffs/_auraKw/_removedTraits` ＋
+        //     本类的 `ActiveEffects/HandEffects`）⇒ 必须有**一本**计数器才能还原先后。
+        //
+        //  🔶 自己设计（非原版的数据形状）：计数器挂在【实例】上（原版没有这个字段）。
+        //     为什么必须自己定：拆成多本账之后只有**一个号源**才能跨族比较；而手牌 / 附魔那两本账
+        //     长在 `CardInstance` 上，只有它自己够得着（`UnitState` 那边的计数器够不到）。
+        //     · 调度台 2026-10-30 批准（承 `报告/B101_R7_效果行消费端.md` §五 Step 0）。
+        //  ⚠️ `UnitState.NextEffectSeq()` 现在是**转发**到本方法（只有 `Instance == null` 才退回它自己那份）。
+        //  ⚠️ 纯取号：只自增，不改任何规则状态；不进 `NetProtocol.PlayerHash`。
+        // ============================================================================================
+        int _effectSeq;
+        public int NextEffectSeq() { return ++_effectSeq; }
     }
 }

@@ -3875,7 +3875,7 @@ namespace CardPresentation
         public static int NotifyLanguageChanged()
         {
             var h = LanguageChanged;
-            if (h == null) return 0;
+            if (h == null) { RelocalizeAll(); return 0; }   // B103_A03（AUD03 #94）：**没有 event 订户时，已建 `Label` 也要重取**（登记表 = 类尾 `_localizedLabels`，不依附 event 订户个数）
             int n = h.GetInvocationList().Length;
             try { h(); }
             catch (System.Exception e)
@@ -3883,7 +3883,7 @@ namespace CardPresentation
                 // 红线：不许静默失败。一个订户抛异常不能连带其它订户（原版 `BroadcastMessage` 也不连带）。
                 Debug.LogError("[Loc] 换语言广播里有一家订户抛了异常（其它订户照常收到）：" + e);
             }
-            return n;
+            RelocalizeAll(); return n;   // B103_A03（AUD03 #94）：广播之后把登记过的 `Label` 全部按各自来源重取（对标 I2 `OnLocalize`；⛔ 不重建窗、不动滚动位）
         }
 
         /// <summary>现在有几个订户（自检读口）。</summary>
@@ -3962,5 +3962,84 @@ namespace CardPresentation
         if (string.IsNullOrEmpty(key)) return false;
         return HasEntry(key) || HasBulk(key) || !string.IsNullOrEmpty(Lang13Of(key, "en"));
     }
+
+    // ==========================================================================================
+    //  🆕 B103_A03（AUD03 #94 · 2026-10-30）：换语言 ⇒ **已建 `Label` 按自己的来源重取文本**
+    //
+    //  原版形状 = I2 `LocalizationManager.OnLocalizeCallback`：每颗 `Localize` 组件自己登记 **term**，
+    //    换语言时由本地化系统**广播**，组件按自己那条 term **重取一次**（`Localize.OnLocalize`），
+    //    ⛔ **不重建整窗**。本仓已有一份同形先例 = `Shell/TimerDisplay.Awake/OnDestroy/LocalizationChange`
+    //    （`TimerDisplay.cs:287-288` 订 `Loc.LanguageChanged`，回调里只重取描述串）。
+    //  我们原来是「`OnLanguageChanged(){ Open(); }` = **整窗重建**」—— 可见差异 = 滚动位回顶、页签状态重算，
+    //    那不是原版那一跳在做的事（判据 = `d:/2/tools/decomp_full/LiveopMenuContainer__OnLocalize.c` 那一族：
+    //    容器只把标题/时间**重设一遍**）。
+    //
+    //  ⚠️ 为什么登记表放在 `Loc`（而不是让每颗 `Label` 自己去 `+= LanguageChanged`）：
+  //    ① 广播源就是这里 ⇒ 只有一条遍历、一个 prune 口（「两处写同一条规则 = 迟早不一致」）；
+  //    ② **批量/编辑模式下 `DestroyImmediate` 不派 `OnDestroy`**（本仓已多次踩，见 `资料/已知的坑.md`）
+  //       ⇒ 自订自摘那种写法会留一堆**已销毁的订户**在 event 上（`NotifyLanguageChanged` 的 try/catch 裹的是
+  //       整个组播列表 ⇒ 一家抛异常会把后面的全掐掉）。登记表这种写法能在广播前用 `lb == null` 把它们剔掉。
+  //  ⚠️ 只重取**显式声明了来源**的那些（`Label.BindText`）；一次性 `SetText` 的**不碰**
+  //    （否则会把倒计时/数值这类动态文本在换语言那一拍改成别的东西）。
+  //  ⚠️ 登记者为 0 是合法的（绝大多数窗没有本地化标签）⇒ **不报警**（同 `NotifyLanguageChanged` 那条口径）。
+    // ==========================================================================================
+
+    /// <summary>「文本跟着语言走」的 `Label` 登记表（⚠️ 只由 <see cref="Label.BindText"/> / <see cref="UnbindLocalized"/> 维护）。</summary>
+    static readonly System.Collections.Generic.List<Label> _localizedLabels = new System.Collections.Generic.List<Label>();
+
+    /// <summary>登记每多少颗 prune 一次（见 <see cref="BindLocalized"/> 的注释）。</summary>
+    static int _bindSincePrune;
+
+    /// <summary>登记一颗「文本要跟着语言走」的 `Label`（幂等）。由 <see cref="Label.BindText"/> 调，⛔ 别直接调。</summary>
+    /// <para>⚠️ 会做**摊还 prune**：滚动重建那种每次 `Build` 都新造一批 `Label` 的路径里，旧的那批已经销毁、
+    /// 但还没被广播剔掉 ⇒ 不 prune 的话这张表会随重建次数无界增长（每 128 次登记扫一遍，摊到每次是常数）。</para>
+    public static void BindLocalized(Label lb)
+    {
+        if (lb == null) return;
+        if (!_localizedLabels.Contains(lb)) _localizedLabels.Add(lb);
+        if ((++_bindSincePrune & 0x7F) == 0) PruneLocalized();
+    }
+
+    /// <summary>退登（幂等）。`Label.BindText(null)` 会调；已销毁的也会在下次 prune 时被剔掉。</summary>
+    public static void UnbindLocalized(Label lb)
+    {
+        if (lb == null) return;
+        _localizedLabels.Remove(lb);
+    }
+
+    /// <summary>现读还登记着几颗（先剔掉已销毁的）。</summary>
+    public static int LocalizedBindingCount { get { PruneLocalized(); return _localizedLabels.Count; } }
+
+    /// <summary>把登记着的标签全部按各自来源重取一次；返回**真重取了几颗**。
+    /// <para>⛔ 不重建任何窗、不动滚动位 —— 这就是与旧 `OnLanguageChanged(){ Open(); }` 的区别。</para></summary>
+    public static int RelocalizeAll()
+    {
+        PruneLocalized();
+        if (_localizedLabels.Count == 0) return 0;
+        var snapshot = _localizedLabels.ToArray();   // 重取途中可能有 `BindText` / 销毁 ⇒ 遍历快照
+        int n = 0;
+        for (int i = 0; i < snapshot.Length; i++)
+        {
+            var lb = snapshot[i];
+            if (lb == null) continue;                 // 快照之后被销毁（Unity 假 null）
+            try { lb.Relocalize(); n++; }
+            catch (System.Exception e)
+            {
+                // 红线：不许静默失败；**一家抛异常不能把后面的全掐掉**
+                // （`NotifyLanguageChanged` 的 try/catch 裹的是整个组播列表 ⇒ 这里必须逐家兜住）。
+                Debug.LogError("[Loc] 换语言重取时有一颗 `Label` 抛了异常（其余照常重取）：" + e);
+            }
+        }
+        return n;
+    }
+
+    static void PruneLocalized()
+    {
+        for (int i = _localizedLabels.Count - 1; i >= 0; i--)
+            if (_localizedLabels[i] == null) _localizedLabels.RemoveAt(i);
+    }
+
+    /// <summary>自检用：清空登记表（⛔ 生产别调）。</summary>
+    public static void ClearLocalizedForTest() { _localizedLabels.Clear(); _bindSincePrune = 0; }
     }
 }

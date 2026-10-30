@@ -493,7 +493,7 @@ namespace CardPresentation
             var info = MenuDraw.Text(p, S_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText,
                                      wrapPx: S_Info.W, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(info, S_Info);
-            MenuDraw.SetVAlign(info, Label.VAlign.Midline, S_Info);   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
+            MenuDraw.SetVAlign(info, Label.VAlign.Midline, S_Info); if (info != null) info.BindText(DailyData.StreakInfoText, () => { MenuDraw.AlignLeft(info, S_Info); MenuDraw.SetVAlign(info, Label.VAlign.Midline, S_Info); });   // B103_A03（AUD03 #94）：这颗是 `Loc.T` 驱动的官方词条 ⇒ 换语言按来源重取（`reapply` 里把横向/纵向两刀重放一遍：`SetText` 会按新宽度重新居中，不对齐就回框心）。⛔ 别改回整窗重建。A712 阶段 2：原版 `Left/Midline` 的纵向那一半
             // ⚠️ `Timer` **在本面板里** ⇒ 断签态下看不到倒计时（原版实况）
             var t = MenuDraw.Node(p, "Timer", S_Timer);
             // 🔴 **2026-10-13（A493 #4/#5）**：`Timer` 底下两颗各补对齐，**两颗方向相反、别一刀切** ——
@@ -613,7 +613,7 @@ namespace CardPresentation
             MenuDraw.SetVAlign(fLost, Label.VAlign.Midline, F_Lost);
             var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText,
                                       wrapPx: F_Info.W, face: TmpFont.Face.LatinCardBody);
-            MenuDraw.SetVAlign(fInfo, Label.VAlign.Midline, F_Info);
+            MenuDraw.SetVAlign(fInfo, Label.VAlign.Midline, F_Info); if (fInfo != null) fInfo.BindText(DailyData.StreakInfoText);   // B103_A03（AUD03 #94）：断签态那颗 `Info` 与成功态同一条官方词条 ⇒ 换语言按来源重取（居中 ⇒ 不用 `reapply`）
             var btn = MenuDraw.Rect(anchor, Art(ArtMulligan), F_ResetBtn, "Generic Simplified UI Button", QContent);
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 55px。
             //   判据 = 原版 `menus ▸ Daily Streak Popup ▸ Streak Failed/Generic Simplified UI Button/Button Text`
@@ -825,7 +825,7 @@ namespace CardPresentation
                 //   （原版 TMP 的 `m_fontSize*` 是局部值，屏上还要被 `Collect` 的 0.7 与条目根的 1.2 缩）。
                 //   ⚠️ `折行 = 1` ⇒ 不用还原。
                 // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 同一行 dump 实读 `对齐=Left/**Midline**`。
-                MenuDraw.SetVAlign(lbCollect, Label.VAlign.Midline, OC(E_CollectText));
+                MenuDraw.SetVAlign(lbCollect, Label.VAlign.Midline, OC(E_CollectText)); if (lbCollect != null) lbCollect.BindText(DailyData.StreakClaimText);   // B103_A03（AUD03 #94）：`Collect Text` 是 `Loc.T("ShopOffers/GeneralClaim")` 驱动的真词条 ⇒ 换语言按来源重取（横向靠 TMP 的 `align:1` 左对齐、位置由居中锚点决定 ⇒ 不用 `reapply`）。⚠️ 本格每次 `BuildTrack` 重建都会重新登记，旧的由 `Loc` 的摊还 prune 剔掉
                 if (c != null)
                 {
                     var hit = c.gameObject.AddComponent<WindowButton>();
@@ -988,5 +988,9 @@ namespace CardPresentation
                 if (_streakEntries[i].Day == day) return _streakEntries[i];
             return null;
         }
+
+        // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
+        // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底）。本窗登记过来源的 = 两态各一颗 `StreakInfoText` + 7 格的 `StreakClaimText`。
+        public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
     }
 }

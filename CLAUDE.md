@@ -453,6 +453,10 @@
   3. **纯工具（`工具/*.py`）/ 纯文档（`资料/*.md`）⇒ 一条都不用跑**。
 - ✅ **秒级类型检查**（`bash 工具/typecheck.sh`，几秒）—— **改完任何一个 `.cs` 就立刻跑**，它是唯一挡「编不过」的东西；
   ⚠️ 批处理跑着时**别改 `.cs`**。
+  🔴 **2026-10-30 新坑（`B103_W6` 实测）**：**运行时程序集编不过时，脚本不会清旧的 `%TMP%/wfcheck/WFCheck.dll`** ⇒
+  编辑器那半边会**拿旧 DLL 编**，于是报出一串「某方法的读口不存在」的**级联假错**（实测 5 条，全指向 `SceneInitializer`，而真因是别人在飞文件的 2 条运行时错）。
+  **判据**：看 `$TMP/wfcheck/WFCheck.dll` 的 **mtime 是否早于你改的那个文件**；早了 ⇒ 那些编辑器错不可信，先把运行时那几条修掉再复跑。
+  （同族：并发写手多时，报错全集中在**不是你负责的文件**上 ⇒ 那不是你的问题，隔一会儿重跑。）
 
 🔴 **实测耗时**（跑全套 = **20 分 24 秒**）：
 
@@ -1304,6 +1308,10 @@ Unity **只能为「类名 == 文件名」的类建出脚本资产**，其余情
 - 🔴🆕 **`decomp_full` 的「文件名与内容不符」会【凭空造出调用方】**（2026-10-26 差点因此误判）：`CampaignWindowTab__ToggleChooseArmyText.c` 的内容竟是 `DeckManager__ToggleCardbackPreview`。形状 = 「`.c` 里只有一句 return / 一个常量」。⇒ 拿一份 `.c` 当调用证据前，**先看它第一行的函数名是不是就是它自己**。
 - 🔴🆕 **首行名不是自己，也可能是【ICF 折叠】而不是缺产物**（2026-10-26 良性反例）：`UIImageMaterialColorChanger__Awake/__Stop` 的产物首行是 `UIImageGreyscaleController__Awake`、`UIScaleToFit__OnEnable/__SetLayoutHorizontal` 的首行是 `UIScaleToFit__Start`，但**体语义一致** ⇒ 那是链接器把相同机器码折叠成同一地址，**不是解错**。判法 = **先读体再下结论**（与上面那条合并看：名字不符要先分清是「内容错位」还是「折叠」）。
 - 🔴🆕 **编辑模式下 `AddComponent` 不触发 `Awake/OnEnable/Start/Update`**（2026-10-26 实测）：想在自检里读「组件初始化后」的状态，**只能 `SendMessage("Awake")`** 或手动调；否则读到的全是未初始化值，且**不会报错**。
+- 🔴🆕 **同一条环境事实的**下一跳：**编辑模式下 `DestroyImmediate(组件)` 也不派 `OnDestroy`** ⇒ **静态事件的退订口如果不是唯一的，就会漏**（2026-10-30 `B103_F1` 实测）：
+  `Inventories.Wildcards.Updated` 是**静态**事件、唯一退订口在 `DeckRuntime.OnDestroy` ⇒ **每一具被销毁的 `DeckRuntime` 都还挂在信号上**；任何「被销毁的实例被信号打到」的路径都会抛 `MissingReferenceException`（实测三处宿主：`DeckScene` 整条崩 · `CollectionScene` 红 · `RewardsScene` 整条崩）。
+  **两条做法**：① 静态事件的订阅方**在入口处加「我还活着吗」硬闸**（`Root == null` ⇒ 出声 + 当场退订 + return，**⛔ 不静默**）；② 自检里 **`DestroyImmediate` 之后不要指望钩子被摘** —— 要用显式接口（例：`BattleDriver.DetachStaticHooks()`）并在断言里把「摘干净」断出来。
+  📌 **同族待办**：`Shell/MainMenuRuntime.cs:63` 那两条静态订阅也只靠 `OnDestroy` 摘（今天没崩只因「销毁后没人换语言」）。
 - 🔴🆕 **自检里的 `if (x != null) Check(...)` = 前提不成立时【静默跳过】**（2026-10-26 一天内撞到 **3 次**：夹具 `faction = null` ⇒ `CardArt.Frame` 返 null ⇒ 3D 卡体压根没建，那条断言一次没跑过；`CardData.Simple(...)` 的 `faction` 恒 null 是同一个坑；残骸夹具阵营 `"Test"` ⇒ 按阵营判的销毁链压根扫不到 ⇒ 「留场」断言空转绿）。
   ⇒ **纪律**：**先写前提断言（硬检查），再写被测断言**；`if (前提) Check(结论)` 这种写法一律改成 `Check(前提) + Check(结论)`。
   ⇒ 判据：日志里只有「✓」而没有那条断言，**不等于它对** —— 搜一下它到底印没印过。

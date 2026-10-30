@@ -2427,4 +2427,229 @@ namespace RuleEngine
             return true;
         }
     }
+
+    // ==========================================================================================
+    //  🆕 2026-10-30（第一百零三会话 · 波 1 · 执行代理 `B103_W5c` · 账 `战斗逻辑驱动:1282` / `:1380`）：
+    //     **`disappearFromHand(56)` / `displayFromHand(57)` 这两种原版动作类型的等价物**（入队口 + 出队处理口）
+    //
+    //  🔴 **为什么单开一个 `partial` 段、且写在文件最末**：本文件被 `账/*.tsv` 按 `文件:行号` 引用
+    //     （13 处）⇒ 在类体中间插成员会让它们**整体漂移**（铁律 18·b：新成员一律追加到类尾）。
+    //
+    //  🔴 **「新建一种动作类型」在这里等于什么**：本工程的动作队列只有 `QueuedAction` + `Payload`，
+    //     **没有按 kind 的 dispatch** —— 分派在**入队那一刻**用闭包 `Execute` 绑好（`EnqueueAbility` 的 `body`，
+    //     先例 = `BattleContext.AddRemoveFromCemetery` / `ResolveRemoveFromCemetery` 那一对）。
+    //     所以「一种动作类型」= **一对「入队口 + 出队处理口」**，外加把**原版动作号**回填进
+    //     `QueuedAction.ActionType`（那一格唯一的用途：`ActionQueue.Has` 按原版号问「四条道里还有没有这一类」）。
+    //
+    //  **判据（第一权威，逐句现读 `d:/2/tools/decomp_full/`）**：
+    //   · `BattleManager__AddDisappearFromHand.c:19-32` —— `BattleAction___ctor(action, **0x38 (56)**, isPlayer=0,
+    //     actingCard=0, param_4 /*blockPlayerActions*/, 0)`，随后 `action.card = param_2`、
+    //     `AddAutoActionToQueue(bm, action, priority = param_3, 0)`；
+    //   · `BattleManager__AddDisplayFromHand.c:19-32` —— **同形**，只有动作号 **`0x39 (57)`** 不同。
+    //   · 结算体（出队处理口）= `BattleManager._ResolveDisappearFromHand_d__545__MoveNext` /
+    //     `BattleManager._ResolveDisplayFromHand_d__548__MoveNext`（逐跳见下面两个方法的 doc）。
+    //   · **生产端（原版唯一）** = `AbilityLogic__PlayAbility.c:605-622`（`case 0xa2 = 162`）与
+    //     `:2227-2242`（`case 0x136 = 310`）—— **逐目标**各调一次 ⇒ 调用方 =
+    //     `RunDisappearFromHandRow` / `RunDisplayFromHandRow`（`RuleCorePartial_B103W5c.cs`）。
+    //   📊 **可达性**：`cards_truth.json` 1,351 张现扫 `chosenAbility ∈ {162, 310}` = **0 张 / 0 张**
+    //     （`cards_engine.json` 池内 `activeAbilityLogic` 里同样 0 行）⇒ **休眠件**
+    //     （铁律 11：休眠也照样建出来；零行为变化、`play check` 指纹预期不变）。
+    // ==========================================================================================
+    public static partial class RuleCore
+    {
+        /// <summary>原版 `BattleManager.AddDisappearFromHand` 组出来的动作号（判据 = 本段头的 `.c:23` 字面量 `0x38`）。</summary>
+        public const int ActionTypeDisappearFromHand = 56;
+
+        /// <summary>原版 `BattleManager.AddDisplayFromHand` 组出来的动作号（判据 = 本段头的 `.c:23` 字面量 `0x39`）。</summary>
+        public const int ActionTypeDisplayFromHand = 57;
+
+        /// <summary>
+        /// **入队一条 `disappearFromHand(56)`**（= 原版 `BattleManager.AddDisappearFromHand` 的等价物）。
+        ///
+        /// <para>⚠️ **空卡 ⇒ 不入队 + 出声**（原版 `.c:19-32` 是无条件解引用 `param_2`，空卡会 NRE；
+        /// 我们出声后不入队，免得「什么都没发生」看起来像静默失败）。</para>
+        ///
+        /// <para>⚠️ **道**：原版这一条走 `AddAutoActionToQueue(…, priority = ability.priority(+0x44), 0)`；
+        /// 我们这一层拿到的是调用方给的道（`RunDisappearFromHandRow` 传 `Instant` —— 与
+        /// `RunRemoveFromCemeteryRow` 的 `priority: 1` 同一条口径，判据 `CardAbility__ctor.c:5` 的缺省 `+0x18 = 1`）。</para>
+        /// </summary>
+        public static bool EnqueueDisappearFromHand(BattleContext ctx, int seat, CardInstance card, ActionPriority lane)
+        {
+            if (ctx == null) return false;
+            if (card == null || card.Card == null)
+            {
+                ctx.Log("⚠️ `disappearFromHand(56)`：要移出游戏的那张卡是空的 ⇒ **不入队**"
+                      + "（原版 `BattleManager__AddDisappearFromHand.c:19-32` 无条件解引用 `param_2`，空卡会 NRE；"
+                      + "我们出声后不入队）");
+                return false;
+            }
+            bool ok = EnqueueAbility(ctx, lane,
+                                     $"disappearFromHand(56):{card.Card.Name}",
+                                     () => ResolveDisappearFromHand(ctx, seat, card),
+                                     actor: null,                     // 原版这一条 `actingCard = 0` ⇒ 没有「施放者必须在场」的闸
+                                     actionType: ActionTypeDisappearFromHand);
+            ctx.Log(ok
+                ? $"入队一条 `disappearFromHand(56)`：「{card.Card.Name}」（第 {seat} 号位的手牌，道 = {lane}）"
+                : $"⚠️ `disappearFromHand(56)`：「{card.Card.Name}」**没能入队** —— 这一张这次不会被移出游戏");
+            return ok;
+        }
+
+        /// <summary>
+        /// **动作 `disappearFromHand(56)` 的【出队处理口】** —— 原版
+        /// `BattleManager.ResolveDisappearFromHand` 协程（`BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c`）的等价物。
+        ///
+        /// <para>**逐跳（全文 163 行，2026-10-30 逐段现读；真语句只有 6 句）**：</para>
+        /// <list type="number">
+        /// <item>`:36-37` 闸 = `CardScript.IsInHand(card, 0)`；**假** ⇒ `:39-90` 组一条 LogWarning →
+        ///   `:74` `FinishResolvingAction` ⇒ **棋盘/手牌一格都不动**（不是异常）。</item>
+        /// <item>`:90` `CustomDebug.Log`（"手牌里消失了"）· `:96-130` **演出**：按 `bm+0x48` 那份预制体
+        ///   在卡位 `Instantiate` 溶解特效 + `SoundAssetCollection.DissolveCardInHand` 音效
+        ///   ⇒ **纯表现**，我们这一层无对象（如实记）。</item>
+        /// <item>`:132` `CardScript.RemoveCostEffects(card)` ⇒ 我们的 <see cref="RemoveCostEffects"/>。</item>
+        /// <item>`:134` `CardScript.DestroyCard(card, …, 1, 0)`（协程）→ `CardScript._DestroyCard_d__269__MoveNext.c`
+        ///   状态 2 ⇒ `CardScript__GoToCemetery.c`：`cardState = 6` → `RawCardScript.IsUnit(card)` 真 ⇒
+        ///   `ResetToValuesInHand(card, 1, 0)`（手牌这一份 ⇒ `ResetHandCardToValuesInHand`）。</item>
+        /// <item>`CardScript__GoToCemetery.c:14-30` **去向分两档**（🔴 别只看其中一条）：
+        ///   `HasCurrentTrait(5 /*ephemeral*/)` **真** ⇒ 只 `SetActive(false)` 后 return
+        ///   （**跳过 `AddToCemetery`** = 移出游戏）· **假** ⇒ `BattleManager.AddToCemetery`
+        ///   （**进弃牌堆**）。⇒ 我们的两档 = `RemoveCardFromHandToRemoved`（移出游戏）/ `AddToCemetery`（弃牌堆）。</item>
+        /// <item>`:149-155` `GetPlayerHand(bm, card.isPlayer)` → `PlayerHand.RemoveCardFromHand(hand, card)`
+        ///   → `FinishResolvingAction`。⚠️ 我们的 `Hand.Remove` 与上面那一跳**合成一处**做
+        ///   （原版是「先 DestroyCard 再 RemoveCardFromHand」，两者之间没有任何读取手牌的结算）——
+        ///   净顺序差如实标着，⛔ 不是漏做。</item>
+        /// </list>
+        ///
+        /// <para>📊 池内 `chosenAbility 162` = **0 张** ⇒ 休眠件。</para>
+        ///
+        /// <para>🔴 **为什么没有复用 `DiscardHandCardCore`**（那一支的三步与本支几乎同形，看着该复用）：
+        /// 它在 `AddToCemetery` 之前发一条 **`EvtKind.DiscardReveal`**（= 原版
+        /// `_ResolveDiscardFromHand:95` 的 `ShowCardBeingDrawn(0.2f)` ——「把这张牌抽出来亮 0.2 秒」），
+        /// 而停在本方法这一支的**原版没有那一跳**（它播的是 `:96-130` 的**溶解特效 + `DissolveCardInHand` 音效**）；
+        /// 它的 `ephemeral` 分支还会把 `ctx.Removed` 的 `Reason` 写成 `"discard-ephemeral"`。
+        /// 两个可观测差异都指向「这不是弃牌」⇒ 这里按原版另写三句（⛔ 不是漏复用，也不是第二份判据：
+        /// 「进弃牌堆唯一的写点」仍然是 `AddToCemetery`、「移出游戏唯一的写点」仍然是
+        /// `RemoveCardFromHandToRemoved`）。</para>
+        /// </summary>
+        /// <returns>`1` = 真的把这张卡送走了（移出游戏或进弃牌堆）；`0` = 它已不在手牌里（原版失败支）。</returns>
+        public static int ResolveDisappearFromHand(BattleContext ctx, int seat, CardInstance card)
+        {
+            if (ctx == null || card == null || card.Card == null || seat < 0 || seat > 1) return 0;
+            var ps = ctx.Players[seat];
+            // ⓪ 原版 `:36-37` 的 `IsInHand` 闸（失败支 = 出声 + FinishResolvingAction，一格都不动）
+            if (ps == null || ps.Hand == null || !ps.Hand.Contains(card))
+            {
+                ctx.Log($"⚠️ `disappearFromHand(56)`：「{card.Card.Name}」**不在第 {seat} 号位的手牌里** ⇒ 这条动作空转"
+                      + "（原版 `_ResolveDisappearFromHand_d__545__MoveNext.c:36-90` 的失败支："
+                      + "`IsInHand` 为假 ⇒ LogWarning + `FinishResolvingAction`，棋盘/手牌一格都不动）");
+                return 0;
+            }
+            // ① `:132 RemoveCostEffects`
+            RemoveCostEffects(ctx, card);
+            // ② `:134 DestroyCard` → `GoToCemetery` 的 `ResetToValuesInHand(card, 1, 0)`（**只有单位**那一支）
+            if (card.Card.IsUnit) ResetHandCardToValuesInHand(ctx, card, "disappearFromHand", "disappearFromHand");
+            // ③ `GoToCemetery.c:14-30` 的去向分两档 —— ephemeral ⇒ 移出游戏；否则 ⇒ 进弃牌堆
+            if (ctx.IsEphemeral(card))
+            {
+                bool gone = RemoveCardFromHandToRemoved(ctx, seat, card, "disappearFromHand");
+                ctx.Log($"`disappearFromHand(56)`：「{card.Card.Name}」带 `ephemeral`（trait 5）⇒ 原版 `CardScript__GoToCemetery.c:14-21` "
+                      + "只 `SetActive(false)`、**跳过 `AddToCemetery`**"
+                      + (gone ? " ⇒ 我们记进「移出游戏」（`ctx.Removed`）" : " ⚠️ 但手牌里已经找不到它了"));
+                return gone ? 1 : 0;
+            }
+            if (!ps.Hand.Remove(card))
+            {
+                ctx.Log($"⚠️ `disappearFromHand(56)`：「{card.Card.Name}」要送走时已经不在手牌里 —— **这条没生效**");
+                return 0;
+            }
+            AddToCemetery(ps, card);     // = 原版 `BattleManager.AddToCemetery`（`GoToCemetery.c:22-27` 那一支）
+            // 表现层要**知道哪张牌离开了手牌**（不是阵亡）⇒ 与 `RemoveCardFromHandToRemoved` 同一条事件
+            ctx.Emit(EvtKind.Return, seat, -1, card.Card.Name, effect: "disappearFromHand");
+            ctx.Log($"`disappearFromHand(56)`：「{card.Card.Name}」没有 `ephemeral` ⇒ 原版 `GoToCemetery` 走 `AddToCemetery` "
+                  + $"⇒ **进弃牌堆**（{ps.Name} 手牌 {ps.Hand.Count} 张 / 弃牌堆 {ps.Discard.Count} 张）");
+            return 1;
+        }
+
+        /// <summary>
+        /// **入队一条 `displayFromHand(57)`**（= 原版 `BattleManager.AddDisplayFromHand` 的等价物；
+        /// 与上面的 `disappearFromHand(56)` 逐字同形，只有动作号不同）。
+        /// </summary>
+        public static bool EnqueueDisplayFromHand(BattleContext ctx, int seat, CardInstance card, ActionPriority lane)
+        {
+            if (ctx == null) return false;
+            if (card == null || card.Card == null)
+            {
+                ctx.Log("⚠️ `displayFromHand(57)`：要展示的那张卡是空的 ⇒ **不入队**"
+                      + "（原版 `BattleManager__AddDisplayFromHand.c:19-32` 无条件解引用 `param_2`，空卡会 NRE；"
+                      + "我们出声后不入队）");
+                return false;
+            }
+            bool ok = EnqueueAbility(ctx, lane,
+                                     $"displayFromHand(57):{card.Card.Name}",
+                                     () => ResolveDisplayFromHand(ctx, seat, card),
+                                     actor: null,                     // 原版这一条 `actingCard = 0`
+                                     actionType: ActionTypeDisplayFromHand);
+            ctx.Log(ok
+                ? $"入队一条 `displayFromHand(57)`：「{card.Card.Name}」（第 {seat} 号位的手牌，道 = {lane}）"
+                : $"⚠️ `displayFromHand(57)`：「{card.Card.Name}」**没能入队** —— 这一张这次不会被展示");
+            return ok;
+        }
+
+        /// <summary>
+        /// **动作 `displayFromHand(57)` 的【出队处理口】** —— 原版
+        /// `BattleManager.ResolveDisplayFromHand` 协程（`BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c`）的等价物。
+        ///
+        /// <para>🔴 **上一手报告 §6·4 那句「310 要先回 `.c` 核实『是否真的零局面变化』」—— 核实完毕，结论：**
+        /// **牌面/手牌/弃牌堆一个字节都不变，但它不是「零写入」**：它会往**墓地动作日志**追加一条记录
+        /// （下面 ① 那一跳）。原版全文 249 行，逐段现读：</para>
+        /// <list type="number">
+        /// <item>`:45-101` 闸 = `CardScript.IsInHand(card, 0)`；**假** ⇒ `:47-101` 组 LogWarning →
+        ///   `:87` `FinishResolvingAction` ⇒ 一格都不动。</item>
+        /// <item>`:102-140` `CustomDebug.Log`（"展示"）。`:142-191` —— `lVar15 = bm + 0x110`（`CemeteryManager`）
+        ///   非空 ⇒ 把这一条 `BattleAction` 整份拷进一个栈缓冲，调
+        ///   **`CemeteryManager.AddDisplayedCardActionToCemetery(cemetery, action)`**。
+        ///   ⚠️ 它**不是**「往弃牌堆里放这张牌」：那个方法（`CemeteryManager__AddDisplayedCardActionToCemetery.c:61,132,149`）
+        ///   先 `CemeteryManager.SetupCommonElements(…)`（`local_1e8 = 0x1e` = **`CemeteryActionType.displayedCard(30)`**），
+        ///   再 `CemeteryManager.AddActionToCemetery(cemetery, record, 0)` —— 那是**墓地动作日志**（面板上那串文字），
+        ///   消费者只有 `GetActionText`（`:276` 的 `0x1e` 分支）与 `GetCardsPlayed`（它只认 `actionType == 10`，
+        ///   ⇒ **`30` 那一条对规则完全不可见**）。</item>
+        /// <item>`:193` `CardScript.SetCardState(card, 10)` · `:195` `CardScript.DisplayEnemyCardInCenter(card, …)`
+        ///   （协程）· `:234` `SetCardState(card, 1)` · `:236` `TurnCardAround(card, …)` —— **中央亮牌 + 翻面**，
+        ///   全是表现层（我们的 `RuleEngine` 无卡体、手牌实例也没有 `cardState` 这一格）。</item>
+        /// <item>`:227` `GetPlayerHand(...).HandCardReleased(hand, 0)` → `PlayerHand__HandCardReleased.c` 全文两句 =
+        ///   `MoveCardsInHandToPosition(hand, -1, 0)` 协程 ⇒ **手牌重排**，纯表现。</item>
+        /// <item>`:228` `FinishResolvingAction` ⇒ 我们的等价物是动作泵的收尾（⛔ 别在这里再手发一次）。</item>
+        /// </list>
+        ///
+        /// <para>🔴 **如实标的缺口（⛔ 不是「做完了」）**：① 那条 `displayedCard(30)` 日志条目
+        /// **我们没有容器** —— 本工程只建模了同一本日志里 `playCard(10)` 那一类
+        /// （`ctx.PlayedCards`，判据见 `BattleContext.PlayedCard` 的 doc）⇒ 这里落 `ctx.Log`
+        /// （引擎侧唯一的动作日志），**墓地日志面板上不会多出这一行**；②「中央亮牌」这条表现信号
+        /// **没有事件通道**（`EvtKind` 里没有对应项；同一句原版 `DisplayEnemyCardInCenter` 在
+        /// `EvtKind.SabotageCreated` 那条窄口里被用过，但那条的语义是「破坏卡被造进手牌」、⛔ 不能借用）。
+        /// 两条都要动 `BattleContext.cs` / `BattleEvent.cs`（本代理白名单之外）⇒ 已写进报告转调度台。</para>
+        ///
+        /// <para>📊 池内 `chosenAbility 310` = **0 张** ⇒ 休眠件。</para>
+        /// </summary>
+        /// <returns>`1` = 真的展示了（牌仍在手牌里）；`0` = 它已不在手牌里（原版失败支）。</returns>
+        public static int ResolveDisplayFromHand(BattleContext ctx, int seat, CardInstance card)
+        {
+            if (ctx == null || card == null || card.Card == null || seat < 0 || seat > 1) return 0;
+            var ps = ctx.Players[seat];
+            // ⓪ 原版 `:45-101` 的 `IsInHand` 闸（失败支 = LogWarning + FinishResolvingAction，一格都不动）
+            if (ps == null || ps.Hand == null || !ps.Hand.Contains(card))
+            {
+                ctx.Log($"⚠️ `displayFromHand(57)`：「{card.Card.Name}」**不在第 {seat} 号位的手牌里** ⇒ 这条动作空转"
+                      + "（原版 `_ResolveDisplayFromHand_d__548__MoveNext.c:45-101` 的失败支："
+                      + "`IsInHand` 为假 ⇒ LogWarning + `FinishResolvingAction`，一格都不动）");
+                return 0;
+            }
+            ctx.Log($"`displayFromHand(57)`：「{card.Card.Name}」被**展示**（{ps.Name} 的手牌，牌**留在手牌里**）"
+                  + " —— 原版 `_ResolveDisplayFromHand_d__548__MoveNext.c:142-227`："
+                  + "墓地日志追加一条 `displayedCard(30)`（`CemeteryManager__AddDisplayedCardActionToCemetery.c`）"
+                  + " → `SetCardState(10)` → `DisplayEnemyCardInCenter` → `SetCardState(1)` → `TurnCardAround`"
+                  + " → `HandCardReleased`（手牌重排）。"
+                  + "⚠️ 其中「墓地日志那一行」与「中央亮牌」两条本版**没有对应的写点 / 事件通道**（见本方法 doc）");
+            return 1;
+        }
+    }
 }
