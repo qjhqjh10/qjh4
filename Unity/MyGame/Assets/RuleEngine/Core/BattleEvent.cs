@@ -444,6 +444,14 @@ namespace RuleEngine
         /// ⚠️ 发出点同 <see cref="DiscardReveal"/>（`isSteal: true`）。</para>
         /// </summary>
         StealReveal,
+
+        /// <summary>🔴 **2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：一张破坏卡被造进了某人的手牌、要在中央亮出来** ——
+        /// 原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-102` 对 `spellType == 0xe6(230)` 的造牌**直接调**
+        /// `CardScript.DisplayEnemyCardInCenter(targetCard, timeToDraw: 0.3f, stepTime: 0.3f, changeVisibility: true)`（原版**没有广播**，这条是我们跨层用的窄口）。
+        /// **字段**：`Player` = 造牌方 · `Slot` 恒 `-1`（展示的是**卡**、不是单位）· `CardId` = 卡名 · `TargetPlayer` = **收牌方**（卡落进谁的手里 ⇒ 从那一侧手牌飞出）。
+        /// 发出点 = `EffectResolver.DoCreate` 的 `case "hand" / "enemyhand"` 破坏那一支（唯一）。⚠️ 纯表现信号：不改局面、不进动作流。
+        /// 🔴 但它进 `ctx.Events.Count` ⇒ **改 `NetProtocol.Fingerprint`**（须与一次 `play check` 重钉同批）。</summary>
+        SabotageCreated,
     }
 
     /// <summary>

@@ -1291,7 +1291,7 @@ public static partial class RuleEngineTest
         Guard("CheckB96CRCombatBits", CheckB96CRCombatBits);
 
         // 🆕 2026-10-29（调度台代接线）：`B97_W1` —— 账 832 ② `RecordGrant` 的「施放者」列 · 账 1053 的 `questCounter` 归零。
-        Guard("CheckB97W1Grants", CheckB97W1Grants); Guard("CheckB97W30Extrinsic", CheckB97W30Extrinsic); Step(TestB97W28); Guard("B97W36Assert", B97W36Assert.Run); _pass += B97W36Assert.Pass; _fail += B97W36Assert.Fail; Step(TestB97W34); Guard("B98G1_Assert", B98G1_Assert.Run); _pass += B98G1_Assert.Pass; _fail += B98G1_Assert.Fail; Guard("B98G3_Assert", B98G3_Assert.Run); _pass += B98G3_Assert.Pass; _fail += B98G3_Assert.Fail; Guard("B98G5_Assert", B98G5_Assert.Run); _pass += B98G5_Assert.Pass; _fail += B98G5_Assert.Fail; Step(TestB99E2); Step(TestB99E5); Step(RunB99E6); Guard("B99E3_Assert", B99E3_Assert.Run); _pass += B99E3_Assert.Pass; _fail += B99E3_Assert.Fail; RunB98G7(); Guard("B98G2_Assert", B98G2_Assert.Run); _pass += B98G2_Assert.Pass; _fail += B98G2_Assert.Fail; Guard("B98G6_Assert", B98G6_Assert.Run); _pass += B98G6_Assert.Pass; _fail += B98G6_Assert.Fail; Guard("B98K2_Assert", B98K2_Assert.Run); _pass += B98K2_Assert.Pass; _fail += B98K2_Assert.Fail; Guard("B99E1_Assert", B99E1_Assert.Run); _pass += B99E1_Assert.Pass; _fail += B99E1_Assert.Fail; Guard("B99G2_Assert", B99G2_Assert.Run); _pass += B99G2_Assert.Pass; _fail += B99G2_Assert.Fail; Guard("B99E8_Assert", B99E8_Assert.Run); _pass += B99E8_Assert.Pass; _fail += B99E8_Assert.Fail; Guard("B100F4_Assert", B100F4_Assert.Run); _pass += B100F4_Assert.Pass; _fail += B100F4_Assert.Fail; Guard("B100F10_Assert", B100F10_Assert.Run); _pass += B100F10_Assert.Pass; _fail += B100F10_Assert.Fail; Guard("B99T2_Assert", B99T2_Assert.Run); _pass += B99T2_Assert.Pass; _fail += B99T2_Assert.Fail; Guard("CheckB99E9", CheckB99E9); B98H2_Assert.CheckB98H2(); _pass += B98H2_Assert.Pass; _fail += B98H2_Assert.Fail; Guard("B98H7_Assert", B98H7_Assert.Run); _pass += B98H7_Assert.Pass; _fail += B98H7_Assert.Fail; Guard("B98N3_Assert", B98N3_Assert.Run); _pass += B98N3_Assert.Pass; _fail += B98N3_Assert.Fail; Step(TestB98K4); Step(TestB98K6);   // [B98_Q2 2026-10-29 代接线] H2(开面板前算 options 引擎半，离线 ctx)·H7(trigger→正文 op 桥)·N3(summonRift 攻击侧闸)·K4(1287/533/646)·K6(423/852/233/1379)   // [B98 调度台 2026-10-29 代接线] 波 5b 四件：G1(241/242/534/853/1004/1285/573) · G3(324/325 攻击目标判据) · G5(636/832 caster + 1041) · G7(93/548)   // 🆕 2026-10-29（调度台代接线 · `B97_W28`）：oath 费读 trait1275 · `opsOverride` · `skipBacklash` 两闸 · huntMark 死亡粒子 · `FireTriggerByNumber`；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_W30`）：账 `战斗逻辑驱动:64/:482/:636` `extrinsic` 三本账 + 消费侧闸（缺省 false 的可选形参，⛔ 不是无条件加闸）；同一行追加 ⇒ 行数零变化
+        Guard("CheckB97W1Grants", CheckB97W1Grants); Guard("CheckB97W30Extrinsic", CheckB97W30Extrinsic); Step(TestB97W28); Guard("B97W36Assert", B97W36Assert.Run); _pass += B97W36Assert.Pass; _fail += B97W36Assert.Fail; Step(TestB97W34); Guard("B98G1_Assert", B98G1_Assert.Run); _pass += B98G1_Assert.Pass; _fail += B98G1_Assert.Fail; Guard("B98G3_Assert", B98G3_Assert.Run); _pass += B98G3_Assert.Pass; _fail += B98G3_Assert.Fail; Guard("B98G5_Assert", B98G5_Assert.Run); _pass += B98G5_Assert.Pass; _fail += B98G5_Assert.Fail; Step(TestB99E2); Step(TestB99E5); Step(RunB99E6); Guard("B99E3_Assert", B99E3_Assert.Run); _pass += B99E3_Assert.Pass; _fail += B99E3_Assert.Fail; RunB98G7(); Guard("B98G2_Assert", B98G2_Assert.Run); _pass += B98G2_Assert.Pass; _fail += B98G2_Assert.Fail; Guard("B98G6_Assert", B98G6_Assert.Run); _pass += B98G6_Assert.Pass; _fail += B98G6_Assert.Fail; Guard("B98K2_Assert", B98K2_Assert.Run); _pass += B98K2_Assert.Pass; _fail += B98K2_Assert.Fail; Guard("B99E1_Assert", B99E1_Assert.Run); _pass += B99E1_Assert.Pass; _fail += B99E1_Assert.Fail; Guard("B99G2_Assert", B99G2_Assert.Run); _pass += B99G2_Assert.Pass; _fail += B99G2_Assert.Fail; Guard("B99E8_Assert", B99E8_Assert.Run); _pass += B99E8_Assert.Pass; _fail += B99E8_Assert.Fail; Guard("B100F4_Assert", B100F4_Assert.Run); _pass += B100F4_Assert.Pass; _fail += B100F4_Assert.Fail; Guard("B100F10_Assert", B100F10_Assert.Run); _pass += B100F10_Assert.Pass; _fail += B100F10_Assert.Fail; Guard("B99T2_Assert", B99T2_Assert.Run); _pass += B99T2_Assert.Pass; _fail += B99T2_Assert.Fail; Guard("CheckB99E9", CheckB99E9); B98H2_Assert.CheckB98H2(); _pass += B98H2_Assert.Pass; _fail += B98H2_Assert.Fail; Guard("B98H7_Assert", B98H7_Assert.Run); _pass += B98H7_Assert.Pass; _fail += B98H7_Assert.Fail; Guard("B98N3_Assert", B98N3_Assert.Run); _pass += B98N3_Assert.Pass; _fail += B98N3_Assert.Fail; Step(TestB98K4); Step(TestB98K6); Guard("B102R1_Assert", B102R1_Assert.Run); _pass += B102R1_Assert.Pass; _fail += B102R1_Assert.Fail; Guard("B102CARD707_Assert", B102CARD707_Assert.Run); _pass += B102CARD707_Assert.Pass; _fail += B102CARD707_Assert.Fail; Guard("B102TIDE_Assert", B102TIDE_Assert.Run); _pass += B102TIDE_Assert.Pass; _fail += B102TIDE_Assert.Fail;// [B98_Q2 2026-10-29 代接线] H2(开面板前算 options 引擎半，离线 ctx)·H7(trigger→正文 op 桥)·N3(summonRift 攻击侧闸)·K4(1287/533/646)·K6(423/852/233/1379)   // [B98 调度台 2026-10-29 代接线] 波 5b 四件：G1(241/242/534/853/1004/1285/573) · G3(324/325 攻击目标判据) · G5(636/832 caster + 1041) · G7(93/548)   // 🆕 2026-10-29（调度台代接线 · `B97_W28`）：oath 费读 trait1275 · `opsOverride` · `skipBacklash` 两闸 · huntMark 死亡粒子 · `FireTriggerByNumber`；同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线 · `B97_W30`）：账 `战斗逻辑驱动:64/:482/:636` `extrinsic` 三本账 + 消费侧闸（缺省 false 的可选形参，⛔ 不是无条件加闸）；同一行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_US` —— 账 521 `ResolveJamUnit` ② 的 `permanentBuff` 早退 ＋ 清修饰后夹血。
         Guard("CheckB97USJam", CheckB97USJam);
@@ -5290,12 +5290,12 @@ public static partial class RuleEngineTest
         int ti = HandIdx(ctx, 0, "InstTide");
         CheckTrue(ti >= 0, "手牌里有潮涌卡");
         var origin = ctx.Players[0].Hand[ti];
-        CheckCode(RuleCore.PlayCard(ctx, 0, ti, 1), RuleCodes.OK, "打出潮涌部队（会造 2 张复制）");
+        CheckCode(RuleCore.PlayCard(ctx, 0, ti, 1), RuleCodes.OK, "打出潮涌部队（`Tide 2` ⇒ **只造 1 张**复制）");
         var copies = new List<CardInstance>();
         foreach (var h in ctx.Players[0].Hand)
             if (h.Card != null && h.Card.Name == "InstTide") copies.Add(h);
-        Check(copies.Count, 2, "手里多了 2 张复制");
-        CheckTrue(copies.Count == 2 && !ReferenceEquals(copies[0], copies[1]), "★ 两张复制**不是同一个实例**");
+        Check(copies.Count, 1, "手里多了 1 张复制（原版 `ProcessTide.c:68`：唯一一处 `AddNewCardToHand`、无循环 = 打一次给一张）");
+        CheckTrue(copies.Count == 1 && !ReferenceEquals(copies[0], origin) && copies[0].TideCounter == 1 && origin.TideCounter == 2, "★ **复制品是【新的一份实例】**：它自己带着 `2 − 1 = 1`（`ProcessTide.c:98` 写在**新卡**上）、原件仍是 2 —— 换成「把原件挪回手牌」这种实现，这格会是 2");
         foreach (var c in copies)
             CheckTrue(!ReferenceEquals(c, origin),
                       "★ **复制品 ≠ 原件**（改之前它们是同一个 `CardDef` 对象，分不开）");
@@ -15837,6 +15837,18 @@ public static partial class RuleEngineTest
                                  new List<CardDef> { host3, drone3 },   // ⚠️ 伴生卡**就在卡池里**
                                  warlordFaction: "TauEmpire");
             ToP1Turn(ctx, 4);
+            // 🔴 **2026-10-30（`B102_D7` · 铁律 5）夹具前提已过期，就地钉回**：本批按原版
+            //    `CardSetup.c:256-259` 在**构造时**给 `CardInstance.CompanionCounter` 盖了印刷值 2
+            //    （`CardInstance.StampTideAndCompanionCounters`）⇒ 手里那张**不再恒 0**，而原版门
+            //    `ShouldTriggerCompanion.c:27` 的 `0 < +0x60` 那一支会成立 ⇒ 走不到「严格门」。
+            //    这一格要测的是 `+0x60 == 0` 时**只按 `relatedCard1`** 判的那一半，所以显式把计数置 0。
+            //    ⚠️ 盖值落地后，`RuleCore` 那句「严格门」日志对**真实卡**已不可达（带 `Companion`
+            //       词条的卡构造时计数 ≥ 1）；只有夹具能把那个状态重造出来 ⇒ 本条**只测门本身**。
+            int hi3 = HandIdx(ctx, 0, "FixtureHost3");
+            CardInstance host3Inst = hi3 >= 0 ? ctx.Players[0].Hand[hi3] : null;
+            if (host3Inst != null) host3Inst.CompanionCounter = 0;
+            CheckTrue(host3Inst != null && host3Inst.CompanionCounter == 0,
+                      "（前提·硬）手里那张 `FixtureHost3` 的计数已被钉回 0 —— `0 < +0x60` 这一支不成立");
             int before = 0, after = 0;
             for (int s = 0; s < BoardSpec.Size; s++)
                 if (Board(ctx, 0, s) != null && Board(ctx, 0, s).Name == "FixtureDrone") before++;
@@ -16372,20 +16384,21 @@ public static partial class RuleEngineTest
             // 🔴 **2026-10-27（批次 9 · `E7ENG` · 账 532 的 1b）**：20 → **21**（新增
             //    `EnchantmentRemoved` —— 「一条附魔效果被摘掉」；**这是我们为表现层新开的窄口**
             //    （🔶 自己设计），判据 → `判据/T4_532与PremiumCampaign_判据.md` §1b）。
-            Check(kinds.Count, 23, "`EvtKind` 现在 **23** 种"
+            Check(kinds.Count, 24, "`EvtKind` 现在 **24** 种"
                                  + "（21 + `DiscardReveal` / `StealReveal`（2026-10-29 `B96_CB` · 账 921："
                                  + "`CardScript.ShowCardBeingDrawn` 的 0.2 / 0.4 两档）"
                                  + "（19 + `TraitRemoved`（`E1` 第四段 · W9：关键词被摘掉，"
                                  + "`Expiring State` 那一支靠它）"
                                  + " + `StatusApplied`（`G1b` · `C2` §6：关键词再次施加）"
-                                 + " + `EnchantmentRemoved`（`E7ENG` · 账 532：一条附魔效果被摘））"
+                                 + " + `EnchantmentRemoved`（`E7ENG` · 账 532：一条附魔效果被摘）" + " + `SabotageCreated`（2026-10-30 `B102_506` · 账 506 R1：造进手牌的破坏卡中央展示））"
                                  + " —— 🔴 **加新事件时同步改这一条**：它是「事件表」的护栏"
                                  + "（`BattleEvent.cs` 头写着「少而稳定」）");
             CheckTrue(kinds.Contains("Draw") && kinds.Contains("AmbushExit") && kinds.Contains("SecretOrder")
                       && kinds.Contains("Heal") && kinds.Contains("Retaliation") && kinds.Contains("StatusApplied")
-                      && kinds.Contains("TraitRemoved") && kinds.Contains("EnchantmentRemoved"),
+                      && kinds.Contains("TraitRemoved") && kinds.Contains("EnchantmentRemoved")
+                      && kinds.Contains("SabotageCreated"),
                       "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal` / `Retaliation`"
-                      + " / `StatusApplied` / `TraitRemoved` / `EnchantmentRemoved`）");
+                      + " / `StatusApplied` / `TraitRemoved` / `EnchantmentRemoved` / `SabotageCreated`）");
 
             // 「今天没有任何一处会发它」—— 跑几个回合问一遍。
             // ⚠️ **这一条不是行为断言、是记账**：🔴 **2026-10-19 第五十五会话 `E3` 订正（铁律 5）**：
@@ -16597,8 +16610,8 @@ public static partial class RuleEngineTest
     /// **潮涌 `Tide X`**（2026-09-13 A2）—— 规则书 `:220`「从手牌打出时：本回合可打出 X 张额外复制；
     /// 费用与首张相同」。
     ///
-    /// 三条：① X 张复制**进了手牌** · ② 它们**是临时卡**（回合结束消失 —— 规则书 `:229`
-    /// 把潮涌复制与天赋/伴生并列）· ③ 复制品的**费用跟首张一致**（首张被打折过时也要一致）。
+    /// 三条：① 打出**一次只造 1 张**复制、它自己带着 `X − 1`（`ProcessTide.c:68` 唯一一处 `AddNewCardToHand`、无循环；`:98` 新卡 = 源 − 1）·
+    /// ② 它**是临时卡**（回合结束消失 —— 规则书 `:229`）· ③ 复制品的**费用跟首张一致**（首张被打折过时也要一致）。
     /// </summary>
     static void TestTide()
     {
@@ -16614,17 +16627,17 @@ public static partial class RuleEngineTest
             Check(tide.KwValue(KeywordTable.Tide), 2, "`Tide 2` 的值读得到（= 2）");
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureTide"), 2), RuleCodes.OK,
                       "打出一张 `Tide 2` 的部队");
-            Check(ctx.Players[0].Hand.Count, hand0 + 1,
-                  "★ **手里多了 2 张复制**（打掉 1 张、又回来 2 张 ⇒ 净 +1）");
+            Check(ctx.Players[0].Hand.Count, hand0,
+                  "★ **手里只多了 1 张复制**（打掉 1 张、回来 1 张 ⇒ 净 0）｜判据 `CardScript__ProcessTide.c:68`：全函数**唯一一处** `AddNewCardToHand`、且**无循环** ⇒ `Tide 2` 是「打一次给一张」（新卡自带 `2 − 1 = 1`，`:98`），⛔ 不是一次塞 2 张");
             int markedCopies = 0;
             foreach (var h in ctx.Players[0].Hand) if (ctx.MarkedCount(h) > 0) markedCopies++;
-            Check(markedCopies, 2,
-                  "★ 那 2 张**标成了临时卡**（规则书 `:229` —— 不标就会**赖在手里不走**）");
+            Check(markedCopies, 1,
+                  "★ 那 1 张**标成了临时卡**（规则书 `:229` —— 不标就会**赖在手里不走**）");
 
             // 回合结束 → 临时卡从「手牌」消失（规则书 :229「未打出即消失」）
             int inHand = 0;
             foreach (var c in ctx.Players[0].Hand) if (c.Card == tide) inHand++;
-            Check(inHand, 2, "回合结束之前它们还在手里");
+            Check(inHand, 1, "回合结束之前它还在手里（= 那 1 张新一代复制，`Tide 2 → 1`）");
             PassTurn(ctx);
             int after = 0;
             foreach (var c in ctx.Players[0].Hand) if (c.Card == tide) after++;
@@ -30900,7 +30913,7 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestPlayedCardsExcludesCompanionAndTide()
     {
-        // ---- ① 潮涌：打出 1 张 ⇒ 手里多 2 张复制品，表只 +1 ----
+        // ---- ① 潮涌：打出 1 张 ⇒ 手里多 1 张复制品（`ProcessTide.c:68` 一次一张），表只 +1 ----
         {
             var tide = Unit("A920Tide", 1, 1, 3, "Tide 2");
             var ctx = ProbeBattle(new[] { tide }, new[] { Unit("A920Foe", 1, 0, 9) });
@@ -30912,7 +30925,7 @@ public static partial class RuleEngineTest
             int copies = 0;
             foreach (var h in ctx.Players[0].Hand)
                 if (h.Card != null && h.Card.Name == "A920Tide") copies++;
-            Check(copies, 2, "① **前提**：手里多了 2 张潮涌复制品（= X）");
+            Check(copies, 1, "① **前提**：手里多了 **1** 张潮涌复制品（`ProcessTide.c:68`：全函数唯一一处 `AddNewCardToHand`、无循环 ⇒ 打一次给一张，⛔ 不是 X 张）");
             Check(ctx.PlayedCards.Count - n0, 1,
                   "★ ① 潮涌的复制品**不进**「本局打出过的牌」（原版 `ProcessTide` 只 `AddNewCardToHand`）");
         }
@@ -31242,19 +31255,19 @@ public static partial class RuleEngineTest
             ToP1Turn(ctx, 1);
             var ps = ctx.Players[0];
             ps.Hand.Clear();
-            for (int i = 0; i < 9; i++) ps.Hand.Add(ctx.NewInstance(Unit("W5HandFiller" + i, 1, 0, 1)));
-            ps.Hand.Add(ctx.NewInstance(tide));                 // 第 10 张 = 潮涌卡（手牌已满）
+            for (int i = 0; i < 10; i++) ps.Hand.Add(ctx.NewInstance(Unit("W5HandFiller" + i, 1, 0, 1)));
+            ps.Hand.Add(ctx.NewInstance(tide));                 // 第 11 张 = 潮涌卡 ⇒ 手牌 = 上限 + 1（🔴 故意越一格：新语义只造 1 张、打出一张正好腾一格 ⇒ 正常手牌里那张复制**永远塞得下**，不越上限就测不到 `AddCardToHandWithinLimit` 的闸）
             ps.Energy = 9;
             ps.Discard.Clear();
-            Check(ps.Hand.Count, ctx.Vars.handLimit, "③ （前提）手牌正好在上限上");
+            Check(ps.Hand.Count, ctx.Vars.handLimit + 1, "③ （前提）手牌 = 上限 + 1（**故意**越一格，见上一行注释）");
             CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W5TideLimit"), 2), RuleCodes.OK,
                       "③ 打出潮涌部队（`Tide 9`）");
             Check(ps.Hand.Count, ctx.Vars.handLimit,
-                  "★ ③ 手牌**收回到上限**（打出 1 张 + 造 9 张 ⇒ 不设防的话是 18 张）"
-                  + "｜🧨 把 `SpawnTideCopies` 里的 `AddCardToHandWithinLimit` 换回裸 `Hand.Add` ⇒ 实得 18 ⇒ 红");
-            Check(ps.Discard.Count, 8,
-                  "★ ③ 超出来的 **8 张进弃牌堆**（原版「满了就 `SendToCemetery(刚造那张)`」；"
-                  + "2026-10-20 起是**逐张先判上限**，不再是「先全进、再丢表尾」）");
+                  "★ ③ 手牌**收回到上限**（11 − 打出 1 = 10；那 1 张复制塞不下 ⇒ 不进手牌）"
+                  + "｜🧨 把 `SpawnTideCopies` 里的 `AddCardToHandWithinLimit` 换回裸 `Hand.Add` ⇒ 实得 11 ⇒ 红");
+            Check(ps.Discard.Count, 1,
+                  "★ ③ 那 **1 张进弃牌堆**（原版 `ProcessTide.c:68` 一次只造一张 ⇒ 满手只溢这一张；"
+                  + "「满了就 `SendToCemetery(刚造那张)`」= `AddCardToHandWithinLimit` 先判上限再 Add）");
         }
 
         // ============================================================

@@ -822,7 +822,7 @@ public static class DeckScene
                 //   `CardDeck.GetEmptyDeck()` → 打模式 → 直接开 `DeckEditingWindow`，**全链无入库调用**）。
                 //   ⛔ 别在这之前预建卡组：预建了，「空库时不写盘」那几条就没有鉴别力了。
                 //   夹具在 `TestLibraryWiring()`（断空库那一拍）**之后**才建，见 `TestLibraryAfterDone()`。
-                state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail));
+                state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B102AUD01_Assert.Run(); Check(B102AUD01_Assert.Fail, 0, "★ AUD02#1 `Done Highlight` 空心框（17 条：8 块拼接 / 中心无覆盖 / 角块 19px·uv 19/128）失败 0｜🧨 把 `FootHlFillCenter` 改回 true 或换回 `Img()` ⇒ 这里 >0"); B102AUD02_Assert.RunDeck(_root); Check(B102AUD02_Assert.Fail, 0, "★ AUD02#2 筛选小标题 `FontStyles.UpperCase`（卡组编辑窗 5 颗 = 4 卡牌筛选 + 1 卡背筛选）失败 0｜🧨 去掉 `FilterPanelModel.ApplyTitleFontStyle` ⇒ 这里 >0"); B102DECK_Assert.Run(); Check(B102DECK_Assert.Fail, 0, "★ 账 `其他_基础设施:780` 存档双写两条验收（切前/切后 payload 逐字段相等 · 中央档坏 ⇒ 回落旧档且不判 Failed）失败 0｜🧨 把 `WriteDecksThroughHooks` 改回 `DeckStore.SaveAll` ⇒ 红"); B102HOVER_Assert.Run(_rt, _rt != null ? _rt.Root : _root); Check(B102HOVER_Assert.Fail, 0, "★ B102_HOVER 卡组编辑窗悬停**只归一条派发链**（前提 4 / 逐颗「本类认得出 + 指针层不碰 + 同时亮着的 ≤1」/ 灭自证「撤让位能命中、复原后不命中」）失败 0｜🧨 删掉 `PointerLayer.YieldToHost(wb)` 那句 ⇒ 红");
                 // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
                 //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）

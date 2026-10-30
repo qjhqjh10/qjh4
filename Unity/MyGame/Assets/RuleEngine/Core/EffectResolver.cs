@@ -1382,7 +1382,7 @@ namespace RuleEngine
             ctx.LastTargets.AddRange(saved);
             ctx.LastTarget = savedLast;
 
-            acting.ReferencedCards.Clear();
+            if (got.Count == 0) { ctx.Log($"（能力 380 `setReferenceCard`：「{acting.Name}」这条 logic 的目标表**为空** ⇒ 原版 `AbilityLogic__PlayAbility.c:2131-2132` 的 `if (0 < count)` 不成立 ⇒ **不换表**，本次不动引用表）"); return 0; } acting.ReferencedCards.Clear();   // 🔴 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0）：补上原版 `:2132` 那道 `if (0 < count)` 闸 —— 改前本行无条件 `Clear()`，会把「目标表空」也当成一次覆盖（把引用表**清空**），与原版不同（原版只有 count>0 才新建 List 并赋值，空表时旧表原封不动）。⛔ 本行**必须保持一行**（行数守恒 —— 本文件有账落点按行号引用，插行会整体漂移）
             for (int i = 0; i < got.Count; i++)
                 if (got[i] != null) acting.ReferencedCards.Add(got[i]);
             ctx.Log($"（能力 380 `setReferenceCard`：「{acting.Name}」的引用表 = "
@@ -4173,20 +4173,6 @@ namespace RuleEngine
                 case "enemyhand":
                 {
                     int who = op.Dest == "hand" ? owner : 1 - owner;
-                    // 🆕 **2026-10-18（`W4` 整改 · 漏点）**：这一支**也是「进手牌」** ——
-                    //   原版这条路 = `_ResolveCreateHandCard_d__512:135` → `PlayerHand.AddCardNotDrawnToHand`
-                    //   → `:34` 内部调 `SetupCardInHand`。上一轮漏插这里（`RuleCore.SpawnTideCopies` 潮涌
-                    //   与 `RuleCore.PlayCompanions` 伴生那两处都插了）⇒ 补上。⚠️ 落点用 **`who`**（牌落到谁手里就是谁的手牌）。
-                    // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）：改走「先判上限、再 Add」。**
-                    //   原版 `_AddCardNotDrawnToHand_d__39:26-30/63-65` 是**满了就把刚造的那张送墓地**，
-                    //   不是「先全 Add、再丢表尾」⇒ 手牌本来就超上限时会误伤旧牌（同一条不变量）。
-                    var landed = new List<CardInstance>();
-                    foreach (var m in made)
-                        if (RuleCore.AddCardToHandWithinLimit(ctx, who, m)) landed.Add(m);
-                    // ⚠️ 指代槽 / 费用折扣只认**真落了手**的那几份（`They cost 1 less` 指着它们，
-                    //   进了墓地的没必要再挂）；`picked`（隐秘/破坏广播）仍是「造出来的那几张」，不改。
-                    ctx.LastCreated.AddRange(landed);      // `They cost 1 less` 指着**那几份**（第 7 行第 3 步）
-
                     // 🆕 `When you create a Secret, …` / `When you create a Sabotage, …`
                     // （2026-09-13 第三十四轮）。**放在 `hand` / `enemyhand` 这一支里** ——
                     //   隐秘与破坏按定义就是**手上**的牌，`decktop` 那一支放的是别的东西。
@@ -4220,9 +4206,23 @@ namespace RuleEngine
                             //   `BattleManager__GetHero(mgr, 造出来那张的 isPlayer)` ⇒ `BroadcastSabotageCreated(mgr, 督军)`。
                             BroadcastCreatedCardWithWarlordPreCall(ctx, WhenEventKind.CreatesSabotage, owner, c, by);
                             // 🆕 同上：成就 `Ach_65`（`AddSabotageCard`）计数。
-                            ctx.Tally.AddSabotage(owner);
+                            ctx.Tally.AddSabotage(owner); ctx.Emit(EvtKind.SabotageCreated, owner, -1, c.Name, targetPlayer: who, targetCardId: c.Name);   // 🔴 2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：原版 `_ResolveCreateHandCard_d__512__MoveNext.c:100-102` 在这一拍**直接调** `CardScript.DisplayEnemyCardInCenter(targetCard, timeToDraw: 0.3f, stepTime: 0.3f, changeVisibility: true)` —— 造进手牌的破坏卡要在中央亮正面。原版没有广播，我们跨层只能发一条事件（消费者 = `BattleDriver.PlaySignal` 的 `EvtKind.SabotageCreated` 支）。⚠️ `Slot = -1`（展示的是**卡**、不是单位）· `TargetPlayer` = **收牌方**（从那一侧手牌飞出）。⚠️ 实例号**没带**：`picked` 是 `CardDef` 表、`made` 才是实例表，消费端不用它 ⇒ 宁可空着也不猜。🔴 这条进 `ctx.Events.Count` ⇒ **改 `NetProtocol.Fingerprint`**（须与一次 `play check` 重钉同批）。
                         }
                     }
+
+                    // 🆕 **2026-10-18（`W4` 整改 · 漏点）**：这一支**也是「进手牌」** ——
+                    //   原版这条路 = `_ResolveCreateHandCard_d__512:135` → `PlayerHand.AddCardNotDrawnToHand`
+                    //   → `:34` 内部调 `SetupCardInHand`。上一轮漏插这里（`RuleCore.SpawnTideCopies` 潮涌
+                    //   与 `RuleCore.PlayCompanions` 伴生那两处都插了）⇒ 补上。⚠️ 落点用 **`who`**（牌落到谁手里就是谁的手牌）。
+                    // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）：改走「先判上限、再 Add」。**
+                    //   原版 `_AddCardNotDrawnToHand_d__39:26-30/63-65` 是**满了就把刚造的那张送墓地**，
+                    //   不是「先全 Add、再丢表尾」⇒ 手牌本来就超上限时会误伤旧牌（同一条不变量）。
+                    var landed = new List<CardInstance>();
+                    foreach (var m in made)
+                        if (RuleCore.AddCardToHandWithinLimit(ctx, who, m)) landed.Add(m);
+                    // ⚠️ 指代槽 / 费用折扣只认**真落了手**的那几份（`They cost 1 less` 指着它们，
+                    //   进了墓地的没必要再挂）；`picked`（隐秘/破坏广播）仍是「造出来的那几张」，不改。
+                    ctx.LastCreated.AddRange(landed);      // `They cost 1 less` 指着**那几份**（第 7 行第 3 步）。🔴 **2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R5）：本段整块（`var landed` 起 6 行 + 上面 7 行注释）已从「sabotage 广播之前」挪到**之后** —— 原版顺序是 `_ResolveCreateHandCard_d__512__MoveNext.c:89-98` 广播 → `:100-102` 中央展示 → `:134` `AddCardNotDrawnToHand`；改前我们是「先进手、再广播」。块内移动 ⇒ **零行数变化**（铁律 18·b）。⚠️ 今天零可观测（sabotage 的监听只在棋盘上，判据 `B8_AE`），照抄只是为省事。
 
                     ctx.Log($"{by}：「{op.Source}」造了 {n} 张给 {ctx.Players[who].Name}：{names}"
                           + (pool.Detail != null ? $"（{pool.Detail}）" : "")); foreach (var m0 in landed) { BroadcastCardCreatedHandHops(ctx, m0); BroadcastCardCreatedBoardHop(ctx, m0); }   // 🔴 2026-10-30（`B99_C1` · 账 `:203` / `#34 G23③`）：**两跳都要发** —— 原版 `BattleManager__BroadcastCardCreated.c` 先遍历 `unitsInPlay`（棋盘跳，闸 `IsInPlay()`）再 `GetCardsInHandList`（手牌跳）。旧版本只发了手牌那一跳（棋盘那一跳当时缺执行口，理由已过期）。零行数变化（铁律 18·b）。   // 🔴 2026-10-29（B97_W2 · 账 L506）：原版 `_ResolveCreateHandCard_d__512__MoveNext` 造好之后调 `BattleManager.BroadcastCardCreated`（`BattleManager__BroadcastCardCreated.c:29-44` = **双方手牌**逐卡 `ReactToCardCreated` → `OnTrigger(0xd2 = 210, actingCard = 被造那张)`）⇒ 逐张真落了手的那一份发一次。（判据/残差 → `BroadcastCardCreatedHandHops` 与 `BroadcastCardCreatedBoardHop` 的头注）。零行数变化（铁律 18·b）。
@@ -15038,7 +15038,7 @@ namespace RuleEngine
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                t.FerocityStay = true;
+                t.FerocityStay = true; t.FerocityStayBy = GrantCasterCardName(ctx) ?? (ctx.PlayingCard != null ? ctx.PlayingCard.Name : null) ?? by;   // 🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：补「这条记录是谁给的」（原版 `CardEffect.enchantingCard(+0x18)`）—— `by` 对**战术卡**恒为 `"战术卡"`（`ResolveOps:355`），所以先取 `GrantCasterCardName`（= `ActingUnit ?? CreationSource`）、再取 `ctx.PlayingCard`（战术卡那条路），最后才退 `by`。⚠️ 只用于**展示归属**，⛔ 结算仍只读 `FerocityStay` 布尔
                 n++;
                 // 🆕 2026-09-16：常驻版（`SW36 Bjorn the Fell-Handed` 的 `it stays in play`）走同一个标记，
                 // 但措辞不能再说「本回合下一次」—— 它每次用狂暴都会重新标一次（事件层），
@@ -18530,7 +18530,7 @@ namespace RuleEngine
             if (ca == 85) return RunTransformUnitRow(ctx, p, u, row, ta, chosen); if (ca == 350) return RunRemoveFromCemeteryRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B96_CA · 账 172 / 548 与 534）：`85 = transformUnitWithBuff`（判据 `AbilityLogic__PlayAbility.c:904-941`）—— 原版在这一支组一条 `transformUnit(27)` 动作，我们没有 27 号动作道 ⇒ 生产端**直调** `RuleCore.TransformUnit`（下游 `TransformUnit_B94B12.cs` 已逐跳落齐）；`350 = removeFromCemetery`（判据 `AbilityLogic__PlayAbility.c:1986-1999` 逐目标 `AddRemoveFromCemetery`）
             if (ca == 370 || ca == 400) return RunGrantedTriggerRow(ctx, p, u, row, ta, chosen, courtesy: ca == 400); if (ca == 160) return RunDiscardFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 165) return RunDiscardWholeHandRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B97_W5 · 账 850 / 独立账 BL37）：`160 = discardFromHand` / `165 = discardWholeHand`（判据 `AbilityLogic__PlayAbility.c:577-603` / `:293-345`）—— 结算体复用既有 `DoDiscardFromHand` / `DoDiscardWholeHand`（含 `RemoveCostEffects`），两条款行见 `B97W5_RowsAndDedupe.cs`；池内 `chosenAbility 160` = 0 张、`165` = 0 张 ⇒ 休眠档
             if (ca == 360) return RunPlayChosenCardAbility(ctx, p, u, chosen); if (ca == 320) return RunFollowAfterResolutionRow(ctx, p, u, chosen); if (ca == 390) return RunTriggerRequiemRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B99_E8` · 账 870 (b)）：`390 = AddTriggerRequiem` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2073-2088` → `AddTriggerRequiem(targetCard, actingCard, …)` → `ResolveAction.c:5574` `case 0x40` → `ResolveTriggerRequiem`：跑 430/435 的是 `actingCard`=caster、`targetCard` 只当入口闸；见 `RunTriggerRequiemRow` 的 doc）。📊 池内 `chosenAbility 390` = 0/1,129 ⇒ 休眠件（铁律 11 照建），零可观测 🆕 2026-10-29（B94_F2 · 账 455）：`chosenAbility 360 = playChosenCardAbility`（`AbilityEffect.cs:64`）—— 原版 `AbilityLogic__PlayAbility.c:2014-2070` 那一支（判据见 `RunPlayChosenCardAbility` 的 doc）；🆕 2026-10-29（`B99_E3` · 账 1281/1379 的 (a) 格）：`320 = followAfterResolution` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` → `CardScript__FollowUpResolutionPlayed.c:5-9`，见 `RunFollowAfterResolutionRow` 的 doc）
-            return RunActiveRowOps(ctx, p, u, row, ta, chosen);
+            if (ca == 380) return RunSetReferenceCardRow(ctx, p, u, row, ta, chosen); if (ca == 480) return RunHighlightBloodThirstRow(ctx, p, u, row, ta, chosen); return RunActiveRowOps(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0 · 施工单 `判据/B102_R4_C类大工程两条.md` §①）：`380 setReferenceCard`（判据 `AbilityLogic__PlayAbility.c:2128-2160`）与 `480 highlightBloodThirst`（判据 `:1960-1972`）—— 两支的**执行体本来就已存在**（`SetReferenceCards` / `EmitBloodThirst`），缺的只是这一跳分派。⚠️ 池内 `activeAbilityLogic` 里这两码 **0 行**（`cards_engine.json` 1,129 张现扫：`ca` 直方图 0/10/20/30/40/60/70/75/100/130/140/238/300/320/325/420/462/467/468，无 380/480）⇒ 休眠接线、**零行为变化、指纹不变**。⛔ 本行**必须保持一行**（行数守恒）
         }
 
         /// <summary>🔴 **2026-10-28（B90·B1）**：`chosenAbility 370 (Relentless) / 400 (Courtesy)` ——
@@ -20597,6 +20597,120 @@ namespace RuleEngine
             }
             ctx.Log($"`BroadcastRemoveFromGameByName`（手牌目标变身）：场上撤掉 {touched} 条由「{aName}」给的外来效果"
                   + "（原版 `BattleManagerSupport__BroadcastRemoveFromGame.c:20-137` 的棋盘那一跳；手牌两跳在调用点用 `RemoveHandEffectsCastBy`）");
+        }
+    }
+}
+
+// ==============================================================================================
+//  🆕 2026-10-30（执行代理 `B102_EXEC` · 账 `战斗逻辑驱动:1282` / `:1380` 批 0）：
+//  `chosenAbility 380 / 480` 的**执行体接线**
+//  施工单 → `资料/完全复刻/判据/B102_R4_C类大工程两条.md` §①（1·3 表 380/480 两行 + 1·4 「批0 接线」）
+//  ⛔ 本块追加在**文件尾**（本文件有大量账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>
+        /// 🆕 **2026-10-30（`B102_EXEC`）**：`chosenAbility 380 (setReferenceCard)` 的**行执行器**
+        /// —— 判据 `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:2128-2160`（逐句现读）：
+        /// <list type="number">
+        /// <item>`:2131` 目标表为空 ⇒ 什么都不做；`:2132` `if (0 &lt; count)` 才进正文；</item>
+        /// <item>`:2135-2143` 新建一张 `List` 并**直写** `actingCard.referencedCards`（`+0x278`）—— **覆盖**，不是追加；</item>
+        /// <item>`:2144-2153` 把**这条 logic 自己的目标表**逐个 `Add` 进去。</item>
+        /// </list>
+        /// <para>**执行体复用**：有正文 op 时直接调 <see cref="SetReferenceCards"/>（「先清空再填」= 原版
+        /// `:2135-2153` 的「换新 List 再逐个 Add」；`readonly` 字段换对象那一层用 `Clear()` 等价表达）。
+        /// 「目标表空 ⇒ 不动表」那道闸也已补进 `SetReferenceCards`（原版 `:2132`，改前那里无条件 `Clear()`）。</para>
+        /// <para>**目标表从哪来**（与 <see cref="RunGrantedTriggerRow"/> 同一套，⛔ 不另写一份解析）：
+        /// ① 这一行已配到正文 op ⇒ 借那条 op 的 `Target` 走 <see cref="ResolveTargets"/>；
+        /// ② 否则只有 `ta ∈ {30 target, 220}` 能用玩家点定的那个（判据 `AbilityLogic__GetTargets.c:192-207`；
+        /// 整张函数只有这两档读 `param_5`）；③ 其它 `ta` **不猜**：出声 + 这一行不结算
+        /// （⛔ 不许退回「己方全体」那种近似 —— 那会静默写错引用表，后果是**后续 200/201 目标全错**）。</para>
+        /// <para>🧨 灭自证：把 `RunActiveRowOpsOrGrantedTrigger` 里的 `if (ca == 380)` 删掉 ⇒ 落回 op 那一支
+        /// （夹具没有正文 op ⇒ 返回 0、引用表不动）⇒ `B102EXEC_Assert` 的 A1-380 红。</para>
+        /// </summary>
+        internal static int RunSetReferenceCardRow(BattleContext ctx, int p, UnitState u, int row, int ta, UnitState chosen)
+        {
+            if (ctx == null || u == null) return 0;
+            var ops = ActiveRowOpsOf(u, row);
+            var spec = (ops.Count > 0) ? ops[0].Target : null;
+            if (spec != null)
+            {
+                int n = SetReferenceCards(ctx, p, u, spec, u, chosen);
+                if (n <= 0)
+                    ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 380`（setReferenceCard）：这条 logic 的目标表**为空**"
+                          + " ⇒ **不动引用表**（判据 `AbilityLogic__PlayAbility.c:2131-2132`：`if (0 < count)` 才换表）");
+                return n > 0 ? 1 : 0;
+            }
+            if ((ta == 30 || ta == 220) && chosen != null)
+            {
+                u.ReferencedCards.Clear();
+                u.ReferencedCards.Add(chosen);
+                ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 380`（setReferenceCard）：引用表被**覆盖**成 1 张（{chosen.Name}）"
+                      + "（判据 `AbilityLogic__PlayAbility.c:2128-2160`；目标集 = 调用方点定的那一个，`AbilityLogic__GetTargets.c:192-207`）");
+                return 1;
+            }
+            ctx.Log($"⚠️「{u.Name}」的主动能力 `chosenAbility 380`（setReferenceCard）**解不出目标集**（`ta={ta}`，这一行没有配到正文 op）"
+                  + " ⇒ 本版**不猜**，这一行不结算。（原版 `AbilityLogic__PlayAbility.c:2144-2153` 填的是这条 logic 自己的目标表；"
+                  + "目标集判据 = `AbilityLogic__GetTargets.c:192-207`，只有 `ta = 30/220` 读调用方给的那个目标）");
+            return 0;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-30（`B102_EXEC`）**：`chosenAbility 480 (highlightBloodThirst)` 的**行执行器**
+        /// —— 判据 `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:1960-1972`
+        /// （`default:` → `if (iVar8 != 0x1e0) return;`）：取目标表（`:1964`）⇒ 非空（`:1966`）⇒
+        /// **只取第 0 个**（`:1968` `List.get_Item(list, 0)`）⇒ `CardScript.SendHighlightBloodThirstAction(target, 0)`（`:1970`）。
+        /// **没有循环**、不动 `iVar20`。
+        /// <para>**这一跳在原版【只演出】**：`SendHighlightBloodThirstAction` 只排一条 `0x2b` 动作
+        /// （`CardScript__SendHighlightBloodThirstAction.c:30`）；四道闸**不在这一跳**，在**结算那一跳**
+        /// （`BattleManager__ResolveAction.c:3670 case 0x2b` → `:3719 ActivateBloodThirst` 为真才 `:3769 HighlightBloodThirst`，
+        /// 闸口 = `CardScript__ActivateBloodThirst.c:8-21` 四道合取）。</para>
+        /// <para>**我们的等价物** = <see cref="EmitBloodThirst"/>（它把四道闸**提前**到发射点 ——
+        /// {有 bloodthirst, 本回合第 1 次, 属于行动侧, 不在将死队列} 为假 ⇒ 什么都不发 ⇒ 净结果相同）。
+        /// 可观察量 = `ctx.Signals` 上多一条 `EvtKind.Trigger`（`Keyword = bloodthirst`、落点是目标那一格）；
+        /// 表现层 `BattleDriver.PlayTraitPulse` 那一格演 `DisplayTriggerAnim(220)`（= 原版 `HighlightBloodThirst` 的可观测半边）。</para>
+        /// <para>⚠️ **如实标着的两条差异**：① `EmitBloodThirst` 还会发一条
+        /// `BroadcastWhen(Triggers(bloodthirst))` —— 原版 480 那一跳**不广播**（那一句是我们自设计的，
+        /// 今天池内 0 张卡注册这个监听器 ⇒ 不可观测，见 `EmitBloodThirst` 的 doc）；
+        /// ② 原版四道闸里 `cardState(+0x228) != 5` 我们没有等价物，用 `IsPendingDeath` 顶（同 `EmitBloodThirst` 的口径）。</para>
+        /// <para>🧨 灭自证：把 `RunActiveRowOpsOrGrantedTrigger` 里的 `if (ca == 480)` 删掉 ⇒ 落回 op 那一支
+        /// （夹具没有正文 op ⇒ 返回 0、`ctx.Signals` 一条都不多）⇒ `B102EXEC_Assert` 的 A1-480 红。</para>
+        /// </summary>
+        internal static int RunHighlightBloodThirstRow(BattleContext ctx, int p, UnitState u, int row, int ta, UnitState chosen)
+        {
+            if (ctx == null || u == null) return 0;
+            var ops = ActiveRowOpsOf(u, row);
+            var spec = (ops.Count > 0) ? ops[0].Target : null;
+            List<UnitState> targets;
+            if (spec != null) targets = ResolveTargets(ctx, p, spec, u, chosen, null, ops[0]);
+            else if ((ta == 30 || ta == 220) && chosen != null) targets = new List<UnitState> { chosen };
+            else
+            {
+                ctx.Log($"⚠️「{u.Name}」的主动能力 `chosenAbility 480`（highlightBloodThirst）**解不出目标集**（`ta={ta}`，这一行没有配到正文 op）"
+                      + " ⇒ 本版**不猜**，这一行不结算。（原版 `AbilityLogic__PlayAbility.c:1964-1970` 取目标表的**第一个**；"
+                      + "目标集判据 = `AbilityLogic__GetTargets.c:192-207`，只有 `ta = 30/220` 读调用方给的那个目标）");
+                return 0;
+            }
+            if (targets == null || targets.Count == 0) return 0;
+            UnitState first = null;
+            for (int i = 0; i < targets.Count; i++) { if (targets[i] != null) { first = targets[i]; break; } }   // 原版 `:1968` 只取下标 0（⛔ 不是逐目标各发一条）
+            if (first == null) return 0;
+            int owner, slot;
+            if (!FindSlot(ctx, first, out owner, out slot))
+            {
+                ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 480`（highlightBloodThirst）：目标「{first.Name}」**不在棋盘上**（无格位）"
+                      + " ⇒ 这一下不播（原版 `CardScript__HighlightBloodThirst.c:3` 取的是目标自己的 `BattleCardUI`，没有视图就没有可亮的东西）");
+                return 0;
+            }
+            int before = ctx.Signals.Count;
+            EmitBloodThirst(ctx, owner, slot, first);
+            bool played = ctx.Signals.Count > before;
+            ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 480`（highlightBloodThirst）：对目标「{first.Name}」（{owner}:{slot}）"
+                  + (played ? "发了一条血渴高亮" : "**没有发**（四道闸没过：无 bloodthirst / 本回合不是第 1 次 / 不在行动侧 / 将死）")
+                  + "（判据 `AbilityLogic__PlayAbility.c:1960-1972`：只对目标表**第一个**调 `SendHighlightBloodThirstAction`）");
+            return played ? 1 : 0;
         }
     }
 }

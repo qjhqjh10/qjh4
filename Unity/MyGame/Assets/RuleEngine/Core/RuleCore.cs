@@ -4003,7 +4003,7 @@ namespace RuleEngine
             //    插进中间会把后面的单位整体外移一格），所以**下面所有事件都用回填后的 `slot`**
             //    （`Deploy` 事件、日志、`FireTriggerAt` 的格位…），表现层才摆得对人。
             //    ⚠️ `HasRoomFor` 已经在 `CanPlayCard` 里判过 ⇒ 这里 `Insert` 不会失败。
-            slot = BoardSlots.Insert(ps, unit, slot); unit.SetOwnerSeat(p);   // 【B94_B22 2026-10-29 · B24 接线 A2】棋盘写点补座位（原版 `CardSetup`/`SetAsPlayer` 造卡即定）
+            slot = BoardSlots.Insert(ps, unit, slot); unit.SetOwnerSeat(p); unit.SetupFTUELowLifeInvulnerability(isPlayer: unit.OwnerSeat == 0, ftueBotConfig: false);   // 🔴 2026-10-30（调度台裁定 · 账 `战斗逻辑驱动:707` R1）：原版 `CardSetup.c:88-114` 的 FTUE 低血无敌位。口径 = `isPlayer: OwnerSeat == 0`（原版 `+0x40 isPlayer` 是「下方那一方」的布尔、当 `GetPlayerManager` 索引用）；今天 `ftueBotConfig` 恒 false ⇒ 行为零变化，接上是为了让「部署即可用」而不是只有断言在调。   // 【B94_B22 2026-10-29 · B24 接线 A2】棋盘写点补座位（原版 `CardSetup`/`SetAsPlayer` 造卡即定）
             // 🔴 **2026-10-12（`A1597`）**：把 `Insert` 回填的落点接住报给调用方（它 `return landed`，
             //    原来是**丢掉的**）—— 自检夹具要断言「落在哪一格」，只能从这里拿，
             //    ⛔ 别拿**请求格**去断言（空盘上请求 `2` 实际落 `3`；见本方法的 doc）。
@@ -4146,7 +4146,7 @@ namespace RuleEngine
             // 规则书 `:220`「从手牌打出时：本回合可打出 X 张额外复制；**费用与首张相同**」；
             // 英文原版 `:369`「When played from the hand: you can play X additional copies this turn.
             // Energy cost of copies is the same as the original Troop played.」
-            SpawnTideCopies(ctx, p, inst, unit.KwValue(KeywordTable.Tide), costPaid);
+            SpawnTideCopies(ctx, p, inst, costPaid);   // 🔴 2026-10-30（`B102_TIDE`）：链长读**牌实例**的 `CardInstance.TideCounter`（原版 `+0x5C` 长在 `CardScript` 上、逐份 −1 跟着牌走），⛔ 不再传 `unit.TideCounter`
 
             // ---- 🆕 伴生（`Companion X: <部队名>`）：**造一张新卡放进手牌** ----
             // 🔴 **2026-10-18（`A920` 的续）· 就地订正（铁律 5）**：这一段原来写的是
@@ -4273,58 +4273,58 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **潮涌（`Tide X`）**：从手牌打出带它的单位时，往手牌塞 **X 张复制**
-        /// （规则书 `:220` / 英文原版 `:369`）。
+        /// **潮涌（`Tide X`）**：从手牌打出带它的单位时，**造一张复制**进手牌；那张新卡自己带着
+        /// `X − 1`（打它才会再带一张）。规则书 `:220`「本回合可打出 X 张额外复制」/ 英文原版 `:369`
+        /// 「you can play X additional copies this turn」—— ⚠️ 那两处写的是**总数**，不是一次给 X 张。
         ///
-        /// 三条语义：
-        ///   ① **X 张**（`Tide 2` → 2 张）—— `KwValue` 取的是关键词后面那个数（取不到时 = 1，见
-        ///      `UnitState.KwValue` 的口径）；
-        ///   ② **复制品是临时卡** —— 规则书 `:229` 把「带潮涌的复制」和天赋/伴生**并列**为临时，
-        ///      回合结束未打出即**从游戏中移除**。所以每塞一张就 `MarkEphemeral` 一次
-        ///      （⚠️ 必须走标记 —— 卡面本身没印 `Ephemeral`，不标就会**赖在手里不走**）；
-        ///   ③ **费用与首张相同** —— 用一条 `CostMod` 把这个 id 的费用**钉回实付价**
-        ///      （`Delta = 实付 − 牌面`，只在本回合有效）。首张原价时 delta = 0，不动。
+        /// 🔴 **原版形状（2026-10-30 `B102_TIDE` 逐句现读 `d:/2/tools/decomp_full/`）**：
+        ///   · **闸** `CardScript__ProcessTide.c:21-28`：`!HasCurrentTrait(0x38e = tide) || +0x5C == 0`
+        ///     ⇒ 直接 return（注意是 `== 0`，负数照旧往下走）；
+        ///   · **一次只造一张** `:68` 那唯一一处 `AddNewCardToHand`（**全函数无循环**）；
+        ///   · **逐份 −1** `:98` `newCard + 0x5C = 源 + 0x5C − 1` —— 写在**新卡**上、
+        ///     跟着那张牌走进手牌（⇐ 本批补的那一半：`CardInstance.TideCounter`）；
+        ///   · 新卡还带一条 `0x19 = ephemeralCopy` 效果（`:55` 写 `cardEffect.buffType`、
+        ///     `:69` 当第 8 实参交给 `AddNewCardToHand`）⇒ 回合结束未打出即消失。
         ///
-        /// ⚠️ **简化（如实标着）**：「本回合最多打出 X 张」这件事**靠临时卡自己到期**表达
-        ///    （回合结束全清），没有另加一个计数器 —— 玩家真去打第 X+1 张也打不出来（手里已经没有了）。
-        /// 🔴 **2026-09-18 第 7 行第 2 步**：X 张复制**各发一份新实例**（`ctx.NewInstance`）——
-        ///    改之前它们是「同一个 `CardDef` 对象」，现在**原件与复制品分得开了**。
-        ///    ⚠️ 但下面那条「费用与首张相同」的 `CostMod` **仍然是按卡 id 登记的**（模板级）⇒
-        ///       同名两张会一起改价 —— 那是第 3 步（`CostMod.Key` 改按实例）的事，**已知近似**。
+        /// ⇒ **`Tide X` 的「X 张」是【打一次给一张】的链**，⛔ 不是「一次塞 X 张」
+        ///    （改前我们按后者做 ⇒ 打出 `Tide 2` 手牌立刻多 2 张，与原版不符）。
+        /// ⚠️ **费用与首张相同**：用一条 `CostMod` 把这一份的费用钉回实付价（只在本回合有效）。
+        /// ⚠️ **只钉【进了手牌】的那一份**：手牌满时新卡直接进弃牌堆，⛔ 不给它登记 `CostMod`
+        ///    （否则 `ctx.CostMods` 里留一条指向弃牌堆实例的死记录）。
         /// </summary>
-        static void SpawnTideCopies(BattleContext ctx, int p, CardInstance origin, int x, int paidCost)
+        static void SpawnTideCopies(BattleContext ctx, int p, CardInstance origin, int paidCost)
         {
-            if (x <= 0 || origin == null || origin.Card == null) return;
+            if (origin == null || origin.Card == null) return;
             var card = origin.Card;
-            var copies = new List<CardInstance>(x);
-            for (int i = 0; i < x; i++)
-            {
-                var copy = ctx.NewInstance(card);      // 复制品 = **新的一份**（不是原件那一份）
-                copy.EphemeralMarked = true;           // 第 7 行第 3 步：标记打在**那一份**上
-                // 🔴 **2026-10-20（`W58-TURN-A`）**：造牌进手牌也走「**先判上限、再 Add**」
-                //   （原版 `ProcessTide` → `AddNewCardToHand` → `PlayerHand._AddCardNotDrawnToHand_d__39:26-30/63-65`：
-                //    满了就把**刚造的这张**送墓地）。`SetupCardInHand` 由那个方法统一调。
-                //   ⛔ 别再「先全 Add、最后 `EnforceHandLimit`」—— 手牌已超上限时会丢到别人身上。
-                if (AddCardToHandWithinLimit(ctx, p, copy)) copies.Add(copy);
-            }
-            // ⚠️ 被上限丢进弃牌堆的那几份**不再发 `CostMod`**（它们已经不在手牌里了）——
-            //    否则会在 `ctx.CostMods` 里留一条指向弃牌堆实例的死记录。上面只把**进了手牌**的收进 `copies`。
+            // 🔴 **闸**（原版 `ProcessTide.c:26`）：`+0x5C == 0` ⇒ 不再造（`tide` 词条那一半由
+            //   构造时的盖值保证 —— `TideCounter` 只在 `Has(Tide)` 时才非 0）。
+            int left = origin.TideCounter;
+            if (left == 0) return;
+            // 🔴 **一次只造一张**（原版 `:68`，无循环）；新卡自己带着 `left − 1`（`:98`）。
+            var copy = ctx.NewInstance(card);      // 复制品 = **新的一份**（不是原件那一份）
+            copy.EphemeralMarked = true;           // 第 7 行第 3 步：标记打在**那一份**上
+            // 🔴 **2026-10-20（`W58-TURN-A`）**：造牌进手牌也走「**先判上限、再 Add**」
+            //   （原版 `ProcessTide` → `AddNewCardToHand` → `PlayerHand._AddCardNotDrawnToHand_d__39:26-30/63-65`：
+            //    满了就把**刚造的这张**送墓地）。`SetupCardInHand` 由那个方法统一调。
+            //   ⛔ 别再「先全 Add、最后 `EnforceHandLimit`」。
+            bool inHand = AddCardToHandWithinLimit(ctx, p, copy);
+            copy.TideCounter = left - 1;           // 原版 `ProcessTide.c:98`：写在**新卡**上、跟着牌进手牌
+            // ⚠️ 被上限丢进弃牌堆的那一份**不再发 `CostMod`**（它已经不在手牌里了）——
+            //    否则会在 `ctx.CostMods` 里留一条指向弃牌堆实例的死记录。
             // ⚠️ **delta 要拿「当时的现价」比**，不是拿牌面价：首张本身可能已经被别的效果
             //    折扣过（例如 `-1`），拿牌面价算会**再折一次**（实测：3 → 实付 2 → 复制品变成 1）。
             int delta = paidCost - CostOf(ctx, p, origin);
-            if (delta != 0)
-                // 🔴 第 7 行第 3 步：**每张复制各钉各的**（`Key` 留 `*`）——
-                //    原来是 `Key = card.Id` 一条管全部 ⇒ 手里**别的**同名卡也被改了价（D-8）。
-                foreach (var copy in copies)
-                    ctx.CostMods.Add(new CostMod
-                    {
-                        Player = p, Key = "*", HandInstanceId = copy.Id, Delta = delta,
-                        ExpireTurn = ctx.Turn,          // 只在本回合（规则书：「本回合可打出」）
-                    });
-            ctx.Log($"潮涌 {x}：{card.Name} 的 {copies.Count} 张复制进了手牌"
-                  + (copies.Count < x ? $"（另有 {x - copies.Count} 张因手牌已满直接进弃牌堆）" : "")
-                  + "（本回合可打出、回合结束消失；费用与首张相同"
-                  + (delta != 0 ? $"，本张实付 {paidCost}（牌面 {card.Cost}）" : "") + "）");
+            if (inHand && delta != 0)
+                // 🔴 第 7 行第 3 步：**这一份**钉自己的价（`Key` 留 `*`）—— ⛔ 别退回 `Key = card.Id`（会改手里别的同名卡）
+                ctx.CostMods.Add(new CostMod
+                {
+                    Player = p, Key = "*", HandInstanceId = copy.Id, Delta = delta,
+                    ExpireTurn = ctx.Turn,          // 只在本回合（规则书：「本回合可打出」）
+                });
+            ctx.Log($"潮涌 {left}：{card.Name} 造出 1 张复制"
+                  + (inHand ? "（进了手牌" : "（**手牌已满 ⇒ 直接进弃牌堆**")
+                  + $"；它自己带着 {left - 1}，打它才会再带一张）"
+                  + (delta != 0 && inHand ? $"，本张实付 {paidCost}（牌面 {card.Cost}）" : "") + "）");
         }
 
         /// <summary>
@@ -4432,7 +4432,7 @@ namespace RuleEngine
             if (hasTrait)
             {
                 string name = card.CompanionName;
-                int x = card.KwValue(KeywordTable.Companion);
+                int x = (inst != null) ? inst.CompanionCounter : (unit != null && unit.Has(KeywordTable.Companion)) ? unit.CompanionCounter : card.KwValue(KeywordTable.Companion);   // 🔴 2026-10-30（`B102_TIDE` · 账 :707 下半截）：链长读**牌实例**的 `CardInstance.CompanionCounter`（原版 `+0x60` 长在 `CardScript` 上、逐份 −1 跟着牌走）；`inst` 缺省时回退 `unit`/`KwValue` ｜ 前注（`B102_CARD707` · 账 :707 R4）：原版读的是 `CardSetup` 那一刻的快照 `+0x60`（`CardScript__CardSetup.c:256-260` → `ProcessCompanion.c:29/:88`），不是卡面印刷值 ⇒ 优先用 `unit.CompanionCounter`（构造时快照），`unit` 缺省时回退 `card.KwValue`
                 if (string.IsNullOrEmpty(name) || x <= 0)
                 {
                     ctx.Log($"伴生：{card.Name} 有 `Companion` 但**名字或数量读不出来**"
@@ -4835,7 +4835,7 @@ namespace RuleEngine
                 //   （`_ResolveSummonUnit_d__510__MoveNext.c:179-183` ·
                 //     `_ResolveCardAutoSummoned_d__511__MoveNext.c:284`）。
                 unit.PlayOrder = ctx.TakePlayOrder();
-                ps.Board[dst] = unit; unit.SetOwnerSeat(owner); if (deploySource != DeploySource.Reanimate && PlaysFaceDown(card)) { unit.FaceDown = true; ctx.Log($"{unit.Name} **面朝下**落在 {dst} 号格（伏击）—— 原版 _ResolveCardAutoSummoned_d__511:166-170 与 _ResolveSummonUnit_d__510:95 的 HasCurrentTrait(ambush) ⇒ SetAmbush(true)；再造那条链没有这一跳"); }   // 【B94_B22 2026-10-29 · B24 接线 A3】免费部署也写座位 ＋ 🔴 2026-10-29（`B97_RC` · 账 500 · 审查 #4）补 ambush ⇒ FaceDown
+                ps.Board[dst] = unit; unit.SetOwnerSeat(owner); unit.SetupFTUELowLifeInvulnerability(isPlayer: unit.OwnerSeat == 0, ftueBotConfig: false);    if (deploySource != DeploySource.Reanimate && PlaysFaceDown(card)) { unit.FaceDown = true; ctx.Log($"{unit.Name} **面朝下**落在 {dst} 号格（伏击）—— 原版 _ResolveCardAutoSummoned_d__511:166-170 与 _ResolveSummonUnit_d__510:95 的 HasCurrentTrait(ambush) ⇒ SetAmbush(true)；再造那条链没有这一跳"); }   // 【B94_B22 2026-10-29 · B24 接线 A3】免费部署也写座位 ＋ 🔴 2026-10-29（`B97_RC` · 账 500 · 审查 #4）补 ambush ⇒ FaceDown   // 🔴 2026-10-30（调度台裁定 · 账 `战斗逻辑驱动:707` R1）：原版 `CardSetup.c:88-114` 的 FTUE 低血无敌位。口径 = `isPlayer: OwnerSeat == 0`（原版 `+0x40 isPlayer` 是「下方那一方」的布尔、当 `GetPlayerManager` 索引用）；今天 `ftueBotConfig` 恒 false ⇒ 行为零变化，接上是为了让「部署即可用」而不是只有断言在调。
                 // 🔴 **2026-10-19（`A1571`）：`autoPlayFromHand` 那一档要兑现【手牌加成】。**
                 //   判据 = `_ResolveCardAutoSummoned_d__511__MoveNext.c` 末尾的
                 //   `PlayerHand.CardPlayedWithEffects(hand, CardScript.GetCopyOfCardEffects(card))` ——
@@ -9825,7 +9825,7 @@ namespace RuleEngine
             if (u.IsWarlord)
             {
                 ctx.Log($"{ps.Name} 的督军 {u.Name} 倒下");
-                ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId);
+                ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId, amount: huntMarks);   // 🆕 2026-10-30（`B102_R3` · 账 `特效动画:503`）：督军死讯也带**猎杀标记数**（`huntMarks` = `:9794` 那一格快照）—— 原版 `ResolveDeadCard` 有一条**直调**入口（`BattleManager._ResolveBacklash_d__451__MoveNext.c:88`）⇒ 那条链对督军同样成立；而我们的猎杀标记伤害/治疗（`:9795` 那一支）**本来就覆盖督军**（`:9791` 注释「督军也算」）⇒ 不补就是「规则生效、画面不播」。⚠️ 可达性如实标：卡面写 `enemy troop` ⇒ 督军今天大概率带不上标记（恒 0）。⛔ 零行数变化
                 return;
             }
 
@@ -10060,7 +10060,7 @@ namespace RuleEngine
                 var _dp = p; var _ds = slot; var _du = u; int _dhunt = huntMarks;   // 🔴 2026-10-30（`B100_F21` · 判据 = `报告/B100_X8.md` §二·3 / §三·5）：**改成读上面 `:9794` 那一格快照 `huntMarks`**（在残骸翻面支 `:9913` 之前取）。原来这里现读 `_du.KwValue("huntmark")`，而残骸支的 `ResetToValuesInHand` 已 `_keywords.Clear()` 再按卡面重建（`UnitState.cs:2642-2645`）⇒ 运行时挂上去的 `huntmark` 没了 ⇒ `EvtKind.Death.Amount` 恒 0（应为 2）。原版 `CardScript__TriggerOnMinionDeath.c:77` 在 death action 里直调，早于 `ResetToValuesInHand`（`_ResolveTransformIntoRemnant_d__554__MoveNext.c:43`）⇒ 读到的是 2。⚠️ 普通真死支两处读数本来就相等（9794 与这里之间没有任何关键词写点），行为逐字不变。⛔ 零行数变化   // 🆕 2026-10-29（B97_W28 · 账 特效动画:503）：猎杀标记数**在入队这一刻拍下来**（出队时 `_du` 的 trait 可能已被反噬 / 翻面改过）
                 EnqueueAbility(ctx, ActionPriority.Instant, "death-signal:" + (_du.Name ?? "?"),
                                () => ctx.Emit(EvtKind.Death, _dp, _ds, _du.Name,
-                                              instanceId: _du.InstanceId, amount: _dhunt),   // 🆕 2026-10-29（B97_W28 · 账 特效动画:503 `ActivateTraitParticlesFromCodeInTarget`）：原版 `CardScript__TriggerOnMinionDeath.c:77` 是**直调**（闸 = 观察者==死者 ∧ `huntMark > 0`）—— 发侧把**猎杀标记数**放进 `EvtKind.Death` 的 `Amount`（全仓 0 个消费者读 Death 的 Amount ⇒ 不改 `ctx.Events.Count`、Fingerprint 不变）；表现侧消费（`BattleDriver.PlayDeathFeel`）由 `B97_W18` 接。⛔ 别为此新增 `EvtKind.TraitStacked`（会动指纹）
+                                              instanceId: _du.InstanceId, amount: _dhunt),   // 🆕 2026-10-29（B97_W28 · 账 特效动画:503 `ActivateTraitParticlesFromCodeInTarget`）：原版 `CardScript__TriggerOnMinionDeath.c:77` 是**直调**（闸 = 观察者==死者 ∧ `huntMark > 0`）—— 发侧把**猎杀标记数**放进 `EvtKind.Death` 的 `Amount`（🔴 2026-10-30 `B102_R3` 就地订正：原文「全仓 0 个消费者读 Death 的 Amount」已过期 —— 消费侧 = `BattleDriver.PlayDeathFeel` → `PlayHuntMarkTraitParticles`；**只改 payload** ⇒ 不改 `ctx.Events.Count`、Fingerprint 不变）。⛔ 别为此新增 `EvtKind.TraitStacked`（会动指纹）
                                // 🔴🆕 2026-10-22（`W63` · C4）：这一格**由数据口径取**，不再手写 `false` ——
                                //   它是死讯本身（原版 `ThisUnitDeath(80)` 那一族），在原版 skip 表里
                                //   **整段不判** `abilityContext`（`CardAbility__CanTriggerAbility.c:69-95`）
@@ -11662,7 +11662,7 @@ namespace RuleEngine
             // 🆕 2026-09-29 原版 `EntityScript.usedActiveAbility`（`+0x4C`）在这里置 1
             // （`CardScript__ResolveActiveAbilityPlayed.c:31-32`）—— 读它的是 `Duty` 徽标的未激活态。
             // 🔴🆕 2026-10-27（`B9_W27ENG`）：真正对应 `+0x4C` 的是 `ActiveAbilityUsed`（**本局一次、不随回合重置**），`UsedActiveAbilityThisTurn` 是 `+0x50` 那一族（每回合）—— 两格一起置（原版就挨着）。
-            u.UsedActiveAbilityThisTurn = u.ActiveAbilityUsed = true; if (u.StepActiveAbilityLoading()) { ctx.Log($"{u.Name} 的主动能力**只装填、不发动**（原版 `decomp_full/CardScript__ResolveActiveAbilityPlayed.c:54-128`：`DoesAbilityRequireLoading ∧ !activeAbilityLoaded(+0x224)` ⇒ 置 `+0x224 = 1` 后整条 return，**不调** `RawCardScript.ResolveActiveAbility`；本回合行动照旧已花 —— `:29-30` 的 `+0x50`/`+0x4C` 在它之前）"); return RuleCodes.OK; }   // 🆕 2026-10-29（`B98_K2` · 账 706 ①）：装填机制的唯一**产品**调用点（`StepActiveAbilityLoading` 原来只在 `B97W22_Assert` 里被调）。⚠️ 今天全池 `needsLoading` 全 0 ⇒ `RequiresAbilityLoading` 恒假 ⇒ 本行休眠（零指纹变化）
+            u.UsedActiveAbilityThisTurn = u.ActiveAbilityUsed = true; if (u.StepActiveAbilityLoading()) { ctx.Log($"{u.Name} 的主动能力**只装填、不发动**（原版 `decomp_full/CardScript__ResolveActiveAbilityPlayed.c:54-128`：`DoesAbilityRequireLoading ∧ !activeAbilityLoaded(+0x224)` ⇒ 置 `+0x224 = 1` 后整条 return，**不调** `RawCardScript.ResolveActiveAbility`；本回合行动照旧已花 —— `:29-30` 的 `+0x50`/`+0x4C` 在它之前）"); return RuleCodes.OK; }   // 🆕 2026-10-29（`B98_K2` · 账 706 ①）：`StepActiveAbilityLoading` 的产品调用点之一（原来只在 `B97W22_Assert` 里被调）。🔴 2026-10-30（`B102_R1`）**就地订正**：原话「唯一产品调用点」不成立 —— **本入口对原版池 0 可达**（`CardDef.cs:1423` 的 `!FromOriginalPool` ⇒ 原版池 1,129 张的 `Card.Ability` 恒 null，`CanStartAbility` 直接回 `ErrNoAbility`）⇒ 原版池的装填走 `UseActiveAbilityCore`（`:15505` 那一行，`B102_R1` 已补）。**保留本行** = 将来自设计卡接上装填时仍有唯一落点，⛔ 别删。⚠️ 今天全池 `needsLoading` 全 0 ⇒ 两边都休眠（零指纹变化）
             // ⚠️ 技能**不解除 Stealth**：规则书 :211 说的是「**攻击**前不能被选中」，
             //    放技能不是攻击。v1 里没有既带 Stealth 又带技能的单位，这条先按原文来。
 
@@ -15502,7 +15502,7 @@ namespace RuleEngine
             u.AttacksThisTurn++;                                   // 算「本回合已行动」
             EmitBloodThirst(ctx, p, slot, u);                      // 嗜血「亮一下」（同 `UseAbility`）
             u.UsedActiveAbilityThisTurn = u.ActiveAbilityUsed = true;   // `+0x50`（本回合）/ `+0x4C`（本局）
-            RecomputeAttackTypeAfterActiveAbility(u);              // 带 duty/ferocity/oath 的重挑攻击型（同 `UseAbility`）
+            RecomputeAttackTypeAfterActiveAbility(u);   if (u.StepActiveAbilityLoading()) { ctx.Log($"{u.Name} 的主动能力**只装填、不发动**（原版 `decomp_full/CardScript__ResolveActiveAbilityPlayed.c:124-128`：`DoesAbilityRequireLoading ∧ !activeAbilityLoaded(+0x224)` ⇒ 置 `+0x224 = 1` 后整条 return，**不调** `RawCardScript.ResolveActiveAbility`；本回合行动照旧已花 —— `:29-30` 的 `+0x50`/`+0x4C` 在它之前）"); return RuleCodes.OK; }   // 带 duty/ferocity/oath 的重挑攻击型（同 `UseAbility`）   // 🔴 2026-10-30（`B102_R1` · 账 867 R1）：**装填那一步挪到本入口** —— 原版 `CardScript__ResolveActiveAbilityPlayed.c:53-54` 的 `DoesAbilityRequireLoading()` 与 `:124-128` 的「只装填」支就挂在 `ResolveActiveAbilityPlayed` **自己**身上，它的真对应物是**本方法**（`UseActiveAbilityCore`）；而那一句原来落在 `UseAbilityCore`（`:11665`），那条路只服务 `Card.Ability`（`CardDef.cs:1423` 的 `!FromOriginalPool` ⇒ 原版池 1,129 张的 `Ability` 恒 `null` ⇒ 对原版池 **0 可达**）。位置三条：在 `:15504`（`+0x50`/`+0x4C`，原版 `:29-30`）**之后** · 在 `:15505`（`+0x120` 重挑，原版 `:31-43`）**之后** · 在下面那句 `ctx.Emit(EvtKind.Ability, …)` **之前**（原版「只装填」那一支**不宣布发动**）。📊 现池 `needsLoading` 全 0 ⇒ `RequiresAbilityLoading` 恒假 ⇒ 本行休眠（与 `UseAbilityCore` 那条同一判据） if (u.StepActiveAbilityLoading()) { ctx.Log($"{u.Name} 的主动能力**只装填、不发动**（原版 `decomp_full/CardScript__ResolveActiveAbilityPlayed.c:124-128`：`DoesAbilityRequireLoading ∧ !activeAbilityLoaded(+0x224)` ⇒ 置 `+0x224 = 1` 后整条 return，**不调** `RawCardScript.ResolveActiveAbility`；本回合行动照旧已花 —— `:29-30` 的 `+0x50`/`+0x4C` 在它之前）"); return RuleCodes.OK; }
 
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
                      keyword: KeywordTable.Ability,
@@ -17361,7 +17361,7 @@ namespace RuleEngine
         /// </summary>
         internal static bool ActiveRowEntersPlan(UnitState u, int j, int ca)
         {
-            return ActiveRowHasOps(u, j) || ca == 85 || ca == 320 || ca == 350 || ca == 360 || ca == 370 || ca == 400 || ca == 390;   // 🔴 2026-10-29（B98_G1 · 账 534①）：加 `350 = removeFromCemetery` —— 那一档的执行器早就在（`EffectResolver.RunActiveRowOpsOrGrantedTrigger:18529` → `RunRemoveFromCemeteryRow`，出队口 = `BattleContext.ResolveRemoveFromCemetery`），但计划表这道闸原来只放 85/360/370/400 ⇒ 正文 op 为空的 350 行会被当 `unimplemented` 剔掉、根本走不到那张表。判据 = `BattleManager__ResolveRemoveFromCemetery.c:82-134` + `CardScript__RemoveCardFromCemetery.c`（清 `+0x24b` 永久放逐闩）。📊 池内 `chosenAbility 350` = 0/1,351 ⇒ 休眠件（铁律 11 照建）  // 🆕 2026-10-29（`B99_E3` 的跨文件补丁，本文件写手 `B99_E1` 代落 · 账 1281/1379 的 (a) 格）：加 `320 = followAfterResolution` —— 判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` ⇒ `BattleManager__AddFollowAfterResolution.c:26/104` ⇒ `CardScript__FollowUpResolutionPlayed.c:5-9`（`OnTrigger(0x19a = 410)`）；执行器 = `EffectResolver.cs:18532` 的 `if (ca == 320) return RunFollowAfterResolutionRow(ctx, p, u, chosen)`（`B99_E3` 建的，接 `EmitFollowUpResolution` + `FireTriggerByNumber(410)`）。⚠️ **必须放进这道闸**：`CardDef.ActiveAbilityKindFamily` 对 320 **故意不映射**（它不是一种效果、是「跟着上一条结算」）⇒ `ActiveRowHasOps` 恒 false ⇒ 不加这一格整支永远 `ErrUnimplemented`、plan 为空、执行器成死代码。📊 池内 `ca 320` = **1/1129**（只有 `SW9` `Fenrisian Wolf`，整组只有 320）⇒ 本加项**会让 SW9 的行为变**（预期；指纹由调度台统一重钉，⛔ 别在本行改基线）
+            return ActiveRowHasOps(u, j) || ca == 85 || ca == 320 || ca == 350 || ca == 360 || ca == 370 || ca == 400 || ca == 390 || ca == 380 || ca == 480;   // 🆕 2026-10-30（`B102_EXEC` · 账 1282/1380 批 0）：加 `380 setReferenceCard` / `480 highlightBloodThirst` —— 判据 `AbilityLogic__PlayAbility.c:2128-2160` / `:1960-1972`，执行器 = `EffectResolver.RunActiveRowOpsOrGrantedTrigger` 那两个 `if`。⚠️ **必须放进这道闸**：这两支走的是「不看正文 op」的执行器（原版 380 读的是这条 logic 自己的 `GetTargets` 表、480 取那张表的第一个），正文 op 为空的 380/480 行若不加这一格会被当 `chosenAbility={ca}` 剔进 `unimplemented` ⇒ plan 为空 ⇒ 执行器成死代码。📊 池内 `activeAbilityLogic` 的 380/480 **各 0 行**（1,129 张现扫）⇒ 休眠件（铁律 11 照建）   // 🔴 2026-10-29（B98_G1 · 账 534①）：加 `350 = removeFromCemetery` —— 那一档的执行器早就在（`EffectResolver.RunActiveRowOpsOrGrantedTrigger:18529` → `RunRemoveFromCemeteryRow`，出队口 = `BattleContext.ResolveRemoveFromCemetery`），但计划表这道闸原来只放 85/360/370/400 ⇒ 正文 op 为空的 350 行会被当 `unimplemented` 剔掉、根本走不到那张表。判据 = `BattleManager__ResolveRemoveFromCemetery.c:82-134` + `CardScript__RemoveCardFromCemetery.c`（清 `+0x24b` 永久放逐闩）。📊 池内 `chosenAbility 350` = 0/1,351 ⇒ 休眠件（铁律 11 照建）  // 🆕 2026-10-29（`B99_E3` 的跨文件补丁，本文件写手 `B99_E1` 代落 · 账 1281/1379 的 (a) 格）：加 `320 = followAfterResolution` —— 判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` ⇒ `BattleManager__AddFollowAfterResolution.c:26/104` ⇒ `CardScript__FollowUpResolutionPlayed.c:5-9`（`OnTrigger(0x19a = 410)`）；执行器 = `EffectResolver.cs:18532` 的 `if (ca == 320) return RunFollowAfterResolutionRow(ctx, p, u, chosen)`（`B99_E3` 建的，接 `EmitFollowUpResolution` + `FireTriggerByNumber(410)`）。⚠️ **必须放进这道闸**：`CardDef.ActiveAbilityKindFamily` 对 320 **故意不映射**（它不是一种效果、是「跟着上一条结算」）⇒ `ActiveRowHasOps` 恒 false ⇒ 不加这一格整支永远 `ErrUnimplemented`、plan 为空、执行器成死代码。📊 池内 `ca 320` = **1/1129**（只有 `SW9` `Fenrisian Wolf`，整组只有 320）⇒ 本加项**会让 SW9 的行为变**（预期；指纹由调度台统一重钉，⛔ 别在本行改基线）
         }
 
         /// <summary>🔴 **只为自检开门**（同 `HurtWithSourceForTest` / `DeathTypeOfSourceForTest` 的纪律：

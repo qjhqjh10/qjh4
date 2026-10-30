@@ -2518,16 +2518,16 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **2026-10-12（A1699）**：点异画面板那颗价签（`Buy Original Card`）。
-        /// 原版那条链**本地走不通** —— `AlternateArtPanel__BuyOriginalCard.c` 是
-        /// `WindowsManager.ShowPopUp(<确认弹窗>)` + `PlayfabWrapper.GenericCloudScriptHandler(0x385, …)`
-        /// （**服务端 CloudScript**），价格还来自 `ItemsConfig.GetOriginalArtPrice`（LiveOps 配置，本地没有）。
-        /// ⇒ 照本笔口径：**接上命中区 + 出声**（⛔ 不留一颗「看起来能点、点下去什么都不发生」的钮）。</summary>
+        /// 原版那条链**本地走不通** —— `AlternateArtPanel__BuyOriginalCard.c` 是 `WindowsManager.ShowPopUp(<确认弹窗>)`
+        /// + `PlayfabWrapper.GenericCloudScriptHandler`（**服务端 CloudScript**），价格来自远端 `ItemsConfig.GetOriginalArtPrice`。
+        /// ⇒ **B 档（依赖服务器）**：点了弹官方「连不上服务器」横幅（`CustomErrors/InternetUnreachable`）+ 日志出声，
+        /// **⛔ 不扣资源、不改存档、不假装买成功**（`🔶 自己设计` 的标记写在本方法体内那一行注释里）。</summary>
         public void OnBuyOriginalCardClicked()
         {
-            Debug.Log("[CardDetail] **本版未实现：购买原卡面**（`Buy Original Card`）—— 那颗钮点了**什么都不做**"
-                    + "（原版走 `PriceDisplayButton` → `AlternateArtPanel.BuyOriginalCard` → "
-                    + "`PlayfabWrapper.GenericCloudScriptHandler` = **服务端**，且价格在 "
-                    + "`ItemsConfig.GetOriginalArtPrice`（LiveOps 配置，本地取不到））。");
+            string say = Loc.HasAnyTerm("CustomErrors/InternetUnreachable") ? Loc.T("CustomErrors/InternetUnreachable") : "离线：购买原画需要连接服务器（服务器已关服 ⇒ 本地不扣资源、不改存档）。";   // 🔶 自己设计（非原版）：离线只出声、不假装买成功 · 原版这一跳是 PlayFab CloudScript 购买（价格 `ItemsConfig.GetOriginalArtPrice` 与扣费/入库都在服务端），服务器已关服、判据在远端 · 调度台 2026-10-30 裁定；词条 = 官方 `CustomErrors/InternetUnreachable`（与 `Shell/ErrorPopupWindowController` 的 `CustomError.InternetUnreachable` 同一条，官方 13 语言全表命中 ⇒ 不会印键名）
+            Debug.LogWarning("[CardDetail] `Buy Original Card` **离线**：购买原画要连服务器（原版 PlayFab CloudScript）⇒ **不扣资源、不改存档**、只出声：" + say);
+            if (!MessageToast.ShowError(say, false))
+                Debug.LogError("[CardDetail] 「Buy Original Card」离线提示**没弹出来**（`MessageToast` 宿主不在）—— 文案见上一条日志（⛔ 不静默）");
         }
 
         /// <summary>**降级**：等级 −1（下限 1）⇒ 重画 ⇒ 卡框降一档。

@@ -1546,7 +1546,7 @@ namespace CardPresentation
                 Debug.LogWarning("[BoosterPack] 卡包实物上找不到 `MeshRenderer`（原版 `myRenderer`）⇒ 包面画不出来"
                                  + "（判据：17 棵 prefab 的根上都有 `MeshFilter` + `MeshRenderer`）");
 
-            item.Bind(mr, FindArmyTexts(go.transform), WindowSounds.BoosterOpenCue(Army), BoosterTermOf(Army),
+            item.Bind(mr, EnsureArmyTexts(go.transform), WindowSounds.BoosterOpenCue(Army), BoosterTermOf(Army),
                       OriginalShakePresets());
             LiftPackParticles(go.transform);
 
@@ -1672,6 +1672,79 @@ namespace CardPresentation
             _openT = 0f;
             _bgShakeT = 0f;
             OpenAnimStarts++;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  `Army Text` / `Army Text 2`：节点在、TMP 缺 ⇒ **当场自己建一颗**（账 `商店:345`）
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  判据 → `资料/完全复刻/报告/B102_D2_ShellScene红分诊.md` §二·①：
+        //    卡包 17 棵 prefab 上那 34 颗 `Army Text*` 的 TMP 组件 `m_Script` 指向**外部 CAB `CAB-17b1b5f8…`**，
+        //    而全部 StreamingAssets bundle 里**都没有那个 CAB** ⇒ 运行时是 **missing script** ⇒
+        //    `GetComponentsInChildren<TextMeshPro>()` = 0（日志 `[BoosterPack] … texts=0` 即此）。
+        //  原版值**逐格实读**（⛔ 不是我们挑的）：`d:/2/tools/assetripper_out/ExportedProject/Assets/
+        //    Booster Pack Standard *.prefab` 的 17 棵逐棵一致 —— `m_fontSize 9.75` · `m_fontSizeBase 8.6` ·
+        //    `m_enableAutoSizing 1` · `m_fontSizeMax 10` · `m_fontStyle 16 (UpperCase)` ·
+        //    `Horizontal=2 / Vertical=512 (Center)` · 白 `(1,1,1,1)` · `m_isOrthographic 0`（世界空间）；
+        //    **两颗只差两格**：`Army Text` = `fontSizeMin 2` + `TextWrappingMode 0 (NoWrap)`，
+        //    `Army Text 2` = `fontSizeMin 8` + `1 (Normal)`。字体资产 = `Pragati-Regular SDF`
+        //    （原版 `m_fontAsset` 就是它；本工程那份在 `Resources/Fonts/`，材质 `Pragati-Regular Atlas Material`）。
+        //  ⚠️ 原版两颗节点出厂 **`m_IsActive: 0`**（17 棵全是），动画 clip 只驱动 `m_fontColor.a` 淡出
+        //    ⇒ 我们**不**替它打开（打开 = 造一段原版没有的显示）。
+
+        /// <summary>取那两颗 `Army Text` 上的 TMP；**节点在、TMP 缺就当场建一颗**（见上面那整段）。
+        /// <para>🔶 自己设计（非原版）：原版这两颗 TMP 的脚本在**外部 CAB**、离线包体里没有（运行时 missing script），
+        /// 所以只能按上面实读出来的原版序列化值**自己建**。谁定的 + 日期：调度台 2026-10-30 裁定。</para>
+        /// <para>名字取法沿用旧实现：先按名字（`Army Text` 前缀），名字对不上退回子树里全部 `TextMeshPro`。</para></summary>
+        static TMPro.TextMeshPro[] EnsureArmyTexts(Transform root)
+        {
+            if (root == null) return new TMPro.TextMeshPro[0];
+
+            // ① 按名字找节点（**含 inactive** —— 原版出厂 `m_IsActive: 0`）
+            var nodes = new System.Collections.Generic.List<Transform>();
+            var all = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                var tr = all[i];
+                if (tr != null && tr.name.StartsWith("Army Text", System.StringComparison.Ordinal))
+                    nodes.Add(tr);
+            }
+
+            // ② 缺 TMP 的当场补建（原版脚本在外部 CAB ⇒ 运行时 missing script ⇒ 这里原本是 0 颗）
+            for (int i = 0; i < nodes.Count; i++)
+                if (nodes[i].GetComponent<TMPro.TextMeshPro>() == null)
+                    BuildArmyText(nodes[i]);
+
+            return FindArmyTexts(root);
+        }
+
+        /// <summary>🔶 自己设计（非原版 · 见 <see cref="EnsureArmyTexts"/> 上方那整段）：按原版 prefab 的
+        /// **序列化值**在节点上建一颗世界空间 TMP。两颗只差 `fontSizeMin` / `textWrappingMode`（实读 17/17 一致）。</summary>
+        static TMPro.TextMeshPro BuildArmyText(Transform node)
+        {
+            var fa = TmpFont.FaceAsset(TmpFont.Face.LatinCardBody);      // = `Resources/Fonts/Pragati-Regular SDF`
+            if (fa == null)
+            {
+                Debug.LogWarning("[BoosterPack] `" + node.name + "` 要补建一颗 TMP，但 `Pragati-Regular SDF` 取不到"
+                                 + " ⇒ 这一颗阵营字仍然不会出现（⛔ 退回别的字体 = 字形/版面与原版不同）");
+                return null;
+            }
+
+            var t = node.gameObject.AddComponent<TMPro.TextMeshPro>();
+            t.font = fa;
+            // ⚠️ 先关 autoSizing 再写 `fontSize` —— `fontSize` 的 setter 只在 `!m_enableAutoSizing` 时才同步 `m_fontSizeBase`。
+            t.enableAutoSizing = false;
+            t.fontSize = 8.6f;                                             // prefab `m_fontSizeBase`
+            t.enableAutoSizing = true;                                     // prefab `m_enableAutoSizing = 1`
+            t.fontSizeMax = 10f;                                           // prefab `m_fontSizeMax`
+            t.fontSizeMin = node.name == "Army Text" ? 2f : 8f;            // prefab 实读：Army Text=2 / Army Text 2=8
+            t.color = Color.white;                                         // prefab `m_fontColor` / `m_Color` = (1,1,1,1)
+            t.alignment = TMPro.TextAlignmentOptions.Center;               // prefab Horizontal=2 / Vertical=512
+            t.fontStyle = TMPro.FontStyles.UpperCase;                      // prefab `m_fontStyle = 16`
+            t.textWrappingMode = node.name == "Army Text"
+                ? TMPro.TextWrappingModes.NoWrap                           // prefab Army Text   = 0
+                : TMPro.TextWrappingModes.Normal;                          // prefab Army Text 2 = 1
+            t.isOrthographic = false;                                      // prefab `m_isOrthographic = 0`（世界空间）
+            return t;
         }
     }
 }

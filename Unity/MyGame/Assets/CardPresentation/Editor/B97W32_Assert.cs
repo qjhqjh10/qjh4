@@ -187,4 +187,9 @@ public static class B97W32Assert
 
         Debug.Log(P + "=== 小结：" + _ok + " 通过 / " + _bad + " 失败 ===");
     }
+
+    // 🔴 2026-10-30（第一百零二会话 · 调度台）：本件此前**全仓 0 宿主**（从没被执行过）。接进 `ShellScene` 时需要
+    //   两个只读口把计数并进宿主的 `_sink`，否则它的 ✗ 只印不计（= 静默）。追加在类尾 ⇒ 本文件既有账落点零漂移。
+    public static int OkCount { get { return _ok; } }
+    public static int BadCount { get { return _bad; } }
 }

@@ -396,7 +396,7 @@ namespace RuleEngine
         {
             Card = card;
             Id = id;
-            ArmedTrap = TrapArmedOf(card);   // 🆕 2026-10-27（`E7ENG` · 第三批）：原版 `armedTrap(+0x54)` 的唯一写点 = 造牌那一刻（见 `ArmedTrap` 的 doc）
+            ArmedTrap = TrapArmedOf(card);   StampTideAndCompanionCounters(card);   // 🆕 2026-10-27（`E7ENG` · 第三批）：原版 `armedTrap(+0x54)` 的唯一写点 = 造牌那一刻（见 `ArmedTrap` 的 doc）；🆕 2026-10-30（`B102_TIDE`）：`+0x5C/+0x60` 两格快照同刻盖（原版 `CardSetup.c:251-260`）
         }
 
         /// <summary>是不是某张卡（按**定义**比，不是按份）。</summary>
@@ -474,6 +474,47 @@ namespace RuleEngine
             bool? trap = card.IsTrapCard(out why);
             if (trap == null) return ArmedTrapUnknown;
             return trap.Value ? 1 : 0;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-30（执行代理 `B102_TIDE` · 账 `战斗逻辑驱动:707` 的下半截）
+        //  —— **追加在类尾**（⛔ 别插到中间：`账/*.tsv` 按 `文件:行号` 引，插一行就漂）
+        // ================================================================================================
+
+        /// <summary>
+        /// 原版 `CardScript.tideCounter // +0x5C` —— **`CardSetup` 那一刻的 `CurrentTide` 快照**，
+        /// 也是潮涌「再造一张」的**闸与链长**。
+        ///
+        /// <para>**判据（2026-10-30 现读 `d:/2/tools/decomp_full/`）**：
+        /// · **写点①** `CardScript__CardSetup.c:251-255`：`HasCurrentTrait(0x38e = tide)` ⇒ `+0x5C = CurrentTide`
+        ///   （= `GetCurrentTraitValueWithModifiers(0x38e)`）⇒ 本类构造时由
+        ///   <see cref="StampTideAndCompanionCounters"/> 盖（= 造牌那一刻，卡还没进任何区域）；
+        /// · **写点②** `CardScript__ProcessTide.c:98`：`newCard + 0x5C = 源 + 0x5C − 1`
+        ///   （写在**刚造出来的那张新卡**上 ⇒ 跟着那张牌走进手牌，⛔ 不是写在源卡上）；
+        /// · **读点** `CardScript__ProcessTide.c:21-28`：`!HasCurrentTrait(tide) || +0x5C == 0` ⇒ **直接 return**
+        ///   （注意是 `== 0`，不是 `<= 0` —— 负数仍会再造一张、再减一，照原版）。</para>
+        ///
+        /// <para>🔴 **与 `UnitState.TideCounter` 的分工**：那一格是**打出那一刻**的同类快照
+        /// （`UnitState.SetupTideAndCompanionCounters`），而「逐份 −1 跟着牌走」必须长在**牌**上
+        /// —— 原版 `+0x5C` 就在 `CardScript`（= 我们的 `CardInstance`）身上，手上的那张带着它进出。
+        /// ⇒ 消费口（`RuleCore.SpawnTideCopies`）现在读**这一格**。</para>
+        /// </summary>
+        public int TideCounter;
+
+        /// <summary>
+        /// 原版 `CardScript__CardSetup.c:251-260` 的那两句 —— **造牌那一刻**把 `+0x5C/+0x60` 两格
+        /// 盖成当时的 `CurrentTide` / `CurrentCompanion`（唯一调用点 = 构造函数）。
+        ///
+        /// <para>⚠️ 原版读的是 `HasCurrentTrait` + `GetCurrentTraitValueWithModifiers`（**当前**值，
+        /// 含当时已在场的光环/加成）；我们的 `CardDef.Keywords` 是**印刷值** ⇒ 常规路径上两者同值
+        /// （造牌时还没有任何东西加成到这张新牌上）。⚠️ 只在**带该词条**时写 —— 不带就留在默认 0
+        /// （原版那两个 `if` 整支不执行）。</para>
+        /// </summary>
+        void StampTideAndCompanionCounters(CardDef card)
+        {
+            if (card == null) return;
+            if (card.Has(KeywordTable.Tide)) TideCounter = card.KwValue(KeywordTable.Tide);
+            if (card.Has(KeywordTable.Companion)) CompanionCounter = card.KwValue(KeywordTable.Companion);
         }
     }
 }

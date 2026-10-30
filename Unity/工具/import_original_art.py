@@ -1076,6 +1076,7 @@ MENU_IMAGES = [
     #      接线**才画得出来（`:1105` 现在只 `Note`，没走 `CardArt.MenuUi`）。
     ('40k_Rewards_icon_base card SDF',            'menus_assets_all'),                   # 128×128 → 落盘 …_base_card_SDF
     ('40k_Rewards_icon_title card',               'atlasindividual_assets_0_mainmenu'),  # 329×499（`Title Drawer` 的 Background，同族）→ 落盘 …_title_card
+    ('40k_campaign_Expansion Pass',               'liveopsicons_assets_all'),             # 🆕 2026-10-30（`B102_RAID` · 账 `日常_奖励:624`）：`RaidOrArmyReleaseMenuContainer` 的 `Scoring Icon Holder` 占位图（prefab `Image.m_Sprite` 现读 · 126²·Simple·border 全 0）；落盘 `40k_campaign_Expansion_Pass.png`
 ]
 
 # ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----

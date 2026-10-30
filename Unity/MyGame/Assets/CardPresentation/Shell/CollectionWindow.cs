@@ -3330,7 +3330,7 @@ namespace CardPresentation
             //   ⛔ **节点名那半句 `"Title " + text` 一个字没动**：`Editor/CollectionScene.cs` 的 `TitleLeftPx`
             //   （`CardPresentation/Editor/CollectionScene.cs`）与两条 `FindChild(fltPanel, "Title " + ttl)` 都**按名找**（名里还是英文原名）。
             //   ⚠️ `Energy Cost` 那一行**原版没有 `Localize`** ⇒ `TitleText` 原样返回英文。
-            var lb = Text(parent, FilterPanelModel.TitleText(text), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx);
+            var lb = FilterPanelModel.ApplyTitleFontStyle(Text(parent, FilterPanelModel.TitleText(text), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx));   // 🆕 B102/AUD02：原版 m_FontStyle=16(UpperCase)
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (!left) return;

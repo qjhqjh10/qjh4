@@ -245,7 +245,7 @@ namespace CardPresentation
                 //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #5。
                 var nm = MenuDraw.Text(holder, nameAbs, EffectiveName(d) ?? "", Color.white, "Name", NamePx, c.Q + L_Text,
                                        NameR.W, NameMin, NamePx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 40 · base 36
-                if (nm != null) MenuDraw.AlignLeft(nm, nameAbs);
+                if (nm != null) { nm.SetCharSpacing(NameGuildCharSpacing); MenuDraw.AlignLeft(nm, nameAbs); }   // ② 原版 `m_characterSpacing = 1.2` —— 🔴 必须排在 `AlignLeft` **之前**（见类尾 `NameGuildCharSpacing` 的 doc）
             }
             if (!string.IsNullOrEmpty(d.Guild))
             {
@@ -257,7 +257,7 @@ namespace CardPresentation
                 //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #6。
                 var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, "Guild Name", GuildPx, c.Q + L_Text2,
                                        GuildR.W, GuildMin, GuildPx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 30 · base 36
-                if (gn != null) MenuDraw.AlignLeft(gn, guildAbs);
+                if (gn != null) { gn.SetCharSpacing(NameGuildCharSpacing); MenuDraw.AlignLeft(gn, guildAbs); }   // ② 同上（原版 `Guild Name` 也是 1.2）· 同样**先于** `AlignLeft`
             }
 
             // ---- 右端两件：`RankingIcon`（族徽 / 骷髅）+ `Points` ----
@@ -343,5 +343,29 @@ namespace CardPresentation
             string mine = ProfileData.PlayerName;
             return string.IsNullOrEmpty(mine) ? d.Name : mine;
         }
+
+        /// <summary>`Name Holder/{Name, Guild Name}` 两颗的**字距** —— 原版 TMP 的 `m_characterSpacing = 1.2`
+        /// （**原样传、不换算**；`Label.SetCharSpacing` 的形参就是 TMP 那个字段本身）。
+        ///
+        /// <para>**判据**（2026-10-30 现读）：`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all
+        /// "AllianceRankingRow Variant" --depth 6 --no-sprite` ⇒ `Name` 与 `Guild Name` 两颗都印 `字距=1.2`；
+        /// **四款行族逐值相同**（`PlayerRankingRow` / `PlayerRankingRow For Army` / `AllianceRankingRow Variant` /
+        /// `AllianceRankingRow Skulls Variant` 的这两颗**全是 1.2**）—— 所以本 builder（全项目**唯一一份**）里
+        /// **无条件**加，⛔ 别按行族分支。同一次 dump 里 `Ranking` / `Points` **没有**这一列（= 0）⇒ ⛔ 别顺手给它们加。</para>
+        ///
+        /// <para>🔴 **次序：必须排在 `MenuDraw.AlignLeft` 之前**（本类里就是 `Text(...)` 之后、`AlignLeft(...)` 之前）。
+        /// 机理 = `Label.AlignLeftOn` 头一句 `RefreshBounds()` 量的是**当时的** `WorldW`，再按 `WorldW×0.5` 反推节点 x；
+        /// 而 `SetCharSpacing` **会改渲染宽度**、却**不刷 `_tmpW`** ⇒ 排在 `AlignLeft` **之后** = 那一行仍按**旧宽**摆、
+        /// 字整体偏 `Δ字距宽/2`，**且不出声**。先例三笔：A471（`Shell/InboxWindow.cs`）· A475 / A490
+        /// （`Shell/LiveOpsEventWindow.cs` 的 `SetCharSpacing(5f)`；断言 `Editor/MainMenuScene.cs:9326-9327` 明写
+        /// 「若被挪回 `MenuDraw.AlignLeft` 之后 ⇒ 红」）⇒ 共件 `Shell/MenuWindowBase.cs:231-252` 的注释也写着
+        /// 「🔴 次序不能反：改渲染宽度的两句必须排在 `AlignLeft` 之前」。
+        /// ⚠️ `资料/完全复刻/报告/B101_P2_AUD02序列化非视觉参数.md:216` 那句「必须排在 `MenuDraw.AlignLeft` 之后」
+        /// 与它自己引用的 `Editor/MainMenuScene.cs:9326` **相反** —— 以 `:9326` 为准（本处按「之前」实现）。</para>
+        ///
+        /// <para>⚠️ 为什么**不**走 `MenuDraw.Text` 的形参：那十个形参里**没有 `charSpacing`**
+        /// （见 `Shell/MenuWindowBase.cs` 的 A1191 裁定）⇒ 只能在调用点补一次。
+        /// ⚠️ 点阵后端（`_tmp == null`）没有「字距」这回事 —— `SetCharSpacing` 自己会**出声**（红线：不许静默失败）。</para></summary>
+        public const float NameGuildCharSpacing = 1.2f;
     }
 }

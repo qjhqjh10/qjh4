@@ -23061,7 +23061,7 @@ namespace CardPresentation
             //   （原版 `CardScript._PlayEnemyCard/_PlayPlayerCard` 的 `cardType != 0` 那支 →
             //   `DisplayEnemyCardInCenter`）。只在真机演出档跑（`animateFeel`；批处理自检要「当场精确」）。
             //   ⚠️ 与后续事件**并行**（原版是 await，我们这里没有等待层）—— 见那个方法的头注释。
-            if (e.Kind == EvtKind.Play && animateFeel) MaybeDisplayPlayedCardInCenter(e);
+            if (e.Kind == EvtKind.Play && animateFeel) MaybeDisplayPlayedCardInCenter(e); else if (e.Kind == EvtKind.SabotageCreated && animateFeel) MaybeDisplayCreatedSabotageCardInCenter(e);   // 🔴 2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-102` 对造进手牌的破坏卡直接调 `DisplayEnemyCardInCenter(…, 0.3f, 0.3f, changeVisibility: true)` ⇒ 走同一条 `animateFeel` 闸（批处理自检要「当场精确」）。挂成 else-if = **零行数变化**（铁律 18·b）。
 
             // 🆕 2026-10-19（偏差 4）：**这两条 cue 在「事件到点」这一拍才响**（原来在 `PlaySignals` 的
             //   drain 里当场响 ⇒ 命中音比受击帧早到）。判据见 `UnitDamageCueIndex` / `IsMeleeHitCueAt`。
@@ -25440,6 +25440,10 @@ namespace CardPresentation
             bool fromFade = false;
             if (fade.TryGetValue(e.Slot, out v) && v != null) fromFade = true;
             else if (!views.TryGetValue(e.Slot, out v) || v == null) return;
+
+            // 🆕 2026-10-30（`B102_R3` · 账 `特效动画:503`）：猎杀标记的那件 FromCode 粒子 —— **必须放在下面残骸守卫之前**
+            //    （原版对「带标记 + 翻面成残骸」的单位阵亡**也播**，而那道守卫会直接 `return`），也必须在 `fade.Remove` 之前（之后 `ViewAt` 取不到死者视图 ⇒ 取件阵营会取错档）。
+            PlayHuntMarkTraitParticles(e, v);
 
             // 🆕 2026-09-25 **「引擎说它死了、可那一格还站着人」= 它变成残骸了 ⇒ 不播阵亡消散、不摘视图。**
             //
@@ -38955,6 +38959,80 @@ namespace CardPresentation
                      ? RuleCodes.OK : RuleCodes.ErrTarget;
             return AbilityTargetCodeOr(u, t);   // ④ 主动能力问 `CanUseActiveAbility`，其余仍 `CanUseAbility`
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  猎杀标记 · FromCode 粒子（账 `特效动画:503` · 2026-10-30 `B102_R3`）—— **追加在本类类尾**
+        //  （本文件有 771 处账锚点，新成员插进已有成员之间会让下游行号整体下移 ⇒ 一律加在类尾；
+        //   本节之后只剩 `ChoicePanelPool` 那个独立类，本类内**零锚点下移**。）
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>猎杀标记那件 FromCode 粒子（原版 `CardScript.TriggerOnMinionDeath` →
+        /// `ActivateTraitParticlesFromCodeInTarget(DefinedTrait.huntMark, hero)`，`CardScript__TriggerOnMinionDeath.c:77`）。
+        /// 判据链 → `资料/完全复刻/判据/B102_R3_特效B类两条.md` §503。
+        /// · 闸 = **死者身上有标记**（引擎把它拍进 `EvtKind.Death.Amount`，`RuleCore.cs:10062`；`0 <` 才结算，与 `.c:43` 同形）；
+        /// · 挂点 = **死者自己那一方督军的 `effectsAnchor`**（原版 `GetHero(this.isPlayer)` + `CardUI+0x1a0`）；
+        /// · 取件阵营 = **死者**（原版 `GetTraitEffect(trait, 5, this.rawCardData.cardArmy)` —— 走 `sourceAt`）。
+        /// ⚠️ 必须在 <see cref="PlayDeathFeel"/> 的**残骸守卫之前**调：那一档（带标记 + 翻面成残骸）原版**也会播**
+        /// （`CardScript__CheckIfDead.c:142-146` 里 `TriggerUnitBacklashActions` 排在 `AddTransformIntoRemnant` **之前**），
+        /// 而守卫会直接 `return` ⇒ 放在守卫之后 = 那一档**静默不播**。
+        /// ⚠️ 也必须在 `fade.Remove` 之前 —— 之后 `ViewAt` 取不到死者视图、`sourceAt` 会退化成督军 ⇒ 取件阵营取错档。</summary>
+        void PlayHuntMarkTraitParticles(BattleEvent e, CardView dead)
+        {
+            if (e == null || dead == null || e.Amount <= 0) return;
+            var wv = ViewAt(e.Player, RuleEngine.BoardSpec.WarlordSlot);
+            if (wv == null || !AnimGate.CanContinue(wv)) return;
+            // ⚠️ 督军自己死那一条：`ViewAt(e.Player, WarlordSlot) == dead` ⇒ 挂点与来源是同一个对象的两个 Transform
+            //    （`EffectAnchorBoard` / 卡根），与原版同形，不用特判。
+            TraitParticles.PlayInTarget("huntMark", wv.EffectAnchorBoard, dead.transform,
+                                        "huntMark×" + e.Amount);
+        }
+
+        /// <summary>🔴 **2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：造进手牌的**破坏卡** → 中央展示。**
+        ///
+        /// <para>**判据 = 原版** `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-102`：对
+        /// `rawCardData.spellType == 0xe6(230)` 的造牌**直接调**
+        /// `CardScript.DisplayEnemyCardInCenter(targetCard, timeToDraw: 0.3f, stepTime: 0.3f, changeVisibility: true)`
+        /// （原版**没有广播** —— 这条 `EvtKind.SabotageCreated` 是我们跨引擎/表现两层的窄口，
+        /// 发出点 = `EffectResolver.DoCreate` 的 `case "hand"/"enemyhand"` 破坏那一支，唯一）。</para>
+        ///
+        /// <para>**形参映射**（与本文件 <see cref="DisplayEnemyCardInCenter"/> 的 doc 同一口径）：
+        /// `timeToDraw → scaleTime` · `stepTime → hold` · `changeVisibility → showFront`。
+        /// 原版那两个时长**是同一个常量** `0x1834b2dc8 = 0.3f`（既有读数 →
+        /// `资料/战斗规则与数值_出处.md` §二/§三；⛔ 别把它与 `PlayEnemyCard` 的 `0.12 × 0.6` 混成一个）。</para>
+        ///
+        /// <para>🔴 **`owner` 传的是【收牌方】（`e.TargetPlayer`），不是造牌方**：原版这一下搬的是那张卡本体，
+        /// 而它此刻在**收到它的那一侧**手牌里 ⇒ 起飞点必须是那一侧的手牌末位
+        /// （`DisplayEnemyCardInCenter` 的 `HandRow01(owner == _me, 1)` 就是这个口径）。
+        /// 造牌方（`e.Player`）只用来查卡面（`VfxFactionOf`）。</para>
+        ///
+        /// <para>⚠️ `creator` 恒 `null`：原版这一跳**不画** `DisplayCreatedByText`（那一条只点亮「对手打出的那张」，
+        /// 见 `DisplayEnemyCardInCenter` 的 state 2 注释）。⚠️ 卡查不到（教程 / 自设计阵营）⇒ **不播**
+        /// （与 `MaybeDisplayPlayedCardInCenter` 的 `def == null` 同一口径，不新造一张空卡）。</para>
+        /// </summary>
+        void MaybeDisplayCreatedSabotageCardInCenter(BattleEvent e)
+        {
+            if (e == null || Ctx == null || _pool == null) return;
+            var def = CardDatabase.Find(_pool, e.CardId, VfxFactionOf(e.Player, e.CardId));
+            if (def == null) return;
+            int owner = e.TargetPlayer >= 0 ? e.TargetPlayer : e.Player;   // 收牌方（见方法头）
+            DisplayEnemyCardInCenter(ToCardData(def, def.Faction), def, owner,
+                                     showFront: true,             // 原版 `changeVisibility: true`
+                                     scaleTime: 0.3f, hold: 0.3f);
+        }
+
+        /// <summary>自检用（🆕 2026-10-30 `B102_D9`）：拨一拍 `ResetClock()`（= 原版 `ClockManager.StartTimer` 的等价物）。
+        ///
+        /// <para>**为什么要有这个窄口**：<see cref="SimulateAiTurn"/> 只走 `SimpleAI.PlayTurn` + `EndTurnAndAdvance`，
+        /// 而**生产的两条 AI 交回合路都成对调 `ResetClock()`**（`DriveAiTurn` 的「等收手延迟」支：
+        /// `EndTurnAndAdvance(1 - _me); ResetClock(); RefreshAll();` · 以及 `AiEndTurnSoon` 同形）⇒ 少了这一拍，
+        /// 「换回我方」之后 `ShowYourTurnHeadsUp` 从不触发（`Editor/BattleScene.cs` 的 `RunR13` ④a/④b 就是因此
+        /// 一条空转绿、一条红）。</para>
+        ///
+        /// <para>⛔ **别改成一刀切把它塞进 `SimulateAiTurn`**：那个口在 `Core/BattleAutoDrive`、`Editor/BattleScene`（多处）、
+        /// `Editor/BattleMiscAssertE4` 里都有调用（⛔ 别在这写死条数，现 `grep -rn SimulateAiTurn` 为准），补进去会凭空多出一扇
+        /// 1.5 s 阻塞窗 + 一次 `StartTurn` 音效，把别的节推红。⛔ 也别让产品路径多出这一拍。</para>
+        /// </summary>
+        public void SimulateResetClockForTest() { ResetClock(); }
     }
 }
 

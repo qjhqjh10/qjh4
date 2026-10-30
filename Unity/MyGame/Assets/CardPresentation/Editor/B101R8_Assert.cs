@@ -5,19 +5,19 @@
 //  `B101_R8` 把两条都推翻了（判据 → `资料/完全复刻/报告/B101_R8_抽屉最后两档.md` §A）：
 //    · 等价物 = `Core/CardView.cs`（原版 `CardUI/2DCard` 那棵子树，逐节点同名同类）；
 //    · 缩放 = **算式**（`UIScaleToFit__Fit.c`）：`paddingType=1`（乘）· `padding=(1.35,1.35)` ·
-//      `targetRect = Content`(712×1080) · `CardUI.sizeDelta = (2.5437, 3.3686)`
-//      ⇒ 每卡单位 `1.35×712/2.5437 = 377.87` 设计 px ⇒ `localScale = 377.87/108 = 3.4988`（整格时）。
+//      `targetRect = Content`(712.8×1080，拉伸节点 ⇒ 宽 = 根宽) · `CardUI.sizeDelta = (2.5437, 3.3686)`
+//      ⇒ 每卡单位 `1.35×712.8/2.5437 = 378.30` 设计 px ⇒ `localScale = 378.30/108 = 3.5028`（整格时）。
 //
 //  本件只断言**不依赖 Unity 运行时**的那一半（纯算式 + 登记表）；画面与观感仍归真机验收。
 //
 // ============================ 🔴 灭自证（每条怎么才能红）============================
 //  · A1：把 `ItemDrawerCard.cs` 的 `DrCardPadMul` 从 `1.35` 改成 `1.0`（= 忘了那层"乘"的 padding）
-//        ⇒ A1 红（3.4988 → 2.5917）。
-//  · A2：把 `DrRootW`（712）或 `DrCardUIW`（2.5437）改错 ⇒ A1/A2 一起红。
-//  · C1：把 `CardDrawerScale` 改成 `return 3.4988f;`（写死常量，丢掉 `frameK`）⇒ C1 红
-//        （`frameK = 0.5` 不再是 1.7494）。
+//        ⇒ A1 红（3.5028 → 2.5946）。
+//  · A2：把 `DrRootW`（712.8）或 `DrCardUIW`（2.5437）改错 ⇒ A1/A2 一起红。
+//  · C1：把 `CardDrawerScale` 改成 `return 3.5028f;`（写死常量，丢掉 `frameK`）⇒ C1 红
+//        （`frameK = 0.5` 不再是 1.7514）。
 //  · C2：同上 —— 写死常量 ⇒ C2 的「与卡体设计宽度自洽」那一条也红（它是**另一条**独立推导：
-//        用 `CardView.Width × 108 × scale / 712` 反算"卡宽 ÷ Content 宽"，必须 = 1.1106）。
+//        用 `CardView.Width × 108 × scale / 712.8` 反算"卡宽 ÷ Content 宽"，必须 = 1.1106）。
 //  · B1/B2：把 `DrawerImpls` 里那两条删掉 ⇒ 红（那是"登记有没有真发生"的唯一机检口）。
 //  · B3：把 `ShowInfoOnClickOf` 里那两条去掉 ⇒ 红（原版 `showItemInfoOnClick` **19/19 · 7/7 全为 1**）。
 //
@@ -47,8 +47,11 @@ public static class B101R8_Assert
     static void N(float got, float want, float tol, string msg) { MenuCheck.Near(_sink, got, want, tol, msg); }
 
     /// <summary>整格（`frameK = 1`）时的目标缩放 —— 由原版四个数直接推出来，**不是抄现成常量**：
-    /// `1.35 × 712 / 2.5437 / 108`（最后一个 108 = `ImageQuad.PixelsPerUnit` = 1080/10）。</summary>
-    const float WantScaleAtK1 = 1.35f * 712f / 2.5437f / 108f;   // = 3.4988…
+    /// `1.35 × 712.8 / 2.5437 / 108`（最后一个 108 = `ImageQuad.PixelsPerUnit` = 1080/10）。
+    /// 🔴 2026-10-30 就地订正：`Content` 是 `anchorMin(0,0)/anchorMax(1,1)/sizeDelta(0,0)` 的**拉伸节点**
+    /// ⇒ 宽 = 根宽 = `0.66 × 1080 = 712.8`（本仓 `Shell/ItemDrawerLayout.cs:59` 的 `DrRootW` 就是 712.8）。
+    /// 原写 `712` ⇒ A1 差 0.0039 而容差 0.0005 ⇒ 红。</summary>
+    const float WantScaleAtK1 = 1.35f * 712.8f / 2.5437f / 108f;   // = 3.5028…
 
     public static void Run()
     {
@@ -69,8 +72,8 @@ public static class B101R8_Assert
         if (!(float.IsFinite(k1) && k1 > 0f)) return;
 
         N(k1, WantScaleAtK1, 0.0005f,
-          "A1 整格缩放 = `1.35×712/2.5437/108` = " + WantScaleAtK1.ToString("F4")
-          + "（把 `DrCardPadMul` 改回 1.0 ⇒ 变 2.5917 ⇒ 红）");
+          "A1 整格缩放 = `1.35×712.8/2.5437/108` = " + WantScaleAtK1.ToString("F4")
+          + "（把 `DrCardPadMul` 改回 1.0 ⇒ 变 2.5946 ⇒ 红）");
 
         N(ItemDrawer.CardDrawerScale(0.5f), WantScaleAtK1 * 0.5f, 0.0005f,
           "A2 与抽屉格的换算 `frameK` **线性**（0.5 格 ⇒ 一半；`FrameOf` 的 `K` 语义）");
@@ -100,12 +103,12 @@ public static class B101R8_Assert
 
         float k1 = ItemDrawer.CardDrawerScale(1f), k2 = ItemDrawer.CardDrawerScale(2f);
         N(k2 / k1, 2f, 0.002f,
-          "C1 `CardDrawerScale` 对 `frameK` 的两倍响应（改成 `return 3.4988f;` ⇒ 2 倍处得 1.0 ⇒ 红）");
+          "C1 `CardDrawerScale` 对 `frameK` 的两倍响应（改成 `return 3.5028f;` ⇒ 2 倍处得 1.0 ⇒ 红）");
 
         // 另一条独立推导：卡体（`CardView.Width` 卡单位）× 108 px/单位 × scale ÷ Content 宽
-        // 必须 = 2.0927×377.87/712 = 1.1106（原版卡体比 `Content` **大 35%**，见报告 §A-4）。
+        // 必须 = 2.0927×378.30/712.8 = 1.1106（原版卡体比 `Content` **大 35%**，见报告 §A-4）。
         float cardWpx = CardView.Width * ImageQuad.PixelsPerUnit * k1;
-        N(cardWpx / 712f, 1.1106f, 0.002f,
-          "C2 自洽：卡体宽 ÷ `Content` 宽 = 1.1106（= 2.0927×377.87/712；把 2.5437 或 712 写错 ⇒ 红）");
+        N(cardWpx / 712.8f, 1.1106f, 0.002f,
+          "C2 自洽：卡体宽 ÷ `Content` 宽 = 1.1106（= 2.0927×378.30/712.8；把 2.5437 或 712.8 写错 ⇒ 红）");
     }
 }

@@ -471,15 +471,19 @@ namespace CardPresentation
 
         void RebuildMesh()
         {
-            float w = WorldW, h = WorldH;
-            float x0 = -anchor.x * w, y0 = -anchor.y * h;
-
-            var m = new Mesh { name = "ImageQuad" };
-            var verts = new[]
+            float w = WorldW, h = WorldH, f = Mathf.Clamp01(_fillAmount); float x0 = -anchor.x * w, y0 = -anchor.y * h;
+            Rect uv = _uv; Color[] cols = _cornerColors;
+            // 🆕 2026-10-30（B102_AUD05）`Image.Type = Filled`（Horizontal · `m_FillOrigin=1` 自右向左）的替身 = 逐句照 uGUI `Image.GenerateFilledSprite`：
+            //   只留矩形与 uv 的**右段**（`v.x = v.z − (v.z−v.x)·amount` · `tx0 = tx1 − span·amount`）；`amount < 0.001` 时**一个顶点都不生成**（原版那一支直接 return）；`f == 1`（出厂）⇒ 整段不进、与旧代码逐字相同。
+            if (f < 1f)
             {
-                new Vector3(x0, y0, 0f), new Vector3(x0 + w, y0, 0f),
-                new Vector3(x0 + w, y0 + h, 0f), new Vector3(x0, y0 + h, 0f),
-            };
+                if (f < 0.001f) { _mf.sharedMesh = new Mesh { name = "ImageQuad" }; return; }
+                float t = 1f - f, x1 = x0 + w;
+                uv = new Rect(uv.xMin + uv.width * t, uv.yMin, uv.width * f, uv.height); x0 = x1 - w * f; w = x1 - x0;
+                if (cols != null) cols = new[] { Color.Lerp(cols[0], cols[1], t), cols[1], cols[2], Color.Lerp(cols[3], cols[2], t) };
+            }
+            var m = new Mesh { name = "ImageQuad" };
+            var verts = new[] { new Vector3(x0, y0, 0f), new Vector3(x0 + w, y0, 0f), new Vector3(x0 + w, y0 + h, 0f), new Vector3(x0, y0 + h, 0f) };
             // `SkewedImage`：x' = x + (y + 父系偏移y) * skewX · y' = y + (x + 父系偏移x) * skewY
             if (_skewX != 0f || _skewY != 0f)
                 for (int i = 0; i < verts.Length; i++)
@@ -489,14 +493,10 @@ namespace CardPresentation
                     verts[i].y = y + (x + _skewOffX) * _skewY;
                 }
             m.vertices = verts;
-            // UV 默认是整张图；九宫格/平铺靠 `SetUvRect` 只取一块
-            m.uv = new[]
-            {
-                new Vector2(_uv.xMin, _uv.yMin), new Vector2(_uv.xMax, _uv.yMin),
-                new Vector2(_uv.xMax, _uv.yMax), new Vector2(_uv.xMin, _uv.yMax),
-            };
+            // UV 默认是整张图；九宫格/平铺靠 `SetUvRect` 只取一块（`fill < 1` 时这里已经是右段）
+            m.uv = new[] { new Vector2(uv.xMin, uv.yMin), new Vector2(uv.xMax, uv.yMin), new Vector2(uv.xMax, uv.yMax), new Vector2(uv.xMin, uv.yMax) };
             // 顶点色：默认白（= 不染色）。`Sprites/Default` 会 `tex × 顶点色`，所以四角给了不同颜色就是渐变。
-            m.colors = _cornerColors ?? WhiteVerts;
+            m.colors = cols ?? WhiteVerts;
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             m.RecalculateBounds();
             _mf.sharedMesh = m;
@@ -672,6 +672,55 @@ namespace CardPresentation
             var l = transform.InverseTransformPoint(world);
             return l.x >= -anchor.x * WorldW && l.x <= (1 - anchor.x) * WorldW
                 && l.y >= -anchor.y * WorldH && l.y <= (1 - anchor.y) * WorldH;
+        }
+
+        // ============================================================ 🆕 2026-10-30（`B102_AUD05`）：`Image.Type = Filled`
+        //
+        // **为什么要**：原版 `ChatPreview/Container` 是 `Image.Type = Filled`（真包 prefab 实读：
+        //   `m_Type=3` · `m_FillMethod=0`(Horizontal) · `m_FillOrigin=1`(Right) · `m_FillClockwise=1`(Horizontal 不用它)），
+        //   `ChatPreview__OnBeforeInitialization.c` 出厂 `UnityEngine_UI_Image__set_fillAmount(…, 0)`，
+        //   `ChatPreview__Show.c` 再 `DOFillAmount(container, 1, 0.4).From(0).SetDelay(0.2)`
+        //   （常量 `0x1834b2bb8=1` · `0x1834b3158=0.4` · `0x1834b2bb0=0.2`，`read_literal.py` 现读）。
+        //   我们过去在 `Shell/MainMenuRuntime.ShowChatPreview` 里**如实出声说做不到** —— 现在补上。
+        //
+        // **怎么做的（纯 C# 侧，⛔ 没动 shader）**：`RebuildMesh` 按 uGUI `Image.GenerateFilledSprite` 的
+        //   Horizontal 分支裁**网格 + uv**（只留右段；`< 0.001` 一个顶点都不生成）—— 顶点少画 = 像素上看不见，
+        //   与原版「`Image` 只生半张网格」是同一个机制，且不需要重编 shader（见 CLAUDE.md「别为了它去改 shader」）。
+        //
+        // **如实标的差异**（铁律 3 / 18）：
+        //   ① 原版 `fillAmount` 是 `Image` 的**序列化字段**、动画系统可驱动；这里是**运行时字段、不序列化**
+        //      ⇒ 预制体克隆体 / 域重载之后回到 **1（= 不裁）**，由调用方自己重设。**默认 1 = 出厂不裁**，
+        //      所以全工程既有的几百个 quad **一个字节都不变**（`Create` 那条路没改）。
+        //   ② 只做 **Horizontal + origin Right** —— 全库只有 `ChatPreview/Container` 这一处 Filled，
+        //      其余的 FillMethod/origin 没有判据 ⇒ ⛔ 不编通吃档（没判据的部分不发明）。
+        //   ③ 软边子块（`MenuDraw.ApplySoftEdges` 切出来的独立 quad）**不跟着裁** —— 两套几何没有共用的判据；
+        //      真被这么用时喊一条警告（⛔ 不静默失败）。
+        //   ④ 命中测试（`Contains`）**仍是整框** —— 与 uGUI 一致（`Image` 的 raycast 按 rect 走，
+        //      `alphaHitTestMinimumThreshold` 默认 0 ⇒ 不看 fill）。
+
+        float _fillAmount = 1f;
+        static bool _fillSoftWarned;
+
+        /// <summary>填充量 `0..1`（原版 `Image.fillAmount` 的 Horizontal 档）。**1 = 不裁（出厂）**；
+        /// `0` ⇒ 整块不画（与 uGUI `GenerateFilledSprite` 的 `m_FillAmount < 0.001f` 那一支同义）。</summary>
+        public float FillAmount { get { return _fillAmount; } }
+
+        /// <summary>设置填充量（**几何会重建**）。只服务原版 `Image.Type = Filled` 的那几块
+        /// —— `ChatPreview/Container` 的 `m_FillMethod=0` / `m_FillOrigin=1`（自右向左填）。
+        /// ⚠️ 期望值不要读 `FillAmount` 证明自己的行为（自证）—— 判据 = 原版 prefab 字段。</summary>
+        public void SetFillAmount(float amount)
+        {
+            float a = Mathf.Clamp01(amount);
+            if (Mathf.Approximately(a, _fillAmount)) return;
+            _fillAmount = a;
+            if (a < 1f && _softKids.Count > 0 && !_fillSoftWarned)
+            {
+                _fillSoftWarned = true;
+                Debug.LogWarning("[ImageQuad] 软边子块**不跟随** fillAmount 裁剪（两套几何没有共用的判据）"
+                               + " —— 这一块的边带会停在整框上（⛔ 不静默）。");
+            }
+            RebuildMesh();
+            NotifySoftEdgeChanged();
         }
     }
 }

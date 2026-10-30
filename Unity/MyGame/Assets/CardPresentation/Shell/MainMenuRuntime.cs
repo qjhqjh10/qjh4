@@ -2284,7 +2284,7 @@ namespace CardPresentation
         {
             // A332：原版 `ChatPreview` = 400 × 60（`anchor (1,1)` + `sizeDelta (400,60)` ⇒ 1475,85→1875,145）
             var p = New(root, "ChatPreview", 400f, 60f);
-            _chatPreviewContainer = Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QBarPanel);
+            _chatPreviewContainer = Rect(p, "Closed-Chat_background", 1474.7f, 1847.0f, 85f, 145f, "Container", QBarPanel); if (_chatPreviewContainer != null) _chatPreviewContainer.SetFillAmount(0f);   // 🆕 2026-10-30（B102_AUD05）：原版 `ChatPreview/Container` = `Image.Type=Filled`（`m_Type=3` · `m_FillMethod=0` · `m_FillOrigin=1`，真包 prefab 实读），出厂 `fillAmount=0`（判据 = `ChatPreview__OnBeforeInitialization.c` 的 `UnityEngine_UI_Image__set_fillAmount(…, 0)`）
             // 两条消息：位置**按 Container 的 VLG 算**（pad T/B=3 · L=15，两行等高 27）；
             // 字号照 §七 表二：`fontSize` **18**（**`auto=0`，不是自适应** —— 这一处别开 autosize）、`m_fontColor` 白
             var m1 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 88f, 115f, 5,
@@ -2295,11 +2295,11 @@ namespace CardPresentation
             //   ⚠️ **订正（铁律 5）**：这行原来写「原版 **auto=0**，**只给折行宽**、不给自适应」—— 前半句对、
             //   **后半句错**：原版**没给**折行宽（它连折行都是关的），`SetWrapWidth` 是**我们主动加的**。
             //   现在留着的 `SetWrapWidth` 只为那一份**框宽**（327.3 与原版那个节点的宽一致），模式按原版关掉。
-            if (m1 != null) { m1.SetWrapWidth(327.3f / 108f); m1.SetWrapping(false); _chatPreviewRow1 = m1; }
+            if (m1 != null) { m1.SetWrapWidth(327.3f / 108f); m1.SetWrapping(false); m1.SetOverflow(TMPro.TextOverflowModes.Ellipsis); _chatPreviewRow1 = m1; }   // 🔴 2026-10-30（B102_AUD06）：原版 `Message Preview/text` 的 **`m_overflowMode = 1`（Ellipsis）**（`assets_full/bundle_menus_assets_all` prefab 实读）—— 我们原来没设、停在出厂 `Overflow`(0)。⚠️ 这里写全名 `TMPro.TextOverflowModes` 而**不加上一行 `using TMPro;`**：本文件被账按 `文件:行号` 引用，插行会让下游落点整体漂移。
             var m2 = Text(p, "<color=#00FF20>Player Name:</color> Message", 1489.7f, 1817.0f, 115f, 142f, 5,
                           Color.white, "Message Preview (1)", 18f, QBarText, face: TmpFont.Face.LatinCardBody);
             // 第 2 行同上（判据 = `MonoBehaviour_1814.json`，同值）。
-            if (m2 != null) { m2.SetWrapWidth(327.3f / 108f); m2.SetWrapping(false); _chatPreviewRow2 = m2; }
+            if (m2 != null) { m2.SetWrapWidth(327.3f / 108f); m2.SetWrapping(false); m2.SetOverflow(TMPro.TextOverflowModes.Ellipsis); _chatPreviewRow2 = m2; }   // 同上：原版 `Message Preview (1)/text` 的 `m_overflowMode = 1`（Ellipsis），判据同一份 prefab 实读
             var chatIcon = Rect(p, "40K_icon_menu_chat", 1811.0f, 1879.0f, 81.8f, 148.3f, "Button", QBarContent); _chatPreviewIcon = chatIcon != null ? chatIcon.transform : null;
             // 🆕 2026-09-27：这颗钮**原来没接点击**（红线：不许静默失败）—— 接上，开聊天窗。
             // 原版那条链：`ChatPreview.Initialize` 把 `chatButton.onClick` 挂 `OpenChat` →
@@ -3716,21 +3716,21 @@ namespace CardPresentation
         /// `DOFillAmount(container, 1, 0.4)` · `DOFade(container, 1, 0.2).From(0).SetDelay(0.2)`。
         /// <para>🆕 **2026-10-27（C5 · 账 347）**：本仓没有 DOTween ⇒ 用 `Update` 里的帧插值
         /// （同 `TickNavPanelTween` 那一套；`TickChatPreviewTween` 每帧调 <see cref="StepChatPreview"/>）。
-        /// ⚠️ **两处如实差异**：① `DOFillAmount` 在本仓**没有对等物**（`ImageQuad` 不是 `Image`、没有
-        /// `fillAmount` 那一档）⇒ 那一跳**不做**、只出声一次；② `Ease.OutBack` 的 overshoot 用 DOTween
-        /// 库默认值 **1.70158**（那是库常量，不是这张 prefab 的字段）。</para>
+        /// 🆕 **2026-10-30（B102_AUD05）**：① `DOFillAmount` **已落地** = `ImageQuad.SetFillAmount`（Horizontal · origin Right
+        /// = 原版 `m_FillMethod=0` / `m_FillOrigin=1`；时长 **0.4** + delay **0.2**，判据 `ChatPreview__Show.c` 的 `DOFillAmount(…,1,0.4).From(0).SetDelay(0.2)`
+        /// · 常量 `0x1834b2bb8=1` / `0x1834b3158=0.4` / `0x1834b2bb0=0.2` 现读）；② `Ease.OutBack` 的 overshoot 用 DOTween 库默认值 **1.70158**（库常量，不是这张 prefab 的字段）。</para>
         /// <para>⚠️ **批处理里没有帧循环** ⇒ 自检要手动步进：`StepChatPreview(dt)`（先例：粒子要手动 `Simulate`）。</para></summary>
         public void ShowChatPreview()
         {
             SetChatPreviewVisible(true);
             _cpT = 0f; _cpTween = true;
             if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.zero;      // `From(0)`
-            if (_chatPreviewContainer != null) SetQuadTint(_chatPreviewContainer, 0f);      // `From(0)` 的 alpha
+            if (_chatPreviewContainer != null) { SetQuadTint(_chatPreviewContainer, 0f); _chatPreviewContainer.SetFillAmount(0f); }   // `From(0)` 的 alpha + `DOFillAmount(…).From(0)` = 填充从 0 起
             if (_saidChatFill == false)
             {
                 _saidChatFill = true;
-                Debug.LogWarning("[ChatPreview] `DOFillAmount(container, 1, 0.4)` **没有对等物** —— 本仓 `ImageQuad` "
-                               + "不是 `Image`、没有 `fillAmount` 那一档 ⇒ 这一条 tween 不做（缩放与淡入照做；⛔ 不假装做了）。");
+                Debug.Log("[ChatPreview] `DOFillAmount(container, 1, 0.4)` 已用 `ImageQuad.SetFillAmount` 落地（Horizontal · "
+                        + "origin Right；`.From(0)` 与 `SetDelay(0.2)` 在 `StepChatPreview` 里逐帧插值）");
             }
         }
 
@@ -3739,12 +3739,12 @@ namespace CardPresentation
         {
             if (!_cpTween) return;
             _cpT += dt <= 0f ? 0f : dt;
-            const float scaleDur = 0.6f, fadeDur = 0.2f, fadeDelay = 0.2f;
+            const float scaleDur = 0.6f, fadeDur = 0.2f, fadeDelay = 0.2f, fillDur = 0.4f;   // fill 的时长/延迟判据 = `ChatPreview__Show.c`（DOFillAmount 1 @0.4 · SetDelay 0.2）
             float ts = Mathf.Clamp01(_cpT / scaleDur);
             if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.one * EaseOutBack(ts);
-            float ta = _cpT <= fadeDelay ? 0f : Mathf.Clamp01((_cpT - fadeDelay) / fadeDur);
-            if (_chatPreviewContainer != null) SetQuadTint(_chatPreviewContainer, ta);
-            if (_cpT >= scaleDur) { _cpTween = false; if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.one; if (_chatPreviewContainer != null) SetQuadTint(_chatPreviewContainer, 1f); }
+            float ta = _cpT <= fadeDelay ? 0f : Mathf.Clamp01((_cpT - fadeDelay) / fadeDur), tf = _cpT <= fadeDelay ? 0f : Mathf.Clamp01((_cpT - fadeDelay) / fillDur);
+            if (_chatPreviewContainer != null) { SetQuadTint(_chatPreviewContainer, ta); _chatPreviewContainer.SetFillAmount(tf); }
+            if (_cpT >= scaleDur) { _cpTween = false; if (_chatPreviewIcon != null) _chatPreviewIcon.localScale = Vector3.one; if (_chatPreviewContainer != null) { SetQuadTint(_chatPreviewContainer, 1f); _chatPreviewContainer.SetFillAmount(1f); } }
         }
 
         /// <summary>出场动画还在跑吗（自检读口）。</summary>
@@ -5255,8 +5255,8 @@ namespace CardPresentation
         /// <summary>建 `Event Progression` 子树（几何逐件现读 → `B99_R2` §二）。
         /// <para>⚠️ 父链上的 `Fill Area` 是 `Background` 的子、`end` 是 `Fill` 的子、`Over Image` 是 `Scoring Icon Holder` 的子、
         /// `Current Milestone Level text` 是 `Level` 的子（prefab 实录；`B99_R2` §二 把它们并列写是为了好读）。</para>
-        /// <para>⚠️ `Scoring Icon Holder` 的烘焙占位图 `40k_campaign_Expansion Pass` **本地没有**（且它是运行期资产，
-        /// `scoringIcon` 字段实际指 `Over Image`）⇒ 本件只建容器节点、**不画占位图**（⛔ 不造假）；事件图标画在 `Over Image` 上。</para></summary>
+        /// <para>⚠️ `Scoring Icon Holder` 的烘焙占位图 `40k_campaign_Expansion Pass` **本地有**（2026-10-30 就地订正：原写「本地没有」是错的 ——
+        /// 它在 `bundle_liveopsicons_assets_all/Sprite/`、切好的 PNG 在 `ui_extract/liveopsicons_assets_all/Sprite/`；错因 = 只在 `Resources/Art/ui_menu/` 里翻过一圈）；`scoringIcon` 字段实际指 `Over Image`，事件图标画在 `Over Image` 上。</para></summary>
         void BuildEventProgression(Transform card, float x, float y, float w, float h, PxRect? clip,
                                    string levelText, string counterText, float fill01, Texture2D scoringIcon)
         {
@@ -5264,8 +5264,8 @@ namespace CardPresentation
             var cardR = new EpRect { X1 = x, X2 = x + w, Y1 = y, Y2 = y + h };
             // `Event Progression`：anchor (0.5,0) · pivot (0.5,0) · ap (0,122) · size 386.781×59.39
             var ep = EpResolve(cardR, 0.5f, 0f, 0.5f, 0f, 0f, 122f, 386.781f, 59.39f, 0.5f, 0f);
-            float cx1 = clip.HasValue ? Mathf.Max(ep.X1, clip.Value.x1) : ep.X1;
-            float cx2 = clip.HasValue ? Mathf.Min(ep.X2, clip.Value.x2) : ep.X2;
+            float cx1 = clip.HasValue ? Mathf.Max(cardR.X1, clip.Value.x1) : cardR.X1;   // 🔴 2026-10-30（`B102_MM` · `MainMenuScene` ④ 那 2 条红）：可视窗基准从 **EP** 换成**卡**（`cardR`）—— `Scoring Icon Holder` 的设计矩形 36.74→139.05 左侧悬出 EP 左边界（EP.X1 = 74.11）37.37 px，拿 EP 当窗只会量到 64.938（应 102.307），中心 106.579（应 87.894）。三张进度条 / `Level` / `counter` 全在 EP 内 ⇒ 换基准对它们零影响（已核）。
+            float cx2 = clip.HasValue ? Mathf.Min(cardR.X2, clip.Value.x2) : cardR.X2;
             if (cx2 - cx1 <= 0.01f) return;
 
             var epGo = New(card, "Event Progression", ep.W, ep.H);
@@ -5275,14 +5275,14 @@ namespace CardPresentation
             // `Background`：拉伸 (0,0.2)-(1,0.8) · size 0·0 ⇒ 中带（灰 0.3207547）
             var bg = EpResolve(pb, 0f, 0.2f, 1f, 0.8f, 0f, 0f, 0f, 0f, 0.5f, 0.5f);
             var bgGo = New(pbGo, "Background", bg.W, bg.H);
-            EpImage(bgGo, "40k_campaign_bar_bg", bg, cx1, cx2, QContent, new Color(0.3207547f, 0.3207547f, 0.3207547f, 1f));
+            EpNine(bgGo, "40k_campaign_bar_bg", bg, cx1, cx2, QContent, new Color(0.3207547f, 0.3207547f, 0.3207547f, 1f), new Vector4(20f, 0f, 20f, 0f));   // 九宫 (20,0,20,0)（prefab 现读 · `m_Rect` 42×18 · ppuMul 缺省 = 1.0 ⇒ 角块画 20px）
             // `Fill Area`：`Background` 的子 · 拉伸 (0,0.2)-(1,0.8) · sd.y 6.56498
             var fa = EpResolve(bg, 0f, 0.2f, 1f, 0.8f, 0f, 0f, 0f, 6.564983f, 0.5f, 0.5f);
             var faGo = New(bgGo, "Fill Area", fa.W, fa.H);
             // `Outline`：`ProgressBar` 的子 · 拉伸 (0,0.2)-(1,0.8)（浅蓝 0.5518868,0.7508468,1）
             var ol = EpResolve(pb, 0f, 0.2f, 1f, 0.8f, 0f, 0f, 0f, 0f, 0.5f, 0.5f);
             var olGo = New(pbGo, "Outline", ol.W, ol.H);
-            EpImage(olGo, "40k_campaign_bar_outline", ol, cx1, cx2, QContent, new Color(0.5518868f, 0.7508468f, 1f, 1f));
+            EpNine(olGo, "40k_campaign_bar_outline", ol, cx1, cx2, QContent, new Color(0.5518868f, 0.7508468f, 1f, 1f), new Vector4(20f, 0f, 20f, 0f));   // 九宫 (20,0,20,0)（prefab 现读 · `m_Rect` 46×22 · ppuMul 1.0）
             // `counter`：`ProgressBar` 的子 · 拉伸 (0.2,0.2)-(0.8,0.7) · pivot (0,0.5)：`ProgressBar.SetProgress` 把 "current/next" 写这儿
             var cn = EpResolve(pb, 0.2f, 0.2f, 0.8f, 0.7f, 0f, 0f, 0f, 0f, 0f, 0.5f);
             var cnGo = New(pbGo, "counter", cn.W, cn.H);
@@ -5297,16 +5297,16 @@ namespace CardPresentation
                 float f = Mathf.Clamp01(fill01);
                 var fill = new EpRect { X1 = fa.X1, X2 = fa.X1 + (fa.X2 - fa.X1) * f, Y1 = fa.Y1, Y2 = fa.Y2 };
                 var fillGo = New(faGo, "Fill", fill.W, fill.H);
-                EpImage(fillGo, "40k_campaign_bar_fill", fill, cx1, cx2, QContent, new Color(0.12735849f, 0.63347405f, 1f, 1f));
+                EpNine(fillGo, "40k_campaign_bar_fill", fill, cx1, cx2, QContent, new Color(0.12735849f, 0.63347405f, 1f, 1f), new Vector4(10f, 0f, 10f, 0f));   // 九宫 (10,0,10,0)（prefab 现读 · `m_Rect` 42×18 · ppuMul 1.0）
                 // `end`：`Fill` 的子 · anchor/pivot (1,0.5) · ap (3.3,0) · size 22×27.946（白 · a 0.6980392）
                 var endR = EpResolve(fill, 1f, 0.5f, 1f, 0.5f, 3.3f, 0f, 22f, 27.946f, 1f, 0.5f);
                 var endGo = New(fillGo, "end", endR.W, endR.H);
                 EpImage(endGo, "40k_campaign_bar_end", endR, cx1, cx2, QContent, new Color(1f, 1f, 1f, 0.6980392f));
             }
 
-            // `Scoring Icon Holder`：`Event Progression` 的子 · anchor (0,1) · ap (13.785,-29.691) · size 102.307²（占位图本地缺 ⇒ 只建节点）
+            // `Scoring Icon Holder`：`Event Progression` 的子 · anchor (0,1) · ap (13.785,-29.691) · size 102.307²（占位图 `40k_campaign_Expansion Pass` 126²·Simple）
             var sih = EpResolve(ep, 0f, 1f, 0f, 1f, 13.7845f, -29.6906f, 102.307f, 102.307f, 0.5f, 0.5f);
-            var sihGo = New(epGo, "Scoring Icon Holder", sih.W, sih.H);
+            var sihGo = New(epGo, "Scoring Icon Holder", sih.W, sih.H); EpImage(sihGo, "40k_campaign_Expansion_Pass", sih, cx1, cx2, QContent, Color.white);   // 烘焙占位图（原版 `Scoring Icon Holder` 上那颗 `Image.m_Sprite` = `40k_campaign_Expansion Pass`，126²·Simple）
             // `Over Image`：`Scoring Icon Holder` 的子 · 拉伸 (0.07857,0.07857)-(0.92143,0.92143) —— 事件 over-icon（`scoringIcon` 字段指这里）
             var oi = EpResolve(sih, 0.07857143f, 0.07857143f, 0.92142868f, 0.92142868f, 0f, 0f, -0.1391f, -0.1391f, 0.5f, 0.5f);
             var oiGo = New(sihGo, "Over Image", oi.W, oi.H);
@@ -5381,6 +5381,64 @@ namespace CardPresentation
             Debug.Log("[Menu] `Event Progression` 子树已建（结构齐：ProgressBar / Scoring Icon Holder / Level），"
                     + "但**进度数据在服务端**（`GetCurrentMilestoneIndex` / `GetScoringInfoFromCurrentMilestone`）⇒ 本机拿不到 ⇒ "
                     + "**不印档位数字、不印 counter、不画填充**（⛔ 不假造进度）。判据 → `判据/B99_R2_日常9条终局.md` §一 #4–#7。");
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-30（`B102_RAID`，账 `日常_奖励:621–624` 残差 ②）：三张进度条图改成**九宫**
+        //  判据 → `判据/B102_R2_日常奖励B类五条.md` §三·④ `S621-2`（prefab 原始 JSON 逐件现读）：
+        //    `Background` = `40k_campaign_bar_bg`      九宫 `(20,0,20,0)` · `m_Rect` 42×18
+        //    `Outline`    = `40k_campaign_bar_outline`  九宫 `(20,0,20,0)` · `m_Rect` 46×22
+        //    `Fill`       = `40k_campaign_bar_fill`     九宫 `(10,0,10,0)` · `m_Rect` 42×18
+        //  🔴 三张的 `m_PixelsPerUnitMultiplier` 在 prefab 实例上**缺省 = 1.0**（⛔ 别抄别处 0.9 / 2.0）
+        //     ⇒ 画出来的角块 = `m_Border` 原值（`ppuMul ≠ 1` 才要 `border ÷ ppuMul`）。
+        //  ⛔ `end`（`40k_campaign_bar_end`：`m_Border` 全 0、`m_Type = 0 Simple`）**照旧走 `EpImage` 单块拉伸**
+        //     —— 那是原版行为，不是缺陷（`B102_R2` §三·② 的 D3）。
+        // ============================================================================================
+
+        /// <summary>按矩形建一张**九宫**图（原版 `Image.m_Type = Sliced`）。
+        /// <para>为什么直调 `ImageQuad.CreateNineSlice` 而不走公共件 `MenuDraw.Nine`：那件要 `PxRect` 的**二维** `clip` + 软边，
+        /// 而本子树只有**横向**裁切（`cx1/cx2`），且要与 `EpImageTex` 的裁切口径**同形**（缩网格 + 截 uv）；
+        /// 本文件的坐标模型又是「所有父级 position 恒零、`Center(…)` 的绝对值当 `localPosition`」（见 `New` 的 doc），
+        /// `MenuDraw.Nine` 的 `Local(parent,…)` 会减父位置（本模型下父位置恒 0 ⇒ 数值上等价，但白搭一层二维/软边语义）。</para>
+        /// <para>裁切实现 = 本文件自己按「整块在框外 ⇒ 关掉、部分越界 ⇒ 挪 + 缩 + 截 uv」处理（算法与 `MenuDraw.ClipNineChildren`
+        /// 同一条；那边是 `private`、且本模型下它的 `rootDesign` 恒为根自己的位置 ⇒ 两份逐位同值）。</para></summary>
+        ImageQuad EpNine(Transform parent, string art, EpRect r, float cx1, float cx2, int q, Color tint, Vector4 border)
+        {
+            var tex = Art(art);
+            if (tex == null || r.W <= 0.01f || r.H <= 0.01f) return null;
+            float vx1 = Mathf.Max(r.X1, cx1), vx2 = Mathf.Min(r.X2, cx2);
+            if (vx2 - vx1 <= 0.01f) return null;
+            // ⚠️ 九宫按**整块**矩形建（角块尺寸不能被裁切拉扁），再逐子块裁到 `[cx1,cx2]` 里。
+            var go = ImageQuad.CreateNineSlice(parent, tex, border, tex.width, tex.height,
+                                               Center(r.X1, r.X2, r.Y1, r.Y2),
+                                               (r.X2 - r.X1) / 108f, r.H / 108f, "Image",
+                                               border, true);
+            if (go == null) return null;
+            bool clipped = vx1 > r.X1 + 0.01f || vx2 < r.X2 - 0.01f;
+            var first = (ImageQuad)null;
+            foreach (var qd in go.GetComponentsInChildren<ImageQuad>(true))
+            {
+                if (qd == null) continue;
+                if (first == null) first = qd;
+                qd.SetTint(tint);
+                qd.SetRenderQueue(q);
+                if (!clipped) continue;
+                float qx1, qy1, qx2, qy2;
+                if (!MenuDraw.QuadRectPx(qd, out qx1, out qy1, out qx2, out qy2)) continue;
+                float nx1 = Mathf.Max(qx1, vx1), nx2 = Mathf.Min(qx2, vx2);
+                if (nx2 - nx1 <= 0.01f) { qd.gameObject.SetActive(false); continue; }   // 整块在框外
+                if (nx1 <= qx1 + 0.01f && nx2 >= qx2 - 0.01f) continue;                // 整块在框内
+                var uv = qd.UvRect;
+                float w = Mathf.Max(1e-6f, qx2 - qx1), h = Mathf.Max(1e-6f, qy2 - qy1);
+                float u1 = uv.x + uv.width * (nx1 - qx1) / w;
+                float u2 = uv.x + uv.width * (nx2 - qx1) / w;
+                var lp = qd.transform.localPosition;
+                lp.x += Center(nx1, nx2, 0f, 0f).x - Center(qx1, qx2, 0f, 0f).x;      // 挪到可见段中心（同文件同一套「绝对值当 local」口径）
+                qd.transform.localPosition = lp;
+                qd.SetAspect((nx2 - nx1) / h);
+                qd.SetUvRect(new Rect(u1, uv.y, u2 - u1, uv.height));
+            }
+            return first;
         }
     }
 }

@@ -2601,13 +2601,13 @@ namespace CardPresentation
         /// 🔴 **就地订正（铁律 5）**：账 `:526` 原来写「按 1/2/3 条写 1/2 格位」——
         /// 方向对但**两个档位是同一个值**（`1 条` 与 `2 条` **都是 2 列**，只有 `3 条` 是 1 列），
         /// ⛔ 别按「条数 = 列数」去理解。
-        /// <para>⚠️ 计数用的是 **`Where(谓词)` 之后**的条数（谓词体未解出），循环遍历的是 **`ToList()` 后的全表** ——
-        /// 这两者**不是同一个集合**（`.c:38-40` vs `:70-120`），照抄时别合并成一个。</para>
+        /// <para>🔴 **2026-10-30 订正（铁律 5 · `B102_MISS`）**：计数用的是 **`SelectMany(x =&gt; x.GetBaseSave().challengeProgress).Count()`**
+        /// （`.c:53-54` + ILSpy `MissionsTab.cs:825` 直接印出 `Enumerable.SelectMany`；原写「`Where(谓词)` 之后」是**误读** ⇒ 分母 = **格数**，不是 mission 个数），循环遍历的是 **`ToList()` 后的全表**。</para>
         /// <para>逐项循环那一半（`.c:70-120`）= 对每条 mission 取它的挑战表（IMission 接口 key `1`、表在 `+0x48`）→
         /// 逐条 `ContainerHolder.TryAdd(missionsHolder, mission, out container)` → 成功就
         /// `MissionContainer.SetChallenge(container, 挑战)` 且序号 +1；每次迭代前还给该 mission 写一个
         /// `bool = (columns &lt;= 序号)` 的开关（IMission 接口 key `9`，**成员语义未解 ⇒ ⛔ 不猜名字**）。
-        /// 🔴 **建树那一半仍然不落**：`missionsHolder` 与 `FlexibleGridLayout` 本工程都不存在、格子数据也不在本地
+        /// 🔴 **建树那一半仍然不落**：`missionsHolder` 的 prefab 载体（`Special Missions`）本地有，缺的是**带数据的容器资产**与 `FlexibleGridLayout` 运行时载体
         /// （见 <see cref="InstantiateGridMissions"/> 的 summary）⇒ 本类只承载**可以判死的那几条纯函数**。✅ 2026-10-29 订正（铁律 5 / `B99_R2` §三）：`ColumnCount`（`.c:53-67`）与 `WritesSwitch`（`.c:100`）**逐字来自原版方法体** ⇒ 是**复刻**、不是自设计，⛔ 不属铁律 18 的自设计标记范围（原「非原版自设计」那段是误标，已去掉）。</para></summary>
         public static class GridMissionLayoutLogic
         {
@@ -2640,7 +2640,7 @@ namespace CardPresentation
         /// ⇒ 原版把**网格任务**塞进 **`Special Missions`** 那个节点（另一份 `MissionsTab` 实例指向同名的 `Special Missions`）。</para></summary>
         Transform _gridHolderNode;
         /// <summary>本页的 `ContainerHolder`（原版同一个字段的等价物；`MakeContainer` 见
-        /// <see cref="InstantiateGridMissionsCore"/> 的说明 —— 本机**没有**容器资产，故恒未注入）。</summary>
+        /// <see cref="InstantiateGridMissionsCore"/> 的说明 —— 本机**没有带数据的**容器资产，故恒未注入）。</summary>
         ContainerHolder _gridHolder;
         static bool _gridNoCarrierNoted;
 
@@ -2663,7 +2663,7 @@ namespace CardPresentation
         /// （`decomp_full/MissionsTab__InstantiateGridMissions.c` 129 行，2026-10-29 `B98_K3` 逐句现读）。</summary>
         /// <code>
         /// list    = missions.ToList();
-        /// n       = list.Where(谓词 DAT_18427ab10).Count();
+        /// n       = list.SelectMany(m =&gt; m.GetBaseSave().challengeProgress).Count();   // ⚠️ 是 SelectMany 选择器，⛔ 不是 Where 谓词
         /// columns = (n == 1 || n == 2) ? 2 : (n == 3 ? 1 : 0);
         /// foreach (mission in list) {
         ///     progress = mission.GetBaseSave().challengeProgress;          // 数组，长度 = 该任务现有几条挑战
@@ -2677,12 +2677,12 @@ namespace CardPresentation
         /// </code>
         /// <para>🔴 **格子不是按「任务」建的，是按「挑战进度」建的** —— 一个任务有 3 条进度就建 3 格
         /// （`globalIndex` 跨任务连号，`UseSmallContainer` 那个开关也按**全局**序号判）。</para>
-        /// <para>⚠️ **两处判不死的残差（如实标，⛔ 不编）**：</para>
+        /// <para>🔴 **两项原「残差」的现状（2026-10-30 订正，铁律 5 · `B102_MISS`）**：</para>
         /// <list type="number">
-        /// <item>谓词 `DAT_18427ab10` 的体**没解出** ⇒ 计数按**全表**算（等价于「谓词恒真」）。</item>
-        /// <item>容器载体：原版 `ContainerHolder.TryAdd` 里那一跳是
-        ///   `ContainerBuilder&lt;MissionContainer&gt;.MakeContainer` → `LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(data, type)`，
-        ///   而本机 **0 份** 这类资产（`MissionsConfig` 三源否定同一条）⇒ 我们走既有的注入点
+        /// <item>~~谓词 `DAT_18427ab10` 的体没解出~~ ⇒ **已解**：它是 `SelectMany` 的**选择器**（不是 `Where` 谓词），体 = `x.GetBaseSave().challengeProgress`（`.c` 13 行 + ILSpy `MissionsTab.cs:218/825`）⇒ 计数口径见 <see cref="GridMissionCellCount"/>。</item>
+        /// <item>容器载体：**prefab 结构本地齐**（`Special Missions` = `ContainerHolder + ContentSizeFitter + HorizontalLayoutGroup`；
+        ///   `MissionContainer` 21 个实例在 `bundle_menus_assets_all`）—— 缺的只是**带数据的容器资产**
+        ///   （`ContainerBuilder&lt;MissionContainer&gt;.MakeContainer` → `LiveOpsAssetUtility.LoadComponent&lt;UiContainer&gt;(data, type)` 要远端 `MissionsConfig` 喂）⇒ 我们走既有的注入点
         ///   `ContainerHolder.MakeContainer`，**没注入就只记一格 null + 出声一次**（⛔ 不假装建出载体）。</item>
         /// </list>
         /// <para>⚠️ 数据仍在远端（`MissionsConfig.configs` / `challenges`）⇒ 本机**没有调用点**，
@@ -2701,7 +2701,7 @@ namespace CardPresentation
                 return;
             }
             var list = new List<IGridMissionSource>(missions);
-            int columns = GridMissionLayoutLogic.ColumnCount(list.Count);      // 谓词未解 ⇒ 按全表计数（见残差 ①）
+            int columns = GridMissionLayoutLogic.ColumnCount(GridMissionCellCount.Count(list));   // 原版 `.c:53-54` = SelectMany(m => m.GetBaseSave().challengeProgress).Count() ⇒ 分母 = **总进度条数（格数）**，⛔ 不是 mission 个数
             int globalIndex = 0;
 
             for (int mi = 0; mi < list.Count; mi++)
@@ -2801,6 +2801,40 @@ namespace CardPresentation
                     if (d != null) d.Initialize(p);
                 }
             return true;
+        }
+    }
+
+    /// <summary>原版 `MissionsTab.InstantiateGridMissions` 的**格数分母**（判据 `decomp_full/MissionsTab__InstantiateGridMissions.c:53-54`
+    /// ＋ 选择器 `MissionsTab.__c___InstantiateGridMissions_b__11_0.c` 全 13 行 ＋ ILSpy `MissionsTab.cs:218/825`）：
+    /// `n = list.SelectMany(x =&gt; x.GetBaseSave().challengeProgress).Count()` ——
+    /// 🔴 那是 **`SelectMany` 选择器，⛔ 不是 `Where` 谓词**（2026-10-30 `B102_MISS` 结案）⇒
+    /// **`n` = 所有 mission 的挑战进度条数之和 = 网格格数**，⛔ 不是 mission 个数。
+    /// <para>⚠️ 三处如实偏差（**原版这里会 NRE**，全工程口径不把崩溃当复刻）：`missions` 为 null ⇒ 0；
+    /// 某个 mission 为 null 或它的 `GetBaseSave()` 为 null ⇒ 跳过该条（原版选择器 `throw`）；
+    /// `challengeProgress` 为 null ⇒ 不计（原版 `SelectMany` 收到 null 序列会抛）。
+    /// 出声由调用方 <see cref="MissionsTab.InstantiateGridMissionsCore"/> 的逐条循环负责，本函数**纯**。</para>
+    /// <para>🔴 **为什么单开一个类、且追加在【文件尾】**：本文件有多条账按 `文件:行号` 钉着
+    /// （`MissionContainer` = `MissionsTab.cs:2763` · `MissionContainer.SetChallenge` = `:2765`）⇒ 往它们**之前**插成员会整片漂移；
+    /// 追加在文件尾 ⇒ 既有行号**零变化**（铁律「新成员追加到类尾」在这里取更严的一档：文件尾）。</para></summary>
+    public static class GridMissionCellCount
+    {
+        /// <summary>见类型注释：`Σ mission.GetBaseSave().challengeProgress.Length`。
+        /// <para>⚠️ 调用方随后在逐格循环里**还会再调一次 `GetBaseSave()`** —— 这不是多余的：
+        /// 原版 `SelectMany(...).Count()` 与 `foreach` 里各读一次（`.c:53-54` vs `:92-97`）⇒ **原版也是两次**。</para></summary>
+        public static int Count(IReadOnlyList<MissionsTab.IGridMissionSource> missions)
+        {
+            if (missions == null) return 0;
+            int n = 0;
+            for (int mi = 0; mi < missions.Count; mi++)
+            {
+                var mission = missions[mi];
+                if (mission == null) continue;
+                var save = mission.GetBaseSave();
+                if (save == null) continue;
+                var progress = save.challengeProgress;
+                if (progress != null) n += progress.Length;
+            }
+            return n;
         }
     }
 }

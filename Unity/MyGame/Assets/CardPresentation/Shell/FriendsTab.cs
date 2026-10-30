@@ -12,7 +12,7 @@
 //    （它是个容器，真正画出来的东西都在 1920 以内）⇒ **别「对齐」掉**（同 `BattleLogTab` 的 `Matches` 那条）。
 // ③ **好友行 100% 是运行期生成的**：`Friends Container>Viewport>Content` 出厂 **0 子节点**（§B·18 末条），
 //    行由 `FriendsTab.friendElementPrefab` → `Instantiate` 出来 ⇒ 我们同形：**按数据条数逐行建**，0 条就什么都不建。
-// ④ **这一页的搜索框只看得见、打不了字**（我们这套外壳没有文字输入）⇒ 点它**出声**，不静默。
+// ④ **这一页的搜索框**（`Find players panel/Search Field`）—— 🔴 **2026-10-30 更正（`B102_FRIEND` · 铁律 5）**：原文写「只看得见、打不了字 ⇒ 点它出声」，**那是一个缺口、不是原版行为**：原版这一格是 `TMP_InputField`（`FriendsTab.inputFieldUserName`）、点一下就能编辑 ⇒ 现在它**真能输入**（`TextInputField.Bind`，判据与做法全在**类尾 `WireSearchField`**），值被**原版那两个消费方**读走（`Add Friend` = `ClickAddFriend`：`Trim` → 名字校验 → 服务器查 id；`Instant duel` = `ClickDuelPractice`：原样交给挑战窗）。⚠️ **好友列表本身不做搜索过滤**（`FillInFriendsContainer` 全文一次没读那个输入框）⇒ ⛔ 别自造客户端过滤。
 //
 // ---- 数据（用户 2026-09-26 口径：「具体的数据和排名这些可以空着」）----
 // 好友表在服务器 ⇒ 本地无源 ⇒ **恒空**。行模板照建（`BuildFriendRow`），有数据那天直接长出来。
@@ -189,9 +189,9 @@ namespace CardPresentation
             // ⚠️ `Text Area`（`RectMask2D`）与 `Text`（内容是 U+200B 零宽空格 = 空输入）**都不画**：
             //    整棵原版树里 `Text` 静态就是零宽字符、`Text Area` 只挂了个掩码 ⇒ 画出来是空的。
             //    我们**不建假节点**（纪律③的同一精神），只留这条注释。
-            Hit(sf, "SearchFieldHit", SearchFieldR, L_Hit,
-                () => Say("`Search Field` **输入框打不了字** —— 我们这套外壳没有文字输入系统"
-                        + "（原版 `EverguildInputField` 走 uGUI 输入）。**没有静默**，点了就报这一句。"));
+            // 🆕 **2026-10-30（`B102_FRIEND`）**：这一格从「只出声」改成**真能输入**（原版 `TMP_InputField` 的等价物
+            //   `Shell/TextInputField.cs`；判据、消费方、为什么走 `Bind` 而不是 `Create`，全写在**类尾** `WireSearchField`）。
+            WireSearchField(sf, lbPh);
 
             var add = Node(panel, "Add Friend Button", AddFriendR);
             var addNine = Nine(add, "UI_Button_Organe_Square_Normal", AddFriendR, SquareBtnBorder, "Image", L_Btn);
@@ -199,7 +199,7 @@ namespace CardPresentation
             // 🆕 A17：原版 `Social Submenu Variant>Friends Tab>Header>Find players panel>{Add Friend,Instant duel}` 都是
             // SpriteSwap，高亮图 = `UI_Button_Organe_Square_Hover`（普查 §块 5 第 16 行）—— 九宫底图 ⇒ 九张一起换
             var addH = Hit(add, "Hit", AddFriendR, L_Hit,
-                () => Say("`Add Friend Button`：加好友要**服务器**（原版发一条好友请求）—— 本地没有那个源。"),
+                () => OnAddFriendClicked(),   // 🆕 2026-10-30（`B102_FRIEND`）：原版 `ClickAddFriend` = 读搜索框 → `Trim` → 名字校验 → 服务器
                 clickCue: WindowSounds.PositiveCue);
             _addFriendHit = add.Find("Hit");
             var addWb = addH != null ? addH.GetComponent<WindowButton>() : null;
@@ -209,8 +209,8 @@ namespace CardPresentation
             var duelNine = Nine(duel, "UI_Button_Organe_Square_Normal", InstantDuelR, SquareBtnBorder, "Image", L_Btn);
             Rect(duel, "40K_bt_challenge1", InstantDuelIconR, "Icon", L_Art, null, true);
             var duelH = Hit(duel, "Hit", InstantDuelR, L_Hit,
-                () => Say("`Instant duel Button`：立即决斗要**先有好友**（原版拿选中的好友去开局）—— "
-                        + "本地好友表恒空 ⇒ 现在没得选。"),
+                () => OnInstantDuelClicked(),  // 🆕 2026-10-30（`B102_FRIEND`）：原版 `ClickDuelPractice` = 读**搜索框**（⚠️ 不 Trim）
+                //   前一句「立即决斗要**先有好友**」**是错的**（原版用的是搜索框里打的名字、不是选中的好友）⇒ ⛔ 别写回去。
                 clickCue: WindowSounds.PositiveCue);
             _instantDuelHit = duel.Find("Hit");
             var duelWb = duelH != null ? duelH.GetComponent<WindowButton>() : null;
@@ -537,5 +537,160 @@ namespace CardPresentation
         /// `CurrentTabView.ToFocus()`（`Shell/WindowTabBase.cs` 的虚方法，原为空实现）⇒ 窗口回前台那一刻重刷。
         /// ⚠️ 本地好友表恒空、状态不会变 ⇒ 今天画面上看不出差别（链路已通）。</summary>
         public override void ToFocus() { BuildRows(); }
+
+        // ============================================================ 🆕 2026-10-30（`B102_FRIEND`）
+        // 🔴 纪律：**追加在类尾**（本文件被 `资料/完全复刻/账/社交_聊天.tsv` 按行号引用 ⇒ 上面一个字都不能挪；
+        //   上面四处改动全部是**行数守恒**的就地替换）。
+        //
+        // ============================ 判据（本轮现读 `d:/2/tools/`，⛔ 不是我挑的）============================
+        // · 那一格在原版是 **`TMP_InputField inputFieldUserName`**（`out_cpp2il_dev_ilspy/FriendsTab.cs:58`）。
+        // · 它有**两个**真消费方，都在 `FriendsTab` 自己身上：
+        //   ① `ClickAddFriend()`：`inputFieldUserName.m_Text.Trim()` → `SupportMethods.IsValidFriendName(...)`
+        //      → 合法走 `PlayfabWrapper.GetPlayerIdByName(name, onComplete, onError)` → `PlayerDataManager.AddFriendToList`；
+        //      不合法 ⇒ `ShowPopUp("Demo/FriendsMenu/InvalidName", localizeTexts:1, closeOnEsc:1)`
+        //      ＋ `CustomDebug.LogWarning("Ignore adding own player or empty as friend")`
+        //      （判据 `decomp_full/FriendsTab__ClickAddFriend.c:29-56`）。
+        //   ② `ClickDuelPractice()`：`StartChallengeWithUser(inputFieldUserName.m_Text)` —— **不 Trim、不校验**
+        //      → `ChallengeManager.OpenStartChallengeWindow(PlayerDuelPopUpData(userName, ""))`
+        //      （判据 `decomp_full/FriendsTab__ClickDuelPractice.c` ＋ `…__StartChallengeWithUser.c`）。
+        // · 🔴 **好友列表本身【没有】搜索过滤**：`FillInFriendsContainer` 全文只做「清空 → `SortByName` →
+        //   `SortByConnected` → 逐条 `CreateEntry`」，**一次都没读 `inputFieldUserName`**
+        //   （判据 `decomp_full/FriendsTab__FillInFriendsContainer.c`）⇒ ⛔ **别自造一条客户端过滤**
+        //   （那会是「原版没有、我们自己加」的行为）。这个框的下游链 = 上面那**两颗钮**，不是列表。
+        // · 名字校验那三条（`out_il2csharp/Assembly-CSharp/SupportMethods.cs:647-663` ＋ lambda `:2092`）：
+        //   空/null ⇒ false · 与**我自己**的名字相等（忽略大小写）⇒ false · 好友表里已有同名 ⇒ false · 其余 ⇒ true。
+        //   `MiscExtensions.EqualsIgnoreCase` = `String.Equals(a,b,5)`（判据 `MiscExtensions__EqualsIgnoreCase.c`，5 = OrdinalIgnoreCase）。
+
+        /// <summary>搜索框的输入件（自检读口）。走 <see cref="TextInputField.Bind"/> —— **只借键盘与值、
+        /// 不建任何视觉件**（底图/占位字/命中区本来就是 `Setup` 那几句按原版画的）。
+        /// ⚠️ 为什么不是 `Create`：`Create` 会自己建一整行 `40k_dropdown_bg` 900×90 + 40/45px 字 + 自己的命中区
+        /// （= 提示窗那套 prefab 版面）⇒ 会把这格的 `InputFieldBackground` 版面盖掉、还会把 `Placeholder`
+        /// 挪成孙节点（`Editor/MainMenuScene.cs` 有三条断言按**直接子件**名找它 ⇒ 会白红）。</summary>
+        public TextInputField SearchInput { get; private set; }
+
+        /// <summary>自检读口：`Add Friend` 那一跳读到的名字（= 原版 `ClickAddFriend` 的 `targetUser`，**已 `Trim`**）。</summary>
+        public string LastAddFriendName { get; private set; }
+
+        /// <summary>自检读口：`Add Friend` 那一跳给出的提示（无效名那一支 / 「下一跳要服务器」那一支）。
+        /// ⚠️ 落在这里而不只是 `Say`：`Say` 只有 `Debug.Log`，断言辞不住（同 `B102ALLY` 的 `LastCreateName`）。</summary>
+        public string LastAddFriendNotice { get; private set; }
+
+        /// <summary>自检读口：`Instant duel` 那一跳交给挑战窗的名字（= 原版 `ClickDuelPractice` 传的 `m_Text`，**未 Trim**）。</summary>
+        public string LastDuelName { get; private set; }
+
+        /// <summary>把 `Setup` 画好的那一格接成**真输入**（判据见本节头部）。命中区的节点名 `SearchFieldHit`
+        /// 与矩形/层号**一字未变**（`Editor/MainMenuScene.cs` 与 `B102*` 的断言按名找它）。</summary>
+        void WireSearchField(Transform sf, Label lbPh)
+        {
+            // 正文那颗（玩家打的字）：版面/字号/折行/对齐**与占位那颗同档** —— 原版输入文字那颗 TMP
+            // **本轮没读到**（`Friends Tab/…/Search Field/Text Area/Text` 静态就是 U+200B 零宽字符、字号栏为空），
+            // 如实按同一格取，⛔ 不编一个独立字档。
+            var lbTyped = Text(sf, PlaceholderR, "", Color.white, "Text", PlaceholderPx, L_Text + 1, PlaceholderAutoMin,
+                               wrap: false, alignLeft: true, autoMaxPx: 40f, autoBasePx: 26f);
+            MenuDraw.SetVAlign(lbTyped, Label.VAlign.Midline, PlaceholderR);
+
+            // 占位字过词条：`InputData.Label` 给**词条键**（`Refresh` 里走 `Loc.T`），与上面那颗同一条键 ⇒ 两处不会分岔。
+            SearchInput = TextInputField.Bind(sf,
+                new PromptContext.InputData("Search Field", PlaceholderTerm,
+                                            TMPro.TMP_InputField.ContentType.Standard, ""),
+                lbPh, lbTyped, 0, null);       // 原版这一格**没有** `onSubmit`（回车只是 `TMP_InputField` 自己 endEdit）
+            if (SearchInput == null)
+                Debug.LogWarning("[Friends] `Search Field` 的输入件没绑上（`TextInputField.Bind` 返回 null）"
+                               + " —— 如实说：这一格仍然打不了字（⛔ 不假装能输）");
+
+            Hit(sf, "SearchFieldHit", SearchFieldR, L_Hit, () =>
+            {
+                // 原版这一格是 `TMP_InputField` 自己吃 `IPointerClickHandler` ⇒ 点一下就开始编辑。
+                if (SearchInput != null) SearchInput.BeginEdit();
+                else Say("`Search Field`：输入件没绑上 ⇒ 这一格打不了字（如实说，不假装能输）。");
+            });
+        }
+
+        /// <summary>= 原版 `FriendsTab.ClickAddFriend()`（**逐句到服务器边界**，判据见本节头部 ①）。
+        /// <para>① `targetUser = inputFieldUserName.m_Text.Trim()`；
+        /// ② `IsValidFriendName(targetUser)` 假 ⇒ 出 `Demo/FriendsMenu/InvalidName` 那扇消息窗 + 一条警告日志；
+        /// ③ 真 ⇒ 原版下一跳是 `PlayfabWrapper.GetPlayerIdByName`（**PlayFab 后端，已关服**）
+        ///    ⇒ 本地**取不到 id**，`PlayerDataManager.AddFriendToList` 也是后端 ⇒ **走到这里就断，并如实出声**。</para>
+        /// <para>⚠️ **不造假链**：⛔ 不凭空塞一条 `SocialData.Friends`（那等于假装好友请求发成功了）。</para></summary>
+        void OnAddFriendClicked()
+        {
+            string targetUser = SearchInput != null ? (SearchInput.Value ?? "").Trim() : "";   // ①
+            LastAddFriendName = targetUser;
+
+            if (!IsValidFriendName(targetUser))                                                 // ②
+            {
+                LastAddFriendNotice = Loc.T("Demo/FriendsMenu/InvalidName");
+                Say("`Add Friend Button`：名字 \"" + targetUser + "\" 没通过 `SupportMethods.IsValidFriendName`"
+                  + "（空 / 是你自己 / 已经是好友）⇒ 原版弹 `Demo/FriendsMenu/InvalidName`，日志是 "
+                  + "`Ignore adding own player or empty as friend`。");
+                ShowMessage("Demo/FriendsMenu/InvalidName");
+                return;
+            }
+
+            LastAddFriendNotice = "下一跳 `PlayfabWrapper.GetPlayerIdByName` 要**服务器**（已关服）⇒ 本地取不到玩家 id，"
+                                + "加好友（`PlayerDataManager.AddFriendToList`，后端）这一步做不了。";          // ③
+            Say("`Add Friend Button`：名字 \"" + targetUser + "\" 通过了 `IsValidFriendName`；" + LastAddFriendNotice);
+        }
+
+        /// <summary>= 原版 `FriendsTab.ClickDuelPractice()`（**逐句**，判据见本节头部 ②）：
+        /// `StartChallengeWithUser(inputFieldUserName.m_Text)` —— ⚠️ **不 `Trim`、不校验**（原版就这样，
+        /// ⛔ 别「顺手」加一道闸：空串在原版同样会开一扇「对手名 = 空」的窗）。
+        /// 落点 = `ChallengeManager.OpenStartChallengeWindow`（原版 `StartChallengeWithUser` 的唯一一句实质动作，
+        /// 判据 `FriendsTab__StartChallengeWithUser.c` → `ChallengeManager__OpenStartChallengeWindow.c` 全文两句）。</summary>
+        void OnInstantDuelClicked()
+        {
+            string userName = SearchInput != null ? (SearchInput.Value ?? "") : "";
+            LastDuelName = userName;
+
+            var wm = Win != null ? Win.Manager : null;
+            if (wm == null) wm = WindowsManager.Instance;
+            if (wm == null)
+            {
+                // 原版这一跳是 `SingletonBehaviour<WindowsManager>.Instance` → 取不到就 NRE（`FUN_1803f47a0`）。
+                // 我们出声、不崩；**名字已经读到了**（本页在自检里是 `SocialWindow.Create(null)` 建的 ⇒ 没有管理器）。
+                Say("`Instant duel Button`：取不到 `WindowsManager` ⇒ 挑战窗开不出来（原版这一跳会 NRE）；"
+                  + "搜索框里的名字已经读到 = \"" + userName + "\"。");
+                return;
+            }
+
+            var win = ChallengeManager.OpenStartChallengeWindow(userName, wm);
+            if (win == null)
+                Say("`Instant duel Button`：挑战窗没开成（`ChallengeManager.OpenStartChallengeWindow` 返回 null，已出声）。");
+            // 窗里那两颗钮（Skirmish / Classic）各自要服务器，由那扇窗自己出声 —— 这里不重复。
+        }
+
+        /// <summary>= 原版 `SupportMethods.IsValidFriendName(string)`（**逐句**，判据见本节头部末条）：
+        /// 空/null ⇒ false · 与**我自己**的名字相等（OrdinalIgnoreCase）⇒ false · 好友表里已有同名 ⇒ false · 其余 ⇒ true。
+        /// <para>原版读 `PlayerDataManager.singletonManager.{playerName, friendsData.friendList}`（本仓没有那个管理器）
+        /// ⇒ 等价物 = <see cref="ProfileData.PlayerName"/>（全工程唯一一份玩家名）
+        /// ＋ <see cref="SocialData.Friends"/>（好友表的 `Name` 那一格）。
+        /// ⚠️ 本地好友表**恒空**（服务器源）⇒ 第三条规则今天恒不命中；链路已通，真数据到了自己生效。</para></summary>
+        public static bool IsValidFriendName(string friendName)
+        {
+            if (string.IsNullOrEmpty(friendName)) return false;
+            if (string.Equals(friendName, ProfileData.PlayerName, System.StringComparison.OrdinalIgnoreCase)) return false;
+            var list = SocialData.Friends;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var f = list[i];
+                if (f != null && string.Equals(f.Name, friendName, System.StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>= 原版那两处 `WindowsManager.ShowPopUp("Demo/FriendsMenu/…", localizeTexts:1, closeOnEsc:1)`：
+        /// 开一扇消息窗（词条走 `Loc.T`；⛔ 不印键名）。取不到宿主 ⇒ **出声**，⛔ 不静默吞掉。</summary>
+        void ShowMessage(string termKey)
+        {
+            var wm = Win != null ? Win.Manager : null;
+            if (wm == null) wm = WindowsManager.Instance;
+            string text = Loc.T(termKey);
+            if (wm == null)
+            {
+                Say("（没有 `WindowsManager` ⇒ 消息窗弹不出来；原版这一跳会开一扇 `" + termKey + "` 窗）" + text);
+                return;
+            }
+            wm.ShowPopUp(text, Loc.T("MainMenu/General/OK"), null);
+        }
     }
 }

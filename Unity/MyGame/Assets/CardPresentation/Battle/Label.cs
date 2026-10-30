@@ -2524,5 +2524,72 @@ namespace CardPresentation
             RefreshBounds();
             SmallScreenSizeAppliedForTest = true;
         }
+
+        // ============================================================ 类尾 · B102/AUD02（2026-10-30）
+        //   ⚠️ 同上面那条纪律：**一律追加在类尾**（本文件被账按 `文件:行号` 引用，插进中间会让下游行号漂移）。
+
+        /// <summary>🔴 **2026-10-30（B102 / AUD02）：TMP `fontStyle` 的写入口** —— 原版筛选面板那 5 颗小标题的
+        /// `m_FontStyle = 16`（= `FontStyles.UpperCase`），我们原来一律走 `Loc.T` 给的混合大小写
+        /// （原版渲成 `ARMY` / `RARITY` / `ENERGY COST` / `TYPE`，我们渲成 `Army` / `Rarity` / …）。
+        /// <para>判据 = UnityPy 直读真包 `bundle_menus_assets_all`：`Deck Editing Menu/Content Area/Card Display/
+        /// Card Filters/Scroll View/Viewport/Filters/{Army Filter,Rarity FIlter,Cost Filter,Type Filter}/Title`
+        /// 与 `…/Cosmetic Display/Cosmetic FIlter/Filters/Army Filter/Title` —— 五颗 `m_text` 依次 =
+        /// `Army`/`Rarity`/`Energy Cost`/`Type`/`Army`、`m_FontStyle` 全 = **16**。</para>
+        /// <para>⚠️ **`|=` 而不是 `=`**：`FontStyles` 是标志位（`Bold | UpperCase` 可叠），本口只**加**、
+        /// 不清掉调用方已经设上的档（全仓另一处写 `fontStyle` 的是 `Core/CardView.cs` 的 `Bold`，对象不同）。</para>
+        /// <para>⚠️ 点阵后端（`_tmp == null`）**没有 `fontStyle` 这回事** ⇒ 什么都不做并**出声**
+        /// （红线：不许静默失败）。口名 / key 头段 = **`字体样式`** —— ⛔ 别并进上面那 9 个已有的口
+        /// （`_dotAlignNoted` 是进程内静态 HashSet、同 key 只响一次，撞了就是「这一口再也不出声」）。</para>
+        /// <para>⚠️ 收尾走 <see cref="ForceRelayout"/> 而**不是**裸 `ForceMeshUpdate`：这些标签建树时可能
+        /// **还没激活**（`TextMeshPro.ForceMeshUpdate` 在未激活对象上直接早退，见 `ForceRelayout` 的 P7 那一段），
+        /// 交给它那条 `PushLayoutInactive()` 分支兜住。顺带也必要 —— `UpperCase` 会改字形宽
+        /// （`Army` → `ARMY`），宽要重新量，否则调用方的 `AlignLeft` 还按旧宽算。</para></summary>
+        public void SetFontStyle(FontStyles s)
+        {
+            if (_tmp == null)
+            {   // 点阵后端没有 fontStyle —— **要出声**（红线：不许静默失败），同族 `SetCharSpacing` / `SetFontSize` 那条路
+                NoteDotBackendLacks("字体样式", "没有 `fontStyle` 这回事", "`fontStyle |= " + s + "`",
+                                    "没生效（这一档字重/大小写没加上）");
+                return;
+            }
+            _tmp.fontStyle |= s;
+            ForceRelayout();
+        }
+
+        /// <summary>自检读口：TMP 现在的 `fontStyle`（点阵后端恒 <see cref="FontStyles.Normal"/> = 0）。
+        /// ⛔ 它只是**档位**，不是「画面已经渲成大写」的证明 —— 渲染结果要真机看图。</summary>
+        public FontStyles FontStyleNow { get { return _tmp != null ? _tmp.fontStyle : FontStyles.Normal; } }
+
+        // ---- 类尾 · B102/AUD06（2026-10-30）⚠️ 同上：**一律追加在类尾**（本文件被账按 `文件:行号` 引用）。
+
+        /// <summary>🔴 **2026-10-30（B102 / AUD06）：TMP `overflowMode` 的写入口** ——
+        /// 原版 `ChatPreview/Container/{Message Preview, Message Preview (1)}/text` 两颗都是
+        /// **`m_overflowMode = 1`（= <see cref="TextOverflowModes.Ellipsis"/>）**（UnityPy 直读真包
+        /// `assets_full/bundle_menus_assets_all` 的 prefab 字段；普查账 → `资料/完全复刻/判据/AUD02_serialized_params.tsv`），
+        /// 我们原来**没有这一口**、出厂停在 `Overflow`(0)（`TMP_Text` 的 `m_overflowMode` 出厂值，`TMP_Text.cs:808`）。
+        /// <para>⚠️ **点阵后端（`_tmp == null`）没有 overflow 这回事** ⇒ 什么都不做并**出声**
+        /// （红线：不许静默失败），同族 `SetCharSpacing` / `SetFontStyle` 那条路。口名 / key 头段 = **`溢出模式`** ——
+        /// ⛔ 别并进已有的那 9 个口（`_dotAlignNoted` 是进程内静态 HashSet、同 key 只响一次）。</para>
+        /// <para>⚠️ 收尾走 <see cref="ForceRelayout"/> 而**不是**裸 `ForceMeshUpdate`：`overflowMode` 的 setter
+        /// 只 `SetVerticesDirty/SetLayoutDirty`（`TMP_Text.cs:805`），而**批处理没有帧循环**；且这些标签建树时
+        /// 可能**还没激活**（`ForceMeshUpdate` 在未激活对象上直接早退，见 `ForceRelayout` 的 P7 那一段）
+        /// ⇒ 交给它那条 `PushLayoutInactive()` 分支兜住。</para></summary>
+        public void SetOverflow(TextOverflowModes m)
+        {
+            if (_tmp == null)
+            {   // 点阵后端没有 overflow —— **要出声**（红线：不许静默失败），同 `SetCharSpacing` / `SetFontStyle`
+                NoteDotBackendLacks("溢出模式", "没有 `overflowMode` 这回事", "`overflowMode = " + m + "`",
+                                    "没生效（超框时不会出省略号）");
+                return;
+            }
+            _tmp.overflowMode = m;
+            // 🔴 2026-10-30（第一百零二会话）：**这里【不】重排** —— 实测在 `Ellipsis` 档下调 `ForceRelayout`
+            //   （哪怕对象已激活）会把 TMP 的网格量出**未初始化值**：`MainMenuScene` 那条「聊天行放得进 327.3px」
+            //   渲出 `4.6e11 px`。档位是**渲染期**的事，TMP 下一次自己排版时会应用它 ⇒ 不需要在这里推版面。
+        }
+
+        /// <summary>自检读口：TMP 现在的 `overflowMode`（点阵后端如实报出厂档
+        /// <see cref="TextOverflowModes.Overflow"/>）。⛔ 它只是**档位**，「超框真的出省略号」要真机看图。</summary>
+        public TextOverflowModes OverflowNow { get { return _tmp != null ? _tmp.overflowMode : TextOverflowModes.Overflow; } }
     }
 }

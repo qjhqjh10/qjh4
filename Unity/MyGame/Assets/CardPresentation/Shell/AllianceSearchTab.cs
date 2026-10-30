@@ -399,6 +399,16 @@ namespace CardPresentation
             _listView = Node(Root, "List View", ListViewR);
 
             // 搜索框（在右边）：`InputFieldBackground` 九宫 + 占位 `Search` + 那颗圆形搜索钮
+            // 🔴 **2026-10-30（执行代理 `B102_ALLY` · 判据 AUD04 第 49 行）**：这一格从
+            //   「底图 + 占位字 + **只出声**的命中区」改成**真能输入的输入框**。原版
+            //   `JoinAllianceMenu.searchInput` 就是 `TMP_InputField`（`decomp_full/JoinAllianceMenu__FillOpenAlliances.c:29-32`
+            //   读它 `+0x210` 的 `m_Text` → `String.Trim()` → 当搜索串交给 `AlliancesManager.GetGroupList`）
+            //   ⇒ 我们此前那句 `Say("打不了字")` **是缺口，不是原版行为**。
+            //   等价物 = 本仓 `Shell/TextInputField.cs`（与 `AllianceMemberTab` 的描述框**同一件**）。
+            //   ⚠️ 这里走它的 **`Bind`（只借键盘与值）**、**不是** `Create`：这一格的底图/占位字/命中区
+            //      **本来就是对的**（下面那几句一字未动），缺的只是「值从哪来」⇒ 让 `Create` 重建一遍
+            //      会换掉 `InputFieldBackground` 那套版面、还会把 `Placeholder` 挪成孙节点
+            //      （`Editor/MainMenuScene.cs` 有三条断言按**直接子件**名找它 ⇒ 会白红）。
             var sf = Node(_listView, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, new Vector4(10f, 10f, 10f, 10f), "Background",
                  L_Panel, new Color(0.0627f, 0f, 0f, 1f));
@@ -422,9 +432,27 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那一颗的 `m_VerticalAlignment = 4096 (Midline)`
             //   （判据 = 上面那条 dump 的 `对齐=Left/Midline` —— A255/A323 只落了**横向**那一半）。
             MenuDraw.SetVAlign(lbSearch, Label.VAlign.Midline, SearchPhR);
-            Hit(sf, "SearchHit", SearchFieldR, L_Hit, () => Say(
-                "`Search Field`（找联盟）**输入框打不了字** —— 我们这套外壳没有文字输入系统；"
-              + "而且**搜索本身也要服务器**。"));
+            // 🔴 **2026-10-30（`B102_ALLY`）**：占位字**原样保留**（上面那两句一字未动 —— 树形、字号、折行、对齐、
+            //   词条键都还是原版那一档），**另加一颗正文**（玩家打的字）。两颗都交给 `TextInputField.Bind`
+            //   —— 它**只借键盘与值**、不建任何视觉件（所以 `Search Field/Placeholder` 仍然是**直接子件**，
+            //   `Editor/MainMenuScene.cs` 那三条按名 + 折行/字号档的断言**不受影响**）。
+            //   ⚠️ 正文那颗的字档 = 占位那颗同档（原版输入文字那颗 TMP **本轮没读到**，如实记，⛔ 不编）。
+            var lbTyped = Text(sf, SearchPhR, "", Color.white, "Text", 50f, L_Text + 1, 18f,
+                 wrap: false, alignLeft: true, autoMaxPx: 50f, autoBasePx: 26f);
+            MenuDraw.SetVAlign(lbTyped, Label.VAlign.Midline, SearchPhR);
+            _searchInput = TextInputField.Bind(sf,
+                new PromptContext.InputData("Search Field", "MenuDeck/HUD/SearchFilter",
+                                            TMPro.TMP_InputField.ContentType.Standard, ""),
+                lbSearch, lbTyped, 0, _ => RebuildOpenAlliances());
+            if (_searchInput == null)
+                Debug.LogWarning("[Alliance] `Search Field` 的输入件没绑上（`TextInputField.Bind` 返回 null）"
+                               + " —— 如实说：这一格仍然打不了字（⛔ 不假装能输）");
+            Hit(sf, "SearchHit", SearchFieldR, L_Hit, () =>
+            {
+                // 原版这一格是 `TMP_InputField` 自己吃 `IPointerClickHandler` ⇒ 点一下就开始编辑。
+                if (_searchInput != null) _searchInput.BeginEdit();
+                else Say("`Search Field`：输入件没绑上 ⇒ 这一格打不了字（如实说，不假装能输）。");
+            });
 
             var go = Node(_listView, "Generic Round Button Variant", SearchGoR);
             var goQ = Rect(go, "40k_general_bt_yellow", SearchGoR, "Bg", L_Btn, null, true);
@@ -442,7 +470,12 @@ namespace CardPresentation
                 if (_searchBtn != null) _searchBtn.Interactable = false;
                 try { WithLoading(RebuildOpenAlliances); }   // 原版 `FillOpenAlliances` 本身也是「清空重填」
                 finally { if (_searchBtn != null) _searchBtn.Interactable = true; }
-                Say("搜索联盟：要**服务器**（原版走 `JoinAllianceMenu.searchButton` 的 `GetGroupList`）。");
+                // 🆕 2026-10-30（`B102_ALLY`）：搜索串现在有来源了 —— 原版 `FillOpenAlliances` 先读它再发请求，
+                //   本机把「服务器侧用同一个串筛」与「回调里那道 `Name.Contains`」合并成**本地一道过滤**
+                //   （见 `OpenAllianceRows` 的注释）；这里把当前串说出来，免得玩家以为没生效。
+                Say("搜索联盟：原版走 `JoinAllianceMenu.searchButton` → `GetGroupList(searchText)` —— **要服务器**；"
+                  + "本机按同一套规则**在本地过滤**（`Open Alliances` 现按搜索串 \""
+                  + (_searchInput != null ? (_searchInput.Value ?? "").Trim() : "") + "\" 筛过）。");
             }, goQ, "40k_general_bt_yellow");
             _searchBtn = goHit != null ? goHit.GetComponent<WindowButton>() : null;
 
@@ -543,9 +576,10 @@ namespace CardPresentation
         /// <para>🆕 2026-10-27（E9 · 账 408）：补上原版 `FillOpenAlliances` 的两道**数据侧**判定（判据
         /// `out_cpp2il_dev_ilspy/JoinAllianceMenu.cs:1196-1235`）：
         /// ① `Where(a =&gt; a != null &amp;&amp; a.MemberCount &gt; 0)`（`_003CFillOpenAlliances_003Eb__23_1`）；
-        /// ② `Take(200)`（:860）。③ 搜索串过滤 `name.Contains(searchText)` **本地没有输入系统**
-        /// （原版 `searchInput.m_Text`；我们的搜索框点下去只出声）⇒ 等价于**搜索串恒空**
-        /// （空串那一支原版也不过滤），如实记，⛔ 不编一个输入源。</para></summary>
+        /// ② `Take(200)`（:860）。③ 搜索串过滤 `name.Contains(searchText)` —— 🔴 **2026-10-30（`B102_ALLY`）起真的生效**：
+        /// 搜索框已经是 `TextInputField`（见 `BuildListView`），`OpenAllianceRows()` 读它的 `Value`（先 `Trim`、
+        /// 再 `OrdinalIgnoreCase` 比较，判据见那个方法的注释）。
+        /// ⚠️ 本行原写「本地没有输入系统 ⇒ 搜索串恒空（诚实记着）」—— **已过期**，就地订正（铁律 5）。</para></summary>
         void RebuildOpenAlliances()
         {
             var rows = OpenAllianceRows();
@@ -557,14 +591,32 @@ namespace CardPresentation
         /// `const 200` = `Enumerable.Take(source, 200)` 的字面量（`JoinAllianceMenu.cs:860`）。</summary>
         System.Collections.Generic.List<SocialData.AllianceListing> OpenAllianceRows()
         {
+            // 🔴 **2026-10-30（执行代理 `B102_ALLY`）**：**搜索串真的进来了**（此前 `searchInput` 恒空 ⇒ 等价于不过滤）。
+            //   原版 `FillOpenAlliances` 的那条链逐句照抄（`decomp_full/`，四份产物）：
+            //     ① 取数前 `searchText = searchInput.text.Trim()`（`JoinAllianceMenu__FillOpenAlliances.c:29-32`：
+            //        读 `searchInput(+0x48)` 的 `+0x210`，再 `System_String__Trim`）；
+            //     ② 回调里 `Where(a => a != null && a.MemberCount > 0)`（`JoinAllianceMenu.__c___FillOpenAlliances_b__23_1.c`）；
+            //     ③ **仅当 `searchText.Length > 0`** 再 `Where(a => a.Name.Contains(searchText, …))`
+            //        （`…__DisplayClass23_0___FillOpenAlliances_b__0.c` 里那句 `if (0 < *(int*)(searchText + 0x10))`
+            //         + `…b__2.c` 的 `String.Contains(group.name(+0x18), searchInput.text(+0x210), 5)`；
+            //         **`5` = `StringComparison.OrdinalIgnoreCase`** ⇒ **大小写不敏感**）；
+            //     ④ `Take(200)`（`JoinAllianceMenu.cs:860` 那个字面量）。
+            //   ⚠️ 原版 ③ 之前服务器已经用同一个串筛过一遍（`AlliancesManager.GetGroupList(searchText, cb)`）——
+            //      本机没有服务器 ⇒ **本地这一道 `Where` 就是那两道的全部**（可观测结果一致）；
+            //      ⛔ 不假装发过请求、也不把「服务器侧匹配」编成别的规则。
             const int MaxOpen = 200;
+            string q = _searchInput != null ? (_searchInput.Value ?? "").Trim() : "";   // ①
             var src = SocialData.OpenAlliances;
             var rows = new System.Collections.Generic.List<SocialData.AllianceListing>(src.Count);
             for (int i = 0; i < src.Count; i++)
             {
-                if (rows.Count >= MaxOpen) break;
+                if (rows.Count >= MaxOpen) break;                    // ④
                 var m = src[i];
-                if (m != null && m.Members > 0) rows.Add(m);
+                if (m == null || m.Members <= 0) continue;            // ②
+                if (q.Length > 0 && (m.Name == null                        // ③
+                                     || m.Name.IndexOf(q, System.StringComparison.OrdinalIgnoreCase) < 0))
+                    continue;
+                rows.Add(m);
             }
             return rows;
         }
@@ -837,10 +889,10 @@ namespace CardPresentation
             //   AllianceNotMemberVariant < Alliances Tab` ⇒ **节点名与我们逐字相同**）。
             //   英文列 = 原版 TMP 原文（`Alliance Name` / `Alliance Description`）；中文列**我们自拟**
             //   （`zh_CN.csv` 里两条英文串都没有）。⛔ 第 2 实参（节点名）与那串字号/auto*/对齐实参没动。
-            Field(_createView, "Name input title", Loc.T("SocialMenu/Alliances/NameInput"),
+            _nameInput = Field(_createView, "Name input title", Loc.T("SocialMenu/Alliances/NameInput"),
                   new PxRect(432.47f, 257.65f, 1125.42f, 307.65f),
                   new PxRect(432.47f, 307.95f, 1332.47f, 367.35f), "Name Input");
-            Field(_createView, "Desc input title", Loc.T("SocialMenu/Alliances/DescriptionInput"),
+            _descInput = Field(_createView, "Desc input title", Loc.T("SocialMenu/Alliances/DescriptionInput"),
                   new PxRect(432.48f, 402.99f, 1125.43f, 452.99f),
                   new PxRect(432.48f, 454.55f, 1332.48f, 659.00f), "Desc Input");
 
@@ -884,8 +936,24 @@ namespace CardPresentation
             //    bundle_menus_assets_all "Social Submenu Variant" --depth 16 --md`）⇒ 走 `SocialWindow.Text`
             //    原来**恒折行** = **真偏离**（A213 普查 §七·C2 顺手读到的真值，本批落地）。
             // 🆕 A17：原版 `Social Submenu Variant>…Create Alliance Text>…` 是 SpriteSwap（普查 §块 5 第 15 行）
-            var pbH = Hit(pb, "Hit", price, L_Hit, () => Say(
-                "`Continue`（花 1000 建盟）：要**服务器** —— 本地没有联盟系统，资源也花不掉。"));
+            var pbH = Hit(pb, "Hit", price, L_Hit, () =>
+            {
+                // 🔴 **2026-10-30（执行代理 `B102_ALLY`）**：**Name / Desc 两格的输入真的被消费了** ——
+                //   原版这一跳把这两格（连语言 / 隐私两个下拉）组进建盟请求发给服务器（`CreateAllianceMenu`
+                //   的 continue 回调；`Group` 是在**服务端**建出来的）。
+                //   本机**没有服务器**（原版这条调用链断在 `AlliancesManager` 那一跳 —— 也是 P3「玩家账户/云后端」
+                //   那一类）⇒ 照 P2 口径「UI 照原版做、数据本地模拟或**出声**」：
+                //   **把请求参数原样收下 + 明确说出去没发**（先例 = `AllianceMemberTab` 的 `Confirm button`）。
+                //   ⛔ **不造一条本地「建盟」假链**（那会让玩家以为盟真的建了、列表里凭空多一个盟）。
+                string nm = _nameInput != null ? _nameInput.Value : null;
+                string ds = _descInput != null ? _descInput.Value : null;
+                LastCreateName = nm; LastCreateDesc = ds;
+                Debug.Log("[Alliance] `Continue`（建盟请求的参数已收下）：Name = \"" + (nm ?? "") + "\" · Desc = \""
+                        + (ds ?? "") + "\"（描述长度 " + (ds != null ? ds.Length : 0) + "）"
+                        + " —— 原版把这两格 + 语言/隐私发给服务器；**本机没有服务器** ⇒ 不发请求、不落任何本地状态。");
+                Say("`Continue`（花 1000 建盟）：要**服务器** —— 本地没有联盟系统，资源也花不掉。"
+                  + "你输入的名字/描述**已经收到**（见日志），但**不会发出去**。");
+            });
             var pbWb = pbH != null ? pbH.GetComponent<WindowButton>() : null;
             if (pbWb != null) pbWb.BindNine(pbNine, "40K_button");
 
@@ -909,8 +977,11 @@ namespace CardPresentation
                      SocialData.PrivacyOptionLabels());
         }
 
-        /// <summary>一个「标题 + 输入框」组（建盟页那两组）。输入框是 `40K_dropdown_bg` 九宫。⚠️ 打不了字。</summary>
-        void Field(Transform parent, string titleName, string title, PxRect titleR, PxRect boxR, string boxName)
+        /// <summary>一个「标题 + 输入框」组（建盟页那两组）。输入框是 `40K_dropdown_bg` 九宫。
+        /// 🔴 **2026-10-30（`B102_ALLY`）**：原来这里只建底图 + `Say("打不了字")` —— **已改成真能输入**
+        /// （原版这两颗是 `TMP_InputField`；本仓等价物 = `Shell/TextInputField.cs`）。
+        /// 返回值 = 那颗输入框（`BuildCreateView` 把它存进 `_nameInput` / `_descInput`，供 `Continue` 消费 + 自检读）。</summary>
+        TextInputField Field(Transform parent, string titleName, string title, PxRect titleR, PxRect boxR, string boxName)
         {
             var lbTitle = Text(parent, titleR, title, Color.white, titleName, 40f, L_Text, 18f, wrap: true, alignLeft: true,
                  autoMaxPx: 40f, autoBasePx: 36f);   // A414（表 #14）原版 `auto[18~40] 基准=36.0`
@@ -918,10 +989,19 @@ namespace CardPresentation
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 两处原版都是 `m_VerticalAlignment = 4096 (Midline)`。
             MenuDraw.SetVAlign(lbTitle, Label.VAlign.Midline, titleR);
             var box = Node(parent, boxName, boxR);
-            Nine(box, "40K_dropdown_bg", boxR, new Vector4(23f, 20f, 23f, 20f), "Bg", L_Panel,
-                 new Color(1f, 0.475f, 0.098f, 1f));
-            Hit(box, "Hit", boxR, L_Hit, () => Say(
-                $"`{boxName}` **输入框打不了字** —— 我们这套外壳没有文字输入系统。"));
+            // 🔴 **2026-10-30（`B102_ALLY` · 判据 AUD04 第 50 行）**：底图 / 九宫 / tint 仍是原来那三句的**原样实参**
+            //   （`40K_dropdown_bg` · (23,20,23,20) · (1,0.475,0.098,1)）—— tint 走 `Create` 的 `bgTint` 形参
+            //   （⛔ 没换图、没换色）；原来那句 `Hit(...)⇒Say("打不了字")` 交代给 `TextInputField.Create` 自己的命中区。
+            //   ⚠️ 占位字**留空**：原版这两格的 placeholder 文字本轮**没读到** ⇒ 不编一个字放上去（`InputData.Label = ""`）。
+            //   ⚠️ 字体面传 **Cjk**：这两格的字可能含中文（提示窗缺省是拉丁体，会画不出汉字）。
+            var input = TextInputField.Create(box, boxR,
+                new PromptContext.InputData(boxName, "", TMPro.TMP_InputField.ContentType.Standard, ""),
+                0, Page.Q + QOff + L_Btn, null,
+                bgTint: new Color(1f, 0.475f, 0.098f, 1f), face: TmpFont.Face.Cjk);
+            if (input == null)
+                Debug.LogWarning("[Alliance] `" + boxName + "` 的输入框没建出来（`TextInputField.Create` 返回 null）"
+                               + " —— 如实说：这一格仍然打不了字（⛔ 不假装能输）");
+            return input;
         }
 
         /// <summary>一个**可展开**的下拉（标题 + 合上面 + `Template` 列表）。🔴 **2026-10-28（`B90-N5`）就地订正**：
@@ -941,5 +1021,43 @@ namespace CardPresentation
             //    ⚠️ `Create` 恒返回非 null（节点建不出来时它自己出声）⇒ 这里不判空，也别再补一个空分支。
             AllianceDropdownBox.Create(this, parent, fieldName, fieldR, options);
         }
+
+        // ============================================================================================
+        // 🆕 2026-10-30（执行代理 `B102_ALLY`）—— **类尾新增**：三处输入件的字段 / 样式档 / 自检读口
+        // ============================================================================================
+        // 为什么追加在**类尾**：本文件上半部有一批账行是**按行号**引用的（`账/社交_*.tsv`），
+        //   往成员之间插东西会让它们整体漂（同 `Shell/NetBattle.cs` 那条教训，见 CLAUDE.md §18·b）。
+        //   已有成员一个都没动过（`Build` / `BuildListView` / `Field` 只改了各自的**方法体**）。
+        // 判据 & 施工单：AUD04 第 49/50 行 = `资料/完全复刻/判据/AUD04_interactions.tsv`。
+        // ============================================================================================
+
+        /// <summary>`List View/Search Field` 那颗真输入框（原版 `JoinAllianceMenu.searchInput`，`TMP_InputField`）。</summary>
+        TextInputField _searchInput;
+        /// <summary>`Create Alliance View/Name Input`（原版 `CreateAllianceMenu` 那一格 `TMP_InputField`）。</summary>
+        TextInputField _nameInput;
+        /// <summary>`Create Alliance View/Desc Input`（同上；原版那颗是 `TMP_InputField` 的多行档）。</summary>
+        TextInputField _descInput;
+
+        /// <summary>自检读口：搜索框（`null` = 没建出来 —— ⛔ 那是缺口，不是「没数据」）。</summary>
+        public TextInputField SearchInput { get { return _searchInput; } }
+        /// <summary>自检读口：建盟 Name 那一格。</summary>
+        public TextInputField NameInput { get { return _nameInput; } }
+        /// <summary>自检读口：建盟 Desc 那一格。</summary>
+        public TextInputField DescInput { get { return _descInput; } }
+        /// <summary>自检读口：`Open Alliances` 的行容器（数它底下有几个 `Entry` = 过滤之后剩几条）。</summary>
+        public Transform OpenListForTest { get { return _openList; } }
+        /// <summary>`Continue` 那一刻**收到的**建盟名字（= 原版请求参数的第一格；`null` = 还没点过）。
+        /// ⚠️ 它只是「收到的参数」，**不代表建过盟**（本机没有服务器，见 `Continue` 那一跳的注释）。</summary>
+        public string LastCreateName { get; private set; }
+        /// <summary>`Continue` 那一刻**收到的**建盟描述（同 <see cref="LastCreateName"/>）。</summary>
+        public string LastCreateDesc { get; private set; }
+
+        /// <summary>自检用：把上面两格读口清回 `null`（点 `Continue` 之前调，防止读到上一轮的残值）。
+        /// ⚠️ **只给自检**（生产里这两个值由 `Continue` 那一跳写，没有别的写手）。</summary>
+        public void ResetLastCreateForTest() { LastCreateName = null; LastCreateDesc = null; }
+
+        /// <summary>⚠️ 两处都**没有「样式档」常量**（别照着加）：搜索框走 `TextInputField.Bind`（版面/占位字/命中区
+        /// 都是本文件 `BuildListView` 里原来那几句画的）；建盟两格走 `Create` 的 `bgTint` / `face` 两个形参
+        /// （见 `Field` 那一段）。⛔ 数值只写在调用点一处，别在这儿再抄一份。</summary>
     }
 }

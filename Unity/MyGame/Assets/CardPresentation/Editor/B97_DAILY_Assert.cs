@@ -101,10 +101,10 @@ namespace CardPresentation
                 try
                 {
                     a = (string)ml.Invoke(null, new object[] { samples[i] });        // 生产口（按当前语档）
-                    b = (string)rm.Invoke(null, new object[] { samples[i], curVal }); // 按当前语档独立算一遍
-                    c = (string)rm.Invoke(null, new object[] { samples[i], zh });     // 中文档
+                    b = (string)rm.Invoke(null, new object[] { samples[i], Equals(curVal, zh) }); // 按当前语档独立算一遍（第 2 实参是 **bool zh**，⛔ 不是 `AvailableLanguages` 枚举）
+                    c = (string)rm.Invoke(null, new object[] { samples[i], true });                               // 中文档
                 }
-                catch (Exception) { bothPassRan = false; break; }
+                catch (Exception) { bothPassRan = false; allSame = false; break; }   // 抛异常 ⇒ 两条都要红（⛔ 别让 `allSame` 停在上一次的值上、空转绿灯）
                 if (a != b) allSame = false;
                 if (Equals(curVal, zh) && a != c) allSame = false;                    // 当前语档 = 中文时还要与中文档一致
             }
@@ -243,7 +243,7 @@ namespace CardPresentation
                 if (_ops == null)
                 {
                     _ops = new Dictionary<short, OpCode>();
-                    var fs = typeof(OpCode).GetFields(BindingFlags.Public | BindingFlags.Static);
+                    var fs = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static); // 🔴 2026-10-30 订正：原写 `typeof(OpCode)`（那是对的类型、公开静态字段 0 个 ⇒ 表恒空 ⇒ `-1`）；opcode 常量全在 `OpCodes`（226 个）
                     for (int i = 0; i < fs.Length; i++)
                     {
                         var o = (OpCode)fs[i].GetValue(null);

@@ -1,0 +1,97 @@
+窗	控件(原版节点路径)	原版可交互(判据)	我们命中件(文件:行)	判档	命中区是否含RaycastPadding	怎么验
+主菜单	左竖导航 5 颗（PLAY/COLLECTION/…，原版 OpenWindowButton/EverguildToggle）	Button/OpenWindowButton，m_RaycastTarget=1	Shell/MainMenuRuntime.cs:1357 MenuDraw.Hit→WindowButton(onClick)	✅有命中件	否（图形 pad=0；RectMask2D pad 走 Hit 的 maskPad）	点每颗钮，看开的窗对不对
+主菜单	顶栏头像/收件箱/挑战/设置/好友/聊天（InboxBtn/SettingsBtn/…）	OpenWindowButton	master Shell/TopBar.cs:364-367 Wire()→WindowButton	✅有命中件	否（TopBar 有 RegisterHitRect 外扩，见 TopBar.cs:133）	逐颗点开对应窗
+主菜单	模式卡（Ranked/Draft/Skirmish/…，Packs 滚动格）	CollectionItem/EverguildButton，可滚	Shell/MainMenuRuntime.cs:2653 _modeScroll+2656 RegisterScroll；卡片点击见 BuildModeCard	✅有命中件	否	滚轮滚模式卡网格；点卡进模式窗
+主菜单	聊天预览条 ChatHit	EverguildButton	Shell/MainMenuRuntime.cs:2307 MenuDraw.Hit(ChatHit)	✅有命中件	否	点预览条开聊天窗
+主菜单	左栏子菜单键（MainMenuSubmenuWindow）	TabButtons.tabButtonPrefab(null)=自绘+Toggle	Shell/MainMenuSubmenuWindow.cs:891 MenuDraw.Hit(b,「Hit」,…)	✅有命中件	否	点子栏键切页
+卡组编辑	卡池格/卡组格/抽屉格（原版 CollectionItem + 自带区域表）	CollectionItem（可点、可拖、可滚）	Deck/DeckRuntime.cs:4997-5060 自身 Update 读裸鼠标 + 5399 ClickOrder 表 + 5411 HitBtn 矩形表	✅有命中件	否（走自己的 px 矩形表，不读 UGUI pad）	点卡池格看是否选中/加进卡组
+卡组编辑	卡背/卡牌拖拽（原版 DraggableController<T> 两实例）	DragAndDropItem，运行时 SetCell→Initialize+Toggle(true)	Deck/DeckRuntime.cs:3817 BuildCosmeticDrag / 3889 BuildCardDrag（CardDraggingController/CosmeticDraggingController）	✅有命中件	否	拖卡背到槽/拖卡进卡组
+卡组编辑	滚轮（卡池/卡背/异画/筛选列表）	ScrollRect	Deck/DeckRuntime.cs:7123 mouse.scroll.ReadValue() 自处理	✅有命中件	否	在列表上滚轮，看偏移变
+卡组编辑	悬停/按下态（换图 5 颗 + 色偏 3 颗）	EverguildButton ColorTint/SpriteSwap	Deck/DeckRuntime.cs:4676 HoverTargetUnder + HoverTint:8675	⚠️命中区偏小/偏大	否	指针在钮边界来回微动，看有无闪
+卡组编辑	Done/各功能钮（HitBtn 表内 14 key）	EverguildButton	Deck/DeckRuntime.cs:5399 ClickOrder→HitBtn; 按钮件挂 WindowButton 但 onClick 空(见:1417)	✅有命中件	否	点 Done/换页/换阵营
+收藏	卡组格（原版 Collection Deck，useSelectedHighlight=0）	CollectionItem（点选中、Deck 页可拖）	Shell/MenuDraw.cs:3576 DeckCell→MakeHitQuad+WindowButton;调用点 Shell/CollectionWindow.cs:5300(带 onClick)、拖 6135 RegisterDrag	✅有命中件（原「卡组格命中区=裸节点」的 A26 缺陷已修：DeckCell 现建 MakeHitQuad@MenuDraw.cs:3576）	否（maskPad 传 0）	点卡组格选中；Deck 页拖格重排
+收藏	卡牌格 / 卡背格 / 箭头 / 异画格	Card2DController / CollectionCosmetic / EverguildButton	Shell/CollectionWindow.cs:1694 AddHit(CardHit 卡牌格) · 1999 AddHit(卡背格→ItemDisplayWindow) · 2456 AddHit(左右箭头) · 2684 AddHit(AltArtHit 异画格)	✅有命中件	否	逐页点一格看开详情/换异画
+收藏	四页签（Deck/Cards/CardBacks/Alternate Art）	TabButtons	Shell/CollectionWindow.cs 页签走 TabBtnSpec(:120-126)+MainMenuSubmenuWindow.BuildTabButton(891)	✅有命中件	否	点四页签切页
+收藏	筛选栏（Filters/筛选项/Clear filters/Name 排序）	Filter Toggle/EverguildButton	Shell/CollectionWindow.cs:3583 AddHit(Filter Toggle) · 3069/3247 AddHit(筛选项) · 3641 ClearFiltersHit	✅有命中件	否	开筛选抽屉点项、看列表变化
+收藏	滚轮（Cards/Cosmo/Style/Deck/Filter/DeckMode 六区）	ScrollRect	Shell/CollectionWindow.cs:1159/1867/2373/2799/4213/4414 RegisterScroll	✅有命中件	否	逐区滚轮，看偏移与行重建
+收藏	卡组格拖拽重排（Deck 页，allowItemDrag=1）	DragAndDropItem	Shell/CollectionWindow.cs:6135 PointerLayer.RegisterDrag	✅有命中件	否	按住卡组格拖到另一格松手，看顺序变
+商店	购买钮（价签/Price Display/WebShop）	EverguildButton，可买	Shell/ShopTabPage.cs:688 ImageQuad.Create(hit)+697 WindowButton.onClick=Buy	✅有命中件	否	点价签，看扣 2000/加货
+商店	卡包 Info 钮（InfoHit）	Button	Shell/ShopTabPage.cs:562 MenuDraw.Hit(InfoHit)→OpenBoosterInfo	✅有命中件	否	点 i 看卡包详情
+商店	VIP/未达标的遮挡（VipBlockHit）	锁件(可点出声)	Shell/ShopTabPage.cs:1110/1135 WindowButton→出手提示	✅有命中件	否	点被锁的格子，看有无提示
+商店	Packs Scroll View 滚轮	ScrollRect	Shell/ShopTabPage.cs:410 MenuScroll + 420 RegisterScroll	✅有命中件	否	卡包网格滚轮
+锻造	领取钮（ClaimHit）/轨道	EverguildButton	Shell/ForgeTab.cs:1120 AddHit(ClaimHit)	✅有命中件	否（轨道 maskPad=(10,0,0,0) 走 Hit）	点 Claim，看资源
+锻造	阵营选择格（ArmySelector）	CollectionItem	Shell/ForgeTab.cs:776 AddHit(ArmyBadge)	✅有命中件	否	点阵营切换
+锻造	Help 图标	Button	Shell/ForgeTab.cs:629 AddHit(Help Icon Hit)	✅有命中件	否	点 ? 看提示
+锻造	滚轮（轨道/阵营选择）	ScrollRect	Shell/ForgeTab.cs:464/499 RegisterScroll	✅有命中件	否	两区滚轮
+战役	战役节点（Track 节点 item）	EverguildButton	Shell/CampaignTab.cs:668 AddHit(NodeItem)→OnNodeClicked	✅有命中件	否	点轨道节点看弹窗
+战役	阵营选择格	CollectionItem	Shell/CampaignTab.cs:989 AddHit(Army)	✅有命中件	否	点阵营切换
+战役	Premium 领取/Continue	EverguildButton	Shell/CampaignTab.cs:1475 AddHit(ContinueHit)→CollectButtonClicked	✅有命中件	否	点 Continue
+战役	滚轮（横向轨道 + 阵营选择）	ScrollRect	Shell/CampaignTab.cs:319/501 RegisterScroll	✅有命中件	否	轨道横向滚轮
+日常/奖励	Collect 钮（Generic UI Button）	EverguildButton（灰化=换材质）	Shell/MissionsTab.cs:2402 BuildButton→WindowButton(BindSelf,Interactable)	✅有命中件	否	点 Collect，看可领/已领态
+日常/奖励	Trash 垃圾桶 / Reward 预览	EverguildButton	Shell/MissionsTab.cs:877 AddHit(Trash Hit) · 1756/1814 AddHit(Preview)	✅有命中件	否	点垃圾桶、点奖励预览
+日常/奖励	奖励轨道滚轮（RewardWindow）	ScrollRect(横向弹性)	Shell/RewardWindow.cs:1124 MenuScroll + 1130 RegisterScroll	✅有命中件	否	轨道滚轮
+日常/奖励	任务列表溢出（本窗未建 MenuScroll/无视口裁）	原版任务列表 ScrollRect? 未核	Shell/MissionsTab.cs（全文件无 RegisterScroll/MenuScroll）	？判不准	—	任务多到超一屏时看是否画到框外
+设置	页签（Graphics/Sound/Accounts/…）	TabButtons Toggle	Shell/SettingsWindow.cs:1983 Hit(tabHit)	✅有命中件	否	点页签切页
+设置	账号页大钮 / 通用钮（Login/Social/Hyperlink）	EverguildButton SpriteSwap	Shell/SettingsWindow.cs:2717 Hit(AccountBigButton) · 3036 · 3264 GenButton	✅有命中件	否	逐颗点，看行为/出声
+设置	开关行（SmallScreen/AutoZoom/Vsync/TouchInput 等）	EverguildToggle	Shell/SettingsWindow.cs:3235 HitBox + 3236 HitLabel（整行可点）	✅有命中件	否	点框/点文字，看勾选翻转
+设置	语言下拉（Template 行 + 全屏 Blocker）	TMP_Dropdown	Shell/SettingsWindow.cs:2301 Hit(LanguageHit)+Hit3:3567 · Blocker MenuDraw.Hit:3603	✅有命中件	是（Hit3 走 pressedArt，pad=0）	点下拉框展开、点行选语言、点窗外收
+设置	Graphics 页滚轮	ScrollRect	Shell/SettingsWindow.cs:4375 MenuScroll + 4381 RegisterScroll	✅有命中件	否	图像页滚轮
+活动(LiveOps)	活动页签/阵营选择/Deck 钮/Battle/Help	EverguildButton/Toggle	Shell/LiveOpsEventWindow.cs:819/905/1200/1430/1488 MenuDraw.Hit	✅有命中件	否	逐颗点开
+活动(LiveOps)	阵营选择滚轮	ScrollRect	Shell/LiveOpsEventWindow.cs:1020 RegisterScroll	✅有命中件	否	阵营条滚轮
+活动(战令/ExpansionPass)	页签/GetsCards/购买Premium/领取/升级	EverguildButton	Shell/ExpansionPassEventWindow.cs:667/882/986/1037/1098/1180/1190 MenuDraw.Hit	✅有命中件	否	点购买/领取，看资源与出声
+活动(轮抽/Draft)	战将列表 + Deck 列表（两条滚动）	ScrollRect	Shell/DraftModeWindow.cs:1310/1314 warlordScroll · 1955/1960 deckListScroll	✅有命中件	否	两列表滚轮
+活动(Gacha)	页签/GetCards/开箱	EverguildButton	Shell/GachaEventWindow.cs:488/640/698 MenuDraw.Hit	✅有命中件	否	点开箱，看出声(服务器)
+活动(Raid)	页签/领取 Collect	EverguildButton	Shell/RaidEventWindow.cs:551/827/1029 MenuDraw.Hit	✅有命中件	否	点 Collect，看出声(服务器)
+活动(Skirmish)	背景关窗/排行榜/页签/Collect	EverguildButton/BackdropHit	Shell/SkirmishEventWindow.cs:162 ShadeHit · 361/438/592 MenuDraw.Hit	✅有命中件	否	点背景关窗、点 Collect
+联盟	联盟面板（战斗内 BattleAlliancePanel）关闭钮/压暗层	BackgroundCloseButton(IPointerClick)	Shell/AlliancePanelWindow.cs:620 uGUI 路 BattleHudButton · 631 世界路 MenuDraw.ShadeHit · 1047	✅有命中件	否	战斗内点联盟牌/点背景关
+联盟	成员行 Info/Trophies/头像/成员选项	EverguildButton	Shell/AllianceMemberTab.cs:319/320 Hit(InfoHit/TrophiesHit) · 861 Hit(奖杯格) · 1934 Hit(成员行)	✅有命中件	否	点成员行看选项、点奖杯看弹窗
+联盟	成员/奖杯列表滚轮	ScrollRect	Shell/AllianceMemberTab.cs:551/1589 RegisterScroll	✅有命中件	否	两列表滚轮
+联盟	搜索联盟框 Search Field	InputField（可输入）	Shell/AllianceSearchTab.cs:425 Hit(SearchHit)→Say(「打不了字…搜索要服务器」)	⚠️命中区偏小/偏大	否	点搜索框，看是否真能输入（当前只出声）
+联盟	建盟输入框（Name/Desc）	InputField（可输入）	Shell/AllianceSearchTab.cs:924 Hit→Say(「打不了字」)	⚠️命中区偏小/偏大	否	点输入框，看是否真能输入（当前只出声）
+联盟	Join/Create 页签 + Go 搜索钮	EverguildToggle/Button	Shell/AllianceSearchTab.cs:182 TabToggle · 437 Hit(GoHit)	✅有命中件	否	点 Join/Create 切视图、点 Go
+联盟	公开联盟列表滚轮	ScrollRect	Shell/AllianceSearchTab.cs:488 MenuScroll + 492 RegisterScroll	✅有命中件	否	列表滚轮
+聊天	输入框 / 发送键（ChatPanel Enter Text）	TMP_InputField/EverguildButton	Shell/ChatPanel.cs:281 MenuDraw.Hit(InputHit)→日志 · 292 Hit(send)	⚠️命中区偏小/偏大	否	点输入框/发送，看是否真能输入发送（当前只出声，用户口径：聊天暂不做）
+聊天	两个频道页签（Chat Tab Toggle）	Toggle	Shell/ChatPanel.cs:487 MenuDraw.Hit→tabButtons.Click(idx)	✅有命中件	否	点两频道切页
+聊天	消息行 + 头像选项	EverguildButton	Shell/ChatPanel.cs:868 MenuDraw.Hit(MessageHit/头像 Hit) · 383 选项 Hit	✅有命中件	否	点行/点头像看选项
+聊天	消息列表滚轮（ChatTab）	ScrollRect	Shell/ChatPanel.cs:508 内嵌 ChatTab；滚动 Shell/ChatTab.cs:124 RegisterScroll	✅有命中件	否	消息多于一屏时滚轮
+聊天	关闭钮 + 压暗层关窗	BackgroundCloseButton	Shell/ChatPanel.cs:195 ShadeHit · 332 Hit(close)	✅有命中件	否	点窗外/点 X 关窗
+战斗	手牌（悬停抬起/拖拽/落位）	CardCollider(BoxCollider2D) + CardScript	Hand/CardInteraction.cs:1702 新输入系统读指针 + Core/CardView.cs:9524 BoxCollider2D/HitByCollider:9497	✅有命中件	是（真 BoxCollider2D 2 颗：主面 1.97×3.02、第二面 1.25×2.53）	悬停抬起、拖到格上出牌、拖回弹手
+战斗	场上单位点击（开卡窗/查看）	CardCollider/BasicCardUI.CardClicked	Battle/BattleDriver.cs:33152/37966 HitByCollider(2D)/3D raycast	✅有命中件	是（同上 collider）	点场上单位，看是否开卡详情窗
+战斗	HUD 钮（结束回合/设置/墓地·日志/聊天/镜头重置/进攻卡/敌方名牌）	EverguildButton(uGUI)	Battle/BattleDriver.cs:28990/29285/29390/30067/30102/30144/30211 BattleHudButton.Attach	✅有命中件	是（GraphicRaycaster 读 rect+raycastPadding）	逐颗点 HUD 钮
+战斗	攻击选择器（3 颗攻击钮 + 高亮圈 + 背景）	Image.m_RaycastTarget=1 + EventTrigger	Battle/AttackSelector.cs:693 iconTriggers(EventTrigger) · 686 hoverTriggers · 861 背景 SetRaycastTarget(true)	✅有命中件	是（原版 pad=(0,0,0,0)，钮∪圈并集）	点三颗攻击方式钮、悬停看高亮
+战斗	换牌面板（Mulligan 卡片 + 三颗钮）	CardCollider + EverguildButton	Battle/MulliganPanel.cs:1363 CardAt · 1379 三颗子件 m_RaycastTarget=1	✅有命中件	是（collider 命中）	点卡标记换牌、点 Confirm
+战斗	卡选择面板（CardChoicePanel 钮）	EverguildButton	Battle/CardChoicePanel.cs:602-609 BattleHudButton.Attach	✅有命中件	是（m_RaycastTarget=1）	点选择项
+战斗	选择确认面板（ChoosePanel 确认/背景/Play/Eye）	三颗可射线 Image 并集	Battle/ChoosePanel.cs:95 BattleHudButton；测试读口 253-257	✅有命中件	是	点确认/背景/Play
+战斗	回放条（ReplayBar 各枚）	EverguildButton	Battle/ReplayBar.cs:261 BattleHudButton.Attach	✅有命中件	是	播放/暂停/跳转
+战斗	战斗设置滑杆（WfSlider）	Slider + EventTrigger	Battle/WfSlider.cs:1051 EventTrigger	✅有命中件	是（EventTrigger 拖拽）	拖动音量/画质滑杆
+战斗	战斗聊天弹窗（ChatPopupPanel）	EverguildButton	Battle/ChatPopupPanel.cs:542 BattleHudButton.Attach	✅有命中件	是	点聊天弹窗各钮
+战斗	战斗日志面板（BattleLogPanel）	ScrollRect + EventTrigger	Battle/BattleLogPanel.cs:602 EventTrigger	✅有命中件	是	滚动/点日志行
+战斗	结束面板（EndPanel 压暗层 + 钮）	Image.m_RaycastTarget=1	Battle/EndPanel.cs:338 _dim.SetRaycastTarget(true)·959 img.raycastTarget=true	✅有命中件	是	点压暗层/点钮
+战斗	牌库/墓地等战斗内 HUD 扩展钮	EverguildButton	Battle/BattleDriver.cs:29390 墓地钮 · 30102 镜头 · 30144 进攻卡 · 30211 名牌	✅有命中件	是	逐颗点
+通用	菜单类空白处点击吸收 / 点窗外关窗	面板 Image m_RaycastTarget=1 + BackgroundCloseButton	Shell/MenuDraw.cs:2417 ShadeHit / 2484 Absorb（WindowButton+quad）	✅有命中件	否	点窗内空白不关窗、点窗外关窗
+
+## 摘要
+❌ 0 条 / ⚠️ 4 条 / ？ 1 条（共 70 行，其余 65 行 ✅有命中件）
+
+⚠️ 卡组编辑：悬停/按下可能被「双派发」—— DeckRuntime 自建窗口同时收自身 UpdateButtonHover（DeckRuntime.cs:4676/8675）与 PointerLayer 的进入/离开，两者命中判据不同（区域表 vs quad 矩形），边界上理论上可能来回抖；点击不重复（本类全文件 0 处 onClick，PointerLayer 打到只空转）。判据 DeckRuntime.cs:1417-1425。
+⚠️ 联盟（AlliancesTab/AllianceSearchTab）：搜索联盟框（:425）与建盟 Name/Desc 输入框（:924）有命中件但点了只 Say(「打不了字」)，不真输入 —— 本仓其实已有可输入件 Shell/TextInputField.cs（AllianceMemberTab 描述框已用 @:1509），搜索/建盟另有服务器依赖。属「点得到但无编辑行为」。
+⚠️ 聊天（ChatPanel）：输入框（:281）/发送键（:292）有命中件但点了只打日志、不输入不发送 —— 用户 2026-09-26 口径「网络聊天暂不做，界面照建、数据留空态」。
+？ 日常（MissionsTab）：本窗全文件无 MenuScroll/无视口裁切；原版任务列表是否为 ScrollRect 未核、任务超一屏时是否画到框外未验 —— 需真机或回原版 prefab 核。
+
+按窗一句话：
+主菜单：5 颗导航钮+T top 栏 5 钮+模式卡+聊天预览+子栏键全部 WindowButton/MenuDraw.Hit，模式卡网格有滚动区（MainMenuRuntime.cs:1357/2307/2653，TopBar.cs:364，SubmenuWindow.cs:891）—— 全 ✅。
+卡组编辑：整扇窗走【自身 Update + ClickOrder 矩形表】（DeckRuntime.cs:4997/5399/5411），不走 PointerLayer；拖拽/滚轮/点击都在自己这条链上，唯一风险是悬停双派发（见 ⚠️）。
+收藏：四页签、卡组格（DeckCell 已有 ImageQuad）、卡牌/卡背/异画格、筛选栏、六区滚动、卡组拖拽重排全部有命中件（含「卡组格裸节点」A26 已修）。
+商店 / 锻造 / 战役：购买、Info、VIP 锁件、Claim、阵营格、Help、节点、Premium 全部 MenuDraw.Hit/AddHit，滚动区均已 RegisterScroll —— 全 ✅。
+日常/奖励：Collect/Trash/Preview 均有命中件；奖励轨道可滚；唯任务列表溢出未验（？）。
+设置：页签/大钮/开关行(HitBox+HitLabel)/语言下拉(Blocker)/Graphics 滚轮 全 ✅。
+活动（LiveOps/战令/轮抽/Gacha/Raid/Skirmish）：页签、领取、购买、开箱、Battle、阵营/战将/Deck 两条滚动 全走 MenuDraw.Hit 且已注册 —— 全 ✅（服务器类行为点了出声）。
+联盟：战斗面板关闭钮（uGUI+世界两路）、成员行/奖杯格/成员选项、两条列表滚动 全 ✅；搜索/建盟输入框只出声（⚠️）。
+聊天：频道页签、消息行、头像选项、关闭、消息列表滚动（内嵌 ChatTab 有 MenuScroll）全 ✅；输入/发送只出声（⚠️，用户口径）。
+战斗：手牌=真 BoxCollider2D+新输入系统、场上单位=HitByCollider、HUD 7 颗钮 BattleHudButton、攻击选择器/换牌/卡选择/Choose/回放/滑杆/聊天弹窗/日志/结束面板 全部 uGUI EventTrigger 或 BattleHudButton —— 全 ✅，射线面 = GraphicRaycaster 读 rect+raycastPadding。
+通用：菜单类点窗外关窗 = ShadeHit/Absorb（WindowButton+透明 quad，队列严格低于内容）—— ✅。
+
+附记（不在上表 12 窗内，供调度台另立账）：
+· 卡牌详情窗 CardDetailPopup.cs:2527「Buy Original Card」有命中件但点了什么都不做（Log 出声）。
+· 历史已修、勿再当缺口：BattleLogPopup 无滚动（现有 MenuScroll@:181/:189）、FriendsTab 无滚动（现有@:247/:251）、ChatTab 无滚动（现有@:124）、BoosterInfoPopup 两颗钮被压暗层抢命中（现 QShadeHit 严格低于 QHit）、CampaignTab 无横向滚动（现有@:501）。
+

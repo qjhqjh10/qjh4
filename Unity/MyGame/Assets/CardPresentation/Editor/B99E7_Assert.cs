@@ -247,8 +247,18 @@ public static class B99E7_Assert
         return container != null ? container.GetComponentInChildren<Label>(true) : null;
     }
 
+    // 🔴 2026-10-30（调度台 · 配合 `B102RAID`）：三条进度条改成**九宫格**之后，原来的 `OwnQuad(container)`
+    //   取到的是「容器下第一颗 quad」= 某个**角块**（20 / 10 宽）⇒ 这里必须改成**并集**量法
+    //   （判据 = `MenuDraw.UnionQuadRectPx` 的 doc：九宫格/平铺/软边切块**必须**用并集，⛔ 只取第一块会量成角块）。
+    //   ⚠️ `Fill` 那条的容器里还含 `end` 子树（单块，不属于 fill）⇒ **要排掉**，否则右边多算 3.3px。
     static bool RectOf(Transform container, out float x1, out float y1, out float x2, out float y2)
     {
-        return MenuDraw.QuadRectPx(OwnQuad(container), out x1, out y1, out x2, out y2);
+        return MenuDraw.UnionQuadRectPx(container, MenuDraw.QuadGate.None, true,
+            q =>
+            {
+                for (var t = q.transform; t != null && t != container; t = t.parent)
+                    if (t.name == "end") return false;
+                return true;
+            }, out x1, out y1, out x2, out y2);
     }
 }

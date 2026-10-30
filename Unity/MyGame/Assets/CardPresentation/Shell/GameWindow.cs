@@ -506,7 +506,7 @@ namespace CardPresentation
         /// → `xor edx, edx` → **`call 0x180835fd0`** ⇒ 调的**就是这一条、且一个实参都不喂**。</para></summary>
         public bool TryOpen()
         {
-            return OpenByState();
+            return this != null && OpenByState();   // 🔴 2026-10-30：已销毁的窗（OpenByRef 缓存销毁 / Close 延后收割）调到这里会 NRE ⇒ 先短路
         }
 
         /// <summary>②③④ 三支本体（**两条 `TryOpen` 重载共用一份**）。
@@ -515,7 +515,7 @@ namespace CardPresentation
         /// ⛔ 别把 `SetupData` 再挪进来（它是带参那条独有的第一句）。</summary>
         bool OpenByState()
         {
-            var state = CurrentState;
+            if (this == null) return false; var state = CurrentState;   // 🔴 2026-10-30：已销毁组件（OpenByRef 缓存销毁 / Close 延后收割）不碰 gameObject
 
             if (state == WindowState.Closed)
             {
@@ -731,7 +731,7 @@ namespace CardPresentation
             // ⚠️ 四处 `Close` 覆写（`SearchingOpponentWindow.ReleaseHold` / `LiveOpsEventWindow` 取消搜索 /
             //   `MissionRerollPopup` 换回页签 / `SettingsWindow.ApplyIfDirty`）都跑在 `base.Close()`**之前**
             //   ⇒ 守卫加在基类里**不会**掐掉它们（它们那些副作用照旧跑，只是基类那两步不跑）。
-            if (!gameObject.activeSelf)
+            if (this == null || !gameObject.activeSelf)   // 🔴 2026-10-30（`B102_MM` 崩溃 · 退出码 1 的真因）：`this == null` 是 **Unity 假 null 守卫** —— 组件已被 `OpenByRef` 的缓存收割销毁，下一句 `gameObject` 会抛 `MissingReferenceException`。短路在前、不碰引擎属性；一次盖住「所有对已销毁窗调 `Close()`」的点。⚠️ 零行数变化。
             {
                 if (CurrentState != WindowState.Closed && Manager != null && Manager.openWindows.Contains(this))
                     Debug.LogWarning($"[Win] `{name}`：`Close()` 打在一扇**已经不活**（`activeSelf == false`）"
@@ -802,7 +802,7 @@ namespace CardPresentation
             if (Manager != null && Manager.BaseMenu == this) { Hide(); return; }
             // ==========================================================================================================
             Hide();   /* = 原版 `CloseWindowCO` 里那一跳 **Slot 9 `Hide()`**（`0x1c8`，与 `HideAllWindows.c:63` 互证）—— **排在摘表之前**。🔴 2026-10-30（`B101_W1` 同步点 β1）：本行原来是**内联它的尾句** `gameObject.SetActive(false)` ⇒ 只做了「物体置灰」、**跳过了 `Hide()` 的其余三句**；原版那一跳是**整条 `Hide()`**、不是只有尾句（同函数 `:802` 的 baseMenu 支早就在调 `Hide()`，是同一处判据；⛔ 那个支 `return` 在前，走不到本行）。⚠️ 走到本行的一定是**非 baseMenu** 窗 ⇒ 净差**只有 `OnCloseWindow.Invoke()`**：`SetBake(true)` 对非 baseMenu 是空操作（`SetBake` 首句 `if (!IsBaseMenu) return;`）、`CurrentState = Closed` 已在 `:758` 写过、`SetActive(false)` 与原句逐字相同。🟢 判别式：改回 `SetActive(false)` ⇒ 订阅方收不到关窗通知（`Shop` 的 R10/R11/R12b 三条红）。 */
-            if (Manager != null) Manager.NotifyClosed(this);  // = 原版 `List.Remove` + `ShowPreviousWindow`（排在置灰之后）
+            if (Manager != null) Manager.NotifyClosed(this);  if (Manager != null) Manager.QueueDestroyOnClose(this);   // = 原版 `List.Remove` + `ShowPreviousWindow`（排在置灰之后）／🆕 B102_AUD03R：**关窗 = 销毁**（原版 `WindowsManager.CloseWindowCO` 的非 baseMenu 支末句 `Object.Destroy(win.gameObject)`）—— 本仓改成「记账 → 下一次开窗时统一收割」，为什么不当拍销毁见 `WindowsManager.QueueDestroyOnClose` 那段；🧨 删掉这半句 ⇒ `B102AUD03R_Assert` 的 A1-① 红
         }
 
         /// <summary>🆕 **2026-10-17（音效线 `W_G`）**：原版 `GameWindow.Close` 里那一句关窗音

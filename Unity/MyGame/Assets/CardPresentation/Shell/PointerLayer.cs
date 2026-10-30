@@ -1682,7 +1682,7 @@ namespace CardPresentation
                     continue;
                 }
                 Vector2 c, half; ImageQuad q;
-                if (!HitBoxPx(all[i], out c, out half, out q)) continue;
+                if (YieldToHostSkip(all[i]) || !HitBoxPx(all[i], out c, out half, out q)) continue;   // B102_HOVER：归别家派发的件直接剪掉（见类尾让位表）
                 if (Mathf.Abs(px - c.x) > half.x) continue;
                 if (Mathf.Abs(py - c.y) > half.y) continue;
                 list.Add((all[i], q));
@@ -1742,5 +1742,45 @@ namespace CardPresentation
             pl._itemDragging = false; pl._dragging = false;
             pl.Select(null);                                                 // ③ = `SetSelectedGameObject(null)`（顺带退掉选中视觉）
         }
+
+        // ============================================================ B102_HOVER（2026-10-30）：**自派发件的让位表**
+        // 判据 = 原版只有一个 `EventSystem`（UGUI）⇒ 同一颗按钮的悬停 / 按下 / 点击**只有一条派发链**。
+        // 本工程有**两份**派发：本类（`HoverAt` / `PressAt` / `HitButton`）与 `Deck/DeckRuntime` 自己那一套
+        // （`UpdateButtonHover` / `UpdateButtonPress` / `HandleButtons`；为什么那边自己写，见 `DeckRuntime.Build()`
+        // 末尾那三条 —— 本窗的指针语义带模态状态，本类无状态表达不了）。
+        // 两边都打到**同一批 `WindowButton`** 时：
+        //   ① `Enter` / `Exit` 有 `Hovered` 守卫 ⇒ 同向**幂等**，不会各换一次图；
+        //   ② 但两条链的**命中判据不同**（本类 = quad 矩形、那边 = `_btns` 区域表）⇒ 边界上能**同时点亮两颗**；
+        //   ③ 那边 `HandleButtons` 自己按 `ClickCueById` 播 cue，而本类 `Click()` 的 `PlayClickSound()`
+        //      排在**空的 `onClick` 之前**（`WindowButton.Click`：`PlayClickSound(); if (onClick != null) …`）
+        //      ⇒ 点一下**响两声**（`DeckRuntime.cs:1417` 那句「`Click()` 的 `onClick` 是空、空转」**只对了一半**）；
+        //   ④ 本类没有模态 / 抽屉状态 ⇒ 那边挡住的时候本类照样点亮（`PointerReachable` 只管「被压到背景的窗」）。
+        // ⇒ 那边建钮时调 `YieldToHost(wb)` 登记，本类**不派发**这些件（`CollectHits` 里直接剪掉）。
+        // ⚠️ **只剪「那边自己会派发」的那几颗**（`DeckRuntime.Hover` / `HoverTint` 建的）；
+        //    顶栏那 4 颗（设置 / 信箱 / 头像 / 挑战）**仍然靠本类派发**，⛔ 别一起剪。
+        // ⚠️ **键盘导航那一半没剪**（`Navigable` / `FindInDirection` 仍会选到这些件）—— 那是**另一件事**
+        //    （选中态视觉 + 回车派发），本批只治「同一颗被两条**指针**链各派发一次」。
+        static readonly HashSet<WindowButton> _yieldToHost = new HashSet<WindowButton>();
+
+        /// <summary>登记「这颗件的指针派发归**别家**（`DeckRuntime`）」—— 本类此后不对它做悬停 / 按下 / 点击。
+        /// ⚠️ 登记表是 **static**：`PointerLayer` 实例可能晚建（原版 `WindowsManager.EnsureHost` 才建，
+        ///    见 `Instance` 那段病史）⇒ 实例**建之前**登记的那些不能丢。
+        /// 死条目在每次登记时顺手清（口径同 `PruneScrolls`：宿主重建会销毁旧钮）。</summary>
+        public static void YieldToHost(WindowButton b)
+        {
+            if (b == null) return;                                            // 没有钮 ⇒ 无从让位（`DeckRuntime.Hover` 的 `q == null` 那一支已经早退）
+            if (_yieldToHost.Count > 0) _yieldToHost.RemoveWhere(x => x == null);
+            _yieldToHost.Add(b);
+        }
+
+        /// <summary>自检用：清空让位表 —— A2 灭自证专用（清掉以后本类**应当又能**命中那些钮，
+        /// 清不掉说明这些钮本来就不在本类的命中范围里 ⇒ 那 A1 是**空转绿**，不是修好了）。</summary>
+        public static void ClearYieldToHostForTest() { _yieldToHost.Clear(); }
+
+        /// <summary>自检用：现在登记了几颗（⛔ 不重算、只读数）。</summary>
+        public static int YieldToHostCountForTest { get { return _yieldToHost.Count; } }
+
+        /// <summary>这颗件是不是「归别家派发」—— 命中表在这一句上剪枝（唯一出口，⛔ 别在别处再判一次）。</summary>
+        static bool YieldToHostSkip(WindowButton b) { return _yieldToHost.Count > 0 && b != null && _yieldToHost.Contains(b); }
     }
 }

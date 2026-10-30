@@ -289,7 +289,7 @@ namespace CardPresentation
         /// </para></summary>
         public void OpenWindow(GameWindow win, object data = null, bool closeAll = false)
         {
-            if (win == null) { Debug.LogError("[Win] OpenWindow(null)"); return; }
+            if (win == null) { Debug.LogError("[Win] OpenWindow(null)"); return; }   ReapClosedWindows(win);   // 🆕 B102_AUD03R：关过的那几具在这一拍**收割**（= 原版 `CloseWindowCO` 的 `Object.Destroy`，本仓延到「下一次开窗」；`keep` = 正要开的这一扇 ⇒ 撤销、不销毁）
 
             // 🆕 **A672 第二层出声**：`type` 还是哨兵 ⇒ 有人**绕过了 `AttachToAnchor`**（或挂上之后又被改回哨兵）。
             //   与 `GetWindowAnchor` 那条哨兵报错**同形**（那里写「走到这里 = 有人绕过了它」）。
@@ -927,8 +927,8 @@ namespace CardPresentation
                 }
                 else
                 {
-                    // = 原版 `CloseWindowCO` 把缓存条目删掉那一跳（我们惰性做，见上面那段）
-                    _openByRef.Remove(prefabRef);
+                    // = 原版 `CloseWindowCO` 把缓存条目删掉那一跳（我们惰性做，见上面那段）＋ 🆕 B102_AUD03R：`Object.Destroy(win.gameObject)` 那一句（原版三件套的第三件；⚠️ `cached` 可能是已销毁的 Unity 假 null ⇒ 先判再取 `.gameObject`；🧨 删掉 ⇒ `B102AUD03R_Assert` A1-② 红）
+                    if (cached != null) DestroyWindowObject(cached.gameObject); _openByRef.Remove(prefabRef);
                 }
             }
             if (win == null)
@@ -1599,6 +1599,60 @@ namespace CardPresentation
             if (Application.isEditor) Debug.LogWarning("[WindowsManager] 编辑器里 `Application.Quit` 是空操作 ⇒ 真机上才退。");
             Application.Quit(0);
         }
+
+        // ============================================================================================
+        //  🆕 B102_AUD03R（2026-10-30）：**关窗 = 销毁**（原版 `WindowsManager.CloseWindowCO` 的非 baseMenu 支：
+        //     `Hide()` → `List.Remove` → `Object.Destroy(win.gameObject)` + 释放 + 删缓存条目）。
+        //     本仓原来只 `SetActive(false)` ⇒ **每「关掉再开」一轮就在锚点下多一具 inactive 尸体**
+        //     （`AUD03` 跨窗根因 ①②，老账 `A123`）。
+        //
+        //  🔶 自己设计（非原版）：收割【时机】（原版当拍 `Object.Destroy`，我们延到「下一次开窗」）· 为什么必须自定：3 处生产点 + 十余段夹具靠「关掉后同一实例再开」，都不在本批白名单 · 调度台 2026-10-30 施工单裁定「⛔ 别一刀切改成 Destroy」：
+        //     本仓有 3 处**生产**点 + 十余段**自检夹具**是「**关掉之后拿同一个实例再开**」的老写法：
+        //       · `Shell/RewardWindow.cs` 的 `Show`（`if (rw.CurrentState != Closed) rw.Close(); win = rw;` —— 注释自己写着
+        //         「我们的 `Close()` 只 `SetActive(false)` ⇒ 实例还在，直接复用」）；
+        //       · `Shell/AlliancePanelWindow.cs` 的 `Create` 尾句 `c.Build(); c.Close(); return c;`（**把窗交还调用方**）；
+        //       · `Editor/ShellScene.cs` / `Editor/CollectionScene.cs` 的 `Close(); TryOpen()` / `Close(); OpenWindow(x)` 一族。
+        //     当拍 `Destroy` 会把它们**全部打空**（Unity 的假 null ⇒ `OpenWindow(null)` / `MissingReferenceException`），
+        //     而那些文件**都不在本批白名单内**。⇒ 改成「**记账 → 下一次开窗时统一收割**」。  🔴 2026-10-30 就地订正（原来这里称「十余段夹具关掉再开同一实例 ⇒ 延后收割即可」，**不成立**）：`ReapClosedWindows(keep)` 的 `keep` **只护本次正开的那一扇** ⇒ 若 `Close()` 与「拿同一实例再开」之间**插进了任何别人的 `OpenWindow(...)`**，那具旧窗**当场被收割**，再用旧实例就是假 null（`OpenWindow(null)` / `MissingReferenceException`）。⇒ 那些老写法只保证「关掉后**紧接着的下一次开窗**就是它自己」；中间会穿插别人的开窗的调用点，必须按原版先 `Destroy` 再重建。
+        //
+        //  ✅ **玩家可见行为与原版逐位相同**：「关掉再开一轮」之后旧对象确实**没了**、新的那扇是**新实例**。
+        //     ⚠️ 唯一的差别 = 那一具尸体**多活到下一次开窗**（关掉之后不再开任何窗 ⇒ 留一具；下一次开任何窗都会被收掉）。
+        //     ⚠️ 上面那几处老写法改完之后，这里可以退回原版的一行：`Close()` 尾句直接 `DestroyWindowObject(gameObject)`。
+        // ============================================================================================
+
+        /// <summary>「关过、还没收割」的窗（见上面那段）。关窗时记一笔、下一次开窗时收割。</summary>
+        readonly List<GameWindow> _pendingDestroy = new List<GameWindow>();
+
+        /// <summary>关窗那一刻记一笔（唯一调用点 = <see cref="GameWindow.Close"/> 的尾句）。
+        /// <para>⚠️ 只记**经由管理器开过**的窗（调用方已判 `Manager != null`）—— 从没进过 `openWindows` 的
+        /// （`Create()` 出来当夹具、`Create` 末尾收起一次的那几扇）**没有尸体可收**，也不该被谁悄悄销毁。</para></summary>
+        internal void QueueDestroyOnClose(GameWindow win)
+        {
+            if (win == null) return;
+            if (!_pendingDestroy.Contains(win)) _pendingDestroy.Add(win);
+        }
+
+        /// <summary>收割：把「关过、之后没被再开回来」的窗**真销毁**（原版那一句 `Object.Destroy` 的等价物）。
+        /// <paramref name="keep"/> = **这一次正要开的那一扇** —— 它若也在待收表里 ⇒ 撤销（照原版「复用同一实例」那条路：不销毁）。
+        /// <para>⚠️ 三个「不销毁、只摘账」的档，缺一条都会造出真缺陷：
+        /// ① `w == null`（Unity 假 null，已经被销毁）② `w == keep`（这一次正要开它 = 复用）
+        /// ③ `w.CurrentState != Closed`（关过之后又被谁开回来了 —— 收掉就是把活窗删了）。</para></summary>
+        void ReapClosedWindows(GameWindow keep)
+        {
+            for (int i = _pendingDestroy.Count - 1; i >= 0; i--)
+            {
+                var w = _pendingDestroy[i];
+                if (w != null && w != keep && w.CurrentState == WindowState.Closed)
+                {
+                    Debug.Log($"[Win] 关过的那一具 `{w.name}` ⇒ **销毁**（= 原版 `CloseWindowCO` 的 `Object.Destroy`；本仓延到「下一次开窗」才收）");
+                    DestroyWindowObject(w.gameObject);
+                }
+                _pendingDestroy.RemoveAt(i);   // 无论收没收，都从「待收」里摘掉（上面三档各自的原因见 doc）
+            }
+        }
+
+        /// <summary>自检读口：这一台管理器上「关过、还没收割」的器物有几具（= `_pendingDestroy.Count`）。</summary>
+        public static int PendingDestroyCountForTest(WindowsManager wm) { return wm == null ? 0 : wm._pendingDestroy.Count; }
     }
 
     // ============================================================ 原版 `ReferralContainer.Refresh()`（B94_S3 · 2026-10-29）

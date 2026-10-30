@@ -498,7 +498,7 @@ namespace CardPresentation
             //     都在**同步结算里**，`BattleDriver` 侧今天**没有任何消费者**（纯表现信号）。
             //   ⇒ 与 `StatusApplied` 同档口径。⛔ 别改成 `TimedKinds`：那要在 `DurationOf` / `SourceOf`
             //   各补一个 `case`，而我们**没有**任何「这一拍演多久」的判据。
-            EvtKind.TraitRemoved, EvtKind.EnchantmentRemoved,   // 🆕 2026-10-27（`E7ENG` · 账 532 的 1b）：摘附魔效果那一拍**不占时间线** —— 原版 `ResolveRemoveEffect`（内联进 `ResolveAction` case 0x10）是同步方法、不 `yield`，与 `StatusApplied` / `TraitRemoved` 同档；成员 doc 见 `BattleEvent.cs`。⚠️ 写在同一行 = **刻意零行数变化**（本文件下游有账按行号引，见铁律 18·b）
+            EvtKind.TraitRemoved, EvtKind.EnchantmentRemoved, EvtKind.SabotageCreated,   // 🆕 2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506`）：造破坏卡进手牌那一拍**不占时间线** —— 中央展示走 `BattleDriver.PlaySignal` 的 `else if (e.Kind == EvtKind.SabotageCreated && animateFeel)`（`BattleDriver.cs:23064` 调 `MaybeDisplayCreatedSabotageCardInCenter`），是 DOTween 序列、不推时间线。⚠️ **降级说明**：原版 `.c:100-107` 其实是 `yield return StartCoroutine(...)`、**会阻塞**；我们降级成「不断时间线」，与 `EvtKind.Play`（中央展示是 DOTween 序列）同一降级口径。⛔ 别改成 `TimedKinds`：那要在 `DurationOf` / `SourceOf` 各补一个 `case`，而我们没有「这一拍演多久」的独立判据。｜🆕 2026-10-27（`E7ENG` · 账 532 的 1b）：摘附魔效果那一拍**不占时间线** —— 原版 `ResolveRemoveEffect`（内联进 `ResolveAction` case 0x10）是同步方法、不 `yield`，与 `StatusApplied` / `TraitRemoved` 同档；成员 doc 见 `BattleEvent.cs`。⚠️ 写在同一行 = **刻意零行数变化**（本文件下游有账按行号引，见铁律 18·b）
         };
 
         /// <summary>🆕 2026-10-24（`A2`）：**在 `DurationOf(EvtKind)` 里【有值】的事件种类**

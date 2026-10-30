@@ -1144,7 +1144,7 @@ namespace CardPresentation
         //   ⛔ 别「顺手加回来」：它们是自检脚手架长进产品里的那一类。
         Label _deckNameText, _deckNameHint, _counterTxt;
         readonly Label[] _wcTxt = new Label[4];
-        ImageQuad _emptyWarn, _doneHl;
+        ImageQuad _emptyWarn; GameObject _doneHl;   // `_doneHl` 是 `MenuDraw.Nine` 的**容器根**（九宫块在子件、根上没有 `ImageQuad`）⇒ 类型 `GameObject`（`B102_AUD01`）
         /// <summary>页头那颗 `Filters` 圆钮 —— 它要**按状态换图**（面板开=`40k_menu_bt_pressed`、关=`40k_menu_bt`），
         /// 见 `RefreshHeader` 里那段判据（原版 `EverguildToggle.changeSpriteOnValueChange=1`）。</summary>
         ImageQuad _hdrFltBtn;
@@ -2474,7 +2474,7 @@ namespace CardPresentation
 
         void BuildFooter()
         {
-            _doneHl = Img("foot_hl", "FX_Square_UI_SDF", DoneHlX, DoneHlY, DoneHlW, DoneHlH, QDoneHl);
+            _doneHl = BuildFootHl();   // `B102_AUD01`：原版是 `Sliced` + `m_FillCenter=0`（空心框）⇒ 九宫格，⛔ 不是整张 128² 拉成的实心 quad；判据在文件尾 `BuildFootHl`
             // 🆕 A24：原版 `Sidebar/Footer/Done` 也是 `SpriteSwap`（同上，三颗同图）
             Hover("foot_done",
                   Img("foot_done", "UI_Button_Mulligan", DoneX, DoneY, DoneW, DoneH, QRow),
@@ -2567,8 +2567,8 @@ namespace CardPresentation
             //   Filters > Army Filter/Title`）。英文列 = 那颗 TMP 的 `m_text` 原文 `Army`；
             //   中文列 = 「军队」（源 `数据/本地化/i18n/zh_CN.csv:11`，⚠️ 是我们译的）。
             //   ⛔ 节点名 `cosmoflt_title` 不动（`Editor/DeckScene` 里按名找 `cosmoflt_title` 那一处）。
-            _cosmoArmyTitle = Txt("cosmoflt_title", Loc.T("MenuDeck/Filters/Army"), cosmoArmyR.x1, cosmoArmyR.y1, cosmoArmyR.W, cosmoArmyR.H,
-                                  1, Ink, QFltText, CosmoFltParent);
+            _cosmoArmyTitle = FilterPanelModel.ApplyTitleFontStyle(Txt("cosmoflt_title", Loc.T("MenuDeck/Filters/Army"), cosmoArmyR.x1, cosmoArmyR.y1, cosmoArmyR.W, cosmoArmyR.H,
+                                                                          1, Ink, QFltText, CosmoFltParent));   // 🆕 B102/AUD02：原版 m_FontStyle=16(UpperCase)
             if (_cosmoArmyTitle != null)
             {
                 _cosmoArmyTitle.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.TitleFontPx));
@@ -2904,8 +2904,8 @@ namespace CardPresentation
                 //   ⛔ **节点名那半句一个字没动** —— `Editor/DeckScene.cs` 的 `TitleLeftPx` / `FilterTitleLabel`
                 //   按名找（`flt_title_Army` / `flt_title_Energy_Cost` …），名字一换整族断言红。
                 //   ⚠️ `Energy Cost` **原版没有 `Localize`** ⇒ `TitleText` 原样返回英文（见 `TitleTerm` 的 doc）。
-                var lb = Txt("flt_title_" + tl.Text.Replace(" ", "_"), FilterPanelModel.TitleText(tl.Text), r.x1, r.y1, r.W, r.H, 1, Ink,
-                             QFltText, FltParent);
+                var lb = FilterPanelModel.ApplyTitleFontStyle(Txt("flt_title_" + tl.Text.Replace(" ", "_"), FilterPanelModel.TitleText(tl.Text), r.x1, r.y1, r.W, r.H, 1, Ink,
+                             QFltText, FltParent));   // 🆕 B102/AUD02：原版 m_FontStyle=16(UpperCase)
                 if (lb != null)
                 {
                     lb.SetGlyphHeight(LayoutSpace.Px(tl.Px));
@@ -8624,7 +8624,7 @@ namespace CardPresentation
             if (q == null) return null;      // 图没取到（`Ui()` 已记账）⇒ 不挂一颗点不出反应的假按钮
             var wb = q.gameObject.AddComponent<WindowButton>();
             wb.BindSelf(art, hoverArt, pressedArt);
-            if (!string.IsNullOrEmpty(key)) _hoverBtns[key] = wb;
+            if (!string.IsNullOrEmpty(key)) { _hoverBtns[key] = wb; PointerLayer.YieldToHost(wb); }   // B102_HOVER：这颗的悬停/按下/点击由**本类**派发 ⇒ 指针层让位（原版只有一个 `EventSystem`）
             return wb;
         }
 
@@ -8673,7 +8673,7 @@ namespace CardPresentation
         {
             if (go == null) return null;
             var wb = go.AddComponent<WindowButton>();     // `tintOnHover` 默认 true ⇒ 只要不 `Bind` 就是变色那一档
-            if (!string.IsNullOrEmpty(key)) (drawerReg ?? _hoverBtns)[key] = wb;
+            if (!string.IsNullOrEmpty(key)) { (drawerReg ?? _hoverBtns)[key] = wb; PointerLayer.YieldToHost(wb); }   // B102_HOVER：同上（抽屉那几颗也由本类 `DrawerHoverUnder` 派发）
             return wb;
         }
 
@@ -8895,7 +8895,7 @@ namespace CardPresentation
                 SetupDoneHighlight();
             if (_doneHlCtl != null) { _doneHlCtl.Toggle(on); return; }
             // 挂不上 / 收不到可淡件 ⇒ **退回硬切**（红线：不许静默失败；出声在 `SetupDoneHighlight` 里）。
-            if (_doneHl.gameObject.activeSelf != on) _doneHl.gameObject.SetActive(on);
+            if (_doneHl.activeSelf != on) _doneHl.SetActive(on);
         }
 
         // ============================================================ Done 按钮的 Shiny 扫光（账 455 · 实例 F）
@@ -8959,9 +8959,9 @@ namespace CardPresentation
             var host = _doneHl.transform.parent;
             if (host != null)
             {
-                var tg = _doneHl.gameObject.GetComponent<UIEffectTogglerImage>();
-                if (tg == null) tg = _doneHl.gameObject.AddComponent<UIEffectTogglerImage>();
-                int n = DoneHlFeed(tg, _doneHl.gameObject);
+                var tg = _doneHl.GetComponent<UIEffectTogglerImage>();
+                if (tg == null) tg = _doneHl.AddComponent<UIEffectTogglerImage>();
+                int n = DoneHlFeed(tg, _doneHl);
                 if (n > 0)
                 {
                     var ctl = host.GetComponent<UIEffectTogglerController>();
@@ -9703,6 +9703,50 @@ namespace CardPresentation
             //   但它是同一条修复（「重建前清空上一趟登记」）的一部分。⛔ 别删：
             //   `_cosmCells` / `_poolBars` 那两张**按下标覆写**、靠「已销毁 == null」自愈，**不需要**在这里清。
             _cosmOnly.Clear();
+        }
+    }
+}
+
+// ================================================================================================
+//  🆕 2026-10-30（B102_AUD01）：`Done Highlight`（`foot_hl`）改成**原版的空心九宫格**
+//
+//  判据（UnityPy 直读真包 `assets_full/bundle_menus_assets_all` 的
+//    `Deck Editing Menu/Content Area/Sidebar/Footer/Done/Done Highlight` 那颗 `Image`）：
+//    · sprite = `FX Square UI SDF`（**128 × 128**）
+//    · `m_Type = Sliced` · `m_Border = (19, 19, 19, 19)` · `m_PixelsPerUnitMultiplier = 1`
+//    · **`m_FillCenter = 0`** ⇒ 中间那块**不画**，只画 8 块边角（= 空心框）
+//  改前：`Img("foot_hl", "FX_Square_UI_SDF", …)` = 把整张 128² 拉成的**实心 quad**（`ImageQuad.Create` 不切九宫）。
+//  ⚠️ `m_Color (1, .5672, .1098)` 那一笔**本批没动**（最终 tint 由 `UIEffectTogglerImage` 的逐帧淡入决定，
+//     静态读不出；见 `报告/B101_P1_prefab视觉参数普查.md` §2·2）—— 只改 `m_FillCenter` 这一处。
+//  ⚠️ 本段**追加在文件尾部**（铁律 13·3 / 18·b：本文件被账按 `文件:行号` 引用，往类体中间插成员会让下游落点整体漂移）。
+// ================================================================================================
+namespace CardPresentation
+{
+    public partial class DeckRuntime
+    {
+        /// <summary>原版 `Done Highlight` 那张 sprite 的边长（px）—— `FX Square UI SDF` 128×128。</summary>
+        public const float FootHlSpritePx = 128f;
+        /// <summary>原版 `Image.m_Border` 的四边（px，L=B=R=T）—— 19 / 19 / 19 / 19。</summary>
+        public const float FootHlBorderPx = 19f;
+        /// <summary>原版 `Image.m_FillCenter` —— `0` ⇒ **中间那块不画**（空心框）。
+        /// ⛔ 改回 `true` 就是改回实心（断言 `B102AUD01_Assert` 的 A1/A2 会红）。</summary>
+        public const bool FootHlFillCenter = false;
+
+        /// <summary>建 `Done Highlight`（`foot_hl`）：**空心九宫格**，⛔ 不是整张拉伸的实心 quad。
+        /// <para>判据（UnityPy 直读真包）：`…/Sidebar/Footer/Done/Done Highlight` 的 `Image` =
+        /// `m_Type Sliced` · `m_Border (19,19,19,19)` · **`m_FillCenter 0`** · sprite `FX Square UI SDF` 128²。</para>
+        /// <para>⚠️ 返回的是 `MenuDraw.Nine` 的**容器根**（根上**没有** `ImageQuad`，八块边角在子件）——
+        /// 所以 `_doneHl` 的类型是 `GameObject`；`UIEffectTogglerImage` 那条按「逐个 `ImageQuad` 喂」走
+        /// （`DoneHlFeed` 本来就 `GetComponentsInChildren`，换容器后 `TargetCount` 从 1 变 8）。</para>
+        /// <para>⚠️ 缺图时返回 null（`Ui()` 已记账），与改前 `Img()` 的行为一致。</para></summary>
+        GameObject BuildFootHl()
+        {
+            var tex = Ui("FX_Square_UI_SDF");
+            if (tex == null) return null;
+            return MenuDraw.Nine(Root, tex,
+                new PxRect(DoneHlX, DoneHlY, DoneHlX + DoneHlW, DoneHlY + DoneHlH),
+                new Vector4(FootHlBorderPx, FootHlBorderPx, FootHlBorderPx, FootHlBorderPx),
+                FootHlSpritePx, FootHlSpritePx, QDoneHl, null, FootHlFillCenter, "foot_hl");
         }
     }
 }

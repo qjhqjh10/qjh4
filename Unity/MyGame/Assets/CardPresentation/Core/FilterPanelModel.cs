@@ -968,6 +968,29 @@ namespace CardPresentation
             return term == null ? titleText : Loc.T(term);
         }
 
+        /// <summary>🔴 **2026-10-30（`B102` / `AUD02`）：小标题的【字重档】—— 原版是 `UpperCase`。**
+        /// <para>原版那 5 颗 `Title` 的 `m_FontStyle = 16`（= `TMPro.FontStyles.UpperCase`）⇒ 画面是
+        /// `ARMY` / `RARITY` / `ENERGY COST` / `TYPE`；我们原来只换了文案（`TitleText`）、没换档，
+        /// 于是印出来是混合大小写。</para>
+        /// <para>判据（UnityPy 直读真包 `bundle_menus_assets_all`，逐颗核过）：
+        /// `Deck Editing Menu/Content Area/Card Display/Card Filters/Scroll View/Viewport/Filters/`
+        /// `{Army Filter,Rarity FIlter,Cost Filter,Type Filter}/Title` 与
+        /// `Deck Editing Menu/Content Area/Cosmetic Display/Cosmetic FIlter/Filters/Army Filter/Title`
+        /// —— `m_text` 依次 `Army`/`Rarity`/`Energy Cost`/`Type`/`Army`，`m_FontStyle` **全 = 16**。</para>
+        /// <para>⛔ **别改成对文案做 `ToUpper()`**：`Title.Text` 一行两用（节点名按它拼），而且原版的
+        /// `m_text` 本来就是 `Army` —— 大小写是**渲染档**，不是文案。改文案会把两个宿主的按名查找全断。</para>
+        /// <para>调用点（两个宿主共 3 处，⛔ 别在别处再各写一份）：
+        /// `Deck/DeckRuntime.cs` 的 `flt_title_*`（4 颗）与 `cosmoflt_title`（1 颗）、
+        /// `Shell/CollectionWindow.cs` 的 `Title *`（4 颗）。断言 → `Editor/B102AUD02_Assert.cs`。</para>
+        /// <para>⚠️ **返回 `lb` 是为了「零行数变化」**：三个调用点都写成 `var lb = ApplyTitleFontStyle(Txt/Text(…));`
+        /// （就地包一层），**⛔ 别改成另起一行** —— 这两个文件被账按 `文件:行号` 引用，多一行就是一片漂移。</para></summary>
+        public static Label ApplyTitleFontStyle(Label lb)
+        {
+            if (lb == null) return null;
+            lb.SetFontStyle(TMPro.FontStyles.UpperCase);
+            return lb;
+        }
+
         /// <param name="costRowNeedsWarlord">🔴 **2026-10-14（账 `N14`）**：与 <see cref="Build"/> 的**同名同义**
         /// 那一个形参（同一份判据 <see cref="CostRowVisible"/>，⛔ 别在这里另写一份条件）。
         /// ⚠️ **`Title` 必须照旧四条全发**（行的顺序与下标是**两个调用方共用的映射**：

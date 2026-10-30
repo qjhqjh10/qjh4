@@ -26,13 +26,13 @@
 //    两份 prefab 的序列化字段（YAML 现读，逐字相同）：
 //      `fitInParent = 1` · `targetRect = Content` · `padding = (1.35, 1.35)` · **`paddingType = 1`（乘）**
 //      `CardUI.sizeDelta = (2.5437, 3.3686)`
-//    ⇒ 每 1 个「卡单位」要画 `1.35 × 712 / 2.5437 = 377.87` 设计 px（宽度这一侧赢：
-//      712/2.5437 = 279.9 < 1080/3.3686 = 320.6）。
-//    ⇒ 卡体（2.0927 × 3.3313 卡单位）= **790.76 × 1258.85 设计 px**，中心 = `Content` 中心。
-//      ⚠️ **它比 `Content`（712×1080）大 35%** —— 这是原版行为（`paddingType=1` 就是"过扫"），
+//    ⇒ 每 1 个「卡单位」要画 `1.35 × 712.8 / 2.5437 = 378.30` 设计 px（宽度这一侧赢：
+//      712.8/2.5437 = 280.2 < 1080/3.3686 = 320.6）。
+//    ⇒ 卡体（2.0927 × 3.3313 卡单位）= **791.67 × 1260.23 设计 px**，中心 = `Content` 中心。
+//      ⚠️ **它比 `Content`（712.8×1080）大 35%** —— 这是原版行为（`paddingType=1` 就是"过扫"），
 //      ⛔ 别为了"整齐"把它缩回去（铁律 18·0：原版自己也这样）。
 //    `CardView` 在 1 个世界单位 = 108 设计 px 下，scale = 1 时卡体宽 `CardView.Width × 108`；
-//    ⇒ **`localScale = 377.87 × frameK / 108 = 3.4988 × frameK`**（`CardDrawerScale` 那个纯函数就是它）。
+//    ⇒ **`localScale = 378.30 × frameK / 108 = 3.5028 × frameK`**（`CardDrawerScale` 那个纯函数就是它）。
 //
 //  ── 🔴 原版 quirk（照抄，⛔ 别"修好"）────────────────────────────────────────
 //    `SetRawCardData` 里写的是 `cardRarityHolderController.SetCardRarity(0, maxCardRarity)`，
@@ -71,12 +71,12 @@ namespace CardPresentation
         /// <summary>原版 `UIScaleToFit` 那一档的**纯算式**（不建任何节点，供自检直接调）。
         /// <para>`frameK` = 抽屉根的设计 px → 实际 px 的换算（= `FrameOf` 的 `K`；整格时 = 1）。</para>
         /// <para>推导：`ratio = min(1.35×Content.w/2.5437, 1.35×Content.h/3.3686)`，宽度侧赢；
-        /// `Content.w = 712 × frameK` ⇒ 每卡单位 `377.87 × frameK` 设计 px；
+        /// `Content.w = 712.8 × frameK`（拉伸节点 ⇒ 宽 = 根宽 `0.66×1080`）⇒ 每卡单位 `378.30 × frameK` 设计 px；
         /// 而 `CardView` 在 scale = 1 时 1 卡单位 = `ImageQuad.PixelsPerUnit`（= 108）设计 px。</para></summary>
         public static float CardDrawerScale(float frameK)
         {
-            float perUnitPx = DrCardPadMul * DrRootW / DrCardUIW;      // 1.35 × 712 / 2.5437 = 377.87
-            return perUnitPx * frameK / ImageQuad.PixelsPerUnit;       // ÷108 ⇒ 整格（frameK=1）时 3.4988
+            float perUnitPx = DrCardPadMul * DrRootW / DrCardUIW;      // 1.35 × 712.8 / 2.5437 = 378.30
+            return perUnitPx * frameK / ImageQuad.PixelsPerUnit;       // ÷108 ⇒ 整格（frameK=1）时 3.5028
         }
 
         /// <summary>原版 `CardDrawer.Draw` 的等价实现（B6）。

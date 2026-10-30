@@ -2105,8 +2105,8 @@ public static class ShopScene
             int before0 = ShopData.OwnedOf(0, 0);
             if (pg != null) pg.Buy(0);
             Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
-            CheckTrue(ShopTabPage.LastWaitingPopup != null,
-                      "★ 购买时弹过「正在处理您的购买…」等待框（原版 `ShopStore.TryPurchase` 第一句，无条件）");
+            CheckTrue(!ReferenceEquals(ShopTabPage.LastWaitingPopup, null),
+                      "★ 购买时弹过「正在处理您的购买…」等待框（原版 `ShopStore.TryPurchase` 第一句，无条件）｜🆕 B102_D6：那一具窗早在 `OpenBoosterPack` 那一拍就被收割销毁了（Unity 假 null ⇒ 原来的 `!= null` 恒假）⇒ 改判「这个引用**被赋过值**」：`ReferenceEquals` 对已销毁的 `UnityEngine.Object` 仍是 false，而**没建过**时它是 null（改坏法：删掉 `DoBuy` 开头那两句 ⇒ 本条红）");
             CheckTrue(ShopTabPage.LastWaitingPopupHadNoButton,
                       "★ …那扇窗是 **0 颗钮**（原版 `ConfigurePopUp(3 参)` 对每颗 `LiveButtons` 调 `SetActive(false)`）");
             CheckTrue(wm == null || wm.popUpWindow == null,
@@ -5877,7 +5877,7 @@ public static class ShopScene
         // 🆕 2026-10-29（调度台代接线 · `B97_REMOTE1`）：商店 7 条 REMOTE 的本地模拟口径（89/91/92/203）。
         B97REMOTE1Assert.Run(); _sink.Pass += B97REMOTE1Assert.Pass; _sink.Fail += B97REMOTE1Assert.Fail;
         // 🆕 2026-10-29（调度台代接线 · `B97_SHOP2`）：开箱奖励/来源卡配置/排程替身 + 限购售罄闸（A 组写盘全程在 OverrideDir 临时目录）。
-        B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail; B97W15Assert.Run(win); _sink.Pass += B97W15Assert.Pass; _sink.Fail += B97W15Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W15`）：账 `商店:297` 售罄格变灰（灰走 SwitchMaterial 材质路径，⛔ 不是 `m_DisabledColor` 死值）；同一行追加 ⇒ 行数零变化
+        B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail; /* 🆕 B102_D6：W15 的宿主换成**现建的活窗**（原来传的 `win` 在 `:4602` 开报价弹窗那一拍已被收割销毁 ⇒ Unity 假 null）；跑完立刻销毁 */ var w15Host = ShopWindow.Create(WindowsManager.EnsureHost()); w15Host.Manager.OpenWindow(w15Host); B97W15Assert.Run(w15Host); Object.DestroyImmediate(w15Host.gameObject); _sink.Pass += B97W15Assert.Pass; _sink.Fail += B97W15Assert.Fail; B102PACK_Assert.Run(); _sink.Pass += B102PACK_Assert.Pass; _sink.Fail += B102PACK_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W15`）：账 `商店:297` 售罄格变灰（灰走 SwitchMaterial 材质路径，⛔ 不是 `m_DisabledColor` 死值）；同一行追加 ⇒ 行数零变化
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）

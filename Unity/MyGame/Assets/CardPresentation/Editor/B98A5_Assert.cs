@@ -15,7 +15,11 @@
 //   判绿 = 小结那行 `✗` 为 0。
 //
 // ============================ 🔴 灭自证（每条「什么改动能让它红」）============================
-//   · `BoosterPackOpenWindow.BoosterTermOf("Sautekh")` 改成 `Armies/Sautekh` ⇒ 第 1 段红（官方表里没这个键）。
+//   · `BoosterPackOpenWindow.BoosterTermOf("Sautekh")` 改成 `Armies/Sautekh` ⇒ 第 1 段红
+//     （🔴 2026-10-30 就地订正（铁律 5）：原来这里写「官方表里没这个键」——**实测有**。`Armies/Sautekh`
+//      与 `Armies/Sautekh_short` **两个键都在** `Resources/official_loc_13lang.json`（10,862 键）。
+//      ⇒ 这条灭自证**仍然成立**，但红的理由是「got = `Armies/Sautekh` ≠ want = `Armies/Sautekh_short`」，
+//      ⛔ 不是「表里查不到」。）。
 //   · `OriginalShakePresets()` 里任一条 amplitude / delay 改一个数 ⇒ 第 1、3 段红。
 //   · `BuildVisualItemLayer` 里那句 `Instantiate(prefab, anchor)` 删掉 ⇒ 第 2 段「★ 卡包实物建出来了」红。
 //   · `BoosterPackVisualItem.Initialize` 里 `t.text = localizedArmyText;` 删掉 ⇒ 第 3 段「两颗 TMP 都写上了字」红。
@@ -91,7 +95,11 @@ public static class B98A5_Assert
         // ② 这 5 个键在官方词条表里**逐条命中**（原版 `LocalizationManager.GetTranslation` 的判据面）
         string[] keys = { "Armies/Ultramarines", "Armies/Sautekh_short", "Armies/SpaceWolves",
                           "Armies/Leviathan", "MenuShop/Alpha/AllArmies" };
-        for (int i = 0; i < keys.Length; i++) Check(Loc.HasEntry(keys[i]), "官方词条表里有 `" + keys[i] + "`");
+        // 🔴 2026-10-30 就地订正：原来用 `Loc.HasEntry` —— 它**只认手写 `Table`**（`Core/Loc.cs:3607`），
+        //   而这两个键（`Armies/Sautekh_short` / `MenuShop/Alpha/AllArmies`）在手写表里**没有**、
+        //   却在官方 13 语全表 `Resources/official_loc_13lang.json`（10,862 键）**里** ⇒ `Loc.T` 的**第三档**兜到。
+        //   ⇒ 判「官方词条表里有这条」的口用 `Loc.OfficialEnglish(key) != null`（`Core/Loc.cs:3104`，纯数据面、不看当前语档）。
+        for (int i = 0; i < keys.Length; i++) Check(Loc.OfficialEnglish(keys[i]) != null, "官方词条表里有 `" + keys[i] + "`");
 
         // ③ 两条 shakePresets（17 份 MB 逐字节相同）
         var sh = BoosterPackOpenWindow.OriginalShakePresets();
@@ -200,13 +208,14 @@ public static class B98A5_Assert
         // ③ 两颗世界空间 TMP 都写了同一串字
         var texts = item.ArmyTexts;
         Check(texts != null && texts.Length == 2, "（前提）`armyTexts` 是 **2** 颗（原版 `TextMeshPro[2]`）");
-        if (texts != null && texts.Length == 2)
-        {
-            Check(texts[0] != null && texts[0].text == want, "③ `armyTexts[0].text` 写对了");
-            Check(texts[1] != null && texts[1].text == want, "③ `armyTexts[1].text` 写对了（原版是全数组写）");
-            Check(texts[0] != null && texts[0].GetType() == typeof(TMPro.TextMeshPro),
-                  "`armyTexts` 是**世界空间** `TextMeshPro`（⛔ 不是 `TextMeshProUGUI`）");
-        }
+        // 🔴 2026-10-30：原来这三条包在 `if (texts != null && texts.Length == 2) { … }` 里 ⇒ 前提不成立时
+        //   **三条静默跳过**（文件头自己就写着「⛔ 不用 `if(前提) Check(结论)`」）。改成「前提折进每条的条件里」：
+        //   前提那条（上一行）照旧硬断，这三条在前提不成立时**各报一条红**，而不是消失。
+        bool armyTextsOk = texts != null && texts.Length == 2;
+        Check(armyTextsOk && texts[0] != null && texts[0].text == want, "③ `armyTexts[0].text` 写对了");
+        Check(armyTextsOk && texts[1] != null && texts[1].text == want, "③ `armyTexts[1].text` 写对了（原版是全数组写）");
+        Check(armyTextsOk && texts[0] != null && texts[0].GetType() == typeof(TMPro.TextMeshPro),
+              "`armyTexts` 是**世界空间** `TextMeshPro`（⛔ 不是 `TextMeshProUGUI`）");
 
         // ④ 拆包声（原版 `SoundManager.Play2D(openBoosterPack, MixerType.Jingles)`）
         CheckEq(item.OpenBoosterPack, "Booster Open Tyranid",

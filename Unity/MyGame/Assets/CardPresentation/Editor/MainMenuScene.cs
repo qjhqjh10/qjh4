@@ -2533,7 +2533,7 @@ public static class MainMenuScene
         //   🔴 **2026-10-11（`A1522⑤`）那一版只把 `Practice`/`Tutorial` 的上下换了**，三张 `1×2` 的列位
         //   仍与实拍不符 ⇒ **2026-10-13 整列重排**（上面那一段）；`Practice`/`Tutorial` 的**上下未变**。
         CheckCard(menu, "Base Game Mode Container 1x2 - Skirmish", 205f, 535f, 848.8f, "Skirmish（1x2 · **col0** · 独占整列）", 182.8f);
-        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 1 * 555f, 535f, 848.8f, "Ranked（1x2 · **col1** · 独占整列）", 182.8f); B99E7_Assert.Run(_sink);
+        CheckCard(menu, "Base Game Mode Container 1x2 - Ranked", 205f + 1 * 555f, 535f, 848.8f, "Ranked（1x2 · **col1** · 独占整列）", 182.8f); B99E7_Assert.Run(_sink); B102RAID_Assert.Run(_sink);
         CheckCard(menu, "Base Game Mode Container 1x1 - Practice", 205f + 3 * 555f, 535f, 414.4f,
                   "Practice（1x1 · **col3**/row0 —— 与 `Tutorial` 同列、它在**上**）", 182.8f);
 
@@ -2891,7 +2891,7 @@ public static class MainMenuScene
                               "★ ④ 收藏窗（原版 `type=0` / `placement=5`）⇒ **非模态**（左栏可点）");
                     CheckTrue(!shopProbe.BlocksLeftNav,
                               "★ ④ 商店（原版 `type=0` / `placement=10`）⇒ **非模态**（左栏可点）");
-                    CheckTrue(cdN != null && cdN.BlocksLeftNav, "④ 对照：详情窗（`type=1` / `placement=15`）⇒ 模态");
+                    { var cdProbe = CardDetailPopup.Create(wmN); CheckTrue(cdProbe.BlocksLeftNav, "④ 对照：详情窗（`type=1` / `placement=15`）⇒ 模态"); MainMenuSubmenuWindow.DestroySafe(cdProbe.gameObject); }   // 🔴 2026-10-30（`B102_MM`）：原来读的是 `cdN`（② 里已 `Close()` 的那一扇，不是「只声明值」的探针）⇒ 改成与 `cwProbe/shopProbe` 同形的**新探针**（只 `Create` 不 `Open` = 零副作用），收工顺手销毁（否则在锚点下留一具）。同一物理行 ⇒ 零行数变化。
 
                     // ---- ⑤ N117 的另一半：COLLECTION 重开**保留当前页**（用户 2026-10-19 拍板）----
                     //   判据 = 原版 `GameWindowWithTabs__Open.c:9-21`（字段 0x12 非空 ⇒ 不调 `GetStartingTab`）。
@@ -8630,11 +8630,11 @@ public static class MainMenuScene
                     pp.Close();          // 六页都断完了才关窗（见上面那条注释）
 
                     // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。
-                    //   🔴 本口**会把窗关掉** ⇒ 排在收尾之后（下面 `本文件` 起是遭遇战那一节，与 `pp` 无关）；
-                    //      上面那句收尾已经关过一次 ⇒ 先开回来（无参 `TryOpen()` 不碰 `Data`）。
-                    CheckTrue(pp.TryOpen(), "（A796 现场）把档案窗开回来 —— 下面那条要在**开着**的窗上点");
-                    MenuDraw.CheckShadeClickRule(CheckTrue, "玩家档案窗", pp.transform,
-                                                 FindChild(pp.transform, "BackgroundHit"), () => pp.CurrentState);
+                    //   🔴 **2026-10-30（`B103`）就地修崩溃**：原来复用上面那扇 `pp`（=`LastOpened`），而它已在本段那次**真点击** `:8621` 里被 `OpenByRef` 的「新建支前销毁旧实例」销毁 ⇒ 后面碰它抛 `MissingReferenceException`（宿主中止 / 退出码 1）。
+                    //   ⇒ 改成**现建一扇活窗**探针（照同段 `cwProbe/shopProbe` 的 `Create` 写法；`TryOpen` 不入册 = 与原来那扇同态），跑完销毁、`LastOpened` 归空。
+                    var ppLive = WindowsManager.Get() != null ? PlayerProfileWindow.Create(WindowsManager.Get()) : null;
+                    CheckTrue(ppLive != null && ppLive.TryOpen() && ppLive.CurrentState == WindowState.Open, "（前提 A796）现建了一扇**活着的**档案窗（`CurrentState = Open`）—— 下面那两条**必须在活窗上**跑；不成立 ⇒ 它们等于没查");
+                    if (ppLive != null) { MenuDraw.CheckShadeClickRule(CheckTrue, "玩家档案窗（A796 现建探针）", ppLive.transform, FindChild(ppLive.transform, "BackgroundHit"), () => ppLive.CurrentState); MainMenuSubmenuWindow.DestroySafe(ppLive.gameObject); PlayerProfileWindow.LastOpened = null; }
                 }
             }
         }
@@ -12491,7 +12491,7 @@ public static class MainMenuScene
                                      "行内 `Challenge button`（**从右边沿往里 133.8**，不是从左边算）");
                     }
                     SocialData.ResetForTest();
-                    sw.PageFriends.RebuildForTest();
+                    sw.PageFriends.RebuildForTest(); B102FRIEND_Assert.Run(sw); _sink.Pass += B102FRIEND_Assert.Pass; _sink.Fail += B102FRIEND_Assert.Fail;   // 🆕 2026-10-30（B102_FRIEND）：好友页搜索框 = 真输入 + 真消费（Add Friend / Instant duel，原版列表**不按它过滤**）
                     CheckTrue(FindChild(FindChild(FindChild(fcont, "Viewport"), "Content"), "Friend Info Item") == null,
                               "清空数据 ⇒ 行又没了（原版 `OnOpen` 清空重填）");
 
@@ -14840,9 +14840,9 @@ public static class MainMenuScene
                 var keepW = MainMenuRuntime.OpenInbox();            // 先开一扇别的（收件箱）
                 CheckTrue(keepW != null && keepW.CurrentState == WindowState.Open, "（前提）收件箱开着");
                 menu.OnNavClick(4);                                 // ← 这一下带 `closeAll`（2026-10-24：原来点那颗钮）
-                CheckTrue(keepW != null && keepW.CurrentState == WindowState.Closed,
+                CheckTrue(keepW == null || keepW.CurrentState == WindowState.Closed,
                           "★ 走 SOCIAL 那个入口 ⇒ **别的窗被关掉**（原版 `closeOtherMenus = 1` ⇒ `OpenByRef(…, closeAll: true)`）"
-                        + "；把那个参数丢掉 ⇒ 这条红");
+                        + "｜🔴 2026-10-30（`B102_AUD03R` 关窗=销毁）起，`Close()` 之后的**下一次开窗**就把它收割销毁（原版 `Object.Destroy` 的等价物，本仓延一拍）⇒ 引用变 Unity 假 null **也是「关掉」**（`keepW == null` 那一支；上面那条前提已钉死它开过）；把那个参数丢掉 ⇒ 这条红");
 
                 // ---- 🆕 2026-10-17（`A1636`）：状态不变式 —— `CurrentState` 与 `activeSelf` 必须一致 ----
                 //   判据 = 原版 `MainMenuWindow.ToBackground` 里 `state` 与 `SetActive` 是**一起**走的
@@ -18060,7 +18060,7 @@ public static class MainMenuScene
                           "说明 = prefab 出厂原文（含 `<color=#E27E1B>` 那一段）");
                 CheckTrue(p1 != null && p1.Find("Back button/Hit") != null
                           && p1.Find("Back button/Hit").GetComponent<WindowButton>() != null,
-                          "第 1 页返回钮有命中区（= 原版 `Back button`）"); CheckTeamDrawerSlots(pw);   // 🆕 B90-N3c：`TwoSidesTeamDrawer` 三格字段 + 运行时可填的 teamImage（本块最后一句 ⇒ 不影响前面那些文本断言）
+                          "第 1 页返回钮有命中区（= 原版 `Back button`）"); CheckTeamDrawerSlots(pw);   // 🆕 B90-N3c：`TwoSidesTeamDrawer` 三格字段 + 运行时可填的 teamImage ｜🔴 2026-10-30 订正（铁律 5）：`B1022SidesAssert.Run(pw)` 原来挂在本行末尾，它 `SectionH_MilestoneCallPoint` 会调 `pw.ApplyOnGoingMilestones(20, 1, 10/20/30)` 把 5 行 `Score` 的出厂串 `1256` 改成阈值、**还原不了**（见 `B1022SIDES_Assert.cs` 文件头）⇒ 已挪到下方 ⑧ 那段「出厂原文」文本断言**之后**（`Header Back Button` 那一行末尾）
 
                 // ---- ⑧ 第 2 页（On Going）内容：表头 / 5 档记分 / Collect / 队伍名 / 倒计时 ----
                 pw.OpenPage(ParentEventWindow.Page.OnGoing);
@@ -18095,7 +18095,7 @@ public static class MainMenuScene
                 CheckTrue(pw.P2TimerLabel != null && pw.P2TimerLabel.Text == "--",
                           "倒计时 = **`--`**（截止时刻在远端 LiveOps；`TimerDisplay` 不编日期）");
                 CheckTrue(p2 != null && p2.Find("Game Mode Header With Back Button/Header Back Button/Hit") != null,
-                          "第 2 页表头返回钮有命中区（= 原版 `Header Back Button`）");
+                          "第 2 页表头返回钮有命中区（= 原版 `Header Back Button`）"); B1022SidesAssert.Run(pw); _sink.Pass += B1022SidesAssert.Pass; _sink.Fail += B1022SidesAssert.Fail;   // 🆕 B90-N3c（2026-10-30 从 ⑦ 末尾挪到 ⑧ 之后）：它会把 5 行 `Score` 的出厂串 `1256` 改成传入阈值且**还原不了** ⇒ 必须排在 ⑧ 那些「出厂原文」断言之后；仍在 ⑩「点压暗层关窗」之前
 
                 // ---- ⑨ 数据缺口 / 素材缺口：**如实留空 + 出声** ----
                 CheckTrue(pw.DataMissing && !string.IsNullOrEmpty(pw.DataNote) && pw.DataNote.Contains("LiveOps"),
@@ -18444,7 +18444,7 @@ public static class MainMenuScene
             }
         }
 
-        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ==="); EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail;   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
+        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ==="); EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail;   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `本文件`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准

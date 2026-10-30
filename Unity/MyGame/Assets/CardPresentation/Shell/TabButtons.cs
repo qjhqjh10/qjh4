@@ -71,20 +71,26 @@ namespace CardPresentation
         /// <para>🔴 **第一件就是关掉母版** —— 出处 `d:/2/tools/decomp_full/TabButtons__Initialize.c:35-44`（亲读指令流复核）：
         /// `op_Inequality(tabButtonPrefab, null)` → `Component__get_gameObject` → `GameObject__SetActive(go, 0)`。
         /// ⚠️ **2026-09-23 修（铁律 5·b）**：原来我们把第 4 键当**常显**的画出来了 —— 与实况不符。</para>
-        /// <para>⚠️ **可重复调用**：同一窗重复 `Initialize` 不会重复订阅（先摘旧的）。`SetupTabs` 只调一次。</para></summary>
+        /// <para>⚠️ **可重复调用**：先摘旧的再挂 ⇒ 同一个 `TabButtons` 实例重复 `Initialize` 不会重复订阅。`SetupTabs` 只调一次。</para>
+        /// <para>🔴 **2026-10-30（`B102_AUD03R`）就地订正（铁律 5）**：本行原文写「**同一窗重复 `Initialize` 不会重复订阅**」——
+        /// **只对同一个 `TabButtons` 实例成立**（旧口径的摘除条件是 `_subscribed != w`）。而 `AUD03` 普查判它「幂等 ✅」**也不成立**：
+        /// 真正的造尸路径是「**整窗重建**」—— `MainMenuSubmenuWindow.BuildBar` 每次都 `Node(area, "Tab Buttons", …)` +
+        /// `AddComponent<TabButtons>()`，旧容器随旧节点一起被 `DestroyImmediate`，它挂在 `window.OnTabChanged` 上的那条订阅
+        /// **没有任何人摘**（旧容器再无机会被调 `Initialize`）⇒ **每重建一次 +1 条死 handler**，而 `HasUpdateTab` 只认
+        /// `Target == this`（只对**同实例**幂等）⇒ 拦不住。修法 = 下面那句 `DropDeadHandlers`（只摘**死的**，活的都留着）。</para></summary>
         public void Initialize(GameWindowWithTabs w)
         {
-            if (_subscribed != null && _subscribed != w && _subscribed.OnTabChanged != null)
-                _subscribed.OnTabChanged -= UpdateTab;
+            if (_subscribed != null && _subscribed.OnTabChanged != null) _subscribed.OnTabChanged -= UpdateTab;   // ← **不论是不是同一实例**都先摘（旧口径 `_subscribed != w` 才摘，见类尾「死 handler」那段）
             window = w;
+            _subscribed = null;
             if (w != null)
             {
+                if (w.OnTabChanged != null) w.OnTabChanged = DropDeadHandlers(w.OnTabChanged);   // 🔴 先清掉**已销毁容器**留下的死 handler（跨窗根因 ③）
                 if (w.OnTabChanged == null || !HasUpdateTab(w.OnTabChanged)) w.OnTabChanged += UpdateTab;
                 _subscribed = w;
             }
             if (tabButtonPrefab != null) tabButtonPrefab.SetActive(false);   // 照原版：母版隐藏
-            // 见文件头差异③：原版这一跳由 toggle 初始事件消费，我们没有事件 ⇒ 在这里消费
-            _firstTime = false;
+            _firstTime = false;   // 见文件头差异③：原版这一跳由 toggle 初始事件消费，我们没有事件 ⇒ 在这里消费
         }
 
         bool HasUpdateTab(System.Action<WindowTabBase> ev)
@@ -251,6 +257,59 @@ namespace CardPresentation
                 if (o.tab == tab || o.type == tab.Type) return o.button;
             }
             return null;
+        }
+
+        // ======================================================================== 🆕 B102_AUD03R：死 handler 清理
+        //
+        // 🔴 **`AUD03` 跨窗根因 ③**（收藏 / 奖励 / 设置三族）：`MainMenuSubmenuWindow.BuildBar` **每次 `Build()` 都**
+        //    新建一个 `Tab Buttons` 节点 + `AddComponent<TabButtons>()`，旧容器随旧节点被 `DestroyImmediate` ——
+        //    而它对 `window.OnTabChanged` 的那条订阅**没有任何人摘**（旧容器再也不会被调 `Initialize`）。
+        //    ⇒ 每次整窗重建 +1 条死 handler；那些死 handler 在 `OnTabChanged` 触发时会被逐个调 `UpdateTab`，
+        //      读的是**已销毁对象**上的字段（不报错、结果无意义）—— 静默、且随次数无界增长。
+        //    ✅ 修法 = 每次 `Initialize` 先做一遍「按**容器死活**清账」（而不是只按 `Target == this` 比对）。
+        //    ⚠️ **只摘死的**：同一扇窗上**还活着**的第二个 `TabButtons`（`ChatPanel` / `PlayerProfileWindow` 那种自己
+        //      `AddComponent` 的写法）必须留着 —— `B102AUD03R_Assert` ③·A2 盯的就是这一条。
+        // ========================================================================
+
+        /// <summary>把 `OnTabChanged` 上**宿主已被销毁**的死 handler 摘掉（判据 = `Delegate.Target` 是 Unity 假 null）。
+        /// <para>⚠️ 必须**逐条重挂**：`Delegate` 不可变，`-=` 在列表里找不到同一个组合委托（`GetInvocationList` 给的是
+        /// 拆开后的单播）。所以这里重建一条新的多播链返回给调用方赋值。</para></summary>
+        static System.Action<WindowTabBase> DropDeadHandlers(System.Action<WindowTabBase> ev)
+        {
+            if (ev == null) return null;
+            var list = ev.GetInvocationList();
+            System.Action<WindowTabBase> keep = null;
+            for (int i = 0; i < list.Length; i++)
+            {
+                var d = list[i] as System.Action<WindowTabBase>;
+                if (d == null) continue;
+                var target = d.Target as UnityEngine.Object;
+                if (target != null && target == null) continue;   // Unity 假 null ⇒ 那个容器已经被销毁 ⇒ 这条是死的
+                keep += d;
+            }
+            return keep;
+        }
+
+        /// <summary>自检读口：某扇窗的 `OnTabChanged` 现在挂着几条（= `GetInvocationList().Length`）。
+        /// <para>⚠️ 这是**唯一**能数出「每次重建 +1」的口 —— 断言 ③ 的三条都读它（`B102AUD03R_Assert`）。</para></summary>
+        public static int HandlerCountForTest(GameWindowWithTabs w)
+        {
+            return (w == null || w.OnTabChanged == null) ? 0 : w.OnTabChanged.GetInvocationList().Length;
+        }
+
+        /// <summary>自检读口：`OnTabChanged` 上还有几条**死**的（宿主已销毁）。修好之后应恒为 0。</summary>
+        public static int DeadHandlerCountForTest(GameWindowWithTabs w)
+        {
+            if (w == null || w.OnTabChanged == null) return 0;
+            var list = w.OnTabChanged.GetInvocationList();
+            int dead = 0;
+            for (int i = 0; i < list.Length; i++)
+            {
+                var d = list[i] as System.Action<WindowTabBase>;
+                var target = d != null ? d.Target as UnityEngine.Object : null;
+                if (target != null && target == null) dead++;
+            }
+            return dead;
         }
     }
 }

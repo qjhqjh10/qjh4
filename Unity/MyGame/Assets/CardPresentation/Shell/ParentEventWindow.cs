@@ -1239,8 +1239,8 @@ namespace CardPresentation
 
             WireHeaderComponent(header, backHit, onBack);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
 
-            // `Battle Background`（`m_Sprite = null` ⇒ 只建容器）
-            MenuDraw.Node(page, "Battle Background", Scr(P2BattleBgR));
+            // `Battle Background`（`m_Sprite = null` ⇒ 只建容器）；运行期 `backgroundImage.sprite = LoadAsset<Sprite>(ev, BackgroundImage)` 那一跳 = 类尾 `SetOnGoingBackground`（S10）
+            _p2BattleBg = MenuDraw.Node(page, "Battle Background", Scr(P2BattleBgR));
 
             // 两张队伍卡（图 `m_Sprite = null`，运行时灌）
             BuildOngoingTeam(page, "Team A", P2TeamAR, P2TeamAImageR, P2TeamACaptainR, true);
@@ -1249,12 +1249,12 @@ namespace CardPresentation
             BuildRewardDisplay(page);
 
             // `Scoring slider`（左右两队的比分条；`m_Value = 0.5`）
-            var slider = MenuDraw.Node(page, "Scoring slider", Scr(P2ScoringSliderR));
+            var slider = _p2ScoringSlider = MenuDraw.Node(page, "Scoring slider", Scr(P2ScoringSliderR));
             MenuDraw.Rect(slider, CardArt.Solid(), Scr(P2ScoringBgR), "Background", QPageArt1, ScoringBgTint);
             MenuDraw.Rect(slider, CardArt.Solid(), Scr(P2CenterMarkR), "Center Mark", QPageArt, CenterMarkTint);
-            // `Fill Area/Fill` 出厂宽 0（= 进度 0）⇒ 只建节点、不出图（同 `Energy` 的出厂档）
-            var fillArea = MenuDraw.Node(slider, "Fill Area", Scr(new PxRect(63.3f, 788.7f, 1293.4f, 875.3f)));
-            MenuDraw.Node(fillArea, "Fill", Scr(new PxRect(58.3f, 875.3f, 58.4f, 875.3f)));
+            // `Fill Area/Fill`：`Fill` 的宽由 Slider 按 `value` 决定（原版 `Slider.UpdateVisuals` 驱动 `Fill` 的 anchors），载体按需建 → 类尾 `PaintP2ScoringFill`
+            var fillArea = MenuDraw.Node(slider, "Fill Area", Scr(P2ScoreFillAreaR));
+            _p2ScoreFillNode = MenuDraw.Node(fillArea, "Fill", Scr(new PxRect(58.3f, 875.3f, 58.4f, 875.3f))); SetTeamScores(0, 0);   // 出厂 `m_Value = 0.5`（`Slider` MB 实读）⇒ 无分数时按原版 `total == 0 ? 0.5f` 画半条
 
             // `Your Team` 两行（Left / Right · fs58 · Capline）
             var yta = MenuDraw.TextBox(page, Scr(P2YourTeamAR), "Your Team", Color.white, "Your Team Text_Team A",
@@ -1295,7 +1295,7 @@ namespace CardPresentation
         {
             var n = MenuDraw.Node(page, name, Scr(card));
             // `Team Image` / `Team B Image`：`m_Sprite = null`（运行时灌）
-            MenuDraw.Node(n, name == "Team A" ? "Team A Image" : "Team B Image", Scr(image));
+            _p2TeamImageNodes[isA ? 0 : 1] = MenuDraw.Node(n, name == "Team A" ? "Team A Image" : "Team B Image", Scr(image));   // 🆕 B102_R4 S5：= 原版 `TwoSidesTeamDrawer.teamImage`（`m_Sprite = null`，运行时灌）
             var cap = MenuDraw.TextBox(n, Scr(captain), P2Captain, Color.white,
                                        name == "Team A" ? "Team A captain name" : "Team B captain name",
                                        P2TeamFont, P2TeamMin, QPageText, P2TeamMax, 36f, face: TmpFont.Face.LatinCardBody);
@@ -1347,7 +1347,7 @@ namespace CardPresentation
                 {
                     MenuDraw.AlignRight(sc, Scr(new PxRect(1426.9f, top + 10.7f, 1553.8f, top + 65.3f)));
                     MenuDraw.SetVAlign(sc, Label.VAlign.Midline, Scr(new PxRect(1426.9f, top + 10.7f, 1553.8f, top + 65.3f)));
-                    _p2ScoreLabels.Add(sc); BindScoreLine(row, sc, chestQ, hlQ, skullQ);   // 🆕 B98_K3：挂 `GenericScoreBarLine`（账 `:772` 的行那一半）
+                    _p2ScoreLabels.Add(sc); BindScoreLine(row, sc, chestQ, hlQ, skullQ, Tex(CrateArt[i] + "_open", "第 " + (i + 1) + " 档开箱图"));   // 🆕 B98_K3：挂 `GenericScoreBarLine`（账 `:772` 的行那一半）｜🆕 B102_R4：`chestOpen` 图接上（5 张 `_open` 已在 `Resources/Art/ui_menu/`）
                 }
             }
 
@@ -1400,7 +1400,7 @@ namespace CardPresentation
         {
             var row = MenuDraw.Node(page, isA ? "Team A Name" : "Team B Name", Scr(rowR));
             // 顺序照原版兄弟序：A 行 = Bonus → Name；B 行 = Name → Bonus
-            if (isA) BuildTeamBonus(row, bonusR, sdfR, skullR);
+            if (isA) BuildTeamBonus(row, bonusR, sdfR, skullR, isA);
             var nm = MenuDraw.TextBox(row, Scr(nameR), P2TeamName, Color.white, isA ? "Team A Name" : "Team B Name",
                                       P2TeamFont, P2TeamMin, QPageText, P2TeamMax, 36f, face: TmpFont.Face.LatinCardBody);
             if (nm != null)
@@ -1409,12 +1409,12 @@ namespace CardPresentation
                 else MenuDraw.AlignRight(nm, Scr(nameR));
                 MenuDraw.SetVAlign(nm, Label.VAlign.Capline, Scr(nameR)); _p2TeamNameLabels[isA ? 0 : 1] = nm;   // 🆕 B98_K3（账 `:774`：原版是本页局部变量、无 store/port）
             }
-            if (!isA) BuildTeamBonus(row, bonusR, sdfR, skullR);
+            if (!isA) BuildTeamBonus(row, bonusR, sdfR, skullR, isA);
         }
 
-        void BuildTeamBonus(Transform row, PxRect bonusR, PxRect sdfR, PxRect skullR)
+        void BuildTeamBonus(Transform row, PxRect bonusR, PxRect sdfR, PxRect skullR, bool isA)   // 🆕 B102_R4 S7：存成字段（原版 `teamABonusObject`/`teamBBonusObject` 是**序列化字段**，显隐由 `scoringBoostMultiplier != 1f` 决定 · 类尾 `SetOnGoingTeamBonus`）
         {
-            var bonus = MenuDraw.Node(row, "Team Bonus", Scr(bonusR));
+            var bonus = _p2TeamBonus[isA ? 0 : 1] = MenuDraw.Node(row, "Team Bonus", Scr(bonusR));
             // `Skull SDF`（128×128）**本工程未导入** ⇒ 只建节点、不出图 + 记账
             var sdf = MenuDraw.Node(bonus, "Skull SDF", Scr(sdfR));
             MenuDraw.Rect(sdf, Tex(ArtSkullSdf, "骷髅 SDF 光晕"), Scr(sdfR), "Image", QPageArt);
@@ -1768,7 +1768,7 @@ namespace CardPresentation
             public string Id;
             public string Name;
             public string Captain;
-            public Texture2D Image;
+            public Texture2D Image; public float ScoringBoostMultiplier = 1f;   // 🆕 B102_R4：`Image` = 原版 `TeamInfo.teamIcon`（`LoadableReference<Sprite>`，`Load()` 落到 `teamImage.sprite`）· `ScoringBoostMultiplier` = 原版 `TeamInfo.scoringBoostMultiplier`（`TwoSidesEventData.cs:25` **默认 1f**；显隐判据是 **`!= 1f`**，⛔ 不是 `!= 0`）
         }
 
         /// <summary>队伍数据注入口（🔶 见本节头）。生产恒 `null` ⇒ 走「本机没有队伍数据」那一支。</summary>
@@ -1937,16 +1937,15 @@ namespace CardPresentation
         readonly List<CardPresentation.ScoreBars.GenericScoreBarLine> _p2Lines = new List<CardPresentation.ScoreBars.GenericScoreBarLine>();
         /// <summary>最近一次 `InitializeMilestones` 组好的里程碑表（`InitializeLines` 要按档位喂给每一行）。</summary>
         GenericScoringMilestone[] _p2LastMilestones;
-        bool _p2ChestOpenNoted;
-
         /// <summary>把一行 `Score Bar Line Level N` 挂上原版那颗 `GenericScoreBarLine` 并绑五件。
         /// <para>🔴 **为什么要挂它而不是自己写「换箱子图 / 亮高亮框」**：那两条规则的判据在
         /// `GenericScoreBarLine.Initialize`（`decomp_full/GenericScoreBarLine__Initialize.c`），
         /// 本仓已逐句落地（`Shell/GenericScoreBarLine.cs`）⇒ 这里**只给引用**，⛔ 不抄第二份。</para>
-        /// <para>⚠️ `chestOpen`（原版 `+0x30`，`Collected` 那一档的**开箱图**）**本批没解到**：
-        /// 那 46 个实例的 `chestOpen` PPtr 是 `m_FileID = 7`（**另一个 CAB**），本批没做跨包解析
-        /// ⇒ 绑 null，并在真走到 `Collected` 那一档时**出声一次**（⛔ 不静默画空白）。</para></summary>
-        void BindScoreLine(Transform row, Label scoreLabel, ImageQuad chest, ImageQuad highlight, ImageQuad skull)
+        /// <para>⚠️ 2026-10-30（`B102_R4`）就地订正（铁律 5）：原写「`chestOpen`（原版 `+0x30`，`Collected` 那一档的**开箱图**）
+        /// **本批没解到**、只能绑 null + 出声」—— **已过期**：那 5 张开箱图**就在工程里**
+        /// （`Resources/Art/ui_menu/40k_Crate_Tier{1..5}_*.png` 的 `_open`，源 = `bundle_boosterpacks_assets_all/Texture2D/`，
+        /// 导入器 `工具/import_original_art.py:779-783` 已登记）⇒ 现在按档位逐行绑上（跨 CAB 那一步不需要）。</para></summary>
+        void BindScoreLine(Transform row, Label scoreLabel, ImageQuad chest, ImageQuad highlight, ImageQuad skull, Texture2D chestOpen)
         {
             if (row == null || scoreLabel == null) return;
             var line = row.gameObject.AddComponent<CardPresentation.ScoreBars.GenericScoreBarLine>();
@@ -1955,7 +1954,7 @@ namespace CardPresentation
                 Debug.LogWarning("[Event] `Score Bar Line` 挂不上 `GenericScoreBarLine` ⇒ 这一行的箱子/高亮不会随里程碑变");
                 return;
             }
-            line.Bind(scoreLabel, chest, null, highlight != null ? highlight.gameObject : null, skull);
+            line.Bind(scoreLabel, chest, chestOpen, highlight != null ? highlight.gameObject : null, skull);
             _p2Lines.Add(line);
         }
 
@@ -2094,14 +2093,8 @@ namespace CardPresentation
                     {
                         var line = _p2Lines[i];
                         if (line == null) continue;
-                        if (_p2LastMilestones[i] != null
-                            && _p2LastMilestones[i].state == GenericScoringMilestoneState.Collected
-                            && !_p2ChestOpenNoted)
-                        {
-                            _p2ChestOpenNoted = true;
-                            Debug.LogWarning("[Event] 里程碑走到 `Collected` 档，但原版 `chestOpen`（开箱图，`GenericScoreBarLine +0x30`）"
-                                           + "在本批**没解到**（PPtr 在 `m_FileID = 7` 的另一个 CAB）⇒ 那一档箱子会变成空白");
-                        }
+                        // ⚠️ 2026-10-30（`B102_R4`）：原来这里有一条「`chestOpen` 没解到 ⇒ 那一档箱子空白」的告警 ——
+                        //   **已就地删掉**（铁律 5）：5 张开箱图在工程里、`BindScoreLine` 已逐行绑上（见其 doc），告警不再成立。
                         line.Initialize(_p2LastMilestones[i], null);
                     }
                 }
@@ -2178,7 +2171,7 @@ namespace CardPresentation
             }
         }
 
-        void FillOne(int side, string teamName, string captain)
+        void FillOne(int side, string teamName, string captain, Texture2D teamImage = null)
         {
             var nl = side == 0 ? _p2TeamNameLabels[0] : _p2TeamNameLabels[1];
             var cl = side == 0 ? _p2CaptainLabels[0] : _p2CaptainLabels[1];
@@ -2189,6 +2182,242 @@ namespace CardPresentation
             }
             if (!string.IsNullOrEmpty(teamName)) nl.SetText(teamName);
             if (!string.IsNullOrEmpty(captain)) cl.SetText(captain);
+            if (teamImage != null) SetOnGoingTeamImage(side, teamImage);   // 🆕 B102_R4 S5：第三格 = 原版 `teamImage.sprite`（空值不覆盖）
+        }
+
+        // ============================================================ 追加区 · 2026-10-30（`B102_R4` §2·4 —— S5 / S7 / S8 / S9 / S10）
+        //  账 `日常_奖励:772`（`TwoSidesEvent_OnGoingTab.InitializeMilestones`）与 `:774`（`…OnOpen`）的**剩余 4 段**。
+        //  施工单 = `资料/完全复刻/判据/B102_R4_C类大工程两条.md` **§②（2·2 段表 / 2·4 分段施工单）**；
+        //  判据三源 = `decomp_full/TwoSidesEvent_OnGoingTab__OnOpen.c`（205 行）·
+        //             `cpp2il/out_cpp2il_dev_ilspy/TwoSidesEvent_OnGoingTab.cs:150-240`（ILSpy 把 C 版丢掉的实参补回来）·
+        //             prefab 序列化字段（`Slider` MB `7603098259392998918` · `Fill` Image MB `6951823793593822726` ·
+        //             `Battle Background` Image MB `982878002799619590`）。
+        //  🔴 追加在**类尾**（理由同上一块）：本文件有多条账按 `文件:行号` 钉着（最大 = `:1862`）⇒ 中间插一行就整片漂移。
+        //     本块**之上**的改动全部是「同一物理行内改写」⇒ **行数守恒**（见账补丁的「行数变化」那一列）。
+
+        /// <summary>原版 `teamABonusObject` / `teamBBonusObject`（`Two Sides Event Window/Event On Going Tab/Team A Name|Team B Name/Team Bonus`）。
+        /// <para>原版是**序列化字段**；显隐判据 = `OnOpen:153-165` 的 `scoringBoostMultiplier != 1f`。</para></summary>
+        Transform[] _p2TeamBonus = new Transform[2];
+
+        /// <summary>第 2 页两块队伍卡的 `Team A Image` / `Team B Image`（= 原版 `TwoSidesTeamDrawer.teamImage`，`m_Sprite = null` 出厂）。</summary>
+        Transform[] _p2TeamImageNodes = new Transform[2];
+
+        /// <summary>原版 `backgroundImage`（`Battle Background`，`m_Sprite = null` · `m_Type 0 (Simple)` · `PPU mul 1` · `m_Color` 白）。</summary>
+        Transform _p2BattleBg;
+
+        /// <summary>原版 `scoringSliders`（`Slider`：`m_FillRect → Fill` · `m_Direction 0 (LeftToRight)` · `m_Value 0.5` · `m_Interactable 0`）。</summary>
+        Transform _p2ScoringSlider;
+
+        /// <summary>原版 `Scoring slider/Fill Area/Fill`（`Slider.m_FillRect`）。载体按需建（见 <see cref="PaintP2ScoringFill"/>）。</summary>
+        Transform _p2ScoreFillNode;
+        ImageQuad _p2ScoreFillQuad;
+        bool _p2ScoringItemNoted;
+
+        /// <summary>`Scoring slider/Fill Area` 的**屏幕绝对**矩形（dump 实读；五元组换算复核过：
+        /// 父 `Scoring slider` 1230.356×173.307 · `aMin (0,0.25)` · `aMax (1,0.75)` · `sizeDelta (-0.257, 0)` ⇒ 高 86.65）。</summary>
+        public static readonly PxRect P2ScoreFillAreaR = new PxRect(63.3f, 788.7f, 1293.4f, 875.3f);
+
+        /// <summary>`Fill` 那颗 `Image` 的 `m_Color`（MB `6951823793593822726` 实读）；`m_Sprite = null` ⇒ 就是一块纯色（`skewVector (0.25, 0)` 斜切照抄）。</summary>
+        public static readonly Color P2ScoreFillTint = new Color(0.764151f, 0.1624866f, 0.1261570f, 1f);
+
+        /// <summary>`Scoring slider` 最后一次写进去的 `value`（自检读口；= 原版 `scoringSliders.value`）。</summary>
+        public float LastScoringSliderValue { get; private set; }
+
+        /// <summary>= 原版 `teamABonusObject` / `teamBBonusObject`（0 = A · 1 = B）；没建 ⇒ null。</summary>
+        public Transform TeamBonusNode(int side) { return (side == 0 || side == 1) ? _p2TeamBonus[side] : null; }
+
+        /// <summary>= 原版 `TwoSidesTeamDrawer.teamImage`（第 2 页的 `Team A Image` / `Team B Image`）。</summary>
+        public Transform OnGoingTeamImageNode(int side) { return (side == 0 || side == 1) ? _p2TeamImageNodes[side] : null; }
+
+        /// <summary>= 原版 `backgroundImage` 那一格（`Battle Background`）。</summary>
+        public Transform OnGoingBackgroundNode() { return _p2BattleBg; }
+
+        /// <summary>= 原版 `Slider.m_FillRect`（`Scoring slider/Fill Area/Fill`）。</summary>
+        public Transform ScoringFillNode() { return _p2ScoreFillNode; }
+
+        /// <summary>= 原版 `scoringSliders` 那颗 `Slider` 的宿主 GO（`Scoring slider`）。</summary>
+        public Transform ScoringSliderNode() { return _p2ScoringSlider; }
+
+        /// <summary>≡ 原版 `OnOpen:153-165`：`teamABonusObject.SetActive(teams[0].scoringBoostMultiplier != 1f)`（B 同理）。
+        /// <para>🔴 **判据是 `!= 1f`，不是 `!= 0`**：`.c` 里比较的是常量 `DAT_1834b2bb8` = **1.0f**
+        /// （ILSpy `TwoSidesEvent_OnGoingTab.cs:203/207` 逐字 `scoringBoostMultiplier != 1f`；字段默认值也是 `1f`）。
+        /// ⇒ **倍率 0 ⇒ 仍然显示**（`0 != 1` 为真）；写成 `!= 0` 会把它藏掉。
+        /// 我们这边没有真实倍率（远端数据）⇒ 默认 `1f` = **不显示**（= 原版「没有加成」那一档）。</para></summary>
+        /// <returns>`true` = 显示（`multiplier != 1f`）；`false` = 隐藏，或那一格没建（同时出声）。</returns>
+        public bool SetOnGoingTeamBonus(int side, float scoringBoostMultiplier)
+        {
+            if (side != 0 && side != 1)
+            {
+                Debug.LogWarning("[Event] `SetOnGoingTeamBonus` 的 side 只能是 0/1（实得 " + side + "）⇒ 不动");
+                return false;
+            }
+            var node = _p2TeamBonus[side];
+            if (node == null)
+            {
+                Debug.LogWarning("[Event] `SetOnGoingTeamBonus(" + side + ")`：`Team Bonus` 那一格不在（本页没建？）⇒ 显隐没写");
+                return false;
+            }
+            bool show = scoringBoostMultiplier != 1f;      // 🔴 原版判据（⛔ 不是 != 0）
+            node.gameObject.SetActive(show);
+            return show;
+        }
+
+        /// <summary>≡ 原版 `TwoSidesTeamDrawer.Initialize` 里 `teamImage.sprite = teamInfo.teamIcon.Load()` 那一跳
+        /// （第 2 页的 `Team A Image` / `Team B Image`）。
+        /// <para>🔴 与选边页 <see cref="SetTeamImage"/> 同一条口径：原版那颗 `Image` 的 `m_Sprite = null`
+        /// ⇒ **一个像素都不画**；`MenuDraw.Rect` 对 `tex == null` 静默返回 null ⇒ 没数据时留裸节点（同一可观测结果），
+        /// 第一次拿到图才把载体建出来；`tex == null` ⇒ 把已有载体**关掉**（回到空态，不留旧图）。</para></summary>
+        /// <returns>`false` = 那一格没建（本页没建过）或建载体失败 —— 两种情况都**出声**。</returns>
+        public bool SetOnGoingTeamImage(int side, Texture2D tex)
+        {
+            if (side != 0 && side != 1)
+            {
+                Debug.LogWarning("[Event] `SetOnGoingTeamImage` 的 side 只能是 0/1（实得 " + side + "）⇒ 不填");
+                return false;
+            }
+            var node = _p2TeamImageNodes[side];
+            if (node == null)
+            {
+                Debug.LogWarning("[Event] `SetOnGoingTeamImage(" + side + ")`：`Team " + (side == 0 ? "A" : "B")
+                               + " Image` 那一格不在（本页没建？）⇒ 没填");
+                return false;
+            }
+            var q = node.GetComponentInChildren<ImageQuad>(true);
+            if (tex == null)
+            {
+                if (q != null) q.gameObject.SetActive(false);      // 空态：与 `sprite = null` 同一可观测结果
+                return true;
+            }
+            if (q == null)
+            {
+                q = MenuDraw.Rect(node, tex, Scr(side == 0 ? P2TeamAImageR : P2TeamBImageR),
+                                  "Image", QPageArt1, Color.white, false);
+                if (q == null)
+                {
+                    Debug.LogWarning("[Event] `SetOnGoingTeamImage(" + side + ")`：`Team "
+                                   + (side == 0 ? "A" : "B") + " Image` 的载体**建不出来**（`MenuDraw.Rect` 返回 null）⇒ 队伍图没画");
+                    return false;
+                }
+            }
+            else { q.gameObject.SetActive(true); q.SetTexture(tex, true); }   // 只换图、比例不动（框是 dump 死的）
+            return true;
+        }
+
+        /// <summary>≡ 原版 `OnOpen:137` 的 `teamDrawers[i].Initialize(teamInfo)`（第 2 页那一半：队名 / 队长 / 队图 / Team Bonus 倍率）。
+        /// <para>⚠️ 数据仍是远端 `TwoSidesEventData.TeamInfo`（本机 13 份活动 SO 里 0 份 TwoSides）⇒ 走本方法注入；空值不覆盖。</para>
+        /// <para>🔴 **`scoringItem` 不建，而且不是缺口**（2026-10-30 `B102_R4` 现读订正）：`TwoSidesTeamDrawer` 只有三格
+        /// （`teamNameText` / `teamCaptainText` / `teamImage`，见 ILSpy `TwoSidesTeamDrawer.cs:9-13` 与
+        /// `MonoBehaviour_-8361104136050332154.json` 的**全部字段**）⇒ 队伍卡上**没有** `scoringItem` 这一格。
+        /// `scoringItem` 在 `ScoringEventData`（`LoadableReference<ObtainableItem>`，`Everguild.LiveOps/ScoringEventData.cs:10`）上，
+        /// 与本页队伍卡无关 ⇒ 不建、只出声一次说明（⛔ 不造一格原版没有的字段）。</para></summary>
+        public bool ApplyOnGoingTeamInfo(int side, TwoSidesTeamInfo info)
+        {
+            if (side != 0 && side != 1)
+            {
+                Debug.LogWarning("[Event] `ApplyOnGoingTeamInfo` 的 side 只能是 0/1（实得 " + side + "）⇒ 不动");
+                return false;
+            }
+            if (info == null)
+            {
+                Debug.LogWarning("[Event] `ApplyOnGoingTeamInfo(" + side + ", null)`：原版这一跳会把 null 交给 "
+                               + "`TwoSidesTeamDrawer.Initialize`（体里直接读 `teamInfo` ⇒ NRE）；我们出声跳过、保持出厂态");
+                return false;
+            }
+            FillOne(side, info.Name, info.Captain, info.Image);                 // 队名 / 队长 / 队图（S5）
+            SetOnGoingTeamBonus(side, info.ScoringBoostMultiplier);             // Team Bonus 显隐（S7）
+            if (!_p2ScoringItemNoted)
+            {
+                _p2ScoringItemNoted = true;
+                Debug.Log("[Event] 第 2 页队伍卡：原版 `TwoSidesTeamDrawer` **只有三格**（队名/队长/队图）"
+                        + "⇒ 不建 `scoringItem`（那一格在 `ScoringEventData` 上，与本页队伍卡无关）—— 不是缺口。");
+            }
+            return true;
+        }
+
+        /// <summary>≡ 原版 `OnOpen:166-176`：`scoringSliders.value = total == 0 ? 0.5f : 1f - (float)(scores[1] / total)`。
+        /// <para>🔴 **原版是整数除法**（`ILSpy TwoSidesEvent_OnGoingTab.cs:213-216`：`int num7 = num6 / num2; float num8 = 1f - (float)num7;`
+        /// —— `num6` = `scores[1]`（B 队分）、`num2` = 两队分之和）⇒ **先截断再转 float**。
+        /// 例：`scoreA=1, scoreB=2` ⇒ `2/3 = 0` ⇒ `value = 1.0`（浮点写法会得 0.667）。</para>
+        /// <para>🔴 **这是原版自己的 bug，照抄、⛔ 别「修正」成浮点**（铁律 18·0）。</para>
+        /// <para>⚠️ 分数在远端 `LeaderboardManager.GetCachedLeaderboard`（P3）⇒ 出厂 `0/0` ⇒ 0.5，与 prefab 的 `m_Value = 0.5` 一致。</para></summary>
+        /// <returns>写进去的 `value`（自检读口 = <see cref="LastScoringSliderValue"/>）。</returns>
+        public float SetTeamScores(int scoreA, int scoreB)
+        {
+            int total = scoreA + scoreB;
+            float value = total == 0 ? 0.5f : 1f - (float)(scoreB / total);     // 🔴 整数除法（照抄原版）
+            PaintP2ScoringFill(value);
+            return value;
+        }
+
+        /// <summary>把 `Scoring slider` 的 `value` 落到 `Fill` 上（原版由 `Slider.UpdateVisuals` 改 `Fill` 的 anchors：
+        /// `anchorMin=(0,0)` · `anchorMax=(value,1)` ⇒ 填充从 `Fill Area` 左沿起、宽 = `value × Fill Area` 宽）。
+        /// <para>⚠️ 我们**没有** uGUI 运行时（`ImageQuad` 的几何在建时烘进 mesh）⇒ 每次重建，与 <see cref="SetP2MilestoneFill"/> 同一口径。
+        /// `value <= 0` ⇒ 不建（原版宽 0 ⇒ 一个像素都不画），并把旧载体销毁。</para></summary>
+        void PaintP2ScoringFill(float value)
+        {
+            LastScoringSliderValue = value;
+            if (_p2ScoreFillNode == null)
+            {
+                Debug.LogWarning("[Event] `PaintP2ScoringFill`：`Scoring slider/Fill Area/Fill` 那一格不在 ⇒ 比分条不画");
+                return;
+            }
+            if (_p2ScoreFillQuad != null)
+            {
+                if (Application.isPlaying) Object.Destroy(_p2ScoreFillQuad.gameObject);
+                else Object.DestroyImmediate(_p2ScoreFillQuad.gameObject);
+                _p2ScoreFillQuad = null;
+            }
+            if (value <= 0f) return;
+            var fa = P2ScoreFillAreaR;
+            var fr = new PxRect(fa.x1, fa.y1, fa.x1 + fa.W * Mathf.Clamp01(value), fa.y2);
+            _p2ScoreFillQuad = MenuDraw.Rect(_p2ScoreFillNode, CardArt.Solid(), Scr(fr), "Fill", QBar,
+                                            P2ScoreFillTint, false, null, default(Vector2), 0.25f);   // `skewVector (0.25, 0)`
+            if (_p2ScoreFillQuad == null)
+                Debug.LogWarning("[Event] `PaintP2ScoringFill`：`Fill` 的载体建不出来（`MenuDraw.Rect` 返回 null）⇒ 比分条没画");
+        }
+
+        /// <summary>≡ 原版 `OnOpen:178-186`：`backgroundImage.sprite = LiveOpsAssetUtility.LoadAsset&lt;Sprite&gt;(ev, EventAssetReferenceType.BackgroundImage)`。
+        /// <para>🔶 自己设计（非原版）：**图从外面递进来** · 为什么必须自定：`EventAssetReferenceType.BackgroundImage` 是 liveops 资源包里的
+        /// AssetReference（服务器下发），本机没有事件实例 ⇒ 拿不到那张 sprite · 调度台 2026-10-30 裁定（`B102_R4` 批次）。
+        /// ⛔ 不编一张图：出厂保持 `m_Sprite = null` 的同一可观测结果（裸节点、零像素）。</para>
+        /// <para>与 <see cref="SetTeamImage"/> 同一口径：`tex == null` ⇒ 把已有载体关掉（回到空态）。</para></summary>
+        /// <returns>`false` = 那一格没建或载体建不出来（两种情况都**出声**）。</returns>
+        public bool SetOnGoingBackground(Texture2D tex)
+        {
+            if (_p2BattleBg == null)
+            {
+                Debug.LogWarning("[Event] `SetOnGoingBackground`：`Battle Background` 那一格不在（本页没建？）⇒ 背景图没填");
+                return false;
+            }
+            var q = _p2BattleBg.GetComponentInChildren<ImageQuad>(true);
+            if (tex == null)
+            {
+                if (q != null) q.gameObject.SetActive(false);
+                return true;
+            }
+            if (q == null)
+            {
+                q = MenuDraw.Rect(_p2BattleBg, tex, Scr(P2BattleBgR), "Image", QPageBg, Color.white, false);
+                if (q == null)
+                {
+                    Debug.LogWarning("[Event] `SetOnGoingBackground`：`Battle Background` 的载体**建不出来**（`MenuDraw.Rect` 返回 null）⇒ 背景图没画");
+                    return false;
+                }
+            }
+            else { q.gameObject.SetActive(true); q.SetTexture(tex, true); }   // `m_PreserveAspect = 0` ⇒ 拉伸进框、比例跟着框走
+            return true;
+        }
+
+        /// <summary>≡ 原版 `OnOpen:177` 的 `InitializeMilestones()` 那一跳（**本页唯一的里程碑数据入口**）。
+        /// <para>原版那句无参（它从 `event` 里自己取三样）；我们把那三样显式给进来
+        /// （= <see cref="InitializeMilestones"/> 的三个形参，语义逐一对应）。</para>
+        /// <para>🔴 为什么需要这一层：`InitializeMilestones` 原来**只有自检在调**（生产 0 调用点）⇒ 本方法就是那条调用点；
+        /// 数据到手时（远端 `TwoSidesEventData.rewards[]` + `Save.collectedRewards` + `event.PlayerScore`）从这一处进来。</para></summary>
+        /// <returns>写进去的档数（里程碑表长度）；表为 null ⇒ 0（`InitializeMilestones` 已出声）。</returns>
+        public int ApplyOnGoingMilestones(int currentScore, int collectedRewards, IReadOnlyList<ScoringMilestone> milestones)
+        {
+            InitializeMilestones(currentScore, collectedRewards, milestones);
+            return milestones != null ? milestones.Count : 0;
         }
 
     }

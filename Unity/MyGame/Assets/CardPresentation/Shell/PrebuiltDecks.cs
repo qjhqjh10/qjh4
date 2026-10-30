@@ -927,5 +927,108 @@ namespace CardPresentation
             }
             return DraftPacks.BuildClosedDeck(0, packIds);
         }
+
+        // ============================================================ 账 `战斗逻辑驱动:48`（原版 `AIBotsConfig.BotConfigFTUE.GetBotDecks`）
+        //  原版：`BotConfigFTUE.botDecks` 是序列化字段（`+0x10`），`GetBotDecks()` 直接返回它
+        //        （判据 `out_cpp2il_dev_ilspy/AIBotsConfig.cs:46-66`；⚠️ `decomp_full/AIBotsConfig.BotConfigFTUE__GetBotDecks.c`
+        //        的**内容不是它**（首行 = `<>f__AnonymousType0<object>__get_itemId`）⇒ ⛔ 别拿那份当判据）。
+        //  消费端：`MatchData.GetBotConfigDecks`（`decomp_full/MatchData__GetBotConfigDecks.c:1-17`）——
+        //        `IsInFTUEState` 为真 ⇒ `GetFTUEBotConfig().botDecks`，否则 `GetNormalBotConfig().botDecks`；
+        //        `GetFTUEBotConfig`（`decomp_full/MatchData__GetFTUEBotConfig.c`）在 `BotListFTUE` 里挑第一条
+        //        `(!justForRanked || matchType == 0) && winCount == CurrentModeVictories` 的，一条都不命中取 `[0]`。
+        //  🔴 那一整张 `AIBotsConfig`（含 `BotListFTUE` 的 tier 表）= **远端 LiveOps 配置**，本机 0 命中（账行 48 的搜证）。
+        //     **但它指向的牌本机全在**：12 副 `*_BOT_FTUE_*` 早就在 `prebuilt_deck_lists.json` 里（`Type == Bot`）
+        //     ⇒ 本行不是「本机永远拿不到」（D）；缺的只是 FTUE 链接线 + 远端选档/胜场参数 ⇒ 下面这段就是它的等价实现。
+        //  ⚠️ 新成员一律追加在**类尾**（账的 A 行落点按行号钉，插在中间会让下游整体漂）。
+
+        /// <summary>FTUE bot 池的**资产名标记**（现读 12 副 = 6 阵营 × `_Deck1` / `_DeckEasy`）。
+        /// <para>🔶 自己设计（非原版）：原版靠远端 `BotConfigFTUE.botDecks` 的 `LoadableReference` 名单**指名**，
+        /// 那份名单本机 0 命中（远端 LiveOps `AIBotsConfig`，见账行 48）⇒ 只能按 SO 资产名分组。
+        /// 现读 12 副的 `srcName` 全含本标记（`TL_BOT_FTUE_Deck1` 那副的 `deckId` 也含）；`deckId` 与 `srcName`
+        /// 任一命中即算 ⇒ 名字从数据里来、**不是写死的牌表**。调度台 2026-10-30 裁定。</para>
+        /// <para>⚠️ **区别**：原版是「名单查表」，我们是「名字分组」 —— 资产改名 / 多一副对不上，池就会静默变大小；
+        /// `B102FTUE_Assert` 的 A1 咬住「= 12」。</para></summary>
+        public const string FtueBotDeckMark = "_BOT_FTUE";
+
+        /// <summary>这一副在不在 FTUE bot 池里（原版 `BotConfigFTUE.botDecks` 的成员判定；判据缺失 ⇒ 按
+        /// <see cref="FtueBotDeckMark"/> 分组，理由写在那条常量上）。</summary>
+        public static bool IsFtueBotDeck(Deck d)
+        {
+            if (d == null) return false;
+            if (!string.IsNullOrEmpty(d.deckId) && d.deckId.Contains(FtueBotDeckMark)) return true;
+            var m = MetaOf(d);
+            return m != null && !string.IsNullOrEmpty(m.srcName) && m.srcName.Contains(FtueBotDeckMark);
+        }
+
+        /// <summary>≡ 原版 `AIBotsConfig.BotConfigFTUE.GetBotDecks()`（账 `战斗逻辑驱动:48`）：
+        /// 返回 FTUE bot 池（**现读 12 副**）。
+        /// <para>**顺序 = <see cref="Decks"/> 的顺序**（= 生成期按 SO 资产名升序）—— 🔶 自己设计（非原版）：
+        /// 原版的顺序 = 远端配置里那串 `LoadableReference` 的书写序，addressables 装载序也不可复现
+        /// ⇒ 取一个**确定可复现**的顺序。影响面只有「同一个下标挑到哪一副」。</para>
+        /// <para>⚠️ 原版返回 `List&lt;LoadableReference&lt;PrebuiltDeck&gt;&gt;`（**引用**，不保证已加载）；
+        /// 我们返回已解析好的 `Deck`（解不出的副根本不在这张表里 —— 与 <see cref="HasHidden"/> 同一条口径）。</para>
+        /// <para>⚠️ **不缓存**：池 12 条、每局最多调一次；缓存还得在 `ResetListsForTest` 里加一行，
+        /// 那会让下游账的落点漂（见那个方法上的告警）。</para></summary>
+        public static List<Deck> GetFTUEBotDecks()
+        {
+            var o = new List<Deck>();
+            foreach (var d in BotDecks)                 // 原版 `botDecks` 是 `BotConfig` 的子集 ⇒ 从 Bot 表里筛
+                if (IsFtueBotDeck(d)) o.Add(d);
+            if (o.Count == 0)
+                Debug.LogError("[Prebuilt] FTUE bot 池是空的（`" + ListResourcePath + ".json` 里 0 副名字含 `"
+                               + FtueBotDeckMark + "`）—— 重跑生成器 / 核对资产名");
+            return o;
+        }
+
+        /// <summary>某个阵营（+ 可选模式）的 FTUE 池 —— 原版 `GetFTUEBotConfig().botDecks` 再按
+        /// `possibleArmies` / `playMode` 过一遍。
+        /// <para>🔴 **过滤口径不在这里另写一份**：阵营闸 / 模式闸 / `!HasHiddenCards` 三道全在 <see cref="FilterDecks"/>
+        /// （本类上面那条「两处写同一条规则 = 迟早不一致」的红线），这里只做「`FilterDecks` 的结果 ∩ FTUE 池」。</para>
+        /// 🔶 `playMode` 那道是自设计（原版 `GetRandomDeck` 不过滤模式），理由见 `FilterDecks` 的同名参数。</summary>
+        public static List<Deck> GetFTUEBotDecksOf(string faction, int? playMode = null)
+        {
+            var narrowed = FilterDecks(playMode: playMode, faction: faction);
+            var o = new List<Deck>();
+            foreach (var d in GetFTUEBotDecks())
+                if (narrowed.Contains(d)) o.Add(d);   // `Deck` 没重写 Equals ⇒ `List.Contains` 就是引用比较
+            return o;
+        }
+
+        /// <summary>FTUE 那一局挑哪一副（原版 `MatchData.GetFTUEBotConfig` → `GetBotDecks` → `GetRandomDeck` 那三跳）。
+        ///
+        /// <para>**原版**：`GetFTUEBotConfig` 先按 `winCount == CurrentModeVictories`（且 `!justForRanked || mode == 0`）
+        /// 从 `BotListFTUE` 里挑一条 tier，取它的 `botDecks`，再由 `PrebuiltDeckCollection.GetRandomDeck`
+        /// 在**那一条 tier 的列表内**随机取一副（判据 = `MatchData__GetFTUEBotConfig.c` · `MatchData__GetBotConfigDecks.c`）。</para>
+        ///
+        /// <para>🔶 **自己设计（非原版，服务器相关）**：`BotListFTUE` **整张表本机 0 命中**（远端 LiveOps）⇒
+        /// ① `winCount → tier` 的对应表**造不出来**；② 每个 tier 各含哪几副也**不知道**。
+        /// ⇒ 我们的确定等价值 = **把整个 FTUE 池当作同一个 tier**：先按阵营/模式收窄（对手阵营本地先选好，
+        /// 同 `PickBotDeck` 的口径），再在池内用 `System.Random(seed)` 取一副。
+        /// <paramref name="victories"/> **只用于出声**（原版拿它选 tier），**不参与筛选** ——
+        /// ⛔ 别把「胜场越多挑某一副」编出来：那是伪造判据。为什么必须自己定：判据在远端、关服后拿不到。
+        /// 调度台 2026-10-30 裁定。</para>
+        ///
+        /// <para>⚠️ 随机源 = `System.Random`（工程红线：引擎侧只用它）；原版那一处是 `UnityEngine.Random`
+        /// ⇒ 分布形状相同、**具体抽到哪一副不同**。⚠️ 池里没有该阵营的副 ⇒ 返回 null 并出声（⛔ 不跨阵营兜底）。</para></summary>
+        /// <param name="victories">= 原版 `CurrentModeVictories`（当前模式胜场，P3 服务器数据）；本机无值 ⇒ 传 0。</param>
+        public static Deck GetFTUEBotDeck(string faction, int victories, int playMode, System.Random rng)
+        {
+            if (rng == null) { Debug.LogError("[Prebuilt] GetFTUEBotDeck 没给 rng —— 返回 null"); return null; }
+            var pool = GetFTUEBotDecksOf(faction, playMode);
+            if (pool.Count == 0)
+            {
+                Debug.LogWarning("[Prebuilt] GetFTUEBotDeck：FTUE 池里没有「阵营 "
+                               + (string.IsNullOrEmpty(faction) ? "any" : faction) + " + 模式 " + playMode
+                               + "」的副（整池 " + GetFTUEBotDecks().Count + " 副）⇒ 返回 null（⛔ 不跨阵营兜底）");
+                return null;
+            }
+            var picked = pool[rng.Next(pool.Count)];   // ← 原版 tier 内 `Random.Range(0, list.Count)`
+            // 出声：这一跳的「选档」是**本地确定性替代**，不是原版的 winCount→tier 逻辑。
+            Debug.Log("[Prebuilt] FTUE bot deck = 「" + picked.DisplayName + "」（`" + picked.deckId
+                    + "` · 阵营 " + picked.faction + " · 模式 " + picked.gameMode + " · " + picked.cardIds.Length + " 张）"
+                    + " —— 🔶 本地确定性替代：原版按远端 `BotListFTUE` 的 winCount 选 tier（当前胜场 " + victories
+                    + "），该表本机 0 命中 ⇒ 这里是「同阵营 FTUE 池内按 seed 随机」，⛔ 不是原版选档逻辑（账 战斗逻辑驱动:48）");
+            return picked;
+        }
     }
 }

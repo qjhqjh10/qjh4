@@ -470,7 +470,7 @@ namespace RuleEngine
                 if (!UnitState.IsEffectListEntry(outp[i].BuffType, hasQuests)) outp.RemoveAt(i);
 
             // ---- ⑩ 序（见 `SortShown`）--------------------------------------------------------------
-            SortShown(outp); AttachEffectTexts(outp, ctx);   // 🆕 2026-10-30（执行代理 `B101_F2`）：补 `CardEffect.effectText(+0x28)` 的归属四元组（同一物理行追加 ⇒ 行数零变化；实现见文件尾那一段 partial）
+            AddExtraRecordRows(outp, u, ctx); SortShown(outp); AttachEffectTexts(outp, ctx);   // 🆕 2026-10-30（执行代理 `B101_F2`）：补 `CardEffect.effectText(+0x28)` 的归属四元组（同一物理行追加 ⇒ 行数零变化；实现见文件尾那一段 partial）｜🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：先补**两族没有行生产者的记录**（`buffType 2 changeCost` / `dontReturnFerocity`），实现与判据见文件尾 `AddExtraRecordRows`
             return outp;
         }
 
@@ -589,7 +589,7 @@ namespace RuleEngine
         Enchantment = 4,
         /// <summary>手牌加成那一族（`isHandBuff`）。⚠️ 投影**不产出**它 —— 手牌那条按原版映射成
         /// `Stat` / `Trait` 行（施工细则 §三 S1 表最后一行）；本成员是给消费端分类用的保留档。</summary>
-        HandBuff = 5,
+        HandBuff = 5, Cost = 6,   // 🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：原版 `buffType == 2 changeCost` 那一族的行（`EntityScript__GetCardEffectsToShow.c:139-145` **只跳过** `costChange(+0x68) == 0` ⇒ `!= 0` 的那几条**照样进表**）。同一物理行追加：本文件 `ShownEffect` 起点 `:599` 是账落点（人工/机检按行号引用），⛔ 别拆成新行
     }
 
     /// <summary>
@@ -644,6 +644,13 @@ namespace RuleEngine
         public int EffectLg;
         /// <summary>`true` = 那一格在 `handBuff.cardEffect` 上（`buffEffect` 那一路是 `false`）。</summary>
         public bool EffectIsHand;
+        /// <summary>🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：这条效果**属于哪张卡**
+        /// （原版 `CardEffect.enchantingCard(+0x18)`，写点 `AbilityLogic__PlayAbility.c:1199`）——
+        /// `AttachEffectTexts` 拿它去找原文。`null`/空 ⇒ 退回 <see cref="Source"/>（旧口径）。
+        /// ⚠️ 与 `Source` 分工（`UnitState.cs:1342` 那条口径）：`Source` 是左列显示的**来源标签**
+        /// （`Auras.GrantTag` / `"战术卡"` / 黑暗契约种类），本格**只用于找卡**，⛔ 别合成一格。
+        /// 追加在结构体**末尾**：结构体起点 `:599` 不动 ⇒ 账落点不漂（铁律 18·b）。</summary>
+        public string OwnerCard;
     }
 }
 
@@ -700,7 +707,7 @@ namespace RuleEngine
                 var e = rows[i];
                 if (e.EffectTextCard != null) continue;
                 if (e.SecretBuff || e.QuestBuff) continue;          // 打码那两支走 `EnchantRow` 的四条键（⛔ 别在这儿盖掉）
-                string name = e.Source;
+                string name = !string.IsNullOrEmpty(e.OwnerCard) ? e.OwnerCard : e.Source;   // 🆕 2026-10-30（`B102_EFF`）：优先读「归属卡」那一格（原版 `enchantingCard`），`null` 才退回来源标签
                 if (string.IsNullOrEmpty(name)) continue;
 
                 if (byName == null)
@@ -771,5 +778,102 @@ namespace RuleEngine
             }
             return idx;
         }
+    }
+}
+
+namespace RuleEngine
+{
+    // ==================================================================================================
+    //  🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521` 的 5 张残差）：
+    //  **两族「原版有记录、我们这边没有行生产者」**的投影补口。
+    //
+    //  ① `buffType == 2 changeCost`（`EntityScript__GetCardEffectsToShow.c:139-145`）：
+    //     原版那一段是 `if (buffType == 2 && costChange == 0) continue;` —— **只跳过 0 值**，
+    //     `costChange != 0` 的记录**照样**进 `activeEffects` 表（我们 `IsExcludedNormal` 那条与之逐字一致）。
+    //     我们的等价记录有两个落点，都按原版「记录挂在**那一张牌的实体**上」的形状读：
+    //       · `UnitState.StatMod{ Attr == "cost" }`（`AddStatMod("cost", …)` 建的 per-unit 记录，
+    //         `Source` 就是给的那张卡名、`Seq` 是加序戳）；
+    //       · `ctx.CostMods` 里**钉住这一份**（`Key == "*"` ∧ `HandInstanceId == Instance.Id`）的 `changeCost` 条
+    //         —— 广播式的筛选修正（`Criteria`/`HandOf`）**不是一条记录**（原版没有这种对象）⇒ **不投影**。
+    //  ② `dontReturnFerocity`（`DefinedTrait` 1270）：`cards_engine.json` 的 `abilityBuffs` 里
+    //     `SW40 Bjorn's Shrine` / `SW36 Bjorn the Fell-Handed` 都是 **`buffType 3 addTrait, trait 1270`**
+    //     ⇒ 原版在目标身上留一条 `CardEffect`（用掉就 `SendRemoveEffect`，`CardScript__UsedActiveAbility.c:75-88`）。
+    //     我们把它建模成 `UnitState.FerocityStay` 那个布尔（`EffectResolver.DoFerocityStay`）+
+    //     `FerocityStayBy`（= 原版 `enchantingCard`，施放者卡名）⇒ 这里按记录形状把它补回一行。
+    //     ⚠️ 生命周期天然对齐：布尔被消费（`RuleCore.UseAlternative` 狂暴那一段「用掉即清」）⇒ 这一行**同时消失**。
+    //
+    //  ⛔ 本段**纯读**：不写 `UnitState` / `ctx`、不发事件 ⇒ `ruleprobe play` 指纹不变。
+    //  ⛔ 别把 ① 并进 `ShownFamily.Stat` —— `IsNonStatAttr` 把 `cost` 挡在属性族外（与 `.c` 一致，别动）。
+    // ==================================================================================================
+    public static partial class EffectsToShow
+    {
+        /// <summary>见本段段首的判据。由 `Of()` 的 `SortShown` **之前**同一物理行调用。</summary>
+        static void AddExtraRecordRows(List<ShownEffect> outp, UnitState u, BattleContext ctx)
+        {
+            if (outp == null || u == null) return;
+
+            // ---- ① 改费用（`buffType 2 changeCost`）------------------------------------------------
+            var mods = u.StatMods;
+            for (int i = 0; i < mods.Count; i++)
+            {
+                var m = mods[i];
+                if (m == null) continue;
+                if (RuleCore.NormalizeAttr(m.Attr) != "cost") continue;
+                outp.Add(new ShownEffect
+                {
+                    Family = ShownFamily.Cost,
+                    BuffType = m.BuffType,
+                    Value = m.Value,
+                    Timed = false,
+                    Source = m.Source,
+                    OwnerCard = m.Source,          // 这条形状的 `Source` **就是**给的那张卡名（`AddStatMod(… source: 卡名)`）
+                    Seq = m.Seq,
+                });
+            }
+
+            var inst = u.Instance;
+            if (ctx != null && ctx.CostMods != null && inst != null)
+            {
+                for (int i = 0; i < ctx.CostMods.Count; i++)
+                {
+                    var cm = ctx.CostMods[i];
+                    if (cm == null) continue;
+                    // 只认「钉住这一份」的那条 = 原版挂在**那一张牌的实体**上的 `CardEffect`。
+                    if (cm.Key != "*" || cm.HandInstanceId != inst.Id) continue;
+                    if (cm.SetTo >= 0) continue;                 // `setCost(95)` 是另一族（原版 `buffType 95`），不冒充 2
+                    outp.Add(new ShownEffect
+                    {
+                        Family = ShownFamily.Cost,
+                        BuffType = BuffTypeChangeCost,
+                        Value = cm.Delta,
+                        Timed = cm.ExpireTurn >= 0,
+                        Source = cm.Tag,                        // ⚠️ `CostMod` 今天**没有「谁给的」这一格**（`Tag` 只有光环灌 `Auras.GrantTag`）⇒ 这一支的左列/原文**取不到**（会印一行空的 = 原版「空文本占一槽」）。补法 = 给 `CostMod` 加一格**不进指纹**的 owner（`NetProtocol.PlayerHash` 把 `Tag` 滚进了哈希 ⇒ ⛔ 别往 `Tag` 里塞卡名，那会改 `StateHash`/`play check` 指纹 —— 详见报告）
+                        OwnerCard = cm.Tag,
+                        Seq = 0,                                // `CostMod` 没有序戳 ⇒ 排队尾（同 `RemoveTrait` / 附魔那两族）
+                    });
+                }
+            }
+
+            // ---- ② `dontReturnFerocity`（`addTrait(3)` trait 1270）---------------------------------
+            if (u.FerocityStay)
+            {
+                outp.Add(new ShownEffect
+                {
+                    Family = ShownFamily.Trait,
+                    BuffType = BuffTypeAddTrait,
+                    Trait = FerocityStayTrait,
+                    TraitValue = 1,
+                    Timed = false,
+                    Source = u.FerocityStayBy,
+                    OwnerCard = u.FerocityStayBy,
+                    Seq = 0,
+                });
+            }
+        }
+
+        /// <summary>`DefinedTrait.dontReturnFerocity = 1270`（`dump.cs:DefinedTrait` 段；
+        /// 我们 `CardDefPartial_B94B16.cs:70` 的 `trait 名 ↔ id` 表里拼作 `dontReturnFerocity`）。
+        /// ⚠️ 只用于**显示这一行**：引擎的「留在场上」判据读的是 `UnitState.FerocityStay`，不读这个关键词。</summary>
+        public const string FerocityStayTrait = "dontReturnFerocity";
     }
 }

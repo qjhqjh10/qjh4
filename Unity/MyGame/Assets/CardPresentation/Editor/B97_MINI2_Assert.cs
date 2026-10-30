@@ -88,6 +88,13 @@ public static class B97MINI2Assert
         try
         {
             win = CollectionWindow.Create(mgr);
+            // 🔴 2026-10-30 补：`Create()` **不建页**（`Build()` 只在 `Open()` 里，`Shell/CollectionWindow.cs:3412`）
+            //   ⇒ 不先建一遍，`PageRoot(1)` / `_pages[1]` 恒 null（`tabs` 也只有 `Build()` 才填，见 `:3856-3863`）。
+            //   ⚠️ 这里用 **`Build()`** 而**不是** `mgr.OpenWindow(win)`（后者是两个先例 `Editor/CollectionScene.cs:862-863` /
+            //   `Editor/B99W2_Assert.cs:78-79` 的写法）：本件是挂在外壳宿主里跑的，`OpenWindow` 的全屏支会
+            //   `HideAllWindows()` 把宿主此刻开着的别的窗一起藏掉、还会用 `null` 调 `SetupData`（`B99W2` 那行自己写了这个坑）。
+            //   本段只要「四页建出来」⇒ `Build()` 就够，⛔ 不动别人的窗。
+            win.Build();
             var page = win.PageRoot(1);            // 1 = Cards 页（首次取页会触发 `SetupOnce()` ⇒ `BuildCardsPage`）
             // ⚠️ 上面两句若在本宿主里抛异常（缺存档/缺壳锚点），**不许静默跳过** ⇒ 由下面的 catch 报成一条红。
             Tr(page != null, "A5 前提：Cards 页建出来了");

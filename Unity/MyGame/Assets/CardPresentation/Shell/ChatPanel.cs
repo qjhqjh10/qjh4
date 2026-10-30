@@ -26,8 +26,8 @@
 // ⑤ **`Player Options Panel` 出厂 act F**（点消息行上那个头像才亮）；5 个钮全要服务器。
 //
 // ---- 用户口径（2026-09-26）----
-// 「**网络聊天功能暂时不做**，但**界面照建、数据留空态**」⇒ 输入框打不了字、发送键出声；
-// 真正的收发消息**没有**（没有服务器，也没有 `ChatGlobalManager` 的对等物）。
+// 「**网络聊天功能暂时不做**，但**界面照建、数据留空态**」⇒ 输入框真能打字、发送键**本地回显**（见文件尾 `ChatSend`）；
+// 真正的收发消息**没有**（没有服务器，也没有 `ChatGlobalManager` 的对等物）—— 2026-10-30（`B102_CHAT`）就地订正上一句。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -128,8 +128,8 @@ namespace CardPresentation
         }        static Transform Node(Transform p, string n, PxRect r) { return MenuDraw.Node(p, n, r); }
         ImageQuad Rect(Transform p, string art, PxRect r, string n, int q, Color? tint = null, bool keepAspect = false)
         { return MenuDraw.Rect(p, art == null ? CardArt.Solid() : Art(art), r, n, q, tint, keepAspect); }
-        GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q, Color? tint = null)
-        { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, tint, true, n); }
+        GameObject Nine(Transform p, string art, PxRect r, Vector4 b, string n, int q, Color? tint = null, Vector4? borderOutPx = null)
+        { var t = Art(art); return t == null ? null : MenuDraw.Nine(p, t, r, b, t.width, t.height, q, tint, true, n, borderOutPx: borderOutPx); }
         /// <summary>本窗私有的一段字（`MenuDraw.TextBox` 的薄包装；本文件另有一个**静态** `Text`，
         /// 那个收 `clip`/`clipSoft`、是聊天行专用的，见下方 `ChatMessageRow.Build`）。
         /// <para>🔴 **2026-10-13（A403② + A493#10）：`autoMin` / `alignLeft` 的缺省值【已删 · 必填】**
@@ -230,9 +230,9 @@ namespace CardPresentation
             MenuDraw.Absorb(transform, "AbsorbHit", ChatBgR, QPanel, QHit);
             tabHolder = Node(chat, "Tabs", TabsR);
 
-            // 输入行（运行期真实矩形，判据 ④）
+            // 输入行（运行期真实矩形，判据 ④）· 🔴 **2026-10-30（`B102_AUD04` · AUD02 普查）**：`Enter Text/Background` 那颗原版 `Image` 的 **`m_PixelsPerUnitMultiplier = 2.0`**（uGUI `Image.cs:1157` `multipliedPixelsPerUnit = pixelsPerUnit / pixelsPerUnitMultiplier` ⇒ **乘数在【分母】**）⇒ **画出来的角块 = `m_Border ÷ 2` = 26.5 / 21.5 / 26 / 21.5**（`m_Border=(53,43,52,43)` · 贴图 536×115 · `m_Type=Sliced`）。原来直接把 `m_Border` 原值当边宽用 = **角块大一倍**。⚠️ **UV 切分仍按 `m_Border` 原值**（走 `border` 形参），⛔ 别把 `border` 一起除 —— 那会改掉图里的切分位置
             _enterText = Node(chat, "Enter Text", EnterR);
-            Nine(_enterText, "Chat_text_background", EnterR, new Vector4(53f, 43f, 52f, 43f), "Background", QBg);
+            Nine(_enterText, "Chat_text_background", EnterR, new Vector4(53f, 43f, 52f, 43f), "Background", QBg, borderOutPx: new Vector4(26.5f, 21.5f, 26f, 21.5f));
             var input = Node(_enterText, "InputField (TMP)", InputR);
             // 🔴 **A406（2026-10-12）逐站实读**：`ChatPanel/Holder/Chat/Enter Text/InputField (TMP)/Text Area/Placeholder`
             //   原版 `字号=28.0 基准=28.0`（**没有 `auto[…]` 段** ⇒ `m_enableAutoSizing = 0`）
@@ -273,14 +273,14 @@ namespace CardPresentation
             //   ⚠️ **顺序**：`SetWrappingMode` 内部会 `ForceRelayout()`（A205）⇒ **它之后必须重新对齐一次**
             //   （`Battle/Label.cs` 那个口的头写着「要在对齐/量宽之前调」；同形先例 = `Deck/DeckRuntime.cs` 里 `_fltInputText.SetWrappingMode(…)` 之后那次对齐
             //   的 `SetWrappingMode(3)` → `AlignLeftOn`）。⛔ 别拿 `SetWrapping(false)` 顶替 —— 那是 `0` 档。
-            if (ph != null)
-            {
-                ph.SetWrappingMode(3);
-                MenuDraw.AlignLeft(ph, InputR);      // 重排会把 TMP 子节点挪走 ⇒ 对齐要压在它后面
-            }
-            MenuDraw.Hit(input, "InputHit", InputR, QHit, () => Debug.Log(
-                "[Chat] 输入框**打不了字** —— 我们这套外壳没有文字输入系统；而且**聊天收发本身还没做**"
-              + "（用户 2026-09-26 口径：网络聊天功能暂时不做，界面照建、数据留空态）。"));
+            if (ph != null) { ph.SetWrappingMode(3); MenuDraw.AlignLeft(ph, InputR); }   // 重排会把 TMP 子节点挪走 ⇒ 对齐要压在它后面
+            // 🔴 **2026-10-30（`B102_CHAT`）**：原版 `Text Area/Text`（字号 28 · Left/Top · 折行 3 · 白 · 文案零宽空格）—— 我们**原来没有这一颗**（只有 `Placeholder`）⇒ 打进字去没地方显示、看着像「打不了字」（判据 = `资料/普查产出_0927/聊天窗与挑战弹窗.md:76`）
+            var textLb = Text(input, InputR, "\u200b", Color.white, "Text", 28f, QText, autoMin: 0f, alignLeft: true, face: TmpFont.Face.LatinCardBody);
+            if (textLb != null) { textLb.SetWrappingMode(3); MenuDraw.AlignLeft(textLb, InputR); }   // 重排会把 TMP 子节点挪走 ⇒ 对齐压在它后面
+            TextInputField.Bind(input, new PromptContext.InputData("ChatInput", "MainMenu/Chat/TypeMessage"), ph, textLb, ChatSend.CharLimit, v => ChatSend.SubmitByEnter(this));
+            MenuDraw.Hit(input, "InputHit", InputR, QHit, () => ChatSend.Begin(this));
+            // 🔴 原来**这两行**是「`[Chat] 输入框**打不了字**`」的 `Debug.Log`（点输入框只出声 = 静默失败）—— 现在接真输入，
+            //   那两句措辞搬进 `ChatSend.Begin` 并改成「离线也能打字」的如实说明；发送键同理（原来的 `:292` → `ChatSend.Send`）。
             var send = Node(_enterText, "Button", SendBtnR);
             var sendIcon = Rect(send, "40k_UI_Chat_send", SendBtnR, "Image", QBg, null, true);
             // 🆕 **2026-10-19（N70 · U3）：悬停 / 按下反馈** —— 判据 = 原版 `ChatPanel > Enter Text > Button`
@@ -289,9 +289,9 @@ namespace CardPresentation
             //   （HL `0.9607843` / PR `0.7843137` / fade `0.1`）—— 逐字段现读
             //   `python -I 工具/menu_dump.py bundle_menus_assets_all "ChatPanel" --depth 4`（那一行印 `trans=1`）。
             //   ⚠️ `TintOn` 而不是 `Bind`：原版 `m_SpriteState` 四格全空 ⇒ **不换图**、只做色偏。
-            var sendHit = MenuDraw.Hit(send, "Hit", SendBtnR, QHit, () => Debug.Log(
-                "[Chat] `TrySendMessage`：**没有服务器**，也没有 `ChatGlobalManager` 的对等物 ⇒ 发不出去。"),
+            var sendHit = MenuDraw.Hit(send, "Hit", SendBtnR, QHit, () => ChatSend.Send(this),
                 clickCue: WindowSounds.SendMessageCue);
+            // 🔴 **2026-10-30（`B102_CHAT`）**：原来这里只打一句「**没有服务器 ⇒ 发不出去**」（= 静默失败）⇒ 现在真走**本地回显**（见文件尾 `ChatSend.Send`）。
             var sendWb = sendHit != null ? sendHit.GetComponent<WindowButton>() : null;
             if (sendWb != null && sendIcon != null) sendWb.TintOn(sendIcon);
             // 🔴 **2026-10-25（E4 · 账 311②）**：`CheckChatBan` 要按禁言态置灰/置文字 ⇒ 这两颗得抓住。
@@ -344,7 +344,7 @@ namespace CardPresentation
             //   第一句 `title.text = messageData.playerName`）。改前它恒为 prefab 样例串 `Fulanito Name`。
             _optName = Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f,
                             face: TmpFont.Face.LatinCardBody);
-            // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）
+            // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）· 🔴 **2026-10-30（`B102_AUD04` · AUD02 普查）**：五颗的底图 `UI_Button_Mulligan` 原版 `Image` 的 **`m_PixelsPerUnitMultiplier = 3.0`** ⇒ **画出来的角块 = `m_Border ÷ 3` = 111 / 32 / 111 / 32**（`m_Border=(333,96,333,96)` · 贴图 410×124 · `m_Type=Sliced`）。原来直接拿 `m_Border` 原值 = 横轴角块 178.65（画出来比原版宽 61%）。⚠️ 行高 `OptRowH = 57.6 < 32+32` ⇒ **竖轴被 uGUI `GetAdjustedBorders` 按轴夹成 28.8**（原版同样夹，⛔ 不是画错；横轴不夹）。⚠️ **UV 切分仍按 `m_Border`**（`333+333 > 410` ⇒ uGUI 会把中段 uv 夹成零宽，原版同样）
             var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
             string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
             string[] nodes = { "Add as a friend", "Challenge", "Report", "Block", "Profile" };
@@ -360,7 +360,7 @@ namespace CardPresentation
                 float y = OptPanelR.y1 + 50f + i * OptRowStep;
                 var rowR = new PxRect(OptPanelR.x1 + 15f, y, OptPanelR.x2 - 15f, y + OptRowH);
                 var row = Node(optBtns, nodes[i], rowR);
-                var rowNine = Nine(row, "UI_Button_Mulligan", rowR, new Vector4(333f, 96f, 333f, 96f), "Image", QContent);
+                var rowNine = Nine(row, "UI_Button_Mulligan", rowR, new Vector4(333f, 96f, 333f, 96f), "Image", QContent, borderOutPx: new Vector4(111f, 32f, 111f, 32f));
                 // 🔴 **A406**：`Holder/Chat/Player Options Panel/Buttons/{Add as a friend,Challenge,Report,
                 //   Block,Profile}/Button Text` 五颗**逐颗读过** —— 全是 `auto[10.0~**30.0**] 基准=**12.0**`
                 //   ⇒ 上限 30（= 标称）· base **12.0**。判据 = 同一条 `menu_dump … "ChatPanel" --depth 10 --md`。
@@ -959,6 +959,178 @@ namespace CardPresentation
             mgr.OpenWindow(popup);
             Debug.Log("[Chat] `DeckShare` ⇒ 开 `Deck info Popup`（**Import** 态）· 卡组「" + info.Name + "」"
                     + "（原版 `ChatMessageUI.OnMessageClicked` → `WindowsManager.OpenWindow<DeckInfoPopup>(context)`）");
+        }
+    }
+
+
+    // ==================================================================
+    //  `ChatSend`（原版 `ChatPanel.SendMessage(string)` 的**本地等价**）
+    // ==================================================================
+
+    /// <summary>聊天窗「输入框 / 发送键」那两个口的实现。
+    /// <para>🔴 **为什么单开一个文件尾部的静态类、而不往 `ChatPanel` 类里加成员**：
+    /// `Shell/ChatPanel.cs` 被账按 `文件:行号` 引用 40+ 处（`账/社交_聊天.tsv` 里 `ChatMessageRow`
+    /// 那一族全在 700–960 行）⇒ 往 `ChatPanel` 类里插成员会把它们**整体推移**。本类追加在**文件末尾**
+    /// （`ChatMessageRow` 之后、命名空间收尾之前）⇒ 上面**每一行的行号零变化**（同族先例 = 本文件里的
+    /// 静态类 `ChatMessageRow`）。</para>
+    /// <para>🔴 **口径**：用户 2026-09-26「**网络聊天暂时不做，界面照建**」。真正的收发走 Photon Chat
+    /// （已关服，判 D）；但「点了只打日志」属**静默失败**（铁律：不许静默）⇒ 现在做**本地回显**：
+    /// 消息进 `SocialData.ChatMessages`，自己那一页立刻多一行（= 玩家在自己屏幕上真的看见自己发的话）。
+    /// ⛔ 它**不假装发出去了**：每次发送都**出声**说明「只在本机回显、对端收不到」。</para>
+    /// <para>判据：原版 `ChatPanel.SendMessage(string)`（`ChatPanel.cs:687`，方法体内经
+    /// `ChatGlobalManager.SendMessage*` 走 Photon）· 输入框那颗 `EverguildInputField` 的
+    /// `m_CharacterLimit = 200` / `m_ContentType = Standard` / `m_LineType = SingleLine`
+    /// （判据 = `assets_full/bundle_menus_assets_all` 的 `ChatPanel/Holder/Chat/Enter Text/InputField (TMP)`；
+    /// 普查原文 `资料/普查产出_0927/聊天窗与挑战弹窗.md:73`）。</para></summary>
+    public static class ChatSend
+    {
+        /// <summary>输入框容量 —— 原版 `EverguildInputField.m_CharacterLimit = 200`（判据见类头）。</summary>
+        public const int CharLimit = 200;
+
+        /// <summary>输入框那颗节点（原版 `ChatPanel/Holder/Chat/Enter Text/InputField (TMP)`）。
+        /// ⛔ 按**路径**找，不按兄弟序（本窗的子件顺序改过多次）。</summary>
+        public const string InputPath = "Holder/Chat/Enter Text/InputField (TMP)";
+
+        /// <summary>正文那颗 `Label`（原版 `Text Area/Text`；2026-10-30 新建，⛔ 别和 `Placeholder` 混）。</summary>
+        public const string TextPath = "Holder/Chat/Enter Text/InputField (TMP)/Text";
+
+        /// <summary>发送键那颗节点的路径（原版 `Enter Text/Button`）。</summary>
+        public const string SendPath = "Holder/Chat/Enter Text/Button";
+
+        /// <summary>最后一次发出去的正文（自检读口；`null` = 还没发过）。</summary>
+        public static string LastSent { get; private set; }
+        /// <summary>成功本地回显的条数（自检读口）。</summary>
+        public static int SendCount { get; private set; }
+
+        /// <summary>输入框那颗可输入件（没建起来 ⇒ `null`，调用方必须**出声**）。</summary>
+        public static TextInputField InputOf(ChatPanel win)
+        {
+            if (win == null) return null;
+            var t = win.transform.Find(InputPath);
+            return t != null ? t.GetComponent<TextInputField>() : null;
+        }
+
+        /// <summary>正文那颗 `Label`（自检读口；`null` = 没建起来）。</summary>
+        public static Label TextLabelOf(ChatPanel win)
+        {
+            if (win == null) return null;
+            var t = win.transform.Find(TextPath);
+            return t != null ? t.GetComponent<Label>() : null;
+        }
+
+        /// <summary>当前页那个频道的号（`0 = Global` / `1 = Alliance`）—— 与 `ChatPanel.CurrentChannelType()` 同口径，
+        /// 但那边是 `private` ⇒ 本类自己算一遍（⛔ 只有这一份实现：`ChatPanel.Channels` 是唯一真值）。</summary>
+        public static int ChannelIndexOf(ChatPanel win)
+        {
+            string ch = null;
+            var tab = win != null ? win.CurrentTabView as ChatTab : null;
+            if (tab != null) ch = tab.Channel;
+            if (ch == null && ChatPanel.Channels.Length > 0) ch = ChatPanel.Channels[0];
+            for (int i = 0; i < ChatPanel.Channels.Length; i++) if (ChatPanel.Channels[i] == ch) return i;
+            return 0;
+        }
+
+        /// <summary>当前页那个频道是否**已禁言**（原版 `PlayerDataManager.IsBannedFromChat(channelType)`；
+        /// 本仓的接线口 = <see cref="ChatPanel.ChatBanProvider"/>，默认 `null` = 一律没禁言）。</summary>
+        public static bool IsBanned(ChatPanel win)
+        {
+            var p = ChatPanel.ChatBanProvider;
+            return p != null && p(ChannelIndexOf(win));
+        }
+
+        /// <summary>= 点输入框（原版 `TMP_InputField` 自己吃 `IPointerClickHandler` ⇒ 进编辑态）。
+        /// <para>禁言时**不进编辑**（原版 `CheckChatBan` 把输入框 `interactable = false`）。</para></summary>
+        public static void Begin(ChatPanel win)
+        {
+            var input = InputOf(win);
+            if (input == null)
+            {
+                Debug.LogWarning("[Chat] 输入框那颗 `TextInputField` 不在（`" + InputPath + "`）⇒ **点输入框打不了字**（如实说，不静默）");
+                return;
+            }
+            if (IsBanned(win))
+            {
+                Debug.LogWarning("[Chat] 当前频道**已禁言** ⇒ 输入框不进入编辑（原版 `ChatPanel.CheckChatBan` 把输入框置灰）。");
+                return;
+            }
+            input.BeginEdit();
+            Debug.Log("[Chat] 输入框进入编辑 —— ⚠️ **离线**：打进去的字按发送键只会在**本机**回显一行、对端收不到"
+                    + "（原版这一路走 Photon Chat，已关服；用户 2026-09-26 口径「网络聊天暂不做，界面照建」）。");
+        }
+
+        /// <summary>= 原版 `ChatPanel.Update()` 里那条「**回车发送**」（判据 `decomp_full/ChatPanel__Update.c:7-16`）：
+        /// `GetKeyDown(KeypadEnter = 0x10F) || GetKeyDown(Return = 0x0D)`，且 **左 Shift `0x130` / 右 Shift `0x12F` 都没按**
+        /// ⇒ 走与发送键**同一段**逻辑（原版那两处是同一份代码的两份拷贝：`Update` 与 `TrySendMessage`）。
+        /// <para>⚠️ **如实差异（还没接的那一半）**：原版这一段在 `Update` 里**全局收键**（输入框没焦点也能发）；
+        /// 我们只在**编辑态**收 Enter（借 `TextInputField` 的 `onSubmit` 回调）⇒ 焦点外按 Enter 不发。
+        /// 要完全对齐得给 `ChatPanel` 加一个 `Update` —— 本文件被账按行号引用 40+ 处，插成员会把它们整体推移，
+        /// 所以**这一条留在账上，下一轮再做**（⛔ 不是「不做」）。</para></summary>
+        public static void SubmitByEnter(ChatPanel win)
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed))
+            {
+                Debug.Log("[Chat] Enter + Shift ⇒ **不发**（原版 `ChatPanel.Update` 里 Shift 按住时跳过发送，只退出编辑）。");
+                return;
+            }
+            Send(win);
+        }
+
+        /// <summary>= 点发送键（原版 `ChatPanel.SendMessage(string)` → `ChatGlobalManager.SendMessageToChannel/…`）。
+        /// <para>本地等价 = **回显进 `SocialData.ChatMessages`**（`ChatTab.Rebuild` 按 `Channel` 过滤后画出来）
+        /// ＋ 清空输入框 ＋ 重画当前页。⚠️ 与原版的**唯一差异**：不经过网络 ⇒ 对端看不到（如实出声）。</para>
+        /// <returns>`true` = 真的多了一行（自检读口）；`false` = 空串 / 禁言 / 没有输入框（三种都出声）。</returns></summary>
+        public static bool Send(ChatPanel win)
+        {
+            if (win == null)
+            {
+                Debug.LogWarning("[Chat] 发送键：没有窗实例 ⇒ 不发（不静默）。");
+                return false;
+            }
+            var input = InputOf(win);
+            if (input == null)
+            {
+                Debug.LogWarning("[Chat] 发送键：输入框那颗 `TextInputField` 不在（`" + InputPath + "`）⇒ 拿不到正文、不发（如实说）。");
+                return false;
+            }
+            string text = input.Value ?? "";
+            // 闸的顺序照原版 `ChatPanel__TrySendMessage.c`：**先禁言（原版直接 return）→ 再空白检查（原版 `IsNullOrWhiteSpace` + 一条日志）**
+            if (IsBanned(win))
+            {
+                Debug.LogWarning("[Chat] 发送键：当前频道**已禁言** ⇒ 不发（原版 `TrySendMessage` 第 1 道闸 = `IsBannedFromChat`，且 `CheckChatBan` 把发送键置灰）。");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                Debug.Log("[Chat] 发送键：输入框是**空的 / 只有空白** ⇒ 什么都不发（原版 `TrySendMessage` 用 `string.IsNullOrWhiteSpace` 判这一道）。");
+                return false;
+            }
+
+            int chIdx = ChannelIndexOf(win);
+            string channel = ChatPanel.Channels.Length > chIdx ? ChatPanel.Channels[chIdx] : ChatPanel.Channels[0];
+            var msg = new SocialData.ChatMessage
+            {
+                Type = SocialData.ChatMessage.TypeMessage,   // 50 = `Message`（原版 `ChatMessageType.Message`）
+                Channel = channel,
+                Sender = ProfileData.PlayerName,             // 原版 `playerName` 取自本机玩家档案
+                Text = text,
+                Mine = true,                                 // ⇒ `ChatMessageRow` 走 `Player Header`（头像靠右）
+                AvatarArt = ProfileData.AvatarArt,
+                // 原版 `ChatMessageData.timestamp` 是**服务器**毫秒；本地没有服务器时钟 ⇒ 取本机 UTC（`TimeText` 会算成「几秒前」）
+                TimestampMs = (long)(System.DateTime.UtcNow - new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)).TotalMilliseconds,
+            };
+            SocialData.ChatMessages.Add(msg);
+            LastSent = text;
+            SendCount++;
+
+            input.EndEdit(true);      // 先收编辑态（保住值，下面 Clear 才有意义）
+            input.Clear();            // 原版发完清空输入框 ⇒ 占位字自己亮回来
+            win.RefreshMessages();    // 原版 `ChatTab.CheckMessages`：当前页按新条数重画
+
+            Debug.Log("[Chat] ⇒ 本地回显第 " + SendCount + " 条（频道 " + channel + "）：「" + text + "」"
+                    + " —— ⚠️ **离线**：原版这一跳是 `ChatGlobalManager.SendMessage*`（Photon Chat，已关服）⇒ "
+                    + "**对端收不到**，只在本机这一页看得见（用户 2026-09-26 口径）。");
+            return true;
         }
     }
 }

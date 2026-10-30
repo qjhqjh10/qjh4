@@ -113,8 +113,14 @@ namespace CardPresentation
         /// <param name="maxLen">0 = 不限长（prefab `m_CharacterLimit: 0` 就是这个意思）。</param>
         /// <param name="qBase">渲染队列基准：底 = qBase、字 = qBase+1（与 `PromptPopup` 的 `QFill/QText` 同序）。</param>
         /// <param name="onSubmit">回车提交时回调（值 = <see cref="Value"/>）；可以不传。</param>
+        /// <param name="bgTint">底图 tint；`null` ⇒ <see cref="BgTint"/>（提示窗那套实值）。
+        /// 🆕 2026-10-30（`B102_ALLY`）：联盟建盟 Name/Desc 两格的 tint 是 (1,0.475,0.098,1)（橙色），
+        /// ⛔ 别拿提示窗那份绿色顶替。</param>
+        /// <param name="face">字体面；`null` ⇒ 提示窗那两颗 TMP 的拉丁体。
+        /// 🆕 同上：那两格的标题/占位可能含中文 ⇒ 调用点传 `TmpFont.Face.Cjk`。</param>
         public static TextInputField Create(Transform parent, PxRect r, PromptContext.InputData data,
-                                            int maxLen = 0, int qBase = 3142, Action<string> onSubmit = null)
+                                            int maxLen = 0, int qBase = 3142, Action<string> onSubmit = null,
+                                            Color? bgTint = null, TmpFont.Face? face = null)
         {
             if (data == null) return null;
             var go = MenuDraw.Node(parent, "template", r);
@@ -124,12 +130,13 @@ namespace CardPresentation
             f._maxLen = Mathf.Max(0, maxLen);
             f._value = data.DefaultValue ?? "";
             f._onSubmitCb = onSubmit;
+            var st = face ?? TmpFont.Face.LatinCardBody;    // 字体面（缺省 = 提示窗那两颗 TMP 的拉丁体）
 
             // 底：`40K_dropdown_bg` 九宫（整行 900×90）
             var tex = CardArt.MenuUi(ArtBg);
             if (tex != null)
             {
-                MenuDraw.Nine(go, tex, r, BgBorder, BgTexW, BgTexH, qBase, BgTint, true, "Background");
+                MenuDraw.Nine(go, tex, r, BgBorder, BgTexW, BgTexH, qBase, bgTint ?? BgTint, true, "Background");
             }
             else Debug.LogWarning("[Input] 取不到 `" + ArtBg + "`（输入框底没画）—— 导入器：`工具/import_original_art.py`");
 
@@ -142,7 +149,7 @@ namespace CardPresentation
                                  new Vector2(0.5f, 0.5f), "Placeholder");
             if (f._ph != null)
             {
-                f._ph.SetFace(TmpFont.Face.LatinCardBody);
+                f._ph.SetFace(st);
                 f._ph.SetRenderQueue(qBase + 1);
                 f._ph.SetGlyphHeight(LayoutSpace.Px(PhFontPx));
                 f._ph.SetAutoFitBox(LayoutSpace.Px(area.W), LayoutSpace.Px(area.H),
@@ -154,7 +161,7 @@ namespace CardPresentation
                                    new Vector2(0.5f, 0.5f), "Text");
             if (f._text != null)
             {
-                f._text.SetFace(TmpFont.Face.LatinCardBody);
+                f._text.SetFace(st);
                 f._text.SetRenderQueue(qBase + 1);
                 f._text.SetGlyphHeight(LayoutSpace.Px(TxFontPx));
                 f._text.SetAutoFitBox(LayoutSpace.Px(area.W), LayoutSpace.Px(area.H),
@@ -293,5 +300,66 @@ namespace CardPresentation
                 _text.SetText(shown ?? "");
             }
         }
+
+        // ============================================================================================
+        // 🆕 2026-10-30（执行代理 `B102_CHAT`）—— 类尾新增：**绑定已画好的版面**（`Bind` / `Clear` / `SetValue`）
+        // ============================================================================================
+        // 🔴 纪律：**只追加、不改上面的 `Create` / `Tick` / `Refresh`**（另一个代理也在用本文件）。
+        // 为什么要有它：本类的 `Create` 会**自己建一整行**（900×90 `40K_dropdown_bg` 底 + 40/45px 字 +
+        //   自己的命中区）—— 那是 `GenericPromptWindow/Window/inputs/template` 的版面。而
+        //   `Shell/ChatPanel.cs` 的 `Enter Text/InputField (TMP)` 是**另一套 prefab 值**（字号 28 · Left ·
+        //   折行 3 · 高 26.53 · 底是 `Chat_text_background` 九宫），而且**窗外已经按原版把占位字画好了**。
+        //   走 `Create` 会把提示框的底和 45px 字一起画进聊天条里 ⇒ 这里只**借键盘与值**：
+        //   不建底、不建命中区（命中区由宿主自己挂，避免两套 hit 抢命中）。
+        // ⚠️ 缺省行为不变：`Bind` 是**新入口**，`Create` 一个字节都没动。
+
+        /// <summary>绑定「宿主已经画好」的两颗字：占位 + 正文 —— 本类的 `Refresh` 会自动做
+        /// 「空值 ⇒ 显示占位 / 非空 ⇒ 显示正文（编辑时补光标）」。
+        /// <para>⚠️ 与 <see cref="Create"/> 的唯一区别：**不建任何视觉件**，宿主给什么就用什么。</para>
+        /// <para>⚠️ 幂等：同一节点上已有本组件时**复用**（重开窗时节点是新的，这里只是保险）。</para></summary>
+        public static TextInputField Bind(Transform host, PromptContext.InputData data, Label placeholder, Label text,
+                                          int maxLen = 0, Action<string> onSubmit = null)
+        {
+            if (host == null) return null;
+            var f = host.GetComponent<TextInputField>();
+            if (f == null) f = host.gameObject.AddComponent<TextInputField>();
+            f._data = data;
+            f._maxLen = Mathf.Max(0, maxLen);
+            f._value = data != null ? (data.DefaultValue ?? "") : "";
+            f._onSubmitCb = onSubmit;
+            f._ph = placeholder;
+            f._text = text;
+            f._editing = false;
+            f.Refresh();
+            return f;
+        }
+
+        /// <summary>清空当前值（发送之后用）。⚠️ 空值 ⇒ 占位字会自己亮回来（`Refresh` 里那一支）。</summary>
+        public void Clear()
+        {
+            _value = _data != null ? (_data.DefaultValue ?? "") : "";
+            _typed.Clear();
+            Refresh();
+        }
+
+        /// <summary>直接设值（自检 / 程序化填；与 `onTextInput` 那条路的差别只在于**不经过 `_typed`**）。</summary>
+        public void SetValue(string v)
+        {
+            _value = v ?? "";
+            _typed.Clear();
+            Refresh();
+        }
+
+        // ---------------------------------------------------------------------------------------------
+        // 🆕 2026-10-30（执行代理 `B102_ALLY`）：`Create` 末尾新增两个**可选**形参
+        //   `bgTint` / `face`（`Color?` / `TmpFont.Face?`，缺省 = 本文件头那套提示窗实值）。
+        // 为什么是这两个而不是一整套样式档：目前**只有联盟建盟 Name/Desc 两格**要覆盖
+        //   —— 底图与提示窗同一张 `40K_dropdown_bg`、只有 `tint` 不同（(1,0.475,0.098,1) 橙色），
+        //   且占位/正文可能要中文字体面。⛔ 只加**真有人用**的口（多一个没人传的字段 = 死代码）。
+        // ⚠️ **联盟搜索框不走这里**：它那一格的底图（`InputFieldBackground`）/占位字/命中区本来就画好了，
+        //   只需要「值从哪来」⇒ 走 <see cref="Bind"/>（见那个方法的 doc）——`Bind` 也不建视觉件。
+        // ⚠️ 缺省值 = 提示窗那套实值（**逐字不动**）⇒ 既有调用点（`Shell/AllianceMemberTab.cs` 的描述框）
+        //   行为完全一致。
+        // ---------------------------------------------------------------------------------------------
     }
 }

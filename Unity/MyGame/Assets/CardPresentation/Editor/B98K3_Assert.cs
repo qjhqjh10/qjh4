@@ -19,9 +19,12 @@
 //   · A7：把「按运行时类型分发 `OnReset`」改成「调基类某个空体」⇒ A7 红（探针的计数不涨）。
 //   · B4：把 `challenges == null` 那一支改成抛异常 ⇒ B4 红。
 //   · C1：把内层「逐条 `challengeProgress`」删掉（改成每个 mission 一格）⇒ C1 红（4 → 2）。
-//   · C2：把 `globalIndex` 改成**每个 mission 重置** ⇒ C2 红（`F,F,T,T` → `F,F,F,F`）。
-//   · C3：把 `WritesSwitch` 的 `<=` 改成 `<` ⇒ C2 红（`F,F,T,T` → `F,F,F,T`）。
-//   · C4：把 `ColumnCount` 的 `4 条 ⇒ 0` 改成 `⇒ 2` ⇒ C4 红。
+//   · C2（**口径**这条）：列数改回「按 mission 个数」计（夹具 2 个 mission ⇒ columns 2）⇒ C2 红（`T,T,T,T` → `F,F,T,T`）。
+//     🔴 2026-10-30 订正：原写「把 `globalIndex` 改成每个 mission 重置 ⇒ C2 红」——**已失效**：夹具 4 格 ⇒ columns 0 ⇒
+//        两种写法都是全 T、分不开；那条灭自证已挪到 C3。
+//   · C3（**序号**这条）：把 `globalIndex` 改成**每个 mission 重置** ⇒ C3 红（`F|T|T` → `F|F|F`）。
+//   · C3b：把 `WritesSwitch` 的 `<=` 改成 `<` ⇒ C3 红（`F|T|T` → `F|F|T`）。
+//   · C4：把 `ColumnCount` 的 `4 格 ⇒ 0` 改成 `⇒ 2` ⇒ C4 红（同时 C2 也会红）。
 //   · D2/D4：把 state 公式的任一 `<` 改成 `<=` ⇒ D2 / D4 红（两个边界各一条）。
 //   · D1/D5：把 `Locked` 与 `Unlocked` 对调 ⇒ D1 红。
 using System;
@@ -199,27 +202,27 @@ public static class B98K3Assert
     {
         MenuCheck.Section(_sink, "C `MissionsTab.InstantiateGridMissionsCore`：按**挑战进度**建格 + 列数开关按全局序号");
 
-        // C1/C2：2 条 mission × 2 条进度 ⇒ columns = 2（`1/2 条 ⇒ 2 列`）
+        // C1/C2：2 条 mission × 2 条进度 ⇒ **4 格** ⇒ `ColumnCount(4) = 0 列`（原版 `.c:53-54` 的分母是**总进度条数**）
         var h1 = new ContainerHolder(0, null);
         var m1 = Miss(2); var m2 = Miss(2);
         MissionsTab.InstantiateGridMissionsCore(h1, new List<MissionsTab.IGridMissionSource> { m1, m2 });
         C(h1.GetContainers().Count, 4,
           "C1 建格数 = **4**（按 `challengeProgress` 逐条建，不是按 mission 建 ⇒ 改回 2 就是复刻错了）");
-        C(Log(m1) + "|" + Log(m2), "F,F|T,T",
-          "C2 `UseSmallContainer` 按**全局**序号写：`columns(2) <= 0/1/2/3` ⇒ `F,F,T,T`（⛔ 不是每个 mission 重置）");
+        C(Log(m1) + "|" + Log(m2), "T,T|T,T",
+          "C2 4 格 ⇒ **0 列** ⇒ `0 <= 全局序号` 恒真 ⇒ `T,T,T,T`（口径：分母是格数不是 mission 个数）");
 
-        // C3：3 条 mission × 1 条进度 ⇒ columns = 1
+        // C3：3 条 mission × 1 条进度 ⇒ 3 格 ⇒ `ColumnCount(3) = 1 列`（也是「序号是全局」的灭自证：每 mission 重置 ⇒ `F|F|F`）
         var h2 = new ContainerHolder(0, null);
         var a1 = Miss(1); var a2 = Miss(1); var a3 = Miss(1);
         MissionsTab.InstantiateGridMissionsCore(h2, new List<MissionsTab.IGridMissionSource> { a1, a2, a3 });
         C(Log(a1) + "|" + Log(a2) + "|" + Log(a3), "F|T|T",
-          "C3 `3 条 ⇒ 1 列` ⇒ `1 <= 全局序号` ⇒ `F,T,T`（判据 `.c:53-67` 的 `iVar2` 分支）");
+          "C3 3 格 ⇒ **1 列** ⇒ `1 <= 全局序号` ⇒ `F,T,T`（判据 `.c:53-67` 的 `iVar2` 分支；`globalIndex` 不按 mission 重置）");
 
-        // C4：4 条 ⇒ 0 列 ⇒ 那个开关恒真
+        // C4：4 条 mission × 1 条进度 ⇒ 4 格 ⇒ 0 列 ⇒ 那个开关恒真
         var h3 = new ContainerHolder(0, null);
         var b1 = Miss(1); var b2 = Miss(1); var b3 = Miss(1); var b4 = Miss(1);
         MissionsTab.InstantiateGridMissionsCore(h3, new List<MissionsTab.IGridMissionSource> { b1, b2, b3, b4 });
-        C(Log(b1) + "|" + Log(b4), "T|T", "C4 `4 条 ⇒ 0 列`（原版那一支什么都不写 ⇒ `0 <= 序号` 恒真）");
+        C(Log(b1) + "|" + Log(b4), "T|T", "C4 `4 格 ⇒ 0 列`（原版那一支什么都不写 ⇒ `0 <= 序号` 恒真）");
 
         // C5：`maxAmount` 闸
         var h4 = new ContainerHolder(2, null);

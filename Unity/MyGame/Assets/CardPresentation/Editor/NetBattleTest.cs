@@ -446,6 +446,14 @@ public static class NetBattleTest
             Eq(cliCtx.Turn, hostCtx.Turn, "两端回合数一致");
             Eq(cliCtx.Active, hostCtx.Active, "两端「现在轮到谁」一致（**绝对座位**，不再是一正一反）");
             Eq(cliCtx.Events.Count, hostCtx.Events.Count, "两端事件条数一致（引擎记账条数）");
+            // 🔴 **2026-10-30（`B102_D7` · δ 时序，非语义）**：下面这条数的是 `NetBattle.Log`
+            //    （主机广播的 `applied` 流），**不是** `ctx.Events` —— 客机只靠回音落格
+            //    （`NetBattle.cs:1522-1523`），所以最后一条要看传输层取没取到。循环末尾只给了
+            //    `PumpBoth(..., 12)` 的 12 ms 泵窗；尾手恰好落在客机自己那一手时，那一趟回程还没到
+            //    ⇒ 客机少一格（34 vs 33），而两端指纹/回合/事件数全相等。
+            //    ⛔ 别放宽成「差 1 也算过」：这条断言的判别力就是「客机的账一条不漏」。
+            Ok(PumpUntil2(hs, cs, hNB, cNB, () => cNB.Log.Count == hNB.Log.Count, 500),
+               $"（前提）客机的权威账追上主机（主机 {hNB.Log.Count} / 客机 {cNB.Log.Count}）");
             Eq(hNB.Log.Count, cNB.Log.Count, "★ 权威动作流的条数两端一样（客机的日志靠主机广播补出来）");
 
             // ---- 6) 重连：**掐断 → 自动重连 → 主机灌权威动作流 → 客机重建 + 全量重放** ----

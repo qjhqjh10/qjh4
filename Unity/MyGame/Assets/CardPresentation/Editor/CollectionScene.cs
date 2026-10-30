@@ -5137,8 +5137,8 @@ public static class CollectionScene
                 string okEn = wEn != null ? TextOf(FindChild(wEn.transform, "Confirm Text")) : null;
                 if (wEn != null) wEn.Close();
                 Loc.RestoreForTest(langImp);                         // 收尾：语言放回原值
-                CheckTrue(wZh != null && wEn != null, "（前提）两语档各开出了一扇 `Import Deck Popup`"
-                          + "（取不到 ⇒ 下面几条恒红，⛔ 不静默）");
+                CheckTrue(phZh != null && phEn != null, "（前提）两语档各开出了一扇 `Import Deck Popup`"
+                          + "（取不到 ⇒ 下面几条恒红，⛔ 不静默）｜🆕 B102_D6：`wZh`/`wEn` 在「再开另一扇」那一拍已被收割销毁（Unity 假 null）⇒ 改判**关窗前就取好的**占位符文本 `phZh`/`phEn`（两个 null 只在那一扇根本没建出来 / 里面没那颗字时才成立）");
                 // 🔴 2026-10-14（第二十七会话）就地改期望值：MenuDeck/HUD/EnterText 原来是我们自译的「输入文字...」，官方 zh-CN = 「输入文本...」
                 Check(phZh, "输入文本...", "★ 空输入时显示**占位符**：**中文档** = `Loc.T(\"MenuDeck/HUD/EnterText\")`"
                     + " 的**中文列**（2026-10-14 官方 zh-CN 表 = 「输入文本...」，原「输入文字...」）");

@@ -204,6 +204,15 @@ public static class B101R5_Assert
             Verb = "exchange", Source = "B101R5",
             Target = new EffectTargetSpec { Raw = "enemy", Side = "enemy", Kind = "any", Count = 1 },
         };
+        // ④ 2026-10-30（`B102_D1` 顺手项 · B4 原来靠「方法名出现在日志里」⇒ 只删调用、留日志照样绿）：
+        //   夹具里真挂两条手牌记录 —— ① `extrinsic` 由 A 施放（换位后**应被摘**）；② **非** extrinsic 同施放者（**不该被摘**）。
+        //   判据 = `EffectResolver.cs:17488` 的 `RemoveHandEffectsCastBy`：`deadIds.Count == 0 ⇒ continue`（那句日志都不打）
+        //   ⇒ **没有 ① 这条夹具，日志根本不会有那句话**，B4 就退化成「盯文案」。
+        int recExt = ctx.NextHandEffectRecord();
+        int recKeep = ctx.NextHandEffectRecord();
+        ctx.Players[0].HandEffectRecords.Add(new CardInstance.HandEffect { RecordId = recExt, Source = "B101R5", Extrinsic = true, ActingUnit = ua });
+        ctx.Players[0].HandEffectRecords.Add(new CardInstance.HandEffect { RecordId = recKeep, Source = "B101R5", Extrinsic = false, ActingUnit = ua });
+
         RuleCore.ResolveOps(ctx, 0, ua, new List<EffectOp> { op }, "B101R5", chosen: ub);
 
         Tr(ctx.Players[0].Board[aslot] == ub, "★ B3 `exchange` 真的换了位：敌方的 B 出现在我方的 a 号格");
@@ -212,8 +221,28 @@ public static class B101R5_Assert
         Tr(log.IndexOf("RemoveHandEffectsCastBy", StringComparison.Ordinal) >= 0,
            "★★ B4 原版 4 次 `PlayerHand.RemoveFromGameCard` 的等价口**跑过了**（新日志点了 `RemoveHandEffectsCastBy`）"
          + "｜🧨 删掉 `EffectResolver.cs:17146` 那两次调用 ⇒ 这一条红");
-        Tr(log.IndexOf("⇒ 跳过", StringComparison.Ordinal) < 0,
-           "★★ B5 灭自证：日志里**不再**出现旧的「没有对象 ⇒ 跳过」" + "｜🧨 把 `:17147-17148` 的文案改回去 ⇒ 红");
+
+        // ④ 2026-10-30（`B102_D1` 顺手项 · 选 (a)：夹具里真挂记录 ⇒ B4 从「盯文案」变成「盯行为」）。
+        bool recExtLeft = false, recKeepLeft = false;
+        for (int i = 0; i < ctx.Players[0].HandEffectRecords.Count; i++)
+        {
+            var r = ctx.Players[0].HandEffectRecords[i];
+            if (r == null) continue;
+            if (r.RecordId == recExt) recExtLeft = true;
+            if (r.RecordId == recKeep) recKeepLeft = true;
+        }
+        Tr(!recExtLeft, "★★ B4a（强）施放者被换位 ⇒ 由它施放的 **extrinsic** 手牌记录**被摘掉**（原版 4 次 `PlayerHand.RemoveFromGameCard` 的等价口）"
+                      + "｜🧨 删掉 `EffectResolver.cs:17146` 那两次 `RemoveHandEffectsCastBy` ⇒ 记录还在 ⇒ 红");
+        Tr(recKeepLeft, "★★ B4b 灭自证/边界：**非** extrinsic（同施放者）那条记录**仍在**（只摘 extrinsic，⛔ 别改成整表清空）");
+        Tr(log.IndexOf("手牌记录表上摘掉 1 条", StringComparison.Ordinal) >= 0,
+           "★★ B4c 日志里出现「手牌记录表上摘掉 1 条」（`RemoveHandEffectsCastBy` 只在 `deadIds.Count > 0` 时打这一句）"
+         + "｜🧨 只删调用留文案 ⇒ B4a/B4c 同时红");
+        // 🔴 2026-10-30 订正（`B102_D1` 三条红 ② · 负向 token 太宽）：查子串 `⇒ 跳过` 会命中**新**日志自己
+        //   （`EffectResolver.cs:17147-17148` 逐字引用了旧文案「没有对象 ⇒ 跳过」）⇒ 这条永远红、零判别力。
+        //   换成旧文案的**独有片段** `在我们模型里**没有对象**`（新文案里没有这一段）。
+        Tr(log.IndexOf("在我们模型里**没有对象**", StringComparison.Ordinal) < 0,
+           "★★ B5 灭自证：日志里**不再**出现旧的「在我们模型里**没有对象**（在场单位本来就不在 `Hand` 列表里）⇒ 跳过」"
+         + "｜🧨 把 `:17147-17148` 的文案改回去 ⇒ 红");
     }
 
     // ============================================================ C · W3（1 张可达：SW18 的 Rally 手牌变身）
@@ -254,7 +283,13 @@ public static class B101R5_Assert
             if (h.Card.Name == "Hunting Wolf" || h.Card.Name == "Fenrisian Wolf") wolves.Add(h);
         }
         C(wolves.Count, 2, "★★ C3b 两张战略卡**都**变了身（`DoBecome` 跑到了）｜🧨 句首 `⚡` 剥不掉 / `become` 解不成 ⇒ 0 或 1 ⇒ 红");
-        C(ctx.Players[0].Hand.Count, handBefore, "（前提）手牌张数不变（变身是**换牌**不是抽/弃）");
+        // 🔴 2026-10-30 订正（`B102_D1` 三条红 ③ · 期望值错）：`handBefore` 是在**打出 Hrolf 之前**取的，
+        //   里面**含 Hrolf 自己**；`PlayCard` 把这张**单位卡**从手牌摘掉（`RuleCore.cs:3956` `ps.Hand.RemoveAt(handIdx)`），
+        //   两张战术卡是**就地换**（`ps.Hand[i] = __ni`，±0）⇒ 变身本身保张数，但总数 = `handBefore − 1`。
+        //   原版判据 = `decomp_full/BattleManager__ResolveTransformUnit.c:1880` 起那段只换定义、不碰手牌 List。
+        C(ctx.Players[0].Hand.Count, handBefore - 1,
+          "（前提）手牌张数 = 打出前的 " + handBefore + " **减掉打出去的那一张** = " + (handBefore - 1)
+        + "（变身是**就地换牌**不是抽/弃 ⇒ 两张战术卡 ±0；⛔ 别写成 `handBefore`：那会把打出去的 Hrolf 也算在手里）");
         for (int i = 0; i < wolves.Count; i++)
             Tr(idsBefore.Contains(wolves[i].Id),
                "★★ C4 变身后的「" + wolves[i].Card.Name + "」实例号 = " + wolves[i].Id

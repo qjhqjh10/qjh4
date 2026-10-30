@@ -640,6 +640,10 @@ public static class BattleScene
             else { fail++; Debug.LogError(P + $"   ✗ {msg}"); }
         }
 
+        // 🆕 2026-10-30（调度台接线 · `B102_TRAIT` · 账 503）：死讯带 `Amount` ⇒ 猎杀标记粒子挂在**督军**身上。
+        //   本件**自己备份并还原敌方棋盘**（见 `Run` 的 finally）⇒ 接在这里不影响后面任何断言。
+        B102TRAIT_Assert.Run(driver, d => StepThrough(d)); pass += B102TRAIT_Assert.Pass; fail += B102TRAIT_Assert.Fail;
+
         // 🔴 **`A1972`（2026-10-19 · 第五十五会话 S3）：`SimulateChoosePick(i)` 的返回值【只等于「面板开着」】。**
         //   `CardChoicePanel.HandleClick`（`Battle/CardChoicePanel.cs:645-664`）进门判 `!Visible ⇒ false`，
         //   之后**每一条分支都 `return true`**（连「点空白」那句都写着 `return true; 面板开着 → 点其它地方也吃掉`）
@@ -45072,7 +45076,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; UnityEngine.Object.DestroyImmediate(driver);   // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红）
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; RunR13(); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红）
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46621,8 +46625,8 @@ public static class BattleScene
         //  判据 = `BattleDriver.ShowYourTurnHeadsUp` → `HoldForTurnHeadsUp`（`BattleDriver.cs` 现读
         //  `:13162-13211`）：抬头 → **1.5 s**（`DAT_1834b3090` 实读）→ 后面的事件才开场；
         //  只在**我方回合**停（`Ctx.Active != _me` 早退）· **教程第 1 回合**不停（`IsTutorialMatch && Turn == 1` 早退）。
-        //  ⚠️ 这一段放在**全部断言之后**：它要重开一局拿干净基线（⛔ 不污染前面那些节的状态）。
-        if (driver != null)
+        //  ⚠️ 原注「这一段放在**全部断言之后**：它要重开一局拿干净基线（⛔ 不污染前面那些节的状态）」—— 🔴 2026-10-30（`B102_506`）就地订正：**执行位置**已改到 `DestroyImmediate(driver)` 之前那一行（声明仍留在末尾只是排版，同 `RunE7Fixture` 的写法），原注的「执行上放在全部断言之后」**已不成立**。根因：原来这一段套在 `if (driver != null)` 里，而 driver 到那里**已被销毁**（假 null）⇒ **R13①–⑤ 从来没执行过**（静默跳过）。⚠️ 改的是下面那一行 `if` 本身 ⇒ **零行数变化**。
+        void RunR13()
         {
             int hBefore = driver.TurnHeadsUpHolds;
             // ⚠️ 先手钉子：前面 9b/9c 那两节已经把它拔成 `null` 了 ⇒ 这里**显式钉回 0**，
@@ -46658,15 +46662,15 @@ public static class BattleScene
                 + "｜🧨 把 hold 改 0（抽牌立刻播）⇒ 1.4 s 那一刻队列已经空/变小 ⇒ 红");
             // ④ 对手回合**不涨** / 再回到我方**又 +1**（同一段里量两个方向）
             int h2 = driver.TurnHeadsUpHolds;
-            driver.SimulateEndTurn();                 // 我方 → 对手：不该涨
+            driver.SimulateEndTurn(); driver.SimulateResetClockForTest();   // 我方 → 对手：⛔ 不该涨（🆕 B102_D9 补上这一拍 —— 原来全程一次 `ResetClock()` 都不走 ⇒ ④a 空转绿）
             int h3 = driver.TurnHeadsUpHolds;
             Check(h3 == h2,
-                  $"★ R13④a：**交到对手回合 ⇒ 抬头 hold 不涨**（{h2} → {h3}）"
-                + "｜🧨 把 `ShowYourTurnHeadsUp` 的 `Ctx.Active != _me` 早退删掉 ⇒ 红");
-            driver.SimulateAiTurn();                  // 对手 → 我方：+1
+                  $"★ R13④a：**交到对手回合 ⇒ 真拨一次 `ResetClock()`，抬头 hold 也不涨**（{h2} → {h3}）"
+                + "｜🧨 把 `ShowYourTurnHeadsUp` 的 `Ctx.Active != _me` 早退删掉 ⇒ 红（🆕 本拍未补 `ResetClock` 时这条是空转绿 —— 闸压根没被走到）");
+            driver.SimulateAiTurn(); driver.SimulateResetClockForTest();   // 对手 → 我方：+1（🆕 B102_D9：生产两条 AI 交回合路 `DriveAiTurn` 收手支 / `AiEndTurnSoon` 都成对调 `ResetClock()`，测试口原来漏了这一拍）
             Check(driver.TurnHeadsUpHolds == h3 + 1,
-                  $"★ R13④b：**再回到我方 ⇒ 又 +1**（{h3} → {driver.TurnHeadsUpHolds}）"
-                + "｜🧨 只在开局那一次停、之后不停 ⇒ 红");
+                  $"★ R13④b：**再回到我方（拨过 `ResetClock()`）⇒ 又 +1**（{h3} → {driver.TurnHeadsUpHolds}）"
+                + "｜🧨 只在开局那一次停、之后不停 ⇒ 红；漏掉那一拍 `ResetClock()` ⇒ 回不到 `Open` 抬头、本条同样红");
             // ⑤ 教程第 1 回合不停：**源级**（造一局教程对局成本高；判据是 `ShowYourTurnHeadsUp` 里
             //   那条早退与 `HoldForTurnHeadsUp()` 的**相对位置**）
             string drvPathR13 = System.IO.Path.Combine(Application.dataPath,
@@ -46698,7 +46702,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。 B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

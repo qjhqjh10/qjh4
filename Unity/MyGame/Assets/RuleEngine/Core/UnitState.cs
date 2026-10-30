@@ -387,7 +387,7 @@ namespace RuleEngine
         /// ⚠️ 别和 `SW36 Bjorn the Fell-Handed` 的 `When a friendly unit uses Ferocity, it stays in play`
         ///    （**常驻、无 `next time`、无 `this turn`**）搞混 —— 那是**另一张卡、另一条语义**。
         /// </summary>
-        public bool FerocityStay;
+        public bool FerocityStay; public string FerocityStayBy;   // 🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：`FerocityStayBy` = 原版 `CardEffect.enchantingCard(+0x18)`（`AbilityLogic__PlayAbility.c:1199`）—— **这条「留在场上」标记是谁给的**（施放者卡名）。写点 = `EffectResolver.DoFerocityStay`；读点 = `EffectsToShow.AddExtraRecordRows`（把原版那条 `buffType 3 addTrait trait 1270` 记录投影成一行）。⛔ 别拿它做判据：结算只看 `FerocityStay` 那个布尔
 
         /// <summary>
         /// **压在下面那几张牌**（虫群合并来的，2026-09-13 A2）。规则书 `:216`「置于其下」。
@@ -928,7 +928,7 @@ namespace RuleEngine
             // 🔴 **2026-10-18（`W5` · K3）：算式收进 `RuleCore.ChooseAttackTypeAutomatically` 一处** ——
             //   本处原来自己写了一遍（那是同一条规则的**第 3 份写法**：`SimpleAI.UseRanged` /
             //   `BattleDriver.UseRanged` / 这里；`RuleCore` 与 `UnitState` 同程序集，直接调得到）。
-            CurrentAttackType = RuleCore.ChooseAttackTypeAutomatically(this);   SetupDropPodStats();   // 🆕 2026-10-29（`B97_W22` · 账 :707 ④）：原版 `CardScript__CardSetup.c:157-200` 的 drop pod 两格（`+0xcc/+0xe0` = `GameStaticData.dropPodMaxHealth/dropPodAttack`，值 2/0 —— `out_cpp2il_dev_ilspy/GameStaticData.cs:2404-2405`），闸 = `cardType==10 ∧ HasCurrentTrait(0xe6)`；定义见文件尾第三个 `partial` 段（⛔ 零行数变化：本文件行号被 43 条账行引用）
+            CurrentAttackType = RuleCore.ChooseAttackTypeAutomatically(this);   SetupDropPodStats();   SetupTideAndCompanionCounters();   // 🆕 2026-10-29（`B97_W22` · 账 :707 ④）：原版 `CardScript__CardSetup.c:157-200` 的 drop pod 两格（`+0xcc/+0xe0` = `GameStaticData.dropPodMaxHealth/dropPodAttack`，值 2/0 —— `out_cpp2il_dev_ilspy/GameStaticData.cs:2404-2405`），闸 = `cardType==10 ∧ HasCurrentTrait(0xe6)`；定义见文件尾第三个 `partial` 段（⛔ 零行数变化：本文件行号被 43 条账行引用）
         }
 
         /// <summary>
@@ -1765,7 +1765,7 @@ namespace RuleEngine
             // 卡面写 `this turn`：这一回合没用到，就作废。
             // ⚠️ **消费点是 `RuleCore.UseAlternative` 的狂暴那一段**（用掉当场清，才是「下一次」）；
             //    这里只是「回合过了」的兜底。两处都要，缺一个就会「用两次」或者「跨回合还留着」。
-            FerocityStay = false;
+            FerocityStay = false; FerocityStayBy = null;   // 🆕 2026-10-30（`B102_EFF`）：标记作废 ⇒ 归属卡也一起清（否则 `EffectsToShow` 会投影出一行早已失效的记录）
             // 🆕 2026-09-16 誓约（Oath）能力的每回合激活计数 —— 原版在回合末清零
             // （`CardScript__OnTurnEnd.c:209`）⇒ 「本回合没用完就作废」。
             // ⚠️ `DeployedTurn` **不清**（它记的是历史：那张牌是哪一回合上场的）。
@@ -4188,6 +4188,48 @@ namespace RuleEngine
                 }
             }
             return n;
+        }
+
+        // ---- ⑤⑥ 潮涌 / 伴生计数器快照（原版 `CardScript.tideCounter // 0x5C` · `companionCounter // 0x60`）----
+        //  判据（`d:/2/tools/decomp_full/CardScript__CardSetup.c:251-260`，2026-10-30 现读）：
+        //    建卡那一刻（`CardSetup` 内）——
+        //      `HasCurrentTrait(0x38e = tide)`      ⇒ `+0x5C = CurrentTide`（= `GetCurrentTraitValueWithModifiers(0x38e)`）；
+        //      `HasCurrentTrait(0x49c = companion)` ⇒ `+0x60 = CurrentCompanion`（同上，0x49c）。
+        //  读点：
+        //    · `CardScript__ProcessTide.c:21-24` —— `!HasCurrentTrait(tide) || +0x5C == 0` ⇒ **直接 return**；
+        //      `:126` 新造那张 `+0x5C = 源 +0x5C − 1`。
+        //    · `CardScript__ProcessCompanion.c:29` —— 不带 `Companion` 词条时 `if (+0x60 < 1) return;`；
+        //      `:88-89` 新造那张 `isCompanion = 1` · `+0x60 = 源 +0x60 − 1`。
+        //  ⇒ 这两格是「**建卡那一刻的 trait 值快照**」，之后由 Process* 逐份 −1 驱动「再造一张」。
+        //
+        //  ⚠️ **本仓的 `CardInstance.CompanionCounter`（`CardInstance.cs:386`）是【另一本账】** ——
+        //    那是「伴生链还剩几环」（写点 `RuleCore.cs:4529`、搬运 `TransformUnit_B94B12.cs:335`），
+        //    对应的是**造出来的那一张**上的 `+0x60`，⛔ 别与这里这格混成一本。
+        //  🔴 **2026-10-30（`B102_CARD707` · 账 `战斗逻辑驱动:707` R3/R4）如实记的残差**：
+        //    原版的 `−1` 是写在**新造那张卡的 `CardScript` 上**（实例级、跟着那张牌走进手牌）；
+        //    我们的 `UnitState` 是**打出那一刻**才构造的 ⇒ 本件这两格在常见路径上与
+        //    `KwValue(...)` **同值**（快照点 = 构造点 = 打出点）。要把「逐份 −1 跟着牌走」也复刻，
+        //    得给 `CardInstance` 加一格（本批白名单不含 `CardInstance.cs`）⇒ 已写进报告交调度台。
+
+        /// <summary>原版 `CardScript.tideCounter // 0x5C` —— `CardSetup` 那一刻的 `CurrentTide` 快照。
+        /// <para>读点（原版）= `CardScript__ProcessTide.c:21-24` 的闸（`== 0` ⇒ 不造复制品）。
+        /// 我们当前的消费者 = `RuleCore.SpawnTideCopies` 的 `x` 实参（⛔ 别再用 `unit.KwValue(...)` 现读）。</para></summary>
+        public int TideCounter;
+
+        /// <summary>原版 `CardScript.companionCounter // 0x60` —— `CardSetup` 那一刻的 `CurrentCompanion` 快照。
+        /// <para>⚠️ **与 `CardInstance.CompanionCounter` 不是同一本账**（那一本 = 伴生链剩余环数，见上面 ⑤⑥ 段的说明）。
+        /// 我们当前的消费者 = `RuleCore.PlayCompanions` 里那个 `x`（词条支）。</para></summary>
+        public int CompanionCounter;
+
+        /// <summary>
+        /// 原版 `CardScript__CardSetup.c:251-260` 那两句（⑤⑥ 两格快照）—— 由构造函数末尾调用。
+        /// <para>⚠️ 原版读的是 `HasCurrentTrait` + `GetCurrentTraitValueWithModifiers`（**当前**值，含光环/加成）；
+        /// 我们 `_keywords` 在构造函数里已按 `card.Keywords` 填好 ⇒ 这里直接读它就是同一口径。</para>
+        /// </summary>
+        public void SetupTideAndCompanionCounters()
+        {
+            if (Has(KeywordTable.Tide)) TideCounter = KwValue(KeywordTable.Tide);
+            if (Has(KeywordTable.Companion)) CompanionCounter = KwValue(KeywordTable.Companion);
         }
     }
 }

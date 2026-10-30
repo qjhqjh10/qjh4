@@ -230,6 +230,10 @@ public static class B101R3_Assert
 
             win = SettingsWindow.Create(wm);
             if (!Ok(win != null, "前提：`SettingsWindow.Create` 建出窗来")) return;
+            // 🔴 2026-10-30 订正（`B102_D1` 三条红 ③a · 测法不成立）：`Create` **不建树** —— `Build()` 只在
+            //   `Open()` 第一句里跑（`Shell/SettingsWindow.cs`：`Create` 无 `Build`；`Open()` = `Build(); OpenTab(Current); NetRuntime.Ensure(...)`）
+            //   ⇒ 原来只 `Create` 不 `Open`，窗根是空的、`FindDeep` 必然找不到 `Social Media Links`（自检红与实现对错无关）。
+            win.Open();
 
             var links = FindDeep(win.transform, "Social Media Links");
             Ok(links != null, "③a 前提：`Social Media Links` 在");
@@ -266,7 +270,7 @@ public static class B101R3_Assert
         }
         finally
         {
-            if (win != null) { try { UnityEngine.Object.DestroyImmediate(win.gameObject); } catch { } }
+            if (win != null) { try { win.Close(); } catch { } try { UnityEngine.Object.DestroyImmediate(win.gameObject); } catch { } }
             try { WindowsManager.ClearReuseCacheForTest(); } catch { }
         }
     }

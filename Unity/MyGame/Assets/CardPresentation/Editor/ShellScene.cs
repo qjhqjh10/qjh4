@@ -1558,7 +1558,7 @@ public static class ShellScene
         {
             CheckTrue(shell.Windows.openWindows.Count == 1 && win.CurrentState == WindowState.Open,
                       "（前提）场上只有 ⑤ 那扇底窗、且它是 `Open`（本节点收尾会把它原样开回去）");
-            shell.Windows.CloseAllWindows();      // 隔离：下面那一开走**全屏支** ⇒ 不清空的话会把别的窗一起藏掉
+            shell.Windows.CloseAllWindows(); shell.Windows.OpenWindow(win);      // 隔离：下面那一开走**全屏支** ⇒ 不清空的话会把别的窗一起藏掉（🆕 B102_D6：这一句把 ⑤ 那扇底窗立刻开回来 —— 否则 `:1570` 开探针那一拍会把它收割销毁，`:1587`/`:1633` 只能拿到 Unity 假 null）
             var a672Go = new GameObject("probe window (type 未赋 + 绕过 AttachToAnchor)");
             var a672Win = a672Go.AddComponent<GameWindow>();
             CheckTrue(!a672Win.HasType,
@@ -3034,7 +3034,7 @@ public static class ShellScene
             //   🔴 **旧实现两处会红**：① 全屏支只 `Close()` 当前主窗 ⇒ 弹窗**照旧可见**（全屏窗盖不住它）；
             //   ② `TopWindow` 那时指向**被盖住的弹窗** ⇒ ESC / 键盘默认选中打错窗。
             shell.Windows.OpenWindow(probe);                 // 全屏窗
-            shell.Windows.OpenWindow(pop);                   // 弹窗叠上去
+            popGo = new GameObject("KeyProbePopup2"); pop = popGo.AddComponent<GameWindow>(); pop.type = WindowType.Popup; pop.closeOnEsc = true; pop.placement = WindowsPlacement.Popup; WindowsManager.AttachToAnchor(pop); shell.Windows.OpenWindow(pop);   // 弹窗叠上去（🆕 B102_D6：上面 ESC 关掉的那一具 `pop` 已在 `:3036` 那一拍被收割销毁 —— 原版「关窗即销毁」⇒ 这里**重建一扇**再叠，⛔ 别退回沿用旧实例）
             CheckTrue(pop.CurrentState == WindowState.Open && probe.CurrentState == WindowState.Background,
                       "（前提）叠态就绪：弹窗 `Open`、底下的全屏窗被压到 `Background`");
             var fullGo = new GameObject("KeyProbeFullscreen2");
@@ -3747,7 +3747,7 @@ public static class ShellScene
 
             // ---- ④ 两层弹窗叠着：关掉上面那扇 ⇒ 回到**底下那扇弹窗**，不是最底下那扇主窗
             shell.Windows.OpenWindow(a);
-            shell.Windows.OpenWindow(p1);
+            p1Go = new GameObject("GateProbeP1"); p1 = p1Go.AddComponent<GameWindow>(); p1.type = WindowType.Popup; p1.closeOnEsc = true; p1.placement = WindowsPlacement.Popup; WindowsManager.AttachToAnchor(p1); shell.Windows.OpenWindow(p1);   // 🆕 B102_D9：`p1` 已在上一拍 `OpenWindow(a)` 那一次收割里被**销毁**（`B102_AUD03R` 的「关窗 = 销毁」延后到下一次开窗，`keep` 只护本次正开的那一扇）⇒ 按原版「先销毁再重建」重造一具，⛔ 不复用已关掉的旧实例（原版 `CloseWindowCO` 非 baseMenu 支末句就是 `Object.Destroy`，「关掉再开同一实例」本来就不是原版写法）
             shell.Windows.OpenWindow(p2);
             Check(p2.CurrentState, WindowState.Open, "前置：第三层 `p2` 开着");
             CheckTrue(plG.KeyCancel(), "★ ④-1 ESC 关掉 `p2`");
@@ -10066,7 +10066,7 @@ public static class ShellScene
                     };
                     CheckTrue(wm.TopWindow == null, "（前提）I2 基线：没有顶窗（`CloseAllWindows` 收尾清了顶窗记账）");
                     CheckTrue(topBad().Count == 0, "★ I2-1 没有顶窗 ⇒ 合法");
-                    wm.OpenWindow(baseWin);
+                    fs = mkProbe("A1520 非模态探针", WindowType.Fullscreen, WindowsPlacement.World, true); pop = mkProbe("A1520 模态探针", WindowType.Popup, WindowsPlacement.Popup, true); wm.OpenWindow(baseWin);   // 🆕 B102_D9：`fs` / `pop` 已在 I1 那拍 `wm.OpenWindow(dirty)` 的收割里被**销毁**（`B102_AUD03R` 的「关窗 = 销毁」延后到下一次开窗）⇒ 用本段既有的 `mkProbe` 重造两具，⛔ 不复用已关掉的旧实例
                     Check(wm.TopWindow, baseWin, "（前提）顶窗 = 常驻主菜单");
                     CheckTrue(topBad().Count == 0, "★ I2-2 常驻主菜单在 `Open` 态 ⇒ 合法（ESC 那一跳走得通）");
                     wm.OpenWindow(pop);
@@ -10115,7 +10115,7 @@ public static class ShellScene
                     CheckTrue(!baseWin.BlocksLeftNav, "（前提）常驻主菜单（`type=0` / `placement=0`）是**非模态**");
                     int qNonModal = mmRt.NavHitQueueForTest;
                     Check(qNonModal, expectQ(), "★ I3-2 非模态顶窗（`BaseMenu`）⇒ 仍是 `QNavHit`");
-                    wm.OpenWindow(pop);
+                    pop = mkProbe("A1520 模态探针", WindowType.Popup, WindowsPlacement.Popup, true); wm.OpenWindow(pop);   // 🆕 B102_D9：旧 `pop` 已在 `:10083` 那次 `OpenWindow(baseWin)` 的收割里被销毁（上一行 `:10072` 开着、`:10076` 关掉 ⇒ 记进待收）⇒ 用本段既有 `mkProbe` 重造，⛔ 不复用已关掉的旧实例
                     CheckTrue(pop.BlocksLeftNav, "（前提）弹窗探针（`type=1` / `placement=15`）是**模态**");
                     Check(mmRt.NavHitQueueForTest, expectQ(),
                           "★ I3-3 **模态顶窗** ⇒ 降到 `QNavHitBlocked`（左栏不可点）"
@@ -10128,7 +10128,7 @@ public static class ShellScene
                           "★ I3-3′ …而且确实等于 `QNavHitBlocked` 自己（与 I3-2 期望值**反向** ⇒ 两个方向都断住了）");
                     pop.Close();
                     Check(mmRt.NavHitQueueForTest, expectQ(), "★ I3-4 关掉模态窗 ⇒ 回到 `QNavHit`（两态对照）");
-                    wm.OpenWindow(fs);
+                    fs = mkProbe("A1520 非模态探针", WindowType.Fullscreen, WindowsPlacement.World, true); wm.OpenWindow(fs);   // 🆕 B102_D9：旧 `fs` 已在 `:10114` 那次 `OpenWindow(baseWin)` 的收割里被销毁（`:10095` 关掉 ⇒ 记进待收）⇒ 同样重造
                     CheckTrue(!fs.BlocksLeftNav, "（前提）全屏探针（`type=0` / `placement=10`）非模态");
                     Check(mmRt.NavHitQueueForTest, expectQ(),
                           "★ I3-5 非模态窗开着 ⇒ 仍是 `QNavHit`（🧨 一刀切成「有窗就挡」⇒ 本条红；2026-10-18 那条修复不许回退）");
@@ -10136,7 +10136,7 @@ public static class ShellScene
 
                     // ============================================================ I4 · `CloseAllWindows()` 之后
                     wm.OpenWindow(baseWin);
-                    wm.OpenWindow(fs);
+                    fs = mkProbe("A1520 非模态探针", WindowType.Fullscreen, WindowsPlacement.World, true); pop = mkProbe("A1520 模态探针", WindowType.Popup, WindowsPlacement.Popup, true); wm.OpenWindow(fs);   // 🆕 B102_D9：上一行的 `OpenWindow(baseWin)` 把 `:10129` / `:10135` 关掉的 `fs`·`pop` 一起收割销毁了 ⇒ 开 I4 之前重造两具（⛔ 必须在那一行之后，`keep` 护不到它们）
                     wm.OpenWindow(pop);
                     CheckTrue(wm.openWindows.Count >= 3, "（前提）I4 之前至少 3 扇在册");
                     var regBefore = new List<GameWindow>(wm.openWindows);
@@ -11020,7 +11020,7 @@ public static class ShellScene
         Debug.Log(P + "B93D4SelfCheck 跑 " + B93D4SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_D4）：断言本体在 `Editor/ShellScene_B93D4SelfCheck.cs`。打印返回条数 = 自证真被跑到。
         Debug.Log(P + "LiveOpsB93N2SelfCheck 跑 " + LiveOpsB93N2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");
         Debug.Log(P + "B94S2SelfCheck 跑 " + B94S2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-29（B94_S2 · 日常/奖励）：断言本体在 `Editor/ShellScene_B94S2SelfCheck.cs`。接在**合计行之前** ⇒ 其后无账落点（本文件最大账落点 = `ShellScene.cs:10351`）。**打印返回条数 = 自证它真被跑到**。
-        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B97W9Assert.Run(); _sink.Pass += B97W9Assert.Pass; _sink.Fail += B97W9Assert.Fail; B98K3Assert.Run(); _sink.Pass += B98K3Assert.Pass; _sink.Fail += B98K3Assert.Fail; B97W25Assert.Run(); _sink.Pass += B97W25Assert.Pass; _sink.Fail += B97W25Assert.Fail; B97W39Assert.Run(); _sink.Pass += B97W39Assert.Pass; _sink.Fail += B97W39Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W39`）：轮抽房属性过网（`MsgDeck`/`MsgStart` 各 4 格 · 老报文出声+默认 · 三格不在指纹面）   // 🆕 2026-10-29（调度台代接线 · `B97_W25`）：账 `轮抽:31` `SetCustomMatchOptions`（`won` 读胜场、⛔ 不是 `defensiveCard`；handler null ⇒ 整段跳过不写键） B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; B97W2Assert.Run(); _sink.Pass += B97W2Assert.Pass; _sink.Fail += B97W2Assert.Fail; B97_DAILYAssert.Run((ok, msg) => CheckTrue(ok, msg)); B97MISC2Assert.Run(); _sink.Pass += B97MISC2Assert.Pass; _sink.Fail += B97MISC2Assert.Fail; B97_MENU_Assert.RunAll(); B97MINI2Assert.Run(); _sink.Pass += B97MINI2Assert.Pass; _sink.Fail += B97MINI2Assert.Fail; B98A1_Assert.Run(); _sink.Pass += B98A1_Assert.Pass; _sink.Fail += B98A1_Assert.Fail; B98A5_Assert.Run(); B98A8_Assert.Run(); B98A11_Assert.Run(); B98H5Assert.Run(); _sink.Pass += B98H5Assert.Pass; _sink.Fail += B98H5Assert.Fail; B98K5_Assert.Run(); _sink.Pass += B98K5_Assert.Pass; _sink.Fail += B98K5_Assert.Fail; B98M2_Assert.Run(); _sink.Pass += B98M2_Assert.Pass; _sink.Fail += B98M2_Assert.Fail; B101R8_Assert.Run(); _sink.Pass += B101R8_Assert.Pass; _sink.Fail += B101R8_Assert.Fail; B101W3_Assert.Run(); _sink.Pass += B101W3_Assert.Pass; _sink.Fail += B101W3_Assert.Fail; B99G3Assert.Run(_sink); B99A4Assert.Run((ok, msg) => CheckTrue(ok, msg)); Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // [B98_Q2 2026-10-29 代接线] A1(边框按 AutoAssign 自动装备)·A5/A8(卡包实物+三层遮挡序；⚠️ 这两件只有自带 `_ok/_bad` 与小结日志、**没有** `Pass/Fail` ⇒ 不进 `_sink`)·A11(挑战消费方两条；同样自带计数)·H5(boosts 支)·K5(轮抽三条 B)·M2(`DraftState` 15)。接在合计行之前 ⇒ 行数零变化   // 🆕 2026-10-29（B97_DAILY · 日常/奖励）：账 `745` 的接线锁（IL 层「方法体恰好一处 call `ModifyLocalization`」）+ `510` 的 `displayRule` 三档；断言本体在 `Editor/B97_DAILY_Assert.cs`。接在**合计行之前**，同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B97W9Assert.Run(); _sink.Pass += B97W9Assert.Pass; _sink.Fail += B97W9Assert.Fail; B98K3Assert.Run(); _sink.Pass += B98K3Assert.Pass; _sink.Fail += B98K3Assert.Fail; B97W25Assert.Run(); _sink.Pass += B97W25Assert.Pass; _sink.Fail += B97W25Assert.Fail; B97W39Assert.Run(); _sink.Pass += B97W39Assert.Pass; _sink.Fail += B97W39Assert.Fail;   B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; B97W2Assert.Run(); _sink.Pass += B97W2Assert.Pass; _sink.Fail += B97W2Assert.Fail; B97_DAILYAssert.Run((ok, msg) => CheckTrue(ok, msg)); B97MISC2Assert.Run(); _sink.Pass += B97MISC2Assert.Pass; _sink.Fail += B97MISC2Assert.Fail; B97_MENU_Assert.RunAll(); B97MINI2Assert.Run(); _sink.Pass += B97MINI2Assert.Pass; _sink.Fail += B97MINI2Assert.Fail; B98A1_Assert.Run(); _sink.Pass += B98A1_Assert.Pass; _sink.Fail += B98A1_Assert.Fail; B98A5_Assert.Run(); B98A8_Assert.Run(); B98A11_Assert.Run(); B98H5Assert.Run(); _sink.Pass += B98H5Assert.Pass; _sink.Fail += B98H5Assert.Fail; B98K5_Assert.Run(); _sink.Pass += B98K5_Assert.Pass; _sink.Fail += B98K5_Assert.Fail; B98M2_Assert.Run(); _sink.Pass += B98M2_Assert.Pass; _sink.Fail += B98M2_Assert.Fail; B101R8_Assert.Run(); _sink.Pass += B101R8_Assert.Pass; _sink.Fail += B101R8_Assert.Fail; B101W3_Assert.Run(); _sink.Pass += B101W3_Assert.Pass; _sink.Fail += B101W3_Assert.Fail; B99G3Assert.Run(_sink); B99A4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B102MISSAssert.Run(); _sink.Pass += B102MISSAssert.Pass; _sink.Fail += B102MISSAssert.Fail; B102AUD04_Assert.Run(); _sink.Pass += B102AUD04_Assert.Pass; _sink.Fail += B102AUD04_Assert.Fail; B97W32Assert.Run(); _sink.Pass += B97W32Assert.OkCount; _sink.Fail += B97W32Assert.BadCount; B102CHAT_Assert.Run(); _sink.Pass += B102CHAT_Assert.Pass; _sink.Fail += B102CHAT_Assert.Fail; B102AUD03R_Assert.Run(); _sink.Pass += B102AUD03R_Assert.Pass; _sink.Fail += B102AUD03R_Assert.Fail; B102FTUE_Assert.Run(); _sink.Pass += B102FTUE_Assert.Pass; _sink.Fail += B102FTUE_Assert.Fail; B102BUY_Assert.Run(); _sink.Pass += B102BUY_Assert.Pass; _sink.Fail += B102BUY_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W39`）：轮抽房属性过网（`MsgDeck`/`MsgStart` 各 4 格 · 老报文出声+默认 · 三格不在指纹面）   // 🆕 2026-10-29（调度台代接线 · `B97_W25`）：账 `轮抽:31` `SetCustomMatchOptions`（`won` 读胜场、⛔ 不是 `defensiveCard`；handler null ⇒ 整段跳过不写键）    // [B98_Q2 2026-10-29 代接线] A1(边框按 AutoAssign 自动装备)·A5/A8(卡包实物+三层遮挡序；⚠️ 这两件只有自带 `_ok/_bad` 与小结日志、**没有** `Pass/Fail` ⇒ 不进 `_sink`)·A11(挑战消费方两条；同样自带计数)·H5(boosts 支)·K5(轮抽三条 B)·M2(`DraftState` 15)。接在合计行之前 ⇒ 行数零变化   // 🆕 2026-10-29（B97_DAILY · 日常/奖励）：账 `745` 的接线锁（IL 层「方法体恰好一处 call `ModifyLocalization`」）+ `510` 的 `displayRule` 三档；断言本体在 `Editor/B97_DAILY_Assert.cs`。接在**合计行之前**，同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
