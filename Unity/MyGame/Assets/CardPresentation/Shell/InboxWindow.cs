@@ -407,7 +407,7 @@ namespace CardPresentation
             //   还原成原版的 `0`。判据/口径 → `TitleAutoMin` 那一段的注释（三颗的 min 各不相同）。
             var titleLb = MenuDraw.Text(c, Title, DailyData.InboxTitle(), Color.white, "Title", 48f, QText,
                                         Title.W, TitleAutoMin, autoBasePx: WindowLabelAutoBase, face: TmpFont.Face.LatinCardBody);
-            if (titleLb != null) titleLb.SetWrapping(false);
+            if (titleLb != null) titleLb.SetWrapping(false); if (titleLb != null) titleLb.BindText(DailyData.InboxTitle, () => { titleLb.SetWrapping(false); TitleLeft(titleLb, Title); });   // B106_W11（AUD03 #94）：绑 `MainMenu/Settings/Inbox/InboxTab`（原版 `Content/Title` 的 Localize；取值口 = `DailyData.InboxTitle`，官方 en=`Inbox` 与出厂字面量逐字相同）；`reapply` 重放「关折行 + TitleLeft」（`SetText` 会按新宽度重新居中）
             // 🆕 **2026-10-12（A470）**：原版这一颗是 **`对齐=Left/Middle`**（我们原来落在框心）——
             //   走 `TitleLeft`（它把「必须在 `SetWrapping(false)` **之后**」这条顺序要求写死在方法上）。
             //   判据 → `TitleLeft` 的注释（本件亲跑的 dump 两行原文）。
@@ -503,17 +503,20 @@ namespace CardPresentation
             var claimTxt = MenuDraw.Text(claimBtn, ClaimTx, Loc.T("MainMenu/General/Claim"),
                                          Color.white, "Button Text", 40f, QText,
                                          ClaimTx.W, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
-            if (claimTxt != null) claimTxt.SetWrapping(false); if (claimTxt != null) claimTxt.BindText(() => Loc.T("MainMenu/General/Claim"), () => { claimTxt.SetWrapping(false); MenuDraw.SetVAlign(claimTxt, Label.VAlign.Capline, ClaimTx); });   // B103_A03（AUD03 #94）：这颗是 `Loc.T("MainMenu/General/Claim")` ⇒ 换语言按来源重取（`reapply` 重放「关折行 + Capline 纵对齐」两刀：`SetText` 之后版面按新串重排过）
+            if (claimTxt != null) claimTxt.SetWrapping(false);   // B106_W11（AUD03 #94）**撤销** B103_A03 在这里绑的 `MainMenu/General/Claim`：原版 `…/Claim Button/Claim Button/Button Text` 那颗 I2 `Localize` 是 **`m_Enabled = 0`**（判据 → `资料/完全复刻/判据/B106_AUD03.md` §2·2）⇒ 原版任何语言都显示 prefab 字面量 `Claim`，绑上反而多一步（中文档会显示「索取」）。⛔ 别再加回来；倒计时那一支的 `Loc.T` 在 `SetClaimText` 里，那是原版 `MessageDisplay.Update` **代码里**自己调的 `GetTranslation`（与这颗停用的 Localize 无关）
             // 原版 `Button Text` 的 `m_VerticalAlignment = 8192 (Capline)`（TMP 字段实读）
             if (claimTxt != null) MenuDraw.SetVAlign(claimTxt, Label.VAlign.Capline, ClaimTx);
-            MenuDraw.Hit(claimBtn, "Hit", ClaimBtn, QOverlay, OnClaimClick,
+            _claimTxt = claimTxt;                 // 🆕 2026-10-31（B106_W11）：倒计时要改这一格的文本（原版 `collectButton.text`）
+            var claimHit = MenuDraw.Hit(claimBtn, "Hit", ClaimBtn, QOverlay, OnClaimClick,
                          claimBg != null ? claimBg.GetComponentInChildren<ImageQuad>() : null,
                          "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
+            _claimWb = claimHit != null ? claimHit.GetComponent<WindowButton>() : null;   // 🆕 同上：倒计时要切 `interactable`（原版 `collectButton.interactable`）
             // 🆕 **2026-10-25（N17）**：`Claim reward warning`（原版在 `Claim Button` 容器里、钮的下方）。
             //   判据 = `MessageDisplay.CheckMessageCollectable` 的两条支：`FeatureConfig.IsArmyHidden` /
             //   `IsExpansionHidden` ⇒ **开这颗** + 返回 false（`MessageDisplay.cs:278-288`）。
             //   ⚠️ 我们**全解锁**（用户 2026-09-17 边界②）⇒ 这两支恒不命中 ⇒ 出厂**关着**；
-            //   建它是为了「将来接 FeatureConfig 时只改判据」，也是原版那棵树的一部分。
+            //   🆕 **2026-10-31（B106_W11）**：原来只关不开 —— **开启口已接在 `ShowDetail`**
+            //   （判据 = `InboxData.IsRewardLocked`，唯一一份；将来真有了 `FeatureConfig` 只改那一个方法）。
             _mdWarn = MenuDraw.Text(mdVpContent, MdWarn, TxtRewardWarning, Color.white, "Claim reward warning",
                                     MdWarnFont, QText, MdWarn.W, 0f, MdWarnFont, MdWarnFont,
                                     face: TmpFont.Face.LatinCardBody);
@@ -523,6 +526,13 @@ namespace CardPresentation
                 _mdWarn.ForceRelayout();
                 MenuDraw.SetVAlign(_mdWarn, Label.VAlign.Top, MdWarn);
                 _mdWarn.gameObject.SetActive(false);
+                // 🆕 **2026-10-31（`B106_W11` · AUD03 #94）**：绑 `MainMenu/Inbox/HiddenArmyWarning`
+                //   （原版 `…/Claim Button/Claim reward warning` 那颗 Localize，`m_Enabled = 1`）。
+                //   ⚠️ `Loc` 给的是 I2 模板，换行是 **`<br>`**（不是 TMP 标签）⇒ 这里翻成 `\n`，
+                //   与出厂字面量 `TxtRewardWarning`（用 `\n`）**逐字相同**（英文零变化）。
+                //   ⚠️ 这颗出厂 `SetActive(false)`，但 `RelocalizeUnder` 走 `GetComponentsInChildren(true)`
+                //   ⇒ 关着也照样重取（判据 → `B106_AUD03.md` §2·3 #5）。
+                _mdWarn.BindText(() => Loc.T("MainMenu/Inbox/HiddenArmyWarning").Replace("<br>", "\n"), () => { _mdWarn.SetCharSpacing(MdWarnCharSpacing); _mdWarn.ForceRelayout(); MenuDraw.SetVAlign(_mdWarn, Label.VAlign.Top, MdWarn); });
             }
 
             // `No News Warning`（空态文案）
@@ -540,6 +550,10 @@ namespace CardPresentation
             {
                 _warn.SetCharSpacing(NoNewsCharSpacing);
                 _warn.ForceRelayout();
+                // 🆕 **2026-10-31（`B106_W11` · AUD03 #94）**：绑 `MainMenu/Inbox/NoNews`
+                //   （原版 `Content/No News Warning` 那颗 Localize；官方 en 与出厂字面量逐字相同）。
+                //   `reapply` 重放「关折行 + 字距 + ForceRelayout」三刀（`SetText` 会按新串重排）。
+                _warn.BindText(DailyData.InboxNoNewsText, () => { _warn.SetWrapping(false); _warn.SetCharSpacing(NoNewsCharSpacing); _warn.ForceRelayout(); });
             }
             ApplyEmptyState();        // 🆕 A182：这条分支原来写在 `Build()` 里，现在收成一份（`Initialize` 也要用）
             // 🆕 **2026-10-25（N17）**：原版 `InboxWindow__Open` 非空那一支的 `display.Initialize(当前)`
@@ -795,9 +809,19 @@ namespace CardPresentation
         /// ⚠️ 第 ⑥ 步（uGUI 布局组重排）在我们的手算布局里**没有对应物**（每次都用固定框建）⇒ 如实不写。</summary>
         void ShowDetail(Message m)
         {
+            _shownMsg = m;                     // 🆕 2026-10-31（B106_W11）：领奖钮倒计时那一格要认「正文现在是哪条」（见类尾 `TickClaimCountdown`）
             if (m == null) { if (_display != null) _display.gameObject.SetActive(false); return; }
             if (_display != null) _display.gameObject.SetActive(true);
             if (_warn != null) _warn.gameObject.SetActive(false);
+            // 🆕 **2026-10-31（`B106_W11`）**：`Claim reward warning` 的**唯一开启口**。
+            //   原版 `MessageDisplay.Initialize` 先 `rewardWarningText.SetActive(false)`，只有
+            //   `CheckMessageCollectable()` 里 `FeatureConfig.IsArmyHidden / IsExpansionHidden` 命中时才打开
+            //   （`out_cpp2il_dev_ilspy/Everguild.LiveOps/MessageDisplay.cs:200-289`）。
+            //   我们原来**只关不开**（建完就 `SetActive(false)`，再没人开过）⇒ 这里把开启口接到**同一份判据**
+            //   `InboxData.IsRewardLocked`（🔶 远端 `FeatureConfig` 的本地等价，今天恒 false）。
+            var srcWarn = InboxData.Find(m.Id);
+            if (_mdWarn != null)
+                _mdWarn.gameObject.SetActive(srcWarn != null && srcWarn.HasReward && InboxData.IsRewardLocked(srcWarn));
             if (_mdTitleLb != null) { _mdTitleLb.SetText(m.Title ?? ""); TitleLeft(_mdTitleLb, MdTitle); }   // 🔴 2026-10-26（F1·β3）：`SetText` 会以**新宽度**重新居中（`Label.RefreshBounds`）⇒ 必须再左对齐一次（`TitleLeft` 的那个平移是按**旧宽**算的）
             if (_mdBody != null) _mdBody.SetText(m.Body ?? "");
             bool hh = !string.IsNullOrEmpty(m.HeaderArt);
@@ -1023,6 +1047,7 @@ namespace CardPresentation
         {
             AnimTick(dt);
             ShineTick(dt);
+            TickClaimCountdown();      // 🆕 2026-10-31（B106_W11）：原版 `MessageDisplay.Update` 的那两件事
         }
 
         void Update() { Tick(Time.deltaTime); }
@@ -1426,5 +1451,61 @@ namespace CardPresentation
         // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
         // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底）。本窗登记过来源的 = 领取钮那颗 `MainMenu/General/Claim`。
         public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
+
+        // ============================================================ 🆕 **2026-10-31（`B106_W11`）**
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `OnLanguageChanged`
+        // 之后 ⇒ 零行号漂移。内容 = 原版 `MessageDisplay.Update()` 那颗**领奖钮倒计时**。
+        //
+        // 判据（唯一来源）：`d:/2/tools/decomp_full/MessageDisplay__Update.c`；
+        // 可读版 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/Everguild.LiveOps/MessageDisplay.cs:26-64`：
+        //   if (!hasReward) return;
+        //   if (save.claimedAt <= 0) {
+        //       if (RedeemableAt() != null) {                       // ← 我们：`RedeemableAtMs > 0`
+        //           interactable = CheckMessageCollectable();
+        //           text = RedeemableAt() > serverNow
+        //                ? SupportMethods.GetTimeString(RedeemableAt() − serverNow, eventTimer: true)
+        //                : LOCALIZE("MainMenu/General/Claim");
+        //       }
+        //   } else interactable = false;
+        // 🔴 **那个 `!= null` 那一支不是「未到点」那一支** —— 到点之后它还要把文本**改回 `Claim`**。
+        // 🔴 `RedeemableAt()` 为 null（= 我们 `RedeemableAtMs == 0`，两条出厂消息都是）⇒ **整段不进**，
+        //    文本保持 `Initialize`/`BindText` 那一句（`Claim`）—— ⛔ 别顺手把它也改成每秒重写。
+
+        /// <summary>正文当前显示的那条消息（= 原版 `MessageDisplay.message`）。`ShowDetail` 每次写。</summary>
+        Message _shownMsg;
+        /// <summary>`Claim Button/Button Text`（= 原版 `collectButton.text`）。`Build()` 里抓一次。</summary>
+        Label _claimTxt;
+        /// <summary>`Claim Button` 那颗命中钮（= 原版 `collectButton`）。`Build()` 里抓一次。</summary>
+        WindowButton _claimWb;
+
+        /// <summary>= 原版 `MessageDisplay.Update()`（判据见本节头那七行逐句对位）。**每帧只做两件事**：
+        /// 钮的 `interactable` 与钮的文本；⛔ 不重建、不碰别的件。
+        /// <para>⚠️ 缓存引用是 `Build()` 里抓的：窗重建 ⇒ 引用跟着换（`Build` 每次都重抓）。
+        /// 拿不到引用（`Claim Button` 没建出来 / 那一格没激活）⇒ 直接返回（原版那一档是 NRE，我们降级不出声 ——
+        /// 这条路径只在「空态/没建」时走到，⛔ 别每帧刷日志）。</para></summary>
+        void TickClaimCountdown()
+        {
+            var m = _shownMsg;
+            if (m == null || _claimTxt == null || _claimWb == null) return;
+            var src = InboxData.Find(m.Id);
+            if (src == null || !src.HasReward) return;             // 原版第一句 `if (!hasReward) return;`
+            if (src.IsClaimed) { _claimWb.Interactable = false; return; }   // 原版 else 支：只压灰，不动文本
+            if (src.RedeemableAtMs <= 0) return;                   // 原版 `RedeemableAt() == null` ⇒ 整段不进
+            _claimWb.Interactable = InboxData.CanCollect(src);     // 原版 `interactable = CheckMessageCollectable()`
+            SetClaimText(InboxData.IsWaitingRedeemable(src)        // ← 原版 `dateTime > serverDateTime`
+                ? TimerDisplay.FormatTimeString(InboxData.RedeemableRemaining(src), true)   // `GetTimeString(ts, eventTimer: true)`
+                : Loc.T("MainMenu/General/Claim"));
+        }
+
+        /// <summary>改 `Claim Button/Button Text` 的文本 —— **只有真的变了才重写**（每秒 tick，别每帧重建 mesh）。
+        /// <para>🔴 `SetText` 之后要**重放建窗时那两刀**（`SetWrapping(false)` + `Capline` 纵对齐）：
+        /// 与 `Build()` 里 `BindText` 的 `reapply` 是同一组动作 —— `SetText` 会按新串重排、把对齐/折行带偏。</para></summary>
+        void SetClaimText(string s)
+        {
+            if (_claimTxt == null || _claimTxt.Text == s) return;
+            _claimTxt.SetText(s);
+            _claimTxt.SetWrapping(false);
+            MenuDraw.SetVAlign(_claimTxt, Label.VAlign.Capline, ClaimTx);
+        }
     }
 }

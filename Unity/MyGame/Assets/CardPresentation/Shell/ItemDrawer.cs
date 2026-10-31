@@ -212,10 +212,10 @@ namespace CardPresentation
         /// —— 我们走数据层那张「id → 图」表的等价物。`null` = 取不到（那就只画数字，不静默）。</summary>
         public string ConvertedArt;
 
-        /// <summary>三个装饰层（premium 的 Highlight/Blackout/Badge、converted/ephemeral 的条与字）的起始队列。
+        /// <summary>装饰层（premium 的 `Badge`、converted/ephemeral 的条与字）的起始队列。
         /// 原版靠 **sibling 序**（`Premium Highlight` 是抽屉**最后**一个子节点 ⇒ 画在所有内容之上）；
-        /// 我们这边 `CLAUDE.md` §三 定了「分层要用渲染队列」⇒ 按原版那三件的**出现次序**依次 +1。
-        /// `null`/0 = 由 <see cref="Default"/> 给 `qText + 1`。</summary>
+        /// 我们这边 `CLAUDE.md` §三 定了「分层要用渲染队列」⇒ 按原版那几件的**出现次序**依次 +1
+        /// （`Highlight`/`Blackout` 原版 `m_Enabled=0` ⇒ 不画，判据见 `SetPremium`）。`null`/0 = `Default` 给 `qText + 1`。</summary>
         public int QDecor;
 
         /// <summary>默认档。`IconFill 0.7` / `QuantityPx 34` / `NamePx 26` 就是战役奖励窗格子（200×300）
@@ -285,10 +285,10 @@ namespace CardPresentation
         //       六份**逐个核过，名字与锚点完全一致**）。⛔ 别改名：自检按这些名字取件。
         /// <summary>第 1 跳的容器（原版是抽屉**根**的子节点、排在 `Content` 之后 ⇒ 画在所有内容之上）。</summary>
         public const string NodePremiumHighlight = "Premium Highlight";
-        /// <summary>第 1 跳里的高亮框（sprite `OctagonUI Filled Fade SDF`，Sliced，`m_Color = (1,1,1,0.8)`）。</summary>
-        public const string NodeHighlight = "Highlight";
-        /// <summary>第 1 跳里的压暗层（**没有 sprite**，`m_Color = (0,0,0,0.5529412031173706)`）。</summary>
-        public const string NodeBlackout = "Blackout";
+        // `Highlight` / `Blackout` 两层**不建、也不留名字常量**（原版 208/208 `m_Enabled = 0`、无任何路径打开
+        // 它们 —— 判据见 `SetPremium` 的方法头）。原来那两条 `NodeHighlight` / `NodeBlackout` 随它们一起删掉。
+        // （本块行数刻意与删前相同：本文件有 119 条账按 `文件:行号` 引用 ⇒ 少一行就是一次全表漂移。）
+        // ⛔ 别在这里补回 `NodeHighlight` / `NodeBlackout`：那两层原版永远不可见。
         /// <summary>第 1 跳里的角标（sprite `40k_campaign_Premium-icon`、`m_PreserveAspect = 1`）。</summary>
         public const string NodePremiumBadge = "Badge";
         /// <summary>第 3 跳的容器（原版是抽屉 `Content` 的子节点）。</summary>
@@ -890,27 +890,27 @@ namespace CardPresentation
 
         /// <summary>**第 1 跳**：原版 `TogglePremiumHighlight(bool)` —— 方法体**全篇只有一句**
         /// `Components.premiumHighlight.SetActive(toggle)`（`[+0x40]`，另有 `.op_Implicit` 那道 Unity 空判）。
-        /// <para>那三件**画什么**照 prefab：`Highlight` 铺满抽屉框、`sizeDelta (50,50)`（拉伸锚 ⇒ **每边外扩 50px**）、
-        /// sprite `OctagonUI Filled Fade SDF`、`m_Type 1(Sliced)`、`m_Color (1,1,1,0.8)`、材质 `Border Highlight Appear Green`；
-        /// `Blackout` 铺满抽屉框、**无 sprite**、`m_Color (0,0,0,0.5529412031173706)`；
-        /// `Badge` 锚 `(0,0.7)-(0.3,1.0)` = **左上 30%×30%**、`m_PreserveAspect 1`、sprite `40k_campaign_Premium-icon`。
-        /// 三者的**兄弟序** = `Highlight` → `Blackout` → `Badge`（后者压前者）⇒ 队列按同序 +1。</para>
-        /// <remarks>**改坏法**：`Badge` 那四个数里把 `0.3` 改成 `0.5` ⇒ 自检「角标 = 左上 30%×30%」那条红；
-        /// 把 `Blackout` 的 `0.5529412` 改成 `1` ⇒ 「压暗层 alpha」那条红；少画 `Highlight` ⇒ 「premium 三件齐」那条红。</remarks></summary>
+        /// 🔴 **按原版只画 `Badge`**（2026-10-31 调度台裁定 · 铁律 18·0）：`Highlight` / `Blackout` 在
+        /// `bundle_menus_assets_all` 四款抽屉里共 **208/208 实例 `m_Enabled = 0`**（只有 `Badge` 是 1），
+        /// 而 `TogglePremiumHighlight` 的反汇编（RVA `0x1AEAA30`）**全篇只有 `SetActive(bool)`**、
+        /// `Awake/Refresh/Draw/OverridePremiumBadge` 都不碰 `Behaviour.enabled`、抽屉 prefab 上也没有 `Animator`
+        /// ⇒ **任何代码路径都不会打开它们** ⇒ 原版永不可见 ⇒ **我们不建**（⛔ 别「先建着以后可能要画」）。
+        /// `Badge` 照 prefab：锚 `(0,0.7)-(0.3,1.0)` = **左上 30%×30%**、`m_PreserveAspect 1`、`40k_campaign_Premium-icon`、`m_Enabled 1`。
+        /// <remarks>**改坏法**：`Badge` 把 `0.3` 改成 `0.5` ⇒ 「角标 = 左上 30%×30%」红；补回 `Highlight`/`Blackout` ⇒ 宿主那两条「不建」红。</remarks></summary>
         public static void SetPremium(Transform drawer, PxRect box, ItemDrawerStyle st)
         {
             if (drawer == null) return;
-            float k = box.H / DecorRefH;
+            // 容器照原版建（`Premium Highlight` 是抽屉的最后一个子节点）；里面**只有 `Badge`** ——
+            // `Highlight` / `Blackout` 原版 208/208 `m_Enabled = 0` 且无任何代码路径打开（见方法头）。
             var root = MenuDraw.Node(drawer, NodePremiumHighlight, box);
-            float pad = 50f * k;                       // = prefab 的 `sizeDelta (50,50)`（每边外扩）
-            MenuDraw.Rect(root, Tex(ArtPremiumHighlight), new PxRect(box.x1 - pad, box.y1 - pad,
-                          box.x2 + pad, box.y2 + pad), NodeHighlight, st.QDecor, HighlightColor, false,
-                          st.Clip, st.ClipSoftness);
-            MenuDraw.Rect(root, CardArt.Solid(), box, NodeBlackout, st.QDecor + 1, BlackoutColor, false,
-                          st.Clip, st.ClipSoftness);
+            // （原版 `Highlight`：sprite `Highlight Rounded Square`、`sizeDelta (50,50)` 拉伸锚 ⇒ 每边 +25、
+            //   `m_Color (1,1,1,1)`、`Image.m_Enabled 0` ⇒ **不画**，连同 `pad` / 九宫 border 一起删。）
+            // （原版 `Blackout`：无 sprite、`m_Color (0,0,0,0.5529412031173706)`、`m_Enabled 0` ⇒ **不画**。）
             MenuDraw.Rect(root, Tex(ArtPremiumBadge), new PxRect(box.x1, box.y1,
                           box.x1 + box.W * BadgeFrac, box.y1 + box.H * BadgeFrac), NodePremiumBadge,
                           st.QDecor + 2, null, true, st.Clip, st.ClipSoftness);
+            // 队列仍用 `QDecor + 2`：原版兄弟序 `Highlight` → `Blackout` → `Badge`（前两层不画，编号照旧不动），
+            // ⇒ 角标仍压在抽屉内容之上、整屏暗角之下（宿主那两条层级断言按这个值断）。
         }
 
         /// <summary>**第 2 跳**：原版 `SetEphemeralDisplay(EphemeralState)`。方法体实读（`0x1AEA690`）共四句：
@@ -1051,7 +1051,7 @@ namespace CardPresentation
                                    13.46f * k, 65f * k, 39f * k, face: TmpFont.Face.LatinCardBody);
             // ⓪ 原版折行=0（`SetAutoFitBox` 会把模式开成 `Normal(1)`）—— ⚠️ 必须在下面那次
             //    `MenuDraw.ClipText(lb, …)`（本方法的最后一步）**之前**：`SetWrapping` 会 `ForceRelayout` 推版面。
-            if (lb != null) lb.SetWrapping(false);
+            if (lb != null) { lb.SetWrapping(false); MenuDraw.SetVAlign(lb, Label.VAlign.Capline, row); }   // 🆕 V=8192 Capline（原版 `Price Display/text` 实读；Converted/Ephemeral 两抽屉同值）
             float tw = lb != null ? lb.WorldW * 108f : 0f;           // `WorldW` 是 Unity 单位 ⇒ ×108 回画布像素
             float groupW = (icon != null ? iconSide : 0f) + tw;
             float gx = row.CX - groupW * 0.5f;                       // 整组居中
@@ -1082,15 +1082,15 @@ namespace CardPresentation
         /// ⚠️ **词条正文在远端 CCD、本地没有** ⇒ 我们写死 prefab 的 TMP 占位串（与 `RewardWindow.TxtPremium` 同一口径）。</summary>
         public const string AlreadyOwnedText = "Already Owned";
 
-        /// <summary>`Highlight` 的图名（原版 sprite 名 `OctagonUI Filled Fade SDF`；工程里是 `ui_menu/` 那张同名下划线版）。
-        /// ⚠️ 判据 = `bundle_menus_assets_all` 里 `Highlight` 的 `m_Sprite` PPtr 实解出的 `m_Name`。</summary>
-        public const string ArtPremiumHighlight = "OctagonUI_Filled_Fade_SDF";
+        // `ArtPremiumHighlight` / `HighlightColor` / `BlackoutColor` 已随那两层一起删（原版 208/208 `m_Enabled = 0`、
+        // 任何代码路径都不会打开它们 —— 判据见 `SetPremium` 的方法头）⇒ ⛔ 别再补回来。
+        // （本块行数刻意与删前相同：本文件有 119 条账按 `文件:行号` 引用 ⇒ 少一行就是一次全表漂移。）
         /// <summary>`Badge` 的图名（原版 sprite 名逐字就是它）。</summary>
         public const string ArtPremiumBadge = "40k_campaign_Premium-icon";
-        /// <summary>`Highlight` 的 `m_Color` 原文 `(1,1,1,0.8)`。</summary>
-        public static readonly Color HighlightColor = new Color(1f, 1f, 1f, 0.8f);
-        /// <summary>`Blackout` 的 `m_Color` 原文 `(0,0,0,0.5529412031173706)`。</summary>
-        public static readonly Color BlackoutColor = new Color(0f, 0f, 0f, 0.5529412f);
+        // 原版 `Highlight` 的 `m_Color (1,1,1,1)` 与 `Blackout` 的 `(0,0,0,0.5529412031173706)`：
+        // 那两层都不画了 ⇒ 常量随之删除（只留这两行说明，行数守恒）。
+        // `Badge` 自己不吃 tint（prefab 上那颗 `Image` 没写 `m_Color` ⇒ 默认白），见 `SetPremium` 里传的 `null`。
+        // ⬇ 下一行 `BadgeFrac` 仍在用（角标锚跨 30%）。
         /// <summary>`Badge` 的锚跨 = `0.3 − 0.0`（横竖各 30%）。</summary>
         public const float BadgeFrac = 0.3f;
 

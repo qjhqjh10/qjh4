@@ -8749,12 +8749,12 @@ namespace CardPresentation
             return RarityColors.Tint(rarity);
         }
 
-        /// <summary>当前卡组的阵营（督军决定）。</summary>
+        /// <summary>当前卡组的阵营 = 原版 `CardDeck.deckArmy`（督军 > 卡表第 0 张 > Neutral；`null` = Neutral）。</summary>
         public string ArmyFaction()
         {
-            if (State == null) return null;
-            var w = State.Deck.WarlordId != null ? State.Find(State.Deck.WarlordId) : null;
-            return w != null ? w.Faction : null;
+            if (State == null || State.Deck == null) return null;
+            var army = State.DeckArmyFaction();   // 🆕 2026-10-31（B106_W7）：= 原版 `deckArmy`（`CardDeck__CanAddCard.c:91` 读的 `deck+0x50`），⛔ 别只按督军取（判据/写点 → `RuleEngine/Core/DeckRules.cs` 类尾 `DeckArmy`）
+            return string.IsNullOrEmpty(army) ? null : army;
         }
 
         /// <summary>阵营 → 原版徽记图（13 张 `40k_DeckSelection_icon_*`）。</summary>
@@ -9632,15 +9632,15 @@ namespace CardPresentation
         // ⚠️ 原来那位「跨开窗保留的 `+0x50`」标志 `_wcArmyInitialized` 已删 —— 判据③ 说它**不该**跨窗保留。
 
         /// <summary>这副卡组的**阵营名**（原版 `DeckEditingWindow__FilterToDeck.c:24` 喂给 `WildcardDisplay.Initialize` 的那个 `army`）。
-        /// <para>判据 = <see cref="DeckArmyIcon"/> 原来那两行内联判据（本笔搬到这里，让「徽记图」与「四格通配符计数」共用一把尺）；
-        /// ⛔ 别在别处再写第二份。</para>
+        /// <para>判据 = **原版 `CardDeck.deckArmy`**（督军 > 卡表第 0 张 > Neutral；算式只一处 = `RuleEngine/Core/DeckRules.cs` 类尾 `DeckArmy`，
+        /// 🆕 2026-10-31（B106_W7）把「只看督军」订正过来 —— 「没督军但有卡」时原版 `FilterToDeck` 读到的是第 0 张卡的阵营）。⛔ 别在别处再写第二份。</para>
         /// <para>⚠️ `deckArmy == 0`（还没选督军 / 卡池里查不到那张卡）⇒ 原版那个字面量默认档
         /// <see cref="NoArmyFaction"/>（`10` = `Ultramarines`，`dump.cs:45640`）。</para></summary>
         public static string DeckArmyName(DeckEditorState state)
         {
-            var wl = (state == null || state.Deck == null || string.IsNullOrEmpty(state.Deck.WarlordId))
-                     ? null : state.Find(state.Deck.WarlordId);
-            return wl != null && !string.IsNullOrEmpty(wl.Faction) ? wl.Faction : NoArmyFaction;
+            if (state == null || state.Deck == null) return NoArmyFaction;
+            var army = state.DeckArmyFaction();   // 🆕 2026-10-31（B106_W7）：= 原版 `deckArmy`（督军 > 卡表第 0 张 > Neutral）—— 「没督军但有卡」时原版显示**第 0 张卡的阵营**，⛔ 别只按督军取（判据 → `RuleEngine/Core/DeckRules.cs` 类尾 `DeckArmy`）
+            return !string.IsNullOrEmpty(army) ? army : NoArmyFaction;
         }
     }
 }

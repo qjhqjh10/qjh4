@@ -46,39 +46,42 @@ public static class NetSelfTest
 
         try
         {
-            TestFraming();
-            TestPortBusy();
-            TestHandshakeOk(FreePort());
-            TestWrongPassword(FreePort());
-            TestVersionMismatch(FreePort());
-            TestGameVersionMismatch(FreePort());   // 🆕 2026-10-25（D 域）：构建号不一致也要拒（协议号相同那一档）
-            TestBulkOrder(FreePort());
-            TestDropAndReconnect(FreePort());
-            TestPasswordFrozen(FreePort());
-            TestSeatAndWire();
-            TestNotices();
-            TestMatchCancel(FreePort());   // 🆕 2026-10-03：取消这一局的匹配（A1）· 🆕 2026-10-10 加了 A985⑫ 那条理由码
-            TestReplayResultCodeA985();    // 🆕 2026-10-10（A985⑬）：录像头尾两条只落盘的 `[BattleResult]` 记录
-            TestResultCodeBlackBoxA1296(); // 🆕 2026-10-11（A1296）：两张表（`ctx.Events` vs `ActionLog`）与黑匣子
-            TestLobbyPeerGone(FreePort()); // 🆕 2026-10-17：大厅阶段对面掉线 / 离开（A902）
-            TestHintLine(FreePort());      // 🆕 2026-10-17（B27）：提示行那行字的消费方（A925）
-            TestStatePublishA943(FreePort()); // 🆕 2026-10-18（A943）：连接位与计数**由同一次写发布**
-            TestSilentTimeoutReadSideA943();  // 🆕 2026-10-18（A943 读侧）：静默超时**不许分两次读下结论**
-            TestPeerTextClampA961(FreePort()); // 🆕 2026-10-18（A961 + 「Send() 静默丢」）：对端可控文本要钳 · 丢包要出声
-            TestFailVoiceA1267A1268(FreePort()); // 🆕 2026-10-19（A1267/A1268）：掉线原因要进日志 · 旧读线程迟到不许改状态
-            TestPeerLostGateOffA1269(FreePort()); // 🆕 2026-10-19（A1269）：掉线闸必须挡 `Off`（收工后不许再报一次）
-            TestGracefulCloseA1264();          // 🆕 2026-10-19（A1264 X2）：关闭路径必须先 `Shutdown(Send)` 再有界 `Close()`
-            TestByeGracefulClose(FreePort());  // 🆕 2026-10-20（W58-NETFIX）：bye 收尾四条（NETPROBE ②③④⑤）
-            TestReplacementWhileLiveS6(FreePort()); // 🆕 2026-10-20（W58-S6FIX）：S6 —— 活连接还在时，新连接先当候选、凭据齐了才替换
-            TestOpponentHintA932();            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
-            TestNetTermBilingual();            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
-            TestHostResolve();
-            TestAddressAndUpnp();     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
+            // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前这 28 个 Test 挤在**同一个 try** 里 ⇒ 任何一个抛异常，
+            //   后面所有 Test 一条都不跑，而合计只多「失败 1」（读日志的人看不出后面没跑）。
+            //   现改成**逐 Test try/catch**（一行一个，行数零变化）：catch 里记失败并写明「已跑到谁、其后几个没跑」。
+            try { TestFraming(); } catch (Exception e) { StepFail("TestFraming", 27, e); }
+            try { TestPortBusy(); } catch (Exception e) { StepFail("TestPortBusy", 26, e); }
+            try { TestHandshakeOk(FreePort()); } catch (Exception e) { StepFail("TestHandshakeOk", 25, e); }
+            try { TestWrongPassword(FreePort()); } catch (Exception e) { StepFail("TestWrongPassword", 24, e); }
+            try { TestVersionMismatch(FreePort()); } catch (Exception e) { StepFail("TestVersionMismatch", 23, e); }
+            try { TestGameVersionMismatch(FreePort()); } catch (Exception e) { StepFail("TestGameVersionMismatch", 22, e); }   // 🆕 2026-10-25（D 域）：构建号不一致也要拒（协议号相同那一档）
+            try { TestBulkOrder(FreePort()); } catch (Exception e) { StepFail("TestBulkOrder", 21, e); }
+            try { TestDropAndReconnect(FreePort()); } catch (Exception e) { StepFail("TestDropAndReconnect", 20, e); }
+            try { TestPasswordFrozen(FreePort()); } catch (Exception e) { StepFail("TestPasswordFrozen", 19, e); }
+            try { TestSeatAndWire(); } catch (Exception e) { StepFail("TestSeatAndWire", 18, e); }
+            try { TestNotices(); } catch (Exception e) { StepFail("TestNotices", 17, e); }
+            try { TestMatchCancel(FreePort()); } catch (Exception e) { StepFail("TestMatchCancel", 16, e); }   // 🆕 2026-10-03：取消这一局的匹配（A1）· 🆕 2026-10-10 加了 A985⑫ 那条理由码
+            try { TestReplayResultCodeA985(); } catch (Exception e) { StepFail("TestReplayResultCodeA985", 15, e); }    // 🆕 2026-10-10（A985⑬）：录像头尾两条只落盘的 `[BattleResult]` 记录
+            try { TestResultCodeBlackBoxA1296(); } catch (Exception e) { StepFail("TestResultCodeBlackBoxA1296", 14, e); } // 🆕 2026-10-11（A1296）：两张表（`ctx.Events` vs `ActionLog`）与黑匣子
+            try { TestLobbyPeerGone(FreePort()); } catch (Exception e) { StepFail("TestLobbyPeerGone", 13, e); } // 🆕 2026-10-17：大厅阶段对面掉线 / 离开（A902）
+            try { TestHintLine(FreePort()); } catch (Exception e) { StepFail("TestHintLine", 12, e); }      // 🆕 2026-10-17（B27）：提示行那行字的消费方（A925）
+            try { TestStatePublishA943(FreePort()); } catch (Exception e) { StepFail("TestStatePublishA943", 11, e); } // 🆕 2026-10-18（A943）：连接位与计数**由同一次写发布**
+            try { TestSilentTimeoutReadSideA943(); } catch (Exception e) { StepFail("TestSilentTimeoutReadSideA943", 10, e); }  // 🆕 2026-10-18（A943 读侧）：静默超时**不许分两次读下结论**
+            try { TestPeerTextClampA961(FreePort()); } catch (Exception e) { StepFail("TestPeerTextClampA961", 9, e); } // 🆕 2026-10-18（A961 + 「Send() 静默丢」）：对端可控文本要钳 · 丢包要出声
+            try { TestFailVoiceA1267A1268(FreePort()); } catch (Exception e) { StepFail("TestFailVoiceA1267A1268", 8, e); } // 🆕 2026-10-19（A1267/A1268）：掉线原因要进日志 · 旧读线程迟到不许改状态
+            try { TestPeerLostGateOffA1269(FreePort()); } catch (Exception e) { StepFail("TestPeerLostGateOffA1269", 7, e); } // 🆕 2026-10-19（A1269）：掉线闸必须挡 `Off`（收工后不许再报一次）
+            try { TestGracefulCloseA1264(); } catch (Exception e) { StepFail("TestGracefulCloseA1264", 6, e); }          // 🆕 2026-10-19（A1264 X2）：关闭路径必须先 `Shutdown(Send)` 再有界 `Close()`
+            try { TestByeGracefulClose(FreePort()); } catch (Exception e) { StepFail("TestByeGracefulClose", 5, e); }  // 🆕 2026-10-20（W58-NETFIX）：bye 收尾四条（NETPROBE ②③④⑤）
+            try { TestReplacementWhileLiveS6(FreePort()); } catch (Exception e) { StepFail("TestReplacementWhileLiveS6", 4, e); } // 🆕 2026-10-20（W58-S6FIX）：S6 —— 活连接还在时，新连接先当候选、凭据齐了才替换
+            try { TestOpponentHintA932(); } catch (Exception e) { StepFail("TestOpponentHintA932", 3, e); }            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
+            try { TestNetTermBilingual(); } catch (Exception e) { StepFail("TestNetTermBilingual", 2, e); }            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
+            try { TestHostResolve(); } catch (Exception e) { StepFail("TestHostResolve", 1, e); }
+            try { TestAddressAndUpnp(); } catch (Exception e) { StepFail("TestAddressAndUpnp", 0, e); }     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
         }
         catch (Exception e)
         {
             _fail++;
-            Debug.LogError("[NetSelfTest] ✗ 自检本身炸了：" + e);
+            Debug.LogError("[NetSelfTest] ✗ 自检本身炸了（每个 Test 已各自有 catch ⇒ 这行出现说明异常在保护之外）：" + e);
         }
         finally
         {
@@ -2892,5 +2895,15 @@ public static class NetSelfTest
     {
         bool ok = string.Equals(got ?? "", want ?? "", StringComparison.Ordinal);
         Ok(ok, $"{msg}（实际 `{got ?? "<null>"}`，应为 `{want ?? "<null>"}`）");
+    }
+
+    /// <summary>逐 Test 的段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：记一次失败，并写明
+    /// 「已经跑到谁、其后几个 Test **没跑**」—— 改前一个 Test 抛异常会让后面所有 Test 静默不跑。
+    /// <paramref name="rest"/> = 这个 Test 之后还有几个 Test（0 = 它是最后一个）。</summary>
+    static void StepFail(string test, int rest, Exception e)
+    {
+        _fail++;
+        Debug.LogError("[NetSelfTest] ✗ 跑到 `" + test + "` 时抛异常（算红，⛔ 不是跳过）⇒ 其后 " + rest
+                     + " 个 Test **没跑**：" + e);
     }
 }

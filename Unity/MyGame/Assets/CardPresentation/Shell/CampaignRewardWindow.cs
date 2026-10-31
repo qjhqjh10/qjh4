@@ -40,8 +40,8 @@
 //   `SetUnlockCost(cost, army, b)` → ToggleTexts(true) + `interactable = b` + pointDrawer.DrawForArmy(army)
 //                                    + costText = cost.ToString()
 //   术语原文（本窗 prefab 里读到的）：`claimedKey = "Rewards Menu/Claimed"` · `claimKey = "MainMenu/General/Claim"`。
-//   ⚠️ **这两个词条的**真值**在 I2 语言表里、而 I2 表在远端 CCD（本地没有）** ⇒ 我们画的是
-//   **term 末段的英文**（`Claimed` / `Claim`），并在文件里标明**这是推的**（不是原版字符串）。
+//   🔴 **2026-10-31（B106_W39）就地订正（铁律 5）**：本段原写「真值在 I2 语言表里、而 I2 表在远端 CCD（本地没有）⇒ 我们画的是 term 末段英文」—— **已过期**：两条词条在官方 13 语言表里**都有**（`Resources/official_loc_13lang.json`；en `Claimed`/`Claim` · zh `已认领`/`索取`），
+//   而且本窗**已接本地化**（`Label.BindText` + `OnLanguageChanged`）⇒ 屏幕上走 `Loc.T`，不再是「推的英文」。
 //   🔴 **2026-10-15（A538）：上面三个方法里【只有前两个在原版有调用点】** —— `SetUnlockCost` 在
 //   全量反编译里**零调用点**（`grep -rn "UnlockCost" d:/2/tools/decomp_full/` 只命中它自己）；
 //   真跑的那条「付点解锁」是**内联**在 `CampaignRewardsWindow__SetBaseButton.c:68-90` 里的
@@ -67,7 +67,7 @@
 //   · **`Scroll View` / `Viewport` 的裁切**：✅ **2026-10-08（A182）已建** —— `Viewport` 那颗
 //     `RectMask2D` 的 `m_Softness = (200,0)` / `m_Padding = (0,0,0,0)` 照原版字段接上（见 `BuildColumn`）。
 //     ⚠️ **滚动范围恒 = 0**（推导在 `Build()` ⑨）⇒ `MenuScroll` **不建**：建了也只能滚 0px = 假件。
-//   · **`premiumUnlockWarning` / `premiumExtraTip` 的文案**同样是 I2 词条（远端，本地没有）。
+//   · **`premiumUnlockWarning` / `premiumExtraTip` 的文案**同样是 I2 词条 —— 🔴 **2026-10-31（B106_W39）就地订正（铁律 5）**：原写「远端，本地没有」**已过期**，官方 13 语言表里两条都在（`Rewards Menu/PremiumUnlockWarning` / `Rewards Menu/PremiumExtraTip`）⇒ 本窗已走 `Loc.T`。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -232,9 +232,9 @@ namespace CardPresentation
         public static readonly Color GlowGet = new Color(0.802f, 0.0794f, 0.0794f, 1f);
         public static readonly Color GlowPreview = new Color(0.528f, 0.356f, 0.356f, 1f);
 
-        /// <summary>标题两态的文案 —— **prefab 里的 TMP 原文**（`ConfigureIsPreviewState` 只开关、
-        /// **不改文字** ⇒ 这两个串就是屏幕上印的）。</summary>
-        public const string TxtGet = "Campaign Rewards", TxtPreview = "Available rewards";
+        /// <summary>标题两态的**官方词条值**（= prefab 上 I2 `Localize` 的 `mTerm` 当前语档值；`ConfigureIsPreviewState` 只开关、**不改文字**）。
+        /// 🔴 **2026-10-31（B106_W39）就地订正（铁律 5）**：原写「这些是 prefab 里的 TMP 原文、就是屏幕上印的」—— 前半对、后半错：prefab TMP 字面量确是 `Campaign Rewards`，但那两颗挂着 **`Localize`（`m_Enabled=1`）** ⇒ 原版开机即被官方词条覆盖，屏幕上是 `MainMenu/RewardWidnow/GetRewardsTitle` 的当前语档值（en **`Rewards claimed`** / zh `已领取的奖励`）；`Available rewards` 那一颗恰好同值。</summary>
+        public const string TxtGet = "Rewards claimed", TxtPreview = "Available rewards";
         public const float TitleFont = 50f, TitleAutoMin = 25f;
         /// <summary>🔴 **A406（2026-10-12）逐站实读**：`Campaign Reward Window/Content/Title/Glow {Get,Preview} reward/
         /// `Text {Get,Preview} Reward` 两颗原版都是 `auto[25.0~**50.0**] 基准=**36.0**`
@@ -244,13 +244,13 @@ namespace CardPresentation
         /// （`Unlock Button/Point Count` = 32.0 · `Claimed Text` = 35.0）—— 逐颗读，别按窗统一。</summary>
         public const float TitleAutoMax = 50f, TitleAutoBase = 36f;
 
-        /// <summary>按钮文案。⚠️ **原版是 I2 词条**（`Rewards Menu/Claimed` · `MainMenu/General/Claim`），
-        /// 🔶 自己设计（非原版）：按钮文案 `Claimed` / `Claim` 的英文串 · I2 词条表在远端 CCD、本地没有 value · TODO(谁定的)｜原注：词条表在**远端 CCD、本地没有** ⇒ 下表是**我们按 term 末段填的**（不是原版字符串）。</summary>
+        /// <summary>按钮文案。⚠️ **原版是 I2 词条**（`Rewards Menu/Claimed` · `MainMenu/General/Claim`）——
+        /// 🔴 **2026-10-31（B106_W39）就地订正（铁律 5）**：本行原是一段 `🔶 自己设计`，写着「I2 词条表在远端 CCD、本地没有 value ⇒ 我们按 term 末段填」—— **是假的**：两条词条在官方 13 语言表（`Resources/official_loc_13lang.json`）里**都有**（en `Claimed`/`Claim` · zh `已认领`/`索取`），且与本行两常量逐字相同 ⇒ 那不是「必须自己定」，而是「本窗当时还没接本地化」—— **现已接**（本窗 6 颗 `Localize` 全绑 + `OnLanguageChanged`，见 `报告/B106_W39.md`）。</summary>
         public const string TxtClaimed = "Claimed", TxtClaim = "Claim";
-        /// <summary>⚠️ 同上：结论是 `Rewards Menu/PremiumUnlockWarning` / `Rewards Menu/PremiumExtraTip`，
-        /// **真值本地没有** ⇒ 这两句是**我们填的占位**（而且我们的口径下高级轨恒解锁 ⇒ 一般不显示）。</summary>
-        public const string TxtPremWarning = "Premium campaign required",
-                                  TxtPremTip = "Unlock the Premium track to claim";
+        /// <summary>高级列两态提示（原版 `premiumUnlockWarning` / `premiumExtraTip` 两条 `LocalizedString`）的**官方英文值**。🔴 **2026-10-31（B106_W33）**：原写「真值本地没有 ⇒ 是我们填的占位」**已过期**（官方表里两条都在），值已换官方原文。
+        /// 🔴 **2026-10-31（B106_W39）**：本窗**已接本地化**（`Loc.T` + `BindText`）⇒ 屏幕值随语档走，这两条常量只是 en 档的记法（见 `报告/B106_W39.md`）。</summary>
+        public const string TxtPremWarning = "Upgrade to Premium to unlock",
+                                  TxtPremTip = "Premium Extra Rewards";
         public const float ClaimedFont = 35f, ClaimedAutoMin = 10f, CostFont = 32.3f, CostAutoMin = 10f;
         public const float WarnFont = 47.5f, WarnAutoMin = 18f;
 
@@ -435,13 +435,13 @@ namespace CardPresentation
             //    框也逐字相同：原版那两颗的 rect **= 各自 `Glow *` 的 rect**（`660,187.4 → 1260,262.4` = 600×75）
             //    ⇒ 这里传的 `glowGetR` 就是原版那个框，**去掉 `AlignRight` 后标签停在框心 = 原版那一态**。
             //    ⛔ **别改成 `MenuDraw.AlignLeft`** —— 原版是**居中**，不是左（全表 → `资料/普查产出_1016/A679_align全表.md` §三·2）。
-            //    ⚠️ 返回值这里**主动丢弃**（原来那两颗 `var gt/pt =` 只为了喂给 `AlignRight`；对齐一去
-            //    它们就没人读了 ⇒ 不留「赋了不读」的局部量，那是编译器告警 + 读者噪声）。
-            //    `MenuDraw.Text` 可能返回 `null`（A798 那道「整块在框外 ⇒ 不建」的闸）—— 本处不需要那个引用；
+            //    ⚠️ 返回值现在**经 `Bind(...)` 登记本地化来源**（原版这两颗各挂一颗 I2 `Localize`，`m_Enabled=1`）——
+            //    它仍**不留在字段里**（本窗两态各一套、重建即换新），只是用它的返回值接上 `BindText`。
+            //    `MenuDraw.Text` 可能返回 `null`（A798 那道「整块在框外 ⇒ 不建」的闸）⇒ `Bind` 对 `null` 是空操作；
             //    断言那侧（`Editor/RewardsScene.cs` 的 `TextOf(ptNode)`）本来就有 `null` 守卫。
             if (gg != null)
-                MenuDraw.Text(gg.transform, glowGetR, TxtGet, Color.white, "Text Get Reward",
-                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody);
+                Bind(MenuDraw.Text(gg.transform, glowGetR, TitleGetText(), Color.white, "Text Get Reward",
+                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody), TitleGetText);
             // 🔴 **2026-10-18（W3）就地订正（铁律 5）**：两颗底光原版都是 **`m_Type = Sliced` · 九宫 (240,0,240,0) · 贴图 485×83**
             //   ⇒ **Sliced 下 `preserveAspect` 不生效**（uGUI 只有 Simple/Tiled 才走 PA）⇒ 底光**拉满 600×75**。
             //   我们原来按 `MenuDraw.Rect(..., keepAspect: true)` 等比内接画成 ≈438×75（窄 24%）。
@@ -449,8 +449,8 @@ namespace CardPresentation
             var gp = DrawNine(title, Art(ArtGlow), glowGetR, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
                               QTitleBg, GlowPreview, true, "Glow Preview reward");
             if (gp != null)
-                MenuDraw.Text(gp.transform, glowGetR, TxtPreview, Color.white, "Text Preview Reward",
-                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody);
+                Bind(MenuDraw.Text(gp.transform, glowGetR, TitlePreviewText(), Color.white, "Text Preview Reward",
+                              TitleFont, QTitleText, glowGetR.W, TitleAutoMin, TitleAutoMax, TitleAutoBase, face: TmpFont.Face.LatinCardBody), TitlePreviewText);
             if (gg != null) gg.gameObject.SetActive(false);
 
             // ⑦ `Menu Vignette` 最后画（原版它是 `Content` 的**下一个兄弟** ⇒ 在最上面）
@@ -696,15 +696,15 @@ namespace CardPresentation
                 //         `Point Count  … '100'           字号=32.3 对齐=Left/Midline`   ⇒ **Left**（见下面 `align: 1`）
                 //         `Claimed Text … 'Change Deck'   字号=35.0 对齐=Center/Middle` ⇒ **Center**（该行没传 align，正好对）
                 //    ⇒ 删掉那个 `2`（`align = 0` = 居中 = 原版）。
-                Text(_warn, wr, TxtPremWarning, Color.white, "WarningText", WarnFont, QUnlockText,
-                     wr.W, WarnAutoMin, autoMaxPx: WarnAutoMax, autoBasePx: WarnAutoBase);   // A446：补原版 30/36
+                var wl = Bind(Text(_warn, wr, PremiumWarningText(lockedHere), Color.white, "WarningText", WarnFont, QUnlockText,
+                     wr.W, WarnAutoMin, autoMaxPx: WarnAutoMax, autoBasePx: WarnAutoBase), () => PremiumWarningText(lockedHere));   // A446：补原版 30/36
                 // 🔴 **2026-10-13（A402 ①）：这一句原来是无条件 `SetActive(false)`** —— 全仓没有第二处开它
                 //   ⇒ 锁定支下 `Warning` **永远不显示**，而原版那一支正是**唯一**显示它的地方。
                 //   判据（`SetPremiumButton.c` 三支逐句）：`:81` 锁支 `SetActive(premiumWarning, **1**)` ·
                 //   `:32` 不锁支 `SetActive(…, 0)` · `:120` 已领支 `SetActive(…, 0)`。
                 //   ⚠️ 锁支里紧跟的 `set_text(premiumWarning, premiumUnlockWarning)`（`:97-107`，只有锁支设）
-                //   用的就是 `TxtPremWarning` 那一条词条的占位（见它的注释）⇒ 文案不用改。
-                _warn.gameObject.SetActive(lockedHere);
+                //   用的就是 `TxtPremWarning` 那一条词条；B11 else 支那半（`TxtPremTip`）在下面那一句一并写（死写，见 B106_W33）。
+                _warn.gameObject.SetActive(lockedHere); SetText(wl, PremiumWarningText(lockedHere));   // B106_W33 · AUD05 §3·2 B11：原版 `premiumWarning.text = IsPremiumLocked ? premiumUnlockWarning : premiumExtraTip;`（`SetPremiumButton.c:97-107` · `out_il2csharp/Assembly-CSharp/CampaignRewardsWindow.cs:295` · `out_cpp2il_dev_ilspy/CampaignRewardsWindow.cs:621`）—— 照抄整条三元式：锁支得 `TxtPremWarning`（与初始值同），else 支得 `TxtPremTip`（节点已关 ⇒ 屏幕零变化，纯语义完整；施工单 = `判据/B106_AUD05_AUD06.md:77`）。🆕 B106_W39：两只臂改走 `PremiumWarningText(lockedHere)` = `Loc.T(…PremiumUnlockWarning/PremiumExtraTip)`（原版那两条是 `LocalizedString` ⇒ 换语言要跟着变，同上行 `Bind`）
                 // `Badge`：`N(7, 0,1, 0,1, 0,1, 0,0, 100,100)`
                 //   ⇒ `anchorMin = anchorMax = (0,1)` · `pivot (0,1)` · `pos (0,0)` · `100×100`
                 //   ⇒ **holder 的左上角**（**连 `PadL`(30) 都没加** —— 布局组摆不出这个位置）。
@@ -769,7 +769,7 @@ namespace CardPresentation
             else if (claimedState)
             {
                 pi.gameObject.SetActive(false);
-                SetText(claimed, TxtClaimed); SetText(cost, "");
+                SetText(claimed, ClaimedTermText()); SetText(cost, "");
             }
             // 🔴🔴 **2026-10-15（A538）：【高级列】永远免费态 —— 它【不显点数】。**
             //   原来这一支的判据只有 `ctx.PointCost < 1`，**两列共用** ⇒ 而真数据 `PointCost` 恒 ≥100
@@ -803,7 +803,7 @@ namespace CardPresentation
                 //   基础列那一支的判据 = `SetBaseButton.c:38-40`（`ctx+0x30 < 1` ⇒ `SetAsFreeClaim(btn, 1)`，
                 //   那个 `1` 硬编码 ⇒ 不看 `Claimable`，见 A466）；高级列 = 上面那条 A538（**无条件**走这里）。
                 pi.gameObject.SetActive(false);
-                SetText(claimed, TxtClaim); SetText(cost, "");
+                SetText(claimed, ClaimTermText()); SetText(cost, "");
             }
             else
             {
@@ -873,7 +873,7 @@ namespace CardPresentation
             //     （`Shell/PromptPopup.GrayTargets()`）」—— **不成立**：`A1719`（2026-10-13）加了第三组 `_nine`
             //     （九宫格那 9 块）、`A1725` 加了第四组 `_tqExtra`（`TintOn` 指定的那几颗）⇒ 现读口径 = 上面那**四组**。
             //     ⚠️ 本窗这颗钮只走 `wb.Bind`（**一组**）⇒ **行为一个字没变**，改的只是措辞。
-            wb.Interactable = clickable;
+            wb.Interactable = clickable; Bind(claimed, () => premiumLocked ? "" : claimedState ? ClaimedTermText() : ((!isBase || ctx.PointCost < 1) ? ClaimTermText() : "")); Bind(cost, () => premiumLocked ? "" : claimedState ? "" : ((!isBase || ctx.PointCost < 1) ? "" : ctx.PointCost.ToString()), () => { MenuDraw.AlignLeft(cost, costR); MenuDraw.SetVAlign(cost, Label.VAlign.Midline, costR); });
             return new BtnLabels { claimed = claimed, cost = cost };
         }
 
@@ -1063,5 +1063,38 @@ namespace CardPresentation
               .Append(" · 退档图 ").Append(FallbackArtItems.Count).Append(" 个");
             return sb.ToString();
         }
+
+        // ---- 类尾 · B106_W39（2026-10-31）：本地化（原版每颗 TMP 挂 I2 `Localize` / 代码里取 `LocalizedString`）
+        //   判据（原版 prefab 逐颗实读；`d:/2/新解包资源/assets_full/bundle_menus_assets_all` 的 MonoBehaviour，
+        //   `m_Enabled` 逐颗 = 1 ⇒ **全部要绑**，⛔ 别只绑一半）：
+        //     · `Text Get Reward` → `MainMenu/RewardWidnow/GetRewardsTitle`（`Widnow` 是**原版错字**，照抄、⛔ 别修；
+        //       官方 en = `Rewards claimed` / zh = `已领取的奖励`）。prefab TMP 字面量 `Campaign Rewards` 只是开机前的占位。
+        //     · `Text Preview Reward` → `MainMenu/RewardWindow/PreviewRewardsTitle`（en `Available rewards` / zh `可获得的奖励`）。
+        //     · 两列 `Claimed Text` → 运行时由 `CampaignUnlockButton.SetAsClaimed/SetAsFreeClaim` 设
+        //       `claimedKey = Rewards Menu/Claimed` / `claimKey = MainMenu/General/Claim`
+        //       （⚠️ prefab 上那两颗 `Localize` 的 `mTerm` 是**模板残留** `MainMenu/RankedWindow/ChangeDeck` ⇒ ⛔ 别按它绑）。
+        //     · 两列 `Point Count` → 数字（`PointCost.ToString()`），`m_Enabled=1` 但无可翻译内容 ⇒ 绑成「重取同一个数」。
+        //     · `premiumWarning` → 原版代码取 `LocalizedString`：锁支 `Rewards Menu/PremiumUnlockWarning` / else 支 `Rewards Menu/PremiumExtraTip`
+        //       （prefab 上没有 `Localize` 组件 ⇒ 它不在「6 颗」里，但换语言同样要跟着变）。
+        //   值一律取 `Resources/official_loc_13lang.json`（经 `Loc.T`，⛔ 不自己编译文）。
+        //   ⚠️ 全部追加在**类尾**（账里本文件落点最大 `:988`）⇒ 零行号漂移（铁律 18·b）。
+        static string TitleGetText() { return Loc.T("MainMenu/RewardWidnow/GetRewardsTitle"); }
+        static string TitlePreviewText() { return Loc.T("MainMenu/RewardWindow/PreviewRewardsTitle"); }
+        static string ClaimedTermText() { return Loc.T("Rewards Menu/Claimed"); }
+        static string ClaimTermText() { return Loc.T("MainMenu/General/Claim"); }
+        static string PremiumWarningText(bool locked) { return Loc.T(locked ? "Rewards Menu/PremiumUnlockWarning" : "Rewards Menu/PremiumExtraTip"); }
+
+        /// <summary>建完立刻登记「这条文字从哪来」（`null` = A798 那道「整块在框外 ⇒ 不建」的闸放行了 ⇒ 跳过，⛔ 不报错）。
+        /// 换语言时由 `Loc` 广播 → `Label.Relocalize` 按来源重取，⛔ **不重建整窗**（同 `DailyStreakPopup` / `RewardWindow` 那一族）。</summary>
+        static Label Bind(Label lb, System.Func<string> provider, System.Action reapply = null)
+        {
+            if (lb != null) lb.BindText(provider, reapply);
+            return lb;
+        }
+
+        // 🆕 B106_W39（AUD03 #94 同族）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
+        //   ⚠️ 「全绑」是硬要求：`RelocalizeUnder` 返回 ≥1 之后**就不会**退回 `Open()` 重建 ⇒ 只绑一半 = 另一半**静默停在旧语言**。
+        //   `RelocalizeUnder` 走 `GetComponentsInChildren(true)` ⇒ 未激活的件（Get/Preview 两态各一套、未锁的 `Warning`）也算。
+        public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
     }
 }

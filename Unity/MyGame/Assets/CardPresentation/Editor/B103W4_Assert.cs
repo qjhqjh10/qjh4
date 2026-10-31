@@ -57,15 +57,20 @@ public static class B103W4_Assert
         Debug.Log(_sink.P + "B103W4 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
 
+    // 🔴 2026-10-31（B106_W18 · AUD11 类 4）：改前 A0–A4 **五段挤在同一个 try** 里 ⇒ 一段抛异常后面全不跑，
+    //   合计只多「失败 1」。现在**段级 try/catch**（每段用本文件的 `Tr` 口记红 + 写明「其 N 段没跑」）。
+    //   ⛔ 断言一条没删、文案逐字保留；公开签名（`Run` / `Pass` / `Fail`）不动。
     static void RunSource()
     {
+        string wrongPath = null, body = null, bodyNoComment = null;
+
+        // ---- A0 前提（硬断言；⛔ 不写成 `if (x != null) Check(...)`）----------------------
         try
         {
-            string realPath = Path.Combine(Application.dataPath, RealSrcRel);
-            string wrongPath = Path.Combine(Application.dataPath, WrongSrcRel);
-
-            // ---- A0 前提（硬断言；⛔ 不写成 `if (x != null) Check(...)`）----------------------
             MenuCheck.Section(_sink, "A0 前提：真落点文件读得到、里面真有那个方法");
+            string realPath = Path.Combine(Application.dataPath, RealSrcRel);
+            wrongPath = Path.Combine(Application.dataPath, WrongSrcRel);
+
             bool realOk = File.Exists(realPath);
             Tr(realOk, "A0-0 **前提**：读得到 `" + RealSrcRel + "`（路径 " + realPath + "）"
                      + "—— 读不到时本节**等于没验** ⇒ 当场红");
@@ -78,12 +83,16 @@ public static class B103W4_Assert
             if (at < 0) return;
 
             int braceAt = realText.IndexOf('{', at);
-            string body = braceAt < 0 ? "" : BodyOf(realText, braceAt);
+            body = braceAt < 0 ? "" : BodyOf(realText, braceAt);
             Tr(body.Length > 2, "A0-2 **前提**：截到了方法体（实得 " + body.Length + " 字符）");
 
-            string bodyNoComment = StripLineComments(body);
+            bodyNoComment = StripLineComments(body);
+        }
+        catch (Exception ex) { SegFail("A0 前提", ex, 4); return; }
 
-            // ---- A1 ★ 落点锁（灭自证：照账上那条错落点去做 ⇒ 红）------------------------------
+        // ---- A1 ★ 落点锁（灭自证：照账上那条错落点去做 ⇒ 红）------------------------------
+        try
+        {
             MenuCheck.Section(_sink, "A1 ★ 落点锁：`Battle/CardDisplayWindow.cs` **不是**这颗钮的家（账上/简报里那条错的）");
             Tr(File.Exists(wrongPath), "A1-0 **前提**：`" + WrongSrcRel + "` 这个文件存在（终局要验的是「它里面没有」）");
             if (File.Exists(wrongPath))
@@ -96,8 +105,12 @@ public static class B103W4_Assert
                  + "（那颗钮长在 `Shell/CardDetailPopup.cs` 的异画面板里；账/简报里那条落点是笔误）"
                  + "｜🧨 把实现搬到那棵树 ⇒ 本條红、A0-1 同时红（两向都挡）");
             }
+        }
+        catch (Exception ex) { SegFail("A1 落点锁", ex, 3); }
 
-            // ---- A2 ★ 无本地价格锁（灭自证：写死一个价 ⇒ 红）--------------------------------
+        // ---- A2 ★ 无本地价格锁（灭自证：写死一个价 ⇒ 红）--------------------------------
+        try
+        {
             MenuCheck.Section(_sink, "A2 ★ 无本地价格锁：方法体里⛔ 不出现价格（原版价格在远端 PlayFab TitleData 的 `ItemsConfig`）");
             // 只看**代码**（先剥 `//` 行注释）—— 注释里允许提到 `ItemsConfig.GetOriginalArtPrice` 作判据说明。
             // ⚠️ 前提：本方法体里没有含 `//` 的字符串字面量（当前满足；改方法体时先看一眼）。
@@ -108,15 +121,23 @@ public static class B103W4_Assert
              + "（原版 `ItemsConfig.GetOriginalArtPrice(rarity)` 取的是 **PlayFab TitleData** 下发的 "
              + "`unlockOriginalArtPrices`，本地 0 命中 ⇒ 我们自己算一个价 = 造原版没有的经济）"
              + "｜🧨 写死价格 / 自己算花费 ⇒ 红");
+        }
+        catch (Exception ex) { SegFail("A2 无本地价格锁", ex, 2); }
 
-            // ---- A3 ★ 自设计标记锁（`CLAUDE.md` §18·0 唯一例外：服务器相关）--------------------
+        // ---- A3 ★ 自设计标记锁（`CLAUDE.md` §18·0 唯一例外：服务器相关）--------------------
+        try
+        {
             MenuCheck.Section(_sink, "A3 ★ 自设计标记在场：这段是「服务器相关」的自设计，必须有 `🔶 自己设计`");
             Tr(body.IndexOf("🔶 自己设计", StringComparison.Ordinal) >= 0,
                "A3-1 ★ 方法体（含注释）里有 `🔶 自己设计` 标记"
              + "（`CLAUDE.md` §18 / §18·0：关服后唯一允许自设计的就是服务器相关这一类，必须在代码里标出来）"
              + "｜🧨 删掉标记 ⇒ 红（下一个会话会把它当成原版判据）");
+        }
+        catch (Exception ex) { SegFail("A3 自设计标记锁", ex, 1); }
 
-            // ---- A4 ★ 无本地记账（灭自证：假买 ⇒ 红）-----------------------------------------
+        // ---- A4 ★ 无本地记账（灭自证：假买 ⇒ 红）-----------------------------------------
+        try
+        {
             MenuCheck.Section(_sink, "A4 ★ 无本地记账：⛔ 不白送卡、⛔ 不扣钱（原版扣费/入库都在服务端回包里）");
             bool hasLocalBook = bodyNoComment.IndexOf("AddOwned(", StringComparison.Ordinal) >= 0
                              || bodyNoComment.IndexOf("Wallet.Grant(", StringComparison.Ordinal) >= 0
@@ -127,10 +148,7 @@ public static class B103W4_Assert
              + "都是**服务器回包**给的 ⇒ 关服后在本地落下任何一笔 = 假经济）"
              + "｜🧨 在本地 +1 一张卡 / −1 一笔钱 ⇒ 红（B102BUY 的 A1-5/A1-6 会同时红）");
         }
-        catch (Exception ex)
-        {
-            Tr(false, "（不静默）源码级检查抛了异常：" + ex.GetType().Name + "：" + ex.Message);
-        }
+        catch (Exception ex) { SegFail("A4 无本地记账", ex, 0); }
     }
 
     // ============================================================ 工具
@@ -164,5 +182,12 @@ public static class B103W4_Assert
             i++;
         }
         return sb.ToString();
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W18` · AUD11 类 4）：用本文件既有的 `Tr` 口记一次失败，
+    /// 文案写明「其 N 段没跑」。<paramref name="rest"/> = 这个段之后还有几个段。</summary>
+    static void SegFail(string section, Exception ex, int rest)
+    {
+        Tr(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 段没跑）: " + ex.GetType().Name + "：" + ex.Message);
     }
 }

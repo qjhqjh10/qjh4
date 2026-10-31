@@ -90,7 +90,7 @@ public static class B93S3Assert
         SectionI_GenericArmyItem();
         SectionJ_MilestoneAndProgressBar();
         SectionK_ReferralContainer();
-        SectionL_SimpleRotation();
+        SectionL_SimpleRotation(); SectionM_CarouselView();
 
         Debug.Log(_sink.P + "S3 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
@@ -610,5 +610,92 @@ public static class B93S3Assert
             Near(lc.Angle, 330f, 1e-3f, "L4b …再 0.5 秒 ⇒ 330");
         }
         finally { Object.DestroyImmediate(go); }
+    }
+
+    // ============================================================ M 轮播的「显示层」：拖一格 ⇒ 槽位换（FP-SHOP-009）
+    //
+    //  判据（施工单 `FP-SHOP-009`）：原版 `CarouselOfferPopupDrawer` + `UI_InfiniteScroll`：
+    //    **拖一格 ⇒ 显示槽位的 item 按 `IndexAt` 换（首尾回绕）**；`Filter` 保持可注入。
+    //  原版真体 = `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp-firstpass/UnityEngine/UI/Extensions/UI_InfiniteScroll.cs`
+    //    `OnScroll`（RVA 0x56DAA0）：越过边界的子件 `anchoredPosition ±= _itemCount × _recordOffset` +
+    //    `SetAsFirstSibling()/SetAsLastSibling()` ⇒ 一列子件首尾相接成环（拖出去的那件从另一头接回来）。
+    //  ⇒ 本组断的就是那个环的**显示读数**：第 slot 槽显示哪一条、拖一格之后换成哪一条、负方向怎么回绕、
+    //    以及 `Filter` 注进去之后环长度跟着变（⛔ 不是把 `View` 自己的算式再算一遍 —— 期望值全是**字面量**）。
+    //
+    //  ⚠️ `OfferContainer.Carousel.Filter` 是**静态**的 ⇒ 每条都在 `finally` 里还原（同本文件 A 组的口径）。
+    static void SectionM_CarouselView()
+    {
+        MenuCheck.Section(_sink, "M `ShopCarouselView`（FP-SHOP-009）：拖一格 ⇒ 显示槽位的 item 按 `IndexAt` 换、负方向回绕、`Filter` 可注入");
+
+        var savedFilter = OfferContainer.Carousel.Filter;
+        try
+        {
+            OfferContainer.Carousel.Filter = null;
+
+            var rewards = new List<CampaignData.RewardSpec>
+            {
+                new CampaignData.RewardSpec("A", 1, 0),
+                new CampaignData.RewardSpec("B", 1, 0),
+                new CampaignData.RewardSpec("C", 1, 0),
+            };
+
+            // ---- M1/M2：出厂那一屏 = 前两条（offset 0）
+            var v = new ShopCarouselView(rewards, 2);
+            C(v.Count, 3, "M1 `Count` = 3（环长度 = 奖励条数）");
+            C(v.Visible, 2, "M1b `Visible` = 2（一屏 2 槽 = `ManualInit(2)`）");
+            C(v.Offset, 0, "M1c 出厂 `Offset` = 0");
+            C(v.Pages, 2, "M1d `Pages` = ceil(3 / 2) = 2（离散化口径，见 `ShopCarouselView` 文件头 🔶 那一段）");
+            C(v.SlotItem(0).Id, "A", "M2 ★ 出厂：槽 0 = `A`");
+            C(v.SlotItem(1).Id, "B", "M2b ★ 出厂：槽 1 = `B`");
+
+            // ---- M3：拖一格（屏幕向左 ⇒ offset +1）⇒ 每个槽都换到下一条
+            //      🧨 若 `Drag` 不改 `Offset`、或 `SlotItem` 仍用 `Offset=0` ⇒ 这两条与 M2 相同 ⇒ 红
+            C(v.Drag(1), 1, "M3 ★ `Drag(1)` ⇒ `Offset` = 1");
+            C(v.SlotItem(0).Id, "B", "M3b ★ 拖一格：槽 0 = `B`（原来 A）");
+            C(v.SlotItem(1).Id, "C", "M3c ★ 拖一格：槽 1 = `C`（原来 B）");
+
+            // ---- M4：再拖一格 ⇒ 末条从头上接回来（`IndexAt(1, 2, 3)` = 0）
+            C(v.Drag(1), 2, "M4 ★ 再拖一格 ⇒ `Offset` = 2");
+            C(v.SlotItem(0).Id, "C", "M4b ★ 槽 0 = `C`");
+            C(v.SlotItem(1).Id, "A", "M4c ★ 槽 1 = `A`（末条接回头上 —— 这就是 `WrapOffset` 那条回绕；改成不回绕 ⇒ 这条红）");
+
+            // ---- M5：第三格 ⇒ 偏移整周期归零
+            C(v.Drag(1), 0, "M5 ★ 拖满一圈 ⇒ `Offset` = 0（3 格 = 一周期）");
+            C(v.SlotItem(0).Id, "A", "M5b …槽 0 回到 `A`");
+
+            // ---- M6：负方向（往右拖）⇒ 归到周期末尾
+            C(v.Drag(-1), 2, "M6 ★ `Drag(-1)` ⇒ `Offset` = 2（负数也归正，不出现 −1）");
+            C(v.SlotItem(0).Id, "C", "M6b ★ 槽 0 = `C`");
+            C(v.SlotItem(1).Id, "A", "M6c ★ 槽 1 = `A`");
+
+            // ---- M7：`VisibleItems()` 按槽序返回（整屏读数，供接线方一次取）
+            var screen = v.VisibleItems();
+            C(screen.Count == 2 ? screen[0].Id + "|" + screen[1].Id : "<空>", "C|A",
+              "M7 ★ `VisibleItems()` 按槽序 = `C|A`（与 `SlotItem(0/1)` 同源）");
+
+            // ---- M8：`Drag(0)` 不动（灭自证：M3 的变化不是「拖了就会乱」）
+            C(v.Drag(0), 2, "M8 `Drag(0)` ⇒ `Offset` 不变 = 2");
+            C(v.SlotItem(0).Id, "C", "M8b …槽 0 仍是 `C`");
+
+            // ---- M9：`Filter` 注入口仍然生效（施工单要求「`Filter` 保持可注入」）
+            //      过滤掉 B ⇒ 环长度 2；此时 offset 2 % 2 = 0
+            OfferContainer.Carousel.Filter = (i, r) => r.Id != "B";
+            var vf = new ShopCarouselView(rewards, 2);
+            C(vf.Count, 2, "M9 ★ 注了 `Filter`（滤掉 `B`）⇒ `Count` = 2");
+            C(vf.SlotItem(0).Id, "A", "M9b ★ 过滤后槽 0 = `A`");
+            C(vf.SlotItem(1).Id, "C", "M9c ★ 过滤后槽 1 = `C`");
+            vf.Drag(1);
+            C(vf.SlotItem(0).Id, "C", "M9d ★ 过滤后拖一格：槽 0 = `C`");
+            C(vf.SlotItem(1).Id, "A", "M9e ★ …槽 1 = `A`（2 条也照样回绕）");
+            OfferContainer.Carousel.Filter = null;
+
+            // ---- M10：滤空 / 空表 ⇒ 不崩、不出假槽
+            var ve = new ShopCarouselView(new List<CampaignData.RewardSpec>(), 2);
+            C(ve.Count, 0, "M10 空奖励表 ⇒ `Count` = 0");
+            C(ve.SlotItem(0).Id, null, "M10b ★ 空环 ⇒ `SlotItem(0)` 是 `default`（`Id == null`，⛔ 不是凭空造一条）");
+            C(ve.Drag(1), 0, "M10c ★ 空环 `Drag(1)` ⇒ 0（⛔ 不除零）");
+            C(v.Pages, 2, "M10d 原有那一具不受影响（`Filter` 已还原、`Offset` 与 M8 一致）");
+        }
+        finally { OfferContainer.Carousel.Filter = savedFilter; }
     }
 }

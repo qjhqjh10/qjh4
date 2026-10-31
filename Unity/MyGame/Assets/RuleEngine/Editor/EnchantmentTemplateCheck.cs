@@ -40,26 +40,26 @@ public static class EnchantmentTemplateCheck
         try
         {
             Debug.Log(P + "===== §A `HasAbilityDamage` 的「未知 vs 明确没有」 =====");
-            SectionA_AbilityDamage();
+            try { SectionA_AbilityDamage(); } catch (Exception e) { SegFail("§A HasAbilityDamage", e, 8); }
             Debug.Log(P + "===== §B `permanentBuff` 三态 =====");
-            SectionB_PermanentBuffs();
+            try { SectionB_PermanentBuffs(); } catch (Exception e) { SegFail("§B permanentBuff", e, 7); }
             Debug.Log(P + "===== §C `whileInPlayAnim` 三态 =====");
-            SectionC_WhileInPlayAnim();
+            try { SectionC_WhileInPlayAnim(); } catch (Exception e) { SegFail("§C whileInPlayAnim", e, 6); }
             Debug.Log(P + "===== §D 真表联调（`CardDatabase.Parse` 的两个 Attach 真被调到） =====");
-            SectionD_CardTableWiring();
+            try { SectionD_CardTableWiring(); } catch (Exception e) { SegFail("§D 真表联调", e, 5); }
             Debug.Log(P + "===== §E 第二张表 `enchantment_templates.json`（附魔模板） =====");
-            SectionE_EnchantmentTemplates();
+            try { SectionE_EnchantmentTemplates(); } catch (Exception e) { SegFail("§E 第二张表", e, 4); }
             Debug.Log(P + "===== §F 注入 + 消费「活着」的证明（账 L1044 收口） =====");
-            SectionF_WiringProof();
+            try { SectionF_WiringProof(); } catch (Exception e) { SegFail("§F 注入+消费", e, 3); }
             Debug.Log(P + "===== §G 真战斗里会不会挂上去（B89/E26：SAU53 / TL47） =====");
-            SectionG_RealBattleAttach();
+            try { SectionG_RealBattleAttach(); } catch (Exception e) { SegFail("§G 真战斗挂载", e, 2); }
             Debug.Log(P + "===== §H 数据驱动通路（B90/B3：卡表 v38 `enchantment` 列 · 54 张 / trigger 0 的 29 张） =====");
-            SectionH_DataDrivenGrant(); SectionI_OffensiveEnvGrant();   // 🆕 B93/E25：环境（进攻）卡那一跳 —— 与上一句**挤在同一行是故意的**（本文件 141/167/217 三处账落点按行号引，加行会整体漂移）
+            try { SectionH_DataDrivenGrant(); } catch (Exception e) { SegFail("§H 数据驱动通路", e, 1); } try { SectionI_OffensiveEnvGrant(); } catch (Exception e) { SegFail("§I 环境卡授权", e, 0); }   // 🆕 B93/E25：环境（进攻）卡那一跳 —— 与上一句**挤在同一行是故意的**（本文件 141/167/217 三处账落点按行号引，加行会整体漂移）
         }
         catch (Exception e)
         {
             Fail++;
-            Debug.LogError(P + "✗ 断言过程抛异常（后面的条目没跑完）：" + e);
+            Debug.LogError(P + "✗ 断言过程抛异常（保护之外；后面的条目没跑完）：" + e);
         }
         string verdict = Fail == 0 ? "✅ 全绿" : "❌ 有红";
         Debug.Log(P + $"===== 合计 通过 {Pass} / 失败 {Fail} —— {verdict} =====");
@@ -960,5 +960,14 @@ public static class EnchantmentTemplateCheck
         ctx.Players[0].Energy = 30;
         ctx.Players[1].Energy = 30;
         return ctx;
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：用本文件既有的 `Ok` 口记一次失败，
+    /// 文案写明「其 N 条没跑」—— 改前 8 条挤在**同一个 try** 里，一条抛异常后面全不跑。
+    /// ⚠️ `Run()` 里每段仍是**一行**（行数零变化）：本文件 141/167/217 三处账落点按行号引。
+    /// <paramref name="rest"/> = 这一条之后还有几条。</summary>
+    static void SegFail(string section, Exception e, int rest)
+    {
+        Ok(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 条没跑）: " + e);
     }
 }

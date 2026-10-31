@@ -3104,7 +3104,7 @@ namespace CardPresentation
             for (int i = 0; i < _selectedCards.Count; i++)
             {
                 var d = CardDatabase.FindById(CardPool(), _selectedCards[i]);
-                if (d == null || d.Cost < 0) continue;        // 无费用（-1）那一档不计入（原版按 `card.cost` 分桶）
+                if (d == null || d.Cost < 0) continue;        // 🔶 自己设计（非原版）：`d.Cost < 0 ⇒ continue` 这层防御是我们加的 · 原版 `DeckEnergyCostDrawer__Initialize` 对 `cost` 是**裸数组下标**（负数会撞越界检查，不跳过）· 判据 = `d:/2/tools/decomp_full/DeckEnergyCostDrawer__Initialize.c`（详见 `资料/完全复刻/报告/B106_W26.md` §④·1）· 调度台 2026-10-31 裁定
                 // `card.cost < 行数−1` ⇒ 落第 cost 行；**否则全进最后一行**（原版那一支现读）
                 buckets[Mathf.Min(d.Cost, DeckCostRows - 1)]++;
             }

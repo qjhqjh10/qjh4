@@ -1,0 +1,122 @@
+{
+ "generated_at": "2026-10-26T23:55:57",
+ "mode": "stamp",
+ "generator": "Unity/工具/r0_report.py --stamp",
+ "stamp_written_at": "2026-10-31T11:18:02",
+ "ledger_file": "R0_资源覆盖账.tsv",
+ "ledger_rows": 247612,
+ "ledger_rows_incl_header": 247613,
+ "ledger_mtime_iso": "2026-10-26T23:55:57",
+ "n_objects": 247612,
+ "reachable": 246678,
+ "params": {
+  "cap_code": 8000000,
+  "cap_data": 30000000,
+  "cap_doc": 20000000,
+  "u3_by_phrase": true,
+  "u3_exclude": [
+   "D:\\4\\Unity\\资料\\完全复刻\\判据",
+   "D:\\4\\Unity\\资料\\完全复刻\\资源",
+   "D:\\4\\Unity\\资料\\完全复刻\\报告",
+   "D:\\4\\Unity\\资料\\完全复刻\\账",
+   "D:\\4\\Unity\\资料\\完全复刻\\普查产出_第八十会话"
+  ]
+ },
+ "corpora": {
+  "code_assets": {
+   "root": "D:/4/Unity/MyGame/Assets",
+   "files": 12304,
+   "max_mtime": 1793416679.703,
+   "max_mtime_iso": "2026-10-31T11:17:59",
+   "exts": [
+    ".png",
+    ".asset",
+    ".prefab",
+    ".mat",
+    ".shader",
+    ".json",
+    ".txt",
+    ".unity",
+    ".fbx",
+    ".obj",
+    ".ogg",
+    ".wav",
+    ".mp4",
+    ".webm",
+    ".anim",
+    ".controller",
+    ".overrideController",
+    ".mask",
+    ".playable",
+    ".mixer",
+    ".cubemap",
+    ".cs"
+   ],
+   "exclude": []
+  },
+  "assets_data_tables": {
+   "root": "D:/4/Unity/MyGame/Assets",
+   "files": 202,
+   "max_mtime": 1793409910.052,
+   "max_mtime_iso": "2026-10-31T09:25:10",
+   "exts": [
+    ".json",
+    ".tsv",
+    ".csv",
+    ".txt"
+   ],
+   "exclude": []
+  },
+  "stage_moved": {
+   "root": "D:/4/Unity/素材/Warpforge原版",
+   "files": 24493,
+   "max_mtime": 1789176985.629,
+   "max_mtime_iso": "2026-09-12T09:36:25",
+   "exts": null,
+   "exclude": []
+  },
+  "data_tables": {
+   "root": "D:/4/Unity/数据",
+   "files": 1273,
+   "max_mtime": 1793334538.842,
+   "max_mtime_iso": "2026-10-30T12:28:58",
+   "exts": [
+    ".json",
+    ".tsv",
+    ".csv",
+    ".md"
+   ],
+   "exclude": [
+    "D:/4/Unity/数据/索引"
+   ]
+  },
+  "data_index": {
+   "root": "D:/4/Unity/数据/索引",
+   "files": 11,
+   "max_mtime": 1792919502.177,
+   "max_mtime_iso": "2026-10-25T17:11:42",
+   "exts": null,
+   "exclude": []
+  },
+  "docs_u3": {
+   "root": "D:/4/Unity/资料",
+   "files": 5185,
+   "max_mtime": 1793416537.311,
+   "max_mtime_iso": "2026-10-31T11:15:37",
+   "exts": [
+    ".md",
+    ".tsv",
+    ".json"
+   ],
+   "exclude": [
+    "D:\\4\\Unity\\资料\\完全复刻\\判据",
+    "D:\\4\\Unity\\资料\\完全复刻\\资源",
+    "D:\\4\\Unity\\资料\\完全复刻\\报告",
+    "D:\\4\\Unity\\资料\\完全复刻\\账",
+    "D:\\4\\Unity\\资料\\完全复刻\\普查产出_第八十会话"
+   ]
+  }
+ },
+ "coherent": false,
+ "note": "🔴 `coherent=false` ⇒ `corpora` 是**本戳写入时**的语料快照，而 `generated_at` 是**账本本身**的构建时间；两者不是同一时刻。🔴 「从没看过」/「读过（文档）」**不可跨日期比** —— U3 语料（资料/）每天都在成批落盘。要一张自洽的戳请跑 `--scan`（R0-06）。"
+}

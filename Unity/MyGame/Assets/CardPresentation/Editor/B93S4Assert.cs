@@ -53,7 +53,7 @@ public static class B93S4Assert
         SectionD_排位接口支的NRE();
         SectionE_战将精通纯逻辑();
         SectionF_阵营进度条();
-        SectionG_头像边框层();
+        SectionG_头像边框层(); SectionH_社交页签红点(); SectionI_教程Tick推进();
 
         Debug.Log(_sink.P + "B94-S4 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
@@ -315,5 +315,280 @@ public static class B93S4Assert
         var active = ProfileData.FindActiveAvatarBorder();
         C(active == null, string.IsNullOrEmpty(equipped),
           "G3 ★ 「那颗钮显不显示」读的是 `FindActiveAvatarBorder() != null`，⛔ 不是读图名 —— 两者在空态下要一致");
+    }
+
+    // ------------------------------------------------------------ H 社交页签红点（`FP-SOCIAL-05`）
+    //  原版（方法体逐句现读）：
+    //   · `decomp_full/AlliancesManager__CheckNotification.c`：
+    //       解锁了联盟 ∧ **未入盟**（controller 的 `+0x28` 为空）⇒ `Repeat(AlliancesNotificationBadge, groupInvitationsCache.Count)`；
+    //       已入盟 / 未解锁 ⇒ 空表。
+    //   · `decomp_full/ChatGlobalManager__CheckNotification.c`：
+    //       `Repeat(FriendsBadge, *(challengeManager + 0x18))` —— 🔴 数的是**挂起的练习对局**
+    //       （我们的等价物 = `ChallengeData.PendingPracticeMatches`），⛔ **不是「好友请求数」**（别按类名改）。
+    //  消费侧定义表 = 两颗 `Tab Button` 的 `Badge Highlight.notificationDefinitions`
+    //   （`AlliancesNotificationBadge` / `FriendsBadge`，见 `Shell/BadgeNotifications.cs` 文件头那张接线表）。
+    //  实现位置：`Shell/AllianceMemberTab.cs` 末尾（`B106_W12` 内联）；登记口 = `SocialBadgeProviders.EnsureRegistered()`
+    //   （`MainMenuRuntime.Build():403` 已接）。本代理原拟的独立文件 `Shell/SocialBadgeProviders.cs` 与它**同名重复定义**
+    //   ⇒ 已撤销（报告 §①），本段只补**断言**。
+    static void SectionH_社交页签红点()
+    {
+        MenuCheck.Section(_sink, "H `FP-SOCIAL-05` 社交两颗页签的红点：provider → 定义表 → `UiBadgeNotification` 的 alpha（三态）");
+
+        BadgeWiring.RegisterDefaults();           // 幂等（`ProviderCount > 0` 直接返回）
+        SocialBadgeProviders.EnsureRegistered();  // 幂等（实现里缓存了登记句柄）
+
+        // H1/H2：**发出去的类名**必须与页签定义的类型逐字相同
+        //   判据 = `BadgeNotificationDefinition.Validate` 的不过滤那一支 `notificationType.IsInstanceOfType(item)`
+        //   （`decomp_full/BadgeNotificationDefinition__Validate.c`）；名字不符 ⇒ 计数恒 0（`MissionsBadge` 踩过同一个坑）
+        C(new AlliancesNotificationProvider().NotificationType, typeof(AlliancesNotificationBadge),
+          "H1 联盟 provider 的通知类型 = **`AlliancesNotificationBadge`**（原版 `AlliancesManager : INotificationProvider<AlliancesNotificationBadge>`）");
+        C(new FriendsNotificationProvider().NotificationType, typeof(FriendsBadge),
+          "H2 好友 provider 的通知类型 = **`FriendsBadge`**（原版 `ChatGlobalManager : INotificationProvider<FriendsBadge>`）");
+
+        var alliDefs = BadgeWiring.DefinitionsForTab("SocialMenu_AlliancesButton");
+        var frndDefs = BadgeWiring.DefinitionsForTab("SocialMenu_FriendsButton");
+        C(alliDefs != null ? alliDefs.Count : -1, 1,
+          "H3 前提：社交「联盟」页签的红点定义 = 1 条（`AlliancesNotificationBadge`，判据 = `Alliances Tab Button` 的 `Badge Highlight`）");
+        C(frndDefs != null ? frndDefs.Count : -1, 1,
+          "H4 前提：社交「好友」页签的红点定义 = 1 条（`FriendsBadge`，判据 = `Friends Tab Button` 的 `Badge Highlight`）");
+
+        var go = new GameObject("B106W22_SocialBadge");
+        var savedInv = new List<SocialData.Invitation>(SocialData.Invitations);
+        var savedAlliance = SocialData.AllianceName;
+        var savedPending = new List<PracticeChallenge>(ChallengeData.PendingPracticeMatches);
+        try
+        {
+            var comp = go.AddComponent<UiBadgeNotification>();
+            Tr(comp != null, "H5 前提：`UiBadgeNotification` 挂得上去");
+            if (comp == null || alliDefs == null || alliDefs.Count == 0) return;
+
+            comp.notificationDefinitions = alliDefs;
+            comp.showCounter = true;
+            float wrote = float.NaN;
+            comp.SetAlpha = delegate (float a) { wrote = a; };
+
+            // ---- 联盟：三态 + 原版那条「已入盟 ⇒ 不发」的闸（**全走生产 provider 的真数据口**）
+            SocialData.AllianceName = null;                  // 未入盟（原版判据 ②）
+            SocialData.SetInvitations(null);
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(comp.CurrentCount, 0, "H6 未入盟 + 0 条邀请 ⇒ 联盟页签计数 = 0（= 今天的状态：没有本地邀请写入方）");
+            C(wrote, 0f, "H7 ★ 计数 0 ⇒ 红点 alpha = **0**（原版 `Hide()`）");
+
+            SocialData.SetInvitations(new[] { new SocialData.Invitation { Name = "B106W22Alliance" } });
+            wrote = float.NaN;
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(comp.CurrentCount, 1, "H8 一条待处理邀请 ⇒ 计数 = 1（原版 `Repeat(badge, groupInvitationsCache.Count)` **逐条发**，⛔ 不是「有个 1」）");
+            C(wrote, 1f, "H9 ★★ 计数 > 0 ⇒ 联盟页签红点 alpha = **1**"
+                       + "｜🧨 改坏法①：`NotificationType` 换成别的类 ⇒ 定义表一条都不中 ⇒ 实得 0；"
+                       + "② 页里再无条件写 0 ⇒ 也红");
+
+            // H10 ★ 原版那道闸：**已入盟就不发**（`AlliancesManager__CheckNotification.c` 里 `+0x28` 非空 ⇒ 空表）
+            SocialData.AllianceName = "B106W22Alliance";
+            wrote = float.NaN;
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(comp.CurrentCount, 0, "H10 ★ 已入盟 ⇒ **一条都不发**（即使手里还有邀请缓存）—— 原版那道 `CurrentGroupCached != null` 闸"
+                                 + "｜🧨 删掉 `AllianceName` 那道闸 ⇒ 实得 1 ⇒ 本行红（而 H8 仍绿 ⇒ 两态合起来才分得开）");
+            SocialData.AllianceName = null;
+
+            SocialData.SetInvitations(null);
+            wrote = float.NaN;
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(wrote, 0f, "H11 ★ 清空 ⇒ 红点又回 **0**（H7/H9/H11 三态齐全 = 这条链真的跟着计数走，⛔ 不是恒真/恒假）");
+
+            // H12 ★ 登记幂等：再 `EnsureRegistered()` 一次**不该**让同一条邀请算两遍
+            SocialData.SetInvitations(new[] { new SocialData.Invitation { Name = "B106W22Alliance" } });
+            SocialBadgeProviders.EnsureRegistered();
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(comp.CurrentCount, 1, "H12 ★ 连调两次 `EnsureRegistered()` ⇒ 仍只算 **1**（实现里缓存了登记句柄）"
+            + "｜🧨 在 `BadgeWiring.RegisterDefaults` 里再 `new` 一遍同一对 provider（重复登记）⇒ 实得 2 ⇒ 本行红");
+            SocialData.SetInvitations(null);
+
+            // ---- 好友：真数据口 `ChallengeData.PendingPracticeMatches`（三态）
+            comp.notificationDefinitions = frndDefs;
+            ChallengeData.ClearPending();
+            wrote = float.NaN;
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(comp.CurrentCount, 0, "H13 没有挂起的练习对局 ⇒ 好友页签计数 = 0");
+            C(wrote, 0f, "H14 …⇒ 红点 alpha = 0");
+
+            ChallengeData.AddPending(new PracticeChallenge { PlayerName = "B106W22Rival" });
+            wrote = float.NaN;
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(comp.CurrentCount, 1, "H15 一条挂起的练习对局 ⇒ 计数 = 1（原版 `Repeat(FriendsBadge, *(challengeManager+0x18))`）");
+            C(wrote, 1f, "H16 ★★ 有源 ⇒ 好友页签红点 alpha = **1**（走的是**真**数据口 `ChallengeData`，⛔ 不是测试替身）");
+
+            ChallengeData.ClearPending();
+            wrote = float.NaN;
+            comp.Recount(); comp.SnapToTargetForTest();
+            C(wrote, 0f, "H17 ★ 撤掉 ⇒ 又回 0（有/无/清空三态齐 = 真的跟着计数走）");
+
+            // ---- SOCIAL 导航钮那颗（原版定义 = `SocialBadge`；`AlliancesNotificationBadge : SocialBadge`）
+            //  判据（三源逐文件现读）：`out_cpp2il_dev_ilspy/Everguild.UI.Notifications/AlliancesNotificationBadge.cs:7`
+            //   `public record AlliancesNotificationBadge : SocialBadge` · `SocialBadge.cs:7` `: Notification` ·
+            //   `il2cpp_out/dump.cs:124145` 同结论；对照 `FriendsBadge.cs:7` = `: Notification`（**不是** SocialBadge）。
+            //  消费链：`MainMenuRuntime` 导航钮 4（SOCIAL）→ `NavBadgeDefs(4)` → `BadgeWiring.DefinitionsFor("Social")`
+            //   → 1 条 `SocialBadge` 定义 → `GetCount` 的 `IsRelated` 外闸 + `BadgeNotificationDefinition.Validate` 内闸。
+            var navSocialDefs = BadgeWiring.DefinitionsFor("Social");
+            C(navSocialDefs != null ? navSocialDefs.Count : -1, 1,
+              "H18 前提：左竖导航 SOCIAL 那颗 = 1 条红点定义（判据 = `Main Menu Navigation Button - Social` 的 `Badge Highlight`）");
+            Tr(navSocialDefs != null && navSocialDefs.Count == 1 && navSocialDefs[0].Type == typeof(SocialBadge),
+               "H19 前提：那条定义的类型 = `SocialBadge`（`BadgeWiring.DefinitionsFor(\"Social\")`）");
+            Tr(typeof(SocialBadge).IsAssignableFrom(typeof(AlliancesNotificationBadge)),
+               "H20 ★ 继承链：`AlliancesNotificationBadge` 派生自 `SocialBadge`"
+             + "｜🧨 改回 `: BadgeNotification` ⇒ 本行红（原版 = `record AlliancesNotificationBadge : SocialBadge`）");
+            Tr(!typeof(SocialBadge).IsAssignableFrom(typeof(FriendsBadge)),
+               "H21 🧨 灭自证：`FriendsBadge` **不**派生自 `SocialBadge`（原版 = `: Notification`）⇒ 不能靠「全都挂到 SocialBadge 下」蒙过 H20");
+            if (navSocialDefs != null && navSocialDefs.Count == 1)
+            {
+                comp.notificationDefinitions = navSocialDefs;
+                SocialData.AllianceName = null;
+                SocialData.SetInvitations(null);
+                ChallengeData.ClearPending();
+                wrote = float.NaN;
+                comp.Recount(); comp.SnapToTargetForTest();
+                C(comp.CurrentCount, 0, "H22 无社交通知 ⇒ SOCIAL 导航钮计数 = 0");
+                C(wrote, 0f, "H23 …⇒ 红点 alpha = 0");
+
+                SocialData.SetInvitations(new[] { new SocialData.Invitation { Name = "B106W35Alliance" } });
+                wrote = float.NaN;
+                comp.Recount(); comp.SnapToTargetForTest();
+                C(comp.CurrentCount, 1, "H24 ★★ 一条联盟邀请 ⇒ **SOCIAL 导航钮**计数 = 1（原版 `AlliancesNotificationBadge : SocialBadge`）"
+                  + "｜🧨 把基类改回 `BadgeNotification` ⇒ `IsRelated(SocialBadge, AlliancesNotificationBadge)` 为假 ⇒ 实得 0 ⇒ 本行红");
+                C(wrote, 1f, "H25 ★★ …⇒ alpha = 1（SOCIAL 那颗真的会亮）");
+
+                SocialData.SetInvitations(null);
+                ChallengeData.AddPending(new PracticeChallenge { PlayerName = "B106W35Rival" });
+                wrote = float.NaN;
+                comp.Recount(); comp.SnapToTargetForTest();
+                C(comp.CurrentCount, 0, "H26 🧨 好友通知（`FriendsBadge`）**不**点亮 SOCIAL 导航钮 —— 防「一改就全亮」的过度继承");
+                C(wrote, 0f, "H27 …⇒ alpha 仍是 0（H24/H25 的正数才说明是「按继承链」而不是「随便什么通知都亮」）");
+                ChallengeData.ClearPending();
+            }
+        }
+        finally
+        {
+            SocialData.SetInvitations(savedInv);
+            SocialData.AllianceName = savedAlliance;
+            ChallengeData.ClearPending();
+            for (int i = 0; i < savedPending.Count; i++) ChallengeData.AddPending(savedPending[i]);
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    // ------------------------------------------------------------ I 教程 Tick 推进（`FP-TUT-04`）
+    //  原版：`MenuTutorialManager.Update`（每帧）→ `Tick` → `CheckCompletion(阶段)` → `Advance()`。
+    //  我们：生产链已在（`Shell/MenuTutorialFlow.cs` 的 `Update` → `Tick` → `CheckCompletion` → `Advance`），
+    //        但**此前只断言过静态完成位**（本文件 §C）—— 状态机**会不会真的往前走**一格没验。
+    //  ⚠️ **差的口（见报告 §⑥）**：生产没有测试入口 ——
+    //     ① `Attach` 被 `Application.isPlaying` 挡住（批处理里拿不到实例）；
+    //     ② `_active` / `_index` / `_menu` / `_pointer` / `_selectSeen` 全是私有，`Tick` 在 `_menu == null` 时直接 return。
+    //    ⇒ 本段用**反射**把「运行到某一段的那一态」搭在这个**测试新建的实例**上（⛔ 不改产品代码、不碰真存档）。
+    static void SectionI_教程Tick推进()
+    {
+        MenuCheck.Section(_sink, "I `FP-TUT-04`：`Tick(dt)` → `CheckCompletion(阶段)` → `Advance()` → 指针换到下一阶段");
+
+        int n = MenuTutorialStages.Count;
+        Tr(n >= 3, "I0 **前提断言**：阶段表至少 3 条（现读 " + n + " 条；少于 3 条 ⇒ 下面「换阶段」无意义）");
+        if (n < 3) return;
+
+        int iFirst = -1, iLast = -1;
+        for (int i = 0; i < n; i++)
+        {
+            var d = MenuTutorialStages.At(i);
+            if (d == null) continue;
+            if (d.Id == MenuTutorialStageId.SelectArmy) iFirst = i;
+            if (d.Id == MenuTutorialStageId.TutorialFinished) iLast = i;
+        }
+        Tr(iFirst >= 0, "I1 前提：阶段表里有 `SelectArmy`（现读下标 " + iFirst + "）");
+        Tr(iLast >= 0, "I2 前提：阶段表里有 `TutorialFinished`（现读下标 " + iLast + "）");
+        if (iFirst < 0 || iLast < 0) return;
+
+        // 备份完成位（新档 `DemoData` + 旧档 `PlayerPrefs` 兜底两处都要还原 —— ⛔ 别把玩家真进度留下改动）
+        var keys = new string[n];
+        var savedBits = new bool[n];
+        var savedPrefs = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            var d = MenuTutorialStages.At(i);
+            keys[i] = DoneKeyOf(d);
+            savedBits[i] = d != null && MenuTutorialFlow.IsStageCompleted(d);
+            savedPrefs[i] = keys[i] == null ? 0 : PlayerPrefs.GetInt(keys[i], 0);
+        }
+
+        var flowGo = new GameObject("B106W22_TutFlow");
+        var menuGo = new GameObject("B106W22_TutMenu");
+        try
+        {
+            // 造完成条件：除了 `iFirst` 与 `iLast`，其余全部标完成 ⇒ 下一站必然是 `iLast`
+            //   （`FirstPlayableStage` 对 `TutorialFinished` **无条件选中**，见那个方法的 doc）
+            for (int i = 0; i < n; i++)
+                if (keys[i] != null) DemoDataStore.SetTutorial(keys[i], i != iFirst && i != iLast);
+
+            var flow = flowGo.AddComponent<MenuTutorialFlow>();
+            Tr(flow != null, "I3 前提：`MenuTutorialFlow` 挂得上去（`MonoBehaviour`；批处理里 `Awake` **不会**自己跑）");
+            if (flow == null) return;
+
+            var menu = MainMenuRuntime.InstanceOrFind();
+            if (menu == null) menu = menuGo.AddComponent<MainMenuRuntime>();
+            Tr(menu != null, "I4 前提：拿得到一个 `MainMenuRuntime`（`Tick` 只在 `_menu != null` 时才往下走）");
+            if (menu == null) return;
+
+            bool ok = SetPriv(flow, "_menu", menu)
+                   && SetPriv(flow, "_pointer", TutorialPointerUi.Create(flow.transform, TutorialPointerUi.Tier.Menu))
+                   && SetPriv(flow, "_active", true)
+                   && SetPriv(flow, "_index", iFirst)
+                   && SetPriv(flow, "_selectSeen", true)        // `SelectArmy` 本地完成判据的第一半
+                   && SetPriv(flow, "_selectWindow", null);     // 第二半：那扇窗不存在 ⇒ 视为已关
+            Tr(ok, "I5 前提：反射搭出「运行到第 " + (iFirst + 1) + " 段」的那一态"
+                 + "（`_menu` / `_pointer` / `_active` / `_index` / `_selectSeen`）—— 缺哪个口见报告 §⑥");
+            if (!ok) return;
+
+            C(flow.StageIndex, iFirst, "I6 搭好之后阶段下标 = " + iFirst);
+
+            // ① 还没到轮询间隔 ⇒ **不推进**（原版 `MenuTutorialManager.Update` 每帧调，我们这套按 `PollInterval` 轮询）
+            flow.Tick(MenuTutorialFlow.PollInterval * 0.25f);
+            C(flow.StageIndex, iFirst, "I7 ★ 未到 `PollInterval` ⇒ 阶段**不动**（轮询闸）"
+            + "｜🧨 删掉 `if (_poll < PollInterval) return;` ⇒ 本行红（每帧都推 = 与原版节奏不符）");
+
+            // ② 到点且完成条件成立 ⇒ `CheckCompletion` 真 ⇒ `Advance()` ⇒ 指针换到下一阶段
+            flow.Tick(MenuTutorialFlow.PollInterval);
+            C(flow.StageIndex, iLast, "I8 ★★ 完成条件成立 ⇒ `CheckCompletion(" + iFirst + ")` 真 ⇒ `Advance()` ⇒ 下标换到 **" + iLast + "**"
+            + "（= 原版 `FlowTutorialStage.Complete()` → 重启 `DelayedPLayTutorial` 找下一个）"
+            + "｜🧨 删掉 `Tick` 里那句 `if (CheckCompletion(_index)) { Advance(); return; }` ⇒ 本行红");
+            Tr(MenuTutorialFlow.IsStageCompleted(MenuTutorialStages.At(iFirst)),
+               "I9 ★ `Advance()` 把**上一段**标成完成（= 原版 `Complete()` 里的 `SaveStage`）"
+             + "｜🧨 删掉 `MarkCompleted(_index)` ⇒ 本行红");
+            Tr(flow.IsActive, "I10 还没走完整条链 ⇒ 仍停在活动态（`TutorialFinished` 未完成；⛔ 不是一次 `Tick` 就收尾）");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(flowGo);
+            UnityEngine.Object.DestroyImmediate(menuGo);   // 空 GO / 只为兜底挂的 `MainMenuRuntime`（它的 `OnDestroy` 只在 `Instance == this` 时才置空 ⇒ 不碰真实例）
+            for (int i = 0; i < n; i++)
+            {
+                if (keys[i] == null) continue;
+                DemoDataStore.SetTutorial(keys[i], savedBits[i]);
+                if (savedPrefs[i] == 0) PlayerPrefs.DeleteKey(keys[i]); else PlayerPrefs.SetInt(keys[i], savedPrefs[i]);
+            }
+            PlayerPrefs.Save();
+            int mismatch = 0;
+            for (int i = 0; i < n; i++)
+            {
+                var d = MenuTutorialStages.At(i);
+                if (d == null) continue;
+                if (MenuTutorialFlow.IsStageCompleted(d) != savedBits[i]) mismatch++;
+            }
+            C(mismatch, 0, "I11 玩家原进度已还原（收尾逐段比对：不一致的段数 = 0）");
+        }
+    }
+
+    // ------------------------------------------------------------ 反射（只用于「造状态」，⛔ 不进产品代码）
+    static bool SetPriv(object o, string field, object value)
+    {
+        if (o == null) return false;
+        var fi = o.GetType().GetField(field, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        if (fi == null) { Debug.LogWarning("[B94S4] 反射找不到字段 `" + field + "`（`MenuTutorialFlow` 改名/删字段了？）"); return false; }
+        fi.SetValue(o, value);
+        return true;
     }
 }

@@ -36,7 +36,10 @@
 //     进程级一份 `Instance`（构造时填自拟标量 + 建表）。取数路径不同，**算式与语义相同**。
 //   · 原版 `GetTotalPlayerXPFromInventory` 遍历 `InventoryManager.Instance.GetInventory<RawCardScript>()`；
 //     我们的等价物 = `Inventories.Cards`（`Shell/Inventory.cs` 的 `CardInventory`）。
-//   · 原版缺表/缺格时**抛 NullReferenceException**；我们 `LogWarning` + 跳过该格（不崩、不静默）。
+//   · 原版 `GetTierInfo` 查不到只给 `null`（两条 `FirstOrDefault` 的 default），**抛出发生在调用方**：
+//     `GetTotalPlayerXPFromInventory` 拿到 null 就 `throw new NullReferenceException()`
+//     （判据 = `decomp_full/Everguild.LiveOps.Config.CardTierConfig__GetTotalPlayerXPFromInventory.c:83-86`）。
+//     我们 `LogWarning`（同一键只报一次）+ 跳过该格（不崩、不静默）。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -290,17 +293,50 @@ namespace CardPresentation
         /// <summary>原版 `GetTierInfo(CardTier tier, CardRarity rarity)`：`tiersByRarity` 里
         /// **先按 rarity 找那一组、再按 tier 找那一格**（原版是两条 `Enumerable.FirstOrDefault`）。
         /// <para>⚠️ 形参跟我们这边：`tier` = **1 基** int · `rarity` = 小写字符串（文件头「结构性差异」）。
-        /// 找不到 ⇒ 返回 `null`（原版这里会 `throw NullReferenceException` —— 铁律「不许静默失败」+
-        /// 「不崩」⇒ 我们出声 + null，调用方自己判）。</para></summary>
+        /// 查不到 ⇒ 返回 `null`（**原版这个方法自己也只给 null** —— `FirstOrDefault` 的 default；
+        /// `throw new NullReferenceException()` 发生在**调用方** `GetTotalPlayerXPFromInventory`）。
+        /// 我们照铁律「不许静默失败」+「不崩」，按**两种**情形分开：
+        /// ① **结构性缺失**（稀有度不在配置里 / 组为空 / `TierInfo` 为 null / 有效区间内缺格 / `tier &lt; 1`）
+        ///    ⇒ `WarnOnce` **出声一次**（去重键带稀有度与档位）然后给 null；
+        /// ② **越上界**（`tier &gt; 该组最大档`，含「满级没有下一档」这条**正常路径**，`GetNextTierInfo(MaxLevel)`
+        ///    天天走）⇒ **静默给 null** —— 那不是缺陷，出声只会变成假警报。
+        /// ⚠️ 调用方仍必须自己判 null（我们用 null 代替原版调用方那句 `throw NRE`）。</para></summary>
         public CardTierInfo GetTierInfo(int tier, string rarity)
         {
             var group = FindGroup(rarity);
-            if (group == null || group.TierInfo == null) return null;
+            if (group == null)
+            {
+                // 结构性缺失（稀有度根本不在配置里）⇒ 出声一次，然后给 null（原版 FirstOrDefault 同值）。
+                WarnOnce("no-group:" + (rarity ?? "<null>"),
+                    "[CardTierConfig] `GetTierInfo(" + tier + ", \"" + (rarity ?? "<null>") + "\")`：稀有度不在 "
+                  + "tiersByRarity 里 ⇒ 返回 null（原版两条 FirstOrDefault 同样给 null；原版调用方拿到 null 会 throw NRE）");
+                return null;
+            }
+            if (group.TierInfo == null || group.TierInfo.Count == 0)
+            {
+                // 组在、但一格都没有 ⇒ 同样是结构性缺失（原版 FirstOrDefault 会给 null）。
+                WarnOnce("no-tiers:" + group.Rarity,
+                    "[CardTierConfig] `GetTierInfo(" + tier + ", \"" + group.Rarity + "\")`：那一组的 TierInfo "
+                  + (group.TierInfo == null ? "是 null" : "是空的")
+                  + " ⇒ 返回 null（原版 FirstOrDefault 同样给 null；铁律「不许静默失败」⇒ 出声一次）");
+                return null;
+            }
+            int maxTier = 0;
             for (int i = 0; i < group.TierInfo.Count; i++)
             {
                 var t = group.TierInfo[i];
-                if (t != null && t.CardTier == tier) return t;
+                if (t == null) continue;
+                if (t.CardTier > maxTier) maxTier = t.CardTier;
+                if (t.CardTier == tier) return t;
             }
+            // 走到这里 = 没找到。**越上界 = 正常**（满级没有下一档，`GetNextTierInfo` 天天走）⇒ 静默给 null。
+            if (tier > maxTier) return null;
+            // 其余是结构性缺失 ⇒ 出声一次（去重键带稀有度与档位，逐卡逐格只刷一行）。
+            string key = (tier < 1 ? "bad-tier:" : "no-tier:") + group.Rarity + ":" + tier;
+            WarnOnce(key,
+                "[CardTierConfig] `GetTierInfo(" + tier + ", \"" + group.Rarity + "\")`："
+              + (tier < 1 ? "档位 < 1（我们是 1 基）" : "有效区间内缺这一格")
+              + " ⇒ 返回 null（原版 FirstOrDefault 同样给 null；铁律「不许静默失败」⇒ 出声一次）");
             return null;
         }
 
@@ -348,14 +384,10 @@ namespace CardPresentation
                 for (int t = 1; t <= tier; t++)
                 {
                     var info = GetTierInfo(t, card.Rarity);
-                    if (info == null)
-                    {
-                        // 原版这里 throw NRE。我们出声（同一格只报一次）+ 跳过。
-                        WarnOnce("missing-tier:" + card.Rarity + ":" + t,
-                            "[CardTierConfig] 稀有度 `" + card.Rarity + "` 的档位 " + t
-                          + " 在 tiersByRarity 里没有 ⇒ 该格 XP 按 0 算（原版这里会抛 NRE）");
-                        continue;
-                    }
+                    // 缺格 = null：`GetTierInfo` 内部已「出声 + 同一键只报一次」（原版这里会 `throw NRE`）
+                    // ⇒ 我们跳过该格（该格 XP 按 0 算）。⛔ 别在这里再 `WarnOnce` 一次 ——
+                    // 两处写同一条规则 = 迟早不一致，而且同一次缺格会刷两行。
+                    if (info == null) continue;
                     total += info.XPReward;
                 }
             }
@@ -404,10 +436,14 @@ namespace CardPresentation
         }
 
         static readonly HashSet<string> _warned = new HashSet<string>();
+        /// <summary>累计**真正出声**的次数（只有新键才 +1）—— 给 `SelfCheck` 断「同一键只报一次」用。</summary>
+        static int WarnEmittedCount { get { return _warnEmitted; } }
+        static int _warnEmitted;
         /// <summary>同一个键只出声一次（逐卡逐格 `LogWarning` 会刷屏）。⚠️ 只是去噪，**不是静默**。</summary>
         static void WarnOnce(string key, string msg)
         {
             if (!_warned.Add(key)) return;
+            _warnEmitted++;
             Debug.LogWarning(msg);
         }
 
@@ -424,7 +460,9 @@ namespace CardPresentation
         /// <para>② **灭自证**：等级**不是常数** —— `lvl(0)==1 &amp;&amp; lvl(acc(2))==2 &amp;&amp; lvl(acc(5))==5`
         /// 三个不同值同时成立（把 `GetLevelForXP` 改回「返回固定 1」必红）。</para>
         /// <para>③ 取整语义：`RoundPrecision == 5f` 且 `GetXPRequired` 的返回值**一定是 5 的倍数加 `Offset`**
-        /// （把 `Math.Round` 拿掉必红 —— 那样返回值就不是整数倍了）。</para></summary>
+        /// （把 `Math.Round` 拿掉必红 —— 那样返回值就不是整数倍了）。</para>
+        /// <para>④ 查不到档位 ⇒ 返回 null，且 **结构性缺失出声一次 / 越上界静默**
+        /// （🆕 2026-10-31 · B106_W56：doc 原写「我们出声」，实现却是静默 —— 现在实现补齐；见 `GetTierInfo` 的 doc）。</para></summary>
         public static List<string> SelfCheck()
         {
             var fail = new List<string>();
@@ -467,6 +505,32 @@ namespace CardPresentation
                     fail.Add("③ level=" + l + " 的 `GetXPRequired` = " + xp
                            + " 不是 `RoundPrecision` 的整数倍 + Offset（取整没做上）");
             }
+            // ④ 查不到 ⇒ null + **出声（同一键只报一次）** —— 铁律「不许静默失败」（🆕 2026-10-31 · B106_W56）
+            //    用 Guid 当稀有度 ⇒ 每次自检都是**新键**，不受上一次 `SelfCheck()` 的去重影响（否则第二遍会假红）。
+            string ghost = "__selftest_missing_rarity_" + System.Guid.NewGuid().ToString("N");
+            int w0 = WarnEmittedCount;
+            bool g1 = c.GetTierInfo(1, ghost) == null;
+            int w1 = WarnEmittedCount;
+            bool g2 = c.GetTierInfo(1, ghost) == null;
+            bool g3 = c.GetTierInfo(1, ghost) == null;
+            int w3 = WarnEmittedCount;
+            if (!(g1 && g2 && g3))
+                fail.Add("④ 未知稀有度 ⇒ 应返回 null（实际出现非 null）");
+            if (w1 - w0 != 1)
+                fail.Add("④ 未知稀有度首查出声 " + (w1 - w0) + " 次（应为 1：结构性缺失必须出声）");
+            if (w3 - w1 != 0)
+                fail.Add("④ 同一键再查 2 次又出声 " + (w3 - w1) + " 次（应为 0：`WarnOnce` 去重失效）");
+            // 满级没有下一档 = **正常路径**（`GetNextTierInfo(MaxLevel)` 天天走）⇒ 静默给 null（⛔ 不出声）
+            int wm0 = WarnEmittedCount;
+            bool maxNull = c.GetTierInfo(CardProgress.MaxLevel + 1, "epic") == null
+                        && c.GetNextTierInfo(CardProgress.MaxLevel, "epic") == null;
+            int wm1 = WarnEmittedCount;
+            if (!maxNull)
+                fail.Add("④ 满级没有下一档 ⇒ 应返回 null（实际非 null）");
+            if (wm1 != wm0)
+                fail.Add("④ 满级没有下一档是正常路径，不该出声（实际出声 " + (wm1 - wm0) + " 次）");
+            if (c.GetTierInfo(0, "epic") != null)
+                fail.Add("④ 档位 0（我们是 1 基）⇒ 应返回 null");
             return fail;
         }
     }

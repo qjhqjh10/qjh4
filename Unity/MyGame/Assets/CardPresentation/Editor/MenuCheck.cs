@@ -135,9 +135,9 @@ public static class MenuCheck
                 + string.Join("、", WindowButton.MissingSwapArt.ToArray()) + "）");
 
     /// <summary>按名字递归找一个节点（含 inactive）—— 5 份逐字相同的那一份（Collection / MainMenu /
-    /// Rewards / Settings / Shop）。
-    /// ⚠️ **它不认识 `A/B/C` 这种路径写法**（`RewardsScene.cs` 上面那条注释踩过）——
-    /// 要路径用各宿主自己的 `FindPath` 那一族。</summary>
+    /// Rewards / Settings / Shop）。🔴 **别拿它找 `MenuDraw.Hit` 建的那颗 `Hit`**：`MenuDraw.Hit` 会在**每颗命中节点里**各建一颗**同名**的透明 quad `Hit`（`MenuDraw.MakeHitQuad`），
+    /// 而本函数是**递归整棵子树** ⇒ `FindChild(cell, "Hit")` 抓到的是**先建的那颗**（例：`InfoHit` 里那颗**没有 `WindowButton`**，2026-10-31 `B106_W27` 踩过）；要找某件自己的命中区用 `cell.Find("Hit")`（**直接子件**）。
+    /// ⚠️ **它不认识 `A/B/C` 这种路径写法**（`RewardsScene.cs` 上面那条注释踩过）—— 要路径用各宿主自己的 `FindPath` 那一族。</summary>
     public static Transform FindChild(Transform parent, string name)
     {
         if (parent == null) return null;

@@ -3011,7 +3011,7 @@ namespace CardPresentation
                 //   `ReplayStore.PendingPlay` 再切场景；战场这边开场景时先问它有没有。
                 //   （与联机那条 `NetPendingBattle.Current` 是同一个路数。）
                 var pendingReplay = ReplayStore.TakePending();
-                if (pendingReplay != null) PlayReplay(pendingReplay);
+                if (pendingReplay != null) { TakePendingPlayMode(); PlayReplay(pendingReplay); }   // 🆕 2026-10-31（B106_W2 · AUD10 §三 R3）：回放支**不消费** `_pendingPlayMode` ⇒ 上一场入口窗留下的模式号会跟着「放录像」这一局飘下去。回放的模式号来自录像头（`NetPendingBattle.PlayMode`），通道里那一个**必须在这里丢掉**（⛔ 别改变 `BeginFromDeckLibrary` 里 `TakePendingPlayMode` 的取值语义）
                 else BeginFromDeckLibrary();
             }
         }
@@ -4676,7 +4676,7 @@ namespace CardPresentation
                 Debug.LogError("[Tutorial] 取不到第 " + (stageIndex + 1) + " 关的关卡数据"
                     + "（`Resources/" + TutorialData.StagesResourcePath + ".json` 没装载上，或关号越界）"
                     + " —— **不开局**（⛔ 不拿普通局冒充教程局）");
-                return;
+                FailTutorialStartAndExit(); return;      // 🆕 2026-10-31（B106_W2 · AUD10 §二 #8）：不许把玩家留在空战场
             }
 
             var pool = CardDatabase.Load();
@@ -4690,7 +4690,7 @@ namespace CardPresentation
             {
                 Debug.LogError("[Tutorial] `" + TutorialDecksAssetPath + ".json` 里没有第 " + (stageIndex + 1)
                              + " 关的牌 —— **不开局**（⛔ 不拿别的关的牌顶上去）");
-                return;
+                FailTutorialStartAndExit(); return;      // 🆕 2026-10-31（B106_W2 · AUD10 §二 #8）：同上
             }
 
             List<CardDef> mine, foe;
@@ -4703,7 +4703,7 @@ namespace CardPresentation
                              + "（玩家 " + mine.Count + " 张 / 对手 " + foe.Count + " 张）—— **不开局**。"
                              + " 两副牌的 SO = " + (dd.player == null ? "?" : dd.player.so) + " / "
                              + (dd.ai == null ? "?" : dd.ai.so));
-                return;
+                FailTutorialStartAndExit(); return;      // 🆕 2026-10-31（B106_W2 · AUD10 §二 #8）：同上
             }
 
             string myFaction = WarlordFaction(deckPlayer, pool);
@@ -5125,7 +5125,7 @@ namespace CardPresentation
             _inputFrozenForTest = false;
             // 🔴 **2026-10-16（W22）**：出口的闩也在这里清（与 `_settled` 同一条纪律：本局的状态不跨局）——
             //   不清的话按 R 重开的那一局**再也走不出去**（`LeaveBattle` 第一句就 `return`）。
-            _leaving = false;
+            _leaving = false; _rankedSettled = false;   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #3 / §三 R4）：排位结算闸也是「本局的账」—— 原来全类只在 `:32522` 写一次、`Begin()` 从不复位 ⇒ 同一台 driver 跑第二局时**排位分数不再结算**（今天只有 `Restart()` 能走到，属潜伏缺陷）
             // 🆕 2026-10-26（W9K01 · 账 `HUD:537` / `HUD:702` / `HUD:720` / `974`）：
             //   这几格**同样是「本局的账」**（与 `_settled` / `_leaving` 同一条纪律：不跨局）。
             //   · `_savedMana*` 回落「未知」⇒ 能量数字回到 `Energy/MaxEnergy`（不是上一局的 `Energy−1`）；
@@ -5510,7 +5510,7 @@ namespace CardPresentation
             //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
             //   没显式给 ⇒ 退回「这副牌自己带的模式」：与 `_vars` **同一条判据**（§2.7），
             //   所以「自检直接调 `Begin`」与「老调用点没传」这两条路**与今天逐字一致**。
-            Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic);
+            Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic); NotifyGameModesMatchStarted();   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退
             _playMode = Ctx.PlayMode; InstallMissionChallengeMatchGates();   // 🆕 2026-10-29（B98_H4 · `报告/B98_A11.md` §4·3）：把 `MissionChallenge` 的三个模式闸装上（原来生产代码**一个都没装** ⇒ `ValidateMatchConditions()` 恒真）。同一物理行追加 ⇒ 零行数漂移；摘在 `OnDestroy` 的 `DetachStaticHooks()` 那一行
             // 🔴 **2026-10-24（执行代理 `W9`）**：**回放逐动作全量指纹的那一格「开局」** ——
             //   录制端（`RecBegin` → `ReplayFingerprintTrace.RecordStart`）与回放端
@@ -12818,10 +12818,10 @@ namespace CardPresentation
             if (Application.isBatchMode)
             {
                 Debug.Log("[Battle] （批处理：不切场景，只记账 —— 真 Play 里这一句才是 "
-                        + "`SceneManager.LoadScene(\"" + MainMenuSceneName + "\")`）");
+                        + "`ShellRuntime.LoadSceneWithFade(\"" + MainMenuSceneName + "\")`）");
                 return;
             }
-            UnityEngine.SceneManagement.SceneManager.LoadScene(MainMenuSceneName);
+            ShellRuntime.LoadSceneWithFade(MainMenuSceneName);   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #7）：原来这里是**裸 `SceneManager.LoadScene`**（场景不在 Build Settings 时黑屏/出不去）；改成与练习 / 遭遇 / 排位**同一条口径**（`ShellRuntime.cs:205-220` 的 try/catch + 兜底淡回）—— 三处切场景三种写法是本条要收的口子
         }
 
         /// <summary>自检用：**「离开房间」那一跳走过几次**（累计，`Begin()` 里不清 —— 同 `_leaveCount`）。
@@ -32298,7 +32298,7 @@ namespace CardPresentation
                     }
                     else
                     {
-                        _settleCount++;
+                        _settleCount++; NotifyGameModesCombatFinished(); NotifyTutorialStageCompleted();   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #1a / §二 #5）：活动级结算（原版 `BattleManager.ProcessMatchResult.c:177`）+ 教程完成位；**只在「真打」这一支**（上面 `_replaySession` 那一支已跳过）
                         // 🆕 2026-10-19（T07 · 战后收尾闸）：**先收尾，再演后续** ——
                         //   原版 `DeadHero` 的顺序就是 `battleStage = PostBattle(60)` →
                         //   `StopBattleAfterBattleEnd()`（停协程 / 收换牌 / 关教程指针 / 停表 / 关语音窗 / 关技能条）
@@ -39690,6 +39690,168 @@ namespace CardPresentation
         /// 这正是「把 case 改回 `PlayReturnFeel` ⇒ 红」的那条灭自证断言要用的口（直接调
         /// `PlayDisappearFromHandFeelForTest` 抓不到路由被改）。⚠️ 产品路径别调。</summary>
         public void PlayFeelForTest(BattleEvent e) { PlayFeel(e); }
+        // ==================================================================
+        //  🆕 2026-10-31（执行代理 `B106_W2` · `AUD10_玩家主链_侦查.md` §二 #1 / §二 #5）：
+        //  **活动级结算那两跳**（原版 `BattleManager.ProcessMatchResult` → `GameModes.CombatFinished`；
+        //  `PlayEvent.StartMatchNoCheck` 首句 → `GameModes.SetAsCurrentlyPlayingEvent(this)`）。
+        //  判据（现读）：
+        //   · `d:/2/tools/decomp_full/BattleManager__ProcessMatchResult.c:157-181` ——
+        //     `IsTutorialMatch()` 为假、且 `matchType` ∉ {0x8C, 0xA0, 0x96} 时调
+        //     `GameModes__CombatFinished(LiveOpsManager__GetHandler<GameModes>(), result, callback)`；
+        //   · `d:/4/_tmp_view/decomp_b91/PlayEvent_object__object_.StartMatchNoCheck__1127900.c:64-66` ——
+        //     `lVar14 = LiveOpsManager.GetHandler<object>(…)` → `GameModes.set_CurrentPlayingEvent(lVar14, this)`。
+        //  ⛔ 与账 `其他_基础设施.tsv` 215/221 不冲突：那两行 A 只说「有等价实现」，生产调用点原来一个都没有。
+        // ==================================================================
+
+        /// <summary>「本机没有可结算的活动事件实例」只出声一次（`FastMode` 等活动的数据在远端 LiveOps，
+        /// 关服后本地没有实例 —— 这不是接线缺失，是数据缺失）。</summary>
+        static bool _gameModesNoEventWarned;
+
+        /// <summary>
+        /// **开战那一拍**：把「本局属于哪个活动」写进 `GameModes.CurrentPlayingEvent`。
+        /// <para>原版 = `PlayEvent.StartMatchNoCheck` 的**首句** `GameModes.set_CurrentPlayingEvent(this)`
+        /// （`.c:64-66`）。原版写的是**那个事件自己**（`this`，调用方就是该活动的 `StartMatch`）；
+        /// 我们这条开战链由模式窗发起、手上没有事件实例 ⇒ 等价写法 = 按本局模式号从 handler 里挑
+        /// **正在生效**的那一个（`GameModesHandler.GetActiveEvent`，三道闸 = 模式对 ∧ 状态 `Active`
+        /// ∧ 优先级最高 —— 与 `GameModes__GetActiveEvent.c` 逐句一致）。</para>
+        /// <para>🔶 自己设计（非原版）：事件实例来源在远端 LiveOps，关服后本地无实例 · 判据在服务器 · 调度台 2026-10-31 裁定</para>
+        /// <para>⚠️ 取不到 ⇒ **出声一次**（不静默）；结算那一跳随后会因 `CurrentPlayingEvent == null`
+        /// 早退（= 原版 `GameModes.CombatFinished` 首句 `if (currentEvent == null) return;`）。</para>
+        /// </summary>
+        void NotifyGameModesMatchStarted()
+        {
+            if (Ctx == null) return;
+            var gm = LiveOpsManager.GetHandler<GameModesHandler>();
+            if (gm == null)
+            {
+                if (!_gameModesNoEventWarned)
+                {
+                    _gameModesNoEventWarned = true;
+                    Debug.LogWarning("[GameModes] 取不到 `GameModesHandler`（`LiveOpsManager` 没起来）⇒ "
+                                   + "本局不计入活动（原版 `GetHandler<GameModes>()` 返回 null 时同样跳过那一跳）");
+                }
+                return;
+            }
+            var ev = gm.GetActiveEvent((PlayModes)(int)Ctx.PlayMode);
+            if (ev == null)
+            {
+                if (!_gameModesNoEventWarned)
+                {
+                    _gameModesNoEventWarned = true;
+                    Debug.LogWarning("[GameModes] 本机没有正在生效的活动事件（模式 " + Ctx.PlayMode + "）⇒ "
+                                   + "`CurrentPlayingEvent` 留空、结算时 `CombatFinished` 会早退。"
+                                   + "🔶 事件数据在远端 LiveOps（关服后本地无实例），**不是接线缺失**。"
+                                   + "（这条只说一次）");
+                }
+                // 🔴 **每次开战都显式写一次**（`null` 也写）：回放 / 教程那几支**不走结算**，
+                //   若这里「取不到就不写」，上一局留下的那个事件会一直挂着，被**下一场无关对局**的
+                //   `CombatFinished` 分派出去（静默错账）。原版每局都由 `StartMatchNoCheck` 覆盖一次。
+                gm.SetAsCurrentlyPlayingEvent(null);
+                return;
+            }
+            gm.SetAsCurrentlyPlayingEvent(ev);
+            Debug.Log("[GameModes] 本局计入活动「" + ev.GetID() + "」（模式 " + Ctx.PlayMode
+                    + "）—— 原版 `StartMatchNoCheck` 首句 `SetAsCurrentlyPlayingEvent(this)`");
+        }
+
+        /// <summary>
+        /// **结算那一拍**：把结果交给活动级结算 `GameModes.CombatFinished(result, callback)`
+        /// （= 原版 `BattleManager.ProcessMatchResult` 里那一跳，`BattleManager__ProcessMatchResult.c:177`）。
+        /// <para>原版的四道**排除**闸（同文件 `:157-181` 逐句现读）：
+        /// ① `IsTutorialMatch()` 为真 ⇒ 不走；
+        /// ② `matchType == 0x8C`（= `MatchType.TutorialReplay` 140）⇒ 不走；
+        /// ③ `matchType == 0xA0`（= `MatchType.Replay` 160）⇒ 不走；
+        /// ④ `matchType == 0x96`（= `MatchType.Duel` 150）⇒ 不走。
+        /// 其余模式（练习 / 遭遇 / 排位 …）一律走。</para>
+        /// <para>⚠️ 回放那一支在本类里已经被 `_replaySession` 挡在外面（调用点只在「真打」那一支）。</para>
+        /// </summary>
+        void NotifyGameModesCombatFinished()
+        {
+            if (Ctx == null) return;
+            var mt = Ctx.MatchType;
+            if (mt == MatchType.Tutorial || mt == MatchType.TutorialReplay
+                || mt == MatchType.Replay || mt == MatchType.Duel)
+            {
+                Debug.Log("[GameModes] 本局类型 " + mt + "(" + (int)mt + ") 在**原版的排除集**里"
+                        + "（教程 100 / 教程回放 140 / 回放 160 / 决斗 150）⇒ 不调 `GameModes.CombatFinished`");
+                return;
+            }
+            var gm = LiveOpsManager.GetHandler<GameModesHandler>();
+            if (gm == null)
+            {
+                if (!_gameModesNoEventWarned)
+                {
+                    _gameModesNoEventWarned = true;
+                    Debug.LogWarning("[GameModes] 结算：取不到 `GameModesHandler`（`LiveOpsManager` 没起来）⇒ "
+                                   + "本局的活动级结算**没有分派出去**");
+                }
+                return;
+            }
+            // 原版这里的 result 是 `BattleManager+0x500` 那一份（战斗流程自己攒的 `RankedMatchResult`）。
+            // 我们没有那一份 ⇒ 按**同一来源**（本局胜负 + 当前评分/XP）现组一份：
+            // ⚠️ `duration` / `targetMilestone` / `enemyMilestone` 原版由战斗/里程碑那条链填，我们没接
+            //    （`FastModeBaseEvent.OnMatchFinished` 只读 `battleWinner` 与那两个 milestone）⇒ 保持 0。
+            var result = new RankedMatchResult((int)RankedData.Points, PlayerProfileState.TotalCollectorXp);
+            result.battleWinner = Ctx.Winner == 3 ? BattleWinner.Draw
+                                : Ctx.Winner == _me + 1 ? BattleWinner.Player
+                                : Ctx.Winner == (1 - _me) + 1 ? BattleWinner.Enemy
+                                : BattleWinner.Undefined;
+            gm.CombatFinished(result, null);
+            Debug.Log("[GameModes] 结算已交给活动级：`CombatFinished(battleWinner = " + result.battleWinner
+                    + ")` —— 原版 `BattleManager.ProcessMatchResult` 那一跳；"
+                    + "`CurrentPlayingEvent` 在它末尾被清空（原版同一句）");
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-31（`AUD10` §二 #5）：教程关**打完**时记完成位。
+        /// <para>原版写入口是云脚本 `CloudHandle.SetTutorialState`（`PlayerDataManager.cs:4252` 一带，
+        /// 调用链 → `TutorialEvent` 完成位）⇒ **P3**；本地等价 = <see cref="DemoDataStore.SetTutorial"/>，
+        /// 键口径**照现有读口** <see cref="DemoData.IsTutorialCompleted"/>（= `tutorialIndex.ToString()`，0..5）
+        /// —— ⛔ 别另立一套键（菜单侧 FTUE 用的是 `PrefDonePrefix + StageId`，那是**另一个**键空间）。</para>
+        /// <para>🔶 自己设计（非原版）：教程完成位原版写云脚本，关服后本地模拟 · 调度台 2026-10-31 裁定</para>
+        /// <para>⚠️ 只在**真打（非批处理）**写盘：批处理自检会把教程关一路打到 `IsOver`，
+        /// 那会把「第 N 关已完成」永久写进**玩家自己的**存档（自检不该改进度）。</para>
+        /// </summary>
+        void NotifyTutorialStageCompleted()
+        {
+            if (Ctx == null || Ctx.Tutorial == null || Ctx.Tutorial.Stage == null) return;
+            if (Ctx.MatchType != MatchType.Tutorial) return;
+            if (Ctx.Winner != _me + 1)
+            {
+                Debug.Log("[Tutorial] 第 " + Ctx.Tutorial.Stage.stage + " 关结束但**我方没赢** ⇒ 不记完成位"
+                        + "（原版完成位只在过关时写）");
+                return;
+            }
+            int index = Ctx.Tutorial.Stage.stage - 1;          // 数据里 `stage` 是 1..6，读口要 0..5
+            if (Application.isBatchMode)
+            {
+                Debug.Log("[Tutorial] （批处理：**不写**完成位 —— 自检不该改玩家存档；真 Play 才写 "
+                        + "`DemoDataStore.SetTutorial(\"" + index + "\", true)`）");
+                return;
+            }
+            bool ok = DemoDataStore.SetTutorial(index.ToString(), true);
+            Debug.Log("[Tutorial] 第 " + (index + 1) + " 关打完 ⇒ 记完成位（`DemoDataStore.SetTutorial(\""
+                    + index + "\", true)`，读口 = `DemoData.IsTutorialCompleted(" + index + ")`）"
+                    + (ok ? "" : " ⚠️ **没写进存档**：" + DemoDataStore.LastError));
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-31（`AUD10` §二 #8）：**教程开局失败时的出口** —— 三处 `BeginTutorial` 早退共用。
+        /// <para>为什么需要它：那三处只 `LogError` + `return` ⇒ 战场场景**已经加载**、而 `Ctx` 还是 null，
+        /// `Update()` 首句 `if (Ctx == null) return;` ⇒ 玩家停在**空战场**、没有任何 UI、只能杀进程。</para>
+        /// <para>出口 = 壳里**已有**的两件：`ErrorPopupWindowController.ShowErrorMessage`（原版错误出口，
+        /// OK 钮回调 = 离场）+ <see cref="LeaveBattle"/>（本类唯一的「回主菜单」那一跳，会走路 `LoadSceneWithFade`）。
+        /// ⛔ 不新造第二套收场口。</para>
+        /// <para>⚠️ 批处理里**直接离场**（`LeaveBattle` 在批处理只记账、不切场景，见它自己那段注释）——
+        /// 弹窗要玩家点 OK 才回调，自检里没人点。</para>
+        /// </summary>
+        void FailTutorialStartAndExit()
+        {
+            Debug.LogWarning("[Tutorial] 开局失败 ⇒ **走退出**（回主菜单；原版这一档是「取不到关卡/牌就开不了局」"
+                           + "，我们不许把玩家留在空战场 —— `AUD10` §二 #8）");
+            if (Application.isBatchMode) { LeaveBattle(); return; }
+            ErrorPopupWindowController.ShowErrorMessage(CustomError.UnhandledError, LeaveBattle);
+        }
     }
 }
 

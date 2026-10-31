@@ -229,8 +229,8 @@ namespace CardPresentation
         public static readonly Color GlowGet = new Color(0.8018868f, 0.0794322f, 0.0794322f, 1f);
         public static readonly Color GlowPreview = new Color(0.5283019f, 0.3563546f, 0.3563546f, 1f);
 
-        /// <summary>标题两态**的 TMP 原文**（`m_text` 实读；`CustomTitle` 非空时被它覆盖）。</summary>
-        public const string TxtGet = "Rewards claimed", TxtPreview = "You will get";
+        /// <summary>标题两态的**官方词条值**（= prefab 上 I2 `Localize` 的 `mTerm` 当前语档值；`CustomTitle` 非空时覆盖它）。🔴 2026-10-31（B106_W21·AUD03 #94）：`TxtPreview` 原是 prefab 的 TMP 占位串 `"You will get"`，官方词条 `MainMenu/RewardWindow/PreviewRewardsTitle` 的 en 值 = **`"Available rewards"`**（`Resources/official_loc_13lang.json` 现读；zh = `可获得的奖励`）⇒ 按官方值改；`TxtGet` 的 en 值本就与占位串逐字相同。</summary>
+        public const string TxtGet = "Rewards claimed", TxtPreview = "Available rewards";
         public const float TitleFont = 50f, TitleAutoMin = 25f;      // auto[25~50]
         /// <summary>🆕 **2026-10-12（A459）**：标题那颗 TMP 的 **`m_fontSizeBase` = 36.0**
         /// （⛔ **不等于 `TitleFont` 那一档** —— 这正是当年漏掉它、只传了 `fontPx`/`min` 的原因）。
@@ -810,8 +810,8 @@ namespace CardPresentation
         //      `DailyStreakItemContainer` 的 `<Initialize>b__0`，而且**只在 `rewards.Count > 1` 时才挂**
         //      （两处 `Initialize.c` 里 `if (1 < Count)` 那一支；那个 lambda 与
         //       `MissionMilestoneStep.<DisplayCheckmark>b__0` 等 **10 个**是同一段字节 —— ICF 折叠，函数体一致）。
-        //      ⇒ **我们这边暂时没有那种格子**（日常两扇窗每个格子只有一条奖励）⇒ `ShowPreview` **暂无调用点**，
-        //      如实记在报告里（⛔ 不是「做完了」）。
+        //      🔴 **2026-10-31（B106_W61）就地订正（铁律 5）**：原文写「我们这边暂时没有那种格子（日常两扇窗每个格子只有一条奖励）⇒ `ShowPreview` **暂无调用点**」，**已过期** ——
+        //      现读调用点 ≥ 6 处（逐处现读，⛔ 非抄表）：`MissionsTab:1818`（登录卡 `AddPreviewHit`）· `:2090`（里程碑格 `BuildMilestone`）· `GenericScoreBarLine:149`（里程碑条）· `ExpansionPassEventWindow:2350`（拓展包）· `DailyRewardPopup:1252` / `DailyStreakPopup:1022`（多奖抽屉「点一下预览整串」，2026-10-31 `B106_W51` 接）。
         // 🔴 **`RewardService` 这个类我们没有**（它是服务端流程那一套），所以这两个入口落在窗类上 ——
         //    **这是「我们挑的落点」**（同族先例 = `WindowsManager.ShowPopUp` 那种「服务方法住在管理器上」，
         //    但那样会把 `RewardWindow` 的细节漏进共用件）；⛔ 不是「原版就长在窗上」。
@@ -863,9 +863,9 @@ namespace CardPresentation
             });
         }
 
-        /// <summary>= 原版 `RewardService.Preview(...)`。⚠️ **本工程还没有调用方**（判据见上面那段：
-        /// 原版那条路的触发者是「一个抽屉装多条奖励」的格子，我们暂时没有）。
-        /// 留着它，是因为 `Preview` 也是这扇窗**真实的**第二个人口 —— 接线时只差一个调用点。</summary>
+        /// <summary>= 原版 `RewardService.Preview(...)`。🔴 **2026-10-31（B106_W61）就地订正（铁律 5）**：原文写「本工程还没有调用方」——**已过期**：
+        /// 现读调用点 = `MissionsTab:1818`（登录卡 `AddPreviewHit`）/ `:2090`（里程碑格 `BuildMilestone`）· `GenericScoreBarLine:149` · `ExpansionPassEventWindow:2350` ·
+        /// `DailyRewardPopup:1252` / `DailyStreakPopup:1022`（多奖抽屉「点一下预览整串」，`B106_W51` 接）；触发判据见上面那段。
         public static RewardWindow ShowPreview(CampaignData.RewardSpec[] rewards,
                                                System.Action<CampaignData.RewardSpec[]> onClose = null,
                                                bool isPremiumLocked = true, string customTitle = null)
@@ -1141,15 +1141,15 @@ namespace CardPresentation
             //   判据 → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §5。
             _glowGet = DrawNine(title, Art(ArtGlow), Glow, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
                                 QTitleBg, GlowGet, true, "Glow Get reward");
-            _titleGet = GlowText(_glowGet, "Text Get Reward", TxtGet);
+            _titleGet = GlowText(_glowGet, "Text Get Reward", TitleText(ctx, false));
             _glowPrev = DrawNine(title, Art(ArtGlow), Glow, new Vector4(240f, 0f, 240f, 0f), 485f, 83f,
                                  QTitleBg, GlowPreview, true, "Glow Preview reward");
-            _titlePreview = GlowText(_glowPrev, "Text Preview Reward", TxtPreview);
-            if (!string.IsNullOrEmpty(ctx.CustomTitle))
-            {   // 原版：非空时给**可见那一份**的 TMP 设 `Localize.Term`（我们两份都设，语义等价）
-                if (_titleGet != null) _titleGet.SetText(ctx.CustomTitle);
-                if (_titlePreview != null) _titlePreview.SetText(ctx.CustomTitle);
-            }
+            _titlePreview = GlowText(_glowPrev, "Text Preview Reward", TitleText(ctx, true));
+            // 🔴 B106_W21（AUD03 #94）：这两颗原版各挂 I2 `Localize`（`m_Enabled = 1`）⇒ 换语言按来源重取文本，⛔ 不重建整窗；
+            //   `CustomTitle` 非空时它就是来源（= 原版 `Localize.set_Term` 的等价物）。
+            //   🔴 词条键 `MainMenu/RewardWidnow/GetRewardsTitle` 的 `Widnow` 是**原版错字，照抄、⛔ 别修**。
+            if (_titleGet != null) _titleGet.BindText(() => TitleText(ctx, false));
+            if (_titlePreview != null) _titlePreview.BindText(() => TitleText(ctx, true));
 
             // ⑤ `Collect Button`（原版 `Image` = Simple `UI_Button_Mulligan`；HL/Pressed 两张走 SpriteSwap）
             var btn = MenuDraw.Node(content, "Collect Button", CollectBtn);
@@ -1204,15 +1204,15 @@ namespace CardPresentation
             //    我们这套 `Label` 是**自己的 GameObject** ⇒ 多一层容器（名字照原版，文字叫 `Disclaimer Text`）。
             var dis = MenuDraw.Node(content, "Premium Disclaimer", new PxRect(
                 DisclaimerRight - 600f, DisclaimerTop, DisclaimerRight, DisclaimerBottom));
-            Text(dis, new PxRect(DisclaimerRight - 600f, DisclaimerTop, DisclaimerRight, DisclaimerBottom),
-                 TxtPremium, Color.white, "Disclaimer Text", PremFont, QPremText, 0f, 0f, 2);
+            var disLb = Text(dis, new PxRect(DisclaimerRight - 600f, DisclaimerTop, DisclaimerRight, DisclaimerBottom),
+                 Loc.T("MainMenu/RewardWindow/PremiumItems"), Color.white, "Disclaimer Text", PremFont, QPremText, 0f, 0f, 2); if (disLb != null) disLb.BindText(() => Loc.T("MainMenu/RewardWindow/PremiumItems"), () => MenuDraw.AlignRight(disLb, new PxRect(DisclaimerRight - 600f, DisclaimerTop, DisclaimerRight, DisclaimerBottom)));   // B106_W21（AUD03 #94）：原版这一颗挂 I2 `Localize`（`MainMenu/RewardWindow/PremiumItems`，`m_Enabled=1`）⇒ 换语言按来源重取；`reapply` 重放**右对齐**那一刀（`SetText` 按新串重排后要贴回右沿 1708.8）。⛔ 不重建整窗。
             MenuDraw.Rect(dis, Art(ArtPremIcon), PremiumIcon, "Premium Icon", QPremIcon);
             _premium = dis.gameObject;
 
             // ⑦ `Tap To Continue`（出厂 INACT，`Open()` 按 `!IsPreview` 打开 —— `RewardWindow__Open.c:189` 读 `0x19`）
             var tapNode = MenuDraw.Node(content, "Tap To Continue", TapToContinue);
-            var tapLb = Text(tapNode, TapToContinue, TxtTap, Color.white, "Tap Text",
-                             TapFont, QTapContinue, 0f, 0f, 0);
+            var tapLb = Text(tapNode, TapToContinue, Loc.T("Demo/Welcome/TapToContinue"), Color.white, "Tap Text",
+                             TapFont, QTapContinue, 0f, 0f, 0); if (tapLb != null) tapLb.BindText(() => Loc.T("Demo/Welcome/TapToContinue"), () => MenuDraw.SetVAlign(tapLb, Label.VAlign.Bottom, TapToContinue));   // B106_W21（AUD03 #94）：原版这一颗挂 I2 `Localize`（`Demo/Welcome/TapToContinue`，`m_Enabled=1`）⇒ 换语言按来源重取；`reapply` 重放 `Bottom` 那一刀（`SetText` 按新串重排后纵向档要重新算）。⛔ 不重建整窗。
             // 🔴 **2026-10-16（A712 阶段 2）就地改写（铁律 5）**：原版这一段的
             //    `m_VerticalAlignment = 1024 (**Bottom**)`，而当时 `Label` **只有水平对齐** ⇒ 上一版是
             //    **手搓的近似**：「按量出来的行高把它贴到框底」，注释还写着「等价于 Bottom」。
@@ -1594,6 +1594,19 @@ namespace CardPresentation
                 OnClose = onClose,
                 CustomTitle = customTitle,
             });
+        }
+
+        // ---- 类尾 · B106_W21（AUD03 #94 · 2026-10-31）：标题那两颗的**取文本来源**
+        //   原版两颗标题各挂一颗 I2 `Localize`（`mTerm` = `MainMenu/RewardWidnow/GetRewardsTitle` /
+        //   `MainMenu/RewardWindow/PreviewRewardsTitle`，**`m_Enabled = 1`**）；`RewardWindowContext.CustomTitle`
+        //   非空时原版走 `Localize.set_Term` 覆盖 ⇒ 这里把它作为**优先级最高那一档**（同一个来源，一条口）。
+        //   🔴 键名里的 `Widnow` 是**原版错字**（不是我们打错的）⇒ 照抄、⛔ 别“修好”。
+        //   值一律取官方表（`Resources/official_loc_13lang.json`，现读 10,862 键）—— ⛔ 别自己编译文。
+        //   ⚠️ 追加在**类尾**（账里本文件的落点最大到 `:1581`）⇒ 零行号漂移（铁律 18·b）。
+        static string TitleText(RewardWindowContext ctx, bool preview)
+        {
+            if (ctx != null && !string.IsNullOrEmpty(ctx.CustomTitle)) return ctx.CustomTitle;
+            return Loc.T(preview ? "MainMenu/RewardWindow/PreviewRewardsTitle" : "MainMenu/RewardWidnow/GetRewardsTitle");
         }
     }
 

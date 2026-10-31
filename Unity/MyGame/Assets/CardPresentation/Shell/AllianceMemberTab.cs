@@ -1910,13 +1910,19 @@ namespace CardPresentation
             v.Cosmetic(imgC, m.AvatarArt, AllianceMemberRowAvatarGeo.ImageRect(av), "Image", 2);
             v.Rect(avn, "Player_Profile_Border", AllianceMemberRowAvatarGeo.BorderRect(av),
                    "Border", 2, null, true);
-            // 在线状态点
-            if (m.Online)
-                v.Rect(row, "40K_icon_status_online", new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
-                       "connection status", 2, new Color(0f, 1f, 0.0736f, 1f), true);
-            else
-                v.Rect(row, "40K_icon_status_offline", new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
-                       "connection status", 2, new Color(0.84f, 0.494f, 0.44f, 1f), true);
+            // 在线状态点 —— 🔴 **2026-10-31（`B106_W12` · AUD05 社交窗 §1·2 A26）：原版是【单颗 Image + 三档颜色】**，
+            //   不是我们原来那两颗（绿 `40K_icon_status_online` / 红 `40K_icon_status_offline`）。
+            //   判据（逐句）：`decomp_full/AllianceMemberEntry__Initialize.c:166-192` +
+            //   `cpp2il/out_cpp2il_dev_ilspy/AllianceMemberEntry.cs:234-260`：
+            //     `status = ChatGlobalManager.GetPlayerStatus(member.id)`；
+            //     `Away(2)` ⇒ 黄 `(1, .9216, .0157, 1)` · `Connected(3)` ⇒ 绿 `(0, 1, 0, 1)` ·
+            //     其余 ⇒ **透明 `(0,0,0,0)`**，**但 `member.IsPlayer` 那一行恒绿**。
+            //   ⇒ **原版没有离线精灵**：那颗 Image 的 `m_Sprite` 实读 = `40K_icon_status_online`
+            //     （`Assets/ChatMessageRow.prefab` 同族的 `Alliance Member Entry.prefab`：
+            //      `m_Sprite: {guid: af6e51c13c75a6b48840fc2113df3597}`、`m_PreserveAspect: 1`、
+            //      出厂 `m_Color (0, 1, 0.0736, 1)`），档位**只靠 tint** 区分。
+            v.Rect(row, StatusArt, new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
+                   "connection status", 2, StatusColorOf(m), true);
             var memNameR = new PxRect(r.x1 + 149.44f, r.y1 + 11.87f, r.x1 + 694.75f, r.y1 + 59.26f);
             var lbMemName = v.Text(row, memNameR, m.Name ?? "",
                    Color.white, "member name", 50f, 3, 18f, wrap: true, alignLeft: true);   // A319 #11（原版 `Left`(1)）· A258：原版 `折行=1`
@@ -2113,6 +2119,61 @@ namespace CardPresentation
                 default:
                     return role;
             }
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W12`）：成员在线三档
+        //   🔴 判据（逐句）→ `decomp_full/AllianceMemberEntry__Initialize.c:166-192` +
+        //     `cpp2il/out_cpp2il_dev_ilspy/AllianceMemberEntry.cs:234-260`（同一段两种读法，结论一致）：
+        //       `ChatPlayerStatus s = ChatGlobalManager.GetPlayerStatus(member.id);`
+        //       `Away(2)`      ⇒ awayColor      = (1, 0.9216, 0.0157, 1)      // 常量 `_DAT_1834b3040`
+        //       否则 `Connected(3)` ⇒ connectedColor = (0, 1, 0, 1)           // 常量 `_DAT_1834b2c00`
+        //       否则（Default 0 / Disconnected 1 / 其它）⇒ `member.IsPlayer ? connectedColor : (0,0,0,0)`
+        //     ⚠️ 注意「自己恒绿」只落在**最后那一支**里 —— 自己若是 `Away` 依旧是黄（照抄，⛔ 别改写成无条件绿）。
+        public const int StatusDefault = 0, StatusDisconnected = 1, StatusAway = 2, StatusConnected = 3;
+
+        /// <summary>原版那颗 Image 的图（`m_Sprite` 实读；**原版没有 offline 精灵**）。</summary>
+        public const string StatusArt = "40K_icon_status_online";
+
+        public static readonly Color StatusAwayColor = new Color(1f, 0.9216f, 0.0157f, 1f);
+        public static readonly Color StatusConnectedColor = new Color(0f, 1f, 0f, 1f);
+        public static readonly Color StatusNoneColor = new Color(0f, 0f, 0f, 0f);
+
+        // 🔶 自己设计（非原版）：成员的**在线状态表** · 原版由远端聊天/在线服务下发
+        //   （`ChatGlobalManager.GetPlayerStatus(id)`），关服后本地永远拿不到 · 调度台 2026-10-31 裁定。
+        //   形状照原版：按 `member.id` 查、取 `ChatPlayerStatus` 的 0..3；表里没有就落到**唯一兜底口径**
+        //   `SocialData.ResolveStatus`（⚠️ 2026-10-31 订正：现**优先 `Member.Status`**，`Online` 只作兜底）。
+        static readonly System.Collections.Generic.Dictionary<string, int> _presence =
+            new System.Collections.Generic.Dictionary<string, int>();
+
+        /// <summary>🔶 自己设计（见上）：喂一条在线状态（`StatusDefault/Disconnected/Away/Connected`）。
+        /// 生产路径上今天**没有调用方**（本地没有在线服务）；自检用它验 Away 那一档。</summary>
+        public static void SetPresence(string memberId, int status)
+        {
+            if (string.IsNullOrEmpty(memberId)) return;
+            _presence[memberId] = status;
+        }
+
+        /// <summary>🔶 自己设计（见上）：清空在线状态表（自检跨用例隔离；原版无此口）。</summary>
+        public static void ClearPresence() { _presence.Clear(); }
+
+        /// <summary>这一行的原版 `ChatPlayerStatus`（0..3）。先查 `_presence`（自检钩子，生产无调用方）；查不到 ⇒ 落到唯一兜底口径 <see cref="SocialData.ResolveStatus"/>（⚠️ 2026-10-31 起**优先 `Member.Status`**，`Online` 只作兜底）。</summary>
+        public static int StatusOf(SocialData.Member m)
+        {
+            if (m == null) return StatusDefault;
+            int st;
+            if (!string.IsNullOrEmpty(m.Id) && _presence.TryGetValue(m.Id, out st)) return st;
+            return SocialData.ResolveStatus(m);   // 唯一兜底口径（Member.Status 四档优先，Online 只作兜底，且会出声一次）
+        }
+
+        /// <summary>这一行状态点的 tint（原版三档色；`StatusOf` 的取值 → 颜色的**唯一一份**映射）。</summary>
+        public static Color StatusColorOf(SocialData.Member m)
+        {
+            if (m == null) return StatusNoneColor;
+            int st = StatusOf(m);
+            if (st == StatusAway) return StatusAwayColor;
+            if (st == StatusConnected) return StatusConnectedColor;
+            // 原版最后一支：其余状态一律透明，**只有「自己」那一行例外（恒绿）**。
+            return m.IsPlayer ? StatusConnectedColor : StatusNoneColor;
         }
     }
 
@@ -2464,6 +2525,84 @@ namespace CardPresentation
         {
             return AvatarTab.ScaleAboutCenter(
                 new PxRect(av.x1, av.y1 + 6.57f, av.x2, av.y1 + 72.26f), AvatarTab.ScaleBorder);
+        }
+    }
+
+    // ================================================================ 🆕 2026-10-31（`B106_W12`）：社交页签的两个红点 provider
+    //
+    // 为什么在这里：AUD05 社交窗 §4·2 / AUD06 第 2 轮 `FP-SOCIAL-05` 都点出
+    //   `AlliancesNotificationProvider` / `FriendsNotificationProvider` **全仓 0 命中** ⇒ 那两颗页签红点
+    //   `Recount()` 恒 0（定义早挂上了，见 `BadgeNotifications.BadgeWiring.DefinitionsForTab`）。
+    //   ⚠️ **理想落点是新建 `Shell/SocialBadgeProviders.cs`**，但本批文件所有权只给了本文件
+    //   （报告 `报告/B106_W12.md` §剩余施工单 已记「搬去独立文件」这条）。
+    //
+    // 🔴 判据（原版两个 provider 的方法体，逐条读过）：
+    //   · `AlliancesManager : INotificationProvider<AlliancesNotificationBadge>`
+    //     （`cpp2il/out_cpp2il_dev_ilspy/AlliancesManager.cs:12` / `:1755`；
+    //      机器码 `decomp_full/AlliancesManager__CheckNotification.c`）：
+    //       ① `!IsAlliancesUnlocked` ⇒ 空；
+    //       ② **`controller.CurrentPlayerCache != null`（已入盟）⇒ 空**；
+    //       ③ 否则 ⇒ `Repeat(new AlliancesNotificationBadge(), groupInvitationsCache.Count)`
+    //          —— **一条待处理邀请 = 一条通知**（不是「有个 1」）。
+    //   · `ChatGlobalManager : INotificationProvider<FriendsBadge>`
+    //     （`cpp2il/out_cpp2il_dev_ilspy/ChatGlobalManager.cs:16` / `:3101`；
+    //      机器码 `decomp_full/ChatGlobalManager__CheckNotification.c`）：
+    //       `Repeat(new FriendsBadge(), PendingPracticeMatches.Count)`
+    //       🔴 **注意它不是「好友请求数」**——原版这一格数的是**挂起的练习对局**（别按名字改）。
+    //
+    // 我们的两个数据源都**真实存在**（不是空壳）：
+    //   `SocialData.AllianceName`（null ⇒ 未入盟，判据 = 原版 `CurrentGroupCached`）+ `SocialData.Invitations`；
+    //   `ChallengeData.PendingPracticeMatches`。
+    public sealed class AlliancesNotificationProvider : INotificationProvider
+    {
+        public System.Type NotificationType { get { return typeof(AlliancesNotificationBadge); } }
+        public System.Collections.Generic.IEnumerable<INotificationProvider> ChildProviders { get { return null; } }
+
+        public System.Collections.Generic.IEnumerable<BadgeNotification> CheckNotification()
+        {
+            // 已入盟 ⇒ 原版不发（判据 ②）
+            if (!string.IsNullOrEmpty(SocialData.AllianceName)) yield break;
+            var inv = SocialData.Invitations;
+            int n = inv != null ? inv.Count : 0;
+            for (int i = 0; i < n; i++) yield return new AlliancesNotificationBadge();
+        }
+    }
+
+    public sealed class FriendsNotificationProvider : INotificationProvider
+    {
+        public System.Type NotificationType { get { return typeof(FriendsBadge); } }
+        public System.Collections.Generic.IEnumerable<INotificationProvider> ChildProviders { get { return null; } }
+
+        public System.Collections.Generic.IEnumerable<BadgeNotification> CheckNotification()
+        {
+            var pending = ChallengeData.PendingPracticeMatches;
+            int n = pending != null ? pending.Count : 0;
+            for (int i = 0; i < n; i++) yield return new FriendsBadge();
+        }
+    }
+
+    /// <summary>把上面两个 provider 登记进全局聚合器（幂等）。
+    /// <para>调用点 = `MainMenuRuntime.Build()` 里紧挨 `BadgeWiring.RegisterDefaults()` 那一句
+    /// （那条注释写明「主菜单这条独立建场路必须自己登记 provider」——红点是**读时**算的，
+    /// 晚登记不会漏，但也别指望它自己出现）。</para>
+    /// <para>⛔ **别改成「先清空再登记」**：provider 表是全局的，清掉会让别的宿主丢档
+    /// （同 `BadgeWiring.RegisterDefaults` 那条纪律）。</para></summary>
+    public static class SocialBadgeProviders
+    {
+        static AlliancesNotificationProvider _alliances;
+        static FriendsNotificationProvider _friends;
+
+        public static void EnsureRegistered()
+        {
+            if (_alliances == null) { _alliances = new AlliancesNotificationProvider(); UiBadgeNotificationManager.Register(_alliances); }
+            if (_friends == null) { _friends = new FriendsNotificationProvider(); UiBadgeNotificationManager.Register(_friends); }
+        }
+
+        /// <summary>自检用：把两个 provider 摘掉并清空缓存的登记句柄（原版无此口）。</summary>
+        public static void ResetForTest()
+        {
+            if (_alliances != null) { UiBadgeNotificationManager.Unregister(_alliances); _alliances = null; }
+            if (_friends != null) { UiBadgeNotificationManager.Unregister(_friends); _friends = null; }
         }
     }
 }

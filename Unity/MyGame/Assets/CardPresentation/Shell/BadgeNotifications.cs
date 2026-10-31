@@ -70,57 +70,98 @@ namespace CardPresentation
     public sealed class CollectionBadge : BadgeNotification { }
     public class ShopBadge : BadgeNotification { }          // 2026-10-27 B26：去 sealed —— 原版 `OfferBadge : ShopBadge`
     public class InventoryBadge : BadgeNotification { }     // 2026-10-27 B26：去 sealed —— 原版 `BoosterPackBadge : InventoryBadge`
-    public sealed class SocialBadge : BadgeNotification { }
-    /// <summary>锻造红点。原版是 `record ForgeBadge(CardArmy army)` —— **带阵营**，`army` 进 record 相等性
-    /// ⇒ `Validate` 只认同阵营那一条（判据 = `decomp_full/Everguild.LiveOps.ForgeHandler.__c___CheckNotification_b__9_0.c`：
-    /// `new CampaignBadge(army)`（反编译器把类名印成 CampaignBadge，实参是**该 forge 的 army**）+ `Repeat(…, Count(rewards))`）。
+    public class SocialBadge : BadgeNotification { }        // 2026-10-31 B106_W35：去 sealed —— 原版 `AlliancesNotificationBadge : SocialBadge`
+    /// <summary>锻造红点。原版 `record ForgeBadge(CardArmy army) : **RewardsBadge**`
+    /// （`out_cpp2il_dev_ilspy/Everguild.UI.Notifications/ForgeBadge.cs:8` · `il2cpp_out/dump.cs:123752`）——
+    /// **带阵营**，`army` 进 record 相等性，`Validate` 只认同阵营那一条
+    /// （provider 判据 = `decomp_full/Everguild.LiveOps.ForgeHandler.__c___CheckNotification_b__9_0.c`：
+    /// `new ForgeBadge(army)` + `Repeat(…, Count(rewards))`）。
+    /// <para>🔴 **2026-10-31（B106_W37）**：基类原来是 `BadgeNotification`（与 `RewardsBadge` 是**兄弟**）⇒
+    /// `IsRelated(RewardsBadge, ForgeBadge)` 为假 ⇒ 导航 **REWARDS** 那颗少算锻造这一类。判据与影响 → 文件尾「追加区 · B106_W37」。
+    /// ⛔ **本类不再 override `Validate`** —— 原版这里没有它，语义全由 `RewardsBadge.Validate` 的两支给出；
+    /// 「同运行时类型」那一支落到 `RecordEquals`（= 原版 record 的 `Equals`），`army` 的比较在**那里**。</para>
     /// <para>⚠️ 我们的阵营身份一律是**名字串**（`ForgeData.Armies` / `CampaignData.Armies`），原版是 `CardArmy` 枚举
     /// —— 表示法不同、语义一致（同 `RewardsBadge.parentId` 用 string 那条先例），所以这里存 `string`。</para></summary>
-    public sealed class ForgeBadge : BadgeNotification
+    public sealed class ForgeBadge : RewardsBadge
     {
         /// <summary>这一条属于哪个阵营（`null`/空 = 不带过滤，等同「任意阵营」—— 只有老调用点会那样）。</summary>
         public string army;
 
-        /// <summary>= record 的 `Equals`：**同类型 ∧ 同 `army`**。原版 `RewardsBadge.Validate` 同型那一支就落到它。</summary>
-        public override bool Validate(BadgeNotification other)
+        /// <summary>原版 ctor 第一句把**继承来的** `parentId` 写成 `""`（`ForgeBadge.cs:26-32` 的 `this+16` 写 `""`）。
+        /// 基类字段初值本来就是 `""`，这里显式照抄原版 ctor 的那一句（不依赖初值顺序）。</summary>
+        public ForgeBadge() { parentId = ""; }
+
+        /// <summary>原版 `ForgeBadge.Equals(ForgeBadge)`（`decomp_full/Everguild.UI.Notifications.ForgeBadge__Equals.c`）
+        /// = `base.Equals`（parentId）∧ `army` —— 这就是 `RewardsBadge.Validate` 同类型那一支落到的 record 相等性。</summary>
+        protected override bool RecordEquals(RewardsBadge other)
         {
             var b = other as ForgeBadge;
-            return b != null && string.Equals(b.army, army, StringComparison.Ordinal);
+            return b != null && base.RecordEquals(other)
+                && string.Equals(b.army, army, StringComparison.Ordinal);
         }
     }
 
-    /// <summary>战役红点。原版是 `record CampaignBadge(CardArmy army)` —— 同样**带阵营**
-    /// （判据 = `decomp_full/Everguild.LiveOps.CampaignHandler._CheckNotification_d__21__MoveNext.c`：
+    /// <summary>战役红点。原版 `record CampaignBadge(CardArmy army) : **RewardsBadge**`
+    /// （`out_cpp2il_dev_ilspy/Everguild.UI.Notifications/CampaignBadge.cs:8` · `il2cpp_out/dump.cs:123684`）—— 同样**带阵营**
+    /// （provider 判据 = `decomp_full/Everguild.LiveOps.CampaignHandler._CheckNotification_d__21__MoveNext.c`：
     /// `new CampaignBadge(*(int*)(handler + 0x7c))`，+0x7c 就是 `SelectedArmy`）。
+    /// <para>🔴 **2026-10-31（B106_W37）**：基类原来是 `BadgeNotification`（兄弟类）⇒ 导航 **REWARDS** 那颗少算战役这一类
+    /// （判据与影响 → 文件尾「追加区 · B106_W37」）。⛔ **本类不再 override `Validate`**（原版没有），
+    /// `army` 的比较在 `RecordEquals` 里（= 原版 record 的 `Equals`）。</para>
     /// <para>⚠️ 那一支取战役时是 `GetCampaign(SelectedArmy) ?? GetCampaign(10)`（回退 Ultramarines），
     /// 但**徽记身上的 army 恒等于 `SelectedArmy`** —— 这里照抄（provider 只发这一条）。</para></summary>
-    public sealed class CampaignBadge : BadgeNotification
+    public sealed class CampaignBadge : RewardsBadge
     {
         /// <summary>这一条属于哪个阵营（同上：`null`/空 = 不过滤）。</summary>
         public string army;
 
-        /// <summary>= record 的 `Equals`：**同类型 ∧ 同 `army`**。</summary>
-        public override bool Validate(BadgeNotification other)
+        /// <summary>原版 ctor 第一句把**继承来的** `parentId` 写成 `""`（`CampaignBadge.cs:26-32` 的 `this+16` 写 `""`）。</summary>
+        public CampaignBadge() { parentId = ""; }
+
+        /// <summary>原版 `CampaignBadge.Equals(CampaignBadge)`（`decomp_full/Everguild.UI.Notifications.CampaignBadge__Equals.c`）
+        /// = `base.Equals`（parentId）∧ `army`（`+0x18`）。</summary>
+        protected override bool RecordEquals(RewardsBadge other)
         {
             var b = other as CampaignBadge;
-            return b != null && string.Equals(b.army, army, StringComparison.Ordinal);
+            return b != null && base.RecordEquals(other)
+                && string.Equals(b.army, army, StringComparison.Ordinal);
         }
     }
     public sealed class FriendsBadge : BadgeNotification { }
-    public sealed class AlliancesNotificationBadge : BadgeNotification { }   // 🔴 B94_Y3 2026-10-29：原名 `AlliancesBadge`（自造）→ 原版类名（见文件尾「追加区 · B94_Y3」）
+    public sealed class AlliancesNotificationBadge : SocialBadge { }   // 🔴 B94_Y3 2026-10-29 原名 `AlliancesBadge`；🆕 B106_W35 2026-10-31 基类 : BadgeNotification → **SocialBadge**（原版 record 链，见文件尾「追加区 · B106_W35」）
     public sealed class SupportNotification : BadgeNotification { }          // 🔴 B94_Y3 2026-10-29：原名 `SupportBadge`（自造）→ 原版类名
 
-    /// <summary>原版 `RewardsBadge`：带 `parentId`，**过滤语义 = parentId 相等**
-    /// （`RewardsBadge__Validate.c`：`return this.parentId == ((RewardsBadge)other).parentId`）。</summary>
+    /// <summary>原版 `RewardsBadge : Notification`：带 `parentId`，`Validate` 见下面两支
+    /// （**不是**无条件比 `parentId` —— 原文那句话已被就地订正）。</summary>
+    /// <para>🔴 **2026-10-31（B106_W37）就地订正（铁律 5）**：原文写「`RewardsBadge__Validate.c`：
+    /// `return this.parentId == ((RewardsBadge)other).parentId`」—— **不完整**：那只是**一支**。原版两句（逐句现读
+    /// `out_il2csharp/…/RewardsBadge.cs:24-44` + `decomp_full/Everguild.UI.Notifications.RewardsBadge__Validate.c`）：
+    /// <code>
+    /// if (other is RewardsBadge &amp;&amp; other.GetType() != this.GetType())   // ← 运行时类型**不同**
+    ///     return this.parentId == ((RewardsBadge)other).parentId;
+    /// return this.Equals(other);                                          // ← 其余一律落到 record 相等性
+    /// </code>
+    /// ⇒ 「同类型」那一支比的是**整条 record 相等性**（`parentId` ∧ 派生类自己的字段，如 `army`），
+    /// 不是「同类型就算中」。⛔ 别把这一支简化成 `type == type` —— 13 颗阵营格的红点全靠它按 `army` 区分。</para></summary>
     public class RewardsBadge : BadgeNotification
     {
         public string parentId = "";
 
         public override bool Validate(BadgeNotification other)
         {
-            var r = other as RewardsBadge;      // ⚠️ 派生类（`MissionsBadge`）也走这一支
-            if (r == null) return false;
-            return string.Equals(r.parentId, parentId, StringComparison.Ordinal);
+            var r = other as RewardsBadge;      // ⚠️ 派生类（`MissionsBadge` / `CampaignBadge` / `ForgeBadge`）也走这一支
+            if (r == null) return false;        // 原版：不是 `RewardsBadge` ⇒ fall-through `this.Equals(other)` = false
+            if (other.GetType() != GetType())   // 原版：`Type.op_Inequality(other.GetType(), this.GetType())`
+                return string.Equals(r.parentId, parentId, StringComparison.Ordinal);
+            return RecordEquals(r);             // 原版 fall-through = `this.Equals(other)`（record 相等性）
+        }
+
+        /// <summary>原版 `this.Equals(other)`（record 相等性）：同类型 ∧ 同 `parentId`。
+        /// 带字段的派生类（`CampaignBadge.army` / `ForgeBadge.army`）在**这里**加自己那一项
+        /// （判据 = 各自的 `Equals`：`CampaignBadge__Equals.c` / `ForgeBadge__Equals.c` 先调 `RewardsBadge__Equals` 再比 army）。</summary>
+        protected virtual bool RecordEquals(RewardsBadge other)
+        {
+            return string.Equals(other.parentId, parentId, StringComparison.Ordinal);
         }
     }
 
@@ -327,7 +368,7 @@ namespace CardPresentation
     }
 
     /// <summary>战役红点（原版 `CampaignHandler.CheckNotification`，`Everguild.LiveOps/CampaignHandler.cs:151-230`）：
-    /// 取当前所选阵营的战役（取不到再试 `army + 10`）；只要它有**可用且可领**的节点 ⇒ **发【一条】** `CampaignBadge`
+    /// 取当前所选阵营的战役（取不到再回退 **`GetCampaign(10)` = Ultramarines**，⛔ 不是 `army + 10`）；只要它有**可用且可领**的节点 ⇒ **发【一条】** `CampaignBadge`
     /// （数量恒 1，⛔ 不是每节点一条 —— 原版就是 `new CampaignBadge(SelectedArmy)` 一次）。
     /// <para>⚠️ **战役进度现在不落盘**（重开回「只解锁根节点」）⇒ 本次会话里领完根节点后红点会灭，重开又会亮；
     /// 这是**存档策略**造成的，不是红点本身的错（如实记，别为它编一个假源）。</para>
@@ -338,7 +379,7 @@ namespace CardPresentation
         public IEnumerable<INotificationProvider> ChildProviders { get { return null; } }
         public IEnumerable<BadgeNotification> CheckNotification()
         {
-            if (!CampaignData.HasContent(CampaignData.Selected)) yield break;
+            // 🔴 2026-10-31（B106_W54）**闸已删**（原 `if (!CampaignData.HasContent(CampaignData.Selected)) yield break;`）：原版这里**没有**「本地有没有战役」这道闸 —— `GetCurrentCampaign` = `GetCampaign(SelectedArmy) ?? GetCampaign(10)`（`decomp_full/Everguild.LiveOps.CampaignHandler__GetCurrentCampaign.c:7-11`；`…_CheckNotification_d__21__MoveNext.c:26-28` 同一个 `GetCampaign(lVar2,10,0)`）⇒ 选中「无战役」阵营时**回退到 Ultramarines(10)**，只要 UM 那套有可领节点，红点**照样亮**。本地只有 UM 一套节点表（`CampaignData.NodeCount` = 47 就是它）⇒ **无条件遍历**这一段就是那条回退。判据 → `判据/B106_战役末节点_repeatable.md` §3·4 · 报告 `B106_W54.md`。
             for (int i = 0; i < CampaignData.NodeCount; i++)
             {
                 if (CampaignData.Claimable(i))
@@ -383,7 +424,7 @@ namespace CardPresentation
         /// <summary>登记本工程**有真实数据源**的 provider（幂等；壳重建时不会重复登记）。
         /// <para>⚠️ 没有源的四类（`CollectionBadge` / `ShopBadge`+`InventoryBadge` / `SocialBadge` /
         /// `InboxBadge` 的计数）**不登记假 provider**：定义照原版挂上 ⇒ 计数恒 0 ⇒ 红点恒隐藏
-        /// （= 我们今天的行为；原版这四类由服务端/本地「新卡/新商品/好友请求」驱动，本地没有那些源）。</para></summary>
+        /// （= 我们今天的行为；原版这四类由服务端/本地「新卡/新商品/好友请求」驱动，本地没有那些源）。⚠️ 2026-10-31（`B106_W22` 现核）：**社交两颗页签的 provider 不在这里登记** —— 那两个类内联在 `Shell/AllianceMemberTab.cs` 末尾（`B106_W12`），由 `SocialBadgeProviders.EnsureRegistered()` 单独登记（`MainMenuRuntime.Build()` 已接）；⛔ 别在这里再 `new` 一次（重复登记 ⇒ 计数翻倍）。</para></summary>
         public static void RegisterDefaults()
         {
             if (UiBadgeNotificationManager.ProviderCount > 0) return;
@@ -409,6 +450,9 @@ namespace CardPresentation
                     break;
                 case "Rewards":
                     // useFilter = 1，filter = `RewardsBadge { parentId = "" }`（MB_2400 的 references.RefIds 实读）
+                    // 🔴 2026-10-31（B106_W37）：这条定义**聚合三类** —— `MissionsBadge`（任务）+ `CampaignBadge` + `ForgeBadge`
+                    //   （后两者 2026-10-31 起 `: RewardsBadge` ⇒ 外闸 `IsRelated` 成立、内闸「类型不同只比 parentId」成立）。
+                    //   ⛔ 别为战役/锻造另造一条导航定义：原版就是一个 `RewardsBadge` 收全部「可领奖励」。
                     defs.Add(new BadgeNotificationDefinition(typeof(RewardsBadge), useFilter: true,
                                                              filter: new RewardsBadge { parentId = "" }));
                     break;
@@ -609,20 +653,89 @@ namespace CardPresentation
     //   `InventoryBadge`                   `InventoryBadge`                   ✓        | Notification
     //   `SocialBadge`                      `SocialBadge`                      ✓        | Notification
     //   `FriendsBadge`                     `FriendsBadge`                     ✓        | Notification
-    //   `AlliancesNotificationBadge`       `AlliancesNotificationBadge`       ✓(B94_Y3)| **SocialBadge** ← 我们 : BadgeNotification
+    //   `AlliancesNotificationBadge`       `AlliancesNotificationBadge`       ✓(B106_W35)| **SocialBadge**（基类已修，见文件尾「追加区 · B106_W35」）
     //   `SupportNotification`              `SupportNotification`              ✓(B94_Y3)| Notification
     //   `RewardsBadge`                     `RewardsBadge`                     ✓        | Notification
     //   `MissionsBadge`                    `MissionsBadge`                    ✓        | RewardsBadge
-    //   `CampaignBadge`                    `CampaignBadge`                    ✓        | **RewardsBadge** ← 我们 : BadgeNotification
-    //   `ForgeBadge`                       `ForgeBadge`                       ✓        | **RewardsBadge** ← 我们 : BadgeNotification
+    //   `CampaignBadge`                    `CampaignBadge`                    ✓(B106_W37)| **RewardsBadge**（基类已修，见文件尾「追加区 · B106_W37」）
+    //   `ForgeBadge`                       `ForgeBadge`                       ✓(B106_W37)| **RewardsBadge**（基类已修，见文件尾「追加区 · B106_W37」）
     //   `BoosterPackBadge`                 `BoosterPackBadge`                 ✓        | InventoryBadge
     //   `OfferBadge`                       `OfferBadge`                       ✓        | ShopBadge
     //   `ChallengeMatch`                   `ChallengeMatch`                   ✓        | Notification
     //
-    // 【两处**没改**、留给后续（非「类名」，属继承关系，本轮不动）】
+    // 【未改的、留给后续（非「类名」，属继承关系）】
     //   · 基类 `BadgeNotification` 未改名成 `Notification`：不是过滤 bug（`NotificationType` 永远填**具体类**，
     //     基类名从不进 `IsInstanceOfType`）；且会牵动 240+ 处引用与 16 个类（本文件 :532 有同样的记录）。
-    //   · 派生关系差三处（上表 `←` 标出的）：`AlliancesNotificationBadge` 应 : `SocialBadge`（现 : `BadgeNotification`）、
-    //     `CampaignBadge` / `ForgeBadge` 应 : `RewardsBadge`（现 : `BadgeNotification`）。**今天不影响计数**
-    //     （三者各自 override 了 `Validate`；`IsRelated` 双向可赋值仍认得出），但**不是原版形状** ⇒ 另案。
+    //   · `AlliancesNotificationBadge` 的基类**已修**（B106_W35 2026-10-31 → `SocialBadge`）；⚠️ 本段原文写「三者今天不影响计数」**是错的**：
+    //     未修时左竖导航 SOCIAL 那颗（定义 = `SocialBadge`）对联盟邀请**恒计 0**（判据 = 文件尾「追加区 · B106_W35」）。
+    //   · 仍差两处（上表 `←` 标出的）：~~`CampaignBadge` / `ForgeBadge` 应 : `RewardsBadge`（现 : `BadgeNotification`）——
+    //     **今天不影响计数**（两者各自 override 了 `Validate`；`IsRelated` 双向可赋值仍认得出），但**不是原版形状** ⇒ 另案。~~
+    //     🔴 **2026-10-31（B106_W37）就地订正（铁律 5）**：那两句**都是错的** —— ① 基类**已修**（→ `RewardsBadge`，
+    //     见文件尾「追加区 · B106_W37」）；② 「今天不影响计数」不成立：兄弟类 ⇒ `IsRelated(RewardsBadge, CampaignBadge)`
+    //     **为假** ⇒ 导航 **REWARDS** 那颗少算战役与锻造两类。原文留痕，⛔ 别照它推理。
+
+    // ============================================================ 追加区 · 2026-10-31（B106_W35 · `AlliancesNotificationBadge` 按原版改基类）
+    //
+    // 【改了什么】`AlliancesNotificationBadge : BadgeNotification` → **`SocialBadge`**；`SocialBadge` 去 `sealed`（不派生它就改不了基类）。
+    //   两处都是**同一物理行就地改写**（行数零变化）。
+    //
+    // 【判据（三源逐文件现读，⛔ 不是上一代理的一句转述）】
+    //   · `cpp2il/out_cpp2il_dev_ilspy/Everguild.UI.Notifications/AlliancesNotificationBadge.cs:7`
+    //     `public record AlliancesNotificationBadge : SocialBadge`；
+    //   · 同上 `SocialBadge.cs:7` `public record SocialBadge : Notification` · `Notification.cs:9` `public abstract record Notification`；
+    //   · `cpp2il/out_il2csharp/Assembly-CSharp/Everguild/UI/Notifications/AlliancesNotificationBadge.cs:9`
+    //     `public partial class AlliancesNotificationBadge : SocialBadge`（第二源，结论相同）；
+    //   · `il2cpp_out/dump.cs:124145` `public class AlliancesNotificationBadge : SocialBadge`（第三源）。
+    //   · 对照：`FriendsBadge.cs:7` = `public record FriendsBadge : Notification`（**不是** SocialBadge ⇒ 好友通知不该点亮 SOCIAL）。
+    //   · 原版**没有** `BadgeNotification` 这个类（全库只有 `BadgeNotificationDefinition` / `UiBadgeNotification`）
+    //     ⇒ 我们的 `BadgeNotification` 对应原版抽象 `Notification`；基类改名**不在本轮**（见上一段）。
+    //
+    // 【为什么是真缺陷（不是洁癖）】`UiBadgeNotificationManager.GetCount` 有两道闸：
+    //   外闸 = `ReflectionHelper.IsRelated(key, def.Type)`（`decomp_full/UiBadgeNotificationManager.__c__DisplayClass14_0___GetCount_b__1.c`：
+    //   先 `IsInstanceOfType`、反向再来一次）；内闸 = `BadgeNotificationDefinition.Validate` 的不过滤支 =
+    //   `notificationType.IsInstanceOfType(item)`（`decomp_full/BadgeNotificationDefinition__Validate.c` + `ReflectionHelper__Is.c`，`Type` 虚槽 `0x448`）。
+    //   未修时：左竖导航 SOCIAL 那颗的定义 = `SocialBadge`（`BadgeWiring.DefinitionsFor("Social")`），provider 发的却是
+    //   `AlliancesNotificationBadge`，两者是**兄弟类** ⇒ **外闸直接把这一栏整个跳过** ⇒ 联盟邀请再多，SOCIAL 那颗**恒 0**。
+    //   修后：外闸（`SocialBadge.IsAssignableFrom(AlliancesNotificationBadge)`）与内闸同时成立 ⇒ 一条邀请 = 计数 1 ⇒ alpha 1。
+    //   ⚠️ `FriendsBadge` 仍是 `: BadgeNotification`（原版就是 `: Notification`）⇒ 好友通知**不会**点亮 SOCIAL 那颗。
+    //
+    // 【没动的地方】`AllianceMemberTab.cs` 的 `SocialBadgeProviders`（两个 provider 各登记一次，`MainMenuRuntime.Build()` 已接）
+    //   —— ⛔ 不在 `BadgeWiring.RegisterDefaults` 里再 `new` 一遍（重复登记 ⇒ 计数翻倍）。
+    //   断言 = `Editor/B93S4Assert.cs` §H（H18~H27，宿主 `MainMenuScene.cs:18498` 已接）；报告 = `资料/完全复刻/报告/B106_W35.md`。
+
+    // ============================================================ 追加区 · 2026-10-31（B106_W37 · `CampaignBadge` / `ForgeBadge` 按原版改基类）
+    //
+    // 【改了什么】
+    //   · `CampaignBadge` / `ForgeBadge`：`BadgeNotification` → **`RewardsBadge`**（原版 record 链）。
+    //   · 两者的 ctor 照原版第一句把继承来的 `parentId` 写 `""`（原版 `this+16 = ""`）。
+    //   · 两者**不再 override `Validate`**（原版没有）；`army` 的比较挪进 `RecordEquals`（= 原版 record 的 `Equals`）。
+    //   · `RewardsBadge.Validate` 补齐原版的**两支**（原文只写了第一支，见该类 doc 的订正）：
+    //     ① `other is RewardsBadge ∧ 运行时类型不同` ⇒ 只比 `parentId`；
+    //     ② 其余 ⇒ `RecordEquals`（record 相等性：`parentId` ∧ 派生字段）。
+    //
+    // 【判据（三源逐文件现读，⛔ 不是上一代理的一句转述）】
+    //   · `cpp2il/out_cpp2il_dev_ilspy/Everguild.UI.Notifications/CampaignBadge.cs:8` `public record CampaignBadge : RewardsBadge`
+    //     · 同上 `ForgeBadge.cs:8` `public record ForgeBadge : RewardsBadge`；
+    //   · `cpp2il/out_il2csharp/Assembly-CSharp/Everguild/UI/Notifications/RewardsBadge.cs:24-44`（`Validate` 两支，最清楚）
+    //     · `decomp_full/Everguild.UI.Notifications.RewardsBadge__Validate.c`（同一形状，第二源：
+    //       `param_2 != 0 → isinstance(RewardsBadge) → GetType 比较 → String__Equals(param_1[2], param_2[2])`，
+    //       否则 `(**(code **)(*param_1 + 0x1b8))` = 虚调 `Equals`）；
+    //   · `il2cpp_out/dump.cs:123684` / `:123752`（第三源，`public class … : RewardsBadge`）；
+    //   · ctor 的 `parentId = ""`：`CampaignBadge.cs:26-32` / `ForgeBadge.cs:26-32` 的 `object obj = this + 16; obj = "";`；
+    //   · record 相等性带 `army`：`decomp_full/Everguild.UI.Notifications.CampaignBadge__Equals.c`
+    //     （先调 `RewardsBadge__Equals`，再比 `param_1+0x18` / `param_2+0x18`）· 同理 `ForgeBadge__Equals.c`。
+    //
+    // 【为什么是真缺陷（不是洁癖）】`UiBadgeNotificationManager.GetCount` 的**外闸** = `IsRelated(key, def.Type)`
+    //   （`IsAssignableFrom` 双向）。导航 **REWARDS** 那颗的定义 = `RewardsBadge` + useFilter `parentId=""`
+    //   （`BadgeWiring.DefinitionsFor("Rewards")`，判据 = 场景 MB 的 `references.RefIds`）。
+    //   改前：`CampaignBadge` / `ForgeBadge` 与 `RewardsBadge` 是**兄弟** ⇒ `IsRelated` **两向都为假** ⇒ 外闸整栏跳过
+    //   ⇒ **原版里「战役/锻造有可领」会让 REWARDS 导航钮也亮，我们少算这两类**。
+    //   改后：外闸成立；内闸 `item.Validate(RewardsBadge{parentId=""})` 走「运行时类型不同 ⇒ 只比 parentId」⇒ `"" == ""` ⇒ 算中。
+    //   ⚠️ 反过来**同类型**（13 颗阵营格的 `CampaignBadge{army}` / `ForgeBadge{army}` 过滤）走的仍是 record 相等性
+    //   ⇒ `army` 照样参与 ⇒ **只有该阵营那一颗亮**的那批断言不变（`Editor/RewardsScene.cs` `收藏:15` 那节）。
+    //
+    // 【没动的地方】provider（`CampaignNotificationProvider` / `ForgeNotificationProvider`）与登记口（`RegisterDefaults`）
+    //   一个字没改 —— 它们发的东西本来就对，错的只是接收侧的继承关系。
+    //   断言 = `Editor/B94Z1_Assert.cs` 的 §⑥（`SectionRewardsDerived`，宿主 `Editor/RewardsScene.cs` 已接 `B94Z1_Assert.Run()`）；
+    //   报告 = `资料/完全复刻/报告/B106_W37.md`。
 }

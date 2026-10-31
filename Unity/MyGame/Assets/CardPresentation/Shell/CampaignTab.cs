@@ -131,7 +131,7 @@ namespace CardPresentation
         public override void Setup() { Build(); }
         public override void OnOpen()
         {
-            FocusSelectedArmy();
+            FocusSelectedArmy(); InitBackground(CampaignData.Selected);   // 原版 `OnOpen` → `ChangeArmy` → `SetActiveCampaign` → `CampaignUIBackground.Initialize`（`CampaignWindowTab__OnOpen.c:132` · `CampaignWindowTab__SetActiveCampaign.c:37-38`）；离开页时 `Close` 会清空 `_bgArmy`，回来必须重开一次淡入，否则目标 alpha 停在 0 ⇒ **背景永久透明**（账 `B106_D2` R3）
             // 🆕 **2026-10-19（MainTutorialManager 消费点 · 原版 `CampaignWindowTab.OnOpen.c:92-98`）**：
             //   `if ((int)MainTutorialManager.GetState() < 2) armySelector.ToggleAllowClickWhenAlreadySelected(true);`
             //   ⇒ 教程早期允许重复点**已选中**的阵营；其余状态保持原版的 `allowClickWhenAlreadySelected = 0`。
@@ -1131,11 +1131,11 @@ namespace CardPresentation
         float _bgAlpha = 1f, _bgTarget = 1f;
         string _bgArmy, _bgPending;
 
-        /// <summary>原版 `CampaignUIBackground.Initialize(campaign)`：记下当前阵营、从 alpha 0 淡入。</summary>
+        /// <summary>原版 `CampaignUIBackground.Initialize(campaign)`（`CampaignUIBackground__Initialize.c:13-25`，两支）：`current` 非空且 ≠ 目标 ⇒ 只挂 `pending`、目标 alpha 置 0（`Update` 归零那一拍才 `LoadImage`）；否则记下阵营、从 alpha 0 淡入（此时图上那张已经是对的；⚠️ 与原版「current 为空 ⇒ 先归零再 `LoadImage` 同一张图」视觉等价，少的那一拍只因批处理没有帧循环、而且 `_bgArmy` 被 `Close` 清空后已分不清图上是谁的）。</summary>
         public void InitBackground(string army)
         {
-            _bgArmy = army; _bgPending = null;
-            _bgAlpha = 0f; _bgTarget = 1f;
+            if (_bgArmy != null && _bgArmy != army) { _bgPending = army; _bgTarget = 0f; return; }   // = 原版「current != campaign」支：淡出 → 归零那一拍换图
+            _bgArmy = army; _bgPending = null; _bgAlpha = 0f; _bgTarget = 1f;
             ApplyBgAlpha();
         }
 
@@ -1154,10 +1154,10 @@ namespace CardPresentation
             ApplyBgAlpha();
         }
 
-        /// <summary>原版 `CampaignUIBackground.Close()`：目标 alpha = 0（旧引用释放见上面那条如实记）。</summary>
+        /// <summary>原版 `CampaignUIBackground.Close()`：**只清 current / pending，⛔ 不动目标 alpha**（`decomp_full/CampaignUIBackground__Close.c:13-16` 只写 `+0x40` 与 `+0x38`，`+0x48` 一个字节没碰）——旧写法「目标 alpha = 0」是**错的**：`OnOpen` 不恢复它 ⇒ `Update` 每帧把 alpha 拉到 0、`Refresh` 又因 `_bgArmy` 还在而不重挂 ⇒ **离开战役页再回来背景永久透明**（账 `B106_D2` R3）。旧引用释放见上面那条如实记。</summary>
         public void CloseBackground()
         {
-            _bgPending = null; _bgTarget = 0f;
+            _bgPending = null; _bgArmy = null;   // ⛔ 不写 `_bgTarget = 0f`（理由见上一条 doc）
         }
 
         void ApplyBgAlpha()
@@ -1211,8 +1211,8 @@ namespace CardPresentation
         /// 🆕 也是**滚动区的 `OnChanged`**（接上横向滚动之后，滚动就走到这里重建）。</summary>
         public void RefreshNodes()
         {
-            if (_nodeTf == null || _trackContent == null) return;
-            ClearTrackContent();
+            if (_trackContent == null) return;   // ⚠️ 原来还判 `_nodeTf == null` —— 而 `ClearTrackContent()` 自己就把 `_nodeTf` 置 null ⇒ 有了下面那句「无内容早退」之后，那个判据会让**再切回有内容的阵营**也永远早退（轨道再也建不回来）。`_trackContent` 才是「建过没有」的真信号。
+            ClearTrackContent(); if (!CampaignData.HasContent(CampaignData.Selected)) return;   // 🔶 自己设计（非原版）：原版切到无内容阵营直接 return · 本地只有 UM 一套战役数据 · 调度台 2026-10-31 裁定
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：三件套【改了载体】—— 这里原来那六行没了。**
             //   旧写法 = 「存三件 → 设 `_win.Clip = _vpR` / pad 0 / soft 0 → 建完还原」（A48 与 A303① 两批
             //   先后补出来的）。现在裁切状态长在**视口节点**上 —— `Build()` 里

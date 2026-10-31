@@ -149,19 +149,20 @@ namespace CardPresentation
             //   **彻底藏掉**（不是「画到框外至少看得见」）—— 同 `BattleLogPopup.BuildRows` 那条注释。
             //   ⚠️ **空表那一支也要写**（写成视口顶）—— 否则上一次的内容高留在区里，是个静默的脏值
             //   （同 `LeaderboardWindow` / `BattleLogPopup` 那两处）。
+            float w = _rect.W - PadL - PadR;
             float y = _rect.y1 + PadT;
             int n = 0;
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i].Channel != _channel) continue;
-                y += (all[i].Height > 0f ? all[i].Height : DefaultRowH) + Spacing;
+                y += RowHeightFor(all[i], w) + Spacing;
                 n++;
             }
             ContentBottom = n == 0 ? _rect.y1 : y - Spacing + PadB;
             if (_scroll != null) _scroll.ContentX2 = ContentBottom;
 
             y = _rect.y1 + PadT;
-            float w = _rect.W - PadL - PadR;
+            // 🔴 2026-10-31（B106_W12）：`w` 已提到本轮开头算（行高要用它当折行宽） —— ⛔ 别在这里再声明一次
             // 🔴 **2026-10-14（A776 · δ 族第 5 处 = 最后一处）**：这一行原来在 `_rect` 与 `_scroll.Viewport`
             //    之间挑一个矩形存进局部 `vpR`，再把它喂给**下面那道粗筛**。那是**第二状态源**：
             //    矩形是**调用点自己手里的**，节点（`Viewport`）搬了它不跟 ⇒ 粗筛与渲染可能不同源。
@@ -174,7 +175,7 @@ namespace CardPresentation
             for (int i = 0; i < all.Count; i++)
             {
                 if (all[i].Channel != _channel) continue;
-                float h = all[i].Height > 0f ? all[i].Height : DefaultRowH;
+                float h = RowHeightFor(all[i], w);
                 var rr = new PxRect(_rect.x1 + PadL, y, _rect.x1 + PadL + w, y + h);
                 if (_scroll != null) rr = _scroll.Shift(rr);   // 内容坐标 → 屏幕坐标（**只做偏移、不裁**）
                 y += h + Spacing;                              // ⚠️ 累加**必须用内容坐标**，别用 Shift 之后的
@@ -189,6 +190,69 @@ namespace CardPresentation
                 //    ⚠️ `VpSoft` 照旧传（它现在是**回落那一档**的软边；节点在时由节点说了算）。
                 ChatMessageRow.Build(_win, _content, all[i], rr, null, VpSoft);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
+            }
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W12`）：行高
+        //   🔴 **原版行高不是常量** —— 根 `ChatMessageRow` 上 `ContentSizeFitter(m_VerticalFit = 1 MinSize)`
+        //   跟着 `VerticalLayoutGroup(m_Padding L25/R60/T10/B10 · m_Spacing 12 · m_ChildControlHeight 0 ·
+        //   m_ChildForceExpandHeight 0)` 撑开：`h = padTop + padBottom + Σ子件高 + spacing×(子件数−1)`。
+        //   判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/ChatMessageRow.prefab`
+        //     · 根 `CSF m_HorizontalFit 0 / m_VerticalFit 1`；
+        //     · `VerticalLayoutGroup` 见上（`m_ChildAlignment 1 = UpperLeft`）；
+        //     · 参与布局的子件两个：两个头各 **25** 高（`Player Header` / `Friend Header`，同时只亮一个）+
+        //       `Message`（RT `sizeDelta.y = 0`、自带 `CSF m_VerticalFit 2 = PreferredSize` ⇒ 高度由 TMP 撑）；
+        //     · `RowBackground` 挂 `LayoutElement m_IgnoreLayout = 1` ⇒ **不参与**（所以不多数它）。
+        //   ⇒ `h = 10 + 10 + 25 + 12 + 正文高 = 57 + 正文高`，再与 OSA 的 `_DefaultItemSize = 60` 取大
+        //     （那条是**占位估计**，不是原版行高的真值 —— 原版真值由上面的 CSF 撑）。
+        //   ⚠️ 我们原来写死 `DefaultRowH = 60`（`ChatTab.cs` 类头的 `_DefaultItemSize`）⇒ 长消息换行之后
+        //     行与行**叠在一起**（原版是往下长）。这一条就是补那半。
+        const float RowPadTop = 10f, RowPadBottom = 10f, RowHeadH = 25f, RowGap = 12f;
+        const float MsgPx = 22f;                 // = `ChatMessageRow` 正文的 `m_fontSize`（判据同上 prefab）
+
+        /// <summary>一行（设计 px）。数据侧显式给了 `ChatMessage.Height` 就用它（原版那一格就是 OSA 的
+        /// 逐条尺寸口），否则按上面那条 CSF 算式现算。</summary>
+        public float RowHeightFor(SocialData.ChatMessage m, float rowW)
+        {
+            if (m == null) return DefaultRowH;
+            if (m.Height > 0f) return m.Height;
+            float wrap = Mathf.Max(1f, rowW - ChatMessageRow.RowPadLeft(m.Mine) - ChatMessageRow.RowPadRight(m.Mine));
+            float msgH = MeasureMessagePx(SocialData.Text(m), wrap);
+            return Mathf.Max(DefaultRowH, RowPadTop + RowPadBottom + RowHeadH + RowGap + msgH);
+        }
+
+        /// <summary>量正文的高度（设计 px）。做法照全仓唯一先例 `Shell/ToastNotifications.MeasureTextPx`：
+        /// 建一颗**屏幕外**的临时 `Label` → `ForceRelayout()` → 读 `WorldH` → **立刻销毁**。
+        /// <para>🔴 **为什么挂在顶层临时节点上、而不是挂 `_content`**：本页的 `_content` 父链上有
+        /// `ViewportClip`（`Setup` 那颗 `Viewport`），而 `MenuDraw.Text` 的「整块在框外 ⇒ 连节点一起不建」
+        /// 那道闸会按那个裁切框判 —— 量尺摆在 −40000px 处就**必然被闸掉**（返回 null，静默量不到）。</para>
+        /// <para>⚠️ 量不出来（返回 null / 天文数字）⇒ **出声**并退回「一行 22px」的估计值（⛔ 不静默）。</para></summary>
+        float MeasureMessagePx(string text, float wrapPx)
+        {
+            if (string.IsNullOrEmpty(text)) return 0f;
+            var tmp = new GameObject("__ChatMeasure");
+            try
+            {
+                var r = new PxRect(-40000f, -40000f, -40000f + wrapPx, -40000f + 400f);
+                var lb = MenuDraw.Text(tmp.transform, r, text, Color.white, "__chat_measure", MsgPx, ChatPanel.QText,
+                                       wrapPx, 0f, 0f, 0f, face: TmpFont.Face.LatinCardBody);
+                if (lb == null)
+                {
+                    Debug.LogWarning("[Chat] 量正文高度失败（`MenuDraw.Text` 返 null）⇒ 退回「一行 " + MsgPx + "px」的估计值。");
+                    return MsgPx * 1.25f;
+                }
+                lb.ForceRelayout();
+                float h = lb.WorldH * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight);
+                if (!(h > 0f) || h > 4000f)
+                {
+                    Debug.LogWarning("[Chat] 量正文高度失败（h = " + h + "）⇒ 退回「一行 " + MsgPx + "px」的估计值。");
+                    return MsgPx * 1.25f;
+                }
+                return h;
+            }
+            finally
+            {
+                SocialWindow.DestroySafe(tmp);
             }
         }
     }

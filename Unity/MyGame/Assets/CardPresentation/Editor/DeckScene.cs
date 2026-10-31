@@ -770,8 +770,23 @@ public static class DeckScene
             //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
             bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
             WarpforgeVFX.WFSoundPlayer.Enabled = false;
-            try { RunCore(); }
-            finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+            // 🆕 2026-10-31（`B106_W16` · AUD11 类 4 · 判据 = `报告/B103_D1.md` 的 A3）：`RunCore` 一条
+            //   `MissingReferenceException` 就让整个宿主 rc=1 且**合计行不印**（外部只看到「没结果」）
+            //   ⇒ 这里兜住：记一次失败 + 出声；`finally` 里照旧印合计、并以 1 退出（⛔ 不让异常逃出 `Run`）。
+            bool runCompleted = false;
+            try { RunCore(); runCompleted = true; }
+            catch (System.Exception e) { _sink.Fail++; Debug.LogError("[DeckScene] RunCore 抛异常（**其后的断言段没跑**）：" + e); }
+            finally
+            {
+                WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled;
+                if (!runCompleted)
+                {
+                    int total = _sink.Pass + _sink.Fail;
+                    Debug.LogError(P + $"=== 结束：{_sink.Pass}/{total} 通过，**{_sink.Fail} 条失败** ❌ ===");
+                    Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**");
+                    if (Application.isBatchMode) EditorApplication.Exit(1);
+                }
+            }
         }
 
         /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
@@ -1379,7 +1394,7 @@ public static class DeckScene
             B97_MENU_Assert.CheckB97MenuDeckPoolBanIcon(_rt);   // 🆕 2026-10-29（调度台代接线 · `B97_MENU`）：卡池卡格的 ban 徽标（账 `菜单_外壳:58`）。
 
             B105W3_Assert.Run(); _sink.Pass += B105W3_Assert.Pass; _sink.Fail += B105W3_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · AUD11）：换将不清卡（原版形状；⛔ 别把「换将即清」接回 TryAdd）
-            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W4）：阵营闸按原版 `deck.deckArmy`（无督军但卡组非空也挡异阵营；中立跳过）
+            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail;   TestDoneHighlightToggler();   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
 
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
@@ -9282,7 +9297,9 @@ public static class DeckScene
                                 "There are no cardbacks in your collection for the selected filters",
                                 // 🔴 2026-10-14（`A1803`）就地改期望值：原来是我们写的 `There are no deck…`（单数 `deck`）；
                                 //    官方 zh-CN 表 = `There are no decks in your collection for the selected filters`（复数）⇒ 以官方为准。
-                                "There are no decks in your collection for the selected filters",
+                                // 🔴 2026-10-31（`B106_W24` · 调度台追加）：EN 补齐 ` or game mode`，与 `Core/Loc.cs:776`（官方 I2 表）逐字一致；
+                                //    改前少了尾部（= prefab 静态默认 `m_text`，运行时原版喂 I2 表）⇒ 不同步改 `DeckScene.Run` 会先红一条。
+                                "There are no decks in your collection for the selected filters or game mode",
                                 "Your cosmetics collection", "Back",
                             };
                             var sSrc = new[]
@@ -10367,5 +10384,89 @@ public static class DeckScene
                       UnityEngine.FindObjectsInactive.Include, UnityEngine.FindObjectsSortMode.None).Length, 0,
                   "★ （收尾）场景里一扇 `Deck info Popup` 都不剩（⛔ 会被 `SaveScene()` 写进 `DeckEditor.unity`）");
             CheckTrue(WindowsManager.Instance == null, "★ （收尾）`WindowsManager` 宿主拆掉了（不会被存进场景）");
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-31（`B106_W24` · 施工单 `FP-VFX-05`）：`Done Highlight` 的 `UIEffectTogglerImage` **驱动**断言
+        //
+        //  原版怎么走（判据）：
+        //    · `DeckEditingWindow__UpdateDoneButton.c`：`controller.Toggle(valid, …)` —— 开/关走
+        //      `UIEffectTogglerController`，由它逐帧推 `UIEffectTogglerImage.DoUpdate`（α 按 duration 推到 1/0）。
+        //    · `UIEffectTogglerController.Toggle`（`Effects/UIEffectTogglerController.cs:54` 的判据档）：
+        //      同态不重播（除 `forceChange`）；`duration <= 0` 走瞬间档（编辑/批处理被强制成 0）。
+        //    · 生产接线在 `Deck/DeckRuntime.cs:8890 ToggleDoneHighlight` → `SetupDoneHighlight`（`:8956`），
+        //      宿主节点 = `foot_hl` + 它的**父节点**（controller 挂父节点：`deactivateOnDisable` 会关 `foot_hl` 自身）。
+        //  我们缺什么（改前）：`Editor/CardBaseDemo.cs:2198 AssertOutlineMerged` 只断材质描边，**不驱动 toggler**；
+        //    施工单要求「切 Done 可点/不可点 ⇒ α 推到 1/0；`controller.Toggle` 被调」。
+        //
+        //  🔴 本组的判别力（灭自证）：先**手动把 toggler 推到相反态**，再调**生产刷新** `RefreshAll()`。
+        //    如果 `RefreshHeader` 里那句 `ToggleDoneHighlight(err == DeckError.None)` 被删，α 会**留在相反态** ⇒ ⑥ 红。
+        // ════════════════════════════════════════════════════════════════════════════════════════
+        static void TestDoneHighlightToggler()
+        {
+            Section("UI：`Done Highlight` 的 `UIEffectTogglerImage` 驱动（FP-VFX-05）");
+
+            var rt = _rt;
+            if (rt == null || rt.Root == null)
+            {
+                CheckTrue(false, "（前提）`_rt` 与它的根还在（本组要靠它走生产刷新链）");
+                return;
+            }
+
+            var foot = FindDeep(rt.Root, "foot_hl");
+            CheckTrue(foot != null, "（前提）`foot_hl` 建出来了（`DeckRuntime.BuildFootHl`）");
+            if (foot == null) return;
+
+            // `RefreshHeader()` 的两个守卫件（缺任一 ⇒ 它整条早退、`ToggleDoneHighlight` 根本不会被叫到）
+            CheckTrue(FindDeep(rt.Root, "name_t") != null && FindDeep(rt.Root, "name_h") != null,
+                      "（前提）`RefreshHeader()` 的两个守卫件 `name_t` / `name_h` 还在（缺了它整条刷新会早退 ⇒ ⑥ 会假红）");
+
+            var tg = foot.GetComponent<UIEffectTogglerImage>();
+            CheckTrue(tg != null, "★① `foot_hl` 上挂着 `UIEffectTogglerImage`（`DeckRuntime.SetupDoneHighlight` 接的）"
+                              + "｜🧨 删掉那句 `AddComponent<UIEffectTogglerImage>()` ⇒ 本条红");
+            if (tg == null) return;
+
+            var ctl = foot.parent != null ? foot.parent.GetComponent<UIEffectTogglerController>() : null;
+            CheckTrue(ctl != null, "★② 它的**父节点**上挂着 `UIEffectTogglerController`（原版由祖先节点逐帧推）"
+                               + "｜🧨 把 controller 挂到 `foot_hl` 自己身上（关灯时会一起失活）⇒ 本条红");
+            if (ctl == null) return;
+
+            CheckTrue(ctl.togglers.Contains(tg),
+                      "★③ 控制器表里**收进了**这颗 toggler（编辑/批处理下 `AddComponent` 不派 `Awake` ⇒ 必须 `Rescan()`）"
+                    + "｜🧨 删掉 `ctl.Rescan()` ⇒ 表恒空、每次 `Toggle` 静默空转 ⇒ 本条红");
+
+            int quads = foot.GetComponentsInChildren<ImageQuad>(true).Length;
+            CheckTrue(quads > 0, "（前提）`foot_hl` 底下有 `ImageQuad`（空心九宫格是 `MenuDraw.Nine` 建的）");
+            if (quads <= 0) return;
+            Check(tg.TargetCount, quads,
+                  "★④ 可淡件数 == 空心九宫格的块数（" + quads + "）—— `UIEffectTogglerImage.Add` 只 `GetComponent` 不递归 ⇒ 逐子件喂才收得全"
+                + "｜🧨 把 `DoneHlFeed` 改回「只喂根节点」⇒ `TargetCount` 变 0 ⇒ 本条红");
+
+            // 生产判据就是 `State.Validate()`（`RefreshHeader` 里同一个调用）
+            bool valid = rt.State.Validate() == DeckError.None;
+            float want = valid ? 1f : 0f;
+            float opposite = valid ? 0f : 1f;
+
+            // ---- ⑤ 先把 toggler 推到**相反**态（同时证明它真的在推 α）
+            int upd0 = tg.UpdateCount, comp0 = ctl.CompletedCount;
+            ctl.Toggle(!valid, 0f, true);
+            CheckNear(tg.CurrentFade, opposite, 1e-4f,
+                      "★⑤ `UIEffectTogglerController.Toggle` 把 α 推到了相反态（" + opposite + "）"
+                    + "｜🧨 控制器不逐个调 `DoUpdate` ⇒ α 不动 ⇒ 本条红");
+            CheckTrue(tg.UpdateCount > upd0 && ctl.CompletedCount > comp0,
+                      "★⑤b …而且 `DoUpdate` / `AnimationFinished` 都跑过（编辑模式 `duration` 被强制 0 ⇒ 瞬间那档一次走完）");
+
+            // ---- ⑥ 生产链：`DeckRuntime.RefreshAll()` → `RefreshHeader()` → `ToggleDoneHighlight(Validate()==None)`
+            int compBefore = ctl.CompletedCount;
+            rt.RefreshAll();
+            CheckNear(tg.CurrentFade, want, 1e-4f,
+                      "★⑥ **生产链真的走到这颗 toggler**：`RefreshAll()` 之后 α 回到 `Validate()==None` 对应的 " + want
+                    + "｜🧨 删掉 `RefreshHeader` 里那句 `ToggleDoneHighlight(err == DeckError.None)` ⇒ 留在相反态 ⇒ 本条红");
+            CheckTrue(ctl.CompletedCount > compBefore,
+                      "★⑥b …而且这一段补间是**生产刷新**触发、经 `UIEffectTogglerController.Toggle` 跑完的（`CompletedCount` +1）");
+
+            // ---- ⑦ 再刷一次：同态不重播，α 不应被改坏
+            rt.RefreshAll();
+            CheckNear(tg.CurrentFade, want, 1e-4f, "★⑦ 再刷一次 α 不变（`Toggle` 的同态早退；⛔ 不是把它刷成别的）");
         }
 }

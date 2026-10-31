@@ -39,24 +39,30 @@ public static class GameModesCheck
     public static void Run()
     {
         Pass = 0; Fail = 0;
+        // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前是**一个 try 包住 7 个段** ⇒ 任何一段抛异常，
+        //   后面所有段一条都不跑，而合计只显示「失败 1」，读日志的人看不出「后面没跑」
+        //   （实测 `gamemodes.log` 只有 A–D 四个段头，E/F/G 从没执行过）。
+        //   现在逐段 try/catch：一段炸只影响它自己，catch 里记失败并写明「其后的段没跑」。
         try
         {
-            RunDeserializeSharedData();
-            RunSetResultCount();
-            RunSettersAndCombatFinished();
-            RunGetActiveEvent();
-            RunRegisteredHandler();
-            RunDraftGate();
-            RunBootWiring();
+            try { RunDeserializeSharedData(); } catch (Exception e) { SegFail("A · DeserializeSharedData", e, 6); }
+            try { RunSetResultCount(); } catch (Exception e) { SegFail("B · SetResultCount", e, 5); }
+            try { RunSettersAndCombatFinished(); } catch (Exception e) { SegFail("C · SetSettersAndCombatFinished", e, 4); }
+            try { RunGetActiveEvent(); } catch (Exception e) { SegFail("D · GetActiveEvent", e, 3); }
+            try { RunRegisteredHandler(); } catch (Exception e) { SegFail("E · 注册表接线", e, 2); }
+            try { RunDraftGate(); } catch (Exception e) { SegFail("F · 草稿入口闸", e, 1); }
+            try { RunBootWiring(); } catch (Exception e) { SegFail("G · 启动链接线", e, 0); }
         }
         catch (Exception e)
         {
             Fail++;
-            Debug.LogError(P + "★ 未捕获异常：" + e);
+            Debug.LogError(P + "★ 未捕获异常（其后的段没跑）：" + e);
         }
         finally
         {
-            GameModesHandler.ResetForTest();
+            // 收尾复位：它自己炸也不能吞掉下面的合计行（改前这里没保护 ⇒ 合计整行不印）。
+            try { GameModesHandler.ResetForTest(); }
+            catch (Exception e) { Fail++; Debug.LogError(P + "★ 收尾 ResetForTest 抛异常（算红）: " + e); }
         }
         Debug.Log(P + "=== 断言合计：" + Pass + " 通过 / " + Fail + " 失败 ===");
     }
@@ -454,6 +460,14 @@ public static class GameModesCheck
     static bool Eq<T>(T got, T want, string msg)
     {
         return Ok(EqualityComparer<T>.Default.Equals(got, want), msg + $"（实得 {got} / 期望 {want}）");
+    }
+
+    /// <summary>段级 catch（AUD11 类 4）：记一次失败 + 写明「其后的段没跑」，⛔ 不静默、⛔ 不吞。
+    /// <paramref name="rest"/> = 这个段之后还有几个段（0 = 它是最后一段）。</summary>
+    static void SegFail(string section, Exception e, int rest)
+    {
+        Fail++;
+        Debug.LogError(P + "★ 段「" + section + "」抛异常（算红，⛔ 不是跳过；其后 " + rest + " 段没跑）: " + e);
     }
 }
 

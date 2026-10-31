@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-30 12:28:58",
+ "generatedAt": "2026-10-31 11:46:40",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -82277,7 +82277,7 @@
      "inLibrary": true
     }
    ],
-   "trigger_unmapped": [
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
@@ -82294,9 +82294,9 @@
      "abilitySlot": "cardAbilities[1].abilityLogic[0]",
      "abilityTrigger": 650,
      "abilityTriggerName": "TriggeredCodex",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `TriggeredCodex`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.TriggeredCodex` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 40,
      "chosenAbilityName": "buffSelf",
      "inLibrary": true
@@ -86155,13 +86155,13 @@
   "cardsUncovered": 0,
   "cardsCoveredByEvent": {
    "_assetRefs": 1127,
-   "trigger": 573,
+   "trigger": 574,
    "play": 534,
    "attack_ranged": 518,
    "trait_onplay": 137,
    "death": 101,
    "ability": 93,
-   "trigger_unmapped": 26,
+   "trigger_unmapped": 25,
    "attack_melee": 11,
    "hit": 2,
    "deploy": 1
@@ -86230,10 +86230,10 @@
    "authoritativeByEvent": {
     "play": 796,
     "attack_ranged": 518,
-    "trigger": 445,
+    "trigger": 446,
     "ability": 160,
     "death": 145,
-    "trigger_unmapped": 45,
+    "trigger_unmapped": 44,
     "attack_melee": 13,
     "hit": 2,
     "deploy": 1
@@ -87229,18 +87229,18 @@
    "rows": {
     "ability": 160,
     "mapped": 855,
-    "routed": 409,
-    "unmapped": 45
+    "routed": 410,
+    "unmapped": 44
    },
    "cards": {
     "ability": 93,
     "mapped": 586,
-    "routed": 266,
-    "unmapped": 26
+    "routed": 267,
+    "unmapped": 25
    },
    "unmapped": {
-    "rows": 45,
-    "cards": 26,
+    "rows": 44,
+    "cards": 25,
     "byName": {
      "OnCollectQuestPoints": {
       "rows": 2,
@@ -87253,10 +87253,6 @@
      "OnSecretCreated": {
       "rows": 3,
       "cards": 2
-     },
-     "TriggeredCodex": {
-      "rows": 1,
-      "cards": 1
      },
      "UnitLoseStealth": {
       "rows": 1,
@@ -87511,7 +87507,7 @@
    "Ultramarines": 10
   },
   "problems": [
-   "归口：**45 行 / 26 卡**的原版触发**引擎没有发射口** ⇒ 已落 `trigger_unmapped`（留档不播）：OnCollectQuestPoints · OnSabotageCreated · OnSecretCreated · TriggeredCodex · UnitLoseStealth · UnitStunned · Unstable（要播必须先补 `EvtKind.Trigger` 发射口 + 进 `VfxMap.IsRoutedTriggerName`，判据见 `VfxMap.NoEmitTriggerNames`）"
+   "归口：**44 行 / 25 卡**的原版触发**引擎没有发射口** ⇒ 已落 `trigger_unmapped`（留档不播）：OnCollectQuestPoints · OnSabotageCreated · OnSecretCreated · UnitLoseStealth · UnitStunned · Unstable（要播必须先补 `EvtKind.Trigger` 发射口 + 进 `VfxMap.IsRoutedTriggerName`，判据见 `VfxMap.NoEmitTriggerNames`）"
   ]
  }
 }

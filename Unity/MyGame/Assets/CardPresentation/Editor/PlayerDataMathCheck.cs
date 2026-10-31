@@ -54,7 +54,7 @@ public static class PlayerDataMathCheck
         CheckIsBattleLogCreated();
         CheckExtractDeckInfo();
         CheckProfileState();
-        CheckB4PureAndBranches();
+        CheckB4PureAndBranches(); CheckCardTierConfig();   // 🆕 2026-10-31 B106_W47（CARD-003-03/05/06/08）：把 `CardTierConfig.SelfCheck()` 接上（此前 0 宿主）+ 补 GetTierInfo/GetNextTierInfo/GetXPRequired/GetAccumulatedXPForLevel 四件覆盖 —— 同一物理行追加 ⇒ 行数零变化（本文件 :92 被账引用）
 
         Debug.Log("PDMATH 合计: 通过 " + _pass + " / 失败 " + _fail);
     }
@@ -437,5 +437,106 @@ public static class PlayerDataMathCheck
             catch { }
             PlayerProfileState.ResetForTest();
         }
+    }
+
+    // ============================================================ CARD-003-03/05/06/08：`CardTierConfig` 接线
+
+    /// <summary>把 `CardTierConfig.SelfCheck()` 接进本宿主（2026-10-31 之前它 **0 宿主** ——
+    /// `Shell/CardTierConfig.cs:418` 自己写着「只要接上就好」，此后一直没人接），并补
+    /// `GetTierInfo` / `GetNextTierInfo` / `GetXPRequired` / `GetAccumulatedXPForLevel` 四件覆盖
+    /// （另两条 `GetLevelForXP` / `GetTotalPlayerXPFromInventory` 已由本文件 `:380` / `:371` 覆盖，⛔ 不重写）。
+    ///
+    /// <para>🔶 **数值口径（别当原版判据）**：升级梯度表（`CardProgress.NeedCopies` / `NeedGold` / `Points` /
+    /// `XpAward`）与等级曲线的 4 个标量（`Y_Max` / `X_Inflection` / `Offset` / `Base`）都是**我们自己定的**
+    /// —— 原版在服务端 LiveOps `CardTierConfig`（关服后判据在远端），用户 2026-09-22 裁定「升级表自拟」、
+    /// 2026-10-26 裁定 (b)「算式照原版、4 个标量自拟」。本节断言**钉的是「我们这张表怎么用」与算式性质**
+    /// （求和 / 取整 / 单调 / 转发关系），⛔ **不是原版真值**。</para></summary>
+    static void CheckCardTierConfig()
+    {
+        var c = CardTierConfig.Instance;
+
+        // ---- ① 把现成的自检口接上（`Shell/CardTierConfig.cs:428` 的 `SelfCheck()`）----
+        var fails = CardTierConfig.SelfCheck();
+        Check(fails != null, "（前提）`CardTierConfig.SelfCheck()` 返回非 null 清单");
+        if (fails == null) return;
+        Check(fails.Count == 0,
+              "★ `CardTierConfig.SelfCheck()` **全过**（等级往返 / 每级 XP 单调不减 / 灭自证三值 / 取整语义）"
+            + (fails.Count > 0 ? "｜失败 " + fails.Count + " 条：" + string.Join(" · ", fails.ToArray()) : ""));
+
+        // ---- ② `GetTierInfo`（CARD-003-06）：四档 × 五稀有度逐格非 null，且四个字段 == `CardProgress` 那四条数组 ----
+        var rarities = new[] { "common", "rare", "epic", "legendary", "special" };
+        for (int r = 0; r < rarities.Length; r++)
+        {
+            string rar = rarities[r];
+            for (int tier = 1; tier <= CardProgress.MaxLevel; tier++)
+            {
+                var info = c.GetTierInfo(tier, rar);
+                Check(info != null && info.CardTier == tier && info.Rarity == rar,
+                      "`GetTierInfo(" + tier + ", \"" + rar + "\")` 非 null 且档位/稀有度对得上"
+                    + (info == null ? "（实得 null）" : ""));
+                if (info == null) continue;
+                Check(info.PriceAmount == CardProgress.NeedGold[tier]
+                   && info.RequiredCopies == CardProgress.NeedCopies[tier]
+                   && info.PointReward == CardProgress.Points[tier]
+                   && info.XPReward == CardProgress.XpAward[tier],
+                      "🔶 `GetTierInfo(" + tier + ", \"" + rar + "\")` 四个字段 == `CardProgress` 那四条数组"
+                    + "（" + info.PriceAmount + " / " + info.RequiredCopies + " / " + info.PointReward
+                    + " / " + info.XPReward + "）—— 只钉**转发关系**，数值本身自拟");
+            }
+        }
+        Check(c.GetTierInfo(0, "common") == null && c.GetTierInfo(CardProgress.MaxLevel + 1, "common") == null,
+              "`GetTierInfo` 档位越界（0 / MaxLevel+1）⇒ null（原版那一格不存在）");
+        Check(c.GetTierInfo(1, "not-a-rarity") == null,
+              "`GetTierInfo` 未知稀有度 ⇒ null（原版这里抛 NRE；我们返回 null，不崩）");
+
+        // ---- ③ `GetNextTierInfo`（CARD-003-05）：= `GetTierInfo(currentTier + 1)`，满级 ⇒ null ----
+        Check(ReferenceEquals(c.GetNextTierInfo(1, "epic"), c.GetTierInfo(2, "epic")),
+              "`GetNextTierInfo(1, epic)` == `GetTierInfo(2, epic)`（同一个对象 —— 原版就是转发到下一档）");
+        Check(c.GetNextTierInfo(CardProgress.MaxLevel, "epic") == null,
+              "`GetNextTierInfo(MaxLevel, epic)` == null（满级没有下一档）");
+        // 灭自证：不是常数 —— 若写成「恒返回第一档」上面那条照样绿，这里必须区分开
+        Check(!ReferenceEquals(c.GetNextTierInfo(1, "epic"), c.GetNextTierInfo(2, "epic")),
+              "`GetNextTierInfo` **不是常数**（1 的下一档 ≠ 2 的下一档）"
+            + "｜🧨 把它写成「恒返回 Tier1」⇒ 本条红");
+
+        // ---- ④ `GetXPRequired`（CARD-003-08）：取整 / 单调 / 曲线形状 ----
+        Check(c.RoundPrecision == 5f, "（尺子）`RoundPrecision` == 5f（原版构造函数里唯一的写死值，照抄）");
+        float prevXp = c.GetXPRequired(1f);
+        Check(prevXp > 0f, "`GetXPRequired(1)` > 0（曲线为正、不是常数 0）");
+        bool monotone = true, onGrid = true;
+        for (int lv = 2; lv <= 50; lv++)
+        {
+            float cur = c.GetXPRequired(lv);
+            if (cur < prevXp - 1e-3f) monotone = false;
+            prevXp = cur;
+        }
+        for (int lv = 1; lv <= 60; lv++)
+        {
+            float xp = c.GetXPRequired(lv);
+            float units = (xp - c.Offset) / c.RoundPrecision;
+            if (Mathf.Abs(units - Mathf.Round(units)) > 1e-3f) onGrid = false;
+        }
+        Check(monotone, "🔶 `GetXPRequired(1..50)` **单调不减**（曲线 4 个标量自拟，这里只钉性质）"
+                      + "｜🧨 把 `Base` 取负（曲线递减）⇒ 本条红");
+        Check(onGrid, "`GetXPRequired` 返回值恒为 `RoundPrecision` 的整数倍 + `Offset`（取整真做上了）"
+                    + "｜🧨 拿掉 `Math.Round` ⇒ 本条红");
+        // 🔶 自设计值钉一次（**不是原版真值**）：Y_Max=100 · X_Inflection=20 · Offset=0 · Base=0.15 取整到 5 的结果
+        Check(Mathf.Abs(c.GetXPRequired(1f) - 35f) < 1e-3f
+           && Mathf.Abs(c.GetXPRequired(7f) - 40f) < 1e-3f
+           && c.GetXPRequired(7f) > c.GetXPRequired(1f),
+              "🔶 `GetXPRequired` 的**自设计口径**：1 级 = 35 · 7 级 = 40（且 7 级 > 1 级）"
+            + $"（实得 {c.GetXPRequired(1f)} / {c.GetXPRequired(7f)}）—— 改那 4 个标量就会动，⛔ 别当原版真值");
+
+        // ---- ⑤ `GetAccumulatedXPForLevel`（CARD-003-03）：Σ 关系 / 边界 / 严格递增 ----
+        Check(c.GetAccumulatedXPForLevel(0) == 0f && c.GetAccumulatedXPForLevel(-3) == 0f,
+              "`GetAccumulatedXPForLevel(<1)` == 0（原版那句 `level < 1 ⇒ 0`）");
+        float manual = 0f;
+        for (int i = 1; i <= 4; i++) manual += c.GetXPRequired(i);
+        Check(Mathf.Abs(c.GetAccumulatedXPForLevel(4) - manual) < 1e-3f,
+              $"`GetAccumulatedXPForLevel(4)` == `Σ_{{i=1..4}} GetXPRequired(i)`（实得 {c.GetAccumulatedXPForLevel(4)}"
+            + $" vs 手算 {manual}）—— 求和关系，不是另一条曲线");
+        Check(c.GetAccumulatedXPForLevel(5) > c.GetAccumulatedXPForLevel(4),
+              "`GetAccumulatedXPForLevel` **严格递增**（每级所需 XP > 0 ⇒ 累计不会持平）"
+            + "｜🧨 把它写成「只返回最后一级的 XP」⇒ 本条红");
     }
 }

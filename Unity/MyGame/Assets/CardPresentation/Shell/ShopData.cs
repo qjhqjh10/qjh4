@@ -498,14 +498,14 @@ namespace CardPresentation
             return o[i].Name + " ×" + OwnedOf(pageIndex, i);
         }
 
-        /// <summary>自检用：把拥有数（背包）与限购推回初值，**并把存档文件一起删掉**
-        /// （不删的话下次播种会读到上一趟的值 ⇒ 自检之间互相污染）。</summary>
+        /// <summary>自检用：把拥有数（背包）与限购推回初值 —— **限购按出厂快照逐件还原**（全部页/件，不再只写死第 1 页那两件），**并把存档文件一起删掉**（不删的话下次播种会读到上一趟的值 ⇒ 自检之间互相污染）。
+        /// <para>⚠️ 它会删**默认目录**的存档文件（`DeleteStoreForTest` → `InventoryStore.Delete`）：`ShopScene.Run` 一开场就调它 ⇒ 每趟自检都会清掉默认目录里的那份存档（同一份文件、同一趟进程 ⇒ 行为面无新增风险；⛔ 真 Play 前别顺手跑）。</para><para>⚠️ `ShopTabPage.OwnedRefusals` / `AffordRefusals` 是**单调递增的全局计数**、本函数**不**重置它们（`ResetOwnedAffordForTest` 全仓 0 调用点）⇒ 断言只能写「前后差」，⛔ 写绝对值会跨节污染。</para></summary>
         public static void ResetForTest()
         {
             Inventories.Shop.ClearForTest();
             _shopItems.Clear();
             _seeded = false;                                 // 下次读口重新播种（出厂值）
-            _cards[0].Available = 1; _cards[1].Available = 2;
+            RestoreAvailableFromFactory();                   // 按出厂快照逐件还原（原为写死 `_cards[0].Available = 1; _cards[1].Available = 2;` ⇒ 其余页/件的 `Available` 从不还原）
             DeleteStoreForTest();
         }
 
@@ -766,5 +766,43 @@ namespace CardPresentation
         /// 那一支：错误弹窗 + 出声）。差别在**成因**：越界 / 售罄都是本地闸，这一个是真的写盘不进去
         /// （此时 `Buy` 已把内存改动**撤回**，盘上那份没变）。</para></summary>
         public const string BuyPersistFailed = "落盘失败";
+
+        // ============================================================ 🆕 2026-10-31（执行代理 `B106_W65` · 类尾）
+        //   `ResetForTest()` 原来只还原 `_cards[0]` / `_cards[1]` 两件的限购，其余页/件的 `Available`
+        //   一旦被 `Buy` 扣掉就永远停在那个值（`B106_W63` 报告 §⑤·2 实测：`A439 ③` 买走 `_daily[0]`
+        //   从 1 压到 0，并一直留到整个宿主收尾）⇒ 改成**按出厂快照逐件还原**。
+        //   ⚠️ 快照**必须在本类静态构造里取**（本字段声明在类尾是刻意的）：C# 静态字段初始化按**声明序**执行，
+        //   而 `_cards` / `_daily` / `_items` / `_vip` 都声明在本字段之前 ⇒ 本字段拿到的就是**字面量出厂值**，
+        //   不可能被 `EnsureSeeded` 读盘、被 `Buy` 扣减、被自检临时代码改表污染（那些都发生在类型初始化**之后**）。
+
+        /// <summary>出厂限购快照（`KeyOf(页, 商品名)` → 字面量 `Available`）。类型初始化时取一次、此后只读。</summary>
+        static readonly Dictionary<string, int> _factoryAvailable = CaptureFactoryAvailable();
+
+        static Dictionary<string, int> CaptureFactoryAvailable()
+        {
+            var snap = new Dictionary<string, int>();
+            for (int p = 0; p < Pages.Length; p++)
+            {
+                var arr = Offers(p);
+                for (int j = 0; j < arr.Length; j++) snap[KeyOf(p, arr[j].Name)] = arr[j].Available;
+            }
+            return snap;
+        }
+
+        /// <summary>`ResetForTest` 用：把每一页每一件的 `Available` 按出厂快照写回。
+        /// <para>按**名字**查快照而不是按下标：第 5 页与第 1 页共用 `_cards`（写两次同值、幂等），
+        /// 且 `RemoveFinishedOffer` 换过数组之后下标会变、名字不变。</para></summary>
+        static void RestoreAvailableFromFactory()
+        {
+            for (int p = 0; p < Pages.Length; p++)
+            {
+                var arr = Offers(p);
+                for (int j = 0; j < arr.Length; j++)
+                {
+                    int av;
+                    if (_factoryAvailable.TryGetValue(KeyOf(p, arr[j].Name), out av)) arr[j].Available = av;
+                }
+            }
+        }
     }
 }

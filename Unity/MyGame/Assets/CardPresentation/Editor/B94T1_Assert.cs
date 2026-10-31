@@ -166,7 +166,7 @@ public static class B94T1_Assert
            "①b `MissionsBadge : RewardsBadge`（派生关系是「层级传递」那一支，见 `BadgeNotifications.cs` 文件头 ⑤）");
 
         // ② 一条 MissionsBadge **同时**算中两颗红点：导航「Rewards」那颗（`RewardsBadge` + filter parentId=""）
-        //    与 Missions 页签那颗（`MissionsBadge`、不过滤）—— 原版就是同一个 provider 喂这两处。
+        //    与 Missions 页签那颗（`MissionsBadge`、不过滤）—— 原版同一个 provider 喂这两处；②e 起导航还聚合战役/锻造。
         BadgeWiring.RegisterDefaults();          // 幂等（`ProviderCount > 0` 直接返回）
         var missionsDefs = BadgeWiring.DefinitionsForTab("RewardsMenu_MissionsButton");
         var navDefs = BadgeWiring.DefinitionsFor("Rewards");
@@ -185,9 +185,17 @@ public static class B94T1_Assert
                "②c 造出「可领」之后，**Missions 页签**那颗算得出计数（= " + onMissions + "）"
              + "。🧨 改坏法：provider 发基类 ⇒ 这里恒 0（而旧代码里那颗红点靠 `RefreshBadges` 的遗留布尔点着 = 两条写手）");
             Tr(onNav > 0,
-               "②d **同一批**通知也算中导航「Rewards」那颗（= " + onNav + "）—— 原版一个 provider 喂两处，⛔ 别为页签另造一份");
-            C(onMissions, onNav,
-              "②e 两颗**同源同数**（`MissionsBadge` 在 `RewardsBadge` 的 filter `parentId=\"\"` 下照样成立）");
+               "②d **同一批**通知算中导航「Rewards」那颗（= " + onNav + "）—— 原版一个 `RewardsBadge` 定义收全部「可领奖励」");
+            // ②e 订正（B106_W50 2026-10-31，判据 = `报告/B106_W37.md` §⑥·2）：REWARDS 导航**聚合三类** ——
+            //   `CampaignBadge` / `ForgeBadge` 自 2026-10-31 起 `: RewardsBadge`（原版 record 继承链：`CampaignBadge.cs:8` /
+            //   `ForgeBadge.cs:8`），而 `RewardsBadge.Validate` 的「运行时类型不同 ⇒ 只比 parentId」那一支
+            //   让战役 / 锻造也数进导航。定义本体见 `Shell/BadgeNotifications.cs` 的 `DefinitionsFor("Rewards")`。
+            //   ⛔ 别再按「同源同数（nav == Missions）」断 —— 那是旧「兄弟类」时代的口径，现在必然不等。
+            int onCampaign = UiBadgeNotificationManager.GetCount(new List<BadgeNotificationDefinition> { new BadgeNotificationDefinition(typeof(CampaignBadge), false) });
+            int onForge = UiBadgeNotificationManager.GetCount(new List<BadgeNotificationDefinition> { new BadgeNotificationDefinition(typeof(ForgeBadge), false) });
+            C(onNav, onMissions + onCampaign + onForge,
+              "②e 导航 REWARDS = 任务 + 战役 + 锻造（" + onMissions + " + " + onCampaign + " + " + onForge + "）"
+            + "。🧨 把 `CampaignBadge`/`ForgeBadge` 的基类改回 `: BadgeNotification` ⇒ 后两项掉 0 ⇒ 红");
 
             // ②f 灭自证：换成「另一类」定义 ⇒ 0（证明它不是「什么定义都算」）
             // 🔴 R7 订正（2026-10-29 FX5 · 判据 `B94_DG2_battle_menu.md` §二·#12）：原来拿 `CampaignBadge` 当「另一类」，

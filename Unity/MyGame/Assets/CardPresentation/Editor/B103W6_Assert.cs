@@ -39,6 +39,7 @@
 //      ⛔ 不用 `Destroy`）。
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using CardPresentation;
 using UnityEngine;
 
@@ -66,6 +67,8 @@ public static class B103W6_Assert
         catch (Exception e) { Tr(false, "B「两个调用点」这一组抛异常：" + e.GetType().Name + "：" + e.Message); }
         try { CaseCSettledBranch(); }
         catch (Exception e) { Tr(false, "C「`SceneInitializer.IsSettled` 的已销毁分支」这一组抛异常：" + e.GetType().Name + "：" + e.Message); }
+        try { CaseDCoroutineWaitsForPending(); }
+        catch (Exception e) { Tr(false, "D「`InitializeBehaviours` 协程逐帧等 pending」这一组抛异常：" + e.GetType().Name + "：" + e.Message); }
         Debug.Log(_sink.P + "B103W6 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
 
@@ -222,5 +225,98 @@ public static class B103W6_Assert
         var tb = go.AddComponent<TabButtons>();
         tb.Initialize(win);
         return tb;
+    }
+
+    // ============================================================ D · `InitializeBehaviours` 协程真的「逐帧等 pending」
+    //
+    //  判据（施工单 `FP-INFRA-07`）：原版 `SceneInitializer` 启动协程
+    //    `while (!AllSettled(group)) yield return null;` ⇒ 组内件变 settled 后协程才往下走、后续初始化才执行。
+    //  我们 `Shell/SceneInitializer.cs:280` 就是这一句；`B103W6_Assert` 原来（§C）只测**纯谓词**
+    //    `IsSettledForTest` / `AllSettledForTest`（那是 `while` 判的东西本身），**没有驱动协程** —— 本组补上。
+    //
+    //  🔴 **编辑 / 批处理没有帧循环**（`yield return null` 永远不会被 Unity 推进）⇒ **我们自己当泵**：
+    //    用反射取到那条协程的枚举器，**逐帧 `MoveNext()`**（= Unity 每帧推进一次的等价物）。
+    //    ⚠️ 这驱动的是**真实的 `InitializeBehaviours()` 状态机**（不是重写一份循环），所以 `while` 若被删 /
+    //       改成 `if (...) yield break` / 不 yield，读数会立刻变（见 D1/D3 的 🧨）。
+    //
+    //  ⚠️ 反射按**私有名** `_initializables` / `InitializeBehaviours` 取 —— 改名 ⇒ D0-前提②/④ 红（那是**该**红的：
+    //     这条测试的前提就是「那条协程还在、它读的是那张表」）。⛔ 不去调 `FetchAllInitializables()`：
+    //     那会把当前场景里**所有** MonoBehaviour 收进来，别的件的状态会把这条等待拖长。
+    static void CaseDCoroutineWaitsForPending()
+    {
+        Debug.Log(_sink.P + "--- D：`InitializeBehaviours()` 协程真的逐帧等 pending（`while (!AllSettled) yield return null`）---");
+
+        var go = new GameObject("B103W6 coroutine probe", typeof(RectTransform));
+        var probeGo = new GameObject("B103W6 pending probe", typeof(RectTransform));
+        var si = go.AddComponent<SceneInitializer>();
+        var probe = probeGo.AddComponent<PendingProbe>();
+        try
+        {
+            Tr(si != null && probe != null, "D0-前提①：探针 `SceneInitializer` 与只实现 `IBaseInitializable` 的 pending 件都建出来了");
+            if (si == null || probe == null) return;
+
+            probe.Priority = InitializationPriority.Data;         // 第 1 组：第一次 `MoveNext` 就会撞上那条 `while`
+            probe.Status = InitializationStatus.Pending;
+
+            var fld = typeof(SceneInitializer).GetField("_initializables", BindingFlags.Instance | BindingFlags.NonPublic);
+            Tr(fld != null, "D0-前提②：`SceneInitializer._initializables` 字段还在（反射注入的前提；改名 ⇒ 本条红）");
+            if (fld == null) return;
+            var list = fld.GetValue(si) as List<MonoBehaviour>;
+            Tr(list != null, "D0-前提③：`_initializables` 是 `List<MonoBehaviour>`");
+            if (list == null) return;
+            list.Clear();
+            list.Add(probe);
+
+            int completed = 0;
+            si.OnComplete += () => completed++;
+
+            var mi = typeof(SceneInitializer).GetMethod("InitializeBehaviours", BindingFlags.Instance | BindingFlags.NonPublic);
+            Tr(mi != null, "D0-前提④：私有协程 `InitializeBehaviours()` 还在（反射取枚举器的前提；改名 ⇒ 本条红）");
+            if (mi == null) return;
+            var en = mi.Invoke(si, null) as System.Collections.IEnumerator;
+            Tr(en != null, "D0-前提⑤：拿得到那条协程的枚举器");
+            if (en == null) return;
+
+            // ---- 第 1 帧：同步/异步批都跑完（探针两批都不进）⇒ 撞上 `while (!AllSettled(group)) yield return null`
+            bool moved1 = en.MoveNext();
+            Tr(moved1, "D1 ★ 第 1 帧 `MoveNext()` = true ⇒ 协程停在 `while (!AllSettled(group)) yield return null;`"
+                     + "｜🧨 把那条 `while` 删掉（或改成不 yield）⇒ 枚举器一次跑到尾 ⇒ 本条红");
+            C(si.Status, InitializationStatus.Initializing,
+              "D2 ★ 停住那一刻整机 `Status == Initializing`（⛔ 不是 `Initialized`）");
+            C(probe.Status, InitializationStatus.Pending, "D2b …pending 件仍是 `Pending`（所以 `AllSettled` 为假）");
+            C(completed, 0, "D2c …完成回调一次都没跑（`TriggerCompletionCallbacks` 不能提前）");
+
+            // ---- 第 2 帧：件还是 pending ⇒ 继续 yield（协程不会自己往下走）
+            bool moved2 = en.MoveNext();
+            Tr(moved2, "D3 ★ 第 2 帧 `MoveNext()` 仍是 true（组里那件没 settled ⇒ 继续 `yield return null`）");
+            C(si.Status, InitializationStatus.Initializing, "D3b …整机还是 `Initializing`");
+            C(completed, 0, "D3c …完成回调仍然 0 次");
+
+            // ---- 把 pending 件置成 settled
+            probe.Status = InitializationStatus.Initialized;
+            Tr(SceneInitializer.AllSettledForTest(new List<IBaseInitializable> { probe }),
+               "D4（前提）pending 件变 `Initialized` 之后 `AllSettled` = true（`while` 下一帧该退出）");
+
+            // ---- 第 3 帧：`while` 退出 ⇒ 后续组跑完 ⇒ `_status = Initialized` + 完成回调
+            bool moved3 = en.MoveNext();
+            Tr(!moved3, "D5 ★ 第 3 帧 `MoveNext()` = false ⇒ **协程走完**（`while` 退出、后续初始化执行）");
+            C(si.Status, InitializationStatus.Initialized, "D6 ★ 协程跑完 ⇒ 整机 `Status == Initialized`");
+            C(completed, 1, "D7 ★ 「后续初始化」真的执行了：完成回调被触发 **1** 次"
+                          + "｜🧨 删掉 `TriggerCompletionCallbacks()` ⇒ 本条红");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(probeGo);
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    /// <summary>**只实现 `IBaseInitializable`** 的探针：初始化机既不会同步跑它（不是 `IInitializable`）、
+    /// 也不会起它的协程（不是 `IInitializableAsync`）⇒ 它会一直 `Pending`，直到测试自己把它置成 `Initialized`。
+    /// 这正是「组内 pending 件变 settled 后 `while` 退出」那一格要的东西。</summary>
+    sealed class PendingProbe : MonoBehaviour, IBaseInitializable
+    {
+        public InitializationPriority Priority { get; set; }
+        public InitializationStatus Status { get; set; }
     }
 }

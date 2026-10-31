@@ -1201,8 +1201,9 @@ namespace CardPresentation
             center = Vector2.zero; half = Vector2.zero;
             q = HitQuad(b);
             if (q == null) return false;
-            var p = q.transform.position;
-            float k = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+            // 🔴 **B106_W8（2026-10-31）**：算式**搬进类尾的 `QuadBoxPx`**（本类唯一一份）—— 本函数与「并集」那条路
+            //   （`UnionOtherQuads`）共用它，⛔ 别在这里再写一份。原来内联在这里的就是下面这几样：
+            //   中心 `ToDesignPixel(裸世界坐标)` · 半宽 `WorldW × |lossyScale.x| × PxPerWorldX ÷ 2` · 半高 `… × k ÷ 2`。
             // 🔴 **2026-10-18（A990②）**：中心那一项**必须与 `Update` 里那枚指针同一帧**
             //    （那边已改走 `MenuDraw.PixelOfDesign`）⇒ 这里也走它。
             //    ⚠️ **传的是裸世界坐标**（⛔ 不是 `PosInDesignSpace`）：这一路的语义是
@@ -1210,27 +1211,26 @@ namespace CardPresentation
             //    一起放大（A167 要的就是这个），喂除过缩放的那个版本反而会把它除回去。
             //    改前是 `LayoutSpace.PxX(p.x)`（x 写死 108）—— 与指针那一帧在**非 16:9** 下差
             //    `r = VisibleWidth / DesignWidth` 倍（4:3 ⇒ 0.75）⇒ 中心与指针不同帧。
-            center = LayoutSpace.ToDesignPixel(p);
+            if (!QuadBoxPx(q, out center, out half)) return false;
             // 🔴 A167：尺寸项乘**父链缩放**（`lossyScale` 一路含自己那一级 ⇒ 连「靠 `localScale` 定宽」
             //    那种件也对：`Battle/SkillPanel.cs` 写的 `localScale = 目标宽 / WorldW` 照样还原成
             //    「世界宽 × K」）。`M == 1` 时逐位不变（开关出厂关 ⇒ 零回归）。
             //    **改坏法**：去掉这两个因子 ⇒ 在「开关开 + 窗根 ×1.2」下命中区比画出来的小一圈
             //    ⇒ `Editor/SettingsScene.cs` 的 A167 那两条（远边上的点：修好后点得中、改坏后点不中）立刻红。
             // 🔴 **2026-10-18（A990②）**：**x 的斜率换成 `PxPerWorldX`**（y 仍然是 `k`）——
-            //    中心项既然活在设计帧，半宽就也必须换成「**画出来那块在设计帧里有多宽**」
             //    = `WorldW × |ls.x| × PxPerWorldX ÷ 2`（4:3 下 = 108 那条的 **1/0.75 = 1.333 倍**）。
             //    ⛔ **两半必须同时换**：只换中心不换半宽 ⇒ 非 16:9 下命中区被**缩小 `r` 倍**
             //    （4:3 只剩 75% —— 正是「看着在钮上、点不动」那个症状），而**16:9 下照样全绿**（差 8.7e-8）。
             //    ⚠️ 为什么 y 不换：可见高度恒 10 世界单位 = 1080px ⇒ y 的斜率**恒 = k**（`PxY` 那一句）。
-            //    等价说法：这一换把命中判据写回「**世界空间里 |Δ| ≤ WorldW/2**」——
-            //    那正是「命中区 = 画出来那一块」，对任何宽高比都成立。
-            var ls = q.transform.lossyScale;
-            half = new Vector2(q.WorldW * ScaleAbs(ls.x) * LayoutSpace.PxPerWorldX * 0.5f,
-                               q.WorldH * ScaleAbs(ls.y) * k * 0.5f);
             // 🆕 **2026-10-14（A1814）**：命中区**不是它画出来那块**时（原版 `m_RaycastPadding`），
             //    按比例把那两块换过来 —— 判据与「为什么用登记表」→ `RegisterHitRect` 上面那一整段。
             //    ⚠️ 没登记过 = 逐位不变（出厂态：只有顶栏那 4 颗钮登记）。
             ApplyHitRectOverride(b, ref center, ref half);
+            // 🔴 **B106_W8（2026-10-31）：命中区 = 可射线件的【并集】** —— 判据与缓存口径 → 类尾 `UnionOtherQuads`。
+            //    本钮子树里**其它**在激活链上的 `ImageQuad` 各算一块、与本块取外接盒（原来只认 `HitQuad` 那一颗
+            //    ⇒ 子树里另有一颗可射线件时那一块**点了没反应**，静默）。
+            //    ⚠️ 上面换过的那一块**不再二次叠 pad**（登记表是**逐钮**的，记的就是最终那一块）。
+            UnionOtherQuads(b, q, ref center, ref half);
             return true;
         }
 
@@ -1557,7 +1557,7 @@ namespace CardPresentation
 
         // ============================================================ 命中
 
-        /// <summary>命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前）；
+        /// <summary>命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前）；一颗钮的**命中区本身** = 子树里可射线件的**并集**（`HitBoxPx` → 类尾 `UnionOtherQuads`，2026-10-31 B106_W8）。
         /// **队列与 `z` 都相同 ⇒ 后兄弟优先**（判据见 <see cref="IsAboveInHierarchy"/>）。</summary>
         WindowButton HitButton(float px, float py)
         {
@@ -1782,5 +1782,141 @@ namespace CardPresentation
 
         /// <summary>这颗件是不是「归别家派发」—— 命中表在这一句上剪枝（唯一出口，⛔ 别在别处再判一次）。</summary>
         static bool YieldToHostSkip(WindowButton b) { return _yieldToHost.Count > 0 && b != null && _yieldToHost.Contains(b); }
+
+        // ============================================================ B106_W8（2026-10-31）：命中区 = 【可射线件的并集】
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用，插一行整段下游就漂）。
+        //
+        // 🔴 **判据（原版，不是我们挑的）**：一颗钮的「可点区域」= 它子树里**每一颗**可射线件各按
+        //   **自己的** `m_RaycastPadding` 修正之后**取并集** —— ⛔ 不是 `m_TargetGraphic` 那一处
+        //   （出处 = `Shell/MenuDraw.cs` 的 `Union(...)` doc；三条反例与四关判据 →
+        //     `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1）。
+        //   本类原来只认**一颗** quad（`HitQuad`：self-first）⇒ 钮子树里另有一颗可射线件时，
+        //   那一块**点了没反应**（静默；与 A26「裸节点点不动」同族）。
+        //
+        // ⚠️ **两处「我们与 uGUI 的差」必须说清（铁律 3/5·c）**：
+        //   ① 「哪一颗算可射线件」—— 原版判 `Graphic.m_RaycastTarget`，**我们这棵树没有这个位**
+        //      ⇒ 等价物取「子树里**所有在激活链上的** `ImageQuad`」。今天安全：原版 `m_RaycastTarget = 0`
+        //      的可见件我们**根本没有**单独建 quad（`MenuDraw.Rect/Text` 建的是「画的那一块」，
+        //      而「另建透明命中区」那一族 `MenuDraw.Hit` 本来就是**一颗 quad 一颗钮**）。
+        //      🔶 自己设计（非原版）：「可射线件」的判定 = 子树里所有在激活链上的 `ImageQuad` —— 原版判
+        //      `m_RaycastTarget`，我们这棵树没有这个位、且四类命中区的建法逐条核过（上面那一句）· 判据缺这一位而不是缺值
+        //      · 调度台 2026-10-31 裁定
+        //      改坏法：哪天给某颗「纯装饰」件建了 quad，它就会被并进命中区 —— ⚠️ **本批没有断言钉这一档**
+        //      （要一个「装饰件」夹具；如实记在 `报告/B106_W8.md` 的「没覆盖」里，⛔ 别以为 `B106_W8_Assert` 管到了）。
+        //   ② 「`m_RaycastPadding` 在哪」—— 我们的 pad 是**建的时候就烘进 quad 尺寸**了的
+        //      （`MenuDraw.Hit` → `PaddedClip`/`PaddedHitRect` → `MakeHitQuad`；`Shell/DeckInfoPopup.cs` 的
+        //      `WarlordPad` 同）。唯一**不烘尺寸**的一族 = `RegisterHitRect` 登记表（出厂态只有顶栏那 4 颗）
+        //      ⇒ 它仍在 `ApplyHitRectOverride` 里、只作用于**主件**（登记表逐钮记的就是「这颗钮最终那一块」）
+        //      ⇒ 并集**不再二次叠 pad**。⛔ 别在别处再写一份 `±pad` 算式（唯一一份 = `MenuDraw.PaddedRect`）。
+        //
+        // ⚠️ **性能**：命中检测在**指针移动路径**上（`Update → HoverAt`，指针一动就跑一次全表）
+        //   ⇒ 子树扫描**必须缓存**，⛔ 别每帧 `GetComponentsInChildren`。缓存失效判据 = `Transform.hierarchyCount`
+        //   （子树节点数；加/删子件会变，**O(子树) 的廉价判据**，远轻于一次 `GetComponentsInChildren` 的数组分配 + 组件查找）。
+        //   单个 quad 的**激活态**每次现判（`activeInHierarchy`，它变化不改节点数）。
+        //   ⚠️ 已知边界：**只加一个 `ImageQuad` 组件、不加节点**这种结构变化检测不到（今天没有这条路径）；
+        //   真出现时调 `InvalidateHitUnion(b)`。
+
+        struct QuadSet { public ImageQuad[] Quads; public int Sig; }
+        static readonly Dictionary<WindowButton, QuadSet> _quadSets = new Dictionary<WindowButton, QuadSet>();
+        static int _quadSetPruneAt = 256;
+
+        /// <summary>清掉已销毁的钮的缓存条目（口径同 `PruneScrolls`：宿主重建会销毁旧钮）。</summary>
+        static void PruneQuadSets()
+        {
+            var dead = new List<WindowButton>();
+            foreach (var kv in _quadSets) if (kv.Key == null) dead.Add(kv.Key);
+            for (int i = 0; i < dead.Count; i++) _quadSets.Remove(dead[i]);
+            _quadSetPruneAt = Mathf.Max(256, _quadSets.Count * 2);
+        }
+
+        /// <summary>本钮子树里的**全部** `ImageQuad`（含停用的；**缓存**，`GetComponentsInChildren` 只在结构变时跑）。</summary>
+        static ImageQuad[] QuadsOf(WindowButton b)
+        {
+            int sig = b.transform.hierarchyCount;
+            QuadSet set;
+            if (_quadSets.TryGetValue(b, out set) && set.Sig == sig) return set.Quads;
+            if (_quadSets.Count >= _quadSetPruneAt) PruneQuadSets();
+            var qs = b.GetComponentsInChildren<ImageQuad>(true);
+            _quadSets[b] = new QuadSet { Quads = qs, Sig = sig };
+            return qs;
+        }
+
+        /// <summary>自检 / 接线用：扔掉某一颗钮的并集缓存（结构变了但 `hierarchyCount` 没变的那种情况才需要；
+        /// 常规增删节点**不用调**）。`b == null` ⇒ 全清。</summary>
+        public static void InvalidateHitUnion(WindowButton b)
+        {
+            if (b == null) _quadSets.Clear();
+            else _quadSets.Remove(b);
+        }
+
+        /// <summary>自检用：现在缓存了几颗钮的并集（⛔ 不重算、只读数 —— 「只增不减」那颗雷靠它对账）。</summary>
+        public static int HitUnionCacheCountForTest { get { return _quadSets.Count; } }
+
+        /// <summary>一颗 quad 的命中区（画布 px、**y 向下**）—— 🔴 **全类唯一一份算式**（A167 父链缩放 × A990② 宽高比）。
+        /// 口径与原来内联在 `HitBoxPx` 里的那四句**逐字相同**（来历 → 那里那一整段注释，⛔ 别再抄一份）。
+        /// 返回 `false` = 这颗今天不进命中表（假 null / 不在激活链上）。</summary>
+        static bool QuadBoxPx(ImageQuad q, out Vector2 center, out Vector2 half)
+        {
+            center = Vector2.zero; half = Vector2.zero;
+            if (q == null || !q.gameObject.activeInHierarchy) return false;
+            var ls = q.transform.lossyScale;
+            float k = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
+            center = LayoutSpace.ToDesignPixel(q.transform.position);
+            half = new Vector2(q.WorldW * ScaleAbs(ls.x) * LayoutSpace.PxPerWorldX * 0.5f,
+                               q.WorldH * ScaleAbs(ls.y) * k * 0.5f);
+            return true;
+        }
+
+        /// <summary>把「本钮子树里**其它**可射线件」并进 `center/half`（外接盒；**只扩不缩**）。
+        /// `primary` = `HitQuad(b)`（已经算过、且**已按 `RegisterHitRect` 登记表**换过）—— 这里**跳过它**：
+        /// 否则登记表那次换算会被它自己**未换算**的那一块并回来（顶栏那 4 颗 pad 全是负的、今天看不出，
+        /// 但语义会错，且将来出现正 pad 就真错）。
+        /// 单 quad（出厂态绝大多数钮）⇒ **早退、逐位不变**（⛔ 别把它写成「先重算再写回」——多一次浮点往返）。</summary>
+        static void UnionOtherQuads(WindowButton b, ImageQuad primary, ref Vector2 center, ref Vector2 half)
+        {
+            var qs = QuadsOf(b);
+            if (qs == null || qs.Length <= 1) return;
+            float x1 = center.x - half.x, x2 = center.x + half.x;
+            float y1 = center.y - half.y, y2 = center.y + half.y;
+            bool grew = false;
+            for (int i = 0; i < qs.Length; i++)
+            {
+                var q = qs[i];
+                if (q == null || q == primary) continue;
+                Vector2 c, h;
+                if (!QuadBoxPx(q, out c, out h)) continue;      // 停用的件不进并集（原版：不在激活链上就不吃射线）
+                if (c.x - h.x < x1) { x1 = c.x - h.x; grew = true; }
+                if (c.x + h.x > x2) { x2 = c.x + h.x; grew = true; }
+                if (c.y - h.y < y1) { y1 = c.y - h.y; grew = true; }
+                if (c.y + h.y > y2) { y2 = c.y + h.y; grew = true; }
+            }
+            if (!grew) return;                                   // 别的件全落在本块里 ⇒ 逐位不变（不改写 center/half）
+            center = new Vector2((x1 + x2) * 0.5f, (y1 + y2) * 0.5f);
+            half = new Vector2((x2 - x1) * 0.5f, (y2 - y1) * 0.5f);
+        }
+
+        // ============================================================ B106_W79（2026-10-31）：这一点上【所有】候选命中区（只读口）
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用，插一行整段下游就漂）。
+        //
+        // 🔴 **为什么要有它**：`Editor/B103F4_Assert.cs` 的 `ClickByQuad` 只报「中心命中的那颗 ≠ 期望那颗」，
+        //   **不说是谁赢了** ⇒ 同一像素上叠着两颗 `InfoHit`（其中一颗属于陈旧的 `ShopTabPage`、宿主窗已销毁）时，
+        //   日志只剩「引用不等」四个字，查不下去（`shop.log:131964` 就是这种局面，见 `报告/B106_D5.md` §三）。
+        //
+        // ⚠️ **一跳转发、⛔ 不加工**（同 A964 那三个口 `AllButtonsForTest` / `HitBoxPxForTest` / … 的纪律）：
+        //   返回的就是 `HitButton` 挑赢家之前吃到的那张表（`CollectHits`）—— 已经过
+        //   `PointerReachable`（被压到背景的窗剪掉）与 `YieldToHostSkip`（归别家派发的件剪掉），
+        //   但**没有**过 `RaycastFilter.AllowsHit`（那是 `HitButton` 里逐颗判的教程期过滤）
+        //   ⇒ 这里列出来的 ⊇ 真正参与挑赢家的集合；⛔ 别拿它当「这个像素只点得到这些」。
+        // ⚠️ **顺序 = `AllButtons()` 的枚举序**（未排序、**不是**渲染序）⇒ ⛔ 别拿它当层级/队列判据，
+        //   要判「谁赢了」仍然只能问 `ButtonAt`。
+        /// <summary>自检用：画布像素点 `(px,py)` 上**所有**候选命中区（未排序；口径见上面那段）。
+        /// 与 `ButtonAt` 走**同一份**遍历，只是把整张表交出来而不是只交赢家。</summary>
+        public static List<WindowButton> ButtonsAtForTest(float px, float py)
+        {
+            var hits = CollectHits(px, py);
+            var list = new List<WindowButton>(hits.Count);
+            for (int i = 0; i < hits.Count; i++) list.Add(hits[i].btn);
+            return list;
+        }
     }
 }

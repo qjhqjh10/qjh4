@@ -589,12 +589,12 @@ namespace CardPresentation
             //    它是这棵树上**唯一一件**「完成才亮」形的节点；⚠️ 字段指向的 pid 没读出来 ⇒ 这一条是**按形状认的**，
             //    与下面 `TutorialComplete` **成对** —— `Initialize` 里是**同一句 `SetActive(uVar3)` 关掉两颗**
             //    （`TutorialArmySelectionButton__Initialize.c`：`0x30`(completeHighlight) 与 `0x48`(complete)）。
-            //    我们**没有教程进度存档**（见 `CompletedCount`）⇒ 两件都按「未完成」关着。
+            //    进度读口 = `CompletedCount` / `DemoData.IsTutorialCompleted`（2026-10-31 `B106_W2` 起有写入方 `BattleDriver.NotifyTutorialStageCompleted`）⇒ 两件按该关**是否已完成**开关。
             //    ⚠️ `Sliced` 九宫 (20,0,20,0)，`m_Color (0,1,0.078,1)`
             MenuDraw.Nine(node, Tex(ArtItemBar), InCell(cell, ItemBar), ItemBarBorder, 48f, 18f,
                           QArt3, ItemBarTint, true, "BackgroundComplete");
             var bar = node.Find("BackgroundComplete");
-            if (bar != null) bar.gameObject.SetActive(false);
+            if (bar != null) bar.gameObject.SetActive(DemoDataStore.Current.IsTutorialCompleted(i));   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #5）：完成高亮跟着完成位走（原版 `Initialize` 的 `SetActive(uVar3)`）
             // ⑤ `Icon` —— 阵营徽记（原版 `sprite = 0`，运行时喂 `ArmyUtilities.GetArmyIcon(army)`；
             //    我们喂同一批阵营徽记 —— 与 `LiveOpsEventWindow.BuildArmySelector` 同一条处置）
             MenuDraw.Rect(node, Tex(DeckRuntime.FactionIcon(row.Fac)), InCell(cell, ItemIcon), "Icon", QArt4, null, true);
@@ -611,8 +611,8 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(c, InCell(cell, ItemDone));
                 // 🔴 **`Complete!` 与上面 `BackgroundComplete` 成对**：原版 `Initialize` 里是**同一句
                 //    `SetActive(uVar3)`**（`uVar3` = 该关是否已完成）关掉两颗 —— 只关一件就是**偏离**。
-                //    我们没有教程进度 ⇒ 恒关（同上）。
-                c.gameObject.SetActive(false);
+                //    进度读口同上一颗（`DemoDataStore`）⇒ 两件**同一判据**开关。
+                c.gameObject.SetActive(DemoDataStore.Current.IsTutorialCompleted(i));
             }
 
             // 命中区：**不换图**（原版那颗 `EverguildButton` 是 `trans = 1` + `target = 0` ⇒ ColorTint 没有目标，
@@ -646,10 +646,10 @@ namespace CardPresentation
         }
 
         /// <summary>`Completed Text`：原版 = `Format(词条, 已完成, 总数)`（`TutorialModePopup__Open.c`）。
-        /// 🔴 **我们数不出「已完成」** —— 教程进度在原版走 **PlayFab 云脚本**
-        /// （`PlayerDataManager.RecordTutorialPassed` / `UploadTutorialV2SaveData`），原版已关服、
-        /// 本地也无存档字段 ⇒ 按 **0** 印（新号的真实值），并在文本里保持原版的格式 `Completed: n/6`。
-        /// ⛔ **不编一个假进度**。</summary>
+        /// 🔴 **2026-10-31（`B106_W2` · `AUD10` §二 #5）就地订正**：原来这里写着「我们数不出已完成、
+        /// 一律按 0 印」—— **已不成立**：完成位现在由 `BattleDriver.NotifyTutorialStageCompleted` 写进
+        /// `DemoDataStore`（原版写入口是云脚本 `CloudHandle.SetTutorialState` ⇒ P3，本地模拟），读口 = `CompletedCount()`。
+        /// 文本仍保持原版格式 `Completed: n/6`（`TutorialModePopup__Open.c` 的 `Format(词条, 已完成, 总数)`）。</summary>
         void BuildCompleted(Transform root)
         {
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 54px。
@@ -665,8 +665,8 @@ namespace CardPresentation
             if (compLb != null) compLb.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
         }
 
-        /// <summary>打过的关数。**恒 0** —— 判据见 `BuildCompleted` 上面那段（进度在服务端，本地无源）。</summary>
-        public static int CompletedCount() { return 0; }
+        /// <summary>打过的关数 = `DemoDataStore` 里**已完成**的关数（键口径 = 关号下标 `0..5`，读口 = `DemoData.IsTutorialCompleted`；写入方 = `BattleDriver.NotifyTutorialStageCompleted`）。🔶 自己设计（非原版）：原版进度写云脚本 `CloudHandle.SetTutorialState`，关服后本地模拟 · 调度台 2026-10-31 裁定</summary>
+        public static int CompletedCount() { int n = 0; for (int i = 0; i < Rows.Length; i++) if (DemoDataStore.Current.IsTutorialCompleted(i)) n++; return n; }
 
         /// <summary>`PlayTutorialButton` + `Button Text`。
         /// 原版链：`TutorialModePopup.BattleButtonOnClick` →
@@ -744,7 +744,7 @@ namespace CardPresentation
                     + " 已放进静态通道 ⇒ 切 `" + scene + ".unity`"
                     + "（原版 `TutorialModePopup.BattleButtonOnClick` → `MatchMakerManager.StartMatch(…, 4, …)`）");
             if (Application.isBatchMode) { Debug.Log("[Tutorial] （批处理：不切场景，只记账）"); return; }
-            UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+            ShellRuntime.LoadSceneWithFade(scene);   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #7）：原来是**裸 `SceneManager.LoadScene`**（场景不在 Build Settings ⇒ 抛异常后玩家停在窗里、无任何提示）⇒ 改走壳的统一入口（`ShellRuntime.cs:205-220`：try/catch + 兜底淡回），与练习 / 遭遇 / 排位同一条口径
         }
 
         // ============================================================ 文案

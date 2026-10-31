@@ -53,7 +53,7 @@ public static class B97W21Assert
     {
         SectionA_选牌选项();
         SectionB_按来源摘外来手牌效果();
-        SectionC_先查后排队的手牌半();
+        SectionC_先查后排队的手牌半(); SectionD_随机表内容();
         Debug.Log(_sink.P + "W21 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
 
@@ -209,5 +209,104 @@ public static class B97W21Assert
         Tr(!RuleCore.HasHandExtrinsicFrom(ctx, "W21Nobody"),
            "C2 ★（灭自证）**别的来源名查不到**（谓词不是恒真）"
          + "｜🧨 把 `HasHandExtrinsicFrom` 改成恒 true ⇒ 本行红");
+    }
+
+    // ============================================================ D 开局预烧的随机表（账 `FP-ENG-021`）
+    //
+    //  原版（`d:/2/tools/decomp_full/`，逐句现读）：
+    //   · `MatchData__GenerateRandomNumbers.c`：开局 `new int[100]`，逐格 `UnityEngine.Random.Range(0, 1000)`，
+    //     然后把游标 `+0x28` 清 0；
+    //   · `MatchData__GetRandomInt.c`：`idx = 游标 % Count` → `v = 数组[idx]` → 游标++ →
+    //     返回 `min + v % (max - min)`；`maxValueExcl <= minValueIncl + 1` 那一支**直接返回 min、不消耗**。
+    //  ⇒ **表里有内容**才是这条链。旧断言（本文件 A3）只数「游标前进几格」—— 表清零/写死照样绿，
+    //    这就是账 `FP-ENG-021` 记的缺口。本段补的判据全在**内容侧**。
+    //  ⚠️ 测试口：**不需要给 `BattleContextRandom` 加任何可见性** —— 构造器里就调 `InitRandomNumbers()`，
+    //    而 `RandomNumbers` / `RandomNumbersIndex` / `GetRandomInt` 本来就是公开的。
+    static void SectionD_随机表内容()
+    {
+        MenuCheck.Section(_sink, "D 账 FP-ENG-021：开局预烧的 100 格随机表（`MatchData.GenerateRandomNumbers` / `GetRandomInt`）");
+
+        const int seed = 20261031;
+        var ctx = new BattleContext(seed);          // 构造器 = 原版「开局」那一跳（已含 `InitRandomNumbers()`）
+        var table = ctx.RandomNumbers;
+
+        Tr(table != null, "D0 **前提断言**：`ctx.RandomNumbers` 非空（空 ⇒ D1..D15 没跑；本文件不静默跳过）");
+        if (table == null) return;
+
+        C(table.Length, 100, "D1 表长 = **100**（原版 `new int[100]`）"
+        + "｜🧨 改成 64 / 128 ⇒ 本行红");
+        C(ctx.RandomNumbersIndex, 0, "D2 烧表后游标 = **0**（原版把 `+0x28` 清 0）"
+        + "｜🧨 烧完不清游标 ⇒ 本行红");
+
+        // D3：100 格全在 [0,1000) —— 原版 `UnityEngine.Random.Range(0, 1000)`（**上界开区间**）
+        int outOfRange = 0, firstBad = -1;
+        for (int i = 0; i < table.Length; i++)
+            if (table[i] < 0 || table[i] >= 1000) { outOfRange++; if (firstBad < 0) firstBad = i; }
+        C(outOfRange, 0, "D3 ★ 100 格**全部落在 `[0,1000)`**（原版 `Random.Range(0,1000)`）"
+        + "｜🧨 改成 `Rng.Next(0,1001)` / 换成别的区间 ⇒ 本行红（现读越界 " + outOfRange + " 格，首格下标 " + firstBad + "）");
+
+        // D4：**内容真的是烧出来的**，不是清零/写死
+        //     ⚠️ 只查 D3 的区间**挡不住清零** —— 0 也在 `[0,1000)` 里 ⇒ 必须再查「有多少个不同的值」。
+        Tr(RngTableLooksBurned(table),
+           "D4 ★★ 表是**烧出来的**、不是清零/写死的：100 格里至少 **50 个不同**的值"
+         + "｜🧨 改坏法：把 `InitRandomNumbers` 里那句赋值删掉（表恒 0）⇒ 不同值只剩 1 个 ⇒ **本行红**");
+
+        // D5/D6：灭自证 —— 拿「清零 / 只剩一格」的副本跑**同一个谓词**，必须为假（证明 D4 不是恒真）
+        Tr(!RngTableLooksBurned(new int[table.Length]),
+           "D5 🧨 **灭自证**：全 0 的表跑同一个谓词 ⇒ **假**（否则 D4 的正数什么也证明不了）");
+        var mostlyZero = (int[])table.Clone();
+        for (int i = 0; i < mostlyZero.Length - 1; i++) mostlyZero[i] = 0;      // 只留最后 1 格
+        Tr(!RngTableLooksBurned(mostlyZero),
+           "D6 🧨 灭自证：**99 格清零、只留 1 格** ⇒ 谓词仍为假（不同值 = 2）"
+         + " —— 证明 D4 不是「只要不全 0 就算过」");
+
+        // D7/D8/D9：按下标取 —— `min = 0, max = 1000` 时 `min + v % 1000 == v` ⇒ 取到的**就是表里那一格**
+        C(ctx.GetRandomInt(0, 1000), table[0],
+          "D7 ★ 第 1 次 `GetRandomInt(0,1000)` == `RandomNumbers[0]`（原版 `idx = 游标 % Count` 取表，**不掷骰**）"
+        + "｜🧨 改成现场 `Rng.Next(...)` ⇒ 本行红");
+        C(ctx.RandomNumbersIndex, 1, "D8 取一次 ⇒ 游标 = 1（原版 `游标++`）");
+        C(ctx.GetRandomInt(0, 1000), table[1], "D9 ★ 第 2 次 == `RandomNumbers[1]`（**按下标走**，不是随机重取）");
+
+        // D10/D11：`maxValueExcl <= minValueIncl + 1` ⇒ 返回 min、游标不动
+        int idxBefore = ctx.RandomNumbersIndex;
+        C(ctx.GetRandomInt(37, 38), 37, "D10 空区间（`max <= min + 1`）⇒ 返回 `min`（原版那一支直接 return）");
+        C(ctx.RandomNumbersIndex, idxBefore, "D11 …且**游标不动**（不消耗随机数）"
+        + "｜🧨 把 `游标++` 挪到判空区间之前 ⇒ 本行红");
+
+        // D12/D13：`游标 % Count` 回绕
+        ctx.RandomNumbersIndex = 100;                        // 直接摆位（= 游标已走满一轮）
+        C(ctx.GetRandomInt(0, 1000), table[0],
+          "D12 ★ 游标 = 100 ⇒ `100 % 100 = 0` ⇒ 取回 `table[0]`（原版 `游标 % Count` 回绕）"
+        + "｜🧨 去掉 `% RandomNumbers.Length` ⇒ 越界/取错 ⇒ 本行红");
+        C(ctx.RandomNumbersIndex, 101, "D13 回绕后游标**继续前进**（101，⛔ 不回 0）");
+
+        // D14：同一颗种子 ⇒ 逐格相同（红线：同一颗种子跑两次必须同一局）
+        var ctx2 = new BattleContext(seed);
+        bool same = true;
+        for (int i = 0; i < table.Length; i++) if (ctx2.RandomNumbers[i] != table[i]) { same = false; break; }
+        Tr(same, "D14 ★ 同一颗种子 ⇒ **逐格相同**的表（可复现红线；原版数源是全局 `UnityEngine.Random`、不可复现 —— "
+               + "这条数源差异已在 `BattleContextRandom.cs` 里标 🔶 自己设计）");
+
+        // D15：不同种子 ⇒ 表不同（挡「写死一张常量表」）
+        var ctx3 = new BattleContext(seed + 1);
+        bool differs = false;
+        for (int i = 0; i < table.Length; i++) if (ctx3.RandomNumbers[i] != table[i]) { differs = true; break; }
+        Tr(differs, "D15 🧨 换一颗种子 ⇒ 表**不同**（挡「写死一张常量表」那种改坏法）");
+    }
+
+    /// <summary>「这张表像不像**烧出来的**」= 长度 100 ∧ 全在 `[0,1000)` ∧ 至少 50 个不同的值。
+    /// <para>三个条件缺一不可 —— 只查区间挡不住「清零」（0 也在区间里），
+    /// 这正是账 `FP-ENG-021` 记的缺口（旧断言只数游标前进几格，表是空的也绿）。
+    /// 判据 = `d:/2/tools/decomp_full/MatchData__GenerateRandomNumbers.c`。</para></summary>
+    static bool RngTableLooksBurned(int[] table)
+    {
+        if (table == null || table.Length != 100) return false;
+        var seen = new HashSet<int>();
+        for (int i = 0; i < table.Length; i++)
+        {
+            if (table[i] < 0 || table[i] >= 1000) return false;
+            seen.Add(table[i]);
+        }
+        return seen.Count >= 50;
     }
 }

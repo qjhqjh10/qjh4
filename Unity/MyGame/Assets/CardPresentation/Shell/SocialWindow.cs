@@ -242,13 +242,13 @@ namespace CardPresentation
         }
 
         /// <summary>两个键的红点。原版由 `UiBadgeNotificationManager` 事件驱动 ——
-        /// **我们没有任何通知源**（邀请/好友请求都在服务器）⇒ 恒 alpha 0（= 不显示），如实出声。
+        /// **通知源已补齐**（`AlliancesNotificationProvider` / `FriendsNotificationProvider`，内联在 `Shell/AllianceMemberTab.cs` 末尾；登记口 = `SocialBadgeProviders.EnsureRegistered()`，`MainMenuRuntime.Build()` 已接），数据源是**本地**的真状态（`SocialData.Invitations` / `ChallengeData.PendingPracticeMatches`）；两样今天都是空 ⇒ 计数 0 ⇒ alpha 0（= 不显示）。
         /// 🔴 判据**只此一份** = 每颗红点自己的 `UiBadgeNotification` 计重（`Recount()`）；别在页里再写一遍。
         /// ⛔ 本函数**不再**直写 quad 的材质色（2026-10-29 `B94_Z1` 活 2：旧写法在**有源的那天**会压灭真红点）。</summary>
         public void RefreshBadges()
         {
             // 🔴 2026-10-29（B94_T1 §4·2 / B94_Z1 活 2）：与 `Shell/RewardsWindow.RefreshBadges()` **同病同形** ——
-            //  旧写法无条件把两颗红点的材质色写成 alpha 0。今天两个 provider 都没源（计数恒 0 ⇒ 本来就该 0），
+            //  旧写法无条件把两颗红点的材质色写成 alpha 0。两个 provider 都已登记、但数据源在服务器（计数恒 0 ⇒ 本来就该 0），
             //  但一旦好友/联盟有了数据源，那一句会**压灭真红点**，而且组件补间一停就不再写 ⇒ 那个 0 永久留屏。
             //  ⇒ 现在只做「让两颗各按自己的计重重算一次」，⛔ 别在这里写任何颜色（唯一写手 = `UiBadgeNotification`）。
             for (int i = 0; i < _btnBadge.Length; i++)

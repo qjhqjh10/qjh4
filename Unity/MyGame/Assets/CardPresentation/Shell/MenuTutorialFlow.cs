@@ -54,7 +54,7 @@ namespace CardPresentation
         // 🔴 **形状照原版 `TutorialV2SaveData.StageSaveData { stageId, isCompleted }`**：
         //   每个 stage **按 stageId 记一个完成位**。原版把它上传到远端 profile；我们落 `PlayerPrefs`
         //   （= 本地等价物，见文件头）。键里用**原版 stageID 字符串**（`MenuTutorialStageDef.StageId`，逐字节实读）；
-        // 🔶 自己设计（非原版）：无本地 SO 的两个 stage 用 `#<类名>` 当存档键 · 原版 stageID 取不到 · TODO(谁定的)｜原注：本地没有 SO 的两个 stage 没有原版 stageID ⇒ 用 `#<类名>` 当键（**我们的键，不是原版值**）。
+        // 🔶 自己设计（非原版）：无本地 SO 的两个 stage 用 `#<类名>` 当存档键 · 原版 stageID 取不到 · 第五十六会话 2026-10-19 E01 收尾时实现定（出处 `资料/普查产出_1019/W_新手引导E01_1019b.md` §5「本地没有 SO 的两阶段没有原版 stageID ⇒ 用 `#<类名>` 当键」；⛔ 非用户拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：本地没有 SO 的两个 stage 没有原版 stageID ⇒ 用 `#<类名>` 当键（**我们的键，不是原版值**）。
         public const string PrefDonePrefix = "WfMenuTutorial.Done.";
         public const string PrefSkip = "WfMenuTutorial.Skipped";     // 1 = 玩家/调试口整链跳过（我们自己的标记）
         /// <summary>v1 的存档键（按「当前下标 + 位图」存）。**只用于 `ResetProgress` 清旧档**，⛔ 别再写。</summary>
@@ -96,12 +96,12 @@ namespace CardPresentation
         /// **`state == Start ⇒ WindowsManager.OpenChooseArmyDeck()`** 立刻把窗**重新开一遍**
         /// （= 真机 F17 的「点继续后窗被重建、回到选军页」，选择状态当然也没了）。
         /// 原版不存在这个竞态：`AddTag` 与 `CloseWindow` 是同一个回调里的先后两句。</para>
-        /// <para>⚠️ **只在运行时写**（`Application.isPlaying`）—— 编辑器/批处理自检不该动玩家的教程存档
-        /// （同 `Attach` 那条 `Application.isPlaying` 门槛的口径）。</para>
+        /// <para>🔶 自己设计（非原版）：`MarkStageDone` 在非播放态**直接返回 false、一个字节都不写**（`Application.isPlaying` 门槛）
+        /// · 为什么必须自定：原版 `TutorialManager` 是运行时类、**不存在「编辑器里调它」这一说**，而本工程的自检是**编辑器非播放**跑同一份代码 ⇒ 不设闸就会把自检写进玩家存档 · 同 `Attach` 那条门槛的口径 · 唯一例外 = 类尾 `MarkStageDoneForTest`（自检专用口）· 调度台 2026-10-31 裁定（由 `B106_W29` 提出补标）</para>
         /// <para>⚠️ 不改运行中状态机的下标：它自己下一拍 `CheckCompletion` 照样会 `Advance()`（`MarkCompleted` 幂等）。</para></summary>
         public static bool MarkStageDone(MenuTutorialStageId id)
         {
-            if (!Application.isPlaying)
+            if (!Application.isPlaying && !_allowNonPlayWrite)
             {
                 Debug.Log("[MenuTutorial] `MarkStageDone(" + id + ")`：编辑器/批处理里**不写**教程进度（自检不动玩家存档）");
                 return false;
@@ -1181,5 +1181,35 @@ namespace CardPresentation
                 default: return null;
             }
         }
+
+        // ============================================================ 2026-10-31（B106_W38）追加在类尾
+        // 🔶 自己设计（非原版）：`MarkStageDone` 的 `isPlaying` 闸**可以被自检口临时绕过**（`_allowNonPlayWrite`）
+        //   · 为什么必须自定：`FP-TUT-05` 要在编辑器批处理里验「完成位真的写进档」，而批处理 `Application.isPlaying == false`
+        //     ⇒ `B106_W29` 只能绕道反射 + `DemoDataStore.SetTutorial`（其报告 §2·3）；这里补一个**只许自检调**的显式口
+        //   · 谁定的：调度台 2026-10-31 裁定（`B106_W29` §4·2 提出）
+        //   · ⛔ 生产代码不许调 `MarkStageDoneForTest`（它会写玩家存档）；唯一设置点 = 那个方法的 `try/finally`
+        static bool _allowNonPlayWrite;
+
+#if UNITY_EDITOR   // 🔶 自己设计（非原版）：测试口**只在编辑器程序集里存在**（player 构建编不进去 ⇒ 不可能被生产误用）· 调度台 2026-10-31 裁定
+        /// <summary>自检专用口（⛔ 非原版件、⛔ 生产代码不许调）：**绕过 `isPlaying` 闸**，但**仍走真实的
+        /// <see cref="MarkStageDone"/> 逻辑**（同一条 `for` → `MarkCompleted(i)` → 同一把键 / 同一读口 / 同一条成功日志）。
+        /// <para>实现 = 置一次 <c>_allowNonPlayWrite</c>（`try/finally` 还原）⇒ `MarkStageDone` 只多一条 `&amp;&amp; !_allowNonPlayWrite`，
+        /// 方法体其余**逐句不变**（⛔ 不是复制一份循环逻辑 —— 两处写同一条规则迟早不一致）。</para>
+        /// <para>⚠️ 非播放态先打一条**标明「测试口」**的日志，再走 `MarkStageDone` ⇒ 产物里一眼分得清
+        /// 「这是自检写的」与「玩家真进度」。</para></summary>
+        public static bool MarkStageDoneForTest(MenuTutorialStageId id)
+        {
+            bool prev = _allowNonPlayWrite;
+            _allowNonPlayWrite = true;
+            try
+            {
+                if (!Application.isPlaying)
+                    Debug.Log("[MenuTutorial] ［测试口］`MarkStageDoneForTest(" + id + ")`：非播放态、**绕过 `isPlaying` 闸**，"
+                            + "仍走真实的 `MarkStageDone` 逻辑（会写存档 —— 只许自检调用）");
+                return MarkStageDone(id);
+            }
+            finally { _allowNonPlayWrite = prev; }
+        }
+#endif
     }
 }

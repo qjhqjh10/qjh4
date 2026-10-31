@@ -56,13 +56,15 @@ public static class B104_P3_Assert
         string root = NewTempDir();
         try
         {
-            CheckExpansionPass(root);
-            CheckCampaign(root);
-            CheckCardProgress(root);
-            CheckShop(root);
-            CheckGameModes(root);
-            CheckLocalPlayerData(root);
-            CheckWindowsManager();
+            // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前只有 `finally`、**没有段级 catch** ⇒ 一段抛异常会
+            //   冒到调用方 `ShellScene` 那条超长聚合行，同行的后续断言 + 合计行全不印。现在逐段 catch（记失败）。
+            try { CheckExpansionPass(root); } catch (Exception e) { SegFail("P3-1 ExpansionPassEvent", e); }
+            try { CheckCampaign(root); } catch (Exception e) { SegFail("P3-2 CampaignData", e); }
+            try { CheckCardProgress(root); } catch (Exception e) { SegFail("P3-3 CardProgress", e); }
+            try { CheckShop(root); } catch (Exception e) { SegFail("P3-4 ShopData", e); }
+            try { CheckGameModes(root); } catch (Exception e) { SegFail("P3-5 GameModesHandler", e); }
+            try { CheckLocalPlayerData(root); } catch (Exception e) { SegFail("P3-6 LocalPlayerData", e); }
+            try { CheckWindowsManager(); } catch (Exception e) { SegFail("P3-7 WindowsManager", e); }
         }
         finally { TryDeleteDir(root); }
         Debug.Log(_sink.P + "P3 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
@@ -355,5 +357,13 @@ public static class B104_P3_Assert
         }
         if (!ReferenceEquals(w, null))
             Tr(!w.TryOpen(null), "P3-7b ★ 已销毁的窗 ⇒ `TryOpen` 回 **false**（`OpenWindow` 据此撤销 `openWindows`/`currentWindow`，⛔ 不把窗记成「已打开」）");
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：用本文件既有的 `Tr` 口记一次失败，
+    /// 文案写明「其后的段没跑」—— 改前没有 catch，异常一路冒到 `ShellScene` 那条超长聚合行。
+    /// ⚠️ 各段自己的 `finally`（还原静态覆写 / 删临时目录）仍在 `Check*` 方法内，不受这里影响。</summary>
+    static void SegFail(string section, Exception e)
+    {
+        Tr(false, section + " 段异常（算红，⛔ 不是跳过；其后的段没跑）: " + e.GetType().Name + "：" + e.Message);
     }
 }

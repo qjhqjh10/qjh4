@@ -140,7 +140,7 @@ namespace CardPresentation
                 Debug.LogWarning("[WildcardTutorial] 起不来：root/bindings 为空（⛔ 不静默）");
                 return null;
             }
-            if (_instance != null) Destroy(_instance.gameObject);
+            if (_instance != null) { var old = _instance; _instance = null; if (Application.isPlaying) Destroy(old.gameObject); else DestroyImmediate(old.gameObject); }   // 🔴 2026-10-31（`B106_W52` · 判据 `报告/B106_W46.md` §⑤·2）：**编辑模式（自检批处理）下 `Destroy` 报「Destroy may not be called from edit mode!」且不生效** ⇒ 旧教程留在树上（连起两次会叠出两个 `WildcardTutorial` + 两套指针）。播放态照旧走 `Destroy`；编辑模式走 `DestroyImmediate`（**它是真删，不靠 `OnDestroy` 清 `_instance`** —— 编辑模式下 `OnDestroy` 未必被派 ⇒ 上面先显式置 null）。
             var go = new GameObject("WildcardTutorial");
             go.transform.SetParent(root, false);
             var w = go.AddComponent<WildcardTutorial>();
@@ -248,7 +248,7 @@ namespace CardPresentation
         void OnDestroy()
         {
             if (_instance == this) _instance = null;
-            if (_pointer != null) Destroy(_pointer.gameObject);
+            if (_pointer != null) { if (Application.isPlaying) Destroy(_pointer.gameObject); else DestroyImmediate(_pointer.gameObject); }   // 同上（`B106_W52`）：编辑模式下 `Destroy` 不生效 ⇒ 指针会留在全屏根上（自检会越跑越多）；`DestroyImmediate` 立刻真删。
         }
 
         // ============================================================ 自检

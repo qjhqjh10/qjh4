@@ -74,6 +74,7 @@ public static class DraftAssertD3
             win = DraftModeWindow.Create(wm, TestSeed);
             if (!Ok(win != null, "前提：`DraftModeWindow.Create(wm, seed)` 建出窗来")) return;
 
+            PayPageGroup(win);                    // 🆕 2026-10-31（B106_W26 · FP-DRAFT-04）：报名页三档
             WarlordPageGroup(win);
             PacksPanelGroup(win);
             PreviewGroup(win);
@@ -1112,6 +1113,54 @@ public static class DraftAssertD3
         if (GoToPacks(win) == null) return;
         if (win.OfferedPacks.Count == 0) { Ok(false, "⑤b 第一轮没包"); return; }
         win.PickPack(win.OfferedPacks[0].key);       // 3 张卡入手
+        // ---- ④-bis 🆕 2026-10-31（B106_W26 · FP-DRAFT-02）：9 行费用分布的**数值** ----
+        //   上面 ④ 只断了「9 行 + 三件在」，数值那半当时自述「此刻一张卡都没选 ⇒ 全 0，读字要有 TMP」。
+        //   ⇒ 拿到卡之后**重建右栏**再逐行读 `Cards in deck` 那颗 `Label`（读的是**控件上的串**，不是实现的局部变量）。
+        //   分桶判据 = 原版 `DeckEnergyCostDrawer.Initialize`（`decomp_full/DeckEnergyCostDrawer__Initialize.c`
+        //   反汇编现读：`uVar15 = card.cost(+0x78)`；`(int)cost < 行数−1` ⇒ `buckets[cost]++`，否则 `buckets[行数−1]++`
+        //   —— 9 行 ⇒ 8 及以上全并进最后一行）。
+        //   ⚠️ **`cost < 0` 那一档是【我们加的】**：原版那段是裸数组下标（负数会撞 `IndexOutOfRange` / 越界写内存），
+        //   我们的实现选了「跳过」。⇒ 本条的期望值**跟着我们这条已经落地的口径算**（两边同一条规则才对得上）；
+        //   它是不是原版语义另案（`Shell/DraftModeWindow.cs` 那一行建议补 `🔶 自己设计` 标记，不在本代理白名单）。
+        //   🔴 期望值由**卡表 `CardDef.Cost` 独立算**（`CardDatabase.FindById`），⛔ 不读实现里的 `buckets`（那是自证）。
+        //   🧨 灭自证：写死 0 / 按**卡种**去重 / 最后一行不并桶 / 无费用那档也计进去 ⇒ 下面逐行红。
+        {
+            win.SetDeckTab(0);                       // ⇒ `RefreshDeckPanel` → `BuildDeckInfoContent`（重建 9 行）
+            var costContent2 = win.DeckInfoHolder != null ? win.DeckInfoHolder.Find("Content") : null;
+            Eq(costContent2 != null ? costContent2.childCount : -1, 9,
+               "④-bis 有卡之后费用分布仍是 **9 行**（`DeckCostQuantityRowDrawer` 数组长度）");
+            var costPool = CardDatabase.Load();
+            var wantBuckets = new int[9];
+            int noCost = 0;
+            for (int i = 0; i < win.SelectedCards.Count; i++)
+            {
+                var d = CardDatabase.FindById(costPool, win.SelectedCards[i]);
+                if (d == null || d.Cost < 0) { noCost++; continue; }          // 无费用 / 查不到 ⇒ 不计入
+                wantBuckets[Mathf.Min(d.Cost, 8)]++;
+            }
+            int wantSum = 0;
+            for (int i = 0; i < 9; i++) wantSum += wantBuckets[i];
+            Ok(win.SelectedCards.Count > 0 && wantSum > 0,
+               "④-bis （前提）手里 " + win.SelectedCards.Count + " 张卡里有 **" + wantSum + " 张有费用** ⇒ 9 行不该全 0"
+             + "（无费用排除 " + noCost + " 张；⛔ 全 0 时这一节就退化成空验）");
+            if (costContent2 != null && costContent2.childCount == 9)
+            {
+                for (int i = 0; i < 9; i++)
+                {
+                    var row = costContent2.GetChild(i);
+                    var cntNode = row != null ? row.Find("Cards in deck") : null;
+                    var lb = cntNode != null ? cntNode.GetComponentInChildren<Label>() : null;
+                    string gotStr = lb != null ? lb.Text : null;
+                    int gotN = -1;
+                    bool parsed = gotStr != null && int.TryParse(gotStr, out gotN);
+                    Ok(parsed, "④-bis 第 " + i + " 行 `Cards in deck` 是**数字**（实测「" + (gotStr ?? "(无)") + "」）");
+                    Eq(parsed ? gotN : -1, wantBuckets[i],
+                       "④-bis 第 " + i + " 行的张数 = **" + wantBuckets[i] + "**（费用 "
+                     + (i == 8 ? "≥8 ⇒ 并进最后一行" : i.ToString()) + "）"
+                     + "🧨 写死全 0 / 按卡种去重 / 最后一行不并桶 / 无费用那档也计 ⇒ 本条红");
+                }
+            }
+        }
         win.SetDeckTab(1);
         int gotCards = win.SelectedCards.Count;
         // 🔴 V（2026-10-25 执行代理）：原版 `DeckListDrawer.stackCopies = 1`（`MB_1819977727535512261` 实读）⇒
@@ -1478,5 +1527,88 @@ public static class DraftAssertD3
     {
         if (t == null) return float.NaN;
         return Mathf.DeltaAngle(0f, t.eulerAngles.z);
+    }
+
+    // ==================================================================
+    //  (D) 🆕 2026-10-31（B106_W26 · FP-DRAFT-04）：报名页三档 Free / Premium / Premium 10x
+    // ------------------------------------------------------------------
+    //  原版链路（`out_cpp2il_dev_ilspy/DraftModeMenuPayStateDemo.cs` 三颗钮的 `onClick`）：
+    //    `FreeButtonOnClick` → `Draft.FreeEventEntrance` 成功 ⇒ `joinState = Joined` · `payState = free(1)`
+    //                         ⇒ `UpdateState()` ⇒ `SelectWarlord`；
+    //    `premiumButton` / `premiumTenButton` → **服务器受理后**扣费 ⇒ `payState = premium(2) / premium10(3)`。
+    //  🔶 **价格与「扣哪种货币」是我们挑的**（原版价格在服务端 `DraftEventData`，本地 0 命中）——
+    //     判据 → `TimedDraftLocal` 的类注释 · 调度台 2026-10-28 裁定。
+    //  🔴 正因为它是 🔶，断言**必须用注入值**（且注入一个 ≠ 出场值的数）：那样才验得出
+    //     「实现读的是这个可注入的配置」，而不是某个写死的常量。⛔ 别把 150 之类写进期望值。
+    // ==================================================================
+    static void PayPageGroup(DraftModeWindow win)
+    {
+        Debug.Log(P + "--- (D) 报名页三档（`ClickFree` / `ClickPremiumDraft(ten)`）---");
+        int prevCost = TimedDraftLocal.PremiumCost;
+        int prevTen = TimedDraftLocal.PremiumTenCost;
+        string cur = TimedDraftLocal.PremiumCurrency;
+        bool hadWalletKey = Wallet.Gold.ContainsKey(cur);
+        int prevWallet = Wallet.Of(cur);
+        try
+        {
+            const int InjCost = 137;                 // 注入价（⛔ ≠ 出场 150 —— 否则「写死 150」也过得去）
+            const int InjTen = 1370;
+            TimedDraftLocal.PremiumCost = InjCost;
+            TimedDraftLocal.PremiumTenCost = InjTen;
+
+            // ---- ① Free ⇒ `payState = free(1)` + 报名成功 + 进选将页 ----
+            win.BeginRun(TestSeed);
+            Eq(win.State, DraftModeState.PayScreen, "①（前提）开一局即落在 `PayScreen`（原版 `DraftModeMenuPayStateDemo`）");
+            Eq(DraftModeWindow.RunForTest != null ? DraftModeWindow.RunForTest.payState : -1, (int)DraftPayState.NotPaid,
+               "①（前提）进来时 `payState = notPaid(0)`（`BeginRun` 新建那一份 `DraftEventSaveGame`）");
+            win.ClickFree();
+            Eq(DraftModeWindow.RunForTest.payState, (int)DraftPayState.Free,
+               "★ 点 `Free` ⇒ `payState = **free(1)**`（原版 `PayStates.free = 1`）"
+             + "🧨 不写这一格 / 写成 premium ⇒ 本条红");
+            Eq(DraftModeWindow.RunForTest.joinState, (int)DraftJoinState.Joined,
+               "★ …而且 `joinState = joined(1)`（原版 `FreeEventEntrance` 成功 = 报名成功）");
+            Eq(win.State, DraftModeState.SelectWarlord,
+               "★ …而且 `UpdateState` 把页面推到**选将页**（原版 `FreeButtonOnClick` → `GoToState(SelectWarlord)`）");
+
+            // ---- ② Premium ⇒ 扣**注入价** + `payState = premium(2)` ----
+            win.BeginRun(TestSeed);
+            Wallet.Gold[cur] = 2000;                 // 夹具：余额充足（`Wallet` 的出厂基准同样是 2000）
+            int bal1 = Wallet.Of(cur);
+            Ok(win.ClickPremiumDraft(false), "★ 点 `Premium` ⇒ 报名请求成功");
+            Eq(DraftModeWindow.RunForTest.payState, (int)DraftPayState.Premium,
+               "★ …`payState = **premium(2)**`（原版 `PayStates.premium`）");
+            Eq(DraftModeWindow.RunForTest.joinState, (int)DraftJoinState.Joined, "★ …`joinState = joined(1)`");
+            Eq(Wallet.Of(cur), bal1 - InjCost,
+               "★ …余额扣 **" + InjCost + "**（注入价：" + bal1 + " → " + (bal1 - InjCost) + "）"
+             + "🧨 期望值用**注入值** ⇒ 写死一个自造价格 / 少扣多扣 / 不扣都红");
+
+            // ---- ③ 余额不足 ⇒ 出声 + 返回 false + **不改** `payState`、一分钱不扣 ----
+            win.BeginRun(TestSeed);
+            Wallet.Gold[cur] = InjCost - 1;          // 差 1 块
+            int bal2 = Wallet.Of(cur);
+            Eq(DraftModeWindow.RunForTest.payState, (int)DraftPayState.NotPaid, "③（夹具）余额不足那一支：`payState = notPaid`");
+            Ok(!win.ClickPremiumDraft(false), "★ 余额不足（" + bal2 + " < " + InjCost + "）⇒ 返回 **false**（红线：不许静默）");
+            Eq(DraftModeWindow.RunForTest.payState, (int)DraftPayState.NotPaid,
+               "★ …而且 `payState` **一字未动**（仍 notPaid）—— 失败不许当成报名成功"
+             + "🧨 先写 `payState` 再判余额 ⇒ 本条红");
+            Eq(Wallet.Of(cur), bal2, "★ …而且**一分钱没扣**（仍 " + bal2 + "）");
+
+            // ---- ④ Premium 10x ⇒ 同一支的 `ten` 档（扣另一个注入价，别与 1x 串档）----
+            win.BeginRun(TestSeed);
+            Wallet.Gold[cur] = 2000;
+            int bal3 = Wallet.Of(cur);
+            Ok(win.ClickPremiumDraft(true), "★ 点 `Premium 10x` ⇒ 报名请求成功");
+            Eq(DraftModeWindow.RunForTest.payState, (int)DraftPayState.PremiumTen,
+               "★ …`payState = **premiumTen(3)**`（⛔ 不是 premium(2)）");
+            Eq(Wallet.Of(cur), bal3 - InjTen,
+               "★ …余额扣 **" + InjTen + "**（10x 注入价：" + bal3 + " → " + (bal3 - InjTen) + "）"
+             + "🧨 两档读成同一个价 ⇒ 本条红");
+        }
+        finally
+        {
+            TimedDraftLocal.PremiumCost = prevCost;
+            TimedDraftLocal.PremiumTenCost = prevTen;
+            if (hadWalletKey) Wallet.Gold[cur] = prevWallet; else Wallet.Gold.Remove(cur);
+        }
     }
 }

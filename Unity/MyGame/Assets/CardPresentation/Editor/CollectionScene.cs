@@ -945,8 +945,23 @@ public static class CollectionScene
             //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
             bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
             WarpforgeVFX.WFSoundPlayer.Enabled = false;
-            try { RunCore(); }
-            finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+            // 🆕 2026-10-31（`B106_W16` · AUD11 类 4 · 判据 = `报告/B103_D1.md` 的 A3）：`RunCore` 一条
+            //   `MissingReferenceException` 就让整个宿主 rc=1 且**合计行不印**（外部只看到「没结果」）
+            //   ⇒ 这里兜住：记一次失败 + 出声；`finally` 里照旧印合计、并以 1 退出（⛔ 不让异常逃出 `Run`）。
+            bool runCompleted = false;
+            try { RunCore(); runCompleted = true; }
+            catch (System.Exception e) { _sink.Fail++; Debug.LogError("[CollectionScene] RunCore 抛异常（**其后的断言段没跑**）：" + e); }
+            finally
+            {
+                WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled;
+                if (!runCompleted)
+                {
+                    int total = _sink.Pass + _sink.Fail;
+                    Debug.LogError(P + $"=== 结束：{_sink.Pass}/{total} 通过，**{_sink.Fail} 条失败** ❌ ===");
+                    Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**");
+                    if (Application.isBatchMode) EditorApplication.Exit(1);
+                }
+            }
         }
 
         /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
@@ -7331,6 +7346,98 @@ public static class CollectionScene
                               $"SDF 的渲染队列**低于**卡背（{CollectionWindow.QPageSdf} < {CollectionWindow.QPageRow}）"
                             + "—— 同队列排不出稳定次序");
                 }
+
+                // ---- 🆕 2026-10-31（`B106_W52` · 账 `COLL-005-09`）：卡背格**悬停** ⇒ SDF 材质的 `_Outline.a` 0↔1 ----
+                //  判据 = 原版 `CollectionCosmetic__HoverHighlight.c`（现读）：取那颗材质的颜色 → **只把 alpha 换成
+                //  `(float)param_2`**（悬停 1 / 离开 0）→ `UIImageMaterialColorChanger.DoColorChange(…, 0.2f)`。
+                //  我们的接线 = `Shell/CollectionWindow.cs:5226 AttachOutlineHover`（`onEnter/onExit` 各建一条补间）
+                //  ＋ `:2005` 把**每格自己那颗** SDF 材质交进去。**此前全仓 0 断言**（`判据/B106_AUD06_三桶逐件.md` W1 行）。
+                //  🧨 改坏法：删掉 `:2005` 那句 `AttachOutlineHover(cbHit, hoverMat)` ⇒ 下面「onEnter/onExit 非空」那条红；
+                //           把 `TweenOutline` 的落点从 `_Outline` 换成别的属性 ⇒ `_Outline.a` 不动 ⇒ 红；
+                //           把逐格的 `new Material(sdfBase)` 换成共享基材质 ⇒ 末条「另一格没被点亮」红。
+                {
+                    var sSdf = FindChild(k0, "Cardback Shadow SDF");
+                    var qSdf = sSdf != null ? sSdf.GetComponentInChildren<ImageQuad>() : null;
+                    var sMat = qSdf != null ? qSdf.GetComponent<MeshRenderer>().sharedMaterial : null;
+                    var sHit = FindChild(k0, "Hit");
+                    var sHitBtn = sHit != null ? sHit.GetComponent<WindowButton>() : null;
+                    // 前提两条先断死（⛔ 不许 `if (mat != null) Check(...)` 那种静默跳过）
+                    CheckTrue(sMat != null && sMat.HasProperty("_Outline"),
+                              "（前提）卡背格的 SDF 材质上有 `_Outline`（`AttachOutlineHover` 第一句就是这道闸："
+                            + "`sdf == null || !sdf.HasProperty(\"_Outline\")` ⇒ 早退、什么都不接）");
+                    CheckTrue(sHitBtn != null,
+                              "（前提）卡背格有 `Hit` 命中区且挂着 `WindowButton`（悬停是挂在它身上的）");
+                    if (sMat != null && sMat.HasProperty("_Outline") && sHitBtn != null)
+                    {
+                        // 原版 `Card Backs SDF` 的 `_Outline = (0.0990, 0.5973, 0.8396, **0**)`
+                        //   （`Core/CardView.cs:6559` 逐值抄自 `Material_6996605638394099752.json`）⇒ 平时 a = 0。
+                        var sBase = sMat.GetColor("_Outline");
+                        CheckNear(sBase.a, 0f, 1e-3f,
+                                  "（前提）平时 `_Outline.a` = **0**（原版 `Card Backs SDF`）—— 否则「悬停到 1」量不出差别");
+                        CheckTrue(sHitBtn.onEnter != null && sHitBtn.onExit != null,
+                                  "★ 卡背格接了悬停/离开（原版 `CollectionCosmetic.HoverHighlight(bool)`；"
+                                + "接线 = `Shell/CollectionWindow.cs:2005` 那句 `AttachOutlineHover(cbHit, hoverMat)`）"
+                                + " —— 改坏法：把那一句删掉 ⇒ 本条红");
+                        if (sHitBtn.onEnter != null && sHitBtn.onExit != null)
+                        {
+                            // 批处理没有帧循环 ⇒ 建补间**之前**把 `CardTween.Mode` 切 `Manual`，让生产侧
+                            //   `TweenOutline` 的 `SetUpdate(CardTween.Mode)` 直接承接（口径同 `B99A3`：Mode 必须在建之前切）。
+                            var prevHoverMode = CardTween.Mode; CardTween.Mode = DG.Tweening.UpdateType.Manual; sHitBtn.onEnter();
+                            var twInList = DG.Tweening.DOTween.TweensByTarget(sMat);
+                            var twIn = twInList != null && twInList.Count > 0 ? twInList[twInList.Count - 1] : null;
+                            CheckTrue(twIn != null,
+                                      "★ 悬停 ⇒ **给这颗 SDF 材质建了一条补间**（`TweenOutline` 的 `SetTarget(sdf)`）"
+                                    + " —— 改坏法：把 `SetTarget(tw, sdf)` 删掉 ⇒ 本条红");
+                            if (twIn != null)
+                            {
+                                CheckNear(DG.Tweening.TweenExtensions.Duration(twIn),
+                                          CardHighlight.OutlineAnimTime, 1e-3f,
+                                          $"★ 补间时长 = **{CardHighlight.OutlineAnimTime:F2} s**（原版 `DoColorChange(…, 0.2f)`；"
+                                        + $"实测 {DG.Tweening.TweenExtensions.Duration(twIn):F4} s）");
+                                CheckTrue(CollectionWindow.TweenUpdateTypeForTest(twIn) == DG.Tweening.UpdateType.Manual, "★ 档位直断：`TweenOutline` 建出的补间 `updateType` = **Manual**（= 建时的 `CardTween.Mode`）—— 改坏法：删掉生产侧 `SetUpdate(tw, CardTween.Mode)` ⇒ 退回 DOTween 默认 Normal ⇒ 本条红");
+                                CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+                                var sHi = sMat.GetColor("_Outline");
+                                CheckNear(sHi.a, 1f, 0.01f,
+                                          $"★ 悬停推完 ⇒ `_Outline.a` = **1**（原版 `HoverHighlight(true)` 写 1；实测 {sHi.a:F4}）");
+                                CheckNear(sHi.r, sBase.r, 0.004f,
+                                          $"…而且 **rgb 不变**（原版取 `GetColor` 后只换 alpha 那一位；实测 r={sHi.r:F4}）");
+                                CheckNear(sHi.g, sBase.g, 0.004f, $"…g={sHi.g:F4}（应仍 = 基色 {sBase.g:F4}）");
+                                CheckNear(sHi.b, sBase.b, 0.004f, $"…b={sHi.b:F4}（应仍 = 基色 {sBase.b:F4}）");
+                            }
+                            sHitBtn.onExit();
+                            var twOutList = DG.Tweening.DOTween.TweensByTarget(sMat); CardTween.Mode = prevHoverMode;   // 两条都建完 ⇒ 立刻还原档位，别污染后面的段
+                            var twOut = twOutList != null && twOutList.Count > 0
+                                      ? twOutList[twOutList.Count - 1] : null;
+                            CheckTrue(twOut != null,
+                                      "★ 离开 ⇒ **又给同一颗材质建了一条补间**（`TweenOutline` 先 `Kill(sdf)` 再建）");
+                            if (twOut != null)
+                            {
+                                CheckTrue(CollectionWindow.TweenUpdateTypeForTest(twOut) == DG.Tweening.UpdateType.Manual, "★ 档位直断（离开那条）：`updateType` = **Manual**（= 建时的 `CardTween.Mode`）—— 删掉生产侧 `SetUpdate(tw, CardTween.Mode)` ⇒ 红");
+                                CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+                                float sBack = sMat.GetColor("_Outline").a;
+                                CheckNear(sBack, sBase.a, 0.01f,
+                                          $"★ 离开推完 ⇒ `_Outline.a` 回到 **{sBase.a:F2}**（原版 `HoverHighlight(false)` 写 0；"
+                                        + $"实测 {sBack:F4}）");
+                            }
+                            // 🧨 灭自证（第二条）：悬停**只动这一格**。若把每格的 `new Material(sdfBase)` 换成共享
+                            //   基材质（`RebuildCosmoCells` 那句注释警告过的坑），第 2 格会跟着亮 ⇒ 本条红。
+                            var s1 = win.CosmoCells.Count > 1
+                                   ? FindChild(win.CosmoCells[1], "Cardback Shadow SDF") : null;
+                            var q1 = s1 != null ? s1.GetComponentInChildren<ImageQuad>() : null;
+                            var m1 = q1 != null ? q1.GetComponent<MeshRenderer>().sharedMaterial : null;
+                            CheckTrue(m1 != null && m1.HasProperty("_Outline"),
+                                      "（前提 · 灭自证）**另一格**的 SDF 材质也取得到（取不到 ⇒ 下面那条无从断起）");
+                            if (m1 != null && m1.HasProperty("_Outline"))
+                            {
+                                float aOther = m1.GetColor("_Outline").a;
+                                CheckTrue(Mathf.Abs(aOther) <= 0.01f,
+                                          "★ 灭自证：悬停第 1 格**没有点亮第 2 格**"
+                                        + $"（实测 a={aOther:F4}）"
+                                        + " —— 改坏法：逐格 `new Material(sdfBase)` 换成共享基材质 ⇒ 本条红");
+                            }
+                        }
+                    }
+                }
                 // ---- 对照（🆕 2026-10-08）：**整块落在视口里**的那一格 ⇒「渲染矩形 == 内接矩形」----
                 //  上面那一格（`k0`）只能证明「上溢被截住」，量不到内接矩形本身 ⇒ 判据要挪到一格**四边都不越界**的：
                 //  第 2 排第 2 列（`CosmoCells[CosmoCols + 1]`，`CosmoCellRect` 是**行优先**、视口外的格不建）：
@@ -9310,6 +9417,116 @@ public static class CollectionScene
                                 CheckTrue(cd.CraftConfirmPopup == null, "（收尾）没有留下开着的确认窗");
                             }
                         }
+                        // ============================================================ ⑦ 🆕 2026-10-31（`B106_W26` · `FP-FORGE-06`）
+                        // 原版详情窗**造异画**那一支（判据全文 → `CardProgress.CraftAlternateArt` 的 doc）：
+                        //   `CraftingPanel.ArtStyleChanged`（`out_cpp2il_dev_ilspy/CraftingPanel.cs:558-620`）在
+                        //   「当前看的是**还没解锁的异画**」时置 `willCraftAlternateArt = true` ⇒ 点「创建副本」走
+                        //   `CardServices.CraftAlternateArt`（**按 (army,rarity) 精确找 1 张通配符**、`HasItem` 挡已拥有、
+                        //   发奖励、`Remove(wildcardItem, 1)`），**不是** `CraftCard`；而 `TryCrafting`（`:641`）的
+                        //   传奇确认闸**第一句**就是 `if (!willCraftAlternateArt)` ⇒ 异画那一支**跳过确认窗**。
+                        // 🔴 我们这一侧 `WillCraftAlternateArt` 是 `CardDetailPopup` 的**私有属性** ⇒ 断言走**行为**：
+                        //   点一颗**真的** `CraftHit`，看「异画入库 / 拥有数不动 / 通配符 −1 / 不出确认窗 / 标题换句」五件事。
+                        //   🧨 灭自证：把 `WillCraftAlternateArt` 改成恒假 ⇒ 那就走 `DoCraft`（owned+1、异画**不**入库，
+                        //   而且传奇且 owned==1 时**弹确认窗**）⇒ 下面五条一起红。
+                        {
+                            Section("FP-FORGE-06：造异画（`WillCraftAlternateArt` ⇒ `CardProgress.CraftAlternateArt`）");
+                            // 夹具选卡：异画表 7 张（`CollectionWindow.AltArtCards`）里优先挑**一张传奇**的
+                            // —— 传奇才会触发那道确认闸，选它才能把「走错支」当场照出来。
+                            var poolF = CardDatabase.Load();
+                            CardDef altCard = null;
+                            for (int ai = 0; ai < CollectionWindow.AltArtCards.Length; ai++)
+                            {
+                                var cand = CardDatabase.FindById(poolF, CollectionWindow.AltArtCards[ai].CardId);
+                                if (cand == null || !CardDetailPopup.HasAltArtStyle(cand.Id)) continue;
+                                if (altCard == null || (altCard.Rarity != "legendary" && cand.Rarity == "legendary"))
+                                    altCard = cand;
+                            }
+                            CheckTrue(altCard != null,
+                                      "（前提）异画表里至少有一张**在卡库里 + `HasAltArtStyle`** 的卡"
+                                    + " —— 没有 ⇒ 下面整组无对象（⛔ 不静默跳过）");
+                            if (altCard != null)
+                            {
+                                string altId = altCard.Id, altRarity = altCard.Rarity;
+                                // ---- 夹具 ①：异画**未拥有**。本项目按「全解锁」播种（`Inventories.SeedAltArtsAllUnlocked`，
+                                //      7 条各 +1）⇒ 生产上这一支**永远走不到**（`CraftAlternateArt` 会走 `onError(0x32)`）。
+                                //      这里把目标那张从背包里摘掉、其余原样留着，跑完逐条放回。
+                                var altSnap = new List<AltArtUnlock>();
+                                foreach (var infoA in Inventories.AltArts.GetItems())
+                                    if (infoA != null && infoA.Item != null && infoA.Amount > 0) altSnap.Add(infoA.Item);
+                                bool altUnlocked0 = CardProgress.IsAltArtUnlocked(altId);
+                                Inventories.AltArts.ClearForTest();
+                                for (int ai = 0; ai < altSnap.Count; ai++)
+                                    if (altSnap[ai].CardId != altId) Inventories.AltArts.Add(altSnap[ai], 1);
+                                CheckTrue(!CardProgress.IsAltArtUnlocked(altId),
+                                          "（夹具）「" + altId + "」的异画**不在**背包里（= 原版 `!HasItem(alternateArt)` 那一支）"
+                                        + " —— 其余几条原样留着，收尾逐条放回");
+                                // ---- 夹具 ②：原卡已拥有（传奇 owned==1 才会弹那道确认闸）+ 通配符 3 张 ----
+                                int altOwned0 = CardProgress.Owned(altId, altRarity);
+                                int altWc0 = CardProgress.Wildcards(altCard.Faction, altRarity);
+                                CardProgress.AddOwned(altId, altRarity, 1 - altOwned0);
+                                CardProgress.SetWildcardsForTest(CardProgress.WildKey(altCard.Faction, altRarity), 3);
+                                Check(CardProgress.Owned(altId, altRarity), 1, "（夹具）原卡拥有数摆成 **1**");
+                                // ---- ① 原画档 ⇒ 标题是「创建副本」那一句 ----
+                                cd.ShowCard(altCard);                 // ⇒ `AltStyleIndex` 复位 0（原画档）
+                                Check(cd.AltStyleIndex, 0, "（夹具）`ShowCard` 之后回到**原画档**（`AltStyleIndex == 0`）");
+                                string ttlOrigin = cd.TitleOf("Crafting");
+                                cd.ChangeAltStyle(1);                 // ⇒ 第 1 档异画（原版 `SwapStyle` 的 `index + 1`）
+                                Check(cd.AltStyleIndex, 1, "（夹具）切到第 1 档异画");
+                                // ---- ② `WillCraftAlternateArt` 真 ⇒ 标题换成造异画那一句 ----
+                                //   期望值走**官方本地化键**（两个键名本身就是原版 `ArtStyleChanged` 里那两个）：
+                                //   原画档 `MenuDeck/Craft/CraftDescription` · 造异画档 `MenuDeck/Craft/CraftAlternateArt`。
+                                CheckText(ttlOrigin, Loc.T("MenuDeck/Craft/CraftDescription"),
+                                          "★ **原画档**：`Crafting Title` = `MenuDeck/Craft/CraftDescription`（原版默认那半）");
+                                CheckText(cd.TitleOf("Crafting"), Loc.T("MenuDeck/Craft/CraftAlternateArt"),
+                                          "★ **异画未拥有 + 原卡已拥有** ⇒ 标题换成 `MenuDeck/Craft/CraftAlternateArt`"
+                                        + "（原版 `ArtStyleChanged` 置 `willCraftAlternateArt` 那一支）"
+                                        + " —— 改坏法：`WillCraftAlternateArt` 改成恒假 ⇒ 本条红");
+                                CheckTrue(cd.TitleOf("Crafting") != ttlOrigin,
+                                          "★ …而且这两句**确实是两句话**（两个键兜底成同一个串时本条也会红）");
+                                // ---- ③ 点一下 ⇒ 异画入库 / 精确桶 −1 / owned 不动 / 不弹确认窗 ----
+                                var altHit = cd.CraftHit != null ? cd.CraftHit.GetComponent<WindowButton>() : null;
+                                CheckTrue(altHit != null, "（前提）`CraftHit` 在（`BuildCrafting` 按稀有度可合成 ⇒ 建）");
+                                CheckTrue(altHit != null && altHit.Interactable,
+                                          "（前提）`(army,rarity)` 精确桶里有 3 张通配符 ⇒ `Craft` 可点");
+                                var fxSnap = new HashSet<WarpforgeVFX.WarpforgeEffectPlayer>(
+                                                 WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers);
+                                if (altHit != null) altHit.Click();
+                                CheckTrue(CardProgress.IsAltArtUnlocked(altId),
+                                          "★ 点「创建副本」（异画档）⇒ **异画入库**（= 原版 `CraftAlternateArt` 的"
+                                        + "「发奖励」那一半：`RewardService.Collect` 的等价物 = `Inventories.AltArts.Add`）"
+                                        + " —— 改坏法：走成 `DoCraft`（买副本）⇒ 本条红");
+                                Check(CardProgress.Wildcards(altCard.Faction, altRarity), 2,
+                                      "★ …而且**精确桶扣掉 1 张**通配符（3 → 2）—— 原版那四步里是 `Remove(wildcardItem, 1)`，"
+                                    + "**没有同阵营兜底**（兜底只在 `CheckForCardCrafting`，真扣那一步没有）");
+                                Check(CardProgress.Owned(altId, altRarity), 1,
+                                      "★ …而且**拥有数不变**（仍 1）—— 造异画不是再买一张副本");
+                                CheckTrue(cd.CraftConfirmPopup == null,
+                                          "★ …而且**没有弹传奇确认窗**（传奇 + owned==1 仍不该弹 —— "
+                                        + "`TryCrafting` 的第一句就是 `if (!willCraftAlternateArt)`）"
+                                        + " —— 改坏法：删掉 `NeedsLegendaryCraftConfirm` 那句 "
+                                        + "`if (WillCraftAlternateArt) return false;` ⇒ 本条红");
+                                CheckText(cd.TitleOf("Crafting"), Loc.T("MenuDeck/Craft/CraftDescription"),
+                                          "★ 造完 ⇒ 异画已拥有 ⇒ 标题**回到** `CraftDescription`（不再是造异画那一句）");
+                                // 特效：原版 `DoVFX()` 在两支**之后**无条件跑 ⇒ 同样是 2 件
+                                var fxAddA = new List<WarpforgeVFX.WarpforgeEffectPlayer>();
+                                foreach (var fp in WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers)
+                                    if (fp != null && !fxSnap.Contains(fp)) fxAddA.Add(fp);
+                                Check(fxAddA.Count, 2, "★ …而且同一拍播了 **2 件** UI 特效（原版 `DoVFX` 两支共用）");
+                                foreach (var fp in fxAddA) if (fp != null) fp.Kill();
+                                // ---- 收尾：通配符 / 拥有数 / 异画背包 全部还原 ----
+                                CardProgress.SetWildcardsForTest(CardProgress.WildKey(altCard.Faction, altRarity), altWc0);
+                                CardProgress.AddOwned(altId, altRarity, altOwned0 - CardProgress.Owned(altId, altRarity));
+                                Inventories.AltArts.ClearForTest();
+                                for (int ai = 0; ai < altSnap.Count; ai++) Inventories.AltArts.Add(altSnap[ai], 1);
+                                Check(CardProgress.Wildcards(altCard.Faction, altRarity), altWc0,
+                                      "（收尾）通配符还原成 " + altWc0 + " 张");
+                                Check(CardProgress.Owned(altId, altRarity), altOwned0,
+                                      "（收尾）拥有数还原成 " + altOwned0);
+                                Check(CardProgress.IsAltArtUnlocked(altId), altUnlocked0,
+                                      "（收尾）异画背包还原成进块前的模样");
+                                cd.ShowCard(altCard);                 // 异画档复位（下一句会再换一次卡）
+                            }
+                        }
                         if (craftCard0 != null) cd.ShowCard(craftCard0);   // 换回进块前那张
                         // ---- ⑤ 自检绝不许污染玩家真存档（`_persist = false`）----
                         byte[] craftSave1 = System.IO.File.Exists(craftSavePath)
@@ -9846,6 +10063,170 @@ public static class CollectionScene
                         }
                     }
                 }
+            }
+
+            // ============================================================ 🆕 2026-10-31（`B106_W26` · `FP-TUT-02`）
+            // 万能牌指引（原版 `WildcardTutorialManager.StartWildcardTutorial` / `ToggleFilters` / `ToggleOwned`
+            // / `CardDisplayOpened` 四个口；我们这一侧的等价物 = `Shell/WildcardTutorial.cs`）。
+            //
+            // 生产接线（**现读**）：`Shell/CollectionWindow.cs:1214` 卡池建完 ⇒ `WildcardTutorial.TryStart(transform, …)`；
+            //   `Shell/CollectionWindow.cs:5366` `OpenCardDetail` 的**第一句** ⇒ `WildcardTutorial.NotifyCardDisplayOpened()`。
+            // 🔴 那两个口不能靠「建一次卡池」来驱动：第一处被 `Application.isPlaying` 闸着（自检全在 `-batchmode`
+            //   —— 那道闸是**我们加的**、原版没有，理由 = 批处理不许建指针 / 写 `PlayerPrefs`）。所以这一节分两半：
+            //   ① **组件真驱动**：自己给一份绑定、`TryStart` 起一次，再用 `SendMessage("Update")` 喂「两拍轮询」
+            //      （我们的 `Update` 是原版那两个 `onValueChanged` 的等价订阅）；
+            //   ② **生产入口那一条接线**：直接调 `CollectionWindow.OpenCardDetail(...)`（它的第一句就是收指针）。
+            //   🧨 灭自证：「没看过 ⇒ 真起」与「已看过 ⇒ 不重启」是**同一道闸的两面** —— 把闸写成恒真，
+            //      第二条红；写成恒假，第一条红。
+            {
+                Section("FP-TUT-02：万能牌指引（`WildcardTutorialManager` 的四个口）");
+                bool hadDone = WildcardTutorial.IsDone;              // 备份（收尾原样还回去）
+                WildcardTutorial.ResetProgressForTest();             // 先清成「没看过」
+                var tb = new WildcardTutTestBindings();
+                tb.filter = FindDeep(win.transform, WildcardTutorial.NodeFilterToggle);
+                // ⚠️ 我们的 `Owned Toggle` 节点叫 `Cell_owned`（生产绑定类 `WildcardTutorialBindings` 同一处口径）
+                tb.owned = FindDeep(win.transform, "Cell_owned");
+                tb.tab = win.transform;
+                tb.filterOn = false;
+                tb.ownedOn = true;
+                CheckTrue(tb.filter != null && tb.owned != null,
+                          "（前提）两个目标节点都在（`Filter Toggle` / `Cell_owned`）—— 不在 ⇒ 指针那几条会退化成"
+                        + "「下一帧再试」（`_pointerShown = false`），⛔ 不静默当成通过");
+                CheckTrue(!WildcardTutorial.IsDone, "（夹具）此刻**没看过**这个教程（= 原版 `state != End`）");
+
+                var tut = WildcardTutorial.TryStart(win.transform, tb);
+                CheckTrue(tut != null, "★ **有万能牌 + 没看过** ⇒ `TryStart` 真起了一次"
+                          + "（= 原版 `StartWildcardTutorial` 的 `state != End` 那一支）"
+                          + " —— 改坏法：把已看过那道闸写成恒真 ⇒ 本条红");
+                if (tut != null)
+                {
+                    Check(tut.State, WildcardTutorialStep.Filter, "★ 起来就是 **`Filter`**（原版 `currentState = Filter`）");
+                    CheckTrue(tut.PointerVisible,
+                              "★ 指针**显示出来了**（指 `Filter Toggle`）—— 目标节点在 ⇒ 不退化成「下一帧再试」");
+
+                    // ---- ① 开卡详情 ⇒ 收指针、状态不变（走**生产入口**，验的是那条接线）----
+                    CardDef anyCard = CollectionWindow.CardsState.Pool.Count > 0
+                                    ? CollectionWindow.CardsState.Pool[0] : null;
+                    var reopened = win.OpenCardDetail(anyCard);
+                    CheckTrue(!tut.PointerVisible,
+                              "★ 走**生产入口** `CollectionWindow.OpenCardDetail` ⇒ 指针**收起来了**"
+                            + "（原版 `WildcardTutorialManager.CardDisplayOpened`；接线 = `Shell/CollectionWindow.cs:5366`）"
+                            + " —— 改坏法：删掉 `OpenCardDetail` 第一句那个 `NotifyCardDisplayOpened()` ⇒ 本条红");
+                    Check(tut.State, WildcardTutorialStep.Filter,
+                          "★ …而且**状态不变**（`CardDisplayOpened` 只收指针、不推进状态机）");
+                    if (reopened != null)
+                    {
+                        if (reopened.CurrentState != WindowState.Closed) reopened.Close();
+                        CollectionWindow.DestroySafe(reopened.gameObject);   // 自检不许留第二扇详情窗
+                        CollectionWindow.LastCardDetail = null;
+                    }
+
+                    // ---- ② 轮询第一拍：开筛选 ⇒ `Owned` 档 + 第一条文案 ----
+                    tb.filterOn = true;
+                    tut.SendMessage("Update");                 // = 原版 `onValueChanged` 那一拍（我们这版是轮询）
+                    Check(tut.State, WildcardTutorialStep.Owned,
+                          "★ 开筛选 ⇒ 状态机进 **`Owned`**（原版 `ToggleFilters(on)` 的 `on && state == Filter` 守卫）");
+                    CheckTrue(tut.PointerVisible, "★ …指针改指 `Owned Toggle` 并重新显示");
+
+                    // ---- ③ 轮询第二拍：关掉 Owned ⇒ `End` + 记完成位 ----
+                    tb.ownedOn = false;
+                    tut.SendMessage("Update");
+                    Check(tut.State, WildcardTutorialStep.End,
+                          "★ 关掉 Owned ⇒ 进 **`End`**（原版 `ToggleOwned(owned)` 的 `!owned && state == Owned` 守卫）");
+                    Check(tb.setFilterCalls, 1,
+                          "★ …而且按原版把 `filterToggle.isOn` **关了一次**（`SetFilterOn(false)`，原版那行 `isOn = false`）");
+                    CheckTrue(WildcardTutorial.IsDone,
+                              "★ …而且**记了完成位**（原版 `state == End` 的持久化等价物；⛔ 不记 = 下次还会再弹一遍）");
+                    CheckTrue(WildcardTutorial.TryStart(win.transform, tb) == null,
+                              "★ **已看过 ⇒ 再 `TryStart` 不重启**（原版 `state == End` 那一支只收指针）"
+                            + " —— 改坏法：去掉那道闸 ⇒ 本条红");
+
+                    // ---- ④ 纯状态机自检（含乱序守卫）----
+                    string why = null;
+                    CheckTrue(WildcardTutorial.SelfCheck(out why),
+                              "★ 纯状态机自检（含两条乱序守卫 + 「只能经 `Owned(false)` 到 End」）"
+                            + (why != null ? " —— 失败原因：" + why : ""));
+
+                    // ---- 收尾：销毁教程对象与指针（⛔ 别把节点留在收藏窗上）----
+                    if (tut != null && tut.Pointer != null && tut.Pointer.gameObject != null)
+                        Object.DestroyImmediate(tut.Pointer.gameObject);
+                    if (tut != null && tut.gameObject != null) Object.DestroyImmediate(tut.gameObject);   // 同上：裸取 `.gameObject` 对已销毁组件会抛（这里当前不会发生，但守卫零成本 ⇒ 顺手按 `B106_W68` 口径补齐）
+
+                    // ---- ④·2 🆕 2026-10-31（`B106_W52`）：连起两次 ⇒ 旧的**必须真被删掉** ----
+                    //  判据 = `报告/B106_W46.md` §⑤·2：`ForceStart` 里原来那句 `Destroy(_instance.gameObject)`
+                    //  在**编辑模式（自检批处理）**下报「Destroy may not be called from edit mode!」**且不生效**
+                    //  ⇒ 旧教程（与它那套指针）留在全屏根上，连起两次就叠两套。
+                    //  修法 = `Application.isPlaying ? Destroy : DestroyImmediate`（→ `Shell/WildcardTutorial.cs:143`）。
+                    //  🧨 改坏法：把那一句改回 `Destroy(...)` ⇒ 旧那个留在树上 ⇒ 下面数出 2 ⇒ 本条红。
+                    {
+                        var ta = WildcardTutorial.ForceStart(win.transform, tb); CheckTrue(ta != null, "★ `ForceStart` 连起两次都拿得到实例（自检/调试口）·第 1 次");   // ⚠️ 必须在第 2 次**之前**求值 —— 第 2 次里 `ForceStart`（`Shell/WildcardTutorial.cs:143`）会 `DestroyImmediate(ta.gameObject)` 把 `ta` 真删掉 ⇒ 之后再判 `ta != null` 只剩假 null（必红，与下一条互斥）
+                        var tb2 = WildcardTutorial.ForceStart(win.transform, tb);   // 第 2 次 ⇒ 旧的 `ta` 在这里被真删（编辑模式 `DestroyImmediate`）
+                        CheckTrue(tb2 != null, "★ `ForceStart` 连起两次都拿得到实例（自检/调试口）·第 2 次");
+                        CheckTrue(ta == null,   // Unity 的 == 对「已销毁」返回 true（fake null）
+                                  "★ **旧的那个已经被真删掉**（编辑模式走 `DestroyImmediate`；"
+                                + "留在树上 ⇒ `ta` 仍不是 null）—— 改坏法：改回 `Destroy(...)` ⇒ 本条红");
+                        int tutNodes = 0;
+                        foreach (var tw in win.transform.GetComponentsInChildren<WildcardTutorial>(true))
+                            if (tw != null) tutNodes++;
+                        Check(tutNodes, 1,
+                              "★ **连起两次 ⇒ 树上只剩一个 `WildcardTutorial`**"
+                            + "（⛔ 不是「起得来就算过」：编辑模式 `Destroy` 不生效时这里会数出 2）");
+                        // 收尾：这两次起的实例 / 指针都清掉（`ta` 若因改坏法还活着，一并清）
+                        if (ta != null)
+                        {
+                            if (ta.Pointer != null && ta.Pointer.gameObject != null)
+                                Object.DestroyImmediate(ta.Pointer.gameObject);
+                            Object.DestroyImmediate(ta.gameObject);
+                        }
+                        if (tb2 != null)
+                        {
+                            if (tb2.Pointer != null && tb2.Pointer.gameObject != null)
+                                Object.DestroyImmediate(tb2.Pointer.gameObject);
+                            if (tb2.gameObject != null) Object.DestroyImmediate(tb2.gameObject);
+                        }
+                    }
+                }
+
+                // ---- ⑤ 生产入口那一跳：卡池建完 ⇒ 起教程（`B106_W46` · 自检口 = `CollectionWindow.RunPoolBuiltHookForTest`）----
+                //   判据：原版 `CardCollectionTab.OnOpen` 里那个 `StartWildcardTutorial(...)` 是**无条件**那一支；
+                //   我们这侧的接线 = `Shell/CollectionWindow.cs:1214`（`BuildCardsPage` 末尾 → `StartWildcardTutorialOnPoolBuilt`）。
+                //   那道 `Application.isPlaying` 闸是**我们加的**（原版无闸，见 `CollectionWindow.cs:1208` 的 🔶 注释）⇒
+                //   批处理里验这一跳只能走自检口 —— 它**只**绕过那道安全闸，`IsDone` 闸照走、绑定/root/try-catch 全是生产那一条。
+                CheckTrue(win.PageRoot(1) != null,
+                          "（前提）Cards 页已建（生产绑定里 `CardsTabNode` = 它；未建 ⇒ 指针会退化成「下一帧再试」）");
+                WildcardTutorial.ResetProgressForTest();     // 上面 ③ 已经把 PrefDone 写上了 ⇒ 不清必返回 null
+                CheckTrue(!WildcardTutorial.IsDone, "（夹具）测试口之前**没看过**这个教程");
+                var built = CollectionWindow.RunPoolBuiltHookForTest(win);
+                CheckTrue(built != null,
+                          "★ **卡池建完 ⇒ 自动起教程**（走生产那条链；接线 = `Shell/CollectionWindow.cs:1214`）"
+                        + " —— 改坏法：把 `StartWildcardTutorialOnPoolBuilt` 从 `BuildCardsPage` 末尾删掉 ⇒ 本条红");
+                if (built != null)
+                {
+                    Check(built.State, WildcardTutorialStep.Filter,
+                          "★ …起来就是 **`Filter`**（与生产同一入口 = 原版 `StartWildcardTutorial` 的 `state != End` 那一支）");
+                    CheckTrue(built.PointerVisible,
+                              "★ …指针**显示出来了**（生产绑定解析到的 `Filter Toggle` 是真节点）");
+                    // 🧨 灭自证：「起得来」与「再来一次返回 null」是**同一道 `IsDone` 闸的两面** ——
+                    //   把闸写成恒真 ⇒ 上一条红；写成恒假（改用 `ForceStart`）⇒ 本条红。
+                    // 🧨 夹具前提：先把「已看过」摆上 —— `TryStart` 的闸读的是 `PrefDone`（`Shell/WildcardTutorial.cs:127`），不是「本会话起过几次」。
+                    //   🔴 2026-10-31（`B106_W68` · 铁律 5 就地订正）：`B106_W46` 原写「两次调用之间没有写 `PrefDone` 的路径 ⇒ 结构上不可能同时满足」——**推反了**：正因为没有写路径，第二次 `TryStart` 才必然判「没看过」⇒ 必然重启（`ForceStart` 先 `DestroyImmediate` 旧实例）⇒ 收尾取 `built.gameObject` 抛 `MissingReferenceException`。
+                    PlayerPrefs.SetInt(WildcardTutorial.PrefDone, 1);
+                    PlayerPrefs.Save();
+                    CheckTrue(WildcardTutorial.IsDone, "（夹具）第二次调用之前**已看过**");
+                    CheckTrue(CollectionWindow.RunPoolBuiltHookForTest(win) == null,
+                              "★ **已看过 ⇒ 再走一次不重启**（`TryStart` 的 `IsDone` 闸在测试口里也照走）"
+                            + " —— 改坏法：`StartWildcardTutorialOnPoolBuilt` 改用 `ForceStart` ⇒ 本条红");
+                    // 收尾：自检口建的组件/指针必须清掉（⛔ 别把节点留在收藏窗上）
+                    if (built != null && built.Pointer != null && built.Pointer.gameObject != null)
+                        Object.DestroyImmediate(built.Pointer.gameObject);
+                    if (built != null && built.gameObject != null) Object.DestroyImmediate(built.gameObject);   // ⚠️ `built != null` 走 Unity 的 `==` 重载（已销毁 ⇒ false）⇒ 不会再去碰原生侧（否则 `get_gameObject` 直接抛 `MissingReferenceException`）
+                }
+                // 完成位恢复原值（⛔ 自检不许把玩家的「已看过 / 没看过」改掉）
+                if (hadDone) PlayerPrefs.SetInt(WildcardTutorial.PrefDone, 1);
+                else PlayerPrefs.DeleteKey(WildcardTutorial.PrefDone);
+                PlayerPrefs.Save();
+                Check(WildcardTutorial.IsDone, hadDone,
+                      "（收尾）玩家那一格**恢复原值**（原来 " + (hadDone ? "已看过" : "没看过") + "）");
             }
 
             // ============================================================ Styles 页（异画，2026-09-24）
@@ -11196,7 +11577,7 @@ public static class CollectionScene
                                   "空表（0 条）也写 `ContentX2` = 视口顶 —— 这一句是「空表不清脏值」那类静默 bug 的判据");
                         CheckTrue(csc.ClampHi <= 0.01f, "…而且此刻**滚不动**（内容比视口短 ⇒ 上下界都收到 0）");
 
-                        // 喂 20 条（60px 行高 + 10px 行距 ⇒ 内容 1400 > 视口 750 ⇒ 真能滚）
+                        // 喂 20 条（单行 22px ⇒ 行高 77.842 + 行距 10 ⇒ 内容 1756.84 > 视口 750 ⇒ 真能滚）
                         for (int i = 0; i < 20; i++)
                             SocialData.ChatMessages.Add(new SocialData.ChatMessage
                             {
@@ -11216,30 +11597,47 @@ public static class CollectionScene
                             return null;
                         }
 
-                        // 内容高 = **原版 OSA 的算式**：padT 5 + 20×60 + 19×10 + padB 5 = **1400**
-                        // ⇒ `ClampHi` = 1400 − 750 = **650**（这两个数是从 `_Params` 那四个字段算出来的）
-                        CheckNear(ctab.ContentBottom, 161f + 1400f, 1f,
-                                  "★ 20 条 ⇒ 内容底 = 视口顶 + **1400**（原版 `_ContentPadding`/`_ContentSpacing`/`_DefaultItemSize`）");
-                        CheckNear(csc.ClampHi, 650f, 1f, "★ …所以**能滚 650px**（1400 − 750）—— 滚不动的话这条直接红");
-                        Check(ctab.BuiltRows, 11,
-                              "偏移 0 ⇒ 建出 **11** 行（视口 750 / 每行占 70 ⇒ 161..911 里正好 11 行；"
-                              + "整行在视口外的**连节点都不建**）");
+                        // 🔴 2026-10-31（B106_W76）：期望值**一律从公式推** —— ⛔ 不回读 `ChatTab.RowHeightFor` / `csc.ClampHi`（自证，CLAUDE.md §二）。
+                        //   原版 `ChatMessageRow` 行高是**动态**的（CSF `VerticalFit=MinSize`）：h = 57 + TMP 正文行盒；
+                        //   正文行盒 = `m_LineHeight 90 / m_PointSize 95 × 22px`（Pragati-Regular SDF.asset:20,23）。
+                        const float kLineH = 90f / 95f * 22f;   // 20.842
+                        const float kRowH = 57f + kLineH;       // 77.842（padT10 + padB10 + 头25 + VLG spacing12 + 行盒）
+                        const float kStep = kRowH + 10f;        // 87.842（+ OSA `_ContentSpacing` 10）
+                        const float kContentH = 5f + 20f * kRowH + 19f * 10f + 5f;   // 1756.842（20 条）
+                        const float kContentBottom = 161f + kContentH;               // 1917.842
+                        const float kClampHi = kContentBottom - 911f;               // 1006.842
+                        // 内容高 = padT 5 + 20×h + 19×行距 10 + padB 5 = **1756.84** ⇒ 内容底 = 视口顶 161 + 1756.84 = **1917.84**
+                        // `ClampHi` = 内容底 − 视口底 911 = **1006.84**
+                        CheckNear(ctab.ContentBottom, kContentBottom, 1f,
+                                  "★ 20 条 ⇒ 内容底 = 视口顶 161 + **1756.84**（原版 CSF 动态行高：padT 5 + 20×77.842 + 19×10 + padB 5）");
+                        CheckNear(csc.ClampHi, kClampHi, 1f, "★ …所以**能滚 1006.84px**（1917.84 − 911）—— 滚不动的话这条直接红");
+                        Check(ctab.BuiltRows, 9,
+                              "偏移 0 ⇒ 建出 **9** 行（行高 77.842 / 步进 87.842：i=0..8 与视口 161..911 相交；"
+                              + "第 9 行 top 956.6 > 911 ⇒ 整行在视口外的**连节点都不建**）");
                         var r0 = RowOf("msg-00");
                         CheckTrue(r0 != null, "偏移 0 ⇒ **第 1 行**建出来了");
                         if (r0 != null)
-                            CheckNear(MenuCheck.DesignPx(r0).y, 196f, 0.6f,
-                                      "…它的中心 = 视口顶 161 + `_ContentPadding.top` 5 + 半行 30 = **196**");
+                        {
+                            CheckNear(MenuCheck.DesignPx(r0).y, 166f + kRowH * 0.5f, 0.6f,
+                                      "…它的中心 = 视口顶 161 + `_ContentPadding.top` 5 + 半行 38.921 = **204.92**");
+                            // ⚠️ 2026-10-31（第一百零六会话 · 收口）：这里原本还有一条「结构断言」想钉
+                            //   「行高由正文量出并回灌」。实测**两种写法都钉不住**：
+                            //   ① 拿 `RectOf(r0)` 的半高比 ⇒ 实测 17.06 ≠ 行高 77.842（那个节点不是行根）；
+                            //   ② 拿相邻两行中心距比 ⇒ `RowOf("msg-1")` 在偏移 0 时取不到（命名/建法未查清）。
+                            //   ⇒ **已撤**，改由上面那条 `204.92`（= 166 + 行高/2）间接钉住；要真钉「回灌」这个机制，
+                            //   得先有一份「行根的 rect 读口」。已记进交接 `§4·1`，⛔ 别再把半吊子版本加回来。
+                        }
                         CheckTrue(RowOf("msg-19") == null,
-                                  "★ 偏移 0 ⇒ **最后一行根本没建**（它整行在 y 1496..1556，视口底下；"
+                                  "★ 偏移 0 ⇒ **最后一行根本没建**（它整行在 y 1835.0..1912.8，视口底下；"
                                   + "补之前是「画到框外」，现在是「不建」——两种都不该出现在画面上）");
 
                         // 滚到最下（`SetOffset` 就是滚轮/拖拽那条路公用的那一个口）
                         csc.SetOffset(csc.ClampHi);
-                        CheckNear(csc.Offset, 650f, 0.01f, "滚到最下 ⇒ 偏移 = `ClampHi` = **650**");
+                        CheckNear(csc.Offset, kClampHi, 0.01f, "滚到最下 ⇒ 偏移 = `ClampHi` = **1006.84**");
                         var last = RowOf("msg-19");
                         CheckTrue(last != null,
                                   "★★ 滚到最下 ⇒ **最后一行建出来了**（「超一屏的内容滚得到」的判据 —— 只断「行数」"
-                                  + "分不出这两态：两种偏移下都是 11 行）");
+                                  + "分不出这两态：两种偏移下都是 9 行）");
                         if (last != null)
                         {
                             float ly = MenuCheck.DesignPx(last).y;
@@ -11248,21 +11646,22 @@ public static class CollectionScene
                         }
                         CheckTrue(RowOf("msg-00") == null,
                                   "★★ …而**第一行滚出视口 ⇒ 不建了**（与上面那条合起来 = 「建的是哪几行」随偏移变）");
-                        var r10b = RowOf("msg-10");
-                        // 🔴 2026-10-31（调度台 · `B105_A1` 前提转红后的订正）：原写法「滚前量一次、滚后再量一次相减」
-                        //   **结构上跑不了** —— 偏移 0 时 `msg-10`（中心 896，行跨 866..926）**只有一部分在视口 161..911 里**，
-                        //   按「整行在视口外就不建」的口径它压根没建 ⇒ 滚前那次恒 NaN（旧断言被 `!IsNaN` 静默吃掉）。
-                        //   改成**绝对位置**：偏移 650 后它应落在 `196 + 10×70 − 650 = 246`（算式与上面那几条同源）。
-                        CheckTrue(r10b != null, "…滚到最下之后 `msg-10` 建出来了（下面拿它量绝对位移）");
-                        if (r10b != null)
-                            CheckNear(MenuCheck.DesignPx(r10b).y, 196f + 10f * 70f - 650f, 0.6f,
-                                      "★ 同一行**真的换了位置**：偏移 0 时中心 = 196 + 10×70 = 896；滚到 650 ⇒ **246**");
+                        var r15b = RowOf("msg-15");
+                        // 🔴 2026-10-31（B106_W76）：锚点行从 `msg-10` 换成 `msg-15` —— 行高改成动态 77.842 后，
+                        //   滚到最下（偏移 1006.84）时 `msg-10` 整行在视口顶之上（top 37.6、bottom 115.4 < 视口顶 161）
+                        //   ⇒ 按「整行在视口外就不建」的口径它**正确地不建**，拿不到它。
+                        //   `msg-15` 在最大偏移下落在 476.8..554.6（完全在视口里）⇒ 用它量「同一行真的换了位置」。
+                        //   期望值从公式推：绝对位置 = 166 + 15×step + h/2 − ClampHi（⛔ 不回读实现）。
+                        CheckTrue(r15b != null, "…滚到最下之后 `msg-15` 建出来了（下面拿它量绝对位移）");
+                        if (r15b != null)
+                            CheckNear(MenuCheck.DesignPx(r15b).y, 166f + 15f * kStep + kRowH * 0.5f - kClampHi, 0.6f,
+                                      "★ 同一行**真的换了位置**：偏移 0 时它不在视口（中心 1522.5）；滚到最下 ⇒ 中心 = **515.71**");
 
                         // ★ 「**裁**」那半份也要有判据（改之前那一页是「既不滚也不裁」，行直接画到框外）。
-                        //   最后那一行的头像命中区：它自己的矩形 = (545.87,841)→(691.90,1004.14)
-                        //   （左 68px、下 93px 都在视口外）⇒ 实建出来那块应当**被截到视口**：
-                        //   **(613.88,841)→(691.90,911)**。期望值全是几何算出来的（原档行内偏移 + 视口矩形），
-                        //   ⛔ 不是回读实现；`clip` 那一格要是丢回 `null`，下沿会变回 1004.14 ⇒ 这两条红。
+                        //   最后那一行（msg-19）的头像命中区：它自己的矩形 = (545.87,823.16)→(691.90,986.3)
+                        //   （左 68px 在视口左外、下 75px 在视口底外）⇒ 实建出来那块应当**被截到视口**：
+                        //   **(613.88,823.16)→(691.90,911)**。期望值全是几何算出来的（原档行内偏移 + 视口矩形），
+                        //   ⛔ 不是回读实现；`clip` 那一格要是丢回 `null`，下沿会变回 986.3 ⇒ 这两条红。
                         var hitLast = last != null ? FindChild(last, "Hit") : null;
                         float hx1, hy1, hx2, hy2;
                         if (hitLast != null && RectOf(hitLast, out hx1, out hy1, out hx2, out hy2))
@@ -11270,8 +11669,9 @@ public static class CollectionScene
                             CheckNear(hx1, csc.Viewport.x1, 0.8f,
                                       "★ 头像命中区**左沿被裁到视口左缘 613.88**（不裁的话它在 545.87）");
                             CheckNear(hy2, csc.Viewport.y2, 0.8f,
-                                      "★ 下沿被裁到**视口底 911**（不裁的话它在 1004.14）");
-                            CheckNear(hy1, 841f, 0.8f, "…上沿**没被裁**（841，本来就落在视口里）");
+                                      "★ 下沿被裁到**视口底 911**（不裁的话它在 986.3）");
+                            CheckNear(hy1, 166f + 19f * kStep - kClampHi + 10f - 15f, 0.8f,
+                                      "…上沿**没被裁**（823.16 = 行顶 828.16 + padT 10 − PBdy 15，本来就落在视口里）");
                         }
                         else CheckTrue(false, "拿不到最后一行头像命中区的矩形 —— 这一条等于没验（滚出视口/被裁没了？）");
 
@@ -12985,5 +13385,25 @@ public static class CollectionScene
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), path);
             SceneStubAudit.Run(path);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
             Debug.Log(P + $"  自检场景 → {path}");
+        }
+
+        /// <summary>🆕 2026-10-31（`B106_W26` · `FP-TUT-02`）：万能牌教程自检用的**可变绑定桩**。
+        /// <para>为什么不用生产那份 `CollectionWindow.WildcardTutorialBindings`：它是**私有嵌套类**、且两个开关状态
+        /// 直接读生产的筛选状态（自检改不动）。这里只复刻**接口语义**（三个节点 + 两个开关值 + `SetFilterOn`），
+        /// 断言验的是 `WildcardTutorial` 自己的状态机 / 指针 / 完成位。</para>
+        /// <para>🔴 `filterOn` / `ownedOn` 由自检在**两拍之间**改，`Update` 靠「值变了」触发迁移（原版靠
+        /// `onValueChanged`，我们这版是轮询做等价订阅 —— 见 `WildcardTutorial.Update` 的注释）。</para></summary>
+        sealed class WildcardTutTestBindings : IWildcardTutorialBindings
+        {
+            public Transform filter, owned, tab;
+            public bool filterOn, ownedOn;
+            public int setFilterCalls;
+
+            public Transform FilterToggleNode { get { return filter; } }
+            public Transform OwnedToggleNode { get { return owned; } }
+            public Transform CardsTabNode { get { return tab; } }
+            public bool FilterOn { get { return filterOn; } }
+            public bool OwnedOn { get { return ownedOn; } }
+            public void SetFilterOn(bool on) { setFilterCalls++; filterOn = on; }
         }
 }

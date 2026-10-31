@@ -8017,12 +8017,12 @@ namespace RuleEngine
         /// 只有「主体自己那一跳」（`FireBoardWhenListener` 的 `selfOnlyOnly`）传 `true`；
         /// 其余调用点（常驻 / 手牌陷阱 / 手牌监听 / 棋盘循环）**一律缺省 `false`**，行为逐字不变。</para></summary>
         internal static void EmitListenerTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
-                                                 string kind, bool selfOnly = false)
+                                                 string kind, bool selfOnly = false, int instanceId = 0)   // 🔴🆕 2026-10-31（执行代理 `B106_W57`）：`instanceId` 透传给 `EmitCardTrigger`（**只在 `unit == null` 时生效** —— 手牌里同名两张要靠它配对；`0` = 没写 = 改前行为）。
         {
             if (ctx == null || card == null) return;
             string tn = TriggerNameOfWhenKind(kind, selfOnly);
             if (tn == null) { WarnUnmappedListenerKind(kind); return; }   // 🔴 2026-10-26（批次 6 · `G14` ③）：不再静默 —— 未映射 ⇒ 效果照跑、动画不播，必须出声（见 `WarnUnmappedListenerKind`）
-            if (EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind) == null) return;
+            if (EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind, instanceId: instanceId) == null) return;
             ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）");
         }
 
@@ -8408,7 +8408,7 @@ namespace RuleEngine
                                     string triggerName, string effect, int abilityIndex = -1,
                                     // 🆕 2026-10-24（`W2` · `C5` Q2）：走**表现闸**（只看动画行）而不是语义闸。
                                     //   只有 `EmitWhileInPlayPass` 传 true（判据 → `HasAnimRowOnly` 的 doc）。
-                                    bool animRowOnly = false)
+                                    bool animRowOnly = false, int instanceId = 0)   // 🔴🆕 2026-10-31（执行代理 `B106_W57`）：`instanceId` = 手牌那一趟的 `CardInstance.Id`（**只在 `unit == null` 时生效**，`0` = 没写 = 改前行为；判据 = `AbilityLogic__PlayAnim.c:185-222` 逐目标 `IsInHand` 时用**那张牌自己**的 2D 卡）。
         {
             if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return null;
             if (animRowOnly)
@@ -8429,7 +8429,7 @@ namespace RuleEngine
                 CardId = card.Name,
                 Keyword = BattleEvent.KeywordWithAbility(triggerName, abilityIndex),
                 Effect = effect,
-                InstanceId = unit != null ? unit.InstanceId : 0,
+                InstanceId = unit != null ? unit.InstanceId : instanceId,   // 🔴🆕 2026-10-31（`B106_W57`）：手牌那一趟（`unit == null`）带 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
                 AbilityIndex = abilityIndex,
             };
             ctx.Emit(evt);
@@ -10800,7 +10800,7 @@ namespace RuleEngine
                     //   `TargetCriteria` 把效果挂到牌上」，没证它在触发那一刻还过一道闸）。
                     //   ⇒ 本路径**维持改前**：无条件发事件。⛔ 别为了对齐形状在这里硬造一个入队点
                     //      （那会让降费变成「排队结算」，是**行为变化**，且没有判据支撑）。
-                    EmitListenerTrigger(ctx, c, p, null, kind);
+                    EmitListenerTrigger(ctx, c, p, null, kind, instanceId: handInst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
 
                     foreach (var h in hits)
                     {
@@ -10854,7 +10854,7 @@ namespace RuleEngine
                 int p = drawMode ? (ctx.Active == 1 ? 1 : 0) : hop; var hand = ctx.Players[p].Hand;
                 for (int i = 0; i < hand.Count; i++)
                 {
-                    var c = hand[i].Card;          // 第 7 行第 2 步：手牌存实例，这里只要模板
+                    var inst = hand[i]; var c = inst.Card;          // 第 7 行第 2 步：手牌存实例，这里只要模板（`inst` 留给发事件时带 `CardInstance.Id` —— `B106_W57`）
                     if (c == null || c.HandTrapWhens.Count == 0 || (drawMode && ReferenceEquals(hand[i], drawnCard))) continue;
 
                     // ⚠️ **先快照 ops 再结算** —— 触发会改手牌（能抽牌、能把牌拿走），
@@ -10902,7 +10902,7 @@ namespace RuleEngine
                                    abilityActingGate: AbilityActingGateApplies(kind),   // 🔴 2026-10-29（`B97_ER` · #54）：`actingCard` 已由 `BroadcastWhen` 透传下来 ⇒ 本跳不再恒不判
                                    abilityHostCard: c, abilityOwnerSeat: _p);
                     // 🧨 灭自证：把 `if (htqueued)` 改成无条件调用 ⇒「被闸拒 ⇒ 0 条事件」那条断言红。
-                    if (htqueued) EmitListenerTrigger(ctx, c, _p, null, kind);
+                    if (htqueued) EmitListenerTrigger(ctx, c, _p, null, kind, instanceId: inst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
                 }
             }
         }
@@ -11075,7 +11075,7 @@ namespace RuleEngine
                         //   ⚠️ 只有 `selfOps` 那一支**没有入队口**（`AttachHandEffect` 不是 ability 结算）
                         //      ⇒ 它照旧算「结算过、要发」。
                         if (selfOps.Count > 0 || hlqueued)
-                            EmitListenerTrigger(ctx, c, p, null, kind);
+                            EmitListenerTrigger(ctx, c, p, null, kind, instanceId: inst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
                     }
                 }
             }
@@ -20923,6 +20923,36 @@ namespace RuleEngine
                                                                System.Action resolve)
         {
             ResolveWithTriggerTargetSink(ctx, evt, resolve);
+        }
+
+        // ------------------------------------------------------------------
+        //  🔴 自检口（`B106_W57`）—— 纪律同上：**不改任何行为**，只把既有的私有件开一条缝。
+        //  ⚠️ 加在文件最末（= 类尾）：不影响本文件任何已引用行号。
+        // ------------------------------------------------------------------
+
+        /// <summary>自检口：`TriggerNameOfWhenKind` 的映射（`triggers:codex` → `TriggeredCodex`）。
+        /// ⚠️ 它只证「名字对得上」—— **件级证明**（这一拍真取得到动画）走 `VfxMap.ResolveAllTimed` / `SelfCheckRoutedTriggers`。</summary>
+        public static string TriggerNameOfWhenKindForTest(string kind, bool selfOnly = false)
+        {
+            return TriggerNameOfWhenKind(kind, selfOnly);
+        }
+
+        /// <summary>自检口：`EmitListenerTrigger` 的裸入口（`instanceId` 只在 `unit == null` 时生效 ——
+        /// 手牌里同名两张要靠它配对；`0` = 改前行为）。返回 `true` = 真发了一条 `EvtKind.Trigger`。</summary>
+        public static bool EmitListenerTriggerForTest(BattleContext ctx, CardDef card, int owner, UnitState unit,
+                                                      string kind, int instanceId)
+        {
+            int before = ctx != null ? ctx.Signals.Count : 0;
+            EmitListenerTrigger(ctx, card, owner, unit, kind, false, instanceId);
+            return ctx != null && ctx.Signals.Count > before;
+        }
+
+        /// <summary>自检口：`EmitCardTrigger` 的裸入口（`abilityIndex = -1` / 不走表现闸）。
+        /// 返回真发出去的那条事件（`null` = 没发）。</summary>
+        public static BattleEvent EmitCardTriggerForTest(BattleContext ctx, CardDef card, int owner, UnitState unit,
+                                                         string triggerName, string effect, int instanceId)
+        {
+            return EmitCardTrigger(ctx, card, owner, unit, triggerName, effect, -1, false, instanceId);
         }
     }
 }

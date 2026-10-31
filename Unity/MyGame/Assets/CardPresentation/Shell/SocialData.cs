@@ -95,7 +95,7 @@ namespace CardPresentation
         /// <summary>一个成员（原版 `AllianceMemberEntry`）。⚠️ 行里两处评分圆：
         /// `Draft Rating` 的图标是**骷髅**（`40k_battle_Win Skull`）、`Ranked Rating` 的是**段位图标**
         /// （`40k_UI_icon_ranked_Skirmish`）—— 两处**不是同一张图**，别弄混（§A·2·3 第 474/478 行）。</summary>
-        public class Member
+        public partial class Member
         {
             public int Index;            // `indexText`（行首那个名次数字）
             public string Name;          // `playerName`
@@ -555,7 +555,7 @@ namespace CardPresentation
             m.RoleId = SelfRoleId();                      // = `GroupMember.role`
             m.Role = RoleText(m.RoleId);                  // 显示串（原版由 `AllianceMemberEntry` 现算）
             m.IsPlayer = true;                            // 这一条按定义就是「我」
-            m.Online = true;                              // 自己必然在线（原版 status 由服务端给，本地恒在线）
+            m.Online = true; m.Status = 3;                // 🔶 自己设计（非原版）：在线状态来自服务器，关服后本地无数据 ⇒ 「我」按恒在线填 Connected(3) · 调度台 2026-10-31 裁定
             return m;
         }
 
@@ -587,6 +587,41 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(id)) return null;
             return _openAlliances.Find(g => g != null && g.Id == id);
+        }
+
+        // ============================================================ 🆕 2026-10-31（B106_W25 批）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:586` 的 `GroupById`，本段全在其后 ⇒ 零漂）。
+        //    上面 `Member` 的声明行是就地加 `partial`（零行数变化），才好在**这里**补字段而不推动它下面所有行号。
+
+        public partial class Member
+        {
+            /// <summary>成员这一行的在线状态（原版 `ChatGlobalManager.GetPlayerStatus(member.id)` 的返回，
+            /// `ChatPlayerStatus`：**0 `Default` / 1 `Disconnected` / 2 `Away` / 3 `Connected`**；判据 =
+            /// `out_cpp2il_dev_ilspy/ChatPlayerStatus.cs` 的枚举序 ＋ `AllianceMemberEntry__Initialize.c:166-192`）。
+            /// <para>🔴 **0 = 「数据侧没有这一格」**：原版服务端每条成员都带状态，本地没有在线服务
+            /// （解析口 = `SocialData.ResolveStatus`）。⚠️ 本地**没有生产写入方**（成员表恒空；自检夹具只写
+            /// <see cref="Online"/>）—— 生产侧唯一写点是 `BuildCurrentMember()` 的「我」那一行（🔶 自己设计，见那一行注释）。</para>
+            /// <para>⚠️ **与 <see cref="Online"/> 的分工**：那个 bool 是**本地兜底的二分**（在线/离线），
+            /// 这一格是**原版的四档**；两者都要看时**以本格为准**（唯一口径 = `SocialData.ResolveStatus`）。</para></summary>
+            public int Status;
+        }
+
+        /// <summary>🆕 **2026-10-31（B106_W25）**：把一行的 <see cref="Member.Status"/> 解析成原版 `ChatPlayerStatus`（0..3）
+        /// = 原版 `ChatGlobalManager.GetPlayerStatus(member.id)` 在**本地数据侧的落点**。
+        /// <para>🔶 自己设计（非原版）：在线状态来自服务器，关服后本地无数据 · 调度台 2026-10-31 裁定 ——
+        /// 形状照原版：`Status &gt; 0` 就直接用它；否则**兜底读 <see cref="Member.Online"/>**
+        /// （`true` ⇒ `Connected(3)` / `false` ⇒ `Disconnected(1)`）**并出声一次**（⛔ 不静默假装有状态源）。</para>
+        /// <para>🔴 **「状态 → 颜色」那一段不在这里**（原版是 `AllianceMemberEntry.Initialize` 里紧跟着的三档色）：
+        /// `AllianceMemberRow.StatusColorOf` 是**唯一一份**映射，⛔ 别在这边再写一遍。</para>
+        /// <para>✅ **已接线 —— 2026-10-31（B106_W33）就地订正（铁律 5）**：原句「**零调用者**：消费方 `AllianceMemberRow.StatusOf` 今天自己写着等价规则（`_presence` → `<see cref="Member.Online"/>`）⇒ 它应当收敛到这里」**已过期**。
+        /// 现读调用点 = `Shell/AllianceMemberTab.cs:2165` 的 `return SocialData.ResolveStatus(m);`（`_presence` 只作自检钩子、生产无调用方）。</para></summary>
+        public static int ResolveStatus(Member m)
+        {
+            if (m == null) return 0;
+            if (m.Status > 0) return m.Status;
+            WarnOnce("member.status", "🔶 [SocialData] 成员的在线状态（原版 `ChatGlobalManager.GetPlayerStatus`）来自远端在线服务，"
+                                    + "关服后本地没有数据 ⇒ 退回 `Member.Online`（true ⇒ Connected(3) / false ⇒ Disconnected(1)）");
+            return m.Online ? 3 : 1;      // Connected / Disconnected —— 常量名见 `AllianceMemberRow.StatusConnected/StatusDisconnected`
         }
     }
 }

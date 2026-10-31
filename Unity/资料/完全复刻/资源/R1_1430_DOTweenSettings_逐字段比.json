@@ -1,0 +1,277 @@
+{
+ "_meta": {
+  "what": "R1-01：resources.assets #1430 DOTweenSettings 逐字段比（原版真实字节 vs 我们的资产）",
+  "tool": "工具/r1_residual_decode.py --dotween",
+  "date": "2026-10-31",
+  "evidence": [
+   "原版：d:/2/Warhammer 40k Warpforge/Warpforge_Data/resources.assets #1430（200 B），IL2CPP 生成树 DOTween::DG.Tweening.Core.DOTweenSettings 读满 200/200",
+   "我们：d:/4/Unity/MyGame/Assets/Resources/DOTweenSettings.asset",
+   "外部旁证：d:/2/tools/assetripper_out/ExportedProject/Assets/Resources/DOTweenSettings.asset（37 键，与本次字节读一致）"
+  ],
+  "note": "m_Script 的 fileID/guid 两边本就不同（我们自带 DOTween.dll，原版那份是原包的），不是值差异。"
+ },
+ "object": {
+  "src": "resources.assets",
+  "path_id": 1430,
+  "byte_size": 200,
+  "consumed": 200,
+  "m_Script": {
+   "m_FileID": 1,
+   "m_PathID": 4555
+  },
+  "m_Name": "DOTweenSettings"
+ },
+ "value_diff": {
+  "same": 37,
+  "diff": 1,
+  "only_in_original": [
+   "m_GameObject.m_FileID",
+   "m_GameObject.m_PathID",
+   "m_Script.m_FileID",
+   "m_Script.m_PathID"
+  ],
+  "only_in_ours": [
+   "m_CorrespondingSourceObject.fileID",
+   "m_EditorClassIdentifier",
+   "m_EditorHideFlags",
+   "m_GameObject.fileID",
+   "m_ObjectHideFlags",
+   "m_PrefabAsset.fileID",
+   "m_PrefabInstance.fileID",
+   "m_Script.fileID",
+   "m_Script.guid",
+   "m_Script.type",
+   "modules.uiToolkitEnabled"
+  ],
+  "rows": [
+   {
+    "key": "createASMDEF",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "debugMode",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "debugStoreTargetId",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "defaultAutoKill",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "defaultAutoPlay",
+    "orig": 3,
+    "ours": 3,
+    "same": true
+   },
+   {
+    "key": "defaultEaseOvershootOrAmplitude",
+    "orig": 1.7015800476074219,
+    "ours": 1.70158,
+    "same": true
+   },
+   {
+    "key": "defaultEasePeriod",
+    "orig": 0.0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "defaultEaseType",
+    "orig": 6,
+    "ours": 6,
+    "same": true
+   },
+   {
+    "key": "defaultLoopType",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "defaultRecyclable",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "defaultTimeScaleIndependent",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "defaultUpdateType",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "drawGizmos",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "logBehaviour",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "maxSmoothUnscaledTime",
+    "orig": 0.15000000596046448,
+    "ours": 0.15,
+    "same": true
+   },
+   {
+    "key": "modules.audioEnabled",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "modules.deAudioEnabled",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "modules.deUnityExtendedEnabled",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "modules.epoOutlineEnabled",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "modules.physics2DEnabled",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "modules.physicsEnabled",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "modules.showPanel",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "modules.spriteEnabled",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "modules.textMeshProEnabled",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "modules.tk2DEnabled",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "modules.uiEnabled",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "rewindCallbackMode",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "safeModeOptions.logBehaviour",
+    "orig": 2,
+    "ours": 2,
+    "same": true
+   },
+   {
+    "key": "safeModeOptions.nestedTweenFailureBehaviour",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "showPausedTweens",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "showPlayingTweens",
+    "orig": 1,
+    "ours": 0,
+    "same": false
+   },
+   {
+    "key": "showPreviewPanel",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "showUnityEditorReport",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "storeSettingsLocation",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   },
+   {
+    "key": "timeScale",
+    "orig": 1.0,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "unscaledTimeScale",
+    "orig": 1.0,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "useSafeMode",
+    "orig": 1,
+    "ours": 1,
+    "same": true
+   },
+   {
+    "key": "useSmoothDeltaTime",
+    "orig": 0,
+    "ours": 0,
+    "same": true
+   }
+  ]
+ }
+}

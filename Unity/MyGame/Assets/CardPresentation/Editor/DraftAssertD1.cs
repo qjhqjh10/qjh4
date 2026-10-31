@@ -75,17 +75,17 @@ public static class DraftAssertD1
             DraftPacks.SetPacksForTest(packs);
             if (!Ok(packs.Count > 0, "前提：表解析出包（`DraftPacks.Parse` 非空）")) return;
 
-            A1_Shape(packs);
-            A2_CardIds(packs);
-            A3_RollDeterminism();
-            A4_NoRepeatPerRound();
-            A5_ClosedDeck();
-            A6_ArmyFilter();
-            A7_ArmyNameColumn(packs); A8_PackIsValidNegative(packs);   // ⑧ 与 ⑦ 同一行（零行数变化 ⇒ 不动账里 `DraftAssertD1.cs:153` 那条引用）
+            try { A1_Shape(packs); } catch (Exception e) { SegFail("① A1_Shape", e, 7); }
+            try { A2_CardIds(packs); } catch (Exception e) { SegFail("② A2_CardIds", e, 6); }
+            try { A3_RollDeterminism(); } catch (Exception e) { SegFail("③ A3_RollDeterminism", e, 5); }
+            try { A4_NoRepeatPerRound(); } catch (Exception e) { SegFail("④ A4_NoRepeatPerRound", e, 4); }
+            try { A5_ClosedDeck(); } catch (Exception e) { SegFail("⑤ A5_ClosedDeck", e, 3); }
+            try { A6_ArmyFilter(); } catch (Exception e) { SegFail("⑥ A6_ArmyFilter", e, 2); }
+            try { A7_ArmyNameColumn(packs); } catch (Exception e) { SegFail("⑦ A7_ArmyNameColumn", e, 1); } try { A8_PackIsValidNegative(packs); } catch (Exception e) { SegFail("⑧ A8_PackIsValidNegative", e, 0); }   // ⑧ 与 ⑦ 同一行（零行数变化 ⇒ 不动账里 `DraftAssertD1.cs:153` 那条引用）
         }
         catch (Exception e)
         {
-            Ok(false, "断言宿主抛异常（后面的条目没跑完）：" + e);
+            Ok(false, "断言宿主抛异常（保护之外；后面的条目没跑完）：" + e);
         }
         finally
         {
@@ -547,5 +547,13 @@ public static class DraftAssertD1
         {
             DraftPacks.SetPacksForTest(real);   // 还原真表（`Run()` 的 finally 还会 `InvalidateCache()`）
         }
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：改前 8 条挤在**同一个 try** 里 ⇒ 一条抛异常
+    /// 后面全不跑而合计只多「失败 1」。现在逐条 catch，用本文件既有的 `Ok` 口记失败并写明「其 N 条没跑」。
+    /// ⚠️ `Run()` 里那 8 行保持**行数不变**是为了不动账里 `DraftAssertD1.cs:153` 那条按行号的引用。</summary>
+    static void SegFail(string section, Exception e, int rest)
+    {
+        Ok(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 条没跑）: " + e);
     }
 }

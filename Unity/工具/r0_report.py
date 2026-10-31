@@ -21,10 +21,21 @@ Roots (everything the shipped player can reach without the (dead) backend):
 Run:  python -I -X utf8 d:/4/Unity/工具/r0_report.py --scan
       [--in DIR]   输入目录（默认 D:/4/_tmp_view/wfres —— r0_enumerate.py / r0_refs.py 的产物在那儿）
       [--out DIR]  输出目录（默认 D:/4/Unity/资料/完全复刻/资源）
+      python -I -X utf8 d:/4/Unity/工具/r0_report.py --selftest     ← R0-01/R0-02 单元自检（不碰账）
       D:/2/Warpforge_tools/py312/python.exe -I -X utf8 d:/4/Unity/工具/r0_report.py --scan
 Out:  <out>/R0_资源覆盖账.tsv
-      <out>/R0_未使用清单.md  ← 注意：本脚本只写下面两个 json，md 由 `工具/gen_unused_md.py` 生成
-Stdin(json，写到 --in 目录): r0_stats.json · r0_unused.json
+      <out>/R0_资源覆盖账_stamp.json   ← R0-03 语料快照戳（**不改 TSV 表头**）
+      <--in>/r0_stats.json · <--in>/r0_unused.json
+      🔴 `R0_未使用清单.md` **不由本脚本写** —— 由 `工具/gen_unused_md.py --apply` 生成
+         （2026-10-31 R0-04 已把它从 `_tmp_view/wfres/` 搬进 `工具/`）。
+
+🔴 **2026-10-31（B106_W32）R0-01/R0-02/R0-03**：U3（`资料/`）语料加了 `exclude=自产目录`
+   与 `by_phrase=True`，并新增 sidecar 戳。口径与实证见 `判据/R0_资源覆盖账_现状与判据.md`
+   §3.1–§3.4；⛔ **`从没看过` / `读过（文档）` 不可跨日期比**（U3 语料天天在变）。
+🔴 **2026-10-31（B106_W41）R0-01 扩围**（调度台裁定）：U3 排除面再扩两处 ——
+   `资料/普查产出_*`（资料根下 74 个）＋ `资料/完全复刻/` **根下的全部文件**
+   （调度台日志 / 待接线与排队项 / 交接_* / 功能点索引 / 文件所有权 …）。
+   它们同样是我们的自产审计产物，不排会自污染。见 `_doc_self_exclude()`。
 
 🔴 **2026-10-30（B99_A5）搬到 `Unity/工具/`**：真身原在 `_tmp_view/wfres/`（临时目录，随时会被清）。
    搬家时只修了两颗已知地雷（见下面 `cap_bytes` 与 `meta` 两处就地注释），**判定口径一个字没动**。
@@ -41,12 +52,17 @@ PHRASE = re.compile('(?<=["\t\n\r,])([^"\t\n\r,]{3,140})(?=["\t\n\r,])')
 
 USAGE = (
     '用法：python -I -X utf8 d:/4/Unity/工具/r0_report.py --scan [--in DIR] [--out DIR]\n'
+    '      python -I -X utf8 d:/4/Unity/工具/r0_report.py --stamp [--out DIR]\n'
+    '      python -I -X utf8 d:/4/Unity/工具/r0_report.py --selftest\n'
     '  R0 资源覆盖账重算：按 PPtr 引用链算「原版可达 vs 全集」，再按 U1/U1b/U2/U3 判「我们有没有用」。\n'
-    '  选项： --scan        真跑（**唯一会动手的参数**；不带它 = 只打印本用法并退出，零读零写）\n'
+    '  选项： --scan        真跑（**唯一会重写账的参数**；不带它 = 只打印本用法并退出，零读零写）\n'
+    '         --stamp       只拍语料快照 + 记现账规模/时间，写 `R0_资源覆盖账_stamp.json`（不重算账，约 20 秒）\n'
+    '         --selftest    R0-01/R0-02 的单元自检（临时建两个 md 再删；不碰账、约 5 秒）\n'
     '         --in DIR     输入目录，默认 D:/4/_tmp_view/wfres（需含 r0_objects.tsv / r0_edges.tsv / r0_files.json）\n'
     '         --out DIR    输出目录，默认 D:/4/Unity/资料/完全复刻/资源\n'
     '  -h, --help     只打印本用法并退出（退出码 0）\n'
-    '  ⚠️ 会用 UnityPy 打开 d:/2 的原版 bundle 取场景根；整轮约 10 分钟、产出那张 91 MB 的账。'
+    '  ⚠️ 会用 UnityPy 打开 d:/2 的原版 bundle 取场景根；整轮约 10 分钟、产出那张 91 MB 的账。\n'
+    '  ⚠️ `--scan` 另外会写 `R0_资源覆盖账_stamp.json`（R0-03 语料快照戳）到 --out 目录。\n'
 )
 
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
@@ -74,6 +90,144 @@ CAP_CODE = 8_000_000       # MyGame/Assets（代码/资源）· 素材/Warpforge
 CAP_DATA = 30_000_000      # 数据/ 数据表与索引（含 Assets 内嵌的 Resources 数据表）
 CAP_DOC = 20_000_000       # 🔴 资料/ —— 挡住那 91 MB 账本的**唯一**一道闸
 
+# 🔴 R0-01（2026-10-31 B106_W32）：**U3 自污染** —— `资料/完全复刻/{判据,资源,报告,账,普查产出_*}`
+#   全是**本账自己产出的东西**。只要审一次，那些名字就自动被算成「我们读过」，
+#   而「没用上」总数一点不变（两档都算没用上）⇒ 数字看着在动、与进度无关。
+#   判据 → `判据/R0_资源覆盖账_现状与判据.md` §3.1 / §3.4-1（实证 §3.2：10-25→10-26
+#   `从没看过` 10,866→7,970、`读过（文档）` 5,603→8,207，全是自污染，非进度）。
+#   ⚠️ 只排除**本账自产的东西**；`资料/` 下别的正文一律照旧进 U3。
+# 🔴 2026-10-31（B106_W41 · 调度台裁定）：排除面**再扩两处** ——
+#   ③ `资料/普查产出_*`（74 个，在 `资料/` **根下**，不是 `完全复刻/` 下）同样是我们的审计产物；
+#   ④ `资料/完全复刻/` **根下的文件**（`调度台日志.md` / `待接线与排队项.md` / `交接_*.md` /
+#      `功能点索引.md` / `文件所有权_当前.md` / `合并计划_*.md` / `账户索引.md` /
+#      `重同步点后的续推计划.md` / `待A接线清单.md` / `_tmp_g2_rows.json` …）——
+#      判据：根下现在**全是**我们自己的追踪/审计文档，名字出现在里面 ≠ 读过原版资产。
+#      不排就会**自污染**（R0 整条设计就是排除自产语料）。
+#      ⚠️ 只排**根下的文件**，**不递归子目录**（子目录已由 ①② 处理；将来若有人往根下放进
+#      一份「原版原文」，这里会把它的原文漏掉 —— 到那天再拆成按扩展名/白名单处理）。
+#   ⑤ `资料/完全复刻/账_bak_*`（R0-01 扩围 · B106_W41 顺手查出）：现读 **10 个目录 / 1,794 个
+#      `.md|.tsv` / 124 MB**，全是本账的**历史备份**（含 247k 行原始资产名）。不排 ⇒ 几乎每个
+#      原版资产名都能在里面命中 ⇒ 整表被判「读过（文档）」。这是自污染最大的一处。
+DOC_ROOT = r'D:/4/Unity/资料'
+_SELF_DIRS = ('判据', '资源', '报告', '账')
+
+
+def _doc_self_exclude():
+    """U3 语料的自产目录/文件清单（每次调用现算 —— 新会话可能又建了新的 `普查产出_*`）。
+
+    返回的是**混合清单**：目录项按「前缀边界」排除（见 `_is_excluded`），
+    文件项按「精确路径」排除（见 `scan_tree` / `_corpus_snapshot` 里的 `exfiles` 集）。
+    """
+    base = os.path.join(DOC_ROOT, '完全复刻')
+    out = [os.path.normpath(os.path.join(base, d)) for d in _SELF_DIRS]
+    # ① `完全复刻/普查产出_*`
+    try:
+        for fn in os.listdir(base):
+            if fn.startswith('普查产出_') and os.path.isdir(os.path.join(base, fn)):
+                out.append(os.path.normpath(os.path.join(base, fn)))
+    except OSError:
+        pass
+    # ①b `完全复刻/账_bak_*`（R0-01 扩围 2026-10-31 B106_W41 顺手查出）——
+    #   现读 10 个目录 / 1,794 个 `.md|.tsv` / 124 MB，**全是本账自己的历史备份**（含 247k 行原始资产名）。
+    #   不排 ⇒ 几乎每个原版资产名都能在里面命中 ⇒ 整表被判「读过（文档）」。这是自污染的**最大单一来源**。
+    try:
+        for fn in os.listdir(base):
+            if fn.startswith('账_bak') and os.path.isdir(os.path.join(base, fn)):
+                out.append(os.path.normpath(os.path.join(base, fn)))
+    except OSError:
+        pass
+    # ② `资料/普查产出_*`（R0-01 扩围 2026-10-31）
+    try:
+        for fn in os.listdir(DOC_ROOT):
+            if fn.startswith('普查产出_') and os.path.isdir(os.path.join(DOC_ROOT, fn)):
+                out.append(os.path.normpath(os.path.join(DOC_ROOT, fn)))
+    except OSError:
+        pass
+    # ③ `完全复刻/` 根下的**自产文件**（不递归）
+    try:
+        for fn in os.listdir(base):
+            p = os.path.join(base, fn)
+            if os.path.isfile(p):
+                out.append(os.path.normpath(p))
+    except OSError:
+        pass
+    return out
+
+
+def _norm_file_excl(exclude):
+    """把排除清单里的**文件项**规范化成集合（目录项交给 `_is_excluded`）。
+
+    为什么分开：`scan_tree` 现在也要排**单个文件**（`完全复刻/` 根下那些自产文档）。
+    逐文件算 `abspath` 会拖慢 5k 文件的扫描，所以一次性把文件项做成集合。
+    """
+    fset = set()
+    for e in _as_excl_list(exclude):
+        try:
+            if not os.path.isdir(e):
+                fset.add(os.path.normcase(os.path.abspath(e)))
+        except OSError:
+            pass
+    return fset
+
+
+def _as_excl_list(exclude):
+    if not exclude:
+        return ()
+    if isinstance(exclude, str):
+        return (exclude,)
+    return tuple(exclude)
+
+
+def _is_excluded(dirpath, excls):
+    """`exclude` 可以是 str 或 list/tuple（R0-01 要求列表）。
+
+    从前是裸 `startswith`：`/a/判据` 会把 `/a/判据旧` 一起吃掉，且 Windows 大小写不敏感。
+    这里统一 normcase + 分隔符边界比较。
+    """
+    if not excls:
+        return False
+    d = os.path.normcase(os.path.abspath(dirpath))
+    for ex in excls:
+        e = os.path.normcase(os.path.abspath(ex)).rstrip('\\/')
+        if d == e or d.startswith(e + os.sep):
+            return True
+    return False
+
+
+# ---- 语料根与扩展名表（模块级：`--scan` 与 `--stamp` 必须同一份定义）-----------
+ASSETS_ROOT = r'D:/4/Unity/MyGame/Assets'
+STAGE_ROOT = r'D:/4/Unity/素材/Warpforge原版'
+DATA_ROOT = r'D:/4/Unity/数据'
+DATA_INDEX_ROOT = r'D:/4/Unity/数据/索引'
+ASSET_EXTS = ('.png', '.asset', '.prefab', '.mat',
+              '.shader',
+              '.json', '.txt', '.unity',
+              '.fbx', '.obj', '.ogg', '.wav', '.mp4', '.webm',
+              '.anim', '.controller', '.overrideController',
+              '.mask', '.playable', '.mixer',
+              '.cubemap',
+              '.cs')
+DATA_EXTS = ('.json', '.tsv', '.csv', '.txt')
+DATA_TABLE_EXTS = ('.json', '.tsv', '.csv', '.md')
+DOC_EXTS = ('.md', '.tsv', '.json')
+
+# 语料快照要覆盖的六处（与 `main()` 里的六次 `_scan` 一一对应）。
+# ⚠️ 这里**只描述语料**（根/扩展名/排除面），不参与判定 —— 改这里请同步改 `main()`。
+CORPUS_SPEC = (
+    ('code_assets', ASSETS_ROOT, ASSET_EXTS, None),
+    ('assets_data_tables', ASSETS_ROOT, DATA_EXTS, None),
+    ('stage_moved', STAGE_ROOT, None, None),
+    ('data_tables', DATA_ROOT, DATA_TABLE_EXTS, DATA_INDEX_ROOT),
+    ('data_index', DATA_INDEX_ROOT, None, None),
+    ('docs_u3', DOC_ROOT, DOC_EXTS, None),      # 排除面在 _corpus_snapshot 里现算（_doc_self_exclude）
+)
+
+
+def _corpus_key(root, exts, by_phrase, exclude):
+    return '%s|%s|%s|excl%d' % (root, 'none' if not exts else ','.join(exts),
+                                'phrase' if by_phrase else 'token',
+                                len(_as_excl_list(exclude)))
+
 
 def add_tokens(txt, into):
     for m in TOKEN.finditer(txt):
@@ -82,25 +236,38 @@ def add_tokens(txt, into):
         into.add(t.rsplit('.', 1)[0])
 
 
-def scan_tree(root, exts, cap_bytes=40_000_000, by_phrase=False, exclude=None):
+def scan_tree(root, exts, cap_bytes=40_000_000, by_phrase=False, exclude=None, stats=None):
     """collect name-ish tokens from files under root
 
     `cap_bytes` 见文件头那段注释：**超过就只收文件名、不读正文**。默认值目前无人使用。
+    `exclude`   可以是 str 或 list/tuple（R0-01）。
+    `stats`     传一个 dict 进来，会填 `{root, files, files_body, max_mtime, cap_bytes,
+                by_phrase, exclude}` —— 供 R0-03 的语料快照戳使用（不要拿它当返回值）。
     """
     names, toks = set(), set()
     n = 0
+    n_files = 0
+    max_mtime = 0.0
+    excls = _as_excl_list(exclude)
+    exfiles = _norm_file_excl(exclude)      # R0-01 扩围：也要排「单文件」（完全复刻 根下自产文档）
     for dirpath, _, files in os.walk(root):
-        if exclude and os.path.abspath(dirpath).startswith(os.path.abspath(exclude)):
+        if _is_excluded(dirpath, excls):
             continue
         for fn in files:
             if exts and not fn.lower().endswith(exts):
                 continue
             p = os.path.join(dirpath, fn)
+            if exfiles and os.path.normcase(os.path.abspath(p)) in exfiles:
+                continue
+            n_files += 1
             add_tokens(fn, names)                    # file name itself
             stem = os.path.splitext(fn)[0]
             names.add(stem.lower())
             try:
-                if os.path.getsize(p) > cap_bytes:
+                st = os.stat(p)
+                if st.st_mtime > max_mtime:
+                    max_mtime = st.st_mtime
+                if st.st_size > cap_bytes:
                     continue
                 raw = open(p, 'rb').read()
             except OSError:
@@ -122,7 +289,63 @@ def scan_tree(root, exts, cap_bytes=40_000_000, by_phrase=False, exclude=None):
                 pass
             n += 1
     print(f'  scanned {n} files under {root} -> {len(names)} name tokens, {len(toks)} content tokens', flush=True)
+    if stats is not None:
+        stats.update({'root': root, 'files': n_files, 'files_body': n,
+                      'max_mtime': max_mtime, 'cap_bytes': cap_bytes,
+                      'by_phrase': bool(by_phrase),
+                      'exclude': list(excls)})
     return names, toks
+
+
+def _corpus_snapshot():
+    """只 stat、不读正文的语料快照（R0-03 / R0-06 的「先做语料快照」那一步）。
+
+    为什么单独一份而不是复用 `scan_tree` 的 stats：`--stamp` 要在**不重算 91 MB 账**的前提下
+    拍快照（整轮 10 分钟 ⇒ 开跑前先拍一张，跑完再拍一张，就能证明「这次重算期间语料没被动过」）。
+    """
+    out = {}
+    for name, root, exts, exclude in CORPUS_SPEC:
+        if name == 'docs_u3':
+            exclude = _doc_self_exclude()      # 现算（可能又建了新的 `普查产出_*`）
+        excls = _as_excl_list(exclude)
+        exfiles = _norm_file_excl(exclude)
+        n, mx = 0, 0.0
+        for dirpath, _, files in os.walk(root):
+            if _is_excluded(dirpath, excls):
+                continue
+            for fn in files:
+                if exts and not fn.lower().endswith(exts):
+                    continue
+                fp = os.path.join(dirpath, fn)
+                if exfiles and os.path.normcase(os.path.abspath(fp)) in exfiles:
+                    continue
+                n += 1
+                try:
+                    m = os.stat(fp).st_mtime
+                    if m > mx:
+                        mx = m
+                except OSError:
+                    pass
+        out[name] = {
+            'root': root,
+            'files': n,
+            'max_mtime': round(mx, 3),
+            'max_mtime_iso': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(mx)) if mx else '',
+            'exts': list(exts) if exts else None,
+            'exclude': list(excls),
+        }
+    return out
+
+
+def _write_stamp(dest, stamp):
+    os.makedirs(dest, exist_ok=True)
+    p = os.path.join(dest, 'R0_资源覆盖账_stamp.json')
+    with open(p, 'w', encoding='utf-8', newline='\n') as f:
+        json.dump(stamp, f, ensure_ascii=False, indent=1)
+    # 存盘类脚本：写完**重开文件读一遍**，确认真的落了盘（本项目「SetDirty 之后回读抓不到没落盘」那一族坑）
+    back = json.load(io.open(p, encoding='utf-8'))
+    assert back.get('generated_at') == stamp.get('generated_at'), 'stamp 落盘回读不一致: ' + p
+    return p
 
 
 def main(out_dir=OUT, dest=DEST):
@@ -278,28 +501,38 @@ def main(out_dir=OUT, dest=DEST):
     #    ⚠️ 点名要核的 `.asmdef` / `.spriteatlas` / `.preset` / `.renderTexture` / `.lighting` /
     #       `.terrainlayer` / `.shadervariants` —— **工程内现数全是 0 个** ⇒ 加了是死项，故不加。
     #       `.playable` / `.mixer` 本来就在表里（`.playable` 也是 0 个，`.mixer` 1 个）。
-    ASSET_EXTS = ('.png', '.asset', '.prefab', '.mat',
-                  '.shader',
-                  '.json', '.txt', '.unity',
-                  '.fbx', '.obj', '.ogg', '.wav', '.mp4', '.webm',
-                  '.anim', '.controller', '.overrideController',
-                  '.mask', '.playable', '.mixer',
-                  '.cubemap',
-                  '.cs')
-    ours_assets, _ = scan_tree(r'D:/4/Unity/MyGame/Assets', ASSET_EXTS, CAP_CODE)
-    _, assets_data = scan_tree(r'D:/4/Unity/MyGame/Assets',
-                               ('.json', '.tsv', '.csv', '.txt'), CAP_DATA, by_phrase=True)
-    ours_stage, _ = scan_tree(r'D:/4/Unity/素材/Warpforge原版', None, CAP_CODE)
+    # 🔴 2026-10-31（R0-03）：`ASSET_EXTS` 连同四个语料根已**提到模块级**（见 `CORPUS_SPEC`）——
+    #   `--stamp` 模式要在**不重算账**的前提下拍同一套语料快照，两处必须同一份定义。
+    # R0-03：每个语料根的统计（文件数 / 最大 mtime / 生效参数）→ 写进 `R0_资源覆盖账_stamp.json`。
+    #   语料**每天都在变**（判据/报告在成批落盘）⇒ 「从没看过」不能跨日期比。
+    corpus_stats = {}
+
+    def _scan(root, exts, cap, by_phrase=False, exclude=None):
+        st = {}
+        r = scan_tree(root, exts, cap, by_phrase=by_phrase, exclude=exclude, stats=st)
+        corpus_stats[_corpus_key(root, exts, by_phrase, exclude)] = st
+        return r
+
+    ours_assets, _ = _scan(ASSETS_ROOT, ASSET_EXTS, CAP_CODE)
+    _, assets_data = _scan(ASSETS_ROOT, DATA_EXTS, CAP_DATA, by_phrase=True)
+    ours_stage, _ = _scan(STAGE_ROOT, None, CAP_CODE)
     # 🔴 2026-10-25 订正：原来这里先扫整个 `数据`（含 `数据/索引`）再 `data_tok -= index_tok` ——
     #   那是**集合差**，会把「同时出现在数据表与索引里」的名字**误判成只在索引里**
     #   （实测：`Craftworld_SaimHann_inf_Ranger` 明明在 `cards.json` 的 `art` 路径里，却被判成 U2b）。
     #   正确做法 = **扫 `数据` 时排除 `数据/索引`**，索引单独一份，匹配顺序 数据表 → 索引 → 文档。
-    ours_data, data_tok = scan_tree(r'D:/4/Unity/数据', ('.json', '.tsv', '.csv', '.md'),
-                                    CAP_DATA, by_phrase=True,
-                                    exclude=r'D:/4/Unity/数据/索引')
-    _, index_tok = scan_tree(r'D:/4/Unity/数据/索引', None, CAP_DATA, by_phrase=True)
+    ours_data, data_tok = _scan(DATA_ROOT, DATA_TABLE_EXTS,
+                                CAP_DATA, by_phrase=True,
+                                exclude=DATA_INDEX_ROOT)
+    _, index_tok = _scan(DATA_INDEX_ROOT, None, CAP_DATA, by_phrase=True)
     data_tok |= assets_data          # our data tables also live inside Assets/…/Resources
-    _, doc_tok = scan_tree(r'D:/4/Unity/资料', ('.md', '.tsv', '.json'), CAP_DOC)
+    # 🔴 R0-01 + R0-02（2026-10-31 B106_W32）：
+    #   ① `exclude=…` 把本账自产目录踢出 U3（见 `_doc_self_exclude()` 的注释）；
+    #   ② `by_phrase=True` 让**带空格的资产名**能被「读过」命中 ——
+    #      `TOKEN` 正则会按空格切词，而 U3 原先是唯一没开词组模式的语料
+    #      （U2/U2b/`assets_data` 早就开了）⇒ 7,017 条多词资产**结构上不可能**被判成读过。
+    #      判据 → `判据/R0_资源覆盖账_现状与判据.md` §3.3 / §3.4-1·2。
+    _, doc_tok = _scan(DOC_ROOT, ('.md', '.tsv', '.json'), CAP_DOC,
+                       by_phrase=True, exclude=_doc_self_exclude())
 
     # ---- emit ------------------------------------------------------------
     stat = collections.Counter()
@@ -374,13 +607,195 @@ def main(out_dir=OUT, dest=DEST):
                    'edges': sum(len(v) for v in adj.values())}, f, ensure_ascii=False, indent=1)
     with open(os.path.join(out_dir, 'r0_unused.json'), 'w', encoding='utf-8') as f:
         json.dump({t: v[:4000] for t, v in unused.items()}, f, ensure_ascii=False, indent=1)
+
+    # ---- R0-03：语料快照 / 生成日期戳（sidecar）-----------------------------
+    # 🔴 **⛔ 别往 `R0_资源覆盖账.tsv` 表头加列** —— R1/R7 都按列名读，加列会静默改变消费方。
+    #   所以版本锚一律走 sidecar。作用：下一个人看到「从没看过 7,970」时能知道
+    #   **那是哪一天、用哪套语料、哪套参数算出来的**（U3 语料天天在变，跨日期不可比）。
+    stamp = {
+        'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'mode': 'scan',
+        'generator': 'Unity/工具/r0_report.py --scan',
+        'ledger_file': 'R0_资源覆盖账.tsv',
+        'ledger_rows': len(rows),
+        'ledger_rows_incl_header': len(rows) + 1,
+        'n_objects': len(objs),
+        'reachable': len(parent),
+        'edges': sum(len(v) for v in adj.values()),
+        'params': {
+            'cap_code': CAP_CODE, 'cap_data': CAP_DATA, 'cap_doc': CAP_DOC,
+            'u3_by_phrase': True,
+            'u3_exclude': _doc_self_exclude(),
+        },
+        'corpora': corpus_stats,
+        'note': '🔴 「从没看过」/「读过（文档）」**不可跨日期比** —— U3 语料（资料/）每天都在成批落盘，'
+                '同一批资产在不同日期会得到不同档位，与复刻进度无关。比较前先比 generated_at。',
+    }
+    stamp_path = _write_stamp(dest, stamp)
+    print('stamp', stamp_path, stamp['generated_at'], flush=True)
     return 0
 
 
+def stamp_only(dest=DEST):
+    """`--stamp`：**只拍语料快照 + 记现账的规模/时间，不重算账**（R0-03 的轻量入口）。
+
+    用途：① 给已存在的账补一张版本戳；② R0-06 重跑前先拍一张「跑之前」的语料快照。
+    ⚠️ 它**不验证**「账和语料是同一时刻的状态」—— 只如实记两个时间，由读的人判断。
+    """
+    ledger = os.path.join(dest, 'R0_资源覆盖账.tsv')
+    n_rows = 0
+    if os.path.exists(ledger):
+        with io.open(ledger, encoding='utf-8') as f:
+            for n_rows, _ in enumerate(f, 1):
+                pass
+    lm = os.path.getmtime(ledger) if os.path.exists(ledger) else 0
+    stats_json = os.path.join(OUT, 'r0_stats.json')
+    n_obj = reach = None
+    if os.path.exists(stats_json):
+        try:
+            j = json.load(io.open(stats_json, encoding='utf-8'))
+            n_obj, reach = j.get('n_objects'), j.get('reachable')
+        except Exception:
+            pass
+    stamp = {
+        'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(lm)) if lm else '',
+        'mode': 'stamp',
+        'generator': 'Unity/工具/r0_report.py --stamp',
+        'stamp_written_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        'ledger_file': 'R0_资源覆盖账.tsv',
+        'ledger_rows': max(n_rows - 1, 0),
+        'ledger_rows_incl_header': n_rows,
+        'ledger_mtime_iso': time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(lm)) if lm else '',
+        'n_objects': n_obj,
+        'reachable': reach,
+        'params': {
+            'cap_code': CAP_CODE, 'cap_data': CAP_DATA, 'cap_doc': CAP_DOC,
+            'u3_by_phrase': True,
+            'u3_exclude': _doc_self_exclude(),
+        },
+        'corpora': _corpus_snapshot(),
+        'coherent': False,
+        'note': '🔴 `coherent=false` ⇒ `corpora` 是**本戳写入时**的语料快照，而 `generated_at` 是**账本本身**的构建时间；'
+                '两者不是同一时刻。🔴 「从没看过」/「读过（文档）」**不可跨日期比** —— U3 语料（资料/）每天都在成批落盘。'
+                '要一张自洽的戳请跑 `--scan`（R0-06）。',
+    }
+    p = _write_stamp(dest, stamp)
+    print('stamp', p, 'ledger_rows', stamp['ledger_rows'], 'ledger_built_at', stamp['generated_at'], flush=True)
+    for k, v in stamp['corpora'].items():
+        print('  %-18s files=%-7d max_mtime=%s' % (k, v['files'], v['max_mtime_iso']), flush=True)
+    return 0
+
+
+def selftest():
+    """R0-01（U3 排除自产目录/文件）+ R0-02（U3 词组匹配）的单元自检。
+
+    **不跑全表重算、不碰账**：只在 `资料/` 下临时建三个 md，扫完就删。
+    判定对（双向）：
+      A. 放在 `资料/完全复刻/判据/`（= 自产目录）里的唯一 token：
+           exclude=None   → **命中**（证明文件确实可读）
+           exclude=自产清单 → **不命中**（R0-01）
+      A2. 放在 `资料/完全复刻/` **根下**的单文件（R0-01 扩围，B106_W41）：
+           exclude=None   → **命中**
+           exclude=自产清单 → **不命中**
+      B. 放在非排除目录里的多词短语：
+           by_phrase=True  → **命中**
+           by_phrase=False → **不命中**（R0-02）
+    """
+    import uuid
+    tag = 'w32selftest' + uuid.uuid4().hex[:10]
+    phrase = 'b106 w32 phrase probe ' + uuid.uuid4().hex[:10]
+    excl_dir = os.path.join(DOC_ROOT, '完全复刻', '判据')
+    ctrl_dir = os.path.join(DOC_ROOT, '_r0_selftest_w32')
+    excl_file = os.path.join(excl_dir, '_r0_selftest_excluded.md')
+    ctrl_file = os.path.join(ctrl_dir, '_r0_selftest_control.md')
+    # R0-01 扩围（B106_W41）：探针放在 `完全复刻/` **根下**，用来证明「单文件」排除生效。
+    sf_base = os.path.join(DOC_ROOT, '完全复刻')
+    root_file = os.path.join(sf_base, '_r0_selftest_rootfile_w41.md')
+    ok = True
+
+    def chk(name, cond, extra=''):
+        nonlocal ok
+        print(('  OK   ' if cond else '  FAIL ') + name + (('  [' + extra + ']') if extra else ''), flush=True)
+        if not cond:
+            ok = False
+
+    try:
+        os.makedirs(excl_dir, exist_ok=True)
+        os.makedirs(ctrl_dir, exist_ok=True)
+        io.open(excl_file, 'w', encoding='utf-8', newline='\n').write('selftest ' + tag + '\n')
+        io.open(ctrl_file, 'w', encoding='utf-8', newline='\n').write(
+            'selftest ' + tag + '\n' + phrase + '\n')
+        io.open(root_file, 'w', encoding='utf-8', newline='\n').write('selftest ' + tag + '\n')
+
+        # A. R0-01：exclude 生效（同一批文件，开/关各扫一次）
+        _, no_excl = scan_tree(excl_dir, ('.md',), CAP_DOC, by_phrase=True, exclude=None)
+        _, with_excl = scan_tree(os.path.join(DOC_ROOT, '完全复刻'), ('.md',), CAP_DOC,
+                                 by_phrase=True, exclude=_doc_self_exclude())
+        chk('R0-01 前置：自产目录里的 token 本来扫得到', tag in no_excl)
+        chk('R0-01 exclude=自产清单 后 token 不再进 U3', tag not in with_excl)
+
+        # A2. R0-01 扩围（B106_W41）：`完全复刻/` 根下的**单文件**也要被排
+        _, root_no_excl = scan_tree(sf_base, ('.md',), CAP_DOC, by_phrase=True, exclude=None)
+        _, root_excl = scan_tree(sf_base, ('.md',), CAP_DOC, by_phrase=True,
+                                 exclude=_doc_self_exclude())
+        chk('R0-01 扩围 前置：完全复刻根下的文件本来扫得到', tag in root_no_excl)
+        chk('R0-01 扩围：完全复刻根下的文件 exclude 后不进 U3', tag not in root_excl)
+
+        # B. R0-02：by_phrase 生效
+        _, ph_on = scan_tree(ctrl_dir, ('.md',), CAP_DOC, by_phrase=True)
+        _, ph_off = scan_tree(ctrl_dir, ('.md',), CAP_DOC, by_phrase=False)
+        chk('R0-02 前置：token 切词本来就能命中', tag in ph_off)
+        chk('R0-02 by_phrase=True 命中多词短语', phrase in ph_on)
+        chk('R0-02 by_phrase=False(旧口径) 结构上不可能命中多词短语', phrase not in ph_off)
+        chk('R0-01/U3 exclude 清单包含 判据/资源/报告/账',
+            all(any(p.endswith(d) for p in _doc_self_exclude())
+                for d in ('判据', '资源', '报告', '账')))
+        _ex = _doc_self_exclude()
+        chk('R0-01 扩围：exclude 清单含 资料/普查产出_*（资料根下）',
+            any(('普查产出_' in p) and (os.path.dirname(p) == os.path.normpath(DOC_ROOT))
+                for p in _ex))
+        chk('R0-01 扩围：exclude 清单含 完全复刻 根下自产文档（调度台日志/待接线/功能点索引）',
+            all(any(p.endswith(x) for p in _ex)
+                for x in ('调度台日志.md', '待接线与排队项.md', '功能点索引.md')))
+        chk('R0-01 扩围：exclude 清单含 交接_*.md',
+            any(os.path.basename(p).startswith('交接_') for p in _ex))
+        chk('R0-01 扩围：exclude 清单含 账_bak_*（本账历史备份，现读 1,794 个 md/tsv）',
+            any(('账_bak' in os.path.basename(p)) for p in _ex))
+    finally:
+        for p in (excl_file, ctrl_file, root_file):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        try:
+            os.rmdir(ctrl_dir)
+        except OSError:
+            pass
+    print('SELFTEST', 'PASS' if ok else 'FAIL', flush=True)
+    return 0 if ok else 1
+
+
 def _parse_args(argv):
-    """→ (out_dir, dest, err)。**默认没有动作**：不给 `--scan` 就什么都不做。"""
+    """→ (mode, out_dir, dest, err)。**默认没有动作**：不给 `--scan/--stamp/--selftest` 就什么都不做。"""
+    if '--selftest' in argv:
+        return 'selftest', None, None, None
+    if '--stamp' in argv:
+        dest, i = DEST, 0
+        while i < len(argv):
+            a = argv[i]
+            if a == '--stamp':
+                i += 1
+                continue
+            if a == '--out':
+                if i + 1 >= len(argv):
+                    return None, None, None, '`--out` 缺参数'
+                dest = argv[i + 1]
+                i += 2
+                continue
+            return None, None, None, '未知参数：%s' % a
+        return 'stamp', None, dest, None
     if '--scan' not in argv:
-        return None, None, '没有 `--scan`：什么都不做（这是有意的，见文件头）'
+        return None, None, None, '没有 `--scan`：什么都不做（这是有意的，见文件头）'
     out_dir, dest, i = OUT, DEST, 0
     while i < len(argv):
         a = argv[i]
@@ -389,22 +804,26 @@ def _parse_args(argv):
             continue
         if a in ('--in', '--out'):
             if i + 1 >= len(argv):
-                return None, None, '`%s` 缺参数' % a
+                return None, None, None, '`%s` 缺参数' % a
             if a == '--in':
                 out_dir = argv[i + 1]
             else:
                 dest = argv[i + 1]
             i += 2
             continue
-        return None, None, '未知参数：%s' % a
-    return out_dir, dest, None
+        return None, None, None, '未知参数：%s' % a
+    return 'scan', out_dir, dest, None
 
 
 if __name__ == '__main__':
-    _out, _dest, _err = _parse_args(sys.argv[1:])
+    _mode, _out, _dest, _err = _parse_args(sys.argv[1:])
     if _err:
         print(_err)
         print()
         print(USAGE)
         sys.exit(0 if not sys.argv[1:] else 2)
+    if _mode == 'selftest':
+        sys.exit(selftest())
+    if _mode == 'stamp':
+        sys.exit(stamp_only(_dest) or 0)
     sys.exit(main(_out, _dest) or 0)

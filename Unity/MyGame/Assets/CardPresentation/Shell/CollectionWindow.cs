@@ -1205,13 +1205,13 @@ namespace CardPresentation
             //   ⇒ 「有没有万能牌」这一条按「教程没做过就起」处理（如实记，见 `资料/完全复刻/报告/C_W11缩放与轮播_第1轮.md`）。
             //   🔴 **只在真跑里起**（`Application.isPlaying`）：教程会建一个指针节点 + 写 `PlayerPrefs`，
             //      而 11 条自检**全在 `-batchmode`**（`isPlaying == false`）⇒ 不加这道闸的话，
-            //      自检里会凭空多一个节点、并把「已做过」写进注册表（污染下一次真跑）。**如实标：原版没有这道闸**
+            //      自检里会凭空多一个节点、并把「已做过」写进注册表（污染下一次真跑）。🔶 自己设计（非原版）：`Application.isPlaying` 闸 —— 原版永远在真跑里、**没有这道闸**；我们加它只为「批处理不许建指针节点 / 不许写 `PlayerPrefs`」· 判据 = 原版 `WildcardTutorialManager.StartWildcardTutorial` 只在真跑调用（本地判据无闸可抄）· 调度台 2026-10-31 裁定
             //      （它永远在真跑里）—— 这道闸只为「批处理不许碰玩家状态」，与 `DailyData.StoreOn` 同一条纪律。
             if (Application.isPlaying)
             {
                 try
                 {
-                    WildcardTutorial.TryStart(transform, new WildcardTutorialBindings(this));
+                    StartWildcardTutorialOnPoolBuilt("生产路径");
                 }
                 catch (System.Exception e)
                 {
@@ -4230,10 +4230,10 @@ namespace CardPresentation
                 //   `Localize.mTerm` 原文 `MenuCollection/NoDecksFound`（全库只 1 颗，就是本窗这一颗：
                 //   `… > Decks Tab > Select Deck Tab > Collection Display > Deck Scroll View >
                 //   Empty Collection Warning/Warning`）。
-                //   🔴 **我们原来那句英文与原文【不同】**（我们写 `There are no decks in your collection`，
-                //   原文是 `There are no deck …` 单数 + `…for the selected filters`）—— 按本表英文列的口径
-                //   照抄原文（含原版自己的语病），⛔ 不再用我们那句（`Shell/ShopWindow.cs` 的 `TxtEmpty`
-                //   用的一直是原文那一串，现在两处同一串了）。
+                //   🔴 **运行时真值 = 官方 I2 表 `MenuCollection/NoDecksFound`**（2026-10-31 现读逐字，`B106_W12`）：
+                //   `There are no decks in your collection for the selected filters or game mode` —— 本窗走 `Loc.T`，
+                //   `Core/Loc.cs:776` 就是这一串（⚠️ prefab 静态默认 `m_text` 少 ` or game mode`，那不是运行时值）；
+                //   ⚠️ 同句还硬编码在 `Shell/ShopTabPage.cs:140` 与 `Editor/DeckScene.cs:9300`（待同步，见 `报告/B106_W12.md` §④3）。
                 var wt = Text(ew, Loc.T("MenuCollection/NoDecksFound"), 165.88f, 1970.01f, 70.94f, 1080f, 5, PageInk,
                               "Warning", 36f);
                 if (wt != null) wt.SetRenderQueue(QPageText);
@@ -5234,7 +5234,7 @@ namespace CardPresentation
         }
 
         /// <summary>`_Outline` 的 alpha 补到 <paramref name="a"/>（原版 `DoColorChange(..., 0.2f)`）。
-        /// ⚠️ 用 `SetTarget(sdf)` + `Kill(sdf)` 保证**同一颗材质只有一条补间**在跑（悬停/离开快速交替时不会打架）。</summary>
+        /// ⚠️ 用 `SetTarget(sdf)` + `Kill(sdf)` 保证**同一颗材质只有一条补间**在跑（悬停/离开快速交替时不会打架）；🔴 **2026-10-31（`B106_W62`）**建完补 `SetUpdate(CardTween.Mode)`（同 `CardTween.Use`）—— 漏了它 DOTween 默认走 `Normal`（`DOTweenSettings.defaultUpdateType = 0`），编辑模式/批处理下**永不推进**。</summary>
         static void TweenOutline(Material sdf, Color baseC, float a)
         {
             if (sdf == null) return;
@@ -5248,7 +5248,7 @@ namespace CardPresentation
             }, a, CardHighlight.OutlineAnimTime);
             // ⚠️ 扩展方法在本文件没 `using DG.Tweening;` ⇒ 走**静态调用**（`SetTarget` 是泛型扩展）。
             DG.Tweening.TweenSettingsExtensions.SetTarget(tw, sdf);
-            DG.Tweening.TweenSettingsExtensions.SetEase(tw, DG.Tweening.Ease.Linear);
+            DG.Tweening.TweenSettingsExtensions.SetEase(tw, DG.Tweening.Ease.Linear); DG.Tweening.TweenSettingsExtensions.SetUpdate(tw, CardTween.Mode);   // 🔴 档位必须同 `CardTween.Use`：漏了它 = DOTween 默认 Normal ⇒ 编辑模式/批处理下这条补间永不推进（2026-10-31 `B106_W62`）
         }
 
         /// <summary>一格卡组。版式照 A2：根 250×405、显示 **0.9 倍**。
@@ -6773,6 +6773,72 @@ namespace CardPresentation
             float sx = r.W / 250f, sy = r.H / 405f;
             return new PxRect(r.x1 - 42.5f * sx, r.y1 - 70.875f * sy, r.x1 + 295f * sx, r.y1 + 479.925f * sy);
         }
+
+        // ============================================================ 🆕 B106_W40：卡池建完「起万能牌教程」那一跳（生产 / 自检共用同一条链）
+        /// <summary>「卡池建完 ⇒ 起一次万能牌教程」的**唯一实现**（生产中由 <c>BuildCardsPage</c> 调用；自检口
+        /// <see cref="RunPoolBuiltHookForTest"/> 也调它）。
+        /// <para>⛔ **这就是生产那条链**：`WildcardTutorial.TryStart(transform, new WildcardTutorialBindings(this))` 原样一句，
+        /// 不多一层闸、不换绑定。唯一的区别是 <paramref name="source"/> 只进日志（自检一眼看得出哪一条是测试口打的）。</para>
+        /// <para>🔶 自己设计（非原版）：把这一段抽成方法**只为**给自检口一个「绕过 `Application.isPlaying` 安全闸」的入口 ——
+        /// 原版没有那道闸（它永远在真跑里）· 调度台 2026-10-31 裁定</para></summary>
+        WildcardTutorial StartWildcardTutorialOnPoolBuilt(string source)
+        {
+            try
+            {
+                var tut = WildcardTutorial.TryStart(transform, new WildcardTutorialBindings(this));
+                Debug.Log("[Collection] 卡池建完 ⇒ 起万能牌教程（" + source + "）："
+                          + (tut != null ? "起了" : "已做过 ⇒ 不重启（= 原版 `currentState == End` 那一支）"));
+                return tut;
+            }
+            catch (System.Exception e)
+            {
+                // 红线：不许静默失败 —— 教程起不来要让日志说得出来（但它**不能**影响卡池）
+                Debug.LogWarning("[Collection] 万能牌教程没起来（不影响卡池，source=" + source + "）：" + e.Message);
+                return null;
+            }
+        }
+
+        /// <summary>**自检口**（给 `-batchmode` 的宿主用）：绕过 `Application.isPlaying` 安全闸，走**与生产完全相同**的那条链
+        /// （<see cref="StartWildcardTutorialOnPoolBuilt"/>），日志带「【测试口】」字样。
+        /// <para>⛔ 生产路径**不许**调它 —— 它只为「批量模式里验不到那一跳」而存在，⛔ 别拿它替换生产调用点。</para>
+        /// <para>⚠️ 调用方的收尾（宿主自己负责）：① `WildcardTutorial.ResetProgressForTest()` —— 真走到第三步会写 `PrefDone`；
+        /// ② 把 `WildcardTutorial` 那具 go 连同它建的指针节点一起 `DestroyImmediate`。</para>
+        /// <para>🔶 自己设计（非原版）：原版没有「测试口」这种东西 · 调度台 2026-10-31 裁定</para></summary>
+        /// <returns>起了 ⇒ 那具教程实例；已做过 / 出错 ⇒ `null`（与生产同一语义）。</returns>
+        public static WildcardTutorial RunPoolBuiltHookForTest(CollectionWindow win)
+        {
+            if (win == null)
+            {
+                Debug.LogWarning("[Collection] 【测试口】RunPoolBuiltHookForTest(null) —— ⛔ 不静默，什么都不做");
+                return null;
+            }
+            Debug.Log("[Collection] 【测试口】绕过 `Application.isPlaying` 闸，走生产那条链起一次万能牌教程（B106_W40）");
+            return win.StartWildcardTutorialOnPoolBuilt("测试口");
+        }
+
+        /// <summary>**自检口**（`B106_W62`，2026-10-31）：直接读一条补间**真实落下的档位**
+        /// <c>DG.Tweening.Tween.updateType</c> —— DOTween 把它存成 <c>internal</c> 字段、没有公开读口，
+        /// 只能反射读（`ilspycmd -t DG.Tweening.Tween DOTween.dll` 现读：`internal UpdateType updateType;`）。
+        /// <para>为什么要有它：「补间推得动」不能证明档位对（测试里可以手动 `SetUpdate(Manual)` 兜底 ⇒ 自证），
+        /// 所以断言必须**直读建补间那一刻落下的档位**。判据 = `Core/CardTween.cs` 的 `Use` 里那句话
+        /// `t.SetEase(ease).SetUpdate(Mode)` —— 生产侧漏了 `SetUpdate` 就退回 DOTween 默认 `Normal`。</para>
+        /// <para>⚠️ 读不到（DOTween 换版 / 字段改名）时返回 <c>(UpdateType)(-1)</c> —— 让断言**红**，
+        /// ⛔ 不静默返回 `Normal`（那会让「档位没设」被当成通过）。传 null 同理。</para>
+        /// <para>用法 → `Editor/CollectionScene.cs` 卡背格悬停那段（`B106_W62`）。</para></summary>
+        public static DG.Tweening.UpdateType TweenUpdateTypeForTest(DG.Tweening.Tween t)
+        {
+            if (t == null) return (DG.Tweening.UpdateType)(-1);
+            if (_tweenUpdateTypeField == null)
+            {
+                _tweenUpdateTypeField = typeof(DG.Tweening.Tween).GetField(
+                    "updateType",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic
+                    | System.Reflection.BindingFlags.Public);
+            }
+            if (_tweenUpdateTypeField == null) return (DG.Tweening.UpdateType)(-1);
+            return (DG.Tweening.UpdateType)_tweenUpdateTypeField.GetValue(t);
+        }
+        static System.Reflection.FieldInfo _tweenUpdateTypeField;
     }
 
 }

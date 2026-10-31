@@ -400,7 +400,7 @@ namespace CardPresentation
         /// <summary>建整个主菜单。**自检与运行时调同一个**。</summary>
         public void Build()
         {
-            _root = transform; BadgeWiring.RegisterDefaults();   // 🔴 2026-10-26（B8_BN）：**红点 provider 的登记点补在这一条生产入口上**（零新增行）。原来只有 `Shell/ShellRuntime.cs:768`（壳）与 `Editor/RewardsScene.cs:3539`（自检）各调一次 ⇒ **主菜单这条独立建场路一个 provider 都没有**：`TopBar` / 左栏那几颗红点挂在 `UiBadgeNotification` 上、`Recount()` 读的是 `UiBadgeNotificationManager` 的空表 ⇒ `CampaignBadge`/`ForgeBadge` **恒 0**（`Editor/MainMenuScene.cs` 那三条红：Campaign 期望 1、锻造期望 3、以及「Notifications 里有 CampaignBadge 那一栏」）。`RegisterDefaults()` 自带 `ProviderCount > 0` 幂等闸 ⇒ 与壳那条路并存无副作用（⛔ 别改成「先清空再登记」：provider 表是全局的、清掉会让 `[PlayerBoot]` 之外的宿主丢档）。
+            _root = transform; BadgeWiring.RegisterDefaults(); SocialBadgeProviders.EnsureRegistered();   // 🔴 2026-10-26（B8_BN）：**红点 provider 的登记点补在这一条生产入口上**（零新增行）。原来只有 `Shell/ShellRuntime.cs:768`（壳）与 `Editor/RewardsScene.cs:3539`（自检）各调一次 ⇒ **主菜单这条独立建场路一个 provider 都没有**：`TopBar` / 左栏那几颗红点挂在 `UiBadgeNotification` 上、`Recount()` 读的是 `UiBadgeNotificationManager` 的空表 ⇒ `CampaignBadge`/`ForgeBadge` **恒 0**（`Editor/MainMenuScene.cs` 那三条红：Campaign 期望 1、锻造期望 3、以及「Notifications 里有 CampaignBadge 那一栏」）。`RegisterDefaults()` 自带 `ProviderCount > 0` 幂等闸 ⇒ 与壳那条路并存无副作用（⛔ 别改成「先清空再登记」：provider 表是全局的、清掉会让 `[PlayerBoot]` 之外的宿主丢档）。
 
             // 🆕 **2026-10-17（界面线 T16 / `N4`）**：`Safe area All` 归**壳**所有（`ShellRuntime` 建的那一颗），
             //    而原版里它是 `MainMenuWindow` 的孩子（`RT1086.m_Father = 1087`）⇒ 上一轮构建把它搬进了**本场景**这一棵。
@@ -825,7 +825,7 @@ namespace CardPresentation
         /// `BuildNavigationPanel` 末尾那颗 **`Event Navigation Button`**（原版 prefab 真名）⇒
         /// `SetNavToggle(Event)` 现在真的会点亮它；点它 ⇒ `OnNavClick(5)` → `WindowsManager.OpenEventHub(Parent)`。
         /// ⚠️ **原版那一颗是「每个 live 事件一颗」**（`NavigationPanelController.BuildEventButtons` 按服务端
-        /// 🔶 自己设计（非原版）：只建一颗「活动」总入口钮 · 原版按服务端事件列表每事件一颗，本地没有事件列表 · TODO(谁定的)｜原注：事件 `Instantiate`）；本机**没有事件列表** ⇒ 本仓建**一颗**总入口钮（如实标，⛔ 不是原版的一对一映射）。</para></summary>
+        /// 🔶 自己设计（非原版）：只建一颗「活动」总入口钮 · 原版按服务端事件列表每事件一颗，本地没有事件列表 · 第六十九会话 2026-10-23 活动线 L01/L03 执行代理建第 6 颗时定为「已知偏离」（出处 `资料/普查产出_1023d/活动线_L01L03事件入口_执行报告.md:188`；⛔ 非用户拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：事件 `Instantiate`）；本机**没有事件列表** ⇒ 本仓建**一颗**总入口钮（如实标，⛔ 不是原版的一对一映射）。</para></summary>
         public enum NavigationPanelToggleType { Main = 0, Collection = 1, Shop = 2, Rewards = 3, Social = 4, Event = 5 }
 
         // ============================================================ 🔴 **2026-10-24（用户口径）：左竖导航暂时只留两颗**
@@ -1019,7 +1019,7 @@ namespace CardPresentation
             // 🆕 2026-10-17（T16 / `N4`）：从**左栏**那棵子树找（运行期它在壳的安全区节点下、不是 `_root` 的后代）；
             //    `_navPanel` 还没建时才退回老的根递归（自检夹具那一档）。
             var old = _navPanel != null ? FindIn(_navPanel, "Selected highlight") : Find("Selected highlight");
-            if (old != null) DestroySafe(old.gameObject);
+            if (old != null) FadeOutNavHighlight(old);
             RepaintNavHighlight(idx);
         }
 
@@ -1033,8 +1033,14 @@ namespace CardPresentation
             if (b == null) return;                       // 面板还没建（`BuildNavigationPanel` 没跑过）
             var band = _navBands[idx];                   // 这一颗的 (顶, 底) —— 建树时记下来的
             var tint = (idx >= 0 && idx < _navHiTints.Count) ? _navHiTints[idx] : NavHiTintDefault;
-            Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, band.x, band.y, "Selected highlight",
-                 QNavHighlight, tint);
+            // 🔴 **2026-10-31（`B106_W12` · AUD05 主菜单 §3·3 S-N3）：选中高亮要有 0.1s 淡入。**
+            //   原版那 5 颗是 `Toggle.toggleTransition = 1 (Fade)` + `fadeDuration = 0.1`（场景 MB2098/2039/2040/2038/2041 实读）
+            //   ⇒ `Selected highlight`（Toggle 的 `graphic`）alpha 0→1 线性淡入 0.1s（Unity `Toggle.PlayEffect`
+            //   的 `CrossFadeAlpha(…, fadeDuration, ignoreTimeScale: true)`，**线性**、**不受 timeScale**）。
+            //   我们原来是「建/删节点、瞬间切换」⇒ 这一条把淡入补上（淡出见 `FadeOutNavHighlight`）。
+            StartNavHighlightFadeIn(
+                Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, band.x, band.y, "Selected highlight",
+                     QNavHighlight, tint), tint);
         }
 
         void BuildNavigationPanel(Transform root)
@@ -2272,7 +2278,7 @@ namespace CardPresentation
             RefreshTopBarCountersIfChanged();
             // 🆕 2026-10-25：资源数字滚动（原版 `UIResourceCounter.SetQuantity(..., animated=1)` 的 0.5 s 递增）
             TopBar.StepCounters(_topBar, Time.deltaTime);
-            TickNavPanelTween();
+            TickNavPanelTween(); TickNavHighlightTween();
             RefreshDraftModeCard(); TickChatPreviewTween(); StepEventNavTimers();
         }
 
@@ -2396,7 +2402,7 @@ namespace CardPresentation
         ///      三张可见的卡 y `150..880`（**730/950 × 1080 = 830**）、宽 `420/1568 × 1920 = 514`
         ///      ⇒ **514×830 ≈ 535×848.8 = 1×2** ✓，且第四张在右缘被切（**原版就是横滚、切是对的**）。
         /// ⚠️ **原版「哪个模式用 1×1 / 哪个用 1×2」是 liveop 服务端数据**（本地查不到，§九 9·3 明写
-        /// 🔶 自己设计（非原版）：五张模式卡统一取 1×2 档 · 原版哪个模式用哪档是 liveop 服务端数据 · TODO(谁定的)｜原注：「别自己编一套映射」）⇒ 我们这五张选哪一档**本来就是我们自己定的**；选 1×2 是为了与实拍同形。
+        /// 🔶 自己设计（非原版）：五张模式卡统一取 1×2 档 · 原版哪个模式用哪档是 liveop 服务端数据 · 第十六会话 2026-10-11 界面复刻时定（第十七会话 A1521⑦ 据参考图实测 514×830 ≈ 535×848.8 复核；出处 `资料/历史/A表已收口_第十七会话.md:12`；用户当日点名的是「尺寸基线不齐」，1×2 是据参考图量的 ⇒ ⛔ 非用户直接拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：「别自己编一套映射」）⇒ 我们这五张选哪一档**本来就是我们自己定的**；选 1×2 是为了与实拍同形。
         /// ⛔ `CardH`（1×1）**别删** —— 原版那一档真实存在（`Reward Event Container 1x1` / `1x1 Claim`），
         /// `BuildModeCard` 两条路都留着，将来接 liveop 数据时要按数据选档。</summary>
         const float CardHTall = 848.8f;
@@ -3361,7 +3367,7 @@ namespace CardPresentation
         // ⚠️ **几何复核**：六个卡内坐标用**归一化比值**验过一遍（避开「卡被竖向拉高」这个未定缩放）——
         //    参考图那排实测卡内 **0.790~0.863**，`steps` 带的设计值 **0.759~0.861** ⇒ **吻合**。
 
-        /// 🔶 自己设计（非原版）：印玺排兜底颗数 · 原版来自远端 `RankedDivisionV2.TotalSeals` · TODO(谁定的)｜原注：<summary>那一排的**兜底颗数**。🔴 **这不是原版常数** —— 原版来自远端 `RankedDivisionV2.TotalSeals`
+        /// 🔶 自己设计（非原版）：印玺排兜底颗数 · 原版来自远端 `RankedDivisionV2.TotalSeals` · 第十七会话 2026-10-11 代理 S 实现时定为兜底（出处 `资料/历史/A表已收口_第十七会话.md:14` A1521⑧ + `资料/普查产出_第十七会话/S_排位卡印玺条.md`；4/0 据参考图推断；⛔ 非用户拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：<summary>那一排的**兜底颗数**。🔴 **这不是原版常数** —— 原版来自远端 `RankedDivisionV2.TotalSeals`
         /// （由 `ConfigManager.GetConfig<>()` 构造），本地拿不到（判据 → 本段上方）。
         /// ⚠️ **自检别拿这个常量当期望值**（那是同式自证）—— 期望值写死 `4` 并把上面那条判据引上。</summary>
         public const int RankedSealFallbackCount = 4;
@@ -5440,5 +5446,94 @@ namespace CardPresentation
             }
             return first;
         }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W12`）：侧栏选中高亮 0.1s 淡入淡出
+        //   判据（原版逐字段实读，`AUD05_state_matrix_主菜单与侧栏.md` §3·3 S-N3 / §2）：
+        //     5 颗导航 Toggle 全部 `m_Transition 1(ColorTint)` · `toggleTransition 1(Fade)` ·
+        //     `fadeDuration 0.1`（MB2098 / 2039 / 2040 / 2038 / 2041）—— `Selected highlight` 是 Toggle 的
+        //     `graphic`，`Toggle.PlayEffect` 用 `graphic.CrossFadeAlpha(on ? 1 : 0, fadeDuration, ignoreTimeScale: true)`
+        //     ⇒ **线性**、**不吃 `Time.timeScale`**（本类 `TickNavPanel` 用的 `unscaledDeltaTime` 同一档）。
+        //   ⚠️ Unity 的 `Toggle.PlayEffect` 在**非 Play 模式**下 `instant = true`（`DoStateTransition` 那条
+        //     `instant || !Application.isPlaying`）⇒ 我们照抄：批处理 / 编辑器里**瞬间完成**
+        //     （这也保住 `Editor/MainMenuScene.cs` 那条「`Selected highlight` 全树只有 1 个」的既有断言）。
+        const float NavHighlightFadeTime = 0.1f;
+
+        sealed class NavHiFade
+        {
+            public ImageQuad Q;
+            public Color Tint;          // 基色（alpha 由 From/To 覆盖）
+            public float From, To, T;
+            public bool KillWhenDone;   // true = 淡出完成后销毁节点
+        }
+
+        readonly List<NavHiFade> _navHiFades = new List<NavHiFade>();
+        bool? _navHiInstantOverride;    // 自检用：强制「瞬间完成」或「真跑补间」
+
+        bool NavHiInstant { get { return _navHiInstantOverride.HasValue ? _navHiInstantOverride.Value : !Application.isPlaying; } }
+
+        void StartNavHighlightFadeIn(ImageQuad q, Color tint)
+        {
+            if (q == null) return;
+            if (NavHiInstant) { q.SetTint(tint); return; }
+            var c = tint; c.a = 0f;
+            q.SetTint(c);
+            _navHiFades.Add(new NavHiFade { Q = q, Tint = tint, From = 0f, To = tint.a, T = 0f, KillWhenDone = false });
+        }
+
+        /// <summary>换页时把旧的那颗高亮**淡出**（原版 `toggleTransition = Fade` 对「关掉」那一侧同样生效），
+        /// 淡完再销毁。非 Play 模式 ⇒ 立刻销毁（同 Unity `Toggle` 的 `instant`）。</summary>
+        void FadeOutNavHighlight(Transform old)
+        {
+            if (old == null) return;
+            var q = old.GetComponent<ImageQuad>();
+            if (q == null || NavHiInstant) { DestroySafe(old.gameObject); return; }
+            // 同一颗可能还在淡入（连点两下）⇒ 先把它自己的淡入记录撤掉，避免两条补间抢同一个 tint。
+            for (int i = _navHiFades.Count - 1; i >= 0; i--)
+                if (_navHiFades[i] != null && _navHiFades[i].Q == q) _navHiFades.RemoveAt(i);
+            float from = q.Tint.a;
+            _navHiFades.Add(new NavHiFade { Q = q, Tint = q.Tint, From = from, To = 0f, T = 0f, KillWhenDone = true });
+        }
+
+        void TickNavHighlightTween() { TickNavHighlight(Time.unscaledDeltaTime); }
+
+        void TickNavHighlight(float dt)
+        {
+            if (_navHiFades.Count == 0) return;
+            for (int i = _navHiFades.Count - 1; i >= 0; i--)
+            {
+                var f = _navHiFades[i];
+                if (f == null) { _navHiFades.RemoveAt(i); continue; }
+                if (f.Q == null) { _navHiFades.RemoveAt(i); continue; }   // 节点已被销毁/面板重建
+                f.T += dt;
+                float k = NavHighlightFadeTime > 0f ? Mathf.Clamp01(f.T / NavHighlightFadeTime) : 1f;
+                var c = f.Tint; c.a = Mathf.Lerp(f.From, f.To, k);        // ⚠️ 线性 —— Unity `CrossFadeAlpha` 就是线性
+                f.Q.SetTint(c);
+                if (k < 1f) continue;
+                _navHiFades.RemoveAt(i);
+                if (f.KillWhenDone) DestroySafe(f.Q.gameObject);
+            }
+        }
+
+        /// <summary>自检读口：当前选中高亮那颗的 alpha（没有节点 ⇒ `NaN`）。</summary>
+        public float NavHighlightAlphaForTest
+        {
+            get
+            {
+                var t = _navPanel != null ? FindIn(_navPanel, "Selected highlight") : Find("Selected highlight");
+                if (t == null) return float.NaN;
+                var q = t.GetComponent<ImageQuad>();
+                return q != null ? q.Tint.a : float.NaN;
+            }
+        }
+
+        /// <summary>自检读口：还在跑的补间条数（淡入 + 待销毁的淡出）。</summary>
+        public int NavHighlightFadesForTest { get { return _navHiFades.Count; } }
+
+        /// <summary>自检用：推一帧高亮补间（与真机 `Update` 走同一个 `TickNavHighlight`）。</summary>
+        public void TickNavHighlightForTest(float dt) { TickNavHighlight(dt); }
+
+        /// <summary>自检用：`null` = 按 `Application.isPlaying` 自动（原版 `Toggle` 口径）；
+        /// `true` = 强制瞬间完成；`false` = 强制真跑补间（批处理里验淡入用这一档）。</summary>
+        public void SetNavHighlightInstantForTest(bool? instant) { _navHiInstantOverride = instant; }
     }
 }

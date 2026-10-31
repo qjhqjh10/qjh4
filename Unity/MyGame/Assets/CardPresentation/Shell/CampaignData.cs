@@ -213,8 +213,8 @@ namespace CardPresentation
 
         /// <summary>这一格现在能不能领（原版 `CampaignRewardsWindowContext.Claimable` 的口径：
         /// `State ∈ {Unlocked, Repeatable}` **且** `AvailablePoints ≥ NodeCost`）。
-        /// ⚠️ 我们把战役点固定给足 ⇒ 后半句恒真，卡的是**节点图**（见 `Points` 的注释）。</summary>
-        public static bool Claimable(int i) { int s = StateOf(i); return s == Unlocked || s == Repeatable; }
+        /// 🔴 2026-10-31（B106_W54）**点数闸已补上**：`AvailablePoints ≥ Nodes[i].Cost`（判据 = `decomp_full/CampaignWindowTab__OnNodeClicked.c:36-46` 的 `bVar11` + `cpp2il/out_il2csharp/…/Everguild/LiveOps/Campaign.cs:153-160` 的 `_get_AvailableNodes_b__7_1`）。🔶 自己设计（非原版）：本地无中立点数来源 · 调度台 2026-10-31 裁定 —— 原版 `AvailablePoints = NeutralPoints + ArmySpecificPoints` 两个都在服务端存档（`CampaignHandler+0x78` / `CampaignPersistence+0x44−+0x40`），本地 `PointsCatalog` 零登记、`CurrencyExtensions.CampaignPointsOf` 从未注入 ⇒ 用**单一全局 `Points`** 近似（见类尾 `AvailablePoints`）。</summary>
+        public static bool Claimable(int i) { int s = StateOf(i); return (s == Unlocked || s == Repeatable) && AvailablePoints >= Nodes[i].Cost; }
 
         /// <summary>基础档领过没有（原版 `CampaignRewardsWindowContext.BaseCollected` = `State ∈ {20,30}`；⚠️ 可重复节点待领时 `State=40` ⇒ **false**，与 `_base[i]` **不等价**）。</summary>
         public static bool BaseClaimed(int i) { if (i < 0 || i >= _base.Length) return false; int s = StateOf(i); return s == BaseCollected || s == AllCollected; }
@@ -233,7 +233,7 @@ namespace CardPresentation
             {
                 int s = StateOf(i);
                 why = s == Locked ? "这一格还没解锁（前驱没领）"
-                                  : "这一格的基础档已经领过了";
+                                  : (AvailablePoints < Nodes[i].Cost ? "战役点不够（需要 " + Nodes[i].Cost + "，可花 " + AvailablePoints + "）" : "这一格的基础档已经领过了");
                 return false;
             }
             // 🔴 原版 `CampaignNode.Collect` 的闸**只有** `State ∈ {10, 40}`（`CampaignNode__Collect.c:29-33`）⇒ **没有逐档拒绝**：
@@ -292,7 +292,7 @@ namespace CardPresentation
         /// 真机里调它 = 内存清空，下一次 `Claim`/`Select` 才把清空后的状态写回去）。</summary>
         public static void ResetForTest()
         {
-            for (int i = 0; i < Nodes.Length; i++) { _base[i] = false; _prem[i] = false; _sessionUnlocked[i] = false; }
+            for (int i = 0; i < Nodes.Length; i++) { _base[i] = false; _prem[i] = false; _sessionUnlocked[i] = false; _points = Points; }   // 🆕 2026-10-31（B106_W54）`_points` = 自检缝的战役点，一并还原（见类尾）
         }
 
         /// <summary>已领**基础档**的格数（诊断用；= 原版 `basicList` 的条数口径，**高级档不计**）。</summary>
@@ -713,5 +713,34 @@ namespace CardPresentation
                 if (n >= 0 && n < _sessionUnlocked.Length) _sessionUnlocked[n] = true;
             }
         }
+
+        // ============================================================ 可花的战役点（原版 `Campaign.AvailablePoints`）
+        //
+        //  原版 = `Campaign.AvailablePoints`：`Handler.NeutralPoints + persistence.ArmySpecificPoints`
+        //    （`cpp2il/out_il2csharp/…/Everguild/LiveOps/Campaign.cs:84-92`），而
+        //    `ArmySpecificPoints` = `+0x44 − +0x40` = **已获得 − 已花费 = 当前余额**
+        //    （`decomp_full/CampaignPersistence__get_ArmySpecificPoints.c`）。
+        //  `Claimable` 现在按原版加的那道闸（`CampaignWindowTab__OnNodeClicked.c:36-46` 的 `bVar11`、
+        //    `Campaign.cs:153-160` 的 `_get_AvailableNodes_b__7_1`）= `AvailablePoints >= NodeCost` 读它。
+        //
+        //  🔶 自己设计（非原版）：本地无中立点数来源 · 调度台 2026-10-31 裁定
+        //    —— `NeutralPoints` 原版在服务端存档（`CampaignHandler+0x78`）；本地 `PointsCatalog` 里
+        //       **一份 `campaignPoints` 都没登记**、`CurrencyExtensions.CampaignPointsOf` 也从未注入
+        //       ⇒ 用**单一全局 `Points`（9999）**近似「可花点数」，并按 `Points` 的同一口径（用户 2026-09-17
+        //       边界「不做真实经济」）恒足。
+        //  ⚠️ 默认值就是 `Points` ⇒ 生产行为与修前**逐字节一致**；只有自检把它调低时才会变。
+
+        static int _points = Points;
+
+        /// <summary>可花的战役点（原版 `Campaign.AvailablePoints` 的本地近似，见本段头）。
+        /// `Claimable` 的「点数闸」读它。</summary>
+        public static int AvailablePoints { get { return _points; } }
+
+        /// <summary>自检缝：把可花点数调到指定值（原版无此口 —— 那数来自服务端存档）。
+        /// ⚠️ 用完必须 `ResetPointsForTest()`（或 `ResetForTest()`）还原，否则会漏到后面的用例。</summary>
+        public static void SetPointsForTest(int v) { _points = v; }
+
+        /// <summary>自检缝：把可花点数还原成默认（= `Points`）。</summary>
+        public static void ResetPointsForTest() { _points = Points; }
     }
 }

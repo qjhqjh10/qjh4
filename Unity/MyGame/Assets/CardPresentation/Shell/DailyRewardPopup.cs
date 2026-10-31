@@ -310,7 +310,7 @@ namespace CardPresentation
         {
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
-            MissingArt.Clear(); entries.Clear();
+            MissingArt.Clear(); entries.Clear(); _drawers.Clear();
 
             // 1) 压暗整屏（无 sprite 的纯色矩形）
             var shadeGo = MenuDraw.Node(root, "Menu Dark Background",
@@ -377,7 +377,7 @@ namespace CardPresentation
             var view = MenuDraw.Node(tracks, "Rewards Scroll View", ScrollView);
             _content = MenuDraw.Node(view, "Rewards Content", new PxRect(ScrollView.x1, 132.09f, ScrollView.x1, 944.19f));
             // 🆕 **2026-10-17（`N46②`）**：接上原版那台滚动区（灵敏度 **1.0** px/格 · Elastic · Inertia）。
-            float scrollContentW = EntryPitch * (DailyData.RewardDays - 1) + EntryW;
+            float scrollContentW = ContentPadL + EntryPitch * (DailyData.RewardDays - 1) + EntryW;   // 🆕 B106_W30：+ `pad.left = 2`（原版内容宽 1070.11 = 1068.11 + 2）
             var vc = view.gameObject.AddComponent<ViewportClip>();
             vc.padding = Vector4.zero;
             vc.softness = Vector2Int.zero;
@@ -419,14 +419,21 @@ namespace CardPresentation
         Transform BuildEntry(Transform parent, PxRect entry, int day)
         {
             var e = MenuDraw.Node(parent, "Daily Reward Popup Entry (" + day + ")", entry);
-            // `Day Title`（`scl=0.8` ⇒ 尺寸与位置都乘 0.8，绕 Entry 左上角）
-            var dt = ScaleAbout(DayTitle, 0f, 0f, 0.8f, entry);
+            // `Day Title`（`scl=0.8` ⇒ **绕它自己的 pivot 缩**；原版 `m_Pivot=(0.5,1)` = 上边中点 ⇒ x 要按框心补、y 不用）
+            var dt = ScaleAbout(DayTitle, DayTitlePivotX, 0f, 0.8f, entry);
             // ⚠️ 实测这条 TMP 是 **`m_HorizontalAlignment = 2 (Center)`**（`Day Title_8118259498043006927` 的 MB）
             // ⇒ **居中**，别左对齐
-            var lbDayTitle = MenuDraw.Text(e, dt, "Day " + (day + 1), Color.white, "Day Title", 48f * 0.8f, QText, face: TmpFont.Face.LatinCardBody);
+            // 🔴 **2026-10-31（`B106_W11`）**：天数标题原来**写死 `"Day " + (day + 1)`** —— 原版是
+            //   **本地化词条 + `string.Format`**：`dayText.text = string.Format(
+            //   LocalizationManager.GetTranslation("MainMenu/DayIndicator"), 值)`
+            //   （判据 = `DailyRewardItemContainer__Initialize.c:119-124`；可读版
+            //   `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DailyRewardItemContainer.cs:167-175`）。
+            //   词条实读（`CardPresentation/Resources/official_loc_13lang.json`）：en = `Day {0}` · zh = `第{0}天`
+            //   ⇒ 换语言时这句跟着变（英文档与原来的写死串逐字相同）。
+            var lbDayTitle = MenuDraw.Text(e, dt, string.Format(Loc.T("MainMenu/DayIndicator"), day + 1), Color.white, "Day Title", 48f * 0.8f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Day Title` = `对齐=Center/**Midline**`（fs48）
             //  （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup" --depth 10 --md`）。
-            MenuDraw.SetVAlign(lbDayTitle, Label.VAlign.Midline, dt);
+            MenuDraw.SetVAlign(lbDayTitle, Label.VAlign.Midline, dt); if (lbDayTitle != null) lbDayTitle.BindText(() => string.Format(Loc.T("MainMenu/DayIndicator"), day + 1), () => MenuDraw.SetVAlign(lbDayTitle, Label.VAlign.Midline, dt));   // B106_W11（AUD03 #94）：文案来自词条 `MainMenu/DayIndicator`（原版是代码里 `GetTranslation`+`Format`，不是 Localize 组件）⇒ 换语言必须跟着重取，否则会**静默停在旧语言**（`OnLanguageChanged` 只要绑了 ≥1 颗就不再整窗重建）
 
             BuildDrawer(e, entry, day, false);   // `NormalReward`
             BuildDrawer(e, entry, day, true);    // `Premium Reward`
@@ -472,11 +479,19 @@ namespace CardPresentation
             bool prem = premium;
             RewardState st = DailyData.RewardStateOf(day, prem);
             float dy = prem ? DrawerPitch : 0f;
-            // 抽屉原点：`pos=(−6.20,−5.51)`（相对 Entry）—— 下面每个件都相对**抽屉**算
+            // 抽屉原点：`pos=(−6.20,−5.51)`（相对 Entry）—— 下面每个件都相对**抽屉**算；🆕 B106_W30：节点自身矩形也照原版**布局框**（`DrawerW×DrawerH`，原来取到 `D_Bg` 的两条远边）
             var node = MenuDraw.Node(parent, prem ? "Premium Reward" : "NormalReward",
-                                     Offset(new PxRect(DrawerOx, DrawerOy + dy, D_Bg.x2, D_Bg.y2 + dy), entry));
+                                     Offset(new PxRect(DrawerOx, DrawerOy + dy, DrawerOx + DrawerW, DrawerOy + dy + DrawerH), entry));
 
-            PxRect R(PxRect r) { return ScaleAbout(new PxRect(r.x1, r.y1 + dy, r.x2, r.y2 + dy), 0f, 0f, 0.8f, entry); }
+            PxRect R(PxRect r) { return ScaleAbout(new PxRect(r.x1, r.y1 + dy, r.x2, r.y2 + dy), DrawerPivotX, DrawerPivotY + dy, 0.8f, entry); }
+
+            // 🆕 **2026-10-31（`B106_W11`）**：**空档抽屉 ⇒ 整颗隐藏**。
+            //   原版 `DailyRewardDrawerController.Initialize` 第一段：`rewards.FirstOrDefault()` 取不到
+            //   ⇒ `gameObject.SetActive(false); return;`（`decomp_full/DailyRewardDrawerController__Initialize.c:51-58`；
+            //   可读版 `out_cpp2il_dev_ilspy/DailyRewardDrawerController.cs:212-214`）。
+            //   我们原来**无条件**建两档（`:431-432` 那两行），没有这道闸。
+            //   ⚠️ 今天 `DailyData.RewardCountOf` 恒 = 1 ⇒ 这道闸**恒开**（画面零变化）；它是原版的分支形状。
+            if (DailyData.RewardCountOf(day, prem) <= 0 && node != null) node.gameObject.SetActive(false);
 
             // `BG`（`UI_Deck_Information_submenu_Back_opaque`）
             MenuDraw.Rect(node, Art(ArtBackOpaque), R(D_Bg), "BG", QPanel);
@@ -494,7 +509,7 @@ namespace CardPresentation
             var holder = MenuDraw.Node(node, "Reward Holder", R(D_Holder));
             var icon = Art(DailyData.RewardIconOf(day, prem));
             var iconQ = MenuDraw.Rect(holder, icon, R(D_Holder), "Reward Holder", QContent, null, true);
-            if (iconQ == null && icon == null) MissingArt.Add(DailyData.RewardIconOf(day, prem));
+            if (iconQ == null && icon == null) MissingArt.Add(DailyData.RewardIconOf(day, prem)); var previewHit = BuildPreviewHit(holder, R(D_Holder), day, prem);   // 🆕 2026-10-31（B106_W51）：隐形命中件（原版抽屉的 `image` 本身是射线靶）—— 必须建在图标**之后**（`Editor/RewardsScene.cs` 的 `ArtOf` 取子树第一张 `ImageQuad`）；队列/守卫/判据见 `BuildPreviewHit` 的 doc
             // 奖励名（`EverguildTextMeshPro` fs=45 × 0.8）
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 36px。
             //   判据 = 原版 `menus ▸ Daily Reward Popup/Daily Reward Popup Entry/NormalReward/EverguildTextMeshPro`
@@ -511,6 +526,14 @@ namespace CardPresentation
             //   = `对齐=Center/**Midline**`（同一份 dump，8 份实例逐值相同）。
             MenuDraw.SetVAlign(nm, Label.VAlign.Midline, R(D_Name));
 
+            // 🆕 **2026-10-31（`B106_W11`）**：`Extra Reward Indicator`（多奖标识）—— 原来**整颗没建**。
+            //   原版：`if (rewards.Count > 1) extraRewardIndicator.gameObject.SetActive(true)`
+            //   （`out_cpp2il_dev_ilspy/DailyRewardDrawerController.cs:215-233`；
+            //    `.c` 版同一句 = `decomp_full/DailyRewardDrawerController__Initialize.c:132-137` 的 `1 < iVar2`）。
+            //   ⚠️ 兄弟序：原版在奖励名 `EverguildTextMeshPro` **之后**、`Premium Indicator` **之前**
+            //   （`menu_rect.py … "Daily Reward Popup Entry"` 的子件表）：它会被后画的 `Gacha Reward Claimed` 压住，
+            //   所以我们**也建在这个位置**（⛔ 别挪到方法末尾）。
+            BuildExtraRewardIndicator(node, R(D_Extra), day, prem);
             // `Premium Indicator`（角旗 + 锁）—— **只有 PremiumLocked 开**
             var pi = MenuDraw.Node(node, "Premium Indicator", R(D_PremBanner));
             MenuDraw.Rect(pi, Art(ArtPremBanner), R(D_PremBanner), "Banner", QContent);
@@ -535,7 +558,7 @@ namespace CardPresentation
             var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText,
                                           R(D_ClaimedTex).W, 15f * 0.8f, 200f * 0.8f, 36f * 0.8f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
-            MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex));   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半
+            MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex)); if (claimedTx != null) claimedTx.BindText(DailyData.RewardClaimedText, () => { MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex)); MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex)); });   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半｜B106_W11（AUD03 #94）：绑 `Rewards Menu/Claimed`（`reapply` 重放 `AlignLeft`+`Midline` 两刀：`SetText` 会按新宽度重新居中）
             // Collected 才开（原版同一句还开 `Shadow` —— 我们没有那张影子图，见文件头「我们挑的」）——
             // 由 `Drawer.SetState` 统一开。
 
@@ -565,7 +588,7 @@ namespace CardPresentation
             //   `DF:DailyRewardDrawerController__SetState.c:8-28` 的五句逐条对应；开关表见那个方法）。
             //   ⚠️ 原来这四句是**散在本方法里各写一条 `SetActive`** —— 与「状态只有一处说了算」相冲突，
             //   而且那样没地方表达原版的 `CurrentState` / 二次设态（`RefreshData` 那条路要用）。
-            var drawer = new Drawer(this, day, prem, hl, pi.gameObject, gc.gameObject, col, hit);
+            var drawer = new Drawer(this, day, prem, hl, pi.gameObject, gc.gameObject, col, hit, previewHit);
             drawer.SetState(st);
             _drawers.Add(drawer);
             // 原版 `DailyRewardItemContainer.Initialize` 把 `onCollect` 交给抽屉；抽屉点一下 →
@@ -585,11 +608,11 @@ namespace CardPresentation
             // Free Track
             var f = MenuDraw.Node(bar, "Free Track", FreeTrack);
             MenuDraw.Rect(f, Art(ArtFreeIcon), FreeIcon, "Icon", QContent, null, true);
-            MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, "Title", 36f, QText, face: TmpFont.Face.LatinCardBody);
+            var freeT = MenuDraw.Text(f, FreeTitle, DailyData.FreeTrackTitle(), Color.white, "Title", 36f, QText, face: TmpFont.Face.LatinCardBody); if (freeT != null) freeT.BindText(DailyData.FreeTrackTitle);   // B106_W11（AUD03 #94）：绑 `Missions/FreeTrack`（这颗是居中摆放 ⇒ 不需要 `reapply`）
             // Premium Track
             var p = MenuDraw.Node(bar, "Premium Track", PremTrack);
             MenuDraw.Rect(p, Art(ArtPremIcon), PremIcon, "Icon", QContent, null, true);
-            MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText, face: TmpFont.Face.LatinCardBody);
+            var premT = MenuDraw.Text(p, PremTitle, DailyData.PremiumTrackTitle(), Color.white, "Title", 36f, QText, face: TmpFont.Face.LatinCardBody); if (premT != null) premT.BindText(DailyData.PremiumTrackTitle);   // B106_W11（AUD03 #94）：绑 `Missions/PremiumTrack`（居中摆放 ⇒ 不需要 `reapply`）
             var price = MenuDraw.Node(p, "Price Display Button 2 Variant", PremPrice);
             var pb = MenuDraw.Rect(price, Art("UI_Button_Mulligan"), PremPrice, "Generic UI Button", QContent);
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 30px。
@@ -686,7 +709,7 @@ namespace CardPresentation
             if (s != null) s.AlignLeftOn(LayoutSpace.FromPixel(HeaderSub.x1, 0f).x);
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `Sub-Title`（fs39.7）= `Left/**Capline**`
             //   —— ⚠️ **与上一行的 `Title`（`Midline`）同框不同档**，⛔ 别一刀切。
-            MenuDraw.SetVAlign(s, Label.VAlign.Capline, HeaderSub);
+            MenuDraw.SetVAlign(s, Label.VAlign.Capline, HeaderSub); if (s != null) s.BindText(DailyData.HeaderArmySubTitle, () => { s.AlignLeftOn(LayoutSpace.FromPixel(HeaderSub.x1, 0f).x); MenuDraw.SetVAlign(s, Label.VAlign.Capline, HeaderSub); });   // B106_W11（AUD03 #94）：绑 `Missions/LoginRewards`（原版 `Header Header/Sub-Title`）；`reapply` 重放 `AlignLeftOn`+`Capline`（`SetText` 会按新宽度重新居中）
         }
 
         void BuildTimer(Transform root)
@@ -713,7 +736,7 @@ namespace CardPresentation
                                      "EverguildTextMeshPro", 50f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignRight(more, TimerMore);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Right/**Capline**`（上面 ① 那条 dump 逐字写着）。
-            MenuDraw.SetVAlign(more, Label.VAlign.Capline, TimerMore);
+            MenuDraw.SetVAlign(more, Label.VAlign.Capline, TimerMore); if (more != null) more.BindText(DailyData.MoreRewardsInText, () => { MenuDraw.AlignRight(more, TimerMore); MenuDraw.SetVAlign(more, Label.VAlign.Capline, TimerMore); });   // B106_W11（AUD03 #94）：绑 `Missions/MoreRewardsIn`（原版 `Timer/EverguildTextMeshPro`）；`reapply` 重放 `AlignRight`+`Capline`
             MenuDraw.Rect(t, Art(ArtClock), TimerClock, "Image", QContent);
             // 🔴 **2026-10-13（A493 #8）**：倒计时那颗补**显式左对齐**。
             //   判据 = 原版 `Daily Reward Popup/Timer/EverguildTextMeshPro (1)`（节点名照原版）：
@@ -807,7 +830,7 @@ namespace CardPresentation
 
         static PxRect Offset(PxRect r, PxRect by) { return new PxRect(by.x1 + r.x1, by.y1 + r.y1, by.x1 + r.x2, by.y1 + r.y2); }
 
-        /// <summary>原版 `scl=0.8` 的几何效果：绕 (ox,oy) 缩放（`ox/oy` 取 Entry 的左上角，即父的 pivot）。</summary>
+        /// <summary>原版 `scl=0.8` 的几何效果：绕**枢轴点 `(ox,oy)`** 缩放；`ox/oy` 是**相对 `parent` 左上角**的枢轴位置（= 原版该件 `m_Pivot` 落在父坐标系里的那一点）—— 🔴 Unity 的 `localScale` 绕**节点自己的 `m_Pivot`**、⛔ 不是绕父的左上角（2026-10-31 `B106_W30` 之前就是按后者近似 ⇒ 抽屉 8 件系统性偏 `(+31.5,+41.2)`）。</summary>
         static PxRect ScaleAbout(PxRect r, float ox, float oy, float s, PxRect parent)
         {
             float px = parent.x1 + ox, py = parent.y1 + oy;
@@ -865,14 +888,14 @@ namespace CardPresentation
             readonly DailyRewardPopup _owner;
             readonly Transform _highlight, _colider;
             readonly GameObject _premiumIndicator, _claimed;
-            readonly WindowButton _hit;
+            readonly WindowButton _hit, _previewHit;
 
             internal Drawer(DailyRewardPopup owner, int day, bool premium, Transform highlight,
-                            GameObject premiumIndicator, GameObject claimed, Transform colider, WindowButton hit)
+                            GameObject premiumIndicator, GameObject claimed, Transform colider, WindowButton hit, WindowButton previewHit)
             {
                 _owner = owner; Day = day; Premium = premium;
                 _highlight = highlight; _premiumIndicator = premiumIndicator; _claimed = claimed;
-                _colider = colider; _hit = hit;
+                _colider = colider; _hit = hit; _previewHit = previewHit;
             }
 
             /// <summary>= 原版 `SetState(State)`。**五件里我们只建了四件**（`Shadow` 那张图我们没有，
@@ -894,7 +917,7 @@ namespace CardPresentation
                 if (_claimed != null) _claimed.SetActive(state == RewardState.Collected);
                 if (_highlight != null) _highlight.gameObject.SetActive(state == RewardState.Unlocked);
                 if (_colider != null) _colider.gameObject.SetActive(state == RewardState.Unlocked);
-                if (_hit != null) _hit.Interactable = state == RewardState.Unlocked;
+                if (_hit != null) _hit.Interactable = state == RewardState.Unlocked; if (_previewHit != null) _previewHit.Interactable = state != RewardState.Unlocked && state != RewardState.Collected;   // 🔶 自己设计（非原版）：Shadow 缺图 ⇒ 用命中闸复刻遮挡语义（原版 `Unlocked` 被 `colider` 吞、`Collected` 被 `Shadow` 吞）· 判据 = Shadow 的 `m_RaycastTarget = 1` 与 `DailyRewardDrawerController__SetState.c` · 调度台 2026-10-31 裁定
                 State = state;
             }
 
@@ -941,11 +964,11 @@ namespace CardPresentation
             if (_content == null) return;                     // 轨道没建（理论不可达）⇒ 不出声地回（原版这里会抛）
             for (int i = 0; i < DailyData.RewardDays; i++)
             {
-                float x1 = ScrollView.x1 + EntryPitch * i;
+                float x1 = ScrollView.x1 + ContentPadL + EntryPitch * i;   // 🆕 B106_W30：HLG 的 `pad.left = 2`（原版 Entry 左沿 = 242.4 + 2 = 244.4）
                 // 🔴 四格一律过 `Shift`（与 `CampaignTab` 同一条口径）；`Offset` 归零时逐位不变。
                 var r = _scroll != null
-                      ? _scroll.Shift(new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH))
-                      : new PxRect(x1, 132.09f, x1 + EntryW, 132.09f + EntryH);
+                      ? _scroll.Shift(new PxRect(x1, EntryTopY, x1 + EntryW, EntryTopY + EntryH))   // 🆕 B106_W30：`EntryTopY` = 内容区上沿 + `pad.top(58)` + `MiddleLeft` 的居中溢出 = 161.09
+                      : new PxRect(x1, EntryTopY, x1 + EntryW, EntryTopY + EntryH);
                 entries.Add(BuildEntry(_content, r, i));       // ← 原版 `Instantiate(rewardItemContainer, contentAnchor)`
             }
         }
@@ -1095,5 +1118,158 @@ namespace CardPresentation
         // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
         // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底）。本窗的倒计时那一格由 `TimerDisplay` 自己的 `LocalizationChange` 重取。
         public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
+
+        // ============================================================ 🆕 **2026-10-31（`B106_W11`）**
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `OnLanguageChanged`
+        // 之后 ⇒ 零行号漂移。内容 = 原版 `DailyRewardDrawerController` 那颗 `Extra Reward Indicator`。
+
+        /// <summary>`Extra Reward Indicator`（多奖标识）的矩形 —— 相对 **Entry 左上角**、**未乘 `0.8`**
+        /// （与 `D_*` 那一族同刻度 ⇒ 用的时候过 `R()`）。
+        /// <para>判据（两路互校）：
+        /// ① **序列化**（`bundle_menus_assets_all/RectTransform/RectTransform_-5810419274544374655.json`）：
+        ///    锚 `(0.5,0.5)` · `m_AnchoredPosition = (102.5, 143.7)` · `m_SizeDelta = (100,100)` · `m_Pivot = (0.5,0.5)`；
+        ///    父 `NormalReward` 的序列化 `m_SizeDelta = (389.658, 503.556)`，但运行时被 Entry 的布局组撑成
+        ///    **`327.42 × 423.13`**（`menu_rect.py … "Daily Reward Popup Entry"` 的「布局」列）⇒ 按后者算。
+        /// ② **`menu_dump.py … --relative`** 打印 **`199.5 51.1 → 279.5 131.1`（80×80）** = 乘过 `0.8` 的
+        ///    **视觉框**；绕抽屉中心还原回未缩放刻度 = `210.01,12.36 → 310.01,112.36` ✔
+        ///    （本站取的就是后者 —— `PxRect` 是**左上原点、y 向下**，与 `D_*` 同口径）。</para></summary>
+        public static readonly PxRect D_Extra = new PxRect(210.01f, 12.36f, 310.01f, 112.36f);
+        /// <summary>`Extra Reward Indicator` 那张图 —— prefab 实读 `40k_main_bt_rewards`（126×126 · `Simple` ·
+        /// `m_PreserveAspect = 0` · 色 `(1,1,1,1)`）；同一张图也是第 2 天那条奖励的图标（`_rewardFreeIcon`）。</summary>
+        public const string ArtExtraReward = "40k_main_bt_rewards";
+
+        /// <summary>= 原版 `DailyRewardDrawerController.Initialize` 里那颗 `Extra Reward Indicator` 的两句：
+        /// 建节点 + `SetActive(rewards.Count > 1)`。
+        /// <para>判据 = `decomp_full/DailyRewardDrawerController__Initialize.c:102-112`（`iVar2 = Count; if (1 &lt; iVar2) …`）
+        /// 与 `:132-137`（`extraRewardIndicator(+0x28).gameObject.SetActive(1 &lt; iVar2)`）；
+        /// 可读版 `out_cpp2il_dev_ilspy/DailyRewardDrawerController.cs:215-233`。</para>
+        /// <para>⚠️ 原版**同一个 `Count &gt; 1`** 还多挂一跳：给 `ItemDrawer` 挂一个「点一下预览整串奖励」
+        /// （`RewardService.Preview(rewards, null, null, isPremiumLocked: true, …)`，ILSpy `:313-322`）。
+        /// 🔴 **2026-10-31（`B106_W51`）就地订正（铁律 5）**：原文写「我们这一侧没有 `ItemDrawer`、也没有 `RewardService.Preview` 那扇窗 ⇒ 如实不接」——**两句都已过期**：`Shell/ItemDrawer.cs` 在（全库 30 个文件在用）、预览窗 = `RewardWindow.ShowPreview`（`Shell/RewardWindow.cs:869`，早就有 ≥4 个调用点）；那一跳现已接在 `BuildPreviewHit`（同 `Count &gt; 1` + `RewardClickable` 守卫）；今天 `RewardCountOf` 恒 1 ⇒ 不会触发（画面零变化），但它是原版分支形状，⛔ 别删。</para>
+        /// <para>⚠️ 出厂这一颗是 **`m_IsActive = 0`**（`menu_rect.py` 的 `INACT`）⇒ 只有 `Count &gt; 1` 才开。</para></summary>
+        void BuildExtraRewardIndicator(Transform parent, PxRect rect, int day, bool premium)
+        {
+            if (parent == null) return;
+            var n = MenuDraw.Node(parent, "Extra Reward Indicator", rect);
+            if (n == null) return;
+            // `Art()` 取不到时会登记进 `MissingArt`（不静默）—— 与同方法里其它件同一条路。
+            MenuDraw.Rect(n, Art(ArtExtraReward), rect, "Image", QContent, null, false);
+            n.gameObject.SetActive(DailyData.RewardCountOf(day, premium) > 1);
+        }
+
+        /// <summary>自检用：取某天某条轨的 `Extra Reward Indicator` **节点**（`null` = 没建/那一格没铺）。
+        /// 与 `DrawerForTest` / `DrawerCountForTest` 同族（⛔ 只读引用，别在自检里改节点）。
+        /// <para>为什么不挂在 `Drawer` 上：`Drawer` 是原版那个**状态控制器**的等价物（只管四态开关），
+        /// 而多奖标识按原版是 `Initialize` 里按 `Count` 一次定的、**不参与 `SetState`**（判据见上一条）。</para></summary>
+        public Transform ExtraRewardIndicatorForTest(int day, bool premium)
+        {
+            if (entries == null || entries.Count == 0) return null;
+            var e = entries[Mathf.Clamp(day, 0, entries.Count - 1)];
+            if (e == null) return null;
+            var d = e.Find(premium ? "Premium Reward" : "NormalReward");
+            // ⚠️ `Transform.Find` 只找**直接子件** —— 这两层都是直接子件（Entry ▸ 抽屉 ▸ 标识）✔
+            return d != null ? d.Find("Extra Reward Indicator") : null;
+        }
+
+        // ============================================================ 🆕 **2026-10-31（`B106_W30`）**
+        // 本节同样**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `ExtraRewardIndicatorForTest`
+        // 之后 ⇒ 零行号漂移。内容 = `localScale = 0.8` 的**缩放枢轴** + Entry 在 `Rewards Content` 里的落位。
+
+        /// <summary>`NormalReward` / `Premium Reward` 的**框**宽高（相对 Entry 左上角）—— 就是该实例的 `m_SizeDelta`。
+        /// <para>🔴 判据（两路互校）：① `bundle_menus_assets_all/RectTransform/RectTransform_8761675323560527454.json`
+        /// （= **本 popup 那具 Entry**（`RectTransform_-6600266130723535266`，`scale=1`）的子件 `NormalReward`；
+        /// `Premium Reward` = `RectTransform_-7190760788832254370`）：`m_SizeDelta = (327.4205, 423.126)` ·
+        /// `m_LocalScale = (0.8,0.8,0.8)` · `m_Pivot = (0.5,0.5)` · `m_AnchoredPosition = (0, 200)`
+        /// （`Premium Reward` = `(0, −194.49)` ⇒ 间距 **394.49** = `DrawerPitch`）；
+        /// ② `python 工具/menu_dump.py … "Daily Reward Popup Entry" --depth 3 --relative` 实读布局框
+        /// `(-6.2,-5.5) → (321.2,417.6)` = 327.42 × 423.13 ✔。
+        /// ⚠️ ⛔ 别去读 `RectTransform_2995499467956296833.json` —— 那是**另一个 prefab 的那一格**（🆕 2026-10-31 `B106_W42` 现核：
+        /// 它的父件是 **`Daily Streak Reward Popup Entry`** 根 `RectTransform_7189168232786238593`，`m_LocalScale = 1.2`、`m_Father = 0` ⇒ 连登窗的 Entry prefab，⛔ 不是本 prefab 的第二具实例）；它的 `m_SizeDelta` 是 389.658 × 503.556，与屏上这个不同。</para></summary>
+        public const float DrawerW = 327.42f, DrawerH = 423.13f;
+
+        /// <summary>`NormalReward` 的 pivot（原版 `m_Pivot = (0.5,0.5)`）在 **Entry 局部坐标**里的 x/y。
+        /// <para>🔴 **Unity 的 `localScale` 绕节点自己的 `m_Pivot` 缩**，⛔ 不是绕父的左上角 ——
+        /// 我们原来按后者近似（`ScaleAbout(..., 0,0, ...)`）⇒ 整条抽屉的 8 个子件系统性偏
+        /// `0.2 × 枢轴`（`NormalReward` **+31.5 / +41.2** · `Premium Reward` **+31.5 / +120.1**；
+        /// 内部相对关系一直是对的）。</para>
+        /// <para>判据（两路互校）：① `RectTransform_8761675323560527454.json`：`m_LocalScale = (0.8,0.8,0.8)` ·
+        /// `m_Pivot = (0.5,0.5)` · `m_AnchoredPosition = (0, 200)`、锚点重合在 Entry 中心 ⇒ 枢轴落在
+        /// `(EntryW/2, EntryH/2 − 200) = (157.51, 206.06)`；② 框心见 <see cref="DrawerW"/>（pivot 0.5 ⇒ 枢轴 = 框心）。
+        /// 交叉验证：原版 `BG` 的 Entry 内**视觉**框 `39.6..275.4` = `0.8 × 10.17 + 0.2 × 157.51` ✔
+        /// （`D_Bg.x1 = 10.17`）。</para><para>🔴 **2026-10-31（`B106_W42`）现核：这个 `0.8` 是运行时真值，开窗那一刻不会被补间改** —— 抽屉节点上确实还挂着一颗 `UITransformTweenController`（`NormalReward` / `Premium Reward` 各一份；序列化 `playOnEnable=0` · `initializeOnAwake=0` · `animScale=1` · `targetScale=(1.12,1.12,1.12)` · `targetPosition=(0,217.5)` · `animTime=1.5`），但 `Awake`/`OnEnable` 的**首句**就是 `if (initializeOnAwake)` / `if (playOnEnable)` ⇒ 两者为 0 时整条方法早返回；而 `DoDefaultAnim`/`BackToDefault`/`DoAnim` 在**全量反编译三源**（`DF:UITransformTweenController__*.c` + `out_cpp2il_dev_ilspy` + `out_il2csharp`）里**只有 `ForgeRewardItemContainer` 调**（`DF:ForgeRewardItemContainer__Initialize.c:133/233`）⇒ 日常奖励窗的开窗/刷新链（`DailyRewardDrawerController` / `DailyRewardItemContainer` / `DailyRewardSelector` / `DailyRewardPopup`）一次都不碰它。判据 → `资料/完全复刻/报告/B106_W42.md`。</para></summary>
+        public static float DrawerPivotX { get { return DrawerOx + DrawerW * 0.5f; } }
+        /// <summary>见 <see cref="DrawerPivotX"/>（y 那一半；`Premium Reward` 的 `+ DrawerPitch` 由调用点加）。</summary>
+        public static float DrawerPivotY { get { return DrawerOy + DrawerH * 0.5f; } }
+
+        /// <summary>`Day Title` 的 pivot（原版 `m_Pivot = (0.5,1)` = **上边中点**）在 Entry 局部坐标里的 x。
+        /// <para>它是入口的**居中标题**（`m_HorizontalAlignment = 2 Center`）⇒ pivot 的 x 就是框心；
+        /// y 那一半 = 框上沿 = 0 ⇒ 不用补偿。判据 =
+        /// `bundle_menus_assets_all/RectTransform/RectTransform_&lt;Day Title&gt;.json` 五份实例逐值
+        /// `m_Pivot = (0.5,1)` · `m_LocalScale = (0.8,0.8,0.8)`。</para>
+        /// <para>⚠️ 与抽屉那两件**同一个病**：原来也是绕 Entry 左上角缩 ⇒ 整颗标题偏 **+31.5 px**（y 不变）。</para></summary>
+        public static float DayTitlePivotX { get { return (DayTitle.x1 + DayTitle.x2) * 0.5f; } }
+
+        /// <summary>`Rewards Content` 的 `HorizontalLayoutGroup.m_Padding` = **左 2 · 右 0 · 上 58 · 下 0**（原版 `pad=2,0,58,0`，`align = 3 (MiddleLeft)`；同族先例 = `Shell/DailyStreakPopup.cs:202/206` 的同一组值，那个窗早就按这条摆、本窗漏了）。
+        /// <para>🔴 我们原来把 Entry 摆在**内容区左上角**（`ScrollView.x1, 132.09`）⇒ 漏了三笔：
+        /// ① `pad.left = 2`（x 偏 **−2.03**）；② `pad.top = 58` + 交叉轴 `MiddleLeft` 居中 ⇒ y 偏 **−29.01**。
+        /// 判据 = `python 工具/menu_dump.py … "Daily Reward Popup" --depth 6`：
+        /// `Rewards Content 242.4 132.1 → 1312.5 944.2 · 1070.11×812.10 · HLG spacing=−64 align=3 pad=2,0,58,0`
+        /// 与 `Daily Reward Popup Entry 244.4 161.1 → 559.4 973.2`。
+        /// 验算：`x = 242.37+2 = 244.37` ✔ · `y = 132.09+58+(812.10−58−0−812.10)/2 = 161.09` ✔。</para></summary>
+        public const float ContentPadL = 2f, ContentPadT = 58f, ContentPadB = 0f;
+        /// <summary>见 <see cref="ContentPadL"/>：Entry 在内容区里的**上沿**（含 `pad.top` 与 `MiddleLeft` 的居中溢出）。</summary>
+        public const float EntryTopY = 132.09f + ContentPadT + (812.1f - ContentPadT - ContentPadB - EntryH) * 0.5f;
+
+        // ============================================================ 🆕 2026-10-31（`B106_W51`）
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `EntryTopY` 之后 ⇒ 零行号漂移。
+        // 内容 = 原版 `DailyRewardDrawerController.Initialize` 那一跳 `Count > 1 ⇒ OverrideOnClickAction(预览整串奖励)`。
+
+        /// <summary>= 原版 `DailyRewardDrawerController.Initialize` 里给抽屉挂的那颗「点一下预览整串奖励」的命中件。
+        /// <para>判据（逐跳实读）：① `decomp_full/DailyRewardDrawerController__Initialize.c:104-112`（`if (1 &lt; rewards.Count)` →
+        /// 造 delegate → 对 `ItemDrawer` 的虚表 slot `+0x218` 调 `OverrideOnClickAction`）；
+        /// ② `out_cpp2il_dev_ilspy/DailyRewardDrawerController.cs:313-322`（`RewardService.Preview(rewards, null, null, true, null)`）；
+        /// ③ 可点的**几何**来自 `Icon Currency Drawer Variant.prefab` 的 `Image`（拉伸铺满 `Reward Holder`、`m_RaycastTarget = 1`）。
+        /// ⇒ 我们这一侧就补一颗**同矩形、隐形**的命中件（今天的图标本来就是同矩形、PA=1 的 `ImageQuad` ⇒ 观感逐项相同）。</para>
+        /// <para>🔴 **队列 `QContent + 1`（3011）**：严格 **&gt; `QContent`(3010)**（画在图标之上）、**&lt; `QOverlay`(3014)**
+        /// （= `colider` 那一档 ⇒ `Unlocked` 时领奖那一下仍由 `colider` 赢）。⛔ 取了 `&gt;= QOverlay` 就会**抢走领奖**。</para>
+        /// <para>🔴 **必须建在图标【之后】**：`Editor/RewardsScene.cs` 的 `ArtOf` = `GetComponentInChildren&lt;ImageQuad&gt;()`
+        /// （取子树里第一张图）⇒ 建在前面会让「窗里 Id = 画的那张图」那几条静默变弱。</para>
+        /// <para>⚠️ **只挂 `Count &gt; 1` + `RewardClickable` 那一支**（原版同一个合取）；其余情形 `onClick` 留空、
+        /// 且关掉按钮音（原版 `showItemInfoOnClick == 0` 时 `OnPointerClick` 整颗早返回，连音都没有）。</para></summary>
+        WindowButton BuildPreviewHit(Transform holder, PxRect rect, int day, bool premium)
+        {
+            if (holder == null) return null;
+            // `AddHit` → `MenuDraw.Hit`：透明命中 quad + `WindowButton`，并吃本窗/父链的视口裁切（同 `colider` 那一族）。
+            var node = AddHit(holder, "Preview Rewards Hit", rect, QContent + 1, null);
+            if (node == null) return null;
+            var hit = node.GetComponent<WindowButton>();
+            if (hit == null) return null;
+            if (DailyData.RewardCountOf(day, premium) > 1 && DailyData.RewardClickable(day, premium))
+            {
+                hit.onClick = () =>
+                {
+                    var list = DailyData.RewardSpecsOf(day, premium);
+                    if (DailyData.PreviewRewards(list, premiumLocked: true) == null)
+                        Debug.LogWarning("[DailyReward] 点抽屉 ⇒ 预览窗**没开出来**（奖励列表为空；原版 `RewardService.Preview`）");
+                };
+            }
+            else hit.playClickSound = false;
+            return hit;
+        }
+
+        /// <summary>自检用：取某天某条轨的「预览整串奖励」命中件（`null` = 没建/那一格没铺）。
+        /// 与 `ExtraRewardIndicatorForTest` / `DrawerForTest` 同族（⛔ 只读引用，别在自检里改节点）。</summary>
+        public WindowButton PreviewRewardsHitForTest(int day, bool premium)
+        {
+            if (entries == null || entries.Count == 0) return null;
+            var e = entries[Mathf.Clamp(day, 0, entries.Count - 1)];
+            if (e == null) return null;
+            var d = e.Find(premium ? "Premium Reward" : "NormalReward");
+            if (d == null) return null;
+            var h = d.Find("Reward Holder");
+            if (h == null) return null;
+            var node = h.Find("Preview Rewards Hit");
+            return node != null ? node.GetComponent<WindowButton>() : null;
+        }
     }
 }

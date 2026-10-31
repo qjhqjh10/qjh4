@@ -1252,7 +1252,7 @@ namespace CardPresentation
             //   留着通道会出现「闸验自建、发牌发预组」（审查代理 #11 那条）。
             PickedPrebuilt = null;
             PairIndex = -1;                  // 🆕 2026-10-22：左列那一格的选中态一并归零（同 `DeckIndex`）
-            PrebuiltDecks.ClearPendingBattleDeck();
+            PrebuiltDecks.ClearPendingBattleDeck(); StartedBattle = false;   // 🆕 2026-10-31（B106_W2 · AUD10 §三 R1）：**开窗 = 上一局的「已开战」标记作废**。原来它 `= true` 之后再无 `= false`（`:3150` 写 / `:1316` 读）⇒ 只要「置真之后窗没被 `CloseAllWindows` 关掉」（= 切场景失败那一档），关窗时「不清 `PickedPrebuilt` / 不清 `PrebuiltDecks._pending`」那道闸就**永久失效**，预组通道漏到别的模式。⚠️ 放在 `Open()` 而不是 `Close()`：`Close()` 里那个 `!StartedBattle` 判据要**保住本窗自己那一局**（跨场景读在 `BattleDriver.TakePendingBattleDeck`）
             DeckIndex = CollectionData.CurrentIndex();
             // 🔴 **2026-10-23（W66）：开窗的阵营筛选 = 原版 `Open` 末尾那条 `ChangeSelectedArmy(...)`。**
             //   判据（`d:/2/tools/decomp_full/PracticeModePopup__Open.c:172-180`，逐句）：

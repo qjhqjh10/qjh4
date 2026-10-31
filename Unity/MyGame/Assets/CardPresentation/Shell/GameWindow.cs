@@ -39,7 +39,7 @@ namespace CardPresentation
 
         public WindowType type = UnsetType;
 
-        /// 🔶 自己设计（非原版）：`UnsetType` / `UnsetPlacement` 哨兵 = -1 · 原版 `windowsPlacement` 在 prefab 里必填，我们用 -1 标「还没赋过值」（原版判据拿不到） · TODO(谁定的)｜原注：<summary>🔴 **A166 哨兵 —— 这不是原版的枚举值，是「还没赋过值」的标记**。
+        /// 🔶 自己设计（非原版）：`UnsetType` / `UnsetPlacement` 哨兵 = -1 · 原版 `windowsPlacement` 在 prefab 里必填，我们用 -1 标「还没赋过值」（原版判据拿不到） · 2026-10-06 执行子代理定为 A166 哨兵方案、2026-10-13 第二十四会话落地（出处 `资料/普查产出_1006/A154_A165_A166_Settings闭环.md:22`；⛔ 非用户拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：<summary>🔴 **A166 哨兵 —— 这不是原版的枚举值，是「还没赋过值」的标记**。
         /// <para>原版 `windowsPlacement` 在 prefab 里是**必填**的（全库 141 个带该字段的实例**逐个都有值**）；
         /// 我们是逐窗在各自的 `Create()` 里赋（26 扇有对照的窗全赋了）。**默认值原来是 `Popup`(15)** ⇒
         /// 将来哪扇新窗忘了赋，会**静默**挂到弹窗那一档 —— 这正是本工程红线「不许静默失败」要挡的那种。</para>

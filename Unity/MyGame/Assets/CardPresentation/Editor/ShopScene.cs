@@ -1103,15 +1103,15 @@ public static class ShopScene
     /// 后面那些断言/实拍要的是**商店开着**的状态 ⇒ 这里把它关掉、把商店重新开起来。</summary>
     static void ClosePackAndReopenShop(ShopWindow win)
     {
-        var pg = win.PageOf(0);
-        var bp = pg != null ? pg.LastBoosterPack : null;
-        if (bp != null && bp.CurrentState != WindowState.Closed)
+        var mgr = win.Manager;                 // 🔴 从管理器**现取**：⛔ 别读页上的 `LastBoosterPack` —— `Open()`→`Build()`→`BuildPages()` 会重建 `ShopTabPage`，那个字段跟着归零（`B106_D5` §二）
+        if (mgr != null)                       // 管理器为空时下面两扇都够不着 ⇒ 只走「三档」那半边（`Closed` 档同样要它）
         {
-            Debug.Log(P + "  （编排）买完弹出的开包窗先关掉，把商店重新开起来");
-            bp.Close();
+            var pop = mgr.GetOpenWindow<BoosterInfoPopup>(); if (pop != null) { Debug.Log(P + "  （编排）买完弹出的卡包详情窗先关掉"); pop.Close(); }
+            var bp = mgr.GetOpenWindow<BoosterPackOpenWindow>(); if (bp != null && bp.CurrentState != WindowState.Closed) { Debug.Log(P + "  （编排）买完弹出的开包窗先关掉，把商店重新开起来"); bp.Close(); }
         }
-        if (win.CurrentState == WindowState.Closed && win.Manager != null) win.Manager.OpenWindow(win);
-        CheckTrue(win.CurrentState == WindowState.Open, "（前提）商店重开之后真的开着 —— 下面几段都靠它");
+        // 三档都收：`Open` ⇒ 什么都不做（⛔ 别再无谓 `OpenWindow` 重建一次内容）；`Background` ⇒ 无参 `TryOpen()`（`Shell/GameWindow.cs:507` = 原版 `ShowPreviousWindow` ⑥ 那一跳，**只回前台、不重建**）；`Closed` ⇒ `OpenWindow`（`GetOpenWindow<T>` = `Shell/WindowsManager.cs:383`）
+        if (win.CurrentState == WindowState.Background) win.TryOpen(); else if (win.CurrentState == WindowState.Closed && mgr != null) mgr.OpenWindow(win);
+        CheckTrue(win.CurrentState == WindowState.Open, "（前提）商店重开之后真的开着 —— 下面几段都靠它（实得 " + win.CurrentState + "）");
     }
 
     // 🆕 **2026-10-20（`A1350` 第二批）**：原来的甲式点读 `PxOf/PxYOf`（`x×108+960` / `540−y×108`）
@@ -1261,8 +1261,22 @@ public static class ShopScene
         //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
-        try { RunCore(); }
-        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        // 🆕 2026-10-31（`B106_W16` · AUD11 类 4 · 判据 = `报告/B103_D1.md` 的 A3）：`RunCore` 一条
+        //   `MissingReferenceException` 就让整个宿主 rc=1 且**合计行不印**（外部只看到「没结果」）
+        //   ⇒ 这里兜住：记一次失败 + 出声；`finally` 里照旧印合计、并以 1 退出（⛔ 不让异常逃出 `Run`）。
+        bool runCompleted = false;
+        try { RunCore(); runCompleted = true; }
+        catch (System.Exception e) { _sink.Fail++; Debug.LogError("[ShopScene] RunCore 抛异常（**其后的断言段没跑**）：" + e); }
+        finally
+        {
+            WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled;
+            if (!runCompleted)
+            {
+                Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+                Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+            }
+        }
     }
 
     /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
@@ -1556,8 +1570,17 @@ public static class ShopScene
                       "`Line` **不建**（出厂 `m_IsActive = false`）");
             var tc = FindChild(hdr, "TimeCounter");
             CheckAt(tc, 367.47f, 678.87f, 70.94f, 150.94f, "`TimeCounter`（311.40 × 80）");
+            // 🆕 **2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）**：两族 `Packs Scroll View` **矩形不同** ——
+            //   · Grid 族（第 0~3 页）= 原版三份 `… Shop Tab` 的 `329.76,127.62 → 1920,1080`；
+            //   · **Flexible 族（第 4 页 = `Packs Tab` / `BoosterShopTab`）= `163.5,0 → 1752.8,1009.1`（相对 `Tabs`）**
+            //     ⇒ 绝对 **`330.67,70.94 → 1919.97,1080`**（页头 INACT ⇒ 从页顶起；判据 → `AUD05_state_matrix_商店窗.md` §2·4）。
+            bool flex = p == ShopTabPage.CratesPage;
             var sv = FindChild(pg, "Packs Scroll View");
-            CheckAt(sv, 329.76f, 1920.00f, 127.62f, 1080.00f, "`Packs Scroll View`");
+            if (flex)
+                CheckAt(sv, 330.67f, 1919.97f, 70.94f, 1080.00f,
+                        "`Packs Scroll View`（**Flexible 族**：相对 `Tabs` 的 163.5,0→1752.8,1009.1 ⇒ 绝对 330.67,70.94→1919.97,1080）");
+            else
+                CheckAt(sv, 329.76f, 1920.00f, 127.62f, 1080.00f, "`Packs Scroll View`");
             // ⚠️ **别拿 `CheckRectPx(sv, …)`** —— `sv` 自己**没有 Graphic**（原版那个 `Image` 是 `UIMask`、
             //    `m_Color.a = 0` ⇒ 我们照纪律没画），所以 `GetComponentInChildren<ImageQuad>()` 会
             //    一路找到**子树里第一格**（337.6 × 477），量出来的是格的尺寸、不是 Scroll View 的。
@@ -1651,35 +1674,63 @@ public static class ShopScene
                         + $"时钟 {cLow}s · 漂移余量 {driftTol}s");
             }
 
-            // ---- 栅格：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · **4** 列 · UpperLeft`（🔴 2026-10-30 `B103_F5` 订正原写「2 列」：那是把 `m_ConstraintCount: 2` 当列数，而 `m_Constraint = 0`(Flexible) 下它是死值 ⇒ 真值 `floor(1590.24 ÷ 335.6)` = 4，判据 → `判据/AUD05_state_matrix_商店窗.md` §1·1）----
+            // ---- 栅格（两族各一套式子）----
+            //   · **Grid 族**：`GridLayoutGroup cell 335.6×475 · spacing 0 · padding.top 7 · **4** 列 · UpperLeft`
+            //     （🔴 2026-10-30 `B103_F5` 订正原写「2 列」：那是把 `m_ConstraintCount: 2` 当列数，而
+            //      `m_Constraint = 0`(Flexible) 下它是死值 ⇒ 真值 `floor(1590.24 ÷ 335.6)` = 4，判据 → `判据/AUD05_state_matrix_商店窗.md` §1·1）
+            //   · **Flexible 族**（第 4 页）：`itemSize 372.9×427.9 · spacing (28,32) · pad (50,25,25,0)` ·
+            //     **恒 2 行**、列数 = `ceil(n/2)`（序列化 `columns 200` 是上限）· 填法 = 先填满 2 行再换列
+            //     （判据 = `FlexibleGridLayout__DoesItemFit.c`；位置 = `(padL + col×(itemW+gapX), padT + row×(itemH+gapY))`）
+            //     🆕 2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）。
             var offers = ShopData.Offers(p);
             var content = FindPath(pg, "Packs Scroll View/Viewport/Content");
             CheckTrue(content != null, "`Content`（栅格挂点）建了");
             CheckByPrefix(content, "CatalogItemShopContainer_", offers.Length,
                           $"格数 = 商品数 {offers.Length}（照 `ShopTab.CreateOffers` 逐 offer 建）");
+            // 期望值一律用**原版字面量**（Grid = prefab 的 cellSize；Flex = `Packs Tab` 的 itemSize/spacing/pad）
+            float cellW = flex ? 372.9f : ShopTabPage.CellW;
+            float cellH = flex ? 427.9f : ShopTabPage.CellH;
+            float vpx1 = flex ? 330.67f : ShopTabPage.ScrollView.x1;
+            float vpx2 = flex ? 1919.97f : ShopTabPage.ScrollView.x2;
+            float vpy1 = flex ? 70.94f : ShopTabPage.ScrollView.y1;
+            float vpy2 = flex ? 1080.00f : ShopTabPage.ScrollView.y2;
             for (int i = 0; i < offers.Length; i++)
             {
-                int col = i % ShopTabPage.GridCols, row = i / ShopTabPage.GridCols;
-                float x1 = 329.76f + col * ShopTabPage.CellW;
-                float y1 = 127.62f + ShopTabPage.GridPadT + row * ShopTabPage.CellH;
+                int col, row; float x1, y1;
+                if (flex)
+                {
+                    col = i / 2; row = i % 2;
+                    x1 = 330.67f + 50f + col * (372.9f + 28f);
+                    y1 = 70.94f + 25f + row * (427.9f + 32f);
+                }
+                else
+                {
+                    col = i % ShopTabPage.GridCols; row = i / ShopTabPage.GridCols;
+                    x1 = 329.76f + col * cellW;
+                    y1 = 127.62f + ShopTabPage.GridPadT + row * cellH;
+                }
                 var cell = FindChild(content, "CatalogItemShopContainer_" + i);
-                CheckAt(cell, x1, x1 + ShopTabPage.CellW, y1, y1 + ShopTabPage.CellH,
-                        $"第 {i + 1} 格的位置（col {col} / row {row} ⇒ 原版栅格算式）");
+                CheckAt(cell, x1, x1 + cellW, y1, y1 + cellH,
+                        $"第 {i + 1} 格的位置（{(flex ? "Flexible：col = i/2 · row = i%2" : "Grid")} → col {col} / row {row}）");
                 CheckArt(FindChild(cell, "background"), "UI_Deck_Selection_Back_simple", "格底");
                 // 格底**渲出来**的尺寸 = 格 + 2（原版 `background` 的 `sizeDelta = (2,2)`，锚点拉满）
                 // 🆕 **2026-10-03**：接上纵向滚动 + 裁切之后，**照原版 `RectMask2D` 先按
                 //   `Packs Scroll View` 的视口裁一刀** —— 最后一行会压在视口底边上（内容高 957 > 视口 952.38）。
-                float bx1 = Mathf.Max(x1 - 1f, ShopTabPage.ScrollView.x1);
-                float bx2 = Mathf.Min(x1 + ShopTabPage.CellW + 1f, ShopTabPage.ScrollView.x2);
-                float by1 = Mathf.Max(y1 - 1f, ShopTabPage.ScrollView.y1);
-                float by2 = Mathf.Min(y1 + ShopTabPage.CellH + 1f, ShopTabPage.ScrollView.y2);
+                float bx1 = Mathf.Max(x1 - 1f, vpx1);
+                float bx2 = Mathf.Min(x1 + cellW + 1f, vpx2);
+                float by1 = Mathf.Max(y1 - 1f, vpy1);
+                float by2 = Mathf.Min(y1 + cellH + 1f, vpy2);
                 CheckRectPxUnion(FindChild(cell, "background"), bx1, bx2, by1, by2,
                                  "格底渲出来的矩形（= 格 + 2，**已按 `Packs Scroll View` 视口裁过**）");
                 CheckArt(FindChild(cell, "Generic UI Button"), "40K_button", "价格钮底图");
                 CheckNear(TintOf(FindChild(cell, "Generic UI Button")).g, 0.637f, 0.01f,
                           "价格钮的色 = **(0.902,0.637,0.18)**（原版 `m_Color` 原文）");
-                CheckTrue(TextOf(FindChild(cell, "Button Text")) == offers[i].Price,
-                          $"格 {i + 1} 的价格文本 = `{offers[i].Price}`");
+                // 🆕 **2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）**：价格文本改断**实现提供的读口**
+                //   `ShopTabPage.PriceTextForTest(p, i)`（与 `BuildCell` 同一份判断：已拥有 ⇒ `Owned` / `Open ({n})`、
+                //   免费、`--`、删除线）⇒ **⛔ 别再手抄一份期望值**（会与生产的判断分叉）。
+                Check(TextOf(FindChild(cell, "Button Text")),
+                      win.PageOf(p) != null ? win.PageOf(p).PriceTextForTest(i) : null,
+                      $"格 {i + 1} 的价格文本 = `PriceTextForTest` ⇒ 「{(win.PageOf(p) != null ? win.PageOf(p).PriceTextForTest(i) : "<无页>")}」（与生产同一份判断）");
                 CheckArt(FindChild(cell, "Counter"), "40K_main_deck_card_counter", "拥有数角标底");
                 CheckTrue(TextOf(FindChild(cell, "Text (TMP)")) == "x" + ShopData.OwnedOf(p, i),
                           $"格 {i + 1} 的拥有数 = `x{ShopData.OwnedOf(p, i)}`");
@@ -1725,20 +1776,23 @@ public static class ShopScene
                 // `Available Counter`：**整条要在格子里面**（第一版它中心在格底边上 ⇒ 半截跨到下一行）
                 if (RectOf(FindChild(cell, "Available Counter"), out vx1, out vy1, out vx2, out vy2))
                 {
-                    CheckTrue(vy1 >= y1 - 0.5f && vy2 <= y1 + ShopTabPage.CellH + 0.5f,
+                    CheckTrue(vy1 >= y1 - 0.5f && vy2 <= y1 + cellH + 0.5f,
                               $"格 {i + 1}：`Available Counter` **竖向不越出格子**"
-                              + $"（实测 y {vy1:F0}..{vy2:F0}，格 {y1:F0}..{y1 + ShopTabPage.CellH:F0}）");
-                    CheckTrue(vx1 >= x1 - 0.5f && vx2 <= x1 + ShopTabPage.CellW + 0.5f,
+                              + $"（实测 y {vy1:F0}..{vy2:F0}，格 {y1:F0}..{y1 + cellH:F0}）");
+                    CheckTrue(vx1 >= x1 - 0.5f && vx2 <= x1 + cellW + 0.5f,
                               $"格 {i + 1}：`Available Counter` **横向不越出格子**");
                     // 🔴 **2026-10-19（`N72`）**：原版横向档 = **Center**（现跑 `menu_dump` 实读 6 份
                     //   `Catalog Item Shop Container` 变体全为 `Center/Midline`；旧施工图 `:143` 的 `Right`
                     //   是旧工具 hAlign 错位值）。判据 = 渲出来那块的**中心**落在 `CellAvail` 的中心上。
                     //   ⚠️ 断的是**原版档位**，不是「我们某个常量」：`AlignRight` 会把中心推到
                     //   `x1 + 18.87 + w/2`（右边贴框）⇒ 与中心差 (315.33−18.87−w)/2，远大于 2px。
+                    //   🆕 **2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）**：Flex 族格内件按**父的归一化锚点**
+                    //     逐比例缩放（`sx = cellW / 335.6`）⇒ 期望中心也要跟着缩（Grid 族 sx = 1，逐位不变）。
+                    float sxIn = cellW / ShopTabPage.CellW;
                     CheckNear((vx1 + vx2) * 0.5f,
-                              x1 + (ShopTabPage.CellAvail.x1 + ShopTabPage.CellAvail.x2) * 0.5f, 2f,
+                              x1 + (ShopTabPage.CellAvail.x1 + ShopTabPage.CellAvail.x2) * 0.5f * sxIn, 2f,
                               $"格 {i + 1}：`Available Counter` **横向居中**（原版 `Center`；"
-                              + $"分界 = `CellAvail` 中心 {x1 + (ShopTabPage.CellAvail.x1 + ShopTabPage.CellAvail.x2) * 0.5f:F1}）");
+                              + $"分界 = `CellAvail` 中心 {x1 + (ShopTabPage.CellAvail.x1 + ShopTabPage.CellAvail.x2) * 0.5f * sxIn:F1}）");
                 }
                 // 格内所有件都别横着越界（价格钮 / 名字 / 类型 / 主图 一起过一遍）
                 string[] insideNames = { "Name", "Type", "Art", "ArtPlaceholder", "Generic UI Button" };
@@ -1746,23 +1800,29 @@ public static class ShopScene
                 {
                     float ix1, iy1, ix2, iy2;
                     if (!RectOf(FindChild(cell, insideNames[k]), out ix1, out iy1, out ix2, out iy2)) continue;
-                    CheckTrue(ix1 >= x1 - 2f && ix2 <= x1 + ShopTabPage.CellW + 2f,
+                    CheckTrue(ix1 >= x1 - 2f && ix2 <= x1 + cellW + 2f,
                               $"格 {i + 1}：`{insideNames[k]}` **横向在格内**（实测 x {ix1:F0}..{ix2:F0}）");
-                    CheckTrue(iy1 >= y1 - 2f && iy2 <= y1 + ShopTabPage.CellH + 2f,
+                    CheckTrue(iy1 >= y1 - 2f && iy2 <= y1 + cellH + 2f,
                               $"格 {i + 1}：`{insideNames[k]}` **竖向在格内**（实测 y {iy1:F0}..{iy2:F0}）");
                 }
             }
 
-            // ---- 🆕 2026-10-03：`Packs Scroll View` 的纵向滚动 + 视口裁剪 ----
+            // ---- 🆕 2026-10-03：`Packs Scroll View` 的滚动 + 视口裁剪 ----
             //   判据 = 原版实读 `menu_dump.py bundle_menus_assets_all "Card Shop Tab"`：
             //          `ScrollRect h=0 v=1 mode=1(**Elastic**) inertia=1 elasticity=0.1 decel=0.135` +
             //          `Viewport` 上的 `RectMask2D`；`Content` 由 `ContentSizeFitter(V=Preferred)` 撑到 `行数×475+7`。
+            //   🆕 **2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）**：**第 4 页（Flexible 族）= 横向**
+            //      （原版 `Packs Tab` 的 `ScrollRect h=1 v=0`；`Content` 宽 = `(itemW+gapX)×列 − gapX + padL + padR`）。
             {
                 var gs = win.GridScrollOf(p);
-                CheckTrue(gs != null, "本页的栅格滚动区建了（`MenuScroll.TopAligned`）");
+                CheckTrue(gs != null, "本页的栅格滚动区建了（Grid 族 `TopAligned` / Flexible 族 `LeftAligned`）");
                 if (gs != null)
                 {
-                    CheckTrue(gs.Vertical, "是**纵向**滚动（原版 `m_Vertical = 1` / `m_Horizontal = 0`）");
+                    if (flex)
+                        CheckTrue(!gs.Vertical,
+                                  "★ 第 4 页是**横向**滚动（原版 `Packs Tab` 的 `m_Horizontal = 1` / `m_Vertical = 0`）");
+                    else
+                        CheckTrue(gs.Vertical, "是**纵向**滚动（原版 `m_Vertical = 1` / `m_Horizontal = 0`）");
                     // 🆕 2026-10-17（N29）：滚轮灵敏度 = 原版那台 `ScrollRect` 的 `m_ScrollSensitivity`
                     //   （判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`；⛔ 别断 `DefaultNotchPx` = 自证）。
                     CheckNear(gs.NotchPx, 1f, 0.001f,
@@ -1772,10 +1832,23 @@ public static class ShopScene
                     //   把「实现还是默认档」这个缺口**钉死了**（同族教训：断言要盯**原版参数**，不是盯我们自己的常量）。
                     //   **真红法**：去掉 `ShopWindow.BuildGrid` 里那句 `_gridScroll.Elastic = true;` ⇒ 这里立刻红。
                     CheckTrue(gs.Elastic, $"页 {p}：是 **Elastic**（原版这一件的 `m_MovementType = 1`）");
-                    float wantH = (offers.Length + ShopTabPage.GridCols - 1) / ShopTabPage.GridCols
+                    // 内容长度（两族各一条**原版算式**）—— 期望值全是原版字面量，⛔ 不从实现的常量读回来
+                    float wantLen;
+                    if (flex)
+                    {
+                        int colsF = Mathf.Max(1, (offers.Length + 1) / 2);       // 列数 = ceil(n/2)（序列化 `columns 200` 是上限）
+                        wantLen = (372.9f + 28f) * colsF - 28f + 50f + 25f;      // (itemW+gapX)×列 − gapX + padL + padR
+                        CheckNear(gs.ContentX2 - gs.ContentX1, wantLen, 0.5f,
+                                  $"`Content` 宽 = (372.9+28)×{colsF} − 28 + 50 + 25 = **{wantLen:F2}**"
+                                + "（原版 `FlexibleGridLayout` 那条式子；`pad` 右 25 / 左 50）");
+                    }
+                    else
+                    {
+                        wantLen = (offers.Length + ShopTabPage.GridCols - 1) / ShopTabPage.GridCols
                                   * ShopTabPage.CellH + ShopTabPage.GridPadT;
-                    CheckNear(gs.ContentX2 - gs.ContentX1, wantH, 0.5f,
-                              "`Content` 高 = 行数×475+7（原版 `ContentSizeFitter(Vertical = Preferred)`）");
+                        CheckNear(gs.ContentX2 - gs.ContentX1, wantLen, 0.5f,
+                                  "`Content` 高 = 行数×475+7（原版 `ContentSizeFitter(Vertical = Preferred)`）");
+                    }
                     // 🔴 **2026-10-28（B88_E12）就地订正 —— 判定 = 断言过期（不是实现缺陷）**：那个夹是**设计** ——
                     //   `Shell/MenuScroll.cs:303` `MaxOffset = Mathf.Max(0f, ContentX2 + ExtraPadHi - ViewHi)`（A269 起，
                     //   与 uGUI `ScrollRect`「内容不满视口 ⇒ 不可滚」同一条；那里 `:300-302` 的注释写明：错的是当年那个**裸值读数**）。
@@ -1783,53 +1856,81 @@ public static class ShopScene
                     //   2026-10-27 新增的 VIP 页（`ShopData.Offers(3).Length = 2` ⇒ 1 行 = **482** < 视口 **952.38**）把这个前提打破了：
                     //   旧期望 −470.38、实得 0（差值 470.38 正好 = 视口 952.38 − 内容 482 ⇒ 差异量整齐就是这么来的）。
                     //   ⇒ 期望改成**同样夹一次**，并把「内容比视口矮 ⇒ 0 = 不可滚」这半边**单独钉一条**（不是放宽成恒真）。
-                    float wantRange = Mathf.Max(0f, wantH - ShopTabPage.ScrollView.H);
+                    float vpLen = flex ? (1919.97f - 330.67f) : ShopTabPage.ScrollView.H;
+                    float wantRange = Mathf.Max(0f, wantLen - vpLen);
                     CheckNear(gs.MaxOffset, wantRange, 0.5f,
-                              "可滚范围 = **max(0, 内容高 − 视口高)**（`MenuScroll.MaxOffset` 自带夹；内容比视口矮 ⇒ 0 ＝ 不可滚）");
+                              "可滚范围 = **max(0, 内容长 − 视口长)**（`MenuScroll.MaxOffset` 自带夹；内容比视口短 ⇒ 0 ＝ 不可滚）");
                     if (wantRange <= 0f)
                         CheckNear(gs.MaxOffset, 0f, 0.5f,
-                                  $"…而且本页内容 {wantH:F0} **比视口 {ShopTabPage.ScrollView.H:F0} 矮** ⇒ 范围**必须是 0**"
-                                + "（`TopAligned`：内容从视口顶排起、没有可滚的余地 —— uGUI 内容不满时同一条）");
+                                  $"…而且本页内容 {wantLen:F0} **比视口 {vpLen:F0} 短** ⇒ 范围**必须是 0**"
+                                + "（内容从视口起排、没有可滚的余地 —— uGUI 内容不满时同一条）");
 
-                    // 顶：最后一格**压在视口底边上** ⇒ 原版 `RectMask2D` 把它裁掉一截
-                    var lastCell = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
-                                                + (offers.Length - 1));
-                    float cx1, cy1, cx2, cy2;
-                    bool has0 = RectOf(FindChild(lastCell, "background"), out cx1, out cy1, out cx2, out cy2);
-                    CheckTrue(has0 && cy2 <= ShopTabPage.ScrollView.y2 + 0.5f,
-                              $"在顶时最后一格的格底**被视口裁住**（实测底边 {cy2:F2} ≤ 视口底 {ShopTabPage.ScrollView.y2:F2}）");
-
-                    // 滚到底：内容末尾对齐视口底 ⇒ 最后一格**完整**了
-                    gs.SetOffset(gs.MaxOffset);
-                    var lastCell2 = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
-                                                 + (offers.Length - 1));
-                    CheckTrue(lastCell2 != null, "滚到底之后最后一格**还在**（没被裁掉）");
-                    if (lastCell2 != null)
+                    if (flex)
                     {
-                        // ⚠️ 最后一格的列号**按页不同**（4 件 ⇒ 最后在 col 1；3 件 ⇒ col 0）—— 别写死
-                        int lc = (offers.Length - 1) % ShopTabPage.GridCols;
-                        // 🔴 **2026-10-28（B88_E12）**：「贴着视口底」只在**内容比视口高**（= 真有可滚范围）时成立。
-                        //   内容比视口矮 ⇒ `MaxOffset` 被夹成 0 ⇒ 顶对齐，最后一格停在**内容行位**
-                        //   （`ScrollView.y1 + 7 + row×475`）—— 与 uGUI `ScrollRect` 内容不满视口时同一条。
-                        bool canScroll = wantH > ShopTabPage.ScrollView.H;
-                        float lastY1 = canScroll
-                                     ? ShopTabPage.ScrollView.y2 - ShopTabPage.CellH
-                                     : ShopTabPage.ScrollView.y1 + ShopTabPage.GridPadT
-                                       + ((offers.Length - 1) / ShopTabPage.GridCols) * ShopTabPage.CellH;
-                        CheckAt(lastCell2, ShopTabPage.ScrollView.x1 + lc * ShopTabPage.CellW,
-                                ShopTabPage.ScrollView.x1 + (lc + 1) * ShopTabPage.CellW,
-                                lastY1, lastY1 + ShopTabPage.CellH,
-                                canScroll ? "滚到底 ⇒ 最后一格**贴着视口底**（内容末尾 = 视口底）"
-                                          : "内容比视口矮 ⇒ `MaxOffset` = 0，滚到底仍是**顶对齐**（最后一格贴在内容行位，不贴视口底）");
-                        float hx1, hy1, hx2, hy2;
-                        // ⚠️ **并集版**（2026-10-04，W2a 软边接线）：格底会被渐隐带的内沿**切开**
-                        //    ⇒ `RectOf` 只取第一张 quad、量到的是**其中一格**（实测主格 451、期望 477）。
-                        if (RectOfUnion(FindChild(lastCell2, "background"), out hx1, out hy1, out hx2, out hy2))
-                            CheckNear(hy2 - hy1, ShopTabPage.CellH + 2f, 2f,
-                                      "滚到底 ⇒ 格底**不再被裁**（高回到 格高 + 2）");
+                        // ---- Flex 族：内容比视口窄 ⇒ 不可滚 ⇒ 最后一格就停在它自己的货架格里 ----
+                        //   ⚠️ 明确**不写** `if (p != 4) {…}` 那种静默跳过（本工程「自检静默跳过」那条坑）：
+                        //      这一段的两条断言是**横向等价物**（位置 + 格底没被裁），不是「不验」。
+                        var lastF = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
+                                                 + (offers.Length - 1));
+                        CheckTrue(lastF != null, "（Flex）最后一格在（下面的位置/裁切断言全靠它）");
+                        int lcF = (offers.Length - 1) / 2, lrF = (offers.Length - 1) % 2;
+                        float fx = 330.67f + 50f + lcF * (372.9f + 28f);
+                        float fy = 70.94f + 25f + lrF * (427.9f + 32f);
+                        CheckAt(lastF, fx, fx + 372.9f, fy, fy + 427.9f,
+                                "（Flex）最后一格落在**横向 2 行货架**的那一格上（col = i/2 · row = i%2，原版 `DoesItemFit` 的填法）");
+                        float fx1r, fy1r, fx2r, fy2r;
+                        if (RectOfUnion(FindChild(lastF, "background"), out fx1r, out fy1r, out fx2r, out fy2r))
+                            CheckNear(fy2r - fy1r, 427.9f + 2f, 2f,
+                                      "（Flex）最后一格格底**没被裁**（高 = 原版 itemSize.y 427.9 + 2）");
                         else
-                            CheckTrue(false, "（前提·不静默）最后一格的 `background` 量得到渲染矩形"
-                                             + "（拿不到 ⇒ 上面那条「格底不再被裁」等于没验）");
+                            CheckTrue(false, "（前提·不静默）（Flex）最后一格的 `background` 量得到渲染矩形"
+                                             + "（拿不到 ⇒ 上面那条「格底没被裁」等于没验）");
+                        // `SetOffset(0)` 之后偏移必须仍是 0（不可滚页 —— `SetOffset` 是**绝对**设值）
+                        gs.SetOffset(0f);
+                        CheckNear(gs.Offset, 0f, 0.01f, "（Flex）不可滚页：`SetOffset(0)` ⇒ 偏移精确 = 0");
+                    }
+                    else
+                    {
+                        // 顶：最后一格**压在视口底边上** ⇒ 原版 `RectMask2D` 把它裁掉一截
+                        var lastCell = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
+                                                    + (offers.Length - 1));
+                        float cx1, cy1, cx2, cy2;
+                        bool has0 = RectOf(FindChild(lastCell, "background"), out cx1, out cy1, out cx2, out cy2);
+                        CheckTrue(has0 && cy2 <= ShopTabPage.ScrollView.y2 + 0.5f,
+                                  $"在顶时最后一格的格底**被视口裁住**（实测底边 {cy2:F2} ≤ 视口底 {ShopTabPage.ScrollView.y2:F2}）");
+
+                        // 滚到底：内容末尾对齐视口底 ⇒ 最后一格**完整**了
+                        gs.SetOffset(gs.MaxOffset);
+                        var lastCell2 = FindPath(pg, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_"
+                                                     + (offers.Length - 1));
+                        CheckTrue(lastCell2 != null, "滚到底之后最后一格**还在**（没被裁掉）");
+                        if (lastCell2 != null)
+                        {
+                            // ⚠️ 最后一格的列号**按页不同**（4 件 ⇒ 最后在 col 1；3 件 ⇒ col 0）—— 别写死
+                            int lc = (offers.Length - 1) % ShopTabPage.GridCols;
+                            // 🔴 **2026-10-28（B88_E12）**：「贴着视口底」只在**内容比视口高**（= 真有可滚范围）时成立。
+                            //   内容比视口矮 ⇒ `MaxOffset` 被夹成 0 ⇒ 顶对齐，最后一格停在**内容行位**
+                            //   （`ScrollView.y1 + 7 + row×475`）—— 与 uGUI `ScrollRect` 内容不满视口时同一条。
+                            bool canScroll = wantLen > ShopTabPage.ScrollView.H;
+                            float lastY1 = canScroll
+                                         ? ShopTabPage.ScrollView.y2 - ShopTabPage.CellH
+                                         : ShopTabPage.ScrollView.y1 + ShopTabPage.GridPadT
+                                           + ((offers.Length - 1) / ShopTabPage.GridCols) * ShopTabPage.CellH;
+                            CheckAt(lastCell2, ShopTabPage.ScrollView.x1 + lc * ShopTabPage.CellW,
+                                    ShopTabPage.ScrollView.x1 + (lc + 1) * ShopTabPage.CellW,
+                                    lastY1, lastY1 + ShopTabPage.CellH,
+                                    canScroll ? "滚到底 ⇒ 最后一格**贴着视口底**（内容末尾 = 视口底）"
+                                              : "内容比视口矮 ⇒ `MaxOffset` = 0，滚到底仍是**顶对齐**（最后一格贴在内容行位，不贴视口底）");
+                            float hx1, hy1, hx2, hy2;
+                            // ⚠️ **并集版**（2026-10-04，W2a 软边接线）：格底会被渐隐带的内沿**切开**
+                            //    ⇒ `RectOf` 只取第一张 quad、量到的是**其中一格**（实测主格 451、期望 477）。
+                            if (RectOfUnion(FindChild(lastCell2, "background"), out hx1, out hy1, out hx2, out hy2))
+                                CheckNear(hy2 - hy1, ShopTabPage.CellH + 2f, 2f,
+                                          "滚到底 ⇒ 格底**不再被裁**（高回到 格高 + 2）");
+                            else
+                                CheckTrue(false, "（前提·不静默）最后一格的 `background` 量得到渲染矩形"
+                                                 + "（拿不到 ⇒ 上面那条「格底不再被裁」等于没验）");
+                        }
                     }
                     // 回顶必须精确回到 0（`SetOffset` 是**绝对**设值 —— 2026-09-23 那条重入教训）
                     gs.SetOffset(0f);
@@ -1868,6 +1969,106 @@ public static class ShopScene
                 + "🔴 **2026-10-14（`A1803`）订正**：本行原写「原版 TMP 原文 = `There are no deck…`，含原版自己的语病」"
                 + " —— **官方表里是复数的 `There are no decks in your collection for the selected filters`**"
                 + " ⇒ 单数那个 `deck` 是**我们自己写错的**、不是原版语病（已换成官方值）");
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）
+        //   **价格区的三档「印什么 / 拦不拦」**（判据 → `报告/B106_W14.md` §②-3/②-4/②-5；
+        //   原版 = `CatalogItemContainer__Refresh.c:40-160` ＋ `PriceDisplayButton.cs:91-101`）：
+        //     · **已拥有 + catalog 族**（第 0~3 页，**且必须是外观件 `CosmeticItem`**）⇒ 印 **`Owned`**、**灰**；卡包/通货/票券这类消耗品**不进**这一档；
+        //     · **已拥有 + offer 族**（第 4 页 = Crates/Boosters）⇒ 印 **`Open ({n})`**、**不灰**（原版 `Interactable = true` 强制可点）；
+        //     · **未拥有 + 价格 > 钱包**（用户边界②：资源固定 2000）⇒ **灰** ＋ 点了拒绝出声（原版 `!HasEnoughCurrency()`）。
+        //   ⛔ 期望文本一律取**生产读口** `ShopTabPage.PriceTextForTest`（与 `BuildCell` 同一份判断，⛔ 不手抄 ——
+        //      手抄一份就会与生产分叉，同 `B106_W14` §④·1 那条提醒）；**灰/不灰**读 `WindowButton.GrayedForTest`
+        //      （`SwitchMaterial` 真换了材质才算，⛔ 不是看 `m_DisabledColor` 那个死值）。
+        Section("★ 价格区三档：`Owned` / `Open ({n})` / 买不起 ⇒ 灰（判据 `CatalogItemContainer__Refresh.c` + `PriceDisplayButton.cs`）");
+        {
+            var pgCards = win.PageOf(0);
+            var pgCrates = win.PageOf(ShopTabPage.CratesPage);
+            CheckTrue(pgCards != null && pgCrates != null,
+                      "（前提）第 0 页 / 第 4 页的 `ShopTabPage` 都拿得到（拿不到 ⇒ 本节全部等于没验）");
+            if (pgCards != null && pgCrates != null)
+            {
+                // ---- ① 负例：**非外观件**即使 `Owned > 0` ⇒ 仍原价 / 不灰 / 货币图标在（判据 = `CatalogItemContainer.cs:206-257`：那个布尔只在 `item is CosmeticItem` 时才算）----
+                //   ⛔ `B106_W14` 把它做成 `OwnedOf > 0` ⇒ 卡包（消耗品）被误判成「已拥有」；本批 `B106_W72` 订正。
+                var c0Own = FindPath(pgCards.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0");
+                CheckTrue(c0Own != null, "（前提）第 1 页第 1 格的节点在");
+                Check(ShopData.Offers(0)[0].Type, "Booster Pack", "（前提）第 1 页第 1 件是**卡包**（非外观件）");
+                CheckTrue(ShopData.OwnedOf(0, 0) > 0, $"（前提）它 **Owned > 0**（出厂 {ShopData.OwnedOf(0, 0)} 份；本段跑在任何购买之前）");
+                CheckTrue(!pgCards.IsOwnedCell(0), "★ 非外观件**不算「已拥有」**（原版那个布尔只对 `CosmeticItem` 算）");
+                if (c0Own != null)
+                {
+                    Check(TextOf(FindChild(c0Own, "Button Text")), pgCards.PriceTextForTest(0),
+                          "★ 非外观件：价格文本 = `PriceTextForTest`（与生产同一份判断）");
+                    Check(TextOf(FindChild(c0Own, "Button Text")), ShopData.Offers(0)[0].Price,
+                          "★ …而且就是**原价**（⛔ 不印 `Owned`；🧨 把 `IsOwnedCell` 写回 `OwnedOf > 0` ⇒ 本条红）");
+                    CheckTrue(c0Own.Find("Price Icon") != null,
+                              "★ …而且**货币图标照建**（原版只有 `priceDisplay.Setup(CurrencyValue)` 那一支建 icon）");
+                    // ⚠️ 价签那颗**直系子件**叫 `Hit` —— ⛔ 不能用 `FindChild`（它递归整棵子树，而
+                    //   `MenuDraw.Hit` 在**每颗命中节点里**还建了一颗**同名**的透明 quad `Hit`；本格先建的
+                    //   `InfoHit` 里就有那颗 ⇒ 递归会抓到**没有 `WindowButton`** 的那一个）。
+                    var hit0 = c0Own.Find("Hit");
+                    var wb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
+                    CheckTrue(wb0 != null, "（前提）第 1 格价签钮 `Hit` 上挂着 `WindowButton`");
+                    CheckTrue(wb0 != null && !wb0.GrayedForTest,
+                              "★ …而且**不灰**（`Owned` 那一档不许把它拉进拒绝态）｜🧨 把 `PriceButtonBlocked` 写回「已拥有就一律拦」⇒ 本条红");
+                }
+
+                // ---- ② 已拥有 + offer 族 ⇒ `Open ({n})` + **不灰** ----
+                var c4Own = FindPath(pgCrates.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0");
+                CheckTrue(c4Own != null, "（前提）第 4 页第 1 格的节点在");
+                CheckTrue(ShopData.OwnedOf(ShopTabPage.CratesPage, 0) > 0,
+                          $"（前提）第 4 页第 1 件**已拥有** {ShopData.OwnedOf(ShopTabPage.CratesPage, 0)} 份"
+                        + "（`_cards` 与第 1 页共用 ⇒ 出厂就有；见 `B106_W14` §⑤·7）");
+                if (c4Own != null)
+                {
+                    string t4 = TextOf(FindChild(c4Own, "Button Text"));
+                    Check(t4, pgCrates.PriceTextForTest(0),
+                          "★ 已拥有 + offer 族：价格文本 = `PriceTextForTest`（与生产同一份判断，⛔ 不手抄）");
+                    CheckTrue(!string.IsNullOrEmpty(t4) && t4 != ShopData.Offers(ShopTabPage.CratesPage)[0].Price,
+                              $"★ …而且**不是原价**（{ShopData.Offers(ShopTabPage.CratesPage)[0].Price}）—— 已拥有那档要换字；"
+                            + "｜🧨 删掉 `BuildCell` 里 `ownedShown ? OwnedPriceText(ownedN) : …` 那一支 ⇒ 本条红");
+                    CheckTrue(t4 != null && t4.IndexOf(ShopData.OwnedOf(ShopTabPage.CratesPage, 0).ToString()) >= 0,
+                              "★ …而且字里**带着已拥有的份数**（原版 `Format(Loc(\"MenuShop/ShopContainer/OpenButton\"), n)` "
+                            + $"⇒ `Open ({ShopData.OwnedOf(ShopTabPage.CratesPage, 0)})`）");
+                    var hit4 = c4Own.Find("Hit");       // 直系子件（理由同上：`FindChild` 会抓到 `InfoHit` 里那颗同名 quad）
+                    var wb4 = hit4 != null ? hit4.GetComponent<WindowButton>() : null;
+                    CheckTrue(wb4 != null, "（前提）第 4 页第 1 格价签钮 `Hit` 上挂着 `WindowButton`");
+                    CheckTrue(wb4 != null && !wb4.GrayedForTest,
+                              "★ …而且**不灰**（原版那一支把 `Interactable = true` **强制**——"
+                            + "｜🧨 把 `PriceButtonBlocked` 写成「已拥有就一律拦」⇒ 本条红）");
+                }
+
+                // ---- ③ 未拥有 + 2 200 > 2000 ⇒ 买不起 ⇒ 灰 + 点了拒绝出声 ----
+                var offLev = ShopData.Offers(0);
+                const int iLev = 3;
+                CheckTrue(offLev.Length > iLev && offLev[iLev].Price == "2 200",
+                          "（前提）第 1 页第 4 件 = `Leviathan Booster`，价格 **2 200**（商品表字面量）");
+                CheckNear(Wallet.Of(ShopTabPage.CurrencyKeyFor(offLev[iLev])), 2000f, 0.5f,
+                          "（前提）钱包 = **2000**（用户 2026-10-24 定的固定值；本段跑在任何发奖之前）");
+                Check(ShopData.OwnedOf(0, iLev), 0,
+                      "（前提）这一件**还没拥有**（否则走的是「已拥有」那一支、不是余额闸）");
+                CheckTrue(!ShopTabPage.CanAfford(0, iLev),
+                          "★ `2 200 > 2000` ⇒ **买不起**（原版 `!price.HasEnoughCurrency()`）");
+                var cLev = FindPath(pgCards.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + iLev);
+                CheckTrue(cLev != null, "（前提）第 1 页第 4 格的节点在");
+                if (cLev != null)
+                {
+                    Check(TextOf(FindChild(cLev, "Button Text")), "2 200",
+                          "★ …而价格文本仍是 **`2 200`**（买不起**不改字**，只灰 + 点了拒绝）");
+                    var hitLev = cLev.Find("Hit");      // 直系子件（同上）
+                    var wbLev = hitLev != null ? hitLev.GetComponent<WindowButton>() : null;
+                    CheckTrue(wbLev != null && wbLev.GrayedForTest,
+                              "★ …价签钮**变灰**（原版那一档 `interactable = false` → `Greyscale` 材质）");
+                }
+                int affordRefusals0 = ShopTabPage.AffordRefusals;
+                string levRes = pgCards.Buy(iLev);
+                Check(levRes, ShopTabPage.BuyCannotAfford,
+                      "★ 点（程序直调 `Buy`，= 绕开软禁用的点击链）⇒ **拒绝**并回 `BuyCannotAfford`（⛔ 不谎报买到了）");
+                Check(ShopTabPage.AffordRefusals - affordRefusals0, 1,
+                      "★ …而且**出声了一次**（`AffordRefusals` +1 —— 红线：点了必须有反应）");
+                Check(ShopData.OwnedOf(0, iLev), 0,
+                      "★ …拥有数**没变**（买不起那一路不进 `ShopData.Buy`）");
+            }
         }
 
         // ---------------- 🆕 2026-10-28（B89_E17）：VIP 页两态（原版 `VIPCardShopTab.CheckVIPState`）----------------
@@ -1971,23 +2172,74 @@ public static class ShopScene
         }
 
         // ---------------- 买一件（红线：点了必须有反应）----------------
+        // 🔴 **2026-10-31（`B106_W72`）就地订正（铁律 5）**：这一段原来点的是**第 1 件**（`Ultramarines Booster`，
+        //   `Owned = 3`）；`B106_W14` 曾把「已拥有」做成 `OwnedOf > 0` ⇒ 那件买了也不 +1（下面两条必然红，红因 = 断言过期）。
+        //   本批已按原版把那个布尔收窄到**只有 `CosmeticItem`**（`CatalogItemContainer.cs:206-257`）⇒ 第 1 件又能买了；
+        //   本段**仍买第 2 件 `Sautekh Booster`**（`Owned = 0`），口径与改前一致、不依赖「哪一件已拥有」，
+        //   也避开了「第 1 件限购只剩 1/5」那条闸（买完就售罄，会让下面「角标跟上」多一个变量）。
+        //   ⚠️ 历史：`:1994` 原来断「第 1 页第 1 件**已拥有**」—— 那条口径已被本批推翻（见上面 §价格区 ① 的负例）。
+        //   （其余理由不变：`Rarity = 0` 不弹传奇确认 · 限购 2/5 未售罄 · `2 000 ≤ 余额 2 000` · 容器档买完开包。）
+        //   ⇒ 改成**第 2 件 `Sautekh Booster`**：`Owned = 0` · `Rarity = 0`（不弹传奇确认）·
+        //     限购 2/5（未售罄）· `2 000 ≤ 余额 2 000`（`CanAfford` 真）· 容器档（买完开包，同原来那条收尾）。
         Section("买一件：**点了必须有反应**（红线：不许静默失败；边界②：不做真实经济 ⇒ 不扣钱）");
         win.tabButtons.Click(0);
         var pg0 = FindChild(root, ShopData.Pages[0].Prefab);
-        int before = ShopData.OwnedOf(0, 0);
-        var hit = FindPath(pg0, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0/Hit");
-        CheckTrue(hit != null, "第 1 格的点击区建了");
-        if (hit != null)
-        {
-            var wb = hit.GetComponent<WindowButton>();
-            CheckTrue(wb != null, "点击区挂着 `WindowButton`");
-            if (wb != null) wb.ClickForTest();
-            Check(ShopData.OwnedOf(0, 0), before + 1, "买了之后**拥有数 +1**");
-            CheckTrue(TextOf(FindChild(FindChild(root, ShopData.Pages[0].Prefab),
-                                       "Text (TMP)")) == "x" + (before + 1),
-                      "画面上的拥有数也跟上了（**卡变了就重建视图**）");
-        }
+        const int buyCell = 1;                      // 第 2 件 `Sautekh Booster`（`Owned = 0`）
+        int before = ShopData.OwnedOf(0, buyCell);
+        var cellBuy = FindPath(pg0, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + buyCell);
+        CheckTrue(pg0 != null && cellBuy != null, "（前提）第 2 件那一格建出来了");
+        var page0 = win.PageOf(0);
+        if (page0 != null)
+            CheckTrue(!page0.PriceButtonBlocked(buyCell),
+                      "（前提）这一格**没被闸拦住**（未拥有 + 未售罄 + 买得起 ⇒ 点下去真的进购买链）");
+        if (cellBuy != null)
+            Check(TextOf(FindChild(cellBuy, "Text (TMP)")), "x" + before,
+                  "（前提）角标 = 出厂拥有数（买了之后它要变）");
+        var hit = cellBuy != null ? cellBuy.Find("Hit") : null;
+        CheckTrue(hit != null, "第 2 格的点击区建了");
+        var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
+        CheckTrue(wb != null, "点击区挂着 `WindowButton`");
+        if (wb != null) wb.ClickForTest();
+        if (wb != null) Check(ShopData.OwnedOf(0, buyCell), before + 1, "买了之后**拥有数 +1**");
         ClosePackAndReopenShop(win);   // A7：买卡包会弹全屏的开包窗 ⇒ 还原成「商店开着」再往下做
+        var pg0b = FindChild(root, ShopData.Pages[0].Prefab);
+        var cellBuy2 = FindPath(pg0b, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + buyCell);
+        CheckTrue(cellBuy2 != null, "（前提）买完这一格重建出来了");
+        if (cellBuy2 != null)
+            Check(TextOf(FindChild(cellBuy2, "Text (TMP)")), "x" + (before + 1),
+                  "画面上的拥有数也跟上了（**卡变了就重建视图**）");
+
+        // ---------------- 反向：点**已拥有的外观件** ⇒ 被拒（判据 = 原版那个布尔只对 `CosmeticItem` 算）----------------
+        //   判据（原版）= `CatalogItemContainer.cs:206-257`：`obj8` 只在 `item is CosmeticItem` 时算 ⇒ `priceDisplay.Setup(Loc("MenuShop/Owned"))` + `interactable` 里 AND 掉 `!已拥有`（落点 = `Shell/ShopTabPage.cs:783` 的第二支 `RefuseOwned`）。
+        //   ⚠️ 本地没有「外观件且 `Owned > 0`」的出厂数据（唯一外观件 `Avatar Border: Servo` 的 `Owned = 0`）⇒ 夹具注入（同本节 `:2598` 那条既有写法：临时改表 → `ResetForTest` → 跑 → `finally` 还原）。🧨 删掉 `:783` 的 `else if (IsOwnedCell(idx)) return RefuseOwned(idx);` 那一支 ⇒ 拥有数 +1、本段红。
+        var offCos = ShopData.Offers(2); const int cosPage = 2, cosIdx = 2; var pgItems = win.PageOf(cosPage);
+        int savedCosOwned = offCos.Length > cosIdx ? offCos[cosIdx].Owned : 0;
+        CheckTrue(pgItems != null && offCos.Length > cosIdx && offCos[cosIdx].Type == "Cosmetic", "（前提）第 3 页第 3 件是**外观件**（`Avatar Border: Servo`）且该页拿得到");
+        CheckTrue(Loc.HasAnyTerm("MenuShop/Owned"), "（前提）词条 `MenuShop/Owned` 在表里（⛔ 不在 ⇒ 下面那条两边一起退化成键名 = 假绿）");
+        int refusalsBefore = ShopTabPage.OwnedRefusals;
+        try {
+            if (offCos.Length > cosIdx) offCos[cosIdx].Owned = 1; ShopData.ResetForTest(); if (pgItems != null) pgItems.Setup();   // 🔶 夹具：本地无「外观件且 `Owned > 0`」的出厂数据
+            var cellOwned = pgItems != null ? FindPath(pgItems.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + cosIdx) : null;
+            CheckTrue(cellOwned != null, "（前提）注入之后那一格建出来了");
+            Check(TextOf(cellOwned != null ? FindChild(cellOwned, "Button Text") : null), Loc.T("MenuShop/Owned"), "★ 外观件 `Owned > 0` ⇒ 价格区印 **`Owned`**（原版 `priceDisplay.Setup(Loc(\"MenuShop/Owned\"))`）");
+            CheckTrue(cellOwned != null && cellOwned.Find("Price Icon") == null, "★ …而且**不建货币图标**（原版 `Setup(string)` 那条重载 icon = null）");
+            var hitOwned = cellOwned != null ? cellOwned.Find("Hit") : null; var wbOwned = hitOwned != null ? hitOwned.GetComponent<WindowButton>() : null;
+            CheckTrue(wbOwned != null && wbOwned.GrayedForTest, "★ …而且**变灰**（原版那一格 `interactable = false` → `Everguild/UI/Greyscale`）");
+            int ownedWarn = 0; string ownedWarnText = null; Application.LogCallback hOwned = (cond, st, type) =>
+            { if (type == LogType.Warning && cond != null && cond.Contains("[Shop]") && cond.Contains("已拥有")) { ownedWarn++; ownedWarnText = cond; } };
+            string resOwned;
+            Application.logMessageReceived += hOwned;
+            try { resOwned = pgItems != null ? pgItems.Buy(cosIdx) : null; } finally { Application.logMessageReceived -= hOwned; }
+            Check(resOwned, ShopTabPage.BuyOwned, "★ 点**已拥有的外观件** ⇒ 被拒并回 `BuyOwned`（⛔ 不谎报买到了）");
+            Check(ShopData.OwnedOf(cosPage, cosIdx), 1, "★ …拥有数**不变**（买了也不 +1）");
+            Check(ShopTabPage.OwnedRefusals, refusalsBefore + 1, "★ …走的是「已拥有」拒绝支（`RefuseOwned` 记了一次）");
+            Check(ShopTabPage.LastOwnedPage, cosPage, "★ …拒绝的是**第 3 页**（`LastOwnedPage`）｜🧨 删掉 `:783` 第二支 ⇒ 本段红");
+            Check(ShopTabPage.LastOwnedIndex, cosIdx, "★ …第 3 件（`LastOwnedIndex`）");
+            CheckTrue(ownedWarn >= 1, "★ …而且**出声**（红线：不许静默失败）" + (ownedWarnText != null ? "：" + ownedWarnText : ""));
+        }
+        finally {
+            if (offCos.Length > cosIdx) offCos[cosIdx].Owned = savedCosOwned; ShopData.ResetForTest(); if (pgItems != null) pgItems.Setup();
+        }
 
         // ---------------- 🆕 2026-10-25（`C` 商店域 · P2）：轮播奖励的**布局数学** ----------------
         //   判据 = `CarouselOfferPopupDrawer`（`UI_InfiniteScroll` 无限循环）+ 那三句能被测试的算术。
@@ -2109,9 +2361,15 @@ public static class ShopScene
             //   🧨 改坏法：删 `DoBuy` 开头那两句 ⇒ ①红；删 `PopUpGameWindow` 第 8b 步（0 颗钮那一档）⇒ ②红；删 `HidePopUp(true)` ⇒ ③红。
             ShopTabPage.LastWaitingPopup = null;
             ShopTabPage.LastWaitingPopupHadNoButton = false;
-            int before0 = ShopData.OwnedOf(0, 0);
-            if (pg != null) pg.Buy(0);
-            Check(ShopData.OwnedOf(0, 0), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
+            // 🔴 **2026-10-31（`B106_W55`）就地订正（铁律 5）**：原来买的是第 1 件（`Owned = 3`，**已拥有**）
+            //   ⇒ `B106_W14` 的已拥有闸（`Shell/ShopTabPage.cs:783` → `RefuseOwned`）让这一下**买了也不 +1**，
+            //   而下面三条「等待框」断言全靠这一下真的走进 `DoBuy`（`RefuseOwned` 在闸上就返回、根本到不了 `DoBuy`）。
+            //   ⇒ 改成**第 2 件 `Sautekh Booster`**：`Owned = 0`（前一段的 `ResetForTest` 已把出厂值推回：
+            //     拥有数 0 · 限购 2）· `Rarity = 0`（**非传奇** ⇒ 不弹确认框，正合本条要断的语义）·
+            //     `2 000 ≤ 余额 2 000` · 容器档（买完开包，末尾 `ClosePackAndReopenShop` 负责还原）。
+            int before0 = ShopData.OwnedOf(0, 1);
+            if (pg != null) pg.Buy(1);
+            Check(ShopData.OwnedOf(0, 1), before0 + 1, "非传奇那一件**照旧直接买**（不弹框）");
             CheckTrue(!ReferenceEquals(ShopTabPage.LastWaitingPopup, null),
                       "★ 购买时弹过「正在处理您的购买…」等待框（原版 `ShopStore.TryPurchase` 第一句，无条件）｜🆕 B102_D6：那一具窗早在 `OpenBoosterPack` 那一拍就被收割销毁了（Unity 假 null ⇒ 原来的 `!= null` 恒假）⇒ 改判「这个引用**被赋过值**」：`ReferenceEquals` 对已销毁的 `UnityEngine.Object` 仍是 false，而**没建过**时它是 null（改坏法：删掉 `DoBuy` 开头那两句 ⇒ 本条红）");
             CheckTrue(ShopTabPage.LastWaitingPopupHadNoButton,
@@ -2210,17 +2468,66 @@ public static class ShopScene
             }
 
             // ★ ③ **负例（分档那一条）**：买卡包 ⇒ 一扇领奖窗都不许弹，且**照旧开包**
+            // 🔴 **2026-10-31（`B106_W63`）就地订正（铁律 5）**：原来买的是第 4 件 `Leviathan Booster`
+            //   （价 **2 200 > 余额 2000**）—— `B106_W14` 的余额闸（`Shell/ShopTabPage.cs:783` →
+            //   `RefuseCannotAfford`）让这一下**根本到不了 `DoBuy`** ⇒ `OpenBoosterPack` 一次都不调
+            //   ⇒ 下面 `LastBoosterPack != null` 读到的是**前面买包留下的旧引用**（假绿），
+            //   `OpenRewardWindowCount()==0` 也只是空转绿。
+            //   ⇒ 先 `ResetForTest()` 把第 2 件推回 `Owned 0 / 限购 2`，改买**第 2 件**（`Sautekh Booster`：
+            //     未拥有 + 未售罄 + `2 000 ≤ 2 000` 买得起 + 容器档），并用**拥有数变化**判「真买到了」
+            //     （⛔ 不拿 `ShopData.PurchaseSucceeded` 判 —— 它不认 `BuyOwned` / `BuyCannotAfford` 两个哨兵）。
+            ShopData.ResetForTest();
             win.tabButtons.Click(0);
             var pgC439 = win.PageOf(0);
-            CheckTrue(pgC439 != null && ShopData.Offers(0)[3].Type == "Booster Pack",
-                      "（前提）第 1 页第 4 件是卡包（容器档）");
+            const int buyC439 = 1;                         // 第 2 件 `Sautekh Booster`（商品表里唯一「未拥有 + 买得起」的卡包）
+            var offC439 = ShopData.Offers(0);
+            CheckTrue(pgC439 != null && offC439.Length > buyC439 && offC439[buyC439].Type == "Booster Pack",
+                      "（前提）第 1 页第 2 件是卡包（容器档）");
+            Check(ShopData.OwnedOf(0, buyC439), 0,
+                  "（前提）这一件**未拥有**（`ResetForTest` 推回出厂值 0）");
+            CheckTrue(offC439.Length > buyC439 && offC439[buyC439].AvailableMax > 0 && offC439[buyC439].Available > 0,
+                      "（前提）限购还有余量（出厂 2/5）");
+            CheckTrue(!ShopData.SoldOut(0, buyC439), "（前提）`SoldOut` 为假");
+            CheckTrue(pgC439 != null && !pgC439.PriceButtonBlocked(buyC439),
+                      "（前提）价签**没被闸拦住**（未拥有 + 未售罄 + 买得起 ⇒ 点下去真的进购买链）");
+            if (pgC439 != null) pgC439.Setup();            // ⚠️ `ResetForTest` 只改数据层、不重建视图 ⇒ 显式重建，下面那条角标前提才读到出厂值
+            var cellC439 = pgC439 != null ? FindPath(pgC439.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + buyC439) : null;
+            CheckTrue(cellC439 != null, "（前提）第 2 件那一格重建出来了");
+            if (cellC439 != null)
+                Check(TextOf(FindChild(cellC439, "Text (TMP)")), "x0",
+                      "（前提）角标 = 出厂拥有数 `x0`（买完它要变 `x1`）");
             if (pgC439 != null)
             {
-                pgC439.Buy(3);
+                var bpBeforeC439 = pgC439.LastBoosterPack;
+                string resC439 = pgC439.Buy(buyC439);
+                Check(ShopData.OwnedOf(0, buyC439), 1,
+                      "（前提）**真的买到了**（拥有数 0 → 1；实回 `" + resC439 + "`）");
                 Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
                       "★ ③ **容器档不开领奖窗**（原版同一个位置传 `showAnimation: 0`）"
                       + "—— 把 `DoBuy` 里那个 `else` 去掉、两条一起接 ⇒ 这条红");
-                CheckTrue(pgC439.LastBoosterPack != null, "★ ③ …而且**照旧开包**（走 `OpenBoosterPack`，那条路一个字没改）");
+                CheckTrue(pgC439.LastBoosterPack != null && !ReferenceEquals(pgC439.LastBoosterPack, bpBeforeC439),
+                          "★ ③ …而且**照旧开包**（走 `OpenBoosterPack`，那条路一个字没改）—— 断的是**这一下新开出来的那一扇**，"
+                        + "⛔ 不是「页上有个非 null 的旧引用」（那个假绿就是这么来的）");
+                // ---- 两态对照：**非外观件**（容器档）再点 ⇒ **照旧能买**（原版 `obj8` 只对 `CosmeticItem` 算 ⇒ 消耗品不进「已拥有」闸）----
+                //   判据 = `out_cpp2il_dev_ilspy/CatalogItemContainer.cs:206-257`；🧨 把 `IsOwnedCell` 写回 `OwnedOf > 0` ⇒ 「拥有数 1 → 2」那条红。⚠️ 三条一起才钉住「非外观件的 `Owned > 0` 不改变购买行为」。
+                ClosePackAndReopenShop(win);   // 先关掉第一包、把商店开回来，再买第二支（同本文件 `:3688` 那条既有写法；⛔ 别让两扇全屏开包窗叠着）
+                int refusalsC439 = ShopTabPage.OwnedRefusals;
+                var bpOwnedC439 = pgC439.LastBoosterPack;
+                int warnC439 = 0;
+                Application.LogCallback hC439 = (cond, st, type) =>
+                {
+                    if (type == LogType.Warning && cond != null && cond.Contains("[Shop]") && cond.Contains("已拥有")) warnC439++;
+                };
+                Application.logMessageReceived += hC439;
+                string resOwnedC439 = null;
+                try { resOwnedC439 = pgC439.Buy(buyC439); }
+                finally { Application.logMessageReceived -= hC439; }
+                Check(ShopData.OwnedOf(0, buyC439), 2, "★ ③ 两态：**非外观件再点照旧买到**（拥有数 1 → 2；⛔ 不被「已拥有」闸拦）");
+                Check(ShopTabPage.OwnedRefusals, refusalsC439, "★ ③ …而且**没有**走「已拥有」拒绝支（`OwnedRefusals` 不变）");
+                CheckTrue(!string.IsNullOrEmpty(resOwnedC439) && resOwnedC439 != ShopTabPage.BuyOwned, "★ ③ …返回值也不是 `BuyOwned`（实回 `" + resOwnedC439 + "`）");
+                CheckTrue(!ReferenceEquals(pgC439.LastBoosterPack, bpOwnedC439),
+                          "★ ③ …而且**又开了一包**（`OpenBoosterPack` 再走一次；⛔ 不是「页上那个旧引用」）");
+                CheckTrue(warnC439 == 0, "★ ③ …也**没有**任何「已拥有」警告（这里本来就不该拒）");
             }
             ClosePackAndReopenShop(win);                   // 开包窗是全屏 ⇒ 还原成「商店开着」
 
@@ -2279,30 +2586,83 @@ public static class ShopScene
             var gI544 = ShopData.GrantsOf(2, 0);
             CheckTrue(gI544 != null && gI544.Length == 1,
                       "（前提）第 3 页第 1 件有奖励表（`ShopData.GrantsOf(2, 0)`，1 条）");
-
-            if (pgI544 != null) pgI544.Buy(0);             // 真购买路径（`ShopTabPage.Buy` → `DoBuy`）
-            var rwI544 = RewardWindowFixture.FindOpenRewardWindow();
-            CheckTrue(rwI544 != null, "★ ① 买第 3 页第 1 件（商品档）⇒ 弹出领奖窗（与 A439 同一条路）");
-            if (rwI544 != null)
+            // 🔴 **2026-10-31（`B106_W72`）就地订正（铁律 5）**：`_items[0]` 的出厂 **`Owned = 1`**；
+            //   `B106_W14` 的已拥有闸原本让它 `Buy(0)` 被拒 —— 那是**过宽**：原版那个布尔只对 `CosmeticItem` 算
+            //   （`CatalogItemContainer.cs:206-257`），通货/票券这类消耗品不进这一档；本批已把闸收窄。
+            //   ⇒ 下面这条**数据注入保留**（同本文件 `:2506` 那条既有写法：临时改表 → `ResetForTest` → 跑 → 还原），
+            //     理由是让「未拥有」前提与出厂值解耦，**不再**是绕过缺陷用的。
+            //   ⛔ **不换件** —— 本条断的就是**黑石那一格**的 `bigIcon`。
+            var offI544 = ShopData.Offers(2);
+            int savedOwnedI544 = offI544.Length > 0 ? offI544[0].Owned : 0;
+            CheckTrue(offI544.Length > 0, "（前提）第 3 页的商品表非空");
+            if (offI544.Length > 0) offI544[0].Owned = 0;   // 临时注入：这一件当「未拥有」
+            ShopData.ResetForTest();                        // 重新播种 ⇒ 拥有数 = 表里那个 0
+            try
             {
-                var rc544 = rwI544.Context;
-                CheckTrue(rc544 != null && rc544.Rewards != null && rc544.Rewards.Length > 0,
-                          "（前提）那扇窗带着 `Context.Rewards`");
-                if (rc544 != null && rc544.Rewards != null && rc544.Rewards.Length > 0)
+                Check(ShopData.OwnedOf(2, 0), 0, "（前提）注入之后这一件**未拥有**");
+                CheckTrue(!ShopData.SoldOut(2, 0), "（前提）没售罄（`AvailableMax = 0` ⇒ 没有这层闸）");
+                CheckTrue(pgI544 != null && !pgI544.PriceButtonBlocked(0),
+                          "（前提）价签**没被闸拦住**（未拥有 + 未售罄 + 买得起）");
+                if (pgI544 != null) pgI544.Setup();          // ⚠️ `ResetForTest` 只改数据层 ⇒ 显式重建，角标那一条才读到注入后的值
+                var cellI544 = pgI544 != null ? FindPath(pgI544.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0") : null;
+                CheckTrue(cellI544 != null, "（前提）第 1 件那一格重建出来了");
+                if (cellI544 != null)
+                    Check(TextOf(FindChild(cellI544, "Text (TMP)")), "x0",
+                          "（前提）角标 = 注入后的拥有数 `x0`");
+
+                if (pgI544 != null) pgI544.Buy(0);           // 真购买路径（`ShopTabPage.Buy` → `DoBuy`）
+                Check(ShopData.OwnedOf(2, 0), 1,
+                      "（前提）**真的买到了**（拥有数 0 → 1；⛔ 不拿 `PurchaseSucceeded` 判）");
+                var rwI544 = RewardWindowFixture.FindOpenRewardWindow();
+                CheckTrue(rwI544 != null, "★ ① 买第 3 页第 1 件（商品档）⇒ 弹出领奖窗（与 A439 同一条路）");
+                if (rwI544 != null)
                 {
-                    Check(rc544.Rewards[0].Id, "40K_general_icon_currency_blackstone",
-                          "★ ② 页 3 第 1 件的奖励 id = 原版 `Blackstone` SO 的 **`bigIcon`**"
-                          + "（这是**落盘名**：原版原名 `40K_general_icon_currency blackstone` 带空格，"
-                          + "导入器的惯例是空格换下划线）—— 退回 `40k_general_icon_currency_crystal`"
-                          + "（A544 报的就是这个缺陷）⇒ 这条红");
-                    CheckTrue(!rwI544.NoIconItems.Contains(rc544.Rewards[0].Id),
-                              "★ ③ 这一格的图**真画出来了、不是占位板**（`NoIconItems` 里没有它）"
-                              + "—— 名字写错 / 没跑 `工具/import_original_art.py --only-menu` ⇒ 这条红");
+                    var rc544 = rwI544.Context;
+                    CheckTrue(rc544 != null && rc544.Rewards != null && rc544.Rewards.Length > 0,
+                              "（前提）那扇窗带着 `Context.Rewards`");
+                    if (rc544 != null && rc544.Rewards != null && rc544.Rewards.Length > 0)
+                    {
+                        Check(rc544.Rewards[0].Id, "40K_general_icon_currency_blackstone",
+                              "★ ② 页 3 第 1 件的奖励 id = 原版 `Blackstone` SO 的 **`bigIcon`**"
+                              + "（这是**落盘名**：原版原名 `40K_general_icon_currency blackstone` 带空格，"
+                              + "导入器的惯例是空格换下划线）—— 退回 `40k_general_icon_currency_crystal`"
+                              + "（A544 报的就是这个缺陷）⇒ 这条红");
+                        CheckTrue(!rwI544.NoIconItems.Contains(rc544.Rewards[0].Id),
+                                  "★ ③ 这一格的图**真画出来了、不是占位板**（`NoIconItems` 里没有它）"
+                                  + "—— 名字写错 / 没跑 `工具/import_original_art.py --only-menu` ⇒ 这条红");
+                    }
+                    Check(RewardWindowFixture.DismissRewardWindows(), 1,
+                          "（编排）把它关掉 —— 关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把商店带回 `Open`");
                 }
-                Check(RewardWindowFixture.DismissRewardWindows(), 1,
-                      "（编排）把它关掉 —— 关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把商店带回 `Open`");
+                Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "（编排）…场上不留开着的领奖窗");
+
+                // ---- 两态对照：**非外观件**（通货档）刚买到 1 份 ⇒ 再点**照旧能买**、也**照旧弹领奖窗**（原版 `obj8` 只对 `CosmeticItem` 算）----
+                //   判据 = `out_cpp2il_dev_ilspy/CatalogItemContainer.cs:206-257`；🧨 把 `IsOwnedCell` 写回 `OwnedOf > 0` ⇒ 下面「拥有数 1 → 2」与「又弹一扇领奖窗」两条红。
+                int refusalsI544 = ShopTabPage.OwnedRefusals;
+                int warnI544 = 0;
+                Application.LogCallback hI544 = (cond, st, type) =>
+                {
+                    if (type == LogType.Warning && cond != null && cond.Contains("[Shop]") && cond.Contains("已拥有")) warnI544++;
+                };
+                Application.logMessageReceived += hI544;
+                string resOwnedI544 = null;
+                try { if (pgI544 != null) resOwnedI544 = pgI544.Buy(0); }
+                finally { Application.logMessageReceived -= hI544; }
+                if (pgI544 != null)
+                {
+                    Check(ShopData.OwnedOf(2, 0), 2, "★ ④ 两态：**非外观件再点照旧买到**（拥有数 1 → 2；⛔ 不被「已拥有」闸拦）");
+                    Check(ShopTabPage.OwnedRefusals, refusalsI544, "★ ④ …而且**没有**走「已拥有」拒绝支（`OwnedRefusals` 不变）");
+                    Check(RewardWindowFixture.OpenRewardWindowCount(), 1, "★ ④ …**又弹了一扇领奖窗**（商品档再买一次照样 `Collect(…, showAnimation: 1, …)`）");
+                    CheckTrue(warnI544 == 0, "★ ④ …也**没有**任何「已拥有」警告（这里本来就不该拒）" + (resOwnedI544 != null ? "｜实回 `" + resOwnedI544 + "`" : ""));
+                    RewardWindowFixture.DismissRewardWindows();   // 夹具卫生：本段开完必关（同上一节那两条「（编排）」断言）
+                }
             }
-            Check(RewardWindowFixture.OpenRewardWindowCount(), 0, "（编排）…场上不留开着的领奖窗");
+            finally
+            {
+                if (offI544.Length > 0) offI544[0].Owned = savedOwnedI544;   // 还原出厂值
+                ShopData.ResetForTest();                                     // 再按还原后的出厂值播种
+                if (pgI544 != null) pgI544.Setup();                          // 视图也推回出厂值（⛔ 别留「数据 1 / 画面 0」的不一致）
+            }
             win.tabButtons.Click(0);                       // 还原成第 1 页，接着往下做
         }
 
@@ -2844,18 +3204,40 @@ public static class ShopScene
         //      父级缩放 0.876259982585907 来自 RT 实读 ⇒ `CardK = 151 × 0.87626 = 132.3153`。
         Section("`Booster Pack Open Window`（A7；5 张卡的位姿来自原版 clip，不是我们挑的）");
         {
+            // 🔴 **2026-10-31（`B106_W63`）就地订正（铁律 5）**：原来买第 4 件 `Leviathan Booster`
+            //   （价 **2 200 > 余额 2000**）⇒ `B106_W14` 的余额闸拒绝 ⇒ 拥有数不 +1（**真红**）、
+            //   `LastBoosterPack` 停在旧引用（下面「第二包」那段也跟着红）。
+            //   ⇒ 先 `ResetForTest()`（第 2 件推回 `Owned 0 / 限购 2`）再买**第 2 件 `Sautekh Booster`**
+            //     （与 A439 ③ 同一件、同一组理由；判成功用**拥有数变化**，⛔ 不用 `PurchaseSucceeded`）。
+            ShopData.ResetForTest();
             win.tabButtons.Click(0);
             var pgA = win.PageOf(0);
+            const int buyA = 1;                                  // 第 2 件 `Sautekh Booster`
+            var offA = ShopData.Offers(0);
             CheckTrue(pgA != null, "第 1 页拿得到");
-            CheckTrue(pgA != null && ShopData.Offers(0)[3].Type == "Booster Pack",
-                      "第 4 件是卡包（`Type == \"Booster Pack\"`）");
-            int beforeA = ShopData.OwnedOf(0, 3);
+            CheckTrue(offA.Length > buyA && offA[buyA].Type == "Booster Pack",
+                      "第 2 件是卡包（`Type == \"Booster Pack\"`）");
+            Check(ShopData.OwnedOf(0, buyA), 0, "（前提）这一件**未拥有**（`ResetForTest` 推回出厂值 0）");
+            CheckTrue(offA.Length > buyA && offA[buyA].AvailableMax > 0 && offA[buyA].Available > 0,
+                      "（前提）限购还有余量（出厂 2/5）");
+            CheckTrue(!ShopData.SoldOut(0, buyA), "（前提）`SoldOut` 为假");
+            CheckTrue(pgA != null && !pgA.PriceButtonBlocked(buyA),
+                      "（前提）价签**没被闸拦住**（未拥有 + 未售罄 + 买得起）");
+            if (pgA != null) pgA.Setup();                        // ⚠️ `ResetForTest` 只改数据层 ⇒ 显式重建，角标那一条才读到出厂值
+            var cellA = pgA != null ? FindPath(pgA.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + buyA) : null;
+            CheckTrue(cellA != null, "（前提）第 2 件那一格重建出来了");
+            if (cellA != null)
+                Check(TextOf(FindChild(cellA, "Text (TMP)")), "x0", "（前提）角标 = 出厂拥有数 `x0`（买完它要变 `x1`）");
+            var bpBeforeA = pgA != null ? pgA.LastBoosterPack : null;
+            int beforeA = ShopData.OwnedOf(0, buyA);
             BoosterPackOpenWindow.ResetReOpenProtectionForTest();   // 防连开是**静态跨窗口**状态 ⇒ 本段从零起
-            if (pgA != null) pgA.Buy(3);
-            Check(ShopData.OwnedOf(0, 3), beforeA + 1, "买了第 4 件 ⇒ 拥有数 +1");
+            if (pgA != null) pgA.Buy(buyA);
+            Check(ShopData.OwnedOf(0, buyA), beforeA + 1, "买了第 2 件 ⇒ 拥有数 +1");
 
             var bp = pgA != null ? pgA.LastBoosterPack : null;
-            CheckTrue(bp != null, "**买完自动开包**（入口是我们定的：`ShopTabPage.DoBuy` → `OpenBoosterPack`）");
+            CheckTrue(bp != null && !ReferenceEquals(bp, bpBeforeA),
+                      "**买完自动开包**（入口是我们定的：`ShopTabPage.DoBuy` → `OpenBoosterPack`）"
+                    + "—— 断的是**这一下新开出来的那一扇**，⛔ 不是「页上有个非 null 的旧引用」（那个假绿就是这么来的）");
             if (bp == null) { }
             else
             {
@@ -3291,7 +3673,9 @@ public static class ShopScene
                           + "`At least one of the cards is guaranteed to be Rare or better`）");
                 Check(bp.Cards != null ? bp.Cards.Length : 0, 5,
                       "**5 张**（原版出厂文案 `Contains 5 cards …` + prefab 里正好 5 个 `CardInBoosterPack`）");
-                Check(bp.Army, "Leviathan", "第 4 件（`40K_shop_offer_booster_leviathan`）⇒ 阵营 Leviathan");
+                // 🔴 **2026-10-31（`B106_W63`）**：买的是第 2 件之后阵营跟着变（`Army = ArmyOfArt(o.Art)`）——
+                //   期望值从 `Leviathan` 改成 `Sautekh`（`40K_shop_offer_booster_leviathan` → `…_Sautekh`）。
+                Check(bp.Army, "Sautekh", "第 2 件（`40K_shop_offer_booster_Sautekh`）⇒ 阵营 Sautekh");
                 // 🆕 2026-10-15（A810①）：走公共口 `CheckNoMissingArt`（「0 才绿」的唯一一份）
                 CheckNoMissingArt(bp.MissingArt, "开包窗（这一扇）");
                 Debug.Log(P + "   " + bp.Dump());
@@ -3303,9 +3687,25 @@ public static class ShopScene
                 //   ⇒ 只断 API 的语义（终态 / 张数 / 全部可见），不断任何按钮。
                 ClosePackAndReopenShop(win);
                 {
+                    // 🔴 **2026-10-31（`B106_W63`）**：同上 —— 原先 `Buy(3)`（Leviathan 2 200）被余额闸拒；
+                    //   而且第一包已把第 2 件买到 `Owned = 1` ⇒ 直接再买会被已拥有闸拒 ⇒ **必须先 `ResetForTest()`**
+                    //   （它把拥有数推回 0、限购推回 2）。
+                    ShopData.ResetForTest();
                     BoosterPackOpenWindow.ResetReOpenProtectionForTest();  // 第二包也不带上一包的连开计数
                     var pgQ = win.PageOf(0);                        // ⚠️ `Buy` 会 `Setup()` 重建页内容 ⇒ 现取
-                    if (pgQ != null) pgQ.Buy(3);                    // 再买一件 ⇒ 开第二包
+                    CheckTrue(pgQ != null, "（前提）第 1 页的 `ShopTabPage` 拿得到（第二包那一段）");
+                    Check(ShopData.OwnedOf(0, buyA), 0, "（前提）第 2 件**未拥有**（`ResetForTest` 推回出厂值 0）");
+                    CheckTrue(!ShopData.SoldOut(0, buyA), "（前提）没售罄（限购推回 2/5）");
+                    CheckTrue(pgQ != null && !pgQ.PriceButtonBlocked(buyA),
+                              "（前提）价签**没被闸拦住**（未拥有 + 未售罄 + 买得起）");
+                    if (pgQ != null) pgQ.Setup();                   // ⚠️ `ResetForTest` 只改数据层 ⇒ 显式重建，角标那一条才读到出厂值
+                    var cellQ = pgQ != null ? FindPath(pgQ.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_" + buyA) : null;
+                    CheckTrue(cellQ != null, "（前提）第 2 件那一格重建出来了（第二包那一段）");
+                    if (cellQ != null)
+                        Check(TextOf(FindChild(cellQ, "Text (TMP)")), "x0", "（前提）角标 = 出厂拥有数 `x0`（第二包那一段）");
+                    if (pgQ != null) pgQ.Buy(buyA);                 // 再买一件 ⇒ 开第二包
+                    Check(ShopData.OwnedOf(0, buyA), 1,
+                          "（前提）第二包**真买到了**（拥有数 0 → 1；⛔ 不拿 `PurchaseSucceeded` 判）");
                     var bp2 = pgQ != null ? pgQ.LastBoosterPack : null;
                     CheckTrue(bp2 != null && bp2 != bp, "★ 再买一件 ⇒ 开出**第二包**（快速开包用）");
                     if (bp2 != null)
@@ -3949,6 +4349,64 @@ public static class ShopScene
             }
         }
 
+        // ============================================================ 🆕 2026-10-31（`B106_W27`）· `FP-SHOP-004`
+        //   「**换一条报价 ⇒ 价格 / 奖励物件跟着换**」（判据 = `判据/B106_AUD06_施工单.md` 的 `FP-SHOP-004` 行；
+        //   验收标准 = 「换一条报价（不同 itemType 组合）⇒ 建出的 Drawer 子件集合随之变（断子件名集合）」）。
+        //   原版两跳（逐句现读）：
+        //     · `GeneralOfferPopupDrawer__DrawRewards.c:87-372`：池 = `GetComponentsInChildren` 的**先序** →
+        //       逐项 `ItemDrawer.GetDrawerConfig(itemType, 0x1e)` → `First()` → `Setup` → `SetActive(true)` → `RemoveAt(0)`
+        //       ⇒ **同一副骨架、不同 itemType ⇒ 被打开的那个槽不同**；
+        //     · `BuildPrice`（`…/Price Display Button/…/Price Display/text`）**只在报价给了价时才画**。
+        //   🔴 期望值 = **原版字面量**（槽名来自本文件 `VExpAll` 那批原版 dump / 映射表行号；价格串 = 本段自己喂的报价），
+        //      ⛔ 不从 `OfferContainer.Variants` 反读（那是被测表）。
+        Section("★ FP-SHOP-004：换一条报价 ⇒ 价格 / 奖励抽屉物件跟着换（同一副骨架、两种 itemType 各建一次）");
+        {
+            const string vEq = "General Basic Offer Container Variant Booster_avatar_cardback_title";
+            OfferContainer.Variant v4;
+            CheckTrue(OfferContainer.Find(vEq, out v4), "（前提）变体 `" + vEq + "` 在实现表里（拿不到 ⇒ 本节等于没验）");
+            if (OfferContainer.Find(vEq, out v4))
+            {
+                // 三次建：**只换** `ItemType` / 价（其余一字不动）⇒ 差异只能来自「报价」这一格
+                var cA = OfferContainer.Content.Def();
+                cA.Item = ItemDrawer.Spec("WildcardUltramarines1", null, "Ultramarines");   // 抽屉里画什么与「填哪个槽」是两层（同 A43 注）
+                cA.ItemType = "CosmeticItemCardback";
+                cA.Price = "1 800";
+                var bA = OfferContainer.Build(_offerScratch, v4, -12600f, -8500f, cA, 3000, null, true);
+
+                var cB = OfferContainer.Content.Def();
+                cB.Item = ItemDrawer.Spec("WildcardUltramarines1", null, "Ultramarines");
+                cB.ItemType = "CosmeticItemTitle";
+                cB.Price = "2 000";
+                var bB = OfferContainer.Build(_offerScratch, v4, -13060f, -8500f, cB, 3000, null, true);
+
+                var cC = OfferContainer.Content.Def();
+                cC.Item = ItemDrawer.Spec("WildcardUltramarines1", null, "Ultramarines");
+                cC.ItemType = "CosmeticItemCardback";
+                cC.Price = null;                                                            // 没给价 ⇒ `BuildPrice` 那颗 `text` 不画
+                var bC = OfferContainer.Build(_offerScratch, v4, -13520f, -8500f, cC, 3000, null, true);
+
+                // ---- ① 奖励抽屉物件：换报价 ⇒ **被打开的那个槽换**（集合 = 恰好那一个）----
+                Check(ActiveSlotNames(bA.Root), "Cardback Drawer",
+                      "★ 报价 A（`CosmeticItemCardback`）⇒ 开着的抽屉 = **`Cardback Drawer`**（映射表 :47 的主档）");
+                Check(ActiveSlotNames(bB.Root), "Title Drawer Horizontal Variant",
+                      "★ 报价 B（`CosmeticItemTitle`）⇒ 开着的抽屉 = **`Title Drawer Horizontal Variant`**（映射表 :59/:60 的 30 档）");
+                CheckTrue(ActiveSlotNames(bA.Root) != ActiveSlotNames(bB.Root),
+                          "★★ **换一条报价 ⇒ 抽屉物件真的换了**（两个集合不同 —— 这条才是「链路」；"
+                        + "A43 那批并列的参数矩阵断言给不了这一跳）"
+                        + "｜🧨 把 `OfferContainer.Build` 的选槽改回「第一个非 INACT 的槽」⇒ 两个集合会相同 ⇒ 本条红");
+
+                // ---- ② 价格物件：跟着报价走（原版只在给了价时才画那颗 `text`）----
+                const string pricePath = "background/name-bg/Price Display Button/Generic UI Button/Price Display/text";
+                Check(TextOf(FindPath(bA.Root, pricePath)), "1 800",
+                      "★ 报价 A 的价格文本 = **`1 800`**（`BuildPrice` 那一格）");
+                Check(TextOf(FindPath(bB.Root, pricePath)), "2 000",
+                      "★ 报价 B 的价格文本 = **`2 000`**（同一副骨架、只换了报价里的价）");
+                CheckTrue(FindPath(bC.Root, pricePath) == null,
+                          "★ 报价 C（**没有价**）⇒ 那颗 `text` **不画**（原版 `BuildPrice` 的 `if (!string.IsNullOrEmpty(Price))`）"
+                        + " —— 这条同时证明上面两条价格断言**不是恒真**：改坏 `BuildPrice` 成「无条件画」⇒ 本条红");
+            }
+        }
+
         // ---------------- 🆕 2026-10-03（A8）：商店格**那条链**（原版 `CatalogItemContainer.OnInitialize`）----------------
         //   判据 = `d:/2/tools/decomp_full/CatalogItemContainer__OnInitialize.c`：
         //     `SupportMethods.DestroyAllChildren(drawerHolder);`
@@ -4029,7 +4487,7 @@ public static class ShopScene
             win.tabButtons.Click(0);
         }
 
-        ClosePackAndReopenShop(win);   // 上面若没走到（`bp == null`）也保证商店是开着的
+        ClosePackAndReopenShop(win);   // 上面若没走到（前面的编排段被跳过）也保证商店是开着的
 
         // ---------------- 实拍 ----------------
         CheckHoverSwap(win.transform, "商店窗");   // 🆕 A17：格内价签（`40K_button` → `_hover`）
@@ -5178,6 +5636,75 @@ public static class ShopScene
                       "★ 两态·自己那一员 ⇒ `Challenge` **关**（`!isSelf`）—— 与上一条**互斥**");
             CheckTrue(amop.BtnNode(3) != null && amop.BtnNode(3).gameObject.activeSelf == false,
                       "★ 两态·`Role = Member(0)` ⇒ `Promote` 也要 `outrank`（`role < MyRole` 不满足那一支关着）");
+            // ============================================================ 🆕 2026-10-31（`B106_W27`）· `FP-SOCIAL-03`
+            //   「**8 钮全矩阵**」（判据 = `判据/B106_AUD06_施工单.md` §三 那条的剩余工作：
+            //   「造成员 8 种状态 ⇒ 8 颗钮显隐逐一正确」；原版判据 = `Shell/AllianceMemberOptionsPopup.cs`
+            //   文件头那 8 条 `SetActive` 规则，逐条来自 `GroupMemberOptionsPopup.SetActiveButtons` 一族）：
+            //     `Challenge = !isSelf` · `Add as a friend = !isSelf && !isFriend` · `Profile = !isSelf` ·
+            //     `Promote = outrank && role < 3` · `Demote = outrank && role > 0` · `Kick = outrank` ·
+            //     `Quit = isSelf` · `Debug Add Skulls = **恒关**`（`Awake()` 第一句）；`outrank = sameGroup && role < myRole`。
+            //   🔴 四态覆盖**前 7 颗的两态各至少一次**（第 8 颗恒关，四态都断到）；末尾那条**覆盖闸**从**实读**
+            //      （不是从期望表）统计「每颗亮过/关过」，少一样就是矩阵没盖住。
+            //   ⛔ 不写 `if (x != null) Check(...)`（静默跳过）：每颗都先前提、再结论。
+            Section("★ FP-SOCIAL-03：成员选项面板 8 颗钮 × 4 态全矩阵（原版那 8 条 `SetActive` 规则）");
+            {
+                var states = new[]
+                {
+                    new { Tag = "① 自己（Member，不 outrank）",
+                          V = new AllianceMemberOptionsPopup.MemberView
+                              { Name = "Me", Role = 0, IsSelf = true, IsFriend = false, SameGroup = true, MyRole = 0 },
+                          Want = new[] { false, false, false, false, false, false, true, false } },
+                    new { Tag = "② 外人（Member；我是 Leader ⇒ outrank）",
+                          V = new AllianceMemberOptionsPopup.MemberView
+                              { Name = "P", Role = 0, IsSelf = false, IsFriend = false, SameGroup = true, MyRole = 3 },
+                          Want = new[] { true, true, true, true, false, true, false, false } },
+                    new { Tag = "③ 好友（Admin，outrank ⇒ `Demote` 也亮）",
+                          V = new AllianceMemberOptionsPopup.MemberView
+                              { Name = "F", Role = 2, IsSelf = false, IsFriend = true, SameGroup = true, MyRole = 3 },
+                          Want = new[] { true, false, true, true, true, true, false, false } },
+                    new { Tag = "④ 好友（Leader ⇒ `role < MyRole` 不成立 ⇒ outrank 假）",
+                          V = new AllianceMemberOptionsPopup.MemberView
+                              { Name = "L", Role = 3, IsSelf = false, IsFriend = true, SameGroup = true, MyRole = 0 },
+                          Want = new[] { true, false, true, false, false, false, false, false } },
+                };
+                var mbNames = amop.ButtonNames();
+                var seenOn = new bool[7]; var seenOff = new bool[7];
+                Check(mbNames.Count, 8, "（前提）八颗按钮的名字表拿得到 8 条（下面是逐颗按名报）");
+                for (int si = 0; si < states.Length; si++)
+                {
+                    amop.SetMember(states[si].V);
+                    CheckTrue(amop.HasData, $"（前提）{states[si].Tag}：`SetMember` 之后 `HasData = true`");
+                    for (int bi = 0; bi < 8; bi++)
+                    {
+                        var bn = amop.BtnNode(bi);
+                        var nm = bi < mbNames.Count ? mbNames[bi] : "?";
+                        if (bn == null)
+                        {
+                            CheckTrue(false, $"（前提·不静默）{states[si].Tag}：第 {bi + 1} 颗（`{nm}`）的节点拿得到"
+                                           + "（拿不到 ⇒ 下面那条「显隐对」等于没验）");
+                            continue;
+                        }
+                        bool on = bn.gameObject.activeSelf;
+                        CheckTrue(on == states[si].Want[bi],
+                                  $"★ `FP-SOCIAL-03` {states[si].Tag} ⇒ `{nm}` 应 **{(states[si].Want[bi] ? "亮" : "关")}**"
+                                + "（原版那串 `SetActive` 规则；八颗 × 四态逐颗钉）");
+                        if (bi < 7) { if (on) seenOn[bi] = true; else seenOff[bi] = true; }
+                    }
+                }
+                int mbMiss = 0; var mbMissNames = new System.Text.StringBuilder();
+                for (int bi = 0; bi < 7; bi++)
+                    if (!seenOn[bi] || !seenOff[bi])
+                    {
+                        mbMiss++;
+                        if (mbMissNames.Length > 0) mbMissNames.Append("、");
+                        mbMissNames.Append(bi < mbNames.Count ? mbNames[bi] : bi.ToString());
+                    }
+                CheckTrue(mbMiss == 0,
+                          "★ 覆盖闸：前 7 颗**每颗都既亮过、也关过**（少一样 = 那一格的「两态」没被上面那圈钉住；"
+                        + "`Debug Add Skulls` 除外 —— 它原版恒关，四态都断过）"
+                        + (mbMiss == 0 ? "" : "；没覆盖到：" + mbMissNames.ToString()));
+            }
+
             // 🆕 **2026-10-15（A810①）**：这一扇的主图池也收进「0 才绿」（它与 `win`/`pop` 是同一档 ——
             //   此前**只有出声、没有牙**：`Shell/AllianceMemberOptionsPopup.cs` 的 `Tex()` 在取不到时
             //   `LogWarning("[MemberOptions] 图取不到：…")` 并记账，但**全仓没有一处读 `MissingArt`**）。
@@ -5785,6 +6312,101 @@ public static class ShopScene
             }
             shop435.Close();
             Debug.Log(P + "  （A435 阶段 2 · 乙：商店窗验完 ⇒ 已 `Close()`）");
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W27` · 落 `B106_W14` §④·1）
+        //   ① **页签禁用态**（原版 `ShopWindow__CreateStoreTab.c:95-98`：`if (*(storeData + 0x22) == 0)
+        //      TabButtons.ToggleInteractable(tab, false);` ⇒ `Selectable.interactable = false`（灰 + 点不动））；
+        //   ② **小屏档**（原版 `ShopTab.cs:186-235`：`if (!GameStaticData.smallScreenUI) return;` 之后
+        //      `cellSize = originalGridCellSize × 1.18`（Grid 族）/ `itemSize × 1.05`（Flexible 族），**只乘一次**）。
+        //   🔴 两条都要「重开一次窗」才生效（原版 = 建键 / 建格那一刻算一次）⇒ 本段自建**临时窗**、跑完销毁，
+        //      ⛔ 不碰主窗那棵树（前面那些断言还在读它）。
+        Section("★ 页签禁用态 + 小屏档两族格尺寸（判据 `ShopWindow__CreateStoreTab.c` + `ShopTab.cs`）");
+        {
+            // ---- ① 页签禁用（`PageEnabled[2] = false` ⇒ 重开窗 ⇒ 第 3 颗键 `interactable = false`）----
+            ShopWindow wOff = null;
+            ShopWindow.SetPageEnabledForTest(2, false);
+            try
+            {
+                wOff = ShopWindow.Create(WindowsManager.EnsureHost());
+                CheckTrue(wOff != null, "（前提）禁用档的临时商店窗建得出来（拿不到 ⇒ 下面两条等于没验）");
+                if (wOff != null)
+                {
+                    wOff.Manager.OpenWindow(wOff);        // `Open()` → `Build()` → `BuildPages()` → `ApplyTabInteractability()`
+                    var t2 = wOff.TabInteractableForTest(2);
+                    CheckTrue(t2.HasValue, "（前提）第 3 页的页签键建出来了（`TabInteractableForTest(2)` 非 `null`）");
+                    CheckTrue(t2.HasValue && t2.Value == false,
+                              "★ `store 未启用` ⇒ 第 3 颗页签 `interactable = false`（原版 `ToggleInteractable(tab, false)`；"
+                            + "｜🧨 删 `ShopWindow.BuildPages()` 末尾那句 `ApplyTabInteractability()` ⇒ 本条红）");
+                    var t0 = wOff.TabInteractableForTest(0);
+                    CheckTrue(t0.HasValue && t0.Value,
+                              "★（反例）第 1 颗键**仍可交互**（`PageEnabled[0]` 出厂 true）⇒ 上一条不是「整排都灰」蒙出来的");
+                    wOff.Close();
+                }
+            }
+            finally
+            {
+                ShopWindow.ResetPageEnabledForTest();
+                if (wOff != null) Object.DestroyImmediate(wOff.gameObject);
+            }
+            // 还原档也验一次（毒解干净了 —— 否则上一条可能是残留状态蒙对的）
+            ShopWindow wOn = null;
+            try
+            {
+                wOn = ShopWindow.Create(WindowsManager.EnsureHost());
+                if (wOn != null)
+                {
+                    wOn.Manager.OpenWindow(wOn);
+                    var t2b = wOn.TabInteractableForTest(2);
+                    CheckTrue(t2b.HasValue && t2b.Value,
+                              "（还原）`ResetPageEnabledForTest()` 之后第 3 颗键**又变回可交互**");
+                    wOn.Close();
+                }
+            }
+            finally { if (wOn != null) Object.DestroyImmediate(wOn.gameObject); }
+
+            // ---- ② 小屏档（Grid 族 ×1.18 / Flexible 族 ×1.05）----
+            bool prevPersist = SmallScreenUI.PersistOverride;
+            ShopWindow wSm = null;
+            SmallScreenUI.PersistOverride = true;          // ⛔ 自检不写 `PlayerPrefs`（不动玩家的真设置）
+            try
+            {
+                SmallScreenUI.Set(true);
+                wSm = ShopWindow.Create(WindowsManager.EnsureHost());
+                CheckTrue(wSm != null, "（前提）小屏档的临时商店窗建得出来");
+                if (wSm != null)
+                {
+                    wSm.Manager.OpenWindow(wSm);
+                    var pgSm = wSm.PageOf(0);
+                    var pgSmF = wSm.PageOf(ShopTabPage.CratesPage);
+                    CheckTrue(pgSm != null && pgSmF != null, "（前提）小屏档下两族各拿一页");
+                    if (pgSm != null)
+                    {
+                        // 期望值 = **原版算式**（`335.6 × 1.18` / `475 × 1.18`；判据 → `AUD05_state_matrix_商店窗.md` §1·3）
+                        Check(ShopTabPage.GridCols, 4,
+                              "★ 小屏档 Grid 族**列数仍 4**（`floor(1590.24 ÷ 396.008)` = 4；期望值 = 原版算式，⛔ 不是从实现反读）");
+                        CheckNear(pgSm.PageCellW, 396.008f, 0.01f, "★ 小屏档格宽 = 335.6 × 1.18 = **396.008**");
+                        CheckNear(pgSm.PageCellH, 560.5f, 0.01f, "★ 小屏档格高 = 475 × 1.18 = **560.5**");
+                        var smCell = FindPath(pgSm.transform, "Packs Scroll View/Viewport/Content/CatalogItemShopContainer_0");
+                        // ⚠️ 量**格节点自己的 `RectTransform.rect`**（⛔ 不用 `RectOf`：那一路上会抓到子树里第一张
+                        //    `ImageQuad`，而格底是「格 + 2」⇒ 量到的是 398.008 而不是格的 396.008，见上面 1575 那条同族提醒）。
+                        var smRt = smCell != null ? smCell.GetComponent<RectTransform>() : null;
+                        CheckTrue(smRt != null, "（前提）小屏档第 1 格的 `RectTransform` 拿得到（拿不到 ⇒ 下面那条等于没验）");
+                        CheckNear(smRt != null ? smRt.rect.width * 108f : -1f, 396.008f, 0.5f,
+                                  "★ …而且**真建出来**的格宽 = **396.008**（不是只改了常量、树没跟着变）");
+                    }
+                    if (pgSmF != null)
+                        CheckNear(pgSmF.PageCellW, 391.545f, 0.01f,
+                                  "★ 小屏档 Flexible 族 itemSize = 372.9 × 1.05 = **391.545**");
+                    wSm.Close();
+                }
+            }
+            finally
+            {
+                SmallScreenUI.ResetForTest();              // 内存态回出厂（`Enabled=false`），⛔ 不动 `PlayerPrefs`
+                SmallScreenUI.PersistOverride = prevPersist;
+                if (wSm != null) Object.DestroyImmediate(wSm.gameObject);
+            }
         }
 
         // ---------------- 收尾 ----------------

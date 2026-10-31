@@ -676,11 +676,11 @@ public static class MainMenuScene
         //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
         //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
         //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
-        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。🆕 2026-10-31（`B106_W19` · 判据 = `报告/B103_D1.md` 的 **A3**）：补 `catch`（计数口 = `_sink.Fail`）—— 一条 `MissingReferenceException` 本来会让整个宿主零输出；异常时在 `finally` 里照旧印合计、并以 1 退出（⛔ 不让异常逃出 `Run`）。同一物理行就地改写 ⇒ 行数零变化。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
-        try { RunCore(); }
-        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        bool runCompleted = false; try { RunCore(); runCompleted = true; } catch (System.Exception e) { _sink.Fail++; Debug.LogError("[MainMenuScene] RunCore 抛异常（**其后的断言段没跑**）：" + e); }
+        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; if (!runCompleted) { Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ==="); Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**"); EditorApplication.Exit(1); } }
     }
 
     /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
@@ -1216,9 +1216,9 @@ public static class MainMenuScene
                     + "（= Campaign provider 已登记；注销它 ⇒ 这颗红点永远不亮）");
             // 数量口径：原版 `CampaignHandler.CheckNotification` 一个战役**只发一条**（不是每可领节点一条）
             bool anyClaimable = false;
-            if (CampaignData.HasContent(CampaignData.Selected))
-                for (int i = 0; i < CampaignData.NodeCount; i++)
-                    if (CampaignData.Claimable(i)) { anyClaimable = true; break; }
+            // 🔴 2026-10-31（B106_W60）：去掉 `if (CampaignData.HasContent(Selected))` 那层壳 —— 原版 `CheckNotification`
+            //   只做 `GetCampaign(SelectedArmy) ?? GetCampaign(10)`（回退 Ultramarines），**没有**「本地有没有战役」这道闸。
+            for (int i = 0; i < CampaignData.NodeCount; i++) if (CampaignData.Claimable(i)) { anyClaimable = true; break; }
             int campCount = UiBadgeNotificationManager.GetCount(campDefs);
             Check(campCount, anyClaimable ? 1 : 0,
                   "★ Campaign 红点计数 = " + (anyClaimable ? "1（当前有可领节点；原版一战役只发一条）" : "0（当前没有可领节点）"));
@@ -9999,7 +9999,7 @@ public static class MainMenuScene
                             CheckNear(hx2, 671.50f, 0.6f, "★ T16：…右沿 = **671.50**（= `RankedText` 右沿，不是底图的 446.55）");
                             // **边界上/外 1 px**（走生产命中路 `PointerLayer.ButtonAt`，不是量矩形自证）：
                             //   左侧那一带是新扩出来的（旧口径 191.45 起）⇒ 点它是这轮修复的判别式。
-                            var plT16 = PointerLayer.Instance;
+                            var plT16 = PointerLayer.Instance; CheckTrue(plT16 != null, "（前提·不静默）PointerLayer.Instance 在 —— 不在 ⇒ 下面「命中区外圈打得中 / 内圈打不中」几条等于没验（⛔ 不是通过）");
                             if (plT16 != null && tgWb != null)
                             {
                                 float cyT16 = (hy1 + hy2) * 0.5f;
@@ -15179,7 +15179,7 @@ public static class MainMenuScene
                                       "★ T16：…高 = **77.25**（= 底图 57.6 ∪ `Button Text` 的 76.79，文字顶在行顶 −19.65）"
                                     + "｜🧨 改坏法：只传 `rowR` ⇒ 57.60 ⇒ 红");
                             CheckNear(oy1, 379.35f, 0.6f, "★ T16：…上沿 = **379.35**（= 行顶 399 − 19.65，文字顶端那一线）");
-                            var plT16c = PointerLayer.Instance;
+                            var plT16c = PointerLayer.Instance; CheckTrue(plT16c != null, "（前提·不静默）PointerLayer.Instance 在 —— 不在 ⇒ 下面「文字上半段打得中 / 上沿内外」几条等于没验（⛔ 不是通过）");
                             if (plT16c != null && hitWbT16 != null)
                             {
                                 float cxT16 = (ox1 + ox2) * 0.5f;
@@ -18494,8 +18494,8 @@ public static class MainMenuScene
                           "…关掉之后回到 Closed（本段是最后一段；这里只自证「关得掉」，不影响别的断言）");
             }
         }
-
-        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; B103W2_Assert.Run(); _sink.Pass += B103W2_Assert.Pass; _sink.Fail += B103W2_Assert.Fail; EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail; B93D3Assert.Run(); _sink.Pass += B93D3Assert.Pass; _sink.Fail += B93D3Assert.Fail; B97W23Assert.Run(); _sink.Pass += B97W23Assert.Pass; _sink.Fail += B97W23Assert.Fail; B97W29Assert.Run(); _sink.Pass += B97W29Assert.Pass; _sink.Fail += B97W29Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
+        // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
+        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; B103W2_Assert.Run(); _sink.Pass += B103W2_Assert.Pass; _sink.Fail += B103W2_Assert.Fail; EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail; B93D3Assert.Run(); _sink.Pass += B93D3Assert.Pass; _sink.Fail += B93D3Assert.Fail; B97W23Assert.Run(); _sink.Pass += B97W23Assert.Pass; _sink.Fail += B97W23Assert.Fail; B97W29Assert.Run(); _sink.Pass += B97W29Assert.Pass; _sink.Fail += B97W29Assert.Fail; B106_W8_Assert.Run(); _sink.Pass += B106_W8_Assert.Pass; _sink.Fail += B106_W8_Assert.Fail; CheckB106W29(menu); Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `本文件`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
@@ -20795,6 +20795,230 @@ public static class MainMenuScene
                   "（夹具）这副遭遇卡组**当下**过 `DeckRules.Validate(…, skirmish: true)`（= 原版 `DeckUtility.ValidateDeck`）"
                 + " —— 这是「点 `Battle!` 点得动」的硬前提；实得 " + err + "（" + d.CardIds.Count + " 张）"
                 + "｜🧨 这里红 ⇒ 夹具退化，**别**去放宽 `SetBattleInteractable`（那是 `OnDeckSelected` 首句的原版判据）");
+    }
+
+    // ============================================================ ★ AUD06 · `B106_W29`（2026-10-31 执行代理）
+    // 施工单：`资料/完全复刻/判据/B106_AUD06_施工单.md` §一 —— 串行队列 `FP-DRAFT-01` → `FP-DRAFT-06` → `FP-TUT-05`
+    //   （`FP-SHELL-04` 已由调度台裁定「不做」，见本节末尾那一行注释，⛔ 别照施工单把它做回来）。
+    // 三条的形状相同：**生产已接、`Editor` 无驱动** ⇒ 本方法只补「驱动断言」，⛔ 一个字节的产品行为都不改。
+    // ⚠️ 本方法的调用点挂在 `RunCore` 末尾那条聚合行上（`Debug.Log(合计)` **之前**、同一个物理行 ⇒ 行号零漂移）：
+    //   放在合计之后 = 断言一条都不计数（先例 → `CLAUDE.md`「同一物理行追加 ⇒ 掉进行末 `//`」那一条）。
+    static void CheckB106W29(MainMenuRuntime menu)
+    {
+        // ------------------------------------------------ FP-DRAFT-01
+        // 原版链路（第一权威）：`d:/2/tools/decomp_full/Everguild.LiveOps.LiveOpsEvent__OpenWindow.c`
+        //   ① `ev.<+0x3a8>` 取事件数据 → `LiveOpsEventData.GetState(now)`：1 ⇒ 组件键 **0x14**、3 ⇒ **0x15**、其它 ⇒ **10**；
+        //   ② `LiveOpsAssetUtility.GetComponentReference(ev, key)` 取窗组件；取不到 / `CanActivate` 假
+        //      ⇒ `CustomDebug.LogError` + **return**（**不开窗、但出声**）；
+        //   ③ 取到 ⇒ `WindowsManager.OpenWindow(win(组件), ev(参数), …)`。
+        // ⇒ 原版主菜单那张 Draft 卡点下去 = **由事件数据挑窗、经 `WindowsManager` 建/开**（不是某处直调 `Create`）。
+        // 我们的落点：`Shell/MainMenuRuntime.cs:2731-2746`（`OpenMode` 的 `case "draft"` ⇒
+        //   `WindowsManager.OpenByRef(DraftModeWindow.RootName, w => DraftModeWindow.Create(w))`）·
+        //   命中区与点击接线 = 同文件 `:3142-3158`（`BuildModeCard` 第六步 `wb.onClick = () => OpenMode(kind)`）·
+        //   `OpenByRef` = `Shell/WindowsManager.cs:937`。
+        // 我们缺的（施工单原话）：`Editor/MainMenuScene.cs` 的 F1 那一节与 `Editor/DraftWindowAssertD2.cs:70`
+        //   **都是直调 `DraftModeWindow.Create`** ⇒ 「点卡 ⇒ 开窗」这条**一跳都没验过**。
+        // 验收：点 `Draft Game Mode Container 1x2` 的 `Hit` ⇒ `DraftModeWindow` 被打开（断窗实例 + 页）。
+        Section("★ AUD06 · FP-DRAFT-01：主菜单「Draft」模式卡**点了真开**轮抽窗（原版 `LiveOpsEvent.OpenWindow`）");
+        {
+            CheckTrue(menu != null, "（前提）拿到主菜单实例 `menu`（null ⇒ 本节全空转，⛔ 别让它静默过）");
+            var dcard = menu != null ? menu.Find("Draft Game Mode Container 1x2") : null;
+            CheckTrue(dcard != null, "（前提）`Draft Game Mode Container 1x2` 建出来了");
+            var dhit = dcard != null ? FindChild(dcard, "Hit") : null;
+            CheckTrue(dhit != null, "（前提）它有命中区 `Hit`（`MainMenuRuntime.BuildModeCard` 第六步：`modeKind` 非空才建）");
+            var dbtn = dhit != null ? dhit.GetComponent<WindowButton>() : null;
+            CheckTrue(dbtn != null, "（前提）`Hit` 上挂着 `WindowButton`");
+            CheckTrue(dbtn != null && dbtn.Interactable, "（前提）这颗钮 `Interactable = true`（否则 `Click()` 头一句就 return）");
+            CheckTrue(dbtn != null && dbtn.onClick != null,
+                      "（前提）`onClick` 已接（= `OpenMode(\"draft\")`；🧨 把 `BuildModeCard(..., \"draft\")` 的末位改回 `null`"
+                    + " ⇒ `Hit` 都不建 ⇒ 本节从第一条起全红）");
+
+            var wmD = WindowsManager.Get();
+            CheckTrue(wmD != null, "（前提）`WindowsManager` 在（`OpenMode` 第一句就判它：缺了只出声、不开窗）");
+
+            var keepPrev = DraftModeWindow.LastOpened;
+            try
+            {
+                // 让这一下走「没建过 ⇒ 新建」那一支（上一条断言可能留过一扇 ⇒ ⛔ 别拿复用来的旧窗冒充「点开了」）
+                WindowsManager.ClearReuseCacheForTest();
+                DraftModeWindow.ClearRunForTest();   // 内存里那一局清掉 ⇒ `Open()` 走 `BeginRun`（不 `ResumeRun`）
+                if (dbtn != null && dbtn.onClick != null) dbtn.Click();
+
+                var dw = DraftModeWindow.LastOpened;
+                CheckTrue(dw != null && dw != keepPrev,
+                          "★ 点 `Hit` ⇒ **新的一扇** `DraftModeWindow` 被开出来（`LastOpened` 换人；"
+                        + "🧨 把 `OpenMode` 里 `case \"draft\"` 那一段删掉 ⇒ `LastOpened` 不动 ⇒ 红）");
+                CheckTrue(dw != null && dw.CurrentState == WindowState.Open,
+                          "★ 而且它处于 `Open` 态（不是「建出来没开」）—— 实得 "
+                        + (dw != null ? dw.CurrentState.ToString() : "<null>"));
+                CheckTrue(dw != null && dw.transform.name == DraftModeWindow.RootName,
+                          "★ 窗根名 = `" + DraftModeWindow.RootName + "`（= 原版 `DraftModeMenuDemo` 那一扇；"
+                        + "🧨 改成开别的窗 ⇒ 红）");
+                CheckTrue(dw != null && wmD != null && wmD.openWindows.Contains(dw),
+                          "★ 而且它进了 `WindowsManager.openWindows`（= 原版 `WindowsManager.OpenWindow` 那一跳）");
+                CheckTrue(dw != null && dw.State == DraftModeState.PayScreen,
+                          "★ 页 = `DraftModeState.PayScreen`（新局 `BeginRun` 落的那一页；原版 `DraftModeMenuDemo.GetTabFromState`）"
+                        + " —— 实得 " + (dw != null ? dw.State.ToString() : "<null>"));
+            }
+            finally
+            {
+                // 收尾：关窗 + 清掉这一局（⛔ 别把自检跑出来的那一局留给下一次真 Play —— 同 F1 那一节的收尾）
+                var made = DraftModeWindow.LastOpened;
+                if (made != null && made != keepPrev) made.Close();
+                DraftModeWindow.ClearRunForTest();
+                WindowsManager.ClearReuseCacheForTest();
+                DraftPacks.InvalidateCache();
+                MainMenuRuntime.SetNavPanelVisible(true, true);   // 窗没开成时也别把左竖导航留在藏起来的状态
+            }
+        }
+
+        // ------------------------------------------------ FP-DRAFT-06
+        // 原版（第一权威）：`d:/2/tools/decomp_full/LeaderboardScoringModeUtils__ApplyScoringMode.c`
+        //   `mode == 0 ⇒ score + newScore` · `mode == 1 ⇒ Math.Max(score, newScore)` ·
+        //   `mode == 2 ⇒ newScore` · **其它 ⇒ score**（⛔ 不是抛异常）。
+        // 我们的实现 = `Shell/LeaderboardData.cs:171`（逐分支 1:1）；写入口 = 同文件 `:223 LocalScore`
+        //   （第 ③⑤ 步各 `UpdateEntry` 一次 + 第 ⑥ 步按 value 降序重排、`position = i+1`）。
+        // 我们缺的（施工单原话）：`Shell/LeaderboardData.cs:343 SelfCheck` **全仓 0 宿主**；
+        //   `Editor/MainMenuScene.cs` 排行榜那几节只 `InjectForTest` 假行断版面
+        //   ⇒ 「一条胜场写进榜、分数按模式变」这条**一跳都没验过**。
+        Section("★ AUD06 · FP-DRAFT-06：本地计分 `ApplyScoringMode` 三档 + 一条胜场写进榜（`LeaderboardData.SelfCheck` 首个宿主）");
+        {
+            LeaderboardData.ResetScoringForTest();   // 别让别处留下的缓存冒充这一条
+
+            string selfWhy = null;
+            bool selfOk = LeaderboardData.SelfCheck(out selfWhy);
+            CheckTrue(selfOk, "★ `LeaderboardData.SelfCheck()` 通过（**首个宿主**：0 宿主 ⇒ 它从来没有被执行过）"
+                            + (selfOk ? "" : "；失败原因：" + (selfWhy ?? "<null>")));
+
+            // 三档 + 边界（期望值 = 原版 `.c` 的分支结果，⛔ 不是我们实现里的常量）
+            Check(LeaderboardData.ApplyScoringMode(LeaderboardScoringMode.Increment, 5, 3), 8L,
+                  "★ `Increment(5,3)` = **8**（原版 `return score + newScore`）");
+            Check(LeaderboardData.ApplyScoringMode(LeaderboardScoringMode.SetIfHigher, 5, 3), 5L,
+                  "★ `SetIfHigher(5,3)` = **5**（原版 `Math.Max`；🧨 写成 `newScore` 就与上一条同时绿不了）");
+            Check(LeaderboardData.ApplyScoringMode(LeaderboardScoringMode.SetValue, 5, 3), 3L,
+                  "★ `SetValue(5,3)` = **3**（原版 `return newScore`）");
+            Check(LeaderboardData.ApplyScoringMode(LeaderboardScoringMode.SetIfHigher, 3, 9), 9L,
+                  "★ `SetIfHigher(3,9)` = **9**（反向也要取高；🧨 写成 `Math.Min` / 恒返 score ⇒ 红）");
+            Check(LeaderboardData.ApplyScoringMode((LeaderboardScoringMode)99, 5, 3), 5L,
+                  "★ 未知模式 = **原样返回旧分**（原版 `if (mode != 2) return score;` 那一支 —— ⛔ 别改成抛异常）");
+
+            // ---- 「写一条胜场 ⇒ 榜单该行分数按模式变」：走**生产的计分口** `LocalScore`，不是只测纯函数 ----
+            // 夹具口径：玩家现有 5 分；一条胜场值 3。`currentEntry` 与 `entries` 里那条必须是**两个对象**
+            // （同一对象 ⇒ `Increment` 会被第 ③⑤ 步各加一次 = 11 —— 原版注释里那条坑，见 `LeaderboardData.cs:236`）。
+            System.Action<LeaderboardScoringMode, long, string> winOnce = (mode, want, tag) =>
+            {
+                LeaderboardData.ResetScoringForTest();
+                var def = new LeaderboardDef { Key = "B106_W29/win/" + tag, ScoringMode = mode };
+                var board = new LocalLeaderboardResult { Key = def.Key };
+                board.CurrentEntry = LocalLeaderboardEntry.MakePlayerEntry(5, 1);
+                board.Entries = new[] { LeaderboardData.CloneEntry(board.CurrentEntry) };
+                LeaderboardData.SetCachedForTest(board);
+
+                var res = LeaderboardData.LocalScore(def, 3);
+                CheckTrue(res != null, "（前提）`LocalScore(" + tag + ")` 返回了榜（null ⇒ 下面那条在测空气）");
+                Check(res != null ? res.CurrentEntry.Value : -1L, want,
+                      "★ 一条胜场(3) 按 [" + mode + "] 写进榜 ⇒ 玩家分 **5 → " + want + "**"
+                    + "（🧨 `LocalScore` 漏掉 `UpdateEntry` 那一步 / 把模式写死 ⇒ 三条里必有一条红）");
+                CheckTrue(res != null && res.Entries != null && res.Entries.Length == 1
+                          && res.Entries[0].Value == want,
+                      "★ 而且列表里同 entryId 那一条**同步变了**（原版第 ⑤ 步：`entries.FirstOrDefault(entryId)` 再更新一次）");
+            };
+            winOnce(LeaderboardScoringMode.Increment, 8L, "increment");
+            winOnce(LeaderboardScoringMode.SetIfHigher, 5L, "sethigher");
+            winOnce(LeaderboardScoringMode.SetValue, 3L, "setvalue");
+            LeaderboardData.ResetScoringForTest();   // 收尾：别把这三张假榜留给后面的断言 / 真 Play
+        }
+
+        // ------------------------------------------------ FP-TUT-05
+        // 原版（第一权威）：`d:/2/tools/decomp_full/FlowTutorialStage__Complete.c`
+        //   ① `isCompleted(+0x20) = 1`；② `TutorialV2SaveData.SaveStage(stage, 0, 0)`（**落盘完成位**）；
+        //   ③ `StopAllCoroutines` + 起一条协程（事件/播报那半边）。
+        // 我们的等价物：`Shell/MenuTutorialFlow.cs:102 MarkStageDone(id)` → `:79 MarkCompleted(i)` →
+        //   `DemoDataStore.SetTutorial(DoneKey(d), true)`（**唯一写口**）；读口 = `:1140 IsStageCompleted(d)`。
+        // 🔴 **本节只验到这一层，原因写死在这**：`MarkStageDone` 体内第一句是
+        //   `if (!Application.isPlaying) { 出声; return false; }`（`MenuTutorialFlow.cs:104` ——
+        //   **我们自己加的自检安全闸**，原版没有：原版那是运行时类，不存在编辑器调用这一说）。
+        //   批处理自检 `isPlaying == false` ⇒ **直接调 `MarkStageDone` 永远不写**
+        //   ⇒ 施工单那句「调 `MarkStageDone` ⇒ 落盘完成位」在编辑器里**字面上做不到**。所以分三段验：
+        //   ①（本职）闸生效：调它 ⇒ 返回 **false** 且完成位**没变**（⛔ 不静默写）；
+        //   ②（生产写路径）用**同一个** `DoneKey` + `DemoDataStore.SetTutorial` 写 ⇒ 读口真变
+        //      （就是 `MarkCompleted` 的那两句，⛔ 断言侧不抄第二份键规则 —— 反射取私有 `DoneKey`）；
+        //   ③（重开仍真）丢内存缓存、从**盘上**重读 ⇒ 仍真。盘 = `SaveCenter.OverrideRoot` 指到 %TEMP%
+        //      一次性目录（⛔ 绝不落玩家真档；同 `Editor/B104_P3_Assert.cs:159-201` 的做法）。
+        Section("★ AUD06 · FP-TUT-05：完成位「写入 → 读回 → 重开仍真」（`MenuTutorialFlow.MarkStageDone` 的写路径）");
+        {
+            CheckTrue(!Application.isPlaying,
+                      "（前提）批处理 / 非播放 ⇒ `MarkStageDone` 的 `isPlaying` 写入门槛生效（下面第 ① 段靠它）");
+            int nSt = MenuTutorialStages.Count;
+            CheckTrue(nSt > 0, "（前提）教程阶段表非空（否则本节全空转）");
+            var stDef = nSt > 0 ? MenuTutorialStages.At(0) : null;
+            CheckTrue(stDef != null, "（前提）取得到第 1 个阶段定义");
+
+            var doneKeyMi = typeof(MenuTutorialFlow).GetMethod("DoneKey",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            CheckTrue(doneKeyMi != null, "（前提）找得到私有静态 `MenuTutorialFlow.DoneKey`（完成位键的**唯一出处**；"
+                                       + "⛔ 断言侧不再抄一份键规则 —— 抄两份迟早不一致）");
+            string doneKey = (stDef != null && doneKeyMi != null)
+                           ? (doneKeyMi.Invoke(null, new object[] { stDef }) as string) : null;
+            CheckTrue(!string.IsNullOrEmpty(doneKey), "（前提）完成位键算得出来（实得 `" + (doneKey ?? "<null>") + "`）");
+            CheckTrue(doneKey != null && doneKey.StartsWith(MenuTutorialFlow.PrefDonePrefix, System.StringComparison.Ordinal),
+                      "★ 键前缀 = `" + MenuTutorialFlow.PrefDonePrefix + "`（原版 `StageSaveData.stageId` 那一格的本地承载）");
+            string keyTail = stDef != null ? (string.IsNullOrEmpty(stDef.StageId) ? "#" + stDef.ClassName : stDef.StageId) : null;
+            CheckTrue(doneKey != null && keyTail != null && doneKey.EndsWith(keyTail, System.StringComparison.Ordinal),
+                      "★ 键尾 = 该阶段的 `StageId`（期望 `" + (keyTail ?? "<null>") + "` / 实得 `" + (doneKey ?? "<null>") + "`）");
+
+            if (doneKey != null && stDef != null)
+            {
+                string prevRoot = SaveCenter.OverrideRoot;
+                string root = Path.Combine(Path.GetTempPath(), "wf_b106w29_" + System.Guid.NewGuid().ToString("N"));
+                try
+                {
+                    SaveCenter.OverrideRoot = root;
+                    DemoDataStore.ResetForTest();          // 丢内存缓存 ⇒ 下面每次读都从（临时）盘重载
+                    CheckTrue(SaveCenter.StoreOn, "（前提）临时目录下 `SaveCenter.StoreOn = true`（写才真的落盘）");
+
+                    // ---- ① 闸生效：调 `MarkStageDone` 不写
+                    DemoDataStore.SetTutorial(doneKey, false);
+                    CheckTrue(!MenuTutorialFlow.IsStageCompleted(stDef), "（前提·基线）先把完成位写成 false ⇒ 读口 false");
+                    bool wrote = MenuTutorialFlow.MarkStageDone(stDef.Id);
+                    CheckTrue(!wrote, "★ ① 非播放态调 `MarkStageDone(" + stDef.Id + ")` ⇒ 返回 **false**"
+                                    + "（🔶 我们自己加的安全闸；⛔ 原版没有这一句 —— 见本节头注释）");
+                    CheckTrue(!MenuTutorialFlow.IsStageCompleted(stDef),
+                              "★ ① 而且完成位**没变**（仍 false）—— 闸不是「静默写」");
+
+                    // ---- ② 生产写路径（= `MarkCompleted` 的那两句）
+                    DemoDataStore.SetTutorial(doneKey, true);
+                    CheckTrue(MenuTutorialFlow.IsStageCompleted(stDef),
+                              "★ ② 写完成位 ⇒ `IsStageCompleted` 真（= `MarkStageDone` 在播放态会走的那两句 `MarkCompleted`）");
+
+                    // ---- ③ 重开仍真（丢内存缓存，从盘上重读）
+                    DemoDataStore.ResetForTest();
+                    CheckTrue(MenuTutorialFlow.IsStageCompleted(stDef),
+                              "★ ③ 「重开」后仍真：清内存缓存 ⇒ 从盘上重读 ⇒ 仍 true（🧨 只改内存不落盘 ⇒ 本条红）");
+                    bool found = false, val = DemoDataStore.TryGetTutorial(doneKey, out found);
+                    CheckTrue(found && val, "★ ③ 档里那一条 =（found=" + found + ", value=" + val + "）");
+
+                    // ---- 灭自证：写回 false ⇒ 读口也 false，且重开后仍 false（不是「恒真」）
+                    DemoDataStore.SetTutorial(doneKey, false);
+                    CheckTrue(!MenuTutorialFlow.IsStageCompleted(stDef), "★ 灭自证：写回 false ⇒ 读口 false");
+                    DemoDataStore.ResetForTest();
+                    CheckTrue(!MenuTutorialFlow.IsStageCompleted(stDef), "★ 灭自证：重开后仍 false（⛔ 不是「恒真」）");
+                }
+                finally
+                {
+                    SaveCenter.OverrideRoot = prevRoot;
+                    DemoDataStore.ResetForTest();     // 内存态回到「下次从真档重读」（本段只写过 %TEMP%）
+                    try { if (Directory.Exists(root)) Directory.Delete(root, true); }
+                    catch (System.Exception e) { Debug.LogWarning("[B106_W29] 清临时档失败（" + root + "）：" + e.Message); }
+                }
+            }
+        }
+
+        // ------------------------------------------------ FP-SHELL-04：**按裁定跳过，不做**
+        // 施工单 §4·3 与调度台口径：原版 `AdaptFlexibleGridLayoutByAspectRatio` 那套适配器是为
+        //   `CanvasScaler(Expand)` 服务的；我们的设计空间是**钉高**的 ⇒ 再乘一次 `16/9/aspect` 就是**多乘**。
+        //   `Shell/MainMenuRuntime.cs:3884-3918` 已有 2026-10-28 同款裁定（那里只有注释声明「等价实现」、0 处真实现，
+        //   是有意的）。⇒ 本节**不产生任何断言**，只留这条记录，⛔ 别照施工单把它做回来。
     }
 
 }

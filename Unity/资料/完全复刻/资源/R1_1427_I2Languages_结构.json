@@ -1,0 +1,102 @@
+{
+ "_meta": {
+  "what": "R1-04：resources.assets #1427 / #1431 I2Languages 的结构与「值在哪」",
+  "tool": "工具/r1_residual_decode.py --i2",
+  "date": "2026-10-31",
+  "note": "`temp` 是逐字节 XOR 密文（算法=反编译 I2.Loc.LanguageSourceAsset__DecryptData/_DoByteSwap，钥匙=I2.Loc.LanguageSourceAsset__.cctor 的 stringObfuscatorPassword）。全文不落盘（10.7 MB 密文），落结构 + 摘要；词条表本身已由 K07（2026-10-18）解在 资料/普查产出_1018/allcards_1350/localization_2026_decoded.json，并已写进 数据/游戏数据/官方本地化_{en+zh-CN,13lang}.json。"
+ },
+ "objects": {
+  "1427": {
+   "src": "resources.assets",
+   "path_id": 1427,
+   "byte_size": 10764844,
+   "consumed": 10764844,
+   "keys": [
+    "m_GameObject",
+    "m_Enabled",
+    "m_Script",
+    "m_Name",
+    "temp"
+   ],
+   "m_Name": "I2Languages",
+   "m_Script": {
+    "m_FileID": 1,
+    "m_PathID": 875
+   },
+   "temp_len": 10764793,
+   "temp_sha256": "a4ea511cec66a00ffa8c729ef0a14e323100f14c358238bf3d41f9dea7c3a09d",
+   "temp_head16": "a61519414ccb883d08f7a98810dca34f",
+   "decoded": {
+    "mTerms": 10857,
+    "mLanguages": 15,
+    "langs": [
+     "English",
+     "Spanish",
+     "Russian",
+     "French",
+     "German",
+     "Portuguese (Brazil)",
+     "Italian",
+     "Korean",
+     "Simplified Chinese",
+     "Japanese",
+     "Polish",
+     "Czech",
+     "Turkish",
+     "Translation_eng_version",
+     "Order"
+    ],
+    "zh_cn_nonempty": 10836,
+    "google_last_updated_version": "1770648556737",
+    "diff_vs_bundle_copy": {
+     "target": "d:/4/Unity/资料/普查产出_1018/allcards_1350/localization_2026_decoded.json",
+     "bundle_terms": 10857,
+     "term_key_order_identical": true,
+     "terms_with_value_diff": 1,
+     "diffs": [
+      {
+       "term": "Sunset/Farewell",
+       "langs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+       ]
+      }
+     ],
+     "google_last_updated_version_bundle": "1772101582094"
+    }
+   }
+  },
+  "1431": {
+   "src": "resources.assets",
+   "path_id": 1431,
+   "byte_size": 48,
+   "consumed": 48,
+   "keys": [
+    "m_GameObject",
+    "m_Enabled",
+    "m_Script",
+    "m_Name",
+    "temp"
+   ],
+   "m_Name": "I2Languages",
+   "m_Script": {
+    "m_FileID": 1,
+    "m_PathID": 875
+   },
+   "temp_len": 0,
+   "temp_sha256": null,
+   "temp_head16": null
+  }
+ }
+}

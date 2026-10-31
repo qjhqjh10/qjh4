@@ -583,11 +583,11 @@ public static class SettingsScene
         //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
         //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
         //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs`（同一个开关、同一个 `finally` 还原）。
-        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。🆕 2026-10-31（`B106_W19` · 判据 = `报告/B103_D1.md` 的 **A3**）：补 `catch`（计数口 = `_sink.Fail`）—— 一条 `MissingReferenceException` 本来会让整个宿主零输出；异常时在 `finally` 里照旧印合计、并以 1 退出（⛔ 不让异常逃出 `Run`）。同一物理行就地改写 ⇒ 行数零变化。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
-        try { RunCore(); }
-        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        bool runCompleted = false; try { RunCore(); runCompleted = true; } catch (System.Exception e) { _sink.Fail++; Debug.LogError("[SettingsScene] RunCore 抛异常（**其后的断言段没跑**）：" + e); }
+        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; if (!runCompleted) { Debug.Log(P + $"===== 通过 {_sink.Pass} · 失败 {_sink.Fail} ====="); Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**"); if (Application.isBatchMode) EditorApplication.Exit(1); } }
     }
 
     /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
@@ -1187,21 +1187,25 @@ public static class SettingsScene
                           "未登录档：`Register Button` 开 · **`Login Button ` 关** · `Switch Account Button` 开 · "
                         + "`Reset Password` 关 · `Forgot Password` 关 · `Subscribe Newsletter` 关"
                         + "（判据 = `AccountTab__Refresh.c` 的 `SetActive(!登录态) / (0) / (1) / (登录态) / (0) / (登录态)`）");
-                CheckTrue(!on(acLogout) && on(acDelete) && !on(acTwitch) && !on(acPid) && !on(lw),
-                          "**原版 `Refresh` 一个字都不碰**的那几颗停在 prefab 值：`Logout` 关 · `Delete` **开** · "
-                        + "`Twitch` 关 · `Player Id` 关 · `Login Window` 关（🧨 谁把它们也按登录态开关 ⇒ 本条红）");
+                CheckTrue(!on(acLogout) && on(acDelete) == Application.isMobilePlatform && !on(acTwitch) && !on(acPid) && !on(lw),
+                          "**原版 `Refresh` 一个字都不碰**的那几颗：`Logout` 关 · `Twitch` 关 · `Player Id` 关 · `Login Window` 关；"
+                        + "`Delete` 走**平台档**（`PlatformBasedComponents.Start` 的 PC 组 `enabled = 0` ⇒ PC 上关、android/iOS 上开），"
+                        + "与登录态**无关**（🧨 谁把平台档当成登录态开关 ⇒ 本条红）");
 
                 // 登录态那一档（**注入**，不落盘）：`Register` 关 · `Reset`/`Subscribe` 开 · 其余不变
                 SettingsWindow.AccountState.SignIn("selfcheck@example.invalid");
                 win.RefreshAccount();
-                CheckTrue(on(acReg) == false && on(acReset) && on(acNews) && on(acSwitch) && on(acDelete) && !on(acLogout),
+                CheckTrue(on(acReg) == false && on(acReset) && on(acNews) && on(acSwitch) && on(acDelete) == Application.isMobilePlatform && !on(acLogout),
                           "登录档：`Register Button` 关 · `Reset Password` 开 · `Subscribe Newsletter` 开 · "
-                        + "而 `Switch Account` / `Delete` **仍开**、`Logout` **仍关**（后三者是「原版不碰」那一族的判别式）");
-                // 两颗输入框：登录态下回填邮箱 + 清空密码（原版 `Refresh` 那两句 `set_text`）
+                        + "`Switch Account` **仍开**、`Logout` **仍关**；`Delete` 仍是**平台档**（登录**不**改它 —— 本档 = PC ⇒ 关）");
+                // 两颗输入框：登录态下回填邮箱 + 密码掩码 10 颗星 + 两颗都不可编辑（原版 `AccountTab__Refresh` 那四句）
                 Check(win.AccountEmail != null ? win.AccountEmail.Text : null, "selfcheck@example.invalid",
                       "登录档下 `InputEmail` 回填成已登录的邮箱（原版 `TMP_InputField.set_text`）");
-                Check(win.AccountPassword != null ? win.AccountPassword.Text : null, "",
-                      "登录档下 `InputPassword` 被清空（原版同一段）");
+                Check(win.AccountPassword != null ? win.AccountPassword.Text : null, "**********",
+                      "登录档下 `InputPassword` = **10 颗星**（原版 `set_text(passwordInput, \"**********\")`，字面量现读）");
+                CheckTrue(win.AccountEmail != null && !win.AccountEmail.Interactable
+                          && win.AccountPassword != null && !win.AccountPassword.Interactable,
+                          "登录档下**两颗输入框都不可编辑**（原版 `set_interactable(+0x70/+0x78, 0)`）");
                 Check(TextOf(FindChild(acPage, "Player Id")), "Player ID: " + SettingsWindow.AccountState.PlayerId,
                       "`Player Id` 那行 = 原版 prefab 的 `Player ID: ` 前缀 + 本机模拟 id");
 
@@ -1304,7 +1308,7 @@ public static class SettingsScene
 
             // ---------------- 🆕 2026-10-17：中英双语基础设施（`Core/Loc.cs`）----------------
             // 判据全文 = `资料/待办判据_卡面卡池与双语.md` §23（用户 2026-09-28 立项：「游戏的各个地方都做
-            // 中文和英文两个语言」）；原版侧的四条硬判据（枚举取值 / `TMP_Dropdown` / 词条名 / 12 项）
+            // 中文和英文两个语言」）；原版侧的四条硬判据（枚举取值 / `TMP_Dropdown` / 词条名 / **下拉 13 项、枚举 12 项**）
             // 逐条写在 `Core/Loc.cs` 的文件头。
             // ⚠️ **本节要动 `PlayerPrefs`**（「落盘 / 回读」那条链是任务明确要求的第 ③ 条）⇒ 开头把
             //    盘上与内存都记下来、收尾**逐值放回**（⛔ 不许把玩家的真设置留在自检改过的状态上）。
@@ -1316,11 +1320,15 @@ public static class SettingsScene
                 int origPref = PlayerPrefs.GetInt(PrefKeyLiteral, int.MinValue);   // int.MinValue = 盘上没这个键
                 string en, zh = null, jp = null, miss = null;
 
-                Check(Loc.Languages.Length, 12, "下拉列 **12** 项（= 原版 `AvailableLanguages` 的成员数）");
+                Check(Loc.Languages.Length, 13, "下拉列 **13** 项（= 原版 `GameStaticData.languagesDefinition` 的 `string[13]` —— "
+                                              + "⚠️ 原版 `AvailableLanguages` 枚举**只有 12 项**，下拉读的是那个 `string[]`、不是枚举）");
                 Check((int)Loc.Languages[0], 0, "第 1 项 `English` 的枚举值 = **0**（原版 `AvailableLanguages.cs` 实读）");
-                Check((int)Loc.Languages[11], 110, "第 12 项 `Chinese` 的枚举值 = **110**（⛔ 不是 11 —— 原版是 0/10/…/110）");
+                Check((int)Loc.Languages[8], 110, "第 9 项 `Simplified Chinese` 的枚举值 = **110**（原版是 0/10/…/110；"
+                                               + "🔴 2026-10-31（B106_W15）改：原版下拉序里它排第 9，原断言按枚举声明序取 `[11]` 已过期）");
+                Check(Loc.Languages[10], AvailableLanguages.Turkish, "第 11 项 = `Turkish`（原版 `languagesDefinition` 第 11 项，"
+                                                                  + "`out_cpp2il_dev_ilspy/GameStaticData.cs:2467-2469` 逐条实读）");
                 CheckTrue(Loc.EntryCount > 10, $"语言表非空（{Loc.EntryCount} 条词条）");
-                // 键名照原版 `Localize.mTerm`（抽查三条：本页标题 / 12 项语言名 / 与对战那扇共用的那条）
+                // 键名照原版 `Localize.mTerm`（抽查三条：本页标题 / 13 项语言名 / 与对战那扇共用的那条）
                 CheckTrue(Loc.HasEntry("Settings/General/Title")
                           && Loc.HasEntry("MainMenu/Settings/LanguageName/Simplified Chinese")
                           && Loc.HasEntry("MainMenu/Settings/ButtonLabel/SelectLanguage"),
@@ -1355,13 +1363,13 @@ public static class SettingsScene
                 CheckTrue(jp != en && es != en && ru != en && jp != es && es != ru && jp != ru,
                           $"🔴 灭自证：三种非中英语言**各是各的列**（日「{jp}」/ 西「{es}」/ 俄「{ru}」/ 英「{en}」）"
                         + " —— 谁把 `T()` 改回「非中英一律回退英文」⇒ 这一条红");
-                // Turkish **不在 12 项下拉里**（`AvailableLanguages` 没有它），但官方数据里有这一列
+                // Turkish 现已在 13 项下拉里（🔴 2026-10-31（B106_W15）补 `AvailableLanguages.Turkish`），官方数据里也有这一列
                 // 🔴 **2026-10-18 就地订正（铁律 5）**：这里原来钉 **9,447**（2025-07-30 旧快照的口径），
                 //   `K07` 并入当前 build 的官方表后 `official_loc_13lang.json` 现读 **10,862** 键 ⇒ 旧断言必红。
                 //   ⚠️ 条数一律现读；这个数由 `工具/gen_official_loc_13lang.py` 决定，改表时同步改这里。
                 Check(Loc.Lang13Count, 10862, "官方 13 语言全表载入 **10,862** 条（`Lang13Count`；K07 现读）");
                 Check(Loc.Lang13Of("Settings/General/DisableBots", "tr"), "Botları Devre Dışı Bırak",
-                      "…数据里连 **Turkish** 那一列都在（`A1812` 判据：Turkish 只当数据、不进下拉）");
+                      "…数据里连 **Turkish** 那一列都在（`A1812` 判据；🔴 2026-10-31（B106_W15）起 Turkish 也进下拉）");
 
                 // ④′ 官方表里**没有**的键（我们自拟的 `Settings/Online/Title`）⇒ 回退英文 + **出声**（⛔ 不是悄悄回退）
                 int fb0 = Loc.FallbackCount;
@@ -1452,7 +1460,7 @@ public static class SettingsScene
                     CheckTrue(BattleDriver.FaceTextFull(card).body.Contains(card.Desc),
                               "英文档卡面正文含 `CardDef.Desc`（改前那条来源，逐字节不变）");
 
-                    // ③ 其余 **10** 种语言：卡名与正文**各取自己那一列**（期望值走 `Lang13Of(键, 语言码)`）
+                    // ③ 其余 **11** 种语言：卡名与正文**各取自己那一列**（期望值走 `Lang13Of(键, 语言码)`）
                     int langsChecked = 0, nameHit = 0, bodyHit = 0;
                     foreach (var L in Loc.Languages)
                     {
@@ -1467,7 +1475,8 @@ public static class SettingsScene
                             L == AvailableLanguages.Korean ? "ko" :
                             L == AvailableLanguages.Japanese ? "ja" :
                             L == AvailableLanguages.Polish ? "pl" :
-                            L == AvailableLanguages.Czech ? "cs" : null;
+                            L == AvailableLanguages.Czech ? "cs" :
+                            L == AvailableLanguages.Turkish ? "tr" : null;   // 🔴 2026-10-31（B106_W15）：Turkish 进下拉后补这一跳
                         string wantName = code == null ? null : Loc.Lang13Of("Card_Name/ASH55", code);
                         string wantBody = code == null ? null : Loc.Lang13Of("Card_Description/ASH55", code);
                         CheckTrue(!string.IsNullOrEmpty(wantName) && !string.IsNullOrEmpty(wantBody),
@@ -1482,8 +1491,8 @@ public static class SettingsScene
                         if (gotBody.Contains(wantBody)) bodyHit++;
                         else CheckTrue(false, $"{L} 档卡面正文含官方 `Card_Description/ASH55` 的 `{code}` 列（实得「{gotBody}」）");
                     }
-                    CheckTrue(langsChecked == 10 && nameHit == 10 && bodyHit == 10,
-                              $"其余 **10** 种语言的卡名与正文**逐档**都取到官方那一列（卡名 {nameHit}/10 · 正文 {bodyHit}/10）");
+                    CheckTrue(langsChecked == 11 && nameHit == 11 && bodyHit == 11,
+                              $"其余 **11** 种语言的卡名与正文**逐档**都取到官方那一列（卡名 {nameHit}/11 · 正文 {bodyHit}/11）");
 
                     // ④ 字面量抽查（灭自证：期望值**不从被测实现里读**）
                     Loc.SetLanguage(AvailableLanguages.Japanese);
@@ -1589,20 +1598,31 @@ public static class SettingsScene
                       "左边那颗标签 = `Loc.T(\"MainMenu/Settings/ButtonLabel/SelectLanguage\")`");
 
                 // ③ 三颗开关（原版 `Checkboxes`：行高 75.641 · 步进 80.641 —— 与图像页那一族同值）
+                // 🔴 **2026-10-31（B106_W15）**：原版 `Disable Notifications` **整行隐藏**
+                //    （`d:/2/tools/decomp_full/GeneralTab__OnSetup.c` 第一句 `SetActive(false)`），而 uGUI `VLG` 只排 active 子件
+                //    ⇒ `Touch Input` 由第 3 格上移到**第 2 格** ⇒ **格位不再等于数组下标**，改成显式「行名 → 格位」表。
                 var toggleRows = new[] { "Disable Bots", "Disable Notifications", "Touch Input" };
+                var toggleSlot = new[] { 0, -1, 1 };        // -1 = 整行隐藏（不参与 VLG 布局）
                 for (int i = 0; i < toggleRows.Length; i++)
                 {
-                    float t = SettingsWindow.GenChkT + i * SettingsWindow.ChkRowStep;
                     var n = FindChild(gtab, toggleRows[i]);
+                    if (toggleSlot[i] < 0)
+                    {
+                        CheckTrue(n != null && !n.gameObject.activeSelf,
+                                  $"`{toggleRows[i]}` **整行隐藏**（原版 `GeneralTab__OnSetup.c` 第一句 `SetActive(false)`）"
+                                + " —— 🧨 行照建、只是不可见；谁把 `SetActive(false)` 去掉 ⇒ 本条红");
+                        continue;
+                    }
+                    float t = SettingsWindow.GenChkT + toggleSlot[i] * SettingsWindow.ChkRowStep;
                     CheckAtS(n, SettingsWindow.GenL, t, SettingsWindow.GenR, t + SettingsWindow.ChkRowH,
-                             $"勾选行 `{toggleRows[i]}`（原版 `Checkboxes` 第 {i + 1} 行）");
+                             $"勾选行 `{toggleRows[i]}`（原版 `Checkboxes` 第 {toggleSlot[i] + 1} 格 —— VLG 跳过隐藏行）");
                     if (n == null) continue;
                     CheckTrue(n.GetComponentInChildren<Label>() != null && !string.IsNullOrEmpty(TextOf(n)),
                               $"`{toggleRows[i]}` 那一行**有字**（空标签 = 玩家看到一颗没有说明的开关）");
                     CheckTrue(FindChild(n, "Toggle") != null && FindChild(n, "CheckMark") != null,
                               $"`{toggleRows[i]}` 的勾选框与勾两层都建出来了（原版 `Toggle` + `CheckMark`）");
                 }
-                // ③-b 点一下那三颗：**值真的翻**，而且**互不连带**
+                // ③-b 点那**两颗可见的**：**值真的翻**，而且**互不连带**；隐藏那颗**点不到**（= 原版行为）
                 //     （`PersistOverride` 挡住写盘 —— 自检不许动玩家的真设置；这一段只验交互与状态）
                 {
                     var hits = new[] { FindChild(gtab, toggleRows[0]), FindChild(gtab, toggleRows[1]), FindChild(gtab, toggleRows[2]) };
@@ -1613,11 +1633,15 @@ public static class SettingsScene
                     Check(SettingsWindow.GeneralFlags.DisableBots, true, "点 `Disable Bots` 的**勾选框** ⇒ 那一格翻成 true");
                     Click(hits[0], "HitLabel");
                     Check(SettingsWindow.GeneralFlags.DisableBots, false, "…点那一行的**文字**也翻（原版那颗 `Label` 的 TMP 也是 `raycastTarget = 1`）");
-                    Click(hits[1], "HitBox");
-                    Check(SettingsWindow.GeneralFlags.DisableNotifications, true, "点 `Disable Notifications` ⇒ **那**一格翻（三颗各归各的）");
-                    Check(SettingsWindow.GeneralFlags.DisableBots, false, "…而且**没有连带**把 `Disable Bots` 一起翻");
+                    // 🔴 隐藏那颗 ⇒ **扫不到命中区**（原版这行本来就点不到；⛔ 别改成「点了也翻」）
+                    var notifBtn = hits[1] != null ? hits[1].GetComponentInChildren<WindowButton>(true) : null;
+                    CheckTrue(notifBtn != null && PointerLayer.HitQuadForTest(notifBtn) == null,
+                              "`Disable Notifications` 整行隐藏 ⇒ `PointerLayer` **扫不到**它的命中区（inactive 的 quad 返 null）"
+                            + " —— 🧨 谁把整行 `SetActive(true)` 打开（或忘了藏）⇒ 本条红");
+                    Check(SettingsWindow.GeneralFlags.DisableNotifications, false,
+                          "…所以它那一格**不会**被点翻（仍是 false —— 原版这行玩家根本点不到）");
                     Click(hits[2], "HitBox");
-                    Check(SettingsWindow.GeneralFlags.TouchInput, true, "点 `Touch input` ⇒ 那一格翻（三颗都真的接上了）");
+                    Check(SettingsWindow.GeneralFlags.TouchInput, true, "点 `Touch input` ⇒ 那一格翻（两颗可见的都真的接上了）");
                     SettingsWindow.GeneralFlags.RestoreForTest(b0, n0, t0);      // 内存放回原值
                     SettingsWindow.GeneralFlags.PersistOverride = false;
                 }
@@ -1654,8 +1678,8 @@ public static class SettingsScene
                               $"前置：落回 `Chinese` 之后那一行是中文那一列（「{rowBefore}」）");
                     // ⑤-a 点框 ⇒ **开列表**
                     Click(row, "LanguageHit");
-                    CheckTrue(win.LangListOpen, "点下拉框 ⇒ **那 12 行列表开出来了**（原版 `OnPointerClick → Show()`）");
-                    CheckTrue(win.LangRowCount == 12, $"…列表里 **12** 行（实得 {win.LangRowCount}）");
+                    CheckTrue(win.LangListOpen, "点下拉框 ⇒ **那 13 行列表开出来了**（原版 `OnPointerClick → Show()`）");
+                    CheckTrue(win.LangRowCount == 13, $"…列表里 **13** 行（实得 {win.LangRowCount}）");
                     // ⑤-b 点第 0 行（= `English`）⇒ 选中 + **收起**
                     Click(win.LangRowHit(0));
                     Check(Loc.Current, AvailableLanguages.English,
@@ -1756,7 +1780,7 @@ public static class SettingsScene
                 }
             }
 
-            // ---------------- 🆕 2026-10-17（A862）：语言下拉的 12 行列表（原版 `LanguagesDropdown > Template`）----------------
+            // ---------------- 🆕 2026-10-17（A862）：语言下拉的 13 行列表（原版 `LanguagesDropdown > Template`）----------------
             // 判据 = 原版 prefab `Main Menu Settings Window > … > LanguagesDropdown > Template` **逐字段实读**：
             //   RT `RectTransform_-8168062444739330138`：`aMin(0,0.5) aMax(1,0.5) aPos(-2.5,-22)
             //   sizeDelta(-4.9998, **573.9600219726562**) pivot(0.5,1)`；父 = `LanguagesDropdown`（宽 400.666412）
@@ -1779,7 +1803,7 @@ public static class SettingsScene
             //   `Show():814` = 克隆 `Template` → 改名 `"Dropdown List"` → 挂到 `Template` 的父下 →
             //   `m_Template.gameObject.SetActive(false)`；`OnSelectItem:1247` = 定 `value` + **末尾 `Hide()`**；
             //   `CreateBlocker:1073-1074` 那颗全屏透明 `Blocker` 的 `onClick → Hide`；`OnCancel:763 → Hide()`。
-            Section("A862：语言下拉那 12 行列表（原版 `LanguagesDropdown > Template`）");
+            Section("A862：语言下拉那 13 行列表（原版 `LanguagesDropdown > Template`）");
             {
                 var selRow = gtab != null ? FindChild(gtab, "Language Selector") : null;
                 var fldNode = selRow != null ? FindChild(selRow, "LanguagesDropdown") : null;
@@ -1831,7 +1855,7 @@ public static class SettingsScene
                 CheckRectPx(FindChild(list, "bg"), 632.90f, 405.60f, 989.00f, 922.16f,
                             "（A862 锚）面板底图渲出来 = 原版 prefab 手算的 [632.90,405.60]–[989.00,922.16]"
                           + "（⛔ 这一条的期望值**不过 `Screen()`**：那张映射写错时本窗其余几何断言会一起错、只有它会红）");
-                CheckTrue(win.LangRowCount == 12, $"…装了 **12 行**（实得 {win.LangRowCount}）");
+                CheckTrue(win.LangRowCount == 13, $"…装了 **13 行**（实得 {win.LangRowCount}）");
                 // 行矩形 = `Content` 里按 `i × 40.8707` 往下排（原版 `Show():840-844`：第 0 项在**最上**）
                 // ⚠️ `CheckRectPx` 的期望值是**屏幕 px**（× 0.9 之后的），算式写在调用点：
                 //    行 0 顶 = 540 + (390.667−540)×0.9 = **405.60**、行高 40.8707×0.9 = **36.78**；
@@ -1841,7 +1865,7 @@ public static class SettingsScene
                             "（A862 锚）第 0 行的底图 = 原版 `Item` 那一格（屏幕高 **36.78** = 40.8707 × 0.9）");
                 CheckRectPx(r11 != null ? r11.transform : null, 632.90f, 810.22f, 973.70f, 847.00f,
                             "（A862 锚）第 11 行 = `Content` 里第 11 格（`390.667 + 11 × 40.8707`）"
-                          + " —— 与第 0 行合起来才说明**真是 12 行往下排**、不是叠在一处");
+                          + " —— 与第 0 行合起来才说明**真是 13 行往下排**、不是叠在一处");
                 var l0 = win.LangRowLabel(0); var l11 = win.LangRowLabel(11);
                 CheckTrue(l0 != null && l11 != null && l0.Text != l11.Text,
                           $"…而且两行的字**不一样**（「{(l0 != null ? l0.Text : "?")}」 / "
@@ -1886,7 +1910,7 @@ public static class SettingsScene
                             + " —— 🧨 少了这一条，把 autosize 关掉（实得回到 27.00）时上面那条照样绿");
                 }
                 // ④ 🔴 **点第 3 行 ⇒ 选中 + 收起**（`OnSelectItem:1247` 那条链：行号 = 兄弟序 − 1 ⇒ `value = 3`）
-                //    两态自己定死：先落到 `Chinese`（声明序 11），点第 3 行 ⇒ 必须变成 `Loc.Languages[3]`。
+                //    两态自己定死：先落到 `Chinese`（🔴 2026-10-31（B106_W15）起是**下拉第 9 项**，原为 11），点第 3 行 ⇒ 必须变成 `Loc.Languages[3]`。
                 Loc.SetLanguage(AvailableLanguages.Chinese);
                 if (SettingsWindow.Instance != null) SettingsWindow.Instance.RefreshTexts();
                 var want3 = Loc.Languages[3];
@@ -4840,9 +4864,9 @@ public static class SettingsScene
                     CheckTrue(iZh >= 0 && iEn >= 0 && iJa >= 0,
                               $"（波 1b 前提）下拉里找得到 `Chinese`（第 {iZh} 行）/ `English`（第 {iEn} 行）/ "
                             + $"`Japanese`（第 {iJa} 行）—— 下面三条才有对象可点");
-                    // 🆕 2026-10-17（T08 `A1812`）：官方 13 语言全表接上之后，下拉 **12 项全部**有自己的文案
+                    // 🆕 2026-10-17（T08 `A1812`）：官方 13 语言全表接上之后，下拉 **13 项全部**有自己的文案
                     CheckTrue(System.Array.TrueForAll(Loc.Languages, l => Loc.HasOwnText(l)),
-                              "（波 1b · `A1812`）下拉 **12 项全部**有文案（`Loc.HasOwnText` 恒 true）"
+                              "（波 1b · `A1812`）下拉 **13 项全部**有文案（`Loc.HasOwnText` 恒 true）"
                             + " —— 谁把 13 语言表摘掉 ⇒ 这一条红");
                     var selRowB1 = FindChild(FindChild(root, "General Tab"), "Language Selector");
                     CheckTrue(selRowB1 != null, "（波 1b 前提）`General Tab > Language Selector` 在（拿它开列表）");
@@ -4862,7 +4886,7 @@ public static class SettingsScene
                         Loc.SetLanguage(AvailableLanguages.English);
                         win.RefreshTexts();
                         Click(selRowB1, "LanguageHit");
-                        CheckTrue(win.LangListOpen, "（波 1b 前提）点一下框 ⇒ 那 12 行列表开出来了");
+                        CheckTrue(win.LangListOpen, "（波 1b 前提）点一下框 ⇒ 那 13 行列表开出来了");
                         Click(win.LangRowHit(iZh));
                         Check(Loc.Current, AvailableLanguages.Chinese, "（波 1b）点 `Chinese` 那一行 ⇒ 语言切过去");
                         langFlash[0] = win.Flash;
@@ -4901,7 +4925,7 @@ public static class SettingsScene
                         string noTableSuffix = Loc.EnOf("Settings/General/LangHasNoTable");
                         CheckTrue(!string.IsNullOrEmpty(noTableSuffix) && win.Flash != head3 + noTableSuffix,
                                   "（波 1b · `A1812`）…这一档**不该**再带 `Settings/General/LangHasNoTable` 后缀"
-                                + "（12 项全都有文案了；谁把 13 语言表摘掉 ⇒ 这一条红）");
+                                + "（13 项全都有文案了；谁把 13 语言表摘掉 ⇒ 这一条红）");
                         CheckTrue(win.Flash != null && win.Flash != langFlash[0] && win.Flash != langFlash[1],
                                   $"🔴（波 1b 灭自证）三档 flash **两两不同**"
                                 + $"（中「{langFlash[0]}」/ 英「{langFlash[1]}」/ 日「{win.Flash}」）");
@@ -4986,7 +5010,7 @@ public static class SettingsScene
                 //      18        → 16.2   `LanguagesDropdown > Label`（原版 `fs 18 · base 14 · auto[18~40]`；
                 //                        我们这颗 `fs 18 == min 18` ⇒ 共用闸 `fontPx > autoMinPx` 过不去 ⇒
                 //                        **字段停在 18**，见 `Shell/SettingsWindow.cs` 那个调用点与 A1181 那一节）
-                //      **14**    → 12.6   `… Template > Viewport > Content > Item > Item Label`（语言下拉 12 行；
+                //      **14**    → 12.6   `… Template > Viewport > Content > Item > Item Label`（语言下拉 13 行；
                 //                        `fs 30 · base 14 · auto[18~40]`）
                 //      **12**    → 10.8   **所有钮那一族**（`Button > Button Text`：`Bottom Buttons` ·
                 //                        `Social Media Links` · 账号页 / 登录窗那几颗；原版 `base` **恒 12**）
@@ -5501,7 +5525,7 @@ public static class SettingsScene
             // 断言本体在 `Editor/B94W2_Assert.cs`（本宿主是它唯一的调用方）。
             // 🔴 必须在**关窗之前**跑：那一段要在**开着**的窗上点下拉（它自己会 `OpenTab(Graphics)`，
             //    并在 `finally` 里把档位 / 脏位 / 行集逐值放回）。
-            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化
+            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail; B106W15_Assert.Run(win); _sink.Pass += B106W15_Assert.Pass; _sink.Fail += B106W15_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化；🆕 2026-10-31（`B106_W34` 接线 · `B106_W15`）：设置窗 5 条状态缺口 G2~G6
 
             // 关窗
             Click(FindChild(Area(root), "Generic Close Button"), "Hit");

@@ -91,7 +91,7 @@
 //      （⛔ 不静默）。
 // ═══════════════════════════════════════════════════════════════════════════════════════
 using System;
-using System.Collections.Generic;      // 🆕 2026-10-18（A921）：语言下拉那 12 行（`List<LangRow>`）
+using System.Collections.Generic;      // 🆕 2026-10-18（A921）：语言下拉那 13 行（= `Loc.Languages.Length`；`List<LangRow>`）
 using UnityEngine;
 using RuleEngine;
 
@@ -204,7 +204,7 @@ namespace CardPresentation
         // 全在文件头那段（R1）。⚠️ 这些**只做动作**，命中由 `EventSystem` 的射线定 —— ⛔ 别在这儿再写几何。
         BattleHudButton _btnResign, _btnSkip, _btnClose, _btnAutoZoom, _btnMuteChat;
         BattleHudButton _btnLangField, _btnBlocker, _btnShade;
-        /// <summary>语言下拉那 12 行的可点件（下标 = `_langRows[i].Idx`；只在 `real` 行建）。</summary>
+        /// <summary>语言下拉那 13 行（= `Loc.Languages.Length`）的可点件（下标 = `_langRows[i].Idx`；只在 `real` 行建）。</summary>
         readonly List<BattleHudButton> _btnLangRows = new List<BattleHudButton>();
 
         /// <summary>🔴 **「Auto Zoom」那行的文字格 / 「Mute opponent」那句的透明命中片。**
@@ -295,7 +295,7 @@ namespace CardPresentation
         //   现在点击由 uGUI `IPointerClickHandler` 派发（框 / 每一行 / Blocker 各一颗 `BattleHudButton`），
         //   原版的「抬起才触发」「按下行、抬到别处不选」由 `EventSystem` 的 `pointerPress` 语义天然给出。
 
-        // ---- 🆕 2026-10-18（A921）：语言下拉那 12 行列表的状态 ----
+        // ---- 🆕 2026-10-18（A921）：语言下拉那 13 行（= `Loc.Languages.Length`）列表的状态 ----
         /// <summary>`LanguagesDropdown > Template` 原型（**恒 inactive** —— 原版出厂 `m_IsActive = 0`）。
         /// 建一份（关着），只为「照原版结构」与自检能定位它，⛔ 它不参与显示。</summary>
         Transform _langTemplate;
@@ -303,7 +303,7 @@ namespace CardPresentation
         /// **首开时才建**（= 原版 `CreateDropdownList`）；关掉**不销毁**（原版淡出后 `Destroy` —— 我们不做淡出，
         /// 见 `ShowLangList`；这不影响任何一个可观察值）。</summary>
         Transform _langList;
-        /// <summary>列表里 12 行那三件 + 行号。</summary>
+        /// <summary>列表里 13 行（= `Loc.Languages.Length`）那三件 + 行号。</summary>
         readonly List<LangRow> _langRows = new List<LangRow>();
         struct LangRow { public HudPiece Bg, Chk; public Label Lb; public int Idx; }
         /// <summary>自检专用：把「ESC 按下了」钉死（`null` = 走真实键盘 —— **生产恒为 null**）。
@@ -654,7 +654,7 @@ namespace CardPresentation
         /// `lkSelectLang` **同一个字符串** —— 两处各是各的常量，但值必须一致）。</summary>
         public const string LangLabelTermKey = "MainMenu/Settings/ButtonLabel/SelectLanguage";
 
-        // ---- 🆕 2026-10-18（A921）：语言下拉的【12 行列表】—— 原版 `LanguagesDropdown > Template` 子树 ----
+        // ---- 🆕 2026-10-18（A921）：语言下拉的【13 行列表】—— 原版 `LanguagesDropdown > Template` 子树 ----
         // 判据 = **战斗内**这棵树逐字段实读（`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/`，
         // 2026-10-18 亲读；pid 见每条）：
         //   `LanguagesDropdown`(RT **3546**) → `Template`(RT **3553**) → `Viewport`(RT **2642**) → `Content`(RT **2761**)
@@ -674,7 +674,7 @@ namespace CardPresentation
         //     TMP（`MB 3842`）：`fs 30`（`m_fontSizeBase 14` · auto **18~40**）· `Left/Middle` ·
         //     `m_fontColor` **(0.783,0.783,0.783)**（`m_fontColor32` = `0xFFC8C8C8`，两者一致）。
         //   · `ScrollRect`（`MB 4335`）：`m_MovementType 2`(Clamped) · `m_VerticalScrollbarVisibility **2**`(AutoHide)
-        //     · spacing **−3.0** · `m_ScrollSensitivity 1.0`。⚠️ **12 × 40.8707 = 490.45 < 视口 573.96 ⇒ 装得下、
+        //     · spacing **−3.0** · `m_ScrollSensitivity 1.0`。⚠️ **13 行（= `Loc.Languages.Length`）× 40.8707 = 531.32 < 视口 573.96 ⇒ 装得下、
         //     滚不动** ⇒ 原版那条 AutoHide 会把整根 `Scrollbar` `SetActive(false)`；本件**照办**（建出来但恒关着）。
         // 🔴 **与主菜单那扇【同构、不同宽】**：那一扇挂在 400.666 宽的框上 ⇒ 设计 **395.666**；本扇挂在 **250**
         //    宽的框上 ⇒ **245**。其余每个字段两边**逐值相同**（573.96 / 40.8707 / ap(-2.5,-22) / sd(-4.9998) /
@@ -1680,7 +1680,7 @@ namespace CardPresentation
         }
 
         // ==================================================================
-        //  🆕 2026-10-18（A921）：语言下拉那 12 行列表（原版 `LanguagesDropdown > Template`）
+        //  🆕 2026-10-18（A921）：语言下拉那 13 行（= `Loc.Languages.Length`）列表（原版 `LanguagesDropdown > Template`）
         //  判据逐字段 = 上面那组 `Lst*` 常量（**战斗内**那棵树，2026-10-18 亲读）。
         //  行为判据 = 官方 `TMP_Dropdown`（本 build 用的就是它，两条旁证见
         //  `资料/普查产出_1017/R_下拉Template子树.md` §三·3）：
@@ -1712,7 +1712,7 @@ namespace CardPresentation
         /// <para>几何（**相对那颗语言框的中心**，px、y 向上；`h` = 框高的一半 = 29.7）：
         /// 列表顶 = `h − 22`（原版 `ap.y = −22`）、高 **573.96**、宽 = 框宽 − 4.9998（左右各让 2.4999）；
         /// `Viewport` 右沿再让 **17**；`Content` 顶 = 列表顶、高 = `rows × 40.8707`；
-        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 12 行 490.45 &lt; 视口 573.96
+        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 13 行（= `Loc.Languages.Length`）531.32 &lt; 视口 573.96
         /// ⇒ 一行都不会被切到（原版那条 `ScrollbarVisibility = 2`(AutoHide) 也正是因为这个才把它关掉）。</para></summary>
         Transform BuildLangListSubtree(Transform parent, string name, float z, int rows)
         {
@@ -1751,7 +1751,7 @@ namespace CardPresentation
             var vp = Node(list, "Viewport", vpCx, vpCy, z);
             float ctCy = top - rows * LstItemH * 0.5f;                                   // `Content` 框心（框中心系）
             var content = Node(vp, "Content", 0f, ctCy - vpCy, z);
-            // `Scrollbar`：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2`(AutoHide) + 内容 490.45
+            // `Scrollbar`：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2`(AutoHide) + 内容 531.32（13 行 = `Loc.Languages.Length`）
             // < 视口 573.96 ⇒ `SetVerticalScrollbarVisibility` 会 `SetActive(false)`）。见上面那段。
             {
                 float sbL = r - LstSbW;
@@ -1908,7 +1908,7 @@ namespace CardPresentation
                     + (listeners == 0 ? "　⚠️ **没人订阅** ⇒ 已画出来的卡面/日志行**仍是旧语言**（原版这一步会重刷）" : ""));
         }
 
-        /// <summary>把 12 行的**勾**那一层按当前语言重挑（= 原版 `Toggle.isOn = (value == i)` →
+        /// <summary>把 13 行（= `Loc.Languages.Length`）的**勾**那一层按当前语言重挑（= 原版 `Toggle.isOn = (value == i)` →
         /// `graphic`（那层勾）的 alpha；本件用 `SetActive`，见 `AutoZoom` 那条同族说明）。
         /// 同时把行底图**复位成常态那张**（原版 `Show()` 每次都重设 `item.toggle.isOn`）。</summary>
         void RefreshLangRows()

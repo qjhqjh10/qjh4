@@ -63,11 +63,15 @@ public static class B99W3_Assert
     public static void Run()
     {
         MenuCheck.Section(_sink, "B99_W3 特效 #14 / 界面 #6 / 卡牌 #11");
-        SectionA_MaterialFaderOrder();
-        SectionB_DeckStoreBridge();
-        SectionC_EffectTextThreeStates();
-        SectionD_RealCards();
-        SectionE_LevelUpPulseSchedule();
+        // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前 `Run()` **没有 try** ⇒ 任一段抛异常会冒到宿主
+        //   `BattleScene.cs` 那条超长聚合行（同行后续断言 + 合计行全不印；段 E 原本完全无保护）。
+        //   现在逐段 catch（记失败 + 写明「其 N 段没跑」），并补一行合计。
+        try { SectionA_MaterialFaderOrder(); } catch (Exception e) { SegFail("A 特效 #14 材质淡出次序", e, 4); }
+        try { SectionB_DeckStoreBridge(); } catch (Exception e) { SegFail("B 界面 #6 DeckStore", e, 3); }
+        try { SectionC_EffectTextThreeStates(); } catch (Exception e) { SegFail("C 卡牌 #11 effectText", e, 2); }
+        try { SectionD_RealCards(); } catch (Exception e) { SegFail("D 真卡", e, 1); }
+        try { SectionE_LevelUpPulseSchedule(); } catch (Exception e) { SegFail("E 卡牌 #12 脉冲时刻表", e, 0); }
+        Debug.Log(_sink.P + "B99W3 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
 
     // ==========================================================================================
@@ -329,5 +333,13 @@ public static class B99W3_Assert
             if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
             UnityEngine.Object.DestroyImmediate(root);
         }
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：用本文件既有的 `Tr` 口记一次失败，
+    /// 文案写明「其 N 段没跑」—— 改前 `Run()` 连 try 都没有，异常会冒到宿主那条超长聚合行。
+    /// <paramref name="rest"/> = 这个段之后还有几个段。</summary>
+    static void SegFail(string section, Exception e, int rest)
+    {
+        Tr(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 段没跑）: " + e.GetType().Name + "：" + e.Message);
     }
 }

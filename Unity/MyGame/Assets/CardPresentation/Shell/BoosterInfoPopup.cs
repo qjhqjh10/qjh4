@@ -300,6 +300,8 @@ namespace CardPresentation
         {
             MenuDraw.ClearChildren(transform);
             MissingArt.Clear();
+            _loading = false;   // 🆕 2026-10-31（`B106_W44`）：本函数 = 我们的「刷新」⇒ 每次都把防重入与价签置灰归零
+                                //   （原版 `Refresh()` 里 `priceDisplayButton.Setup(offer)` 重判可点那一步的等价物）。
 
             var offers = ShopData.Offers(Page);
             if (offers == null || Index < 0 || Index >= offers.Length)
@@ -625,8 +627,11 @@ namespace CardPresentation
             // 原版 `window/Text/Purchase buttons/Price Display/Generic UI Button` 的 `m_onClickSound`
             // = `Purchase Click`（R3 §四·A #38）。⚠️ 同一 prefab **只有这 1 颗** Purchase Click ⇒
             // 下面那两颗钮（`WebShop Button` 等）**不接**（R3 §六·3 已逐颗核清）。
-            MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy(), priceQ, "40K_button",
-                         clickCue: WindowSounds.PurchaseCue);
+            // 🆕 **2026-10-31（`B106_W44`）**：接住那颗命中区的 `WindowButton`
+            //   （= 原版 `BoosterInfoPopup.priceDisplayButton`，字段 `+0xA0`）—— 购买后要置灰，见 `Buy()` 头注。
+            var buyHit = MenuDraw.Hit(pd, "Hit", PriceR, QHit, () => Buy(), priceQ, "40K_button",
+                                      clickCue: WindowSounds.PurchaseCue);
+            _buyBtn = buyHit != null ? buyHit.GetComponent<WindowButton>() : null;
 
             // `WebShop Button`：自己的 HLG（spacing 0）⇒ 三个子件摆放照实测
             var ws = Node(row, "WebShop Button", WebShopR);
@@ -655,20 +660,56 @@ namespace CardPresentation
         }
 
         /// <summary>买（与商店格同一条路：先过传奇确认 → `ShopData.Buy`）。
-        /// 🔴 **走开我们那扇 `ShopWindow`**（传奇确认那条闸门在它身上）—— 所以入口把宿主存进 `Host`。</summary>
+        /// 🔴 **走开我们那扇 `ShopWindow`**（传奇确认那条闸门在它身上）—— 所以入口把宿主存进 `Host`。
+        /// <para>🆕 **2026-10-31（`B106_W44`）：补上原版的「收尾」**。判据（第一权威 = 反编译）=
+        /// `BoosterInfoPopup.ProcessPurchase`（ILSpy `cpp2il/out_cpp2il_dev_ilspy/BoosterInfoPopup.cs:331-360`；
+        /// `.c` = `decomp_full/BoosterInfoPopup__ProcessPurchase.c`）**前四句逐字**：
+        /// `if (loading) return;` → `loading = true;` → `priceDisplayButton.Interactable = false;` → 发起购买；
+        /// 成功/失败两个回调都**只** `loading = false` + `refreshCallback`（= `Refresh()`）—— **谁都不 `Close()`**。
+        /// ⇒ 收尾 = **价签置灰 + 刷新，窗不关**（我们此前只买了、不置灰）。
+        /// 🔶 自己设计（非原版）：置灰走**软禁用**（`SoftDisabled`：灰了仍点得动、点了当场拒绝 + 出声），
+        ///    原版是硬禁用 `interactable = false`（点了什么都不发生）—— 与本工程红线「点了必须有反应」冲突 ·
+        ///    调度台 2026-10-29 裁定。⚠️ 我们的购买链是**同步**的（原版隔着一次网络往返），所以原版回调里
+        ///    那两句 `loading = false` + `Refresh()` 在这里**当帧**落地：失败 ⇒ 清 `loading` + 恢复可点
+        ///    （等价于 refresh 之后 `PriceDisplayButton.Setup` 重新判可点那一支）；成功 ⇒ 保持置灰。</para></summary>
         public void Buy()
         {
+            if (_loading)
+            {
+                // 原版这一档是 `interactable = false`（点了**什么都不发生**）；我们走软禁用（灰了仍点得动）
+                // ⇒ 在这里把「不会再买一次」**说出来**（红线：不许静默失败）。
+                Debug.Log("[BoosterInfo] 价签已置灰（原版 `ProcessPurchase` 之后 `priceDisplayButton.Interactable = false`）"
+                          + " ⇒ 这一下**不重复购买**");
+                return;
+            }
+            _loading = true;                                             // 原版 `loading = true;`
+            if (_buyBtn != null) _buyBtn.SetSoftDisabled(true);          // 原版 `priceDisplayButton.Interactable = false;`
+            // 🔴 **判「这次到底买没买到」看拥有数变化，⛔ 不拿返回串判**：`ShopData.PurchaseSucceeded` 只排掉
+            //   `越界 / 售罄 / 落盘失败` 三个，而页那一层还会回 `ShopTabPage.BuyOwned`（已拥有）与
+            //   `BuyCannotAfford`（买不起）—— 那两个**不在**它的判据里（`PurchaseSucceeded("已拥有")` 回 **true**）
+            //   ⇒ 照字符串判会把「被拒绝」当成买到了、价签一直灰着。
+            int ownedBefore = ShopData.OwnedOf(Page, Index);
             // ⚠️ `Buy` 在**页**身上（`ShopTabPage.Buy`，传奇确认那道闸门也在那儿）—— 不是窗口身上
             var pg = Host != null ? Host.PageOf(Page) : null;
             if (pg != null)
             {
-                string got = pg.Buy(Index);
-                Debug.Log("[BoosterInfo] 走商店那条购买链：`" + got + "`");
+                Debug.Log("[BoosterInfo] 走商店那条购买链：`" + pg.Buy(Index) + "`");
+                if (ShopData.OwnedOf(Page, Index) <= ownedBefore) SettleFailure();   // 原版失败回调：`loading = false` + 刷新
                 return;
             }
             Debug.Log("[BoosterInfo] 没有宿主 `ShopWindow`/那一页 ⇒ 直调 `ShopData.Buy`"
                       + "（**不做真实经济**：资源固定 2000（2026-10-24 由 9999 改为 2000）、不扣钱）");
             Debug.Log("[BoosterInfo] " + ShopData.Buy(Page, Index));
+            if (ShopData.OwnedOf(Page, Index) <= ownedBefore) SettleFailure();
+        }
+
+        /// <summary>原版失败回调那两句（`loading = false` + `refreshCallback`）在本窗的等价物：
+        /// 清掉防重入、并把价签**恢复可点**。我们的「刷新」= 下一次 `Build()`（每次 `Open`/`Show` 整棵树重建
+        /// ⇒ `_loading` 与 `_buyBtn` 都在那里归零），所以这里不重建、只把两件状态复原。</summary>
+        void SettleFailure()
+        {
+            _loading = false;
+            if (_buyBtn != null) _buyBtn.SetSoftDisabled(false);
         }
 
         // ---------------------------------------------------------- 数据
@@ -716,5 +757,24 @@ namespace CardPresentation
                         ? ("时钟 " + _blink.Clock.ToString("F2") + " / t " + _blink.T01.ToString("F2"))
                         : "**没接**");
         }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W44`）：弹窗内购买后的「收尾」
+        //
+        // 判据（第一权威 = 反编译）→ `Buy()` 头注：原版 `BoosterInfoPopup.ProcessPurchase` 前四句
+        //   `if (loading) return;` / `loading = true;` / `priceDisplayButton.Interactable = false;` / 发起购买，
+        //   成功与失败的回调**都只** `loading = false` + `refreshCallback`（= `Refresh()`）—— **两个都不 `Close()`**。
+        // ⇒ 本窗要补的两样：**价签置灰**（此前没有）与**防重入**（原版 `loading`；我们如果用软禁用，
+        //   灰了照样点得动 ⇒ 不加这道闸会**连点连买**，比原版多买）。
+        // ⚠️ 新成员按纪律追加在**类尾**（上面 `Dump()` 之后没有任何账的落点）。
+
+        /// <summary>价签那颗命中区上的 `WindowButton`（= 原版 `BoosterInfoPopup.priceDisplayButton`，字段 `+0xA0`）。
+        /// 由 `BuildButtons` 每次 `Build()` 重接；`null` = 那一块在视口外没建（`MenuDraw.Hit` 的 `ClipRect`
+        /// 早退返回 null）或还在建 ⇒ 不接（那种情况下本来也没有可置灰的钮）。**自检读它**。</summary>
+        public WindowButton BuyButtonForTest { get { return _buyBtn; } }
+        WindowButton _buyBtn;
+
+        /// <summary>= 原版 `BoosterInfoPopup.loading`（防重入）：`true` 期间再点价签**什么都不做**。
+        /// `Build()` 每次归零（= 我们的 `Refresh()` 等价物），`Buy()` 失败时当场清掉（= 原版失败回调那一句）。</summary>
+        bool _loading;
     }
 }

@@ -61,6 +61,10 @@
 //         （⚠️ 「切走再切回不重开」那条**不能**当它的证据 —— 本仓 `ShopWindow.Open()` 会把 `_openData` 清空，
 //           第二次 `Setup` 在 `ctx == null` 就返回了，见那一节的注释。）
 //   · S12：把 `InfoHit` 的 `() => OpenBoosterInfo(idx)` 写成固定下标 ⇒ S12 红（弹窗 `Index` 对不上）。
+//   · 🆕 **2026-10-31（`B106_W44`）D 段（弹窗内购买后的收尾）**：
+//     D2 删掉 `Shell/BoosterInfoPopup.cs` 的 `Buy()` 里那句 `_buyBtn.SetSoftDisabled(true)`
+//        ⇒ D2（价签变灰）红、D3（真灰）红，而 D1（拥有数 +1）**仍绿** ⇒ 三条互相独立、缺一不可。
+//     D4 把 `Buy()` 里那句改成 `Close()`（= 原版**没有**的「买完关窗」）⇒ D4（窗没关）红。
 using System;
 using CardPresentation;
 using UnityEngine;
@@ -99,10 +103,18 @@ public static class B103F4_Assert
         var c = MenuCheck.PointerFramePxFromDesign(new Vector2((x1 + x2) * 0.5f, (y1 + y2) * 0.5f), q.transform);
         var pl = PointerLayer.Instance;
         var got = pl != null ? pl.ButtonAt(c.x, c.y) : null;
-        MenuCheck.True(s, pl != null && wb != null && got == wb,
-            what + "：（前提）它**渲出来那一块的中心**命中的就是这一颗（引用相等 ⇒ 真鼠标点得到）"
-            + (pl == null ? " —— ⚠️ 这一刻 `PointerLayer` 根本取不到（真鼠标这条路没得走）"
-                          : " —— 中心 (" + c.x.ToString("F1") + ", " + c.y.ToString("F1") + ")"));
+        bool premiseOk = pl != null && wb != null && got == wb;
+        // 🆕 **2026-10-31（`B106_W79`）**：失败时**指名**（原来只有「引用不等」四个字，查不下去）——
+        //   中心那颗**是谁**（名字 / 所属窗 / 所属商店页的宿主状态 / 父链）+ 这一点上**全部候选**。
+        //   判据 → `报告/B106_D5.md` §三·「还缺什么」①②③；只读口 = `PointerLayer.ButtonsAtForTest` +
+        //   `ShopTabPage.OwnerWin`（两处都追加在类尾）。
+        string why = pl == null
+            ? " —— ⚠️ 这一刻 `PointerLayer` 根本取不到（真鼠标这条路没得走）"
+            : " —— 中心 (" + c.x.ToString("F1") + ", " + c.y.ToString("F1") + ")";
+        if (!premiseOk && pl != null)
+            why += " —— 实得 = " + HitIdentity(got) + "；这一点上的全部候选 = " + CandidatesAt(c.x, c.y);
+        MenuCheck.True(s, premiseOk,
+            what + "：（前提）它**渲出来那一块的中心**命中的就是这一颗（引用相等 ⇒ 真鼠标点得到）" + why);
         return pl != null && pl.ClickAt(c.x, c.y);
     }
 
@@ -269,6 +281,11 @@ public static class B103F4_Assert
         ST(mgr != null, "（前提）有 `WindowsManager`（两条链都要靠它开窗）");
         if (mgr == null) return;
 
+        // 🆕 **2026-10-31（`B106_W79`）**：**进场基线** —— 本段自己建任何窗之前，场上不许已经有
+        //   「宿主窗已销毁、页却仍激活」的 `ShopTabPage`。这一条与 ② 段 B 开头那条**成对**：
+        //   两条一起把「陈旧页是【本段之前】就有的」还是「【本段 A 段】自己造出来的」分开（红在哪一条就知道）。
+        CheckNoOrphanShopPages(_shop, "进场基线（本段建窗之前）");
+
         int armyUM = ArmyIcons.Id("Ultramarines");
         int armyDA = ArmyIcons.Id("DarkAngels");
         ST(armyUM > 0 && armyDA > 0, "（前提）阵营表查得到 Ultramarines / DarkAngels（实测 " + armyUM + " / " + armyDA + "）");
@@ -335,6 +352,7 @@ public static class B103F4_Assert
         ShopWindow w2 = null;
         try
         {
+            CheckNoOrphanShopPages(_shop, "② 段 B 建 w2 之前（点 `InfoHit` 的那一现场）");
             w2 = ShopWindow.Create(mgr);                          // 不带提示 ⇒ 落第 1 页（Cards）
             ST(w2 != null, "（前提）第二扇商店窗建得出来");
             if (w2 == null) return;
@@ -398,5 +416,189 @@ public static class B103F4_Assert
         {
             if (w3 != null) { BoosterInfoPopup p; if ((p = mgr.GetOpenWindow<BoosterInfoPopup>()) != null) p.Close(); w3.Close(); UnityEngine.Object.DestroyImmediate(w3.gameObject); }
         }
+
+        // ---- D：🆕 2026-10-31（`B106_W44`）弹窗内购买 ⇒ **收尾**（价签灰了 / 窗没关 / 拥有数 +1）----
+        //
+        // 判据（第一权威 = 反编译）= 原版 `BoosterInfoPopup.ProcessPurchase`
+        //   （ILSpy `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/BoosterInfoPopup.cs:331-360`；
+        //    `.c` = `d:/2/tools/decomp_full/BoosterInfoPopup__ProcessPurchase.c`）前四句逐字：
+        //   `if (loading) return;` → `loading = true;` → `priceDisplayButton.Interactable = false;` → 发起购买；
+        //   成功/失败两个回调**都只** `loading = false` + `refreshCallback`（= `Refresh()`）—— **两个都不 `Close()`**。
+        // ⇒ 收尾 = **价签置灰 + 刷新，窗不关**。
+        //
+        // ⚠️ 为什么不用第 1 页第 1 件（`B106_W27` 报告 §③-1 那份补丁的写法）—— 两条现读的反证：
+        //   ① 那件 `Owned = 3`（`ShopData._cards[0]`）⇒ `ShopTabPage.Buy` 的第二个 `else if (IsOwnedCell(idx))`
+        //      直接 `RefuseOwned` ⇒ **买了也不 +1**，断言恒红；
+        //   ② 第 4/5 页（Crates）是**容器档** ⇒ 买完开的是**全屏**开包窗，`OpenWindow` 的全屏支会
+        //      `HideAllWindows`（= `CurrentState = Closed`）⇒ 本窗被关掉，测不到「窗不关」。
+        // ⇒ 用第 3 页（Items）第 3 件 `Avatar Border: Servo`：`Owned = 0` · 无限购（`AvailableMax = 0`）·
+        //   `600 ≤ 余额 2000` · **商品档** ⇒ 买完只压上一扇**领奖窗**（本窗变 `Background`，**不是** `Closed`）。
+        ShopWindow w4 = null;
+        try
+        {
+            w4 = ShopWindow.Create(mgr);
+            ST(w4 != null, "（前提）第四扇商店窗建得出来（弹窗内购买那一段）");
+            if (w4 == null) return;
+            mgr.OpenWindow(w4);
+
+            const int pgD = 2, cellD = 2;                     // Items 页第 3 件 = `Avatar Border: Servo`
+            var pageD = w4.PageOf(pgD);
+            ST(pageD != null, "（前提）第 3 页（Items）的 `ShopTabPage` 拿得到");
+            if (pageD == null) return;
+
+            int ownedBefore = ShopData.OwnedOf(pgD, cellD);
+            SC(ownedBefore, 0, "（前提）这一件**未拥有** —— 否则 `Buy` 走「已拥有」那一支、根本进不了购买链");
+            ST(ShopData.Offers(pgD).Length > cellD && ShopData.Offers(pgD)[cellD].Type != "Booster Pack",
+                "（前提）它是**商品档**（买完开领奖窗；容器档会开全屏开包窗、把本窗关掉）");
+            ST(!ShopData.SoldOut(pgD, cellD) && ShopTabPage.CanAfford(pgD, cellD),
+                "（前提）没有售罄、也买得起（`SoldOut == false` 且 `CanAfford == true`）");
+
+            var pop = pageD.OpenBoosterInfo(cellD);
+            ST(pop != null, "（前提）开了这一件的卡包详情窗（走 `OpenBoosterInfo` —— 与 `InfoHit` 同一条入口）");
+            if (pop != null)
+            {
+                // 价签命中区 = `Price Display` 的**直接子件** `Hit`（`MenuDraw.Hit(pd, "Hit", …)` 的父是 `pd`）。
+                // ⛔ **别用 `MenuCheck.FindChild(pop.transform, "Hit")`** —— 它是递归子树，会先抓到关窗钮/工具提示
+                //    那两颗（判据 → `Editor/MenuCheck.cs` 的 `FindChild` doc 里那条 2026-10-31 的提醒）。
+                var priceNode = MenuCheck.FindChild(pop.transform, "Price Display");
+                var buyHit = priceNode != null ? priceNode.Find("Hit") : null;
+                var wbBuy = buyHit != null ? buyHit.GetComponent<WindowButton>() : null;
+                ST(wbBuy != null, "（前提）价签有命中区（`Price Display/Hit`）且上面挂着 `WindowButton`");
+                ST(WindowButton.GrayShaderAvailable,
+                    "（前提）原版灰化 shader 取得到 —— 取不到时「变灰」会**静默失效**（`RefreshGray` 只出一条警告、`GrayedForTest` 恒假）");
+                if (wbBuy != null)
+                {
+                    ST(!wbBuy.SoftDisabled, "（前置）买之前价签**没有**被置灰");
+                    wbBuy.ClickForTest();                     // ⛔ 不是直调 `pop.Buy()`：点的是玩家那颗钮的真 onClick
+                    SC(ShopData.OwnedOf(pgD, cellD) - ownedBefore, 1,
+                        "★ D1 弹窗内点购买 ⇒ **拥有数 +1**（`BoosterInfoPopup.Buy` → `ShopTabPage.Buy` → `ShopData.Buy`）");
+                    ST(wbBuy.SoftDisabled,
+                        "★ D2 …而且**价签变灰**（原版 `ProcessPurchase` 第 3 句 `priceDisplayButton.Interactable = false`；"
+                        + "我们这一侧 = `SetSoftDisabled(true)`，调度台 2026-10-29 软禁用口径）"
+                        + "｜🧨 删掉 `Shell/BoosterInfoPopup.cs` 的 `Buy()` 里那句 `_buyBtn.SetSoftDisabled(true)` ⇒ 本条红");
+                    ST(wbBuy.GrayedForTest, "★ D3 …是**真灰**（换了 `Everguild/UI/Greyscale` 材质，⛔ 不是只有一个布尔）");
+                    ST(pop.CurrentState != WindowState.Closed,
+                        "★ D4 **本窗没被关掉**（原版那条链只置灰 + `Refresh()`，两个回调都不 `Close()`）；"
+                        + "此刻状态 = " + pop.CurrentState + "（领奖窗压在上面 ⇒ `Background` 是正常的，不是「关了」）"
+                        + "｜🧨 把 `Buy()` 那句置灰改成 `Close()` ⇒ 本条红");
+                    RewardWindowFixture.DismissRewardWindows();    // = 玩家点「继续」那一下（同一条生产路径）
+                    SC(pop.CurrentState, WindowState.Open,
+                        "★ D5 领奖窗关掉之后**本窗回到前台**（`NotifyClosed → ShowPreviousWindow`）—— 整条链没有一帧是 `Closed`");
+                }
+                pop.Close();
+            }
+        }
+        finally
+        {
+            if (w4 != null) { BoosterInfoPopup p; if ((p = mgr.GetOpenWindow<BoosterInfoPopup>()) != null) p.Close(); w4.Close(); UnityEngine.Object.DestroyImmediate(w4.gameObject); }
+        }
+    }
+
+    // ============================================================ 🆕 2026-10-31（`B106_W79`）：指名性 + 场景卫生
+    //
+    // 背景（判据 → `报告/B106_D5.md` §三）：`shop.log:131964` 的 `ClickByQuad` 前提红 + `:132014` 的级联，
+    //   铁证是紧跟着那条 **全日志唯一一次** `[Shop] 没有 WindowsManager ⇒ 开不了 Booster Info Popup`
+    //   （早退条件 `ShopTabPage.cs:951` = `_win == null || _win.Manager == null`）
+    //   ⇒ 点到的**确实是一颗 `InfoHit`**（所以 `:360` 那条绿），但那是**一具陈旧页的**：
+    //   同一像素上两颗 `InfoHit`，平局链判给了陈旧那颗。
+    // ⇒ 那一步原来的文案只说「引用不等」，**不说是谁**、也没有「这一点上还有谁」的口子。
+    //   下面三个只读件 + 一条卫生断言把它补上（⛔ 都不改任何被测实现）。
+
+    /// <summary>`Transform` 的父链名（`A/B/C` 形式）—— 陈旧页挂在谁下面，一眼看得出。</summary>
+    static string PathOf(Transform t)
+    {
+        if (t == null) return "<null>";
+        var sb = new System.Text.StringBuilder();
+        for (var x = t; x != null; x = x.parent)
+        {
+            if (sb.Length > 0) sb.Insert(0, '/');
+            sb.Insert(0, x.name);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>一颗命中区**是谁**：名字 · 所属 `GameWindow`（类型/状态/`Manager`）· 所属 `ShopTabPage` 的宿主状态 · 父链。
+    /// ⛔ 只读；只在失败文案里拼（正常路径不调，零开销）。</summary>
+    static string HitIdentity(WindowButton b)
+    {
+        if (b == null) return "null（这一点上没有命中区）";
+        var sb = new System.Text.StringBuilder();
+        sb.Append('`').Append(b.name).Append('`');
+
+        var win = b.GetComponentInParent<GameWindow>(true);
+        sb.Append(" · 窗 = ");
+        if (win == null) sb.Append("<不属于任何 `GameWindow`>");
+        else
+        {
+            sb.Append('`').Append(win.name).Append("`（").Append(win.GetType().Name).Append(" · ").Append(win.CurrentState).Append('）');
+            if (win.Manager == null) sb.Append(" ⚠️ 它的 `Manager == null`（`OpenBoosterInfo` 会在这一档早退）");
+        }
+
+        var pg = b.GetComponentInParent<ShopTabPage>(true);
+        sb.Append(" · 商店页 = ");
+        if (pg == null) sb.Append("<不属于任何 `ShopTabPage`>");
+        else
+        {
+            var owner = pg.OwnerWin;
+            sb.Append('`').Append(pg.name).Append("`（宿主 ");
+            if (owner == null)
+                sb.Append("**已销毁 / 从没 `SetHost` 过** ⇒ `OpenBoosterInfo` 的第一句 `_win == null` 就早退了")
+                  .Append("（页自己激活 = ").Append(pg.gameObject.activeInHierarchy ? "真" : "假").Append('）');
+            else
+                sb.Append('`').Append(owner.name).Append("` 活着 · `Manager` ")
+                  .Append(owner.Manager == null ? "== null ⚠️" : "非空").Append('）');
+        }
+
+        sb.Append(" · 父链 = ").Append(PathOf(b.transform));
+        return sb.ToString();
+    }
+
+    /// <summary>画布像素点 `(px,py)` 上**全部候选命中区**的指名清单（`PointerLayer.ButtonsAtForTest` 一跳转发，
+    /// 口径见那个口的 doc：**未排序、不含教程期过滤** ⇒ 是「参与挑赢家的那张表」，⛔ 不是渲染序）。</summary>
+    static string CandidatesAt(float px, float py)
+    {
+        var bs = PointerLayer.ButtonsAtForTest(px, py);
+        if (bs == null || bs.Count == 0) return "0 颗（这一点上没有任何候选命中区）";
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < bs.Count; i++)
+        {
+            if (i > 0) sb.Append("｜");
+            sb.Append('#').Append(i + 1).Append(' ').Append(HitIdentity(bs[i]));
+        }
+        return "共 " + bs.Count + " 颗：" + sb;
+    }
+
+    /// <summary>**场景卫生**：场上不许有「宿主窗已销毁 / 从没 `SetHost` 过、页却仍激活」的 `ShopTabPage`。
+    /// <para>为什么非断不可：这种页上的 `InfoHit` 与活窗的同名命中区**同像素重叠**，点中了只会打一条
+    /// `[Shop] 没有 WindowsManager` 就**静默早退**（`Shell/ShopTabPage.cs` 的 `OpenBoosterInfo` 第一句）——
+    /// 玩家侧表现就是「点了没反应」，自检侧表现就是「前提红 + 后续断言级联红」
+    /// （`shop.log:131964` / `:132014`）。判据 → `报告/B106_D5.md` §三。</para>
+    /// <para>⚠️ 夹具用 `SetHost(null, null, _)` 建的**裸页**（`Editor/B97_SHOP2_Assert.cs` / `Editor/ShopFamilyAssertB94S1.cs`）
+    /// 同样会被这条抓到 —— 它们本来就没有宿主，所以**必须自己 `DestroyImmediate` 之后才许留场**（两处都已这么做）。</para>
+    /// </summary>
+    static void CheckNoOrphanShopPages(CheckSink s, string when)
+    {
+        var all = UnityEngine.Object.FindObjectsByType<ShopTabPage>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        int scanned = 0, bad = 0;
+        var names = new System.Text.StringBuilder();
+        for (int i = 0; i < all.Length; i++)
+        {
+            var pg = all[i];
+            if (pg == null) continue;
+            if (!pg.gameObject.activeInHierarchy) continue;       // 关着的页无害（命中表收不到它）
+            scanned++;
+            var owner = pg.OwnerWin;
+            if (owner != null && owner.gameObject.activeInHierarchy) continue;
+            bad++;
+            if (names.Length > 0) names.Append('｜');
+            names.Append('`').Append(PathOf(pg.transform)).Append('`');
+            if (owner != null) names.Append("（宿主 `").Append(owner.name).Append("` 的物体**不激活**）");
+        }
+        MenuCheck.True(s, bad == 0,
+            "（卫生·" + when + "）场上**没有**「宿主窗已销毁 / 从没 `SetHost` 过、页却仍激活」的 `ShopTabPage`"
+            + " —— 这种页的 `InfoHit` 点了只会打一条 `[Shop] 没有 WindowsManager` 就静默早退，"
+            + "而且会和活窗的同名命中区**同像素重叠**（判据 → `报告/B106_D5.md` §三）"
+            + (bad == 0 ? "（扫到 " + scanned + " 页激活，宿主全在）"
+                        : " —— ⚠️ 抓到 " + bad + " 页（扫到 " + scanned + " 页激活）：" + names));
     }
 }

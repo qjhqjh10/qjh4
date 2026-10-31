@@ -246,6 +246,16 @@ namespace CardPresentation
         /// <summary>**战斗放大窗**（`Card Display Window/Card Display/Cards`）。原版那 5 张
         /// `fontSize = 16`，且 `InitializeCardForDisplay` 运行时显式把阴影设成 `(0,0,0,0.8)`。</summary>
         ZoomWindow = 1,
+        /// <summary>🆕 2026-10-31（`B106_W9` · AUD02 卡 UI ❌）**开包 / 轮抽 / 目录商店的卡**
+        /// （原版 `Booster Pack Open Window` / `Draft Mode` / `Catalog Item Shop` 那 7 个 `CardUI` 实例）。
+        /// 判据（`bundle_menus_assets_all` 逐实例现读，按 `m_fontSize`/`m_fontSizeMax` 分组）：
+        /// 卡名 `16.3 / max 20` · 效果 `19 / max 19` · 兵种 `17 / max 17` · 阵营 `17 / max 17`
+        /// （对照标准档 `19/19` · `23.55/24` · `18/18` · `15/15`）。
+        /// 🔴 **真正的有效字号由 `m_fontSizeMax` 定**（TMP autosize 从 `clamp(fontSizeBase,min,max)` 起
+        /// **一路涨到 max**，`TextMeshPro.cs:4139`；名义 `m_fontSize` 只是起点）⇒ 落地取 max 那一组。
+        /// ⚠️ **商店页签那 5 个实例（`m_fontSize=16`）不用这一档** —— 它们的 `m_fontSizeMax = 19` 与标准档相同
+        /// ⇒ 有效字号本来就一样。判据全文 → `资料/完全复刻/报告/B106_W9.md`。</summary>
+        Booster = 2,
     }
 
     /// <summary>原版 `CardTextsController` 的**九个文字态**（2026-10-25 `CF-6`）。
@@ -2192,7 +2202,7 @@ namespace CardPresentation
             go.transform.SetParent(parent, false);
             var v = go.AddComponent<CardView>();
             v._faceMode = face;
-            v._use = use;                     // ⚠️ 必须在 `Build` **之前** —— 卡名字号与阴影色都在 `Build` 里定
+            v._use = IsBoosterCardView(parent, use) ? CardUse.Booster : use;   // ⚠️ 必须在 `Build` **之前** —— 卡名字号与阴影色都在 `Build` 里定
             // 🆕 2026-10-18：「大图档」的判定（立绘越出卡框 + ×1.27 只在这一档生效）——
             //   必须在 `Build` 之前定，`Build` 那一趟就按它选立绘网格。判据见 `BigCardOverdraw`。
             v._bigImage = IsBigCardView(parent, go.name, use);
@@ -4974,7 +4984,7 @@ namespace CardPresentation
                           //   ⚠️ 原来两层共用一个名义字号 19 ⇒ **战术卡卡名比原版小 21%**（0.19 ÷ 0.24）——
                           //   `unit` 那一支的上界恰好 = 名义 1.9（逐位不变），非 unit 那支才会被放大到 2.4。
                           bandMin: unit ? NameUnitBandMin : NameTacticBandMin,
-                          bandMax: unit ? NameUnitBandMax : NameTacticBandMax);
+                          bandMax: unit ? (noDescName ? NameUnitBandMax : NameUnitBandMaxForUse) : NameTacticBandMax);
                           // 原版 `NameTextUnit/NameTextTactic` = Asar（§2·5）；描边**在拟合之前**贴，见 `Fill` 里那段
             // 🔴 **2026-10-18（`A848` 那笔账的落点）**：**卡名那层的纵向对齐 = 原版的 `Midline`(4096)**。
             //   判据：原版卡预制体里那 6 个互斥变体（`NameTextUnit` / `…Unit Big` / `…Unit No description` /
@@ -5056,7 +5066,7 @@ namespace CardPresentation
                              // 🔴 **2026-10-29（`B99_G1`）**：单位 = `DescTextUnit`（1/**24**）·
                              //   战术 = `DescTextTactic` 与 `DescTacticSmall`（两件都是 1/19）。判据见上面那组常量。
                              bandMin: unit ? DescUnitBandMin : DescTacticBandMin,
-                             bandMax: unit ? DescUnitBandMax : DescTacticBandMax);
+                             bandMax: unit ? DescUnitBandMaxForUse : DescTacticBandMax);
                              // 原版 `DescTextUnit*` = Pragati（§2·5）；描边在拟合之前贴，见 `Fill` 里那段
 
             // ③ 🔴 **阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）：按展示场景分档** ——
@@ -5085,10 +5095,10 @@ namespace CardPresentation
             //    ② 效果文字那块版面**本来就给阵营行留了位置**（上面 `avail01` 用 `armyAt.y` 算的）
             //       ⇒ 关掉它只是空出那一行，**别的层一个都不动**（手牌版面与这一行启用之前逐字相同）。
             // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
-            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSize, InkArmy, false,
+            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSizeForUse(unit), InkArmy, false,
                          face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
                          // 原版 `ArmyTextUnit` = 1/15（档位照抄；⚠️ 这一层**没有框高** ⇒ 目前不跑 `FitToBox`）
-                         bandMin: ArmyBandMin, bandMax: ArmyBandMax);
+                         bandMin: ArmyBandMin, bandMax: ArmyBandMaxForUse(unit));
                          // 原版 `ArmyText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
             Show(_army, FaceShowsArmy(_faceMode));
 
@@ -5119,11 +5129,11 @@ namespace CardPresentation
             //    ⚠️ 「印不印」与「摆哪」是**两条独立判据**，别合并（见 `TacticRaceAt` 的 doc 末段）。
             _raceY01 = RaceUsesTacticAt(d) ? TacticRaceAt.y : UnitRaceAt.y;
             _race = Fill(_race, "race", SubtypeLine(d), new Vector2(UnitRaceAt.x, _raceY01),
-                         nameW, RaceFontSize, InkArmy, false,
+                         nameW, RaceFontSizeForUse(unit), InkArmy, false,
                          face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
                          // 原版 `RaceText` = **3**/18（下界是全表唯一不是 1 的那个；档位照抄；
                          // ⚠️ 同阵营行：这一层没有框高 ⇒ 目前不跑 `FitToBox`）
-                         bandMin: RaceBandMin, bandMax: RaceBandMax);
+                         bandMin: RaceBandMin, bandMax: RaceBandMaxForUse(unit));
                          // 原版 `RaceText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
 
             // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
@@ -15313,7 +15323,7 @@ namespace CardPresentation
                 return;
             }
             _newBadge = AddLayer("newCardBadge", tex, NewBadgeZ, tex,
-                                SpriteQuad("newCardBadge", NewBadgeAt01, NewBadgeW, NewBadgeH));
+                                SlicedBadgeQuad("newCardBadge", NewBadgeAt01, NewBadgeW, NewBadgeH));
             if (_newBadge.sharedMaterial != null && _newBadge.sharedMaterial.HasProperty("_Color"))
                 _newBadge.sharedMaterial.color = NewBadgeInk;
             _newBadge.gameObject.SetActive(false);      // 原版那颗的显隐只由 `ToggleNewCardBadge` 控
@@ -15531,6 +15541,197 @@ namespace CardPresentation
             var m = _gem.sharedMaterial;
             if (m == null) return;
             m.mainTexture = tex;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-31（`B106_W9` · AUD02 卡 UI ❌）：**按宿主分档的字号上界** + **角标九宫格**
+        // ==================================================================
+        //  判据（`bundle_menus_assets_all` 逐实例现读，按 `m_fontSize` / `m_fontSizeMax` 分组）：
+        //    · 标准档（`CardUI` 的绝大多数实例）：卡名 `19/19` · 效果 `23.55/24` · 兵种 `18/18` · 阵营 `15/15`
+        //    · 开包 / 轮抽 / 目录商店（7 个实例，`NameTextUnit` fs=16.3 那一组）：
+        //        卡名 `16.3/`**`20`** · 效果 `19/`**`19`** · 兵种 `17/`**`17`** · 阵营 `17/`**`17`**
+        //    · 商店页签（5 个实例，`NameTextUnit` fs=16）：`16/`**`19`** ⇒ **上界与标准档相同**、有效字号相同
+        //      （TMP autosize 会一路涨到 `m_fontSizeMax`，`TextMeshPro.cs:4139` 涨分支）⇒ **不单开一档**。
+        //    · 战术卡阵营行 `ArmyTextTactc`：41/41 实例 `fs 14` **`max 15`** · rect `156×15`（localScale 0.01）。
+        //  🔴 **判「原版渲出来多大」看 `m_fontSizeMax`，不看名义 `m_fontSize`** —— 名义值只是 autosize 的起点
+        //     （从 `clamp(m_fontSizeBase, min, max)` = min 起，一路涨）。⇒ 战术卡阵营行那一格**不改成 14**：
+        //     它的有效上界是 **15**，与我们现在的 0.15 同值。残留不确定性见报告 §五。
+        //  接线（宿主侧，**不在本文件**）：`CardUse.Booster` 要由开包 / 轮抽两个宿主显式传进来，
+        //     补丁与调用链自证 → `资料/完全复刻/报告/B106_W9.md` §二·3。
+
+        /// <summary>`NameTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：
+        /// 标准 / 放大窗 **1.90**（19 pt）· 开包族 **2.00**（20 pt）。判据见上面那一段。</summary>
+        float NameUnitBandMaxForUse { get { return _use == CardUse.Booster ? 2.00f : NameUnitBandMax; } }
+
+        /// <summary>`DescTextUnit` 的 autosize 上界：标准 / 放大窗 **2.40**（24 pt）· 开包族 **1.90**（19 pt）。
+        /// ⚠️ 只作用于**单位卡**那一支；战术卡的效果文字两档都是 `DescTacticBandMax`（1.90），不走这里。</summary>
+        float DescUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.90f : DescUnitBandMax; } }
+
+        /// <summary>`ArmyTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：
+        /// 标准 **1.50**（15 pt）· 开包族的**单位卡** **1.70**（17 pt）。
+        /// ⚠️ **开包族的战术卡不走这一档**：`ArmyTextTactc` 在 `CardUI`（开包）与 `CardUI Reference` 里
+        /// **都是 `14 / max 15`**（现读两棵 prefab 树）⇒ 战术行两档同值。
+        /// ⚠️ 这一行**没有框高**（`Fill` 的 `maxHeight` 传 0）⇒ 今天不跑 `FitToBox`，字号取
+        /// <see cref="ArmyFontSizeForUse"/>（= 同一组 max 值折成 em）；这里留着是为了「补框高那天不用再查」。</summary>
+        float ArmyBandMaxForUse(bool unit) { return (_use == CardUse.Booster && unit) ? 1.70f : ArmyBandMax; }
+
+        /// <summary>`RaceText` 的 autosize 上界：标准 **1.80**（18 pt，下界 3.0 是全表唯一例外）·
+        /// 开包族的**单位卡** **1.70**（17 pt）。⚠️ 同阵营行：开包族的**战术卡** `RaceText` 仍是 18/18
+        /// （`Tactic Container/RaceText` 那一条在两棵 prefab 里都是 18）⇒ 只有单位卡那一支换成 17。
+        /// ⚠️ 这一层没有框高 ⇒ 今天只当文档；字号取 <see cref="RaceFontSizeForUse"/>。</summary>
+        float RaceBandMaxForUse(bool unit) { return (_use == CardUse.Booster && unit) ? 1.70f : RaceBandMax; }
+
+        /// <summary>开包族的阵营行 em 对卡高比 —— 原版 `CardUI`（开包）的 `ArmyTextUnit`
+        /// `m_fontSize = m_fontSizeMax = 17`（× `m_LocalScale` 0.01）⇒ **0.17** 卡单位。
+        /// 对照标准档的 <see cref="ArmyEmOfCard"/>（0.15）。</summary>
+        const float ArmyEmOfCardBooster = 0.1700f / 3.3313f;
+        /// <summary>开包族的兵种行 em 对卡高比 —— 原版 `CardUI`（开包）的 `MinionOrWarlord Container/RaceText`
+        /// `17 / max 17` ⇒ **0.17**。对照标准档的 <see cref="RaceEmOfCard"/>（0.18）。</summary>
+        const float RaceEmOfCardBooster = 0.1700f / 3.3313f;
+
+        /// <summary>本卡实际用的**阵营行**字号（按 <see cref="CardUse"/> + 单位/战术 分档 —— 判据见本节那一段）。
+        /// ⛔ 别改回静态的 <see cref="ArmyFontSize"/>：那会让开包 / 轮抽的**单位卡**阵营行小 11.8%。</summary>
+        float ArmyFontSizeForUse(bool unit)
+        {
+            return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody,
+                Height * ((_use == CardUse.Booster && unit) ? ArmyEmOfCardBooster : ArmyEmOfCard));
+        }
+
+        /// <summary>本卡实际用的**兵种行**字号（按 <see cref="CardUse"/> + 单位/战术 分档）。
+        /// ⛔ 别改回静态的 <see cref="RaceFontSize"/>：那会让开包 / 轮抽的**单位卡**兵种行大 5.9%。</summary>
+        float RaceFontSizeForUse(bool unit)
+        {
+            return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody,
+                Height * ((_use == CardUse.Booster && unit) ? RaceEmOfCardBooster : RaceEmOfCard));
+        }
+
+        // ---- 新卡角标 = 原版的 Sliced（九宫格）--------------------
+        //  判据（一手，`bundle_menus_assets_all` 现读）：
+        //    · Image（`MonoBehaviour_-944947045233275165.json`，挂 `CardUI/New Card Badge`）：
+        //        `m_Type = 1 (Sliced)` · `m_PixelsPerUnitMultiplier = 1.0` · `m_PreserveAspect = 0` ·
+        //        `m_FillCenter = 1` · `m_UseSpriteMesh = 0`
+        //    · sprite `WF_Special offer_Value`：`m_Rect = 324×87` · **`m_Border = (162, 0, 162, 0)`** ·
+        //        `m_PixelsToUnits = 100`
+        //    · RectTransform：`m_SizeDelta = 1.2101 × 0.392`（卡单位）· `m_LocalScale = 1`
+        //    · Canvas `m_ReferencePixelsPerUnit = 100`（全库只有这一个值，判据同 `TextBgQuad` 那段）
+        //  **算出来的边宽（与 `TextBgQuad` 同一条算式）**：
+        //    画出来的边宽 = 边宽px × refPPU ÷ (spritePPU × ppuMul) = 162 × 100 ÷ (100 × 1.0) = **162 卡单位**
+        //    ⇒ 左右加起来 324 卡单位，而矩形只有 **1.2101** ⇒ uGUI `GetAdjustedBorders`（`Image.cs:1479`）
+        //      按轴缩到刚好装下（比例 1.2101/324 = 0.003735）：左/右各 **0.6051**、中段宽 **0**
+        //      ⇒ 中段那 3 块因 `<= 0` 被 `continue` 跳过（`Image.cs:1199`）⇒ **实际只画左右 2 块**，
+        //      两块拼起来正好覆盖整块矩形。
+        //  ⇒ **在当前这个矩形下，九宫渲染与「整图拉伸」逐像素相同**（中段 UV 宽 = 0、两块又相邻）。
+        //    这不是「改了白改」：它把**结构**做成了原版那条路 —— ⛔ 若将来任何宿主把角标画得比
+        //    3.24 卡单位还宽，原版会「两边保持自然宽度、中段留空」，而整图拉伸会继续压扁。
+        //  ⚠️ 原版 `m_PreserveAspect = 0` ⇒ 3.724(图) 套 3.087(框) 那 **17%** 的横向压扁**是原版行为**，照抄。
+        static readonly Vector4 NewBadgeBorderPx = new Vector4(162f, 0f, 162f, 0f);
+        const float NewBadgePPUMult = 1.0f;
+        const float NewBadgeSpritePPU = 100f;
+        const float NewBadgeRefPPU = 100f;
+        const float NewBadgeTexW = 324f;
+        const float NewBadgeTexH = 87f;
+        /// <summary>`SlicedBadgeQuad` 的网格缓存（与 `_spriteQuads` / `_textBgQuads` 分开，理由同 `A1940`）。</summary>
+        static readonly Dictionary<string, Mesh> _badgeQuads = new Dictionary<string, Mesh>();
+
+        /// <summary>新卡角标的 **Sliced 九宫格**网格（判据见上）。一块 mesh 里放 2 块（中段宽 0 ⇒ 跳过），
+        /// 顶点烘绝对坐标、单位与 `SpriteQuad` 一致（卡单位 × `Width/CardUnitW`，今天 = 1）。
+        /// 按 `name` 缓存：几何是常量，不随卡变。
+        /// 🔴 **必须仍然是一个 GameObject / 一份材质 / 同一个 z**（理由同 `TextBgQuad` 的注释）。</summary>
+        static Mesh SlicedBadgeQuad(string name, Vector2 at01, float w, float h)
+        {
+            Mesh m;
+            if (_badgeQuads.TryGetValue(name, out m) && m != null) return m;
+
+            float s = Width / CardUnitW;
+            float ww = w * s, hh = h * s;
+            float x0 = (at01.x - 0.5f) * Width - ww * 0.5f;
+            float y0 = (0.5f - at01.y) * Height - hh * 0.5f;
+
+            float k = NewBadgeRefPPU / (NewBadgeSpritePPU * NewBadgePPUMult) * s;
+            float bl = NewBadgeBorderPx.x * k, bb = NewBadgeBorderPx.y * k;
+            float br = NewBadgeBorderPx.z * k, bt = NewBadgeBorderPx.w * k;
+            // 目标比两边角加起来还小 ⇒ 按【轴】缩（uGUI `GetAdjustedBorders`，逐轴判，同 `TextBgQuad`）
+            float scX = (bl + br) > ww ? ww / Mathf.Max(1e-4f, bl + br) : 1f;
+            float scY = (bb + bt) > hh ? hh / Mathf.Max(1e-4f, bb + bt) : 1f;
+            bl *= scX; br *= scX; bb *= scY; bt *= scY;
+
+            float[] xs = { x0, x0 + bl, x0 + ww - br, x0 + ww };
+            float[] ys = { y0, y0 + bb, y0 + hh - bt, y0 + hh };
+            float[] us = { 0f, NewBadgeBorderPx.x / NewBadgeTexW, 1f - NewBadgeBorderPx.z / NewBadgeTexW, 1f };
+            float[] vs = { 0f, NewBadgeBorderPx.y / NewBadgeTexH, 1f - NewBadgeBorderPx.w / NewBadgeTexH, 1f };
+
+            var verts = new List<Vector3>(16);
+            var uvs = new List<Vector2>(16);
+            var tris = new List<int>(24);
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                {
+                    float xa = xs[i], xb = xs[i + 1], ya = ys[j], yb = ys[j + 1];
+                    // 零尺寸格跳过（uGUI `GenerateSlicedSprite` 同款，`Image.cs:1199`）—— 中段宽 0 ⇒ 2 块
+                    if (xb - xa <= 0f || yb - ya <= 0f) continue;
+                    int o = verts.Count;
+                    verts.Add(new Vector3(xa, ya, 0f)); uvs.Add(new Vector2(us[i], vs[j]));
+                    verts.Add(new Vector3(xb, ya, 0f)); uvs.Add(new Vector2(us[i + 1], vs[j]));
+                    verts.Add(new Vector3(xb, yb, 0f)); uvs.Add(new Vector2(us[i + 1], vs[j + 1]));
+                    verts.Add(new Vector3(xa, yb, 0f)); uvs.Add(new Vector2(us[i], vs[j + 1]));
+                    // 绕序与 `SpriteQuad` 逐位一致（⛔ 别按 u/v 的方向去定绕序）
+                    tris.Add(o); tris.Add(o + 2); tris.Add(o + 1);
+                    tris.Add(o); tris.Add(o + 3); tris.Add(o + 2);
+                }
+
+            m = new Mesh { name = "SlicedBadgeQuad_" + name };
+            m.vertices = verts.ToArray();
+            m.uv = uvs.ToArray();
+            m.triangles = tris.ToArray();
+            m.RecalculateBounds();
+            _badgeQuads[name] = m;
+            return m;
+        }
+
+        /// <summary>自检读口：角标那一层的网格是 **Sliced 九宫格**（顶点数 ≠ 4）还是旧的整图拉伸。
+        /// 判据见本节那段：当前矩形下两者**像素相同**，所以只能靠顶点数/UV 断「走的是哪条路」。</summary>
+        public static int NewBadgeMeshVertexCountForTest()
+        {
+            Mesh m;
+            if (_badgeQuads == null) return 0;
+            return _badgeQuads.TryGetValue("newCardBadge", out m) && m != null ? m.vertexCount : 0;
+        }
+
+        /// <summary>自检读口：角标网格的**外接尺寸**（世界单位）—— 必须仍等于 `NewBadgeW × NewBadgeH`
+        /// （九宫格「两边缩到刚好装下」之后两块拼起来仍覆盖整块矩形）。没建时 `Vector2.zero`。</summary>
+        public static Vector2 NewBadgeMeshSizeForTest()
+        {
+            Mesh m;
+            if (_badgeQuads == null || !_badgeQuads.TryGetValue("newCardBadge", out m) || m == null)
+                return Vector2.zero;
+            var b = m.bounds.size;
+            return new Vector2(b.x, b.y);
+        }
+
+        /// <summary>自检读口：本卡**实际喂给阵营行**的字号（世界单位，按 `CardUse` + 单位/战术 分档）。</summary>
+        public float ArmyFontSizeForTest(bool unit) { return ArmyFontSizeForUse(unit); }
+        /// <summary>自检读口：本卡**实际喂给兵种行**的字号（世界单位，按 `CardUse` + 单位/战术 分档）。</summary>
+        public float RaceFontSizeForTest(bool unit) { return RaceFontSizeForUse(unit); }
+        /// <summary>自检读口：本卡 `NameTextUnit` 的 autosize 上界（按 <see cref="CardUse"/> 分档）。</summary>
+        public float NameBandMaxForTest { get { return NameUnitBandMaxForUse; } }
+        /// <summary>自检读口：本卡 `DescTextUnit` 的 autosize 上界（按 <see cref="CardUse"/> 分档）。</summary>
+        public float DescBandMaxForTest { get { return DescUnitBandMaxForUse; } }
+
+        /// <summary>这张卡是不是**开包族**（原版 `Booster Pack Open Window / Booster Animation Parent / Cards /
+        /// CardInBoosterPack UI 1..5` 下面那几张 `2DCard`）—— **判据只此一处**。
+        /// <para>为什么是推断而不是靠调用方传：与 <see cref="IsBigCardView"/> 的 `Card Display` 那一条同一个理由 ——
+        /// 宿主（`Shell/BoosterPackOpenWindow.cs`）**不传 `use`**，而原版那条归属是**确定性事实**
+        /// （`RarityColors.cs:36` 记的原版节点路径；本文件 `IsBigCardView` 的注释也早写着抽卡包挂在
+        /// `Booster Animation Parent/Cards` 下）。⇒ 按**原版宿主节点的名字**认，⛔ 不按「卡片尺寸/名字」猜。</para>
+        /// <para>⚠️ 只认 `use == Standard` 的调用点（显式传 `Booster` / `ZoomWindow` 的一律不动）；
+        /// 判不出来一律当标准档（宁可字号回标准档，也不能乱改别的窗）。</para>
+        /// </summary>
+        static bool IsBoosterCardView(Transform parent, CardUse use)
+        {
+            if (use != CardUse.Standard) return false;
+            for (var t = parent; t != null; t = t.parent)
+                if (t.name == "Booster Animation Parent") return true;
+            return false;
         }
     }
 }

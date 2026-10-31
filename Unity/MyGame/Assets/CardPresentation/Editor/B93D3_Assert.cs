@@ -56,16 +56,18 @@ public static class B93D3Assert
     public static void Run()
     {
         Pass = 0; Fail = 0;
+        // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前 4 段挤在**同一个 try** 里 ⇒ 一段抛异常后面全不跑。
+        //   现在逐段 catch（记失败 + 写明「其 N 段没跑」）。
         try
         {
-            RunChallengeFamily();
-            RunEventButtonBadgeAndTimer();
-            RunPracticeSettlement();
-            RunPlayEventShape();
+            try { RunChallengeFamily(); } catch (Exception ex) { SegFail("① 挑战族", ex, 3); }
+            try { RunEventButtonBadgeAndTimer(); } catch (Exception ex) { SegFail("② 活动钮红点 + 倒计时泵", ex, 2); }
+            try { RunPracticeSettlement(); } catch (Exception ex) { SegFail("③ 练习局收尾", ex, 1); }
+            try { RunPlayEventShape(); } catch (Exception ex) { SegFail("④ PlayEvent 形状", ex, 0); }
         }
         catch (Exception ex)
         {
-            Fail++; Debug.LogError(P + "✗ 本组断言抛了异常（后面的没跑完）：" + ex);
+            Fail++; Debug.LogError(P + "✗ 本组断言抛了异常（保护之外；后面的没跑完）：" + ex);
         }
         Debug.Log(P + "合计：通过 " + Pass + " / 失败 " + Fail);
     }
@@ -80,6 +82,12 @@ public static class B93D3Assert
 
         // ---------- 账 26：队列空 ⇒ 只隐藏自己，不弹任何窗 ----------
         var btnRoot = NewNode("B93D3 Challenge Button");
+        // 🔴 2026-10-31（B106_W18 · AUD11 类 4）：改前本段中途抛异常 ⇒ 结尾的 `DestroyImmediate(btnRoot)`
+        //   永远不跑（`Run()` 的段级 catch 只记账、不清理）⇒ 编辑器里多留一个临时对象。
+        //   现在整段包 `try/finally`，清理必跑；计数仍走原来的 `Ok` / `Eq` 口。
+        //   ⚠️ 体内缩进**故意不动**（行数零变化的追加式改动）—— 纯缩进会把整段刷进 diff，干扰按行号复核。
+        try
+        {
         btnRoot.SetActive(true);
         var wmBefore = WindowsManager.Get();
         // 🔴 2026-10-31（调度台 · B105_D1）：只判「点完没有 PopUpGameWindow」会被**前一段留下的弹窗**污染
@@ -183,10 +191,15 @@ public static class B93D3Assert
         int pc2 = UiBadgeNotificationManager.ProviderCount;
         Ok(pc1 >= pc0 && pc2 == pc1, "账 53：`Start()` 幂等（provider 数 " + pc0 + " → " + pc1 + " → " + pc2 + "）");
 
-        // 收尾：不留脏（后面几组与挑战无关，但挂起队列会牵动红点）
-        ChallengeData.ClearPending();
-        ChallengeManager.Reset();
-        if (btnRoot != null) UnityEngine.Object.DestroyImmediate(btnRoot);
+        }
+        finally
+        {
+            // 🔴 2026-10-31（B106_W18 · AUD11 类 4）：收尾搬进 `finally` ⇒ 段内任何一步抛异常也保证执行。
+            //    不留脏（后面几组与挑战无关，但挂起队列会牵动红点）。
+            ChallengeData.ClearPending();
+            ChallengeManager.Reset();
+            if (btnRoot != null) UnityEngine.Object.DestroyImmediate(btnRoot);
+        }
     }
 
     // ============================================================ ② 活动钮：红点类型登记 + 倒计时按秒泵（账 546 / 549）
@@ -317,5 +330,12 @@ public static class B93D3Assert
         if (p != null && p.CanWrite) { p.SetValue(null, value); return; }
         var f = t.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         if (f != null) f.SetValue(null, value);
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：用本文件既有的 `Ok` 口记一次失败，
+    /// 文案写明「其 N 段没跑」。<paramref name="rest"/> = 这个段之后还有几个段。</summary>
+    static void SegFail(string section, Exception ex, int rest)
+    {
+        Ok(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 段没跑）: " + ex);
     }
 }

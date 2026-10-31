@@ -14,12 +14,14 @@ gen_misc_clips.py — A2「未导出」里**剩下那 11 条 legacy clip** 的�
   · `bundle_battleprefabs_vfxandmisc_assets_all` — `Rupturous Ruination` /
     `Astra Militarum Scene Valkyrie Dawn Attack` / `SweepBackAndForth_narrow` /
     `Dark Angels Void Combat animations` / `LightAnimationOrbit`
-输出：
+输出（**两份，逐字节相同** —— R3-01，2026-10-31 `B106_W45`）：
   · `d:/4/Unity/数据/游戏数据/misc_clips.json`（全量件 · ✅ 可进 git）
-  ⛔ **不写运行期副本**：这 11 条**目前没有运行期消费者**（各自的消费方在别的线的文件里，
-    见每条 `runtimeConsumer` 字段）⇒ 与 `gen_arena_scene_clips.py` 同口径，只落全量数据。
-    将来要接时，镜像件该落在 `MyGame/Assets/CardPresentation/Resources/misc_clips.json`
-    —— 那个目录不归本工具管（铁律 13·3 文件所有权），由主对话另行安排。
+  · `d:/4/Unity/MyGame/Assets/CardPresentation/Resources/misc_clips.json`（运行期镜像件，
+    供 `Resources.Load<TextAsset>("misc_clips")`）
+  ⚠️ **镜像件是同一份内容的逐字节副本**（模照 `gen_division_clips.py:110-111`），不是「精简/换 schema」的
+    运行期板（`gen_battlehud_clips.py` 那种是另一条路，别混）。`--check` **两份都比**。
+  ⚠️ 截至 2026-10-31 这 11 条**仍无运行期消费者**（消费方在别的线的文件里，见每条 `runtimeConsumer`）——
+    镜像件只是把数据放到运行时取得到的位置（R3-02 才接消费者）；**有数据 ≠ 有消费者**，⛔ 别当接线完成。
 
 ## 判据链（逐条，2026-10-23 现核）
 
@@ -88,11 +90,21 @@ A2 §1·1 把 `Astra Militarum Scene Valkyrie Dawn Attack` 与 `SweepBackAndFort
 
 ## 幂等
 跑两遍逐字节相同（clip 按名字升序、曲线按 position→euler→rotation→scale→float 固定类序 + 原序、无时间戳）。
-`--check` 只比对不写盘。
+`--check` 只比对不写盘（**两份都比**）。
+🔴 **不带参数 = 只打印用法并退出（退出码 0），零读零写**；真动作必须显式 `--write`
+（CLAUDE.md「会写盘的脚本：不带显式动作参数时必须什么都不做」）。
 用法：
-    python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py
+    python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py --write
     python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py --check
 """
+USAGE = (
+    '用法：python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py --write\n'
+    '      python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py --check\n'
+    '  选项： --write  真写两份产物（数据/游戏数据 + Resources 镜像件，逐字节相同）\n'
+    '                            —— **唯一会写盘的参数**；不带它 = 只打印本用法并退出，零读零写\n'
+    '         --check  只比对两份产物与现生成，不写盘\n'
+    '  -h, --help     只打印本用法并退出（退出码 0）'
+)
 import glob
 import io
 import json
@@ -106,12 +118,14 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：\n    python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py\n    python -I -X utf8 d:/4/Unity/工具/gen_misc_clips.py --check\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print(USAGE)
     _wf_help_sys.exit(0)
 
 ASSETS = r"d:/2/新解包资源/assets_full"
 BUNDLE_DIR = r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
-DST = r"d:/4/Unity/数据/游戏数据/misc_clips.json"
+DST_FULL = r"d:/4/Unity/数据/游戏数据/misc_clips.json"
+# 运行期镜像件（R3-01）：与全量件**逐字节相同**，模照 `gen_division_clips.py:110-111`。
+DST_RES = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/misc_clips.json"
 
 # clip 名 → (账本键, 原版出处包, 已在哪个重打包包, 谁播它 / 我们的等价值, 是否原版孤儿)
 TARGETS = {
@@ -394,7 +408,8 @@ def build_all():
                  "🔴 切线（si/so）必须逐键保留：只存 (t,v) 重建会把每段变成 ease-in/out，端点断言抓不到。"
                  "🔴 A2 订正：`Astra Militarum Scene Valkyrie Dawn Attack` 与 `SweepBackAndForth_narrow` "
                  "**不是**「0 曲线」—— 前者有 scale/rotation/position，后者有 euler 3 键（A2 只看了 m_FloatCurves）。"
-                 "⛔ 本文件没有运行期副本：这 11 条目前没有运行期消费者（见每条 runtimeConsumer）。"),
+                 "运行期镜像件 = `MyGame/Assets/CardPresentation/Resources/misc_clips.json`（与本文件逐字节相同）。"
+                 "⚠️ 有数据 ≠ 有消费者：截至 2026-10-31 这 11 条仍无运行期消费者（见每条 runtimeConsumer）。"),
         "source": ASSETS,
         "bundles": BUNDLE_DIR,
         "clips": clips,
@@ -479,25 +494,46 @@ def render(doc):
     return json.dumps(doc, ensure_ascii=False, indent=1, sort_keys=False) + "\n"
 
 
+def _write_and_verify(path, txt):
+    d = os.path.dirname(path)
+    if d and not os.path.isdir(d):
+        os.makedirs(d)
+    # 新文件一律 LF（CLAUDE.md：别让脚本翻行尾）
+    with io.open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(txt)
+    # 写完当场回读（防「写完不落盘 / 行尾被翻」——同 `gen_battlehud_clips._write_and_verify`）
+    back = io.open(path, "rb").read()
+    assert back == txt.encode("utf-8"), path
+    print("[gen] 写出 %s（%d 字节）" % (path, len(back)))
+
+
 def main(argv):
     check = "--check" in argv
+    # 🔴 不带显式动作参数 ⇒ 只打印用法并退出（零读零写）。真写盘必须 `--write`。
+    if not check and "--write" not in argv:
+        print(USAGE)
+        return 0 if not argv else 2
     doc = build_all()
     self_check(doc)
     txt = render(doc)
     if check:
-        old = io.open(DST, "r", encoding="utf-8").read() if os.path.exists(DST) else None
-        if old != txt:
-            print("[gen] ✗ 与 %s 不一致" % DST)
+        bad = 0
+        for p in (DST_FULL, DST_RES):
+            if not os.path.exists(p):
+                print("[gen] ✗ %s 不存在" % p)
+                bad = 1
+                continue
+            old = io.open(p, "r", encoding="utf-8").read()
+            if old != txt:
+                print("[gen] ✗ 与 %s 不一致" % p)
+                bad = 1
+        if bad:
             return 1
-        print("[gen] ✅ --check：产物与现生成一致")
+        print("[gen] ✅ --check：两份产物（全量件 + 运行期镜像件）都与现生成一致")
         return 0
-    d = os.path.dirname(DST)
-    if not os.path.isdir(d):
-        os.makedirs(d)
-    # 新文件一律 LF（CLAUDE.md：别让脚本翻行尾）
-    with io.open(DST, "w", encoding="utf-8", newline="\n") as f:
-        f.write(txt)
-    print("[gen] 写出 %s（%d 字节）" % (DST, len(txt.encode("utf-8"))))
+    # 两份写的是**同一个 txt** ⇒ 结构上不可能分叉（镜像 = 逐字节副本）
+    _write_and_verify(DST_FULL, txt)
+    _write_and_verify(DST_RES, txt)
     print("[gen] clip 数 = %d · 长度 = %s" % (len(doc["clips"]),
                                              sorted(round(c["length"], 4) for c in doc["clips"])))
     return 0

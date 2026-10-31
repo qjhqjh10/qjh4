@@ -1015,8 +1015,22 @@ public static class ShellScene
         //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
-        try { RunCore(); }
-        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        // 🆕 2026-10-31（`B106_W16` · AUD11 类 4 · 判据 = `报告/B103_D1.md` 的 A3）：`RunCore` 一条
+        //   `MissingReferenceException` 就让整个宿主 rc=1 且**合计行不印**（外部只看到「没结果」）
+        //   ⇒ 这里兜住：记一次失败 + 出声；`finally` 里照旧印合计、并以 1 退出（⛔ 不让异常逃出 `Run`）。
+        bool runCompleted = false;
+        try { RunCore(); runCompleted = true; }
+        catch (System.Exception e) { _sink.Fail++; Debug.LogError("[ShellScene] RunCore 抛异常（**其后的断言段没跑**）：" + e); }
+        finally
+        {
+            WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled;
+            if (!runCompleted)
+            {
+                Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+                Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**");
+                EditorApplication.Exit(1);
+            }
+        }
     }
 
     /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
@@ -9835,6 +9849,11 @@ public static class ShellScene
 
             // ---- ⑦ 三扇活动窗各自的页签（L01/L02/L03 的「页签」那一半）----
             var gw2 = GachaEventWindow.LastOpened;
+            // 🔴 2026-10-31（`B106_W5` · AUD11 3A-b）：`gw2` 没有前提 ⇒ 它为 null 时下面两节（页签 + 左栏事件钮）
+            //    共 14 条断言**静默空转**。⚠️ 上面那条 `gw != null` 在**块外**、判的也是 `gw` 不是这个 `gw2`，
+            //    而且中间又跑了 4 次 `OpenEventHub` ⇒ 补一条自己的前提。
+            CheckTrue(gw2 != null,
+                      "（前提·不静默）`GachaEventWindow.LastOpened` 拿得到 —— 拿不到时下面两节（页签 + 左栏事件钮）共 14 条断言会静默空转");
             if (gw2 != null)
             {
                 Check(gw2.TabButtonNodes.Count, 1, "Gacha：页签 **1** 颗（原版该窗只有 `The Vault` 这一页）");
@@ -11090,7 +11109,7 @@ public static class ShellScene
 
     public static void Play()
     {
-        Directory.CreateDirectory(ShotDir);
+        Directory.CreateDirectory(ShotDir); bool playStarted = false; try {
         Build(out var root);
         Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);
@@ -11101,14 +11120,14 @@ public static class ShellScene
         Debug.Log(P + "=== 外壳「真 Play」链验证 开始（开场 → 载主菜单）===");
         // 🔴 两件事都是被「进 Play 会域重载」逼出来的：
         //   ① 收尾在**运行时侧**（`EditorApplication.update` 在批处理+Play 下不触发）
-        //   ② 开关用 `SessionState`（**普通静态字段会被域重载清空**）
-        SessionState.SetBool(ShellRuntime.ChainCheckKey, true);
-        try { EditorApplication.EnterPlaymode(); }
+        //   ② 开关用 `SessionState`（**普通静态字段会被域重载清空**）｜🆕 2026-10-31（B106_W20 · 判据 = 报告/B103_D1.md 的 A3）：`Build`/存盘/存根审计/BuildSettings 这几步原来在 `try` 外裸奔 ⇒ 一条异常就零输出 + rc=1；现在整段兜住，失败记一次失败 + 出声、并以 1 退出（成功路径一个字没变）
+        SessionState.SetBool(ShellRuntime.ChainCheckKey, true); EditorApplication.EnterPlaymode(); playStarted = true; }
         catch (System.Exception e)
         {
-            Debug.LogError(P + "✗ 批处理里进不了 Play 模式：" + e.Message);
-            EditorApplication.Exit(1);
+            _sink.Fail++;
+            Debug.LogError(P + "✗ Play 链前段（Build → 存盘 → 存根审计 → BuildSettings → EnterPlaymode）抛异常（**其后的步骤没跑**）：" + e);
         }
+        finally { if (!playStarted) EditorApplication.Exit(1); }
     }
     static void AddToBuildSettings(string path)
     {

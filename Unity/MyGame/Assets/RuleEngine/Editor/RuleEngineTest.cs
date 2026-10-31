@@ -1366,6 +1366,12 @@ public static partial class RuleEngineTest
         }   // 🆕 B94_F1（账 534/455）：墓地放逐闩 + 誓约出牌费 —— 断言全文在 `RuleEngineTest_EngineB94F1.cs`
         { Guard("CheckB94F1CemeteryExileAndOathPay", CheckB94F1CemeteryExileAndOathPay); Guard("CheckB94Y1TroopKilled", CheckB94Y1TroopKilled); Guard("CheckB94W3DeathTurnPredicate", CheckB94W3DeathTurnPredicate); Guard("B94B3EngineGaps", B94B3EngineGaps); Guard("CheckB94B2EngineGaps", CheckB94B2EngineGaps); Guard("CheckB94B8Engine", CheckB94B8Engine); Guard("CheckB94Z3RuleCoreGaps", CheckB94Z3RuleCoreGaps); Guard("CheckB94B1EngineGaps", CheckB94B1EngineGaps); Guard("CheckB94Z2HandAbilityChannel", CheckB94Z2HandAbilityChannel); Guard("CheckB94B12TransformUnit", CheckB94B12TransformUnit); Guard("CheckB94B13RuleCoreWiring", CheckB94B13RuleCoreWiring); Guard("CheckB94B16Engine", CheckB94B16Engine); Guard("B94B15EngineGaps", B94B15EngineGaps); Guard("CheckB94B14EffectResolverGaps", CheckB94B14EffectResolverGaps); Guard("CheckB94B19TutorialGate", CheckB94B19TutorialGate); Guard("CheckB94B21DormantBroadcasts", CheckB94B21DormantBroadcasts); Guard("CheckB94B20CreateAtPos", CheckB94B20CreateAtPos); Guard("CheckB94B24SeatAndActingCard", CheckB94B24SeatAndActingCard); Guard("CheckB94B23AbilityBuffs", CheckB94B23AbilityBuffs); Guard("CheckB95WRSGaps", CheckB95WRSGaps); Guard("CheckB97W3CemeteryDequeueAndTransformTail", CheckB97W3CemeteryDequeueAndTransformTail); }   // 🆕 2026-10-29（调度台代接线；B95WRS = UnitState 866/636 两处）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
 
+        // 🆕 2026-10-31（调度台接线 · B106_W57）：`Avenging Zeal` 的 `TriggeredCodex` 路由 + 手牌触发 `InstanceId`
+        //   断言全文在 `CardPresentation/Editor/B106_W57_Assert.cs`（`public static partial class RuleEngineTest`）。
+        {
+            B106W57();
+        }
+
         // 🆕 2026-10-31（调度台 · AUD11）：`EngineE1Assert`（v24 三列 / 版本守卫 / 按能力种类归位）
         //   头注释自己写着「请主对话并进宿主」，此前**全仓 0 宿主** ⇒ 一条都没跑过。
         {

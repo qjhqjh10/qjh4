@@ -64,7 +64,7 @@ namespace CardPresentation
         /// <summary>当前生效的一份（启动链将来从远端配置建；现在恒 <see cref="Default"/>）。</summary>
         public static LiveOpsFeatureConfig Current = Default;
 
-        /// 🔶 自己设计（非原版）：`IsHandlerEnabled` 恒 true · 原版真值在远端配置里 · TODO(谁定的)｜原注：<summary>某个 handler 是否启用。⚠️ **口径是我们挑的**（原版真值在远端配置里）——账里已标。</summary>
+        /// 🔶 自己设计（非原版）：`IsHandlerEnabled` 恒 true · 原版真值在远端配置里 · 第八十会话 2026-10-25 执行代理 E2 建框架时定为最小占位（出处 `资料/完全复刻/报告/E2_LiveOps框架_第2轮.md:157` §⑤-5；⛔ 非用户拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：<summary>某个 handler 是否启用。⚠️ **口径是我们挑的**（原版真值在远端配置里）——账里已标。</summary>
         public bool IsHandlerEnabled(string handlerKey) { return true; }
     }
 

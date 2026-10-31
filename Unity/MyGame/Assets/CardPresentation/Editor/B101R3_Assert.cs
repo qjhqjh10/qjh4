@@ -43,13 +43,14 @@ public static class B101R3_Assert
         Pass = 0; Fail = 0;
         try
         {
-            RunResourceGate();
-            RunDraft();
-            RunSettings();
+            // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前三组挤在同一个 try 里 ⇒ 一组抛异常后面全不跑。
+            try { RunResourceGate(); } catch (Exception e) { SegFail("⓪ 资源闸", e, 2); }
+            try { RunDraft(); } catch (Exception e) { SegFail("① A1 轮抽结算页", e, 1); }
+            try { RunSettings(); } catch (Exception e) { SegFail("③ A3 设置窗社交图标", e, 0); }
         }
         catch (Exception e)
         {
-            Ok(false, "断言宿主抛异常（后面的条目没跑完）：" + e);
+            Ok(false, "断言宿主抛异常（保护之外；后面的条目没跑完）：" + e);
         }
         finally
         {
@@ -299,5 +300,12 @@ public static class B101R3_Assert
             if (r != null) return r;
         }
         return null;
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：用本文件既有的 `Ok` 口记一次失败，
+    /// 文案写明「其 N 组没跑」。<paramref name="rest"/> = 这一组之后还有几组。</summary>
+    static void SegFail(string section, Exception e, int rest)
+    {
+        Ok(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 组没跑）: " + e);
     }
 }

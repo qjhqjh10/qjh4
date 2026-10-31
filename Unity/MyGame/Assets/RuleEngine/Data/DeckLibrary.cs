@@ -159,7 +159,7 @@ namespace RuleEngine
         /// <param name="gameMode">本副卡组的模式（`0` 经典 / `13` 遭遇）。照原版
         /// `SelectDecksTab.CreateDeck`：**新建那一刻就把当前模式打进卡组**，之后没有改的路径
         /// （判据 → `资料/加时与冲突模式_原版规格.md` §2.7）。</param>
-        public PlayerDeck Create(string name, int gameMode = 0)
+        [System.Obsolete("潜伏误用（B106_W7 2026-10-31）：原版「新建」不入库（A1697 / SelectDecksTab.CreateDeck ⇒ GetEmptyDeck + 直接开窗）。生产请用 NewUnsaved() 造、走 Done 那条 Validate→Insert 链；本口只服务自检夹具。")] public PlayerDeck Create(string name, int gameMode = 0)
         {
             var d = new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name),
                                    null, null, null, gameMode);

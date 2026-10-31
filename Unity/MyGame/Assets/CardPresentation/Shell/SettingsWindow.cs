@@ -1485,6 +1485,16 @@ namespace CardPresentation
         /// <summary>弹窗里那个 `ErrorMensajeContainer`（左边那颗转圈的骷髅 + 右边错误行）——
         /// **开弹窗时整块关掉**（原版 `BasicLoginWithEmailWindow__Open.c` 那句 `SetActive(0)`）。</summary>
         Transform _lwErrorBox;
+        /// <summary>🆕 **B106_W15（2026-10-31）**：弹窗里那颗 `Animated Loading Image`（`Cog` 的父）——
+        /// 原版提交时 `SetActive(true)`（判据 = `BasicLoginWithEmailWindow__LoginButtonClick.c` 的 `+0xa0`）。</summary>
+        Transform _lwLoading;
+        /// <summary>弹窗那颗 `Login Button` 的 `WindowButton`（= 原版 `+0x78` 那颗 `Selectable` ——
+        /// 长度闸与等待态都开关它的 `interactable`）。</summary>
+        WindowButton _lwLoginBtnWb;
+        /// <summary>正在等服务器应答（= 原版 `waitingResponseObject` 那一档）。</summary>
+        bool _lwWaiting;
+        /// <summary>等待态剩余秒数（见 `BeginLoginWaiting` 的 🔶 说明）。</summary>
+        float _loginWaitTimer;
         /// <summary>被 `RefreshAccount()` 开关的那几颗（**判据 = `AccountTab__Refresh.c` 只 `SetActive` 这 6 处**；
         /// 其余几颗（`Logout` / `Delete` / `Twitch` / `Login Window` / `Player Id`）原版**一个字都不碰**
         /// ⇒ 停在 prefab 值，本窗也照原样不碰）。</summary>
@@ -1668,6 +1678,7 @@ namespace CardPresentation
             // ⚠️ 就算不在这儿清、`RebuildGfxRows()` 开头也会清一次 —— 这一句是**防「这次没跑到那一步」**的那一档
             //   （同上面那行 `_tabLabels.Clear()` 一族的理由：不清就指着上一棵树里已销毁的件，整条链白走一遍）。
             _gfxRowLabels.Clear();
+            SmallScreenRequestedForTest.Clear();   // B106_W15：小屏字号接线读口（每次建树重记一份）
             // 🆕 2026-10-18（联机页 `_flash` 现算工厂）：那条工厂抓的是**这一棵树里的** `MenuInputField`
             //   （主机 Save 那一条）⇒ 与 `_onLabels` 同一个理由：不清就指着上一棵树里已销毁的件。
             //   ⚠️ `_flashStore` **不清** —— 原来那个 `string` 字段跨 `Build()` 也不清（开窗后状态行上
@@ -1685,6 +1696,7 @@ namespace CardPresentation
             //   （弹窗子树、四颗输入框、两颗错误行 `Label`）⇒ 与 `_langList` 同一条理由
             //   （不清 = 指着上一棵树里已销毁的件 ⇒ 假 null，守卫挡住不炸但那一格**永远不再更新**）。
             _loginWindow = null; _loginCloseIcon = null; _lwErrorBox = null; _lwCog = null; _cogAngle = 0f;
+            _lwLoading = null; _lwLoginBtnWb = null; _lwWaiting = false; _loginWaitTimer = 0f;   // B106_W15
             _acEmail = null; _acPwd = null; _lwEmail = null; _lwPwd = null;
             _acError = null; _lwError = null; _acPid = null;
             _acRegisterBtn = null; _acULoginBtn = null; _acResetBtn = null; _acForgotBtn = null;
@@ -1939,7 +1951,7 @@ namespace CardPresentation
                               specs[i].Key != null ? Term(specs[i].Key, specs[i].Label) : specs[i].Label,
                               cm - 155f * 0.5f, cm + 155f * 0.5f,
                               t + 106f, t + 146f, 35f, Color.white, QText,
-                              null, 0f, 10f, 35f, 35f);
+                              null, 0f, 10f, 35f, 35f, 38f, 10f);   // B106_W15：小屏档 38/10（§3·11 页签栏）
                 // 🔴 **2026-10-09（第十会话 · `D1` 诊断 · 真缺陷 β）**：这里原来走**裸 `Loc.T(键)`**
                 //   ⇒ 缺键时把**键名本身**印上页签（实测：`Account` 那一格印出 `Settings/Account/Title`）。
                 //   改走本窗的两步漏斗 `Term(键, 原版英文)`（同页的页标题 `PageTitle(page, AcTerm(...))` 本来就走对了）；
@@ -2234,7 +2246,7 @@ namespace CardPresentation
             //    🆕 A1181：自适应 = 原版 `4 / 55 / 55` + `折行 1`（逐字段实读，见 `PageTitle` 的注释）
             var title = Text(page, "Tab Title", Loc.T(lkGenTitle), TitleL, TitleR, TitleT, TitleB,
                              PageTitleFontPx, Color.white, QText,
-                             null, TitleR - TitleL, 4f, PageTitleFontPx, PageTitleFontPx);
+                             null, TitleR - TitleL, 4f, PageTitleFontPx, PageTitleFontPx, 62f, 10f);   // B106_W75 修 R7：小屏两格 `ssMaxPx/ssMinPx` 与 `PageTitle:6355` 逐字同值（本页是内联建标题，原来漏传）
             if (title != null)
             {
                 AlignLeft(title, new PxRect(TitleL, TitleT, TitleR, TitleB));
@@ -2246,7 +2258,7 @@ namespace CardPresentation
             //    🆕 A1181：自适应 = 原版 `1 / 28 / 26`（**base 26 ≠ fs 28** —— 逐字段实读，⛔ 别按 fs 推）+ `折行 1`
             var ver = Text(page, "VersionText", VersionText(), GenVerL, GenVerR, GenVerT, GenVerB,
                            GenVerFontPx, Color.white, QText,
-                           null, GenVerR - GenVerL, 1f, 28f, 26f);
+                           null, GenVerR - GenVerL, 1f, 28f, 26f, 32f, 5f);   // B106_W15：小屏档 32/5（§3·11 `VersionText`）
             if (ver != null) AlignRight(ver, new PxRect(GenVerL, GenVerT, GenVerR, GenVerB));
 
             // ③ 语言（原版 `General Tab > Language Selector`，组件 `LanguageSelector`）
@@ -2273,7 +2285,7 @@ namespace CardPresentation
                 _langCap = Text(fld, "Label", Loc.LanguageName(Loc.Current),
                                 GenL + GenCapInset, GenFieldR - GenCapInset, GenSelT, selB,
                                 GenCapFontPx, GenCapColor, QText,
-                                null, 0f, 18f, 40f, 14f);
+                                null, 0f, 18f, 40f, 14f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 语言 caption）
                 if (_langCap != null)
                     AlignLeft(_langCap, new PxRect(GenL + GenCapInset, GenSelT, GenFieldR - GenCapInset, selB));
                 // 右端那个箭头（原版 `Arrow`：20×20 · **preserveAspect** · 图名是我们的选择，见常量注释；
@@ -2285,7 +2297,7 @@ namespace CardPresentation
                 // 🆕 A1181：自适应 = 原版 `29 / 42 / 36 · 折行 1`（逐字段实读）
                 var sel = Text(row, "SelectLanguageText", Loc.T(lkSelectLang), GenSelTextL, GenR,
                                GenSelTextT, GenSelTextT + GenSelH, FontRowLabel, Color.white, QText,
-                               null, GenR - GenSelTextL, 29f, 42f, 36f);
+                               null, GenR - GenSelTextL, 29f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11 `SelectLanguageText`）
                 if (sel != null)
                 {
                     AlignLeft(sel, new PxRect(GenSelTextL, GenSelTextT, GenR, GenSelTextT + GenSelH));
@@ -2309,16 +2321,25 @@ namespace CardPresentation
             }
 
             // ④ 三个勾选行（原版 `General Tab > Checkboxes`：VLG · 行高 75.641 · spacing 5）
+            //   🔴 **B106_W15（2026-10-31）**：原版 `GeneralTab.OnSetup` 第一句就把 `Disable Notifications`
+            //     **整行关掉**（判据 = `decomp_full/GeneralTab__OnSetup.c`：`SetActive(*(param_1+0x40).gameObject, 0)`，
+            //     `+0x40` = `disableNotificationsToggle`）⇒ General 页**只有两颗可见勾选**。
+            //     而 `Checkboxes` 是 `VerticalLayoutGroup`（现读 `MonoBehaviour_-8816793191438516314.json`：
+            //     `m_ChildAlignment 0(UpperLeft)` · `m_Spacing 5` · `m_Padding 全 0` · `m_ChildControlHeight 0`）
+            //     ⇒ **跳过 inactive 子件** ⇒ `Touch Input` 上移到**第 2 格**（`GenChkT + 1 × ChkRowStep`）。
+            //     ⛔ 别让它停在原来的第 3 格（那样第 2 格会空一行）。
             GenToggleRow(page, "Disable Bots", GenChkT, lkDisableBots,
                          () => GeneralFlags.DisableBots, () => GeneralFlags.DisableBots = !GeneralFlags.DisableBots,
                          ToggleDisableBotsLog);
-            GenToggleRow(page, "Disable Notifications", GenChkT + ChkRowStep, lkDisableNotif,
+            var notifRow = GenToggleRow(page, "Disable Notifications", GenChkT + ChkRowStep, lkDisableNotif,
                          () => GeneralFlags.DisableNotifications,
                          () => GeneralFlags.DisableNotifications = !GeneralFlags.DisableNotifications,
                          ToggleDisableNotifLog);
-            GenToggleRow(page, "Touch Input", GenChkT + 2f * ChkRowStep, lkTouchInput,
+            GenToggleRow(page, "Touch Input", GenChkT + ChkRowStep, lkTouchInput,
                          () => GeneralFlags.TouchInput, () => GeneralFlags.TouchInput = !GeneralFlags.TouchInput,
                          ToggleTouchInputLog);
+            // 原版恒不显示（行照建、不删件 —— 铁律 11：不因「用不上」而不建）
+            if (notifRow != null) notifRow.gameObject.SetActive(false);
 
             // ⑤ 底下两颗钮（原版 `Bottom Buttons`：HLG spacing 40 · 各 300×90）
             GenButton(page, "Redeem Code", GenL, lkRedeemCode, GenBtnFont1, RedeemCode);
@@ -2369,7 +2390,7 @@ namespace CardPresentation
         /// `Shell/AlliancePanelWindow.LocOr`（`:152-159`，「`HasEntry ? Loc.T : prefab 英文`」）**逐字同形**。
         /// <para>🔴 **2026-10-19（A1185）就地更正（铁律 5）**：这里原来写「本页那批原版键**还没进** `Core/Loc.cs`」
         /// —— **已过期**（那一批已进表）⇒ 现在**正常路径走第一档**；第二档留着当**新增键时的安全网**
-        /// （⛔ 别删：删了以后任何一条漏进表的键都会**静默印英文**，而且没人知道）。</para>
+        /// （⛔ 别删：删了以后任何一条漏进表的键都会**静默印英文**，而且没人知道）。🔴 **2026-10-31（AUD07 P1 · 裁定：保持窄谓词）**：触发那条 `Debug.LogWarning` 的 `Loc.HasEntry(key)` 是**故意只查手写表**的哨兵 —— ⛔ 别改宽成 `HasAnyTerm`（那样「新增键漏进手写表」就再也不告警了）。</para>
         /// <para>⚠️ **不能写成 `Loc.T(键) ?? 兜底`**：`Loc.T` **缺键返回的是键名本身**（不是 null）
         /// ⇒ 那样会把**键名印到屏幕上**。必须先 `Loc.HasAnyTerm`（三档一起算；判据 = `Loc.T` 的 doc）。</para>
         /// <para>⚠️ 本函数**同时是支持页的漏斗**（`Term` → `AcTerm`）—— 支持页那九条键也走同一条路，
@@ -2402,7 +2423,7 @@ namespace CardPresentation
         /// <para>⚠️ 那 6 条键（`Settings/Media/WindowMode*` · `Settings/CardTextInHand/*` ·
         /// `Settings/Graphics/SelectTextOfCardsInHand`）**2026-10-17 现读还不在 `Core/Loc.cs` 里**
         /// （`Loc.cs` 那条只是注释、不是词条）—— 而 `Core/Loc.cs` **不在本件白名单**
-        /// ⇒ 本笔只保证「缺键不静默、不把键名印到屏上」，补键由调度台另派。</para></summary>
+        /// ⇒ 本笔只保证「缺键不静默、不把键名印到屏上」，补键由调度台另派。🔴 **2026-10-31（AUD07 P1 · 裁定：保持窄谓词）**：触发 `Debug.LogWarning` 的 `Loc.HasEntry(key)` 与 `AcTerm` **同一条** —— **故意只查手写表**的哨兵，⛔ 别改宽成 `HasAnyTerm`。</para></summary>
         const string WinTermWhere = "设置窗媒体页（WindowMode）";
         const string TihTermWhere = "设置窗图像页（Text In Hand）";
         static string UiTerm(string key, string origEn, string where)
@@ -2535,7 +2556,7 @@ namespace CardPresentation
                 //   （⚠️ 登录弹窗里同名的两颗**下限不同**（32 / 29）—— 两棵树各取各的，见 `BuildLoginWindow`）。
                 var lblEmail = Text(form, "EmailText", AcTerm(lkAcEmail, "E-mail"), AcLblL, AcLblR,
                                     AcEmailLblT, AcEmailLblT + AcLblH, AcFormFontPx, Color.white, QText,
-                                    null, AcLblR - AcLblL, 10f, 37f, 37f);
+                                    null, AcLblR - AcLblL, 10f, 37f, 37f, 47f, 10f);   // B106_W15：小屏档 47/10（§3·11）
                 if (lblEmail != null) AlignLeft(lblEmail, new PxRect(AcLblL, AcEmailLblT, AcLblR, AcEmailLblT + AcLblH));
                 OnLangText(lblEmail, () => AcTerm(lkAcEmail, "E-mail"));
                 _acEmail = AcInput.Create(form, "InputEmail", new PxRect(AcInL, AcEmailInT, AcInR, AcEmailInT + AcInH),
@@ -2543,7 +2564,7 @@ namespace CardPresentation
 
                 var lblPwd = Text(form, "PasswordText", AcTerm(lkAcPassword, "Password"), AcLblL, AcLblR,
                                   AcPwdLblT, AcPwdLblT + AcLblH, AcFormFontPx, Color.white, QText,
-                                  null, AcLblR - AcLblL, 10f, 37f, 37f);
+                                  null, AcLblR - AcLblL, 10f, 37f, 37f, 47f, 10f);   // B106_W15：小屏档 47/10（§3·11）
                 if (lblPwd != null) AlignLeft(lblPwd, new PxRect(AcLblL, AcPwdLblT, AcLblR, AcPwdLblT + AcLblH));
                 OnLangText(lblPwd, () => AcTerm(lkAcPassword, "Password"));
                 _acPwd = AcInput.Create(form, "InputPassword", new PxRect(AcInL, AcPwdInT, AcInR, AcPwdInT + AcInH),
@@ -2559,7 +2580,7 @@ namespace CardPresentation
                     //   逐字段实读 = `fs 32` · `min **29**` · `max **32**` · `base **36**`（**base > fs**！）· `折行 **1**`
                     var lb = Text(_acResetBtn, "Text", AcTerm(lkAcResetPwd, "Reset Password"),
                                   AcLinkL, AcLinkR, AcLinkT, AcLinkB, AcLinkFontPx, AcLinkColor, QText,
-                                  null, AcLinkR - AcLinkL, 29f, 32f, 36f);
+                                  null, AcLinkR - AcLinkL, 29f, 32f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10（§3·11 Reset Password）
                     if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB));
                     OnLangText(lb, () => AcTerm(lkAcResetPwd, "Reset Password"));
                     Hit(_acResetBtn, "Hit", AcLinkL, AcLinkT, AcLinkR, AcLinkB, QOverlay,
@@ -2569,7 +2590,7 @@ namespace CardPresentation
                 {
                     var lb = Text(_acForgotBtn, "Text", AcTerm(lkAcForgotPwd, "Forgot Password"),
                                   AcLinkL, AcLinkR, AcLinkT, AcLinkB, AcLinkFontPx, AcLinkColor, QText,
-                                  null, AcLinkR - AcLinkL, 29f, 32f, 36f);
+                                  null, AcLinkR - AcLinkL, 29f, 32f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10（§3·11 Forgot Password）
                     if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB));
                     OnLangText(lb, () => AcTerm(lkAcForgotPwd, "Forgot Password"));
                     Hit(_acForgotBtn, "Hit", AcLinkL, AcLinkT, AcLinkR, AcLinkB, QOverlay,
@@ -2580,7 +2601,7 @@ namespace CardPresentation
                 // ⚠️ **每次模拟动作都会往这一行写字**（含「本机模拟」那句）⇒ 它是本页**对玩家的唯一诚实出口**。
                 _acError = Text(form, "Error Message", "", AcErrL, AcErrR, AcErrT, AcErrB,
                                 AcFormFontPx, AcErrColor, QText,
-                                null, AcErrR - AcErrL, 29f, 37f, 37f);     // 🆕 A1181：原版 `29 / 37 / 37 · 折行 1`
+                                null, AcErrR - AcErrL, 29f, 37f, 37f, 45f, 10f);     // 🆕 A1181：原版 `29 / 37 / 37 · 折行 1` · B106_W15 小屏档 45/10（§3·11）
                 if (_acError != null) AlignLeft(_acError, new PxRect(AcErrL, AcErrT, AcErrR, AcErrB));
             }
 
@@ -2592,7 +2613,7 @@ namespace CardPresentation
                 //   `fs 40` · `min **32**` · `max **40**` · `base **44**`（**base > max**）· `折行 **1**`
                 var lb = Text(_acNewsBtn, "Label", AcTerm(lkAcNewsletter, "Subscribe to the Newsletter?"),
                               AcNewsL, AcNewsR, AcNewsT, AcNewsB, AcNewsFontPx, Color.white, QText,
-                              null, AcNewsR - AcNewsL, 32f, 40f, 44f);
+                              null, AcNewsR - AcNewsL, 32f, 40f, 44f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 Subscribe Newsletter）
                 if (lb != null) AlignLeft(lb, new PxRect(AcNewsL, AcNewsT, AcNewsR, AcNewsB));
                 OnLangText(lb, () => AcTerm(lkAcNewsletter, "Subscribe to the Newsletter?"));
                 Hit(_acNewsBtn, "Hit", AcNewsL, AcNewsT, AcNewsR, AcNewsB, QOverlay,
@@ -2671,6 +2692,13 @@ namespace CardPresentation
                 _acDeleteBtn = AccountBigButton(btns, "Delete Button", AcDeleteL, AcDeleteT, AcDeleteR, AcDeleteB,
                                                 AcDeleteTint, lkAcDeleteAcc, "Delete account", AcBtnText[3],
                                                 () => SettingsDeleteAccountFlow.InactivateAccount(this), null, 40f);   // 原版 = `InactivateAccount` → `DisplayDeleteAccountMessage`（账 `个人资料_成就_排行:2`；实现在 `Shell/SettingsDeleteAccountFlow.cs`）
+                // 🔴 **B106_W15（2026-10-31）**：原版 `Buttons` 的 `PlatformBasedComponents`
+                //   （`MB_-5737942901599141978.json`：android=**1** / iOS=**1** / **PC=0**）且
+                //   `PlatformBasedComponents.Start` **无条件只跑 PC 组**（`PlatformBasedComponents__Start.c`
+                //   比对 `platformType == 0x14(20=PC)` ⇒ 逐个 `DoToggle()` 落到序列化值 0）
+                //   ⇒ **PC 上删号钮永远不显示**。我们原来无条件建、留着 ⇒ 多一颗「Delete account」。
+                //   ⚠️ 结构照原样留着（换个平台就该亮，⛔ 别删件）。
+                if (_acDeleteBtn != null) _acDeleteBtn.gameObject.SetActive(Application.isMobilePlatform);
 
                 // `Registered Buttons`（HLG · 660×90 · 内含 300×90 两颗）
                 var regd = Node(btns, "Registered Buttons", AcRegdL, AcRegdT, AcRegdR, AcRegdB);
@@ -2712,7 +2740,7 @@ namespace CardPresentation
             var bg = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, tint, true);
             var lb = Text(n, "Button Text", AcTerm(key, origEn), txtRect.x1, txtRect.x2, txtRect.y1, txtRect.y2,
                           fontPx.HasValue ? fontPx.Value : AcBtnFontPx, Color.white, QText,
-                          null, 0f, 12f, autoMaxPx, 12f);
+                          null, 0f, 12f, autoMaxPx, 12f, 44f, 12f);   // B106_W15：小屏档 44/12（§3·11 大钮 Button Text）
             OnLangText(lb, () => AcTerm(key, origEn));
             Hit(n, "Hit", x1, y1, x2, y2, QOverlay, onClick, bg, ArtButton);
             return n;
@@ -2776,11 +2804,18 @@ namespace CardPresentation
         {
             if (_loginWindow == null) { Debug.LogWarning("[Settings] 登录弹窗不在树上（`OpenTab` 没建到账号页？）—— 不静默"); return; }
             // 照原版 `BasicLoginWithEmailWindow__Open.c`：两颗输入框清空、错误块关掉、关窗钮恢复可交互
+            // 🆕 B106_W15：原版 `Open()` 还做三件 —— 关掉 `Animated Loading Image`（`+0xa0 SetActive(0)`）、
+            //   两颗输入框恢复可编辑、那颗 `Login Button` 按长度闸重算（刚打开两格空 ⇒ 不可点）。
+            _lwWaiting = false; _loginWaitTimer = 0f;
+            if (_lwLoading != null) _lwLoading.gameObject.SetActive(false);
+            if (_lwEmail != null) _lwEmail.SetInteractable(true);
+            if (_lwPwd != null) _lwPwd.SetInteractable(true);
             if (_lwEmail != null) _lwEmail.SetText("");
             if (_lwPwd != null) _lwPwd.SetText("");
             if (_lwError != null) _lwError.SetText("");
             if (_lwErrorBox != null) _lwErrorBox.gameObject.SetActive(false);
             _loginWindow.gameObject.SetActive(true);
+            CheckLoginButtonState();
             Debug.Log("[Settings] 账号页：开 `Login Window`（原版 `Switch Account` 走的就是这一条）");
         }
 
@@ -2789,22 +2824,27 @@ namespace CardPresentation
         {
             if (_loginWindow == null || !_loginWindow.gameObject.activeSelf) return;
             _loginWindow.gameObject.SetActive(false);
+            _lwWaiting = false; _loginWaitTimer = 0f;   // B106_W15：关掉弹窗 ⇒ 等待态作废（原版那棵子树整棵关）
             Debug.Log("[Settings] 账号页：关 `Login Window`");
         }
 
         /// <summary>弹窗里那颗 `Login Button `（`BasicLoginWithEmailWindow.LoginButtonClick` 的本地模拟版：
-        /// 原版那一下会先 `set_interactable(false)` + 把 `<b>Searching…</b>` 那行亮起来再打服务器）。</summary>
+        /// 原版那一下会先 `set_interactable(false)` + 把 `<b>Searching…</b>` 那行亮起来再打服务器）。
+        /// <para>🆕 **B106_W15（2026-10-31）**：补上**长度闸**与**等待态** —— 见 <see cref="LoginButtonEnabled"/> /
+        /// <see cref="BeginLoginWaiting"/>。⛔ 原来「判非空就当场登录」那两档已被原版判据替换。</para></summary>
         public void LoginWindowSubmit()
         {
-            string em = _lwEmail != null ? _lwEmail.Text : "";
-            string pw = _lwPwd != null ? _lwPwd.Text : "";
-            if (string.IsNullOrEmpty(em) || string.IsNullOrEmpty(pw))
+            if (_lwWaiting)
+            {
+                Debug.Log("[Settings] 登录请求等待中 ⇒ 这一次点击忽略（原版那颗钮此时 `interactable = false`）");
+                return;
+            }
+            string em = _lwEmail != null ? _lwEmail.Text : "";   // 只用于下面那道闸（收尾在 `FinishLoginWaiting` 里再取一次）
+            // 🔴 原版那道长度闸（`email.Length > 4` ∧ `password.Length > 5`）：钮本身已按它 `interactable`
+            //   （`CheckLoginButtonState`），这里**再挡一道** —— 程序化调用 / 自检直调不走那颗钮。
+            if (string.IsNullOrEmpty(em) || !LoginButtonEnabled)
             { AccountLocalNote("Log in", AcLocalNote + " | " + AcInvalidPassword); return; }
-            AccountState.SignIn(em);
-            HideLoginWindow();
-            if (_acEmail != null) _acEmail.SetText(em);
-            RefreshAccount();
-            AccountLocalNote("Log in", AcLocalNote);
+            BeginLoginWaiting();
         }
 
         /// <summary>登出（原版 `AccountTab__LogOut` 是个协程、走 `NetworkingPeer` + PlayFab）⇒ **本地模拟**。</summary>
@@ -2815,8 +2855,99 @@ namespace CardPresentation
             AccountLocalNote("Logout", AcLocalNote);
         }
 
+        // ============================================================ 🆕 B106_W15（2026-10-31）登录弹窗：长度闸 + 等待态
+        //
+        // 判据（逐句实读 `d:/2/tools/decomp_full/`）：
+        //   · 长度闸 = `BasicLoginWithEmailWindow__EmailInputChanged.c`（`*(bool*)(this+0xa8) = 4 < email.Length`）
+        //             + `__PasswordInputChanged.c`（`*(bool*)(this+0xa9) = 5 < password.Length`）
+        //             + `__CheckLoginButtonState.c`（`loginButton.interactable = emailValid && passwordValid`）；
+        //             两颗输入框的 `onValueChanged` 各挂一条（`Open()` 里 `UnityEvent<bool>.AddListener`）；
+        //   · 等待态 = `__LoginButtonClick.c`：`set_interactable(loginButton, 0)` → 错误行 `set_text(TryingToLogin)`
+        //             → `SetActive(错误行 GameObject, 1)` → `SetActive(+0xa0 Animated Loading Image, 1)` → 打服务器；
+        //             还有一句 `ChatPreviewMessage.Enable(…, 0)`（那是聊天预览那条**无关**的副作用，本地无对应物）；
+        //   · 收尾 = 回调 A6（成功 ⇒ 关窗）/ A5（失败 ⇒ 错误行染红 + 关等待态）。
+        // 🔴 **本地没有服务器** ⇒ 收尾一律按「成功」走（= A6 关窗）；**A5 的失败档不可达**（没有错误源）。
+        //    如实登记，⛔ 不自造一个假错误（铁律 2：没查到就说没查到）。
+
+        /// <summary>那颗 `Login Button` 今天该不该可点 —— 原版 `CheckLoginButtonState` 的算式
+        /// （`email.Length > 4` ∧ `password.Length > 5`）。</summary>
+        public bool LoginButtonEnabled
+        {
+            get
+            {
+                int el = _lwEmail != null ? _lwEmail.Text.Length : 0;
+                int pl = _lwPwd != null ? _lwPwd.Text.Length : 0;
+                return el > 4 && pl > 5;
+            }
+        }
+
+        /// <summary>= 原版 `CheckLoginButtonState()`：把上面那个算式落到那颗钮的 `interactable` 上。</summary>
+        public void CheckLoginButtonState()
+        {
+            // 🔴 等待态期间**恒不可点**（原版等待态那句 `set_interactable(false)` 之后不会再被输入回调拉回来；
+            //   我们这里输入框改文本后仍会走本函数 ⇒ 用 `_lwWaiting` 兜住）。
+            if (_lwLoginBtnWb != null) _lwLoginBtnWb.Interactable = !_lwWaiting && LoginButtonEnabled;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：等待态的**停留时长**。
+        /// 原版这一档的长度 = 服务器 RTT（`LoginWithEmailHelper.Login` 的回调才收尾）⇒ 判据在远端，
+        /// 关服后本地永远拿不到。我们本地模拟没有真实 RTT ⇒ 取一个「看得见但不烦人」的固定值。
+        /// **只有时长是自定的，状态机本身（钮禁用 / 错误行 / 加载图）照原版**。· 调度台 2026-10-31 裁定</summary>
+        const float LoginWaitSeconds = 0.6f;
+
+        /// <summary>= 原版 `BasicLoginWithEmailWindow.LoginButtonClick` 前半段（`:84-102`）：
+        /// 钮置不可交互 · 错误块亮起 · 那行字换成 `MainMenu/Login/TryingToLogin` · `Animated Loading Image` 亮。
+        /// <para>⚠️ 原版那句 `EventSystemController.Toggle(false)`（禁输入）在本工程没有对应物 ⇒ 等价物 =
+        /// **两颗输入框也置不可交互**（同一效果：等待期间编不了）。</para></summary>
+        void BeginLoginWaiting()
+        {
+            _lwWaiting = true;
+            _loginWaitTimer = LoginWaitSeconds;
+            if (_lwLoginBtnWb != null) _lwLoginBtnWb.Interactable = false;
+            if (_lwEmail != null) _lwEmail.SetInteractable(false);
+            if (_lwPwd != null) _lwPwd.SetInteractable(false);
+            if (_lwErrorBox != null) _lwErrorBox.gameObject.SetActive(true);
+            // 官方 I2：`MainMenu/Login/TryingToLogin` = en "Logging in" / zh "登录中"（`官方本地化_en+zh-CN.json`）
+            if (_lwError != null) _lwError.SetText(Loc.T("MainMenu/Login/TryingToLogin"));
+            if (_lwLoading != null) _lwLoading.gameObject.SetActive(true);
+            Debug.Log("[Settings] 登录：进入等待态（= 原版 `waitingResponseObject` 那一档）");
+        }
+
+        /// <summary>收尾（原版回调 A6 / A5 那一跳）。本地模拟没有服务器 ⇒ **一律按「成功」收**（= A6：关窗）。</summary>
+        void FinishLoginWaiting()
+        {
+            _lwWaiting = false;
+            _loginWaitTimer = 0f;
+            string em = _lwEmail != null ? _lwEmail.Text : "";
+            HideLoginWindow();
+            AccountState.SignIn(em);
+            if (_acEmail != null) _acEmail.SetText(em);
+            RefreshAccount();
+            AccountLocalNote("Log in", AcLocalNote);
+        }
+
+        /// <summary>每帧推进等待态（`Update` 里调）。⚠️ 批处理 `Update` 不跑 ⇒ 自检走 <see cref="PumpLoginWaitForTest"/>。</summary>
+        void TickLoginWait(float dt)
+        {
+            if (!_lwWaiting) return;
+            if (!LoginWindowOpen) { _lwWaiting = false; _loginWaitTimer = 0f; return; }
+            _loginWaitTimer -= dt;
+            if (_loginWaitTimer <= 0f) FinishLoginWaiting();
+        }
+
+        /// <summary>自检用：**按帧推进** `dt` 秒（= 原版跑了这么多秒）。⚠️ 断言要自己断「推进 N 秒后收尾」。</summary>
+        public void PumpLoginWaitForTest(float dt) { TickLoginWait(dt); }
+        /// <summary>自检用：现在是不是等待态（原版 `waitingResponseObject` 那一档）。</summary>
+        public bool LoginWaitingForTest { get { return _lwWaiting; } }
+        /// <summary>自检用：那颗 `Login Button` 的 `interactable`（null 钮 ⇒ 恒 `false` + 出声）。</summary>
+        public bool LoginButtonInteractableForTest { get { return _lwLoginBtnWb != null && _lwLoginBtnWb.Interactable; } }
+        /// <summary>自检用：等待态那行字（原版 `ErrorMensajeContainer > Error Message`）。</summary>
+        public string LoginWaitingTextForTest { get { return _lwError != null ? _lwError.Text : null; } }
+        /// <summary>自检用：`Animated Loading Image` 那颗节点（null ⇒ 没建出来 —— 断言先断前提）。</summary>
+        public Transform LoginLoadingForTest { get { return _lwLoading; } }
+
         /// <summary>把「层 × 出现条件」那六条开关照原版 `AccountTab__Refresh.c` 摆一遍。
-        /// 🔴 **只碰那 6 颗**：`Logout` / `Delete` / `Twitch` / `Login Window` / `Player Id` 原版**一个字都不碰**
+        /// 🔴 **开关只碰那 6 颗**（另有**两颗输入框**的文本与 `interactable` —— 那正是原版 `Refresh` 登录态那一支做的）：`Logout` / `Delete` / `Twitch` / `Login Window` / `Player Id` 原版**一个字都不碰**
         /// ⇒ 停在 prefab 值（前两者 `m_IsActive=0`、`Delete` 是 1、`Player Id` 是 0）。⛔ 别「顺手」把它们也按登录态开关
         /// —— 那会与「原版等于没有这条行为」冲突（铁律 10 第 2 条：判据是那张表，不是我们的直觉）。</summary>
         public void RefreshAccount()
@@ -2828,8 +2959,13 @@ namespace CardPresentation
             SetAct(_acResetBtn, on);          // `:38`（`+0x50`）
             SetAct(_acForgotBtn, false);      // `:43`（`+0x58`）—— 恒关
             SetAct(_acNewsBtn, on);           // `:48`（`+0x88`）
+            // 🔴 B106_W15（2026-10-31）· 判据 = `AccountTab__Refresh.c` 登录态那一支（逐句实读）：
+            //   密码框 `set_text("**********")`（固定 10 颗星，值出自 `all_strings.txt:10466`）· 邮箱框回填 ·
+            //   **两颗都 `set_interactable(false)`**（`+0x70` email / `+0x78` password）⇒ 登录后不可编辑。
             if (_acEmail != null) _acEmail.SetText(on ? AccountState.Email : "");
-            if (_acPwd != null) _acPwd.SetText("");
+            if (_acPwd != null) _acPwd.SetText(on ? "**********" : "");
+            if (_acEmail != null) _acEmail.SetInteractable(!on);
+            if (_acPwd != null) _acPwd.SetInteractable(!on);
             if (_acError != null) _acError.SetText("");
             if (_acPid != null) _acPid.SetText(AcPidPrefix + AccountState.PlayerId);
             Debug.Log($"[Settings] 账号页刷新：登录态 = {on}（本机模拟）");
@@ -2869,7 +3005,7 @@ namespace CardPresentation
             // ② `Faq Text`（**PC 档亮**）—— 这一行与下面那颗 `Faq Button` 是一组
             var faqText = SpText(page, "Faq Text", lkSupFaqText,
                                  "Questions about the game? Visit the Frequent Asked Questions",
-                                 SpFaqTextL, SpFaqTextT, SpFaqTextR, SpFaqTextB, 1, 15f, 35f, 36f);
+                                 SpFaqTextL, SpFaqTextT, SpFaqTextR, SpFaqTextB, 1, 15f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10
 
             // ③ `Faq Button`（`UrlButton` → FAQ 那条 URL；`External Link Icon` 是它的子件）
             var faqBtn = SpUrlButton(page, "Faq Button", SpFaqBtnL, SpFaqBtnT, SpFaqBtnR, SpFaqBtnB,
@@ -2879,7 +3015,7 @@ namespace CardPresentation
 
             // ④ `Contact Text`（PC 档亮）
             var contactText = SpText(page, "Contact Text", lkSupMidText, "Do you need help from us?",
-                                     SpContactTextL, SpContactTextT, SpContactTextR, SpContactTextB, 1, 29f, 35f, 36f);
+                                     SpContactTextL, SpContactTextT, SpContactTextR, SpContactTextB, 1, 29f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10
 
             // ⑤ `Contact Button`（`UrlButton` → contact-us 那条 URL）
             var contactBtn = SpUrlButton(page, "Contact Button", SpContactBtnL, SpContactBtnT, SpContactBtnR, SpContactBtnB,
@@ -2900,7 +3036,7 @@ namespace CardPresentation
             // ⑦ `Email Text`（PC 档亮；`ContactText` 那条键与 mobile 那颗**共用**）
             var emailText = SpText(page, "Email Text", lkSupContactTxt,
                                    "You can also contact us at support@everguild.com\nWe'll do our best to help you!",
-                                   SpEmailTextL, SpEmailTextT, SpEmailTextR, SpEmailTextB, 1, 18f, 35f, 36f);
+                                   SpEmailTextL, SpEmailTextT, SpEmailTextR, SpEmailTextB, 1, 18f, 35f, 36f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 `Email Text`）
 
             // ⑧ `bottom links`（HLG 排的两棵；**三档平台组都是 1** ⇒ 恒亮）
             //    ⚠️ 本工程不实现 LayoutGroup ⇒ 照布局跑之后的设计绝对值摆（= 原版的设计意图），
@@ -2932,7 +3068,7 @@ namespace CardPresentation
                 var terms = Node(links, "Terms of Service", SpTermsL, SpTermsT, SpTermsR, SpTermsB);
                 SpIcon(terms, "External Link Icon", SpTermIconL, SpTermIconT, SpTermIconR, SpTermIconB);
                 SpText(terms, "Terms of Service Text", lkSupTerms, "Terms of Service",
-                       SpTermsTxtL, SpTermsT, SpTermsTxtR, SpTermsB, 1, 29f, 35f, 36f);
+                       SpTermsTxtL, SpTermsT, SpTermsTxtR, SpTermsB, 1, 29f, 35f, 36f, 44f, 10f);   // B106_W15：小屏档 44/10（§3·11）
                 Hit(terms, "Hit", SpTermsL, SpTermsT, SpTermsR, SpTermsB, QOverlay,
                     () => SpTermsNoUrl());
                 SetAct(terms, false);        // 🔴 原版恒关（判据见上）；⛔ 删不得 —— 见 ⑩ 那条 log
@@ -2952,10 +3088,10 @@ namespace CardPresentation
             // ⑨ 两颗 **mobile 专用**的行（**PC 档灭**；`android`/`iOS` 才亮）—— 照原版建 + 照原版关。
             var faqMob = SpText(page, "Faq Text Mobile", lkSupFaqMob,
                                 "Questions about the game? Check out the Frequent Asked Questions or contact Support",
-                                SpFaqTextMobL, SpFaqTextMobT, SpFaqTextMobR, SpFaqTextMobB, 1, 15f, 35f, 36f);
+                                SpFaqTextMobL, SpFaqTextMobT, SpFaqTextMobR, SpFaqTextMobB, 1, 15f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10
             var emailMob = SpText(page, "Email Text Mobile", lkSupContactTxt,
                                   "You can also contact us at support@everguild.com\nWe'll do our best to help you!",
-                                  SpEmailTextMobL, SpEmailTextMobT, SpEmailTextMobR, SpEmailTextMobB, 1, 18f, 35f, 36f);
+                                  SpEmailTextMobL, SpEmailTextMobT, SpEmailTextMobR, SpEmailTextMobB, 1, 18f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10（mobile 那两颗）
 
             // ⑩ **平台档**（`PHY` = 本页 `PlatformBasedComponents` 那颗 MB）—— 逐件按 **PC(20)** 那一组摆。
             //    出处：原版 `PlatformBasedComponents__Start.c` **无条件**只跑 `platformType == 0x14 (= 20 = PC)`
@@ -2992,11 +3128,11 @@ namespace CardPresentation
         /// <param name="wrapOn">原版那一颗的折行档：`1` ⇒ 折行开（框宽 = 本格框宽）、`0` ⇒ `NoWrap`。
         /// ⚠️ 传的是**原版字段值**（0/1），不是像素 —— 换算成漏斗的 `wrapPx` 那一步在函数体里。</param>
         Label SpText(Transform p, string n, string key, string en, float l, float t, float r, float b,
-                     int wrapOn, float minPx, float maxPx, float basePx)
+                     int wrapOn, float minPx, float maxPx, float basePx, float ssMaxPx = 0f, float ssMinPx = 0f)
         {
             float wrap = wrapOn != 0 ? r - l : 0f;
             var lb = Text(p, n, Term(key, en), l, r, t, b, SpFontPx, Color.white, QText,
-                          null, wrap, minPx, maxPx, basePx);
+                          null, wrap, minPx, maxPx, basePx, ssMaxPx, ssMinPx);
             if (lb != null) AlignLeft(lb, new PxRect(l, t, r, b));
             OnLangText(lb, () => Term(key, en));
             return lb;
@@ -3032,7 +3168,7 @@ namespace CardPresentation
                        iconRect.Value.x2, iconRect.Value.y2);
             var bg = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, tint, keepAspect);
             // 那行字（自适应 = 原版逐颗实读 `min 12 / max 35 / base 12` · **折行 0**）
-            SpText(n, "Button Text", key, en, txtRect.x1, txtRect.y1, txtRect.x2, txtRect.y2, 0, 12f, 35f, 12f);
+            SpText(n, "Button Text", key, en, txtRect.x1, txtRect.y1, txtRect.x2, txtRect.y2, 0, 12f, 35f, 12f, 44f, 12f);   // B106_W15：小屏档 44/12（§3·11 大钮 Button Text）
             Hit(n, "Hit", x1, y1, x2, y2, QOverlay, onClick, bg, ArtButton);
             return n;
         }
@@ -3108,6 +3244,11 @@ namespace CardPresentation
             OnLangText(lblP, () => AcTerm(lkAcPassword, "Password"));
             _lwPwd = AcInput.Create(lw, "InputPassword", new PxRect(LwInL, LwPwdInT, LwInR, LwPwdInT + LwInH),
                                     LwInPpuMul, AcTerm(lkAcPassword, "Password"), QLwContent, QLwText, QLwHit);
+            // 🆕 B106_W15：= 原版 `EmailInputChanged` / `PasswordInputChanged` 挂在 `onValueChanged` 上 ——
+            //   每改一个字都重算那颗 `Login Button` 的 `interactable`（`email>4` ∧ `password>5`）。
+            if (_lwEmail != null) _lwEmail.OnChanged = CheckLoginButtonState;
+            if (_lwPwd != null) _lwPwd.OnChanged = CheckLoginButtonState;
+            CheckLoginButtonState();   // 初值（两颗空 ⇒ 不可点，= 原版 `Open()` 末尾那次重算）
 
             // ④ `Forgot Password`（原版 `EverguildButton` + `trans=1` ⇒ 不换图）
             {
@@ -3131,6 +3272,7 @@ namespace CardPresentation
                                  "40K_icon_searching_skull", QLwContent, new Color(1f, 1f, 1f, 0.8431373f));
                 var load = loadQ != null ? loadQ.transform
                                          : Node(box, "Animated Loading Image", LwLoadL, LwLoadT, LwLoadR, LwLoadB);
+                _lwLoading = load;   // B106_W15：原版提交时 `+0xa0 SetActive(true)`（`Logo`/`Cog` 一起亮）
                 _lwCog = Rect(load, "Cog", LwLoadL, LwLoadT, LwLoadR, LwLoadB, "40K_icon_searching_cog", QLwText,
                      new Color(1f, 1f, 1f, 0.8f));
                 _lwError = Text(box, "Error Message", "", LwErrL, LwErrR, LwErrBoxT, LwErrBoxB,
@@ -3148,7 +3290,9 @@ namespace CardPresentation
                               AcBtnText[6].y1, AcBtnText[6].y2, LwBtnFontPx, Color.white, QLwText,
                               null, 0f, 12f, 40f, 12f);   // 🆕 A1181：原版 `12 / 40 / 12 · 折行 0`
                 OnLangText(lb, () => AcTerm(lkAcSignIn, "Log in"));
-                Hit(n, "Hit", LwBtnL, LwBtnT, LwBtnR, LwBtnB, QLwHit, LoginWindowSubmit, bg, ArtButton);
+                var btnHit = Hit(n, "Hit", LwBtnL, LwBtnT, LwBtnR, LwBtnB, QLwHit, LoginWindowSubmit, bg, ArtButton);
+                // 🆕 B106_W15：那颗钮的 `WindowButton` = 原版 `+0x78` 的 `Selectable`（长度闸 / 等待态开关它）
+                _lwLoginBtnWb = btnHit != null ? btnHit.GetComponent<WindowButton>() : null;
             }
 
             // ⑦ `Generic Close Button Green`（75×75 · 图 = `UI_Button_Round_background`）
@@ -3170,6 +3314,7 @@ namespace CardPresentation
             }
 
             lw.gameObject.SetActive(false);              // 出厂 `m_IsActive = 0`（由 `Switch Account` 亮起来）
+            CheckLoginButtonState();                     // B106_W15：初值也要落（两格空 ⇒ 那颗钮不可点；`Open()` 会再算一次）
         }
 
         /// <summary>`VersionText` 那一行的文字 = 原版 `GeneralTab__OnSetup.c` 里那一句
@@ -3202,7 +3347,7 @@ namespace CardPresentation
         /// <item>**勾那一层**按 `state()` 显隐（= 原版 `Toggle.graphic` 由 `Toggle.UpdateVisuals` 按 `isOn` 控制），
         /// 点完由 `RefreshTexts()` 那条链重算 —— 所以这里把三件记进 `_genChecks`。</item>
         /// </list></summary>
-        void GenToggleRow(Transform page, string name, float t, string key, Func<bool> state, Action flip, Action afterFlip)
+        Transform GenToggleRow(Transform page, string name, float t, string key, Func<bool> state, Action flip, Action afterFlip)
         {
             float b = t + ChkRowH, cy = (t + b) * 0.5f;
             var n = Node(page, name, GenL, t, GenR, b);
@@ -3217,7 +3362,7 @@ namespace CardPresentation
             //   ⚠️ 折行宽 = 本格框宽：原版那三颗的宽是 `HorizontalLayoutGroup`（`ctrlW=1`）排出来的，
             //   prefab 里读到的只是 `0×0` 模板位 —— **这一格没有字段值可抄**（如实登记，见 `Text` 的注释）。
             var lb = Text(n, "Label", Loc.T(key), lx, GenR, t, b, FontRowLabel, Color.white, QText,
-                          null, GenR - lx, 29f, 42f, 36f);
+                          null, GenR - lx, 29f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11 勾选行 Label）
             if (lb != null)
             {
                 // 🔴 **2026-10-18（N62）**：原版这三颗 `Label` 是 `m_HorizontalAlignment = 1 (Left)`；
@@ -3234,6 +3379,7 @@ namespace CardPresentation
             Action hit = () => { flip(); afterFlip(); RefreshTexts(); };
             Hit(n, "HitBox", bx1, by1, bx2, by2, QOverlay, hit, clickCue: WindowSounds.SelectToggleCue);
             Hit(n, "HitLabel", lx, t, GenR, b, QOverlay, hit, clickCue: WindowSounds.SelectToggleCue);
+            return n;   // B106_W15：交回行节点（原版 `GeneralTab.OnSetup` 首句要把 `Disable Notifications` 整行 `SetActive(false)`）
         }
 
         /// <summary>`Bottom Buttons` 那两颗（原版 `Redeem Code` / `Close Game Button`）：各 300×90、
@@ -3258,7 +3404,7 @@ namespace CardPresentation
             float tx1 = x1 + GenBtnTxtL, tx2 = tx1 + GenBtnTxtW;
             float ty1 = GenBtnT + GenBtnTxtT, ty2 = ty1 + GenBtnTxtH;
             var lb = Text(n, "Button Text", Loc.T(key), tx1, tx2, ty1, ty2, fs, Color.white, QText,
-                          null, 0f, 12f, fs, 12f);
+                          null, 0f, 12f, fs, 12f, 44f, 12f);   // B106_W15：小屏档 44/12（§3·11 `Button Text`）
             if (lb != null) _genLabels.Add(new Keyed(lb, key));
             // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
             var hitNode = Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
@@ -4236,7 +4382,7 @@ namespace CardPresentation
             var qualQ = Rect(row, "Quality DropDown", QualL, QualT, QualBoxR, QualB, "40K_dropdown_field_closed", QContent);
             _qualityLabel = Text(row, "Quality Value", QualityName(), QualL + GenCapInset, QualBoxR - GenCapInset,
                                  QualLabelT, QualLabelB, GenCapFontPx, GenCapColor, QText,
-                                 null, 0f, 18f, 40f, 14f);
+                                 null, 0f, 18f, 40f, 14f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 画质下拉 caption）
             if (_qualityLabel != null)
                 AlignLeft(_qualityLabel, new PxRect(QualL + GenCapInset, QualLabelT, QualBoxR - GenCapInset, QualLabelB));
             // 🔴 **2026-10-10（`A1210①`）就地更正（铁律 5）**：这一颗原来传 `FontLabel`（40）+ **白** +
@@ -4259,7 +4405,7 @@ namespace CardPresentation
             //   「进链的判据只此一条」）⇒ 不登记的话开着窗换语言会**停在旧语言**。
             var lb = Text(row, "Quality selector text", Loc.T(lkGfxQuality), QualTextL, QualR, QualT, QualB,
                           FontRowLabel, Color.white, QText,
-                          null, QualR - QualTextL, 29f, 42f, 36f);
+                          null, QualR - QualTextL, 29f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11）
             // 🆕 **2026-10-19（A1181）**：原版 `Quality Selector > Quality selector text` 逐字段实读
             //   `29 / 42 / 36 · 折行 1`（⚠️ 同一台 prefab 里 `Text In Hand Selector` 那颗**也**叫这个名字、
             //   四格**逐值相同** ⇒ 两颗各建一处、都照这四格传；T17 起那颗已建，见下面 ② ）。
@@ -4293,7 +4439,7 @@ namespace CardPresentation
                 // caption = 原版 `Text in Hand DropDown > Label`（fs 18 · base 14 · auto 18~40 · 折行 0 · 灰 (0.67)）
                 _tihCap = Text(tihFld, "Label", TextInHandOptionLabels()[TextInHand.Value],
                                TihL + GenCapInset, TihBoxR - GenCapInset, TihT + DdCapTop, TihB - DdCapBottom,
-                               GenCapFontPx, GenCapColor, QText, null, 0f, 18f, 40f, 14f);
+                               GenCapFontPx, GenCapColor, QText, null, 0f, 18f, 40f, 14f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 手牌下拉 caption）
                 if (_tihCap != null)
                     AlignLeft(_tihCap, new PxRect(TihL + GenCapInset, TihT + DdCapTop,
                                                  TihBoxR - GenCapInset, TihB - DdCapBottom));
@@ -4307,7 +4453,7 @@ namespace CardPresentation
                                                     "Text for cards in hand", TihTermWhere);
                 var tihLb = Text(tihRow, "Quality selector text", tihText(),
                                  TihTextL, TihR, TihT, TihB, FontRowLabel, Color.white, QText,
-                                 null, TihR - TihTextL, 29f, 42f, 36f);
+                                 null, TihR - TihTextL, 29f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11）
                 if (tihLb != null) AlignLeft(tihLb, new PxRect(TihTextL, TihT, TihR, TihB));
                 OnLangText(tihLb, tihText);
                 _ddTextInHand = BuildDropdown(tihFld, TihL, TihT, TihBoxR, TihB,
@@ -4517,7 +4663,7 @@ namespace CardPresentation
             if (chk != null) chk.gameObject.SetActive(state());
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
                           FontRowLabel, Color.white, QText,
-                          null, ChkR - (ChkL + 130f), 29f, 42f, 36f);
+                          null, ChkR - (ChkL + 130f), 29f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11 图像页勾选行）
             // 🆕 **2026-10-19（A1181）**：上面那三格（`29 / 42 / 36` + 折行 1）= 原版这一列**四行**的
             //   `… Toggle > Label` 逐颗实读（`Small Screen Size Toggle` · `Auto Zoom Toggle` ·
             //   `Use super sampling` · `VSync`）—— 四颗**逐值相同**，所以收在这一处（⛔ 别在四个调用点各写一遍）。
@@ -4880,7 +5026,7 @@ namespace CardPresentation
             Func<string> fpsTitleText = () => Loc.T(lkGfxFrameLimit);
             var lb = Text(_fpsRow, "Title", fpsTitleText(), tl, tl + FpsTitleW, tt, tt + FpsTitleH,
                           FpsFont, Color.white, QText,
-                          null, FpsTitleW, 18f, 42f, 36f);   // 🆕 A1181：原版 `FPS Limit > Title` = `18 / 42 / 36 · 折行 1`
+                          null, FpsTitleW, 18f, 42f, 36f, 50f, 10f);   // 🆕 A1181：原版 `FPS Limit > Title` = `18 / 42 / 36 · 折行 1` · B106_W15 小屏档 50/10
             if (lb != null) AlignLeft(lb, new PxRect(tl, tt, tl + FpsTitleW, tt + FpsTitleH));
             OnGfxRowText(lb, fpsTitleText);
 
@@ -4916,7 +5062,7 @@ namespace CardPresentation
                 string tick = i == 2 ? Loc.T(lkGfxUnlimited) : FpsTickText[i];
                 var tk = Text(_fpsSliderRoot, FpsTickName[i], tick, x, x + FpsTickW, y, y + FpsTickH,
                               FpsFont, FpsTickColor, QText,
-                              null, FpsTickW, 18f, 42f, 36f);
+                              null, FpsTickW, 18f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11 FPS 三刻度）
                 // 🆕 **2026-10-19（A1181）**：三个刻度（`30 FPS` / `60 FPS` / `Unlimited`）的自适应
                 //   = 原版逐颗实读 `18 / 42 / 36 · 折行 1`（三颗**逐值相同**，与上面那条 `Title` 也对得上）。
                 if (i == 2) OnGfxRowText(tk, () => Loc.T(lkGfxUnlimited));
@@ -5331,7 +5477,7 @@ namespace CardPresentation
                 //   （pivot `(0,0.5)`、`anchoredPosition.x = 0`）；本窗 `Text` 的 `x1..x2` 只用于
                 //   「可见性闸 + 建节点时那个中心」，最终横位由下面那句 `AlignLeft` 定（读数不变）。
                 var lb = Text(rowN, "Label", Loc.T(keys[i]), AuL, AuL + boxW, lt, lbB, FontRowLabel, Color.white, QText,
-                              null, boxW, 18f, 42f, 36f);
+                              null, boxW, 18f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11 音频三行 Label）
                 if (lb != null)
                 {
                     AlignLeft(lb, new PxRect(AuL, lt, AuR, lbB));
@@ -5408,7 +5554,7 @@ namespace CardPresentation
                 //   —— 三颗各照各的原版件，⛔ 别归一。
                 _winCap = Text(winFld, "Label", WindowModeOptionLabels()[WindowModeOptionIndex()],
                                WinL + GenCapInset, WinBoxR - GenCapInset, WinT + DdCapTop, WinB - DdCapBottom,
-                               GenCapFontPx, Color.white, QText, null, 0f, 18f, 40f, 14f);
+                               GenCapFontPx, Color.white, QText, null, 0f, 18f, 40f, 14f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11）
                 if (_winCap != null)
                     AlignLeft(_winCap, new PxRect(WinL + GenCapInset, WinT + DdCapTop,
                                                   WinBoxR - GenCapInset, WinB - DdCapBottom));
@@ -5422,7 +5568,7 @@ namespace CardPresentation
                 //   ⇒ 逐颗实读，⛔ 别按同页别的行推）。
                 Func<string> winText = () => UiTerm("Settings/Media/WindowMode", "Window Mode", WinTermWhere);
                 var winLb = Text(winRow, "Label", winText(), WinTextL, WinR, WinT, WinB,
-                                 FontRowLabel, Color.white, QText, null, WinR - WinTextL, 1f, 42f, 36f);
+                                 FontRowLabel, Color.white, QText, null, WinR - WinTextL, 1f, 42f, 36f, 50f, 10f);   // B106_W15：小屏档 50/10（§3·11 窗口模式行 Label）
                 if (winLb != null) AlignLeft(winLb, new PxRect(WinTextL, WinT, WinR, WinB));
                 OnLangText(winLb, winText);
                 _ddWindowMode = BuildDropdown(winFld, WinL, WinT, WinBoxR, WinB,
@@ -5985,7 +6131,7 @@ namespace CardPresentation
             // 🆕 **A168**：FPS 滑块的「按 / 拖」（原版 `Slider.OnPointerDown/OnDrag`）。
             //    ⚠️ 没走 `WindowButton.onClick`：那条路**不带落点**（`Action` 无参），而滑块要的是「点在哪」；
             //      `Hit` 那一条只负责**吃下这一下**（别让射线穿到吸收层）。批处理里自检直调 `SetFpsFromCanvasX`。
-            UpdateFpsDrag(); AdvanceCog(Time.deltaTime);   // 🆕 B97_W14：`Cog` 那颗齿轮（原版 `SimpleRotation`，-20°/s）
+            UpdateFpsDrag(); AdvanceCog(Time.deltaTime); TickLoginWait(Time.deltaTime);   // 🆕 B97_W14：`Cog` 那颗齿轮（原版 `SimpleRotation`，-20°/s）· B106_W15：登录等待态
             // 🆕 2026-10-19（N70 P0-4 · U3）：音频页三根滑块的指针路径 + 悬停/按下反馈
             //   （必须排在下面那道「只有联机页才继续」的早退**之前** —— 那三根在 Media 页）。
             UpdateAudioSliders();
@@ -6108,10 +6254,27 @@ namespace CardPresentation
         /// <param name="autoMinPx">= 原版那一颗的 `m_fontSizeMin`（**设计 px**）；`<= 0` ⇒ **不接自适应**（旧路）。</param>
         /// <param name="autoMaxPx">= 原版那一颗的 `m_fontSizeMax`（设计 px）；`<= 0` ⇒ 退回 `fs`（`MenuDraw` 的既有语义）。</param>
         /// <param name="autoBasePx">= 原版那一颗的 `m_fontSizeBase`（设计 px）；`<= 0` ⇒ 退回调用方那一档。</param>
+        /// <param name="ssMaxPx">= 原版那一颗 `EverguildTextController.smallScreenMaxFontSize`（设计 px；
+        /// 判据 → `判据/AUD05_state_matrix_设置窗.md` §3·11 那张逐族表）。`<= 0` 且 `ssMinPx <= 0` ⇒ **不接小屏档**（旧路）。
+        /// ⚠️ 原版这两格**只在 `EverguildTextController.Awake` 末尾**生效（`Application.isPlaying` 且
+        /// `smallScreenUI` 为真）⇒ 编辑器批处理里恒不生效（`Label.SmallScreenSizeAppliedForTest` 会留痕）。</param>
+        /// <param name="ssMinPx">= 原版那一颗 `smallScreenMinFontSize`（设计 px）。见上。</param>
+        /// <summary>🆕 **B106_W15（2026-10-31）**：漏斗**收到的**小屏字号两格（`父节点名/本节点名` → `(maxPx, minPx)`，设计 px）。
+        /// <para>⚠️ 这是**接线口径**的读口，不是「有没有生效」：原版那两格只在 `Application.isPlaying` 且
+        /// `smallScreenUI` 为真时落到 TMP（`Label.ApplySmallScreenTextSize` 头两句）⇒ **编辑器批处理里恒不生效**，
+        /// 断言只能断「漏斗传了原版那两格」（真机观感另验）。</para>
+        /// <para>由 <see cref="Build"/> 开头清空（每次建树重记一份）。</para></summary>
+        public static readonly System.Collections.Generic.Dictionary<string, Vector2> SmallScreenRequestedForTest =
+            new System.Collections.Generic.Dictionary<string, Vector2>();
+
         Label Text(Transform p, string n, string s0, float x1, float x2, float y1, float y2, float fs, Color c, int q,
                    PxRect? clip = null,
-                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f)
+                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
+                   float ssMaxPx = 0f, float ssMinPx = 0f)
         {
+            // 记录接线的两格（在「可见性闸」之前 —— 闸只决定今天建不建，不改变「这一站照原版传了什么」）
+            if (ssMaxPx > 0f || ssMinPx > 0f)
+                SmallScreenRequestedForTest[(p != null ? p.name : "?") + "/" + n] = new Vector2(ssMaxPx, ssMinPx);
             var s = Screen(x1, y1, x2, y2);
             var r = new PxRect(s.x1, s.y1, s.x2, s.y2);
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：两处都改走**节点态**那一版 ——
@@ -6131,6 +6294,12 @@ namespace CardPresentation
             // 🔴 A1181：**折行 = 0 那一档还原**（`MenuDraw.Text` 顺带把它开成了 `Normal`，见方法头那段）。
             //   必须在 `ClipText` **之前**：`SetWrapping` 内部 `ForceRelayout` 会重排 mesh、把上一刀抹掉。
             if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);
+            // 🆕 **2026-10-31（B106_W15）小屏字号档**：原版 `EverguildTextController.Awake` 末尾按
+            //   `smallScreenMaxFontSize / smallScreenMinFontSize` 改 TMP 的 `fontSizeMax/Min`。
+            //   ⚠️ **必须排在基线字号 / 自适应框之后**（`Label.SetSmallScreenFontSizes` 的 doc 写死）
+            //   、又**必须排在 `ClipText` 之前**（它内部会 `ForceMeshUpdate` 重排 mesh，会把裁切那一刀抹掉）。
+            //   ⚠️ `Label` 那边收的是**画布 px**（同 `SetAutoFitBox` 的 minPx/maxPx）⇒ 这里与上面同一条 × `RootScale`。
+            if (ssMaxPx > 0f || ssMinPx > 0f) lb.SetSmallScreenFontSizes(ssMaxPx * RootScale, ssMinPx * RootScale);
             // 🔴 **裁切必须是最后一步**（`SetGlyphHeight` / `SetAutoFitBox` / `SetWrapWidth` 任何一次重排
             //   都会把 mesh 重算回去 —— 同 `MenuDraw.Text` 那条）。本笔多出来的 `SetWrapping` 也在这之前。
             MenuDraw.ClipText(lb, clip, default(Vector2));
@@ -6183,7 +6352,7 @@ namespace CardPresentation
         Label PageTitle(Transform page, string title, float autoMinPx)
         {
             var lb = Text(page, "Tab Title", title, TitleL, TitleR, TitleT, TitleB, PageTitleFontPx, Color.white, QText,
-                          null, TitleR - TitleL, autoMinPx, PageTitleFontPx, PageTitleFontPx);
+                          null, TitleR - TitleL, autoMinPx, PageTitleFontPx, PageTitleFontPx, 62f, 10f);   // B106_W15：小屏档 62/10（§3·11 各页页标题）
             if (lb != null) AlignLeft(lb, new PxRect(TitleL, TitleT, TitleR, TitleB));
             return lb;
         }
@@ -6488,6 +6657,18 @@ namespace CardPresentation
         Label _value, _placeholderLb;
         string _placeholder;
         bool _mine;
+        /// <summary>🆕 **B106_W15（2026-10-31）**：= 原版 `TMP_InputField`（`Selectable`）的 `interactable`。
+        /// 判据 = `AccountTab__Refresh.c` 登录态那一支：`set_interactable(emailInput, 0)` /
+        /// `set_interactable(passwordInput, 0)`（`+0x70` / `+0x78` 两颗）。
+        /// <para>⚠️ 我们只落**「点不进去 / 编不了」**这一半（与 `WindowButton.Interactable` 同一口径）；
+        /// 原版那颗 `Selectable` 的 `ColorBlock.disabledColor` 视觉那一半本工程**没有对应物**
+        /// （`AcInput` 不走 uGUI `Selectable`）⇒ **如实登记：禁用时外观不变**。⛔ 别自造一个灰。</para></summary>
+        bool _interactable = true;
+        /// <summary>🆕 **B106_W15（2026-10-31）**：= 原版 `TMP_InputField.onValueChanged`
+        /// （`BasicLoginWithEmailWindow` 用它跑长度闸：`EmailInputChanged` / `PasswordInputChanged`）。
+        /// <para>⚠️ 由 <see cref="Refresh"/> 末尾统一触发（= 所有改文本的路径都会经过那里）⇒ 处理器**不许**再回头看
+        /// `SetText`/`Refresh`（会绕回来）。</para></summary>
+        public Action OnChanged;
 
         /// <summary>建一个（`r` / `placeholderInset` 都是**设计 px** —— 与同页其余包装函数同一个坐标系，
         /// 那层 `RootScale` 由**本类自己**烘进去，同 `MenuInputField.Create` 的 A208 那条）。
@@ -6551,11 +6732,15 @@ namespace CardPresentation
                 _value.SetText(Focused ? (Text + "_") : Text);
                 _value.SetColor(empty ? new Color(1f, 1f, 1f, 0.45f) : Color.white);
             }
+            if (OnChanged != null) OnChanged();   // B106_W15：= 原版 `onValueChanged`（长度闸用它）
         }
 
-        /// <summary>点上去开始编辑（走本工程唯一的那个入口 `PointerLayer.BeginText`）。</summary>
+        /// <summary>点上去开始编辑（走本工程唯一的那个入口 `PointerLayer.BeginText`）。
+        /// <para>🆕 B106_W15：`interactable == false` ⇒ **点不进去**（= 原版 `Selectable.OnPointerClick`
+        /// 头一句 `if (!IsActive() || !IsInteractable()) return;`），出声、不静默。</para></summary>
         public void Focus()
         {
+            if (!_interactable) { Debug.Log("[Settings] 账号页输入框已禁用（= 原版 `Selectable.interactable = false`）⇒ 不接收点击"); return; }
             var pl = PointerLayer.Instance;
             if (pl == null) { Debug.LogWarning("[Settings] 没有 `PointerLayer` ⇒ 输入框收不到键盘"); return; }
             _mine = true;
@@ -6568,6 +6753,25 @@ namespace CardPresentation
 
         /// <summary>程序化改文本（模拟动作 / 自检 / 刷新都用它 —— **批处理里没有键盘**）。</summary>
         public void SetText(string s) { Text = s ?? ""; Refresh(); }
+
+        /// <summary>🆕 B106_W15：= 原版那颗输入框 `Selectable.interactable` 的只读口（自检用）。</summary>
+        public bool Interactable { get { return _interactable; } }
+
+        /// <summary>🆕 B106_W15：置假 ⇒ **点不进去 / 编不了**（已聚焦的当场收掉，走 `onCancel` 那一支）。
+        /// 判据 = `AccountTab__Refresh.c` 登录态那一支的两句 `set_interactable(0)`。
+        /// <para>⚠️ 只挡交互，**不改外观**（原版那半句是 uGUI `ColorBlock.disabledColor`，本工程无对应物 —— 见字段 doc）。</para></summary>
+        public void SetInteractable(bool on)
+        {
+            if (_interactable == on) return;
+            _interactable = on;
+            if (!on && _mine)
+            {
+                var pl = PointerLayer.Instance;
+                if (pl != null && pl.TextEditing) pl.EndText(false);   // 回调里会把 `_mine` 置假
+                _mine = false;
+                Refresh();
+            }
+        }
     }
 
     public class MenuInputField

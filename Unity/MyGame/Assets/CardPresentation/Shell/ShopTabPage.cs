@@ -108,9 +108,12 @@ namespace CardPresentation
         /// <summary>`…/Content` 上的 `GridLayoutGroup`（原文 `MonoBehaviour`）：
         /// **cell 335.6 × 475** · `spacing (0,0)` · `padding (0,0,7,0)` · `m_Constraint 0`(**Flexible**) · `UpperLeft` / `Horizontal`。
         /// 🔴 序列化里的 `m_ConstraintCount = 2` 是**死值**（UGUI 只在 `FixedColumnCount`/`FixedRowCount` 两档读它）⇒ 真实列数走 Flexible 那条 `floor(Content 宽 ÷ cellSize.x)` = **4**（判据 → `判据/AUD05_state_matrix_商店窗.md` §1·1）。
-        /// ⚠️ `ShopTab.Setup` 小屏档还会乘 `contentLayoutElementsSizeMultiplierSmallScreens`（**1.18**）—— 本文件**尚未接**那一档（§4·2 #2/#3）；16:9 下两档都是 4 列，所以接不接都不翻列数。</summary>
+        /// ⚠️ `ShopTab.Setup` 小屏档还会乘 `contentLayoutElementsSizeMultiplierSmallScreens`（**1.18**）——
+        /// 🆕 **2026-10-31（`B106_W14`）已接**：`SmallScreenUI.Enabled` 为真时 `CellW/H` 的**有效值**乘
+        /// <see cref="SmallGridScale"/>（判据 `ShopTab.cs:186-235` 逐句：只在 `smallScreenUI` 为真时乘、且
+        /// **只乘一次**、乘的是 `gridLayoutContent.cellSize`）。16:9 下两档都是 4 列（4×396.008 = 1584.03 ≤ 1590.24）。</summary>
         public const float CellW = 335.6f, CellH = 475f, GridPadT = 7f;
-        public static int GridCols { get { return Mathf.Max(1, Mathf.FloorToInt(ScrollView.W / CellW)); } }   // 🔴 2026-10-30（`B103_F5`）：原版 `GridLayoutGroup` 是 **Flexible**，列数 = `floor(Content 宽 ÷ cellSize.x)`；Content 拉伸（`ContentSizeFitter` 只控高）⇒ 宽 ≡ 视口宽 1590.24 ⇒ **4 列**（4×335.6 = 1342.4 ≤ 1590.24 < 5×335.6）。⛔ 别写回 `m_ConstraintCount` 的 2 —— 那是死值。
+        public static int GridCols { get { return Mathf.Max(1, Mathf.FloorToInt(ScrollView.W / CellWNow)); } }   // 🔴 2026-10-30（`B103_F5`）：原版 `GridLayoutGroup` 是 **Flexible**，列数 = `floor(Content 宽 ÷ cellSize.x)`；Content 拉伸（`ContentSizeFitter` 只控高）⇒ 宽 ≡ 视口宽 1590.24 ⇒ **4 列**（4×335.6 = 1342.4 ≤ 1590.24 < 5×335.6）。⛔ 别写回 `m_ConstraintCount` 的 2 —— 那是死值。🆕 2026-10-31（`B106_W14`）：格宽改读 `CellWNow`（含小屏 ×1.18 那一档），桌面上与 `CellW` 逐位相同。
 
         /// <summary>`Empty Collection Warning`：实测 **164.76,42.62 → 1970.00,1080.00**（**比父还宽，左右都溢出**）。</summary>
         public static readonly PxRect EmptyWarn = new PxRect(164.76f, 42.62f, 1970.00f, 1080.00f);
@@ -133,8 +136,13 @@ namespace CardPresentation
         /// 官方 I2 表 `MenuCollection/NoDecksFound` 的 EN 是 **复数 `decks`**（`There are no decks in your
         /// collection for the selected filters`）⇒ **单数 `deck` 是我们自己写错的、不是原版语病**。
         /// （那串「原版 TMP 原文」是 **prefab 的静态默认值**，不是运行时真值 —— 运行时喂的是 I2 表。）
-        /// ⇒ 按用户 2026-10-14 口径「**照抄官方**」取表里的值。</summary>
-        public const string TxtEmptyEn = "There are no decks in your collection for the selected filters";
+        /// ⇒ 按用户 2026-10-14 口径「**照抄官方**」取表里的值。
+        /// 🔴 **2026-10-31（`B106_W14` · AUD05 收藏窗 §4·3④）**：EN 再补 **` or game mode`** —— 官方 I2 表
+        /// （`官方本地化_en+zh-CN.json` 的 `terms["MenuCollection/NoDecksFound"]`）逐字是
+        /// `There are no decks in your collection for the selected filters or game mode`；改前那句**少了尾段**，
+        /// 而 `Core/Loc.cs:776`（`B106_W12` 已改）喂的正是带 `or game mode` 的表值 ⇒ 两处**必须逐字一致**，
+        /// 否则「兜底串 vs 词条串」分叉（`Editor/DeckScene.cs` / `Editor/ShopScene.cs` 各有一条盯着它）。</summary>
+        public const string TxtEmptyEn = "There are no decks in your collection for the selected filters or game mode";
 
         // ---- 格里（相对 `Catalog Item Shop Container` 的 335.6×475；`menu_rect --root-size 335.6x475 --relative`）----
         public static readonly PxRect CellBg = new PxRect(-1f, -1f, 336.60f, 476f);
@@ -228,7 +236,7 @@ namespace CardPresentation
                          QCellBg = 3023, QCellArt = 3024, QCellText = 3025,
                          QCellPrice = 3026, QCellPriceText = 3027, QCellCount = 3028, QCellCountText = 3029,
                          QEmpty = 3030,
-                         /// <summary>🆕 A6：主图上那个「开卡包详情窗」的命中区。
+                         /// <summary>🔶 自己设计（非原版）：主图上那颗「开卡包详情窗」的命中区（`InfoHit`，矩形 = 主图框 `CellArtBox`）· 为什么必须自己定：原版那颗是 `ShopOfferContainer.OnClick → OpenContainer`（从 offer 取 AssetGroup 0xc 的窗口），而我们用的这族 `CatalogItemContainer` 只画抽屉、不开窗 —— 判据链在这一格断了（`阶段二_商店_原版规格.md` §五·二 末尾）· 调度台 2026-10-31 裁定
                          /// 比价格钮的命中区（`QCellPrice`）**低** —— 两块矩形本来不重叠，
                          /// 真叠上时让**购买**优先（`PointerLayer` 取队列最高的那个）。</summary>
                          QCellInfoHit = 3031;
@@ -247,9 +255,13 @@ namespace CardPresentation
             BuildTimeCounter(hdr, spec.TimerAsText); if (_page == VipPage && ShopData.IsVip) BuildVipStatus(hdr);   // VIP 页多一行（原版 `daily shop header/VIP Status`；非 VIP 时整行 `SetActive(false)` ⇒ 不建，见类尾那一段）
 
             // ---- ② `Packs Scroll View` → `Viewport` → `Content`（GridLayoutGroup）----
-            var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollView);
+            // 🆕 **2026-10-31（`B106_W14`）**：两族的 `Packs Scroll View` **矩形不同**（判据 `AUD05_state_matrix_商店窗.md`
+            //   §2·3 vs §2·4）：Grid 族 = `329.76,127.62 → 1920,1080`（1590.24×952.38，页头让出 56.68）；
+            //   Flexible 族（本页 = `Packs Tab`/`BoosterShopTab`）= `163.5,0 → 1752.8,1009.1`（相对 `Tabs`）⇒
+            //   绝对 **`330.67,70.94 → 1919.97,1080`**（1589.31×1009.06，页头 **INACT** ⇒ 从页顶起）。见 `FlexScrollView`。
+            var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollRectNow);
             // ⚠️ `Scroll View`/`Viewport` 自己的 `Image` 是 `UIMask` 且 **alpha = 0** ⇒ 不画
-            var vp = MainMenuSubmenuWindow.Node(sv, "Viewport", ScrollView);
+            var vp = MainMenuSubmenuWindow.Node(sv, "Viewport", ScrollRectNow);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A26）**：裁切状态**长在这颗视口节点上** ——
             //   参数 = 原版那两个字段的实读值（判据与逐页出处 → `PacksSoft` 那段注释）：
             //   `m_Padding = (0,0,0,0)` · `m_Softness = (0,25)`（**纵向** 25px 渐隐带、x 是硬边）。
@@ -261,7 +273,11 @@ namespace CardPresentation
             //   （`MenuDraw.Node` / `MenuWindowBase.Node` 等价性 → 两者各自的注释）。
             _gridVp = vp.gameObject.AddComponent<ViewportClip>();
             _gridVp.padding = Vector4.zero;
-            _gridVp.softness = new Vector2Int((int)PacksSoft.x, (int)PacksSoft.y);
+            // 🆕 2026-10-31（`B106_W14`）：软边**两族不同** —— Grid 族 `RectMask2D.m_Softness = (0,25)`（纵向渐隐带），
+            //   Flexible 族 = **(0,0)**（`AUD05_state_matrix_商店窗.md` §2·4 实读：`Packs Tab/Packs Scroll View/Viewport`）。
+            //   ⛔ 别把 Grid 那档套过来：那是「照 copy 一个值」的坑（同一份文档 §2·4 就点名两族这个字段**不同**）。
+            var soft = IsFlexiblePage ? Vector2.zero : PacksSoft;
+            _gridVp.softness = new Vector2Int((int)soft.x, (int)soft.y);
             // 🔴 **2026-10-18（A840 · S1）**：补一句 `CaptureNow()` —— 把**刚写进这个节点的那个矩形**记成基准
             //   （= 框的中心那一帧，口径 → `ViewportClip` 文件头 §①）。⛔ 少了它，这个视口**逐位回落到旧写法**
             //   （实时反推 + `LiveDerivations`）：节点或它的**祖先**被挪过之后，框与被比矩形就**不在同一帧**。
@@ -269,7 +285,7 @@ namespace CardPresentation
             //   组件还不存在（那一句的穿透写在 `ApplyPxRect` 尾），所以只能由本行补 —— 同 `ViewportClip.Hang`
             //   里那句 `vc.SetBaseRect(r)` 的位置理由（`CardPresentation/Shell/ViewportClip.cs`）。⛔ 别改成 `OnEnable` 里自动抓（文件头 `CardPresentation/Shell/ViewportClip.cs` 明令）。
             _gridVp.CaptureNow();
-            var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollView);
+            var content = MainMenuSubmenuWindow.Node(vp, "Content", ScrollRectNow);
             BuildGrid(content); if (_page == VipPage && !ShopData.IsVip) BuildVipBlock(sv);   // 非 VIP ⇒ 原版把 `playerIsNotVIPObject`（`Packs Scroll View/No VIP` 整块遮罩）打开，见类尾那一段
 
             // ---- ③ `Empty Collection Warning`（出厂 INACT；原版在列表为空时显示）----
@@ -395,25 +411,42 @@ namespace CardPresentation
         /// ⇒ 格位 = `(col, row) × (335.6, 475) + (0, 7)`（相对 `Content` 左上角）。
         /// 🆕 **2026-10-03：接上纵向滚动 + 裁切**（原来第 3 行起真画到屏外）——
         /// 原版这一件是 `ScrollRect(h=0 v=1 mode=1(**Elastic**) · inertia=1 · elasticity=0.1 · decel=0.135)`
-        /// + `Viewport` 上的 `RectMask2D`（`menu_dump.py bundle_menus_assets_all "Card Shop Tab"` 实读）。</summary>
+        /// + `Viewport` 上的 `RectMask2D`（`menu_dump.py bundle_menus_assets_all "Card Shop Tab"` 实读）。
+        /// 🆕 **2026-10-31（`B106_W14`）：两族分家**（判据 `判据/AUD05_state_matrix_商店窗.md` §1·3/§1·4/§2·2/§2·4/§3·1）：
+        /// · **Grid 族**（Cards/Daily/Items/VIP）= 纵向滚动 · `cellSize 335.6×475`（小屏 ×1.18）· 列数现算 · `pad.top 7`；
+        /// · **Flexible 族**（本页 = Crates/Boosters，原版 `BoosterShopTab` ↔ prefab `Packs Tab`）=
+        ///   **横向滚动**（`ScrollRect h=1 v=0`）· **恒 2 行** · `itemSize 372.9×427.9`（小屏 ×1.05）·
+        ///   `spacing (28,32)` · `pad (50,25,25,0)` · 列数由**件数**决定（`ceil(n/2)`，序列化 `columns 200` 只是上限）。
+        /// </summary>
         void BuildGrid(Transform content)
         {
             var offers = ShopData.Offers(_page);
             // 🆕 A8：两条路的计数**每次重建都归零**（`Setup` 与滚动回调都会走到这儿）
             DrawerCells = 0; FallbackCells = 0;
-            // `ContentSizeFitter(Vertical = Preferred)`：内容高 = 行数 × 475 + 7（原版就是这个式子）
-            float contentH = (offers.Length + GridCols - 1) / GridCols * CellH + GridPadT;
-            float contentW = ScrollView.W;   // 🔴 2026-10-30（`B103_F5`）：原版 `Content` 是**拉伸**的（`ContentSizeFitter` 只控高、anchors (0,0)-(1,1)）⇒ 宽 = 视口宽 **1590.24**，⛔ 不是 `列数×格宽`（那只占左半边 1342.4、右余 247.84 —— `m_ChildAlignment = 0 UpperLeft` 不留左侧）。
+            bool flex = IsFlexiblePage;
+            float cw = PageCellW, ch = PageCellH;
+            // 列 / 行 / 内容两端（两族各一套式子；Grid 族 = 原来的算式，逐位未变）
+            int cols = flex ? Mathf.Max(1, (offers.Length + 1) / 2) : GridCols;
+            int rows = flex ? Mathf.Min(2, Mathf.Max(1, offers.Length)) : (offers.Length + cols - 1) / cols;
+            // Grid：`ContentSizeFitter(Vertical = Preferred)` ⇒ 内容高 = 行数 × 475 + 7（原版就是这个式子；小屏档下 475→560.5 而 pad 7 **不乘**）
+            float contentH = rows * ch + GridPadT;
+            // Grid：原版 `Content` 是**拉伸**的（`ContentSizeFitter` 只控高、anchors (0,0)-(1,1)）⇒ 宽 = 视口宽 **1590.24**，⛔ 不是 `列数×格宽`（那只占左半边 1342.4、右余 247.84 —— `m_ChildAlignment = 0 UpperLeft` 不留左侧）。
+            // Flex：`Content` 宽由件数给出（`FlexibleGridLayout.cs:270-280`）= (itemW+gapX)×cols − gapX + padL + padR
+            float contentW = flex ? (cw + FlexGapX) * cols - FlexGapX + FlexPadL + FlexPadR : ScrollRectNow.W;
+            var vpRect = ScrollRectNow;
 
             if (_gridScroll == null)
             {
-                _gridScroll = MenuScroll.TopAligned(ScrollView, contentH, 1f);   // 原版各 `… Shop Tab/Packs Scroll View` = 1.0（D_N29）
+                // 原版各 `… Shop Tab/Packs Scroll View` 灵敏度 = 1.0（D_N29）；Flexible 族也是 1.0（序列化未另给）
+                _gridScroll = flex ? MenuScroll.LeftAligned(vpRect, contentW, 1f)   // 原版 `Packs Tab`：`ScrollRect h=1 v=0` ⇒ **横向**
+                                   : MenuScroll.TopAligned(vpRect, contentH, 1f);
                 // 🔴 档位 = 原版 `m_MovementType = 1` ⇒ UGUI **Elastic**（真值 `0 Unrestricted / 1 Elastic / 2 Clamped`；
                 //    本文件原注释写的「`mode=1(Clamped)`」是【反的】，2026-10-04 已在
                 //    `资料/阶段二_滚动与指针_原版规格.md` §一 订正 —— A28 把行为补上）。
                 //    判据（原始 JSON 实读，逐页都读过）：`python 工具/menu_dump.py bundle_menus_assets_all "<页名>"`
                 //    ⇒ `Card Shop Tab` / `Daily Shop Tab` / `Item Shop Tab`（= 我们那三页）的 `Packs Scroll View`
                 //    **都是 `h=0 v=1 mode=1`**（⚠️ 包里另有 `Generic Shop Tab` 那种**不在我们三页里**的同类件，别拿它当判据）。
+                //    🆕 Flexible 族 `Packs Tab` 是 `h=1 v=0`、同 `mode 1 / inertia 1 / 0.1 / 0.135`（`AUD05…商店窗.md` §2·4）。
                 _gridScroll.Elastic = true;
                 _gridScroll.Owner = _root.gameObject;
                 _gridScroll.OnChanged = RebuildForScroll;
@@ -422,11 +455,13 @@ namespace CardPresentation
             else
             {
                 // 切页/换内容 ⇒ 同一份滚动区只改两端（**别新建** —— 旧注册条目的 `Owner` 是窗口根、不会自己死）
-                _gridScroll.ContentX1 = ScrollView.y1;
-                _gridScroll.ContentX2 = ScrollView.y1 + contentH;
+                // ⚠️ `ContentX1/2` 在纵向档装的是 **y** 两端、横向档装的是 **x** 两端（`MenuScroll` 自己的约定，别混）
+                _gridScroll.ContentX1 = flex ? vpRect.x1 : vpRect.y1;
+                _gridScroll.ContentX2 = flex ? vpRect.x1 + contentW : vpRect.y1 + contentH;
                 _gridScroll.Stop();                 // 旧速度别带到新内容上
             }
-            // 内容比视口窄 ⇒ 横向本来就没有可滚的余地（原版 `h=0`）
+            // Grid 族：内容比视口窄 ⇒ 横向本来就没有可滚的余地（原版 `h=0`）
+            // Flex 族相反：`h=1 v=0` ⇒ 竖向不可滚，横向由件数决定
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A465）**：构建循环那一路（「整块在视口外 ⇒ 不建」）
             //   也要吃那颗视口节点。⚠️ **每次 `BuildGrid` 都重赋** —— `Setup()` 会把上一轮那颗节点整棵
@@ -436,14 +471,29 @@ namespace CardPresentation
             // 🔴 **`Clip` 与 `ClipSoftness` 那一对（旧写法）已在 2026-10-13 删掉** —— 见 `Setup()` 里
             //    `_gridVp` 那一段：状态现在长在 `Packs Scroll View/Viewport` 那颗 `ViewportClip` 上，
             //    本循环里所有件（`_win.Rect` / `_win.Text` / `_win.AddHit` 建的）都挂在 `Content` 之下
-            //    ⇒ 沿父链解析到**同一份**（框 = `ScrollView` 反推、`pad` 全 0、`softness` = (0,25)）。
+            //    ⇒ 沿父链解析到**同一份**（框 = `ScrollRectNow` 反推、`pad` 全 0、`softness` = (0,25) 或 (0,0)）。
             //    ⚠️ 原来那一段留着的理由（「谁设 `Clip` 谁顺手把 `ClipSoftness` 设对」）随字段一起作废。
             for (int i = 0; i < offers.Length; i++)
             {
-                int col = i % GridCols, row = i / GridCols;
-                float x1 = ScrollView.x1 + col * CellW;
-                float y1 = ScrollView.y1 + GridPadT + row * CellH;   // 内容坐标（偏移 0 时）
-                var rc = new PxRect(x1, y1, x1 + CellW, y1 + CellH);
+                int col, row;
+                float x1, y1;
+                if (flex)
+                {
+                    // `FlexibleGridLayout`：子件位置 = (pad.left + col×(itemW+gapX), pad.top + row×(itemH+gapY))。
+                    // 🔴 **填法 = 先往下填满 `rows` 再换列**（不是先往右填）：判据 = `FlexibleGridLayout__DoesItemFit.c`
+                    //   （它从 `(param_2 = 起始行, param_3 = 固定列)` 起 **行 +1 逐个试**，列不动）＋ 序列化 `rows 2` /
+                    //   `columns 200`（上限）⇒ 列数 = `ceil(n/2)`、`col = i / 2 · row = i % 2`。
+                    col = i / 2; row = i % 2;
+                    x1 = vpRect.x1 + FlexPadL + col * (cw + FlexGapX);
+                    y1 = vpRect.y1 + FlexPadT + row * (ch + FlexGapY);
+                }
+                else
+                {
+                    col = i % cols; row = i / cols;
+                    x1 = vpRect.x1 + col * cw;
+                    y1 = vpRect.y1 + GridPadT + row * ch;   // 内容坐标（偏移 0 时）
+                }
+                var rc = new PxRect(x1, y1, x1 + cw, y1 + ch);
                 var r = _gridScroll.Shift(rc);                        // 内容坐标 → 屏幕坐标（**只做偏移**）
                 if (!_gridScroll.Intersects(r)) continue;             // 整格在视口外 ⇒ 不建（点击区也没了）
                 BuildCell(MainMenuSubmenuWindow.Node(content, "CatalogItemShopContainer_" + i, r), r, i, offers[i]);
@@ -485,7 +535,7 @@ namespace CardPresentation
         {
             // `background`：`UI_Deck_Selection_Back_simple`（**Simple**，不是 Sliced）+ `Mask(showGraphic=1)`
             _win.Rect(cell, "UI_Deck_Selection_Back_simple",
-                      Rect(r, CellBg), "background", QCellBg);
+                      CellRect(r, CellBg), "background", QCellBg);
 
             // 商品主图（原版 `background` 的 `m_Sprite` 是 0、运行期由服务端赋图）
             // ⚠️ **主图的框是「抽屉区去掉下面两条文字带」** —— 第一版让它占满整个抽屉区，
@@ -507,7 +557,7 @@ namespace CardPresentation
                 DrawerCells++;
                 // 🔴 **抽屉框按图的长宽比放大**（A34-F7）—— 否则图比框宽的那几件会两轴各缩 ~4.7%，
                 //    而断言只覆盖第 0 格 ⇒ 静默。判据与算式 → `DrawerBox` 的注释。
-                var artBand = Rect(r, CellArtBox);
+                var artBand = CellRect(r, CellArtBox);
                 var artTex = CardArt.MenuUi(o.Art);
                 var artBox = artTex != null && artTex.height > 0
                            ? DrawerBox(artBand, (float)artTex.width / artTex.height)
@@ -528,7 +578,7 @@ namespace CardPresentation
             else if (!string.IsNullOrEmpty(o.Art))
             {
                 FallbackCells++;
-                _win.Rect(cell, o.Art, Rect(r, CellArtBox), "Art", QCellArt, null, true);
+                _win.Rect(cell, o.Art, CellRect(r, CellArtBox), "Art", QCellArt, null, true);
             }
             else
             {
@@ -537,7 +587,7 @@ namespace CardPresentation
                 // 🔴 **不要铺满整个主图框** —— 第一版就是铺满的，实拍出来是**一大块灰板**，
                 //    看着像「这一格坏了」。改成**小一号居中的板 + 物品短名**（同战役奖励窗那套）。
                 if (!NoArtOffers.Contains(o.Name)) NoArtOffers.Add(o.Name);
-                var ar = Rect(r, CellArtBox);
+                var ar = CellRect(r, CellArtBox);
                 var pr = new PxRect(ar.CX - 84f, ar.CY - 84f, ar.CX + 84f, ar.CY + 84f);
                 _win.Rect(cell, null, pr, "ArtPlaceholder", QCellArt, ArtPlaceholderTint);
                 // 🔴 **2026-10-09（A1173）**：autosize 收进 `Text` 的形参（原来是先 `Text`、再手工补一次）。
@@ -559,7 +609,7 @@ namespace CardPresentation
                 //   `Shop Menu Variant/…/Comsetic Item Shop Container/raycast target` = **`Purchase Click`**
                 //   ⇒ cue 落 `PurchaseCue`。⚠️ 语义差异（我们这颗是「开 `BoosterInfoPopup`」、原版是
                 //   `OpenContainer`）属界面线既有账，本次只归音。
-                MenuDraw.Hit(cell, "InfoHit", Rect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx),
+                MenuDraw.Hit(cell, "InfoHit", CellRect(r, CellArtBox), QCellInfoHit, () => OpenBoosterInfo(idx),
                              clickCue: WindowSounds.PurchaseCue);
 
             // 🆕 **2026-10-18（第五十一会话 · 真机「中英混排」）**：类型行原来直接印 `o.Type`（英文）。
@@ -574,7 +624,7 @@ namespace CardPresentation
             //    🔴 **2026-10-09（A1173）**：那一刀 `SetAutoFitBox` 收进 `Text` 的形参；**次序不变**
             //      （漏斗里那两步排在返回之前 ⇒ 仍早于下面这句 `AlignRight`）。
             {
-                var tyR = Rect(r, CellTypeBand);
+                var tyR = CellRect(r, CellTypeBand);
                 var ty = _win.Text(cell, TypeText(o.Type), tyR.x1, tyR.x2, tyR.y1, tyR.y2, 5,
                                    new Color(0.717f, 0.717f, 0.717f, 1f), "Type", 26f,
                                    wrapPx: tyR.W, autoMinPx: 16f, autoMaxPx: 26f, face: TmpFont.Face.LatinCardBody);
@@ -583,7 +633,7 @@ namespace CardPresentation
                     ty.SetRenderQueue(QCellText);
                     MenuDraw.AlignRight(ty, tyR);
                 }
-                var nmR = Rect(r, CellNameBand);
+                var nmR = CellRect(r, CellNameBand);
                 var nm = _win.Text(cell, o.Name, nmR.x1, nmR.x2, nmR.y1, nmR.y2, 5, Color.white, "Name", 30f,
                                    wrapPx: nmR.W, autoMinPx: 18f, autoMaxPx: 30f, face: TmpFont.Face.LatinCardBody);
                 if (nm != null)
@@ -593,7 +643,7 @@ namespace CardPresentation
                 }
             }
 
-            // `Available Counter`：**有限购信息才画**（`AvailableMax > 0`）；原版是 `Available: 1/5`，hAlign **Center**。
+            // 🔶 自己设计（非原版）：`Available` 显隐闸 = `AvailableMax > 0`（有限购信息才画）；原版 `CatalogItemContainer` **没有** `SetActive` 闸（显隐由 prefab 出厂 / 服务端 `hasLimit` 决定，本地无代码判据）⇒ 这一条是我们定的 · 调度台 2026-10-31 裁定
             // 🔴 **2026-10-19（N72 现核 · 铁律 5 就地订正）**：本行原文写「hAlign Right」——**不成立**。
             //   现跑 `menu_dump.py bundle_menus_assets_all "Catalog Item Shop Container"`，**6 份同名变体逐个实读**
             //   全是 `对齐=Center/Midline`（`m_HorizontalAlignment = 2` + `m_VerticalAlignment = 4096`）；
@@ -602,7 +652,7 @@ namespace CardPresentation
             //   按框中心摆整块，见 `Battle/Label.cs` 的 `RefreshBounds`），对齐由框本身（`CellAvail`）给。
             if (o.AvailableMax > 0)
             {
-                var ar = Rect(r, CellAvail);
+                var ar = CellRect(r, CellAvail);
                 // 🆕 **2026-10-17（A1236）：判据已查实 ⇒ 改【值】，⛔ 不动共用闸。**
                 //   按 `A1208` 的既定口径「先看原版那一颗的 `m_fontSizeBase`」：
                 //   全包 50 颗 `m_text` 含 `'Available:'` 的 TMP 里，本处用的是 **5 颗那一档**，
@@ -634,9 +684,9 @@ namespace CardPresentation
 
             // `Counter`（拥有数角标）+ 它的 `Text (TMP)` `x14`
             {
-                var cr = Rect(r, CellCount);
+                var cr = CellRect(r, CellCount);
                 _win.Rect(cell, "40K_main_deck_card_counter", cr, "Counter", QCellCount, null, true);
-                var tr = Rect(r, CellCountText);
+                var tr = CellRect(r, CellCountText);
                 // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（`x{Owned}` 角标）四格 =
                 //   `18 / 72 / 32 / 1`（出处 = `RA1212_切块表.md` 块 6 #18）。闸三条全真（`23 > 18`）。
                 //   ⚠️ 折行 = **1** ⇒ 不用还原（`SetAutoFitBox` 顺带开的就是 `Normal(1)`）。
@@ -655,16 +705,23 @@ namespace CardPresentation
 
             // `Price Display Button` → `Generic UI Button`（`40K_button`，Simple + preserveAspect，金色）
             {
-                var pr = Rect(r, CellPrice);
+                var pr = CellRect(r, CellPrice);
                 // 🆕 2026-10-03 A17：原版这一颗是 SpriteSwap —— `40K_button` → `40K_button_hover`
                 //（普查 §块 2 第 1 行：`Catalog Item Shop Container>background>price-bg>Price Display Button>Generic UI Button`）
                 var priceQ = _win.Rect(cell, "40K_button", pr, "Generic UI Button", QCellPrice, PriceTint, true);
                 // 🔴 **2026-10-18（N59）**：原版 `Price Display` = **金币图标 + 数字**
                 //   （`Catalog Item Shop Container` dump：`Price Display` 86.36,416.86 → 247.86,442.54，
                 //   子件 `icon` = `40k_topmarquee_currency_gold`、ARF 高控宽 1:1；我们原来只画数字）。
-                var iconR = Rect(r, new PxRect(86.36f, 416.86f, 112.04f, 442.54f));
-                var iconQ = _win.Rect(cell, "40k_topmarquee_currency_gold", iconR, "Price Icon", QCellPrice, null, true);   // 接住那颗 icon：售罄时它要**跟着价签钮一起灰**（原版它在 `Generic UI Button` 子树里、挂 `EverguildButtonMaterialModifier`，见 `wb.TintOn` 那句）
-                var textR = Rect(r, new PxRect(112.04f, 416.86f, 247.86f, 442.54f));
+                // 🆕 **2026-10-31（`B106_W14`）**：两档「已拥有」要在**建图标之前**就知道 —— 原版那两档走的是
+                //   `priceDisplay.Setup(Loc("MenuShop/Owned"))` / `Setup(Format(Loc(…OpenButton), n))`，都是
+                //   **只给文本**那条重载（`PriceDisplay.cs:20` `Setup(string buttonText, Sprite iconSprite)`，图标为 null）
+                //   ⇒ 已拥有档**不画货币图标**。⚠️ 文本框仍留原位（原版靠 `LayoutGroupContentFixer.FixLayout` 重排，
+                //   我们按固定矩形摆、不做重排）—— 这半句是我们挑的，如实记在报告里。
+                int ownedN = ShopData.OwnedOf(_page, idx);
+                bool ownedShown = IsOwnedCell(idx);
+                var iconR = CellRect(r, new PxRect(86.36f, 416.86f, 112.04f, 442.54f));
+                var iconQ = ownedShown ? null : _win.Rect(cell, "40k_topmarquee_currency_gold", iconR, "Price Icon", QCellPrice, null, true);   // 接住那颗 icon：售罄时它要**跟着价签钮一起灰**（原版它在 `Generic UI Button` 子树里、挂 `EverguildButtonMaterialModifier`，见 `wb.TintOn` 那句）
+                var textR = CellRect(r, new PxRect(112.04f, 416.86f, 247.86f, 442.54f));
                 // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（价格）四格 = `13.46 / 40 / 39 / 0`
                 //   （出处 = `RA1212_切块表.md` 块 6 #19）。闸三条全真（`30 > 13.46`）。
                 //   🔴 **同层另有【一颗也叫 `Button Text`】**（`INACT`/空串/`fs12·base12·auto[12~38]`）
@@ -676,10 +733,20 @@ namespace CardPresentation
                 //   · **空** ⇒ **`--`**（`Setup(string)` 里 `buttonText == null ⇒ "--"`）；
                 //   · **`useStrikeThrough`** ⇒ 文本**前插 `<s>`**（TMP 删除线；原版**只插开头那一个、不闭合**，
                 //     `TryInsertStrikeThrough` 逐字如此）。⚠️ 今天商品表里没有一件打开后两档（组件补齐、数据可开）。
-                string ptxt = o.Free ? Loc.T("MainMenu/Free")
+                // 🆕 **2026-10-31（`B106_W14`）**：价格区补上原版那两档「已拥有」——
+                //   · **`CatalogItemContainer` 族**（第 0~3 页，**且必须是外观件 `CosmeticItem`**；卡包/通货/票券这类消耗品**不进**这一档 —— `B106_W72`）⇒ `priceDisplay.Setup(Loc("MenuShop/Owned"))`：
+                //     价格区印 **`Owned`**，且 `interactable` 里 **AND 掉 `!已拥有`**（判据 = `CatalogItemContainer.cs:240-283`，
+                //     `.c` 版 `decomp_full/CatalogItemContainer__Refresh.c:40-160`）；
+                //   · **`ShopOfferContainer` / `PriceDisplayButton.Setup(IShopOffer)` 那一路**（第 4 页 = Crates/Boosters，
+                //     原版 `Packs Tab` ⇒ `BoosterShopTab`）⇒ `已拥有数 > 0` 时印 **`Open ({n})`** 且 **强制可点**
+                //     （判据 = `PriceDisplayButton.cs:91-101`：`Interactable = true; priceDisplay.Setup(Format(Loc("MenuShop/ShopContainer/OpenButton"), n));`）。
+                //   🔶 自己设计（非原版）：**「哪一页走哪一族」这个接线**——原版由服务端 item 的派生类型决定（`ShopOfferDataV2` vs `ContainerOfferData`），
+                //     我们这一侧商品表是自编的（没有那个类型）⇒ 按**页**分（第 4 页 = offer 族，其余 = catalog 族）· 调度台 2026-10-31 裁定。
+                string ptxt = ownedShown ? OwnedPriceText(ownedN)
+                            : o.Free ? Loc.T("MainMenu/Free")
                             : string.IsNullOrEmpty(o.Price) ? "--"
                             : o.Price;
-                if (o.StrikeThrough) ptxt = "<s>" + ptxt;
+                if (!ownedShown && o.StrikeThrough) ptxt = "<s>" + ptxt;   // 已拥有档不插删除线（原版那两个分支互斥）
                 var lt = _win.Text(cell, ptxt, textR.x1, textR.x2, textR.y1, textR.y2, 5, PriceInk,
                                    "Button Text", 30f, textR.W, 13.46f, 40f, 39f,
                                    face: TmpFont.Face.LatinCardBody);
@@ -697,7 +764,7 @@ namespace CardPresentation
                 var wb = hit.gameObject.AddComponent<WindowButton>();
                 int captured = idx;
                 wb.onClick = () => Buy(captured);
-                wb.Bind(priceQ, "40K_button"); wb.TintOn(iconQ); if (ShopData.SoldOut(_page, idx)) wb.SetSoftDisabled(true);   // A17：悬停/按下换图（同一颗，原版命中就在按钮本身上）｜🔴 2026-10-29（`B97_W15` · 账 `商店:297` 残差）**售罄 ⇒ 变灰**：原版闸 = `CatalogItemContainer__Refresh.c:45-51`（`max<1` 或 `已购<max`）+ `:65-77` `PriceDisplayButton.set_Interactable(0)` → `EverguildButton__DoStateTransition` → `SwitchMaterial` → **换 `Everguild/UI/Greyscale` 材质**（闸 `colorTintGreyOnDisable=1`，70/70）⇔ 我们的 `SetSoftDisabled`/`RefreshGray`；⛔ **不是** `m_DisabledColor`（那批钮 70/70 `m_Transition=2`(SpriteSwap) + `customColorTintTransitions=0` + `m_DisabledSprite=null` ⇒ 自写颜色段被整段跳过，0.7843 是死值）。`TintOn(iconQ)` = 原版 `Price Display/icon` 在 `Generic UI Button` 子树里、挂 `EverguildButtonMaterialModifier` ⇒ 要**跟着一起灰**（我们摆成格的兄弟 ⇒ 走 A1725 第四组那个口；价格文本是纯白字、`Greyscale` 后逐像素不变）。🔶 自己设计（非原版）：**软禁用**（灰了照样点得动、点下去 `RefuseSoldOut` 拒绝 + 出声）—— 原版是硬禁用（`interactable=false`，点了什么都不发生），与本工程红线「点了必须有反应」冲突 · 调度台 2026-10-29 裁定（`判据/B97_R5_零散剩余施工单.md` §一·补 ①）
+                wb.Bind(priceQ, "40K_button"); if (iconQ != null) wb.TintOn(iconQ); if (PriceButtonBlocked(idx)) wb.SetSoftDisabled(true);   // 🆕 2026-10-31（`B106_W14`）：闸从「只有 `SoldOut`」扩到原版那三档 —— 售罄 / 买不起 / 已拥有（catalog 族）；判据与两族分家 → 上面 `ownedN` 那段与类尾 `PriceButtonBlocked` ｜ A17：悬停/按下换图（同一颗，原版命中就在按钮本身上）｜🔴 2026-10-29（`B97_W15` · 账 `商店:297` 残差）**售罄 ⇒ 变灰**：原版闸 = `CatalogItemContainer__Refresh.c:45-51`（`max<1` 或 `已购<max`）+ `:65-77` `PriceDisplayButton.set_Interactable(0)` → `EverguildButton__DoStateTransition` → `SwitchMaterial` → **换 `Everguild/UI/Greyscale` 材质**（闸 `colorTintGreyOnDisable=1`，70/70）⇔ 我们的 `SetSoftDisabled`/`RefreshGray`；⛔ **不是** `m_DisabledColor`（那批钮 70/70 `m_Transition=2`(SpriteSwap) + `customColorTintTransitions=0` + `m_DisabledSprite=null` ⇒ 自写颜色段被整段跳过，0.7843 是死值）。`TintOn(iconQ)` = 原版 `Price Display/icon` 在 `Generic UI Button` 子树里、挂 `EverguildButtonMaterialModifier` ⇒ 要**跟着一起灰**（我们摆成格的兄弟 ⇒ 走 A1725 第四组那个口；价格文本是纯白字、`Greyscale` 后逐像素不变）。🔶 自己设计（非原版）：**软禁用**（灰了照样点得动、点下去 `RefuseSoldOut`/`RefuseOwned`/`RefuseCannotAfford` 拒绝 + 出声）—— 原版是硬禁用（`interactable=false`，点了什么都不发生），与本工程红线「点了必须有反应」冲突 · 调度台 2026-10-29 裁定（`判据/B97_R5_零散剩余施工单.md` §一·补 ①）
             }
         }
 
@@ -713,7 +780,7 @@ namespace CardPresentation
         /// 确认了才走 `ShopItemContainer.TryPurchase`）。⚠️ 取消 = **什么都不做**（原版那条 `Cancel` 分支就是返回）。🆕 2026-10-29（`B97_SHOP2` · 账 `商店:297`）**限购售罄比这两道都早** —— 原版那道闸在 `CatalogItemContainer.Refresh` 的 `interactable = false` 上，见函数体第一句与 `RefuseSoldOut`。</summary>
         public string Buy(int idx)
         {
-            if (ShopData.SoldOut(_page, idx)) return RefuseSoldOut(idx); if (ShopData.NeedsLegendaryConfirm(_page, idx))   // 🔴 原版「限购售罄」闸；两句合占一行 ⇒ 行号零漂移
+            if (ShopData.SoldOut(_page, idx)) return RefuseSoldOut(idx); else if (IsOwnedCell(idx) && IsOfferFamily) return OpenOwnedOffer(idx); else if (IsOwnedCell(idx)) return RefuseOwned(idx); else if (!CanAfford(_page, idx)) return RefuseCannotAfford(idx); if (ShopData.NeedsLegendaryConfirm(_page, idx))   // 🔴 原版「限购售罄」闸；两句合占一行 ⇒ 行号零漂移。🆕 2026-10-31（`B106_W14`）：售罄之后补原版另两道闸（已拥有 / 买不起，判据 → 类尾 `PriceButtonBlocked`）—— 顺序照 `CatalogItemContainer__Refresh.c` 那一个布尔式，售罄最先
             {
                 Debug.Log("[Shop] 这一件是**传奇（Rarity 4）且已拥有 1 张** ⇒ 照原版先弹确认框"
                           + "（`MenuShop/ExtraLegendaryWarning`）—— 确认了才买");
@@ -1341,5 +1408,279 @@ namespace CardPresentation
                            + " 件已售罄）⇒ 不记账、**不弹错误窗**（原版这一档是按钮不可点，⛔ 不是 `OnPurchasedFailed`）");
             return got;
         }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W14`）：小屏档 / Flexible 族 / 已拥有两档 / 余额闸
+        //
+        // ---- 判据（一条一句，全部现读，⛔ 不是估的）----
+        // ① **小屏系数**（`ShopTab.cs:186-235` 逐句）：`if (!GameStaticData.smallScreenUI) return;` ⇒ 非小屏**一格都不改**；
+        //    之后 Grid 族 `gridLayoutContent.cellSize = 原始格尺寸 × contentLayoutElementsSizeMultiplierSmallScreens`、
+        //    Flexible 族 `flexibleGridLayoutContent.ItemSize = itemSize × 同一个乘数`。乘数**按 prefab 不同**：
+        //    Grid 族 5 份 = **1.18**、Flexible 族 3 份 = **1.05**（`AUD05_state_matrix_商店窗.md` §1·3 / §2·2 逐份实读）。
+        //    ⚠️ 本窗 `extraScaleSmallScreen = 1.0`（`Shop Menu Variant` MB 实读）⇒ **窗根不被缩放器放大**，
+        //    小屏档**只走这一条格尺寸的乘数**（`TransformScalerBySmallScreenUI.cs` 文件头 ③）。
+        // ② **Flexible 族**（`AUD05…商店窗.md` §1·4 / §2·4 / §3·1 S1′）：
+        //    `Content` 宽 = (itemW+gapX)×列 − gapX + padL + padR · 子件位置 = (padL + col×(itemW+gapX), padT + row×(itemH+gapY)) ·
+        //    `rows 2` · `columns 200`（上限，列数实际由**件数**定）· `itemSize 372.9×427.9` · `spacing (28,32)` ·
+        //    `pad (50,25,25,0)` · `ScrollRect h=1 v=0`（横向）· `Viewport.RectMask2D.m_Softness = (0,0)`。
+        //    分派依据：本窗第 5 页 = Crates/Boosters，原版 `BoosterShopTab : ShopTab` ↔ prefab `Packs Tab`（`ShopData.Pages[4]`）。
+        // ③ **已拥有两档**（两段不同的原版代码，见 `BuildCell` 里那段注释）：catalog 族 ⇒ `Owned`；offer 族 ⇒ `Open ({n})`。
+        // ④ **余额闸**：原版 `CatalogItemContainer__Refresh.c:45-77` 把 `HasEnoughCurrency()` 与售罄、已拥有并入**同一个布尔**
+        //    再落 `Selectable.set_interactable` ⇒「买不起 ⇒ 按钮不可点 + 变灰」（`PriceDisplayButton.set_Interactable(0)`）。
+        // ⑤ **页签禁用**（`ShopWindow__CreateStoreTab.c:95-98`）：`if (*(char*)(storeData + 0x22) == 0) TabButtons.ToggleInteractable(tab, false)`。
+        //    🔴 **2026-10-31 现核（`B106_W14`）：那个 `+0x22` 的 bool = `LiveOpsEventData.enabled`** —— §6·4 的 `?` 可以销掉。
+        //    三条独立判据：① `Everguild.LiveOps.LiveOpsEventData__IsActive.c:7` 第一句就是 `if (*(char*)(this + 0x22) == '\0')`，
+        //    而 `IsActive` 的语义入口正是 `enabled`（`LiveOpsEventData` 里 `public bool enabled;` 是第 4 个布尔字段）；
+        //    ② `BaseParentEventWindow__CreateEventTab.c:82-88` 是**同一段形状**（同一个 `+0x22`、同一个 `ToggleInteractable(...false)`），
+        //    而我们的 `Shell/ParentEventWindow.cs:1684/1729-1740` 早按 `ev.GetData().enabled == false` 实现并已接线 ⇒ 口径一致；
+        //    ③ 反证：`+0x22` 那一路的**同一个取对象调用**在 `ShopWindow__CreateStoreTab.c` 里还被用来读 `+0x68`
+        //    （`= ShopStoreData.extraNotificationsToWatch`）⇒ 该对象就是 **store 的 Data**（`ShopStoreData : ShopEventData : LiveOpsEventData`）。
+        //    ⇒ 我们这一侧 = 每页一个「store 是否启用」的开关（`ShopWindow.PageEnabled`，默认全 true = 原版各 store 都启用）。
+
+        /// <summary>Grid 族小屏乘数（原版 `contentLayoutElementsSizeMultiplierSmallScreens`，5 份 prefab 逐份实读 = 1.18）。</summary>
+        public const float SmallGridScale = 1.18f;
+        /// <summary>Flexible 族小屏乘数（3 份 prefab 逐份实读 = 1.05）。</summary>
+        public const float SmallFlexScale = 1.05f;
+
+        /// <summary>Flexible 族 `FlexibleGridLayout` 的四个序列化值（`Packs Tab` / `Generic Shop Tab` 逐字段相同）。</summary>
+        public const float FlexItemW = 372.9f, FlexItemH = 427.9f;
+        /// <summary>Flexible 族 `spacing (28,32)`。</summary>
+        public const float FlexGapX = 28f, FlexGapY = 32f;
+        /// <summary>Flexible 族 `padding (left 50, right 25, top 25, bottom 0)`。</summary>
+        public const float FlexPadL = 50f, FlexPadR = 25f, FlexPadT = 25f, FlexPadB = 0f;
+
+        // ⑥ **`AdaptFlexibleGridLayoutByAspectRatio.ModifyFlexibleLayout`（非 16:9 那档）· 2026-10-31 现核，本批【没接】**
+        //    —— 判据 = `decomp_full/AdaptFlexibleGridLayoutByAspectRatio__ModifyFlexibleLayout.c` 逐句（**方法体在**，R2 报的
+        //    「全仓 0 命中」指的是**我们工程里没有这个类**，不是反编译里没有）：
+        //      factor = max(`1.0`, `1.77778` ÷ (Screen.width ÷ Screen.height))      ← 两个常量现读：`0x1834b32d0` = 1.77778 · `0x1834b2bb8` = 1.0
+        //      newItemSize = (originalItemSize.x, **originalItemSize.y × factor**)   ← **只改高**（`this+0x28` = x、`this+0x2c` = y）
+        //      差值的平方和 > `0.0001`（`0x1834b32f8`，**8 字节 double**）才 `LayoutRebuilder.MarkLayoutForRebuild`
+        //    ⇒ **它只对「非 16:9」生效**，而在我们这一侧设计空间是**固定 1920×1080**（`LayoutSpace.DesignPxW/H` 是 `const`；
+        //    改成原版 `CanvasScaler(Expand)` 那条路 `LayoutSpace.cs:88-105` 记着「当天就回滚」，属 AUD05 §1·1 的高风险件、
+        //    须调度台先裁断）⇒ **这里没有可落的地方**：`Screen` 的宽高比在我们这一层**改变不了任何布局**。
+        //    ⛔ 别照着抄一个「按 Screen 算但我方设计空间不动」的乘数 —— 那会变成**只在某些窗口上错开**的静默缺陷。
+
+        /// <summary>Flexible 族的 `Packs Scroll View`（判据 `AUD05_state_matrix_商店窗.md` §2·4：相对 `Tabs` 的
+        /// `163.5,0 → 1752.8,1009.1`，再 +(167.17, 70.94)）⇒ 绝对 **330.67,70.94 → 1919.97,1080**（1589.31 × 1009.06）。
+        /// ⚠️ 与 Grid 族的 `ScrollView`（329.76,127.62→1920,1080）**差 0.91 / 56.68** —— 页头在 Flexible 族是 INACT，所以从页顶起。</summary>
+        public static readonly PxRect FlexScrollView = new PxRect(330.67f, 70.94f, 1919.97f, 1080.00f);
+
+        /// <summary>本页的 `Packs Scroll View` 矩形（两族分家，见 <see cref="FlexScrollView"/>）。</summary>
+        public PxRect ScrollRectNow { get { return IsFlexiblePage ? FlexScrollView : ScrollView; } }
+
+        /// <summary>本页是不是 **Flexible 族**（原版 `Packs Tab` / `Generic Shop Tab`）。
+        /// 我们的第 5 页（`CratesPage`）= Crates/Boosters ⇒ 原版 `BoosterShopTab` ⇔ prefab `Packs Tab` ⇒ **是**。</summary>
+        public bool IsFlexiblePage { get { return _page == CratesPage; } }
+
+        /// <summary>本页属 **offer 族**（`ShopOfferContainer` / `PriceDisplayButton.Setup(IShopOffer)` 那一族）。
+        /// 与 <see cref="IsFlexiblePage"/> 同一批（原版 `Packs Tab` 里的格子是 `Booster Offer Container`）。
+        /// ⚠️ 「页 → 族」这层映射**是我们接的线**（原版看服务端 item 的派生类型，我们商品表没有那栏）—— 已标 `🔶 自己设计`。</summary>
+        public bool IsOfferFamily { get { return IsFlexiblePage; } }
+
+        /// <summary>Grid 族的**有效格宽**（= 335.6 × 小屏 1.18，静态：`GridCols` 要用）。</summary>
+        public static float CellWNow { get { return CellW * (SmallScreenUI.Enabled ? SmallGridScale : 1f); } }
+        /// <summary>Grid 族的**有效格高**（= 475 × 小屏 1.18）。</summary>
+        public static float CellHNow { get { return CellH * (SmallScreenUI.Enabled ? SmallGridScale : 1f); } }
+
+        /// <summary>**本页**的格宽（Flexible 族 = `372.9 × 小屏 1.05`；Grid 族 = <see cref="CellWNow"/>）。</summary>
+        public float PageCellW { get { return IsFlexiblePage ? FlexItemW * (SmallScreenUI.Enabled ? SmallFlexScale : 1f) : CellWNow; } }
+        /// <summary>**本页**的格高（同上）。</summary>
+        public float PageCellH { get { return IsFlexiblePage ? FlexItemH * (SmallScreenUI.Enabled ? SmallFlexScale : 1f) : CellHNow; } }
+
+        /// <summary>把「格内局部矩形」换算成绝对矩形 —— **按格的缩放比例映射**。
+        /// <para>🔴 判据：原版格子里那些件是**按父的归一化锚点**摆的（`Catalog Item Shop Container` 的 `background`
+        /// `anchorMin (0,0) / anchorMax (1,1)`、`price-bg` `(0,0.0452)-(1,0.1812)`、`Counter` `(0,0.1493)-(1,0.2175)` … 逐件实读），
+        /// 所以 `GridLayoutGroup` 把格改大/改小之后，**内件是逐比例缩放的**（不是「格变大、件不动」）。
+        /// ⇒ 我们按 `sx = cell.W/CellW · sy = cell.H/CellH` 把模板矩形映射进实际格。
+        /// ⚠️ 桌面 Grid 档 `sx = sy = 1` ⇒ 与旧写法**逐位相同**（现有断言不受影响）。</para></summary>
+        PxRect CellRect(PxRect cell, PxRect inner)
+        {
+            float sx = cell.W / CellW, sy = cell.H / CellH;
+            if (Mathf.Abs(sx - 1f) < 1e-4f && Mathf.Abs(sy - 1f) < 1e-4f) return Rect(cell, inner);
+            return new PxRect(cell.x1 + inner.x1 * sx, cell.y1 + inner.y1 * sy,
+                              cell.x1 + inner.x2 * sx, cell.y1 + inner.y2 * sy);
+        }
+
+        /// <summary>词条三档一起算（`Loc.HasAnyTerm`），缺键才回英文兜底 —— ⛔ 不让键名印到屏上。</summary>
+        static string TermOr(string key, string en) { return Loc.HasAnyTerm(key) ? Loc.T(key) : en; }
+
+        /// <summary>「已拥有」那一档的价格区文案（见 `BuildCell` 里那段注释的两条原版分支）。</summary>
+        string OwnedPriceText(int n)
+        {
+            // offer 族：`Format(Loc("MenuShop/ShopContainer/OpenButton"), n)` ⇒ `Open ({0})`（官方表 EN/中文「打开 ({0})」）
+            if (IsOfferFamily) return TermOr("MenuShop/ShopContainer/OpenButton", "Open ({0})").Replace("{0}", n.ToString());
+            // catalog 族：`priceDisplay.Setup(Loc("MenuShop/Owned"))` ⇒ `Owned`（官方表 EN `Owned` / 中文「拥有」）
+            return TermOr("MenuShop/Owned", "Owned");
+        }
+
+        /// <summary>这一件**在原版「已拥有」那一档里**算不算已拥有（两族判法不同：catalog 族只在 `item is CosmeticItem` 时才算 · offer 族只看 `GetOwnedCount > 0`）⇒ 本文件只有这一处表达（⛔ 别在调用点各写一遍）。🔶 自己设计（非原版）：原版按服务端 item 派生类型判 `is CosmeticItem`，本地无该字段 ⇒ 用 `Type=="Cosmetic"` 映射 · 调度台 2026-10-31 裁定
+        /// 判据 = `out_cpp2il_dev_ilspy/CatalogItemContainer.cs:206-257`（`if (item is CosmeticItem) {…} else obj8 = 0;` ⇒ 卡包/通货/票券这类消耗品**不进**「已拥有」档）；offer 族 = `PriceDisplayButton.cs:52-101`（`GetOwnedCount > 0` ⇒ `Open ({n})`，**不分类型**）。</summary>
+        public bool IsOwnedCell(int idx) { var o = ShopData.Offers(_page); return idx >= 0 && idx < o.Length && ShopData.OwnedOf(_page, idx) > 0 && (IsOfferFamily || o[idx].Type == "Cosmetic"); }
+
+        /// <summary>价格区这一格现在**该不该灰 / 该不该拦**（原版 `CatalogItemContainer__Refresh.c:45-77` 那一个布尔
+        /// + `PriceDisplayButton.cs:91-101` 的已拥有支）。
+        /// <para>· 已拥有 + **offer 族** ⇒ `Open ({n})`，**强制可点**（原版 `Interactable = true`）⇒ **不拦**；
+        /// · 已拥有 + catalog 族 ⇒ `interactable` 里 AND 掉 `!已拥有` ⇒ **拦**；
+        /// · 未拥有 ⇒ 售罄 或 买不起 ⇒ **拦**。</para></summary>
+        public bool PriceButtonBlocked(int idx)
+        {
+            if (IsOwnedCell(idx)) return !IsOfferFamily;
+            return ShopData.SoldOut(_page, idx) || !CanAfford(_page, idx);
+        }
+
+        /// <summary>自检读口：这一格的价格文本**现在应该是什么**（与 `BuildCell` 同一份判断，⛔ 不另写一遍）。
+        /// ⚠️ 它**不读节点** —— 要读屏上那颗字用 `FindChild(cell,"Button Text")`。</summary>
+        public string PriceTextForTest(int idx)
+        {
+            var o = ShopData.Offers(_page);
+            if (idx < 0 || idx >= o.Length) return null;
+            int n = ShopData.OwnedOf(_page, idx);
+            if (IsOwnedCell(idx)) return OwnedPriceText(n);
+            string t = o[idx].Free ? Loc.T("MainMenu/Free")
+                     : string.IsNullOrEmpty(o[idx].Price) ? "--"
+                     : o[idx].Price;
+            return o[idx].StrikeThrough ? "<s>" + t : t;
+        }
+
+        // ---- 余额闸（原版 `Price.HasEnoughCurrency()`）----
+        //
+        // 🔶 自己设计（非原版）：**价格文本 → 数值 / 币种键** 这一层换算 ·
+        //   为什么必须自己定：原版价格是**服务端** `CurrencyValue { Currency 枚举, Amount }`（`Premium Campaign Store.json` 那条真记录的形状），
+        //   我们这一侧商品表是自编的（只有显示串 `ShopOffer.Price`，如 `"1 800"` / `"300,00"`）· 调度台 2026-10-31 裁定。
+        //   口径：`"1 800"`（空格千分位）⇒ 1800；`"300,00"`（葡式小数逗号）⇒ 300；`"1.800"`（点千分位）⇒ 1800。
+        //   币种键：`Ticket` ⇒ 票券图；`Currency` 且名字含 `Blackstone` ⇒ 黑石图；其余 ⇒ 金图（`Wallet.Of` 对任何未记账键都给 `StartAmount`）。
+        //   ⚠️ 用户边界②「资源固定 2000」⇒ 余额**恒 = 2000 + 已发放**；因此**高于 2000 的两件**（`2 400` / `2 200`）会真的显示成「买不起」那一档。
+
+        /// <summary>这一件买得起吗（原版 `price.HasEnoughCurrency()`）。
+        /// <para>⚠️ **不扣钱**（用户 2026-09-17 边界②）：这里只判「够不够」，`ShopData.Buy` 照旧不动钱包。</para></summary>
+        public static bool CanAfford(int pageIndex, int i)
+        {
+            var o = ShopData.Offers(pageIndex);
+            if (o == null || i < 0 || i >= o.Length) return true;
+            if (o[i].Free) return true;
+            int need = ParsePriceAmount(o[i].Price);
+            if (need < 0) return true;      // 解析不出（空串 / 纯文字）⇒ 不设闸（原版 `null` 价格那档是 `--`，也不是「买不起」）
+            return Wallet.Of(CurrencyKeyFor(o[i])) >= need;
+        }
+
+        /// <summary>价格显示串 ⇒ 整数金额（认不出回 `-1`）。见上面那段 `🔶 自己设计` 的换算口径。</summary>
+        public static int ParsePriceAmount(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return -1;
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (char.IsDigit(c)) { sb.Append(c); continue; }
+                if (c == ',') break;        // 葡式小数逗号 ⇒ 整数部分到此为止（`"300,00"` ⇒ 300）
+                if (c == '.') continue;     // 点号千分位 ⇒ 跳过（`"1.800"` ⇒ 1800）
+                // 空格 / 其它分隔符 ⇒ 跳过
+            }
+            if (sb.Length == 0) return -1;
+            int v;
+            return int.TryParse(sb.ToString(), out v) ? v : -1;
+        }
+
+        /// <summary>`Wallet` 的记账键（见上面那段 `🔶 自己设计`）。</summary>
+        public static string CurrencyKeyFor(ShopOffer o)
+        {
+            string t = o.Type ?? "";
+            if (t == "Ticket") return "40K_icon_ticket_bundle";
+            if (t == "Currency" && !string.IsNullOrEmpty(o.Name)
+                && o.Name.IndexOf("Blackstone", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return "40K_general_icon_currency_blackstone";
+            return "40k_topmarquee_currency_gold";
+        }
+
+        /// <summary>自检读口：这一件要多少钱（`-1` = 价格串解析不出）。</summary>
+        public static int PriceAmountOf(int pageIndex, int i)
+        {
+            var o = ShopData.Offers(pageIndex);
+            return o == null || i < 0 || i >= o.Length ? -1 : ParsePriceAmount(o[i].Price);
+        }
+
+        // ---- 两条新的拒绝支（与 `RefuseSoldOut` 同形：拒绝 + 出声，⛔ 不弹错误窗、⛔ 不谎报买到了）----
+
+        /// <summary>`Buy` 的返回值哨兵：这一件**已拥有**（catalog 族不许再买）。
+        /// ⚠️ 与 `ShopData.BuySoldOut` 分开 —— 这两档都**不进** `ShopData.Buy`（闸在 `Buy` 的第一句，
+        /// 所以永远不会落到 `PurchaseSucceeded` 那一步）。</summary>
+        public const string BuyOwned = "已拥有";
+        /// <summary>`Buy` 的返回值哨兵：**买不起**（原版 `HasEnoughCurrency()` 假）。</summary>
+        public const string BuyCannotAfford = "买不起";
+
+        /// <summary>自检读口：「已拥有 ⇒ 不许再买」被拒了几次（catalog 族）。</summary>
+        public static int OwnedRefusals { get; private set; }
+        /// <summary>自检读口：最近一次「已拥有」拒绝的页 / 件下标（`-1` = 没发生过）。</summary>
+        public static int LastOwnedPage = -1, LastOwnedIndex = -1;
+        /// <summary>自检读口：「买不起」被拒了几次。</summary>
+        public static int AffordRefusals { get; private set; }
+        /// <summary>自检读口：最近一次「买不起」拒绝的页 / 件下标。</summary>
+        public static int LastAffordPage = -1, LastAffordIndex = -1;
+        /// <summary>自检读口：offer 族「已拥有 ⇒ Open ({n})」被点了多少次。</summary>
+        public static int OwnedOpens { get; private set; }
+        /// <summary>自检读口：最近一次 `Open ({n})` 的页 / 件下标。</summary>
+        public static int LastOwnedOpenPage = -1, LastOwnedOpenIndex = -1;
+
+        /// <summary>自检收尾：把这五档读口清零（否则跨段污染，同 `ResetSoldOutForTest`）。</summary>
+        public static void ResetOwnedAffordForTest()
+        {
+            OwnedRefusals = 0; LastOwnedPage = -1; LastOwnedIndex = -1;
+            AffordRefusals = 0; LastAffordPage = -1; LastAffordIndex = -1;
+            OwnedOpens = 0; LastOwnedOpenPage = -1; LastOwnedOpenIndex = -1;
+        }
+
+        /// <summary>catalog 族「已拥有 ⇒ 不许再买」的拒绝支（原版这一格 `interactable = false`）。
+        /// <para>⛔ 不弹错误窗（原版这一档没有 `OnPurchasedFailed`）；⛔ 不静默。</para></summary>
+        string RefuseOwned(int idx)
+        {
+            OwnedRefusals++;
+            LastOwnedPage = _page; LastOwnedIndex = idx;
+            Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件**已拥有 "
+                             + ShopData.OwnedOf(_page, idx) + " 份** ⇒ 价格区印 `Owned`、原版这一格 `interactable = false`"
+                             + "（`CatalogItemContainer.cs:240-283`）⇒ **不买**（⛔ 不静默、⛔ 不弹错误窗、⛔ 不谎报买到了）");
+            return BuyOwned;
+        }
+
+        /// <summary>「买不起」的拒绝支（原版 `!price.HasEnoughCurrency()` 那一档 = `interactable = false`）。</summary>
+        string RefuseCannotAfford(int idx)
+        {
+            AffordRefusals++;
+            LastAffordPage = _page; LastAffordIndex = idx;
+            var offs = ShopData.Offers(_page);
+            int need = idx >= 0 && idx < offs.Length ? ParsePriceAmount(offs[idx].Price) : -1;
+            int have = idx >= 0 && idx < offs.Length ? Wallet.Of(CurrencyKeyFor(offs[idx])) : 0;
+            Debug.LogWarning("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件**买不起**（要 " + need
+                             + "，钱包 " + have + "）⇒ 原版这一格 `Selectable.interactable = false`"
+                             + "（`CatalogItemContainer__Refresh.c:45-77`）⇒ **不买**（⛔ 不静默、⛔ 不谎报买到了）");
+            return BuyCannotAfford;
+        }
+
+        /// <summary>offer 族「已拥有 ⇒ `Open ({n})`」那一档点了做什么。
+        /// <para>判据：原版 `PriceDisplayButton.cs:91-101` 只把文案换成 `Open ({n})` 且 `Interactable = true`；
+        /// 真正的动作在 `ShopOfferContainer.OnClick → OpenContainer`（从 offer 取 AssetGroup 0xc 的窗口）——
+        /// 那一族我们没有，我们的等价物 = 卡包详情/开包入口 <see cref="OpenBoosterInfo"/>（与格上 `InfoHit` 同一入口）。</para></summary>
+        string OpenOwnedOffer(int idx)
+        {
+            OwnedOpens++;
+            LastOwnedOpenPage = _page; LastOwnedOpenIndex = idx;
+            Debug.Log("[Shop] 第 " + (_page + 1) + " 页第 " + (idx + 1) + " 件已拥有 "
+                      + ShopData.OwnedOf(_page, idx) + " 份 ⇒ 原版印 `Open ({n})` 且强制可点，点了走 "
+                      + "`ShopOfferContainer.OnClick → OpenContainer` ⇒ 我们开卡包详情/开包入口（`OpenBoosterInfo`）");
+            OpenBoosterInfo(idx);
+            return "";
+        }
+
+        // ============================================================ B106_W79（2026-10-31）：宿主只读口
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用，插一行整段下游就漂）。
+        //
+        // 🔴 **为什么要有它**：`OpenBoosterInfo` / `OpenBoosterPack` 的第一句都是
+        //   `if (_win == null || _win.Manager == null) { 出声; return null; }` ⇒ **宿主没了**的页面上那颗
+        //   `InfoHit` 是一颗「点了只会打一条警告」的命中区，而且它和活窗的同名命中区**同像素重叠**。
+        //   自检原来读不到 `_win`（private）⇒ 判不了「这一页的宿主还活着吗」（`报告/B106_D5.md` §三·§六 ②③）。
+        //
+        // ⚠️ **`== null` 对【已销毁】的宿主同样成立**（Unity 的假 null）—— 这就是自检要的那一档：
+        //   「宿主窗已销毁 / 从没 `SetHost` 过」两种情形在这里都是 `null`，**要区分得另记一个标志**
+        //   （今天不需要：两种情形都该被那条卫生断言抓）。
+        /// <summary>自检只读口：这一页挂在哪扇宿主窗上（= `SetHost` 灌进来的 `_win`；假 null = 已销毁或从没灌过）。</summary>
+        public MainMenuSubmenuWindow OwnerWin { get { return _win; } }
     }
 }

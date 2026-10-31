@@ -817,13 +817,23 @@ namespace CardPresentation
         }
 
         /// <summary>`Gacha Reward Claimed` 上的 `Claimed Tex`。
-        /// ⚠️ 原版是本地化词条（prefab 里的占位串是 `'Recogido'` = 西语「已领取」）⇒ **我们按英文写**。</summary>
-        public static string RewardClaimedText() { return "Claimed"; }
+        /// 🆕 **2026-10-31（`B106_W11` · AUD03 #94）**：原来写死英文 `"Claimed"`；原版这一颗是
+        /// **`m_Enabled = 1` 的 I2 `Localize`**、term = `Rewards Menu/Claimed`
+        /// （判据 = `资料/完全复刻/判据/B106_AUD03.md` §2·1 的 `Daily Reward Popup` 那一行；
+        /// prefab 占位串是 `'Recogido'` = 西语「已领取」）⇒ 改走词条。
+        /// 官方 en = `Claimed`（与旧字面量**逐字相同**）· zh = `已认领`。</summary>
+        public static string RewardClaimedText() { return Loc.T("Rewards Menu/Claimed"); }
 
-        // ⚠️ 用 **prefab 自带的占位串**（原版运行时按 I2 词条本地化，本地没有语言表）——
-        //    两条 TMP 实测 `H=2 (Center)`、fs=36，框只有 200 宽；自己写更长的英文会**溢出被切**（渲染图实证）。
-        public static string FreeTrackTitle() { return "Ruta Gratuita"; }
-        public static string PremiumTrackTitle() { return "Ruta Premium"; }
+        // ⚠️ 两条 TMP 实测 `H=2 (Center)`、fs=36，框只有 200 宽（换更长的串会**溢出被切**，渲染图实证）。
+        // 🔴 **2026-10-31（`B106_W11` · AUD03 #94）就地订正（铁律 5）**：下面两行原来返回的是
+        //    **原版 prefab 的西班牙语占位串**（`'Ruta Gratuita'` / `'Ruta Premium'`）—— 英文界面上直接显示西语，
+        //    是一条**可见缺陷**。原版这两颗是 `m_Enabled = 1` 的 I2 `Localize`，term =
+        //    `Missions/FreeTrack` / `Missions/PremiumTrack`（官方 en = `Free Track` / `Premium Track` ·
+        //    zh = `免费轨道` / `高级轨道`；判据 → `资料/完全复刻/判据/B106_AUD03.md` §2·1、§2·3 #3）。
+        //    🔴 上一版注释写「用 prefab 自带的占位串（本地没有语言表）」—— **已过期**：官方 13 语言表
+        //    2026-10-18 就并进来了（`Core/Loc.cs` / `Resources/official_loc_13lang.json`）。
+        public static string FreeTrackTitle() { return Loc.T("Missions/FreeTrack"); }
+        public static string PremiumTrackTitle() { return Loc.T("Missions/PremiumTrack"); }
         public static string PremiumTrackPrice() { return "9999"; }             // ⚠️ 我们挑的（边界②：不卖）
 
         // 顶栏（阵营）—— 原版这里是 `ArmyUtilities.Instance.GetArmyIcon(army)` + `GetLocalizedArmyName(army)`，
@@ -833,7 +843,13 @@ namespace CardPresentation
         //   （= 原版 `IconsByArmySO` 逐字节解出的唯一一份映射；判据链在那个文件头）。
         public static string HeaderArmyIcon() { return ArmyIcons.IconName(HeaderArmyValue); }
         public static string HeaderArmyName() { return ArmyIcons.LocalizedName(HeaderArmyValue) ?? "Orks"; }   // 原版 prefab 占位串就是 'Orks'
-        public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // 🔶 自己设计（非原版）：顶栏副标题 `Daily Rewards` · 原版是本地化词条、本地无 value（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 我们挑的（原版是本地化词条）
+        /// <summary>顶栏副标题 = 原版 `Header Header/Sub-Title` 上的 I2 词条 `Missions/LoginRewards`
+        /// （官方 en `Login Rewards` · zh `登录奖励`）。
+        /// 🔴 **2026-10-31（`B106_W11` · AUD03 #94）**：原来是 `"Daily Rewards"` + 一条 `🔶 自己设计`
+        /// （理由是「原版是本地化词条、判据拿不到」）—— **判据已拿到**（`资料/完全复刻/判据/B106_AUD03.md` §2·1：
+        /// 那一颗是 `m_Enabled = 1` 的 Localize）⇒ 改走词条，**`🔶 自己设计` 标记与 TODO 一并销掉**。
+        /// ⚠️ 英文从 `Daily Rewards` → `Login Rewards`：这是**照原版**该改的可见文字。</summary>
+        public static string HeaderArmySubTitle() { return Loc.T("Missions/LoginRewards"); }
         /// <summary>本窗顶栏固定展示的阵营（见上一条注释；`CardArmy.Goff = 20`）。</summary>
         public const int HeaderArmy = 20;
 
@@ -929,8 +945,8 @@ namespace CardPresentation
 
         /// <summary>**未读**消息条数（原版 `Inbox.CheckNotification()` 的计数）。</summary>
         public static int InboxCount { get { return InboxData.UnreadCount(); } }
-        public static string InboxTitle() { return "Inbox"; }                       // 原版 prefab 占位串
-        public static string InboxNoNewsText() { return "Game announcements will be displayed here"; }  // 原版 prefab 占位串
+        public static string InboxTitle() { return Loc.T("MainMenu/Settings/Inbox/InboxTab"); }   // 🆕 2026-10-31（B106_W11 · AUD03 #94）：原版 `Content/Title` 是 `m_Enabled=1` 的 Localize、term = `MainMenu/Settings/Inbox/InboxTab`（官方 en=`Inbox`，与旧字面量逐字相同）⇒ 改走词条（判据 → `资料/完全复刻/判据/B106_AUD03.md` §2·1）
+        public static string InboxNoNewsText() { return Loc.T("MainMenu/Inbox/NoNews"); }   // 🆕 同上：原版 `Content/No News Warning` 的 term = `MainMenu/Inbox/NoNews`（官方 en 与旧字面量 `Game announcements will be displayed here` 逐字相同）
         /// <summary>`Message Display/Title` 的**出厂占位串**。🔴 2026-10-25 订正：原来写的是 `"Message"`
         /// （标注「我们挑的」）—— 原版 prefab 那颗 TMP 的原文是 **'WELCOME TO WARPFORGE CLOSED ALPHA!'**
         /// （判据 = `menu_dump … "Inbox Menu" --depth 9 --md --no-sprite` 里那一行的 `'…'`）。
@@ -973,7 +989,7 @@ namespace CardPresentation
 
         /// 🔶 自己设计（非原版）：单机默认不断签（`_streakFailed = false`） · 原版由服务端 `currentValue` 给 · TODO(谁定的)｜原注：<summary>⚠️ 我们挑的：单机默认**不断签**（这样默认看到的是 `Streak Successful`）。</summary>
         static bool _streakFailed = false;
-        /// <summary>⚠️ 我们挑的：当前连了几天（原版由服务端 `currentValue` 给）。</summary>
+        /// 🔶 自己设计（非原版）：`StreakCurrent = 5` 是**夹具值** · 原版 = `MissionChallengeProgress.CurrentValue`（`d:/2/tools/decomp_full/DailyStreakWindow__RefreshRewards.c:48,51` 的 `lVar9 + 0x40`，服务端下发的进度对象）· 本地没有那份数据（关服） · 调度台 2026-10-31 裁定｜原注：<summary>⚠️ 我们挑的：当前连了几天（原版由服务端 `currentValue` 给）。</summary>
         const int StreakCurrent = 5;
 
         // ---------------------------------------------------------- 🆕 本地累计连登（A815 · 用户 2026-10-15 拍板）
@@ -1066,9 +1082,23 @@ namespace CardPresentation
         /// 要落盘显式调 `SaveNowForTest()`）。🆕 2026-10-25（`X2`）。</summary>
         public static void ForceTotalLoginDaysForTest(int days) { _totalLoginDays = Mathf.Max(0, days); }
 
-        /// <summary>一条连登轨上有几个奖格（原版由 `challenges` 长度定）。</summary>
-        public const int StreakDays = 7;
-        /// <summary>`i &lt; 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。</summary>
+        /// <summary>一条连登轨上**这一屏**铺几个奖格。
+        /// 🔴 **2026-10-31（`B106_W11`）改成公式口（原来是写死的 `const 7`）** —— 原版**不是固定 7 格**：
+        /// `DailyStreakWindow.RefreshRewards` 的循环是
+        /// `num2 = progress.collectedRewards; while (num2 &lt; progress.CurrentValue + 7) { 铺一格; num2++; }`
+        /// （判据 = `d:/2/tools/decomp_full/DailyStreakWindow__RefreshRewards.c`；
+        /// 可读版 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DailyStreakWindow.cs:174-226`：
+        /// `object obj = ((int*)num)->m_value + 7; if (num2 &lt; (nint)obj) …`，`num` 指向 `progress + 0x40` = `CurrentValue`）
+        /// ⇒ **格数 = `CurrentValue + 7 − collectedRewards`**。
+        /// 今天 `CurrentValue = StreakCollected = 5` ⇒ **仍是 7**（改前改后同一个数、画面零变化），
+        /// 但夹具一动就按原版公式走，不再是写死的常量。
+        /// <para>⚠️ 它从 `const` 变成了**属性** ⇒ ⛔ 别再拿它当编译期常量用（定长数组用 `StreakCapacity`）。</para></summary>
+        public static int StreakDays { get { return StreakCurrent + StreakAheadSlots - StreakCollected; } }
+        /// <summary>原版那条循环里的字面量 **`+ 7`** = 「一次只铺当前值**之后** 7 格」—— 出处 = `d:/2/tools/decomp_full/DailyStreakWindow__RefreshRewards.c:51` 的 `iVar15 < *(int *)(lVar9 + 0x40) + 7`（`+7` 是**代码里的字面量**，⛔ 不是数据）。</summary>
+        const int StreakAheadSlots = 7;
+        /// <summary>`_streakClaimed` 的容量 = `collectedRewards = 0` 那一档（格数最大的一档）。</summary>
+        const int StreakCapacity = StreakCurrent + StreakAheadSlots;
+        /// <summary>`i &lt; 它` ⇒ 这一格**已领**；`i == 它` ⇒ **可领**（也是 `scaleMultiplierFirstElement` 作用的那一格）。🔶 自己设计（非原版）：值 `5` 是**夹具值** · 原版 = `MissionChallengeProgress.collectedRewards`（`d:/2/tools/decomp_full/DailyStreakWindow__RefreshRewards.c:51` 的循环初值 `*(int *)(lVar9 + 0x10)`，服务端下发）· 本地没有那份数据（关服） · 调度台 2026-10-31 裁定</summary>
         public const int StreakCollected = 5;
         /// 🔶 自己设计（非原版）：断签时掉的层数 `StreakLostValue = 10` · 原版是 `MainMenuMission.FailedValue`（服务端） · TODO(谁定的)｜原注：<summary>⚠️ 我们挑的：断签时掉的层数（原版是 `MainMenuMission.FailedValue`）。</summary>
         const int StreakLostValue = 10;
@@ -1080,11 +1110,13 @@ namespace CardPresentation
           "40k_main_bt_rewards", "40k_topmarquee_currency_gold", "40k_topmarquee_currency_gold",
           "40K_missions_icon_Daily_skulls" };
         static readonly int[] _streakAmount = { 1, 150, 20, 2, 200, 300, 40 };
-        static readonly bool[] _streakClaimed = new bool[StreakDays];
+        // ⚠️ 2026-10-31（B106_W11）：`StreakDays` 已从常量改成公式属性 ⇒ 定长数组改按 `StreakCapacity`
+        //   （= `collectedRewards = 0` 那一档、格数最大的一档）；`SI()` 仍按 `StreakDays − 1` 夹。
+        static readonly bool[] _streakClaimed = new bool[StreakCapacity];
 
         public static bool StreakFailed() { return _streakFailed; }
         public static string StreakWindowTitle() { return "Daily Streak"; }
-        public static string StreakCurrentLabel() { return "Current streak:"; }      // ⚠️ 我们挑的
+        public static string StreakCurrentLabel() { return Loc.T("Rewards Menu/DailyStreak/CurrentStreak"); }   // 2026-10-31（B106_W30）：走官方词条（en = `Current streak:`，与旧字面量逐字相同；zh = `当前连续登录：`）
         public static string StreakCurrentValue() { return StreakCurrent.ToString(); }
         /// <summary>'More Rewards In' —— **奖励窗与连登窗共用同一条本地化词条** ⇒ 口名取**中性**的。
         /// <para>🔴 **判据（原版两窗是同一条词条）**：连登窗 prefab 里那一颗
@@ -1096,8 +1128,11 @@ namespace CardPresentation
         /// <para>⚠️ **2026-10-13（A643）**：原来只有 `StreakNextRewardsText()`（名字带 `Streak`），
         /// 而 A516 给奖励窗补那颗 `EverguildTextMeshPro` 时**只能复用它** ⇒ 名字会把下一个会话引向
         /// 「这是连登窗专用」。⇒ **两窗一律改用本口**（字面量只留这一处 ——
-        /// 「两处写同一条规则 = 迟早不一致」）；旧名保留为**转发**，⛔ 新调用点别再用它。</para></summary>
-        public static string MoreRewardsInText() { return "More Rewards In"; }   // 原版 prefab 占位串（连登窗那份；奖励窗是 es 版同词条）
+        /// 「两处写同一条规则 = 迟早不一致」）；旧名保留为**转发**，⛔ 新调用点别再用它。</para>
+        /// <para>🆕 **2026-10-31（`B106_W11` · AUD03 #94）**：字面量改走词条 `Missions/MoreRewardsIn`
+        /// （官方 en = `More Rewards In`，与旧字面量**逐字相同** ⇒ 英文零可见变化；zh = `更多奖励在`）。
+        /// 两窗那两颗都是 `m_Enabled = 1` 的 Localize（判据 → `资料/完全复刻/判据/B106_AUD03.md` §2·1）。</para></summary>
+        public static string MoreRewardsInText() { return Loc.T("Missions/MoreRewardsIn"); }
         /// <summary>⚠️ **2026-10-13（A643）起本名只是旧名转发**：两窗共用的那条词条改用中性口
         /// `MoreRewardsInText()`。保留它只为不掐断既有调用点（本仓不许留下第二份字面量）。</summary>
         public static string StreakNextRewardsText() { return MoreRewardsInText(); }
@@ -1107,9 +1142,9 @@ namespace CardPresentation
         /// 连登的语义就是「下一天开始」，日界是数据模型里唯一对得上的时刻 ⇒ 取它。⛔ 不是原版值。</para></summary>
         public static string StreakTimerText()
         { return TimerDisplay.TextFor(NextResetAt, "", "连登 Timer", null); }
-        public static string StreakBrokenText() { return "STREAK BROKEN"; }          // 原版 prefab 占位串
+        public static string StreakBrokenText() { return Loc.T("Rewards Menu/DailyStreak/Broken"); }          // 2026-10-31（B106_W30）：走官方词条（en = `STREAK BROKEN`，与 prefab 占位串逐字相同；zh = `连胜终结`）
         public static string StreakLostText() { return "Streak lost: " + StreakLostValue; }
-        public static string ResetStreakText() { return "Reset Streak"; }            // 原版 prefab 占位串
+        public static string ResetStreakText() { return Loc.T("Rewards Menu/DailyStreak/ResetStreak"); }            // 2026-10-31（B106_W30）：走官方词条（en = `Reset Streak`，与 prefab 占位串逐字相同；zh = `重置连胜`）
         /// <summary>连登卡的领取钮文案。🔴 **2026-10-17（`N47` 整包普查）**：原版对应词条 =
         /// `ShopOffers/GeneralClaim`（`Daily Streak Reward Popup Entry / Collect / Collect Text` 的
         /// `Localize.mTerm`，enabled=1）。
@@ -2553,8 +2588,8 @@ namespace CardPresentation
         /// `if (1 &lt; rewards.Count)`）· 每日里程碑格（`MissionMilestoneStep.&lt;DisplayCheckmark&gt;b__0`）·
         /// 周常里程碑格（`WeeklyMissionMilestone.&lt;DisplayCheckmark&gt;b__0`）——后两个都是
         /// **同一个 lambda 的 ICF 折叠副本**（字节相同）。</para>
-        /// <para>⛔ **不编奖励**：列表为空 ⇒ 出声、不开窗（红线：不许静默失败，也不许假装有奖励）。</para></summary>
-        public static RewardWindow PreviewRewards(CampaignData.RewardSpec[] rewards, bool premiumLocked = false)
+        /// <para>⛔ **不编奖励**：列表为空 ⇒ 出声、不开窗（红线：不许静默失败，也不许假装有奖励）。🆕 **2026-10-31（`B106_W51`）**：`premiumLocked` 默认值 **`false` → `true`**（原版抽屉那一跳写死 `true` —— `DailyRewardDrawerController.cs:275` 的 `RewardService.Preview(this.rewards, 0, 0, true, 0)`；今天零可见差异，因为我们的预览奖励列表全是 `TierBasic` ⇒ `Premium Disclaimer` 仍不显示）。</para></summary>
+        public static RewardWindow PreviewRewards(CampaignData.RewardSpec[] rewards, bool premiumLocked = true)
         {
             if (rewards == null || rewards.Length == 0)
             {
@@ -2897,6 +2932,151 @@ namespace CardPresentation
         /// ⛔ 别改 `RerollDaily` 的比较口径去迎合自检 —— 生产池与 `_daily` 两侧都是英文原文，产品是对的。</para>
         /// <para>⚠️ **只读**：不写任何状态、不出声、不落盘。运行时同样安全（`At(i)` 本来就只读）。</para></summary>
         public static string DailyRawDescForTest(int i) { return At(i).Desc; }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W11`）
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `DailyRawDescForTest`
+        // 之后，零行号漂移。原版的「每个抽屉有几条奖励」是**数据驱动**的（`IReadOnlyList<RewardInfo>`），
+        // 而我们原来把它压成了「一天一条」（`RewardName` / `RewardIconOf` 各取一格）。
+        // 下面这个口只回答**条数**，不改奖励内容 —— 它喂两个原版行为：
+        //   ① 空列表 ⇒ 整颗抽屉隐藏（`DailyRewardDrawerController__Initialize.c:51-58`）；
+        //   ② `Count > 1` ⇒ 开 `Extra Reward Indicator`（同 `.c:102-112,132-137`，与
+        //      `out_cpp2il_dev_ilspy/DailyRewardDrawerController.cs:215-233` 的 `rewards.Count > 1` 同一句）。
+
+        /// <summary>自检口：把「这一天、这条轨有几条奖励」摆成确定的一态（`&lt; 0` = 恢复真实值）。
+        /// 同族先例 = `ForceRewardClaimedForTest` / `ForceStreakClaimedForTest`。⛔ 运行时别调。</summary>
+        public static int RewardCountOverrideForTest = -1;
+
+        /// <summary>一天、一条轨上**有几个奖励条目**（原版 `DailyRewardDrawerController.Initialize` 收到的
+        /// `IReadOnlyList&lt;RewardInfo&gt; rewards` 的 `Count`）。
+        /// <para>🔶 自己设计（非原版）：**本地固定 1 条**（`_rewardFreeName` / `_rewardPremName` 一格就是一条）·
+        /// 原版由服务端 `ChallengeMilestone.rewards` 按 `rewardTier` 分组后下发（`DailyRewardItemContainer__Initialize.c:95-114`
+        /// 的 `ToLookup(rewardTier)` → 每组 `ToArray()`），可以一次给多条 · 调度台 2026-10-31 裁定
+        /// （关服后那份列表拿不到；边界②全解锁/固定资源）。</para>
+        /// <para>⚠️ **今天恒 = 1** ⇒ 上面那两个原版行为走的是「抽屉显示、多奖标识隐藏」那一支
+        /// （= 原版只有 1 条奖励时的画面）。⛔ 别因为「恒 1」就把调用点删掉 —— 那是原版的分支，删了就没法接远端数据。</para></summary>
+        public static int RewardCountOf(int day, bool premium)
+        {
+            if (RewardCountOverrideForTest >= 0) return RewardCountOverrideForTest;
+            return RewardSpecsOf(day, premium).Length;
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W51`）
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `RewardCountOf` 之后，
+        // 零行号漂移。内容 = 每日奖励抽屉「奖励列表」的数据面 + 可点闸（原版 `showItemInfoOnClick` 的等价物）
+        // + 连续登录窗同一跳的数据面。判据 → `资料/完全复刻/判据/B106_奖励预览链_施工单.md` §三 A1。
+
+        /// <summary>原版 `DailyRewardDrawerController.Initialize` 收到的
+        /// `IReadOnlyList&lt;RewardInfo&gt; rewards`（`decomp_full/DailyRewardDrawerController__Initialize.c:40-58`；
+        /// 可读版 `out_cpp2il_dev_ilspy/DailyRewardDrawerController.cs:194-322`）。
+        /// <para>🔶 自己设计（非原版）：**本地一格只有一条**（来源 = `_rewardFree*` / `_rewardPrem*` 三张按下标的表）·
+        /// 原版那份列表由服务端 `ChallengeMilestone.rewards` 按 `rewardTier` 分组后下发
+        /// （`DailyRewardItemContainer__Initialize.c` 的 `ToLookup(rewardTier)` → 每组 `ToArray()`），可以一次给多条；
+        /// 关服后那份数据拿不到（边界②全解锁/固定资源）· 调度台 2026-10-31 裁定</para>
+        /// <para>⚠️ 与 `RewardCountOf` 是**同一份数据**（⛔ 别另拼一张表）：空名 ⇒ 空数组
+        /// （= 原版 `rewards.FirstOrDefault()` 取不到 ⇒ 整颗抽屉隐藏那一支）。</para></summary>
+        public static CampaignData.RewardSpec[] RewardSpecsOf(int day, bool premium)
+        {
+            if (RewardSpecsOverrideForTest != null) return RewardSpecsOverrideForTest;
+            return string.IsNullOrEmpty(RewardName(day, premium))
+                 ? new CampaignData.RewardSpec[0]
+                 : DailyTrackRewardSpecs(day, premium);
+        }
+
+        /// <summary>自检口：把「这一格是几条奖励」摆成确定的一态（`null` = 恢复真实值）。
+        /// 同族先例 = `RewardCountOverrideForTest` / `ForceRewardClaimedForTest`。⛔ 运行时别调。</summary>
+        public static CampaignData.RewardSpec[] RewardSpecsOverrideForTest = null;
+
+        /// <summary>自检口：把「这一格的抽屉可不可点」摆成确定的一态（`null` = 走真实判据）。⛔ 运行时别调。</summary>
+        public static bool? RewardClickableOverrideForTest;
+
+        /// <summary>= 原版那一颗抽屉 prefab 的序列化字段 **`showItemInfoOnClick`**
+        /// （`ItemDrawer&lt;T&gt;.OnPointerClick` 第一句 `if (this+0x44 == 0) return;`；
+        /// `OverrideOnClickAction` **不写**这一格 —— 判据 `decomp_generic_trial/out/ItemDrawer_object___OverrideOnClickAction.c`）。
+        /// <para>🔶 自己设计（非原版）：**按类型查表 + 类型查不到 ⇒ false + 出声一次** ·
+        /// 原版判据 = §1.5 那张「类型 × prefab → `showItemInfoOnClick`」表（Currency / Avatar / Title / Card 一族 = 1；
+        /// ShopContainer 卡包 / CampaignPoints / ForgePoints / Wildcard / PremiumItem / AllianceTrophyData / XSolla = 0）·
+        /// **我们 mock 奖励没有原版 item 类型**（`40k_topmarquee_currency_gold` 只有 Sprite、没有 SO；
+        /// `CurrencyNames` 只认 `C2/C3/C5`）⇒ 本地永远判不出 · 调度台 2026-10-31 裁定
+        /// （⛔ 不许猜一个类型让它「看起来能点」）。</para></summary>
+        public static bool RewardClickable(int day, bool premium)
+        {
+            if (RewardClickableOverrideForTest.HasValue) return RewardClickableOverrideForTest.Value;
+            bool? show = ShowItemInfoOnClickForType(ItemTypeNameOf(day, premium));
+            if (show.HasValue) return show.Value;
+            SayRewardTypeUnknownOnce();
+            return false;
+        }
+
+        /// <summary>连续登录窗那一格的可点判据（原版 `DailyStreakItemContainer.Initialize` 与每日奖励是**同一段字节**
+        /// —— `out_il2csharp/Assembly-CSharp/DailyStreakItemContainer.cs:105-127`）。判据与出声同 <see cref="RewardClickable"/>。</summary>
+        public static bool StreakRewardClickable(int i)
+        {
+            if (RewardClickableOverrideForTest.HasValue) return RewardClickableOverrideForTest.Value;
+            bool? show = ShowItemInfoOnClickForType(StreakItemTypeNameOf(i));
+            if (show.HasValue) return show.Value;
+            SayRewardTypeUnknownOnce();
+            return false;
+        }
+
+        /// <summary>我们这份 mock 奖励的**原版 item 类型名**。⚠️ **今天恒 `null`** —— 查不到（见 `RewardClickable` 的 🔶）。
+        /// ⛔ 别拿「图名里有 currency」当类型判据（铁律 2：查不到就写查不到）。</summary>
+        static string ItemTypeNameOf(int day, bool premium) { return null; }
+        /// <summary>见 <see cref="ItemTypeNameOf"/>。</summary>
+        static string StreakItemTypeNameOf(int i) { return null; }
+
+        /// <summary>§1.5 那张「类型 → `showItemInfoOnClick`」表。`null` = **这个类型本地没有判据**（调用方出事）。</summary>
+        static bool? ShowItemInfoOnClickForType(string typeName)
+        {
+            switch (typeName)
+            {
+                // = 1 ⇒ 可点（判据 = 各 prefab 的序列化 `showItemInfoOnClick`，逐 prefab 核过）
+                case "Currency": case "ExpansionPassPoints": case "ExpansionPremiumItem":
+                case "CosmeticItemAvatarBorder": case "PlayerAvatar": case "CosmeticItemTitle":
+                case "RawCardScript": case "CosmeticItemCardback": case "PrebuiltDeck":
+                case "AlternateArtCard": case "GenericArmyItem":
+                    return true;
+                // = 0 ⇒ 不可点（同上）
+                case "Everguild.LiveOps.ShopContainer": case "CampaignPoints": case "ForgePoints":
+                case "Wildcard": case "DropTableItem": case "PremiumItem": case "VIPPremiumItem":
+                case "AllianceTrophyData": case "XSollaBundleItem":
+                    return false;
+                default:
+                    return null;                       // 查不到 ⇒ 由调用方出声 + 返回 false（不猜）
+            }
+        }
+
+        static bool _saidRewardTypeUnknown;
+        /// <summary>「我们 mock 奖励没有原版 item 类型 ⇒ 可点判据查不到」**只说一次**（每次开窗都吼会淹日志）。</summary>
+        static void SayRewardTypeUnknownOnce()
+        {
+            if (_saidRewardTypeUnknown) return;
+            _saidRewardTypeUnknown = true;
+            Debug.Log("[Daily] 奖励抽屉**可点判据查不到**：原版 = 抽屉 prefab 的 `showItemInfoOnClick`"
+                    + "（§1.5 那张类型表），而**我们这份 mock 奖励没有原版 item 类型**"
+                    + "（`40k_topmarquee_currency_gold` 只有 Sprite、没有 SO）⇒ 按铁律 2 返回 **false**（⛔ 不猜类型）。"
+                    + "判据 → `资料/完全复刻/判据/B106_奖励预览链_施工单.md` §1.5。");
+        }
+
+        // ---- 连续登录窗的「奖励列表」（原版 `DailyStreakItemContainer.Initialize(rewards, state, onCollect)` 那一条）----
+        // 我们这一侧一格一条（`_streakIcon` / `_streakAmount`），与 `CollectStreak` 发的是同一份。
+        /// <summary>自检口：连登第 `i` 格「这一格是几条奖励」（`&lt; 0` = 恢复真实值）。⛔ 运行时别调。</summary>
+        public static int StreakRewardCountOverrideForTest = -1;
+        /// <summary>自检口：见 <see cref="StreakRewardCountOverrideForTest"/>。</summary>
+        public static CampaignData.RewardSpec[] StreakRewardSpecsOverrideForTest = null;
+
+        /// <summary>连登第 `i` 格的奖励列表（与 `CollectStreak` 发的是**同一份**）。</summary>
+        public static CampaignData.RewardSpec[] StreakRewardSpecsOf(int i)
+        {
+            if (StreakRewardSpecsOverrideForTest != null) return StreakRewardSpecsOverrideForTest;
+            return new[] { new CampaignData.RewardSpec(StreakRewardIcon(i), _streakAmount[SI(i)], CampaignData.TierBasic) };
+        }
+
+        /// <summary>连登第 `i` 格有几个奖励条目（原版同 `RewardCountOf`：`rewards.Count` 驱动那条 `&gt; 1` 分支）。</summary>
+        public static int StreakRewardCountOf(int i)
+        {
+            if (StreakRewardCountOverrideForTest >= 0) return StreakRewardCountOverrideForTest;
+            return StreakRewardSpecsOf(i).Length;
+        }
     }
 
     /// <summary>

@@ -100,7 +100,7 @@
 //    `DisplayStatus` / `DisplayTrigger` 各自把阵营传进去（10 条覆盖：`shield` 4 · `invulnerable` 6）。
 //    ✅ **2026-10-25 已解决（铁律 5 就地订正；原来这句写的是「已知偏差」）**：A 已改
 //    `BattleDriver.ToCardData(UnitState, faction, isPlayer)` —— **优先取 `u.Card.Faction`、没有才回落拥有者阵营**
-//    （`BattleDriver.cs:26519-26530` 的 `cardFaction`），而 `CardData.faction` 就是 `TraitFrames.ArmyId` 读的那一格
+//    （`BattleDriver.cs:28200-28201` 的 `cardFaction`），而 `CardData.faction` 就是 `TraitFrames.ArmyId` 读的那一格
 //    ⇒ **我们拿到的已经是卡自己的阵营**（跨阵营盟军/中立卡也对上）。
 //    ⛔ **别再在这里加 `overrideArmy` / setter** —— 那会和 `CardData.faction` 变成两份口径。
 using System.Collections.Generic;
@@ -559,10 +559,10 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-23：把**一条真值行**按阵营解析成 prefab —— **判据只此一处**
         /// （原版 `TraitEffect.GetEffect(army)`；`TraitEffect__GetEffect.c:9-34` / `…OverrideByArmy__GetEffect.c:8-21`）。
         /// 逐条按资产顺序比 `Army`，**第一条命中**就返回它（原版那个 `for` 也是取第一个命中的）；
-        /// 全不命中 ⇒ 默认 `row.Prefab`。</summary>
+        /// 全不命中 ⇒ 默认 `row.Prefab`。🔴 **2026-10-31（`B106_W59` · 铁律 5/11）**：此处原有一道自拟闸 `army > 0`（「认不出阵营就不套覆盖」）—— **原版没有这道闸**（`TraitEffect__GetEffect.c:32` 无条件比相等），已删；现数据下零行为差异（10 条覆盖的 `army` ∈ {40,50,60,70,80,90,100,120,130}，没有 0/-1）。</summary>
         public static string PrefabOf(TraitEffectBinding row, int army)
         {
-            if (row.Overrides != null && row.Overrides.Length > 0 && army > 0)
+            if (row.Overrides != null && row.Overrides.Length > 0)
                 for (int i = 0; i < row.Overrides.Length; i++)
                     if (row.Overrides[i].Army == army)
                         return row.Overrides[i].Prefab ?? "";
@@ -655,9 +655,9 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-23：这张卡的原版 `CardArmy`（= `TraitEffect.overrideByArmies[].army` 那套 id）。
         /// **每次现算**（`CardView` 会被复用、`Data` 会换），取不到 ⇒ `-1`（不套覆盖）。
         /// 原版读的是**卡自己的** `rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`；
-        /// `CardScript__ActivateTraitParticlesFromCode.c:62` / `BattleCardUI__DisplayStatusAnim.c:105` 同一条）。
+        /// 链路（2026-10-31 `B106_W59` 逐环现读）：`BasicCardUI__set_rawCardData.c:5`（`+0xe0 = raw`）→ `BattleCardUI__SetRawCardData.c:37-41`（传 `cardScript+0x28`）→ `CardScript__SetRawCardData.c:20`（`+0x28 = RawCardScript`）→ `ObtainableItem.cs:19`（`cardArmy`）⇒ **卡自己的阵营，不是拥有者/目标/指示方**；`CardScript__ActivateTraitParticlesFromCode.c:62` / `BattleCardUI__DisplayStatusAnim.c:104-106` / `BattleCardUI__DisplayTriggerAnim.c:73-76` 读的都是这一格）。
         /// ✅ **2026-10-25 已解决**：`CardData.faction` 现在 = **卡自己的**阵营（A 改的
-        /// `BattleDriver.ToCardData` 优先 `u.Card.Faction`，`BattleDriver.cs:26519-26530`）
+        /// `BattleDriver.ToCardData` 优先 `u.Card.Faction`，`BattleDriver.cs:28200-28201`）
         /// ⇒ 本属性拿到的就是原版 `rawCardData.cardArmy` 那一格。⛔ 不再需要任何 override setter。</summary>
         public int ArmyId
         {

@@ -342,8 +342,8 @@ namespace CardPresentation
             // 🔴 **2026-10-25（E4 · 账 303/314/330）**：把 `Name` 那一颗抓在手里 —— 它现在要按
             //   **被点的那条消息**填 `messageData.playerName`（原版 `ChatPlayerOptionsPanel.ShowOptionsFor`
             //   第一句 `title.text = messageData.playerName`）。改前它恒为 prefab 样例串 `Fulanito Name`。
-            _optName = Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f,
-                            face: TmpFont.Face.LatinCardBody);
+            _optName = Text(_options, OptNameR, "Fulanito Name", Color.white, "Name", 40f, QText, 10f, false, 40f, 21f, face: TmpFont.Face.LatinCardBody);
+            MenuDraw.SetVAlign(_optName, Label.VAlign.Capline, OptNameR);   // 原版 `Name` 的 `m_VerticalAlignment = 8192 (Capline)`（prefab 现读，Chat/ChatPanel 两份同值）
             // `Buttons`（原版是个 `VerticalLayoutGroup`，5 个键排在它下面 —— 保留这一层，别把键挂到面板上）· 🔴 **2026-10-30（`B102_AUD04` · AUD02 普查）**：五颗的底图 `UI_Button_Mulligan` 原版 `Image` 的 **`m_PixelsPerUnitMultiplier = 3.0`** ⇒ **画出来的角块 = `m_Border ÷ 3` = 111 / 32 / 111 / 32**（`m_Border=(333,96,333,96)` · 贴图 410×124 · `m_Type=Sliced`）。原来直接拿 `m_Border` 原值 = 横轴角块 178.65（画出来比原版宽 61%）。⚠️ 行高 `OptRowH = 57.6 < 32+32` ⇒ **竖轴被 uGUI `GetAdjustedBorders` 按轴夹成 28.8**（原版同样夹，⛔ 不是画错；横轴不夹）。⚠️ **UV 切分仍按 `m_Border`**（`333+333 > 410` ⇒ uGUI 会把中段 uv 夹成零宽，原版同样）
             var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
             string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
@@ -366,8 +366,8 @@ namespace CardPresentation
                 //   ⇒ 上限 30（= 标称）· base **12.0**。判据 = 同一条 `menu_dump … "ChatPanel" --depth 10 --md`。
                 string shown = actTerms[i] != null ? Loc.T(actTerms[i]) : acts[i];
                 var textR = new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f);
-                Text(row, textR, shown, Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f,
-                     face: TmpFont.Face.LatinCardBody);
+                var bt = Text(row, textR, shown, Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f, face: TmpFont.Face.LatinCardBody);
+                MenuDraw.SetVAlign(bt, Label.VAlign.Capline, textR);   // 原版五颗 `Button Text` 都是 `m_VerticalAlignment = 8192 (Capline)`（prefab 逐颗现读）
                 string act = acts[i];
                 // 🆕 A17：原版 `Chat>Player Options Panel>Buttons>*` 五颗都是 SpriteSwap（普查 §块 5 第 19 行）
                 // 🆕 **2026-10-19（战斗线 `T16` · 命中区全仓普查）**：命中区 = **底图 ∪ `Button Text`**
@@ -839,14 +839,14 @@ namespace CardPresentation
             MenuDraw.Rect(pb, string.IsNullOrEmpty(m.AvatarArt) ? null : CardArt.Cosmetics(m.AvatarArt),
                           pcR, "Profile content", ChatPanel.QAvatar, null, true, clip, clipSoft);
 
-            // 正文（`Message`：22px · Left/Top · 折行）—— 永远在 y=47
-            // 🔴 **2026-10-14（A525）**：原来这一行**两侧对齐一个都没传** ⇒ 吃那个静态口的缺省
-            //   `alignLeft = false, alignRight = false` ⇒ 标签留在 `MenuDraw.Text` 摆的**矩形中心**（画成居中）。
+            // 正文（`Message`：22px · Left/Top · 折行）—— 顶边恒在 y=47（= padT10 + 头高25 + 间距12）
+            // 🔴 **2026-10-14（A525）**：原来两侧对齐一个都没传 ⇒ 标签留在矩形中心（画成居中）；`alignLeft: true` 才是原版 `Left/Top` 的另一半。
             //   **上面那句注释一直是对的、是代码不对**（`H37 §四·3` 把它列在「没查全」里、W403 补跑 dump 查实）。
             //   判据 = 原版 `menu_dump … bundle_mainmenualwaysloaded_assets_all "ChatMessageRow" --depth 8 --md`：
             //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
-            //   ⇒ 改法一行 = 补 `alignLeft: true`（⛔ 别改成右对齐 —— 原版是 `Left/Top`）。
-            Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y1 + MsgTop + 30f),
+            // 🆕 **2026-10-31（B106_W13）**：**框高改为随行高**（原来写死 `r.y1 + MsgTop + 30f` ⇒ 多行消息会溢出）。
+            //   行高由 `ChatTab.RowHeightFor` 按原版 CSF 算式给（`57 + 正文实测高`，与 OSA `_DefaultItemSize 60` 取大）⇒ 底边 = `r.y2 − 10`（10 = 原版 VLG 的 `m_Padding.Bottom`）。
+            Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y2 - 10f),
                  SocialData.Text(m), Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
                  face: TmpFont.Face.LatinCardBody);
 

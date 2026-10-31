@@ -1,4 +1,4 @@
-类型	真实名字	bundle	CAB	PathID	我们有没有用	引用数	引用者	subshader	passes	有HLSL源	有DXBC	blob字节	kernel数	平台	Ruri文件	Ruri字节	Dummy	备注	容器路径	对象字节
+类型	真实名字	bundle	CAB	PathID	我们有没有用（⚠️「经引用者」= 沿原版引用者继承，非「我们在用」）	引用数	引用者	subshader	passes	有HLSL源	有DXBC	blob字节	kernel数	平台	Ruri文件	Ruri字节	Dummy	备注	容器路径	对象字节
 Shader	Everguild/FX/Sprite Greyscale	globalgamemanagers.assets	globalgamemanagers.assets	52	无独立名字（经引用者）	2	globalgamemanagers#5 ; globalgamemanagers#7	1	4	0	1	7242			Everguild_FX_Sprite Greyscale.shader	27539	0			20204
 Shader	Hidden/Universal Render Pipeline/Sampling	globalgamemanagers.assets	globalgamemanagers.assets	53	无独立名字（经引用者）	1	globalgamemanagers#5	1	1	0	1	2161			Hidden_Universal Render Pipeline_Sampling.shader	6456	0			5112
 Shader	Hidden/VoxelizeShader	globalgamemanagers.assets	globalgamemanagers.assets	54	无独立名字（经引用者）	1	globalgamemanagers#5	1	2	0	1	5483			Hidden_VoxelizeShader.shader	16348	0			10628

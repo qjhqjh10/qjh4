@@ -428,7 +428,7 @@ namespace RuleEngine
             //   因为摘除顺序会进日志、也会进「摘掉的是第几张」这类记录。
             //   ⚠️ `CardIds` 在 JSON 缺键时会被 `JsonUtility` 置成 null（字段初始化跑不到）——
             //      `Validate` 那条老路也一样直接 `foreach` 它，这里补一句不是发明行为、是防 NPE。
-            if (deck.CardIds == null) deck.CardIds = new List<string>();
+            if (deck.CardIds == null) deck.CardIds = new List<string>(); string deckArmy = DeckArmy(deck, lookup) ?? "Neutral";   // 🆕 2026-10-31（B106_W7）：原版这一支比的是 `deckArmy`（`deck+0x50`，`TryRemoveInvalidCards.c:32-36`），不是督军的阵营；`null` = `CardArmy.Neutral`
             for (int i = deck.CardIds.Count - 1; i >= 0; i--)
             {
                 string id = deck.CardIds[i];
@@ -437,8 +437,8 @@ namespace RuleEngine
                 if (c == null) why = DeckError.UnknownCard;                       // 我们加的（见上文）
                 else if (c.Type != "unit" && c.Type != "tactic") why = DeckError.WarlordInCards;   // a：卡型
                 else if (CannotAddToDeck(c)) why = DeckError.EffectOnlyCard;      // b + c：inv / show
-                else if (warlord != null && !SameFaction(c.Faction, warlord.Faction))
-                    why = DeckError.WrongFaction;                                 // d：阵营
+                else if (!SameFaction(c.Faction, deckArmy))                       // d：阵营（原版比 `deck+0x50`；⚠️ 原版这一支【没有】`IsNeutralArmy` 例外 —— 照抄别修，与 `CanAdd` 那支的差异是原版自己的）
+                    why = DeckError.WrongFaction;
                 else continue;
                 deck.CardIds.RemoveAt(i);
                 removed.Add(new RemovedCard { Id = id, Why = why });
@@ -482,11 +482,11 @@ namespace RuleEngine
             // ④ 张数
             int want = mode.HasValue ? CardCount(mode.Value) : CardCount(skirmish);
             if (cards.Count > want) return DeckError.TooManyCards;
-            if (cards.Count < want) return DeckError.TooFewCards;
+            if (cards.Count < want) return DeckError.TooFewCards; string deckArmy = DeckArmy(deck, lookup) ?? "Neutral";   // 🆕 2026-10-31（B106_W7）：⑤ 比的是原版 `deckArmy`（`deck+0x50`），不是督军的阵营；有督军时两者恒等（`DeckArmy` 的 doc）
 
-            // ⑤ 阵营：所有卡必须与督军同阵营（规则书:53）
+            // ⑤ 阵营：所有卡必须与 **`deckArmy`** 同阵营 —— 判据 = `ValidateDeckCards.c:58`（`card+0x2c != deck+0x50`）+ `ValidateDeck.c:38-40`（`hero.cardArmy == deckArmy` 才往下走）；🆕 2026-10-31（B106_W7）：有督军时 `deckArmy` 恒等于督军阵营（规则书:53 是同一条的特例），无督军时才分叉。⚠️ 原版这一支【没有】`IsNeutralArmy` 例外 —— 照抄别修
             foreach (var c in cards)
-                if (!SameFaction(c.Faction, warlord.Faction)) return DeckError.WrongFaction;
+                if (!SameFaction(c.Faction, deckArmy)) return DeckError.WrongFaction;
 
             // ⑥ 督军/防御卡不能又混进普通卡位
             foreach (var c in cards)

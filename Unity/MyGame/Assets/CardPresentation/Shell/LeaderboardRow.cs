@@ -15,9 +15,9 @@
 // ③ 🔴 **高亮不是「出厂关着、用时打开」** —— 出厂 `Background` 与 `BackgroundHighlight` **两个都 active**，
 //    运行期靠 `Image.enabled = OwnPlayer / !OwnPlayer` 二选一（`UIRankingRow.Config`）。⇒ 我们按 `IsSelf` 画其中一张。
 // ④ 🔴 **`Guild Name` 空串 ⇒ 原版把整个 GameObject 关掉**（`AllianceUIRankingRow.Config`）⇒ 我们照做（不画）。
-// ⑤ ⚠️ **`Name Holder` 的 `Name` / `Guild Name` 高 0.00 是近似值**（VLG `ctrlH=1` + TMP 首选高度要字体度量，
-//    工具自报 `unk`）。宽 `710.788`、起点 `290`、`Name Holder` 的 `733.95×100` 是**可信**的
-//    ⇒ 那两行的**上下切分是我们按两段文字的分辨率推的**（不是原版值，下面 `NameR`/`GuildR` 标了）。
+// ⑤ 🔴 **`Name Holder` 的两行 = 原版 `VerticalLayoutGroup` 的产物**（`ctrlH 1` · `forceExpandH 0` · `align 3 MiddleLeft` ·
+//    `spacing 0`）：高 `0.00` 是**布局跑之前的序列化值**，运行时由 VLG 按 TMP **首选高**写进去。宽 `710.788`、起点 `290`、
+//    `Name Holder` 的 `733.95×100` 是序列化值（可信）⇒ 我们照 VLG 那条算式复刻（类尾 `VlgStack`），⛔ 不再自己推切分。
 //    🔴 **上面「可信」的独立出处 = 原版 prefab 自己的序列化字段**（2026-10-06 重出：此前**只有** `menu_dump`
 //      的读数背书，而它正是当天查出「TMP 首选尺寸被当 0、还标成确定值」那处旧口径的**当事工具**）：
 //      `bundle_menus_assets_all` 里**全部 8 个** `Name Holder`（两款行族 × 独立 prefab / 内嵌副本各若干：
@@ -92,11 +92,11 @@ namespace CardPresentation
         /// <summary>联盟行的徽章格（`BadgeDrawer`；`Frame`/`Badge` 两张的图**运行期由 `AllianceBadgeDrawer.Draw` 灌**，判据与回落见 `AllianceBadgeArt`）。</summary>
         static readonly PxRect BadgeDrawerR = new PxRect(125.91f, 0f, 236.69f, 103.96f);
         static readonly PxRect NameHolderR = new PxRect(290f, 0f, 1023.95f, 100f);
-        /// <summary>⚠️ `Name` 的**上下切分是我们推的**（判据 ⑤）：原版两行都印 0 高，真高要字体度量。
-        /// 可信的是 `x 290..1000.79`、以及 `Name Holder` 是 100 高的 `VerticalLayoutGroup`（spacing 0 · Middle）。
-        /// 我们按「40px 与 30px 两行文字各占一半」切 ⇒ 6..52 / 50..96。</summary>
-        static readonly PxRect NameR = new PxRect(290f, 6f, 1000.79f, 52f);   // 🔶 自己设计（非原版）：联盟行 Name / Guild 两行的上下切分 · 原版两行都印 0 高、真高要字体度量 ⇒ 我们按 40px / 30px 各占一半推（原版判据拿不到） · TODO(谁定的)
-        /// <summary>同上（推的）。</summary>
+        /// <summary>⚠️ `Name` / `Guild Name` 的**上下切分不再自己推**（铁律 18·0）：原版 `Name Holder` 是 `VerticalLayoutGroup`
+        /// （`ctrlH 1` · `forceExpandH 0` · `align 3 MiddleLeft` · `spacing 0` · `padding 0`）⇒ 两行各取 TMP **首选高**、
+        /// 整块垂直居中（算法只在类尾 `VlgStack` 一份）。**下面这两格只取 x 跨度**（`290..1000.79` · 序列化值）。</summary>
+        static readonly PxRect NameR = new PxRect(290f, 6f, 1000.79f, 52f);   // ⚠️ 只有 x 跨度是判据；y 已改由类尾 `VlgStack` 按自然高算
+        /// <summary>同上（只有 x 跨度有意义）。</summary>
         static readonly PxRect GuildR = new PxRect(290f, 50f, 1000.79f, 96f);
         /// <summary>`RankingIcon`：**右对齐族**（`a=(1,.5) p=(1,.5) apos=(-150,-1.7)`）⇒ 右缘 = 行宽 − 150。</summary>
         static readonly PxRect IconRankR = new PxRect(941.70f, -31.14f, 1050f, 134.53f);
@@ -232,32 +232,32 @@ namespace CardPresentation
 
             // ---- 名字 + 公会名（判据 ④：`Guild` 空串 ⇒ 原版整格关掉 ⇒ 我们连节点都不建）----
             var holder = MenuDraw.Node(row, "Name Holder", Abs(r, NameHolderR));
-            // 🔴 **2026-10-27（E9 · 账 90②）**：`Name` / `Points` 两颗原来都带 `if (!string.IsNullOrEmpty(...))`
-            //   ⇒ 空数据时**连节点都不建**；原版 `UIRankingRow.Config` 是**无条件写 + `ToggleComponents(true)`**
-            //   ⇒ 一律建（空串就写空串）。⚠️ 与下面 `Guild Name` 那一颗**不是同一条规矩**：
-            //   原版 `Guild Name` 空串时**真的把 GameObject 关掉**（判据 ④，见文件头）—— 两颗分开照办，⛔ 别一刀切。
+            // 🔴 **2026-10-31（B106_W13 · 铁律 18·0）**：这里原来是 🔶 自己设计的「40px / 30px 各占一半」切分，现按原版字段复刻：
+            //   `bundle_menus_assets_all` 的 8 个 `Name Holder` 实例逐值相同 —— `VerticalLayoutGroup` = `childControlHeight 1` ·
+            //   `childForceExpandHeight 0` · `childAlignment 3 (MiddleLeft)` · `spacing 0` · `padding 0` · `childControlWidth 0`
+            //   ⇒ **两行各取 TMP 首选高、上下相接、整块在 100 高的 holder 里垂直居中**。holder 内 y（顶 0 底 100）：
+            //   `Name` 中心 = `50 − hG/2` · `Guild` 中心 = `50 + hN/2`；`Guild` 缺席 ⇒ `hG = 0` ⇒ `Name` 单独居中。
             {
-                var nameAbs = Abs(r, NameR);
-                // 🔴 **2026-10-16（A799 · 生产 5/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
-                //   与上面 `Ranking`（#4）同一族：`holder` 在 `row` 之下 ⇒ 父链同一颗 `ViewportClip`；
-                //   本处 `clip` 恒 `null` ⇒ A781 起压在视口边上的「Name」第一次被夹到视口沿。
-                //   ✅ 返回值有守卫（下一句 `if (nm != null) MenuDraw.AlignLeft(...)`）—— A798 起可能返回 `null`。
-                //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #5。
-                var nm = MenuDraw.Text(holder, nameAbs, EffectiveName(d) ?? "", Color.white, "Name", NamePx, c.Q + L_Text,
-                                       NameR.W, NameMin, NamePx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 40 · base 36
-                if (nm != null) { nm.SetCharSpacing(NameGuildCharSpacing); MenuDraw.AlignLeft(nm, nameAbs); }   // ② 原版 `m_characterSpacing = 1.2` —— 🔴 必须排在 `AlignLeft` **之前**（见类尾 `NameGuildCharSpacing` 的 doc）
-            }
-            if (!string.IsNullOrEmpty(d.Guild))
-            {
-                var guildAbs = Abs(r, GuildR);
-                // 🔴 **2026-10-16（A799 · 生产 6/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
-                //   同 #4/#5：`holder` ← `row` ← `_listContent` ← 那颗 `ViewportClip`；`clip` 恒 `null`。
-                //   ⚠️ 只对**非空**公会名生效（空串 ⇒ 上面那句 `if` 连节点都不建，与「裁不裁」无关）。
-                //   ✅ 返回值有守卫（下一句 `if (gn != null) MenuDraw.AlignLeft(...)`）。
-                //   判据全文 → `资料/普查产出_1015/R2_A799全量表.md` §一① #6。
-                var gn = MenuDraw.Text(holder, guildAbs, d.Guild, GuildColor, "Guild Name", GuildPx, c.Q + L_Text2,
-                                       GuildR.W, GuildMin, GuildPx, 36f, face: TmpFont.Face.LatinCardBody);   // 🆕 A333/A336③：max 30 · base 36
-                if (gn != null) { gn.SetCharSpacing(NameGuildCharSpacing); MenuDraw.AlignLeft(gn, guildAbs); }   // ② 同上（原版 `Guild Name` 也是 1.2）· 同样**先于** `AlignLeft`
+                // 框高一律给 holder 的 100（= 原版 `m_SizeDelta.y`）：`Text` 内部按框高 autofit，给 100 才不会把 40px 的单行挤小。🔴 **2026-10-31（B106_W70）：这 100 只服务 autofit** —— 「整块在视口外 ⇒ 连节点都不建」那道粗筛（`MenuDraw.Text` 开头 `if (!Visible(r, _st.RenderClip)) return null;`）**另用设计帧的真实框** `MenuDraw.VisibleAbove(holder, Abs(r, NameR / GuildR), null)`；否则整高 100 会跨过视口底，压边行里本该不建的 `Guild Name` 会被建出来（A833 红）。两者走**同一条父链、同一个 `RenderClip`**（`MenuDraw.cs:356 Visible` / `:375 VisibleAbove` ⇒ `:2029`）。
+                var nameBox = Abs(r, new PxRect(NameR.x1, NameHolderR.y1, NameR.x2, NameHolderR.y2));
+                var nm = MenuDraw.VisibleAbove(holder, Abs(r, NameR), null) ? MenuDraw.Text(holder, nameBox, EffectiveName(d) ?? "", Color.white, "Name", NamePx, c.Q + L_Text,
+                                       NameR.W, NameMin, NamePx, 36f, face: TmpFont.Face.LatinCardBody) : null;
+                Label gn = null; PxRect guildBox = default;
+                if (!string.IsNullOrEmpty(d.Guild))
+                {
+                    // 🔴 **A799：这一格【会新裁】= 目的，⛔ 别「修」**（`holder` ← `row` ← `_listContent` ← 那颗 `ViewportClip`；
+                    //   `clip` 恒 `null` ⇒ A781 起压在视口边上的 `Name` / `Guild Name` 第一次被夹到视口沿）。判据 → `R2_A799全量表` §一① #5/#6。
+                    guildBox = Abs(r, new PxRect(GuildR.x1, NameHolderR.y1, GuildR.x2, NameHolderR.y2));
+                    if (MenuDraw.VisibleAbove(holder, Abs(r, GuildR), null)) gn = MenuDraw.Text(holder, guildBox, d.Guild, GuildColor, "Guild Name", GuildPx, c.Q + L_Text2,
+                                       GuildR.W, GuildMin, GuildPx, 36f, face: TmpFont.Face.LatinCardBody);
+                }
+                // 🔵 自然高 + 整块垂直居中（算式 = 上面第 7 行；量高/摆位只有一份，在类尾 `VlgStack`）—— ⛔ 别在这儿再写一遍。
+                VlgStack(holder, Abs(r, NameHolderR), nameBox, guildBox, nm, gn);
+                // ② 原版 `Name` / `Guild Name` 的 `m_characterSpacing = 1.2` —— 🔴 必须排在 `AlignLeft` **之前**（见类尾 doc）。
+                if (nm != null) nm.SetCharSpacing(NameGuildCharSpacing);
+                if (gn != null) gn.SetCharSpacing(NameGuildCharSpacing);
+                if (nm != null) MenuDraw.AlignLeft(nm, nameBox);
+                if (gn != null) MenuDraw.AlignLeft(gn, guildBox);
             }
 
             // ---- 右端两件：`RankingIcon`（族徽 / 骷髅）+ `Points` ----
@@ -367,5 +367,45 @@ namespace CardPresentation
         /// （见 `Shell/MenuWindowBase.cs` 的 A1191 裁定）⇒ 只能在调用点补一次。
         /// ⚠️ 点阵后端（`_tmp == null`）没有「字距」这回事 —— `SetCharSpacing` 自己会**出声**（红线：不许静默失败）。</para></summary>
         public const float NameGuildCharSpacing = 1.2f;
+
+        /// <summary>🆕 **2026-10-31（B106_W13）**：原版 `Name Holder` 那套 `VerticalLayoutGroup` 的等价实现
+        /// （判据 = `bundle_menus_assets_all` 里 `Name Holder` 的序列化字段，8 个实例逐值相同）。
+        /// <para>原版字段：`m_ChildControlHeight 1` · `m_ChildForceExpandHeight 0` · `m_ChildAlignment 3 (MiddleLeft)` ·
+        /// `m_Spacing 0` · `m_Padding 0` · `m_ChildControlWidth 0` ⇒ **每个子件高 = 自己的 TMP 首选高**、上下相接、
+        /// 整块在 holder 里**垂直居中**；**宽不动**（`ctrlW 0` ⇒ 宽保持 `m_SizeDelta.x` = 710.788）。</para>
+        /// <para>算式（holder 内 y，top 0 / bottom = `holderAbs.H`）：`Name 中心 = H/2 − hG/2` · `Guild 中心 = H/2 + hN/2`；
+        /// `Guild` 缺席 ⇒ `hG = 0` ⇒ `Name` 单独居中。**这就是原版 VLG `SetChildrenAlongAxis` 在本构型下的闭合形式**，
+        /// ⛔ 不是我们挑的近似（对照：旧写法「40px / 30px 各占一半」才是 🔶 自己设计，已删）。</para>
+        /// <para>⚠️ 本函数只管**框心与框高**；**左对齐仍由调用点的 `MenuDraw.AlignLeft` 做**（它同时负责重裁那一刀）。</para></summary>
+        /// <param name="nameX">`Name` 的**绝对画布** x 跨度（只取 `x1/x2`；y 由本函数算）。</param>
+        /// <param name="guildX">同上（`Guild`）。`guild == null` 时不用。</param>
+        static void VlgStack(Transform holder, PxRect holderAbs, PxRect nameX, PxRect guildX,
+                             Label name, Label guild)
+        {
+            if (holder == null) return;
+            float half = holderAbs.H * 0.5f;
+            float hN = PrefH(name, holderAbs.H, NamePx);
+            float hG = PrefH(guild, holderAbs.H, GuildPx);
+            if (name != null) PlaceAt(name, holder, nameX.x1, nameX.x2, holderAbs.y1 + half - hG * 0.5f, hN);
+            if (guild != null) PlaceAt(guild, holder, guildX.x1, guildX.x2, holderAbs.y1 + half + hN * 0.5f, hG);
+        }
+
+        /// <summary>`VlgStack` 的量高那半步：`Label.WorldH`（TMP `textBounds` 的真测量 · 世界单位）→ 画布 px。
+        /// <para>⚠️ 量不出 / 天文数字（未激活的 `textBounds` 哨兵）时**退回字面量并出声** —— 本工程红线「不许静默失败」。</para></summary>
+        static float PrefH(Label lb, float capPx, float fallbackPx)
+        {
+            if (lb == null) return 0f;
+            float h = lb.WorldH / LayoutSpace.Px(1f);
+            if (h > 0.01f && h <= capPx) return h;
+            Debug.LogWarning("[Leaderboard] `" + lb.name + "` 的 TMP 首选高量不可信（" + h.ToString("F1") + "px，holder "
+                             + capPx.ToString("F0") + "px）⇒ 退回字面量 " + fallbackPx.ToString("F1") + "px 摆位（⛔ 不静默）");
+            return fallbackPx;
+        }
+
+        /// <summary>`VlgStack` 的摆位那半步：框心落在**绝对画布** y = `cy`、框高 = `h`（x 用传入的绝对跨度）。</summary>
+        static void PlaceAt(Label lb, Transform holder, float x1, float x2, float cy, float h)
+        {
+            lb.transform.localPosition = MenuDraw.Local(holder, x1, cy - h * 0.5f, x2, cy + h * 0.5f);
+        }
     }
 }

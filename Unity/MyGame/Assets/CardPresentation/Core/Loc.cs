@@ -7,7 +7,7 @@
 // ============================ 照原版的部分（逐条有出处） ============================
 //  · **语言 12 种、枚举名与取值** = 原版 `AvailableLanguages`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/
 //    AvailableLanguages.cs` **逐条照抄**：`English = 0, Spanish = 10, …, Chinese = 110` —— 取值是**十进制步进 10**，
-//    ⛔ 别改成 0..11：那会与我们写进 `PlayerPrefs` 的存档值不兼容）。
+//    ⛔ 别改成 0..11：那会与我们写进 `PlayerPrefs` 的存档值不兼容）。🔴 **2026-10-31（B106_W15）**：上面 12 项照抄原版枚举；`Turkish = 120` 是我们补的第 13 格（原版枚举没有它，但原版**下拉**读的 `GameStaticData.languagesDefinition` 有）—— 取值沿用原版步进 10、不占既有值，只是**枚举编号补位**。
 //  · **控件** = 原版 `LanguageSelector : MonoBehaviour`，**唯一字段 `private TMP_Dropdown languagesDropdown`**
 //    （`Assembly-CSharp/LanguageSelector.cs`）⇒ 语言选择是**下拉框**，不是左右箭头、不是一排按钮。
 //  · **选项文本的键** = 原版 `LanguageSelector.ResetLanguagesDropdown`（`d:/2/tools/decomp_full/`，逐句实读）：
@@ -15,7 +15,7 @@
 //    ⇒ 键 = **`MainMenu/Settings/LanguageName/<枚举名>`**。
 //    🔴 前缀那个字面量**本地可核**：`global-metadata.dat` 里 `MainMenu/Settings/LanguageName/` 与
 //    `MainMenu/Settings/ButtonLabel/Exit_Game` **相邻**（偏移 561102 / 561120，两条都在）。
-//    ⇒ 12 个键写全在下面 `Names` 那张表里（**这是 12 项下拉的文档来源**）。
+//    ⇒ **13 个键**写全在下面 `Names` 那张表里（**这是下拉 13 项的文档来源**；🔴 2026-10-31（B106_W15）原写「12 个」—— 表里一直就是 13 条含 `Turkish`）。
 //  · **词条键（`mTerm`）** = 每一条都**照原版 prefab 里那顆 `Localize.mTerm` 原文抄**
 //    （`bundle_menus_assets_all/MonoBehaviour/*.json` 实读；逐条列在下面 `Table` 的注释里）。
 //    ⛔ 不许自拟键名（除非原版真没有 —— 本文件只有 `Settings/Online/Title` 一条是自拟，见它那行注释）。
@@ -113,14 +113,16 @@
 //          那句**已过期**（当时调用点不在白名单）；留痕（铁律 5），⛔ 别再照它当日志。
 
 //
-// ============================ 🔴 文案：12 项下拉 · 13 语言数据 ============================
-// 用户 2026-09-28 拍板：**下拉照原版列 12 项**。
-// 🔴 **2026-10-17（界面线 T08 `A1812`）起 12 项全部能真工作**：官方 I2 表的 **13 种真语言全列**
+// ============================ 🔴 文案：13 项下拉（原版）· 13 语言数据 ============================
+// 用户 2026-09-28 拍板：**下拉照原版**（当时按 `AvailableLanguages` 记成 12 项；🔴 2026-10-31（B106_W15）现读原版下拉 = 13 项 ⇒ 见第 123 行那条订正）。
+// 🔴 **2026-10-17（界面线 T08 `A1812`）起全部项都能真工作**（2026-10-31（B106_W15）起 = **13 项**）：官方 I2 表的 **13 种真语言全列**
 //   落进 `Resources/official_loc_13lang.json`（生成器 `工具/gen_official_loc_13lang.py`），
 //   `T()` / `BulkOr` / `Lore` 按 `Current` **各取各的列**；中文/英文仍以手写 `Table` 为权威。
 //   🆕 **2026-10-18（界面线 `N71`）**：中/英档在 `Table` + 数据面 bulk **都没命中**时，也从这份官方全表
 //   **兜底**（`T()` 的 doc 里写着三档顺序）—— 只补「手写表里根本没有」的键，⛔ 不覆盖任何已有键的值。
-//   `Turkish` 在官方表里有、但**不在 `AvailableLanguages`**（原版枚举就 12 项）⇒ 只当数据，不进下拉。
+//   `Turkish` 在官方表里有 — 🔴 **2026-10-31（B106_W15）就地订正**：原先这行写「不在 `AvailableLanguages`（原版枚举就 12 项）⇒
+//   只当数据，不进下拉」—— **下拉现在进**（原版下拉读的是 `GameStaticData.languagesDefinition` 那个 `string[13]`，
+//   里面本来就有 `Turkish`；原版枚举 12 项 ≠ 下拉 12 项）。我们的枚举为此补了 `Turkish = 120`。
 //   只有「官方表里没有这条键」（我们自拟的那批）或资源文件读不到时才**回退英文**并 `Debug.Log` 出声
 //   （⛔ **不许在 UI 上加原版没有的提示行** —— 出声只走日志）。见 `T()` 与 `Effective`。
 //
@@ -160,6 +162,11 @@ namespace CardPresentation
         Czech = 90,
         Polish = 100,
         Chinese = 110,
+        /// <summary>🔴 **B106_W15（2026-10-31）**：原版 `AvailableLanguages` 枚举确实**只有 12 项**（上面那些 + English），
+        /// 但**原版下拉的另一条轴** `GameStaticData.languagesDefinition` 是 **`string[13]` 且含 `Turkish`**
+        /// （`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/GameStaticData.cs:2447-2474` 的 `array3` 逐条实读）。
+        /// 我们的 `Current` 用枚举 ⇒ 想支持第 13 项只能给它一格。取值 **120** = 现有最大 110 + 原版步进 10，⛔ 不占任何既有值。</summary>
+        Turkish = 120,
     }
 
     /// <summary>
@@ -182,8 +189,9 @@ namespace CardPresentation
 
         /// <summary>这个语言**有没有自己的文案**（= `T()` 能取到不是英文的文本）。
         /// <para>🆕 **2026-10-17（界面线 · T08 `A1812`）**：官方 I2 表的 **13 种真语言全列**已落进
-        /// `Resources/official_loc_13lang.json` ⇒ 下拉那 12 项**全部**为 true（原来只有中/英两项）。
-        /// 只有「资源文件读不到」或「这个值不在官方表里」（如 `Turkish`，它不在枚举中）才为 false ——
+        /// `Resources/official_loc_13lang.json` ⇒ 下拉那 13 项（🔴 **2026-10-31（B106_W15）起是 13 项**，原为 12 ——
+        /// 枚举补了 `Turkish`）**全部**为 true（原来只有中/英两项）。
+        /// 只有「资源文件读不到」或「这个值不在官方表里」才为 false ——
         /// 那种时候 `T()` 仍按老规矩回退英文并出声。</para></summary>
         public static bool HasOwnText(AvailableLanguages l)
         {
@@ -193,13 +201,21 @@ namespace CardPresentation
             return _lang13Idx != null && _lang13Idx.Count > 0;
         }
 
-        /// <summary>下拉里的 12 项 —— **原版 `AvailableLanguages` 的声明序**（= 原版下拉的选项序）。</summary>
+        /// <summary>下拉里的 13 项 —— **原版 `GameStaticData.languagesDefinition` 的声明序**（逐条实读，
+        /// `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/GameStaticData.cs:2449-2471`）：
+        /// `English, Spanish, Russian, French, German, Portuguese (Brazil), Italian, Korean,
+        ///  Simplified Chinese, Japanese, Turkish, Polish, Czech`。
+        /// <para>⚠️ 原版**下拉从来不读 `AvailableLanguages` 枚举**（`LanguageSelector.ResetLanguagesDropdown`
+        /// 遍历的是那个 `string[]`，`out_cpp2il_dev_ilspy/LanguageSelector.cs:35-40`）⇒ 这一格才是下拉的真来源；
+        /// 枚举只是我们自己的语言身份。</para>
+        /// <para>🔴 **2026-10-31（B106_W15）**：原来这里是 12 项、且**顺序按枚举声明序**（≠ 原版下拉序）⇒ 已按原版改。</para></summary>
         public static readonly AvailableLanguages[] Languages =
         {
-            AvailableLanguages.English, AvailableLanguages.Spanish, AvailableLanguages.French,
-            AvailableLanguages.German, AvailableLanguages.Portuguese, AvailableLanguages.Russian,
-            AvailableLanguages.Italian, AvailableLanguages.Korean, AvailableLanguages.Japanese,
-            AvailableLanguages.Czech, AvailableLanguages.Polish, AvailableLanguages.Chinese,
+            AvailableLanguages.English, AvailableLanguages.Spanish, AvailableLanguages.Russian,
+            AvailableLanguages.French, AvailableLanguages.German, AvailableLanguages.Portuguese,
+            AvailableLanguages.Italian, AvailableLanguages.Korean, AvailableLanguages.Chinese,
+            AvailableLanguages.Japanese, AvailableLanguages.Turkish, AvailableLanguages.Polish,
+            AvailableLanguages.Czech,
         };
 
         /// <summary>🔴 **自检注入点**：true ⇒ `SetLanguage` 只改内存、**不写 `PlayerPrefs`**
@@ -374,11 +390,11 @@ namespace CardPresentation
             //    `Terms of Service` 那颗挂的是 `Settings/Support/TermsOfService`（两条前缀不同，⛔ 别统一）。
             { "MainMenu/Settings/ButtonLabel/PrivacyPolicy", new Entry("隐私政策", "Privacy Policy") },
 
-            // ---- 语言名（下拉的 12 项）----
+            // ---- 语言名（下拉的 13 项）----
             // 🔴 键 = `MainMenu/Settings/LanguageName/<枚举名>`（原版 `ResetLanguagesDropdown` 的拼法，
             //    前缀字面量已在 `global-metadata.dat` 核到）。英文那一列 = **本族语言名**（`Español`/`Français`…）。
             // 🔴 **2026-10-17（`A1951`）就地订正**：原写「本地 TMP 拿不到正式选项名 —— 远端 I2 表；中文那一列是
-            //    我们译的」—— 官方表 2026-10-14 已在本机，本族共 **13 条**（含 `Turkish`，不进 12 项下拉）。
+            //    我们译的」—— 官方表 2026-10-14 已在本机，本族共 **13 条**（🔴 2026-10-31（B106_W15）起 `Turkish` **进下拉**：原版下拉 13 项；原写「不进 12 项下拉」已过期）。
             //    ✅ **2026-10-17（`A1812` · `N36`）已对齐官方键名**：官方的两条是 `…/Portuguese (Brazil)`
             //    与 `…/Simplified Chinese`（值分别是 `Português` / `中文`，**13 列逐字相同**）——
             //    我们这两条原来写成 `…/Portuguese`（`Portuguese` / `葡萄牙语`）与 `…/Chinese`（`Chinese` / `中文`），
@@ -394,6 +410,7 @@ namespace CardPresentation
             { "MainMenu/Settings/LanguageName/Japanese",   new Entry("日本語",     "日本語") },
             { "MainMenu/Settings/LanguageName/Czech",      new Entry("Čeština",   "Čeština") },
             { "MainMenu/Settings/LanguageName/Polish",     new Entry("Polski",   "Polski") },
+            { "MainMenu/Settings/LanguageName/Turkish",    new Entry("Türk",     "Türk") },   // 🔴 2026-10-31（B106_W15）：Turkish 进下拉后补这条手写权威项（官方 13 列全是 `Türk`，现读 `官方本地化_13lang.json`）
             { "MainMenu/Settings/LanguageName/Simplified Chinese", new Entry("中文", "中文") },
 
             // ============================================================ 卡组编辑窗（原版 `Deck Editing Menu`）
@@ -773,7 +790,7 @@ namespace CardPresentation
             //   那会与 `Shell/ShopWindow` 的 `TxtEmpty`（同一句原文）分叉）。
             //   ⚠️ 中文取自 `zh_CN.csv:178`，但那条的英文串是 `…for the selected **filter**`（单数 filter），
             //   与我们这一串（复数 filters）**差一个字母** ⇒ 属「最近邻」，**不是精确命中**（如实记）。
-            { "MenuCollection/NoDecksFound",                  new Entry("在您选择的过滤器或游戏模式下，您的收藏中没有卡组", "There are no decks in your collection for the selected filters") }, // 🔴 2026-10-23：**ZH = 官方值**（原取自 `zh_CN.csv:178` 近邻）；EN 仍是 TMP 原文（含原版语病，官方多 `or game mode` —— EN 未动）
+            { "MenuCollection/NoDecksFound",                  new Entry("在您选择的过滤器或游戏模式下，您的收藏中没有卡组", "There are no decks in your collection for the selected filters or game mode") }, // 🔴 2026-10-31（`B106_W12` · AUD05 收藏窗 §4·3④/施工点 D）：**EN 补齐 ` or game mode`** —— 官方 I2 表 `官方本地化_en+zh-CN.json` 的 `terms["MenuCollection/NoDecksFound"]` 逐字如此（ZH 本来就与官方一致）；改前那句是 **prefab 的静态默认 `m_text`**（少了 ` or game mode`），运行时原版喂的是 I2 表 ⇒ 以表为准。⚠️ 同一句还硬编码在 `Shell/ShopTabPage.cs:140`（`TxtEmptyEn`）与 `Editor/DeckScene.cs:9300`（期望值），**本批白名单外** ⇒ 见 `报告/B106_W12.md` §剩余施工单
             // ------------- 收藏窗那两处页头 / 通用钮 --------------
             { "MenuCollection/Label/Cosmetics",               new Entry("你的化妆品收藏", "Your cosmetics collection") }, // TMP 原文；`label < Header < Cardback Tab`；zh_CN.csv:25
             //   `Back`：同键 8 颗，收藏窗那颗 = `Button Text < Close Button < Shared < Tabs < Content Area < Collection Menu Variant`
@@ -2943,8 +2960,10 @@ namespace CardPresentation
 
         // ============================================================ 🆕 2026-10-17（界面线 · T08 `A1812`）：官方 13 语言全表
         //
-        // 🔴 **判据**：原版语言下拉 = `AvailableLanguages` 12 项，而官方 I2 表里 **13 种真语言**
-        //   每种 **10,839–10,854 / 10,862** 条非空（`Turkish` 不在枚举里 ⇒ **只当数据、不进下拉**）。
+        // 🔴 **判据**：原版语言下拉 = `GameStaticData.languagesDefinition`（`string[13]`），枚举 `AvailableLanguages` 是**另一条轴**（12 项）；
+        //   官方 I2 表里 **13 种真语言**每种 10,862 条非空。
+        //   🔴 **2026-10-31（B106_W15）就地订正**：原先这行写「`Turkish` 不在枚举里 ⇒ 只当数据、不进下拉」——
+        //     现已在枚举里补 `Turkish = 120`、下拉按原版 13 项序（`LanguageSelector.cs:35-40` 实读）。
         //   ⚠️ **2026-10-18（`K07`）现读订正**：原来这里写「9,438–9,441 / 9,447」—— 那是
         //     **2025-07-30 旧快照**的读数；当前 build 已并入（`gen_official_loc_13lang.py --input`）。
         //   数据件 = `Resources/official_loc_13lang.json`，生成器 = `工具/gen_official_loc_13lang.py`
@@ -2997,7 +3016,8 @@ namespace CardPresentation
                 if (!string.IsNullOrEmpty(d.keys[i])) _lang13Idx[d.keys[i]] = i;
         }
 
-        /// <summary>某个枚举语言在官方 13 列里是第几列（`-1` = 不在表里，如 `Turkish` / 非法值）。</summary>
+        /// <summary>某个枚举语言在官方 13 列里是第几列（`-1` = 不在表里 / 非法值）。
+        /// <para>🔴 **2026-10-31（B106_W15）**：`Turkish` 已进枚举 ⇒ 返回 12（`_lang13Cols` 现序 = …pl(10) cs(11) tr(12)）。</para></summary>
         static int Lang13Column(AvailableLanguages l)
         {
             switch (l)
@@ -3014,6 +3034,7 @@ namespace CardPresentation
                 case AvailableLanguages.Japanese:   return 9;
                 case AvailableLanguages.Polish:     return 10;
                 case AvailableLanguages.Czech:      return 11;
+                case AvailableLanguages.Turkish:    return 12;   // 官方 13 列序 = …pl(10) cs(11) tr(12)（`_lang13Cols` 现读同序）
             }
             return -1;
         }
@@ -3034,8 +3055,10 @@ namespace CardPresentation
         /// <summary>官方 13 语言表一共载入几条（0 = 文件没读到；自检用）。</summary>
         public static int Lang13Count { get { LoadLang13(); return _lang13Idx.Count; } }
 
-        /// <summary>自检用：按**语言码**取一条官方词条（`"tr"` 这类**不在枚举里**的列也取得出 ——
-        /// `A1812` 的判据要求「Turkish 只在数据里」）。缺键 / 未知码 ⇒ `null`。⛔ 不改任何状态。</summary>
+        /// <summary>自检用：按**语言码**取一条官方词条（`"tr"` 这类按码取的入口 ——
+        /// 🔴 **2026-10-31（B106_W15）订正**：原 doc 写「`A1812` 的判据要求『Turkish 只在数据里』」，
+        /// 现 `Turkish` 已进枚举（= 也是个能选的语言）⇒ 本条保留为「按任意码取」的通用口。
+        /// 缺键 / 未知码 ⇒ `null`。⛔ 不改任何状态。</summary>
         public static string Lang13Of(string key, string langCode)
         {
             if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(langCode)) return null;
@@ -3053,7 +3076,7 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-17（`N42`）：按**当前语档**取官方 13 语言表里的那一列。
         /// <para>**中文 / 英文档恒返回 `null`** —— 那两档以手写 `Table` 为权威（见文件头），
         /// 调用方拿到 `null` 就继续走自己那条老路（英文列 / 兜底），**行为逐字节不变**。</para>
-        /// <para>其余 10 种语言：命中就返回**那一列**；**缺键 / 那一列是空 ⇒ 返回 `null` + 出声一次/键**
+        /// <para>其余 11 种语言（🔴 2026-10-31（B106_W15）起 = 11，原为 10 —— 补了 `Turkish`）：命中就返回**那一列**；**缺键 / 那一列是空 ⇒ 返回 `null` + 出声一次/键**
         /// （⛔ 不静默、⛔ 不返回键名 —— 回退英文由调用方做，各自有自己的兜底）。</para>
         /// <para>🔴 **这是「按当前语档取 13 语言列」的唯一一口**（工程红线：两处写同一条规则 = 迟早不一致）——
         /// `CardText.Term/TermOr/Name/Keyword` 与 `CardIcons.OfficialTerm` 都走它，
@@ -3076,7 +3099,7 @@ namespace CardPresentation
         /// <para>口径与 <see cref="T"/> 新加的中/英兜底**逐字一致**：中文档取 `zh` 列，**该列为空 ⇒ 回退 `en` 列**；
         /// 英文档取 `en` 列；缺键 / 两列都空 ⇒ `null`（⛔ 不返回键名、**不出声、不记账** ——
         /// 出声与 `MissingCount` / `FallbackCount` 那些账由 `T()` / `CardText.TermOr` 各自的调用点负责）。</para>
-        /// <para>非中英档**恒 `null`**：那 10 种走 <see cref="Lang13Current"/>（它的回退与出声口径不一样，⛔ 两条别合并）。</para>
+        /// <para>非中英档**恒 `null`**：那 11 种（🔴 2026-10-31（B106_W15）起 = 11，原为 10）走 <see cref="Lang13Current"/>（它的回退与出声口径不一样，⛔ 两条别合并）。</para>
         /// <para>🔴 **现行两处显示消费点（2026-10-19 · `A1945` 方案 A 起）**：
         /// ① `T()` 的中/英兜底；② **卡面正文** —— `BattleDriver.FaceTextFull` 用
         /// `OfficialCurrent("Card_Description/&lt;卡 id&gt;")` 取官方 en/zh（`desc`/`descZh` 数据不动）。
@@ -3876,12 +3899,12 @@ namespace CardPresentation
         {
             var h = LanguageChanged;
             if (h == null) { RelocalizeAll(); return 0; }   // B103_A03（AUD03 #94）：**没有 event 订户时，已建 `Label` 也要重取**（登记表 = 类尾 `_localizedLabels`，不依附 event 订户个数）
-            int n = h.GetInvocationList().Length;
-            try { h(); }
-            catch (System.Exception e)
+            var inv = h.GetInvocationList(); int n = inv.Length;
+            // 红线：不许静默失败。🔴 **2026-10-31（`B106_W12` · AUD03「仍缺」）：逐家 try/catch** —— 原来这里是 `try { h(); }`，把**整条组播**包在一个 try 里 ⇒ 第一家抛了，**其后所有订户一个都收不到**（跟本注释原话「其它订户照常收到」**相反**，实现与注释不符）。现在按 `GetInvocationList()` 逐个调、逐个兜 ⇒ 一家抛只记一条 `LogError`、继续下一家（= 原版 `BroadcastMessage` 不因一个接收方失败而中断）。
+            for (int i = 0; i < inv.Length; i++)
             {
-                // 红线：不许静默失败。一个订户抛异常不能连带其它订户（原版 `BroadcastMessage` 也不连带）。
-                Debug.LogError("[Loc] 换语言广播里有一家订户抛了异常（其它订户照常收到）：" + e);
+                var one = inv[i] as System.Action; if (one == null) continue;
+                try { one(); } catch (System.Exception e) { Debug.LogError("[Loc] 换语言广播里有一家订户抛了异常（其它订户照常收到）：" + e); }
             }
             RelocalizeAll(); return n;   // B103_A03（AUD03 #94）：广播之后把登记过的 `Label` 全部按各自来源重取（对标 I2 `OnLocalize`；⛔ 不重建窗、不动滚动位）
         }

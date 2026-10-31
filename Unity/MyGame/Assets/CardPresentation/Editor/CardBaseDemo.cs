@@ -119,7 +119,7 @@ public static class CardBaseDemo
     public static void Run()
     {
         Debug.Log(P + "=== 卡牌基座自检 开始 ===");
-        _pass = 0; _fail = 0;      // 这个入口也能从菜单跑，跑第二次不能累加
+        _pass = 0; _fail = 0; bool runCompleted = false; try {   // 这个入口也能从菜单跑，跑第二次不能累加 ｜ 🆕 2026-10-31（B106_W20 · AUD11 类 4 · 判据 = 报告/B103_D1.md 的 A3）：Run() 原来**没有外层 try** ⇒ 一条异常就让整个宿主 rc=1 且合计行不印；这里兜住，catch 记一次失败 + 出声
         // 🔴 2026-10-19：`Dark Pact of *` 的「无费用」（数据 + 卡面两条口径，见下面那个方法）
         CheckDarkPactNoCost();
         Debug.Log(P + "  " + CardArt.Describe());
@@ -389,10 +389,10 @@ public static class CardBaseDemo
         AssertRangedRecoverAndBaseScale();  AssertFiguresAtom();   // 账 `战斗逻辑驱动:976`（原版 `CardScript.UpdateFigures` 五件同刷的原子入口；见方法 doc）
 
         ProbeTextBg(cam);                 // 🔍 诊断（`WF_TEXTBG_PROBE=1` 才跑；不设 = 零输出）
-        ProbeTextBgDiff(cam);             // 🔍 诊断（`A1934`；`WF_TEXTBG_DIFF=1` 才跑 —— 开/关两帧存 PNG + 逐像素 diff）
-
-        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
-        if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
+        ProbeTextBgDiff(cam);  B106W9_Assert.Run(); _pass += B106W9_Assert.Pass; _fail += B106W9_Assert.Fail; runCompleted = true; }   // 🔍 诊断（`A1934`；`WF_TEXTBG_DIFF=1` 才跑 —— 开/关两帧存 PNG + 逐像素 diff）
+        // 🆕 2026-10-31（B106_W20）：catch 记一次失败 + 出声；finally 里照旧印合计、并以【原写法】退出（正常路径输出逐字节不变；异常时多印一行「不完整」提示）
+        catch (System.Exception e) { _fail++; Debug.LogError("[CardBaseDemo] Run 抛异常（**其后的断言段没跑**）：" + e); }
+        finally { Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ==="); if (!runCompleted) Debug.LogError(P + "   ⚠️ **Run 中途抛异常 —— 其后的断言段没跑，本条合计不完整**"); if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1); }
     }
 
     /// <summary>
@@ -3281,6 +3281,11 @@ public static class CardBaseDemo
             //  （`0.6122 / 0.9621`）—— ⛔ 不是「一块等比缩放」。
             var mfS = rSmall.GetComponent<MeshFilter>();
             var meshSmall = mfS != null ? mfS.sharedMesh : null;
+            // 🔴 **2026-10-31（`B106_W6` · AUD11 3A）**：这一格原来是**裸 guard** —— `meshSmall` 取不到
+            //   （`MeshFilter` 丢了 / `sharedMesh` 被 `UnloadUnusedAssets` 收走）⇒ 下面那条 Sliced 断言
+            //   **静默不跑**、整个宿主照样全绿。补一条前提闸：不满意就**红**，⛔ 不静默。
+            Check(meshSmall != null, "③·c 前提：无描述那档的网格 `TextBgQuad textBgSmall` 建出来了"
+                                     + "（null ⇒ 下面那条 Sliced 断言**没验到**，⛔ 不算绿）");
             if (meshSmall != null)
             {
                 var sx = LayerGridLinesCardUnits(rSmall, true);

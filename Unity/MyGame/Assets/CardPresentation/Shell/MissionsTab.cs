@@ -1016,7 +1016,7 @@ namespace CardPresentation
             //    ⇒ 图标 / 数量 / 发放三者不一致。
             // ⚠️ **格数 = 我们自己那张表的长度**（不是照原版抄的）：原版的格数是**数据驱动**的、那份数据
             //    （PlayFab Title Data 的 `MissionsConfig`）**本地没有** ⇒ 判据全文见 `DailyData` 的
-            // 🔶 自己设计（非原版）：登录卡奖励的格数 / 币种 / 数量 · 原版格数数据驱动（PlayFab Title Data `MissionsConfig`），本地没有 · TODO(谁定的)｜原注：「「格数」的数据源」那一段（块6 · 件②）。每一格的**币种与数量也都是我们挑的**。
+            // 🔶 自己设计（非原版）：登录卡奖励的格数 / 币种 / 数量 · 原版格数数据驱动（PlayFab Title Data `MissionsConfig`），本地没有 · 2026-10-05 执行子代理（块6 · 件②/③）定为「格数 = 我们这张表的长度、币种与数量都是我们挑的」（出处 `资料/普查产出_1005/块6_日常任务卡.md:70`；⛔ 非用户拍板）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：「「格数」的数据源」那一段（块6 · 件②）。每一格的**币种与数量也都是我们挑的**。
             // 🆕 **2026-10-28（`B93_E10` · 账 `:508`）**：格子的**数据源**改成
             //   `DailyData.LoginRewardCellList()`（= 原版 `MissionRewardsDisplay.Setup` 的
             //   **`GroupBy(ItemId)` 归并求和**那一跳，见 `MissionRewardsDisplay.MergeSameItem`）。

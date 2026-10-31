@@ -2375,7 +2375,7 @@ namespace CardPresentation
                 //   🔴 **2026-10-24（`A21` · `C3` D6）就地修正**：原来这一条写成 `case "Codex"`，
                 //   **对引擎发的 `"codex"` 恒 false** ⇒ 这一条等于没写（整桶播）。现在靠方法头那句
                 //   `ToLowerInvariant()` 修好；⛔ 别把标签再改回 PascalCase（那会静默复发）。
-                case "codex":
+                case "codex": case "triggeredcodex":   // 🔴 **2026-10-31（执行代理 `B106_W57`）放行 `TriggeredCodex`(650)**：引擎确实带着这个名字发 `EvtKind.Trigger` —— 发射口 = `EffectResolver.TriggerNameOfWhenKind` 的 `case KeywordTable.Codex: return "TriggeredCodex"`（监听者那一拍：`EmitListenerTrigger → EmitCardTrigger`，事件名是 **PascalCase 原版枚举名**，靠方法头那句 `ToLowerInvariant()` 对上本白名单）；判据 = `CardScript__TriggerOtherCardCodex.c:7-12`（`OnTrigger(0x28a = 650)`）+ `BattleManagerSupport__BroadcastUnitCodex.c:37/48/60`。⚠️ 与 `codex`(145 那一族) **不是同一个 id**：`codex` = 这张卡**自己**触发 Codex；`triggeredcodex` = **别的卡**触发 Codex 时（`UM40 Avenging Zeal` 1 张 / 1 条）。
                 // ---- 🆕 2026-10-23（特效线「新账-86」）：`Rage`（= `penitence` 的**原版枚举名**）----
                 //   判据三条（全文 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §A / §D）：
                 //     · `penitence` = `DefinedTrait.rage = 280` 的**官方显示名**：
@@ -2438,7 +2438,7 @@ namespace CardPresentation
                 //   🔴 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）就地订正（铁律 5）**：这一段原来还列着
                 //     `OnCollectSpiritStone`(610) —— 它的发射口**同批补上了**
                 //     （`TriggerNameOfWhenKind` 的 `GainSpirit` 支），见下面那一段 `case`。
-                //   ⛔ 同理 `Unstable` / `OnSecretCreated` / `OnCollectQuestPoints` / `TriggeredCodex` 也不许加。
+                //   ⛔ 同理 `Unstable` / `OnSecretCreated` / `OnCollectQuestPoints` 也不许加。（🔴 **2026-10-31（`B106_W57`）就地订正**：这一句原来还列着 `TriggeredCodex` —— 它的发射口**已在** `TriggerNameOfWhenKind` 的 `case KeywordTable.Codex`，同批放行，见下面 `case "triggeredcodex"`。）
                 case "uprising":
                 case "artifice":
                     return true;
@@ -3223,8 +3223,8 @@ namespace CardPresentation
         ///   起点，不是代码）⇒ Goff 18 张卡 / 36 条动画今天**永远不播**（C3 D1-c：要先补引擎那一跳）。</item>
         /// <item>`OnSecretCreated`(700)：全仓 `Core/` 只有 `CardDef` 的枚举表（DA 2 张 / 3 条）。</item>
         /// <item>`OnCollectQuestPoints`(695)：同上（DA 2 张 / 2 条）。</item>
-        /// <item>`TriggeredCodex`(650)：只出现在注释里（UM 1 张 / 1 条）。⚠️ 与已在白名单里的 `Codex`
-        ///   **不是同一个名字** —— `Codex` 有真发射口（`RuleCore.CheckCodex` → `FireTriggerAt`），它没有。</item>
+        /// <item>✅ **2026-10-31（执行代理 `B106_W57`）：`TriggeredCodex`(650) 已放行，不在本表。** 留痕：它曾在这儿，注释写「只出现在注释里（UM 1 张 / 1 条）」—— **那句已过期**：发射口现读在 `EffectResolver.TriggerNameOfWhenKind` 的 `case KeywordTable.Codex: return "TriggeredCodex"`（判据 = `CardScript__TriggerOtherCardCodex.c:7-12`，`OnTrigger(0x28a = 650)`）。
+        ///   ⚠️ 它仍与 `Codex` **不是同一个名字**（`Codex` = `RuleCore.CheckCodex` → `FireTriggerAt`，自己那一拍；650 = 「**别的卡**触发 Codex 时」那一拍）⇒ 两个 `case` 都要，⛔ 别合并。</item>
         /// <item>✅ **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）：`OnCollectSpiritStone`(610) 已放行，不在本表。**
         ///   留痕说明它当初为什么在：那一拍**有事件**（`WhenEventKind.GainSpirit`），但
         ///   `EffectResolver.TriggerNameOfWhenKind` 当时**没有 `GainSpirit` 分支** ⇒ `EmitListenerTrigger`
@@ -3258,7 +3258,7 @@ namespace CardPresentation
         /// </list></summary>
         static readonly string[] NoEmitTriggerNames =
         {
-            "Unstable", "OnSecretCreated", "OnCollectQuestPoints", "TriggeredCodex",
+            "Unstable", "OnSecretCreated", "OnCollectQuestPoints",   // 🔴 **2026-10-31（执行代理 `B106_W57`）**：`TriggeredCodex`(650) **已移出本表** —— 发射口现读在这儿：`EffectResolver.TriggerNameOfWhenKind` 的 `case KeywordTable.Codex: return "TriggeredCodex"`（监听者那一拍，经 `EmitListenerTrigger → EmitCardTrigger`；判据 = `CardScript__TriggerOtherCardCodex.c:7-12`，`OnTrigger(0x28a = 650)`）⇒ 现在它在 `IsRoutedTriggerName` + `MustRouteTriggerNames`。⛔ 别加回来（加回来 = 生成器重跑后 `UM40` 那行又落 `trigger_unmapped`、这一拍永不播）。
             // 🔴 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）**：`OnCollectSpiritStone`(610)
             //   **已补发射口并从本表移出** —— 映射 = `EffectResolver.TriggerNameOfWhenKind` 的
             //   `WhenEventKind.GainSpirit` 支；事件源 = `RuleCore.CollectWaystoneCore` 的
@@ -3299,7 +3299,7 @@ namespace CardPresentation
             // 🆕 2026-10-25（执行代理 `R` · 引擎线 `A3` 的表现侧）：`Talent`(46) 回合开始那一拍。
             //   ⚠️ 它**没有** `animTimes` 行 ⇒ 件级那半按 `TraitFrameOnlyTriggerNames` 的口径验
             //   （链② 绑着 `TalentEffect`），⛔ 别因为它「0 张卡」就从这里删掉。
-            "Talent",
+            "Talent", "TriggeredCodex",   // 🔴 2026-10-31（执行代理 `B106_W57`）：`TriggeredCodex`(650) —— 1 张 / 1 行（`UM40 Avenging Zeal`，发射口见 `IsRoutedTriggerName` 的 `case "triggeredcodex"`）。⚠️ 必须与 `MustRouteTriggerKeywords` **同长同序**。
         };
 
         /// <summary>🆕 2026-10-24（`A21`）：上面那些名字**引擎实际发出来的 keyword 字面量**
@@ -3339,7 +3339,7 @@ namespace CardPresentation
             KeywordTable.Strike, KeywordTable.Slay,
             // 🆕 2026-10-25（执行代理 `R` · 引擎线 `A3`）：`talent` 走 `EmitCardTrigger(..., "Talent", …)`
             //   ⇒ 生产路径发的是 **PascalCase 原版枚举名**（与 520/665/195/20 同形）。
-            "Talent",
+            "Talent", "TriggeredCodex",   // 🔴 2026-10-31（执行代理 `B106_W57`）：与 `MustRouteTriggerNames` 的最后一项逐字相同 —— 650 走 `EmitCardTrigger` ⇒ 发的是 PascalCase 原版枚举名（⛔ 别写成 `"triggeredcodex"`：`IsRoutedTriggerName` 不会漏，但件级自检拿这一格当 `keyword:` 实参，「引擎发的形态」那一态就没人验了）。
         };
 
         /// <summary>🆕 2026-10-25（执行代理 `R` · 引擎线 `A3` 的表现侧）：**这些 trigger 名一个

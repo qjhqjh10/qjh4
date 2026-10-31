@@ -110,7 +110,7 @@ namespace CardPresentation
 
             // ---- ① 本地欢迎信（`LocalInboxMessage`）----
             // 判据：`LocalInboxMessage.cs:6` `ClaimRewards()` 直接 `base.ClaimRewards()` ⇒ 与普通消息同一条领取链。
-            // 🔶 自己设计（非原版）：本地欢迎信的文案与 300 点奖励 · 原版这两项在服务端 / 词条表，本地没有 · TODO(谁定的)｜原注：⚠️ 文案与 300 点奖励都是**我们挑的**；奖励键 = 战役点图（与 `DailyData` 的三条日常同一张图）。
+            // 🔶 自己设计（非原版）：本地欢迎信的文案与 300 点奖励 · 原版这两项在服务端 / 词条表，本地没有 · 第七十九会话 2026-10-25 执行代理 N17 新建 `InboxData.cs` 时定为「我们挑的」（出处 `资料/完全复刻/报告/N17_日常活动_第1轮.md:27`；⛔ 非用户拍板；该报告未单独论证 300 这个数）· 调度台 2026-10-31 追认（原 `TODO(谁定的)` 由第八十一会话 2026-10-26 打标批留下）｜原注：⚠️ 文案与 300 点奖励都是**我们挑的**；奖励键 = 战役点图（与 `DailyData` 的三条日常同一张图）。
             list.Add(new Msg
             {
                 Id = "local_welcome",
@@ -289,7 +289,7 @@ namespace CardPresentation
             if (m == null) return false;
             if (m.IsClaimed || !m.HasReward) return false;
             if (m.RedeemableAtMs > 0 && NowMs() < m.RedeemableAtMs) return false;
-            return true;
+            return !IsRewardLocked(m);   // 🆕 2026-10-31（B106_W11）：原版 `CheckMessageCollectable` 末尾那两支（`IsArmyHidden`/`IsExpansionHidden`）⇒ 见类尾 `IsRewardLocked`
         }
 
         /// <summary>「还没到可领时刻」= 原版 `MessageDisplay.Update` 里那个倒计时分支的判据。</summary>
@@ -619,5 +619,43 @@ namespace CardPresentation
                 return Loc.T("Rewards Menu/CampaignPoints");
             return art;
         }
+
+        // ============================================================ 🆕 **2026-10-31（`B106_W11`）**
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `RewardDisplayName`
+        // 之后 ⇒ 零行号漂移。内容 = `MessageDisplay.Update` 的倒计时那一格 + `CheckMessageCollectable` 的两支。
+
+        /// <summary>= 原版 `MessageDisplay.Update` 里 `RedeemableAt() − TimeHelper.ServerDateTime` 那一格
+        /// （`out_cpp2il_dev_ilspy/Everguild.LiveOps/MessageDisplay.cs:40-58`：`TimeSpan ts = dateTime - serverDateTime;
+        /// text = SupportMethods.GetTimeString(ts, eventTimer: true);`）。
+        /// <para>⚠️ 两端**同一基准**：我们两侧都走 `ToLocalTime`（「1970-01-01 + 毫秒」）⇒ 相减是精确差值，
+        /// 不会因为时区/UTC 与本地混用而差 8 小时。</para></summary>
+        public static System.TimeSpan RedeemableRemaining(Msg m)
+        {
+            if (m == null || m.RedeemableAtMs <= 0) return System.TimeSpan.Zero;
+            return ToLocalTime(m.RedeemableAtMs) - ToLocalTime(NowMs());
+        }
+
+        /// <summary>= 原版 `MessageDisplay.CheckMessageCollectable()` 的**最后两支**
+        /// （`out_cpp2il_dev_ilspy/Everguild.LiveOps/MessageDisplay.cs:200-289`：两条 `config.IsArmyHidden` /
+        /// `IsExpansionHidden` 都不命中 ⇒ `return true`；命中任一 ⇒ `rewardWarningText.gameObject.SetActive(true)`
+        /// 再 `return false`）。
+        /// <para>🔶 自己设计（非原版）：`FeatureConfig` 是**远端**配置（关服后判据拿不到），本地没有那份表 ·
+        /// 用户边界②「卡池/锻造厂/卡牌/头像全解锁」⇒ **恒 false** · 调度台 2026-10-31 裁定。</para>
+        /// <para>🔴 **不静默**：第一次被问到时打一条日志说清「这条判据在远端、本地恒 false」（⛔ 不是「忘了做」）。
+        /// 将来真有了 `FeatureConfig` ⇒ **只改这一个方法**，<see cref="CanCollect"/> 与窗上那颗
+        /// `Claim reward warning` 就一起接通（两处共用这一份判据，⛔ 别各写一份）。</para></summary>
+        public static bool IsRewardLocked(Msg m)
+        {
+            if (m == null) return false;
+            if (!_saidRewardLockUnknown)
+            {
+                _saidRewardLockUnknown = true;
+                Debug.Log("[Inbox] `CheckMessageCollectable` 的 `IsArmyHidden` / `IsExpansionHidden` 两支："
+                        + "原版读**远端** `FeatureConfig`，本地没有那份表 ⇒ **恒 false**（用户边界②全解锁）；"
+                        + "`Claim reward warning` 那一颗照原版建着、关着，**开启口已接在本方法**。");
+            }
+            return false;
+        }
+        static bool _saidRewardLockUnknown;
     }
 }

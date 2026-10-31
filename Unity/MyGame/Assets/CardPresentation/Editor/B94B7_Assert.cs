@@ -46,9 +46,15 @@ public static class B94B7_Assert
         bool prevPersist = LocalPlayerDataStore.PersistOverride;
         // 🔴 本断言会灌 `GameStaticData` 镜像（`SectionApplyMirror`）⇒ 跑完必须**逐格还原**，
         //    否则同宿主里后面的断言会读到我们改过的画质/帧率/音量（自检互相污染 —— 同 `A1068` 那条纪律）。
-        Snapshot();
+        // 🔴 2026-10-31（B106_W18 · AUD11 类 4）：改前 `Snapshot()` 在 `try` **之外** —— 它半途抛 ⇒
+        //    `_m*` 只填了一半、`finally` 却拿半份快照去 `Restore()`（或根本进不了 `finally`）。
+        //    现在「取到才算有效快照」：取不到 ⇒ 当红 + 跳过全部会改 `GameStaticData` 的段，`finally` 也不 `Restore()`。
+        bool snapOk = false;
+        try { Snapshot(); snapOk = true; }
+        catch (Exception e) { Tr(false, "B7 快照没取到（算红，⛔ 不是跳过；其后的段全部没跑）: " + e.GetType().Name + " " + e.Message); }
         try
         {
+            if (!snapOk) return;
             Directory.CreateDirectory(tmp);
             // 🧨 前提（先断前提，再断结论 —— 前提不成立时下面的断言一条都不该跑）
             SaveCenter.OverrideRoot = tmp;
@@ -57,21 +63,24 @@ public static class B94B7_Assert
             Tr(SaveCenter.PathOf(LocalPlayerDataStore.SaveKey).StartsWith(tmp), "🧨 前提：总档会落在临时目录里（不碰玩家真档）");
             if (!SaveCenter.StoreOn) return;
 
-            SectionPremise();
-            SectionRoundTrip();
-            SectionVersionGate();
-            SectionMapping();
-            SectionApplyMirror();
-            SectionCarryUnknownFields();
-            SectionDemoData();
+            // 🔴 2026-10-31（B106_W10 · AUD11 类 4）：改前这 7 段挤在**同一个 try** 里 ⇒ 一段抛异常，
+            //   后面所有段一条不跑而合计只多「失败 1」。现在逐段 catch（记失败 + 写明「其 N 段没跑」）。
+            try { SectionPremise(); } catch (Exception e) { SegFail("0 结构前提", e, 6); }
+            try { SectionRoundTrip(); } catch (Exception e) { SegFail("1 40 字段往返", e, 5); }
+            try { SectionVersionGate(); } catch (Exception e) { SegFail("2 版本闸", e, 4); }
+            try { SectionMapping(); } catch (Exception e) { SegFail("3 映射", e, 3); }
+            try { SectionApplyMirror(); } catch (Exception e) { SegFail("4 Apply 镜像", e, 2); }
+            try { SectionCarryUnknownFields(); } catch (Exception e) { SegFail("5 无消费者格子原样带回", e, 1); }
+            try { SectionDemoData(); } catch (Exception e) { SegFail("6 DemoData", e, 0); }
         }
         catch (Exception e)
         {
-            Tr(false, "B7 断言抛异常：" + e.GetType().Name + " " + e.Message);
+            Tr(false, "B7 断言抛异常（保护之外；其后的段没跑）：" + e.GetType().Name + " " + e.Message);
         }
         finally
         {
-            Restore();
+            // 半份快照 ⇒ `Restore()` 会把没快照到的格子写回旧值/零值 ⇒ 只认有效快照
+            if (snapOk) Restore();
             LocalPlayerDataStore.PersistOverride = prevPersist;
             SaveCenter.OverrideRoot = prevRoot;
             LocalPlayerDataStore.ResetForTest();
@@ -401,5 +410,12 @@ public static class B94B7_Assert
             unrankedFastMode = true,
             lastTimeAskedForNotifications = 2222L,
         };
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B106_W10` · AUD11 类 4）：用本文件既有的 `Tr` 口记一次失败，
+    /// 文案写明「其 N 段没跑」。<paramref name="rest"/> = 这个段之后还有几个段。</summary>
+    static void SegFail(string section, Exception e, int rest)
+    {
+        Tr(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 段没跑）: " + e.GetType().Name + "：" + e.Message);
     }
 }

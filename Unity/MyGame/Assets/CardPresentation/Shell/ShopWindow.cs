@@ -257,6 +257,7 @@ namespace CardPresentation
                 tabs.Add(t);
             }
             foreach (var t in tabs) t.Setup();
+            ApplyTabInteractability();   // 🆕 2026-10-31（`B106_W14`）：原版 `CreateStoreTab` 末尾那道「store 未启用 ⇒ 页签灰 + 点不动」
         }
 
         /// <summary>选中态：**只画选中的那一个**（原版四键出厂都亮、可见性由运行时 `TabButtons` 驱动）。</summary>
@@ -358,6 +359,66 @@ namespace CardPresentation
                 string s = string.IsNullOrEmpty(specs[i].Term) ? (specs[i].Label ?? "") : Loc.T(specs[i].Term);
                 lb.SetText(s.ToUpperInvariant());
             }
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W14`）：页签禁用态（原版 S26）
+        //
+        // ---- 判据（一条一句）----
+        // `decomp_full/ShopWindow__CreateStoreTab.c:95-98`：
+        //     if (*(char *)(storeData + 0x22) == '\0') { Components.tabButtons.ToggleInteractable(tab, false); }
+        // ① 那个 `+0x22` 的 bool **2026-10-31 现核 = `LiveOpsEventData.enabled`**（三条独立判据写在
+        //    `Shell/ShopTabPage.cs` 类尾那段 `⑤` 里：`LiveOpsEventData__IsActive.c:7` · `BaseParentEventWindow__CreateEventTab.c:82-88`
+        //    ＝我们 `ParentEventWindow.cs:1729-1740` 已按 `data.enabled` 实现的同一段形状 · 同一次取对象还读了 `+0x68
+        //    = ShopStoreData.extraNotificationsToWatch` ⇒ 对象就是 store 的 Data）⇒ `AUD05…商店窗.md` §6·4 的 `?` 已销。
+        // ② 效果 = `Selectable.interactable = false`（`TabButtons.cs:468-490` ⇒ 我们的 `TabButtons.ToggleInteractable`
+        //    → `WindowButton.Interactable`：**变灰 + 指针事件整条不派发**，见 `WindowButton.cs:844-860`）。
+        // ③ **时机** = 建键那一次（原版在 `CreateStoreTab` 末尾，`CreateTab` 之后）⇒ 我们放在 `BuildPages()` 末尾。
+        //    ⚠️ 原版**没有**「切页时再判一次」的另一处写入点（`ShopTab.Setup` / `OnOpen` 都不碰 interactable）⇒ 我们也不另加。
+        // ④ **数据面**：原版那个 `enabled` 在 store 的 SO 上（远端 LiveOps 下发）；我们这一侧每页一个开关，
+        //    出厂全 `true` —— 与本地那个唯一真 store（`Premium Campaign Store`，`enabled` 未反证为假）一致。
+        //    ⛔ 别把它和「页还没做完」混起来：那是 `NotifyNotBuilt`（母版那一格），不是禁用态。
+
+        /// <summary>每页的「store 是否启用」= 原版 `LiveOpsEventData.enabled`（见本节头）。
+        /// <para>默认 **全 true**（我们的五页都是可用的店）。自检要造「灰 + 点不动」那一档时用
+        /// <see cref="SetPageEnabledForTest"/> 切一次再重开窗。</para></summary>
+        public static readonly bool[] PageEnabled = new bool[8] { true, true, true, true, true, true, true, true };
+
+        /// <summary>自检注入点：切某一页的「store 启用」位（⚠️ 切完要重开窗 / 重跑 `BuildPages` 才会重判 ——
+        /// 原版也只在建键那一刻判一次，同 `ShopTab.Refresh` 那种「只在刷新时重算」的口径）。</summary>
+        public static void SetPageEnabledForTest(int page, bool on)
+        {
+            if (PageEnabled == null || page < 0 || page >= PageEnabled.Length) return;
+            PageEnabled[page] = on;
+        }
+
+        /// <summary>自检收尾：把五页的开关推回出厂（全 true）。</summary>
+        public static void ResetPageEnabledForTest()
+        {
+            for (int i = 0; i < PageEnabled.Length; i++) PageEnabled[i] = true;
+        }
+
+        /// <summary>按 <see cref="PageEnabled"/> 逐颗页签落 `interactable`（原版 `CreateStoreTab` 末尾那一句）。
+        /// <para>⚠️ 走 `TabButtons.ToggleInteractable(tab, state)`（= 原版同一个方法名）—— 它的匹配条件是
+        /// `o.tab == tab || o.type == tab.Type`，而 `BuildBar` 建的 `options[i].type` 就是 `visualTypes[i]`
+        /// （与 `tabs[i].Type` 同值）⇒ **不需要**再回填 `options[i].tab`。母版那一格不在 `tabs` 里，不会被碰。</para></summary>
+        void ApplyTabInteractability()
+        {
+            if (tabButtons == null || tabs == null) return;
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                var t = tabs[i];
+                if (t == null) continue;
+                bool on = i < PageEnabled.Length ? PageEnabled[i] : true;
+                tabButtons.ToggleInteractable(t, on);
+            }
+        }
+
+        /// <summary>自检读口：某一页的页签键现在**可不可交互**（没建出来 / 没有那一页 ⇒ `null`）。</summary>
+        public bool? TabInteractableForTest(int page)
+        {
+            if (tabButtons == null || tabs == null || page < 0 || page >= tabs.Count) return null;
+            var b = tabButtons.ButtonFor(tabs[page]);
+            return b != null ? (bool?)b.Interactable : null;
         }
     }
 

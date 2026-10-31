@@ -427,14 +427,14 @@ namespace CardPresentation
                 if (Deck.WarlordId == null) return DeckError.None;
                 if (Deck.WarlordId == c.Id) return DeckError.CopyLimitExceeded;
                 var curW = Find(Deck.WarlordId);
-                return (curW == null || DeckRules.SameFaction(curW.Faction, c.Faction)) ? DeckError.None : DeckError.WrongFaction;
+                return (curW == null || DeckRules.SameFaction(curW.Faction, c.Faction)) ? DeckError.None : DeckError.InvalidArmy;   // 2026-10-31（B106_W7）：原版这一支给的是具名键 `MenuDeck/Error/InvalidArmy`（`CardDeck__CanAddHero.c:74-80`，`DAT_1842cf3f0`），⛔ 不是 `WrongFaction`
             }
             if (c.Type == "defence")
             {
                 if (Deck.DefensiveId == null) return DeckError.None;
                 if (Deck.DefensiveId == c.Id) return DeckError.CopyLimitExceeded;
                 var curD = Find(Deck.DefensiveId);
-                return (curD == null || DeckRules.SameFaction(curD.Faction, c.Faction)) ? DeckError.None : DeckError.WrongFaction;
+                return (curD == null || DeckRules.SameFaction(curD.Faction, c.Faction)) ? DeckError.None : DeckError.InvalidArmy;   // 2026-10-31（B106_W7）：同 `CanAddHero` —— 原版 `CardDeck__CanAddDefensive.c` 阵营那一支也是 `DAT_1842cf3f0` = `MenuDeck/Error/InvalidArmy`
             }
 
             // 🔴 **2026-10-14（`A1798`）改口径**：原来是「用户 2026-09-27 拍板的、按兵种猜的三类

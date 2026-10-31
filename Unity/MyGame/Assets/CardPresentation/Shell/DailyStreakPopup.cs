@@ -432,13 +432,13 @@ namespace CardPresentation
             //   🔴 **2026-10-13（A517）字距 5 已补**（原文写「⛔ 本账只做对齐 …… 那另立账，别在这里顺手加」，
             //   那是 A493 那一轮的边界；A517 就是那个「另立的账」）。原版 `m_characterSpacing = 5`（同一次 dump 的 `字距=` 列）。
             //   🔴 **次序不能反（A475 那个坑）**：`AlignLeftOn` 是「量**当时的** `WorldW` 再反推整块位置」
-            //   （`Battle/Label.cs` 的 `SetAutoFitBox` 头一句就是 `RefreshBounds()`），而 `SetCharSpacing` 会**改渲染宽**
+            //   （`AlignLeftOn` 自己先调 `RefreshBounds()`，见 `Battle/Label.cs:1756`；`SetAutoFitBox` 已不再头一句刷 bounds —— 2026-10-31 `B106_W51` 按 `报告/B106_W42.md` §⑥·1 订正归因，结论不变），而 `SetCharSpacing` 会**改渲染宽**
             //   ⇒ 排在它**之后**调 = 那一行按**旧宽**定位、字整体往左溢出 Δ宽/2，**而且一声不响**。
             //   原版那两行是**静态序列化字段**（不存在「先对齐、后加字距」这种次序）⇒ 照原版就只能是「字距在前、对齐在后」。
             //   ⛔ 这里**不补** `ForceRelayout()` —— `AlignLeftOn` 自己就会按**含字距**的 `textBounds` 重量一次
             //   （同 `Shell/LiveOpsEventWindow.cs` 里那处「顺序不能反」的口径 那处的口径）。
             var curLbl = MenuDraw.Text(p, S_CurLabel, DailyData.StreakCurrentLabel(), Color.white, "Current Streak", 70f, QText, face: TmpFont.Face.LatinUi);
-            if (curLbl != null) curLbl.SetCharSpacing(5f);
+            if (curLbl != null) curLbl.SetCharSpacing(5f); if (curLbl != null) curLbl.BindText(DailyData.StreakCurrentLabel, () => { MenuDraw.AlignLeft(curLbl, S_CurLabel); MenuDraw.SetVAlign(curLbl, Label.VAlign.Capline, S_CurLabel); });   // B106_W21（AUD03 #94）：原版这颗挂 I2 `Localize`（`Rewards Menu/DailyStreak/CurrentStreak`，`m_Enabled=1`）⇒ 换语言按来源重取；值由 `DailyData.StreakCurrentLabel` 供（⚠️ 该口尚未走 `Loc.T`，见报告 ⑥）；`reapply` 重放横向/纵向两刀（`SetText` 按新宽度重排后要贴回框沿）。⛔ 不重建整窗。
             MenuDraw.AlignLeft(curLbl, S_CurLabel);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `对齐=Left/**Capline**`（同上那条 dump 的实读）。
             MenuDraw.SetVAlign(curLbl, Label.VAlign.Capline, S_CurLabel);
@@ -508,7 +508,7 @@ namespace CardPresentation
             MenuDraw.AlignRight(nxt, S_TimerNext);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版 `Timer` 底下两颗**同档 `Midline`**
             //   （横向相反：`Next Rewards text` 是 `Right`、`Timer Text` 是 `Left`；判据同上那条 dump）。
-            MenuDraw.SetVAlign(nxt, Label.VAlign.Midline, S_TimerNext);
+            MenuDraw.SetVAlign(nxt, Label.VAlign.Midline, S_TimerNext); if (nxt != null) nxt.BindText(DailyData.MoreRewardsInText, () => { MenuDraw.AlignRight(nxt, S_TimerNext); MenuDraw.SetVAlign(nxt, Label.VAlign.Midline, S_TimerNext); });   // B106_W21（AUD03 #94）：原版挂 `Localize`（`Missions/MoreRewardsIn`，`m_Enabled=1`）⇒ 换语言按来源重取；值由 `DailyData.MoreRewardsInText` 供（⚠️ 尚未走 `Loc.T`，见报告 ⑥）；`reapply` 重放**全窗唯一那颗右对齐** + 纵档（`SetText` 后按新宽度重排会回框心）。⛔ 不重建整窗。
             MenuDraw.Rect(t, Art(ArtClock), S_TimerClock, "Image", QContent);
             var tmr = MenuDraw.Text(t, S_TimerText, DailyData.StreakTimerText(), Color.white, "Timer Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 —— 目标 = 自建日界 `NextResetAt`
@@ -608,7 +608,7 @@ namespace CardPresentation
             //   `Rewards Menu/DailyStreak/Help` 约 2 倍长；原版那颗 TMP `m_TextWrappingMode = 1`、
             //   框宽 = **1825.14**（= `F_Info.W`）、`m_margin = 0`、**`m_enableAutoSizing = 0`**（不缩字号）。
             var fBreak = MenuDraw.Text(anchor, F_Broken, DailyData.StreakBrokenText(), Color.white, "Daily Streak Broken", 128.1f, QText, face: TmpFont.Face.LatinCardBody);
-            MenuDraw.SetVAlign(fBreak, Label.VAlign.Midline, F_Broken);
+            MenuDraw.SetVAlign(fBreak, Label.VAlign.Midline, F_Broken); if (fBreak != null) fBreak.BindText(DailyData.StreakBrokenText, () => MenuDraw.SetVAlign(fBreak, Label.VAlign.Midline, F_Broken));   // B106_W21（AUD03 #94）：原版挂 `Localize`（`Rewards Menu/DailyStreak/Broken`，`m_Enabled=1`）⇒ 换语言按来源重取；值由 `DailyData.StreakBrokenText` 供（⚠️ 尚未走 `Loc.T`，见报告 ⑥）；水平居中 ⇒ `reapply` 只重放纵向 `Midline` 一刀。
             var fLost = MenuDraw.Text(anchor, F_Lost, DailyData.StreakLostText(), Color.white, "Current Streak Lost count", 66.9f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(fLost, Label.VAlign.Midline, F_Lost);
             var fInfo = MenuDraw.Text(anchor, F_Info, DailyData.StreakInfoText(), Color.white, "Info", 36f, QText,
@@ -625,7 +625,7 @@ namespace CardPresentation
             var fReset = MenuDraw.Text(anchor, F_ResetText, DailyData.ResetStreakText(), Color.white, "Button Text", 55f, QText,
                                        F_ResetText.W, 10f, 55f, 12f, face: TmpFont.Face.LatinCardBody);
             if (fReset != null) fReset.SetWrapping(false);          // 原版折行=0（A205：关这一下顺带推版面）
-            MenuDraw.SetVAlign(fReset, Label.VAlign.Capline, F_ResetText);
+            MenuDraw.SetVAlign(fReset, Label.VAlign.Capline, F_ResetText); if (fReset != null) fReset.BindText(DailyData.ResetStreakText, () => { fReset.SetWrapping(false); MenuDraw.SetVAlign(fReset, Label.VAlign.Capline, F_ResetText); });   // B106_W21（AUD03 #94）：原版挂 `Localize`（`Rewards Menu/DailyStreak/ResetStreak`，`m_Enabled=1`）⇒ 换语言按来源重取；值由 `DailyData.ResetStreakText` 供（⚠️ 尚未走 `Loc.T`，见报告 ⑥）；`reapply` 重放「关折行 + Capline」（`SetText` 会按新串重排、`SetAutoFitBox` 那条折行档也要还原）。
             if (btn != null)
             {
                 var hit = btn.gameObject.AddComponent<WindowButton>();
@@ -759,7 +759,7 @@ namespace CardPresentation
             var hl = DrawRect(e, Art(ArtHighlight), ON(E_Highlight), "Highlight", QPanel, HighlightTint);
             // 显隐**不在这里设**（原来这一句是 `SetActive(unlocked && !claimed)`）—— 见本方法末尾
             // `Entry.SetState` 那一跳（= 原版 `DailyStreakItemContainer.SetState` 的 `highlight` 那一句）。
-            DrawRect(e, Art(DailyData.StreakRewardIcon(day)), ON(E_Holder), "Reward Holder", QContent, null, true);
+            DrawRect(e, Art(DailyData.StreakRewardIcon(day)), ON(E_Holder), "Reward Holder", QContent, null, true); BuildPreviewHit(e, ON(E_Holder), day, unlocked);   // 🆕 2026-10-31（B106_W51）：隐形命中件（原版抽屉的 image 本身是射线靶）—— 必须建在图标**之后**（`ArtOf` 取子树第一张 `ImageQuad`）；缓存判定见 `BuildPreviewHit` 的 doc（原版 `DailyStreakItemContainer.cs:105-110`，与每日奖励同一段字节）
             // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 40 / 36 / 1`
             //   （出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3；归组 =
             //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 10 #33）。
@@ -780,8 +780,8 @@ namespace CardPresentation
             //   （判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Streak Reward Popup Entry" --depth 4 --md`；
             //    ⚠️ 横向是 `Center` ⇒ **不给 `align`**，那一半 A679 已核过）。
             MenuDraw.SetVAlign(lbRwName, Label.VAlign.Midline, ON(E_Name));
-            // `Extra Reward Indicator`：**本窗出厂是 true**（每日奖励窗那份是 false）⇒ 照画
-            DrawRect(e, Art(ArtExtra), ON(E_Extra), "Extra Reward Indicator", QContent);
+            // `Extra Reward Indicator`：🔴 **2026-10-31（B106_W61）就地订正（铁律 5）** —— 原文写「本窗出厂是 true（每日奖励窗那份是 false）⇒ 照画」，**已过期**：prefab 出厂确实 `m_IsActive=1`，但原版 `DailyStreakItemContainer.Initialize` **运行时**按 `rewards.Count > 1` 重设 `extraRewardIndicator.gameObject.SetActive(...)`（判据见下一行行末），而我们的 mock 每格恒 1 条 ⇒ **运行时全隐**；照画 = 每格都显示，与原版相反。
+            if (DailyData.StreakRewardCountOf(day) > 1) DrawRect(e, Art(ArtExtra), ON(E_Extra), "Extra Reward Indicator", QContent);   // 判据 = `out_il2csharp/Assembly-CSharp/DailyStreakItemContainer.cs:126-127`（`image1?.gameObject.SetActive(rewards.Count > 1)`）· `decomp_full/DailyStreakItemContainer__Initialize.c:135-140`（`+0x28` 那颗 `SetActive(lVar5, 1 < iVar2)`）· 同族先例 = `DailyRewardPopup.BuildExtraRewardIndicator`（`DailyData.RewardCountOf(...) > 1`）。改坏法：去掉守卫（恒画）⇒ `RewardsScene` 的 B106_W61 那条红；写成 `> 2` ⇒ 正例红。⚠️ 原版那颗在树里恒在（只 `SetActive(false)`），我们这套「视口外的子件按设计不建」（A182）⇒ 这里取**不建**（视觉等价、且不破坏 `RewardsScene` 那条「第 7 格视口外 ⇒ 不建」）。
 
             // `Collect`（色 (0.06,0.57,0.13,1) + 'Claim'；整组挂在 `Collect` 底下 —— 那一层 `ls = 0.7`，
             // 矩形由 `OC` 绕它的中心缩，TMP 的 `m_fontSize` 也要自己乘 0.7）
@@ -992,5 +992,52 @@ namespace CardPresentation
         // 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案 = **按来源重取**（`Label.BindText` 登记 ⇒ `Loc` 广播驱动），⛔ 不再整窗重建。
         // 一颗都没登记来源时**才**退回旧的整窗重建（非回归兜底）。本窗登记过来源的 = 两态各一颗 `StreakInfoText` + 7 格的 `StreakClaimText`。
         public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
+
+        // ============================================================ 🆕 2026-10-31（`B106_W51`）
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `OnLanguageChanged` 之后 ⇒ 零行号漂移。
+        // 内容 = 原版 `DailyStreakItemContainer.Initialize` 与 `DailyRewardDrawerController.Initialize` **同一段字节**
+        // 那一跳：`if (rewards.Count > 1) currentDrawer.OverrideOnClickAction(→ RewardService.Preview(rewards,0,0,true,0))`
+        // （`out_il2csharp/Assembly-CSharp/DailyStreakItemContainer.cs:105-127` · `:289-292`）。
+
+        /// <summary>= 原版 `DailyStreakItemContainer.Initialize` 里那颗「点一下预览整串奖励」的命中件（判据同 <see cref="DailyRewardPopup.BuildPreviewHit"/>，但**队列必须更低**：`QContent - 1` = 3009；只在 `Count &gt; 1` + 可点 时挂回调 · 其余情形关按钮音）。
+        /// <para>🔴 **2026-10-31（`B106_W71`）就地订正（铁律 5）**：原文写「队列 `QContent + 1`（3011，&gt; 内容档、&lt; `QOverlay`）」——**在本窗不成立**：本窗**没有 `colider` / `QOverlay` 那一层**（那是每日奖励窗才有的结构），
+        /// 而领奖钮 `Collect` 自己就建在 `QContent`(3010) ⇒ 3011 会把它整颗盖死（真机点了不生效）。3009 与吸收层同档（`Absorb` 算的也是 `qContentMin - 1`），平局按兄弟序 ⇒ 预览件（面板子树里的后兄弟）赢。</para>
+        /// <para>⚠️ **本窗没有 `Shadow`**：原版连登奖格只有 `highlight` / `claimLabel` / `claimButton` 三件
+        /// （`DailyStreakItemContainer__SetState.c:2-29`），"可领"那一下由 `claimButton` 吞 ⇒ `claimWins` 为真时仍把命中件按灰
+        /// （`Interactable = false`，语义保留）；但**真正保证「不抢领奖」的是队列**（`Collect` 3010 &gt; 本件 3009）。</para>
+        /// <para>🔴 奖励列表今天恒 1 条（`DailyData.StreakRewardCountOf`）⇒ 这一跳不会触发（画面零变化），
+        /// 但它是原版的分支形状，⛔ 别因为「恒 1」就删掉。</para></summary>
+        WindowButton BuildPreviewHit(Transform holder, PxRect rect, int day, bool claimWins)
+        {
+            if (holder == null) return null;
+            var node = AddHit(holder, "Preview Rewards Hit", rect, QContent - 1, null);   // 🔴 必须低于 Collect(QContent=3010)：本窗没有 colider/QOverlay，取 3011 会把整颗领奖钮盖死（B106_W71）
+            if (node == null) return null;
+            var hit = node.GetComponent<WindowButton>();
+            if (hit == null) return null;
+            if (DailyData.StreakRewardCountOf(day) > 1 && DailyData.StreakRewardClickable(day))
+            {
+                hit.onClick = () =>
+                {
+                    var list = DailyData.StreakRewardSpecsOf(day);
+                    if (DailyData.PreviewRewards(list, premiumLocked: true) == null)
+                        Debug.LogWarning("[DailyStreak] 点奖格 ⇒ 预览窗**没开出来**（奖励列表为空；原版 `RewardService.Preview`）");
+                };
+            }
+            else hit.playClickSound = false;
+            // 🔶 自己设计（非原版）：**本窗没有 `Shadow`** ⇒ 用命中闸复刻「可领那一下被领奖钮吞掉」的遮挡语义 ·
+            // 判据 = `DailyStreakItemContainer__SetState.c:2-29`（claimButton ⇔ Unlocked）· 调度台 2026-10-31 裁定
+            hit.Interactable = !claimWins;
+            return hit;
+        }
+
+        /// <summary>自检用：取某一格的预览命中件（`null` = 没建/那一格没铺）。与 `EntryForTest` 同族（⛔ 只读引用）。</summary>
+        public WindowButton PreviewRewardsHitForTest(int day)
+        {
+            if (entries == null || entries.Count == 0) return null;
+            var e = entries[Mathf.Clamp(day, 0, entries.Count - 1)];
+            if (e == null) return null;
+            var node = e.Find("Preview Rewards Hit");
+            return node != null ? node.GetComponent<WindowButton>() : null;
+        }
     }
 }

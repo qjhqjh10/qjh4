@@ -458,14 +458,34 @@ public static class BattleScene
         //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
         bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
         WarpforgeVFX.WFSoundPlayer.Enabled = false;
+        bool runCompleted = false;
         try
         {
             // 🆕 **2026-10-23（BattleScene 第三轮 3 红 #2）**：把进程的**第一次 `Camera.Render()`**
             //   挪到这一层（浅栈）上触发 URP 的一次性初始化，见 `WarmUpRenderPipeline` 的 doc。
             WarmUpRenderPipeline();
             RunCore();
+            runCompleted = true;
         }
-        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        catch (System.Exception e)
+        {
+            // 🆕 2026-10-31（`B106_W17` · AUD11 类 4 · 判据 = `报告/B103_D1.md` 的 A3）：`RunCore` 一条异常
+            //   就让整个宿主 rc≠0 且**合计行不印**（外部只看到「没结果」）⇒ 这里兜住、出声，⛔ 不让异常逃出 `Run`。
+            //   ⚠️ 本宿主的 pass/fail 是 `RunCore` 的**局部变量**（`RunCore` 开头的 `int pass = 0, fail = 0`），
+            //     这里够不着 ⇒ 不假装能报数：`finally` 里印一条「不完整」合计并 rc=1；
+            //     完整计数以 `RunCore` 末尾那条 `=== 合计：{pass} 通过 / {fail} 失败 ===` 为准（它没跑到就不可用）。
+            Debug.LogError(P + "=== RunCore 抛异常（**其后的断言段没跑**）：" + e);
+        }
+        finally
+        {
+            WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled;
+            if (!runCompleted)
+            {
+                Debug.Log(P + "=== 合计：**RunCore 中途抛异常 —— 计数器在 RunCore 内、不可达 / 本条合计不完整** ===");
+                Debug.LogError(P + "   ⚠️ **RunCore 中途抛异常 —— 其后的断言段没跑，本条合计不完整**");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+            }
+        }
     }
 
     /// <summary>🆕 **2026-10-23（BattleScene 第三轮 3 红 #2）**：把**进程的第一次 `Camera.Render()`**
@@ -638,6 +658,16 @@ public static class BattleScene
         {
             if (ok) { pass++; Debug.Log(P + $"   ✓ {msg}"); }
             else { fail++; Debug.LogError(P + $"   ✗ {msg}"); }
+        }
+
+        // 🆕 2026-10-31（`B106_W1` · 交接 §三-0-2）：**HUD 相机 base+overlay 那 3 条断言**必须在
+        //   **建场之后**量（`BuildScene` 里 `BuildArena3D` 已跑完、Base/Overlay 也已设好）。
+        //   原来它们在 `CheckSavedScene` 里、前提带 `arenaRend > 10`，而存档场景的 `Arena3D` 刻意是空的
+        //   ⇒ 前提恒假 ⇒ **一次没跑过**。判据 → `资料/完全复刻/报告/B106_W1.md` §②。
+        {
+            var hudTally = new int[2] { pass, fail };
+            CheckHudCameraStack(hudTally);
+            pass = hudTally[0]; fail = hudTally[1];
         }
 
         // 🆕 2026-10-30（调度台接线 · `B102_TRAIT` · 账 503）：死讯带 `Amount` ⇒ 猎杀标记粒子挂在**督军**身上。
@@ -4068,13 +4098,13 @@ public static class BattleScene
                 }
                 else
                 {
-                    Check(backdrop != null && backdrop.Ready, "战场背景接上了（ArtBaker 烘的 arena1_bg）");
-                    if (backdrop != null && backdrop.Ready)
-                    {
-                        var r = backdrop.ScreenRect();      // (图宽, 图高, 可见宽, 可见高)
-                        Check(r.x >= r.z - 1e-3f && r.y >= r.w - 1e-3f,
-                              $"背景「铺满」可见区（图 {r.x:F2}×{r.y:F2} ≥ 可见 {r.z:F2}×{r.w:F2}，不变形）");
-                    }
+                    // 🔴 2026-10-31（`B106_W17`）：**兜底背景已删** —— 原版没有背景兜底（判据见
+                    //   `BuildScene` 战场那一段：decomp 全树 `Backdrop` 0 命中；战场是整份场景、失败只出声）。
+                    //   ⇒ `boardCam == null`（3D 战场这条路没建出来）**本身就是缺陷**，不拿烘图遮盖；
+                    //   失败可见性由 `ArenaRuntimeLoader.Load`（LogError）与 `BattleDriver.Begin`（LogWarning）负责。
+                    Check(false, "★ 3D 战场没建出来（`BuildArena3D` 没挂上 `ArenaRuntimeLoader`）"
+                               + " —— 原版没有兜底背景，⛔ 别用烘图遮盖（判据见 BuildScene 战场那一段）");
+                    // 原来的两条「兜底背景接上了 / 铺满可见区」断言已删（`driver.backdrop` 恒 null）。
                 }
 
                 // 软光/影那层（原版 `Card Highlight And Shadow`，4.4281² @ y −0.0126）—— 2026-09-19 接上
@@ -13593,6 +13623,12 @@ public static class BattleScene
                     //   P3 判据 = `ClockManager__Update.c:100-110` → `__CreateCountdownAnim.c:20-45`。
                     {
                         var cz = Object.FindObjectOfType<CombatCameraZoom>();
+                        // 🆕 2026-10-31（`B106_W1` · AUD11 3A-b）：前提补成**断言** —— 原来只有 `else Debug.Log`，
+                        //   件不在时那 3 条静默跳过、测试仍绿。它由 `CombatAutoZoom.CameraZoom` 惰性建
+                        //   （`Battle/CombatAutoZoom.cs:127`，`Initialize/ResetForBattle` 那一拍）⇒ 缺了就是真缺陷。
+                        Check(cz != null,
+                              "（前提·不静默）建场之后场景里找得到 `CombatCameraZoom` —— 否则 P2 那三条"
+                            + "（`BindPointerOverUi` / 模态窗挡 / 窗关放行）一条都验不到");
                         if (cz != null)
                         {
                             cz.PointerOverUi = null;                    // 生产默认（没人接）
@@ -14883,6 +14919,18 @@ public static class BattleScene
                 // 🔴 **这一段的「灭自证」**：把实现改回「开窗**直接摆终态**」⇒ 第 1 组（起点）与「半程」那两条**必红**。
                 //    只断终态是断不出动画的 —— 「摆终态」同样满足终态那几条。
                 {
+                    // 🆕 **2026-10-31（`B106_W1` · 交接 §三-0-1）：夹具换成 `Master of Arcana`** ——
+                    //   上面轻点的是**手牌第一张**，它常常一张相关卡都没有（`SlotCount == 1`）；
+                    //   而这一节要「最外那格」（至少槽 1）⇒ 原来那两条前提**恒红**、下面 3 条一条没跑。
+                    //   判据 = 本文件 15347 那节已经用同款夹具（天赋/desc 是个 4 张池子 ⇒ 一定 ≥2 格）。
+                    //   ⛔ 只在「手牌那张凑不出 ≥2 格」时才换 —— 换完仍由下面那条前提断言把关（不静默）。
+                    //   → `资料/完全复刻/报告/B105_F1.md` §三·2 · `B106_W1.md` §①
+                    var moaOpen = FindPoolCard("Master of Arcana");
+                    if (moaOpen != null && (cdw.SlotCount < 2 || cdw.SlotView(cdw.SlotCount - 1) == null))
+                    {
+                        cdw.Show(BattleDriver.ToCardData(moaOpen, moaOpen.Faction), moaOpen);
+                        CardTween.Advance(CardFan.OpenTime + 0.05f);   // 推到终态：下面断的是展开后的最外那格
+                    }
                     var dOpen = cdw.Card.Data;
                     var defOpen = cdw.FrontDef;
                     // 🆕 **2026-10-19（`T04`）：开窗那 0.32s 里命中区**跟动画走**（原版 `2DCard/UI Collider`
@@ -15045,7 +15093,9 @@ public static class BattleScene
                     //   原因：这条要**槽 1**，而这里窗里是**手牌那张**（常常没有相关卡 ⇒ `SlotCount == 1`
                     //   ⇒ `SlotView(1) == null` ⇒ 前提恒红）。`Master of Arcana` 的天赋是 **4 张池子**
                     //   ⇒ 那里**一定 ≥2 格** ⇒ 搬过去前提**恒成立**、判别力不丢。见 `11e_展示窗_相关卡` 那一节。
-                    Debug.Log(P + "   （本处窗是手牌那张、常常只有 1 格 ⇒ 「命中区跟卡转」判别式在下面 `Master of Arcana` 那节验）");
+                    // 🔴 **2026-10-31（`B106_W1`）补注**：本处窗里现在**可能是手牌那张（1 格）**，也可能是
+                    //   上面「开窗那一拍」那节为凑 ≥2 格换上的 `Master of Arcana` ⇒ 判别式仍以下面那节为准。
+                    Debug.Log(P + "   「命中区跟卡转」判别式在下面 `Master of Arcana` 那节验（本处窗里可能是 1 格的手牌卡）");
                 }
                 // 🔴 **数锚（防「转发」被改回自算）** —— 与 `EW9` §③①(c) 是同一条腿：
                 //   这三个常量就是命中矩形的**全部几何**（半宽 / 半高 / 中心偏移），而它们**只**来自
@@ -15634,6 +15684,17 @@ public static class BattleScene
                 //    本组验的是**能力**（战斗中央展示 `DisplayEnemyCardInCenter` 要用它），不是「窗会自己翻」。
                 {
                     Check(cdw.Visible, "（前提）展示窗开着");
+                    // 🆕 **2026-10-31（`B106_W1` · 交接 §三-0-1）：夹具固定成 `Master of Arcana`** ——
+                    //   这一段要「主卡之外还有一格」才验得到「只翻主卡」；原来靠上一节 `keepDef` 的残留状态，
+                    //   窗里是手牌那张（`SlotCount == 1`）时下面那条前提**恒红**、一条都验不到。
+                    //   换法与 15347 那节同款（天赋/desc 是 4 张池子 ⇒ 一定 ≥2 格）。⛔ 前提断言保留。
+                    //   → `资料/完全复刻/报告/B105_F1.md` §三·2 · `B106_W1.md` §①
+                    var moaFlip = FindPoolCard("Master of Arcana");
+                    if (moaFlip != null && cdw.SlotCount < 2)
+                    {
+                        cdw.Show(BattleDriver.ToCardData(moaFlip, moaFlip.Faction), moaFlip);
+                        CardTween.Advance(CardFan.OpenTime + 0.05f);
+                    }
                     Check(cdw.FrontVisible && cdw.Card != null && !cdw.Card.BackVisible,
                           "★ 开窗默认露**正面**（原版放大窗从不切卡背）");
                     cdw.SetFrontVisible(false);
@@ -20020,7 +20081,7 @@ public static class BattleScene
                             + " 旧的「点一下换下一个」写法在这一条必红（它会顺手换成下一项）");
                         Check(sp.LangRowCount == Loc.Languages.Length,
                               $"★ A921：列表里 **{sp.LangRowCount} 行**（= `Loc.Languages.Length` —— 原版"
-                            + " `LanguageSelector.ResetLanguagesDropdown` 遍历的那个静态数组 = 12 项）");
+                            + " `LanguageSelector.ResetLanguagesDropdown` 遍历的那个静态数组（项数 = `Loc.Languages.Length`））");   // ⚠️ 2026-10-31（B106_W47）就地改：原来写死「= 12 项」；语言项已于同日由 12 变 13 ⇒ 改成不写死
                         Check(sp.LangTemplateNode != null && !sp.LangTemplateNode.gameObject.activeSelf,
                               "★ A921：`Template` 原型在、而且**恒 inactive**（原版出厂 `m_IsActive = 0`；"
                             + "显示的那份是 `Show()` 的克隆体）");
@@ -20035,8 +20096,8 @@ public static class BattleScene
                               $"★ A921：第 1 行 = 中心 ({q0x:F3}, {q0y:F3})、{q0w:F3}×{q0h:F3} px"
                             + "（原版 `Item.sd.y = **40.8707**`、宽 = 245 − 17 = **228**、行心 y = 7.7 − 20.435 = **−12.735**）");
                         Check(sp.LangRowRectPx(sp.LangRowCount - 1, out float qLx, out float qLy, out float qLw, out float qLh)
-                           && Mathf.Abs(qLy - (-12.7354f - 11f * 40.8707f)) < 0.05f,
-                              $"★ A921：第 12 项的行心 y = {qLy:F3}（= 行心 − 11 × 40.8707 ⇒ 12 行**往下排**）");
+                           && Mathf.Abs(qLy - (-12.7354f - (sp.LangRowCount - 1) * 40.8707f)) < 0.05f,
+                              $"★ A921：第 {sp.LangRowCount} 项的行心 y = {qLy:F3}（= 行心 − {sp.LangRowCount - 1} × 40.8707 ⇒ {sp.LangRowCount} 行**往下排**）");   // ⚠️ 2026-10-31（B106_W47）就地改：**改成自适应** —— 原来写死 `11f` / 「第 12 项」，语言项已于同日由 12 变 13（`Loc.Languages` 现 13 项）
                         // 勾 / 字在行里的位置（都是「相对行左沿」的原版字段解出来的）
                         var qBg0 = sp.LangRowBg(0); var qChk0 = sp.LangRowCheck(0); var qLb0 = sp.LangRowLabel(0);
                         float rowLeft0 = qBg0 != null ? qBg0.transform.position.x - qBg0.WorldW * 0.5f : 0f;
@@ -20061,9 +20122,9 @@ public static class BattleScene
                               $"★ A921：最长那条语言名实画 **{wpx:F1}px** ≤ 行内宽 **198**（= 228 − 左 20 − 右 10）"
                             + "（原版那颗 TMP 开了 autosize 18~40，我们按 `fs 30` 定尺、不做 autosize ⇒ 这条盯"
                             + "「将来换一套更长的语言名会顶出行外」）");
-                        var lastLbl = sp.LangRowLabel(11);
-                        Check(lastLbl != null && lastLbl.Text == Loc.LanguageName(Loc.Languages[11]),
-                              $"★ A921：第 12 行的字 = **那一项自己的语言名**（「{lastLbl?.Text}」= `Loc.Languages[11]`）");
+                        var lastLbl = sp.LangRowLabel(sp.LangRowCount - 1);
+                        Check(lastLbl != null && lastLbl.Text == Loc.LanguageName(Loc.Languages[Loc.Languages.Length - 1]),
+                              $"★ A921：最后一行（第 {sp.LangRowCount} 行）的字 = **那一项自己的语言名**（「{lastLbl?.Text}」= `Loc.Languages[{Loc.Languages.Length - 1}]`）");   // ⚠️ 2026-10-31（B106_W47）就地改：**改成自适应** —— 原来写死 `11` / 「第 12 行」，语言项已于同日由 12 变 13
 
                         // ---- ② 点行 ⇒ 选中 + 收起（原版 `OnSelectItem:1247`）----
                         // 🔴 **2026-10-20（W57 · `T09` A3-b2 收口）**：行点击 = 每行一颗 `BattleHudButton`
@@ -41811,11 +41872,18 @@ public static class BattleScene
                                 "EmitListenerTrigger",
                                 System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                             Check(miEmit != null, "（前提）`RuleCore.EmitListenerTrigger` 存在（`internal`，反射取）");
+                            // 🔴 2026-10-31（执行代理 `B106_W67`）：**硬前提·不静默** —— 反射 `Invoke` **不会**补可选参数
+                            //   （`BindingFlags.OptionalParamBinding` 也只认 `Type.Missing`）。签名加了可选参数而实参表没跟 ⇒
+                            //   `TargetParameterCountException` ⇒ 其后整段断言一个都不跑（本批 `B106_W57` 就是这么炸的）。
+                            int miEmitArity = miEmit != null ? miEmit.GetParameters().Length : -1;
+                            Check(miEmitArity == 7,
+                                  "（前提·不静默）`EmitListenerTrigger` 的形参个数仍是 7 —— 签名改了就同步这里的反射实参表，"
+                                + "⛔ 别让反射 Invoke 静默抛（现读 " + miEmitArity + "；-1 = 方法没取到）");
                             int sigBefore = synCtx.Signals.Count;
                             if (miEmit != null)
                                 miEmit.Invoke(null, new object[] {
                                     synCtx, tl18, 0, synUnit,
-                                    WhenEventKind.Triggers(KeywordTable.Synapse), false });
+                                    WhenEventKind.Triggers(KeywordTable.Synapse), false, 0 });
                             string synKw = null;
                             for (int i = sigBefore; i < synCtx.Signals.Count; i++)
                                 if (synCtx.Signals[i].Kind == EvtKind.Trigger) synKw = synCtx.Signals[i].Keyword;
@@ -41828,7 +41896,7 @@ public static class BattleScene
                             if (miEmit != null)
                                 miEmit.Invoke(null, new object[] {
                                     synCtx, tl18, 0, synUnit,
-                                    WhenEventKind.Triggers("no_such_keyword_j1"), false });
+                                    WhenEventKind.Triggers("no_such_keyword_j1"), false, 0 });
                             Check(synCtx.Signals.Count == sigMid,
                                   "★ C5 D12（**灭自证·反向**）：认不出的 `triggers:<关键词>` **不许猜一个名字发事件**"
                                 + $"（实得新增 {synCtx.Signals.Count - sigMid} 条）"
@@ -42516,6 +42584,10 @@ public static class BattleScene
                                       "★ T08·A5：位置没变 ⇒ 这一帧**不重算**（原版 `if (!target.hasChanged) return;`）"
                                     + "｜🧨 去掉 `BlobShadow.Tick` 那道闸（改回 `void Update(){ Sync(); }`）⇒ 红");
                                 var rootT8 = blobT8.target.parent;
+                                // 🆕 2026-10-31（`B106_W1` · AUD11 3A-brace）：前提补成**断言** —— 原来只有
+                                //   `else Debug.LogWarning`（出声但不进合计）；卡体没有父节点 = 卡根缺失，是真缺陷。
+                                Check(rootT8 != null,
+                                      "（前提·不静默）软阴影的 `target` 有父节点（卡根）—— 否则「父节点带着动」这半验不到");
                                 if (rootT8 != null)
                                 {
                                     Vector3 wasT8 = rootT8.position;
@@ -45168,7 +45240,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; RunR13(); driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红）
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckManaBuffHud(driver, Check); driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46798,7 +46870,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail; if (driver != null && driver.Ctx != null) { B104_T21_Assert.RunPresentation(driver); B104_T21_Assert.RunEngine(driver.Ctx); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; }  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; if (driver != null) { B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; } /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -46806,9 +46878,9 @@ public static class BattleScene
 
     /// <summary>
     /// 打开存好的 `Battle.unity` 检查关键件还在不在。
-    /// ⚠️ 这一步不能省：`BattleBackdrop` 的 `_mr/_tex` 是**私有字段、不进序列化**，
-    ///    存场景之后再打开时它们是 null —— `Build()` 里那段「从子节点重新找回来」
-    ///    就是为这个写的，必须真的验一次（不然只有进 Play 才会发现背景没了）。
+    /// 🔴 2026-10-31（`B106_W17`）：原文说「`BattleBackdrop` 的 `_mr/_tex` 是私有字段、存档后要重新验一次」——
+    ///    **兜底背景已删**（原版没有，判据见 `BuildScene` 战场那一段）⇒ 存档侧改成断言「**没有** `BattleBackdrop`」；
+    ///    3D 战场在运行时由 `ArenaRuntimeLoader` 实例化，存档场景里 `Arena3D` 刻意是空的。
     /// </summary>
     /// <summary>从视图表里取一个（拿不到给 null，别抛）—— 联机客机视图那一段用。</summary>
     static CardView Lookup(IReadOnlyDictionary<int, CardView> d, int slot)
@@ -46890,11 +46962,11 @@ public static class BattleScene
                 : $"★ 战场 prefab 在位：`{BoardArena}`（ArenaPrefabData {(arenaData != null ? "有" : "**没有**")}）");
         var arenaContent = arenaPrefab != null ? arenaPrefab : arena;   // 下面那些「战场里有什么」的断言都用它
 
-        Camera bcam = null, hcam = null;
+        // ⚠️ 2026-10-31（`B106_W1`）：这里**不再取 `hcam`** —— 「HUD 相机 base+overlay」那 3 条断言
+        //   搬去了 `CheckHudCameraStack`（见下面那段指针注释）。本方法只用到 `bcam`。
+        Camera bcam = null;
         foreach (var c in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
-        {
-            if (c.depth < 0) bcam = c; else if (hcam == null) hcam = c;
-        }
+            if (c.depth < 0) bcam = c;
         Check((bcam != null) == (loaderInScene != null),
               "★ 战场装载器与那台透视相机**成对**存在（§27：场景里留的是 loader，不是内容）");
         if (bcam != null)
@@ -47301,37 +47373,20 @@ public static class BattleScene
                 + $"不对的 {bad} 场；逐场理由见上面那些 `✗`）");
         }
 
-        Check(hcam != null && arenaRend > 10,
-              "（前提·不静默）找得到 HUD 相机（`depth >= 0`）且战场渲染器 > 10 个 —— 否则下面 HUD 相机那几条验不到");
-        if (hcam != null && arenaRend > 10)
-        {
-            // 🔴 **2026-09-22 改**：原来这里盯的是 `hcam.clearFlags == Depth`（「HUD 只清深度」那套）。
-            //    那套是**两台独立 Base 相机**时代的写法，**真机上战场根本画不出来**（见 §三 第 11 条）。
-            //    ⇒ 判据换成「HUD 是 Overlay 且挂在战场相机的 stack 里」。
-            var hd = hcam.GetUniversalAdditionalCameraData();
-            var bdA = bcam != null ? bcam.GetUniversalAdditionalCameraData() : null;
-            Check(hd != null && hd.renderType == CameraRenderType.Overlay,
-                  "★ HUD 相机是 **Overlay**（原版做法：base + overlay，后处理作用于合成后整帧）");
-            // ⚠️ `cameraStack` 装的是 **`Camera`**，不是 `UniversalAdditionalCameraData`（2026-09-22 编译踩过）
-            Check(bdA != null && bdA.renderType == CameraRenderType.Base && bdA.cameraStack.Contains(hcam),
-                  "★ HUD 相机挂在**战场相机的 `cameraStack`** 里 —— 不挂的话真机上战场整片画不出来");
-            Check((hcam.cullingMask & (1 << ArenaLayer)) == 0, "HUD 相机不重复画 3D 战场那一层");
-        }
-        // 🔴 §27：兜底支的**开关条件**从「Arena3D 里没内容」换成「**场景里没有 `ArenaRuntimeLoader`**」
-        //    —— 现在「内容」本来就为空（要运行时才实例化），拿 `arenaRend` 当条件会**恒为真**。
-        if (loaderInScene == null)
-        {
-            var bd0 = Object.FindObjectOfType<BattleBackdrop>();
-            Check(bd0 != null, "（兜底支）存档里有 BattleBackdrop");
-            if (bd0 != null)
-            {
-                bd0.Build();                     // 模拟运行时 Start() 的那一下
-                Check(bd0.Ready, $"（兜底支）重新打开后背景能重新绑上（{bd0.Image?.name}）");
-            }
-        }
-        var bd = Object.FindObjectOfType<BattleBackdrop>();
-        if (bd != null && bd.transform.Find("Backdrop") != null && loaderInScene != null)
-            Debug.LogWarning(P + "   注意：3D 战场和兜底背景图**同时**在场景里（应该只会有一个）");
+        // 🔴 **2026-10-31（`B106_W1` · 交接 §三-0-2）**：这里原来还有一组「HUD 相机 base+overlay」的断言
+        //   （Overlay / `cameraStack` / `cullingMask`），**一次都没执行过** —— 它的前提是 `arenaRend > 10`，
+        //   而 §27 之后**存档场景里的 `Arena3D` 刻意是空的**（内容在 `Resources/ArenaPrefabs/<场>.prefab`、
+        //   运行时由 `ArenaRuntimeLoader` 实例化）⇒ 在**这一份存档场景**里 `arenaRend` **恒 0** ⇒ 前提恒假。
+        //   ⇒ 已搬到 `CheckHudCameraStack(int[])`，由 `Run()` 在 **`BuildScene` + `driver.Begin` 之后**
+        //     用**本轮活场景**的值来量（那时 `BuildArena3D` 已跑完、Base/Overlay 也已设好）。
+        //   ⛔ 别搬回来：存档场景看不见 3D 战场，「渲染器 > 10」这个前提在这里永远不会成立。
+        //   （存档侧那份序列化值是好的：`Scenes/Battle.unity:1506` m_CameraType 0 + `:1508` m_Cameras、
+        //     `:1756` m_CameraType 1、`:1824` cullingMask 已去掉第 8 位 —— 2026-10-31 现读）
+        // 🔴 **2026-10-31（`B106_W17`）**：**兜底背景已删** —— 原版没有背景兜底（判据见 `BuildScene` 战场那一段）。
+        //   ⇒ 存档场景里**不该**再有 `BattleBackdrop`（「3D 场地 / 烘图 两条路只留一条」仍成立，只是只剩 3D）。
+        //   ⚠️ 这条红 ⇒ 场景还是旧版，跑一次 `-executeMethod BattleScene.BuildAndSaveScene` 重建即可。
+        var bdStale = Object.FindObjectOfType<BattleBackdrop>();
+        Check(bdStale == null, "（兜底已删）存档场景里**没有** `BattleBackdrop`（原版没有背景兜底）");
         Check(Object.FindObjectOfType<BattleDriver>() != null, "存档里有 BattleDriver");
 
         // ⚠️ 加这条是因为**差点漏掉**：`AttackSelector` 是 `BuildScene` 里新建的节点，
@@ -47494,7 +47549,8 @@ public static class BattleScene
         return null;
     }
 
-    /// <summary>把原版战场（网格 + 粒子）建到 `root` 下，返回**可渲染件数**（0 = 建不出来，调用方要兜底）。
+    /// <summary>给 `root` 挂上 `ArenaRuntimeLoader`（战场内容由运行时 `Load` 实例化），返回**是否挂上**。
+    /// ⚠️ 这里**判不出**「战场内容建不建得出来」—— 那要等 `BattleDriver.Begin` 的 `loader.Load`（失败会出声）。
     /// 参数与做法**全在 `ArenaBuilder.BuildContent`**（与独立场景模式共用同一段，判据只留一处）。</summary>
     /// <summary>🆕 **2026-09-30（§27 架构）**：战场**不再烘进场景**，改成运行时实例化。
     /// 判据与施工图 → `资料/§27架构_施工图.md`：
@@ -47503,12 +47559,13 @@ public static class BattleScene
     ///   · 这里只给 `Arena3D` 挂 `ArenaRuntimeLoader`，**进局时**（`BattleDriver.Begin`）按督军阵营取一件实例化。
     /// ⚠️ **编辑期刻意不实例化** —— 场景里再放一份的话运行时 `Load` 会再建一份（它认不出场景里那份）
     ///   ⇒ 一个场景两份战场。所以打开 `Battle.unity` 看到的是**空 Arena3D**、按 Play 才出战场。</summary>
-    static int BuildArena3D(GameObject root)
+    static bool BuildArena3D(GameObject root)
     {
+        if (root == null) { Debug.LogError(P + "   🔴 `Arena3D` 根是 null ⇒ 挂不上 `ArenaRuntimeLoader`，这一局没有 3D 战场"); return false; }
         root.AddComponent<CardPresentation.ArenaRuntimeLoader>();
         Debug.Log(P + "   3D 战场：§27 —— **运行时实例化**（`ArenaRuntimeLoader`；"
                     + "13 件 prefab 在 `Resources/ArenaPrefabs/`），编辑期不烘内容");
-        return 1;      // 1 = 有战场（运行时那条路）
+        return true;      // true = 挂上了 loader（内容要等运行时 `Load`）
     }
 
     /// <summary>透视的战场相机 —— **逐值照原版**（`ArenaBuilder.ManifestPath(BoardArena)` 的 `camera`，四处一致的那个）。
@@ -47599,13 +47656,17 @@ public static class BattleScene
         arenaGo.transform.SetParent(sceneRoot.transform, false);
         arenaGo.transform.localPosition = new Vector3(-ArenaOriginX, 0f, 0f);
 
-        // 兜底：3D 资产（Models/Textures 是本地件、不进仓库）不在时退回烘好的背景图。
-        // ⚠️ **两条路只留一条**：3D 场地在的时候**不挂** `BattleBackdrop` ——
-        //    它的 `Build()` 会自己造一张铺满的 quad，那会把 3D 战场整个盖住（而且 `Start()` 会再 Build 一次）。
-        BattleBackdrop backdrop = null;
+        // 🔴 **2026-10-31（`B106_W17`）**：原来这里还有一支「3D 建不出来 ⇒ 退回 `BattleBackdrop` 烘图」的兜底，
+        //   它是一支**死支**（`BuildArena3D` 只挂 loader、恒返回 1）—— 已**按原版判据删掉**：
+        //   原版**没有**任何背景兜底 —— 战场是整份场景、由 `EverguildSceneManager.LoadScene(
+        //   BattleArenaByArmySO.GetBattleArena(army))` 载入（`d:/2/tools/decomp_full/SearchOpponentManager__StartBattle.c:68`），
+        //   载入失败只出声（`EverguildSceneManager__LoadScene.c` 末尾 `CustomDebug.LogWarning`）；
+        //   整个 decomp 全树 grep `Backdrop` = **0 命中**。⇒ 我们的失败可见性 = `ArenaRuntimeLoader.Load`
+        //   在 prefab 取不到时 `Debug.LogError`（红）· `BattleDriver.Begin` 在场景里没 loader 时 `Debug.LogWarning`。
+        //   ⛔ 别加「更好看」的兜底画面（那会遮住真失败）· ⛔ 别把 `BattleBackdrop` 挂回来。
         Camera boardCam = null;
-        int arenaRend = BuildArena3D(arenaGo);
-        if (arenaRend > 0)
+        bool arenaLoaderInstalled = BuildArena3D(arenaGo);
+        if (arenaLoaderInstalled)
         {
             // 🔴 **2026-09-30（§27）**：原来这里要 `SetLayerRecursive(arenaGo, ArenaLayer)`、并把 Volume
             //   还原到 Default 层 —— 这两件事现在**烘在 prefab 里**（`ArenaBuilder.BuildOneArenaPrefab`）。
@@ -47626,13 +47687,8 @@ public static class BattleScene
             hudData.renderType = CameraRenderType.Overlay;
             if (!boardData.cameraStack.Contains(cam)) boardData.cameraStack.Add(cam);
         }
-        else
-        {
-            Debug.LogWarning(P + "   3D 战场建不出来（OBJ/贴图不在？）⇒ 退回烘好的背景图");
-            Object.DestroyImmediate(arenaGo);
-            backdrop = sceneRoot.AddComponent<BattleBackdrop>();
-            backdrop.Build();
-        }
+        // 🔴 原来的 `else { 退回 BattleBackdrop 烘图 }` 已删（判据见本段顶部）：3D 建不出来就只是**没有战场**，
+        //   与「原版战场场景载入失败」同形 —— 只出声、不拿替代图遮盖。
 
         // 对手半场（上）—— **镜像**：原版敌方的 leftSlotPosNormal 是 +x，
         // 所以敌方槽 0 显示在画面**右侧**，两边的 0 号位在各自的左边（面对面）
@@ -47699,7 +47755,7 @@ public static class BattleScene
         driver.foeHand = foeHand;
         driver.interaction = interaction;
         driver.boardRoot = sceneRoot.transform;
-        driver.backdrop = backdrop;
+        driver.backdrop = null;            // 🔴 2026-10-31（`B106_W17`）：兜底背景已删（原版没有）⇒ 恒 null（判据见 BuildScene 战场那一段）
 
         // 攻击方式选择器（原版 `Drag Attack Selector`）—— 单独一个节点，方便整块开关
         //
@@ -49829,5 +49885,152 @@ public static class BattleScene
     {
         string r = A1945DescRefOf(id);
         return "Card_Description/" + (string.IsNullOrEmpty(r) ? id : r);
+    }
+
+    /// <summary>🆕 **2026-10-31（`B106_W1` · 交接 §三-0-2）：HUD 相机与战场相机的 base+overlay 关系**。
+    /// <para>🔴 **为什么搬到这儿**：这一段原来住在 `CheckSavedScene`，它的前提是「`Arena3D` 里有 > 10 个渲染器」，
+    /// 而 §27 之后**存档场景里的 `Arena3D` 刻意是空的**（内容在 `Resources/ArenaPrefabs/&lt;场&gt;.prefab`、
+    /// 运行时由 `ArenaRuntimeLoader` 实例化）⇒ 那一节里 `arenaRend` **恒 0** ⇒ 前提恒假 ⇒
+    /// 下面 3 条（Overlay / `cameraStack` / `cullingMask`）**一次都没执行过**（2026-10-31 现读坐实）。
+    /// 现在改在 **`Run()` 里 `BuildScene` + `driver.Begin` 之后**、对**本轮活场景**量 ——
+    /// 那一刻 `BuildArena3D` 已经跑完、Base/Overlay 也已经设好。</para>
+    /// <para>⛔ **前提断言保留**：拿不到两台相机 / 战场没建出来时要**报红**，不许静默跳过。</para>
+    /// <para>判据 → `资料/完全复刻/报告/B106_W1.md` §②。</para></summary>
+    static void CheckHudCameraStack(int[] tally)
+    {
+        void Check(bool ok, string msg)
+        {
+            if (ok) { tally[0]++; Debug.Log(P + $"   ✓ {msg}"); }
+            else { tally[1]++; Debug.LogError(P + $"   ✗ {msg}"); }
+        }
+
+        var arena = GameObject.Find("Arena3D");
+        int arenaRend = arena != null ? arena.GetComponentsInChildren<Renderer>(true).Length : 0;
+        Camera bcam = null, hcam = null;
+        foreach (var c in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
+        {
+            if (c.depth < 0) bcam = c; else if (hcam == null) hcam = c;
+        }
+        Check(hcam != null && bcam != null && arenaRend > 10,
+              "（前提·不静默）**建场之后**：HUD 相机（`depth >= 0`）+ 战场透视相机（`depth < 0`）都在、"
+            + $"且战场渲染器 > 10 个 —— 否则下面 HUD 相机那 3 条验不到（实得 hcam {(hcam != null ? "在" : "**不在**")}"
+            + $" · bcam {(bcam != null ? "在" : "**不在**")} · 渲染器 {arenaRend}）");
+        if (hcam == null || bcam == null || arenaRend <= 10) return;
+
+        // 🔴 **2026-09-22 改**：原来盯的是 `hcam.clearFlags == Depth`（「HUD 只清深度」那套）。
+        //    那套是**两台独立 Base 相机**时代的写法，**真机上战场根本画不出来**（见 §三 第 11 条）。
+        //    ⇒ 判据换成「HUD 是 Overlay 且挂在战场相机的 stack 里」。
+        var hd = hcam.GetUniversalAdditionalCameraData();
+        var bdA = bcam.GetUniversalAdditionalCameraData();
+        Check(hd != null && hd.renderType == CameraRenderType.Overlay,
+              "★ HUD 相机是 **Overlay**（原版做法：base + overlay，后处理作用于合成后整帧）");
+        // ⚠️ `cameraStack` 装的是 **`Camera`**，不是 `UniversalAdditionalCameraData`（2026-09-22 编译踩过）
+        Check(bdA != null && bdA.renderType == CameraRenderType.Base && bdA.cameraStack.Contains(hcam),
+              "★ HUD 相机挂在**战场相机的 `cameraStack`** 里 —— 不挂的话真机上战场整片画不出来");
+        Check((hcam.cullingMask & (1 << ArenaLayer)) == 0, "HUD 相机不重复画 3D 战场那一层");
+    }
+
+    // ============================================================ B106_W47 · ManaBuff → HUD 那一跳
+    //
+    // 判据链（原版）：
+    //   · 引擎侧：`EffectResolver.ProcessManaBuff`（`RuleEngine/Core/EffectResolver.cs:11895` / `:12958-13245`
+    //     逐句照 `decomp_full/…ProcessManaBuff*.c`）—— `Gain N Energy` ⇒ **`MaxEnergy += N`、当前能量不动**。
+    //   · HUD 侧：`BattleDriver.UpdateHud` 那句 `_energyLabel.SetText(EnergyTextOf(_me))`（`Battle/BattleDriver.cs:32088`），
+    //     而 `EnergyTextOf`（`:36601`）印的是 `当前值/MaxEnergy` ⇒ **分母 = `MaxEnergy`**。
+    //   🔴 现有断言（本文件 `:26555` / `:31333`）只验「数字 / 座位归属」，**没有一条**验过
+    //     「引擎抬了 `MaxEnergy` ⇒ HUD 分母跟着动」这一跳。本节补这一条（账 `战斗界面_HUD` 的 `ManaBuff` 行）。
+    //   ⚠️ 引擎侧已有逐句断言（`RuleEngine/Editor/RuleEngineTest.cs:4533 TestW58GainEnergy`：上限 +4、当前不动、
+    //     跨回合保留）⇒ 本节**不重复**引擎侧，只把它当尺子。
+    //
+    // 🔴 **真打一张卡**（⛔ 不直接改 `MaxEnergy`）：往手牌塞一张 0 费、无目标的合成战术卡 `Gain 2 Energy`，
+    //   走产品的 `SimulatePlay`（= `LocalAct` + `RuleCore.PlayCard`）真打出去。
+    // 🧨 **灭自证**：把 `EnergyTextOf` 的分母换成常数、或让它只印分子 ⇒ `postMax != max0 + 2` ⇒ 红。
+    static void CheckManaBuffHud(BattleDriver driver, System.Action<bool, string> check)
+    {
+        check(driver != null, "（前提·B106_W47）`BattleDriver` 在");
+        if (driver == null) return;
+
+        // 新开一局并把先手钉成自己（`CanPlayTactic` 的第一道闸就是 `p == ctx.Active`）。
+        // ⚠️ 本件排在本宿主**最后**（`:45243` 那行、`DestroyImmediate(driver)` 之前 ⇒ 全部断言的最后一拍）⇒ 它重置局面不会污染任何其它断言。🔴 2026-10-31（`B106_W77`）：原接在 `:46873`（driver 已销毁 ⇒ 假 null 早退、11 条一条没跑），现已挪进 `:45243`。
+        int me = driver.MySeat;
+        // ⚠️ 前面若干节会改这两个开关（换牌 / 进攻卡阶段），有些 restore、有些不保证 ⇒ 这里显式摆回出厂档，
+        //    否则 `Begin` 会停在换牌 / 选进攻卡那一步，`SimulatePlay` 打不出去。
+        driver.mulliganEnabled = false;
+        driver.offensivePhaseEnabled = false;
+        driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20261031,
+                     firstSeatOverride: me);
+        Step(BattleDriver.TurnHeadsUpHold + 0.3f);
+        StepThrough(driver, 3f);
+
+        var ctx = driver.Ctx;
+        check(ctx != null && ctx.Players != null && ctx.Players.Length >= 2,
+              "（前提·B106_W47）开局拿得到 `ctx` / 两个座位");
+        if (ctx == null || ctx.Players == null || ctx.Players.Length < 2) return;
+        check(ctx.Active == me, $"（前提·B106_W47）先手是我（`ctx.Active = {ctx.Active}`，我 = {me}）");
+        if (ctx.Active != me) return;
+
+        var ps = ctx.Players[me];
+        int max0 = ps.MaxEnergy;
+
+        // HUD 起始读数（走**产品那条口**：`RefreshAll → UpdateHud → _energyLabel.SetText(EnergyTextOf(_me))`）。
+        driver.RefreshAll();
+        string hud0 = driver.MyEnergyText;
+        string foe0 = driver.FoeEnergyText;
+        int preNum, preMax;
+        SplitEnergyText(hud0, out preNum, out preMax);
+        check(hud0 != null && preMax == max0,
+              $"（前提·B106_W47）HUD 起始读数「{hud0}」的分母 == 引擎的 `MaxEnergy`（{max0}）");
+        if (preMax != max0) return;
+
+        // 塞一张 `Gain 2 Energy`（0 费 / 无目标）进手牌 —— ⛔ 直接改 `MaxEnergy` 就测不到这一跳。
+        var gainDef = new RuleEngine.CardDef(
+            "B106W47GainEnergy", "B106W47GainEnergy", "tactic", "Gain 2 Energy",
+            "common", driver.MyFaction, 0, 0, 0, 0, null);
+        ps.Hand.Add(ctx.NewInstance(gainDef));
+        int idx = ps.Hand.Count - 1;
+        driver.RefreshAll();
+        check(idx >= 0 && driver.HandViewAt(idx) != null,
+              "（前提·B106_W47）那张 `Gain 2 Energy` 真进了手牌（手牌视图在）");
+
+        int code = driver.SimulatePlay(idx, -1);
+        check(code == RuleCodes.OK,
+              $"（前提·B106_W47）`Gain 2 Energy` **真打出去了**（`SimulatePlay` = {RuleCodes.Describe(code)}）");
+        if (code != RuleCodes.OK) return;
+
+        // 引擎侧（尺子，不是被测项）：`MaxEnergy +2`、当前能量不动。
+        check(ps.MaxEnergy == max0 + 2,
+              $"（尺子·B106_W47）引擎侧 `MaxEnergy` = {max0} + 2 = {ps.MaxEnergy}");
+
+        // ⬇⬇ 被测项：**HUD 那一跳**（批处理没有帧循环 ⇒ 显式刷一次 HUD；产品里由 `Update` 每帧刷）。
+        driver.RefreshAll();
+        string hud1 = driver.MyEnergyText;
+        int postNum, postMax;
+        SplitEnergyText(hud1, out postNum, out postMax);
+        check(hud1 != null && postMax == max0 + 2,
+              $"★ **ManaBuff → HUD 那一跳**：分母跟着引擎的 `MaxEnergy` 走（实得「{hud1}」，期望分母 {max0 + 2}）"
+            + "｜🧨 把 `EnergyTextOf` 的 `max` 换成常数 / 让它只印分子 / 让 `UpdateHud` 不刷这颗标签 ⇒ 本条红");
+        check(postNum == preNum,
+              $"★ HUD 分子**不动**（`Gain N Energy` 只抬上限；实得「{hud1}」，起始分子 {preNum}）"
+            + "｜🧨 把它写成「同时补当前能量」⇒ 本条红（那是 `Refill` 的语义，不是 `Gain`）");
+        check(driver.FoeEnergyText == foe0,
+              $"★ 对面那颗能量数字**一点没变**（`{foe0}` → `{driver.FoeEnergyText}`）"
+            + "｜🧨 把 `EnergyTextOf(_me)` 错写成对手那一侧 / 或刷新时把对面一起改 ⇒ 红");
+        // 第二腿：读数**确实变了**（分子相同、分母 +2）—— 与上面那条结构上互不替代：
+        // 「两边都改回旧写法」时，这条仍会因为 `hud1 == hud0` 而红。
+        check(hud1 != hud0,
+              $"★ 打出前后 HUD 读数**确实变了**（`{hud0}` → `{hud1}`；分子相同、分母 +2）");
+    }
+
+    /// <summary>`"5/7"` → `num=5, max=7`（只给 `CheckManaBuffHud` 读 HUD 那格用；解析不了 ⇒ 两者都 -1）。
+    /// ⛔ 别拿它当产品代码：产品那条口是 `BattleDriver.EnergyTextOf` —— 这里只是自检的读数口。</summary>
+    static void SplitEnergyText(string s, out int num, out int max)
+    {
+        num = -1; max = -1;
+        if (string.IsNullOrEmpty(s)) return;
+        int slash = s.IndexOf('/');
+        if (slash <= 0 || slash >= s.Length - 1) return;
+        int a, b;
+        if (int.TryParse(s.Substring(0, slash), out a) && int.TryParse(s.Substring(slash + 1), out b))
+        { num = a; max = b; }
     }
 }
