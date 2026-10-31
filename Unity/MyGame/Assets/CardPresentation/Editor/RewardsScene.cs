@@ -2166,6 +2166,8 @@ public static class RewardsScene
         if (collect != null)
         {
             var q = collect.GetComponentInChildren<ImageQuad>();
+            // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-b）：`q` 没有前提 ⇒ 取不到时下面两条「等比内接」断言**静默空转**。
+            CheckTrue(q != null, "（前提·不静默）`Collect` 上有 `ImageQuad`（拿不到 ⇒ 下面两条等比断言等于没验）");
             if (q != null)
             {
                 float w = q.WorldW * 108f, h = q.WorldH * 108f;
@@ -2386,6 +2388,11 @@ public static class RewardsScene
                 var wb2 = cb2 != null ? cb2.GetComponent<WindowButton>() : null;
                 CheckTrue(wb2 != null && wb2.onClick != null, "（前提）到顶那一行的 `Collect` 在（点了有事做，不是装饰）");
                 string a2 = ArtOf(FindChild(r2b, "Reward 2"));
+                // 🔴 **2026-10-31（`B105_A1` · AUD11 类 3A）**：`rwB4` 有前提、`a2`（**重建后**那一格画出来的图名）没有
+                //   ⇒ 它量不到时下面「窗里那条 = 画的那份」与「真的发了」两条**一起静默空转**。
+                //   ⚠️ 上面那条同型的 `Reward 2` 断言量的是**重建前**的 `r2`，⛔ 顶不了这一格的 `r2b`。
+                CheckTrue(a2 != null, "（前提·不静默）第 3 行**重建之后** `Reward 2` 的图标量得到"
+                                    + "（拿不到 ⇒ 下面两条「窗里那条 = 画的那份」/「真的发了」等于没验）");
                 int n2 = IntOf(TextOf(FindChild(r2b, "count 2")));
                 int w2 = a2 != null ? Wallet.Of(a2) : 0;
                 var rwB4 = ClickCollectAndDismiss(cb2, wb2, "第 3 行的 `Collect`");
@@ -2512,12 +2519,15 @@ public static class RewardsScene
                               "★ …第 2 条 = **卡面第 2 格画的那一份**（`" + lgA1 + "` × " + lgN1 + "）");
                 }
                 // ⭐ B4：领到的**逐格**等于格子里画的那一份（按**画出来的图标**记账、按**画出来的数量**比）
-                if (lgA0 != null)
-                    Check(Wallet.Of(lgA0) - lgW0, lgN0,
-                          "★ 登录卡第 1 格画的那一份**真的发了**（B4 之前：格子画 ×150、只发 ×100 ⇒ 这条红）");
-                if (lgA1 != null)
-                    Check(Wallet.Of(lgA1) - lgW1, lgN1,
-                          "★ …第 2 格画的那一份**也发了**（B4 之前这一格**一分都没发** ⇒ 这条得 0 ≠ 20）");
+                // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A 余量）：两条单语句守卫 ⇒ **拆前提 + 无条件结论**。
+                //   ⚠️ `Wallet.Of(null)` 会抛 `ArgumentNullException`（把整条自检吞掉）⇒ 结论用三元兜住、缺名时喂
+                //   `int.MinValue` 让它**报红**而不是崩。
+                CheckTrue(lgA0 != null, "（前提·不静默）登录卡第 1 格画出来的图标名量得到（拿不到 ⇒ 下面那条等于没验）");
+                CheckTrue(lgA1 != null, "（前提·不静默）…第 2 格画出来的图标名量得到（同上）");
+                Check(lgA0 != null ? Wallet.Of(lgA0) - lgW0 : int.MinValue, lgN0,
+                      "★ 登录卡第 1 格画的那一份**真的发了**（B4 之前：格子画 ×150、只发 ×100 ⇒ 这条红）");
+                Check(lgA1 != null ? Wallet.Of(lgA1) - lgW1 : int.MinValue, lgN1,
+                      "★ …第 2 格画的那一份**也发了**（B4 之前这一格**一分都没发** ⇒ 这条得 0 ≠ 20）");
                 // ⭐ A75①：整页重建 ⇒ **旧子树被销毁 + 新实例**
                 CheckTrue(lgCard == null && lgBtn == null,
                           "★ 登录卡的 `Collect` 也走 `OnCollect` ⇒ **旧子树被销毁**（= 真的重建了整页；"
@@ -2959,6 +2969,9 @@ public static class RewardsScene
                 // 位置：原版那个 `text` 的 anchors 在 40×40 的 `holder` 上是 (0,0)-(1,1)、sizeDelta (0,0)
                 // ⇒ **与格子同心**（⛔ 不是「印在方框下面」那一支，那是周常）。
                 var skCells = allCells(sk37);
+                // 🔴 2026-10-31（`B105_F5` · AUD11 类 3B-C）：`skNums.Count` 上面已有 `Check(…, 5, …)`，**`skCells.Count` 一条都没有**
+                //   ⇒ 少了格时下面那条「数字与格心重合」静默不跑。计数本身就是判据。
+                Check(skCells.Count, 5, "（前提）骷髅卡上画出来的里程碑格 = 5（拿不到 5 ⇒ 下面那条同心断言等于没验）");
                 if (skCells.Count == 5 && skNums.Count == 5)
                     CheckNear(Vector3.Distance(skCells[0].position, skNums[0].position) * 108f, 0f, 1f,
                               "★ 骷髅卡第 1 格的数字与格心重合(px)（原版 `text` 与 `holder` 同框）");
@@ -3310,6 +3323,9 @@ public static class RewardsScene
                 Check(greyCnt389(wkF), 5,
                       "★ 进度 = **30** ⇒ 6 格全达成、**前 5 格灰**、第 6 格不灰（它才是 `lastReachedMilestone`）"
                       + "（这条把「第 6 格 = T5」与「最后达成的是第 6 格」两件事同时钉住）");
+                // 🔴 2026-10-31（`B105_F5` · AUD11 类 3B-C）：`wkF` 的**计数没有断言**（上面那条 `Check(greyCnt389(wkF), 5, …)`
+                //   只在「5 格全灰」时过得去 ⇒ 只剩 5 格时它也绿）⇒ 先断 6 格在，再说第 6 格不灰。
+                Check(wkF.Count, 6, "（前提）周常 6 格还在（④·c —— 拿不到 6 ⇒ 下面那条「第 6 格不灰」等于没验）");
                 if (wkF.Count == 6)
                     CheckTrue(shader389(FindChild(wkF[5], "CheckMark")) != GREY389,
                               "★ ...第 6 格此刻**不灰**（判据同 ④·b；只断前 5 灰的话「全灰」也能过 ⇒ 两半都要）");
@@ -3330,6 +3346,9 @@ public static class RewardsScene
         var camp = FindChild(FindChild(area, "Tabs"), "Campaign Tab");
         CheckTrue(forge != null && !forge.gameObject.activeSelf, "`Forge Tab` 出厂关着（原版 §二·4 `activeSelf=false`）");
         CheckTrue(camp != null && !camp.gameObject.activeSelf, "`Campaign Tab` 出厂关着");
+        // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-b）：`win.tabButtons` 在本节没有任何前提 ⇒ 取不到时
+        //   下面 7 条页签断言（切页 / 只切 activeSelf / 自建页 / 母版键）**整节静默空转**。
+        CheckTrue(win.tabButtons != null, "（前提·不静默）`win.tabButtons` 取得到（拿不到 ⇒ 本节 7 条页签断言等于没验）");
         if (win.tabButtons != null)
         {
             win.tabButtons.Click(1);                                  // 左栏第 2 键 = Campaign
@@ -3581,9 +3600,14 @@ public static class RewardsScene
             // ---- 纪律⑤：等级圆牌**只有两张 sprite**（不是三张）
             var cell0 = fcontent != null && fcontent.childCount > 0 ? fcontent.GetChild(0) : null;
             var cellClaim = fcontent != null ? FindChild(fcontent, "ForgeCell_" + ForgeData.LevelOf(ForgeData.Selected)) : null;
-            if (cell0 != null)
-                CheckArt(FindChild(cell0, "LevelBg"), "40k_ArmyTrack_milestone_on",
-                         "第 1 格圆牌 = `_on`（已领 ⇒ `Collected` 用 onSprite）");
+            // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A 余量）：单语句守卫 ⇒ **拆前提 + 无条件结论**
+            //   （`FindChild(null, …)` 返 null、`CheckArt` 见 null 自己报红 ⇒ 结论可以无条件跑）。
+            CheckTrue(cell0 != null, "（前提·不静默）锻造轨第 1 格建出来了（拿不到 ⇒ 下面那条圆牌断言等于没验）");
+            CheckArt(FindChild(cell0, "LevelBg"), "40k_ArmyTrack_milestone_on",
+                     "第 1 格圆牌 = `_on`（已领 ⇒ `Collected` 用 onSprite）");
+            // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-b）：可领那一格（`ForgeCell_<Lv>`）没有前提
+            //   —— 取不到时下面两条（圆牌图 / `Generic UI Button` 只在 ToCollect 才建）**静默空转**。
+            CheckTrue(cellClaim != null, "（前提·不静默）可领那一格 `ForgeCell_<Lv>` 建出来了（拿不到 ⇒ 下面两条等于没验）");
             if (cellClaim != null)
             {
                 CheckArt(FindChild(cellClaim, "LevelBg"), "40k_ArmyTrack_milestone_on", "可领格的圆牌 = `_on`");
@@ -5648,6 +5672,10 @@ public static class RewardsScene
                             CheckNear(hx2 - hx1, 120f, 1f, "`HighlightBG` 宽 **120**（母版是 136，变体是 120）");
                             CheckNear(y2 - y1, 110f, 1f, "`HighlightBG` 高 **110**（母版是 122）");
                             float ix1, iy1, ix2, iy2;
+                            // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-b）：`ic` / `RectOf` 都没有前提
+                            //   ⇒ 量不到时「`Icon` 的框顶在高亮框顶下 5」**静默不跑**（同节 `hb` 那条已有前提，这一处漏了）。
+                            CheckTrue(ic != null && RectOf(ic, out ix1, out iy1, out ix2, out iy2),
+                                      "（前提·不静默）选中那格的 `Icon` 量得到渲染矩形（拿不到 ⇒ 下面那条 pos(0,−5) 断言等于没验）");
                             if (ic != null && RectOf(ic, out ix1, out iy1, out ix2, out iy2))
                             {
                                 // 框高与渲出高同为 100（高度受限）⇒ **渲出的上沿就是框的上沿**
@@ -6419,6 +6447,10 @@ public static class RewardsScene
                 //   ⚠️ 这里量的是**节点**（`MenuDraw.Node` 把节点摆在算出来的矩形中心），**不是**那颗文字的
                 //     渲染矩形 —— 因为文字在框里怎么摆由 `align` 管、与 A537 无关（见报告 §九·1 那条顺手发现）。
                 float px1, py1, px2, py2;
+                // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-b）：`warnLk` 有前提（上面两条），
+                //   **`RectOfUnion(pLk, …)` 这一半没有** ⇒ 量不到 holder 时「Warning 锚在 holder 水平中心」静默不跑。
+                CheckTrue(warnLk != null && RectOfUnion(pLk, out px1, out py1, out px2, out py2),
+                          "（前提·不静默）锁支那个 `Rewards` holder 的渲染矩形量得到（拿不到 ⇒ 下面那条 A537 锚点断言等于没验）");
                 if (warnLk != null && RectOfUnion(pLk, out px1, out py1, out px2, out py2))
                 {
                     CheckNear(MenuCheck.DesignPx(warnLk).x, (px1 + px2) * 0.5f, 0.5f,
@@ -11729,6 +11761,9 @@ public static class RewardsScene
                     CheckAt(hq.transform, wantTrash.x1, wantTrash.x2, wantTrash.y1, wantTrash.y2,
                             "命中区落在**原版锚点**算出来的矩形上（行内 y 偏移 = 150 − 40.711 ± 49.368/2）");
                     var bq = trashArt != null ? trashArt.GetComponentInChildren<ImageQuad>() : null;
+                    // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-brace）：`trashArt` 有前提（`:11715`），
+                    //   **它的 `ImageQuad` 没有** ⇒ 取不到时「命中区与底图同心」那条静默不跑。
+                    CheckTrue(bq != null, "（前提·不静默）垃圾桶底图上有 `ImageQuad`（拿不到 ⇒ 下面那条同心断言等于没验）");
                     if (bq != null)
                     {
                         float ddx = Mathf.Abs(hq.transform.position.x - bq.transform.position.x) * 108f;
@@ -12156,9 +12191,11 @@ public static class RewardsScene
                                   "…（A44 甲）`Collect` 也不建（**领完了才藏** ⇒ 不会「领不了奖」）");
                         // 负例（真路径）：同一个坐标上现在**一个可点件都没有**。
                         // ⚠️ 用 `ButtonAt`（只命中、不派发）：`HoverAt` 会动悬停态，别在这里顺手改别的状态。
-                        if (pl != null)
-                            CheckTrue(pl.ButtonAt(wantCollect.CX, wantCollect.CY) == null,
-                                      "…`Collect` 原来的位置**点不到任何按钮**（真的撤走了 —— 只把它画到下面/被压住会红）");
+                        // 🔴 **2026-10-31（`B105_A1` · AUD11 类 3A）**：`var pl = PointerLayer.Instance;` 之后那一层
+                        //   `if (pl != null) { … }` 已经包住整段 ⇒ 这里那层守卫**恒真**（永远进得去），
+                        //   拆掉它、结论改成**无条件**跑。
+                        CheckTrue(pl.ButtonAt(wantCollect.CX, wantCollect.CY) == null,
+                                  "…`Collect` 原来的位置**点不到任何按钮**（真的撤走了 —— 只把它画到下面/被压住会红）");
                         var popBefore = MissionRerollPopup.LastOpened;
                         bool ate = pl.ClickAt(tx, ty);
                         CheckTrue(MissionRerollPopup.LastOpened == popBefore,

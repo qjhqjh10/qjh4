@@ -1366,6 +1366,12 @@ public static partial class RuleEngineTest
         }   // 🆕 B94_F1（账 534/455）：墓地放逐闩 + 誓约出牌费 —— 断言全文在 `RuleEngineTest_EngineB94F1.cs`
         { Guard("CheckB94F1CemeteryExileAndOathPay", CheckB94F1CemeteryExileAndOathPay); Guard("CheckB94Y1TroopKilled", CheckB94Y1TroopKilled); Guard("CheckB94W3DeathTurnPredicate", CheckB94W3DeathTurnPredicate); Guard("B94B3EngineGaps", B94B3EngineGaps); Guard("CheckB94B2EngineGaps", CheckB94B2EngineGaps); Guard("CheckB94B8Engine", CheckB94B8Engine); Guard("CheckB94Z3RuleCoreGaps", CheckB94Z3RuleCoreGaps); Guard("CheckB94B1EngineGaps", CheckB94B1EngineGaps); Guard("CheckB94Z2HandAbilityChannel", CheckB94Z2HandAbilityChannel); Guard("CheckB94B12TransformUnit", CheckB94B12TransformUnit); Guard("CheckB94B13RuleCoreWiring", CheckB94B13RuleCoreWiring); Guard("CheckB94B16Engine", CheckB94B16Engine); Guard("B94B15EngineGaps", B94B15EngineGaps); Guard("CheckB94B14EffectResolverGaps", CheckB94B14EffectResolverGaps); Guard("CheckB94B19TutorialGate", CheckB94B19TutorialGate); Guard("CheckB94B21DormantBroadcasts", CheckB94B21DormantBroadcasts); Guard("CheckB94B20CreateAtPos", CheckB94B20CreateAtPos); Guard("CheckB94B24SeatAndActingCard", CheckB94B24SeatAndActingCard); Guard("CheckB94B23AbilityBuffs", CheckB94B23AbilityBuffs); Guard("CheckB95WRSGaps", CheckB95WRSGaps); Guard("CheckB97W3CemeteryDequeueAndTransformTail", CheckB97W3CemeteryDequeueAndTransformTail); }   // 🆕 2026-10-29（调度台代接线；B95WRS = UnitState 866/636 两处）：Y1 的 `TroopKilled` 计数口径 · W3 的死亡回合谓词 · B3 的引擎小件（372/422）· B2 的 UnitState/CardDef（ActiveAbilitySuppressed 死位接进 + 教程闸状态半边）—— 非 Test/Report 前缀，走块语句 ⇒ 不进 Diag、行数零变化
 
+        // 🆕 2026-10-31（调度台 · AUD11）：`EngineE1Assert`（v24 三列 / 版本守卫 / 按能力种类归位）
+        //   头注释自己写着「请主对话并进宿主」，此前**全仓 0 宿主** ⇒ 一条都没跑过。
+        {
+            EngineE1Assert.Run(); _pass += EngineE1Assert.Pass; _fail += EngineE1Assert.Fail;
+        }
+
         // ---- 汇总 ----
         int total = _pass + _fail;
         if (_fail == 0)
@@ -1552,6 +1558,7 @@ public static partial class RuleEngineTest
         {
             var r1 = EffectText.ParseSegment("(5) Reduce their cost by 5");
             Check(r1.Kind, EffectText.SegKind.Ok, "`(5) Reduce their cost by 5` 认得出");
+            CheckTrue(r1.Ops != null && r1.Ops.Count > 0, "（前提·不静默）`(5) Reduce their cost by 5` 至少切出 1 条 op");
             if (r1.Ops != null && r1.Ops.Count > 0)
             {
                 Check(r1.Ops[0].Verb, "lowercost", "动词 = lowercost");
@@ -1562,6 +1569,7 @@ public static partial class RuleEngineTest
             // 🔴 正确的写法才带得出货币 —— `Reclaim the Stars` 卡面那个绿圈是**灵魂石**
             var r1s = EffectText.ParseSegment("5 [Spirit Stone]: Reduce their cost by 5");
             Check(r1s.Kind, EffectText.SegKind.Ok, "`5 [Spirit Stone]: …` 认得出");
+            CheckTrue(r1s.Ops != null && r1s.Ops.Count > 0, "（前提·不静默）`5 [Spirit Stone]: …` 至少切出 1 条 op");
             if (r1s.Ops != null && r1s.Ops.Count > 0)
             {
                 Check(r1s.Ops[0].Cost, 5, "★ 代价 5");
@@ -1571,6 +1579,7 @@ public static partial class RuleEngineTest
 
             var r2 = EffectText.ParseSegment("(1) Draw a card");
             Check(r2.Kind, EffectText.SegKind.Ok, "`(1) Draw a card` 认得出");
+            CheckTrue(r2.Ops != null && r2.Ops.Count > 0, "（前提·不静默）`(1) Draw a card` 至少切出 1 条 op");
             if (r2.Ops != null && r2.Ops.Count > 0)
             {
                 Check(r2.Ops[0].Verb, "draw", "动词 = draw");
@@ -1579,6 +1588,7 @@ public static partial class RuleEngineTest
 
             var r3 = EffectText.ParseSegment("6 ☀ Give them Flank");
             Check(r3.Kind, EffectText.SegKind.Ok, "`6 ☀ Give them Flank` 认得出（**卡面没有冒号**）");
+            CheckTrue(r3.Ops != null && r3.Ops.Count > 0, "（前提·不静默）`6 ☀ Give them Flank` 至少切出 1 条 op");
             if (r3.Ops != null && r3.Ops.Count > 0)
             {
                 Check(r3.Ops[0].Cost, 6, "代价 6");
@@ -1589,13 +1599,16 @@ public static partial class RuleEngineTest
             var r4 = EffectText.ParseSegment("1 Also give it Shield");
             Check(r4.Kind, EffectText.SegKind.Ok,
                   "`1 Also give it Shield` 认得出（数字后面还跟着语气词 `Also`）");
-            if (r4.Ops != null && r4.Ops.Count > 0) Check(r4.Ops[0].Cost, 1, "代价 1");
+            // 🆕 AUD11-3A：原写法 `if (… != null) Check(…)` ⇒ 前提为假时**静默跳过**（本处**没有**前置前提断言）。
+            //   改成「前提单独一条（假 ⇒ 红）+ 结论无条件跑（拿 `int.MinValue` 兜底 ⇒ 也红）」。
+            CheckTrue(r4.Ops != null && r4.Ops.Count > 0, "（前提）`1 Also give it Shield` 切出了至少一条 op");
+            Check(r4.Ops != null && r4.Ops.Count > 0 ? r4.Ops[0].Cost : int.MinValue, 1, "代价 1");
 
             var r4b = EffectText.ParseSegment("6 [icon] Give them Flank");
             Check(r4b.Kind, EffectText.SegKind.Ok, "`6 [icon] Give them Flank` 认得出（`[icon]` = 图标占位）");
-            if (r4b.Ops != null && r4b.Ops.Count > 0)
-                Check(r4b.Ops[0].CostKind, "faith",
-                      "★ `[icon]` 判成**信仰** —— 实测那 3 处全是修女会卡（太阳图标），见 `CostKindOf`");
+            CheckTrue(r4b.Ops != null && r4b.Ops.Count > 0, "（前提）`6 [icon] Give them Flank` 切出了至少一条 op");
+            Check(r4b.Ops != null && r4b.Ops.Count > 0 ? r4b.Ops[0].CostKind : "<无>", "faith",
+                  "★ `[icon]` 判成**信仰** —— 实测那 3 处全是修女会卡（太阳图标），见 `CostKindOf`");
 
             // ⚠️ **反例**：没有「数字后面必须是动词」那条判据的话，正常句子会被当成付费前缀吃掉。
             var r5 = EffectText.ParseSegment("Draw 5 cards");
@@ -1614,6 +1627,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("4: Give an additional +1 Health");
             Check(r.Kind, EffectText.SegKind.Ok, "`4: Give an additional +1 Health` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`4: Give an additional +1 Health` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "give", "动词 = give");
@@ -1628,8 +1642,8 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Does nothing");
             Check(r.Kind, EffectText.SegKind.Ok, "`Does nothing` 认得出（`Improvised Barricade`）");
-            if (r.Ops != null && r.Ops.Count > 0)
-                Check(r.Ops[0].Verb, "noeffect", "动词 = noeffect");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提）`Does nothing` 切出了至少一条 op");
+            Check(r.Ops != null && r.Ops.Count > 0 ? r.Ops[0].Verb : "<无>", "noeffect", "动词 = noeffect");
         }
 
         // ---- ④ `Lower cost by 1 when <事件>`（事件触发式降费）----
@@ -1638,6 +1652,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Lower cost by 1 when an enemy dies");
             Check(r.Kind, EffectText.SegKind.Ok, "`Lower cost by 1 when an enemy dies` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Lower cost by 1 when an enemy dies` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "costwhen", "动词 = costwhen（标记 op）");
@@ -1876,6 +1891,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Make a damaged friendly unit attack by itself");
             Check(r.Kind, EffectText.SegKind.Ok, "`Make … attack by itself` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Make … attack by itself` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "forceattack", "动词 = forceattack");
@@ -1931,6 +1947,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Target friendly unit attacks the enemy with highest attack");
             Check(r.Kind, EffectText.SegKind.Ok, "`Target … attacks the enemy with highest attack` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Target … attacks the enemy with highest attack` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 CheckTrue(r.Ops[0].Target2 != null && r.Ops[0].Target2.PickMost == "+attack",
@@ -1960,6 +1977,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Each friendly Beast gets +1 [fist] this turn");
             Check(r.Kind, EffectText.SegKind.Ok, "`Each friendly Beast **gets** +1 [fist]` 认得出（`gets` 也是「获得」）");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Each friendly Beast gets +1 [fist] this turn` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "gain", "动词 = gain");
@@ -2019,6 +2037,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Attacks a random enemy with lowest Health");
             Check(r.Kind, EffectText.SegKind.Ok, "`Attacks a random enemy with lowest Health` 认得出（裸形态）");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Attacks a random enemy with lowest Health` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "forceattack", "动词 = forceattack");
@@ -2068,10 +2087,11 @@ public static partial class RuleEngineTest
             const string byItself = "Make a friendly unit attack by itself";
             var r0 = EffectText.ParseSegment(byItself);
             Check(r0.Kind, EffectText.SegKind.Ok, "`Make a friendly unit attack by itself` 认得出");
-            if (r0.Ops != null && r0.Ops.Count > 0)
-                CheckTrue(r0.Ops[0].Target != null && r0.Ops[0].Target2 == null,
-                          "★ 前提：这个形态**被打那栏是空的**（`Target2 == null`）—— "
-                          + "变了的话下面测的就不是「没写打谁」这条路了");
+            CheckTrue(r0.Ops != null && r0.Ops.Count > 0,
+                      "（前提）`Make a friendly unit attack by itself` 切出了至少一条 op");
+            CheckTrue(r0.Ops != null && r0.Ops.Count > 0 && r0.Ops[0].Target != null && r0.Ops[0].Target2 == null,
+                      "★ 前提：这个形态**被打那栏是空的**（`Target2 == null`）—— "
+                      + "变了的话下面测的就不是「没写打谁」这条路了");
 
             // 🔴 合成夹具**显式声明**自己的族：`Make a friendly unit attack by itself` 与 `BL64` / `DA25`
             //    同一个文本形状 ⇒ **231 那一族**，原版退还。
@@ -2182,6 +2202,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Oath 4: Also destroy all damaged enemy troops");
             Check(r.Kind, EffectText.SegKind.Ok, "`Oath 4: Also …` 认得出（付费前缀之后要再剥一次语气词）");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Oath 4: Also destroy all damaged enemy troops` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "destroy", "动词 = destroy");
@@ -2218,6 +2239,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("This costs 1 less if you control a unit with Stealth");
             Check(r.Kind, EffectText.SegKind.Ok, "`This costs N less if you control a unit with X` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`This costs N less if you control a unit with X` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "costifcontrol", "动词 = costifcontrol（标记 op）");
@@ -2260,6 +2282,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Each of your units deals damage equal to its Shuriken to a random enemy");
             Check(r.Kind, EffectText.SegKind.Ok, "`Each of your units deals damage equal to its …` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Each of your units deals damage equal to its …` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "eachunitdeal", "动词 = eachunitdeal");
@@ -2305,6 +2328,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Each friendly unit that is Praying heals 3");
             Check(r.Kind, EffectText.SegKind.Ok, "`Each friendly unit that is Praying heals 3` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Each friendly unit that is Praying heals 3` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "heal", "动词 = heal（归一成 `heal 3 to all friendly units that are praying`）");
@@ -2389,6 +2413,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("6 [Energy]: Extend effect until your next turn");
             Check(r.Kind, EffectText.SegKind.Ok, "`6 [Energy]: Extend effect until your next turn` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`6 [Energy]: Extend effect until your next turn` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "paidmod", "动词 = paidmod");
@@ -2434,6 +2459,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Each player deploys 3 troops from their deck");
             Check(r.Kind, EffectText.SegKind.Ok, "`Each player deploys N … from their deck` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Each player deploys 3 troops from their deck` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "deploy", "动词 = deploy");
@@ -2934,10 +2960,12 @@ public static partial class RuleEngineTest
                       + "（列的缺陷 · PnP 卡图银盾印 1 ⇒ 兜底那一支**不能删**）");
             // 兜底那一支的**值锁**（判别式：删掉兜底 / 列被改成别的数，这两件事不可能同时让下面这条绿）
             var da83 = CardDatabase.FindById(pool, "DA66");
-            if (da83 != null)
-                Check(da83.KwValue("armour"), 1,
-                      "★ `DA66` 的有效护甲 = 1（列写 0 · 旧口径给 1 · PnP 卡图银盾印 1）"
-                    + " ⚠️ **它测的是【有效值】** —— 列那一半的回退它测不出，见下面那两格");
+            // 🆕 AUD11-3A：`if (da83 != null)` ⇒ 前提单独一条 + 结论无条件跑（本处**没有**前置前提断言；
+            //   原来「找不到 DA66」时下面两格一起静默跳过）。
+            CheckTrue(da83 != null, "（前提）卡池里找得到 `DA66`（`Ballistus Dreadnought`）");
+            Check(da83 != null ? da83.KwValue("armour") : int.MinValue, 1,
+                  "★ `DA66` 的有效护甲 = 1（列写 0 · 旧口径给 1 · PnP 卡图银盾印 1）"
+                + " ⚠️ **它测的是【有效值】** —— 列那一半的回退它测不出，见下面那两格");
 
             // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·1）：**列的锁** —— 上面那条测的是
             //   **有效值**（`KwValue`），而有效值那一支是「列 > 0 ⇒ 用列，否则旧口径兜底」
@@ -2949,10 +2977,9 @@ public static partial class RuleEngineTest
             //   ⇒ **本格红**，而上面那条有效值断言**照旧绿** —— 这正是要补它的理由。
             //   判据 = PnP 成品卡图 `d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_09_Ballistus-Dreadnought.png`
             //   右下银盾印 1、关键词行印 `Armour 1.`（2026-10-15 亲读）。
-            if (da83 != null)
-                Check(da83.ArmourFromPool, 1,
-                      "★ `DA66` 的 `armour` **列** = 1（PnP 卡图银盾印 1 —— 列是生成器那一侧的产物，"
-                    + "⛔ 不许靠旧口径兜底把它蒙过去）");
+            Check(da83 != null ? da83.ArmourFromPool : int.MinValue, 1,
+                  "★ `DA66` 的 `armour` **列** = 1（PnP 卡图银盾印 1 —— 列是生成器那一侧的产物，"
+                + "⛔ 不许靠旧口径兜底把它蒙过去）");
 
             // 🔴 🆕 2026-10-15（源 = `AD_descZh两代.md` §四·2）：**全池 `armour` 列 > 0 的张数**。
             //   判别式：① 列的读点被改窄（`armour > 0` 那半句被删 / 换成别的字段）⇒ 这个数掉下去；
@@ -13781,6 +13808,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Double the Melee Attack and Health of a friendly troop");
             Check(r.Kind, EffectText.SegKind.Ok, "`Double the Melee Attack and Health of …` 认得出");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Double the Melee Attack and Health of …` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "double", "动词 = double");
@@ -14146,11 +14174,19 @@ public static partial class RuleEngineTest
             Check(ops.Count, 1, "★ 反例：`and its adjacent units` **不切**（不是动词开头）");
             // 该修好的那句（`Battle Sister`）：`heal 1` 原来被吞进载荷、**静默不发生**
             var ops2 = EffectText.Parse("Pray: Gain +1 Attack and +1 Ranged Attack and heal 1", out _, out _);
-            // 🔴 **2026-10-14（第二十八会话收口）就地改期望值 2 → 3（铁律 5）**：`A1873`（`W15`）
-            //   给 `Talent:` 一族补了 `createCardInHand` 那条 op ⇒ 这张卡的 op 从 2 条变 3 条。
+            // 🔴 **2026-10-14（第二十八会话收口）就地改期望值 2 → 3（铁律 5）**：这一轮补了 `Pray:`
+            //   的标记 op（`triggerability pray`，账 `A1874`）⇒ 这张卡的 op 从 2 条变 3 条。
+            // ⚠️ **2026-10-31（`B105_F3`）就地订正（铁律 5）**：原文写「第 3 条 = `A1873` 补的
+            //   `Talent:`（`createCardInHand`）那份」—— **归因错了**：这句里根本没有 `Talent:`；
+            //   `ruleprobe seg` 现读三条 = `gain`（载荷 `+1 attack and +1 ranged attack`）/ `heal` /
+            //   `triggerability`（载荷 `pray`）。
+            // 🔴 同一次订正还修掉一个**恒假守卫**：原来是 `if (ops2.Count == 2)`，而期望早已是 3
+            //   ⇒ 这条「第 2 条 = heal」**自 2026-10-14 起一次没执行过**。
+            //   现在：前提单独一条（假 ⇒ 红，⛔ 不静默）+ 守卫照留（`ops2[1]` 要下标安全）。
             Check(ops2.Count, 3, "★ `Battle Sister` 切成 **3** 条 —— 原来 `heal 1` 被塞进载荷里；"
-                               + "第 3 条 = `A1873` 补的 `Talent:`（`createCardInHand`）那份");
-            if (ops2.Count == 2) Check(ops2[1].Verb, "heal", "第 2 条 = heal");
+                               + "第 3 条 = `Pray:` 的 `triggerability`（账 `A1874`）");
+            CheckTrue(ops2.Count >= 2, "（前提·不静默）`Battle Sister` 至少切出 2 条 op（上面那条已断 3）");
+            if (ops2.Count >= 2) Check(ops2[1].Verb, "heal", "第 2 条 = heal");
         }
 
         // ============================================================
@@ -14285,9 +14321,9 @@ public static partial class RuleEngineTest
                 CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCodex"), 3),
                           RuleCodes.OK, "打出夹具单位（能量有富余）");
                 var u = Board(ctx, 0, 3);
-                if (u != null)
-                    Check(u.Attack, 2, "★ 反例：能量不为 0 ⇒ Codex **不**自动触发（攻仍为 2）"
-                          + LogTail(ctx));
+                CheckTrue(u != null, "（前提）夹具单位在场上（反例那一局）");
+                Check(u != null ? u.Attack : int.MinValue, 2,
+                      "★ 反例：能量不为 0 ⇒ Codex **不**自动触发（攻仍为 2）" + LogTail(ctx));
             }
 
             // ---- ④ 🔴 **2026-10-14（账 `A1155①`）：本条【翻面】** ——
@@ -14419,10 +14455,10 @@ public static partial class RuleEngineTest
                 // 主语省略的 `Takes 1 damage`（`Concealed Explosives`）现在也收得到 ——
                 // 口径与 `Heal N` 没写目标 = 自愈 一致（`EffectTargetSpec.Subjectless`）
                 var ce = CreatePool.FindByName(pool, "Concealed Explosives");
-                if (ce != null)
-                    CheckTrue(EffectText.IsFullyParsed(ce.Desc),
-                              "★ `Concealed Explosives` 整条 desc **完全解析**"
-                              + "（主语省略的 `Takes 1 damage` 原来判不认识 ⇒ 那句**永远不生效**）");
+                CheckTrue(ce != null, "（前提）卡池里找得到 `Concealed Explosives`");
+                CheckTrue(ce != null && EffectText.IsFullyParsed(ce.Desc),
+                          "★ `Concealed Explosives` 整条 desc **完全解析**"
+                          + "（主语省略的 `Takes 1 damage` 原来判不认识 ⇒ 那句**永远不生效**）");
             }
         }
 
@@ -14835,6 +14871,7 @@ public static partial class RuleEngineTest
                 }
 
                 var grot2 = CreatePool.FindByName(poolX, "Grot Orderly");
+                CheckTrue(grot2 != null, "（前提·不静默）卡池里有 `Grot Orderly`");
                 if (grot2 != null)
                 {
                     string bt = grot2.TriggerText(KeywordTable.Rally) ?? "";
@@ -14844,6 +14881,7 @@ public static partial class RuleEngineTest
                 }
 
                 var cc = CreatePool.FindByName(poolX, "Chapter Champion");
+                CheckTrue(cc != null, "（前提·不静默）卡池里有 `Chapter Champion`");
                 if (cc != null)
                 {
                     string ct = cc.TriggerText(KeywordTable.Codex) ?? "";
@@ -14853,6 +14891,7 @@ public static partial class RuleEngineTest
                 }
 
                 var br = CreatePool.FindByName(poolX, "Blackmane Reiver");
+                CheckTrue(br != null, "（前提·不静默）卡池里有 `Blackmane Reiver`");
                 if (br != null)
                 {
                     var r4 = br.TriggerOps(KeywordTable.Ferocity);
@@ -14943,6 +14982,7 @@ public static partial class RuleEngineTest
         {
             var r = EffectText.ParseSegment("Strike: Heals 4");
             Check(r.Kind, EffectText.SegKind.Ok, "★ `Strike: Heals 4` 认了（原来判半懂）");
+            CheckTrue(r.Ops != null && r.Ops.Count > 0, "（前提·不静默）`Strike: Heals 4` 至少切出 1 条 op");
             if (r.Ops != null && r.Ops.Count > 0)
             {
                 Check(r.Ops[0].Verb, "heal", "动词 = heal");
@@ -18301,6 +18341,7 @@ public static partial class RuleEngineTest
                     continue;
                 }
                 Check(c.SpiritCost, kv.Value, "★「" + kv.Key + "」的灵魂石代价 = " + kv.Value);
+                CheckTrue(c.SpiritOps.Count > 0, "（前提·不静默）「" + kv.Key + "」收得到 spiritOps");
                 if (c.SpiritOps.Count > 0)
                     Check(EffectText.CostKindOf(c.SpiritOps[0].CostKind), "spirit",
                           "★「" + kv.Key + "」的货币判成 **spirit**（不是能量 —— 判错会静默多扣能量）");
@@ -18311,6 +18352,8 @@ public static partial class RuleEngineTest
             // 反例：`Path of the Seer` 的 `… Draw a card. Gain 1 Spirit Stone` 是**获得**、
             //   不是费用前缀；它被当成费用的话这张卡会**反过来扣掉**一颗石（静默）。
             CardDef seer;
+            CheckTrue(byName.ContainsKey("Path of the Seer"),
+                      "（前提·不静默）卡池里有 `Path of the Seer`（反例那一格）");
             if (byName.TryGetValue("Path of the Seer", out seer))
                 Check(seer.SpiritCost, 0,
                       "★ 反例：`Path of the Seer` 的 `Gain 1 Spirit Stone` 是**获得**、SpiritCost 必须是 0");
@@ -20560,8 +20603,9 @@ public static partial class RuleEngineTest
             var bl = CardDatabase.Find(pool, "Bright Lance Vyper");
             CheckTrue(bl != null && bl.WhenTriggers.Count == 1,
                       "★ 真卡 `Bright Lance Vyper`：监听器注册上了（`you trigger a Spirit Stone ability`）");
-            if (bl != null && bl.WhenTriggers.Count == 1 && bl.WhenTriggers[0].Ops.Count > 0)
-                CheckTrue(bl.WhenTriggers[0].Ops[0].Payload.ToLowerInvariant().Contains("sniper"),
+            // 🆕 AUD11-3A：前置前提只覆盖了 `bl != null && Count == 1`，**`Ops.Count > 0` 那半没有** ⇒ 整条拆开。
+            CheckTrue(bl != null && bl.WhenTriggers.Count == 1 && bl.WhenTriggers[0].Ops.Count > 0
+                      && bl.WhenTriggers[0].Ops[0].Payload.ToLowerInvariant().Contains("sniper"),
                           "★ 正文是**卡图核出来的那份**（`gain Sniper and +1 Ranged Attack`）—— "
                           + "卡表里原来写 `gain +1 Attack`，那是 OCR 把**图标**猜成了单词，"
                           + "见 `数据/游戏数据/cardface_fixes.json` 的 `_manual_desc_note`");
@@ -21831,6 +21875,7 @@ public static partial class RuleEngineTest
         // ===== P1c：单位侧**不重复发** =====
         {
             var crusader = PoolCard(poolAll, "Crusader");
+            CheckTrue(crusader != null, "（前提·不静默）池里有 `Crusader`（P1c 单位侧那一拍）");
             if (crusader != null)
             {
                 var ctx = Battle(new[] { crusader }, new CardDef[0]);
@@ -22266,6 +22311,7 @@ public static partial class RuleEngineTest
         //    不去掉会把「天赋名」当成「正文点名」
         CardDef rg = null;
         foreach (var c in pool) if (c.Name == "Roboute Guilliman") { rg = c; break; }
+        CheckTrue(rg != null, "（前提·不静默）卡池里有 `Roboute Guilliman`（规则② 那一条）");
         if (rg != null)
         {
             string why;
@@ -22933,6 +22979,7 @@ public static partial class RuleEngineTest
         // ⑥ **反例**：一张全篇没提契约的卡 ⇒ 一张契约都不许列进来（判据别放得太宽）
         CardDef rg = null;
         foreach (var c in pool) if (c.Name == "Roboute Guilliman") rg = c;
+        CheckTrue(rg != null, "（前提·不静默）卡池里有 `Roboute Guilliman`（⑥ 反例那一格）");
         if (rg != null)
         {
             var rel = CardPresentation.RelatedCards.Find(rg, 8);
@@ -23462,6 +23509,7 @@ public static partial class RuleEngineTest
         CheckTrue(RelatedCardData.Get("BL4") == null,
                   "★ `BL4 Chaos Sergeant` 原版**没写** `relatedCard1..4`（表里没有这个键）⇒ 才轮到替身");
         var cs = CardDatabase.FindById(pool, "BL4");
+        CheckTrue(cs != null, "（前提·不静默）卡池里有 `BL4 Chaos Sergeant`（④ 替身那一支）");
         if (cs != null)
         {
             int nDark = 0;
@@ -31747,6 +31795,7 @@ public static partial class RuleEngineTest
             var nb = FindCard(pool, "Beast Snagga Nob");
             var beast = new CardDef("G3Beast", "G3Beast", "unit", "", null, "Test",
                                     2, 2, 3, 0, null, subtype: "Beast");
+            CheckTrue(nb != null, "①-b （前提·不静默）卡池里找得到 `Beast Snagga Nob`（`GOF82`）");
             if (nb != null)
             {
                 var ctx = Battle(new[] { nb, beast }, new[] { Unit("G3Foe", 1, 1, 9) });
@@ -34896,9 +34945,14 @@ public static partial class RuleEngineTest
                   "★ A1428【闸门③（改判）】`instead` 那条的动词（`heal`）与前一条（`give`）不同 ⇒ "
                 + "**照样承接**（原版 `previousAbilityTargets` 不看动词）"
                 + "｜🧨 把 `b.Verb != op.Verb` 那道旧闸加回 `EffectOp.FindInsteadBaseIndex` ⇒ 本行实得 `Subjectless`（红）");
-        if (ops3 != null && ops3.Count == 2 && ops3[0].Target != null && ops3[1].Target != null)
-            Check(ops3[1].Target.Raw, ops3[0].Target.Raw,
-                  "★ A1428【闸门③（改判）】……承接过来的是**前一条那一份规格**（原文逐字相同）");
+        // 🆕 AUD11-3A：前置前提覆盖了 `ops3 != null / Count == 2 / ops3[1].Target != null`，
+        //   **`ops3[0].Target != null` 那半没有** ⇒ 补一条前提 + 结论无条件跑
+        //   （两个兜底串**故意不同** ⇒ 前提假时不会两边一起相等而假绿）。
+        CheckTrue(ops3 != null && ops3.Count == 2 && ops3[0].Target != null,
+                  "（前提）`instead` 那两条 op 的**前一条**也有目标");
+        Check(ops3 != null && ops3.Count > 1 && ops3[1].Target != null ? ops3[1].Target.Raw : "<第二条无目标>",
+              ops3 != null && ops3.Count > 0 && ops3[0].Target != null ? ops3[0].Target.Raw : "<第一条无目标>",
+              "★ A1428【闸门③（改判）】……承接过来的是**前一条那一份规格**（原文逐字相同）");
 
         // ---- ④ 行为面：上一句目标**更窄** ⇒ 只打中一个；承接不到 ⇒ 退回「己方全体」 ----
         //   ⚠️ 只用 `Give +1 [Attack] to your units…` 那种**没窄**的夹具断不出东西 ——

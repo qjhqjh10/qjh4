@@ -409,7 +409,7 @@ namespace CardPresentation
             if (c == null) return DeckError.UnknownCard;
 
             // 督军和防御卡走各自的位子，不占普通卡位，也各只能有一个。
-            // ⚠️ 「换」有两个入口：① **这里**（`TryAdd` 直接替换槽位）② `SetWarlord`（先清不合阵营的卡再换，自检在用）。
+            // ⚠️ 「换」有两处写入点：① `TryAdd`（**玩家路径**：直接替换槽位，清卡那一半**不在这里**）② `SetWarlord`（写槽 + 清不合阵营的卡；原版编辑期**不调**它，见下面第二条注释）。
             // 🔴 **2026-10-25（R3）改口径：槽里已经有人 ≠ 一律挡。** 原来这两支见到 `!= null` 就回
             //    `WarlordAlreadySet` / `DefensiveAlreadySet`；**原版不是那样** ——
             //    `CardDeck.CanAddHero` / `CanAddDefensive`（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CardDeck.cs:960-1136`，
@@ -418,8 +418,8 @@ namespace CardPresentation
             //      ② 槽里是**别的**同型卡 ⇒ **只比阵营**：`rawScript.cardArmy != card.cardArmy` ⇒ `MenuDeck/Error/InvalidArmy`；
             //      ③ 其余 ⇒ **放行**（`TryAddCard` 随后整张替换：`deckHero = card; deckArmy = card.cardArmy` /
             //         `deck[+0x48] = card`）。
-            //    ⇒ 玩家在池里点**同阵营**的另一位战将 / 另一张防御卡 = **换**，不是被挡；
-            //      只允许同阵营换 ⇒ 原有卡仍然合法，**换完不需要清卡**（原版 `TryAddCard` 里也没有清）。
+            //    ⇒ 玩家在池里点**同阵营**的另一位战将 / 另一张防御卡 = **换**，不是被挡；同阵营换 ⇒ 原有卡仍合法、一张都不用清（原版 `TryAddCard` 里也没有清）。
+            //      但**槽里没人**时 `CanAddHero` 直接放行（不比阵营）⇒ 旧卡可能不合新督军。**原版编辑期就是不清**（清卡那一句 `CardDeck.RemoveNoValidArmyCards` 本 build 全库 0 调用点）：旧卡留着、`Validate` 报 `WrongFaction` 熄 Done，**下次开窗** `TryOpen` → `DeckUtility.RemoveInvalidCards` 才清（= 我们 `LoadDeck`）。
             //    🆕 **2026-10-26（B9 · 卡组:8）已按原版对齐**：「槽里就是这一张」改回 `CopyLimitExceeded`
             //      （= 原版 `MenuDeck/Error/MaxCopiesReached` 那一档；`*AlreadySet` 两档从此不由本函数产生）。
             if (c.Type == "hero")
@@ -444,12 +444,12 @@ namespace CardPresentation
             //    所以这里不必再自己挡一遍（上面那两行早返回的仍在，是**槽位**口径不是准入口径）。
             if (DeckRules.CannotAddToDeck(c)) return DeckError.EffectOnlyCard;
 
-            // 阵营：以督军为准；还没选督军时先按卡自己的阵营（选督军时会清掉不合的）
-            if (!string.IsNullOrEmpty(Deck.WarlordId))
-            {
-                var w = Find(Deck.WarlordId);
-                if (w != null && !DeckRules.SameFaction(w.Faction, c.Faction)) return DeckError.WrongFaction;
-            }
+            // 阵营：原版 `CardDeck.CanAddCard` 比的是 **`deckArmy`**（督军 > 卡表第 0 张 > Neutral），**不是督军的阵营**
+            // 判据 = `CardDeck__CanAddCard.c:86-93`（`deck+0x50` vs `card+0x2c`；`IsNeutralArmy` 跳过、`CardCount(countHero:1) > 0` 才挡）· ILSpy 同形 `CardDeck.cs:812-819`
+            // 返回码 = 原版这一支的**具名键** `MenuDeck/Error/InvalidArmy`（`DAT_1842cf3f0`），不是 catch-all `InvalidDeck`
+            // `deckArmy` 的写点 + 为什么在这里派生而不是给 `PlayerDeck` 加字段 → `RuleEngine/Core/DeckRules.cs` 类尾 `DeckArmy` 的 doc
+            if (!DeckRules.IsNeutralFaction(c.Faction) && !DeckRules.SameFaction(DeckArmyFaction(), c.Faction)
+                && DeckCardCount(true) > 0) return DeckError.InvalidArmy;
 
             if (Deck.CountOf(c.Id) >= DeckRules.CopyLimit(c.Rarity)) return DeckError.CopyLimitExceeded;
             if (LegendaryTotalReached(c)) return DeckError.LegendaryTotalExceeded;   // 原版 `:100-147`（2026-10-25：不再借 CopyLimitExceeded）
@@ -476,7 +476,7 @@ namespace CardPresentation
             why = e == DeckError.None ? "" : DeckRuntime.DeckErrorText(e);
             if (e != DeckError.None) return false;
 
-            if (c.Type == "hero") Deck.WarlordId = c.Id;          // 换督军 = 直接替换（`CanAdd` 已保证只允许**同阵营**换 ⇒ 不需要清卡）
+            if (c.Type == "hero") Deck.WarlordId = c.Id;          // 换督军 = 直接替换槽位（原版 `AddHero` 只写 deckHero/deckArmy）；⚠️ **编辑期不清卡**：旧卡留着 ⇒ `Validate` 报 `WrongFaction` 熄 Done，**下次开窗**才由 `LoadDeck` 按 `RemoveInvalidCards` 清
             else if (c.Type == "defence") Deck.DefensiveId = c.Id;
             else Deck.CardIds.Add(c.Id);
             return true;
@@ -484,11 +484,11 @@ namespace CardPresentation
 
         public bool TryAdd(string id, out string why) { return TryAdd(Find(id), out why); }
 
-        /// <summary>
-        /// 选督军。**会把不合阵营的卡清掉** —— 规则书 :53「所有卡必须与督军同阵营」，
-        /// 留着它们的话卡组一直是非法的，不如直接清并让 UI 报一声。
-        /// 返回被清掉的张数。
-        /// </summary>
+        /// <summary>选督军，并**逐张摘掉不合阵营的卡**。清卡那一半**逐句照原版 `CardDeck.RemoveNoValidArmyCards`**
+        /// （`CardDeck.cs:1497-1541`：`deckHero` 非空才动手 · 从尾到头扫 `cardLibrary` · `cardArmy != deckHero.cardArmy` 就 `RemoveAt` + `LogWarning` · `IsNeutralArmy` 跳过）。
+        /// ⚠️ 原版那一侧**只清 `cardLibrary`**、⛔ 不碰防御卡位（`ValidateDeckCards` 也不校验防御卡阵营）—— 末一句清防御卡是**我方旧有行为**（`DeckScene:2226` 钉着）。
+        /// 🔴 本方法**只有自检调用**：原版 `RemoveNoValidArmyCards` 在本 build **全库 0 调用点**（三源 grep），编辑期清卡只在 `DeckEditingWindow.TryOpen` 跑一次 `DeckUtility.RemoveInvalidCards`（= 我们 `LoadDeck`）。
+        /// ⇒ ⛔ **别把「换将就清卡」接到 `TryAdd` / 玩家路径上** —— 那是原版没有的行为（2026-10-31 调度台按铁律 18·0 裁定）。返回摘掉的张数。</summary>
         public int SetWarlord(string warlordId)
         {
             var w = Find(warlordId);
@@ -499,7 +499,7 @@ namespace CardPresentation
             for (int i = Deck.CardIds.Count - 1; i >= 0; i--)
             {
                 var c = Find(Deck.CardIds[i]);
-                if (c == null || !DeckRules.SameFaction(c.Faction, w.Faction)) { Deck.CardIds.RemoveAt(i); removed++; }
+                if (c == null || !DeckRules.SameFaction(c.Faction, w.Faction)) { string gone = Deck.CardIds[i]; Deck.CardIds.RemoveAt(i); removed++; UnityEngine.Debug.LogWarning("[DeckEditorState] 换督军清掉一张不合阵营的卡：`" + gone + "`（判据 = 原版 `CardDeck.RemoveNoValidArmyCards`）"); }
             }
             var d = Find(Deck.DefensiveId);
             if (d != null && !DeckRules.SameFaction(d.Faction, w.Faction)) { Deck.DefensiveId = null; removed++; }
@@ -1559,6 +1559,17 @@ namespace CardPresentation
                 return true;
             }
             return false;
+        }
+
+        /// <summary>这副卡组的 **`deckArmy`**（原版 `CardDeck.deckArmy`，字段 `deck+0x50`）——
+        /// <see cref="CanAdd"/> 阵营那一闸比的就是它；<c>null</c> = 原版的 `CardArmy.Neutral`。
+        /// <para>判据 / 全部写点 / 为什么是「派生」而不是存字段 / **唯一不等价的那一格**（导入一副没有督军的卡组串）
+        /// → `RuleEngine/Core/DeckRules.cs` 类尾 `DeckArmy` 的 doc（只此一处，⛔ 别在这里再写第二份算式）。</para>
+        /// <para>另外两个消费方**还没接过来**（它们今天只看督军，本笔白名单外）：
+        /// `DeckRuntime.DeckArmyName`（页头徽记 · 四格通配符）与 `DeckRuntime.ArmyFaction` —— 已作为待办交回调度台。</para></summary>
+        public string DeckArmyFaction()
+        {
+            return DeckRules.DeckArmy(Deck, Find);
         }
     }
 }

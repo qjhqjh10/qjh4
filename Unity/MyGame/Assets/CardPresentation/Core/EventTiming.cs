@@ -203,23 +203,23 @@ namespace CardPresentation
         ///   （我们只从场上发 `Return` 且有格号）⇒ ⛔ 不凭「回牌库就该 0.65」去改。</item>
         /// </list>
         ///
-        /// <para>⚠️ **`Slot &lt; 0`（不在棋盘上）两档**（`J1` §4 已闭合）：
+        /// <para>⚠️ **`Slot &lt; 0`（不在棋盘上）三档**（`J1` §4 已闭合；第三档 = 🆕 2026-10-31 `B105_W2`）：
         /// · **墓地 → 手牌 / 牌库顶 / 牌库**（`EffectResolver` 的 `ResolveCopyUnitInCemetery` 那一族）：
         ///   原版 `CardScript.CreateCardInGame(card, …, VarsGlobal.timeToDrawPlayerCard = 0.3)` 并 `yield`
         ///   （`BattleManager._ResolveCopyUnitInCemetery_d__541:125` + `CardScript._CreateCardInGame_d__250:78-84`），
         ///   **整条协程只有这一个等待** ⇒ **0.3 s**（= `CardFeel.DealDuration`，同一格字段）。
-        /// · **`ephemeral`（临时卡移出游戏）**：**判据为空**（全量反编译里战斗侧只有 `BattleCardUI.ShowEphemeral`
-        ///   —— 在卡位置 `Instantiate` 一颗粒子、**不等待、不协程**；没有「回合末移出」的原版实现可对）
-        ///   ⇒ **保持 0**（铁律 11 例外①）。判别式 = `BattleEvent.Effect == "ephemeral"`（`RuleCore` 那条发出点填的）。</para>
+        /// · **`disappearFromHand(56)`（`chosenAbility 162`）**：`_ResolveDisappearFromHand_d__545__MoveNext.c:134`
+        ///   `DestroyCard(card, 0.3f, 1, 0)` ⇒ `_DestroyCard_d__269__MoveNext.c` 状态 1 只有一次 `WaitForSeconds(0.3)` ⇒ **0.3 s**（= `CardFeel.HandDissolveBlockSeconds`；⛔ 不是「回手 0.75」）。
+        /// · **`ephemeral`（临时卡移出游戏）**：**判据为空** ⇒ **保持 0**（铁律 11 例外①）。判别式 = `Effect == "ephemeral"`。</para>
         /// <para>⛔ 判据只此一处：`BattleDriver.PlayReturnFeel` 播的那条表现补间（0.9167 s）**不是**这个数 ——
         /// 原版队列只等上面那几段，clip 剩下的时间与下一批动作**重叠**。</para></summary>
         public static float ReturnHoldOf(BattleEvent e)
         {
             if (e == null) return 0f;
 
-            // ---- 不在棋盘上：墓地取回 0.3 / ephemeral 0 ----
+            // ---- 不在棋盘上：disappearFromHand 溶解 0.3 / 墓地取回 0.3 / ephemeral 0（判据见上面 `<para>` 三档）----
             if (e.Slot < 0)
-                return e.Effect == "ephemeral" ? 0f : ReturnGraveHold;
+                return e.Effect == "disappearFromHand" ? CardFeel.HandDissolveBlockSeconds : e.Effect == "ephemeral" ? 0f : ReturnGraveHold;   // 🆕 2026-10-31（B105_W2）162 的溶解：判据 = `_ResolveDisappearFromHand_d__545__MoveNext.c:134` 的 `DestroyCard(card, 0.3f, 1, 0)`
 
             float s = ReturnCardAnimHold;
             int dest = ReturnDestOf != null ? ReturnDestOf(e) : -1;
@@ -753,7 +753,7 @@ namespace CardPresentation
             // 🆕 **2026-10-23（R19）抽卡按【座位】分档** —— 原版 `VarsGlobal.TimeToDrawCard(bool isPlayer)`
             //    是一对（0.3 / 0.15）。`e.Player` 就是抽牌那一方 ⇒ 这里能分。
             //    ⛔ 别退回 `DurationOf(e.Kind)`（它只会给我方档 0.3，敌方每抽一张多排 0.15 s）。
-            if (e.Kind == EvtKind.Draw) return DrawDealOf(e.Player);
+            if (e.Kind == EvtKind.Draw) return e.Effect == "display" ? CardFeel.DisplayFromHandBlockSeconds : DrawDealOf(e.Player);   // 🆕 2026-10-31（B105_W2）0-3：`displayFromHand(57)` 走的也是 `EvtKind.Draw` 的载体（`Effect == "display"`）—— 原版 `_ResolveDisplayFromHand_d__548__MoveNext.c:199/238` 真阻塞 2.5 + 0.2 = 2.7 s（判据 → `CardFeel.DisplayFromHandBlockSeconds`）；⛔ 别让它落进抽牌的 0.3/0.15 档
             return DurationOf(e.Kind);
         }
 

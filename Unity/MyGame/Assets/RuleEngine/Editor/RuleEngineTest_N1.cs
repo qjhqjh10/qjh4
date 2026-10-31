@@ -173,6 +173,10 @@ public static partial class RuleEngineTest
         int nWin = 0;
         foreach (var e in ctx.Signals) if (e.Kind == EvtKind.ShowCardsWindow) { nWin++; win = e; }
         Check(nWin, 1, "★ 混场也只发**一条** `ShowCardsWindow`｜🧨 每个目标短语各发一条 ⇒ 本行红");
+        // 🆕 2026-10-31（`B105_F3` · AUD11 3A-b）：`win` 那半已被上一条计数断言覆盖，
+        //   **`win.CardNames != null` 那半没有** ⇒ 前提单独一条（假 ⇒ 红，⛔ 不静默），守卫照留。
+        CheckTrue(win != null && win.CardNames != null,
+                  "（前提·不静默）`ShowCardsWindow` 事件在，且带 `CardNames`");
         if (win != null && win.CardNames != null)
         {
             Check(win.CardNames.Count, 3, "★ 摊开 3 张（= 刚从墓地回去的那批）｜🧨 把活人也算进去 ⇒ 本行实得 5");

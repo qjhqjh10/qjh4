@@ -482,4 +482,9 @@ public static class EngineE1Assert
         for (int i = 0; i < _failures.Count; i++)
             Debug.LogError($"E1 失败[{i + 1}] {_failures[i]}");
     }
+
+    // 🆕 2026-10-31（调度台 · AUD11 接线）：宿主 `RuleEngineTest` 并进合计用。
+    //   本类此前**全仓 0 宿主**（AUD11 类 2），头注释写着「请主对话并进宿主」却一直没并。
+    public static int Pass { get { return _pass; } }
+    public static int Fail { get { return _fail; } }
 }

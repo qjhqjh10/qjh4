@@ -421,6 +421,12 @@ public static class AnimFXCheck
         // ---- ④ 屏震那条链真的通：播一个有自动档屏震的效果，钩子应当被调到 ----
         var shakeEff = entries.FirstOrDefault(e => e != null && e.modules != null
                         && e.modules.Any(d => d != null && d.kind == "AnimFXModuleScreenShake"));
+        // 🔴 **B105_F6（AUD11 类 3A-brace）**：块级 guard 入口补前提 —— 效果库里一个屏震模块都没有时，
+        //   下面「钩子被调到」那一条**不跑、也不红**（真静默：少了它谁也不知道屏震链断了）。
+        //   ⛔ 守卫保留（下面要读 `shakeEff.name`）。
+        Check(shakeEff != null,
+              "（前提·不静默）效果库里至少有一个带 `AnimFXModuleScreenShake` 模块的效果 —— "
+            + "否则下面「屏震钩子被调到」那一条整段不跑（⛔ 别当成通过）");
         if (shakeEff != null)
         {
             var prev = WFModuleScreenShake.OnShake;

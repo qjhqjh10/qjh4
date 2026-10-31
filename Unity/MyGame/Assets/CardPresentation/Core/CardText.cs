@@ -130,7 +130,7 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(canonicalKey)) return null;
             string t = TraitTerm(canonicalKey);
-            if (Loc.HasEntry(t)) return Term(t);            // 中文档 ⇒ 中文列；英文档 ⇒ 英文列
+            if (Loc.HasAnyTerm(t)) return Term(t);          // 三档一起算（2026-10-31 B105_R6：Card_Trait/* 有 31 条不在手写 Table ⇒ 旧 HasEntry 返 null，卡面印裸名）
             Loc.T(t);
             return null;
         }

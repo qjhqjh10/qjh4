@@ -82,10 +82,13 @@ public static class B93D3Assert
         var btnRoot = NewNode("B93D3 Challenge Button");
         btnRoot.SetActive(true);
         var wmBefore = WindowsManager.Get();
+        // 🔴 2026-10-31（调度台 · B105_D1）：只判「点完没有 PopUpGameWindow」会被**前一段留下的弹窗**污染
+        //   （B94Z4 的 D 段会留一扇没收的 `MessagePopupWindow`）⇒ 改成**与点击前同一个**（快照比较）。
+        var popUpBefore = wmBefore != null ? wmBefore.popUpWindow : null;
         ChallengeManager.OnChallengeButtonClick(btnRoot);
         Ok(!btnRoot.activeSelf, "账 26：挂起队列为空时，点挑战钮 ⇒ **把自己隐藏**（原版 `OnButtonClick.c` 最后那句 `SetActive(false)`）");
-        Ok(wmBefore == null || !(wmBefore.popUpWindow is PopUpGameWindow),
-           "账 26 灭自证：队列为空时**不弹确认框**（`challenges.Count == 0` 那一支）");
+        Ok(wmBefore == null || ReferenceEquals(wmBefore.popUpWindow, popUpBefore),
+           "账 26 灭自证：队列为空时**不弹确认框**（`popUpWindow` 与点击前同一个；`challenges.Count == 0` 那一支）");
 
         // ---------- 账 26 另一半：有挂起 ⇒ 弹确认框（文案来自官方词条）----------
         var pendingA = new PracticeChallenge { PlayerName = "B93D3-Alpha", ModeKey = null, PlayerFirst = true };
@@ -209,9 +212,11 @@ public static class B93D3Assert
         Eq(yielded, activeN, "账 546：`EventNavBadgeProvider` 发出的条数 == 在期 Parent 活动数（今天 = 0 条，不是写死 false）");
 
         // ---------- 账 549：格式串 + 按秒泵 ----------
-        var t0 = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc);
-        Eq(MainMenuRuntime.NavTimerTextForTest(t0.AddHours(26)), "1d 2h 0m", "账 549：`26h` ⇒ `1d 2h 0m`（prefab 样例串 `5d 20h 15m` 那一族）");
-        Eq(MainMenuRuntime.NavTimerTextForTest(t0.AddMinutes(90)), "1h 30m", "账 549：`90m` ⇒ `1h 30m`（无天时省掉 `d` 段）");
+        // 🔴 2026-10-31（调度台 · B105_D1 诊断）：`NavTimerText` 是**倒计时**（`endUtc − UtcNow`）——
+        //   旧断言喂 2026-01-01 的过去时间 ⇒ 恒 `0m`。改为「相对当前 + 26h / +90m」，并留 2 s 余量
+        //   防止执行延迟把分钟数往下推一格（判据 = `MainMenuRuntime.NavTimerText` 的 `left = endUtc - UtcNow`）。
+        Eq(MainMenuRuntime.NavTimerTextForTest(System.DateTime.UtcNow.AddHours(26).AddSeconds(2)), "1d 2h 0m", "账 549：`26h` ⇒ `1d 2h 0m`（prefab 样例串 `5d 20h 15m` 那一族）");
+        Eq(MainMenuRuntime.NavTimerTextForTest(System.DateTime.UtcNow.AddMinutes(90).AddSeconds(2)), "1h 30m", "账 549：`90m` ⇒ `1h 30m`（无天时省掉 `d` 段）");
 
         // 泵：造一颗假活动钮（带 `Timer Text` 子件），先把字写成一个假串，再推一次 ⇒
         //   ① 被改写成**期望串**（不是「与假串不同」那种弱断言）；② 同一秒内再推 ⇒ 0 次改写（1 Hz 节流）。
@@ -254,6 +259,9 @@ public static class B93D3Assert
         Ok(outs.Count == 3 && outs[0] == BattleWinner.Player && outs[1] == BattleWinner.Enemy && outs[2] == BattleWinner.Draw,
            "账 584：胜负平三档逐条映射对（`Victory→Player / Defeat→Enemy / Draw→Draw`）");
 
+        // 🔴 2026-10-31（调度台 · B105_D1）：宿主 `MainMenuScene` 用 `AddComponent` 建树，**编辑模式不跑 Awake**
+        //   ⇒ `LiveOpsManager.EnsureStarted()` 从未执行、注册表是空的。先显式起一次（先例 `B97W25_Assert.cs:191`）。
+        LiveOpsManager.EnsureStarted();
         var gm = LiveOpsManager.GetHandler<GameModesHandler>();
         Ok(gm != null, "（前提）取得到 `GameModesHandler`（`LiveOpsManager.GetHandler<GameModesHandler>()`）");
         if (gm != null)

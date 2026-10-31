@@ -1116,12 +1116,14 @@ public static class ShellScene
             var fadeR = Find("Smooth background fade Right outer", root);
             var ql = fadeL != null ? fadeL.GetComponentInChildren<ImageQuad>() : null;
             var qr = fadeR != null ? fadeR.GetComponentInChildren<ImageQuad>() : null;
-            if (ql != null)
-                CheckNear(ql.transform.position.x - ql.WorldW * 0.5f, -960f / 108f, 0.01f,
-                          "左条的**左边缘 = 屏幕左边缘**（原版 `pivot=(0,.5)` + `pos.x=−960`）");
-            if (qr != null)
-                CheckNear(qr.transform.position.x + qr.WorldW * 0.5f, 960f / 108f, 0.01f,
-                          "右条的**右边缘 = 屏幕右边缘**（原版 `pivot=(0,.5)` + `pos.x=+960` + `scale.x=−1`）");
+            // 🔴 **B105_A3（AUD11 类 3A）**：两条原来都套 `if (… != null)` ⇒ 缺件时静默跳过。
+            //   改成「前提单列一条 + 结论无条件跑」（缺件时结论自己红）。
+            CheckTrue(ql != null, "（前提）左条压暗的 `ImageQuad` 建出来了（下面那条要读它的位置与宽）");
+            CheckNear(ql == null ? 0f : ql.transform.position.x - ql.WorldW * 0.5f, -960f / 108f, 0.01f,
+                      "左条的**左边缘 = 屏幕左边缘**（原版 `pivot=(0,.5)` + `pos.x=−960`）");
+            CheckTrue(qr != null, "（前提）右条压暗的 `ImageQuad` 建出来了（下面那条要读它的位置与宽）");
+            CheckNear(qr == null ? 0f : qr.transform.position.x + qr.WorldW * 0.5f, 960f / 108f, 0.01f,
+                      "右条的**右边缘 = 屏幕右边缘**（原版 `pivot=(0,.5)` + `pos.x=+960` + `scale.x=−1`）");
         }
 
         // ---------------- ②·a 🔴 渐探针（2026-10-03 加）：探 **Unity `Gradient.Evaluate` 的语义**
@@ -1381,9 +1383,11 @@ public static class ShellScene
         Check(win.CurrentState, WindowState.Background, "全屏窗被弹窗**压到背景**（原版 `ToBackground()`）");
         var popup = shell.Windows.popUpWindow;
         CheckTrue(popup != null, "`popUpWindow` 指向那个弹窗");
-        if (popup != null)
-            Check(popup.transform.parent != null ? popup.transform.parent.name : "(空) ",
-                  "3 - PopUp Holder", "弹窗挂在 **Popup(15)** 锚点下面");
+        // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (popup != null)` ⇒ 缺件时静默跳过（前提那条虽红，这条仍没跑）。
+        CheckTrue(popup != null, "（前提）弹窗 `popUpWindow` 建出来了（下面那条要读它的父件名）");
+        Check(popup == null ? "(弹窗没建出来)"
+                            : popup.transform.parent != null ? popup.transform.parent.name : "(空) ",
+              "3 - PopUp Holder", "弹窗挂在 **Popup(15)** 锚点下面");
         Shoot("02_弹窗.png");
 
         // 🔴 **2026-10-12（A416）改点法**：宿主收编成 `PopUpGameWindow` 之后**不能**再拿「子树里第一颗
@@ -1663,9 +1667,12 @@ public static class ShellScene
                       $"面板高 ≥ 文案最小高 100 + 按钮行 110（实得 {pp.PanelH:F2}）");
             var msgNode = FindChildIn(pp.transform, "MessageText");
             var msgLb = msgNode != null ? msgNode.GetComponentInChildren<Label>() : null;
-            if (msgLb != null)
-                CheckNear(pp.PanelH, Mathf.Max(PromptPopup.MsgMinH, msgLb.WorldH * 108f) + PromptPopup.BtnRowH,
-                          0.5f, "面板高 = max(文案**实测**渲染高, 100) + 110");
+            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (msgLb != null)` ⇒ 缺件时静默跳过。
+            CheckTrue(msgLb != null, "（前提）提示文案 `MessageText` 的 `Label` 取得到（下面那条要读它的实测渲染高）");
+            CheckNear(pp.PanelH,
+                      msgLb == null ? 0f : Mathf.Max(PromptPopup.MsgMinH, msgLb.WorldH * 108f) + PromptPopup.BtnRowH,
+                      0.5f, "面板高 = max(文案**实测**渲染高, 100) + 110"
+                          + (msgLb == null ? "（前提未成立：`msgLb` 取不到 ⇒ 上面那条（前提）已红）" : ""));
             var shade = FindChildIn(pp.transform, "Menu Dark Background");
             CheckTrue(shade != null, "`Menu Dark Background` 建了（无 sprite 的纯色矩形，色 α0.7725）");
             CheckTrue(FindChildIn(pp.transform, "Generic Popup Background") != null, "`Generic Popup Background` 建了（`40k_popup` 九宫格）");
@@ -1741,9 +1748,11 @@ public static class ShellScene
             CheckTrue(FindChildIn(pp.transform, "CancelButton") == null, "单按钮版**没有** `CancelButton`");
             var okBtn = FindChildIn(pp.transform, "OkButton");
             var okQ = okBtn != null ? okBtn.GetComponentInChildren<ImageQuad>() : null;
-            if (okQ != null)
-                CheckNear(okQ.WorldW * 108f / (okQ.WorldH * 108f), 489f / 107f, 0.02f,
-                          "`OkButton` 渲出来的宽高比 = `40K_button` 源图 489/107（`PreserveAspect`）");
+            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (okQ != null)` ⇒ 缺件时静默跳过。
+            CheckTrue(okQ != null, "（前提）`OkButton` 的渲染 `ImageQuad` 取得到（下面那条要读它的宽高比）");
+            CheckNear(okQ == null ? 0f : okQ.WorldW * 108f / (okQ.WorldH * 108f), 489f / 107f, 0.02f,
+                      "`OkButton` 渲出来的宽高比 = `40K_button` 源图 489/107（`PreserveAspect`）"
+                    + (okQ == null ? "（前提未成立：`okQ` 取不到 ⇒ 上面那条（前提）已红）" : ""));
 
             // 🔴 **2026-10-19（`N117` 顺手）**：压暗层的**吃射线命中区**（`MenuDraw.Absorb`）。
             //   判据（原版 prefab + 反编译逐句）：`GenericPromptWindow/Menu Dark Background` 上挂着
@@ -1950,6 +1959,10 @@ public static class ShellScene
                 if (QuadPxRect(q2, out a, out b, out c, out d))
                     CheckNear(a, 1000f, 0.5f, "★ 反向：`ClipPad` 清 0 ⇒ **同一张图**左边缘回到框沿 **1000**"
                                              + "（两条合起来才证明这 10px 位移**真由 pad 引起**）");
+                // 🔴 **B105_F6（AUD11 类 3B·C 档）**：`QuadPxRect` 量不出时原来**什么都不发生**
+                //   ⇒ 反向那一半静默消失（正例照上面 ⑤·N117 那节：量不到就红）。
+                else CheckTrue(false, "量不到 `PadRender2` 的渲染矩形（`QuadPxRect` 返回 false）"
+                                    + " ⇒ 反向「左边缘回 1000」那一条**没验到**（⛔ 别当成通过）");
             }
             Object.DestroyImmediate(padRoot.gameObject);
             Object.DestroyImmediate(padWin.gameObject);
@@ -2208,6 +2221,7 @@ public static class ShellScene
             var ui = MenuDraw.Text(faceGo.transform, faceR, "Latin", Color.white, "FaceUi", 30f, 3000,
                                    face: TmpFont.Face.LatinUi);
             CheckTrue(ui != null, "② 显式 `LatinUi` 探针建出来了");
+            // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(ui != null, …)` 已单独断言。
             if (ui != null)
                 Check(FontName(ui), "Asar-Regular SDF",
                       "★ ② `MenuDraw.Text(..., face: LatinUi)` ⇒ TMP 指向**原版 `Asar-Regular SDF`**");
@@ -2215,6 +2229,7 @@ public static class ShellScene
             var body = MenuDraw.TextBox(faceGo.transform, faceR, "Body", Color.white, "FaceBody", 30f,
                                         face: TmpFont.Face.LatinCardBody);
             CheckTrue(body != null, "② `TextBox` 探针建出来了");
+            // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(body != null, …)` 已单独断言。
             if (body != null)
                 Check(FontName(body), "Pragati-Regular SDF",
                       "★ ② `MenuDraw.TextBox(..., face: LatinCardBody)` ⇒ TMP 指向**原版 `Pragati-Regular SDF`**");
@@ -2222,6 +2237,7 @@ public static class ShellScene
             // ① 的另一半：`TextBox` 默认档也没被换掉
             var defBox = MenuDraw.TextBox(faceGo.transform, faceR, "Default body", Color.white, "FaceBodyDefault", 30f);
             CheckTrue(defBox != null, "① `TextBox` 默认档探针建出来了");
+            // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(defBox != null, …)` 已单独断言。
             if (defBox != null)
                 Check(FontName(defBox), "NotoSerifCJK-Regular SDF",
                       "★ ① `MenuDraw.TextBox` **不传 `face`** ⇒ 仍是 CJK 那一份");
@@ -4050,11 +4066,17 @@ public static class ShellScene
                 var h = gw.AddHit(probe, "ProbeHit", pr, 3000, null);
                 return h != null ? h.GetComponentInChildren<ImageQuad>() : null;
             };
-            float a, b, c, d;
+            // 🔴 **B105_A3**：显式初始化 —— 下面 `bool ok = q != null && QuadPxRect(q, out a, …)` 走短路时
+            //   `out` 不执行，C# 的**明确赋值**规则会判 `a` 未赋值（CS0165）⇒ 先给 0f。
+            float a = 0f, b = 0f, c = 0f, d = 0f;
             // ① 基线：pad 全 0 ⇒ 命中区就是那个矩形（= 不喂 pad 时那一态的字面行为）
             var q0 = buildHit(Vector4.zero, clipBig);
             CheckTrue(q0 != null, "（前提）探针命中区建出来了 —— `AddHit` 必须带 quad（`PointerLayer` 只认 quad，A26 那个真缺陷）");
-            if (q0 != null && QuadPxRect(q0, out a, out b, out c, out d))
+            // 🔴 **B105_F6（AUD11 类 3A）**：拆成「前提 + 结论」—— 原来 `QuadPxRect` 量不出时四条断言静默消失。
+            //   （同节 ④/④b 已由 `B105_A3` 改成这个形状，这里补齐。）
+            bool q0Rect = q0 != null && QuadPxRect(q0, out a, out b, out c, out d);
+            CheckTrue(q0Rect, "（前提·不静默）① 基线的命中区矩形量得出来（`q0` 非 null 且 `QuadPxRect` 成功）");
+            if (q0Rect)
             {
                 CheckNear(a, 100f, 0.5f, "① 基线（`ClipPad` = 0）：命中区左沿 = **100**（一字不动）");
                 CheckNear(b, 200f, 0.5f, "…上沿 = **200**");
@@ -4069,7 +4091,10 @@ public static class ShellScene
             //    ⇒ 「pad 真生效」与「pad 被丢掉」在这一幕下**读数不同**（判据 = `R ∩ (V − pad)`）。
             var clipPad2 = new PxRect(110f, 150f, 350f, 450f);
             var q1 = buildHit(new Vector4(10f, 0f, 0f, 0f), clipPad2);
-            if (q1 != null && QuadPxRect(q1, out a, out b, out c, out d))
+            // 🔴 **B105_F6（AUD11 类 3A）**：拆成「前提 + 结论」（量不出 ⇒ 四条断言原来静默消失）。
+            bool q1Rect = q1 != null && QuadPxRect(q1, out a, out b, out c, out d);
+            CheckTrue(q1Rect, "（前提·不静默）② 命中区矩形量得出来（`q1` 非 null 且 `QuadPxRect` 成功）");
+            if (q1Rect)
             {
                 CheckNear(a, 120f, 0.5f, "★ ② `GameWindow` 族的窗喂 `m_Padding = (10,0,0,0)`（原版锻造轨道实读值）"
                                        + " ⇒ 命中区左沿 = `V.x1 + 10` = **120**（`V` 左沿 110 = `clip` 左沿）");
@@ -4083,7 +4108,10 @@ public static class ShellScene
             //    = **正好 `r`** ⇒ 命中区 = `r` 本身；**不喂 pad** 时命中区 = `clip` 自己（108/205/292/395）。
             var clipPad3 = new PxRect(108f, 205f, 292f, 395f);
             var q2 = buildHit(new Vector4(-8f, -5f, -8f, -5f), clipPad3);
-            if (q2 != null && QuadPxRect(q2, out a, out b, out c, out d))
+            // 🔴 **B105_F6（AUD11 类 3A）**：拆成「前提 + 结论」（量不出 ⇒ 四条断言原来静默消失）。
+            bool q2Rect = q2 != null && QuadPxRect(q2, out a, out b, out c, out d);
+            CheckTrue(q2Rect, "（前提·不静默）③ 命中区矩形量得出来（`q2` 非 null 且 `QuadPxRect` 成功）");
+            if (q2Rect)
             {
                 CheckNear(a, 100f, 0.5f, "★ ③ 喂 `m_Padding = (−8,−5,−8,−5)`（原版**输入框**那一族实读值）⇒ "
                                        + "`V − pad` = 正好 `r` ⇒ 左沿 **100**（= `V` 左沿 108 外扩 8）");
@@ -4095,18 +4123,28 @@ public static class ShellScene
             //    真正的**同 `clip` 两态对照**是下面 ④b（对 ②）与 ④c（对 ③）——
             //    🔴 2026-10-08（A188）：②③ 现在各喂**自己的** `clip` ⇒ ④ 这一条不再与它们同场景）
             var q3 = buildHit(Vector4.zero, clipBig);
-            if (q3 != null && QuadPxRect(q3, out a, out b, out c, out d))
-                CheckNear(a, 100f, 0.5f, "★ ④ 反向：`ClipPad` 清 0 ⇒ 同一条 `AddHit` 回 **100**（`clip` 宽 ⇒ 不裁）");
+            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (q3 != null && QuadPxRect(…))` ⇒ 缺件/量不出时静默跳过。
+            //   拆成「两条前提 + 无条件结论」；量不出时结论拿 0f 去比 ⇒ 自己红。
+            CheckTrue(q3 != null, "（前提）④ 反向那条的命中 quad 建出来了");
+            bool q3Rect = q3 != null && QuadPxRect(q3, out a, out b, out c, out d);
+            CheckTrue(q3Rect, "（前提）④ 反向：命中区矩形量得出来（`QuadPxRect`）");
+            CheckNear(q3Rect ? a : 0f, 100f, 0.5f, "★ ④ 反向：`ClipPad` 清 0 ⇒ 同一条 `AddHit` 回 **100**（`clip` 宽 ⇒ 不裁）");
             // ④b **同场景两态对照（与 ② 同一个 `clip`）**：只把 pad 清 0 ⇒ 左沿回 **110**（= `V` 左沿，
             //    一句 `clip` 都不动）—— 不喂 pad 时 `V − pad` 退化成 `V` 本身 ⇒ 那 10px **只可能**来自 `m_Padding`。
             //    🔴 2026-10-08（A188）：这一条就是「② 的 pad 真生效」的反证面（缺了它，② 与「pad 被丢掉」同值）。
             var q3b = buildHit(Vector4.zero, clipPad2);
-            if (q3b != null && QuadPxRect(q3b, out a, out b, out c, out d))
-                CheckNear(a, 110f, 0.5f, "★ ④b 反向（与 ② 同一个 `clip`）：pad 清 0 ⇒ 左沿回 **110** = `clip` 左沿"
+            // 🔴 **B105_A3（AUD11 类 3A）**：同上 —— 两条前提 + 无条件结论。
+            CheckTrue(q3b != null, "（前提）④b 反向那条的命中 quad 建出来了");
+            bool q3bRect = q3b != null && QuadPxRect(q3b, out a, out b, out c, out d);
+            CheckTrue(q3bRect, "（前提）④b 反向：命中区矩形量得出来（`QuadPxRect`）");
+            CheckNear(q3bRect ? a : 0f, 110f, 0.5f, "★ ④b 反向（与 ② 同一个 `clip`）：pad 清 0 ⇒ 左沿回 **110** = `clip` 左沿"
                                        + "（② 的 120 与这里的 110 合起来才证明那 10px 由 `m_Padding` 引起）");
             // ④c **同场景两态对照（与 ③ 同一个 `clip`）**：pad 清 0 ⇒ 命中区 = `clip` 自己（`clip ⊂ r`）
             var q3c = buildHit(Vector4.zero, clipPad3);
-            if (q3c != null && QuadPxRect(q3c, out a, out b, out c, out d))
+            // 🔴 **B105_F6（AUD11 类 3A · 与 ④/④b 同形，A3 漏了这一条）**：拆成「前提 + 结论」。
+            bool q3cRect = q3c != null && QuadPxRect(q3c, out a, out b, out c, out d);
+            CheckTrue(q3cRect, "（前提·不静默）④c 反向：命中区矩形量得出来（`QuadPxRect`）");
+            if (q3cRect)
             {
                 CheckNear(a, 108f, 0.5f, "★ ④c 反向（与 ③ 同一个 `clip`）：pad 清 0 ⇒ 左沿 = `clip` 左沿 **108**"
                                        + "（③ 的 100 与这里的 108 合起来才证明负 pad **真的在扩大**）");
@@ -4114,7 +4152,10 @@ public static class ShellScene
             }
             // ⑤ `Clip` 也在这份状态里（同一个三件套）：把裁切框收到比命中区窄 ⇒ 命中区**截到框沿**
             var q4 = buildHit(Vector4.zero, new PxRect(150f, 200f, 400f, 400f));
-            if (q4 != null && QuadPxRect(q4, out a, out b, out c, out d))
+            // 🔴 **B105_F6（AUD11 类 3A）**：拆成「前提 + 结论」（量不出 ⇒ 两条断言原来静默消失）。
+            bool q4Rect = q4 != null && QuadPxRect(q4, out a, out b, out c, out d);
+            CheckTrue(q4Rect, "（前提·不静默）⑤ 命中区矩形量得出来（`q4` 非 null 且 `QuadPxRect` 成功）");
+            if (q4Rect)
             {
                 CheckNear(a, 150f, 0.5f, "★ ⑤ `Clip` 左沿 150（> 命中区左沿 100）⇒ 命中区**被截到 150**"
                                         + "（与 ① 合起来证明 `Clip` 也在基类上、且照旧只裁到框内）");
@@ -4726,6 +4767,7 @@ public static class ShellScene
             Debug.Log(P + "  诊断：`Art/videos` 里的资源 = " + (all.Length == 0 ? "（一个都没有）" : names.ToString()));
         }
         CheckTrue(intro != null, "开场动画加载得到（`Warpforge Intro.mp4`）");
+        // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(intro != null, …)` 已单独断言。
         if (intro != null)
             CheckTrue(intro.length > 1.0f, $"开场动画时长 > 1s（实测 {intro.length:F2}s）");
         CheckNear(ShellRuntime.IntroVolume, 0.65f, 0.0001f, "开场动画音量 = 0.65（`AudioSource_261` 实证）");
@@ -4882,6 +4924,7 @@ public static class ShellScene
                           "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 var okA = FindChildIn(ppA.transform, "OkButton");
                 CheckTrue(okA != null, "（前提）`OkButton` 在（它就是 `Local(root, …)` 摆出来的那颗）");
+                // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(okA != null, …)` 已单独断言。
                 if (okA != null)
                     CheckScaleTwo(probeA, ppA.transform,
                                   () =>
@@ -4930,6 +4973,7 @@ public static class ShellScene
                 CheckTrue(ipA.TryOpen(null), "（前提）重开之后窗真的开着 —— 下面那条才不是空断");
                 var wA = FindChildIn(ipA.transform, "Window");
                 CheckTrue(wA != null, "（前提）`Window` 在（那一层就是 `Local3(root, …)` 摆的）");
+                // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(wA != null, …)` 已单独断言。
                 if (wA != null)
                     CheckScaleTwo(probeC, ipA.transform,
                                   () =>
@@ -6132,6 +6176,8 @@ public static class ShellScene
                 else
                     CheckTrue(false, "（前提）`Army Selector/Viewport` 那颗节点、或第 0 格的 `Background` 拿不到"
                                    + " ⇒ A754-a 那四态**没跑**（⛔ 不静默跳过）");
+                // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面那个 `else` 已经写明
+                //   「`Army Selector/Viewport` 那颗节点、或第 0 格的 `Background` 拿不到 ⇒ A754-a 四态没跑（⛔ 不静默）」。
                 if (bg0 != null && !bgOk)
                     CheckTrue(false, "（前提）第 0 格 `Background` 量不到渲染并集（`UnionPx`）");
             }
@@ -9032,6 +9078,7 @@ public static class ShellScene
             {
                 var a12RwBtn = FindChildIn(a12Rw.transform, "Collect Button");
                 CheckTrue(a12RwBtn != null, "（前提）`Collect Button` 在");
+                // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(a12RwBtn != null, …)` 已单独断言。
                 if (a12RwBtn != null)
                     CheckA1212(a12RwBtn, "Button Text", "Content ▸ Collect Button ▸ Button Text",
                                10f, 40f, 12f, 0, boxW: 220.81f, boxH: 57.52f);
@@ -9049,6 +9096,7 @@ public static class ShellScene
             {
                 var a12Btn = FindChildIn(a12Ct, "Generic Simplified UI Button");
                 CheckTrue(a12Btn != null, "（前提）`Premium Panel ▸ Generic Simplified UI Button` 在");
+                // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(a12Btn != null, …)` 已单独断言。
                 if (a12Btn != null)
                     CheckA1212(a12Btn, "Button Text", "Premium Panel ▸ Generic Simplified UI Button ▸ Button Text",
                                10f, 55f, 12f, 0, boxW: 238.06f, boxH: 46.79f);
@@ -9244,9 +9292,11 @@ public static class ShellScene
                           "★ 回主菜单 ⇒ 压暗四条**放回**（原版开场 / 主菜单都有它）");
 
                 // 灭自证 / 范围：不该跟着关的件必须原样（`Window Anchors` = 三个 Holder 的宿主，战斗里开弹窗全靠它）
-                if (anchors != null)
-                    CheckTrue(anchors.gameObject.activeSelf == anchorsWereActive,
-                              "★ 范围：`Window Anchors`（窗口三锚点）**没被动** —— 战斗里开设置等弹窗还靠它");
+                // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (anchors != null)` ⇒ 缺件时**静默跳过**。
+                //   前提单列一条；结论无条件跑（`anchors == null` 时拿「没被动」= 真，参照同块 `fadeRoot` 那一条的写法）。
+                CheckTrue(anchors != null, "（前提）`Window Anchors`（窗口三锚点）在场 —— 下面那条「没被动」才有对象可断");
+                CheckTrue(anchors == null || anchors.gameObject.activeSelf == anchorsWereActive,
+                          "★ 范围：`Window Anchors`（窗口三锚点）**没被动** —— 战斗里开设置等弹窗还靠它");
                 CheckTrue(ShellRuntime.SceneChromeHookInstalledForTest,
                           "（接线）切场景那两只钩子挂上了（`Build` 里 `EnsureSceneCleanupHook`）");
 
@@ -11020,7 +11070,7 @@ public static class ShellScene
         Debug.Log(P + "B93D4SelfCheck 跑 " + B93D4SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_D4）：断言本体在 `Editor/ShellScene_B93D4SelfCheck.cs`。打印返回条数 = 自证真被跑到。
         Debug.Log(P + "LiveOpsB93N2SelfCheck 跑 " + LiveOpsB93N2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");
         Debug.Log(P + "B94S2SelfCheck 跑 " + B94S2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-29（B94_S2 · 日常/奖励）：断言本体在 `Editor/ShellScene_B94S2SelfCheck.cs`。接在**合计行之前** ⇒ 其后无账落点（本文件最大账落点 = `ShellScene.cs:10351`）。**打印返回条数 = 自证它真被跑到**。
-        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B97W9Assert.Run(); _sink.Pass += B97W9Assert.Pass; _sink.Fail += B97W9Assert.Fail; B98K3Assert.Run(); _sink.Pass += B98K3Assert.Pass; _sink.Fail += B98K3Assert.Fail; B97W25Assert.Run(); _sink.Pass += B97W25Assert.Pass; _sink.Fail += B97W25Assert.Fail; B97W39Assert.Run(); _sink.Pass += B97W39Assert.Pass; _sink.Fail += B97W39Assert.Fail;   B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; B97W2Assert.Run(); _sink.Pass += B97W2Assert.Pass; _sink.Fail += B97W2Assert.Fail; B97_DAILYAssert.Run((ok, msg) => CheckTrue(ok, msg)); B97MISC2Assert.Run(); _sink.Pass += B97MISC2Assert.Pass; _sink.Fail += B97MISC2Assert.Fail; B97_MENU_Assert.RunAll(); B97MINI2Assert.Run(); _sink.Pass += B97MINI2Assert.Pass; _sink.Fail += B97MINI2Assert.Fail; B98A1_Assert.Run(); _sink.Pass += B98A1_Assert.Pass; _sink.Fail += B98A1_Assert.Fail; B98A5_Assert.Run(); B98A8_Assert.Run(); B98A11_Assert.Run(); B98H5Assert.Run(); _sink.Pass += B98H5Assert.Pass; _sink.Fail += B98H5Assert.Fail; B98K5_Assert.Run(); _sink.Pass += B98K5_Assert.Pass; _sink.Fail += B98K5_Assert.Fail; B98M2_Assert.Run(); _sink.Pass += B98M2_Assert.Pass; _sink.Fail += B98M2_Assert.Fail; B101R8_Assert.Run(); _sink.Pass += B101R8_Assert.Pass; _sink.Fail += B101R8_Assert.Fail; B101W3_Assert.Run(); _sink.Pass += B101W3_Assert.Pass; _sink.Fail += B101W3_Assert.Fail; B99G3Assert.Run(_sink); B99A4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B102MISSAssert.Run(); _sink.Pass += B102MISSAssert.Pass; _sink.Fail += B102MISSAssert.Fail; B102AUD04_Assert.Run(); _sink.Pass += B102AUD04_Assert.Pass; _sink.Fail += B102AUD04_Assert.Fail; B97W32Assert.Run(); _sink.Pass += B97W32Assert.OkCount; _sink.Fail += B97W32Assert.BadCount; B102CHAT_Assert.Run(); _sink.Pass += B102CHAT_Assert.Pass; _sink.Fail += B102CHAT_Assert.Fail; B102AUD03R_Assert.Run(); _sink.Pass += B102AUD03R_Assert.Pass; _sink.Fail += B102AUD03R_Assert.Fail; B102FTUE_Assert.Run(); _sink.Pass += B102FTUE_Assert.Pass; _sink.Fail += B102FTUE_Assert.Fail; B102BUY_Assert.Run(); _sink.Pass += B102BUY_Assert.Pass; _sink.Fail += B102BUY_Assert.Fail; B103W1_Assert.Run(); _sink.Pass += B103W1_Assert.Pass; _sink.Fail += B103W1_Assert.Fail; B103W6_Assert.Run(); _sink.Pass += B103W6_Assert.Pass; _sink.Fail += B103W6_Assert.Fail; B103W4_Assert.Run(); _sink.Pass += B103W4_Assert.Pass; _sink.Fail += B103W4_Assert.Fail; B103R1_Assert.RunTypeOverrides(); B103R1_Assert.RunShell(WindowsManager.Get()); _sink.Pass += B103R1_Assert.Pass; _sink.Fail += B103R1_Assert.Fail; B103W7bAssert.Run(); _sink.Pass += B103W7bAssert.Pass; _sink.Fail += B103W7bAssert.Fail; B104_P3_Assert.CheckB104P3(); _sink.Pass += B104_P3_Assert.Pass; _sink.Fail += B104_P3_Assert.Fail; B104_P26_Assert.CheckB104P26(); _sink.Pass += B104_P26_Assert.Pass; _sink.Fail += B104_P26_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W39`）：轮抽房属性过网（`MsgDeck`/`MsgStart` 各 4 格 · 老报文出声+默认 · 三格不在指纹面）   // 🆕 2026-10-29（调度台代接线 · `B97_W25`）：账 `轮抽:31` `SetCustomMatchOptions`（`won` 读胜场、⛔ 不是 `defensiveCard`；handler null ⇒ 整段跳过不写键）    // [B98_Q2 2026-10-29 代接线] A1(边框按 AutoAssign 自动装备)·A5/A8(卡包实物+三层遮挡序；⚠️ 这两件只有自带 `_ok/_bad` 与小结日志、**没有** `Pass/Fail` ⇒ 不进 `_sink`)·A11(挑战消费方两条；同样自带计数)·H5(boosts 支)·K5(轮抽三条 B)·M2(`DraftState` 15)。接在合计行之前 ⇒ 行数零变化   // 🆕 2026-10-29（B97_DAILY · 日常/奖励）：账 `745` 的接线锁（IL 层「方法体恰好一处 call `ModifyLocalization`」）+ `510` 的 `displayRule` 三档；断言本体在 `Editor/B97_DAILY_Assert.cs`。接在**合计行之前**，同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B97W9Assert.Run(); _sink.Pass += B97W9Assert.Pass; _sink.Fail += B97W9Assert.Fail; B98K3Assert.Run(); _sink.Pass += B98K3Assert.Pass; _sink.Fail += B98K3Assert.Fail; B97W25Assert.Run(); _sink.Pass += B97W25Assert.Pass; _sink.Fail += B97W25Assert.Fail; B97W39Assert.Run(); _sink.Pass += B97W39Assert.Pass; _sink.Fail += B97W39Assert.Fail;   B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; B97W2Assert.Run(); _sink.Pass += B97W2Assert.Pass; _sink.Fail += B97W2Assert.Fail; B97_DAILYAssert.Run((ok, msg) => CheckTrue(ok, msg)); B97MISC2Assert.Run(); _sink.Pass += B97MISC2Assert.Pass; _sink.Fail += B97MISC2Assert.Fail; B97_MENU_Assert.RunAll(); B97MINI2Assert.Run(); _sink.Pass += B97MINI2Assert.Pass; _sink.Fail += B97MINI2Assert.Fail; B98A1_Assert.Run(); _sink.Pass += B98A1_Assert.Pass; _sink.Fail += B98A1_Assert.Fail; B98A5_Assert.Run(); B98A8_Assert.Run(); B98A11_Assert.Run(); B98H5Assert.Run(); _sink.Pass += B98H5Assert.Pass; _sink.Fail += B98H5Assert.Fail; B98K5_Assert.Run(); _sink.Pass += B98K5_Assert.Pass; _sink.Fail += B98K5_Assert.Fail; B98M2_Assert.Run(); _sink.Pass += B98M2_Assert.Pass; _sink.Fail += B98M2_Assert.Fail; B101R8_Assert.Run(); _sink.Pass += B101R8_Assert.Pass; _sink.Fail += B101R8_Assert.Fail; B101W3_Assert.Run(); _sink.Pass += B101W3_Assert.Pass; _sink.Fail += B101W3_Assert.Fail; B99G3Assert.Run(_sink); B99A4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B102MISSAssert.Run(); _sink.Pass += B102MISSAssert.Pass; _sink.Fail += B102MISSAssert.Fail; B102AUD04_Assert.Run(); _sink.Pass += B102AUD04_Assert.Pass; _sink.Fail += B102AUD04_Assert.Fail; B97W32Assert.Run(); _sink.Pass += B97W32Assert.OkCount; _sink.Fail += B97W32Assert.BadCount; B102CHAT_Assert.Run(); _sink.Pass += B102CHAT_Assert.Pass; _sink.Fail += B102CHAT_Assert.Fail; B102AUD03R_Assert.Run(); _sink.Pass += B102AUD03R_Assert.Pass; _sink.Fail += B102AUD03R_Assert.Fail; B102FTUE_Assert.Run(); _sink.Pass += B102FTUE_Assert.Pass; _sink.Fail += B102FTUE_Assert.Fail; B102BUY_Assert.Run(); _sink.Pass += B102BUY_Assert.Pass; _sink.Fail += B102BUY_Assert.Fail; B103W1_Assert.Run(); _sink.Pass += B103W1_Assert.Pass; _sink.Fail += B103W1_Assert.Fail; B103W6_Assert.Run(); _sink.Pass += B103W6_Assert.Pass; _sink.Fail += B103W6_Assert.Fail; B103W4_Assert.Run(); _sink.Pass += B103W4_Assert.Pass; _sink.Fail += B103W4_Assert.Fail; B103R1_Assert.RunTypeOverrides(); B103R1_Assert.RunShell(WindowsManager.Get()); _sink.Pass += B103R1_Assert.Pass; _sink.Fail += B103R1_Assert.Fail; B103W7bAssert.Run(); _sink.Pass += B103W7bAssert.Pass; _sink.Fail += B103W7bAssert.Fail; B104_P3_Assert.CheckB104P3(); _sink.Pass += B104_P3_Assert.Pass; _sink.Fail += B104_P3_Assert.Fail; B104_P26_Assert.CheckB104P26(); _sink.Pass += B104_P26_Assert.Pass; _sink.Fail += B104_P26_Assert.Fail; GameModesCheck.Run(); _sink.Pass += GameModesCheck.Pass; _sink.Fail += GameModesCheck.Fail; B97W26_Assert.Run(); _sink.Pass += B97W26_Assert.Pass; _sink.Fail += B97W26_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W39`）：轮抽房属性过网（`MsgDeck`/`MsgStart` 各 4 格 · 老报文出声+默认 · 三格不在指纹面）   // 🆕 2026-10-29（调度台代接线 · `B97_W25`）：账 `轮抽:31` `SetCustomMatchOptions`（`won` 读胜场、⛔ 不是 `defensiveCard`；handler null ⇒ 整段跳过不写键）    // [B98_Q2 2026-10-29 代接线] A1(边框按 AutoAssign 自动装备)·A5/A8(卡包实物+三层遮挡序；⚠️ 这两件只有自带 `_ok/_bad` 与小结日志、**没有** `Pass/Fail` ⇒ 不进 `_sink`)·A11(挑战消费方两条；同样自带计数)·H5(boosts 支)·K5(轮抽三条 B)·M2(`DraftState` 15)。接在合计行之前 ⇒ 行数零变化   // 🆕 2026-10-29（B97_DAILY · 日常/奖励）：账 `745` 的接线锁（IL 层「方法体恰好一处 call `ModifyLocalization`」）+ `510` 的 `displayRule` 三档；断言本体在 `Editor/B97_DAILY_Assert.cs`。接在**合计行之前**，同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准

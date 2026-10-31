@@ -315,9 +315,12 @@ public static class TraitEffectAssert
             TextMeshPro mlCounter = TmpFont.NewText(root.transform, "Counter", "1", 6f, Color.white);
             GameObject normal = NewChild(root.transform, "Normal State");
             GameObject expiring = NewChild(root.transform, "Expiring State");
-            // 两个 `Grid floor` 都要造（否则 `Start` 会刷一条「绑到 1 个」的告警，污染自检日志）
-            NewRenderer(EnsurePath(normal.transform, "Base VFX/Fixed"), "Grid floor");
-            NewRenderer(EnsurePath(expiring.transform, "Base Vfx/Fixed"), "Grid floor");
+            // 两个 `Grid floor` 都要造（否则 `Start` 会刷一条「绑到 1 个」的告警，污染自检日志）。
+            // 🔴 2026-10-31（调度台 · B105_D1 二次修正）：路径必须是原版 `[Normal|Expiring] State/Fixed`
+            //   （`MarkerlightController.NormalFaderPath` / `ExpiringFaderPath`）—— 原来写成 `.../Base Vfx/Fixed`
+            //   ⇒ `EnsureFaders()` 找不到节点、两个 fader 全是 null（`ToggleCalls` 读成 -1）。
+            NewRenderer(EnsurePath(normal.transform, "Fixed"), "Grid floor");
+            NewRenderer(EnsurePath(expiring.transform, "Fixed"), "Grid floor");
 
             var ml = TraitEffectControllers.Attach(root, "MarkerlightIdle") as MarkerlightController;
             if (ml == null || mlCounter == null) { Check(false, "A-ML2·`Attach`/TMP 没造出来 ⇒ 本节没验到"); return; }
@@ -355,19 +358,20 @@ public static class TraitEffectAssert
             if (ml != null)
             {
                 string before = Snapshot(root);
-                List<string> errs = CaptureStart();
+                // 🔴 2026-10-31（调度台 · B105_D1）：`MaterialFader` 已于 2026-10-25 接上 ⇒ 本件不再是「未实现出口」，
+                //   原版 `MarkerlightController__AimingAttack.c` 就是 `fader.Toggle(option ^ 1, fadeTime)`。
+                //   旧断言还要求「出声」，与实现口径相反。现在断**真调了一次 Toggle** + 不抛 + 两态对象不变。
+                //   ⚠️ 上文 `MarkerLightUsed()` 已把 `alreadyAttacked` 置 true ⇒ 走的是 **Expiring** 那个 fader。
+                var expiringFader = ml.ExpiringFaderForTest;
+                int tcBefore = expiringFader != null ? expiringFader.ToggleCalls : -1;
                 bool threwMl = false;
-                try
-                {
-                    try { ml.AimingAttack(true); }
-                    catch (Exception) { threwMl = true; }
-                }
-                finally { CaptureStop(); }
-                Check(!threwMl && HasError(errs, "[MarkerlightController]") && Snapshot(root) == before,
-                      "A-ML2·`MarkerlightController.AimingAttack` **不抛** + **出声** + **一个状态都不改**"
-                    + "（明确「未实现」出口；现得 抛=" + threwMl + " / 错误 " + errs.Count + " 条 / 状态 "
+                try { ml.AimingAttack(true); } catch (Exception) { threwMl = true; }
+                int tcAfter = expiringFader != null ? expiringFader.ToggleCalls : -1;
+                Check(!threwMl && expiringFader != null && tcAfter == tcBefore + 1 && Snapshot(root) == before,
+                      "A-ML2·`MarkerlightController.AimingAttack(true)` **不抛** + **真调了一次 `MaterialFader.Toggle`** + 两态对象不变"
+                    + "（现得 抛=" + threwMl + " / `ToggleCalls` " + tcBefore + "→" + tcAfter + " / 状态 "
                     + (Snapshot(root) == before ? "未变" : "变了") + "）"
-                    + " —— 🧨 写成空 body 静默 / 或顺手把两态切了却仍没接 `MaterialFader` ⇒ 红（判据 §6.6 P2）");
+                    + " —— 🧨 写成空 body / 没接 `MaterialFader` ⇒ 红（判据 = `MarkerlightController__AimingAttack.c` 的 `Toggle(option ^ 1, fadeTime)`）");
             }
         }
         finally { Kill(root); Kill(hRoot); }
@@ -393,6 +397,9 @@ public static class TraitEffectAssert
             TmpFont.NewText(root.transform, "Counter", "1", 6f, Color.white);
             var h = TraitEffectControllers.Attach(root, "HuntMark_IdleEffect") as HuntMarkController;
             if (h == null) { Check(false, "灭自证1·`Attach` 返回 null ⇒ 本节没验到"); return; }
+            // 🔴 2026-10-31（调度台 · B105_D1）：编辑模式 `AddComponent` **不跑 `Awake`/`Start`** ⇒ 计数器没绑、
+            //   `TextForTest` 恒 null（日志里打出来是 `""`）。同文件 `Block_ML2` 已有 `InvokeVoid(ml, "Start")` 的先例。
+            InvokeVoid(h, "Start");
 
             Check(h.TextForTest == "1" && h.PunchCount == 0 && h.UpdateCalls == 0,
                   "灭自证 1a·**没人调用**时：文本仍是 prefab 的 `\"1\"` / `PunchCount 0` / `UpdateCalls 0`"
@@ -644,14 +651,17 @@ public static class TraitEffectAssert
             if (h == null || added != 1)
             { Check(false, "(前提 A-W8) 第一张框没实例化出来 / `added` 不是 1（现得 " + added + "）⇒ 本节**没验到**"); return; }
 
-            int p1 = h.PunchCount, u1 = tf.UpdateValueCalls;
+            int p1 = h.PunchCount;
 
             tf.SyncKeywords(new string[] { "huntmark" }, k => 3);               // 值没变 ⇒ 兜底不刷
-            int p2 = h.PunchCount, u2 = tf.UpdateValueCalls;
-            Check(p2 == p1 && u2 == u1,
+            int p2 = h.PunchCount;
+            // 🔴 2026-10-31（调度台 · B105_D1）：`TraitFrames.UpdateValueCalls` 记的是「**调用**发生了」，
+            //   `TraitFrames.cs:1102` 在去重**之前**自增（注释明写），所以它每轮同步都会涨 —— 不能拿它当
+            //   「刷没刷」的判据。改成看**真的刷没刷**：`PunchCount` 不动 + 文本仍是 "3"。
+            Check(p2 == p1 && h.TextForTest == "3",
                   "A-W8·**值没变 ⇒ 兜底一个都不刷**（`PunchCount` " + p1 + " → " + p2
-                + " / `UpdateValueCalls` " + u1 + " → " + u2 + "）"
-                + "（判据 §6.3 末段：⛔ 不能变成「每帧刷」，否则计数器一直抖）"
+                + " / 文本 \"" + (h.TextForTest ?? "null") + "\"）"
+                + "（判据 §6.3 末段：⛔ 不能变成「每帧刷」，否则计数器一直抖；`UpdateValueCalls` 只记调用、不作判据）"
                 + " —— 🧨 兜底那一路不加去重 ⇒ 每轮同步都弹 ⇒ 红");
 
             tf.SyncKeywords(new string[] { "huntmark" }, k => 5);               // 值 3 → 5 ⇒ 兜底刷 1 次

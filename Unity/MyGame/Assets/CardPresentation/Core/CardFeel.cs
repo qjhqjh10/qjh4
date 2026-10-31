@@ -819,6 +819,19 @@ namespace CardPresentation
             P("TurnCardAroundFrac", TurnCardAroundFrac, Src.Field,
               "翻面每段占整次抽牌时长的 0.25 —— `.rdata 0x1834b2e7c` 实读 0.25"
               + "（`CardScript__TurnCardAround.c:32` + `CardScript__FinishCardDrawRotation.c:23`）"),
+
+            // ---- 🆕 2026-10-31（`B105_W2` · 0-2 / 0-3）：`disappearFromHand` 与 `displayFromHand` ----
+            P("HandDissolveTime", HandDissolveTime, Src.Derived,
+              "`CardScript._DestroyCard_d__269__MoveNext.c` 状态 1 传给 `DissolveWholeCard` 的 `*(globalVars+0xb0)`；"
+              + "⚠️ 偏移对应的字段名**未逐字节复核**（按 `VarsGlobal` 声明序 = `timeToDissolveCard` 0.2）⇒ 按文档取值，标 Derived"),
+            P("HandDissolveBlockSeconds", HandDissolveBlockSeconds, Src.Field,
+              "`BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c:134` 传 `DAT_1834b2dc8`(=0.3) 给 `DestroyCard`；"
+              + "`_DestroyCard_d__269__MoveNext.c` 状态 1 唯一一次 `WaitForSeconds(0.3)`"),
+            P("CardCenterFromHandStepTime", CardCenterFromHandStepTime, Src.Field,
+              "`BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c:195` 的 `DisplayEnemyCardInCenter(0.3, 0.3)`（两个实参都是 `DAT_1834b2dc8`）"),
+            P("DisplayFromHandBlockSeconds", DisplayFromHandBlockSeconds, Src.Field,
+              "`_ResolveDisplayFromHand_d__548`：`:199` `twoHalfSecDelay`（2.5）＋ `:238` `twoFractDelay`（0.2）= 2.7；"
+              + "⚠️ `DisplayEnemyCardInCenter` 是 `StartCoroutine`、不 yield ⇒ 它的 1.078 s **不进**这条算式"),
         };
 
         /// <summary>没登记进 `Catalog` 的公开常量（自检拿它当断言：**漏一个就红**）</summary>
@@ -4246,5 +4259,86 @@ namespace CardPresentation
         /// 所以「没播」不许变成「时间线少排 1.078 s」（否则后面的信号会抢在空窗里开播）。</para></summary>
         public static float CardCenterBlockingSeconds(float stepTime)
             => CardCenterStraighten + stepTime * CardCenterHoldMul + stepTime * CardCenterWaitMul;
+
+        // ============================================================================================
+        //  🆕 2026-10-31（执行代理 `B105_W2` · 第 0 位 0-2）：**手牌里的卡「从手牌消失」时的溶解**
+        //
+        //  判据（第一权威，逐句现读 `d:/2/tools/decomp_full/`）：
+        //   · `BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c:96-130` —— 原版这一跳先在卡位
+        //     `Instantiate` 一件溶解特效、再 `SoundManager.Play2D(SoundAssetCollection.DissolveCardInHand)`；
+        //   · 卡体本身在 `:134` 那条协程里溶掉：`CardScript.DestroyCard(card, DAT_1834b2dc8 /*0.3*/, 1, 0)`
+        //     → `CardScript._DestroyCard_d__269__MoveNext.c` 状态 1 = `StopAnimsInPlay` →
+        //     `CardScript.DissolveWholeCard(card, *(globalVars + 0xb0))` → `WaitForSeconds(0.3)` → 状态 2 `GoToCemetery`；
+        //   · `CardScript__DissolveWholeCard.c`：`DOScale(transform, 原缩放 × *(globalVars+0x40), 溶解时长)` +
+        //     `BattleCardUI.FadeCardItems(cardUI, 0, 溶解时长)`（**2D 卡面那一套**淡出）。
+        //
+        //  ⚠️ **溶解时长** = `*(globalVars + 0xb0)` —— 该偏移对应哪个字段**未逐字节复核**（按 `VarsGlobal`
+        //     声明序推为 `timeToDissolveCard = 0.2`，`资料/VarsGlobal_原版数值.md`）⇒ 取 **0.2**，「偏移待核」写死在这里。
+        //  🔴 **阻塞时长 = 0.3**（那条协程唯一一次 `WaitForSeconds`）—— 消费点 = `EventTiming.ReturnHoldOf`。
+        // ============================================================================================
+
+        /// <summary>🆕 2026-10-31（`B105_W2`）：`disappearFromHand` 里那条卡体溶解的**时长** = **0.2 s**。
+        /// 判据 = `CardScript._DestroyCard_d__269__MoveNext.c` 状态 1 传给 `DissolveWholeCard` 的
+        /// `*(globalVars + 0xb0)`；⚠️ **偏移对应的字段名未逐字节复核**（按 `VarsGlobal` 声明序 = `timeToDissolveCard` 0.2，
+        /// `资料/VarsGlobal_原版数值.md`）⇒ 如实标「偏移待核」。</summary>
+        public const float HandDissolveTime = 0.2f;
+
+        /// <summary>🆕 2026-10-31（`B105_W2`）：`disappearFromHand(56)` **阻塞动作队列**的秒数 = **0.3 s**。
+        /// 判据 = `BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c:134` 传 `DAT_1834b2dc8`（= 0.3）给
+        /// `DestroyCard`，而 `_DestroyCard_d__269__MoveNext.c` 状态 1 只有**一次** `WaitForSeconds(那个 0.3)`。
+        /// 消费点 = `EventTiming.ReturnHoldOf`（⛔ 别在别处再写一个 0.3）。</summary>
+        public const float HandDissolveBlockSeconds = 0.3f;
+
+        /// <summary>🆕 2026-10-31（`B105_W2` · 0-3）：`_ResolveDisplayFromHand` 里 `DisplayEnemyCardInCenter` 的
+        /// `timeToDraw` / `stepTime` = **0.3 s**（原版那一句两个实参都是 `DAT_1834b2dc8`，
+        /// `BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c:195`）。
+        /// 🔑 与 <see cref="CardCenterSabotageTimeToDraw"/> **是同一个 `.rdata` 地址**，但两条链的语义不同 ⇒ 各留一个名字。</summary>
+        public const float CardCenterFromHandStepTime = 0.3f;
+
+        /// <summary>🆕 2026-10-31（`B105_W2` · 0-3）：`displayFromHand(57)` **阻塞动作队列**的秒数 = **2.7 s**。
+        /// 判据（`BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c`）：
+        /// `:199` `yield return twoHalfSecDelay`（`bm+0x490` = **2.5 s**，`.rdata 0x1834b3250`，见 `报告/B92_B8`）
+        /// ＋ 状态 1 `TurnCardAround(0.2f,0)` 之后 `:238` `yield return twoFractDelay`（`bm+0x4C8` = **0.2 s**，
+        /// `.rdata 0x1834b2bb0`）⇒ **2.7 s**。⚠️ `DisplayEnemyCardInCenter` 那条协程是
+        /// `StartCoroutine`（**不 yield**）⇒ 它自己的 1.078 s **不进**这条算式（原版也不等它）。</summary>
+        public const float DisplayFromHandBlockSeconds = 2.7f;
+
+        /// <summary>自检用：`DissolveInHand` 被调用过几次（⛔ 不是「播成功」——动画闸要另看 `LastHandDissolveFallback`）。</summary>
+        public static int HandDissolveCalls { get; private set; }
+        /// <summary>自检用：最近一次手牌溶解走的是哪条路（材质溶解 / 2D 淡出）。</summary>
+        public static FallbackPath LastHandDissolveFallback { get; private set; }
+
+        /// <summary>🆕 2026-10-31（`B105_W2`）：**手牌里的卡溶解**（原版 `CardScript._DestroyCard` → `DissolveWholeCard`）。
+        ///
+        /// <para>原版对**手牌卡**不溶 3D 体，而是 `FadeCardItems`（2D 卡面那一套，0.2 s）+ 一次 `DOScale`。
+        /// 我们这套手牌卡本来就只有 2D 层 ⇒ 主线 = `Alpha2D` 1→0；**若这张卡有 3D 体**（`BeginDissolve` 成功），
+        /// 再并行喂 `_DissolveAmount`（与阵亡/回手同一条原版材质路）。</para>
+        ///
+        /// <para>⚠️ `BeginDissolve()` 拿不到溶解材质时**不出声**：这一跳原版本来就只淡 2D 层（`FadeCardItems`），
+        /// 走 `Alpha2D` 那一支是**原版行为**、不是降级 —— 与 `Dissolve()` / `ReturnToHand()` 那两条兜底不同。</para>
+        /// </summary>
+        public static Tween DissolveInHand(CardView card, float delay = 0f, System.Action onDone = null)
+        {
+            if (card == null) return null;
+            HandDissolveCalls++;
+            bool canDissolve = !ForceNoDissolveForTest && card.BeginDissolve();
+            LastHandDissolveFallback = canDissolve ? FallbackPath.MaterialDissolve : FallbackPath.WholeCardAlpha;
+            var seq = DOTween.Sequence();
+            seq.Insert(0f, DOTween.To(() => card.Alpha2D, a => card.SetAlpha2D(a), 0f, HandDissolveTime)
+                                 .SetEase(Ease.Linear));
+            if (canDissolve)
+                seq.Join(DOTween.To(() => card.DissolveAmount, a => card.SetDissolveAmount(a), 1f, HandDissolveTime)
+                                .SetEase(Ease.Linear));
+            var t = CardTween.Use(seq, Ease.Linear, card.transform).SetDelay(delay);
+            if (onDone != null)
+            {
+                t.OnComplete(() =>
+                {
+                    if (card != null && canDissolve) card.EndDissolve();
+                    onDone();
+                });
+            }
+            return t;
+        }
     }
 }

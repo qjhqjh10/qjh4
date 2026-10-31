@@ -212,6 +212,7 @@ public static class CardFaceAssertE24
             CheckClose(d1, RaceY01Tactic, 2e-4f, "B9 防御卡走**战术**那一档（y01 0.8796，⛔ 不是 0.8681）");
 
         // B10：不印那一行的战术卡 ⇒ 层不存在（`NaN`）—— ⛔ 别把 NaN 读成通过。
+        Check(tactNoLine != null, "（前提·不静默）卡池里找得到「不印兵种行的战术卡」样本 —— 找不到 ⇒ B10 没验");
         if (tactNoLine != null)
         {
             MeasureRace(tactNoLine, out float n1, out float n2);

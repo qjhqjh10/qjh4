@@ -1,0 +1,262 @@
+类型	名字	bundle	PathID	R4我们有没有用	引用数	消费者(本项目)	随包	UseOriginal	Replacements	定性	还缺什么
+Shader	Everguild/FX/Sprite Greyscale	globalgamemanagers.assets	52	无独立名字（经引用者）	2		wf_shaders_extra.bundle			在用·代码常量/表引用	
+Shader	Hidden/Universal Render Pipeline/Sampling	globalgamemanagers.assets	53	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/VoxelizeShader	globalgamemanagers.assets	54	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/Stop NaN	globalgamemanagers.assets	55	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/CoreSRP/CoreCopy	globalgamemanagers.assets	56	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/CameraMotionBlur	globalgamemanagers.assets	57	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/ClusterDeferred	globalgamemanagers.assets	58	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/TerrainEngine/Details/UniversalPipeline/BillboardWavingDoublePass	globalgamemanagers.assets	59	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Everguild/UI/Greyscale	globalgamemanagers.assets	60	无独立名字（经引用者）	2		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Hidden/Universal Render Pipeline/BokehDepthOfField	globalgamemanagers.assets	61	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/VFX/Empty	globalgamemanagers.assets	62	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Core/FallbackError	globalgamemanagers.assets	63	无独立名字（经引用者）	4		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Hidden/Universal Render Pipeline/XR/XROcclusionMesh	globalgamemanagers.assets	64	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/Edge Adaptive Spatial Upsampling	globalgamemanagers.assets	65	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal/HDRDebugView	globalgamemanagers.assets	66	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/GaussianDepthOfField	globalgamemanagers.assets	67	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/Bloom	globalgamemanagers.assets	68	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Core/VrsVisualization	globalgamemanagers.assets	69	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing	globalgamemanagers.assets	70	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/LutBuilderLdr	globalgamemanagers.assets	71	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/LensFlareDataDriven	globalgamemanagers.assets	72	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/LensFlareScreenSpace	globalgamemanagers.assets	73	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Everguild/PlanarReflectionsBlit	globalgamemanagers.assets	74	无独立名字（经引用者）	2	代码TryGetShader	wf_arena_mirror.bundle	Y		在用·原件随包	
+Shader	Hidden/Universal Render Pipeline/StencilDitherMaskSeed	globalgamemanagers.assets	75	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal/CoreBlit	globalgamemanagers.assets	76	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/UI/Default (UIEffect)	globalgamemanagers.assets	77	无独立名字（经引用者）	2		wf_arena_mirror.bundle			备用·随包无消费者	
+Shader	Hidden/Universal Render Pipeline/TemporalAA	globalgamemanagers.assets	78	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/PaniniProjection	globalgamemanagers.assets	79	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal/BlitHDROverlay	globalgamemanagers.assets	80	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/FinalPost	globalgamemanagers.assets	81	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/CameraMotionVectors	globalgamemanagers.assets	82	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/Debug/DebugReplacement	globalgamemanagers.assets	83	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal/CoreBlitColorAndDepth	globalgamemanagers.assets	84	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/XR/XRMirrorView	globalgamemanagers.assets	85	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/CopyDepth	globalgamemanagers.assets	86	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Shader Graph/FallbackError	globalgamemanagers.assets	87	无独立名字（经引用者）	2		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Hidden/TerrainEngine/Details/UniversalPipeline/WavingDoublePass	globalgamemanagers.assets	88	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/FallbackError	globalgamemanagers.assets	89	无独立名字（经引用者）	3		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Hidden/Universal Render Pipeline/UberPost	globalgamemanagers.assets	90	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/Scaling Setup	globalgamemanagers.assets	91	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/StencilDeferred	globalgamemanagers.assets	92	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/LUTBlender	globalgamemanagers.assets	93	无独立名字（经引用者）	2	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Hidden/Universal Render Pipeline/LutBuilderHdr	globalgamemanagers.assets	94	无独立名字（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/DBufferClear	globalgamemanagers.assets	95	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/TerrainEngine/Details/UniversalPipeline/Vertexlit	globalgamemanagers.assets	96	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Universal Render Pipeline/XR/XRMotionVector	globalgamemanagers.assets	97	无独立名字（经引用者）	1					不用·引擎/URP自带	
+Shader	Hidden/Everguild/GrainyBlurForPlanarReflections	globalgamemanagers.assets	98	无独立名字（经引用者）	2	代码TryGetShader	wf_arena_mirror.bundle	Y		在用·原件随包	
+ComputeShader	VFXCopyBuffer	globalgamemanagers.assets	99	读过（文档）	1					不用·引擎/包自带	VFX Graph 包内（com.unity.visualeffectgraph 未装）
+ComputeShader	ProbeVolumeSamplingDebugPositionNormal	globalgamemanagers.assets	100	读过（文档）	0					不用·引擎/包自带	URP/Core 包内（PackageCache 已证）
+ComputeShader	GenSdfRayMap	globalgamemanagers.assets	101	读过（文档）	0					不用·引擎/包自带	VFX Graph 包内（com.unity.visualeffectgraph 未装）
+ComputeShader	VFXPrefixSum	globalgamemanagers.assets	102	读过（文档）	1					不用·引擎/包自带	VFX Graph 包内（com.unity.visualeffectgraph 未装）
+ComputeShader	VFXFillIndirectArgs	globalgamemanagers.assets	103	读过（文档）	1					不用·引擎/包自带	VFX Graph 包内（com.unity.visualeffectgraph 未装）
+ComputeShader	UpdateStrips	globalgamemanagers.assets	104	读过（文档）	1					不用·引擎/包自带	VFX Graph 包内（com.unity.visualeffectgraph 未装）
+ComputeShader	VrsTexture	globalgamemanagers.assets	105	读过（文档）	0					不用·引擎/包自带	URP/Core 包内（PackageCache 已证）
+ComputeShader	Sort	globalgamemanagers.assets	106	从没看过	1					不用·引擎/包自带	VFX Graph 包内（com.unity.visualeffectgraph 未装）
+Shader	UI Extensions/Particles/Alpha Blended Premultiply	resources.assets	26	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/Multiply (Double)	resources.assets	27	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/~Additive-Multiply	resources.assets	28	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/UIAdditive	resources.assets	29	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/UIScreen	resources.assets	30	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/Multiply	resources.assets	31	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/Additive (Soft)	resources.assets	32	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/VertexLit Blended	resources.assets	33	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	MeshBaker/AlbedoShader	resources.assets	34	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/SoftMaskShader	resources.assets	35	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/Blend	resources.assets	36	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/UILinearDodge	resources.assets	37	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/Alpha Blended	resources.assets	38	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/UI Image Crop	resources.assets	39	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI/Particles/Hidden	resources.assets	40	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	TextMeshPro/Sprite	resources.assets	41	已用（数据表）（经引用者）	5	代码Shader.Find	wf_tmp_shaders.bundle			在用·原件随包	
+Shader	UI Extensions/UIMultiply	resources.assets	42	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	MeshBaker/Unlit/UnlitWithAlpha	resources.assets	43	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	MeshBaker/NormalMapShader	resources.assets	44	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/Particles/Additive	resources.assets	45	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	UI Extensions/UISoftAdditive	resources.assets	46	无独立名字（经引用者）	2					不用·第三方包仅登记GraphicsSettings	
+Shader	TextMeshPro/Distance Field	sharedassets0.assets	61	已用（工程内）（经引用者）	10	代码Shader.Find;效果prefab	wf_booster_matsfont.bundle			在用·原件随包	
+Shader	TextMeshPro/Mobile/Distance Field	sharedassets0.assets	62	已用（工程内）（经引用者）	11		wf_booster_matsfont.bundle			备用·随包无消费者	
+Shader	Skybox/Procedural	sharedassets1.assets	3	已用（数据表）（经引用者）	2					不用·引擎/URP自带	
+Shader	Hidden/VideoComposite	bundle_Warpforge_unitybuiltinassets.bundle	-9007216490556682420	无独立名字（经引用者）	34		wf_builtin.bundle			在用·代码常量/表引用	
+Shader	Legacy Shaders/Particles/Alpha Blended	bundle_Warpforge_unitybuiltinassets.bundle	-7440405706731286708	已用（工程内）（经引用者）	5	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/LegacyAlphaBlended	在用·原件随包	
+Shader	Sprites/Mask	bundle_Warpforge_unitybuiltinassets.bundle	-6911963441499271348	已用（工程内）（经引用者）	124	效果prefab	wf_builtin.bundle			在用·原件随包	
+Shader	Legacy Shaders/Particles/Additive	bundle_Warpforge_unitybuiltinassets.bundle	-6196057315786485940	已用（工程内）（经引用者）	21	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/LegacyAdditive	在用·原件随包	
+Shader	Legacy Shaders/Particles/Anim Alpha Blended	bundle_Warpforge_unitybuiltinassets.bundle	-3929997181066211508	已用（工程内）（经引用者）	9	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/Extra Color	在用·原件随包	
+Shader	Particles/Standard Unlit	bundle_Warpforge_unitybuiltinassets.bundle	-3179052830481969332	已用（工程内）（经引用者）	23	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/Extra Color	在用·原件随包	
+Shader	Mobile/Particles/Alpha Blended	bundle_Warpforge_unitybuiltinassets.bundle	-2249964020961374388	已用（工程内）（经引用者）	128	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/Extra Color	在用·原件随包	
+Shader	Mobile/Particles/Multiply	bundle_Warpforge_unitybuiltinassets.bundle	331393705258520396	已用（工程内）（经引用者）	5	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/Multiply	在用·原件随包	
+Shader	Legacy Shaders/VertexLit	bundle_Warpforge_unitybuiltinassets.bundle	1219581832943046476	无独立名字（经引用者）	18		wf_builtin.bundle			在用·代码常量/表引用	
+Shader	Legacy Shaders/Particles/Alpha Blended Premultiply	bundle_Warpforge_unitybuiltinassets.bundle	1291840640910692172	已用（工程内）（经引用者）	12	效果prefab	wf_builtin.bundle	Y	WarpforgeVFX/Particles/Extra Color	在用·原件随包	
+Shader	Mobile/Particles/Additive	bundle_Warpforge_unitybuiltinassets.bundle	2855819893914472268	已用（工程内）（经引用者）	411	效果prefab	wf_booster_fxbuiltin.bundle	Y	WarpforgeVFX/Particles/Extra Color	在用·原件随包	
+Shader	Sprites/Default	bundle_Warpforge_unitybuiltinassets.bundle	3262840161956400972	已用（工程内）（经引用者）	132	代码Shader.Find;效果prefab	wf_builtin.bundle			在用·原件随包	
+Shader	Hidden/VideoDecode	bundle_Warpforge_unitybuiltinassets.bundle	3450935938628456268	无独立名字（经引用者）	34		wf_builtin.bundle			在用·代码常量/表引用	
+Shader	Skybox/Cubemap	bundle_Warpforge_unitybuiltinassets.bundle	6596252149353221964	已用（工程内）（经引用者）	2	代码Shader.Find	wf_builtin.bundle			在用·原件随包	
+Shader	UI/Default	bundle_Warpforge_unitybuiltinassets.bundle	8439006551645622092	已用（数据表）（经引用者）	3	代码Shader.Find	wf_builtin.bundle			在用·原件随包	
+Shader	Universal Render Pipeline/Particles/Lit	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-8749146227525960588	已用（工程内）（经引用者）	4	效果prefab	wf_shaders_extra.bundle			在用·原件随包	
+Shader	Everguild/FX/Multi Ray	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-8640852129309073691	已用（数据表）（经引用者）	47	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/MultiRay	在用·原件随包	
+Shader	Everguild/Cards/3D Card Dissolve	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-8335403570401031012	已用（数据表）（经引用者）	3		wf_shaders_extra.bundle			在用·代码常量/表引用	
+Shader	Everguild/Cards/3D Card	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-7938055025392973240	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Shader Graphs/Fx_RockDissolve	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-7892625195550719853	已用（工程内）（经引用者）	5	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/RockDissolve	在用·原件随包	
+Shader	Everguild/FX/MarkerLight	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-7870691199087761616	已用（工程内）（经引用者）	4	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Particle Dissolve Premultiply	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-7164788934849017719	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Specific/Pray Glow	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-7131102827563369342	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	GlassRefraction	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-6953173491753768477	已用（工程内）（经引用者）	3	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+ComputeShader	[Gargoyle Swarm] [System] OutputUpdate	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-6952841037030345590	从没看过	2					在用·缺(VFX Graph 内核未导入)	Gargoyle Swarm 三件本地可取，施工单见 报告/B101_R3 §B
+Shader	Everguild/FX/Card Remnant Death Icon	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-6921493443542922608	已用（数据表）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Glow Shader	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-6869189067404686686	已用（工程内）（经引用者）	7	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Cards/Card Swarm Effect	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-6413205925000014956	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Sprite Greyscale	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-6027385879450436868	已用（数据表）（经引用者）	2		wf_shaders_extra.bundle			在用·代码常量/表引用	
+Shader	Shader Graphs/Fx_ParticleDissolve_apb	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-5706946386673320798	已用（工程内）（经引用者）	12	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/ParticleDissolveAPB	在用·原件随包	
+Shader	Custom/SuperSampled Texture	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-5296157122018834076	已用（工程内）（经引用者）	2		wf_shaders_extra.bundle			在用·代码常量/表引用	
+Shader	Everguild/Cards/Shatter Inner Pieces	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-3987107862567547689	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Rays For Trail	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-3510080988503725322	已用（数据表）（经引用者）	51	效果prefab	wf_prefabs_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Particle Shine Custom Vertex Streams	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-3067647383245506300	已用（工程内）（经引用者）	37	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/ParticleShineCVS	在用·原件随包	
+VisualEffectAsset	Gargoyle Swarm	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-2190925272322067318	从没看过	4					在用·缺(工程内没有)	9 件本地可取；3 处 m_Asset 空 guid；施工单 报告/B101_R3 §B
+Shader	Unlit/ScrollingTextures	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-1563693440911865925	已用（数据表）（经引用者）	2		wf_shaders_extra.bundle			备用·随包无消费者	
+Shader	Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-243492526131039094	已用（数据表）（经引用者）	2		wf_shaders_extra.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/FX Shine For Animation	bundle_battleprefabs_vfxandmisc_assets_all.bundle	-185510079874743107	已用（工程内）（经引用者）	6	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+ComputeShader	[Gargoyle Swarm] [System] Initialize Particle	bundle_battleprefabs_vfxandmisc_assets_all.bundle	87867903621936266	从没看过	2					在用·缺(VFX Graph 内核未导入)	Gargoyle Swarm 三件本地可取，施工单见 报告/B101_R3 §B
+Shader	Everguild/FX/TrailShader_Fading	bundle_battleprefabs_vfxandmisc_assets_all.bundle	684306895731615801	已用（数据表）（经引用者）	3	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/TrailShaderFading	在用·原件随包	
+Shader	Everguild/FX/Particle Premultiply	bundle_battleprefabs_vfxandmisc_assets_all.bundle	1092032425491312587	已用（工程内）（经引用者）	13	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/ParticlePremultiply	在用·原件随包	
+Shader	Everguild/FX/Burning Dissolve	bundle_battleprefabs_vfxandmisc_assets_all.bundle	1252529338590802266	已用（工程内）（经引用者）	6	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Spine/Special/HiddenPass	bundle_battleprefabs_vfxandmisc_assets_all.bundle	1289924478277711327	已用（工程内）（经引用者）	24	战场材质表;效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Custom/EditorIcon	bundle_battleprefabs_vfxandmisc_assets_all.bundle	2609439347724796792	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Shader Graphs/Doomweaver effect	bundle_battleprefabs_vfxandmisc_assets_all.bundle	3612509111447358907	已用（工程内）（经引用者）	4	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/DoomweaverEffect	在用·原件随包	
+Shader	Hidden/Shader Graph/FallbackError	bundle_battleprefabs_vfxandmisc_assets_all.bundle	3819691914921817934	无独立名字（经引用者）	336		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+ComputeShader	[Gargoyle Swarm] [System] Update Particle	bundle_battleprefabs_vfxandmisc_assets_all.bundle	3997522107499295882	从没看过	2					在用·缺(VFX Graph 内核未导入)	Gargoyle Swarm 三件本地可取，施工单见 报告/B101_R3 §B
+Shader	Everguild/Cards/BlobShadow	bundle_battleprefabs_vfxandmisc_assets_all.bundle	4218645752589620009	已用（工程内）（经引用者）	3	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Matcap/Matcap Full Options	bundle_battleprefabs_vfxandmisc_assets_all.bundle	4341849964770849447	已用（工程内）（经引用者）	145	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/Matcap/Matcap	在用·原件随包	
+Shader	Everguild/Cards/Gem Crystal Glitter Explosion	bundle_battleprefabs_vfxandmisc_assets_all.bundle	4974890277876018203	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Cards/3D Card Explosion	bundle_battleprefabs_vfxandmisc_assets_all.bundle	5181610620965656684	已用（工程内）（经引用者）	5	效果prefab	wf_prefabs_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Cards/Gem Crystal Glitter	bundle_battleprefabs_vfxandmisc_assets_all.bundle	6147910714464898648	已用（工程内）（经引用者）	5	效果prefab	wf_prefabs_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Matcap/Matcap Full Options VAT	bundle_battleprefabs_vfxandmisc_assets_all.bundle	6331056250094909814	已用（工程内）（经引用者）	6	效果prefab	wf_prefabs_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Wind Matcap	bundle_battleprefabs_vfxandmisc_assets_all.bundle	7261767967248185385	已用（工程内）（经引用者）	3	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Sprite Dissolve Mask	bundle_battleprefabs_vfxandmisc_assets_all.bundle	7612461173376232267	已用（数据表）（经引用者）	2		wf_shaders_extra.bundle			在用·代码常量/表引用	
+Shader	Universal Render Pipeline/Particles/Simple Lit	bundle_battleprefabs_vfxandmisc_assets_all.bundle	7761990499585583733	已用（工程内）（经引用者）	11	效果prefab	wf_shaders_extra.bundle			在用·原件随包	
+Shader	Everguild/FX/Particle Dissolve Mask	bundle_battleprefabs_vfxandmisc_assets_all.bundle	7972898417790053882	已用（工程内）（经引用者）	47	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/ParticleDissolveMask	在用·原件随包	
+Shader	Everguild/FX/TrailShader_1	bundle_battleprefabs_vfxandmisc_assets_all.bundle	8442397235057580651	已用（数据表）（经引用者）	12	效果prefab	wf_shaders_extra.bundle	Y	WarpforgeVFX/FX/TrailShader1	在用·原件随包	
+Shader	Everguild/FX/ShieldVfx	bundle_battleprefabs_vfxandmisc_assets_all.bundle	8696829021191338112	已用（工程内）（经引用者）	16	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/Cards/Necrons Base Death	bundle_battleprefabs_vfxandmisc_assets_all.bundle	8748580948104917534	已用（工程内）（经引用者）	2	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Spiral Trail FX	bundle_battleprefabs_vfxandmisc_assets_all.bundle	9072422847134352744	已用（数据表）（经引用者）	10	效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+ComputeShader	[Aeldari Portal] [System] Update Particle	bundle_battlesharedresources_assets_all.bundle	-8604370638508374566	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+ComputeShader	[Aeldari Portal] [System (4)] Update Particle	bundle_battlesharedresources_assets_all.bundle	-7787812722144033318	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+ComputeShader	[Aeldari Portal] [System (3)] Update Particle Strip	bundle_battlesharedresources_assets_all.bundle	-7667493940372421158	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+ComputeShader	[Aeldari Portal] [System (1)] Update Particle	bundle_battlesharedresources_assets_all.bundle	-7490676518295681574	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+Shader	Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad	bundle_battlesharedresources_assets_all.bundle	-7102121157087500272	已用（数据表）（经引用者）	3	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+Shader	Hidden/VFX/Aeldari Portal/System (3)/Output ParticleStrip Unlit Quad	bundle_battlesharedresources_assets_all.bundle	-6664125690151156262	已用（数据表）（经引用者）	3	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+ComputeShader	[Aeldari Portal] [System (5)] Initialize Particle	bundle_battlesharedresources_assets_all.bundle	-6528566453727705638	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+ComputeShader	[Aeldari Dust] [System] OutputUpdate	bundle_battlesharedresources_assets_all.bundle	-6461392124602521584	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+VisualEffectAsset	Aeldari Portal	bundle_battlesharedresources_assets_all.bundle	-6218776015286680102	已用（工程内）	6					在用·原版资产已导入并接线	阻塞：com.unity.visualeffectgraph 未装 + 输出材质 m_Shader 悬空（无运行时重绑）
+ComputeShader	[Aeldari Portal] [System (5)] Update Particle	bundle_battlesharedresources_assets_all.bundle	-5951303716320295462	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+ComputeShader	[Aeldari Portal] [System (4)] Initialize Particle	bundle_battlesharedresources_assets_all.bundle	-5529276207635872294	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+Shader	Hidden/VFX/Aeldari Portal/System (4)/Output Particle Unlit Quad	bundle_battlesharedresources_assets_all.bundle	-3899860870456588838	已用（数据表）（经引用者）	3	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+Shader	Everguild/FX/Tyranids/Tyranid Tentacle	bundle_battlesharedresources_assets_all.bundle	-3691949067916811134	已用（工程内）（经引用者）	6	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+ComputeShader	[Aeldari Dust] [System] Initialize Particle	bundle_battlesharedresources_assets_all.bundle	-3494546352490452976	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+Shader	Everguild/FX/Tyranids/Pulsating Mesh	bundle_battlesharedresources_assets_all.bundle	-3332872045011497075	已用（工程内）（经引用者）	8	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+Shader	Hidden/VFX/Aeldari Portal/System/Output Particle Unlit Quad	bundle_battlesharedresources_assets_all.bundle	-777811199038765606	已用（数据表）（经引用者）	3	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+ComputeShader	[Aeldari Portal] [System] Initialize Particle	bundle_battlesharedresources_assets_all.bundle	-579138999476992550	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+Shader	Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad	bundle_battlesharedresources_assets_all.bundle	2056482399784420826	已用（数据表）（经引用者）	3	战场材质表	wf_arena_shaders.bundle			在用·原件随包	
+ComputeShader	[Aeldari Dust] [System] Update Particle	bundle_battlesharedresources_assets_all.bundle	3161777490981120016	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+VisualEffectAsset	Aeldari Dust	bundle_battlesharedresources_assets_all.bundle	6558329252736165904	已用（工程内）	6					在用·原版资产已导入并接线	阻塞：com.unity.visualeffectgraph 未装 + 输出材质 m_Shader 悬空（无运行时重绑）
+ComputeShader	[Aeldari Portal] [System (3)] Initialize Particle Strip	bundle_battlesharedresources_assets_all.bundle	7281155482699056602	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+ComputeShader	[Aeldari Portal] [System (1)] Initialize Particle	bundle_battlesharedresources_assets_all.bundle	8952199605985166810	读过（索引）	3					在用·VFX Graph 内核(工程内)	
+Shader	Everguild/Cards/Shader Graphs/Booster Pack	bundle_boosterpacks_assets_all.bundle	-7650550828973362251	已用（数据表）（经引用者）	33	代码TryGetShader	wf_booster_shaders.bundle	Y		在用·原件随包	
+Shader	TextMeshPro/Distance Field	bundle_fonts_assets_all.bundle	683148379888368288	已用（工程内）（经引用者）	110	代码Shader.Find;效果prefab	wf_booster_matsfont.bundle			在用·原件随包	
+Shader	TextMeshPro/Distance Field Offset	bundle_fonts_assets_all.bundle	2094616344858530525	已用（工程内）（经引用者）	2	效果prefab	wf_tmp_shaders.bundle	Y		在用·原件随包	
+Shader	TextMeshPro/Sprite	bundle_fonts_assets_all.bundle	3416126243364311598	已用（数据表）（经引用者）	4	代码Shader.Find	wf_tmp_shaders.bundle			在用·原件随包	
+Shader	TextMeshPro/Mobile/Distance Field	bundle_fonts_assets_all.bundle	7030032868776217633	读过（索引）（经引用者）	58		wf_booster_matsfont.bundle			备用·随包无消费者	
+Shader	Everguild/UI/Division Change	bundle_menus_assets_all.bundle	-7358491658560365695	已用（数据表）（经引用者）	3					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/Greyscale Add	bundle_menus_assets_all.bundle	-5597991350116227388	已用（数据表）（经引用者）	28					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Shader Graphs/Nebula	bundle_menus_assets_all.bundle	-5564698372089388815	已用（数据表）（经引用者）	2		wf_menus_extra.bundle			备用·随包无消费者	
+Shader	Everguild/FX/FX Shine For Animation Normal	bundle_menus_assets_all.bundle	-2850556267643237983	已用（数据表）（经引用者）	4					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/Pulsating	bundle_menus_assets_all.bundle	-198157403755661549	已用（数据表）（经引用者）	5					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/UI Glow SDF Noise	bundle_menus_assets_all.bundle	3552312669185742801	已用（数据表）（经引用者）	14					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/UI Distort	bundle_menus_assets_all.bundle	3592933355922064795	已用（数据表）（经引用者）	7					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Hidden/Shader Graph/FallbackError	bundle_menus_assets_all.bundle	3819691914921817934	无独立名字（经引用者）	42		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Universal Render Pipeline/2D/Sprite-Unlit-Default	bundle_menus_assets_all.bundle	4053925350041733874	已用（数据表）（经引用者）	2					不用·引擎/URP自带	
+Shader	Everguild/UI/Additive	bundle_menus_assets_all.bundle	4921318991789134610	已用（数据表）（经引用者）	21					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Shader Graphs/UI Container Main Menu	bundle_menus_assets_all.bundle	5261144965713594700	已用（数据表）（经引用者）	17					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/UI Clock	bundle_menus_assets_all.bundle	7857876730834511036	已用（数据表）（经引用者）	20					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/UI Border Highlight Pulse Alpha	bundle_menus_assets_all.bundle	8965730551370349410	已用（数据表）（经引用者）	2					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/UI/Scan Lines Alpha Mask	bundle_menus_assets_all.bundle	9019347657813933928	已用（数据表）（经引用者）	2					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearena1.bundle	33	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearena1.bundle	34	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearena2.bundle	42	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/FX/Simple Fake Water	bundle_scenes_scenes_battlearena2.bundle	43	已用（工程内）（经引用者）	1	战场材质表	wf_arena_2.bundle			在用·原件随包	
+Shader	Everguild/FX/Alpha Mask One Layer  Color Ramp	bundle_scenes_scenes_battlearena2.bundle	44	已用（工程内）（经引用者）	1	战场材质表	wf_arena_2.bundle			在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearena2.bundle	45	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearena3.bundle	18	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearena3.bundle	19	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenaaeldari.bundle	18	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenaaeldari.bundle	19	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenaastramilitarum.bundle	28	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenaastramilitarum.bundle	29	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenablacklegion.bundle	27	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenablacklegion.bundle	28	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Spine/Special/HiddenPass	bundle_scenes_scenes_battlearenadarkangels.bundle	29	已用（工程内）（经引用者）	1	战场材质表;效果prefab	wf_shaders_extra.bundle	Y		在用·原件随包	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenadarkangels.bundle	30	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/FX/Alpha Mask One Layer  Color Ramp	bundle_scenes_scenes_battlearenadarkangels.bundle	31	已用（工程内）（经引用者）	1	战场材质表	wf_arena_2.bundle			在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenadarkangels.bundle	32	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenaemperorschildren.bundle	32	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenaemperorschildren.bundle	33	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenagenestealers.bundle	35	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/FX/Genestealers Flood	bundle_scenes_scenes_battlearenagenestealers.bundle	36	已用（数据表）（经引用者）	1					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenagenestealers.bundle	37	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenaleviathan.bundle	16	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenaleviathan.bundle	17	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenasororitas.bundle	18	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenasororitas.bundle	19	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenaspacewolves.bundle	22	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenaspacewolves.bundle	23	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Everguild/Misc/Unlit shadows receiver Vertex Color Shadow Mask	bundle_scenes_scenes_battlearenatauviorla.bundle	29		0		wf_arena_tauviorla.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Floor Planar Reflections Grainny Vertex color shadow mask	bundle_scenes_scenes_battlearenatauviorla.bundle	30	已用（工程内）（经引用者）	1	战场材质表	wf_arena_tauviorla.bundle			在用·原件随包	
+Shader	Hidden/LUTBlender	bundle_scenes_scenes_battlearenatauviorla.bundle	31	已用（数据表）（经引用者）	1	代码Shader.Find;代码TryResolve	wf_arena_2.bundle		WarpforgeVFX/LUTBlender	在用·原件随包	
+Shader	Everguild/FX/Specific/Tau Generator Energy	bundle_scenes_scenes_battlearenatauviorla.bundle	32	已用（工程内）（经引用者）	2	战场材质表	wf_arena_tauviorla.bundle			在用·原件随包	
+Shader	Everguild/Misc/URP Transparent Shadow Receiver	bundle_scenes_scenes_battlearenatauviorla.bundle	33	已用（数据表）（经引用者）	1		wf_arena_2.bundle			备用·随包无消费者	
+Shader	Everguild/FX/Two passes blur	bundle_scenes_scenes_mainmenuwarpforge.bundle	339	已用（数据表）（经引用者）	1					判不了·原版菜单材质未消费	若菜单线要复刻原版材质：Ruri 有源码，可照抄重建
+Shader	UI/Additive	bundle_shaders_assets_all.bundle	-8373661144503301647	已用（工程内）（经引用者）	4	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/Particles/Extra Color	在用·原件随包	
+Shader	Everguild/FX/Floor Planar Reflections Grainny	bundle_shaders_assets_all.bundle	-8049749197193168683	已用（工程内）（经引用者）	15	战场材质表	wf_shaders.bundle			在用·原件随包	
+Shader	Hidden/Core/FallbackError	bundle_shaders_assets_all.bundle	-8015457887526078469	无独立名字（经引用者）	20		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Shader Graphs/Eclipse Tau	bundle_shaders_assets_all.bundle	-7861443272188425377	已用（工程内）（经引用者）	5	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/FX/EclipseTau	在用·原件随包	
+Shader	Everguild/UI/UI Border Mask	bundle_shaders_assets_all.bundle	-7736264254629231199	已用（数据表）（经引用者）	24		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Particle Premultiply Greyscale Coloring	bundle_shaders_assets_all.bundle	-7294085627528535240	已用（工程内）（经引用者）	35	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/FX/ParticlePremultiplyGreyscale	在用·原件随包	
+Shader	Everguild/Unlit Wind	bundle_shaders_assets_all.bundle	-6701518588526593644	已用（工程内）（经引用者）	34		wf_shaders.bundle	Y	WarpforgeVFX/UnlitAmbient	在用·代码常量/表引用	
+Shader	Everguild/UI/Campaign Points	bundle_shaders_assets_all.bundle	-6477818027703174798	已用（数据表）（经引用者）	5		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Sprite Scan Lines	bundle_shaders_assets_all.bundle	-5025784757600742591	读过（索引）（经引用者）	5		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/UI/UI Border Highlight Appear Pulsating Scale	bundle_shaders_assets_all.bundle	-4463273156108355430	已用（数据表）（经引用者）	11		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/Cards/3D Card Stealth	bundle_shaders_assets_all.bundle	-4221462743389652497	已用（工程内）（经引用者）	5	效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Universal Render Pipeline/Lit	bundle_shaders_assets_all.bundle	-4055751637662985151	已用（工程内）（经引用者）	29	代码Shader.Find;效果prefab	wf_shaders.bundle			在用·原件随包	
+Shader	Everguild/FX/Particle Distortion Affect Transparents	bundle_shaders_assets_all.bundle	-3785611105477734646	已用（工程内）（经引用者）	54	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/FX/Distortion	在用·原件随包	
+Shader	Everguild/FX/Card Highlight And Shadow	bundle_shaders_assets_all.bundle	-3135600060561652991	已用（工程内）（经引用者）	11	效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Everguild/Card ImageUI	bundle_shaders_assets_all.bundle	-2318977921299023320	已用（工程内）（经引用者）	4		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Shader Graphs/Sprite HUE Color change	bundle_shaders_assets_all.bundle	-1970915450731268797	已用（数据表）（经引用者）	19		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Alpha Masks Two Layer	bundle_shaders_assets_all.bundle	-1146254713124683324	已用（工程内）（经引用者）	26	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/FX/AlphaMasksTwoLayer	在用·原件随包	
+Shader	Everguild/UI/Card ImageUI Simple	bundle_shaders_assets_all.bundle	-1015833530554052331	已用（数据表）（经引用者）	9		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/UI/Card Ready for level up	bundle_shaders_assets_all.bundle	-997642809443803877	读过（索引）（经引用者）	4		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/Matcap/Matcap With Texture	bundle_shaders_assets_all.bundle	-925998519868670989	已用（工程内）（经引用者）	79	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/Matcap/Matcap	在用·原件随包	
+Shader	Everguild/UI/Greyscale	bundle_shaders_assets_all.bundle	-503896977752469573	已用（数据表）（经引用者）	6		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Extra Color	bundle_shaders_assets_all.bundle	-418309281451410444	已用（工程内）（经引用者）	574	代码TryGetShader;效果prefab	wf_booster_fxshaders.bundle	Y	WarpforgeVFX/Particles/Extra Color EC	在用·原件随包	
+Shader	Universal Render Pipeline/Unlit	bundle_shaders_assets_all.bundle	-261421426886131751	已用（工程内）（经引用者）	16	代码Shader.Find;效果prefab	wf_shaders.bundle			在用·原件随包	
+Shader	Everguild/Misc/Unlit shadows receiver	bundle_shaders_assets_all.bundle	7745480916046788	已用（工程内）（经引用者）	33	战场材质表	wf_shaders.bundle			在用·原件随包	
+Shader	Everguild/UI/UI Distort Color Change	bundle_shaders_assets_all.bundle	2036015541538963932	已用（数据表）（经引用者）	5		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/Sprites/Sprite Additive	bundle_shaders_assets_all.bundle	2174467043535293503	已用（工程内）（经引用者）	4	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/Sprites/Additive	在用·原件随包	
+Shader	Hidden/Universal Render Pipeline/FallbackError	bundle_shaders_assets_all.bundle	2214449235232778024	无独立名字（经引用者）	18		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Shader Graphs/Equalizer	bundle_shaders_assets_all.bundle	2656665607827278157	已搬运（素材库）（经引用者）	5		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Vortex	bundle_shaders_assets_all.bundle	3176284634706314475	已用（工程内）（经引用者）	5	战场材质表;效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Hidden/Shader Graph/FallbackError	bundle_shaders_assets_all.bundle	3819691914921817934	无独立名字（经引用者）	75		wf_booster_fxshaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/FX/Tutorial Highlight	bundle_shaders_assets_all.bundle	3864205957556153395	已搬运（素材库）（经引用者）	5		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/Cards/3D Card Blend Image	bundle_shaders_assets_all.bundle	5068422463295229462	已用（工程内）（经引用者）	5	效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Unlit UV scroll	bundle_shaders_assets_all.bundle	5091587426579848444	已用（工程内）（经引用者）	83	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/FX/UnlitUVScroll	在用·原件随包	
+Shader	Shader Graphs/UI Vignete Shader	bundle_shaders_assets_all.bundle	5229447200795951577	已用（数据表）（经引用者）	16		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/UI/Card ImageUI Simple GreyScale	bundle_shaders_assets_all.bundle	5422223336060769173	读过（索引）（经引用者）	4		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/UnlitAmbient Emissive Flickker	bundle_shaders_assets_all.bundle	5666454418533540605	已用（工程内）（经引用者）	10	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/UnlitAmbient	在用·原件随包	
+Shader	Everguild/UnlitAmbient	bundle_shaders_assets_all.bundle	5671169271318965967	已用（工程内）（经引用者）	87	效果prefab	wf_shaders.bundle	Y	WarpforgeVFX/UnlitAmbient	在用·原件随包	
+Shader	Everguild/FX/Alpha Mask One Layer	bundle_shaders_assets_all.bundle	6307360966591251699	已用（工程内）（经引用者）	36	效果prefab	wf_booster_fxshaders.bundle	Y	WarpforgeVFX/FX/AlphaMaskOneLayer	在用·原件随包	
+Shader	Everguild/UI/Color Change	bundle_shaders_assets_all.bundle	6552396748846603172	已用（数据表）（经引用者）	10		wf_shaders.bundle			在用·代码常量/表引用	
+Shader	Everguild/UI/UI Border Highlight Appear	bundle_shaders_assets_all.bundle	6773909295900798026	已用（数据表）（经引用者）	81	代码TryResolve	wf_shaders.bundle			在用·原件随包	
+Shader	Everguild/FX/Color Gradient	bundle_shaders_assets_all.bundle	7008491862442076175	读过（索引）（经引用者）	3		wf_shaders.bundle			备用·随包无消费者	
+Shader	Everguild/FX/Burning	bundle_shaders_assets_all.bundle	7950180713205242538	已用（工程内）（经引用者）	11	战场材质表;效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Specific/Necrons Rays	bundle_shaders_assets_all.bundle	7994123038300759436	已用（工程内）（经引用者）	5	战场材质表;效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Everguild/FX/Halo UV scroll	bundle_shaders_assets_all.bundle	8443069757019562635	已用（工程内）（经引用者）	7	效果prefab	wf_shaders.bundle	Y		在用·原件随包	
+Shader	Universal Render Pipeline/Particles/Unlit	bundle_shaders_assets_all.bundle	8918850207803687531	已用（工程内）（经引用者）	1291	代码Shader.Find;效果prefab	wf_booster_fxshaders.bundle			在用·原件随包	

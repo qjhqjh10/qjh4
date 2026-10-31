@@ -108,7 +108,7 @@ out.append(p)
 rows, _ = load('特效动画.tsv')
 p = find(rows, 'TutorialPointer', 'StartPointer(')
 p[5] = 'B'
-p[6] = ('CardPresentation/Battle/TutorialOverlay.cs:1075（SetPointer）· 建层闸 = `BattleDriver.EnsureTutorialOverlay`（散文不给行号）')
+p[6] = ('CardPresentation/Battle/TutorialOverlay.cs:1045（SetPointer）· 建层闸 = `BattleDriver.EnsureTutorialOverlay`（散文不给行号）')
 p[7] = p[7] + (
     ' ｜ 🆕 2026-10-28（B92_N10 现核 · 判据补全、未实现）：三条协程体已读全 —— `ClickInPosition` / `ClickAndHold` 只把指针放 `from`；'
     '`TutorialPointer._ClickAndDrag_d__25__MoveNext.c:1-95` 四态循环：① `ShowStartingPointer(from, 朝向)` + `WaitForSeconds(+0x54)` '

@@ -167,8 +167,32 @@ def main():
             return f"{lst[0][0]:.2f}–{lst[-1][0]:.2f}s" if lst else "—"
 
         med = None
+        # 🔴 2026-10-31（B105_R1 现核）：C/D 不能只看「另一侧没到 LIT_MIN」——
+        #   两侧都只有 59 个亮点（差 1 个像素）也会被判成「导出整个丢了」。
+        #   判 C/D 前要求**另一侧峰值 < LIT_MIN×0.6**（真缺席时峰值是 0）；
+        #   否则按「次阈值小样本」比比值（带宽内 ⇒ Z，否则 E）。
+        #   证据 → `判据/B105_T03分类.md`（`Tidewall Gunrig` / `BulletTrail_Single` 均为该假阳性）。
+        orig_peak = max([s[1][0] for s in samples] or [0])
+        exp_peak = max([s[2][0] for s in samples] or [0])
+        weak_min = LIT_MIN * 0.6
+
+        def weak_judge():
+            rr = [s[2][1] / s[1][1] for s in samples if s[1][1] > 0 and s[2][1] > 0]
+            m = statistics.median(rr) if rr else None
+            if m is None:
+                return "W", "两侧只有次阈值噪声（比值读不出）", None
+            if BAND_LO <= m <= BAND_HI:
+                return "Z", f"对得上（次阈值小样本：另一侧峰值 {int(max(orig_peak, exp_peak))} < LIT_MIN={LIT_MIN}）", m
+            if m > BAND_HI:
+                return "E", "偏亮（次阈值小样本）", m
+            return "E", "偏暗（次阈值小样本）", m
+
         if not orig_on and not exp_on:
             grp, verdict = "W", "两边全程空（完全脚本驱动 / 需要触发条件）"
+        elif not orig_on and exp_peak > 0 and orig_peak >= weak_min:
+            grp, verdict, med = weak_judge()
+        elif not exp_on and orig_peak > 0 and exp_peak >= weak_min:
+            grp, verdict, med = weak_judge()
         elif not orig_on:
             grp, verdict = "D", "只有导出有内容"
         elif not exp_on:

@@ -1,8 +1,5 @@
 ﻿效果名	分组	判定	亮度比中位	|ln|	置信度	峰值亮点	原版有内容时段	导出有内容时段	寿命差异	单帧旧判定	单帧L1	技术构成	人工备注
 Swarm Battle Card Icon	C	只有原版有内容 —— 导出整个丢了			高	12587	0.15–3.00s	—					
-BulletImpact_Shuriken_Long_twinlink	C	只有原版有内容 —— 导出整个丢了			低	63	1.00–1.00s	—		只有原版有	0.0000	精灵图 多发射器(30)	
-Tidewall Gunrig	C	只有原版有内容 —— 导出整个丢了			低	62	0.30–0.50s	—		对得上	0.0000	精灵图 多发射器(19) Sprite/抓屏扭曲	
-BulletTrail_Single	D	只有导出有内容			低	62	—	0.75–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9)	
 Armor_Necron	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	56	—	—		对得上	0.0000	精灵图 多发射器(31) Sprite	
 Atk_BulletImpact_Vox-pulse	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	23	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
 Atk_BulletImpact_Vox-pulse digital	W	两边全程空（完全脚本驱动 / 需要触发条件）			低	28	—	—		两边都空	0.0000	精灵图 多发射器(10) 抓屏扭曲	
@@ -856,6 +853,7 @@ BulletImpact_Ork Snakebite Squig Hook	Z	对得上	1.00	0.000	低	168	0.15–0.75
 BulletImpact_RandomShitGo	Z	对得上	1.03	0.033	低	64	1.50–1.50s	1.50–1.50s		对得上	0.0002	Mesh粒子 精灵图 多发射器(58) Matcap/抓屏扭曲	
 BulletImpact_Rippergun	Z	对得上	1.00	0.000	低	71	0.30–0.30s	0.30–0.30s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
 BulletImpact_Saboteur_DetonatorOnly	Z	对得上	1.00	0.000	低	110	0.30–1.50s	0.30–1.50s		对得上	0.0000	精灵图 4发射器 Matcap	
+BulletImpact_Shuriken_Long_twinlink	Z	对得上（次阈值小样本：另一侧峰值 63 < LIT_MIN=60）	0.96	0.044	低	63	1.00–1.00s	—		只有原版有	0.0000	精灵图 多发射器(30)	
 BulletImpact_Sonic Weapon 1 Dual Pistol	Z	对得上	0.99	0.006	低	182	0.75–1.50s	0.75–1.50s		偏亮	0.0019	Mesh粒子 精灵图 多发射器(50) 抓屏扭曲	
 BulletImpact_Sonic Weapon 2	Z	对得上	1.00	0.000	低	138	0.75–1.50s	0.75–1.50s		偏亮	0.0014	Mesh粒子 精灵图 多发射器(25) 抓屏扭曲	
 BulletImpact_Sonic Weapon 2 Pistol	Z	对得上	1.00	0.000	低	117	0.50–0.75s	0.50–0.75s		偏亮	0.0003	Mesh粒子 精灵图 多发射器(27) 抓屏扭曲	
@@ -874,6 +872,7 @@ BulletImpact_artillery_manticore_spread	Z	对得上	1.00	0.000	低	157	0.15–0.
 BulletImpact_autocannon	Z	对得上	1.00	0.000	低	66	0.75–0.75s	0.75–0.75s		对得上	0.0000	Mesh粒子 精灵图 多发射器(15) Matcap	
 BulletImpact_autogun_Shotgun	Z	对得上	1.00	0.000	低	82	0.30–0.75s	0.30–0.75s		两边都空	0.0000	精灵图 多发射器(16)	
 BulletImpact_gatling_1s	Z	对得上	1.00	0.000	低	60	1.00–1.00s	1.00–1.00s		对得上	0.0001	Mesh粒子 精灵图 多发射器(15) Matcap	
+BulletTrail_Single	Z	对得上（次阈值小样本：另一侧峰值 62 < LIT_MIN=60）	1.05	0.044	低	62	—	0.75–0.75s		两边都空	0.0000	Mesh粒子 精灵图 多发射器(9)	
 CoordinatedEngagement	Z	对得上	1.00	0.000	低	142	0.15–1.50s	0.15–1.50s		对得上	0.0004	精灵图 多发射器(23) Sprite/抓屏扭曲	
 CreateCard	Z	对得上	0.99	0.008	低	84	1.50–1.50s	1.50–1.50s		对得上	0.0006	精灵图 多发射器(14)	
 CreateCard BlackLegion	Z	对得上	1.00	0.000	低	74	1.50–1.50s	1.50–1.50s		对得上	0.0006	精灵图 多发射器(14)	
@@ -951,6 +950,7 @@ Tap Toxic Sludge green	Z	对得上	1.00	0.002	低	145	0.15–0.30s	0.15–0.30s	
 Tap squishy	Z	对得上	1.00	0.000	低	100	0.15–0.75s	0.15–0.75s		对得上	0.0001	精灵图 3发射器	
 Tau Buff Ranged	Z	对得上	1.01	0.011	低	156	1.50–1.50s	1.50–1.50s		对得上	0.0006	精灵图 多发射器(19) Sprite	
 Tau Coordinated Engagement	Z	对得上	1.00	0.000	低	117	1.50–1.50s	1.50–1.50s		对得上	0.0000	精灵图 多发射器(19) 抓屏扭曲	
+Tidewall Gunrig	Z	对得上（次阈值小样本：另一侧峰值 62 < LIT_MIN=60）	1.00	0.000	低	62	0.30–0.50s	—		对得上	0.0000	精灵图 多发射器(19) Sprite/抓屏扭曲	
 Toxic Vapors Damage	Z	对得上	1.00	0.000	低	165	1.50–1.50s	1.50–1.50s		对得上	0.0002	精灵图 6发射器	
 Toxic Vapors Damage quick	Z	对得上	1.00	0.000	低	185	0.75–1.00s	0.75–1.00s		对得上	0.0002	精灵图 6发射器	
 Trait_GainQuest	Z	对得上	1.00	0.000	低	173	1.00–1.00s	1.00–1.00s		偏暗	0.0009	精灵图 多发射器(8) Sprite	

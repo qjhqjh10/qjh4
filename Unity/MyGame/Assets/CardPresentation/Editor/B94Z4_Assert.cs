@@ -139,6 +139,11 @@ public static class B94Z4_Assert
               "D3b ★ 清位**写穿了**（删掉那句 `SavePracticeMatchStarted()` ⇒ 这条红；不写穿 ⇒ 每次重启都再判一次负）");
             Tr(!new GameModesHandler().InitializePracticeForMenuStart(),
                "D4 同一份档再跑一次 ⇒ **不再命中**（⛔ 不许重复记负）");
+            // 🔴 2026-10-31（调度台 · B105_D1）：`InitializePracticeForMenuStart` 命中时会弹 `MessagePopupWindow`，
+            //   旧写法没收 ⇒ 污染 `WindowsManager` 全局单例，后面 `B93D3` 的「不弹确认框」因此假红。
+            //   本段收尾把弹窗关掉（`HidePopUp(true)` = 原版 `WindowsManager.HidePopUp` 的强制档）。
+            var wmD = WindowsManager.Get();
+            if (wmD != null) wmD.HidePopUp(true);
 
             // ------------------------------------------------------------ E 内存权威
             MenuCheck.Section(_sink, "E 内存权威：本进程改过这一格 ⇒ 不许被盘上旧值覆盖");

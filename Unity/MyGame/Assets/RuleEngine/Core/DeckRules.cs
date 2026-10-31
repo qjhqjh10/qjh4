@@ -82,10 +82,10 @@ namespace RuleEngine
         //   判据 = 原版 `DeckUtility.CanAddCard.c:100-147`（这一闸只出一句话、没有错误枚举 ⇒
         //   我们这一档是**为了把两句话分开**才造的枚举值，键名取原版实有的那一条）。
         //   ⚠️ **追加在枚举末尾**（⛔ 别插中间：枚举序号一旦位移，按号取值的地方会静默错位）。
-        LegendaryTotalExceeded,
+        LegendaryTotalExceeded, InvalidArmy,   // ← `InvalidArmy` 见文件尾 partial 的 `IsNeutralFaction`/`DeckArmy` 那段（2026-10-31 `B105_W4`；写成同一行 = 零行数变化，本文件被账按行号引用）
     }
 
-    public static class DeckRules
+    public static partial class DeckRules
     {
         // 🔴 **2026-09-26：这张表的数值全部搬到 `GameplayVariables` 了**（那是唯一出处）。
         //    这里保留原名当**别名**，是为了不动既有调用方（卡组编辑器那一片）；
@@ -572,7 +572,7 @@ namespace RuleEngine
         /// 两族**并存**，我们用具名那一族（它才是「给玩家看的那句话」的载体，
         /// 数字那一族只给 `WindowsManager.ShowPopUp` 用）。</para>
         ///
-        /// <para>🔴 **我们这 13 条键是【自拟】的**：原版具名族只有上面那 8 条 + `{0}`/`{0}/Short` 两条，
+        /// <para>🔴 **我们这 13 条键是【自拟】的**（🆕 2026-10-31 `B105_W4` 追加的第 14 档 `InvalidArmy` **不在此列** —— 它是原版具名族真正的字面量，地址表见上）：原版具名族只有上面那 8 条 + `{0}`/`{0}/Short` 两条，
         /// 而我们的 `DeckError` 有 13 档、名字也**一个都不重名**
         /// ⇒ 键名 = `"MenuDeck/Error/" + 枚举名`（形状照原版那一族）。
         /// ⛔ **别把这几条当成原版实有的字面量** —— 要看原版实有哪几条，看上面那张地址表。
@@ -632,7 +632,7 @@ namespace RuleEngine
         {
             return e == DeckError.InvalidDeck                 // `MenuDeck/Error/InvalidDeck`（原版有）
                 || e == DeckError.EffectOnlyCard              // `Describe` 已把它映射成 `InvalidDeck`（原版有）
-                || e == DeckError.LegendaryTotalExceeded;     // 映射成 `MaxLegendayCopiesReached`（原版有）
+                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy;  // 后者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）
         }
 
         /// <summary>这一档是**我们自己的槽位判据**（原版不查督军/防御卡槽位）⇒ 原版**没有对应错误码**。
@@ -1057,3 +1057,107 @@ namespace RuleEngine
         public string WarcryId;
     }
 }
+
+    // ================================================================================================
+    //  🆕 2026-10-31（`B105_W4` · 账 `卡组编辑:8` = 原版 `CardDeck.CanAddCard` 的阵营闸）
+    //  原版「这张卡能不能加」比的**不是督军的阵营**，是 `CardDeck.deckArmy` 这个**字段**；
+    //  而且「中立阵营卡不挡」「空卡组不挡」两条都要带上。判据与写点见下面两个方法的 doc。
+    //
+    //  ⚠️ 本段**追加在文件尾的 partial**（`DeckRules` 已改 `static partial`，类体一个字没动）——
+    //     本文件被账按 `文件:行号` 引用（762/772/778/785/793/871/881/933/989 …）⇒ 往类中间插成员会整体漂移。
+    // ================================================================================================
+    namespace RuleEngine
+    {
+        public static partial class DeckRules
+        {
+            /// <summary>原版 `GameStaticData.IsNeutralArmy(CardArmy)` 的等价物（判「这一档阵营算不算中立」）。
+            ///
+            /// <para>**判据（第一权威）**：`GameStaticData__IsNeutralArmy.c`（全文 = `neutralArmies.Contains(army)`）
+            /// + `out_cpp2il_dev_ilspy/GameStaticData.cs:981-984` + 它的初始化 `:2445`：`neutralArmies = new CardArmy[1]`
+            /// （**唯一元素 = 枚举默认值 0**）⇒ **`IsNeutralArmy(a) ⇔ a == CardArmy.Neutral`**
+            /// （`CardArmy.cs:3`：`Neutral = 0`）。所以原版的「中立」就**只有一个值**，不是什么阵营白名单。</para>
+            ///
+            /// <para>我们这边阵营是**字符串**，中立那个名字沿用工程里既有的约定 `"Neutral"`
+            /// （同 `TargetCriteriaEval.cs:1156` · `ArenaByArmy.cs:44`）⇒ 比较走 <see cref="SameFaction"/>（不敏感）。</para>
+            ///
+            /// <para>⚠️ **空串不算中立**：原版 `CardArmy` 只有那 15 个值、**表达不出「没有阵营」**
+            /// ⇒ 把 `""` 当 `Neutral` 等于给一个原版不存在的状态发明语义（铁律 18·0）⇒ 不这么做
+            /// （空串照旧「跟谁都不是同阵营」）。</para>
+            ///
+            /// <para>⚠️ **今天不可达**：本池现读 13 个阵营、**0 张 `Neutral`** ⇒ 这一支写逻辑 + 注释即可
+            /// （判据先落，将来真出现中立卡时行为已经对）。</para></summary>
+            public static bool IsNeutralFaction(string faction)
+            {
+                return SameFaction(faction, "Neutral");
+            }
+
+            /// <summary>原版 `CardDeck.deckArmy`（**公开字段**，`out_cpp2il_dev_ilspy/CardDeck.cs:105`；
+            /// `Assembly-CSharp/CardDeck.cs:26`；**`deck+0x50`** —— `CardDeck__CanAddCard.c:91` 读的就是它）的等价物。
+            /// 返回**阵营名**；<c>null</c> = 原版的 `CardArmy.Neutral`（0）。
+            ///
+            /// <para>**原版全部写点（逐个读过，⛔ 别只记一个）**：
+            /// · `DeckBasicSetup`（`CardDeck.cs:270-295`）：`hero == null ⇒ Neutral`，否则 `hero.cardArmy`；
+            /// · 拷贝构造 `CardDeck(CardDeck)`（`:485`）：照抄 `deckToCopy.deckArmy`；
+            /// · 另一个构造（`:610`，`prebuiltPacks` 那一支）：`deckArmy = Neutral`；
+            /// · `AddCard`（`:656-661`）：**加之前** `CardCount(countHero:true) == 0` ⇒ `deckArmy = card.cardArmy`
+            ///   （= **空卡组的第一张普通卡定阵营**；之后再加不改它）；
+            /// · `AddHero` / `TryAddHero`（`:926` / `:938`）：`deckArmy = hero.cardArmy`；
+            /// · `RemoveCard`（`:643-647`）：**摘之后** `CardCount(countHero:true) == 0` ⇒ `deckArmy = Neutral`；
+            /// · `AddDefensiveCard` / `RemoveDefensiveCard`（`:913-921`）**不碰**它（防御卡住在 `+0x48`，不进 `cardLibrary`）；
+            /// · `DeserializeDeckString`（`:1786`）：走 `DeckBasicSetup(name, 串里那张 hero, …)` ⇒ 只由**督军**定。</para>
+            ///
+            /// <para>**为什么这里是「派生」而不是给 `PlayerDeck` 加一个字段**：
+            /// 在**玩家能走到的每种状态**下两者恒等 ——
+            /// · 有督军 ⇒ 原版 = 督军阵营（`AddHero`/`DeckBasicSetup`）；
+            /// · 没督军但有卡 ⇒ 原版 = 那第一张卡的阵营（`AddCard` 的 `count==0` 那一支），
+            ///   而**后续每张卡都必须过本闸**（= 与它同阵营）⇒ 列表第 0 张的阵营就是它；
+            /// · 都没有 ⇒ `Neutral`。
+            /// 加一个可序列化字段反而要同步 `Clone` / `CommitCurrent` / `ExportString` / `ImportString` + 每处改卡组的代码
+            /// （`DeckRuntime` / `CollectionScene` 那些不在本笔白名单）⇒ 漏一处就是**静默漂移**；
+            /// 派生没有这个问题，而且**改档老存档不用迁移**。</para>
+            ///
+            /// <para>🔴 **唯一不等价的状态（如实记，⛔ 别当成已对齐）**：`DeserializeDeckString` 里
+            /// `DeckBasicSetup` 先跑、`cardLibrary.AddRange` 后跑 ⇒ **导入一副「没有督军」的卡组串**之后，
+            /// 原版 `deckArmy = Neutral` 而卡表非空（那时**任何**非中立卡都被挡）；本函数给的是第 0 张卡的阵营。
+            /// 我们 `DeckLibrary.ImportString` 确实**可能**返回没有 hero 的解（`DeckRules.Validate` 不过也照返现代解，
+            /// `DeckLibrary.cs:499-526`）⇒ 这一格今天**可观测**，但只在「导入一副畸形卡组串」这一条路上。
+            /// 要彻底对齐得给 `PlayerDeck` 补字段（上面那 4 个拷贝点 + 每处写卡组的地方），已作为待办交给调度台。</para>
+            ///
+            /// <para>⚠️ 取不到卡（id 在卡池里查不到）时**跳过那一条**往下找（原版存的是对象引用、不可能悬空）；
+            /// 一条都解析不出来 ⇒ 返回 `null`（= Neutral），并由调用方决定要不要出声。</para></summary>
+            /// <param name="deck">要算的那副（`null` ⇒ `null`）。</param>
+            /// <param name="lookup">id → 卡（同 <see cref="RemoveInvalidCards"/> 那个口）。`null` 时只看督军 id 是否存在。</param>
+            public static string DeckArmy(PlayerDeck deck, Func<string, CardDef> lookup)
+            {
+                if (deck == null) return null;
+                if (lookup == null) return null;   // 查不了卡 ⇒ 连督军阵营都取不到 ⇒ 如实返回 Neutral，⛔ 不猜
+
+                // ① 督军在场 ⇒ 督军阵营（原版 `AddHero` / `DeckBasicSetup` / `TryAddHero` 三条都这么写）。
+                //    督军自己就是中立阵营 ⇒ 原版 `deckArmy = Neutral`（**不再往下看卡表**，照抄）。
+                if (!string.IsNullOrEmpty(deck.WarlordId))
+                {
+                    var w = PlayerDeck.ResolveEntry(deck.WarlordId, lookup, out _);
+                    if (w != null) return IsNeutralFaction(w.Faction) ? null : w.Faction;
+                    // 督军 id 解析不出来 ⇒ 原版不可能有这个状态（它存的是对象引用）⇒ 继续按卡表推，末尾会返回 null
+                }
+
+                // ② 没督军（或督军查不到）但有卡 ⇒ 卡表第 0 张能解析出来的那张卡的阵营
+                //    （原版 `AddCard`：空卡组加第一张时记 deckArmy；此后每张都要过本闸 ⇒ 全列表同阵营）
+                if (deck.CardIds != null)
+                {
+                    for (int i = 0; i < deck.CardIds.Count; i++)
+                    {
+                        string id = deck.CardIds[i];
+                        if (string.IsNullOrEmpty(id)) continue;
+                        var c = PlayerDeck.ResolveEntry(id, lookup, out _);
+                        if (c == null) continue;          // 悬空 id：原版没有这种条目，跳过并继续找
+                        if (IsNeutralFaction(c.Faction)) continue;   // 中立卡不会去定 deckArmy（原版 `Neutral` = 0 的「没定过」同值）
+                        return c.Faction;
+                    }
+                }
+
+                // ③ 都没有（或全都解析不出来）⇒ 原版 `deckArmy` 的出厂值 `CardArmy.Neutral`
+                return null;
+            }
+        }
+    }

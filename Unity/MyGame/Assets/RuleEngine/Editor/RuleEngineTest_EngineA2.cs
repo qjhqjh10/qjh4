@@ -145,6 +145,7 @@ public static partial class RuleEngineTest
         //   猎杀标记 = **加 buff 的前置条件**（`targethaskw`），不是目标池筛子。
         {
             var sw9 = CardDatabase.FindById(pool, "SW9");
+            CheckTrue(sw9 != null, "（前提·不静默）卡池里有 `SW9`（`Fenrisian Wolf`）");
             if (sw9 != null)
             {
                 var ops = EffectText.Parse(sw9.Desc, out _, out _, card: sw9);

@@ -1378,6 +1378,9 @@ public static class DeckScene
 
             B97_MENU_Assert.CheckB97MenuDeckPoolBanIcon(_rt);   // 🆕 2026-10-29（调度台代接线 · `B97_MENU`）：卡池卡格的 ban 徽标（账 `菜单_外壳:58`）。
 
+            B105W3_Assert.Run(); _sink.Pass += B105W3_Assert.Pass; _sink.Fail += B105W3_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · AUD11）：换将不清卡（原版形状；⛔ 别把「换将即清」接回 TryAdd）
+            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W4）：阵营闸按原版 `deck.deckArmy`（无督军但卡组非空也挡异阵营；中立跳过）
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -1413,7 +1416,8 @@ public static class DeckScene
                 { Check(true, false, $"没督军时卡池里混进了非督军：`{c.Name}`（{c.Type}）"); allHero = false; break; }
                 facs.Add(c.Faction ?? "");
             }
-            if (allHero) CheckTrue(true, $"没督军时**全是督军**（{noWl.Count} 张）");
+            // 🔴 **B105_F6（AUD11 类 3D）**：`CheckTrue(true, …)` 恒过 ⇒ 改成出声（缺件那一态上面已经红了）。
+            if (allHero) Debug.Log($"没督军时**全是督军**（{noWl.Count} 张）· 由上面那条负向 guard 兜底");
             CheckTrue(facs.Count >= 10, $"**各阵营的督军都在**（覆盖 {facs.Count} 个阵营 —— 不是只列某一个）");
 
             CardDef w = noWl[0];
@@ -1428,7 +1432,8 @@ public static class DeckScene
                 if (c.Type == "hero") hasHero = true;
                 if (c.Type == "defence") hasDef = true;
             }
-            if (okFac) CheckTrue(true, $"定了督军后卡池**只剩该阵营**（{seen.Count} 张）");
+            // 🔴 **B105_F6（AUD11 类 3D）**：同上 —— `CheckTrue(true, …)` 恒过 ⇒ 改成出声。
+            if (okFac) Debug.Log($"定了督军后卡池**只剩该阵营**（{seen.Count} 张）· 由上面那条负向 guard 兜底");
             CheckTrue(hasHero, "该阵营**其它督军还在**（玩家可以换督军）");
             CheckTrue(hasDef, "该阵营的**防御卡在卡池里**（玩家要从这儿挑防御卡 —— 用户 2026-09-27）");
 
@@ -2202,6 +2207,10 @@ public static class DeckScene
             foreach (var c in s.Pool)
                 if (c.Type == "unit" && DeckRules.SameFaction(c.Faction, warlord.Faction)
                     && DeckRules.IsLegendary(c.Rarity) && c.Id != unitA.Id) { legendary = c; break; }
+            // 🔴 2026-10-31（调度台 · AUD11 3A-b 块级 guard）：原来这里**一个前提断言都没有** ——
+            //   池里找不到同阵营传说卡时，下面两条**整段不跑、合计也不减**（真静默跳过）。
+            CheckTrue(legendary != null,
+                      "（前提·不静默）池里找得到**同阵营的另一张传说卡** —— 否则下面「第 2 张被挡」两条断言整段不跑");
             if (legendary != null)
             {
                 s.TryAdd(legendary, out why);
@@ -2212,8 +2221,8 @@ public static class DeckScene
             CardDef other = null;
             foreach (var c in s.Pool)
                 if (c.Type == "unit" && !DeckRules.SameFaction(c.Faction, warlord.Faction)) { other = c; break; }
-            if (other != null)
-                CheckTrue(!s.TryAdd(other, out why), $"别阵营的卡被挡（{why}）");
+            CheckTrue(other != null, "（前提）池子里找得到一张别阵营的 unit 卡（拿不到 ⇒ 下面那条「别阵营被挡」验不到）");
+            CheckTrue(other == null || !s.TryAdd(other, out why), $"别阵营的卡被挡（{why}）");
 
             // 换督军会清掉不合阵营的卡
             CardDef otherWarlord = null;
@@ -2752,10 +2761,10 @@ public static class DeckScene
             foreach (var c in pool)
                 if (c != null && c.Type == "unit" && c.Faction == hero.Faction && s.Deck.CountOf(c.Id) == 0 && !DeckRules.IsLegendary(c.Rarity) && !DeckRules.CannotAddToDeck(c))
                 { extra = c; break; }
-            if (extra != null)
-                Check(s.CanAdd(extra), DeckError.TooManyCards,
-                      "★ 遭遇牌满 12 张之后**再加一张会被挡**（`TooManyCards`）—— 上限真的生效了"
-                    + "（夹具挑的是非传奇 / 准入干净的卡 ⇒ 只剩「整副满」这道闸会挡它）");
+            CheckTrue(extra != null, "（前提）池里找得到一张「非传奇 / 准入干净」的同阵营单位卡（拿不到 ⇒ 下面那条「满 12 再加被挡」验不到）");
+            Check(extra == null ? DeckError.None : s.CanAdd(extra), DeckError.TooManyCards,
+                  "★ 遭遇牌满 12 张之后**再加一张会被挡**（`TooManyCards`）—— 上限真的生效了"
+                + "（夹具挑的是非传奇 / 准入干净的卡 ⇒ 只剩「整副满」这道闸会挡它）");
 
             // 🆕 **2026-10-26（B9 · 卡组:8）· 两闸同真**（原版 `CardDeck__CanAddCard.c:166` 把「整副满」排在**最后**）：
             //   满编（12/12）+ 同名已达上限 ⇒ 必须先报**同名上限**（= 原版 `MenuDeck/Error/MaxCopiesReached`），
@@ -3155,6 +3164,10 @@ public static class DeckScene
                     if (wlDef0 != null && c.Faction == wlDef0.Faction) continue;   // 要**另一个阵营**的督军
                     otherId = c.Id; otherFac = c.Faction; break;
                 }
+                // 🔴 **B105_F6（AUD11 类 3A-b）**：块级 guard 入口补前提 —— 池子里只有单一阵营督军时，
+                //   下面「换阵营 ⇒ 徽记跟着换」那一整段**不跑、也不红**（真静默）。⛔ 守卫保留（缺件时别 NRE）。
+                CheckTrue(otherId != null,
+                          "（前提·不静默）卡池里找得到**另一个阵营**的督军 —— 否则下面「换阵营 ⇒ 徽记跟着换」整段不跑");
                 if (otherId != null)
                 {
                     // 🔴 **2026-10-25（`C` 卡组编辑域）**：先把卡池筛空 —— 否则原版那条「跟着列表走」的
@@ -3177,7 +3190,9 @@ public static class DeckScene
                     _rt.RefreshAll();
                     Check(_rt.State.Deck.WarlordId, wlId0, "（把督军原样放回 —— 后面的断言仍按原状态跑）");
                 }
-                else CheckTrue(true, "（本池子里只有一个阵营的督军 ⇒ 跳过「换阵营跟着换图」那一条）");
+                // 🔴 **B105_F6（AUD11 类 3D）**：`CheckTrue(true, …)` 是**恒过**（把「跳过」记成一次通过、抬虚总数）
+                //   ⇒ 改成出声；上面那条前提已经把「缺件」记成红了。
+                else Debug.Log("（本池子里只有一个阵营的督军 ⇒ 跳过「换阵营跟着换图」那一条 · ⛔ 不算绿）");
 
                 // ---- 🆕 2026-10-25（`C` 卡组编辑域）：**卡池滚动 ⇒ 页头徽记跟着换**
                 //   原版 `DeckEditorCollectionDisplay.OnListDrag → CheckFocusedArmy`（判据 → `DeckRuntime.CheckFocusedArmy`）。
@@ -3410,6 +3425,9 @@ public static class DeckScene
                         Check(Mathf.Abs(g1x - 259.6635f) < 0.6f, true,
                               $"卡行色条中心 x = **259.66**（201.927 + 115.473/2；实测 {g1x:F2}）");
                     }
+                    // 🔴 **B105_F6（AUD11 类 3A-brace）**：量不到 `row_g1` 时原来两条断言静默消失
+                    //   （同段 `row_g0` 在 `:3399` 有前提，`row_g1` 这一层没有）⇒ 补红。
+                    else Check(true, false, "量不到卡行 `row_g1` 的矩形（`UiQuadRect` 返回 false）⇒ 卡行那两条色条断言**没验到**");
                 }
             }
 
@@ -5662,12 +5680,11 @@ public static class DeckScene
                     var done = _root.Find("foot_done") != null ? _root.Find("foot_done").GetComponent<WindowButton>() : null;
                     CheckTrue(_rt.UiPressAt(dX + dW * 0.5f, dY + dH * 0.5f, true, false) == done,
                               "页脚 `Done`：左键按下 ⇒ 进**按下态**（原版那颗有 `m_PressedSprite`）");
-                    if (done != null)
-                        CheckTrue(done.CurrentTexForTest == done.PressedTexForTest,
-                                  "按下时贴图 = 原版 `UI_Button_Mulligan_Pressed`");
+                    CheckTrue(done != null, "（前提）页脚 `Done` 上找得到 `WindowButton`（拿不到 ⇒ 下面两条按下态断言验不到）");
+                    CheckTrue(done == null || done.CurrentTexForTest == done.PressedTexForTest,
+                              "按下时贴图 = 原版 `UI_Button_Mulligan_Pressed`");
                     _rt.UiPressAt(dX + dW * 0.5f, dY + dH * 0.5f, false, true);
-                    if (done != null)
-                        CheckTrue(done.CurrentTexForTest == done.NormalTexForTest, "抬起 ⇒ 还原成常态图");
+                    CheckTrue(done == null || done.CurrentTexForTest == done.NormalTexForTest, "抬起 ⇒ 还原成常态图");
                 }
                 // 🔴 **2026-10-17（T23 删件）**：这里原来还有导入弹窗那两颗的悬停换图
                 //   （`imp_ok` = `40K_button` 那一组）与关闭图标 `imp_close_x` 的矩形四连
@@ -6066,12 +6083,12 @@ public static class DeckScene
                     CheckNear(_rt.UiRowBgTint(rowCard), 0.6886792f, 1e-3f,
                               "非督军行悬停 ⇒ 行底 **×0.6886792**（原版 `m_HighlightedColor` 字面量；"
                               + "不是全库默认的 0.9608）");
-                    if (grad != null)
-                        CheckTrue(grad.Tint == gradBefore,
-                                  "悬停**只动行底那一件**：稀有度色条不变色（原版 `targetGraphic` = 子件 `Background`）");
-                    if (border != null)
-                        CheckTrue(border.Tint == borderBefore,
-                                  "悬停**只动行底那一件**：行描边不变色（同上）");
+                    CheckTrue(grad != null, "（前提）第 " + rowCard + " 行的稀有度色条 `row_g*` 上找得到 `ImageQuad`（拿不到 ⇒ 下面那条验不到）");
+                    CheckTrue(grad == null || grad.Tint == gradBefore,
+                              "悬停**只动行底那一件**：稀有度色条不变色（原版 `targetGraphic` = 子件 `Background`）");
+                    CheckTrue(border != null, "（前提）第 " + rowCard + " 行的行描边 `row_b*` 底下找得到 `ImageQuad`（拿不到 ⇒ 下面那条验不到）");
+                    CheckTrue(border == null || border.Tint == borderBefore,
+                              "悬停**只动行底那一件**：行描边不变色（同上）");
                     _rt.UiRowHoverAt(1700f, 500f);                            // 指针移开
                     CheckNear(_rt.UiRowBgTint(rowCard), 1f, 1e-4f, "指针移开 ⇒ 行底还原成白（×1）");
                 }
@@ -7497,6 +7514,9 @@ public static class DeckScene
                             + " ⇒ 合法 ⇒ 提交 + `HideDeckPopUp()` ⇒ 窗被收掉 ⇒ 这条红）");
                     CheckTrue(DeckLibrary.Load().Current.Name != keepName + "·不该落盘",
                               "★ ……而且这一下**没有落盘**（落到保存那一路，盘上就会出现「…·不该落盘」这个名字）");
+                    // 🔴 **B105_F6（AUD11 类 3A-brace）**：块级 guard 入口补前提 —— 句柄拿不到时
+                    //   「点右钮把窗关掉」那一句**不跑、也不红**（真静默）。⛔ 守卫保留（下面要调它的方法）。
+                    CheckTrue(pop3 != null, "（前提·不静默）第 3 扇模态窗拿得到句柄（`_rt.ModalPopup`）");
                     if (pop3 != null)
                     {
                         ClickPopupButton(pop3, "ButtonRight");       // 右钮 = **只** `HidePopUp()`（窗的唯一出口）
@@ -8785,10 +8805,13 @@ public static class DeckScene
                         Check(al.VAlignTier, Label.VAlign.Middle,
                               "★ D43：……垂直档 = 原版 `VA 512` = **Middle**");
                         float aw = al.WorldW * PxPerUnit;
-                        if (aw > 20f && aw < 2000f)
-                            CheckNear(DeckRuntime.PxOfWorld(al.transform.position).x - aw * 0.5f, 2.2f, 1f,
-                                      "★ D43：……左沿 = **2.2**（原版 `Army Filter/Title` 面板内 x=0 + 面板原点 2.2）");
-                        else CheckTrue(false, "（前提）`Army` 小标题量到了真实宽度（实得 " + aw.ToString("F1") + "px）");
+                        // 🔴 **B105_F6（AUD11 类 3B·C 档）**：原来那道「合理性夹」`aw > 20f && aw < 2000f` 把
+                        //   「前提（量得到）」与「结论（位置对）」**混在同一个条件**里 ⇒ 换成
+                        //   「前提：量到真实宽度 > 0」+ **无条件**的位置结论（量出 0 / 天文数字时结论自己也会红）。
+                        CheckTrue(aw > 0f, "（前提·不静默）`Army` 小标题量到了**真实宽度**（实得 "
+                                         + aw.ToString("F1") + "px）");
+                        CheckNear(DeckRuntime.PxOfWorld(al.transform.position).x - aw * 0.5f, 2.2f, 1f,
+                                  "★ D43：……左沿 = **2.2**（原版 `Army Filter/Title` 面板内 x=0 + 面板原点 2.2）");
                     }
                     _rt.UiToggleFilters();
                     _rt.UiSetTab(0);
@@ -8921,8 +8944,12 @@ public static class DeckScene
                         if (tb.TopAvatar != null)
                             CheckNear(tb.TopAvatar.WorldW * PxPerUnit, 204.4f, 1.5f,
                                       "★ D13：顶栏立绘**保宽高比**后实绘 ≈ **204.4**（原版 512² 内接进 276.84×204.4）");
+                        // 🔴 **B105_F6（AUD11 类 3D/D 档）**：原来这里是 `CheckTrue(true, …)` ——
+                        //   **恒过**（把「没验到」记成一次通过、抬高总数，文案自己写着「⛔ 不算绿」却恰恰算绿）。
+                        //   ⇒ 改成出声：不粉饰，也不硬红（出厂无头像图是**合法状态**，判据见上面那行注释）。
                         else
-                            Debug.Log(P + "  ⚠️ 顶栏立绘没画（一张头像图都取不到）—— 按出厂态处理，不是失败");
+                            Debug.Log("⚠️ D13：顶栏立绘没画（一张头像图都取不到）—— 按出厂态处理，"
+                                    + "本条**验不到**（登记为未覆盖，⛔ 不算绿）");
 
                         // ---- 🆕 2026-10-17（B25①）：那 4 颗钮**接上点击了**（原来只画、点了没反应 = 静默失败）----
                         //   判据（逐颗「原版点它开哪扇窗 / 干什么」）→ `Shell/TopBar.cs` 文件头那 4 条。
@@ -9798,12 +9825,18 @@ public static class DeckScene
                               $"★ A1740③ 灭自证：最后一列**右缘之外** 2px（x={ox:F1}）**不属于任何一格**"
                             + $"｜🧨 少了 `c ≥ Cols` 这道闸 ⇒ 反解绕到**下一行第 0 格**（= {_rt.UiPoolColsNow}）⇒ 红");
                     }
+                    // 🔴 **B105_F6（AUD11 类 3A-brace）**：量不到最后一格时那条灭自证断言原来**静默消失** ⇒ 补红。
+                    else Check(true, false, "量不到卡池最后一格的矩形（`UiPoolCellRect(Cols−1)` 返回 false）"
+                                          + " ⇒ A1740③ 那条**没验到**（⛔ 别当成通过）");
                     if (_rt.UiPoolCellRect(0, out float bx0, out float by0, out _, out float bh0))
                     {
                         Check(_rt.UiPoolCellAt(bx0, by0 - bh0), -1,
                               $"★ A1740③b 灭自证：**第 0 行上沿再往上整整一格**（y={by0 - bh0:F1}）也不属于任何一格"
                             + "｜🧨 少了 `r ≥ 0` 这道闸 ⇒ 反解出一个**负格号** ⇒ 红");
                     }
+                    // 🔴 **B105_F6（AUD11 类 3A-brace）**：同上 —— 量不到第 0 格时那条灭自证断言原来静默消失。
+                    else Check(true, false, "量不到卡池第 0 格的矩形（`UiPoolCellRect(0)` 返回 false）"
+                                          + " ⇒ A1740③b 那条**没验到**（⛔ 别当成通过）");
 
                     // ② 滚**半行**（`off ≠ 0`）再对一遍 —— 咬的是反解里 `off` 那一半
                     _rt.UiScrollPool(_rt.UiPoolCellHNow * 0.5f);
@@ -10220,11 +10253,12 @@ public static class DeckScene
             CheckTrue(WarpforgeVFX.WFSoundBank.HasCue(WindowSounds.ButtonClick1Cue),
                       "★ 抽屉点击音那条 cue 在表里（`" + WindowSounds.ButtonClick1Cue + "`）"
                     + "｜🧨 `EXTRA_CUES` 少收这一条 ⇒ 表里没有它 ⇒ 本条红");
-            WarpforgeVFX.WFSoundCue cue;
-            if (WarpforgeVFX.WFSoundBank.TryGetCue(WindowSounds.ButtonClick1Cue, out cue) && cue != null)
-                CheckTrue(cue.clips != null && Array.IndexOf(cue.clips, "UI Click 1") >= 0,
-                          "★ …它的 clip = `UI Click 1`（原版 AudioCue 的 `clipList` 只有这一条；"
-                        + "实测 " + (cue.clips == null ? "<null>" : string.Join(",", cue.clips)) + "）");
+            WarpforgeVFX.WFSoundCue cue = null;
+            bool gotCue = WarpforgeVFX.WFSoundBank.TryGetCue(WindowSounds.ButtonClick1Cue, out cue) && cue != null;
+            CheckTrue(gotCue, "（前提）cue `" + WindowSounds.ButtonClick1Cue + "` 取得出来（`TryGetCue` 拿不到 ⇒ 下面那条验不到）");
+            CheckTrue(cue == null || (cue.clips != null && Array.IndexOf(cue.clips, "UI Click 1") >= 0),
+                      "★ …它的 clip = `UI Click 1`（原版 AudioCue 的 `clipList` 只有这一条；"
+                    + "实测 " + (cue == null ? "<cue null>" : cue.clips == null ? "<null>" : string.Join(",", cue.clips)) + "）");
             CheckTrue(WarpforgeVFX.WFSoundBank.Clip("UI Click 1") != null,
                       "★ …`UI Click 1.wav` 真在 `Resources/Art/audio/sfx/` 里加载得出来"
                     + "｜🧨 删掉那个 wav ⇒ 只能退回「出声说明、不播」⇒ 本条红");

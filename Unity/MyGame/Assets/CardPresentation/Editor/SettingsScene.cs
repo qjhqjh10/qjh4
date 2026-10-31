@@ -2110,16 +2110,17 @@ public static class SettingsScene
                           "★ 同一条的**射线那一面**：命中区也在（`MenuDraw.Hit` 整块在视口外才会返回 null）");
                 // `VSync` = 第 2 行：行顶 432.50 + 2 × 80.641 = **593.78**、行底 669.42（design px）
                 var vsR = ctN != null ? FindChild(ctN, "VSync") : null;
-                if (vsR != null)
-                    CheckAtS(vsR, 563.52f, 593.78f, 1018.73f, 669.42f,
-                             "`VSync` 落在**第 2 行**（432.50 + 2 × 80.641 = 593.78）"
-                           + "（改坏法：写回旧序号 5 ⇒ 每行低 3 格 ≈ 241.9px ⇒ 红）");
+                // 🆕 AUD11-3A：去掉 `if (… != null)` —— `CheckAtS` 自带 null 闸（t == null ⇒ 报红「（节点不在）」）。
+                //   这两行的前提是**上面那条四行合并断言**（`… Auto Zoom != null && … VSync != null …`），
+                //   不在 1–8 行内 ⇒ 按判据算「未覆盖」，因此改成无条件跑（节点缺了 ⇒ 这里也红）。
+                CheckAtS(vsR, 563.52f, 593.78f, 1018.73f, 669.42f,
+                         "`VSync` 落在**第 2 行**（432.50 + 2 × 80.641 = 593.78）"
+                       + "（改坏法：写回旧序号 5 ⇒ 每行低 3 格 ≈ 241.9px ⇒ 红）");
                 // `Auto Zoom` = 第 1 行（A172 新补的那颗）：行顶 513.14、行底 588.78
                 var azR = ctN != null ? FindChild(ctN, "Auto Zoom") : null;
-                if (azR != null)
-                    CheckAtS(azR, 563.52f, 513.14f, 1018.73f, 588.78f,
-                             "`Auto Zoom` 落在**第 1 行**（432.50 + 1 × 80.641 = 513.14）—— 原版运行时一直在的那一行"
-                           + "（改坏法：不建它 / 序号错 ⇒ 红）");
+                CheckAtS(azR, 563.52f, 513.14f, 1018.73f, 588.78f,
+                         "`Auto Zoom` 落在**第 1 行**（432.50 + 1 × 80.641 = 513.14）—— 原版运行时一直在的那一行"
+                       + "（改坏法：不建它 / 序号错 ⇒ 红）");
                 // ★ 机制：把内容**人为撑高** ⇒ 这一列又能滚（原版到不了这一档；验的是我们那套「偏移 + 视口外不建」没坏死）
                 if (gsc != null && ctN != null)
                 {
@@ -2226,10 +2227,9 @@ public static class SettingsScene
                                 $"{tier[i]} 的 `Fill` 宽 = 原版 值/2 × 491.18 经 0.9 ⇒ {wantFillW[i]} 画布 px");
                             if (hasFill) CheckNearPx(flx, trackL, $"{tier[i]} 的 `Fill` 左沿 = 轨道左沿");
                         }
-                        if (hq != null)
-                            CheckNearPx(hq.transform.position.x * 108f + 960f, wantHandleCx[i],
-                                        $"{tier[i]} 的手柄中心 x = 轨道左 + (12 + 值/2 × 481.18) × 0.9 ⇒ {wantHandleCx[i]}"
-                                      + "（12 = 原版 `Handle.m_AnchoredPosition.x`：`Slider` 只驱动手柄**锚点**、不动这个偏移）");
+                        CheckNearPx(hq != null ? hq.transform.position.x * 108f + 960f : -999f, wantHandleCx[i],
+                                    $"{tier[i]} 的手柄中心 x = 轨道左 + (12 + 值/2 × 481.18) × 0.9 ⇒ {wantHandleCx[i]}"
+                                  + "（12 = 原版 `Handle.m_AnchoredPosition.x`：`Slider` 只驱动手柄**锚点**、不动这个偏移）");
                     }
                     // ⑤ 点 / 拖的取值规则（原版 `Slider.UpdateDrag`：`clamp01((x − 滑区左)/滑区宽)` → 按 `m_WholeNumbers` 取整）
                     float areaW = (491.18f - 10f) * 0.9f;                    // 滑区 481.18 × 0.9 = 433.06 画布 px
@@ -2322,8 +2322,7 @@ public static class SettingsScene
                     //    离视口下沿 954.00 还差 171 px ⇒ **不该被切**。这一条同时盯住两件事：
                     //    ① 行位没被写回「第 6 格」；② `PlaceFps` 那套「按视口缩块 + 截 uv」的裁切在**不越界时是恒等**的
                     //    （⛔ 别让它把没越界的手柄也缩了 —— 那会把 35.406 的手柄画成别的尺寸）。
-                    if (hq != null)
-                        CheckNearPx(-hq.transform.position.y * 108f + 540f + hq.WorldH * 108f * 0.5f, 758.54f,
+                    CheckNearPx(hq != null ? -hq.transform.position.y * 108f + 540f + hq.WorldH * 108f * 0.5f : -999f, 758.54f,
                                     "手柄**渲出来的底沿** = 原版第 3 行那一帧的 842.83 × 0.9 = **758.54**"
                                   + "（设计：手柄中心 = 轨道中心 765.12、半高 17.70 ⇒ 底 782.83）"
                                   + "；改坏法：行位写回「第 6 格」⇒ 底沿掉到视口外又被裁 ⇒ 红");
@@ -3027,6 +3026,8 @@ public static class SettingsScene
 
                 var gTab3 = FindChild(root, "Graphics Tab");
                 var gsc3 = win.GfxRowsScroll;
+                // 🆕 AUD11-3A：本文件这两处 `if (gsc3 != null)` **没有**前置前提 ⇒ 补一条前提 + 结论无条件跑。
+                CheckTrue(gsc3 != null, "（前提）图像页那一列的 `MenuScroll` 拿得到（拿不到 ⇒ 下面 `ContentX1/X2` 两条没验）");
 
                 // ① **当前档不允许 ⇒ 那一行藏着**（原版 `SetActive(go, false)`）
                 //    ⚠️ 它**一直在**（原版 prefab 里那颗节点就在）—— 所以断的是 `activeSelf`，不是「找不找得到」。
@@ -3043,9 +3044,8 @@ public static class SettingsScene
                          "① …`VSync` 这时落在第 **2** 格（432.50 + 2 × 80.641 = 593.78）");
                 CheckAtS(FindChild(gTab3, "FPS Limit"), 563.52f, 674.42f, 1018.73f, 779.42f,
                          "① …`FPS Limit` 这时落在第 **3** 格（674.42）");
-                if (gsc3 != null)
-                    CheckNearPx(gsc3.ContentX2 - gsc3.ContentX1, 312.23f,
-                                "① …内容高 = **4 行** 346.923 设计 px × 0.9 = 312.23（3 × 80.641 + 105）");
+                CheckNearPx(gsc3 != null ? gsc3.ContentX2 - gsc3.ContentX1 : -999f, 312.23f,
+                            "① …内容高 = **4 行** 346.923 设计 px × 0.9 = 312.23（3 × 80.641 + 105）");
 
                 // ② **当前档允许 ⇒ 那一行在**，并且后面两行整体 +1 格（+80.641）、内容高 +80.641
                 //    （同一份代码、只换了注入的档位 ⇒ ① 与 ② 合起来才**分得出两态**；只断一态是弱断言）

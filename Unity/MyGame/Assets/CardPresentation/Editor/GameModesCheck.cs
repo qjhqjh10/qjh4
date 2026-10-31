@@ -215,10 +215,18 @@ public static class GameModesCheck
            "D7 ★灭自证：问一个没有任何事件是的类型 ⇒ null（类型闸真的在）");
 
         // ---- D8 排位接口那条递归支 ----
+        // 🔴 2026-10-31（调度台 · AUD11 修复）：原版 `GameModes__GetActiveEvent(Type).c:106-108`
+        //   在 `mainRankedType == null` 时**抛 NRE**（`/* Subroutine does not return */`），我们照抄
+        //   （`GameModesHandler.cs:38`）。旧断言写「⇒ null」与实现口径相反 ⇒ 每跑必红，且抛出的异常
+        //   **吃掉后面 D9/D10 两段**（AUD11 类 4 实测：7 段只跑了 4 段）。
+        //   灭自证：把实现改回 `return null` ⇒ 本条红。
         GameModesHandler.RankedEventInterfaceType = typeof(FakePlayEvent);
         GameModesConfigSource.MainRankedType = null;
-        Ok(h.GetActiveEvent(typeof(FakePlayEvent)) == null,
-           "D8 问排位接口、但远端 `mainRankedType` 拿不到 ⇒ null（原版这一支直接返回 null，**不**退化成普通 LINQ）");
+        bool d8Threw = false;
+        try { h.GetActiveEvent(typeof(FakePlayEvent)); }
+        catch (NullReferenceException) { d8Threw = true; }
+        Ok(d8Threw,
+           "D8 问排位接口、但远端 `mainRankedType` 拿不到 ⇒ **抛 NRE**（原版 `:106-108` 照抄；⛔ 不是 return null）");
 
         GameModesConfigSource.MainRankedType = typeof(FakeOtherEvent);
         Ok(ReferenceEquals(h.GetActiveEvent(typeof(FakePlayEvent)), e5),

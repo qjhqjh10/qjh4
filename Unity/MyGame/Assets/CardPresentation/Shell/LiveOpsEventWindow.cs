@@ -1690,7 +1690,21 @@ namespace CardPresentation
             var pre = PrebuiltDecks.PendingSource;
             string faction = pre != null ? pre.faction : info.Faction;
             string deckName = pre != null ? pre.DisplayName : info.Name;
-            if (pre == null) CollectionData.Select(DeckIndex);
+            // 🔴 2026-10-31（B105_R8 · AUD10）：原写法丢弃 `Select` 返回值 ⇒ 写盘失败时**打的是盘上旧卡组**、
+            //   界面却显示新卡组。与 `PracticeModePopup.StartBotBattle` 的已修口径完全一致（B104_P4）：
+            //   出声 + 回滚当前卡组 + 挡住开战；`CollectionData.Select` 内部不回滚（A600 既有语义）。
+            if (pre == null)
+            {
+                int prevSel = CollectionData.CurrentIndex();
+                if (!CollectionData.Select(DeckIndex))
+                {
+                    Debug.LogWarning("[Event] 选中第 " + DeckIndex + " 套失败 ⇒ **不开战**（原来会拿磁盘上那套旧的）："
+                                     + CollectionData.LastSelectError);
+                    CollectionData.RestoreSelection(prevSel);
+                    ErrorPopupWindowController.ShowErrorMessage(CustomError.ErrorDataSync);
+                    return;
+                }
+            }
             StartedBattle = true;
             var scene = BattleSceneFor(faction);
             Debug.Log("[Event] 开战：「" + deckName + "」"

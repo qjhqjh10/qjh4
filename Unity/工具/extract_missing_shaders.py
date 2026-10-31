@@ -584,8 +584,14 @@ ARENA_ANIM_GROUPS = [
         #     `m_FloatCurves/m_PositionCurves/m_RotationCurves/m_ScaleCurves/m_EulerCurves` **全为 0**
         #     ⇒ **muscle 格式**，`.anim` 那条路走不通（`W64 A1` 已证 `CreateAsset` 出来是空壳），
         #     只能像那 5 条一样**重打包取原件**。
-        #   · **原版 0 消费者**（13 场里没有任何 `Animation.m_Animation` 指着它；`gen_arena_scene_clips.py`
-        #     头注同结论）⇒ 按铁律 11 属「**备用导出**」，导出齐资产用，⛔ **不接运行时**。
+        #   · ~~**原版 0 消费者**（13 场里没有任何 `Animation.m_Animation` 指着它；`gen_arena_scene_clips.py`
+        #     头注同结论）⇒ 按铁律 11 属「**备用导出**」，导出齐资产用，⛔ **不接运行时**。~~
+        #     🔴 **2026-10-31（`B105_R14`）就地订正：这句「0 消费者」只查了 `Animation` 组件、漏了 Timeline。**
+        #     实读 `GameObject/Bunker Door Parent.json` = `m_IsActive:true` + `PlayableDirector 7845524703085758649`
+        #     （`m_Enabled:1 / m_InitialState:1 Playing / m_WrapMode:1 Loop / m_InitialTime:15.0`）→
+        #     PlayableAsset `Leviathan Bunker Door Animation`（5 track），`Recorded` 就在其中一条 track 上
+        #     ⇒ **原版会播**（Leviathan 地堡门）。它**仍然只导出、不接运行时**（我们还没有 Timeline 绑定层），
+        #     但性质从「备用」变成「**已知未复刻**」；判据 → `判据/R2_R3_现状与判据.md` §4·顺手发现①。
         #   · 判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §1·4 / §5·4。
         clips=["SporeArmature|LeviathanBigSpore", "Battle Arena 3 Animations", "Recorded"],
         controllers=["Battle Arena Leviathan"],

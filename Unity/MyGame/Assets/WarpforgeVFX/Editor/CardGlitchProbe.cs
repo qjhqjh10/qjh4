@@ -64,6 +64,10 @@ public static class CardGlitchProbe
             };
             // ⚠️ 属性名是**材质**上的概念（`Shader.HasProperty` 不存在）⇒ 拿一份临时材质问
             Material probeMat = sh != null ? new Material(sh) : null;
+            // 🔴 **B105_F6（AUD11 类 3A-b）**：块级 guard 入口补前提 —— 临时材质拿不到时下面 12 条
+            //   属性断言**整段不跑、也不红**（真静默）。⛔ 守卫保留（下面要调它的 `HasProperty`）。
+            Check(probeMat != null, "（前提·不静默）临时材质建得出来（`new Material(我们的 shader)`）—— "
+                                  + "否则下面「原版 9 个属性 + 我们多的 3 个」那批断言整段不跑");
             if (probeMat != null)
             {
                 foreach (var pn in origProps)
@@ -150,6 +154,9 @@ public static class CardGlitchProbe
 
             // ② 参数不是 shader 默认值（默认 `_ScanLinesIntensity` = 1、`_NoiseColor` = 纯白）
             var fresh = sh != null ? new Material(sh) : null;
+            // 🔴 **B105_F6（AUD11 类 3A-brace）**：同上 —— 默认材质拿不到时「参数不等于 shader 默认值」
+            //   那一条**静默消失**（看起来像通过）。⛔ 守卫保留。
+            Check(fresh != null, "（前提·不静默）一份**全新**的默认材质建得出来（用来比 shader 默认值）");
             if (fresh != null)
             {
                 bool diff = !Near(fresh.GetFloat("_ScanLinesIntensity"), v.FrameMatNowForTest.GetFloat("_ScanLinesIntensity"))

@@ -1,0 +1,42 @@
+文件:行	键	档位	调用形状	判定	理由
+Unity/MyGame/Assets/CardPresentation/Core/CardIcons.cs:705	动态：Card_Trait/* · Card_Name/* · Modular_Description/*	三档显式链（Lang13Current:703 → Table:705 → HasBulk:710）	来源选择器：先判 Table 有，再取 ZhOf/EnOf 两列	该保持窄	三档已经分层写死；宽化会与 :703 / :710 重复并打乱优先序
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs:120	Card_Trait/<canonical>（31 条不在 Table）	T65 / 官方 B27+13 4	先判有 → Loc.ZhOf（只读 Table 中文列）	该保持窄	ZhOf 只读 Table；宽化后仍返回 null，只是少出声一次（值不会变好）
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs:133	同 :120	同 :120	先判有 → Term()（Term 自身三档齐：Lang13Current→Table→Loc.T 兜 bulk/13）	应换 HasAnyTerm	今天 31 条 Card_Trait 拿不到 ⇒ 卡面/提示印裸 canonical 名；换后 zh/en 取官方纯文本值；三档皆无的键仍返回 null（与今天一致）；无断言钉 null（仅 CardBaseDemo:5025 钉 Table 键 armour）；边界：Term:750 对非 Table 键绕过字体闸（对所有 bulk 键既有，非本改新引入）
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs:149	同 :120	同 :120	先判有 → Loc.EnOf（只读 Table 英文列）	该保持窄	EnOf 只读 Table；宽化会把「今天能回的英文」变成 null = 真回归
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs:750	任意 term（CardText 取值主口）	—	字体闸：没登记 ⇒ Loc.T(出声+回键名)；登记 ⇒ Zh?Loc.T:EnOf	该保持窄	宽化会把 bulk/13lang 键送进 EnOf（返 null）⇒ 中文档印空
+Unity/MyGame/Assets/CardPresentation/Core/CardText.cs:766	任意 term	—	门 → Term；缺则 Lang13Current → OfficialCurrent/English → fallback	该保持窄	三档链已齐（769/781/784），宽化只是重复
+Unity/MyGame/Assets/CardPresentation/Core/CardView.cs:5477	Card_Race/<老写法>	T	第③档老键（② 已 HasAnyTerm）	该保持窄	语义就是「我们历史上的表写法」，只对手写 Table 有意义
+Unity/MyGame/Assets/CardPresentation/Editor/B99A3_Assert.cs:311	Card_Trait/sneakattack	T	别名键登记哨兵	该保持窄	判「我们登记了没有」；紧跟 :312 的 KeywordZh 也只读 Table
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:7876	Battle/Tips/<24 条>	T39 / 13 39	缺键计数哨兵（期望值写死「官方也没有那两条」）	该保持窄	登记面哨兵；宽化与今天同值，但语义会变成「官方有没有」
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:44868	Battle/Hint/*	三档 0 条	删除哨兵（已从手写表删掉）	该保持窄	问的就是「手写表里还有没有」
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:44870	Battle/Log/*	三档 0 条	删除哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:44880	Battle/Settings/Title	三档 0 条	删除哨兵（连写四条 !HasEntry）	该保持窄	宽窄同真值（全 NONE），但语义是「我们没建回来」
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:44881	Battle/Settings/AiDifficulty	三档 0 条	删除哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:44882	Battle/MultiCard/TapToClose	三档 0 条	删除哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/BattleScene.cs:44883	Battle/CardWindow/TapToClose	三档 0 条	删除哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs:4969	Card_Name/<起始卡>	T26 / 官方 1198	注册表完备哨兵	该保持窄	宽化后几乎恒真 ⇒ 断言空转（假绿）
+Unity/MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs:4978	Armies/*	T16 / 13 20	注册表完备哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/CardBaseDemo.cs:5450	Card_Race/<会印的 19 种>	T43 / 官方 B23+13 23	注册表完备哨兵（被测实现不吃第三档）	该保持窄	宽化会让「会印的都有词条」假绿
+Unity/MyGame/Assets/CardPresentation/Editor/CollectionScene.cs:12305	A1025 50 条（全 literal）	50/50 在 Table	前提断言 + 紧跟 EnOf/ZhOf 取值	该保持窄	② 用 EnOf 断「英文列无 CJK」⇒ 前提必须窄
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs:1266	A1025 37 条	37/37 在 Table	前提断言 + EnOf/ZhOf	该保持窄	同 A1025 族
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs:1310	MenuDeck/CantImportDeck	T+13	前提断言 + 两条 EnOf/ZhOf	该保持窄	A1852：后面直接取 Table 两列
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs:6992	MenuDeck/Error/EffectOnlyCard	三档 0 条	删除哨兵（灭自证①）	该保持窄	判「我们那条自造键已删」
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs:7015	null	—	HasEntry(null) 契约测试	该保持窄	测的就是这个函数本身（不抛 + 返 false）
+Unity/MyGame/Assets/CardPresentation/Editor/DeckScene.cs:7022	MenuDeck/Error/__没有这条键__	三档 0 条	G9 负例对照	该保持窄	契约测试的一部分
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs:16916	A1025 22 条	22/22 在 Table	前提断言 + EnOf/ZhOf	该保持窄	同 A1025 族
+Unity/MyGame/Assets/CardPresentation/Editor/MainMenuScene.cs:16976	官方全表 c1OffKeys（动态）	T/B/13 混合	覆盖度统计：只统计「官方有 ∧ 手写表也建了」再比 ZhOf 与官方 zh	该保持窄	宽化 = 拿官方比官方（自我循环）
+Unity/MyGame/Assets/CardPresentation/Editor/NetSelfTest.cs:165	Settings/Online/* 91 条	91/91 在 Table	P6 双语前提断言	该保持窄	:174 用 EnOf 断「英文列无 CJK」⇒ 前提必须窄
+Unity/MyGame/Assets/CardPresentation/Editor/NetSelfTest.cs:173	Settings/Online/* 91 条	91/91 在 Table	空键判别式（HasEntry ∧ Loc.T==键名）	该保持窄	同族；取值列仍走 EnOf
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs:1324	Settings/General/Title	T+13	登记哨兵（键名照原版 mTerm）	该保持窄	判「我们登记的键名」；宽化会放过 bulk/13 键
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs:1325	MainMenu/Settings/LanguageName/Simplified Chinese	T+13	登记哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs:1326	MainMenu/Settings/ButtonLabel/SelectLanguage	T+13	登记哨兵	该保持窄	同上
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs:4717	Settings/Online/TitleNote	T	孤儿键哨兵（据此断言它没被画到屏上）	该保持窄	判「它还在我们表里」；宽化会让负断言前提失真
+Unity/MyGame/Assets/CardPresentation/Editor/SettingsScene.cs:5584	A1025 80 条	80/80 在 Table	前提断言 + EnOf/ZhOf	该保持窄	同 A1025 族
+Unity/MyGame/Assets/CardPresentation/Editor/ShellScene.cs:8275	A1025 89 条	89/89 在 Table	前提断言 + EnOf/ZhOf	该保持窄	同 A1025 族
+Unity/MyGame/Assets/CardPresentation/Editor/ShopScene.cs:5796	A1025 6 条	6/6 在 Table	前提断言 + EnOf/ZhOf	该保持窄	同 A1025 族
+Unity/MyGame/Assets/CardPresentation/Shell/BaseEventPopup.cs:463	Event_Description/*	T1 / B144 / 13 145	chain：HasBulk:462 → Table:463 → OfficialCurrent:472	该保持窄	顺序有意（bulk 优先于 Table）；宽化会重复并打乱
+Unity/MyGame/Assets/CardPresentation/Shell/FTUESelectDeckWindow.cs:419	TutorialData/TutorialFTUEDeck/*	T0 / B0 / 13 4	门 → Loc.T；else 走 Lang13Of	该保持窄	else 分支已覆盖第三档（这 4 条只在这档）
+Unity/MyGame/Assets/CardPresentation/Shell/FTUESelectDeckWindow.cs:589	PrebuiltDecks/<deckId>	T0 / B179 / 13 215	门 → Loc.T → Lang13Of → SO deckName	该保持窄	三级兜底已齐；宽化零行为变化
+Unity/MyGame/Assets/CardPresentation/Shell/LiveOpsLocalCatalog.cs:991	Event_Description/*	同 :463	chain：HasBulk:990 → Table:991 → Official:992 → Lang13:995/997	该保持窄	顺序有意
+Unity/MyGame/Assets/CardPresentation/Shell/SettingsWindow.cs:2379	Settings/Account/* · Settings/Support/*（运行时实际用到 6+8 条，全在 Table）	T（运行时键全在）	快路径 → 缺键 warning + 回归哨兵 → 末句 HasAnyTerm 取值	判不了（哨兵口径需裁定）	显示已由 :2387 的 HasAnyTerm 兜住、不会印键名；本行只剩「我们手写表缺键」的回哨职能。宽化 = 关掉哨兵；保持 = tsv 那行「宽」标签失真
+Unity/MyGame/Assets/CardPresentation/Shell/SettingsWindow.cs:2410	Settings/Media/* · Settings/CardTextInHand/* · Settings/Graphics/*（全在 Table）	T（运行时键全在）	同 :2379（取值在 :2418）	判不了（哨兵口径需裁定）	同上

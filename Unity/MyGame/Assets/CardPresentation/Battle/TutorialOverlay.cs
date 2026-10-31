@@ -19,6 +19,7 @@
 //       - TipText (1) [2,1080 3x1] → TMP SubMesh / Bg (1) / arrow1 (2)
 //     - TutorialArrows
 //       - arrow1 (inactive) · arrow2 (inactive)           ← **SpriteRenderer，不是 UGUI Image**
+//                                                           **本件不建**（`m_Sprite` 是真·空引用 ⇒ 原版不显示；见 ②）
 //     - TutorialTip [-211,1006 430x150]                   ← 小提示（`TutorialTipScript`）
 //       - Generic Popup Background [-214,1081 436x0] → TipText (inactive) / Bg (inactive) / ContinueText (inactive)
 //     - TutorialPointerCombat (inactive) [-960,540 1920x1080]
@@ -34,12 +35,17 @@
 //     —— 我们把**枚举那一段**还原了（锚到哪个 HUD 元素 + 左/右/上，见 `TutAnchor` / `TutRelation`），
 //     **具体像素偏移（`Gap` / `TipPx` 与标签内边距）是我们挑的**，逐处标了「我们挑的」。
 //     ⛔ 那些数**不是**「原版就是这样」。
-//  ② **原版那三处箭头/光标的 sprite 名查不到** —— 🔴 **2026-10-18（`Z4`）就地订正（铁律 5）**：
-//     · **左右箭头 `TutorialArrows/arrow1·arrow2`**：`SpriteRenderer_1760/1762.json` 的
-//       `m_Sprite` 是 **`{m_FileID:0, m_PathID:0}`（真·空引用）**，而 `TutorialTipScript__SetupArrows.c`
-//       只做 `SetSpriteAlpha` + `SetActive` + `DOFade`（**不改 sprite**）
-//       ⇒ **原版这一层本来就没有图**（不是「我们查不到」）。我们的替代箭头是**自造的** ——
-//       数据 6 关 `showLeftArrow/showRightArrow` **全 false** ⇒ **一次都不会亮**，零可见影响。
+//  ② **左右箭头：整层已删（2026-10-31 · `B105_W1`）**，下面是判据留档：
+//     · 原版 `TutorialArrows/arrow1·arrow2` 的 `SpriteRenderer.m_Sprite` 是
+//       **`{m_FileID:0, m_PathID:0}`（真·空引用）** —— 本地 `bundle_scenes_scenes_battlearena1`
+//       （`SpriteRenderer_1760/1762`）与**安卓 1.35.0 远端包**（`scenes_scenes_battlearena1.bundle` 的
+//       `arrow1(1162)/arrow1 (1)(1163)/arrow2(1165)/arrow1 (2)(1168)`）**两边都是 `{0,0}`**，同文件有非 0 反例
+//       ⇒ 不是解析问题（证据 → `资料/完全复刻/报告/B103_R9.md:89`）；
+//       而 `TutorialTipScript__SetupArrows.c` 只做 `SetSpriteAlpha` + `SetActive` + `DOFade`（**不改 sprite**）
+//       ⇒ **原版这一层本来就没有图**（不是「我们查不到」）。
+//     · 我们原来用自造的 `40k_general_bt_arrow` 建了两颗 ⇒ 属 `🔶 自己设计`，且**不在 §18·0 允许的
+//       「服务器相关」门类**里 ⇒ **整层删除**（字段 / 摆位常量 / 建件 / 淡入 / 读口 全部移除）。
+//     · 原版那三处**光标**的判据见下（`Pointer` / `light`），那两处**仍然保留**。
 //     · **指点光标 `Pointer` / `light`**：**名字查到了** —— 场景里序列化的是
 //       **`Cursor_Space Marine_01`**（pid `-2590500462584155290`）与
 //       **`Cursor_Space Marine_01Glow`**（pid `-592821608806009055`），
@@ -62,8 +68,9 @@
 //       🔴 **2026-10-18（A991）：这颗钮已经搬进 `Battle/SettingsPanel.cs`** ⇒ 上面这一整条
 //          （图名 / 绿染 / `PreserveAspect` / 300×90）**跟着搬过去**（`SettingsPanel` 文件头那组
 //          `Skip*` 常量 + 它的 `Build`）。本件**不再建那颗钮**，这一段只当**判据留档**。
-//  ③ **左右箭头本轮零可见效果**：6 关 430 条动作里 `showLeftArrow`/`showRightArrow` **全是 `false`**
-//     （R2 §4 实测；我按 61 条 `SmallTip` 复核过 = 0/0）⇒ **机制照做、本轮一次都不会亮**。
+//  ③ **左右箭头整层已删（2026-10-31 · `B105_W1`）** —— 原版不显示（见 ②），我们不建。
+//     数据侧那一列还在（6 关 430 条动作里 `showLeftArrow`/`showRightArrow` **全是 `false`**，R2 §4 实测）
+//     ⇒ `SetTip` 仍收这两个形参（`BattleDriver` 那个调用点在别件，⛔ 没改它），但**只出声、不建件**。
 //
 // ============================ 批处理下没有帧循环 ============================
 // 原版 `TutorialTipScript` 的淡入是 `fadeDuration = 0.2` 的一段补间 —— 我们**不走 `Update`**
@@ -134,6 +141,8 @@ namespace CardPresentation
     /// <summary>
     /// **教程那一整棵表现子树**（原版 `Tutorial` 根 + `TutorialTip` + `TutorialArrows` + `Tutorial highlight`
     /// + `TutorialPointerCombat` + `TutorialObjs`）。
+    /// 🔴 **2026-10-31（`B105_W1`）**：`TutorialArrows`（左右箭头）**整层不建** —— 原版两颗 `SpriteRenderer` 的
+    ///   `m_Sprite` 是 `{0,0}`（本地 + 安卓 1.35.0 远端包双证）⇒ 原版不显示（见文件头 ②）。
     ///
     /// 🔑 **为什么合成一个文件/一件**：它们共享同一套「什么时候亮」的驱动（脚本动作 + `playerAction`），
     ///    拆成六个文件只会让「谁该跟着谁关」更难查 —— 那正是本工程踩过的坑（「建了却没跟着开关隐藏」）。
@@ -251,26 +260,15 @@ namespace CardPresentation
         /// （画布档下它是 uGUI 件）。⛔ **一个件只许在一边** —— 见 `HudPiece` 文件头那条铁律。</summary>
         HudPiece _tipBg;
         GameObject _initGo; Label _initText1, _initText2;
-        /// <summary>左右箭头（原版 `TutorialArrows/arrow1·arrow2`，**原版这一层本来就没有图**，见文件头 ②）。</summary>
-        HudPiece _arrowL, _arrowR;
-        /// <summary>🆕 **2026-10-19（T11 `G-5`）**：左右箭头在 `Tutorial` 根下的**固定局部坐标/旋转**
-        /// —— **判据 = 反编译不了、但解包资源里读得到**（`bundle_scenes_scenes_battlearena1/Transform/`）：
-        ///   · `Transform_1447`（`TutorialArrows`）= `localPosition (-3.40, -1.16)` · `localScale 0.8`；
-        ///   · `Transform_1448`（`arrow1`）      = 子局部 `(2.77, 1.89)` · `quaternion (z -0.58399, w 0.81176)`
-        ///     ⇒ 相对根 `(-3.40 + 0.8×2.77, -1.16 + 0.8×1.89) = (-1.184, 0.352)` · 旋转 **−71.47°**；
-        ///   · `Transform_1450`（`arrow2`）      = 子局部 `(5.76, 1.73)` · `quaternion (z -0.83480, w -0.55056)`
-        ///     ⇒ 相对根 `(1.208, 0.224)` · 旋转 **+113.20°**。
-        /// ⚠️ 两个旋转值是我按 `2·atan2(z,w)` 现算的（四元数逐位照抄上面那两份 JSON）——
-        ///   **原版那两颗 `SpriteRenderer` 的 `m_Sprite` 是真·空引用**（文件头 ②），所以「箭头长什么样、
-        /// 🔶 自己设计（非原版）：教学箭头贴图 `40k_general_bt_arrow` · 原版两颗 SpriteRenderer 的 `m_Sprite` 是真·空引用，原版本来就不显示箭头（原版判据拿不到） · TODO(谁定的)｜原注：朝哪边」在原版**本来就是看不见的**；这里照抄的只是**摆放**，贴图仍是我们挑的
-        ///   `40k_general_bt_arrow`（⛔ 别当成「原版的箭就是这张」）。</summary>
-        static readonly Vector2 ArrowLPos = new Vector2(-1.184f, 0.352f);
-        static readonly Vector2 ArrowRPos = new Vector2(1.208f, 0.224f);
-        const float ArrowLRotZ = -71.47f, ArrowRRotZ = 113.20f;
-        /// <summary>自检用：左/右箭头现在**亮着没有**（`G-5` 的读口；原版 `SetupArrows` 只做
-        /// `SetActive(showLeft/showRight)` + 淡入）。</summary>
-        public bool ArrowLeftVisible { get { return _arrowL != null && _arrowL.gameObject.activeSelf; } }
-        public bool ArrowRightVisible { get { return _arrowR != null && _arrowR.gameObject.activeSelf; } }
+        /// <summary>🔴 **2026-10-31（`B105_W1`）左右箭头整层删除** —— 原版 `TutorialArrows/arrow1·arrow2`
+        /// 的 `SpriteRenderer.m_Sprite` 是 `{0,0}`（本地 + 安卓 1.35.0 远端包**双证**，见文件头 ②）⇒ 原版不显示；
+        /// 我们那两颗是自造的（`40k_general_bt_arrow`）且不属 §18·0 的「服务器相关」门类 ⇒ 连字段/摆位常量/
+        /// 建件/淡入一起移除。⛔ **别再长出能亮起来的箭头**（判据 → `资料/完全复刻/报告/B103_R9.md:89`）。
+        /// <para>下面两个读口**只为源码兼容**（`Editor/BattleScene.cs` 的 `G-5` 断言还引用着，那份归调度台）：
+        /// **恒 `false` + 出声一次**。</para></summary>
+        public bool ArrowLeftVisible { get { ArrowGoneLog(); return false; } }
+        /// <inheritdoc cref="ArrowLeftVisible"/>
+        public bool ArrowRightVisible { get { ArrowGoneLog(); return false; } }
         /// <summary>高亮那一层（原版 `Tutorial highlight`，独占一块子画布）。</summary>
         HudPiece _highlight;
         /// <summary>指点光标（原版 `TutorialPointerCombat/Pointer`，独占一块子画布）。</summary>
@@ -387,8 +385,9 @@ namespace CardPresentation
             {
                 if (_cvTip == null || _cvHl == null || _cvPtr == null) return false;
                 if (!UnderCanvas(_cvTip) || !UnderCanvas(_cvHl) || !UnderCanvas(_cvPtr)) return false;
-                if (!ImgOnCanvas(_tipBg) || !ImgOnCanvas(_arrowL) || !ImgOnCanvas(_arrowR)
-                    || !ImgOnCanvas(_highlight) || !ImgOnCanvas(_pointer)) return false;
+                if (!ImgOnCanvas(_tipBg) || !ImgOnCanvas(_highlight) || !ImgOnCanvas(_pointer)) return false;
+                // 🔴 2026-10-31（`B105_W1`）：原来这一行还有 `!ImgOnCanvas(_arrowL) || !ImgOnCanvas(_arrowR)` ——
+                //   左右箭头整层删除（原版 `m_Sprite` 是真·空引用），那两项随之移除。
                 for (int i = 0; i < 4; i++) if (!ImgOnCanvas(_annoArrows[i])) return false;
                 if (!NodeOnCanvas(_tipGo) || !NodeOnCanvas(_initGo) || !NodeOnCanvas(_annoGo)) return false;
                 if (!TxtOnCanvas(_tipText) || !TxtOnCanvas(_tipContinue)) return false;
@@ -493,13 +492,11 @@ namespace CardPresentation
         void Teardown()
         {
             KillGo(_tipGo); KillGo(_initGo); KillGo(_annoGo);
-            KillGo(_arrowL != null ? _arrowL.gameObject : null);
-            KillGo(_arrowR != null ? _arrowR.gameObject : null);
             KillGo(_highlight != null ? _highlight.gameObject : null);
             KillGo(_pointer != null ? _pointer.gameObject : null);
             _tipGo = null; _tipText = _tipContinue = null; _tipBg = null;
             _initGo = null; _initText1 = _initText2 = null;
-            _arrowL = _arrowR = null; _highlight = null; _pointer = null; _ptrLight = null;   // 🆕 2026-10-29（B95_FX 账 524）：`light` 是 `_pointer` 的子件，随它一起被 KillGo 掉，这里只清引用
+            _highlight = null; _pointer = null; _ptrLight = null;   // 🆕 2026-10-29（B95_FX 账 524）：`light` 是 `_pointer` 的子件，随它一起被 KillGo 掉，这里只清引用；2026-10-31（B105_W1）删掉 `_arrowL/_arrowR` 两个清引用
             _annoGo = null;
             for (int i = 0; i < 4; i++) { _annoLabels[i] = null; _annoArrows[i] = null; }
             _built = false;                       // ⇒ 下一次 `Build()` 会用**当前**档重建
@@ -731,8 +728,9 @@ namespace CardPresentation
                 Debug.LogWarning("[Tutorial] 拿不到高亮图 `Tutorial_Highlight`（`Art/ui_menu/`）⇒ 高亮那一层**建不出来**"
                     + "（原版 `Tutorial highlight`，`sortingOrder 601`）。");
             if (arrowTex == null)
-                Debug.LogWarning("[Tutorial] 拿不到 `40k_general_bt_arrow`（`Art/ui_menu/`）⇒ 左右箭头与指点光标**建不出来**"
-                    + "（原版那三处的 sprite 名查不到/null，这一张是**我们挑的**载体）。");
+                Debug.LogWarning("[Tutorial] 拿不到 `40k_general_bt_arrow`（`Art/ui_menu/`）⇒ 指点光标与教学标注箭头**建不出来**"
+                    + "（原版那两处的 sprite 名查不到/null，这一张是**我们挑的**载体）。"
+                    + "｜🔴 2026-10-31（`B105_W1`）：**左右箭头已整层删除**，这条警告不再覆盖它。");
 
             // ---- 小提示（`TutorialTip 430×150`）----
             // 🆕 2026-10-18（`Z4`）**换成真名**：原版那块底板 `Generic Popup Background` 的
@@ -788,19 +786,11 @@ namespace CardPresentation
             else
                 _initGo.transform.localPosition = LayoutSpace.ToWorld(0.5f, 0.72f);   // 🔴 我们挑的（原版那两条在场景里是 inactive）
 
-            // ---- 左右箭头（`TutorialArrows/arrow1·arrow2`）----
-            // 🆕 2026-10-19（T11 `G-5`）：位置/旋转 = **判据**（prefab 的 Transform 链，见 `ArrowLPos` 那段）；
-            //   ⚠️ 原来这里给 `arrow2` 加的是 `localScale.x = -1` **镜像**（我们挑的），
-            //   现在换成**原版那两个四元数** ⇒ 删掉镜像（原版没有负缩放；见 `ArrowRRotZ` 的注释）。
-            if (arrowTex != null)
-            {
-                _arrowL = MakeImg(tipParent, arrowTex, "arrow1", 0.45f, ZFlat);
-                _arrowR = MakeImg(tipParent, arrowTex, "arrow2", 0.45f, ZFlat);
-                if (_arrowL != null) _arrowL.transform.localEulerAngles = new Vector3(0f, 0f, ArrowLRotZ);
-                if (_arrowR != null) _arrowR.transform.localEulerAngles = new Vector3(0f, 0f, ArrowRRotZ);
-                if (_arrowL != null) _arrowL.gameObject.SetActive(false);
-                if (_arrowR != null) _arrowR.gameObject.SetActive(false);
-            }
+            // ---- 左右箭头（`TutorialArrows/arrow1·arrow2`）：🔴 **2026-10-31（`B105_W1`）整层删除** ----
+            // 判据：原版两颗 `SpriteRenderer` 的 `m_Sprite` 是 `{0,0}`（本地 + 安卓 1.35.0 远端包**双证**）
+            //   ⇒ **原版根本不显示箭头**；原来这里用自造的 `40k_general_bt_arrow` 建两颗（含 `ArrowLPos/ArrowRPos`
+            //   摆位与两个旋转常量）⇒ 属 `🔶 自己设计`、不在 §18·0 允许的「服务器相关」门类 ⇒ 连同字段一起删掉。
+            //   证据 → `资料/完全复刻/报告/B103_R9.md:89`。⛔ 别照旧版重建。
 
             // ---- 高亮（`Tutorial highlight`，`sortingOrder 601`）----
             if (hlTex != null)
@@ -893,8 +883,7 @@ namespace CardPresentation
         {
             if (_tipGo != null) _tipGo.SetActive(false);
             if (_initGo != null) _initGo.SetActive(false);
-            if (_arrowL != null) _arrowL.gameObject.SetActive(false);
-            if (_arrowR != null) _arrowR.gameObject.SetActive(false);
+            // 🔴 2026-10-31（`B105_W1`）：原来这里收 `_arrowL/_arrowR` 两颗 —— 整层删除后没有它们了。
             if (_highlight != null) _highlight.gameObject.SetActive(false);
             if (_pointer != null) _pointer.gameObject.SetActive(false);
             if (_annoGo != null) _annoGo.SetActive(false);
@@ -922,7 +911,10 @@ namespace CardPresentation
         ///     `relation == 10 (LeftOf) ⇒ x -= fVar9` · `== 20 (RightOf) ⇒ x += fVar9` ·
         ///     `== 30 (Above) ⇒ y += fVar9 * **0.5**`（那个 `0.5` = `GameAssembly.dll` 常量池
         ///     `DAT_1834b2bb4` 的实读值）。
-        ///   ⇒ 现在**逐字照抄这三条**（⛔ 不再叠 `Gap` / 半面板宽那些我们挑的量）。</summary>
+        ///   ⇒ 现在**逐字照抄这三条**（⛔ 不再叠 `Gap` / 半面板宽那些我们挑的量）。
+        /// <para>⚠️ <paramref name="showLeftArrow"/> / <paramref name="showRightArrow"/> **只出声、不建件**
+        /// （2026-10-31 `B105_W1` 删掉左右箭头整层；原版 `m_Sprite` 是真·空引用）。
+        /// 形参**保留只为源码兼容** —— 调用点 `BattleDriver.cs:17954` 在别件，本件没改它。</para></summary>
         public void SetTip(bool on, string text, bool withContinue, Vector3 center, float dx, TutRelation rel,
                            bool showLeftArrow = false, bool showRightArrow = false)
         {
@@ -969,42 +961,20 @@ namespace CardPresentation
             //   而原版 `TutorialTipScript.FadeElements(targetAlpha)` 是 **`DOFade(fadeDuration = 0.2)`** 的淡出。
             //   现在只清 `_wantVisible`，由 `Tick` 把 alpha 推到 0 之后再 `SetActive(false)`（见 `Tick` 末尾）。
             //   ⚠️ 淡入早就有了（`Tick` 的 `MoveTowards`）；缺的只是这一半。
-            // 🆕 2026-10-19（T11 `G-5`）：**左右箭头**（原版 `TutorialTipScript.SetupArrows(showLeft, showRight)`）。
-            //   原版判据（`decomp_full/TutorialTipScript__SetupArrows.c`）：`SetSpriteAlpha(0)` →
-            //   `SetActive(param)` → `DOFade(fadeDuration)` —— 即**只有「亮/不亮」两态**、位置**不动**
-            //   （原版那两颗就固定挂在 `TutorialArrows` 下）。⇒ 我们照抄两态，位置用 `ArrowLPos/ArrowRPos`。
-            //   ⚠️ 关提示（`on == false`）时两格都传 false ⇒ 一起收掉（原版 `StopTip` 也收）。
-            SetArrow(_arrowL, ArrowLPos, on && showLeftArrow);
-            SetArrow(_arrowR, ArrowRPos, on && showRightArrow);
+            // 🔴 **2026-10-31（`B105_W1`）：左右箭头整层删除** —— 原版 `TutorialArrows/arrow1·arrow2` 的
+            //   `SpriteRenderer.m_Sprite` 是 `{0,0}`（本地 + 安卓 1.35.0 远端包双证）⇒ 原版不显示；
+            //   原来这两行 `SetArrow(_arrowL, …)` / `SetArrow(_arrowR, …)` 是照 `TutorialTipScript__SetupArrows.c`
+            //   （只 `SetSpriteAlpha`+`SetActive`+`DOFade`、**不改 sprite**）做的，载体却是我们自挑的
+            //   `40k_general_bt_arrow` ⇒ 不属 §18·0 的「服务器相关」门类 ⇒ 连 `SetArrow` 方法一起删。
+            //   `showLeftArrow/showRightArrow` **形参保留**（`BattleDriver` 那个调用点在别件、本件没改它），
+            //   但**只出声、不建件**：今天 6 关 462 条动作里这两格**全是 false**（R2 §4 实测）⇒ 一次都不会响。
+            if (on && (showLeftArrow || showRightArrow))
+                Debug.LogWarning("[Tutorial] 这一条提示写着 showLeftArrow=" + showLeftArrow + " / showRightArrow=" + showRightArrow
+                               + " ⇒ **原版没有左右箭头**（`TutorialArrows` 的 `m_Sprite` 是真·空引用，本地+安卓 1.35.0 双证），"
+                               + "我们那两颗已整层删除（2026-10-31 `B105_W1`）⇒ 这一条**不画箭头**。");
             _wantVisible = on; _shownFor = 0f;
             _tipContinueRequested = false;      // 每换一条提示 ⇒ 上一颗 Continue 的请求位作废
             if (_tipBg != null) _tipBg.SetTint(new Color(1f, 1f, 1f, 0.92f));
-        }
-
-        /// <summary>`G-5` 的一颗箭头：**先摆位（幂等）、再切开关**。
-        /// ⚠️ 原版 `SetupArrows` 的淡入（`DOFade` over `fadeDuration`）我们**没有**做 ——
-        ///   那个时长是 `this + 0x30`（`TutorialTipScript` 的字段），**本报告没读到它的值**
-        ///   ⇒ 不猜；今天数据 6 关 `showLeftArrow/showRightArrow` **全 false**（462 条动作 0/0），
-        ///   这一档**一次都不会亮**（机制照做，零可见影响）。</summary>
-        void SetArrow(HudPiece a, Vector2 local, bool on)
-        {
-            if (a == null) return;
-            if (on)
-            {
-                var p = new Vector3(local.x, local.y, ZFlat);
-                if (UguiMode) CvPlace(a.gameObject, _cvTip, _root.TransformPoint(p));
-                else a.transform.localPosition = p;
-            }
-            // 🆕 2026-10-26（批次 5 · G7）：**箭头自己的 α 也归 `_fade` 管**。
-            //   判据 = 原版 `TutorialTipScript.FadeElements`（cpp2il `TutorialTipScript.cs:365-391` /
-            //   `RadioMessageScript.cs:303-338`）：整块 `DOFade(canvasGroup)` **之后**，还逐颗对
-            //   `leftArrow` / `rightArrow` 做 `DOFade(targetAlpha)`（**只在那颗 `activeSelf` 时**）。
-            //   ⇒ 刚亮起时 α 取**当前** `_fade`（原版 `SetupArrows` 是「先 α=0 再 DOFade(1)」，
-            //   净效果 = 跟着整块淡入）。⚠️ 如实记一条差异：连续两条提示首尾相接（`_fade` 已是 1）
-            //   时，原版箭头会从 0 重跑 0.2 s，我们直接满 α 出现 —— 今天 6 关 462 条动作
-            //   `showLeftArrow/showRightArrow` 实测**全 false** ⇒ 零可见影响（`BattleDriver.cs:17067` 同记）。
-            if (on) a.SetTint(new Color(1f, 1f, 1f, _fade));
-            if (a.gameObject.activeSelf != on) a.gameObject.SetActive(on);
         }
 
         /// <summary>原版 `GetTipPosition` 里 `Above` 那一条的系数 —— ✅ **判据是硬值**：
@@ -1219,23 +1189,20 @@ namespace CardPresentation
             if (_tipBg != null) _tipBg.SetTint(new Color(1f, 1f, 1f, 0.92f * _fade));
             if (_tipText != null) _tipText.SetColor(new Color(1f, 1f, 1f, _fade));
             if (_tipContinue != null) _tipContinue.SetColor(new Color(1f, 0.85f, 0.35f, _fade));
-            // 🆕 2026-10-26（批次 5 · G7）：左右箭头**跟着整块一起淡**（原版 `FadeElements` 的
-            //   第二、三句；**只对 activeSelf 的那颗**做 `DOFade(targetAlpha)`）。
-            //   判据 → `SetArrow` 里那条注释（两份方法体逐句）。⛔ 别把这两行写成「无条件设 α」
-            //   —— 原版那两句都有 `activeSelf` 闸，收起来的箭头保持它自己的 α（下次亮起由 `SetArrow` 重设）。
-            if (_arrowL != null && _arrowL.gameObject.activeSelf) _arrowL.SetTint(new Color(1f, 1f, 1f, _fade));
-            if (_arrowR != null && _arrowR.gameObject.activeSelf) _arrowR.SetTint(new Color(1f, 1f, 1f, _fade));
+            // 🔴 **2026-10-31（`B105_W1`）**：原来这里还有两行「左右箭头跟着整块一起淡」
+            //   （`_arrowL/_arrowR` 的 `SetTint`）—— 箭头整层删除后一并移除。
         }
 
         // ==================================================================
         //  🆕 2026-10-26（批次 5 · G7）：箭头**不透明度**的自检读口（**追加在类尾**，⛔ 别插到中间去）
         // ==================================================================
-        /// <summary>自检用：左箭头的**实际不透明度**（`HudPiece.Tint.a`；没建出来 ⇒ −1）。
-        /// 判据 = 原版 `TutorialTipScript.FadeElements` 对 activeSelf 的箭头做 `DOFade(targetAlpha)`
-        /// ⇒ 亮着时应跟 <see cref="TipAlpha"/> 同值（断「箭头真的跟着整块淡」，不是只看它开没开）。</summary>
-        public float ArrowLeftAlpha { get { return _arrowL != null ? _arrowL.Tint.a : -1f; } }
+        /// <summary>自检用读口 —— 🔴 **2026-10-31（`B105_W1`）左右箭头整层删除后恒 `-1`**。
+        /// 保留这两个成员**只为源码兼容**（`Editor/BattleScene.cs` 的 `G-5` 断言还引用着，那份归调度台）；
+        /// `-1` 与原来的文档一致：「没建出来 ⇒ −1」—— 现在**永远**没建出来。
+        /// ⛔ 别拿它俩当「箭头还在」的证据。</summary>
+        public float ArrowLeftAlpha { get { ArrowGoneLog(); return -1f; } }
         /// <inheritdoc cref="ArrowLeftAlpha"/>
-        public float ArrowRightAlpha { get { return _arrowR != null ? _arrowR.Tint.a : -1f; } }
+        public float ArrowRightAlpha { get { ArrowGoneLog(); return -1f; } }
 
         // ==================================================================
         //  🆕 2026-10-29（执行代理 `Y5` · 第九十四会话 · 波 1.5 · 账 `特效动画:524`）
@@ -1670,5 +1637,43 @@ namespace CardPresentation
         }
         /// <summary>`SetupCursor` 那条「这个阵营原版没有 Glow 图」的去重闸。</summary>
         bool _cursorGlowWarned;
+
+        // ==================================================================
+        //  🆕 2026-10-31（执行代理 `B105_W1` · 第 0 位 0-1）：左右箭头整层删除后的**出声闸**
+        //  （**追加在类尾**，⛔ 别插到中间去 —— 否则下游账落点整片漂移）
+        //  判据：原版 `TutorialArrows/arrow1·arrow2` 的 `SpriteRenderer.m_Sprite` 是 `{0,0}`
+        //     （本地 `SpriteRenderer_1760/1762` + 安卓 1.35.0 远端包 `scenes_scenes_battlearena1.bundle`
+        //      的 `arrow1(1162)/arrow1 (1)(1163)/arrow2(1165)/arrow1 (2)(1168)` 双证）⇒ 原版不显示；
+        //     我们那两颗是自造的（`40k_general_bt_arrow`），不属 §18·0「服务器相关」门类 ⇒ 删除。
+        //  证据 → `资料/完全复刻/报告/B103_R9.md:89`。
+        // ==================================================================
+        static bool _arrowGoneLogged;
+        static void ArrowGoneLog()
+        {
+            if (_arrowGoneLogged) return;
+            _arrowGoneLogged = true;
+            Debug.LogWarning("[Tutorial] **原版没有左右箭头**（`TutorialArrows` 的 `m_Sprite` 是真·空引用；"
+                           + "本地 + 安卓 1.35.0 远端包双证）⇒ 我们自造的那两颗已于 2026-10-31（`B105_W1`）"
+                           + "整层删除；`ArrowLeft/RightVisible` 恒 false、`ArrowLeft/RightAlpha` 恒 -1。");
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-31（调度台 · `B105_W1` 断言接线）：**看真实对象树**的判别式
+        //  为什么单开它：`ArrowLeft/RightVisible` 是**写死 false** 的源码兼容读口 ——
+        //    把建件代码加回来它也不会露馅 ⇒ 断言必须看树，⛔ 不能拿写死值自证。
+        //  返回 -1 = 教程根还没建出来（⛔ 不是「没有箭头」；断言按 -1 判红，防静默跳过）。
+        //  （**追加在类尾**）
+        // ==================================================================
+        public int ArrowObjectCountForTest
+        {
+            get { return _root == null ? -1 : CountNamed(_root, "arrow1") + CountNamed(_root, "arrow2"); }
+        }
+        static int CountNamed(Transform t, string name)
+        {
+            if (t == null) return 0;
+            int n = t.name == name ? 1 : 0;
+            for (int i = 0; i < t.childCount; i++) n += CountNamed(t.GetChild(i), name);
+            return n;
+        }
     }
 }

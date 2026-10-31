@@ -781,6 +781,11 @@ public static class MainMenuScene
             //    判据 = 原版实拍量出来的亮度场（左 9 → 右 20、上下几乎不变）→ `资料/主菜单_原版规格.md` §A。
             //    渐变贴图里 **索引 0 = 左下**（`SetPixels` 的约定）⇒ 比「右上 vs 左下」即可。
             var gt = q != null ? q.Texture as Texture2D : null;
+            // 🆕 2026-10-31（`B105_F4` · AUD11-3A-brace）：上面 777 只保证 `q.Texture` 非空 ——
+            //    **`as Texture2D` 这一跳失败**（比如有人把渐变改成 RenderTexture）时，方向那条会**整段静默**。
+            //    ⇒ 前置当场红；守卫保留（块内要 `GetPixel`）。
+            CheckTrue(gt != null,
+                      "（前提·不静默）背景渐变贴图是 `Texture2D`（`GetPixel` 读得到像素）—— 不是 ⇒ 下面「亮在右上」那条等于没验（⛔ 不是通过）");
             if (gt != null)
             {
                 int N = gt.width;
@@ -4017,9 +4022,8 @@ public static class MainMenuScene
                         CheckTrue(armSelB != null && bgN.parent == armSelB,
                                   "★ 它是 `Army Selector` 的**直接子件** ⇒ **不被 `RectMask2D` 裁**"
                                   + "（挂到 `Viewport` 下面这条立刻红）");
-                        if (armSelB != null && aVpB != null)
-                            CheckTrue(bgN.GetSiblingIndex() < aVpB.GetSiblingIndex(),
-                                      "★ 它排在 `Viewport` **之前**（= 画在格子**下面**）");
+                        CheckTrue(aVpB != null && bgN.GetSiblingIndex() < aVpB.GetSiblingIndex(),
+                                  "★ 它排在 `Viewport` **之前**（= 画在格子**下面**；`Viewport` 取不到也算红）");
                         float bx1, by1, bx2, by2;
                         if (UnionQuadRect(bgN, out bx1, out by1, out bx2, out by2))
                         {
@@ -5201,6 +5205,11 @@ public static class MainMenuScene
                         }
                         // 再开一次，验：起手页签 / 预组那一页 / 搜索 / 点一格选中 / 关闭钮
                         var ds2 = pw.OpenDeckSelection();
+                        // 🆕 2026-10-31（`B105_F4` · AUD11-3A-b）：这个 `if` 横跨 **720 行、包着 83 条 Check** ——
+                        //    条件假时整段**静默不跑**（合计里只是少了一截，读日志看不出来）。⇒ 前置当场红，**守卫保留**
+                        //    （块内要解引用 `ds2.transform` / `ds2.BackdropHit`，⛔ 不是把 83 条改成无条件）。
+                        CheckTrue(ds2 != null,
+                                  "（前提·不静默）再开一次 `Deck Selection Popup` 拿得到 —— 拿不到 ⇒ 本块 **83 条断言等于没验**（⛔ 不是通过）");
                         if (ds2 != null)
                         {
                             // ---- ① 起手页签：**原版出厂就是「预组」页**（`DeckSelectionTabController__Start.c:5`）----
@@ -5857,6 +5866,9 @@ public static class MainMenuScene
 
                             // ---- ⑦ 再开一次，验关闭圆钮 ----
                             var ds3 = pw.OpenDeckSelection();
+                            // 🆕 2026-10-31（`B105_F4` · AUD11-3A-b）：同 `ds2` 那一处 —— 开不出来就整段静默 ⇒ 前置当场红，守卫保留。
+                            CheckTrue(ds3 != null,
+                                      "（前提·不静默）收尾这一次 `Deck Selection Popup` 也开出来了 —— 开不出来 ⇒ 下面（关窗钮 / 档位 / 吸收层）几条等于没验（⛔ 不是通过）");
                             if (ds3 != null)
                             {
                                 // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3125)，< 内容命中区档 `QDsHit`(**3129**)
@@ -7189,6 +7201,11 @@ public static class MainMenuScene
                         //    判据 → `项目任务.md` §〇 A ②；实现 → `PointerLayer.PruneScrolls` / `UnregisterOwnedBy`。
                         {
                             var pl2 = PointerLayer.Instance;
+                            // 🆕 2026-10-31（`B105_F4` · AUD11-3A-b）：`PointerLayer.Instance` 拿不到时，下面
+                            //    「滚动区登记表」那几条会**整段静默** ⇒ 前置当场红；守卫保留（块内要用 `pl2.ScrollUnder`）。
+                            CheckTrue(pl2 != null,
+                                      "（前提·不静默）`PointerLayer.Instance` 在 —— 不在 ⇒ 下面「活区滚得到 / 死区不再命中 / 落表」"
+                                    + "几条等于没验（⛔ 不是通过）");
                             if (pl2 != null)
                             {
                                 var host = new GameObject("scroll_probe_host");
@@ -9191,6 +9208,11 @@ public static class MainMenuScene
                 // 这三件此前**一条都没被断**（`Army` 格照原版 item prefab 重建过一遍，没有网就等于随时能退回去）。
                 // 判据 = `bundle_menus_assets_all/GameObject/Ranked Army Selector Container V2.json` 逐节点实读；
                 // item prefab 是谁 = `ArmySelectorRanked__Initialize.c:286` + 三处实例同指 pid `−2100390822107119323`。
+                // 🆕 2026-10-31（`B105_F4` · AUD11-3A-b）：上一行只断了「画了几格」——`ArmyCells[0]` 是**被销毁体**时
+                //    格内结构那一整段（13 条）会**静默不跑**（`Count > 0` 照样绿）⇒ 前置当场红；守卫保留（要索引 `[0]`）。
+                CheckTrue(sk.ArmyCells.Count > 0 && sk.ArmyCells[0] != null,
+                          "（前提·不静默）遭遇战窗的阵营列第 0 格拿得到 —— 拿不到 ⇒ 下面「格内结构 / 四层档位 / 命中区绑 target」"
+                        + "那一整段等于没验（⛔ 不是通过）");
                 if (sk.ArmyCells.Count > 0 && sk.ArmyCells[0] != null)
                 {
                     var cell0 = sk.ArmyCells[0];
@@ -12390,7 +12412,16 @@ public static class MainMenuScene
                               "建出来了：`GeneralDetails` + `TrophiesWindow` 两棵都在");
                     CheckTrue(mt.GeneralView.activeSelf && !mt.TrophiesView.activeSelf,
                               "默认 `General`（原版 `TrophiesWindow` act **F**）");
-                    var trh = FindChild(FindChild(mv, "Alliance Header Buttons (1)"), "Generic Tab UI Button Trophies/Hit");
+                    // 🔴 2026-10-31（调度台）：原来是 `FindChild(..., "Generic Tab UI Button Trophies/Hit")` ——
+                    //   `FindChild` 只认**直接子件名**，带 `/` 的复合路径恒 null ⇒ 前提恒红、下面那条切换断言从未执行。
+                    //   且真正建出来的命中区叫 **`TrophiesHit`**、是 `Tab buttons` 那一行的**兄弟件**
+                    //   （`Shell/AllianceMemberTab.cs:304/320`：`row = Node(head,"Tab buttons")` → `Hit(row,"TrophiesHit",…)`）。
+                    var trh = FindChild(FindChild(FindChild(mv, "Alliance Header Buttons (1)"), "Tab buttons"), "TrophiesHit");
+                    // 🆕 2026-10-31（`B105_F4` · AUD11-3A-brace）：取不到（或那颗上没挂 `WindowButton`）时，
+                    //    「点 `Trophies` ⇒ 切到奖杯页」会**整段静默** ⇒ 前置当场红；守卫保留（块内要取组件 + 调 `onClick`）。
+                    CheckTrue(trh != null && trh.GetComponent<WindowButton>() != null,
+                              "（前提·不静默）`Alliance Header Buttons (1)/Tab buttons/TrophiesHit` 拿得到、且挂着 `WindowButton`"
+                            + " —— 拿不到 ⇒ 下面「切到奖杯页」那条等于没验（⛔ 不是通过）");
                     if (trh != null && trh.GetComponent<WindowButton>() != null)
                     {
                         trh.GetComponent<WindowButton>().onClick();
@@ -13084,6 +13115,11 @@ public static class MainMenuScene
                             var mVp = FindChild(FindChild(mv, "GeneralDetails"), "MemberList");
                             mVp = FindChild(FindChild(mVp, "Scroll View"), "Viewport");
                             var mContent = FindChild(mVp, "Content");
+                            // 🆕 2026-10-31（`B105_F4` · AUD11-3A-b）：`ms` 已有前置（`CheckTrue(ms != null, …)` 那一条），
+                            //    **`mContent` 没有** ⇒ 这一层缺件时下面那一整段（列数 / 行距 / 溢出 / 行名）会**整段静默**。
+                            CheckTrue(mContent != null,
+                                      "（前提·不静默）`MemberList > Scroll View > Viewport > Content` 拿得到"
+                                    + " —— 拿不到 ⇒ 下面这一整段（列数 / 行距 / 溢出）等于没验（⛔ 不是通过）");
                             CheckAtWorld(mVp, 369.67f, 1880.67f, 493.63f, 1080.05f,
                                          "`MemberList>Scroll View>Viewport`（原版 `Image + Mask`，`showGraphic=0`）");
                             // ==================================================== 🆕 2026-10-09（A263）
@@ -14227,12 +14263,18 @@ public static class MainMenuScene
                                             //   「字重排之后真的从哪开始画」—— A475 那一族）。⇒ 改量 TMP 渲出来那块。
                                             //   ⚠️ 期望值不动（976.12 = 原版 `Title` 框左沿），当前实现下逐位同值。
                                             float atx1, aty1, atx2, aty2;
-                                            if (TmpRenderedRect(pTtl, out atx1, out aty1, out atx2, out aty2))
-                                                CheckNear(atx1, 976.12f, 1.0f,
-                                                          "★ A617：喂了数据之后 `Title` **重新对齐到框左沿**"
-                                                          + "（**真渲染**文字左边缘 976.12）—— 空串时守卫不挪、有字了才对齐，"
-                                                          + "这一条是那一跳的判据（改坏法 = 在 `TrophyInfoPopup.cs:313` 那句"
-                                                          + " `AlignLeft` **之后**插一句重排文字的调用 ⇒ 旧量法照旧报 976.12、这里红）");
+                                            // 🆕 2026-10-31（`B105_F4` · AUD11-3B C 档）：原来量不到网格就**静默不跑**
+                                            //    （既不红也不进未覆盖）⇒ 拆成「前提当场红 + 结论无条件跑」。
+                                            //    同一个宿主里 `CheckFits`（本文件）的写法就是「量不到当场红」，这里对齐它。
+                                            bool okAt617 = TmpRenderedRect(pTtl, out atx1, out aty1, out atx2, out aty2);
+                                            CheckTrue(okAt617,
+                                                      "（前提·不静默）A617：喂了数据之后 `Title` 的 **TMP 渲染网格**量得到"
+                                                    + " —— 量不到 ⇒ 下一条等于没验（⛔ 不是通过）");
+                                            CheckNear(atx1, 976.12f, 1.0f,
+                                                      "★ A617：喂了数据之后 `Title` **重新对齐到框左沿**"
+                                                      + "（**真渲染**文字左边缘 976.12）—— 空串时守卫不挪、有字了才对齐，"
+                                                      + "这一条是那一跳的判据（改坏法 = 在 `TrophyInfoPopup.cs:313` 那句"
+                                                      + " `AlignLeft` **之后**插一句重排文字的调用 ⇒ 旧量法照旧报 976.12、这里红）");
                                             // ⚠️ 字号那一条**放在喂数据之后**：空串时 TMP 的自适应收敛到哪一档没定论
                                             //    （量它等于赌），有真字在里面才是「字号真的生效」的那一态。
                                             // 🔴 **这条要断的是哪一档，先说清**（本仓栽过：**dump 里 `字号` 那一列是
@@ -14262,10 +14304,15 @@ public static class MainMenuScene
                                                       + " 本仓 `AutoFitBox` 那条教训：断「渲染尺寸 ≤ 框」，别只比字号");
                                             {
                                                 float hw1, hh1, hw2, hh2;
-                                                if (RenderedRect(pTtl, out hw1, out hh1, out hw2, out hh2))
-                                                    CheckTrue(hh2 - hh1 <= 52f + 0.5f,
-                                                              $"…高也不出框（{hh2 - hh1:F1} ≤ 框高 52）—— 汉字行盒 ≈1.3em，"
-                                                              + "这一窗的收缩正是被框高顶出来的（TMP 让到 34.29 才装下）");
+                                                // 🆕 2026-10-31（`B105_F4` · AUD11-3B C 档）：同 `A617` 那一处 ——
+                                                //    量不到渲染矩形时「高也不出框」原来**静默不跑** ⇒ 前提当场红 + 结论无条件跑。
+                                                bool okH617 = RenderedRect(pTtl, out hw1, out hh1, out hw2, out hh2);
+                                                CheckTrue(okH617,
+                                                          "（前提·不静默）A617：`Title` 的**渲染矩形**量得到"
+                                                        + " —— 量不到 ⇒ 下一条「高也不出框」等于没验（⛔ 不是通过）");
+                                                CheckTrue(hh2 - hh1 <= 52f + 0.5f,
+                                                          $"…高也不出框（{hh2 - hh1:F1} ≤ 框高 52）—— 汉字行盒 ≈1.3em，"
+                                                          + "这一窗的收缩正是被框高顶出来的（TMP 让到 34.29 才装下）");
                                                 CheckTrue(FontPxOf(pTtl) > 3.5f,
                                                           "★ …而且字号**没有被压到自适应下限**（> 3px）——"
                                                           + " 防「自适应把字压没了」那一族回归");
@@ -14852,6 +14899,10 @@ public static class MainMenuScene
                 //   `SetActive(true) + state = Open`，紧跟着的老尾句又把它摁灰 ⇒ `(state = Open, activeSelf = false)`。
                 //   ⚠️ 断的是**整张 `openWindows` 表**（不是单独某一扇）—— 换任何一条入口都要过。
                 var wmInv = WindowsManager.Instance;
+                // 🆕 2026-10-31（`B105_F4` · AUD11-3A-brace）：`WindowsManager` 拿不到时，下面「`openWindows` 里每扇的
+                //    `CurrentState` 与 `activeSelf` 一致」那条会**静默不跑** ⇒ 前置当场红；守卫保留（块内要遍历 `wmInv`）。
+                CheckTrue(wmInv != null,
+                          "（前提·不静默）`WindowsManager.Instance` 在 —— 不在 ⇒ 下面「状态 / activeSelf 一致」那条等于没验（⛔ 不是通过）");
                 if (wmInv != null)
                 {
                     int badCount = 0; string badWho = "";
@@ -18444,7 +18495,7 @@ public static class MainMenuScene
             }
         }
 
-        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; B103W2_Assert.Run(); _sink.Pass += B103W2_Assert.Pass; _sink.Fail += B103W2_Assert.Fail; EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
+        B93S4Assert.Run(); _sink.Pass += B93S4Assert.Pass; _sink.Fail += B93S4Assert.Fail; B94B18Assert.Run(); _sink.Pass += B94B18Assert.Pass; _sink.Fail += B94B18Assert.Fail; B94T1_Assert.Run(); _sink.Pass += B94T1_Assert.Pass; _sink.Fail += B94T1_Assert.Fail; B94W1_Assert.Run(); _sink.Pass += B94W1_Assert.Pass; _sink.Fail += B94W1_Assert.Fail; B94X1_Assert.Run(); _sink.Pass += B94X1_Assert.Pass; _sink.Fail += B94X1_Assert.Fail; B94Y2_Assert.Run(); _sink.Pass += B94Y2_Assert.Pass; _sink.Fail += B94Y2_Assert.Fail; B94Y3_Assert.Run(); _sink.Pass += B94Y3_Assert.Pass; _sink.Fail += B94Y3_Assert.Fail; B94Z4_Assert.Run(); _sink.Pass += B94Z4_Assert.Pass; _sink.Fail += B94Z4_Assert.Fail; B94B10_Assert.Run(); _sink.Pass += B94B10_Assert.Pass; _sink.Fail += B94B10_Assert.Fail; B94B7_Assert.Run(); _sink.Pass += B94B7_Assert.Pass; _sink.Fail += B94B7_Assert.Fail; B94B11_Assert.Run(); _sink.Pass += B94B11_Assert.Pass; _sink.Fail += B94B11_Assert.Fail; B102AUD03_Assert.Run(); _sink.Pass += B102AUD03_Assert.Pass; _sink.Fail += B102AUD03_Assert.Fail; B102AUD05_Assert.Run(); _sink.Pass += B102AUD05_Assert.Pass; _sink.Fail += B102AUD05_Assert.Fail; B102AUD06_Assert.Run(); _sink.Pass += B102AUD06_Assert.Pass; _sink.Fail += B102AUD06_Assert.Fail; B102ALLY_Assert.Run(); _sink.Pass += B102ALLY_Assert.Pass; _sink.Fail += B102ALLY_Assert.Fail; B103W2_Assert.Run(); _sink.Pass += B103W2_Assert.Pass; _sink.Fail += B103W2_Assert.Fail; EventContainerArtProbe(menu); B97_MENU_Assert.CheckB97MenuLiveOpContainers(menu); B97_SMALL_Assert.Run(); _sink.Pass += B97_SMALL_Assert.Pass; _sink.Fail += B97_SMALL_Assert.Fail; B93D3Assert.Run(); _sink.Pass += B93D3Assert.Pass; _sink.Fail += B93D3Assert.Fail; B97W23Assert.Run(); _sink.Pass += B97W23Assert.Pass; _sink.Fail += B97W23Assert.Fail; B97W29Assert.Run(); _sink.Pass += B97W29Assert.Pass; _sink.Fail += B97W29Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 B90-N3b：事件容器图那条接线的一条断言（放在收尾之前 ⇒ 不改任何既有节点引用）｜🆕 2026-10-29（调度台代接线）：`B93S4Assert`（48 条）· `B94T1_Assert`（22 条）· `B94W1_Assert`（胜场计数三态 + 模式白名单）· `B94X1_Assert`（六件）· `B94Y2_Assert`（FeatureChecker 四挂点）此前**全仓 0 宿主**，一次都没跑过 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**，下游账落点不漂。
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `本文件`）⇒ 重列这里**不能再带 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
@@ -20223,6 +20274,11 @@ public static class MainMenuScene
         // 🔴 **分层顺序**（§10·3 找茬点 4）：卡图必须**大于**整屏渐变的队列 ——
         //    两者 z 都是 0，同队列时谁盖谁**不确定**（第一版 Tutorial 卡就是这么被渐变盖住的）。
         var bgQuad = menu.Find("Background") != null ? menu.Find("Background").GetComponentInChildren<ImageQuad>() : null;
+        // 🆕 2026-10-31（`B105_F4` · AUD11-3A-brace）：整屏渐变那颗取不到 ⇒ 「卡图队列 > 渐变队列」**整段静默**
+        //    （每张模式卡都静默一次，合计里看不出来）⇒ 前置当场红；守卫保留（块内要取 `MeshRenderer`）。
+        CheckTrue(bgQuad != null,
+                  $"{what}：（前提·不静默）主菜单那层整屏渐变 `Background` 的 `ImageQuad` 拿得到"
+                + " —— 拿不到 ⇒ 下面「卡图队列 > 渐变队列」那条等于没验（⛔ 不是通过）");
         if (bgQuad != null)
         {
             int qa = q.GetComponent<MeshRenderer>().sharedMaterial.renderQueue;

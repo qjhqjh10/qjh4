@@ -2620,13 +2620,13 @@ namespace RuleEngine
         /// <item>`:228` `FinishResolvingAction` ⇒ 我们的等价物是动作泵的收尾（⛔ 别在这里再手发一次）。</item>
         /// </list>
         ///
-        /// <para>🔴 **如实标的缺口（⛔ 不是「做完了」）**：① 那条 `displayedCard(30)` 日志条目
-        /// **我们没有容器** —— 本工程只建模了同一本日志里 `playCard(10)` 那一类
-        /// （`ctx.PlayedCards`，判据见 `BattleContext.PlayedCard` 的 doc）⇒ 这里落 `ctx.Log`
-        /// （引擎侧唯一的动作日志），**墓地日志面板上不会多出这一行**；②「中央亮牌」这条表现信号
-        /// **没有事件通道**（`EvtKind` 里没有对应项；同一句原版 `DisplayEnemyCardInCenter` 在
-        /// `EvtKind.SabotageCreated` 那条窄口里被用过，但那条的语义是「破坏卡被造进手牌」、⛔ 不能借用）。
-        /// 两条都要动 `BattleContext.cs` / `BattleEvent.cs`（本代理白名单之外）⇒ 已写进报告转调度台。</para>
+        /// <para>✅ **2026-10-31（`B105_W2`）已补上的两条（改前这里是「如实标的缺口」）**：① 那条 `displayedCard(30)`
+        /// 现在有**真容器** = `ctx.ActionLog`（本局不清的留档，`BattleContext` 的 doc）—— 走 `ctx.Emit`；
+        /// 表现侧消费 = `BattleDriver.RefreshBattleLog` 的 `case EvtKind.Draw` + `Effect == "display"` 支（原版两条键）。
+        /// ②「中央亮牌」现在有**事件通道** = 同一条 `EvtKind.Draw` + `Effect == "display"`（借用载体，判据写在
+        /// `BattleDriver` 那个 `case` 与本节头注里）；表现侧 = `BattleDriver.MaybeDisplayHandCardInCenter`。
+        /// 它只在 `animateFeel` 档播（批处理自检要「当场精确」的坐标，与 `SabotageCreated` 同一条闸）。
+        /// ⛔ 没有新增 `EvtKind`（枚举只许追加、且这一条语义已有现成载体与渲染支）。</para>
         ///
         /// <para>📊 池内 `chosenAbility 310` = **0 张** ⇒ 休眠件。</para>
         /// </summary>
@@ -2648,8 +2648,8 @@ namespace RuleEngine
                   + "墓地日志追加一条 `displayedCard(30)`（`CemeteryManager__AddDisplayedCardActionToCemetery.c`）"
                   + " → `SetCardState(10)` → `DisplayEnemyCardInCenter` → `SetCardState(1)` → `TurnCardAround`"
                   + " → `HandCardReleased`（手牌重排）。"
-                  + "⚠️ 其中「墓地日志那一行」与「中央亮牌」两条本版**没有对应的写点 / 事件通道**（见本方法 doc）");
-            return 1;
+                  + "墓地日志 `displayedCard(30)` 与「中央亮牌」两条都走下面那条 `EvtKind.Draw` + `Effect=\"display\"`（见本方法 doc）");
+            ctx.Emit(EvtKind.Draw, 1 - seat, -1, card.Card.Name, effect: "display", targetPlayer: seat, targetCardId: card.Card.Name); return 1;   // 🆕 2026-10-31（B105_W2 · 0-3）：原版 `:191 CemeteryManager.AddDisplayedCardActionToCemetery`（= 墓地动作日志的 `displayedCard(30)`；真容器 = `ctx.ActionLog`，表现侧 = `BattleDriver.RefreshBattleLog` 的 `EvtKind.Draw`+`display` 支）+ `:193/:195` 中央亮牌（表现侧 = `BattleDriver.MaybeDisplayHandCardInCenter`）。`Player` = **看牌那一方**（牌主的对面）；`TargetPlayer` = **牌主**（中央展示的起飞侧）。⛔ 牌本身**留在手牌里**。
         }
     }
 }

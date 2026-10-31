@@ -1701,6 +1701,10 @@ public static class ShopScene
                 bool hasTy = RectOf(FindChild(cell, "Type"), out tx1, out ty1, out tx2, out ty2);
                 bool hasNm = RectOf(FindChild(cell, "Name"), out nx1, out ny1, out nx2, out ny2);
                 CheckTrue(hasArt, $"格 {i + 1} 有主图（真图或占位板）");
+                // 🔴 2026-10-31（`B105_F5` · AUD11 类 3B-C）：`hasArt` 有前提，**`hasTy` / `hasNm` 一个都没有**
+                //   ⇒ `Type` / `Name` 行缺件时下面两条「谁压谁」**静默空转**（量得到的才断 = 少画一行反而全绿）。
+                CheckTrue(hasTy, $"格 {i + 1} 的 `Type` 行量得到渲染矩形（拿不到 ⇒ 下面那条「主图不压类型行」等于没验）");
+                CheckTrue(hasNm, $"格 {i + 1} 的 `Name` 行量得到渲染矩形（拿不到 ⇒ 下面那条「类型行不压名字行」等于没验）");
                 if (hasArt && hasTy)
                     CheckTrue(!Overlaps(ax1, ay1, ax2, ay2, tx1, ty1, tx2, ty2),
                               $"格 {i + 1}：**主图不压类型行**（图 y {ay1:F0}..{ay2:F0} · 类型 y {ty1:F0}..{ty2:F0}）");
@@ -1823,6 +1827,9 @@ public static class ShopScene
                         if (RectOfUnion(FindChild(lastCell2, "background"), out hx1, out hy1, out hx2, out hy2))
                             CheckNear(hy2 - hy1, ShopTabPage.CellH + 2f, 2f,
                                       "滚到底 ⇒ 格底**不再被裁**（高回到 格高 + 2）");
+                        else
+                            CheckTrue(false, "（前提·不静默）最后一格的 `background` 量得到渲染矩形"
+                                             + "（拿不到 ⇒ 上面那条「格底不再被裁」等于没验）");
                     }
                     // 回顶必须精确回到 0（`SetOffset` 是**绝对**设值 —— 2026-09-23 那条重入教训）
                     gs.SetOffset(0f);
@@ -2520,6 +2527,9 @@ public static class ShopScene
                 if (RectOf(FindChild(wsB, "Icon"), out ix1, out iy1, out ix2, out iy2))
                     CheckNear(iy2 - iy1, 51.88f * 1.2f, 1.5f,
                               "`Icon` **画出来 = 51.88 × `localScale 1.2` = 62.26**（原版就带这个缩放）");
+                else
+                    CheckTrue(false, "（前提·不静默）`WebShop` 那颗 `Icon` 量得到渲染矩形"
+                                     + "（拿不到 ⇒ 上面那条 62.26 等于没验）");
                 Check(TextOf(FindChild(wsB, "Button Text")), BoosterInfoPopup.WebShopText, "`Save More!`");
                 // 🆕 **2026-10-08（波 C3 · A214③）：`BoosterInfoPopup.WebTextR` 那对常量的断言。**
                 //   此前**全仓 0 处引用**（A62 ⑫④ 把它按修好的 `menu_dump.py` 从 `1291.22/1423.22` 改成
@@ -3009,6 +3019,9 @@ public static class ShopScene
                 CheckAt(disc, 1156.67f, 1865f, 977f, 1080f, "`Tap to discover` 的矩形（708.33×103）");
                 CheckAt(clos, 1156.67f, 1865f, 977f, 1080f, "`Tap to close` 的矩形（同上）");
                 var dl = FindChild(disc, "Text") != null ? FindChild(disc, "Text").GetComponentInChildren<Label>() : null;
+                // 🔴 2026-10-31（`B105_F5` · AUD11 类 3A-b）：`dl`（提示字那颗 `Label`）没有前提
+                //   ⇒ 取不到时「字号 49.82 / 色 R 0.5566」两条**静默空转**。
+                CheckTrue(dl != null, "（前提·不静默）`Tap to discover/Text` 上有 `Label`（拿不到 ⇒ 下面两条字号/色断言等于没验）");
                 if (dl != null)
                 {
                     CheckNear(dl.FontPxNow, 49.82f, 0.6f, "提示字字号 = **49.82**（原版 `m_fontSize`）");

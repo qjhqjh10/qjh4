@@ -2361,6 +2361,7 @@ public static class BattleScene
                 }
                 // ---- ② 友方档：AM69 只断**读数**（⚠️ 它 `Ability == null`，那一支走不到）----
                 var am69 = CardDatabase.FindById(poolR20, "AM69");
+                Check(am69 != null, "（前提·不静默）R20：卡池里找得到 `AM69` —— 找不到时「友方档读数」那几条验不到");
                 if (am69 != null)
                 {
                     int s = Place20(am69, out _);
@@ -3070,6 +3071,7 @@ public static class BattleScene
         Debug.Log(P + "--- 状态环（原版 `FrameHighlight`）---");
         {
             var src = driver.HandViewAt(0);
+            Check(src != null, "（前提·不静默）第 0 张手牌的视图在 —— 状态环那几条要拿它当探针");
             if (src != null)
             {
                 var probe = CardView.Create(driver.transform, src.Data, "RimProbe");
@@ -6480,9 +6482,10 @@ public static class BattleScene
                 var farRight = LayoutSpace.ToWorld(0.90f, HandBaselineY);
                 for (int i = 0; i < 10; i++) { it.SimulateDrag(farRight, 1f / 30f); Step(1f / 30f); }
                 Check(it.InsertIndex == others, $"拖到手牌最右 → 插槽 {it.InsertIndex}（应 {others}）");
-                if (probe != null)
-                    Check(probe.transform.position.x < probeX0 - 0.1f,
-                          $"空位右边的牌让位了（{probe.name} x {probeX0:F2} → {probe.transform.position.x:F2}）");
+                Check(probe != null, "（前提）空位右边那张牌 `probe` 取得到（下面那条要读它的位置）");
+                Check(probe != null && probe.transform.position.x < probeX0 - 0.1f,
+                      probe == null ? "空位右边的牌让位了（前提未成立：`probe` 取不到 ⇒ 上面那条（前提）已红）"
+                                    : $"空位右边的牌让位了（{probe.name} x {probeX0:F2} → {probe.transform.position.x:F2}）");
 
                 // 🆕 2026-10-17（B12）：**喂进 `GetClosestInHandSlot` 的必须是指针位置，不是被拖那张卡的位置。**
                 //   判据（`d:/2/tools/decomp_full/BattleManager__Update.c`）：`:123-127` 每帧把
@@ -6620,6 +6623,8 @@ public static class BattleScene
                     //   ⇒ **两个轴都错**（x 只在 1920 宽下重合、**y 是镜像，任何分辨率都错**）。
                     //   ⚠️ 它在画面上**看不出来**（真亮的那格被 `AttachDropSlotTo` 借到那张卡底下、其余 α=0），
                     //   所以只能靠这里钉住 —— ⛔ **跳过被借走的那一格**（它的 `localPosition` 是相对那张卡的）。
+                    Check(pBoard.use3D && pBoard.boardCam != null,
+                          "（前提·不静默）3D 棋盘（`use3D` + `boardCam`）在位 —— 否则「底片位置 = 卡心投影到 HUD 平面」那两条验不到");
                     if (pBoard.use3D && pBoard.boardCam != null)
                     {
                         // 🔴 **2026-10-17（`20915` 收口）：先按【当前】分辨率重摆一次底片，再比位置。**
@@ -6835,6 +6840,8 @@ public static class BattleScene
                 // 🔴 **A337 的灭自证那条**：`atSlotStep >= 0` 只证明「卡到达了**某个**点」，不证明**是哪一个**。
                 //    这里钉「到达的那一帧**不在 2D 行线上**」—— 它才是「把终点与检测器**一起**改回
                 //    `SlotPosition`」那种回归的挡板（那一档上面那条哨兵检查**照样绿**）。
+                Check(pBoard.use3D && pBoard.boardCam != null,
+                      "（前提·不静默）3D 棋盘（`use3D` + `boardCam`）在位 —— 否则「到达那一帧不在 2D 行线上」这条灭自证验不到");
                 if (atSlotStep >= 0 && pBoard.use3D && pBoard.boardCam != null)
                 {
                     float dLine = new Vector2(arriveXy.x - linePos.x, arriveXy.y - linePos.y).magnitude;
@@ -6985,10 +6992,11 @@ public static class BattleScene
                           "★ 无归属 → `…_neutral`");
                 }
                 var rb0 = log.RowBg(0);
-                if (rb0 != null)
-                    Check(Mathf.Abs(rb0.WorldW * EndPanel.PxPerUnit - 748f) < 2f,
-                          $"★ 行底图**画满整行宽 748**（原版那张是 `Simple + preserveAspect=0` ⇒ 拉伸）"
-                          + $"—— 实测 {rb0.WorldW * EndPanel.PxPerUnit:F1}");
+                Check(rb0 != null, "（前提）日志第 0 行的行底图 `RowBg(0)` 取得到（下面那条要读它的渲染宽）");
+                Check(rb0 != null && Mathf.Abs(rb0.WorldW * EndPanel.PxPerUnit - 748f) < 2f,
+                      "★ 行底图**画满整行宽 748**（原版那张是 `Simple + preserveAspect=0` ⇒ 拉伸）"
+                      + (rb0 == null ? "—— 前提未成立：`RowBg(0)` 取不到（上面那条（前提）已红）"
+                                     : $"—— 实测 {rb0.WorldW * EndPanel.PxPerUnit:F1}"));
                 // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）反向断言**：日志行文字里
                 //    **不许**再出现我们自加的「回合 N　我方/敌方」前缀 —— 原版行文字 = `AddActionToCemetery`
                 //    里那句 `GetActionText(...)` 的返回值（`CemeteryManager__AddActionToCemetery.c` 尾部），
@@ -7371,6 +7379,10 @@ public static class BattleScene
                               && !drv3c.LastCantDoTerm.StartsWith("Battle/"),
                               $"★ …而且喂给抬头的是**人话**、⛔ 不是键名：`{drv3c.LastCantDoTerm}`"
                             + "｜🧨 改坏法：把 `Loc.T(键)` 换成裸键名 ⇒ 本行红");
+                        // 🔴 **B105_A3（AUD11 类 3A · 一半）**：`myB[slotPick] != null` 那半是**前提**，单列一条；
+                        //   `.Exhausted` 那半是**业务分支**（「它是不是本来就已经行动过」决定这条词条断言适不适用）
+                        //   ⇒ 业务那半保持原样，记 3B，⛔ 不硬改。
+                        Check(myB[slotPick] != null, "（前提）被指挥的那一格上确实有单位（下面那条要读它的 `Exhausted`）");
                         if (myB[slotPick] != null && myB[slotPick].Exhausted)
                             Check(drv3c.LastCantDoTerm == Loc.T(BattleDriver.UnitNotReadyTerm),
                                   $"★ 已行动过 ⇒ 用的就是原版那条 `{BattleDriver.UnitNotReadyTerm}`"
@@ -8533,6 +8545,8 @@ public static class BattleScene
                     // ② 🔴 **真辨别 A57③ 的那一条**：直读 `m_fontSizeBase`
                     var reuseTmp = reuse.GetComponentInChildren<TMPro.TMP_Text>(true);
                     var freshTmp = fresh.GetComponentInChildren<TMPro.TMP_Text>(true);
+                    Check(reuseTmp != null && freshTmp != null,
+                          "（前提·不静默）复用 / 新建两条 label 的 TMP 组件都取得到 —— 否则「直读 `m_fontSizeBase`」那两条验不到");
                     if (baseFld != null && reuseTmp != null && freshTmp != null)
                     {
                         float baseReuse = (float)baseFld.GetValue(reuseTmp);
@@ -9134,7 +9148,10 @@ public static class BattleScene
         driver.SimulateAiTurn();                  // 对手出牌 + 攻击 + 交回来
         Step(BattleDriver.TurnHeadsUpHold + 0.3f);
         Check(ctx.Active == 0, "对手走完，回合回到我这里");
-        if (wait != null) Check(!wait.Visible, "★ 回到我的回合 → 等待提示**关掉**（不是一直挂着）");
+        Check(wait != null, "（前提）等待提示的视图 `wait` 取得到（下面那条要读它的 `Visible`）");
+        Check(wait != null && !wait.Visible,
+              "★ 回到我的回合 → 等待提示**关掉**（不是一直挂着）"
+            + (wait == null ? "｜前提未成立：`wait` 取不到（上面那条（前提）已红）" : ""));
         // （回放条的断言在**第 14b 节** —— 它建在后面的 HUD 段里，这里只提一句，别在别处再断一遍）
         Debug.Log(P + $"   对手场上 {driver.FoeUnits.Count} 个  我场上 {driver.MyUnits.Count} 个");
         Debug.Log(P + $"   画面上手牌：{driver.HandViewNames()}");
@@ -10457,6 +10474,8 @@ public static class BattleScene
                 }
                 var foeUnitR16 = ctx.Players[foeR16Seat].Board[foeSlot];
                 var foeR16 = driver.BoardViewAt(foeSlot, false);
+                Check(foeR16 != null && foeUnitR16 != null,
+                      "（前提·不静默）R16：敌方那一格的视图与引擎单位都在 —— 否则「场卡那一档」那几条验不到");
                 if (foeR16 != null && foeUnitR16 != null)
                 {
                     // 🔴🔴 **2026-10-26（W9K01 · 账 `974`）：本条的期望【改口径了】** ——
@@ -11280,6 +11299,7 @@ public static class BattleScene
             //   `deathTimeWarlordDuration` 0.5 s，**再**关 3D 体 + `Instantiate` 爆散体」
             //   （`CardScript._UnitDeath_d__446__MoveNext.c:233` 那处 `Instantiate` 属于 **state 1**）。
             //   🧨 改坏法：把生成挪回 t=0（本轮之前就是那样）⇒ 这一条当场红。
+            Check(bodyInLib, "（前提·不静默）特效库里取得到 `CardFeel.DeathBodyFx` —— 取不到时「死的那一帧还没有爆散体」验不到");
             if (bodyInLib)
                 Check(deathFxCount() == deathFx0,
                       "★ 死的那一帧**还没有**爆散体（原版这一拍只是抖）"
@@ -11291,11 +11311,15 @@ public static class BattleScene
             Step(CardFeel.DeathBeatsOf(false).BodyAt + 0.02f);
             Check(driver.DyingCount == 1,
                   $"★ 抖完 + 站 {CardFeel.DeathHoldBeforeFx:F1}s 之后它**还在**（原版这一拍才轮到爆散体与进墓地）");
-            if (dv != null && bodyInLib)
-                Check(!dv.Body3DVisible,
-                      "★ **场上卡的 3D 体被关掉**（原版 `body3D.SetActive(false)`）—— 阵亡不是把这张卡溶掉，"
-                    + "是换成**卡位另生成的那个爆散体**（`Card 3D Death Explosion`）");
-            else
+            // 🔴 **B105_A3（AUD11 类 3A）**：原来是 `if (dv != null && bodyInLib) Check(...)` ⇒ 这条**静默跳过**。
+            //   改成「前提单列一条 + 结论无条件跑」；下面那个 `else` 只做诊断出声，改成 `if (!premise)` 保原样。
+            bool deathBodyPremise = dv != null && bodyInLib;
+            Check(deathBodyPremise,
+                  "（前提）阵亡视图 `dv` 取得到、且效果库里有 `" + CardFeel.DeathBodyFx + "`（下面那条要读 `Body3DVisible`）");
+            Check(deathBodyPremise && !dv.Body3DVisible,
+                  "★ **场上卡的 3D 体被关掉**（原版 `body3D.SetActive(false)`）—— 阵亡不是把这张卡溶掉，"
+                + "是换成**卡位另生成的那个爆散体**（`Card 3D Death Explosion`）");
+            if (!deathBodyPremise)
                 // 🔴 **A246：这两句原来会把原因说反** —— `dv == null`（视图没取到）那一档也会说
                 //    「效果库里没有 `Card 3D Death Explosion`」。今天**不可达**（20 行前那条
                 //    `Check(dv != null, "（前提）先摆一张场上的卡")` 已经先红了）⇒ **低危**
@@ -11303,7 +11327,7 @@ public static class BattleScene
                 Debug.Log(P + "   （" + (dv == null
                             ? "这张场上的卡**没取到视图**（上面「（前提）先摆一张场上的卡」那条已经红过）⇒ "
                             : "效果库里没有 `" + CardFeel.DeathBodyFx + "` ⇒ ")
-                          + "走的是**退回分支**，这一条不判 3D 体；"
+                          + "走的是**退回分支**（B105_A3 起：上面那条（前提）已红、3D 体那条也照样跑并红）；"
                           + "补它的两步见 `CardFeel.SpawnDeathBody` 的注释）");
 
             // 🆕 2026-10-01：**连「那件爆散体真的生成了」一起判** —— 这是「导入路打通了没有」的判据
@@ -13275,6 +13299,8 @@ public static class BattleScene
                 //   prefab.localRotation, **anchor** parent)`（第 5 个实参就是锚点自己）。
                 //   ⚠️ 这条同时验 `EnsureAnchorSpace`：`EffectAnchorBoard` 是**懒建**的，建的时候层还是 0
                 //   （`SetLayerRec` 只在 `SyncBoard` 那一刻递归已存在的子件）⇒ 不校正就会由 HUD 相机画。
+                Check(driver.use3DBoard && rallyView != null,
+                      "（前提·不静默）3D 棋盘 + 卡视图在位 —— 否则「卡上特效挂在锚点上」那几条验不到");
                 if (driver.use3DBoard && rallyView != null)
                 {
                     const string probeFx = "T05_AnchorProbe";
@@ -14872,6 +14898,9 @@ public static class BattleScene
                     //      （`HitSlot` 按槽位从 0 往后找、返回**最靠前**那张）⇒ 取它**左缘内侧 0.05 卡单位**
                     //      那一点：那是它**露出来的一条**（逐槽复算：它在槽 `farSlot-1` 的左缘之外 ——
                     //      槽 1 时 104.8 px 那条带里、槽 8 时 ≈37 px；再往前的只会更右；转角差 ≤3.3° 不改变结论）。
+                    Check(cdw.Visible && cdw.SlotCount >= 2 && cdw.SlotView(cdw.SlotCount - 1) != null,
+                          "（前提·不静默）展示窗开着、且一叠至少 2 格（最外那格视图在）—— 否则「命中区跟动画走」那三条验不到"
+                        + "（⚠️ 手牌那张常常只有 1 格 ⇒ 要根治得改用 `Master of Arcana` 夹具）");
                     int farSlot = (cdw.Visible && cdw.SlotCount >= 2 && cdw.SlotView(cdw.SlotCount - 1) != null)
                                 ? cdw.SlotCount - 1 : -1;
                     Vector3 farPt = farSlot >= 0
@@ -15115,6 +15144,9 @@ public static class BattleScene
                     Check(fc != null && fc.TitleText != null && fc.TitleText.font != null
                        && fc.KeywordsText != null && fc.KeywordsText.font != null,
                           "（前提）卡面探针的**卡名层 / 正文层**都建出来了（换面断言要读它们的 TMP 字体资产）");
+                    // 🔴 **B105_A3（AUD11 类 3A）· 实读判定 = 已被前置前提覆盖，**未改**：
+                    //   上面 15115 那条 `Check(fc != null && …TitleText… && …KeywordsText…, "（前提）…")`
+                    //   已经把这**两个**守卫的同一条件单独断言过 ⇒ 缺件时它先红，这里不是静默跳过。
                     if (fc != null && fc.TitleText != null && fc.TitleText.font != null)
                         Check(fc.TitleText.font.name == "Asar-Regular SDF",
                               "★ 卡面**卡名层**的字体 = **Asar-Regular SDF**（原版 `NameTextUnit`/`NameTextTactic` 的 `m_fontAsset`），"
@@ -15610,6 +15642,8 @@ public static class BattleScene
                     Check(cdw.Card != null && cdw.Card.BackQueue >= 0,
                           $"★ 卡背层**真的建出来了**（渲染队列 {(cdw.Card == null ? -1 : cdw.Card.BackQueue)}"
                         + " —— ⛔ 不许靠一个永远 null 的层空转）");
+                    Check(cdw.SlotCount >= 2,
+                          "（前提·不静默）展示窗里至少 2 格 —— 只有主卡（`SlotCount == 1`）时「只翻主卡、相关卡不动」验不到");
                     if (cdw.SlotCount >= 2)
                         Check(cdw.SlotView(1) == null || !cdw.SlotView(1).BackVisible,
                               "★ 只翻**主卡**（相关卡的可见性原版由各自的 `BasicCardUI` 管，本窗不动）");
@@ -18563,6 +18597,9 @@ public static class BattleScene
                 // 🔴 `A2059`：两副都要过**夹具卫生**那道静态闸 —— 混进「按原版不能进卡组」的牌时，
                 //   各条牌数账会差一张；而 `PlayMode` 那几条**照样可能全绿**（模式是通道给的，与哪副牌无关）。
                 //   （`A1896`：开局不再摘牌 ⇒ 这道闸的作用是「夹具干净」，不是「防整副被换」。）
+                // 🔴 **B105_A3（AUD11 类 3A）· 实读判定 = 已被前置前提覆盖，**未改**：
+                //   上面「（前提）临时库里放进两副：经典 N 张 + 遭遇 M 张」那条已经把
+                //   `deckCls != null && deckSk != null` 单独断言过 ⇒ 缺件时它先红。
                 if (deckCls != null) CheckDeckFixtureSurvives(poolPm, deckCls, Check, "夹具「自检·A383 经典」");
                 if (deckSk != null) CheckDeckFixtureSurvives(poolPm, deckSk, Check, "夹具「自检·A383 遭遇牌」");
                 // 🔴 **这一条是护栏**：`CollectionData` 的 `_lib` 是静态缓存 —— 若它缓存的**不是**这个临时库
@@ -19105,6 +19142,7 @@ public static class BattleScene
                 // ⚠️ 这两条都踩过：压暗原来在 z=0，而手牌在 z 0~0.24（更远）→ 手牌整排没被压暗、
                 //    亮着从面板底下透出来。截图一眼能看出来，断言能防它再犯。
                 var ep2 = Object.FindObjectOfType<EndPanel>();
+                Check(ep2 != null, "（前提·不静默）场景里找得到 `EndPanel` —— 否则「结算面板层序」那两条验不到");
                 if (ep2 != null)
                 {
                     // 🔴🔴 **2026-10-16（`T09` 批 2）判据整体换掉**（原来比**世界 z**）。
@@ -20948,6 +20986,7 @@ public static class BattleScene
                         else { drv.Ctx.Winner = svWinner; drv.RefreshAll(); }
                         drv.Ctx.Active = svActive;
                     }
+                    Check(probe != null, "（前提·不静默）找得到一张建出了「未行动」绿光层的场卡视图 —— 否则绿光姿态那几条验不到");
                     if (probe != null)
                     {
                         var go = probe.CanActRoot;
@@ -21262,6 +21301,8 @@ public static class BattleScene
                     {
                         var mine = drv.playerBoard;
                         var foe = drv.enemyBoard;
+                        Check(mine != null && foe != null && mine.use3D && foe.use3D,
+                              "（前提·不静默）我方 / 敌方棋盘都是 3D 档 —— 否则「两行容差不许互相咬」那条反例验不到");
                         if (mine != null && foe != null && mine.use3D && foe.use3D)
                         {
                             int s2;
@@ -21659,6 +21700,7 @@ public static class BattleScene
                             + $"{exMissClip} 条音频没导进工程");
             }
 
+            Check(chat != null, "（前提·不静默）`drv.UnitChat`（联机聊天窗）取得到 —— 否则下面聊天那几条验不到");
             if (drv != null && chat != null)
             {
                 drv.Begin("Ultramarines", "Goff", 20260918);
@@ -22906,6 +22948,7 @@ public static class BattleScene
 
                         // 兜底分支本身（真机上只有「取不到 shader」才走到）—— 用 `ForceNoDissolveForTest` 打开
                         var f1 = CardView.Create(driver.transform, probeData, "F1FallbackProbe");
+                        Check(f1 != null, "（前提·不静默）兜底分支的探针卡建得出 —— 否则「阵亡兜底走哪条路」那几条验不到");
                         if (f1 != null)
                         {
                             f1.SetPose(Vector3.zero, 0f, 1f);
@@ -22949,6 +22992,7 @@ public static class BattleScene
                           "★ 抽牌翻面：单段 `TurnCardAroundDeg` = 90°、`TurnCardAroundFrac` = 0.25"
                         + "（原版 `.rdata 0x1834b2e04` / `0x1834b2e7c` 实读；**两段合起来才是 180°**）");
                     var flip = CardView.Create(driver.transform, probeData, "ProbeFlip");
+                    Check(flip != null, "（前提·不静默）翻面探针卡建得出 —— 否则「抽牌翻面」那几条验不到");
                     if (flip != null)
                     {
                         flip.SetPose(Vector3.zero, 0f, 1f);
@@ -22998,6 +23042,7 @@ public static class BattleScene
                         Check(!flip.BackVisible, "★ 平时收得掉（这个层**只该在抽牌前半段亮**）");
                         // **走一遍真序列**：前半段亮、侧立之后灭。
                         var dq = CardFeel.DealInPose(flip, Vector3.zero, Vector3.zero, 0f, 1f, back: backTex);
+                        Check(dq != null, "（前提·不静默）`CardFeel.DealInPose` 起了补间 —— 否则「抽牌翻面走一遍真序列」那几条验不到");
                         if (dq != null)
                         {
                             float sideT = CardFeel.DealDuration * CardFeel.TurnCardAroundFrac;
@@ -23061,6 +23106,8 @@ public static class BattleScene
                         DG.Tweening.DOTween.Kill(probe);
                         var poseA = CardView.Create(driver.transform, probeData, "DeathPoseA");
                         var poseB = CardView.Create(driver.transform, probeData, "DeathPoseB");
+                        Check(poseA != null && poseB != null,
+                              "（前提·不静默）两张探针卡视图都建得出 —— 否则「爆散体尺寸跟着各卡不同」那几条验不到");
                         if (poseA != null && poseB != null)
                         {
                             poseA.SetFace(CardFace.Board);
@@ -23126,6 +23173,7 @@ public static class BattleScene
                           && Mathf.Abs(PopNumber.DamageIconScaleTo - 0.7f) < 1e-5f,
                           $"★ 血痕缩放曲线端点 = {PopNumber.DamageIconScaleFrom:F4} → {PopNumber.DamageIconScaleTo:F2}"
                         + "（clip 的 `DamageIcon` ScaleCurves）｜🧨 改回固定 1.01665 ⇒ 红");
+                    Check(popDmg != null, "（前提·不静默）`PopNumber.PopDamage` 建出了飘字 —— 否则血痕缩放曲线那三条验不到");
                     if (popDmg != null)
                     {
                         var iconT = popDmg.transform.Find("PopDamageIcon");
@@ -23427,6 +23475,7 @@ public static class BattleScene
                 // ---- ① 发牌入场 ----
                 Check(drv.DealtCount > 0, $"发牌入场：开局这一轮 {drv.DealtCount} 张是**新进手牌**的");
                 var dv = drv.DealtView(0);
+                Check(dv != null, "（前提·不静默）发牌入场：第 0 张新进手牌的视图取得到 —— 否则「从牌堆飞进来」那几条验不到");
                 if (dv != null)
                 {
                     float fromDeck = Vector3.Distance(dv.transform.position, drv.DeckWorld);
@@ -23563,6 +23612,8 @@ public static class BattleScene
                     //   「2D 行线 `SlotPosition`」在 3D 下**确实不是同一处** —— 没有它，把靶换回 `SlotPosition`
                     //   这件事在读数上**看不出来**（两条主断言照样绿）。阈值只取**检测容差本身**（0.02），
                     //   ⛔ 不另编魔数（同本文件那条的口径）。
+                    Check(pBoard.use3D && pBoard.boardCam != null,
+                          "（前提·不静默）我方棋盘是 3D 档（`use3D` + `boardCam`）—— 否则「卡自己的静止位 ≠ 2D 行线」这条灭自证验不到");
                     if (pBoard.use3D && pBoard.boardCam != null)
                     {
                         float sepLine = Vector3.Distance(restAtk, pBoard.SlotPosition(probe));
@@ -23718,6 +23769,8 @@ public static class BattleScene
                         //   ⇒ 必须走**同一条投影**（与 `DropTargetWorld` 同一个口：`boardCam` → 屏 → HUD 平面）。
                         //   🧨 改坏法：`PopOffset.y` 改回 `CardFeel.ToOurs(0.35)`（0.5903）⇒ 飘字回到卡身上部
                         //   （≈ 19% 卡身高处）⇒ 本条红，而上面那两条**照样绿**。
+                        Check(eBoard.use3D && eBoard.boardCam != null,
+                              "（前提·不静默）敌方棋盘是 3D 档（`use3D` + `boardCam`）—— 否则「飘字落在卡身竖直中点」那几条验不到");
                         if (eBoard.use3D && eBoard.boardCam != null)
                         {
                             var vBody = drv.FoeUnits.ContainsKey(victim) ? drv.FoeUnits[victim] : vicView;
@@ -23757,6 +23810,7 @@ public static class BattleScene
                                 // 血痕是飘字的**子件**（`PopNumber` 里 `PopDamageIcon`，局部 y −0.104 卡单位）
                                 // ⇒ 它的世界 y 也要落在卡身里（原版它挂在 `DamageCounter` 下、就在那儿）。
                                 var dmgIcon = drv.LastPop.transform.Find("PopDamageIcon");
+                                Check(dmgIcon != null, "（前提·不静默）飘字底下那颗 `PopDamageIcon`（血痕）在 —— 否则「血痕也落在卡身区间里」验不到");
                                 if (dmgIcon != null)
                                 {
                                     float dIconMid = Mathf.Abs(dmgIcon.position.y - cardMidY);
@@ -23781,6 +23835,8 @@ public static class BattleScene
                         //   （> 0.02，与上面 A360 那条 `sepLine` 同一个判据量级），再钉
                         //   「飘字离 2D 行线至少有一半基准间距」。
                         //   🧨 驱动层与这里的靶**一起**改回 `SlotPosition` ⇒ `dLinePop ≈ 0` ⇒ 本条照样红。
+                        Check(eBoard.use3D && eBoard.boardCam != null,
+                              "（前提·不静默）敌方棋盘是 3D 档（`use3D` + `boardCam`）—— 否则「飘字离 2D 行线」那几条验不到");
                         if (eBoard.use3D && eBoard.boardCam != null)
                         {
                             var lineBase = eBoard.SlotPosition(victim);
@@ -23980,6 +24036,8 @@ public static class BattleScene
                         var atkAnchor = rAtkView.EffectAnchor(true);
                         var tgtAnchor = rTgtView != null ? rTgtView.EffectAnchor(true) : null;
                         Check(fired.HasValue, $"★ 远程 VFX 真播了（`{string.Join("/", rNames)}`）");
+                        Check(atkAnchor != null && tgtAnchor != null,
+                              "（前提·不静默）攻方 / 受击方的特效锚点都取得到 —— 否则「VFX 落在锚点上」那两条验不到");
                         if (fired.HasValue && atkAnchor != null && tgtAnchor != null)
                         {
                             float dA = Vector3.Distance(fired.Value, atkAnchor.position);
@@ -24144,6 +24202,8 @@ public static class BattleScene
                     //     按**实际张数**现查 `IsCompressed`（⛔ 不写死张数），两档各断一头。
                     //     🔴 2026-10-17（F6 #4）：本批 B1 把门闸方向翻正了，这条断言原来没跟着翻
                     //     （5 张时它断「必须左让」，而原版此时恰恰不让）—— 修的是**断言**，不是实现。
+                    Check(hv != null && drv.HandCount >= 3,
+                          "（前提·不静默）手牌第 0 张视图在、且手牌 ≥ 3 张 —— 否则「选中让位（压缩/装得下两档）」那几条验不到");
                     if (hv != null && drv.HandCount >= 3)
                     {
                         var list = new List<CardView>();
@@ -24883,10 +24943,12 @@ public static class BattleScene
                     if (qFirst != null && drv.FoeHandCount >= 3)
                     {
                         var qMid = drv.FoeHandViewAt(drv.FoeHandCount / 2);
-                        if (qMid != null)
-                            Check(qMid.transform.position.y < qFirst.transform.position.y,
-                                  $"……弧线**中间往下凹**（中 {qMid.transform.position.y:F2} < 端 {qFirst.transform.position.y:F2}）"
-                                  + " —— 这就是「从上方垂下来」，根因是原版 `m_maxHeight = -0.78`（**负的**）");
+                        Check(qMid != null, "（前提）敌方手牌**中间那张**的视图取得到（下面那条要读它的 y）");
+                        Check(qMid != null && qMid.transform.position.y < qFirst.transform.position.y,
+                              qMid == null
+                              ? "……弧线**中间往下凹**（前提未成立：中间那张的视图取不到 ⇒ 上面那条（前提）已红）"
+                              : $"……弧线**中间往下凹**（中 {qMid.transform.position.y:F2} < 端 {qFirst.transform.position.y:F2}）"
+                                + " —— 这就是「从上方垂下来」，根因是原版 `m_maxHeight = -0.78`（**负的**）");
                     }
                     if (qFirst != null)
                     {
@@ -26852,9 +26914,12 @@ public static class BattleScene
                 var otClip = WarpforgeVFX.WFSoundBank.Clip("OvertimeStart");
                 Check(otClip != null, "★ 加时音效 `OvertimeStart` 加载得到"
                       + "（丢了就跑 `python 工具/rebuild_overtime_start_ogg.py` 重建）");
-                if (otClip != null)
-                    Check(Mathf.Abs(otClip.length - 5.4211f) < 0.01f && otClip.frequency == 48000,
-                          $"★ ……而且是对的这份：{otClip.length:F4} s @ {otClip.frequency} Hz（原版 `m_Length = 5.421083` s / `m_Frequency = 48000`）");
+                // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (otClip != null)` ⇒ 丢件时静默跳过。前提已由上面那条单独断言
+                //   ⇒ 这里把守卫并进结论，让它**无条件跑**（缺件时自己红）。
+                Check(otClip != null && Mathf.Abs(otClip.length - 5.4211f) < 0.01f && otClip.frequency == 48000,
+                      otClip == null
+                      ? "★ ……而且是对的这份（前提未成立：`otClip` 加载不到 ⇒ 上面那条（前提）已红）"
+                      : $"★ ……而且是对的这份：{otClip.length:F4} s @ {otClip.frequency} Hz（原版 `m_Length = 5.421083` s / `m_Frequency = 48000`）");
                 drv.TickOvertime(0f);
                 Check(drv.OvertimeSplashVisible, "★ 播加时 splash 后**它亮起来了**");
                 // 🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）**：这一组（提示条 + 加时 splash）已翻到
@@ -27101,11 +27166,16 @@ public static class BattleScene
                               && Mathf.Abs(liveVp.width - 1f) < 1e-6f && Mathf.Abs(liveVp.height - 1f) < 1e-6f,
                               $"★ 比例在 [min,max] 之内 ⇒ 视口写回**整幅**（这就是它的「藏」；原版这一档也写 `(0,0,1,1)`）"
                             + $" —— 实得 {liveVp}");
-                        if (tcs != null && tcs.Length == 2 && tcs[0] != null && tcs[1] != null)
-                            Check(Mathf.Abs(tcs[0].rect.x) < 1e-6f && Mathf.Abs(tcs[0].rect.width - 1f) < 1e-6f
-                               && Mathf.Abs(tcs[1].rect.x) < 1e-6f && Mathf.Abs(tcs[1].rect.width - 1f) < 1e-6f,
-                                  "★ ……而且**真的写到了两台相机的 `Camera.rect` 上**（读回真值，⛔ 不读那个记账位）——"
-                                + $" 3D {tcs[0].rect} / UI {tcs[1].rect}");
+                        // 🔴 **B105_A3（AUD11 类 3A）**：原来套在 `if (tcs != null && …)` 里 ⇒ 缺件时静默跳过。
+                        //   改成「前提单列一条 + 结论无条件跑」（缺件时结论自己红）。
+                        bool rectReadable = tcs != null && tcs.Length == 2 && tcs[0] != null && tcs[1] != null;
+                        Check(rectReadable, "（前提）两台相机（3D / UI）都取得到（下面那条要读它们的 `Camera.rect`）");
+                        Check(rectReadable
+                           && Mathf.Abs(tcs[0].rect.x) < 1e-6f && Mathf.Abs(tcs[0].rect.width - 1f) < 1e-6f
+                           && Mathf.Abs(tcs[1].rect.x) < 1e-6f && Mathf.Abs(tcs[1].rect.width - 1f) < 1e-6f,
+                              "★ ……而且**真的写到了两台相机的 `Camera.rect` 上**（读回真值，⛔ 不读那个记账位）——"
+                            + (rectReadable ? $" 3D {tcs[0].rect} / UI {tcs[1].rect}"
+                                            : " 前提未成立：相机取不到（上面那条（前提）已红）"));
                     }
                 }
 
@@ -27155,6 +27225,7 @@ public static class BattleScene
                         // 🔴 **2026-10-17（`BSC62` · W4）**：原来只断队列。`T09` 后横幅迁到画布上
                         //    （底条是 `Image` 不是 `ImageQuad` ⇒ `GetComponentsInChildren<ImageQuad>` 空、`qMin` 停在
                         //    `int.MaxValue`；文字是 uGUI `Label` 恒 −1）⇒ 读回哨兵。⇒ 按档读。
+                        Check(tmplRef != null, "（前提·不静默）错误横幅模板 `Container/Error Mensage_Ref` 找得到 —— 否则「底条/文字分层」那几条验不到");
                         if (tmplRef != null)
                         {
                             if (errBan.IsUgui)
@@ -27957,10 +28028,14 @@ public static class BattleScene
                           $"★ E-C：`t=0` 我方手牌区下移 479 px（`areaOffsetY` = {drv.hand.areaOffsetY:F6}，"
                         + $"期望 {(-479f / 1080f):F6} = 原版 `HandArea.m_LocalPosition.y`）"
                         + "｜🧨 只搬 uGUI 件、不驱动 `HandLayout` ⇒ 红（真机上手牌不会跟着滑进滑出）");
-                    if (drv.foeHand != null)
-                        Check(Mathf.Abs(drv.foeHand.areaOffsetY - (402.82998657f / 1080f)) < 1e-4f,
-                              $"★ E-C：`t=0` 敌方手牌区上移 402.83 px（`areaOffsetY` = {drv.foeHand.areaOffsetY:F6}）"
-                            + "｜🧨 用错符号（−402.83）⇒ 敌手往屏幕里掉 ⇒ 红");
+                    // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (drv.foeHand != null)` ⇒ 缺件时静默跳过。
+                    Check(drv.foeHand != null, "（前提）敌方手牌布局件 `foeHand` 建出来了（下面那条要读 `areaOffsetY`）");
+                    Check(drv.foeHand != null
+                          && Mathf.Abs(drv.foeHand.areaOffsetY - (402.82998657f / 1080f)) < 1e-4f,
+                          "★ E-C：`t=0` 敌方手牌区上移 402.83 px"
+                        + (drv.foeHand == null ? "（前提未成立：`foeHand` 取不到 ⇒ 上面那条（前提）已红）"
+                                               : $"（`areaOffsetY` = {drv.foeHand.areaOffsetY:F6}）")
+                        + "｜🧨 用错符号（−402.83）⇒ 敌手往屏幕里掉 ⇒ 红");
                     //  真·世界坐标：同一次 `SlotPosition` 在「有位移 / 无位移」两档之间必须差 479 px
                     if (drv.hand != null && drv.HandCount > 0)
                     {
@@ -28852,16 +28927,24 @@ public static class BattleScene
                 //     那一档，**不再受这个框约束**（原来提示行实渲 43.67、原版 53.7）。
                 // 🔴 **2026-10-16（`T09` 批 3）就地换量纲**：换牌面板已上 uGUI 画布 ⇒
                 //   uGUI 档的 `Label.WorldW/H` **就是设计 px**（读 `TMP.textBounds`）⇒ 期望值**不再过** `LayoutSpace.Px`。
-                if (mp.PromptLabel != null)
-                    Check(mp.PromptLabel.WorldW <= 1307.064f + 1e-4f
-                          && mp.PromptLabel.WorldH <= 69.44f + 1e-4f,
-                          $"★ 提示行渲染尺寸 {mp.PromptLabel.WorldW:F4} × {mp.PromptLabel.WorldH:F4} px"
-                        + $" ≤ 原版框 {1307.064f:F4} × {69.44f:F4} px（auto 18~65 · base 36）");
-                if (mp.DoneLabelView != null)
-                    Check(mp.DoneLabelView.WorldW <= 368.929f + 1e-4f
-                          && mp.DoneLabelView.WorldH <= 62.242f + 1e-4f,
-                          $"★ 「继续」那颗渲染尺寸 {mp.DoneLabelView.WorldW:F4} × {mp.DoneLabelView.WorldH:F4} px"
-                        + $" ≤ 原版框 {368.929f:F4} × {62.242f:F4} px（auto 18~45 · base 36）");
+                // 🔴 **B105_A3（AUD11 类 3A）**：两条原来都套 `if (… != null)` ⇒ 缺件时静默跳过。
+                //   改成「前提单列一条 + 结论无条件跑」（缺件时结论自己红）。
+                Check(mp.PromptLabel != null, "（前提）换牌面板的提示行 `PromptLabel` 建出来了（下面那条要读它的渲染尺寸）");
+                Check(mp.PromptLabel != null
+                      && mp.PromptLabel.WorldW <= 1307.064f + 1e-4f
+                      && mp.PromptLabel.WorldH <= 69.44f + 1e-4f,
+                      "★ 提示行渲染尺寸 "
+                    + (mp.PromptLabel == null ? "（前提未成立：`PromptLabel` 取不到 ⇒ 上面那条（前提）已红）"
+                                              : $"{mp.PromptLabel.WorldW:F4} × {mp.PromptLabel.WorldH:F4} px")
+                    + $" ≤ 原版框 {1307.064f:F4} × {69.44f:F4} px（auto 18~65 · base 36）");
+                Check(mp.DoneLabelView != null, "（前提）换牌面板「继续」那颗 `DoneLabelView` 建出来了（下面那条要读它的渲染尺寸）");
+                Check(mp.DoneLabelView != null
+                      && mp.DoneLabelView.WorldW <= 368.929f + 1e-4f
+                      && mp.DoneLabelView.WorldH <= 62.242f + 1e-4f,
+                      "★ 「继续」那颗渲染尺寸 "
+                    + (mp.DoneLabelView == null ? "（前提未成立：`DoneLabelView` 取不到 ⇒ 上面那条（前提）已红）"
+                                                : $"{mp.DoneLabelView.WorldW:F4} × {mp.DoneLabelView.WorldH:F4} px")
+                    + $" ≤ 原版框 {368.929f:F4} × {62.242f:F4} px（auto 18~45 · base 36）");
                 // 🆕 2026-09-26：**「你先手 / 你后手」那一行**（原版 `MulliganText/TurnText`）。
                 //   🔴 **它是原版唯一一处「先手/后手」的表现** —— 原版没有硬币资产/动画/音效（判据 → §2.8）。
                 Check(mp.TurnText == (drv.Ctx.FirstSeat == 0 ? MulliganPanel.TurnFirst : MulliganPanel.TurnSecond),
@@ -30935,27 +31018,34 @@ public static class BattleScene
             // 这几处**原版就是裸 `Transform`**（判据逐条写在 `Battle/*.cs` 的注释里），但它们的创建是**惰性**的
             // ⇒ 拿不到就**出声跳过**（不是静默门）：`Particle colliders` 只在第一次粒子碰撞时要、`Slots` 只在棋盘铺标记时建。
             var a218Pc = driver != null ? driver.transform.Find("Particle colliders") : null;
-            if (a218Pc != null)
-                Check(a218Pc.GetComponent<RectTransform>() == null && a218Pc.childCount > 0
-                      && a218Pc.GetChild(0).GetComponent<RectTransform>() == null,
-                      "🔴 粒子碰撞平面 `Particle colliders` 及它的 `Generic Target` 子件**都没有** `RectTransform`"
-                      + "（判据 = 原版 go_pid 575 / 138 实读就是裸 `Transform`）");
-            else Debug.Log(P + "   （A218：`Particle colliders` 这一轮**没建出来**（惰性）⇒ 那两条不判；"
+            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (a218Pc != null)` ⇒ 缺件时静默跳过（只有一句 `Debug.Log` 出声）。
+            //   改成「前提单列一条 + 结论无条件跑」；下面那句 `Debug.Log` 只保留诊断价值。
+            Check(a218Pc != null, "（前提）粒子碰撞平面 `Particle colliders` 这一轮**建出来了**（惰性建 ⇒ 「没建出来」不许当绿）");
+            Check(a218Pc != null
+                  && a218Pc.GetComponent<RectTransform>() == null && a218Pc.childCount > 0
+                  && a218Pc.GetChild(0).GetComponent<RectTransform>() == null,
+                  "🔴 粒子碰撞平面 `Particle colliders` 及它的 `Generic Target` 子件**都没有** `RectTransform`"
+                  + "（判据 = 原版 go_pid 575 / 138 实读就是裸 `Transform`）");
+            if (a218Pc == null) Debug.Log(P + "   （A218：`Particle colliders` 这一轮**没建出来**（惰性）⇒ 上面那条（前提）已红；"
                              + "判据在 `Battle/BattleDriver.cs` 的注释里）");
             var a218Slots = driver != null && driver.playerBoard != null
                           ? driver.playerBoard.transform.Find("Slots") : null;
-            if (a218Slots != null)
-                Check(a218Slots.GetComponent<RectTransform>() == null,
-                      "🔴 落点标记根 `Slots` **没有** `RectTransform`（判据 = 原版 `Board Center` / `MinionArea` /"
-                      + " `HandArea` 那一族实读全是裸 `Transform`）");
-            else Debug.Log(P + "   （A218：`Slots` 这一轮**没建出来**（惰性）⇒ 那一条不判；判据在 `Board/BoardLayout.cs` 的注释里）");
+            // 🔴 **B105_A3（AUD11 类 3A）**：同上 —— 前提单列 + 结论无条件跑。
+            Check(a218Slots != null, "（前提）落点标记根 `Slots` 这一轮**建出来了**（惰性建 ⇒ 「没建出来」不许当绿）");
+            Check(a218Slots != null && a218Slots.GetComponent<RectTransform>() == null,
+                  "🔴 落点标记根 `Slots` **没有** `RectTransform`（判据 = 原版 `Board Center` / `MinionArea` /"
+                  + " `HandArea` 那一族实读全是裸 `Transform`）");
+            if (a218Slots == null) Debug.Log(P + "   （A218：`Slots` 这一轮**没建出来**（惰性）⇒ 上面那条（前提）已红；"
+                                            + "判据在 `Board/BoardLayout.cs` 的注释里）");
             var a218Line = driver != null && driver.reticle != null
                          ? driver.reticle.transform.Find("CrosshairLine") : null;
-            if (a218Line != null)
-                Check(a218Line.GetComponent<RectTransform>() == null,
-                      "🔴 准星弧线 `CrosshairLine` **没有** `RectTransform`（判据 = 原版 `CrosshairLine 3D`"
-                      + " go_pid 848 实读裸 `Transform`，同一批 7 个 `LineRenderer` 宿主全是）");
-            else Debug.Log(P + "   （A218：`CrosshairLine` 这一轮**没建出来** ⇒ 那一条不判；判据在 `Battle/TargetReticle.cs` 的注释里）");
+            // 🔴 **B105_A3（AUD11 类 3A）**：同上 —— 前提单列 + 结论无条件跑。
+            Check(a218Line != null, "（前提）准星弧线 `CrosshairLine` 这一轮**建出来了**（惰性建 ⇒ 「没建出来」不许当绿）");
+            Check(a218Line != null && a218Line.GetComponent<RectTransform>() == null,
+                  "🔴 准星弧线 `CrosshairLine` **没有** `RectTransform`（判据 = 原版 `CrosshairLine 3D`"
+                  + " go_pid 848 实读裸 `Transform`，同一批 7 个 `LineRenderer` 宿主全是）");
+            if (a218Line == null) Debug.Log(P + "   （A218：`CrosshairLine` 这一轮**没建出来** ⇒ 上面那条（前提）已红；"
+                                             + "判据在 `Battle/TargetReticle.cs` 的注释里）");
 
             Object.DestroyImmediate(a218root);      // 批处理下 `Destroy` 不生效
         }
@@ -33966,6 +34056,7 @@ public static class BattleScene
                         //     （原版 uGUI 靠 `StandaloneInputModule.ProcessDrag` 把 `eligibleForClick`
                         //      清掉来做同一件事 —— 拖完滑块不许顺带按到别的钮）
                         // ============================================================
+                        Check(sp4 != null, "（前提·不静默）`wb4.Settings`（设置面板）在 —— 否则「`_pressCaptured`：拖完滑块松手不算点击」那几条验不到");
                         if (sp4 != null)
                         {
                             sp4.Show();
@@ -34002,6 +34093,7 @@ public static class BattleScene
                         // ============================================================
                         //  三、设置钮 / 设置面板里那颗 Auto Zoom：#5 #6（按下不动、松手才动）
                         // ============================================================
+                        Check(sp4 != null, "（前提·不静默）`wb4.Settings`（设置面板）在 —— 否则「设置钮 / Auto Zoom 按下不动松手才动」那几条验不到");
                         if (sp4 != null)
                         {
                             sp4.Hide();
@@ -34347,6 +34439,8 @@ public static class BattleScene
                         //     ⚠️ 另一半（⑤ 记 `_pressSlot`）必须留在按下那一帧 —— 见 `DrivePlayerTurn`
                         //     里那条注释；这里验的是「按下那一帧**没有**把目标打掉」。
                         // ============================================================
+                        Check(wb4.Ctx != null && wb4.FoeUnits.Count > 0,
+                              "（前提·不静默）`wb4.Ctx` 在、且敌方场上有单位 —— 否则「按下不选目标、松手才选」那几条验不到");
                         if (wb4.Ctx != null && wb4.FoeUnits.Count > 0)
                         {
                             int mySide4 = wb4.MySideForTest;
@@ -34397,6 +34491,7 @@ public static class BattleScene
                         //     `t = clamp01(−accumulatedDrag.y ÷ accumulatedDragForMinDistance(+0x30))`
                         //     `OnEnable` 把累计量清零（`__OnEnable.c`）。
                         // ============================================================
+                        Check(wb4.Ctx != null, "（前提·不静默）`wb4.Ctx` 在 —— 否则 A658 三钮入场动画那几条验不到");
                         if (wb4.Ctx != null)
                         {
                             // 再摆一个**新鲜**探针（上面那组可能已经把上一个用掉了 —— `OpenCommand` 对
@@ -37604,39 +37699,18 @@ public static class BattleScene
                                  seed: 20261105, tutorial: new TutorialScript(arrowStageData));
                     driver.SyncTutorialTurnForTest();
                     var arrowOv = driver.TutorialView;
-                    Check(arrowOv != null && !arrowOv.ArrowLeftVisible && !arrowOv.ArrowRightVisible,
-                          "（前提）G-5 一开始两颗箭头**都藏着**（原版场景里两颗都是 `(inactive)`）");
+                    Check(arrowOv != null, "（前提）B105-W1 教程视图建出来了");
+                    Check(arrowOv != null && arrowOv.ArrowObjectCountForTest == 0,
+                          "★ **B105-W1**：教程根下没有任何 `arrow1`/`arrow2` 对象（原版两颗 `m_Sprite` 为空 ⇒ 不可见；我们整层不建）"
+                        + "｜🧨 把 `TutorialOverlay.Build` 里那段建箭头代码加回来 ⇒ 实得 2 ⇒ 红"
+                        + "｜-1 = 根没建出来，同样判红（⛔ 不静默跳过）");
                     driver.DriveTutorialScriptForTest();
-                    Check(arrowOv != null && arrowOv.ArrowLeftVisible && !arrowOv.ArrowRightVisible,
-                          "★ **G-5**：这一条提示写着 `showLeftArrow = true` ⇒ **左箭头亮、右箭头不亮**"
-                        + "（原版 `SetupArrows(showLeft, showRight)` 两态）"
-                        + "｜🧨 只 `Debug.Log` 不画（改之前就是这样）⇒ 本条红");
+                    Check(arrowOv != null && arrowOv.ArrowObjectCountForTest == 0,
+                          "★ **B105-W1**：即使这一条提示写着 `showLeftArrow = true`，也不会建出任何箭头对象"
+                        + "（原版 `SetupArrows` 写的那两颗 `SpriteRenderer` 本来就没有 sprite）");
 
-                    // ---------- 🔴 2026-10-26（批次 6 · G16）：**箭头跟着整块一起淡**（原版 `FadeElements` 第二、三句）----------
-                    //   规格 → `报告/G7_第5轮.md` §④ A1。判据 = `TutorialTipScript.FadeElements`
-                    //   （🥈 `cpp2il/TutorialTipScript.cs:365-391`）：整块 `DOFade` **之后**再对
-                    //   `leftArrow` / `rightArrow` 各 `DOFade(targetAlpha)`，**两句都带 `activeSelf` 闸**。
-                    //   闸门里这一拍 `_fade` 刚从 0 起（`Begin` → `TutorialOverlay.HideAll()` 归零）
-                    //   ⇒ `Tick(0.1)` 后应 = 0.5（`FadeDuration = 0.2`，`MoveTowards` 一步 0.1/0.2）。
-                    if (arrowOv != null)
-                    {
-                        arrowOv.Tick(0.1f);
-                        Check(Mathf.Abs(arrowOv.ArrowLeftAlpha - 0.5f) < 1e-3f,
-                              $"★ **亮着的左箭头跟着整块一起淡**（原版 `FadeElements` 那两句；应 0.5，实 {arrowOv.ArrowLeftAlpha:F3}）"
-                            + "｜🧨 删掉 `TutorialOverlay.ApplyFade` 里那两行箭头 tint ⇒ 本条红（箭头停在建件时的 α=1）");
-                        // 🔴 这一条断的是**另一句**：没亮的那颗**不许被写**（`activeSelf` 闸）。
-                        Check(Mathf.Abs(arrowOv.ArrowRightAlpha - 1f) < 1e-3f,
-                              $"★ **没亮的右箭头不被写**（原版那两句都带 `activeSelf` 闸；应保持 1，实 {arrowOv.ArrowRightAlpha:F3}）"
-                            + "｜🧨 把闸去掉（无条件设 α）⇒ 本条红（会被写成 0.5）"
-                            + " —— 与上一条**合起来**才是灭自证：两条判的是原版那两句里**不同的那半**");
-                    }
-                    else
-                        Check(false, "★ 箭头淡入：`TutorialView` 没建出来 ⇒ 这一组等于没验（⛔ 不静默跳过）");
-
-                    driver.DriveTutorialScriptForTest();
-                    Check(arrowOv != null && !arrowOv.ArrowLeftVisible && !arrowOv.ArrowRightVisible,
-                          "★ **判别式**：下一条提示两格都是 false ⇒ **两颗都收掉**"
-                        + "（不是「亮过就一直亮」）");
+                    // 🔴 2026-10-31（`B105_W1`）：G16「箭头跟着整块一起淡」整组删除 —— 箭头层已不存在，
+                    //   原版 `FadeElements` 里那两句作用在两颗空 sprite 的 `SpriteRenderer` 上、零可见行为。
 
                     // ---------- 🔴 2026-10-26（批次 6 · G16）：**P0 灭自证 —— 轻点灵魂石 = 收集** ----------
                     //   规格 → `报告/F5_第4轮.md` §六·② A4；实现 = `BattleDriver.TapBoardCard`（`BoardPress` 的 `!dragged` 支）。
@@ -40368,6 +40442,8 @@ public static class BattleScene
                             Check(Mathf.Abs(oa.x - 2f) < 1e-3f,
                                   $"★ W·偏差6（偏移）：随机幅度乘进曲线值（幅度 2 ⇒ x={oa.x:F2}）");
                             // 数据侧一旦烘上，检查「`ao=1` 的拍必须带齐三轴曲线」——今天 0 条，条件成立时才判
+                            Check(mover != null && mover.ao != 0,
+                                  "（前提·不静默）数据里有一拍 `applyMovementOffsets != 0`（`ao != 0`）—— 今天 0 条，本条验不到（数据侧烘上后才真生效）");
                             if (mover != null && mover.ao != 0)
                                 Check(mover.ofx != null && mover.ofy != null && mover.ofz != null
                                       && mover.ofx.Length >= 4 && mover.ofy.Length >= 4 && mover.ofz.Length >= 4,
@@ -41321,6 +41397,8 @@ public static class BattleScene
                             + " —— 🧨 把 `StartAiDeployFlight` 改回「只飞场上视图」⇒ 前提为真时本条的 false 那一侧红");
                         Check(useHandCarrier2 == (driver.AiDeployFlightsViaHandCardForTest == handCarrierBefore2 + 1),
                               "★ B3·偏差8：生产计数口与内部账一致（用手牌载体 ⇔ 计数 +1）");
+                        Check(useHandCarrier2 && fv2 != null,
+                              "（前提·不静默）本次「AI 部署飞行」用的是手牌卡背载体、且场上视图取得到 —— 否则「飞时场上视图看不见」验不到");
                         if (useHandCarrier2 && fv2 != null)
                             Check(driver.AiDeployBoardViewHiddenForTest(bfoe2, fslot2),
                                   "★ B3·偏差8：手牌卡背在飞时，**场上样式视图全程看不见**"
@@ -41381,11 +41459,13 @@ public static class BattleScene
                             //   落地拍 `LandAiDeployFlight` → `RefreshCanActForView` 会按 `CanActNow` 重推。
                             //   本夹具里对手那一格**不是当前行动方的回合** ⇒ `CanActNow` = false ⇒ 必须灭。
                             //   🧨 改坏法：删掉 `LandAiDeployFlight` 里那句 `RefreshCanActForView` ⇒ 这里恒 true ⇒ 红。
-                            if (fv2 != null)
-                                Check(!fv2.CanActVisible,
-                                      "★ C1-B01：**落地那一拍**绿光按引擎真值重推"
-                                    + $"（夹具里对手不是行动方 ⇒ `CanActNow` = false，实得可见 {fv2.CanActVisible}）"
-                                    + "｜🧨 删掉 `LandAiDeployFlight` 里的 `RefreshCanActForView` ⇒ 飞行途中那次请求一直留着 ⇒ 红");
+                            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (fv2 != null)` ⇒ 缺件时静默跳过。
+                            //   前提已由上面 41271 那条「★ B2·偏差8：场上视图建出来了」单独断言 ⇒ 这里把守卫并进结论。
+                            Check(fv2 != null && !fv2.CanActVisible,
+                                  "★ C1-B01：**落地那一拍**绿光按引擎真值重推"
+                                + (fv2 == null ? "（前提未成立：`fv2` 取不到 ⇒ 上面那条已红）"
+                                               : $"（夹具里对手不是行动方 ⇒ `CanActNow` = false，实得可见 {fv2.CanActVisible}）")
+                                + "｜🧨 删掉 `LandAiDeployFlight` 里的 `RefreshCanActForView` ⇒ 飞行途中那次请求一直留着 ⇒ 红");
                             if (useHandCarrier2 && fv2 != null)
                             {
                                 Check(!driver.AiDeployBoardViewHiddenForTest(bfoe2, fslot2),
@@ -42972,6 +43052,7 @@ public static class BattleScene
                             + $"（实得 {imgA1?.raycastPadding}）—— ⛔ 别把命中框再收/放一次");
                     }
 
+                    Check(btnA1 != null, "（前提·不静默）`_offensiveBtn` 上的 `BattleHudButton` 取得到 —— 否则下面几何那几条验不到");
                     if (btnA1 != null)
                     {
                         // ── ③ 几何：`EventSystem.RaycastAll` + 手搓 `PointerEventData` ─────
@@ -43832,9 +43913,12 @@ public static class BattleScene
                             Check(Vector3.Distance(vA.transform.position, pA0) < 1e-4f,
                                   "★ W58④：治疗**没有** `HitReact`（卡没有被弹开）"
                                 + "｜🧨 把 `EvtKind.Heal` 接回 `PlayHitFeel` ⇒ 本条红");
-                            if (driver.hudRoot != null)
-                                Check(Vector3.Distance(driver.hudRoot.localPosition, hud0) < 1e-4f,
-                                      "★ W58④：治疗**没有**震镜头（HUD 根没动）");
+                            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (driver.hudRoot != null)` ⇒ 缺件时静默跳过。
+                            Check(driver.hudRoot != null, "（前提）HUD 根 `driver.hudRoot` 在场（下面那条要读它的位置）");
+                            Check(driver.hudRoot != null
+                                  && Vector3.Distance(driver.hudRoot.localPosition, hud0) < 1e-4f,
+                                  "★ W58④：治疗**没有**震镜头（HUD 根没动）"
+                                + (driver.hudRoot == null ? "｜前提未成立：`hudRoot` 取不到（上面那条（前提）已红）" : ""));
 
                             // 等第二条的生命周期也走完，再验「负数 Hit = Survivor 广播」不显示任何东西。
                             { int g = 0; while (driver.Clock < t0 + 3.9f && g++ < 600) Step(1f / 60f); }
@@ -43899,6 +43983,8 @@ public static class BattleScene
             //      ⇒ 钉住函数体（关键词筛 / 格号 / 图标 / cue）；
             //   ⑤ **静态接线普查**：`PlayFeel` 的 `case EvtKind.Trigger:` 那一行**真的**调了它
             //      （②③④ 是直调，覆盖不到「事件来不来」那一跳 ⇒ 必须另补这一条）。
+            Check(driver != null && driver.MyUnits != null && driver.MyUnits.Count > 0,
+                  "（前提·不静默）`driver` + 我方场上单位都在 —— 否则 Swarm 合体那 5 条验不到");
             if (driver != null && driver.MyUnits != null && driver.MyUnits.Count > 0)
             {
                 int sSwarm = -1;
@@ -44094,6 +44180,7 @@ public static class BattleScene
                 int meSeat = driver.MySeat;
                 Check(meSeat >= 0 && meSeat < 2, $"W62/D5① 前提：`driver.MySeat` 合法（实得 {meSeat}）");
                 var cbHand = meSeat >= 0 && meSeat < 2 ? driver.Ctx.Players[meSeat].Hand : null;
+                Check(cbHand != null, "（前提·不静默）本方手牌列表取得到 —— 否则「静置手牌走 `InHand`」那一节验不到");
                 if (cbHand != null)
                 {
                     // 造一份**真的带来源**的牌放进手牌（`CreationSource` = 唯一的盖章口；用完立刻还原）
@@ -44209,6 +44296,8 @@ public static class BattleScene
                     if (recA2 != null && !string.IsNullOrEmpty(fileA2))
                     {
                         var tamperedA2 = ReplayStore.Load(fileA2);
+                        Check(tamperedA2 != null && tamperedA2.clientCardIds != null && tamperedA2.clientCardIds.Count > 2,
+                              "（前提·不静默）A2 负控：录像读得回、且 `clientCardIds` 有 > 2 张可删 —— 否则「删一张必然分叉」这条负控空跑");
                         if (tamperedA2 != null && tamperedA2.clientCardIds != null && tamperedA2.clientCardIds.Count > 2)
                         {
                             // 候选 = 「**录像这一列里记了** ∧ **引擎真用过** ∧ 不是督军 ∧ 不是防御卡」的 id：
@@ -46618,8 +46707,12 @@ public static class BattleScene
                     if (ctxSaved != null) driver.RefreshAll();
                 }
             }
-            if (driver != null)
-                Check(driver.Ctx == ctxSaved, "（收尾·E7）driver 的 `Ctx` 已经还原成本节之前那一局");
+            // 🔴 **B105_A3（AUD11 类 3A）**：原来套 `if (driver != null)` ⇒ driver 被销毁时这条静默跳过
+            //   （同族先例：R13 那一段就是这么「从没执行过」的）。前提单列 + 结论无条件跑。
+            Check(driver != null, "（前提）收尾时 `driver` 还活着（下面那条要读它的 `Ctx`）");
+            Check(driver != null && driver.Ctx == ctxSaved,
+                  "（收尾·E7）driver 的 `Ctx` 已经还原成本节之前那一局"
+                + (driver == null ? "｜前提未成立：`driver` 是 null（上面那条（前提）已红）" : ""));
         }
 
         // ================================================================
@@ -46705,7 +46798,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail; if (driver != null && driver.Ctx != null) { B104_T21_Assert.RunPresentation(driver); B104_T21_Assert.RunEngine(driver.Ctx); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; }  Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail; if (driver != null && driver.Ctx != null) { B104_T21_Assert.RunPresentation(driver); B104_T21_Assert.RunEngine(driver.Ctx); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; }  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; if (driver != null) { B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; } /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -46934,6 +47027,8 @@ public static class BattleScene
             //    判据 = 清单里有多少个、场景里就必须有多少个（清单是原版真值）。
             //    为什么非要断言：这三条**全是静默的** —— 少建一个模块不报错、只是画面上烟更大更实，
             //    肉眼在 13 张缩略图上分不出来（发现它靠的是「逐对象参数对账 + 并排渲图」）。
+            Check(arenaContent != null && mfEnv != null && mfEnv.particles != null,
+                  "（前提·不静默）战场根 + `ArenaBuilder.LoadManifest` 的 `particles` 都取得到 —— 否则「粒子三个原来没建」那三条验不到");
             if (arenaContent != null && mfEnv != null && mfEnv.particles != null)
             {
                 var built = new System.Collections.Generic.List<ParticleSystem>();
@@ -47206,6 +47301,8 @@ public static class BattleScene
                 + $"不对的 {bad} 场；逐场理由见上面那些 `✗`）");
         }
 
+        Check(hcam != null && arenaRend > 10,
+              "（前提·不静默）找得到 HUD 相机（`depth >= 0`）且战场渲染器 > 10 个 —— 否则下面 HUD 相机那几条验不到");
         if (hcam != null && arenaRend > 10)
         {
             // 🔴 **2026-09-22 改**：原来这里盯的是 `hcam.clearFlags == Depth`（「HUD 只清深度」那套）。

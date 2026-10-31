@@ -21558,10 +21558,10 @@ namespace CardPresentation
 
                 // 🆕 2026-10-16（`T06` B 组）：**场上单位变回手牌卡**那一拍
                 //   （原版 `CardScript.<TransformUnitInPlayToCard>d__256__MoveNext.c:52,73,76-79`，**2D**）。
-                //   ⚠️ `EvtKind.Return` 的语义含「回牌库」（原版**同一条动画**、`PlayBackToHandAnimation`）
-                //   ⇒ 两条路都照播（判据在 `BattleEvent.Return` 的 doc 里）。
+                //   ⚠️ `EvtKind.Return` 语义含「回牌库」（原版同一条动画、`PlayBackToHandAnimation`）⇒ 两条都照播；🔴 2026-10-31（`B105_W2`）订正：
+                //   `disappearFromHand(56)` 那一支⛔ 不响这条 —— 原版走 `_ResolveDisappearFromHand:96-130` 的 `DissolveCardInHand`（判据：`assets_full/…/SoundAssetCollection.json` 的 `dissolveCardInHand` = `m_AssetGUID ""` ⇒ **原版自己也静音**，铁律 11 例外①，⛔ 不拿别的 clip 顶上）。
                 case EvtKind.Return:
-                    BattleSfx.Play(BattleSfx.BackToHand);
+                    if (e.Effect == "disappearFromHand") { /* 原版这一格是空 AssetReference ⇒ 静音（铁律 11 例外①）；⛔ 不调 `BattleSfx.Play`，否则 cue 表会白出一条「查不到」警告 */ } else BattleSfx.Play(BattleSfx.BackToHand);
                     break;
 
                 // 主动技能：**只有这张卡没有专用演出时**才响「默认技能音」。
@@ -23100,7 +23100,7 @@ namespace CardPresentation
             //   （原版 `CardScript._PlayEnemyCard/_PlayPlayerCard` 的 `cardType != 0` 那支 →
             //   `DisplayEnemyCardInCenter`）。只在真机演出档跑（`animateFeel`；批处理自检要「当场精确」）。
             //   ⚠️ 与后续事件**并行**（原版是 await，我们这里没有等待层）—— 见那个方法的头注释。
-            if (e.Kind == EvtKind.Play && animateFeel) MaybeDisplayPlayedCardInCenter(e); else if (e.Kind == EvtKind.SabotageCreated && animateFeel) MaybeDisplayCreatedSabotageCardInCenter(e);   // 🔴 2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-102` 对造进手牌的破坏卡直接调 `DisplayEnemyCardInCenter(…, 0.3f, 0.3f, changeVisibility: true)` ⇒ 走同一条 `animateFeel` 闸（批处理自检要「当场精确」）。挂成 else-if = **零行数变化**（铁律 18·b）。
+            if (e.Kind == EvtKind.Play && animateFeel) MaybeDisplayPlayedCardInCenter(e); else if (e.Kind == EvtKind.SabotageCreated && animateFeel) MaybeDisplayCreatedSabotageCardInCenter(e); else if (e.Kind == EvtKind.Draw && e.Effect == "display" && animateFeel) MaybeDisplayHandCardInCenter(e);   // 🔴 2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-102` 对造进手牌的破坏卡直接调 `DisplayEnemyCardInCenter(…, 0.3f, 0.3f, changeVisibility: true)` ⇒ 走同一条 `animateFeel` 闸（批处理自检要「当场精确」）。挂成 else-if = **零行数变化**（铁律 18·b）。｜🆕 2026-10-31（`B105_W2` · 0-3）：`displayFromHand(57)` 的**中央亮牌** —— 原版 `_ResolveDisplayFromHand_d__548__MoveNext.c:193-195` `SetCardState(10)` + `DisplayEnemyCardInCenter(0.3f, 0.3f)`（`StartCoroutine`、**不等待**）；载体是 `EvtKind.Draw` + `Effect == "display"`（本节 `case EvtKind.Draw` 已有那一条借用判据）。
 
             // 🆕 2026-10-19（偏差 4）：**这两条 cue 在「事件到点」这一拍才响**（原来在 `PlaySignals` 的
             //   drain 里当场响 ⇒ 命中音比受击帧早到）。判据见 `UnitDamageCueIndex` / `IsMeleeHitCueAt`。
@@ -24938,7 +24938,7 @@ namespace CardPresentation
                 // 🆕 2026-10-22（P6 · M1/M2）：`collectDeath` = 这一条 `Death` 是「收集灵魂石」那一下
                 //   带出来的（判据 → `IsCollectDeathAt`）⇒ 那一拍**不播**残骸 Destroy 件 / 普通阵亡件。
                 case EvtKind.Death:  PlayDeathFeel(e, collectDeath);  break;
-                case EvtKind.Return: PlayReturnFeel(e); break;
+                case EvtKind.Return: if (e.Slot < 0 && e.Effect == "disappearFromHand") PlayDisappearFromHandFeel(e); else PlayReturnFeel(e); break;   // 🆕 2026-10-31（`B105_W2` · 0-2）：162 的牌**从手牌消失**（原版 `_ResolveDisappearFromHand` :96-130 溶解 + `DissolveCardInHand`）⛔ 不是「回手/回牌库」那条倒放（`PlayReturnFeel` 只认棋盘上的格号）
                 // 🆕 2026-09-29：「这个词条刚触发」⇒ 卡上**那一位徽标脉冲一下**
                 // （原版 `CardScript.ActivateTriggerTraitAnim` → `BattleCardUI.HighlightTraitIcon(traitId)`）。
                 // 🔴 **2026-10-24（`G1` · `W64·B-11` 表现半边）**：`swarm` 这一档还要走「合并那一拍」
@@ -27516,7 +27516,7 @@ namespace CardPresentation
                 ordered.Add(match);
             }
 
-            foreach (var dead in pool) if (dead != null) Kill(dead.gameObject);
+            _pendingHandDissolve.RemoveAll(v => v == null || !HandExitPendingFor(v)); foreach (var dead in pool) if (dead != null) { if (animateFeel && HandExitPendingFor(dead)) _pendingHandDissolve.Add(dead); else Kill(dead.gameObject); }   // 🆕 2026-10-31（`B105_W2`）：**`disappearFromHand` 的那张先留着等演出**（= `SyncBoard` 的 `PendingExitFor` 同一条口径）—— 否则事件还没轮到播，这里就先 `Kill` 掉 ⇒ 玩家看到「牌凭空没了」（零行数变化：整段压在同一物理行）
 
             _handViews.Clear();
             _handViews.AddRange(ordered);
@@ -28067,7 +28067,7 @@ namespace CardPresentation
             {
                 var q = _foeHandViews[_foeHandViews.Count - 1];
                 _foeHandViews.RemoveAt(_foeHandViews.Count - 1);
-                if (q != null) Kill(q.gameObject);
+                if (q != null) { if (animateFeel && FoeHandExitPending()) FadeOutHandQuad(q); else Kill(q.gameObject); }   // 🆕 2026-10-31（`B105_W2`）：敌方手牌的 `disappearFromHand` 也先淡出（卡背没有溶解材质 ⇒ `Tint` alpha，等价物）
             }
 
             int n = _foeHandViews.Count;
@@ -39492,6 +39492,204 @@ namespace CardPresentation
             Ctx.DeferSeat = _me;
             if (!on) Ctx.PendingTurnDraw = false;
         }
+        // ============================================================================================
+        //  🆕 2026-10-31（执行代理 `B105_W2` · 第 0 位）：
+        //    · **0-2** `disappearFromHand(56)`（`chosenAbility 162`）的手牌**溶解**表现
+        //      （原版 `BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c:96-130` +
+        //       `CardScript._DestroyCard_d__269__MoveNext.c` → `CardScript__DissolveWholeCard.c`）；
+        //    · **0-3** `displayFromHand(57)`（`chosenAbility 310`）的**中央亮牌**
+        //      （原版 `BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c:193-195`）。
+        //
+        //  ⚠️ 两个入口都由**调用点**的 `animateFeel` 闸挡着（批处理自检要「当场精确」的坐标）——
+        //     ⛔ 别在这里再判一次（同一条规则的第二个实现）。
+        //  🔴 成员一律追加在**类尾**（铁律 18·b：本文件下游有大量按 `文件:行号` 的账落点）。
+        // ============================================================================================
+
+        /// <summary>自检：`disappearFromHand` 的手牌溶解**真的走了几次**（只在 `PlayDisappearFromHandFeel` 里自增）。</summary>
+        public int DisappearFromHandFeelsForTest { get; private set; }
+        /// <summary>自检：最近一次溶解的那张手牌视图（演完会被 `Kill` ⇒ 事后读回 `null` 是正常的）。</summary>
+        public CardView LastDisappearFromHandViewForTest { get; private set; }
+        /// <summary>自检：最近一次 `disappearFromHand` 的**目标座位**（-1 = 还没走过）。</summary>
+        public int LastDisappearFromHandSeatForTest { get; private set; } = -1;
+        /// <summary>自检：最近一次 `displayFromHand` 建出来的中央展示载体（同上，演完即 `null`）。</summary>
+        public CardView LastHandDisplayCenterViewForTest { get; private set; }
+
+        /// <summary>正在溶解的手牌视图（已从 `_handViews` 摘掉 ⇒ `SyncHand` 不会提前 `Kill` 掉它）。</summary>
+        readonly List<CardView> _dissolvingHand = new List<CardView>();
+        /// <summary>已被 `SyncHand` 从 `_handViews` 摘下来、**等时间线上那一拍**再溶的手牌视图
+        /// （= 场上的 `_myFading` 那一档；见 `SyncHand` 里 `HandExitPendingFor` 的用法）。</summary>
+        readonly List<CardView> _pendingHandDissolve = new List<CardView>();
+        /// <summary>自检：当前停着等演出的手牌视图张数。</summary>
+        public int PendingHandDissolveCountForTest { get { int n = 0; foreach (var v in _pendingHandDissolve) if (v != null) n++; return n; } }
+
+        /// <summary>🆕 2026-10-31（`B105_W2` · 0-2）：**`disappearFromHand(56)` 的手牌溶解**。
+        ///
+        /// <para>**判据（第一权威）**：`BattleManager._ResolveDisappearFromHand_d__545__MoveNext.c:96-130` ——
+        /// 原版在卡位 `Instantiate` 溶解特效 + `Play2D(DissolveCardInHand)`；卡体本身由 `:134`
+        /// `CardScript.DestroyCard(card, 0.3f, 1, 0)` 那条协程溶掉（`CardScript__DissolveWholeCard.c`）。
+        /// 事件载体 = 引擎已发的 `EvtKind.Return` + `Effect == "disappearFromHand"`（`Slot = -1`）。</para>
+        ///
+        /// <para>🔴 **为什么与 `PlayReturnFeel` 分家**：那条是「回手 / 回牌库」的**倒放 clip**
+        /// （原版 `PlayBackToHandAnimation`），语义是「这张牌**还在**、只是回手里/回牌库」；
+        /// 162 是**离开手牌**（`DestroyCard` → `GoToCemetery`：`ephemeral` 移出游戏 / 否则进弃牌堆）
+        /// ⇒ 播回手动画就是**错的画面**（`BattleEvent.Return` 的 doc 与 `BattleDriver.PlayReturnFeel` 的注释都写着同一条）。</para>
+        ///
+        /// <para>⚠️ **我方 / 敌方手牌两条路**：我方是 `CardView`（真卡面，走 `CardFeel.DissolveInHand`）；
+        /// 敌方露出来的是**卡背 `ImageQuad`**（不是 `CardView`）⇒ 按同一时长（`CardFeel.HandDissolveTime`）
+        /// 把它的 `Tint` alpha 淡到 0 再 `Kill`（等价物，如实记：原版溶的是那张卡本体，我们这里只有卡背节点）。</para>
+        /// </summary>
+        void PlayDisappearFromHandFeel(BattleEvent e)
+        {
+            if (e == null || Ctx == null) return;
+            LastDisappearFromHandSeatForTest = e.Player;
+
+            if (e.Player == _me)
+            {
+                // ① 优先取 `SyncHand` **已经替我停下来**的那一张（事件被排在将来的某一拍时，
+                //    `SyncHand` 先跑、会把离开手牌的那张留在 `_pendingHandDissolve` 里等这一拍 —— 见那里的注释）
+                CardView view = null;
+                for (int i = 0; i < _pendingHandDissolve.Count; i++)
+                {
+                    var p = _pendingHandDissolve[i];
+                    if (p != null && p.Data.id == e.CardId) { view = p; _pendingHandDissolve.RemoveAt(i); break; }
+                }
+                if (view != null) { _dissolvingHand.Add(view); }
+                else
+                {
+                    var hand = Ctx.Players[_me].Hand;
+                    int hitIdx = -1;
+                    for (int i = 0; i < _handViews.Count; i++)
+                    {
+                        var v = _handViews[i];
+                        if (v == null || v.Data.id != e.CardId) continue;
+                        // 那一份**还**在手牌里 ⇒ 不是它（同名两张时靠这一句区分）
+                        if (v.Inst != null && hand != null && hand.Contains(v.Inst)) continue;
+                        hitIdx = i; break;
+                    }
+                    if (hitIdx < 0)
+                    {
+                        // 不静默：原版这一跳必然有一张卡可溶；找不到 = 视图与引擎不同步，如实说
+                        Debug.LogWarning($"[Battle] `disappearFromHand`：手牌里找不到「{e.CardId}」那张**已离开手牌**的视图 ⇒ 这一下不播溶解（原版 `_ResolveDisappearFromHand:96-130` 是溶那张卡）");
+                        return;
+                    }
+                    view = _handViews[hitIdx];
+                    _handViews.RemoveAt(hitIdx);    // 从表里摘掉 ⇒ `SyncHand` 不会再动它（它已经不在引擎手牌里）
+                    _dissolvingHand.Add(view);
+                }
+                LastDisappearFromHandViewForTest = view;
+                DisappearFromHandFeelsForTest++;
+                var tw = CardFeel.DissolveInHand(view, 0f, () =>
+                {
+                    _dissolvingHand.Remove(view);
+                    Kill(view != null ? view.gameObject : null);
+                });
+                if (tw == null)
+                {
+                    // DOTween 不可用（批处理 / 动画闸关）⇒ 退回「当场收掉」，但**计数已经记过**
+                    _dissolvingHand.Remove(view);
+                    Kill(view.gameObject);
+                }
+                return;
+            }
+
+            // 敌方手牌：卡背 quad（它不在 `_foeHandViews` 之外任何表里 ⇒ 摘掉即可，`SyncFoeHand` 不会再 Kill 它）
+            // 🔴 事件排在将来的某一拍时，`SyncFoeHand` 可能**已经**替我们摘掉并淡出了 ⇒ 这里只出声式地兜底：
+            if (_foeHandViews.Count <= Ctx.Players[1 - _me].Hand.Count) return;   // 已经一致 = 那一下已由 `SyncFoeHand` 处理
+            if (_foeHandViews.Count == 0)
+            {
+                Debug.LogWarning($"[Battle] `disappearFromHand`：敌方手牌那一排没有卡背视图 ⇒ 这一下不播（原版溶的是那张卡本体）");
+                return;
+            }
+            var quad = _foeHandViews[_foeHandViews.Count - 1];
+            _foeHandViews.RemoveAt(_foeHandViews.Count - 1);
+            DisappearFromHandFeelsForTest++;
+            if (quad == null) return;
+            FadeOutHandQuad(quad);
+        }
+
+        /// <summary>🆕 2026-10-31（`B105_W2`）：敌方手牌卡背按 `CardFeel.HandDissolveTime` 淡出后收掉
+        /// （我方手牌走 `CardFeel.DissolveInHand`；卡背没有溶解材质 ⇒ 用 `Tint` alpha，等价物，如实记）。</summary>
+        void FadeOutHandQuad(ImageQuad quad)
+        {
+            if (quad == null) return;
+            var from = quad.Tint;
+            var tw = DOTween.To(() => quad.Tint,
+                                c => { if (quad != null) quad.SetTint(c); },
+                                new Color(from.r, from.g, from.b, 0f),
+                                CardFeel.HandDissolveTime).SetEase(Ease.Linear);
+            tw.OnComplete(() => Kill(quad != null ? quad.gameObject : null));
+        }
+
+        /// <summary>🆕 2026-10-31（`B105_W2`）：时间线上**是否排着**「这张手牌要消失」的演出
+        /// （与 `PendingExitFor` 同一口径；`SyncHand` 摘键时用它决定「留着等演出」还是当场 `Kill`）。
+        /// ⚠️ `cue` 的 `evt` 合法为 null，先跳过（同 `PendingExitFor` 那条 2026-10-22 的空引用注释）。</summary>
+        bool HandExitPendingFor(CardView v)
+        {
+            if (v == null) return false;
+            for (int i = 0; i < _timeline.Count; i++)
+            {
+                var e = _timeline[i].evt;
+                if (e == null) continue;
+                if (e.Kind == EvtKind.Return && e.Effect == "disappearFromHand"
+                    && e.Player == _me && e.Slot < 0 && e.CardId == v.Data.id) return true;
+            }
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-31（`B105_W2`）：敌方手牌那边有没有排着「一张牌要从手牌消失」的演出
+        /// （卡背没有身份 ⇒ 只按座位数一条；每次 `SyncFoeHand` 摘一张就淡出一张）。</summary>
+        bool FoeHandExitPending()
+        {
+            for (int i = 0; i < _timeline.Count; i++)
+            {
+                var e = _timeline[i].evt;
+                if (e == null) continue;
+                if (e.Kind == EvtKind.Return && e.Effect == "disappearFromHand"
+                    && e.Player == 1 - _me && e.Slot < 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-31（`B105_W2` · 0-3）：**`displayFromHand(57)` 的中央亮牌**
+        /// （原版 `BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c:193-195`：
+        /// `CardScript.SetCardState(card, 10)` → `CardScript.DisplayEnemyCardInCenter(card, 0.3f, 0.3f, 0, 0)`）。
+        ///
+        /// <para>**形参映射**（与 `MaybeDisplayCreatedSabotageCardInCenter` 同一口径）：
+        /// 两个 0.3 → `scaleTime` / `hold`（= `DAT_1834b2dc8`，`CardFeel.CardCenterFromHandStepTime`）；
+        /// 原版第 4 实参 = **0** ⇒ `showFront: false`（**翻面**那一支，⛔ 不是破坏卡那种 `changeVisibility: true`）。</para>
+        ///
+        /// <para>🔴 **`owner` = 那张牌在谁手里**（事件里 `TargetPlayer`；缺省退回 `e.Player`）—— 起飞点必须是
+        /// **那一侧手牌的末位**（`DisplayEnemyCardInCenter` 的 `HandRow01(owner == _me, 1)` 就是这个口径）。</para>
+        ///
+        /// <para>⚠️ 原版那一句是 `StartCoroutine`（**不 yield**）⇒ 展示件跑多久**不**影响动作队列；
+        /// 队列那 2.7 s 由 `EventTiming` 的 `Effect == "display"` 支单独排（`CardFeel.DisplayFromHandBlockSeconds`）。</para>
+        /// </summary>
+        void MaybeDisplayHandCardInCenter(BattleEvent e)
+        {
+            if (e == null || Ctx == null || _pool == null) return;
+            int owner = e.TargetPlayer >= 0 ? e.TargetPlayer : e.Player;
+            var def = CardDatabase.Find(_pool, e.CardId, VfxFactionOf(owner, e.CardId));
+            if (def == null)
+            {
+                // 与 `MaybeDisplayPlayedCardInCenter` 的 `def == null` 同一口径：不新造一张空卡，但**出声**
+                Debug.LogWarning($"[Battle] `displayFromHand`：卡池里查不到「{e.CardId}」⇒ 中央亮牌这一下不播（不静默）");
+                return;
+            }
+            var v = DisplayEnemyCardInCenter(ToCardData(def, def.Faction), def, owner,
+                                             showFront: false,                                   // 原版第 4 实参 = 0
+                                             scaleTime: CardFeel.CardCenterFromHandStepTime,     // 0.3 = DAT_1834b2dc8
+                                             hold: CardFeel.CardCenterFromHandStepTime);
+            LastHandDisplayCenterViewForTest = v;
+        }
+
+        /// <summary>自检口：直接跑一次 `disappearFromHand` 的手牌溶解（⛔ 产品路径别调）。</summary>
+        public void PlayDisappearFromHandFeelForTest(BattleEvent e) { PlayDisappearFromHandFeel(e); }
+        /// <summary>自检口：直接跑一次 `displayFromHand` 的中央亮牌（⛔ 产品路径别调）。</summary>
+        public void MaybeDisplayHandCardInCenterForTest(BattleEvent e) { MaybeDisplayHandCardInCenter(e); }
+        /// <summary>🆕 2026-10-31（`B105_W2`）自检口：**走真实的 `PlayFeel` 路由**（`case EvtKind.Return` 那一行）——
+        /// 这正是「把 case 改回 `PlayReturnFeel` ⇒ 红」的那条灭自证断言要用的口（直接调
+        /// `PlayDisappearFromHandFeelForTest` 抓不到路由被改）。⚠️ 产品路径别调。</summary>
+        public void PlayFeelForTest(BattleEvent e) { PlayFeel(e); }
     }
 }
 
@@ -39573,5 +39771,6 @@ namespace CardPresentation
             int i = cands.FindLastIndex(x => x != null && x.Id == pendingCard.Id);
             if (i >= 0) cands.RemoveAt(i);
         }
+
     }
 }

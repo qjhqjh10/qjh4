@@ -1141,6 +1141,7 @@ public static class CollectionScene
             //    ⇒ `Tab Buttons | 167.2 158.6 332.2 1080.0 | 165.00 921.36 | Image,…,Gradient2`。
             //  ⚠️ 三条带的**高之和**才是「底板多高」这把尺（单条带只是整块按色标切出来的一段）；
             //     样板 = `Editor/RewardsScene.cs` 的同一组三条（那边断 1009.06，本窗断 921.36）。
+            CheckTrue(bar != null, "（前提·不静默）左栏 `Tab Buttons` 节点在 —— 不在 ⇒ 底板三条带那几条没验");
             if (bar != null)
             {
                 var barBg = FindChild(bar, "Background");
@@ -1610,6 +1611,7 @@ public static class CollectionScene
                     CheckArt(c1.Find("Background Image"), "Container_Image_Ranked",
                              "★ 右卡卡图 = **`Container_Image_Ranked`**（经典；⚠️ 我们文件名是下划线）");
                     var aq = art0 != null ? art0.GetComponent<ImageQuad>() : null;
+                    CheckTrue(aq != null, "（前提·不静默）左卡卡图 `Background Image` 上挂着 `ImageQuad` —— 不在 ⇒ UV/铺满那几条没验");
                     if (aq != null)
                     {
                         CheckNear(aq.WorldW * 108f, 505.9268f, 1f,
@@ -2012,6 +2014,7 @@ public static class CollectionScene
                 // 🔴 **2026-10-12**：本行原来写 `340.9 + 5×245 + 225 = 1790.9`（`340.9` = 视口沿 + 死的 padL 10）
                 //   ⇒ 与上一格同一条订正。居中后的第 6 格右边界 = `400.45 + 5×245 + 225` = **1850.45**。
                 // 6 列：第 6 格右边界 = 400.45 + 5×245 + 225 = 1850.45 ≤ 1920
+                CheckTrue(cells.Count >= 6, "（前提·不静默）卡组页建出 ≥6 格（少于 6 ⇒「6 列」那条没验）");
                 if (cells.Count >= 6)
                     CheckNear(MenuCheck.DesignPx(cells[5]).x + DeckCellWpx() / 2f, 1850.45f, 0.6f,
                               "第 **6** 格右边界 = **1850.45** ≤ 1920（**这是「6 列」的判据** —— 7 列要 1972.95）");
@@ -2027,6 +2030,10 @@ public static class CollectionScene
                 CheckNear(CollectionWindow.DeckGridOffsetX, 69.55f, 0.1f,
                           "★ 卡组网格的列方向原点 = **69.55**（RSR 整体居中；不是 padL 10）");
                 var dcell0 = FindChild(win.PageRoot(0), "CollectionDeck_0");
+                // 🔴 **2026-10-31（`B105_A1` · AUD11 类 3A）**：原来只有 `if (dcell0 != null)`、没有前提断言
+                //   ⇒ 拿不到时整条**静默空转**（不跑、不报红、通过数也不减）。改成「前提断言 + 守卫」。
+                CheckTrue(dcell0 != null, "（前提·不静默）Deck 页第 1 格 `CollectionDeck_0` 在"
+                                        + "（拿不到 ⇒ 下面那条等于没验）");
                 if (dcell0 != null)
                     CheckNear(MenuCheck.DesignPx(dcell0).x - 225f / 2f, 400.45f, 0.6f,
                               "★ 第 1 格**左沿 = 400.45**（视口左 330.9 + 69.55；实拍实测 400.4±3，"
@@ -2230,6 +2237,7 @@ public static class CollectionScene
                 var il = FindChild(tabsRoot, "Import Text");
                 var lcf = cf != null ? cf.GetComponent<Label>() : null;
                 var lil = il != null ? il.GetComponent<Label>() : null;
+                CheckTrue(lcf != null && lil != null, "（前提·不静默）`Clear filters` 与 `Import Deck` 两颗 `Label` 都在 —— 缺一 ⇒ 不叠那条没验");
                 if (lcf != null && lil != null)
                 {
                     // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）不再读**字段缓存** `Label.WorldW`（`_tmpW`），
@@ -2438,6 +2446,7 @@ public static class CollectionScene
                 Sw("收藏窗·筛选项", win.FilterScroll, 50f);
             }
 
+            CheckTrue(win.DeckScroll != null, "（前提·不静默）卡组页滚动区 `DeckScroll` 在");
             if (win.DeckScroll != null)
             {
                 float max = win.DeckScroll.MaxOffset;
@@ -2469,6 +2478,7 @@ public static class CollectionScene
             //      （见 `MenuDraw.DeckCell` 的注释与新加的「真命中路」那一段断言）。
             {
                 var ds = win.DeckScroll;
+                CheckTrue(ds != null, "（前提·不静默）卡组页滚动区 `DeckScroll` 在（裁切管点击那组要它）");
                 if (ds != null)
                 {
                     float savedD = ds.Offset;
@@ -2954,6 +2964,7 @@ public static class CollectionScene
                         //    改坏法：把这五颗也改成「往前挪」（负 z）⇒ 红，并且 A180 那条「关窗钮更深」跟着红。
                         var oCl = FindChild(pr, "CloseHit");
                         var clq = oCl != null ? oCl.GetComponentInChildren<ImageQuad>() : null;
+                        CheckTrue(clq != null, "（前提·不静默）`Deck Options` 那组里关窗钮 `CloseHit` 底下有 `ImageQuad`（跨组 z 序要它）");
                         if (clq != null)
                         {
                             bool zBehind = true;
@@ -2978,6 +2989,7 @@ public static class CollectionScene
                         //    ⚠️ 这条同时兜住「z 打平 ⇒ 看 `FindObjectsByType` 返回序（**不保证**）」那种运气判。
                         //    改坏法：删 z 那两句 / 把胜负方向搞反 / 把 `Delete` 的命中区摆错 ⇒ 拿到别的钮或 null ⇒ 红。
                         var plA299 = PointerLayer.Instance;
+                        CheckTrue(plA299 != null, "（前提·不静默）`PointerLayer.Instance` 在（真命中路那条要它）");
                         if (plA299 != null)
                         {
                             // 🆕 2026-10-20（A1350 第二批）：这两个**字面量是设计 px**（原版 prefab 的坐标）
@@ -3384,6 +3396,7 @@ public static class CollectionScene
                                         + "⛔ 不是 1108 拉满 —— 那会把竖图拉方）");
                             }
                         }
+                        CheckTrue(wh != null, "（前提·不静默）督军格命中区的 `WindowButton` 在（点它开详情窗那条要它）");
                         if (wh != null)
                         {
                             wh.GetComponent<WindowButton>().ClickForTest();
@@ -3656,6 +3669,7 @@ public static class CollectionScene
                     // ⇒ 这里把期望值**按原版格式从卡组数据现场重算**（`CardDeck__Serialize.c` 的形状：
                     //    `名字(: 转义) [':' 防御卡] [':' 督军] (':' 每张卡)* ';' 模式`，再 Base64），
                     //    **一个字节都不来自 `ExportString`** ⇒ 结构上不可能「实现与检测器一起改回去还绿」
+                    CheckTrue(sharWbA != null, "（前提·不静默）`Share` 那颗钮在（灭自证那组要它；卡组串空 / clip 两档另有前提）");
                     //    （两边没有共用任何函数）。这一点就是本条与 (1) 合起来才算「灭自证」的原因。
                     if (sharWbA != null && !string.IsNullOrEmpty(wantShare) && clipOk)
                     {
@@ -4335,6 +4349,7 @@ public static class CollectionScene
                 //   `basis` 与 `parent` 给同一个节点；不等 ⇒ 世界位置 = `RectCenter + (parent.position − basis.position)`。
                 //   🔴 **改坏法**：删掉 `Txt` 开头那句 `if (!ReferenceEquals(basis, parent)) Debug.LogWarning(…)`
                 //   ⇒ 反例读出 **0** 条警告 ⇒ 红（正例照样 0 ⇒ 这一条断的是**守卫本身**，不是「有没有警告」）。
+                CheckTrue(v2 != null, "（前提·不静默）`DeckInfoPopup` 的 View 那扇窗开出来了（`Txt` 守卫那组要它）");
                 if (v2 != null)                                   // ⚠️ 窗都没开出来时，上面那条已经红了 —— 这里别 NRE
                 {
                     var probeT = new GameObject("A229_TxtProbe", typeof(RectTransform)).transform;
@@ -4639,6 +4654,9 @@ public static class CollectionScene
                             var ewt = ewn != null ? FindChild(ewn, "Warning") : null;
                             CheckTrue(ewt != null, "…它下面那颗 TMP 叫 `Warning`（原版就叫这个）");
                             var ewl = ewt != null ? ewt.GetComponentInChildren<Label>() : null;
+                            // 🔴 **2026-10-31（`B105_A1` · AUD11 类 3A）**：`ewt` 有前提、`ewl` 没有
+                            //   ⇒ 节点在但底下量不到 `Label` 时，下面那条**静默空转**。
+                            CheckTrue(ewl != null, "（前提·不静默）`Warning` 底下量得到 `Label`（量不到 ⇒ 下面那条等于没验）");
                             if (ewl != null)
                                 CheckNear(ewl.FontPxNow, 36f, 0.6f,
                                           "★ 空态那行字 **fs = 36**（原版 `Warning` 的 `m_fontSize` = 36.0，**无 auto**）");
@@ -4814,6 +4832,7 @@ public static class CollectionScene
                     int foeIdx = -1;
                     for (int i = 1; i < CollectionData.DeckCount(); i++)
                         if (CollectionData.DeckAt(i).GameMode == mi.GameMode) { foeIdx = i; break; }
+                    CheckTrue(sel != null, "（前提·不静默）卡组选择窗 `DeckSelectionPopup.LastOpened` 在（对手那组要它；foeIdx 的前提在上一行）");
                     CheckTrue(foeIdx > 0, "测试库里另有一副同模式的（没有它就没法验「谁是对手」）");
                     if (sel != null && foeIdx > 0)
                     {
@@ -5308,6 +5327,7 @@ public static class CollectionScene
             // ---------------- 切页（`visualTypes` 必须整表替换） ----------------
             Section("切页（正本 §二；`visualTypes` 被本窗整表替换）");
             bool cardsPageOpened = false;                   // A1834（运行时读数）的前提：Cards 页被真正点开过
+            CheckTrue(win.tabButtons != null, "（前提·不静默）页签组 `tabButtons` 在 —— 不在 ⇒ 「切页」整段没验");
             if (win.tabButtons != null)
             {
                 win.tabButtons.Click(1);
@@ -5407,6 +5427,7 @@ public static class CollectionScene
             //   🔴 顺带把 `A2` §Q6 那条错判据挡在门外：它引的 225×364.5 / spacing 20 是**卡组列表**的格
             //   （那两份 MB 的 `PrototypeCell` = `Collection Deck[ With Highlight]`），不是卡池。
             //   判据与逐条出处 → `Editor/PoolCardGridAssertE6.cs` 文件头 + `资料/普查产出_1024c/E6_收藏卡池格子几何.md`。
+            CheckTrue(win.CardsScroll != null, "（前提·不静默）卡牌页滚动区 `CardsScroll` 在（滚到底那条要它；MaxOffset>0 是可滚的业务态）");
             PoolCardGridAssertE6.Run(win, _sink);
             if (win.CardsScroll != null && win.CardsScroll.MaxOffset > 0f)
             {
@@ -5528,6 +5549,7 @@ public static class CollectionScene
             //   判据与实测 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
             //   改坏法（灭自证）：把池命中支改回「`DestroySafe` + `CardView.Create`」⇒ ①② 当场红（18 张）。
             Section("T09：收藏窗滚动池化（滚一格不再整屏 `DestroySafe` + `CardView.Create`）");
+            CheckTrue(win.CardsScroll != null, "（前提·不静默）卡牌页滚动区 `CardsScroll` 在（池化那组要它；格数>0 是数据态）");
             if (win.CardsScroll != null && win.CardsCells.Count > 0)
             {
                 win.CardsScroll.SetOffset(0f);
@@ -5710,6 +5732,7 @@ public static class CollectionScene
                                 + " —— 与上一条**成对**：谁把式子写成「按稀有度一刀切」，这两条必有一条红");
                     // ② 屏幕上真印出来的字**也**量一次（A934 说的就是「印 x2」）
                     var csWl = win.CardsScroll;
+                    CheckTrue(csWl != null, "（前提·不静默）卡牌页滚动区在（画面「印 x1/x2」那条要它；kHero/kNorm 的前提在上方）");
                     if (kHero >= 0 && kNorm >= 0 && csWl != null)
                     {
                         float offBefore = csWl.Offset;
@@ -6008,6 +6031,7 @@ public static class CollectionScene
                         var gb = wCnt.Find("Rare");
                         var gc = wCnt.Find("Epic");
                         var gd = wCnt.Find("Legendary");
+                        CheckTrue(ga != null && gb != null && gc != null && gd != null, "（前提·不静默）`Counters` 四组（Common/Rare/Epic/Legendary）都在 —— 缺一 ⇒ 兄弟序那条没验");
                         if (ga != null && gb != null && gc != null && gd != null)
                             CheckTrue(ga.GetSiblingIndex() < gb.GetSiblingIndex()
                                       && gb.GetSiblingIndex() < gc.GetSiblingIndex()
@@ -6020,6 +6044,7 @@ public static class CollectionScene
 
             // 🆕 2026-10-03（A12 收口）：Cards 页 —— 压在视口下边上的那一格，**命中区 == 露出来的那部分**
             //   （这一页的 `Hit` 走 `AddHit` ⇒ **有 quad** ⇒ 能直接量渲染矩形；判据同 `MenuDraw.ClipRect`）
+            CheckTrue(win.CardsScroll != null, "（前提·不静默）卡牌页滚动区在（压边格命中区那组要它）");
             if (win.CardsScroll != null)
             {
                 var cs = win.CardsScroll;
@@ -6055,12 +6080,12 @@ public static class CollectionScene
                     }
                     // 对照：完全落在视口里的那一格 ⇒ 命中区是**整格**
                     var h0 = FindChild(tabsRoot, "CardHit_0");
-                    float ax1, ay1, ax2, ay2;
-                    if (h0 != null && RectOf(h0, out ax1, out ay1, out ax2, out ay2))
-                    {
-                        CheckNear(ax2 - ax1, CollectionWindow.CardsCellW, 1f, "对照：视口里的那一格 ⇒ 命中区**整格宽**");
-                        CheckNear(ay2 - ay1, CollectionWindow.CardsCellH, 1f, "对照：…**整格高**（没被裁）");
-                    }
+                    float ax1 = 0f, ay1 = 0f, ax2 = 0f, ay2 = 0f;
+                    bool h0RectOk = false;
+                    if (h0 != null) h0RectOk = RectOf(h0, out ax1, out ay1, out ax2, out ay2);
+                    CheckTrue(h0RectOk, "（前提·不静默）视口里那一格 `CardHit_0` 量得到矩形 —— 量不到 ⇒ 对照两条没验");
+                    CheckNear(ax2 - ax1, CollectionWindow.CardsCellW, 1f, "对照：视口里的那一格 ⇒ 命中区**整格宽**");
+                    CheckNear(ay2 - ay1, CollectionWindow.CardsCellH, 1f, "对照：…**整格高**（没被裁）");
                 }
                 cs.SetOffset(savedC);
             }
@@ -6077,6 +6102,7 @@ public static class CollectionScene
             //  🔴 **2026-10-13（A435 辛 · A774）就地订正（铁律 5）**：这一行原来写的是「抽掉
             //   `v.SetPose(…, CardsViewport)` 的第 4 个实参」—— 迁移后**那个实参已经不存在**了
             //   （裁切边界改走 `CardView.SetClipFromTree()` 沿父链解析那颗 `ViewportClip`）。
+            CheckTrue(win.CardsScroll != null, "（前提·不静默）卡牌页滚动区在（逐顶点裁切那组要它）");
             if (win.CardsScroll != null)
             {
                 var cs = win.CardsScroll;
@@ -6255,6 +6281,7 @@ public static class CollectionScene
             //  改坏法：① 调用点退回 `v.SetPose(…, CardsViewport)`（显式矩形赢）⇒ 最高顶点停在 155.9 ⇒ 红；
             //    ② 删掉调用点那句 `v.SetClipFromTree()` ⇒ 整卡不裁 ⇒ 最高顶点跑到 ≈94.2（影子那 62px）⇒ 红；
             //    ③ 把 `CardView.ApplyClip` 里 `_clipFromTree` 那一支删掉 ⇒ 没有「重裁时重新解析」⇒ 态② 红。
+            CheckTrue(win.CardsScroll != null, "（前提·不静默）卡牌页滚动区在（A774 卡跟随视口那组要它）");
             if (win.CardsScroll != null)
             {
                 var cs774 = win.CardsScroll;
@@ -6710,6 +6737,7 @@ public static class CollectionScene
                 //   Army 行的高度现在按**它自己的内容**算（13 格 · 3 格/行 = 5 行 = 550），Rarity 及以下整排往下挪
                 //   ⇒ **不滚到底，Cost / Type 的格子根本不建**（原版 `RectMask2D` 那套裁切 + 我们的视口剔除）。
                 //   判据与两处证据（A3 的 150 vs 卡组编辑那棵树的 `332x0`）→ `FilterPanelModel.ArmyRowH` 的注释。
+                CheckTrue(fscr != null, "（前提·不静默）筛选面板滚动区 `FilterScroll` 在（Cost/Type 格那组要它）");
                 if (fscr != null)
                 {
                     CheckTrue(FindChild(fltPanel, "Cell_cost_1") == null && FindChild(fltPanel, "Cell_type_hero") == null,
@@ -6793,6 +6821,7 @@ public static class CollectionScene
                 CheckNear(TitleLeftPx(fltPanel, "Rarity"), 25.25f, 1f,
                           "小标题 `Rarity` 的**渲染左沿** = 面板内 **25**（原版那三行都从 x=25 起；居中会落在 ~135）");
                 // ⚠️ 2026-09-28：`Energy Cost` / `Type` 两个标题落在 Army 行（550 高）之后 ⇒ **要滚下去才建**
+                CheckTrue(fscr != null, "（前提·不静默）筛选面板滚动区 `FilterScroll` 在（下滚才建的那两个标题要它）");
                 if (fscr != null)
                 {
                     fscr.ScrollBy(fscr.MaxOffset);
@@ -6888,6 +6917,7 @@ public static class CollectionScene
                 // 🔴 层序：筛选栏**必须盖在卡池之上**（原版兄弟序 `Collection Display` 在前、`Card Filters` 在后）
                 var fbg = FindChild(fltPanel, "Panel");
                 var fq = fbg != null ? fbg.GetComponentInChildren<ImageQuad>() : null;
+                CheckTrue(fq != null, "（前提·不静默）筛选栏 `Panel` 底下有 `ImageQuad`（层序那条要它；格数>0 是数据态）");
                 if (fq != null && win.CardsCells.Count > 0)
                 {
                     var mrs = win.CardsCells[0].GetComponentsInChildren<MeshRenderer>(true);
@@ -7008,6 +7038,7 @@ public static class CollectionScene
                 win.TickDrawers(0.2f);
                 CheckNear(win.DrawerSlide(0), 1f, 0.001f, "再推 0.2 秒 ⇒ 收尾到 **1**（`MoveTowards` 夹住）");
                 CheckNear(MenuCheck.DesignPx(fltPanel).x, baseCx, 0.5f, "…回到原位（位移是加在 `BasePos` 上的）");
+                CheckTrue(rcq != null, "（前提·不静默）抽屉那格的命中 `ImageQuad` 在（「又点得到」那条要它）");
                 CheckTrue(win.DrawerSettled(0), "…到位 ⇒ 命中/滚轮**恢复**");
                 if (rcq != null)
                 {
@@ -7948,6 +7979,7 @@ public static class CollectionScene
                 var clrT = FindChild(cpage, "Clear filters Text");
                 var lt = ttlT != null ? ttlT.GetComponent<Label>() : null;
                 var lc2 = clrT != null ? clrT.GetComponent<Label>() : null;
+                CheckTrue(lt != null && lc2 != null, "（前提·不静默）页头 `Header Label` 与 `Clear filters Text` 两颗 `Label` 都在 —— 缺一 ⇒ 对齐那组没验");
                 if (lt != null && lc2 != null)
                 {
                     // 🔴 **2026-10-17（R2 现核 + 末轮复跑）**：这一节跑的时候当前页可能不是 Cosmetics ⇒ 页节点
@@ -7992,6 +8024,7 @@ public static class CollectionScene
             //        + `CardbackTable.NamesFor`（阵营 → 卡背，**判据只有一份**）。
             //   原来那句「A4 只给了容器 rect、没给格子尺寸 ⇒ 没建」**早就不成立**（2026-09-28 在卡组编辑实测补全）。
             Section("卡背页筛选抽屉：Army 13 格 + Owned（**行序 Army 在前**，与卡牌那套相反）");
+            CheckTrue(cBtn != null, "（前提·不静默）`Filter Toggle` 的 `WindowButton` 在 —— 不在 ⇒ 卡背页筛选抽屉整段没验");
             if (cBtn != null)
             {
                 cBtn.Click();                       // 再开一次（上一组开合把它关回去了）
@@ -8137,6 +8170,7 @@ public static class CollectionScene
                 CheckTrue(!win.CosmoFiltersOpen, "量完收回去");
             }
 
+            CheckTrue(win.CosmoScroll != null, "（前提·不静默）卡背页滚动区 `CosmoScroll` 在（滚到底那条要它；MaxOffset>0 是可滚的业务态）");
             if (win.CosmoScroll != null && win.CosmoScroll.MaxOffset > 0f)
             {
                 win.CosmoScroll.ScrollBy(win.CosmoScroll.MaxOffset);
@@ -8155,6 +8189,7 @@ public static class CollectionScene
             //   原来是拉满时的 上 −70.875 / 下 +74.925；见 `RebuildCosmoCells` 那段逐值出处）⇒ 压边那几格
             //  光靠「格与视口求交」拦不住它。原来那两行是直调 `ImageQuad.Create` ⇒ **整块画出去**。
             //  **改坏法**：把 `MenuDraw.Rect(…, CosmoView, …)` 的 `CosmoView` 实参去掉 ⇒ 越界 quad 立刻出现 ⇒ 红。
+            CheckTrue(win.CosmoScroll != null, "（前提·不静默）卡背页滚动区在（卡背格两层裁切那组要它）");
             if (win.CosmoScroll != null)
             {
                 var csc = win.CosmoScroll;
@@ -8196,6 +8231,7 @@ public static class CollectionScene
                 //  🔴 **2026-10-19（B2）**：现算那一步从 `InsetFit`（只做第一段）换成 **`CardbackDrawnPx`**
                 //    （两段式：先按 `m_Rect` 定框、再按 `textureRect/m_Rect` 缩）—— 口径/判据 → `Core/CardbackFace.cs`。
                 var cfull = FindChild(cpage, "CollectionCosmetic_" + CollectionWindow.CosmoCols);
+                CheckTrue(cfull != null, "（前提·不静默）卡背页第 2 排那一格在（「没被压扁」那条要它）");
                 if (cfull != null)
                 {
                     var cq = FindChild(cfull, "Cardback");
@@ -8380,6 +8416,7 @@ public static class CollectionScene
                     Object.DestroyImmediate(punchGo);
                     CardTween.Mode = prevMode;
                 }
+                CheckTrue(hb0 != null, "（前提·不静默）卡池第 1 格点击区 `CardHit_0` 上的 `WindowButton` 在 —— 不在 ⇒ 本节整段断言一条都不跑");
                 if (hb0 != null)
                 {
                     int punchCnt = CollectionWindow.CardPunchCountForTest;
@@ -8419,6 +8456,7 @@ public static class CollectionScene
                     //   🧨 改坏法：删掉容器上那颗 `CanvasGroup` ⇒ ① 红；`CellFade.SetAlpha` 里删掉
                     //   `card.SetAlpha` / `bars[].SetTint` / `labels[].SetColor` 任一条 ⇒ ② 对应那条红；
                     //   把 `CardAnimateRise` 改成 0、或把 `order` 写死 0 ⇒ ③ 第一 / 第四条红。
+                    CheckTrue(punchT != null, "（前提·不静默）入场动画那一段要的 punch 作用节点拿得到");
                     if (punchT != null)
                     {
                         var cg0 = punchT.GetComponent<CanvasGroup>();
@@ -8486,6 +8524,7 @@ public static class CollectionScene
                             t2.localPosition = new Vector3(0f, endY, 0f);
                             var fd2 = CollectionWindow.MakeCellFadeForTest(t2, null);
                             var tw2 = CollectionWindow.BuildCardAnimateInTween(t2, fd2, 2);
+                            CheckTrue(tw2 != null, "（前提·不静默）order=2 那条入场补间建出来了");
                             if (tw2 != null)
                             {
                                 float dur2 = DG.Tweening.TweenExtensions.Duration(tw2);
@@ -8545,6 +8584,7 @@ public static class CollectionScene
                         //    🔴 **别用 `_tier` 去找** —— SDF 那层叫 `<阵营>_tier<N>`（在 `Art/card_sdf/`），
                         //    也带 `_tier`，而且它就是上面①那张 1106.9px 的方图（实测踩过）。
                         var mrs = disp != null ? disp.GetComponentsInChildren<MeshRenderer>(true) : null;
+                        CheckTrue(mrs != null && mrs.Length > 0, "（前提·不静默）详情窗那张卡的 `MeshRenderer` 量得到（卡框尺寸那组要它）");
                         if (mrs != null && mrs.Length > 0)
                         {
                             Bounds? frameB = null;
@@ -8861,6 +8901,7 @@ public static class CollectionScene
                             CheckArt(sgBg, "40K_main_deck_card_counter",
                                      "`Single Counter/Background` 还是那张底图（原版 `m_PreserveAspect = 1`）");
                             var sgQ = sgBg != null ? sgBg.GetComponentInChildren<ImageQuad>() : null;
+                            CheckTrue(sgQ != null, "（前提·不静默）`Single Counter/Background` 底下有 `ImageQuad`（底图尺寸那条要它）");
                             if (sgQ != null)
                             {
                                 float sgW = sgQ.WorldW * 108f, sgH = sgQ.WorldH * 108f;
@@ -9135,6 +9176,7 @@ public static class CollectionScene
                                     Check(WarpforgeVFX.WarpforgeEffectPlayer.ActiveCount, fxBase,
                                           "★ …而且**一件特效都没播**（原版那一支 `return` 在 `DoVFX` 之前）"
                                         + " —— 改坏法：先播后弹 / 弹窗那一刻也播 ⇒ 本条红");
+                                    CheckTrue(conf != null, "（前提·不静默）确认窗 `CraftConfirmPopup` 拿得到（上面那条已断它开出来了）");
                                     if (conf != null)
                                     {
                                         // 窗 = 原版 `popupWindowTwoButtons` 那一版；三句文案的键照地址表写死
@@ -9338,6 +9380,7 @@ public static class CollectionScene
                         }
                         // ⚠️ 上面那一块重建过整棵树 ⇒ `UpgradeHit` 必须**现在**取（下面的 `uhb` 是新树上的）
                         var uh = cd.UpgradeHit; var uhb = uh != null ? uh.GetComponent<WindowButton>() : null;
+                        CheckTrue(uhb != null, "（前提·不静默）详情窗「升级」命中共有 `WindowButton`（可交互度那组要它）");
                         if (uhb != null)
                         {
                             // 🔴 2026-10-18：可交互度**只看等级上限**（`lv == MaxLevel` ⇒ 灰），
@@ -9421,6 +9464,7 @@ public static class CollectionScene
                         }
                         // `Show Card Text` 切效果文字条；语音钮「没有就出声」
                         var ehit = cd.EyeHit; var ehb = ehit != null ? ehit.GetComponent<WindowButton>() : null;
+                        CheckTrue(ehb != null, "（前提·不静默）`Show Card Text` 的 `WindowButton` 在；`LoreVisible` 初始为真是开关那组的状态前提（本轮保留在守卫里）");
                         if (ehb != null && cd.LoreVisible)
                         {
                             ehb.Click();
@@ -9487,6 +9531,7 @@ public static class CollectionScene
 
                                 // ② 槽 1（第一张相关卡）：**原版真值 (−121,53) · 2.510° · scale 232.954**
                                 var s1 = cd.SlotView(1);
+                                CheckTrue(s1 != null && s0 != null, "（前提·不静默）位姿槽 0/1 的视图都在（槽 1 那几条要它们）");
                                 if (s1 != null && s0 != null)
                                 {
                                     var c1 = MenuCheck.DesignPx(s1.transform);
@@ -9689,6 +9734,10 @@ public static class CollectionScene
                             CheckTrue(loreQuad != null,
                                       "★ 风味底图建出来了（原版 `FlavourTextSO.GetClanFlavorBackground` 按阵营选）");
                             var frontDef = cd.FrontDef;
+                            // 🔴 **2026-10-31（`B105_A1` · AUD11 类 3A）**：`loreQuad` 有前提（上面那条 `★ 风味底图`），
+                            //   而 `frontDef` 没有 ⇒ 它取不到时「按阵营选」那条**静默空转**。
+                            CheckTrue(frontDef != null, "（前提·不静默）`cd.FrontDef` 取得到"
+                                                      + "（拿不到 ⇒ 下面那条「取的是这个阵营那张」等于没验）");
                             if (loreQuad != null && frontDef != null)
                                 CheckTrue(loreQuad.Texture != null
                                           && loreQuad.Texture.name == "flavourbg_" + frontDef.Faction.ToLowerInvariant(),
@@ -9910,6 +9959,7 @@ public static class CollectionScene
             //  （TMP 自己的 `textBounds`，⛔ 不是 `Label.WorldW/H` 那口缓存 —— 见该助手头注）。
             //  ⚠️ 两条探针**建完立刻 `DestroyImmediate`**（批处理下没有帧循环，`Destroy` 不生效）
             //  ⇒ 树与后续断言一位不动。
+            CheckTrue(spage != null, "（前提·不静默）异画页（第 4 页）根节点在 —— 不在 ⇒ A1173 契约判别式那组没验");
             if (spage != null)
             {
                 float bw = CollectionWindow.StyleLogoR - CollectionWindow.StyleLogoL;
@@ -9984,6 +10034,7 @@ public static class CollectionScene
             //   ⇒ `SelectedHighlight` 打的是同一级 = `Collection Card/Content`（判据 → `PunchCardCell` 那段）。
             //   🧨 改坏法：把异画页那处回调改回 `PunchCardCell(v.transform)` ⇒ 第 2、3 条红；
             //   把 punch 抬到视口/窗根 ⇒ 第 4 条红；把容器改成复用上一趟那个（不新建）⇒ 第 5 条红。
+            CheckTrue(win.StyleCells.Count > 0 && win.StyleCells[0] != null, "（前提·不静默）异画页至少建出 1 格（`StyleCells[0]` 非空）");
             if (win.StyleCells.Count > 0 && win.StyleCells[0] != null)
             {
                 var sCell0 = win.StyleCells[0];                       // = `CardView` 根（`CollectionAltArt_<卡 id>`）
@@ -10376,6 +10427,7 @@ public static class CollectionScene
                     //      （面板矩形那两条字面量 = 上面那条 `CheckAt(fltPanel, 0.25f, 335.56f, …)`）；
                     //    · `Title Army` 的渲染左沿 = **0.25**（同 `本文件` 那条）。
                     //    ⚠️ 前提：抽屉滚动量此刻是 **0**（下面所有落点值都是「未滚动」那一帧的读数）。
+                    CheckTrue(cDrawer != null && cFltBtn != null, "（前提·不静默）卡牌页筛选抽屉 `Card Filters` 与页头 `Filters` 钮都在（A843 那组要它们）");
                     if (cDrawer != null && cFltBtn != null)
                     {
                         var cFscr = win.FilterScroll;
@@ -10498,6 +10550,7 @@ public static class CollectionScene
                     //                  那一对，`FltHiddenDx`）—— 三个都是**原版读数**，⛔ 不读 `FltL/FltW/FltHiddenDx`。
                     //    · t=0.5 那一帧 ⇒ 两位移各 **−192.5px** ⇒ 读数 = `167.905−192.5 = **−24.595**` ·
                     //      `0.25−192.5 = **−192.25**`。
+                    CheckTrue(cDrawer != null && cFltBtn != null, "（前提·不静默）卡牌页筛选抽屉与 `Filters` 钮都在（A834 那组要它们）");
                     if (cDrawer != null && cFltBtn != null)
                     {
                         // 归一状态：把抽屉推到展开位（帧路，0.3 秒走完；与下面 ③ 同一条口）
@@ -11181,7 +11234,6 @@ public static class CollectionScene
                                   + "补之前是「画到框外」，现在是「不建」——两种都不该出现在画面上）");
 
                         // 滚到最下（`SetOffset` 就是滚轮/拖拽那条路公用的那一个口）
-                        float y10 = RowOf("msg-10") != null ? MenuCheck.DesignPx(RowOf("msg-10")).y : float.NaN;
                         csc.SetOffset(csc.ClampHi);
                         CheckNear(csc.Offset, 650f, 0.01f, "滚到最下 ⇒ 偏移 = `ClampHi` = **650**");
                         var last = RowOf("msg-19");
@@ -11197,10 +11249,14 @@ public static class CollectionScene
                         CheckTrue(RowOf("msg-00") == null,
                                   "★★ …而**第一行滚出视口 ⇒ 不建了**（与上面那条合起来 = 「建的是哪几行」随偏移变）");
                         var r10b = RowOf("msg-10");
-                        CheckTrue(r10b != null, "…中间那行（msg-10）两种偏移下都在视口里（下面拿它量位移）");
-                        if (r10b != null && !float.IsNaN(y10))
-                            CheckNear(y10 - MenuCheck.DesignPx(r10b).y, 650f, 0.6f,
-                                      "★ 同一行**真的换了位置**：内容上移的像素数 == 偏移（650）");
+                        // 🔴 2026-10-31（调度台 · `B105_A1` 前提转红后的订正）：原写法「滚前量一次、滚后再量一次相减」
+                        //   **结构上跑不了** —— 偏移 0 时 `msg-10`（中心 896，行跨 866..926）**只有一部分在视口 161..911 里**，
+                        //   按「整行在视口外就不建」的口径它压根没建 ⇒ 滚前那次恒 NaN（旧断言被 `!IsNaN` 静默吃掉）。
+                        //   改成**绝对位置**：偏移 650 后它应落在 `196 + 10×70 − 650 = 246`（算式与上面那几条同源）。
+                        CheckTrue(r10b != null, "…滚到最下之后 `msg-10` 建出来了（下面拿它量绝对位移）");
+                        if (r10b != null)
+                            CheckNear(MenuCheck.DesignPx(r10b).y, 196f + 10f * 70f - 650f, 0.6f,
+                                      "★ 同一行**真的换了位置**：偏移 0 时中心 = 196 + 10×70 = 896；滚到 650 ⇒ **246**");
 
                         // ★ 「**裁**」那半份也要有判据（改之前那一页是「既不滚也不裁」，行直接画到框外）。
                         //   最后那一行的头像命中区：它自己的矩形 = (545.87,841)→(691.90,1004.14)
@@ -11235,6 +11291,7 @@ public static class CollectionScene
                     // 收尾：清数据 + 关窗（它的压暗层是整屏的，留着会顶掉后面那些真命中路）
                     SocialData.ChatMessages.Clear();
                     chat.RefreshMessages();
+                    CheckTrue(ctab != null, "（前提·不静默）聊天窗页签 `ctab` 在（收尾那条要它）");
                     if (ctab != null) Check(ctab.BuiltRows, 0, "清掉消息 ⇒ 0 行（收尾）");
 
                     // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。

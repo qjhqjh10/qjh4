@@ -199,4 +199,8 @@ public static class B97W23Assert
 
         Debug.Log(P + "=== 小结：" + _ok + " 通过 / " + _bad + " 失败 ===");
     }
+
+    // 🆕 2026-10-31（调度台 · AUD11 接线）：宿主并进合计用（本类此前全仓 0 宿主）。
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
 }
