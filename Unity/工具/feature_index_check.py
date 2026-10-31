@@ -10,6 +10,12 @@
    · 每个 `判据出处` 指向的**文件真的存在、行号不越界**（不是只验前缀）；
    · `判据出处` 不许指向我们自己的代码（自证闸）。
 
+⚠️ **打印是截断的**：每份 part 只印**前 60 条失败**（告警只印前 20 条），超出部分打「… 还有 N 条」。
+   ⇒ **统计失败数只认 `失败 N | 告警 M` 这一行汇总**，⛔ 别数 `✗` 行（会少算）。
+   2026-11-01 `B112_D` 实测：`战斗逻辑驱动` 那份 116 条失败里只印了 60 条，被藏起来的 56 条中**有 8 条是 C5 判据失败**
+   （按打印数以为只有 5 条判据问题，实际 13 条）。要逐条看全量 ⇒ 直接在代码里调
+   `run_check(...)["fails"]` 或 `check_judge_token(...)`，别解析 stdout。
+
 用法
 ====
   # ① 检查一份索引 / part
@@ -41,7 +47,7 @@
 五道闸（判红即失败）
 ====================
   C1 构成可展开       token 打错 / 凭空编方法名
-  C2 三列等于重算      `构成条数` `状态分布` `等级` 与账不符（账一动就红）
+  C2 三列等于重算      `构成条数`（**按 `账文件:行号` 去重的账行数**）`状态分布` `等级` 与账不符（账一动就红）
   C3 落点现读          `路径:行（名）`：文件在 · 行在界 · 该行逐字含那个名字
   C4 验收口现读        `路径:行（子串）`：该行逐字含那个子串；`cmd:` 脚本存在
   C5 判据现读（🆕）    `判据出处` 每个 token：① 必须带原版前缀 ② **文件逐字存在** ③ 行号不越界
@@ -169,8 +175,37 @@ def base(m):
     return m.split("(")[0].strip()
 
 
+def strip_generics(s):
+    """剥掉成对的 `<...>`；**容忍未闭合**（`RankedEventBase<TSave,.*` 这种被逗号截断的前缀，
+    右括号不存在）⇒ 未闭合的尾巴连内容一起丢掉。
+    ⚠️ 只用于**类名**比较，⛔ 不用来改账键。（从 `recompute_fp_levels.py` 收口过来的唯一实现）"""
+    out = []
+    depth = 0
+    for ch in s:
+        if ch == "<":
+            depth += 1
+        elif ch == ">":
+            if depth > 0:
+                depth -= 1
+            else:
+                out.append(ch)
+        elif depth == 0:
+            out.append(ch)
+    return "".join(out)
+
+
 def expand(tok, rows):
-    """把 `类.*` / `类.方法` / `类.方法(全签名)` 展开成账行。返回 (rows, err)"""
+    """把 `类.*` / `类.方法` / `类.方法(全签名)` 展开成账行。返回 (rows, err)
+
+    🔧 2026-11-01 `B111_F1`：**本函数是「原版构成 → 账行」的唯一实现** ——
+    `工具/recompute_fp_levels.py` 直接 `import` 它，⛔ 别在任何地方再写第二份
+    （收口前两边口径差 415 行次：去重合计 9,618 vs 已认领 9,203）。
+
+    `类.*` 三档（与旧 `recompute_fp_levels.expand_no_paren` 的读法一致）：
+      ① 逐字类名；② 类名带 `<` 时按**泛型族**（剥 `<...>` 后相等且真名含 `<`）；
+      ③ 还不行再退到按类名全族。
+    ②③ 是为了容忍历史上被逗号截断的 token（`RankedEventBase<TSave,.*`，真名见账 `原版类` 列）。
+    """
     tok = tok.strip()
     if not tok:
         return [], None
@@ -180,6 +215,16 @@ def expand(tok, rows):
     cls, meth = cls.strip(), meth.strip()
     if meth == "*":
         hit = [r for r in rows if r["类"] == cls]
+        if hit:
+            return hit, None
+        base_cls = strip_generics(cls).strip()
+        if "<" in cls:
+            hit = [r for r in rows
+                   if "<" in r["类"] and strip_generics(r["类"]).strip() == base_cls]
+        else:
+            hit = []
+        if not hit:
+            hit = [r for r in rows if strip_generics(r["类"]).strip() == base_cls]
         return (hit, None) if hit else ([], "类不存在于账中：%s" % cls)
     if "(" in meth:
         hit = [r for r in rows if r["类"] == cls and r["方法"].replace(" ", "") == meth.replace(" ", "")]
@@ -465,6 +510,17 @@ def run_check(dest, opts):
                 if err:
                     fail(fails, "%s 构成条目无法展开：%s" % (tag, err))
                 exp.extend(hit)
+            # 🔧 2026-11-01 B111_F1（N110 #3）：**按 `账文件:行号` 去重** ——
+            # `构成条数` 这一列 = 去重账行数（同一行被两个 token 命中只算一次）。
+            # 收口前它按 token 计、可重复（180 行相加 9,623 vs 去重 9,203），
+            # 任何「用功能点表算覆盖率」的汇报都会偏高。
+            _seen, _u = set(), []
+            for r in exp:
+                if r["src"] in _seen:
+                    continue
+                _seen.add(r["src"])
+                _u.append(r)
+            exp = _u
             # --- 三列必须等于重算值 ---
             if str(len(exp)) != d["构成条数"].strip():
                 fail(fails, "%s 构成条数 手写=%r 重算=%d" % (tag, d["构成条数"], len(exp)))

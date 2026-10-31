@@ -28,6 +28,12 @@
 !/Unity/MyGame/Assets/WarpforgeVFX/Shaders/
 !/Unity/MyGame/Assets/WarpforgeVFX/Editor/
 !/Unity/MyGame/Assets/WarpforgeVFX/Runtime.meta
+# 🔴 2026-11-01（调度台裁定 · 活状态表 B-76）：`Animations/` 必须进仓库 ——
+#   它由 `工具/gen_anim_clips.py --write` 生成，但 **`WarpforgeBooster/Prefabs/Booster Pack Open Window.prefab:23804`
+#   按 guid 引用 `Booster Window - Background Shake On Open.anim`** ⇒ 只留 prefab、不留 clip，干净 clone 里
+#   那个 `m_Animation` 会指向不存在的资产。生成器已能重建（且 guid 已写对），进仓库是为了「clone 即用」。
+!/Unity/MyGame/Assets/WarpforgeVFX/Animations/
+!/Unity/MyGame/Assets/WarpforgeVFX/Animations.meta
 !/Unity/MyGame/Assets/WarpforgeVFX/Shaders.meta
 !/Unity/MyGame/Assets/WarpforgeVFX/Editor.meta
 

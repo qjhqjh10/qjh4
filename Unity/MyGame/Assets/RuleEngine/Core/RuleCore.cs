@@ -4824,7 +4824,7 @@ namespace RuleEngine
             //   ⚠️ 判据为什么不闭合：原版 `UnitSwarmCount__OnUnitSwarm.c` 的方法体在反编译产物里**撞名丢失**
             //     （那个文件里装的是 `UnitReanimated__OnUnitReanimated`）⇒ 「按广播算 / 按合并算」查不到。
             //     按调度台 2026-10-25 的口径取**「真合并了才算」**，⛔ 别在广播那一侧再写一次（会双计）。
-            ctx.Tally.AddSwarmMerge(p);
+            ctx.Tally.AddSwarmMerge(p); UnitSwarmSignals.RaiseFromSwarmMerge(p);   // 🆕 2026-11-01（`B111_E3B` · 账 `B-06b #35`）：原版 `BroadcastUnitSwarm` 的**第一句**就是 `new UnitSwarmSignal(played, buffed)` + `Signal.Raise`（判据 `cpp2il/out_cpp2il_dev_ilspy/BattleManagerSupport.cs:1385-1388`），之后才逐个 `TriggeredSwarm` ⇒ 我们发在 `FireTriggerAlways` **之前**，相对次序一致。🔴 **同一物理行追加 ⇒ 行数零变化**（本文件全是账落点，见 `CLAUDE.md` 18·b）；⛔ 别拆成新行。
             FireTriggerAlways(ctx, host, KeywordTable.Swarm, p, hostSlot, just);
         }
 

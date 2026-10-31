@@ -4,6 +4,7 @@
 > 触发口径：铁律 5·c「**一个值 ≠ 全部情况**」；模板 = `判据/AUD05_state_matrix_卡组编辑.md`（结构/口径/红线照它）。
 > **本文件只覆盖这四族窗**：① `Reward Window`（`RewardWindow`）② `Campaign Reward Window`（`CampaignRewardsWindow`）③ `Daily Reward Popup`（`DailyRewardPopup`）+ `Daily Streak Popup`（`DailyStreakWindow`）④ `Inbox Menu`（`InboxWindow`）+ `Rewards Base Submenu Variant`（奖励子菜单壳）。
 > **不重做**卡组编辑窗；通用结论（`smallScreenUI`、CanvasScaler 1920×1080 **Expand**、`GameWindow.extraScaleSmallScreen` 恒 1）直接引用 `AUD05_state_matrix_卡组编辑.md` §1·2 / §附录B。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 2 条**：复核方法 = 把 §3 / §4 里每条「我方现状 / 缺口」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地的就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 **出处缩写**（全表通用）：
 `GO/名` = `D:/2/新解包资源/assets_full/bundle_menus_assets_all/GameObject/<名>.json` · `RT/<pid>` = 同目录 `RectTransform/RectTransform_<pid>.json` · `MB/<pid>` = 同目录 `MonoBehaviour/MonoBehaviour_<pid>.json` · `MS/` = `bundle_Waprforge_monoscripts/MonoScript/` · `DF:` = `D:/2/tools/decomp_full/` · `CP:` = `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/` · `CFG:` = `CP:Everguild.LiveOps/`。
@@ -472,7 +473,7 @@ if (claimedAt <= 0) {
 
 1. 🔴 **`Extra Reward Indicator` 整颗没建**：原版 `rewards.Count > 1` ⇒ 开（`CP:DailyRewardDrawerController.cs:215-233`）；我方 `Shell/DailyRewardPopup.cs` 全文 **0 处 `ArtExtra`/`40k_main_bt_rewards`**（`DailyStreakPopup.cs:278` 那颗是连登窗的，⛔ 别混）。落点 = `BuildDrawer`（`:470-570`）。
 2. 🔴 **抽屉在「该档奖励为空」时该整颗隐藏**：原版 `CP:DailyRewardDrawerController.cs:212-214` `gameObject.SetActive(false)`；我方 `:431-432 **无条件** `BuildDrawer(...,false)` + `BuildDrawer(...,true)`。
-3. 🔴 **天数标题词条**：原版 `Loc("MainMenu/DayIndicator")` + `string.Format`（`CP:DailyRewardItemContainer.cs:167-175`）；我方 `:426` 写死 `"Day " + (day + 1)`。⇒ 换语言不跟（我们自己的 `OnLanguageChanged` 会重建，但键仍是英文硬编码）。
+3. 🔴 **天数标题词条**：原版 `Loc("MainMenu/DayIndicator")` + `string.Format`（`CP:DailyRewardItemContainer.cs:167-175`）；我方 `:426` 写死 `"Day " + (day + 1)`。⇒ 换语言不跟（我们自己的 `OnLanguageChanged` 会重建，但键仍是英文硬编码）。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— `Shell/DailyRewardPopup.cs:426-432` 现读走词条 `MainMenu/DayIndicator` + `string.Format`（`B106_W11`）。
 4. 🔴 **连登格数公式**：原版 `cur + 7 − collected`（`CP:DailyStreakWindow.cs:174-226`）；我方 `DailyData.StreakDays = 7` **常量** + `StreakCollected = 5`（`DailyData.cs:1070-1072`，`:182 EntryScaleAt` 用 `i == StreakCollected` 判首格）。**今天两个数恰好使格数 = 7**（5+7−5），⇒ 观感等价、**规则不等价**（`collected < cur` 时会少格/错号）。
 5. ⚪ **C19 聚焦滚动 / C20 懒初始化**：我方如实注明「4 格时恒不触发、写了是死代码」（`DailyRewardPopup.cs:984-994`、`:933-951`）—— **不算缺口**（原版这两条在 4 格数据下同样是空操作）。
 6. ⚪ **C15 买到之后的 `canCollect=true`**：我方 `HandlePurchaseCompleted` 等价（`:1084` 一带，判据自注）。
@@ -513,7 +514,7 @@ if (claimedAt <= 0) {
 | **A** | `Shell/DailyRewardPopup.cs` | ① 加 `Extra Reward Indicator`（`40k_main_bt_rewards` 100²，pos (102.5,143.7)，出厂关，`tierList.Count>1` 才开）；② `BuildDrawer` 在**该档奖励为空**时把整颗抽屉 `SetActive(false)` | §3·3 C8 / C9 · §2·3 | 中：`DrawerForTest` / `DrawerCountForTest` 的期望值要同步（`:1023-1030`） |
 | **B** | `Shell/DailyRewardPopup.cs` | 天数标题改走 `Loc.T("MainMenu/DayIndicator")`（词条可能带 `{0}`）而不是 `"Day " + n` | §3·3 C12 | 低（文案层） |
 | **C** | `Shell/DailyData.cs` + `Shell/DailyStreakPopup.cs` | 把「7 格常量」改成 `cur + 7 − collected` 的**公式口**（数据侧出 `StreakFirstIndex` / `StreakCount`），`EntryScaleAt` 的「首格」判据跟着改成 `i == firstIndex` | §3·4 S4 / S6 | 中：`RewardsScene` 的 A509 / A1280 那批断言与 `_streakClaimed[]` 的定长数组都要跟着改 |
-| **D** | `Shell/InboxWindow.cs` | 补「领奖钮倒计时」：`RedeemableAtMs > now` ⇒ 钮文本换时间串、`interactable=false`；到点自动切回 `Loc("MainMenu/General/Claim")`（原版 `Update()` 每帧重算，我们挂 `Tick` 即可） | §3·5 D14 | 低（但要有 `GetTimeString` 的等价口） |
+| **D** | `Shell/InboxWindow.cs` | 补「领奖钮倒计时」：`RedeemableAtMs > now` ⇒ 钮文本换时间串、`interactable=false`；到点自动切回 `Loc("MainMenu/General/Claim")`（原版 `Update()` 每帧重算，我们挂 `Tick` 即可） —— ✅ **2026-11-01 复核（`B111_D1`）：已落地**（`Shell/InboxWindow.cs:1486 TickClaimCountdown`，`Update` 每帧经 `:1050` 调；`B106_W11`）| §3·5 D14 | 低（但要有 `GetTimeString` 的等价口） |
 | **E** | `Shell/InboxWindow.cs` | `_mdWarn` 的**唯一开启口**接到 `InboxData` 的「阵营/扩展未解锁」判据上（今天恒 false，但**口要在**） | §3·5 D15 · §5·5 N-3 | 低 |
 | **F** | `Shell/RewardWindow.cs` | **等判据**再动 A10（不要凭猜给 `DrawerOverride` 赋值） | §3·1 A10 · §6·1 | 高（判据未清） |
 | **G** | `Shell/CampaignRewardWindow.cs` | 补一句 `premiumWarning.text = premiumExtraTip`（`IsPremiumLocked == false` 那一支；屏幕不可见，纯语义完整） | §3·2 B11 | 无 |

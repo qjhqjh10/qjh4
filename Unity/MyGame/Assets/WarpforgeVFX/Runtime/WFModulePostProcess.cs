@@ -64,8 +64,8 @@
 //     往后处理链写值（原版 `OnDisable` 之后 `Update` 就不跑了）。
 //   · **`lutBlend` 的过渡是我们自己算的，不用 DOTween**：批处理下没有帧循环（工程约定），补间推不动。
 //     起点/终点/时长/延迟都照原版，**缓动用 `Ease.OutQuad`** —— 那是 DOTween 的全局默认
-//     （原版这两条 tween **没有**显式 `SetEase`）。🔴 **我们没在原版工程的 DOTweenSettings 里核过
-//     那个默认值** ⇒ 这一条算「我们定的」，不是原版结论。
+//     （原版这两条 tween **没有**显式 `SetEase`）。✅ **已核过原版 `DOTweenSettings.asset`**
+//     （`ExportedProject/Assets/Resources/DOTweenSettings.asset`）：`defaultEaseType: 6 = OutQuad`，与我们那份逐字段相同 ⇒ 是原版结论。
 //   · **`alreadySetLUTAnimTexture` / `allowAnimation` 做成 public 字段**（原版是非序列化字段）
 //     —— 为了 Inspector 里看得见、自检能断言。
 //   · **`AnimEventSetOriginalLUTNoTransition` 按原文做成 `static`**。将来要用**动画事件**绑它
@@ -590,8 +590,8 @@ namespace WarpforgeVFX
             return kind == "asset" ? rest : (v ?? "");
         }
 
-        /// <summary>原版那两条 tween 是 `DOTween.To(...)`、**没有显式 `SetEase`** ⇒ 走 DOTween 的全局默认缓动。
-        /// 我们按 `Ease.OutQuad` 算（DOTween 的默认值）。🔴 **没在原版工程的 DOTweenSettings 里核过** ⇒ 「我们定的」。</summary>
+        /// <summary>原版那两条 tween 是 `DOTween.To(...)`、**没有显式 `SetEase`** ⇒ 走全局默认缓动（原版 `DOTweenSettings.defaultEaseType = 6 = OutQuad`，已核）。
+        /// 我们按 `Ease.OutQuad` 算（DOTween 的默认值）。✅ **已核原版 `DOTweenSettings.defaultEaseType = 6 = OutQuad`** ⇒ 是原版值。</summary>
         static float Ease(float x)
         {
             if (x <= 0f) return 0f;

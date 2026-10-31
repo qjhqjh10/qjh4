@@ -182,7 +182,7 @@ namespace CardPresentation
         /// 挂上去会往自检树里多塞指针/聚光灯节点、并写 `PlayerPrefs` ⇒ 一律不挂（`Application.isPlaying` 判）。</para></summary>
         public static MenuTutorialFlow Attach(MainMenuRuntime menu)
         {
-            if (!Application.isPlaying) return null;
+            if (!Application.isPlaying && !_allowNonPlayWrite) return null;   // 🔴 2026-11-01（B111_R3W · 账 N128）：自检口 `AttachForTest` 可绕过（同 `MarkStageDone` 的 `_allowNonPlayWrite` 手法）；生产该标志恒 false
             if (menu == null) return null;
             bool start = MenuTutorialRequested;
             // 🔴 **复用跨场景存活的那一份**（`Awake` 里 `DontDestroyOnLoad`）：
@@ -1210,6 +1210,28 @@ namespace CardPresentation
             }
             finally { _allowNonPlayWrite = prev; }
         }
+
+        /// <summary>自检专用口（⛔ 非原版件、⛔ 生产代码不许调）：**绕过 `Attach` 的 `isPlaying` 闸**，
+        /// 仍走真实的 <see cref="Attach"/> 逻辑（同一份实例复用 / `_menu` 绑 / `StartFlow` 判定）。
+        /// <para>实现 = 置一次 <c>_allowNonPlayWrite</c>（`try/finally` 还原）⇒ 与 <see cref="MarkStageDoneForTest"/> 同一套绕过手法；
+        /// `Attach` 只多一条 `&amp;&amp; !_allowNonPlayWrite`，方法体其余**逐句不变**。</para>
+        /// <para>⚠️ 返回的实例会写静态 `_instance`（`Attach` 的既定行为）⇒ 收尾必须调 <see cref="ResetInstanceForTest"/>，
+        /// 否则下一条自检会复用到已被销毁的实例。</para></summary>
+        public static MenuTutorialFlow AttachForTest(MainMenuRuntime menu)
+        {
+            bool prev = _allowNonPlayWrite;
+            _allowNonPlayWrite = true;
+            try
+            {
+                var f = Attach(menu);
+                if (f != null) { f._active = false; f._index = -1; }   // 测试自己推进（⛔ 不自动 StartFlow ⇒ 不写 PlayerPrefs）
+                return f;
+            }
+            finally { _allowNonPlayWrite = prev; }
+        }
+
+        /// <summary>自检专用口：清掉静态 `_instance`（`Attach` 写进去的那一份）。收尾调 <see cref="AttachForTest"/> 之后用它。</summary>
+        public static void ResetInstanceForTest() { _instance = null; }
 #endif
     }
 }

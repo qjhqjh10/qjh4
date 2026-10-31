@@ -4,6 +4,7 @@
 > 触发口径：铁律 5·c「一个值 ≠ 全部情况」（模板 = `判据/AUD05_state_matrix_卡组编辑.md`）。
 > **本文件只覆盖「商店窗」这一件**：窗根 / 左栏页签 / 各页的货架栅格 / 商品格 / 价格钮 / 倒计时 / VIP 态 / 限购态。
 > 同族的**商品条目族 19 变体**（`General Basic Offer Container *`）与 **Booster Info/Open 两扇窗**只在 §0/§3 点名，不展开 —— 它们的判据正本仍是 `资料/阶段二_商店_原版规格.md` §五。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 6 条**：复核方法 = 把 §0 / §4 里每条「我方现状 / 缺口」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地 / 已过期的就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 ---
 
@@ -11,7 +12,7 @@
 
 | # | 结论 | 强度 |
 |---|---|---|
-| 1 | 🔴 **商店格是 4 列，不是 2 列。** `GridLayoutGroup.m_Constraint = 0`（**Flexible**）⇒ `m_ConstraintCount: 2` 是**死值**；真实列数 = `floor(Content 宽 ÷ cellSize.x)` = `floor(1590.24 ÷ 335.6)` = **4**。⚠️ **我们按 `m_ConstraintCount` 做成了 2 列**（`ShopTabPage.cs:113`）——这是本文件最重要的一条缺口 | ✅ 已核实（UGUI 源码 `GridLayoutGroup.cs:237,262` + prefab 实读） |
+| 1 | 🔴 **商店格是 4 列，不是 2 列。** `GridLayoutGroup.m_Constraint = 0`（**Flexible**）⇒ `m_ConstraintCount: 2` 是**死值**；真实列数 = `floor(Content 宽 ÷ cellSize.x)` = `floor(1590.24 ÷ 335.6)` = **4**。⚠️ **我们按 `m_ConstraintCount` 做成了 2 列**（`ShopTabPage.cs:113`）——这是本文件最重要的一条缺口 —— ✅ **2026-11-01 复核（`B111_D1`）：我方已改** —— `Shell/ShopTabPage.cs:116` 现读 `GridCols` = `floor(ScrollView.W / CellWNow)`（`B103_F5`，2026-10-30） | ✅ 已核实（UGUI 源码 `GridLayoutGroup.cs:237,262` + prefab 实读） |
 | 2 | 商店页有**两个结构完全不同的参数族**：**Grid 族**（Card / Item / VIP / 母版 `Shop Tab`）= 纵向滚动 + 4 列 335.6×475 + 小屏 ×**1.18**；**Flexible 族**（`Packs Tab`=`BoosterShopTab` / `Generic Shop Tab`）= **横向滚动 + 2 行货架** + 小屏 ×**1.05** | ✅ 已核实（8 份 prefab 逐个读 `contentLayoutElementsSizeMultiplierSmallScreens`） |
 | 3 | `Daily Shop Tab` 的**根上没有脚本**（只有 RT + 一个未导出的组件）⇒ 它**不建商品、不管倒计时、不排序**；原版这个 build 里 Daily 页的驱动类**不存在** | ✅ 已核实（prefab `m_Component` 只有 2 项；全库无 `DailyShopTab` 类） |
 | 4 | 小屏系数 **1.18 是算出来的**：`4 × (335.6×1.18) = 1584.03 ≤ 1590.24` —— 乘完仍然是 **4 列**，只是格子变大。⇒ 这是「4 列」的**第二条独立佐证**（若真是 2 列，1.18 这个值毫无意义） | ✅ 算术（反证） |
@@ -42,7 +43,7 @@ cellCountX = Mathf.Max(1, Mathf.FloorToInt((width - padding.horizontal + spacing
 cellCountX = floor((1590.24 + 0.001) / 335.6) = floor(4.7385) = 4
 ```
 
-- 🔴 **`m_ConstraintCount: 2` 只在 `FixedColumnCount`/`FixedRowCount` 两档被读**（`GridLayoutGroup.cs:245,253`）⇒ **在 Flexible 下是死值**。我们的实现把它当成了列数（`ShopTabPage.cs:113` `GridCols = 2`）。
+- 🔴 **`m_ConstraintCount: 2` 只在 `FixedColumnCount`/`FixedRowCount` 两档被读**（`GridLayoutGroup.cs:245,253`）⇒ **在 Flexible 下是死值**。我们的实现把它当成了列数（`ShopTabPage.cs:113` `GridCols = 2`）。 ✅ **2026-11-01 复核（`B111_D1`）：已不存在** —— `ShopTabPage.cs:116` 现读不再是常量 2。
 - 左右留白：`4 × 335.6 = 1342.4`，`1590.24 − 1342.4 =` **右剩 247.84 px**（`m_ChildAlignment = 0 UpperLeft`，不留左侧）。
 - **小屏档**：`cellSize.x × 1.18 = 396.008` ⇒ `floor(1590.24 / 396.008) = 4` ⇒ **仍是 4 列**（`4 × 396.008 = 1584.03`，只余 6.21 px）。这一格是「4 列」的独立反证。
 
@@ -57,7 +58,7 @@ contentH = rows × 475 + padding.vertical(= top 7 + bottom 0)      // 原版就�
 contentW = 不受限 ⇒ 恒 = Viewport 宽 1590.24（anchors (0,0)-(1,1)、sizeDelta.x ≈ 0.000122）
 ```
 
-⚠️ 我们写的是 `contentW = GridCols × CellW`（`ShopTabPage.cs:406` = 671.2）—— **原版 Content 是拉伸的**，宽不由格数决定。
+⚠️ 我们写的是 `contentW = GridCols × CellW`（`ShopTabPage.cs:406` = 671.2）—— **原版 Content 是拉伸的**，宽不由格数决定。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— 现读 `ShopTabPage.cs:435` `contentW = flex ? … : ScrollRectNow.W`（非 flex 档用视口宽，不再由格数决定）。
 
 ### 1·3 小屏系数（`ShopTab.Setup`，两支互斥）
 
@@ -321,15 +322,15 @@ if (can) vipTimer.Initialize(InventoryManager.GetExpirationDate(Store.RequiredIt
 | # | 缺什么 | 原版值 | 我方现状 | 落点 |
 |---|---|---|---|---|
 | **1** | 🔴 **列数 2 ≠ 4** | 4 列（§1·1） | `GridCols = 2`，且 Content 宽被写成 `GridCols × CellW = 671.2` | `Shell/ShopTabPage.cs:113`（常量）· `:406`（内容宽）· `:443`（摆位） |
-| **2** | 🔴 **小屏档（Grid 族 ×1.18）** | 396.008 × 560.5，仍 4 列 | 注释明写「我们的版面固定 16:9 ⇒ 乘 1.0」；**全文 0 处 `SmallScreenUI`** | `Shell/ShopTabPage.cs:110-112` |
+| **2** | 🔴 **小屏档（Grid 族 ×1.18）** | 396.008 × 560.5，仍 4 列 | 注释明写「我们的版面固定 16:9 ⇒ 乘 1.0」；**全文 0 处 `SmallScreenUI`** —— ✅ **2026-11-01 复核（`B111_D1`）：已接** —— `ShopTabPage.cs:111-114` 现读注明 `B106_W14` 已接 `SmallGridScale`（`SmallScreenUI.Enabled` 时乘 1.18）；全文已非「0 处 `SmallScreenUI`」| `Shell/ShopTabPage.cs:110-112` |
 | **3** | 🔴 **小屏档（Flexible 族 ×1.05）** | 391.545 × 449.295 | 同上（且第 5 页根本没走 Flexible 族） | 同上 |
 | **4** | 🔴 **`Open ({n})`（已拥有 ⇒ 开箱）** | `MenuShop/ShopContainer/OpenButton` = `Open ({0})`，强制可点 | **0 处**（价格区只有 Free / `--` / 数字三档） | `Shell/ShopTabPage.cs:679-684` |
 | **5** | 🔴 **`Owned`（已拥有 ⇒ 文字）** | `MenuShop/Owned` = `Owned` | **0 处** | 同上 |
 | **6** | 🔴 **「买不起 ⇒ 按钮不可点」** | `HasEnoughCurrency()` 参与 `interactable` | 只有 `SoldOut` 一个闸，**没有余额闸** | `Shell/ShopTabPage.cs:700` · `ShopData` 无 `CanAfford` |
 | **7** | 🟡 **Flexible 族整条路（横向 + 2 行货架）** | `Packs Tab`/`Generic Shop Tab`：横向、2 行、`itemSize 372.9×427.9`/`spacing 28×32`/`pad 50,25,25,0` | 第 5 页（Crates）**复用 Cards 的竖向格 + 同一份商品数组** | `Shell/ShopData.cs:247-255`（`case 4: return _cards`）· `ShopTabPage.cs:399-451`（恒纵向） |
 | **8** | 🟡 **页签禁用态** | `Selectable.interactable = false`（灰 + 点不动） | **0 处** | `Shell/ShopWindow.cs`（全文） |
-| **9** | 🟡 **`Available` 文本的显隐闸** | `CatalogItemContainer` **没有** `SetActive` ⇒ 由 prefab 出厂决定；`ShopOfferContainer` 有（`hasLimit`） | 我们按 `AvailableMax > 0` 显示 —— **判据来源不是原版代码** | `Shell/ShopTabPage.cs:603`（🔶 应标「自己设计」） |
-| **10** | ⚪ **页签徽记机制** | `UiBadgeNotification.AddNotificationType(store.ShopBadge 等)` | 我们自绘 `BadgeWiring`（注释自称「诊断名」） | `Shell/ShopWindow.cs:217,245` |
+| **9** | 🟡 **`Available` 文本的显隐闸** | `CatalogItemContainer` **没有** `SetActive` ⇒ 由 prefab 出厂决定；`ShopOfferContainer` 有（`hasLimit`） | 我们按 `AvailableMax > 0` 显示 —— **判据来源不是原版代码** —— ✅ **2026-11-01 复核（`B111_D1`）：已按铁律 18 标 🔶**（`ShopTabPage.cs:646` 现读写着「🔶 自己设计（非原版）：`Available` 显隐闸 = `AvailableMax > 0` …调度台 2026-10-31 裁定」；N97）| `Shell/ShopTabPage.cs:603`（🔶 应标「自己设计」） |
+| **10** | ⚪ **页签徽记机制** | `UiBadgeNotification.AddNotificationType(store.ShopBadge 等)` | 我们自绘 `BadgeWiring`（注释自称「诊断名」） —— ℹ️ **2026-11-01 复核（`B111_D1`）：机制不变** —— `BadgeNotifications.BadgeWiring` 仍在；「诊断名」那句现专指第 5 颗键（`ShopWindow.cs:92`）| `Shell/ShopWindow.cs:217,245` |
 
 > ⚠️ **#1 与 #2 是同一处代码的两面**：把 `GridCols` 改成「按 Content 宽 ÷ 格宽现算」之后，小屏档才会有意义（4 列两档都成立）。建议同一个写手一次改掉。
 

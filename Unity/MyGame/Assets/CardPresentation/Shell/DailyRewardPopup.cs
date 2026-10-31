@@ -508,8 +508,8 @@ namespace CardPresentation
             // `Reward Holder` → 图标
             var holder = MenuDraw.Node(node, "Reward Holder", R(D_Holder));
             var icon = Art(DailyData.RewardIconOf(day, prem));
-            var iconQ = MenuDraw.Rect(holder, icon, R(D_Holder), "Reward Holder", QContent, null, true);
-            if (iconQ == null && icon == null) MissingArt.Add(DailyData.RewardIconOf(day, prem)); var previewHit = BuildPreviewHit(holder, R(D_Holder), day, prem);   // 🆕 2026-10-31（B106_W51）：隐形命中件（原版抽屉的 `image` 本身是射线靶）—— 必须建在图标**之后**（`Editor/RewardsScene.cs` 的 `ArtOf` 取子树第一张 `ImageQuad`）；队列/守卫/判据见 `BuildPreviewHit` 的 doc
+            var iconView = ItemDrawer.DrawIconFill(holder, R(D_Holder), DailyData.RewardIconOf(day, prem), DailyData.RewardName(day, prem), QContent);   // 🔴 2026-11-01（B111_R3W · 账 N138）：主图改走真 `ItemDrawer.DrawView`（Icon 档 + 铺满 + PA=1，= 原版 `ItemDrawer.Draw(rewardDrawerHolder, item, qty, Icon)` 的结构）；几何不变
+            if (iconView == null && icon == null) MissingArt.Add(DailyData.RewardIconOf(day, prem)); var previewHit = BuildPreviewHit(holder, R(D_Holder), day, prem);   // 🆕 2026-10-31（B106_W51）：隐形命中件（原版抽屉的 `image` 本身是射线靶）—— 必须建在图标**之后**（`Editor/RewardsScene.cs` 的 `ArtOf` 取子树第一张 `ImageQuad`）；队列/守卫/判据见 `BuildPreviewHit` 的 doc
             // 奖励名（`EverguildTextMeshPro` fs=45 × 0.8）
             // 🔴 **2026-10-09（A1126 · A2 档）**：这一处原来**没传 autosize 实参** ⇒ 固定 36px。
             //   判据 = 原版 `menus ▸ Daily Reward Popup/Daily Reward Popup Entry/NormalReward/EverguildTextMeshPro`

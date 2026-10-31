@@ -2304,6 +2304,8 @@ namespace CardPresentation
         Transform _list, _blocker;
         readonly System.Collections.Generic.List<Transform> _itemBgs = new System.Collections.Generic.List<Transform>();
         readonly System.Collections.Generic.List<ImageQuad> _itemQuads = new System.Collections.Generic.List<ImageQuad>();
+        /// <summary>每行的命中区节点（`MenuDraw.Hit` 的返回）—— 换底图后要拿它上面的 `WindowButton` 重新 `Bind`。</summary>
+        readonly System.Collections.Generic.List<Transform> _itemHits = new System.Collections.Generic.List<Transform>();
         int _value = -1;
         bool _open;
 
@@ -2453,8 +2455,11 @@ namespace CardPresentation
                 if (lb != null) MenuDraw.AlignLeft(lb, lbR);
                 int idx = i;
                 // 命中：队列必须高于挡板（QBlocker），否则点条目会落到「点别处 ⇒ 收起」那一支。
-                MenuDraw.Hit(row, "Hit", new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH), QItemBg + 1,
-                             () => Pick(idx), q, null, "40K_dropdown_item_hover", null);
+                // 🔴 **B-78（`B112_A`）**：`art` 必须给**常态图名** —— 按下图只由 `WindowButton.PressedNames`
+                //   那条唯一规则从它推（`40K_dropdown_item → 40K_dropdown_item_press`）；原来传 null ⇒ 按下不换图。
+                //   原版那颗 `Toggle` 是 `m_Transition = 2` + `m_SpriteState.m_PressedSprite = _press`（有按下态）。
+                _itemHits.Add(MenuDraw.Hit(row, "Hit", new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH), QItemBg + 1,
+                                           () => Pick(idx), q, "40K_dropdown_item"));
                 _itemBgs.Add(row);
                 _itemQuads.Add(q);
             }
@@ -2465,13 +2470,19 @@ namespace CardPresentation
             RefreshItemArt();
         }
 
-        /// <summary>把每个条目的底图刷成「当前值 / 其它」（🔶 映射见类头）。</summary>
+        /// <summary>把每个条目的底图刷成「当前值 / 其它」（🔶 映射见类头）。
+        /// 🔴 **B-78（`B112_A`）**：换完还要把新底图当成这颗钮的**常态**重新 `Bind` 一次 —— 否则悬停离开时
+        /// `WindowButton.Exit()` 会还原成**构建时**的常态图（`_normalTex`），把当前值那行的 `_selected` 悄悄抹掉。</summary>
         void RefreshItemArt()
         {
             for (int i = 0; i < _itemQuads.Count; i++)
             {
                 if (_itemQuads[i] == null) continue;
-                SwapArt(_itemQuads[i], i == _value ? "40K_dropdown_item_selected" : "40K_dropdown_item");
+                bool cur = i == _value;
+                SwapArt(_itemQuads[i], cur ? "40K_dropdown_item_selected" : "40K_dropdown_item");
+                if (i >= _itemHits.Count || _itemHits[i] == null) continue;
+                var wb = _itemHits[i].GetComponent<WindowButton>();
+                if (wb != null) wb.Bind(_itemQuads[i], "40K_dropdown_item");
             }
         }
 

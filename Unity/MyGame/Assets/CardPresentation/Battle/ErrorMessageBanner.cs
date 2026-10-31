@@ -97,8 +97,8 @@
 //    本工程 `Assets/Resources/DOTweenSettings.asset` 里是 **`defaultEaseType: 6` = `Ease.OutQuad`**
 //    （`DG.Tweening.Ease`：`Unset 0` `Linear 1` `InSine 2` `OutSine 3` `InOutSine 4` `InQuad 5`
 //     **`OutQuad 6`** …… 与 `BattleCameraSreenSize.cs` 文件头 ⑤ 那份枚举同源）—— 也正是 DOTween 的出厂默认。
-//    ⚠️ **原版自己的 `DOTweenSettings` 资产本地没有**（`assets_full` 全盘按名找不到）⇒
-//      **「原版=OutQuad」这一条是推断**，如实标；我们按 OutQuad 写（`EaseOut`，见下）。
+//    ✅ **原版自己那份 `DOTweenSettings` 已定位**（`d:/2/tools/assetripper_out/ExportedProject/Assets/Resources/`
+//      `DOTweenSettings.asset:31 defaultEaseType: 6`）⇒ **「原版=OutQuad」是实读、不是推断**；我们按 OutQuad 写（`EaseOut`，见下）。
 // ⑪ 🔴 **两场景的子树【不是】逐字段相同 —— 「只有根 `ap` 不同」那句话是错的**（2026-10-09 现读订正）。
 //    ⚠️ 上面 ③④ 那一组是 **`battlearena1` 那一档**的实读值；原版同一件控制器在 **13 个战场**与
 //    **主菜单**里**不是一个尺寸**。上一版（`Shell/MessageToast.cs` 的 2026-10-09 初版 +
@@ -887,8 +887,8 @@ namespace CardPresentation
         }
 
         /// <summary>那两条 tween 的缓动（文件头 ⑩：原版没写 `SetEase` ⇒ 吃 DOTween `defaultEaseType`
-        /// = **`Ease.OutQuad`** = `1 − (1−x)²`）。⚠️ 「原版就是 OutQuad」是**推断**（原版那份
-        /// `DOTweenSettings` 本地找不到），本仓自己的那份读出来也是 6 = OutQuad。</summary>
+        /// = **`Ease.OutQuad`** = `1 − (1−x)²`）。✅ 「原版就是 OutQuad」**已实读**（原版那份
+        /// `DOTweenSettings.asset:31 = 6`，`ExportedProject/Assets/Resources/`），本仓自己的那份读出来同样是 6 = OutQuad。</summary>
         public static float EaseOut(float x)
         {
             x = Mathf.Clamp01(x);

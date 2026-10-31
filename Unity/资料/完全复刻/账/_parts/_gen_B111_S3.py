@@ -1,0 +1,66 @@
+# -*- coding: utf-8 -*-
+# 生成账补丁 B111_S3.tsv（11 列，裸 split("\t")）
+import io, os
+
+COLS = ["域", "原版类", "方法", "判据出处", "判据要点", "状态",
+        "我们的落点", "差异", "等级", "轮次", "备注"]
+
+rows = []
+
+# ---------------------------------------------------------------- 1) B-67：ShopOfferContainer.OnInitialize
+rows.append([
+    "商店",
+    "ShopOfferContainer",
+    "OnInitialize(IShopOffer shopItem)",
+    "decomp_full/ShopOfferContainer__OnInitialize.c（全文）· cpp2il/out_il2csharp/Assembly-CSharp/ShopOfferContainer.cs:20-53",
+    "三拍：① base.OnInitialize(shopItem)；② timer 支 —— LiveOpsUtility.IsTimedEvent 为真 ⇒ timer.Initialize(endDate,\"\") + timer.OnRunOutOfTime += RefreshExpire + schedule = ActionScheduler.Instance.Schedule(endDate, OnOfferTimerEnded, null)；为假（或 timer 为空）⇒ timer.gameObject.SetActive(false)；③ GetComponent<GeneralOfferPopupDrawerBase>() 非空 ⇒ drawer.Initialize(shopItem.GetBaseData())",
+    "B",
+    "Shell/OfferContainer.cs:1339（Build）· Shell/OfferContainerPartial_B111S3.cs:81（ScheduleTimerEnd）· Shell/OfferContainerPartial_B111S3.cs:110（OnOfferTimerEnded）",
+    "本批（B111_S3）补上第 ② 拍的第 ④ 跳 ActionScheduler.Schedule（`ActionScheduler.Schedule(endDate, OnOfferTimerEnded, null)` ⇒ 本仓 LiveOpsScheduler；有到期时刻才排、无 / 已过一律不排且出声）。仍缺两处：① ② 拍的 timer.OnRunOutOfTime += RefreshExpire（= liveOps.RefreshExpire(cb) 打远端，本机不可达）；② ③ 拍的 GeneralOfferPopupDrawerBase.Initialize。⚠️ 本行旧落点 ShopTabPage.cs:534（BuildCell）其实属 CatalogItemContainer 族（那段代码注释引的就是 CatalogItemContainer__OnInitialize.c），不是本方法 ⇒ 已换落点。",
+    "P1",
+    "B111_S3",
+    "断言 = Editor/B111_S3_Assert.cs（A/B/C 三段：Build 真排上 / 无到期时刻不排且出声 / 到期回调两半 + 灭自证配对）。判据与逐条 → 报告/B111_S3.md",
+])
+
+# ---------------------------------------------------------------- 2) B-68：LiveOpsUtility.IsTriggeredEvent
+rows.append([
+    "未分类/其他",
+    "LiveOpsUtility",
+    "IsTriggeredEvent(ILiveOps liveOps)",
+    "decomp_full/LiveOpsUtility__IsTriggeredEvent.c",
+    "return liveOps.GetBaseData().filter.Triggers.Count > 0;（data +0x30 = filter，filter +0x30 = Triggers）",
+    "A",
+    "Shell/LiveOpsManager.cs:593（IsTriggeredEvent）· Shell/LiveOpsUtilityPartial_B111S3.cs:43（IsTriggeredEvent）",
+    "真身逐句在 LiveOpsManager（唯一实现，原版 0 格 NRE ⇒ 本仓出声 + false）；原版挂在 LiveOpsUtility 类上 ⇒ 本批加门面转发，两个成员现在都在 LiveOpsUtility. 上（IsTimedEvent 在 Shell/LiveOpsUtilityPartial_B110W4.cs）。",
+    "P2",
+    "B111_S3",
+    "断言 = Editor/B111_S3_Assert.cs D 段（D1–D6）。原表判 D 已过期（D = 不复刻，而本方法在本地纯逻辑、早就实现了）",
+])
+
+# ---------------------------------------------------------------- 3) B-68：LiveOpsUtility.IsTimedEvent
+rows.append([
+    "未分类/其他",
+    "LiveOpsUtility",
+    "IsTimedEvent(ILiveOps liveOps, out long endDate)",
+    "decomp_full/LiveOpsUtility__IsTimedEvent.c（全文）· cpp2il/out_il2csharp/Assembly-CSharp/LiveOpsUtility.cs:18-50",
+    "三支：activationType != Permanent ⇒ endDate = dates.endDate；Permanent 且 !hasDuration ⇒ endDate = long.MaxValue、返回 false；Permanent 且 hasDuration ⇒ long.MaxValue；随后 if (hasDuration) endDate = Math.Min(endDate, filter.GetExpirationTime(liveOps))；返回 true",
+    "A",
+    "Shell/LiveOpsUtilityPartial_B110W4.cs:79（IsTimedEvent）",
+    "原版 null 四格抛 NRE ⇒ 本仓出声 + 当「不是计时活动」（同 EventFilter.GetExpirationTime 口径）；原版 5 个调用点在本仓 4 个恒走 no-data 支、1 个（OpenEventButton）已有等价物 —— 逐条见 报告/B110_W4.md 二。",
+    "P2",
+    "B110_W4",
+    "断言 = Editor/B110_W4_Assert.cs（A/B/C/D 四段 26 条）。⛔ 本行旧判 D 已过期（D = 不复刻）：实现在本地、且已逐句对过 —— 本批（B111_S3）只做账面订正 + 门面，代码是 B110_W4 落的",
+])
+
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "B111_S3.tsv")
+buf = []
+buf.append("\t".join(COLS))
+for r in rows:
+    assert len(r) == 11, len(r)
+    for c in r:
+        assert "\t" not in c and "\n" not in c
+    buf.append("\t".join(r))
+io.open(out, "wb").write(("\n".join(buf) + "\n").encode("utf-8"))
+print("wrote", out, len(buf), "lines")
+for r in rows:
+    print("  cols =", len(r), "| key =", r[1], "/", r[2])

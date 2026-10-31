@@ -930,7 +930,7 @@ namespace CardPresentation
         ///   （`m_Name = "Card Frame Glitch"`，参数已逐条读出）；② shader = **`Everguild/FX/Sprite Scan Lines`**
         ///   （`bundle_shaders_assets_all/Shader/Shader_-5025784757600742591.json`；属性表与
         ///   `WarpforgeVFX/Runtime/OriginalShaderBlendTable.cs:369` 那一行逐字对上）；
-        /// ③ 噪声图 `Noise Combined.png`（同一 bundle 的 `Texture2D/`）。
+        /// ③ 噪声图 **`ScanLines.png`**（`_Noise` → pathID `1565928461195782613`；同一 bundle 的 `Texture2D/`）。🔴 2026-11-01（`B111_F1B`）就地订正：原来写 `Noise Combined` 是**错口径**（那是卡背 SDF 的 `_Noise`，pathID 是另一个 `-8214795764591836323`；两张图都是 128²，所以尺寸分不出来，只有 pathID / 材质名能分）。
         /// **错因**：原版是经 **PPtr** 引用的 —— 材质名之外没有 "glitch" 线索、shader 名里一个 "glitch" 都没有。
         /// ⇒ 现在的结论是「**要做，只差一个自建 shader**」（铁律 11：⛔ 不许按成本判「不做」），**不是**「原版没有」。
         /// 本轮**仍然先用**这张关键词图标顶上（比自绘接近原版、零风险），✅ **2026-10-25（E7 批次 3）glitch 材质已接线**（`CardView.SetGlitch` + 自建 `Resources/Shaders/CardFrameGlitch.shader`，算式照抄原版 DXBC）—— 角标**不撤**，原版是两件事。待办与判据全文 → `资料/完全复刻/报告/R16_卡牌面遗留C_第2轮.md` §没做·ToggleGlitch。
@@ -1376,5 +1376,12 @@ namespace CardPresentation
             p = Root + "ui/" + file;
             return IsCached(p) ? p : null;
         }
+
+        /// <summary>临时卡 glitch 材质 `Card Frame Glitch` 的 `_Noise`（原版材质 `Material_-2877403367212247079.json`
+        /// → PPtr pathID `1565928461195782613` = 贴图 **`ScanLines`**，128²，与原图逐像素相同）。
+        /// ⚠️ **不是** `CardbackSdfNoise()` —— 那是卡背 SDF 材质 `Card Backs SDF` 的 `_Noise`（pathID `-8214795764591836323` = `Noise Combined`）。
+        /// 两张图**都是 128²**、还在同一个 bundle 里 ⇒ 只能按 pathID / 材质名分，⛔ 别按尺寸或名字里的 "noise" 认（2026-11-01 `B111_F1B` 清掉的正是这个错）。
+        /// 导入设置照原版 `.meta`：`enableMipMap 1` · `sRGBTexture 1` · `wrap 0/0/0`（Repeat —— shader 里按 `_NoiseScaleAndSpeed.xy = 10×18.05` 平铺采样）。</summary>
+        public static Texture2D GlitchScanLinesNoise() { return Get(Root + "vfx/ScanLines"); }
     }
 }

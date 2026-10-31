@@ -1,0 +1,451 @@
+资产相对路径	真值样点数	现corr(改前)	现lag(改前)	处置	修复后corr
+vo/Sautekh_Orikan_gen3.ogg	208000	0.806483	-576	replaced	0.999120
+vo/Sautekh_Orikan_intro.ogg	266070	0.649034	-128	replaced	0.999610
+vo/Sautekh_Orikan_vsTBC.ogg	201600	0.740877	-1024	replaced	0.999248
+vo/Sautekh_Zahndrekh_gen3.ogg	216000	0.621045	-1024	replaced	0.999279
+vo/Sautekh_Zahndrekh_gen5.ogg	246400	0.791225	-128	replaced	0.999078
+vo/Sautekh_Zahndrekh_gen6.ogg	201600	0.952843	-1024	replaced_q10	0.999858
+vo/Sautekh_Zahndrekh_intro.ogg	230400	0.809048	-128	replaced	0.999228
+vo/Sautekh_Zahndrekh_threat.ogg	200000	0.895586	-1024	replaced	0.999405
+vo/Sautekh_Zahndrekh_vs_Grukk.ogg	238400	0.674256	-128	replaced	0.999240
+vo/Sautekh_Zahndrekh_vs_Tau.ogg	252800	0.758064	-1024	replaced	0.999072
+vo/Sautekh_Zahndrekh_vs_Tyranid.ogg	251200	0.786546	-1024	replaced_q10	0.999847
+vo/Sautekh_Zahndrekh_vs_Ultramarine.ogg	238400	0.747913	-128	replaced	0.999401
+vo/Sautekh_Zahndrekh_wp.ogg	193600	0.972472	-1024	replaced	0.999289
+vo/Tutorial1_ending1_Calgar.ogg	218336	0.791350	-1024	replaced	0.999271
+vo/Tutorial1_ending2_SpaceMarine.ogg	268270	0.592499	-1024	replaced_q10	0.999878
+vo/Tutorial1_prebattle3_Calgar.ogg	265763	0.294586	-1024	replaced	0.999037
+vo/Tutorial1_turn101_Calgar.ogg	210671	0.807304	-128	replaced	0.999048
+vo/Tutorial1_turn202_Ventris.ogg	223133	0.676172	-128	replaced	0.999396
+vo/Tutorial1_turn301_Calgar.ogg	194071	0.805852	-1024	replaced	0.999326
+vo/Tutorial1_turn501_Calgar.ogg	265753	0.546601	-128	replaced	0.999052
+vo/Tutorial1_turn502_Ventris.ogg	197113	0.689226	-1024	replaced	0.999400
+vo/Tutorial1_turn601_Ventris.ogg	181768	0.825530	-1024	replaced	0.999188
+vo/Tutorial1_turn602_Calgar.ogg	206783	0.729653	-128	replaced_q10	0.999893
+vo/Tutorial1_turn702_Ventris.ogg	266763	0.384661	-128	replaced_q10	0.999879
+vo/Tutorial2_turn101_Ghazghkull.ogg	246645	0.767139	-576	replaced	0.999561
+vo/Tutorial2_turn102_Makari.ogg	203273	0.972706	-1024	replaced	0.999250
+vo/Tutorial2_turn103_Ghazghkull.ogg	429662	0.408274	-1024	replaced	0.999542
+vo/Tutorial2_turn104_Ventris.ogg	337676	0.654368	-1024	replaced	0.999503
+vo/Tutorial2_turn402_Ghazghkull.ogg	243860	0.819777	-128	replaced	0.999574
+vo/Tutorial2_turn501_Ghazghkull.ogg	328533	0.692136	-128	replaced	0.999652
+vo/Tutorial2_turn601_Ghazghkull.ogg	271448	0.797637	-1024	replaced	0.999511
+vo/Tutorial2_turn603_Ventris.ogg	245733	0.334895	-128	replaced	0.999280
+vo/Tutorial6_prebattle1_Ventris.ogg	240187	0.624364	-1024	replaced_q10	0.999887
+vo/Tutorial6_turn201_Ventris.ogg	187199	0.990092	-158	replaced_q10	0.999892
+vo/Tutorial6_turn301_Ventris.ogg	191712	0.984951	-1024	replaced_q10	0.999907
+vo/Tutorial6_turn601_Ventris.ogg	168960	0.975150	-128	replaced_q10	0.999909
+vo/Tutorial6_turn602_Ventris.ogg	192393	0.943902	-128	replaced	0.999056
+vo/VO_ADS_Aestred Thurga - My soul is consecrated to this relic.ogg	177696	0.983138	0	replaced	0.999037
+vo/VO_ADS_Canoness Adelaide the Serene - All that you are and all you have done revolts me.ogg	188803	0.963881	-576	replaced	0.999050
+vo/VO_ADS_Celestian Sacresant Aveline_concede.ogg	191874	0.998371	0	replaced_q10	0.999943
+vo/VO_ADS_Celestian Sacresant Aveline_gen1.ogg	166092	0.940653	-1024	replaced_q10	0.999875
+vo/VO_ADS_Celestian Sacresant Aveline_gen3.ogg	189184	0.809022	-128	replaced_q10	0.999892
+vo/VO_ADS_Celestian Sacresant Aveline_greet.ogg	157561	0.983389	0	replaced	0.999328
+vo/VO_ADS_Celestian Sacresant Aveline_vsNL.ogg	241593	0.630605	-128	replaced_q10	0.999926
+vo/VO_ADS_Ephrael Stern - I am the Daemonifuge the thrice-born the bane of daemons.ogg	305264	0.524856	-1024	replaced	0.999313
+vo/VO_ADS_Erika Luminas_gen2.ogg	238776	0.317849	-128	replaced	0.999152
+vo/VO_ADS_Erika Luminas_gen7.ogg	157175	0.988976	0	replaced	0.999259
+vo/VO_ADS_Erika Luminas_intro.ogg	219907	0.725412	-128	replaced_q10	0.999925
+vo/VO_ADS_Erika Luminas_threat.ogg	169615	0.807222	-128	replaced_q10	0.999916
+vo/VO_ADS_Erika Luminas_vsGhaelyn.ogg	223016	0.795998	-1024	replaced	0.999304
+vo/VO_ADS_Erika Luminas_vsGordrang.ogg	232872	0.507107	-128	replaced	0.999313
+vo/VO_ADS_Erika Luminas_vsHesperax1.ogg	196758	0.830306	-1024	replaced_q10	0.999917
+vo/VO_ADS_Erika Luminas_vsHesperax2.ogg	201891	0.825081	-1024	replaced_q10	0.999916
+vo/VO_ADS_Erika Luminas_vsHexscorn.ogg	205909	0.779226	-1024	replaced	0.999274
+vo/VO_ADS_Erika Luminas_vsMorvennVahl.ogg	188407	0.954080	-126	replaced	0.999014
+vo/VO_ADS_Imagifier - Listen to my voice and the saintly deeds of the fallen.ogg	200854	0.989347	0	replaced_q10	0.999919
+vo/VO_ADS_Junith Eruita_gen5.ogg	244499	0.817229	-576	replaced	0.999485
+vo/VO_ADS_Junith Eruita_greet.ogg	183957	0.923872	-128	replaced	0.999172
+vo/VO_ADS_Junith Eruita_threat.ogg	212621	0.889040	-576	replaced	0.999188
+vo/VO_ADS_Junith Eruita_vsAstraMilitarum.ogg	190927	0.981149	0	replaced	0.999332
+vo/VO_ADS_Morvenn Vahl_gen2.ogg	208133	0.959410	0	replaced_q10	0.999910
+vo/VO_ADS_Morvenn Vahl_vsJunith.ogg	182346	0.914922	-1024	replaced_q10	0.999940
+vo/VO_AM_Arcadian Leontus_concede.ogg	209606	0.964901	-128	replaced	0.999439
+vo/VO_AM_Arcadian Leontus_gen6.ogg	203459	0.814054	-128	replaced	0.999199
+vo/VO_AM_Arcadian Leontus_mirror.ogg	201690	0.954377	-1078	replaced	0.999531
+vo/VO_AM_Arcadian Leontus_vsGhazghkull.ogg	189776	0.925195	-1024	replaced	0.999492
+vo/VO_AM_Arcadian Leontus_vsHexscorn.ogg	152704	0.998635	0	replaced_q10	0.999887
+vo/VO_AM_Arcadian Leontus_vsImotekh.ogg	163566	0.978548	0	replaced_q10	0.999927
+vo/VO_AM_Arcadian Leontus_vsSaffa.ogg	217650	0.831549	-576	replaced_q10	0.999909
+vo/VO_AM_Arcadian Leontus_vsSwarmlord.ogg	244230	0.730428	-1024	replaced	0.999203
+vo/VO_AM_Arcadian Leontus_vsTervigon.ogg	247200	0.793469	-1024	replaced	0.999385
+vo/VO_AM_Arcadian Leontus_wp.ogg	195012	0.991964	0	replaced	0.999327
+vo/VO_AM_Commissar Elan_Backup1.ogg	135695	0.998389	0	replaced_q10	0.999840
+vo/VO_AM_Commissar Elan_gen2.ogg	160050	0.998090	0	replaced_q10	0.999903
+vo/VO_AM_Commissar Elan_gen4.ogg	199033	0.774325	-128	replaced	0.999128
+vo/VO_AM_Commissar Elan_gen5.ogg	198903	0.837576	-1024	replaced_q10	0.999919
+vo/VO_AM_Commissar Elan_gen6.ogg	157973	0.864428	-128	replaced_q10	0.999894
+vo/VO_AM_Commissar Elan_gen7.ogg	202340	0.771020	-1024	replaced_q10	0.999924
+vo/VO_AM_Commissar Elan_greet.ogg	153753	0.859002	-128	replaced	0.999339
+vo/VO_AM_Commissar Elan_vsUrsula.ogg	201562	0.863366	-1024	replaced_q10	0.999866
+vo/VO_AM_Hektor Thenmann_Backup2.ogg	160415	0.930214	-128	replaced_q10	0.999884
+vo/VO_AM_Hektor Thenmann_Backup3.ogg	171730	0.811782	-1024	replaced_q10	0.999904
+vo/VO_AM_Hektor Thenmann_Backup6.ogg	174276	0.779637	-1024	replaced_q10	0.999873
+vo/VO_AM_Hektor Thenmann_gen1.ogg	108007	0.870197	-128	replaced	0.999213
+vo/VO_AM_Hektor Thenmann_gen5.ogg	170059	0.689261	-1024	replaced_q10	0.999900
+vo/VO_AM_Hektor Thenmann_gen6.ogg	179008	0.837613	-1024	replaced_q10	0.999922
+vo/VO_AM_Hektor Thenmann_gen7.ogg	211711	0.884614	-1024	replaced_q10	0.999887
+vo/VO_AM_Hektor Thenmann_threat.ogg	151950	0.534719	-128	replaced_q10	0.999911
+vo/VO_AM_Hektor Thenmann_vsDenkler.ogg	180466	0.934543	-128	replaced_q10	0.999906
+vo/VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM.ogg	181406	0.981228	0	replaced_q10	0.999881
+vo/VO_AM_Hektor Thenmann_vsTau.ogg	260025	0.681743	-1024	replaced_q10	0.999835
+vo/VO_AM_Hektor Thenmann_vsTau_v2.ogg	239738	0.815257	-1024	replaced_q10	0.999822
+vo/VO_AM_Ursula Creed_gen5.ogg	116744	0.989587	0	replaced	0.999189
+vo/VO_AM_Ursula Creed_greet.ogg	192455	0.949675	-1024	replaced	0.999179
+vo/VO_AM_Ursula Creed_threat.ogg	168218	0.882155	-1024	replaced	0.999259
+vo/VO_AM_Ursula Creed_vsAbaddon.ogg	182814	0.997577	0	replaced	0.999585
+vo/VO_AM_Ursula Creed_wp.ogg	149841	0.995988	0	replaced_q10	0.999929
+vo/VO_BL_Chaos Spawn - bestial snarling.ogg	82485	0.988667	-128	replaced	0.999932
+vo/VO_BL_Ghallaron's Champion - Surrender to Ghallaron and your death will be quick.ogg	214109	0.974671	-1024	replaced_q10	0.999882
+vo/VO_BL_Ghallaron's Disciple - Praise Ghallaron beloved in the eyes of the gods.ogg	224019	0.996917	0	replaced_q10	0.999892
+vo/VO_BL_Ghallaron_Backup2.ogg	213189	0.833995	-1024	replaced_q10	0.999891
+vo/VO_BL_Ghallaron_Backup4.ogg	296047	0.704631	-1024	replaced_q10	0.999895
+vo/VO_BL_Ghallaron_concede.ogg	192240	0.903106	-128	replaced_q10	0.999862
+vo/VO_BL_Ghallaron_gen1.ogg	256914	0.816513	-1024	replaced_q10	0.999836
+vo/VO_BL_Ghallaron_gen6.ogg	240622	0.892795	-128	replaced_q10	0.999868
+vo/VO_BL_Ghallaron_vsGhazghkull.ogg	289498	0.654739	-1024	replaced_q10	0.999875
+vo/VO_BL_Ghallaron_vsVarroTigurius.ogg	184288	0.990988	0	replaced_q10	0.999797
+vo/VO_BlackLegion_Abaddon_concede.ogg	251200	0.676470	-576	replaced	0.999162
+vo/VO_BlackLegion_Abaddon_gen2.ogg	291200	0.663142	-1024	replaced	0.999092
+vo/VO_BlackLegion_Abaddon_gen3.ogg	208000	0.855068	-128	replaced_q10	0.999821
+vo/VO_BlackLegion_Abaddon_gen4.ogg	220800	0.733186	-128	replaced	0.999146
+vo/VO_BlackLegion_Abaddon_gen5.ogg	252800	0.908675	-128	replaced	0.999044
+vo/VO_BlackLegion_Abaddon_gen7.ogg	233600	0.930477	-128	replaced_q10	0.999827
+vo/VO_BlackLegion_Abaddon_greet.ogg	254400	0.761809	-1024	replaced_q10	0.999803
+vo/VO_BlackLegion_Abaddon_mirror.ogg	278400	0.678039	-128	replaced	0.999161
+vo/VO_BlackLegion_Abaddon_vsCalgar.ogg	232000	0.808958	-128	replaced_q10	0.999878
+vo/VO_BlackLegion_Abaddon_vsHexscorn.ogg	196800	0.997223	0	replaced_q10	0.999838
+vo/VO_BlackLegion_Abaddon_vsMinka.ogg	214400	0.875835	-1024	replaced_q10	0.999846
+vo/VO_BlackLegion_Haarken_Gen5.ogg	199920	0.997394	0	replaced	0.999398
+vo/VO_BlackLegion_Hexscorn_Concede.ogg	147200	0.772391	-128	replaced	0.999570
+vo/VO_BlackLegion_Hexscorn_Gen3.ogg	220800	0.211575	-128	replaced	0.999698
+vo/VO_BlackLegion_Hexscorn_Gen4.ogg	158400	0.623910	-1024	replaced	0.999512
+vo/VO_BlackLegion_Hexscorn_Gen5.ogg	144000	0.865554	-576	replaced	0.999504
+vo/VO_BlackLegion_Hexscorn_Gen6.ogg	160000	0.899511	-1024	replaced	0.999571
+vo/VO_BlackLegion_Hexscorn_Gen7.ogg	147200	0.489508	-128	replaced	0.999605
+vo/VO_BlackLegion_Hexscorn_Greet.ogg	209600	0.593602	-128	replaced	0.999754
+vo/VO_BlackLegion_Hexscorn_Intro.ogg	201600	0.323807	-128	replaced	0.999678
+vo/VO_BlackLegion_Hexscorn_Threat.ogg	176000	0.546336	-1024	replaced	0.999529
+vo/VO_BlackLegion_Hexscorn_vs_Abaddon.ogg	153600	0.945912	0	replaced	0.999523
+vo/VO_BlackLegion_Hexscorn_vs_Keltoc.ogg	147200	0.407862	-128	replaced	0.999701
+vo/VO_BlackLegion_Hexscorn_vs_UrsulaCreed.ogg	156928	0.778979	-576	replaced	0.999340
+vo/VO_BlackLegion_Hexscorn_vs_Varro.ogg	206400	-0.110407	-128	replaced	0.999568
+vo/VO_BlackLegion_Hexscorn_vs_tbc2.ogg	126400	0.455129	-128	replaced	0.999558
+vo/VO_BlackLegion_Hexscorn_vs_tbc3.ogg	97600	0.439323	-128	replaced	0.999663
+vo/VO_BlackLegion_Hexscorn_vs_tbc4.ogg	88000	0.766774	-128	replaced	0.999888
+vo/VO_BlackLegion_Hexscorn_wp.ogg	201600	0.430262	-128	replaced	0.999238
+vo/VO_CSM_EC_Daemon Prince Xarahan_gen2.ogg	223665	0.872264	-576	replaced_q10	0.999839
+vo/VO_CSM_EC_Daemon Prince Xarahan_gen3.ogg	232608	0.849919	-128	replaced_q10	0.999852
+vo/VO_CSM_EC_Daemon Prince Xarahan_greet.ogg	243081	0.927965	-1024	replaced_q10	0.999778
+vo/VO_CSM_EC_Daemon Prince Xarahan_threat.ogg	275263	0.858363	-1024	replaced_q10	0.999764
+vo/VO_CSM_EC_KonstrictusTormentor (Andrew).ogg	137972	0.603143	-1024	replaced_q10	0.999897
+vo/VO_CSM_EC_Lord Exultant (Kevin).ogg	213753	0.891955	-1024	replaced_q10	0.999841
+vo/VO_CSM_EC_Lord Kaphrael_concede.ogg	188406	0.935724	-1024	replaced_q10	0.999851
+vo/VO_CSM_EC_Lord Kaphrael_gen4.ogg	214989	0.994927	0	replaced_q10	0.999857
+vo/VO_CSM_EC_Lord Kaphrael_gen5.ogg	185653	0.989186	0	replaced_q10	0.999875
+vo/VO_CSM_EC_Lord Kaphrael_intro.ogg	206855	0.844461	-128	replaced_q10	0.999875
+vo/VO_CSM_EC_Lord Kaphrael_mirror.ogg	214808	0.844745	-1024	replaced_q10	0.999873
+vo/VO_CSM_EC_Lucius_Backup1.ogg	183276	0.989896	-1024	replaced_q10	0.999852
+vo/VO_CSM_EC_Lucius_Backup2.ogg	289547	0.695286	-1024	replaced_q10	0.999827
+vo/VO_CSM_EC_Lucius_Backup3.ogg	246625	0.604494	-128	replaced_q10	0.999856
+vo/VO_CSM_EC_Lucius_gen1.ogg	235386	0.904020	-1024	replaced_q10	0.999857
+vo/VO_CSM_EC_Lucius_gen2.ogg	245838	0.640621	-1024	replaced_q10	0.999821
+vo/VO_CSM_EC_Lucius_gen4.ogg	207860	0.818170	-1024	replaced_q10	0.999796
+vo/VO_CSM_EC_Lucius_intro.ogg	201618	0.795977	-128	replaced_q10	0.999897
+vo/VO_CSM_EC_Lucius_vsAbaddon.ogg	206355	0.720114	-128	replaced_q10	0.999877
+vo/VO_CSM_EC_Lucius_vsAstraMilitarum.ogg	260726	0.790329	-128	replaced_q10	0.999803
+vo/VO_CSM_EC_Lucius_vsBile.ogg	294030	0.580780	-576	replaced_q10	0.999857
+vo/VO_CSM_EC_Lucius_vsCSM.ogg	271514	0.665448	-1024	replaced_q10	0.999880
+vo/VO_CSM_EC_Lucius_vsDA.ogg	308089	0.479103	-128	replaced_q10	0.999873
+vo/VO_CSM_EC_Lucius_vsEC.ogg	202440	0.895634	-1024	replaced_q10	0.999841
+vo/VO_CSM_EC_Lucius_vsFulgrim.ogg	236416	0.811756	-576	replaced_q10	0.999865
+vo/VO_CSM_EC_Lucius_vsUM.ogg	366054	0.396095	-1024	replaced_q10	0.999839
+vo/VO_CSM_EC_Lucius_vsWE.ogg	193086	0.775857	-128	replaced	0.999217
+vo/VO_CSM_EC_Lucius_wp.ogg	186754	0.965704	-1024	replaced_q10	0.999870
+vo/VO_CSM_EC_Terminator (Andrew).ogg	177066	0.697371	-128	replaced	0.999115
+vo/VO_CSM_EC_Winged Daemon Prince (Andrew Dennis).ogg	254225	0.912134	-1024	replaced_q10	0.999864
+vo/VO_CW_SaimHann_Lhykhis_concede.ogg	232030	0.987454	0	replaced_q10	0.999883
+vo/VO_CW_SaimHann_Lhykhis_vsNecrons.ogg	185662	0.923500	-128	replaced_q10	0.999862
+vo/VO_CW_SaimHann_Nuadhu Fireheart - I am the bloodied blade of Khaine.ogg	144000	0.542434	-1024	replaced	0.999456
+vo/VO_DA_Apothecary - The Lion's sons endure I will see to it.ogg	132300	0.962698	0	replaced_q10	0.999885
+vo/VO_DA_Asmodai_cantDo.ogg	146942	0.871555	-1024	replaced_q10	0.999890
+vo/VO_DA_Asmodai_gen6.ogg	190991	0.875116	-1024	replaced_q10	0.999857
+vo/VO_DA_Asmodai_intro.ogg	188299	0.737957	-576	replaced_q10	0.999880
+vo/VO_DA_Asmodai_mirror.ogg	267548	0.780164	-1024	replaced_q10	0.999854
+vo/VO_DA_Asmodai_threat.ogg	186203	0.902159	-128	replaced_q10	0.999886
+vo/VO_DA_Asmodai_vsBelial.ogg	153327	0.965721	0	replaced_q10	0.999912
+vo/VO_DA_Asmodai_vsTBC2.ogg	183497	0.760986	-1024	replaced_q10	0.999856
+vo/VO_DA_Azrael_concede.ogg	174302	0.538322	-1024	replaced_q10	0.999913
+vo/VO_DA_Azrael_gen1.ogg	89093	0.928853	0	replaced_q10	0.999900
+vo/VO_DA_Azrael_gen2.ogg	146020	0.567474	-128	replaced_q10	0.999920
+vo/VO_DA_Azrael_gen4.ogg	140652	0.857196	-128	replaced_q10	0.999885
+vo/VO_DA_Azrael_gen6.ogg	102001	0.869359	-128	replaced_q10	0.999889
+vo/VO_DA_Azrael_greet.ogg	180911	0.529679	-128	replaced_q10	0.999931
+vo/VO_DA_Azrael_hurry.ogg	106844	0.898749	-128	replaced	0.999171
+vo/VO_DA_Azrael_intro.ogg	145089	0.623526	-128	replaced_q10	0.999882
+vo/VO_DA_Azrael_threat.ogg	204057	0.324054	-128	replaced_q10	0.999915
+vo/VO_DA_Azrael_vsAbaddon.ogg	127250	0.772594	-128	replaced_q10	0.999904
+vo/VO_DA_Azrael_vsBelial.ogg	154081	0.843340	-128	replaced_q10	0.999830
+vo/VO_DA_Azrael_wp.ogg	144239	0.773015	-128	replaced_q10	0.999909
+vo/VO_DA_Belial_gen1.ogg	170399	0.995059	0	replaced_q10	0.999906
+vo/VO_DA_Belial_mirror.ogg	148691	0.990641	0	replaced	0.999314
+vo/VO_DA_Belial_threat.ogg	137861	0.838636	-128	replaced_q10	0.999889
+vo/VO_DA_Belial_vsAsmodai.ogg	162110	0.836246	-128	replaced_q10	0.999922
+vo/VO_DA_Belial_vsAzrael.ogg	117939	0.998021	0	replaced_q10	0.999915
+vo/VO_DA_Belial_wp.ogg	153067	0.643379	-128	replaced_q10	0.999930
+vo/VO_DA_Company Master - The fate of the chapter lies in our every action Do not falter!.ogg	189883	0.890635	-128	replaced	0.999063
+vo/VO_DA_Deathwing Knight - The hunt never ends Duty compels us forward.ogg	158256	0.882773	-128	replaced_q10	0.999896
+vo/VO_DA_Deathwing Knight Master - We must be eternally vigilant for our own flaws.ogg	149743	0.943399	-128	replaced_q10	0.999911
+vo/VO_DA_Ezekiel - I alone judge the weak from the strong the truth from falsehood.ogg	179883	0.936334	-576	replaced	0.999136
+vo/VO_DA_Interrogator Chaplain - Your life is forfeit but your soul could still find deliverance.ogg	249557	0.828878	-1024	replaced_q10	0.999824
+vo/VO_DA_Master Lazarus - I will stand sentinel for the Chapter's honor.ogg	120177	0.983355	0	replaced_q10	0.999918
+vo/VO_DA_Ravenwing Ancient - The banner of Caliban shall never falter.ogg	127782	0.290849	-128	replaced_q10	0.999914
+vo/VO_DA_Ravenwing Champion - The chase is over Now the blade falls.ogg	149735	0.994932	0	replaced_q10	0.999901
+vo/VO_GSC_Achilles Ridgerunner_Forward! Let's earn our divine reward.ogg	166241	0.860261	-1024	replaced_q10	0.999861
+vo/VO_GSC_Acolyte Iconward_Backup1.ogg	239790	0.575232	-1024	replaced_q10	0.999896
+vo/VO_GSC_Acolyte Iconward_Backup2.ogg	299412	0.554500	-1024	replaced_q10	0.999878
+vo/VO_GSC_Acolyte Iconward_Backup3.ogg	238546	0.730698	-128	replaced_q10	0.999894
+vo/VO_GSC_Acolyte Iconward_Backup4.ogg	272465	0.220569	-1024	replaced	0.999115
+vo/VO_GSC_Acolyte Iconward_Backup5.ogg	237350	0.574417	-1024	replaced_q10	0.999902
+vo/VO_GSC_Acolyte Iconward_Backup6.ogg	204867	0.416301	-128	replaced_q10	0.999871
+vo/VO_GSC_Acolyte Iconward_gen3.ogg	163834	0.829721	-576	replaced_q10	0.999884
+vo/VO_GSC_Acolyte Iconward_gen5.ogg	205932	0.745391	-128	replaced_q10	0.999874
+vo/VO_GSC_Acolyte Iconward_gen7.ogg	279260	0.604610	-576	replaced_q10	0.999856
+vo/VO_GSC_Acolyte Iconward_greet.ogg	236383	0.814270	-1024	replaced_q10	0.999870
+vo/VO_GSC_Acolyte Iconward_intro.ogg	213311	0.643058	-1024	replaced_q10	0.999872
+vo/VO_GSC_Acolyte Iconward_threat.ogg	255049	0.766054	-1024	replaced_q10	0.999804
+vo/VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg	301843	0.559559	-128	replaced_q10	0.999867
+vo/VO_GSC_Acolyte Iconward_vsMagus.ogg	171355	0.850740	-1024	replaced_q10	0.999878
+vo/VO_GSC_Acolyte Iconward_vsNecrons.ogg	351371	0.540168	-1024	replaced_q10	0.999862
+vo/VO_GSC_Acolyte Iconward_vsOrks.ogg	267083	0.548216	-128	replaced_q10	0.999888
+vo/VO_GSC_Acolyte Iconward_wp.ogg	199976	0.865412	-1024	replaced_q10	0.999823
+vo/VO_GSC_Acolyte Leader_To me, children of the Grizzlepit.ogg	117152	0.786379	-1024	replaced_q10	0.999909
+vo/VO_GSC_Atalan Jackal - The trap is set Our moment draws near.ogg	171402	0.985598	0	replaced_q10	0.999903
+vo/VO_GSC_Benefictus_We will overwhelm all who stand against our ascension.ogg	295897	0.839150	-576	replaced	0.999029
+vo/VO_GSC_Biophagus_The Grizzlepit and I have created such wonders, to fuel our ascension.ogg	285331	0.204634	-128	replaced_q10	0.999896
+vo/VO_GSC_Jackal Outrider -There is nothing you can do to stop our ascension.ogg	196304	0.831186	-1024	replaced_q10	0.999874
+vo/VO_GSC_Kelermorph_With me My Brothers and Sisters, liberation is at hand.ogg	219188	0.863252	-128	replaced_q10	0.999916
+vo/VO_GSC_Lhaska Szenari_gen2.ogg	270005	0.699444	-1024	replaced	0.999441
+vo/VO_GSC_Lhaska Szenari_gen3.ogg	264069	0.522147	-128	replaced_q10	0.999931
+vo/VO_GSC_Lhaska Szenari_gen4.ogg	206363	0.878690	-1024	replaced	0.999361
+vo/VO_GSC_Lhaska Szenari_gen5.ogg	217179	0.870860	-576	replaced	0.999280
+vo/VO_GSC_Lhaska Szenari_gen6.ogg	188444	0.807471	-128	replaced	0.999328
+vo/VO_GSC_Lhaska Szenari_gen7.ogg	260395	0.621873	-1024	replaced	0.999560
+vo/VO_GSC_Lhaska Szenari_greet.ogg	194432	0.919703	-1024	replaced	0.999257
+vo/VO_GSC_Lhaska Szenari_intro.ogg	227208	0.764096	-1024	replaced	0.999443
+vo/VO_GSC_Lhaska Szenari_vsCalgar.ogg	243293	0.610129	-128	replaced	0.999297
+vo/VO_GSC_Lhaska Szenari_vsCommissar.ogg	203636	0.850904	-128	replaced	0.999588
+vo/VO_GSC_Lhaska Szenari_vsTyranids.ogg	212577	0.914258	-1024	replaced	0.999400
+vo/VO_GSC_Lhaska Szenari_vsUrsulaCreed.ogg	219630	0.516421	-128	replaced	0.999437
+vo/VO_GSC_Lhaska Szenari_wp.ogg	185112	0.810177	-1024	replaced	0.999471
+vo/VO_GSC_Neophyte Iconbearer_For each one of us that falls, a hundred more will rise.ogg	217876	0.565544	-128	replaced_q10	0.999901
+vo/VO_GSC_Neophyte Specialist_None can deny the Star Children's deliverance.ogg	153187	0.934332	-1024	replaced_q10	0.999898
+vo/VO_GSC_Neophyte Trooper_Give praise to the Master below.ogg	129052	0.988538	0	replaced_q10	0.999915
+vo/VO_GSC_Nexos_Kindred, at the ready, The plan moves forward.ogg	174593	0.359969	-128	replaced	0.999206
+vo/VO_GSC_Saffa Rhiannor_Backup4.ogg	177358	0.995286	0	replaced	0.999144
+vo/VO_GSC_Saffa Rhiannor_concede.ogg	200257	0.921360	-128	replaced	0.999368
+vo/VO_GSC_Saffa Rhiannor_gen2.ogg	200632	0.986416	-1024	replaced	0.999583
+vo/VO_GSC_Saffa Rhiannor_gen3.ogg	192176	0.832242	-1024	replaced	0.999401
+vo/VO_GSC_Saffa Rhiannor_gen4.ogg	177837	0.963500	-1024	replaced	0.999561
+vo/VO_GSC_Saffa Rhiannor_gen7.ogg	183383	0.924906	-416	replaced	0.999400
+vo/VO_GSC_Saffa Rhiannor_intro.ogg	302844	0.551165	-1024	replaced	0.999264
+vo/VO_GSC_Saffa Rhiannor_vsAeldari.ogg	232668	0.718396	-128	replaced	0.999122
+vo/VO_GSC_Sanctus_A single, perfect shot to herald our ascension.ogg	193264	0.614759	-128	replaced_q10	0.999886
+vo/VO_GSC_Uthrel Naas_concede.ogg	165717	0.849520	-1024	replaced_q10	0.999905
+vo/VO_GSC_Uthrel Naas_gen2.ogg	170593	0.908547	-576	replaced	0.999158
+vo/VO_GSC_Uthrel Naas_gen5.ogg	188325	0.407679	-128	replaced	0.999361
+vo/VO_GSC_Uthrel Naas_gen7.ogg	232219	0.712429	-128	replaced	0.999256
+vo/VO_GSC_Uthrel Naas_greet.ogg	181651	0.897853	-576	replaced_q10	0.999911
+vo/VO_GSC_Uthrel Naas_intro.ogg	201238	0.784063	-1024	replaced_q10	0.999927
+vo/VO_GSC_Uthrel Naas_mirror.ogg	197894	0.998086	0	replaced	0.999068
+vo/VO_GSC_Uthrel Naas_threat.ogg	175601	0.917070	1	replaced_q10	0.999912
+vo/VO_GSC_Uthrel Naas_vsAstraMilitarum.ogg	203025	0.740714	-128	replaced	0.999219
+vo/VO_GSC_Uthrel Naas_vsSororitas.ogg	266336	0.463490	-128	replaced	0.999010
+vo/VO_GSC_Uthrel Naas_vsSpaceMarine.ogg	148260	0.883683	-1024	replaced	0.999027
+vo/VO_GSC_Uthrel Naas_wp.ogg	216810	0.846194	-1024	replaced_q10	0.999881
+vo/VO_Goff_Boomdakka Snazzwagon - Fasta boyz We'z got lots of gits ta krump.ogg	228800	0.910705	-1024	replaced_q10	0.999892
+vo/VO_Goff_Deff Dread - Iz stuck inside dis ting an dat makes me MAD.ogg	154666	0.995798	0	replaced_q10	0.999870
+vo/VO_Goff_Ghazghkull_Greet.ogg	196800	0.862421	-1024	replaced	0.999663
+vo/VO_Goff_Ghazghkull_Intro.ogg	198400	0.998016	-7	replaced	0.999787
+vo/VO_Goff_Ghazghkull_Threat.ogg	190400	0.924411	-128	replaced	0.999748
+vo/VO_Goff_Ghazghkull_gen1.ogg	198400	0.913494	-1025	replaced	0.999739
+vo/VO_Goff_Ghazghkull_gen3.ogg	174400	0.930594	-1025	replaced	0.999710
+vo/VO_Goff_Ghazghkull_gen4.ogg	257600	0.819047	-1024	replaced	0.999585
+vo/VO_Goff_Ghazghkull_gen6.ogg	153600	0.892409	-1024	replaced	0.999559
+vo/VO_Goff_Ghazghkull_gen7.ogg	257600	0.984490	-1024	replaced	0.999496
+vo/VO_Goff_Ghazghkull_vsCalgar.ogg	278400	0.660597	-576	replaced	0.999572
+vo/VO_Goff_Grukk_concede.ogg	254400	0.642388	-1024	replaced	0.999162
+vo/VO_Goff_Grukk_gen5.ogg	206400	0.780498	-1024	replaced	0.999569
+vo/VO_Goff_Grukk_threat.ogg	193600	0.980361	0	replaced	0.999040
+vo/VO_Goff_Grukk_vsNemesor.ogg	196800	0.956062	-1024	replaced	0.999404
+vo/VO_Goff_Grukk_vsUM.ogg	232000	0.708159	-576	replaced	0.999576
+vo/VO_Goff_Kommando - Shut yer gobs time ta get all sneakylike.ogg	168000	0.987654	-128	replaced_q10	0.999847
+vo/VO_Goff_Ork Nob - Orkz is made fer two fings only fightin and winnin.ogg	233600	0.759905	-1024	replaced_q10	0.999873
+vo/VO_Goff_Zagstruk_gen1.ogg	203648	0.951271	-1024	replaced	0.999566
+vo/VO_Goff_Zagstruk_vsTBC4.ogg	232000	0.993240	0	replaced	0.999342
+vo/VO_Ork_Beastboss Morgrim_vsAstraMilitarum.ogg	200252	0.879121	-1024	replaced	0.999024
+vo/VO_Ork_Gargantuan Squiggoth - Mighty bellow (SFX).ogg	166263	0.925300	-128	replaced	0.999797
+vo/VO_Ork_Goff_Gordrang_gen1.ogg	303686	0.674807	-1024	replaced	0.999454
+vo/VO_Ork_Goff_Gordrang_gen6.ogg	232703	0.897380	-1024	replaced	0.999662
+vo/VO_Ork_Goff_Gordrang_vsEliac.ogg	236905	0.943255	-1024	replaced	0.999406
+vo/VO_Ork_Mozrog Skragbad_mirror.ogg	175223	0.634271	-128	replaced	0.999241
+vo/VO_Ork_Mozrog Skragbad_vsBL.ogg	189524	0.922315	-128	replaced	0.999094
+vo/VO_Ork_Mozrog Skragbad_vsMorgrim.ogg	218060	0.791774	-1024	replaced	0.999157
+vo/VO_Ork_Mozrog Skragbad_vsUM.ogg	165114	0.986423	0	replaced	0.999513
+vo/VO_Ork_Nob on Smasha Squig - Fasta! 'Dis one's gonna get messy (Andrew).ogg	132442	0.890352	-128	replaced	0.999310
+vo/VO_Ork_Weridboy - Me skull's a-buzzin' You'z gettin' da zzap! (Andrew).ogg	172007	0.983883	0	replaced_q10	0.999878
+vo/VO_Ork_Wurrboy - Da Waaagh's in me bones! Come an 'ave a taste! (Andrew).ogg	161535	0.955310	-128	replaced_q10	0.999927
+vo/VO_SaimHann_Anvirr_gen1.ogg	193600	0.997483	0	replaced_q10	0.999886
+vo/VO_SaimHann_Anvirr_gen2.ogg	224000	0.796064	-128	replaced	0.999484
+vo/VO_SaimHann_Anvirr_gen3.ogg	248000	0.917771	-576	replaced_q10	0.999848
+vo/VO_SaimHann_Anvirr_gen5.ogg	240000	0.893946	-128	replaced	0.999107
+vo/VO_SaimHann_Anvirr_gen6.ogg	225600	0.978029	0	replaced_q10	0.999891
+vo/VO_SaimHann_Anvirr_greet.ogg	188800	0.982085	0	replaced_q10	0.999867
+vo/VO_SaimHann_Anvirr_intro.ogg	224000	0.953989	-1024	replaced	0.999062
+vo/VO_SaimHann_Anvirr_mirror.ogg	241600	0.889348	-128	replaced_q10	0.999870
+vo/VO_SaimHann_Anvirr_vsOrikan.ogg	208000	0.937196	-1024	replaced_q10	0.999905
+vo/VO_SaimHann_Anvirr_vsZephyrblade.ogg	235200	0.917547	-1024	replaced_q10	0.999845
+vo/VO_SaimHann_Ghaelyn_gen1.ogg	163170	0.926218	-576	replaced	0.999256
+vo/VO_SaimHann_Ghaelyn_gen3.ogg	227200	0.916800	-1024	replaced	0.999509
+vo/VO_SaimHann_Ghaelyn_gen7.ogg	163170	0.998571	0	replaced	0.999574
+vo/VO_SaimHann_Ghaelyn_intro.ogg	179340	0.956097	-576	replaced_q10	0.999917
+vo/VO_SaimHann_Ghaelyn_threat.ogg	249600	0.889090	-1024	replaced_q10	0.999905
+vo/VO_SaimHann_Ghaelyn_vs_Tyranids.ogg	167580	0.894677	-1024	replaced_q10	0.999897
+vo/VO_SaimHann_Zephyrblade_gen5.ogg	218624	0.962020	-128	replaced_q10	0.999914
+vo/VO_SaimHann_Zephyrblade_mirror.ogg	159232	0.727699	-1024	replaced_q10	0.999845
+vo/VO_Sautekh_Canoptek Plasmacyte - whirr whirr.ogg	102029	0.859096	-1024	replaced	0.999929
+vo/VO_Sautekh_Canoptek Scarab - Skitter skitter.ogg	76049	0.938400	0	replaced_q10	0.999937
+vo/VO_Sautekh_Damaged Hexmark - L-L-Locating target for an-annihilation.ogg	176559	0.311129	-128	replaced_q10	0.999862
+vo/VO_Sautekh_Doomstalker - Detecting intruder, Powering doomsday blaster.ogg	167580	0.944791	0	replaced_q10	0.999881
+vo/VO_Sautekh_Imotekh_concede.ogg	176000	0.922589	-1024	replaced	0.999109
+vo/VO_Sautekh_Imotekh_gen5.ogg	211200	0.806893	-1024	replaced_q10	0.999892
+vo/VO_Sautekh_Imotekh_greet.ogg	235200	0.966628	-1024	replaced_q10	0.999868
+vo/VO_Sautekh_Imotekh_intro.ogg	232000	0.768246	-576	replaced_q10	0.999867
+vo/VO_Sautekh_Imotekh_mirror.ogg	228800	0.914945	-1024	replaced_q10	0.999852
+vo/VO_Sautekh_Imotekh_vsAeldari.ogg	217600	0.887738	-576	replaced_q10	0.999849
+vo/VO_Sautekh_Imotekh_vsOrks.ogg	241600	0.806846	-1024	replaced_q10	0.999829
+vo/VO_Sautekh_Imotekh_vsUriel.ogg	235200	0.967836	-128	replaced_q10	0.999809
+vo/VO_Sautekh_Ramatekh the Cruel_Backup3.ogg	324071	0.655509	-1024	replaced_q10	0.999829
+vo/VO_Sautekh_Ramatekh the Cruel_concede.ogg	188687	0.976170	0	replaced_q10	0.999818
+vo/VO_Sautekh_Ramatekh the Cruel_gen3.ogg	202599	0.977635	0	replaced_q10	0.999859
+vo/VO_Sautekh_Ramatekh the Cruel_gen4.ogg	227417	0.858845	-128	replaced_q10	0.999839
+vo/VO_Sautekh_Ramatekh the Cruel_gen7.ogg	237952	0.907455	-1024	replaced	0.999093
+vo/VO_Sautekh_Ramatekh the Cruel_greet.ogg	210335	0.996034	0	replaced_q10	0.999786
+vo/VO_Sautekh_Ramatekh the Cruel_intro.ogg	234649	0.895905	-128	replaced	0.999086
+vo/VO_Sautekh_Ramatekh the Cruel_vsAun'Va.ogg	251885	0.816453	-128	replaced_q10	0.999865
+vo/VO_Sautekh_Ramatekh the Cruel_vsImotekh.ogg	322769	0.710720	-1024	replaced_q10	0.999803
+vo/VO_Sautekh_Ramatekh the Cruel_vsKeltoc.ogg	221202	0.885789	-128	replaced_q10	0.999836
+vo/VO_Sautekh_Ramatekh the Cruel_vsNecron.ogg	207116	0.998362	0	replaced_q10	0.999839
+vo/VO_Sautekh_Ramatekh the Cruel_wp.ogg	221561	0.981616	-1024	replaced_q10	0.999815
+vo/VO_Sautekh_Scarab Swarm - chitter chitter.ogg	143143	0.816203	-128	replaced_q10	0.999923
+vo/VO_SpaceWolves_Logan Grimnar_Backup1.ogg	251738	0.522483	-128	replaced	0.999604
+vo/VO_SpaceWolves_Logan Grimnar_Backup2.ogg	128134	0.977222	0	replaced	0.999061
+vo/VO_SpaceWolves_Logan Grimnar_Backup3.ogg	139986	0.892592	-1024	replaced	0.999138
+vo/VO_SpaceWolves_Logan Grimnar_gen2.ogg	247834	0.660499	-1024	replaced	0.999152
+vo/VO_SpaceWolves_Logan Grimnar_gen4.ogg	170659	0.848089	-1024	replaced_q10	0.999899
+vo/VO_SpaceWolves_Logan Grimnar_gen5.ogg	203968	0.763642	-128	replaced	0.999148
+vo/VO_SpaceWolves_Logan Grimnar_gen6.ogg	214122	0.841776	-128	replaced	0.999403
+vo/VO_SpaceWolves_Logan Grimnar_intro.ogg	208184	0.913497	-1024	replaced	0.999083
+vo/VO_SpaceWolves_Logan Grimnar_vsEC.ogg	260336	0.534379	-1024	replaced	0.999214
+vo/VO_SpaceWolves_Logan Grimnar_vsMozrog.ogg	295727	0.488294	-1024	replaced_q10	0.999938
+vo/VO_SpaceWolves_Logan Grimnar_vsTyranids.ogg	208168	0.809721	-1024	replaced	0.999069
+vo/VO_SpaceWolves_Logan Grimnar_wp.ogg	171318	0.938399	-128	replaced	0.999300
+vo/VO_SpaceWolves_Njal Stormcaller_Backup1.ogg	157900	0.995775	0	replaced	0.999491
+vo/VO_SpaceWolves_Njal Stormcaller_Backup3.ogg	221963	0.338589	-128	replaced	0.999470
+vo/VO_SpaceWolves_Njal Stormcaller_gen2.ogg	157206	0.997406	0	replaced_q10	0.999880
+vo/VO_SpaceWolves_Njal Stormcaller_gen4.ogg	174797	0.754242	-576	replaced	0.999786
+vo/VO_SpaceWolves_Njal Stormcaller_intro.ogg	191097	0.990888	0	replaced	0.999179
+vo/VO_SpaceWolves_Njal Stormcaller_threat.ogg	186132	0.990680	0	replaced	0.999119
+vo/VO_SpaceWolves_Njal Stormcaller_vsDG.ogg	153365	0.986869	0	replaced_q10	0.999870
+vo/VO_SpaceWolves_Njal Stormcaller_vsWE.ogg	209222	0.604007	-128	replaced	0.999067
+vo/VO_SpaceWolves_Njal Stormcaller_wp.ogg	145828	0.981603	-576	replaced	0.999657
+vo/VO_SpaceWolves_Ragnar Blackmane_gen3.ogg	161465	0.977162	0	replaced	0.999174
+vo/VO_SpaceWolves_Ragnar Blackmane_gen4.ogg	163659	0.825368	-128	replaced_q10	0.999902
+vo/VO_SpaceWolves_Ragnar Blackmane_gen7.ogg	225115	0.739698	-1024	replaced_q10	0.999901
+vo/VO_SpaceWolves_Ragnar Blackmane_threat.ogg	150822	0.908157	-128	replaced_q10	0.999904
+vo/VO_SpaceWolves_Ragnar Blackmane_vsAsmodai.ogg	220277	0.430575	-128	replaced_q10	0.999940
+vo/VO_SpaceWolves_Ragnar Blackmane_vsCSM.ogg	175379	0.861030	-1024	replaced_q10	0.999904
+vo/VO_SpaceWolves_Ragnar Blackmane_vsDG.ogg	153492	0.901569	-1024	replaced_q10	0.999854
+vo/VO_SpaceWolves_Ragnar Blackmane_vsGhazghkull.ogg	299053	0.529138	-128	replaced	0.999109
+vo/VO_SpaceWolves_Ragnar Blackmane_vsSororitas.ogg	208092	0.490956	-1024	replaced_q10	0.999913
+vo/VO_SpaceWolves_Thunderwolf Calvary - If tooth and nail are not enough, the chainsword will bite.ogg	188522	0.839083	-1024	replaced	0.999035
+vo/VO_SpaceWolves_Venerable Dreadnought - My saga does not end Not today.ogg	160360	0.869075	-1024	replaced_q10	0.999797
+vo/VO_Tau_Empire_Aun'Shi - The prosecution of any war courts the perils of barbarism.ogg	234970	0.860510	-1024	replaced	0.999186
+vo/VO_Tau_Empire_Aun'va_concede.ogg	235109	0.906567	-1024	replaced	0.999333
+vo/VO_Tau_Empire_Aun'va_gen2.ogg	207724	0.785729	-1024	replaced_q10	0.999918
+vo/VO_Tau_Empire_Aun'va_gen3.ogg	180072	0.859681	-128	replaced_q10	0.999913
+vo/VO_Tau_Empire_Aun'va_gen4.ogg	198175	0.638410	-1024	replaced	0.999105
+vo/VO_Tau_Empire_Aun'va_gen5.ogg	146050	0.932242	-128	replaced	0.999445
+vo/VO_Tau_Empire_Aun'va_gen6.ogg	143809	0.912048	-1024	replaced	0.999069
+vo/VO_Tau_Empire_Aun'va_gen7.ogg	223373	0.407497	-128	replaced_q10	0.999933
+vo/VO_Tau_Empire_Aun'va_vsAstraMillitarum.ogg	170667	0.943722	-128	replaced	0.999160
+vo/VO_Tau_Empire_Aun'va_vsGhazghkull.ogg	213324	0.777409	-1024	replaced	0.999246
+vo/VO_Tau_Empire_Aun'va_vsGrukk.ogg	132252	0.967415	-128	replaced	0.999364
+vo/VO_Tau_Empire_Aun'va_vsKrootShaper.ogg	198012	0.824580	-128	replaced_q10	0.999916
+vo/VO_Tau_Empire_Aun'va_vsO'Maisos.ogg	213226	0.807432	-1024	replaced	0.999752
+vo/VO_Tau_Empire_Aun'va_vsTervigon.ogg	189524	0.949667	-128	replaced_q10	0.999940
+vo/VO_Tau_Empire_Darkstrider - Study the enemy's vulnerabilities and exploit them.ogg	151140	0.969736	493	replaced_q10	0.999914
+vo/VO_Tau_Empire_Honoured Ethereal - With courage and discipline we shall stand victorious.ogg	159475	0.993026	0	replaced	0.999248
+vo/VO_Tau_Empire_Longstrike - No foe can withstand the precise application of superior firepower.ogg	208516	0.722688	-1024	replaced_q10	0.999918
+vo/VO_Tau_Empire_Shadowsun_Backup.ogg	165114	0.984005	0	replaced	0.999265
+vo/VO_Tau_Empire_Shadowsun_concede.ogg	182124	0.938395	-128	replaced	0.999455
+vo/VO_Tau_Empire_Shadowsun_gen1.ogg	218613	0.821139	-128	replaced	0.999467
+vo/VO_Tau_Empire_Shadowsun_gen2.ogg	165386	0.938342	-1024	replaced	0.999200
+vo/VO_Tau_Empire_Shadowsun_gen5.ogg	186990	0.944417	-1024	replaced	0.999487
+vo/VO_Tau_Empire_Shadowsun_greet.ogg	170701	0.811688	-128	replaced	0.999468
+vo/VO_Tau_Empire_Shadowsun_mirror.ogg	200915	0.831437	-128	replaced	0.999076
+vo/VO_Tau_Empire_Shadowsun_vsGrukk.ogg	212472	0.727960	-1024	replaced_q10	0.999910
+vo/VO_Tau_Empire_Shadowsun_vsImperial.ogg	270790	0.665467	-128	replaced	0.999091
+vo/VO_Tau_Empire_Shadowsun_vsKroot.ogg	155730	0.996546	0	replaced	0.999659
+vo/VO_Tau_Empire_Shadowsun_wp.ogg	207270	0.854048	-1024	replaced	0.999203
+vo/VO_Tau_Empire_Vespid Stingwings.ogg	66529	0.831480	-128	replaced	0.999885
+vo/VO_Tau_Flesh Shaper - A hunter's senses must be sharp as a butcher's knife.ogg	196521	0.838652	-576	replaced_q10	0.999914
+vo/VO_Tau_Krootox Rampager - Show me your strength I will make it mine.ogg	178171	0.701051	-128	replaced	0.999241
+vo/VO_Tau_Lone-Spear - The hunt does not wait for the hunter.ogg	168319	0.969901	0	replaced	0.999260
+vo/VO_Tau_Trail Shaper - Sharpen your knives Tonight we feast.ogg	183960	0.856717	-1024	replaced	0.999111
+vo/VO_Tau_War Shaper_concede.ogg	186881	0.662873	-128	replaced_q10	0.999920
+vo/VO_Tau_War Shaper_gen1.ogg	159885	0.779734	-1024	replaced	0.999347
+vo/VO_Tau_War Shaper_gen2.ogg	160189	0.988310	0	replaced	0.999000
+vo/VO_Tau_War Shaper_gen5.ogg	188742	0.832939	-128	replaced	0.999244
+vo/VO_Tau_War Shaper_gen6.ogg	203093	0.603089	-576	replaced	0.999301
+vo/VO_Tau_War Shaper_greet.ogg	236967	0.690182	-1024	replaced	0.999296
+vo/VO_Tau_War Shaper_intro.ogg	165868	0.844026	-128	replaced_q10	0.999906
+vo/VO_Tau_War Shaper_mirror.ogg	183246	0.732055	-1024	replaced_q10	0.999900
+vo/VO_Tau_War Shaper_threat.ogg	162193	0.842482	-128	replaced_q10	0.999916
+vo/VO_Tau_War Shaper_vsAunVa.ogg	293681	0.596462	-1024	replaced	0.999171
+vo/VO_Tau_War Shaper_vsNecron.ogg	237440	0.311682	-128	replaced_q10	0.999913
+vo/VO_Tau_War Shaper_vsUrsulaCreed.ogg	346049	0.393860	-1024	replaced	0.999090
+vo/VO_Tau_War Shaper_wp.ogg	163971	0.875678	-128	replaced	0.999340
+vo/VO_Tyranid_Leviathan_Mucolid Spore - Noxious humming B.ogg	97849	0.945556	-128	replaced_q10	0.999915
+vo/VO_Tyranid_Leviathan_Tyrannocyte - Viscous gurgle.ogg	135692	0.790648	-128	replaced	0.999871
+vo/VO_UM_Antaro Chronus - Make the engines roar Its time to scour this battlefield.ogg	183750	0.998572	0	replaced	0.999074
+vo/VO_UM_Calgar_gen1.ogg	136000	0.838569	-128	replaced_q10	0.999852
+vo/VO_UM_Calgar_gen4.ogg	142400	0.751103	-128	replaced	0.999225
+vo/VO_UM_Calgar_gen6.ogg	174400	0.947869	-1024	replaced_q10	0.999900
+vo/VO_UM_Calgar_gen7.ogg	185947	0.694503	-1024	replaced_q10	0.999891
+vo/VO_UM_Calgar_vsGhazghkull.ogg	193600	0.981922	0	replaced	0.999261
+vo/VO_UM_Calgar_vsMkar.ogg	144000	0.995529	0	replaced	0.999243
+vo/VO_UM_Calgar_vsTyranids.ogg	216000	0.716473	-128	replaced_q10	0.999918
+vo/VO_UM_Calgar_vsUrielVentris.ogg	152000	0.978543	0	replaced_q10	0.999883
+vo/VO_UM_Chaplain Letharius_vsGhallaron.ogg	209633	0.780706	-128	replaced_q10	0.999867
+vo/VO_UM_Chaplain Letharius_vsVanderghast.ogg	222284	0.960560	-128	replaced_q10	0.999874
+vo/VO_UM_Chaplain Letharius_vsVentris.ogg	231598	0.777056	-1024	replaced_q10	0.999906
+vo/VO_UM_Eliminator - Target acquired Your fate is sealed.ogg	109866	0.796665	-1024	replaced	0.999214
+vo/VO_UM_Epistolary Librarian - Knowledge is my blade wisdom my bullet.ogg	196800	0.728131	-1024	replaced	0.999275
+vo/VO_UM_Primaris Reiver - They'll be dead before they see me coming.ogg	111720	0.989407	0	replaced	0.999226
+vo/VO_UM_Titus_gen2.ogg	157701	0.983088	0	replaced	0.999084
+vo/VO_Ultramarines_Tigurius_concede.ogg	148800	0.995099	0	replaced	0.999435
+vo/VO_Ultramarines_Tigurius_gen1.ogg	160000	0.616220	-1024	replaced	0.999067
+vo/VO_Ultramarines_Tigurius_gen3.ogg	116800	0.995334	-128	replaced	0.999192
+vo/VO_Ultramarines_Tigurius_gen4.ogg	148800	0.986123	0	replaced	0.999626
+vo/VO_Ultramarines_Tigurius_gen5.ogg	131200	0.985755	-1024	replaced	0.999554
+vo/VO_Ultramarines_Tigurius_vsTBC1.ogg	147200	0.969702	-128	replaced_q10	0.999887
+vo/VO_Ultramarines_Tigurius_vsTBC2.ogg	104000	0.997568	0	replaced	0.999692
+vo/VO_Ultramarines_Tigurius_vsVentris.ogg	180800	0.830520	-576	replaced	0.999497
+vo/VO_Ultramarines_Ventris_gen2.ogg	168000	0.775080	-1024	replaced	0.999316
+vo/VO_Ultramarines_Ventris_gen4.ogg	161600	0.812017	-128	replaced_q10	0.999900
+vo/VO_Ultramarines_Ventris_gen5.ogg	131200	0.907734	-128	replaced	0.999010
+vo/VO_Ultramarines_Ventris_gen6.ogg	168000	0.998708	0	replaced	0.999028
+vo/VO_Ultramarines_Ventris_greet.ogg	123200	0.970922	-128	replaced_q10	0.999906
+vo/VO_Ultramarines_Ventris_threat.ogg	216000	0.665129	-1024	replaced	0.999161

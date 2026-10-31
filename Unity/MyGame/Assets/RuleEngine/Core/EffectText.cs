@@ -1680,7 +1680,7 @@ namespace RuleEngine
             //   —— 补一条 `choosecard`（候选域 = `specific`）。判据与闸门见那个函数。
             //   ⚠️ **必须在上面那几轮回填之后插**：`repeat` / `paidmod` 的 `BaseOps` 已按原 op 排好，
             //   插在最前面不会把它们卷进来（`Repeat this effect` 不该重放「选哪份契约」）。
-            InjectChoicesDefinitionOp(ops, card);
+            InjectChoicesDefinitionOp(ops, card); ApplyDataOutlierDurations(card, ops);   // 🆕 2026-11-01（`B113_G2` · `B-125`/`B-127`）：原版数据里与卡面写法不一致的**孤例**，按数据改回来（现读 1 张）—— 见那个方法头。
             return ops;
         }
 
@@ -7407,7 +7407,7 @@ namespace RuleEngine
                 if (mvt.Success)
                     return new EffectOp
                     {
-                        Verb = "heal", Source = src, Tail = tail, Instead = instead,
+                        Verb = "heal", Source = src, Tail = tail, Instead = instead, Duration = "",
                         Amount = int.Parse(mvt.Groups[1].Value),
                         Target = new EffectTargetSpec
                         {
@@ -7426,7 +7426,7 @@ namespace RuleEngine
                 if (mp.Success)
                     return new EffectOp
                     {
-                        Verb = "heal", Source = src, Tail = tail, Instead = instead,
+                        Verb = "heal", Source = src, Tail = tail, Instead = instead, Duration = "",
                         Amount = int.Parse(mp.Groups[2].Value),
                         Target = ParseTarget(mp.Groups[1].Value),
                     };
@@ -7443,12 +7443,12 @@ namespace RuleEngine
                 if (!mr.Success) return null;
                 return new EffectOp
                 {
-                    Verb = "heal", Source = src, Tail = tail, Instead = instead,
+                    Verb = "heal", Source = src, Tail = tail, Instead = instead, Duration = "",
                     Amount = int.Parse(mr.Groups[2].Value),
                     Target = ParseTarget(mr.Groups[1].Value),
                 };
             }
-            var op = new EffectOp { Verb = "heal", Source = src, Tail = tail, Instead = instead };
+            var op = new EffectOp { Verb = "heal", Source = src, Tail = tail, Instead = instead, Duration = "" };
             op.Amount = m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;
             if (m.Groups[2].Success) op.AmountMax = int.Parse(m.Groups[2].Value);   // `1-5`
             if (op.Amount == 0) op.Amount = CountWordOrZero(m.Groups[3].Value);
@@ -9527,13 +9527,13 @@ namespace RuleEngine
             }
 
             // 时长修饰：原文里跟着「内容」或「目标」，两边都要看
-            op.Duration = ExtractDuration(ref payload, ref targetText);
+            string midRest = ApplyGiveDuration(op, ref payload, ref targetText, giveTail);   // 🆕 2026-11-01（`B113_G2` · 活状态表 `B-125`）：本行原来的代码整段搬进 `ApplyGiveDuration`（行数不变），并在它里面加了一步「时长夹在载荷中间 ⇒ 只修饰前半」（判据 → `资料/完全复刻/判据/B113_G2_回合起止语义.md`）。返回值 = 时长之后那半拼成的**独立子句**（没命中为 null），由下面 `SplitTargetList` **之后**接进尾句。以下是原注释 —— 🆕 2026-11-01（`B112_R2W` · 活状态表 B-80 · SOR60 `Holy Fire`）：`SplitAndTail` 把「…your Warlord **and +1 [Attack] to adjacent troops this turn**」的时长切到了【后半句】⇒ 前半句（督军那一条）被解析成永久。判据 = `资料/普查产出_1018/allcards_1350/cards_raw.json` 的 SOR60 `buffEffect(ab0,lg0)` 与 `(ab0,lg1)` **都是 `untilEndOfTurn=1`**（字段与 Tooltip = `d:/2/tools/il2cpp_out/dump.cs:119073-119081`「Until end of turn」）⇒ 同一句的两半共享同一时长；同文件 `SplitTargetList` 那一路（`:9533-9536` 的 `DurationPhrase(op.Duration)`）本来就是把时长补给第二段的 ⇒ 这里补上对称的另一半。⚠️ 只对 **give/gain 尾句**回填（`TailIsTimedGiveClause`）；heal/deal 尾句一律不动 —— `Righteous Fury`「Heals 1 … and give it +1 [Attack] until your next turn」的 heal 必须保持**永久**。
             // 🆕 2026-09-16：**目标列表**再拆一条尾句（`… to <A> and <B>`，见 `SplitTargetList`）——
             //    必须在 `ExtractDuration` **之后**（那样 `this turn` 已经从目标里摘掉了）。
             string tgtB = SplitTargetList(ref targetText);
             if (tgtB != null)
-                op.Tail = MergeTail(op.Tail,
-                                    "give " + payload + " to " + tgtB + DurationPhrase(op.Duration));
+                op.Tail = MergeTail(op.Tail, "give " + payload + " to " + tgtB + DurationPhrase(op.Duration));
+            op.Tail = MergeTail(op.Tail, midRest);   // 🆕 2026-11-01（`B113_G2` · `B-125`）：中间时长之后那半（永久）**必须接在后面** —— 顺序承重：若那截后面还跟着一个带时长的 `give … this turn`，`B112_R2W` 的句尾回填会把它误判成前半句的时长（实测 `+1 health` 被回填成 `dur=turn`）。
 
             // 🔴 **2026-10-25（完全复刻 · `K7` · 执行代理 N11）：`Give <N> <可重复的授予> to <目标>`
             //   —— N 是【授予次数】，⛔ 不是目标个数、也不是载荷里的数值。**
@@ -10592,6 +10592,121 @@ namespace RuleEngine
         {
             if (string.IsNullOrEmpty(w)) return 0;
             return CountWord(w);
+        }
+
+        /// <summary>「这一段是不是一个**带时长**的 give/gain 子句」——
+        /// 只服务于 <see cref="TryGiveInner"/> 的「句尾时长回填前半句」（判据写在 `:9530` 那一行）。
+        /// `CompleteBareTail` 会把 `+1 attack to adjacent troops this turn` 补成 `give …`；
+        /// 本来就是 heal / deal 的尾句原样返回 ⇒ 这里返回 false（⛔ 别把 heal / deal 也变限时）。
+        /// 判据与覆盖边界 → `判据/B112_R2_SOR60限时判定.md`（⛔ 别在这里抄第二份）。</summary>
+        static bool TailIsTimedGiveClause(string tail)
+        {
+            if (string.IsNullOrEmpty(tail)) return false;
+            string t = CompleteBareTail("give", tail);
+            if (!Regex.IsMatch(t, @"^(?:give|gain)s?\s", RegexOptions.IgnoreCase)) return false;
+            string a = t, b = "";
+            return ExtractDuration(ref a, ref b).Length > 0;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-01（执行代理 `B113_G2` · 活状态表 `B-125` · 卡 `Grisly Feast`）：
+        //  **give 载荷里「时长夹在中间」时，它只修饰它前面那半。**
+        //
+        //  卡面（`d:/2/Warpforge部队卡片/Tau/2天赋/Warpforge_02_Grisly-Feast.png` 亲读）：
+        //    `Ephemeral. Give +1 [Attack] this turn and +1 Health to your Warlord and Infantry troops`
+        //  原版数据（`cards_raw.json` `cardAbilities[0].abilityLogic[0..3].buffEffect`）是**四条 logic**：
+        //    · lg0 / lg1 = `meleeAttackChange = 1`、`untilPlayerTurnStart = 1`（两个目标各一条）
+        //    · lg2 / lg3 = `healthChange = 1`、**五个 `until*` 全 0**（= 永久，两个目标各一条）
+        //  ⇒ 加在「this turn」**后面**的那半（`+1 Health`）**不带时长**。
+        //  改前：整条载荷 `+1 attack and +1 health` 只有一个 `Duration` ⇒ 生命也被撤
+        //  （实测 `ruleprobe effects "Grisly Feast"` 两行 `Timed=1`）。改后：拆成「带时长的前半」+「永久的后半」。
+        //
+        //  ⚠️ **判据只此一处**：拆分条件极窄 —— ① 时长短语出现在**载荷里**（引号外）·
+        //   ② 紧跟一个 `and ` · ③ `and` 之后那截**解得成 GivePayload**（`+1 health` 解得成，
+        //   `infantry troops` / `heal 2` 解不成）。⛔ 别放宽成「载荷里出现 `and` 就拆」——
+        //   末尾带时长的写法（`Give +1 [Attack] and +1 [Ranged] this turn`，全池几十张）必须**整条限时**。
+        //  全池现读命中 **1 张**（`Grisly Feast`）；判据与爆面扫描 → `资料/完全复刻/判据/B113_G2_回合起止语义.md`。
+        // ============================================================================================
+
+        /// <summary>`TryGiveInner` 的时长出口（**原 `:9530` 那一行的代码整段搬进来**，行数不变）：
+        /// 先拆「夹在载荷中间的时长」（见本段头注），再照原样择时长 + `B112_R2W` 的句尾回填。
+        /// 返回**时长之后那半拼成的独立子句**（`give … to <完整目标列表>`，没命中返回 `null`）——
+        /// 由调用方在 `SplitTargetList` **之后**接进 `op.Tail`（⛔ 顺序承重，理由写在那次合并那一行）。</summary>
+        static string ApplyGiveDuration(EffectOp op, ref string payload, ref string targetText, string giveTail)
+        {
+            string midRest = SplitMidPayloadDuration(ref payload);
+            op.Duration = ExtractDuration(ref payload, ref targetText);
+            if (op.Duration.Length == 0 && TailIsTimedGiveClause(giveTail)) { string _ta = giveTail, _tb = ""; op.Duration = ExtractDuration(ref _ta, ref _tb); }
+            if (midRest == null || op.Duration.Length == 0) return null;
+            return "give " + midRest + (targetText.Length > 0 ? " to " + targetText : "");
+        }
+
+        /// <summary>载荷里「时长夹在中间」⇒ 拆开：**`payload` 就地改成「前半 + 时长」**（后半不要，
+        /// 免得 `ExtractDuration` 把它一起带走），返回**后半的载荷文本**（没命中返回 `null`）。
+        /// 判据与覆盖边界写在 <see cref="ApplyGiveDuration"/> 的段头注，⛔ 别在这里抄第二份。</summary>
+        static string SplitMidPayloadDuration(ref string payload)
+        {
+            if (string.IsNullOrEmpty(payload)) return null;
+            string[] phrases = { "until your next turn", "this turn" };   // 与 `ExtractDuration` 同优先级
+            foreach (string ph in phrases)
+            {
+                int idx = IndexOutsideQuotes(payload, ph);
+                if (idx < 0) continue;
+                string rest = payload.Substring(idx + ph.Length).TrimStart();
+                if (!rest.StartsWith("and ", System.StringComparison.OrdinalIgnoreCase)) return null;
+                string restPayload = rest.Substring(4).Trim();
+                if (restPayload.Length == 0) return null;
+                var rp = GivePayload.Parse(restPayload);       // 与结算层同一份解析器（⛔ 别另写词表）
+                if (rp == null || rp.Count == 0) return null;
+                string head = payload.Substring(0, idx).TrimEnd();
+                if (head.Length == 0 || head.EndsWith(" and", System.StringComparison.OrdinalIgnoreCase)) return null;
+                payload = head + " " + ph;
+                return restPayload;
+            }
+            return null;
+        }
+
+        /// <summary>`s` 里**第一个引号外**的 <paramref name="phrase"/> 的下标（没有返回 -1）。
+        /// 引号判定复用 <see cref="QuoteMask"/>（⛔ 别另写一份）。</summary>
+        static int IndexOutsideQuotes(string s, string phrase)
+        {
+            if (string.IsNullOrEmpty(s) || string.IsNullOrEmpty(phrase)) return -1;
+            var qm = QuoteMask(s);
+            for (int i = 0; i + phrase.Length <= s.Length; i++)
+            {
+                if (qm != null && qm[i]) continue;
+                if (string.Compare(s, i, phrase, 0, phrase.Length, System.StringComparison.OrdinalIgnoreCase) == 0)
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// **原版数据与卡面写法不一致的孤例** —— 解析层按卡面统一映射（`this turn` ⇒ `turn`），
+        /// 但这几张卡的原版 `buffEffect` 用的是**另一个位**，这里照**数据**改回来（铁律 11 / §18·0：照抄原版）。
+        ///
+        /// <para>现读**只有 1 张**：`Grisly Feast` —— 卡面
+        /// `Give +1 [Attack] this turn and +1 Health to your Warlord and Infantry troops`
+        /// （`d:/2/Warpforge部队卡片/Tau/2天赋/Warpforge_02_Grisly-Feast.png` 亲读），
+        /// 而 `cards_raw.json` 的 `abilityLogic[0]` / `abilityLogic[1]` 的 `buffEffect` 是
+        /// **`untilPlayerTurnStart = 1`**（`+0x33`，tooltip「Until start of next turn」），
+        /// **不是** `untilEndOfTurn`（`+0x32`）。差别 = 原版那 +1 攻**撑过对手整个回合**，
+        /// 而全池其它 **92 张**卡面写 `this turn` 的都落 `+0x32`（在回合末就撤）。
+        /// 判据与逐位对照 → `资料/完全复刻/判据/B113_G2_回合起止语义.md`。</para>
+        ///
+        /// <para>⚠️ 收得很紧：卡名全等 ∧ `give` ∧ `Duration == "turn"` ∧ 载荷含 `attack`。
+        /// 它跑在 `Parse` 的最后一步（各条 op 都已生成），⛔ 不改任何别的卡、也不动 `health` 那几条
+        /// （那几条 `Duration == ""`，原版数据里五个位**全 0** = 永久，见 `B-125`）。</para>
+        /// </summary>
+        static void ApplyDataOutlierDurations(CardDef card, List<EffectOp> ops)
+        {
+            if (card == null || ops == null) return;
+            if (!string.Equals(card.Name, "Grisly Feast", System.StringComparison.Ordinal)) return;
+            foreach (var op in ops)
+                if (op != null && op.Verb == "give" && op.Duration == "turn"
+                    && op.Payload != null
+                    && op.Payload.IndexOf("attack", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    op.Duration = "nextturn";
         }
     }
 

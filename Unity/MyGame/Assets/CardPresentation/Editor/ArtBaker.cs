@@ -51,7 +51,7 @@ public static class ArtBaker
     ///
     /// ⛔ **不要改成「全部 Repeat」** —— 同目录的 `CardBlobShadow.png`（原版 `Card blob shadow`）
     ///    原版实读就是 **Clamp(1,1)**，改成 Repeat 反而与原版不符。
-    /// ⚠️ 原版数据只给了 `m_WrapU/V`，**`m_WrapW` 不在判据里** ⇒ 这里也只写 U/V，`.meta` 的 `wrapW` 保持 1。
+    /// ⚠️ 原版数据只给了 `m_WrapU/V`，**`m_WrapW` 不在判据里** ⇒ 代码只写 U/V（`.meta` 的 `wrapW` 保持现值）。🔴 2026-11-01（`B111_T1C`）：`CrosshairTrail` / `LightningTrail` / `Laser_Wave_2` 三张的**原版 `.meta` 三个数都是 `0`**，已补进下表、并把它们的 `.meta` `wrapW` 也改成 0。
     /// </summary>
     static readonly string[] RepeatTextures =
     {
@@ -62,7 +62,9 @@ public static class ArtBaker
         "MatCap_Bronze.png",        // 原版 `Matcap Bronze`
         "MatCap_Silver.png",        // 原版 `Matcap Silver`
         "MatCap_Gold.png",          // 原版 `Matcap Gold`
-    };
+        "Noise_Combined.png",       // 原版 `Noise Combined`（128², RGBA32）—— wrapU/V/W = 0/0/0（UnityPy 直读原版 bundle + AssetRipper 导出的原版 importer meta，双证；判据 → 资料/完全复刻/判据/B111_R2_判据缺口两处.md §1）
+        "cardback_noise.png",       // 上面那张的**另一份拷贝**（`card_sdf/`；卡框/卡背 SDF + 卡框溶解 + 3D 卡牌溶解都用它，同一个原版 AssetReference）
+        "CrosshairTrail.png", "LightningTrail.png", "Laser_Wave_2.png" };   // 🆕 2026-11-01（B111_T1C）：这三张原版 `.meta` 的 `wrapU/V/W` 都是 **0/0/0**(Repeat)——判据 → `资料/完全复刻/报告/B111_T1C.md`。⚠️ `40k_popup_texture.png` **故意不加**（原版也是 Repeat，但我们走 `ImageQuad.CreateTiled` 多 quad、不依赖 wrap，见 `B111_T1B` §七·4）
 
     /// <summary>本路径是否命中 Repeat 白名单（按文件名比、忽略大小写）。</summary>
     static bool IsRepeatTexture(string path)
@@ -250,7 +252,7 @@ public static class ArtBaker
                 continue;
             }
 
-            if (ApplyAudioRule(ai, load, fmt, preload)) n++;
+            if (ApplyAudioRule(ai, load, fmt, preload, name)) n++;
             else alreadyOk++;
             int c;
             counts.TryGetValue(sub, out c);
@@ -316,14 +318,15 @@ public static class ArtBaker
     /// 2434 条音频全量重编码很贵，而本方法要求幂等、可反复跑）。
     /// </summary>
     static bool ApplyAudioRule(AudioImporter ai, AudioClipLoadType load,
-                               AudioCompressionFormat fmt, bool preload)
+                               AudioCompressionFormat fmt, bool preload, string clipName)
     {
+        bool lib = TruthLoadInBackground(clipName);
         var s = ai.defaultSampleSettings;
         bool changed = s.loadType != load
                     || s.compressionFormat != fmt
                     || s.preloadAudioData != preload
                     || s.sampleRateSetting != AudioSampleRateSetting.PreserveSampleRate
-                    || !ai.loadInBackground
+                    || ai.loadInBackground != lib
                     || ai.forceToMono;
         if (!changed) return false;
 
@@ -333,7 +336,7 @@ public static class ArtBaker
         s.sampleRateSetting = AudioSampleRateSetting.PreserveSampleRate;
         // ⚠️ `s.quality` **不动**：判不出原版值（不在 AudioClip 里），现状 1.0 —— 报告 §2·4。
         ai.defaultSampleSettings = s;
-        ai.loadInBackground = true;    // 原版 2434 条全是 true（我们原来一条都没设，全是 0）
+        ai.loadInBackground = lib;     // 🆕 B112_R1W：按原版真值写（21 条打击音是 false），查不到才回退 true
         ai.forceToMono = false;        // 原版声道与我们源文件一致 ⇒ 不靠它改声道
         ai.SaveAndReimport();
         return true;
@@ -674,5 +677,55 @@ public static class ArtBaker
             Debug.LogWarning(P + $"🔴 **仍有 {shrunk} 张被缩**（源比导入大）：" + shrunkList);
         else
             Debug.Log(P + "实读校验：**没有一张被缩**（导入尺寸 = 源尺寸）✅");
+    }
+
+    // ───────── 🆕 2026-11-01 `B112_R1W`：`loadInBackground` 按原版真值，不再无条件 true ─────────
+    // 判据 = `Unity/工具/_sfx_audio_truth.json`（`_sfx_meta.py --scan-truth` 从 30 个含 AudioClip 的
+    // bundle 的 typetree 机生成；`clips[名] = [loadType, compressionFormat, preloadAudioData, loadInBackground]`）。
+    // 🔴 为什么必须改：真值里有 **21 条打击音**（`Hit *` / `Squig Growl 1`）是 `false`，而这里原来无条件写
+    //   `true` ⇒ 重跑一次就把 `_sfx_meta.py` 按真值修好的那 21 条**改回去**（净回退 `B-92`）。
+    // 取不到真值（文件不在 / 解析失败）⇒ 回退 `true` 并**出声**，⛔ 不静默。
+    static System.Collections.Generic.Dictionary<string, bool> _truthLoadInBg;
+    static bool _truthLoadInBgTried;
+
+    static bool TruthLoadInBackground(string clipName)
+    {
+        if (!_truthLoadInBgTried)
+        {
+            _truthLoadInBgTried = true;
+            _truthLoadInBg = LoadTruthLoadInBackground();
+        }
+        bool v;
+        if (_truthLoadInBg != null && clipName != null && _truthLoadInBg.TryGetValue(clipName, out v)) return v;
+        return true;
+    }
+
+    static System.Collections.Generic.Dictionary<string, bool> LoadTruthLoadInBackground()
+    {
+        try
+        {
+            // 工程根 = Assets/.. ⇒ `d:/4/Unity`（工具目录在 `<工程根>/工具/`，不在 Assets 下）
+            string p = Path.GetFullPath(Path.Combine(Application.dataPath, "../../工具/_sfx_audio_truth.json"));
+            if (!File.Exists(p))
+            {
+                Debug.LogWarning(P + $"🔴 读不到音频真值表（{p}）⇒ `loadInBackground` 回退 true（可能把 21 条打击音改错）");
+                return null;
+            }
+            var text = File.ReadAllText(p);
+            var ms = System.Text.RegularExpressions.Regex.Matches(text,
+                "\"([^\"]+)\"\\s*:\\s*\\[\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\]");
+            var d = new System.Collections.Generic.Dictionary<string, bool>();
+            foreach (System.Text.RegularExpressions.Match x in ms)
+                d[x.Groups[1].Value] = x.Groups[5].Value != "0";
+            int off = 0;
+            foreach (var kv in d) if (!kv.Value) off++;
+            Debug.Log(P + $"音频真值表已载入：{d.Count} 条（`loadInBackground=false` {off} 条）");
+            return d.Count > 0 ? d : null;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning(P + "🔴 读音频真值表失败：" + e.GetType().Name + " " + e.Message);
+            return null;
+        }
     }
 }

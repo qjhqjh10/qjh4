@@ -168,7 +168,7 @@ namespace CardPresentation
                 {
                     // 🔴 改前**没有这一句**（黑场停在 α=1、Panel 一直 active）。
                     //    这里同样走 `Complete()`，当场落终态：α=0、`Panel.SetActive(false)`。
-                    loading.LoadingFade(false);
+                    loading.LoadingFade(false); BattleDriver.TakePendingPlayMode();   // 🔴 2026-11-01（B111_R3W · 账 N122）：批处理切场失败/收尾也丢弃 `_pendingPlayMode`（原版无残留通道；成功时批处理不走真实模式传参 ⇒ 丢弃无害）
                 }
                 return;
             }
@@ -216,7 +216,7 @@ namespace CardPresentation
                     // 兜底：`sceneLoaded` 永远不会来（场景不在 Build Settings / name 打错…）⇒ 不能永久黑屏
                     UnityEngine.SceneManagement.SceneManager.sceneLoaded -= cb;
                     if (_pendingFadeBack == cb) _pendingFadeBack = null;
-                    loading.LoadingFade(false);
+                    loading.LoadingFade(false); BattleDriver.TakePendingPlayMode();   // 🔴 2026-11-01（B111_R3W · 账 N122）：切场失败 ⇒ 丢弃 `_pendingPlayMode`，下一局开战不继承这条残留通道
                     Debug.LogError("[Shell] 切场景 `" + scene + "` 失败：" + e.Message +
                                    " —— **黑场已淡回**（不会永久黑屏）；异常不再向上抛，免得打断 `Update`。");
                 }

@@ -168,7 +168,7 @@ using UnityEngine.UI;       // 🆕 2026-10-20（A3-e）：探针读 `Image.rayc
 
 namespace CardPresentation
 {
-    public class CardDisplayWindow : MonoBehaviour
+    public partial class CardDisplayWindow : MonoBehaviour
     {
         /// <summary>整块窗放到 HUD **前面**（相机看 +Z，z 越小越近）。
         /// 比结算面板（−0.5）还靠前 —— 展示窗是「盖在所有东西上面」的那一层。
@@ -1505,7 +1505,7 @@ namespace CardPresentation
                 SlotViews[i] = v; _slotDefs[i] = defs[i];
             }
             CardFan.ApplyQueues(SlotViews, SlotCount, CardFan.QCardBase);
-            PlayOpenAnimation();          // 开窗那一拍（原版窗根那颗 `Animation`，见 `CardFan` 里那一块判据）
+            PlayOpenAnimation(); EnsureLevelUpFx();          // 开窗那一拍（原版窗根那颗 `Animation`，见 `CardFan` 里那一块判据）
             Debug.Log($"[展示窗] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
                     + " —— 位姿：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（`CardFan` 文件头）");
         }

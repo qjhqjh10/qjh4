@@ -4808,7 +4808,7 @@ namespace CardPresentation
             var lookup = CardDatabase.DeckLookup(pool, dto.faction);
             var deck = new PlayerDeck(dto.name, dto.heroId, dto.defensiveId,
                                       new List<string>(dto.cardIds ?? new string[0]), (int)GameMode.Tutorial);
-            var hero = string.IsNullOrEmpty(dto.heroId) ? null : lookup(dto.heroId);
+            var hero = string.IsNullOrEmpty(dto.heroId) ? null : lookup(dto.heroId); deck.SetDeckArmyFromCard(hero);   // 🆕 2026-11-01（`B111_R1WB`）：原版 `DeckBasicSetup` —— `deckArmy` 只由督军定（DTO 不带阵营字段）
             if (hero == null || hero.Type != "hero")
             {
                 Debug.LogWarning("[Tutorial] " + who + "的督军 `" + dto.heroId + "` 在卡池里**找不到**"
@@ -8046,9 +8046,9 @@ namespace CardPresentation
         //    · 战术/防御卡 ⇒ `Update.c:1058-1061` 的 `get_targeted()` ⇒ `playingTargetedSpell(4)`
         //      （`MoveIntoFieldFromHand.c:35-75` 起准星 + 溶卡；`Update.c:626-793` 选目标 / 取消回手）。
         //  ⇒ 「要不要问玩家」只有一处判据：`def.Targeted == 1`（`TryBeginPlayTargetPick`）。
-        //  ⚠️ **点亮只在单位卡那一支**（原版 `ShowPotentialTargets(mode=1)` 全库唯一调用点 =
-        //     `_ChooseUnitTarget…:62`；战术卡那一支 `Update.c:626-793` 通篇不点亮 ⇒ 我们**也不点亮**，
-        //     ⛔ 不补一个原版没有的反馈 —— 2026-10-26 调度台裁定 1）。
+        //  ⚠️ **点亮两类卡都有**（2026-11-01 就地订正）：单位卡走 `ShowPotentialTargets(mode=1)`（唯一调用点
+        //     `_ChooseUnitTarget…:62`）；战术卡走 `MoveIntoFieldFromHand.c:75` → `StartSpellFrom` 的内联副本
+        //     （`.c:30-45`，同谓词同状态）—— 原来那句「战术卡不点亮」漏了这条内联路。
         //  ⚠️ **「松手即结算」那条快捷路保留**：落点上就有合法目标 ⇒ 直接打完，不多要一次点击
         //     （原版 `Update.c:676-684`）⇒ 196 张非单位 `targeted` 卡的**常见路径一个字没变**；
         //     落点上没有合法目标 ⇒ 进「点选目标」态（🔶 标记见 `TryBeginPlayTargetPick` 里那一条）。
@@ -8176,7 +8176,7 @@ namespace CardPresentation
             //   ⚠️ **单位卡（`cardType == 0`）不溶**：同一条判据里那一支是 `StopReflected()` 后直接 return。
             if (!unitCard) DissolveWholeCardInField(card);
             int n = HighlightPlayTargets(def);
-            // ⚠️ 这条闸**只对单位卡**：非单位卡按原版**不点亮**（`n` 恒 0），不能拿它当「没有候选」。
+            // ⚠️ 这条闸**只对单位卡**：非单位卡的空池已在上面 `pool.Count == 0` 那一档挡掉（原版 `CanPlayCard.c:142-156`）。
             if (unitCard && n == 0)
             {
                 // 🔴 **2026-10-26（F2 报告 `R1` 末句）**：池子非空、但**棋盘上一个能点的都没有**
@@ -8195,7 +8195,7 @@ namespace CardPresentation
                     + "；点空白/点非法目标 = 取消（这张牌留在手里）"
                   : $"「{CardText.Name(def)}」要选目标：点棋盘上的合法目标"
                     + "（原版 `playingTargetedSpell` 那一支 `Update.c:626-684`；"
-                    + "⚠️ 原版这一支**不点亮**潜在目标 ⇒ 屏幕上没有任何提示，这是原版行为）"
+                    + "⚠️ 原版这一支**同样点亮**合法目标 —— `StartSpellFrom.c:30-45` 那一份内联）"
                     + "；点空白/点非法目标 = 取消（这张牌留在手里，并给 `DragToTarget` 提示）");
             if (unitCard) ShowPlayTargetPrompt(def, card); return true;
         }
@@ -8237,11 +8237,10 @@ namespace CardPresentation
                 if (_awaitPlayTargetLit[i] != null) _awaitPlayTargetLit[i].SetHighlight(CardHighlightState.Normal);
             _awaitPlayTargetLit.Clear();
             if (def == null) return 0;
-            // 🔴 **2026-10-26（调度台裁定 1 · 铁律 11）**：**原版只有单位卡那一支点亮潜在目标**
-            //   （`BattleManager__ShowPotentialTargets` 的 `mode=1` 全库唯一调用点 = `_ChooseUnitTarget_d__780__MoveNext.c:62`；
-            //   战术/防御卡那一支 `BattleManager__Update.c:626-793` 通篇没有点亮动作）
-            //   ⇒ **非单位卡一个都不点亮**（⛔ 别补一个原版没有的反馈）。
-            if (!def.IsUnit) return 0;
+            // 🔴 **2026-11-01 就地订正（铁律 5 · `B112_R3`）**：原来这里写「原版只有单位卡点亮 ⇒ 非单位卡不点亮」，**只对 `Update.c:626-793` 成立**。
+            //   战术/低语卡的点亮走**另一条内联路**：`MoveIntoFieldFromHand.c:75` → `StartSpellFrom`（`.c:30-45`，=
+            //   `ShowPotentialTargets(mode=1)` 的内联副本，同谓词 `card.targeted && IsValidSpellTarget`，只对 `card.isPlayer`）
+            //   ⇒ **两类卡都点亮**；下面循环的 `RuleCore.IsLegalPlayTarget` 就是那个谓词。
 
             int n = 0;
             for (int side = 0; side < 2; side++)
@@ -11030,9 +11029,9 @@ namespace CardPresentation
         /// </summary>
         List<EffectOp> PlayAsks(CardDef card)
         {
-            var outp = new List<EffectOp>();
+            var outp = new List<EffectOp>(); _lastOathGateNotice = null;   // 每次出牌从「没说」开始（自检读 `LastOathGateNoticeForTest`）
             var all = RuleCore.PlayerChooseOps(Ctx, _me, card);   // 带 ctx 的重载：多套一道原版 `NeedsToChooseFromPool` 闸（⛔ 别换 `AbilityAsks`）
-            if (all == null || all.Count == 0) return outp;
+            if (all == null || all.Count == 0) { NoticeOathGateBlocked(card); return outp; }   // 🆕 2026-11-01（`B115_D5`）：誓约那一档被闸滤掉时**在这里出声**（判据见该方法头）
 
             var owners = AskOwners(card, all);
             string name = card != null ? card.Name : "?";
@@ -16058,8 +16057,8 @@ namespace CardPresentation
             // ① 准星：**一直跟着指针走**（原版 `BattleManager.Update` → `MoveCrosshair` 每帧喂），
             //    弧线终点 = 指针射线打到**地板 / 敌兵平面**最近的那个命中点（原版 `UpdateTrail`）。
             //    🔴 2026-09-29 改：以前是「指针压在合法目标上才 `Show`，否则 `Hide`」——**与原版相反**。
-            if (!reticle.Visible) reticle.Show(me.transform.position, reticle.ResolveAim(pointer), _command, pointer);   // 🆕 B94_W1：弧线终点 = 求交(pointer)、准星本体 = pointer（= 指针 + `moveCardYOffset`，原版 param_3）；`.c:819/1017/1184/1247` 四参口径统一
-            else reticle.Aim(me.transform.position, pointer, _command);   // 🆕 B94_W1：稳态 `Aim` 的入参也用 pointer（`Aim` 内部准星=入参、弧线=ResolveAim(入参)）；不补这项 ⇒ 首帧(pointer)与稳态(world)差 0.2 跳变
+            if (!reticle.Visible) reticle.Show(Get2DPosOfCard(me, true), reticle.ResolveAim(pointer), _command, pointer);   // 🆕 B94_W1：弧线终点 = 求交(pointer)、准星本体 = pointer（= 指针 + `moveCardYOffset`，原版 param_3）；`.c:819/1017/1184/1247` 四参口径统一　｜　🆕 B112_R3D（`B-153`）：起点改 `Get2DPosOfCard(me, true)`（HUD 帧；原版攻击那一路同一条 `Get2DPosOfCard` 口径，见 `B113_G4` §五·A）
+            else reticle.Aim(Get2DPosOfCard(me, true), pointer, _command);   // 🆕 B94_W1：稳态 `Aim` 的入参也用 pointer（`Aim` 内部准星=入参、弧线=ResolveAim(入参)）；不补这项 ⇒ 首帧(pointer)与稳态(world)差 0.2 跳变　｜　🆕 B112_R3D（`B-153`）：起点同首帧，改 `Get2DPosOfCard(me, true)`（HUD 帧）
 
             // ② 「指针压着哪个**合法目标**」那一档（`selectedTargetInBoard` 橙 + 「这一下会打死它」图标）
             //    **仍然是指针驱动**的 —— 它是悬停反馈，与准星亮不亮是两件事。
@@ -16201,7 +16200,7 @@ namespace CardPresentation
             CardView me;
             if (!_myUnits.TryGetValue(_selectedSlot, out me) || me == null) return;
             _pointerWorld = WorldPointer(); Vector3 pointer = _pointerWorld + new Vector3(0f, SpellDragAimYOffset, 0f);   // 🆕 B94_W1：同 `UpdateReticle` —— 原版 param_3 = 指针 + `moveCardYOffset`（`.c:819/1017/1184/1247`）
-            reticle.Show(me.transform.position, reticle.ResolveAim(pointer), _command, pointer);   // 🆕 B94_W1：弧线终点 = 求交(pointer)、准星本体 = pointer（= 指针 + `moveCardYOffset`）；四参口径统一（`.c:819/1017/1184/1247`）
+            reticle.Show(Get2DPosOfCard(me, true), reticle.ResolveAim(pointer), _command, pointer);   // 🆕 B94_W1：弧线终点 = 求交(pointer)、准星本体 = pointer（= 指针 + `moveCardYOffset`）；四参口径统一（`.c:819/1017/1184/1247`）　｜　🆕 B112_R3D（`B-153`）：起点改 `Get2DPosOfCard(me, true)`（HUD 帧）
         }
 
         /// <summary>把准星要的两台相机同步过去。**每次用之前同步一次** ——
@@ -34793,7 +34792,7 @@ namespace CardPresentation
             //（`ResolveDeck` 的 `saved != null` 支：`DeckBuilder.FromDeck` 逐张展开、缺防御卡才补一张）。
             var d = new PlayerDeck(picked.name, picked.heroId, picked.defensiveId,
                                    picked.cardIds, picked.gameMode);
-            d.CardbackId = picked.cardback;
+            d.CardbackId = picked.cardback; d.SetDeckArmyFromFaction(picked.faction);   // 🆕 2026-11-01（`B111_R1WB`）：原版 `DeckBasicSetup` —— `deckArmy` 取自那副预组的阵营（DTO 不带阵营字段）
             Debug.Log($"[Battle] bot deck = 「{picked.DisplayName}」（`{picked.deckId}` · 阵营 {picked.faction}"
                     + $" · 模式 {picked.gameMode} · 难度 {picked.difficulty} · {picked.cardIds.Length} 张）"
                     + " —— 原版 `PrebuiltDeckCollection.GetRandomDeck` 那条路的等价物（账 47）");
@@ -36240,15 +36239,15 @@ namespace CardPresentation
             }
             SyncReticleCameras();
             _pointerWorld = world;
-            Vector3 from = hero.transform.position;
+            Vector3 from = Get2DPosOfCard(hero, true);   // 判据 = `BattleManager__GetHeroPos.c:10-20` → `Get2DPosOfCard(heroCard, useCenter:1)` ⇒ 起点是 **HUD 画布平面**上的督军点（`hudCamera.ScreenToWorldPoint(z = Canvas.planeDistance)`）；⛔ 不是裸 `hero.transform.position`（3D 战场帧；`use3DBoard` 生产恒 1，见 `Battle.unity:849` + `BattleScene.cs:47769`，两者差 ≈ 0.9 单位 ≈ 97 px）。⚠️ 原版逐帧那一路用的是裸 `transform.position`，但它喂的是画在棋盘帧里的 `CrosshairLine 3D`；我们的弧线由 HUD 正交相机画（节点 layer 0）⇒ 必须换帧
             Vector3 aim = world + new Vector3(0f, SpellDragAimYOffset, 0f);
-            // 攻击方式恒 `None`（原版这一档 `MoveCrosshair` 的第 4 个实参就是 0 ⇒ 不换色、不 punch）
+            // 攻击方式 = `Spell`（原版 `StartSpellFrom` → `PrepareMovement(pos, AttackTypes.Spell)` ⇒ `SetAttackType(3)` = 金色；2026-11-01 就地订正：原来写「原版 `MoveCrosshair` 第 4 个实参是 0 ⇒ 不换色」**不成立**，它只有两个形参、体里只有 `set_position`+`UpdateTrail`，**不碰配色**）
             if (!_spellDragReticleOn || !reticle.Visible)
             {
-                reticle.Show(from, reticle.ResolveAim(aim), AttackKind.None, aim);   // 🆕 B94_W1 · `.c` 回源：原版 `MoveCrosshair(hero.pos, pointer + moveCardYOffset)` 把**准星设成 param_3（=含偏移那份）**、`UpdateTrail` 再对它求交 ⇒ 偏移**也作用在准星** ⇒ crossAt = `aim`（含 `moveCardYOffset` 的点），⛔ 不是未偏移的 `world`（`TargetReticleController__MoveCrosshair.c` 首句 `set_position(param_3)`）
+                reticle.Show(from, reticle.ResolveAim(aim), AttackKind.Spell, aim);   // 🆕 B94_W1 · `.c` 回源：原版 `MoveCrosshair(hero.pos, pointer + moveCardYOffset)` 把**准星设成 param_3（=含偏移那份）**、`UpdateTrail` 再对它求交 ⇒ 偏移**也作用在准星** ⇒ crossAt = `aim`（含 `moveCardYOffset` 的点），⛔ 不是未偏移的 `world`（`TargetReticleController__MoveCrosshair.c` 首句 `set_position(param_3)`）
                 _spellDragReticleOn = true;
             }
-            else reticle.Aim(from, aim, AttackKind.None);
+            else reticle.Aim(from, aim, AttackKind.Spell);
         }
 
         // ── ③ ESC 的第二个消费者：原版 ESC ⇒ `VoiceLinesController.ClickChat` ──────────
@@ -40142,6 +40141,69 @@ namespace CardPresentation
                 return (_rec != null && _rec.actions != null && _rec.actions.Count > 0)
                      ? _rec.actions[_rec.actions.Count - 1] : null;
             }
+        }
+
+        // ==================================================================================
+        //  🆕 2026-11-01（`B115_D5`）：**誓约二选一被池闸挡掉时出声**（红线：不许静默）
+        //  ⚠️ 新成员追加在**类尾**（本文件 400+ 处账按行号引用；铁律 18·b：新成员一律追加在这里）
+        // ==================================================================================
+        //  现象：`Adaptive Strategy` 这类「平 / 誓二选一」的战术卡，法力只够卡费时，
+        //    `RuleCore.PlayerChooseOps(ctx,…)` 在 `NeedsToChooseFromPool` 那一跳判否、把 `chooseoath`
+        //    从 ask 列表里**滤掉** ⇒ 面板里 `op.Verb == "chooseoath"` 那句 else（「这次**付不起誓约**」，
+        //    `BattleDriver.cs` 的 `ShowAsk`）**永远走不到** ⇒ 玩家看不到任何解释
+        //    （自检 `BT ✗ 而且说出了为什么` 就是这么红的）。
+        //
+        //  原版判据（三源亲读，全部指向「**静默**」）：
+        //    · `decomp_full/CardScript__NeedsToChooseFromPool.c:136-152` —— 纯谓词，**一句日志都没有**；
+        //    · `decomp_full/BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:728-729` —— 返回 0 就
+        //      **直接落到平版结算**（不弹窗、不打日志）；
+        //    · `decomp_full/BattleManager__ChoiceOfCardPlayer.c`（全文 68 行）—— 摆面板那一支里也没有日志。
+        //    · 玩家侧唯一的提示是**视觉**的：`decomp_full/BattleCardUI__ChangeToHighlightColor.c:47-56`
+        //      （带 `oath` 的卡**付得起**才用誓约那套描边色 `+0x220`，付不起就是默认色）。
+        //      我们的等价位 = `CardHighlight.OutlineOf(..., oathAffordable)`，已照抄。
+        //  ⇒ **原版行为 = 静默**。本仓红线「不许静默失败」要求**出声，但不改判定**（判定一个字都不动）。
+        //
+        //  🔶 自己设计（非原版）：这条**通知**是原版没有的（原版一处日志都没有）；
+        //    理由是 CLAUDE.md §三「不许静默失败」。调度台 2026-11-01 红批 `B115_D5` 裁定。
+        //    ⛔ 它**不改变任何结算**：闸（`NeedsToChooseFromPool`）、平版/誓约版的分支、扣费一分不动。
+        //
+        //  🔴 **为什么走 `Debug.LogWarning` 而不是 `Ctx.Log`**：`NetProtocol.Fingerprint` 把
+        //    `ctx.Events.Count` 算进指纹（`NetProtocol.cs:564`），而这一处只在**本地玩家的出牌 UI**
+        //    上跑（另一端手上不是同一张牌）⇒ 写 `ctx.Events` 会让「只在一端发生的日志」把 P2P 两端
+        //    指纹分叉（本项目实测过 `4×31²` 那种差，见 `DiscardEventsAddedSince` 的注释）。
+        //    `[Battle]` 前缀与同文件既有的表现层日志一致（`SharedChoiceOptionsFor` 那一处）。
+        // ==================================================================================
+
+        /// <summary>最近一次「誓约二选一被池闸挡掉」的出声文案（`null` = 这次出牌没有这一档）。
+        /// **只给自检读**；与下面那句 `Debug.LogWarning` 是**同一段文本**（⛔ 别在断言里另写一份文案）。</summary>
+        string _lastOathGateNotice;
+
+        /// <summary>[自检] 见 <see cref="_lastOathGateNotice"/>；每次 `PlayAsks` 开头清成 `null`。</summary>
+        public string LastOathGateNoticeForTest { get { return _lastOathGateNotice; } }
+
+        /// <summary>
+        /// 被池闸挡掉的那一处**说清楚为什么**（只出声，不改任何判定）。
+        /// 调用点 = `PlayAsks` 的「一问都没有」那条早退。⚠️ **只许在那一支调用**：
+        /// 走到那里 ⇒ `PlayerChooseOps` 里那道闸判否（`OathChoiceNeeded` 为真时它一定会注入 op，
+        /// 除非闸判否）；而 `OathChoiceNeeded` 为假时说明这张卡压根没有「平/誓二选一」，无话可说。
+        /// ⛔ 别挪到 `PlayerChooseOps` 之前**无条件**再判一次闸 —— 那道闸自己有几处 `ctx.Log`
+        /// （「没喂 cardTraits」「门③ 判不了」），重复调用会把同一句话写进战斗日志两遍。
+        /// </summary>
+        void NoticeOathGateBlocked(CardDef card)
+        {
+            if (card == null || Ctx == null || _me < 0 || _me > 1) return;
+            if (!RuleCore.OathChoiceNeeded(card)) return;      // 不是「平 / 誓二选一」的卡 ⇒ 没有可说的
+            int oath = card.GetDefaultTraitValue(KeywordTable.Oath, out _);
+            var ps = Ctx.Players[_me];
+            int energy = ps != null ? ps.Energy : 0;
+            // 两种原因：① 付不起誓约（`CostOf + oath > Energy`，与原版 `CanPlayWithOathNowInHand.c:31-36`
+            //   同一条判据）；② 不是这一侧的回合 / 带 jam（原版 `NeedsToChooseFromPool.c:120-150`）。
+            bool tooPoor = oath > 0 && !RuleCore.CanPayOathChoice(Ctx, _me, card);
+            string why = tooPoor
+                       ? $"**付不起誓约**（卡费 {RuleCore.CostOf(Ctx, _me, card)} + 誓约 {oath} > 法力 {energy}）"
+                       : "**不是这一侧的回合 / 这张卡带 jam**";
+            _lastOathGateNotice = $"（选牌面板：「{card.Name}」这次{why} ⇒ 不问「付不付誓约」，按平版只结算基础效果）";
+            Debug.LogWarning("[Battle] 誓约二选一：" + _lastOathGateNotice);
         }
     }
 }

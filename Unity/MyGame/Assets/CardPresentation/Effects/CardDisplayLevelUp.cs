@@ -78,7 +78,7 @@ namespace CardPresentation
     /// 通知者的两个同名转发 = <see cref="NotifierChangeFrame"/> / <see cref="NotifierAnimationFinished"/>。</para>
     /// <para>⚠️ 编辑模式下 `AddComponent` **不触发** `Awake/OnEnable/Start/Update`（本工程踩过）⇒ 自检要读「初始化后」的状态时，
     /// 要么 `SendMessage("OnEnable")`，要么显式调；推时钟用 <see cref="Tick"/>（批处理没有帧循环）。</para></summary>
-    public class CardDisplayLevelUp : MonoBehaviour
+    public partial class CardDisplayLevelUp : MonoBehaviour
     {
         // ================================================================== 判据常量
 
@@ -294,7 +294,7 @@ namespace CardPresentation
                 WarpforgeVFX.WFSoundPlayer.Play(sound, true, 1f, 1f);
                 SoundCount++;
             }
-            InputBlocked = true;      // 见文件头 ④（原版锁点在 UpgradePanel.TryUpgrade，本代理没读到）
+            InputBlocked = true; BeginInherit();      // 见文件头 ④（原版锁点在 UpgradePanel.TryUpgrade，本代理没读到）
         }
 
         /// <summary>原版 `ChangeFrame()`（`.c:1-29`）四跳：
@@ -321,7 +321,7 @@ namespace CardPresentation
         public void AnimationFinished()
         {
             FinishedCount++;
-            InputBlocked = false; ResetPulse();   // 收尾把根脉冲比值归 1（判据 `判据/升级动画scale曲线_节点映射.md` §五·A「收尾」）
+            InputBlocked = false; ResetPulse(); StopInherit();   // 收尾把根脉冲比值归 1（判据 `判据/升级动画scale曲线_节点映射.md` §五·A「收尾」）
             if (onAnimationFinished != null) onAnimationFinished();
         }
 
@@ -345,7 +345,7 @@ namespace CardPresentation
         {
             if (dt <= 0f) return;
             StepFade(dt);
-            StepShake(dt); StepPulse(dt);   // 根脉冲（原版 clip 第 ① 条 scale 曲线，判据见类尾）
+            StepShake(dt); StepPulse(dt); StepInherit(dt);   // 根脉冲（原版 clip 第 ① 条 scale 曲线，判据见类尾）
         }
 
         void Update() { Tick(Time.deltaTime); }

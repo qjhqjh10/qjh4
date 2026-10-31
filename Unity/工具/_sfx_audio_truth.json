@@ -1,0 +1,15315 @@
+{
+"_README": "机生成 · 重生成命令 `python -I -X utf8 工具/_sfx_meta.py --scan-truth --apply` · ⛔ 别手改",
+"_meta": {
+"generated_by": "Unity/工具/_sfx_meta.py --scan-truth --apply",
+"source": "D:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
+"date": "2026-11-01",
+"fields": [
+"loadType",
+"compressionFormat",
+"preloadAudioData",
+"loadInBackground"
+],
+"constant_fields": {
+"3D": 1,
+"ambisonic": 0
+},
+"note": "原版 AudioClip typetree 的 m_LoadType / m_CompressionFormat / m_PreloadAudioData / m_LoadInBackground；`constant_fields` 是 m_Legacy3D / m_Ambisonic（全库恒定，**只用于 `--verify` 报黄，不写盘**）；⛔ 别手改（重跑 --scan-truth 覆盖）"
+},
+"clips": {
+"Add card to deck": [
+1,
+2,
+0,
+1
+],
+"Aeldari Blackout": [
+1,
+2,
+0,
+1
+],
+"Aeldari Reinforcement drop 2 jingle": [
+2,
+1,
+0,
+1
+],
+"Aeldari To Waystone Death": [
+1,
+2,
+0,
+1
+],
+"Aeldari Waystone Destruction": [
+1,
+2,
+0,
+1
+],
+"Airstrike Gatling Short": [
+1,
+2,
+0,
+1
+],
+"Ambush": [
+1,
+2,
+0,
+1
+],
+"Approved Lasgun_1Shot": [
+1,
+2,
+0,
+1
+],
+"Arco-Flagellant Strike": [
+1,
+2,
+0,
+1
+],
+"ArmourEffect": [
+1,
+2,
+0,
+1
+],
+"Artifice": [
+1,
+2,
+0,
+1
+],
+"Artillery missile launch": [
+1,
+2,
+0,
+1
+],
+"Astra Militarum Dawn Attack": [
+1,
+2,
+0,
+1
+],
+"Astra Militarum Factory Overdrive": [
+1,
+2,
+0,
+1
+],
+"Astra Militarum Planetary Invasion": [
+1,
+2,
+0,
+1
+],
+"Attack_Buff_1": [
+1,
+2,
+0,
+1
+],
+"Attack_Buff_2": [
+1,
+2,
+0,
+1
+],
+"Attack_Squig": [
+1,
+2,
+0,
+1
+],
+"Attack_Squig_BigChompa": [
+1,
+2,
+0,
+1
+],
+"Autocannon 1": [
+1,
+2,
+0,
+1
+],
+"Autocannon 2": [
+1,
+2,
+0,
+1
+],
+"Autogun Liberator 1": [
+1,
+2,
+0,
+1
+],
+"Autogun Liberator 2": [
+1,
+2,
+0,
+1
+],
+"Autogun Liberator 3": [
+1,
+2,
+0,
+1
+],
+"Autogun automatic": [
+1,
+2,
+0,
+1
+],
+"Autogun_1": [
+1,
+2,
+0,
+1
+],
+"Autogun_2": [
+1,
+2,
+0,
+1
+],
+"Autogun_3": [
+1,
+2,
+0,
+1
+],
+"Autogun_4": [
+1,
+2,
+0,
+1
+],
+"Autogun_5": [
+1,
+2,
+0,
+1
+],
+"Autogun_Shotgun_1": [
+1,
+2,
+0,
+1
+],
+"Autogun_Shotgun_2": [
+1,
+2,
+0,
+1
+],
+"AvengingZeal": [
+1,
+2,
+0,
+1
+],
+"BacklashEffect": [
+1,
+2,
+0,
+1
+],
+"Backstab": [
+1,
+2,
+0,
+1
+],
+"Banshee Howl": [
+1,
+2,
+0,
+1
+],
+"Banshee Howl Intense": [
+1,
+2,
+0,
+1
+],
+"Beautiful Death": [
+1,
+2,
+0,
+1
+],
+"Black Legion Daemonic Feast": [
+1,
+2,
+0,
+1
+],
+"Black Legion Warp Storm": [
+1,
+2,
+0,
+1
+],
+"BlackCrusade": [
+1,
+2,
+0,
+1
+],
+"Blast": [
+1,
+2,
+0,
+1
+],
+"Blizzard Wind Quick": [
+1,
+2,
+0,
+1
+],
+"Blizzard sound": [
+1,
+2,
+0,
+1
+],
+"BloodThirst": [
+1,
+2,
+0,
+1
+],
+"Blunt Impact electric": [
+1,
+2,
+0,
+1
+],
+"Bolt Rifle 1": [
+1,
+2,
+0,
+1
+],
+"Bolt Rifle 2": [
+1,
+2,
+0,
+1
+],
+"Bolt Rifle 3": [
+1,
+2,
+0,
+1
+],
+"Bolt Rifle Sniper": [
+1,
+2,
+0,
+1
+],
+"BolterSweep": [
+1,
+2,
+0,
+1
+],
+"Bolter_1shot_chaos": [
+1,
+2,
+0,
+1
+],
+"Bolter_1shot_nurgle": [
+1,
+2,
+0,
+1
+],
+"Bolter_1shot_warp": [
+1,
+2,
+0,
+1
+],
+"Bolter_4shot": [
+1,
+2,
+0,
+1
+],
+"Bolter_5shot": [
+1,
+2,
+0,
+1
+],
+"Bolter_9shot": [
+1,
+2,
+0,
+1
+],
+"Bolter_Abaddon_AA": [
+1,
+2,
+0,
+1
+],
+"Boltgun Impact 1": [
+1,
+2,
+0,
+1
+],
+"Boltgun Impact 2": [
+1,
+2,
+0,
+1
+],
+"Boltgun Impact 3": [
+1,
+2,
+0,
+1
+],
+"Boltgun Impact 4": [
+1,
+2,
+0,
+1
+],
+"Bore Through": [
+1,
+2,
+0,
+1
+],
+"Buff_Black_Legion 1": [
+1,
+2,
+0,
+1
+],
+"Buff_Black_Legion 2": [
+1,
+2,
+0,
+1
+],
+"Buff_Chaplain_Rage": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana_2": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana_Chainsword_2": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana_Chant": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana_Hammer": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana_chaos": [
+1,
+2,
+0,
+1
+],
+"Buff_Mana_quick": [
+1,
+2,
+0,
+1
+],
+"Bullet Drop autogun 1": [
+1,
+2,
+0,
+1
+],
+"Bullet Drop autogun 2": [
+1,
+2,
+0,
+1
+],
+"Bullet Drop autogun 3": [
+1,
+2,
+0,
+1
+],
+"Bullet Drop autogun 4": [
+1,
+2,
+0,
+1
+],
+"Bullet Drop autogun 5": [
+1,
+2,
+0,
+1
+],
+"Burst Cannon - Multiple shots": [
+1,
+2,
+0,
+1
+],
+"Burst Cannon Short": [
+1,
+2,
+0,
+1
+],
+"Camouflage": [
+1,
+2,
+0,
+1
+],
+"CardDraw": [
+1,
+2,
+0,
+1
+],
+"CardExpand": [
+1,
+2,
+0,
+1
+],
+"CardMove": [
+1,
+2,
+0,
+1
+],
+"CardMove_1": [
+1,
+2,
+0,
+1
+],
+"CardMove_2": [
+1,
+2,
+0,
+1
+],
+"CardMove_3": [
+1,
+2,
+0,
+1
+],
+"CardPlay": [
+1,
+2,
+0,
+1
+],
+"CardReanimate": [
+1,
+2,
+0,
+1
+],
+"CardShatter": [
+1,
+2,
+0,
+1
+],
+"Cardflip_Common": [
+1,
+2,
+0,
+1
+],
+"Cardflip_Epic": [
+1,
+2,
+0,
+1
+],
+"Cardflip_Legendary": [
+1,
+2,
+0,
+1
+],
+"Cardflip_Rare": [
+1,
+2,
+0,
+1
+],
+"Cardshuffle out": [
+1,
+2,
+0,
+1
+],
+"Celestine_Ranged_Sword": [
+1,
+2,
+0,
+1
+],
+"ChangeToMeleeAttack": [
+1,
+2,
+0,
+1
+],
+"ChangeToRangeAttack": [
+1,
+2,
+0,
+1
+],
+"Charge_DCannon": [
+1,
+2,
+0,
+1
+],
+"Charge_Lascannon": [
+1,
+2,
+0,
+1
+],
+"ChemVial Break": [
+1,
+2,
+0,
+1
+],
+"Choppa_Slice": [
+1,
+2,
+0,
+1
+],
+"Close Card Display": [
+1,
+2,
+0,
+1
+],
+"Codex": [
+1,
+2,
+0,
+1
+],
+"Combat_Chats_Show": [
+1,
+2,
+0,
+1
+],
+"Concussive": [
+1,
+2,
+0,
+1
+],
+"Coordinated Engagement Lock": [
+1,
+2,
+0,
+1
+],
+"Cosmic Serpent": [
+1,
+2,
+0,
+1
+],
+"Create Card Sabotage": [
+1,
+2,
+0,
+1
+],
+"CreateCard GSC": [
+1,
+2,
+0,
+1
+],
+"CreateCard_1": [
+1,
+2,
+0,
+1
+],
+"CreateCard_2": [
+1,
+2,
+0,
+1
+],
+"CreateCard_3": [
+1,
+2,
+0,
+1
+],
+"CreateCard_4": [
+1,
+2,
+0,
+1
+],
+"Crosshair_LockOn": [
+1,
+2,
+0,
+1
+],
+"CurseOfThePhaeron": [
+1,
+2,
+0,
+1
+],
+"DA_Buff_1": [
+1,
+2,
+0,
+1
+],
+"DA_Buff_2_Intense": [
+1,
+2,
+0,
+1
+],
+"DA_Buff_3_Secret": [
+1,
+2,
+0,
+1
+],
+"DA_Buff_4_NoIcon": [
+1,
+2,
+0,
+1
+],
+"DA_Recall": [
+1,
+2,
+0,
+1
+],
+"Da_Irongob": [
+1,
+2,
+0,
+1
+],
+"DaemonicPact": [
+1,
+2,
+0,
+1
+],
+"DamageProtocol": [
+1,
+2,
+0,
+1
+],
+"DamageProtocolError": [
+1,
+2,
+0,
+1
+],
+"Dark Angels Asteroid Zone": [
+1,
+2,
+0,
+1
+],
+"Dark Angels Sun Orbit": [
+1,
+2,
+0,
+1
+],
+"Dark Angels Teleport": [
+1,
+2,
+0,
+1
+],
+"Dark Angels Void Combat": [
+1,
+2,
+0,
+1
+],
+"Deadliest Killer": [
+1,
+2,
+0,
+1
+],
+"Death Cult Strike": [
+1,
+2,
+0,
+1
+],
+"DelightfulAgonies": [
+1,
+2,
+0,
+1
+],
+"DimensionalBreachSky": [
+1,
+2,
+0,
+1
+],
+"DimensionalBreachSpawn": [
+1,
+2,
+0,
+1
+],
+"Disrupted Ceremony": [
+1,
+2,
+0,
+1
+],
+"Distant Explosion 12": [
+1,
+2,
+0,
+1
+],
+"Distant Explosion 13": [
+1,
+2,
+0,
+1
+],
+"Distant Explosion 14": [
+1,
+2,
+0,
+1
+],
+"Distant Explosion 15": [
+1,
+2,
+0,
+1
+],
+"Divine Intervention": [
+1,
+2,
+0,
+1
+],
+"Division Increase": [
+1,
+2,
+0,
+1
+],
+"Draft Mode GainSkull": [
+2,
+1,
+1,
+1
+],
+"Draft Mode Loss Jingle": [
+2,
+1,
+1,
+1
+],
+"Duty Reload": [
+1,
+2,
+0,
+1
+],
+"EC Buff 1": [
+1,
+2,
+0,
+1
+],
+"EC Buff Intense 1": [
+1,
+2,
+0,
+1
+],
+"EC Debuff 1": [
+1,
+2,
+0,
+1
+],
+"EC Lucius Taunt 2": [
+1,
+2,
+0,
+1
+],
+"EC Lucius Taunt 3": [
+1,
+2,
+0,
+1
+],
+"EC Target User": [
+1,
+2,
+0,
+1
+],
+"EC Whip Maulerfiend": [
+1,
+2,
+0,
+1
+],
+"Earth Impact 1": [
+1,
+2,
+0,
+1
+],
+"Earth Impact 2": [
+1,
+2,
+0,
+1
+],
+"Earth Impact 3": [
+1,
+2,
+0,
+1
+],
+"Earth Impact 4 Huge": [
+1,
+2,
+0,
+1
+],
+"Ec Lucius Taunt 1": [
+1,
+2,
+0,
+1
+],
+"Electric Cut 1": [
+1,
+2,
+0,
+1
+],
+"Electric Cut 2": [
+1,
+2,
+0,
+1
+],
+"Electric Cut 3": [
+1,
+2,
+0,
+1
+],
+"EndTurn": [
+1,
+2,
+0,
+1
+],
+"Energy 1": [
+1,
+2,
+0,
+1
+],
+"Energy 2": [
+1,
+2,
+0,
+1
+],
+"Everstorm": [
+1,
+2,
+0,
+1
+],
+"Execution": [
+1,
+2,
+0,
+1
+],
+"Exorcist 1": [
+1,
+2,
+0,
+1
+],
+"Exorcist 2": [
+1,
+2,
+0,
+1
+],
+"Exorcist 3": [
+1,
+2,
+0,
+1
+],
+"Exorcist 4": [
+1,
+2,
+0,
+1
+],
+"Exorcist launch": [
+1,
+2,
+0,
+1
+],
+"Exorcist start": [
+1,
+2,
+0,
+1
+],
+"Explosion Huge": [
+1,
+2,
+0,
+1
+],
+"Explosion Huge 2": [
+1,
+2,
+0,
+1
+],
+"Explosion Magic Quick": [
+1,
+2,
+0,
+1
+],
+"Explosion Missile": [
+1,
+2,
+0,
+1
+],
+"Explosion Short": [
+1,
+2,
+0,
+1
+],
+"Explosion Short 2": [
+1,
+2,
+0,
+1
+],
+"Explosion_DCannon": [
+1,
+2,
+0,
+1
+],
+"Fast": [
+1,
+2,
+0,
+1
+],
+"FeedingFrenzy": [
+1,
+2,
+0,
+1
+],
+"Fenrisian Monstrosities": [
+1,
+2,
+0,
+1
+],
+"Fenrisian Monstrosities Extra Damage": [
+1,
+2,
+0,
+1
+],
+"Fire Burst 5": [
+1,
+2,
+0,
+1
+],
+"Fire Burst 6": [
+1,
+2,
+0,
+1
+],
+"Fire Burst 7": [
+1,
+2,
+0,
+1
+],
+"Fire Burst 8": [
+1,
+2,
+0,
+1
+],
+"Firestorm Long": [
+1,
+2,
+0,
+1
+],
+"Firestorm Start": [
+1,
+2,
+0,
+1
+],
+"Firestrike Artillery": [
+1,
+2,
+0,
+1
+],
+"First Light": [
+1,
+2,
+0,
+1
+],
+"Flame Celestine": [
+1,
+2,
+0,
+1
+],
+"FlameHitImpact": [
+1,
+2,
+0,
+1
+],
+"Flamer Burna": [
+1,
+2,
+0,
+1
+],
+"Flamer Burna Sweep": [
+1,
+2,
+0,
+1
+],
+"FlamerSingleShort": [
+1,
+2,
+0,
+1
+],
+"FlamerSweep": [
+1,
+2,
+0,
+1
+],
+"Flank": [
+1,
+2,
+0,
+1
+],
+"Forge Card": [
+1,
+2,
+0,
+1
+],
+"Forge Collect": [
+1,
+2,
+0,
+1
+],
+"FrenziedEffect": [
+1,
+2,
+0,
+1
+],
+"Front Line": [
+1,
+2,
+0,
+1
+],
+"Full Moon": [
+1,
+2,
+0,
+1
+],
+"Fusion Blaster": [
+1,
+2,
+0,
+1
+],
+"GSC Basic": [
+1,
+2,
+0,
+1
+],
+"GSC Basic Intense": [
+1,
+2,
+0,
+1
+],
+"GSC Basic_Jackal": [
+1,
+2,
+0,
+1
+],
+"GSC Recall": [
+1,
+2,
+0,
+1
+],
+"GSC Telepathic Control": [
+1,
+2,
+0,
+1
+],
+"GSC_Buff_Enhancement": [
+1,
+2,
+0,
+1
+],
+"GainArmor": [
+1,
+2,
+0,
+1
+],
+"GainShuriken": [
+1,
+2,
+0,
+1
+],
+"Gatling_1s": [
+1,
+2,
+0,
+1
+],
+"Gauss Rifle": [
+1,
+2,
+0,
+1
+],
+"Gauss Rifle Sniper": [
+1,
+2,
+0,
+1
+],
+"Gauss_Attack": [
+1,
+2,
+0,
+1
+],
+"Gauss_Attack_Hexmark": [
+1,
+2,
+0,
+1
+],
+"Gauss_Attack_Tesla": [
+1,
+2,
+0,
+1
+],
+"Gauss_Attack_Tesla Annihilator": [
+1,
+2,
+0,
+1
+],
+"Gauss_Imotekh_AA_2": [
+1,
+2,
+0,
+1
+],
+"Genestealer Smite": [
+1,
+2,
+0,
+1
+],
+"Genestealer Smite 2": [
+1,
+2,
+0,
+1
+],
+"Godspear Inbound": [
+1,
+2,
+0,
+1
+],
+"Godspear Warhead Explosion": [
+1,
+2,
+0,
+1
+],
+"Grav Pulse": [
+1,
+2,
+0,
+1
+],
+"Grenade Launcher": [
+1,
+2,
+0,
+1
+],
+"Grot grenade throw": [
+1,
+2,
+0,
+1
+],
+"Grot rock throw": [
+1,
+2,
+0,
+1
+],
+"Guard Buff 1": [
+1,
+2,
+0,
+1
+],
+"Guard Buff 2 Intense": [
+1,
+2,
+0,
+1
+],
+"Guard Buff 3 Board": [
+1,
+2,
+0,
+1
+],
+"Guard Buff 4 Quick": [
+1,
+2,
+0,
+1
+],
+"Guard Buff 5 Digital": [
+1,
+2,
+0,
+1
+],
+"Guard Summon": [
+1,
+2,
+0,
+1
+],
+"Guard radio static": [
+1,
+2,
+0,
+1
+],
+"HealProtocol": [
+1,
+2,
+0,
+1
+],
+"Helbrute_Plasma": [
+1,
+2,
+0,
+1
+],
+"HeldrakeStrike3": [
+1,
+2,
+0,
+1
+],
+"Helfire Burst": [
+1,
+2,
+0,
+1
+],
+"Helfire Condition": [
+1,
+2,
+0,
+1
+],
+"Hellblaster_Plasma_Blast": [
+1,
+2,
+0,
+1
+],
+"HelspearThrow": [
+1,
+2,
+0,
+1
+],
+"Hero of the Empire ": [
+1,
+2,
+0,
+1
+],
+"Hexmark_Artifice_Deal1": [
+1,
+2,
+0,
+1
+],
+"HideousMutation": [
+1,
+2,
+0,
+1
+],
+"Hit Fire 1": [
+1,
+2,
+0,
+0
+],
+"Hit Fire 2": [
+1,
+2,
+0,
+0
+],
+"Hit Fire 3": [
+1,
+2,
+0,
+0
+],
+"Hit Floor Generic 1": [
+1,
+2,
+0,
+0
+],
+"Hit Floor Generic 2": [
+1,
+2,
+0,
+0
+],
+"Hit Heavy Metal 1": [
+1,
+2,
+0,
+0
+],
+"Hit Heavy Metal 2": [
+1,
+2,
+0,
+0
+],
+"Hit Metal Light 1": [
+1,
+2,
+0,
+0
+],
+"Hit Metal Light 2": [
+1,
+2,
+0,
+0
+],
+"Hit Monolith": [
+1,
+2,
+0,
+0
+],
+"Hit Rock 1": [
+1,
+2,
+0,
+0
+],
+"Hit Rock 2": [
+1,
+2,
+0,
+0
+],
+"Hit Rock 3": [
+1,
+2,
+0,
+0
+],
+"Hit Spark 1": [
+1,
+2,
+0,
+0
+],
+"Hit Spark 2": [
+1,
+2,
+0,
+0
+],
+"Hit Spark 3": [
+1,
+2,
+0,
+0
+],
+"Hit Squishy 1": [
+1,
+2,
+0,
+0
+],
+"Hit Squishy 2": [
+1,
+2,
+0,
+0
+],
+"Hit Water 1": [
+1,
+2,
+0,
+0
+],
+"Hit Water 2": [
+1,
+2,
+0,
+0
+],
+"Hive Fleet Rumble": [
+1,
+2,
+0,
+1
+],
+"Hunt Mark Damage": [
+1,
+2,
+0,
+1
+],
+"Hunt Mark End": [
+1,
+2,
+0,
+1
+],
+"Hunt Mark Stack": [
+1,
+2,
+0,
+1
+],
+"Hunt Mark Start": [
+1,
+2,
+0,
+1
+],
+"Ice Impact": [
+1,
+2,
+0,
+1
+],
+"Immortal Beams Target": [
+1,
+2,
+0,
+1
+],
+"IndomitableWill": [
+1,
+2,
+0,
+1
+],
+"InfernalGaze": [
+1,
+2,
+0,
+1
+],
+"Infinity Circuit": [
+1,
+2,
+0,
+1
+],
+"Infinity Circuit Overload Burst": [
+1,
+2,
+0,
+1
+],
+"InspiredRetribution": [
+1,
+2,
+0,
+1
+],
+"Invoke Minion 3": [
+1,
+2,
+0,
+1
+],
+"Invoke Minion Legendary": [
+1,
+2,
+0,
+1
+],
+"Invulnerable_Effect": [
+1,
+2,
+0,
+1
+],
+"Ion Accelerator": [
+1,
+2,
+0,
+1
+],
+"Khaine Buff": [
+1,
+2,
+0,
+1
+],
+"KrootRifle_1": [
+1,
+2,
+0,
+1
+],
+"KrootRifle_2": [
+1,
+2,
+0,
+1
+],
+"KrootRifle_3": [
+1,
+2,
+0,
+1
+],
+"Kroot_Buff_1": [
+1,
+2,
+0,
+1
+],
+"Kroot_Buff_2": [
+1,
+2,
+0,
+1
+],
+"Kroot_Scattergun": [
+1,
+2,
+0,
+1
+],
+"KrumpaKlaw": [
+1,
+2,
+0,
+1
+],
+"Lasblaster 1shot": [
+1,
+2,
+0,
+1
+],
+"Lasgun_Hotshot_1shot": [
+1,
+2,
+0,
+1
+],
+"Lasgun_Hotshot_pistol": [
+1,
+2,
+0,
+1
+],
+"Lightning_Impact": [
+1,
+2,
+0,
+1
+],
+"Long Range Gain": [
+1,
+2,
+0,
+1
+],
+"LordOfTheStorm": [
+1,
+2,
+0,
+1
+],
+"Lucius Whip Attack": [
+1,
+2,
+0,
+1
+],
+"Main Theme": [
+2,
+1,
+1,
+1
+],
+"Malfunction Damage": [
+1,
+2,
+0,
+1
+],
+"MarkOfKhorne": [
+1,
+2,
+0,
+1
+],
+"MarkOfNurgle": [
+1,
+2,
+0,
+1
+],
+"MarkOfSlaanesh": [
+1,
+2,
+0,
+1
+],
+"MarkOfTzeentch": [
+1,
+2,
+0,
+1
+],
+"Markerlight Damage": [
+1,
+2,
+0,
+1
+],
+"Markerlight Expire": [
+1,
+2,
+0,
+1
+],
+"MarkerlightProc": [
+1,
+2,
+0,
+1
+],
+"Master of the Fleet": [
+1,
+2,
+0,
+1
+],
+"MasterChronomancer": [
+1,
+2,
+0,
+1
+],
+"MasterOfExecutions": [
+1,
+2,
+0,
+1
+],
+"MatchDefeat": [
+2,
+1,
+1,
+1
+],
+"MatchDraw": [
+2,
+1,
+1,
+1
+],
+"MatchVictory": [
+2,
+1,
+1,
+1
+],
+"Maulerfiend Roar": [
+1,
+2,
+0,
+1
+],
+"MegaBlasta3": [
+1,
+2,
+0,
+1
+],
+"MegaBlastaHit": [
+1,
+2,
+0,
+1
+],
+"MegaBlastaSmall": [
+1,
+2,
+0,
+1
+],
+"MeleeAttack_1": [
+1,
+2,
+0,
+1
+],
+"MeleeAttack_2": [
+1,
+2,
+0,
+1
+],
+"MeleeAttack_3": [
+1,
+2,
+0,
+1
+],
+"Meltagun_Chaos": [
+1,
+2,
+0,
+1
+],
+"Menu Idle Theme": [
+2,
+1,
+0,
+1
+],
+"MethodicalDestruction": [
+1,
+2,
+0,
+1
+],
+"Mining Laser": [
+1,
+2,
+0,
+1
+],
+"Mining Tremors": [
+1,
+2,
+0,
+1
+],
+"Mining Tremors 2": [
+1,
+2,
+0,
+1
+],
+"Minion Death": [
+1,
+2,
+0,
+1
+],
+"Minion Death 2": [
+1,
+2,
+0,
+1
+],
+"MinionMove": [
+1,
+2,
+0,
+1
+],
+"MinionStompGround": [
+1,
+2,
+0,
+1
+],
+"Missile launch": [
+1,
+2,
+0,
+1
+],
+"Mob": [
+1,
+2,
+0,
+1
+],
+"Mulligan": [
+1,
+2,
+0,
+1
+],
+"Mulligan Replace": [
+1,
+2,
+0,
+1
+],
+"MultiLas_Single": [
+1,
+2,
+0,
+1
+],
+"Multiplayer Match Found 3": [
+1,
+2,
+0,
+1
+],
+"Murderous Desires": [
+1,
+2,
+0,
+1
+],
+"Necron Mancer Attack": [
+1,
+2,
+0,
+1
+],
+"Necrons Immortal Beams": [
+1,
+2,
+0,
+1
+],
+"New Card": [
+1,
+2,
+0,
+1
+],
+"Night Spinner Explosion": [
+1,
+2,
+0,
+1
+],
+"NoActionsLeft": [
+1,
+2,
+0,
+1
+],
+"NoiseMarineBoom": [
+1,
+2,
+0,
+1
+],
+"NoiseMarineBoom2": [
+1,
+2,
+0,
+1
+],
+"NoiseMarineBoom3": [
+1,
+2,
+0,
+1
+],
+"NoiseMarineBoom4": [
+1,
+2,
+0,
+1
+],
+"NoiseMarineBoom5": [
+1,
+2,
+0,
+1
+],
+"NoiseMarineBoom5_nocharge": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_AstraMilitarum": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_BlackLegion": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_EmperorsChildren": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Generic": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Goff": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Leviathan": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_SaimHann": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Sautekh": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Sororitas": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_SpaceWolves": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Tau": [
+1,
+2,
+0,
+1
+],
+"Open_Cardpack_Ultramarines": [
+1,
+2,
+0,
+1
+],
+"Orbital Close ringing": [
+1,
+2,
+0,
+1
+],
+"Orbital Distant": [
+1,
+2,
+0,
+1
+],
+"Orbital Initial ringing": [
+1,
+2,
+0,
+1
+],
+"Ork Buff Snakebites": [
+1,
+2,
+0,
+1
+],
+"Ork Buff Snakebites 2": [
+1,
+2,
+0,
+1
+],
+"Ork Buff Snakebites 2 Intense": [
+1,
+2,
+0,
+1
+],
+"Ork Gordrang Dakka": [
+1,
+2,
+0,
+1
+],
+"Ork Mek Buff": [
+1,
+2,
+0,
+1
+],
+"Ork Missile Big": [
+1,
+2,
+0,
+1
+],
+"Ork Missile Big Explosion": [
+1,
+2,
+0,
+1
+],
+"Ork Recall": [
+1,
+2,
+0,
+1
+],
+"Ork Shoota Long": [
+1,
+2,
+0,
+1
+],
+"Ork Shoota Long Low": [
+1,
+2,
+0,
+1
+],
+"Ork Shoota Long Morgrim": [
+1,
+2,
+0,
+1
+],
+"Ork Shoota New": [
+1,
+2,
+0,
+1
+],
+"Ork Shoota Short": [
+1,
+2,
+0,
+1
+],
+"Ork Target 1": [
+1,
+2,
+0,
+1
+],
+"Ork expansion pop up jingle": [
+2,
+1,
+0,
+1
+],
+"Ork_Blast_2s": [
+1,
+2,
+0,
+1
+],
+"Ork_Blast_Missiles": [
+1,
+2,
+0,
+1
+],
+"Orks Dust Storm Start": [
+1,
+2,
+0,
+1
+],
+"Orks Harpoon Shot": [
+1,
+2,
+0,
+1
+],
+"Orks Harpoon Shot Huh": [
+1,
+2,
+0,
+1
+],
+"Orks Harpoon Shot Quick": [
+1,
+2,
+0,
+1
+],
+"Orks Squiggoth Charge Roar": [
+1,
+2,
+0,
+1
+],
+"Orks Trampla Charge Roar": [
+1,
+2,
+0,
+1
+],
+"OvertimeStart": [
+2,
+1,
+1,
+1
+],
+"ParticleWhip": [
+1,
+2,
+0,
+1
+],
+"Path of Command": [
+1,
+2,
+0,
+1
+],
+"Path of the Seer": [
+1,
+2,
+0,
+1
+],
+"Path of the Seer Green": [
+1,
+2,
+0,
+1
+],
+"Path of the Seer Red": [
+1,
+2,
+0,
+1
+],
+"Penitence": [
+1,
+2,
+0,
+1
+],
+"PinDown": [
+1,
+2,
+0,
+1
+],
+"Plasma Explosion 2": [
+1,
+2,
+0,
+1
+],
+"Plasma_Shot": [
+1,
+2,
+0,
+1
+],
+"Plasma_Shot_Azrael_AA": [
+1,
+2,
+0,
+1
+],
+"Pray Exit": [
+1,
+2,
+0,
+1
+],
+"Pray Start": [
+1,
+2,
+0,
+1
+],
+"Pray Success": [
+1,
+2,
+0,
+1
+],
+"Progress Jingle": [
+2,
+1,
+1,
+1
+],
+"ProphetOfDaWaagh": [
+1,
+2,
+0,
+1
+],
+"Pulse Blaster": [
+1,
+2,
+0,
+1
+],
+"Pulse Bomb": [
+1,
+2,
+0,
+1
+],
+"Pulse Explosion": [
+1,
+2,
+0,
+1
+],
+"Pulse Hit 1": [
+1,
+2,
+0,
+1
+],
+"Pulse Hit 2": [
+1,
+2,
+0,
+1
+],
+"Pulse Hit 3": [
+1,
+2,
+0,
+1
+],
+"Pulse Hit 4": [
+1,
+2,
+0,
+1
+],
+"Pulse Rifle": [
+1,
+2,
+0,
+1
+],
+"Pulse Sniper V2": [
+1,
+2,
+0,
+1
+],
+"PutridMiasma": [
+1,
+2,
+0,
+1
+],
+"Ragnar Howl": [
+1,
+2,
+0,
+1
+],
+"Rail Rifle Fire": [
+1,
+2,
+0,
+1
+],
+"Rail Rifle Hit": [
+1,
+2,
+0,
+1
+],
+"Railgun Huge Fire": [
+1,
+2,
+0,
+1
+],
+"Railgun Turret v3": [
+1,
+2,
+0,
+1
+],
+"Rally": [
+1,
+2,
+0,
+1
+],
+"Rally_VexMachinator": [
+1,
+2,
+0,
+1
+],
+"Rapturous Ruination": [
+1,
+2,
+0,
+1
+],
+"Recall Eldar": [
+1,
+2,
+0,
+1
+],
+"ReconstitutionProtocol": [
+1,
+2,
+0,
+1
+],
+"RedWaaagh": [
+1,
+2,
+0,
+1
+],
+"Relentless": [
+1,
+2,
+0,
+1
+],
+"RelentlessMarch": [
+1,
+2,
+0,
+1
+],
+"RemnantsDestroyed": [
+1,
+2,
+0,
+1
+],
+"Remote Detonator Saboteur": [
+1,
+2,
+0,
+1
+],
+"Remove card from deck": [
+1,
+2,
+0,
+1
+],
+"Resolution": [
+1,
+2,
+0,
+1
+],
+"ResurrectionOrb": [
+1,
+2,
+0,
+1
+],
+"ReturnToHand": [
+1,
+2,
+0,
+1
+],
+"ReturnToHand2": [
+1,
+2,
+0,
+1
+],
+"Reward Claim": [
+1,
+2,
+0,
+1
+],
+"Ricochet 02": [
+1,
+2,
+0,
+1
+],
+"Ricochet 03": [
+1,
+2,
+0,
+1
+],
+"Ricochet 05": [
+1,
+2,
+0,
+1
+],
+"Ricochet 07": [
+1,
+2,
+0,
+1
+],
+"Ricochet 09": [
+1,
+2,
+0,
+1
+],
+"RiftCannon": [
+1,
+2,
+0,
+1
+],
+"Ripper Gun 1": [
+1,
+2,
+0,
+1
+],
+"Ripper Gun 2": [
+1,
+2,
+0,
+1
+],
+"Ripper Gun 3": [
+1,
+2,
+0,
+1
+],
+"Rok_Invasion": [
+1,
+2,
+0,
+1
+],
+"SFX_DeathFromAbove": [
+1,
+2,
+0,
+1
+],
+"SFX_Fire_Woosh_1_Short": [
+1,
+2,
+0,
+1
+],
+"SFX_Positive_Waaagh": [
+1,
+2,
+0,
+1
+],
+"SFX_ProperKilly": [
+1,
+2,
+0,
+1
+],
+"SFX_VengeanceUltramar": [
+1,
+2,
+0,
+1
+],
+"SW Axe Cut": [
+1,
+2,
+0,
+1
+],
+"SW Axe Swing": [
+1,
+2,
+0,
+1
+],
+"SW Buff Axe": [
+1,
+2,
+0,
+1
+],
+"SW Buff Howl": [
+1,
+2,
+0,
+1
+],
+"SW Buff Runes": [
+1,
+2,
+0,
+1
+],
+"SW Buff Runes 2": [
+1,
+2,
+0,
+1
+],
+"SW Deck Buff": [
+1,
+2,
+0,
+1
+],
+"SW Hammer Slam": [
+1,
+2,
+0,
+1
+],
+"SW Howl 1": [
+1,
+2,
+0,
+1
+],
+"SW Howl 2": [
+1,
+2,
+0,
+1
+],
+"SW Howl 3": [
+1,
+2,
+0,
+1
+],
+"Sautekh_Orikan_attack": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_cant": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_concede": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_death": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen1": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen2": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen3": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen4": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen5": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen6": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_gen7": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_greet": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_hurry": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_intro": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_mirror": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_threat": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_vsAeldari": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_vsCadia": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_vsImotekh": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_vsTBC": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_vsTrazyn": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Orikan_wp": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_attack": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_cant": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_concede": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_death": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen1": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen2": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen3": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen4": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen5": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen6": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_gen7": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_greet": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_hurry": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_intro": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_mirror": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_threat": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_vs_Grukk": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_vs_Tau": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_vs_Tyranid": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_vs_Ultramarine": [
+1,
+1,
+0,
+1
+],
+"Sautekh_Zahndrekh_wp": [
+1,
+1,
+0,
+1
+],
+"Scan_Evil": [
+1,
+2,
+0,
+1
+],
+"Scarab_Hit": [
+1,
+2,
+0,
+1
+],
+"Scarab_Init": [
+1,
+2,
+0,
+1
+],
+"Screamer-Killer": [
+1,
+2,
+0,
+1
+],
+"ScryersGaze": [
+1,
+2,
+0,
+1
+],
+"ScytheAssault": [
+1,
+2,
+0,
+1
+],
+"SelectAvatar": [
+1,
+2,
+0,
+1
+],
+"SelectUnit": [
+1,
+2,
+0,
+1
+],
+"Shell hit 1": [
+1,
+2,
+0,
+1
+],
+"Shell hit 2": [
+1,
+2,
+0,
+1
+],
+"Shell hit 3": [
+1,
+2,
+0,
+1
+],
+"Shell hit 4": [
+1,
+2,
+0,
+1
+],
+"Shell hit 5": [
+1,
+2,
+0,
+1
+],
+"Shell hit 6": [
+1,
+2,
+0,
+1
+],
+"Shell hit 7": [
+1,
+2,
+0,
+1
+],
+"Shell hit 8": [
+1,
+2,
+0,
+1
+],
+"Shell hit 9": [
+1,
+2,
+0,
+1
+],
+"ShieldEnter": [
+1,
+2,
+0,
+1
+],
+"ShieldExit": [
+1,
+2,
+0,
+1
+],
+"Shoota_1shot": [
+1,
+2,
+0,
+1
+],
+"Shoota_5shot": [
+1,
+2,
+0,
+1
+],
+"Shoota_Ghaz_AA_Ranged": [
+1,
+2,
+0,
+1
+],
+"Shuriken Catapult": [
+1,
+2,
+0,
+1
+],
+"Shuriken_Hit_1": [
+1,
+2,
+0,
+1
+],
+"Skorcha Attack": [
+1,
+2,
+0,
+1
+],
+"Slash In-Out": [
+1,
+2,
+0,
+1
+],
+"Slash_1": [
+1,
+2,
+0,
+1
+],
+"Slash_2": [
+1,
+2,
+0,
+1
+],
+"Slash_3": [
+1,
+2,
+0,
+1
+],
+"Slash_4": [
+1,
+2,
+0,
+1
+],
+"Slash_5": [
+1,
+2,
+0,
+1
+],
+"SmokeBomb": [
+1,
+2,
+0,
+1
+],
+"Sniper Target": [
+1,
+2,
+0,
+1
+],
+"SnotJoyrider_Down_2": [
+1,
+2,
+0,
+1
+],
+"SnotJoyrider_Up": [
+1,
+2,
+0,
+1
+],
+"Solar Beam": [
+1,
+2,
+0,
+1
+],
+"SolarPulse": [
+1,
+2,
+0,
+1
+],
+"Sororitas Buff 1": [
+1,
+2,
+0,
+1
+],
+"Sororitas Buff 2": [
+1,
+2,
+0,
+1
+],
+"Sororitas Destroy Flames V2": [
+1,
+2,
+0,
+1
+],
+"Sororitas Faith Trigger": [
+1,
+2,
+0,
+1
+],
+"Sororitas Summon": [
+1,
+2,
+0,
+1
+],
+"Squig Explosion": [
+1,
+2,
+0,
+1
+],
+"Squig Growl 1": [
+1,
+2,
+0,
+0
+],
+"Squig Hook": [
+1,
+2,
+0,
+1
+],
+"StartMatch": [
+2,
+1,
+0,
+1
+],
+"StartTurn": [
+1,
+2,
+0,
+1
+],
+"Stealth": [
+1,
+2,
+0,
+1
+],
+"Stikkboy grenade throw": [
+1,
+2,
+0,
+1
+],
+"Stimulate Buff": [
+1,
+2,
+0,
+1
+],
+"StormRaven": [
+1,
+2,
+0,
+1
+],
+"StormboyzStrike": [
+1,
+2,
+0,
+1
+],
+"Stormraven_Gatling": [
+1,
+2,
+0,
+1
+],
+"Stormsurge Fire": [
+1,
+2,
+0,
+1
+],
+"Stormsurge Hit": [
+1,
+2,
+0,
+1
+],
+"Strafing shots quick": [
+1,
+2,
+0,
+1
+],
+"Strike": [
+1,
+2,
+0,
+1
+],
+"StunEffect": [
+1,
+2,
+0,
+1
+],
+"Sump Overspill": [
+1,
+2,
+0,
+1
+],
+"Sun Shark Bomber": [
+1,
+2,
+0,
+1
+],
+"Swarm OnTarget": [
+1,
+2,
+0,
+1
+],
+"TacticalInsight": [
+1,
+2,
+0,
+1
+],
+"TalentEffect": [
+1,
+2,
+0,
+1
+],
+"Talent_HelspearAssault": [
+1,
+2,
+0,
+1
+],
+"Talent_Hexscorn": [
+1,
+2,
+0,
+1
+],
+"Talent_RitesOfPossession": [
+1,
+2,
+0,
+1
+],
+"Talent_Warmaster": [
+1,
+2,
+0,
+1
+],
+"Talon Slash": [
+1,
+2,
+0,
+1
+],
+"Tank Shot Big": [
+1,
+2,
+0,
+1
+],
+"Tank Shot Huge": [
+1,
+2,
+0,
+1
+],
+"Tank_Shot_Small": [
+1,
+2,
+0,
+1
+],
+"Tau Buff 1": [
+1,
+2,
+0,
+1
+],
+"Tau Buff Ranged": [
+1,
+2,
+0,
+1
+],
+"Tau Electro-Static Interference Initial": [
+1,
+2,
+0,
+1
+],
+"Tau Summon ": [
+1,
+2,
+0,
+1
+],
+"Throw_1": [
+1,
+2,
+0,
+1
+],
+"Throw_2": [
+1,
+2,
+0,
+1
+],
+"Thunder 1": [
+1,
+2,
+0,
+1
+],
+"Thunder 2": [
+1,
+2,
+0,
+1
+],
+"Thunder 3": [
+1,
+2,
+0,
+1
+],
+"Thunderhawk Flyby Quick 2": [
+1,
+2,
+0,
+1
+],
+"Tide": [
+1,
+2,
+0,
+1
+],
+"TideOfMuscle_2": [
+1,
+2,
+0,
+1
+],
+"Tornado_sound": [
+1,
+2,
+0,
+1
+],
+"Toxic Fumes Start": [
+1,
+2,
+0,
+1
+],
+"Toxic Miasma": [
+1,
+2,
+0,
+1
+],
+"Toxic Vapors": [
+1,
+2,
+0,
+1
+],
+"Toxic Vapors quick": [
+1,
+2,
+0,
+1
+],
+"Trait Cruelty": [
+1,
+2,
+0,
+1
+],
+"Trait Duty": [
+1,
+2,
+0,
+1
+],
+"Trait Ecstasy": [
+1,
+2,
+0,
+1
+],
+"Trait Regiment": [
+1,
+2,
+0,
+1
+],
+"Trait Stimulate": [
+1,
+2,
+0,
+1
+],
+"Trait Swarm Tyranid": [
+1,
+2,
+0,
+1
+],
+"TraitorsHate": [
+1,
+2,
+0,
+1
+],
+"TraitorsHate_Board": [
+1,
+2,
+0,
+1
+],
+"Turn Timer Tick": [
+1,
+2,
+0,
+1
+],
+"Tutorial1_ending1_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_ending2_SpaceMarine": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_prebattle1_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_prebattle2_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_prebattle3_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_prebattle4_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn101_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn102_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn201_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn202_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn301_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn302_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn401_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn501_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn502_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn601_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn602_Calgar": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn701_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn702_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial1_turn801_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn101_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn102_Makari": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn103_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn104_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn105_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn201_Makari": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn202_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn203_Makari": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn204_Makari": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn205_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn401_Makari": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn402_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn501_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn502_Makari": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn601_Ghazghkull": [
+1,
+1,
+0,
+1
+],
+"Tutorial2_turn603_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_prebattle1_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_prebattle2_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_turn201_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_turn301_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_turn302_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_turn601_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tutorial6_turn602_Ventris": [
+1,
+1,
+0,
+1
+],
+"Tyranid Acid Spit": [
+1,
+2,
+0,
+1
+],
+"Tyranid Buff Flies Hive": [
+1,
+2,
+0,
+1
+],
+"Tyranid Buff Low": [
+1,
+2,
+0,
+1
+],
+"Tyranid Burrow": [
+1,
+2,
+0,
+1
+],
+"Tyranid Cannon": [
+1,
+2,
+0,
+1
+],
+"Tyranid Fleshborer Short": [
+1,
+2,
+0,
+1
+],
+"Tyranid Hive Fleet Ground Hiss": [
+1,
+2,
+0,
+1
+],
+"Tyranid Low Growl": [
+1,
+2,
+0,
+1
+],
+"Tyranid Pyrovore Explosion": [
+1,
+2,
+0,
+1
+],
+"Tyranid Pyrovore Launch": [
+1,
+2,
+0,
+1
+],
+"Tyranid Roar": [
+1,
+2,
+0,
+1
+],
+"Tyranid Smite": [
+1,
+2,
+0,
+1
+],
+"Tyranid Spawn": [
+1,
+2,
+0,
+1
+],
+"Tyranid Spore Explosion": [
+1,
+2,
+0,
+1
+],
+"Tyranid Spore Launch": [
+1,
+2,
+0,
+1
+],
+"Tyranid Synapse": [
+1,
+2,
+0,
+1
+],
+"Tyranid Tyrannofex Acid": [
+1,
+2,
+0,
+1
+],
+"Tyranid_BulletHit": [
+1,
+2,
+0,
+1
+],
+"UI Click 1": [
+1,
+2,
+0,
+1
+],
+"UI Click 2": [
+1,
+2,
+0,
+1
+],
+"UI Click 2_no delay": [
+1,
+2,
+0,
+1
+],
+"UI Click 3 Bip": [
+1,
+2,
+0,
+1
+],
+"UI Click 4 Bip": [
+1,
+2,
+0,
+1
+],
+"UI Click 5": [
+1,
+2,
+0,
+1
+],
+"UI Click 5_no delay": [
+1,
+2,
+0,
+1
+],
+"UI Click 6": [
+1,
+2,
+0,
+1
+],
+"UI Click Cancel Bip": [
+1,
+2,
+0,
+1
+],
+"UI Click Card 2": [
+1,
+2,
+0,
+1
+],
+"UI Click Card 3": [
+1,
+2,
+0,
+1
+],
+"UI Click Card 4 cancel": [
+1,
+2,
+0,
+1
+],
+"UI Click Confirm 2": [
+1,
+2,
+0,
+1
+],
+"UI Click Confirm 3": [
+1,
+2,
+0,
+1
+],
+"UI Click Deck 1": [
+1,
+2,
+0,
+1
+],
+"UI Click Wrong": [
+1,
+2,
+0,
+1
+],
+"UI Faith Gain": [
+1,
+2,
+0,
+1
+],
+"UI Faith Trigger": [
+1,
+2,
+0,
+1
+],
+"UI Purchase 1": [
+1,
+2,
+0,
+1
+],
+"UI Purchase 2": [
+1,
+2,
+0,
+1
+],
+"UI PurchaseClick": [
+1,
+2,
+0,
+1
+],
+"UI RaidClaimRewardChing": [
+1,
+2,
+0,
+1
+],
+"UI RaidClaimRewardWait": [
+1,
+2,
+0,
+1
+],
+"UI Select Toggle": [
+1,
+2,
+0,
+1
+],
+"UI Send Message": [
+1,
+2,
+0,
+1
+],
+"UIButton Back": [
+1,
+2,
+0,
+1
+],
+"UIButtonPress": [
+1,
+2,
+0,
+1
+],
+"UIButtonPress Negative": [
+1,
+2,
+0,
+1
+],
+"Unbridled_Carnage": [
+1,
+2,
+0,
+1
+],
+"UnholySmite": [
+1,
+2,
+0,
+1
+],
+"UnitDamage": [
+1,
+2,
+0,
+1
+],
+"UnitHeal": [
+1,
+2,
+0,
+1
+],
+"Unstable Explosion Waaagh Energy": [
+1,
+2,
+0,
+1
+],
+"Unstable Explosion with waaagh": [
+1,
+2,
+0,
+1
+],
+"Uprising": [
+1,
+2,
+0,
+1
+],
+"VO_ADS_Aestred Thurga - My soul is consecrated to this relic": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Amalia Novena - Strike fierce and true For the Emperor": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Arco-flagellant - Frenzied screams": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Armorium Cherub - Heavy humming": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Battle Sister - With unwavering faith": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Battle Sister Gunner - Purge the unclean": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Battle Sister Superior - Bolters ready Sisters No mercy for the faithless": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Canoness - We bring righteousness where it is needed most": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Canoness Adelaide the Serene - All that you are and all you have done revolts me": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Castigator - You will be punished": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian - I have seen worse I have vanquished worse": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant - Purge this place of the unclean and the damned": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_attack": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_concede": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_death": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_greet": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_intro": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_threat": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_vsDaemon": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_vsMorvenn": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_vsNL": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_vsSylar": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Sacresant Aveline_wp": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Celestian Superior - I am the light to your darkness": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Crusader - No heretic shall pass": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Death Cult Assassin - I will offer your blood to the holy Emperor": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Dialogus - My voice echoes the Emperor's will": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Dogmata - Do not dare to fail in your duties": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Dominion - By my flame you will be purged": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Dominion Superior - Death will be a mercy for the faithless ones": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Ephrael Stern - I am the Daemonifuge the thrice-born the bane of daemons": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_attack": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_concede": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_death": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_greet": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_intro": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_threat": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsGhaelyn": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsGordrang": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsHesperax1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsHesperax2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsHexscorn": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsMorvennVahl": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_vsOrikan": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Erika Luminas_wp": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Exorcist - I bring the requiem to your annihilation": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Hospitaller - No Sister will be left behind": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Imagifier - Listen to my voice and the saintly deeds of the fallen": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Inmolator - Purge the impure with the Emperor's flame": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_attack": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_concede": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_death": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_greet": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_intro": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_threat": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_vsAstraMilitarum": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_vsMorvennVahl": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_vsZephyrblade": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Junith Eruita_wp": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Ministorum Priest - Let the Emperor's judgment sear their flesh!": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Missionary - I herald your demise": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Mortifier  - In battle He offers us redemption": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_attack": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_concede": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_death": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_greet": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_intro": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_threat": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsAstraMilitarum": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsGrukk": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsHaarken": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsJunith": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsLuminas": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsOrikan": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_vsShadowsun": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Morvenn Vahl_wp": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Paragon Warsuit - We bring judgment upon the heretic": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Penitent Engine - Tortured scream": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Preacher - The holy radiance of the Emperor burns within me": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Retributor - May His hand guide my aim in the coming battle": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Sacred Rose Sister - No armor will save you from our holy wrath": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Saint Celestine - Believe in the Emperor of Mankind and you shall walk in His light": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Seraphim - Our fire will rain from the skies": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Simulacrum Bearer - Let the light of the God-Emperor guide our righteous fury": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Simulacrum Imperialis - Bow before His divine authority": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Sister Novitiate - I will prove my worth and serve Him with my life": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Sister Repentia- Only in penance shall my soul be cleansed": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Sororitas Rhino - We march for the Emperor!": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Triumph of Saint Katherine - Martyred Matriarch grant us thy protection": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Zephyrim - With wings of faith we soar to glory": [
+1,
+1,
+0,
+1
+],
+"VO_ADS_Zephyrim Superior - Our blades will rain from the skies": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Aquilon Servo-Sentry_Scanning for hostiles": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_attack": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_concede": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_death": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_greet": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_intro": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_threat": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsHexscorn": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsImotekh": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsSaffa": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsSwarmlord": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_vsTervigon": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Arcadian Leontus_wp": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Armoured Sentinel - Nothing will stop our advance": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Astropath - I see beyond sight": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Attilan Rough Rider - Ride them down!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Autocannon Squad - Heavy weapon teams, awaiting target": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Baneblade Tank - All weapons, open fire!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Basilisk - The earth shakes to the sound of our guns": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Bombast Field Gun - Target sighted Let there be fire!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Bullgryn Bone'ead - Get behind me!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Cadian Castellan - Stand fast, not one step back": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Cadian Medic - Just a flesh-wound, I'll have you back on your feet": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Cadian Standard Bearer - Cadia stands!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Chimera - Prepare for immediate deployment": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar - Do your duty, or die by my hand": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_attack": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_concede": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_death": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_greet": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_intro": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_threat": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_vsHaarken": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_vsLeontus": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_vsMinka": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_vsUrsula": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Commissar Elan_wp": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Faeburn Vanquisher - Armed and ready!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Flamer Trooper - Flamers to the front": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_Backup5": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_Backup6": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_attack": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_concede": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_death": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_greet": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_intro": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_threat": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_vsDenkler": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_vsOrks": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_vsTau": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_vsTau_v2": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hektor Thenmann_wp": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Hydra - Blast them out of the skies!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Karskin - Hotshot rifles primed Kill-shots authorised": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Leman Russ Tank - The battlefield trembles under our treads": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Leman Russ Vanquisher - A single shell is all it takes": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Maelon Dhrost - Duty demands sacrifice": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Manticore - Missiles primed and ready!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Master of Ordnance - Let's make the cannons sing Fire!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Medic Scion - No soul left behind": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Medic Scion -On your feet! If you can breathe you can fight": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Minka Lesk - For Cadia!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Nork Deddog - Behind me, Sir Nork's got dis!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ogryn - Yes, sir!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Primaris Psyker - I channel the Emperor’s fury!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ratling - One shot should do it": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Rogal Dorn Tank - We are the Emperor's fire and fury!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Scout Sentinel - Scout patrol to command I have eyes on the enemy": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Shock Trooper - Reporting for duty!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Shock Trooper Sgt - For Cadia, we hold the line here!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Taurox - Armored transport, moving in!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Taurox Prime - Reserves are ready for deployment": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Tech-Priest Enginseer - Blessed is the Omnissiah's work": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Tempestus Aquilon - Descending into position!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Tempestus Scion - Contact confirmed Engaging": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Tempestus Sergeant - No mercy Bring them down!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_attack": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_concede": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_death": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_greet": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_intro": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_threat": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_vsCommissar": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_vsLeontus": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_vsUM": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Ursula Creed_wp": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Valkyrie - Prepare for rapid insertion!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Vitus Gryf - Fight to the last breath!": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Vitus Gryf - Your death is our duty": [
+1,
+1,
+0,
+1
+],
+"VO_AM_Vox Operator - New orders in from command": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Accursed Helbrute - Aaaargh Kill KILL": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Aspiring Champion - Embrace the power of Chaos": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Black Legionary - Death to the False Emperor": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Bringer of Decay - Wither and die": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chaos Legionary - I serve the Dark Gods": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chaos Lord - I take what is mine": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chaos Sergeant - Cruelty is strength": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chaos Spawn - bestial snarling": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chaos Terminator - I am unstoppable": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Child of Torment - My obsession cannot be sated": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chosen - Follow me to victory": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Chosen Champion - The crusade cannot be stopped": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Daemon Blade Legionary - Your armour cannot save you": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Dark Apostle - Dark Gods bestow your gift upon me": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Dark Disciple - The Dark Powers demand sacrifice": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron's Champion - Surrender to Ghallaron and your death will be quick": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron's Disciple - Praise Ghallaron beloved in the eyes of the gods": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_Backup1 (vsAeldari)": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_Backup5": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_attack": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_concede": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_death": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_greet": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_intro": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_threat": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_vsKeltoc": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_vsVarroTigurius": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Ghallaron_wp": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Havoc - Be rent unto flesh and ruin": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Havoc Champion - We bring annihilation": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Helbrute - My agony drives me": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Hound of Abaddon - Your skull is already mine": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Iskandar Khayon - The False Emperor must die": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Khorne Berzerker - Blood for the Blood God": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Lheorvine Ukris - I'll destroy you": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Master of Executions - Your head will be my trophy": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Master of Possession - Your body will serve as a vessel": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Maulerfiend - growl roar": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Meltagun Legionary - I will leave nothing but ash": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Noise Marine - Such sweet cacophony": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Obliterator - Flesh and bone are weak": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Plague Marine - Let your hate fester": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Possessed Champion - I will see your blood flow": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Possessed Marine - I live in your nightmares": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Rubric Marine - swirling dust": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Sorcerer - I have foreseen the Warmaster's victory": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Terminator Champion - You are an unworthy foe": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Venomcrawler - hiss snarl clank": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Veteran Havoc - Embrace the fires of oblivion": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Veteran Legionary - My hate drives me": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Vex Machinator - Come spirits of the machines, I will remake you": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Warp Talon - I strike from the warp": [
+1,
+1,
+0,
+1
+],
+"VO_BL_Zealot Legionary - For the glory of the Dark Gods": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_attack": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_cant": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_concede": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_death": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_greet": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_intro": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_threat": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_vsGrukk": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_vsHexscorn": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_vsMinka": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_vsOrikan": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Abaddon_wp": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Attack": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_CantDo": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Concede": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Death": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen1": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen2": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen3": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen4": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen5": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen6": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Gen7": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Greet": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Hurry": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Intro": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Mirror": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_Threat": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_vs_Commissar": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_vs_JainZar": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_vs_Orikan": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_vs_Zagstruk": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Haarken_wp": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Attack": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_CantDo": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Concede": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Death": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen1": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen2": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen3": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen4": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen5": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen6": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Gen7": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Greet": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Hurry": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Intro": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Mirror": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_Threat": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_Abaddon": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_Keltoc": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_UrsulaCreed": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_Varro": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_tbc2": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_tbc3": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_vs_tbc4": [
+1,
+1,
+0,
+1
+],
+"VO_BlackLegion_Hexscorn_wp": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Alluress (Emily)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Blastmaster Noise Marine (Kevin)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Blissbringer_High-pitch_Screech": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Chaos Land Raider (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Chaos Rhino (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_attack": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_concede": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_death": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_greet": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_intro": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_threat": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemon Prince Xarahan_wp": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Daemonette (Emily)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Disharmonist (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Dual Screamer Kakophonist (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Fiend_High-pitch_Screech": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Flawless Blade (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Flawless Blade Champion (Kevin)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Glittering Myriad Infractor (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Glittering Myriad Terminator (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Heldrake_Roaring_Bellow": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Icon of Excess Infractor (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Infractor (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Infractor Obsessionist (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Konstrictus Sorcerer (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_KonstrictusTormentor (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Exultant (Kevin)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kakophonist (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_attack": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_concede": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_death": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_greet": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_intro": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_threat": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lord Kaphrael_wp": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_attack": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_concede": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_death": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_greet": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_intro": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_threat": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsAstraMilitarum": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsBile": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsCSM": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsDA": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsEC": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsFulgrim": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsUM": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_vsWE": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Lucius_wp": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Maulerfiend_Roaring_Bellow": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Plasma Gun Tormentor (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Rugged Disharmonist (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Slaanesh Sorcerer (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Slaanesh's Spawn_Revelling_Screech": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Sonic Blaster Noise Marine (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Terminator (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Terminator Champion (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Threnodic Choir Flawless Blade (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Threnodic Choir Noise Marine (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Tormentor (Kevin)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Tormentor Obsessionist (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Veteran Noise Marine (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_CSM_EC_Winged Daemon Prince (Andrew Dennis)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Autarch - Hesitation leads only to failure We must strike! (Vivienne)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Avatar of Khaine - Death Wakes War Calls": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Bright Lance Vyper - Ride now! The knife-pledge shall be honoured! (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Crimson Hunter - We are the raging winds": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Death Spinner Warp Spider - Death lies in waiting (Vivienne)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Dire Avenger - When the light fades we must stand as one for the Craftworld": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Dire Avenger Exarch_Let slip of mercy": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Extra10 - The wrath of Khaine grows within me": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Falcon - Let our enemies feel the rushing wind of death": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Farseer - Every strike weaves a future worthy of our sacrifice (Vivienne)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Farseer Skyrunner - The winds will howl with the Craftworld's vengeance (Vivienne)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Fire Dragon - Burn in Khaines fury": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Fire Prism - We are the spear of Khaine": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Guardian Defender - So comes the hour of bloodshed": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Hemlock Wraithfighter - When my vengeance comes it will be swift": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Hornet - We strike with lethal precision": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Howling Banshee - Shriek": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Howling Banshee Exarch - The wail of Khaine will be your doom!": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_attack": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_concede": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_death": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_greet": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_intro": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_threat": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_vsDrukhari": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_vsHaarken": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_vsImotekh": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_vsKarandras": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_vsUrsula": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Jain Zar_wp": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_attack": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_concede": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_death": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_greet": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_intro": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_threat": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_vsEC": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_vsJainZar": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_vsNecrons": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Lhykhis_wp": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Night Spinner - A silent death descends upon our foes": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Nuadhu Fireheart - I am the bloodied blade of Khaine": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Orian Laratharjos - Your end is woven in monofilament (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Ranger - Hold still": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Shining Spear - Strike like the spear of Khaine!": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Shining Spear Exarch - One perfect strike": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Shroud Runner - Surround them Strangle them like the Serpent": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Spinneret Warp Spider Exarch - None escapes the spider's bite (Vivienne)": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Spiritseer - Spirits heed my words and rise": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Spiritseer Qelenaris - Rise warden the Craftworld needs you once more": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Storm Guardian - The Craftworld will never surrender": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Striking Scorpion - The shadows are always vigilant": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Striking Scorpion Exarch - You tread an accursed path": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Swooping Hawk - When the wind cries retribution has arrived": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Swooping Hawk Exarch - From the skies, death rains upon you!": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Vengeful Wraithblade - I am Khaines wrath": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Veteran Guardian - We will protect the Craftworld": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Vyper - I am always swift": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_War Walker - May the Sting of Grief commence": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Warlock - Light dims yet our hope is ever kindled": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Warlock Skyrunner - Follow the wind bring forth Khaines fire": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Warp Spider - Strike and fade": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Wave Serpent - Forward Crush the interlopers": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Weapons Platform - low humming": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Windrider - I bring swift demise": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Winged Autarch - Death rains from the skies": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Witchblade Warlock - The skeins of fate tell of nothing but death": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Wraithblade - I have returned so the Craftworld may never fall": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Wraithguard - No more pain no more death": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Wraithknight - Enough blood has flowed The fight must end": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Wraithlord - The spirits guide me": [
+1,
+1,
+0,
+1
+],
+"VO_CW_SaimHann_Yrlla the Huntress - When battle calls, we must all don the mask": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Aggressor - There shall be no sanctuary": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Apothecary - The Lion's sons endure I will see to it": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_attack": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_concede": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_death": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_greet": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_intro": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_threat": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_vsAzrael": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_vsBelial": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_vsOrksTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_vsTBC1": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_vsTBC2": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Asmodai_wp": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Assault Terminator - I will not suffer your existence one moment longer": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Azrael_attack": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_concede": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_death": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_greet": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_intro": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_threat": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_vsBelial": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Azrael_wp": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ballistus Dreadnought - Death is not enough to stay our wrath": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Belial_attack": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_concede": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_death": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_greet": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_intro": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_threat": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_vsAsmodai": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_vsAzrael": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Belial_wp": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Black Knight - We ride for the Lion!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Bladeguard Veteran - Through sacrifice we find redemption": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Captain - To me Dark Angels! Victory is at hand!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Chaplain - The Lion watches us all Fight with honor!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Chaplain Gabutheron - No price is too high to clean the sins of old": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Company Champion - We shall fulfill our duty no matter the cost": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Company Master - The fate of the chapter lies in our every action Do not falter!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Company Veteran - Our loyalty is unwavering": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Dark Talon - None shall escape the Chapter's talons": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Darkshroud - Caliban’s legacy shall not fade": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Deathwing Champion - Duty alone will wash away our shame": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Deathwing Knight - The hunt never ends Duty compels us forward": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Deathwing Knight Master - We must be eternally vigilant for our own flaws": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Deathwing Strikemaster - No mercy! Engage and eliminate!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Deathwing Terminator - Come forth and be slaughtered": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ezekiel - I alone judge the weak from the strong the truth from falsehood": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Inner Circle Companion - Heavy blade swing": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Intercessor - For the Lion and the Emperor!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Interrogator Chaplain - Your life is forfeit but your soul could still find deliverance": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Land Speeder Vengeance - No one can outrun our retribution": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Librarian - Caliban's rage echoes through me": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Master Lazarus - I will stand sentinel for the Chapter's honor": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Master Zacharial_Backup1": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_Backup2": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_Backup3": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_attack": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_cantDo": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_concede": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_death": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen1": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen2": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen3": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen4": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen5": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen6": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_gen7": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_greet": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_hurry": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_intro": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_mirror": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_threat": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_vsAsmodai&Belial": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_vsAzrael": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_vsEC&BL": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_vsShadowsun": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Master Zacharial_wp": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Nephilim Jetfighter - From on high a judgment will come!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ravenwing Ancient - The banner of Caliban shall never falter": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ravenwing Bikes - The hunt begins No one escapes the Ravenwing!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ravenwing Champion - The chase is over Now the blade falls": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ravenwing Speeder - Only death follows in our wake!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Ravenwing Talonmaster - We are the hunters! We are the Dark Angels!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Redemptor Dreadnought - My quest for vengeance is eternal": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Reiver - Your pleas for mercy will go unheard": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Repulsor - Heavy weapons primed Open fire!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Sammael - If it is death you crave I shall gift it to you!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Sergeant Naaman - None shall escape the wrath of Caliban!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Sergeant Taaman - None shall escape the wrath of Caliban!": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Techmarine - The Chapter's engines will not falter under my watch": [
+1,
+1,
+0,
+1
+],
+"VO_DA_Vengeful Brethren Bladeguard - Stand as firm as the mighty Rock itself!": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Vengeful Brethren Hellblaster - Mercy is not mine to deliver Only death": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Vengeful Brethren Intercessor - You are one mistake away from your death": [
+1,
+2,
+0,
+1
+],
+"VO_DA_Watcher in the Dark - You do not have long": [
+1,
+2,
+0,
+1
+],
+"VO_GSC_Aberrant Hypermorph_They are close": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Aberrant_Crush": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Abominant_Savage Bellow": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Achilles Ridgerunner_Forward! Let's earn our divine reward": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Heavy_For the Great Patriarch": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Hybrid_Our bodies are blessed": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_Backup5": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_Backup6": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_attack": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_concede": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_death": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_greet": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_intro": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_threat": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_vsAstraMilitarum": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_vsMagus": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_vsNecrons": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_vsOrks": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Iconward_wp": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Leader_To me, children of the Grizzlepit": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Acolyte Specialist_Your doom already walks among you": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Atalan Jackal - The trap is set Our moment draws near": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Atalan Leader - Be ready for anything, and prepare to strike": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Atalan Wolfquad - Crush them under our wheels!": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Benefictus_We will overwhelm all who stand against our ascension": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Biophagus_The Grizzlepit and I have created such wonders, to fuel our ascension": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Clamavus_Heed the call of the stars": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Concealed Explosives_Ticking sounds": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Cult Leman Russ_The Star Children call for fire": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Cult Sentinel_The brood is ever watchful": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Genestealer Familiar_Menacing Hiss": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Goliath Rockgrinder_We will break the chains of the oppressor": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Goliath Truck_We are in position": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Hulking Aberrant_Furious Snarl": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Hybrid Metamorph_Primal Snarl": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Jackal Outrider -There is nothing you can do to stop our ascension": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Jackal Scout - You see nought but what we want you to see": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Jackal Specialist - Each blast casts down the unbeliever": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Kelermorph_With me My Brothers and Sisters, liberation is at hand": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_attack": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_concede": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_death": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_greet": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_intro": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_threat": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_vsCommissar": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_vsLetharius": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_vsUrsulaCreed": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Lhaska Szenari_wp": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Locus_Your fate is sealed": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Metamorph Iconbearer_Feral growl": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Metamorph Leader_Witness our ascension": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Heavy_Deliverance, or blood": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Hybrid_We bring you the Star Children's blessing": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Iconbearer_For each one of us that falls, a hundred more will rise": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Initiate_The day of ascension approaches": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Leader_So comes the moment of deliverance": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Specialist_None can deny the Star Children's deliverance": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Neophyte Trooper_Give praise to the Master below": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Nexos_Kindred, at the ready, The plan moves forward": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Patriarch_PrimalGrowl": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Purestrain Genestealer_Wild Growl": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Reductus Saboteur_I will topple the walls of the oppressor": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_attack": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_concede": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_death": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_greet": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_intro": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_threat": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_vsAeldari": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_vsGhallaron": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_vsSpaceMarine": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Saffa Rhiannor_wp": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Sanctus_A single, perfect shot to herald our ascension": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Spotter Ridgerunner - Forward! We rise from the dust this day!": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_attack": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_concede": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_death": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_greet": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_intro": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_threat": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_vsAstraMilitarum": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_vsSororitas": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_vsSpaceMarine": [
+1,
+1,
+0,
+1
+],
+"VO_GSC_Uthrel Naas_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ardshell Gurk - You cant beat me git": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Banner Nob - Ill mount yer skull to my stick": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Battlewagon - This is gonna be a bumpy ride": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Big Krumpaz - Get over ere and face me klaw": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Big Shoota Boy - More More dakka": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Bomb Squig - MUNCH": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Boomdakka Snazzwagon - Fasta boyz We'z got lots of gits ta krump": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Burna Boy - Youz likes it hot": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Deff Dread - Iz stuck inside dis ting an dat makes me MAD": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Deffgun Loota - Shootin an lootin in dat order": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Deffkopta - There's no hidin from me rokkits": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_CantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_Concede": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_Greet": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_Hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_Intro": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_Mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_Threat": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_death": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_vsCommissar": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_vsKnightTitan": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_vsMinka": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_vsTBC1": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ghazghkull_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Gorkanaut - No git can stops da fist of Gork": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grot - Yes boss yes boss": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grot Tank - Im drivin No IM drivin": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_death": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_tbc": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_vsNemesor": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_vsTyranid": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_vsUM": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Grukk_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Gunwagon - Big dakka's da bestest dakka": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Hornhelmz Boy - Charge em boyz jus like der Horned Bull": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Killa Kan - Which button makes this fing go": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Kommando - Shut yer gobs time ta get all sneakylike": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Makari - Ready for fightin boss": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Meganob Ugrak - Make Gork proud boyz": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Mekboy Gazmek-Orks are da best at scrappin": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ork Boy - Oo wantz ta taste me choppa first": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Ork Nob - Orkz is made fer two fings only fightin and winnin": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Painboy Sniklaw - Thisll hurt you more than it hurts me": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Rukkatrukk Squigbuggy_Go lil' chompa Do yer fing": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Shoota Boy - Orky dakka is dead killy": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Skarboy Nob - Watch that stupid gob of yours": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Slugga Boy - Stop movin Iz want ta hit yereds": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Spanner - Still not workin Den I hitz it arder": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Stompa - STOMP": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Stormboy - Once Iz get goin there aint no stoppin": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_TBC - Deff on wheelz": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Tankbusta - Saved me boomiest rokkit just fer you": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Trukkboy - Out of da trukk ready ta chop": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Veteran Stormboy - Are you ready to go boom": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Warbiker - Dont fink youz can outrunz me": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_death": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_vsTBC2": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_vsTBC3": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_vsTBC4": [
+1,
+1,
+0,
+1
+],
+"VO_Goff_Zagstruk_wp": [
+1,
+1,
+0,
+1
+],
+"VO_NOT USED_UM_Primaris Judiciar - You're not ready to take on a foe like me": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beast Snagga Boy - I'z gonna rip you ta bits! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beast Snagga Nob - Where's da biggest trophy_! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_death": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_vsAstraMilitarum": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_vsDarkAngels": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_vsMozrog": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_vsShadowsun": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss Morgrim_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Beastboss on Squigosaur - Da hunt is on! Waaagh! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Gargantuan Squiggoth - Mighty bellow (SFX)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Big Choppa Nob - I'z gonna rip da world in ’arf": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Boss Nob - Yer face is callin' fer a good klawin'": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_Backup6": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_death": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_vsAbaddon": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_vsEliac": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_vsOMaisos": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Gordrang_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Krumpaklaw - I'z chop ya like yer dead meat": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Megablasta Deffkopta - Ere comes da show-stoppa": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Rokkit Boy - Da only fing betta than dakka are boomy rokkits": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Goff_Stikkboy - No time for finkin' only time for krumpin'": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Grot Orderly - Here boss I'z going back for more! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Grot on Bombsquig - Da boss always gots da best ideas! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Hunta Rig - Load up da boyz we'z got huntin' ta do! (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Kill Rig - Da wurrboy guids us ta do da best huntin! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_death": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_vsBL": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_vsMorgrim": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_vsSwarmlord": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_vsTervigon": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_vsUM": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Mozrog Skragbad_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Nob on Smasha Squig - Fasta! 'Dis one's gonna get messy (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Painboss - Shut yer gob or I'z smack you with yer own bits! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Runtherd - If ya ain't bitin' ya ain't worth keepin'! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Snakebite Battlewagon - Da biggest wheels get da biggest kills! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Snakebite Grot - C'mon you lot! Da boss needs us! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Snakebite Nob - No zoggin' tricks just proper choppin'! (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Squighog Boy - Me squig's noggin's 'arder dan yours! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Thump Gun Beast Snagga - Diz is gonna hurt! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Unleashed Tramplasquig - Bestial roar (SFX)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Weridboy - Me skull's a-buzzin' You'z gettin' da zzap! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Wurrboy - Da Waaagh's in me bones! Come an 'ave a taste! (Andrew)": [
+1,
+1,
+0,
+1
+],
+"VO_Ork_Zodgrod Wortsnagga - Me grots’ll show ya gitz how ta fight! (Joey)": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_attack": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_cant": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_concede": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_death": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_greet": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_intro": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_threat": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_vsHexscorn": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_vsOrikan": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_vsZephyrblade": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Anvirr_wp": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_attack": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_concede": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_death": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_greet": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_intro": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_threat": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_vs_Eliac": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_vs_Haarken": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_vs_Tyranids": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Ghaelyn_wp": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_attack": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_concede": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_death": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_greet": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_intro": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_threat": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_vsGhaelyn": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_vsKeltoc": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_vsZagstruk": [
+1,
+1,
+0,
+1
+],
+"VO_SaimHann_Zephyrblade_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Annihilation Barge - Obliteration protocols activated": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Annihilation Barge - Your doom is inevitable": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Canoptek Plasmacyte - whirr whirr": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Canoptek Reanimator - Reanimate": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Canoptek Scarab - Skitter skitter": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Canoptek Spyder - hiss click tap": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Canoptek Wraith - rustle": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Chronomancer - Time is fleeting, until I say otherwise": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Cryptothrall - I must protect": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Damaged Hexmark - L-L-Locating target for an-annihilation": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Damaged Plasmacyte - anti-grav hum": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Deathmark - Target acquired": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Doom Scythe - woooshh": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Doomstalker - Detecting intruder, Powering doomsday blaster": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Flayed One - Fleeeessssshhhhh": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Flayed Ones Pack - We hunger": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Gauss Immortal - Disintegrate": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Gauss Warrior - Fire": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ghost Ark - Our ranks are endless": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Hexmark Destroyer - Multiple targets on sight": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Immortals Phalanx - None can stand against us": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_death": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_vsAeldari": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_vsOrikan": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_vsOrks": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_vsUriel": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Imotekh_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Lokhust Destroyer - All life must be expunged": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Lokhust Heavy Destroyer - Moving into optimal firing position": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Lokhust Lord - By my will Render them down to atoms": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Lychguard - I am eternal, I am death": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Monolith - rumble": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Necron Lord - Dare you face my undying legions": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Necron Warrior - Obey": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Night Scythe - woosh": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ophydian Destroyer - I sense life": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Plasmancer - Your presence must be eradicated": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Psychomancer - What is it you most fear": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_death": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_vsAun'Va": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_vsGrukk": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_vsImotekh": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_vsKeltoc": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_vsNecron": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_vsOrikan": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Ramatekh the Cruel_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Royal Warden - The Sautekh dynasty is eternal": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Scarab Swarm - chitter chitter": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Skorpekh Destroyer - Purging initiated": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Skorpekh Lord - Eradicating all enemies": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_TBC - I cannot be destroyed": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_TBC - Retreat is not the Necron way": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_TBC - The Sautekh will triumph": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Technomancer - Activating reanimation protocol": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Tesla Immortal - I remember": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Tomb Blade - Converging on enemy position": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Triach Praetorian - By the laws of the Necrontyr, you will be judged": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Triarch Stalker - Locking onto target": [
+1,
+1,
+0,
+1
+],
+"VO_Sautekh_Vargard Obyron - It is my duty to defend the Nemesor": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Arjac Rockfist - My hammer strikes with the wrath of Fenris!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Bjorn the Fell-Handed  - I wake Fenris howls": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Blackmane Aggressor - We are the storm! We are the Allfather's fury!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Blackmane Inceptor - Here's one to remember me by!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Blackmane Reiver - You will not live to see our victory": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Blood Claw - This is where my saga begins!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Blood Claw Pack Leader - Keep moving! Battle does not wait for you!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Deathwolf Scout - The trail is clearer with every step": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Fenrisian Drop Pod - From the Sea of Stars to the sea of blades!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Fenrisian Wolf": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Frost Claw Wulfen": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Fyrri Askar - Let's give the skjalds something to sing about!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Grey Hunter - I have eyes on the prey!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Grey Hunter Pack Leader - Charge! No great champion dies clean!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Hrolf the Ironhowl - With me, brothers! Ride until the Wolftime!)": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Hunting Wolf": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Iron Priest - Sharp senses, sharper steel": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Land Raider - We are the thunder of Fenris!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_attack": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_concede": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_death": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_greet": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_intro": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_threat": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_vsBL": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_vsEC": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_vsMozrog": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Logan Grimnar_wp": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Long Fang - Your time is over!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Murderfang": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_Backup3": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_Backup4": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_attack": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_concede": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_death": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_greet": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_intro": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_threat": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_vsDG": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_vsTS": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_vsWE": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Njal Stormcaller_wp": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_Backup": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_attack": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_concede": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_death": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_greet": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_intro": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_threat": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_vsAsmodai": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_vsCSM": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_vsDG": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_vsSororitas": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_vsTS": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Ragnar Blackmane_wp": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Sons of Morkai Eliminator - Morkai's claws reach longer than one expects": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Stormwolf - Our storm-wrath shall tear the skies!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Terminator Rune Priest - The winds will howl with Fenrisian rage!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Terminator Rune Priest_backup- I bring the storm-wrath!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Thunderwolf Calvary - If tooth and nail are not enough, the chainsword will bite": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Thunderwolf Cavalry Pack Leader - For Russ and the Allfather!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Tyrnak and Fenrir": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Venerable Dreadnought - My saga does not end Not today": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Vindicator - From Fenris to the stars, they will hear us howl!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wolf Guard Battle Leader - Enough barking! Time to do some biting": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wolf Guard Headtaker - Bring them fang! Bring them fury!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wolf Guard Terminator - Let the battle-reckoning be counted by the score!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wolf Guard Terminator Pack Leader - Give them the bolt-greeting they deserve!": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wolf Priest - It is fate that guides our blades": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wulfen": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wulfen Dreadnought_v2": [
+1,
+1,
+0,
+1
+],
+"VO_SpaceWolves_Wulfen Pack Leader": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'Shi - The prosecution of any war courts the perils of barbarism": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsAstraMillitarum": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsGrukk": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsHexscorn": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsKrootShaper": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsO'Maisos": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsShadowsun": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_vsTervigon": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Aun'va_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Breacher Shas'ui - All that we do is for the Greater Good": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Broadside Battlesuit - Broadside deployed Ready to deliver the Mont'ka": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Cadre Fireblade - We fight for the Greater Good And we will triumph": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Coldstar Battlesuit - Bright burns the light of the T’au Empire": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_vsAun'Va": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_vsKeltoc": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_vsSM": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_vsShadowsun": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_vsSwarmlord": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_vsZagstruk": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Commander O'Maisos_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Crisis Battlesuit - We will deliver the killing blow": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Crisis Bodyguard - To fight for the Greater Good is our duty and our privilege": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_DS8 Support Turret - Calculating enemy trajectory": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Darkstrider - Study the enemy's vulnerabilities and exploit them": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Devilfish - Strike at the heart of the enemy": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Enforcer Battlesuit - Launch protocols initiated": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Fire Warrior - Fire on my signal": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Fire Warrior Breacher - The Greater Good brooks no obstacle": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Fire Warrior Sniper - Precision and efficiency": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Firesight Marksman - I guide the Fire Caste's fury": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Guardian Drone - Projecting energy field": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Gun Drone - Weapons systems charged": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Hammerhead - The time of diplomacy is over Now comes the time of fire": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Honoured Ethereal - With courage and discipline we shall stand victorious": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Longstrike - No foe can withstand the precise application of superior firepower": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Marker Drone - Gathering targetting information": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Missile Drone - Targeting matrix calculated": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Pathfinder - Optimal target marked for elimination": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Piranha - Surveilling engagement area": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Razorshark Fighter - The Air Caste bring fire from the skies": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Riptide Battlesuit - I am here to end this conflict": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_Backup": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_vsAun'va": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_vsGrukk": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_vsImperial": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_vsKroot": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_vsO'Maisos": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Shadowsun_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Sky Ray Gunship - Target locked Deploying seeker missiles": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Sniper Drone - Target identified": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Stealth Battlesuit - Stealth field active Ready to engage": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Stealth Drone - Activating stealth field": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Stealth Shas'ui - Stealth team in position Awaiting orders": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Stormsurge - Resistance will be met with unyielding fire": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Strike Team - Our flame lights the way to the Greater Good": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Sun Shark Bomber - To secure the expansion we must conquer the skies": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Empire_Vespid Stingwings": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Flesh Shaper - A hunter's senses must be sharp as a butcher's knife": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Kroot Carnivore - We heed the call of the hunt": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Kroot Hound - Voracious growl": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Krootox Rampager - Show me your strength I will make it mine": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Krootox Rider - No prey can hide from us": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Lone-Spear - The hunt does not wait for the hunter": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_Trail Shaper - Sharpen your knives Tonight we feast": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_vsAunVa": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_vsNecron": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_vsUrsulaCreed": [
+1,
+1,
+0,
+1
+],
+"VO_Tau_War Shaper_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Barbgaunt": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Biovore - Low rumbling": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Broodlord - Rallying scream": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Carnifex - Primal roar": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Deathleaper - Lurking in the shadows": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Exocrine - Thunderous stomp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Gargoyle - Harsh scream": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Genestealer - Wild talon swinging": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Harpy - Ferocious scream": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Haruspex - Discordant roar": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Hive Crone - Intense screech": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Hive Guard - Heavy stomp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Hive Tyrant - Commanding roar": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Hormagaunt - Savage growl": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Lictor - Rising talons menacingly": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Maleceptor - Malignant bellow": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Mawloc - Gutwrenching scream": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Mucolid Spore - Noxious humming B": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurogaunt": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurogaunt Nodebeast- Low growl": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neuroloid": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_cant": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurothrope_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Neurotyrant": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Norn Emissary": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Psychophage": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Pyrovore - Brooding grumble": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Ravener - Piercing roar": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Ripper Swarm - Discordant chirrup": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_ScreamerKiller - Savage scream": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Spore Mine - Low Humming B": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Sporocyst - Reverberating thrum": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Stranded Termagant - Enraged screech": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_cant": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Swarmlord_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Termagant - Hungry snarl": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Termagant Brood": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_cant": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tervigon_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tyranid Prime - Threatening roar": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tyranid Warrior - Intimidating growl": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tyrannocyte - Viscous gurgle": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tyrannofex - Fiery bellow": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Tyrant Guard - Challenging roar": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Venomthrope - Twirling tendrils": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Von Ryan's Leaper - Pack call": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_cant": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_death": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyranid Prime_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Winged Tyrant - Deafening scream": [
+1,
+1,
+0,
+1
+],
+"VO_Tyranid_Leviathan_Zoanthrope - Psychic humming": [
+1,
+1,
+0,
+1
+],
+"VO_UM_2nd Company Terminator - Your fall will echo through the battlefield": [
+1,
+2,
+0,
+1
+],
+"VO_UM_7th Company Bikes - Temper your speed with faith and flame": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Aggresor Sergeant - No foe can stand in our wake": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Antaro Chronus - Make the engines roar Its time to scour this battlefield": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Apothecary Polixis - The Emperor's work must be safeguarded": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Assault Centurion - My armour is infused with the Emperors will": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Assault Intercessor - The Emperor guides us to victory": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Attack Bike - For Guilliman and the Emperor!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Bladeguard Ancient - Fight well and your names shall leave on ever after in glory!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Bladeguard Lieutenant - Draw your blade for the Primarch": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Bladeguard Sergeant- Your defiance will end under Ultramar's steel": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Brutalis Dreadnought - I have embraced death to deliver it with every step!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Calgar_attack": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_concede": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_death": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_greet": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_intro": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_threat": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_vsAgemman": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_vsGhazghkull": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_vsMkar": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_vsUrielVentris": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_vsVarro": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Calgar_wp": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Cato Sicarius - Let none stay our wrath": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chairon (with Gadriel in play) - We shall thin their numbers today, brother": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chairon - I will make them suffer now": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_attack": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_concede": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_death": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_greet": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_intro": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_threat": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_vsGhallaron": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_vsVanderghast": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_vsVentris": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chaplain Letharius_wp": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Chapter Champion - I am Guilliman's blade!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Company Ancient - For the Chapter and Lord Guilliman": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Desolation Marine - Enemy located Leave no trace of them": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Devastator Centurion - We march for Macragge": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Devastator Marine - Keep firing! Sustained volley!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Dreadnought - Face the consequences of your existence": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Eliminator - Target acquired Your fate is sealed": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Eliminator Sergeant - None will escape under my watch": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Epistolary Librarian - Knowledge is my blade wisdom my bullet": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Eradicator - We bring the fires of retribution Burn them down!": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Ferren Areios - Pride outlives the prideful I make sure of it": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Firestrike Servoturret - Battlefields are filled with the remains of the obstinate": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Firstborn - We are the sons of Guilliman": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Guilliman_Backup1": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup10": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup11": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup12": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup2": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup3": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup4": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup5": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup6": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup7": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup8": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_Backup9": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_attack": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_cantDo": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_concede": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_death": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen1": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen2": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen3": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen4": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen5": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen6": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_gen7": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_greet": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_hurry": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_intro": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_mirror": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_threat": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsAbaddon": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsFulgrim": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsLion": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsLucius": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsMortarion": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsMorven": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsTyranid": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsUM": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_vsUriel": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Guilliman_wp": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Heavy Intercessor - Stand firm, sons of Ultramar!": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Hellblaster Squad - The bigger they are the harder they fall": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Honour Guard - For courage and honour": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Inceptor Sergeant - Ready your jump packs we strike now": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Incursor - Target acquired. Bring it down!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Intercessor Sergeant - For the Emperor and the Primarch": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Invader ATV - We will carve a path through enemy lines": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Invictor Warsuit - There is nowhere we fear to tread": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Land Speeder - None shall stand in our way": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Lieutenant Calsius - Form up and advance": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Octavio Infiltrator - Hold positions, we strike soon": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Outrider - With all due haste": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Phobos Librarian - We are His will made manifest!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Phobos Lieutenant - The Emperor's grace follows us": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Predator Annihilator - Predator in position Let there be fire": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Chaplain - Trust in the Emperor at the hour of battle": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Impulsor - There's no hiding from Ultramar's wrath": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Inceptor - One strike is all I need": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Intercessor - For the Imperium": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Judiciar - Intro": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Reiver - They'll be dead before they see me coming": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Primaris Techmarine - I await your instructions": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Redemptor Dreadnought - Even in death I still serve": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Repulsor Executioner - Let the roar of our cannons herald their doom": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Scout - Taking cover enemies in range": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Scout Bike - Aim true and strike them down": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Scout Sniper - Cut the head and the body will follow": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Sergeant Allectius - Death wont take me without a fight": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Sergeant Gadriel (with Chairon in play) - You care to see who can slay more Xenos, brother Chairon": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Sergeant Gadriel - Take them down!": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Sergeant Tellion - Strike at their weakness to prevail": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Sternguard Veteran Sergeant - Shot by shot we will purge the Galaxy": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Storm Speeder Hailstrike - Target acquired Leave no trace of them": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Stormtalon - Target located, flying into position": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Suppressor - A bolt unfired is a bolt wasted": [
+1,
+2,
+0,
+1
+],
+"VO_UM_TBC1 - For the Emperor": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Terminator - I will test the limits of your arrogance": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Terminator Captain - Break them! Leave none standing!": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Titus_Backup1": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_Backup2": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_attack": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_concede": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_death": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_greet": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_intro": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_threat": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_vsAeldari": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_vsChaos": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_vsOrk": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_vsTyranids": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Titus_wp": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Tyrannic War Veteran - We must push back the tide": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Valius Paxor_Backup1": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_Backup2": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_Backup3": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_Backup4": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_Backup5": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_Backup6": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_attack": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_cantDo": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_concede": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_death": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen1": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen2": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen3": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen4": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen5": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen6": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_gen7": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_greet": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_hurry": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_intro": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_mirror": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_threat": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_vsEC": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_vsTyranids": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_vsUM": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valius Paxor_wp": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Valtus, Redemptor Dreadnought- Lead me to the slaughter!": [
+1,
+1,
+0,
+1
+],
+"VO_UM_Vico Therbeus - Our foes seem without limit but we will find it": [
+1,
+2,
+0,
+1
+],
+"VO_UM_Whirlwind - We bring Ultramar's fire!": [
+1,
+2,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_death": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_vsGuilliman": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_vsMKar": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_vsTBC1": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_vsTBC2": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_vsVentris": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Tigurius_wp": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_attack": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_cantDo": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_concede": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_death": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen1": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen2": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen3": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen4": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen5": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen6": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_gen7": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_greet": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_hurry": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_intro": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_mirror": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_threat": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_vsCalgar": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_vsChaos": [
+1,
+1,
+0,
+1
+],
+"VO_Ultramarines_Ventris_wp": [
+1,
+1,
+0,
+1
+],
+"Vanguard_3": [
+1,
+2,
+0,
+1
+],
+"Vault Crate Open Full": [
+2,
+1,
+0,
+1
+],
+"Vespid Laser": [
+1,
+2,
+0,
+1
+],
+"Vox-pulse": [
+1,
+2,
+0,
+1
+],
+"WIldcard Use 2": [
+1,
+2,
+0,
+1
+],
+"Wailing Doom": [
+1,
+2,
+0,
+1
+],
+"Warpforge Aeldari Combat High": [
+1,
+1,
+1,
+1
+],
+"Warpforge Aeldari Combat Low": [
+1,
+1,
+1,
+1
+],
+"Warpforge Aeldari Combat Medium": [
+1,
+1,
+1,
+1
+],
+"Warpforge Black Legion Combat High": [
+1,
+1,
+1,
+1
+],
+"Warpforge Black Legion Combat Low": [
+1,
+1,
+1,
+1
+],
+"Warpforge Black Legion Combat Medium": [
+1,
+1,
+1,
+1
+],
+"Warpforge Genestaler Cults Combat Medium": [
+1,
+1,
+0,
+1
+],
+"Warpforge Necrons Combat High": [
+1,
+1,
+1,
+1
+],
+"Warpforge Necrons Combat Low": [
+1,
+1,
+1,
+1
+],
+"Warpforge Necrons Combat Medium": [
+1,
+1,
+1,
+1
+],
+"Warpforge Orks Combat High": [
+1,
+1,
+1,
+1
+],
+"Warpforge Orks Combat Low": [
+1,
+1,
+1,
+1
+],
+"Warpforge Orks Combat Medium": [
+1,
+1,
+1,
+1
+],
+"Warpforge Sororitas Combat Medium": [
+1,
+1,
+0,
+1
+],
+"Warpforge Tau Empire Combat Medium": [
+1,
+1,
+0,
+1
+],
+"Warpforge Tyranid Combat High": [
+1,
+1,
+1,
+1
+],
+"Warpforge Tyranid Combat Low": [
+1,
+1,
+1,
+1
+],
+"Warpforge Tyranid Combat Medium": [
+1,
+1,
+1,
+1
+],
+"Warpforge Ultramarines Combat High": [
+1,
+1,
+0,
+1
+],
+"Warpforge Ultramarines Combat Low": [
+1,
+1,
+0,
+1
+],
+"Warpforge Ultramarines Combat Medium": [
+1,
+1,
+0,
+1
+],
+"Warpforge_Astra_Militarum": [
+1,
+1,
+0,
+1
+],
+"Warpforge_Dark_angel_Theme": [
+1,
+1,
+0,
+1
+],
+"Warpforge_Emperors_Children_Theme": [
+1,
+1,
+0,
+1
+],
+"Warpforge_Space_wolves_Theme": [
+1,
+1,
+0,
+1
+],
+"Waystone Trigger": [
+1,
+2,
+0,
+1
+],
+"Webber impact 2": [
+1,
+2,
+0,
+1
+],
+"Wildcard Use 1": [
+1,
+2,
+0,
+1
+],
+"Wildcard Use 3": [
+1,
+2,
+0,
+1
+],
+"Wildcard Use 4": [
+1,
+2,
+0,
+1
+],
+"WillOfGork_3": [
+1,
+2,
+0,
+1
+],
+"WorstTemper": [
+1,
+2,
+0,
+1
+],
+"battle_attack_soft": [
+1,
+2,
+0,
+1
+],
+"battle_endturn_error": [
+1,
+2,
+0,
+1
+],
+"battle_turn_end": [
+1,
+2,
+0,
+1
+],
+"battle_turn_end_timer_3": [
+1,
+2,
+0,
+1
+],
+"explosion plain medium_HORUS": [
+1,
+2,
+0,
+1
+],
+"trait_stealth_break": [
+1,
+2,
+0,
+1
+]
+}
+}

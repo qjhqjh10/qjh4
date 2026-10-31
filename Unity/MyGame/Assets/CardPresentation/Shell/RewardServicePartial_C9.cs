@@ -23,13 +23,15 @@
 //     不是 `RawCardScript`（它绑在原卡的数量上，`QuantityBoundItemInfo`）
 //     ⇒ 判据 `def.Id != id` ⇒ **不认**（留给出声，铁律 2「查不到就说查不到」）。
 //
-// ============================ 🔴 一个必须带着的规避（见判据 §3·4）============================
-//  `CardInventory.Add` → `UpdateCardTier` → `CardProgress.SetLevel(id, tier + 1)`（`Shell/Inventory.cs:1400`）
-//  是**我们的落点差异**（原版写的是**运行时** `CardServices.TierCollection`，对玩家可见状态没有影响）。
-//  ⇒ 若照原版传 `customData = null`，`tier` 缺省 0 ⇒ `SetLevel(id, 1)` ⇒ **把已经升到 3 级的卡打回 1 级**。
-//     ⇒ 这里显式传 `CardTier = CardProgress.Level(id) - 1`（`Level` 是 **1 基** = 原版 `CardTier + 1`）
-//        ⇒ `SetLevel(id, tier + 1)` = **现值** ⇒ 零可见变化。
-//  ⛔ 结构性收口（让这条路**根本不动**持久等级）**不在本文件**：另立账，见报告 `报告/C9.md` §另立账 ①。
+// ============================ ✅ 原来那段「必须带着的规避」【已过期 · 2026-11-01（`B111_S2`）就地订正】============
+//  ⚠️ 原来这里写「必须传 `CardTier = Level−1`，否则 `SetLevel(id, 1)` 会把升到 3 级的卡打回 1 级」——
+//     **那个前提已经不存在了**：`B110_F1`（2026-10-31）把 `CardInventory.UpdateCardTier` 改成
+//     「`customData` 里**没有** `CardTier` ⇒ **什么都不写**」（`Shell/Inventory.cs:1392` 的 `if (s == null) return;`），
+//     因为原版那一跳写的是**运行时** `CardServices.TierCollection`（对玩家可见状态零影响），
+//     而我们的落点是**持久**等级（`CardProgress`）—— 两者不同义 ⇒ 缺档位时必须不写。
+//  ⇒ 下面那句 `customData` 现在是**同值写**（写进去的 `tier + 1` == 现值）：**代码保留**，作用是回归覆盖
+//     （`Editor/B110_F1_Assert.cs` 的 B/C 组要靠它验「带档位的 `Add` 仍然只写现值」）。
+//     ⛔ **别删 `customData` 那一句代码**，也⛔ 别把注释改回「必须带着」。
 //
 // ============================ 落在哪 / 怎么接 ============================
 //  `Shell/Inventory.cs:1950` 的 `public static class RewardService` 改成 `partial`（**零行数变化**），
@@ -66,7 +68,8 @@ namespace CardPresentation
                 return true;
             }
 
-            // 见文件头「必须带着的规避」：带上**当前档位**，让 UpdateCardTier 算出来的等级 = 现值。
+            // 带上**当前档位**（= 同值写，理由见文件头「已过期那条] —— `UpdateCardTier` 自 `B110_F1` 起在缺档位时**什么都不写**，
+            // 这一份 `customData` 现在只是**回归覆盖**：写进去的 `tier + 1` 恰好等于现值 ⇒ 零可见变化。⛔ 别删。
             int tier = CardProgress.Level(def.Id) - 1;
             var cd = new Dictionary<string, string> { { "CardTier", tier.ToString() } };
 

@@ -2804,38 +2804,18 @@ namespace CardPresentation
         //   · 🔴 **`AchievementsMenu` 那颗 `end` 不是本条**：`Achievement Container` 的 `end` 那格
         //     Image 的 `m_Material.m_PathID = 0` ⇒ 原版走默认 UI 材质、**本来就不失真**。
         //
-        // ⚠️ 为什么不走 `MenuFxMaterials`：本轮文件所有权表里 `Shell/MenuFxMaterials.cs` 没分给任何代理，
-        //    而本代理白名单没有它 ⇒ 就地实现同一套纪律（**逐颗克隆**）。调度台若要并进去，
-        //    等价改动 = 加一个 `DistortAtlasSmall` 常量 + 一条 `Apply(...)` 调用。
-        static Material _distortAtlasProto;
-        static bool     _distortAtlasWarned;
+        // 🆕 **2026-11-01（`B111_S4` · 账 `B-21`）收口**：原来这里另写了一套「取材质 + 逐颗 `new Material(proto)`
+        //   + 带过 `_Color`」的等价实现（`_distortAtlasProto` / `DistortAtlasProto()` / `ApplyDistortAtlas()` 的体）。
+        //   铁律「两处写同一条规则 = 迟早不一致」⇒ 已收回 `Shell/MenuFxMaterials.cs`
+        //   （常量 `DistortAtlasSmall` + `Proto` + 三参 `Apply`；告警也统一由那边出声）。
+        //   ⛔ 别再把克隆纪律抄回这里。
 
-        static Material DistortAtlasProto()
-        {
-            if (_distortAtlasProto != null) return _distortAtlasProto;
-            _distortAtlasProto = Resources.Load<Material>("Art/vfx/WFUI_Distort_AtlasSmall");
-            if (_distortAtlasProto == null && !_distortAtlasWarned)
-            {
-                _distortAtlasWarned = true;
-                Debug.LogWarning("[ExpansionPassEventWindow] 取不到材质 `Resources/Art/vfx/WFUI_Distort_AtlasSmall`"
-                               + " ⇒ `BarEnd` 退回静态贴图（出声，不静默）");
-            }
-            return _distortAtlasProto;
-        }
-
-        /// <summary>把 `BarEnd` 那颗 quad 换成原版 #6 的 `UI Distort` 材质。
-        /// ⚠️ 每颗 quad **各拿一份克隆**：`ImageQuad.SetTint` / `SetRenderQueue` 写的是
-        /// `sharedMaterial.color` / `.renderQueue`（`ImageQuad.cs:400` / `:425`）⇒ 共用一份 = 染色/队列互相盖。
-        /// 渲染队列由 `ImageQuad.SetMaterial` 从**旧材质**读出并带过去（`:299-303`）。</summary>
+        /// <summary>把 `BarEnd` 那颗 quad 换成原版 #6 的 `UI Distort` 材质
+        /// （`Resources/Art/vfx/WFUI_Distort_AtlasSmall`；逐颗克隆 / 带过 `_Color` / 保留渲染队列
+        /// 全在 `MenuFxMaterials.Apply` 里，本处只写「用哪份材质」）。</summary>
         static void ApplyDistortAtlas(ImageQuad q)
         {
-            if (q == null) return;
-            var proto = DistortAtlasProto();
-            if (proto == null) return;
-            Color tint = q.Tint;                       // 换之前那一份（`Sprites/Default` 的 `_Color`）
-            var inst = new Material(proto);
-            if (inst.HasProperty("_Color")) inst.color = tint;
-            q.SetMaterial(inst);
+            MenuFxMaterials.Apply(q, MenuFxMaterials.DistortAtlasSmall);
         }
     }
 

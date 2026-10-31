@@ -26,11 +26,23 @@ Run:
   python -I -X utf8 gen_feature_index.py --help
 ⚠️ **账写手还在跑时只用 `--dry`**：正式覆盖属「重生成类操作」，必须等账停手（CLAUDE.md §16·8）。
 Out: D:/4/Unity/资料/完全复刻/功能点索引.md
+
+🟢 **文件头注记由本生成器自动写**（2026-11-01 `B112_D`）：三个数全部现读 —— ① 账行数 + 状态分布；
+② 表体重算（`判据/功能点索引_*_part.tsv` 按 `原版构成` 现读账展开，唯一实现 = `feature_index_check.expand`）；
+③ 复核日期（生成时刻 + 账/part 的最新 mtime）。⛔ 别再手工往 `.md` 里追加这段 —— 重生成会抹掉。
 """
-import io, glob, os, json, re, sys, collections
+import io, glob, os, json, re, sys, time, collections
+
+# `feature_index_check.py` 与本文件同目录；`-I`（isolated）会把脚本目录从 sys.path 拿掉 ⇒ 自己补。
+# 只用它的 `expand/grade_of`（唯一实现），⛔ 不在这里再写第二份展开/定档逻辑。
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import feature_index_check as FIC          # noqa: E402
 
 LEDGER_DIR = r'D:/4/Unity/资料/完全复刻/账'
 DEST = r'D:/4/Unity/资料/完全复刻/功能点索引.md'
+PARTS_GLOB = os.path.join(r'D:/4/Unity/资料/完全复刻/判据', '功能点索引_*_part.tsv')
 
 # --- 暂停口径（2026-10-26 B8_AK 订正）---
 # 这里原来还有两个【从未被任何代码引用】的常量：`PAUSED_DOMAINS = {'日常/奖励'}` 与
@@ -450,6 +462,57 @@ def match_row(dom, cls, meth):
     return None
 
 
+def _fmt_mtime(paths):
+    """一组文件里最新的 mtime（`YYYY-MM-DD HH:MM`）；没有文件返回 `?`。"""
+    mts = [os.path.getmtime(p) for p in paths]
+    return time.strftime('%Y-%m-%d %H:%M', time.localtime(max(mts))) if mts else '?'
+
+
+def collect_part_recompute():
+    """**表体重算**：按每份 part 的 `原版构成` 现读账展开，重算 FP 级等级分布与去重构成合计。
+
+    唯一实现 = `feature_index_check.expand/grade_of`（⛔ 不在这里再写一份）。
+    返回 (n_fp, grade_counter, sum_cnt, part_files, errs)。
+    """
+    parts = sorted(glob.glob(PARTS_GLOB))
+    led = FIC.load_ledger(FIC.LEDGER)
+    gc = collections.Counter()
+    sum_cnt = 0
+    n_fp = 0
+    errs = []
+    for p in parts:
+        raw = io.open(p, 'rb').read().decode('utf-8-sig')
+        lines = [x.rstrip('\r') for x in raw.split('\n')]
+        hdr = lines[0].split('\t') if lines else []
+        if hdr != FIC.COLS:
+            errs.append((os.path.basename(p), '表头不等 COLS（%d 列）' % len(hdr)))
+            continue
+        i_cs = hdr.index('原版构成')
+        for l in lines[1:]:
+            if not l.strip():
+                continue
+            c = l.split('\t')
+            if len(c) <= i_cs:
+                continue
+            exp = []
+            for item in [x.strip() for x in c[i_cs].split(';') if x.strip()]:
+                hit, err = FIC.expand(item, led)
+                if err:
+                    errs.append((c[0], item, err))
+                    continue
+                exp.extend(hit)
+            seen, uniq = set(), []
+            for r in exp:
+                if r['src'] in seen:
+                    continue
+                seen.add(r['src'])
+                uniq.append(r)
+            gc[FIC.grade_of([r['状态'] for r in uniq])] += 1
+            sum_cnt += len(uniq)
+            n_fp += 1
+    return n_fp, gc, sum_cnt, parts, errs
+
+
 def main(argv=None):
     # -------------------------------------------------------------- 2026-10-26 B8_AK 加的 CLI
     # `--dry` = 只算不写（账写手还在跑时**只能用这个**）；`--out PATH` = 写到别处（核样子用）。
@@ -502,6 +565,14 @@ def main(argv=None):
         g['rows'].append(r)
         g['classes'][r['cls']] += 1
 
+    # 文件头注记（B112_D）：三个数**全部现读** —— 账行数 / 表体重算 / 复核日期。
+    # ⛔ 别再手工往 .md 里追加这段（重生成会抹掉），改这里。
+    n_fp, fp_gc, fp_sum, part_files, part_errs = collect_part_recompute()
+    _st = collections.Counter(r['state'] for r in rows)
+    st_s = ' · '.join(f'{k}{_st[k]:,}' for k in STATE_ORDER)
+    fp_s = ' · '.join(f'{k}{fp_gc[k]}' for k in STATE_ORDER)
+    gen_ts = time.strftime('%Y-%m-%d %H:%M')
+
     L = []
     A = L.append
     n_dom = len({r['dom'] for r in rows})
@@ -516,6 +587,18 @@ def main(argv=None):
       '② 再按**原版类名**归并；③ 两条都没命中的落「（域）其它」并在 §3 点名列出。')
     A('> **状态**：取该功能点下所有方法 `状态` 列的分布 + **最高档**（A > B > C > D > E）。'
       '⚠️ 「最高档 = A」只代表**其中至少一个方法**已对齐，**不代表整个功能点做完** —— 看分布列。')
+    # 🟢 本文件的**文件头注记由生成器自动写**（2026-11-01 `B112_D` 收口）：
+    #    以前这段是手工追加的，`gen_feature_index.py` 每次重生成都会抹掉 ⇒ 现在三个数全部现读。
+    A(f'> 🟢 **复核日期 {gen_ts}（生成器现读，⛔ 引用前请现跑）**：'
+      f'① **账** = `资料/完全复刻/账/*.tsv` **{len(rows):,} 行 / {len(files)} 份 / {n_dom} 个域**，'
+      f'状态分布 **{st_s}**（账 mtime 最新 `{_fmt_mtime(files)}`）；'
+      f'② **表体重算** = `判据/功能点索引_*_part.tsv` **{n_fp} 个 FP**，按 `原版构成` 现读账重算的等级分布 = '
+      f'**{fp_s}**，`构成条数` 合计（按 `账文件:行号` 去重）= **{fp_sum:,}**（part mtime 最新 `{_fmt_mtime(part_files)}`）；'
+      f'③ 本文件 §1 总表 **{len(groups)} 行 = 域桶，⛔ 不是功能点分母**（分母 = ② 的 {n_fp} 个 FP）。')
+    A('> ⚠️ 上面三个数是**生成时快照**：账一动、part 一重算就过期，重跑本生成器即刷新。'
+      '⚠️ part 文件 `备注` 里的「覆盖 N/M 行」：**N = 该 FP 的 `构成条数`**（去重账行数）、'
+      '**M = 该域账行总数**（`账/*.tsv` 按 `域` 列计，含 `泛型与启动链_补读.tsv` 里属于该域的行）——'
+      '重算/改写用 `工具/recompute_fp_levels.py --fix-coverage`。')
     A('> 🔴 **暂停线**：**只看「主链/边角」列是不是 `暂停`** —— 那是**逐条规则**写死的（`gen_feature_index.py` 的'
       '`METHOD_RULES`/`CLASS_RULES` 第 2 列）。⛔ 2026-10-26 起不再按「域名含 Reward/Inbox/…」推（旧的两个'
       '`PAUSED_*` 常量已删：它们是死代码，且会误伤 `日常/奖励` 域里的 `排位赛与遭遇战模式`）。'
@@ -666,6 +749,10 @@ def main(argv=None):
     # ---------------------------------------------------------------- 自检摘要（--dry 的主要产出）
     print('\n================ 自检摘要 ================')
     print(f'账行 {len(rows):,} · tsv {len(files)} 份（20 业务域 + 泛型与启动链_补读）· 域 {n_dom} 个')
+    print(f'表体重算：FP {n_fp} · 等级 ' + fp_s + f' · 构成合计 {fp_sum:,} · 展开失败 {len(part_errs)}'
+          '（part 缺失/表头不符/展开失败都会落这里，⛔ 不许静默）')
+    for e in part_errs[:10]:
+        print('  ✗', e)
     kc = collections.Counter(k for (fn, k, d) in groups)
     print(f'功能点 {len(items)}：主链 {kc.get("主链",0)} · 边角 {kc.get("边角",0)} · 暂停 {kc.get("暂停",0)}')
     print(f'兜底行 {sum(unmatched.values()):,} · 兜底类 {len(unmatched)}'

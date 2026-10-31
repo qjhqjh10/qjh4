@@ -8800,11 +8800,11 @@ namespace CardPresentation
             // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：演示卡组名走词条 `MenuDeck/DemoDeckName`
             // 🔶 自己设计（非原版）：演示卡组名的词条键 `MenuDeck/DemoDeckName` · 原版两张表都查不到这条键，键名由调度台裁定自拟 · 调度台 2026-10-18 裁定｜原注：（键名 = 调度台 2026-10-18 裁定自拟；中文列 = 改之前写死的 `复仇者之刃` ⇒ 中文档零变化）。
             //   ⚠️ 它与 `MenuDeck/DefaultDeckName`（空库时替玩家建的那套）**是两条键、两个值**，⛔ 别合并。
-            var deck = new PlayerDeck { Name = Loc.T("MenuDeck/DemoDeckName") };
+            var deck = new PlayerDeck { Name = Loc.T("MenuDeck/DemoDeckName"), DeckArmy = PlayerDeck.DeckArmyNeutral };   // 🆕 2026-11-01（`B111_R1WB`）：原版 `GetEmptyDeck` 那一档 = `deckArmy Neutral`
             CardDef warlord = null;
             foreach (var c in state.Pool) if (c.Type == "hero") { warlord = c; break; }
             if (warlord == null) return deck;
-            deck.WarlordId = warlord.Id;
+            deck.WarlordId = warlord.Id; deck.SetDeckArmyFromCard(warlord);   // 🆕 2026-11-01（`B111_R1WB`）：原版 `AddHero` 同时写 `deckArmy`
             // 🔴 **2026-10-18：防御卡改成与 `工具/gen_prebuilt_decks.py:pick_defensive` 同一规则**
             //    （本阵营 `type == "defence"` 里 **cost 最低 → id 最小**）。
             //    原来取的是「池里第一张 defence」—— **结果随卡池顺序变**，而卡池在

@@ -3,6 +3,7 @@
 > 代理：`B103_A05-W4`（只读查判据） · 日期：2026-10-30 · 只读 `d:/2` 与 `Unity/MyGame/Assets`，未跑 Unity、未动 git、未派子代理。
 > 触发口径：铁律 5·c「一个值 ≠ 全部情况」。**接续** `AUD05_state_matrix_卡组编辑.md` §3·4（那份点名了主菜单的 `FlexibleGridLayout` + `AdaptFlexibleGridLayoutByAspectRatio`，**没有展开**；本文件把它展开）。
 > 结构 / 口径 / 红线照模板；模板已确认的通用结论（`smallScreenUI`、CanvasScaler ref 1920×1080 **Expand**、`GameWindow.extraScaleSmallScreen` 恒 1、`AutoGridLayout`/`FlexibleGridLayout` 类名在 monoscripts 里查不到不等于本地没有）**直接引用，不重查**。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 3 条**：复核方法 = 把 §4 / §6 里每条「我们现状 / 缺口」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地 / 已过期的在原格内就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 ---
 
@@ -288,7 +289,7 @@ Awake(): originalAnchorPosition = rectTransform.anchoredPosition;   // (0,0)（R
 |---|---|---|---|
 | S-G0（16:9） | `CardCol0 = 205` · `CardColStep = 555` · `CardW = 535` · `CardH = 414.4`（`:2389`）· `CardHTall = 848.8`（`:2402`）· `CardRow0Top = 182.8`（`:2423`）· `ModesW/ModesH`（`:230-231`） | **16:9 一档，逐位正确**（`205 = 167.04 + 38`、`848.8 = 2×414.4+20`、`182.8` 推导见 §1·5） | ✅ 16:9 对 |
 | **S-G1 非 16:9（窄）** | **无**：三个常量都是 `const`；`:2418-2422` 自己写明「**我们固定用 1920×1080 这一档（16:9）**：非 16:9 时原版绝对行 y 会随 aspect 变，本常量不跟着变」 | 恒 414.4 / 182.8 | 🔴 **缺这一档**（`itemH`、`row0top`、1×2 高、Content 高全不跟） |
-| S-G2 / S-G3（比例夹取） | **无**：`ScreenAspectRatioController` 只在 `Battle/ScreenAspectRatioController.cs`（`BattleDriver.cs:29453` 建），壳层不建 | 5:4 / 32:9 会被拉伸（不是黑边） | 🔴 缺（**壳层全局**，不只本窗） |
+| S-G2 / S-G3（比例夹取） | **无**：`ScreenAspectRatioController` 只在 `Battle/ScreenAspectRatioController.cs`（`BattleDriver.cs:29453` 建），壳层不建 | 5:4 / 32:9 会被拉伸（不是黑边） —— ✅ **2026-11-01 复核（`B111_D1`）：已落地**（壳侧已挂原版件 `Shell/ShellRuntime.cs:1424 EnsureAspectClamp`，`Update` 每帧 `:374 TickAspectClamp()`；接线 `Deck/DeckRuntime.cs:1280`；断言 `Editor/B109_E16_AspectClamp_Assert.cs` 接 `Editor/MainMenuScene.cs:18498`。原 `B109_E16` / 活状态表 N80）| 🔴 缺（**壳层全局**，不只本窗） |
 | S-G4 无活动 | `BuildGameModes` 固定摆 5 张（B95_MISC 起也支持按事件数据重摆，`:2575+`） | 常有 5 张 | 🟡 有活动时会走事件分支；**空态无提示**（与原版同） |
 | S-G5 有活动 | `:2575-2580`（`RefreshLiveOpContainers` 等价物，B95_MISC） | 已接（`OfferContainer` 族） | ⏳ 待验收 |
 | S-G6 横滚 | `MenuScroll` + `ModeViewport`（`:2440`）· `ModeContentX2`（`:2442`） | 已实现（4 列） | ✅（但 `ModeViewport` 左缘 167.04 也是 16:9 常量 ⇒ 21:9 下偏左 52） |
@@ -312,7 +313,7 @@ Awake(): originalAnchorPosition = rectTransform.anchoredPosition;   // (0,0)（R
 | S-T7 聊天两态 | `BuildChatPreview`（`MainMenuRuntime.cs:2283-2310`）· 动画常量 `:3742`（0.6 / 0.2+0.2 / 0.4 —— 与原版逐值同）· `TickChatPreviewTween`（`:2276`） | ✅ |
 | S-T8 模糊层 | `Shell/UIBakeScreen.cs` + `GameWindow.cs:597-641` | ✅ |
 | S-T9 渐变 | `CardArt.Gradient(c1, c2, 188f)`（见 `资料/主菜单_原版规格.md` §五 A 实测场） | ✅ |
-| S-T10 Loading / Tutorial | 不建（`MainMenuRuntime.cs:19,28` 明确「出厂 False 的不建」） | 🟡 原版加载黑场/教程高亮我们没建（属状态层，非本批） |
+| S-T10 Loading / Tutorial | 不建（`MainMenuRuntime.cs:19,28` 明确「出厂 False 的不建」） | 🟡 原版加载黑场/教程高亮我们没建（属状态层，非本批） —— ✅ **2026-11-01 复核（`B111_D1`）：已建**（`Shell/LoadingMenu.cs` + `Shell/MenuTutorialHighlight.cs` + `Shell/MenuTutorialFlow.cs`；`Shell/MainMenuRuntime.cs:645 MenuTutorialFlow.Attach(this)` 已接。原 `B107_P5` / N81）|
 
 ### 4·4 缺口清单（一句一档）
 
@@ -330,7 +331,7 @@ Awake(): originalAnchorPosition = rectTransform.anchoredPosition;   // (0,0)（R
 | # | 文件 | 要做什么 | 判据（本文件哪一节） | 风险 |
 |---|---|---|---|---|
 | **A** | `Shell/MainMenuRuntime.cs` | 把 `CardH / CardHTall / CardRow0Top / ModeViewport / ModeContentX2` 从 `const` 改成**按 §1·1+§1·2 现算的属性**：`itemH = 414.4×max(1,(16f/9f)/(Screen.width/(float)Screen.height))`；`natH = 2*itemH+20`；`contentTop = 1080 − (0.936*(0.934*1080)+1.449)`（16:9）→ 一般化用画布高；`row0top = contentTop + (contentH − natH)/2`；1×2 = `2*itemH+20` | §1·1 · §1·2 · §1·5 · §3·1 | **中**：`_placeAllCards` / 断言 / `DraftState*` 一串子常量都挂在卡高上（`DraftStateTop 630.88` 之类 = 1×2 卡内相对坐标 ⇒ 需要确认是相对卡顶还是绝对） |
-| **B** | `Core/LayoutSpace.cs`（**或**壳的相机装配处） | 补 `ScreenAspectRatioController`（[4:3, 22:9] 夹取 + 黑边）——**但这是壳层全局改动**（`A2098` 那块），会牵动所有窗与非 16:9 命中换算 | §1·4 · §4·4 缺口② | **高**：`LayoutSpace.cs:88-105` 记着「改全局映射当天就回滚」的历史；建议**先裁断再动**（见 §6·1） |
+| **B** | `Core/LayoutSpace.cs`（**或**壳的相机装配处） | 补 `ScreenAspectRatioController`（[4:3, 22:9] 夹取 + 黑边）——**但这是壳层全局改动**（`A2098` 那块），会牵动所有窗与非 16:9 命中换算 —— ⚠️ **2026-11-01 复核（`B111_D1`）：风险前提不成立** —— 已按 N80 落地，且**没有**动 `Core/LayoutSpace` 的全局映射（只是给壳相机挂原版 `ScreenAspectRatioController`）| §1·4 · §4·4 缺口② | **高**：`LayoutSpace.cs:88-105` 记着「改全局映射当天就回滚」的历史；建议**先裁断再动**（见 §6·1） |
 | **C** | `Shell/MainMenuRuntime.cs`（侧栏高亮） | 给 `RepaintNavHighlight` 补 0.1s alpha 淡入（原版 `toggleTransition = Fade` + `fadeDuration 0.1`），或明确记为「接受差异」 | §3·3 S-N3 · `MB2098` | 低 |
 | **D** | `Editor/MainMenuScene.cs`（**调度台独占**） | 补「两档各是各的」断言：16:9 `CardH==414.4 && Row0Top==182.8`；16:10 `CardH≈460.44 && Row0Top≈204.29`；4:3 `CardH≈552.53 && Row0Top≈247.30`。⚠️ 期望值**不许从被测属性读回来**（自证） | §3·1 · §1·5 | 低（但要能改 `Screen`/相机 `aspect` 才有意义 ⇒ 依赖 B 或夹具） |
 | **E** | `资料/主菜单_原版规格.md` §五 E / §四 第 6 条 | 「模式卡的行 y 是 `?（运行时）`」**已过期**：16:9 = 182.79 可由 `Content` 锚点 + `MiddleLeft` 逐式推出（本文件 §1·5），且有实拍复核（`MainMenuRuntime.cs:2413-2421` 记的那张 1503×883 实拍） | §1·5 | 无（文档） |

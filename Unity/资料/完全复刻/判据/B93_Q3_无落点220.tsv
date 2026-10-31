@@ -1,4 +1,5 @@
-﻿账域	账行号	原版类.方法	档位	我们的等价物(文件:行)	证据(源+行)	还差什么
+﻿# ⚠️ 2026-11-01（B112_E · 铁律 5 就地订正 · 对应待办 B-79）：**本表整表已过期，⛔ 不可再当派活依据** —— 「C 45」的重判结果 = 已落地 30 · 组件已建宿主未建 3 · 真没做 11 · 判据为空 1；逐条判定见 `判据/B111_R3_重跑普查与功能点.md` 第一节（1.1 三栏 / 1.2 逐条）。原表 A142 / B11 / D22 三档**本次未复核**，引用前各自现读。
+账域	账行号	原版类.方法	档位	我们的等价物(文件:行)	证据(源+行)	还差什么
 其他_基础设施	160	Extensions.AlmostEquals(Quaternion target, Quaternion second, float maxAngle)	C	—（无）	[Q1] 原版体 = `D:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/Extensions.cs:54-68`：dot ⇒ clamp ⇒ acos ×2 ×57.29578 < maxAngle；本次现读：全仓 `Quaternion.Dot` / `Quaternion.Angle` **0 命中**（只有 `AngleAxis` / `LerpUnclamped` / `LookRotation`）；最接近的 `dot` 是 `Battle/CombatCameraZoom.cs:923` 的 `Vector3.Dot` 守卫，**不是四元数**。调度台 §15·7·1 已裁定这条 C（不是 D）	先定原版的调用者族（旋转/朝向）再落；原版 0 调用点，⛔ 别新建一个没人调的静态类
 其他_基础设施	234	GameStaticData.CheckIfNewCards(string uniqueId, List<string> newCards)	A	Shell/GameStaticData.cs:182（CheckIfNewCards）	[Q1] 原版 `decomp_full/GameStaticData__CheckIfNewCards.c` 全文 = `return newCards.Contains(uniqueId);`（null ⇒ NRE）；我们逐句同，null 档出声返回 false	—
 其他_基础设施	237	GameStaticData.FoundNewCard(string uniqueId, string text, List<string> newCards)	A	Shell/GameStaticData.cs:199（FoundNewCard）	[Q1] 原版 `decomp_full/GameStaticData__FoundNewCard.c`：`Loc(\"MenuDeck/HUD/NewCard\").ToLower().Contains(text) && newCards.Contains(uniqueId)`；我们同（含「只 lower 头部」那条口径）	—

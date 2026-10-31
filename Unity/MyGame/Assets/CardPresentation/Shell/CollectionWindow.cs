@@ -1321,7 +1321,7 @@ namespace CardPresentation
         //          ⇒ **从上方 200px 落到最终位**。
         //   · **缓动**：两条嵌套补间在原版都**没有 `SetEase`** ⇒ 吃 DOTween 的 `defaultEaseType`
         //     （= `Ease.OutQuad`，工程 `Assets/Resources/DOTweenSettings.asset` 实读 `defaultEaseType: 6`；
-        //      原版自己那份 DOTweenSettings **本地查不到**，按 DOTween 默认那一档 —— 如实标注）。
+        //      原版自己那份已定位（`ExportedProject/Assets/Resources/DOTweenSettings.asset:31 = 6`）—— 与原值一致）。
         //     ⚠️ **Sequence 上那句 `SetEase` 是「整条时间轴」的缓动**（`DOTween.XML` 原文
         //     "If applied to Sequences eases the whole sequence animation"）⇒ 这里只能传 `Linear`
         //     （= 时间轴不弯曲，两条嵌套补间保留各自的 OutQuad）；⛔ 传 `OutQuad` 会把它们**再弯一次**。
@@ -4500,9 +4500,12 @@ namespace CardPresentation
             //   `m_Border = (13,13,13,13)`、图 64²、`m_PixelsToUnits 100`
             //   ⇒ 角块 = `13 ÷ ppuMul 5 = 2.6 px`（`m_PixelsPerUnitMultiplier` 是**除** —— 与主菜单那颗同一条口径，
             //     先例见 `MainMenuRuntime.BuildModeCard` ④ 那段订正）。
-            Nine(card, "40k_square_border", cr, new Vector4(13f, 13f, 13f, 13f), QModeBorder,
+            // 🆕 2026-11-01（`B111_S4` · 账 `B-20`）：原版这颗的材质 = #7 `UI Additive`（`Border / Game mode deck selector`），
+            //   tint 已经是原版的 0.33962262 ⇒ 只需接住九宫根再逐块换材质。
+            var deckSelectorBorder = Nine(card, "40k_square_border", cr, new Vector4(13f, 13f, 13f, 13f), QModeBorder,
                  new Color(0.33962262f, 0.33962262f, 0.33962262f, 1f), false, "Border",
                  new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f), 64f, 64f);
+            MenuFxMaterials.ApplyAll(deckSelectorBorder, MenuFxMaterials.Additive);
 
             // ---- ⑤ 命中区 = 整张卡（§3·5）· 点 = 直接跳走（没有选中态）----
             var hit = AddHit(card, "Hit", cr, QModeHit, () => ChooseDeckMode(spec.Mode));

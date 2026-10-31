@@ -22,8 +22,34 @@
     python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --check --out d:/4/_tmp_view/b109_e19/texture3d_raw
     python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --png-verify
     python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --verify --png-verify
+    python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --fix-meta-guid      # ← 见下节
 
-⛔ 本脚本**只读** `d:/2`，一个字节都不写；写盘只发生在 `--write --out <目录>` 指定的目录里。
+⛔ 本脚本**只读** `d:/2`，一个字节都不写；写盘只发生在 `--write --out <目录>` 指定的目录里，
+   以及 `--fix-meta-guid` **显式**指定的那两个 `.meta`（`--dry-run` 时一个字节都不写）。
+
+============================ 🔴 `--fix-meta-guid`：把 guid 钉回原版（活状态表 `B-74`）============================
+`Assets/WarpforgeVFX/*` 整棵树在 **`.gitignore:26`** 里（它是「能用导出器重建」的生成物）⇒
+两个 `Texture3D.asset` **本身和它们的 `.meta` 都不进 git**。后果：
+· `B110_R5` 把 `_shared/{SDF_Test,vectorfield}.asset.meta` 的 guid 改回原版（`97873f43…` / `0ca68a91…`）这件事**没有进版本库**；
+· 干净树第一次跑 `Editor/B109_E19_Texture3DBuild.Run` 走的是 `AssetDatabase.CreateAsset`
+  ⇒ Unity 会给这两个 `.asset` **摇新 guid** ⇒ `Gargoyle Swarm.asset` 里那两个 `m_Asset` PPtr 又悬空。
+
+**根治两步**（② 之后 Unity 必须重新打开工程才会重新导入 —— 批处理已经退出，正好）：
+  ① 跑 `B109_E19_Texture3DBuild.Run`（Unity 侧，本脚本不跑）
+  ② 跑 `python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --fix-meta-guid`
+     ⇒ 把两个 `.meta` 的 `guid:` 那一行改回原版值（**只改这一行，其余逐字节保留、行尾不动**）
+
+为什么不放进 C# 里：Unity 正在跑的时候改 `.meta` 会被 AssetDatabase 覆盖回去（必须等它退出）。
+C# 那边能做的只有「资产已存在时 `CopySerialized` 原地覆盖（保 guid）」—— 这一条**已经做了**；
+本脚本补的是**资产不存在**的那条路。
+
+**安全措施**（缺一条就拒绝写）：
+  · 两个 `.asset` 必须都还在（否则写 `.meta` 只会留下孤儿 meta）；
+  · 现有的 `guid:` 行必须唯一可识别；
+  · 目标 guid **全工程 0 个其它持有者**（扫 `d:/4/Unity/**/*.meta`，允许的持有者只有它自己）；
+  · 写前备份到 `--backup-dir`（默认 `d:/4/_tmp_view/texture3d_meta_backup/`，带时间戳）；
+  · 写完**重新读盘**核 guid，并核「行数守恒、只有 guid 那一行变了」；
+  · 幂等：已经是原版 guid ⇒ 一个字节都不碰，报 `已是原版`。
 """
 
 import base64
@@ -31,11 +57,24 @@ import hashlib
 import io
 import json
 import os
+import re
+import shutil
 import struct
 import sys
 
 SRC_DIR = 'D:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/Texture3D'
 PNG_DIR = 'D:/2/tools/assetripper_out/ExportedProject/Assets/Texture3D'
+
+# ---------------------------------------------------------------- guid 钉回（活状态表 B-74）
+# 原版 guid 的判据：`资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-37 + 活状态表 `B-37`。
+# ⚠️ 这两个值**不是**从旧 `.meta` 抄的（旧 meta 在 gitignore 里、随时会被重建覆盖），
+#    而是「原版 bundle 里 `Gargoyle Swarm.asset` 的那两个 `m_Asset` PPtr 指向的 guid」。
+ASSET_DIR = 'd:/4/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs/_shared'
+PROJECT_ROOT = 'd:/4/Unity'
+META_BACKUP_DIR = 'd:/4/_tmp_view/texture3d_meta_backup'
+
+# `guid: <32 hex>` 那一行。`(?P<eol>\r?)` 把行尾吃掉再原样写回 ⇒ **CRLF 文件不会被翻成 LF**。
+GUID_LINE_RE = re.compile(rb'^guid: (?P<guid>[0-9a-fA-F]{32})(?P<eol>\r?)$', re.M)
 
 SPECS = [
     dict(
@@ -46,6 +85,8 @@ SPECS = [
         unity_format='RGBA32', wrap='Repeat', filter='Bilinear',
         data_size=1048576, mip_count=1, color_space=0, readable=True,
         wrap_uvw=(0, 0, 0),
+        # 原版 guid（`Gargoyle Swarm.asset` 里 `m_Asset` 指向它；B-37 已核对）
+        meta_guid='0ca68a919af0232488e11af9e15d3695',
     ),
     dict(
         name='SDF_Test',
@@ -55,6 +96,7 @@ SPECS = [
         unity_format='RHalf', wrap='Clamp', filter='Bilinear',
         data_size=123008, mip_count=1, color_space=0, readable=True,
         wrap_uvw=(1, 1, 1),
+        meta_guid='97873f430c01bb8418bc8463d7963d81',
     ),
 ]
 
@@ -65,13 +107,19 @@ USAGE = u"""build_texture3d.py — R4-05 两个 Gargoyle Texture3D 原始体数�
     python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --write  --out <目录>
     python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --check  --out <目录>
     python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --png-verify
+    python -I -X utf8 d:/4/Unity/工具/build_texture3d.py --fix-meta-guid [--dry-run]
 
 选项：
-    --verify      只解码 + 自检（长度 / 尺寸 / 格式 / 数值分布），不写任何文件
-    --write       解码后把 <name>.bytes + manifest.json 写到 --out 目录（**必须显式给 --out**）
-    --check       重新解码，与 --out 目录里的 <name>.bytes 逐字节比较（幂等校验）
-    --png-verify  用 AssetRipper 导出的 PNG 复核「切片方向」结论（需要 PIL；没有就跳过并出声）
-    -h, --help    同「不带参」
+    --verify        只解码 + 自检（长度 / 尺寸 / 格式 / 数值分布），不写任何文件
+    --write         解码后把 <name>.bytes + manifest.json 写到 --out 目录（**必须显式给 --out**）
+    --check         重新解码，与 --out 目录里的 <name>.bytes 逐字节比较（幂等校验）
+    --png-verify    用 AssetRipper 导出的 PNG 复核「切片方向」结论（需要 PIL；没有就跳过并出声）
+    --fix-meta-guid 把两个 `.asset.meta` 的 `guid:` 钉回原版值（活状态表 B-74；幂等；幂等时零写入）
+    --dry-run       配合 --fix-meta-guid：只报「会不会改」，不写盘
+    --dir <目录>    --fix-meta-guid 的资产目录（默认 Assets/WarpforgeVFX/ArenaOriginalPrefabs/_shared）
+    --project-root <目录>  碰撞检查扫的根（默认 d:/4/Unity）
+    --backup-dir <目录>    写前备份到哪（默认 d:/4/_tmp_view/texture3d_meta_backup）
+    -h, --help      同「不带参」
 
 产出（--write）：
     <out>/vectorfield.bytes         1,048,576 B   RGBA8 原始体数据（Unity Texture3D 原生序，不翻转）
@@ -79,6 +127,7 @@ USAGE = u"""build_texture3d.py — R4-05 两个 Gargoyle Texture3D 原始体数�
     <out>/manifest.json              两者元数据 + sha256（给编辑器脚本 B109_E19_Texture3DBuild.cs 读数）
 
 ⛔ 不改工程、不写 d:/2。Unity 侧入口见 `MyGame/Assets/CardPresentation/Editor/B109_E19_Texture3DBuild.cs`。
+   ⚠️ `--fix-meta-guid` 是**唯一**会写工程的两个 `.meta` 的模式，且必须**在 Unity 退出之后**跑。
 """
 
 
@@ -291,8 +340,138 @@ def do_check(outdir):
     return 0 if bad == 0 else 1
 
 
+# ----------------------------------------------------------------------------
+# guid 钉回原版（活状态表 B-74）
+# ----------------------------------------------------------------------------
+def scan_guid_owners(root, want):
+    """只读：扫 `root/**/*.meta`，返回**持有 `want` 这个 guid** 的所有 meta 路径。
+
+    只读每个 meta 的前 4 KB（`guid:` 在第 2 行）。⛔ 不写任何东西。"""
+    want = want.lower()
+    owners = []
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for f in filenames:
+            if not f.endswith('.meta'):
+                continue
+            p = os.path.join(dirpath, f)
+            try:
+                head = io.open(p, 'rb').read(4096)
+            except OSError:
+                continue
+            m = GUID_LINE_RE.search(head)
+            if m and m.group('guid').decode('ascii').lower() == want:
+                owners.append(p)
+    return owners
+
+
+def rewrite_guid(meta_bytes, guid):
+    """把 `guid:` 那一行换成 `guid`；**其余逐字节保留**（含行尾）。→ (新字节, 旧 guid)
+
+    ⚠️ 用 `subn` 而不是 replace：guid 只该出现一次，0 次或多次都说明这份 meta 不认识 ⇒ 报错，不猜。"""
+    def _sub(m):
+        return b'guid: ' + guid.encode('ascii') + m.group('eol')
+
+    def _count(m):
+        return b'guid: ' + m.group('guid') + m.group('eol')
+
+    out, n = GUID_LINE_RE.subn(_sub, meta_bytes, count=1)
+    if n != 1:
+        raise RuntimeError(u'meta 里认不出唯一的 `guid:` 行 —— 拒绝猜一个写法')
+    found = GUID_LINE_RE.search(meta_bytes)
+    return out, found.group('guid').decode('ascii')
+
+
+def do_fix_meta_guid(dirpath, project_root, backup_dir, dry_run):
+    """把两个 `.asset.meta` 的 guid 钉回原版值。→ 退出码（0 = 全部就位 / 已是原版）"""
+    bad = 0
+    changed = 0
+    for spec in SPECS:
+        name, want = spec['name'], spec['meta_guid']
+        asset = os.path.join(dirpath, name + '.asset')
+        meta = asset + '.meta'
+        print(u'== %s（目标 guid %s）' % (name, want))
+        if not os.path.exists(asset):
+            print(u'   ✗ %s 不存在 ⇒ 不写 meta（写了就是孤儿 meta，Unity 会把 guid 再摇一次）'
+                  % asset.replace('\\', '/'))
+            bad += 1
+            continue
+        if not os.path.exists(meta):
+            print(u'   ✗ %s 不存在 ⇒ 先跑 B109_E19_Texture3DBuild.Run（Unity 侧）'
+                  % meta.replace('\\', '/'))
+            bad += 1
+            continue
+        try:
+            b = io.open(meta, 'rb').read()
+        except OSError as e:
+            print(u'   ✗ 读不了 %s：%s' % (meta, e))
+            bad += 1
+            continue
+
+        m = GUID_LINE_RE.search(b)
+        if not m:
+            print(u'   ✗ %s 里认不出 `guid:` 行' % meta.replace('\\', '/'))
+            bad += 1
+            continue
+        cur = m.group('guid').decode('ascii')
+
+        if cur.lower() == want.lower():
+            print(u'   ✓ 已是原版 guid（零写入）')
+            continue
+
+        # 碰撞检查：目标 guid 不能被**别的**文件持有
+        owners = scan_guid_owners(project_root, want)
+        others = [p for p in owners if os.path.normcase(os.path.abspath(p)) != os.path.normcase(os.path.abspath(meta))]
+        if others:
+            print(u'   ✗ 目标 guid 已被别的文件占用（%d 份）⇒ 拒绝写：%s'
+                  % (len(others), u' / '.join(x.replace('\\', '/') for x in others[:5])))
+            bad += 1
+            continue
+
+        new, old = rewrite_guid(b, want)
+        # 自证 1：行数守恒；自证 2：与旧字节相比，只有 guid 那一行不同
+        if new.count(b'\n') != b.count(b'\n') or new.count(b'\r\n') != b.count(b'\r\n'):
+            print(u'   ✗ 改写后行数/行尾变了 —— 拒绝写')
+            bad += 1
+            continue
+        if len(new) != len(b) - len(old) + len(want):
+            print(u'   ✗ 改写后长度不符合预期 —— 拒绝写')
+            bad += 1
+            continue
+
+        print(u'   · guid %s → %s' % (old, want))
+        if dry_run:
+            print(u'   （--dry-run：不写盘）')
+            changed += 1
+            continue
+
+        os.makedirs(backup_dir, exist_ok=True)
+        bak = os.path.join(backup_dir, name + '.asset.meta.' + cur.lower()[:8] + '.bak')
+        shutil.copyfile(meta, bak)
+        print(u'   · 备份 %s' % bak.replace('\\', '/'))
+
+        with io.open(meta, 'wb') as f:      # 二进制写：⛔ 别让文本模式把行尾翻掉
+            f.write(new)
+
+        # 重新读盘核一遍（铁律：写完当场回读抓不到「没落盘」，所以这里读的是盘）
+        b2 = io.open(meta, 'rb').read()
+        m2 = GUID_LINE_RE.search(b2)
+        got = m2.group('guid').decode('ascii') if m2 else None
+        if got is None or got.lower() != want.lower() or b2 != new:
+            print(u'   ✗ 写完回读不一致（读回 guid=%r）' % got)
+            bad += 1
+            continue
+        print(u'   ✓ 已钉回原版 guid（%s）' % want)
+        changed += 1
+
+    print(u'—— %d 个资产 · 本模式改动 %d 个 · 错误 %d 个%s'
+          % (len(SPECS), changed, bad, u'（--dry-run，未写盘）' if dry_run else u''))
+    return 0 if bad == 0 else 1
+
+
 def main(argv):
-    opt = {'verify': False, 'write': False, 'check': False, 'png': False, 'out': None, 'help': False}
+    opt = {'verify': False, 'write': False, 'check': False, 'png': False, 'out': None, 'help': False,
+           'fix_meta': False, 'dry_run': False, 'dir': ASSET_DIR,
+           'project_root': PROJECT_ROOT, 'backup_dir': META_BACKUP_DIR}
     i = 1
     while i < len(argv):
         a = argv[i]
@@ -306,16 +485,31 @@ def main(argv):
             opt['check'] = True
         elif a == '--png-verify':
             opt['png'] = True
+        elif a == '--fix-meta-guid':
+            opt['fix_meta'] = True
+        elif a == '--dry-run':
+            opt['dry_run'] = True
         elif a == '--out':
             i += 1
             if i >= len(argv):
                 return 'usage'
             opt['out'] = argv[i]
+        elif a in ('--dir', '--project-root', '--backup-dir'):
+            i += 1
+            if i >= len(argv):
+                return 'usage'
+            opt[{'--dir': 'dir', '--project-root': 'project_root',
+                 '--backup-dir': 'backup_dir'}[a]] = argv[i]
         else:
             return 'usage'
         i += 1
     if opt['write'] and opt['check']:
         return 'usage'
+    if opt['fix_meta']:
+        # ⛔ 不与其他模式混用（避免「以为在跑 --verify、其实动了工程」）
+        if opt['write'] or opt['check'] or opt['verify']:
+            return 'usage'
+        return do_fix_meta_guid(opt['dir'], opt['project_root'], opt['backup_dir'], opt['dry_run'])
     if opt['write']:
         return do_write(opt['out'])
     if opt['check']:

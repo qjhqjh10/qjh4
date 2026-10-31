@@ -3,11 +3,11 @@
 // 验什么（完工后应该全绿）：
 //   A 组 · **资产层**：自建 shader `CardPresentation/CardFrameGlitch` 在（`Resources/Shaders/` ⇒ 自动进包）；
 //         原版那 9 个属性名一个不缺 + 我们加的 3 个（`_Color` / `_GreyScale` / `_UvRect`）；
-//         噪声图 `Art/card_sdf/cardback_noise` 取得到（= 原版 `Noise Combined`，逐字节相同）。
+//         噪声图 `Art/vfx/ScanLines` 取得到（= 原版 `_Noise`：PPtr pathID `1565928461195782613`，128²，与原图逐像素相同）。
 //   B 组 · **换上去的那一份材质 = 原版材质的值**（不是 shader 默认值）：逐条断
 //         `_GlitchPercentaje` 0.1 · `_ScanLinesIntensity` 0.547 · `_NoiseIntensity` 0.0035 ·
 //         `_NoiseColor` (0.056604, 0.040851, 0.056604) · `_NoiseScaleAndSpeed` (10, 18.05, 1, 1) ·
-//         `_Noise` == `CardArt.CardbackSdfNoise()`；并且 `_MainTex` 与 renderQueue **跟着原卡框那一份走**。
+//         `_Noise` == `CardArt.GlitchScanLinesNoise()`（**不是** `CardbackSdfNoise()` —— 那是卡背 SDF 的噪声）；并且 `_MainTex` 与 renderQueue **跟着原卡框那一份走**。
 //   C 组 · **可逆 + 幂等**：`SetGlitch(false)` 逐引用回到换之前那一份材质；再开一次**不新建**材质。
 //   D 组 · **灭自证**（结构上不可能「两边一起改回去」还绿）：
 //         ① 开/关两档的卡框材质**不是同一个对象**、shader 名不同，但 `_MainTex` **相同**
@@ -77,8 +77,12 @@ public static class CardGlitchProbe
                 UnityEngine.Object.DestroyImmediate(probeMat);
             }
 
-            var noise = CardArt.CardbackSdfNoise();
-            Check(noise != null, "A · 噪声图 `Art/card_sdf/cardback_noise` 取得到（= 原版 `Noise Combined`，逐字节相同）");
+            var noise = CardArt.GlitchScanLinesNoise();
+            Check(noise != null, "A · 噪声图 `Art/vfx/ScanLines` 取得到（= 原版 `_Noise`，pathID 1565928461195782613，128²）");
+            // 🔴 2026-11-01（B111_F1B）：原版 `Card Frame Glitch._Noise` 的 pathID 与卡背 SDF 那个**不是同一个**
+            //    （前者 = `ScanLines`，后者 = `Noise Combined`）；两张图**都是 128²** ⇒ 尺寸分不出，只能按 pathID / 名字分。
+            Check(noise != null && noise.name == "ScanLines",
+                  "A · 上面取到的确实是 `ScanLines`（不是 `Noise Combined`；" + (noise != null ? "实际 " + noise.name : "取不到") + "）");
             // ③a 的前提：关键词角标那张图要在（它和 glitch 是原版同一个调用点上的两件事）
             Check(CardArt.Trait("ephemeral") != null,
                   "A · 关键词角标图 `Art/traits/ephemeral` 取得到（原版 `CardUI.ShowEphemeral()` 那一半）");
@@ -119,7 +123,12 @@ public static class CardGlitchProbe
                       $"B · `_NoiseScaleAndSpeed` = (10, 18.05, 1, 1)（实际 {ns.x},{ns.y},{ns.z},{ns.w}）");
 
                 Check(now.mainTexture == texBefore, "B · `_MainTex` 跟着原卡框那一份走（只换 shader、不换图）");
-                Check(now.GetTexture("_Noise") == noise, "B · `_Noise` = `CardArt.CardbackSdfNoise()`");
+                Check(now.GetTexture("_Noise") == noise, "B · `_Noise` = `CardArt.GlitchScanLinesNoise()`（= 原版 `ScanLines`）");
+                // ⑤ 灭自证（2026-11-01 B111_F1B）：把绑定改回 `Noise Combined` ⇒ 这条立刻红。
+                var wrongNoise = CardArt.CardbackSdfNoise();
+                Check(wrongNoise != null, "（前提·不静默）`CardbackSdfNoise()` 取得到 —— 否则下面那条灭自证是空转");
+                Check(now.GetTexture("_Noise") != wrongNoise,
+                      "B · ⑤ 灭自证：`_Noise` **不是** `Noise Combined`（把绑定改回 `CardArt.CardbackSdfNoise()` ⇒ 这条红）");
                 Check(now.renderQueue == qBefore,
                       $"B · renderQueue 没被抹（{qBefore}；`SetQueue` 靠 `renderQueue == _queue` 早退）");
 

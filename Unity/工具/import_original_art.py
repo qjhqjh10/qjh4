@@ -15,9 +15,11 @@
    `Resources/Art/` 照旧进 `.gitignore`，但**理由是「别把大件塞进 git」、不是版权**。
    兜底机制仍在（和版权无关）：`CardArt.Available` 判空 —— 删掉整个目录游戏照样能跑，退回程序生成的占位美术。
 
-用法：
-    python import_original_art.py            # 拷贝
+用法（🔴 **2026-11-01（B111_T1）起：不带显式动作参数 = 只打印用法并退出，一个字节都不写** —— 同项目里
+「写盘脚本不带参就真写」踩过一次把主表整批冲掉的坑，见 CLAUDE.md §三 那条）：
     python import_original_art.py --check    # 只检查源文件在不在，不写
+    python import_original_art.py --apply    # 真写盘（= 旧的「不带参直接拷」）
+    python import_original_art.py --apply --only 40K_shop_offer_bg   # 只重导**目标名含该子串**的条目（小范围重导）
 
 数据来源（2026-09-12 起**统一走新解包**）：
   · 卡框/卡背  `d:/2/新解包资源/assets_full/bundle_<包名>/Texture2D/`
@@ -1121,6 +1123,25 @@ MENU_IMAGES = [
     ('40k_UI_bt_back_pressed',                    'atlasindividual_assets_0_mainmenu'),   # 预览窗返回钮 pressed 88×87
 ]
 
+# ---- 🆕 2026-11-01（B111_T1 · 活状态表 `B-64`）：**落 `ui_deck/` 的菜单图**（不是 `MENU_IMAGES` 那个 `ui_menu/`）----
+# 为什么单开一张表：`MENU_IMAGES` 的落点写死是 `MENU_OUT`（`ui_menu/`），而这张必须与同族
+#   `40K_dropdown_item` / `_hover` / `_selected` **同目录**（`Resources/Art/ui_deck/`，现读三张都在）。
+#   `CardArt.MenuUi` 是 `ui_menu/ → ui_deck/ → ui/` 三级兜底 ⇒ 若落在 `ui_menu/`，它会**先命中**那一份，
+#   与 `ui_deck/` 的三张分家 = 两份漂移源（本项目最忌）。
+# 这条解决的是**「换机重建会再缺一次」**：盘上这份是 2026-10-31 `B110_W7` **手工**拷进去的（当时没有生成器管它），
+#   源与判据见 `报告/B110_W7.md`：
+#     · 源 `ui_extract/duplicateassetisolation_assets_all/Sprite/40K_dropdown_item_press.png`（717×92，37,275 B，
+#       md5 `4dead45b6ee7fee88769e05592a93db8`；= 工程内 `CardPresentation/Art/原版/去重资源/` 那份，md5 相同）
+#     · 源 JSON：`m_Rect = 717×92` == `m_RD.textureRect`、`textureRectOffset = (0,0)` ⇒ `copy_ui_sprite` 走 `asis`
+#       （**不需要**补透明画布）。`40K_dropdown_item` 同族 717×92。
+#     · ⚠️ 717×92 是 **NPOT** ⇒ `.meta` 要 `nPOTScale: 0`（盘上那份已经是 0；**本脚本不生成 `.meta`**，
+#       新机由 `Editor/ArtBaker.ApplyImportSettings()` 统一写 `npotScale = None`，见 `ArtBaker.cs:500/623`）。
+#     · 消费口：`Battle/SettingsPanel.cs:729`（`LstItemArt` 上下两档）· `Shell/SettingsWindow.cs:832`（`ArtLstItemPr`）。
+MENU_DECK_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_deck'
+MENU_DECK_IMAGES = [
+    ('40K_dropdown_item_press',                   'duplicateassetisolation_assets_all'),  # 下拉项「按下态」717×92
+]
+
 # ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----
 # 判据 = 新账 `E01`（`Shell/TutorialPointerUi.cs:47-49, 80-82` 如实登记着「这三张不在 Resources ⇒ 不画手指」）。
 #   · `Cursor_Space Marine_01` / `…01Glow` —— 原版 `TutorialPointerMenu ▸ Pointer[ /light]`
@@ -1132,6 +1153,47 @@ MENU_TEXTURE_IMAGES = [
     ('Cursor_Space Marine_01',     'armycursors_assets_all'),         # 手指本体
     ('Cursor_Space Marine_01Glow', 'armycursors_assets_all'),         # 手指外发光
     ('Border Circles FX',          'generalgamewindows_assets_all'),  # 光圈
+    # ---- 🆕 2026-11-01（B111_T1 · 活状态表 `B-48` / `N51`）：商店商品底图 **15 张 `40K_shop_offer_bg_*`** ----
+    # 它们**只有 `Texture2D/`**（512×512，`ui_extract` 的 `Sprite/` 下只有 2 张**同名**的紧裁件，见下面那段），
+    #   所以走这张「Texture2D 直拷」表、落 `ui_menu/`（与 `CardArt.MenuUi` 的三级兜底一致）。
+    # 🔴 **先把三条现读事实钉住**（2026-11-01 逐条核过，⛔ 别再按 `报告/B88_E7` 那句「包面图 = 这 17 张」办事）：
+    #   ① 它们**不是** `BoosterPackVisualItem` 的包面图。包面由 17 棵原版 prefab 自带
+    #      （`material._MainTex` → `WF_Booster Pack_<阵营>.png`，全部在随包 `wf_boosters_extra.bundle` 里，
+    #      判据 → `AssetRipper` 的 `Material/Card Booster Pack *.mat` 逐份实读；我们侧 `Core/BoosterPackAssets.cs`
+    #      直接实例化 prefab ⇒ **零属性拷贝**）。
+    #   ② 原版里这 15 张**只被 14 个同名 Sprite 引用**（见下）—— 它们自己**没有任何 prefab / 场景 / `.mat` 直接引用**
+    #      （对 `ExportedProject` 全树按 guid 扫过，0 命中）。用途 = 商店商品格 `background` 的底图
+    #      （`Booster Offer Container.prefab ▸ background` 的 `m_Sprite` 就是其中一个 Sprite 变体），
+    #      服务端 store 数据可换 — 属 P3 服务端目录一侧，本地只留资产。
+    #   ③ 原版 **14 个 Sprite 全叫 `40K_shop_offer_bg_Sororitas_0`**（`m_Rect` 一律 450×512 @ x=31），
+    #      但各自指向**不同阵营的贴图**（`_0`→SaimHann · `_0_2`→generic · `_0_3`→Leviathan · `_0_6`→UM · …），
+    #      这是**原版自己的命名缺陷**，不是我们抄错。⇒ **按名字进 `Resources/` 只能留一份**：现在那份
+    #      `ui_menu/40K_shop_offer_bg_Sororitas_0.png` 与 `_0`（SaimHann）逐像素 **0.000** —— 与「按名字取」的语义一致。
+    #      🔴 **`B-103`：所以「文件名 ↔ 内容」在这张表上不成立** —— 盘上那张叫 `..._Sororitas_0`，
+    #      内容是 **SaimHann** 的底图。⛔ **不许按文件名推断阵营**（会静默换错一张）；
+    #      判内容只有一条路 = 读那份 Sprite 的 `m_RD.texture.m_PathID`，再到
+    #      `bundle_boosterpacks_assets_all/Texture2D/` 里认那张贴图的 `m_Name`
+    #      （14 组对应表 → `资料/完全复刻/报告/B112_F.md` §B-103）。
+    #      ✅ 现在的取法是**对的**（取 pathID 最小的那份 = SaimHann，原版 `Booster Offer Container` 也用它），
+    #      ⛔ 别因为「名字写着 Sororitas」就去把它换成修女那张。
+    #   ④ ⚠️ 因此**这 15 张今天没有代码消费方**（`grep -rn "shop_offer_bg" Assets/**/*.cs` 只命中
+    #      `40K_shop_offer_bg_Sororitas_0` 那一张）。它们进工程的意义 = **原版资产齐 + 换机重建可复现**
+    #      （同 `B-64` 那条口径），⛔ 不是「为了消一个数字」。
+    ('40K_shop_offer_bg_AM',                'boosterpacks_assets_all'),  # 商品底图 · 星际军
+    ('40K_shop_offer_bg_BL',                'boosterpacks_assets_all'),  # 商品底图 · 黑军团
+    ('40K_shop_offer_bg_Dark Angels',       'boosterpacks_assets_all'),  # 商品底图 · 暗天使
+    ('40K_shop_offer_bg_Emperors Children', 'boosterpacks_assets_all'),  # 商品底图 · 帝皇之子
+    ('40K_shop_offer_bg_Genestealers',      'boosterpacks_assets_all'),  # 商品底图 · 基因窃取者
+    ('40K_shop_offer_bg_Goff',              'boosterpacks_assets_all'),  # 商品底图 · 兽人 Goff
+    ('40K_shop_offer_bg_Leviathan',         'boosterpacks_assets_all'),  # 商品底图 · 利维坦
+    ('40K_shop_offer_bg_Referral',          'boosterpacks_assets_all'),  # 商品底图 · 推荐奖励
+    ('40K_shop_offer_bg_SW',                'boosterpacks_assets_all'),  # 商品底图 · 太空野狼
+    ('40K_shop_offer_bg_SaimHann',          'boosterpacks_assets_all'),  # 商品底图 · 塞姆汉
+    ('40K_shop_offer_bg_Sautekh',           'boosterpacks_assets_all'),  # 商品底图 · 索泰克
+    ('40K_shop_offer_bg_Sororitas',         'boosterpacks_assets_all'),  # 商品底图 · 修女
+    ('40K_shop_offer_bg_Tau',               'boosterpacks_assets_all'),  # 商品底图 · 钛
+    ('40K_shop_offer_bg_UM',                'boosterpacks_assets_all'),  # 商品底图 · 极限战士
+    ('40K_shop_offer_bg_generic',           'boosterpacks_assets_all'),  # 商品底图 · 通用
 ]
 
 # ---- 🔴 上面那批里**还差 4 张没登记**（A808 未清的那一格，2026-10-14 实读）--------------------
@@ -1446,6 +1508,41 @@ def copy_ui_sprite(src, dst, bundle):
     canvas.save(dst)
     im.close()
     return 'padded'
+
+
+def ui_sprite_expected(src, pad):
+    """`copy_ui_sprite` **会写成什么样**的那张画布（不写盘；`--check` 用它跟盘上比）。
+    🔴 **2026-11-01（B111_T1 · 活状态表 `B-71`）**：`--check` 原来只按 `m_Rect` 静态列出「哪几张要走补画布」，
+    完全不看盘上那份对不对 ⇒ 修好 y 偏移之后它**照样列那 25 张**、看不出「图其实还是错位的老版本」。
+    这里按**与 `copy_ui_sprite` 逐字相同**的贴法生成期望图，`--check` 再拿它跟盘上逐像素比 ⇒
+    「补过画布且盘上仍是旧的」才进 `stale` 清单，重导之后那份清单**应该归 0**。
+    ⚠️ 这是「盘上 == 本次会写出的东西」，**不是**「与原版一致」的证明 —— 后者要拿 `Texture2D/` 原图比（见 `B111_T1` 报告）。"""
+    from PIL import Image
+    tw, th, ox, oy = pad
+    im = Image.open(src).convert('RGBA')
+    canvas = Image.new('RGBA', (tw, th), (0, 0, 0, 0))
+    canvas.paste(im, (ox, th - oy - im.size[1]))
+    im.close()
+    return canvas
+
+
+def ui_sprite_matches_disk(src, dst, pad):
+    """盘上那张是否**已经**是 `ui_sprite_expected` 的样子（尺寸 + 逐像素）。
+    返回 True/False；盘上没有这个文件 ⇒ False（调用方会当成「要重导」）。"""
+    from PIL import Image, ImageChops
+    if not os.path.exists(dst):
+        return False
+    try:
+        exp = ui_sprite_expected(src, pad)
+        got = Image.open(dst).convert('RGBA')
+        if got.size != exp.size:
+            got.close(); exp.close()
+            return False
+        same = ImageChops.difference(got, exp).getbbox() is None
+        got.close(); exp.close()
+        return same
+    except Exception:
+        return False
 
 
 def bleed_edge_rgb(im, ring=8):
@@ -1873,6 +1970,11 @@ def card_bundle_map():
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--check', action='store_true', help='只检查源文件在不在，不写')
+    ap.add_argument('--apply', action='store_true',
+                    help='真写盘（= 旧的「不带参直接拷」）。与 `--check` 互斥；**两个都不给时只打印用法并退出**')
+    ap.add_argument('--only', metavar='SUBSTR', default=None,
+                    help='只处理**目标文件名含该子串**的条目（配合 `--apply` 做小范围重导；'
+                         '⚠️ 给了它就一直只跑这些，其余段全部跳过）')
     ap.add_argument('--only-menu', action='store_true',
                     help='只导**菜单 UI 图**（阶段二各层用）—— 跳过卡牌插图那一段（1126 张，最慢）。'
                          '⚠️ 这一模式**不重写** card_cutouts.json（那是全量产物，半量跑会把它清空）')
@@ -1881,6 +1983,20 @@ def main() -> int:
     ap.add_argument('--only-cardback-sdf', action='store_true',
                     help='只导**卡背那 233 张 SDF 掩码**（收藏窗卡背格 + 战斗牌堆那层用；秒回）—— 其余一段都不跑')
     args = ap.parse_args()
+
+    # 🔴 **2026-11-01（B111_T1）：动作必须显式** —— 本脚本原先是「不带参 = 直接拷全量」。
+    #   同项目踩过一次「写盘脚本默认动作把主表整批冲掉」（`merge_ledger_parts.py --help` 那次），
+    #   这里按同一条纪律收口：**--check / --apply 二选一，缺一个就只打印用法并退出**。
+    if args.check and args.apply:
+        print('🔴 `--check` 与 `--apply` 互斥（一个只读、一个写盘）⇒ 什么都不做。', file=sys.stderr)
+        return 2
+    if not args.check and not args.apply:
+        ap.print_usage(sys.stderr)
+        print('🔴 **没给动作参数 ⇒ 只打印用法并退出（一个字节都不写）**。\n'
+              '   · 只看不写：`--check`\n'
+              '   · 真写盘：  `--apply`（可加 `--only <目标名子串>` 做小范围重导）', file=sys.stderr)
+        return 2
+    args.check = not args.apply            # 下面全部沿用老变量 `args.check`（= 「不写盘」）
 
     # ---- 🆕 2026-09-26：`--only-cardback-sdf` —— 卡背的 **SDF 掩码**（自包含早退路径）----
     # 🔴 **必须早退、不能并进下面的 `jobs`** —— 同 `--only-altart` 那条已有的警告：
@@ -2021,6 +2137,17 @@ def main() -> int:
     print(f'菜单 UI 图：源 {len(menu_jobs)} 张（来自 {len(set(b for _n, b in MENU_IMAGES))} 个 bundle 目录）')
     jobs += menu_jobs
 
+    # 🆕 2026-11-01（B111_T1 · 活状态表 `B-64`）：**落 `ui_deck/` 的那几张**（表与理由见 `MENU_DECK_IMAGES`）。
+    #   与上面同一套 `menu_pad` 判据（源同样是紧裁过的 Sprite PNG ⇒ 走 `copy_ui_sprite` 按 `m_Rect` 补画布）。
+    deck_jobs = [(os.path.join(MENU_SRC, bundle, 'Sprite', name + '.png'),
+                  os.path.join(MENU_DECK_OUT, name.replace(' ', '_') + '.png'), False)
+                 for name, bundle in MENU_DECK_IMAGES]
+    for name, bundle in MENU_DECK_IMAGES:
+        menu_pad[os.path.join(MENU_DECK_OUT, name.replace(' ', '_') + '.png')] = bundle
+    if deck_jobs:
+        print(f'菜单 UI 图（落 `ui_deck/`）：{len(deck_jobs)} 张')
+    jobs += deck_jobs
+
     # 🆕 2026-10-18（E01）：三张指针件直接取 `assets_full/.../Texture2D/`（表与理由见 `MENU_TEXTURE_IMAGES`）
     menu_tex_jobs = [(os.path.join(UNPACK, 'bundle_' + bundle, 'Texture2D', name + '.png'),
                       os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'), False)
@@ -2116,6 +2243,7 @@ def main() -> int:
         os.makedirs(OUT, exist_ok=True)
         os.makedirs(UI_OUT, exist_ok=True)
         os.makedirs(MENU_OUT, exist_ok=True)
+        os.makedirs(MENU_DECK_OUT, exist_ok=True)        # 🆕 2026-11-01（B111_T1 · `B-64`）
         os.makedirs(CAMPAIGN_BG_OUT, exist_ok=True)
         os.makedirs(COSMETIC_AVATAR_OUT, exist_ok=True)   # 🆕 2026-09-27 装饰品头像（漏了这句就会 `FileNotFoundError`）
         os.makedirs(CARDBACK_OUT, exist_ok=True)
@@ -2127,6 +2255,20 @@ def main() -> int:
     meta_fixed = 0                   # ⚠️ 初值必须在这儿：`--check` 那条路不会进下面的 `if not args.check`
     #    （2026-09-15 修：原来它在 `if not args.check` 里初始化，`--check` 跑到底就 UnboundLocalError）
     padded_menu, noinfo_menu = [], []   # 🔴 菜单 UI 图里「补过画布」/「拿不到 m_Rect 判据」的（见 `copy_ui_sprite`）
+    stale_menu, ok_menu = [], []        # 🆕 补过画布那批里：**盘上还是旧内容** / **盘上已经对了**（`--check` 用）
+
+    def _job_tag(p):
+        """清单里给「哪一张」一个**能区分同名两份**的短标签（`ui_menu/x.png` vs `boosterpack/x.png`）。
+        🆕 2026-11-01（B111_T1）：原来打的是裸文件名，`40K_shop_offer_booster_UM` 在 `ui_menu/` 与
+        `boosterpack/` 各一份 ⇒ 清单里出现两遍、看着像重复条目（`B-71` 那轮就踩了这个歧义）。"""
+        return os.path.basename(os.path.dirname(p)) + '/' + os.path.basename(p)
+
+    # 🆕 2026-11-01（B111_T1）：`--only <子串>` 只处理**目标文件名**含该子串的条目（小范围重导用）。
+    #   ⚠️ 必须在**所有 `jobs +=` 之后**过滤（上面那几十段是逐块加的）；卡背/SDF 两段在下面各自再过滤一次。
+    if args.only:
+        _n0 = len(jobs)
+        jobs = [j for j in jobs if args.only.lower() in os.path.basename(j[1]).lower()]
+        print(f'⏳ `--only {args.only}`：jobs {_n0} → {len(jobs)} 条（其余段下面各自过滤）')
     for src, dst, crop in jobs:
         if not src or not os.path.exists(src):
             miss.append(src or '(空路径)')
@@ -2143,30 +2285,41 @@ def main() -> int:
                 # 🔴 菜单 UI：源是**紧裁过的 Sprite PNG** ⇒ 按 `m_Rect` 补回透明画布（⛔ 不许静默裁留白）
                 st = copy_ui_sprite(src, dst, menu_pad[dst])
                 if st == 'padded':
-                    padded_menu.append(os.path.basename(dst))
+                    padded_menu.append(_job_tag(dst))
                 elif st == 'noinfo':
-                    noinfo_menu.append(os.path.basename(dst))
+                    noinfo_menu.append(_job_tag(dst))
             else:
                 shutil.copyfile(src, dst)
         elif dst in menu_pad:
             # `--check` 不写盘，但也要能看见「哪几张会因为紧裁而丢留白」
             pad = ui_sprite_pad(os.path.splitext(os.path.basename(src))[0], menu_pad[dst])
             if pad is None:
-                noinfo_menu.append(os.path.basename(dst))
+                noinfo_menu.append(_job_tag(dst))
             elif pad[0:2] != _png_size(src) or pad[2] != 0 or pad[3] != 0:
-                padded_menu.append(os.path.basename(dst))
+                padded_menu.append(_job_tag(dst))
+                # 🆕 B111_T1：盘上那份是不是**已经**按正确贴法写过了（否则就是「还没重导」）
+                if ui_sprite_matches_disk(src, dst, pad):
+                    ok_menu.append(_job_tag(dst))
+                else:
+                    stale_menu.append(_job_tag(dst))
         ok += 1
 
     print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(jobs)}')
     if padded_menu:
         print(f'  🔴 菜单 UI 图里**按 `m_Rect` 补回透明画布**的 {len(padded_menu)} 张'
               f'（源被紧裁过；判据 → `ui_sprite_pad` 的 doc）：{", ".join(sorted(padded_menu))}')
+        if args.check:
+            print(f'     · 盘上**已是正确贴法** {len(ok_menu)} 张：{", ".join(sorted(ok_menu)) or "(无)"}')
+            print(f'     · 盘上**还是旧内容 / 缺文件** ⇒ 要重导的 {len(stale_menu)} 张'
+                  f'（`--apply --only <名>`）：{", ".join(sorted(stale_menu)) or "(无)"}')
     if noinfo_menu:
         print(f'  ⚠️ 菜单 UI 图里 {len(noinfo_menu)} 张**拿不到 `m_Rect`/`textureRectOffset` 判据**'
               f'（整张照拷，没补画布 —— ⛔ 不猜位置）：{", ".join(sorted(noinfo_menu))}')
 
     # ---- 卡背 233 张（**逐张裁**，所以不走上面那个「整张拷」的循环）----
     cbs = cardback_jobs()
+    if args.only:                     # 🆕 B111_T1：`--only` 时只留命中的那几条（菜单图的子串不会命中卡背）
+        cbs = [(s, d) for s, d in cbs if args.only.lower() in os.path.basename(d).lower()]
     if cbs:
         cb_ok, cb_cropped, cb_miss = 0, 0, []
         for src, dst in cbs:
@@ -2183,11 +2336,13 @@ def main() -> int:
               + f'） → {CARDBACK_OUT}')
         for m in cb_miss:
             print('  缺:', m)
-    else:
+    elif not args.only:
         print(f'⚠️ 卡背源目录不在（{CARDBACK_SRC}/Texture2D）—— 这次**没导卡背**')
 
     # ---- 🆕 2026-09-26：卡背的 **SDF 掩码** 233 张（同上，逐张按 `_SDF` 自己的 rect 裁）----
     cbs_sdf = cardback_sdf_jobs()
+    if args.only:                     # 🆕 B111_T1（同上）
+        cbs_sdf = [(s, d) for s, d in cbs_sdf if args.only.lower() in os.path.basename(d).lower()]
     if cbs_sdf:
         sd_ok, sd_cropped, sd_norect = 0, 0, []
         for src, dst in cbs_sdf:
@@ -2205,7 +2360,7 @@ def main() -> int:
               + f'） → {CARDBACK_OUT}')
         if sd_norect:
             print(f'  ⚠️ {len(sd_norect)} 张找不到 `_SDF.json` ⇒ **没导**（不猜矩形）：', sd_norect[:5])
-    elif not args.check:
+    elif not args.check and not args.only:
         print('⚠️ 卡背 SDF：源目录不在 ⇒ 这次没导')
 
     if meta_fixed:
@@ -2218,9 +2373,9 @@ def main() -> int:
               '`CardPresentation/Editor/ArtBaker.ApplyImportSettings()` 按子树统一写'
               '（`maxTextureSize` / `npotScale = None` / 压缩档）。⇒ 跑一次 Unity 烘焙，再跑一遍本脚本关 alpha。')
 
-    if not args.check and not args.only_menu:
+    if not args.check and not args.only_menu and not args.only:
         # 抠图清单：运行时靠它决定「要不要画前景层（角色越出卡框）」
-        # ⚠️ **`--only-menu` 时必须跳过** —— 那一趟 `cutouts` 是空的，写下去会把全量清单**静默清空**
+        # ⚠️ **`--only-menu` / `--only` 时必须跳过** —— 那两趟 `cutouts` 是空的，写下去会把全量清单**静默清空**
         import json as _json
         man = os.path.join(OUT, 'card_cutouts.json')
         with open(man, 'w', encoding='utf-8') as f:

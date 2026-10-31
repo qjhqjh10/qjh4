@@ -190,8 +190,8 @@ public static class Q2_Assert
         }
     }
 
-    /// <summary>往卡背包加一张（= 原版 `CardInventory.Add`）。**带上当前档位**，否则 `UpdateCardTier` 会把等级打回 1
-    /// （判据见 `Shell/RewardServicePartial_C9.cs` 文件头「必须带着的规避」）。</summary>
+    /// <summary>往卡背包加一张（= 原版 `CardInventory.Add`）。**带上当前档位**—— 但这是**同值写**（`tier + 1` 恰好等于现值）。
+    /// ⚠️ 2026-11-01（`B111_S2`）就地订正：原来这里写「否则 `UpdateCardTier` 会把等级打回 1」—— **那个前提已不存在**（`B110_F1` 2026-10-31 把 `UpdateCardTier` 改成「`customData` 缺 `CardTier` ⇒ 什么都不写」，`Shell/Inventory.cs:1392`）。这份 `customData` 留着 = **回归覆盖**，⛔ 别删。</summary>
     static void AddOneCard(RuleEngine.CardDef def)
     {
         if (def == null) return;

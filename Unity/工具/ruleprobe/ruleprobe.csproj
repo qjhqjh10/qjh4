@@ -33,6 +33,13 @@
     <!-- 🆕 `n2`（2026-10-24 · 引擎线 `新账-95` #2 的红灯诊断）：`role=mult` 结构化乘数的离线读数。
          ⚠️ 本 csproj 关了 `EnableDefaultCompileItems` ⇒ 漏了这行构建会报 `CS0103 名称"N2Probe"`。 -->
     <Compile Include="N2Probe.cs" />
+    <!-- 🆕 `effects`（`B111_E3`，2026-11-01 · 账 `特效动画:521` 的残差 S7）：**效果投影**读数口。
+         🔴 必须显式列 —— 本 csproj 关了 `EnableDefaultCompileItems`，漏了就是构建期 `CS0103 名称"EffectsProbe"`。
+         ⚠️ 它**不需要**新增 `Data/` 编译项：投影的输入是 `Core/*.cs` 里的 `EffectsToShow` / `UnitState`，
+         卡池由 `Program.PoolList` 供（与 `play` 同一份）。
+         ⚠️ 它调 `EffectsToShow.Of` 会经 `AttachEffectTexts` 问 `CardDatabase.Load()` —— 探针里 `Resources`
+         是桩、恒 null ⇒ 那一段**整段不做事并出声**（`EffectsToShow.cs` 的口径），⛔ 不是「这些卡没有原文」。 -->
+    <Compile Include="EffectsProbe.cs" />
     <!-- 🆕 `nonkw`（`A1462`）—— `non <关键词>` 的目标筛选专用探针，见 `NonKwProbe.cs` 头注 -->
     <Compile Include="NonKwProbe.cs" />
     <Compile Include="Program.cs" />
@@ -73,6 +80,20 @@
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B98H7.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B110E5.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.StableSort.cs" />
+    <!-- 🆕 2026-11-01（`B111_E3` · `B-34` 差集闸发现的**真缺口**，不是有意排除）：
+         `AiActionPartial_B110R3.cs` 是 `Data/SimpleAI.cs` 里 `AiAction` 的 **partial 半边**
+         （`B110_R3` 为 `N07` 加的两格 `OathChoiceRecorded` / `OathChoice`，纯字段、**零 Unity 依赖**）。
+         🔴 漏列时探针里的 `AiAction` **少了这两格** —— 今天只是「没人用所以编得过」，
+         等哪一天探针/`AiProbe` 读到它们就是 `CS0117`，而那种缺口**不会自己出声**。
+         ⇒ 这是 `B-34` 那道差集闸（`工具/check_ruleprobe_csproj.py`）抓出来的第一例。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiActionPartial_B110R3.cs" />
+    <!-- 🆕 2026-11-01（`B111_E3`）：`SimpleAIPartial_B111E2.cs` —— `SimpleAI` 的兄弟分册
+         （`B111_E2` · 账 `B-69`：AI 的「平 / 誓二选一」按原版 bot 支等概率随机）。
+         🔴 **它是在 `B-34` 那道差集闸落地后 3 分钟内被闸当场抓到的**：
+         `Data/SimpleAI.cs:1683` 已改成调 `PlayCardAsAi(...)`，而分册没进 csproj
+         ⇒ 探针**构建期** `CS0103 名称"PlayCardAsAi"`（实测：闸先报 `✗ SimpleAIPartial_B111E2.cs`，
+         再跑 `dotnet build` 就复现了同一条错）。这正是本闸要治的那一类。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAIPartial_B111E2.cs" />
     <Compile Include="AiProbe.cs" />
     <!-- 🆕 `tutorial`（`G5`，2026-10-26 · 第 5 轮）：**教程局读数口**。
          🔴 它修的是 `F4_第4轮.md` §1·3 那一类「12 条 `AiScripted` 全卡在 G3（可观察量）」——

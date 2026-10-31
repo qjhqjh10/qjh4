@@ -1280,9 +1280,9 @@ namespace CardPresentation
         /// <item>+0x60 == null ⇒ **直接 return**（不排程）</item>
         /// <item>`CurrentOffer != null` ⇒ `ActionScheduler.Schedule(offer 的委托)` 存句柄（+0x68）</item>
         /// </list>
-        /// <para>✅ **2026-10-29（`B97_SHOP2` · 铁律 5 就地订正）第 ④ 句已落地**：旧的「本仓没有 `ActionScheduler` ⇒ 句柄位恒 null」
-        /// 已过期 —— 现在走类尾的 🔶 本地替身 `LocalActionScheduler`（服务端时钟 `TimeHelper.get_ServerTime()` 用**本地 `DateTime.UtcNow`**、
-        /// 到期**只出声**，⛔ 不假装打过云脚本）。时刻实参 = `EventTabSource.ScheduledServerTime`，拿不到 ⇒ 不排程 + 出声。</para></summary>
+        /// <para>✅ **2026-10-29（`B97_SHOP2`）第 ④ 句已落地**；🆕 **2026-11-01（`B112_B` · 账 `B-83`）收口**：
+        /// 唯一实现 = 仓里已有的 `LiveOpsScheduler`（原版 `SingletonBehaviour&lt;ActionScheduler&gt;` 的等价物，`LiveOpsPump` 已挂每帧泵）——
+        /// 旧的 🔶 本地替身 `LocalActionScheduler` 降为**兼容壳**。时刻实参 = `EventTabSource.ScheduledServerTime`，拿不到 ⇒ 不排程 + 出声。</para></summary>
         public void SetEventTab(EventTabSource liveOps)
         {
             _eventTabLiveOpsId = liveOps != null ? liveOps.LiveOpsId : null;          // ① +0x58
@@ -1294,12 +1294,12 @@ namespace CardPresentation
                     Debug.LogWarning("[Gacha] `GachaEventTab.SetEventTab` 第 ④ 句：`CurrentOffer` 非空，但**排程时刻拿不到**"
                                    + "（`EventTabSource.ScheduledServerTime` = null；原版那一格在远端 offer 上）"
                                    + " ⇒ 句柄位仍为 null、这一拍不排程（⛔ 不假装排过任务）。"); } return; }
-            _eventTabHandle = LocalActionScheduler.Schedule(liveOps.ScheduledServerTime.Value, "GachaEventTab 的 offer 委托");   // ④ 🔶 本地替身（到期只出声；原版打云脚本）
+            _eventTabHandle = LiveOpsScheduler.Schedule(liveOps.ScheduledServerTime.Value, EventTabTimerEnded, null);   // ④ 原版 `ActionScheduler.Schedule(offer 的委托)` ⇒ 唯一实现 `LiveOpsScheduler`（🆕 B-83 收口；到期回调只出声 —— 原版打云脚本）
         }
 
         /// <summary>= 原版 `GachaEventTab.Reset()`（**两句**，判据 `GachaEventTab__Reset.c:16-38`）：
         /// <list type="number">
-        /// <item>`+0x68 != null` ⇒ `ActionScheduler.Release(handle)`（🆕 2026-10-29 `B97_SHOP2`：走 🔶 本地替身 `LocalActionScheduler.Release`）</item>
+        /// <item>`+0x68 != null` ⇒ `ActionScheduler.Release(handle)`（🆕 2026-11-01 `B112_B` · `B-83`：走 `LiveOpsScheduler.Release`）</item>
         /// <item>`getCardsButton != null` ⇒ `它的 UnityEvent.RemoveAllListeners()`</item>
         /// </list>
         /// <para>⚠️ **原版还有一道 `getCardsButton == null` 的早退**（`op_Inequality` 判假 ⇒ `return`）——
@@ -1308,7 +1308,7 @@ namespace CardPresentation
         /// 所以**看不到差别**；补它是为了形状完整 + 让断言能点名（`GetCardsClickBound`）。</para></summary>
         public void ResetEventTab()
         {
-            if (_eventTabHandle != null) LocalActionScheduler.Release((int)_eventTabHandle); _eventTabHandle = null;   // ① 原版 `ActionScheduler.Release(+0x68)`（🔶 本地替身；同一行 = 不加行号）
+            if (_eventTabHandle != null) LiveOpsScheduler.Release(_eventTabHandle as LiveOpsScheduledRefresh); _eventTabHandle = null;   // ① 原版 `ActionScheduler.Release(+0x68)` ⇒ `LiveOpsScheduler.Release`（🆕 B-83 收口 = **真从队列移除**；同一行 = 不加行号）
             _getCardsClick = null;                     // ② 原版 `RemoveAllListeners()`（0 个监听者）
         }
 
@@ -1318,7 +1318,7 @@ namespace CardPresentation
         public string EventTabLiveOpsId { get { return _eventTabLiveOpsId; } }
         /// <summary>自检读口：`as GachaEvent` 那一步过没过（+0x60 非空）。</summary>
         public bool EventTabHasGachaEvent { get { return _eventTabHasGachaEvent; } }
-        /// <summary>自检读口：`ActionScheduler` 句柄位（+0x68）。🆕 2026-10-29 `B97_SHOP2`：拿到排程时刻时 = 🔶 本地替身 `LocalActionScheduler.Schedule` 回的 int（装成 `object`）；时刻拿不到 = null（见 `SetEventTab`）。</summary>
+        /// <summary>自检读口：`ActionScheduler` 句柄位（+0x68）。🆕 2026-11-01 `B112_B` · `B-83`：拿到排程时刻时 = `LiveOpsScheduledRefresh`（`LiveOpsScheduler` 的句柄）；时刻拿不到 = null（见 `SetEventTab`）。</summary>
         public object EventTabScheduledHandle { get { return _eventTabHandle; } }
 
         /// <summary>= 原版 `GachaEventTab.GetCardsClick()`（`WindowsManager.OpenWindow(getCardsWindow, config)`）。</summary>
@@ -1750,41 +1750,68 @@ namespace CardPresentation
         }
 
         // ------------------------------------------------------------ 账 `商店:112`
-        // 🔶 自己设计（非原版）：`ActionScheduler` 的**本地替身**。
-        // · 原版 `GachaEventTab.SetEventTab` 第 ④ 句 = `ActionScheduler.Schedule(offer 的委托)` 存句柄（`Reset` 时 Release）；
-        //   `ActionScheduler__Schedule.c:26-30` 现读 = `if (传入时刻 < TimeHelper.get_ServerTime()) return 0;`，
-        //   到期打 `PlayfabWrapper.GenericCloudScriptHandler`（**云脚本**）。
-        // · 为什么必须自定：服务端时钟与云脚本都在远端（已关服）⇒ 判据永远在远端。
-        // · 谁定的：调度台 2026-10-29 裁定。⚠️ **到期只出声，⛔ 不假装打过云脚本**。
+        // 🆕 **2026-11-01（`B112_B` · 账 `B-83`）：收口到 `LiveOpsScheduler`（铁律 6）**。
+        // · 原版 `GachaEventTab.SetEventTab` 第 ④ 句 = `ActionScheduler.Schedule(offer 的委托)` 存句柄（`Reset` 时 `Release`）。
+        // · 本仓原来有**两份** `ActionScheduler` 替身：本类（只有「排 / 放 / 数」，**到期只出声、不执行任何动作**）与
+        //   `Shell/LiveOpsHandler.cs` 的 `LiveOpsScheduler`（完整实现：过点不排 · 同 id 去重 · 按 `TargetTime` 排序 ·
+        //   每拍弹一条**并真的执行回调**，且 `LiveOpsPump` 已挂到每帧泵）⇒ 两处写同一条规则 = 迟早不一致。
+        // · ⇒ **生产路径改走 `LiveOpsScheduler`**（`SetEventTab` / `ResetEventTab` 已改）；本类降为**兼容壳**，
+        //   只为 `Editor/B97_SHOP2_Assert.cs` 的 E 段继续编译（它按旧面 `Schedule(DateTime,string) -> int` / `PendingCount` /
+        //   `Release(int)` / `ResetForTest()` 调用）。⛔ **生产别再走这条路**。
+        // · 🔶 **仍然「自己设计」的那一格 = 到期回调体**：原版打 `PlayfabWrapper.GenericCloudScriptHandler`（云脚本，服务端），
+        //   本机已关服 ⇒ 回调**只出声、不假装打过云脚本**（见 `EventTabTimerEnded`）。判据在远端 ⇒ 铁律 18·0 允许自定。
 
-        /// <summary>🔶 `ActionScheduler` 的本地替身（只有「排 / 放 / 数」三件事，**不执行任何动作**）。</summary>
+        /// <summary>🆕 **兼容壳**（生产已改走 <see cref="LiveOpsScheduler"/>；本类只为 `Editor/B97_SHOP2_Assert.cs` 的旧面保留）。
+        /// <para>🔴 它**不再持有任何排程规则**：`Schedule` 直接转调 `LiveOpsScheduler`，`PendingCount` 读的是**全局队列**
+        /// （⇒ 与生产同一份读数）。</para></summary>
         public static class LocalActionScheduler
         {
-            static readonly System.Collections.Generic.List<System.DateTime> _pending =
-                new System.Collections.Generic.List<System.DateTime>();
+            /// <summary>按 `Schedule` 返回值顺序记句柄（`Release(int)` 要按旧面的 int 句柄找回它）。</summary>
+            static readonly System.Collections.Generic.List<LiveOpsScheduledRefresh> _handles =
+                new System.Collections.Generic.List<LiveOpsScheduledRefresh>();
 
-            /// <summary>到点（本地时钟）⇒ 出声一次；返回句柄（**0 = 原版那条「时刻已过 ⇒ 不排程」**）。
-            /// <para>判据 `ActionScheduler__Schedule.c:26-30`：`if (param_2 &lt; TimeHelper.get_ServerTime()) return 0;`。</para></summary>
+            /// <summary>转发到 `LiveOpsScheduler.Schedule(DateTime, Action, actionId = null)`。
+            /// 返回 **0 = 原版那条「时刻已过 ⇒ 不排程」**（`ActionScheduler__Schedule.c:26-30`）；否则 = 句柄号（1 起）。
+            /// <para>🔶 到期体的自己设计部分见上面那段注释（云脚本在远端）。</para></summary>
             public static int Schedule(System.DateTime at, string what)
             {
-                if (at <= System.DateTime.UtcNow) return 0;
-                _pending.Add(at);
-                Debug.Log("[Gacha] `ActionScheduler.Schedule`：🔶 本地排程（" + what + " @ " + at.ToString("u")
-                        + "）—— 原版打云脚本 `GenericCloudScriptHandler`，本机已关服 ⇒ **到期只出声、不执行任何动作**");
-                return _pending.Count;
+                var h = LiveOpsScheduler.Schedule(at, delegate
+                {
+                    Debug.Log("[Gacha] `ActionScheduler` 到点（" + what + "）—— 原版打云脚本 `GenericCloudScriptHandler`，"
+                            + "本机已关服 ⇒ **只出声、不执行任何动作**");
+                }, null);
+                if (h == null) return 0;
+                _handles.Add(h);
+                return _handles.Count;
             }
 
-            /// <summary>自检读口：本地排程表里有几条。</summary>
-            public static int PendingCount { get { return _pending.Count; } }
+            /// <summary>自检读口：**全局**队列里有几条（= `LiveOpsScheduler.PendingCount`，含活动刷新那一批）。</summary>
+            public static int PendingCount { get { return LiveOpsScheduler.PendingCount; } }
 
-            /// <summary>= 原版 `ActionScheduler.Release(handle)`。本地表按条存、句柄就是下标 ⇒ 这里只出声（⛔ 不静默删）。</summary>
+            /// <summary>= 原版 `ActionScheduler.Release(handle)` —— 转发到 `LiveOpsScheduler.Release`（**真从队列移除**）。</summary>
             public static void Release(int handle)
             {
-                Debug.Log("[Gacha] `ActionScheduler.Release(" + handle + ")`：🔶 本地替身无实际在途任务（排程到期只出声）");
+                if (handle <= 0 || handle > _handles.Count)
+                {
+                    Debug.LogWarning("[Gacha] `ActionScheduler.Release(" + handle + ")`：句柄越界（本壳记了 "
+                                     + _handles.Count + " 条）⇒ 忽略");
+                    return;
+                }
+                LiveOpsScheduler.Release(_handles[handle - 1]);
             }
 
-            /// <summary>自检用：清空本地排程表。</summary>
-            public static void ResetForTest() { _pending.Clear(); }
+            /// <summary>自检用：清空本壳的句柄表 **与** 全局队列。</summary>
+            public static void ResetForTest() { _handles.Clear(); LiveOpsScheduler.ResetForTest(); }
+        }
+
+        /// <summary>原版 `GachaEventTab.SetEventTab` 第 ④ 句排上的那个「offer 委托」的**到期体**。
+        /// <para>🔶 自己设计（非原版）：原版那一跳是 `PlayfabWrapper.GenericCloudScriptHandler`（**云脚本**，服务端）·
+        /// 为什么必须自定：服务端已关服、判据永远在远端（铁律 18·0 的唯一允许门类）·
+        /// 调度台 2026-11-01 裁定（`B-83` 收口）。⛔ **只出声，不假装打过云脚本**。</para></summary>
+        void EventTabTimerEnded()
+        {
+            Debug.Log("[Gacha] `GachaEventTab` 的 offer 排程**到点**（`ActionScheduler.Schedule` 的回调真的被调到 = "
+                    + "`LiveOpsScheduler` 每帧泵在推）—— 原版这一跳打云脚本 `GenericCloudScriptHandler`，本机已关服 ⇒ 只出声");
         }
 
         // ============================================================ 🆕 2026-10-31（`B109_E27`）自检读口：进度条 `Fill`

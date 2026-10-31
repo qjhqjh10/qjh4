@@ -759,7 +759,7 @@ namespace CardPresentation
             var hl = DrawRect(e, Art(ArtHighlight), ON(E_Highlight), "Highlight", QPanel, HighlightTint);
             // 显隐**不在这里设**（原来这一句是 `SetActive(unlocked && !claimed)`）—— 见本方法末尾
             // `Entry.SetState` 那一跳（= 原版 `DailyStreakItemContainer.SetState` 的 `highlight` 那一句）。
-            DrawRect(e, Art(DailyData.StreakRewardIcon(day)), ON(E_Holder), "Reward Holder", QContent, null, true); BuildPreviewHit(e, ON(E_Holder), day, unlocked);   // 🆕 2026-10-31（B106_W51）：隐形命中件（原版抽屉的 image 本身是射线靶）—— 必须建在图标**之后**（`ArtOf` 取子树第一张 `ImageQuad`）；缓存判定见 `BuildPreviewHit` 的 doc（原版 `DailyStreakItemContainer.cs:105-110`，与每日奖励同一段字节）
+            { var rwHolder = MenuDraw.Node(e, "Reward Holder", ON(E_Holder)); Art(DailyData.StreakRewardIcon(day)); ItemDrawer.DrawIconFill(rwHolder, ON(E_Holder), DailyData.StreakRewardIcon(day), DailyData.StreakRewardName(day), QContent, RenderClip, ClipSoftness); } BuildPreviewHit(e, ON(E_Holder), day, unlocked);   // 🆕 2026-10-31（B106_W51）：隐形命中件（原版抽屉的 image 本身是射线靶）—— 必须建在图标**之后**（`ArtOf` 取子树第一张 `ImageQuad`）；缓存判定见 `BuildPreviewHit` 的 doc（原版 `DailyStreakItemContainer.cs:105-110`，与每日奖励同一段字节）
             // 🆕 **2026-10-10（A1212 块 10）接上自适应**：原版那一颗四格 = `18 / 40 / 36 / 1`
             //   （出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §3；归组 =
             //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 10 #33）。

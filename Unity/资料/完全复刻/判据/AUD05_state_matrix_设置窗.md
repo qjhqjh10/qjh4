@@ -3,6 +3,7 @@
 > 代理：`B103_A05-W5`（只读查判据） · 日期：2026-10-30 · 只读 `d:/2` 与 `Unity/MyGame/Assets`，未跑 Unity、未动 git、未跑 typecheck。
 > 触发口径：铁律 5·c「一个值 ≠ 全部情况」。模板 = `判据/AUD05_state_matrix_卡组编辑.md`（结构/口径/红线照它）。
 > **本文件只覆盖「设置窗」这一件**：5 个原版页 + 我方自加的 `Online` 页（单列 §4·2）、页签栏、各页控件、下拉、账号登录/删号弹窗、小屏档。不覆盖战斗内那扇 `BattleSettingsWindow`。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 2 条**：复核方法 = 把 §3 / §4 里每条「我方现状 / 缺口」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地的就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 ---
 
@@ -282,7 +283,7 @@ CanvasScaler（主菜单场景，与模板同一颗）：`UiScaleMode = ScaleWit
 | 状态 | 判定条件 | 参数 / 取值 | 出处 |
 |---|---|---|---|
 | **D0 收起** | 默认 | `Template` 原型 `m_IsActive=false`；页布局不变 | prefab 各 `Template` |
-| **D1 展开** | 点框 | TMP 克隆 `Template` 成浮层（`Dropdown List`）并显示半透明 `Blocker`；**不动底层布局**；再点外部/`ESC` 收起 | `TMP_Dropdown.Show/Hide`（我们的等价物 `SettingsWindow.cs:3578-3608`） |
+| **D1 展开** | 点框 | TMP 克隆 `Template` 成浮层（`Dropdown List`）并显示半透明 `Blocker`；**不动底层布局**；再点外部/`ESC` 收起 | `TMP_Dropdown.Show/Hide`（我们的等价物 `SettingsWindow.cs:3578-3608`） —— ✅ **2026-11-01 复核（`B111_D1`）：行号已漂** —— 现读等价物在 `SettingsWindow.cs:3729 ShowLangList` / `:3764 HideLangList`（`:3578-3608` 现在是 `GfxRowLabelCount` 与语言列表字段那一段）|
 | **D2 语言下拉是**`DropdownList`** | — | 语言那颗 `Template` 组件表 = `Image,ScrollRect,`**`DropdownList`**（自定义类），其余三颗 = `Image,ScrollRect`（原生） | prefab §2·3 |
 | **D3 项目高** | — | 语言 Template 的 `Content` prefab `sizeDelta=(0, 41.72)` ⇒ 单行 41.72（其余下拉同档） | prefab Template |
 | **D4 列表长度** | 恒 | 语言 **13**（§1·4）· 画质 **5** · 手牌文字 **3** · 窗口模式 **2** | §1·4 / R0 / M3 |
@@ -382,7 +383,7 @@ CanvasScaler（主菜单场景，与模板同一颗）：`UiScaleMode = ScaleWit
 
 ### 4·3 缺口清单（一句一档，带 `文件:行`）
 
-1. 🔴 **G1 语言下拉 12 vs 13**：`Core/Loc.cs:196-203` 的 `Loc.Languages` 是 **12 项**（序 `English, Spanish, French, German, Portuguese, Russian, Italian, Korean, Japanese, Czech, Polish, Chinese`），而原版 `LanguageSelector` 读 `GameStaticData.languagesDefinition` = **13 项**、序为 `English, Spanish, Russian, French, German, Portuguese (Brazil), Italian, Korean, Simplified Chinese, Japanese, Turkish, Polish, Czech`。⇒ **缺 Turkish、序不同、中文位次不同**；`SettingsWindow.cs:3509` 的列表行数与 `AUD03_reuse_paths.tsv:97` 的断言（`LangRowCount == 12`）都钉在 12 上，**断言也要一起改成 13**。
+1. 🔴 **G1 语言下拉 12 vs 13**：`Core/Loc.cs:196-203` 的 `Loc.Languages` 是 **12 项**（序 `English, Spanish, French, German, Portuguese, Russian, Italian, Korean, Japanese, Czech, Polish, Chinese`），而原版 `LanguageSelector` 读 `GameStaticData.languagesDefinition` = **13 项**、序为 `English, Spanish, Russian, French, German, Portuguese (Brazil), Italian, Korean, Simplified Chinese, Japanese, Turkish, Polish, Czech`。⇒ **缺 Turkish、序不同、中文位次不同**；`SettingsWindow.cs:3509` 的列表行数与 `AUD03_reuse_paths.tsv:97` 的断言（`LangRowCount == 12`）都钉在 12 上，**断言也要一起改成 13**。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— `Core/Loc.cs:212-218` 现读 13 项、序按原版；`Editor/SettingsScene.cs:1682/1858` 断言已改 `LangRowCount == 13`（`B106_W15`）。
 2. 🔴 **G2 `Disable Notifications` 仍显示**：`SettingsWindow.cs:2315` 无条件建了三行；原版 `GeneralTab.OnSetup` 第一句就 `disableNotificationsToggle.gameObject.SetActive(false)`（`GeneralTab.cs:96-97`）⇒ 原版 General 页**只有两颗可见勾选**（Disable Bots / Touch Input）。
 3. 🔴 **G3 PC 上未关 `Delete Button`**：`SettingsWindow.cs:2671-2674` 建出该钮且留着；原版 `Buttons` 的 `PlatformBasedComponents`（PC 组=0）在 `Start` 把它关掉（§2·4）。⇒ PC 上我方多一颗「Delete account」。
 4. 🔴 **G4 已登录态没做**：`RefreshAccount`（`SettingsWindow.cs:2822-2839`）只清密码、给邮箱；原版 `AccountTab.Refresh` 还做：`passwordInput.text="**********"`、`emailInput.interactable=false`、`passwordInput.interactable=false`（`AccountTab.cs:342-383`）。⇒ 我方登录后密码空着且两框仍可编辑。

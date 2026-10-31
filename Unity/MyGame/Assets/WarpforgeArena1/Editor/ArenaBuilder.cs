@@ -3544,7 +3544,7 @@ public static class ArenaBuilder
 
     /// <summary>LUT 的导入设置 —— **原版实读**（`bundle_scenes_scenes_battlearenasororitas` 的 `Texture2D`：
     /// `m_ColorSpace = 0`(Linear) · `m_MipCount = 9`(满链) · `m_FilterMode = 1`(Bilinear) ·
-    /// `m_WrapMode = None`(Clamp) · `m_TextureFormat = 3`(RGB24，**未压缩**)）。
+    /// `m_WrapMode = 0`(**Repeat**；🔴 2026-11-01 订正（`B111_T1C`）：原文写「`None`(Clamp)」—— `None` 不是 `TextureWrapMode` 的成员，`0` = Repeat，`ExportedProject` 的 LUT `.meta` 与 bundle 实读都是 0；本方法仍写 `Clamp`，那是**我们挑的**、不是原版值) · `m_TextureFormat = 3`(RGB24，**未压缩**)）。
     /// 🔴 LUT 是**数据不是颜色纹理** —— `sRGBTexture` 必须 **false**，压缩必须 **Uncompressed**，
     ///    否则那张表会被解码/量化坏掉（画面表现为整场偏色，且不容易联想到 LUT）。</summary>
     static void EnsureLutImportSettings(string path)

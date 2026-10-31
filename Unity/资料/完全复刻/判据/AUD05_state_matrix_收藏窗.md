@@ -4,6 +4,7 @@
 > 触发口径：铁律 5·c「一个值 ≠ 全部情况」。
 > **模板** = `资料/完全复刻/判据/AUD05_state_matrix_卡组编辑.md`（§1 的通用公式与 §5·6 的四页网格表直接复用，**但 §5·6 有两格数字被本文件推翻，见 §0-1/§0-2**）。
 > 本文件覆盖 `Collection Menu Variant` 整扇窗的**状态 → 参数**；**不**重做卡组编辑窗。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 4 条**：复核方法 = 把 §4 里每条「我方现状 / 缺口」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地 / 已过期的就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 ---
 
@@ -296,10 +297,10 @@ ToggleGreyScale(cardUI.greyscaleController, cVar9 != 0);   // 时长 0
 
 ### 4·3 缺口清单（一句一档）
 
-1. 🔴 **Deck 页小屏**：`CollectionWindow.cs:960` 用 `SmallScreenUI.Enabled ? 1.5f : 1f`，而原版该 RSR 的 `_mobileSizeScale = **1.25**` ⇒ 小屏应 **5 列 / 281.25×455.625 / PadX 51.52**，我们是 4 列 / 337.5×546.75 / 89.55。
+1. 🔴 **Deck 页小屏**：`CollectionWindow.cs:960` 用 `SmallScreenUI.Enabled ? 1.5f : 1f`，而原版该 RSR 的 `_mobileSizeScale = **1.25**` ⇒ 小屏应 **5 列 / 281.25×455.625 / PadX 51.52**，我们是 4 列 / 337.5×546.75 / 89.55。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— `CollectionWindow.cs:960` 现读 `1.25f`（`B103_F5`，2026-10-30）。
 2. 🔴 **Cardback 页小屏**：`:1793` 同样写死 1.5，原版 **1.2** ⇒ 应 **5 列 / 300×486**，我们是 4 列 / 375×607.5。
 3. 🟡 **AltArt 页 `Owned only` 初值**：原版 `false`，我们四页共用 `DeckFilter.None.Owned = true`。
-4. 🟡 **Deck 空态 EN 文案**：缺官方 I2 的 ` or game mode`（`Core/Loc.cs:776` 已知，未改）。
+4. 🟡 **Deck 空态 EN 文案**：缺官方 I2 的 ` or game mode`（`Core/Loc.cs:776` 已知，未改）。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— `Core/Loc.cs:793` 现读英文串已含 ` or game mode`（N85）。
 5. ⚪ **`xN` 计数**：原版填 `ownedCount`，我们填 `min(owned, cap)` —— 有记录、有拍板，但**没打 `🔶 自己设计` 标记**（铁律 18 的机器可 grep 形式）。
 
 ---
@@ -312,7 +313,7 @@ ToggleGreyScale(cardUI.greyscaleController, cVar9 != 0);   // 时长 0
 | **B** | 同上（`CosmoCellW/H` `:1793` 一带） | 系数改成 **Cardback `1.2`** | §1·2 · §4·3 缺口② | 低（`CosmoCols` 本来就是属性） |
 | **C** | 同上（AltArt 页筛选初值） | AltArt 页的 `Owned` 初值改 `false`（其它三页保持 `true`）—— 需要给「按页的初值」一个口 | `AlternateArtCardCollectionTab.cs:99` vs `CardCollectionTab.cs:125` / `CardbackCollectionTab.cs:66` | **低但易错**：`CardsState/CosmoState/StylesState` 是 **static**，改初值要连"关窗重开回初值"那条一起想（见 `AUD03` 第 28 行） |
 | **D** | `Core/Loc.cs:776` | `MenuCollection/NoDecksFound` 的 **EN** 补 ` or game mode`（ZH 已对） | 官方 I2 表 `官方本地化_en+zh-CN.json` 的 `terms` 键 | 无（纯文案）；⚠️ 有断言/文档引用了旧串的话一起改 |
-| **E** | `Shell/CollectionWindow.cs:318-339` + 那条 doc | 给"`min(owned,cap)`"打 **`🔶 自己设计（非原版)`** 标记（注释就地改写，**别加行** —— 铁律 18·b） | 铁律 18 · §4·3 缺口⑤ | 无 |
+| **E** | `Shell/CollectionWindow.cs:318-339` + 那条 doc | 给"`min(owned,cap)`"打 **`🔶 自己设计（非原版)`** 标记（注释就地改写，**别加行** —— 铁律 18·b） —— ✅ **2026-11-01 复核（`B111_D1`）：已标**（`CollectionWindow.cs:307` 有「🔶 自己设计（非原版）…」标记；`B107_W14` / N86）| 铁律 18 · §4·3 缺口⑤ | 无 |
 | **F** | `Editor/CollectionScene.cs`（断言宿主，**调度台独占**） | 补四条「两档各是各的」断言：Deck 桌面 `6/225/69.645` ↔ 小屏 `5/281.25/51.52`；Cardback 桌面 `6/250/42.365` ↔ 小屏 `5/300/42.365`。⚠️ 期望值**不许从属性读回来**（自证） | §2·2 | 低 |
 
 > ⛔ 本波**不要**动 `_segments`（5/5/4）：纵向系统里它不参与列数（模板 §6·3 已定案）。
@@ -354,7 +355,7 @@ ToggleGreyScale(cardUI.greyscaleController, cVar9 != 0);   // 时长 0
 
 1. 🔴 **模板 §5·6 有两格数字被推翻**：`Deck` / `Cardback` 小屏列数 **不是 4，是 5**（`_mobileSizeScale` 1.25 / 1.2）。凡按模板写断言的地方要用本表 §2·2。
 2. 🟡 **官方 I2 的 `MenuCollection/NoDecksFound` = `There are no decks in your collection for the selected filters or game mode`**（`数据/游戏数据/官方本地化_en+zh-CN.json` → `terms`），而 `Core/Loc.cs:776` 的 EN 少了 ` or game mode`。
-3. 🟡 **`Core/Loc.cs:769` 那条注释已过期**：它写「`zh_CN.csv` 里没有 `MenuCollection/NoCardbackFound` 这个键 ⇒ 中文自拟」；**官方表里有**（`在您选择的过滤器中，您的收藏里没有任何卡背`），且我们写的中文与它**逐字相同** ⇒ 结论没错、**理由过期**（铁律 5 口径：就地改注释）。
+3. 🟡 **`Core/Loc.cs:769` 那条注释已过期**：它写「`zh_CN.csv` 里没有 `MenuCollection/NoCardbackFound` 这个键 ⇒ 中文自拟」；**官方表里有**（`在您选择的过滤器中，您的收藏里没有任何卡背`），且我们写的中文与它**逐字相同** ⇒ 结论没错、**理由过期**（铁律 5 口径：就地改注释）。 ✅ **2026-11-01 复核（`B111_D1`）：已就地订正** —— `Core/Loc.cs:787` 现读注释写着「2026-10-31 订正，原文『中文自拟』已过期」。
 4. ⚪ **prefab 里 `Cardback Tab` 的 `Cosmetic FIlter` 是 `act=F`，而其它三页的抽屉是 `act=T`** —— 运行时都会在 `Initialize` 里被 `SetActive(false)` ⇒ 行为无差；但**按 prefab 静态值做断言会误判**。
 5. ⚪ **`GameObject/` 目录不是按 pathID 命名的**（`RectTransform/`、`MonoBehaviour/` 才是）—— 按 `<pid>.json` 去 `GameObject/` 找会得到"文件不存在"，进而误判"节点不在这份 prefab 里"。正确做法：先按 `m_Component` 建 pid→(文件,名字) 索引（本文件用的就是这个办法）。
 

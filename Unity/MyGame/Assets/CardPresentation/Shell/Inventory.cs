@@ -480,7 +480,7 @@ namespace CardPresentation
                         am[r.k] = r.amount;
                         if (r.hasExtra) extras[r.k] = r.extra;
                     }
-                inv.RestoreAmounts(am);
+                inv.RestoreAmounts(am); if (inv is CardInventory) Inventories.MigrateBadCardAmounts(am);   // 🔴 2026-11-01（`B112_G` · `B-84`）：盘上被写成「数量 1」的卡条目**一次性迁移**（幂等 + 先备份 + 只动坏的那几条；判据与设计见 `Shell/InventoryPartial_B112G.cs` 文件头）。挂在「读盘之后、任何消费者之前」这一拍：`CollectionWindow.CardsState`（`:903`）就是「播种 → `Load` → 交出去」⇒ 消费者拿到的已经是修好的值。⚠️ 只有 `CardInventory` 走（商店 / 异画 / 万能卡那几份背包不受影响）
                 return extras;
             }
             catch (Exception e)
@@ -512,7 +512,7 @@ namespace CardPresentation
     /// <summary>进程级的背包注册表（原版 `InventoryManager.GetInventory&lt;T&gt;()` 的等价物）。
     /// ⚠️ 原版是「**按类型**取一份背包」；我们这里**按名字**取（同一个 T 可能有多份，例如商店/收藏各一份）——
     /// 如实标：这是**比原版多一档**的用法，但没有它就得让每个子系统各自 `new` 一份、谁也看不见谁。</summary>
-    public static class Inventories
+    public static partial class Inventories
     {
         /// <summary>商店的背包（拥有数 + 限购；见 `Shell/ShopData.cs`）。</summary>
         public static readonly Inventory<ShopItem> Shop =
@@ -1373,7 +1373,7 @@ namespace CardPresentation
         public override ItemInfo<RuleEngine.CardDef> Add(RuleEngine.CardDef item, int amount, string instanceId,
                                                         Dictionary<string, string> customData, bool overrideAmount)
         {
-            ItemInfo<RuleEngine.CardDef> info = base.Add(item, amount, instanceId, customData, overrideAmount);
+            Inventories.EnsureCardsSeededForCardAdd(); ItemInfo<RuleEngine.CardDef> info = base.Add(item, amount, instanceId, customData, overrideAmount);   // 🔴 2026-11-01（`B111_S2`）：**先保证卡池按「全解锁」播过种、再加** —— 播种是懒的（唯一生产点 = `CollectionWindow.CardsState`），而播种那句 `if (Cards.Get(c) != null) continue;` 会**跳过**已有的条目 ⇒ 玩家在「第一次开收藏窗之前」领到的那张卡会永远停在 x1（`B-14`；修复理由与「为什么不能改成『补到 n』」见文件末尾那段 partial）
             if (info != null) UpdateCardTier(item, customData);
             return info;
         }
@@ -1397,7 +1397,7 @@ namespace CardPresentation
                     "卡 `" + card.Id + "` 的 customData.CardTier = `" + s + "` 解不成整数 ⇒ 不登记档位（原版这里会抛）");
                 return;
             }
-            CardProgress.SetLevel(card.Id, tier + 1);
+            if (!CardProgress.SetLevel(card.Id, tier + 1)) UnityEngine.Debug.LogWarning("[Inventory] 卡 `" + card.Id + "` 的档位（tier " + (tier + 1) + "）**没能落盘** ⇒ 内存已回原值（`CardProgress.SetLevel` 自己已 `LogError` 说原因）。原版这一跳只写**运行时** `TierCollection`、根本没有「落盘」这件事 ⇒ **判据为空**（铁律 18·0：不为这一支自己设计补救，只出声）—— 2026-11-01（`B111_S2`）");
         }
 
         /// <summary>原版 private `CreateAlternateArtInfo(item, instanceId, customData)`：
@@ -2202,5 +2202,66 @@ namespace CardPresentation
                 }
             }
         }
+    }
+
+    // ============================================================ 追加区 · 2026-11-01（第一百一十一会话 · 执行代理 `B111_S2`）
+    //
+    // 【这一段补的是什么（`B-14`）】
+    //   「全解锁」口径下，卡背包本该**每张卡一上来就有基准量**（= `CardProgress.Owned` 的「给足」档，≥10）。
+    //   但那条播种是**懒**的 —— 唯一生产调用点 = `Shell/CollectionWindow.cs:903` 的 `CardsState` getter。
+    //   于是「玩家在**第一次打开收藏窗之前**领到一张卡」时：
+    //     ① `CardInventory.Add` 为那张卡**新建**一条，数量 = 奖励数量（通常 1）；
+    //     ② 之后播种那句 `if (Cards.Get(c) != null) continue;` **跳过**它（幂等 ≠ 补齐）；
+    //     ③ ⇒ 这张卡永远停在 `x1`：收藏窗的「xN」与卡组编辑的池计数都读 1，卡组里也**只能带 1 张**。
+    //   ⇒ 本段给 `CardInventory.Add` 一个「**先播种、再加**」的前置（幂等：进程内只做一次）。
+    //     形状与原版一致 —— 原版的卡背包本来就由服务端灌满（= 基准量），领奖是在它之上 `+N`。
+    //
+    // 【为什么不是「把已有的条目补到 n」（`判据/B110_V2` 的施工单 B 案）】
+    //   播种的 `amount` 回调是 `c => CardProgress.Owned(c.Id, c.Rarity)`，而 `Owned` 对有背包条目的卡
+    //   **直接返回条目的数量** ⇒ 「补到 n」算出来的 n 就是那个 1，**补了等于没补**。
+    //   唯一可行的次序 = 先播种、后 `Add`。
+    //
+    // 【判据】`判据/B110_R2_小账时效复核.md` 四① · `判据/B110_V2_真缺陷复核B.md` 顺手发现 §1。
+    // 【与 `B-29` 的关系】「新卡角标 `GetOwnedCount < 2`」的**唯一例外**正是这个 `x1`（1 < 2 = 亮）。
+    //   本段修好之后例外消失 ⇒ 角标在全解锁口径下**恒灭**（那是对的：原版那个公式照抄、只是拥有数的来源不同）。
+    public static partial class Inventories
+    {
+        /// <summary>`CardInventory.Add` 之前调一次：保证卡池**已按「全解锁」口径播过种**（幂等，进程内只做一次）。
+        /// <para>⚠️ 走 `CollectionWindow.CardsState` 的 getter —— 它就是「播种在前、读盘在后」那一处
+        /// （`Shell/CollectionWindow.cs:903`）；⛔ **别在这里再写一份播种口径**（两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>⚠️ 重入保护：播种本身走的是 **4 参 `Add`**（不经过 `CardInventory` 的 5 参 override）
+        /// ⇒ 正常不会递归；这一层只是防「以后有人把播种接到 5 参 `Add` 上」。</para>
+        /// <para>⚠️ **失败不静默**：`CardsState` 取不到 / 抛异常 ⇒ `LogError` 出声并**不置位**
+        /// （下一次 `Add` 还会再试），同时那一次 `Add` 仍然照做（⛔ 不让播种问题挡住发卡）。</para></summary>
+        public static void EnsureCardsSeededForCardAdd()
+        {
+            if (_cardsSeedDoneForAdd || _cardsSeedingNow) return;
+            _cardsSeedingNow = true;
+            try
+            {
+                var st = CollectionWindow.CardsState;      // 幂等：已经建过就直接返回（那时早就播过种了）
+                if (st == null)
+                {
+                    UnityEngine.Debug.LogError("[Inventories] 卡背包播种前置失败：`CollectionWindow.CardsState` 为 null"
+                                             + " ⇒ 这一次 `Add` 之后那张卡可能停在 x1（不静默）");
+                    return;                                // ⛔ 不置位 ⇒ 下一次 Add 还会再试
+                }
+                _cardsSeedDoneForAdd = true;
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogError("[Inventories] 卡背包播种前置抛异常（这一次 `Add` 仍继续，但那张卡可能停在 x1）：" + ex);
+            }
+            finally { _cardsSeedingNow = false; }
+        }
+
+        /// <summary>「本进程已经为 `Add` 播过种」这一位（进程级；清它 = 自检。见 <see cref="ResetCardsSeedFlagForTest"/>）。</summary>
+        static bool _cardsSeedDoneForAdd;
+        /// <summary>正在播种（重入保护；见 <see cref="EnsureCardsSeededForCardAdd"/>）。</summary>
+        static bool _cardsSeedingNow;
+
+        /// <summary>自检用：把「已播过种」这一位清掉（配合把 `CollectionWindow._cardsState` 反射置 null ⇒ 造出「还没人开过收藏窗」的干净态）。
+        /// ⚠️ 只有 `Editor/**` 的自检该调它 —— ⛔ 别在运行时路径里拿它当开关。</summary>
+        public static void ResetCardsSeedFlagForTest() { _cardsSeedDoneForAdd = false; }
     }
 }

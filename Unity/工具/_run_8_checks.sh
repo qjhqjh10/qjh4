@@ -96,7 +96,23 @@ run EnchantmentTemplateCheck.Run enchant_tpl.log # 卡表 v37 两列 / abilityDa
 #   🔴 它**只有 `Debug.Log("MK …")`、没有 pass/fail** ⇒ 本条的产出是诊断日志，判读用 `grep "^MK " matkey.log`；
 #   把它加进清单的理由 = AUD11「0 宿主 → 看着像自检、其实谁都没跑」。⛔ 仍然**串行**。
 run MatKeyCheck.Run matkey.log # 材质缓存键：同名同 shader 但属性不同的碰撞（仅诊断，无红绿）
-echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 + AnimFX + 卡面音效 + 音频快照 + LoadableRef + PlayerDataMath + GameModes + GameStaticData + EnchantmentTemplate + MatKey = 22 条）==="
+# ---- 🆕 2026-11-01（第一百一十一会话 · `B111_T3` / 活状态表 `B-72`）----
+#   两条**战场线探针**此前全仓**没有第二个 `-executeMethod` 指向它们**（只有各自文件头的「用法」一行）
+#   ⇒ 那两族断言**永远不会自动跑**（与上面 AnimFXCheck / AudioSnapshotCheck / MatKeyCheck 是同一个病）。
+#   · `WarpforgeVFX/Editor/ArenaOriginalShaderRebindProbe.cs`：
+#     A 组 索引表 vs 正本 tsv（18 行 / 17 个 shader 名 / 37 个材质，`.mat` 的 `m_Shader` guid 逐条对 `old_guid`）
+#     · B 组 37 个材质逐个 `WarpforgeShaderMap.TryResolve` · C 组 13 颗 arena prefab 实例化后 `Rebind()`
+#     （69 个目标槽 / 32 个不同材质 · 9 块地面 `_BaseMap` 非空）· D 组**灭自证**（故意打回品红 ⇒ 必须数出 N>0，重绑回 0）。
+#     判读：`grep '^ASR ' d:/4/_tmp_view/arena_shader_rebind.log`（逐条 `ASR ✓` / `ASR ✗`）。
+#   · `WarpforgeArena1/Editor/ArenaAnimsProbe.cs`：
+#     从我们自己的 `StreamingAssets/WarpforgeVFX/wf_arena_anims*.bundle` 按名取 5 条 muscle clip +
+#     9 条 legacy 场景动画 + 5 个 AnimatorController，再按 13 场做 `ArenaSceneAnims.Bind` 的接线计数。
+#     判读：`grep '^AAP ' d:/4/_tmp_view/arena_anims.log`（`AAP === X 取到 / Y 没取到 ===`）。
+#   ⚠️ 两条都**实例化 13 颗 arena prefab**（比纯数据宿主重），但**都不落盘、不改材质资产**
+#   （重绑走克隆材质；`ArenaOriginalShaderRebindProbe` 只把 `IsDirty` 打一行、不断言）。⛔ 仍然**串行**。
+run ArenaOriginalShaderRebindProbe.Run arena_shader_rebind.log # 原版 shader 重绑：索引/37材质/13 prefab/灭自证
+run ArenaAnimsProbe.Run                arena_anims.log        # 战场动画素材取件（muscle+场景 clip+控制器）/ 13 场接线
+echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 + AnimFX + 卡面音效 + 音频快照 + VoiceWaveProbe + LoadableRef + PlayerDataMath + GameModes + GameStaticData + EnchantmentTemplate + MatKey + ArenaShaderRebind + ArenaAnims = 24 条）==="
 # 🔴 **2026-10-18 就地订正（铁律 5）**：这一句原来写「= **13** 条」—— **错了**，实读脚本的 `run` 调用**只有 12 个**
 #   （`grep -c '^run '` 会数出 13，因为它**把上面那句函数定义 `run () {` 也算进去了**；
 #    判据 = 本脚本的 12 个入口 + 本脚本跑出来的日志里**只有 12 行「开始」**）。
@@ -112,4 +128,9 @@ echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基�
 #   2026-10-28（第八十九会话 · 同日第四批）再增 `GameStaticDataCheck.Run`（18→**19**，见 `B89-E12` 那条注释）。
 #   2026-10-28（第八十九会话 · 同日第五批）再增 `EnchantmentTemplateCheck.Run`（19→**20**，见 `B89-E6b` 那条注释）。
 #   2026-10-31（第一百零八会话 · `B108`）再增 `MatKeyCheck.Run`（20→**21**，见 §AUD11 那条注释）。
-#   判据照旧：`grep -c '^run '` 会得 **23**（含函数定义 `run () {`），减去那一行 = **22**；也可以数日志里的「开始」行。⛔ 以后加/删条目时**只改这一处与 `echo` 那一句**。
+#   2026-10-31（第一百零七会话 · `B107_W15`）再增 `VoiceWaveProbe.Run`（21→**22**，见 `:59` 那条注释）——
+#   ⚠️ 本条是 **2026-11-01 `B111_T3` 补记**：那一波只加了 `run` 行与 `echo` 的计数，**漏了这处历史**，
+#      于是「历史算出 21、实际 22」对不上（`echo` 里也同样漏列了它，已一并补上）。
+#   2026-11-01（第一百一十一会话 · `B111_T3`）同批再增**两条**：`ArenaOriginalShaderRebindProbe.Run` 与
+#   `ArenaAnimsProbe.Run`（22→**24**，见上面 `B-72` 那条注释；两个入口此前 0 宿主）。
+#   判据照旧：`grep -c '^run '` 会得 **25**（含函数定义 `run () {`），减去那一行 = **24**；也可以数日志里的「开始」行。⛔ 以后加/删条目时**只改这一处与 `echo` 那一句**。

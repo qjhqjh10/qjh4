@@ -1426,7 +1426,7 @@ namespace CardPresentation
             //   ⇒ 上限**恰好等于标称**（30/34）⇒ A333 上本来就对，缺的只有 base。
             LabelFit(nb, R(g.Type.x1, g.Type.y1, g.Type.x2, g.Type.y2), c.Type, TypeColor, NType,
                      v.TypeFs, 10f, qBase + QoText, true, false, 0f, 36f, TmpFont.Face.LatinCardBody);
-            BuildPrice(nb, R, g, c, qBase);
+            BuildPrice(nb, R, g, c, qBase); var pb = AttachPriceButton(nb, R, g, qBase);   // 🆕 B-81：在 `BuildPrice` 建好的节点上补可交互价签（同体一行 = 行号零漂移；见 `OfferContainerPartial_B112B.cs`）
             BuildWebShop(nb, R, g, qBase);
 
             // 出厂 INACT 的那颗空 `Image` —— 🔴 **它是 `name-bg` 的孩子**（2026-10-04 A34-F3 订正），
@@ -1524,10 +1524,10 @@ namespace CardPresentation
                     // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地订正 + §2·4）**：出厂串 `5d 20h 15m` **不是倒计时**（原版由服务端 LiveOps 报价的到期时刻灌进来）；`TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默（⛔ 印 `--` 是我们做了、原版没有的，`B99_A4` 已删）⇒ 那一格会**露出死占位 = 假数**。
                     //   处置：`TimerDeadline`（类尾，本地恒 null）没有值 ⇒ **整颗 `Timer` 节点 `SetActive(false)`**（照原版 `SetTimer.c` 的 no-data 分支；⛔ 不删节点 —— `Editor/ShopScene.cs:3466` 的 `KidNames(Timer)` 只读孩子名/兄弟序，父件关着不影响；⚠️ **只关 `Timer Text` 那颗 Label 不行**：`KidNames` 会给 inactive 孩子加 `*` 前缀 ⇒ 那条结构断言变红）。
                     //   将来接上 liveop 报价时刻 ⇒ **只改类尾 `TimerDeadline`**，`Attach` 那一路自动恢复（「留开关，不硬删」）；调用方**真给了** `TimerText`（≠ 出厂串）就照它画、不受影响。
-                    if (timerLb != null && c.TimerText == DefTimerText && TimerDeadline.HasValue)
+                    if (timerLb != null && c.TimerText == DefTimerText && TimerDeadline.HasValue) {
                         TimerDisplay.Attach(timerLb, () => TimerDeadline, "", "商品条目 Timer Text（OfferContainer）",
-                                            "本族数据源 = 服务端 LiveOps 报价，本地没有到期时刻");
-                    else if (timerLb != null && c.TimerText == DefTimerText) timer.gameObject.SetActive(false);
+                                            "本族数据源 = 服务端 LiveOps 报价，本地没有到期时刻"); ScheduleTimerEnd(TimerDeadline.Value, pb); }
+                    else if (timerLb != null && c.TimerText == DefTimerText) { timer.gameObject.SetActive(false); NoteNoTimerDeadline(v.Prefab); }
                 }
                 // ② `Icon`（原版的第二个孩子）
                 var ic = g.TimerIcon;

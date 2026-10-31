@@ -226,7 +226,7 @@ namespace CardPresentation
                     _byId[c.Id] = c;
                     _pool.Add(c);
                 }
-            Deck = new PlayerDeck();
+            Deck = new PlayerDeck();   // ⚠️ 这里**刻意不写** `SetDeckArmyNeutral()`（2026-11-01 `B115_D1` 红诊断）：本构造器造的是「还没装任何一副牌」的空壳，`LoadDeck`/`NewDeck` 两条正规入口各自会写（`NewDeck` = 原版 `GetEmptyDeck` ⇒ Neutral）。留 `null` = 「还没定过」⇒ 读口 `DeckRules.DeckArmy` 回落派生，与写 Neutral **对空卡组观测等价**；唯一差别是「构造后直接逐格赋值 `WarlordId`/`CardIds`」那种行文（原版写点里不存在），写死 Neutral 会把派生永久压住。
             // ⚠️ 必须显式初始化 —— `default(DeckFilter)` 的 `Cost` 是 0，而 0 是个**合法费用**，
             //    不初始化的话筛选默认变成「只看 0 费卡」（自检抓到过：1127 张池子筛成 103 张）
             Filter = DeckFilter.None;
@@ -265,7 +265,7 @@ namespace CardPresentation
             //   ⚠️ **同一个串的第二处**在 `Deck/DeckRuntime.cs` 的清名那一拍（`SetDeckName`）；
             //      第三处（`Shell/CollectionData.cs:260` 的 `Lib.UniqueName("新卡组")`）**不在本笔白名单里** ⇒
             //      已写进交件报告（铁律 6：同一件事只留一条键，三处一律用 `MenuDeck/NewDeckName`）。
-            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? Loc.T("MenuDeck/NewDeckName") : name, null, null, null, gameMode);
+            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? Loc.T("MenuDeck/NewDeckName") : name, null, null, null, gameMode); Deck.SetDeckArmyNeutral();   // 🆕 2026-11-01（`B111_R1WB`）：原版 `GetEmptyDeck` ⇒ `deckArmy = Neutral`
         }
 
         /// <summary>把一副卡组装进编辑器。🔴 **装的是【副本】** —— 这是原版那条链的语义。
@@ -299,7 +299,7 @@ namespace CardPresentation
         {
             // `PlayerDeck.Clone()`（`RuleEngine/Core/DeckRules.cs:342`）逐字段拷：
             // 名字 / 督军 / 防御卡 / 卡表（**新 List**，不与传入那副共享）/ 模式 / 卡背 —— 六格全在。
-            Deck = deck != null ? deck.Clone() : new PlayerDeck();
+            Deck = deck != null ? deck.Clone() : new PlayerDeck(); if (deck == null) Deck.SetDeckArmyNeutral();   // 🆕 2026-11-01（`B111_R1WB`）：null ⇒ 原版 `GetEmptyDeck` 那一档（`deck != null` 时靠 `Clone` 逐格拷，旧档 null 仍然 null ⇒ 读口回落派生）
             // ⚠️ 名字**照原样**再写一次：`PlayerDeck` 的构造器（`Clone` 走的就是它）会把**空/null 名字**
             //    替成「新卡组」（`Core/DeckRules.cs:335`），而拷贝构造要**逐格照抄**
             //    （原版 `CardDeck___ctor(副本, 原副, 0)` 就是逐格抄）——
@@ -476,9 +476,9 @@ namespace CardPresentation
             why = e == DeckError.None ? "" : DeckRuntime.DeckErrorText(e);
             if (e != DeckError.None) return false;
 
-            if (c.Type == "hero") Deck.WarlordId = c.Id;          // 换督军 = 直接替换槽位（原版 `AddHero` 只写 deckHero/deckArmy）；⚠️ **编辑期不清卡**：旧卡留着 ⇒ `Validate` 报 `WrongFaction` 熄 Done，**下次开窗**才由 `LoadDeck` 按 `RemoveInvalidCards` 清
-            else if (c.Type == "defence") Deck.DefensiveId = c.Id;
-            else Deck.CardIds.Add(c.Id);
+            if (c.Type == "hero") { Deck.WarlordId = c.Id; Deck.SetDeckArmyFromCard(c); }   // 🆕 2026-11-01（`B111_R1WB`）：原版 `AddHero` 同时写 `deckArmy`。⚠️ 换督军 = 直接替换槽位（原版 `AddHero` 只写 deckHero/deckArmy）；⚠️ **编辑期不清卡**：旧卡留着 ⇒ `Validate` 报 `WrongFaction` 熄 Done，**下次开窗**才由 `LoadDeck` 按 `RemoveInvalidCards` 清
+            else if (c.Type == "defence") Deck.DefensiveId = c.Id;      // ⚠️ 防御卡**不碰** `DeckArmy`（原版 `AddDefensiveCard` 不写它：防御卡住在 +0x48、不进 cardLibrary）
+            else { if (DeckCardCount(true) == 0) Deck.SetDeckArmyFromCard(c); Deck.CardIds.Add(c.Id); }   // 🆕 2026-11-01（`B111_R1WB`）：原版 `AddCard` —— **加之前** `CardCount(hero:1)==0` ⇒ `deckArmy = card.cardArmy`（之后再加不改它）
             return true;
         }
 
@@ -493,7 +493,7 @@ namespace CardPresentation
         {
             var w = Find(warlordId);
             if (w == null || w.Type != "hero") return 0;
-            Deck.WarlordId = PlayerDeck.IsAltArtEntry(warlordId) ? warlordId : w.Id;   // 传进来的若是异画条目，保住那个标记（账 `HUD:92/93`）
+            Deck.WarlordId = PlayerDeck.IsAltArtEntry(warlordId) ? warlordId : w.Id; Deck.SetDeckArmyFromCard(w);   // 🆕 2026-11-01（`B111_R1WB`）：原版 `AddHero`/`TryAddHero` 同时写 `deckArmy`。传进来的若是异画条目，保住那个标记（账 `HUD:92/93`）
 
             int removed = 0;
             for (int i = Deck.CardIds.Count - 1; i >= 0; i--)
@@ -515,7 +515,7 @@ namespace CardPresentation
             return Deck.RemoveCard(c.Id);
         }
 
-        public bool ClearWarlord() { if (Deck.WarlordId == null) return false; Deck.WarlordId = null; return true; }
+        public bool ClearWarlord() { if (Deck.WarlordId == null) return false; Deck.WarlordId = null; if (DeckCardCount(true) == 0) Deck.SetDeckArmyNeutral(); return true; }   // 🆕 2026-11-01（`B111_R1WB`）：原版 `RemoveCard` —— **摘之后** `CardCount(hero:1)==0` ⇒ `deckArmy = Neutral`（⚠️ 摘掉督军但卡表非空 ⇒ **不变**）
         public bool ClearDefensive() { if (Deck.DefensiveId == null) return false; Deck.DefensiveId = null; return true; }
 
         /// <summary>清空整副（保留名字，换督军时用得上）。🔴 **2026-10-31（B104_P1）：原版没有「清空整副」的玩家入口** —— 卡组页头只有 `Create / Import / Unlock / Clear Filter`（判据 → `资料/阶段二_卡组线_原版规格.md:70`），`Deck Info Popup` 的 `Deck Options` 五颗钮里也没有（`Shell/DeckInfoPopup.cs` 文件头那 8 个字段 = 编辑/选择/分享/聊天分享/删除/复制/练习/切换信息，无清空）；新建空卡组走 `Shell/CollectionData.CreateDeck`（= 原版 `GetEmptyDeck`）⇒ **保持死实现，⛔ 别接线**（玩家逐张移除即可）。</summary>
@@ -523,7 +523,7 @@ namespace CardPresentation
         {
             Deck.CardIds.Clear();
             Deck.WarlordId = null;
-            Deck.DefensiveId = null;
+            Deck.DefensiveId = null; Deck.SetDeckArmyNeutral();   // 🆕 2026-11-01（`B111_R1WB`）：清空到 `CardCount(hero:1)==0` ⇒ 原版 `deckArmy = Neutral`
         }
 
         // ------------------------------------------------------------ 筛选

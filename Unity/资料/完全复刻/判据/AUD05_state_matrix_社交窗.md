@@ -5,6 +5,7 @@
 > **本文件只覆盖社交窗族四组**（聊天 `ChatPanel`／好友页／联盟三支／`Social Submenu Variant` 外壳）。
 > 通用结论（`smallScreenUI`、CanvasScaler 1920×1080 Expand、`GameWindow.extraScaleSmallScreen` 语义）**直接引用**
 > `AUD05_state_matrix_卡组编辑.md` §2 / §5·5 / 附录A，⛔ 本文件不抄第二份。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 7 条**：复核方法 = 把 §4 缺口清单里每条「缺 …」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地的就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 ---
 
@@ -259,16 +260,16 @@
 
 ### 4·2 **缺口清单（一句一档，带落点）**
 
-1. 🔴 **聊天行高固定 60** —— `ChatTab.cs:34` `DefaultRowH = 60f`，`Rebuild` 里 `all[i].Height > 0 ? Height : 60`（`:157/:177`），而 `SocialData.ChatMessage.Height` **全仓无写入方** ⇒ 长消息行高不增长（原版由 `Message` 的 CSF PreferredSize 撑高，见 §1·2）。**缺「消息过长」这一档**。
-2. 🔴 **新消息滑入动画缺** —— `ChatTab.cs:137-193` 只重建行，无 `DOMoveY(…, 0.3s).From(y−10)`。
+1. 🔴 **聊天行高固定 60** —— `ChatTab.cs:34` `DefaultRowH = 60f`，`Rebuild` 里 `all[i].Height > 0 ? Height : 60`（`:157/:177`），而 `SocialData.ChatMessage.Height` **全仓无写入方** ⇒ 长消息行高不增长（原版由 `Message` 的 CSF PreferredSize 撑高，见 §1·2）。**缺「消息过长」这一档**。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— `ChatTab.cs:238 RowHeightFor` 改按原版 CSF 算式 `57 + 正文高`；`DefaultRowH = 60` 只做「无消息」兜底（行内 `:244` 写「不夹 60」；`B107_W2` / N87 / N102）。
+2. 🔴 **新消息滑入动画缺** —— `ChatTab.cs:137-193` 只重建行，无 `DOMoveY(…, 0.3s).From(y−10)`。 ✅ **2026-11-01 复核（`B111_D1`）：已落地**（`ChatTab.cs:212-216 StartSlide`，0.3s / 10px；`B107_W13` / N88）。
 3. 🟡 **15 秒计时刷新缺** —— `ChatTab`/`ChatPanel` **无 `Update`**；`SocialData.TimeText` 只在建行时算一次。
-4. 🟡 **翻译三态视觉缺** —— `ChatPanel.cs:905-916` 点消息只 `Debug.LogWarning`（走远端 `TranslationService`）；字段已留（`SocialData.cs:168`），但**没有 Translating/Translated 的字体材质与 `(翻译中)` 后缀**。
+4. 🟡 **翻译三态视觉缺** —— `ChatPanel.cs:905-916` 点消息只 `Debug.LogWarning`（走远端 `TranslationService`）；字段已留（`SocialData.cs:168`），但**没有 Translating/Translated 的字体材质与 `(翻译中)` 后缀**。 ✅ **2026-11-01 复核（`B111_D1`）：已落地**（`ChatPanel.cs:1274-1313` 三态分派；`B107_W13` / N90。数据源 P3 ⇒ 生产局恒 0）。
 5. 🟡 **输入框不去富文本标签** —— 原版 `inputField.m_OnValueChanged → TextMessageValidationTools.RemoveRichTextTags`（`ChatPanel.cs:154-161`）；我方 `TextInputField.Bind`（`ChatPanel.cs:280`）无这一步。
-6. 🟡 **聊天窗按频道打开缺** —— `SocialWindow.cs:273-278` 恒 `Global`；原版走 `ChatPanelContext.startingChannel`（C26）。同理 `DeckInfoPopup.cs` 的 `ShareDeckToChat` 分享后**不开聊天窗**、也不落 Alliance 频道（原版 `DeckInfoPopup.cs:1166-1180` 会 `OpenWindow<ChatPanel>(context)`）。
-7. 🔴 **成员行在线只做两档** —— `AllianceMemberTab.cs:1914-1919`：`m.Online` 二选一建 `40K_icon_status_online`（绿）/ `40K_icon_status_offline`（红）。原版是**单颗 Image、三档色**（Away 黄 `(1,0.9216,0.0157,1)` / Connected 绿 `(0,1,0,1)` / 离线**透明**，自己恒绿），**且没有 offline 精灵**。⇒ 缺 Away 档、缺「离线透明」、多了一张原版没有的红点图。数据侧 `SocialData.Member.Online` 是 `bool`（`SocialData.cs:103`），也需补 `Status`。
-8. 🔴 **成员行赛季规则缺** —— `SocialData.Member` 无 `season`/`currentSeason` 字段（`SocialData.cs:98-124`）⇒ 原版「`member.season != group.currentSeason` ⇒ 评级显示 0」（A23）无法表达。
+6. 🟡 **聊天窗按频道打开缺** —— `SocialWindow.cs:273-278` 恒 `Global`；原版走 `ChatPanelContext.startingChannel`（C26）。同理 `DeckInfoPopup.cs` 的 `ShareDeckToChat` 分享后**不开聊天窗**、也不落 Alliance 频道（原版 `DeckInfoPopup.cs:1166-1180` 会 `OpenWindow<ChatPanel>(context)`）。 ✅ **2026-11-01 复核（`B111_D1`）：两半都已做** —— `SocialWindow.cs:275-285` 把 `channelType` 塞进 `ChatPanelContext.startingChannel`（`B107_W21` / N92）；`DeckInfoPopup.cs:2736` 分享后 `OpenByRef(PrefabRefChat, …)` 并按 `room` 设 `StartingChannel`（第 5 跳，同 `B107_W21`）。
+7. 🔴 **成员行在线只做两档** —— `AllianceMemberTab.cs:1914-1919`：`m.Online` 二选一建 `40K_icon_status_online`（绿）/ `40K_icon_status_offline`（红）。原版是**单颗 Image、三档色**（Away 黄 `(1,0.9216,0.0157,1)` / Connected 绿 `(0,1,0,1)` / 离线**透明**，自己恒绿），**且没有 offline 精灵**。⇒ 缺 Away 档、缺「离线透明」、多了一张原版没有的红点图。数据侧 `SocialData.Member.Online` 是 `bool`（`SocialData.cs:103`），也需补 `Status`。 ✅ **2026-11-01 复核（`B111_D1`）：已改** —— `AllianceMemberTab.cs:1928-1929` 现读单颗 `Image` + `StatusColorOf`，四档常量 `:2136`；数据侧 `SocialData.Member.Status` 已在（`SocialData.cs:606`，`B106_W25`）。
+8. 🔴 **成员行赛季规则缺** —— `SocialData.Member` 无 `season`/`currentSeason` 字段（`SocialData.cs:98-124`）⇒ 原版「`member.season != group.currentSeason` ⇒ 评级显示 0」（A23）无法表达。 ✅ **2026-11-01 复核（`B111_D1`）：已落地**（`SocialData.cs:638 CurrentSeason` + `:644 Member.Season`；`B107_W13` / N93）。
 9. 🟡 **两个社交页签红点无 provider** —— 全仓无 `AlliancesNotificationProvider` / `FriendsNotificationProvider`（`grep -rn "AlliancesNotificationProvider\|FriendsNotificationProvider"` = 0 命中）⇒ `UiBadgeNotification.Recount()` 恒 0。今天与原版一致（关服后邀请/练习赛请求都取不到），但**结构上永远点不亮**。
-10. ⚪ **`SocialData.cs:106-107` 注释过期** —— 写着「颜色值本地读不到 ⇒ 不换色」，但 `AllianceMemberTab.cs:1780` 已用 `IsPlayerEntryColor` 实现（铁律 5：就地改掉）。**不算缺口、只算文档债。**
+10. ⚪ **`SocialData.cs:106-107` 注释过期** —— 写着「颜色值本地读不到 ⇒ 不换色」，但 `AllianceMemberTab.cs:1780` 已用 `IsPlayerEntryColor` 实现（铁律 5：就地改掉）。**不算缺口、只算文档债。** ✅ **2026-11-01 复核（`B111_D1`）：已订正**（`SocialData.cs:107` 现读即订正后的注释；N94）。
 
 ### 4·3 缺口之外的两条「口径提醒」
 

@@ -2565,13 +2565,19 @@ namespace RuleEngine
         static int PlayTacticCore(BattleContext ctx, int p, int handIdx, int targetSlot,
                                   UnitState pickedByPlayer = null)
         {
-            // 🆕 2026-10-28（B88 · 执行代理 `A1`）：**先把「付不付誓约」定下来**（见 `DecideOathChoice`）。
-            //   原版这一步在**基础费扣掉之后**（`_d__447:377 PayCardCost` → `:498 NeedsToChooseFromPool`）；
-            //   我们这条链的判据换成 `CanPlayWithOathNowInHand` 那一句（「卡费 + 誓约 ≤ 法力」），
-            //   与扣费先后无关 ⇒ 可以在校验之前算；**答案队列也在这里取掉**（一次一取）。
+            // 🆕 2026-10-28（B88 · `A1`）→ 🔴 2026-11-01（`B111_R1WC` · `B-108`）**就地订正：原来写「可以在校验之前算」，已不成立**。
+            //   原版次序 = `_d__447` 的 `CanPlayCard`（`:213`，整条出牌路都在它的 `if` 里）→ `PayCardCost`（`:377`）
+            //   → `ChooseCardMethod`（`:607`，里面才 `GetChoiceOptions` 抽那一格数）⇒ **闸在前、掷骰在后**；
+            //   ⇒ 现在先按「只判卡费」轻判过闸、再定誓约、再带上 `oathChosen` 复判（被拒的那一手不再烧随机格）。**答案队列仍在这里取掉**。
             var psHead = ctx.Players[p];
             if (handIdx < 0 || handIdx >= psHead.Hand.Count) return RuleCodes.ErrBadHand;
             var instHead = psHead.Hand[handIdx];
+            // 🔴 2026-11-01（`B111_R1WC` · `B-108`）：**闸在前、掷骰在后**（判据见上面那 4 行）。先按「只判卡费」过一遍闸 ——
+            //   被引擎拒掉的那一手**不再烧预烧随机格**（改前会烧 1 格：`DecideOathChoice` 里那句无条件 `RollOathPay`）。
+            //   ⚠️ `CanPlayTactic` 是**纯谓词**（无日志 / 无状态改动）⇒ 调两次安全；第二次只多判「卡费 + 誓约 ≤ 能量」。
+            int codeLite = CanPlayTactic(ctx, p, handIdx, targetSlot, pickedByPlayer, false);
+            if (codeLite != RuleCodes.OK) return codeLite;
+
             bool oathChosen = DecideOathChoice(ctx, p, instHead.Card, instHead);
 
             int code = CanPlayTactic(ctx, p, handIdx, targetSlot, pickedByPlayer, oathChosen);
@@ -4359,7 +4365,7 @@ namespace RuleEngine
             }
 
             // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
-            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, ctx.ResolvingExtrinsic, by)) return true;   // 🔴 2026-11-01（`B111_E1` · `B-06d`①）：第 4 个实参原来写死 `false` ⇒ 原版 `CardScript__AddEffect.c:85-86`「源带 **jam(130)** ∧ 本效果 **extrinsic(+0x30)** ⇒ 不收」那一闸**永远不触发**（`AddEffectCasterNotJammed` 本身就是那一条的逐字实现）。改读作用域量 `ctx.ResolvingExtrinsic`（唯一写点 = `RuleCore.ResolveHandBuffOps`）；⚠️ 今天恒 `false`（`HandEffect.Extrinsic` 无生产者）⇒ 逐字节不变
 
             foreach (var t in targets)
             {
@@ -4446,7 +4452,7 @@ namespace RuleEngine
             var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
 
             // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
-            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, ctx.ResolvingExtrinsic, by)) return true;   // 🔴 2026-11-01（`B111_E1` · `B-06d`①）：第 4 个实参原来写死 `false` ⇒ 原版 `CardScript__AddEffect.c:85-86`「源带 **jam(130)** ∧ 本效果 **extrinsic(+0x30)** ⇒ 不收」那一闸**永远不触发**（`AddEffectCasterNotJammed` 本身就是那一条的逐字实现）。改读作用域量 `ctx.ResolvingExtrinsic`（唯一写点 = `RuleCore.ResolveHandBuffOps`）；⚠️ 今天恒 `false`（`HandEffect.Extrinsic` 无生产者）⇒ 逐字节不变
 
             int n = 0;
             foreach (var t in targets)
@@ -11862,7 +11868,7 @@ namespace RuleEngine
             //      与原版 `enchantingCard == null` 整段跳过同形）。
             //   ⚠️ 闸拒绝 = **合法的「什么都不做」**（同「条件不成立」那一支）⇒ 返回 `true`、不进 `unresolved`；
             //      日志已经出声，⛔ 别让它悄悄过去。
-            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, ctx.ResolvingExtrinsic, by)) return true;   // 🔴 2026-11-01（`B111_E1` · `B-06d`①）：第 4 个实参原来写死 `false` ⇒ 原版 `CardScript__AddEffect.c:85-86`「源带 **jam(130)** ∧ 本效果 **extrinsic(+0x30)** ⇒ 不收」那一闸**永远不触发**（`AddEffectCasterNotJammed` 本身就是那一条的逐字实现）。改读作用域量 `ctx.ResolvingExtrinsic`（唯一写点 = `RuleCore.ResolveHandBuffOps`）；⚠️ 今天恒 `false`（`HandEffect.Extrinsic` 无生产者）⇒ 逐字节不变
 
             // 无目标 = 我们自己的 `rule_core.gd:3137`（旁证、非权威）那一版落到己方全体（它自己标为近似）
             var spec = op.Target ?? new EffectTargetSpec
@@ -12167,7 +12173,7 @@ namespace RuleEngine
             // 🔴 **`AddEffect` 闸③ 残骸门**（原版 `CardScript__AddEffect.c:159-170`）——
             //   **逐项**判（原版判的是每一项的 `healthChange`）：残骸只收「生命增减」与 `addTraitRemnant`。
             //   判据只此一处 = `AddEffectRemnantAllows`；这里是「`addStats` 这一族」的那个调用点。
-            if (!AddEffectRemnantAllowsPayload(ctx, u, p, val, by, viaAddTraitRemnant)) return;
+            if (!ExtrinsicAddEffectGate(ctx, u, p, val, by, viaAddTraitRemnant)) return; if (!AddEffectRemnantAllowsPayload(ctx, u, p, val, by, viaAddTraitRemnant)) return;   // 🔴 2026-11-01（`B111_E1` · `B-06d`②）：**前一句** = 原版 `CardScript.AddEffect.c:91-150`（ILSpy `CardScript.cs:17465-17565`）那道 **extrinsic 去重/替换闸** —— 判定树/残余/为什么按 `(buffType, 属性名, 值)` 收敛 → `EffectResolverPartial_B111E1.cs` 的方法头；**后一句** = 原有的闸③（残骸门）。⚠️ 两句**同物理行**（⛔ 别拆行：账按行号引用本文件）
 
             // 🆕 2026-10-25（`E1` · 属性模型 Stage 2b）：这一条增益在**修饰表**里的那一格。
             //   非关键词条目建好后交给下面「限时 → 记一条」那一段（那边把它挂到 `TempBuff.Mod` 上，
@@ -12226,7 +12232,7 @@ namespace RuleEngine
                                    //   ⚠️ **今天逐字节不变**：`HandEffect.Extrinsic` 没有生产者（全部调用点传 `false`）
                                    //   ⇒ 恒 `false`。判据（原版 `CardEffect.extrinsic // +0x30` = 合并键的一格）→
                                    //   `decomp_full/CardScript__AddEffect.c:469-568`。
-                                   source: by, extrinsic: ctx.ResolvingExtrinsic,
+                                   source: ExtrinsicCasterName(ctx) ?? by, extrinsic: ctx.ResolvingExtrinsic,   // 🔴 2026-11-01（`B111_E1` · `B-06d`②）：「这份记录是谁给的」原来存的是**日志标签** `by`（= `手牌加成` 一类）⇒ `:91-150` 那道闸要按 `enchantingCard` 找同源记录时**永远找不到**。改为「extrinsic 时存施放者卡名、否则原样」（`ExtrinsicCasterName` 只在 `ResolvingExtrinsic` 时为非 null ⇒ 今天逐字节不变）
                                    timingBits: TimingBitsOfDuration(duration), origin: UnitState.DeriveEffectOrigin(ctx, p.Keyword, viaAddTraitRemnant ? UnitState.BuffTypeAddTraitRemnant : UnitState.BuffTypeAddTrait, false))) != null;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组 `(owner, ab, lg, isHand)` —— 由**这张卡自己的 `abilityBuffs` 行**反解（同 buffType / 同 trait 且候选原文唯一）；判不到只回卡名、`(ab,lg)` 留 -1
                     else
                         added = u.AddKeyword(p.Keyword, val);
@@ -12334,10 +12340,10 @@ namespace RuleEngine
                     //   「限时 → 记一条」那一段（`AddTempBuff` 会在那里建同一条修饰），
                     //   否则一次施加会记两条修饰（数值翻倍、且到期只摘得掉一条）。
                     case "attack":
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "attack", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 `RecordGrant` 那一跳（限时那一种不走这里、由 `AddTempBuff` 建）
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val, ExtrinsicCasterName(ctx), extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "attack", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 `RecordGrant` 那一跳（限时那一种不走这里、由 `AddTempBuff` 建）
                         break;
                     case "ranged":
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "ranged", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val, ExtrinsicCasterName(ctx), extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "ranged", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳
                         break;
                     // 🔴 **2026-10-25（Stage 2b + K1）**：生命**正加**当场加到当前生命（原版
                     //   `CardScript__AddEffect.c:331-346` `healthChange >= 1 ⇒ currentHealth += healthChange`，
@@ -12348,7 +12354,7 @@ namespace RuleEngine
                     //   ⚠️ 以前这里是两条都 `Health += val` + 物化 `MaxHealth` ⇒ 负值会**多减一次**。
                     case "health":
                         if (val >= 1) u.Health += val;
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "health", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳（`u.Health += val` 那一半是当场加血、与修饰账无关）
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val, ExtrinsicCasterName(ctx), extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "health", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳（`u.Health += val` 那一半是当场加血、与修饰账无关）
                         break;
                     // 负甲 clamp 0（原版 `:3320`：防「负甲反而加伤」）
                     //
@@ -15057,7 +15063,7 @@ namespace RuleEngine
             }
 
             // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
-            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, ctx.ResolvingExtrinsic, by)) return true;   // 🔴 2026-11-01（`B111_E1` · `B-06d`①）：第 4 个实参原来写死 `false` ⇒ 原版 `CardScript__AddEffect.c:85-86`「源带 **jam(130)** ∧ 本效果 **extrinsic(+0x30)** ⇒ 不收」那一闸**永远不触发**（`AddEffectCasterNotJammed` 本身就是那一条的逐字实现）。改读作用域量 `ctx.ResolvingExtrinsic`（唯一写点 = `RuleCore.ResolveHandBuffOps`）；⚠️ 今天恒 `false`（`HandEffect.Extrinsic` 无生产者）⇒ 逐字节不变
 
             int n = 0;
             foreach (var t in targets)
@@ -15145,7 +15151,7 @@ namespace RuleEngine
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             // 🔴 `AddEffect` 闸②（jam）/ 闸④（施放者不在场）—— 判据 `.c:85-98 / 171-195`。
-            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, false, by)) return true;
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, chosen, ctx.ResolvingExtrinsic, by)) return true;   // 🔴 2026-11-01（`B111_E1` · `B-06d`①）：第 4 个实参原来写死 `false` ⇒ 原版 `CardScript__AddEffect.c:85-86`「源带 **jam(130)** ∧ 本效果 **extrinsic(+0x30)** ⇒ 不收」那一闸**永远不触发**（`AddEffectCasterNotJammed` 本身就是那一条的逐字实现）。改读作用域量 `ctx.ResolvingExtrinsic`（唯一写点 = `RuleCore.ResolveHandBuffOps`）；⚠️ 今天恒 `false`（`HandEffect.Extrinsic` 无生产者）⇒ 逐字节不变
 
             int n = 0;
             foreach (var t in targets)
@@ -17801,7 +17807,7 @@ namespace RuleEngine
         ///    判不了时**返回 false**（宁可不开面板，也不凭空多问一次）。</para>
         /// </summary>
         public static bool NeedsToChooseFromPool(BattleContext ctx, int owner, CardDef card,
-                                                 UnitState targetCard = null, UnitState thisCard = null)
+                                                 UnitState targetCard = null, UnitState thisCard = null, CardInstance inst = null)   // 🆕 2026-11-01（`B111_E1` · `B-06f`）：`inst` = 这张卡的**那一份**手牌实例，只给 ⑤ 的誓约闸算「现价」用（能拿到实例 ⇒ 按份的费用修正 `CostMod.HandInstanceId` 也计入；⛔ 别拿它当「是在场实例」）
         {
             if (card == null) return false;
 
@@ -17883,10 +17889,10 @@ namespace RuleEngine
                     return false;
                 }
 
-                // ---- 法力够不够付誓约 --------------------------------------------
+                // ---- 法力够不够付誓约（🔴 卡费扣完再比，见下一行）----------------------------
                 int left = ctx.Players[owner].Energy;
                 int need = card.GetDefaultTraitValue(KeywordTable.Oath, out _);
-                return left >= need;
+                return left - CostOf(ctx, owner, card, inst) >= need;   // 🔴 2026-11-01（`B111_E1` · `B-06f`）：原版这一句是 `ManaLeft >= oathValue`（`decomp_full/CardScript__NeedsToChooseFromPool.c:142-148`），而那个 `ManaLeft` = `BoardAnalysis.GetManaLeft`（`BoardAnalysis__GetManaLeft.c:6` → `BattleManager__GetUnusedMana.c` → `PlayerManager__GetUnusedMana.c`）＝**未用能量**，两个调用点（`BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c:498/:728`）都排在 **`:377 PayCardCost`（→ `UseMana(CurrentCost)`）之后** ⇒ 原版比的是「**基础卡费已经扣掉**的余量」。我们在 `PlayerChooseOps` / `DecideOathChoice` 里是**出牌之前**问的（`PlayAsks`，那时还没 `SpendNormalMana`）⇒ 必须自己把卡费减掉，否则「面板摆了 oath 选项、真打出去却付不起」。等价式 = `Energy − CostOf ≥ oathValue` ＝ `CanPayOathChoice` 那一条；⛔ 别改成「把调用点挪到扣费之后」（`PlayAsks` 在表现层，不在本文件）
             }
         }
 
@@ -17996,9 +18002,9 @@ namespace RuleEngine
 
         /// <summary>**这一次出牌走不走誓约**（`true` = 保留 `Oath N:` 付费组）。
         /// <para>四档，按序：① 不是「平/誓二选一」的卡 ⇒ 恒 `true`（**行为逐字不变**）；
-        /// ② 原版那道池闸判否（不是这一侧的回合 / 带 jam）⇒ `false`（原版这时**不问池**）；
-        /// ③ 付得起 ⇒ 有答案用答案（同座位、一次一取），没人答就**照旧付**
-        /// （= 加这一条之前的行为：`ruleprobe` / 录像回放 / `SimulatePlay` 全部不变）；
+        /// ② 原版那道池闸判否（不是这一侧的回合 / 带 jam / 付不起誓约）⇒ `false`（原版这时**不问池**、也就不抽 options）；
+        /// ③ 付得起 ⇒ **先无条件掷一次**（原版 `GetChoiceOptions` 那一格：玩家 / AI / 回放落地三条路都走它），
+        /// 有答案（玩家面板 / AI 已摆 / 回放报文）就用答案，没人答就用**掷出来的那一张**（= 原版 bot 支的 `options[0]`）；
         /// ④ 付不起 ⇒ `false`（只结算平版）。</para>
         /// <para>⚠️ 第 ②④ 档会把在座的那格答案**作废**并出声（原件 = 原版根本不问 ⇒ 不该留答案）。</para></summary>
         public static bool DecideOathChoice(BattleContext ctx, int p, CardDef card, CardInstance inst)
@@ -18006,7 +18012,7 @@ namespace RuleEngine
             if (!OathChoiceNeeded(card)) return true;
             if (ctx == null) return false;
 
-            if (!NeedsToChooseFromPool(ctx, p, card, null))
+            if (!NeedsToChooseFromPool(ctx, p, card, null, inst: inst))   // 🆕 2026-11-01（`B111_E1` · `B-06f`）：把**这一份**传进 ⑤ 的誓约闸（按份费用修正才算得准；= 原版那句是在 `PayCardCost` 之后判的同形）
             {
                 if (ctx.HasOathAnswer)
                 {
@@ -18019,17 +18025,17 @@ namespace RuleEngine
 
             if (CanPayOathChoice(ctx, p, card, inst))
             {
-                bool pay;
-                if (ctx.TakeOathAnswer(p, out pay))
+                bool rolledPay = RollOathPay(ctx, card);   // 🔴 2026-11-01（`B111_E1B` · `B-85`/`B-86`）：**唯一掷骰点** —— 原版 `GetChoiceOptions`（`decomp_full/BattleManager__GetChoiceOptions.c:40-70`）在 `ChoiceOfCardEnemy`（bot 支）与 `ChoiceOfCardPlayer`（面板支）**两条支里都会被调**（`out_il2csharp/Assembly-CSharp/BattleManager.cs:8941/8951-8965`，`isBotAndNotReplay` 只用于排序、抽数那半照跑）⇒ 玩家 / AI / 回放落地**三条路各消耗正好 1 格**预烧随机数。⚠️ **无条件掷**（有答案也照掷、只是不采它的结果）—— 少掷那一次正是「回放不走 `SimpleAI` ⇒ 游标此后错开 1 格」的根因
+                bool pay; if (ctx.TakeOathAnswer(p, out pay))
                 {
-                    int oathVal = card.GetDefaultTraitValue(KeywordTable.Oath, out _);
+                    int oathVal = card.GetDefaultTraitValue(KeywordTable.Oath, out _); ctx.NoteOathDecision(p, pay);
                     ctx.Log($"（誓约二选一：「{card.Name}」这次**按玩家的选择**走 "
                           + (pay ? $"**誓约版**（多付 {oathVal} 能量）" : "**平版**（不付誓约）") + "）");
                     return pay;
                 }
-                ctx.Log($"（誓约二选一：「{card.Name}」没人回答（AI / 不走面板的入口）⇒ 按原版口径"
-                      + "**付得起就付**（照旧结算誓约版））");
-                return true;
+                ctx.NoteOathDecision(p, rolledPay); ctx.Log($"（誓约二选一：「{card.Name}」没人回答（AI / 不走面板的入口）⇒ 按原版 `GetChoiceOptions` 抽出来的那一张："
+                      + $"{(rolledPay ? "**誓约版**" : "**平版**")}）");
+                return rolledPay;
             }
 
             if (ctx.HasOathAnswer)

@@ -1309,14 +1309,14 @@ namespace CardPresentation
         ///   bool showXpToast = True)`；反编译那个调用点尾参多一个 `MethodInfo*` ⇒ 按**顶层括号**切。</item>
         /// <item>`showAnimation == 0` 那一支**根本不开窗**：`decomp_full/RewardService__Collect.c:170`
         ///   （现读 = `if (param_2 == '\0') {` —— `param_2` 就是第 2 个形参）。</item>
-        /// <item>我们这一侧的「真领到那一拍」= `CampaignData.Claim(i, tier, out why) == true`（本函数那个
-        ///   `if` 的真支）；上游 = 奖励窗里那颗 `Unlock` 钮 → `CampaignRewardWindow.OnUnlock` → `OnCollect`
-        ///   （`BuildContext` 把 `OnCollect` 挂成 `tier => ClaimForTest(i, tier)`）。</item>
+        /// <item>我们这一侧的「真领到那一拍」= **`FinishClaim()` 里的 `CampaignData.Claim(i, tier, out why) == true`**，
+        ///   **它挂在领奖窗的 `onClose` 上**（原版同此：`g__Refresh_0` 就是 `RewardService.Collect` 的 `onCollected`，见 `RewardService__Collect.c:202`）；
+        ///   上游 = 奖励窗里那颗 `Unlock` 钮 → `CampaignRewardWindow.OnUnlock` → `OnCollect`（`BuildContext` 挂成 `tier => ClaimForTest(i, tier)`）。</item>
         /// <item>窗里**装哪几条 = 按下那一档**：`CampaignData.RewardsOf(i, tier)`（`Shell/CampaignData.cs`）——
         ///   它就是原版 `CampaignRewardsWindow.Open` 里 `Rewards.Where(r =&gt; r.rewardTier == tier)` 那个谓词，
         ///   **也是本页奖励窗自己列的那一列**（⛔ 别传不分档的 `RewardsOf(i)`，那是两条）。</item>
-        /// <item>关窗回调 = `Refresh()`：对位 = 原版的 `onCollected`；我们这一侧 `Refresh()` 是**幂等**的重刷
-        ///   （文本 + 阵营图 + `RefreshNodes()`）。</item>
+        /// <item>关窗回调 = **`FinishClaim()`**：翻节点（`CampaignData.Claim`）+ `RefreshNodes()` + `OnArmyAmountChanged()`，
+        ///   最后再 `Refresh()`（幂等；对位 = 原版 `g__Refresh_0` 之后那一拍「刷窗」）。</item>
         /// </list>
         /// ⛔ **不是另写一份开窗** —— 走的是 `RewardWindow.ShowCollected`，与**日常那六条 / 锻造那条**同一个入口
         /// （先例 = `Shell/ForgeTab.cs` 的 `ClaimCell`，那一处是本类该照着写的那一条）。
@@ -1325,27 +1325,27 @@ namespace CardPresentation
         /// `collectedRewards` 由服务端给），本地查不到 ⇒ 我们按「**只画按下那一档**」落，留着这一条。</para></summary>
         public bool ClaimForTest(int i, int tier)
         {
-            string why;
-            if (CampaignData.Claim(i, tier, out why))
+            // 🔴 2026-11-01（`B111_S2` · `B-15`）：**次序照原版** —— 先发奖 → 再开领奖窗 → **关窗那一拍才翻节点**。
+            //   判据（亲读三份 `.c`）：`CampaignWindowTab__TryCollect.c` 把 `<>c__DisplayClass24_0.<TryCollect>g__Refresh_0` 交给 `CollectRewards`；
+            //   而 `Refresh_0.c:14,17,19,22` 自己就是「`CampaignHeaderDisplay.Initialize` → `ArmySelector.Refresh` → **`CampaignNode__Collect`** → `CloseWindow`」，
+            //   它作为 `RewardService.Collect` 的 `onCollected` 挂在**领奖窗的 OnClose** 上（`RewardService__Collect.c:202`）⇒ **翻节点在关窗之后**。
+            if (!CampaignData.Claimable(i))
             {
-                RefreshNodes();
-                OnArmyAmountChanged();     // 原版这一刻 = 每个 `CampaignArmyUIDecorator` 收到 `OnObjectUpdated`
-                // 🆕 2026-10-12（A438）：**领到那一拍弹领奖窗**（判据见方法头；`showAnimation = 1` 那一支）。
-                GrantCampaignRewards(i, tier); RewardWindow.ShowCollected(CampaignData.RewardsOf(i, tier), collected => Refresh());   // 🆕 C9 2026-10-31：**先发奖、后开窗**（原版 `Collect` 的 for 循环在开窗之前，`RewardService__Collect.c:117` → `:202`）
-                // 🔴 **2026-10-12（A466 顺手订正 · 铁律 5）**：这两句原来是「领完就把窗刷新成 `Get` 态
-                //   （原版 `OnCollect` 之后按钮进 claimed，而 `CampaignRewardsWindow` 是「领一次就
-                //   `CloseWindow`」——见正本 §十四「关窗三条路」）」—— **前半句是半错的**：
-                //   它描述的是**窗还留着**时的样子，而 A448 之后窗**直接关**（领取成功那一拍
-                //   `CampaignRewardWindow.OnUnlock` 走原版 `g__Refresh_0` 末尾那一跳 `Close()`；
-                //   判据 → `Shell/CampaignRewardWindow.cs` 的 `OnUnlock` 方法头）⇒ 本窗是**被关掉**、
-                //   不是被刷新；`Get` 态要**重新点节点把奖励窗开回来**才看得到。
-                // ⚠️ 本件**只订正这句注释**（白名单只到这里），代码一个字符都没动。
-                Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领到了"
-                          + (tier == CampaignData.TierPremium ? "高级档" : "基础档"));
-                return true;
+                int s = CampaignData.StateOf(i);
+                Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领不了：" + (s == CampaignData.Locked ? "这一格还没解锁（前驱没领）" : "这一格现在领不了（战役点不够 / 已领过）"));
+                return false;
             }
-            Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领不了：" + why);
-            return false;
+            GrantCampaignRewards(i, tier);   // ① 先发奖（原版 `RewardService__Collect.c:117` 的 for 循环在开窗 `:202` 之前）
+            void FinishClaim()               // ② 翻节点 + 重刷（= 原版 `g__Refresh_0` 那三句；挂给领奖窗的 onClose）
+            {
+                string why;
+                if (!CampaignData.Claim(i, tier, out why)) { Debug.LogError("[Campaign] 关窗后翻节点状态**失败**：" + CampaignData.NodeName(i) + " —— " + why + "（奖励**已发**；节点没翻 ⇒ 再点一次节点还能重领，需人工核）"); }
+                else { RefreshNodes(); OnArmyAmountChanged(); Debug.Log("[Campaign] 节点 " + CampaignData.NodeName(i) + " 领到了" + (tier == CampaignData.TierPremium ? "高级档" : "基础档")); }
+                Refresh();                   // 原版那一拍之外「刷窗」这一句与改前同义（幂等）
+            }
+            var rw = RewardWindow.ShowCollected(CampaignData.RewardsOf(i, tier), collected => FinishClaim());   // ③ 再开领奖窗（原版 `:202`，`showAnimation = 1` 那一支）
+            if (rw == null) { Debug.LogWarning("[Campaign] 领奖窗开不出来（`RewardWindow.ShowCollected` 回 null）⇒ 当场补做「翻节点 + 重刷」（⛔ 否则「奖已发、节点永远不翻」是静默缺陷）"); FinishClaim(); }
+            return true;
         }
 
         // ============================================================ Premium Panel

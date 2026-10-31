@@ -3297,8 +3297,8 @@ namespace CardPresentation
         //      · `DAT_1834b3090` = **1.5**（`.rdata` 硬编码 —— `资料/普查产出_0918/第18行_手感与选牌_规格.md:14`）
         //    ⇒ **0.15 / 1.5 = 0.1 s**
         //
-        // ⚠️ **缓动是我们推的**：原版那句 `DOLocalMove` **没有 `SetEase`** ⇒ 走 DOTween 的全局默认
-        //    （= `Ease.OutQuad`，除非原版改过 `DOTween.defaultEaseType` —— 那个查不到）。这里照默认写。
+        // ✅ **缓动**：原版那句 `DOLocalMove` **没有 `SetEase`** ⇒ 走 DOTween 的全局默认
+        //    （= `Ease.OutQuad`；原版 `DOTweenSettings.asset:31 defaultEaseType: 6` 实读，没改过）。这里照默认写。
         public const float ReassembleTime = 0.1f;
 
         /// <summary>让位 / 补位：把这张卡补间到它的新格位（只动位移）。

@@ -415,6 +415,11 @@ namespace CardPresentation
                                         true, "Image",
                                         new Vector4(333f / 3f, 96f / 3f, 333f / 3f, 96f / 3f));
                 var bq = bgo != null ? bgo.GetComponentInChildren<ImageQuad>() : null;
+                // 🆕 2026-11-01（`B111_S4` · 账 `B-20`）：原版**只有这一颗**挂 #7 `UI Additive`
+                //   （判据：`Debug Add Skulls` 的 Image `m_Material.m_PathID = -8464978790139598553`、
+                //   `m_PixelsPerUnitMultiplier = 3`、`m_Color = (0.9235,0,1,1)` = 本处 `bt.Tint`；
+                //   同面板另外七颗**都不是**这份材质 ⇒ ⛔ 别整排换）。
+                if (i == IDebug) MenuFxMaterials.ApplyAll(bgo, MenuFxMaterials.Additive);
                 // 🔴 **2026-10-18（第十一轮）**：文案那一个实参从 `bt.Label`（= prefab 出厂原文，**含西语占位串**）
                 //   换成 `BtnLabel(bt)`（有词条走词条、没有就原样）—— ⛔ 节点名 `bt.Node` 与字体/色/矩形都没动。
                 var tx = MenuDraw.TextBox(bn, BtnTextRect(br), BtnLabel(bt), Color.white, "Button Text",

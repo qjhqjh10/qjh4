@@ -6103,18 +6103,22 @@ public static class RewardsScene
                         CheckTrue(ClickButtonByQuad(PointerLayer.Instance, prodHit, prodWb,
                                                     "生产接线那扇窗里的 `Unlock`"),
                                   "★ A469②：**真点**那颗 `Unlock`（`PointerLayer` 真路径 —— ⛔ 不是直调 `OnUnlock`）");
-                        CheckTrue(CampaignData.BaseClaimed(1),
-                                  "★★ A469：**生产接线通了** —— 窗里那颗钮按下去 ⇒ UM1 的**真进度**被领掉"
-                                  + "（`BuildContext` 的 `OnCollect` 不转发 ⇒ 这一条红）");
-                        var prodCtxB = cTab.BuildContext(1);
-                        CheckTrue(prodCtxB.BaseCollected && !prodCtxB.Claimable,
-                                  "★ …再组一次 context ⇒ `BaseCollected` **翻真了**、`Claimable` 翻假"
-                                  + "（= 它读的是**真进度**，不是写死的值）");
+                        CheckTrue(!CampaignData.BaseClaimed(1),
+                                  "★ 灭自证（B-15 时序）：**发奖那一刻节点还不该翻** —— 原版是「发奖 → 开领奖窗 →"
+                                  + "**关窗时**才翻」，我们改之前是「翻节点 → 发奖 → 开窗」");
                         Check(prodWin.CurrentState, WindowState.Closed,
                               "★★ A469：**领到 ⇒ 窗自动关**（A448 那一条，这次走的是**生产那份 context**）");
                         Check(RewardWindowFixture.DismissRewardWindows(), 1,
                               "★ …并收掉 A438 弹的那扇领奖窗（关它才会走 `NotifyClosed` → `ShowPreviousWindow`"
                               + " 把压到 `Background` 的底窗带回 `Open`）");
+                        CheckTrue(CampaignData.BaseClaimed(1),
+                                  "★★ A469：**生产接线通了** —— 窗里那颗钮按下去、**领奖窗关掉之后** ⇒ UM1 的**真进度**被领掉"
+                                  + "（`BuildContext` 的 `OnCollect` 不转发 ⇒ 这一条红；"
+                                  + "🧨 反方向：把翻节点挪回发奖之前 ⇒ 上面那条灭自证红）");
+                        var prodCtxB = cTab.BuildContext(1);
+                        CheckTrue(prodCtxB.BaseCollected && !prodCtxB.Claimable,
+                                  "★ …再组一次 context ⇒ `BaseCollected` **翻真了**、`Claimable` 翻假"
+                                  + "（= 它读的是**真进度**，不是写死的值）");
                         Check(RewardWindowFixture.OpenRewardWindowCount(), 0,
                               "★ …现在场上**一扇遗留的领奖窗都没有**（下面 `02b_战役奖励窗.png` 才拍得干净）");
                     }
@@ -13522,7 +13526,7 @@ public static class RewardsScene
 
         RunCampaignRewardLocalization(wm2); B107_W20_Assert.RunAll(root, wm2); _sink.Pass += B107_W20_Assert.Pass; _sink.Fail += B107_W20_Assert.Fail;   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）｜🆕 B107_W30 代接线：N131 `Collected Badge` 三层 + N130 四窗换语言 / `RewardsWindow` 整窗重建（本件自建自毁各窗 ⇒ 不借宿主那几具已被 `ReapClosedWindows` 收割的实例；判据 → 报告/B107_W30.md）
         Debug.Log(P + win.Dump());
-        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; B111_R3WB_Assert.Run(); _sink.Pass += B111_R3WB_Assert.Pass; _sink.Fail += B111_R3WB_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。
@@ -13932,7 +13936,7 @@ public static class RewardsScene
             }
             Check(okTerms, terms.Length, "（前提）四条词条的 en/zh 两列都在、且两档不同（缺一 ⇒ 下面几条等于没验）");
 
-            // ---- 中文档（= 出厂默认）建一扇【锁定态】窗：同时有 Preview 标题 / Warning / 两列按钮标签 ----
+            // ---- 中文档（**显式选的**，⛔ 不是「出厂默认」：`Loc.Default` 按系统语言解析）建一扇【锁定态】窗：同时有 Preview 标题 / Warning / 两列按钮标签 ----
             Loc.SetLanguage(AvailableLanguages.Chinese);
             cwL = CampaignRewardWindow.Create(wm);
             wm.OpenWindow(cwL, new CampaignRewardsContext

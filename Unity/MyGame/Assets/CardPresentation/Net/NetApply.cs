@@ -146,7 +146,7 @@ namespace CardPresentation.Net
                     //   原版把它当**一个下标**塞在动作里（`BattleAction.actionValueTens(+0x54)` →
                     //   `ChoiceOfCardEnemy(…, selectedCard)` → `fullPool[idx]` → `cardChosenInSelection(+0x2E8)`）。
                     //   我们同形：落地前摆进 ctx（`DecideOathChoice` 只认同座位、**一次一取**）。
-                    //   🔴 `oathRecorded == false`（老录像 / 老报文 / AI 那一手 / 玩家没答）⇒ **一格都不写**
+                    //   🔴 `oathRecorded == false`（老录像 / 老报文 / 玩家没答 / 该手本就不走誓约）⇒ **一格都不写**；⚠️ 2026-11-01（`B111_R1WC` · `B-109`）就地订正：原写「**AI 那一手**」**已不成立** —— 掷骰挪进引擎后 `PlayCardAsAi` 出牌后 peek 引擎那格并写进 `AiAction.OathChoiceRecorded`（`SimpleAIPartial_B111E2.cs:157`）⇒ **AI 那一手现在会带 `oathRecorded=true`**
                     //      ⇒ 引擎走「付得起就付」兜底 = 加这一格之前**逐字相同**。
                     //   🔴 先清一次：`TakeOathAnswer` 只在出牌里消费，被引擎拒掉的那一手会把残答留到下一手。
                     ctx.ClearOathAnswer();

@@ -589,7 +589,7 @@ namespace CardPresentation
         /// var data = ev.GetBaseData();      // ILiveOps 槽 15
         /// return data.filter.Triggers.Count &gt; 0;    // data + 0x30 = filter，filter + 0x30 = Triggers（`DynamicList`）
         /// </code>
-        /// 用途 = `BuildHandler` 的 live/blocked 分派（「这个事件挂了触发器 ⇒ 让它自己决定什么时候激活」）。</summary>
+        /// 用途 = `BuildHandler` 的 live/blocked 分派（「这个事件挂了触发器 ⇒ 让它自己决定什么时候激活」）。（🆕 2026-11-01 `B111_S3`：原版这个方法挂在 **`LiveOpsUtility`** 类上，本仓却落在 `LiveOpsManager` ⇒ 门面 `LiveOpsUtility.IsTriggeredEvent` 在 `Shell/LiveOpsUtilityPartial_B111S3.cs` 里**转调本方法**；⛔ 别在这里再写第二份）</summary>
         public static bool IsTriggeredEvent(ILiveOps e)
         {
             if (e == null) return false;

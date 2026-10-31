@@ -3,6 +3,7 @@
 > 代理：`B103_R2`（只读查判据） · 日期：2026-10-30 · 只读 `d:/2` 与 `Unity/MyGame/Assets`，未跑 Unity、未动 git。
 > 触发口径：铁律 5·c「一个值 ≠ 全部情况」（先例：卡池 6 列 vs 筛选战将 4 列）。
 > **本文件只覆盖「卡组编辑窗 · 卡池网格」这一个件**。同屏其它网格（卡组列表 / 费用曲线 / 卡背页）只在 §0 点名，不展开。
+> ✅ **复核于 2026-11-01（`B111_D1`）· 有变化 6 处（5 条发现；`B110_G5C` 的 D 与顺手① 是同一处）**：复核方法 = 把 §3 / §4 / §5 里每条「我们现状 / 缺口」claim 的**我们侧 `.cs:行` 引用**逐条现读 + 符号 `grep` 复核（逐条结论见 `报告/B111_D1.md`）；已落地 / 已过期的就地追加「✅ 2026-11-01 复核」痕迹（未删旧句）。
 
 ---
 
@@ -161,11 +162,11 @@ MinPoolCoverage = 1.5f（RecyclableScrollRect.cs:200）· MinPoolSize = 20（同
 | 状态 | 落点 | 现在哪一档 | 判 |
 |---|---|---|---|
 | S0 桌面 | `:211` `CardsCellW = 262.5f, CardsCellH = 384f` · `:220` **`CardsCols = 6`（编译期常量）** · `:228` `CardsPadX = (CardsViewport.W − CardsCols×CardsCellW)×0.5` | 6 列 | ✅ 桌面档对 |
-| **S1 小屏** | **全文 0 处 `SmallScreenUI`**（`grep -n SmallScreenUI Shell/CollectionWindow.cs` = 空） | **恒 6 列** | 🔴 **缺这一档** |
+| **S1 小屏** | **全文 0 处 `SmallScreenUI`**（`grep -n SmallScreenUI Shell/CollectionWindow.cs` = 空） | **恒 6 列** —— ✅ **2026-11-01 复核（`B111_D1`）：已不存在**（现读 `Shell/CollectionWindow.cs` 有 4 处 `SmallScreenUI`：`:211` Cards · `:960` Deck · `:1793` Cardback · `:2168` Styles，均 `SmallScreenUI.Enabled ? 倍数 : 1f`）| 🔴 **缺这一档** |
 
 ### 4·3 缺口清单（一句一档）
 
-1. 🔴 **收藏窗 Cards 页 + Styles 页**：`CardsCellW/CardsCellH/CardsCols`（`CollectionWindow.cs:211,220`）与 `CosmoCellW/CosmoCols`（`DeckRuntime.cs:3396-3398`）都是**编译期常量**，小屏档下仍是 6 列 262.5 —— 而原版走同一条 `_mobileSizeScale` 式子（两处 RSR 的 `_mobileSizeScale` 都是 1.5）。**缺「小屏 4 列 / 393.75×576」这一档。**
+1. 🔴 **收藏窗 Cards 页 + Styles 页**：`CardsCellW/CardsCellH/CardsCols`（`CollectionWindow.cs:211,220`）与 `CosmoCellW/CosmoCols`（`DeckRuntime.cs:3396-3398`）都是**编译期常量**，小屏档下仍是 6 列 262.5 —— 而原版走同一条 `_mobileSizeScale` 式子（两处 RSR 的 `_mobileSizeScale` 都是 1.5）。**缺「小屏 4 列 / 393.75×576」这一档。** —— ✅ **2026-11-01 复核（`B111_D1`）：已过期** —— 现在是按 `SmallScreenUI.Enabled` 现算的属性（`CollectionWindow.cs:211/960/1793/2168`）；`CosmoCellW/CosmoCols` 已从 `DeckRuntime` 移到 `CollectionWindow.cs:1793`（`DeckRuntime.cs:3396-3398` 现读不是那组常量）。
 2. 🟡 **`Pool.W = 1589.8` 与 `CollectionWindow.CardsViewport.W = 1589.7` 是两个常量**（`DeckRuntime.cs:713` vs `CollectionWindow.cs:191`）—— 原版是同一个 prefab 字段 `1589.75`。差 0.05 不影响列数（6×262.5=1575，两档都落 6），但**是两份来源**（违反「两处写同一条规则 = 迟早不一致」）。
 3. ⚪ **`_segments = 4` 在两端都没用**：我方两处都按 `floor(W/cellW)` 现算、没读 `_segments`（这与 §6·3 的结论一致 —— 它是死值）。**不算缺口。**
 4. ⚪ **`smallUIChosenManually`** 我方只做写入那一半（`TransformScalerBySmallScreenUI.cs:80` 已如实标注）。原版有无读取点：**全反编译 0 处读** ⇒ **不算缺口**（我们也没多写行为）。
@@ -176,10 +177,10 @@ MinPoolCoverage = 1.5f（RecyclableScrollRect.cs:200）· MinPoolSize = 20（同
 
 | # | 文件 | 要做什么 | 判据（本文件哪一节） | 风险 |
 |---|---|---|---|---|
-| **A** | `CardPresentation/Shell/CollectionWindow.cs` | 把 `CardsCellW/CardsCellH/CardsCols/CardsPadX`（`:211,220,228`）改成**按 `SmallScreenUI.Enabled` 现算**，与 `DeckRuntime.Pool` **同一套式子**（建议把 `DeckRuntime` 的 `PoolMetrics` 摘成共用件，或两边调同一个静态函数） | §1·1–1·3 · §4·3 缺口① | 中：`CardsCols` 被多处引用（`:233` `CardsCell`、`:999` 注释、命中判据），换档后要 `Refresh` |
+| **A** | `CardPresentation/Shell/CollectionWindow.cs` | 把 `CardsCellW/CardsCellH/CardsCols/CardsPadX`（`:211,220,228`）改成**按 `SmallScreenUI.Enabled` 现算**，与 `DeckRuntime.Pool` **同一套式子**（建议把 `DeckRuntime` 的 `PoolMetrics` 摘成共用件，或两边调同一个静态函数） —— ✅ **2026-11-01 复核（`B111_D1`）：已落地**（现读即按 `SmallScreenUI` 现算的形态）| §1·1–1·3 · §4·3 缺口① | 中：`CardsCols` 被多处引用（`:233` `CardsCell`、`:999` 注释、命中判据），换档后要 `Refresh` |
 | **B** | `CardPresentation/Deck/DeckRuntime.cs` | 卡背页 `CosmoCellW/CosmoCols/CosmoPadX`（`:3395-3400`）同样接小屏系数 | §1·1–1·3 · §3·1 S4 | 低 |
-| **C** | `CardPresentation/Deck/DeckRuntime.cs` | 把 `PoolW = 1589.8f` 与 `CollectionWindow.CardsViewport.W = 1589.7f` **收口成一个常量**（原版 prefab 值 `1589.75`） | §4·3 缺口② | 低（但要同步两处断言里写死的期望值） |
-| **D** | `CardPresentation/Deck/DeckRuntime.cs`（只改注释） | `:2751` 那句「`CollectionFilterController<T>.Toggle` 的方法体在泛型里、`decomp_full` 无产物、我们没核过」**已过期** —— 方法体在 `decomp_generic_trial/out/` 与 `out_cpp2il_dev_ilspy/CollectionFilterController.cs:159-207` 都读得到，且**确认不写尺寸** | §5 顺手发现① | 无 |
+| **C** | `CardPresentation/Deck/DeckRuntime.cs` | 把 `PoolW = 1589.8f` 与 `CollectionWindow.CardsViewport.W = 1589.7f` **收口成一个常量**（原版 prefab 值 `1589.75`） —— ✅ **2026-11-01 复核（`B111_D1`）：已落地** —— 两处都收到 **1589.78**（`DeckRuntime.cs:713/3395` · `CollectionWindow.cs:191`；`B107_W14` / N83）。⚠️ 目标值**不是**本行写的 `1589.75`（那是 dump 舍入；按 prefab 父链现算 = 1589.775）| §4·3 缺口② | 低（但要同步两处断言里写死的期望值） |
+| **D** | `CardPresentation/Deck/DeckRuntime.cs`（只改注释） | `:2751` 那句「`CollectionFilterController<T>.Toggle` 的方法体在泛型里、`decomp_full` 无产物、我们没核过」**已过期** —— 方法体在 `decomp_generic_trial/out/` 与 `out_cpp2il_dev_ilspy/CollectionFilterController.cs:159-207` 都读得到，且**确认不写尺寸** —— ✅ **2026-11-01 复核（`B111_D1`）：已就地改掉**（`DeckRuntime.cs:2750-2754` 现读已写明「方法体读得到 + 只 `SetActive` + `DOAnchorPosX`」）| §5 顺手发现① | 无 |
 | **E** | `资料/任务线/界面线/任务/T01_卡组编辑窗.md` | `:94` 那条「⑥ 卡池列数（原版 6 列、**我们 4 列**）」**已过期**：A870/D24 之后 `DeckRuntime.Pool` 桌面档 = 6 列 | §4·1 | 无（文档） |
 | **F** | 断言（`Editor/DeckScene.cs` / `CollectionScene.cs`：**调度台独占**） | 补「两档各是各的」断言：桌面 `Cols==6 && CellW==262.5 && PadX==7.35` / 小屏 `Cols==4 && CellW==393.75 && PadX==7.35`；收藏窗同四条。⚠️ 期望值**不许从 `Pool` 读回来**（自证） | §3·1 S0/S1 | 低 |
 
@@ -281,7 +282,7 @@ MinPoolCoverage = 1.5f（RecyclableScrollRect.cs:200）· MinPoolSize = 20（同
 
 ## 附录 A · 顺手发现（不属本窗，但值得记账）
 
-1. 🔴 **「`CollectionFilterController<T>.Toggle` 无产物」已过期** —— `DeckRuntime.cs:2751` 写着「方法体在泛型里、`decomp_full` 无产物、我们没核过」。**实际读得到**：`D:/2/tools/decomp_generic_trial/out/CollectionDisplay_object___ToggleFilters__15eec60.c` 与 `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CollectionFilterController.cs:159-207`。读出的结论 = **只 `SetActive` + `DOAnchorPosX`，不写任何尺寸** ⇒ 我们按「只滑动」实现是**对的**，且现在可以去掉「没核过」的免责。
+1. 🔴 **「`CollectionFilterController<T>.Toggle` 无产物」已过期** —— `DeckRuntime.cs:2751` 写着「方法体在泛型里、`decomp_full` 无产物、我们没核过」。**实际读得到**：`D:/2/tools/decomp_generic_trial/out/CollectionDisplay_object___ToggleFilters__15eec60.c` 与 `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/CollectionFilterController.cs:159-207`。读出的结论 = **只 `SetActive` + `DOAnchorPosX`，不写任何尺寸** ⇒ 我们按「只滑动」实现是**对的**，且现在可以去掉「没核过」的免责。 ✅ **2026-11-01 复核（`B111_D1`）：已落地**（`DeckRuntime.cs:2750-2754` 现读即订正后的注释）。
 2. 🟡 **`GameWindow.extraScaleSmallScreen` 恒 `1f`，全库 0 处覆写** ⇒ `TransformScalerBySmallScreenUI` 在**所有**代码建的窗上都是禁用的，只有 prefab 里烤了 `menuScale ≠ 1` 的那 3 扇（`Alliance Trophy Info Popup` / `Member Options Panel` / `Generic Options Panel`，均 1.35）会生效。这条与我方 `Shell/TransformScalerBySmallScreenUI.cs:30-33` 的记载**吻合**，无需改；但**「小屏窗会整体放大」这个直觉是错的**，别按它设计。
 3. 🟡 **`AutoGridLayout`（原版自定义 `GridLayoutGroup`）在 `bundle_Waprforge_monoscripts` 里查不到 `MonoScript`** —— 但实例确实存在（主菜单场景 `MonoBehaviour_1961.json`，字段 `rows/columns/itemSize/spacing`）。⇒ 判「某类本地没有」时**别只查 monoscripts 包**（与 CLAUDE.md「按类名搜永远 0 命中」同族）。
 4. ⚪ `AdaptFlexibleGridLayoutByAspectRatio` 的 `__ctor.c` 内容其实是 `PhotonHandler___ctor`（`decomp_full` 的文件名与内容不符的**又一例**，第 7 例）。不影响本文件结论（没用到它的构造）。

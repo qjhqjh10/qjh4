@@ -339,7 +339,7 @@ public static class B97SHOP2Assert
                 ScheduledServerTime = System.DateTime.UtcNow.AddHours(1),
             });
             C(win.EventTabScheduledHandle, (object)null, "E8 ★ 两态对照：`IsGachaEvent = false` ⇒ 第 ③ 句早退，不排程");
-            C(GachaEventWindow.LocalActionScheduler.PendingCount, 1, "E8b …排程表没有多出一条（仍是 1）");
+            C(GachaEventWindow.LocalActionScheduler.PendingCount, 0, "E8b …排程表没有多出一条（🆕 2026-11-01 `B112_B` 收口后 = **0**：`LocalActionScheduler` 已是零逻辑兼容壳，`Release` 现在真从队列移除 —— 原期望值 1 是照旧替身「Release 是空操作」写死的）");
         }
         finally
         {

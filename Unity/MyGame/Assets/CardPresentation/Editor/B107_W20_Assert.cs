@@ -218,7 +218,7 @@ public static class B107_W20_Assert
         Component win = null;
         try
         {
-            Loc.SetLanguage(AvailableLanguages.Chinese);     // 出厂默认档 ⇒ 窗按中文建
+            Loc.SetLanguage(AvailableLanguages.Chinese);     // 显式选中文档（⛔ 不是「出厂默认」—— `Loc.Default` 是按系统语言解析的）⇒ 窗按中文建
             win = make();
             T(win != null, "（前提）" + winName + " 建出来了（为 null ⇒ 本窗整段等于没验）");
             if (win == null) return;

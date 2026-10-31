@@ -1680,7 +1680,7 @@ namespace RuleEngine
                     //    而且**只有指纹对账抓得到**（2026-09-27 就是这么抓到的）。
                     int hi = HandIdxOf(ctx, me, a);
                     if (hi >= 0) a.HandIdx = hi;
-                    return RuleCore.PlayCard(ctx, me, hi, a.Slot) == RuleCodes.OK;
+                    return PlayCardAsAi(ctx, me, a, hi) == RuleCodes.OK;   // 🆕 2026-11-01（`B111_E2` · 账 `B-69`）：AI 的「平 / 誓二选一」按原版 `ChoiceOfCardEnemy` 的 bot 支**等概率随机**（预烧表按下标取、消耗 1 格）—— 🔴 2026-11-01（`B111_R1WC` · `B-109`）就地订正：**掷骰已经挪进引擎**（`RuleCore.DecideOathChoice` 里的 `RollOathPay`，唯一的掷骰点）；`Data/SimpleAIPartial_B111E2.cs` 的 `PlayCardAsAi` **只 peek 引擎用过的那一格**、`DecideOathForAi` **只剩自检用途**（产品路径再调它 = 一手烧 2 格）。本行 1→1 替换（本文件零行数变化）
                 }
                 case AiActionKind.AttackMelee:
                 case AiActionKind.AttackRanged:

@@ -238,7 +238,7 @@ namespace CardPresentation
             {
                 case AttackKind.Melee:   p = Melee;  return true;
                 case AttackKind.Ranged:  p = Ranged; return true;
-                case AttackKind.Ability: p = Gold;   return true;
+                case AttackKind.Spell: case AttackKind.Ability: p = Gold;   return true;
                 default: p = Melee; return false;          // attackType 0 / 不在表内 ⇒ 原版不写颜色
             }
         }
@@ -768,6 +768,22 @@ namespace CardPresentation
 
             _fadeDir = +1;
             ApplyFade();
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-01（`B112_R3D` · 账 `B-153`）：自检读口 —— 弧线两端
+        //  判据 = `UpdateArc` 把 `from`/`to` 喂给 `CrosshairLineEffect.SetPoints(origin, desired)`
+        //  （`TargetReticleController__PrepareMovement.c:33-36`），所以第 0 点 = 起点、最后一点 = 末端。
+        //  ⛔ 只读，不改任何状态；本类是类尾追加 ⇒ 不推账的落点。
+        // ==================================================================
+        /// <summary>自检用：弧线两端（就是 `SetPoints` 的那两个点）。线没建出来 ⇒ false。</summary>
+        public bool ArcEnds(out Vector3 origin, out Vector3 end)
+        {
+            origin = end = Vector3.zero;
+            if (_line == null || _line.positionCount < 2) return false;
+            origin = _line.GetPosition(0);
+            end = _line.GetPosition(_line.positionCount - 1);
+            return true;
         }
     }
 }

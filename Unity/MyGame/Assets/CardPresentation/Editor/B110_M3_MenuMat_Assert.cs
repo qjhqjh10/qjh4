@@ -262,14 +262,15 @@ public static class B110_M3_MenuMat_Assert
         }
 
         // 两条线（本条 = 主菜单卡；`B110_D4` = 两方活动窗）共用**同一份**资产与**同一个** shader 名。
-        // D4 的 `ParentEventWindow.cs` 走 `Resources.Load("Art/vfx/WFUI_Additive")` + `Shader.Find(...)` 兜底，
+        // D4 的 `ParentEventWindow.cs` 走 `MenuFxMaterials.Apply(…, Additive/ScanLines + Shader.Find 名)`（`B111_S4` 收口后），
         // 任一边改名都会让另一边**静默**退回默认材质 ⇒ 这条交叉断言就是那道闸。
+        // ⚠️ `B111_S4`（2026-11-01）把路径字面量收进了 `MenuFxMaterials.Additive` 常量 ⇒ 下面第一条改成「字面量或常量」二选一。
         var pe = Text("Shell/ParentEventWindow.cs");
         Check("`Shell/ParentEventWindow.cs` 文件在", pe != null);
         if (pe != null)
         {
-            Check("两方活动窗（D4）用的材质路径与本条一致：`Art/vfx/WFUI_Additive`",
-                  pe.Contains("\"Art/vfx/WFUI_Additive\""));
+            Check("两方活动窗（D4）用的材质与本条同一份（字面量或 `MenuFxMaterials.Additive`）",
+                  pe.Contains("\"Art/vfx/WFUI_Additive\"") || pe.Contains("MenuFxMaterials.Additive"));
             Check("两方活动窗（D4）的 `Shader.Find` 兜底名与本条 shader 名一致：" + ShaderName,
                   pe.Contains("\"" + ShaderName + "\""));
         }

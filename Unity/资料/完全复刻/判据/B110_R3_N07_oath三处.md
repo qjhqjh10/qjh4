@@ -27,7 +27,7 @@
 |---|---|---|
 | 1 | 候选池 = `RawCardScript.choicesDefinition(+0x2A0).filterSpecificCards(+0x70)`；`targetsAffected == 0xB4(180)` 时池就是这张表 | `decomp_full/BattleManager__GetChoiceFullPool.c:28-49` · `decomp_full/CardScript__NeedsToChooseFromPool.c:21-24` |
 | 2 | 答案 = **池里那一项**（对象引用 `RawCardScript`），存在 **`BattleManager.cardChosenInSelection` = `+0x2E8`** | `out_il2csharp/Assembly-CSharp/BattleManager.cs:126`（字段声明）· `:8963-8965`（`ChoiceOfCardEnemy` 写）· `:9271-9272`（`ClickChosenCardDone` 写） |
-| 3 | 池里两项的顺序 = SO 的 `filterSpecificCards` 顺序；**我们数据侧照原样保留了顺序**，且池内 4 张卡逐张现读：`choicesSpecificCardIds[0]` **不带** `oath` trait、`[1]` **带** | 生成器 `工具/gen_cards_engine.py:5891-5899`（按 `filterSpecificCards` 顺序 append，0 条解不出）· 数据实测（`cards_truth.json`）：`cd053fb3…`(Fall Back 平) vs `fe6fde3d…`(Fall Back 誓 `oath 2`) · `7b703582…`(No Mercy 平) vs `6ea114bc…`(No Mercy 誓 `oath 4`) |
+| 3 | 🔴 **2026-11-01 就地订正（铁律 5 · `B111_E2` 现核）**：池里两项的顺序 **⛔ 不是** `filterSpecificCards` 顺序 —— `GetChoiceFullPool` 会 **`OrderBy(uniqueId)` 字符串升序**（`out_il2csharp/Assembly-CSharp/BattleManager.cs:9138-9154`，两条 lambda 在 `:27414-27426`）。池内 **10 张** oath 二选一卡**逐卡现算**：誓约变体在池下标 **0** 的 **7 张**、在 **1** 的 **3 张** ⇒ 照旧文「下标 1 = 誓约」写死会**反 7 张**。（~~旧文原写「顺序 = SO 的 `filterSpecificCards` 顺序」+「池内 4 张：`[0]` 不带 `oath`、`[1]` 带」~~ **已作废**） | 生成器 `工具/gen_cards_engine.py:5891-5899`（按 `filterSpecificCards` 顺序 append，0 条解不出）· 数据实测（`cards_truth.json`）：`cd053fb3…`(Fall Back 平) vs `fe6fde3d…`(Fall Back 誓 `oath 2`) · `7b703582…`(No Mercy 平) vs `6ea114bc…`(No Mercy 誓 `oath 4`) |
 | 4 | ⇒ **对我们的布尔表示**：`0 = 平版 = 不付誓约`、`1 = 誓约版 = 付誓约`。与我们面板摆位**逐位相同**（`BattleDriver.ShowAsk` 先 `ChooseOath_Plain_` 再 `ChooseOath_Oath_`） | `CardPresentation/Battle/BattleDriver.cs:11350-11351` |
 
 ### 2·2 什么时候写

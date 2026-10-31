@@ -286,7 +286,7 @@ namespace CardPresentation
         /// 两处现在是**同一个数**（`CardView` 直接把本函数喂给 `CardArt.Frame/Sdf` 的 `tier` 形参）。</para>
         ///
         /// <para>⚠️ **存档**：2026-10-18 起有落盘（`WarpforgeCardLevels.json`，见上面「存档」那一段）。
-        /// 读档失败 / 没有存档 ⇒ 回这个缺省 1。写入点 = `SetLevel`（唯一调用方 `DoUpgrade`）。</para>
+        /// 读档失败 / 没有存档 ⇒ 回这个缺省 1。写入点 = `SetLevel`（调用方 = `DoUpgrade` / `DoDowngrade`；🆕 2026-11-01 `B111_S2` 就地订正：原来写「唯一调用方 `DoUpgrade`」，`DoDowngrade` 也在调它。`SetLevel` 现在回 `bool` = 「这一级真的落盘了吗」，写盘失败时内存**已撤回**）。</para>
         ///
         /// <para>⚠️ **连带后果（都已核实过）**：缺省 1 之后 `CanUpgrade` 在「给足」口径下（`Spares` = 9）
         /// **恒真** ⇒ `BoosterPackOpenWindow.ReadyForLevelUp`（开包那枚「可升级」角标）**由恒假变回可按**。</para></summary>
@@ -297,11 +297,11 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(id)) return 1;
             return _lvl.TryGetValue(id, out v) ? Mathf.Clamp(v, 1, MaxLevel) : 1;
         }
-        public static void SetLevel(string id, int l)
+        public static bool SetLevel(string id, int l)
         {
-            if (string.IsNullOrEmpty(id)) return; EnsureLoaded();   // 🔴 2026-10-31（`B110_F1`）：**先读档再写** —— `Save()` 会把当时的 `_lvl`/`_owned`/`_wild` **整份写回**；若在任何人摸过 `Level()`/`Owned()` 之前调一次本方法，不先 `EnsureLoaded()` 就会把玩家的等级/拥有数/通配符**整份清空**（静默数据丢失）。
-            _lvl[id] = Mathf.Clamp(l, 1, MaxLevel);
-            Save();                                   // 🆕 2026-10-18：落盘
+            if (string.IsNullOrEmpty(id)) return false; EnsureLoaded();   // 🔴 2026-10-31（`B110_F1`）：**先读档再写** —— `Save()` 会把当时的 `_lvl`/`_owned`/`_wild` **整份写回**；若在任何人摸过 `Level()`/`Owned()` 之前调一次本方法，不先 `EnsureLoaded()` 就会把玩家的等级/拥有数/通配符**整份清空**（静默数据丢失）。🆕 2026-11-01（`B111_S2`）：返回值 = 「这一级**真的落盘**了吗」（`false` ⇒ 内存已撤回、盘上仍是旧值）。
+            int prev; bool had = _lvl.TryGetValue(id, out prev);   // 🆕 2026-11-01（`B111_S2`）：落盘失败要**撤回内存** ⇒ 先记下写之前的原值（`had == false` ⇒ 原来没有这一格，撤回 = 删掉它）
+            _lvl[id] = Mathf.Clamp(l, 1, MaxLevel); if (Save()) return true; if (had) _lvl[id] = prev; else _lvl.Remove(id); return false;   // 🆕 2026-10-18：落盘 · 🆕 2026-11-01（`B111_S2`）：**判 `Save()` 的返回值**（原来直接丢掉 ⇒ 写盘失败也算成功，关游戏就丢；同族 = `B104_P3` 的 `AddOwned` / `TrySpendWildcard`）
         }
 
         // ============================================================ 🆕 2026-10-18：**通配符库存**
@@ -604,7 +604,7 @@ namespace CardPresentation
     }
 
     /// <summary>`CardDetailPopup : GameWindow` —— 点一张卡开的那扇详情窗（原版菜单版 `CardDisplayWindow`）。</summary>
-    public class CardDetailPopup : GameWindow
+    public partial class CardDetailPopup : GameWindow
     {
         // 层：**高于收藏窗那一整片**（它最高到 `CollectionWindow.QFltHit = 3043`）；
         //    低于 `Deck info Popup`(3120+) / `Deck Selection Popup`(3125+) / `PromptPopup`(3140+)
@@ -2631,7 +2631,7 @@ namespace CardPresentation
                 Debug.Log("[CardDetail] 已经是最低档（1 级）⇒ 降不了（用户口径：最低级**不提示**、只把钮灰掉）");
                 return false;
             }
-            CardProgress.SetLevel(Card.Id, before - 1);
+            if (!CardProgress.SetLevel(Card.Id, before - 1)) { Debug.LogError("[CardDetail] 降级**没落盘**：「" + Card.Name + "」的等级仍旧是 Lv" + CardProgress.Level(Card.Id) + " ⇒ 这一次不算数、不重画、不播任何提示"); return false; }   // 🆕 2026-11-01（`B111_S2`）：`SetLevel` 现在回 bool（写盘失败 ⇒ 内存已撤回）⇒ 别再把失败当成功
             int after = CardProgress.Level(Card.Id);
             Debug.Log("[CardDetail] " + Card.Name + " 等级 → Lv" + after + "（卡框档 = tier" + after + "）"
                     + " —— 「降级」那颗钮：Lv" + before + "→Lv" + after + "，不扣也不退任何资源");
@@ -2665,7 +2665,7 @@ namespace CardPresentation
                           + CardProgress.NeedCopies[before + 1] + "）");
                 return false;
             }
-            CardProgress.SetLevel(Card.Id, before + 1);
+            if (!CardProgress.SetLevel(Card.Id, before + 1)) { Debug.LogError("[CardDetail] 升级**没落盘**：「" + (Card != null ? Card.Name : "?") + "」的等级仍旧是 Lv" + CardProgress.Level(Card.Id) + " ⇒ 这一次不算数（⛔ 不记成就、不重画、不播动画）"); return false; }   // 🆕 2026-11-01（`B111_S2`）：`SetLevel` 现在回 bool（写盘失败 ⇒ 内存已撤回）⇒ 别再把失败当成功
             int after = CardProgress.Level(Card.Id);
             // 🆕 **2026-10-25（执行代理 `X2`）**：**升级卡成就计数**（27 条：`Ach_23` 任意档 +
             //   各阵营的 Tier2 / Tier3 那 26 条）。判据与施工单 =
@@ -3015,7 +3015,7 @@ namespace CardPresentation
             // 「点它关窗」的常驻遮罩（alpha 0.773、且带命中区）。拿它当 `fadeBackground` 会在 `ChangeFrame` 收尾
             // 把它 `SetActive(false)` ⇒ **整个窗背后不再变暗**（画面错，且玩家看不到「点空白关窗」那块）。
             // ⇒ 保持空：组件 `FadeOutImage` 会出声一次（不静默），`DoAnim` ⑤ / `ChangeFrame` ③ 无效果。
-            LevelUpEffect.fadeBackground = default(CardDisplayLevelUp.FadeImage); LevelUpEffect.pulseTarget = SlotView(0);   // 🔴 2026-10-29（`B98_P1` · 卡-18 收尾）：原版 `Level Up Card` 的 `m_ScaleCurves[0]`（`path: ''`）打的是卡视图根（`CardUI`）⇒ `pulseTarget` = **槽 0 的 `CardView`**（本窗 `Card` 永远建在槽 0）。放在 `RewireLevelUpTargets` 而不是 `EnsureUpgradeAnimation`：后者在 clip 已接好时**提前 return**（只有首次升级拿得到目标），而本方法在「`DoAnim` 之前」与「`ChangeFrame`(1.45 s) → `RebuildKeepingState()` **之后**」**两条路都走到** ⇒ 正好满足「重建后必须重指」。⚠️ **同一物理行追加**（铁律 18·b）：加行会把下游账落点（`:3494` 等）整体推走。
+            LevelUpEffect.fadeBackground = default(CardDisplayLevelUp.FadeImage); LevelUpEffect.pulseTarget = SlotView(0); BindLevelUpInheritTargets();   // 🔴 2026-10-29（`B98_P1` · 卡-18 收尾）：原版 `Level Up Card` 的 `m_ScaleCurves[0]`（`path: ''`）打的是卡视图根（`CardUI`）⇒ `pulseTarget` = **槽 0 的 `CardView`**（本窗 `Card` 永远建在槽 0）。放在 `RewireLevelUpTargets` 而不是 `EnsureUpgradeAnimation`：后者在 clip 已接好时**提前 return**（只有首次升级拿得到目标），而本方法在「`DoAnim` 之前」与「`ChangeFrame`(1.45 s) → `RebuildKeepingState()` **之后**」**两条路都走到** ⇒ 正好满足「重建后必须重指」。⚠️ **同一物理行追加**（铁律 18·b）：加行会把下游账落点（`:3494` 等）整体推走。
         }
 
         /// <summary>按名在**最新那棵**子树里取一格「可淡图」（`ImageQuad` 优先、任意 `Renderer` 兜底 ——

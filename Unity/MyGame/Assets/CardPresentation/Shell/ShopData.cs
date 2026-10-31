@@ -498,15 +498,15 @@ namespace CardPresentation
             return o[i].Name + " ×" + OwnedOf(pageIndex, i);
         }
 
-        /// <summary>自检用：把拥有数（背包）与限购推回初值 —— **限购按出厂快照逐件还原**（全部页/件，不再只写死第 1 页那两件），**并把存档文件一起删掉**（不删的话下次播种会读到上一趟的值 ⇒ 自检之间互相污染）。
-        /// <para>⚠️ 它会删**默认目录**的存档文件（`DeleteStoreForTest` → `InventoryStore.Delete`）：`ShopScene.Run` 一开场就调它 ⇒ 每趟自检都会清掉默认目录里的那份存档（同一份文件、同一趟进程 ⇒ 行为面无新增风险；⛔ 真 Play 前别顺手跑）。</para><para>⚠️ `ShopTabPage.OwnedRefusals` / `AffordRefusals` 是**单调递增的全局计数**、本函数**不**重置它们（`ResetOwnedAffordForTest` 全仓 0 调用点）⇒ 断言只能写「前后差」，⛔ 写绝对值会跨节污染。</para></summary>
+        /// <summary>自检用：把拥有数（背包）与限购推回初值 —— **限购按出厂快照逐件还原**（全部页/件，不再只写死第 1 页那两件）。🔴 **2026-11-01（`B111_R3W` · 账 N137）**：**不再删默认目录的存档**（只在**自检注入的临时目录** `OverrideDir` 上删 —— 不注入 ⇒ 一个字节都不碰玩家真存档）。
+        /// <para>⚠️ **改前**它会删**默认目录**的存档文件（`DeleteStoreForTest` → `InventoryStore.Delete`）；**2026-11-01（`B111_R3W` · 账 N137）已改成：只在 `OverrideDir` 被注入时删**（批处理无注入 ⇒ `InventoryStore.StoreOn == false` 本来就删不到；**真 Play 无注入时现在也不再删**）。</para><para>⚠️ `ShopTabPage.OwnedRefusals` / `AffordRefusals` 是**单调递增的全局计数**、本函数**不**重置它们（`ResetOwnedAffordForTest` 全仓 0 调用点）⇒ 断言只能写「前后差」，⛔ 写绝对值会跨节污染。</para></summary>
         public static void ResetForTest()
         {
             Inventories.Shop.ClearForTest();
             _shopItems.Clear();
             _seeded = false;                                 // 下次读口重新播种（出厂值）
             RestoreAvailableFromFactory();                   // 按出厂快照逐件还原（原为写死 `_cards[0].Available = 1; _cards[1].Available = 2;` ⇒ 其余页/件的 `Available` 从不还原）
-            DeleteStoreForTest();
+            if (!string.IsNullOrEmpty(OverrideDir)) DeleteStoreForTest();   // 🔴 2026-11-01（B111_R3W · 账 N137）：只在**自检注入的临时目录**上删档；没有注入 ⇒ 不碰默认目录（玩家真存档）
         }
 
         // ============================================================ 诊断

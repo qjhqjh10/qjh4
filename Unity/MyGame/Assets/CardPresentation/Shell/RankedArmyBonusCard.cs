@@ -209,11 +209,18 @@ namespace CardPresentation
                                        face: TmpFont.Face.LatinUi);
 
             // ③ Border（`40k_square_border` · Sliced · fillCenter=0 · ppuMul 5.0）
+            //   🆕 2026-11-01（`B111_S4` · 账 `B-20`）：原版这颗的材质 = #7 `UI Additive`；
+            //   且 `m_Color = (0.3396,0.3396,0.3396,1)`（原来写 `Color.white` ⇒ 亮 3 倍，顺带订正；
+            //   同一张图的另外两处在 `MainMenuRuntime.cs:3019` / `CollectionWindow.cs:4504` 都写 0.3396）。
             var borderTex = CardArt.MenuUi("40k_square_border");
             if (borderTex != null)
-                MenuDraw.Nine(t, borderTex, Abs(cardAbs, BorderRel), new Vector4(13f, 13f, 13f, 13f),
-                              borderTex.width, borderTex.height, MenuDraw.QText, Color.white,
+            {
+                var bonusBorderNine = MenuDraw.Nine(t, borderTex, Abs(cardAbs, BorderRel), new Vector4(13f, 13f, 13f, 13f),
+                              borderTex.width, borderTex.height, MenuDraw.QText,
+                              new Color(0.33962262f, 0.33962262f, 0.33962262f, 1f),
                               false, "Border");
+                MenuFxMaterials.ApplyAll(bonusBorderNine, MenuFxMaterials.Additive);
+            }
 
             // ④ Feature Badge（`UI_Army_Selection_Featured`，preserveAspect）
             var badgeTex = CardArt.MenuUi("UI_Army_Selection_Featured");

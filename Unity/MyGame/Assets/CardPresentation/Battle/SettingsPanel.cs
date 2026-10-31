@@ -724,8 +724,8 @@ namespace CardPresentation
         /// <summary>行底图 —— 原版 `Item Background` 那颗 `Image.m_Sprite`：**与主菜单那扇同一个 PathID
         /// `5175970378912652380`**（= 同一张 `40K_dropdown_item`，只有 `m_Color` 两扇不同）。
         /// `Toggle.m_SpriteState` 另给三档：`_hover` / `_press` / `_selected`（同一族四个切片）。
-        /// ⚠️ **`40K_dropdown_item_press` 本地 `Resources/` 里没有**（只在 `Art/原版/去重资源/` 当源图）
-        /// ⇒ **按下那一档没落**（如实标注；主菜单那扇的清单里也是同一张缺）；**悬停**那一档用了 `_hover`。</summary>
+        /// 🔴 **2026-11-01（`B112_A`）**：按下（`_press`）与选中（`_selected`）两档**已接上** —— 判据与优先级只在
+        /// `LangItemArtFor` 一份（⚠️ `_press` 由 `B110_W7` 2026-10-31 落盘 717×92；`_selected` 同族早就有了）。</summary>
         const string LstItemArt = "40K_dropdown_item", LstItemHiArt = "40K_dropdown_item_hover";
         /// <summary>勾那一层 —— 原版是 Unity **内置** `Checkmark`（同一 PathID `6419449077939965772`，两扇同一颗），
         /// 本地 `Resources/` 里没有导入 ⇒ 用**本扇自己那颗** `40K_settings_icon_checkmark`（Auto Zoom 那行的勾就是它）
@@ -1860,8 +1860,8 @@ namespace CardPresentation
             //       （`Canvas.overrideSorting` + `sortingLayerName = "PopUps"`）—— 要逐位对齐得给它建一层
             //       子画布；本件**先用兄弟序顶**（判据与两条可选修法都写在报告里）。
             HudCanvas.Reorder(_langField.Rect, LangListFrontZ);
-            RefreshLangRows();
-            _langHoverRow = -1;
+            _langSelRow = LangSelRowForCurrent(); RefreshLangRows();
+            ResetLangRowFx();
             Debug.Log($"[Settings] 语言下拉**点开**（{_langRows.Count} 行 —— 原版 `TMP_Dropdown.Show()`："
                     + "`Instantiate(Template)` → `\"Dropdown List\"` → `SetActive(true)` → 建全屏 `Blocker`）");
         }
@@ -1878,7 +1878,7 @@ namespace CardPresentation
             // 🔴 **2026-10-16（`T09` 批 2）**：把那颗框挪回**它本来的那一档**（开列表时挪到了最前，
             //    见 `ShowLangList` 那段）。幂等 —— 没开过列表时也挪回原位（值本来就相同）。
             if (_langField != null) HudCanvas.Reorder(_langField.Rect, LangFieldZ);
-            _langHoverRow = -1;
+            ResetLangRowFx();
             if (was) Debug.Log("[Settings] 语言下拉**收起**（原版 `Hide()` → `AlphaFadeList(0.15, 0)` → "
                              + "`DelayedDestroyDropdownList(0.15)` → `DestroyBlocker`；本件不做淡出）");
         }
@@ -1910,7 +1910,7 @@ namespace CardPresentation
 
         /// <summary>把 13 行（= `Loc.Languages.Length`）的**勾**那一层按当前语言重挑（= 原版 `Toggle.isOn = (value == i)` →
         /// `graphic`（那层勾）的 alpha；本件用 `SetActive`，见 `AutoZoom` 那条同族说明）。
-        /// 同时把行底图**复位成常态那张**（原版 `Show()` 每次都重设 `item.toggle.isOn`）。</summary>
+        /// 同时把行底图复位（原版 `Show()` 每次都重设 `item.toggle.isOn` ⇒ 当前语言那行 `_selected`、其余常态）。</summary>
         void RefreshLangRows()
         {
             for (int i = 0; i < _langRows.Count; i++)
@@ -1926,9 +1926,9 @@ namespace CardPresentation
                 // 🔴 **2026-10-16（`T09` 批 2）**：`HudPiece.SetTexture` 只有**一个**形参 ——
                 //   旧那套的 `keepAspect: true`（「比例由行框定，别让新图的自身比例覆盖它」）在 uGUI 那一侧
                 //   **天然成立**（换 `Sprite` 不动 `sizeDelta`）⇒ 那个实参退场。
-                if (row.Bg != null) row.Bg.SetTexture(CardArt.MenuUi(LstItemArt));
+                if (row.Bg != null) row.Bg.SetTexture(CardArt.MenuUi(row.Idx == _langSelRow ? LstItemSelArt : LstItemArt));
             }
-            _langHoverRow = -1;
+            ResetLangRowFx();
         }
 
         /// <summary>指针落在**第几行**上（`-1` = 不在任何一行上）。判据 = 那一行的底图那块**矩形**
@@ -1980,24 +1980,24 @@ namespace CardPresentation
             return kb != null && kb.escapeKey.wasPressedThisFrame;
         }
 
-        /// <summary>悬停那一档（原版 `Item` 那颗 `Toggle` 的 `m_Transition = 2`(SpriteSwap) 的
-        /// `m_SpriteState.m_HighlightedSprite` = `40K_dropdown_item_hover`）。
-        /// ⚠️ **按下那一档没落**：`40K_dropdown_item_press` 本地 `Resources/` 里没有（见 `LstItemArt` 那条）。
-        /// 只在**换行**时才动贴图（`HudPiece.SetTexture` 在 uGUI 档**不动 `sizeDelta`** ⇒ 比例仍由行框定 ✓）。</summary>
-        void RefreshLangHover(Vector3 world)
+        /// <summary>语言行的**四档**：常态 / 悬停（`m_SpriteState.m_HighlightedSprite` = `_hover`）/ 按下（`m_PressedSprite` = `_press`）
+        /// / 选中（`m_SelectedSprite` = `_selected`）。优先级 = `Pressed > Selected > Highlighted > Normal`（UGUI `Selectable`）。
+        /// 🔴 **2026-11-01（`B112_A`）**：以前只有 normal + hover，按下与选中两档本轮接上（判据见方法体注释）。
+        /// 只在**换状态**时才动贴图（`HudPiece.SetTexture` 在 uGUI 档**不动 `sizeDelta`** ⇒ 比例仍由行框定 ✓）。</summary>
+        void RefreshLangHover(Vector3 world, bool down)
         {
-            if (!LangListOpen) { _langHoverRow = -1; return; }
+            if (!LangListOpen) { ResetLangRowFx(); return; }
             int i;
             HitLangRow(world, out i);
-            if (i == _langHoverRow) return;
-            _langHoverRow = i;
-            for (int k = 0; k < _langRows.Count; k++)
-            {
-                var row = _langRows[k];
-                if (row.Bg == null) continue;
-                bool hot = row.Idx == i;
-                row.Bg.SetTexture(CardArt.MenuUi(hot ? LstItemHiArt : LstItemArt));
-            }
+            // 判据（2026-11-01 现读 `bundle_scenes_scenes_battlearena1`）：`LanguagesDropdown`（TMP_Dropdown，MonoBehaviour 5260）
+            // → `Template`(3553) → `Viewport`(2642) → `Content`(2761) → `Item`(2589)，那颗 `Toggle` 在 MonoBehaviour 4939：
+            // `m_Transition = 2`(SpriteSwap)；`m_SpriteState` 三档 = `_hover` / `_press` / `_selected`；
+            // 常态图 = `Item Background` 的 `Image.m_Sprite`（`40K_dropdown_item`）。
+            // `_selected` = UGUI `Selectable` 的 **EventSystem 选中**（`hasSelection`），⛔ 不是 `Toggle.isOn`；
+            // 当前语言那行两者同时成立：`Show()` 先 `isOn = value == i`、再 `Select()`；按下别的行会把选中挪过去。
+            // 按下从**按下的那一帧**起算、`OnPointerUp` 才摘（`OnPointerExit` 不清 `isPointerDown`）⇒ 拖出去仍算按下。
+            // ⛔ 别把「悬停当前行仍显示 `_selected`」当 bug：Selected 的优先级在 Highlighted 之上。
+            RefreshLangRowFx(i, down);
         }
         int _langHoverRow = -1;
         /// <summary>列表底板的九宫格根（自检量「建出来了没有」；⛔ 只读）。
@@ -2320,7 +2320,7 @@ namespace CardPresentation
         {
             if (!Visible)
             {
-                _langHoverRow = -1;
+                ResetLangRowFx();
                 ResetSliderFeedback();
                 return false;
             }
@@ -2330,9 +2330,9 @@ namespace CardPresentation
             //   `BattleDriver.cs` 不在本件的白名单里 ⇒ 这里是本件唯一「每帧必到」的入口。
             //   ⛔ 别把这句挪进别处（它是**帧级**边沿、与指针无关）。
             if (EscDown()) EscPressed();
-            // 语言行的悬停高亮：**只换贴图、不派发动作**（原版 `Toggle` 的
-            //   `m_SpriteState.m_HighlightedSprite` = `40K_dropdown_item_hover`）。
-            RefreshLangHover(world);
+            // 语言行的悬停 / 按下 / 选中三档：**只换贴图、不派发动作**（判据与优先级在 `RefreshLangRowFx` 一份）。
+            //   `down` 是「按住」—— 按下从按下的那一帧起算、抬手才回到悬停/选中/常态。
+            RefreshLangHover(world, down);
             // 五颗钮的悬停/按下/禁用反馈（`BattleButtonFx`）：同样**只改色/换图**，不派发动作。
             //   判据与算式只在那一个状态机里。列表开着时那颗全屏 `Blocker` 盖住整扇窗 ⇒ 全灭。
             UpdateButtonFeedback(world, allow: !LangListOpen, held: down);
@@ -2773,5 +2773,74 @@ namespace CardPresentation
         public Vector3 LanguageArrowWorldPos { get { return _langArrow != null ? _langArrow.transform.position : Vector3.zero; } }
         /// <summary>左边那颗标签的世界坐标（= 原版 `SelectLanguageText` 框的**左中**）。</summary>
         public Vector3 LanguageLabelWorldPos { get { return _langSelText != null ? _langSelText.transform.position : Vector3.zero; } }
+
+        // ================================================================== 🆕 2026-11-01（`B112_A`）· 语言行四档
+        //  判据（2026-11-01 逐条现读）：
+        //  · 原版 `bundle_scenes_scenes_battlearena1` 的 `LanguagesDropdown`（TMP_Dropdown，MonoBehaviour 5260）
+        //    → `Template`(3553) → `Viewport`(2642) → `Content`(2761) → `Item`(2589)，那颗 `Toggle` 在 MonoBehaviour 4939：
+        //    `m_Transition = 2`(SpriteSwap)；`m_SpriteState` 三张 = `40K_dropdown_item_hover`(-6377914031943789329) /
+        //    `40K_dropdown_item_press`(-3481093018516789584) / `40K_dropdown_item_selected`(534451138392065100)；
+        //    常态图在 `Item Background`(4776) 的 `Image.m_Sprite` = `40K_dropdown_item`(5175970378912652380)。
+        //  · `_selected` 的语义 = **EventSystem 选中**（UGUI `Selectable.currentSelectionState` 的 `hasSelection`），
+        //    ⛔ 不是 `Toggle.isOn` —— `com.unity.ugui@2.0.0` 的 `Toggle` **没有** `DoStateTransition` 覆写
+        //    （`Runtime/UGUI/UI/Core/Toggle.cs` 现读；`selectedSprite` 只在 `Selectable.cs:684` 的 Selected 分支取）。
+        //    但当前语言那行**两者同时成立**：`TMP_Dropdown.Show()` 先 `item.toggle.isOn = value == i`、
+        //    再 `if (item.toggle.isOn) item.toggle.Select();`（`Runtime/TMP/TMP_Dropdown.cs:898 / :903`）。
+        //  · 优先级 = `Disabled > Pressed(isPointerDown) > Selected(hasSelection) > Highlighted(isPointerInside) > Normal`
+        //    （`Selectable.cs:611-623`）；`isPointerDown` 由 `OnPointerDown` 挂上、`OnPointerUp` 才摘
+        //    （`OnPointerExit` 不清它）⇒ **按下后拖出去仍是按下**。
+        const string LstItemPrArt = "40K_dropdown_item_press", LstItemSelArt = "40K_dropdown_item_selected";
+
+        /// <summary>语言行底图那一档的图名（纯函数；`RefreshLangRowFx` 唯一的取图口）。
+        /// `selected` = UGUI `Selectable` 的**选中那一行**（`hasSelection`；打开时 = 当前语言那行）。
+        /// 优先级逐字照 UGUI `Selectable.currentSelectionState`：`Pressed > Selected > Highlighted > Normal`。</summary>
+        static string LangItemArtFor(bool selected, bool hover, bool pressed)
+            => pressed ? LstItemPrArt : selected ? LstItemSelArt : hover ? LstItemHiArt : LstItemArt;
+
+        /// <summary>自检口：四档判据（⛔ 只读；`RefreshLangRowFx` 用的就是同一个函数）。</summary>
+        public static string LangItemArtForTest(bool selected, bool hover, bool pressed)
+            => LangItemArtFor(selected, hover, pressed);
+
+        /// <summary>打开列表时「选中那一行」= 当前语言那一行（原版 `Show():903` 的 `if (isOn) Select()`）。</summary>
+        static int LangSelRowForCurrent()
+        {
+            var langs = Loc.Languages;
+            var cur = Loc.Current;
+            for (int i = 0; langs != null && i < langs.Length; i++) if (langs[i] == cur) return i;
+            return -1;
+        }
+
+        /// <summary>语言行的悬停 / 按下 / 选中状态机（`RefreshLangHover` 的落点）。</summary>
+        void RefreshLangRowFx(int hover, bool down)
+        {
+            if (down && !_langDownPrev)
+            {
+                _langPressRow = hover;                          // 按下那一刻落在哪一行就跟着哪一行（拖出去不清）
+                if (hover >= 0) _langSelRow = hover;            // = 原版 `Selectable.OnPointerDown → Select()`
+            }
+            else if (!down) _langPressRow = -1;                 // = 原版 `OnPointerUp` 才摘 `isPointerDown`
+            _langDownPrev = down;
+            if (hover == _langHoverRow && _langPressRow == _langPressShown) return;
+            _langHoverRow = hover;
+            _langPressShown = _langPressRow;
+            for (int k = 0; k < _langRows.Count; k++)
+            {
+                var row = _langRows[k];
+                if (row.Bg == null) continue;
+                bool sel = row.Idx == _langSelRow;
+                row.Bg.SetTexture(CardArt.MenuUi(LangItemArtFor(sel, row.Idx == hover, _langPressShown == row.Idx)));
+            }
+        }
+
+        /// <summary>清这一族的状态（关窗 / 收列表 / 重刷行时）—— 免得下次打开先亮一帧旧状态。
+        /// ⚠️ **别在这里清 `_langSelRow`**：`RefreshLangRows` 是「先按它画完、再调本函数」⇒ 清了下一帧会全变常态。</summary>
+        void ResetLangRowFx()
+        {
+            _langHoverRow = -1;
+            _langPressRow = _langPressShown = -1;
+            _langDownPrev = false;
+        }
+        int _langPressRow = -1, _langPressShown = -1, _langSelRow = -1;
+        bool _langDownPrev;
     }
 }

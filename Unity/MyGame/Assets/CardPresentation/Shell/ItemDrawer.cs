@@ -1287,7 +1287,7 @@ namespace CardPresentation
                 res.MissingArt = true;
                 return;
             }
-            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip,
+            MenuDraw.Rect(node, tex, IconRect(box, st), NodeIcon, st.QArt, null, true, st.Clip,
                           st.ClipSoftness);
         }
 
@@ -1302,7 +1302,7 @@ namespace CardPresentation
                 return;
             }
             res.Art = item.Art;
-            MenuDraw.Rect(node, tex, Square(box, st.IconFill), NodeIcon, st.QArt, null, true, st.Clip,
+            MenuDraw.Rect(node, tex, IconRect(box, st), NodeIcon, st.QArt, null, true, st.Clip,
                           st.ClipSoftness);
             if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
         }
@@ -1313,7 +1313,7 @@ namespace CardPresentation
         static void Placeholder(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
         {
             res.Placeholder = true;
-            var br = Square(box, st.IconFill);
+            var br = IconRect(box, st);
             MenuDraw.Rect(node, CardArt.Solid(), br, NodePlaceholder, st.QBoard, BoardColor, false, st.Clip,
                           st.ClipSoftness);
             if (st.NamePx > 0f && !string.IsNullOrEmpty(item.Label))

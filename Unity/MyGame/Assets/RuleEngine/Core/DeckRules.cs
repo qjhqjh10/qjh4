@@ -771,7 +771,7 @@ namespace RuleEngine
 
         public PlayerDeck Clone()
         {
-            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds, GameMode) { CardbackId = CardbackId, WarcryId = WarcryId };
+            return new PlayerDeck(Name, WarlordId, DefensiveId, CardIds, GameMode) { CardbackId = CardbackId, WarcryId = WarcryId, DeckArmy = DeckArmy };
         }
 
         /// <summary>放进/拿走一张普通卡。返回是否真的变了（UI 用来决定要不要重排）。</summary>
@@ -1055,6 +1055,65 @@ namespace RuleEngine
         /// （持有清单属服务器 / PlayFab，关服后判据在远端、本机 0 命中）⇒ 我们**只能**把非空 id 当作持有。
         /// 为什么必须自己定：判据为空，不是我们没查到 · 调度台 2026-10-28 裁定（依据 `资料/完全复刻/报告/B92_B2.md` W10）。</para></summary>
         public string WarcryId;
+
+        // ================================================================================================
+        //  🆕 2026-11-01（`B111_R1WB`）· 原版 **`CardDeck.deckArmy`（字段偏移 `+0x50`）** 的字段化
+        //  ================================================================================================
+        /// <summary>这副卡组的**阵营**（原版 `CardDeck.deckArmy`，类型 `CardArmy`，字段偏移 `+0x50`）。
+        ///
+        /// <para>**标识符判定源（五处现读，⛔ 别改名）**：签名桩 `Warpforge_code/Scripts/Assembly-CSharp/CardDeck.cs:26` ·
+        /// ILSpy `cpp2il/out_cpp2il_dev_ilspy/CardDeck.cs:105` · il2csharp `CardDeck.cs:27`（`// 0x50`）·
+        /// `dump.cs:20479` · Ghidra `decomp_full/CardDeck__CanAddCard.c:91`（读 `param_1 + 0x50`）。
+        /// 原版标识符就是 **`deckArmy`**，语义是**阵营本身**、不是展示名 ⇒ 我们按本类既有约定镜像成 `DeckArmy`，⛔ 别叫 `DeckArmyName`。</para>
+        ///
+        /// <para>**三档取值**：<c>null</c> = **旧档缺键**（本字段是后加的，`JsonUtility` 对缺键给 null）⇒ 读口回落到派生值
+        /// （= 加字段之前的行为，**逐字节不变**）；<c>"Neutral"</c> = 原版 `CardArmy.Neutral`；其余 = 阵营名
+        /// （比较一律走 <see cref="DeckRules.SameFaction"/>）。**读口只有一处** = <see cref="DeckRules.DeckArmy"/>。</para>
+        ///
+        /// <para>🔶 自己设计（非原版）：**「null = 缺键」这一档**。原版没有迁移机制 —— `CardDeck.deckArmy` 由构造函数 / 写点
+        /// **必写**（`DeckBasicSetup` `CardDeck.cs:291` · 拷贝构造 `:485` · `GetEmptyDeck` 那一支 `:610` · `AddCard` `:656/:709` ·
+        /// `AddHero` `:926/:938` · `RemoveCard` `:643` · `DeserializeDeckString` `:1786`），它**从不**从可能缺键的 JSON 反序列化
+        /// （`CardDeck.Serialize` 不写 `+0x50`；服务端 DTO `SerializedPlayerDeckData` 无该字段）。
+        /// 为什么必须自己定：判据为空（不是没查到，搜索范围见 `资料/完全复刻/报告/B111_R1WB.md` §1·2）· 调度台 2026-11-01 裁定：
+        /// **不引入版本号、不新造迁移机制，旧档沿用既有派生值**。</para>
+        ///
+        /// <para>⚠️ **写点**（照原版七处，⛔ 别在别处再写 `DeckArmy =`）：<see cref="SetDeckArmyFromCard"/>
+        /// （`AddHero` / `AddCard` 的 `CardCount(hero:1)==0` 那一支）· <see cref="SetDeckArmyNeutral"/>
+        /// （`RemoveCard` 摘到空 / `GetEmptyDeck`）· `DeckLibrary.ImportString`（`DeserializeDeckString`：**只由督军定**）·
+        /// `PlayerDeck.Clone()`（拷贝构造）；**防御卡加/摘不碰它**（原版 `AddDefensiveCard`/`RemoveDefensiveCard` 不写）。</para></summary>
+        public string DeckArmy;
+
+        /// <summary>原版 `CardArmy.Neutral` 在我们这边的写法（工程既有约定 `"Neutral"`，同 <see cref="DeckRules.IsNeutralFaction"/>）。
+        /// ⛔ 别用空串 —— `CardDef.Faction` 的空串语义是「哪个阵营都不是」，不等于中立。</summary>
+        public const string DeckArmyNeutral = "Neutral";
+
+        /// <summary>原版 `AddHero` / `TryAddHero` / `AddCard`（空卡组那一支）的写口：阵营 = <paramref name="card"/> 的阵营；
+        /// <c>null</c> / 中立 ⇒ <see cref="DeckArmyNeutral"/>。</summary>
+        public void SetDeckArmyFromCard(CardDef card)
+        {
+            SetDeckArmyFromFaction(card != null ? card.Faction : null);
+        }
+
+        /// <summary>同上，但直接吃阵营串（`DeckBasicSetup(hero)` / prebuilt 那一类只知道阵营的入口用）。
+        /// 空串或中立 ⇒ <see cref="DeckArmyNeutral"/>（原版 `DeckBasicSetup`：`hero == null ⇒ Neutral`；
+        /// 督军自己就是中立阵营也 ⇒ `Neutral`）。</summary>
+        public void SetDeckArmyFromFaction(string faction)
+        {
+            DeckArmy = (string.IsNullOrEmpty(faction) || DeckRules.IsNeutralFaction(faction)) ? DeckArmyNeutral : faction;
+        }
+
+        /// <summary>原版 `RemoveCard`（摘之后 `CardCount(hero:1)==0 ⇒ Neutral`）/ `GetEmptyDeck` 的写口。</summary>
+        public void SetDeckArmyNeutral() { DeckArmy = DeckArmyNeutral; }
+
+        /// <summary>按**督军**定阵营（原版 `DeserializeDeckString` → `DeckBasicSetup(name, 串里那张 hero, …)`：
+        /// **只由督军定、⛔ 不看卡表**）。督军为空 / 解析不出来 ⇒ `Neutral`。
+        /// <paramref name="heroCard"/> 已经解出来时直接传，省一次查表。</summary>
+        public void SetDeckArmyFromHeroId(string heroId, Func<string, CardDef> lookup, CardDef heroCard = null)
+        {
+            var c = heroCard;
+            if (c == null && !string.IsNullOrEmpty(heroId) && lookup != null) c = ResolveEntry(heroId, lookup, out _);
+            SetDeckArmyFromFaction(c != null ? c.Faction : null);
+        }
     }
 }
 
@@ -1130,18 +1189,36 @@ namespace RuleEngine
             public static string DeckArmy(PlayerDeck deck, Func<string, CardDef> lookup)
             {
                 if (deck == null) return null;
-                if (lookup == null) return null;   // 查不了卡 ⇒ 连督军阵营都取不到 ⇒ 如实返回 Neutral，⛔ 不猜
 
-                // ① 督军在场 ⇒ 督军阵营（原版 `AddHero` / `DeckBasicSetup` / `TryAddHero` 三条都这么写）。
-                //    督军自己就是中立阵营 ⇒ 原版 `deckArmy = Neutral`（**不再往下看卡表**，照抄）。
-                if (!string.IsNullOrEmpty(deck.WarlordId))
+                // ⓪ 🔴 **督军在场 ⇒ 督军阵营（原版【不变量】，不是派生兜底）**
+                //    判据：`CardDeck__DeckBasicSetup.c` **无条件**写 `deck+0x50 = hero.cardArmy`（`hero == null` 才写 `0` = Neutral）；
+                //    其余写点也都保这条不变量（`AddHero`/`TryAddHero` 写督军阵营；`RemoveCard` 只在 `CardCount(countHero:1)==0` 归 Neutral）
+                //    ⇒ **原版不存在「有督军但 `deckArmy` ≠ 督军阵营」这个状态**。
+                //    我们有一批入口**绕过写点直接写 `WarlordId`**（自检夹具、`DeckLibrary.Create` 之后逐格赋值、旧存档反序列化…）——
+                //    那些状态原版到不了 ⇒ 读口按不变量把它修回督军阵营（⛔ 这不是新语义，是原版不变量的复原；
+                //    2026-11-01 `B115_D1` 红诊断：字段化后这批入口全被「字段优先」挡住，25 条自检红）。
+                if (lookup != null && !string.IsNullOrEmpty(deck.WarlordId))
                 {
                     var w = PlayerDeck.ResolveEntry(deck.WarlordId, lookup, out _);
                     if (w != null) return IsNeutralFaction(w.Faction) ? null : w.Faction;
                     // 督军 id 解析不出来 ⇒ 原版不可能有这个状态（它存的是对象引用）⇒ 继续按卡表推，末尾会返回 null
                 }
 
-                // ② 没督军（或督军查不到）但有卡 ⇒ 卡表第 0 张能解析出来的那张卡的阵营
+                // ① 没有督军且 `cardLibrary` 为空 ⇒ 原版 `CardArmy.Neutral`
+                //    判据：`CardDeck__RemoveCard.c` 在 `CardCount(countHero:1)==0` 时写 Neutral（防御卡不算，它在 `+0x48`）
+                //    ⇒ 「既没督军、卡表也空」的 `deckArmy` 恒为 Neutral —— 同样是不变量，字段里残留的旧值不作数。
+                if (deck.CardIds == null || deck.CardIds.Count == 0) return null;
+
+                // ② 字段已定值（**空串按「没定过」处理**）⇒ 字段说了算
+                //    `null` = 缺键（旧存档 / 新造还没定过）· `""` = `JsonUtility` 把 null 写成空串（`ToJson` 的既有行为，`DeckStore` 里 `WarcryId` 同形）
+                //      ⇒ 两者都**不是**阵营名，一律回落派生（⛔ 别让 `""` 冒充阵营：`Validate` 会拿它比 `SameFaction` ⇒ 整副 `WrongFaction`）。
+                //    `"Neutral"` = 原版 `CardArmy.Neutral`（对外仍返回 null，本方法契约不变）· 其余 = 阵营名。
+                //    🔶 旧档兼容（原版无此机制：`CardDeck.deckArmy` 由构造器/写点**必写**，从不从可能缺键的 JSON 反序列化）
+                //      ⇒ 缺键时沿用既有派生值；调度台 2026-11-01 裁定：不引入版本号 / 不新造迁移机制。
+                if (!string.IsNullOrEmpty(deck.DeckArmy)) return IsNeutralFaction(deck.DeckArmy) ? null : deck.DeckArmy;
+                if (lookup == null) return null;   // 查不了卡 ⇒ 连督军阵营都取不到 ⇒ 如实返回 Neutral，⛔ 不猜
+
+                // ③ 旧存档缺键（`DeckArmy == null` / `""`）⇒ 沿用既有派生：卡表第 0 张能解析出来的那张卡的阵营
                 //    （原版 `AddCard`：空卡组加第一张时记 deckArmy；此后每张都要过本闸 ⇒ 全列表同阵营）
                 if (deck.CardIds != null)
                 {
@@ -1156,7 +1233,7 @@ namespace RuleEngine
                     }
                 }
 
-                // ③ 都没有（或全都解析不出来）⇒ 原版 `deckArmy` 的出厂值 `CardArmy.Neutral`
+                // ④ 都没有（或全都解析不出来）⇒ 原版 `deckArmy` 的出厂值 `CardArmy.Neutral`
                 return null;
             }
         }

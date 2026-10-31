@@ -162,7 +162,7 @@ namespace RuleEngine
         [System.Obsolete("潜伏误用（B106_W7 2026-10-31）：原版「新建」不入库（A1697 / SelectDecksTab.CreateDeck ⇒ GetEmptyDeck + 直接开窗）。生产请用 NewUnsaved() 造、走 Done 那条 Validate→Insert 链；本口只服务自检夹具。")] public PlayerDeck Create(string name, int gameMode = 0)
         {
             var d = new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name),
-                                   null, null, null, gameMode);
+                                   null, null, null, gameMode); d.SetDeckArmyNeutral();   // 🆕 2026-11-01（`B111_R1WB`）：原版 `GetEmptyDeck` ⇒ `deckArmy = Neutral`
             _decks.Add(d);
             _current = _decks.Count - 1;
             SaveOrWarn("Create");        // 🔴 A398：返回值是对象 ⇒ 落盘成败走 `SaveOrWarn`（原来是裸 `Save();`，把结果吞了）
@@ -188,8 +188,8 @@ namespace RuleEngine
         {
             // ⚠️ 重名去重**仍然走 `UniqueName`**（它只读 `_decks`、不写）—— 这样「不入库的新卡组」
             //    与库里已有的同名卡组**当场就区分开**（否则入库那一刻会平白多一个「 2」）。
-            return new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name),
-                                  null, null, null, gameMode);
+            var nd = new PlayerDeck(UniqueName(string.IsNullOrEmpty(name) ? "新卡组" : name),
+                                  null, null, null, gameMode); nd.SetDeckArmyNeutral(); return nd;   // 🆕 2026-11-01（`B111_R1WB`）：原版 `GetEmptyDeck` ⇒ `deckArmy = Neutral`
         }
 
         /// <summary>把一副**还没入库**的卡组登记进库并落盘 —— 入库的唯一入口，照原版
@@ -346,7 +346,7 @@ namespace RuleEngine
             dst.DefensiveId = deck.DefensiveId;
             dst.CardIds = new List<string>(deck.CardIds ?? new List<string>());
             // ⚠️ **逐字段拷**：新加字段忘了在这一行补 = **换了卡背、存了、再打开就没了**（静默丢数据）。
-            dst.CardbackId = deck.CardbackId;
+            dst.CardbackId = deck.CardbackId; dst.DeckArmy = deck.DeckArmy;   // 🆕 2026-11-01（`B111_R1WB`）：原版 `CardDeck.CopyDeck` 逐格拷 ⇒ 阵营也要拷，否则 Done 一次就把 `deckArmy` 静默丢了
             // 🆕 2026-09-26：模式**只在新建立时定**（照原版），所以这里**不跟着编辑器的副本走** ——
             //   编辑器改的是内容，改不了模式（原版也没有那条路）。留着这一行是为了「导入/复制」那条路
             //   能把模式带进库；`CommitCurrent` 的调用方（`DeckRuntime` 保存）传进来的副本本来就带着同一个值。
@@ -491,7 +491,7 @@ namespace RuleEngine
 
             string deckName = string.IsNullOrEmpty(name) ? "导入的卡组" : name;
             if (lookup == null)
-                return new PlayerDeck(deckName, null, null, rawIds, gameMode);
+                { var noLookup = new PlayerDeck(deckName, null, null, rawIds, gameMode); noLookup.SetDeckArmyNeutral(); return noLookup; }   // 🆕 2026-11-01（`B111_R1WB`）：没有 hero ⇒ 原版 `DeckBasicSetup` 那一档 = Neutral
 
             // ① **现代解**：按卡的类型摘（原版 `DeserializeDeckString.c:147,155` —— 按类型不按位置）
             List<string> modernDropped;
@@ -548,7 +548,7 @@ namespace RuleEngine
                 else if (c.Type == "hero") { if (hero == null) hero = id; else rest.Add(id); }
                 else rest.Add(id);
             }
-            return new PlayerDeck(name, hero, def, rest, gameMode);
+            var d = new PlayerDeck(name, hero, def, rest, gameMode); d.SetDeckArmyFromHeroId(hero, lookup); return d;   // 🆕 2026-11-01（`B111_R1WB`）：原版 `DeserializeDeckString` → `DeckBasicSetup` ⇒ `deckArmy` **只由督军定、⛔ 不看卡表**
         }
 
         /// <summary>加一套外部来的卡组（导入用）。名字重了自动加序号。</summary>

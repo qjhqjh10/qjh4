@@ -534,6 +534,13 @@ class Program
                 //    本子命令把中间每一跳（归位下标 → `TryGetCondition` → `CountTargets` → `repeats`）摆出来。
                 //    ⚠️ 同 `a24`/`g2`：读数而已，正式验收仍是 `RuleEngineTest.Run`。
                 case "n2": LoadPool(); Environment.Exit(N2Probe.Run(Pool)); break;
+                // 🆕 **`effects <卡id|卡名>` / `effects all [dump <tsv>]`**（`B111_E3`，2026-11-01 · 账 `特效动画:521` 残差 S7）：
+                //    **效果投影**（原版 `GetCardEffectsToShow` → `EffectsToShow.Of`）的读数口 —— 逐条打印
+                //    「这张卡的效果树被解析成什么」＋「打出去之后各单位投影成哪几行 / 有没有超 5 槽被截断」。
+                //    🔴 为什么需要它：`play all dump` 是结算层、`scan`/`layers` 是解析层，**两个口都照不到**这条链
+                //    ⇒ `B101_R7` §七·4「池内有没有 >5 条」一直是「未测」。实现与判据见 `EffectsProbe.cs` 头注。
+                //    ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play`/`ai`/`traits` 的任何输出。
+                case "effects": Environment.Exit(EffectsProbe.Run(args.Length > i + 1 ? args[i + 1] : "", args.Length > i + 2 ? args[i + 2] : "", args.Length > i + 3 ? args[i + 3] : "")); break;
                 // 🆕 **`play`**（`A1431`，2026-10-11）：**逐卡真打** —— 「这张卡打出去，数字对不对」。
                 //    在本子命令之前，本仓 **9 类**检查手段**全部只回答「这句英文今天解析成什么样」**，
                 //    没有一条回答「这张卡打出去数字对不对」⇒「**解析过、结算错**」这一整类

@@ -380,6 +380,11 @@ namespace CardPresentation
         public const float P1BackFont = 45f, P1BackBase = 31.9f, P1BackMin = 1f, P1BackMax = 45f;
 
         // ---- 第 2 页（`TwoSidesEvent_OnGoingTab`）矩形 ----
+        // 🆕 2026-11-01（`B111_S4` · 账 `B-20`）：`Event On Going Tab ▸ VS Text` 那一对。
+        //   判据 = `python -I -X utf8 d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Two Sides Event Window" --depth 14 --md`
+        //   的绝对矩形（第 130-132 行）——⛔ 不是按截图量的。
+        public static readonly PxRect P2VsR      = new PxRect(532.69f, 503.71f, 777.31f, 756.29f);    // 244.63×252.58
+        public static readonly PxRect P2VsGlowR  = new PxRect(517.09f, 489.16f, 792.90f, 770.84f);    // 275.81×281.68
         public static readonly PxRect P2RedBgR = new PxRect(0f, 93.6f, 1920f, 1015.4f);   // 子件导出值（父 rect 退化，见文件头）
         public static readonly PxRect P2VignetteR = new PxRect(-0f, -28.2f, 1920f, 1082.3f);
         public static readonly PxRect P2HeaderR = new PxRect(0f, 40.9f, 550f, 150.4f);
@@ -1167,10 +1172,14 @@ namespace CardPresentation
 
             // `Border`（40k_square_border · 九宫 13,13,13,13 · ppuMul 5 · fillCenter=0）
             //   🆕 **2026-10-17（`N53②`）**：原版这颗也挂 `SkewedImage skewVector=(0.09,0)` ⇒ 同斜切。
-            MenuDraw.Nine(bg, Tex(ArtBorder, "队伍卡边框"), Scr(card), new Vector4(13f, 13f, 13f, 13f),
+            // 🆕 2026-11-01（`B111_S4` · 账 `B-20`）：原版这颗的材质 = `Material_-8464978790139598553.json`
+            //   （`UI Additive`，`Blend One One`；`m_Color = (0.3411765,…)` = 本处 `TeamBorderTint`，逐位吻合）。
+            //   ⛔ 必须在 `Nine` 之后（`ImageQuad.SetMaterial` 会从旧材质读走渲染队列）。
+            var teamBorderNine = MenuDraw.Nine(bg, Tex(ArtBorder, "队伍卡边框"), Scr(card), new Vector4(13f, 13f, 13f, 13f),
                           64f, 64f, QPageArt1, TeamBorderTint, false, "Border",
                           new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f),
                           null, default, skewX: 0.09f);
+            MenuFxMaterials.ApplyAll(teamBorderNine, MenuFxMaterials.Additive);
 
             var top = MenuDraw.Node(bg, "Top", Scr(topR));
             var cap = MenuDraw.TextBox(top, Scr(captainR), P1Captain, Color.white, "Team captain",
@@ -1205,6 +1214,15 @@ namespace CardPresentation
                           new Vector4(0f, 26f, 0f, 26f), 21f, 81f, QPageBg, null, true, "Reward Background Get Reward");
             MenuDraw.Tiled(gen, Tex(ArtNoise, "活动页噪点"), Scr(P2RedBgR), 1024f, QPageArt, "Noise", NoiseTint);
             MenuDraw.Rect(gen, CardArt.Solid(), Scr(P2VignetteR), "Menu Vignette", QPageArt, VignetteTint);
+
+            // 🆕 2026-11-01（`B111_S4` · 账 `B-20` 节点 22）：原版 `Event On Going Tab ▸ VS Text`（容器）
+            //   ▸ { `Glow`, `VS Text`(图 `VS_icon`) } —— 两个子件的 `m_Children` 序 = **Glow 在前**（先画、在下）。
+            //   `Glow` 的材质 = #7 `UI Additive`（`m_Color (1,0,0.8835,1)`、sprite `Glow UI W40K`），
+            //   与第 1 页那颗 `Glow / Select Team Tab` **同图同色**（尺寸 275.81×281.68 vs 391.67×400）。
+            var p2Vs = MenuDraw.Node(page, "VS Text", Scr(P2VsR));
+            ApplyEventUiMaterial(MenuDraw.Rect(p2Vs, Tex(ArtGlow, "VS 文字的光晕"), Scr(P2VsGlowR), "Glow", QPageArt,
+                          new Color(1f, 0f, 0.8834677f, 1f)), false);
+            MenuDraw.Rect(p2Vs, Tex(ArtVs, "VS 图标"), Scr(P2VsR), "Image", QPageArt1, Color.white, true);
 
             // 表头（`WindowHeaderWithBackButton`）+ 返回钮
             var header = MenuDraw.Node(page, "Game Mode Header With Back Button", Scr(P2HeaderR));
@@ -2559,36 +2577,16 @@ namespace CardPresentation
         // ⚠️ 每颗 quad 必须拿**自己的** `Material` 实例：`ImageQuad.SetTint` / `SetRenderQueue` 写的是
         //    `sharedMaterial.color` / `.renderQueue`（同 `Shell/MenuFxMaterials.cs` 文件头那条 🔴）。
         // ⚠️ 顺序：`MenuDraw.Rect` 已把渲染队列设好，本方法在其后调 ⇒ `ImageQuad.SetMaterial` 会把旧队列带过去。
-        static readonly HashSet<string> _warnedUiMat = new HashSet<string>();
-
         /// <summary>把原版 UI 材质挂到一颗 quad 上（`scanLines = true` ⇒ #11，否则 #7）。
-        /// <para>取不到材质 ⇒ 保留原样（静态图）并**只告警一次**。</para></summary>
+        /// <para>🆕 **2026-11-01（`B111_S4` · 账 `B-21`）收口**：取材质 / `Shader.Find` 兜底 / 逐颗克隆
+        /// 全部收进 `Shell/MenuFxMaterials.cs`（常量 `ScanLines` · `Additive`；方法 `Proto` / `Apply`）。
+        /// 本处只留「哪个开关对应哪份材质、shader 兜底叫什么」这一句映射。⛔ 别把克隆纪律抄回来。
+        /// 取不到 ⇒ 保留原样（静态图），告警由 `MenuFxMaterials` 统一出声（只出一次）。</para></summary>
         static void ApplyEventUiMaterial(ImageQuad q, bool scanLines)
         {
-            if (q == null) return;
-            string matRes = scanLines ? "Art/vfx/WFUI_ScanLines" : "Art/vfx/WFUI_Additive";
-            string shaderName = scanLines ? "WarpforgeVFX/UI/Scan Lines" : "WarpforgeVFX/UI/Additive";
-
-            var proto = Resources.Load<Material>(matRes);
-            string missing = "`Resources/" + matRes + "`";
-            if (proto == null)
-            {
-                var sh = Shader.Find(shaderName);
-                if (sh != null) proto = new Material(sh);
-                else missing += " 与 shader `" + shaderName + "`";
-            }
-            if (proto == null)
-            {
-                if (_warnedUiMat.Add(matRes))
-                    Debug.LogWarning("[Event] 原版 UI 材质取不到：" + missing + " ⇒ `Scan Lines` / `Glow` 退回原静态图"
-                                   + "（出声，不静默；#11 由 `B110_M2`、#7 由 `B110_M3` 产出）");
-                return;
-            }
-
-            Color tint = q.Tint;                 // 换之前那一份（`SetTint` 写的就是 `sharedMaterial.color`）
-            var inst = new Material(proto);      // ⛔ 别把共享材质本体挂上去（队列/染色会被后建的那颗盖掉）
-            if (inst.HasProperty("_Color")) inst.color = tint;
-            q.SetMaterial(inst);
+            MenuFxMaterials.Apply(q,
+                scanLines ? MenuFxMaterials.ScanLines : MenuFxMaterials.Additive,
+                scanLines ? "WarpforgeVFX/UI/Scan Lines" : "WarpforgeVFX/UI/Additive");
         }
     }
 }

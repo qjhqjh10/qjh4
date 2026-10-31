@@ -303,7 +303,7 @@ namespace CardPresentation
             { "40K_button",            "40K_button_pressed" },
             { "40k_general_bt_yellow", "40k_general_bt_yellow_pressed" },
             { "40k_bt_close",          "40k_bt_close_pressed" },
-            { "40k_menu_bt",           "40k_menu_bt_pressed" },
+            { "40k_menu_bt",           "40k_menu_bt_pressed" },   { "40K_dropdown_item",     "40K_dropdown_item_press" },   // ⚠️ 末条：本族是 `_press`，**不是**默认规则拼出来的 `_pressed`（原版无此名）
             { "UI_Button_Mulligan",    "UI_Button_Mulligan_Pressed" },    // ⚠️ 大写 P
             { "UI_Button_Menu_Back",   "UI_Button_Menu_Back_Pressed" },   // ⚠️ 大写 P
         };
@@ -346,11 +346,11 @@ namespace CardPresentation
             string pn = pressedArt ?? PressedNameFor(art);
             _hoverTex = CardArt.MenuUi(hn);
             _pressedTex = CardArt.MenuUi(pn);
-            if (_hoverTex == null && !MissingSwapArt.Contains(art + " → " + hn))
+            if (_hoverTex == null && RecordMissingArt(hn) && !MissingSwapArt.Contains(art + " → " + hn))
                 MissingSwapArt.Add(art + " → " + hn);
             // 🆕 2026-10-05（A50②）：**按下图的镜像记录** —— 原来只有 hover 那一条，按下图缺了**永远静默**
             //   （`MissingPressedArt` 那张表全工程 0 命中）。口径与「能不能断言」见那张表的注释。
-            if (_pressedTex == null && !MissingPressedArt.Contains(art + " → " + pn))
+            if (_pressedTex == null && RecordMissingArt(pn) && !MissingPressedArt.Contains(art + " → " + pn))
                 MissingPressedArt.Add(art + " → " + pn);
             // 原版一颗只有一种 transition ⇒ 换图那一档不再叠色偏
             tintOnHover = false;
@@ -1167,5 +1167,11 @@ namespace CardPresentation
 
         /// <summary>自检用：批处理里没有输入事件，直调这条路（**和真点走同一个 `Click()`**）。</summary>
         public void ClickForTest() { Click(); }
+
+        /// <summary>🆕 **2026-11-01（`B112_A` · `B-78` 附带项）**：这条「取不到图」的记录**要不要记**。
+        /// `art` 与图名**都空**时没有可报的东西 —— 原来会往名单里塞一条无意义的 `" → "`
+        /// （`MissingSwapArt` 在多个宿主被断成「为空」⇒ 它还会变成一条假红）。⛔ 别把本函数改成恒 true。
+        /// <para>⚠️ 只判**图名**：`hn/pn` 是 `显式实参 ?? 由 art 推` 的结果，图名为空 ⟺ 两者都空。</para></summary>
+        static bool RecordMissingArt(string name) { return !string.IsNullOrEmpty(name); }
     }
 }

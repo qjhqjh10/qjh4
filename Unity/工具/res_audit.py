@@ -50,6 +50,15 @@
        + `AnimFXModuleScreenShake` 的 script guid）不算缺陷（`RUNTIME_BOUND_EXTRA` / `runtime_bound_guids()`）；
     ③ P1 遇到**同名多份原版材质**时**逐份比**、取未裁定差异最少的那份；都不匹配才报「同名多源、需人工判」
        （原来只留第一份 ⇒ `SandParticle` 那种会被判错）。
+  · 🆕 2026-11-01（`B111_T2` / 账 `B-75`）：**`BUILD_PLACEHOLDER`（构建期占位材质）** ——
+    `WarpforgeArena1/arenas/<场>/Materials/*.mat` 是 `ArenaBuilder.GetOrCreateMaterial`/`SaveOrReuse`
+    **按贴图名共享生成的占位件**（每个 ArenaBuilder 批次重写），运行期由 `ArenaOriginalMaterial.Rebuild()`
+    按清单 props 重建真值 ⇒ **它们的 P1 参数漂移转信息项**（⛔ 只摘 P1，P4「材质未消费」照常判）。
+    判据 → `判据/B110_R5_资源侧放回11条.md` §B-41。
+  · 🆕 2026-11-01（`B111_T2B` / 账 `B-08`）：**「原版有、我们没有同名实例」这一类的四条等价/结构性判据**
+    —— ① `<名>__<8 位 hex>.mat` 等价件 · ② TMP 逐文本字体材质变体 · ③ ShaderGraph 无 `.shader` 源 ·
+    ④ 菜单 UI 族的自研等价件 `Resources/Art/vfx/WFUI_*`（`MENU_UI_EQUIV` 逐条 1:1）。
+    命中任一 ⇒ 转信息项（⛔ 只降级**已有等价物**的，没有等价物的照旧算缺陷）。判据 → `报告/B111_T2B.md`。
 """
 import argparse
 import collections
@@ -166,6 +175,71 @@ def runtime_bound_guids():
 
 def in_source_tree(relpath):
     return relpath.startswith(SOURCE_TREE_PREFIXES)
+
+
+# 🆕 2026-11-01（`B111_T2` / 账 `B-75`）：**BUILD_PLACEHOLDER = 构建期占位 `.mat`**。
+#   `WarpforgeArena1/arenas/<场>/Materials/*.mat` 不是手写资产，是
+#   `ArenaBuilder.GetOrCreateMaterial` → `SaveOrReuse` **按【贴图名】共享**生成的占位件
+#   （`WarpforgeArena1/Editor/ArenaBuilder.cs:5495` 起那一整段）。三个事实决定它不该按 P1 判：
+#     ① **生成物**：每个 `ArenaBuilder` 批次都会把它们整批重写（`SaveOrReuse`，guid 不变）；
+#     ② **运行期不直接用它**：网格上挂的是 `ArenaOriginalMaterial`，`Rebuild()` 按清单 props
+#        重建渲染状态（`ArenaBuilder.cs` 那两处长注释明写「占位 `.mat` 只是 `Rebuild()` 失败时的退路」）；
+#     ③ 逐属性实测：占位件对应的 manifest props **53 vs 原版 53**、**47 vs 原版 47，差 0**。
+#   ⇒ 占位件的「P1 参数值 vs 原版 `m_SavedProperties`」**不是缺陷**，单列成信息项。
+#   判据全文 → `资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-41（`B-41` 三条里的前两条）。
+#   ⚠️ **只摘 P1 参数漂移**：P4「材质未消费（属性/关键字未声明）」照常判 —— 那是 shader 绑定的问题，
+#      占位件躲不掉（虽然它们多半走的是 `URP/Unlit` 包内 shader，本来就不进 P4）。
+BUILD_PLACEHOLDER_RE = re.compile(r"^WarpforgeArena1/arenas/[^/]+/Materials/[^/]+\.mat$")
+
+
+def in_build_placeholder(relpath):
+    return BUILD_PLACEHOLDER_RE.match(relpath) is not None
+
+
+# ---------------------------------------------------------------- 🆕 2026-11-01（`B111_T2B` / 账 `B-08`）
+# 「原版材质我们没有同名实例」这一类的**四条等价/结构性判据**。改前它把 216 条全算缺陷，
+# 其中 110 条是**假阳性或结构性不可能**（逐条核过，见 `报告/B111_T2B.md` §①）：
+#   ① `<名>__<8 位 hex>.mat` —— `EffectExporter` 的去重命名，**等价件就在工程里**（47 条）。
+#   ② TMP 逐文本字体材质变体（`TextMeshPro/Distance Field` / `Mobile/Distance Field` / `TextMeshPro/Sprite`）——
+#      我们统一走 `Label`（TMP 顶点色 + `Asar-Regular SDF`），**不需要这些 per-text 变体**（46 条）。
+#   ③ ShaderGraph 生成体（`Everguild/Cards/Shader Graphs/Booster Pack`）—— **没有 `.shader` 源**，
+#      `.mat` 结构性建不出来；原版那 16 张在 `wf_boosters_extra.bundle` 包内可解、0 悬空（46 → 16 条）。
+#   ④ 菜单 UI 族的**自研等价件** `Resources/Art/vfx/WFUI_*`（见下面 `MENU_UI_EQUIV` 逐条 1:1，13 条）。
+# ⚠️ 只对**已有等价物**的降级；**没有等价物的照旧算缺陷**（⛔ 别把这一类整体抹掉 —— 铁律 11）。
+MENU_UI_EQUIV_DIR = "CardPresentation/Resources/Art/vfx/"
+MENU_UI_EQUIV = {
+    # 原版材质名 → 我们的自研等价件（`Resources/Art/vfx/<值>.mat`）
+    "Border Chest": "WFUI_GlowSdf_BorderChest",
+    "Border Chest Collect": "WFUI_GlowSdf_BorderChestCollect",
+    "UI Highlight Alliance trophy": "WFUI_GlowSdf_AllianceTrophy",
+    "UI Highlight Red SDF": "WFUI_GlowSdf_HighlightRed",
+    "UI Highlight Smooth Red SDF": "WFUI_GlowSdf_HighlightSmoothRed",
+    "Everguild Campaing Premium node": "WFUI_Pulsating_Campaign",
+    "Forge UI Light": "WFUI_Pulsating_Forge",
+    "Forge Candle": "WFUI_Distort_ForgeCandle",
+    "UI Distort in Atlas Small objects": "WFUI_Distort_AtlasSmall",
+    "UI Clock": "WFUI_Clock",
+    "Rank Change": "WFUI_DivisionChange",
+    "UI Greyscale Add": "WFUI_GreyscaleAdd",
+    "UI Scan Lines Alpha Mask": "WFUI_ScanLines",
+}
+TMP_FONT_SHADERS = ("TextMeshPro/Distance Field", "TextMeshPro/Mobile/Distance Field",
+                    "TextMeshPro/Sprite")
+SHADERGRAPH_NO_SOURCE = ("Everguild/Cards/Shader Graphs/Booster Pack",)
+
+
+def hash_equiv_map(all_mat_names):
+    """`<名>__<8 位 hex>` → 名字前缀。返回 `{原名: 等价件名}`（取第一份）。"""
+    out = {}
+    hexs = set("0123456789abcdef")
+    for m in all_mat_names:
+        i = m.rfind("__")
+        if i <= 0:
+            continue
+        suf = m[i + 2:]
+        if len(suf) == 8 and all(c in hexs for c in suf):
+            out.setdefault(m[:i], m)
+    return out
 
 # 判据 `B109_R9 §6` 的 13 条原版菜单 UI 材质动画 shader（P4 的固定标尺，⛔ 别改名单）
 R4_07 = {
@@ -1085,6 +1159,7 @@ def run(args):
         audio_diff = 0
         mat_pairs = 0
         mat_missing_rows = 0
+        mat_equiv_rows = 0            # 🆕 B111_T2B：其中**有等价件 / 结构性不可能**、已转信息项的
         miss_by_shader = collections.Counter()
         drift_props = collections.Counter()
         orig_mat_seen = set()
@@ -1297,6 +1372,15 @@ def run(args):
                     p4 = "目标 shader 非自写（包内 / ShaderGraph）⇒ 不判消费"
                 else:
                     p4 = "shader 未解析，无法判消费"
+                # 🆕 2026-11-01（`B111_T2` / 账 `B-75`）：构建期占位 `.mat` 的 P1 参数漂移转信息项。
+                #   见 `BUILD_PLACEHOLDER_RE` 上面那段注释（判据 §B-41）。⛔ 只摘 P1，不摘 P4。
+                if in_build_placeholder(r) and cls.startswith("参数漂移"):
+                    misc_counts["BUILD_PLACEHOLDER（构建期占位 .mat · 运行期 Rebuild）· " + cls] += 1
+                    fix = ("占位 `.mat`：`ArenaBuilder.GetOrCreateMaterial`/`SaveOrReuse` 按【贴图名】生成、"
+                           "每个 ArenaBuilder 批次重写；运行期 `ArenaOriginalMaterial.Rebuild()` 按清单 props "
+                           "重建真值（53 vs 53 / 47 vs 47 差 0）⇒ P1 参数漂移不是缺陷 "
+                           "（判据 `判据/B110_R5_资源侧放回11条.md` §B-41）")
+                    cls = ""
                 # 🆕 2026-10-31（B110_R5）：源树里的材质缺陷一律转信息项（同 ② 层；判据 §B-38）
                 if in_source_tree(r) and cls:
                     misc_counts["源树（ArenaOriginalPrefabs）· " + cls] += 1
@@ -1343,13 +1427,52 @@ def run(args):
                              cls, fix, op])
         # 原版材质我们没有的
         all_mat_names = set()
+        mat_file_stems = set()       # 🆕 B111_T2B：`.mat` 的**文件名**（`Resources.Load` 按路径取，路径才是功能身份）
         for p, r, ext, sz in ctx.files:
             if ext == ".mat":
                 all_mat_names.add(mat_name(rb(p)))
+                mat_file_stems.add(os.path.basename(r)[:-4])
+        hsh = hash_equiv_map(all_mat_names)          # 🆕 B111_T2B：`<名>__<hash>` 等价件
         for nm, (oj, opid) in sorted(ctx.orig_mat.items()):
             if nm in all_mat_names:
                 continue
             oname = ctx.shader_pid2name.get(opid, "")
+            # 🆕 2026-11-01（`B111_T2B` / 账 `B-08`）：四条等价/结构性判据 → 转信息项（见上面那段注释）
+            eq = None
+            if oname in SHADERGRAPH_NO_SOURCE:
+                eq = ("ShaderGraph 无 .shader 源、结构性建不出",
+                      "不是缺陷：shader 是 ShaderGraph 生成体、没有 `.shader` 源 ⇒ `.mat` 结构性建不出来"
+                      "（`Core/BoosterPackAssets.cs:29-33`）；原版那批在 `wf_boosters_extra.bundle` 包内可解、0 悬空")
+            elif oname in TMP_FONT_SHADERS:
+                eq = ("TMP 逐文本字体材质变体",
+                      "不是缺陷：这是 TMP 给**逐文本**生成的字体材质变体；我们统一走 `Label`"
+                      "（TMP 顶点色 + `Asar-Regular SDF`），不需要这些变体")
+            elif nm in MENU_UI_EQUIV and os.path.isfile(
+                    os.path.join(ASSETS, MENU_UI_EQUIV_DIR + MENU_UI_EQUIV[nm] + ".mat")):
+                eq = ("有等价件（自研 WFUI_*）",
+                      "不是缺陷：我们的等价件 = `Resources/Art/vfx/%s.mat`（1:1，已接线，"
+                      "经 `Shell/MenuFxMaterials` 加载）" % MENU_UI_EQUIV[nm])
+            elif nm in hsh:
+                eq = ("有等价件（去重后缀 __hash）",
+                      "不是缺陷：工程里有等价件 `%s.mat`（`EffectExporter` 的去重命名）" % hsh[nm])
+            elif nm in mat_file_stems:
+                eq = ("有同名路径（.mat 文件名 = 原版名，仅 m_Name 不同）",
+                      "不是缺陷：`Resources.Load` 按**路径**取材质，`%s.mat` 就在；它内部的 `m_Name` "
+                      "是别的（改名拷贝进来的），**路径身份成立**" % nm)
+            if eq:
+                misc_counts["材质未消费（%s）" % eq[0]] += 1
+                cls, fix = "", eq[1]
+                p4 = "原版 shader=%s（引用数 %s）%s  等价件=%s" % (
+                    oname or "?", ctx.shader_orig_refs.get(oname, "?"),
+                    "  ⚑R4-07" if oname in R4_07 else "",
+                    MENU_UI_EQUIV.get(nm) or hsh.get(nm) or "-")
+                rows.append(["3", "菜单UI" if "UI/" in oname else domain_of(""), nm, "Material", nm,
+                             "", "", "", "", "", "", p4, cls, fix, oj])
+                if oname:
+                    orig_mat_seen.add(oname)
+                mat_missing_rows += 1
+                mat_equiv_rows += 1
+                continue
             cls = "材质未消费（原版有、我们没有同名实例）"
             fix = "核：是否已被等价材质替代（R4-07 那 13 条 UI 材质动画就在这一类）"
             p4 = "原版 shader=%s（引用数 %s）%s" % (
@@ -1364,10 +1487,10 @@ def run(args):
                 orig_mat_seen.add(oname)
             miss_by_shader[oname or "?"] += 1
             mat_missing_rows += 1
-        log("③ 结果：贴图配对 %d（逐像素 相同=%d 近似=%d 不同=%d 尺寸不同跳过=%d 未比=%d）· 音频配对 %d（字节相同=%d 不同=%d）· 材质配对 %d · 原版材质我们没有 %d"
+        log("③ 结果：贴图配对 %d（逐像素 相同=%d 近似=%d 不同=%d 尺寸不同跳过=%d 未比=%d）· 音频配对 %d（字节相同=%d 不同=%d）· 材质配对 %d · 原版材质我们没有 %d（其中**有等价件/结构性不可能 %d**，已转信息项 · **真缺 %d**）"
             % (tex_pairs, content["EXACT"], content["NEAR"], content["DIFF"],
                content["SKIP_DIM"], content["SKIP_NO_PIL"], audio_pairs, audio_same, audio_diff,
-               mat_pairs, mat_missing_rows))
+               mat_pairs, mat_missing_rows, mat_equiv_rows, mat_missing_rows - mat_equiv_rows))
         log("③ 原版材质缺口按 shader 分组（前 15）：")
         for sh, n in miss_by_shader.most_common(15):
             log("   %5d  %s%s" % (n, sh, "  ⚑R4-07" if sh in R4_07 else ""))

@@ -29,7 +29,7 @@
 | 0 | **备份** | `_tmp_view/cardid_bak_1013/`（`card_ids.json` / `cards_engine.json` / `card_stats.json` / `card_stats_raw.json`） |
 | 1 | **重建 `card_ids.json` 的 `mapping`** | 真值 **935** 条 + 旧表里真值没有的 **123** 条原样保留（标注未核）⇒ **mapping 1058 条**；被推翻的 **851 条全部替换**。`note` 重写：写清来源、年代限制、为什么换 |
 | 2 | **重跑 `工具/gen_cards_engine.py`** | `cards_engine.json` = **1126 张 / 1126 个唯一 id / 0 重 id**；**真值 id 939 · 自造 187**（旧状态 995/131，**但旧那 995 里 851 张是错的**） |
-| 3 | **重出卡图**（文件名 = 卡 id） | 重跑 `工具/import_original_art.py`（干跑：插图 **1126/1126 配得上 · 0 配不上 · 0 缺 rect**）⇒ 落盘后现核 **缺图 0** |
+| 3 | **重出卡图**（文件名 = 卡 id） | 重跑 `工具/import_original_art.py --apply`（🔴 2026-11-01 订正（B111_T1B · B-104）：脚本已收口 —— 原句是裸跑，现在**不带 `--apply` 只打印用法并退出 rc=2**；**干跑 = `--check`**。当时读数：插图 **1126/1126 配得上 · 0 配不上 · 0 缺 rect**）⇒ 落盘后现核 **缺图 0** |
 | 4 | **换算 `ART_ID_ALIAS`**（按 id 点名的 24 条贴图表） | **22 个键**按「旧 id → 同名同阵营新 id」换算，**值一字未动** |
 | 5 | **重跑派生生成器** | `gen_card_vfx_by_card.py` ✅（465 条，id 已新）· `gen_icon_plan.py --write` ✅（873 条，id 已新；**位置锁全过**）· `gen_prebuilt_decks.py` ✅（103 副）· `import_original_audio.py` ✅（`voice_lines.json` 606 张，**样例 `AM1` 已从 "Commissar Elan" 变成真值 "Lord Solar Leontus"**） |
 | 6 | **换算工具里写死的旧 id** | `gen_icon_plan.py` **302 处**（整文件一次改）· `gen_tutorial_stages.py` 2 处 · `gen_prebuilt_decks.py` 的 `TUT_HERO_BY_SO`（`ASH5 → ASH3`） |

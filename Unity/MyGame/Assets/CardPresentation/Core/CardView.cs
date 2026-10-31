@@ -1232,7 +1232,7 @@ namespace CardPresentation
         // （`d:/2` 全盘 `*glitch*` 零命中）—— **不成立**，那只是「按名字搜不到」：
         // 材质 `Card Frame Glitch`（`bundle_duplicateassetisolation_assets_all/Material/Material_-2877403367212247079.json`）、
         // shader **`Everguild/FX/Sprite Scan Lines`**（`bundle_shaders_assets_all/Shader/Shader_-5025784757600742591.json`）、
-        // 噪声图 `Noise Combined.png` **三件都在本地**（原版走 PPtr，名字里没有 "glitch"）。
+        // 噪声图 **`ScanLines.png`** **三件都在本地**（原版走 PPtr，名字里没有 "glitch"；🔴 2026-11-01 订正：原写 `Noise Combined` 是**错口径**，判据见类尾）。
         // ⇒ 结论改成「**要做，只差自建那个 shader**」（铁律 11）。✅ **2026-10-25（E7 批次 3）已补上**：
         // `SetGlitch` + 自建 `Resources/Shaders/CardFrameGlitch.shader`（算式逐条照抄原版 DXBC，见类尾判据块）。
         // 这张关键词图标**仍然保留** —— 原版本来就是「角标 + 换材质」**两件事**，不是二选一。
@@ -14248,9 +14248,9 @@ namespace CardPresentation
         //      `_GlitchPercentaje` 0.1 · `_ScanLinesIntensity` 0.547 · `_NoiseIntensity` 0.0035 ·
         //      `_AntialiasScale` 1.3 · `_MainColorIntensityFix` 1.29 ·
         //      `_NoiseColor` (0.056604, 0.040851, 0.056604, 1) · `_NoiseScaleAndSpeed` (10, 18.05, 1, 1)
-        //    · `_Noise` = 贴图 `Noise Combined`（128²）—— 我们工程里就是
-        //      `Resources/Art/card_sdf/cardback_noise.png`，**逐字节相同**
-        //      （sha256 前缀 `4b0742aa5fb9f85f`，两侧实测一致）⇒ 走 `CardArt.CardbackSdfNoise()`。
+        //    · `_Noise` = 贴图 **`ScanLines`**（PPtr pathID `1565928461195782613`，128²）—— 🔴 **2026-11-01 就地订正**：
+        //      原来写 `Noise Combined`（= 卡背 SDF 那个 `_Noise`，另一个 pathID）是**错的**；佐证 = 同名材质
+        //      `Sprite Scan Lines` 也绑这个 pathID。现走 `Resources/Art/vfx/ScanLines.png`（与原图逐像素相同）⇒ `CardArt.GlitchScanLinesNoise()`。
         //    · `_MainTex` 在原版材质里是 **null**（UGUI 的 CanvasRenderer 每帧把 sprite 贴图喂进去）
         //      ⇒ 我们这边必须**显式**写当前卡框那张图（`SyncGlitchMainTex`）。
         //    🔴 **顺手发现（铁律 13·4⑧）**：那份材质上还有 4 个**该 shader 根本没声明**的残留属性 ——
@@ -14361,10 +14361,10 @@ namespace CardPresentation
             m.SetFloat("_MainColorIntensityFix", 1.29f);      // ⚠️ 可达那支里**没读**（死属性），照抄只为对账
             m.SetColor("_NoiseColor", new Color(0.056604f, 0.040851f, 0.056604f, 1f));
             m.SetVector("_NoiseScaleAndSpeed", new Vector4(10f, 18.05f, 1f, 1f));
-            var noise = CardArt.CardbackSdfNoise();
+            var noise = CardArt.GlitchScanLinesNoise();
             if (noise != null) m.SetTexture("_Noise", noise);
-            else Debug.LogWarning("[CardView] `Art/card_sdf/cardback_noise` 取不到 ⇒ glitch 的噪声图是 shader 默认（白）"
-                                + "—— 原版是 `Noise Combined`（128²，与原图逐字节相同的那一张）。");
+            else Debug.LogWarning("[CardView] `Art/vfx/ScanLines` 取不到 ⇒ glitch 的噪声图是 shader 默认（白）"
+                                + "—— 原版 `_Noise` = `ScanLines`（128²，与原图逐像素相同的那一张）。");
             m.renderQueue = _queue;
             _glitchMat = m;
             return m;

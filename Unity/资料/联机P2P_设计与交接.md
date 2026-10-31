@@ -106,7 +106,7 @@
   ⚠️ **Media 页用的就是 `_quality` 那张**）· 页签预制体 `bundle_menus_assets_all/GameObject/Settings Menu Tab Toggle.json`。
   我们工程里**已有一份**：`Assets/CardPresentation/Art/原版/0_mainmenu/40K_settings_button_*.png` + `Art/原版/去重资源/40k_popup.png`。
   ⚠️ **`Resources/Art/` 在 `.gitignore` 里**（大件不进 git）⇒ **新克隆的仓库要跑一次**
-  `python 工具/import_original_art.py --only-menu`（本轮的 8 张设置窗图已加进 `MENU_IMAGES`）+ `ArtBaker.ApplyImportSettings`，
+  `python 工具/import_original_art.py --only-menu --apply`（本轮的 8 张设置窗图已加进 `MENU_IMAGES`；🔴 2026-11-01 订正（B111_T1B）：不带 `--apply` 现在只打印用法并退出 rc=2）+ `ArtBaker.ApplyImportSettings`，
   否则那扇窗的页签底/图标**取不到图**（`SettingsWindow.Tex()` 会打 `[Settings] 图缺了：…` 的警告，不静默）。
 - **原版还带一整套 `Debug Buttons`**（Console / Add coins / **Season Check** / Score on Leaderboard …）—— 调试层，**不做**。
 
