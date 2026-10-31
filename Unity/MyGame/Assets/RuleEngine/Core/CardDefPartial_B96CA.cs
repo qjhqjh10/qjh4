@@ -32,11 +32,11 @@
 //        `{trigger 数值 → List<EffectOp>}` 挂进来之后，本口**直接**返回那一格；
 //      · **没挂**时退回「**卡面关键词 == 触发词名**」那一格（`_triggerOps[name.ToLowerInvariant()]`）
 //        —— 这是今天唯一有判据-backed 的取法，⛔ **不是**「猜一个 op 出来」。
-//   ③ 📌 **数据半的落点（交给别人做，照下面照抄即可）**：生成器输出
+//   ③ ✅ **数据半【已挂】（2026-10-31 执行代理 `C1` 就地订正 · 铁律 5）**：生成器输出
 //      `[{"ab":<cardAbilities下标>,"lg":<abilityLogic下标>,"trigger":<数值>}]`，
-//      `CardDatabase` 解析时按 `(ab,lg)` 找出该 logic 正文 op 并调 `AttachTriggerOpsByNumber`。
-//      ⚠️ 那一天之前：**全池 `abilityTriggers` 含 200 的卡 = 0 / 1,129**（现扫 `cards_engine.json`）
-//      ⇒ 本口**恒返回 null**、`FireTriggerOnce` 恒 false ⇒ **零行为变化**（休眠件，铁律 11 照样建）。
+//      `CardDatabase` 解析时按 `(ab,lg)` 找出该 logic 正文 op 并调 `AttachTriggerOpsByNumber` —— **现读已在生效**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def))`（组装口 = `CardDatabasePartial_B98H7.cs:129`）。
+//      ⚠️ **原文「数据半还没落列 ⇒ 本口恒返回 null ⇒ 休眠件」已过期 / 不成立**（那是 2026-10-29 写这份代码时的状态）。休眠的真正原因在**数据**：
+//      `abilityTriggers` 含 200 的卡 **= 0 / 1,129**（现扫 `cards_engine.json`）⇒ 本口对该数值仍取不到正文 = 休眠（铁律 11 照样建），⛔ 不是「数据半没挂」。
 //
 // ── 四、⛔ 别做的事 ────────────────────────────────────────────────────────────────────────────
 //   · ⛔ 别在 `CardDef.cs` 里再写一份数值↔名字的映射（那会让两份表迟早不一致）。

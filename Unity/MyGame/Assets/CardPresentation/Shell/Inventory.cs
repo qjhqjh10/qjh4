@@ -1947,7 +1947,7 @@ namespace CardPresentation
     /// 本类走**类型化货币**（<see cref="ICurrency"/>），供将来把奖励路径从「图名」迁到「货币对象」时接线（账 677 的 Energy 特判就落在这里）。</para>
     /// <para>⛔ `CollectItemReward` / `CollectSingleReward` / `Collect` **没建**：它们要 `RewardInfo` 物品层 + `Collect` 编排层，
     /// 属未建的 reward-event 家族（账 654-668 / U09 / G1），建空壳违反「⛔ 别先建空壳」⇒ 反证写在报告 `B89_R2b_日常奖励执行.md`。</para></summary>
-    public static class RewardService
+    public static partial class RewardService
     {
         /// <summary>原版 `SharedEventDataManager.GetContext&lt;EnergyContext&gt;().GrantEnergy(int)` 的可注入替身（能量「授予」那一路；
         /// 与 `CurrencyExtensions.EnergyOf/SpendEnergyOf` 同一套「可注入钩子」口径）。没注入 ⇒ 出声、⛔ 不假装给了能量。</summary>
@@ -2033,7 +2033,7 @@ namespace CardPresentation
             }
             var currencies = InventoryManager.GetInventory<ICurrency>();
             var held = currencies != null ? currencies.Get(id) : null;
-            if (held != null && held.Item != null) { CollectItemReward<ICurrency>(held.Item, instanceId, quantity); return; }
+            if (held != null && held.Item != null) { CollectItemReward<ICurrency>(held.Item, instanceId, quantity); return; } if (CollectItemRewardCard(id, instanceId, quantity)) return;   // 🆕 C9 2026-10-31：卡那一支（`Shell/RewardServicePartial_C9.cs`）—— 原版这一跳 = `Add<RawCardScript>`
 
             string type = ItemDrawer.Spec(id, null, null).Type;
             InventoryManager.Note("rs-item:unresolved",

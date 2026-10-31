@@ -3,35 +3,35 @@ globalgamemanagers	1	PlayerSettings	无独立名字	② 判明无关
 globalgamemanagers	10	PhysicsManager	无独立名字	② 判明无关
 globalgamemanagers	12	QualitySettings	无独立名字	② 判明无关
 globalgamemanagers	18	UnityConnectSettings	无独立名字	② 判明无关
-globalgamemanagers.assets	4562	ChannelMixer	读过（文档）	① 解出
-globalgamemanagers.assets	4563	LiftGammaGain	读过（文档）	① 解出
-globalgamemanagers.assets	4564	WhiteBalance	读过（文档）	① 解出
+globalgamemanagers.assets	4562	ChannelMixer	从没看过	① 解出
+globalgamemanagers.assets	4563	LiftGammaGain	从没看过	① 解出
+globalgamemanagers.assets	4564	WhiteBalance	从没看过	① 解出
 globalgamemanagers.assets	4565	PaniniProjection	已用（数据表）	① 解出
-globalgamemanagers.assets	4566	SplitToning	读过（文档）	① 解出
-globalgamemanagers.assets	4567	ShadowsMidtonesHighlights	读过（文档）	① 解出
-globalgamemanagers.assets	4568	ChromaticAberration	读过（文档）	① 解出
-globalgamemanagers.assets	4569	FilmGrain	读过（文档）	① 解出
+globalgamemanagers.assets	4566	SplitToning	从没看过	① 解出
+globalgamemanagers.assets	4567	ShadowsMidtonesHighlights	从没看过	① 解出
+globalgamemanagers.assets	4568	ChromaticAberration	从没看过	① 解出
+globalgamemanagers.assets	4569	FilmGrain	从没看过	① 解出
 globalgamemanagers.assets	4570	ColorLookup	已用（数据表）	① 解出
 globalgamemanagers.assets	4571	Vignette	已用（数据表）	① 解出
 globalgamemanagers.assets	4572	DefaultVolumeProfile	已用（工程内）	① 解出
-globalgamemanagers.assets	4573	UIEffectProjectSettings	读过（文档）	① 解出（运行期在用）
-globalgamemanagers.assets	4574	Legacy-UIShiny	读过（文档）	① 解出（运行期在用）
+globalgamemanagers.assets	4573	UIEffectProjectSettings	从没看过	① 解出（运行期在用）
+globalgamemanagers.assets	4574	Legacy-UIShiny	从没看过	① 解出（运行期在用）
 globalgamemanagers.assets	4575	UniversalRenderPipelineAsset High	从没看过	① 解出
 globalgamemanagers.assets	4576	UniversalRenderPipelineAsset_Renderer UI	从没看过	① 解出
-globalgamemanagers.assets	4577	UniversalRenderPipelineAsset_Renderer	读过（文档）	① 解出
+globalgamemanagers.assets	4577	UniversalRenderPipelineAsset_Renderer	从没看过	① 解出
 globalgamemanagers.assets	4578	UniversalRenderPipelineGlobalSettings	已用（工程内）	① 解出
 globalgamemanagers.assets	4579	PostProcessData	读过（文档）	① 解出
-globalgamemanagers.assets	4580	RuntimeResources	读过（文档）	① 解出
-globalgamemanagers.assets	4581	ProbeVolumesOptions	读过（文档）	① 解出
-globalgamemanagers.assets	4582	MotionBlur	读过（文档）	① 解出
+globalgamemanagers.assets	4580	RuntimeResources	从没看过	① 解出
+globalgamemanagers.assets	4581	ProbeVolumesOptions	从没看过	① 解出
+globalgamemanagers.assets	4582	MotionBlur	从没看过	① 解出
 globalgamemanagers.assets	4583	ColorAdjustments	读过（文档）	① 解出
-globalgamemanagers.assets	4584	GrabScreenFeatureU6	读过（文档）	① 解出
+globalgamemanagers.assets	4584	GrabScreenFeatureU6	从没看过	① 解出
 globalgamemanagers.assets	4585	Tonemapping	读过（文档）	① 解出
-globalgamemanagers.assets	4586	ScreenSpaceLensFlare	读过（文档）	① 解出
+globalgamemanagers.assets	4586	ScreenSpaceLensFlare	从没看过	① 解出
 globalgamemanagers.assets	4587	Bloom	从没看过	① 解出
-globalgamemanagers.assets	4588	ColorCurves	读过（文档）	① 解出
-globalgamemanagers.assets	4589	DepthOfField	读过（文档）	① 解出
-globalgamemanagers.assets	4590	LensDistortion	读过（文档）	① 解出
+globalgamemanagers.assets	4588	ColorCurves	从没看过	① 解出
+globalgamemanagers.assets	4589	DepthOfField	从没看过	① 解出
+globalgamemanagers.assets	4590	LensDistortion	从没看过	① 解出
 level0	267	BlockingCollider	无独立名字	① 解出
 level0	268	Spinner	无独立名字	① 解出
 level0	269	Shade	无独立名字	① 解出
@@ -110,19 +110,19 @@ resources.assets	1424	NotoSerifCJK-Regular SDF	已用（工程内）	① 解出
 resources.assets	1425	RobotoCondensed-Regular SDF	已用（工程内）	① 解出
 resources.assets	1426	Warpforge Trait TextSprites	已用（工程内）	① 解出
 resources.assets	1427	I2Languages	已用（数据表）	① 解出
-resources.assets	1428	PhotonServerSettings	读过（文档）	② 判明无关
-resources.assets	1429	PlayFabSharedSettings	读过（文档）	② 判明无关
+resources.assets	1428	PhotonServerSettings	从没看过	② 判明无关
+resources.assets	1429	PlayFabSharedSettings	从没看过	② 判明无关
 resources.assets	1430	DOTweenSettings	已用（工程内）	① 解出
 resources.assets	1431	I2Languages	已用（数据表）	① 解出
-resources.assets	1432	UnityPlayerAccountSettings	读过（文档）	② 判明无关
+resources.assets	1432	UnityPlayerAccountSettings	从没看过	② 判明无关
 resources.assets	1433	LiberationSans SDF - Fallback	已用（工程内）	① 解出
 resources.assets	1434	LiberationSans SDF	已用（工程内）	① 解出
 resources.assets	1435	EmojiOne	已用（工程内）	① 解出
 resources.assets	1436	Default Style Sheet	已用（工程内）	① 解出
 resources.assets	1437	TMP Settings	已用（工程内）	① 解出
-resources.assets	1438	inlineStyle	读过（文档）	② 判明无关
-resources.assets	1439	SamplesSelectionUSS	读过（文档）	② 判明无关
-resources.assets	1440	SamplesSelectionUXML	读过（文档）	② 判明无关
+resources.assets	1438	inlineStyle	从没看过	② 判明无关
+resources.assets	1439	SamplesSelectionUSS	从没看过	② 判明无关
+resources.assets	1440	SamplesSelectionUXML	从没看过	② 判明无关
 resources.assets	1441	Background	无独立名字	② 判明无关
 resources.assets	1442	Background	无独立名字	② 判明无关
 resources.assets	1443	>>>	无独立名字	② 判明无关
@@ -722,9 +722,9 @@ resources.assets	2036	Checkmark	无独立名字	② 判明无关
 resources.assets	2037	<<<	无独立名字	② 判明无关
 resources.assets	2038	Checkmark	无独立名字	② 判明无关
 resources.assets	2039	Checkmark	无独立名字	② 判明无关
-sharedassets0.assets	404	ENV_LIVE	读过（文档）	② 判明无关
-sharedassets0.assets	405	ENV_PREPROD	读过（文档）	② 判明无关
-sharedassets0.assets	406	QABuildNumber	读过（文档）	② 判明无关
+sharedassets0.assets	404	ENV_LIVE	从没看过	① 解出（运行期在用）
+sharedassets0.assets	405	ENV_PREPROD	从没看过	② 判明无关
+sharedassets0.assets	406	QABuildNumber	从没看过	① 解出（运行期在用）
 sharedassets0.assets	407	Match Found	已搬运（素材库）	① 解出
 sharedassets0.assets	408	ButtonClick Back	已搬运（素材库）	① 解出
 sharedassets0.assets	409	ButtonClick Negative	已搬运（素材库）	① 解出
@@ -768,14 +768,14 @@ sharedassets0.assets	446	Cardback_UM_Campaign_Free	已用（工程内）	① 解
 sharedassets0.assets	447	Deck_Ultramarines_Starter	已搬运（素材库）	① 解出
 sharedassets0.assets	448	Demo DeckInfo Orks Tutorial	已搬运（素材库）	① 解出
 sharedassets0.assets	449	Demo DeckInfo UM Tutorial	已搬运（素材库）	① 解出
-sharedassets0.assets	450	GameModesIconCollection	读过（文档）	① 解出
+sharedassets0.assets	450	GameModesIconCollection	从没看过	① 解出
 sharedassets0.assets	451	GlobalVariables	读过（文档）	① 解出
 sharedassets0.assets	452	1. Welcome To Warpforge	从没看过	① 解出
 sharedassets0.assets	453	ItemDrawerConfig	读过（文档）	① 解出（运行期在用）
 sharedassets0.assets	454	Orks_Deck0_Tutorial2_Ghazghkull	已搬运（素材库）	① 解出
 sharedassets0.assets	455	Ultramarines_Deck0_Tutorial1_Uriel	已搬运（素材库）	① 解出
 sharedassets0.assets	456	RankedDivisionsSO	读过（文档）	① 解出
-sharedassets0.assets	457	SceneTransitionList	读过（文档）	① 解出
+sharedassets0.assets	457	SceneTransitionList	从没看过	① 解出
 sharedassets0.assets	458	Agenda	已用（工程内）	① 解出
 sharedassets0.assets	459	Ambush	已用（工程内）	① 解出
 sharedassets0.assets	460	Armour	已用（工程内）	① 解出
@@ -850,19 +850,19 @@ sharedassets0.assets	528	Vanguard	已用（工程内）	① 解出
 sharedassets0.assets	529	Vulnerable	已用（工程内）	① 解出
 sharedassets0.assets	530	Waystone	已用（工程内）	① 解出
 sharedassets0.assets	531	TraitsCollection	已用（数据表）	① 解出
-sharedassets0.assets	532	TraitsCombinationsList	读过（文档）	① 解出
+sharedassets0.assets	532	TraitsCombinationsList	从没看过	① 解出
 sharedassets0.assets	533	AlternateArtStyleIconsSO	读过（文档）	① 解出
-sharedassets0.assets	534	ScoringIconsSO	读过（文档）	① 解出
-sharedassets0.assets	535	1_TutorialStageSelectArmy	读过（文档）	① 解出
-sharedassets0.assets	536	2_TutorialStageSelectRanked	读过（文档）	① 解出
-sharedassets0.assets	537	3_TutorialStageGetMission	读过（文档）	① 解出
-sharedassets0.assets	538	4_TutorialStageGetCampaignNode	读过（文档）	① 解出
-sharedassets0.assets	539	7_TutorialStageTutorialFinished	读过（文档）	① 解出
+sharedassets0.assets	534	ScoringIconsSO	从没看过	① 解出
+sharedassets0.assets	535	1_TutorialStageSelectArmy	从没看过	① 解出
+sharedassets0.assets	536	2_TutorialStageSelectRanked	从没看过	① 解出
+sharedassets0.assets	537	3_TutorialStageGetMission	从没看过	① 解出
+sharedassets0.assets	538	4_TutorialStageGetCampaignNode	从没看过	① 解出
+sharedassets0.assets	539	7_TutorialStageTutorialFinished	从没看过	① 解出
 sharedassets0.assets	540	UniversalRenderPipelineAsset Low	从没看过	① 解出
 sharedassets0.assets	541	UniversalRenderPipelineAsset Medium	从没看过	① 解出
 sharedassets0.assets	542	UniversalRenderPipelineAsset Ultra	从没看过	① 解出
 sharedassets0.assets	543	UniversalRenderPipelineAsset_Renderer  LOW	从没看过	① 解出
-sharedassets0.assets	544	reporterScrollerSkin	读过（文档）	① 解出
+sharedassets0.assets	544	reporterScrollerSkin	从没看过	① 解出
 sharedassets0.assets	547	Background fill	无独立名字	① 解出
 sharedassets0.assets	548	Background fill	无独立名字	① 解出
 sharedassets0.assets	549	ButtonRight	无独立名字	① 解出

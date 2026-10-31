@@ -4848,7 +4848,7 @@ namespace CardPresentation
             //    少了它，`Loc.cs` 那条一旦被删/改名，`Loc.T` 会把**键名本身**（`Battle/HUD/CreatedBy`）
             //    印到卡面上，而**卡面看不出这是缺陷**（它就是一行白字）⇒ 正是本工程点名的静默失败。
             if (Loc.HasAnyTerm(CreatedByTerm))
-                return Loc.T(CreatedByTerm).Replace("{0}", creatorName);   // `{0}` = 创建者的卡名
+                return (CardText.TermOr(CreatedByTerm, null) ?? Loc.T(CreatedByTerm)).Replace("{0}", creatorName);   // `{0}` = 创建者的卡名；🔴 2026-10-31（Q1）走字体闸（`TermOr`）：中文档 + 缺中文字体 ⇒ 回英文列（原直接 `Loc.T` ⇒ 中文印方块）
             // 键不在表里 ⇒ **退回改之前那两句硬拼**（中文档 / 英文档都保持原样）+ **出声**（⛔ 不静默）
             if (!_warnedCreatedByKey)
             {
@@ -4857,7 +4857,7 @@ namespace CardPresentation
                                + "退回**写死的中文/英文**（⛔ 绝不让它去印键名）。补词条 → `Core/Loc.cs`；"
                                + "同一条**只出声这一次**（这张卡每次刷新都会走这里）。");
             }
-            return Loc.Current == AvailableLanguages.Chinese
+            return CardText.Zh && Loc.Current == AvailableLanguages.Chinese   // 🔴 2026-10-31（Q1）字体闸：中文档 + 缺中文字体 ⇒ 退回英文那句（否则印方块）
                  ? $"由 {creatorName} 创建"
                  : $"Created by {creatorName}";
         }

@@ -44,6 +44,14 @@ MIXER = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Audio/Main Mixer.mi
 BASE = "d:/4/Unity/工具/_audio_mixer_base.yaml"
 # 要挂到 Master 下、并按原版名暴露的组（顺序 = 原版 `MixerType` 的 FX/Music/Voices/Jingles）
 GROUPS = ["FX", "Music", "Voices", "Jingles"]
+# 🆕 2026-10-31（B109_E17）：**暴露参数的顺序照原版**（`Main Mixer.mixer` 的 `m_ExposedParameters`：
+# FX / Jingles / Master / Music / Voices）。`Master` 在原版**无调用方**（死参数），但**照建不接**（铁律 18·0）。
+# ⚠️ 与 `GROUPS` 分开：`GROUPS` 决定 `Master.m_Children` 的顺序，两者在原版里**本来就不一样**。
+EXPOSED = ["FX", "Jingles", "Master", "Music", "Voices"]
+# 🆕 2026-10-31：原版 `Main Mixer` 唯一那条快照 `Snapshot` 的组值（dB 的**原文字串**，照抄原版 YAML；
+# `m_MixerConstant.snapshots[0].values` 逐格现读 —— pitch 全 1.0，音量 `Master = −0.16685188`、其余四组 0）。
+# 顺序 = 原版 YAML 的行序（Master vol / Master pitch / FX vol / FX pitch / …）。
+SNAP_DB = [("Master", "-0.16685188"), ("FX", "0"), ("Music", "0"), ("Voices", "0"), ("Jingles", "0")]
 
 _BLOCK = re.compile(r"^--- !u!(\d+) &(-?\d+)\n(\w+):\n((?:  .*\n|\n)*)", re.M)
 
@@ -91,7 +99,7 @@ def main():
     # ⚠️ **不是** `m_Effects[0]`（那个 `Attenuation` 效果）的 `m_MixLevel` —— 实测取错时
     #    `AudioMixer.GetFloat("VolumeFX")` 返回 false（Unity 认得的是前者）。这条踩过一次，别再改回去。
     vol = {}
-    for g in GROUPS:
+    for g in GROUPS + ["Master"]:
         fid = groups[g]
         grp_body = next(b for cid, f, tn, b in bs if f == fid)
         mix = field(grp_body, "m_Volume")
@@ -101,6 +109,10 @@ def main():
         vol[g] = mix
         print(f"  Volume{g:<8} ← m_Volume {mix}")
 
+    def pitch_of(g):
+        """组自己的 `m_Pitch` 参数 GUID（原版快照里每组都带一格 pitch = 1）。"""
+        return field(next(b for cid, f, tn, b in bs if f == groups[g]), "m_Pitch")
+
     # ---- ① Master.m_Children ----
     master_children = "".join(f"{nl}  - {{fileID: {groups[g]}}}" for g in GROUPS)
     out = re.sub(r"(  m_Name: Master\n(?:  .*\n)*?  m_Children: )\[\]",
@@ -109,11 +121,32 @@ def main():
         print("⚠️ Master.m_Children 没改到（可能已经是挂好的）")
 
     # ---- ② m_ExposedParameters ----
-    exposed = "".join(f"{nl}  - {{guid: {vol[g]}, name: Volume{g}}}" for g in GROUPS)
+    #   ⚠️ 块式（`- guid:` / `  name:`）—— Unity 自己写出来就是这个形状；flow 式（`{guid: …, name: …}`）
+    #   也能读，但会和 Unity 的序列化反复对刷 diff。
+    exposed = "".join(f"{nl}  - guid: {vol[g]}{nl}    name: Volume{g}" for g in EXPOSED)
     out2 = re.sub(r"  m_ExposedParameters: \[\]",
                   "  m_ExposedParameters:" + exposed, out)
     if out2 == out:
         print("⚠️ m_ExposedParameters 没改到（可能已经写过了）")
+    out = out2
+
+    # ---- ④ 🆕 2026-10-31（B109_E17）：对齐原版 `Main Mixer` 的三处 ----
+    #   · `m_SuspendThreshold` = **−50**（原版值；我们原来是 −80）
+    #   · 暴露参数的第五格 `VolumeMaster`（上面的 EXPOSED 已经带上；原版代码**从不 SetFloat 它**，照建不接）
+    #   · 唯一那条快照 `Snapshot` 的 `m_FloatValues`（原版 10 格：5 组音量 + 5 组 pitch）
+    #  判据 → `资料/完全复刻/判据/B109_R11_音频mixer.md` §1.4 / §2 第 9、10 项。
+    before = out
+    out = out.replace("  m_SuspendThreshold: -80" + nl, "  m_SuspendThreshold: -50" + nl)
+    if out == before:
+        print("⚠️ m_SuspendThreshold 没改到（已经是 −50？）")
+    snap_rows = []
+    for g, db in SNAP_DB:
+        snap_rows.append("    %s: %s" % (vol[g], db))
+        snap_rows.append("    %s: 1" % pitch_of(g))
+    snap_block = nl.join(["  m_FloatValues:"] + snap_rows)
+    out2 = re.sub(r"  m_FloatValues: \{\}", snap_block, out, count=1)
+    if out2 == out:
+        print("⚠️ 起始快照的 m_FloatValues 没改到（已经不是空的了）")
     out = out2
 
     # ---- ③ 资产名 = 文件名（原版叫 `Main Mixer`）----
@@ -122,7 +155,7 @@ def main():
     io.open(MIXER, "w", encoding="utf-8", newline="").write(out)
     print(f"✅ 已写回 {MIXER}")
     print(f"   Master.m_Children ← {[groups[g] for g in GROUPS]}")
-    print(f"   m_ExposedParameters ← {['Volume' + g for g in GROUPS]}")
+    print(f"   m_ExposedParameters ← {['Volume' + g for g in EXPOSED]}（含原版死参数 VolumeMaster）")
     print("   复核：-executeMethod AudioSetup.Verify")
     return 0
 

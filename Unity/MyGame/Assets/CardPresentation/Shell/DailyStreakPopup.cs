@@ -999,7 +999,11 @@ namespace CardPresentation
         // 那一跳：`if (rewards.Count > 1) currentDrawer.OverrideOnClickAction(→ RewardService.Preview(rewards,0,0,true,0))`
         // （`out_il2csharp/Assembly-CSharp/DailyStreakItemContainer.cs:105-127` · `:289-292`）。
 
-        /// <summary>= 原版 `DailyStreakItemContainer.Initialize` 里那颗「点一下预览整串奖励」的命中件（判据同 <see cref="DailyRewardPopup.BuildPreviewHit"/>，但**队列必须更低**：`QContent - 1` = 3009；只在 `Count &gt; 1` + 可点 时挂回调 · 其余情形关按钮音）。
+        /// <summary>= 原版 `DailyStreakItemContainer.Initialize` 里那颗「点一下预览整串奖励」的命中件（判据同 <see cref="DailyRewardPopup.BuildPreviewHit"/>，但**队列必须更低**：`QContent - 1` = 3009；`Count &gt; 1` + 可点 ⇒ 预览整串 · 其余 ⇒ 开物品展示窗（原版 `HandlePointerClick()`）· **两档都放 `inspectSound`**）。
+        /// <para>🔴 **2026-10-31（`C3`）就地订正（铁律 5）**：原文写「……其余情形**关按钮音**」——**两句都不成立**：
+        /// 原版 `ItemDrawer.OnPointerClick`（`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:29-41`）第二跳是
+        /// 「有 `onClick` 就跑它、**没有就 `HandlePointerClick()`**（开 `ItemDisplayWindow(item, quantity)`）」，
+        /// 而末句 `inspectSound.Play2D()` **两条分支都放**。见下方 `else` 与 `clickCue`（与 `DailyRewardPopup.cs:1257-1263` 逐句同形）。</para>
         /// <para>🔴 **2026-10-31（`B106_W71`）就地订正（铁律 5）**：原文写「队列 `QContent + 1`（3011，&gt; 内容档、&lt; `QOverlay`）」——**在本窗不成立**：本窗**没有 `colider` / `QOverlay` 那一层**（那是每日奖励窗才有的结构），
         /// 而领奖钮 `Collect` 自己就建在 `QContent`(3010) ⇒ 3011 会把它整颗盖死（真机点了不生效）。3009 与吸收层同档（`Absorb` 算的也是 `qContentMin - 1`），平局按兄弟序 ⇒ 预览件（面板子树里的后兄弟）赢。</para>
         /// <para>⚠️ **本窗没有 `Shadow`**：原版连登奖格只有 `highlight` / `claimLabel` / `claimButton` 三件
@@ -1023,7 +1027,13 @@ namespace CardPresentation
                         Debug.LogWarning("[DailyStreak] 点奖格 ⇒ 预览窗**没开出来**（奖励列表为空；原版 `RewardService.Preview`）");
                 };
             }
-            else hit.playClickSound = false;
+            // 原版第二跳：**有 `onClick`（= `OverrideOnClickAction`，只有 `Count > 1` 才挂）就跑它**，
+            // 否则 `HandlePointerClick()` 开 `ItemDisplayWindow(item, quantity)` —— 后者是**每一格的常态**。
+            else hit.onClick = () => OpenItemInfo(day);
+            // 原版末句 `if (inspectSound != null) inspectSound.Play2D()` —— **两条分支都放**（`decomp_generic_trial/out/
+            // ItemDrawer_object___OnPointerClick.c:38-41`；cue = `ButtonClick 1` / clip `UI Click 1`，同 `ItemDrawer.PlayInspectCue`）。
+            // ⛔ 别再写 `playClickSound = false`：那是「闸关着」那一支的写法（`showItemInfoOnClick = 0`），而这一格闸是开的。
+            hit.clickCue = WindowSounds.ButtonClick1Cue;
             // 🔶 自己设计（非原版）：**本窗没有 `Shadow`** ⇒ 用命中闸复刻「可领那一下被领奖钮吞掉」的遮挡语义 ·
             // 判据 = `DailyStreakItemContainer__SetState.c:2-29`（claimButton ⇔ Unlocked）· 调度台 2026-10-31 裁定
             hit.Interactable = !claimWins;
@@ -1038,6 +1048,41 @@ namespace CardPresentation
             if (e == null) return null;
             var node = e.Find("Preview Rewards Hit");
             return node != null ? node.GetComponent<WindowButton>() : null;
+        }
+
+        // ============================================================ 🆕 2026-10-31（`C3` · 同族同病 `B109_E23` §五·④）
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `PreviewRewardsHitForTest` 之后
+        // ⇒ 本文件既有账行（最新一条 = `:977`）零行号漂移。
+        // 内容 = 原版 `ItemDrawer.HandlePointerClick()` 那一跳（连登奖格点一下 ⇒ 开物品展示窗），
+        // 与 `Shell/DailyRewardPopup.cs` 的 `OpenItemInfo(int, bool)` **逐句同形**（原版两处是同一段字节：
+        // `out_il2csharp/Assembly-CSharp/DailyStreakItemContainer.cs:105-127`）。
+
+        /// <summary>= 原版 `ItemDrawer.HandlePointerClick()`：
+        /// `WindowsManager.OpenWindow(new ItemDisplayWindowContext(item, quantity))`。
+        /// <para>判据（逐跳实读）：① `decomp_generic_trial/out/ItemDrawer_object___HandlePointerClick.c:15-25` ——
+        /// 用抽屉两字段造 `ItemDisplayWindowContext`（`+0x38 = item` · `+0x40 = quantity`；ctor 符号错配成
+        /// `UpgradeCardSignal___ctor` = ICF 折叠）再 `WindowsManager.OpenWindow&lt;ItemDisplayWindow&gt;`；
+        /// ② `ItemDrawer_object___OnPointerClick.c:29-36` —— **只有 `onClick` 为 null 时才走这一跳**
+        /// （`Count &gt; 1` 那一支被 `OverrideOnClickAction` 截走）；③ 连登奖格的抽屉与每日奖励是**同一份 prefab**
+        /// （`Currency ▸ Key:10` = `Icon Currency Drawer Variant`，`showItemInfoOnClick = 1`，闸是开的；
+        /// 判据 → `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §4·1）⇒ **未领那一格点一下必须开窗**。</para>
+        /// <para>⚠️ **数量那一格传不进去（如实标注，⛔ 不塞进标题里冒充）**：原版 `ItemDisplayWindowContext` 的
+        /// `+0x18 = amount`，而我们这一侧的 `ItemDisplayWindow.Context` **没有 Amount 字段**
+        /// ⇒ 这里只能把「物品 = 图 + 名」送进去（补法与限制见 `资料/完全复刻/报告/B109_E23.md` §五·①）。</para>
+        /// <para>⛔ 不发奖、不关本窗（原版这一段只做 `OpenWindow` 一件事）。</para></summary>
+        void OpenItemInfo(int day)
+        {
+            var art = DailyData.StreakRewardIcon(day);
+            var ctx = new ItemDisplayWindow.Context
+            {
+                Title = DailyData.StreakRewardName(day),      // 原版 `item.LocalizedName`；= 格上 `Reward Name` 印的那一条
+                Description = null, Type = null, Army = null, Lore = null,
+                Art = ItemDrawer.ArtTexture(art),             // 与奖格图标同一张（= 原版 `ItemDrawer.Draw` 换 `image.sprite` 那一下）
+                ArtName = art,
+            };
+            var w = WindowsManager.OpenItemDisplay(ctx);
+            if (w == null)
+                Debug.LogWarning("[DailyStreak] 点奖格 ⇒ **物品展示窗没开出来**（原版 `ItemDrawer.HandlePointerClick`）—— 不静默");
         }
     }
 }

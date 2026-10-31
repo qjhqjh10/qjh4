@@ -748,13 +748,13 @@ public static class DeckScene
             //   本批的口径 = **断我们实际用的框 = 我们自己的父格**（`RowNameW 190 × RowH 55.7` /
             //   `CardGhostW − 70 = 217.9 × 55.7`），把「用的就是格、不是原版那个数」钉住；
             //   ⛔ 不为凑 `A1226` 的差值改几何（铁律 3 的反面：布局组驱动的件没有可抄的原版框）。
-            CheckA1212(r, "row_n0", "…/Deck List drawer/…/Text fill/Card Name", 2f, 38f, 27.69f, 0,
-                       boxW: 190f, boxH: 55.7f);             // A1226 表 B #41（不可比：原版 111.52 = 布局组算的）
+            CheckA1212(r, "row_n0", "…/Deck List drawer/…/Text fill/Card Name", 10f, 34f, 27.69f, 0,
+                       boxW: 190f, boxH: 55.7f);             // 🔴 2026-10-31（B108_A3）：督军族 `Card Name` = auto[10~34]（原版 Hero 族实读）；旧 2/38 是 Card Info 族那套
             CheckA1212(r, "row_cnt0", "…/Deck List drawer/…/Cost Image/Cost", 18f, 50f, 32f, 1);
             CheckA1212(r, "foot_done_t", "…/Sidebar/Footer/Done/Button Text", 10f, 40f, 12f, 0,
                        boxW: 168.54f);                       // A1226 表 B #46
-            CheckA1212(r, "card_ghost_n", "Card Drag Controller/…/Card Name", 2f, 38f, 27.69f, 0,
-                       boxW: 217.9f, boxH: 55.7f);           // A1226 表 B #52（不可比：原版 111.52 = 布局组算的）
+            CheckA1212(r, "card_ghost_n", "Card Drag Controller/…/Card Name", 10f, 30f, 27.69f, 0,
+                       boxW: 217.9f, boxH: 55.7f);           // 🔴 2026-10-31（B108_A3）：拖影 `Card Name` = auto[10~30]（原版 `Card Drag Controller/…/Card Name` 实读）
             CheckA1212(r, "card_ghost_c", "Card Drag Controller/…/Cost Image/Cost", 18f, 50f, 32f, 1);
             // 🔴 **2026-10-17（T23 删件）**：这里原来还有导入弹窗那 4 颗（`imp_title` / `imp_input` /
             //   `imp_err` / `imp_ok_t`，判据 = `Import Deck Popup/…`）—— 那棵树整棵删了
@@ -837,7 +837,7 @@ public static class DeckScene
                 //   `CardDeck.GetEmptyDeck()` → 打模式 → 直接开 `DeckEditingWindow`，**全链无入库调用**）。
                 //   ⛔ 别在这之前预建卡组：预建了，「空库时不写盘」那几条就没有鉴别力了。
                 //   夹具在 `TestLibraryWiring()`（断空库那一拍）**之后**才建，见 `TestLibraryAfterDone()`。
-                state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B102AUD01_Assert.Run(); Check(B102AUD01_Assert.Fail, 0, "★ AUD02#1 `Done Highlight` 空心框（17 条：8 块拼接 / 中心无覆盖 / 角块 19px·uv 19/128）失败 0｜🧨 把 `FootHlFillCenter` 改回 true 或换回 `Img()` ⇒ 这里 >0"); B102AUD02_Assert.RunDeck(_root); Check(B102AUD02_Assert.Fail, 0, "★ AUD02#2 筛选小标题 `FontStyles.UpperCase`（卡组编辑窗 5 颗 = 4 卡牌筛选 + 1 卡背筛选）失败 0｜🧨 去掉 `FilterPanelModel.ApplyTitleFontStyle` ⇒ 这里 >0"); B102DECK_Assert.Run(); Check(B102DECK_Assert.Fail, 0, "★ 账 `其他_基础设施:780` 存档双写两条验收（切前/切后 payload 逐字段相等 · 中央档坏 ⇒ 回落旧档且不判 Failed）失败 0｜🧨 把 `WriteDecksThroughHooks` 改回 `DeckStore.SaveAll` ⇒ 红"); B102HOVER_Assert.Run(_rt, _rt != null ? _rt.Root : _root); Check(B102HOVER_Assert.Fail, 0, "★ B102_HOVER 卡组编辑窗悬停**只归一条派发链**（前提 4 / 逐颗「本类认得出 + 指针层不碰 + 同时亮着的 ≤1」/ 灭自证「撤让位能命中、复原后不命中」）失败 0｜🧨 删掉 `PointerLayer.YieldToHost(wb)` 那句 ⇒ 红"); B103R1_Assert.Run(); Check(B103R1_Assert.Fail, 0, "★ B103R1 AUD03 #5/#7/#8/#14（DeckRuntime 复用/生命周期：Build 复位六格 · 保护槽按数据行重算 · 库存信号要播 · 卡背格表不增长）失败 0｜🧨 删掉 Build 尾任一句复位 / 删掉 `RefreshDeckList` 里那句重算 ⇒ 这里 >0"); B103F1_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B103A03_Assert.Run(); B103A03_Assert.RunDeck(_rt); _sink.Pass += B103A03_Assert.Pass; _sink.Fail += B103A03_Assert.Fail; Check(B103A03_Assert.Fail, 0, "★ AUD03 #21/#77/#94（`UiCosmCellCount` 恰好 == `CosmoRows×CosmoCols` · 真滚两行后保护槽 == 数据行 − firstRow · `SolidTexFor` 按 aspect 分桶且一张不销毁 · `Loc`↔`Label` 语言变更重取而不是重建窗）失败 0｜🧨 把 `SolidTexFor` 改回单值缓存 / 把 5 窗的 `RelocalizeUnder` 改回 `{ Open(); }` ⇒ 这里 >0");
+                state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B102AUD01_Assert.Run(); Check(B102AUD01_Assert.Fail, 0, "★ AUD02#1 `Done Highlight` 空心框（17 条：8 块拼接 / 中心无覆盖 / 角块 19px·uv 19/128）失败 0｜🧨 把 `FootHlFillCenter` 改回 true 或换回 `Img()` ⇒ 这里 >0"); B102AUD02_Assert.RunDeck(_root); Check(B102AUD02_Assert.Fail, 0, "★ AUD02#2 筛选小标题 `FontStyles.UpperCase`（卡组编辑窗 5 颗 = 4 卡牌筛选 + 1 卡背筛选）失败 0｜🧨 去掉 `FilterPanelModel.ApplyTitleFontStyle` ⇒ 这里 >0"); B102DECK_Assert.Run(); Check(B102DECK_Assert.Fail, 0, "★ 账 `其他_基础设施:780` 存档双写两条验收（切前/切后 payload 逐字段相等 · 中央档坏 ⇒ 回落旧档且不判 Failed）失败 0｜🧨 把 `WriteDecksThroughHooks` 改回 `DeckStore.SaveAll` ⇒ 红"); B102HOVER_Assert.Run(_rt, _rt != null ? _rt.Root : _root); Check(B102HOVER_Assert.Fail, 0, "★ B102_HOVER 卡组编辑窗悬停**只归一条派发链**（前提 4 / 逐颗「本类认得出 + 指针层不碰 + 同时亮着的 ≤1」/ 灭自证「撤让位能命中、复原后不命中」）失败 0｜🧨 删掉 `PointerLayer.YieldToHost(wb)` 那句 ⇒ 红"); B103R1_Assert.Run(); Check(B103R1_Assert.Fail, 0, "★ B103R1 AUD03 #5/#7/#8/#14（DeckRuntime 复用/生命周期：Build 复位六格 · 保护槽按数据行重算 · 库存信号要播 · 卡背格表不增长）失败 0｜🧨 删掉 Build 尾任一句复位 / 删掉 `RefreshDeckList` 里那句重算 ⇒ 这里 >0"); B103F1_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B103A03_Assert.Run(); B103A03_Assert.RunDeck(_rt); _sink.Pass += B103A03_Assert.Pass; _sink.Fail += B103A03_Assert.Fail; Check(B103A03_Assert.Fail, 0, "★ AUD03 #21/#77/#94（`UiCosmCellCount` 恰好 == `CosmoRows×CosmoCols` · 真滚两行后保护槽 == 数据行 − firstRow · `SolidTexFor` 按 aspect 分桶且一张不销毁 · `Loc`↔`Label` 语言变更重取而不是重建窗）失败 0｜🧨 把 `SolidTexFor` 改回单值缓存 / 把 5 窗的 `RelocalizeUnder` 改回 `{ Open(); }` ⇒ 这里 >0"); B108A3Aud02Deck_Assert.Run(_rt); _sink.Pass += B108A3Aud02Deck_Assert.Pass; _sink.Fail += B108A3Aud02Deck_Assert.Fail; Check(B108A3Aud02Deck_Assert.Fail, 0, "★ AUD02 卡组编辑 85 条 ❌（垂直对齐 / 费用曲线九宫 / 空槽占位 / 禁卡叉 / Sliced·PA / 字号·折行·边距）失败 0｜🧨 删掉 ApplyRowStyles / 换回 Img() / 注释掉 BuildRowExtras ⇒ 这里 >0");
                 // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
                 //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）
@@ -909,7 +909,7 @@ public static class DeckScene
                     Check(CardPresentation.CollectionData.PendingEditDeck, -1,
                           "交接**读完就清**（不清的话下次开还会跳过去）");
                     hrt.BackToMenu();
-                    CheckTrue(true, "`BackToMenu()` 在批处理下**不切场景**（切了会把后面的断言全带走）");
+                    Debug.Log(P + "`BackToMenu()` 在批处理下**不切场景**（切了会把后面的断言全带走）—— 本句是登记，不计入通过数");
                     // 🆕 2026-10-18（A855）：**离场那条路的回程意图** —— 批处理不切场景 ⇒ 这是唯一可观测面
                     //    （正因如此，意图的写入在 `Application.isBatchMode` 那道闸【之前】，同 `LeaveCount`）。
                     // 🔴 **2026-10-14（`A1132` 第 4 步）前提补记（⛔ 期望值一个字没动）**：下面的 `hrt` 是
@@ -2093,7 +2093,7 @@ public static class DeckScene
                               "…而且它压在 Type 那一行上（同一个屏幕区域）—— 原版就这样");
                 }
                 s.SetFilter(DeckFilter.None);
-                CheckTrue(true, "（收尾：清空筛选）");
+                Debug.Log(P + "（收尾：清空筛选）—— 本句是登记，不计入通过数");
             }
 
             // 🆕 **2026-10-25（`C` 域 · 多选筛选）**：同一类**多选 = 并集**（原版 `typeFilters` 是集合）
@@ -4419,7 +4419,7 @@ public static class DeckScene
                         2.2f + 266.55f + 17.5f, 156f + 24.51f + 15f, 35f, 30f);
             // 🔴 **2026-10-18（A891 的续）改「随语档」**：占位符从本批起**走词条**
             //   （`Core/FilterPanelModel.InputPlaceholder` → `Loc.T("MenuDeck/HUD/SearchFilter")`），
-            //   而本宿主跑在**出厂语言 = 中文**（`Core/Loc.cs` 的 `Default`）⇒ 原来写死的 `"Search"` 必红。
+            //   而本宿主跑在**出厂语言 = 按系统语言解析（未命中 ⇒ 英文）**（`Core/Loc.cs` 的 `Default`）⇒ 中文档下原来写死的 `"Search"` 必红。
             //   期望值 = **同一个取词口**（`Loc.T`），但**不是**同义反复 —— 下面那条 `HasEntry` 钉住
             //   「键在表里」：键不在 ⇒ `Loc.T` 返回**键名本身**、渲染那一侧也返回键名 ⇒ 两边一起退化，
             //   只有靠 `HasEntry` 那条才红得出来（形状同 `Editor/CollectionScene.cs` ⑨ 那一节）。
@@ -4738,8 +4738,8 @@ public static class DeckScene
                 {
                     var bt = FindDeep(_rt.Root, "curve_b" + c);
                     var ft = FindDeep(_rt.Root, "curve_f" + c);
-                    if (bt != null && bt.GetComponent<ImageQuad>() != null
-                        && ft != null && ft.GetComponent<ImageQuad>() != null) bars++;
+                    if (bt != null && bt.GetComponentsInChildren<ImageQuad>(true).Length >= 3
+                        && ft != null && ft.GetComponentsInChildren<ImageQuad>(true).Length >= 3) bars++;
                     if (bt != null)
                     {
                         wbs += bt.GetComponentsInChildren<WindowButton>(true).Length;

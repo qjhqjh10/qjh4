@@ -2,7 +2,7 @@
 //
 //  为什么单开一份：本轮补齐的 17 档抽屉（判据 → `资料/完全复刻/判据/B100_D1_抽屉18档_施工单.md` 表 B）
 //  共用**同一套 prefab 版面**：根 712.8×1080（`AspectRatioFitter` 高控宽 0.66）+ `Content` 712×1080
-//  + `Content/Background` 铺满 + `Content/Image`（多数档 (0.4,216)-(712.4,648)）+ `Content/Army`
+//  + `Content/Background` 铺满（⚠️ `Cardback Drawer` 例外：`background` 槽 = null、Content 下无 Background 节点 —— 2026-10-31 `B108_R6` 现读）+ `Content/Image`（多数档 (0.4,216)-(712.4,648)）+ `Content/Army`
 //  + `Content/Label`（`HorizontalLayoutGroup`：`Quantity` 右对齐在左半、`Name` 左对齐在右半）。
 //  13 份 prefab 逐份 `menu_dump` 现读（2026-10-30 · B101_E3），值**逐份相同**才写进这里；
 //  ⛔ 别在任何一档里再抄一遍（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
@@ -13,7 +13,7 @@
 //      `Alliance Badge Drawer` · `XSolla Offer Drawer` · `Avatar Border Drawer` · `Random Card Drawer`（10 份）
 //    · Icon 变体（`Icon Title Drawer Variant` / `Icon VIP Premium Campaign Drawer Variant` /
 //      `Icon Forge Points Drawer Variant`）：根 **1080×1080**、ARF **1**，`Content` 1080×1080 ⇒ 用 `FrameOf(box, 1080, 1080)`
-//    · `Cardback Drawer`：根 235.09×356.19 + **自带 `↻-7.27°`**（旋转），`Content` 仍是 712×1080 —— 它走 `FrameOf` 的默认根
+//    · `Cardback Drawer`：根 235.09×356.19（**根 `m_LocalRotation` = identity；`-7.27°` 是 `General Basic Offer Popup` 实例上的装饰，不在 prefab 根** —— 2026-10-31 `B108_R6` 现读），`Content` 仍是 712×1080 —— 它走 `FrameOf` 的默认根
 //    · `Title Drawer`：根 174.18×263.92（`Content` 被 `UIScaleToFit` ×0.2444 缩到框里）—— 设计空间仍是 712×1080
 //
 //  ── 三处「如实记」（⛔ 别把它们当成原版值）─────────────────────────────────────
@@ -214,6 +214,34 @@ namespace CardPresentation
         {
             var t = node.Find(name);
             if (t != null) t.gameObject.SetActive(false);
+        }
+
+        // ============================================================ 自检读口（2026-10-31 · `B109_E11`）
+        //
+        //  为什么要有它：这一整套版面常量是 **prefab 逐份实读**出来的（出处见文件头），但它们全是 `private const`
+        //  ⇒ 断言看不见「底图名 / 尺寸 / 文本位」这几个值，只能靠人眼比 dump。
+        //  这里**只做转发、不复制数值**（数值仍只有上面那一份 —— `CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+
+        /// <summary>版面读口：`Content` 左右沿 / `Image` 默认矩形 / `Label` 行 / `Quantity`·`Name` 分栏（设计 px · 左上原点）。</summary>
+        public struct LayoutMetrics
+        {
+            public float ContentX1, ContentX2, ImageY1, ImageY2;
+            public float LabelX1, LabelX2, LabelY1, LabelY2;
+            public float QtyX1, QtyX2, NameX1, NameX2;
+            /// <summary>`Content/Background` 的 `m_Sprite`（落盘名：空格→下划线）。</summary>
+            public string BackgroundSprite;
+        }
+
+        /// <summary>读口：见 <see cref="LayoutMetrics"/>。</summary>
+        public static LayoutMetrics Metrics()
+        {
+            return new LayoutMetrics
+            {
+                ContentX1 = DrCx1, ContentX2 = DrCx2, ImageY1 = DrImgY1, ImageY2 = DrImgY2,
+                LabelX1 = DrLbX1, LabelX2 = DrLbX2, LabelY1 = DrLbY1, LabelY2 = DrLbY2,
+                QtyX1 = DrQtyX1, QtyX2 = DrQtyX2, NameX1 = DrNameX1, NameX2 = DrNameX2,
+                BackgroundSprite = DrBackgroundSprite,
+            };
         }
     }
 }

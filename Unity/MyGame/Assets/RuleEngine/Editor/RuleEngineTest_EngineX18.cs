@@ -36,20 +36,20 @@ public static partial class RuleEngineTest
         {
             Directory.CreateDirectory(tmp);
             ProfileData.SavePathOverrideForTest = Path.Combine(tmp, "profile.json");
-
-            X18T1SecretAndSabotage();
-            X18T2ContainersOpenAndDraftWins();
-            X18T3CardPoolCollected();
-            X18T4AchievementIdIsolation();
-            X18T5Ach89AndAch97();
-            X18T6HuntMarkAndDarkPact();
-            X18T7Reanimated();
-            X18T8Swarm();
-            X18T9CompleteCampaign();
+            // 🔴 2026-10-31（B108_A7 · AUD11 类 4）：改前 9 段挤在同一个 try ⇒ 一段抛异常后面全不跑（合计只多「失败 1」）。现逐段 catch。
+            try { X18T1SecretAndSabotage(); } catch (Exception e) { X18SegFail("① 隐秘/破坏", e, 8); }
+            try { X18T2ContainersOpenAndDraftWins(); } catch (Exception e) { X18SegFail("② 开包 + 轮抽战绩", e, 7); }
+            try { X18T3CardPoolCollected(); } catch (Exception e) { X18SegFail("③ 卡池收集", e, 6); }
+            try { X18T4AchievementIdIsolation(); } catch (Exception e) { X18SegFail("④ 按 Ach_N 不串台", e, 5); }
+            try { X18T5Ach89AndAch97(); } catch (Exception e) { X18SegFail("⑤ Ach_89 / Ach_97", e, 4); }
+            try { X18T6HuntMarkAndDarkPact(); } catch (Exception e) { X18SegFail("⑥ 猎杀标记 + 黑暗契约", e, 3); }
+            try { X18T7Reanimated(); } catch (Exception e) { X18SegFail("⑦ 复生", e, 2); }
+            try { X18T8Swarm(); } catch (Exception e) { X18SegFail("⑧ 虫群", e, 1); }
+            try { X18T9CompleteCampaign(); } catch (Exception e) { X18SegFail("⑨ 战役全通", e, 0); }
         }
         catch (Exception e)
         {
-            CheckTrue(false, "X18 断言宿主抛异常（后面的条目没跑完）：" + e);
+            CheckTrue(false, "X18 段外异常（= 建临时目录 / 改存档路径那一句炸了 ⇒ 上面 9 段**一段都没跑**）：" + e);
         }
         finally
         {
@@ -490,5 +490,16 @@ public static partial class RuleEngineTest
                     CampaignData.Claim(i, CampaignData.TierBasic, out why);
                 }
         return CampaignData.ClaimedCount;
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B108_A7` · AUD11 类 4）：改前 `TestEngineX18` 是**一个 try 包 9 段** ⇒
+    /// 任一段抛异常，其后 8 段一条不跑，而合计只多「失败 1」，读日志的人看不出「后面没跑」。
+    /// <para>⚠️ 改动是**行数零变化**的（9 行调用原地换成 9 行 try/catch、一处空行换成注释行），
+    /// 本 helper 追加在**类尾**（`RuleEngineTest_EngineX2.cs` 里另有同形的 `X2SegFail`，两者各自独立、不共享）。</para>
+    /// <paramref name="rest"/> = 这一段之后还有几段（0 = 它是最后一段）。</summary>
+    static void X18SegFail(string section, Exception e, int rest)
+    {
+        CheckTrue(false, section + " 段异常（算红，⛔ 不是跳过；跑到 `" + section + "` 这一段，其后 " + rest
+                             + " 段没跑）: " + e.GetType().Name + "：" + e.Message);
     }
 }

@@ -24,6 +24,8 @@ Run:  python -I -X utf8 d:/4/Unity/工具/r0_report.py --scan
       python -I -X utf8 d:/4/Unity/工具/r0_report.py --selftest     ← R0-01/R0-02 单元自检（不碰账）
       D:/2/Warpforge_tools/py312/python.exe -I -X utf8 d:/4/Unity/工具/r0_report.py --scan
 Out:  <out>/R0_资源覆盖账.tsv
+      <out>/_bak/R0_资源覆盖账.prev.tsv   ← 🔴 上一版的**单份滚动**留档（2026-10-31 B109_E14 加；账 gitignored、无历史；
+                                           放 `_bak/` 是因为 `.gitignore:262` 已忽略该目录，否则会变成未跟踪的 91 MB blob）
       <out>/R0_资源覆盖账_stamp.json   ← R0-03 语料快照戳（**不改 TSV 表头**）
       <--in>/r0_stats.json · <--in>/r0_unused.json
       🔴 `R0_未使用清单.md` **不由本脚本写** —— 由 `工具/gen_unused_md.py --apply` 生成
@@ -61,8 +63,9 @@ USAGE = (
     '         --in DIR     输入目录，默认 D:/4/_tmp_view/wfres（需含 r0_objects.tsv / r0_edges.tsv / r0_files.json）\n'
     '         --out DIR    输出目录，默认 D:/4/Unity/资料/完全复刻/资源\n'
     '  -h, --help     只打印本用法并退出（退出码 0）\n'
-    '  ⚠️ 会用 UnityPy 打开 d:/2 的原版 bundle 取场景根；整轮约 10 分钟、产出那张 91 MB 的账。\n'
+    '  ⚠️ 会用 UnityPy 打开 d:/2 的原版 bundle 取场景根；整轮约 1.5 分钟、产出那张 91 MB 的账。\n'
     '  ⚠️ `--scan` 另外会写 `R0_资源覆盖账_stamp.json`（R0-03 语料快照戳）到 --out 目录。\n'
+    '  🔴 账是**原子写**（临时文件 → `os.replace`），且写前把上一版复制成 `_bak/R0_资源覆盖账.prev.tsv`（单份滚动）。\n'
 )
 
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
@@ -337,6 +340,36 @@ def _corpus_snapshot():
     return out
 
 
+def _write_ledger_atomic(dest, header, rows):
+    """原子写那 91 MB 的账，并保一份上一版（`_bak/<账>.prev.tsv`）。
+
+    🔴 **2026-10-31（B109_E14）为什么补这一层**：
+      原实现是裸 `io.open(dest,'w')` 直接写目标路径 ⇒ 中途异常/断电会把 **91 MB 账截成半截**，
+      而这份账 **在 `.gitignore:250` 里（没有 git 历史、没有任何自动备份）** ⇒ 一次失败的写入 = 永久丢失。
+      同族事故本项目已经发生过（CLAUDE.md「`io.open(p,'wb').write(<表达式>)` 会先截断再求值」）。
+    做法：① 写同目录临时文件 → ② 上一版 `shutil.copy2` 到 `<dest>/_bak/R0_资源覆盖账.prev.tsv`
+         （只有一份，rolling）→ ③ `os.replace` 原子换名。
+    ⚠️ 留档**必须放 `_bak/`**（`.gitignore:262` 已忽略该目录）：写到 `dest` 旁边会变成**未跟踪的 91 MB blob**，
+       任何一次 `git add -A` 就会把它塞进仓库。
+    **输出字节与旧实现逐字节相同**（同样的 header/行拼接与 `\\n`）。
+    """
+    tmp = dest + '.tmp'
+    with io.open(tmp, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(header + '\n')
+        for r in rows:
+            f.write('\t'.join(str(x).replace('\t', ' ') for x in r) + '\n')
+    if os.path.exists(dest):
+        import shutil
+        bak_dir = os.path.join(os.path.dirname(dest), '_bak')
+        bak = os.path.join(bak_dir, 'R0_资源覆盖账.prev.tsv')
+        try:
+            os.makedirs(bak_dir, exist_ok=True)
+            shutil.copy2(dest, bak)
+        except OSError as e:
+            print('⚠️ 上一版留档失败（不影响本次写入）：%s' % e, flush=True)
+    os.replace(tmp, dest)
+
+
 def _write_stamp(dest, stamp):
     os.makedirs(dest, exist_ok=True)
     p = os.path.join(dest, 'R0_资源覆盖账_stamp.json')
@@ -590,12 +623,14 @@ def main(out_dir=OUT, dest=DEST):
         stat[(st, us)] += 1
 
     os.makedirs(dest, exist_ok=True)
-    with io.open(os.path.join(dest, 'R0_资源覆盖账.tsv'), 'w', encoding='utf-8', newline='\n') as f:
-        f.write('\t'.join(['文件', 'PathID', '类型', '名字', '我们有没有用',
-                           '用/读判据', '状态', '深度', '原版引用链', '地址able路径',
-                           '字节数', 'CAB', '处置']) + '\n')
-        for r in rows:
-            f.write('\t'.join(str(x).replace('\t', ' ') for x in r) + '\n')
+    # 🔴 2026-10-31（B109_E14）：改成「临时文件 + 上一版 .prev + os.replace」——
+    #   原来是裸 `io.open(dest,'w')`，91 MB 账写到一半失败就会留下半截文件，而本账 gitignored（无历史可回滚）。
+    _write_ledger_atomic(
+        os.path.join(dest, 'R0_资源覆盖账.tsv'),
+        '\t'.join(['文件', 'PathID', '类型', '名字', '我们有没有用',
+                   '用/读判据', '状态', '深度', '原版引用链', '地址able路径',
+                   '字节数', 'CAB', '处置']),
+        rows)
     print('rows', len(rows), f'{time.time()-t0:.0f}s', flush=True)
     for k, v in sorted(stat.items(), key=lambda kv: -kv[1]):
         print(f'  {k[0]:6s} {k[1]:14s} {v}', flush=True)

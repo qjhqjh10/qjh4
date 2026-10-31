@@ -65,13 +65,30 @@ namespace WarpforgeVFX
         };
 
         /// <summary>材质名 → 原版 shader 名（只查这一张小表，⛔ 不碰 <see cref="ArenaOriginalShaderIndex"/> 的 37/18 口径）。</summary>
+        /// <remarks>
+        /// ⚠️ **两个名字口径都要认**（2026-10-31 B108_A14 现读 6/6 实测）：
+        /// 这 6 个 `.mat` 的 YAML `m_Name` **不是文件名**，而是**原版 shader 名**本身
+        /// （例：`m_Name: 'Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad'`，
+        /// 而文件名是 `Hidden_VFX_Aeldari Dust_System_Output Particle Unlit Quad.mat`）。
+        /// 运行时 `Material.name` 取的就是 `m_Name` ⇒ **只按文件名比会 0 命中、整条兜底变哑巴**。
+        /// </remarks>
         public static bool TryGetShaderName(string materialName, out string shaderName)
         {
             shaderName = null;
             if (string.IsNullOrEmpty(materialName)) return false;
+            // ① 文件名口径（资产文件名的去扩展名形式）
             for (int i = 0; i < MaterialNames.Length; i++)
             {
                 if (string.Equals(MaterialNames[i], materialName, System.StringComparison.Ordinal))
+                {
+                    shaderName = ShaderNames[i];
+                    return true;
+                }
+            }
+            // ② 运行时 `Material.name` 口径（= YAML `m_Name` = 原版 shader 名）
+            for (int i = 0; i < ShaderNames.Length; i++)
+            {
+                if (string.Equals(ShaderNames[i], materialName, System.StringComparison.Ordinal))
                 {
                     shaderName = ShaderNames[i];
                     return true;

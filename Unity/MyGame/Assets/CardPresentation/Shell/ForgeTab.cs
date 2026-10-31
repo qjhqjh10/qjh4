@@ -709,8 +709,14 @@ namespace CardPresentation
 
             var l0 = UguiRect.Child(topD, aP, aP, UguiRect.P50c, left ? LC_PosL : LC_PosR, left ? LC_Sz : LC_SzR);
             var lr = R(ScaleXY(l0, l0.CX, l0.CY, cx, CandleScale), pivotX, colSx, ColScale);
-            _win.Rect(RewardsWindow.Node(parent, left ? "Light Candle" : "Light Candle (1)", lr),
-                      "40k_rewards_forge_decoration_1_candle_light", lr, "img", QTabDecor);
+            var candleQ = _win.Rect(RewardsWindow.Node(parent, left ? "Light Candle" : "Light Candle (1)", lr),
+                                    "40k_rewards_forge_decoration_1_candle_light", lr, "img", QTabDecor);
+            // 🆕 2026-10-31（`B109_E33` · R15 §1·4 / #4）：原版这颗挂 `Everguild/UI/Pulsating` 的
+            //   `Forge UI Light`（`Material_-2164664953476156828.json`）—— α 在 `[0.2, 1]` 之间按
+            //   `sin(50 · _Time.x)`（`_Time.x` = t/20 ⇒ **2.51 s 一个来回**）呼吸，**我们原来恒亮**。
+            //   参数逐字段抄那份 JSON（`_AlphaPulsating (0.2,50)` · `_SizeRotation (1,0,0)`）；
+            //   ⛔ `_Size`/`_SizeRotationAlpha`/`_RemapAtlasUVs` 是死值（不在 DXBC 常量表）。
+            MenuFxMaterials.Apply(candleQ, MenuFxMaterials.PulsatingForge);
         }
 
         // ============================================================ 阵营选择条

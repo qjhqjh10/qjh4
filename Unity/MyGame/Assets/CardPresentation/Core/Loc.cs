@@ -129,9 +129,9 @@
 // ============================ 🔴 落盘 ============================
 //  · 键名 = **`"Language"`**（用户口径）；风格照 `Core/WarpforgeAudio.cs` 的 `MusicPrefKey`（工程里唯一的原版键先例）。
 //  · 读/写都 `PlayerPrefs.Save()`（同 `WarpforgeAudio`）。
-//  · **默认 = 中文**（用户 2026-09-28 口径：原版实拍是中文客户端、用户是中文用户）。
-//  · ⚠️ 原版**不存 `PlayerPrefs`** —— 它存玩家存档（服务器那一侧），我们没有存档系统 ⇒
-//    这是**我们挑的**（同 `AutoZoom` / `SuperSampling` 那两条如实标注）。
+//  · **默认 = 按系统语言解析**（原版 I2 `SelectStartupLanguage` 三级回退：① 本地记住的设置 → ② `Application.systemLanguage` → ③ 源内第一个语言 = 英文；见 `Default` / `MapSystemLanguage`）。
+//  · ✅ **原版【会】本地记住语言**（I2 `PersistentStorage` + `set_CurrentLanguage` 的 `RememberLanguage = 1`）⇒ 我们这份 `PlayerPrefs` 是**等价物**（键名是我们挑的）。
+//    🔴 2026-10-31（B109_E15）就地订正：本行原写「⚠️ 原版**不存 `PlayerPrefs`** —— 它存玩家存档（服务器那一侧）」——**不成立**（原版本地记语言；玩家档里没有语言字段，`languageVersion` 只是远端词表版本号）。
 //
 // ============================ 忘了接的地方不会静默 ============================
 //  · `T()` 拿到**表里没有**的键 ⇒ 返回**键名本身** + `Debug.LogWarning`，并把 `MissingCount` / `LastMissingKey` 记下来（自检有一条钉它）。
@@ -181,8 +181,8 @@ namespace CardPresentation
         /// <summary>落盘键。🔴 用户 2026-09-28 口径就是这五个字符（⛔ 别改成 `LanguagePref` 之类）。</summary>
         public const string PrefKey = "Language";
 
-        /// <summary>出厂语言 = **中文**（用户口径：原版实拍是中文客户端）。</summary>
-        public const AvailableLanguages Default = AvailableLanguages.Chinese;
+        /// <summary>出厂语言 = **按系统语言**解析（原版 I2 `SelectStartupLanguage` 的 ②③ 级：`Application.systemLanguage` → 13 种之一，未命中 ⇒ `Fallback` 英文；见 `MapSystemLanguage`）。</summary>
+        public static AvailableLanguages Default { get { return MapSystemLanguage(Application.systemLanguage); } }
 
         /// <summary>没有文案时回退到的那一种（= 本地唯一那份**原版**文案）。</summary>
         public const AvailableLanguages Fallback = AvailableLanguages.English;
@@ -783,8 +783,8 @@ namespace CardPresentation
             { "Battle/Tips/EnergyCost",                       new Entry("能量花费", "Energy Cost") }, // 17 颗 · 含 3 颗 `Cost Filter/Title`；zh_CN.csv:98（英文串索引，见上）
             // ------------- 空态那三行（`MenuCollection/*`，四个页各一份 `Empty Collection Warning`）-------------
             { "MenuCollection/NoCardsFound",                  new Entry("在您选择的过滤器中，您的收藏里没有任何张牌", "There are no cards in your collection for the selected filters") },   // TMP 原文逐字符；zh_CN.csv:177
-            //   🔴 中文列**是我们自拟的**：`zh_CN.csv` 里**没有 `There are no cardbacks…` 这个键**（精确查 0 命中）
-            { "MenuCollection/NoCardbackFound",               new Entry("在您选择的过滤器中，您的收藏里没有任何卡背", "There are no cardbacks in your collection for the selected filters") }, // TMP 原文逐字符；中文自拟
+            //   ✅ 2026-10-31（B108_A10 · S5）订正：原文写「中文列是我们自拟的 · `zh_CN.csv` 里没有这个键」—— **已过期**：官方 I2 表 `官方本地化_en+zh-CN.json` 有该键，中文逐字相同（不是自拟）
+            { "MenuCollection/NoCardbackFound",               new Entry("在您选择的过滤器中，您的收藏里没有任何卡背", "There are no cardbacks in your collection for the selected filters") }, // TMP 原文逐字符；中文取自官方 I2 表（2026-10-31 订正，原文「中文自拟」已过期）
             //   🔴 **英文列是原版 TMP 的原文，含原版自己的语病**（`There are no **deck** …` 单数）——
             //   照抄（本表英文列的口径 = 那颗 TMP 的 `m_text` 原文逐字符；⛔ 别「顺手修正」成 `decks`，
             //   那会与 `Shell/ShopWindow` 的 `TxtEmpty`（同一句原文）分叉）。
@@ -3725,15 +3725,15 @@ namespace CardPresentation
         {
             if (_loaded) return;
             _loaded = true;
-            int v = PlayerPrefs.GetInt(PrefKey, (int)Default);
-            if (System.Enum.IsDefined(typeof(AvailableLanguages), v)) _current = (AvailableLanguages)v;
-            else
+            // 原版 I2 `SelectStartupLanguage` 三级回退：① 本地记住的设置 → ② `Application.systemLanguage` → ③ 源内第一个语言（= 英文；见 `ResolveStartup`）。
+            int? saved = PlayerPrefs.HasKey(PrefKey) ? (int?)PlayerPrefs.GetInt(PrefKey, 0) : null;
+            if (saved.HasValue && !System.Enum.IsDefined(typeof(AvailableLanguages), saved.Value))
             {
-                // 存档里是个不认识的值（手改注册表 / 旧版本）⇒ 回出厂值并出声，⛔ 不静默
-                Debug.LogWarning($"[Loc] `PlayerPrefs[\"{PrefKey}\"]` = {v} 不是合法的 `AvailableLanguages` 取值 ⇒ "
-                               + $"回到出厂语言 `{Default}`（原版枚举取值是 0/10/20/…/110）。");
-                _current = Default;
+                // 存档里是个不认识的值（手改注册表 / 旧版本）⇒ 当没存过、走系统语言并出声，⛔ 不静默
+                Debug.LogWarning($"[Loc] `PlayerPrefs[\"{PrefKey}\"]` = {saved.Value} 不是合法的 `AvailableLanguages` 取值（原版枚举取值范围 0/10/20/…/120）⇒ 改按系统语言解析。");
+                saved = null;
             }
+            _current = ResolveStartup(saved, Application.systemLanguage);
         }
 
         // ============================================================ 自检
@@ -4099,6 +4099,62 @@ namespace CardPresentation
                 if (kv.Key.StartsWith("Card_Trait/", System.StringComparison.Ordinal)) n++;
             return n;
         }
+    }
+
+    // ============================================================ 出厂语言 = 按系统语言解析
+    // 🔴 2026-10-31（B109_E15 · 账 `N06`）：原版**不是**硬编码某一门语言，也**不由服务器下发** —— 判据（三源实读）：
+    //   ① `d:/2/tools/decomp_full/I2.Loc.LocalizationManager__SelectStartupLanguage.c` 的**三级回退**：
+    //      `PersistentStorage.GetSetting_String`（本地记住的设置）→ `GetCurrentDeviceLanguage()`
+    //      （= `Application.systemLanguage`，见同目录 `…__DetectDeviceLanguage.c` 首句）→ 源语言表里第一个 `IsEnabled` 的语言。
+    //      第 ① 级还要过 `HasLanguage(...)`、第 ② 级要过 `GetSupportedLanguage(...)`，都不命中才落到第 ③ 级。
+    //   ② `d:/2/tools/decomp_full/LoginManager__SetInitialLanguage.c`：`CurrentLanguage` 在
+    //      `GameStaticData.languagesDefinition`（13 项）里 ⇒ **原样保留**；循环走完都没命中 ⇒ 强制 `"English"`。
+    //   ③ 本地记住那一条是**真的**：`…LocalizationManager__set_CurrentLanguage.c` 调 `SetLanguageAndCode(名, 码, RememberLanguage = 1, …)`；
+    //      玩家档里没有语言字段（`languageVersion` 只是远端词表版本号）⇒ 我们这份 `PlayerPrefs["Language"]` 是等价物。
+    //   ⇒ 我们这边 = `Load()` 的第 ① 级 + `Default`（第 ②③ 级），核心是 `ResolveStartup(saved, Application.systemLanguage)`。
+    //   ⚠️ 第 ③ 级「源内第一个语言」在本工程 = `Languages[0]` = **English** = `Fallback`（断言 `A2` 钉住这个前提）。
+    //      原版读的是 I2 源语言表的 `IsEnabled` 位；我们这张表没有禁用语言 ⇒ 直接取 `Languages[0]`。
+
+    /// <summary>把 Unity 的 <see cref="SystemLanguage"/> 映射成我们的 13 种语言之一；**不在 13 种里的一律回 <see cref="Fallback"/>（英文）**。
+    /// <para>判据 = 原版 I2 `SelectStartupLanguage` 第 ② 级（`GetSupportedLanguage(设备语言名)`）：那 13 个名字里没有的语种，
+    /// `GetSupportedLanguage` 返回空 ⇒ 落到第 ③ 级（源内第一个语言 = 英文）。⛔ 别在这里加「猜一个近似的」兜底 —— 原版没有那一步。</para>
+    /// <para>⚠️ **`ChineseTraditional` 是我们的一处推断**：13 个名字里只有 `Simplified Chinese`
+    /// （`cpp2il/out_il2csharp/Assembly-CSharp/GameStaticData.cs:1966-1993`）⇒ 按 I2「按名字/代码找语言」的逐字语义，
+    /// 繁体设备**可能**落到英文。本实现按 `判据/B109_R5_三条待裁定.md` §N06 的最小改动点取「中/繁 → 中文」
+    /// （中文用户看到的仍是中文，与用户实拍口径一致）；**这一处没跑过原版实机**。</para></summary>
+    public static AvailableLanguages MapSystemLanguage(SystemLanguage lang)
+    {
+        switch (lang)
+        {
+            case SystemLanguage.English:            return AvailableLanguages.English;
+            case SystemLanguage.Spanish:            return AvailableLanguages.Spanish;
+            case SystemLanguage.Russian:            return AvailableLanguages.Russian;
+            case SystemLanguage.French:             return AvailableLanguages.French;
+            case SystemLanguage.German:             return AvailableLanguages.German;
+            case SystemLanguage.Portuguese:         return AvailableLanguages.Portuguese;
+            case SystemLanguage.Italian:            return AvailableLanguages.Italian;
+            case SystemLanguage.Korean:             return AvailableLanguages.Korean;
+            case SystemLanguage.Chinese:
+            case SystemLanguage.ChineseSimplified:
+            case SystemLanguage.ChineseTraditional: return AvailableLanguages.Chinese;
+            case SystemLanguage.Japanese:           return AvailableLanguages.Japanese;
+            case SystemLanguage.Turkish:            return AvailableLanguages.Turkish;
+            case SystemLanguage.Polish:             return AvailableLanguages.Polish;
+            case SystemLanguage.Czech:              return AvailableLanguages.Czech;
+            default:                                return Fallback;   // 第 ③ 级 = 源内第一个语言 = 英文
+        }
+    }
+
+    /// <summary>启动语言**三级回退的纯函数形态**（`Load()` 与自检共用；⛔ 不读 `PlayerPrefs`、不读 `Application`）。
+    /// <para>① `saved` = 已校验的「本地记住的设置」（没存过 / 不合法传 `null`）→ ② `device` 映射进 13 种 →
+    /// ③ 都落空 ⇒ <see cref="Fallback"/>（= 原版「源内第一个语言」英文）。</para>
+    /// <para>⚠️ 第 ① 级只认「是不是合法的 `AvailableLanguages` 取值」；某个语言**有没有自己的文案**不在这里判 ——
+    /// 那是 <see cref="Effective"/> / `T()` 的事（原版同样不在「选语言」这一步判）。</para></summary>
+    public static AvailableLanguages ResolveStartup(int? saved, SystemLanguage device)
+    {
+        if (saved.HasValue && System.Enum.IsDefined(typeof(AvailableLanguages), saved.Value))
+            return (AvailableLanguages)saved.Value;
+        return MapSystemLanguage(device);
     }
     }
 }

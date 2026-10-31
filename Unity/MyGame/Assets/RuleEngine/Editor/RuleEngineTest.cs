@@ -152,7 +152,7 @@ public static partial class RuleEngineTest
         Step(TestB88PlayerHandMultiplier);
 
         Section("🆕 2026-10-28（B88 · `A1c`）：原版 90 档「逐目标掷」（`valueOptions == 90` ∧ `damageType ∈ {5,10,12}`）");
-        Step(TestB88PerTargetRoll);
+        Step(TestB88PerTargetRoll); { CheckB108N08ValueOptions80(); }   // 🆕 2026-10-31（B108_R3）：80 档 `min + max × 目标数` 两步接线（A/B 灭自证）
 
         Section("信仰能力（`N ☀: …` / `N [faith]: …`，索罗丽塔斯那一族）：门槛是**阈值**、信仰**不扣除**（2026-10-11）");
         Step(TestFaithAbility);
@@ -1303,7 +1303,7 @@ public static partial class RuleEngineTest
         Guard("CheckB97ER2Gaps", CheckB97ER2Gaps); { Guard("CheckB97W2Gaps", CheckB97W2Gaps); Guard("CheckB97W5DataColumnsAndPoolFilters", CheckB97W5DataColumnsAndPoolFilters); }   // 🆕 2026-10-29（调度台代接线）：`B97_W2`（手牌费 Permanent / 210 手牌两跳 / 11 组 buff）· `B97_W5`（startingCardInHand 列 / BoardGate ConditionsFilter / selectFromChooseResolution / 单次变异）—— 同一物理行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER` —— 再裁 #54：`CanTriggerAbility` 第一道闸扩到全部 trigger。
-        Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates);
+        Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates); Guard("CheckB108A1TriggerEmits", CheckB108A1TriggerEmits); Guard("CheckB108A16EnchantDataTriggerMatch", CheckB108A16EnchantDataTriggerMatch);   // 🆕 2026-10-31（B108_A1/A16）：trigger 发射口 + 附魔数据位匹配
 
         // 🆕 2026-10-29（调度台代接线）：`B97_GEN2` —— 泛型补读 20 条（DynamicList 12 + ConfigProvider 2 + RefreshHandler 等）。
         Guard("CheckB97Gen2", CheckB97Gen2); Guard("CheckB97W11Gaps", CheckB97W11Gaps); B97W38Assert.Run(); _pass += B97W38Assert.Pass; _fail += B97W38Assert.Fail; Guard("CheckB97W35EnchantmentHop", CheckB97W35EnchantmentHop); Step(TestB97W1); Step(CheckB100F17Gaps); Step(CheckB100F21RemnantSlay);   // 🆕 2026-10-30（`B100_F19` · G11 #52）：`Step(TestB97W1)` 从 `:1365` **上移到覆盖闸 `:1318` 之前** —— 闸按 `_ranCases` 对账，`Step` 排在闸后 = 记不到 ⇒ #52 红（照 `:1272-1279` 同款先例；同一行追加 ⇒ 行数零变化）   // 🆕 2026-10-29（调度台代接线 · `B97_W11`）：账 `战斗逻辑驱动:1121` `MinionManager.GetNextSlotPos` 的上界缺陷 + `required==1` 中性支（200 个局面全量对过、0 处不同）；同一行追加 ⇒ 行数零变化
@@ -24518,7 +24518,7 @@ public static partial class RuleEngineTest
             string tableName = cs[0];
             string[] book = null;
             foreach (var t in CreatePool.DiceTables) if (t[0] == tableName) book = t;
-            CheckTrue(book != null, $"附录 C 里有「{tableName}」这张表");
+            CheckTrue(book != null, $"附录 C 里有「{tableName}」这张表"); if (book == null) continue;   // 🔴 2026-10-31（B108）：前提红之后必须跳过下面的 book.Length，否则 NRE 打断整条 Run（AUD11 类 4 同族）
 
             var got = PoolOf(pool, cs[1], cs[2]);
             var gotNames = new HashSet<string>();
@@ -27561,8 +27561,8 @@ public static partial class RuleEngineTest
     //  **观测口 = `ctx.Events`（引擎日志）**：三条打印点**互相独立**
     //  （`FireTriggerAt` 打 `触发 BACKLASH` / `UnstableBlast` 打 `不稳定：` /
     //   `BroadcastWhen` 打 `「<监听者>」的监听器`）—— 符合 `LogIdx` 那条「别拿同一处打印两遍当次序证据」
-    //  的口径。⚠️ 别改用 `EvtKind.Trigger` 的 `Unstable`：它**今天根本不发**（`UnstableBlast` 只打日志），
-    //  为了测试顺手加一条事件是改行为，不是改次序。
+    //  的口径。🔴 2026-10-31（`B108_A1`）订正：`EvtKind.Trigger` 的 `Unstable` **现在会发**（`RuleCore.EmitUnstableDeathTrigger`），
+    //  但下面这条次序断言仍用 `ctx.Events` 的三条打印点 —— ⛔ 别改成事件计数（会把「次序」与「发不发」混成一条）。
     // ==================================================================
 
     /// <summary>

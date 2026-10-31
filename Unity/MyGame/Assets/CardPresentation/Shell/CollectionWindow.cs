@@ -929,7 +929,7 @@ namespace CardPresentation
         /// 🔴 起因：收藏窗第一版漏了这一步，**截图里高亮停在第 2 键上**（DECKS 页却亮着 CARDS）。</summary>
         public override void RefreshHighlights()
         {
-            int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1; WildcardDisplayTabChanged(CurrentTab == WindowTabType.CollectionCards);   // 界面 #3(+#7)：切页签 = 原版 `WildcardDisplay.OnEnable/OnDisable`（计数条 GO 随 Cards 页树 SetActive；见类尾那个方法）
+            int sel = tabButtons != null ? tabButtons.CurrentVisualIndex : -1; WildcardDisplayTabChanged(CurrentTab == WindowTabType.CollectionCards); CardsInventoryTabChanged(CurrentTab == WindowTabType.CollectionCards);   // 界面 #3(+#7)：切页签 = 原版 `WildcardDisplay.OnEnable/OnDisable`（计数条 GO 随 Cards 页树 SetActive；见类尾那个方法）· 同一拍 = 原版 `CardCollectionDisplay.OnEnable/OnDisable`（卡背包信号订/退，见类尾 `CardsInventoryTabChanged`）
             if (_btnHighlight == null) return;
             // 🆕 2026-10-03：**整棵九宫格一起开关**（`Highlight` 现在是 `Sliced`，一棵树 9 个 quad）
             MainMenuSubmenuWindow.SetHighlight(_btnRes, sel);
@@ -6367,8 +6367,8 @@ namespace CardPresentation
         /// 只是登记表要等到下一次 `RebuildDeckCells` 才被清。补这一条是为了**与原版同一时机**，不是修 bug。</para></summary>
         public override void Close()
         {
-            PointerLayer.UnregisterDragsOwnedBy(gameObject);
-            UnhookWildcardUpdate();     // B9_W63WC：`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订就被按着（原版 `OnDisable` 的 `Signal.Unregister`）
+            PointerLayer.UnregisterDragsOwnedBy(gameObject); UnregisterOwnedScrolls();   // B108_A4（AUD03 #25）：关窗时把本窗名下的**滚动区登记**也撤掉（原来只撤拖拽）。⚠️ 不能写 `UnregisterOwnedBy(gameObject)` —— B103_R1(#29) 起 Owner 是页节点，`UnregisterOwnedBy` 按引用精确比 ⇒ 传窗根一条也撤不掉（详见 `UnregisterOwnedScrolls` 的 doc）
+            UnhookWildcardUpdate(); UnhookCardsInventoryUpdate();     // B9_W63WC：`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订就被按着（原版 `OnDisable` 的 `Signal.Unregister`）· Q2（第一百零九会话）：同上 —— `Inventories.Cards` 也是静态单例，卡背包信号必须跟着关窗退订
             ResetPageFiltersToFactory();   // B103_R1（AUD03 #28）：三份状态是 **static**（跨窗口实例保留），而原版关窗即 Destroy ⇒ 新实例的筛选是出厂态。⚠️ 2026-10-31（B107_W14 · 账 N84）：异画页的出厂态是 `Owned = false`（见 `AltArtInitialFilter` / `ResetPageFiltersToFactory`），⛔ 别三页一起写 `DeckFilter.None`。⛔ 别动 `ShowInCollectionOnly` / `SortByInventoryOptions` —— 那两个是口径开关、不是玩家筛选（见 `:879-884`）。
             base.Close();
         }
@@ -6867,6 +6867,133 @@ namespace CardPresentation
             CosmoState.Filter = DeckFilter.None;
             StylesState.Filter = AltArtInitialFilter;
         }
+
+        /// <summary>把本窗名下**全部**滚动区的登记撤掉（`B108_A4` · **AUD03 #25**）。
+        /// <para>判据：原版关窗 = `Object.Destroy`（`WindowsManager.CloseWindowCO`）⇒ 再开是**新实例**，
+        /// 旧的 `MenuScroll` 一条都不该留在 `PointerLayer` 的登记表里。我们的 `Close()` 只走 `Hide()`
+        /// （`GameWindow.Hide` = `SetActive(false)`，**不销毁 GO**），而 `PruneScrolls` 只看 `Owner == null`
+        /// —— 页节点一直活着 ⇒ 不显式撤就是「每次开/关净涨 4～6 条」（表里旧条目既 `Prune` 不收、
+        /// 又因为 `Owner` 不激活而命不中，纯泄漏）。</para>
+        /// <para>⚠️ **⛔ 不能写成 `UnregisterOwnedBy(gameObject)`**（`B103_R1` 的施工单原来这么写的，已过期）：
+        /// #29 之后四个主页滚动区的 `Owner` 是**各自页节点**，而 `UnregisterOwnedBy` 按**引用精确比**
+        /// （`s.Owner == owner`）⇒ 传窗根一条也撤不掉。这里按「本窗手里那几颗 `MenuScroll` 的 `Owner`」
+        /// 逐个撤；同一个 `Owner` 只撤一次（`UnregisterOwnedBy` 每次都要扫全表）。</para>
+        /// <para>⚠️ **`_pages` 用字段直取、⛔ 不调 `PageRoot(p)`** —— 后者会触发 `SetupOnce()` **懒建页**，
+        /// 关窗时把没开过的页建出来纯属浪费（而且会把它们又登记一遍）。</para></summary>
+        void UnregisterOwnedScrolls()
+        {
+            var seen = new HashSet<GameObject>();
+            MenuScroll[] own = { DeckScroll, CardsScroll, CosmoScroll, StyleScroll, DeckModeScroll };
+            for (int i = 0; i < own.Length; i++)
+            {
+                var s = own[i];
+                if (s == null || s.Owner == null) continue;
+                if (seen.Add(s.Owner)) PointerLayer.UnregisterOwnedBy(s.Owner);
+            }
+            // 四页抽屉各自那份滚动区（`Owner` = **面板节点**，不是页节点 —— `MenuScroll.Owner` 的注释写着「只能宿主显式给」）
+            for (int p = 0; p <= 3; p++)
+            {
+                var f = DrawerByPage(p);
+                if (f == null || f.Scroll == null || f.Scroll.Owner == null) continue;
+                if (seen.Add(f.Scroll.Owner)) PointerLayer.UnregisterOwnedBy(f.Scroll.Owner);
+            }
+            // 兜底：页节点自己（`_pages` 用字段直取、⛔ 不调 `PageRoot(p)` —— 那会触发懒建）
+            for (int i = 0; i < _pages.Length; i++)
+            {
+                var p = _pages[i];
+                if (p == null) continue;
+                if (seen.Add(p.gameObject)) PointerLayer.UnregisterOwnedBy(p.gameObject);
+            }
+        }
+
+        // ============================================================ 卡背包变动 ⇒ 刷新 Cards 页（第一百零九会话 · 执行代理 `Q2`）
+        //
+        // 【原版：一条信号 + 一个订阅点（🥇 逐文件现读，⛔ 不是照账推的）】
+        //   · **发**：`CardInventory.UpdateItemCollection()` = `base.UpdateItemCollection(); Signal.Raise<CardCollectionUpdatedSignal>();`
+        //     （`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/CardInventory.cs:17-20`；`decomp_full/CardInventory__UpdateItemCollection.c` 同形）。
+        //   · **收**：`CardCollectionDisplay.OnEnable` 里 `Signal.Register<CardCollectionUpdatedSignal>(OnCollectionUpdate)`，
+        //     `OnDisable` 里 `Signal.Unregister`（`decomp_full/CardCollectionDisplay__OnEnable.c` / `__OnDisable.c`）
+        //     ⇒ **生命周期 = Cards 页那棵显示树启用期间**（换页 = `SetActive` ⇒ 走 OnDisable / OnEnable）。
+        //   · **回调**：`CardCollectionDisplay.OnCollectionUpdate`（`decomp_full/CardCollectionDisplay__OnCollectionUpdate.c`）
+        //     = 对**当前可见格**逐个 `UpdateCardVisuals`：重读 `InventoryManager.GetOwnedCount(card)` → 写数量文字 +
+        //     `ToggleGreyScale(拥有数 < 1)` + `BasicCardUI.Draw` 重画 + `CheckUpgradeHighlight` + `ToggleBanned` + `ToggleDrag`
+        //     （逐条见 `decomp_full/CardCollectionDisplay__UpdateCardVisuals.c`）。
+        //
+        // 【我们这一侧：为什么订的不是 `CollectionUpdated`】
+        //   `Shell/Inventory.cs:1344` 的 `CardInventory.CollectionUpdated` 就是那条信号**声明好的等价物**，
+        //   但它在**生产路径上今天不会响**：`UpdateItemCollection` 只由 `InventorySubset.OnUpdate` 触发
+        //   （`RegisterSubset` 里那句 `set.OnUpdate += UpdateItemCollection`），而卡背包**一个子集都没登记**
+        //   （全仓 `RegisterSubset` 调用点 = 0）⇒ `_subsets.Count == 0` ⇒ 早退。
+        //   真正会响的是 `Inventory<T>.OnItemCountChange`（`OnItemCountModifyInternal` 每次都抛，
+        //   `Add` / `OnItemCountModify` / `RestoreAmounts` 三条路都经过它）⇒ **本处订这一条**。
+        //   ⛔ 等 `Shell/Inventory.cs` 的生产者补上（`CardInventory.Add` 里调一次 `UpdateItemCollection()`），
+        //     这里要**收口成 `CollectionUpdated`**（二选一 —— 两条都订 = 一次发奖重建两遍）。
+        //   🔶 自己设计（非原版）：信号层用 C# `event`（原版 `Scaffold.Core.Events.Signal`）·
+        //     「谁订」映射到「Cards 页启用期间」（= 原版 `OnEnable`/`OnDisable`）· 回调体用「重建可见格」
+        //     代替「逐格 `UpdateCardVisuals`」（我们没有逐格刷新口）· 调度台 2026-10-31 裁定
+        //     （判据 → `资料/完全复刻/判据/B109_R22_卡奖励收藏链.md` §5·5）。
+        bool _cardsInvHooked;
+        int _cardsInvRefreshes;
+        /// <summary>重入闸：`RebuildCardsCells` 会读 `CardsState`（第一次访问会**播种**卡背包 = 逐张 `Add` ⇒ 逐张抛
+        /// `OnItemCountChange`）⇒ 没有这道闸将来会变成「重建里再触发重建」的无限递归（静默栈溢出）。</summary>
+        bool _cardsInvRefreshing;
+
+        /// <summary>订阅（幂等：切回 Cards 页会重复调）。</summary>
+        void HookCardsInventoryUpdate()
+        {
+            if (_cardsInvHooked) return;
+            Inventories.Cards.OnItemCountChange += OnCardsInventoryChanged;
+            _cardsInvHooked = true;
+        }
+
+        /// <summary>退订（幂等）。`Inventories.Cards` 是**静态**单例 ⇒ 不退订 = 窗销毁后还被它按着。</summary>
+        void UnhookCardsInventoryUpdate()
+        {
+            if (!_cardsInvHooked) return;
+            Inventories.Cards.OnItemCountChange -= OnCardsInventoryChanged;
+            _cardsInvHooked = false;
+        }
+
+        /// <summary>切换页签 = 原版 `CardCollectionDisplay.OnEnable` / `OnDisable` 那一拍（见上）。幂等。</summary>
+        void CardsInventoryTabChanged(bool onCards)
+        {
+            if (onCards) HookCardsInventoryUpdate();
+            else UnhookCardsInventoryUpdate();
+        }
+
+        /// <summary>`CardCollectionUpdatedSignal` 那一跳 = 原版 `CardCollectionDisplay.OnCollectionUpdate`（见上）。</summary>
+        void OnCardsInventoryChanged(RuleEngine.CardDef card, int delta)
+        {
+            // 🔴 Unity 假 null 守卫**必须在第一句**：`DestroyImmediate` 不派发 `OnDestroy`/`OnDisable`
+            //   ⇒ 窗被销毁之后还可能被这条**静态**背包打到（先例 → `项目任务.md` §三 `B103_F1`：三处宿主整条崩）。
+            if (this == null)
+            {
+                Inventories.Cards.OnItemCountChange -= OnCardsInventoryChanged;   // 当场退订（⛔ 不静默）
+                Debug.LogWarning("[Collection] 卡背包变了，但**收藏窗已经被销毁** ⇒ 当场退订"
+                               + "（原版靠 `OnDisable` 的 `Signal.Unregister`；`DestroyImmediate` 不派发它）");
+                return;
+            }
+            if (!_cardsInvHooked) return;                    // 已退订后迟到的一次派发（防御；不改任何状态）
+            if (_cardsInvRefreshing) return;                 // 重入闸（见 `_cardsInvRefreshing` 的 doc；重建本身会读到最新状态）
+            var page = _pages[1];                            // ⛔ 用字段直取、不调 `PageRoot(1)`（那会懒建页）
+            if (page == null || !page.gameObject.activeInHierarchy) return;   // 页不在（藏起来 / 还没建）⇒ 无画面可刷
+            var holder = page.Find("Scroll View");
+            if (holder == null) return;
+            _cardsInvRefreshes++;
+            _cardsInvRefreshing = true;
+            try
+            {
+                RebuildCardsCells(holder);                   // 每趟都重读 `CardsState.VisibleCards()` 与背包拥有数（= 原版 `UpdateCardVisuals` 的读口）
+                RefreshCardsEmpty();                         // 原版 `RefreshCollection` 里那一支：过滤后为空 ⇒ 空态提示
+            }
+            finally { _cardsInvRefreshing = false; }
+        }
+
+        /// <summary>自检读口：卡背包那条**订阅**现在挂着吗（原版 = `Signal` 注册着）。关窗 / 离开 Cards 页后必须 false。</summary>
+        public bool CardsCollectionSignalHookedForTest { get { return _cardsInvHooked; } }
+
+        /// <summary>自检读口：卡背包事件真的推着我们重建了几次（生产路径 = 每次卡数量变化一次）。</summary>
+        public int CardsCollectionRefreshCountForTest { get { return _cardsInvRefreshes; } }
     }
 
 }

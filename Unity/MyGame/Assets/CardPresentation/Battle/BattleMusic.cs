@@ -21,12 +21,12 @@
 //     `> -60 dB` 且没在播 ⇒ **从兄弟轨取 `timeSamples` 对齐后** `Play()`。
 //
 // ============================================================================================
-//  🔴 **我们这一侧是【等价物、不是原件】**（如实记，铁律 5）：原版靠 **mixer 的 4 个快照**
-//     （`BattleMusicLow/Medium/High/NoBattleMusic`）硬切音轨、由 `AudioMixer.TransitionTo(t)` 做过渡；
-//     我们**不动 mixer 资产**，改成**直接在代码里对三条轨的音量做线性淡变**（时长照抄 3/5/5/2 秒）。
-//     ⚠️ **三条轨仍然挂在我们现有的 `Music` 组下**（`WarpforgeAudio.MusicGroup`）——
-//       否则设置窗那根「音乐」滑块对 BGM **不生效**（那才是真偏离）。
-//     ⚠️ 听感差异：mixer 的 `TransitionTo` 在 dB 域过渡，我们在线性振幅域 —— 起止点相同、中段略不同。
+//  🔴 **2026-10-31（`B109_E17`）就地订正（铁律 5）**：原来这里写「我们不动 mixer 资产、改用代码线性淡变」——
+//     **不成立了**。`Resources/Audio/` 现读三份 mixer（`Main Mixer` + `Music` + `FX`），三条轨挂
+//     **Music 子 mixer 的 `BattleGroupLow/Medium/High`**，切档 = `AudioMixerSnapshot.TransitionTo(t)`
+//     （时长照抄 3/5/5/2 秒），与原版同构。⚠️ 三条轨**常驻在播**、源音量恒 1.0，响度全由组音量说了算
+//     （否则「代码音量 × 快照 −80 dB」= 静音 ⇒ Medium/High 两条轨永远听不见）。
+//     ⚠️ 音乐滑块仍生效：Music 子 mixer 的输出挂在主 mixer 的 `Music` 组下（`VolumeMusic` 在那一级）。
 //
 //  数据：`Resources/battle_bgm.json`（产出方 `工具/import_battle_bgm.py`，逐场从 shipped bundle 实读）；
 //  clip 在 `Resources/Art/audio/bgm/<clip 名>.ogg`（`Resources/Art/` 整个被 `.gitignore` 排除）。
@@ -70,7 +70,7 @@ namespace CardPresentation
         int _level = LevelSilent;         // 当前**听得见**的档（-1 = 静音）
         int _fadeTo = LevelSilent;        // 淡变目标
         float _fadeT, _fadeDur;           // 淡变进度 / 总时长
-        float[] _from = new float[3], _to = new float[3];
+        float[] _to = new float[3];       // 档位 → 哪一条该响（1 = 该响）。源音量恒 1.0，响度由 mixer 组音量定
         bool _ended;                      // `FinishMatch()` 之后不再自动切档（原版 `hasMatchEnded`）
 
         /// <summary>表里那一行（没载入 = null）。</summary>
@@ -78,7 +78,7 @@ namespace CardPresentation
         /// <summary>自检读：当前听得见的档（`-1` = 静音 / 还没开始）。</summary>
         public int CurrentLevel { get { return _level; } }
         public bool Ended { get { return _ended; } }
-        /// <summary>自检读：第 i 条轨的**目标**音量（0..1；淡变途中会与实得值不同）。</summary>
+        /// <summary>自检读：第 i 条轨**该不该响**（1 = 该响 / 0 = 不响）。⚠️ 2026-10-31 起**不再是音量** —— 响度由 mixer 组音量（快照）说了算、源音量恒 1.0。</summary>
         public float TargetVolume(int i) { return _to[Mathf.Clamp(i, 0, 2)]; }
         /// <summary>自检读：第 i 条轨挂上去的 clip 名。</summary>
         public string ClipName(int i)
@@ -136,7 +136,7 @@ namespace CardPresentation
                 s.loop = true;
                 s.playOnAwake = false;
                 s.volume = 0f;
-                s.outputAudioMixerGroup = WarpforgeAudio.MusicGroup;   // 🔴 判据 见文件头「等价物」那段
+                s.outputAudioMixerGroup = WarpforgeAudio.BattleGroupGroup(i) ?? WarpforgeAudio.MusicGroup;   // 🔴 原版：三条轨各挂 BattleGroup Low/Medium/High
                 s.Play();                                              // 三条**同时从 0 秒起播**（判据 ②）
                 s.Pause();                                             // 先全停（进场那一刻才淡入）
                 _src[i] = s;
@@ -149,8 +149,8 @@ namespace CardPresentation
         public void BeginBattle()
         {
             _ended = false;
-            _checkAcc = 0f;
-            _level = LevelSilent;
+            _checkAcc = 0f; _level = LevelSilent;
+            var mute = WarpforgeAudio.GetSnapshot(WarpforgeAudio.SnapshotsType.MusicBattleMusicNoMusic); if (mute != null) mute.TransitionTo(0f);   // 原版：进场先**瞬时静音**
             StartFade(LevelLow, FadeInLowSeconds);
         }
 
@@ -211,22 +211,22 @@ namespace CardPresentation
             return hero != null ? hero.Health : float.MaxValue;
         }
 
-        // ---- 淡变（我们这一侧的实现；原版是 mixer 快照过渡） ----
+        // ---- 淡变：**快照过渡**（与原版同机制）＋ `_to[]` 记账（哪一条该响，供 `TargetVolume` 与 Pause 判据读） ----
 
         void StartFade(int target, float dur)
         {
             _fadeTo = target;
             _fadeT = 0f;
             _fadeDur = Mathf.Max(0.0001f, dur);
-            for (int i = 0; i < 3; i++) _from[i] = _src[i] != null ? _src[i].volume : 0f;
+            var snap = WarpforgeAudio.GetSnapshot(SnapOf(target));
+            if (snap != null) snap.TransitionTo(dur);              // 原版 = mixer 快照过渡（取不到会在 GetSnapshot 里出声）
             _to[0] = target == LevelLow ? 1f : 0f;
             _to[1] = target == LevelMedium ? 1f : 0f;
             _to[2] = target == LevelHigh ? 1f : 0f;
-            // 判据 ⑥ 那一半：要淡入的轨**先对齐兄弟轨的时间**再续播（三条轨是同步分轨）。
+            // 判据 ⑥：三条轨**常驻在播**（快照抬组音量时要有声音）、源音量恒 1.0，并互相对齐 timeSamples。
             for (int i = 0; i < 3; i++)
             {
-                var s = _src[i];
-                if (s == null || _to[i] <= 0f) continue;
+                var s = _src[i]; if (s == null) continue; s.volume = 1f;
                 if (!s.isPlaying)
                 {
                     int ts = ActiveTimeSamples(i);
@@ -241,10 +241,10 @@ namespace CardPresentation
             if (_fadeDur <= 0f) return;
             _fadeT = Mathf.Min(_fadeDur, _fadeT + dt);
             float k = _fadeT / _fadeDur;
-            for (int i = 0; i < 3; i++)
-                if (_src[i] != null) _src[i].volume = Mathf.Lerp(_from[i], _to[i], k);
+            // 🔴 2026-10-31（`B109_E17`）：**不再逐轨插值音量** —— 响度由 Music 子 mixer 的
+            //   `BattleGroupLow/Medium/High` 说了算、由 `StartFade` 里的快照 `TransitionTo` 驱动；
+            //   源音量恒 1.0，`_to[]` 只表示「哪一条该响」。下面仍按判据 ⑥ Pause 静音那几条（省 CPU）。
             if (k < 1f) return;
-            // 淡变落地：**静音下来那几条 Pause 掉**（判据 ⑥；省 CPU，也让 `timeSamples` 停在原处等下次对齐）
             for (int i = 0; i < 3; i++)
                 if (_src[i] != null && _to[i] <= 0f && _src[i].isPlaying) _src[i].Pause();
             _level = _fadeTo;
@@ -262,6 +262,16 @@ namespace CardPresentation
         public void OnDestroy()
         {
             for (int i = 0; i < 3; i++) _src[i] = null;
+        }
+
+        /// <summary>档位 → mixer 快照（原版 `BattleMusicManager` 就是按档切这四条快照；判据 → `B109_R11` §1.4）。
+        /// ⚠️ `LevelSilent`（−1）走 `NoBattleMusic`；其余非法值一律按 `BattleMusicLow`。</summary>
+        static WarpforgeAudio.SnapshotsType SnapOf(int level)
+        {
+            if (level == LevelSilent) return WarpforgeAudio.SnapshotsType.MusicBattleMusicNoMusic;
+            if (level == LevelMedium) return WarpforgeAudio.SnapshotsType.MusicBattleMusicMedium;
+            if (level == LevelHigh) return WarpforgeAudio.SnapshotsType.MusicBattleMusicHigh;
+            return WarpforgeAudio.SnapshotsType.MusicBattleMusicLow;
         }
     }
 }

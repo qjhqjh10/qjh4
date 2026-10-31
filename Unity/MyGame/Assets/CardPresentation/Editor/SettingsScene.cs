@@ -449,9 +449,9 @@ public static class SettingsScene
         //      对「批处理没有帧循环 ⇒ 压根没重排过」这一档**不管用**）。
         if (string.IsNullOrEmpty(lb.Text))
         {
-            CheckTrue(true, $"{what}：⚠️ **文案出厂为空串 ⇒ 本格【不量】渲出宽**"
+            Debug.Log(P + $"{what}：⚠️ **文案出厂为空串 ⇒ 本格【不量】渲出宽**"
                           + $"（TMP 对空串的 `textBounds` 是哨兵值，实测 {sz.x:F1}px）"
-                          + " —— 这是**如实登记**，⛔ 别读成「装得下」");
+                          + " —— 这是**如实登记**，⛔ 别读成「装得下」；本句不计入通过数");
             return;
         }
         bool measured = sz.x >= 0f && sz.x < SentinelPx;
@@ -2005,12 +2005,12 @@ public static class SettingsScene
             CheckTrue(GameStaticData.graphicsQuality == q0 && !SettingsWindow.ApplyGraphicsChangesOnClose,
                       "（收尾）档位放回本节进来时那一档 + 脏位清 0（后面各节按它做前提）");
 
-            int v0 = QualitySettings.vSyncCount;
-            SettingsWindow.VSyncSetterOverride = c => vAsked = c;
+            bool v0 = GameStaticData.vsync;
+            int vq0 = QualitySettings.vSyncCount;
             Click(FindChild(FindChild(root, "Graphics Tab"), "VSync"), "Hit");
-            SettingsWindow.VSyncSetterOverride = null;
-            Check(vAsked, v0 > 0 ? 0 : 1, $"点 `VSync` 行 ⇒ 要求翻转（{v0} → {vAsked}）");
-            CheckNear(QualitySettings.vSyncCount, v0, 0.01f, "🔴 `vSyncCount` 也没被自检改掉");
+            CheckTrue(GameStaticData.vsync != v0, "点 `VSync` 行 ⇒ **待应用值**翻转（原版 `GraphicsTab.VSyncToggleClick`：只写 `GameStaticData.vsync` + 脏位）");
+            CheckTrue(SettingsWindow.ApplyGraphicsChangesOnClose, "…并置脏位（原版 `SettingsMenu.Close` 才应用）");
+            CheckNear(QualitySettings.vSyncCount, vq0, 0.01f, "…点完当刻**不写** `vSyncCount`（🔴 2026-10-31 `B108_A10` 改：关窗才应用）");
             Debug.Log(P + "  （图像页建了 `Quality`/`Small Screen UI`/`Auto Zoom`/`Use super sampling`/`VSync`/`FPS limit` 六件 ——"
                     + " `FPS limit` 自 A168 起是**滑块**；那一列自 A170 起是**真的 `Scroll View`**"
                     + "（原版 `RectMask2D` 视口），**A172 起行位回正、整列塞得进视口 ⇒ 滚不动**；"
@@ -2237,9 +2237,9 @@ public static class SettingsScene
                     for (int i = 0; i < 3; i++)
                     {
                         win.SetFpsIndex(i, true);
-                        Check(Application.targetFrameRate, (int)wantFps[i],
-                              $"{tier[i]} ⇒ `Application.targetFrameRate` = {wantFps[i]}"
-                            + "（判据 = 原版 `ApplySettingsOptions`：0→30 · 1→60 · 2→−1）");
+                        CheckTrue(GameStaticData.FPSLimit == i && Application.targetFrameRate == f0,
+                              $"{tier[i]} ⇒ **待应用档 = {i}**；当刻**不写** `targetFrameRate`（原版 `SettingsMenu.Close` 才应用）"
+                            + $"（判据 = 原版 `ApplySettingsOptions`：0→30 · 1→60 · 2→−1；🔴 2026-10-31 `B108_A10` 改时机）");
                         float flx = 0f, fty = 0f, frx = 0f, fby = 0f;
                         bool hasFill = fillN != null && RectOf(fillN, out flx, out fty, out frx, out fby);
                         if (i == 0)
@@ -2272,7 +2272,7 @@ public static class SettingsScene
                     Check(win.FpsIndex, 1, "点在 0.51 处 ⇒ 仍是档 1（1.02 也取整成 1）");
                     win.SetFpsFromCanvasX(trackL + 0.80f * areaW);
                     Check(win.FpsIndex, 2, "点在 0.80 处 ⇒ 档 2（1.60 → 2）");
-                    Check(Application.targetFrameRate, -1, "…而且真的写成了 **−1**（无限）");
+                    CheckTrue(GameStaticData.FPSLimit == 2 && Application.targetFrameRate == f0, "…待应用档 = 2（无限），当刻仍**不写** `targetFrameRate`");
                     win.SetFpsFromCanvasX(trackL + areaW + 50f);
                     Check(win.FpsIndex, 2, "点滑区**右端之外** ⇒ 夹到档 2");
                     // ⑥ 档 → 帧率 的映射（原版 `ApplySettingsOptions` 那段 if 链，逐条）
@@ -4785,12 +4785,13 @@ public static class SettingsScene
                     {
                         bool zh = b1Langs[L] == AvailableLanguages.Chinese;
                         Loc.SetLanguage(b1Langs[L]);        // 🔴 先切档再点 —— `_flash` 是**点那一刻**按当前语档拼的
-                        int vNow = QualitySettings.vSyncCount, vAsked2 = -1;
-                        SettingsWindow.VSyncSetterOverride = cc => vAsked2 = cc;
+                        bool vNow = GameStaticData.vsync; int vqNow = QualitySettings.vSyncCount;
                         Click(FindChild(FindChild(root, "Graphics Tab"), "VSync"), "Hit");
-                        SettingsWindow.VSyncSetterOverride = null;
-                        int vNext = vNow > 0 ? 0 : 1;
-                        Check(vAsked2, vNext, $"（波 1b）点 `VSync` 那一行 ⇒ 要求翻成 {vNext}（{vNow} → {vAsked2}）");
+                        int vNext = vNow ? 0 : 1;
+                        CheckTrue(GameStaticData.vsync == (vNext > 0) && SettingsWindow.ApplyGraphicsChangesOnClose,
+                              $"（波 1b）点 `VSync` 那一行 ⇒ 待应用值翻成 {vNext} + 脏位（原版 `GraphicsTab.VSyncToggleClick`）");
+                        CheckNear(QualitySettings.vSyncCount, vqNow, 0.01f, "（波 1b）…当刻**不写** `vSyncCount`（🔴 2026-10-31 `B108_A10` 改：关窗才应用）");
+                        // 🔴 2026-10-31（B108_A10）：原来的 `VSyncSetterOverride` 注入点已随「关窗才应用」作废
                         string wantVs = string.Format(Loc.T("Settings/Graphics/Flash/Vsync"),
                                                       vNext > 0 ? Loc.T("MainMenu/General/On")
                                                                 : Loc.T("MainMenu/General/Off"));
@@ -4799,8 +4800,8 @@ public static class SettingsScene
                             + "`string.Format(Loc.T(\"Settings/Graphics/Flash/Vsync\"), "
                             + "Loc.T(\"MainMenu/General/{On,Off}\"))`"
                             + $"（实得「{win.Flash}」）—— 这是 `MainMenu/General/{{On,Off}}` 两条键唯一的消费点");
-                        CheckNear(QualitySettings.vSyncCount, vNow, 0.01f,
-                                  "（波 1b）…🔴 自检没真去改 `vSyncCount`（注入点挡住了）");
+                        CheckNear(QualitySettings.vSyncCount, vqNow, 0.01f,
+                                  "（波 1b）…🔴 当刻**不写** `vSyncCount`（关窗才应用；2026-10-31 `B108_A10`）");
                         vsFlash[L] = win.Flash;
                     }
                     CheckTrue(vsFlash[0] != null && vsFlash[1] != null && vsFlash[0] != vsFlash[1],
@@ -5525,7 +5526,7 @@ public static class SettingsScene
             // 断言本体在 `Editor/B94W2_Assert.cs`（本宿主是它唯一的调用方）。
             // 🔴 必须在**关窗之前**跑：那一段要在**开着**的窗上点下拉（它自己会 `OpenTab(Graphics)`，
             //    并在 `finally` 里把档位 / 脏位 / 行集逐值放回）。
-            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail; B106W15_Assert.Run(win); _sink.Pass += B106W15_Assert.Pass; _sink.Fail += B106W15_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化；🆕 2026-10-31（`B106_W34` 接线 · `B106_W15`）：设置窗 5 条状态缺口 G2~G6
+            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail; bool _nlPrev108 = DemoDataStore.Current.suscriptionPopupShowed; DemoDataStore.Current.suscriptionPopupShowed = true; B106W15_Assert.Run(win); _sink.Pass += B106W15_Assert.Pass; _sink.Fail += B106W15_Assert.Fail; B108A10_Assert.RunNewsletter(win); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail; B108A10_Assert.RunGraphicsApplyOnClose(win); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail; DemoDataStore.Current.suscriptionPopupShowed = _nlPrev108; B109_E1_SettingsPersist_Assert.Run(); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; B109_E1_SettingsPersist_Assert.RunInitialValue(win); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; B109_E34_CopyArt_Assert.Run(); _sink.Pass += B109_E34_CopyArt_Assert.Pass; _sink.Fail += B109_E34_CopyArt_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化；🆕 2026-10-31（`B106_W34` 接线 · `B106_W15`）：设置窗 5 条状态缺口 G2~G6
 
             // 关窗
             Click(FindChild(Area(root), "Generic Close Button"), "Hit");
@@ -5545,7 +5546,7 @@ public static class SettingsScene
             MenuDraw.CheckShadeClickRule(CheckTrue, "设置窗", win.transform, win.ShadeHit,
                                          () => win.CurrentState);
 
-            Shoot("settings_online.png", true);
+            B109_E1_SettingsPersist_Assert.Run(win); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; CheckTrue(win.TryOpen(), "（B109_E1 现场）把设置窗开回来 —— 下面那张实拍要开着窗"); Shoot("settings_online.png", true);
         }
         finally
         {

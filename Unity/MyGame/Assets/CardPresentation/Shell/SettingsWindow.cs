@@ -935,7 +935,7 @@ namespace CardPresentation
         //   | `Reset Password` | `登录态` | 同上 `:38`（`+0x50`）|
         //   | `Forgot Password` | **恒关** | 同上 `:43`（`+0x58`，`SetActive(0)`）|
         //   | `Subscribe Newsletter` | `登录态` | 同上 `:48`（`+0x88`）|
-        //   | `Logout Button` / `Delete Button` / `Login Window` / `Player Id` | **`Refresh` 一个字都不碰** ⇒ 停在 prefab 值（三者都 `m_IsActive=0`）|
+        //   | `Logout Button` / `Delete Button` / `Login Window` / `Player Id` | **`Refresh` 一个字都不碰** ⇒ 停在 prefab 值（`Logout`/`Login Window`/`Player Id` = `m_IsActive=0`；⚠️ **`Delete Button` 的 prefab 值是 `1`**，PC 上不显示靠**平台组** + 我们 `:2701 SetActive(isMobilePlatform)`。2026-10-31 订正：原文写「三者都 `m_IsActive=0`」是错的）|
         //       出处：`AccountTab__Refresh.c` 只 `SetActive` 那 6 处（`grep -n SetActive AccountTab*.c` 命中 6 行，全在同一函数）|
         //   | `Login Window` 的**开**点 | `Switch Account Button` 点下去 | `AccountTab__SwitchAccount.c`：`WindowsManager.OpenWindow(param_1 + 0x68)`，`0x68` = `loginWindow` 字段 |
         //   | `Login Window` 的**关**点 | 那颗 `Generic Close Button Green` / `ESC` | 它自己那颗 MB 的 `closeButton` + `closeOnESC = 1`（`MonoBehaviour_6952589498206683046.json`）|
@@ -982,7 +982,7 @@ namespace CardPresentation
         /// ⛔ 那一串数字是**原版玩家自己的 id**、不是格式的一部分。**我们自己的 id 是本机模拟值**
         /// （`AccountState.PlayerId`，见那一段）。</summary>
         public const string AcPidPrefix = "Player ID: ";
-        public const string AcPidIconArt = "Copy@3x";       // ⚠️ 这张图**本地还没有**（见 `MissingArt` 的出声）
+        public const string AcPidIconArt = "Copy@3x";       // 2026-10-31（B109_E34）已导入 `Art/ui_menu/Copy@3x.png`（48×48，`MENU_IMAGES` 登记）；⚠️ 本行原注「本地还没有」不成立（解包里一直有、只是没导）
 
         // `Subscribe Newsletter`（**整颗就是一个钮**：`EverguildButton` 的 `m_TargetGraphic` = 它自己的 TMP）
         public const float AcNewsL = 596.52f, AcNewsT = 552.99f, AcNewsR = 1195.98f, AcNewsB = 629.70f;
@@ -1605,6 +1605,11 @@ namespace CardPresentation
         /// 就落 `PlayerPrefs` 了（见 `SuperSampling` 类注释 ①），所以这里只剩「应用」那半。</para></summary>
         public override void Close()
         {
+            // 🆕 **2026-10-31（B109_E1）= 原版 `SettingsMenu__Close.c` 的【第一句】**（无条件、在 `GameWindowWithTabs.Close` 之前）：
+            //   `PlayerDataManager.SavePlayerData()` —— 「垂直同步 / 帧率上限跨会话保留」全靠它：写 `PlayerDataManager.cs:10241-10242`
+            //   （`localPlayerData.vsync/FPSLimit = GameStaticData.vsync/FPSLimit`）· 读回 `:10397-10398`。门关着（`SaveCenter.StoreOn`）不出声。
+            if (SaveCenter.StoreOn && !LocalPlayerDataStore.SavePlayerData())
+                Debug.LogWarning("[Settings] 关窗存总档失败（原版 `SettingsMenu.Close` 第一句）：" + LocalPlayerDataStore.LastError);
             // 🆕 A862：关窗时先把列表收掉（原版 `SettingsMenu__OnDestroy` 那条会连下拉一起清；
             //   我们的列表挂在窗根下 ⇒ 根一销毁就没了，但**光收不显式关**会留下一个活着的 `Blocker`
             //   命中区（队列 3140）挡住下一扇窗 —— 那是静默故障）。⛔ 别删这两句。
@@ -2540,7 +2545,7 @@ namespace CardPresentation
                 var exIcon = Rect(pid, "External Link Icon", AcPidIconL, AcPidIconT, AcPidIconR, AcPidIconB,
                                   AcPidIconArt, QContent, null, true);   // 原版 PA=1 · `Copy@3x`
                 // 🔴 **2026-10-09（第十会话 · `D1` 诊断 · 真缺陷 β）**：`Rect` 的**头一句**就是
-                //   `if (tex == null) return null;`（见 `MenuDraw`），而 `Copy@3x` **这张图本地还没进工程**
+                //   `if (tex == null) return null;`（见 `MenuDraw`），而 `Copy@3x` **当时没进工程**（2026-10-31 `B109_E34` 已导入 `Art/ui_menu/` 48×48 ⇒ 本兜底现在不再触发，保留只为「图将来又缺」时不静默跳过）。
                 //   ⇒ **整颗节点都没建出来**（实测：断言「账号页有 `External Link Icon`（原版 GO 名）」红、实得 False）。
                 //   **照本窗同族的兜底写法补**（先例 = 本文件那几处的 `q != null ? q.transform : Node(...)`）：
                 //   图缺 ⇒ 建一颗**同名空节点**（⛔ 既不静默跳过、也不伪造一颗「有图」的件）。
@@ -2968,7 +2973,7 @@ namespace CardPresentation
             if (_acPwd != null) _acPwd.SetInteractable(!on);
             if (_acError != null) _acError.SetText("");
             if (_acPid != null) _acPid.SetText(AcPidPrefix + AccountState.PlayerId);
-            Debug.Log($"[Settings] 账号页刷新：登录态 = {on}（本机模拟）");
+            Debug.Log($"[Settings] 账号页刷新：登录态 = {on}（本机模拟）"); MaybeShowNewsletterPopup(on);
         }
 
         static void SetAct(Transform t, bool on) { if (t != null) t.gameObject.SetActive(on); }
@@ -3140,7 +3145,7 @@ namespace CardPresentation
 
         /// <summary>支持页那几颗 `External Link Icon`（原版四颗逐颗实读：`Button_External_Link` ·
         /// `m_Type = 0`(Simple) + **`m_PreserveAspect = 1`**）。
-        /// 🔴 **那张图本地还没导进工程** ⇒ `Rect` 头一句 `tex == null ⇒ return null` 会让整颗节点建不出来
+        /// ✅ **那张图 2026-10-30 已导进工程**（`B100_F3` A12 → `Resources/Art/ui_menu/Button_External_Link.png`）⇒ 现在走 `Rect` 真画；保留下面的兜底是因为 `Rect` 头一句 `tex == null ⇒ return null` 会让整颗节点建不出来
         /// ⇒ 照本窗同族的兜底写法补一颗**同名空节点**（⛔ 既不静默跳过、也不伪造「有图」）。
         /// 判据与先例 → `ArtExtLink` 那条 doc（与 `A1184` 那六张是同一族「导入路缺口」）。</summary>
         void SpIcon(Transform p, string n, float l, float t, float r, float b)
@@ -4532,7 +4537,11 @@ namespace CardPresentation
             // ③ 四行内容（**都建在 `Content` 底下**，按 `MenuScroll.Offset` 偏移、由 `_gfxClip` 裁）
             //    ⚠️ 序：先把档位定下来（开窗那一次**只摆值、不写帧率** = 原版 `OnSetup` 的 `SetValueWithoutNotify`），
             //    再建行 —— 建行时按 `_fpsIndex` 摆滑块（`PlaceFps`）。
-            SetFpsIndex(FpsIndexOfTarget(Application.targetFrameRate), false);
+            //    🔴 **2026-10-31（B109_E1）初值源 = 原版那一格**：`GraphicsTab__OnSetup.c` 那颗 `fpsLimit` Slider 的「只摆值」
+            //    读的是 `GameStaticData.FPSLimit`(`+0x128`)（与紧邻的 `vsync.SetIsOnWithoutNotify(GameStaticData.vsync)` 同族；
+            //    ILSpy 同处译成 `Indirect call…+438` 未解析）。旧写法读 `Application.targetFrameRate` = **已应用**值（开机还是 −1）
+            //    ⇒ 玩家存过的档位（`LocalPlayerData.fpsLimit` → `LoadPlayerData` → `GameStaticData.FPSLimit`）摆不出来。
+            SetFpsIndex(GameStaticData.FPSLimit, false);
             RebuildGfxRows();
             return page;
         }
@@ -4630,7 +4639,7 @@ namespace CardPresentation
             //   ⇒ 这一行**中英文档都不变字**，接键的意义是「**换语言时它跟着刷新**」。
             Func<string> vsText = () => Loc.T(lkGfxVsync);
             BuildCheckRow(_gfxContent, "VSync", withSS ? VsyncRowSS : VsyncRowNoSS,
-                          () => QualitySettings.vSyncCount > 0, ToggleVsync,
+                          () => GameStaticData.vsync, ToggleVsync,   // 原版 `GraphicsTab.OnSetup`：`vsync.SetIsOnWithoutNotify(GameStaticData.vsync)`（⛔ 别读 `QualitySettings.vSyncCount` —— 那是**已应用**值，关窗之前不会变）
                           vsText, l => OnGfxRowText(l, vsText));
             BuildFpsRow(_gfxContent, withSS ? FpsRowSS : FpsRowNoSS);
         }
@@ -4720,7 +4729,7 @@ namespace CardPresentation
 
         static string FpsText()
         {
-            int f = Application.targetFrameRate;
+            int f = FpsOfIndex(GameStaticData.FPSLimit);   // 🔴 2026-10-31（B108_A10 · AUD05 S2）：读**待应用**值（原版 `GameStaticData.FPSLimit`）；⛔ 别读 `Application.targetFrameRate` —— 关窗之前它还是旧值，弹出来的话会是**上一档**
             // 🆕 2026-10-18（波 1b · A1062）：这两句改走语言表（键 `Settings/Graphics/FpsText/{Unlimited,Value}`）。
             //   键值**逐字 = 原来那两句**（`unlimited` / `{0} fps`）⇒ **英文档零变化**、中文档由英文变中文。
             //   ⚠️ 它是 `static` ⇒ 只能读 `Loc`（静态类）—— 别在这儿碰实例成员。
@@ -4735,11 +4744,11 @@ namespace CardPresentation
 
         void ToggleVsync()
         {
-            int next = QualitySettings.vSyncCount > 0 ? 0 : 1;
-            ApplyVSync(next);
+            GameStaticData.vsync = !GameStaticData.vsync;             // 原版 `GameStaticData.vsync`（GameStaticData.cs:248，出厂 true）
+            ApplyGraphicsChangesOnClose = true;                       // 原版 `GraphicsTab__VSyncToggleClick.c`：**只写值 + 置脏位**，关窗才应用
             // 🆕 2026-10-18（波 1b · A1046/A1062）：`{0}` = 开/关（键 `MainMenu/General/{On,Off}`）。
-            _flash = string.Format(Loc.T(lkFlashVsync), next > 0 ? Loc.T(lkOn) : Loc.T(lkOff));
-            Debug.Log("[Settings] " + _flash);
+            _flash = string.Format(Loc.T(lkFlashVsync), GameStaticData.vsync ? Loc.T(lkOn) : Loc.T(lkOff));
+            Debug.Log("[Settings] " + _flash + "（改动在**关设置窗**时应用 —— 原版 `SettingsMenu.Close → ApplyGraphicsQuality`）");
         }
 
         /// <summary>🆕 **A165**：原版 `GraphicsTab.SmallScreenToggleClick(bool)` —— **同时**写
@@ -5324,16 +5333,16 @@ namespace CardPresentation
         {
             idx = Mathf.Clamp(idx, (int)FpsMin, (int)FpsMax);
             bool changed = idx != _fpsIndex;
-            _fpsIndex = idx;
+            _fpsIndex = idx; GameStaticData.FPSLimit = idx;   // 原版 `GameStaticData.FPSLimit`（GameStaticData.cs:253）
             PlaceFps(idx);
             if (!fire) return;
-            int target = FpsOfIndex(idx);                     // = 原版 `ApplySettingsOptions` 的映射
-            Application.targetFrameRate = target;             // = 原版 `PlayerDataManager.SetTargetFramerate`
+            ApplyGraphicsChangesOnClose = true;               // 原版 `FPSLimitValueChanged.c`：**只置脏位**，关窗才应用
+            int target = FpsOfIndex(idx);                     // 关窗时 `PlayerDataManager.ApplyGraphicsQuality` 落这个值
             // 🆕 2026-10-18（波 1b · A1046/A1062）：同上（键 `Settings/Graphics/Flash/Fps`，`{0}` = `FpsText()`）。
             _flash = string.Format(Loc.T(lkFlashFps), FpsText());
             Debug.Log($"[Settings] {_flash}（原版 `GraphicsTab.FPSLimitValueChanged` 只写 "
-                    + $"`GameStaticData.FPSLimit = {idx}`；`PlayerDataManager.ApplySettingsOptions` 再映射成 "
-                    + $"{target} → `Application.targetFrameRate`）" + (changed ? "" : "（值没变）"));
+                    + $"`GameStaticData.FPSLimit = {idx}` + 脏位；`PlayerDataManager.ApplyGraphicsQuality` 在**关窗**时"
+                    + $"才映射成 {target} → `Application.targetFrameRate`）" + (changed ? "" : "（值没变）"));
         }
 
         /// <summary>当前档位（0/1/2）= 原版 `GameStaticData.FPSLimit`（自检 / 将来接线用）。</summary>
@@ -6942,13 +6951,20 @@ namespace CardPresentation
         /// （R-G §五①），拿 `SetQualityLevel(2)` 去写会被 Unity **静默夹取**到我们那 2 档上 ⇒ 行为与原版不同
         /// 而且**看不出来**。⇒ 这里只做 ① `ChangeResolution()` 的等价物 = `SuperSampling.Apply()`、② 清脏位、
         /// ③ 把「还差哪几样」**说出来**（红线：不许静默失败）。</para>
-        /// <para>调用点只有一处：`Close()` 里（= 原版 `SettingsMenu__Close.c:16-23`「脏位在才应用」）。</para></summary>
+        /// <para>调用点只有一处：`Close()` 里（= 原版 `SettingsMenu__Close.c:16-23`「脏位在才应用」）。</para>
+        /// <para>🔴 **2026-10-31（B108_A10 · AUD05 S2）**：脏位不再只有画质下拉了 —— VSync / FPS 两颗
+        /// 也各自只写值 + 置同一个脏位（`GraphicsTab__VSyncToggleClick.c` / `__FPSLimitValueChanged.c` 逐句实读），
+        /// 真正落 `QualitySettings.vSyncCount` 与 `Application.targetFrameRate` 就在本方法
+        /// （原版在 `QualitySettingsManager.ApplyGraphicsQuality` 里那两句 `set_vSyncCount` +
+        /// `PlayerDataManager.ApplyGraphicsQuality` → `SetTargetFramerate`）。</para></summary>
         public static void ApplyGraphicsQualityOnClose()
         {
             if (!ApplyGraphicsChangesOnClose) return;      // 原版那一句 `if (+0xc0 != 0)`
             ApplyGraphicsChangesOnClose = false;
 
             SuperSampling.Apply();                          // = 原版 `d.ChangeResolution()`（写 URP `renderScale`）
+            ApplyVSync(GameStaticData.vsync ? 1 : 0);       // = `QualitySettingsManager__ApplyGraphicsQuality.c` 的 `QualitySettings.vSyncCount`
+            Application.targetFrameRate = FpsOfIndex(GameStaticData.FPSLimit);   // = `PlayerDataManager__ApplyGraphicsQuality.c` → `SetTargetFramerate`（0→30 · 1→60 · 2→−1）
 
             // ⚠️ 剩下那几样**照实说**（不是不做，是判据落在工程资产层、且写了会被静默夹取；见 R-G §五①）
             Debug.Log("[Settings] `ApplyGraphicsQuality`（原版 `QualitySettingsManager` 那一跳）的**可落地部分**已应用"
@@ -7047,6 +7063,37 @@ namespace CardPresentation
         //   挂在 `SettingsWindow` partial 的**末尾**（本文件被账按行号钉着，最深引用 `:6700` ⇒ 这里加行不漂移）。
         /// <summary>`Tex()` 记账的缺图表（`MissingArt` 是 private，自检读不到）。判据 → `报告/B101_R3_资源接线施工单.md` §A3。</summary>
         public List<string> MissingArtForTest { get { return MissingArt; } }
+
+        // ============================================================ 🆕 2026-10-31（B108_A10 · AUD05 S1）
+        // 原版 `AccountTab.Refresh` 登录态那一支的尾部（`out_cpp2il_dev_ilspy/AccountTab.cs:369-380` 实读）：
+        //   `if (!demoData.suscriptionPopupShowed && PlayerDataManager.AllTutorialsCompleted()) TrySubscribeNewsletter();`
+        // `TrySubscribeNewsletter`（`out_il2csharp/Assembly-CSharp/AccountTab.cs:298-318` 逐句）：
+        //   `ShowPopUp("MainMenu/Register/SuscribeNewsletter", localizeTexts:1, closeOnEsc:true, Cancel, OK)`
+        //   → `suscriptionPopupShowed = true` → `UploadOnlineDemoData()`。
+        // ⚠️ `Suscribe` 是**原版自己的笔误**，官方 I2 表的键就是它 —— ⛔ 别改成 `Subscribe`。
+        // 🔶 P3（服务器那半）：`OnSuscribe` 的 `SendAccountConfirmationEmail` 与 `UploadOnlineDemoData` 只出声
+        //    （走本窗既有的 `AccountLocalNote` 出口 —— 关服后判据在远端，铁律 18·0 允许自定）。
+        void MaybeShowNewsletterPopup(bool on)
+        {
+            if (!on) return;                                          // 原版那一支只在 `flag2`（已登录）里
+            var demo = DemoDataStore.Current;
+            if (demo == null || demo.suscriptionPopupShowed) return;
+            if (!MenuTutorialFlow.AllTutorialsCompleted()) return;    // 原版 `PlayerDataManager.AllTutorialsCompleted()`
+            demo.suscriptionPopupShowed = true;                       // 原版也是「弹完即置位」（先置再弹 = 防重入）
+            DemoDataStore.Save();                                     // = 原版把 `demoData` 写回存档那一跳
+            var wm = WindowsManager.Instance;
+            if (wm == null)
+            {
+                Debug.LogWarning("[Settings] 订阅新闻通讯弹窗该开，但 `WindowsManager.Instance` 为 null（无语境）⇒ 本次不弹");
+                return;
+            }
+            wm.ShowMessagePopUp(
+                "MainMenu/Register/SuscribeNewsletter",               // 官方 I2 表原键（`Suscribe` 是原版笔误）
+                "MainMenu/General/Cancel", null,                      // 原版 primary = Cancel（只关窗；`PopUpGameWindow` 点钮即关）
+                "MainMenu/General/OK",
+                () => AccountLocalNote("Subscribe Newsletter → SendAccountConfirmationEmail + UploadOnlineDemoData", AcLocalNote),
+                closeOnEsc: true);                                    // 原版 `closeOnEsc: 1`
+        }
     }
 
     /// <summary>画质档的**持久化**（原版 `GameStaticData.graphicsQuality`(+0x120) 由

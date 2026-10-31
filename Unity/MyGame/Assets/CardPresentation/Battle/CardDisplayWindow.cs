@@ -896,7 +896,7 @@ namespace CardPresentation
                     what = MarkGodEffectText(god);                                   // 右列 = 契约正文（类尾 doc）
                     string godEnum = MarkGodTraitEnum(god);                          // 10→markOfKhorne … 其余 ⇒ null
                     who = godEnum != null
-                        ? CardIcons.RewriteMarks("[[" + godEnum + "]]", Loc.Current == AvailableLanguages.Chinese)
+                        ? CardIcons.RewriteMarks("[[" + godEnum + "]]", CardText.Zh && Loc.Current == AvailableLanguages.Chinese)   // 🔴 2026-10-31（Q1）字体闸：中文档 + 缺中文字体 ⇒ zh 位为假（否则子词条印方块）
                         : "";                                                        // 原版那一支 `text2 = ""`
                     if (b.TraitValue > 1) who += " (x" + b.TraitValue + ")";         // 原版 `+0x40 > 1` 追加
                 }
@@ -2485,7 +2485,7 @@ namespace CardPresentation
         {
             string godEnum = MarkGodTraitEnum(e.MarkOfChaosType);
             string who = godEnum != null
-                ? CardIcons.RewriteMarks("[[" + godEnum + "]]", Loc.Current == AvailableLanguages.Chinese)
+                ? CardIcons.RewriteMarks("[[" + godEnum + "]]", CardText.Zh && Loc.Current == AvailableLanguages.Chinese)   // 🔴 2026-10-31（Q1）字体闸：中文档 + 缺中文字体 ⇒ zh 位为假（否则子词条印方块）
                 : "";                                     // 原版那一支 `text2 = ""`（none/Random）
             if (e.TraitValue > 1) who += " (x" + e.TraitValue + ")";
             return TextRow(who, MarkGodEffectText(e.MarkOfChaosType));
@@ -2637,13 +2637,13 @@ namespace CardPresentation
         {
             string key = MarkGodEffectKey(markOfChaosType);
             if (key == null) return "";
-            string what = Loc.T(key);
+            string what = (Loc.Current == AvailableLanguages.Chinese && !CardText.Zh) ? Loc.OfficialEnglish(key) : Loc.T(key);   // 🔴 2026-10-31（Q1）字体闸：中文档 + 缺中文字体 ⇒ 取官方英文列（原直接 Loc.T ⇒ 中文列印方块）
             if (string.IsNullOrEmpty(what) || what == key)
             {
                 WarnOnce("mark:" + key, $"[展示窗] mark 词条「{key}」取不到 ⇒ 这一格右列留空（⛔ 不印键名）");
                 return "";
             }
-            return CardIcons.RewriteMarks(what, Loc.Current == AvailableLanguages.Chinese);
+            return CardIcons.RewriteMarks(what, CardText.Zh && Loc.Current == AvailableLanguages.Chinese);   // 🔴 2026-10-31（Q1）字体闸（与上面取词同一条闸）
         }
 
         // ════════════════════════════════════════════════════════════════════════════════════════════
@@ -2674,11 +2674,11 @@ namespace CardPresentation
             string src = e.EffectTextCard.EffectTextOf(e.EffectAb, e.EffectLg, e.EffectIsHand);
             if (string.IsNullOrEmpty(src)) return false;                 // `""` 明确没有 / `null` 判不了 ⇒ 都不是「有原文」
             string key = e.EffectTextCard.EffectTextTermOf(e.EffectAb, e.EffectLg, e.EffectIsHand);
-            string what = key == null ? src : Loc.T(key);
-            // 缺键判法 = `Loc.T(key) == key`（`Core/Loc.cs` 整条链都没命中时返回键名本身）⇒ 那时**印原文**（`.c:21-25`）。
-            // ⛔ 别改用 `Loc.HasEntry`：它只查手写 `Table`、不查 bulk 与官方全表（`Card_Abilities/*` 全在官方表那两档）。
-            if (string.IsNullOrEmpty(what) || what == key) what = src;
-            what = CardIcons.RewriteMarks(what, Loc.Current == AvailableLanguages.Chinese);   // = 原版 `ModifyLocalization` 那一跳
+            string what = key == null ? null : AbilityText.Raw(key);   // 🆕 2026-10-31（`C7`）：取词 + **字体闸**走共用件（与 `SkillPanel` 同一个口）
+            // 缺键判法 = `AbilityText.Raw` 走 `Loc.T` 整条链都没命中（或字体闸下官方英文列为空）⇒ `null` ⇒ **印原文**（原版 `.c:21-25`）。
+            // ⛔ 别改回裸 `Loc.T(key)`：它**不看字体闸** —— 中文档 + 缺中文字体时会把中文列打成方块（那就是本件要修的缺陷）。
+            if (string.IsNullOrEmpty(what)) what = src;
+            what = AbilityText.Marked(what);   // = 原版 `ModifyLocalization` 那一跳（`zh` 位同样带字体闸）
             rows.Add(TextRow(e.Source, what));
             return true;
         }

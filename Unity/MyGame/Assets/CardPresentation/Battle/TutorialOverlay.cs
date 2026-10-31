@@ -69,7 +69,7 @@
 //          （图名 / 绿染 / `PreserveAspect` / 300×90）**跟着搬过去**（`SettingsPanel` 文件头那组
 //          `Skip*` 常量 + 它的 `Build`）。本件**不再建那颗钮**，这一段只当**判据留档**。
 //  ③ **左右箭头整层已删（2026-10-31 · `B105_W1`）** —— 原版不显示（见 ②），我们不建。
-//     数据侧那一列还在（6 关 430 条动作里 `showLeftArrow`/`showRightArrow` **全是 `false`**，R2 §4 实测）
+//     数据侧那一列还在（`tutorial_stages.json` **2026-10-31 现读**：97 个回合 / 462 条动作；带这两个开关的条目 **468** 条，为 `true` 的 **0 条** —— `R2 §4` 当年实测是 430 条动作，数据后续增过）
 //     ⇒ `SetTip` 仍收这两个形参（`BattleDriver` 那个调用点在别件，⛔ 没改它），但**只出声、不建件**。
 //
 // ============================ 批处理下没有帧循环 ============================
@@ -1138,7 +1138,7 @@ namespace CardPresentation
         public static string TipRichText(string text)
         {
             if (string.IsNullOrEmpty(text)) return text ?? "";
-            return CardIcons.RewriteMarks(text, Loc.Current == AvailableLanguages.Chinese);
+            return CardIcons.RewriteMarks(text, CardText.Zh && Loc.Current == AvailableLanguages.Chinese);   // 🔴 2026-10-31（Q1）补字体闸：与 SupportMethods.ModifyLocalization 同一条（中文档 + 缺中文字体 ⇒ zh 位为假）
         }
 
         /// <summary>`Continue` 那一行现在亮着没有（= <see cref="TipContinueGo"/> 的 activeSelf）。</summary>

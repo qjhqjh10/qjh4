@@ -740,7 +740,7 @@ namespace CardPresentation
 
         /// <summary>原版 `PracticeEvent.StartMatchNoCheck(CardDeck playerDeck)` 的本地落地（账 571）。
         /// <para>三句逐字照 `Shell/PlayEvent.cs:535`（同一基类体的本仓实现）：
-        /// `UpdateLocalJoinState(Joined)` = `ChangeState(Joined)` · `matchStarted = true` · `randomSeed` 只在 0 时抖一次。</para>
+        /// `UpdateLocalJoinState(Joined)` = `ChangeState(Joined)` · `matchStarted = true`；**`randomSeed` 不再抖**（2026-10-31 `B108_A2` 已删那一句：原版客户端 0 写 0 读 + 我们 0 消费 ⇒ 按 18·0 复刻原版死字段，判据见下面那两行）。</para>
         /// <para>⚠️ 原版 `PracticeEvent.StartMatch()` 之后那句 `onPracticeMatchStarted` 云脚本 = **P3** ⇒ 出声不执行。</para>
         /// <returns>🆕 **2026-10-31（`B104_P3`）**：`matchStarted = true` 有没有**真的写进盘** —— `false` 只在
         /// 「落盘门开着却写失败」时出现（门关着 = 批处理 / 自检档的设计性空操作 ⇒ 算成功）。
@@ -757,7 +757,7 @@ namespace CardPresentation
             s.UpdateLocalJoinState(PlayEventSaveGame.JoinStates.Joined);   // 原版 `ChangeState(Joined)`
             s.matchStarted = true;
             bool persisted = NotePracticePersist(SavePracticeMatchStarted(), "练习局开局置位");   // ★ 原版写 `+0x44` 的**唯一**处是 `OnMatchFound`（见类尾判据）；本地练习没有匹配回包 ⇒ 等价点 = 这拍，顺手写穿
-            if (s.randomSeed == 0) s.randomSeed = Environment.TickCount;    // 🔶 自己设计（非原版）：practice randomSeed · **原版这格从未被写**（PlayEvent 全族无写点，恒 0）、我们回放/重连需要它 · 调度台 2026-10-29 裁定
+            // ⛔ 2026-10-31（`B108_A2` · 调度台续办 + 铁律 18·0）：这里原来会 `if (s.randomSeed == 0) s.randomSeed = Environment.TickCount;` —— **已删**。判据：原版客户端对 `randomSeed(+0x40)` **0 写点、也 0 读点**（`PlayEventSaveGame` 全部 5 份方法体无 `+0x40` 访问；事件家族 131 份 `.c` 里出现 `0x40` 的 3 份都是 8 字节闭包指针；`cpp2il/out_cpp2il_dev_ilspy/PlayEventSaveGame.cs:20` 只有字段声明），我们这边**同样 0 消费点** ⇒ 写它没有任何行为收益、还会往存档里塞一个非确定值 ⇒ 按「默认复刻原版（含死支）」删掉写、**字段保持 0**（字段本身不动：它是原版 DTO 的序列化契约）。⚠️ 服务端侧是否读它 = P3、判据在远端。
             Debug.Log("[GameModes] 练习局开局：卡组 id = " + (deckId ?? "<null>") + " ⇒ `joinState = Joined` + "
                     + "`matchStarted = true`（🔴 原版 `StartMatchNoCheck` 其实这三格**都不写**，见类尾判据；本地等价 = 这三句）"
                     + "；原版随后那句 `onPracticeMatchStarted` 云脚本 = P3（本地没有服务器）");

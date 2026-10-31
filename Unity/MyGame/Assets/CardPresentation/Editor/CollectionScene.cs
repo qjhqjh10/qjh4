@@ -2264,7 +2264,7 @@ public static class CollectionScene
                               + " —— 判据是 A2 §161 的实测落点 612.2，**别自己按容器推**");
                 }
                 // 🔴 **2026-10-18（A891 的续）改「随语档」**：`Import` / `Create` 两颗钮的字从本批起走词条
-                //   （`Shell/CollectionWindow.cs` 那两处 `Loc.T(...)`）⇒ 宿主跑在**出厂语言 = 中文**时，
+                //   （`Shell/CollectionWindow.cs` 那两处 `Loc.T(...)`）⇒ 宿主跑在**出厂语言 = 按系统语言解析（未命中 ⇒ 英文）**时，
                 //   原来写死的 `"Import Deck"` / `"Create Deck"` 必红。原文本身没丢：两条词条的**英文列**
                 //   = 原版 prefab 那颗 TMP 的 `m_text` 原文（本批按 pid 亲读）—— 见 `Core/Loc.cs` 的注释。
                 CheckTrue(Loc.HasAnyTerm("MenuDeck/MenuButtons/ImportDeck")
@@ -3170,7 +3170,7 @@ public static class CollectionScene
                         //   ⛔ 不读实现传进去的那个串。**按多重集合比**（两边各自排序后逐位比）⇒ 与行序无关、
                         //   也就**没有把排序规则抄第二份**（铁律「两处写同一条规则 = 迟早不一致」）。
                         //   🔴 **鉴别力依赖跑批语档 = 中文档**（`CardText.Name` 里有 `Zh` 那道闸 —— 英文档下
-                        //      「印英文名」与「走本地化」是同一个串）⇒ 本机出厂默认中文，今天有鉴别力；
+                        //      「印英文名」与「走本地化」是同一个串）⇒ 本机出厂默认按系统语言解析成了中文，今天有鉴别力；
                         //      ⚠️ 这与账 `A1517` 是**同一族限制**，本批**不**在断言里钉语档（那会弄出假红）。
                         var wantNames = new List<string>();
                         if (deck0 != null)
@@ -5147,7 +5147,7 @@ public static class CollectionScene
                 // 🔴 **2026-10-17（F2 · 修 (α)：这条断言原来把期望值写死成英文）** —— 本批 B11/A884 已经把
                 //   占位符改成走词条（`Shell/ImportDeckPopup.cs` 的 `PlaceholderTerm` =
                 //   `MenuDeck/HUD/EnterText`，`Core/Loc.cs` 中文列 = 「输入文本...」（官方 zh-CN 表，2026-10-14 换）），而本宿主跑在
-                //   **出厂语言 = 中文**（`Core/Loc.cs` 的 `Default`）⇒ 写死 `"Enter text..."` 必红。
+                //   **出厂语言 = 按系统语言解析（`Core/Loc.cs` 的 `Default`；未命中 ⇒ 英文）** ⇒ 中文档下写死 `"Enter text..."` 必红。
                 //   正本写法 → `Editor/ShellScene.cs` 的 B11/A884 那一节（那边明写「⛔ 写死 `"Enter text..."`
                 //   或写死中文，都过不了这一条」）。
                 // 🔴 **为什么这一节另开两扇临时窗、而且必须排在本块那扇 `imp` 之前**：
@@ -8733,7 +8733,7 @@ public static class CollectionScene
                         // 🔴 **2026-10-18 用户口径（判据 → `资料/普查产出_1018/W14_详情窗按钮与副本文案.md` §二·3）**：
                         //   这一格的标题已从**写死的英文**改成走**官方本地化键** `MenuDeck/Craft/CraftDescription`
                         //   （zh 列 = **创建这张牌的副本** · en 列 = `Create a copy of this card`）⇒ **随语档**。
-                        //   ⛔ 别再写死英文 `"Create a copy of this card"` —— 出厂语言 = 中文时必红。
+                        //   ⛔ 别再写死英文 `"Create a copy of this card"` —— 出厂语言按系统语言解析（可能是中文），中文档下必红。
                         //   ⚠️ 中 / 英两档用**字面量**（⛔ 不从 `Loc.T(键)` 反读，那是自证）；
                         //      其余 10 语档才回落 `Loc.T(键)`（同一个键、同一张官方 13 语表）。
                         string wantCraftTitle = Loc.Current == AvailableLanguages.Chinese ? "创建这张牌的副本"
@@ -11509,7 +11509,7 @@ public static class CollectionScene
                           FindChild(pp.transform, "Title Tab"), "Item Display Panel/Scroll Rect",
                           new PxRect(654.16f, 210.69f, 1680.12f, 855.46f));
 
-                pp.Close();
+                C4_Assert.Run(); _sink.Pass += C4_Assert.Pass; _sink.Fail += C4_Assert.Fail; pp.Close();   // ⚠️ C4 必须在档案窗还开着时跑（它要一个**建好的** `AvatarTab`）
                 Check(pp.CurrentState, WindowState.Closed, "量完把档案窗关掉（别影响后面的现场）");
 
                 // ---------------- 🆕 2026-10-05：聊天窗 `ChatPanel` ----------------
@@ -12787,7 +12787,7 @@ public static class CollectionScene
             //   **全程不设语档**（`Loc.Current` 第一次读时从 `PlayerPrefs["Language"]` 载入）——
             //   那四个键的**英文列逐字等于 `TabBtnSpec.Label`（= 原版 `m_text`）** ⇒ 本机若被设成
             //   English，把实现改回「直接画 `spec.Label`」**四条照样全绿**（屏上字一模一样、看不出区别）。
-            //   今天跑批有鉴别力，只是因为出厂默认是 Chinese（`Loc.Default`）。
+            //   今天跑批有鉴别力，只是因为出厂默认按系统语言解析成了 Chinese（`Loc.Default`）。
             //
             // ⛔ **不是**「在跑批前钉一次中文档」：本文件实测过 —— 一旦把语档钉成中文并**保持**，
             //   那些同样「按 `Loc.T` 现取期望值」的断言（`本文件` 空态那行 / `本文件` `Import Deck` /
@@ -13246,8 +13246,8 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
-            int total = _sink.Pass + _sink.Fail;
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
+            Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
             {

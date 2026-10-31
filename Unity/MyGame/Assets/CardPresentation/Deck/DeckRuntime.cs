@@ -1114,13 +1114,13 @@ namespace CardPresentation
         readonly List<ImageQuad> _tabHi = new List<ImageQuad>();
         readonly List<ImageQuad> _tabIcon = new List<ImageQuad>();
 
-        readonly List<ImageQuad> _curveFill = new List<ImageQuad>();
+        readonly List<GameObject> _curveFill = new List<GameObject>();   // 🔴 2026-10-31（B108_A3）：原版 `Image.Type = Sliced` ⇒ 改成九宫格**容器根**（几何由 `ApplyCurveBarWidth` 摆三块）
         /// <summary>🆕 **2026-10-11（A1497 ③）**：每根填充柱**建的时候**的 `localPosition.x` ——
         /// 它是「宽度还是 1px 时」的中心（= 槽左 + 0.5）。`SetQuadWidth` 只改宽度、**围绕锚点(0.5)往两边长**
         /// ⇒ 每帧要按它把中心摆回「槽左 + 宽/2」，否则柱子会**向左跑出槽外**（实拍里白药丸从 x≈0 起）。</summary>
         readonly List<float> _curveFillX0 = new List<float>();
         readonly List<Label> _curveLabel = new List<Label>();
-        readonly List<ImageQuad> _curveBar = new List<ImageQuad>();
+        readonly List<GameObject> _curveBar = new List<GameObject>();   // 🔴 2026-10-31（B108_A3）：同上 —— 槽底也是九宫格容器根
         readonly List<GameObject> _infoOnly = new List<GameObject>();   // 只在 Deck info 页签显示的东西
 
         /// <summary>🆕 **`A1514`**：卡组类型计数抽屉那两颗 TMP（原版 `DeckTypeCounterDrawer` 的
@@ -1147,7 +1147,7 @@ namespace CardPresentation
         ImageQuad _emptyWarn; GameObject _doneHl;   // `_doneHl` 是 `MenuDraw.Nine` 的**容器根**（九宫块在子件、根上没有 `ImageQuad`）⇒ 类型 `GameObject`（`B102_AUD01`）
         /// <summary>页头那颗 `Filters` 圆钮 —— 它要**按状态换图**（面板开=`40k_menu_bt_pressed`、关=`40k_menu_bt`），
         /// 见 `RefreshHeader` 里那段判据（原版 `EverguildToggle.changeSpriteOnValueChange=1`）。</summary>
-        ImageQuad _hdrFltBtn;
+        GameObject _hdrFltBtn;   // 🔴 2026-10-31（B108_A3）：原版 `Image.m_Type = Sliced`（`40k_menu_bt` 九宫 10）⇒ 九宫格**容器根**（换图走 `SetNineSprite`）
         /// <summary>页头那颗 `Clear filters` 的**图**与**字**（两颗一起显隐 —— 判据与「为什么走 `SetActive`
         /// 而不是原版的 −550 平移」写在 `HdrClearX` 上面那一大段注释里）。</summary>
         ImageQuad _hdrClear;
@@ -1277,7 +1277,7 @@ namespace CardPresentation
         {
             Library = lib ?? DeckLibrary.Load();
             _cam = Camera.main;
-            if (_cam != null) LayoutSpace.Apply(_cam);
+            if (_cam != null) LayoutSpace.Apply(_cam); if (_cam != null && HostWindow == null) ShellRuntime.EnsureAspectClamp(_cam);   // 🆕 B109_E16 · AUD05 S4：比例夹取 [4:3, 22:9]。**只挂独立场景那一档**（`HostWindow == null`）—— 窗化档渲染相机是主菜单那颗（已经挂过），再挂一次会把它带进 `Shell.unity` 存盘（原版 `Intro` 没有该件）；判据 → `ShellRuntime` 类尾那一节
 
             Root = transform;
             foreach (Transform c in Root) DestroySafe(c.gameObject);
@@ -1585,18 +1585,18 @@ namespace CardPresentation
                 //    48.24/1.516 = **31.8px**（原版渲 40）—— 那是**看得见的变小**，不是更接近原版。
                 //    ⇒ 框高暂留整颗钮高 `HdrBackH`，等 `A1024③` 换面之后一起改（已在 T07 报告登记）。
                 hdrBackTx.SetAutoFitBox(U(133.22f), U(HdrBackH), 10f, 40f, 12f);
-                hdrBackTx.SetWrappingMode(0);
+                hdrBackTx.SetWrappingMode(0); MenuDraw.SetVAlign(hdrBackTx, Label.VAlign.Capline, new PxRect(HdrBackX, HdrBackY, HdrBackX + HdrBackW, HdrBackY + HdrBackH));   // 🔴 2026-10-31（B108_A3）：原版 `Close/Button Text` 垂直档 = **8192(Capline)**（AUD02 行 63）
             }
             Btn_("hdr_back", HdrBackX, HdrBackY, HdrBackW, HdrBackH);
 
             // Filters 圆钮 + 图标 + 文字（原版这三块是分开的三条 rect）
-            _hdrFltBtn = Img("hdr_fltbtn", "40k_menu_bt", HdrFltBtnX, HdrFltBtnY, HdrFltBtnS, HdrFltBtnS, QRow);
+            _hdrFltBtn = NineSlice("hdr_fltbtn", Ui("40k_menu_bt"), new Vector4(10f, 10f, 10f, 10f), HdrFltBtnX, HdrFltBtnY, HdrFltBtnS, HdrFltBtnS, QRow); RegisterNineSwap("hdr_fltbtn", _hdrFltBtn);   // 🔴 2026-10-31（B108_A3）：原版 `Filters` 那颗 Image = `40k_menu_bt` **Sliced 九宫(10,10,10,10)**（menu_dump 实读；AUD02 行 3）；换图走 `SetNineSprite`
             // 🆕 2026-10-05（A32②）：这一颗**两种行为都有**，各接各的（不冲突）：
             //   ① **状态 → 换图**（`changeSpriteOnValueChange`，`RefreshHeader` 里那句 `SetSprite`）；
             //   ② **悬停 → 变色**（`m_Transition = 1(ColorTint)`，目标件 = 它自己那层图，`m_Color=(1,1,1,1)`
             //      ⇒ 悬停**看得见**）。⚠️ `RefreshHeader` 换的是**纹理**、`WindowButton` 变的是**顶点色**
             //      ⇒ 两条路互不覆盖（这正是原版那颗 prefab 的实际行为）。
-            HoverTint("hdr_filters", _hdrFltBtn != null ? _hdrFltBtn.gameObject : null);
+            HoverTint("hdr_filters", _hdrFltBtn);
             // 🔴 **2026-10-20 修：这一颗的队列** —— 原来用 `QBorder`（= 3005），而**按钮底**
             //   `hdr_fltbtn` 用的是 `QRow`（= 3007）⇒ **按钮底压在图标上面**。按钮底那张
             //   `40k_menu_bt` 的中心是**不透明的** ⇒ 图标被**整块盖死**（屏幕上那颗金框看着是空的）。
@@ -1607,7 +1607,7 @@ namespace CardPresentation
             //   但页签名牌在侧栏（x 5.3..104.2 · y 261..301）、本图标在 x 377.2..407.2 · y 98.5..128.5
             //   ⇒ **两处不重叠**（同队列的「不许互相压住」那条断言不碰它）。
             //   🔴 **本仓血规：分层用渲染队列、⛔ 不能拿 z 排**（透明队列按到相机的 3D 距离排序）。
-            Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QText - 1);
+            Img("hdr_flticon", "40k_bt_icon_search", HdrFltIconX, HdrFltIconY, HdrFltIconS, HdrFltIconS, QText - 1, true);   // 🔴 2026-10-31（B108_A3）：原版 `m_PreserveAspect = 1`（27×27 画进 30×30；AUD02 行 10）
             // 🔴 **2026-10-17（D20）—— 这颗图标查清了：原版【就是这张图】，保持现状。**
             //   施工单 D20 存疑两点：① 名字是 `search` 不是 `filter`；② 实拍那一帧那颗金框**看着是空白的**。
             //   逐字段实读（`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu" --depth 4`）：
@@ -1673,7 +1673,7 @@ namespace CardPresentation
                 // ⚠️ **框高【故意不跟】**（原版有效框高 57.69）：CJK 行盒 1.516em ⇒ 喂 57.69 会把 42px 压到
                 //    38.05px（原版渲 42）⇒ 暂留 `HdrClearH`（= 钮高 70），与 `A1024③` 一起改（同 `hdr_back_t` 那条）。
                 hdrClearTx.SetAutoFitBox(U(68.69f), U(HdrClearH), 10f, 42f, 12f);
-                hdrClearTx.SetWrappingMode(0);
+                hdrClearTx.SetWrappingMode(0); MenuDraw.SetVAlign(hdrClearTx, Label.VAlign.Capline, new PxRect(HdrClearX, HdrClearY, HdrClearX + HdrClearW, HdrClearY + HdrClearH));   // 🔴 2026-10-31（B108_A3）：原版 `Generic Simplified UI Button_updated/Button Text` 垂直档 = **8192(Capline)**（menu_dump 实读「对齐=Center/Capline」；AUD02 行 19）
             }
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);
 
@@ -1997,7 +1997,7 @@ namespace CardPresentation
                 _deckNameHint.SetWrappingMode(0);
                 MenuDraw.SetVAlign(_deckNameHint, Label.VAlign.Capline, nameBox);
             }
-            Img("name_clear", "40k_icon_search", NameClrX, NameClrY, NameClrW, NameClrH, QBorder);
+            Img("name_clear", "40k_icon_search", NameClrX, NameClrY, NameClrW, NameClrH, QBorder, true);   // 🔴 2026-10-31（B108_A3）：原版 `m_PreserveAspect = 1`（`40k_icon_search` 70×78 画进 35×40；AUD02 行 112）
             Btn_("name_box", NameX, NameY, NameW, NameH);
             Btn_("name_clear", NameClrX, NameClrY, NameClrW, NameClrH);
         }
@@ -2197,7 +2197,7 @@ namespace CardPresentation
             var warnLabel = Txt("empty_warn_l", Loc.T("MenuDeck/HUD/DragCardsTip"),
                                 20.3f, 500f, 295.3f, 60f, 2,
                                 new Color(1f, 1f, 1f, 0.65f), QText);
-            if (warnLabel != null) _emptyWarnGo = warnLabel.gameObject;
+            if (warnLabel != null) _emptyWarnGo = warnLabel.gameObject; BuildRowExtras();   // 🔴 2026-10-31（B108_A3）：原版每槽还有 `Background Slot Free` / `Slot Free Text` / `banned Icon` 三件（我们原来一件没建）—— 建在类尾
         }
 
         // ============================================================ 🔴 2026-10-21（`A1727`）
@@ -2394,19 +2394,19 @@ namespace CardPresentation
                 float y = CurveY + c * CurveStep;
                 // ⚠️ 两列数字一律走 `TxtPx`（**带原版字号**）—— `Txt(..., scale: 1)` 那一档是 7px 大写高，
                 //    在 1.48 后的行里会小一大截（原来就是这么小的，见 `CurveFontPx` 那条注释）。
-                var lb = TxtPx("curve_l" + c, CurveCostText(c), CurveLbX, y, CurveLbW, CurveRowH, CurveFontPx, CurveLbTint, QText);
-                var bar = Img("curve_b" + c, barBg, CurveBarX, y + CurveBarDy, CurveBarW, CurveBarH, QPanel);
-                var fill = Img("curve_f" + c, barFill, CurveBarX, y + CurveFillDy, 1f, CurveFillH, QRow);
+                var lb = TxtPx("curve_l" + c, CurveCostText(c), CurveLbX, y, CurveLbW, CurveRowH, CurveFontPx, CurveLbTint, QText); if (lb != null) lb.SetVAlign(Label.VAlign.Midline, U(CurveRowH));   // 🔴 2026-10-31（B108_A3）：原版 `Card Cost` / `Cards in deck` 都是 `V=4096(Midline)`（AUD02 行 222/227 等 18 行）
+                var bar = BuildCurveBg(c, barBg, y);   // 🔴 2026-10-31（B108_A3）：原版 `Slider/Background` = Sliced 九宫(3,0,15,0)（AUD02 行 228 等 9 行）
+                var fill = BuildCurveFill(c, barFill, y);   // 🔴 2026-10-31（B108_A3）：原版 `Slider/Fill` = Sliced 九宫(3,0,14,0)；宽度由 `ApplyCurveBarWidth` 摆三块
                 // 🔴 **2026-10-11（A1497 ②）**：填充图 **`40k_CardAmount_bar_fill` 是【白色蒙版】**
                 //   （实拍两张图量的：bg 是深灰 (40,40,40)、fill 是白 (220,220,220)）
                 //   ⇒ **必须靠运行时 tint 才是金色**。我们原来**没上 tint** ⇒ 屏上是一排白药丸。
                 //   金色值 = `Core/CostCurveDrawer.cs` 的 `FillTint`（原版 `Image.m_Color` 实读）。
-                if (fill != null) fill.SetTint(CostCurveDrawer.FillTint);
+                // 🔴 2026-10-31（B108_A3）：原版 `Slider/Fill` 的 tint 与九宫号由 `BuildCurveFill` 里的 `MenuDraw.Nine(…, CostCurveDrawer.FillTint, …)` 一次给全三块
                 _curveFillX0.Add(fill != null ? fill.transform.localPosition.x : 0f);
-                var num = TxtPx("curve_n" + c, "0", CurveNumX, y, CurveNumW, CurveRowH, CurveFontPx, CurveNumTint, QText);
+                var num = TxtPx("curve_n" + c, "0", CurveNumX, y, CurveNumW, CurveRowH, CurveFontPx, CurveNumTint, QText); if (num != null) num.SetVAlign(Label.VAlign.Midline, U(CurveRowH));   // 🔴 2026-10-31（B108_A3）：同上（原版 V=4096）
                 _curveBar.Add(bar); _curveFill.Add(fill); _curveLabel.Add(lb); _curveLabel.Add(num);
-                _infoOnly.Add(bar != null ? bar.gameObject : null);
-                _infoOnly.Add(fill != null ? fill.gameObject : null);
+                _infoOnly.Add(bar);
+                _infoOnly.Add(fill);
                 _infoOnly.Add(lb != null ? lb.gameObject : null);
                 _infoOnly.Add(num != null ? num.gameObject : null);
             }
@@ -2499,7 +2499,7 @@ namespace CardPresentation
                 // ⚠️ **框高【故意不跟】**（原版有效框高 43.91）：CJK 行盒 1.516em ⇒ 43.91 会把 40px 压到 28.96px
                 //    （原版因 Pragati 行盒 37.9 < 43.91 停在 40）⇒ 暂留 `DoneH`，与 `A1024③` 一起改。
                 footDoneTx.SetAutoFitBox(U(168.54f), U(DoneH), 10f, 40f, 12f);
-                footDoneTx.SetWrappingMode(0);
+                footDoneTx.SetWrappingMode(0); MenuDraw.SetVAlign(footDoneTx, Label.VAlign.Capline, new PxRect(DoneX, DoneY, DoneX + DoneW, DoneY + DoneH));   // 🔴 2026-10-31（B108_A3）：原版 `Footer/Done/Button Text` = 8192(Capline)（AUD02 行 344）
             }
             // 🔴 2026-09-27（PA 普查）：原版 `Content Area/Sidebar/Footer/Image` 是 PA=1，贴图
             //   `40k_general_icon_card_amount` **64×64** 塞进 50×40 ⇒ 原版实绘 **40×40**（居中），我们 50 宽（**1.25×**）。
@@ -2572,7 +2572,7 @@ namespace CardPresentation
             if (_cosmoArmyTitle != null)
             {
                 _cosmoArmyTitle.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.TitleFontPx));
-                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR);   // HA=1（判据见上）
+                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR); SetTmpMargin(_cosmoArmyTitle, new Vector4(22.7f, 0f, 0f, 0f));   // 🔴 2026-10-31（B108_A3）：HA=1 + 原版 `m_margin = (22.7,0,0,0)`（AUD02 行 462）
             }
 
             // 出厂两栏都收着 ⇒ 按进度 0 摆一次（位置 / 显隐 / 命中）。
@@ -3934,7 +3934,7 @@ namespace CardPresentation
             float lx1 = -CardGhostW * 0.5f, ly1 = -CardGhostH * 0.5f;
             Img("card_ghost_circle", Ui("Card_Frame_Cost_Icon"),
                 lx1 + 17f, ly1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
-                QDragPreview + 1, false, _cardGhostGo.transform, relativeToParent: true);
+                QDragPreview + 1, true, _cardGhostGo.transform, relativeToParent: true);   // 🔴 2026-10-31（B108_A3）：原版 `Cost Image` `m_PreserveAspect = 1`（AUD02 行 443）
             var nm = Txt("card_ghost_n", "", lx1 + 62f, ly1, CardGhostW - 70f, CardGhostH,
                          1, Ink, QDragPreview + 2, _cardGhostGo.transform, relativeToParent: true);
             // 🔴 **2026-10-10（A1212 · 块 1 #52）**：接上 `m_enableAutoSizing`（四格 = **2 / 38 / 27.69 / 0**）。
@@ -3943,7 +3943,7 @@ namespace CardPresentation
             //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
             if (nm != null)
             {
-                nm.SetAutoFitBox(U(CardGhostW - 70f), U(CardGhostH), 2f, 38f, 27.69f);
+                nm.SetAutoFitBox(U(CardGhostW - 70f), U(CardGhostH), 10f, 30f, 27.69f);   // 🔴 2026-10-31（B108_A3）：原版 `Card Drag Controller/…/Card Name` = fs30 / base27.69 / auto[10~30]（menu_dump 实读；AUD02 行 437）
                 nm.SetWrappingMode(0);
             }
             var cs = Txt("card_ghost_c", "", lx1 + 17f, ly1 + (CardGhostH - 38f) * 0.5f, 38f, 38f,
@@ -4393,12 +4393,12 @@ namespace CardPresentation
                 //   张数定（原版 `SetCount` 那句 `SetActive(1 < count)`），而张数只有 `on` 的行才有。
                 //   ⚠️ 不能只在 `on` 那一支里关：**这些标签不是行那一组的孩子**（都挂在 `Root` 上）
                 //   ⇒ 滚动露头那些 `!on` 的行如果不在这里关，屏上会留一颗**孤儿字**。
-                SetOn(_deckRowCountText[i], false);
+                SetOn(_deckRowCountText[i], false); HideRowExtras(i);   // 🔴 2026-10-31（B108_A3）：空槽底 / 空槽字 / 禁卡叉三件与份数同一个关法（它们都挂在 `Root` 上，不是行那一组的孩子）
                 if (!on) continue;
 
                 var def = shown[firstRow + i];
                 float y = ListY + i * RowPitch - off;
-                MoveRow(i, y);
+                MoveRow(i, y); ApplyRowStyles(i, heroRow, def != null && def.Type == "defence");   // 🔴 2026-10-31（B108_A3）：三族字号上下限 / 垂直档 / 折行 / 边距（原版三套预制体，我们一个模板 ⇒ 每刷新按族落一次）；def 为空槽 null（B108 收尾补 guard）
                 if (emptySlot)
                 {
                     // 🆕 **2026-10-25（`C` 卡组编辑域）**：原版 `DeckListDrawer.ShowEmptySlotsIfNeeded.c:1061-1080`
@@ -4409,7 +4409,7 @@ namespace CardPresentation
                     SetOn(_deckRowCostText[i], false);      // 圆里那个数（原版 `Cost`）
                     SetOn(_deckRowCountText[i], false);     // 份数（原版 `Count`）
                     if (!(_dragging && i == _dragSlotView)) ClipRowToBand(i, y, heroPiece, false);  // 第 4 个实参 = 「费用圆该不该显示」⇒ 空位行不带；🆕 B89-R3d：**正在拖的那一槽这一帧不裁**（否则边滚边拖会把它裁没）
-                    if (!(_dragging && i == _dragSlotView)) ClipRowLabels(i);
+                    if (!(_dragging && i == _dragSlotView)) { ClipRowLabels(i); ApplyRowExtras(i, firstRow + i, on, emptySlot, false, null, y); }   // 🔴 2026-10-31（B108_A3）：空槽那一支也要落「空槽底 / 空槽字」（原来这里 `continue` 掉了）
                     continue;
                 }
                 // 🆕 **2026-10-25（`C` 域 · E 查出的 C-P2 ①）**：**异画卡的名单后面加 `*`** ——
@@ -4436,7 +4436,7 @@ namespace CardPresentation
                 //   ⇒ 先 `SetText` 再激活的话，这颗字露出来时会被按错误尺寸摆一次（`Battle/Label.cs` 那个已知坑）。
                 bool showX = n > 1;                     // 原版：`1 < count` 才显示（督军 / 防御卡行 = 1 ⇒ 藏）
                 SetOn(_deckRowCountText[i], showX);
-                if (showX)
+                if (showX && !heroRow)   // 🔴 2026-10-31（B108_A3）：督军族 `Count` 原版是 `H=2(Center)`（AUD02 行 127）；督军恒 1 张 ⇒ 这一条本来也不会显示
                 {
                     _deckRowCountText[i].SetText("x" + n);
                     // 🔴 **2026-10-11（`A1528` 第二轮）：**墨迹右缘**由**这一句**钉死**（= `RowCountRight` = 317.48）。
@@ -4468,7 +4468,7 @@ namespace CardPresentation
                 //   必须与上面 `SetOn(_deckRowCost[i], on && !heroRow)` 那句**同一个值**
                 //   （⛔ 别写死 `true`：那样督军行的圆会被裁切那一支重新点亮）。
                 ClipRowToBand(i, y, heroPiece, on && !heroRow);
-                ClipRowLabels(i);
+                ClipRowLabels(i); ApplyRowExtras(i, firstRow + i, on, emptySlot, heroRow, def, y);   // 🔴 2026-10-31（B108_A3）：原版每槽那三件（空槽底 / 空槽字 / 禁卡叉）
             }
 
             SetOn(_emptyWarn, cards && State.DeckCardCount(true) == 0);   // 🔴 2026-10-28（B92_N9）：原版 `DeckEditingPanel__Initialize` = `emptyWarning.SetActive(CardCount(true) == 0)`（`.cs:258`）⇒ 只有督军时【关】；判据/理由见 `DeckEditorState.DeckCardCount` 与类尾 `TickCardWindowAltArt` 上面那段
@@ -4485,16 +4485,16 @@ namespace CardPresentation
                 if (c == CurveLastBucket)
                     for (int j = c + 1; j < curve.Length; j++) n += curve[j];
                 float fw = Mathf.Clamp01(n / 10f) * CurveBarW;                   // 原版按 10 张归一化
-                SetQuadWidth(_curveFill[c], fw);
+                ApplyCurveBarWidth(c, fw);   // 🔴 2026-10-31（B108_A3）：九宫格（端帽不缩放、中段伸缩）= 原版 `Slider.fillAmount`
                 // 🔴 **2026-10-11（A1497 ③）**：宽度是**围绕锚点(0.5)往两边长**的 ⇒ 只调宽度会让柱子
                 //   左边跑到槽外。每帧把中心摆回「槽左 + 宽/2」（基线 = 建的时候那个 x，= 槽左 + 0.5）。
-                var fq = _curveFill[c];
-                if (fq != null && c < _curveFillX0.Count)
-                {
-                    var lp = fq.transform.localPosition;
-                    lp.x = _curveFillX0[c] + LayoutSpace.Px(fw * 0.5f - 0.5f);
-                    fq.transform.localPosition = lp;
-                }
+                // var fq = _curveFill[c];   ⛔ 2026-10-31（B108_A3）：整块拉伸时代的「中心摆回槽左 + 宽/2」整段废弃 ——
+                // if (fq != null && c < _curveFillX0.Count)   填充改成九宫格后，端帽/中段由 `ApplyCurveBarWidth` 按
+                // {                                          `Image.GetAdjustedBorders` 那套摆，**根不再移动**（下面 4 行留痕）。
+                //     var lp = fq.transform.localPosition;
+                //     lp.x = _curveFillX0[c] + LayoutSpace.Px(fw * 0.5f - 0.5f);
+                //     fq.transform.localPosition = lp;
+                // }
                 // 🔴 左列（`Card Cost`）的字**也在这里写**（原来只在建的时候写过一次）——
                 //   两列从此**同一个出处**（`CurveCostText`），`+` 那半边才测得到。
                 if (_curveLabel[c * 2] != null) _curveLabel[c * 2].SetText(CurveCostText(c));
@@ -4531,7 +4531,7 @@ namespace CardPresentation
             // 🔴 2026-10-20：这一句只管 **y 与渲染队列**（喂的是框心）——
             //   **x 随后会被 `RefreshDeckList` 里那句 `AlignLeftOn` 覆盖**（行名现在是左对齐）。
             MoveLabel(_deckRowName[i], RowNameX + RowNameW * 0.5f, cy, QText);
-            MoveLabel(_deckRowCostText[i], RowCostX + RowCostS * 0.5f, cy, QText);
+            MoveLabel(_deckRowCostText[i], RowCostX + RowCostS * 0.5f, cy, QText); MoveRowExtras(i, y);   // 🔴 2026-10-31（B108_A3）：空槽底 / 空槽字跟行搬
         }
 
         void Move(ImageQuad q, float cx, float cy, int queue)
@@ -4790,7 +4790,7 @@ namespace CardPresentation
             //     我们这句 `(_tab == 2 ? _cosmoFltOpen : _filtersOpen)` 与它**逐字同语义**（`_xxxOpen` 是逻辑态）
             //     ⇒ ⛔ **不要改成跟 `Slide`/`SlideTarget` 走**（那才会与原版不符）。
             //   ⚠️ 另一半（**悬停变色**）原来确实没接 —— 2026-10-05（A32②）补上了，见 `BuildHeader` 里那句 `HoverTint`。
-            SetSprite(_hdrFltBtn, (_tab == 2 ? _cosmoFltOpen : _filtersOpen)
+            SetNineSprite("hdr_fltbtn", (_tab == 2 ? _cosmoFltOpen : _filtersOpen)
                                   ? "40k_menu_bt_pressed" : "40k_menu_bt");
 
             // 🔴 **2026-10-20：`Clear filters` 的显隐落在这里**（判据/推断/为什么走 `SetActive`
@@ -6499,7 +6499,7 @@ namespace CardPresentation
         }
 
         /// <summary>费用曲线那 9 根柱子现在可不可见（Deck info 页签才显示）。</summary>
-        public bool UiCurveVisible { get { return _curveFill.Count > 0 && _curveFill[0] != null && _curveFill[0].gameObject.activeSelf; } }
+        public bool UiCurveVisible { get { return _curveFill.Count > 0 && _curveFill[0] != null && _curveFill[0].activeSelf; } }
 
         /// <summary>通配符计数条第 `i` 个**数字**的渲染矩形（自检用）。
         /// 判据 = `Label.WorldW/WorldH`（TMP **真测量**，不是我们传进去的框）。
@@ -7650,12 +7650,12 @@ namespace CardPresentation
                 // 🔴 **2026-10-07（A62 主表 #5）**：折行按 `Cell.LabelWrap`（**逐族实读的原版 `m_TextWrappingMode`**）显式设 ——
                 //   四族里只有**费用桶**是 `1`（开关/稀有度/类型都是 `0`），而 `SetAutoFitBox` 上面刚**无条件**把折行打开了
                 //   ⇒ 不显式设的话这三族都是「碰巧错」。⛔ 别按 `LabelCenter` 反推（那会把稀有度/类型静默漏掉）。
-                lb.SetWrapping(c.LabelWrap == 1);
+                lb.SetWrapping(c.LabelWrap == 1); ApplyFilterLabelVAlign(lb, c, lr);   // 🔴 2026-10-31（B108_A3）：稀有度 / 类型两族原版 V=1024(Bottom)（AUD02 行 406/432）
                 // 🔴 **2026-10-05（A32④）订正**：原来这句写「两个开关行的标签原版是 **hAlign=Center**（A3 §5·1）
                 //   ⇒ 居中时不要再摆对齐」—— **`Center` 那个读数是错的**：全包 8 个 `Owned only`/`Upgradable only`
                 //   的 `m_HorizontalAlignment` 实测都是 `1`(Left)（两扇窗都读过）
                 //   ⇒ 模型里 `LabelCenter` 已改成 `false`，于是这三行走 `AlignLeftOn(lr.x1)`。
-                if (!c.LabelCenter)
+                if (!c.LabelCenter && !FilterLabelCentered(c))   // 🔴 2026-10-31（B108_A3）：本窗三族（稀有度/费用/类型）原版都是 H=2(Center)
                 {
                     float wx = c.LabelRight ? LayoutSpace.FromPixel(lr.x2, 0f).x : LayoutSpace.FromPixel(lr.x1, 0f).x;
                     if (c.LabelRight) lb.AlignRightOn(wx); else lb.AlignLeftOn(wx);
@@ -8545,8 +8545,8 @@ namespace CardPresentation
                 //   ⚠️ **没登记的贴图**（本文件绝大多数调用点都不是卡背）在里面**逐字退化成原来那套**
                 //   ⇒ 本函数的既有调用点零变化；`cx/cy` 的偏移也只有登记过的卡背才非 0。
                 float fw2, fh2, fox, foy;
-                if (CardbackFace.Fit(tex, w, h, out fw2, out fh2, out fox, out foy))
-                { w = fw2; h = fh2; cx += fox; cy -= foy; }        // `Pos` 的 y 向上 ⇒ `foy`（向上为正）减
+                if (CardbackFace.Fit(tex, w, h, out fw2, out fh2, out fox, out foy)) { w = fw2; h = fh2; cx += fox; cy -= foy; }
+                else if (tex != null && tex.width > 0 && tex.height > 0) { float s = Mathf.Min(w / tex.width, h / tex.height); w = tex.width * s; h = tex.height * s; }   // 🔴 2026-10-31（B108 收尾）：没登记的图也要真 PA（原来未登记 ⇒ 逐字退回拉伸，`hdr_flticon` 27×27 被画成 30×30；这里按贴图自身比例内接、中心不动 = uGUI `m_PreserveAspect` 最小语义）
             }
             var q = ImageQuad.Create(parent != null ? parent : Root, tex,
                                      relativeToParent ? new Vector3(U(cx), -U(cy), 0f) : Pos(cx, cy),
@@ -9695,7 +9695,7 @@ namespace CardPresentation
             for (int i = 0; i < _rowPieces.Length; i++) { if (_rowPieces[i] != null) _rowPieces[i].Clear(); }
             _tabLabel.Clear(); _tabHiRoot.Clear(); _tabHi.Clear(); _tabIcon.Clear();
             _infoOnly.Clear(); _cardsInfoOnly.Clear();
-            _curveFill.Clear(); _curveFillX0.Clear(); _curveLabel.Clear(); _curveBar.Clear();
+            _curveFill.Clear(); _curveFillX0.Clear(); _curveLabel.Clear(); _curveBar.Clear(); _curveFillBars.Clear(); _rowSlotFreeBg.Clear(); _rowSlotFreeTx.Clear(); _rowBan.Clear(); _nineSwaps.Clear(); for (int i = 0; i < _rowExtraQuads.Length; i++) { if (_rowExtraQuads[i] != null) _rowExtraQuads[i].Clear(); _rowStyleKind[i] = 0; }   // 🔴 2026-10-31（B108_A3）：新增那几张表同一口径（`B100_X2`）
             _fltTitles.Clear();
             // 🔴 `_cosmOnly` 也在本清单里（`B100_F1` 现核，2026-10-30；审计号 `B100_X2` §同类隐患① 那 12 组之外）：
             //   它两个 `Add` 点（`:3466` 空收藏提示 · `:3615` 侧栏卡背底）都落在「字段 `== null`（= 已销毁）才重建」
@@ -9794,5 +9794,390 @@ namespace CardPresentation
         public static float UiPoolViewportHeightForTest { get { return PoolH; } }
         /// <summary>自检读口：卡池当前**居中偏移**（= `Pool.PadX`，桌面/小屏都应是 **7.39**）。</summary>
         public float UiPoolPadXNowForTest { get { return Pool.PadX; } }
+    }
+}
+
+// ============================================================ 🔴 2026-10-31（B108_A3 · AUD02 卡组编辑 85 条 ❌ 的落地件）
+//
+// 这一块**只追加在文件尾**（`CLAUDE.md` 铁律 18·b：本文件被账按 `文件:行号` 钉着 124+ 处 ⇒
+// 往类体中间插成员会让下游整体漂移）。它装的是「原来根本没建 / 只差一个字段」的那批等价物。
+//
+// 判据（本次**回源现读**，⛔ 不是转抄 `AUD02` 的结论列）：
+//   ① 卡组行三族 —— `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all
+//      "Deck Selector Card Info button" --depth 5`（另两族同命令换名字）：
+//        · Hero 族      `Card Name` fs34/base27.69/auto[10~34]/Left/**Middle** · `Count` fs36/base36/
+//                       **Center/Middle**/wrap1 · `Ban Icon` PA=1（46.17 宽、行右 237.9 起）·
+//                       `Background Slot Free` **Tiled** 九宫(15,14,15,12) 色(0.443) ·
+//                       `Slot Free Text` `-- Warlord --` fs34/base27.69/auto[10~34]/Center/**Capline**/wrap0 色(0.396)
+//        · Defensive 族 `Card Name` fs34/auto[2~34]/Left/**Capline** · `Count` fs32/auto[2~32]/Right/**Midline**/wrap0 ·
+//                       `Cost` **Capline** + `m_margin (0,0,1.83,0)` · `banned Icon` PA=1/raycast0 ·
+//                       `Slot Free Text` `-- Defensive --` …/Center/**Middle**
+//        · Card Info 族 同 Defensive，只有 `Card Name` 上限是 **38**
+//   ② 空槽那两句的**词条键** = prefab 上那颗 `Localize.mTerm` 原文：
+//      `MenuCollection/WarlordDeckSlot` / `MenuCollection/DefensiveDeckSlot`
+//      （官方 13 语表实读：en `-- Warlord --` / `-- Defence --` · zh `-- 战将 --` / `-- 防守 --`）
+//   ③ 费用曲线 9 根槽 —— `--rt 7431712229497630500 --depth 5`：
+//        `Slider/Background` = `40k_CardAmount_bar_bg` 27×21 **九宫(3,0,15,0) Sliced** ·
+//        `Slider/Fill` = `40k_CardAmount_bar_fill` 27×21 **九宫(3,0,14,0) Sliced** 色(1,0.818,0.486,1)
+//      ⚠️ 本窗抽屉 `m_LocalScale = 1.48` ⇒ **端帽也要 ×1.48**（我们按放大后的像素直接画，同字号那条口径）。
+namespace CardPresentation
+{
+    public partial class DeckRuntime
+    {
+        // ---- 空槽 / 禁卡叉那三族的常量（px，y 向下；出处见上）----
+        /// <summary>`Background Slot Free` 的源图尺寸（`40k_deck_cardlist_doted_bg` 67×54，Tiled 按它铺）。</summary>
+        const float SlotFreeTileW = 67f, SlotFreeTileH = 54f;
+        /// <summary>原版 `Background Slot Free` 的 `m_Color = (0.443,0.443,0.443,1)`。</summary>
+        static readonly Color SlotFreeBgTint = new Color(0.443f, 0.443f, 0.443f, 1f);
+        /// <summary>原版 `Slot Free Text` 的 `m_fontColor = (0.396,0.396,0.396,1)`。</summary>
+        static readonly Color SlotFreeTxtTint = new Color(0.396f, 0.396f, 0.396f, 1f);
+        /// <summary>督军族 `Ban Icon` 的框（原版 46.17×55.70、行内 x 237.9 起；卡行族那颗是 61.70 见方压费用圆）。</summary>
+        const float BanHeroX = 237.9f, BanHeroW = 46.17f;
+
+        readonly List<GameObject> _rowSlotFreeBg = new List<GameObject>();
+        readonly List<Label> _rowSlotFreeTx = new List<Label>();
+        readonly List<ImageQuad> _rowBan = new List<ImageQuad>();
+        /// <summary>禁卡叉那颗的**整张 uv**（建时抓一次）—— 裁切会改 uv ⇒ 每次复位必须把它写回去（否则每刷新再裁一刀）。</summary>
+        readonly Rect[] _rowBanUv = new Rect[RowVisible];
+        /// <summary>空槽底 / 禁卡叉要裁的 quad（**与 `_rowPieces` 分开**：那张表的可见性由 `ClipRowToBand`
+        /// 按 `hero/shared` **整批**开关，而这三件另有判据（空槽 / 禁卡）⇒ 这里只借裁切、不借开关）。</summary>
+        readonly List<RowQuad>[] _rowExtraQuads = new List<RowQuad>[RowVisible];
+        /// <summary>每槽当前套用的**行族**（1 = 督军 · 2 = 防御卡 · 3 = 卡行；0 = 还没套过）。</summary>
+        readonly int[] _rowStyleKind = new int[RowVisible];
+
+        /// <summary>九宫格换图的句柄（`MenuDraw.Nine` 的子树 —— 原版 `Image.sprite = …` 的等价物）。</summary>
+        sealed class NineSwap { public readonly List<ImageQuad> Q = new List<ImageQuad>(); }
+        readonly Dictionary<string, NineSwap> _nineSwaps = new Dictionary<string, NineSwap>();
+
+        /// <summary>费用曲线一根填充槽的九宫格句柄（端帽固定、中段伸缩 = uGUI `Slider.fillAmount`）。</summary>
+        sealed class CurveBar
+        {
+            public GameObject Root; public ImageQuad CapL, Mid, CapR;
+            public float SlotW, CapLW, CapRW, H, X1, Cy;
+        }
+        readonly List<CurveBar> _curveFillBars = new List<CurveBar>();
+
+        // ============================================================ 建：空槽底 / 空槽字 / 禁卡叉
+        /// <summary>建原版三族行里那三个**我们原来没建**的节点（AUD02 行 130/131/132-139/141-149/162/163/194/195）。
+        /// 槽数 = `RowVisible`（与原版一样**每槽一套**，不按需懒建 —— 懒建会在滚动时留下「这一槽有没有」的分支）。</summary>
+        void BuildRowExtras()
+        {
+            var sfTex = Ui("40k_deck_cardlist_doted_bg");
+            for (int i = 0; i < RowVisible; i++)
+            {
+                float y = ListY + i * RowPitch;
+                bool hero = (i == 0);
+                float bgx, bgw;
+                RowBgRect(hero, out bgx, out bgw);
+                // ① `Background Slot Free` —— 原版 `m_Type = Tiled`（按源图 67×54 平铺），色 0.443
+                GameObject bg = null;
+                if (sfTex != null)
+                    bg = ImageQuad.CreateTiled(Root, sfTex, SlotFreeTileW, SlotFreeTileH,
+                                               Pos(bgx + bgw * 0.5f, y + RowH * 0.5f), U(bgw), U(RowH),
+                                               "row_sf" + i);
+                if (bg != null)
+                {
+                    foreach (var q in bg.GetComponentsInChildren<ImageQuad>(true))
+                    { q.SetTint(SlotFreeBgTint); q.SetRenderQueue(QRowBg); }
+                    RegisterExtraQuads(i, bg);
+                    bg.SetActive(false);
+                }
+                _rowSlotFreeBg.Add(bg);
+                // ② `Slot Free Text` —— 居中、灰 0.396、fs 34 / base 27.69 / auto[10~34] / 不折行
+                var tx = Txt("row_sft" + i, "", bgx, y, bgw, RowH, 2, SlotFreeTxtTint, QText);
+                if (tx != null)
+                {
+                    tx.SetAutoFitBox(U(bgw), U(RowH), 10f, 34f, 27.69f);
+                    tx.SetWrappingMode(0);
+                    tx.SetVAlign(Label.VAlign.Capline);      // 督军族那一档；防御卡族在 `ApplyRowExtras` 里改成 Middle
+                    tx.gameObject.SetActive(false);
+                }
+                _rowSlotFreeTx.Add(tx);
+                // ③ `banned Icon` —— `40k_Combat_Icon_Cross`、Simple + **PA=1**、raycast0（我们的 `ImageQuad` 本来就不吃射线）
+                var ban = Img("row_ban" + i, "40k_Combat_Icon_Cross",
+                              RowCostX, y + (RowH - RowCostS) * 0.5f, RowCostS, RowCostS, QText, true);
+                if (ban != null) { _rowBanUv[i] = ban.UvRect; ban.gameObject.SetActive(false); }
+                _rowBan.Add(ban);
+            }
+        }
+
+        /// <summary>把一棵子树里的 quad 登记进「要裁」表（基线 = **这一刻**的矩形与 uv，与 `RegisterRowPiece` 同口径）。</summary>
+        void RegisterExtraQuads(int slot, GameObject root)
+        {
+            if (root == null || slot < 0 || slot >= RowVisible) return;
+            if (_rowExtraQuads[slot] == null) _rowExtraQuads[slot] = new List<RowQuad>();
+            foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
+                if (q != null)
+                    _rowExtraQuads[slot].Add(new RowQuad { Q = q, R0 = MenuDraw.QuadRectPx(q), Uv0 = q.UvRect, Kind = PieceShared });
+        }
+
+        /// <summary>按行位移搬这三件（由 `MoveRow` 尾部那一句调 —— 与那 8 件同一次刷新、同一个 y）。</summary>
+        void MoveRowExtras(int i, float y)
+        {
+            if (i < 0 || i >= RowVisible) return;
+            float cy = y + RowH * 0.5f;
+            bool hero = (i == 0);
+            float bgx, bgw;
+            RowBgRect(hero, out bgx, out bgw);
+            if (i < _rowSlotFreeBg.Count) Move(_rowSlotFreeBg[i], bgx + bgw * 0.5f, cy, QRowBg);
+            if (i < _rowSlotFreeTx.Count) MoveLabel(_rowSlotFreeTx[i], bgx + bgw * 0.5f, cy, QText);
+            // ⚠️ 禁卡叉不在这里搬：它两族的**框不同**（卡行族 61.7 见方压费用圆 / 督军族 46.17×行高），
+            //    由 `ApplyRowExtras` 每刷新按族调 `SetQuadRect` 显式落（只靠 dy 平移会让两族互相污染）。
+        }
+
+        /// <summary>每刷新一次落一次这三件的**显隐 / 文案 / 几何**（由 `RefreshDeckList` 尾部那一句调）。</summary>
+        /// <param name="dataIdx">这一槽装的是 `DeckRows()` 的第几项（只有 0 = 督军、1 = 防御卡 可能是空槽）。</param>
+        void ApplyRowExtras(int i, int dataIdx, bool on, bool emptySlot, bool heroRow, CardDef def, float y)
+        {
+            if (i < 0 || i >= RowVisible) return;
+            bool showSlotFree = on && emptySlot;
+            var tx = i < _rowSlotFreeTx.Count ? _rowSlotFreeTx[i] : null;
+            if (tx != null)
+            {
+                // ⚠️ 先激活、再 `SetText` / `SetVAlign` —— TMP 在未激活的物体上量不出尺寸（`Battle/Label.cs` 的已知坑）
+                SetOn(tx, showSlotFree);
+                if (showSlotFree)
+                {
+                    bool warlord = dataIdx == 0;
+                    tx.SetText(warlord ? Loc.T("MenuCollection/WarlordDeckSlot") : Loc.T("MenuCollection/DefensiveDeckSlot"));
+                    tx.SetVAlign(warlord ? Label.VAlign.Capline : Label.VAlign.Middle);
+                }
+            }
+            if (i < _rowSlotFreeBg.Count) SetOn(_rowSlotFreeBg[i], showSlotFree);
+            var ban = i < _rowBan.Count ? _rowBan[i] : null;
+            if (ban != null)
+            {
+                // 两族那颗的框**不同**：卡行族 = 61.70 见方压在费用圆上；督军族 = 46.17×行高、行右 237.9 起
+                float bx1, bw, by1, bh;
+                if (heroRow) { bx1 = RowBgHeroX + BanHeroX; bw = BanHeroW; by1 = y; bh = RowH; }
+                else { bx1 = RowCostX; bw = RowCostS; by1 = y + (RowH - RowCostS) * 0.5f; bh = RowCostS; }
+                SetQuadRect(ban, bx1, by1, bw, bh, _rowBanUv[i]);
+                // 显隐 = 原版 `BasicCardUI.ToggleBanned(isBanned)`；数据源 = `IsCardBanned`（活动侧，缺数据 ⇒ 恒 false）
+                SetOn(ban, on && !emptySlot && def != null && IsCardBanned(def.Id));
+            }
+            ClipRowExtras(i, y);
+            if (showSlotFree) ClipOneLabel(tx);
+        }
+
+        /// <summary>把一颗 quad 摆回「未裁切」的整块（位置 / 高 / 显示比例 / uv 四件一起 —— 只摆一半会越裁越小）。</summary>
+        static void SetQuadRect(ImageQuad q, float x1, float y1, float w, float h, Rect? uv0 = null)
+        {
+            if (q == null) return;
+            var lp = MenuDraw.Local(q.transform.parent, x1, y1, x1 + w, y1 + h);
+            lp.z = q.transform.localPosition.z;      // z 不动（同队列里还靠它排序）
+            q.transform.localPosition = lp;
+            q.SetWorldHeight(LayoutSpace.Px(h));
+            q.SetAspect(w / Mathf.Max(1e-6f, h));
+            if (uv0.HasValue) q.SetUvRect(uv0.Value);
+        }
+
+        /// <summary>这三件的**状态关掉**（`RefreshDeckList` 的 `!on` 那一支调）。</summary>
+        void HideRowExtras(int i)
+        {
+            if (i < 0 || i >= RowVisible) return;
+            if (i < _rowSlotFreeBg.Count) SetOn(_rowSlotFreeBg[i], false);
+            if (i < _rowSlotFreeTx.Count) SetOn(_rowSlotFreeTx[i], false);
+            if (i < _rowBan.Count) SetOn(_rowBan[i], false);
+        }
+
+        /// <summary>把这一槽的空槽底 / 禁卡叉裁到视口带内。**只裁「此刻可见」的** ——
+        /// `ClipQuadToBand` 会 `SetActive(true)`，状态关掉的那几颗必须**跳过**（同 `ClipRowToBand` 的 `shared` 纪律）。
+        /// <para>⚠️ 同一份「先摆回基线再裁」的理由见 `ClipRowToBand`：只裁一次不复位 = 每刷新再裁一刀（越裁越小、静默）。</para></summary>
+        void ClipRowExtras(int i, float y)
+        {
+            if (i < 0 || i >= RowVisible) return;
+            // ① 空槽底（Tiled 子树）：基线 + 行位移 dy（同 `ClipRowToBand` 的「先摆回基准、再裁一刀」）
+            var list = _rowExtraQuads[i];
+            if (list != null && i < _rowSlotFreeBg.Count && _rowSlotFreeBg[i] != null && _rowSlotFreeBg[i].activeSelf)
+            {
+                float dy = y - (ListY + i * RowPitch);
+                for (int k = 0; k < list.Count; k++)
+                {
+                    var it = list[k];
+                    var q = it.Q;
+                    if (q == null) continue;
+                    var r = new PxRect(it.R0.x1, it.R0.y1 + dy, it.R0.x2, it.R0.y2 + dy);
+                    if (!q.gameObject.activeSelf || !NearRect(MenuDraw.QuadRectPx(q), r) || !SameUv(q.UvRect, it.Uv0))
+                    {
+                        SetQuadRect(q, r.x1, r.y1, r.W, r.H, it.Uv0);
+                        q.gameObject.SetActive(true);
+                    }
+                    ClipQuadToBand(q, DeckListBand);
+                }
+            }
+            // ② 禁卡叉：几何已经在 `ApplyRowExtras` 里按族摆回整块 ⇒ 这里只裁
+            var ban = i < _rowBan.Count ? _rowBan[i] : null;
+            if (ban != null && ban.gameObject.activeSelf) ClipQuadToBand(ban, DeckListBand);
+        }
+
+        // ============================================================ 行内三颗标签的「族」样式
+        /// <summary>按**这一行装的是哪一族**落三颗标签的 字号上下限 / 垂直档 / 折行 / 边距。
+        /// <para>⚠️ 必须排在 `SetText` **之前**（`SetAutoFitBox` 会重排、把 lbl 拉回框心，之后那句 `AlignLeftOn`
+        /// 才是最终 x）—— 调用点 = `RefreshDeckList` 里 `MoveRow(i, y)` 那一句的尾巴。</para>
+        /// <para>⚠️ 只在**族变了**的时候落（`_rowStyleKind`）：`SetAutoFitBox` 每帧重跑会反复二分字号。</para></summary>
+        void ApplyRowStyles(int i, bool heroRow, bool defRow)
+        {
+            if (i < 0 || i >= RowVisible) return;
+            int kind = heroRow ? 1 : (defRow ? 2 : 3);
+            if (_rowStyleKind[i] == kind) return;
+            _rowStyleKind[i] = kind;
+            var nm = i < _deckRowName.Count ? _deckRowName[i] : null;
+            var cost = i < _deckRowCostText.Count ? _deckRowCostText[i] : null;
+            var cnt = i < _deckRowCountText.Count ? _deckRowCountText[i] : null;
+            if (nm != null)
+            {
+                nm.SetAutoFitBox(U(RowNameW), U(RowH), heroRow ? 10f : 2f, heroRow ? 34f : (defRow ? 34f : 38f), 27.69f);
+                nm.SetWrappingMode(0);
+                nm.SetVAlign(heroRow ? Label.VAlign.Middle : Label.VAlign.Capline);
+            }
+            if (cost != null)
+            {
+                cost.SetVAlign(Label.VAlign.Capline);                 // 原版两族 `Cost` 都是 Center/Capline
+                // 🔴 2026-10-31（B108 收尾）：原版 `m_margin=(0,0,1.83,0)` 暂时**不写** —— 写进这颗 `SetAutoFitBox` 后 A1735⑥ 的字号从 4.63 塌到 1.67（TMP/自适应交互未查清）；见报告/调度台日志，⛔ 不是静默通过。
+            }
+            if (cnt != null)
+            {
+                cnt.SetVAlign(heroRow ? Label.VAlign.Middle : Label.VAlign.Midline);   // 督军族 512 / 卡行两族 4096
+                cnt.SetWrappingMode(0);                                                 // 原版折行 = 0
+            }
+        }
+
+        /// <summary>写 TMP 的 `m_margin`（`Label` 没有这个口；口径同 `MenuDraw.SetLineSpacing` —— 抓 TMP 改字段）。
+        /// 单位 = **字体单位**（TMP 的约定，与 `m_fontSize` 同一档）⇒ 原版值直接传。</summary>
+        static void SetTmpMargin(Label lb, Vector4 m)
+        {
+            if (lb == null) return;
+            var t = lb.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (t == null) return;
+            if (t.margin == m) return;
+            t.margin = m;
+        }
+
+        // ============================================================ 九宫格换图（页头那颗 `Filters` 钮）
+        /// <summary>登记一棵九宫格子树，供 <see cref="SetNineSprite"/> 逐块换图。</summary>
+        void RegisterNineSwap(string key, GameObject root)
+        {
+            if (root == null || string.IsNullOrEmpty(key)) return;
+            var sw = new NineSwap();
+            foreach (var q in root.GetComponentsInChildren<ImageQuad>(true)) if (q != null) sw.Q.Add(q);
+            _nineSwaps[key] = sw;
+        }
+
+        /// <summary>= 原版 `EverguildToggle.ToggleSprite` 的 `spriteToChange.sprite = isOn ? onSprite : offSprite`。
+        /// <para>⚠️ 走 `SetTexture(t, keepAspect: true)`：那张 47×47 的 on/off 图尺寸相同 ⇒ **几何与 uv 一个字节都不动**
+        /// （`keepAspect:false` 会把 `_aspect` 冲成新图的比例）。</para></summary>
+        void SetNineSprite(string key, string art)
+        {
+            NineSwap sw;
+            if (!_nineSwaps.TryGetValue(key, out sw) || sw == null) return;
+            var t = Ui(art);
+            if (t == null) return;
+            for (int i = 0; i < sw.Q.Count; i++)
+            {
+                var q = sw.Q[i];
+                if (q == null || q.Texture == t) continue;
+                q.SetTexture(t, true);
+            }
+        }
+
+        // ============================================================ 费用曲线：九宫格槽 + 填充
+        /// <summary>建一根槽底（原版 `Slider/Background`：`40k_CardAmount_bar_bg` 九宫 3,0,15,0 · Sliced）。</summary>
+        GameObject BuildCurveBg(int c, Texture2D tex, float y)
+        {
+            if (tex == null) return null;
+            return MenuDraw.Nine(Root, tex,
+                new PxRect(CurveBarX, y + CurveBarDy, CurveBarX + CurveBarW, y + CurveBarDy + CurveBarH),
+                new Vector4(3f * CurveScale, 0f, 15f * CurveScale, 0f), tex.width, tex.height, QPanel,
+                null, true, "curve_b" + c);
+        }
+
+        /// <summary>建一根填充（原版 `Slider/Fill`：`40k_CardAmount_bar_fill` 九宫 3,0,14,0 · Sliced · 色 1,0.818,0.486）。
+        /// 按**满槽宽**建一次，之后只改三块几何（`ApplyCurveBarWidth`）—— uGUI `fillAmount` 的等价物。</summary>
+        GameObject BuildCurveFill(int c, Texture2D tex, float y)
+        {
+            if (tex == null) return null;
+            float x1 = CurveBarX, y1 = y + CurveFillDy;
+            string name = "curve_f" + c;
+            var go = MenuDraw.Nine(Root, tex, new PxRect(x1, y1, x1 + CurveBarW, y1 + CurveFillH),
+                                   new Vector4(3f * CurveScale, 0f, 14f * CurveScale, 0f),
+                                   tex.width, tex.height, QRow, CostCurveDrawer.FillTint, true, name);
+            if (go == null) return null;
+            // 🔴 三块的顺序**按 x 排**，⛔ 不按子块名猜：`ImageQuad.CreateNineSlice` 的名字是 `_<列><行>`，
+            //   而上下边框 = 0 时**只有中间那一行**（`_01/_11/_21`）—— 照 `CostCurveDrawer` 里 `_10/_11/_12`
+            //   那套名字找会一块都拿不到、静默不缩放（本轮实测过这条命名差别，见报告「顺手发现」）。
+            var qs = go.GetComponentsInChildren<ImageQuad>(true);
+            var ordered = new List<ImageQuad>(qs);
+            ordered.Sort((a, bb) => a.transform.localPosition.x.CompareTo(bb.transform.localPosition.x));
+            var b = new CurveBar
+            {
+                Root = go,
+                SlotW = CurveBarW, H = CurveFillH, X1 = x1, Cy = y1 + CurveFillH * 0.5f,
+                CapLW = 3f * CurveScale, CapRW = 14f * CurveScale,
+                CapL = ordered.Count == 3 ? ordered[0] : null,
+                Mid = ordered.Count == 3 ? ordered[1] : null,
+                CapR = ordered.Count == 3 ? ordered[2] : null,
+            };
+            while (_curveFillBars.Count <= c) _curveFillBars.Add(null);
+            _curveFillBars[c] = b;
+            if (b.CapL == null || b.Mid == null || b.CapR == null)
+                Debug.LogWarning("[DeckRuntime] 费用曲线第 " + c + " 根填充的三块没按 `" + name
+                                 + "_1x` 命名找到 ⇒ 宽度不会随张数变（⛔ 不静默；多半是 `ImageQuad.CreateNineSlice` 的子块命名变了）");
+            ApplyCurveBarWidth(c, 0f);
+            return go;
+        }
+
+        // ⛔ 本块原来有一个 `ImageQuad NineChild(GameObject, string)`（按 `_10/_11/_12` 取子块）——
+        //     **已删**：`ImageQuad.CreateNineSlice` 的子块名是 `_<列><行>`，上下边框为 0 时只有中间那一行
+        //     （`_01/_11/_21`）⇒ 按名字取一块都拿不到。现在按 `localPosition.x` 排序取三块（见 `BuildCurveFill`）。
+
+        /// <summary>把某个宽度落到三块几何上 —— 等价于 uGUI `Slider.fillAmount`
+        /// （`Image.Type = Sliced` ⇒ 端帽不缩放、中段伸缩；两帽加起来比目标窄时按比例压帽 = `Image.GetAdjustedBorders`）。
+        /// <para>⚠️ 根**不动**（建在满槽位上）⇒ 三块的 `localPosition` 一律**相对根中心**算。</para></summary>
+        void ApplyCurveBarWidth(int c, float wPx)
+        {
+            if (c < 0 || c >= _curveFillBars.Count) return;
+            var b = _curveFillBars[c];
+            if (b == null || b.Root == null) return;
+            float w = Mathf.Clamp(wPx, 0f, b.SlotW);
+            float l = b.CapLW, r = b.CapRW;
+            if (l + r > w) { float s = w / Mathf.Max(1e-4f, l + r); l *= s; r *= s; }
+            float m = Mathf.Max(0f, w - l - r);
+            float left = -b.SlotW * 0.5f;
+            PlaceCurvePart(b.CapL, left + l * 0.5f, l, b.H);
+            PlaceCurvePart(b.Mid, left + l + m * 0.5f, m, b.H);
+            PlaceCurvePart(b.CapR, left + w - r * 0.5f, r, b.H);
+        }
+
+        /// <summary>摆九宫格的一块（`localPosition.x` 与显示比例；y 不动）。</summary>
+        static void PlaceCurvePart(ImageQuad q, float cxPx, float wPx, float hPx)
+        {
+            if (q == null) return;
+            bool on = wPx > 0.5f;                      // 半个设计像素以下当「没有」（同 `CostCurveDrawer.PlacePart`）
+            if (q.gameObject.activeSelf != on) q.gameObject.SetActive(on);
+            if (!on) return;
+            var lp = q.transform.localPosition;
+            lp.x = LayoutSpace.Px(cxPx);
+            q.transform.localPosition = lp;
+            q.SetAspect(wPx / Mathf.Max(1e-5f, hPx));
+        }
+
+        // ============================================================ 筛选栏：三族标签的对齐（原版都是 Center）
+        /// <summary>本窗（`Deck Editing Menu`）的筛选标签里，**稀有度 / 费用 / 类型**三族原版是 `m_HorizontalAlignment = 2`(Center)。
+        /// <para>⚠️ `FilterPanelModel` 里那两处 `LabelRight = true` 与**本窗**读数**打架**（那两颗量的是收藏窗那一棵）——
+        /// 判据 = `工具/menu_dump.py bundle_menus_assets_all "Rarity FIlter" --depth 4`：
+        /// `Label 'Legendary' … 对齐=Center/Bottom`；`Type Filter` / `Cost Filter` 同值。⇒ 本窗**以 Center 为准**。</para></summary>
+        static bool FilterLabelCentered(FilterPanelModel.Cell c)
+        {
+            if (string.IsNullOrEmpty(c.Key)) return false;
+            return c.Key.StartsWith("$rar:") || c.Key.StartsWith("$cost:") || c.Key.StartsWith("$type:");
+        }
+
+        /// <summary>稀有度 / 类型两族标签的垂直档 = 原版 `m_VerticalAlignment = 1024`(Bottom)。</summary>
+        static void ApplyFilterLabelVAlign(Label lb, FilterPanelModel.Cell c, PxRect lr)
+        {
+            if (lb == null) return;
+            if (c.Key != null && (c.Key.StartsWith("$rar:") || c.Key.StartsWith("$type:")))
+                MenuDraw.SetVAlign(lb, Label.VAlign.Bottom, lr);
+        }
     }
 }

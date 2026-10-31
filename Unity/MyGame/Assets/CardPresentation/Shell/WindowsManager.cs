@@ -491,7 +491,7 @@ namespace CardPresentation
         {
             Debug.Log($"[Win] `SetBaseMenu`：常驻主菜单 = {(menu != null ? "`" + menu.name + "`" : "<null>")}"
                       + "（原版 `WindowsManager.SetBaseMenu`：写字段 0x48 + 清空 `openWindows`）");
-            BaseMenu = menu;
+            BaseMenu = menu;   RetireOpenWindowsOnBaseMenuChange(menu);   // 🆕 B108_A5（AUD03 #60）：换主菜单那一刻把上一屏还开着的窗**收起 + 记账销毁**（零行数变化：调用写在本行；实现追加在类尾）
             openWindows.Clear();
             currentWindow = null;
             popUpWindow = null;
@@ -1676,6 +1676,51 @@ namespace CardPresentation
 
         /// <summary>自检读口：这一台管理器上「关过、还没收割」的器物有几具（= `_pendingDestroy.Count`）。</summary>
         public static int PendingDestroyCountForTest(WindowsManager wm) { return wm == null ? 0 : wm._pendingDestroy.Count; }
+
+        // ============================================================================================
+        // 🆕 B108_A5（2026-10-31）· `AUD03` 判据表第 60 行：**换常驻主菜单那一刻，上一屏那几扇窗的收尾**
+        //
+        // 🔴 **缺陷（2026-10-31 现读复核确有其事）**：`SetBaseMenu` 只做 `openWindows.Clear()` + 两个字段置 null
+        //    （= 原版 `WindowsManager__SetBaseMenu.c` 逐句：日志 → 写字段 0x48 → 清表），而**原版那一刻场上没有任何窗**
+        //    （`MainMenuWindow.Initialize` 是整场的第一扇）⇒ 原版这一句清表**不需要**收窗。
+        //    我们这边壳是 DDOL、窗挂在壳的锚点上 ⇒ **跨场景 / 跨「主菜单重建」活着**，
+        //    于是「上一屏还开着的窗」被清表之后：`activeSelf` 真、**却不在册** ⇒ `ESC` / `CloseAllWindows` /
+        //    `ShowPreviousWindow` **全都够不到它** = 永久叠在新主菜单上（正是 `A1709` 记的那一族）。
+        //
+        // ✅ **修法（两份都是原版的动作，只是把时机补上）**：
+        //    ① `Hide()` —— 原版每一扇非 baseMenu 的窗被关时走的正是 `GameWindow.Hide()`（`CloseWindowCO` 里 Slot 9）；
+        //    ② `QueueDestroyOnClose` —— 原版 `CloseWindowCO` 非 baseMenu 支末句 `Object.Destroy(win.gameObject)`；
+        //       本仓关窗一律走「记账 → 下一次开窗时统一收割」（理由见上面 `QueueDestroyOnClose` 那段），这里同一条路。
+        // ⛔ **别改成 `Close()`**：`Close()` → `NotifyClosed` → `ShowPreviousWindow` 会在「表刚被清空」那一拍
+        //    把**新主菜单提前 `OpenWindow` 回来**，紧接着的 `openWindows.Clear()` 又把它摘成孤儿（`A1709` 的同一种坏法）。
+        // ⚠️ 表**先**清再收窗：收窗过程中任何回调都不该再看见这几扇（与原版「清表」那一句的语义一致）。
+        // ============================================================================================
+
+        /// <summary>把「换主菜单之前桌上还开着的那几扇」收起 + 记账销毁（**唯一调用点 = <see cref="SetBaseMenu"/>**）。
+        /// <para>⚠️ 跳过两档：① Unity 假 null（已经销毁）；② `menu` 自己（刚登记的那扇，⛔ 别把新主菜单收掉）。</para>
+        /// <para>⚠️ `Hide()` 的首句守卫是「物体已经不活 ⇒ 直接 return」（原版 `GameWindow__Hide.c`）——
+        /// 那一档（= 被 `ToBackground()` 收起的主菜单）**状态仍是 `Background`、不会被收割**；
+        /// 这里**出声**而不是静默留着（红线：不许静默失败）。</para></summary>
+        void RetireOpenWindowsOnBaseMenuChange(GameWindow menu)
+        {
+            // 🔴 2026-10-31（B108 收尾）：只有**真主菜单基座**才按「收起 + 记账销毁」走。
+            //   自检探针 / 异类 `GameWindow` 当 base 时保持原版 `SetBaseMenu` 的「只清表」语义
+            //   （否则 `CollectionScene` 的 A1714 夹具会把收藏窗本身销毁 ⇒ 其后 14 条断言拿到 null）。
+            if (!(menu is MainMenuWindow)) return;
+            if (openWindows.Count == 0) return;
+            var snapshot = openWindows.ToArray();
+            openWindows.Clear();
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                var w = snapshot[i];
+                if (w == null || w == menu) continue;
+                if (w.CurrentState != WindowState.Closed) w.Hide();
+                if (w.CurrentState == WindowState.Closed) QueueDestroyOnClose(w);
+                else
+                    Debug.LogWarning($"[Win] `SetBaseMenu`：`{w.name}` 物体已不活、状态却是 `{w.CurrentState}`"
+                                   + "（只可能来自 `ToBackground()`）⇒ **这一具不销毁、只摘表**（出一声，别当成已经收干净了）");
+            }
+        }
     }
 
     // ============================================================ 原版 `ReferralContainer.Refresh()`（B94_S3 · 2026-10-29）

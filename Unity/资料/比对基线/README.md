@@ -11,7 +11,7 @@
 | 文件 | 是什么 | 怎么来的 |
 |---|---|---|
 | `sweep_orig.tsv` | **原版侧**：**962** 个效果 × 8 个时刻的亮点数/亮度和（2026-10-31 现读；旧文写 958） | `EffectSweepBatch.Run`（`Side="orig"`） |
-| `sweep_exp.tsv` | **导出侧**：**957** 个效果（比原版少 5 条：`Earthquake Shake only` · `Environmental Condition Particles Orbital` · `Orks Environmental Condition Night` · `Swarm Battle Card Icon` · `Teleport Trigger Board Effect Only` —— **原版有、我们 `WarpforgeVFX/Prefabs` 里没有**；其中 `Swarm` 子树 0 个 `ParticleSystemRenderer`、只走 `RunListed`） | `EffectSweepBatch.Run`（`Side="exp"`） |
+| `sweep_exp.tsv` | **导出侧**：**957** 个效果（⚠️ **2026-10-31 订正（`B109_E13`）**：原文写「比原版少 5 条：`Earthquake Shake only` · `Environmental Condition Particles Orbital` · `Orks Environmental Condition Night` · `Swarm Battle Card Icon` · `Teleport Trigger Board Effect Only` —— **原版有、我们 `WarpforgeVFX/Prefabs` 里没有**」，**这句已不成立** —— 那 5 个 prefab 在 **09:24** 由 `EffectExporter.RunListed` 已恢复（现读 `Prefabs/` **978** 个），而本文件是 **03:39** 跑的（当时 `EffectExporter.Run` 刚把 listed 非粒子根擦掉）⇒ 它们**是没被扫过**、不是不存在；现读共 **21** 个 prefab 缺行，其中 5 个在原版侧有行。补法/证据 → `判据/B109_R3_oracle真红.md` §4 §6） | `EffectSweepBatch.Run`（`Side="exp"`） |
 | `sweep_frames.tsv` | 每个效果的相机取景（位置/朝向/fov/near/far） | 原版那趟算出来缓存，导出那趟复用 |
 | 🆕 `iso_frames.tsv` | **逐发射器隔离**（`EffectIso`）的取景 + 逐槽位标签 | `EffectIso.Run`（`WFISO_SIDE=orig`） |
 | 🆕 `iso_stats_{orig,exp}.tsv` | 逐槽位数字：`target / slot / image / side / lit / contrib`（**contrib = Σ\|像素−背景\|/255**，判读用它） | `EffectIso.Run` 两趟各自写 · 汇总 `工具/analyze_iso.py` · 一键 `工具/run_iso.sh`<br>🔴 **2026-10-02 第三轮：`背景` 从「常量纯色」换成【棋盘底图】（`EffectIso.MakeBackdrop`，与 `EffectSweepBatch` 同源）** ⇒ **这份文件里的数字与新口径不可比**，旧的那份在 `git show HEAD:` 里 |

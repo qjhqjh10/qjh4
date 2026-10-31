@@ -2992,12 +2992,18 @@ namespace CardPresentation
         /// <summary>= 原版那一颗抽屉 prefab 的序列化字段 **`showItemInfoOnClick`**
         /// （`ItemDrawer&lt;T&gt;.OnPointerClick` 第一句 `if (this+0x44 == 0) return;`；
         /// `OverrideOnClickAction` **不写**这一格 —— 判据 `decomp_generic_trial/out/ItemDrawer_object___OverrideOnClickAction.c`）。
-        /// <para>🔶 自己设计（非原版）：**按类型查表 + 类型查不到 ⇒ false + 出声一次** ·
-        /// 原版判据 = §1.5 那张「类型 × prefab → `showItemInfoOnClick`」表（Currency / Avatar / Title / Card 一族 = 1；
-        /// ShopContainer 卡包 / CampaignPoints / ForgePoints / Wildcard / PremiumItem / AllianceTrophyData / XSolla = 0）·
+        /// <para>🔶 自己设计（非原版）：**按图标查表得到「原版 item 类型」再查 §1.5 那张表**、查不到 ⇒ false + 出声一次 ·
+        /// 原版判据 = 抽屉 prefab 的实例值（`Currency` / `Avatar` / `Title` / `Card` 一族 = 1；
+        /// ShopContainer 卡包 / CampaignPoints / ForgePoints / Wildcard / PremiumItem / AllianceTrophyData / XSolla = 0，
+        /// 表 → `资料/完全复刻/判据/B106_奖励预览链_施工单.md` §1.5）·
         /// **我们 mock 奖励没有原版 item 类型**（`40k_topmarquee_currency_gold` 只有 Sprite、没有 SO；
-        /// `CurrencyNames` 只认 `C2/C3/C5`）⇒ 本地永远判不出 · 调度台 2026-10-31 裁定
-        /// （⛔ 不许猜一个类型让它「看起来能点」）。</para></summary>
+        /// `CurrencyNames` 只认 `C2/C3/C5`）⇒ 类型只能靠 **图标 → 类型**那张映射来近似
+        /// （见 `ItemTypeNameOfIcon`，⛔ 不许把它当原版判据）· 调度台 2026-10-31 裁定</para>
+        /// <para>🔴 **2026-10-31（`C3` · 同族补丁 `B109_E23` §五·③）就地订正（铁律 5）**：本条原来在「类型查不到 ⇒ false」
+        /// 后面还写着「本地永远判不出」——**已过期**：R13 已把这一格用的 prefab 钉死
+        /// （`ItemDrawerConfig` 的 `Currency ▸ Key:10` = `Icon Currency Drawer Variant`，`showItemInfoOnClick = 1`，
+        /// 判据 → `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §4·1）⇒ 一刀切 `false` 是**误判**（原版是开着的），
+        /// 改成按图标映射。</para></summary>
         public static bool RewardClickable(int day, bool premium)
         {
             if (RewardClickableOverrideForTest.HasValue) return RewardClickableOverrideForTest.Value;
@@ -3018,11 +3024,36 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>我们这份 mock 奖励的**原版 item 类型名**。⚠️ **今天恒 `null`** —— 查不到（见 `RewardClickable` 的 🔶）。
-        /// ⛔ 别拿「图名里有 currency」当类型判据（铁律 2：查不到就写查不到）。</summary>
-        static string ItemTypeNameOf(int day, bool premium) { return null; }
-        /// <summary>见 <see cref="ItemTypeNameOf"/>。</summary>
-        static string StreakItemTypeNameOf(int i) { return null; }
+        /// <summary>这一格奖励的**原版 item 类型名**（喂 <see cref="ShowItemInfoOnClickForType"/>）。
+        /// 🔶 自己设计（非原版）：由**图标名**静态映射（见 <see cref="ItemTypeNameOfIcon"/>）——我们 mock 表里没有原版 item SO，
+        /// 类型只能这么近似 · 映射表只覆盖本仓 mock 表出现过的三张图标 · **时间限定 = 2026-10-31 的 `_rewardFreeIcon` /
+        /// `_rewardPremIcon` / `_streakIcon` 三张表**（将来换图要同步改映射，否则会落到「查不到 ⇒ false + 出声」那一档）·
+        /// 调度台 2026-10-31 裁定。</summary>
+        static string ItemTypeNameOf(int day, bool premium) { return ItemTypeNameOfIcon(RewardIconOf(day, premium)); }
+        /// <summary>见 <see cref="ItemTypeNameOf"/>（连登窗同一跳 —— 原版 `DailyStreakItemContainer` 与每日奖励是同一段字节）。</summary>
+        static string StreakItemTypeNameOf(int i) { return ItemTypeNameOfIcon(StreakRewardIcon(i)); }
+
+        /// <summary>🔶 自己设计（非原版）：**图标名 → 原版 item 类型名**。
+        /// <para>为什么必须是自设计：原版的类型来自 `RewardInfo.item`（服务端 `ChallengeMilestone.rewards` 下发的 SO），
+        /// 关服后本地拿不到（`CurrencyNames` 只认 `C2/C3/C5`；`40k_topmarquee_currency_gold` 只有 Sprite、没有 SO）·
+        /// 调度台 2026-10-31 裁定（授权「按图标类型映射而不是一刀切」）。</para>
+        /// <para>⚠️ **这三条映射是近似，不是原版判据**：`gold` / `Daily_skulls` 按货币计（原版那一格是
+        /// `Currency` 抽屉 ⇒ `showItemInfoOnClick = 1`，R13 §4·1）；`40k_main_bt_rewards`（卡包）按 `ShopContainer`
+        /// （原版 `Icon Container Drawer Variant` ⇒ `0`，§1.5）。⛔ 别把这张表当「原版类型真值」引用。</para>
+        /// <para>返回 `null` = **这个图标本地没有判据** ⇒ 调用方出声 + 返回 false（铁律 2：不猜）。</para></summary>
+        static string ItemTypeNameOfIcon(string art)
+        {
+            switch (art)
+            {
+                case "40k_topmarquee_currency_gold":
+                case "40K_missions_icon_Daily_skulls":
+                    return "Currency";
+                case "40k_main_bt_rewards":
+                    return "Everguild.LiveOps.ShopContainer";
+                default:
+                    return null;
+            }
+        }
 
         /// <summary>§1.5 那张「类型 → `showItemInfoOnClick`」表。`null` = **这个类型本地没有判据**（调用方出事）。</summary>
         static bool? ShowItemInfoOnClickForType(string typeName)
@@ -3046,14 +3077,14 @@ namespace CardPresentation
         }
 
         static bool _saidRewardTypeUnknown;
-        /// <summary>「我们 mock 奖励没有原版 item 类型 ⇒ 可点判据查不到」**只说一次**（每次开窗都吼会淹日志）。</summary>
+        /// <summary>「这个图标本地没有 → 原版 item 类型」的判据 ⇒ **只说一次**（每次开窗都吼会淹日志）。</summary>
         static void SayRewardTypeUnknownOnce()
         {
             if (_saidRewardTypeUnknown) return;
             _saidRewardTypeUnknown = true;
             Debug.Log("[Daily] 奖励抽屉**可点判据查不到**：原版 = 抽屉 prefab 的 `showItemInfoOnClick`"
-                    + "（§1.5 那张类型表），而**我们这份 mock 奖励没有原版 item 类型**"
-                    + "（`40k_topmarquee_currency_gold` 只有 Sprite、没有 SO）⇒ 按铁律 2 返回 **false**（⛔ 不猜类型）。"
+                    + "（§1.5 那张类型表），而我们这份 mock 奖励的**图标不在 `ItemTypeNameOfIcon` 的映射里**"
+                    + "（映射只覆盖 2026-10-31 那三张图标；换图要同步改映射）⇒ 按铁律 2 返回 **false**（⛔ 不猜类型）。"
                     + "判据 → `资料/完全复刻/判据/B106_奖励预览链_施工单.md` §1.5。");
         }
 

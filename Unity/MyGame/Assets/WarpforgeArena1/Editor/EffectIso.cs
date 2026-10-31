@@ -112,7 +112,7 @@ public static class EffectIso
     static readonly bool RunDiagnostics = true;
 
     const int W = 512, H = 512;
-    const float SimTime = 1.2f;
+    static readonly float SimTime = float.TryParse(System.Environment.GetEnvironmentVariable("WFISO_SIMT"), out var _st) ? _st : 1.2f;   // 🔴 2026-10-31（B109_E13）：加 `WFISO_SIMT` 覆盖，写法与 `EffectCompare.cs:26-27` 的 `WFCMP_SIMT` 一致；不设时仍 1.2f（行为不变）。为的是「尾部偏暗」类差异能在 0.75/3.0 s 逐个渲染器隔离。
 
     /// <summary>隔离渲染用的临时图层（相机只渲染它）</summary>
     const int IsolateLayer = 30;

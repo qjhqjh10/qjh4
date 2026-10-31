@@ -370,4 +370,8 @@ public static class B99B1_Assert
             + "｜🧨 删掉 `AbortDrag` 或 `PickUp` 那一句 ⇒ 取消/起拖会继承上一手的 `true` ⇒ 红");
         Check(iAbort >= 0 && iPickUp >= 0, "⑦5b （前提）`AbortDrag` 与 `PickUp` 两个方法都在（" + iAbort + " / " + iPickUp + "）");
     }
+
+    /// <summary>最近一次 `Run()` 的通过 / 失败数（宿主聚合行累加用 —— 2026-10-31 `B108` 补）。</summary>
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
 }

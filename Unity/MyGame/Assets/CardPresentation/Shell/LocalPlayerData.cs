@@ -45,7 +45,7 @@
 //  graphicsQuality (enum 0..4)     graphicsQuality                      GameStaticData.graphicsQuality / GraphicQuality.Save
 //  cardsTextInHandFormat (enum)    cardsTextInHandFormat                Core/CardView.cs `HandTextFormat` / `SetHandTextFormat`
 //  disableParticles (bool)         _disableParticles                    GameStaticData._disableParticles（今天**无消费者**）
-//  hiFPS / vsync / fpsLimit        hiFPS / vsync / FPSLimit             GameStaticData 三个静态量（今天**无消费者**）
+//  hiFPS / vsync / fpsLimit        hiFPS / vsync / FPSLimit             GameStaticData 三个静态量（`vsync`/`fpsLimit` 的消费者 = 设置窗画质页 + 读档后的 `ApplyDisplaySettings`）
 //  useSuperSampling (bool)         useSuperSampling                     CardPresentation.SuperSampling.Enabled / Set
 //  graphicsExtendedCompatibility   graphicsExtendedCompatibility        GameStaticData（今天**无消费者**）
 //  dataVersion (int)               dataVersion（本类自己的版本号）        本类 `CurrentDataVersion`
@@ -306,6 +306,20 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(d.deviceId) && !SavePlayerData())
                 Debug.LogWarning("[LocalPlayerData] 读档末句那次「补 deviceId」的**重写没成功**：" + LastError
                                + "（⛔ 不是静默：下一次设置变更 / 退出时会再试；原版同一支也是写一次就算了）");
+
+            // ---- ⑥ 原版 `PlayerDataManager.Awake` 在 `LoadPlayerData()` **之后紧接着**那一跳：
+            //      把档里的显示设置**真的应用出去**（vSync / 帧率）。
+            //      判据 = `d:/2/tools/decomp_full/PlayerDataManager__Awake.c:110-116`（ILSpy 同处
+            //      `cpp2il/out_cpp2il_dev_ilspy/PlayerDataManager.cs:7807-7809`）：
+            //        LoadPlayerData() → SetTargetFramerate(DEFAULT_TARGET_FRAMERATE)
+            //        → `SingletonInitializableBehaviour<QualitySettingsManager>.Instance.Initialize()`
+            //          → `QualitySettingsManager.cs:82-83`（`QualitySettings.vSyncCount = GameStaticData.vsync ? 1 : 0`）
+            //          → `PlayerDataManager.singletonManager.ApplyGraphicsQuality()`
+            //          → `PlayerDataManager__ApplyGraphicsQuality.c`（FPSLimit 三档）→ `SetTargetFramerate`。
+            //      🔴 **这一跳原来缺着**（`B109_E1` §五·1 记的玩家可见缺陷）：只灌 `GameStaticData` 镜像 ⇒
+            //        重开游戏后 vSync / 帧率仍是平台默认，**要开一次设置窗再关掉才生效**。
+            //      ⚠️ `PersistOverride`（自检）下一个都不写 —— 与上面 ①②④ 同一条纪律。
+            if (!PersistOverride) ApplyDisplaySettings(d.vsync, d.fpsLimit);
         }
 
         // ================================================================== ③ 写（= SavePlayerData）
@@ -355,9 +369,9 @@ namespace CardPresentation
         /// if (!flag) target = (FPSLimit - 1 == 1) ? -1 : 60;   // 2 ⇒ 不限帧；其余 ⇒ 60
         /// else       target = 30;
         /// </code>
-        /// ⚠️ 本仓**没有** FPS 设置窗 ⇒ `fpsLimit` 今天恒是 `.cctor` 的出厂值 **2** = 不限帧
-        /// ⇒ `Application.targetFrameRate = -1`（与原版「没改过设置时」的取值一致，不是我们改的口径）。
-        /// 🔴 **这条会影响真跑**：原版出厂也是 2，所以两边一致；若将来加 FPS 设置窗，改这一格就够。</summary>
+        /// ⚠️ 本仓的消费者 = 设置窗画质页那颗 `FPS limit` 滑块（`SettingsWindow.SetFpsIndex` 写 `GameStaticData.FPSLimit`）；
+        /// 关窗写档 / 启动读档后的应用都经本方法映射成 `Application.targetFrameRate`（原版 `SetTargetFramerate`）。
+        /// 🔴 **这条会影响真跑**：出厂 2 ⇒ −1（不限帧，与原版出厂一致）。</summary>
         public static int TargetFramerateFor(int fpsLimit)
         {
             if (fpsLimit == 0) return 30;
@@ -497,6 +511,36 @@ namespace CardPresentation
                 unrankedFastMode = s.unrankedFastMode,
                 lastTimeAskedForNotifications = s.lastTimeAskedForNotifications,
             };
+        }
+
+        // ================================================================== ⑦ 显示设置的应用
+        /// <summary>= 原版 `QualitySettingsManager.ApplyGraphicsQuality()` 里**我们能落地的那两句**
+        /// （`QualitySettings.vSyncCount` + `PlayerDataManager.ApplyGraphicsQuality → SetTargetFramerate`），
+        /// 在**读档之后**立刻执行 —— 原版那一跳在 `PlayerDataManager.Awake` 里，紧跟 `LoadPlayerData()`。
+        /// <para>判据（全本地现读）：`decomp_full/PlayerDataManager__Awake.c:110-116` ·
+        /// `cpp2il/out_cpp2il_dev_ilspy/PlayerDataManager.cs:7807-7809` ·
+        /// `QualitySettingsManager.cs:82-83` 与 `:308-309`（两处 `vSyncCount = vsync ? 1 : 0`）·
+        /// `PlayerDataManager__ApplyGraphicsQuality.c`（`FPSLimit` 0→30 / 1→60 / 2→−1）·
+        /// `PlayerDataManager__SetTargetFramerate.c`（末句 `Application.targetFrameRate = 值`）。</para>
+        /// <para>🔴 **编辑器 / 批处理下不写 `QualitySettings.vSyncCount`**：那会**写脏工程的
+        /// `ProjectSettings/QualitySettings.asset`**（同 `Shell/SettingsWindow.cs` 的
+        /// `VSyncSetterOverride` 那条注释与它存在的原因）。真 Player 里照原版写；编辑器里只走
+        /// **注入点**（自检用 `SettingsWindow.VSyncSetterOverride`，= 全仓唯一那条拦截口）或**出声跳过**。
+        /// `Application.targetFrameRate` 是**纯内存态**、不碰任何工程资产 ⇒ 编辑器里也照写。</para></summary>
+        static void ApplyDisplaySettings(bool vsync, int fpsLimit)
+        {
+            if (SettingsWindow.VSyncSetterOverride != null) SettingsWindow.VSyncSetterOverride(vsync ? 1 : 0);
+#if UNITY_EDITOR
+            else
+                // ⛔ 不是静默：说明「原版此刻会写成什么」以及为什么这里不写。
+                Debug.Log("[LocalPlayerData] 编辑器里**不写** `QualitySettings.vSyncCount`（原版此刻会写 "
+                        + (vsync ? 1 : 0) + "）—— 写了会改脏工程资产 `ProjectSettings/QualitySettings.asset`；"
+                        + "真 Player 里照原版写。要在自检里观测它，请注入 `SettingsWindow.VSyncSetterOverride`。");
+#else
+            else QualitySettings.vSyncCount = vsync ? 1 : 0;
+#endif
+            // 原版 `PlayerDataManager.ApplyGraphicsQuality()` → `SetTargetFramerate(FPSLimit 三档)`
+            Application.targetFrameRate = TargetFramerateFor(fpsLimit);
         }
     }
 }

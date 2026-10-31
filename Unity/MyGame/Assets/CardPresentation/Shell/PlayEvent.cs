@@ -559,15 +559,15 @@ namespace CardPresentation
         /// → 开 `SearchingMatchWindowDemo` →（在联盟里时排 `AlliancesManager.GetCurrentGroup`）→ `CreatePlayerBattleData` → `FindMatch`。
         /// 🔴 **2026-10-29 就地订正（B94_Z4 · 铁律 5）**：原写「= `ChangeState(Joined)` + 记 `matchStarted` + 抖 `randomSeed`」**不成立** ——
         /// `_tmp_view/decomp_b91/PlayEvent_object__object_.StartMatchNoCheck__1127900.c` 全文**不写 `+0x30/+0x40/+0x44`** 任何一格。
-        /// ⚠️ 本仓因为**没有匹配界面**，这里只做「事件级状态那三件」当**本地等价**（`joinState = Joined` + `matchStarted = true`
-        /// + `randomSeed` 兜底），并把落盘走 `SaveEventProgress`；⛔ 别再把这三句当成原版行为。
-        /// 🔶 自己设计（非原版）：`randomSeed` 取 `Environment.TickCount`；原版这一格**从未被写**（恒 0），本地抖它是为了让「同一局重连能复现」。</summary>
+        /// ⚠️ 本仓因为**没有匹配界面**，这里只做「事件级状态那两件」当**本地等价**（`joinState = Joined` + `matchStarted = true`
+        /// ），并把落盘走 `SaveEventProgress`；⛔ 别把这两句当成原版行为。
+        /// ⛔ **2026-10-31（`B108_A2` · 调度台续办 + 铁律 18·0）就地订正（铁律 5）**：这一行原来写「`randomSeed` 取 `Environment.TickCount` … 为了让同一局重连能复现」——**那句是假的**（全仓 **0 消费点**，`grep \.randomSeed` 只有两处写）。现已**删掉那句写**：原版客户端对这一格 **0 写点、也 0 读点**（`PlayEventSaveGame` 全部 5 份方法体无 `+0x40` 访问；事件家族 131 份 `.c` 里出现 `0x40` 的 3 份都是 8 字节闭包指针；`cpp2il/out_cpp2il_dev_ilspy/PlayEventSaveGame.cs:20` 只有字段声明）⇒ **字段保持 0**，只留原版那个序列化形状。⚠️ 服务端侧是否读它 = P3、判据在远端。</summary>
         public virtual void StartMatchNoCheck(string deckId)
         {
             if (SaveGame == null) return;
             ChangeState(PlayEventSaveGame.JoinStates.Joined);
             SaveGame.matchStarted = true;
-            if (SaveGame.randomSeed == 0) SaveGame.randomSeed = Environment.TickCount;
+            // ⛔ 2026-10-31（`B108_A2` · 调度台续办 + 18·0）：这里原来会 `if (SaveGame.randomSeed == 0) SaveGame.randomSeed = Environment.TickCount;` —— **已删**（原版客户端 0 写 0 读 + 我们 0 消费 ⇒ 字段保持 0，判据见上面那段 doc）。
             SaveEventProgress(null, null);
             Debug.Log("[PlayEvent] StartMatch：'" + GetID() + "' 开局，卡组 id = " + (deckId ?? "<null>")
                     + "（本地等价：只落事件级状态；拉对局是战斗/联机线）");

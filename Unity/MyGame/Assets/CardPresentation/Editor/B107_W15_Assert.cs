@@ -288,8 +288,12 @@ public static class B107W15_Assert
         T(f != null, "★ 特效音有组：`WarpforgeVFX.WFSoundPlayer.FxGroup` 非空（原版 `MixerType.FX`；`RouteEffectSounds` 写这一个）");
 
         // 组名逐个按**原版枚举名**钉（`MixerType` 的 `Music / FX / Voices / Jingles`）—— 不是「非 null 就算过」。
-        T(m != null && m.name == "Music", "★ 音乐组的**名字** = `Music`（实得 `" + (m != null ? m.name : "<null>") + "`）");
-        T(f != null && f.name == "FX", "★ 特效组的**名字** = `FX`（实得 `" + (f != null ? f.name : "<null>") + "`）");
+        T(m != null && m.name == "General" && m.audioMixer != null && m.audioMixer.name == "Music",
+          "★ 音乐组 = **Music 子 mixer 的 `General`**（三份 mixer 化：菜单音乐 → `Music.General`；实得 "
+        + (m != null ? m.name + " @" + (m.audioMixer != null ? m.audioMixer.name : "?") : "<null>") + "）");
+        T(f != null && f.name == "General" && f.audioMixer != null && f.audioMixer.name == "FX",
+          "★ 特效组 = **FX 子 mixer 的 `General`**（运行时特效音 → `FX.General`；实得 "
+        + (f != null ? f.name + " @" + (f.audioMixer != null ? f.audioMixer.name : "?") : "<null>") + "）");
         T(v != null && v.name == "Voices", "★ 语音组的**名字** = `Voices`（实得 `" + (v != null ? v.name : "<null>") + "`）");
         T(j != null && j.name == "Jingles", "★ Jingles 组的**名字** = `Jingles`（实得 `" + (j != null ? j.name : "<null>") + "`）");
     }

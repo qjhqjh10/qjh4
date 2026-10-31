@@ -5060,7 +5060,7 @@ namespace CardPresentation
             //      `Restart()` 会**显式**把 `_vars` 传回来，所以「重开一局保持模式」照样成立。
             _vars = vars ?? GameplayVariables.Classic;
             _myDeckSrc = myDeck;           // 留着给 `Restart()`
-            _foeDeckSrc = foeDeck;
+            _foeDeckSrc = foeDeck; _botDeckForTest = null;   // B109_E22（AUD03 #75）：每局复位「对手实际用的那副牌」读口（同一物理行追加 ⇒ 零行号漂移；写口在下面 `PickBotDeck` 那一行）
             // 🆕 2026-10-17（B29）：教程局的关卡 + 那两副原样牌，同样留着给 `Restart()`。
             //   ⚠️ `_tutorialStage` 是「本局关卡」这件事的**唯一记账口**（`Restart` 靠它判要不要新建执行器）。
             _tutorialStage = tutorial == null ? null : tutorial.Stage; CardDisplayWindow.SetLocalTutorialProgress(_tutorialStage == null ? 0 : _tutorialStage.stage);   // 🆕 2026-10-29（`B95_HUDCOL` · 账 `战斗界面_HUD:306`）：教程指向物那道闸的数据源 —— 原版读 LiveOps `TutorialEvent`（远端），我们按 `B91_L6` b 档用**本地关卡号**顶替（🔶 见 `CardDisplayWindow._localTutorialStage` 的 doc）。位置就是唯一那个路口（`Begin` 的第 5066 行附近）
@@ -5408,7 +5408,7 @@ namespace CardPresentation
                 // 🆕 2026-10-26（E2P11 · 账 47 `BotConfig.GetBotDecks`）：**对手没指定牌组 ⇒ 从本地预组池挑一副**
                 //   （原来一律走 `DeckBuilder.StarterDeck` 按卡池自动凑）。挑不到才退回自动凑，并在 `PickBotDeck` 里出声。
                 //   ⚠️ 只喂给 `ResolveDeck`（不进 `foeDeck` 这个入参）—— 回放那边按种子重挑，挑出来的是同一副。
-                var foeResolved = foeDeck ?? PickBotDeck(_foeFaction, (int)(playMode ?? GameMode.Classic), seed + 2);
+                var foeResolved = foeDeck ?? PickBotDeck(_foeFaction, (int)(playMode ?? GameMode.Classic), seed + 2); _botDeckForTest = foeResolved;   // B109_E22（AUD03 #75）：记下本局对手**实际用的那副牌** —— 端到端断言断「第二局 bot deck 的 `GameMode` ≠ Tutorial(4)」（`playMode` 就是上面那个局部量，残留的入口模式号会从这里漏进 `PickBotDeck`）
                 foeCards = ResolveDeck(PoolFor(pool, _foeFaction), _foeFaction, foeResolved, seed + 2, "对手", out _);
             }
             // ⚠️ 2026-09-12：`StarterDeck` 现在**会混进能打的战术卡**（原来那开关没实现，自动凑的牌
@@ -5510,7 +5510,7 @@ namespace CardPresentation
             //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
             //   没显式给 ⇒ 退回「这副牌自己带的模式」：与 `_vars` **同一条判据**（§2.7），
             //   所以「自检直接调 `Begin`」与「老调用点没传」这两条路**与今天逐字一致**。
-            Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic); NotifyGameModesMatchStarted();   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退
+            Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic); NotifyGameModesMatchStarted(); _foeDisplayName = null;   // 🆕 2026-10-31（`B108_A2` · AUD08）：每局清掉上一局的离线 bot 名（**懒生成**，见类尾 `FoeDisplayName()`；⛔ 不在这里摇 —— 本局是联机时 `_net` 此刻还没 `Attach`，在这摇会白摇）｜🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退
             _playMode = Ctx.PlayMode; InstallMissionChallengeMatchGates();   // 🆕 2026-10-29（B98_H4 · `报告/B98_A11.md` §4·3）：把 `MissionChallenge` 的三个模式闸装上（原来生产代码**一个都没装** ⇒ `ValidateMatchConditions()` 恒真）。同一物理行追加 ⇒ 零行数漂移；摘在 `OnDestroy` 的 `DetachStaticHooks()` 那一行
             // 🔴 **2026-10-24（执行代理 `W9`）**：**回放逐动作全量指纹的那一格「开局」** ——
             //   录制端（`RecBegin` → `ReplayFingerprintTrace.RecordStart`）与回放端
@@ -12821,7 +12821,7 @@ namespace CardPresentation
                         + "`ShellRuntime.LoadSceneWithFade(\"" + MainMenuSceneName + "\")`）");
                 return;
             }
-            ShellRuntime.LoadSceneWithFade(MainMenuSceneName);   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #7）：原来这里是**裸 `SceneManager.LoadScene`**（场景不在 Build Settings 时黑屏/出不去）；改成与练习 / 遭遇 / 排位**同一条口径**（`ShellRuntime.cs:205-220` 的 try/catch + 兜底淡回）—— 三处切场景三种写法是本条要收的口子
+            if (!CanSwitchToMainMenuScene()) { _leaving = false; ErrorPopupWindowController.ShowErrorMessage(CustomError.CantLoadMainMenuObjects); return; } ShellRuntime.LoadSceneWithFade(MainMenuSceneName);   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #7）：原来这里是**裸 `SceneManager.LoadScene`**（场景不在 Build Settings 时黑屏/出不去）；改成与练习 / 遭遇 / 排位**同一条口径**（`ShellRuntime.cs:205-220` 的 try/catch + 兜底淡回）—— 三处切场景三种写法是本条要收的口子｜🆕 2026-10-31（`B108_A2` · #7 的**残余**「场景不可加载 ⇒ 有可见出口」）：载不入时**复位 `_leaving`**（它上面刚被置真 ⇒ 原来玩家点什么都没反应 = 永久软锁）+ 弹原版错误档 `CantLoadMainMenuObjects(20)`
         }
 
         /// <summary>自检用：**「离开房间」那一跳走过几次**（累计，`Begin()` 里不清 —— 同 `_leaveCount`）。
@@ -23212,7 +23212,7 @@ namespace CardPresentation
 
             // 这一条事件**只有手感补间、没有通用特效**（目前只有阵亡，见上面那个 case）。
             // ⚠️ 必须在 `PlayFeel` **之后**返回 —— 阵亡的消散/爆散体就是 `PlayFeel` 里起的。
-            if (evt == null) return;
+            if (evt == null) return; PlayEnchantUnitDamagedAnim(e);   // 🔴🆕 2026-10-31（`B109_E7`）：附魔卡的 `UnitDamaged(60)` 能力动画（`Pray_Exit`）—— 判据/为什么锚在 `EvtKind.Trigger` 而不是遍历 `ActiveEnchantments` → 见类尾那一族；⛔ 别把本句挪到行尾 `//` 之后
 
             // 🔴🔴 **2026-10-24（执行代理 `B1` · `C2` §1·4 / §1·5 步 C · 战斗线 `D3`）：
             //   `UnitAttack(50)` 那一族 ⇒ 走【技能动画】那个口，⛔ 不走 `FireEventAll` 的通用件。**
@@ -32117,8 +32117,8 @@ namespace CardPresentation
             //    （`BattleHud__SetProfileInfo.c` → `PlayerProfileUIController__SetProfileName.c` 原样 `SetText`），
             //    阵营/称号另走 `TitleBackground/EnemyTitle`（那两件我们另建了，见 `SetTitle`）。
             //    · 我方 = `ProfileData.PlayerName`（档案窗可改）；
-            //    · 敌方 = 联机局的对端名（`NetMatchmaking.FoeName`）；**单机局没有名字数据源**
-            //      （原版那份来自身份服务 / `AIBotsConfig`，本地没有 ⇒ 不编，⛔ **不拿阵营名顶**）。
+            //    · 敌方 = 联机局的对端名（`NetMatchmaking.FoeName`）；单机局 = 类尾 `FoeDisplayName()` 的**本地生成**
+            //      （判据 `MatchData__SetBotOpponent.c:100-110`：`NameGenerator.GenerateName(4, Random.Range(0,10)+4)`；⛔ 不拿阵营名顶）。
             //    ⚠️ 名字为空时走**原版那一条兜底**：`SetProfileName` 对空串调
             //      `GetTranslation("MenuLogin/Guest")`（`PlayerProfileUIController__SetProfileName.c` 亲读；
             //      常量 `0x42D0DE0` → `stringliteral.json` = `MenuLogin/Guest`，
@@ -32126,7 +32126,7 @@ namespace CardPresentation
             //    ⚠️ **名字不随座位变**（我就是我、对手就是对手）⇒ 它不再能判「翻座位」，
             //       `BattleScene` 那两条断言已改成别的判据（座位方向本来就有能量/牌堆两条更硬的）。
             _myText.SetText(PlateName(ProfileData.PlayerName));
-            _enemyText.SetText(PlateName(_net != null ? NetMatchmaking.FoeName : null));
+            _enemyText.SetText(PlateName(FoeDisplayName()));
             // 🆕 **2026-10-19（A1502②）**：名牌上那层**头像立绘**跟着「选中的头像 / 本局种子」走
             //   （quad 是 `BuildHudExtras` 建的那两个，这里只换贴图 —— 与顶栏 `RefreshTopAvatarIfChanged` 同一手法；
             //    换没换过拿两三个 int 比，别造事件机制）。
@@ -32150,7 +32150,7 @@ namespace CardPresentation
                 _foeSkullHpSeen = foeHpNow;              // 播种（原版 `Initialize` 用当前生命填缓存）⇒**不算变化**
             else if (foeHpNow != _foeSkullHpSeen)        // 原版只在「生命变了」这条信号里检查（`CheckHealth` 比缓存值）
             {
-                _foeSkullHpSeen = foeHpNow;
+                int prevFoeHp = _foeSkullHpSeen; _foeSkullHpSeen = foeHpNow; ChallengeEngine.OnWarlordDamaged(false, prevFoeHp - foeHpNow, foeHpNow);   // 🆕 2026-10-31（`B109_R20` §1·4 · `C6`）：**先存旧值**再喂挑战计数 —— 原版 `BattleEventsController.CheckHealth` 的 `EnemyHealthChangeSignal{CurrentHealth(+0x10), DeltaHealth(+0x14) = 上次值 − 当前值}` 等价体（只在值变了才发，与本分支同一条闸）；口径**借自** `EnemyHeroDamageScorer.OnHealthChange`（那是**评分器**，原版挑战那一格走服务端 `ChallengeVarResult`、本地无判据）⇒ ⛔ 别与 `Ctx.DamageToEnemyWarlord`（逐次累加）合并。同一物理行 ⇒ 零行数漂移（`:32198` 等下游账落点不动）
                 int reached = DeckRules.SkullsFor(foeHpNow);              // 该生命下**已达成**的档数
                 if (reached > _foeSkullCount) _foeSkullCount = reached;   // 已达成不回退（只增不减）
             }
@@ -32357,7 +32357,7 @@ namespace CardPresentation
                         // 🆕 2026-10-24（E13）：**同一处把战果记进成就进度**（用户当天点名：
                         //   成就界面的 102 条进度原来**恒 0**）。只统计这里**真的数到**的量 ——
                         //   映射表与「哪些没接」在 `AwardAchievements` 上面那一段。
-                        AwardAchievements(); FeedMissionChallengeSignals(_me); PlayerProfileState.GrantMatchXp(Ctx.MatchType, Ctx.Winner == _me + 1);   // 🆕 2026-10-29（B98_H4 · 账 战斗逻辑驱动:1360/:1373 喂入，紧跟 `AwardAchievements()`；同一物理行追加 ⇒ 零行数漂移，本文件下游有 144 条账落点）· 🆕 2026-10-28（B89-E10d）账 340/413：本地模拟「服务器把 XP 发下来」那半条链（原版 = `RewardService.Collect` 收到回包后发；`GetXPFromMatch` 在原版 0 调用点 ⇒ 值是我们用原版公式充的，见 `PlayerProfileState.GrantMatchXp` 的 `🔶`）
+                        AwardAchievements(); FeedMissionChallengeSignals(_me); ChallengeEngine.FeedRunCounters(Ctx.Tally, _me); PlayerProfileState.GrantMatchXp(Ctx.MatchType, Ctx.Winner == _me + 1);   // 🆕 2026-10-31（`B109_R20` §3 P2 · `C6`）挑战计数三格 ← 引擎侧 `Ctx.Tally`（`TroopsKilledOf` / `HealDoneOf`），**结算拍一次、赋值不是累加**（`Begin` 的 `ResetRunCounters` 已清过）；同一物理行追加（落在行尾 `//` 之前）⇒ 零行数漂移 · 🆕 2026-10-29（B98_H4 · 账 战斗逻辑驱动:1360/:1373 喂入，紧跟 `AwardAchievements()`；同一物理行追加 ⇒ 零行数漂移，本文件下游有 144 条账落点）· 🆕 2026-10-28（B89-E10d）账 340/413：本地模拟「服务器把 XP 发下来」那半条链（原版 = `RewardService.Collect` 收到回包后发；`GetXPFromMatch` 在原版 0 调用点 ⇒ 值是我们用原版公式充的，见 `PlayerProfileState.GrantMatchXp` 的 `🔶`）
                         // 🆕 2026-09-27：**录像也在这一处收尾**（用户当天拍板「做，我们需要录像」）——
                         // 原版 `BattleManager.SaveMatchWinner` 也是结算时才把录制交上去。
                         // ⚠️ 顺序要紧：`RecFinish` 会把录像文件名挂到**刚写的那条**对局记录上（`AttachReplay`）。
@@ -32614,9 +32614,9 @@ namespace CardPresentation
                        : BattleLogData.Outcome.Defeat,
                 OwnHeroName = HeroDisplayName(me), EnemyHeroName = HeroDisplayName(foe),
                 OwnName = ProfileData.PlayerName,
-                // 单机打 bot **留空**（原版那格是服务端账号 id，本地没有对等物）；
-                // 联机局才有对面的真名 —— 源只有一处：`NetMatchmaking.FoeName`（别自己取机器名）
-                EnemyName = _net != null ? NetMatchmaking.FoeName : "",
+                // 联机局 = 对面的真名（源只有一处：`NetMatchmaking.FoeName`，别自己取机器名）；
+                // 单机 = `FoeDisplayName()`（原版本地生成，判据 `MatchData__SetBotOpponent.c:100-110`）
+                EnemyName = FoeDisplayName() ?? "",
                 PlayerClan = "", EnemyClan = "",
                 OwnSkulls = _foeSkullCount,
                 EnemySkulls = DeckRules.SkullsFor(_myWarlordMinHp == int.MaxValue ? 30 : _myWarlordMinHp),
@@ -39918,6 +39918,196 @@ namespace CardPresentation
                 $"延迟特效 `{vfx}` 的持有者已不在（原版 `CreateAnim` 的 `startParent` 为空 ⇒ 整件跳过；"
               + "判据 `BattleManager__CreateAnim.c:41` 判 `startParent` 空 → `:91 return 0`）");
         }
+
+        // ==================================================================
+        //  🆕 2026-10-31（执行代理 `B108_A2` · `AUD10_玩家主链_侦查.md` §二 #7 的**残余**）：
+        //  「**场景不可加载 ⇒ 有可见出口**」。
+        //  判据现状（现读）：三处切场景（练习 / 遭遇 / 排位 · 教程 · 战后离场）在 `B106_W2` 那一批
+        //  已经统一走 `ShellRuntime.LoadSceneWithFade`（它自己 try/catch + 兜底淡回，`ShellRuntime.cs:205-220`）。
+        //  但**调用方**还留着两个坑，都是「场景不在 Build Settings 时」才现形：
+        //   ① `LeaveBattle` 先把 `_leaving = true` 再切 —— 切失败时玩家停在结算面板、**点什么都没反应**（永久软锁）；
+        //   ② 教程窗把两条静态通道（`_pendingTutorialStage` / `_pendingPlayMode`）**放进去之后**才切 ——
+        //      切失败时通道留在那儿，下一局普通对战会拿着残留的 `Tutorial(4)` 当模式号（`AUD10` §三 R3 同族）。
+        //  闸的判据 = `ArenaByArmy.CanLoadScene`（**扫 Build Settings 场景表**）；
+        //  ⛔ **不用 `Application.CanStreamedLevelBeLoaded`** —— 2026-09-25 实测它在 `-batchmode` 下
+        //  把**已登记**的场景也判 false（同一条坑记在 `ArenaByArmy.cs:82-87`）。
+        // ==================================================================
+
+        /// <summary>战后离场那一跳的闸：主菜单场景载得入吗（= 它在 Build Settings 里）。
+        /// <para>载不入 ⇒ 出声并返回 false；调用方（<see cref="LeaveBattle"/>）据此**复位 `_leaving`** 并弹
+        /// 原版错误档 <see cref="CustomError.CantLoadMainMenuObjects"/>（枚举 `20`，「主菜单加载不出来」那一格），
+        /// ⛔ 不再留「玩家点什么都没反应」的永久软锁。</para>
+        /// <para>⚠️ 批处理下 `CanLoadScene` 也照常可用（它扫的是 Build Settings 场景表，不是
+        /// `Application.CanStreamedLevelBeLoaded`）⇒ 自检可以钉它。</para></summary>
+        public static bool CanSwitchToMainMenuScene()
+        {
+            if (ArenaByArmy.CanLoadScene(MainMenuSceneName)) return true;
+            Debug.LogError("[Battle] 主菜单场景 `" + MainMenuSceneName + "` 不在 Build Settings 里"
+                         + "（跑一次 `MainMenuScene.BuildAndSaveScene` 就会登记）⇒ **回不去主菜单**；"
+                         + "已复位 `_leaving` 并弹错误框（原来是 `_leaving = true` 之后玩家点什么都没反应 = 永久软锁）");
+            return false;
+        }
+
+        /// <summary>清掉两条「跨场景开战」静态通道（教程关号 + 模式号）。
+        /// <para>⚠️ 只在**开战没有真的发生**时调（场景载不入 / 入口窗放弃开战）：否则下一局普通对战
+        /// 会把残留的 `Tutorial(4)` 当成本局模式号（`Ctx.PlayMode` ⇒ 骷髅档 / 里程碑 /
+        /// `InstallMissionChallengeMatchGates` 全跟着错）。通道口径 = 「读一次就清」⇒ **没人读就没人清**。</para></summary>
+        public static void ClearPendingBattleChannels()
+        {
+            _pendingTutorialStage = -1;
+            _pendingPlayMode = null;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-31（执行代理 `B108_A2` · 调度台续办2 · AUD08 视角的「我们少做了」）：
+        //  **离线 bot 对手的名字** —— 原版是**本地生成**的，我们原来恒空串。
+        //  判据（现读 `d:/2/tools/decomp_full/`）：
+        //   · `MatchData__SetBotOpponent.c:100-112`：`iVar3 = UnityEngine.Random.Range(0,10)` →
+        //     `NameGenerator.GenerateName(4, iVar3 + 4)`（⇒ 长度上限 4..13）；结果写进
+        //     `DeckAndWarlordData`（`MatchData+0x50`）的 **`+0x10`** —— 那是**那个 bot 的名字**，不是督军名。
+        //   · `MatchData__SetRandomBotWarlordName.c:14-20` 写的是**同一格 `+0x10`**（另一种来源：纯随机名）；
+        //     `MatchData__SetRandomBotName.c:15-23` 同理（从一份名字表里随机取一条）。
+        //   ⇒ 我们这边的对应物 = **对手的名字显示**（名牌 `EnemyNameText` + 战报 `EnemyName`）。
+        //     ⛔ **不是** `Ctx.Players[].Name`：后者是引擎占位（`RuleCore.NewBattle` 写死 `"P1"/"P2"`），
+        //     而且会进 `ctx.Log` 文本 ⇒ 改它会把一大票日志/断言连坐（`NetProtocol` 明写玩家名「是档案，不是对局状态」）。
+        //  ⚠️ 与原来的差别（如实记）：原版回放显示的是**录像里那一份**名字；我们没把名字记进 `ReplayRecord`
+        //     ⇒ 放录像时会**重新摇一个**（纯显示，不影响引擎状态，也不改录像契约）。
+        // ==================================================================
+
+        /// <summary>本局的**离线 bot 对手显示名**（`null` = 还没摇 / 本局是联机局）。每局 `Begin()` 清一次。</summary>
+        string _foeDisplayName;
+
+        /// <summary>对手的**显示名**：联机局 = `NetMatchmaking.FoeName`（既有唯一源，语义与改前逐字相同）；
+        /// 离线局 = **本地生成一次并缓存**。
+        /// <para>离线那条 = 原版 `MatchData.SetBotOpponent` 的
+        /// `NameGenerator.GenerateName(4, UnityEngine.Random.Range(0,10) + 4)`（判据 `decomp_full/MatchData__SetBotOpponent.c:100-112`）。
+        /// ⚠️ 原版用的是 **`UnityEngine.Random`**（不是 `System.Random`）—— 照抄，⛔ 别换成种子随机
+        /// （那会与「对局必须可复现走 `ctx.Rng`」的口径混在一起）。</para></summary>
+        string FoeDisplayName()
+        {
+            if (_net != null) return NetMatchmaking.FoeName;
+            if (_foeDisplayName == null) _foeDisplayName = RollOfflineFoeName();
+            return _foeDisplayName;
+        }
+
+        /// <summary>摇一个离线 bot 名：`GenerateName(4, UnityEngine.Random.Range(4, 14))`
+        /// （= 原版 `Range(0,10) + 4` ⇒ 上限 4..13；`GenerateName` 自己的数字后缀也**不会超过 `maxLength`**）。</summary>
+        static string RollOfflineFoeName()
+        {
+            return NameGenerator.GenerateName(4, UnityEngine.Random.Range(4, 14));
+        }
+
+        /// <summary>自检口：直接摇一个离线 bot 名（⛔ 产品路径别调 —— 它**不动** `_foeDisplayName`）。</summary>
+        public static string RollOfflineFoeNameForTest() { return RollOfflineFoeName(); }
+
+        /// <summary>🆕 2026-10-31（`B108` 收尾）：让自检读**本局实际用的** offline bot 名（同 `FoeDisplayName()` 懒生成口径）。</summary>
+        public string FoeDisplayNameForTest() { return FoeDisplayName(); }
+
+        // ==================================================================
+        //  🔴🆕 2026-10-31（执行代理 `B109_E7` · 判据 `B109_R2` §1.4 / §1.7 · 账 `1288` 的**表现侧**那一跳）
+        // ==================================================================
+        //  原版链路（第一权威，逐句）：`CardScript__ResolveDamageDealt.c:160`
+        //    → `RawCardScript__OnTrigger(raw, 0x3c = UnitDamaged(60), …)`
+        //    → `RawCardScript__TriggerAbilities.c:49-197` 的**内联附魔趟**（`:108-109` `CanTriggerAbility`
+        //       比的是数据位 `ability.trigger(+0x10)`；`:184-186` `TriggerAbility`）
+        //    → `TriggerAbility.c:73-106` `PlayAbility`
+        //    → `AbilityLogic.PlayAnim`：**动画资产取自附魔卡自己**的 `cardAnimations[]`，
+        //       锚点 = `AbilityData+0x10` = **载体** ⇒ `Pray Enchantment` 的 `Pray_Exit`
+        //       （`cards_engine.json` 的 `animTimes`：`a:"Pray_Exit", tg:60, tn:"UnitDamaged"`）。
+        //
+        //  🔴 **施工单（`报告/B108_A16.md` §六·2）给的那一版今天走不通 —— 两处硬堵，都逐条查证过**：
+        //    ① **桶已经搬走了**：`VfxMap` 载表时把所有逐卡 `hit` 行【改归】`unit_damaged_anim`
+        //       （`VfxMap.cs:1263-1271`，2026-10-23 `T1`）⇒ `ResolveAllTimed("hit", …, perCardOnly:true)`
+        //       对**任何**卡都恒回空数组（`Pray_Exit` 今天在 `VfxMap.UnitDamaged` 桶里）。
+        //    ② **播放时刻 `ActiveEnchantments` 已经空了**：`RuleCore.ApplyDamageCore` 那一格是**排队摘**
+        //       （`Enchantments.EnqueueRemovePray`；泵点 = 外层 `ApplyDamage` 的 `ActionScope` 退出 ——
+        //       `RuleCore.cs:8623` = `using (BeginAction(ctx)) return ApplyDamageCore(…)`）
+        //       ⇒ **引擎调用返回时附魔已经摘掉了**，而 `PlaySignals` 是引擎返回**之后**才 drain
+        //       （`RefreshAll()` 的第一句）⇒ 那一刻在 `ActiveEnchantments` 里读不到它。
+        //  ⇒ **锚点改用「派发侧那条 `EvtKind.Trigger`」**（`B109_E6` 已接：`CardId` = **附魔卡名** ·
+        //     `Keyword` = `UnitDamaged` · `Player/Slot` = **载体** · `InstanceId` = 载体实例号）——
+        //     它正是原版 `TriggerAbility` 那一跳的等价物，而且**发生在摘除之前**。
+        //     判据只此一处 = <see cref="IsEnchantUnitDamagedTrigger"/>（纯函数，自检直接断言它）。
+        //  ⛔ 别改回「在 `Hit` 那一拍遍历 `ActiveEnchantments`」—— 上面两条会让它**静默什么都不播**。
+        //  ⛔ 也别在这里再执行 `chosenAbility 340`（摘附魔的效果由 `ApplyDamageCore` 承担，再跑 = 双发）。
+        //  ⚠️ 如实记（原版形状，不是缺陷）：这一拍对**棋盘上每一张卡**都会来一次
+        //     （`BroadcastUnitDamaged` 对每张在场卡各调一次 `ResolveDamageDealt`，`.c:160` 在**该卡自己**身上
+        //     `OnTrigger(60)`）⇒ 「谁身上有 `UnitDamaged` 附魔、谁就演」是对的，⛔ 别按「只演被打者」加闸。
+        // ------------------------------------------------------------------
+        /// <summary>自检读口：本局一共排过几拍「附魔卡的 `UnitDamaged` 能力动画」。</summary>
+        public int EnchantUnitDamagedAnimsForTest { get; private set; }
+
+        /// <summary>自检读口：最近那一拍的**附魔卡名**（`null` = 还没排过）。</summary>
+        public string LastEnchantUnitDamagedCardForTest { get; private set; }
+
+        /// <summary>🔴🆕 **2026-10-31（`B109_E7`）**：这条 `EvtKind.Trigger` 是不是「**附魔卡**的
+        /// `UnitDamaged(60)` 那一拍」。**纯函数**（不碰实例状态）—— 拆出来是**为了能断言**（合成一条事件就能验）。
+        ///
+        /// <para>四道闸（缺一条都会播错东西）：</para>
+        /// <list type="number">
+        /// <item>`Kind == Trigger` —— 只有派发侧那条事件带「附魔卡 + trigger 名」。</item>
+        /// <item>关键词（**先剥 `#i` 能力序号后缀**，`BattleEvent.SplitKeywordAbility`）归一到
+        ///   `UnitDamaged` —— `Pray_Success` 那一拍是 `TurnStartPlayer(31)`，⛔ 不归这里。</item>
+        /// <item>那张卡在池里**查得到**。</item>
+        /// <item>而且它是**附魔卡**（`IsEnchantment`）**且数据位真有** `UnitDamaged`
+        ///   （`AbilityTriggerPresence == 1`）—— ⛔ 单位自己的 `UnitDamaged` 归 `PlayDefenderDamagedAnim`
+        ///   （攻击那条路），这里再播一次就是**原版没有的第二下**。</item>
+        /// </list>
+        /// <para>🧨 灭自证：删掉 `IsEnchantment` ⇒ 单位的 `UnitDamaged` 也会被判真（C5 红）；
+        /// 删掉 `AbilityTriggerPresence == 1` ⇒ 同一句红；把关键词那一步改回不剥后缀 ⇒ C3 红。</para></summary>
+        public static bool IsEnchantUnitDamagedTrigger(BattleEvent e, IEnumerable<CardDef> pool)
+        {
+            if (e == null || e.Kind != EvtKind.Trigger) return false;
+            if (pool == null) return false;      // ⛔ `CardDatabase.Find` 对 null 池会 NRE（本口在每帧的 `PlaySignal` 里跑，不许炸）
+            string kw = BattleEvent.SplitKeywordAbility(e.Keyword, out _);
+            if (!string.Equals(VfxMap.CanonicalTriggerName(kw), VfxMap.UnitDamagedTriggerName,
+                               System.StringComparison.OrdinalIgnoreCase))
+                return false;
+            var def = CardDatabase.Find(pool, e.CardId);
+            return def != null
+                && def.IsEnchantment
+                && def.AbilityTriggerPresence(VfxMap.UnitDamagedTriggerName) == 1;
+        }
+
+        /// <summary>🔴🆕 **2026-10-31（`B109_E7`）**：附魔卡的 `UnitDamaged(60)` 能力动画 —— 判据与
+        /// 「为什么锚在 `EvtKind.Trigger` / 为什么不用施工单那一版」见本族开头那一大段。
+        ///
+        /// <para>**播法**：与 <see cref="PlayDefenderDamagedAnim"/> 同一条口（`PlayUnitSkillAnim` +
+        /// `VfxMap.UnitDamaged`），只是 `CardId` 换成**附魔卡**：`PlayUnitSkillAnim` 内部
+        /// `VfxFactionOf(e.Player, e.CardId, e.InstanceId, e.Slot)` 会按卡名去池里取**附魔卡自己的阵营**
+        /// （`Pray Enchantment` = Sororitas），`ViewAt(e.Player, e.Slot)` 取的是**载体的视图** ⇒ 锚点正确。
+        /// ⚠️ 合成事件**不带 `InstanceId`**：`VfxFactionOf` 的「按实例号找棋盘那张卡」那一级会返回
+        /// **载体的**阵营（错），0 = 跳过那一级（与 <see cref="PlayDefenderDamagedAnim"/> 同形）。</para>
+        ///
+        /// <para>🧨 灭自证：删掉 <see cref="PlaySignal"/> 里那一句调用 ⇒
+        /// <see cref="EnchantUnitDamagedAnimsForTest"/> 恒 0。</para></summary>
+        void PlayEnchantUnitDamagedAnim(BattleEvent e)
+        {
+            if (!IsEnchantUnitDamagedTrigger(e, _pool)) return;
+            var de = new BattleEvent
+            {
+                Kind = EvtKind.Hit, Player = e.Player, Slot = e.Slot, CardId = e.CardId, Amount = 0,
+                // TargetPlayer / TargetSlot 保持默认 -1（`Hit` 那一族同形；`PlayOneUnitAnim` 会走 `MapSelf`）
+            };
+            EnchantUnitDamagedAnimsForTest++;
+            LastEnchantUnitDamagedCardForTest = e.CardId;
+            PlayUnitSkillAnim(de, VfxMap.UnitDamaged, 0f);
+        }
+
+        // ==================================================================
+        //  🔴🆕 2026-10-31（执行代理 `B109_E22` · AUD03 #74/#75 的**端到端断言读口**）
+        // ==================================================================
+        //  为什么要有它：`PickBotDeck` 的入参是 `(int)(playMode ?? GameMode.Classic)`，而 `foeResolved`
+        //  是 `Begin` 里的**局部量** —— 自检看不到「这一局对手实际拿到的那副牌」，就只能拿 `Ctx.PlayMode`
+        //  间接推（弱断言）。`_botDeckForTest` 每局在 `Begin` 里先清（`:5063` 同一物理行）、挑完就写
+        //  （`:5411` 同一物理行）⇒ **只记本局**，不跨局残留。
+        //  ⚠️ 新成员追加在**类尾**（下面再没有任何成员/账的落点）⇒ 不影响账的 `文件:行号`。
+        /// <summary>自检读口：本局对手**实际用的那副牌**（`PickBotDeck` 挑出来的 / 显式 `foeDeck` 传进来的）。
+        /// <para>`null` = 这一局走的是 `exactMine/exactFoe`（教程 / 录像重建）⇒ **没经过 `PickBotDeck`**。</para>
+        /// <para>用途（`B109_E22`）：断「打完教程局之后再开普通局，第二局 bot deck 的 `GameMode` **不是**
+        /// `Tutorial(4)`」—— 残留的入口模式号会让 `PickBotDeck` 按 4 去筛预组、把 `Ctx.PlayMode` 写成 4。</para></summary>
+        public PlayerDeck BotDeckForTest { get { return _botDeckForTest; } }
+        PlayerDeck _botDeckForTest;
     }
 }
 

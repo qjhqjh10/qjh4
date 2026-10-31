@@ -60,7 +60,7 @@ namespace CardPresentation
             if (_root == null) Build(); IngestPracticeResultsAtMenuStart();   // 账 584/585：把上一场练习局吃进战绩
         }
 
-        void OnDestroy() { UnhookMenuRebuildBroadcasts(); if (Instance == this) Instance = null; }   // 🆕 B89-E30：摘掉 `L412`/`L477` 那两条静态订阅（否则静态事件攒着已销毁的实例）
+        void OnDestroy() { UnhookMenuRebuildBroadcasts(); if (Instance == this) Instance = null; if (_pendingRoot == _root) { _pendingBaseMenu = null; _pendingRoot = null; Window = null; } }   // 🆕 B89-E30：摘掉 `L412`/`L477` 那两条静态订阅（否则静态事件攒着已销毁的实例）；🆕 B108_A6（AUD03 #61）：主菜单**树**被销毁（切战斗 / 场景卸载）后三个 static 记账也一并置空（原版 `MainMenuWindow` 是这棵树的孩子 ⇒ 树没了就不该再指着它）。⚠️ 只在「本实例记下的那棵树」上清（`_pendingRoot == _root`），⛔ 别把别棵树 / 自检夹具的登记抹掉；⛔ 也别指望编辑期 `DestroyImmediate` 会派进来（Unity 编辑模式不派 `OnDestroy`）
 
         // ============================================================ 坐标工具
 
@@ -453,7 +453,7 @@ namespace CardPresentation
             //   ⇒ **命中永远落在屏幕正中那一件上**（实测：四个完全不同的位置点下去，命中都是中间那张模式卡）。
             //   同族先例：进战场时 `BattleDriver` 也这么做；这条坑本来就记在 `资料/已知的坑.md`
             //   （「`LayoutSpace.Cam` 是静态字段 … 场景里要有个 `Start()` 重新 `Apply(cam)`」）。
-            LayoutSpace.Apply(Camera.main);
+            LayoutSpace.Apply(Camera.main); ShellRuntime.EnsureAspectClamp(Camera.main);   // 🆕 B109_E16 · AUD05 S4：比例夹取 [4:3, 22:9]（原版主菜单场景 `MB1987` 挂在 UI 相机上；判据/调用点 → `ShellRuntime` 类尾那一节）
 
             // ============================================================ 🆕 2026-10-12（A384）每日重置那一拍
             //
@@ -2392,7 +2392,7 @@ namespace CardPresentation
 
         // ---- §五 E + §九：模式卡区 ----
         /// <summary>格子的列起点与步进（§二·4 实证：`itemSize` 535×414.4 · `spacing` (20,20) · `pad L38`）⇒ **列 c 左 = 205 + 555c**。</summary>
-        const float CardCol0 = 205f, CardColStep = 555f, CardW = 535f, CardH = 414.4f;
+        const float CardColStep = 555f, CardW = 535f, CardH = 414.4f, CardPadL = 37.96f; static float CardCol0 { get { return ModeViewport.x1 + CardPadL * LayoutSpace.Scale; } }   // 列 c 左 = CardCol0 + 555c（16:9 ⇒ **205**）· 左内缩 = `pad L38` 的实测值 37.96（= 205 − 167.04），随可见宽按 `LayoutSpace.Scale` 缩（AUD05 S3；⛔ 原写 `const` 205）
         /// <summary>**1×2 档**的卡高 = `2 × 414.4 + 20`（两行 + 一行间距）= **848.8**（判据 = §二·4 的
         /// `FlexibleGridLayout rows=2 columns=20 itemSize 535×414.4 spacing (20,20)` ⇒ 1×2 跨两行）。
         /// 🔴 **2026-10-11（界面复刻）**：**五张模式卡一律用这一档。** 理由两条 ——
@@ -2443,9 +2443,9 @@ namespace CardPresentation
         // ⚠️ **裁切**：本文件**没有 `ViewportClip` 节点**（那套要求节点自己带矩形位置，而本文件的树
         //   全部停在原点、拿绝对 px 当 localPosition）⇒ 裁切**按 `MenuDraw` 的显式 `clip` 形参**传
         //   （`Nine` / `ClipText` 都吃），卡图则用 **UV 窗收缩**（与它现有的「UV 裁到卡面」同一套算法）。
-        static readonly PxRect ModeViewport = new PxRect(167.04f, 71.33f, 1920f, 1080f);
+        static PxRect ModeViewport { get { float vw = LayoutSpace.VisibleWidth * (LayoutSpace.DesignPxH / LayoutSpace.DesignHeight); return new PxRect(0.087f * vw, 71.33f, vw, 1080f); } }   // 原版 `GameModes/Viewport` 左缘 = **0.087 × 画布宽**、右缘 = **画布右缘**（AUD05 主菜单 §4·4④：16:9 ⇒ 167.04/1920 · 21:9 ⇒ 219.24/2520）；⚠️ y=71.33 / 高 1080 **留 16:9 档** —— 非 16:9 的纵向锚点**没有判据**（J5），⛔ 别按比例推
         /// <summary>内容右端（= 第 4 列右缘 `205 + 3×555 + 535`）。</summary>
-        const float ModeContentX2 = CardCol0 + 3 * CardColStep + CardW;
+        static float ModeContentX2 { get { return CardCol0 + 3 * CardColStep + CardW; } }   // 内容右端（= 第 4 列右缘；16:9 ⇒ 2405）。⚠️ `CardCol0` 自 AUD05 S3 起是随可见宽现算的 ⇒ 这里不能再是 `const`
 
         Transform _modeContent;
         MenuScroll _modeScroll;
@@ -2824,7 +2824,7 @@ namespace CardPresentation
         /// ⚠️ 与真实分辨率无关（`屏幕x / Screen.width` ≡ `设计x / 1920`，见上）。</summary>
         static float ModeCardParallaxDu(float cardCenterPx)
         {
-            return ModeCardParallaxX * (cardCenterPx / LayoutSpace.DesignPxW - 0.5f);
+            return ModeCardParallaxX * (ScreenNormalizedXForDesignPx(cardCenterPx) - 0.5f);   // 🆕 B109_E16：夹取后 `_ScreenPosition.x` 要按相机 viewport 折算（见该类尾那件）
         }
 
         // ============================================================ 🆕 2026-10-24（`E10`）：轮抽卡 `State` 条几何
@@ -3102,6 +3102,14 @@ namespace CardPresentation
                                                   (cR - cL) / (clockX2 - clockX1), 1f));
                             cq.SetTint(new Color(0.7372f, 0.7372f, 0.7372f, 1f));
                             cq.SetRenderQueue(QText);
+                            // 🆕 2026-10-31（`B109_E33` · R15 §1·9 / #9）：原版 `Clock Icon` 挂
+                            //   `Everguild/UI/UI Clock`（`Material_8837680948194134486.json`）——
+                            //   4 s 呼吸（`_Pulse (2,0,2,0)` / `_MinMaxScale (1.1,1.0)`）+ **两枚指针按秒旋转**
+                            //   （`_Rotation_Speed_Seconds = -1/(2π)` ⇒ 39.48 s 一圈）。我们原来是一张静态图。
+                            //   ⚠️ `SetMaterial` 必须排在 `SetRenderQueue` **之后**（`ImageQuad.SetMaterial` 保留旧队列）。
+                            //   ⚠️ 这张图的名字就是 `WF_icon_clock for shader` —— **指针要由 shader 画**，
+                            //      用带指针的 `WF_icon_clock` 会画成两套针。
+                            MenuFxMaterials.Apply(cq, MenuFxMaterials.Clock);
                         }
                     }
                 }
@@ -5535,5 +5543,29 @@ namespace CardPresentation
         /// <summary>自检用：`null` = 按 `Application.isPlaying` 自动（原版 `Toggle` 口径）；
         /// `true` = 强制瞬间完成；`false` = 强制真跑补间（批处理里验淡入用这一档）。</summary>
         public void SetNavHighlightInstantForTest(bool? instant) { _navHiInstantOverride = instant; }
+
+        /// <summary>自检读口：模式卡滚动区视口（= 原版 `GameModes/Viewport`）。**x 两缘随可见宽现算**；
+        /// `y1=71.33 / 高 1080` 固定在 16:9 档（非 16:9 纵向锚点**没有判据** → AUD05 J5，⛔ 别按比例推）。</summary>
+        public static PxRect ModeViewportForTest { get { return ModeViewport; } }
+        /// <summary>自检读口：模式卡内容右端（= 第 4 列右缘；16:9 ⇒ 2405）。</summary>
+        public static float ModeContentX2ForTest { get { return ModeContentX2; } }
+        /// <summary>自检读口：第 0 列左沿（= `ModeViewport.x1 + pad`；16:9 ⇒ 205）。</summary>
+        public static float ModeCardCol0ForTest { get { return CardCol0; } }
+
+        /// <summary>🆕 2026-10-31（`B109_E16` · AUD05 S4）：设计像素 x → **原版 `_ScreenPosition.x` 那一路的归一化屏幕 x**。
+        /// <para>原版那个量是 `sp.x / Screen.width`（`UIParallaxImage.UpdateParallax` 逐句，见本类视差那一节 ③），
+        /// 而画布只铺在相机的 **viewport** 里（比例夹取把 `Camera.rect` 缩成中间一个盒子时尤其明显）
+        /// ⇒ `屏幕x / Screen.width = rect.x + (设计x / 1920) × rect.width`。</para>
+        /// <para>🔴 **不修会怎样**：夹取那一档（&gt;22:9 / &lt;4:3）视差的横向偏移按「整屏 = 设计宽」算，
+        /// 与卡在屏幕上的真实归一化位置差 `rect.x` 那一截（32:9 ⇒ 每张卡最多差 0.031 UV × `_Parallax.x`）。</para>
+        /// <para>⚠️ `rect = 整幅 (0,0,1,1)`（所有 4:3~22:9 的屏）时与旧式 `设计x / 1920` **逐位相同** ⇒ 既有读数一条都不动。
+        /// ⚠️ 相机拿不到（自检/极端档）退回旧式，**不静默改行为**。</para></summary>
+        public static float ScreenNormalizedXForDesignPx(float xPx)
+        {
+            var cam = LayoutSpace.Cam;
+            if (cam == null) return xPx / LayoutSpace.DesignPxW;
+            var r = cam.rect;
+            return r.x + (xPx / LayoutSpace.DesignPxW) * r.width;
+        }
     }
 }

@@ -846,9 +846,9 @@ namespace CardPresentation
             //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
             // 🆕 **2026-10-31（B106_W13）**：**框高改为随行高**（原来写死 `r.y1 + MsgTop + 30f` ⇒ 多行消息会溢出）。
             //   行高由 `ChatTab.RowHeightFor` 按原版 CSF 算式给（`57 + 正文实测高`，与 OSA `_DefaultItemSize 60` 取大）⇒ 底边 = `r.y2 − 10`（10 = 原版 VLG 的 `m_Padding.Bottom`）。
-            Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y2 - RowPadBottom),
-                 SocialData.Text(m), Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
-                 face: TmpFont.Face.LatinCardBody);
+            var msgLb = Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y2 - RowPadBottom), BodyText(m),
+                 Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
+                 face: TmpFont.Face.LatinCardBody); if (msgLb != null) msgLb.CjkFallbackFace = true; ApplyTranslationFont(msgLb, m);   // B109_E21：原版从不整颗翻面 —— 拉丁面 + CJK fallback（判据 `判据/B109_D1_八条红.md` §3 修法 A）
 
             // 点头像 ⇒ 开玩家选项面板（原版 `ChatMessageUI.OnMessageClicked` / `ChatPlayerOptionsPanel`）
             // ⚠️ `clip` 也传下去（判据 = 原版 `RectMask2D` 的**射线那一面**：框外的点判不中任何东西）
@@ -1249,5 +1249,99 @@ namespace CardPresentation
         /// <para>🔴 **#N127：这是【唯一】写点** —— 本文件的 `Build` 用 `RowPadBottom`，`ChatTab.RowPadTop/Bottom` 也
         /// 改成引用这里（原来两处各写一遍 `10`，改一处忘另一处就静默不一致）。</para></summary>
         public const float RowPadTop = 10f, RowPadBottom = 10f;
+
+        // ============================================================ 🆕 2026-10-31（B109_E21 · AUD05 J2）
+        //   聊天翻译三态视觉（`Normal` / `Translating` / `Translated`）。判据 →
+        //   `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §2：
+        //     · 原版 `ChatMessageUI.SetMessageText()`（`out_il2csharp/ChatMessageUI.cs:126-152`）：
+        //         `messageText.text = data.GetMessage();`
+        //         `0 Normal`      ⇒ `fontMaterial = normalFontMaterial`（**不动**，见下）；
+        //         `1 Translating` ⇒ `fontMaterial = translatingFontMaterial` 且
+        //                           `text = text.TrimEnd('\n') + $" ({translatingTip})"`
+        //                           （prefab 上那颗 TMP 的 `translatingTip.mTerm = "MainMenu/Messages/Translating"`）；
+        //         `2 Translated`  ⇒ `fontMaterial = translatedFontMaterial`（正文不再改）。
+        //     · 枚举值（`ChatMessageData.cs:258-263`）= 本仓 `SocialData.ChatMessage.TranslationStatus`。
+        //     · 三份材质**只有** `_FaceColor` + `_FaceDilate`/`_OutlineWidth` + `_StencilRead/WriteMask` 不同，
+        //       图集 / shader / 字形**三份相同**（`assets_full/bundle_fonts_assets_all/Material/` 实读：
+        //       `Material_-5050103597772954521` / `-7792147938614732247` / `122820007967670363`）。
+        //   🔴 **`Normal` 那份不用另建**：它就是 `Pragati-Regular SDF.asset` 的 `m_Material`
+        //      （guid `3592247d55255dd45b76cf283131676e` → `Assets/WarpforgeVFX/Materials/Pragati-Regular Atlas Material.mat`），
+        //      逐字段与解包原版一致（`_FaceColor (1,1,1,1)` · `_FaceDilate/_OutlineWidth 0` · `_ScaleRatioB/C 0.89285713`）。
+        //   🔴 **纪律**：本段追加在**类尾**（本文件被账按 `文件:行号` 引用）。
+        //   ⚠️ **如实差异**：远端 `TranslationService` 是 P3（关服）⇒ 生产局里 `TranslationStatus` 恒 0，
+        //      另两态**只有自检能进**（⛔ 不把翻译「本地化」成假的 Translated）。
+
+        /// <summary>三态值（原版 `ChatMessageData.ChatMessageTranslation`：`Normal=0 / Translating=1 / Translated=2`）。
+        /// ⛔ 别改数 —— 它同时是 `SocialData.ChatMessage.TranslationStatus` 的取值。</summary>
+        public const int TransNormal = 0, TransTranslating = 1, TransTranslated = 2;
+
+        /// <summary>译中文案词条（prefab 上 `translatingTip.mTerm`）。</summary>
+        public const string TranslatingTipTerm = "MainMenu/Messages/Translating";
+
+        /// <summary>两份翻译态材质（`Assets/CardPresentation/Resources/Fonts/`，文件名照原版 `m_Name`）。</summary>
+        const string GreenMatPath = "Fonts/Pragati-Regular Light Green";
+        const string CreamMatPath = "Fonts/Pragati-Regular Light Cream";
+
+        /// <summary>三态之后的**正文串**（= 原版 `SetMessageText` 那一串赋值跑完的结果）。
+        /// <para>`Translating` ⇒ 先削掉结尾的**换行**、再追加 `" (" + 词条 + ")"`；其余两态原样。</para>
+        /// <para>⚠️ 只削 `'\n'`（原版 `TrimEnd('\n')`），⛔ **不是** `TrimEnd()` —— 末尾的空格要留住。
+        /// ⚠️ `Translated` 的正文 = `GetMessage()` 给的那一份；本仓 `SocialData.ChatMessage` **没有**
+        /// 独立的 `translatedMessage` 字段（原版 `ChatMessageData.translatedMessage`），承载靠 `Text`
+        /// —— `Shell/SocialData.cs` 不在本批白名单，补字段的补丁见报告 §「需要调度台接线」。</para></summary>
+        public static string BodyText(SocialData.ChatMessage m)
+        {
+            string t = SocialData.Text(m) ?? "";
+            if (m == null || m.TranslationStatus != TransTranslating) return t;
+            return t.TrimEnd('\n') + " (" + Loc.T(TranslatingTipTerm) + ")";
+        }
+
+        /// <summary>按三态换**字体材质**（原版 `SetMessageText` 里那三句 `fontMaterial = …`）。
+        /// <para>`Normal` **什么都不做** —— 原版赋的 `normalFontMaterial` 就是我方字体资产自带的那份。</para>
+        /// <para>⚠️ 正文含汉字时 `Label.ActualFace` 会强制回 CJK 面（Noto 图集）⇒ Pragati 的材质套上去会
+        /// **取错图集**（静默画错）⇒ 这种情况**不换并出声**。</para></summary>
+        public static void ApplyTranslationFont(Label lb, SocialData.ChatMessage m)
+        {
+            if (lb == null || m == null) return;
+            string res, what;
+            switch (m.TranslationStatus)
+            {
+                case TransNormal: return;
+                case TransTranslating: res = GreenMatPath; what = "Translating"; break;
+                case TransTranslated: res = CreamMatPath; what = "Translated"; break;
+                default:
+                    if (_saidOnce.Add("trans" + m.TranslationStatus))
+                        Debug.LogWarning("[Chat] 未知的翻译态 " + m.TranslationStatus
+                                       + "（原版只有 0/1/2 三档）⇒ 按 Normal 处理（不换材质）。");
+                    return;
+            }
+            if (lb.ActualFace != TmpFont.Face.LatinCardBody)
+            {
+                if (_saidOnce.Add("transFace"))
+                    Debug.LogWarning("[Chat] 翻译态「" + what + "」没换材质：正文含汉字 ⇒ 这个标签实际用 CJK 面"
+                                   + "（Noto 图集），Pragati 的材质套上去会取错图集（⛔ 不静默）。");
+                return;
+            }
+            var mat = TransMaterial(res, what);
+            if (mat != null) lb.SetFontMaterial(mat);
+        }
+
+        static readonly Material[] _transMats = new Material[3];
+
+        /// <summary>取一份翻译态材质（缓存；取不到**出声**，⛔ 不静默退回）。</summary>
+        static Material TransMaterial(string resPath, string what)
+        {
+            int i = resPath == GreenMatPath ? TransTranslating : TransTranslated;
+            if (_transMats[i] != null) return _transMats[i];
+            var m = Resources.Load<Material>(resPath);
+            if (m == null)
+            {
+                if (_saidOnce.Add("transMiss" + i))
+                    Debug.LogWarning("[Chat] `Resources/" + resPath + ".mat` 取不到 ⇒ 翻译态「" + what
+                                   + "」不换材质（⛔ 不静默）。");
+                return null;
+            }
+            _transMats[i] = m;
+            return m;
+        }
     }
 }

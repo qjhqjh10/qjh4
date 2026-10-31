@@ -1,0 +1,1280 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""res_audit.py —— 资源「三层查」的第 ②层（可用）与第 ③层（正确）。
+
+判据与设计 = `Unity/资料/完全复刻/判据/B109_R9_资源侧剩余.md` §8；
+前身 = `Unity/资料/完全复刻/报告/B100_X11.md`（四支临时脚本的固化版）。
+第 ① 层（覆盖账 247,612 对象）由 `资源/R0_资源覆盖账.tsv` 承担，本工具**不重扫**。
+
+用法（不带参 = 只打印本段并退出 0）：
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --dry                  # 只算不写
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan                 # 真跑 + 写盘
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --only 2        # 只跑第 ② 层
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --only 3        # 只跑第 ③ 层
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --no-content    # 跳过逐像素比对（快）
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --top 40        # 摘要里每类列几条
+
+只读：⛔ 不写 `Assets/**` · ⛔ 不写 `d:/2` · ⛔ 不跑 Unity · ⛔ 不动 git。
+唯一写盘动作 = `--scan` 时写 `--out`（默认 `资料/完全复刻/资源/B109_资源可用性.tsv`）。
+
+② 可用（7 项）：EXISTS · GUID_OK · TYPE_OK · DEPS_OK · LOADABLE · SIZE_OK · READABLE_OK
+   → 状态机 OK / PRESENT_NOT_LOADABLE / DEPS_MISSING / TYPE_MISMATCH / MISSING / UNKNOWN
+③ 正确（4 层）：
+   P1 参数级 —— 贴图尺寸 · 导入参数(平台块 maxTextureSize/format) · 材质属性值 vs 原版 m_SavedProperties
+   P2 内容级 —— 同名同尺寸贴图逐像素比对（对标 `d:/2/新解包资源/assets_full/*/Texture2D/*.png`）；
+                音频按字节比对（`assets_full/*/AudioClip/*`）
+   P3 绑定级 —— material→shader 是不是原版那一支；贴图尺寸是否 = 原版 sprite 的 textureRect
+   P4 行为级 —— 材质声明的属性/关键字在目标 shader 里有没有被消费；原版材质有没有被我们消费（R4-07 类）
+
+输出（`--scan` 写的 TSV，15 列；前 14 列 = 判据 §8 的设计，末列「层」是本工具的补充）：
+  层 · 域 · 原版对象 · 类型 · 原版资产名 · 我们路径 · ②状态 · ②失败项 ·
+  ③P1 · ③P2 · ③P3 · ③P4 · 缺陷类 · 处置 · 证据(文件:行)
+只写「有问题的行」；② 层的全量清点看控制台日志。
+
+已知边界（⛔ 别把没覆盖的当成已核）：
+  · 贴图的 GPU 格式 / sRGB 只能读解包 bundle 头，本轮不比（`判据/B108_AUD09_纹理格式.md` 已对 105 张 SDF 做过）；
+  · 「prefab 节点 → 用哪张 sprite/材质」的 P3 需要对原版 prefab YAML（AssetRipper/Unity），本轮只做材质侧；
+  · 同名不同图：只对「同名且**尺寸相同**」的才逐像素比（裁片尺寸不同跳过，那部分靠 P3 的 textureRect 判）；
+  · `overridden` 字段不作门（判据见 `effective_max_size` 的注释）。
+"""
+import argparse
+import collections
+import hashlib
+import io
+import json
+import os
+import re
+import sys
+
+# ---------------------------------------------------------------- 配置
+ASSETS = r"d:/4/Unity/MyGame/Assets"
+PROJ = r"d:/4/Unity/MyGame"
+PKG_ROOTS = [os.path.join(PROJ, "Library", "PackageCache"), os.path.join(PROJ, "Packages")]
+ORIG = r"d:/2/新解包资源/assets_full"
+RES_DIR = r"d:/4/Unity/资料/完全复刻/资源"
+R4_TSV = os.path.join(RES_DIR, "R4_Shader_VFX_清单.tsv")
+R0_TSV = os.path.join(RES_DIR, "R0_资源覆盖账.tsv")
+DEFAULT_OUT = os.path.join(RES_DIR, "B109_资源可用性.tsv")
+
+COLS = ["层", "域", "原版对象", "类型", "原版资产名", "我们路径",
+        "②状态", "②失败项", "③P1", "③P2", "③P3", "③P4",
+        "缺陷类", "处置", "证据(文件:行)"]
+
+ASSET_EXTS = {
+    ".png", ".jpg", ".mat", ".prefab", ".asset", ".ogg", ".wav", ".shader", ".obj",
+    ".anim", ".unity", ".json", ".bundle", ".webm", ".mp4", ".ttf", ".mixer",
+    ".controller", ".cubemap", ".shadergraph", ".hlsl", ".cginc", ".txt", ".tsv",
+    ".inputactions", ".dll", ".xml",
+}
+YAML_EXTS = {".mat", ".prefab", ".asset", ".unity", ".anim", ".controller", ".mixer", ".cubemap"}
+
+IMPORTER_OK = {
+    ".png": "TextureImporter", ".jpg": "TextureImporter",
+    ".ogg": "AudioImporter", ".wav": "AudioImporter",
+    ".shader": "ShaderImporter", ".cginc": "ShaderImporter", ".hlsl": "ShaderImporter",
+    ".obj": "ModelImporter",
+    ".ttf": "TrueTypeFontImporter",
+    ".webm": "VideoClipImporter", ".mp4": "VideoClipImporter",
+    ".prefab": "PrefabImporter", ".unity": "DefaultImporter",
+    ".asset": "NativeFormatImporter", ".mat": "NativeFormatImporter",
+    ".anim": "NativeFormatImporter", ".controller": "NativeFormatImporter",
+    ".mixer": "NativeFormatImporter", ".cubemap": "NativeFormatImporter",
+    ".json": "TextScriptImporter", ".txt": "TextScriptImporter",
+    ".bundle": "DefaultImporter", ".dll": "PluginImporter",
+    ".shadergraph": "ScriptedImporter", ".inputactions": "ScriptedImporter",
+}
+
+TYPE_OF = {".png": "Texture2D", ".jpg": "Texture2D", ".mat": "Material", ".prefab": "GameObject",
+           ".asset": "ScriptableObject", ".ogg": "AudioClip", ".wav": "AudioClip",
+           ".shader": "Shader", ".obj": "Mesh", ".anim": "AnimationClip", ".unity": "Scene",
+           ".json": "TextAsset", ".bundle": "AssetBundle", ".webm": "VideoClip",
+           ".mp4": "VideoClip", ".ttf": "Font", ".mixer": "AudioMixer",
+           ".controller": "AnimatorController", ".cubemap": "Cubemap", ".shadergraph": "Shader",
+           ".inputactions": "InputActionAsset", ".txt": "TextAsset", ".tsv": "TextAsset",
+           ".dll": "Dll", ".hlsl": "ShaderInclude", ".cginc": "ShaderInclude",
+           ".xml": "TextAsset", ".md": "TextAsset", ".rsp": "TextAsset"}
+
+RE_GUID = re.compile(rb"^guid:\s*([0-9a-fA-F]{32})", re.M)
+RE_IMPORTER = re.compile(rb"^([A-Za-z]+Importer):", re.M)
+RE_REF = re.compile(rb"\{fileID:\s*(-?\d+),\s*guid:\s*([0-9a-fA-F]{32}),\s*type:\s*(\d+)\}")
+RE_NAME = re.compile(rb"^  m_Name:[ \t]*(.*)$", re.M)
+RE_SHADER_REF = re.compile(rb"m_Shader:\s*\{fileID:\s*(-?\d+),\s*guid:\s*([0-9a-fA-F]{32}),\s*type:\s*(\d+)\}")
+RE_SHADER_DECL = re.compile(rb'^\s*Shader\s+"([^"]+)"', re.M)
+RE_ISREADABLE = re.compile(rb"^  isReadable:\s*(\d+)", re.M)
+RE_KEYWORDS = re.compile(rb"^  m_ValidKeywords:(.*)$", re.M)
+RE_KEYWORD_ITEM = re.compile(rb"^  - (\S+)$", re.M)
+
+BUILTIN_PREFIX = "0000000000000000"
+ZERO_GUID = "0" * 32
+
+# 判据 `B109_R9 §6` 的 13 条原版菜单 UI 材质动画 shader（P4 的固定标尺，⛔ 别改名单）
+R4_07 = {
+    "Everguild/UI/Division Change", "Everguild/UI/Greyscale Add",
+    "Everguild/FX/FX Shine For Animation Normal", "Everguild/UI/Pulsating",
+    "Everguild/UI/UI Glow SDF Noise", "Everguild/UI/UI Distort", "Everguild/UI/Additive",
+    "Shader Graphs/UI Container Main Menu", "Everguild/UI/UI Clock",
+    "Everguild/UI/UI Border Highlight Pulse Alpha", "Everguild/UI/Scan Lines Alpha Mask",
+    "Everguild/FX/Genestealers Flood", "Everguild/FX/Two passes blur",
+}
+
+# 已裁定「我们与原版序列化值不同、但这是有意为之」的属性：原版那侧是死值。
+# 判据 → `Unity/资料/任务线/特效线/任务总表.md:164`（2026-10-23 翻案）。
+RULED_DIFFS = {
+    "_SrcBlendAlpha": "原版 `rtSeparateBlend=False` ⇒ 原版那侧是死值；2026-10-23 裁定取 5",
+    "_DstBlendAlpha": "同上（原版 alpha 侧不寻址）",
+}
+
+PIXEL_APIS = ("GetPixels(", "GetPixels32(", "SetPixels(", "SetPixels32(",
+              "GetPixelData(", "SetPixelData(", "EncodeToPNG(", "GetRawTextureData(")
+
+
+def rb(p):
+    with io.open(p, "rb") as f:
+        return f.read()
+
+
+def txt(p):
+    return rb(p).decode("utf-8", "replace")
+
+
+def rel(p, base):
+    return os.path.relpath(p, base).replace(os.sep, "/")
+
+
+def image_size(p):
+    """按内容判图（⛔ 不按扩展名：本工程实测有 .png 里装 JPEG 的）。"""
+    try:
+        b = rb(p)[:32]
+    except Exception:
+        return None, None
+    if b[:8] == b"\x89PNG\r\n\x1a\n" and len(b) >= 24:
+        return "png", (int.from_bytes(b[16:20], "big"), int.from_bytes(b[20:24], "big"))
+    if b[:3] == b"\xff\xd8\xff":
+        try:
+            from PIL import Image
+            with Image.open(p) as im:
+                return "jpg", im.size
+        except Exception:
+            return "jpg", None
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+        return "webp", None
+    if b[:3] == b"GIF":
+        return "gif", (int.from_bytes(b[6:8], "little"), int.from_bytes(b[8:10], "little"))
+    if b[:2] == b"BM":
+        return "bmp", (int.from_bytes(b[18:22], "little"), int.from_bytes(b[22:26], "little"))
+    if b[:4] == b"OggS":
+        return "ogg", None
+    if b[:4] == b"RIFF" and b[8:12] == b"WAVE":
+        return "wav", None
+    if b[:4] == b"fLaC":
+        return "flac", None
+    return None, None
+
+
+def png_size(p):
+    kind, size = image_size(p)
+    return size if kind == "png" else None
+
+
+def domain_of(r):
+    pairs = [
+        ("CardPresentation/Resources/Art/cards/clan", "卡框"),
+        ("CardPresentation/Resources/Art/cards", "卡面"),
+        ("CardPresentation/Resources/Art/cardbacks", "卡背"),
+        ("CardPresentation/Resources/Art/avatars", "头像"),
+        ("CardPresentation/Resources/Art/traits", "关键词图标"),
+        ("CardPresentation/Resources/Art/ui", "菜单UI"),
+        ("CardPresentation/Resources/Art/vfx", "特效材质"),
+        ("CardPresentation/Resources/Art/audio", "音频"),
+        ("CardPresentation/Resources/Art/videos", "视频"),
+        ("CardPresentation/Resources/Art/altarts", "异画"),
+        ("CardPresentation/Resources/Art/boosterpack", "卡包"),
+        ("CardPresentation/Resources/Art", "其它美术"),
+        ("CardPresentation/Resources/ArenaPrefabs", "战场预制体"),
+        ("CardPresentation/Resources", "其它Resources"),
+        ("WarpforgeVFX", "特效"),
+        ("WarpforgeArena1", "战场"),
+        ("WarpforgeBooster", "卡包"),
+        ("RuleEngine", "规则数据"),
+        ("TextMesh Pro", "TMP"),
+        ("StreamingAssets", "流式"),
+        ("Plugins", "插件"),
+    ]
+    for pre, d in pairs:
+        if r.startswith(pre):
+            return d
+    return "其它"
+
+
+def parse_platform_settings(b):
+    """{buildTarget: {maxTextureSize, format, textureCompression, overridden}} —— Unity 生效的是平台块。
+
+    ⚠️ 关键：`overridden: 0` 的平台块**不生效**，Unity 回落到 `DefaultTexturePlatform`。
+    （只读平台块的 maxTextureSize 会误报降采样 —— `B108_AUD09_meta.md` §二 记过同族坑。）
+    """
+    out = {}
+    if not b:
+        return out
+    lines = b.split(b"\n")
+    i = None
+    for k, ln in enumerate(lines):
+        if ln.strip() == b"platformSettings:":
+            i = k
+            break
+    if i is None:
+        return out
+    cur = None
+    for ln in lines[i + 1:]:
+        if not ln.strip():
+            continue
+        if ln.startswith(b"  ") and not ln.startswith(b"   ") and not ln.startswith(b"  - "):
+            break  # 下一个同级键
+        s = ln.strip()
+        if s.startswith(b"- serializedVersion"):
+            cur = {}
+            continue
+        if s.startswith(b"buildTarget:"):
+            cur = cur if cur is not None else {}
+            cur["target"] = s.split(b":", 1)[1].strip().decode()
+            out[cur["target"]] = cur
+            continue
+        m = re.match(rb"(maxTextureSize|format|textureCompression|resizeAlgorithm|overridden):\s*(\S+)", s)
+        if m and cur is not None:
+            try:
+                cur[m.group(1).decode()] = int(m.group(2))
+            except ValueError:
+                pass
+    return out
+
+
+def effective_max_size(ps, top_level_max):
+    """本机目标 = Standalone：有 Standalone 块就用它（Unity 按 buildTarget 取），否则 Default，再否则顶层。
+
+    ⚠️ `overridden` 字段**不能**当门：实测 `Art/ui_menu/*.meta` 里 Standalone 块 `overridden: 0`
+    却写着 2048 / Default 写 1024，而 `B100_X11 §五` 与 `B108_AUD09_meta.md §二` 的实测都是
+    「平台块会盖掉顶层」⇒ 有该平台的块就按它算。⛔ 只读顶层 `maxTextureSize` 是已知的错法。
+    """
+    blk = ps.get("Standalone")
+    if blk and blk.get("maxTextureSize"):
+        return blk["maxTextureSize"], "Standalone"
+    d = ps.get("DefaultTexturePlatform") or {}
+    if d.get("maxTextureSize"):
+        return d["maxTextureSize"], "DefaultTexturePlatform"
+    return top_level_max, "top-level"
+
+
+def parse_mat_props(b):
+    """返回 (colors{name:(r,g,b,a)}, floats{name:v}, texenvs[names], keywords[names])
+
+    形状以本工程 .mat 源码为准（Unity 6）：
+        m_TexEnvs:
+        - _MainTex:
+            m_Texture: {fileID: ...}
+        m_Floats:
+        - _Cull: 2
+        m_Colors:
+        - _Color: {r: 4, g: 4, b: 4, a: 1}
+    """
+    colors, floats, texenvs, kws = {}, {}, [], []
+    text = b.decode("utf-8", "replace")
+    i = text.find("  m_SavedProperties:")
+    if i >= 0:
+        seg = text[i:].split("\n")
+        state = None
+        for ln in seg[1:]:
+            if not ln.startswith("    "):
+                if ln.startswith("  ") and ln.strip():
+                    state = None            # 回到二级键（如 m_BuildTextureStacks）
+                continue
+            s = ln[4:]
+            if s.startswith("m_TexEnvs:"):
+                state = "tex"
+                continue
+            if s.startswith("m_Floats:"):
+                state = "float"
+                continue
+            if s.startswith("m_Colors:"):
+                state = "color"
+                continue
+            if s.startswith("m_Ints:"):
+                state = "int"
+                continue
+            if not s.startswith("- "):
+                continue
+            item = s[2:]
+            if state == "tex":
+                texenvs.append(item.split(":", 1)[0].strip())
+            elif state == "float":
+                k, _, v = item.partition(":")
+                try:
+                    floats[k.strip()] = round(float(v.strip()), 6)
+                except ValueError:
+                    pass
+            elif state == "color":
+                k, _, v = item.partition(":")
+                m = re.search(r"r:\s*([-\d.eE+]+),\s*g:\s*([-\d.eE+]+),\s*b:\s*([-\d.eE+]+),\s*a:\s*([-\d.eE+]+)", v)
+                if m:
+                    colors[k.strip()] = tuple(round(float(m.group(x)), 4) for x in (1, 2, 3, 4))
+    m = re.search(r"^  m_ValidKeywords:(.*)$", text, re.M)
+    if m:
+        if m.group(1).strip() == "[]":
+            pass
+        else:
+            kws = [x[4:].strip() for x in text[m.end():].split("\n") if x.startswith("  - ")]
+    return colors, floats, texenvs, kws
+
+
+RE_SHADER_PROPS = re.compile(rb"^[ \t]{1,12}(?:\[[^\]]*\]\s*)*([A-Za-z_]\w*)\s*\(", re.M)
+RE_PRAGMA = re.compile(rb"#pragma\s+(?:multi_compile(?:_fragment|_vertex)?|shader_feature(?:_local|_local_fragment)?)\s+([^\n]+)")
+
+
+def parse_shader(path, cache):
+    if path in cache:
+        return cache[path]
+    b = rb(path)
+    blob = b
+    # 跟一层 #include（TMP 的属性写在 TMPro_Properties.cginc 里，只看 .shader 正文会漏）
+    for m in re.finditer(rb'#include\s+"([^"]+)"', b):
+        inc = os.path.join(os.path.dirname(path), m.group(1).decode("utf-8", "replace"))
+        if os.path.isfile(inc):
+            try:
+                blob += b"\n" + rb(inc)
+            except Exception:
+                pass
+    props = set(m.group(1).decode() for m in RE_SHADER_PROPS.finditer(blob))
+    # HLSL 里直接声明的 uniform 也算「被消费」（URP 里大量状态量不走 Properties 块）
+    for m in re.finditer(rb"(?:uniform[ \t]+)?(?:float|half|fixed|int|uint|float2|float3|float4|half2|half3|half4"
+                         rb"|fixed2|fixed3|fixed4|sampler2D|sampler3D|samplerCUBE|sampler2D_float|Texture2D|Texture3D|TextureCube)"
+                         rb"[ \t]+(_\w+)\s*[;=]", blob):
+        props.add(m.group(1).decode())
+    for m in re.finditer(rb"TEXTURE2D\s*\(\s*(_\w+)\s*\)", blob):
+        props.add(m.group(1).decode())
+    kws = set()
+    for m in RE_PRAGMA.finditer(b):
+        for tok in m.group(1).split():
+            t = tok.decode("utf-8", "replace")
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", t):
+                kws.add(t)
+    decl = RE_SHADER_DECL.search(b)
+    name = decl.group(1).decode("utf-8", "replace") if decl else ""
+    cache[path] = (props, kws, name)
+    return cache[path]
+
+
+def pixel_md5(path):
+    from PIL import Image
+    with Image.open(path) as im:
+        im = im.convert("RGBA")
+        return hashlib.md5(im.tobytes()).hexdigest(), im.size
+
+
+def pixel_diff(p1, p2, max_px=4000000):
+    """返回 (mean_all, mean_rgb)。分开报 RGB 是因为法线图常被压成 DXT5nm（X 在 A 通道），
+    按 RGBA 一起比会把「同一张法线」判成完全不同。"""
+    import numpy as np
+    from PIL import Image
+    with Image.open(p1) as a, Image.open(p2) as b:
+        a = a.convert("RGBA")
+        b = b.convert("RGBA")
+        if a.size != b.size:
+            return None
+        if a.size[0] * a.size[1] > max_px:
+            a = a.resize((256, 256))
+            b = b.resize((256, 256))
+        x = np.asarray(a, dtype=np.int16)
+        y = np.asarray(b, dtype=np.int16)
+        d = np.abs(x - y)
+        return float(d.mean()), float(d[:, :, :3].mean())
+
+
+def mat_name(b):
+    """取第一个非空的 `m_Name:`（.mat 前面常先有一段 AssetVersion 的 MonoBehaviour，m_Name 为空）。"""
+    for m in RE_NAME.finditer(b):
+        s = m.group(1).decode("utf-8", "replace").strip()
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
+            s = s[1:-1]
+        if s:
+            return s
+    return ""
+
+
+# ---------------------------------------------------------------- 索引
+class Ctx(object):
+    def __init__(self, log):
+        self.log = log
+        self.files = []            # (abs, rel, ext, size)
+        self.guid2path = {}
+        self.guid_dups = set()
+        self.meta_missing = []
+        self.meta_orphan = []
+        self.resources_roots = []
+        self.load_sites = []
+        self.load_literals = set()
+        self.load_prefixes = set()
+        self.pixel_src = []        # (rel, text)
+        self.orig_tex = collections.defaultdict(list)
+        self.orig_mat = {}
+        self.orig_sprite = {}
+        self.orig_audio = {}
+        self.shader_pid2name = {}
+        self.shader_orig_refs = {}
+        self.shader_cache = {}
+        self.mat_cache = {}
+        self.code_all = ""
+        self.code_runtime = ""
+
+    def load(self):
+        A = ASSETS
+        for dp, dn, fn in os.walk(A):
+            for f in fn:
+                p = os.path.join(dp, f)
+                r = rel(p, A)
+                if f.endswith(".meta"):
+                    b = rb(p)
+                    m = RE_GUID.search(b)
+                    if m:
+                        g = m.group(1).decode().lower()
+                        if g in self.guid2path:
+                            self.guid_dups.add(g)
+                        else:
+                            self.guid2path[g] = p[:-5]
+                    else:
+                        self.meta_orphan.append(r)
+                    if not os.path.exists(p[:-5]):
+                        self.meta_orphan.append(r)
+                    continue
+                ext = os.path.splitext(f)[1].lower()
+                try:
+                    sz = os.path.getsize(p)
+                except OSError:
+                    sz = -1
+                self.files.append((p, r, ext, sz))
+                if not os.path.exists(p + ".meta"):
+                    self.meta_missing.append(r)
+        for base in PKG_ROOTS:
+            if not os.path.isdir(base):
+                continue
+            for dp, dn, fn in os.walk(base):
+                for f in fn:
+                    if not f.endswith(".meta"):
+                        continue
+                    p = os.path.join(dp, f)
+                    try:
+                        m = RE_GUID.search(rb(p))
+                    except Exception:
+                        continue
+                    if m:
+                        self.guid2path.setdefault(m.group(1).decode().lower(), p[:-5])
+        for dp, dn, fn in os.walk(A):
+            if "Resources" in dn:
+                self.resources_roots.append(os.path.join(dp, "Resources"))
+        self.log("① 索引：工程资产 %d · guid %d（重复 %d）· 缺 meta %d · 孤儿 meta %d · Resources 根 %d"
+                 % (len(self.files), len(self.guid2path), len(self.guid_dups),
+                    len(self.meta_missing), len(self.meta_orphan), len(self.resources_roots)))
+        if self.meta_missing:
+            self.log("   缺 meta 清单（前 10）：" + " · ".join(self.meta_missing[:10]))
+        self.scan_code()
+        self.scan_original()
+        self.build_reverse()
+
+    # ---- 代码侧
+    def scan_code(self):
+        A = ASSETS
+        srcs, consts_file, allconst = {}, {}, collections.defaultdict(set)
+        for p, r, ext, sz in self.files:
+            if ext != ".cs":
+                continue
+            s = txt(p)
+            srcs[p] = s
+            d = {}
+            for m in re.finditer(r'(?:const|static\s+readonly)\s+string\s+(\w+)\s*=\s*"((?:[^"\\]|\\.)*)"', s):
+                d[m.group(1)] = m.group(2)
+            consts_file[p] = d
+            for k, v in d.items():
+                allconst[k].add(v)
+        uniq = {k: next(iter(v)) for k, v in allconst.items() if len(v) == 1}
+        self.code_all = "\n".join(srcs.values())
+        full_qual = {}
+        for p, d in consts_file.items():
+            cls = os.path.splitext(os.path.basename(p))[0]
+            for k, v in d.items():
+                full_qual[cls + "." + k] = v
+
+        def lookup(tok, cf):
+            short = tok.split(".")[-1]
+            if tok in full_qual:
+                return full_qual[tok]
+            if short in consts_file.get(cf, {}):
+                return consts_file[cf][short]
+            if short in uniq:
+                return uniq[short]
+            return None
+
+        def strip_comments(s):
+            out = []
+            for line in s.split("\n"):
+                q = False
+                i = 0
+                while i < len(line):
+                    ch = line[i]
+                    if ch == '"':
+                        q = not q
+                    elif ch == "/" and not q and i + 1 < len(line) and line[i + 1] == "/":
+                        line = line[:i]
+                        break
+                    i += 1
+                out.append(line)
+            return "\n".join(out)
+
+        def split_plus(a):
+            parts, depth, cur, q, esc = [], 0, "", False, False
+            for ch in a:
+                if q:
+                    cur += ch
+                    if esc:
+                        esc = False
+                    elif ch == "\\":
+                        esc = True
+                    elif ch == '"':
+                        q = False
+                    continue
+                if ch == '"':
+                    q = True
+                    cur += ch
+                    continue
+                if ch == "(":
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+                if ch == "+" and depth == 0:
+                    parts.append(cur.strip())
+                    cur = ""
+                    continue
+                cur += ch
+            if cur.strip():
+                parts.append(cur.strip())
+            return parts
+
+        def resolve(arg, cf):
+            a = arg.strip()
+            m = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', a)
+            if m:
+                return "literal", m.group(1)
+            val, unknown = "", False
+            for p in split_plus(a):
+                mm = re.fullmatch(r'"((?:[^"\\]|\\.)*)"', p)
+                if mm:
+                    val += mm.group(1)
+                    continue
+                c = lookup(p, cf)
+                if c is not None:
+                    val += c
+                    continue
+                lits = re.findall(r'"((?:[^"\\]|\\.)*)"', p)
+                if lits:
+                    val += lits[0]
+                unknown = True
+            if not unknown and val:
+                return "literal", val
+            if val:
+                return "prefix", val
+            return "dynamic", None
+
+        runtime_clean = []
+        for p, s in srcs.items():
+            r = rel(p, A)
+            is_editor = "/Editor/" in p.replace(os.sep, "/")
+            clean = strip_comments(s)
+            for m in re.finditer(r"Resources\.(Load|LoadAll)\s*(?:<[^>]*>)?\s*\(", clean):
+                i = m.end()
+                depth, j, q, esc = 1, i, False, False
+                while j < len(clean) and depth > 0:
+                    ch = clean[j]
+                    if q:
+                        if esc:
+                            esc = False
+                        elif ch == "\\":
+                            esc = True
+                        elif ch == '"':
+                            q = False
+                    else:
+                        if ch == '"':
+                            q = True
+                        elif ch == "(":
+                            depth += 1
+                        elif ch == ")":
+                            depth -= 1
+                    j += 1
+                arg = clean[i:j - 1].strip()
+                ln = clean.count("\n", 0, m.start()) + 1
+                kind, val = resolve(arg, p)
+                self.load_sites.append({"file": r, "line": ln, "arg": arg, "kind": kind,
+                                        "value": val, "editor": is_editor,
+                                        "all": m.group(1) == "LoadAll"})
+                if not is_editor and kind == "literal":
+                    self.load_literals.add(val)
+                elif not is_editor and kind == "prefix":
+                    self.load_prefixes.add(val)
+            if not is_editor and any(api in s for api in PIXEL_APIS):
+                self.pixel_src.append((r, s))
+            if not is_editor:
+                runtime_clean.append(clean)
+        self.code_runtime = "\n".join(runtime_clean)
+        c = collections.Counter(x["kind"] for x in self.load_sites)
+        self.log("代码面：Resources.Load 调用点 %d（literal %d / prefix %d / dynamic %d）· 运行期读像素文件 %d"
+                 % (len(self.load_sites), c["literal"], c["prefix"], c["dynamic"], len(self.pixel_src)))
+
+    def scan_original(self):
+        if not os.path.isdir(ORIG):
+            self.log("⚠️ 原版镜像 %s 不在 ⇒ ③ 层全部 UNKNOWN" % ORIG)
+            return
+        for d in sorted(os.listdir(ORIG)):
+            base = os.path.join(ORIG, d)
+            if not os.path.isdir(base):
+                continue
+            td = os.path.join(base, "Texture2D")
+            if os.path.isdir(td):
+                for f in os.listdir(td):
+                    if f.lower().endswith(".png"):
+                        self.orig_tex[os.path.splitext(f)[0]].append(os.path.join(td, f))
+            md = os.path.join(base, "Material")
+            if os.path.isdir(md):
+                for f in os.listdir(md):
+                    if not f.endswith(".json"):
+                        continue
+                    try:
+                        o = json.load(io.open(os.path.join(md, f), encoding="utf-8"))
+                    except Exception:
+                        continue
+                    nm = o.get("m_Name")
+                    if nm and nm not in self.orig_mat:
+                        sh = (o.get("m_Shader") or {}).get("m_PathID")
+                        self.orig_mat[nm] = (os.path.join(md, f), str(sh) if sh else "")
+            sd = os.path.join(base, "Sprite")
+            if os.path.isdir(sd):
+                for f in os.listdir(sd):
+                    if f.endswith(".json") and f[:-5] not in self.orig_sprite:
+                        self.orig_sprite[f[:-5]] = os.path.join(sd, f)
+            ad = os.path.join(base, "AudioClip")
+            if os.path.isdir(ad):
+                for f in os.listdir(ad):
+                    self.orig_audio.setdefault(os.path.splitext(f)[0], os.path.join(ad, f))
+        if os.path.isfile(R4_TSV):
+            L = io.open(R4_TSV, "rb").read().decode("utf-8-sig").split("\n")
+            h = L[0].split("\t")
+            ip, iname, icnt, itype = h.index("PathID"), h.index("真实名字"), h.index("引用数"), h.index("类型")
+            for l in L[1:]:
+                if not l.strip():
+                    continue
+                f = l.split("\t")
+                if len(f) <= icnt or f[itype] != "Shader":
+                    continue
+                self.shader_pid2name[f[ip]] = f[iname]
+                try:
+                    self.shader_orig_refs[f[iname]] = int(f[icnt])
+                except ValueError:
+                    pass
+        self.log("原版索引：Texture2D %d · Material %d · Sprite %d · AudioClip %d · Shader %d"
+                 % (len(self.orig_tex), len(self.orig_mat), len(self.orig_sprite),
+                    len(self.orig_audio), len(self.shader_pid2name)))
+
+    def build_reverse(self):
+        self.reverse = collections.defaultdict(set)
+        for p, r, ext, sz in self.files:
+            if ext not in YAML_EXTS:
+                continue
+            b = rb(p)
+            for m in RE_REF.finditer(b):
+                g = m.group(2).decode().lower()
+                if g == ZERO_GUID or g.startswith(BUILTIN_PREFIX):
+                    continue
+                self.reverse[g].add(r)
+
+    # ---- 工具
+    def meta_of(self, p):
+        mp = p + ".meta"
+        return rb(mp) if os.path.exists(mp) else None
+
+    def res_json_text(self):
+        """Resources 下所有 .json 的正文（数据表按名引用资产的证据面）。"""
+        out = []
+        for p, r, ext, sz in self.files:
+            if ext == ".json" and self.resources_key(p) is not None:
+                try:
+                    out.append(txt(p))
+                except Exception:
+                    pass
+        return "\n".join(out)
+
+    def guid_of(self, p):
+        b = self.meta_of(p)
+        if not b:
+            return None
+        m = RE_GUID.search(b)
+        return m.group(1).decode().lower() if m else None
+
+    def resources_key(self, p):
+        for R in self.resources_roots:
+            if p.startswith(R + os.sep):
+                return rel(p, R).rsplit(".", 1)[0]
+        return None
+
+
+# ---------------------------------------------------------------- 主流程
+def run(args):
+    logs = []
+
+    def log(s):
+        logs.append(s)
+        print(s)
+        sys.stdout.flush()
+
+    ctx = Ctx(log)
+    ctx.load()
+
+    rows = []
+    stats = collections.Counter()
+    cls_counts = collections.Counter()
+    cls_examples = collections.defaultdict(list)
+
+    # ---- 可加载闭包
+    seed_guids = set()
+    for p, r, ext, sz in ctx.files:
+        if ctx.resources_key(p) is not None or r.startswith("StreamingAssets/") or ext == ".unity":
+            g = ctx.guid_of(p)
+            if g:
+                seed_guids.add(g)
+    reach = set(seed_guids)
+    for _ in range(3):
+        nxt = set()
+        for p, r, ext, sz in ctx.files:
+            if ext not in YAML_EXTS:
+                continue
+            g = ctx.guid_of(p)
+            if not g or g not in reach:
+                continue
+            for m in RE_REF.finditer(rb(p)):
+                gg = m.group(2).decode().lower()
+                if gg == ZERO_GUID or gg.startswith(BUILTIN_PREFIX):
+                    continue
+                nxt.add(gg)
+        add = nxt - reach
+        if not add:
+            break
+        reach |= add
+    log("② 可加载闭包：种子 %d → 闭包 %d 个 guid" % (len(seed_guids), len(reach)))
+
+    pixel_text = "\n".join(s for _, s in ctx.pixel_src)
+    code_text = ctx.code_all
+    res_json_text = ctx.res_json_text()
+    misc_counts = collections.Counter()
+
+    def tokset(s):
+        """正文 → 可 O(1) 查的串集合（引号内字面量 + 非空白 token）。"""
+        t = set(re.findall(r'"([^"\n]{3,160})"', s))
+        t |= set(re.findall(r"[^\s\"',;(){}\[\]]{4,160}", s))
+        return t
+
+    code_toks = tokset(code_text)
+    code_lit = set(re.findall(r'"([^"\n]{3,160})"', ctx.code_runtime))
+    data_toks = tokset(res_json_text)
+    dir_hit_memo = {}
+    # Resources 下已存在的「名字」集合：同名同图/异图都可能 —— 名字可加载性按名字判
+    res_stems = set()
+    for p, r, ext, sz in ctx.files:
+        if ctx.resources_key(p) is not None:
+            res_stems.add(os.path.splitext(os.path.basename(p))[0])
+    # 「读像素通道」真正摸到的贴图名 = 每个 GetPixels*/SetPixelData* 调用点周围 600 字符里的字面量
+    pixel_near = set()
+    for _, s in ctx.pixel_src:
+        for m in re.finditer(r"GetPixels|GetPixelData|SetPixelData|SetPixels|EncodeToPNG|GetRawTextureData", s):
+            win = s[max(0, m.start() - 600):m.start() + 600]
+            for lit in re.findall(r'"([^"\n]{2,160})"', win):
+                pixel_near.add(lit)
+    log("② 命名面：Resources 名字 %d · 读像素邻域字面量 %d" % (len(res_stems), len(pixel_near)))
+
+    def is_loadable(p, r, ext):
+        key = ctx.resources_key(p)
+        if key is not None:
+            return "RESOURCES", key
+        if r.startswith("StreamingAssets/"):
+            return "STREAMING", r[len("StreamingAssets/"):]
+        if ext == ".unity":
+            return "SCENE", ""
+        g = ctx.guid_of(p)
+        if g and g in reach:
+            return "VIA_REF", ""
+        stem = os.path.splitext(os.path.basename(p))[0]
+        for k in ctx.load_literals:
+            if k.rstrip("/").split("/")[-1] == stem:
+                return "LOAD_LITERAL", k
+        if stem in res_stems:
+            return "NAME_IN_RESOURCES", ""
+        return None, ""
+
+    # ================================================ ② 层
+    if args.only in ("2", "all"):
+        log("—— ② 层：逐工程资产（%d）——" % len([1 for f in ctx.files if f[2] in ASSET_EXTS]))
+        st_counts = collections.Counter()
+        for p, r, ext, sz in ctx.files:
+            if ext not in ASSET_EXTS:
+                continue
+            dom = domain_of(r)
+            typ = TYPE_OF.get(ext, ext)
+            stem = os.path.splitext(os.path.basename(p))[0]
+            orig_name = ""
+            if ext in (".png", ".jpg") and stem in ctx.orig_tex:
+                orig_name = stem
+            elif ext == ".mat" and stem in ctx.orig_mat:
+                orig_name = stem
+            elif ext in (".ogg", ".wav") and stem in ctx.orig_audio:
+                orig_name = stem
+            fails = []
+            meta_b = ctx.meta_of(p)
+            guid = None
+            if meta_b is None:
+                fails.append("META_MISSING")
+            else:
+                m = RE_GUID.search(meta_b)
+                if not m:
+                    fails.append("GUID_INVALID")
+                else:
+                    guid = m.group(1).decode().lower()
+                    if guid in ctx.guid_dups:
+                        fails.append("GUID_DUP")
+            exp = IMPORTER_OK.get(ext)
+            if meta_b is not None and exp:
+                m = RE_IMPORTER.search(meta_b)
+                imp = m.group(1).decode() if m else None
+                if imp and imp != exp:
+                    fails.append("TYPE_IMPORTER(%s!=%s)" % (imp, exp))
+                elif not imp:
+                    misc_counts["IMPORTER_DEFAULT(meta 无 importer 块，吃 Unity 默认)"] += 1
+            dep_bad = []
+            if ext in YAML_EXTS:
+                for m in RE_REF.finditer(rb(p)):
+                    g = m.group(2).decode().lower()
+                    if g == ZERO_GUID or g.startswith(BUILTIN_PREFIX):
+                        continue
+                    if g not in ctx.guid2path:
+                        dep_bad.append(g)
+                if dep_bad:
+                    fails.append("DEPS_MISSING(%d)" % len(dep_bad))
+            lkind, lkey = is_loadable(p, r, ext)
+            if not lkind:
+                fails.append("NOT_LOADABLE")
+            p1 = ""
+            if ext in (".png", ".jpg"):
+                kind, wh = image_size(p)
+                expect_kind = "png" if ext == ".png" else "jpg"
+                if kind and kind != expect_kind:
+                    fails.append("CONTENT_EXT_MISMATCH(实际=%s)" % kind)
+                if not wh:
+                    if not kind:
+                        fails.append("SIZE_INVALID_IMAGE")
+                else:
+                    w, h = wh
+                    p1 = "%dx%d" % (w, h)
+                    ps = parse_platform_settings(meta_b)
+                    mt = re.search(rb"^  maxTextureSize:\s*(\d+)", meta_b, re.M) if meta_b else None
+                    top_max = int(mt.group(1)) if mt else None
+                    mx, src = effective_max_size(ps, top_max)
+                    if mx and (w > mx or h > mx):
+                        fails.append("SIZE_DOWNSAMPLED(%dx%d>%d@%s)" % (w, h, mx, src))
+                    if w > 8192 or h > 8192:
+                        fails.append("SIZE_TOO_BIG(%dx%d)" % (w, h))
+                if meta_b is not None and ctx.resources_key(p) is not None:
+                    m = RE_ISREADABLE.search(meta_b)
+                    if m and m.group(1) == b"0":
+                        # 只有「会进读像素通道」的才必须 isReadable=1（B100_X11 §2-1 判据）
+                        consumer = (r.startswith("CardPresentation/Resources/Art/cards/clan/")
+                                    or "/frame_" in os.path.basename(p)
+                                    or (stem in pixel_near))
+                        if consumer:
+                            fails.append("READABLE_BAD(isReadable=0)")
+            order = [("META_MISSING", "MISSING"), ("GUID_INVALID", "UNKNOWN"), ("GUID_DUP", "UNKNOWN"),
+                     ("TYPE_IMPORTER", "TYPE_MISMATCH"), ("DEPS_MISSING", "DEPS_MISSING"),
+                     ("CONTENT_EXT_MISMATCH", "CONTENT_MISMATCH"),
+                     ("SIZE_INVALID_IMAGE", "SIZE_BAD"), ("SIZE_DOWNSAMPLED", "SIZE_BAD"),
+                     ("SIZE_TOO_BIG", "SIZE_BAD"), ("READABLE_BAD", "READABLE_BAD")]
+            st = "OK"
+            for pre, name in order:
+                if any(f.startswith(pre) for f in fails):
+                    st = name
+                    break
+            if st == "OK" and "NOT_LOADABLE" in fails:
+                st = "PRESENT_NOT_LOADABLE"
+            st_counts[st] += 1
+            if fails:
+                cls, fix = classify(st, fails)
+                if st == "PRESENT_NOT_LOADABLE":
+                    vendor = r.startswith(("Plugins/", "ThirdParty/", "TextMesh Pro/", "Settings/"))
+                    artish = ext in (".png", ".jpg", ".ogg", ".wav", ".webm", ".mp4")
+                    ev_hit = (artish and not vendor and len(stem) >= 6
+                              and (stem in code_lit or stem in data_toks))
+                    if ev_hit:
+                        cls = "有件取不到"
+                        fix = "核：代码/数据表引用了它，但运行期取不到（搬进 Resources 或改引用）"
+                    else:
+                        cls = ""
+                        fix = "非运行期资产（信息项，不计缺陷）"
+                if cls:
+                    cls_counts[cls] += 1
+                    if len(cls_examples[cls]) < args.top:
+                        cls_examples[cls].append(r)
+                fl = [f for f in fails if f != "NOT_LOADABLE"] or ["NOT_LOADABLE"]
+                ev = r
+                if lkind:
+                    ev += "  [%s:%s]" % (lkind, lkey) if lkey else "  [%s]" % lkind
+                rows.append(["2", dom, orig_name or "查不到", typ, orig_name or "查不到",
+                             r, st, ";".join(fl), p1, "", "", "", cls, fix, ev])
+        log("② 结果：" + " ".join("%s=%d" % kv for kv in st_counts.most_common()))
+        log("② 缺陷：" + (" ".join("%s=%d" % kv for kv in cls_counts.most_common()) or "无"))
+
+    # ================================================ ③ 层
+    if args.only in ("3", "all"):
+        log("—— ③ 层：与原版镜像逐项比 ——")
+        p3_counts = collections.Counter()
+        content = {"EXACT": 0, "NEAR": 0, "DIFF": 0, "SKIP_DIM": 0, "SKIP_NO_PIL": 0}
+        tex_pairs = 0
+        audio_pairs = 0
+        audio_same = 0
+        audio_diff = 0
+        mat_pairs = 0
+        mat_missing_rows = 0
+        miss_by_shader = collections.Counter()
+        drift_props = collections.Counter()
+        orig_mat_seen = set()
+        try:
+            import PIL  # noqa: F401
+            have_pil = True
+        except Exception:
+            have_pil = False
+        for p, r, ext, sz in ctx.files:
+            stem = os.path.splitext(os.path.basename(p))[0]
+            dom = domain_of(r)
+            if ext in (".png", ".jpg"):
+                if stem not in ctx.orig_tex:
+                    continue
+                tex_pairs += 1
+                ow = png_size(ctx.orig_tex[stem][0])
+                wh = png_size(p)
+                if not ow or not wh:
+                    p1 = "尺寸读不出（%s）" % os.path.splitext(p)[1]
+                    rows.append(["3", dom, stem, TYPE_OF.get(ext, ext), stem, r, "OK", "",
+                                 p1, "跳过", "", "", "", "", p])
+                    continue
+                p1 = "尺寸 %dx%d vs 原版 %dx%d" % (wh[0], wh[1], ow[0], ow[1])
+                p2 = p3 = ""
+                cls = ""
+                fix = ""
+                if wh == ow:
+                    if args.no_content or not have_pil:
+                        content["SKIP_NO_PIL"] += 1
+                        p2 = "跳过（--no-content）" if args.no_content else "跳过（无 PIL）"
+                    else:
+                        try:
+                            h1, s1 = pixel_md5(p)
+                            h2, s2 = pixel_md5(ctx.orig_tex[stem][0])
+                            if h1 == h2:
+                                content["EXACT"] += 1
+                                p2 = "像素逐字节相同"
+                            else:
+                                d = pixel_diff(p, ctx.orig_tex[stem][0])
+                                if d is None:
+                                    p2 = "尺寸读取不一致"
+                                else:
+                                    dall, drgb = d
+                                    if dall <= 3.0:
+                                        content["NEAR"] += 1
+                                        p2 = "几乎相同(mean|Δ|=%.2f，压缩/重编码差)" % dall
+                                    elif drgb <= 1.0:
+                                        content["NEAR"] += 1
+                                        p2 = "RGB 相同、仅 alpha 不同(mean|Δ| RGB=%.2f / RGBA=%.2f" \
+                                             " ⇒ 疑似法线通道重排)" % (drgb, dall)
+                                    else:
+                                        content["DIFF"] += 1
+                                        hint = ""
+                                        if re.search(r"(Normal|NRM|nrm)", stem):
+                                            hint = "（法线图：压缩通道重排会放大差异）"
+                                        p2 = "内容不同(RGB mean|Δ|=%.1f / RGBA=%.1f)%s" % (drgb, dall, hint)
+                                        cls, fix = "内容不同（需核）", \
+                                            "核：是否拿错图/换过异画（法线图先排除压通道重排）"
+                        except Exception as e:
+                            content["SKIP_NO_PIL"] += 1
+                            p2 = "比对失败:%s" % type(e).__name__
+                else:
+                    content["SKIP_DIM"] += 1
+                    p2 = "跳过（尺寸不同，多为裁片）"
+                sj = ctx.orig_sprite.get(stem)
+                if sj:
+                    try:
+                        d = json.load(io.open(sj, encoding="utf-8"))
+                        tr = (d.get("m_RD") or {}).get("textureRect") or {}
+                        if tr:
+                            tw = round(tr["x"] + tr["width"]) - round(tr["x"])
+                            th = round(tr["y"] + tr["height"]) - round(tr["y"])
+                            p3 = "sprite rect %dx%d vs 我们 %dx%d%s" % (
+                                tw, th, wh[0], wh[1], "" if (tw, th) == wh else "  ⚠差")
+                            if (tw, th) != wh and cls == "":
+                                p3 += "（裁片允许 ±1）"
+                    except Exception:
+                        p3 = "sprite json 读失败"
+                else:
+                    p3 = "查不到原版 sprite"
+                if cls:
+                    cls_counts[cls] += 1
+                    if len(cls_examples[cls]) < args.top:
+                        cls_examples[cls].append(r)
+                rows.append(["3", dom, stem, TYPE_OF.get(ext, ext), stem, r, "OK", "",
+                             p1, p2, p3, "", cls, fix, ctx.orig_tex[stem][0]])
+            elif ext == ".mat":
+                b = rb(p)
+                nm = mat_name(b)
+                m = RE_SHADER_REF.search(b)
+                our_shader_path = ctx.guid2path.get(m.group(2).decode().lower()) if m else None
+                our_name = ""
+                our_props, our_kws = set(), set()
+                if our_shader_path and os.path.isfile(our_shader_path):
+                    our_props, our_kws, our_name = parse_shader(our_shader_path, ctx.shader_cache)
+                colors, floats, texenvs, kws = parse_mat_props(b)
+                p1 = p3 = p4 = ""
+                cls = ""
+                fix = ""
+                if nm in ctx.orig_mat:
+                    mat_pairs += 1
+                    oj, opid = ctx.orig_mat[nm]
+                    oname = ctx.shader_pid2name.get(opid, "")
+                    p3 = "shader 我们=%s / 原版=%s" % (our_name or "(未解析)", oname or "(未解析)")
+                    if oname and our_name and oname != our_name:
+                        p3 += "  ⚠不同"
+                    try:
+                        o = json.load(io.open(oj, encoding="utf-8"))
+                        sp = o.get("m_SavedProperties") or {}
+                        oc = {}
+                        for item in sp.get("m_Colors") or []:
+                            try:
+                                oc[item[0]] = tuple(round(float(item[1][k]), 4) for k in ("r", "g", "b", "a"))
+                            except Exception:
+                                pass
+                        of = {}
+                        for item in sp.get("m_Floats") or []:
+                            try:
+                                of[item[0]] = round(float(item[1]), 6)
+                            except Exception:
+                                pass
+                        diffc = [k for k in oc if k in colors and oc[k] != colors[k]]
+                        difff = [k for k in of if k in floats and abs(of[k] - floats[k]) > 1e-4]
+                        common = set(oc) & set(colors)
+                        p1 = "共有属性 颜色%d/浮点%d，差 颜色%d/浮点%d" % (
+                            len(common), len(set(of) & set(floats)), len(diffc), len(difff))
+                        if diffc or difff:
+                            allk = diffc + difff
+                            ruled = [k for k in allk if k in RULED_DIFFS]
+                            unruled = [k for k in allk if k not in RULED_DIFFS]
+                            p1 += " 例:%s" % ",".join(allk[:3])
+                            if ruled:
+                                p1 += "  ⚑已裁定有意:%s" % ",".join(sorted(set(ruled)))
+                            if unruled:
+                                cls, fix = "参数漂移", "核：颜色/浮点是否照原版 m_SavedProperties"
+                            else:
+                                cls, fix = "参数漂移（已裁定有意）", "不修（判据 RULED_DIFFS → 特效线任务总表:164）"
+                            for k in diffc:
+                                drift_props["颜色 " + k] += 1
+                            for k in difff:
+                                drift_props["浮点 " + k] += 1
+                    except Exception:
+                        p1 = "原版材质读失败"
+                else:
+                    p1 = "查不到同名原版材质"
+                if our_props and our_shader_path and our_shader_path.startswith(ASSETS) \
+                        and not our_shader_path.endswith(".shadergraph"):
+                    # ⚠️ 只对我们**自己写的 .shader** 判「属性有没有被消费」：
+                    #    包内 shader（URP Lit 等）属性写在 include 里、ShaderGraph 的属性在 .shadergraph 里，
+                    #    按 .shader 正文判会整批误报（实测 1,164 → 只留自写 shader 后大幅收敛）。
+                    undeclared = [x for x in (texenvs + list(colors) + list(floats))
+                                  if x not in our_props and not x.startswith("unity_") and not x.endswith("_ST")]
+                    unk = [k for k in kws if k not in our_kws]
+                    p4 = "属性未声明 %d · 关键字未声明 %d" % (len(undeclared), len(unk))
+                    if undeclared:
+                        p4 += " 例:" + ",".join(sorted(set(undeclared))[:3])
+                    if undeclared or unk:
+                        tag = "材质未消费（属性未声明）" if undeclared else "材质未消费（关键字未声明）"
+                        if not cls:
+                            cls = tag
+                            fix = "核：这些属性/关键字目标 shader 里不存在（多数无害；若原版靠它驱动则缺功能）"
+                        elif tag not in cls:
+                            cls += "＋" + tag
+                elif our_props:
+                    p4 = "目标 shader 非自写（包内 / ShaderGraph）⇒ 不判消费"
+                else:
+                    p4 = "shader 未解析，无法判消费"
+                if cls:
+                    for cc in [x for x in cls.split("＋") if x]:
+                        cls_counts[cc] += 1
+                        if len(cls_examples[cc]) < args.top:
+                            cls_examples[cc].append(r)
+                rows.append(["3", dom, nm, "Material", nm, r, "OK", "", p1, "", p3, p4,
+                             cls, fix, r])
+            elif ext in (".ogg", ".wav"):
+                if stem not in ctx.orig_audio:
+                    continue
+                audio_pairs += 1
+                op = ctx.orig_audio[stem]
+                so = os.path.getsize(op)
+                p1 = "字节 %d vs 原版 %d%s" % (sz, so, "" if sz == so else "  ⚠大小不同")
+                p2 = ""
+                cls = ""
+                fix = ""
+                if sz == so:
+                    try:
+                        same = hashlib.md5(rb(p)).hexdigest() == hashlib.md5(rb(op)).hexdigest()
+                    except Exception:
+                        same = False
+                    if same:
+                        p2 = "字节逐字节相同"
+                        audio_same += 1
+                    else:
+                        p2 = "同大小但内容不同"
+                        audio_diff += 1
+                        cls, fix = "内容不同（需核）", "核：音频是否被转码/替换"
+                else:
+                    audio_diff += 1
+                    cls, fix = "内容不同（需核）", "核：音频是否被转码/替换"
+                if cls:
+                    for cc in [x for x in cls.split("＋") if x]:
+                        cls_counts[cc] += 1
+                        if len(cls_examples[cc]) < args.top:
+                            cls_examples[cc].append(r)
+                rows.append(["3", dom, stem, "AudioClip", stem, r, "OK", "", p1, p2, "", "",
+                             cls, fix, op])
+        # 原版材质我们没有的
+        all_mat_names = set()
+        for p, r, ext, sz in ctx.files:
+            if ext == ".mat":
+                all_mat_names.add(mat_name(rb(p)))
+        for nm, (oj, opid) in sorted(ctx.orig_mat.items()):
+            if nm in all_mat_names:
+                continue
+            oname = ctx.shader_pid2name.get(opid, "")
+            cls = "材质未消费（原版有、我们没有同名实例）"
+            fix = "核：是否已被等价材质替代（R4-07 那 13 条 UI 材质动画就在这一类）"
+            p4 = "原版 shader=%s（引用数 %s）%s" % (
+                oname or "?", ctx.shader_orig_refs.get(oname, "?"),
+                "  ⚑R4-07" if oname in R4_07 else "")
+            rows.append(["3", "菜单UI" if "UI/" in oname else domain_of(""), nm, "Material", nm, "",
+                         "", "", "", "", "", p4, cls, fix, oj])
+            cls_counts[cls] += 1
+            if len(cls_examples[cls]) < args.top:
+                cls_examples[cls].append(nm)
+            if oname:
+                orig_mat_seen.add(oname)
+            miss_by_shader[oname or "?"] += 1
+            mat_missing_rows += 1
+        log("③ 结果：贴图配对 %d（逐像素 相同=%d 近似=%d 不同=%d 尺寸不同跳过=%d 未比=%d）· 音频配对 %d（字节相同=%d 不同=%d）· 材质配对 %d · 原版材质我们没有 %d"
+            % (tex_pairs, content["EXACT"], content["NEAR"], content["DIFF"],
+               content["SKIP_DIM"], content["SKIP_NO_PIL"], audio_pairs, audio_same, audio_diff,
+               mat_pairs, mat_missing_rows))
+        log("③ 原版材质缺口按 shader 分组（前 15）：")
+        for sh, n in miss_by_shader.most_common(15):
+            log("   %5d  %s%s" % (n, sh, "  ⚑R4-07" if sh in R4_07 else ""))
+        if drift_props:
+            log("③ 参数漂移按属性名分组（前 12）：")
+            for k, n in drift_props.most_common(12):
+                log("   %5d  %s" % (n, k))
+
+    # ================================================ 加载实参落不到盘
+    if args.only in ("2", "all"):
+        miss = 0
+        for s in ctx.load_sites:
+            if s["kind"] != "literal" or s["editor"]:
+                continue
+            val = s["value"]
+            found = False
+            for R in ctx.resources_roots:
+                base = os.path.join(R, val.replace("/", os.sep))
+                if os.path.isdir(base):
+                    found = True
+                    break
+                for e in ("", ".png", ".jpg", ".asset", ".mat", ".shader", ".anim", ".json",
+                          ".ogg", ".wav", ".webm", ".mp4", ".mixer", ".controller", ".prefab",
+                          ".ttf", ".otf", ".txt", ".bytes"):
+                    if os.path.isfile(base + e):
+                        found = True
+                        break
+                if found:
+                    break
+            if not found:
+                miss += 1
+                rows.append(["2", "加载面", val, "加载实参", val, "%s:%d" % (s["file"], s["line"]),
+                             "MISSING", "LOAD_TARGET_ABSENT", "", "", "", "",
+                             "有件取不到", "核：实参拼错 / 图没导 / 只在该探针里故意不存在",
+                             "%s:%d  \"%s\"" % (s["file"], s["line"], s["arg"])])
+                cls_counts["有件取不到"] += 1
+                if len(cls_examples["有件取不到"]) < args.top:
+                    cls_examples["有件取不到"].append("%s:%d %s" % (s["file"], s["line"], val))
+        log("② 加载面：运行期 literal 落不到盘 = %d" % miss)
+
+    # ================================================ 摘要
+    log("—— 缺陷类汇总 ——")
+    for k, v in cls_counts.most_common():
+        log("  %-28s %6d  例: %s" % (k, v, " · ".join(str(x) for x in cls_examples[k][:3])))
+    if misc_counts:
+        log("—— 信息项（不计缺陷）——")
+        for k, v in misc_counts.most_common():
+            log("  %-56s %6d" % (k, v))
+
+    # 写盘
+    if not args.dry:
+        out = args.out
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with io.open(out, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\t".join(COLS) + "\n")
+            for x in rows:
+                f.write("\t".join(str(y) for y in x) + "\n")
+        log("已写 %s（%d 行）" % (out, len(rows)))
+    else:
+        log("--dry：未写盘（应有 %d 行）" % len(rows))
+    return rows, cls_counts, logs
+
+
+def classify(st, fails):
+    if st == "MISSING":
+        return "缺件", "补 .meta"
+    if st == "UNKNOWN" and any(f.startswith("GUID") for f in fails):
+        return "GUID 异常", "去重 / 补有效 guid"
+    if st == "TYPE_MISMATCH":
+        return "类型错", "改导入器（见 .meta 的 importer 块）"
+    if st == "DEPS_MISSING":
+        return "依赖悬空", "补依赖或改引用"
+    if st == "CONTENT_MISMATCH":
+        return "文件内容与扩展名不符", "按真实格式改名 / 重新导出（Unity 按扩展名选导入器）"
+    if st == "SIZE_BAD":
+        return "尺寸格式错", "改 maxTextureSize / 重导"
+    if st == "READABLE_BAD":
+        return "有件取不到", "isReadable 改 1"
+    if st == "PRESENT_NOT_LOADABLE":
+        return "有件取不到", "核：运行期是否真的不需要（需要则搬进 Resources 或加引用）"
+    return "", ""
+
+
+def main():
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument("--scan", action="store_true")
+    ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--only", default="all", choices=["2", "3", "all"])
+    ap.add_argument("--out", default=DEFAULT_OUT)
+    ap.add_argument("--no-content", action="store_true")
+    ap.add_argument("--top", type=int, default=25)
+    ap.add_argument("-h", "--help", action="store_true")
+    args = ap.parse_args()
+    if args.help or not (args.scan or args.dry):
+        print(__doc__)
+        return 0
+    run(args)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

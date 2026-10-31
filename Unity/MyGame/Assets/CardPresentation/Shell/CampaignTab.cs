@@ -37,7 +37,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>战役页。原版 `CampaignWindowTab : WindowTabBase&lt;MainMenuRewardsWindow>`。</summary>
-    public class CampaignTab : WindowTabBase
+    public partial class CampaignTab : WindowTabBase
     {
         public override WindowTabType Type { get { return WindowTabType.Campaign; } }
 
@@ -648,7 +648,12 @@ namespace CardPresentation
             {
                 var pm = RewardsWindow.Node(node, "Premium Mark", r);
                 pm.localScale = new Vector3(2f, 2f, 1f);
-                _win.Rect(pm, "WF_Campaign_Levelspot-Premium", r, "img", QNodePremium, PremiumColor(st));
+                var pmQ = _win.Rect(pm, "WF_Campaign_Levelspot-Premium", r, "img", QNodePremium, PremiumColor(st));
+                // 🆕 2026-10-31（`B109_E33` · R15 §1·4 / #4）：原版这颗挂 `Everguild/UI/Pulsating` 的
+                //   `Everguild Campaing Premium node`（`Material_750193365382565044.json`）——
+                //   α 在 `[0.9,1]`、**尺寸**在 `[1.05,1]` 之间按 `sin(50 · _Time.x)`（= 2.51 s 一个来回）呼吸。
+                //   参数逐字段抄那份 JSON（`_AlphaPulsating (0.9,50)` · `_SizeRotation (1.05,50,0,413.7)`）。
+                MenuFxMaterials.Apply(pmQ, MenuFxMaterials.PulsatingCampaign);
             }
             // `Generic Round Button Variant`（= `background`）：N(1, .5,.5, .5,.5, .5,.5, 0,0, 100,100)
             _win.Rect(node, "WF_Campaign_Levelspot", r, "Generic Round Button Variant", QNodeBg, StateColor(st));
@@ -657,7 +662,14 @@ namespace CardPresentation
             {
                 var hl = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                         Vector2.zero, new Vector2(HighlightSize, HighlightSize));
-                _win.Rect(node, "Border_Thick_Circle_FX", hl, "Collectable Highlight", QNodeHighlight);
+                var hlQ = _win.Rect(node, "Border_Thick_Circle_FX", hl, "Collectable Highlight", QNodeHighlight);
+                // 🆕 2026-10-31（`B109_E33` · R15 §1·5 / #5）：原版这颗用 `Everguild/UI/UI Glow SDF Noise`
+                //   那一族（自走 `_Time` 的噪声+SDF 边缘辉光）。我们原来只有一张静态图。
+                //   ⚠️ **档位是推断**：5 份材质里只有 `UI Highlight Smooth Red SDF` 的名字对得上「红色可领描边」
+                //   （判据：`Material_6690636151482980369.json`）；但原版那颗 `Collectable Highlight` 的
+                //   `m_Sprite`（8880629346401627699）与我们用的 `Border_Thick_Circle_FX` **不是同一张**
+                //   ⇒ **未坐实**，真机验收时优先核这一处。
+                MenuFxMaterials.Apply(hlQ, MenuFxMaterials.GlowSdfHighlightSmoothRed);
             }
             // `Item Holder`：奖励物品的运行时挂点（出厂空、`CanvasGroup.blocksRaycasts=false`）。
             // 🆕 **2026-10-03：把首奖励画进去**（原版 `CampaignNode.Setup` 那句 `ItemDrawer.Draw`）——
@@ -1201,7 +1213,7 @@ namespace CardPresentation
                 Debug.LogWarning("[Campaign] 教程首节点自动领取失败：" + why);
                 return false;
             }
-            RefreshNodes();
+            GrantCampaignRewards(0, CampaignData.TierBasic); RefreshNodes();   // 🆕 C9 2026-10-31：J11 `CollectFirstNodeFix(0x45e)` 的本地等价 = 首节点基础档逐条发放（原版这一支**不开窗**）
             Debug.Log("[Campaign] 教程：首节点 `" + CampaignData.NodeName(0) + "` 已自动领取（基础档）"
                     + "（= 原版 `SetFirstTutorialTrackArmyNodeDone`；云修复那一步我们没有后端）");
             return true;
@@ -1251,7 +1263,7 @@ namespace CardPresentation
                 Debug.LogError("[Campaign] 没有 `WindowsManager` ⇒ 开不了奖励窗（**不是静默**：这条是错误）");
                 return false;
             }
-            var win = CampaignRewardWindow.Create(_win.Manager);
+            var open108 = _win.Manager.GetOpenWindow<CampaignRewardWindow>(); var win = (open108 != null && open108.CurrentState != WindowState.Closed) ? open108 : CampaignRewardWindow.Create(_win.Manager);   // ⛔ B108_A6（AUD03 #51）：原版 `CampaignWindowTab.OnNodeClicked` 末尾走 `WindowsManager.OpenWindow<CampaignRewardsWindow>(ctx, 0, …)`（`decomp_full/CampaignWindowTab__OnNodeClicked.c`）⇒ 先命中 `automaticallyLoadedWindows`（`out_cpp2il_dev_ilspy/WindowsManager.cs:1298-1304` + `CloseWindowCO:1623-1628` 关窗时 `Destroy` 并删条目）**复用同一扇**，只有关过才新建。我们原来每次 `Create` 都新建一具 ⇒ 上一扇（`Close()` 只 `SetActive(false)`、推迟到下一次开窗才收割）还挂在锚点下时又叠一具。🔴 2026-10-31 收尾：`GetOpenWindow` **不过滤 Closed** ⇒ 关过的那具会被当活窗复用（B7 红）⇒ 这里显式排除 Closed。
             // 🔴 **2026-10-14（A814）就地订正（铁律 5）—— 这是一条【生产路径】上的真缺陷**（由 Block14 的写手在加 A469 断言时查出）：
             //   原来写的是 `win.Reopen(BuildContext(i)); _win.Manager.OpenWindow(win);` ——
             //   而 `OpenWindow` 走的是**带参** `TryOpen(null)`（`Shell/WindowsManager.cs`）⇒ 第一句就是
@@ -1319,7 +1331,7 @@ namespace CardPresentation
                 RefreshNodes();
                 OnArmyAmountChanged();     // 原版这一刻 = 每个 `CampaignArmyUIDecorator` 收到 `OnObjectUpdated`
                 // 🆕 2026-10-12（A438）：**领到那一拍弹领奖窗**（判据见方法头；`showAnimation = 1` 那一支）。
-                RewardWindow.ShowCollected(CampaignData.RewardsOf(i, tier), collected => Refresh());
+                GrantCampaignRewards(i, tier); RewardWindow.ShowCollected(CampaignData.RewardsOf(i, tier), collected => Refresh());   // 🆕 C9 2026-10-31：**先发奖、后开窗**（原版 `Collect` 的 for 循环在开窗之前，`RewardService__Collect.c:117` → `:202`）
                 // 🔴 **2026-10-12（A466 顺手订正 · 铁律 5）**：这两句原来是「领完就把窗刷新成 `Get` 态
                 //   （原版 `OnCollect` 之后按钮进 claimed，而 `CampaignRewardsWindow` 是「领一次就
                 //   `CloseWindow`」——见正本 §十四「关窗三条路」）」—— **前半句是半错的**：

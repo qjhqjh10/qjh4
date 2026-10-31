@@ -6836,7 +6836,7 @@ namespace RuleEngine
                 if (s != null && s.Ab == ability && s.Lg == logic) return s;
             }
             return null;
-        }
+        } public bool SoleAbilityDamageIs80() { if (_abilityDamage == null || _abilityDamage.Length != 1) return false; var only = _abilityDamage[0]; return only != null && only.ValueOptions == 80; }   // 🔴🆕 2026-10-31（执行代理 `B108_A1` · N08 第一步）：op **未归位**（`AbilityIndex < 0`）时 80 档的唯一可用判据 —— 「全卡恰好一行 `abilityDamage` 且它是 80」才算，与 `RuleCore.FindSoleMultiplierRow` **同一纪律**（多于一行就分不清哪行属这条 op ⇒ 不猜）；判据 → `判据/B108_N08_valueOptions80.md` §四·1。⚠️ 零行数变化：本文件 `:6880` 起有 11 处账落点在其下游，插行会让它们整体漂移（铁律 18·b）⇒ 与 `AbilityDamageAt` 的收尾括号合在一行。
 
         /// <summary>🆕 2026-10-28（B88 · `A1d`）：把**主动能力**那一行的 `damageCriteria` 的
         /// 「逐目标掷」位标到 op 上（与 `RuleCore.StampRollPerTarget` **同一条判据**：
@@ -9226,7 +9226,7 @@ namespace RuleEngine
             /// <summary>`abilityLogic` 下标；`-1` = 这条 ability 没有任何 logic 行。</summary>
             public int Lg = -1;
             /// <summary>原版 `AbilityTrigger` 数值。</summary>
-            public int Trigger = -1;
+            public int Trigger = -1; public int TriggerValue = -1;   // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
         }
 
         TriggerAbilityIndexSpec[] _triggerAbilityIndices;

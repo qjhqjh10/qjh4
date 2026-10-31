@@ -1704,7 +1704,7 @@ namespace CardPresentation
             LiveOpsLocalEvent ev = null;
             string why = null;
             var kinds = CatalogKinds(tab.Kind);
-            if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, System.DateTime.UtcNow, out ev, out why);
+            if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, LiveOpsLocalCatalog.NowUtc, out ev, out why);   // ⛔ B108_A6（N74 §十二-② / P1）：⛔ 别直接传 `System.DateTime.UtcNow` —— 那会绕过 `LiveOpsClock.NowProvider`（`Shell/LiveOpsHandler.cs:41-46`：`NowProvider != null ? NowProvider() : DateTime.UtcNow`），自检就钉不住「活动在不在期」。这是**比较时刻**、不是远端事件期数据 ⇒ 走本地可注入时钟；同族的 `GachaEventWindow.cs:421` / `ExpansionPassEventWindow.cs:595` 本来就传 `LiveOpsLocalCatalog.NowUtc`（该属性 `Shell/LiveOpsLocalCatalog.cs:700-702` 2026-10-31 起也委托 `LiveOpsClock.NowUtc`）。判据 → `判据/B108_N74_不确定源普查.md`
             if (ev == null)
             {
                 HideEventTabBadge(tabButton);   // ⚠️ 顺手修：底板 alpha = 1（`TabBadgeTint`）⇒ 没通知源时它会一直画着；原版 `Awake` 是 alpha = 0
@@ -1849,18 +1849,20 @@ namespace CardPresentation
             TeamSelected(id);
         }
 
-        /// <summary>≡ 原版 `TwoSidesEvent_OnGoingTab.CollectClicked()`（35 行）：
-        /// `event.TryCollect(onComplete)` —— 回调 = 本页的 `OnCollectCompleted`（原版 `SourceDelegate`）。
-        /// <para>🔴 原版 `TryCollect`（`TwoSidesEvent__TryColllect.c`：18 行）体只有一句虚调用
-        /// `this.vtable[0x568](data.currentMilestone(+0x34), onComplete, null, …)` = **云脚本领奖**（P3）。</para></summary>
+        /// <summary>≡ 原版 `TwoSidesEvent_OnGoingTab.CollectClicked()`（il2csharp `TwoSidesEvent_OnGoingTab.cs:123-132`）：
+        /// `event.TryCollect(回调)`，回调 `_CollectClicked_b__13_0`（同文件 `:147-150`）= `this.InitializeMilestones()`
+        /// —— **就是「领完把里程碑条重刷一遍」**，不是空 lambda。
+        /// <para>🔴 原版 `TryColllect`（il2csharp `TwoSidesEvent.cs:87-95`，体**只有一句**）
+        /// = `PurchaseMilestone(Save.collectedRewards(+0x34), onComplete, onError)`；⚠️ ILSpy 那份把实参**丢成常量 `0`**
+        /// （「ILSpy 丢常量」已知坑）⇒ 判据以 il2csharp 为准，⛔ 别照 ILSpy 写成 `PurchaseMilestone(0, …)`。</para></summary>
         public void CollectClicked()
         {
-            Debug.LogWarning("[Event] 领取（`CollectClicked`）：原版 `TwoSidesEvent.TryCollect` 体只有一句云调用"
-                           + "（`TwoSidesEvent__TryColllect.c` 18 行 = `vtable[0x568](data.currentMilestone(+0x34), cb, …)`）"
-                           + "⇒ **PlayFab 云脚本 = P3**，本地没有服务器 ⇒ 不能假装领取/加奖励（如实出声）");
-            // 原版拿的是**当前里程碑**（`data+0x34`），本地没有该数据 ⇒ 出声说明这一格为什么是空的
-            Debug.Log("[Event] `CollectClicked`：本地缺的是 `TwoSidesEventData.currentMilestone(+0x34)` 与 rewards 表"
-                    + "（远端数据，本机 0 份）—— 判定 → 报告 §TwoSides 那四条");
+            // 入口这一层先出声一次（下面 `PurchaseMilestone` 还会按具体分支再报一次）：原版的领取本体是
+            // `PlayFabWrapper__GenericCloudScriptHandler(0x458, …)` 云调用 = **P3**，本地拿不到结果 ⇒ ⛔ 不假装领取/加奖励。
+            Debug.LogWarning("[Event] 领取（`CollectClicked`）：原版 `TwoSidesEvent.TryCollect` → `PurchaseMilestone` → 云脚本（P3）"
+                           + " ⇒ 本地只做**可领判定**，发放留给服务器（这条告警是「不许静默失败」那一层）");
+            // 回调 = 原版 `_CollectClicked_b__13_0`：`this.InitializeMilestones()`（按已领档数把那 5 行重刷）。
+            TryCollect(OnCollectCompleted, null);
         }
 
         /// <summary>把「有一条活动通知」这类红点接到**已建好的**页签红点上（原版 `AddNotificationType`）。
@@ -1988,7 +1990,7 @@ namespace CardPresentation
         /// <para>原版体（逐句）：</para>
         /// <code>
         /// currentScore     = ev.&lt;vtable 0x558&gt;();                    // 活动当前分
-        /// currentMilestone = ev.Data(+0x20).currentMilestone(+0x34);   // 已领到第几档
+        /// currentMilestone = ev.Save(+0x20).collectedRewards(+0x34);  // 已领到第几档（🔴 2026-10-31 `B109_E32` 订正：不是 `Data.currentMilestone`）
         /// milestones = ev.&lt;list&gt;(vtable 0x1e8)
         ///              .Select((m, i) =&gt; new GenericScoringMilestone {
         ///                  rewards = m.&lt;vtable 0x188&gt;(),
@@ -2003,7 +2005,7 @@ namespace CardPresentation
         /// <para>⚠️ **数据仍在远端**（`TwoSidesEventData.currentMilestone` + `rewards[]`，本机 13 份 SO 里 0 份）
         /// ⇒ 本机没有调用点，方法体今天空转。⛔ 不许拿 prefab 出厂串（`1256`）冒充数据。</para></summary>
         /// <param name="currentScore">原版 `ev.&lt;vtable 0x558&gt;()`。</param>
-        /// <param name="currentMilestone">原版 `Data.currentMilestone`（`+0x34`）= **已领到的档数**，不是分数。</param>
+        /// <param name="currentMilestone">原版 `TwoSidesEventSave.collectedRewards`（`Save+0x34`；2026-10-31 `B109_E32` 订正 —— 早先记成 `Data.currentMilestone` 是**读错了容器**：`TwoSidesEvent+0x18 = Data`、`+0x20 = Save`，`.c` 里读的是 `+0x20` 那一个）= **已领到的档数**，不是分数。</param>
         /// <param name="milestones">原版 `ev.&lt;list&gt;(vtable 0x1e8)` —— 活动定义的里程碑表（按档序）。</param>
         public void InitializeMilestones(int currentScore, int currentMilestone, IReadOnlyList<ScoringMilestone> milestones)
         {
@@ -2012,6 +2014,13 @@ namespace CardPresentation
                 Debug.LogError("[Event] `InitializeMilestones`：里程碑表是 null（原版这一跳 NRE）⇒ 不动");
                 return;
             }
+            // 🆕 2026-10-31（`B109_E32` · 账 C26）：把原版 `TwoSidesEvent` 那三格存下来，供类尾
+            //   `PurchaseMilestone` 的可领判定用（`+0x18 Data.ScoringMilestones` · `+0x20 Save.collectedRewards(+0x34)` ·
+            //   `PlayerScore`）。⛔ 只在这里存一份，别在别处再算一遍。
+            _p2MilestoneTable = milestones;
+            _p2CollectedRewards = currentMilestone;
+            _p2PlayerScore = currentScore;
+            _p2MilestoneDataKnown = true;
             var arr = new GenericScoringMilestone[milestones.Count];
             for (int i = 0; i < arr.Length; i++)
             {
@@ -2418,6 +2427,124 @@ namespace CardPresentation
         {
             InitializeMilestones(currentScore, collectedRewards, milestones);
             return milestones != null ? milestones.Count : 0;
+        }
+
+        // ============================================================ 追加区 · 2026-10-31（`B109_E32` · 账 C26 / C27）
+        //  判据（三源现读 · ⛔ 别照 ILSpy 那份抄）：
+        //   · `cpp2il/out_il2csharp/Assembly-CSharp/TwoSidesEvent.cs:87-146`（**主力**：ILSpy 把 `TryColllect`
+        //     的实参丢成常量 `0`，只有 il2csharp 露出真身 = `Save.collectedRewards(+0x34)`）
+        //   · `decomp_full/TwoSidesEvent__PurchaseMilestone.c`（54 行，判序与 `.c` 逐句对得上）
+        //   · 偏移旁证：`TwoSidesEvent+0x18 = Data(ScoringEventData)`（`vtable[0x1e8]` = `ScoringMilestones`）、
+        //     `+0x20 = Save(TwoSidesEventSave)`（`SelectTeam` 把 `+0x38` 当 string 读 = `playerTeam`）⇒ `+0x34 = collectedRewards`
+        //  ⛔ 追加在**类尾**：本文件有多条账按 `文件:行号` 钉着（本批现读最大 = `:1701`），中间插行会整片漂移。
+
+        /// <summary>原版 `TwoSidesEvent+0x18 → ScoringEventData.ScoringMilestones`（`IReadOnlyList&lt;ScoringMilestone&gt;`）。</summary>
+        IReadOnlyList<ScoringMilestone> _p2MilestoneTable;
+
+        /// <summary>原版 `TwoSidesEventSave.collectedRewards`（`Save+0x34`）= **已领到的档数**（不是分数）。</summary>
+        int _p2CollectedRewards = -1;
+
+        /// <summary>原版 `TwoSidesEvent.PlayerScore`（读排行榜；本地由 <see cref="ApplyOnGoingMilestones"/> 注入）。</summary>
+        int _p2PlayerScore;
+
+        /// <summary>三格数据是否已注入（原版 = `Data` / `Save` 非 null）。未注入 ⇒ 比照原版 `ScoringMilestones == null` 那一支。</summary>
+        bool _p2MilestoneDataKnown;
+
+        /// <summary>`TryCollect` / `PurchaseMilestone` 上一次走的分支（自检读口）：
+        /// `0` = 还没走过 · `1` = no-op（`onComplete(Array.Empty)`）· `2` = P3 云调用支（调 `onError`）· `3` = 数据缺（出声 + no-op）。</summary>
+        public int LastCollectOutcome { get; private set; }
+
+        /// <summary>P3 支喂给 `onError` 的那句（自检读口；null = 没调过）。</summary>
+        public string LastCollectError { get; private set; }
+
+        /// <summary>≡ 原版 `TwoSidesEvent.TryColllect(Action&lt;RewardInfo[]&gt;, Action&lt;string&gt;)`（il2csharp `TwoSidesEvent.cs:87-95`）。
+        /// <para>体**只有一句**（照抄）：`PurchaseMilestone(Save.collectedRewards, onComplete, onError)`。</para>
+        /// <para>⚠️ `.c` 里那一句走虚槽 `vtable[0x568]`（不是直接调本类那份）；我们只有一个实现 ⇒ 直接调等价。</para></summary>
+        public void TryCollect(System.Action<RewardInfo[]> onComplete, System.Action<string> onError = null)
+        {
+            PurchaseMilestone(_p2CollectedRewards, onComplete, onError);
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent.PurchaseMilestone(int, Action&lt;RewardInfo[]&gt;, Action&lt;string&gt;)`
+        /// （il2csharp `TwoSidesEvent.cs:97-146` · `.c` 54 行）。逐句：
+        /// <code>
+        /// var ms = Data.ScoringMilestones;                                   // +0x18
+        /// if (ms != null) {
+        ///     if (!ms.All(r => r.scoreToUnlock &gt; PlayerScore)) {            // ② 至少一档够分
+        ///         if (Save.collectedRewards &lt; ms.Count) {                    // ③ 还有没领的
+        ///             ShowPopUp("Missions/CollectingRewards");                // ④ 转圈窗
+        ///             Cloud("CollectTwoSidesEventRewards", { eventId }, …);   // ⑤ P3（成功回调里才 UpdateSaveGame 写领取标记）
+        ///             return;
+        ///         }
+        ///     }
+        /// }
+        /// onComplete(Array.Empty&lt;RewardInfo&gt;());                            // ★ 其它情形都是「无事可做」
+        /// </code>
+        /// <para>🔴 `milestoneIndex` **原版整段没用到**（`.c` 里 `param_2` 零次读，il2csharp 也只有形参）⇒ 照抄，别「顺手用上」。</para>
+        /// <para>🔴 领取标记 / 重刷**不在本地这一半**：原版靠云返回的 `updatedPersistence` 走 `UpdateSaveGame` 才写；
+        /// 本地没有服务器 ⇒ 不置任何标记，P3 支**出声 + 调 onError**（⛔ 不许静默失败、也不许假装领到）。</para></summary>
+        /// <returns>`true` = 走了 P3 支（可领但本地领不了）；`false` = 其它三支（no-op / 数据缺）。</returns>
+        public bool PurchaseMilestone(int milestoneIndex, System.Action<RewardInfo[]> onComplete, System.Action<string> onError = null)
+        {
+            LastCollectError = null;
+            var ms = _p2MilestoneTable;
+            if (!_p2MilestoneDataKnown || ms == null)
+            {
+                // 原版 `ms == null` ⇒ 直接落到末句 `onComplete(Array.Empty)`。我们多一种「远端 liveops 没给事件」的
+                // 数据缺情形（`Data` / `Save` 都取不到）⇒ 同一个可观测行为（no-op 回调），但**必须出声**。
+                Debug.LogWarning("[Event] `PurchaseMilestone`：里程碑数据还没注入（原版这一步是 `Data.ScoringMilestones == null`）"
+                               + " ⇒ 按原版末句调 `onComplete(空数组)`，**不置任何领取标记**");
+                LastCollectOutcome = 3;
+                CompleteWithNothing(onComplete);
+                return false;
+            }
+
+            // ② 原版 `Enumerable.All(r => r.scoreToUnlock > PlayerScore)` 取反 = 「**至少一档已经够分**」。
+            bool anyReached = false;
+            for (int i = 0; i < ms.Count; i++)
+            {
+                var m = ms[i];
+                if (m == null)
+                {
+                    // 原版 lambda 里 `r == null` 走的是 NRE 分支（反编译器把它渲成 `(byte)(int)ex != 0`）。
+                    // 我们不出 NRE，出声跳过这一格（⛔ 不静默）。
+                    Debug.LogWarning("[Event] `PurchaseMilestone`：`milestones[" + i + "]` 是 null（原版这一格会 NRE）⇒ 跳过");
+                    continue;
+                }
+                if (!(m.ScoreToUnlock > _p2PlayerScore)) { anyReached = true; break; }
+            }
+
+            // ③ 原版 `Save.collectedRewards < ms.Count` 取反 = 「所有档都领完了」。
+            if (!anyReached || _p2CollectedRewards >= ms.Count)
+            {
+                LastCollectOutcome = 1;
+                CompleteWithNothing(onComplete);
+                return false;
+            }
+
+            // ⑤ 只剩云脚本那一步 —— **P3**。
+            LastCollectOutcome = 2;
+            LastCollectError = "原版云脚本不可达：`CollectTwoSidesEventRewards`（`TwoSidesEvent__PurchaseMilestone.c` 的 "
+                             + "`PlayFabWrapper__GenericCloudScriptHandler(0x458, …)` 那一跳）= P3，本机没有服务器";
+            Debug.LogWarning("[Event] `PurchaseMilestone`（可领，已领 " + _p2CollectedRewards + "/" + ms.Count + " 档）：原版这一步是"
+                           + " ① `WindowsManager.ShowPopUp(\"Missions/CollectingRewards\")` + ② 云脚本 "
+                           + "`CollectTwoSidesEventRewards`；② 是 **P3**（无服务器）⇒ **不置领取标记、不加奖励**，如实调 onError");
+            if (onError != null) onError(LastCollectError);
+            return true;
+        }
+
+        /// <summary>原版末句 `onComplete(Array.Empty&lt;RewardInfo&gt;())`（⛔ 不传 null）。</summary>
+        static void CompleteWithNothing(System.Action<RewardInfo[]> onComplete)
+        {
+            if (onComplete != null) onComplete(System.Array.Empty<RewardInfo>());
+        }
+
+        /// <summary>≡ 原版 `TwoSidesEvent_OnGoingTab._CollectClicked_b__13_0(RewardInfo[])`（il2csharp `:147-150`）：
+        /// 体**只有一句** `this.InitializeMilestones();` = **把里程碑条按最新已领档数重刷一遍**。</summary>
+        void OnCollectCompleted(RewardInfo[] _)
+        {
+            if (!_p2MilestoneDataKnown || _p2MilestoneTable == null) return;   // 数据缺那一支：连表都没有，无从重刷
+            InitializeMilestones(_p2PlayerScore, _p2CollectedRewards, _p2MilestoneTable);
         }
 
     }

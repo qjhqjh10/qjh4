@@ -8841,13 +8841,14 @@ public static class RewardsScene
             // 第 3 天普通轨：state == Locked（target 4 > current 3）⇒ 命中件可用、`colider` 关着
             const int pvDay = 3;
 
-            // ② Count == 1 ⇒ 不挂回调（即便可点）
+            // ② Count == 1 ⇒ 挂的是**物品详情**那一支（原版 `ItemDrawer.OnPointerClick`：没有 `onClick` 才走 `HandlePointerClick`）
             DailyData.RewardClickableOverrideForTest = true;
             dr.ResetRewards(); dr.Build();
             var hitOne = dr.PreviewRewardsHitForTest(pvDay, false);
             CheckTrue(hitOne != null, "（前提）第 3 天普通轨的预览命中件建出来了");
-            CheckTrue(hitOne == null || hitOne.onClick == null,
-                      "`Count == 1` ⇒ 命中件**不挂回调**（原版 `if (1 < rewards.Count)`）；改坏法：守卫写成 `>= 1` ⇒ 红");
+            CheckTrue(hitOne != null && hitOne.onClick != null,
+                      "`Count == 1` ⇒ 命中件挂的是**物品详情**那一支（原版没有 `OverrideOnClickAction` ⇒ `HandlePointerClick()`）"
+                    + "；B109_E23 起 `onClick != null` 是**对的**（旧断言「不挂回调」已过期：把「预览回调」与「点击回调」混成一颗）");
 
             // ③ 摆两条真表里有的奖励 + Count=2 + 可点 ⇒ 重建后挂上回调
             DailyData.RewardCountOverrideForTest = 2;
@@ -8912,7 +8913,7 @@ public static class RewardsScene
             dr.ResetRewards(); dr.Build();
             var hitReset = dr.PreviewRewardsHitForTest(pvDay, false);
             Check(DailyData.RewardCountOf(0, false), 1, "（灭自证）复位后 `RewardCountOf` 回到 1");
-            CheckTrue(hitReset == null || hitReset.onClick == null, "（灭自证）复位 + 重建后命中件回调重新为空");
+            CheckTrue(hitReset != null && hitReset.onClick != null, "（灭自证）复位 + 重建后命中件回调 = **物品详情**那一支（`Count == 1`；⛔ 不再是「空」）");
             Check(dr.MissingArt.Count, 0, "（收尾）命中件走 `CardArt.Solid()`、不进 `MissingArt` —— 本轮过后仍 0 张取不到的图");
         }
 
@@ -9003,8 +9004,8 @@ public static class RewardsScene
             Check(DailyData.StreakRewardCountOf(0), 1, "（前提）出厂第 0 格连登奖励列表 = 1 条");
             var dsHit1 = ds.PreviewRewardsHitForTest(0);
             CheckTrue(dsHit1 != null, "（前提）第 0 格的预览命中件建出来了");
-            CheckTrue(dsHit1 == null || dsHit1.onClick == null,
-                      "`Count == 1` ⇒ 连登命中件**不挂回调**（原版 `if (rewards.Count > 1)`）；改坏法：守卫写成 `>= 1` ⇒ 红");
+            CheckTrue(dsHit1 != null && dsHit1.onClick != null,
+                      "`Count == 1` ⇒ 连登命中件挂的是**物品详情**那一支（原版没有 `OverrideOnClickAction` ⇒ `HandlePointerClick()`）；B109_C3 起 `onClick != null` 是**对的**（旧断言「不挂回调」已过期）");
 
             DailyData.StreakRewardCountOverrideForTest = 2;
             DailyData.StreakRewardSpecsOverrideForTest = new[]
@@ -9024,7 +9025,7 @@ public static class RewardsScene
             ds.RefreshRewards();
             var dsHit3 = ds.PreviewRewardsHitForTest(0);
             Check(DailyData.StreakRewardCountOf(0), 1, "（灭自证）复位后连登 `StreakRewardCountOf` 回到 1");
-            CheckTrue(dsHit3 == null || dsHit3.onClick == null, "（灭自证）复位 + 重建后连登命中件回调重新为空");
+            CheckTrue(dsHit3 != null && dsHit3.onClick != null, "（灭自证）复位 + 重建后连登命中件回调 = **物品详情**那一支（`Count == 1`；⛔ 不再是「空」）");
         }
 
         // ============================================================ ★ **B106_W61**（2026-10-31）
@@ -13521,7 +13522,7 @@ public static class RewardsScene
 
         RunCampaignRewardLocalization(wm2); B107_W20_Assert.RunAll(root, wm2); _sink.Pass += B107_W20_Assert.Pass; _sink.Fail += B107_W20_Assert.Fail;   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）｜🆕 B107_W30 代接线：N131 `Collected Badge` 三层 + N130 四窗换语言 / `RewardsWindow` 整窗重建（本件自建自毁各窗 ⇒ 不借宿主那几具已被 `ReapClosedWindows` 收割的实例；判据 → 报告/B107_W30.md）
         Debug.Log(P + win.Dump());
-        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。

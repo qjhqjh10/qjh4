@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-31 11:46:40",
+ "generatedAt": "2026-10-31 16:00:00",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -3048,6 +3048,52 @@
      "inLibrary": true
     },
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF70",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF70",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "MobEffect",
      "cardanim": "MobTraitTrigger",
      "conf": "authoritative",
@@ -3106,54 +3152,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "16e600355631af542ab3ec5ab1e3ff11",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF70",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF70",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -4651,6 +4649,29 @@
    ],
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "d1edea284c56e674ba5762a5d26723b0",
+     "origCardId": "ASH79",
+     "joinKey": "id",
+     "assetName": "GainShuriken",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "aeldarisaimhanncardanims_assets_all.bundle",
+     "containerKey": "d1edea284c56e674ba5762a5d26723b0",
+     "cardanim": "GainShuriken",
+     "prefab": "GainShuriken",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 647,
+     "abilityTriggerName": "UnitLoseStealth",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.UnitLoseStealth` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 30,
+     "chosenAbilityName": "buffOthers",
+     "inLibrary": true
+    },
+    {
      "prefab": "TalentEffect",
      "cardanim": "TalentTraitTrigger",
      "conf": "authoritative",
@@ -4725,31 +4746,6 @@
      "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
      "containerKey": "8c53a725d8a664d39814be59d40abdb5",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "d1edea284c56e674ba5762a5d26723b0",
-     "origCardId": "ASH79",
-     "joinKey": "id",
-     "assetName": "GainShuriken",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "aeldarisaimhanncardanims_assets_all.bundle",
-     "containerKey": "d1edea284c56e674ba5762a5d26723b0",
-     "cardanim": "GainShuriken",
-     "prefab": "GainShuriken",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 647,
-     "abilityTriggerName": "UnitLoseStealth",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `UnitLoseStealth`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 30,
-     "chosenAbilityName": "buffOthers",
-     "inLibrary": true
     }
    ]
   },
@@ -8029,6 +8025,29 @@
   "ASH74": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "5d1d282cde1717a4c82bf4c1db91b421",
+     "origCardId": "ASH74",
+     "joinKey": "id",
+     "assetName": "Slash Repeating 2x",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "aeldarisaimhanncardanims_assets_all.bundle",
+     "containerKey": "5d1d282cde1717a4c82bf4c1db91b421",
+     "cardanim": "Slash Repeating 2x",
+     "prefab": "Slash Repeating 2x",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 291,
+     "abilityTriggerName": "UnitStunned",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.UnitStunned` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "TalentEffect",
      "cardanim": "TalentTraitTrigger",
      "conf": "authoritative",
@@ -8100,31 +8119,6 @@
      "assetBundle": "aeldarisaimhanncardassets_assets_all.bundle",
      "containerKey": "9b494030f268e4ef7b0c30ee0e28542e",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "5d1d282cde1717a4c82bf4c1db91b421",
-     "origCardId": "ASH74",
-     "joinKey": "id",
-     "assetName": "Slash Repeating 2x",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "aeldarisaimhanncardanims_assets_all.bundle",
-     "containerKey": "5d1d282cde1717a4c82bf4c1db91b421",
-     "cardanim": "Slash Repeating 2x",
-     "prefab": "Slash Repeating 2x",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 291,
-     "abilityTriggerName": "UnitStunned",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `UnitStunned`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -13001,6 +12995,29 @@
   "DA5": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "0deae3050e715944b9593e7221bbe2ea",
+     "origCardId": "DA5",
+     "joinKey": "id",
+     "assetName": "Healing_Volley_Effect",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "0deae3050e715944b9593e7221bbe2ea",
+     "cardanim": "Healing_Volley_Effect",
+     "prefab": "Healing_Projectile",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 695,
+     "abilityTriggerName": "OnCollectQuestPoints",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.OnCollectQuestPoints` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 20,
+     "chosenAbilityName": "doHeal",
+     "inLibrary": true
+    },
+    {
      "prefab": "RallyEffect",
      "cardanim": "RallyTraitStart",
      "conf": "authoritative",
@@ -13081,31 +13098,6 @@
      "abilityEvent": "play",
      "abilityEventWhy": "原版 `AbilityTrigger.ThisCardPlayed` → `play`",
      "abilityEventClass": "mapped",
-     "chosenAbility": 20,
-     "chosenAbilityName": "doHeal",
-     "inLibrary": true
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "0deae3050e715944b9593e7221bbe2ea",
-     "origCardId": "DA5",
-     "joinKey": "id",
-     "assetName": "Healing_Volley_Effect",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "0deae3050e715944b9593e7221bbe2ea",
-     "cardanim": "Healing_Volley_Effect",
-     "prefab": "Healing_Projectile",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 695,
-     "abilityTriggerName": "OnCollectQuestPoints",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `OnCollectQuestPoints`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
      "chosenAbility": 20,
      "chosenAbilityName": "doHeal",
      "inLibrary": true
@@ -15329,6 +15321,52 @@
   "DA15": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "16ed877f154fd0c468e3ee2eb1658633",
+     "origCardId": "DA15",
+     "joinKey": "id",
+     "assetName": "Atk_Sword Slash DA User",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "16ed877f154fd0c468e3ee2eb1658633",
+     "cardanim": "Atk_Sword Slash DA User",
+     "prefab": "Sword_Slash_User_DA",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 700,
+     "abilityTriggerName": "OnSecretCreated",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.OnSecretCreated` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "guid": "ffb9ec31619959541a13302ab389ecb8",
+     "origCardId": "DA15",
+     "joinKey": "id",
+     "assetName": "Atk_Sword Slash DA",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "ffb9ec31619959541a13302ab389ecb8",
+     "cardanim": "Atk_Sword Slash DA",
+     "prefab": "Sword_Slash_DA",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 700,
+     "abilityTriggerName": "OnSecretCreated",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.OnSecretCreated` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "RallyEffect",
      "cardanim": "RallyTraitStart",
      "conf": "authoritative",
@@ -15411,54 +15449,6 @@
      "abilityEventClass": "mapped",
      "chosenAbility": 60,
      "chosenAbilityName": "buffMana",
-     "inLibrary": true
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "16ed877f154fd0c468e3ee2eb1658633",
-     "origCardId": "DA15",
-     "joinKey": "id",
-     "assetName": "Atk_Sword Slash DA User",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "16ed877f154fd0c468e3ee2eb1658633",
-     "cardanim": "Atk_Sword Slash DA User",
-     "prefab": "Sword_Slash_User_DA",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 700,
-     "abilityTriggerName": "OnSecretCreated",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `OnSecretCreated`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "guid": "ffb9ec31619959541a13302ab389ecb8",
-     "origCardId": "DA15",
-     "joinKey": "id",
-     "assetName": "Atk_Sword Slash DA",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "ffb9ec31619959541a13302ab389ecb8",
-     "cardanim": "Atk_Sword Slash DA",
-     "prefab": "Sword_Slash_DA",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 700,
-     "abilityTriggerName": "OnSecretCreated",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `OnSecretCreated`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
      "inLibrary": true
     }
    ]
@@ -15894,6 +15884,29 @@
   "DA34": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "a5b8ac7f2b8201c4aa29d44056d401a8",
+     "origCardId": "DA34",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_5shot_gatling",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
+     "containerKey": "a5b8ac7f2b8201c4aa29d44056d401a8",
+     "cardanim": "Atk_BulletImpact_5shot_gatling",
+     "prefab": "BulletImpact_gatling_1s",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 695,
+     "abilityTriggerName": "OnCollectQuestPoints",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.OnCollectQuestPoints` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
      "conf": "authoritative",
@@ -15952,31 +15965,6 @@
      "assetBundle": "spacemarinesdarkangelscardassets_assets_all.bundle",
      "containerKey": "785f2a0a5895d43e3949ac0a802feadd",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "a5b8ac7f2b8201c4aa29d44056d401a8",
-     "origCardId": "DA34",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_5shot_gatling",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "spacemarinesultramarinescardanims_assets_all.bundle",
-     "containerKey": "a5b8ac7f2b8201c4aa29d44056d401a8",
-     "cardanim": "Atk_BulletImpact_5shot_gatling",
-     "prefab": "BulletImpact_gatling_1s",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 695,
-     "abilityTriggerName": "OnCollectQuestPoints",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `OnCollectQuestPoints`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -16682,6 +16670,29 @@
    "trigger": [
     {
      "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "4585ed438548c1940a2d073535a99ab1",
+     "origCardId": "DA66",
+     "joinKey": "id",
+     "assetName": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "cardanimsgeneral_assets_all.bundle",
+     "containerKey": "4585ed438548c1940a2d073535a99ab1",
+     "cardanim": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
+     "prefab": "BulletImpact_DA_MissileVolley_Ballistus",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 700,
+     "abilityTriggerName": "OnSecretCreated",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.OnSecretCreated` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
      "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
      "guid": "4585ed438548c1940a2d073535a99ab1",
@@ -16762,31 +16773,6 @@
      "assetBundle": "spacemarinesdarkangelscardassets_assets_all.bundle",
      "containerKey": "836c5fa734f5b6042b1d44706b9661b0",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "4585ed438548c1940a2d073535a99ab1",
-     "origCardId": "DA66",
-     "joinKey": "id",
-     "assetName": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "cardanimsgeneral_assets_all.bundle",
-     "containerKey": "4585ed438548c1940a2d073535a99ab1",
-     "cardanim": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
-     "prefab": "BulletImpact_DA_MissileVolley_Ballistus",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 700,
-     "abilityTriggerName": "OnSecretCreated",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `OnSecretCreated`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -20991,7 +20977,7 @@
      "assetKind": "audio"
     }
    ],
-   "trigger_unmapped": [
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
@@ -21008,9 +20994,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 701,
      "abilityTriggerName": "OnSabotageCreated",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `OnSabotageCreated`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.OnSabotageCreated` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -26031,6 +26017,52 @@
   "GOF95": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "cfb3df9ad6781214fbb1fe6a791440dd",
+     "origCardId": "GOF95",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_WaaaghEnergy_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "cfb3df9ad6781214fbb1fe6a791440dd",
+     "cardanim": "UnstableExplosion_WaaaghEnergy_self",
+     "prefab": "UnstableEffect_WaaaghEnergy",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "6512973501d6cb649a48bed7e28c59a5",
+     "origCardId": "GOF95",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_WaaaghEnergy_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "6512973501d6cb649a48bed7e28c59a5",
+     "cardanim": "UnstableExplosion_WaaaghEnergy_target",
+     "prefab": "Psychic_Lightning_down_Waaagh_Green",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "RallyEffect",
      "cardanim": "RallyTraitStart",
      "conf": "authoritative",
@@ -26089,54 +26121,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "7730db021a71e7146b1eebaeda6569d2",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "cfb3df9ad6781214fbb1fe6a791440dd",
-     "origCardId": "GOF95",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_WaaaghEnergy_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "cfb3df9ad6781214fbb1fe6a791440dd",
-     "cardanim": "UnstableExplosion_WaaaghEnergy_self",
-     "prefab": "UnstableEffect_WaaaghEnergy",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "6512973501d6cb649a48bed7e28c59a5",
-     "origCardId": "GOF95",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_WaaaghEnergy_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "6512973501d6cb649a48bed7e28c59a5",
-     "cardanim": "UnstableExplosion_WaaaghEnergy_target",
-     "prefab": "Psychic_Lightning_down_Waaagh_Green",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ],
    "play": [
@@ -26718,6 +26702,52 @@
    "trigger": [
     {
      "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF96",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF96",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
      "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
      "guid": "f5782a79f343f8543be3916353ed0410",
@@ -26798,54 +26828,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "0bce781f853ac624caf32807188c3c0c",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF96",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF96",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -27163,6 +27145,52 @@
    ],
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "cfb3df9ad6781214fbb1fe6a791440dd",
+     "origCardId": "GOF92",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_WaaaghEnergy_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "cfb3df9ad6781214fbb1fe6a791440dd",
+     "cardanim": "UnstableExplosion_WaaaghEnergy_self",
+     "prefab": "UnstableEffect_WaaaghEnergy",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "6512973501d6cb649a48bed7e28c59a5",
+     "origCardId": "GOF92",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_WaaaghEnergy_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "6512973501d6cb649a48bed7e28c59a5",
+     "cardanim": "UnstableExplosion_WaaaghEnergy_target",
+     "prefab": "Psychic_Lightning_down_Waaagh_Green",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "TalentEffect",
      "cardanim": "TalentTraitTrigger",
      "conf": "authoritative",
@@ -27221,54 +27249,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "27327f0bdc4ea884d906c718f8705189",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "cfb3df9ad6781214fbb1fe6a791440dd",
-     "origCardId": "GOF92",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_WaaaghEnergy_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "cfb3df9ad6781214fbb1fe6a791440dd",
-     "cardanim": "UnstableExplosion_WaaaghEnergy_self",
-     "prefab": "UnstableEffect_WaaaghEnergy",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "6512973501d6cb649a48bed7e28c59a5",
-     "origCardId": "GOF92",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_WaaaghEnergy_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "6512973501d6cb649a48bed7e28c59a5",
-     "cardanim": "UnstableExplosion_WaaaghEnergy_target",
-     "prefab": "Psychic_Lightning_down_Waaagh_Green",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ]
   },
@@ -27560,6 +27540,52 @@
   "GOF3": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF3",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "BacklashEffect",
      "cardanim": "BacklashTraitTrigger",
      "conf": "authoritative",
@@ -27664,54 +27690,6 @@
      "abilityEvent": "death",
      "abilityEventWhy": "原版 `AbilityTrigger.ThisUnitDeath` → `death`",
      "abilityEventClass": "mapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF3",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -29194,6 +29172,52 @@
   "GOF24": {
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF24",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF24",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "MobEffect",
      "cardanim": "MobTraitTrigger",
      "conf": "authoritative",
@@ -29253,14 +29277,16 @@
      "containerKey": "db1b203bb471c4bb59e31b51aba539ec",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF58": {
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF24",
+     "origCardId": "GOF58",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -29271,9 +29297,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -29283,7 +29309,7 @@
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF24",
+     "origCardId": "GOF58",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -29294,17 +29320,13 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF58": {
-   "trigger": [
+    },
     {
      "prefab": "FlankEffect",
      "cardanim": "FlankTraitStart",
@@ -29380,14 +29402,16 @@
      "containerKey": "ebc2ff3c3c1da467bb44591f9337472b",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF22": {
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF58",
+     "origCardId": "GOF22",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -29398,9 +29422,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -29410,7 +29434,7 @@
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF58",
+     "origCardId": "GOF22",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -29421,17 +29445,13 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF22": {
-   "trigger": [
+    },
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
@@ -29515,54 +29535,6 @@
      "containerKey": "e5089a32aef5c954cb423c3cf05770a6",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF22",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF22",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    }
    ]
   },
   "GOF56": {
@@ -29584,6 +29556,52 @@
     }
    ],
    "trigger": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF56",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF56",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
     {
      "prefab": "TideEffect",
      "cardanim": "TideTraitStart",
@@ -29660,54 +29678,6 @@
      "assetKind": "audio"
     }
    ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF56",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF56",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    }
-   ],
    "play": [
     {
      "conf": "authoritative",
@@ -29736,6 +29706,52 @@
   },
   "GOF25": {
    "trigger": [
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF25",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF25",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
     {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
@@ -29796,14 +29812,16 @@
      "containerKey": "4976be1de227748aaa4f8a51dcd9476a",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF10": {
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF25",
+     "origCardId": "GOF10",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -29814,9 +29832,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -29826,7 +29844,7 @@
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF25",
+     "origCardId": "GOF10",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -29837,17 +29855,13 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF10": {
-   "trigger": [
+    },
     {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
@@ -29908,14 +29922,16 @@
      "containerKey": "f0eb7812507f53648bc11520325caaef",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF63": {
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF10",
+     "origCardId": "GOF63",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -29926,9 +29942,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -29938,7 +29954,7 @@
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF10",
+     "origCardId": "GOF63",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -29949,17 +29965,13 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF63": {
-   "trigger": [
+    },
     {
      "prefab": "ConcussiveEffect",
      "cardanim": "ConcussiveTraitTrigger",
@@ -30020,14 +30032,16 @@
      "containerKey": "8cca2c8f14be94d86a790048eac904f1",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF17": {
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF63",
+     "origCardId": "GOF17",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -30038,9 +30052,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -30050,7 +30064,7 @@
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF63",
+     "origCardId": "GOF17",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -30061,17 +30075,13 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF17": {
-   "trigger": [
+    },
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
@@ -30170,14 +30180,16 @@
      "containerKey": "f10a1f33ca2d530449880a786550068e",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF61": {
+   "trigger": [
     {
      "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF17",
+     "origCardId": "GOF61",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -30185,22 +30197,22 @@
      "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
      "cardanim": "UnstableExplosion_self",
      "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
     },
     {
      "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF17",
+     "origCardId": "GOF61",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -30208,20 +30220,16 @@
      "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
      "cardanim": "UnstableExplosion_target",
      "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF61": {
-   "trigger": [
+    },
     {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
@@ -30297,14 +30305,16 @@
      "containerKey": "6dff3034212d54cc0a61abcc5ff88dc5",
      "assetKind": "audio"
     }
-   ],
-   "trigger_unmapped": [
+   ]
+  },
+  "GOF26": {
+   "trigger": [
     {
      "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[0]",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
      "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF61",
+     "origCardId": "GOF26",
      "joinKey": "id",
      "assetName": "UnstableExplosion_self",
      "assetType": "MonoBehaviour",
@@ -30312,22 +30322,22 @@
      "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
      "cardanim": "UnstableExplosion_self",
      "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
     },
     {
      "conf": "authoritative",
-     "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[1].abilityLogic[0].cardAnimations[1]",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
      "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF61",
+     "origCardId": "GOF26",
      "joinKey": "id",
      "assetName": "UnstableExplosion_target",
      "assetType": "MonoBehaviour",
@@ -30335,20 +30345,16 @@
      "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
      "cardanim": "UnstableExplosion_target",
      "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[1].abilityLogic[0]",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ]
-  },
-  "GOF26": {
-   "trigger": [
+    },
     {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
@@ -30438,54 +30444,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "19f671f4706ae7e49b5f38877ca5daf5",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF26",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF26",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ],
    "play": [
@@ -30827,6 +30785,52 @@
    ],
    "trigger": [
     {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
+     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "origCardId": "GOF69",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_self",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
+     "cardanim": "UnstableExplosion_self",
+     "prefab": "UnstableEffect",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
+     "conf": "authoritative",
+     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
+     "guid": "9cdcdbdee14b206439a48584db3ceea3",
+     "origCardId": "GOF69",
+     "joinKey": "id",
+     "assetName": "UnstableExplosion_target",
+     "assetType": "MonoBehaviour",
+     "assetBundle": "orksgoffcardanims_assets_all.bundle",
+     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
+     "cardanim": "UnstableExplosion_target",
+     "prefab": "UnstableEffect_ExplosionExtra",
+     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
+     "abilityTrigger": 81,
+     "abilityTriggerName": "Unstable",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
+     "chosenAbility": 10,
+     "chosenAbilityName": "doDamage",
+     "inLibrary": true
+    },
+    {
      "prefab": "RallyEffect",
      "cardanim": "RallyTraitStart",
      "conf": "authoritative",
@@ -30885,54 +30889,6 @@
      "assetBundle": "orksgoffcardassets_assets_all.bundle",
      "containerKey": "70a0c97988a2e88408345cd42a940e20",
      "assetKind": "audio"
-    }
-   ],
-   "trigger_unmapped": [
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[0]",
-     "guid": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "origCardId": "GOF69",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_self",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "4118a1fd86e7a1d4dabf864d5a86e744",
-     "cardanim": "UnstableExplosion_self",
-     "prefab": "UnstableEffect",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
-    },
-    {
-     "conf": "authoritative",
-     "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "soField": "cardAbilities[0].abilityLogic[0].cardAnimations[1]",
-     "guid": "9cdcdbdee14b206439a48584db3ceea3",
-     "origCardId": "GOF69",
-     "joinKey": "id",
-     "assetName": "UnstableExplosion_target",
-     "assetType": "MonoBehaviour",
-     "assetBundle": "orksgoffcardanims_assets_all.bundle",
-     "containerKey": "9cdcdbdee14b206439a48584db3ceea3",
-     "cardanim": "UnstableExplosion_target",
-     "prefab": "UnstableEffect_ExplosionExtra",
-     "abilitySlot": "cardAbilities[0].abilityLogic[0]",
-     "abilityTrigger": 81,
-     "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
-     "chosenAbility": 10,
-     "chosenAbilityName": "doDamage",
-     "inLibrary": true
     }
    ],
    "play": [
@@ -68712,7 +68668,7 @@
      "assetKind": "audio"
     }
    ],
-   "trigger_unmapped": [
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
@@ -68729,9 +68685,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -68752,15 +68708,13 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    }
-   ],
-   "trigger": [
+    },
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]",
@@ -70014,7 +69968,7 @@
      "assetKind": "audio"
     }
    ],
-   "trigger_unmapped": [
+   "trigger": [
     {
      "conf": "authoritative",
      "src": "cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]",
@@ -70031,9 +69985,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -70054,9 +70008,9 @@
      "abilitySlot": "cardAbilities[0].abilityLogic[0]",
      "abilityTrigger": 81,
      "abilityTriggerName": "Unstable",
-     "abilityEvent": "trigger_unmapped",
-     "abilityEventWhy": "**未归口**：原版触发 `Unstable`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；要播必须先补引擎发射口，再进 `IsRoutedTriggerName`",
-     "abilityEventClass": "unmapped",
+     "abilityEvent": "trigger",
+     "abilityEventWhy": "原版 `AbilityTrigger.Unstable` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）",
+     "abilityEventClass": "routed",
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
@@ -86155,13 +86109,12 @@
   "cardsUncovered": 0,
   "cardsCoveredByEvent": {
    "_assetRefs": 1127,
-   "trigger": 574,
+   "trigger": 576,
    "play": 534,
    "attack_ranged": 518,
    "trait_onplay": 137,
    "death": 101,
    "ability": 93,
-   "trigger_unmapped": 25,
    "attack_melee": 11,
    "hit": 2,
    "deploy": 1
@@ -86230,10 +86183,9 @@
    "authoritativeByEvent": {
     "play": 796,
     "attack_ranged": 518,
-    "trigger": 446,
+    "trigger": 490,
     "ability": 160,
     "death": 145,
-    "trigger_unmapped": 44,
     "attack_melee": 13,
     "hit": 2,
     "deploy": 1
@@ -86563,8 +86515,8 @@
    ],
    "variantRewritten": 6,
    "variantResolveFailed": 0,
-   "multiPlayBucketsBefore": 1070,
-   "multiPlayBucketsAfter": 1218,
+   "multiPlayBucketsBefore": 1071,
+   "multiPlayBucketsAfter": 1214,
    "traitEffects": 75,
    "sourceGenerated": "2026-10-22",
    "sourceCollection": "TraitsCollection",
@@ -87229,44 +87181,17 @@
    "rows": {
     "ability": 160,
     "mapped": 855,
-    "routed": 410,
-    "unmapped": 44
+    "routed": 454
    },
    "cards": {
     "ability": 93,
     "mapped": 586,
-    "routed": 267,
-    "unmapped": 25
+    "routed": 286
    },
    "unmapped": {
-    "rows": 44,
-    "cards": 25,
-    "byName": {
-     "OnCollectQuestPoints": {
-      "rows": 2,
-      "cards": 2
-     },
-     "OnSabotageCreated": {
-      "rows": 1,
-      "cards": 1
-     },
-     "OnSecretCreated": {
-      "rows": 3,
-      "cards": 2
-     },
-     "UnitLoseStealth": {
-      "rows": 1,
-      "cards": 1
-     },
-     "UnitStunned": {
-      "rows": 1,
-      "cards": 1
-     },
-     "Unstable": {
-      "rows": 36,
-      "cards": 18
-     }
-    }
+    "rows": 0,
+    "cards": 0,
+    "byName": {}
    }
   },
   "notPlayed": [
@@ -87506,8 +87431,6 @@
    "Leviathan": 60,
    "Ultramarines": 10
   },
-  "problems": [
-   "归口：**44 行 / 25 卡**的原版触发**引擎没有发射口** ⇒ 已落 `trigger_unmapped`（留档不播）：OnCollectQuestPoints · OnSabotageCreated · OnSecretCreated · UnitLoseStealth · UnitStunned · Unstable（要播必须先补 `EvtKind.Trigger` 发射口 + 进 `VfxMap.IsRoutedTriggerName`，判据见 `VfxMap.NoEmitTriggerNames`）"
-  ]
+  "problems": []
  }
 }

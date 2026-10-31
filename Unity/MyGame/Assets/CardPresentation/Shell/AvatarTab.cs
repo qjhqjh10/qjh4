@@ -332,7 +332,7 @@ namespace CardPresentation
             WarnIfAvatarMissing(Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null);
             _bigArt = CosmeticRect(ic, Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null,
                                    ScaleAboutCenter(new PxRect(ImL, ImT, ImR, ImB), ScaleImage), "Image", 6);
-            Rect(ic, BorderArtName(), ScaleAboutCenter(new PxRect(BdL, BdT, BdR, BdB), ScaleBorder), "Border", 5, null, true);
+            _bigBorder = Rect(ic, BorderArtName(), ScaleAboutCenter(new PxRect(BdL, BdT, BdR, BdB), ScaleBorder), "Border", 5, null, true);   // 🆕 C4：存下来 —— 原版 `AvatarDisplay.avatarHolder`，每次 `Initialize` → `ChangeBorder` 都重设 sprite（见类尾 `ChangeBorder`）
             // 🔴 **2026-10-07（A62 子表 A · A28）**：原版 `Avatar Tab > Selected Item Panel > Avatar Name`
             //   （`'TEST NAME'`）是 **`折行=0 auto[15~35]`**（判据 = `md "Player Profile Window" --depth 25 --md`）
             //   ⇒ `SetAutoFitBox` 内部会无条件开折行 ⇒ 显式关掉（A205：关这一下顺带把版面推下去）。
@@ -613,13 +613,13 @@ namespace CardPresentation
         public void Refresh()
         {
             bool has = PreviewIndex >= 0 && PreviewIndex < Avatars.Count;
-            if (_bigName != null) _bigName.SetText(has ? Avatars[PreviewIndex].Name : "");
-            if (_bigArt != null)
-            {
-                var tex = has ? CardArt.Cosmetics(Avatars[PreviewIndex].Art) : null;
-                if (tex != null) { _bigArt.SetTexture(tex); _bigArt.gameObject.SetActive(true); }
-                else _bigArt.gameObject.SetActive(false);
-            }
+            ChangeAvatar(PreviewIndex);   // 原版 `AvatarDisplay.ChangeAvatar`：`avatarName.text` + `avatarImage.sprite` / `enabled = (sprite != null)`（类尾）
+            ChangeBorder();               // 原版 `AvatarDisplay.ChangeBorder`：每次 `Initialize` 都重设边框图；`border == null` ⇒ 什么都不做（类尾）
+            // ⚠️ 两跳顺序照 `decomp_full/AvatarDisplay__Initialize.c`：ChangeAvatar → ChangeBorder → ToggleHighlight → ToggleLock。
+            //    后两跳在本页：大图 `Highlight` 恒关（两个原版调用点都传 `highlight = false`）、`isLocked` 在全解锁口径下恒假
+            //    （判据 + 裁定 → 账 `个人资料_成就/排行` 的 `AvatarDisplay.ToggleHighlight/ToggleLock/IsAvatarLocked` 三条）。
+            // 🔴 2026-10-31（C4）：原来这里只写 `_bigName/_bigArt`、**从不重设边框图** —— 换边框后大图不跟（真缺口，本轮补）。
+            //    ⛔ 别把这两跳并回 `Refresh` 行内：`AvatarDisplay` 的那两个方法名是本档的映射词汇（账按名字对账），拆出来才核得动。
             if (_bigHighlight != null) _bigHighlight.gameObject.SetActive(false);   // 大图那份恒关（见常量注释）
             for (int k = 0; k < _cellHl.Count; k++)
                 if (_cellHl[k] != null) _cellHl[k].gameObject.SetActive(k < _cellIdx.Count && _cellIdx[k] == PreviewIndex);
@@ -694,5 +694,71 @@ namespace CardPresentation
             if (!gameObject.activeInHierarchy) return;      // 原版第二句 `GameObject.get_activeInHierarchy`
             Refresh();
         }
+
+        // ============================================================ `AvatarDisplay` 的两跳（🆕 2026-10-31 · C4）
+        //
+        //  🔴 为什么补在这里、**不新建一个抽屉**：`AvatarDisplay : ItemDrawer<PlayerAvatar>` 但**不在 `ItemDrawerConfig`**
+        //     （映射表 `ItemTypeSets` 的 `PlayerAvatar` 三档全是 `AvatarDrawer`）⇒ 原版工厂 `ItemDrawer.Draw` **永远选不到它**
+        //     （`decomp_full` 全库 `AvatarDisplay__Draw` **只有它自己那份 `.c`** = 零调用点）。52 个 prefab 是
+        //     **直接挂组件**、由各窗自己调 `Initialize(...)` / `Draw(...)`（`AvatarTab` / `PlayerInfoDisplay` /
+        //     `AllianceMemberEntry` / `BattleAlliancePanel` / `PlayerProfileUIController`）。
+        //     ⇒ 登记进 `DrawerImpls` 会造出**零调用死档**（同施工单 C1 对 `RandomCardIconDrawer` 的处置）；
+        //       正确落点是**现有口径**（本页自绘）里补齐这两跳 —— 账 `个人资料_成就/排行:61-71` 早已按「等价实现」
+        //       逐条记着（`ChangeAvatar` / `ChangeBorder` / `Draw` / `Initialize` …），本轮把其中**唯一被写成等价
+        //       但其实没做的那一半**（`ChangeBorder` 的 `sprite` 重设）补实。
+        //     ⚠️ 纯文字口径：`AvatarDisplay.ChangeAvatar` 还有一句 `name = "Avatar Display " + LocalizedName`（改 GameObject 名）。
+        //       我们**不做**：本页节点的名字是自检/账的**结构词汇**（`Avatar Menu Item` / `Image Container/Border` …），
+        //       改名零玩家可见效果、却会打断那些锚点 ⇒ 如实记在报告里（⛔ 不是漏做）。
+
+        /// <summary>大图那层 `Image Container/Border`（原版 `AvatarDisplay.avatarHolder`）。声明在类尾：插在字段区会挪本文件账落点。</summary>
+        ImageQuad _bigBorder;
+
+        /// <summary>原版 `AvatarDisplay.ChangeAvatar(PlayerAvatar)`（🥇 `decomp_full/AvatarDisplay__ChangeAvatar.c` 全文）：
+        /// 存引用 → `name = "Avatar Display " + LocalizedName` → `avatarImage.sprite = avatar.Image` +
+        /// **`avatarImage.enabled = (sprite != null)`** → `avatarName.text = avatar.LocalizedName`。
+        /// <para>我们：`Image` 那两层 = `_bigArt` / `_bigName`；`enabled = (sprite != null)` 落成
+        /// 「有图 ⇒ 开、没图 ⇒ 关」（`ImageQuad` 没有 `enabled` 位，`SetActive` 是同一件事）。
+        /// ⚠️ 改名那一句见上面那一段（刻意不做）。</para></summary>
+        public void ChangeAvatar(int index)
+        {
+            bool has = index >= 0 && index < Avatars.Count;
+            if (_bigName != null) _bigName.SetText(has ? Avatars[index].Name : "");
+            if (_bigArt == null) return;
+            var tex = has ? CardArt.Cosmetics(Avatars[index].Art) : null;
+            if (tex != null) { _bigArt.SetTexture(tex); _bigArt.gameObject.SetActive(true); }
+            else _bigArt.gameObject.SetActive(false);       // = 原版 `enabled = (sprite != null)`
+        }
+
+        /// <summary>原版 `AvatarDisplay.ChangeBorder(CosmeticItemAvatarBorder)`（🥇 `decomp_full/AvatarDisplay__ChangeBorder.c`）：
+        /// **`border == null ⇒ 整段 return`**（不清图、不关层）；否则 `avatarHolder.sprite = border.Image` +
+        /// `avatarHolder.enabled = (sprite != null)`。
+        /// <para>我们：`border` 的等价物 = 已装备那条（`ProfileData.EquippedBorderArtName`，空格归一后的资源名）。
+        /// **取不到 ⇒ 什么都不做**（照抄原版那条早退）。</para>
+        /// <para>🔴 为什么必须有这一跳：原版**每次 `Initialize` 都调它**（点任意一格 → `OnAvatarClick` → `mainDisplay.Initialize`
+        /// → `ChangeBorder`）⇒ 换掉已装备边框后，点一下就跟着变。我们原来只在 `Build()` 里取一次图 ⇒ **大图边框不跟**（2026-10-31 C4 补）。</para></summary>
+        public void ChangeBorder()
+        {
+            if (_bigBorder == null) return;
+            string art = ProfileData.EquippedBorderArtName;
+            if (string.IsNullOrEmpty(art)) return;          // = 原版 `border == null` 那条早退（⛔ 不要在这里清图/关层）
+            var tex = CardArt.MenuUi(art);
+            if (tex != null) { _bigBorder.SetTexture(tex); _bigBorder.gameObject.SetActive(true); }
+            else _bigBorder.gameObject.SetActive(false);    // = 原版 `enabled = (sprite != null)`
+        }
+
+        // ---- 自检读口（只读；⛔ 生产路径不用）----
+
+        /// <summary>大图立绘现在贴的是哪张图（`null` = 没建）。</summary>
+        public Texture BigArtTextureForTest { get { return _bigArt != null ? _bigArt.Texture : null; } }
+        /// <summary>大图立绘现在开着吗（原版 `avatarImage.enabled`）。</summary>
+        public bool BigArtActiveForTest { get { return _bigArt != null && _bigArt.gameObject.activeSelf; } }
+        /// <summary>大图边框层现在贴的是哪张图（`null` = 没建）。</summary>
+        public Texture BigBorderTextureForTest { get { return _bigBorder != null ? _bigBorder.Texture : null; } }
+        /// <summary>大图边框层现在开着吗（原版 `avatarHolder.enabled`）。</summary>
+        public bool BigBorderActiveForTest { get { return _bigBorder != null && _bigBorder.gameObject.activeSelf; } }
+        /// <summary>大图上那行名字现在是什么（原版 `avatarName.text`）。</summary>
+        public string BigNameForTest { get { return _bigName != null ? _bigName.Text : null; } }
+        /// <summary>大图 `Highlight` 现在开着吗（原版 `AvatarDisplay.highlight`；本页两个调用点都传 `false`）。</summary>
+        public bool BigHighlightActiveForTest { get { return _bigHighlight != null && _bigHighlight.gameObject.activeSelf; } }
     }
 }

@@ -407,4 +407,8 @@ public static class B99A3_Assert
             + "｜⚠️ 别把扫描域放大回整个 `AppDomain`：`UnityEditor` 自带两个同名方法（`AssetImporterEditor.CanApply()` /"
             + " `PackageManifestImporterEditor.CanApply()`）⇒ 那会让这条**恒红**，断的还是别人的代码");
     }
+
+    /// <summary>最近一次 `Run()` 的通过 / 失败数（宿主聚合行累加用 —— 2026-10-31 `B108` 补；此前只调 `Run()`、不计数 ⇒ 成败不进宿主合计）。</summary>
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
 }

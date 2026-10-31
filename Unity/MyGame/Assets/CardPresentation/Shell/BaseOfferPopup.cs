@@ -470,7 +470,7 @@ namespace CardPresentation
                     new VariantDrawer { Name = "Cardback Drawer", R = new PxRect(702.01f, 262.81f, 926.79f, 603.39f), Rot = -5.04f, On = true, Cls = "CardbackDrawer" },
                     new VariantDrawer { Name = "Avatar Border Drawer Shop Variant", R = new PxRect(400.84f, 497.60f, 685.16f, 928.40f), Rot = 5.04f, On = true, Cls = "AvatarBorderDrawer" },
                     new VariantDrawer { Name = "Card Drawer (1)", R = new PxRect(692.74f, 267.70f, 924.26f, 618.50f), Rot = -4.73f, On = true, Cls = "CardDrawer" },
-                    new VariantDrawer { Name = "Icon Expansion Pass Premium Drawer Variant Variant", R = new PxRect(653.86f, 550.15f, 936.14f, 977.85f), Rot = 0f, On = true, Cls = "ExpansionPassPremiumDrawer" },
+                    new VariantDrawer { Name = "Icon Expansion Pass Premium Drawer Variant Variant", R = new PxRect(597.40f, 464.61f, 992.60f, 1063.39f), Rot = 0f, On = true, Cls = "ExpansionPassPremiumDrawer" },
                 } },
             // `Artwork` **F** · `foreground` T · 4 槽（全开）
             new Variant { Prefab = "General Basic Offer Popup Variant Premium_Premium_cardback_avatar", G = GeoSmall, ArtworkOn = false, ForegroundOn = true,
@@ -1127,7 +1127,7 @@ namespace CardPresentation
                 DrawerNodes.Add(slot);
                 DrawerClasses.Add(d.Cls);
 
-                var drew = ItemDrawer.Draw(slot, d.R, C.Item, 1, DrawerOverride.OfferPopups, st);
+                var drew = ItemDrawer.Draw(slot, d.R, C.Item, 1, DrawerOverride.OfferPopups, ItemDrawer.WithPremiumLayers(st, d.Name));   // 🆕 2026-10-31（B108_A15）：高级抽屉那两层（`Background` / `Campaign Glow`）按 prefab 名逐槽置位（判据 → `资料/完全复刻/判据/B108_AUD01_余项.md` §二·2）
                 if (drew.Node == null)
                 {
                     // 原版第 ②步（`drawer == null` ⇒ 不画）。没有报价 ⇒ 这一支是**正常的**，不刷屏。

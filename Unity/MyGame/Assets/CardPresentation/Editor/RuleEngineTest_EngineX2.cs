@@ -33,20 +33,20 @@ public static partial class RuleEngineTest
         {
             Directory.CreateDirectory(tmp);
             ProfileData.SavePathOverrideForTest = Path.Combine(tmp, "profile.json");
-
-            X2T0DataPipeline();
-            X2T1DamageKinds();
-            X2T2TriggerSinglePort();
-            X2T3CardPlayed();
-            X2T4Upgrade();
-            X2T5GamesPlayed();
-            X2T6TutorialGate();
-            X2T7Login();
-            X2T8MissingIdIsLoud();
+            // 🔴 2026-10-31（B108_A7 · AUD11 类 4）：改前 9 段挤在同一个 try ⇒ 一段抛异常后面全不跑（合计只多「失败 1」）。现逐段 catch。
+            try { X2T0DataPipeline(); } catch (Exception e) { X2SegFail("① 数据管线四列", e, 8); }
+            try { X2T1DamageKinds(); } catch (Exception e) { X2SegFail("② 伤害分类", e, 7); }
+            try { X2T2TriggerSinglePort(); } catch (Exception e) { X2SegFail("③ 能力触发单口", e, 6); }
+            try { X2T3CardPlayed(); } catch (Exception e) { X2SegFail("④ 出牌", e, 5); }
+            try { X2T4Upgrade(); } catch (Exception e) { X2SegFail("⑤ 升级卡", e, 4); }
+            try { X2T5GamesPlayed(); } catch (Exception e) { X2SegFail("⑥ 对局", e, 3); }
+            try { X2T6TutorialGate(); } catch (Exception e) { X2SegFail("⑦ 教程/决斗/回放闸", e, 2); }
+            try { X2T7Login(); } catch (Exception e) { X2SegFail("⑧ 登录", e, 1); }
+            try { X2T8MissingIdIsLoud(); } catch (Exception e) { X2SegFail("⑨ 不静默", e, 0); }
         }
         catch (Exception e)
         {
-            CheckTrue(false, "X2 断言宿主抛异常（后面的条目没跑完）：" + e);
+            CheckTrue(false, "X2 段外异常（= 建临时目录 / 改存档路径那一句炸了 ⇒ 上面 9 段**一段都没跑**）：" + e);
         }
         finally
         {
@@ -136,16 +136,16 @@ public static partial class RuleEngineTest
                      + ctx.Tally.DamageOf(0, DamageKind.Blast) + ctx.Tally.DamageOf(0, DamageKind.Sentry);
         Check(afterAll, beforeAll, "X2-1c ★ 类别缺省（`Unknown`）的伤害 ⇒ **一格都不涨**（⛔ 不拿某一类兜底）");
 
-        // ---- ④ 「打自己人」不算我方战果（归属口径与 `DamageToEnemy` 逐字相同：记给**对面**）----
-        RuleCore.HurtWithSourceForTest(ctx, own, 4, "X2 测试（打自己人）", kind: DamageKind.Melee);
-        Check(ctx.Tally.DamageOf(0, DamageKind.Melee), 7, "X2-1d ★ 打自己人 ⇒ **我方**那一格不动（仍 7）");
-        Check(ctx.Tally.DamageOf(1, DamageKind.Melee), 4, "X2-1d ★ …而是记给**对面**（与 `BattleContext.DamageToEnemy` 同一条归属规则）");
-
+        // ---- ④ ★ 归属 = **原版 `DamageInfo.actingCard.isPlayer`**（`decomp_full/DamageInfo__IsPlayer.c:20-36`：actingCard 非空 ⇒ 读 `actingCard+0x40`；**为 null ⇒ `Debug.LogError` + `return 1`（视为玩家）**。cpp2il `out_cpp2il_dev_ilspy/DamageInfo.cs:40-55` 逐句同形，错误文案 "Can't find actingCard nor actingHeroPower data in a DamageInfo struct"）⇒「自己打自己人」记给**攻方**，⛔ 不是「受害者取反」。`DamageDeltToEnemyUnit__OnDamageDelt.c:36` 就是拿这个返回值当闸，`:40` 的敌人类型过滤在 `anyEnemyType=1`（`Ach_2` / `Ach_3` 的过滤位都是 1）时**整支跳过** ⇒ 自伤也计入成就 ----
+        RuleCore.HurtWithSourceForTest(ctx, own, 4, "X2 测试（打自己人）", actingCard: own, kind: DamageKind.Melee);
+        Check(ctx.Tally.DamageOf(0, DamageKind.Melee), 11, "X2-1d ★ 自己打自己人 ⇒ 记给**攻方（我方）**：7 + 4 = 11（原版 `actingCard.isPlayer`；🧨 把归属改回 `1 - 受害者座位` ⇒ 本格仍 7、下一格变 4 ⇒ 两条一起红）");
+        Check(ctx.Tally.DamageOf(1, DamageKind.Melee), 0, "X2-1d ★ …而**对面那一格一点不动**（仍是 0；`BattleContext.DamageToEnemy` 的「受害者取反」是**战果**的口径，不是成就归属的口径，⛔ 别混）");
+        RuleCore.HurtWithSourceForTest(ctx, own, 2, "X2 测试（不传 actingCard）", kind: DamageKind.Melee); Check(ctx.Tally.DamageOf(0, DamageKind.Melee), 13, "X2-1d' ⚠️ **我们的缺省支**（2026-10-31 `B108_A1` 已按原版对齐）：不传 `actingCard` ⇒ `_rawDealer` 视为本地玩家座位 0 + 一次性 `LogError`（原版 `DamageInfo__IsPlayer.c:26-30` = LogError + return 1）⇒ 这 2 点也记给**我方** ⇒ 累计 13");
         // ---- ⑤ 从计数 → 成就（`Ach_2` 近战涨、`Ach_3` 远程不涨）----
         int b2 = ProfileData.AchievementValue("Ach_2");
         int b3 = ProfileData.AchievementValue("Ach_3");
         ProfileData.ApplyAchievementTally(ctx.Tally, 0, 0, 0, 0, GameMode.OfflinePractice, null, false, false);
-        Check(ProfileData.AchievementValue("Ach_2"), b2 + 7, "X2-1e 近战 7 点 ⇒ `Ach_2`（`Deal Melee Damage`）+7");
+        Check(ProfileData.AchievementValue("Ach_2"), b2 + 13, "X2-1e 近战 7 点 + 自伤 4 点 + 缺省支 2 点 ⇒ `Ach_2`（`Deal Melee Damage`）**+13**（`Ach_2` 的过滤位 `anyEnemyType=1` ⇒ 原版 `DamageDeltToEnemyUnit__OnDamageDelt.c:40` 那一支**整段跳过**「只算敌人」，自伤按 `actingCard.isPlayer` 也计入；2026-10-31 `B108_A1` 把缺省支对齐成「视为玩家」后 +2）");
         Check(ProfileData.AchievementValue("Ach_3"), b3 + 5, "X2-1f ★ 同一次结算里 `Ach_3`（远程）**只 +5**（= 远程那 5 点，不是全部 12）");
     }
 
@@ -360,5 +360,16 @@ public static partial class RuleEngineTest
               "X2-7a ★ 不存在的成就 id ⇒ **不写**（并且 `Debug.LogWarning` 一条 —— 红线：不许静默失败）");
         Check(ProfileData.GainAchievement("Ach_1", 0, GameMode.Classic, false), false,
               "X2-7b delta = 0 ⇒ **不写**（这一项这局是 0 不该产生一次写盘）");
+    }
+
+    /// <summary>段级 catch（2026-10-31 `B108_A7` · AUD11 类 4）：改前 `TestEngineX2` 是**一个 try 包 9 段** ⇒
+    /// 任一段抛异常，其后 8 段一条不跑，而合计只多「失败 1」，读日志的人看不出「后面没跑」。
+    /// <para>⚠️ 本文件被账按**行号**引用（`账/战斗逻辑驱动.tsv:1004` → `:140`、`:1355` → `:161`）⇒ 改动是
+    /// **行数零变化**的（9 行调用原地换成 9 行 try/catch、一处空行换成注释行），本 helper 追加在**类尾**。</para>
+    /// <paramref name="rest"/> = 这一段之后还有几段（0 = 它是最后一段）。</summary>
+    static void X2SegFail(string section, Exception e, int rest)
+    {
+        CheckTrue(false, section + " 段异常（算红，⛔ 不是跳过；跑到 `" + section + "` 这一段，其后 " + rest
+                             + " 段没跑）: " + e.GetType().Name + "：" + e.Message);
     }
 }

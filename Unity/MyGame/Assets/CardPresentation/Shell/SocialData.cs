@@ -176,7 +176,7 @@ namespace CardPresentation
             public string PlayerId;
             public string AvatarArt;
             /// <summary>行高。&lt;= 0 就用原版 `_DefaultItemSize` = 60。</summary>
-            public float Height;
+            public float Height; public string TranslatedText;   // TranslatedText = 原版 `ChatMessageData.translatedMessage`（译好的正文；**非空** ⇒ `GetMessage()` 用它，见 `Text()`）。写方 = 远端 `TranslationService` 成功回调（P3/关服）⇒ 本地恒 null。🆕 2026-10-31 `B109_E21`（追加在同物理行 ⇒ 本文件零行号漂移）
         }
 
         static readonly List<ChatMessage> _chat = new List<ChatMessage>();
@@ -270,7 +270,7 @@ namespace CardPresentation
         /// ＋ `out_cpp2il_dev_ilspy/ChatMessageData.cs:138-266`）。
         /// <para>**原版只有 6 条模板 + 2 条直通**（′15 种′ 那个旧口径是错的，见 `B9_社交C_派活包.md` §0·2③）：</para>
         /// <list type="bullet">
-        /// <item>`Message(50)` / `Announcement(100)` ⇒ `translatedMessage ?? msg`（本地无翻译服务 ⇒ 恒 `msg`）。</item>
+        /// <item>`Message(50)` / `Announcement(100)` ⇒ `translatedMessage ?? msg`（= 本仓 `TranslatedText` 非空就用它；本地无翻译服务 ⇒ 恒 `Text`）。</item>
         /// <item>`Join(20)` / `Leave(30)` / `KickPlayer(60)` ⇒ 键 `SocialMenu/Alliances/Messages/{类型名}`，
         ///       替换 `{playerName}` `{targetPlayer}`，再替换 `{locData}` = `GetTranslation(data)`。</item>
         /// <item>`Promoted(80)` / `Demoted(90)` ⇒ 同上，但 `{locData}` = **角色词条**
@@ -290,7 +290,7 @@ namespace CardPresentation
             {
                 case ChatMessage.TypeMessage:
                 case ChatMessage.TypeAnnouncement:
-                    return m.Text ?? "";
+                    return string.IsNullOrEmpty(m.TranslatedText) ? (m.Text ?? "") : m.TranslatedText;   // 原版 `translatedMessage ?? msg`（2026-10-31 B109_E21）
                 case ChatMessage.TypeJoin:
                 case ChatMessage.TypeLeave:
                 case ChatMessage.TypeKickPlayer:

@@ -4761,6 +4761,10 @@ namespace RuleEngine
             public int lg = -1;
             /// <summary>原版 `AbilityTrigger` 数值（`-1` = 坏值/缺键，⛔ 不是 `0 ThisCardPlayed`）。</summary>
             public int trigger = -1;
+            /// <summary>🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`
+            /// （`dump.cs:20340`）。`-1` = 缺键/旧表（<c>cards_engine.json</c> 未重生成）—— ⛔ **不是 0**。
+            /// <para>唯一消费者 = 410 去重的闩（`Enchantments.ApplyFollowUpResolutionDedup` / `HasTriggerAbilityWithValue`）。</para></summary>
+            public int triggerValue = -1;
         }
 
         public partial class CardDto
@@ -4796,7 +4800,7 @@ namespace RuleEngine
                                  + "撞键 = 表坏了）。重跑 工具/gen_cards_engine.py。");
                     continue;
                 }
-                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger });
+                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger, TriggerValue = r.triggerValue });
             }
             return list.ToArray();
         }

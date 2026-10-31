@@ -341,13 +341,13 @@ namespace CardPresentation
         /// （判据、逐条缺口语义、四支顺序见它的 doc），本成员只是把「同名可达」这一层补上（账 745 的残差 = 方法不存在）。
         /// </para>
         /// <para>语档：原版 `ModifyLocalization` 用**当前语档**的 `LocalizationManager`；这里按
-        /// `Loc.Current == AvailableLanguages.Chinese` 取中文列（其它语档由 `CardIcons.OfficialTerm` 的
+        /// `CardText.Zh` 且 `Loc.Current == AvailableLanguages.Chinese` 时取中文列（其它语档由 `CardIcons.OfficialTerm` 的
         /// `Loc.Lang13Current` 走当前语言列，与本 flag 无关 —— 该口径见 `RewriteMarks` 的 doc）。</para>
         /// <para>空/`null` 入参：原版 `IsNullOrEmpty ⇒ return baseString ?? ""`（`.c:489-493`）—— 照抄。</para></summary>
         public static string ModifyLocalization(string baseString)
         {
             if (string.IsNullOrEmpty(baseString)) return baseString ?? "";
-            return CardIcons.RewriteMarks(baseString, Loc.Current == AvailableLanguages.Chinese);
+            return CardIcons.RewriteMarks(baseString, CardText.Zh && Loc.Current == AvailableLanguages.Chinese);   // 🔴 2026-10-31（Q1）补字体闸：中文档 + 缺中文字体 ⇒ zh 位为假（原只按语档 ⇒ 记号子词条印方块）
         }
     }
 }

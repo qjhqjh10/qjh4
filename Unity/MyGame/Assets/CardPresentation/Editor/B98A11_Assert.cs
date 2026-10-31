@@ -394,4 +394,7 @@ public static class B98A11_Assert
 
         c.OnReset();
     }
+    // 🆕 2026-10-31（B109 · AUD11）：宿主聚合行原来只裸调 `Run()`、不进 `_sink` ⇒ 全红宿主仍绿。追加到类尾（零行漂）。
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
 }

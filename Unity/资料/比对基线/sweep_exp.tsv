@@ -7655,3 +7655,43 @@ WorstTemperEffect	1.00	638	286	627	223
 WorstTemperEffect	1.50	666	241	705	204
 WorstTemperEffect	2.00	46	5	18	2
 WorstTemperEffect	3.00	0	0	0	0
+Earthquake Shake only	0.15	0	0	0	0
+Earthquake Shake only	0.30	0	0	0	0
+Earthquake Shake only	0.50	0	0	0	0
+Earthquake Shake only	0.75	0	0	0	0
+Earthquake Shake only	1.00	0	0	0	0
+Earthquake Shake only	1.50	0	0	0	0
+Earthquake Shake only	2.00	0	0	0	0
+Earthquake Shake only	3.00	0	0	0	0
+Environmental Condition Particles Orbital	0.15	0	0	0	0
+Environmental Condition Particles Orbital	0.30	0	0	0	0
+Environmental Condition Particles Orbital	0.50	0	0	0	0
+Environmental Condition Particles Orbital	0.75	0	0	0	0
+Environmental Condition Particles Orbital	1.00	0	0	0	0
+Environmental Condition Particles Orbital	1.50	0	0	0	0
+Environmental Condition Particles Orbital	2.00	0	0	0	0
+Environmental Condition Particles Orbital	3.00	0	0	0	0
+Orks Environmental Condition Night	0.15	58	58	59	51
+Orks Environmental Condition Night	0.30	58	58	59	51
+Orks Environmental Condition Night	0.50	58	58	59	51
+Orks Environmental Condition Night	0.75	58	58	59	51
+Orks Environmental Condition Night	1.00	58	58	59	51
+Orks Environmental Condition Night	1.50	58	58	59	51
+Orks Environmental Condition Night	2.00	58	58	59	51
+Orks Environmental Condition Night	3.00	58	58	59	51
+Swarm Battle Card Icon	0.15	12588	14146	12558	10724
+Swarm Battle Card Icon	0.30	12588	14146	12558	10724
+Swarm Battle Card Icon	0.50	12588	14146	12558	10724
+Swarm Battle Card Icon	0.75	12588	14146	12558	10724
+Swarm Battle Card Icon	1.00	12588	14146	12558	10724
+Swarm Battle Card Icon	1.50	12588	14146	12558	10724
+Swarm Battle Card Icon	2.00	12588	14146	12558	10724
+Swarm Battle Card Icon	3.00	12588	14146	12558	10724
+Teleport Trigger Board Effect Only	0.15	0	0	0	0
+Teleport Trigger Board Effect Only	0.30	0	0	0	0
+Teleport Trigger Board Effect Only	0.50	0	0	0	0
+Teleport Trigger Board Effect Only	0.75	0	0	0	0
+Teleport Trigger Board Effect Only	1.00	0	0	0	0
+Teleport Trigger Board Effect Only	1.50	0	0	0	0
+Teleport Trigger Board Effect Only	2.00	0	0	0	0
+Teleport Trigger Board Effect Only	3.00	0	0	0	0

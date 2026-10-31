@@ -58,7 +58,7 @@ public static class EffectSweepBatch
     /// <summary>结果按侧分文件：sweep_orig.tsv / sweep_exp.tsv，最后在 Python 里按效果名合并。
     /// 放在 `资料/比对基线/` 而不是临时目录 —— 这是台账的原始数据，要跟着仓库走。</summary>
     static string ResultPath { get { return ResultPathFor(Side); } }
-    static string ResultPathFor(string side) => $@"d:\4\Unity\资料\比对基线\sweep_{side}.tsv";
+    static string ResultPathFor(string side) => System.Environment.GetEnvironmentVariable("WFSWEEP_OUT") is string _o && _o.Length > 0 ? _o : $@"d:\4\Unity\资料\比对基线\sweep_{side}.tsv";
 
     /// <summary>🔴 **2026-09-19 晚：`WFSWEEP_SIDE=both` —— 同进程两阶段，消掉「跨进程漂移」。**
     ///

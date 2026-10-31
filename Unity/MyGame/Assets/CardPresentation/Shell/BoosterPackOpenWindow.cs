@@ -443,7 +443,7 @@ namespace CardPresentation
             DiscoverNode = null; CloseNode = null; CloseSurfaceHit = null; BgQuad = null;
             _closeLabel = null;                  // 🆕 A426：上一轮那颗字已经被上面清掉了 ⇒ 别留悬引用
             // 🆕 T19：动画状态机归零（重开一包 = 时钟从 0 开始）
-            WindowOpenDone = false;
+            WindowOpenDone = false; _openRequested = false; _openFallbackLogged = false;   // 🆕 B109_E2：重开一包要**重新等** t=2.0 那一拍
             ProtectionDelay = 0f;
             QuickOpens = 0;
             _openT = 0f; _bgShakeT = 0f;
@@ -900,10 +900,10 @@ namespace CardPresentation
         public void Advance(float dt)
         {
             if (dt <= 0f || Cards == null) return;
-            _fxClock += dt; StepBgShake(dt);
+            _fxClock += dt; if (_openRequested) StepBgShake(dt);   // 🆕 B109_E2：背景 clip 也是 t=2.0 那一拍才 Play
 
-            // ---- ① 开包 clip（`Booster Window Open`，0.6167 s）：卡的缩放 157.58151 → 151 ----
-            if (!WindowOpenDone)
+            // ---- ① 开包 clip（`Booster Window Open`，0.6167 s）：卡的缩放 157.58151 → 151 ---- 🆕 B109_E2：事件到之前整段不跑（判据见 `OpenTimelineGate`）
+            if (OpenTimelineGate())
             {
                 _openT += dt;
                 float s = BoosterPackAnim.WindowOpenScale(_openT);
@@ -1298,7 +1298,7 @@ namespace CardPresentation
             for (int i = 0; i < 5; i++) if (CardStates[i] == (int)CardState.Open) open++;
             return "BoosterPack[" + Page + "/" + Index + "] 阵营 " + (string.IsNullOrEmpty(Army) ? "<全池>" : Army)
                    + " · 5 张 · 已翻 " + (5 - CardsLeft) + " · 收尾 " + open + "/5"
-                   + " · 开包 clip " + (WindowOpenDone ? "播完" : (_openT.ToString("F3") + "s"))
+                   + " · 开包 clip " + (WindowOpenDone ? "播完" : (_openRequested ? _openT.ToString("F3") + "s" : "等包炸完 (t=2.0)"))
                    + " · 防连开 " + ProtectionDelay.ToString("F2") + "s"
                    + " · 快速开包 " + QuickOpens + " 次"
                    + " · 粒子 " + PlayedFx.Count + " 次"
@@ -1658,18 +1658,18 @@ namespace CardPresentation
         /// <summary>原版 `BoosterPackOpen()`（`BoosterPackOpenWindow__BoosterPackOpen.c`）= `windowAnimation.Play()` +
         /// `backgroundAnimation.Play("Booster Window - Background Shake On Open")`。
         /// 唯一调用方 = 卡包实物那条 2 s clip 在 **t = 2.0** 打的 AnimationEvent `StartCardAnimationEvent`。
-        /// <para>⚠️ **我们这一版是「提前播」**：`Build()` 之后 `Advance` 第一拍就把开包时间线跑起来了
-        /// （自检也这么推），而原版要等包炸完（2.0 s）⇒ 这里**只在时间线还没跑完时**把两条时钟归零（= `Play()`）；
-        /// 已经跑完就只记一行日志，⛔ **不重播**（重播会让 5 张卡在 2 s 时再缩一次）。这条偏差见报告 §缺口。</para></summary>
+        /// <para>🔴 **2026-10-31（`B109_E2`）：时间线的起点就是这里**（此前是 `Build()` 后第一拍就起 = 比原版**早 2 s**）。
+        /// `Build()` 之后什么都不播；`Advance` 在事件到之前只推抖动/待机时钟，不开包（`OpenTimelineGate`）。
+        /// 已经跑完再打进来只记日志、⛔ **不重播** —— 原版那条 clip 只播一次、事件只来一次，这一格在原版不可观测。</para></summary>
         public void StartOpenAnimations()
         {
             if (WindowOpenDone)
             {
                 Debug.Log("[BoosterPack] `StartCardAnimationEvent`（原版 2.0 s 那一拍）打进来，但本窗开包时间线"
-                          + "**已经跑完**了（我们是 Build 后立刻起播，原版等包炸完）⇒ 不重播。见 `StartOpenAnimations` 的注释");
+                          + "**已经跑完**了 ⇒ 不重播（原版那条 clip 只播一次、事件只来一次）。见 `StartOpenAnimations` 的注释");
                 return;
             }
-            _openT = 0f;
+            _openRequested = true; _openT = 0f;
             _bgShakeT = 0f;
             OpenAnimStarts++;
         }
@@ -1745,6 +1745,70 @@ namespace CardPresentation
                 : TMPro.TextWrappingModes.Normal;                          // prefab Army Text 2 = 1
             t.isOrthographic = false;                                      // prefab `m_isOrthographic = 0`（世界空间）
             return t;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-31（`B109_E2` · 账 `锻造:24`）：开包时间线的**起点**必须由包实物那条 clip 的事件触发
+        //
+        //  原版时间线（全部可反编译/数据表复读）：
+        //   ① `BoosterPackOpenWindow__Initialize.c`：`Instantiate(prefab, boosterPackAnchor)` →
+        //      `BoosterPackVisualItem__Initialize(inst, 0, this, 0)` —— 包实物 prefab 根上的 `Animation`
+        //      是 `m_PlayAutomatically = 1` ⇒ **实例化即开播** `Booster Open <阵营>`。
+        //   ② 那条 clip 在 **t = 2.0** 打 `m_Events = [{t: 2.0, function: "StartCardAnimationEvent"}]`
+        //      （`Resources/misc_clips.json`：`Booster Open Standard`（2.3667 s）/ `Booster Open Sororitas`（2.0 s）。
+        //      ⚠️ **2.0 是事件自己的时间，不是 clip 长度** —— Standard 的末帧是 2.3667，事件仍在 2.0）。
+        //   ③ `BoosterPackVisualItem__StartCardAnimationEvent.c` ⇒ 转调宿主窗 `BoosterPackOpen()`
+        //      = `windowAnimation.Play()` + `backgroundAnimation.Play("Booster Window - Background Shake On Open")`。
+        //   ④ `windowAnimation` 那条 `Booster Window Open`（0.6167 s）播完打 `AnimationEndEvent`
+        //      → `BoosterPackOpenWindow__AnimationEndEvent.c`：5 张卡逐个 `CardInBoosterPack.ChangeState(2)`（可点）。
+        //  ⇒ **`Build` 到 `StartCardAnimationEvent` 之间，开包时间线一秒都不该走**。
+        //    🔴 我们原来是「`Build()` 后第一拍就起播」⇒ 比原版**早 2 s**（本批修的就是这一条）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`StartCardAnimationEvent`（= 原版 `BoosterPackOpen()`）打进来过吗。
+        /// `false` = 开包时间线**还没开始**（原版默认：要等包实物那条 clip 播到 t=2.0）。自检读口。</summary>
+        public bool OpenTimelineRequested { get { return _openRequested; } }
+
+        /// <summary>开包 clip（`Booster Window Open`）走了多少秒。事件到之前恒 0。自检读口。</summary>
+        public float OpenT { get { return _openT; } }
+
+        /// <summary>`StartCardAnimationEvent` / `Advance` 共用的那格状态（见上面那整段时间线）。</summary>
+        bool _openRequested;
+        /// <summary>兜底那条告警只打一次（每帧都会过闸，⛔ 不刷屏）。</summary>
+        bool _openFallbackLogged;
+
+        /// <summary>这一拍开包时间线该不该走；**返回 false = 原版那一段「等包炸完」**。
+        /// <para>🔶 自己设计（非原版）：**只覆盖原版不可能出现的状态** —— 包实物 / 它自带的那条 clip 取不到时，
+        /// 原版那个 `StartCardAnimationEvent` 永远不会来（原版的 prefab 与 clip 是序列化引用，这条链断不掉）。
+        /// 若照原版只等不播，本窗会**永久卡死**：5 张卡永远停在 state 1（点不动）、`Tap to close` 永远不出现。
+        /// 所以这里**出声 + 立刻起播**（= 修前那行为），⛔ 不是静默失败。
+        /// 为什么必须自己定：取件失败（bundle 缺 / 重打包丢 clip）是本工程独有的失败面，原版没有对应分支、判据拿不到。
+        /// 谁定的 + 日期：执行代理 `B109_E2` 2026-10-31（**未跑 Unity 验收**）。</para></summary>
+        bool OpenTimelineGate()
+        {
+            if (_openRequested) return !WindowOpenDone;
+            if (_visualItem != null && PackClipPlayable(_visualItem)) return false;   // 原版常态：等 t=2.0 那一拍
+
+            if (!_openFallbackLogged)
+            {
+                _openFallbackLogged = true;
+                Debug.LogWarning("[BoosterPack] 包实物或它自带的 `Booster Open <阵营>` clip **取不到** ⇒ 原版那条"
+                                 + " `StartCardAnimationEvent` 永远不会来。为了不让本窗永久卡死（5 张卡永远点不动），"
+                                 + "这里**立刻起播**开包时间线 —— ⚠️ 这是原版走不到的状态（prefab/clip 都是序列化引用）。"
+                                 + " 取不到的原因见本窗 `BuildVisualItemLayer` / `BoosterPackAssets` 那几条告警");
+            }
+            _openRequested = true;
+            return true;
+        }
+
+        /// <summary>包实物根上那颗 `Animation` 有可播的 clip 吗（原版 prefab 实读：`m_PlayAutomatically = 1` +
+        /// `m_Animations[0]` = `Booster Open <阵营>`；`B98A5_Assert` §4 也核同一格）。
+        /// ⚠️ 它是 `UnityEngine.Animation`（**legacy**），不是 `Animator`。</summary>
+        static bool PackClipPlayable(BoosterPackVisualItem item)
+        {
+            if (item == null) return false;
+            var a = item.GetComponent<UnityEngine.Animation>();
+            return a != null && a.clip != null;
         }
     }
 }

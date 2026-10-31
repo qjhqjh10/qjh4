@@ -1332,7 +1332,7 @@ Unity **只能为「类名 == 文件名」的类建出脚本资产**，其余情
 
 ---
 
-- 🔴🆕 **`runtime_ui_dump_*.tsv` 的表头列名是错位的（2026-10-27 `B9_W26ANCHOR` 实测）**：表里写的 `rect` / `pos` / `pivot` 三列，**实际内容**依次是 `anchoredPosition` / `sizeDelta` / `anchorMin`，接着才是 `anchorMax` / `pivot`（判据 = mod 源码 `d:/2/Warpforge_tools/scenejumpshot/SceneJumpShot.cs:41-49`）。
+- 🔴🆕 **`runtime_ui_dump_*.tsv` 的表头列名是错位的（2026-10-27 `B9_W26ANCHOR` 实测）**：表里写的 `rect` / `pos` / `pivot` 三列，**实际内容**依次是 `anchoredPosition` / `sizeDelta` / `anchorMin`，接着才是 `anchorMax` / `pivot`（判据 = mod 源码 `d:/2/Warpforge_tools/scenejumpshot/SceneJumpShot.cs:41-49`）。🔴 **2026-10-31 补（`B108_A9` 实测）：不但错位、还少 4 列** —— 真实共 **15 列**（比表头多 `TXT` / `text` / `fontSize` / `IMG` / `sprite` 一组）；按表头数会截断，按 `SceneJumpShot.DumpGo` 的真实列序读。
   ⇒ **凡按那张表读锚点/尺寸/轴心，一律按【真实顺序】读，⛔ 别信表头**；也要顺手核「这一列是不是我想要的量」。同类：`UpperAnchor/EnemyArea/HandArea`、`HandAnchor` 在 dump 里是**裸 `Transform`**（无 rect/pos）⇒ 拿不到就**沿父链去场景 JSON 累加 `anchoredPosition`**，⛔ 别写「dump 里没有 ⇒ 拿不到」。
   ✅ 已算出的一格（可直接用）：`enemyHand` 屏幕锚点 = **`(960, 50)` px @1080p**（y 向下为正）⇒ `RevealEndPx = (589, 495)`；⚠️ **`HandArea`(50 px) ≠ `HandAnchor`(0.32 px，手牌布局基线)**，差 49.68 px。判据 → `资料/完全复刻/判据/enemyHand屏幕锚点_判定.md`。
 

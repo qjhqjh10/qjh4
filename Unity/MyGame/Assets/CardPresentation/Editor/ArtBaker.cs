@@ -442,6 +442,17 @@ public static class ArtBaker
             //   ⚠️ 卡框有**两处**：`cards/frame_*`（自绘兜底 150 张）+ `cards/clan/frame_clan_*`（原版 SO 那一路 104 张，`CardArtClanFrames.FrameTexture`）；`frame_uv.json` 查不到的那几张仍要能回读 ⇒ 这一支保持 `true`。🔴 2026-10-30（B100_F13）：改前只判 `/cards/frame_` ⇒ clan 那 104 张 `.meta` **全 `isReadable:0`** ⇒ `CardView.FrameMaskData`/`FrameArtWindow` 的 `isReadable` 闸恒 false ⇒ 战术/防御卡的卡框开口裁切静默失效（受影响 = 52 张 `stratagem` 卡框）；⛔ 别放宽成裸 `"frame_"`（会把无关贴图也烤一份 CPU 副本）。
             bool isFrame = path.Contains("/cards/frame_") || path.Contains("/cards/clan/frame_");
             bool isBackdrop = path.EndsWith("arena1_bg.png");
+            // 🔴 **2026-10-31（B108_A17）卡框 SDF 要走 `Uncompressed`** —— 判据 = `判据/B108_AUD09_纹理格式.md`
+            //   §二 D 行 + §3·1（原版 bundle 实读）：13 阵营 104 张 `40k_Cardframes_*_SDF_tier*` **全部**
+            //   `m_TextureFormat = 4`(RGBA32) · 128² · 未压缩；`cardback_noise` 那张（原版 `Noise Combined`）
+            //   也是 RGBA32。SDF 是**平滑的软光/影渐变**，被 BC7 压过会在光带边缘出方块/色阶（128² 还放大铺满卡面）。
+            //   ⚠️ **两张例外**：`generic` 与 `Card_board_frame_SDF` 都源自原版 `Card board frame SDF`
+            //   （原版就是 **BC7 · fmt=25**）⇒ 它们保持 `CompressedHQ`，与盘上已改好的 `.meta` 对齐。
+            //   ⚠️ 只改压缩档：`sRGBTexture`（Linear 工程要 0，见 `工具/import_original_card_sdf.py` docstring）
+            //      与 `isReadable`（`CardView.FrameUv` 的 `GetPixels32` 兜底要靠它）**都不动**。
+            bool isSdf = path.Contains("/card_sdf/")
+                         && !path.EndsWith("/card_sdf/generic.png")
+                         && !path.EndsWith("/card_sdf/Card_board_frame_SDF.png");
 
             ti.textureType = TextureImporterType.Default;      // 我们自己按 UV 摆，不要 Sprite
             // 🔴 **必须关掉 `alphaIsTransparency`**（2026-09-15 踩到）：
@@ -485,11 +496,24 @@ public static class ArtBaker
             //   选 **`CompressedHQ`（BC7）而不是 `Compressed`（DXT）**：这批图带 alpha，而且
             //   `ArtOpaque` **要用透明区的 RGB**（见上面 `alphaIsTransparency=false` 那段）——
             //   BC1/DXT1 丢 alpha、DXT5 在渐变色带上出块状伪影；BC7 是本工程保真度最高的一档
-            //   （同用法先例 = 本文件 `ApplyArenaImportSettings`：原版那批战场图是 BC7(fmt=29) ⇒ `CompressedHQ`）。
+            //   （同用法先例 = 本文件 `ApplyArenaImportSettings`：原版那批战场图是 **DXT5Crunched(fmt=29)** ⇒ `CompressedHQ`。
+            //   🔴 **2026-10-31 订正（B108_A17）**：原注释把 `fmt=29` 说成 BC7 —— **29 = DXT5Crunched，BC7 = 25**
+            //   （`判据/B108_AUD09_纹理格式.md` §1·3 实读枚举）。选 `CompressedHQ` 的结论不变，只是判据写错了。）
             //   ⚠️ `isReadable` 那一行**不动**：`CardView.FrameUv` 对 `frame_uv.json` 里查不到的卡框
             //   仍要退回 `GetPixels32()`（运行时回读），关掉 Read/Write 会让那条兜底静默失效。
             //   ⚠️ **本行只改「以后导入」**：现存的 `.meta` 要重跑本方法（菜单 / `-executeMethod`）才生效。
-            ti.textureCompression = TextureImporterCompression.CompressedHQ;
+            //   🔴 **2026-10-31（B108_A17）**：卡框 SDF（`isSdf`，见上面 `isFrame` 那一节）改 `Uncompressed`
+            //   —— 判据 = R7 原版 128² RGBA32 未压缩；其余仍 `CompressedHQ`（原版 BC7）。
+            //   平台块也要一起写：`.meta` 里 `buildTarget: Standalone` 那条若不是 `overridden`，它就是死值；
+            //   写一遍保证将来谁开了覆盖也是 0（与盘上 105 份 `.meta` 的两处改动对齐）。
+            ti.textureCompression = isSdf ? TextureImporterCompression.Uncompressed
+                                          : TextureImporterCompression.CompressedHQ;
+            if (isSdf)
+            {
+                var sdfPs = ti.GetPlatformTextureSettings("Standalone");
+                sdfPs.textureCompression = TextureImporterCompression.Uncompressed;
+                ti.SetPlatformTextureSettings(sdfPs);
+            }
             ti.SaveAndReimport();
         }
         Debug.Log(P + "导入设置已重设");
@@ -548,8 +572,10 @@ public static class ArtBaker
             ti.alphaIsTransparency = true;                 // ⚠️ 与卡牌立绘**相反**（见上）
             ti.filterMode = FilterMode.Bilinear;
             ti.wrapMode = TextureWrapMode.Repeat;
-            // 原版那几张是 BC7（fmt=29）—— 对应 `CompressedHQ`。用普通 `Compressed`（DXT）会把
+            // 原版那几张是 **DXT5Crunched（fmt=29）** —— 对应 `CompressedHQ`。用普通 `Compressed`（DXT）会把
             // 大面积渐变压出块状色带。
+            // 🔴 **2026-10-31 订正（B108_A17）**：原注释写的是「BC7（fmt=29）」—— **29 = DXT5Crunched，BC7 = 25**
+            // （`判据/B108_AUD09_纹理格式.md` §1·3 实读枚举）。`CompressedHQ` 这个结论不变，只订正判据。
             ti.textureCompression = TextureImporterCompression.CompressedHQ;
             // 🔴 **2026-09-22 补：平台覆盖也要一起设** ——
             //    meta 里除了顶层 `maxTextureSize`，还有一条 **`buildTarget: Standalone`** 的覆盖块，

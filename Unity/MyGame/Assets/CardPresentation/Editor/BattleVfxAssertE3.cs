@@ -59,7 +59,7 @@ public static class BattleVfxAssertE3
               "★ 回归闸（白名单·名字级）：`Mob`/`Teleport`/`Codex`/`Uprising`/`Artifice`/`Cruelty`/`Stimulation`/"
             + "`Ecstasy`/`UnitReceivesHuntMark`/`OnCollectFaith`/`OnCollectSpiritStone`/`ThisUnitSummoned`/"
             + "`WhileInPlay`/`Regiment`/`TriggeredSynapse`/**`Talent`** 都在白名单（且小写 / 全大写两态都命中），"
-            + "`NoEmitTriggerNames` 里那些（引擎没有发射口的，现读 7 个）都不在"
+            + "`NoEmitTriggerNames` 里那些（引擎没有发射口的，**现读 0 个**；2026-10-31 `B108_A1` 已补 6 个发射口）都不在"
             + (namesOk.Length == 0 ? "" : "\n  ✗ " + string.Join("\n  ✗ ", namesOk))
             + " —— 🧨 把 `switch (triggerName.ToLowerInvariant())` 改回大小写敏感、删掉任一正向 case、"
             + "或把反向闸里那 8 个名字塞进白名单 ⇒ 本条红");
@@ -212,12 +212,13 @@ public static class BattleVfxAssertE3
         // ② 有 `animTimes`、关键词不在白名单 ⇒ 第 ④ 支：连**别的 trait** 的框也不许播（`R8-b` 本体）
         var gof26 = Card(pool, "GOF26");
         var gof26Got = Pieces(VfxMap.Trigger, gof26, KeywordTable.Unstable);
-        Check(gof26 != null && gof26Got.Length == 0 && !Has(gof26Got, "ConcussiveEffect"),
-              "★ D4·`GOF26 Stompa`（关键词 `unstable` 不在白名单 ⇒ 第 ④ 支）：桶里 `ArmourEffect` / "
-            + "`RallyEffect`（两条 `Start(0)`）＋ `ConcussiveEffect`（**别的 trait 的 `Trigger(3)`** —— "
-            + "属 `concussive(930)`，与 trigger 81 无关）⇒ **一件都不播**"
-            + "（`unstable(1010)` 的绑定是 `TriggerType 1 (End)`，`DisplayTrigger` 这一拍也不会播它；"
-            + "实得 " + Names(gof26Got) + "）"
+        Check(gof26 != null && gof26Got.Length == 2 && Has(gof26Got, "UnstableEffect")
+              && Has(gof26Got, "UnstableEffect_ExplosionExtra")
+              && !Has(gof26Got, "ConcussiveEffect") && !Has(gof26Got, "ArmourEffect") && !Has(gof26Got, "RallyEffect"),
+              "★ D4·`GOF26 Stompa`：2026-10-31 `B108_A1` 起 `unstable` 已放行 ⇒ 这一拍**只播它自己那两件**"
+            + "（`UnstableEffect` / `UnstableEffect_ExplosionExtra`）；`ArmourEffect` / `RallyEffect`（`Start(0)`）与 "
+            + "`ConcussiveEffect`（别的 trait 的 `Trigger(3)`，属 `concussive(930)`）**仍一件都不播**"
+            + "（实得 " + Names(gof26Got) + "）"
             + "｜🧨 把 trait 行放回来 ⇒ `ConcussiveEffect` 回来（= `R8-b`）⇒ 红");
 
         var da10 = Card(pool, "DA10");          // 卡级行（TriggerTypeOf 回 -1）不许被误伤

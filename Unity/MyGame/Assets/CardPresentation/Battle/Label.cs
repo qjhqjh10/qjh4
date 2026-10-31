@@ -1104,10 +1104,10 @@ namespace CardPresentation
         /// <summary>本 Label 被指派的字体面（**未必是实际生效的那个** —— 见 <see cref="ActualFace"/>）。</summary>
         public TmpFont.Face Face { get { return _face; } }
 
-        /// <summary>**实际生效**的字体面：指派了拉丁面、但文本里有汉字 ⇒ 回 CJK。</summary>
+        /// <summary>**实际生效**的字体面：指派了拉丁面、但文本里有汉字 ⇒ 回 CJK（<see cref="CjkFallbackFace"/> 为真时不翻面，见那一格）。</summary>
         public TmpFont.Face ActualFace
         {
-            get { return (_face != TmpFont.Face.Cjk && Loc.HasCjk(_text)) ? TmpFont.Face.Cjk : _face; }
+            get { return (_face != TmpFont.Face.Cjk && !_cjkFallbackFace && Loc.HasCjk(_text)) ? TmpFont.Face.Cjk : _face; }   // 🆕 B109_E21：`_cjkFallbackFace` 为真 ⇒ 不翻面（走拉丁面 + TMP fallback，原版的渲染模型）
         }
 
         /// <summary>指定字体面。当场换掉已有的 TMP 并重排（字号要按新面重算）。
@@ -2675,6 +2675,85 @@ namespace CardPresentation
                 lb.Relocalize(); n++;
             }
             return n;
+        }
+
+        // ---- 类尾 · B109_E21（AUD05 J2 · 2026-10-31）：换 TMP 材质（聊天翻译三态视觉用）
+        //   判据 → `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §2（原版 `ChatMessageUI.SetMessageText()`，
+        //   `out_il2csharp/ChatMessageUI.cs:126-152`）：三态**只换 `messageText.fontMaterial`** ——
+        //   三份材质的图集 / shader / 字形**完全相同**，差别只有 `_FaceColor` + `_FaceDilate`/`_OutlineWidth`
+        //   + `_StencilRead/WriteMask`（原版 `assets_full/bundle_fonts_assets_all/Material/` 实读）。
+        //   🔴 **必须克隆**：`ApplyQueue` 只在 `fontMaterial == fontSharedMaterial` 时才克隆；把**工程资产**
+        //   直接赋进去之后，`SetRenderQueue` 会把 `renderQueue` 写回那份共享资产（污染所有同材质标签，静默）。
+        //   ⛔ 本段一律追加在**类尾**（本文件被账按 `文件:行号` 引用，插中间 = 下游行号整体漂移）。
+
+        /// <summary>把这条标签的 TMP 材质换成 <paramref name="m"/> 的**私有副本**。
+        /// <para>三态用法（原版语义）：`Normal` **不调本函数**（保持字体资产自带那份）；`Translating` 换
+        /// `Fonts/Pragati-Regular Light Green`；`Translated` 换 `Fonts/Pragati-Regular Light Cream`。</para>
+        /// <para>⚠️ 点阵后端（`_tmp == null`）没有 TMP 材质这一层 ⇒ 出声后什么都不做（⛔ 不静默）。
+        /// 传 <c>null</c> ⇒ 什么都不做（原版 `Normal` 态就是**不动材质**，不是「设成 null」）。</para>
+        /// <para>⚠️ 换面（`SetFace` / `SyncFace` / 文本里冒汉字）会把 `m_sharedMaterial` 换回字体资产那份
+        /// ⇒ 本函数设的材质**会被冲掉**。用法上必须「先定面、后换材质」（聊天行就是这么做的）。</para></summary>
+        public void SetFontMaterial(Material m)
+        {
+            if (m == null) return;
+            if (_tmp == null)
+            {
+                Debug.LogWarning("[Label] `SetFontMaterial`：本标签是点阵后端（`_tmp == null`，没有 TMP 材质这一层）"
+                               + " ⇒ 什么都没做。标签 = " + name);
+                return;
+            }
+            _tmp.fontMaterial = new Material(m);   // 🔴 私有副本（理由见本节头注释）
+            if (_queue >= 0) ApplyQueue();         // 队列粘住（换材质会把它冲回默认 3000）
+        }
+
+        /// <summary>自检读口：TMP 现在那份 `fontMaterial` 的**基名**（去掉 Unity 自己加的 ` (Instance)` 尾巴）。
+        /// 点阵后端 / 取不到 ⇒ 空串（如实报，⛔ 不猜）。</summary>
+        public string FontMaterialName
+        {
+            get
+            {
+                if (_tmp == null || _tmp.fontSharedMaterial == null) return "";
+                var m = _tmp.fontMaterial;
+                return m == null ? "" : StripInstanceTag(m.name);
+            }
+        }
+
+        /// <summary>自检读口：TMP 现在那份 `fontMaterial`（读 `_FaceColor` 之类参数用）。点阵后端 ⇒ `null`。</summary>
+        public Material FontMaterialNow
+        {
+            get { return _tmp != null && _tmp.fontSharedMaterial != null ? _tmp.fontMaterial : null; }
+        }
+
+        /// <summary>去掉 Unity `CreateMaterialInstance` 追加的 ` (Instance)` 尾巴（可能叠多层）。</summary>
+        static string StripInstanceTag(string n)
+        {
+            if (string.IsNullOrEmpty(n)) return "";
+            const string tag = " (Instance)";
+            while (n.Length > tag.Length && n.EndsWith(tag, System.StringComparison.Ordinal))
+                n = n.Substring(0, n.Length - tag.Length);
+            return n;
+        }
+
+        // ---- 类尾 · B109_E21（AUD05 J2 续办 · 2026-10-31）：允许「拉丁面 + CJK fallback」共存的开关
+        //   判据 → `资料/完全复刻/判据/B109_D1_八条红.md` §3「修法 A（忠实原版）」：
+        //   原版 `ChatMessageUI.SetMessageText()` 三态**无条件**赋 `fontMaterial`；而三份拉丁字体资产**只有拉丁字形**
+        //   ⇒ 原版的渲染模型是「拉丁面渲拉丁、汉字走 TMP fallback（fallback 用**它自己的**材质）」，**从不整颗翻面**。
+        //   我们原来「整颗翻 CJK」那套会让中文正文拿不到拉丁面的材质（聊天三态的颜色差对中文玩家**看不见**）。
+        //   ⛔ 默认 false ⇒ 其它所有 Label 的 `ActualFace` **逐位不变**（`!_cjkFallbackFace` 恒真）。
+        //   ⚠️ fallback 链已在：`Core/TmpFont.cs` 的 `EnsureCjkFallback`（`SetFace(LatinCardBody)` 时自动挂）。
+        //   ⚠️ 改这个开关会 `SyncFace()` 换 `_tmp.font`（连带换 `m_sharedMaterial` ⇒ `ApplyQueue` 重放）；
+        //      TMP 在下一帧 `Rebuild` 里按新字体重排 —— 批处理没有帧循环，**断言只看材质名/参数，别拿它当「渲染对了」**。
+
+        bool _cjkFallbackFace;
+
+        /// <summary>🆕 **2026-10-31（B109_E21）**：置真 ⇒ 即使文本里有汉字也**不整颗翻 CJK 面**，
+        /// 改成「拉丁面 + TMP fallback」（= 原版渲染模型；见上面那段判据）。
+        /// <para>默认 **false**（旧行为）；目前唯一调用点 = 聊天消息正文（`ChatPanel.ChatMessageRow.Build`，
+        /// 那里要的是原版那三份拉丁材质的颜色差）。</para></summary>
+        public bool CjkFallbackFace
+        {
+            get { return _cjkFallbackFace; }
+            set { _cjkFallbackFace = value; SyncFace(); }
         }
     }
 }

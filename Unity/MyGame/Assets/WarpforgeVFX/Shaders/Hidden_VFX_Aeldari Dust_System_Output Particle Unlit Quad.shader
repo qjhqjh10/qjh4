@@ -14,6 +14,9 @@
 //   ③ `precise float` → `float` —— 指令级精度提示，不改变数值结果；
 //   ④ `float(uint64_t(x))` → `float(x)` —— 同一个 uint→float 转换，去掉 64 位依赖；
 //   ⑤ `SPIRV_Cross_BaseVertex/BaseInstance` → 0 —— VFX 走 DrawProcedural，基础顶点/实例恒为 0。
+//   ⑥ `ByteAddressBuffer.Load<uint>(x)` → `.Load(x)` —— 同一语义（非模板重载返回 uint），FXC 不认模板形式；
+//   ⑦ 片元块里的全局 `static float4 SV_Target;` → `spv_Color` —— HLSLSupport.cginc 在部分编译档把 `SV_Target`
+//      宏映射成 `COLOR`，会与本块已有的 `static float4 COLOR;` 重定义；只改**变量名**，输出语义（SV_Target0）不变。
 //   **未改**：Shader 名 · SubShader Tags · Pass 名/Tags · Blend/ZWrite/Cull/ZClip · 顶点/片元算式。
 //
 // 🔑 **`.meta` 的 guid 刻意沿用【原版 shader 的 guid】**：`f2642f618e317484b9b0a2930a6690b6`
@@ -142,7 +145,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                 uint _109 = asuint(_InstanceActiveIndex);
                 uint _110 = _109 * 224u;
                 uint _129 = asuint(_InstanceIndex);
-                bool _135 = _103 >= (graphValuesBuffer.Load<uint>(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load<uint>(_129 * 4 + 0));
+                bool _135 = _103 >= (graphValuesBuffer.Load(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load(_129 * 4 + 0));
                 if (_135)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -162,7 +165,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                     INDEX.y = 0u;
                     return;
                 }
-                if (_103 >= indirectBuffer.Load<uint>(_109 * 4 + 0))
+                if (_103 >= indirectBuffer.Load(_109 * 4 + 0))
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
                     gl_Position.y = 0.0f;
@@ -182,16 +185,16 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _182 = ByteAddressMask((_110 + 144u) >> 2u, 4u);
-                uint4 _195 = uint4(graphValuesBuffer.Load<uint>(_182 * 4 + 0), graphValuesBuffer.Load<uint>((_182 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_182 + 2u) * 4 + 0), graphValuesBuffer.Load<uint>((_182 + 3u) * 4 + 0));
+                uint4 _195 = uint4(graphValuesBuffer.Load(_182 * 4 + 0), graphValuesBuffer.Load((_182 + 1u) * 4 + 0), graphValuesBuffer.Load((_182 + 2u) * 4 + 0), graphValuesBuffer.Load((_182 + 3u) * 4 + 0));
                 uint _199 = _195.w;
                 uint _203 = ByteAddressMask((_110 + 160u) >> 2u, 4u);
-                uint4 _215 = uint4(graphValuesBuffer.Load<uint>(_203 * 4 + 0), graphValuesBuffer.Load<uint>((_203 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_203 + 2u) * 4 + 0), graphValuesBuffer.Load<uint>((_203 + 3u) * 4 + 0));
+                uint4 _215 = uint4(graphValuesBuffer.Load(_203 * 4 + 0), graphValuesBuffer.Load((_203 + 1u) * 4 + 0), graphValuesBuffer.Load((_203 + 2u) * 4 + 0), graphValuesBuffer.Load((_203 + 3u) * 4 + 0));
                 uint _219 = _215.w;
                 uint _221 = _129 * 170816u;
                 uint _229 = _103 + ((_109 * 10000u) + asuint(instancingConstants.z));
-                uint _235 = (_221 + indirectBuffer.Load<uint>(_229 * 4 + 0)) << 2u;
-                uint _246 = (_221 + (indirectBuffer.Load<uint>(_229 * 4 + 0) << 2u)) << 2u;
-                float _261 = asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_235 + 522496u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_235 + 321536u) >> 2u, 4u) * 4 + 0));
+                uint _235 = (_221 + indirectBuffer.Load(_229 * 4 + 0)) << 2u;
+                uint _246 = (_221 + (indirectBuffer.Load(_229 * 4 + 0) << 2u)) << 2u;
+                float _261 = asfloat(attributeBuffer.Load(ByteAddressMask((_235 + 522496u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask((_235 + 321536u) >> 2u, 4u) * 4 + 0));
                 float2 _262 = spvUnpackHalf2x16(_195.x);
                 float _266 = mad(_261, _262.x, _262.y);
                 float _278 = 0.0f;
@@ -244,7 +247,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                         break;
                     }
                 }
-                if (attributeBuffer.Load<uint>(ByteAddressMask((_246 + 361740u) >> 2u, 4u) * 4 + 0) == 0u)
+                if (attributeBuffer.Load(ByteAddressMask((_246 + 361740u) >> 2u, 4u) * 4 + 0) == 0u)
                 {
                     gl_Position.x = _135 ? asfloat(0xffffffffu /* nan */) : 0.0f;
                     gl_Position.y = 0.0f;
@@ -264,19 +267,19 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _315 = ByteAddressMask((_110 + 192u) >> 2u, 4u);
-                uint2 _321 = uint2(graphValuesBuffer.Load<uint>(_315 * 4 + 0), graphValuesBuffer.Load<uint>((_315 + 1u) * 4 + 0));
+                uint2 _321 = uint2(graphValuesBuffer.Load(_315 * 4 + 0), graphValuesBuffer.Load((_315 + 1u) * 4 + 0));
                 uint _327 = ByteAddressMask((_110 + 204u) >> 2u, 4u);
-                uint3 _337 = uint3(graphValuesBuffer.Load<uint>(_327 * 4 + 0), graphValuesBuffer.Load<uint>((_327 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_327 + 2u) * 4 + 0));
+                uint3 _337 = uint3(graphValuesBuffer.Load(_327 * 4 + 0), graphValuesBuffer.Load((_327 + 1u) * 4 + 0), graphValuesBuffer.Load((_327 + 2u) * 4 + 0));
                 uint _339 = _337.y;
                 uint _348 = ByteAddressMask((_246 + 361728u) >> 2u, 4u);
-                uint3 _357 = uint3(attributeBuffer.Load<uint>(_348 * 4 + 0), attributeBuffer.Load<uint>((_348 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_348 + 2u) * 4 + 0));
-                uint _369 = ByteAddressMask((((_221 + (indirectBuffer.Load<uint>(_229 * 4 + 0) * 3u)) << 2u) + 562688u) >> 2u, 4u);
-                uint3 _378 = uint3(attributeBuffer.Load<uint>(_369 * 4 + 0), attributeBuffer.Load<uint>((_369 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_369 + 2u) * 4 + 0));
+                uint3 _357 = uint3(attributeBuffer.Load(_348 * 4 + 0), attributeBuffer.Load((_348 + 1u) * 4 + 0), attributeBuffer.Load((_348 + 2u) * 4 + 0));
+                uint _369 = ByteAddressMask((((_221 + (indirectBuffer.Load(_229 * 4 + 0) * 3u)) << 2u) + 562688u) >> 2u, 4u);
+                uint3 _378 = uint3(attributeBuffer.Load(_369 * 4 + 0), attributeBuffer.Load((_369 + 1u) * 4 + 0), attributeBuffer.Load((_369 + 2u) * 4 + 0));
                 COLOR.x = asfloat(_378.x);
                 COLOR.y = asfloat(_378.y);
                 COLOR.z = asfloat(_378.z);
                 uint _391 = ByteAddressMask((_246 + 120576u) >> 2u, 4u);
-                uint4 _403 = uint4(attributeBuffer.Load<uint>(_391 * 4 + 0), attributeBuffer.Load<uint>((_391 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_391 + 2u) * 4 + 0), attributeBuffer.Load<uint>((_391 + 3u) * 4 + 0));
+                uint4 _403 = uint4(attributeBuffer.Load(_391 * 4 + 0), attributeBuffer.Load((_391 + 1u) * 4 + 0), attributeBuffer.Load((_391 + 2u) * 4 + 0), attributeBuffer.Load((_391 + 3u) * 4 + 0));
                 uint _409 = _199 & 3u;
                 float4 _416 = bakedTexture.SampleLevel(samplerbakedTexture, float2(_278, asfloat(_195.z)), 0.0f);
                 float _432 = ((_409 == 3u) ? _416.w : ((_409 == 2u) ? _416.z : ((_409 == 1u) ? _416.y : ((_409 == 0u) ? _416.x : 0.0f)))) * asfloat(_195.y);
@@ -370,7 +373,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
 
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
 
             struct SPIRV_Cross_Input
             {
@@ -386,10 +389,10 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
 
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -398,7 +401,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
 
@@ -517,7 +520,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                 uint _109 = asuint(_InstanceActiveIndex);
                 uint _110 = _109 * 224u;
                 uint _129 = asuint(_InstanceIndex);
-                bool _135 = _103 >= (graphValuesBuffer.Load<uint>(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load<uint>(_129 * 4 + 0));
+                bool _135 = _103 >= (graphValuesBuffer.Load(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load(_129 * 4 + 0));
                 if (_135)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -537,7 +540,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                     INDEX.y = 0u;
                     return;
                 }
-                if (_103 >= indirectBuffer.Load<uint>(_109 * 4 + 0))
+                if (_103 >= indirectBuffer.Load(_109 * 4 + 0))
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
                     gl_Position.y = 0.0f;
@@ -557,16 +560,16 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _182 = ByteAddressMask((_110 + 144u) >> 2u, 4u);
-                uint4 _195 = uint4(graphValuesBuffer.Load<uint>(_182 * 4 + 0), graphValuesBuffer.Load<uint>((_182 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_182 + 2u) * 4 + 0), graphValuesBuffer.Load<uint>((_182 + 3u) * 4 + 0));
+                uint4 _195 = uint4(graphValuesBuffer.Load(_182 * 4 + 0), graphValuesBuffer.Load((_182 + 1u) * 4 + 0), graphValuesBuffer.Load((_182 + 2u) * 4 + 0), graphValuesBuffer.Load((_182 + 3u) * 4 + 0));
                 uint _199 = _195.w;
                 uint _203 = ByteAddressMask((_110 + 160u) >> 2u, 4u);
-                uint4 _215 = uint4(graphValuesBuffer.Load<uint>(_203 * 4 + 0), graphValuesBuffer.Load<uint>((_203 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_203 + 2u) * 4 + 0), graphValuesBuffer.Load<uint>((_203 + 3u) * 4 + 0));
+                uint4 _215 = uint4(graphValuesBuffer.Load(_203 * 4 + 0), graphValuesBuffer.Load((_203 + 1u) * 4 + 0), graphValuesBuffer.Load((_203 + 2u) * 4 + 0), graphValuesBuffer.Load((_203 + 3u) * 4 + 0));
                 uint _219 = _215.w;
                 uint _221 = _129 * 170816u;
                 uint _229 = _103 + ((_109 * 10000u) + asuint(instancingConstants.z));
-                uint _235 = (_221 + indirectBuffer.Load<uint>(_229 * 4 + 0)) << 2u;
-                uint _246 = (_221 + (indirectBuffer.Load<uint>(_229 * 4 + 0) << 2u)) << 2u;
-                float _261 = asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_235 + 522496u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_235 + 321536u) >> 2u, 4u) * 4 + 0));
+                uint _235 = (_221 + indirectBuffer.Load(_229 * 4 + 0)) << 2u;
+                uint _246 = (_221 + (indirectBuffer.Load(_229 * 4 + 0) << 2u)) << 2u;
+                float _261 = asfloat(attributeBuffer.Load(ByteAddressMask((_235 + 522496u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask((_235 + 321536u) >> 2u, 4u) * 4 + 0));
                 float2 _262 = spvUnpackHalf2x16(_195.x);
                 float _266 = mad(_261, _262.x, _262.y);
                 float _278 = 0.0f;
@@ -619,7 +622,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                         break;
                     }
                 }
-                if (attributeBuffer.Load<uint>(ByteAddressMask((_246 + 361740u) >> 2u, 4u) * 4 + 0) == 0u)
+                if (attributeBuffer.Load(ByteAddressMask((_246 + 361740u) >> 2u, 4u) * 4 + 0) == 0u)
                 {
                     gl_Position.x = _135 ? asfloat(0xffffffffu /* nan */) : 0.0f;
                     gl_Position.y = 0.0f;
@@ -639,19 +642,19 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _315 = ByteAddressMask((_110 + 192u) >> 2u, 4u);
-                uint2 _321 = uint2(graphValuesBuffer.Load<uint>(_315 * 4 + 0), graphValuesBuffer.Load<uint>((_315 + 1u) * 4 + 0));
+                uint2 _321 = uint2(graphValuesBuffer.Load(_315 * 4 + 0), graphValuesBuffer.Load((_315 + 1u) * 4 + 0));
                 uint _327 = ByteAddressMask((_110 + 204u) >> 2u, 4u);
-                uint3 _337 = uint3(graphValuesBuffer.Load<uint>(_327 * 4 + 0), graphValuesBuffer.Load<uint>((_327 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_327 + 2u) * 4 + 0));
+                uint3 _337 = uint3(graphValuesBuffer.Load(_327 * 4 + 0), graphValuesBuffer.Load((_327 + 1u) * 4 + 0), graphValuesBuffer.Load((_327 + 2u) * 4 + 0));
                 uint _339 = _337.y;
                 uint _348 = ByteAddressMask((_246 + 361728u) >> 2u, 4u);
-                uint3 _357 = uint3(attributeBuffer.Load<uint>(_348 * 4 + 0), attributeBuffer.Load<uint>((_348 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_348 + 2u) * 4 + 0));
-                uint _369 = ByteAddressMask((((_221 + (indirectBuffer.Load<uint>(_229 * 4 + 0) * 3u)) << 2u) + 562688u) >> 2u, 4u);
-                uint3 _378 = uint3(attributeBuffer.Load<uint>(_369 * 4 + 0), attributeBuffer.Load<uint>((_369 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_369 + 2u) * 4 + 0));
+                uint3 _357 = uint3(attributeBuffer.Load(_348 * 4 + 0), attributeBuffer.Load((_348 + 1u) * 4 + 0), attributeBuffer.Load((_348 + 2u) * 4 + 0));
+                uint _369 = ByteAddressMask((((_221 + (indirectBuffer.Load(_229 * 4 + 0) * 3u)) << 2u) + 562688u) >> 2u, 4u);
+                uint3 _378 = uint3(attributeBuffer.Load(_369 * 4 + 0), attributeBuffer.Load((_369 + 1u) * 4 + 0), attributeBuffer.Load((_369 + 2u) * 4 + 0));
                 COLOR.x = asfloat(_378.x);
                 COLOR.y = asfloat(_378.y);
                 COLOR.z = asfloat(_378.z);
                 uint _391 = ByteAddressMask((_246 + 120576u) >> 2u, 4u);
-                uint4 _403 = uint4(attributeBuffer.Load<uint>(_391 * 4 + 0), attributeBuffer.Load<uint>((_391 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_391 + 2u) * 4 + 0), attributeBuffer.Load<uint>((_391 + 3u) * 4 + 0));
+                uint4 _403 = uint4(attributeBuffer.Load(_391 * 4 + 0), attributeBuffer.Load((_391 + 1u) * 4 + 0), attributeBuffer.Load((_391 + 2u) * 4 + 0), attributeBuffer.Load((_391 + 3u) * 4 + 0));
                 uint _409 = _199 & 3u;
                 float4 _416 = bakedTexture.SampleLevel(samplerbakedTexture, float2(_278, asfloat(_195.z)), 0.0f);
                 float _432 = ((_409 == 3u) ? _416.w : ((_409 == 2u) ? _416.z : ((_409 == 1u) ? _416.y : ((_409 == 0u) ? _416.x : 0.0f)))) * asfloat(_195.y);
@@ -745,7 +748,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
 
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
 
             struct SPIRV_Cross_Input
             {
@@ -761,10 +764,10 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
 
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -773,7 +776,7 @@ Shader "Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
 

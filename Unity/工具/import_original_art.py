@@ -1084,6 +1084,41 @@ MENU_IMAGES = [
     ('40k_Rewards_icon_base card SDF',            'menus_assets_all'),                   # 128×128 → 落盘 …_base_card_SDF
     ('40k_Rewards_icon_title card',               'atlasindividual_assets_0_mainmenu'),  # 329×499（`Title Drawer` 的 Background，同族）→ 落盘 …_title_card
     ('40k_campaign_Expansion Pass',               'liveopsicons_assets_all'),             # 🆕 2026-10-30（`B102_RAID` · 账 `日常_奖励:624`）：`RaidOrArmyReleaseMenuContainer` 的 `Scoring Icon Holder` 占位图（prefab `Image.m_Sprite` 现读 · 126²·Simple·border 全 0）；落盘 `40k_campaign_Expansion_Pass.png`
+    # ---- 🆕 2026-10-31（B109_E5 · 高级抽屉 `Campaign Glow` 的第三张图）----------------------
+    # 判据 = `Icon Expansion Pass Premium Drawer Variant.prefab` 的 `Content/Campaign Glow.m_Sprite`
+    #   guid `6c77cbd6b01d7c549952437eb07de765` = **`40K_general_icon_Expansion Pass XP`**
+    #   （图集 256² 切片 · `m_PreserveAspect 1`）；判据全文 → `资料/完全复刻/判据/B109_R4_ExpansionPassPremium.md` §2。
+    # 为什么必须登记：`Shell/ItemDrawerPremium.cs` 的 `NoBaseWithExpansionGlow` 要取它，而它
+    #   原先只在 `Art/原版/0_mainmenu/` 里、**不在 `Resources/`** ⇒ 横带永远不画（同 `40k_OfferBadge` 那类）。
+    # ⚠️ 名字**带空格** ⇒ 落盘名按本表惯例 `name.replace(' ', '_')` = `40K_general_icon_Expansion_Pass_XP.png`。
+    ('40K_general_icon_Expansion Pass XP',         'atlasindividual_assets_0_mainmenu'),  # 抽屉横带 256² → 落盘 …_Expansion_Pass_XP
+    # ---- 🆕 2026-10-31（B109_E18）`Random Card Drawer ▸ Content/Random Image/Icon` 的问号图 ----
+    # 判据 = `Random Card Drawer.prefab` 的 `Content/Random Image/Icon` 那颗 `Image.m_Sprite`
+    #   guid `95c82c9c484c78e42a314def29a0a2e2` = `40k_Rewards_icon__`（图集 62×117 切片；
+    #   `m_PreserveAspect 1`、`m_Color` 白）；判据全文 → `资料/完全复刻/判据/B109_R9_资源侧剩余.md` §1。
+    # 为什么必须登记：`Shell/ItemDrawerRandomCard.cs` 的中立阵营那一格要取它，而它原先
+    #   只在 `Art/原版/0_mainmenu/` 里、**不在 `Resources/`** ⇒ `Random Image` 的子件 `Icon` 永远不画。
+    # ⚠️ 名字**以两个下划线结尾**（原版就这样）⇒ 落盘名不做任何替换 = `40k_Rewards_icon__.png`。
+    # ⚠️ `m_Rect` 62×117 == `m_RD.textureRect` 62×117、`textureRectOffset` 全 0 ⇒ 走 `asis`（不补画布）。
+    ('40k_Rewards_icon__',                        'atlasindividual_assets_0_mainmenu'),  # 随机卡问号 62×117
+    # ---- 🆕 2026-10-31（B109_E34）账号页 `Player Id > External Link Icon` 的「复制」图标 ----
+    # 判据 = `bundle_menus_assets_all/Sprite/Copy@3x.json` 现读：`m_Rect` 48×48 == `m_RD.textureRect`
+    #   48×48、`textureRectOffset` 全 0 ⇒ 走 `asis`（不补画布）。消费点 = `Shell/SettingsWindow.cs:2546`
+    #   （`AcPidIconArt = "Copy@3x"`，`:985`）—— 原先**没进 `Resources/`** ⇒ `Tex()` 每次建窗都打一次（`MissingArt` 按名去重）
+    #   `[Settings] 图缺了：Copy@3x`，且 `MenuDraw.Rect` 头一句 `tex == null ⇒ return null`（那颗节点靠兜底才建出来）。
+    #   ⚠️ 名字里带 `@`，**不做任何替换**（本表惯例只把空格换下划线）⇒ 落盘名 = `Copy@3x.png`。
+    #   三处源 md5 同为 `fe4ba2eb3ad742bb71924a65ddeaa9f4`（`ui_extract` 两个包 + `assets_full` 的 `Texture2D`）。
+    ('Copy@3x',                                   'menus_assets_all'),                    # 账号页复制图标 48×48
+    # ---- 🆕 2026-10-31（C4 / 账 `B109_E24` §四-5）`Draft 预览窗 ▸ Close button` 的 **pressed** 帧 ----
+    # 判据 = `Shell/DraftModeWindow.cs` 那颗钮的 `m_Transition = 2`(SpriteSwap)：base `40k_UI_bt_back`
+    #   / hover `40k_UI_bt_back_hover_back` / **pressed `40k_UI_bt_back_pressed`**（三张同族 88×87）。
+    #   原先只在 `CardPresentation/Art/原版/0_mainmenu/` 里、**不在 `Resources/`** ⇒ 代码传 `pressedArt: null`
+    #   （按下时保持 hover 那帧）。`B109_E24` 曾把它记成「本地没有」—— 那是**导入缺口**，不是资源不存在。
+    #   源 `bundle_atlasindividual_assets_0_mainmenu/Sprite/40k_UI_bt_back_pressed.json` 现读：
+    #   `m_Rect` 88×87 == `m_RD.textureRect` 88×87、`textureRectOffset` 全 0 ⇒ 走 `asis`（不补画布）。
+    #   ⚠️ 88×87 是 **NPOT** ⇒ `.meta` 必须 `nPOTScale: 0`（Unity 首次导入默认 ToNearest 会放大到 128×128）。
+    #   三处源 md5 同为 `488515657a513ffa5432c9de0455c311`（`ui_extract` 两个包）。
+    ('40k_UI_bt_back_pressed',                    'atlasindividual_assets_0_mainmenu'),   # 预览窗返回钮 pressed 88×87
 ]
 
 # ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----

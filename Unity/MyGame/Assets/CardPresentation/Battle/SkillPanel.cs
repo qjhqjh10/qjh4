@@ -2221,28 +2221,21 @@ namespace CardPresentation
 
         /// <summary>官方词条的**原值**（未渲染记号）；缺键 ⇒ `null`。
         /// <para>⚠️ **字体闸**：中文档但中文字体资产缺失（`CardText.Zh == false`）⇒ 取官方**英文**列
-        /// （与 `BattleDriver.FaceTextFull` / `CardText.TermOr` 同一条闸，⛔ 否则面板上会印方块）。</para></summary>
+        /// （与 `BattleDriver.FaceTextFull` / `CardText.TermOr` 同一条闸，⛔ 否则面板上会印方块）。
+        /// <para>🆕 2026-10-31（`C7` · 判据 `判据/B109_R19_poisoned_effectText.md` §2·2 B）：本体已提成
+        /// `CardPresentation.AbilityText.Raw` —— **字体闸只此一份**，`CardDisplayWindow` 也转调它。</para></summary>
         static string AbilityRaw(string key)
         {
-            if (string.IsNullOrEmpty(key)) return null;
-            if (!CardText.Zh && Loc.Current == AvailableLanguages.Chinese)
-            {
-                string en = Loc.OfficialEnglish(key);
-                return string.IsNullOrEmpty(en) ? null : en;
-            }
-            string v = Loc.T(key);
-            return (!string.IsNullOrEmpty(v) && v != key) ? v : null;
+            return AbilityText.Raw(key);
         }
 
-        /// <summary>记号渲染（原版 `SupportMethods.ModifyLocalization` 那一层）。**只在带原版记号时**走
-        /// `CardIcons.RewriteMarks`（`[[…]]` / `((…))` / `$$…$$`，与 `BattleDriver.FaceTextFull` 同一套四支），
-        /// 否则原样返回 —— 现读 120 条 `Card_Abilities/*` 里 **102 条**带记号，不过这层会把记号原样印上面板。
-        /// <para>⚠️ 那个 `zh` 位要连**字体闸**一起看：字体缺失时上面已改取英文列 ⇒ 记号里的子词条也必须取英文列。</para></summary>
+        /// <summary>记号渲染（原版 `SupportMethods.ModifyLocalization` 那一层）= `CardIcons.RewriteMarks`
+        /// （`[[…]]` / `((…))` / `$$…$$` / `(N)` 四支，与 `BattleDriver.FaceTextFull` 同一套）。
+        /// <para>⚠️ 那个 `zh` 位要连**字体闸**一起看：字体缺失时上面已改取英文列 ⇒ 记号里的子词条也必须取英文列。</para>
+        /// <para>🆕 2026-10-31（`C7` · 判据 §2·2 B）：本体已提成 `CardPresentation.AbilityText.Marked`。</para></summary>
         static string AbilityMarked(string v)
         {
-            if (string.IsNullOrEmpty(v)) return v;
-            bool zhCol = CardText.Zh && Loc.Current == AvailableLanguages.Chinese;
-            return CardIcons.HasOfficialMarks(v) ? CardIcons.RewriteMarks(v, zhCol) : v;
+            return AbilityText.Marked(v);
         }
 
         // ==================================================================

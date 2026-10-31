@@ -1,0 +1,267 @@
+// C1_EngineFixes_Assert.cs — 第一百零九会话 · C 组 · 执行代理 `C1` 的断言
+//
+// ============================ 它盯的是什么 ============================
+// 本笔在引擎侧落了四件（判据与改动清单见 `资料/完全复刻/报告/C1.md`）：
+//   ① **`poisoned` 的通用 `addTrait` 钩子** —— 原版把 `BroadcastUnitPoisoned` 挂在【通用 addEffect】上
+//      （`decomp_full/BattleManager__ResolveAddEffect.c:180` 闸 `buffType == 200` ⇒ `:268` 调用），
+//      我们改前只在 `poisonous` 关键词那一支里播（`RuleCore.cs:16307`）⇒ 效果文本给出的
+//      `give … poisoned` 原版会播、我们不会。落点 = `EffectResolver.ApplyOneGain` 的 `addTrait` 正支。
+//   ② **0 伤 / 盾挡不派 60**（核实项，**零代码改动**）—— 原版 `CardScript__ResolveDamageDealt.c:31/:34`
+//      两道早退（`damageAbsorbed` / `damageValue == 0`）；我们这一侧的等价闸早就在
+//      `RuleCore.EmitHit`（`RuleCore.cs:9534` 的 `absorbed || amount == 0`，2026-10-24 `A20`）⇒ 本组把它**钉住**。
+//   ③ **`TriggerOpsByNumber` 的数据半已挂**（`Data/CardDatabase.cs:1749`）—— 报告 `B109_R19` 之外的顺手项，
+//      也是本笔订正 `CardDefPartial_B96CA.cs` 头注那句话的判据。
+//   ④ **`backlash` / `penitence` 的 关键词→trigger 名 映射缺口**（本笔**没改**：落点在 `ActionPump.cs`、白名单外，
+//      已写补丁交回）—— 本组只钉「缺口的影响面真的存在」这一层前提。
+//
+// ============================ 怎么接（⚠️ 本代理不动宿主）============================
+//  `Run()` 是唯一入口；宿主接一个 `{ C1_EngineFixes_Assert.Run(); }` 即可（本文件**不改**任何宿主）。
+//
+// ============================ 🔴 灭自证（每条怎么才能红）============================
+//   · A6：把 `ApplyOneGain` 新钩子那半句删掉**不会**红（它只影响广播、不影响关键词落地）——
+//     这正是本组「只能锁到闸的前一半」的如实边界（见报告 §没查清）。
+//   · B6：把 `RuleCore.cs:9534` 的 `|| amount == 0` 删掉 ⇒ 广播会被走到；但池内今天 0 张卡带 60 正文
+//     ⇒ 事件数仍是 0。本条的判别式在报告里写清（**断言不是万能尺**，⛔ 别拿它当「闸一定在」的证明）。
+//   · C1：把 `CardDatabase.cs:1749` 的 `AttachTriggerOpsByNumber` 那一跳删掉 ⇒ `HasTriggerOpsByNumber` 全 false ⇒ 红。
+//   · D1/D2：卡表一改（那 6 / 5 张的关键词或 abilityTriggers 变了）⇒ 数字变 ⇒ 红（提示回来重核影响面）。
+using System;
+using System.Collections.Generic;
+using RuleEngine;
+using UnityEngine;
+
+/// <summary>C1 的断言（**独立类**：类名 == 文件名，唯一入口 <see cref="Run"/>；⛔ 不改任何宿主）。</summary>
+public static class C1_EngineFixes_Assert
+{
+    static int _fail, _pass;
+
+    /// <summary>本件唯一入口。</summary>
+    public static void Run()
+    {
+        _fail = 0; _pass = 0;
+        Section("🆕 C1：引擎四件（poisoned 通用钩子 / 0 伤不派 60 / 数据半 / backlash·penitence 映射前提）");
+
+        List<CardDef> pool = null;
+        try { pool = CardDatabase.Load(); }
+        catch (Exception e) { Debug.LogWarning("[C1] `CardDatabase.Load()` 抛了：" + e.Message); }
+        CheckTrue(pool != null && pool.Count > 500, "A0 前提：卡池读得到且规模正常（≥ 500 张）");
+
+        TestPoisonedHook();
+        TestZeroDamageNoTrigger();
+        if (pool != null && pool.Count > 500)
+        {
+            TestTriggerOpsDataHalf(pool);
+            TestBacklashPenitencePremise(pool);
+        }
+        else
+        {
+            CheckTrue(false, "C0/D0 前提：卡池可用（不可用 ⇒ C/D 两组**没跑**，别当成通过）");
+        }
+
+        Summary();
+    }
+
+    // ==================================================================
+    //  A 组：`poisoned` 的通用 `addTrait` 钩子（原版 `ResolveAddEffect.c:180/:268`）
+    // ==================================================================
+
+    static void TestPoisonedHook()
+    {
+        Section("A `poisoned` 的通用 `addTrait` 钩子（闸 = 原版 `buffType == 200`）");
+
+        Check(CardDef.DefinedTraitNumber(KeywordTable.Poisoned), 200,
+              "A1 前提：`DefinedTraitNumber(\"poisoned\") == 200` —— 生产代码就是拿它比原版那道 `buffType == 200` 的闸"
+            + "｜🧨 改比别的数（或字符串比较写错大小写）⇒ 红");
+        Check(KeywordTable.Poisoned, "poisoned",
+              "A2 前提：引擎关键词名逐字是 `poisoned`（`DefinedTraitNumberOfName` 是**大小写敏感**的 `Ordinal` 表）");
+
+        UnitState u;
+        BattleContext ctx = MakeBattle(out u);
+        CheckTrue(ctx != null && u != null, "A3 前提：夹具单位摆上了（0 号玩家格 3）");
+        if (ctx == null || u == null) return;
+        CheckTrue(!u.Has(KeywordTable.Poisoned), "A4 前提：夹具单位一开始**没有** `poisoned`");
+
+        var ops = new List<EffectOp>
+        {
+            new EffectOp { Verb = "give", Payload = "poisoned", Source = "C1 夹具" },
+        };
+        List<string> unresolved;
+        RuleCore.ResolveOps(ctx, 0, null, ops, null, out unresolved);
+
+        CheckTrue(unresolved == null || unresolved.Count == 0,
+                  "A5 前提：载荷认得（`unresolved` 为空 —— 否则这条 `give poisoned` 根本没生效）");
+        CheckTrue(u.Has(KeywordTable.Poisoned),
+                  "A6 ★★ 效果层真路（`ResolveOps` 的 `give poisoned`）把 `poisoned` **挂到了目标身上** ——"
+                + "这正是新钩子的闸 `appliedTrait != null` 成立的那一格（原版 `local_198 != 0`）");
+        CheckTrue(u.KwValue(KeywordTable.Poisoned) > 0,
+                  "A7 ★ 而且是**正的**层数（`val > 0` ⇒ 走 `ApplyTraitEffect` 记录原语，不是空给）");
+    }
+
+    // ==================================================================
+    //  B 组：0 伤 / 盾挡 ⇒ 表现层仍发 Hit(0)，但不派 60（原版 `ResolveDamageDealt.c:31/:34`）
+    // ==================================================================
+
+    static void TestZeroDamageNoTrigger()
+    {
+        Section("B 0 伤 / 盾挡 ⇒ `EvtKind.Hit(Amount=0)` 照发，但**不派** 60/185/187");
+
+        UnitState u;
+        BattleContext ctx = MakeBattle(out u);
+        CheckTrue(ctx != null && u != null, "B1 前提：夹具单位摆上了（0 号玩家格 3）");
+        if (ctx == null || u == null) return;
+
+        u.AddKeyword(KeywordTable.Shield, 1);
+        CheckTrue(u.HasShield, "B2 前提：单位带着 `shield`（`HasShield` = `Has(\"shield\")` 的派生属性）");
+
+        int hp0 = u.Health;
+        ctx.ClearSignals();
+        int dealt = RuleCore.HurtWithSourceForTest(ctx, u, 5, "C1 夹具");
+
+        Check(dealt, 0, "B3 盾挡下实际伤害 = 0（`DamageAfterReduction` 第一句 `HasShield ⇒ return 0`）");
+        Check(u.Health, hp0, "B4 生命一点没掉");
+
+        int hits = 0, zeroHits = 0, triggers = 0;
+        if (ctx.Signals != null)
+        {
+            for (int i = 0; i < ctx.Signals.Count; i++)
+            {
+                var e = ctx.Signals[i];
+                if (e == null) continue;
+                if (e.Kind == EvtKind.Hit) { hits++; if (e.Amount == 0) zeroHits++; }
+                else if (e.Kind == EvtKind.Trigger) triggers++;
+            }
+        }
+        Check(hits, 1, "B5 ★ 表现层仍收到**恰 1 条** `EvtKind.Hit`（盾碎 / 闪过要有反馈 —— 原版 `EvtKind.Hit` 那一格**不受**那两道早退影响）");
+        Check(zeroHits, 1, "B6 ★ 而且那条的 `Amount == 0`（= 原版 `damageValue == 0` / `damageAbsorbed` 那一档）");
+        Check(triggers, 0,
+              "B7 ★★ 盾挡这一下**没有任何** `EvtKind.Trigger` —— 对应原版 `ResolveDamageDealt.c:31/:34` 的"
+            + "「absorbed / damageValue==0 ⇒ 直接 return」，等价闸 = `RuleCore.cs:9534` 的 `absorbed || amount == 0`"
+            + "（2026-10-24 `A20`）｜⚠️ 池内今天 **0 张**卡带 60 正文 ⇒ 本条同时成立也是必然，判别式见报告 §没查清");
+    }
+
+    // ==================================================================
+    //  C 组：`TriggerOpsByNumber` 的数据半【已挂】（`Data/CardDatabase.cs:1749`）
+    // ==================================================================
+
+    static void TestTriggerOpsDataHalf(List<CardDef> pool)
+    {
+        Section("C `TriggerOpsByNumber` 的数据半已挂（订正 `CardDefPartial_B96CA.cs` 头注那句「还没落列 ⇒ 休眠」）");
+
+        var probes = new[] { 0, 60, 80, 120, 130, 145, 200, 220, 300, 410, 580, 646, 715, 720 };
+        int known = 0, withOps = 0;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var c = pool[i];
+            if (c == null) continue;
+            if (c.HasTriggerOpsByNumber) known++;
+            for (int k = 0; k < probes.Length; k++)
+            {
+                var ops = c.TriggerOpsByNumber(probes[k]);
+                if (ops != null && ops.Count > 0) { withOps++; break; }
+            }
+        }
+        CheckTrue(known > 500,
+                  "C1 ★★ `HasTriggerOpsByNumber` 为真的卡 = " + known + " / " + pool.Count
+                + "（`AttachTriggerOpsByNumber` 没挂时**恒 false** ⇒ 本条红）—— 证明 `CardDatabase.cs:1749` 那条接线真的在生效"
+                + "｜🧨 删掉 `def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def))` ⇒ 0 ⇒ 红");
+        CheckTrue(withOps > 0,
+                  "C2 ★ 至少 " + withOps + " 张卡能从 `TriggerOpsByNumber(n)`（n ∈ " + probes.Length + " 个探测值）取到正文 —— 数据半不是空表"
+                + "｜🧨 组装口 `MapTriggerOpsByNumber` 全返回空 ⇒ 0 ⇒ 红");
+        CheckTrue(pool.Count > 0 && pool[0] != null,
+                  "C3 前提：池里第一张卡非空（C1/C2 的分母不是 0）");
+    }
+
+    // ==================================================================
+    //  D 组：`backlash` / `penitence` 映射缺口的**影响面**（item 3 前提；本笔未落地，补丁已交回）
+    // ==================================================================
+
+    static void TestBacklashPenitencePremise(List<CardDef> pool)
+    {
+        Section("D `backlash`→`ThisUnitDeath(80)` / `penitence`→`Rage(130)` 映射缺口的真实影响面");
+
+        int bl = 0, bl80 = 0, pe = 0, pe130 = 0;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var c = pool[i];
+            if (c == null) continue;
+            if (c.Has(KeywordTable.Backlash))
+            {
+                bl++;
+                var rows = c.TriggerAbilityRowsOf(80);
+                if (rows != null && rows.Length > 0) bl80++;
+            }
+            if (c.Has(KeywordTable.Penitence))
+            {
+                pe++;
+                var rows = c.TriggerAbilityRowsOf(130);
+                if (rows != null && rows.Length > 0) pe130++;
+            }
+        }
+        CheckTrue(bl > 0 && bl80 == bl,
+                  "D1 ★ `backlash` 卡 " + bl + " 张、其中真有 **`trigger 80 (ThisUnitDeath)`** 数据行的 " + bl80 + " 张 ——"
+                + "`ActionPump.TriggerNameOfKeyword(\"backlash\")` 返回 null 时，这 " + bl80 + " 行在"
+                + " `Enchantments.Matching` / `AbilityContextOfAbilityV14` 里**永远命不中**（原版走 `ThisUnitDeath`："
+                + "`BattleManager._ResolveBacklash_d__451__MoveNext.c:94` 的 `CardScript__TriggerUnitDeathActions`）");
+        CheckTrue(pe > 0 && pe130 == pe,
+                  "D2 ★ `penitence` 卡 " + pe + " 张、其中真有 **`trigger 130 (Rage)`** 数据行的 " + pe130 + " 张 —— 同上"
+                + "（原版 penitence 那一刻发的是 `RawCardScript__OnTrigger(… 0x82 = 130 Rage …)`，`CardScript__ResolveDamageDealt.c:98-100`）");
+    }
+
+    // ==================================================================
+    //  夹具
+    // ==================================================================
+
+    /// <summary>一场「督军 + 一张单位」的干净对局；返回时 <paramref name="unit"/> = 已摆到 0 号玩家格 3 的单位。</summary>
+    static BattleContext MakeBattle(out UnitState unit)
+    {
+        var heroA = new CardDef("C1HeroA", "C1HeroA", "hero", "", null, "Ultramarines", 0, 2, 30, 0, null, subtype: "Warlord");
+        var heroB = new CardDef("C1HeroB", "C1HeroB", "hero", "", null, "Goff", 0, 2, 30, 0, null, subtype: "Warlord");
+        var unitCard = new CardDef("C1Unit", "C1Unit", "unit", "", null, "Test", 1, 1, 5, 0, null);
+        var foeCard = new CardDef("C1Foe", "C1Foe", "unit", "", null, "Test", 1, 1, 5, 0, null);
+        var ctx = RuleCore.NewBattle(new List<CardDef> { heroA, unitCard },
+                                     new List<CardDef> { heroB, foeCard },
+                                     seed: 0, shuffle: false, cardPool: new List<CardDef>());
+        unit = PlaceUnit(ctx, 0, 3, unitCard);
+        PlaceUnit(ctx, 1, 3, foeCard);
+        return ctx;
+    }
+
+    static UnitState PlaceUnit(BattleContext ctx, int p, int slot, CardDef card)
+    {
+        if (ctx == null || card == null) return null;
+        var u = new UnitState(ctx.NewInstance(card), false);
+        u.DeployedTurn = ctx.Turn;
+        u.PlayOrder = ctx.TakePlayOrder();
+        ctx.Players[p].Board[slot] = u;
+        return u;
+    }
+
+    // ==================================================================
+    //  最小断言框架（本文件独立类 ⇒ 不借用 `RuleEngineTest` 的 private 助手）
+    // ==================================================================
+
+    static void Section(string title) { Debug.Log("--- " + title + " ---"); }
+
+    static void Check<T>(T actual, T expected, string msg)
+    {
+        bool ok = EqualityComparer<T>.Default.Equals(actual, expected);
+        Report(ok, msg + "（实际 = " + actual + "，期望 = " + expected + "）");
+    }
+
+    static void CheckTrue(bool cond, string msg) { Report(cond, msg); }
+
+    static void Report(bool ok, string msg)
+    {
+        if (ok) { _pass++; Debug.Log("✓ " + msg); }
+        else { _fail++; Debug.LogError("✗ " + msg); }
+    }
+
+    static void Summary()
+    {
+        if (_fail == 0) Debug.Log($"C1 合计：{_pass} 通过 / 0 失败");
+        else Debug.LogError($"C1 合计：{_pass} 通过 / {_fail} 失败");
+    }
+
+    // 🆕 2026-10-31（B109 · 调度台接线）：宿主聚合行读这两个口（类尾、零行漂）。
+    public static int Pass { get { return _pass; } }
+    public static int Fail { get { return _fail; } }
+}

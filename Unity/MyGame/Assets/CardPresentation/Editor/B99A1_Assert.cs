@@ -311,4 +311,8 @@ public static class B99A1_Assert
         return new CardDef(id, id, type, "", null, "SpaceWolves", 1, 1, 3, 0, null,
                            subtype: subtype ?? type, targeted: targeted);
     }
+
+    /// <summary>最近一次 `Run()` 的通过 / 失败数（宿主聚合行累加用 —— 2026-10-31 `B108` 补）。</summary>
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
 }

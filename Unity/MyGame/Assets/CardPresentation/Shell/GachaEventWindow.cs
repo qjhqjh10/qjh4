@@ -224,7 +224,7 @@ namespace CardPresentation
         const string ArtPopupTex = "40k_popup_texture";          // 128×128（Tiled）
         const string ArtClaim = "WF_Special_offer_Value";        // 324×87 九宫 162,0,162,0
         const string ArtBarBg = "40k_campaign_bar_bg";           // 42×18 九宫 20,0,20,0
-        const string ArtBarFill = "40k_campaign_bar_fill";       // 42×18 九宫 10,0,10,0
+        const string ArtBarFill = "40k_campaign_bar_fill_color"; // 42×18 九宫 10,0,10,0 · 原版这张是 `_color` 档（原名带空格 `40k_campaign_bar_fill color`，PID 757582629421741544）⛔ 别简化回不带 `color` 的那张（两张不同 sprite：不带 color 的中心像素 143 灰、这张 255 白）
         const string ArtBarEnd = "40k_campaign_bar_end";         // 22×18
         const string ArtBarOutline = "40k_campaign_bar_outline"; // 46×22 九宫 20,0,20,0
         const string ArtBanner = "40k_UI_Banner_BW";             // 624×190
@@ -841,8 +841,8 @@ namespace CardPresentation
                           42f, 18f, QRewBar, BarBgTint, true, "Image");
             var fillArea = MenuDraw.Node(barBg, "Fill Area", FillAreaR);
             _progressFill = MenuDraw.Node(fillArea, "Fill", FillR);              // 出厂 0 宽 = 进度 0
-            MenuDraw.Nine(_progressFill, Tex(ArtBarFill, "进度条填充"), FillR, new Vector4(10f, 0f, 10f, 0f),
-                          42f, 18f, QRewBar, BarFillTint, true, "Image");
+            // 出厂 0 宽 ⇒ 九宫格只建根、0 个子块（= 原版 `Slider.value = 0` ⇒ `anchorMax.x = 0`）
+            RebuildProgressFill(FillR);
             MenuDraw.Rect(_progressFill, Tex(ArtBarEnd, "进度条末端"), FillEndR, "end", QRewBar, BarEndTint, true);
             MenuDraw.Nine(_progress, Tex(ArtBarOutline, "进度条描边"), ProgressiveOutlineR,
                           new Vector4(20f, 0f, 20f, 0f), 46f, 22f, QRewBar, BarOutlineTint, true, "Outline");
@@ -1156,7 +1156,7 @@ namespace CardPresentation
             if (_progressFill == null) return;
             float t = ProgressMax <= 0 ? 0f : Mathf.Clamp01(ProgressValue / (float)ProgressMax);
             var fr = new PxRect(FillAreaR.x1, FillAreaR.y1, FillAreaR.x1 + FillAreaR.W * t, FillAreaR.y2);
-            MenuDraw.ApplyPxRect(_progressFill, _progressFill.parent, fr);
+            MenuDraw.ApplyPxRect(_progressFill, _progressFill.parent, fr); if (Mathf.Abs(fr.W - _fillBuiltW) > 0.01f) RebuildProgressFill(fr);   // 🔴 宽度一变就重建九宫格（只改 `sizeDelta` 不会让子块长出来，判据见 `RebuildProgressFill`）
             var end = _progressFill.Find("end");
             if (end != null)
             {
@@ -1785,6 +1785,69 @@ namespace CardPresentation
 
             /// <summary>自检用：清空本地排程表。</summary>
             public static void ResetForTest() { _pending.Clear(); }
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B109_E27`）自检读口：进度条 `Fill`
+        // 为什么需要这两个口：`Fill` 出厂 0 宽（`FillR` 的 x1 == x2），而 `ImageQuad.CreateNineSlice` 在
+        // `worldW == 0` 时把每一格都算成 `w <= 0` 跳过 ⇒ **树上一个 `ImageQuad` 子块都没有**，断言无从读贴图。
+        // ⚠️ 这是**既有实现事实**（`CreateNineSlice` 的早退），本件没有改填充的画法；这里只把「窗口向资源层
+        //    要的那张图 / 那个 tint」暴露成读口，让断言去比**原版字面量**（⛔ 不比我们自己的常量 —— 否则有人把
+        //    常量改成一个「存在但画错」的图名时照样绿）。
+        /// <summary>自检读口：进度条 `Fill` 实际请求的贴图（= `Tex(ArtBarFill, …)` 走的那条 `CardArt.MenuUi`）。</summary>
+        public Texture2D BarFillTexture { get { return CardArt.MenuUi(ArtBarFill); } }
+        /// <summary>自检读口：进度条 `Fill` 的 tint（原版 `Image.m_Color`）。</summary>
+        public Color BarFillTintValue { get { return BarFillTint; } }
+
+        // ============================================================ 🆕 2026-10-31（`C5`）进度条 `Fill`：宽度一变就重建九宫格
+        // 判据 ①（原版**怎么变宽**）：`ProgressBar` 是 uGUI `Slider`，`m_FillRect` → `Fill`
+        //   （`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_2768653388367320705.json`
+        //    现读：`m_FillRect.m_PathID = 7492318860993287809` · `m_Direction = 0`(LeftToRight) · `m_MaxValue = 6` ·
+        //    `m_Value = 4.15` · `m_TargetGraphic = null` · `m_HandleRect = null`）；`Fill` 那颗 `Image` 的
+        //    `m_Type = 1`(**Sliced**，不是 Filled) ⇒ `Slider.UpdateVisuals()` 走**改锚点**那一支
+        //   （`Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Slider.cs:585-613`：
+        //    `anchorMin = (0,0)` · `anchorMax[0] = value` · `anchorMax[1] = 1` · `sizeDelta` 不动 · 锚点一改底下的
+        //    `Image` 自己重算矩形）⇒ **填充矩形 = `Fill Area` 左下起「宽 × value/max」× 满高**。
+        //   `Fill` 的序列化 RT 是 `anchorMin/Max = (0,0)` / `sizeDelta = (0,0)` / `pivot = (0.5,0.5)`
+        //   （`RectTransform/RectTransform_7492318860993287809.json` 实读）—— 那正是 `Slider` 每次 `UpdateVisuals` 会覆写的那几个字段。
+        //   我们 `SetRewardProgress` 算出来的 `fr`（`x1 = FillAreaR.x1`、`x2 = x1 + W·t`、上下满 `FillAreaR`）
+        //   逐项就是这条 ⇒ **几何口径本来就对，缺的只是下面这一跳**。
+        // 判据 ②（为什么必须重建）：本仓**没有 uGUI 布局运行时** —— 改 `sizeDelta` / 锚点都不会让 `ImageQuad` 的子块长出来，
+        //   九宫格是**建的那一刻按 `worldW` 烘死**的（`Battle/ImageQuad.cs` 的 `CreateNineSlice`：`worldW == 0`
+        //   ⇒ 三列全 `w <= 0` 跳过 ⇒ 一个子块都不建）。⇒ 出厂 0 宽的 `Fill` 底下**什么都没有**，之后若只调
+        //   `MenuDraw.ApplyPxRect`（改 `sizeDelta`）就**永远是空白**（= 本件修的缺陷）。
+        //   ⇒ 做法 = **宽度一变就按新矩形重建一次九宫格**；画面结果与「锚点自动重算」等价。
+        // ⛔ 别改成「只改 `anchorMax.x`」—— 本仓没有任何布局系统去读那两个锚点，改了不生效（菜单壳的锚点一律写死成
+        //   `(0.5,0.5)` 重合，理由见 `MenuDraw.SetPxSize` 的注释）。
+        Transform _fillNine;        // 上一次重建出来的九宫格根（节点名 = `Image`）
+        float _fillBuiltW;          // 上一次建的时候的宽度（px）—— `SetRewardProgress` 拿它判「要不要重建」
+
+        /// <summary>按 <paramref name="fr"/>（**绝对 px**，左上原点）重建 `Fill` 的九宫格。
+        /// ⚠️ **必须在 `MenuDraw.ApplyPxRect(_progressFill, …)` 之后调** —— `MenuDraw.Nine` 给的根位置是
+        /// `Local(parent, fr)`（= 新矩形中心 − `Fill` 节点中心），父节点还没挪过去时建出来会偏。</summary>
+        void RebuildProgressFill(PxRect fr)
+        {
+            if (_progressFill == null) return;
+            var old = _fillNine;
+            _fillNine = null;
+            if (old != null)
+            {
+                var dead = old.gameObject;
+#if UNITY_EDITOR
+                if (!Application.isPlaying) Object.DestroyImmediate(dead);
+                else
+#endif
+                    Object.Destroy(dead);
+                // ⚠️ 运行期 `Object.Destroy` 是**帧末**才真销毁 ⇒ 那一帧里新旧两张九宫格并存（旧的还带着旧宽度）。
+                //    进度只在 `RefreshRewardFooter` 那一拍变一次，肉眼不可见；⛔ 别为此改用 `DestroyImmediate`（会打断合批）。
+            }
+            var go = MenuDraw.Nine(_progressFill, Tex(ArtBarFill, "进度条填充"), fr, new Vector4(10f, 0f, 10f, 0f),
+                                   42f, 18f, QRewBar, BarFillTint, true, "Image");
+            _fillNine = go != null ? go.transform : null;
+            _fillBuiltW = fr.W;
+            // 原版 `end`（端帽）是 `Fill` 的**子节点** ⇒ 画在填充之上。重建把 `Image` 追加到了子件末尾，这里把它挪回最后
+            // （出厂那次 `end` 还没建 ⇒ `Find` 返回 null，正常）。
+            var end = _progressFill.Find("end");
+            if (end != null) end.SetAsLastSibling();
         }
     }
 }

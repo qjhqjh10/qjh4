@@ -12,7 +12,7 @@
 //   ② `PYTHONIOENCODING=utf-8 python 工具/setup_audio_mixer.py`
 //      —— 补两样 API 补不了的：**组挂到 Master 下**（`CreateNewGroup` 建出来的是孤儿，
 //        `Master.m_Children` 是空的 ⇒ 没有信号通路、声音出不来）·
-//        **按原版名暴露 `VolumeFX/Music/Voices/Jingles`**（`AudioParameterPath` 只有一个 GUID 字段，
+//        **按原版名暴露 `VolumeFX/Jingles/Master/Music/Voices`**（含原版死参数 `VolumeMaster`，2026-10-31 `B109_E17` 补；`AudioParameterPath` 只有一个 GUID 字段，
 //        没有「哪种参数」的信息）。`.mixer` 是文本 YAML，**组的音量参数 GUID 就是它自己的
 //        `m_Volume` 字段**（⚠️ **不是** `m_Effects[0]` 那个 `Attenuation` 效果的 `m_MixLevel` ——
 //        取错时 `AudioMixer.GetFloat("VolumeFX")` 返回 false，已经踩过一次，别再改回去）。
@@ -144,6 +144,12 @@ public static class AudioSetup
             bool parented = m.Success && m.Groups[1].Value != "[]";
             chk(parented, "`Master.m_Children` 不是空的（**空的 = 组是孤儿、没有信号通路**）");
         }
+
+        // 🆕 **2026-10-31（`B109_E17`）**：三份 mixer / 12 组 / 8 快照那一层（`B109_R11` §4 的七条逐条落在这里）
+        string mixRep = MixerStructureReport();
+        Debug.Log(mixRep);
+        chk(MixerStructureFailures == 0,
+            $"三份 mixer 结构全过（`B109_R11` §4 七条 + `m_SuspendThreshold`；失败 {MixerStructureFailures} 条）");
         Done(pass, fail);
     }
 
@@ -271,78 +277,43 @@ public static class AudioSetup
     /// 不写盘、不改任何值（先跑这一条看现状）。</summary>
     public static void VerifySnapshots()
     {
-        var mixer = Resources.Load<AudioMixer>(MixerResource);
-        if (mixer == null) { Debug.LogError("AUD 快照校验：`Resources.Load<AudioMixer>` 取不到 `" + MixerResource + "`"); return; }
-
-        var names = ListingSnapshotNames();
-        Debug.Log($"AUD 快照校验：mixer 里现有 **{names.Count}** 条 —— [{string.Join(", ", names.ToArray())}]");
+        var main = Resources.Load<AudioMixer>(MixerResource);
+        var mus  = Resources.Load<AudioMixer>(WarpforgeAudio.MusicMixerResource);
+        var fx   = Resources.Load<AudioMixer>(WarpforgeAudio.FxMixerResource);
+        if (main == null)
+        {
+            Debug.LogError("AUD 快照校验：`Resources.Load<AudioMixer>` 取不到 `" + MixerResource + "`");
+            return;
+        }
+        Debug.Log($"AUD 快照校验：主 mixer **{SnapshotCount(main)}** 条 · Music 子 mixer **{SnapshotCount(mus)}** 条"
+                + $" · FX 子 mixer **{SnapshotCount(fx)}** 条（原版 1 / 5 / 2 = 8 条）");
 
         int ok = 0;
-        foreach (var want in WarpforgeAudio.SnapshotNames)
+        for (int i = 0; i < WarpforgeAudio.SnapshotNames.Length; i++)
         {
-            var s = mixer.FindSnapshot(want);
-            if (s != null) { ok++; Debug.Log($"AUD   ✅ `{want}` 找得到"); }
-            else Debug.Log($"AUD   ❌ `{want}` **缺**（跑 `-executeMethod AudioSetup.CreateSnapshots`）");
+            string want = WarpforgeAudio.SnapshotNames[i];
+            var on = (i <= 1) ? fx : mus;                       // 0/1 在 FX 子 mixer，2..5 在 Music 子 mixer
+            var s = on != null ? on.FindSnapshot(want) : null;
+            if (s != null) { ok++; Debug.Log($"AUD   ✅ `{want}` 找得到（{(i <= 1 ? "FX" : "Music")} 子 mixer）"); }
+            else Debug.Log($"AUD   ❌ `{want}` **缺**（{(i <= 1 ? "FX" : "Music")} 子 mixer）");
         }
         Debug.Log($"AUD 快照校验：**{ok}/{WarpforgeAudio.SnapshotNames.Length}** 命中"
-                + (ok == WarpforgeAudio.SnapshotNames.Length ? " ⇒ A-02 的前置已就绪（数值另说）" : " ⇒ 还缺快照"));
+                + (ok == WarpforgeAudio.SnapshotNames.Length
+                   ? " ⇒ 8 条快照齐（数值另看 `AudioSetup.VerifySnapshotValues` / 结构看 `AudioSetup.Verify`）"
+                   : " ⇒ 还缺快照"));
     }
 
     /// <summary>建**缺的**快照（幂等；已存在的跳过、不改值）。用 `AudioMixerController` 的内部 API，
     /// 走与 <see cref="CreateMixer"/> 同一套反射；内部 API 改名 ⇒ **出声**并打印手工做法（⛔ 不静默）。</summary>
     public static void CreateSnapshots()
     {
-        var path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(MixerResource));
-        if (string.IsNullOrEmpty(path)) { Debug.LogError("AUD 建快照：先跑 `AudioSetup.CreateMixer`（mixer 不存在）"); return; }
-        Type ctl = FindControllerType();
-        if (ctl == null) { Debug.LogError("AUD 建快照：找不到 `UnityEditor.Audio.AudioMixerController`（内部 API 改名）"); return; }
-
-        var mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(path);
-        if (mixer == null) { Debug.LogError("AUD 建快照：`LoadAssetAtPath<AudioMixer>` 失败：" + path); return; }
-
-        // 找一个「加快照」的实例方法（不同 Unity 版本名字不同 —— 先按名字近似匹配，匹配不到就出声）
-        MethodInfo add = null;
-        foreach (var m in ctl.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-        {
-            if (m.Name.IndexOf("Snapshot", StringComparison.OrdinalIgnoreCase) < 0) continue;
-            if (m.Name.IndexOf("Add", StringComparison.OrdinalIgnoreCase) < 0) continue;
-            if (m.GetParameters().Length != 0) continue;      // 无参那一版 = 「新建一条并返回它」
-            add = m; break;
-        }
-
-        int made = 0, skipped = 0;
-        foreach (var want in WarpforgeAudio.SnapshotNames)
-        {
-            if (mixer.FindSnapshot(want) != null) { skipped++; Debug.Log($"AUD   跳过（已存在）`{want}`"); continue; }
-            if (add == null) continue;
-            object snap = null;
-            try
-            {
-                // AudioMixerController 挂在 mixer 资产上；先按 `AudioMixerController` 拿实例
-                var ctrl = FindControllerInstance(path);
-                if (ctrl != null) snap = add.Invoke(ctrl, null);
-            }
-            catch (Exception e) { Debug.LogWarning("AUD   建 `" + want + "` 抛异常：" + e.Message); }
-            if (snap is UnityEngine.Object so)
-            {
-                so.name = want;
-                EditorUtility.SetDirty(so);
-                made++;
-                Debug.Log($"AUD   建快照 `{want}` → 好（**值为默认/未设** —— 见本段红字：数值判据没查清）");
-            }
-            else Debug.LogWarning($"AUD   建 `{want}` **失败**（内部 API 形态不符）—— 见下面的手工做法");
-        }
-
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-        Debug.Log($"AUD 建快照结束：新建 {made} · 跳过 {skipped}");
-        if (add == null || made < WarpforgeAudio.SnapshotNames.Length - skipped)
-        {
-            Debug.LogWarning("AUD **没全建成**。手工做法（1 分钟）：Window → Audio → Audio Mixer 打开 `Main Mixer`，"
-                           + "在 Snapshots 列表点 `+` 六次，逐个改名成：" + string.Join(" / ", WarpforgeAudio.SnapshotNames)
-                           + "；然后重跑 `-executeMethod AudioSetup.VerifySnapshots` 确认 6/6。");
-        }
-        VerifySnapshots();
+        // 🔴 **2026-10-31（`B109_E17`）：本入口停用。**
+        //   原因：快照现在**随三份 `.mixer` 文本一起来**（`Resources/Audio/{Main Mixer,Music,FX}.mixer`，
+        //   原版那 8 条已逐值写在里面，判据 → `B109_R11` §1.4）。再用内部 API 在**主 mixer** 上新建同名快照，
+        //   会多出一套**空值**快照 + 把「快照落在子 mixer」这个结构又拉回「全在主 mixer」。
+        Debug.LogError("AUD 建快照：**本入口自 2026-10-31 起停用** —— 8 条快照已随三份 `.mixer` 文本一起落地"
+                     + "（`Resources/Audio/{Main Mixer,Music,FX}.mixer`）。"
+                     + "复核：`-executeMethod AudioSetup.VerifySnapshots` / `AudioSetup.VerifySnapshotValues` / `AudioSetup.Verify`。");
     }
 
     /// <summary>列出 mixer 资产里**现有快照名**（只读：顺 `m_Snapshots` 的序列化名取）。取不到 ⇒ 空列表。</summary>
@@ -409,7 +380,12 @@ public static class AudioSetup
     //     打在**三个 BattleGroup 的音量参数**上（`transitionIndices: [4,6,8]`）；FX 那 2 条 =
     //     **一条覆盖都没有**（`transitionTypes: []`）。
     //
-    //  ==== 🔶 自己设计（非原版）：`原版快照 → 我们哪个组` 这一层【投影】====
+    //  ==== 🔴 **2026-10-31（`B109_E17`）就地订正（铁律 5）：下面这段「🔶 投影」的两条代价【都已消除】====
+    //  三份 mixer 按原版建回来之后（`Resources/Audio/{Main Mixer,Music,FX}.mixer`），快照落在**子 mixer 的组**上、
+    //  四根滑块仍在**主 mixer** 的组上 ⇒ ① 不再是同一根浮点（切快照不会盖掉滑块）② `BattleMusicLow/Medium/High`
+    //  真的分别落在三个 `BattleGroup*` 上（不再「三档几乎同值」）。下面这段留作**历史与判据出处**，
+    //  ⛔ 别再按它的「投影」去理解现在的值表（现在的值表是**逐格**的 `SnapshotValuesTable`）。
+    //  ==== 🔶 自己设计（非原版，**已作废**）：`原版快照 → 我们哪个组` 这一层【投影】====
     //  原版快照落在**子 mixer** 上（FX 的 Master / Music 的 BattleGroup*），而我们是**一份混好的
     //  mixer**（Master + FX / Music / Voices / Jingles），既没有子 mixer、也没有 BattleGroup* ⇒
     //  只能投到 `FX` / `Music` 两个组：
@@ -433,116 +409,220 @@ public static class AudioSetup
     //        `-executeMethod AudioSetup.VerifySnapshotValues`（只读复核，不写盘）
     // ══════════════════════════════════════════════════════════════════════════════════════════
 
-    /// <summary>一条「写进哪个组 / 写成多少 dB / 要不要 Attenuation 过渡覆盖」。
-    /// **下标 = `SnapshotsType` 的值**（快照名只此一份 = <see cref="WarpforgeAudio.SnapshotNames"/>，⛔ 别在这里再抄）。</summary>
-    struct SnapshotValueRow
+    /// <summary>一格「**哪份 mixer** 的 **哪条快照** 里，**哪个组** 的音量 = 多少 dB，要不要 Attenuation 过渡覆盖」。
+    /// 🔴 **2026-10-31 订正（`B109_E17`，铁律 5）**：原来这张表是「6 行 × 一个 `Group`（= 主 mixer 的 `FX`/`Music`）」——
+    /// 那是**只有一份 mixer 时的投影**。子 mixer（`Music.mixer` / `FX.mixer`）建回来之后，快照落在**子 mixer 的组**上，
+    /// 原来那 6 行会指到主 mixer 的同名组（**错的组**）。⇒ 改成**逐格**表，每格自带 `Mixer`（= Resources 路径）。
+    /// 判据 = 原版三份 `<mixer>.mixer` 的 `m_FloatValues`（`B109_R11` §1.4 逐格现读）。</summary>
+    struct SnapshotCell
     {
-        public string Group; public float Db; public bool Attenuation;
-        public SnapshotValueRow(string group, float db, bool attenuation)
-        { Group = group; Db = db; Attenuation = attenuation; }
+        public string Mixer, Snapshot, Group; public float Db; public bool Att;
+        public SnapshotCell(string mixer, string snapshot, string group, float db, bool att)
+        { Mixer = mixer; Snapshot = snapshot; Group = group; Db = db; Att = att; }
     }
 
-    /// <summary>原版 6 条快照的组音量 dB（判据见上「🆕 2026-10-28（B89 · E13）」那一段的值表）。
-    /// 顺序 = <see cref="SnapshotsType"/> 的枚举值顺序。</summary>
-    static readonly SnapshotValueRow[] SnapshotValuesTable =
+    /// <summary>原版 8 条快照里**所有非平凡格子**（主 mixer 的 `Snapshot` 只有 `Master` 一格，由
+    /// <see cref="MixerDefaultGroups"/> 那一套单独盯；这里管两个**子 mixer** 的 7 条快照）。
+    /// 值全部逐格抄自原版 YAML —— 判据 → `资料/完全复刻/判据/B109_R11_音频mixer.md` §1.4。</summary>
+    static readonly SnapshotCell[] SnapshotValuesTable =
     {
-        new SnapshotValueRow("FX",     0f,           false),   // FxNormal            ← FX `General`            : Master   0.0 dB
-        new SnapshotValueRow("FX",    -80f,          false),   // FxNoVolume          ← FX `NoVolume`           : Master −80.0 dB
-        new SnapshotValueRow("Music",  0f,           true),    // MusicBattleMusicLow    ← Music `BattleMusicLow`   : Low 0.0 dB
-        new SnapshotValueRow("Music",  0.025578512f, true),    // MusicBattleMusicMedium ← Music `BattleMusicMedium`: Medium 0.025578511878848076 dB
-        new SnapshotValueRow("Music",  0f,           true),    // MusicBattleMusicHigh   ← Music `BattleMusicHigh`  : High 0.0 dB
-        new SnapshotValueRow("Music", -80f,          true),    // MusicBattleMusicNoMusic← Music `NoBattleMusic`   : 三条全 −80 dB
+        // ---- FX 子 mixer（2 条；改的是 FX 自己的 Master 音量，General 恒 0）----
+        new SnapshotCell(WarpforgeAudio.FxMixerResource, "General",  "Master",     0f, false),
+        new SnapshotCell(WarpforgeAudio.FxMixerResource, "NoVolume", "Master",   -80f, false),
+        // ---- Music 子 mixer × 5 条：Master / General 在这 5 条里恒 0 ----
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "General",            "Master",  0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "General",            "General", 0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicLow",     "Master",  0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicLow",     "General", 0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicMedium",  "Master",  0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicMedium",  "General", 0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicHigh",    "Master",  0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicHigh",    "General", 0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "NoBattleMusic",      "Master",  0f, false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "NoBattleMusic",      "General", 0f, false),
+        // ---- Music 子 mixer × 三条 BattleGroup（这一片才是「切档」真正动的地方）----
+        //      `General` 这条快照的过渡覆盖**只有 Low**（原版 `Music.mixer` 的 `m_TransitionOverrides` 只一条）。
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "General",            "BattleGroupLow",     0f,           true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "General",            "BattleGroupMedium", -80f,          false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "General",            "BattleGroupHigh",   -80f,          false),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicLow",     "BattleGroupLow",     0f,           true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicLow",     "BattleGroupMedium", -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicLow",     "BattleGroupHigh",   -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicMedium",  "BattleGroupLow",    -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicMedium",  "BattleGroupMedium",  0.025578512f, true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicMedium",  "BattleGroupHigh",   -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicHigh",    "BattleGroupLow",    -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicHigh",    "BattleGroupMedium", -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "BattleMusicHigh",    "BattleGroupHigh",    0f,           true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "NoBattleMusic",      "BattleGroupLow",    -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "NoBattleMusic",      "BattleGroupMedium", -80f,          true),
+        new SnapshotCell(WarpforgeAudio.MusicMixerResource, "NoBattleMusic",      "BattleGroupHigh",   -80f,          true),
     };
 
-    /// <summary>原版那 6 条快照的**原名**（⚠️ 只用于日志/报告里标注「这条数是从哪儿抄的」；
-    /// ⛔ 不参与查找 —— mixer 里存的是 `WarpforgeAudio.SnapshotNames` 那一组名字）。</summary>
-    static readonly string[] OriginalSnapshotLabels =
+    /// <summary>把一份 `.mixer` 的 YAML 读成「组名 → 音量参数 GUID」＋「快照名 → (参数 GUID → dB)」。
+    /// 🔴 **为什么读文本而不是走编辑器内部 API**：三份 mixer 各自是一份自洽文件，值就写在 `m_FloatValues` 里；
+    /// 读文本 = **不需要音频线程、不需要打开 controller**，在 batchmode 下**恒有效**，而且读的是**落盘后的真值**
+    /// （`SetValueForVolume` 那一路要 `SaveAssets` 之后才等同）。</summary>
+    sealed class MixerYaml
     {
-        "FX/General", "FX/NoVolume",
-        "Music/BattleMusicLow", "Music/BattleMusicMedium", "Music/BattleMusicHigh", "Music/NoBattleMusic",
-    };
+        public bool Ok;
+        public string Path, Error;
+        /// <summary>controller 块的 `m_OutputGroup` 原文（根 mixer 是 `{fileID: 0}`）。</summary>
+        public string OutputGroupRef, SuspendThreshold;
+        public readonly Dictionary<string, string> VolumeGuid = new Dictionary<string, string>();
+        /// <summary>组名 → 那个 `AudioMixerGroupController` 块自己的 `&id`（跨资产引用要的就是它）。
+        /// 🔴 **必须是 `long`，不能是 `int`**：Unity 的 local fileID 是 **Int64**（实测本工程组块 `&1621529463892821992`
+        /// 与 `&-7176780287274492476`），`int.TryParse` 对它们**静默返回 false** ⇒ 表里只剩 `Master`（`&24300002` 恰好装得下），
+        /// `Music` / `FX` 全落空 ⇒ 第 7 条断言拿到空期望值（2026-10-31 `AudioSetup.Verify` 实测 14/16，就是这一条）。</summary>
+        public readonly Dictionary<string, long> GroupFileId = new Dictionary<string, long>();
+        public readonly Dictionary<string, Dictionary<string, float>> Snapshots =
+            new Dictionary<string, Dictionary<string, float>>();
+
+        public static MixerYaml Load(string resourcePath)
+        {
+            var m = new MixerYaml();
+            m.Path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(resourcePath));
+            if (string.IsNullOrEmpty(m.Path) || !File.Exists(m.Path))
+            {
+                m.Error = $"`Resources/{resourcePath}` 加载不到（三份 mixer 应都在 `Assets/CardPresentation/Resources/Audio/`）";
+                return m;
+            }
+            string text = File.ReadAllText(m.Path);
+            var starts = new List<KeyValuePair<int, string>>();
+            foreach (System.Text.RegularExpressions.Match b in System.Text.RegularExpressions.Regex.Matches(
+                         text, @"^--- !u!(\d+) &(-?\d+)\n(\w+):\n", System.Text.RegularExpressions.RegexOptions.Multiline))
+                starts.Add(new KeyValuePair<int, string>(b.Index, b.Groups[3].Value));
+
+            for (int i = 0; i < starts.Count; i++)
+            {
+                int from = starts[i].Key;
+                int to = i + 1 < starts.Count ? starts[i + 1].Key : text.Length;
+                string body = text.Substring(from, to - from);
+                if (starts[i].Value == "AudioMixerController")
+                {
+                    m.OutputGroupRef = FieldOf(body, "m_OutputGroup");
+                    m.SuspendThreshold = FieldOf(body, "m_SuspendThreshold");
+                }
+                else if (starts[i].Value == "AudioMixerGroupController")
+                {
+                    string n = FieldOf(body, "m_Name"), g = FieldOf(body, "m_Volume");
+                    if (!string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(g) && !m.VolumeGuid.ContainsKey(n))
+                    {
+                        m.VolumeGuid[n] = g;
+                        var fm = System.Text.RegularExpressions.Regex.Match(body, @"^--- !u!243 &(-?\d+)\n");
+                        if (fm.Success && long.TryParse(fm.Groups[1].Value, out long fid)) m.GroupFileId[n] = fid;
+                    }
+                }
+                else if (starts[i].Value == "AudioMixerSnapshotController")
+                {
+                    string n = FieldOf(body, "m_Name");
+                    if (string.IsNullOrEmpty(n)) continue;
+                    var dict = new Dictionary<string, float>();
+                    int at = body.IndexOf("m_FloatValues:", StringComparison.Ordinal);
+                    if (at >= 0)
+                    {
+                        int end = body.IndexOf("m_TransitionOverrides:", at, StringComparison.Ordinal);
+                        if (end < 0) end = body.Length;
+                        foreach (System.Text.RegularExpressions.Match f in System.Text.RegularExpressions.Regex.Matches(
+                                     body.Substring(at, end - at), @"^    ([0-9a-f]{32}): (-?[0-9.]+)$",
+                                     System.Text.RegularExpressions.RegexOptions.Multiline))
+                        {
+                            if (float.TryParse(f.Groups[2].Value, System.Globalization.NumberStyles.Float,
+                                               System.Globalization.CultureInfo.InvariantCulture, out float v))
+                                dict[f.Groups[1].Value] = v;
+                        }
+                    }
+                    m.Snapshots[n] = dict;
+                }
+            }
+            m.Ok = m.VolumeGuid.Count > 0 && m.Snapshots.Count > 0;
+            if (!m.Ok) m.Error = "YAML 里一个组 / 一条快照都没解出来（文件被 Unity 存成二进制了？）";
+            return m;
+        }
+
+        static string FieldOf(string body, string name)
+        {
+            var mm = System.Text.RegularExpressions.Regex.Match(
+                body, "^  " + System.Text.RegularExpressions.Regex.Escape(name) + @": (.*)$",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+            return mm.Success ? mm.Groups[1].Value.Trim() : null;
+        }
+    }
 
     /// <summary>上一次 <see cref="VerifySnapshotValuesReport"/> 里「与原版不一致 / 取不到」的条数（0 = 全对）。</summary>
     public static int SnapshotValueFailures { get; private set; }
 
-    /// <summary>把原版 6 条快照的组音量写进 mixer（幂等；写完逐条读回，读不回期望值就出声）。</summary>
+    /// <summary>按 mixer 路径把 <see cref="SnapshotValuesTable"/> 分桶（同一份 mixer 只打开一次）。</summary>
+    static Dictionary<string, List<SnapshotCell>> GroupCellsByMixer()
+    {
+        var d = new Dictionary<string, List<SnapshotCell>>();
+        foreach (var r in SnapshotValuesTable)
+        {
+            if (!d.TryGetValue(r.Mixer, out var list)) { list = new List<SnapshotCell>(); d[r.Mixer] = list; }
+            list.Add(r);
+        }
+        return d;
+    }
+
+    /// <summary>把原版两个**子 mixer** 的 7 条快照组音量写回去（幂等；写完逐格读回，读不回期望值就出声）。
+    /// ⚠️ 这些值**现在也直接写在三份 `.mixer` 文本里**（`B109_E17` 起）⇒ 正常情况**不需要跑本入口**；
+    /// 它只在「有人在 Audio Mixer 窗口里手滑改了值」之后用来复位。</summary>
     [MenuItem("Warpforge/音频/写快照数值")]
     public static void SetSnapshotValues()
     {
-        object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
-        MethodInfo setVolume, getVolume;
-        if (!TryOpenMixerForSnapshotValues(out ctl, out ctlType, out groups, out snaps,
-                                           out setVolume, out getVolume))
-        { DoneSv(0, SnapshotValuesTable.Length); return; }
-
-        Type groupType = null, snapType = null;
-        foreach (var g in groups) if (g != null) { groupType = g.GetType(); break; }
-        foreach (var s in snaps) if (s != null) { snapType = s.GetType(); break; }
-
-        // 过渡覆盖那半边（原版 Music 的 4 条 = Attenuation）。拿不到 ⇒ 只少一条「整复刻」，⛔ 不挡数值写入。
-        MethodInfo setTr = snapType.GetMethod("SetTransitionTypeOverride", BindingFlags.Public | BindingFlags.Instance);
-        MethodInfo clrTr = snapType.GetMethod("ClearTransitionTypeOverride", BindingFlags.Public | BindingFlags.Instance);
-        MethodInfo getGuid = groupType.GetMethod("GetGUIDForVolume", BindingFlags.Public | BindingFlags.Instance);
-        object trAttenuation = null;
-        if (setTr != null)
-        {
-            var ps = setTr.GetParameters();
-            if (ps.Length == 2 && ps[1].ParameterType.IsEnum) trAttenuation = Enum.ToObject(ps[1].ParameterType, 6);
-        }
-        if (setTr == null || getGuid == null || trAttenuation == null)
-        {
-            Debug.LogWarning("AUD-SV 拿不到 `SetTransitionTypeOverride` / `GetGUIDForVolume` / 枚举值 6 ⇒ "
-                           + "**过渡覆盖那半边这次不写**（原版 Music 的 4 条是 `Attenuation`）；**数值照写**。");
-            setTr = clrTr = null;
-        }
-
         int ok = 0, fail = 0;
-        for (int i = 0; i < SnapshotValuesTable.Length; i++)
+        foreach (var kv in GroupCellsByMixer())
         {
-            string snapName = WarpforgeAudio.SnapshotNames[i];
-            var row = SnapshotValuesTable[i];
-            object snap = FindObjectByName(snaps, snapName);
-            object group = FindObjectByName(groups, row.Group);
-            if (snap == null || group == null)
-            {
-                fail++;
-                Debug.LogError($"AUD-SV [{i}] `{snapName}` → 组 `{row.Group}`："
-                             + (snap == null ? "**快照不存在**（先跑 `-executeMethod AudioSetup.CreateSnapshots`）" : "")
-                             + (group == null ? $"**组 `{row.Group}` 不存在**（先跑 `AudioSetup.CreateMixer` + `工具/setup_audio_mixer.py`）" : ""));
-                continue;
-            }
+            object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
+            MethodInfo setVolume, getVolume, setTr, clrTr, getGuid; object trAttenuation;
+            if (!TryOpenMixer(kv.Key, out ctl, out ctlType, out groups, out snaps,
+                              out setVolume, out getVolume, out setTr, out clrTr, out trAttenuation, out getGuid))
+            { fail += kv.Value.Count; continue; }
 
-            setVolume.Invoke(group, new object[] { ctl, snap, row.Db });
-            float got = ReadVolumeForSnapshot(getVolume, group, ctl, snap);
-            if (Mathf.Abs(got - row.Db) < 0.001f) ok++;
-            else
+            foreach (var row in kv.Value)
             {
-                fail++;
-                Debug.LogError($"AUD-SV [{i}] `{snapName}` / `{row.Group}` **写不进**：期望 {row.Db:F3} dB · 读回 {got:F3} dB");
-            }
-
-            string tr = "（本入口没写）";
-            if (setTr != null)
-            {
-                try
+                object snap = FindObjectByName(snaps, row.Snapshot);
+                object group = FindObjectByName(groups, row.Group);
+                if (snap == null || group == null)
                 {
-                    object guid = getGuid.Invoke(group, null);
-                    if (row.Attenuation) { setTr.Invoke(snap, new[] { guid, trAttenuation }); tr = "Attenuation"; }
-                    else { clrTr.Invoke(snap, new[] { guid }); tr = "无（原版这两条也是空的）"; }
+                    fail++;
+                    Debug.LogError($"AUD-SV `{kv.Key}` / `{row.Snapshot}` → 组 `{row.Group}`："
+                                 + (snap == null ? "**快照不存在**" : $"**组 `{row.Group}` 不存在**"));
+                    continue;
                 }
-                catch (Exception e) { tr = "**写失败**：" + e.Message; Debug.LogWarning($"AUD-SV [{i}] `{snapName}` 过渡覆盖：{e.Message}"); }
-            }
-            Debug.Log($"AUD-SV [{i}] `{snapName}` → 组 `{row.Group}` = {got:F3} dB · 过渡覆盖 {tr}"
-                    + $" · 原版快照 `{OriginalSnapshotLabels[i]}`");
-        }
 
-        // 内部 API 是 native 写：SetDirty + SaveAssets 才真落盘（判据 → 本仓「SetDirty 之后回读抓不到没落盘」那条坑）
-        if (ctl is UnityEngine.Object ctlObj) EditorUtility.SetDirty(ctlObj);
-        foreach (var s in snaps) if (s is UnityEngine.Object so) EditorUtility.SetDirty(so);
+                setVolume.Invoke(group, new object[] { ctl, snap, row.Db });
+                float got = ReadVolumeForSnapshot(getVolume, group, ctl, snap);
+                if (Mathf.Abs(got - row.Db) < 0.001f) ok++;
+                else
+                {
+                    fail++;
+                    Debug.LogError($"AUD-SV `{kv.Key}` / `{row.Snapshot}` / `{row.Group}` **写不进**："
+                                 + $"期望 {row.Db:F3} dB · 读回 {got:F3} dB");
+                }
+
+                string tr = "（本入口没写）";
+                if (setTr != null && getGuid != null)
+                {
+                    try
+                    {
+                        object guid = getGuid.Invoke(group, null);
+                        if (row.Att) { setTr.Invoke(snap, new[] { guid, trAttenuation }); tr = "Attenuation"; }
+                        else { clrTr.Invoke(snap, new[] { guid }); tr = "无"; }
+                    }
+                    catch (Exception e) { tr = "**写失败**：" + e.Message; }
+                }
+                Debug.Log($"AUD-SV `{kv.Key}` / `{row.Snapshot}` / `{row.Group}` = {got:F3} dB · 过渡覆盖 {tr}");
+            }
+
+            // 内部 API 是 native 写：SetDirty + SaveAssets 才真落盘（判据 → 本仓「SetDirty 之后回读抓不到没落盘」那条坑）
+            if (ctl is UnityEngine.Object ctlObj) EditorUtility.SetDirty(ctlObj);
+            foreach (var s in snaps) if (s is UnityEngine.Object so) EditorUtility.SetDirty(so);
+        }
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        Debug.Log($"AUD-SV === 合计：{ok} 条写入 / {fail} 条失败 ===（复核：`-executeMethod AudioSetup.VerifySnapshotValues`）");
+        Debug.Log($"AUD-SV === 合计：{ok} 格写入 / {fail} 格失败 ===（复核：`-executeMethod AudioSetup.VerifySnapshotValues`）");
         DoneSv(ok, fail);
     }
 
@@ -560,74 +640,65 @@ public static class AudioSetup
     {
         SnapshotValueFailures = 0;
         var sb = new System.Text.StringBuilder();
-        sb.Append("AUD-SV-V 6 条快照的组音量（对照原版解包值）\n");
+        sb.Append($"AUD-SV-V 子 mixer 快照组音量（{SnapshotValuesTable.Length} 格，对照原版解包值 —— 直接读 `.mixer` 文本）\n");
 
-        object ctl; Type ctlType; System.Collections.IList groups; Array snaps;
-        MethodInfo setVolume, getVolume;
-        if (!TryOpenMixerForSnapshotValues(out ctl, out ctlType, out groups, out snaps,
-                                           out setVolume, out getVolume))
+        var cache = new Dictionary<string, MixerYaml>();
+        foreach (var row in SnapshotValuesTable)
         {
-            SnapshotValueFailures = SnapshotValuesTable.Length;
-            sb.Append("  ✗ 打开 mixer / 取内部 API 失败（上面已有 LogError）\n");
-            return sb.ToString();
-        }
-
-        for (int i = 0; i < SnapshotValuesTable.Length; i++)
-        {
-            string snapName = WarpforgeAudio.SnapshotNames[i];
-            var row = SnapshotValuesTable[i];
-            object snap = FindObjectByName(snaps, snapName);
-            object group = FindObjectByName(groups, row.Group);
-            if (snap == null || group == null)
+            if (!cache.TryGetValue(row.Mixer, out var mx)) { mx = MixerYaml.Load(row.Mixer); cache[row.Mixer] = mx; }
+            string tag = $"{row.Mixer} / `{row.Snapshot}` / `{row.Group}`";
+            if (!mx.Ok) { SnapshotValueFailures++; sb.Append($"  ✗ {tag}：{mx.Error}\n"); continue; }
+            if (!mx.Snapshots.TryGetValue(row.Snapshot, out var vals))
+            { SnapshotValueFailures++; sb.Append($"  ✗ {tag}：快照不在（`{mx.Path}`）\n"); continue; }
+            if (!mx.VolumeGuid.TryGetValue(row.Group, out var guid))
+            { SnapshotValueFailures++; sb.Append($"  ✗ {tag}：组不在（`{mx.Path}`）\n"); continue; }
+            if (!vals.TryGetValue(guid, out float got))
             {
                 SnapshotValueFailures++;
-                sb.Append($"  ✗ [{i}] `{snapName}` / `{row.Group}`：")
-                  .Append(snap == null ? "快照不存在（跑 `AudioSetup.CreateSnapshots`）" : "组不存在（跑 `AudioSetup.CreateMixer`）")
-                  .Append('\n');
+                sb.Append($"  ✗ {tag}：快照里**没有这个组的音量格**（参数 GUID {guid}）\n");
                 continue;
             }
-            float got = ReadVolumeForSnapshot(getVolume, group, ctl, snap);
             bool ok = Mathf.Abs(got - row.Db) < 0.001f;
             if (!ok) SnapshotValueFailures++;
-            sb.Append($"  {(ok ? "✓" : "✗")} [{i}] `{snapName}` / `{row.Group}`：期望 {row.Db:F3} dB · 实得 {got:F3} dB"
-                    + $"（原版快照 `{OriginalSnapshotLabels[i]}`）\n");
+            sb.Append($"  {(ok ? "✓" : "✗")} {tag}：期望 {row.Db:F3} dB · 实得 {got:F3} dB\n");
         }
+        sb.Append(SnapshotValueFailures == 0
+                ? $"  合计：{SnapshotValuesTable.Length} 格全对\n"
+                : $"  合计：{SnapshotValueFailures}/{SnapshotValuesTable.Length} 格不一致\n");
         return sb.ToString();
     }
 
-    /// <summary>反射取齐写快照要的 5 样：controller 实例 / 它的类型 / 组集合 / 快照集合 / 两个音量读写方法。
-    /// 失败 ⇒ **出声**并返回 false（⛔ 不静默）。
+    /// <summary>反射取齐写快照要的东西：controller 实例 / 它的类型 / 组集合 / 快照集合 / 音量读写两个方法 /
+    /// 过渡覆盖两个方法 + 枚举值 / 组的音量 GUID 取法。失败 ⇒ **出声**并返回 false（⛔ 不静默）。
     /// <para>实测签名（`ilspycmd` 反编译 Unity 6000.3.23f1 的 `UnityEditor.CoreModule.dll`）：
     /// <c>AudioMixerGroupController.SetValueForVolume(AudioMixerController, AudioMixerSnapshotController, float)</c> ·
-    /// <c>...GetValueForVolume(AudioMixerController, AudioMixerSnapshotController) → float</c> ·
+    /// <c>...GetValueForVolume(...) → float</c> · <c>...GetGUIDForVolume()</c> ·
     /// <c>AudioMixerController.GetAllAudioGroupsSlow() → List&lt;AudioMixerGroupController&gt;</c> ·
-    /// <c>AudioMixerController.snapshots → AudioMixerSnapshotController[]</c>。</para></summary>
-    static bool TryOpenMixerForSnapshotValues(out object ctl, out Type ctlType,
-                                              out System.Collections.IList groups, out Array snaps,
-                                              out MethodInfo setVolume, out MethodInfo getVolume)
+    /// <c>AudioMixerController.snapshots → AudioMixerSnapshotController[]</c>。</para>
+    /// <para>🆕 **2026-10-31（`B109_E17`）**：加了 <paramref name="resourcePath"/> —— 现在是**三份 mixer**，
+    /// 每份各有自己的 controller；原来写死主 mixer 的那一版会把子 mixer 的格子写到主 mixer 上（**错的组**）。</para></summary>
+    static bool TryOpenMixer(string resourcePath, out object ctl, out Type ctlType,
+                             out System.Collections.IList groups, out Array snaps,
+                             out MethodInfo setVolume, out MethodInfo getVolume,
+                             out MethodInfo setTr, out MethodInfo clrTr, out object trAttenuation,
+                             out MethodInfo getGuid)
     {
         ctl = null; ctlType = null; groups = null; snaps = null; setVolume = null; getVolume = null;
+        setTr = clrTr = null; trAttenuation = null; getGuid = null;
 
-        if (SnapshotValuesTable.Length != WarpforgeAudio.SnapshotNames.Length
-            || OriginalSnapshotLabels.Length != SnapshotValuesTable.Length)
-        {
-            Debug.LogError($"AUD-SV **前提不成立**：值表 {SnapshotValuesTable.Length} 条 / 快照名 "
-                         + $"{WarpforgeAudio.SnapshotNames.Length} 条 / 原版标签 {OriginalSnapshotLabels.Length} 条 —— "
-                         + "三者必须一样长（下标 = `SnapshotsType` 的值），否则会静默错档");
-            return false;
-        }
-
-        var path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(MixerResource));
+        var path = AssetDatabase.GetAssetPath(Resources.Load<AudioMixer>(resourcePath));
         if (string.IsNullOrEmpty(path))
         {
-            Debug.LogError("AUD-SV 找不到 mixer 资产 —— 先跑 `-executeMethod AudioSetup.CreateMixer`（再跑 `工具/setup_audio_mixer.py`）");
+            Debug.LogError($"AUD-SV 找不到 `Resources/{resourcePath}` —— 三份 mixer 都该在 "
+                         + "`Assets/CardPresentation/Resources/Audio/`（缺哪份见 `判据/B109_R11_音频mixer.md` §1）");
             return false;
         }
         ctlType = FindControllerType();
         ctl = FindControllerInstance(path);
         if (ctlType == null || ctl == null)
         {
-            Debug.LogError("AUD-SV 取不到 `UnityEditor.Audio.AudioMixerController` 实例（内部 API 改名？见本文件头三步）");
+            Debug.LogError($"AUD-SV 取不到 `{resourcePath}` 的 `UnityEditor.Audio.AudioMixerController` 实例"
+                         + "（内部 API 改名？见本文件头三步）");
             return false;
         }
 
@@ -645,7 +716,7 @@ public static class AudioSetup
         foreach (var s in snaps) if (s != null) { snapType = s.GetType(); break; }
         if (groupType == null || snapType == null)
         {
-            Debug.LogError("AUD-SV mixer 里没有组或没有快照（先跑 `AudioSetup.CreateMixer` / `AudioSetup.CreateSnapshots`）");
+            Debug.LogError($"AUD-SV `{resourcePath}` 里没有组或没有快照");
             return false;
         }
 
@@ -660,10 +731,36 @@ public static class AudioSetup
         {
             Debug.LogError("AUD-SV `AudioMixerGroupController.SetValueForVolume(AudioMixerController, "
                          + "AudioMixerSnapshotController, float)` 不存在 —— 内部 API 变了。"
-                         + "⛔ 别手改 `.mixer`（`m_FloatValues` 的键是参数 GUID，手改必错）");
+                         + "⛔ 别凭记忆手改 `.mixer`（`m_FloatValues` 的键是**参数 GUID**，猜一个就静默错格）");
             return false;
         }
+
+        // 过渡覆盖那半边（原版 Music 的 4 条 = Attenuation）。拿不到 ⇒ **只少「过渡」那一层**，⛔ 不挡数值写入。
+        setTr = snapType.GetMethod("SetTransitionTypeOverride", BindingFlags.Public | BindingFlags.Instance);
+        clrTr = snapType.GetMethod("ClearTransitionTypeOverride", BindingFlags.Public | BindingFlags.Instance);
+        getGuid = groupType.GetMethod("GetGUIDForVolume", BindingFlags.Public | BindingFlags.Instance);
+        if (setTr != null)
+        {
+            var ps = setTr.GetParameters();
+            if (ps.Length == 2 && ps[1].ParameterType.IsEnum) trAttenuation = Enum.ToObject(ps[1].ParameterType, 6);
+        }
+        if (setTr == null || getGuid == null || trAttenuation == null)
+        {
+            Debug.LogWarning($"AUD-SV `{resourcePath}`：拿不到 `SetTransitionTypeOverride` / `GetGUIDForVolume` / 枚举值 6 "
+                           + "⇒ **过渡覆盖那半边不写**（原版 Music 的 4 条是 `Attenuation`）；**数值照写**。");
+            setTr = clrTr = null;
+        }
         return true;
+    }
+
+    /// <summary>老签名（只给 `SetMixerDefaults` / `VerifyMixerDefaultsReport` 用 —— 它们只碰**主 mixer**）。</summary>
+    static bool TryOpenMixerForSnapshotValues(out object ctl, out Type ctlType,
+                                              out System.Collections.IList groups, out Array snaps,
+                                              out MethodInfo setVolume, out MethodInfo getVolume)
+    {
+        MethodInfo a, b, c; object d;
+        return TryOpenMixer(WarpforgeAudio.MixerResource, out ctl, out ctlType, out groups, out snaps,
+                            out setVolume, out getVolume, out a, out b, out d, out c);
     }
 
     /// <summary>按名字在**组集合 / 快照集合**里找一个（元素都是 `UnityEngine.Object`）。取不到 ⇒ null。</summary>
@@ -870,5 +967,157 @@ public static class AudioSetup
             }
         }
         return sb.ToString();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    //  🆕 **2026-10-31（`B109_E17`）：三份 mixer 的结构复核**
+    //  判据 = `资料/完全复刻/判据/B109_R11_音频mixer.md` §1（原版树）与 §4（七条断言）。
+    //  ⚠️ 第 5 条是**灭自证**那一条：只有它能证明「快照落在 `BattleGroup*` 上、没落回 `VolumeMusic`」。
+    //  ⚠️ 第 6 条是「滑块与快照不互抢」：原版滑块落**主** mixer 的组、快照落**子** mixer 的组 ⇒ 两根不同的浮点。
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>上一次 <see cref="MixerStructureReport"/> 里失败的条数（0 = 七条全过）。</summary>
+    public static int MixerStructureFailures { get; private set; }
+    /// <summary>上一次 <see cref="MixerStructureReport"/> 实际检查的条数。</summary>
+    public static int MixerStructureChecks { get; private set; }
+
+    /// <summary>只读复核（返回可打印的报告；顺便更新 <see cref="MixerStructureFailures"/> / <see cref="MixerStructureChecks"/>）。
+    /// 供 `Editor/B109_E17_Mixer_Assert.cs` 复用。</summary>
+    public static string MixerStructureReport()
+    {
+        MixerStructureFailures = 0; MixerStructureChecks = 0;
+        var sb = new System.Text.StringBuilder();
+        sb.Append("AUD-MIX 三份 mixer 结构（原版 = Main Mixer + Music + FX · 判据 `B109_R11` §1/§4）\n");
+        Action<bool, string> c = (ok, what) =>
+        {
+            MixerStructureChecks++;
+            if (!ok) MixerStructureFailures++;
+            sb.Append($"  {(ok ? "✓" : "✗")} {what}\n");
+        };
+
+        var main = Resources.Load<AudioMixer>(MixerResource);
+        var mus  = Resources.Load<AudioMixer>(WarpforgeAudio.MusicMixerResource);
+        var fx   = Resources.Load<AudioMixer>(WarpforgeAudio.FxMixerResource);
+        c(main != null, $"1) `Resources/{MixerResource}` 加载得到");
+        c(mus  != null, $"1) `Resources/{WarpforgeAudio.MusicMixerResource}` 加载得到");
+        c(fx   != null, $"1) `Resources/{WarpforgeAudio.FxMixerResource}` 加载得到");
+
+        // ---- 2) 跨资产挂接：比**对象本身**，⛔ 别只比 name（两边都叫 Music/FX）----
+        {
+            bool mOk = false, fOk = false;
+            var mg = main != null ? main.FindMatchingGroups("Music") : null;
+            var fg = main != null ? main.FindMatchingGroups("FX") : null;
+            if (mus != null && mus.outputAudioMixerGroup != null && mg != null && mg.Length == 1)
+                mOk = mg[0] == mus.outputAudioMixerGroup;
+            if (fx != null && fx.outputAudioMixerGroup != null && fg != null && fg.Length == 1)
+                fOk = fg[0] == fx.outputAudioMixerGroup;
+            c(mOk, "2) `Music.mixer.outputAudioMixerGroup` == 主 mixer 的 `Music` 组（同一对象）");
+            c(fOk, "2) `FX.mixer.outputAudioMixerGroup` == 主 mixer 的 `FX` 组（同一对象）");
+        }
+
+        // ---- 3) 8 条暴露参数 ----
+        {
+            float dv;
+            bool p = main != null
+                  && main.GetFloat("VolumeFX", out dv) && main.GetFloat("VolumeJingles", out dv)
+                  && main.GetFloat("VolumeMaster", out dv) && main.GetFloat("VolumeMusic", out dv)
+                  && main.GetFloat("VolumeVoices", out dv)
+                  && mus != null
+                  && mus.GetFloat("TrackLowVolume", out dv) && mus.GetFloat("TrackMediumVolume", out dv)
+                  && mus.GetFloat("TrackHighVolume", out dv);
+            c(p, "3) 8 条暴露参数全在（主 5：VolumeFX/Jingles/Master/Music/Voices · Music 3：TrackLow/Medium/HighVolume；FX 一条都没暴露）");
+        }
+
+        // ---- 4) 8 条快照 ----
+        c(main != null && SnapshotCount(main) == 1 && main.FindSnapshot("Snapshot") != null,
+          $"4) 主 mixer 只有 **1** 条快照 `Snapshot`（原版：Main 1 条 · 实测 {SnapshotCount(main)} 条）");
+        c(fx != null && fx.FindSnapshot("General") != null && fx.FindSnapshot("NoVolume") != null,
+          "4) FX 子 mixer 有 `General` / `NoVolume` 两条");
+        {
+            string[] want = { "General", "BattleMusicLow", "BattleMusicMedium", "BattleMusicHigh", "NoBattleMusic" };
+            var missing = new List<string>();
+            foreach (var n in want) if (mus == null || mus.FindSnapshot(n) == null) missing.Add(n);
+            c(missing.Count == 0, "4) Music 子 mixer 5 条快照齐"
+                + (missing.Count > 0 ? "（缺 " + string.Join(" / ", missing.ToArray()) + "）" : ""));
+        }
+
+        var myMain = MixerYaml.Load(MixerResource);
+        var myMus  = MixerYaml.Load(WarpforgeAudio.MusicMixerResource);
+        var myFx   = MixerYaml.Load(WarpforgeAudio.FxMixerResource);
+
+        // ---- 5) 🔴 灭自证：BattleMusicLow / BattleMusicHigh 的 Low、High 两格必须**恰好相反** ----
+        {
+            float a = float.NaN, b = float.NaN, d = float.NaN, e = float.NaN;
+            bool ok = myMus.Ok
+                   && TryCell(myMus, "BattleMusicLow",  "BattleGroupLow",  out a)
+                   && TryCell(myMus, "BattleMusicLow",  "BattleGroupHigh", out b)
+                   && TryCell(myMus, "BattleMusicHigh", "BattleGroupLow",  out d)
+                   && TryCell(myMus, "BattleMusicHigh", "BattleGroupHigh", out e)
+                   && Mathf.Abs(a) < 0.001f && Mathf.Abs(b + 80f) < 0.001f
+                   && Mathf.Abs(d + 80f) < 0.001f && Mathf.Abs(e) < 0.001f;
+            c(ok, "5) **灭自证**：`BattleMusicLow` ⇒ Low 轨 0 dB / High 轨 −80 dB；`BattleMusicHigh` ⇒ **恰好相反**"
+                + (myMus.Ok ? $"（实得 Low 快照: Low={a:F2}/High={b:F2} · High 快照: Low={d:F2}/High={e:F2}）" : "（Music.mixer 文本解不出来）"));
+        }
+
+        // ---- 6) 滑块与快照不互抢：子 mixer 的快照里**不得**出现主 mixer 那 4 个滑块参数 ----
+        {
+            var hits = new List<string>();
+            if (myMain.Ok && myMus.Ok && myFx.Ok)
+            {
+                var slider = new List<string>();
+                foreach (var g in new[] { "FX", "Music", "Voices", "Jingles" })
+                    if (myMain.VolumeGuid.TryGetValue(g, out var guid)) slider.Add(guid);
+                foreach (var kv in myMus.Snapshots)
+                    foreach (var g in slider) if (kv.Value.ContainsKey(g)) { hits.Add("Music/" + kv.Key); break; }
+                foreach (var kv in myFx.Snapshots)
+                    foreach (var g in slider) if (kv.Value.ContainsKey(g)) { hits.Add("FX/" + kv.Key); break; }
+            }
+            c(myMain.Ok && myMus.Ok && myFx.Ok && hits.Count == 0,
+              "6) 子 mixer 的快照里**没有**主 mixer 那 4 个滑块参数（= 两根不同的浮点，切快照不会盖掉玩家滑块）"
+              + (hits.Count > 0 ? "（串了：" + string.Join(" / ", hits.ToArray()) + "）" : ""));
+        }
+
+        // ---- 7) 结构（文本层）：子 mixer 的 `m_OutputGroup` 的 fileID+guid 必须指向主 mixer 里**那个**组块 ----
+        {
+            string mainGuid = AssetDatabase.AssetPathToGUID(MixerAssetPath);
+            string wantM = null, wantF = null;
+            if (myMain.Ok && myMain.GroupFileId.ContainsKey("Music"))
+                wantM = "{fileID: " + myMain.GroupFileId["Music"] + ", guid: " + mainGuid + ", type: 2}";
+            if (myMain.Ok && myMain.GroupFileId.ContainsKey("FX"))
+                wantF = "{fileID: " + myMain.GroupFileId["FX"] + ", guid: " + mainGuid + ", type: 2}";
+            c(wantM != null && myMus.Ok && myMus.OutputGroupRef == wantM,
+              $"7) `Music.mixer.m_OutputGroup` == 主 mixer 里 `m_Name: Music` 那个组块（期望 `{wantM}` · 实得 `{(myMus.Ok ? myMus.OutputGroupRef : "?")}`）");
+            c(wantF != null && myFx.Ok && myFx.OutputGroupRef == wantF,
+              $"7) `FX.mixer.m_OutputGroup` == 主 mixer 里 `m_Name: FX` 那个组块（期望 `{wantF}` · 实得 `{(myFx.Ok ? myFx.OutputGroupRef : "?")}`）");
+        }
+
+        // ---- 7b) `m_SuspendThreshold` 三份都应是原版的 −50（我们原来是 −80）----
+        c(myMain.Ok && myMain.SuspendThreshold == "-50", $"7b) 主 mixer `m_SuspendThreshold` = −50（实得 `{(myMain.Ok ? myMain.SuspendThreshold : "?")}`）");
+        c(myMus.Ok  && myMus.SuspendThreshold  == "-50", $"7b) Music 子 mixer `m_SuspendThreshold` = −50（实得 `{(myMus.Ok ? myMus.SuspendThreshold : "?")}`）");
+        c(myFx.Ok   && myFx.SuspendThreshold   == "-50", $"7b) FX 子 mixer `m_SuspendThreshold` = −50（实得 `{(myFx.Ok ? myFx.SuspendThreshold : "?")}`）");
+
+        sb.Append(MixerStructureFailures == 0
+                ? $"  AUD-MIX === 合计：{MixerStructureChecks} 条全过 ===\n"
+                : $"  AUD-MIX === 合计：{MixerStructureChecks - MixerStructureFailures} 通过 / {MixerStructureFailures} 失败 ===\n");
+        return sb.ToString();
+    }
+
+    static int SnapshotCount(AudioMixer mixer)
+    {
+        if (mixer == null) return 0;
+        string p = AssetDatabase.GetAssetPath(mixer);
+        if (string.IsNullOrEmpty(p)) return 0;
+        int n = 0;
+        foreach (var o in AssetDatabase.LoadAllAssetsAtPath(p)) if (o is AudioMixerSnapshot) n++;
+        return n;
+    }
+
+    static bool TryCell(MixerYaml y, string snapshot, string group, out float v)
+    {
+        v = float.NaN;
+        if (y == null || !y.Ok) return false;
+        if (!y.Snapshots.TryGetValue(snapshot, out var vals)) return false;
+        if (!y.VolumeGuid.TryGetValue(group, out var guid)) return false;
+        return vals.TryGetValue(guid, out v);
     }
 }

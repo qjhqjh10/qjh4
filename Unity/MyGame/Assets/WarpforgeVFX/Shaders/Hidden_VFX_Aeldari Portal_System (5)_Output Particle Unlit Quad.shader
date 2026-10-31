@@ -14,6 +14,9 @@
 //   ③ `precise float` → `float` —— 指令级精度提示，不改变数值结果；
 //   ④ `float(uint64_t(x))` → `float(x)` —— 同一个 uint→float 转换，去掉 64 位依赖；
 //   ⑤ `SPIRV_Cross_BaseVertex/BaseInstance` → 0 —— VFX 走 DrawProcedural，基础顶点/实例恒为 0。
+//   ⑥ `ByteAddressBuffer.Load<uint>(x)` → `.Load(x)` —— 同一语义（非模板重载返回 uint），FXC 不认模板形式；
+//   ⑦ 片元块里的全局 `static float4 SV_Target;` → `spv_Color` —— HLSLSupport.cginc 在部分编译档把 `SV_Target`
+//      宏映射成 `COLOR`，会与本块已有的 `static float4 COLOR;` 重定义；只改**变量名**，输出语义（SV_Target0）不变。
 //   **未改**：Shader 名 · SubShader Tags · Pass 名/Tags · Blend/ZWrite/Cull/ZClip · 顶点/片元算式。
 //
 // 🔑 **`.meta` 的 guid 刻意沿用【原版 shader 的 guid】**：`d38980a103a14c64d9dfe14e705e2187`
@@ -145,7 +148,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 uint _82 = uint(gl_VertexIndex) - uint(gl_BaseVertexARB);
                 uint _91 = (_82 >> 2u) + ((uint(gl_InstanceIndex) - uint(gl_BaseInstanceARB)) << 11u);
                 uint _97 = asuint(_InstanceActiveIndex);
-                bool _116 = _91 >= graphValuesBuffer.Load<uint>(ByteAddressMask((_97 << 6u) >> 2u, 4u) * 4 + 0);
+                bool _116 = _91 >= graphValuesBuffer.Load(ByteAddressMask((_97 << 6u) >> 2u, 4u) * 4 + 0);
                 if (_116)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -167,7 +170,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 }
                 uint _142 = asuint(_InstanceIndex) * 13312u;
                 uint _145 = ((_91 << 2u) + _142) << 2u;
-                bool _153 = attributeBuffer.Load<uint>(ByteAddressMask((_145 + 16396u) >> 2u, 4u) * 4 + 0) == 0u;
+                bool _153 = attributeBuffer.Load(ByteAddressMask((_145 + 16396u) >> 2u, 4u) * 4 + 0) == 0u;
                 if (_153)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -207,13 +210,13 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _189 = ByteAddressMask(spvBitfieldInsert(48u, _97, 6u, 26u) >> 2u, 4u);
-                uint2 _195 = uint2(graphValuesBuffer.Load<uint>(_189 * 4 + 0), graphValuesBuffer.Load<uint>((_189 + 1u) * 4 + 0));
+                uint2 _195 = uint2(graphValuesBuffer.Load(_189 * 4 + 0), graphValuesBuffer.Load((_189 + 1u) * 4 + 0));
                 uint _214 = ByteAddressMask((_145 + 16384u) >> 2u, 4u);
-                uint3 _224 = uint3(attributeBuffer.Load<uint>(_214 * 4 + 0), attributeBuffer.Load<uint>((_214 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_214 + 2u) * 4 + 0));
+                uint3 _224 = uint3(attributeBuffer.Load(_214 * 4 + 0), attributeBuffer.Load((_214 + 1u) * 4 + 0), attributeBuffer.Load((_214 + 2u) * 4 + 0));
                 uint _231 = ByteAddressMask(_145 >> 2u, 4u);
-                uint3 _240 = uint3(attributeBuffer.Load<uint>(_231 * 4 + 0), attributeBuffer.Load<uint>((_231 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_231 + 2u) * 4 + 0));
+                uint3 _240 = uint3(attributeBuffer.Load(_231 * 4 + 0), attributeBuffer.Load((_231 + 1u) * 4 + 0), attributeBuffer.Load((_231 + 2u) * 4 + 0));
                 uint _247 = ByteAddressMask((_145 + 36864u) >> 2u, 4u);
-                uint4 _260 = uint4(attributeBuffer.Load<uint>(_247 * 4 + 0), attributeBuffer.Load<uint>((_247 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_247 + 2u) * 4 + 0), attributeBuffer.Load<uint>((_247 + 3u) * 4 + 0));
+                uint4 _260 = uint4(attributeBuffer.Load(_247 * 4 + 0), attributeBuffer.Load((_247 + 1u) * 4 + 0), attributeBuffer.Load((_247 + 2u) * 4 + 0), attributeBuffer.Load((_247 + 3u) * 4 + 0));
                 uint _264 = _260.w;
                 float _275 = asfloat(_240.x);
                 float _276 = asfloat(_240.y);
@@ -244,7 +247,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 float _357 = _351 ? 1.0f : (_353 * _346);
                 float _364 = -(_351 ? 0.0f : (_282 * _356));
                 float _365 = -(_283 * _357);
-                float _376 = mad(clamp(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((((_91 + _142) << 2u) + 32768u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask(((_142 + spvBitfieldInsert(3u, _91, 2u, 30u)) << 2u) >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
+                float _376 = mad(clamp(asfloat(attributeBuffer.Load(ByteAddressMask((((_91 + _142) << 2u) + 32768u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask(((_142 + spvBitfieldInsert(3u, _91, 2u, 30u)) << 2u) >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
                 float _405 = _74(_82 & 1u);
                 float _406 = _74(_82 & 2u);
                 float _411 = asfloat(_264);
@@ -315,7 +318,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
 
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
 
             struct SPIRV_Cross_Input
             {
@@ -331,10 +334,10 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
 
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -343,7 +346,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
 
@@ -465,7 +468,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 uint _82 = uint(gl_VertexIndex) - uint(gl_BaseVertexARB);
                 uint _91 = (_82 >> 2u) + ((uint(gl_InstanceIndex) - uint(gl_BaseInstanceARB)) << 11u);
                 uint _97 = asuint(_InstanceActiveIndex);
-                bool _116 = _91 >= graphValuesBuffer.Load<uint>(ByteAddressMask((_97 << 6u) >> 2u, 4u) * 4 + 0);
+                bool _116 = _91 >= graphValuesBuffer.Load(ByteAddressMask((_97 << 6u) >> 2u, 4u) * 4 + 0);
                 if (_116)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -487,7 +490,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 }
                 uint _142 = asuint(_InstanceIndex) * 13312u;
                 uint _145 = ((_91 << 2u) + _142) << 2u;
-                bool _153 = attributeBuffer.Load<uint>(ByteAddressMask((_145 + 16396u) >> 2u, 4u) * 4 + 0) == 0u;
+                bool _153 = attributeBuffer.Load(ByteAddressMask((_145 + 16396u) >> 2u, 4u) * 4 + 0) == 0u;
                 if (_153)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -527,13 +530,13 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _189 = ByteAddressMask(spvBitfieldInsert(48u, _97, 6u, 26u) >> 2u, 4u);
-                uint2 _195 = uint2(graphValuesBuffer.Load<uint>(_189 * 4 + 0), graphValuesBuffer.Load<uint>((_189 + 1u) * 4 + 0));
+                uint2 _195 = uint2(graphValuesBuffer.Load(_189 * 4 + 0), graphValuesBuffer.Load((_189 + 1u) * 4 + 0));
                 uint _214 = ByteAddressMask((_145 + 16384u) >> 2u, 4u);
-                uint3 _224 = uint3(attributeBuffer.Load<uint>(_214 * 4 + 0), attributeBuffer.Load<uint>((_214 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_214 + 2u) * 4 + 0));
+                uint3 _224 = uint3(attributeBuffer.Load(_214 * 4 + 0), attributeBuffer.Load((_214 + 1u) * 4 + 0), attributeBuffer.Load((_214 + 2u) * 4 + 0));
                 uint _231 = ByteAddressMask(_145 >> 2u, 4u);
-                uint3 _240 = uint3(attributeBuffer.Load<uint>(_231 * 4 + 0), attributeBuffer.Load<uint>((_231 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_231 + 2u) * 4 + 0));
+                uint3 _240 = uint3(attributeBuffer.Load(_231 * 4 + 0), attributeBuffer.Load((_231 + 1u) * 4 + 0), attributeBuffer.Load((_231 + 2u) * 4 + 0));
                 uint _247 = ByteAddressMask((_145 + 36864u) >> 2u, 4u);
-                uint4 _260 = uint4(attributeBuffer.Load<uint>(_247 * 4 + 0), attributeBuffer.Load<uint>((_247 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_247 + 2u) * 4 + 0), attributeBuffer.Load<uint>((_247 + 3u) * 4 + 0));
+                uint4 _260 = uint4(attributeBuffer.Load(_247 * 4 + 0), attributeBuffer.Load((_247 + 1u) * 4 + 0), attributeBuffer.Load((_247 + 2u) * 4 + 0), attributeBuffer.Load((_247 + 3u) * 4 + 0));
                 uint _264 = _260.w;
                 float _275 = asfloat(_240.x);
                 float _276 = asfloat(_240.y);
@@ -564,7 +567,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 float _357 = _351 ? 1.0f : (_353 * _346);
                 float _364 = -(_351 ? 0.0f : (_282 * _356));
                 float _365 = -(_283 * _357);
-                float _376 = mad(clamp(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((((_91 + _142) << 2u) + 32768u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask(((_142 + spvBitfieldInsert(3u, _91, 2u, 30u)) << 2u) >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
+                float _376 = mad(clamp(asfloat(attributeBuffer.Load(ByteAddressMask((((_91 + _142) << 2u) + 32768u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask(((_142 + spvBitfieldInsert(3u, _91, 2u, 30u)) << 2u) >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
                 float _405 = _74(_82 & 1u);
                 float _406 = _74(_82 & 2u);
                 float _411 = asfloat(_264);
@@ -635,7 +638,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
 
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
 
             struct SPIRV_Cross_Input
             {
@@ -651,10 +654,10 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
 
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -663,7 +666,7 @@ Shader "Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
 

@@ -276,9 +276,14 @@ namespace CardPresentation
         /// <summary>`Badge` 的 `Image.m_Color`（实读）。</summary>
         public static readonly Color BadgeTint = new Color(0.651f, 0f, 0f, 1f);
 
-        /// <summary>`Timer/Icon` 的图（与商店页时间条同一张）。原版那张是 `preserveAspect` 的 64²，
-        /// 而框只有 30×25 ⇒ 按 `min(框)` 内接，与商店页 `Clock Icon` 同一条口径。</summary>
-        public const string ClockArt = "WF_icon_clock";
+        /// <summary>`Timer/Icon` 的图。原版那张是 `preserveAspect` 的 64²，
+        /// 而框只有 30×25 ⇒ 按 `min(框)` 内接，与商店页 `Clock Icon` 同一条口径。
+        /// 🔴 2026-10-31（`B109_E33` · 铁律 5 就地订正）：原版 `Time image` / `Clock Icon` 那一族用的
+        /// sprite **是 `WF_icon_clock for shader`**（`菜单全树.md` 里 `sprite:-1997280416601060360`
+        /// = `bundle_menus_assets_all/Sprite/WF_icon_clock for shader.json`）—— 那张**不画指针**，
+        /// 指针由 `Everguild/UI/UI Clock` 现算。原来的 `WF_icon_clock` 是**另一张**（带烤死指针，
+        /// 在 `bundle_atlasindividual_assets_0_mainmenu`），一接 shader 会画成两套针。</summary>
+        public const string ClockArt = "WF_icon_clock_for_shader";
 
         /// <summary>`Price Display Button/Generic UI Button` 的图 + 色（实读；与商店格那颗**同一份值**
         /// ⇒ 色直接引 `ShopTabPage.PriceTint`，不抄第二份）。</summary>
@@ -1531,10 +1536,13 @@ namespace CardPresentation
                 var icn = MenuDraw.Node(timer, NTimerIcon,
                                         new PxRect(icr.CX - side * 0.5f, icr.CY - side * 0.5f,
                                                    icr.CX + side * 0.5f, icr.CY + side * 0.5f));
-                MenuDraw.Rect(icn, CardArt.MenuUi(ClockArt),
+                var clockQ = MenuDraw.Rect(icn, CardArt.MenuUi(ClockArt),
                               new PxRect(icr.CX - side * 0.5f, icr.CY - side * 0.5f,
                                          icr.CX + side * 0.5f, icr.CY + side * 0.5f),
                               "Icon Gfx", qBase + QoText, null, true);
+                // 🆕 2026-10-31（`B109_E33` · R15 §1·9 / #9）：原版 `Timer/Icon` 挂 `UI Clock`
+                //   （4 s 呼吸 + 两枚指针按秒旋转）；我们原来是一张静态图。
+                MenuFxMaterials.Apply(clockQ, MenuFxMaterials.Clock);
             }
 
             // ---- `raycast target`：整根那么大的命中区（原版 `Image,EverguildButton` · `trans=1`）----

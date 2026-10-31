@@ -244,7 +244,7 @@ namespace CardPresentation
         /// <summary>原版 `GameStaticData.graphicsExtendedCompatibility`（`.cctor` 不写 ⇒ **false**）。今天只被总档读/写。</summary>
         public static bool graphicsExtendedCompatibility;
 
-        /// <summary>原版 `GameStaticData.vsync`（`.cctor` = **true** —— 别按「关」猜）。今天只被总档读/写。</summary>
+        /// <summary>原版 `GameStaticData.vsync`（`.cctor` = **true** —— 别按「关」猜）。今天由总档读/写 + **设置窗画质页**那颗开关（`SettingsWindow.ToggleVsync`）。</summary>
         public static bool vsync = true;
 
         /// <summary>原版 `GameStaticData.FPSLimit`（`.cctor` = **2** = 不限帧）。

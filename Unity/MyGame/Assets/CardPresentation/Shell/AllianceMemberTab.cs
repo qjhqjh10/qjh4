@@ -712,6 +712,10 @@ namespace CardPresentation
                               new Vector4(52f, 52f, 52f, 52f), "Collectable Highlight", CellQ(LC_Ring),
                               new Color(1f, 0.545f, 0f, 1f), false,
                               new Vector4(52f / 0.94f, 52f / 0.94f, 52f / 0.94f, 52f / 0.94f));
+            // 🆕 2026-10-31（`B109_E33` · R15 §1·5 / #5）：原版这一枚挂 `UI Glow SDF Noise` 的
+            //   `UI Highlight Alliance trophy`（判据：`Material_-6653266153491287024.json`，引用它的 2 个 Image
+            //   的 sprite = 8880629346401627699、`m_PixelsPerUnitMultiplier = 0.94` —— 与本处 `52/0.94` 逐位吻合）。
+            MenuFxMaterials.ApplyAll(hl, MenuFxMaterials.GlowSdfAllianceTrophy);
             if (hl != null) hl.SetActive(false);
             // 🔴 **2026-10-25（N9 · 账 76/86/89）**：**选中态**接上 —— 原版 `Select` / `Deselect` 就是
             //   `highlight.SetActive(true/false)`，`AllianceTrophiesView.ToggleSelected` = **先关上一枚、再点亮新那枚**。

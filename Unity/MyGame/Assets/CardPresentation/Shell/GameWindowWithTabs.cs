@@ -102,7 +102,7 @@ namespace CardPresentation
         /// 会把 `CurrentTabView` 更新成新对象（`GetTab(Type)` 的旧缓存只有自检/将来运行期加页才会读）。</para></summary>
         protected void EnsureTabsSetup()
         {
-            if (_tabsInitialized) return;
+            if (_tabsInitialized) { RebuildTabCache(); return; }   // 🆕 B108_A5（AUD03 #54/#93）：我们的窗**每次 `Open` 都重建页对象** ⇒ 缓存必须跟着重建（零行数变化：原句 `if (_tabsInitialized) return;` 就地改）
             SetupTabs();
         }
 
@@ -166,7 +166,7 @@ namespace CardPresentation
         {
             if (type == null) return null;
             WindowTabBase cached;
-            if (_cachedTabs.TryGetValue(type, out cached)) return cached;
+            if (_cachedTabs.TryGetValue(type, out cached) && cached != null && tabs.Contains(cached)) return cached;   // 🆕 B108_A5（AUD03 #54）：命中也要过一遍「死的/已不在活表里」⇒ 回落扫 `tabs`（零行数变化：条件就地加）
             for (int i = 0; i < tabs.Count; i++)
             {
                 var t = tabs[i];
@@ -384,6 +384,49 @@ namespace CardPresentation
             var button = CreateTabButton(inst, tabName);              // 原版 `CreateTabButton(this, inst, tabName, icon)`
             if (setupTabOnCreate) inst.Setup(this);                   // 原版 `if (+0x88) inst.<vtable+0x188>(this)`
             return (inst, button);
+        }
+
+        // ======================================================== 🆕 B108_A5（AUD03 #54 / #55 / #93）：页对象缓存随重建而重建
+        //
+        // 🔴 **缺陷（`判据/AUD03_reuse_paths.tsv` 第 54 / 93 行，2026-10-31 现读复核确有其事）**：
+        //    `SetupTabs()` 在**第一次** `Open()` 时把 `tabs`（当时的页对象）抄进 `_cachedTabs`，随后
+        //    `_tabsInitialized = true` ⇒ 之后 `EnsureTabsSetup()` **一条都不跑**。而我们的窗
+        //    （`RewardsWindow.BuildTabContents` / `CollectionWindow` 那一族）**每次 `Open()` 都 `tabs.Clear()`
+        //    + 新 `AddComponent` 重建页对象**，旧页随 `DestroyChildren` 一起销毁 ⇒ 缓存里全是**已销毁**的旧页。
+        //    ⇒ `GetTab(Type)` / `GetTab<T>()` / `ChangeTab<T>()` 读到死对象（Unity 假 null ⇒ 看着像「没有这页」）。
+        //    生产切页走 `ChangeTab(WindowTabType)` → `FindTab` **扫 `tabs` 活表** ⇒ 今天没炸（判据表原话），
+        //    但这是一处**静默**的错值，且 `CurrentTabView` 也会停在死对象上（第 55 行）。
+        // ⚠️ **不是原版机制**：原版的 `tabs` 由 `SetupTabs` 从 prefab 建一次、之后不重建 ⇒ 原版没有这一档。
+        //    这是「我们每次 Open 重建页对象」带来的**同源差**（文件头差异②那条的下游）。
+
+        /// <summary>把 `_cachedTabs` 按**活表** `tabs` 重建一次；`CurrentTabView` 指向**已销毁**的旧页时复位成 null。
+        /// <para>⚠️ 只复位「已销毁」那一档（`ReferenceEquals(…, null) == false && … == null` = Unity 假 null）——
+        /// **活着的页即使不在 `tabs` 里也不动**（原版 `CurrentTab` 跨 `Hide/Show` 保留，⛔ 别借这一句把它清掉）。</para>
+        /// <para>🔴 `CurrentTab`（枚举版历史读口）**不复位** —— 同 `DestroyTab` 的口径（原版不清 `0x12`）。</para></summary>
+        void RebuildTabCache()
+        {
+            _cachedTabs.Clear();
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                var t = tabs[i];
+                if (t == null) continue;
+                _cachedTabs[t.GetType()] = t;
+            }
+            var cur = CurrentTabView;
+            if (!ReferenceEquals(cur, null) && cur == null) CurrentTabView = null;   // 假 null ⇒ 复位（第 55 行）
+        }
+
+        /// <summary>自检读口：`_cachedTabs` 里指向**死的 / 已不在活表里**的页有几条（修好之后应恒为 0）。
+        /// <para>⚠️ 它同时是「缓存真的被重建过」的唯一读口 —— 只修 `GetTab` 的回落、不重建缓存时，这条**不为 0**。</para></summary>
+        public int CachedTabDeadCountForTest
+        {
+            get
+            {
+                int n = 0;
+                foreach (var kv in _cachedTabs)
+                    if (kv.Value == null || !tabs.Contains(kv.Value)) n++;
+                return n;
+            }
         }
     }
 }

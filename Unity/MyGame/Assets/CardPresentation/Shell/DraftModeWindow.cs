@@ -478,10 +478,10 @@ namespace CardPresentation
         static readonly PxRect OnResetTxR = new PxRect(1240.5f, 754.5f, 1406.9f, 797.8f);
         static readonly PxRect OnBattleR = new PxRect(1455.70f, 927.70f, 1896.10f, 1048.30f);
         static readonly PxRect OnBattleTxR = new PxRect(1471.20f, 934.70f, 1880.00f, 1041.20f);
-        /// <summary>`Stages Container` 的 GridLayoutGroup：cell 80×80 · spacing (23.7, 30.04) · align MiddleCenter · 2 列。</summary>
-        const float StageCell = 80f, StageGapX = 23.70f, StageGapY = 30.04f;
-        /// <summary>`Losses container` 的 HLG：3 格 · spacing 9.86 · 格子 67.74²（S3 §2.13 `Losses Info UI_ref`）。</summary>
-        const float LossCell = 67.74f, LossGap = 9.86f;
+        /// <summary>`Stages Container` 的 GridLayoutGroup：cell 80×80 · spacing (23.7, 30.04) · align MiddleCenter · 2 列。🔴 **本行下面那个常量存的是【视觉值】= 这组序列化值 × 1.06**（`MainContent` 的 `localScale = 1.06`；本仓按**绝对屏幕 px** 摆件 —— `MenuDraw.Local` 只减父件中心、不乘父级缩放 ⇒ 每条坐标都必须是**画出来的那一份**）。</summary>
+        const float StageCell = 84.80f, StageGapX = 25.12f, StageGapY = 31.84f;        // = 80 / 23.70 / 30.04 × 1.06
+        /// <summary>`Losses container` 的 HLG：3 格 · spacing 9.86 · 格子 67.74²（S3 §2.13 `Losses Info UI_ref`）—— 同上，存**视觉值**：格子 71.80²（`menu_dump` 现读 `Losses Info UI_ref` = 71.80×71.80）、间距 9.86×1.06 = 10.45。</summary>
+        const float LossCell = 71.80f, LossGap = 10.45f;
         const int LossSlots = 3;      // 「失败 3 场结束」（S3 §2.7：Defeat Marks 模板恒 3 格）
 
         // ---- 奖励面板（`DraftRewardPanel`，只有 Finished 显示；S3 §2.8 现读）----
@@ -1212,7 +1212,7 @@ namespace CardPresentation
         {
             float titleL = HdrL + 155f;                      // 原版 HLG padLeft 155
             System.Action onBack = () => Close();
-            WindowHeader.WithBackButton(root, new WindowHeader.Spec
+            var parts = WindowHeader.WithBackButton(root, new WindowHeader.Spec
             {
                 RootName = WindowHeader.RootNameGameMode,
                 RootRect = new PxRect(HdrL, HdrT, HdrR, HdrB),
@@ -1235,7 +1235,7 @@ namespace CardPresentation
                 OnBack = onBack,
             });
 
-            WireHeaderComponent(root, onBack);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
+            WireHeaderComponent(root, onBack); BuildEventImagesHeader(parts);   // 🔴 2026-10-28（B89-E29）接线到原版那颗 `WindowHeaderWithBackButton`（方法在类尾）
         }
 
         // ------------------------------------------------------------ Pay 页（只留免费档）
@@ -1678,7 +1678,7 @@ namespace CardPresentation
             // 胜场格（`Stages Container` GridLayoutGroup：cell 80² · spacing (23.7,30.04) · 2 列 · MiddleCenter）
             var winMarks = MenuDraw.Node(scaled, "Win Marks", new PxRect(697.90f, 373.80f, 1471.60f, 708.80f));
             // 🆕 2026-10-30（B101_R3）：`Background Back` 自己那颗 `Image` **组件级禁用**（`m_Enabled=0`）⇒ 不画它本身；但**子件 `Background` 原版是画的**（`Victories_Background_V2` · 915×392 · Simple · 白 · 非 PA），以前整层漏建（判据 → `报告/B101_R3_资源接线施工单.md` §A1：`menu_dump --rt 7401000208585950046`）
-            var bgBack = MenuDraw.Node(winMarks, "Background Back", new PxRect(727.78f, 381.97f, 1420.24f, 707.83f)); MenuDraw.Rect(bgBack, Tex("Victories_Background_V2"), new PxRect(737.13f, 400.82f, 1411.16f, 689.58f), "Background", QPanelBack, null); _winMarksHolder = winMarks;
+            var bgBack = MenuDraw.Node(winMarks, "Background Back", new PxRect(722.70f, 373.80f, 1456.70f, 719.20f)); MenuDraw.Rect(bgBack, Tex("Victories_Background_V2"), new PxRect(732.60f, 393.10f, 1447.10f, 699.20f), "Background", QPanelBack, null); _winMarksHolder = winMarks;   // 🔴 2026-10-31（C5）两框改回**视觉值**（`menu_dump "Draft Mode Ongoing State"` 现读：Background Back 734.01×345.42 @ (722.7,373.8) · Background 714.47×306.09 @ (732.6,393.1)）。原来那组是**设计值**（÷1.06）⇒ 整层小 5.7% 且逐件向左上漂；⛔ 别改回去。
             RebuildStageMarks();
 
             // 败场（`Defeats:` + 3 格：原版 `Losses container` HLG spacing 9.86 · 格子 67.74²）
@@ -1760,8 +1760,8 @@ namespace CardPresentation
                 var cellNode = MenuDraw.Node(holder, "Stage Info UI_ref", cell);
                 // 空槽 = 原版 `Stage Info UI_ref` 自身的 Image：`Rank Skull Empty` · Simple · tint (1,0.561,0.561,1) · 非 PA（B101_R3 现读）
                 MenuDraw.Rect(cellNode, Tex("Rank_Skull_Empty"), cell, "Slot", QArt, new Color(1f, 0.561f, 0.561f, 1f));
-                // 亮的那一格 = 原版子件 `Completed`（= `imageObject`）：`Rank Skull` · Simple · PA=1 · 原版 87.13×113.60 ⇒ 按 80 格折 82.2×107.2、中心比格心低 1.6（B101_R3 现读）
-                var markR = new PxRect(cell.CX - 41.1f, cell.CY - 52.0f, cell.CX + 41.1f, cell.CY + 55.2f);
+                // 亮的那一格 = 原版子件 `Completed`（= `imageObject`）：`Rank Skull` · Simple · PA=1 · **视觉值 87.13×113.60**（`menu_dump` 现读 @1042.3,493.4–1129.4,607.0），比格心低 **4.0** ⇒ 半宽 43.57 / 半高 56.80
+                var markR = new PxRect(cell.CX - 43.57f, cell.CY - 52.80f, cell.CX + 43.57f, cell.CY + 60.80f);   // C5：原写 ±41.1/±(52.0,55.2) = 设计值（÷1.06），改回视觉值
                 var mark = MenuDraw.Rect(cellNode, Tex("Rank_Skull"), markR, "Mark", QArt1, null, true);
                 if (mark != null)
                 {
@@ -1791,7 +1791,7 @@ namespace CardPresentation
                 // 底 = 原版 `Losses Info UI_ref` 自身的 Image：`Victory_round_back_with light`（256×256 · Simple ·
                 //   **alpha 0.639** · 非 PA）；⛔ 别拿 `Victory_skull` 顶（那张原版 0 处引用，B101_R3 现读）
                 MenuDraw.Rect(cellNode, Tex("Victory_round_back_with_light"), cell, "Slot", QArt, new Color(1f, 1f, 1f, 0.639f));
-                const float failInset = 1.89f;   // 原版子件 `Fail` 的局部 (2,2)–(69.8,69.8) / 71.8 格 ⇒ 67.74 格里 1.89
+                const float failInset = 2.00f;   // 🔴 C5：原版子件 `Fail` 在 **71.8 格**里是 (2,2)–(69.8,69.8) ⇒ 每边内缩 **2.0**（`menu_dump` 现读：格 825.4–897.2、Fail 827.4–895.2）。原写 1.89 = 2÷1.06（设计值）
                 var mark = MenuDraw.Rect(cellNode, Tex("40k_DraftMode_icon_cross"), new PxRect(cell.x1 + failInset, cell.y1 + failInset, cell.x2 - failInset, cell.y2 - failInset), "Mark", QArt1, null);
                 if (mark != null)
                 {
@@ -1818,9 +1818,14 @@ namespace CardPresentation
             var panel = MenuDraw.Node(page, "Reward Info Panel", RewardPanelR);
             var info = MenuDraw.Node(panel, "Reward Info", RewardPanelR);
             // `Highlight Crate`（`Crate Border Highlight` · 金色 0.427 · **只画边框** fillCenter=0）
-            MenuDraw.Nine(info, Tex("Crate_Border_Highlight"), CrateGlowR, new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
+            var crateGlow = MenuDraw.Nine(info, Tex("Crate_Border_Highlight"), CrateGlowR, new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
                           QArt1, new Color(0.98f, 0.801f, 0.0588f, 0.427f), false, "Highlight Crate",
                           null, null, default(Vector2));
+            // 🆕 2026-10-31（`B109_E33` · R15 §1·5 / #5）：原版这颗挂 `UI Glow SDF Noise` 的
+            //   `Border Chest Collect`（判据：13 个 Image 引用它的 sprite = `Highlight Crate` 那一行）。
+            //   ⚠️ 本方法自 2026-10-25 起**不再被调用**（用户拍板「轮抽不做奖励」）⇒ 这一行现在跑不到；
+            //      留着是为了将来恢复奖励面板时**一次接对**，⛔ 别另写第二份。
+            MenuFxMaterials.ApplyAll(crateGlow, MenuFxMaterials.GlowSdfBorderChestCollect);
             // `Crate`：原版 `DraftRewardPanel.Initialize` 按 **`CurrentStage`（= 胜场 `save+0x48`）** 换六档
             // （`<3 / 3–4 / 5–6 / 7–8 / 9–12 / ≥13`，反汇编逐档读出来；S3 §2.8 记的是同一组阈值）。
             // 🔴 **本地只有 `40k_Crate_Tier1_Iron` 一张图**（`Resources/Art/ui_menu/` 其余档 0 命中）
@@ -2004,13 +2009,11 @@ namespace CardPresentation
                                    face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(tx, PrevBackTxR);                 // 原版 align = Left/Middle
             // 原版那颗钮 `m_Transition = 2`(SpriteSwap)：base `40k_UI_bt_back` / hover `40k_UI_bt_back_hover_back`
-            // / pressed `40k_UI_bt_back_pressed` —— ⚠️ **pressed 那张本地没有**（`ui_menu/` 0 命中）
-            // ⇒ 传 null（按下时保持 hover 那帧）+ 出声，⛔ 不拿别的图顶。
-            if (CardArt.MenuUi("40k_UI_bt_back_pressed") == null)
-                Debug.Log("[Draft] 预览窗 `Close button` 的 **pressed** 图 `40k_UI_bt_back_pressed` **本地没有**"
-                        + "（`Resources/Art/ui_menu/` 0 命中）⇒ 按下时保持 hover 那帧（⛔ 不拿别的图顶）");
+            // / pressed `40k_UI_bt_back_pressed`（🆕 2026-10-31 C4：三张都在 `Resources/Art/ui_menu/`；
+            //   原先只缺 pressed —— 不是「本地没有」，是**导入缺口**，见 `报告/B109_E24.md` §四-5）
+            //   ⇒ 三态齐全，按下那帧走真图（⛔ 不再传 null 兜底）
             MenuDraw.Hit(btn, "Hit", PrevBackBtnR, QPreviewHit, ClosePackPreview, bg,
-                         "40k_UI_bt_back", "40k_UI_bt_back_hover_back", null,
+                         "40k_UI_bt_back", "40k_UI_bt_back_hover_back", "40k_UI_bt_back_pressed",
                          clickCue: WindowSounds.DefaultCloseCue);
             node.gameObject.SetActive(false);
             return node;
@@ -4303,7 +4306,7 @@ namespace CardPresentation
                 // 联盟计分面板（原版 `AlliancesEventScorePanel.Initialize`）—— 🔶 服务端排行榜本地 0 ⇒ 占位文本
                 MenuDraw.Text(_pagePay, TimedAllianceR, "Alliance Score（本地模拟 · 原版=服务端排行榜）",
                               new Color(1f, 0.85f, 0.4f, 1f), "Alliance Score Panel", 26f, QText,
-                              TimedAllianceR.W, face: TmpFont.Face.LatinCardBody);
+                              TimedAllianceR.W, face: TmpFont.Face.LatinCardBody); BuildTimedEventImages(_pagePay);
                 // 事件图（原版 `drawData.EventAssets`）—— 取不到就不画 + 出声（⛔ 不静默）
                 var evt = Tex(TimedDraftLocal.EventImage);
                 if (evt == null)
@@ -4639,5 +4642,208 @@ namespace CardPresentation
         public const string ArtWinMark = "Rank_Skull";
         public const string ArtLossSlot = "Victory_round_back_with_light";
         public const string ArtLossMark = "40k_DraftMode_icon_cross";
+
+        // ============================================================ 账 C14/C15/C17/C18 · 事件图接线（2026-10-31 · B109_E35）
+        // 判据（全部本机现读；完整证据 → `资料/完全复刻/报告/B109_E32.md` §2/§3）：
+        //  · C14 `EventImageSelectorController.Initialize` / C15 `ImageEventDrawData.TryDraw` 的**唯一实例**在
+        //    `bundle_menus_assets_all` 的 `Draft Mode Timed Mode Window/Draft Mode Pay State/Alliance Trophy Image controller`
+        //    （MB `-316068969454671126` 逐字段实读：两格 `RankingIcon(6)` → 子件 `Frame` · `HeaderImage(3)` → 子件 `Badge`；
+        //     两颗 Image 的 `m_Sprite` 都是 **0**、`m_PreserveAspect = 1`）。
+        //    原版调用点 = `DraftModeMenuPayStateTimed.OnOpen` 的**末句**
+        //    `eventUISpecialImageController.Initialize(drawData.EventAssets)`（`cpp2il/out_cpp2il_dev_ilspy/DraftModeMenuPayStateTimed.cs:65`）。
+        //  · C17 `EventAssetImages.Initialize` / C18 外层 `LiveopUIDrawer_EventAssetSprites.Initialize` 的两个实例
+        //    （MB `-256574493845456187` = Demo 变体 · `5714981760248277738` = Timed 变体）各一格 `GameModeIcon(12)`，
+        //    挂各自的 `Game Mode Header With Back Button/Header Background/Game Mode Icon`（100×100 · `m_Sprite = 0` ·
+        //    `m_PreserveAspect = 0`）。⇒ 我们这一扇窗只有**一颗表头**（Demo/Timed 共用）⇒ 只建一格。
+        //  · 几何：`工具/menu_rect.py` 现读 —— `Game Mode Icon` 模板位 100×100（父 `Header Background` = 原版那条
+        //    HLG：padLeft 155 · spacing 5.5 · 竖中，判据同 `LiveOpsEventWindow.BuildHeader`）；
+        //    `Alliance Trophy Image controller` / `Frame` / `Badge` 三件同矩形 1395.98,184.21 → 1626.02,414.26。
+        // 🔴 **数据源 = 服务端**：原版喂的是 `drawData.EventAssets`（draft 事件的服务端资产表）。本地 13 份活动 SO
+        //    目录里**没有 draft 事件**（判据 → `Shell/DraftLocalEvent.cs` 文件头），🔶 那份本地模拟事件也不带 `Assets`
+        //    ⇒ 生产口径 `EventAssetsOverrideForTest == null` ⇒ 落到原版「没有该 type」的同一支（那一格 `enabled = false`）。
+        //    ⛔ 不拿别的图顶（`EventArt.LoadAsset` 取不到就返 null，见 `Shell/EventImageSelector.cs` 文件头）。
+        // 🔴 全部追加在本 `partial` 类尾部（文件末尾）：本文件被账按行号钉着，⛔ 别在主类中间插成员。
+
+        /// <summary>自检注入点（**生产恒 null**）：非 null 时两族事件图都按它喂 —— 原版 `drawData.EventAssets` 的替身。
+        /// <para>⛔ 只服务断言（`Editor/B109_E35_DraftImage_Assert.cs`），生产代码一个字节都不会设它。</para></summary>
+        public static LiveOpsLocalEvent EventAssetsOverrideForTest;
+
+        // ---- 原版 `Header Background` 那条 HLG（判据 → `LiveOpsEventWindow.BuildHeader` 那段实读）----
+        const float HdrIconPadL = 155f;
+        const float HdrIconGap = 5.5f;
+        const float HdrIconSide = 100f;
+        const float HdrIconFitW = 369.36f;      // 原版 `SetAutoFitBox` 的框宽（⛔ 别拿它当文本实宽）
+
+        /// <summary>`Alliance Trophy Image controller`（Timed Pay 页那颗）＋ 两个子件同矩形 —— `menu_rect.py --rt` 现读。</summary>
+        static readonly PxRect TrophyR = new PxRect(1395.98f, 184.21f, 1626.02f, 414.26f);
+
+        // ---- 自检读口（⛔ 不是原版字段；只给 `Editor/B109_E35_DraftImage_Assert.cs` 用）----
+        /// <summary>表头那颗 `Game Mode Icon`：接了几格 / 那一格的 type / 画上几格 / Initialize 被调了几次。</summary>
+        public static int LastHeaderImageCells { get; private set; }
+        public static int LastHeaderImageType { get; private set; }
+        public static int LastHeaderImageDrawn { get; private set; }
+        public static bool LastHeaderImageEnabled { get; private set; }
+        public static int HeaderImageInitCalls { get; private set; }
+        /// <summary>Timed Pay 页那两格：type 表 / 画上几格 / 每格记下的资产名 / Initialize 被调了几次。</summary>
+        public static int[] LastPayImageTypes { get; private set; }
+        public static int LastPayImageDrawn { get; private set; }
+        public static string[] LastPayImageAssetNames { get; private set; }
+        public static int PayImageInitCalls { get; private set; }
+
+        /// <summary>自检前把读口归零（重复跑时不串上一次的读数）。</summary>
+        public static void ResetEventImageProbe()
+        {
+            LastHeaderImageCells = 0; LastHeaderImageType = -1; LastHeaderImageDrawn = 0;
+            LastHeaderImageEnabled = false; HeaderImageInitCalls = 0;
+            LastPayImageTypes = null; LastPayImageDrawn = 0; LastPayImageAssetNames = null; PayImageInitCalls = 0;
+        }
+
+        /// <summary>= 原版 uGUI `Image` 的两格口（`sprite` / `enabled`），落在本仓的 `ImageQuad` 上。
+        /// <para>⚠️ `preserveAspect` 照 prefab 那一格：`Frame` / `Badge` = **1**（按框内接）、`Game Mode Icon` = **0**（拉满整个框）。</para></summary>
+        sealed class QuadEventImageTarget : IEventImageTarget
+        {
+            readonly ImageQuad _q;
+            readonly bool _fit;
+            readonly float _boxW, _boxH;      // 建出来那一刻的显示框（世界单位 —— `ImageQuad.WorldW/WorldH`）
+
+            public QuadEventImageTarget(ImageQuad q, bool preserveAspect)
+            {
+                _q = q; _fit = preserveAspect;
+                _boxW = q != null ? q.WorldW : 0f;
+                _boxH = q != null ? q.WorldH : 0f;
+            }
+
+            public Texture2D Sprite
+            {
+                get { return _q != null ? _q.Texture as Texture2D : null; }
+                set
+                {
+                    if (_q == null) return;
+                    if (value == null) { _q.SetTexture(null, true); _q.gameObject.SetActive(false); return; }
+                    float a = value.height > 0 ? value.width / (float)value.height : 1f;
+                    _q.SetTexture(value, true);                      // 只换图；比例/尺寸由下面两句摆（⛔ 别让它按贴图静默改比例）
+                    if (_fit && _boxW > 0f && _boxH > 0f && a > 0f)
+                    {
+                        float w = _boxW, h = _boxW / a;              // 原版 `m_PreserveAspect = 1`：按框**内接**
+                        if (h > _boxH) { h = _boxH; w = _boxH * a; }
+                        _q.SetWorldHeight(h); _q.SetAspect(w / h);
+                    }
+                    else
+                    {
+                        _q.SetWorldHeight(_boxH);                    // 原版 `m_PreserveAspect = 0`：拉满整个框
+                        _q.SetAspect(_boxW > 0f && _boxH > 0f ? _boxW / _boxH : 1f);
+                    }
+                    _q.gameObject.SetActive(true);
+                }
+            }
+
+            public bool Enabled
+            {
+                get { return _q != null && _q.gameObject.activeSelf; }
+                set { if (_q != null) _q.gameObject.SetActive(value); }
+            }
+        }
+
+        /// <summary>表头那颗 `Game Mode Icon`（原版 `Header Background` 的 HLG 里紧跟标题：`155 + 标题实宽 + 5.5`）＋
+        /// 原版 `LiveopUIDrawer_EventAssetSprites` 那一格（`GameModeIcon(12)`）。见本节头。</summary>
+        void BuildEventImagesHeader(WindowHeader.Parts parts)
+        {
+            LastHeaderImageCells = 0; LastHeaderImageType = -1; LastHeaderImageDrawn = 0;
+            LastHeaderImageEnabled = false;
+            if (parts.Plate == null)
+            {
+                Debug.LogWarning("[Draft] 表头 `Header Background` 没建出来 ⇒ `Game Mode Icon`（原版 "
+                               + "`LiveopUIDrawer_EventAssetSprites` 那一格）没接（⛔ 不静默）");
+                return;
+            }
+
+            // 标题实宽：`Label.WorldW`（1 单位 = 108 设计 px，同 `LiveOpsEventWindow.BuildHeader` / `Shell/ItemDrawer.cs`）
+            float titleW = HdrIconFitW;
+            var tlb = parts.Title;
+            float measured = tlb != null ? tlb.WorldW * 108f : 0f;
+            if (measured > 0.1f && measured <= HdrIconFitW + 1f) titleW = measured;
+
+            float iconL = HdrIconPadL + titleW + HdrIconGap;
+            float iconT = WingT + (WingB - WingT - HdrIconSide) * 0.5f;      // HLG 竖中在 `Header Background` 里
+            var quad = MenuDraw.Rect(parts.Plate, CardArt.Solid(),
+                                     new PxRect(iconL, iconT, iconL + HdrIconSide, iconT + HdrIconSide),
+                                     "Game Mode Icon", QArt1, Color.white, false);
+            var cells = new List<LiveopUIDrawer_EventAssetSprites.EventAssetImages>();
+            if (quad != null)
+            {
+                // 原版此刻 `m_Sprite = 0`（uGUI 什么都不画）；我们这颗是 1×1 实心图 ⇒ 先关掉，由 Initialize 决定
+                quad.gameObject.SetActive(false);
+                cells.Add(new LiveopUIDrawer_EventAssetSprites.EventAssetImages
+                {
+                    EventAssetType = (int)LiveOpsAssetRef.GameModeIcon,
+                    Image = new QuadEventImageTarget(quad, false),
+                });
+            }
+            LastHeaderImageCells = cells.Count;
+            if (cells.Count > 0) LastHeaderImageType = cells[0].EventAssetType;
+
+            HeaderImageInitCalls++;
+            LastHeaderImageDrawn = LiveopUIDrawer_EventAssetSprites.Initialize(cells, EventAssetsOverrideForTest);
+            LastHeaderImageEnabled = quad != null && quad.gameObject.activeSelf;
+
+            Debug.Log("[Draft] 事件图（表头 `Game Mode Icon` · 原版 `LiveopUIDrawer_EventAssetSprites`）：接 "
+                    + cells.Count + " 格（type = GameModeIcon(12)），画上 " + LastHeaderImageDrawn + " 格"
+                    + (EventAssetsOverrideForTest == null
+                       ? " —— 事件资产表在服务端（`drawData.EventAssets`），本地没有 draft 事件 ⇒ 这一格按原版关掉（⛔ 不拿别的图顶）"
+                       : "（自检注入）"));
+        }
+
+        /// <summary>Timed Pay 页的 `Alliance Trophy Image controller`（两格 `RankingIcon(6)` → `Frame` · `HeaderImage(3)` → `Badge`）
+        /// ＋ 原版 `EventImageSelectorController.Initialize(drawData.EventAssets)`。见本节头。</summary>
+        void BuildTimedEventImages(Transform page)
+        {
+            LastPayImageTypes = null; LastPayImageDrawn = 0; LastPayImageAssetNames = null;
+            var holder = MenuDraw.Node(page, "Alliance Trophy Image controller", TrophyR);
+            var frame = MenuDraw.Rect(holder, CardArt.Solid(), TrophyR, "Frame", QArt, Color.white, false);
+            var badge = MenuDraw.Rect(holder, CardArt.Solid(), TrophyR, "Badge", QArt1, Color.white, false);
+
+            var draw = new List<EventImageSelectorController.ImageEventDrawData>();
+            if (frame != null)
+            {
+                frame.gameObject.SetActive(false);          // 原版 `m_Sprite = 0`（uGUI 什么都不画）⇒ 先关
+                draw.Add(new EventImageSelectorController.ImageEventDrawData
+                {
+                    Image = new QuadEventImageTarget(frame, true),
+                    EventAssetType = (int)LiveOpsAssetRef.RankingIcon,
+                });
+            }
+            if (badge != null)
+            {
+                badge.gameObject.SetActive(false);
+                draw.Add(new EventImageSelectorController.ImageEventDrawData
+                {
+                    Image = new QuadEventImageTarget(badge, true),
+                    EventAssetType = (int)LiveOpsAssetRef.HeaderImage,
+                });
+            }
+
+            // 原版 `drawData.EventAssets` → `List<EventAsset>`（按**资产名**取图，见 `Shell/EventImageSelector.cs` 文件头）
+            var assets = new List<EventImageSelectorController.EventAsset>();
+            var evt = EventAssetsOverrideForTest;
+            if (evt != null && evt.Assets != null)
+                for (int i = 0; i < evt.Assets.Length; i++)
+                {
+                    var a = evt.Assets[i];
+                    if (a == null) continue;
+                    assets.Add(new EventImageSelectorController.EventAsset { Type = a.Key, AssetName = a.SubObjectName });
+                }
+
+            PayImageInitCalls++;
+            LastPayImageTypes = new int[draw.Count];
+            for (int i = 0; i < draw.Count; i++) LastPayImageTypes[i] = draw[i].EventAssetType;
+            LastPayImageDrawn = EventImageSelectorController.Initialize(draw, assets);
+            LastPayImageAssetNames = new string[draw.Count];
+            for (int i = 0; i < draw.Count; i++) LastPayImageAssetNames[i] = draw[i].LastAssetName;
+
+            Debug.Log("[Draft] 事件图（Timed Pay 页 `Alliance Trophy Image controller` · 原版 `EventImageSelectorController`）：接 "
+                    + draw.Count + " 格（RankingIcon(6) → `Frame` · HeaderImage(3) → `Badge`），画上 " + LastPayImageDrawn
+                    + " 格，资产表 " + assets.Count + " 条"
+                    + (evt == null ? " —— 事件资产表在服务端、本地没有 draft 事件 ⇒ 两格按原版关掉（⛔ 不拿别的图顶）" : "（自检注入）"));
+        }
     }
 }

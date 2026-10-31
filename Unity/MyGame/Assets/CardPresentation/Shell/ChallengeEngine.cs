@@ -149,11 +149,11 @@ namespace CardPresentation
 
         // ============================================================ ⑤ 复位
 
-        /// <summary>开局/换局复位：血线基线 + 计数 + 显隐。⚠️ 生产路径应在战斗开始时调（`BattleDriver`，白名单外）。</summary>
-        public static void Reset()
+        /// <summary>🔶 自己设计（原版无此物）· **只给自检 / 换档用**：清 `_pending` + `_refillBase` + 五格计数 + 显隐 + 血线基线。<para>🔴 **它不是「每局复位」** —— 2026-10-31（`B109_R20` §2·1/§2·3）现读：原版 `ChallengeData` 全文 6 行、**没有 `Reset`**；挑战进度是**跨局累加**（`MissionChallenge.UpdateProgress(value,false)` = `CurrentValue = value + CurrentValue`，存 `ChallengeProgress.CurrentValue`），每局只清「本局计数」的是 `ChallengeData.ResetRunCounters()`（`BattleDriver.Begin` 调）。旧名 `Reset()` 长得像每局复位、实际还**漏清**血线基线（`_foeLowestHealth/_foeLowestSet`）⇒ 谁按名字把它接进 `Begin` 会同时拿到「待处理挑战被清」＋「上局最低血带进新局 ⇒ 新局首击算负、静默计 0」两个 bug ⇒ **改名 + 补清基线**。</para></summary>
+        public static void ResetAllForTest()
         {
             _visible = false;
-            ChallengeData.Reset();
+            ChallengeData.Reset(); ResetWarlordHealthBaseline();
         }
 
         // ============================================================ ⑥ 🆕 2026-10-31（B104_P26 · P6）：退订观测口
@@ -179,5 +179,25 @@ namespace CardPresentation
 
         /// <summary>开局清「本局最低血」基线（⛔ 不清 `ChallengeData` 那五个计数 —— 那是 `ResetRunCounters` 的事）。</summary>
         public static void ResetWarlordHealthBaseline() { _foeLowestHealth = 0; _foeLowestSet = false; }
+
+        // ============================================================ ⑧ 🆕 2026-10-31（`B109_R20` §3 P2 · 执行代理 `C6`）：结算拍从引擎 tally 喂计数
+        //   ⚠️ 追加在**类尾**（上面 42 / 90 / 105 / 111 / 113 五处账落点零漂移）。
+
+        /// <summary>结算拍：把**本局**引擎侧累计喂进挑战计数（生产调用点 = `BattleDriver` 结算那一段，紧跟 `AwardAchievements()`）。
+        /// <para>判据（`B88_R5` §4·1/4·2）：原版 `ChallengeLogMgr.TroopKilled` / `LogHeal` 的等价计数在**引擎侧**
+        /// （`RuleEngine/AchievementTally.TroopsKilled` / `HealDone`，写点 = `RuleCore.TryCreditKillCore` / `HealUnit`），
+        /// 表现层**结算时读走一次**（照既有 `DailyData.UpdateChallengeProgress` / `AwardAchievements` 的先例，⛔ 不在 `RuleEngine/` 里反向依赖）。
+        /// 这里是**赋值不是累加** —— `BattleDriver.Begin` 已调 `ChallengeData.ResetRunCounters()`（每局一次，`Ctx` 也是每局新建 ⇒ 两个口径自洽）。</para>
+        /// <para>🔴 **`EffectsAdded` 今天没有引擎源**：`AchievementTally` 里没有「施加效果条数」这一格
+        /// （原版 `ChallengeLogMgr.LogAddEffect(CardEffect)` 挂在 `CardScript.AddEffect` 上；我们对应的是
+        /// `RuleEngine/Core/EffectResolver` 的分派口 —— 本批白名单外）⇒ 本方法**不写它**，⛔ 不拿别的量顶替
+        /// （那会静默记错账）。要接它得先在 `EffectResolver` 里加一格 tally，见报告 `报告/C6.md` §P2。</para></summary>
+        public static void FeedRunCounters(RuleEngine.AchievementTally tally, int seat)
+        {
+            if (tally == null) return;
+            ChallengeData.TroopsKilled = tally.TroopsKilledOf(seat);
+            ChallengeData.HealAmount = tally.HealDoneOf(seat);
+            UiBadgeNotificationManager.Refresh(typeof(ChallengeMatch));
+        }
     }
 }

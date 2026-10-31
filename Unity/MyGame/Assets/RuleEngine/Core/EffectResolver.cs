@@ -837,7 +837,7 @@ namespace RuleEngine
             //   取值来自「参照卡」= `AbilityLogic.GetRefCard()` = 上一条 ability 的目标表 `[0]`
             //   （判据与逐分支出处 → `RuleCore.ApplyRefCardValueOption` 的 doc）。
             //   ⚠️ 这里递的是**副本**（`Clone()`）：`EffectOp` 是解析产物、会被复用，⛔ 别改原件。
-            if (!payOnly && card != null) op = ApplyRefCardValueOption(ctx, op, card);
+            if (!payOnly && card != null) op = ApplyRefCardValueOption(ctx, op, card, owner, chosen);   // 🆕 B108_N08：80 档求值要 owner/actor（`min + max × 目标数`，判据 `AbilityLogic__GetValueFromCriteria.c:113-116` / `PlayAbility.c:232-236`）；缺了会走「没递 owner ⇒ 保留文本数值」出声支（`EffectResolverPartial_B88E2.cs:467` 的 `ApplyRefCardValueOption`）
             // ---- 付费激活：付不起就**整段不结算**（我们自己的 `rule_core.gd:2529`（旁证、非权威））----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
             //    于是 `8 [Faith]: Deploy an additional Battle Sister` 那族卡**一直在偷偷扣能量** ——
@@ -8417,7 +8417,7 @@ namespace RuleEngine
                                     string triggerName, string effect, int abilityIndex = -1,
                                     // 🆕 2026-10-24（`W2` · `C5` Q2）：走**表现闸**（只看动画行）而不是语义闸。
                                     //   只有 `EmitWhileInPlayPass` 传 true（判据 → `HasAnimRowOnly` 的 doc）。
-                                    bool animRowOnly = false, int instanceId = 0)   // 🔴🆕 2026-10-31（执行代理 `B106_W57`）：`instanceId` = 手牌那一趟的 `CardInstance.Id`（**只在 `unit == null` 时生效**，`0` = 没写 = 改前行为；判据 = `AbilityLogic__PlayAnim.c:185-222` 逐目标 `IsInHand` 时用**那张牌自己**的 2D 卡）。
+                                    bool animRowOnly = false, int instanceId = 0, int explicitPlayer = -1, int explicitSlot = -1)   // 🔴🆕 2026-10-31（执行代理 `B106_W57`）：`instanceId` = 手牌那一趟的 `CardInstance.Id`（**只在 `unit == null` 时生效**，`0` = 没写 = 改前行为；判据 = `AbilityLogic__PlayAnim.c:185-222` 逐目标 `IsInHand` 时用**那张牌自己**的 2D 卡）。🔴🆕 **2026-10-31（执行代理 `B108_A1`）补 `explicitPlayer` / `explicitSlot`**：`unit` **已经离场**（`Unstable`(81) 那一拍死在 `BoardSlots.RemoveAt` 之后）⇒ `FindSlot` 回 false、格号会退化成 `-1` ⇒ 表现层失去「这张卡死在哪」。`explicitSlot >= 0` ⇒ 用它（缺省 `-1` = 逐字旧行为；⛔ 别让调用方在手搓 `BattleEvent` 和走本发射体之间二选一）。
         {
             if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return null;
             if (animRowOnly)
@@ -8427,7 +8427,7 @@ namespace RuleEngine
             else if (!HasTriggerSource(card, triggerName, ctx, effect)) return null;
             int slot = -1, p = owner;
             if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
-            else if (unit != null) { slot = -1; p = owner; }
+            else if (unit != null) { slot = -1; p = owner; } if (explicitSlot >= 0) { slot = explicitSlot; p = explicitPlayer >= 0 ? explicitPlayer : owner; }   // 🔴🆕 2026-10-31（执行代理 `B108_A1`）：显式落点优先 —— 见签名 `explicitSlot` 那一格（`Unstable`(81) 的死者已离开棋盘）。
             // ⚠️ 逐字段与 `BattleContext.Emit(kind, player, slot, cardId, keyword:, effect:, instanceId:, abilityIndex:)`
             //    那一条重载**完全相同**（其余格取默认值），只是把对象留在手上交给调用方。
             var evt = new BattleEvent
@@ -12237,7 +12237,7 @@ namespace RuleEngine
                         if (unresolved == null) { /* 出声即可，不算「没解析」 */ }
                     }
                     // `val > 0` 才算「加上了」（同下面广播那一族的口径；`+0` 是空给）。
-                    if (added && val > 0) EmitStatusApplied(ctx, u, p.Keyword, hadKw);
+                    if (added && val > 0) EmitStatusApplied(ctx, u, p.Keyword, hadKw); if (appliedTrait != null && CardDef.DefinedTraitNumber(p.Keyword) == 200) BroadcastUnitPoisoned(ctx, u, ctx.ActingUnit);   // 🔴 2026-10-31（执行代理 `C1` · 判据 `判据/B109_R19_poisoned_effectText.md` §1·4 · 原版 `BattleManager__ResolveAddEffect.c:180/:268`）：`poisoned` 的广播挂在【通用 addEffect】上（闸 = `buffType == 200`），⛔ 不是只在 `poisonous` 关键词那一支（`RuleCore.cs:16307`）⇒ 效果文本给出的 `give … poisoned` 原版会播、我们也要播。`appliedTrait != null` = 原版 `local_198 != 0`（记录落账之后才播）；`RuleCore.ResolveDamageDealtHook` 那条**直接调 `ApplyTraitEffect`、不走本函数** ⇒ 不会双播。⚠️ 本行**不许换行**（同物理行追加 = 零行数变化；账按行号引用本文件）
                     // 🆕 事件层：`When an enemy gets Hunt Mark, …` / `When you gain [Shield], …`
                     // （2026-09-13 第三十四轮）—— **授予点就是这里**，原来只是没人广播。
                     // ⚠️ `val > 0` 才算「获得」：`val == 0` 是空给，不该触发「有人拿到了」。
@@ -14311,16 +14311,16 @@ namespace RuleEngine
             var r = CountMultiplierTargets(ctx, owner, spec.MultiplierSet, spec.Condition, actor, out gap);
             if (r == null) return false;
             n = r.Value;
-            // 🔶 自己设计（非原版）：**原版 80 档（`ChooseValueOptions.MinPlusMaxTimesMultiplier`）的
-            //   `multiplierFactor` 是【值】不是【遍数】** —— 公式 `minValue + maxValue × multiplierFactor`
-            //   （VA `0x18081b728 imul` / `0x18081b731 lea`，判据 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §一），
-            //   伤害**只结算一次**（`PlayAbility.c:1504` 的 `DealMultiDamage` 一跳）。
-            //   为什么必须自己定这条判据：我们**没有 `valueOptions` 位**（那个字段在 `abilities[].logic[].damage`
-            //   里，运行期没落进 `CardDef`，而补它要动 `CardDef.cs` / `CardDef.ConditionSpec` ⇒ 本波白名单外）
-            //   ⇒ 用等价形状认：**这条 op 的数值已经由同一个量给出**（`AmountRef == "enemyhand"` 而乘数的池
-            //   也是 ta=50 手牌）⇒ 乘数已折进数值，⛔ 不能再当循环遍数（否则 = 平方：3 张手牌 → 9 点伤害）。
-            //   调度台 2026-10-28 裁定（`B88_A1` 第二批）。
-            if (IsMultiplierFoldedIntoValue(op, ta))
+            // 原版 80 档（`ChooseValueOptions.MinPlusMaxTimesMultiplier`）：`multiplierFactor` 是【值】不是【遍数】
+            //   —— 公式 `minValue + maxValue × multiplierFactor`（`AbilityLogic__GetValueFromCriteria.c:113-116`；
+            //   VA `0x18081b71f cmp eax,0x50` / `0x18081b728 imul` / `0x18081b731 lea`），伤害**只结算一次**
+            //   （`PlayAbility.c:1504` 的 `DealMultiDamage` 一跳）。判据 = 卡表数据位
+            //   `damageCriteria.valueOptions == 80`（`CardDef.AbilityDamageSpec.ValueOptions`，v36 起就在；
+            //   同族 `StampRollPerTarget` 判 90 档走的是**同一条取数路**）。
+            //   🔴 2026-10-31（执行代理 `B108_A1` · N08 · 铁律 18·0）：改前这里是「自己设计」的**形状**判据
+            //   （`ta == 50 ∧ AmountRef == "enemyhand"`）—— 形状是文本解析的副产物、与原版字段没有必然映射 ⇒ 已撤掉。
+            //   ⛔ `abilityDamage` 那一格缺行时**不许退回形状**（那就是把 18·0 写回来）；由那个函数自己出声。
+            if (IsMinPlusMaxTimesMultiplier(card, op))
             {
                 ctx.Log($"（{op.Source}：这条 `multiplier` 走的是原版 **80 档**（`min + max × mult`）"
                       + "—— 乘数**已折进数值** ⇒ 只结算 **1** 遍（⛔ 不再当循环遍数，否则 = 平方）"
@@ -18077,19 +18077,19 @@ namespace RuleEngine
 
         /// <summary>🆕 2026-10-28（B88 · `A1b`）：这条 op 的**原版 80 档乘数是否已经折进数值**
         /// （是 ⇒ `TryStructuredMultiplier` 把它当 1 遍，⛔ 不再当循环遍数）。
-        ///
-        /// <para>🔶 自己设计（非原版）：原版判据是 `damage.valueOptions == 80`（VA 级已核，见
-        /// `判据/B88_R2_80档_VA判定.md` §一）；我们**没有这一位**（`CardDef.ConditionSpec` 的十种 role
-        /// 里没有 `damage`，见 `CardDef.cs:3579-3583`，补它要动 `CardDef.cs` ⇒ 白名单外）。
-        /// ⇒ 用等价形状认：**乘数的池（`multiplierTa == 50` 手牌）就是这条 op 数值的来源
-        /// （`AmountRef == "enemyhand"`）** ⇒ 那个数只会被用一次（折进数值），不会再有第二重乘。</para>
-        /// <para>⚠️ 现池命中面 = 2 张（`GSC35 Benefictus` / `GSC59 Day of Ascension`），
-        /// 其它 `mult` 行（ta=10/50 之外的）**不会**被这条命中。</para></summary>
-        static bool IsMultiplierFoldedIntoValue(EffectOp op, int multiplierTa)
+        /// <para>🔴 2026-10-31（执行代理 `B108_A1` · N08 · 铁律 18·0）**判据从「形状」换成「数据位」**：
+        /// 原版 = `damageCriteria.valueOptions == 80`（`AbilityLogic__GetValueFromCriteria.c:113-116`；
+        /// VA `0x18081b71f cmp eax,0x50` / `0x18081b728 imul` / `0x18081b731 lea`，判据 → `判据/B88_R2_80档_VA判定.md` §一）；
+        /// 数据 = 卡表 v36 的 `abilityDamage` 列 → `CardDef.AbilityDamageAt(ab, lg)`（同族 `StampRollPerTarget` 判 90 档走**同一条取数路**）。
+        /// ⛔ 旧写法是形状等价（`multiplierTa == 50 ∧ AmountRef == "enemyhand"`）—— 已撤掉、⛔ 别写回来；
+        /// `abilityDamage` 那一格缺行时**不退回形状**，只出声（`V80GapNote`）。</para>
+        /// <para>⚠️ 现池 `opt == 80` = **2 行 / 2 卡**（`GSC35 Benefictus` / `GSC59 Day of Ascension`；2026-10-31 现读），与旧形状判据命中的是**同一批** ⇒ 今天可观察差 = 0。</para></summary>
+        static bool IsMinPlusMaxTimesMultiplier(CardDef card, EffectOp op)
         {
-            if (op == null) return false;
-            return multiplierTa == 50
-                && string.Equals(op.AmountRef, "enemyhand", System.StringComparison.OrdinalIgnoreCase);
+            if (card == null || op == null) return false;
+            if (string.Equals(op.AbilityMap, "attached", System.StringComparison.Ordinal)) return false;   // 主动能力那一支的 (ab,lg) 是 `activeAbilityLogic` 下标空间（同 `StampRollPerTarget` ③）⇒ 不混用
+            if (op.AbilityIndex >= 0 && op.LogicIndex >= 0) { var ad = card.AbilityDamageAt(op.AbilityIndex, op.LogicIndex); if (ad != null) return ad.ValueOptions == 80; V80GapNote(card, op); return false; }
+            return card.SoleAbilityDamageIs80();   // 未归位 ⇒ 与 `FindSoleMultiplierRow` 同纪律：全卡恰好一行 `abilityDamage` 且它是 80 才算
         }
 
         /// <summary>🆕 2026-10-28（B88 · `A1c`）：**这一条 op 要不要逐目标掷**（判据只此一处）。
@@ -20519,10 +20519,10 @@ namespace RuleEngine
         /// 所以本方法**只发 60/185/187**。⛔ 别「为了对齐清单」把 130 也塞进来。</para>
         ///
         /// <para>⚠️ **今天零可观测**（如实标）：池内 `abilityTriggers` 含 185/187 各 **0** 张；
-        /// 含 60 的 3 张（`Child of Torment` / `Noise Marine` / `Pray Enchantment`）的正文走的是
-        /// **`WhenTriggers`（卡面文本）**、**不进** `_triggerOps` ⇒ `TriggerOpsByNumber(60)` 为空
-        /// ⇒ `FireTriggerByNumber` 一进来就 `return false`（不写 `ctx.Log`，不进 `ctx.Events`）。
-        /// ⇒ 指纹预期**不变**；等数据半（`triggerAbilityIndices` 的正文归位）真长出 60/185/187 才生效。</para>
+        /// 含 60 的 3 张里 **`Child of Torment` / `Noise Marine`** 的正文走的是
+        /// **`WhenTriggers`（卡面文本）**、**不进** `_triggerOps`；🔴 **2026-10-31（执行代理 `C1` 就地订正 · 铁律 5）：第 3 张 `Pray Enchantment` 不属于这一档** ——
+        /// 它的 `desc` **为空**、能力是**数据行**（`chosenAbility 340`）⇒ 正文不在卡面文本里，`TriggerOpsByNumber(60)` 对它同样是空。
+        /// ⇒ **仍零可观测**（载体自己那张卡没有 op）；且 `B109_E6` 起**附魔趟按 trigger 数值另派**（`FireEnchantmentAbilitiesByNumber`，不经 `TriggerOpsByNumber`）⇒「60 在这一口空」只对**载体自己那张卡**成立。</para>
         /// </summary>
         static void FireBoardDamagedByNumber(BattleContext ctx, UnitState u, int owner, int damageType,
                                              UnitState actingCard, UnitState targetCard)
@@ -21003,8 +21003,8 @@ namespace RuleEngine
                 ctx.Log($"⚠️ trigger 数值 {triggerNumber} 不在 `AbilityTriggerNumberOfName` 里 ⇒ 这条触发不结算（⛔ 不猜）");
                 return false;
             }
-            var ops = u.Card.TriggerOpsByNumber(triggerNumber);
-            if (ops == null || ops.Count == 0) return false;      // 数据半没落列 ⇒ 今天恒走这一支（休眠）
+            var ops = u.Card.TriggerOpsByNumber(triggerNumber); int _enchFired = FireEnchantmentAbilitiesByNumber(ctx, u, triggerNumber, tn, owner, slot, actingCard, targetCard); if (ops == null || ops.Count == 0) return _enchFired > 0;
+            // 🔴 2026-10-31（`B109_E6` · 判据 `RawCardScript__TriggerAbilities.c:49-197`、派发 `:184-186`）：原版的**内联附魔趟** —— 载体自己那趟之后，对每件附魔逐条 ability 再派一遍（载体 = thisCard、能力属于附魔卡）；⛔ 别在 `ops == null` 时就 return（那正是本缺口）；⛔ 别在这里执行 `chosenAbility` 数据行（效果已达 `ApplyDamageCore:9067` / `GrantPrayEnchantmentFaith:1636`，重复 = 双发）
             return EnqueueAbility(ctx, TriggerLaneOfCard(u.Card, tn),
                 u.Name + "·trigger#" + triggerNumber,
                 () => ResolveWithTriggerTargetSink(ctx, triggerEvent, () =>
@@ -21019,6 +21019,29 @@ namespace RuleEngine
                 actor: u,
                 requireActorInPlay: ActorMustBeInPlayForTrigger(u.Card, tn, null),
                 abilityContext: AbilityContextOfAbilityV14(u.Card, tn, null));
+        }
+
+        // ==========================================================================================
+        //  🔴🆕 **2026-10-31（执行代理 `B108_A1` · N08 第一步）：`IsMinPlusMaxTimesMultiplier` 的出声口。**
+        //  为什么单开一个（而不是在判定里直接 log）：同一个 `(卡, op 原文)` 会在每次结算里被问一遍
+        //  ⇒ 不写「一次」会让日志刷屏（同族先例 = `HasTriggerSource` 的 `_abilityNoAnimNoted`）。
+        //  ⚠️ **只走 `Debug.LogWarning`、⛔ 不进 `ctx.Log`**：`NetProtocol.Fingerprint` 把 `ctx.Events.Count`
+        //     计入哈希 ⇒ 只在本地才出现的数据缺口若写进 `ctx.Log`，会让 P2P 两端指纹分叉（同族判据见
+        //     `NoteAbilityWithoutAnimRow` 的 doc）。「不许静默」由这条 LogWarning 满足。
+        // ==========================================================================================
+        static readonly System.Collections.Generic.HashSet<string> _v80GapNoted =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+
+        static void V80GapNote(CardDef card, EffectOp op)
+        {
+            string key = (card != null ? (card.Id ?? card.Name ?? "?") : "?") + "|"
+                       + (op != null ? (op.Source ?? "?") : "?");
+            if (!_v80GapNoted.Add(key)) return;      // 同一 (卡, op) 只喊一次
+            UnityEngine.Debug.LogWarning(
+                $"[80档] 「{(card != null ? card.Name : "?")}」的 op「{(op != null ? op.Source : "?")}」"
+              + $"已归位到 (ab{(op != null ? op.AbilityIndex : -1)}, lg{(op != null ? op.LogicIndex : -1)})，"
+              + "但卡表**没有这一格 `abilityDamage`** ⇒ 判不出是不是原版 `valueOptions == 80`，"
+              + "按「非 80 档」继续（⛔ 不退回形状判据 —— 判据 → `判据/B108_N08_valueOptions80.md` §四·1）。");
         }
     }
 }

@@ -747,7 +747,7 @@ namespace CardPresentation
             //   改前在非中英档下**一律回英文列**，正是本笔要修的那一半。
             string v13 = Loc.Lang13Current(term);
             if (!string.IsNullOrEmpty(v13)) return v13;
-            if (!Loc.HasEntry(term)) return Loc.T(term);       // 表里没有 ⇒ 让它出声 + 回键名（不静默）
+            if (!Loc.HasEntry(term)) { string vo = (Loc.Current == AvailableLanguages.Chinese && !Zh) ? Loc.OfficialEnglish(term) : Loc.OfficialCurrent(term); if (!string.IsNullOrEmpty(vo)) return vo; return Loc.T(term); }   // 🔴 2026-10-31（Q1）字体闸对齐 TermOr：原来缺键这一档直接 Loc.T ⇒ 只在官方全表/bulk 的键绕过字体闸（中文档 + 缺中文字体 ⇒ 回英文列）；取不到才出声 + 回键名（不静默）
             return Zh ? Loc.T(term) : Loc.EnOf(term);          // 闸：没有中文字体资产 ⇒ 回英文
         }
 

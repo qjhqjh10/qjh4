@@ -211,12 +211,12 @@ namespace CardPresentation
             _pending.Clear();
             TroopsKilled = 0; HealAmount = 0; EffectsAdded = 0;
             DamageEnemyWarlord = 0; SurviveTurns = 0;
-            _refillBase = DateTime.MinValue;
+            _refillBase = DateTime.MinValue; UiBadgeNotificationManager.Refresh(typeof(ChallengeMatch));   // 🆕 2026-10-31（`B109_R20` §2·3④ · `C6`）：清 `_pending` 之后**必须广播** —— 否则挑战钮徽标停在旧值（与 `ClearPending` 同一条口径）；同一物理行追加 ⇒ 零行数漂移
         }
 
         // ============================================================ ⑦ 🆕 2026-10-31（`B107_W18` · N22）
         /// <summary>**每局开局**清「本局计数」那五格（⛔ 不动 `_pending` / `_refillBase` —— 那两个跨局留着）。
-        /// <para>判据：原版的挑战进度按**一局**累计，而我们这五个计数从来没人清过 ⇒ 第 2 局起进度是「两局之和」。
+        /// <para>🔶 自己设计（非原版）：原版挑战进度是**跨局累加**（`MissionChallenge.UpdateProgress(value,false)` = `CurrentValue = value + CurrentValue`，存 `ChallengeProgress.CurrentValue`；`MissionChallenge.OnReset` 只退订信号、**不清进度**），**原版里没有任何「每局清零挑战计数」的东西**；我们这五条挑战本身是自建的（见 `Definitions`）⇒ **「每局清零」是我们挑的** · 调度台 2026-10-31 定（判据 → `资料/完全复刻/判据/B109_R20_挑战计数.md` §2·1/§2·4）。
         /// ⚠️ 它**不代替** <see cref="Reset"/>：后者是自检/换档用的整份复位（含待处理队列与补时基线），生产路径仍不调。</para></summary>
         public static void ResetRunCounters()
         {

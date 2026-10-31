@@ -8635,7 +8635,7 @@ namespace RuleEngine
             //   由 `DamageAfterReduction` 的**同一个收口**吐出来（那道「落不落」的闸只在那里算一次）。
             //   下面两条分支（空投舱 / 堡垒）会**各自覆盖**它（它们的量不是主伤害走护甲那条路算的）。
             //   ⚠️ 它在函数尾被**拆成第二条 `EvtKind.Hit`**（`Amount = 它`），主那条只带 `actual − 它`。
-            int actual = DamageAfterReduction(u, dmg, out int vulnSecondPart); killedByVulnerable = false; int _vdOwner = OwnerOf(ctx, u); int _rawDealer = (attackerSeat == 0 || attackerSeat == 1) ? attackerSeat : ((_vdOwner == 0 || _vdOwner == 1) ? 1 - _vdOwner : -1); if (kind != DamageKind.Unknown && (_rawDealer == 0 || _rawDealer == 1)) ctx.Tally.AddDamageRaw(_rawDealer, kind, dmg);   // 🔴 2026-10-29（B95_WRC · 账 1004 缺口②）：`_rawDealer` = **攻方座位** —— 有 `attackerSeat` 就用它（原版 `DamageInfo.actingCard.isPlayer`），否则**回落旧口径** `1 - 受害者座位`（缺省路径 ⇒ 老调用点逐字不变）。⚠️ 本行**不许换行**（下面 100+ 条账按行号引用本文件） · 🔴 B93_E6 · 账行 1004：原版 `DamageDeltToEnemyUnit.OnDamageDelt` 在**每一次** `BroadcastUnitDamaged` 上记 `DamageInfo.damageValue` = **扣甲前**（`dmg` 就是它 —— 护甲只在上一句 `DamageAfterReduction` 里减，absorbed 也计入）⇒ 记在**所有早退之前** = 盾 / 闪避 / 无敌 / 空投舱 / 堡垒整份吃下也「先记再退」；⛔ 与下面 `AddDamage`（扣甲后 `actual`）**并存、不替换**。完整判据与「唯一缺口」写在 `AchievementTally.DamageByKindRaw` 的 doc。⚠️ 本行**不许换行**（下面 100+ 条账按行号引用本文件）
+            int actual = DamageAfterReduction(u, dmg, out int vulnSecondPart); killedByVulnerable = false; int _rawDealer = (attackerSeat == 0 || attackerSeat == 1) ? attackerSeat : ActingCardNullDealerSeat(ctx); if (kind != DamageKind.Unknown && (_rawDealer == 0 || _rawDealer == 1)) ctx.Tally.AddDamageRaw(_rawDealer, kind, dmg);   // 🔴 2026-10-29（B95_WRC · 账 1004 缺口②）：`_rawDealer` = **攻方座位** —— 有 `attackerSeat` 就用它（原版 `DamageInfo.actingCard.isPlayer`）；🆕 **2026-10-31（执行代理 `B108_A1` · `B108_A7` 回源）起**，没有 `attackerSeat` 时不再回落 `1 - 受害者座位` —— 原版 `DamageInfo__IsPlayer.c:20-36` 在 `actingCard == null` 时是 **`Debug.LogError` + `return 1`（视为玩家）** ⇒ 走 `ActingCardNullDealerSeat`（= 本地玩家座位 0 + 一次性 LogError）。⚠️ 判据与「为什么不是字面的 1」见那个方法的 doc。⚠️ 本行**不许换行**（下面 100+ 条账按行号引用本文件） · 🔴 B93_E6 · 账行 1004：原版 `DamageDeltToEnemyUnit.OnDamageDelt` 在**每一次** `BroadcastUnitDamaged` 上记 `DamageInfo.damageValue` = **扣甲前**（`dmg` 就是它 —— 护甲只在上一句 `DamageAfterReduction` 里减，absorbed 也计入）⇒ 记在**所有早退之前** = 盾 / 闪避 / 无敌 / 空投舱 / 堡垒整份吃下也「先记再退」；⛔ 与下面 `AddDamage`（扣甲后 `actual`）**并存、不替换**。完整判据与「唯一缺口」写在 `AchievementTally.DamageByKindRaw` 的 doc。⚠️ 本行**不许换行**（下面 100+ 条账按行号引用本文件）
 
 
             // ---- ① 盾 / 闪避（**一次性**：挡下这一下 + 把这条摘掉）----
@@ -9124,12 +9124,12 @@ namespace RuleEngine
             // 🆕 **2026-10-25（执行代理 `X2`）**：**按伤害类别**再记一笔（成就 `Ach_2/3/4/7/53/86` 的唯一数据源）。
             //   位置与 `DamageToEnemy` **逐字并列**（同一条「打自己人不记对敌伤害」的判据，⛔ 别另写一份归属规则）；
             //   `actual` = 扣盾 / 减伤 / **易伤拆分**之后的实际伤害 ⇒ 天生不会把「被盾挡下 / 无敌 / 闪避」算进去。
-            //   ⚠️ **不要在 `EmitHit` 上数**：它会给 0 伤（盾碎 / 闪过）发事件，而且易伤被拆成两条 `EvtKind.Hit`
+            //   ⚠️ **不要在 `EmitHit` 上数**：它会给 0 伤（盾碎 / 闪过）发事件，而且易伤被拆成两条 `EvtKind.Hit`（🔴 **2026-10-31（执行代理 `C1`）核实：这里的「发事件」只是**表现层** `EvtKind.Hit` —— `damaged` 广播在 `EmitHit` 内已被 `absorbed || amount == 0` 闸掉（本文件 `:9534`，2026-10-24 `A20`）⇒ **盾挡 / 0 伤不会派 60/185/187**，与原版 `CardScript__ResolveDamageDealt.c:31/34` 那两道早退同形；⛔ 别再据此判「引擎仍派 60」）
             //     （2026-10-25 `E4-3` 那批）⇒ 在那里数会**多算一遍**。判据 §六 问题 2。
             if (kind != DamageKind.Unknown && (_rawDealer == 0 || _rawDealer == 1))
                 { ctx.Tally.AddDamage(1 - _own, kind, actual, _rawDealer); if (vulnSecondPart > 0) ctx.Tally.AddDamageRaw(1 - _own, kind, VulnerableRaw(u), _rawDealer); }   // 🔴 B97_W12 2026-10-29（账 1004 缺口②「归属」）：第 4 个实参 = **攻方座位** `_rawDealer`（原版 `DamageInfo.IsPlayer()` 读的是 `actingCard.isPlayer`，`DamageInfo__IsPlayer.c` 全文一句 `return *(actingCard + 0x40)`）⇒ 自己打自己人记给**攻方**，⛔ 不是「受害者取反」；`1 - _own` 只是容器里「没给攻方」时的回落。守卫也跟着换成 `_rawDealer`（`_own` 未知而攻方已知时也要记）。🔴 B93_E6 原文保留：易伤第二发在原版是**另一条 `DamageInfo`**（`_ReceiveDamage…:252-254` 的独立 `DealMultiDamage`，它也自己广播一次）⇒ 也单独记一笔；量取**扣甲前** `VulnerableRaw`（⛔ 不是已减过甲的 `vulnSecondPart` / `actual`）。主伤害那一发已在函数头（`_rawDealer`）记过，⛔ 别在这里重记。⚠️ 本行不许换行（行号账）
             // 🆕 **2026-10-17（`N32`）**：任务卡 `Deal 45 damage to enemy warlords` 只算**督军**挨的那一份。
-            if ((_rawDealer == 0 || _rawDealer == 1) && u.IsWarlord) ctx.DamageToEnemyWarlord[_rawDealer] += actual;   // 🔴 2026-10-29（B98_G1 · 账 1004 缺口②「可见格归属」）：原版 `DamageDeltToEnemyUnit__OnDamageDelt.c:14-86` 的归属读 `DamageInfo.IsPlayer()`，而 `DamageInfo__IsPlayer.c` 全文一句 = `return *(actingCard + 0x40)` ⇒ **按攻方座位**，⛔ 不是「受害者取反」。`_rawDealer`（`ApplyDamageCore:8485`：有攻方用攻方、不知道才回落 `1 - _vdOwner`）同一函数里早就在用（`:8979` 的 `ctx.Tally.AddDamage*` 那一条）⇒ 本句只是跟上同一口径。⚠️ 守卫也跟着换成 `_rawDealer`（`_own` 未知而攻方已知时也要记）—— 改前 `_own` 未知那一支会**不记**。⛔ **别动上一行 `:8973` 的 `ctx.DamageToEnemy`**：那是「对敌战果」（受害者取反，原版口径），与成就/可见格是**两笔不同的账**（W12 报告 §三·3 已写死）
+            if ((_rawDealer == 0 || _rawDealer == 1) && u.IsWarlord) ctx.DamageToEnemyWarlord[_rawDealer] += actual;   // 🔴 2026-10-29（B98_G1 · 账 1004 缺口②「可见格归属」）：原版 `DamageDeltToEnemyUnit__OnDamageDelt.c:14-86` 的归属读 `DamageInfo.IsPlayer()`，而 `DamageInfo__IsPlayer.c` 全文一句 = `return *(actingCard + 0x40)` ⇒ **按攻方座位**，⛔ 不是「受害者取反」。`_rawDealer`（`ApplyDamageCore:8485`：有攻方用攻方、不知道才回落「视为本地玩家（0）+ 一次性 LogError」，🆕 2026-10-31 `B108_A1` 起；旧口径 `1 - _vdOwner` 已废）同一函数里早就在用（`:8979` 的 `ctx.Tally.AddDamage*` 那一条）⇒ 本句只是跟上同一口径。⚠️ 守卫也跟着换成 `_rawDealer`（`_own` 未知而攻方已知时也要记）—— 改前 `_own` 未知那一支会**不记**。⛔ **别动上一行 `:8973` 的 `ctx.DamageToEnemy`**：那是「对敌战果」（受害者取反，原版口径），与成就/可见格是**两笔不同的账**（W12 报告 §三·3 已写死）
             return actual;
         }
 
@@ -10193,7 +10193,7 @@ namespace RuleEngine
             {
                 var _bu = u;
                 EnqueueAbility(ctx, ActionPriority.Instant, "Unstable:" + u.Name,
-                               () => UnstableBlastDeferred(ctx, _bu),
+                               () => { EmitUnstableDeathTrigger(ctx, _bu, p, slot); UnstableBlastDeferred(ctx, _bu); },   // 🔴🆕 2026-10-31（执行代理 `B108_A1`）：**先发 `EvtKind.Trigger(Unstable)`、再自爆** —— 原版 `RawCardScript.OnMinionDeath` 的 `thisCard == deadCard` 支里 `OnTrigger(Unstable)` 就是「先触发能力（= 自爆那一段）、再按死因分派」；`p` / `slot` = 死者**死前**的格位（`BoardSlots.RemoveAt` 之后 `FindSlot` 已经找不到它，所以必须显式传）。
                                // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**不判在场** ——
                                //   这条的施放者**就是刚死的那个单位**（原版 context 40 `InPlayOrDying`）。
                                // 🔴🆕 2026-10-22（`W63` · C4）：**由数据取**，不再手写 `false` ——
@@ -18197,5 +18197,67 @@ namespace RuleEngine
         {
             return ActiveAbilityTargetCriteriaForPlan(u, plan);
         }
+
+        /// <summary>🔴🆕 **2026-10-31（执行代理 `B108_A1`）：`Unstable`(81) 那一拍的 `EvtKind.Trigger` 发射口。**
+        ///
+        /// <para>**判据（第一权威，逐句读）** = `out_cpp2il_dev_ilspy/RawCardScript.cs:1954-1963` 的
+        /// `OnMinionDeath`：`thisCard == deadCard`（= **死者自己**那一支）先
+        /// `OnTrigger(AbilityTrigger.ThisUnitDeath, …)`、**紧接着** `OnTrigger(AbilityTrigger.Unstable, …)`
+        /// （`:1962`；`actingCard` / `targetCard` 都是默认 null ⇒ 只按**死者自己**的 ability 触发）。
+        /// `decomp_full` 里没有单独文件，方法体只在 cpp2il 那份（`CardScript__TriggerLoseStealth.c` 一类
+        /// 同族都有 `.c`，而 81 没有 —— 所以判据取 cpp2il）。</para>
+        ///
+        /// <para>**闸 = `EmitCardTrigger` 的 <see cref="HasTriggerSource"/>**（= 原版
+        /// `CardAbility.CanTriggerAbility` 的 presence 第一道闸）：现读池内 `abilityTriggers` 含 81 的
+        /// **18 张**（全 Goff）且**每张都有 `animTimes` 行** ⇒ 18 张都会发；没有这条 ability 的卡
+        /// （= 只带 `Unstable` 关键词、数据侧没落 ability）**不发** —— 与原版 `TriggerAbilities(81)`
+        /// 找不到 ability 就什么都不做同形。</para>
+        ///
+        /// <para>**为什么需要 `explicitPlayer` / `explicitSlot`**：本方法在 `CleanupDeaths` 的死亡触发段里跑
+        /// （`UnstableBlastDeferred` 的队列体），那一刻 `BoardSlots.RemoveAt` 已经执行 ⇒ `FindSlot` 找不到
+        /// 这个 `UnitState` ⇒ `EmitCardTrigger` 会退化成 `slot = -1`（表现层失去「这张卡死在哪」）。
+        /// ⇒ 由调用方把 `CleanupDeaths` 的 `p` / `slot` 形参显式传进来（与同一段的 `Backlash`
+        /// 那一跳 `FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot, …)` 逐字同形）。</para>
+        ///
+        /// <para>⚠️ **只发事件、不结算** —— 自爆本身仍由 <see cref="UnstableBlastDeferred"/> 算
+        /// （那一段是关键词规则、不是卡面正文；`Unstable` 卡面**没有** `Unstable:` 前缀的正文
+        /// ⇒ `FireTriggerAt` 那条「没正文就不发信号」的闸会把它挡掉，所以不能走那条路）。
+        /// ⛔ 别把这条塞进 `FireTriggerAt`：那会让 `Unstable` 走「有正文才发」的闸而**一条都不发**。</para></summary>
+        static void EmitUnstableDeathTrigger(BattleContext ctx, UnitState u, int owner, int slot)
+        {
+            if (ctx == null || u == null || u.Card == null) return;
+            EmitCardTrigger(ctx, u.Card, owner, u, "Unstable", "unstable:death",
+                            explicitPlayer: owner, explicitSlot: slot);
+        }
+
+        /// <summary>🔴🆕 **2026-10-31（执行代理 `B108_A1` · `B108_A7` 回源）：`DamageInfo.IsPlayer()` 在
+        /// `actingCard == null` 那一支的对齐。**
+        ///
+        /// <para>**判据（第一权威，逐句）** = `decomp_full/DamageInfo__IsPlayer.c:20-36`：
+        /// `if (!op_Inequality(actingCard, null)) { Debug.LogError(...); return 1; }` —— 即
+        /// **没有施害卡时不静默，而是 `LogError` 后按「是玩家」处理**（`return 1` 是 **bool true**，不是座位号）。</para>
+        ///
+        /// <para>**「视为玩家」在我们这一侧 = 座位 `0`**：`isPlayer` 的语义是「是不是**本地玩家**」
+        /// （见 `CardPlayedSignal` 文件头那段：`LocalSeat` 缺省 `0` = 单机的人类座位；我方那一格读座位 0、
+        /// 敌方攻方记座位 1 —— `B97W12_Assert` 的 W12-2a 钉的正是这条）⇒ 不是字面的 `1`。</para>
+        ///
+        /// <para>⚠️ **改前**这里是 `1 - 受害者座位`（且**静默**）—— 自己打自己人时会把伤害记到**对面**格。
+        /// 本方法只覆盖「`attackerSeat` 也拿不到」那一档（窄：`kind != Unknown` 才真的记账）；
+        /// 有 `attackerSeat` 的路径**一个字没动**（`B98G1` 的 D2 仍钉着它）。</para></summary>
+        static int ActingCardNullDealerSeat(BattleContext ctx)
+        {
+            if (!_actingCardNullDealerLogged)
+            {
+                _actingCardNullDealerLogged = true;
+                UnityEngine.Debug.LogError(
+                    "[DamageInfo.IsPlayer] 记伤害时 `actingCard == null`（turn=" + (ctx != null ? ctx.Turn : -1) + "）—— "
+                  + "原版 `DamageInfo__IsPlayer.c:20-36` 对这一支是 `Debug.LogError` + `return 1`（视为玩家）⇒ "
+                  + "本笔按**本地玩家座位（0）**记；判据与「为什么不是字面的 1」→ `RuleCore.ActingCardNullDealerSeat` 的 doc。"
+                  + "本消息每进程只出现一次。");
+            }
+            return 0;
+        }
+
+        static bool _actingCardNullDealerLogged;
     }
 }

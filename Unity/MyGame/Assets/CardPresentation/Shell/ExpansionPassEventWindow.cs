@@ -345,7 +345,12 @@ namespace CardPresentation
         const string ArtClosedChatBg = "Closed-Chat_background";         // 331×61（`Level up/Background`）
         const string ArtArrow = "40K_ArmyTrack_chosen_faction";         // 84×21（切片名里的空格换成下划线）
         const string ArtHelpInfo = "40K_generic_bt_info";                // 128×128
-        const string ArtClock = "WF_icon_clock";                         // 64×64（原版 sprite 名带 `for shader`）
+        // 🔴 2026-10-31（`B109_E33` · 铁律 5 就地订正）：原版 `Time image` 的 sprite **就是**
+        //   `WF_icon_clock for shader`（`说明书/04_界面UI/菜单全树.md:3371` 的 `sprite:-1997280416601060360`
+        //   = `bundle_menus_assets_all/Sprite/WF_icon_clock for shader.json`）—— 那一张**不画指针**，
+        //   指针由 `Everguild/UI/UI Clock` 现算。原来这里写 `WF_icon_clock`（**带**烤死指针的那张），
+        //   一接 shader 就会画成**两套针**。
+        const string ArtClock = "WF_icon_clock_for_shader";               // 64×64（原版 sprite 名带 `for shader`）
         // ---- Missions 页（`Expansion Pass Missions Tab`）----
         const string ArtMissionHorizontal = "40K_missions_display_Daily_horizontal"; // 810×149（周常卡底）
         const string ArtMissionVertical = "40K_missions_display_Daily_vertical";     // 335×556（骷髅卡底，旋转 90°）
@@ -1002,7 +1007,10 @@ namespace CardPresentation
                 MenuDraw.AlignRight(_timeTitle, TimeTitleR);
                 MenuDraw.SetVAlign(_timeTitle, Label.VAlign.Midline, TimeTitleR);
             }
-            MenuDraw.Rect(tr, Tex(ArtClock, "倒计时时钟"), TimeClockR, "Time image", QHeaderIcon, ClockTint);
+            var clockQ = MenuDraw.Rect(tr, Tex(ArtClock, "倒计时时钟"), TimeClockR, "Time image", QHeaderIcon, ClockTint);
+            // 🆕 2026-10-31（`B109_E33` · R15 §1·9 / #9）：原版 `Time image` 挂 `UI Clock`
+            //   （4 s 呼吸 + 两枚指针按秒旋转）—— 我们原来是一张静态图。
+            MenuFxMaterials.Apply(clockQ, MenuFxMaterials.Clock);
             // `Time`（`SupportMethods.GetTimeStringFromDate(事件日期)` ⇒ 本地没有日期 ⇒ `--`）
             _time = MenuDraw.TextBox(tr, TimeR, NoData, Color.white, "Time", 36f, 0f, QHeaderText,
                                      36f, 36f, face: TmpFont.Face.LatinCardBody);
@@ -1253,8 +1261,10 @@ namespace CardPresentation
                 MenuDraw.AlignRight(tt, timeTitleR);
                 MenuDraw.SetVAlign(tt, Label.VAlign.Midline, timeTitleR);
             }
-            MenuDraw.Rect(tn, Tex(ArtClock, "倒计时时钟"), R(1595.4f, 30.1f, 1645f, 79.7f), "Time image",
+            var mtClockQ = MenuDraw.Rect(tn, Tex(ArtClock, "倒计时时钟"), R(1595.4f, 30.1f, 1645f, 79.7f), "Time image",
                           QHeaderIcon, ClockTint);
+            // 🆕 2026-10-31（`B109_E33` · R15 §1·9 / #9）：同上一处（missions 子页头部那颗 `Time image`）。
+            MenuFxMaterials.Apply(mtClockQ, MenuFxMaterials.Clock);
             var timeR = R(1645f, 29.9f, 1755.3f, 79.9f);
             _mtTime = MenuDraw.TextBox(tn, timeR, NoData, Color.white, "Time", 36f, 0f, QHeaderText,
                                        36f, 36f, face: TmpFont.Face.LatinCardBody);

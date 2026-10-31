@@ -2432,13 +2432,13 @@ namespace CardPresentation
                 //       （「每次你打出战术时」；keyword = **`"artifice"`**，`CardDef.cs:5361`）。
                 //       候选现读 **11 张 / 14 行**（`BL32` + `GSC24/31` + **Sautekh 8 张**——
                 //       C3 第二批只覆盖新三阵营，所以它记的是「3 张 / 6 条」；⛔ 断言里别写死 3）。
-                //   ⛔ **下面这三个名字【不许】跟着加**（引擎没有发射口）：`UnitLoseStealth`(647) /
-                //     `UnitStunned`(291) / `OnSabotageCreated`(701)
-                //     —— 见 `NoEmitTriggerNames` 那条常驻反向闸（`SelfCheckRoutedTriggerNames`）。
+                //   ✅ **2026-10-31（执行代理 `B108_A1`）就地订正（铁律 5）**：这一段原来写「下面这三个名字【不许】跟着加」——
+                //     `UnitLoseStealth`(647) / `UnitStunned`(291) / `OnSabotageCreated`(701) 的发射口**现在都在**（监听者那一拍，见开关尾部那一行 `case`）
+                //     ⇒ 三个都已放行、并进了 `MustRouteTriggerNames`。⛔ 别再按旧注释把它们挡回去。
                 //   🔴 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）就地订正（铁律 5）**：这一段原来还列着
                 //     `OnCollectSpiritStone`(610) —— 它的发射口**同批补上了**
                 //     （`TriggerNameOfWhenKind` 的 `GainSpirit` 支），见下面那一段 `case`。
-                //   ⛔ 同理 `Unstable` / `OnSecretCreated` / `OnCollectQuestPoints` 也不许加。（🔴 **2026-10-31（`B106_W57`）就地订正**：这一句原来还列着 `TriggeredCodex` —— 它的发射口**已在** `TriggerNameOfWhenKind` 的 `case KeywordTable.Codex`，同批放行，见下面 `case "triggeredcodex"`。）
+                //   ✅ 同理 `Unstable` / `OnSecretCreated` / `OnCollectQuestPoints` 现在**都已放行**（2026-10-31 `B108_A1`）。（🔴 **2026-10-31（`B106_W57`）就地订正**：这一句原来还列着 `TriggeredCodex` —— 它的发射口**已在** `TriggerNameOfWhenKind` 的 `case KeywordTable.Codex`，同批放行，见下面 `case "triggeredcodex"`。）
                 case "uprising":
                 case "artifice":
                     return true;
@@ -2661,7 +2661,7 @@ namespace CardPresentation
                 //     trait 框由 `TraitFrames._triggerBook` 播（判据 = 原版 `ActivateTriggerTraitAnim`
                 //     **只**调 `DisplayTriggerAnim` 一次）。补齐 trait 那一侧属于 `D4`/`P7`。
                 case "strike":
-                case "slay":
+                case "slay": case "unstable": case "onsecretcreated": case "oncollectquestpoints": case "unitlosestealth": case "unitstunned": case "onsabotagecreated":   // 🔴 2026-10-31（执行代理 `B108_A1`）：末 6 个从 `NoEmitTriggerNames` 放行（发射口逐条）—— `unstable`(81)：`RuleCore.EmitUnstableDeathTrigger`（在 `CleanupDeaths` 的 81 队列体里、`UnstableBlastDeferred` 之前；判据 = `RawCardScript.OnMinionDeath` 的 `thisCard == deadCard` 支 → `OnTrigger(Unstable)`，`out_cpp2il_dev_ilspy/RawCardScript.cs:1962`）⇒ 走 `EmitCardTrigger`，Keyword = PascalCase `Unstable`。`onsecretcreated`(700) / `oncollectquestpoints`(695) / `onsabotagecreated`(701)：`EffectResolver.TriggerNameOfWhenKind` 的 `case WhenEventKind.CreatesSecret` / `GainQuest` / `CreatesSabotage`（2026-10-26 批次 6 `G14` ③ 补；判据 `CardScript__ReactToSecretCreated.c:7` / `ReactToCollectQuestPoints.c:7`(`0x2b7`) / `ReactToSabotageCreated.c:7`(`0x2bd`)）⇒ 监听者 `EmitListenerTrigger → EmitCardTrigger`（事件源 `BroadcastCreatedCardWithWarlordPreCall` / `BroadcastWhen(GainQuest)`）。`unitlosestealth`(647)：`WhenEvents.ExtraTriggerNameForKind` 的 `case LosesStealth`（2026-10-26 `B8_C`；判据 `CardScript__TriggerLoseStealth.c:5-9` = `0x287`）⇒ 监听者 `EmitListenerTrigger`（事件源 `BroadcastKeywordEvent(LosesStealth)`）。`unitstunned`(291)：`case WhenEventKind.GetsStun`（2026-10-25 `E6`；判据 `CardScript__ReactToUnitStunned.c:7` = `0x123`）⇒ 同上（事件源 `BroadcastKeywordEvent(GetsStun)`）。
                     return true;
             }
             return false;
@@ -3218,11 +3218,11 @@ namespace CardPresentation
         /// 要放行某个名字，**必须先补发射口 / 映射**，再把它从本表删掉 ——
         /// 删这一行本身就是「我核过发射口了」的签名。</para>
         /// <list type="bullet">
-        /// <item>`Unstable`(81)：`RuleCore.cs:8829-8844` 只 `EnqueueAbility`（`UnstableBlastDeferred`），
-        ///   **不 `Emit(EvtKind.Trigger)`**（2026-10-24 `A21` 现核；C3 原文写的 `:8807-8822` 是那段注释的
-        ///   起点，不是代码）⇒ Goff 18 张卡 / 36 条动画今天**永远不播**（C3 D1-c：要先补引擎那一跳）。</item>
-        /// <item>`OnSecretCreated`(700)：全仓 `Core/` 只有 `CardDef` 的枚举表（DA 2 张 / 3 条）。</item>
-        /// <item>`OnCollectQuestPoints`(695)：同上（DA 2 张 / 2 条）。</item>
+        /// <item>✅ **2026-10-31（执行代理 `B108_A1`）：`Unstable`(81) 已放行，不在本表。** 留痕：它曾在这儿，理由是
+        ///   「`CleanupDeaths` 只 `EnqueueAbility`（`UnstableBlastDeferred`）、**不 `Emit(EvtKind.Trigger)`**」；发射口现读 = `RuleCore.EmitUnstableDeathTrigger`（在 81 那条队列体里、`UnstableBlastDeferred` **之前**）——
+        ///   判据 = `RawCardScript.OnMinionDeath` 的 `thisCard == deadCard` 支：`OnTrigger(ThisUnitDeath)` 紧跟 `OnTrigger(Unstable)`（`out_cpp2il_dev_ilspy/RawCardScript.cs:1962`）。</item>
+        /// <item>✅ **2026-10-31（`B108_A1`）：`OnSecretCreated`(700) 已放行，不在本表。** 发射口 = `TriggerNameOfWhenKind` 的 `case WhenEventKind.CreatesSecret`（2026-10-26 批次 6 `G14` ③ 补）→ 监听者 `EmitListenerTrigger`；判据 `CardScript__ReactToSecretCreated.c:7`（`OnTrigger(700)`）。
+        /// <item>✅ **2026-10-31（`B108_A1`）：`OnCollectQuestPoints`(695) 已放行，不在本表。** 发射口 = `case WhenEventKind.GainQuest`（同上）→ 监听者 `EmitListenerTrigger`；判据 `CardScript__ReactToCollectQuestPoints.c:7`（`OnTrigger(0x2b7 = 695)`）。</item>
         /// <item>✅ **2026-10-31（执行代理 `B106_W57`）：`TriggeredCodex`(650) 已放行，不在本表。** 留痕：它曾在这儿，注释写「只出现在注释里（UM 1 张 / 1 条）」—— **那句已过期**：发射口现读在 `EffectResolver.TriggerNameOfWhenKind` 的 `case KeywordTable.Codex: return "TriggeredCodex"`（判据 = `CardScript__TriggerOtherCardCodex.c:7-12`，`OnTrigger(0x28a = 650)`）。
         ///   ⚠️ 它仍与 `Codex` **不是同一个名字**（`Codex` = `RuleCore.CheckCodex` → `FireTriggerAt`，自己那一拍；650 = 「**别的卡**触发 Codex 时」那一拍）⇒ 两个 `case` 都要，⛔ 别合并。</item>
         /// <item>✅ **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）：`OnCollectSpiritStone`(610) 已放行，不在本表。**
@@ -3231,9 +3231,9 @@ namespace CardPresentation
         ///   在 `tn == null` 时直接 return ⇒ `EvtKind.Trigger` **从不发**；而 `CrossTriggerDrops` 只是把
         ///   610 那条从 `ability` 桶里**丢掉**（C3 D8，丢弃本身对、⛔ 别删）。本批补上映射
         ///   （`CardScript__ReactToCollectSpiritStone.c:5-9` = `0x262`）⇒ 现在它在 `MustRouteTriggerNames` 里。</item>
-        /// <item>🆕 `UnitLoseStealth`(647)：SaimHann 1 条 / 1 张，没有发射口。</item>
-        /// <item>🆕 `UnitStunned`(291)：SaimHann 1 条 / 1 张，没有发射口。</item>
-        /// <item>🆕 `OnSabotageCreated`(701)：Genestealers 1 条 / 1 张，没有发射口。</item>
+        /// <item>✅ **2026-10-31（`B108_A1`）：`UnitLoseStealth`(647) 已放行，不在本表。** 发射口 = `WhenEvents.ExtraTriggerNameForKind` 的 `case LosesStealth`（2026-10-26 `B8_C` 补；`TriggerNameOfWhenKind` 末尾兜底调）→ 监听者 `EmitListenerTrigger`；判据 `CardScript__TriggerLoseStealth.c:5-9`（`OnTrigger(0x287 = 647)`）。</item>
+        /// <item>✅ **2026-10-31（`B108_A1`）：`UnitStunned`(291) 已放行，不在本表。** 发射口 = `TriggerNameOfWhenKind` 的 `case WhenEventKind.GetsStun`（2026-10-25 `E6` 补）→ 监听者 `EmitListenerTrigger`；判据 `CardScript__ReactToUnitStunned.c:7`（`OnTrigger(0x123 = 291)`）。</item>
+        /// <item>✅ **2026-10-31（`B108_A1`）：`OnSabotageCreated`(701) 已放行，不在本表。** 发射口 = `case WhenEventKind.CreatesSabotage`（2026-10-26 批次 6 `G14` ③ 补）→ 监听者 `EmitListenerTrigger`；判据 `CardScript__ReactToSabotageCreated.c:7`（`OnTrigger(0x2bd = 701)`）。</item>
         /// <item>🆕 **2026-10-24（`A27` · `C4` D7(C4)）：`UnitReceivesHuntMark`(520) / `OnCollectFaith`(665)**
         ///   —— ⚠️ **曾在这一张表里，2026-10-24（`A30`）已放行并从数组里删掉**，留痕说明它们为什么当初在这：
         ///   它们**不是**「没有事件」，而是「**事件到了映射这一层断了**」—— 监听事件**有**
@@ -3258,12 +3258,12 @@ namespace CardPresentation
         /// </list></summary>
         static readonly string[] NoEmitTriggerNames =
         {
-            "Unstable", "OnSecretCreated", "OnCollectQuestPoints",   // 🔴 **2026-10-31（执行代理 `B106_W57`）**：`TriggeredCodex`(650) **已移出本表** —— 发射口现读在这儿：`EffectResolver.TriggerNameOfWhenKind` 的 `case KeywordTable.Codex: return "TriggeredCodex"`（监听者那一拍，经 `EmitListenerTrigger → EmitCardTrigger`；判据 = `CardScript__TriggerOtherCardCodex.c:7-12`，`OnTrigger(0x28a = 650)`）⇒ 现在它在 `IsRoutedTriggerName` + `MustRouteTriggerNames`。⛔ 别加回来（加回来 = 生成器重跑后 `UM40` 那行又落 `trigger_unmapped`、这一拍永不播）。
+            // 🔴 **2026-10-31（执行代理 `B108_A1`）：本表【已清空】—— 最后 6 个也补齐发射口并移出。** 移出明细：`Unstable`(81) = `RuleCore.EmitUnstableDeathTrigger`（判据 `RawCardScript.OnMinionDeath` 的 `OnTrigger(Unstable)`）；`OnSecretCreated`(700)/`OnCollectQuestPoints`(695)/`OnSabotageCreated`(701) = `TriggerNameOfWhenKind` 的 `CreatesSecret`/`GainQuest`/`CreatesSabotage` 三支（2026-10-26 `G14` ③ 补）；`UnitLoseStealth`(647) = `ExtraTriggerNameForKind`（2026-10-26 `B8_C`）；`UnitStunned`(291) = `case GetsStun`（2026-10-25 `E6`）。⛔ **别再加回来**（会被反向闸判红、生成器也拒跑）。`TriggeredCodex`(650) 留痕 → 下一行（2026-10-31 `B106_W57` 移出）。
             // 🔴 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）**：`OnCollectSpiritStone`(610)
             //   **已补发射口并从本表移出** —— 映射 = `EffectResolver.TriggerNameOfWhenKind` 的
             //   `WhenEventKind.GainSpirit` 支；事件源 = `RuleCore.CollectWaystoneCore` 的
             //   `BroadcastWhen(..., GainSpirit, ...)`。⇒ 现在它在 `MustRouteTriggerNames` 里。
-            "UnitLoseStealth", "UnitStunned", "OnSabotageCreated",
+            //   🔴 2026-10-31（`B108_A1`）：`UnitLoseStealth` / `UnitStunned` / `OnSabotageCreated` 也同批移出（见 `MustRouteTriggerNames` 末行）。
             // 🆕 2026-10-24（`A27` · `C4` D8(C4) / D9(C4)）：**名字不对 / 没有那一拍**
             //   （`UnitReceivesHuntMark` / `OnCollectFaith` 已于 2026-10-24 `A30` 补好映射并移出本表 ·
             //    `ThisUnitSummoned` / `WhileInPlay` 已于 2026-10-24 `G2` 补好发射口并移出本表
@@ -3299,7 +3299,7 @@ namespace CardPresentation
             // 🆕 2026-10-25（执行代理 `R` · 引擎线 `A3` 的表现侧）：`Talent`(46) 回合开始那一拍。
             //   ⚠️ 它**没有** `animTimes` 行 ⇒ 件级那半按 `TraitFrameOnlyTriggerNames` 的口径验
             //   （链② 绑着 `TalentEffect`），⛔ 别因为它「0 张卡」就从这里删掉。
-            "Talent", "TriggeredCodex",   // 🔴 2026-10-31（执行代理 `B106_W57`）：`TriggeredCodex`(650) —— 1 张 / 1 行（`UM40 Avenging Zeal`，发射口见 `IsRoutedTriggerName` 的 `case "triggeredcodex"`）。⚠️ 必须与 `MustRouteTriggerKeywords` **同长同序**。
+            "Talent", "TriggeredCodex", "Unstable", "OnSecretCreated", "OnCollectQuestPoints", "UnitLoseStealth", "UnitStunned", "OnSabotageCreated",   // 🔴 2026-10-31（执行代理 `B106_W57`）：`TriggeredCodex`(650) —— 1 张 / 1 行（`UM40 Avenging Zeal`，发射口见 `IsRoutedTriggerName` 的 `case "triggeredcodex"`）。🆕 **2026-10-31（执行代理 `B108_A1`）：末 6 个同批放行**（发射口逐条 → `IsRoutedTriggerName` 那一行 `case` 的注释）—— `Unstable` 18 张 / 36 行（Goff，死亡自毁那一拍）· `OnSecretCreated` 2 张 / 3 行（`DA15`/`DA66`）· `OnCollectQuestPoints` 2 张 / 2 行（`DA5`/`DA34`；`DA12` 有 ability 无动画行）· `UnitLoseStealth` 1 张 / 1 行（`ASH79`）· `UnitStunned` 1 张 / 1 行（`ASH74`；`ASH75` 有 ability 无动画行）· `OnSabotageCreated` 1 张 / 1 行（`GSC68`）。⚠️ 必须与 `MustRouteTriggerKeywords` **同长同序**。
         };
 
         /// <summary>🆕 2026-10-24（`A21`）：上面那些名字**引擎实际发出来的 keyword 字面量**
@@ -3339,7 +3339,7 @@ namespace CardPresentation
             KeywordTable.Strike, KeywordTable.Slay,
             // 🆕 2026-10-25（执行代理 `R` · 引擎线 `A3`）：`talent` 走 `EmitCardTrigger(..., "Talent", …)`
             //   ⇒ 生产路径发的是 **PascalCase 原版枚举名**（与 520/665/195/20 同形）。
-            "Talent", "TriggeredCodex",   // 🔴 2026-10-31（执行代理 `B106_W57`）：与 `MustRouteTriggerNames` 的最后一项逐字相同 —— 650 走 `EmitCardTrigger` ⇒ 发的是 PascalCase 原版枚举名（⛔ 别写成 `"triggeredcodex"`：`IsRoutedTriggerName` 不会漏，但件级自检拿这一格当 `keyword:` 实参，「引擎发的形态」那一态就没人验了）。
+            "Talent", "TriggeredCodex", "Unstable", "OnSecretCreated", "OnCollectQuestPoints", "UnitLoseStealth", "UnitStunned", "OnSabotageCreated",   // 🔴 2026-10-31（执行代理 `B106_W57`）：与 `MustRouteTriggerNames` 的最后一项逐字相同 —— 650 走 `EmitCardTrigger` ⇒ 发的是 PascalCase 原版枚举名（⛔ 别写成 `"triggeredcodex"`：`IsRoutedTriggerName` 不会漏，但件级自检拿这一格当 `keyword:` 实参，「引擎发的形态」那一态就没人验了）。🆕 **2026-10-31（执行代理 `B108_A1`）**：末 6 个全部走 `EmitCardTrigger`（`Unstable` 经 `RuleCore.EmitUnstableDeathTrigger`，其余五个经监听者路径 `EmitListenerTrigger → EmitCardTrigger`）⇒ **六格全是 PascalCase 原版枚举名**（⛔ 别写成 `"unstable"` / `"onsecretcreated"`：能对上但「引擎发的形态」那一态就没人验）。
         };
 
         /// <summary>🆕 2026-10-25（执行代理 `R` · 引擎线 `A3` 的表现侧）：**这些 trigger 名一个
@@ -3454,7 +3454,7 @@ namespace CardPresentation
                 {
                     var card = CardDatabase.FindById(pool, kv.Key);
                     if (card == null || card.AnimTimes == null || card.AnimTimes.Count == 0) continue;
-                    if (string.Equals(card.Type, "enchantment", System.StringComparison.OrdinalIgnoreCase)) continue;   // 🔴 2026-10-30 B101_F1：口径应为「按**单位卡**筛」（原版 `AddCardAnim` 的 `actingCard` 是载体单位，判据 `B101_R4` §6·8）—— ⚠️ 现行为仍是「跳过附魔」、与口径不符：待调度台删本行（数据侧已恢复 `Pray_Exit`）
+                    // 🔴 2026-10-31（B109 · 调度台）：按原版 `AddCardAnim` 口径**删掉**「跳过附魔卡」那道闸（判据 `B101_R4` §6·8 · `B109_E7` 报告 §还差什么 c）—— 原版按**单位卡**筛、不按附魔筛，数据侧已恢复 `Pray_Exit`。原行为 = `if (card.Type == "enchantment") continue;`
                     List<string> want = null;
                     for (int i = 0; i < card.AnimTimes.Count; i++)
                     {

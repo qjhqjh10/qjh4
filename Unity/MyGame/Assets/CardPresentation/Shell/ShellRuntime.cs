@@ -371,7 +371,7 @@ namespace CardPresentation
             // ⚠️ 两个 dt 分开：黑场补间用 unscaled，齿轮用 `Time.deltaTime`（原版 `SimpleRotation.Update`）。
             if (Loading != null) Loading.Tick(Time.unscaledDeltaTime, Time.deltaTime);
             TickMusic();          // 🆕 2026-10-26（W11AU）：音量补间 + 排队下一曲（原版 `VolumeLerp` / `DelayedQueuedPlay` 的每帧那一步）
-            TickChainCheck();
+            TickChainCheck(); TickAspectClamp();   // 🆕 B109_E16：屏宽高变了 ⇒ 重算比例夹取（零行号变化地接在同一行，见类尾那一节）
         }
 
         /// <summary>每帧推一次音乐两条时间线（**各自都有绝对时刻，不是「轮询状态」**）：
@@ -481,7 +481,7 @@ namespace CardPresentation
         static void OnSceneLoadedCleanupToast(UnityEngine.SceneManagement.Scene scene,
                                               UnityEngine.SceneManagement.LoadSceneMode mode)
         {
-            ToastNotifications.DisposeForSceneChange();
+            ToastNotifications.DisposeForSceneChange(); if (WindowsManager.Instance != null) WindowsManager.Instance.CloseAllWindows();   // 🆕 2026-10-31（`B108_A2` · AUD03 #73）：切场景 ⇒ **窗口层也收**（清 `openWindows` + 物体藏掉）。壳是 `DontDestroyOnLoad`（本文件 `:345`）⇒ 不显式收的话，进战斗 / 回主菜单时**上一屏的模式窗还活着**、盖在新场景上。⛔ 只用 `CloseAllWindows()`，**不许逐扇 `Close()`**（那一圈最后一拍会 `NotifyClosed → ShowPreviousWindow` 把主菜单**提前开回来**，判据 `WindowsManager.cs:695-703`）。放在这条**全局**钩子里而不是只放 `LoadSceneWithFade`：直调 `SceneManager.LoadScene` 的路径（收藏窗→卡组编辑 / 开战那几扇窗 / `MatchLogRow`）也一并覆盖；`sceneLoaded` 早于新场景的 `Start/Build` ⇒ 不会误杀刚重建的主菜单（同本方法上面那段 toast 的理由）
         }
 
         /// <summary>挂上「任何场景加载完 ⇒ 清 toast」的兜底订阅（幂等；`Build` 里调）。
@@ -1375,6 +1375,113 @@ namespace CardPresentation
             sb.Append($" · 音乐 {(src != null && src.isPlaying && src.clip != null ? src.clip.name : "没在放")}"
                     + $"[排队 {(_queuedMusic != null ? "有" : "无")}]");
             return sb.ToString();
+        }
+
+        // ============================================================================================
+        //  🆕 2026-10-31（`B109_E16` · AUD05 S4 = N80）**比例夹取 [4:3, 22:9] + 黑边** —— 壳层
+        //
+        //  ---- 判据（`B109_R5` 现读；全部是资产字段，⛔ 不是我们挑的）----
+        //   ① 原版主菜单场景 `MB1987`
+        //      （`d:/2/新解包资源/assets_full/bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1987.json`）：
+        //      `m_Enabled = 1` · `targetCameras = [Camera_602]` · `maxAspectRatio = 2.444443941116333`（22:9）·
+        //      `minAspectRatio = 1.3333330154418945`（4:3）；`Camera_602` **就是主画布的 `ScreenSpaceCamera`**
+        //      （= 原版 UI 相机本体：`Camera/Camera_602.json` 与 `GameObject/UI Camera.json` 的 `m_GameObject` 都是 pid 47
+        //      ⇒ 那台 GO 的组件表里同时有 `602`(Camera) 与 `1987`(本件)，**同一台 GO** —— 2026-10-31 本代理现读）。
+        //      ⚠️ **`cleanFrameBuffer` 不在场景 JSON 里**（private、不进序列化；ctor 出厂 = 1，`SetCamerasRect` 每次置 1）
+        //      —— 原判据里那句「场景 `cleanFrameBuffer = 1`」是**错的**，就地订正（铁律 5）。
+        //   ② 全解包 24.7 万个对象里带 `maxAspectRatio` 的只有 **14 份**：13 个战场 + 主菜单这一份
+        //      （`grep -rl maxAspectRatio d:/2/新解包资源/assets_full`）⇒ **`Intro` / `level0` 没有**。
+        //   ③ 公式 = `Battle/ScreenAspectRatioController.ComputeViewport`（那一件文件头 ⑤ 逐字节对过原版）。
+        //
+        //  ---- 接在哪（调用点两处；**规则只写在这里**，⛔ 两个调用点都不许再各写一份）----
+        //   ① `MainMenuRuntime.Build`（= 原版主菜单场景那颗 UI 相机的对应物）—— 判据直接来自 `MB1987`；
+        //   ② `DeckRuntime.Build` 的**独立场景那一档**（`HostWindow == null`）—— 原版卡组编辑是**主菜单下的一扇窗**，
+        //      渲染它的就是那颗被夹取的 UI 相机 ⇒ 我们拆成独立场景后要**补同一条**才等价；
+        //      ⚠️ **窗化那一档不挂**（`HostWindow != null`：那时渲染相机是主菜单那颗，已经挂过了；再挂一遍会把它带进
+        //      `Shell.unity` 存盘 —— 原版 `Intro` 没有该件）。
+        //   ⛔ **`ShellRuntime.Build` 不挂**：原版 `Intro` / `level0` 全解包查不到该件（铁律 11 例外①）。
+        //
+        //  ---- 分辨率变了怎么办（原版那条 `ScreenResolutionChangeSignal` 的**壳侧发射源**）----
+        //   原版 `ScreenAspectRatioController.Start` 把 `AdjustCameraViewport` 注册到
+        //   `Scaffold.Core.Events.Signal.Register<ScreenResolutionChangeSignal>`（该件文件头 ⑦②）；
+        //   **谁抬这条信号，全反编译查不到**（该件文件头 E）。战斗侧的等价物 = `BattleCameraSreenSize.Update`
+        //   里那次屏宽高比对；**壳侧没有任何 `BattleCameraSreenSize`** ⇒ 不补这一条，`EnsureAspectClamp`
+        //   只在 `Build` 那一刻算一次，**窗口一拉就不会重算**。
+        //   ⇒ 本类 `Update` 每帧调一次 `TickAspectClamp()`（接在 `TickChainCheck()` 同一行尾，零行号变化）。
+        // ============================================================================================
+
+        /// <summary>当前挂过壳侧夹取件的那台相机（上一次 `EnsureAspectClamp` 的入参）。</summary>
+        static Camera _aspectClampCam;
+        /// <summary>那台相机上的 `ScreenAspectRatioController`（**它**才是被测对象；这里只做缓存）。</summary>
+        static ScreenAspectRatioController _aspectClamp;
+        /// <summary>上一帧的屏宽高（-1 = 还没立基线）。守卫语义照抄 `BattleCameraSreenSize.Tick`。</summary>
+        static int _aspectClampLastW = -1, _aspectClampLastH = -1;
+
+        /// <summary>🆕 把 **当前这一屏的相机**接上原版 `ScreenAspectRatioController`（**幂等**：重复调拿到同一件）。
+        /// <para>判据 / 调用点 / 为什么不挂在 `ShellRuntime.Build` —— 全在上面那一节。</para>
+        /// <para>写法照 `BattleDriver.BuildScreenAspectRatioController`：`SetTargetCameras(...)` 之后**显式 `Attach()`**
+        /// （批处理下 `Start` 跑不跑没有定论；`Attach` 自己幂等）。</para></summary>
+        public static ScreenAspectRatioController EnsureAspectClamp(Camera cam)
+        {
+            if (cam == null)
+            {
+                // 不许静默：原版 `targetCameras` 是 inspector 拖的，拿不到相机就没有黑边这一档
+                Debug.LogWarning("[Shell·Aspect] 相机是 null ⇒ **比例夹取没挂上**（[4:3, 22:9] 以外不会出黑边）。"
+                               + "原版那件挂在主菜单场景的 UI 相机上（`MonoBehaviour_1987.json`）。");
+                return null;
+            }
+            var c = cam.GetComponent<ScreenAspectRatioController>();
+            if (c == null) c = cam.gameObject.AddComponent<ScreenAspectRatioController>();
+            // 原版 `targetCameras = [Camera_602]` —— **只有 UI 相机那一台**（主菜单场景里没有第二台要写的相机）
+            c.SetTargetCameras(cam);
+            c.Attach();                                  // 幂等；第一趟会把 rect 当场算一次
+            _aspectClampCam = cam;
+            _aspectClamp = c;
+            return c;
+        }
+
+        /// <summary>🆕 **壳侧的「分辨率变了」发射源**（每帧一次；`Update` 里调，自检也可直调）。
+        /// <para>🔶 自己设计（非原版）：原版用 `Scaffold.Core.Events.Signal` 总线抬 `ScreenResolutionChangeSignal`，
+        /// 而**谁抬的在全反编译里查不到**（`ScreenAspectRatioController.cs` 文件头 E）⇒ 我们只能像
+        /// `BattleCameraSreenSize.Tick` 那样自己比 `Screen.width/height`。机制不同、**效果等价**（分辨率一变就重算）。</para>
+        /// <para>⛔ **不抬那条静态事件**：战斗里的 `BattleCameraSreenSize` 也订着它，两边同时抬会把
+        /// `ResolutionHasChanged`（会起 DOTween 补间）跑两遍 ⇒ 这里**只调自己这一件的 `AdjustCameraViewport()`**。</para>
+        /// <para>⚠️ 基线守卫照 `BattleCameraSreenSize.Tick`：第一次只立基线、不抬（否则一进帧就白算一次）。</para></summary>
+        public static void TickAspectClamp()
+        {
+            int w = Screen.width, h = Screen.height;
+            if (_aspectClampLastW < 0) { _aspectClampLastW = w; _aspectClampLastH = h; return; }
+            if (w == _aspectClampLastW && h == _aspectClampLastH) return;
+            _aspectClampLastW = w;
+            _aspectClampLastH = h;
+
+            var c = _aspectClamp;
+            // 当前这一屏没有壳侧夹取件（Intro / 战斗 / 场景切换中）⇒ 没有落点，**不算失败**（基线已更新）
+            if (c == null) return;
+            c.AdjustCameraViewport();
+        }
+
+        // ---- 自检口（只读 / 只摆状态；⛔ 生产代码别调）----
+
+        /// <summary>自检用：当前挂着的那件（没有 ⇒ null）。</summary>
+        public static ScreenAspectRatioController AspectClampForTest { get { return _aspectClamp; } }
+        /// <summary>自检用：当前挂着夹取件的那台相机（没有 ⇒ null）。</summary>
+        public static Camera AspectClampCameraForTest { get { return _aspectClampCam; } }
+
+        /// <summary>自检用：把「上一帧屏宽高」摆成给定值（不摆的话 `TickAspectClamp` 跟着真屏走，批处理下永远不变）。</summary>
+        public static void SetAspectClampResolutionBaselineForTest(int w, int h)
+        {
+            _aspectClampLastW = w; _aspectClampLastH = h;
+        }
+
+        /// <summary>自检用：把两格静态缓存清空（**不销毁组件** —— 夹具自己 `Detach` + `DestroyImmediate`）。
+        /// ⚠️ 不清的话下一个用例会拿到上一条的相机/组件。</summary>
+        public static void ResetAspectClampStateForTest()
+        {
+            _aspectClampCam = null;
+            _aspectClamp = null;
+            _aspectClampLastW = -1;
+            _aspectClampLastH = -1;
         }
     }
 }

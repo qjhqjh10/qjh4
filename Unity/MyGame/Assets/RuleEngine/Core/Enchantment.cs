@@ -116,7 +116,7 @@ namespace RuleEngine
         /// <para>数据源 = `cards_engine.json` 的 `enchantTrait` 列 → `CardDef.EnchantTrait`
         /// （由 <see cref="Enchantments.Attach"/> 按「载体卡 → 附魔卡」的次序取）。</para>
         /// </summary>
-        public string Trait; public int Seq;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 `特效动画:521` 残差 S3-d）：`Seq` = 原版 `activeEffects(+0x108)` 的 `List.Add` 序（我们把它拆成多本账 ⇒ 靠它还原出表顺序）。写点 = `Enchantments.Attach`（建记录那一刻；`0` = 还没盖戳 ⇒ 投影排队尾）。发号口 = `CardInstance.NextEffectSeq()`（**唯一一处**，与 `_statMods` / `_traitEffects` 同一个号源）
+        public string Trait; public int Seq; public int EnchantmentCardId = -1;   // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §3）：原版 `CardEffect.enchantmentCardId // +0xA4`（`dump.cs:119112`）= `AbilityData+0x4c`（`dump.cs:19556`：`TriggerAbility(..., int enchantmentCardId = -1)` ⇒ `.c:72` `*(AbilityData+0x4c) = param_9`）。🔴 **不是能力下标** —— 实参读的是 `ActiveEnchantment.enchantmentCardID // +0x18`（`RawCardScript__TriggerAbilities.c:184-186`），即「本局第几件被挂上去的附魔」的流水号；载体自己那趟传 `-1`。下游唯一消费 = 原版 `CardEffect.IsSameEffect` 的合并键，而我们**从不合并** ⇒ 今天零数值差异、只是结构忠实。写点 = `Enchantments.Attach`。｜🆕 2026-10-30（执行代理 `B103_W3` · 账 `特效动画:521` 残差 S3-d）：`Seq` = 原版 `activeEffects(+0x108)` 的 `List.Add` 序（我们把它拆成多本账 ⇒ 靠它还原出表顺序）。写点 = `Enchantments.Attach`（建记录那一刻；`0` = 还没盖戳 ⇒ 投影排队尾）。发号口 = `CardInstance.NextEffectSeq()`（**唯一一处**，与 `_statMods` / `_traitEffects` 同一个号源）
     }
 
     /// <summary>
@@ -280,7 +280,7 @@ namespace RuleEngine
                 Source = source,
                 ActingUnit = acting,
                 Enchantment = ench,
-                Trait = _tr, Permanent = permanent, Seq = carrier.NextEffectSeq(),   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-d）：加序戳（**唯一发号口** = `CardInstance.NextEffectSeq`，与 `_statMods` / `_traitEffects` 同一个号源 ⇒ 跨族先后可比）
+                Trait = _tr, Permanent = permanent, Seq = carrier.NextEffectSeq(), EnchantmentCardId = id,   // 🆕 B109/C8（2026-10-31）：`CardEffect.enchantmentCardId // +0xA4`（= `AbilityData+0x4c`）的**唯一写点** —— 值 = 本局流水号 `id`（与 `ActiveEnchantment.EnchantmentCardId` 同源，`CardScript__AddEnchantment.c:44/48`）。｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-d）：加序戳（**唯一发号口** = `CardInstance.NextEffectSeq`，与 `_statMods` / `_traitEffects` 同一个号源 ⇒ 跨族先后可比）
             };
             ench.Effect = eff; ApplyRevealedFlagsCore(ctx, carrier, eff, _st);   // 🆕 2026-10-29（B96_CR · 账 1053）：`+0x90 secretBuff` / `+0x91 questBuff` 的置真点（判据 `CardScript__AddEffect.c:853-855` / `:886-889`）
 
@@ -452,17 +452,17 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  ④ 结算（原版 `RawCardScript.TriggerAbilities(includeEnchantments: true)`）
+        //  ④ 结算（原版 `RawCardScript.TriggerAbilities` 的**附魔尾块** —— 没有 `includeEnchantments` 形参，见 W58 订正）
         // ==================================================================
 
         /// <summary>
         /// **这个载体身上，哪些附魔对这一条触发关键词有话说** —— 原版
-        /// `RawCardScript__TriggerAbilities.c:50-88` 把 `activeEnchantments(+0x110)` 里每个附魔的
-        /// `cardAbilities(+0x290)` 一起算进来（`GetAbilitiesForTrigger(thisCard, trigger, true)`）。
-        ///
-        /// 判据落法：附魔卡的 `TriggerOps(keyword)`（卡面 `<关键词>: <正文>`）
-        /// 或 `Effect(keyword)`（我们那台封闭文法）任一存在 ⇒ 算它一份。
-        /// 调用点 = <see cref="RuleCore.FireTriggerAt"/>（**全仓所有触发唯一的出口**）。
+        /// `RawCardScript__TriggerAbilities.c:59-108` 按 `CardAbility.trigger(+0x10) == 传入 trigger`
+        /// 选 ability（`CardAbility__CanTriggerAbility.c:71` 就是那句 `!=` 早退）⇒ **判据是数据位**；注释里引的
+        /// `GetAbilitiesForTrigger(…, includeEnchantments: true)` **不属于这条路**（W58 订正，见 `RuleCore.cs:12721`）。
+        /// 判据落法 = **数据位 OR 正文**：`AbilityTriggerPresence(RuleCore.TriggerNameOfKeyword(keyword) ?? keyword) == 1`
+        /// （`cards_engine.json` 的 `abilityTriggers`；先过 `rally→ThisCardPlayed(0)` / `spiritstone→UseSpiritStone` 那层换算）
+        /// **或** `TriggerOps(keyword)` / `Effect(keyword)`；`-1`（未知）**不算命中** ⇒ 正文 122 处照旧（⛔ OR 不是替换）。
         /// </summary>
         public static List<ActiveEnchantment> Matching(UnitState carrier, string keyword)
         {
@@ -471,7 +471,7 @@ namespace RuleEngine
             foreach (var e in carrier.Instance.ActiveEnchantments)
             {
                 if (e == null || e.Card == null) continue;
-                if (e.Card.TriggerOps(keyword) != null || e.Card.Effect(keyword) != null) r.Add(e);
+                if (e.Card.TriggerOps(keyword) != null || e.Card.Effect(keyword) != null || e.Card.AbilityTriggerPresence(RuleCore.TriggerNameOfKeyword(keyword) ?? keyword) == 1) r.Add(e);   // 数据位 OR 正文（原版 `CanTriggerAbility.c:71` 比 `trigger(+0x10)`）：⛔ 别删左边两项 —— 全池 122 处「正文会跑」靠它们；`-1`（未知）不算命中
             }
             return r;
         }
@@ -660,8 +660,8 @@ namespace RuleEngine
         ///   · `:36-50` 在该附魔的 `cardAbilities(+0x290)` 里逐条
         ///     `CardAbility.CanTriggerAbility(ability, 0x118, bm, 攻方, 攻方, 原目标)` ⇒ 命中返回真。
         ///
-        /// 我们的落法：附魔卡有 `abouttoattack` 的触发正文（`TriggerOps` / `Effect`）⇒ 视为
-        /// 「有一条 trigger == 0x118 的 ability」。⚠️ **`CanTriggerAbility` 的那几条 criteria
+        /// 我们的落法 = **数据位优先、旧表才退回正文**：`AbilityTriggerPresence("AboutToAttack")`（= 原版 `:31` 的
+        /// `HasAbilityType(0x118)`）`>= 0` 时以它为准、`-1`（未知）才看 `TriggerOps` / `Effect` —— 与**五参重载**同一份判据。⚠️ **`CanTriggerAbility` 的那几条 criteria
         /// （每回合一次 / 目标条件…）我们没有等价物** —— 如实标着：本层只判「在不在」。
         /// 返回 `null` = 这一记没有附魔要取消它。
         /// </summary>
@@ -671,8 +671,8 @@ namespace RuleEngine
             foreach (var e in attacker.Instance.ActiveEnchantments)
             {
                 if (e == null || e.Card == null) continue;
-                if (e.Card.TriggerOps(KeywordTable.AboutToAttack) != null
-                    || e.Card.Effect(KeywordTable.AboutToAttack) != null)
+                if (HasAboutToAttackAbility(e.Card))   // 数据位优先（原版 `CardScript__HasCancelAttackEffect.c:31` 的 `HasAbilityType(0x118)`），
+                    // 旧表（`-1` 未知）才退回正文两档 —— ⛔ 与五参重载别各写一份
                     return e;
             }
             return null;
@@ -1134,9 +1134,9 @@ namespace RuleEngine
         /// <para>⚠️ **为什么不能直接复用 <see cref="Matching"/>**：那个吃 `UnitState`（只覆盖棋盘），
         /// 而 DA42 的载体是**手牌/刚打出的那一份实例**（判据件 §一·2 P2）。</para>
         /// <para>🔴 **认能力的两条路（按序）**：
-        /// ① **卡面正文**（= <see cref="Matching"/> 的判据：`CardDef.TriggerOps` / `CardDef.Effect`）；
-        /// ② **id 白名单 + trigger 名**（DA42 模板**没有卡面正文** —— 它不在 `cards_engine` 的 OCR 层，
-        ///   所以 ① 对它**恒 false**，判据件 §四·4）。</para>
+        /// ① **数据位 OR 卡面正文**（= <see cref="Matching"/> 的判据：`AbilityTriggerPresence(triggerName) == 1`
+        ///   / `CardDef.TriggerOps` / `CardDef.Effect`）；`triggerName` 已是原版枚举名 ⇒ 不需要 `TriggerNameOfKeyword` 换算；
+        /// ② **id 白名单 + trigger 名**（DA42 模板**没有卡面正文**、也不在 `cards_engine` ⇒ ① 对它恒 false，判据件 §四·4）。</para>
         /// </summary>
         public static List<ActiveEnchantment> MatchingForInstance(CardInstance carrier, string triggerName)
         {
@@ -1146,7 +1146,7 @@ namespace RuleEngine
             {
                 if (e == null || e.Card == null) continue;
                 // ① 卡面正文（Pray 那一族与将来任何「自带正文」的附魔都走这里）
-                if (e.Card.TriggerOps(triggerName) != null || e.Card.Effect(triggerName) != null) { r.Add(e); continue; }
+                if (e.Card.TriggerOps(triggerName) != null || e.Card.Effect(triggerName) != null || e.Card.AbilityTriggerPresence(triggerName) == 1) { r.Add(e); continue; }   // ① 数据位 OR 正文（原版 `CanTriggerAbility.c:71`；与 `Matching` 同一条口径）
                 // ② id 白名单：DA42 模板的两条 ability 都挂 `trigger 0 = ThisCardPlayed`
                 if (IsDA42Enchantment(e.Card) && IsThisCardPlayed(triggerName)) { r.Add(e); continue; }
             }
@@ -1983,6 +1983,85 @@ namespace RuleEngine
                 return true;
             }
             return false;
+        }
+
+        // ==================================================================
+        //  ③·b 原版 `RawCardScript__TriggerAbilities.c:136-164` 的 **410 去重闩**（B109/C8 · 2026-10-31）
+        // ==================================================================
+        //  判据（三方一致，`判据/B109_R18_附魔三判据.md` §2 已核）：
+        //    `.c:136-137` `if (附魔卡 != null && obj == 附魔卡) continue;`      → 本趟已派过的那张卡，后续 ability 跳
+        //    `.c:148/158/163` `if (ability.trigger(+0x10) == 0x19a && ability.triggerValue(+0x20) == 1) obj = 附魔卡;`
+        //    `.c:184-186` 派发（`out_il2csharp/RawCardScript.cs:1134-1136` / `out_cpp2il_dev_ilspy/RawCardScript.cs:1513` 同）
+        //    `CardAbility__CanTriggerAbility.c:71` 已要求 `ability.trigger == 广播 trigger`
+        //    ⇒ **这条闸只在广播 trigger == 410(`FollowUpResolution`) 时可能生效**（否则列表里根本没有 410 行）。
+        //
+        //  ⚠️ 我们模型的口径差（如实）：原版是**逐条 ability** 扫，我们是**一件附魔一发信号**
+        //    （`EffectResolverPartial_B109E6.FireEnchantmentAbilitiesByNumber`）。这里按**同一粒度**落：
+        //    「某件附魔在本趟派过一条 410∧triggerValue==1 ⇒ 它后面同卡的那些条目全跳过」。
+        //    ⛔ 别为它把派发改成逐 ability 全跑（那是另一笔，见 `B109_R2` §4.3 A5）。
+        //
+        //  📌 可达性（现读 `资料/普查产出_1018/allcards_1350/cards_raw.json`）：1,496 条 ability 全带
+        //    `triggerValue`，其中 `trigger==410 ∧ triggerValue==1` **只有 1 条** = `Hallowed Martyrs`
+        //    （`752141bbf0543314987e3b9afed938af`），且它在 abilities **末位** ⇒ 结构件、**今天零可观测**（铁律 11 照建）。
+        //    ⚠️ 该模板本身不是可玩卡（不在 `cards_engine.json` 的 `cards[]`；挂载者 `SOR57` **在池**），
+        //      而 `LoadEnchantmentTemplates` 没挂 `AttachTriggerAbilityIndices` ⇒ 引擎连它的 ability 行都读不到
+        //      （见 `判据/B109_R18_附魔三判据.md` §3「还差什么」）⇒ 端到端仍休眠，断言靠人造夹具直调。
+        // ==================================================================
+
+        /// <summary>原版 `AbilityTrigger` 里 `FollowUpResolution` 的数值（`CardDef.cs:1931` 的名字表同值）。</summary>
+        public const int TriggerFollowUpResolution = 410;
+
+        /// <summary>这张附魔卡有没有一条「<paramref name="trigger"/> 且 `triggerValue == 1`」的 ability
+        /// —— 即 `.c:148` 那个 `obj = 附魔卡` 的置位条件。
+        /// <para>🔴 **三态**：`triggerAbilityIndices` 列未知（旧表）⇒ `false`（**不闩**，保持旧行为；原版恒有 `cardAbilities`，
+        /// 我们没有那一列时**判不了**，⛔ 不猜成「有」）。</para></summary>
+        public static bool HasTriggerAbilityWithValue(CardDef card, int trigger, int triggerValue)
+        {
+            if (card == null) return false;
+            var rows = card.TriggerAbilityRowsOf(trigger);   // null = 列未知；`[]` = 明确没有
+            if (rows == null) return false;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var r = rows[i];
+                if (r != null && r.TriggerValue == triggerValue) return true;
+            }
+            return false;
+        }
+
+        /// <summary>**410 去重闩**（原版 `RawCardScript__TriggerAbilities.c:136-164` 的等价物）：
+        /// 同一次派发趟里，某件附魔派过一条 `trigger==410 ∧ triggerValue==1` 的 ability 之后，
+        /// **该附魔卡**本趟后续的条目全部跳过（含同卡的后一次挂载 —— 原版比的是 `CardScript` 引用）。
+        ///
+        /// <para>⚠️ 只在 `triggerNumber == 410` 时可能生效（`CanTriggerAbility.c:71`）；其余 trigger 原样返回。</para>
+        /// <para>返回**可能复用入参**（没东西被跳过时返回同一个 List）⇒ 调用方用返回值，⛔ 别依赖原 List 被改。</para>
+        /// <para>🧨 灭自证：两件同卡且都带 `410 ∧ triggerValue==1` 的夹具 ⇒ 只剩 1 条；删掉本方法里的 `lastFollowUp` 那两句 ⇒ 2 条 ⇒ 红。</para></summary>
+        public static List<ActiveEnchantment> ApplyFollowUpResolutionDedup(List<ActiveEnchantment> hits, int triggerNumber)
+        {
+            if (hits == null || hits.Count < 2) return hits;
+            if (triggerNumber != TriggerFollowUpResolution) return hits;   // 原版那条判据只在广播 410 时可能成立
+
+            List<ActiveEnchantment> kept = null;
+            CardDef lastFollowUp = null;
+            for (int i = 0; i < hits.Count; i++)
+            {
+                var e = hits[i];
+                bool skip = e != null && e.Card != null
+                         && lastFollowUp != null && ReferenceEquals(e.Card, lastFollowUp);   // 原版 `.c:136-137`
+                if (!skip && e != null && e.Card != null
+                    && HasTriggerAbilityWithValue(e.Card, TriggerFollowUpResolution, 1))    // 原版 `.c:148/158/163`
+                    lastFollowUp = e.Card;
+                if (skip)
+                {
+                    if (kept == null)
+                    {
+                        kept = new List<ActiveEnchantment>(hits.Count);
+                        for (int k = 0; k < i; k++) kept.Add(hits[k]);
+                    }
+                    continue;
+                }
+                if (kept != null) kept.Add(e);
+            }
+            return kept ?? hits;
         }
     }
 }

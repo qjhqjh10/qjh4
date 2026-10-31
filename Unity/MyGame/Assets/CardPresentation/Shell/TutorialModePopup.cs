@@ -744,7 +744,7 @@ namespace CardPresentation
                     + " 已放进静态通道 ⇒ 切 `" + scene + ".unity`"
                     + "（原版 `TutorialModePopup.BattleButtonOnClick` → `MatchMakerManager.StartMatch(…, 4, …)`）");
             if (Application.isBatchMode) { Debug.Log("[Tutorial] （批处理：不切场景，只记账）"); return; }
-            ShellRuntime.LoadSceneWithFade(scene);   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #7）：原来是**裸 `SceneManager.LoadScene`**（场景不在 Build Settings ⇒ 抛异常后玩家停在窗里、无任何提示）⇒ 改走壳的统一入口（`ShellRuntime.cs:205-220`：try/catch + 兜底淡回），与练习 / 遭遇 / 排位同一条口径
+            if (!ArenaByArmy.CanLoadScene(scene)) { Debug.LogError("[Tutorial] 战场场景 `" + scene + "` 不在 Build Settings 里（跑一次 `BattleScene.BuildAndSaveScene` 就会登记）⇒ **这一关打不开**；已清掉两条静态通道（`tutorialIndex` / `GameMode.Tutorial`）并弹错误框 —— ⛔ 不把玩家留在窗里毫无提示，也⛔ 不让残留的教程模式号串到下一局"); BattleDriver.ClearPendingBattleChannels(); ErrorPopupWindowController.ShowErrorMessage(CustomError.CantLoadMainMenuObjects); return; } ShellRuntime.LoadSceneWithFade(scene);   // 🆕 2026-10-31（B106_W2 · AUD10 §二 #7）：原来是**裸 `SceneManager.LoadScene`**（场景不在 Build Settings ⇒ 抛异常后玩家停在窗里、无任何提示）⇒ 改走壳的统一入口（`ShellRuntime.cs:205-220`：try/catch + 兜底淡回），与练习 / 遭遇 / 排位同一条口径｜🆕 2026-10-31（`B108_A2` · #7 的**残余**）：载不入 ⇒ **清通道 + 可见错误框**（两条静态通道在上一行已经写进去了，读一次就清 ⇒ 没人读就没人清）
         }
 
         // ============================================================ 文案

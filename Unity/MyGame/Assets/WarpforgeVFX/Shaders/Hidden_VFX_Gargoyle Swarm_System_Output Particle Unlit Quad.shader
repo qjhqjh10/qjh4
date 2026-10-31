@@ -14,6 +14,9 @@
 //   ③ `precise float` → `float` —— 指令级精度提示，不改变数值结果；
 //   ④ `float(uint64_t(x))` → `float(x)` —— 同一个 uint→float 转换，去掉 64 位依赖；
 //   ⑤ `SPIRV_Cross_BaseVertex/BaseInstance` → 0 —— VFX 走 DrawProcedural，基础顶点/实例恒为 0。
+//   ⑥ `ByteAddressBuffer.Load<uint>(x)` → `.Load(x)` —— 同一语义（非模板重载返回 uint），FXC 不认模板形式；
+//   ⑦ 片元块里的全局 `static float4 SV_Target;` → `spv_Color` —— HLSLSupport.cginc 在部分编译档把 `SV_Target`
+//      宏映射成 `COLOR`，会与本块已有的 `static float4 COLOR;` 重定义；只改**变量名**，输出语义（SV_Target0）不变。
 //   **未改**：Shader 名 · SubShader Tags · Pass 名/Tags · Blend/ZWrite/Cull/ZClip · 顶点/片元算式。
 //
 // 🔑 **`.meta` 的 guid 刻意沿用【原版 shader 的 guid】**：`a54152a8ad9d9714fa8a5cc861406b54`
@@ -150,7 +153,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 uint _131 = _130 * 192u;
                 uint _151 = _121 * 4u;
                 uint _154 = asuint(PerInstanceArray[_121].PerInstanceArray_InstanceIndex);
-                bool _160 = _116 >= (graphValuesBuffer.Load<uint>(ByteAddressMask(_131 >> 2u, 4u) * 4 + 0) - deadList.Load<uint>(_154 * 4 + 0));
+                bool _160 = _116 >= (graphValuesBuffer.Load(ByteAddressMask(_131 >> 2u, 4u) * 4 + 0) - deadList.Load(_154 * 4 + 0));
                 if (_160)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -170,7 +173,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     INDEX.y = 0u;
                     return;
                 }
-                if (_116 >= indirectBuffer.Load<uint>(_130 * 4 + 0))
+                if (_116 >= indirectBuffer.Load(_130 * 4 + 0))
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
                     gl_Position.y = 0.0f;
@@ -191,8 +194,8 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 }
                 uint _205 = ((_130 * 50000u) + asuint(instancingConstants.z)) + _116;
                 uint _210 = _154 * 550528u;
-                uint _213 = ((indirectBuffer.Load<uint>(_205 * 4 + 0) << 2u) + _210) << 2u;
-                if (attributeBuffer.Load<uint>(ByteAddressMask((_213 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
+                uint _213 = ((indirectBuffer.Load(_205 * 4 + 0) << 2u) + _210) << 2u;
+                if (attributeBuffer.Load(ByteAddressMask((_213 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
                 {
                     gl_Position.x = _160 ? asfloat(0xffffffffu /* nan */) : 0.0f;
                     gl_Position.y = 0.0f;
@@ -212,13 +215,13 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _243 = ByteAddressMask((_131 + 144u) >> 2u, 4u);
-                uint3 _253 = uint3(graphValuesBuffer.Load<uint>(_243 * 4 + 0), graphValuesBuffer.Load<uint>((_243 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_243 + 2u) * 4 + 0));
+                uint3 _253 = uint3(graphValuesBuffer.Load(_243 * 4 + 0), graphValuesBuffer.Load((_243 + 1u) * 4 + 0), graphValuesBuffer.Load((_243 + 2u) * 4 + 0));
                 uint _260 = ByteAddressMask((_131 + 160u) >> 2u, 4u);
-                uint3 _269 = uint3(graphValuesBuffer.Load<uint>(_260 * 4 + 0), graphValuesBuffer.Load<uint>((_260 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_260 + 2u) * 4 + 0));
-                uint _275 = (_210 + indirectBuffer.Load<uint>(_205 * 4 + 0)) << 2u;
+                uint3 _269 = uint3(graphValuesBuffer.Load(_260 * 4 + 0), graphValuesBuffer.Load((_260 + 1u) * 4 + 0), graphValuesBuffer.Load((_260 + 2u) * 4 + 0));
+                uint _275 = (_210 + indirectBuffer.Load(_205 * 4 + 0)) << 2u;
                 uint _289 = ByteAddressMask((_275 + 200192u) >> 2u, 4u);
                 uint _296 = ByteAddressMask((_213 + 400384u) >> 2u, 4u);
-                uint3 _305 = uint3(attributeBuffer.Load<uint>(_296 * 4 + 0), attributeBuffer.Load<uint>((_296 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_296 + 2u) * 4 + 0));
+                uint3 _305 = uint3(attributeBuffer.Load(_296 * 4 + 0), attributeBuffer.Load((_296 + 1u) * 4 + 0), attributeBuffer.Load((_296 + 2u) * 4 + 0));
                 uint _320 = _121 << 3u;
                 float _330 = (unity_MatrixV[1u].x);
                 float _331 = (unity_MatrixV[1u].y);
@@ -253,7 +256,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 float _460 = -mad(_371, unity_Builtins0Array[_121].unity_Builtins0Array_unity_ObjectToWorldArray[2u].z, mad(_352, unity_Builtins0Array[_121].unity_Builtins0Array_unity_ObjectToWorldArray[2u].x, _332 * unity_Builtins0Array[_121].unity_Builtins0Array_unity_ObjectToWorldArray[2u].y));
                 float3 _461 = float3(_458, _459, _460);
                 float _463 = rsqrt(_72(_461, _461));
-                float _472 = mad(clamp(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_275 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask(_275 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
+                float _472 = mad(clamp(asfloat(attributeBuffer.Load(ByteAddressMask((_275 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask(_275 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
                 float4 _492 = bakedTexture.SampleLevel(samplerbakedTexture, float2((asfloat(_253.y) > 0.5f) ? (mad(-frac(_472 * 128.0f), 0.0078125f, _472) + 0.00390625f) : _472, asfloat(_253.x)), 0.0f);
                 float _499 = asfloat(_253.z);
                 COLOR.x = asfloat(_269.x) * (_499 * _492.x);
@@ -261,7 +264,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR.z = asfloat(_269.z) * (_499 * _492.z);
                 float _514 = _86(_94 & 1u);
                 float _515 = _86(_94 & 2u);
-                float _519 = asfloat(attributeBuffer.Load<uint>(_289 * 4 + 0));
+                float _519 = asfloat(attributeBuffer.Load(_289 * 4 + 0));
                 float3 _528 = float3(_514 - 0.5f, mad(_515, 0.5f, -0.5f), 1.0f);
                 float _529 = _72(float3(_519 * (_448 * _380), _519 * (_454 * _381), asfloat(_305.x)), _528);
                 float _532 = _72(float3(_519 * (_448 * _411), _519 * (_454 * _412), asfloat(_305.y)), _528);
@@ -273,7 +276,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 gl_Position.y = mad((unity_MatrixVP[2u].y), _568, mad((unity_MatrixVP[0u].y), _566, _567 * (unity_MatrixVP[1u].y))) + (unity_MatrixVP[3u].y);
                 gl_Position.z = mad((unity_MatrixVP[2u].z), _568, mad((unity_MatrixVP[0u].z), _566, _567 * (unity_MatrixVP[1u].z))) + (unity_MatrixVP[3u].z);
                 gl_Position.w = mad((unity_MatrixVP[2u].w), _568, mad((unity_MatrixVP[0u].w), _566, _567 * (unity_MatrixVP[1u].w))) + (unity_MatrixVP[3u].w);
-                float _637 = asfloat(attributeBuffer.Load<uint>(_289 * 4 + 0));
+                float _637 = asfloat(attributeBuffer.Load(_289 * 4 + 0));
                 float _638 = 1.0f / _637;
                 float3 _645 = float3(-(_638 * (_463 * _458)), -(_638 * (_463 * _459)), -(_638 * (_463 * _460)));
                 float _653 = _72(_645, float3(unity_Builtins0Array[_121].unity_Builtins0Array_unity_WorldToObjectArray[0u].x, unity_Builtins0Array[_121].unity_Builtins0Array_unity_WorldToObjectArray[0u].y, unity_Builtins0Array[_121].unity_Builtins0Array_unity_WorldToObjectArray[0u].z));
@@ -285,7 +288,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 TEXCOORD_6.x = (_674 * _653) * _681;
                 TEXCOORD_6.y = (_674 * _662) * _681;
                 TEXCOORD_6.z = (_674 * _671) * _681;
-                float _692 = trunc(floor(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_275 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
+                float _692 = trunc(floor(asfloat(attributeBuffer.Load(ByteAddressMask((_275 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
                 float _695 = frac(abs(_692));
                 float _697 = (_692 >= 0.0f) ? _695 : (-_695);
                 TEXCOORD.x = (_514 + (_697 + _697)) * 0.5f;
@@ -396,7 +399,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 uint _109 = asuint(_InstanceActiveIndex);
                 uint _110 = _109 * 192u;
                 uint _129 = asuint(_InstanceIndex);
-                bool _135 = _103 >= (graphValuesBuffer.Load<uint>(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load<uint>(_129 * 4 + 0));
+                bool _135 = _103 >= (graphValuesBuffer.Load(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load(_129 * 4 + 0));
                 if (_135)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -416,7 +419,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     INDEX.y = 0u;
                     return;
                 }
-                if (_103 >= indirectBuffer.Load<uint>(_109 * 4 + 0))
+                if (_103 >= indirectBuffer.Load(_109 * 4 + 0))
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
                     gl_Position.y = 0.0f;
@@ -437,8 +440,8 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 }
                 uint _182 = _103 + ((_109 * 50000u) + asuint(instancingConstants.z));
                 uint _187 = _129 * 550528u;
-                uint _190 = ((indirectBuffer.Load<uint>(_182 * 4 + 0) << 2u) + _187) << 2u;
-                if (attributeBuffer.Load<uint>(ByteAddressMask((_190 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
+                uint _190 = ((indirectBuffer.Load(_182 * 4 + 0) << 2u) + _187) << 2u;
+                if (attributeBuffer.Load(ByteAddressMask((_190 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
                 {
                     gl_Position.x = _135 ? asfloat(0xffffffffu /* nan */) : 0.0f;
                     gl_Position.y = 0.0f;
@@ -458,13 +461,13 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _220 = ByteAddressMask((_110 + 144u) >> 2u, 4u);
-                uint3 _230 = uint3(graphValuesBuffer.Load<uint>(_220 * 4 + 0), graphValuesBuffer.Load<uint>((_220 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_220 + 2u) * 4 + 0));
+                uint3 _230 = uint3(graphValuesBuffer.Load(_220 * 4 + 0), graphValuesBuffer.Load((_220 + 1u) * 4 + 0), graphValuesBuffer.Load((_220 + 2u) * 4 + 0));
                 uint _237 = ByteAddressMask((_110 + 160u) >> 2u, 4u);
-                uint3 _246 = uint3(graphValuesBuffer.Load<uint>(_237 * 4 + 0), graphValuesBuffer.Load<uint>((_237 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_237 + 2u) * 4 + 0));
-                uint _252 = (_187 + indirectBuffer.Load<uint>(_182 * 4 + 0)) << 2u;
+                uint3 _246 = uint3(graphValuesBuffer.Load(_237 * 4 + 0), graphValuesBuffer.Load((_237 + 1u) * 4 + 0), graphValuesBuffer.Load((_237 + 2u) * 4 + 0));
+                uint _252 = (_187 + indirectBuffer.Load(_182 * 4 + 0)) << 2u;
                 uint _266 = ByteAddressMask((_252 + 200192u) >> 2u, 4u);
                 uint _273 = ByteAddressMask((_190 + 400384u) >> 2u, 4u);
-                uint3 _282 = uint3(attributeBuffer.Load<uint>(_273 * 4 + 0), attributeBuffer.Load<uint>((_273 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_273 + 2u) * 4 + 0));
+                uint3 _282 = uint3(attributeBuffer.Load(_273 * 4 + 0), attributeBuffer.Load((_273 + 1u) * 4 + 0), attributeBuffer.Load((_273 + 2u) * 4 + 0));
                 float _306 = (unity_MatrixV[1u].x);
                 float _307 = (unity_MatrixV[1u].y);
                 float _308 = (unity_MatrixV[1u].z);
@@ -489,7 +492,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 float _393 = -mad(_338, unity_ObjectToWorld[2u].z, mad(_323, unity_ObjectToWorld[2u].x, _308 * unity_ObjectToWorld[2u].y));
                 float3 _394 = float3(_391, _392, _393);
                 float _396 = rsqrt(_72(_394, _394));
-                float _405 = mad(clamp(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_252 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask(_252 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
+                float _405 = mad(clamp(asfloat(attributeBuffer.Load(ByteAddressMask((_252 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask(_252 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
                 float4 _425 = bakedTexture.SampleLevel(samplerbakedTexture, float2((asfloat(_230.y) > 0.5f) ? (mad(-frac(_405 * 128.0f), 0.0078125f, _405) + 0.00390625f) : _405, asfloat(_230.x)), 0.0f);
                 float _432 = asfloat(_230.z);
                 COLOR.x = asfloat(_246.x) * (_432 * _425.x);
@@ -497,7 +500,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR.z = asfloat(_246.z) * (_432 * _425.z);
                 float _447 = _86(_94 & 1u);
                 float _448 = _86(_94 & 2u);
-                float _452 = asfloat(attributeBuffer.Load<uint>(_266 * 4 + 0));
+                float _452 = asfloat(attributeBuffer.Load(_266 * 4 + 0));
                 float3 _461 = float3(_447 - 0.5f, mad(_448, 0.5f, -0.5f), 1.0f);
                 float _462 = _72(float3(_452 * (_381 * _341), _452 * (_387 * _342), asfloat(_282.x)), _461);
                 float _465 = _72(float3(_452 * (_381 * _358), _452 * (_387 * _359), asfloat(_282.y)), _461);
@@ -509,7 +512,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 gl_Position.y = mad((unity_MatrixVP[2u].y), _500, mad((unity_MatrixVP[0u].y), _498, _499 * (unity_MatrixVP[1u].y))) + (unity_MatrixVP[3u].y);
                 gl_Position.z = mad((unity_MatrixVP[2u].z), _500, mad((unity_MatrixVP[0u].z), _498, _499 * (unity_MatrixVP[1u].z))) + (unity_MatrixVP[3u].z);
                 gl_Position.w = mad((unity_MatrixVP[2u].w), _500, mad((unity_MatrixVP[0u].w), _498, _499 * (unity_MatrixVP[1u].w))) + (unity_MatrixVP[3u].w);
-                float _569 = asfloat(attributeBuffer.Load<uint>(_266 * 4 + 0));
+                float _569 = asfloat(attributeBuffer.Load(_266 * 4 + 0));
                 float _570 = 1.0f / _569;
                 float3 _577 = float3(-(_570 * (_396 * _391)), -(_570 * (_396 * _392)), -(_570 * (_396 * _393)));
                 float _584 = _72(_577, float3(unity_WorldToObject[0u].x, unity_WorldToObject[0u].y, unity_WorldToObject[0u].z));
@@ -521,7 +524,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 TEXCOORD_6.x = (_601 * _584) * _608;
                 TEXCOORD_6.y = (_601 * _591) * _608;
                 TEXCOORD_6.z = (_601 * _598) * _608;
-                float _619 = trunc(floor(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_252 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
+                float _619 = trunc(floor(asfloat(attributeBuffer.Load(ByteAddressMask((_252 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
                 float _622 = frac(abs(_619));
                 float _624 = (_619 >= 0.0f) ? _622 : (-_622);
                 TEXCOORD.x = (_447 + (_624 + _624)) * 0.5f;
@@ -567,7 +570,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
             
             struct SPIRV_Cross_Input
             {
@@ -583,10 +586,10 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
             
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -595,7 +598,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
             #else
@@ -615,7 +618,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
             
             struct SPIRV_Cross_Input
             {
@@ -631,10 +634,10 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
             
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -643,7 +646,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
             #endif
@@ -770,7 +773,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 uint _131 = _130 * 192u;
                 uint _151 = _121 * 4u;
                 uint _154 = asuint(PerInstanceArray[_121].PerInstanceArray_InstanceIndex);
-                bool _160 = _116 >= (graphValuesBuffer.Load<uint>(ByteAddressMask(_131 >> 2u, 4u) * 4 + 0) - deadList.Load<uint>(_154 * 4 + 0));
+                bool _160 = _116 >= (graphValuesBuffer.Load(ByteAddressMask(_131 >> 2u, 4u) * 4 + 0) - deadList.Load(_154 * 4 + 0));
                 if (_160)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -790,7 +793,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     INDEX.y = 0u;
                     return;
                 }
-                if (_116 >= indirectBuffer.Load<uint>(_130 * 4 + 0))
+                if (_116 >= indirectBuffer.Load(_130 * 4 + 0))
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
                     gl_Position.y = 0.0f;
@@ -811,8 +814,8 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 }
                 uint _205 = ((_130 * 50000u) + asuint(instancingConstants.z)) + _116;
                 uint _210 = _154 * 550528u;
-                uint _213 = ((indirectBuffer.Load<uint>(_205 * 4 + 0) << 2u) + _210) << 2u;
-                if (attributeBuffer.Load<uint>(ByteAddressMask((_213 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
+                uint _213 = ((indirectBuffer.Load(_205 * 4 + 0) << 2u) + _210) << 2u;
+                if (attributeBuffer.Load(ByteAddressMask((_213 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
                 {
                     gl_Position.x = _160 ? asfloat(0xffffffffu /* nan */) : 0.0f;
                     gl_Position.y = 0.0f;
@@ -832,13 +835,13 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _243 = ByteAddressMask((_131 + 144u) >> 2u, 4u);
-                uint3 _253 = uint3(graphValuesBuffer.Load<uint>(_243 * 4 + 0), graphValuesBuffer.Load<uint>((_243 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_243 + 2u) * 4 + 0));
+                uint3 _253 = uint3(graphValuesBuffer.Load(_243 * 4 + 0), graphValuesBuffer.Load((_243 + 1u) * 4 + 0), graphValuesBuffer.Load((_243 + 2u) * 4 + 0));
                 uint _260 = ByteAddressMask((_131 + 160u) >> 2u, 4u);
-                uint3 _269 = uint3(graphValuesBuffer.Load<uint>(_260 * 4 + 0), graphValuesBuffer.Load<uint>((_260 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_260 + 2u) * 4 + 0));
-                uint _275 = (_210 + indirectBuffer.Load<uint>(_205 * 4 + 0)) << 2u;
+                uint3 _269 = uint3(graphValuesBuffer.Load(_260 * 4 + 0), graphValuesBuffer.Load((_260 + 1u) * 4 + 0), graphValuesBuffer.Load((_260 + 2u) * 4 + 0));
+                uint _275 = (_210 + indirectBuffer.Load(_205 * 4 + 0)) << 2u;
                 uint _289 = ByteAddressMask((_275 + 200192u) >> 2u, 4u);
                 uint _296 = ByteAddressMask((_213 + 400384u) >> 2u, 4u);
-                uint3 _305 = uint3(attributeBuffer.Load<uint>(_296 * 4 + 0), attributeBuffer.Load<uint>((_296 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_296 + 2u) * 4 + 0));
+                uint3 _305 = uint3(attributeBuffer.Load(_296 * 4 + 0), attributeBuffer.Load((_296 + 1u) * 4 + 0), attributeBuffer.Load((_296 + 2u) * 4 + 0));
                 uint _320 = _121 << 3u;
                 float _330 = (unity_MatrixV[1u].x);
                 float _331 = (unity_MatrixV[1u].y);
@@ -873,7 +876,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 float _460 = -mad(_371, unity_Builtins0Array[_121].unity_Builtins0Array_unity_ObjectToWorldArray[2u].z, mad(_352, unity_Builtins0Array[_121].unity_Builtins0Array_unity_ObjectToWorldArray[2u].x, _332 * unity_Builtins0Array[_121].unity_Builtins0Array_unity_ObjectToWorldArray[2u].y));
                 float3 _461 = float3(_458, _459, _460);
                 float _463 = rsqrt(_72(_461, _461));
-                float _472 = mad(clamp(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_275 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask(_275 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
+                float _472 = mad(clamp(asfloat(attributeBuffer.Load(ByteAddressMask((_275 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask(_275 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
                 float4 _492 = bakedTexture.SampleLevel(samplerbakedTexture, float2((asfloat(_253.y) > 0.5f) ? (mad(-frac(_472 * 128.0f), 0.0078125f, _472) + 0.00390625f) : _472, asfloat(_253.x)), 0.0f);
                 float _499 = asfloat(_253.z);
                 COLOR.x = asfloat(_269.x) * (_499 * _492.x);
@@ -881,7 +884,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR.z = asfloat(_269.z) * (_499 * _492.z);
                 float _514 = _86(_94 & 1u);
                 float _515 = _86(_94 & 2u);
-                float _519 = asfloat(attributeBuffer.Load<uint>(_289 * 4 + 0));
+                float _519 = asfloat(attributeBuffer.Load(_289 * 4 + 0));
                 float3 _528 = float3(_514 - 0.5f, mad(_515, 0.5f, -0.5f), 1.0f);
                 float _529 = _72(float3(_519 * (_448 * _380), _519 * (_454 * _381), asfloat(_305.x)), _528);
                 float _532 = _72(float3(_519 * (_448 * _411), _519 * (_454 * _412), asfloat(_305.y)), _528);
@@ -893,7 +896,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 gl_Position.y = mad((unity_MatrixVP[2u].y), _568, mad((unity_MatrixVP[0u].y), _566, _567 * (unity_MatrixVP[1u].y))) + (unity_MatrixVP[3u].y);
                 gl_Position.z = mad((unity_MatrixVP[2u].z), _568, mad((unity_MatrixVP[0u].z), _566, _567 * (unity_MatrixVP[1u].z))) + (unity_MatrixVP[3u].z);
                 gl_Position.w = mad((unity_MatrixVP[2u].w), _568, mad((unity_MatrixVP[0u].w), _566, _567 * (unity_MatrixVP[1u].w))) + (unity_MatrixVP[3u].w);
-                float _637 = asfloat(attributeBuffer.Load<uint>(_289 * 4 + 0));
+                float _637 = asfloat(attributeBuffer.Load(_289 * 4 + 0));
                 float _638 = 1.0f / _637;
                 float3 _645 = float3(-(_638 * (_463 * _458)), -(_638 * (_463 * _459)), -(_638 * (_463 * _460)));
                 float _653 = _72(_645, float3(unity_Builtins0Array[_121].unity_Builtins0Array_unity_WorldToObjectArray[0u].x, unity_Builtins0Array[_121].unity_Builtins0Array_unity_WorldToObjectArray[0u].y, unity_Builtins0Array[_121].unity_Builtins0Array_unity_WorldToObjectArray[0u].z));
@@ -905,7 +908,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 TEXCOORD_6.x = (_674 * _653) * _681;
                 TEXCOORD_6.y = (_674 * _662) * _681;
                 TEXCOORD_6.z = (_674 * _671) * _681;
-                float _692 = trunc(floor(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_275 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
+                float _692 = trunc(floor(asfloat(attributeBuffer.Load(ByteAddressMask((_275 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
                 float _695 = frac(abs(_692));
                 float _697 = (_692 >= 0.0f) ? _695 : (-_695);
                 TEXCOORD.x = (_514 + (_697 + _697)) * 0.5f;
@@ -1016,7 +1019,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 uint _109 = asuint(_InstanceActiveIndex);
                 uint _110 = _109 * 192u;
                 uint _129 = asuint(_InstanceIndex);
-                bool _135 = _103 >= (graphValuesBuffer.Load<uint>(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load<uint>(_129 * 4 + 0));
+                bool _135 = _103 >= (graphValuesBuffer.Load(ByteAddressMask(_110 >> 2u, 4u) * 4 + 0) - deadList.Load(_129 * 4 + 0));
                 if (_135)
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
@@ -1036,7 +1039,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     INDEX.y = 0u;
                     return;
                 }
-                if (_103 >= indirectBuffer.Load<uint>(_109 * 4 + 0))
+                if (_103 >= indirectBuffer.Load(_109 * 4 + 0))
                 {
                     gl_Position.x = asfloat(0xffffffffu /* nan */);
                     gl_Position.y = 0.0f;
@@ -1057,8 +1060,8 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 }
                 uint _182 = _103 + ((_109 * 50000u) + asuint(instancingConstants.z));
                 uint _187 = _129 * 550528u;
-                uint _190 = ((indirectBuffer.Load<uint>(_182 * 4 + 0) << 2u) + _187) << 2u;
-                if (attributeBuffer.Load<uint>(ByteAddressMask((_190 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
+                uint _190 = ((indirectBuffer.Load(_182 * 4 + 0) << 2u) + _187) << 2u;
+                if (attributeBuffer.Load(ByteAddressMask((_190 + 400396u) >> 2u, 4u) * 4 + 0) == 0u)
                 {
                     gl_Position.x = _135 ? asfloat(0xffffffffu /* nan */) : 0.0f;
                     gl_Position.y = 0.0f;
@@ -1078,13 +1081,13 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                     return;
                 }
                 uint _220 = ByteAddressMask((_110 + 144u) >> 2u, 4u);
-                uint3 _230 = uint3(graphValuesBuffer.Load<uint>(_220 * 4 + 0), graphValuesBuffer.Load<uint>((_220 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_220 + 2u) * 4 + 0));
+                uint3 _230 = uint3(graphValuesBuffer.Load(_220 * 4 + 0), graphValuesBuffer.Load((_220 + 1u) * 4 + 0), graphValuesBuffer.Load((_220 + 2u) * 4 + 0));
                 uint _237 = ByteAddressMask((_110 + 160u) >> 2u, 4u);
-                uint3 _246 = uint3(graphValuesBuffer.Load<uint>(_237 * 4 + 0), graphValuesBuffer.Load<uint>((_237 + 1u) * 4 + 0), graphValuesBuffer.Load<uint>((_237 + 2u) * 4 + 0));
-                uint _252 = (_187 + indirectBuffer.Load<uint>(_182 * 4 + 0)) << 2u;
+                uint3 _246 = uint3(graphValuesBuffer.Load(_237 * 4 + 0), graphValuesBuffer.Load((_237 + 1u) * 4 + 0), graphValuesBuffer.Load((_237 + 2u) * 4 + 0));
+                uint _252 = (_187 + indirectBuffer.Load(_182 * 4 + 0)) << 2u;
                 uint _266 = ByteAddressMask((_252 + 200192u) >> 2u, 4u);
                 uint _273 = ByteAddressMask((_190 + 400384u) >> 2u, 4u);
-                uint3 _282 = uint3(attributeBuffer.Load<uint>(_273 * 4 + 0), attributeBuffer.Load<uint>((_273 + 1u) * 4 + 0), attributeBuffer.Load<uint>((_273 + 2u) * 4 + 0));
+                uint3 _282 = uint3(attributeBuffer.Load(_273 * 4 + 0), attributeBuffer.Load((_273 + 1u) * 4 + 0), attributeBuffer.Load((_273 + 2u) * 4 + 0));
                 float _306 = (unity_MatrixV[1u].x);
                 float _307 = (unity_MatrixV[1u].y);
                 float _308 = (unity_MatrixV[1u].z);
@@ -1109,7 +1112,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 float _393 = -mad(_338, unity_ObjectToWorld[2u].z, mad(_323, unity_ObjectToWorld[2u].x, _308 * unity_ObjectToWorld[2u].y));
                 float3 _394 = float3(_391, _392, _393);
                 float _396 = rsqrt(_72(_394, _394));
-                float _405 = mad(clamp(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_252 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load<uint>(ByteAddressMask(_252 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
+                float _405 = mad(clamp(asfloat(attributeBuffer.Load(ByteAddressMask((_252 + 1201152u) >> 2u, 4u) * 4 + 0)) / asfloat(attributeBuffer.Load(ByteAddressMask(_252 >> 2u, 4u) * 4 + 0)), 0.0f, 1.0f), 0.9921875f, 0.00390625f);
                 float4 _425 = bakedTexture.SampleLevel(samplerbakedTexture, float2((asfloat(_230.y) > 0.5f) ? (mad(-frac(_405 * 128.0f), 0.0078125f, _405) + 0.00390625f) : _405, asfloat(_230.x)), 0.0f);
                 float _432 = asfloat(_230.z);
                 COLOR.x = asfloat(_246.x) * (_432 * _425.x);
@@ -1117,7 +1120,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR.z = asfloat(_246.z) * (_432 * _425.z);
                 float _447 = _86(_94 & 1u);
                 float _448 = _86(_94 & 2u);
-                float _452 = asfloat(attributeBuffer.Load<uint>(_266 * 4 + 0));
+                float _452 = asfloat(attributeBuffer.Load(_266 * 4 + 0));
                 float3 _461 = float3(_447 - 0.5f, mad(_448, 0.5f, -0.5f), 1.0f);
                 float _462 = _72(float3(_452 * (_381 * _341), _452 * (_387 * _342), asfloat(_282.x)), _461);
                 float _465 = _72(float3(_452 * (_381 * _358), _452 * (_387 * _359), asfloat(_282.y)), _461);
@@ -1129,7 +1132,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 gl_Position.y = mad((unity_MatrixVP[2u].y), _500, mad((unity_MatrixVP[0u].y), _498, _499 * (unity_MatrixVP[1u].y))) + (unity_MatrixVP[3u].y);
                 gl_Position.z = mad((unity_MatrixVP[2u].z), _500, mad((unity_MatrixVP[0u].z), _498, _499 * (unity_MatrixVP[1u].z))) + (unity_MatrixVP[3u].z);
                 gl_Position.w = mad((unity_MatrixVP[2u].w), _500, mad((unity_MatrixVP[0u].w), _498, _499 * (unity_MatrixVP[1u].w))) + (unity_MatrixVP[3u].w);
-                float _569 = asfloat(attributeBuffer.Load<uint>(_266 * 4 + 0));
+                float _569 = asfloat(attributeBuffer.Load(_266 * 4 + 0));
                 float _570 = 1.0f / _569;
                 float3 _577 = float3(-(_570 * (_396 * _391)), -(_570 * (_396 * _392)), -(_570 * (_396 * _393)));
                 float _584 = _72(_577, float3(unity_WorldToObject[0u].x, unity_WorldToObject[0u].y, unity_WorldToObject[0u].z));
@@ -1141,7 +1144,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 TEXCOORD_6.x = (_601 * _584) * _608;
                 TEXCOORD_6.y = (_601 * _591) * _608;
                 TEXCOORD_6.z = (_601 * _598) * _608;
-                float _619 = trunc(floor(asfloat(attributeBuffer.Load<uint>(ByteAddressMask((_252 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
+                float _619 = trunc(floor(asfloat(attributeBuffer.Load(ByteAddressMask((_252 + 1401344u) >> 2u, 4u) * 4 + 0)))) * 0.5f;
                 float _622 = frac(abs(_619));
                 float _624 = (_619 >= 0.0f) ? _622 : (-_622);
                 TEXCOORD.x = (_447 + (_624 + _624)) * 0.5f;
@@ -1187,7 +1190,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
             
             struct SPIRV_Cross_Input
             {
@@ -1203,10 +1206,10 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
             
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -1215,7 +1218,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
             #else
@@ -1235,7 +1238,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             
             static float2 TEXCOORD;
             static float4 COLOR;
-            static float4 SV_Target;
+            static float4 spv_Color;
             
             struct SPIRV_Cross_Input
             {
@@ -1251,10 +1254,10 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
             void frag_main()
             {
                 float4 _44 = mainTexture.SampleBias(samplermainTexture, float2(TEXCOORD.x, TEXCOORD.y), asfloat(asuint(_GlobalMipBias.x)));
-                SV_Target.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
-                SV_Target.x = _44.x * COLOR.x;
-                SV_Target.y = _44.y * COLOR.y;
-                SV_Target.z = _44.z * COLOR.z;
+                spv_Color.w = clamp(_44.w * COLOR.w, 0.0f, 1.0f);
+                spv_Color.x = _44.x * COLOR.x;
+                spv_Color.y = _44.y * COLOR.y;
+                spv_Color.z = _44.z * COLOR.z;
             }
             
             SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -1263,7 +1266,7 @@ Shader "Hidden/VFX/Gargoyle Swarm/System/Output Particle Unlit Quad" {
                 COLOR = stage_input.COLOR;
                 frag_main();
                 SPIRV_Cross_Output stage_output;
-                stage_output.SV_Target = SV_Target;
+                stage_output.SV_Target = spv_Color;
                 return stage_output;
             }
             #endif

@@ -2042,5 +2042,9 @@ namespace CardPresentation
                 _rings[i].transform.localRotation = Quaternion.Euler(0f, 0f, _ringSpinDeg[i]);
             }
         }
+
+        /// <summary>🆕 2026-10-31（自检读口）：当前选中档 / 已落档 —— 只给 `B108` 的 FP-HUD-003 诊断用。</summary>
+        public AttackKind SelectedForTest { get { return _selected; } }
+        public AttackKind PickedAppliedForTest { get { return _pickedApplied; } }
     }
 }

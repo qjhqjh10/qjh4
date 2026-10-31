@@ -1234,8 +1234,9 @@ namespace CardPresentation
         /// （= `colider` 那一档 ⇒ `Unlocked` 时领奖那一下仍由 `colider` 赢）。⛔ 取了 `&gt;= QOverlay` 就会**抢走领奖**。</para>
         /// <para>🔴 **必须建在图标【之后】**：`Editor/RewardsScene.cs` 的 `ArtOf` = `GetComponentInChildren&lt;ImageQuad&gt;()`
         /// （取子树里第一张图）⇒ 建在前面会让「窗里 Id = 画的那张图」那几条静默变弱。</para>
-        /// <para>⚠️ **只挂 `Count &gt; 1` + `RewardClickable` 那一支**（原版同一个合取）；其余情形 `onClick` 留空、
-        /// 且关掉按钮音（原版 `showItemInfoOnClick == 0` 时 `OnPointerClick` 整颗早返回，连音都没有）。</para></summary>
+        /// <para>🔴 **2026-10-31（`B109_E23`）就地订正（铁律 5）**：原文写「其余情形 `onClick` 留空、且关掉按钮音」——
+        /// **两句都不成立**：原版 `ItemDrawer.OnPointerClick` 的第二跳是「有 `onClick` 就跑它、**没有就 `HandlePointerClick()`**」
+        /// （开 `ItemDisplayWindow(item, quantity)`），而末句 `inspectSound.Play2D()` **两条分支都放**。见下方 `else` 与 `clickCue`。</para></summary>
         WindowButton BuildPreviewHit(Transform holder, PxRect rect, int day, bool premium)
         {
             if (holder == null) return null;
@@ -1253,7 +1254,13 @@ namespace CardPresentation
                         Debug.LogWarning("[DailyReward] 点抽屉 ⇒ 预览窗**没开出来**（奖励列表为空；原版 `RewardService.Preview`）");
                 };
             }
-            else hit.playClickSound = false;
+            // 原版第二跳：**有 `onClick`（= `OverrideOnClickAction`，只有 `rewards.Count > 1` 才挂）就跑它**，
+            // 否则 `HandlePointerClick()` 开 `ItemDisplayWindow(item, quantity)` —— 后者是**每一天的常态**。
+            else hit.onClick = () => OpenItemInfo(day, premium);
+            // 原版末句 `if (inspectSound != null) inspectSound.Play2D()` —— **两条分支都放**（`decomp_generic_trial/out/
+            // ItemDrawer_object___OnPointerClick.c:38-41`；cue = `ButtonClick 1` / clip `UI Click 1`，同 `ItemDrawer.PlayInspectCue`）。
+            // ⛔ 别再写 `playClickSound = false`：那是「闸关着」那一支的写法，而这一格 `showItemInfoOnClick = 1`（§J6 ①）。
+            hit.clickCue = WindowSounds.ButtonClick1Cue;
             return hit;
         }
 
@@ -1270,6 +1277,40 @@ namespace CardPresentation
             if (h == null) return null;
             var node = h.Find("Preview Rewards Hit");
             return node != null ? node.GetComponent<WindowButton>() : null;
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B109_E23` · AUD05 §J6）
+        // 本节**追加在类尾**（铁律 18·b / 「新成员追加到类尾」）：上面最后一条落点 `PreviewRewardsHitForTest` 之后
+        // ⇒ 本文件既有账行（最新一条 = `:1112`）零行号漂移。
+        // 内容 = 原版 `ItemDrawer.HandlePointerClick()` 那一跳（Locked 态抽屉点一下 ⇒ 开物品展示窗）。
+
+        /// <summary>= 原版 `ItemDrawer.HandlePointerClick()`：
+        /// `WindowsManager.OpenWindow(new ItemDisplayWindowContext(item, quantity))`。
+        /// <para>判据（逐跳实读）：① `decomp_generic_trial/out/ItemDrawer_object___HandlePointerClick.c:15-25` ——
+        /// 用抽屉的两个字段造 `ItemDisplayWindowContext`（`+0x38 = item` · `+0x40 = quantity`；ctor 符号错配成
+        /// `UpgradeCardSignal___ctor` = ICF 折叠，同 RVA `0x67F830`）再 `WindowsManager.OpenWindow&lt;ItemDisplayWindow&gt;`；
+        /// ② `ItemDrawer_object___OnPointerClick.c:29-36` —— **只有 `onClick` 为 null 时才走这一跳**
+        /// （`count > 1` 那一支被 `OverrideOnClickAction` 截走）；③ 抽屉 prefab 由 `ItemDrawerConfig` 的
+        /// `Currency ▸ Key:10` 唯一确定 = `Icon Currency Drawer Variant`（`showItemInfoOnClick = 1`，闸是开的）
+        /// ⇒ **Locked 态点一下必须开窗**（AUD05 `J6` 那两处偏离之一）。</para>
+        /// <para>⚠️ **数量那一格传不进去（如实标注，⛔ 不塞进标题里冒充）**：原版 `ItemDisplayWindowContext` 的
+        /// `+0x18 = amount`，而我们这一侧的 `ItemDisplayWindow.Context` **没有 Amount 字段**（只铺 名/描述/类型/阵营/lore/图 六格）
+        /// ⇒ 这里只能把「物品 = 图 + 名」送进去。补齐要动 `Shell/ItemDisplayWindow.cs`（不在本代理白名单）
+        /// ⇒ 已写进报告 `资料/完全复刻/报告/B109_E23.md`「交回补丁」一节。</para>
+        /// <para>⛔ 不发奖、不关本窗（原版这一段只做 `OpenWindow` 一件事）。</para></summary>
+        void OpenItemInfo(int day, bool premium)
+        {
+            var art = DailyData.RewardIconOf(day, premium);
+            var ctx = new ItemDisplayWindow.Context
+            {
+                Title = DailyData.RewardName(day, premium),   // 原版 `item.LocalizedName`；我们这一格的名字串就是抽屉上印的那一条
+                Description = null, Type = null, Army = null, Lore = null,
+                Art = ItemDrawer.ArtTexture(art),             // 与抽屉图标同一张（= 原版 `ItemDrawer.Draw` 换 `image.sprite` 那一下）
+                ArtName = art,
+            };
+            var w = WindowsManager.OpenItemDisplay(ctx);
+            if (w == null)
+                Debug.LogWarning("[DailyReward] 点抽屉 ⇒ **物品展示窗没开出来**（原版 `ItemDrawer.HandlePointerClick`）—— 不静默");
         }
     }
 }

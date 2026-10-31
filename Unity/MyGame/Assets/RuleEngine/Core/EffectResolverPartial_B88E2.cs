@@ -464,7 +464,7 @@ namespace RuleEngine
         /// <para>⚠️ **只处理 `deal`**（其余动词没有 `damageCriteria` 这一层）；`AbilityMap == "attached"`
         /// 那一支**不碰**（与 `StampRollPerTarget` 同一条边界：主动能力是另一套 `(ab,lg)` 下标空间）。</para>
         /// </summary>
-        public static EffectOp ApplyRefCardValueOption(BattleContext ctx, EffectOp op, CardDef card)
+        public static EffectOp ApplyRefCardValueOption(BattleContext ctx, EffectOp op, CardDef card, int owner = -1, UnitState actor = null)
         {
             if (ctx == null || op == null || card == null) return op;
             if (!string.Equals(op.Verb, "deal", System.StringComparison.Ordinal)) return op;
@@ -472,7 +472,7 @@ namespace RuleEngine
             if (string.Equals(op.AbilityMap, "attached", System.StringComparison.Ordinal)) return op;
             var spec = card.AbilityDamageAt(op.AbilityIndex, op.LogicIndex);
             if (spec == null) return op;
-            int vo = spec.ValueOptions;
+            int vo = spec.ValueOptions; if (vo == 80) return ApplyMinPlusMaxTimesMultiplier(ctx, op, card, spec, owner, actor);   // 🆕 B108_N08：80 档走数据位（`min + max × 目标数`），⛔ 不再按形状猜
             if (vo != 100 && vo != 110 && vo != 120) return op;
 
             var rc = RefCardOf(ctx);
@@ -1027,6 +1027,88 @@ namespace RuleEngine
             return RunAbilityOfAnotherCard(ctx, abilityCard, KeywordTable.Rally, owner,   // 正文键 = `rally`（= `ThisCardPlayed(0)` 的卡面写法，见上一条注释的判据）
                                            abilityOwnerUnit: callerCard, actingCard: callerCard, targetCard: null,
                                            by: by ?? (callerCard != null ? callerCard.Name : abilityCard.Name));
+        }
+
+        // ==============================================================================================
+        //  🆕 2026-10-31（第一百零八会话 · `B108_N08`）—— `ChooseValueOptions.MinPlusMaxTimesMultiplier(80)`
+        //  判据 → `资料/完全复刻/判据/B88_R2_80档_VA判定.md` §一 · 本批判据单 `判据/B108_N08_valueOptions80.md`
+        // ==============================================================================================
+
+        /// <summary>
+        /// **原版 `ChooseValueOptions.MinPlusMaxTimesMultiplier(80)` 的求值口** ——
+        /// `damageCriteria.valueOptions == 80` 时伤害 = `minValue + maxValue × multiplierFactor`，
+        /// **确定值、不掷骰、整条 ability 只结算一次**。
+        ///
+        /// <para>判据（三条来源一致）：
+        /// ① VA `0x18081b71f cmp eax,0x50` / `0x18081b728 imul r14d,[rsp+0xf8]` / `0x18081b731 lea eax,[rdi+r14]`；
+        /// ② `decomp_full/AbilityLogic__GetValueFromCriteria.c:113-116` `return param_3 + param_4 * param_8;`
+        /// （⚠️ **不是 `(min+max)×mult`** —— 枚举名有歧义，以机器码为准）；
+        /// ③ `multiplierFactor` 的来源 `AbilityLogic__PlayAbility.c:181-236`（`GetTargets` 表长、`any(0)`⇒1、`× furtherMultiplier`），
+        /// 伤害支 `:1466-1508` 只调一次 `DealMultiDamage`。</para>
+        ///
+        /// <para>数据位 = `CardDef.AbilityDamageSpec.ValueOptions`（`cards_engine.json.abilityDamage[].opt`，
+        /// `CardDatabase.cs:1749` 挂载；同族 `StampRollPerTarget` 用同一条数据位判 90 档）。
+        /// 🔴 本函数取代原来的**形状等价**（`ta==50 ∧ AmountRef=="enemyhand"`），那是 18·0 违规形态（`B108_N08` 撤）。</para>
+        ///
+        /// <para>⚠️ 取不到数据 / 数不出来时**保留文本数值**（`AmountRef` 那条链仍是兜底）并出声，⛔ 不按形状猜；
+        /// `owner &lt; 0`（调用点还没接 `owner`）同样只出声、不生效。</para>
+        ///
+        /// <para>⚠️ **与 repeats 的配合**：原版这一档的乘数**只折进数值、不再当循环遍数**
+        /// （否则 = 平方：3 张手牌 → 9 点）。折成 1 遍那一半在 `TryStructuredMultiplier`
+        /// （`EffectResolver.cs` 的 `IsMinPlusMaxTimesMultiplier`，`B108_A1` 接）；两半**必须同批落地**。</para>
+        /// </summary>
+        /// <param name="spec">该 op 的 `damageCriteria` 四格（调用方已从 `AbilityDamageAt` 取到，且 `ValueOptions == 80`）。</param>
+        public static EffectOp ApplyMinPlusMaxTimesMultiplier(BattleContext ctx, EffectOp op, CardDef card,
+                                                              CardDef.AbilityDamageSpec spec, int owner, UnitState actor)
+        {
+            if (ctx == null || op == null || card == null || spec == null) return op;
+            if (spec.Min < 0 || spec.Max < 0)
+            {
+                ctx.Log($"「{op.Source}」是 80 档，但 `damageCriteria.min/max` 缺格（{spec.Min}/{spec.Max}）⇒ 保留文本数值");
+                return op;
+            }
+            if (owner < 0)
+            {
+                ctx.Log($"「{op.Source}」是 80 档（`min + max × 目标数`），但调用链没递 `owner` ⇒ 保留文本数值"
+                      + "（接线：`EffectResolver.ResolveOneCore` 的 `ApplyRefCardValueOption(ctx, op, card, owner, chosen)`）");
+                return op;
+            }
+            if (!card.TryGetCondition(op.AbilityIndex, op.LogicIndex, "mult", out var ms) || ms == null || ms.MultiplierSet == null)
+            {
+                ctx.Log($"「{op.Source}」是 80 档，但取不到 `multiplier` 行 ⇒ 保留文本数值");
+                return op;
+            }
+            if (ms.Exclude)
+            {
+                ctx.Log($"「{op.Source}」80 档的 `multiplier` 行 `excludeCondition = 1`（逐候选取反）本版未实现 ⇒ 保留文本数值");
+                return op;
+            }
+            int ta = ms.MultiplierSet.TargetsAffected;
+            int cnt;
+            if (ta == 0) cnt = 1;                        // 原版 `any(0)` ⇒ `multiplierFactor = 1`（`PlayAbility.c:190`）
+            else if (ta == CardDef.CountSetSpec.Unknown)
+            {
+                ctx.Log($"「{op.Source}」80 档的 `multiplier.targetsAffected` 未知（没落）⇒ 保留文本数值");
+                return op;
+            }
+            else
+            {
+                var n = CountMultiplierTargets(ctx, owner, ms.MultiplierSet, ms.Condition, actor, out var gap);
+                if (n == null)
+                {
+                    ctx.Log($"「{op.Source}」80 档的 `multiplier` 数不出来（{gap}）⇒ 保留文本数值");
+                    return op;
+                }
+                cnt = n.Value;
+            }
+            // `PlayAbility.c:235-236`：`if (0 < furtherMultiplier) local_178 *= furtherMultiplier`
+            int fm = op.AbilityFurtherMultiplier > 0 ? op.AbilityFurtherMultiplier : 1;
+            int v = spec.Min + spec.Max * (cnt * fm);
+            var c = op.Clone();
+            c.Amount = v; c.AmountMax = v;                  // 原版直接返回值：不是区间、不掷骰
+            ctx.Log($"「{op.Source}」的数值 = `min + max × 目标数` = {spec.Min} + {spec.Max} × {cnt}"
+                  + (fm > 1 ? $" × fm {fm}" : "") + $" = **{v}**（`ChooseValueOptions` 80 档）");
+            return c;
         }
     }
 }

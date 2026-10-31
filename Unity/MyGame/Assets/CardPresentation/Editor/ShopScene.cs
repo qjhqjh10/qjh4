@@ -2321,7 +2321,7 @@ public static class ShopScene
             Check(ShopData.OwnedOf(0, 0), o1, "★ **重读之后拥有数还在**（= 重启不清零）");
             if (a0 > 0)
                 Check(ShopData.AvailableOf(0, 0), a1, "★ **限购剩余次数也在**（它原来只是静态表里的结构体字段，重启就回初值）");
-            else CheckTrue(true, "（这一件没有限购信息 ⇒ 跳过限购那一条）");
+            else Debug.Log(P + "（这一件没有限购信息 ⇒ 跳过限购那一条 —— 本条验不到，如实登记）");
             ShopData.DeleteStoreForTest();            // 收尾：删档
             ShopData.OverrideDir = prevDir;           // ⚠️ 关掉门（后面的节不再碰盘，行为与今天完全一致）
             ShopData.ResetForTest();
@@ -3517,7 +3517,7 @@ public static class ShopScene
                 //  ⏱ 时序一律用 `bp.Advance(dt)` 推进（**不睡真实时间** —— 批处理没有帧循环）。
                 Check(bp.CardStates[0], (int)BoosterPackOpenWindow.CardState.Back,
                       "出场：第 1 格 state = **1（卡背态）**（原版 `Initialize` 末尾 `ChangeState(1)`）");
-                CheckTrue(!bp.WindowOpenDone, "开包 clip 还没播完（`Booster Window Open` = 0.6166667 s）");
+                CheckTrue(!bp.WindowOpenDone, "开包 clip 还没播完（`Booster Window Open` = 0.6166667 s）"); bp.StartOpenAnimations();   // 🆕 B109_E2：开包时间线现在是**事件驱动**（原版要等包实物那条 clip 在 t=2.0 打 `StartCardAnimationEvent`）；批处理里 `Animation` 不跑 ⇒ 这里显式打这一拍，再从 0 推 0.65 s（口径同 `B98A5_Assert` §4）
                 if (bp.SlotHits[0] != null) bp.SlotHits[0].ClickForTest();
                 CheckTrue(!bp.Opened[0],
                           "…开包 clip 播完之前点卡**无效**（原版 `UiColliderOnClick`：`state != 2` 直接 return）");
@@ -4194,9 +4194,10 @@ public static class ShopScene
                       + "（`bundle_menus_assets_all/MonoBehaviour/WildcardUltramarines1.json` 的 `m_Script` 解出的类）");
                 Check(ItemDrawer.ImplOfDrawerClass("WildcardDrawer"), ItemDrawer.DrawerWildcard,
                       "A79①-2：**原版抽屉类 → 我们的实现**（左 = 原版 `WildcardDrawer : ItemDrawer<Wildcard>`，右 = 我们的常量）");
-                Check(ItemDrawer.ImplOfDrawerClass("GenericArmyItemDrawer"), null,
-                      "A79①-2b：**判据有、实现没有的抽屉类 ⇒ `null`**（`GenericArmyItemDrawer` 在类型表 `Shell/ItemDrawer.cs:427` 里、我们没实现它；`TitleIconDrawer` 本轮已实现 ⇒ 换成唯一还剩的这一档）"
-                      + " —— 这条同时证明上面那条**不是恒真**（表若写成「有类名就给实现」它会红）");
+                Check(ItemDrawer.ImplOfDrawerClass("NoSuchDrawerClass_ZZZ"), null,
+                      "A79①-2b：**表里没有的抽屉类 ⇒ `null`**（原表 26 类已于 B109_E11 **全覆盖** ⇒ 已没有「判据有、实现没有」的类；"
+                    + "这里拿一个不存在的名字钉「不是有类名就给实现」）"
+                    + " —— 这条同时证明上面那条**不是恒真**（表若写成「有类名就给实现」它会红）");
                 string viaA79;
                 Check(ItemDrawer.PickDrawer(ItemDrawer.Spec("WildcardUltramarines1", null, null),
                                             DrawerOverride.Default, out viaA79),
@@ -6514,7 +6515,7 @@ public static class ShopScene
         // 🆕 2026-10-29（调度台代接线 · `B97_SHOP2`）：开箱奖励/来源卡配置/排程替身 + 限购售罄闸（A 组写盘全程在 OverrideDir 临时目录）。
         B97SHOP2Assert.Run(); _sink.Pass += B97SHOP2Assert.Pass; _sink.Fail += B97SHOP2Assert.Fail; /* 🆕 B102_D6：W15 的宿主换成**现建的活窗**（原来传的 `win` 在 `:4602` 开报价弹窗那一拍已被收割销毁 ⇒ Unity 假 null）；跑完立刻销毁 */ var w15Host = ShopWindow.Create(WindowsManager.EnsureHost()); w15Host.Manager.OpenWindow(w15Host); B97W15Assert.Run(w15Host); Object.DestroyImmediate(w15Host.gameObject); _sink.Pass += B97W15Assert.Pass; _sink.Fail += B97W15Assert.Fail; B102PACK_Assert.Run(); _sink.Pass += B102PACK_Assert.Pass; _sink.Fail += B102PACK_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W15`）：账 `商店:297` 售罄格变灰（灰走 SwitchMaterial 材质路径，⛔ 不是 `m_DisabledColor` 死值）；同一行追加 ⇒ 行数零变化
 
-        B103F4_Assert.RunShop(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B103F5_Assert.RunShopGrid(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
+        B103F4_Assert.RunShop(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B103F5_Assert.RunShopGrid(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B109_E2_Booster_Assert.Run(); _sink.Pass += B109_E2_Booster_Assert.Pass; _sink.Fail += B109_E2_Booster_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记统一成 `失败重列：`（原来写的是 `失败 N：` —— 同一件事四个宿主四种标记：
         //   `ShellScene`/`RewardsScene` 用 `✗`、`CollectionScene` 用 `✗`（拼在 StringBuilder 里）、

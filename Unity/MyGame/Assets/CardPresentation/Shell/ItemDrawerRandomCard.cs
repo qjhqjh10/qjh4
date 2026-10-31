@@ -82,13 +82,22 @@ namespace CardPresentation
                          + "原版这一支会 `List.get_Item` 越界抛异常）⇒ 这一层不画");
             }
 
-            // ③ / ④ 右半边（互斥）：中立 ⇒ 圆底；否则 ⇒ 阵营徽记
+            // ③ / ④ 右半边（互斥）：中立 ⇒ 圆底（+ 问号子件）；否则 ⇒ 阵营徽记
             var slotR = fr.Map(DrCx1, 108f, DrCx2, 648f);
             if (army == 0)
             {
                 var round = Tex(RandomArmyIconSprite);
                 if (round != null)
-                    MenuDraw.Rect(content, round, slotR, "Random Image", st.QArt, null, true, st.Clip, st.ClipSoftness);
+                {
+                    var randomImage = MenuDraw.Rect(content, round, slotR, "Random Image", st.QArt, null, true,
+                                                    st.Clip, st.ClipSoftness);
+                    // ③b `Content/Random Image/Icon`（🆕 2026-10-31 · `B109_E18`）：原版这颗**恒画**，但它的父件
+                    //   `Random Image` 出厂 `m_IsActive = 0`、由 `RandomCardDrawer.Draw` 第 ③ 段
+                    //   `randomArmyIcon.SetActive(item.cardArmy == CardArmy.Neutral)` 打开 ⇒ **只有中立阵营才看得见**
+                    //   （`decomp…/RandomCardDrawer.cs:24-30`）。我们这一支本来就只在 `army == 0` 里 ⇒ 条件等价。
+                    //   ⚠️ 父件被整块裁掉（`MenuDraw.Rect` 返 null）时子件也不建 —— 与原版「父件不画、子件跟着不画」同义。
+                    if (randomImage != null) DrawRandomIcon(randomImage.transform, fr, st);
+                }
                 else
                     Note("randomcard|round", "`Random Image` 的图 `" + RandomArmyIconSprite + "` 取不到 ⇒ 中立那一格空着");
             }
@@ -105,6 +114,50 @@ namespace CardPresentation
             DrawerArmyName(content, fr, army, st);
 
             DrawerNameQuantity(content, fr, item, qty, st, hasName: true, hasQuantity: true);
+        }
+
+        // ============================================================ `Content/Random Image/Icon`（🆕 2026-10-31 · `B109_E18`）
+        //
+        //  原版判据（逐条，判据全文 → `资料/完全复刻/判据/B109_R9_资源侧剩余.md` §1）：
+        //    · `Random Card Drawer.prefab` → `Content/Random Image`（INACT）→ 子件 `Icon`
+        //      （`Image` · Simple · `m_PreserveAspect 1` · `m_Color` 白 · `m_RaycastTarget 1`）
+        //    · `Icon` 的 `m_Sprite` = **`40k_Rewards_icon__`**（62×117 图集切片，guid `95c82c9c484c78e42a314def29a0a2e2`）
+        //    · ⛔ **不是** `cardIcon` 字段那张（`40k_general_wildcard_common_small`）—— 原版 `Draw` 不读它。
+        //    · ⛔ **不是** `Random Image` 自己那张（`UI_Button_Round_background`，那是父件）。
+        //
+        //  ⚠️ 为什么新增的成员全在这里：本仓纪律「新成员追加到类尾」（插在中间会让下游行号整体漂移）。
+
+        /// <summary>`Content/Random Image/Icon` 那颗问号图（prefab 实读，见上面那一节）。</summary>
+        const string RandomIconSprite = "40k_Rewards_icon__";
+
+        /// <summary>`Content/Random Image/Icon` 的设计 px 矩形（左 / 上 / 右 / 下，左上原点 · y 向下）。
+        /// <para>判据 = `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Random Card Drawer" --depth 6`：
+        /// `Random Image` 框 (0.4,108)-(712.4,648) = 712×540；`Icon` 锚点 (0.2,0.2)-(0.8,0.8) 内接其中 ⇒
+        /// 0.4+0.2×712 = **142.8** · 0.4+0.8×712 = **570.0** · 108+0.2×540 = **216** · 108+0.8×540 = **540**
+        /// （`menu_dump` 同一跑印的绝对矩形正是 `142.8,216 - 570.0,540`）。</para>
+        /// <para>⚠️ 判据文档 §1 那四个数写作「x 142.4→569.6 · y 540→864」：前半按「父框 x 从 0 起」算，差 0.4 px；
+        /// 后半是 **y 向上**的锚点值。本实现取 `menu_dump` 的实测绝对矩形（本仓 `PxRect` 是 y 向下），
+        /// 断言的期望值也按这一份 —— 两处都以 `menu_dump` 为准。</para></summary>
+        const float RandomIconX1 = 142.8f, RandomIconY1 = 216f, RandomIconX2 = 570.0f, RandomIconY2 = 540f;
+
+        /// <summary>画 `Content/Random Image/Icon`（原版那颗 `randomArmyIcon` 的**子件**）。
+        /// <para>调用前提：`item.cardArmy == 0`（中立）—— 见 <see cref="RandomCard"/> 第 ③ 段。</para>
+        /// <para>图在 `Resources/` 里取不到 ⇒ 出声一次、**不画**（⛔ 不拿别的图顶替；`CLAUDE.md` §三「不许静默失败」）。</para>
+        /// <para>队列：与原版「父件圆底 + 子件问号」不设材质差这一点一致，照本仓既有先例
+        /// （`Shell/BoosterInfoPopup.cs` 的「圆底盘 + 子件 `Background`/`Icon`」）**父子同 `QArt`** ——
+        /// 子件后建、同队列内后画。（⛔ 不用 z 分层：`CLAUDE.md` §三「分层要用渲染队列，不能用 z」。）</para></summary>
+        static void DrawRandomIcon(Transform parent, DrawerFrame fr, ItemDrawerStyle st)
+        {
+            var tex = Tex(RandomIconSprite);
+            if (tex == null)
+            {
+                Note("randomcard|icon", "随机卡抽屉的 `Content/Random Image/Icon` 图 `" + RandomIconSprite
+                     + "` 在 `Resources/` 里取不到 ⇒ 这一层不画"
+                     + "（导入口 = `工具/import_original_art.py` 的 `MENU_IMAGES` 那一行）");
+                return;
+            }
+            MenuDraw.Rect(parent, tex, fr.Map(RandomIconX1, RandomIconY1, RandomIconX2, RandomIconY2),
+                          "Icon", st.QArt, null, true, st.Clip, st.ClipSoftness);
         }
     }
 }

@@ -34,5 +34,10 @@ namespace CardPresentation
         /// ⇒ 光靠 `OnEnable` 会拿 `None` 去注册（2026-09-22 第一版就这么白跑一轮，日志里那条
         /// 「placement = None」的报错就是它）。同一个节点重复注册是幂等的（`RegisterAnchor` 会直接返回）。</summary>
         public void RegisterNow() { WindowsManager.RegisterAnchor(placement, transform); }
+
+        /// <summary>🆕 2026-10-31（`B108` · AUD03 #62）：`OnDisable` 之外再兜一层 —— 编辑器 `DestroyImmediate`
+        /// **不派 `OnDestroy`**（本仓 2026-10-30 实测），所以这条只能在**真 Play** 验；生产（`Destroy`）会走它。
+        /// ⛔ 别把这条当「批处理能验的断言」。</summary>
+        void OnDestroy() { WindowsManager.UnregisterAnchor(placement, transform); }
     }
 }

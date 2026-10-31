@@ -567,6 +567,11 @@ namespace CardPresentation
                 var hiQ = MenuDraw.Rect(row, Art(ArtCrateHi),
                               CenterRect(CrateHiCx, CrateHiCy + dy, CrateHiW, CrateHiH),
                               "Highlight Crate", QArt1, CrateHiTint);
+                // 🆕 2026-10-31（`B109_E33` · R15 §1·5 / #5）：原版 `Highlight Crate` 挂
+                //   `Everguild/UI/UI Glow SDF Noise` 的 `Border Chest Collect`
+                //   （判据：`Material_-1001325612927388121.json`；13 个 Image 引用它的 `m_Sprite` =
+                //    −602498432222458803，正是 `菜单全树.md` 里 `Highlight Crate` 那一行）⇒ 噪声 + SDF 边缘自走。
+                MenuFxMaterials.Apply(hiQ, MenuFxMaterials.GlowSdfBorderChestCollect);
                 _crateHi.Add(hiQ);
                 // `Chest`（自带 scl **0.8696**）· `Skull`（同）—— 中心随行一起走
                 // 🔴 **2026-10-18（音效线转来的界面缺口）：补命中区 + 点击音**（原来**只有视觉**，点了什么都不发生）。

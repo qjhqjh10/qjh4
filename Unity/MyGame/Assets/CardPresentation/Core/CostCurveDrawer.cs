@@ -256,7 +256,7 @@ namespace CardPresentation
 
         /// <summary>把 `MenuDraw.Nine(..., name: "Fill")` 建出来的九宫格抓成补间句柄。
         /// ⚠️ 子块名 = `ImageQuad.CreateNineSlice` 的固定拼法 **`&lt;name&gt;_&lt;i&gt;&lt;j&gt;`**
-        /// （这一族上下边框为 0 ⇒ 只有 `j = 1` 那一行 ⇒ `_10` / `_11` / `_12`）。
+        /// （这一族上下边框为 0 ⇒ 只有 `j = 1` 那一行 ⇒ `_01` / `_11` / `_21`；🔴 2026-10-31 `B108` 订正：原来写 `_10/_11/_12` 是错把列序当行序，抓不到三块 ⇒ 填充不随张数变）。
         /// 抓不到 ⇒ 返回一个三块全 null 的句柄（几何改不动 = 退化成直赋）并**出声一次**（不许静默）。</summary>
         static RowTween MakeRowTween(GameObject go, float slotW, float capLW, float capRW, float height)
         {
@@ -266,13 +266,13 @@ namespace CardPresentation
                 height = height, baseColor = FillTint,
             };
             if (go == null) return tw;
-            tw.capL = NinePart(go, go.name + "_10");
+            tw.capL = NinePart(go, go.name + "_01");
             tw.mid = NinePart(go, go.name + "_11");
-            tw.capR = NinePart(go, go.name + "_12");
+            tw.capR = NinePart(go, go.name + "_21");
             if (tw.mid == null && !_fillPartsWarned)
             {
                 _fillPartsWarned = true;
-                Debug.LogError("[CostCurveDrawer] 填充九宫格抓不到三块（`" + go.name + "_10/_11/_12`）⇒ "
+                Debug.LogError("[CostCurveDrawer] 填充九宫格抓不到三块（`" + go.name + "_01/_11/_21`）⇒ "
                              + "值补间只会改根节点显隐、**几何不会伸缩**（原版是 `Slider.fillAmount` 伸缩）。"
                              + "原因多半是 `ImageQuad.CreateNineSlice` 的子块命名变了，去看那一份。");
             }

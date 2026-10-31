@@ -90,7 +90,13 @@ run GameStaticDataCheck.Run gsd.log # GameStaticData 13 格默认值 / 新卡判
 #   ⇒ 这两列**今天不改任何卡的结算**；加它的理由是「数据侧先落地、消费端后接」时别丢断言。
 #   ⚠️ 纯数据，不建场景、不出图。⛔ 仍然**串行**。
 run EnchantmentTemplateCheck.Run enchant_tpl.log # 卡表 v37 两列 / abilityDamage 的 null 与空数组两档
-echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 + AnimFX + 卡面音效 + 音频快照 + LoadableRef + PlayerDataMath + GameModes + GameStaticData + EnchantmentTemplate = 20 条）==="
+# ---- 🆕 2026-10-31（第一百零八会话 · `B108` 调度台并入 · AUD11 §2.5 #8）----
+#   `WarpforgeArena1/Editor/MatKeyCheck.cs` 查 `WarpforgeEffectBinder.Cache` 的材质缓存键
+#   （`材质名|shader名`）有没有串：同名同 shader 但属性不同的材质会互相顶替（400+ 效果亮度漂移的根因之一）。
+#   🔴 它**只有 `Debug.Log("MK …")`、没有 pass/fail** ⇒ 本条的产出是诊断日志，判读用 `grep "^MK " matkey.log`；
+#   把它加进清单的理由 = AUD11「0 宿主 → 看着像自检、其实谁都没跑」。⛔ 仍然**串行**。
+run MatKeyCheck.Run matkey.log # 材质缓存键：同名同 shader 但属性不同的碰撞（仅诊断，无红绿）
+echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基座 + AnimFX + 卡面音效 + 音频快照 + LoadableRef + PlayerDataMath + GameModes + GameStaticData + EnchantmentTemplate + MatKey = 22 条）==="
 # 🔴 **2026-10-18 就地订正（铁律 5）**：这一句原来写「= **13** 条」—— **错了**，实读脚本的 `run` 调用**只有 12 个**
 #   （`grep -c '^run '` 会数出 13，因为它**把上面那句函数定义 `run () {` 也算进去了**；
 #    判据 = 本脚本的 12 个入口 + 本脚本跑出来的日志里**只有 12 行「开始」**）。
@@ -105,4 +111,5 @@ echo "=== $(date +%H:%M:%S) 全部结束（老八条 + 联机三条 + 卡面基�
 #   2026-10-28（第八十九会话 · 同日第三批）再增 `GameModesCheck.Run`（17→**18**，见 `B89-E11` 那条注释）。
 #   2026-10-28（第八十九会话 · 同日第四批）再增 `GameStaticDataCheck.Run`（18→**19**，见 `B89-E12` 那条注释）。
 #   2026-10-28（第八十九会话 · 同日第五批）再增 `EnchantmentTemplateCheck.Run`（19→**20**，见 `B89-E6b` 那条注释）。
-#   判据照旧：`grep -c '^run '` 会得 **21**（含函数定义 `run () {`），减去那一行 = **20**；也可以数日志里的「开始」行。⛔ 以后加/删条目时**只改这一处与 `echo` 那一句**。
+#   2026-10-31（第一百零八会话 · `B108`）再增 `MatKeyCheck.Run`（20→**21**，见 §AUD11 那条注释）。
+#   判据照旧：`grep -c '^run '` 会得 **23**（含函数定义 `run () {`），减去那一行 = **22**；也可以数日志里的「开始」行。⛔ 以后加/删条目时**只改这一处与 `echo` 那一句**。

@@ -1440,6 +1440,27 @@ namespace CardPresentation
             if (st.Premium) ItemDrawer.SetPremium(res.Node, box, st);
             if (conv) ItemDrawer.SetConverted(res.Node, box, st);
             else if (eph) ItemDrawer.SetEphemeral(res.Node, box, st);
+
+            // ---- 第 4 跳：新卡角标（🆕 2026-10-31 `B109_E20`，判据 → `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §J1）----
+            //  原版 `RewardWindow.Open` 在**这一条奖励 Draw 完之后**做一次接口分派：
+            //    `sub_1803f3750(drawer, typeof(ICardDrawer))`（≈ `drawer as ICardDrawer`，`out_il2csharp/RewardWindow.cs:154`）；
+            //    非 null 才 `sub_180014bc0(1, typeof(ICardDrawer), drawer, GetOwnedCount<ObtainableItem>(item) < 2 ? 1 : 0)`
+            //    （`:162`）。`disasm_va 0x180014BC0` 是**接口分派 thunk**（不是业务函数）：`[r8+0xb0]` 里按类型线性找
+            //    offset → `add eax,1`（第 1 实参 = 槽号 1）→ vtable[+0x138] 尾调用；被调签名 `(this, bool, bool)`。
+            //    `ICardDrawer` 全表两条（`out_cpp2il_dev_ilspy/ICardDrawer.cs`）：`ToggleGreyScale(bool)` 一参 ·
+            //    **`ToggleNewCardBadge(bool,bool)`** 两参 ⇒ 槽 1 + 两参**只能**是后者，第 5 实参 `1` = **`withAnimation:true`**。
+            //  落地 = `BasicCardUI.ToggleNewCardBadge`：`newCardBadge.SetActive(option)`；
+            //    `(withAnimation & option) != 0` 才 `DOScale(1.1f, 0.35f)` + `Ease.OutBounce`（数值与我方
+            //    `Core/CardView.cs:15304/15306` 逐字节一致 ⇒ `CardView` 侧零改动）。
+            //  🔴 **`DrawerOverride` 不按「已拥有」分档**：ILSpy 那行 `(DrawerOverride)1` 是 `NoteDecompilerIssue` 之后
+            //    凭空编的局部（枚举只有 0/10/15/20/30，且该局部之后**没有任何读者**）⇒ 伪码，⛔ 别照抄。
+            //  「只对第一格」= 原版那一句在**展开循环之外**、只作用在第一条 Draw 出来的抽屉上（我们的 `first` 就是它）。
+            if (first && (res.Drawer == ItemDrawer.DrawerCard || res.Drawer == ItemDrawer.DrawerCardAltArt))
+            {
+                var cv = res.Node.GetComponentInChildren<CardView>(true);
+                string cid = string.IsNullOrEmpty(item.CardId) ? item.Id : item.CardId;
+                if (cv != null) cv.ToggleNewCardBadge(NewCardBadgeOn(cid), withAnimation: true);
+            }
             return res.Node;
         }
 
@@ -1607,6 +1628,23 @@ namespace CardPresentation
         {
             if (ctx != null && !string.IsNullOrEmpty(ctx.CustomTitle)) return ctx.CustomTitle;
             return Loc.T(preview ? "MainMenu/RewardWindow/PreviewRewardsTitle" : "MainMenu/RewardWidnow/GetRewardsTitle");
+        }
+
+        // ---- 类尾 · B109_E20（2026-10-31）：第 4 跳「新卡角标」的**判据主体**
+        //   原版那一句 = `RewardWindow__Open.c:150-158` / `out_il2csharp/RewardWindow.cs:162`：
+        //     `InventoryManager.Instance.GetOwnedCount<ObtainableItem>(item) < 2`
+        //   （接口分派 thunk `0x180014BC0`、槽 1 + 两参 ⇒ `ToggleNewCardBadge(bool,bool)`、
+        //    第 5 实参 `1` = `withAnimation:true`；判据全文 → `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §J1）。
+        //   ⚠️ 与卡包那条**口径不同**（`CardInBoosterPack` 的两个调用点都是 `== 1`）—— 领奖窗是 `< 2`，
+        //      所以「一件都没有（0）」在领奖窗里**也算新卡**；⛔ 别为了「统一」把这里改成 `== 1`。
+        //   ⚠️ 卡 id 在卡池里查不到 ⇒ `false`（⛔ 不拿别的档顶）——调用方那一路本来就只在**卡抽屉**上跑。
+        //   ⚠️ 追加在**类尾**（账里本文件的落点最大到 `:1581`）⇒ 对账零漂移（铁律 18·b）。
+        /// <summary>这一格奖励的卡**要不要显「新卡角标」** = 原版 `GetOwnedCount(item) &lt; 2`。
+        /// <para>读口公开是为了让自检能**直接对真实库存计数**验，而不是把常量抄一遍（灭自证）。</para></summary>
+        public static bool NewCardBadgeOn(string cardId)
+        {
+            var def = CollectionData.Card(cardId);
+            return def != null && CardProgress.Owned(def.Id, def.Rarity) < 2;
         }
     }
 

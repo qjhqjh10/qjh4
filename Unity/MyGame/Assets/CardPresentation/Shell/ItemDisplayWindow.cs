@@ -53,6 +53,15 @@
 //   `AspectRatioFitter(m_AspectMode = 2 高控宽, m_AspectRatio = 0.66)`（26 份 prefab 逐份同值，锚点 (0,0)-(1,1)）
 //   ⇒ 借 650×650 的 Holder 得到 **429×650** 的画框；抽屉内部那层 `Content`(712×1080 → `UIScaleToFit`)
 //   与 `Image`(锚点 -0.075~1.075、`preserveAspect`) 的二级几何**没有复刻**（判据不足以定到 px）。
+// · **数量（`Context.Amount`）** = 原版 `ItemDisplayWindowContext.amount`（`+0x18`），`Open` 拿它调
+//   `ItemDrawer.Draw(itemHolder, item, amount)`。🔴 **原版自己决定画不画**：`ItemDrawer<object>.Draw`
+//   只在抽屉的 `ItemDrawerComponents.quantity != null` 时 `set_text(amount.ToString())`，而那颗 TMP
+//   还挂在 `Content/Label` 下 —— 那一行 `m_IsActive = 0` 就整行不画。**2026-10-31 prefab 现读（两族）**：
+//     · `Cardback Drawer`：`quantity` 非 null（TMP 出厂文本 `'2'`）但 `Content/Label` `m_IsActive = 0`
+//       ⇒ 写进去了、**看不见**（同族判据也在 `Shell/ItemDrawerCosmetic.cs` 的 `Cardback` doc）；
+//     · `Icon Currency Drawer Variant`（每日奖励那族）：`label` / `quantity` **全 null** ⇒ 连写都不写。
+//   ⇒ 这两族里**物品窗本来就不显示数量**。我们这一侧因此把「画不画」显式成一格 `Context.ShowAmount`
+//   （= 那条 prefab 判据；今天两族都是 false），只有它为真时才画（几何走 `ItemDrawerLayout` 的共用尺）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -127,16 +136,38 @@ namespace CardPresentation
             public string Lore;         // 原版 `itemLoreKey` 的词条值（null ⇒ 整块 FlavourTextBG 关）
             public Texture2D Art;       // `Item Holder` 里那张
             public string ArtName;      // 出声用的名字（取不到图时报告它）
+
+            /// <summary>= 原版 `ItemDisplayWindowContext.Amount`（**`+0x18`**）。判据：`ItemDisplayWindowContext__.ctor.c`
+            /// （符号错配成 `UpgradeCardSignal___ctor` = ICF 折叠；体对：`+0x10 = item` · `+0x18 = amount`）＋
+            /// 签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/ItemDisplayWindowContext.cs`：
+            /// **`ItemDisplayWindowContext(ObtainableItem item, int amount = 1)`**（默认 **1**）＋
+            /// `ItemDisplayWindow__Open.c` 里那句 `ItemDrawer__Draw(itemHolder, context.item, context.amount)`。
+            /// <para>🔴 **它不是「我们想显示的数字」，是抽屉的输入**：可见性由**抽屉 prefab 自己**决定 ——
+            /// `ItemDrawer&lt;object&gt;.Draw` 只在这一件的 `ItemDrawerComponents.quantity` 非 null 时才
+            /// `set_text(amount.ToString())`，而那颗 TMP 还挂在 `Content/Label` 下（该节点 `m_IsActive = 0` 时整行不画）。</para>
+            /// <para>⚠️ 原版 ctor 有默认实参 **1**，C# 的 `struct` 字段初始化不了这个默认值 ⇒ 调用方 `new Context { … }`
+            /// 不写它就会是 **0**。凡会让 `ShowAmount` 为真的调用方**必须显式给**（照原版默认值写 1）。</para></summary>
+            public int Amount;
+
+            /// <summary>🔶 **我们这一侧的开关**（原版没有对应字段，原版把这条判据写在抽屉 prefab 里）：
+            /// 这一件的抽屉**会不会画「数量」那一格** ⇒ <see cref="Build"/> 要不要补那条数字。
+            /// <para>判据口径 = 那一样东西的抽屉 prefab 上 `ItemDrawerComponents.quantity != null`
+            /// **且** `Content/Label` 在激活链上（`ItemDrawerLayout.DrawerNameQuantity` 的 `hasQuantity` 同一条）。</para>
+            /// <para>📌 **今天能走到的两族都是 `false`**（2026-10-31 现读 prefab，见 `<see cref="ForCardback"/>` 的注释）：
+            /// `Cardback Drawer`（数量槽非 null、但 `Content/Label` = `m_IsActive 0`）·
+            /// `Icon Currency Drawer Variant`（`quantity` / `label` **全 null**）⇒ 原版在这两族里**不画数量**。</para></summary>
+            public bool ShowAmount;
         }
 
         /// <summary>出厂值 = prefab 里那三颗 TMP 的原文（`Title` / `New Text` / `Type`），无图、无 lore。
-        /// 走到这一档 = 调用方没给内容（原版此时是「空上下文」）。</summary>
+        /// 走到这一档 = 调用方没给内容（原版此时是「空上下文」⇒ `LogError("No item available") + return`，**什么都不建**；本档只当哨兵，⛔ 别再拿它铺文本）。</summary>
         public static Context DefContext()
         {
             return new Context
             {
                 Title = "Title", Description = "New Text", Type = "Type",
                 Army = null, Lore = null, Art = null, ArtName = null,
+                Amount = 1, ShowAmount = false,   // `Amount = 1` = 原版 ctor 的默认实参（`ItemDisplayWindowContext(ObtainableItem item, int amount = 1)`）；这一支本身是错误路径
             };
         }
 
@@ -151,7 +182,7 @@ namespace CardPresentation
 
         // 自检读口（节点引用）
         Transform _panel, _flavourBg, _holder;
-        Label _title, _desc, _type, _lore;
+        Label _title, _desc, _type, _lore, _amount;
 
         // ============================================================ 从卡背数据建 Context
         /// <summary>把 `Resources/Cardbacks.json` 里的一条卡背转成本窗的内容（= 原版
@@ -159,7 +190,15 @@ namespace CardPresentation
         /// <para>⚠️ 查不到的每一格都**出声**（红线：不许静默失败），⛔ 不拿别的字顶（尤其不拿 lore 顶 Description）。</para></summary>
         public static Context ForCardback(string cardbackName)
         {
-            var c = new Context { ArtName = cardbackName, Title = "", Description = null, Type = null, Army = null, Lore = null };
+            // 🔴 `Amount = 1` 是**原版的实参**：`CardbackCollectionTab__OnItemSelected.c` 造的是
+            //    `ItemDisplayWindowContext(item, 1)`（不是我们挑的默认值；同一个 ctor 在抽屉那一路
+            //    `ItemDrawer<object>__HandlePointerClick.c` 里传的是抽屉自己的 `+0x40 = quantity`）。
+            // ⚠️ `ShowAmount` 留 **false**：这一件的抽屉是 `Cardback Drawer`，它的 `Content/Label`
+            //    （数量/名字那一行）`m_IsActive = 0`（2026-10-31 prefab 现读：
+            //    `Label_-8075592410334473988` active=False，里面 `Quantity_` 虽挂着 TMP 文本 `'2'`）
+            //    ⇒ 原版 `ItemDrawer<object>.Draw` 会把 `amount.ToString()` 写进那颗 TMP，但**整行不画**
+            //    ⇒ 物品窗里看不到数量（同族判据也写在 `Shell/ItemDrawerCosmetic.cs` 的 `Cardback` doc 里）。
+            var c = new Context { ArtName = cardbackName, Title = "", Description = null, Type = null, Army = null, Lore = null, Amount = 1, ShowAmount = false };
             c.Art = CardArt.Cosmetic(cardbackName);
             if (c.Art == null)
                 Debug.LogWarning("[ItemDisplay] 卡背图取不到：`" + cardbackName + "`（`Resources/Art/cardbacks/` 里没有）"
@@ -217,7 +256,7 @@ namespace CardPresentation
             // `openSound` / `closeSound` 实读都是空 PPtr、`useDefaultCloseSoundIfNull = 1`
             //   ⇒ 一个 clip 都不赋，关窗音走 `GameWindow.Close()` 的家族默认（`ButtonClick Back`）。
             win.Manager = mgr;
-            win._ctx = FillDef(ctx);
+            win._ctx = FillDef(ctx); win._ctxProvided = ctx.HasValue;   // Q2：`ctx == null` = 原版 `context.item == null` 的第一种来源（见 `IsEmptyContext`）
             WindowsManager.AttachToAnchor(win);
             if (mgr != null) mgr.OpenWindow(win);
             else { Debug.LogWarning("[ItemDisplay] 没有 `WindowsManager` ⇒ 只建出来、没进窗口管理器。"); win.Open(); }
@@ -228,6 +267,7 @@ namespace CardPresentation
         {
             LastOpened = this;
             Build();
+            if (IsEmptyContext()) return;   // 原版那一支 `LogError + return` 到此为止（声已由 `Build()` 出过，⛔ 别再来一句 `Type` 留空）
             if (string.IsNullOrEmpty(_ctx.Type))
                 Debug.LogWarning("[ItemDisplay] `Type` 那一行**留空**：原版 = I2(`ItemDrawerOptions.TypeString`)，"
                                + "而那份 `ItemDrawerConfig` 资产在解包树里**不存在**（84 个 bundle 的 MB 逐字节搜 "
@@ -239,7 +279,7 @@ namespace CardPresentation
         /// 所以复用那一支必须显式调本方法。</para></summary>
         public void Show(Context? ctx = null)
         {
-            _ctx = FillDef(ctx);
+            _ctx = FillDef(ctx); _ctxProvided = ctx.HasValue;
             Build();
         }
 
@@ -247,11 +287,22 @@ namespace CardPresentation
         /// <summary>照 prefab 逐节点搭（**先清空重来** —— 换内容就是重建，同 `GenericOptionsPanel.Build`）。</summary>
         public void Build()
         {
+            // 🔴 **原版第一句**（`decomp_full/ItemDisplayWindow__Open.c:23-27`；可读体 =
+            //   `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/ItemDisplayWindow.cs` 的 `Open()`）：
+            //   `if (context.item == null) { CustomDebug.LogError("No item available"); return; }` —— **一个节点都不建**。
+            //   ⛔ 别退回「`DefContext()` 那三颗出厂文本（`Title` / `New Text` / `Type`）」那条老路：那是 prefab 的
+            //   **静态初值**，不是「没上下文时该铺的东西」（`报告/C2.md` §七·2 记的既有偏离，本轮按原版改掉）。
+            //   ⚠️ 我们的 `Context` 没有 `.item` 对象 ⇒ 判据 = `IsEmptyContext()`（类尾）。
+            if (IsEmptyContext())
+            {
+                Debug.LogError("[ItemDisplay] No item available");   // 消息体 = 原文字面量 `No item available`（`out_il2csharp` 现读）；前缀 `[ItemDisplay]` 是本仓日志惯例
+                return;
+            }
             var root = transform;
             MenuDraw.ClearChildren(root);
             MissingArt.Clear();
             _panel = _flavourBg = _holder = null;
-            _title = _desc = _type = _lore = null;
+            _title = _desc = _type = _lore = _amount = null;
 
             // ---- 1) `Menu Dark Background`：压暗整屏 + 「点它 = 关窗」----
             //   判据 = 原版那颗 `Image` 的 `m_Color = (0,0,0,0.773)`；`<无图>` ⇒ 用 1×1 白图 + tint。
@@ -337,6 +388,37 @@ namespace CardPresentation
                     Debug.LogWarning("[ItemDisplay] 卡背 quad 建不出来（`MenuDraw.Rect` 返回 null）—— 不静默");
                 else MenuDraw.Absorb(_holder, "AbsorbHit", box, QShade, QHit);
             }
+            // 原版 `ItemDisplayWindow__Open.c` 第 ② 跳 = `ItemDrawer.Draw(itemHolder, item, amount)` ——
+            // **数量那一格由抽屉自己画**。`ShowAmount` = 「这一件的抽屉会画那一行」（判据 → `Context.ShowAmount` 的 doc）。
+            if (_ctx.ShowAmount) BuildAmount();
+        }
+
+        // ============================================================ 数量那一格（= 抽屉 `Content/Label/Quantity`）
+        /// <summary>把 `Context.Amount` 画进**抽屉自己的数量格**（原版 `ItemDrawer&lt;object&gt;.Draw` 的第 ③ 步：
+        /// `label.setText(amount.ToString())`，`decomp_generic_trial/out/ItemDrawer_object___Draw.c`）。
+        /// <para>🔴 **几何不另起一套**：格子 = `ItemDrawerLayout.Metrics()` 的 `QtyX1..QtyX2 × LabelY1..LabelY2`
+        /// （prefab 逐份实读的共用尺），经 `ItemDrawer.FrameOf(ItemBoxRect())` 折到本窗的 `Item Holder` 框
+        /// —— 与 `ItemDrawerLayout.DrawerNameQuantity` 用的是**同一份常量与同一条换算**（⛔ 别在这儿抄第二份数字）。
+        /// 字号三格照 `Content/Label/Quantity` 那颗 TMP：`75 / auto[12~75] / base 36`（prefab 实读），右对齐、不折行
+        /// （`折行=0`）—— 也照 `ItemDrawer.Quantity()` 的同族写法。</para>
+        /// <para>⚠️ 这一条**今天没有任何生产调用方**会走到（`ShowAmount` 在两族里都是 false）——
+        /// 它是「把原版那条链补全」，不是死代码：`Context` 是公开的，任何已知抽屉会画数量的调用方都能开。</para></summary>
+        void BuildAmount()
+        {
+            var fr = ItemDrawer.FrameOf(ItemBoxRect());
+            var m = ItemDrawer.Metrics();
+            var r = fr.Map(m.QtyX1, m.LabelY1, m.QtyX2, m.LabelY2);
+            _amount = MenuDraw.TextBox(_holder, r, _ctx.Amount.ToString(), Color.white, ItemDrawer.NodeQuantity,
+                                       75f * fr.K, 12f * fr.K, QItemArt, 75f * fr.K, 36f * fr.K,
+                                       face: TmpFont.Face.LatinCardBody);
+            if (_amount == null)
+            {
+                Debug.LogWarning("[ItemDisplay] `ShowAmount` 为真，但数量那一格的文字建不出来（`MenuDraw.TextBox` 返回 null，"
+                               + "多半是整块落在视口外）⇒ 这一格**没画**（不静默）");
+                return;
+            }
+            _amount.SetWrapping(false);                 // 原版 `Content/Label/Quantity` 的 `折行=0`
+            MenuDraw.AlignRight(_amount, r);            // 原版 `m_HorizontalAlignment = Right`
         }
 
         // ============================================================ 几何
@@ -414,6 +496,9 @@ namespace CardPresentation
         public Label DescriptionLabel { get { return _desc; } }
         public Label TypeLabel { get { return _type; } }
         public Label LoreLabel { get { return _lore; } }
+        /// <summary>数量那一格的文字（原版 `Content/Label/Quantity`）。**`null` = 这一件没画数量**
+        /// （`ShowAmount` 为 false，或那一格被视口闸挡掉 —— 后者会出声）。</summary>
+        public Label AmountLabel { get { return _amount; } }
 
         /// <summary>自检用：把当前铺出来的东西摊开。</summary>
         public string DebugDump()
@@ -422,8 +507,32 @@ namespace CardPresentation
                  + " desc=\"" + (_desc != null ? _desc.Text : "-") + "\""
                  + " type=\"" + (_type != null ? _type.Text : "-") + "\""
                  + " loreOn=" + (_flavourBg != null && _flavourBg.gameObject.activeSelf)
+                 + " amount=" + (_amount != null ? _amount.Text : "<未画>")
                  + " art=" + (_ctx.Art != null ? _ctx.Art.name : "<null>")
                  + " missingArt=" + _missArt.Count;
+        }
+
+        /// <summary>调用方**真的给了**一份 `Context`（= 原版 `data` 里那个 `ItemDisplayWindowContext` 存在）。
+        /// <para>⚠️ 字段声明放在类尾（不是在 `_ctx` 旁边）：本文件被账按行号钉着（`菜单_外壳.tsv` 的 `:248` / `:266`），
+        /// 插在字段区会把它们顶下去 ⇒ `check_ledger_points` 报漂移。语义与位置无关。</para></summary>
+        bool _ctxProvided;
+
+        /// <summary>= 原版 `context.item == null`（`decomp_full/ItemDisplayWindow__Open.c:23-27` 的那道闸）。
+        /// <para>我们的 <see cref="Context"/> **没有「物品对象」这一层**（原版是 `ObtainableItem` SO 引用），
+        /// 只有「图 + 图名 + 已经本地化好的四行字」⇒ 判据分两条：</para>
+        /// <list type="number">
+        /// <item>调用方**根本没给** `Context`（`ctx == null` ⇒ <c>_ctxProvided == false</c>）—— 这是原版
+        ///   `WindowsManager.OpenWindow&lt;ItemDisplayWindow&gt;(null)` 那条路的等价物；</item>
+        /// <item>给了一份但**认不出是哪件东西**：`Art == null &amp;&amp; ArtName` 空 **且** `Title` 空
+        ///   （= 一个全空的 `new Context()`）。</item>
+        /// </list>
+        /// <para>⚠️ 只要 `ArtName` 或 `Title` 有一个非空就**不算空**：`ForCardback` 在图缺失时 `Art == null`
+        /// 但 `ArtName` 有值 —— 原版 `context.item` 非空、照样建窗（只是抽屉那张图画不出来），
+        /// ⛔ 别把「图缺」当「没上下文」。</para></summary>
+        bool IsEmptyContext()
+        {
+            if (!_ctxProvided) return true;
+            return _ctx.Art == null && string.IsNullOrEmpty(_ctx.ArtName) && string.IsNullOrEmpty(_ctx.Title);
         }
     }
 }

@@ -240,7 +240,7 @@ namespace CardPresentation
             if (m == null) return DefaultRowH;
             if (m.Height > 0f) return m.Height;
             float wrap = Mathf.Max(1f, rowW - ChatMessageRow.RowPadLeft(m.Mine) - ChatMessageRow.RowPadRight(m.Mine));
-            float msgH = MeasureMessagePx(SocialData.Text(m), wrap);
+            float msgH = MeasureMessagePx(ChatMessageRow.BodyText(m), wrap);   // 2026-10-31（B109_E21）：量**三态之后的**正文（Translating 带 `" (词条)"` 后缀；原版 CSF `VerticalFit=MinSize` 也是跟着真文本撑）
             return RowPadTop + RowPadBottom + RowHeadH + RowGap + msgH;   // 2026-10-31（B107_W2）：**不夹 60** —— 原版 CSF 只给 `57 + 正文`，空正文 = 57（判据见上面那段）
         }
 

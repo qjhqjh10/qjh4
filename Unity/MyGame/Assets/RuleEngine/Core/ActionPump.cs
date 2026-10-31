@@ -1907,6 +1907,8 @@ namespace RuleEngine
             //   所以本行**零行为变化**，补的是「卡面/数据一出现就自动生效」这一层（铁律 11）。
             if (keyword == KeywordTable.Courtesy) return "Courtesy";        // 43
             if (keyword == KeywordTable.Relentless) return "Relentless"; if (keyword == KeywordTable.TriggerOnceIfBoardCriteria) return "TriggerOnceIfBoardCriteria"; if (keyword == KeywordTable.Requiem) return "Requiem";   // 230 / 200（200 这一格 = B90·B1 补：`RawCardScript__UpdateTriggerOnce.c:13` 那一趟的名字）/ 430（`B95_WPUMP` 2026-10-29 补，判据见类尾 §十一）
+            if (keyword == KeywordTable.Backlash) return "ThisUnitDeath";   // 80（B109_C1：原版 `ThisUnitDeath(80)`；池内 6 张 6/6 有 trigger 80）
+            if (keyword == KeywordTable.Penitence) return "Rage";           // 130（B109_C1：原版 `Rage(130)`；池内 5 张 5/5 有 trigger 130）
             return null;
         }
 

@@ -232,7 +232,7 @@ namespace CardPresentation
         /// ⚠️ **还不能拿去开战** —— 原因与出处见 `PrebuiltDecks.WarnNotPlayableYet`。</summary>
         public PrebuiltDecks.Deck PickedPrebuilt;
 
-        /// <summary>`To Battle!` 真的切了场景没有（自检用 —— 批处理下不切）。</summary>
+        /// <summary>`To Battle!` 真的切了场景没有（自检用 —— 批处理下不切）。🆕 **2026-10-31（`B108_A2` · 调度台续办 #2）就地订正（铁律 5）**：`AUD10` §三 R8 记成「全类/全仓**无读者**」**是错的**（普查漏了 `Editor/`）—— 现读读者 `Editor/MainMenuScene.cs:9592/9600/9692/9695`（`sk.StartedBattle`，`SkirmishEventWindow : LiveOpsEventWindow`）与 `:10280`（`rk.StartedBattle`）；原版 `LiveOpsEventWindow`/`BaseParentEventWindow` **没有这个成员**（`cpp2il/…/LiveOpsEventWindow.cs` 全类只有 `LiveOp` 一个字段）⇒ 它是**我们的自检口**，保留写与读者，⛔ 别再判死字段。</summary>
         public bool StartedBattle { get; private set; }
         /// <summary>最近一次开出来的那扇（自检用）。</summary>
         public static LiveOpsEventWindow LastOpened;

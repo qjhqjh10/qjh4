@@ -75,17 +75,17 @@ namespace CardPresentation
         /// <summary>特效那条路（`WFSoundPlayer`）统一挂在 FX 组上。</summary>
         static void RouteEffectSounds()
         {
-            var groups = _mixer.FindMatchingGroups("FX");
+            var groups = FxMixer != null ? FxMixer.FindMatchingGroups("General") : null;
             if (groups != null && groups.Length > 0) WFSoundPlayer.FxGroup = groups[0];
-            else Debug.LogWarning("[Audio] mixer 里找不到 `FX` 组 —— 特效音效不会受音效滑块影响");
+            else Debug.LogWarning("[Audio] 子 mixer `Audio/FX` 里找不到 `General` 组 —— 特效音效不会受音效滑块影响");
 
             var vg = _mixer.FindMatchingGroups("Voices");
             if (vg != null && vg.Length > 0) VoicesGroup = vg[0];
             else Debug.LogWarning("[Audio] mixer 里找不到 `Voices` 组 —— 单位语音不会受语音滑块影响");
 
-            var mg = _mixer.FindMatchingGroups("Music");
+            var mg = MusicMixer != null ? MusicMixer.FindMatchingGroups("General") : null;
             if (mg != null && mg.Length > 0) MusicGroup = mg[0];
-            else Debug.LogWarning("[Audio] mixer 里找不到 `Music` 组 —— **菜单音乐不会受音乐滑块影响**");
+            else Debug.LogWarning("[Audio] 子 mixer `Audio/Music` 里找不到 `General` 组 —— **菜单音乐不会受音乐滑块影响**");
 
             var jg = _mixer.FindMatchingGroups("Jingles");       // 🆕 结算开门的胜/败/平音效
             if (jg != null && jg.Length > 0) JinglesGroup = jg[0];
@@ -242,16 +242,16 @@ namespace CardPresentation
         //   · `SnapshotsType`（`il2cpp_out/dump.cs:17953-17962`）六个值**逐字照抄**：
         //       `FxNormal=0 · FxNoVolume=1 · MusicBattleMusicLow=2 · MusicBattleMusicMedium=3 ·
         //        MusicBattleMusicHigh=4 · MusicBattleMusicNoMusic=5`
-        //  🔴 **资产侧还没做**（所以本段今天取不到任何快照、只会出声）：
-        //     `Resources/Audio/Main Mixer.mixer` 里**一个 `m_Snapshots` 条目都没有**（现读 `grep -c` = 1 = 只有默认块），
-        //     也没有 `BattleGroup Low/Medium/High` 三个组。那一步**必须跑编辑器脚本**（`Editor/AudioSetup.cs` /
-        //     `工具/setup_audio_mixer.py`）⇒ 只有主对话能跑 Unity。派活包 §A-02 原话：
-        //     「写手可以先把 `.cs` 侧写好（取不到快照就**出声**），等主对话补资产后再验收」。
-        //  🔶 自己设计（非原版）：**六个快照的字符串名**。原版那个映射活在 `AudioMixerAddresableReferences`
-        //     这个 SO 资产里（本机没有导出/未解出），而我们建快照必须有个名字 ⇒ 取 `SFX On` / `SFX Off` /
-        //     `Music Low` / `Music Medium` / `Music High` / `Music None`（= 派活包 §A-02 步骤 ① 点名的四个 +
-        //     另外两档的中文序命名）· 调度台 2026-10-27 派活 · 主对话建快照时**必须用这同一组名字**，
-        //     否则这里一律取不到（会出声）。
+        //  ✅ **资产侧已补齐（2026-10-31 `B109_E17`）**：`Resources/Audio/` 现读**三份** mixer ——
+        //     `Main Mixer.mixer`（5 组 / 1 快照 `Snapshot` / 5 条暴露参数 / `m_SuspendThreshold = −50`）·
+        //     `Music.mixer`（5 组 / 5 快照，输出挂主 mixer 的 `Music` 组）· `FX.mixer`（2 组 / 2 快照，挂 `FX` 组）。
+        //     判据 = 原版 `bundle_audiocontrol_assets_all` 的三份 `AudioMixerController`（`B109_R11` §1）。
+        //     ⚠️ 三份 YAML 能否被 Unity 6000.3 认，**要在 Unity 里跑一次 `AudioSetup.Verify` 才知道**（本批没跑）。
+        //  🔴 **2026-10-31 订正（`B109_E17`，铁律 5）**：原来这里写「六个快照名是我们自己设计的」——
+        //     **不成立**。原版名字就在子 mixer 的 YAML 里（`Music.mixer` / `FX.mixer` 的
+        //     `AudioMixerSnapshotController.m_Name`）：FX = `General` / `NoVolume`；
+        //     Music = `General` / `BattleMusicLow` / `BattleMusicMedium` / `BattleMusicHigh` / `NoBattleMusic`。
+        //     三份 mixer 已按原版建回来（主 `Snapshot` · FX 2 条 · Music 5 条 = 8 条），快照名照抄、⛔ 别再自造；判据 → `资料/完全复刻/判据/B109_R11_音频mixer.md` §1.4。
         // ══════════════════════════════════════════════════════════════════════════════════════
 
         /// <summary>原版 `SnapshotsType`（六个值逐字照抄 `dump.cs:17953-17962`）。</summary>
@@ -265,16 +265,16 @@ namespace CardPresentation
             MusicBattleMusicNoMusic = 5,
         }
 
-        /// <summary>六个快照在**我们 mixer 里的名字**（🔶 自己设计，见上「🔶」那一段 —— 主对话建资产要用这同一组）。
-        /// 顺序与 <see cref="SnapshotsType"/> 的**枚举值**一一对应（下标 = 枚举值）。</summary>
+        /// <summary>六个快照在**原版子 mixer 里的名字**（0/1 在 `FX.mixer`，2..5 在 `Music.mixer`；
+        /// 顺序与 <see cref="SnapshotsType"/> 的**枚举值**一一对应（下标 = 枚举值）。判据 = 原版 `m_Name`（`B109_R11` §1.4）。</summary>
         public static readonly string[] SnapshotNames =
         {
-            "SFX On",       // FxNormal       = 0
-            "SFX Off",      // FxNoVolume     = 1
-            "Music Low",    // MusicBattleMusicLow    = 2
-            "Music Medium", // MusicBattleMusicMedium = 3
-            "Music High",   // MusicBattleMusicHigh   = 4
-            "Music None",   // MusicBattleMusicNoMusic= 5
+            "General",           // FxNormal       = 0 —— FX.mixer
+            "NoVolume",          // FxNoVolume     = 1 —— FX.mixer
+            "BattleMusicLow",    // MusicBattleMusicLow    = 2 —— Music.mixer
+            "BattleMusicMedium", // MusicBattleMusicMedium = 3 —— Music.mixer
+            "BattleMusicHigh",   // MusicBattleMusicHigh   = 4 —— Music.mixer
+            "NoBattleMusic",     // MusicBattleMusicNoMusic= 5 —— Music.mixer
         };
 
         static readonly HashSet<string> _warnedSnapshot = new HashSet<string>();
@@ -289,21 +289,21 @@ namespace CardPresentation
             int i = (int)snapshotType;
             if (_mixer == null || i < 0 || i >= SnapshotNames.Length) return null;
             string name = SnapshotNames[i];
-            var s = _mixer.FindSnapshot(name);
+            var s = FindSnapshotOnOwner(snapshotType, name);
             if (s == null)
             {
                 if (_warnedSnapshot.Add(name))
                 {
                     SnapshotMisses++;
-                    Debug.LogWarning($"[Audio] mixer 里找不到快照 `{name}`（`SnapshotsType.{snapshotType}`）—— "
-                                   + "跑一次 `Editor/AudioSetup.cs` / `工具/setup_audio_mixer.py` 建那 4~6 个快照"
-                                   + "（名字必须与 `WarpforgeAudio.SnapshotNames` 一致）。本条之后不再重复。");
+                    Debug.LogWarning($"[Audio] 找不到快照 `{name}`（`SnapshotsType.{snapshotType}`，应在 "
+                                   + (i <= 1 ? "`Resources/Audio/FX.mixer`" : "`Resources/Audio/Music.mixer`")
+                                   + "）—— 那是原版结构的一部分（判据 `B109_R11` §1.4）；本条之后不再重复。");
                 }
             }
             return s;
         }
 
-        /// <summary>原版 `SoundManager.ToggleSFX(bool option, bool instant)`：切到 `SFX On` / `SFX Off` 快照。
+        /// <summary>原版 `SoundManager.ToggleSFX(bool option, bool instant)`：切到 FX 子 mixer 的 `General` / `NoVolume` 快照。
         /// <para>过渡时长 = `instant ? 0 : 2`（判据 = ILSpy `SoundManager.cs:601-602` 的
         /// `((instant ? 1 : 0) ^ 1) * 2f`）。⚠️ 快照取不到 ⇒ **什么都不做**（`GetSnapshot` 已出声）。</para></summary>
         public static void ToggleSFX(bool option, bool instant = false)
@@ -311,6 +311,96 @@ namespace CardPresentation
             var snap = GetSnapshot(option ? SnapshotsType.FxNormal : SnapshotsType.FxNoVolume);
             if (snap == null) return;
             snap.TransitionTo(instant ? 0f : 2f);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-10-31（`B109_E17`）：子 mixer `Audio/Music` · `Audio/FX`**
+        //  判据（`资料/完全复刻/判据/B109_R11_音频mixer.md`）：
+        //   · 原版是 **3 份 mixer**：`Main Mixer`（Master/FX/Music/Voices/Jingles）＋
+        //     `Music`（Master/General/BattleGroupLow/Medium/High，输出挂主 mixer 的 `Music` 组）＋
+        //     `FX`（Master/General，挂主 mixer 的 `FX` 组）。
+        //   · 路由（§1.6）：战斗 BGM 三条轨 → `Music.BattleGroupLow/Medium/High`；
+        //     菜单音乐 → `Music.General`；运行时特效音 → `FX.General`；Voices / Jingles 仍在主 mixer。
+        //   · **为什么一定要子 mixer**：原版快照落在子 mixer 的组上、滑块落主 mixer 的组 ⇒
+        //     「切快照」与「玩家滑块」是**两根不同的浮点**，互不覆盖（我们原来只有一份 mixer，
+        //     两者是同一根 ⇒ 切快照会盖掉滑块）。
+        //  ⚠️ 本段**懒加载**（不塞进 `Ensure()`）—— `Ensure()` 上方全是账的落点，加行会让下游行号漂移。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`Resources.Load&lt;AudioMixer&gt;(...)` 的路径（Music 子 mixer）。</summary>
+        public const string MusicMixerResource = "Audio/Music";
+        /// <summary>同上（FX 子 mixer）。</summary>
+        public const string FxMixerResource = "Audio/FX";
+
+        static AudioMixer _musicMixer, _fxMixer;
+        static bool _subTried;
+
+        static void EnsureSubMixers()
+        {
+            if (_subTried) return;
+            _subTried = true;
+            _musicMixer = Resources.Load<AudioMixer>(MusicMixerResource);
+            if (_musicMixer == null)
+                Debug.LogWarning($"[Audio] `Resources/{MusicMixerResource}` 加载不到 —— 战斗 BGM 三档快照与菜单音乐路由都会落空"
+                               + "（判据 → `资料/完全复刻/判据/B109_R11_音频mixer.md` §1）。");
+            _fxMixer = Resources.Load<AudioMixer>(FxMixerResource);
+            if (_fxMixer == null)
+                Debug.LogWarning($"[Audio] `Resources/{FxMixerResource}` 加载不到 —— 特效音不会走 FX 子 mixer（`MixerType.FX`）。");
+        }
+
+        /// <summary>**Music 子 mixer**（`Resources/Audio/Music`）。取不到 ⇒ null（`EnsureSubMixers` 已出声）。</summary>
+        public static AudioMixer MusicMixer { get { EnsureSubMixers(); return _musicMixer; } }
+        /// <summary>**FX 子 mixer**（`Resources/Audio/FX`）。取不到 ⇒ null（`EnsureSubMixers` 已出声）。</summary>
+        public static AudioMixer FxMixer { get { EnsureSubMixers(); return _fxMixer; } }
+
+        /// <summary>战斗 BGM 第 i 条轨该挂的组（0 = Low · 1 = Medium · 2 = High）。
+        /// 原版 `BattleMusicManager` 的三条轨就挂在这三个组上（`B109_R11` §1.6 第 1 行）。
+        /// ⚠️ 取不到 ⇒ **null + 出声**（挂 null 组 = 声音走 Master，**不跟任何快照/滑块**）。</summary>
+        public static AudioMixerGroup BattleGroupGroup(int i)
+        {
+            EnsureSubMixers();
+            if (_musicMixer == null) return null;
+            string[] names = { "BattleGroupLow", "BattleGroupMedium", "BattleGroupHigh" };
+            int k = Mathf.Clamp(i, 0, 2);
+            var g = _musicMixer.FindMatchingGroups(names[k]);
+            if (g != null && g.Length > 0) return g[0];
+            if (_warnedBattleGroup.Add(names[k]))
+                Debug.LogWarning($"[Audio] 子 mixer `Audio/Music` 里找不到 `{names[k]}` 组 —— 第 {k} 条 BGM 轨没有混音组（快照切不动它）。");
+            return null;
+        }
+        static readonly HashSet<string> _warnedBattleGroup = new HashSet<string>();
+
+        /// <summary>某个 `SnapshotsType` 的快照归哪份 mixer（0/1 → FX 子 mixer · 2..5 → Music 子 mixer）。</summary>
+        static AudioMixer SnapshotOwner(SnapshotsType t) { return ((int)t <= 1) ? FxMixer : MusicMixer; }
+
+        static AudioMixerSnapshot FindSnapshotOnOwner(SnapshotsType t, string name)
+        {
+            var mx = SnapshotOwner(t);
+            return mx != null ? mx.FindSnapshot(name) : null;
+        }
+
+        /// <summary>**8 条**暴露参数全认得（原版：主 mixer 5 条 + Music 子 mixer 3 条；FX 子 mixer 一条都没暴露）。
+        /// ⚠️ 与 <see cref="ParamsOk"/>（只验四根滑块那 4 条）分开：那一条被 `AudioSnapshotCheck` / `PlayerBoot` 用着，
+        /// ⛔ 别改它的语义。`VolumeMaster` 与三条 `Track*Volume` 在原版**无调用方**（照建、不接 —— 铁律 18·0）。</summary>
+        public static bool AllParamsOk
+        {
+            get
+            {
+                Ensure();
+                EnsureSubMixers();
+                float v;
+                bool ok = _mixer != null
+                       && _mixer.GetFloat("VolumeFX", out v)
+                       && _mixer.GetFloat("VolumeJingles", out v)
+                       && _mixer.GetFloat("VolumeMaster", out v)
+                       && _mixer.GetFloat("VolumeMusic", out v)
+                       && _mixer.GetFloat("VolumeVoices", out v);
+                if (!ok) return false;
+                return _musicMixer != null
+                    && _musicMixer.GetFloat("TrackLowVolume", out v)
+                    && _musicMixer.GetFloat("TrackMediumVolume", out v)
+                    && _musicMixer.GetFloat("TrackHighVolume", out v);
+            }
         }
     }
 }

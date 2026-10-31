@@ -696,8 +696,8 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>「现在」的唯一读口（窗口缺省值用它；自检**不要**改它 —— 断言一律传显式 `DateTime`）。</summary>
-        public static DateTime NowUtc { get { return DateTime.UtcNow; } }
+        /// <summary>「现在」的唯一读口（窗口缺省值用它；断言仍优先传显式 `DateTime`）。🔴 2026-10-31（`B108_R1` 报、调度台修）：**必须委托 `LiveOpsClock.NowUtc`**（原来直接 `DateTime.UtcNow` 会绕过 `NowProvider`，自检钉不住）</summary>
+        public static DateTime NowUtc { get { return LiveOpsClock.NowUtc; } }
 
         /// <summary>选一个**在期**事件：只考虑 `Selectable`（`enabled && uploadToLive`）且 `start ≤ now &lt; end` 的；
         /// 多个时取 `StartMs` 最大的那个（= 最近开始的）。**⛔ 过期事件永不入选**。

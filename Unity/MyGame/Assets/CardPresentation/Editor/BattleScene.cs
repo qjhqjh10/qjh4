@@ -4446,6 +4446,7 @@ public static class BattleScene
                         if (!string.IsNullOrEmpty(ProfileData.PlayerName)) names.Add(ProfileData.PlayerName);
                         if (!string.IsNullOrEmpty(ProfileData.TitleName)) names.Add(ProfileData.TitleName);
                         if (!string.IsNullOrEmpty(drv.BotTitleName)) names.Add(drv.BotTitleName);
+                        if (!string.IsNullOrEmpty(drv.FoeDisplayNameForTest())) names.Add(drv.FoeDisplayNameForTest());   // 🆕 2026-10-31（B108）：单机 bot 名是原版本地生成（不在官方表里）
                         names.Add(Loc.T("MenuLogin/Guest"));
                         names.Add("New player"); names.Add("新玩家");
                         names.Add(CardText.Faction(drv.MyFaction));
@@ -9212,7 +9213,7 @@ public static class BattleScene
             //   三钮恒显 / `LockMelee` / `ShowJustOne` —— 都是 `AttackSelector` 的**实例行为**
             //   （代码侧判据已在 `W10` 落地，这里补的是「真驱动现场里它真的那样」）。
             {
-                var selW = driver.Selector;
+                var selW = driver.Selector; CheckSelectorPickScaleForTest(selW, Check);   // FP-HUD-003：`SetSelected → RefreshPicked`（圈/1.3 缩放）
                 // ① 三颗钮恒显（原版 `AttackTypesButtonsSelector__ToggleAttackTypesSelector.c:47-96`：
                 //    对 `attackTypeButtons` 逐个 `SetActive(true)`；**近战/远程没有任何使能判据**，
                 //    只有技能那颗可能被关）。我们这侧的等价物 = `EnsureAttackTypeInvariant()`。
@@ -9412,7 +9413,7 @@ public static class BattleScene
             //   ⚠️ 先清记录：上一段 `SimulateAiTurn()` 里 AI 会攻击，不清会把旧记录算进来（⇒ 假绿）。
             var a1730AtkU = ctx.Players[0].Board[atkSlot];
             _fired.Clear();
-            driver.SimulateCommand(AttackKind.Melee);
+            driver.SimulateCommand(AttackKind.Melee); Check(ctx.Players[0].Board[atkSlot].LastAttackType == UnitState.AttackTypeMelee, "★ FP-HUD-003：选完打法**那一刻（结算前）** `LastAttackType` 已写成近战（判别式：🧨 删掉 `BattleDriver.cs:15677` 的 `picked.LastAttackType = pickedType;` ⇒ 本条红；下面 `:23615` 那条在结算后读，照样绿）");
             Check(!driver.SelectorOpen, "选完打法，选择器收起");
             Check(driver.Command == AttackKind.Melee, "定下来的是近战");
 
@@ -14085,9 +14086,9 @@ public static class BattleScene
                 Check(rec.OwnHeroName.Length > 0, $"我方督军名非空（「{rec.OwnHeroName}」）");
                 Check(rec.Mode == (ctx.Vars.IsSkirmish ? "Skirmish" : "Classic"),
                       $"模式写的是本局那个（记录「{rec.Mode}」）");
-                // 单机打 bot：原版那格是**服务端账号 id**，本地没有对等物 ⇒ **留空，不编一个名字**
-                Check(string.IsNullOrEmpty(rec.EnemyName),
-                      $"单机局的对手名**留空**（不编；实得「{rec.EnemyName}」）");
+                // 单机打 bot：原版 `MatchData.SetBotOpponent` 本地生成名字（`NameGenerator.GenerateName(4, 4..13)`）
+                Check(!string.IsNullOrEmpty(rec.EnemyName) && rec.EnemyName.Length >= 4 && rec.EnemyName.Length <= 13,
+                      $"单机局的对手名按原版本地生成（4..13 字符；实得「{rec.EnemyName}」）");
                 // 回放还没做（§三 第 18 条 第 6 件）⇒ 没有编号可比，记 -1
                 Check(rec.RecordingIndex == -1, $"回放编号 = -1（回放整条链还没做）");
             }
@@ -31361,15 +31362,13 @@ public static class BattleScene
                     //    `GetTranslation("MenuLogin/Guest")` = `New player` / `新玩家`（⛔ 不再是阵营名）。
                     Check(driver.MyPlateText == ProfileData.PlayerName,
                           $"★ 名牌 = **只有玩家名**（原版那格是名字节点、不拼阵营；实得「{driver.MyPlateText}」）");
-                    string foeWant = "New player";
+                    string foeWant = driver.FoeDisplayNameForTest();
                     Check(driver.FoePlateText != null
                           && !driver.FoePlateText.Contains(ProfileData.PlayerName)
                           && !driver.FoePlateText.Contains(CardText.Faction(driver.MyFaction)),
-                          "★ 对面那块名牌**不印玩家名、也不拼阵营名**（单机局没有名字数据源 ⇒ "
-                        + "走原版空串兜底 `MenuLogin/Guest`；实得「" + driver.FoePlateText + "」）");
-                    Check(driver.FoePlateText == foeWant || driver.FoePlateText == "新玩家",
-                          $"★ 单机对面那块 = 原版空串兜底 `MenuLogin/Guest`（两列官方值 = "
-                        + $"「{foeWant}」/「新玩家」；实得「{driver.FoePlateText}」）");
+                          "★ 对面那块名牌**不印玩家名、也不拼阵营名**（单机局名字 = 原版 `SetBotOpponent` 本地生成；实得「" + driver.FoePlateText + "」)");
+                    Check(driver.FoePlateText == foeWant && foeWant.Length >= 4 && foeWant.Length <= 13,
+                          $"★ 单机对面那块 = 本局生成的 bot 名（4..13 字符；实得「{driver.FoePlateText}」/ 生成「{foeWant}」）");
                     // ⚠️ **必须把座位还原成 0** —— 原来这行夹在那两条断言中间，改断言时**差点丢掉**
                     //    （丢了后面那批「同一局面」的用例就全在客机视角下跑，会静默改变语义）。
                     driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
@@ -41981,7 +41980,7 @@ public static class BattleScene
                     var scJ1n = VfxMap.SelfCheckRoutedTriggerNames();
                     Check(scJ1n.Length == 0,
                           "★ J1（白名单·名字级）：`Regiment` / `TriggeredSynapse` 都在白名单里"
-                        + "（且 PascalCase / 小写 / 全大写三态都命中），`NoEmitTriggerNames` 里那些（现读 7 个）都不在"
+                        + "（且 PascalCase / 小写 / 全大写三态都命中），`NoEmitTriggerNames` 里那些（**现读 0 个**；2026-10-31 `B108_A1` 已补 6 个发射口）都不在"
                         + (scJ1n.Length == 0 ? "" : "\n  ✗ " + string.Join("\n  ✗ ", scJ1n))
                         + " —— 🧨 把 switch 改回大小写敏感、删掉任一正向 `case`、或把反向闸里那 8 个名字加进去 ⇒ 本条红");
                     var scJ1f = VfxMap.SelfCheckRoutedTriggers();
@@ -42015,13 +42014,17 @@ public static class BattleScene
                             + "（放行 `Trigger(3)`）⇒ `TalentEffect` 回来 ⇒ 本条红");
                         // ② 有 `animTimes`、但关键词不在白名单 ⇒ 走第 ④ 支（整桶）—— 连**别的 trait** 的框也不许播
                         var gof26 = PiecesJ1(VfxMap.Trigger, DefJ1("GOF26"), "unstable");
-                        Check(DefJ1("GOF26") != null && gof26.Length == 0
-                              && System.Array.IndexOf(gof26, "ConcussiveEffect") < 0,
-                              "★ A2·D4（R8-b 本体）：`GOF26 Stompa` 的 `trigger` 桶（关键词 `unstable` 不在白名单 "
-                            + "⇒ 整桶档）= **0 条** —— `ArmourEffect` / `RallyEffect`（`Start(0)`）与 "
-                            + "`ConcussiveEffect`（**别的 trait 的 `Trigger(3)`**，属 `concussive(930)`，"
-                            + "与 trigger 81 无关）都不播（实得 " + gof26.Length + " 条："
-                            + string.Join(" / ", gof26) + "）｜🧨 放行 trait 行 ⇒ `ConcussiveEffect` 回来 ⇒ 红");
+                        Check(DefJ1("GOF26") != null && gof26.Length == 2
+                              && System.Array.IndexOf(gof26, "UnstableEffect") >= 0
+                              && System.Array.IndexOf(gof26, "UnstableEffect_ExplosionExtra") >= 0
+                              && System.Array.IndexOf(gof26, "ConcussiveEffect") < 0
+                              && System.Array.IndexOf(gof26, "ArmourEffect") < 0
+                              && System.Array.IndexOf(gof26, "RallyEffect") < 0,
+                              "★ A2·D4（R8-b 本体）：`GOF26 Stompa` 的 `trigger` 桶 —— 2026-10-31 `B108_A1` 起 "
+                            + "`unstable` 已放行，**只播它自己那两件**（`UnstableEffect` / `UnstableEffect_ExplosionExtra`）；"
+                            + "`ArmourEffect` / `RallyEffect`（`Start(0)`）与 `ConcussiveEffect`（别的 trait 的 `Trigger(3)`）"
+                            + "**仍不播**（实得 " + gof26.Length + " 条：" + string.Join(" / ", gof26) + "）"
+                            + "｜🧨 放行 trait 行 ⇒ `ConcussiveEffect` 回来 ⇒ 红");
                         // ③ **卡级行不许误伤**：`DA10` 的桶 = [卡级 `Trait_GainQuest`（`a` 非空、不在 trait 绑定表里）, `FlankEffect`(Start(0))]
                         var da10 = PiecesJ1(VfxMap.Trigger, DefJ1("DA10"), null);
                         Check(DefJ1("DA10") != null && da10.Length == 1
@@ -46870,7 +46873,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); B99A1_Assert.Run(); B99B1_Assert.Run(); B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -50580,5 +50583,59 @@ public static class BattleScene
         ChallengeData.RemovePending("B107W18");
         ChallengeData.ResetRunCounters();
         ChallengeEngine.ResetWarlordHealthBaseline();
+    }
+
+    // ============================================================ FP-HUD-003 · `AttackSelector.SetSelected → RefreshPicked`
+    //
+    // 判据（原版）：`AttackButtonClick` 在**选定时**就 `ChangeAttackType` + 高亮那一圈
+    //   （`UnitOnBoardAttackTypeSelector__AttackButtonClick.c:27-33`）；生产落点 =
+    //   `BattleDriver.cs:15678` → `AttackSelector.SetSelected`（`:1262`）→ `RefreshPicked()`（`:1696`），
+    //   圈显隐 `IsPickedSlot`（`:1519`）、缩放 `ApplyPickScale`（`:1730`，1.3 倍 / 0.3 s）。
+    // 🔴 2026-10-31（`B108_R2` 报 · 调度台接线）：此前 `Editor` 全树 `SetSelected(` 只命中无关的 `WindowButton`
+    //   ⇒ 这条换格行为**零断言**（删掉 `RefreshPicked()` 也不红）。本节补上。
+    // 🧨 灭自证：删掉 `SetSelected` 里的 `RefreshPicked()` ⇒ 两次换格后缩放都不动 ⇒ 红。
+    // ⚠️ `HighlightScale = 1.3f` / `PickTweenSeconds = 0.3f` 是 `AttackSelector` 的 **private const**
+    //   ⇒ 宿主用字面量（`0.35f` / `1.3f`），⛔ 不为测试加访问器（那会把我们自己的常量变成判据）。
+    static void CheckSelectorPickScaleForTest(AttackSelector selW, System.Action<bool, string> check)
+    {
+        check(selW != null, "（前提·FP-HUD-003）攻击方式选择器实例拿得到（否则下面换格那两条验不到）");
+        if (selW == null) return;
+
+        // 选一档「另一档」：优先远程；这个单位没有远程时退到技能（两者都吃同一份 `ApplyPickScale`）
+        AttackKind other = AttackKind.None;
+        foreach (var o in selW.Options)
+        {
+            if (o.Kind == AttackKind.Melee || !o.Enabled || o.Hidden) continue;   // 🔴 只从**真可选**的档里挑（`IsPickedSlot` 要求 Enabled && !Hidden）
+            if (o.Kind == AttackKind.Ranged) { other = AttackKind.Ranged; break; }
+            if (o.Kind == AttackKind.Ability) other = AttackKind.Ability;
+        }
+        if (other == AttackKind.None)
+        {
+            Debug.LogWarning(P + "   （FP-HUD-003）本局这个单位的选择器**只有近战一档**（其余 `Hidden`）⇒「换格 1.3 ↔ 1」这一条验不到（如实记，⛔ 不是静默跳过；近战那一档仍由下面 `SetSelected(Melee)` 验）");
+            return;
+        }
+
+        // 先钉到近战再换另一档（不依赖出厂 `_selected` 是 None 还是别的档）
+        selW.SetSelected(AttackKind.Melee); Step(0.35f);
+        check(Mathf.Abs(selW.ButtonScale(AttackKind.Melee) - 1.3f) < 0.03f,
+              "★ FP-HUD-003：`SetSelected(Melee)` ⇒ **近战**那颗放大到 **1.3**"
+            + $"（实得 {selW.ButtonScale(AttackKind.Melee):F3}；原版 `scaleMultiplierWhenSelected`）");
+        check(Mathf.Abs(selW.ButtonScale(other) - 1f) < 0.03f,
+              $"★ ……而**{other}**那颗回落到 1（实得 {selW.ButtonScale(other):F3}）");
+
+        selW.SetSelected(other); Step(0.35f);
+        if (Mathf.Abs(selW.ButtonScale(other) - 1.3f) >= 0.03f)
+        {
+            // 若一开始 `_selected` 已经是 other，`SetSelected(other)` 会早退 ⇒ 先钉回 Melee 再切一次（仍走生产同一入口）
+            selW.SetSelected(AttackKind.Melee); Step(0.35f);
+            selW.SetSelected(other); Step(0.35f);
+        }
+        check(Mathf.Abs(selW.ButtonScale(other) - 1.3f) < 0.03f,
+              $"★ FP-HUD-003：再 `SetSelected({other})` ⇒ **两格互换**（{other} 1.3）"
+            + $"（实得 {selW.ButtonScale(other):F3}；🧨 删掉 `RefreshPicked()` ⇒ 仍是 1 ⇒ 红）");
+        check(Mathf.Abs(selW.ButtonScale(AttackKind.Melee) - 1f) < 0.03f,
+              $"★ ……近战回落到 1（实得 {selW.ButtonScale(AttackKind.Melee):F3}）");
+
+        selW.SetSelected(AttackKind.Melee); Step(0.35f);   // 还原成这一段原来的选中档（后面近战用例要用）
     }
 }
