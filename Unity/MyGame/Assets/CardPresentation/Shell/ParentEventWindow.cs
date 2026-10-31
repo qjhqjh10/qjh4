@@ -108,9 +108,9 @@
 //   🔴 **2026-10-25（N17）就地订正（铁律 5）**：上面那句「本地没有」**不准确**。现核（只读）：
 //     `3a8a1016497754066b40d88caeee722b` 在 `bundle_liveopsicons_assets_all/AssetBundle/AssetBundle_1.json`
 //     的 `m_Container` 里 → PathID `947306652608088988` → `Sprite/40k_campaign_Expansion Pass.json`（真名可解）。
-//     ⇒ 缺口**不是「本地没有」**，而是 ①那批 liveops 图标**还没导入工程**、②`EventImageSelectorController` /
-//     `LiveopUIDrawer_EventAssetSprites` 那一层没接（账里 `EventImageSelectorController.*` 仍是 C）。
-//     ⛔ 别把这条更正读成「已经做好了」—— 今天画面仍然是留空的。
+//     ⇒ 缺口**不是「本地没有」**，而是 ①那批 liveops 图标**还没导入工程**；②当初写的「那一层没接」**已过期**。
+//     ✅ **2026-10-31（B110_D4 现核）**：`EventImageSelectorController` / `LiveopUIDrawer_EventAssetSprites` 两个组件
+//     **已在 `Shell/DraftModeWindow.cs` 接线**（原版那两个 prefab 实例都挂在 `DraftModeMenuDemo` 下，⛔ 不是本窗）。
 // 另有两张图**源图在本地、尚未导入工程**：`VS icon` / `40k_battle_Win Skull SDF`（源名带空格；落盘换下划线）
 //   ⇒ 已在 `工具/sync_battle_ui_art.py` 的 `NAMES_MENU` 登记，跑一次同步即到位（到位前对应件不画 + 记账）。
 //
@@ -1082,10 +1082,10 @@ namespace CardPresentation
         // ============================================================ 第 1 页：Choose Side
         void BuildChooseSidePage(Transform page)
         {
-            // `Scan Lines` / `Glow`（同一张 `Glow UI W40K`；Glow 染洋红 (1,0,0.883)）
-            MenuDraw.Rect(page, Tex(ArtGlow, "选择阵营页的扫描线"), Scr(P1ScanLinesR), "Scan Lines", QPageArt, Color.white);
-            MenuDraw.Rect(page, Tex(ArtGlow, "选择阵营页的光晕"), Scr(P1GlowR), "Glow", QPageArt,
-                          new Color(1f, 0f, 0.8834677f, 1f));
+            // `Scan Lines` / `Glow`（同一张 `Glow UI W40K`；Glow 染洋红 (1,0,0.883)）· 🆕 #11/#7 原版材质（见类尾 `ApplyEventUiMaterial`）
+            ApplyEventUiMaterial(MenuDraw.Rect(page, Tex(ArtGlow, "选择阵营页的扫描线"), Scr(P1ScanLinesR), "Scan Lines", QPageArt, Color.white), true);
+            ApplyEventUiMaterial(MenuDraw.Rect(page, Tex(ArtGlow, "选择阵营页的光晕"), Scr(P1GlowR), "Glow", QPageArt,
+                          new Color(1f, 0f, 0.8834677f, 1f)), false);
 
             // 两张队伍卡（红 / 蓝）—— 底 = `UICornersGradient` 四角色
             BuildTeamCard(page, P1TeamAR, P1TeamANoiseR, P1TeamAGlowR, P1TeamABottomTextR, P1TeamANameR, P1TeamATapR,
@@ -2547,5 +2547,48 @@ namespace CardPresentation
             InitializeMilestones(_p2PlayerScore, _p2CollectedRewards, _p2MilestoneTable);
         }
 
+        // ============================================================ 原版 UI 材质接线（2026-10-31 · B110_D4 · 账 #11 / #7）
+        // 判据 → `资料/完全复刻/判据/B109_R15_菜单13材质.md` §1 第 11 行 —— #11 `Everguild/UI/Scan Lines Alpha Mask`
+        //   节点 `Two Sides Event Window` → `Scan Lines`（sprite = `Glow UI W40K`），shader **自走 `_Time`**（§1·11 算式）；
+        //   同表第 7 行 —— #7 `Everguild/UI/Additive`，同 prefab 的 `Glow`，`Blend One One`（纯加色）。
+        // 🔴 材质 / Shader 本体由 `B110_M2`（#11）与 `B110_M3`（#7）产出，**本批不建任何资产**：
+        //    ① 先按它们的落盘名 `Resources/Art/vfx/WFUI_ScanLines` / `WFUI_Additive` 取 `.mat`（参数在那边逐字段调好）；
+        //    ② 取不到再退到简报指定的 `Shader.Find("WarpforgeVFX/UI/Scan Lines")` /
+        //       `("WarpforgeVFX/UI/Additive")` 现建一份（shader 自己的默认值）；
+        //    ③ 两者都拿不到 ⇒ **告警一次 + 退回原静态图**（⛔ 不静默）—— M2/M3 落盘后**自动生效，本文件一行不用改**。
+        // ⚠️ 每颗 quad 必须拿**自己的** `Material` 实例：`ImageQuad.SetTint` / `SetRenderQueue` 写的是
+        //    `sharedMaterial.color` / `.renderQueue`（同 `Shell/MenuFxMaterials.cs` 文件头那条 🔴）。
+        // ⚠️ 顺序：`MenuDraw.Rect` 已把渲染队列设好，本方法在其后调 ⇒ `ImageQuad.SetMaterial` 会把旧队列带过去。
+        static readonly HashSet<string> _warnedUiMat = new HashSet<string>();
+
+        /// <summary>把原版 UI 材质挂到一颗 quad 上（`scanLines = true` ⇒ #11，否则 #7）。
+        /// <para>取不到材质 ⇒ 保留原样（静态图）并**只告警一次**。</para></summary>
+        static void ApplyEventUiMaterial(ImageQuad q, bool scanLines)
+        {
+            if (q == null) return;
+            string matRes = scanLines ? "Art/vfx/WFUI_ScanLines" : "Art/vfx/WFUI_Additive";
+            string shaderName = scanLines ? "WarpforgeVFX/UI/Scan Lines" : "WarpforgeVFX/UI/Additive";
+
+            var proto = Resources.Load<Material>(matRes);
+            string missing = "`Resources/" + matRes + "`";
+            if (proto == null)
+            {
+                var sh = Shader.Find(shaderName);
+                if (sh != null) proto = new Material(sh);
+                else missing += " 与 shader `" + shaderName + "`";
+            }
+            if (proto == null)
+            {
+                if (_warnedUiMat.Add(matRes))
+                    Debug.LogWarning("[Event] 原版 UI 材质取不到：" + missing + " ⇒ `Scan Lines` / `Glow` 退回原静态图"
+                                   + "（出声，不静默；#11 由 `B110_M2`、#7 由 `B110_M3` 产出）");
+                return;
+            }
+
+            Color tint = q.Tint;                 // 换之前那一份（`SetTint` 写的就是 `sharedMaterial.color`）
+            var inst = new Material(proto);      // ⛔ 别把共享材质本体挂上去（队列/染色会被后建的那颗盖掉）
+            if (inst.HasProperty("_Color")) inst.color = tint;
+            q.SetMaterial(inst);
+        }
     }
 }

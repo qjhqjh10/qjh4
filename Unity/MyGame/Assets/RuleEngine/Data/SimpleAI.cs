@@ -73,8 +73,8 @@ namespace RuleEngine
     /// `actionScore` / `manaCost`）。我们这边用**下标**代替对象引用（`HandIdx` / `Slot` / `TargetSlot`）——
     /// 引擎的状态是裸数组（`PlayerState.Board`），存引用会在棋盘变动后指向旧对象。
     /// </summary>
-    public class AiAction
-    {
+    public partial class AiAction
+    {   // 🆕 2026-10-31（`B110_R3` · 账 `N07`）：类改 `partial` —— 誓约二选一的两格在兄弟分册 `Data/AiActionPartial_B110R3.cs`（1→1、本文件零行数变化）。⚠️ 注释必须留在 `{` 这一行：账的落点机检要求「声明名是本行最后一个 token」（写在上一条行尾会让 `SimpleAI.cs:76（AiAction）` 那条 A 行**当场变失败**，2026-10-31 实测撞过）。
         public AiActionKind Kind;
         /// <summary>出牌时的**手牌下标**</summary>
         public int HandIdx = -1;

@@ -36,7 +36,20 @@
   · 贴图的 GPU 格式 / sRGB 只能读解包 bundle 头，本轮不比（`判据/B108_AUD09_纹理格式.md` 已对 105 张 SDF 做过）；
   · 「prefab 节点 → 用哪张 sprite/材质」的 P3 需要对原版 prefab YAML（AssetRipper/Unity），本轮只做材质侧；
   · 同名不同图：只对「同名且**尺寸相同**」的才逐像素比（裁片尺寸不同跳过，那部分靠 P3 的 textureRect 判）；
-  · `overridden` 字段不作门（判据见 `effective_max_size` 的注释）。
+  · 平台块**只有 `overridden: 1` 才生效**，`overridden: 0` ⇒ Unity 回落 `DefaultTexturePlatform`
+    （🔴 2026-10-31 `B110_F3` 修正；构建实证见 `判据/B110_R1_资源缺陷分流.md` §2）；
+  · P2 判「内容不同」前先过两档：**alpha=0 掩码**（不可见像素的 RGB 差不算）与 **gamma 复检**
+    （`srgb2lin` 后等价 ⇒ 同一张图两种编码）；两档都不过才算真差异（同上，`B110_F3`）；
+  · P4 的「关键字未声明」收**三处**声明形态（`#pragma multi_compile*` / `#pragma shader_feature*` /
+    `Properties` 里的 `[Toggle(KEY)]`），且只判 `m_ValidKeywords`；`m_InvalidKeywords` 的死值
+    单独计入信息项（同上，`B110_F3`）。
+  · 🆕 2026-10-31（`B110_R5`）三处分类修正（判据 → `判据/B110_R5_资源侧放回11条.md`）：
+    ① `WarpforgeVFX/ArenaOriginalPrefabs/**` = **源树**（运行期不直接加载、构建期由 ArenaBuilder/清单消费）
+       ⇒ 该树里的缺陷一律**转信息项**（行保留、不进行动清单）；
+    ② 「运行时接管」的悬空引用（`arena_shader_guid_map.tsv` 的 18 个 shader guid + 5 个 AnimatorController
+       + `AnimFXModuleScreenShake` 的 script guid）不算缺陷（`RUNTIME_BOUND_EXTRA` / `runtime_bound_guids()`）；
+    ③ P1 遇到**同名多份原版材质**时**逐份比**、取未裁定差异最少的那份；都不匹配才报「同名多源、需人工判」
+       （原来只留第一份 ⇒ `SandParticle` 那种会被判错）。
 """
 import argparse
 import collections
@@ -107,6 +120,52 @@ RE_KEYWORD_ITEM = re.compile(rb"^  - (\S+)$", re.M)
 
 BUILTIN_PREFIX = "0000000000000000"
 ZERO_GUID = "0" * 32
+
+# ---------------------------------------------------------------- 🆕 2026-10-31（B110_R5）分类修正
+# 三处口径（判据全文 → `资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-37 / §B-38 / §B-41）：
+#   ① **源树** `WarpforgeVFX/ArenaOriginalPrefabs/**`：运行期**不直接加载**（构建期由 `ArenaBuilder` / 清单消费），
+#      这棵树里的「有件取不到 / 依赖悬空 / 关键字未声明 / 内容不同」**不是玩家可见缺陷** ⇒ 单列成信息项，
+#      ⛔ 不删行（保留可复查的证据），只是不进行动清单。
+#   ② **运行时接管**的悬空引用：静态引用是坏的，但运行期有明确绑定路径 ⇒ 不补静态。
+#   ③ P1 遇到**同名多份原版材质**时，先逐份比；都不匹配才报「需人工判」，⛔ 不拿第一份当唯一真值。
+SOURCE_TREE_PREFIXES = ("WarpforgeVFX/ArenaOriginalPrefabs/",)
+ARENA_SHADER_TSV = os.path.join(ASSETS, "WarpforgeVFX", "ArenaOriginalPrefabs", "_shared",
+                                "arena_shader_guid_map.tsv")
+RUNTIME_BOUND_EXTRA = {
+    # AnimatorController：原版 `Cannon 1`(×2) / `Pump 1` / `Battle Arena 2` / `Dynamic Skulls` / `Battle Arena Leviathan`
+    #   → `CardPresentation/Battle/ArenaSceneAnims.cs` 按 `Resources/arena_scene_anims.json` 的 `controllerPid`
+    #     从 `wf_arena_anims_*.bundle` 取。
+    "25a9b4140ac7ace48b389f6a9b26dbe2", "cc7c8c74587419f4f8b54c70f3f14c92",
+    "e2df0361947e12c4f981bca4fb05fb4f", "e24ebf6983a5c0149ae850e564ecaa55",
+    "247aee8d740eb0b42b22bf56f789592e",
+    # MonoScript `AnimFXModuleScreenShake`（`Railgun BIG.anim` 的脚本绑定；原版 clip 从 bundle 取，缺绑定只会被忽略）
+    "2ffcb2959b3f164290a624a862212364",
+}
+_runtime_bound = None
+
+
+def runtime_bound_guids():
+    """「运行时接管」的 guid 集合 = `arena_shader_guid_map.tsv` 第 1 列（18 行）+ `RUNTIME_BOUND_EXTRA`。
+    ⚠️ **两个 Texture3D 的原版 guid（`97873f43…` / `0ca68a91…`）不在这里** —— 它们 2026-10-31 已按原版 guid
+    改回 `.meta`（`B110_R5`），应当**直接解析**，⛔ 别拿这张表去掩盖。"""
+    global _runtime_bound
+    if _runtime_bound is not None:
+        return _runtime_bound
+    s = set(RUNTIME_BOUND_EXTRA)
+    try:
+        lines = io.open(ARENA_SHADER_TSV, encoding="utf-8").read().splitlines()
+        for line in lines[1:]:
+            c = line.split("\t")
+            if c and len(c[0].strip()) == 32:
+                s.add(c[0].strip().lower())
+    except Exception:
+        pass
+    _runtime_bound = s
+    return s
+
+
+def in_source_tree(relpath):
+    return relpath.startswith(SOURCE_TREE_PREFIXES)
 
 # 判据 `B109_R9 §6` 的 13 条原版菜单 UI 材质动画 shader（P4 的固定标尺，⛔ 别改名单）
 R4_07 = {
@@ -249,14 +308,18 @@ def parse_platform_settings(b):
 
 
 def effective_max_size(ps, top_level_max):
-    """本机目标 = Standalone：有 Standalone 块就用它（Unity 按 buildTarget 取），否则 Default，再否则顶层。
+    """本机目标 = Standalone；**只有 `overridden: 1` 的平台块才生效**，否则 Unity 回落 `DefaultTexturePlatform`。
 
-    ⚠️ `overridden` 字段**不能**当门：实测 `Art/ui_menu/*.meta` 里 Standalone 块 `overridden: 0`
-    却写着 2048 / Default 写 1024，而 `B100_X11 §五` 与 `B108_AUD09_meta.md §二` 的实测都是
-    「平台块会盖掉顶层」⇒ 有该平台的块就按它算。⛔ 只读顶层 `maxTextureSize` 是已知的错法。
+    🔴 2026-10-31 `B110_F3` 修正（旧实现与 `parse_platform_settings` 的 docstring 自相矛盾，是
+    B109 那 9 条「尺寸格式错」全是假阳性的根因）：
+      旧写法「有 Standalone 块就按它算」**被构建产物证伪** ——
+      `_tmp_view/player/WarpforgePlayer_Data/resources.assets` 里那 9 张全是源尺寸（8192/4096 =
+      `DefaultTexturePlatform` 的值），而 Standalone 块写着 2048 ⇒ 那个块并没有参与导入。
+    ⇒ `overridden: 0` = 「未覆盖该平台」⇒ 该块的一组值不生效。
+    ⚠️ `DefaultTexturePlatform` 块的 `overridden` 恒为 0，但**它就是默认值**本身，照取不误。
     """
     blk = ps.get("Standalone")
-    if blk and blk.get("maxTextureSize"):
+    if blk and blk.get("overridden") == 1 and blk.get("maxTextureSize"):
         return blk["maxTextureSize"], "Standalone"
     d = ps.get("DefaultTexturePlatform") or {}
     if d.get("maxTextureSize"):
@@ -264,8 +327,32 @@ def effective_max_size(ps, top_level_max):
     return top_level_max, "top-level"
 
 
+def _mat_keyword_section(text, key):
+    """读 .mat 的 `m_ValidKeywords:` / `m_InvalidKeywords:` 一节。
+
+    ⚠️ 2026-10-31 `B110_F3`：旧版从 `m_ValidKeywords:` 往后把**两节一起**扫（`text[m.end():]`
+    后面所有 `  - ` 行），valid/invalid 从来没分开过 ⇒ 无法区分「Unity 说 shader 认识它」与
+    「Unity 说它是死值」。现在按节截断。
+    """
+    m = re.search(r"^  %s:(.*)$" % re.escape(key), text, re.M)
+    if not m:
+        return []
+    if m.group(1).strip() == "[]":
+        return []
+    out = []
+    for ln in text[m.end():].split("\n"):
+        if ln.startswith("  - "):
+            out.append(ln[4:].strip())
+        elif not ln.strip():
+            continue
+        elif ln.startswith("  ") and not ln.startswith("    "):
+            break                   # 下一个二级键（如 m_InvalidKeywords / m_LightmapFlags）
+    return out
+
+
 def parse_mat_props(b):
-    """返回 (colors{name:(r,g,b,a)}, floats{name:v}, texenvs[names], keywords[names])
+    """返回 (colors{name:(r,g,b,a)}, floats{name:v}, texenvs[names],
+           kws_valid[names], kws_invalid[names])
 
     形状以本工程 .mat 源码为准（Unity 6）：
         m_TexEnvs:
@@ -316,17 +403,19 @@ def parse_mat_props(b):
                 m = re.search(r"r:\s*([-\d.eE+]+),\s*g:\s*([-\d.eE+]+),\s*b:\s*([-\d.eE+]+),\s*a:\s*([-\d.eE+]+)", v)
                 if m:
                     colors[k.strip()] = tuple(round(float(m.group(x)), 4) for x in (1, 2, 3, 4))
-    m = re.search(r"^  m_ValidKeywords:(.*)$", text, re.M)
-    if m:
-        if m.group(1).strip() == "[]":
-            pass
-        else:
-            kws = [x[4:].strip() for x in text[m.end():].split("\n") if x.startswith("  - ")]
-    return colors, floats, texenvs, kws
+    return colors, floats, texenvs, _mat_keyword_section(text, "m_ValidKeywords"), \
+        _mat_keyword_section(text, "m_InvalidKeywords")
 
 
 RE_SHADER_PROPS = re.compile(rb"^[ \t]{1,12}(?:\[[^\]]*\]\s*)*([A-Za-z_]\w*)\s*\(", re.M)
-RE_PRAGMA = re.compile(rb"#pragma\s+(?:multi_compile(?:_fragment|_vertex)?|shader_feature(?:_local|_local_fragment)?)\s+([^\n]+)")
+# 🔴 2026-10-31 `B110_F3`：关键字声明有**三处**，旧版只认第 ① 处 ⇒ 把「我们明明声明了」的关键字
+#   整批判成「未声明」（`B110_R1 §7` / 顺手发现 #3）。现在全收：
+#   ① `#pragma multi_compile*` / `#pragma shader_feature*`
+#      （含 `_local` / `_fragment` / `_vertex` / `_local_fragment` 等全组合 —— 旧正则只列了其中几种）
+#   ② `Properties` 里的 `[Toggle(KEY)]` / `[ToggleOff(KEY)]` / `[ToggleUI(KEY)]` 装饰器
+#      （Unity 会把括号里那个 `_KEY` 注册成 shader 关键字）
+RE_PRAGMA = re.compile(rb"#pragma\s+(?:multi_compile\w*|shader_feature\w*)\s+([^\n]+)")
+RE_TOGGLE_KW = re.compile(rb"\[(?:Toggle|ToggleOff|ToggleUI)\s*\(\s*(_\w+)\s*\)\s*\]")
 
 
 def parse_shader(path, cache):
@@ -351,11 +440,15 @@ def parse_shader(path, cache):
     for m in re.finditer(rb"TEXTURE2D\s*\(\s*(_\w+)\s*\)", blob):
         props.add(m.group(1).decode())
     kws = set()
-    for m in RE_PRAGMA.finditer(b):
+    for m in RE_PRAGMA.finditer(blob):
         for tok in m.group(1).split():
             t = tok.decode("utf-8", "replace")
+            if t == "_":            # `multi_compile _ _FOO` 里的空位不是关键字
+                continue
             if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", t):
                 kws.add(t)
+    for m in RE_TOGGLE_KW.finditer(blob):
+        kws.add(m.group(1).decode("utf-8", "replace"))
     decl = RE_SHADER_DECL.search(b)
     name = decl.group(1).decode("utf-8", "replace") if decl else ""
     cache[path] = (props, kws, name)
@@ -369,9 +462,26 @@ def pixel_md5(path):
         return hashlib.md5(im.tobytes()).hexdigest(), im.size
 
 
+def _srgb_to_linear(v):
+    """sRGB(0..255) → 线性(0..255)。用于「我们存 sRGB、原版存 linear」这条编码差的复检。"""
+    import numpy as np
+    c = np.asarray(v, dtype=np.float32) / np.float32(255.0)
+    return np.where(c <= 0.04045, c / np.float32(12.92),
+                    ((c + np.float32(0.055)) / np.float32(1.055)) ** np.float32(2.4)) * np.float32(255.0)
+
+
 def pixel_diff(p1, p2, max_px=4000000):
-    """返回 (mean_all, mean_rgb)。分开报 RGB 是因为法线图常被压成 DXT5nm（X 在 A 通道），
-    按 RGBA 一起比会把「同一张法线」判成完全不同。"""
+    """返回 dict: all / rgb / rgb_mask / gamma / mask_frac。
+
+    🔴 2026-10-31 `B110_F3` 修两处判据（旧版只回 `(mean_all, mean_rgb)`，把两类「不是内容差」
+    的图判成了缺陷）：
+      ① **只在「至少一侧 alpha>0」的可见像素上比 RGB**。我们的导出把透明区的 RGB 写成 0、原版保留
+         白色/原色；alpha=0 的像素不可见（alpha blend 与 additive 都乘 alpha）⇒ 那部分 RGB 差
+         不算内容差（`B110_R1 §4-a`：18 条假阳性就是这么来的）。
+      ② **gamma 复检**：我们存 sRGB、原版存 linear ⇒ `srgb2lin(我们的) ≈ 原版`，导入
+         `sRGBTexture: 1` 后 GPU 取到的就是同一组值（21 条假阳性）。正反两个方向取最小值，
+         免得把方向押反。⚠️ 法线图的排除理由也是**这个**（不是旧文档写的「压缩通道重排」）。
+    """
     import numpy as np
     from PIL import Image
     with Image.open(p1) as a, Image.open(p2) as b:
@@ -382,10 +492,23 @@ def pixel_diff(p1, p2, max_px=4000000):
         if a.size[0] * a.size[1] > max_px:
             a = a.resize((256, 256))
             b = b.resize((256, 256))
-        x = np.asarray(a, dtype=np.int16)
-        y = np.asarray(b, dtype=np.int16)
-        d = np.abs(x - y)
-        return float(d.mean()), float(d[:, :, :3].mean())
+        x = np.asarray(a, dtype=np.float32)
+        y = np.asarray(b, dtype=np.float32)
+    d = np.abs(x - y)
+    mask = (x[:, :, 3] > 0) | (y[:, :, 3] > 0)
+    n = int(mask.sum())
+    if n == 0:                      # 整图全透明：退回全像素（否则除零）
+        mask = np.ones(mask.shape, dtype=bool)
+        n = int(mask.size)
+    g1 = np.abs(_srgb_to_linear(x[:, :, :3]) - y[:, :, :3])[mask].mean()
+    g2 = np.abs(x[:, :, :3] - _srgb_to_linear(y[:, :, :3]))[mask].mean()
+    return {
+        "all": float(d.mean()),
+        "rgb": float(d[:, :, :3].mean()),
+        "rgb_mask": float(d[:, :, :3][mask].mean()),
+        "gamma": float(min(g1, g2)),
+        "mask_frac": n / float(mask.size),
+    }
 
 
 def mat_name(b):
@@ -415,6 +538,9 @@ class Ctx(object):
         self.pixel_src = []        # (rel, text)
         self.orig_tex = collections.defaultdict(list)
         self.orig_mat = {}
+        # 🆕 2026-10-31（B110_R5）：**同名多份**原版材质（`d:/2` 里真的存在，例 `SandParticle` 两份值不同）
+        #   原版对象 → [(json, shader_pid), …]。P1 逐份比，⛔ 不拿第一份当唯一真值。
+        self.orig_mat_all = collections.defaultdict(list)
         self.orig_sprite = {}
         self.orig_audio = {}
         self.shader_pid2name = {}
@@ -648,9 +774,11 @@ class Ctx(object):
                     except Exception:
                         continue
                     nm = o.get("m_Name")
-                    if nm and nm not in self.orig_mat:
+                    if nm:
                         sh = (o.get("m_Shader") or {}).get("m_PathID")
-                        self.orig_mat[nm] = (os.path.join(md, f), str(sh) if sh else "")
+                        self.orig_mat_all[nm].append((os.path.join(md, f), str(sh) if sh else ""))
+                        if nm not in self.orig_mat:
+                            self.orig_mat[nm] = (os.path.join(md, f), str(sh) if sh else "")
             sd = os.path.join(base, "Sprite")
             if os.path.isdir(sd):
                 for f in os.listdir(sd):
@@ -919,6 +1047,20 @@ def run(args):
                     else:
                         cls = ""
                         fix = "非运行期资产（信息项，不计缺陷）"
+                # ---- 🆕 2026-10-31（B110_R5）分类修正（判据 → `资料/完全复刻/判据/B110_R5_资源侧放回11条.md`）----
+                # ② 运行时接管的悬空：静态引用是坏的、运行期有明确绑定路径 ⇒ 不补静态（混着真悬空的仍按缺陷）
+                if st == "DEPS_MISSING" and dep_bad and all(g in runtime_bound_guids() for g in dep_bad):
+                    cls = ""
+                    fix = ("依赖悬空但**运行时已接管**（%d 处全在 RUNTIME_BOUND_GUIDS："
+                           "ArenaOriginalShaderRebind / ArenaSceneAnims 按原版名绑定）—— 不补静态引用" % len(dep_bad))
+                    misc_counts["依赖悬空（运行时接管）"] += 1
+                # ① 源树：运行期不直接加载 ⇒ 一律转信息项（**保留行**，不进行动清单）
+                if in_source_tree(r):
+                    if cls:
+                        misc_counts["源树（ArenaOriginalPrefabs）· " + cls] += 1
+                        fix = ("源树 `WarpforgeVFX/ArenaOriginalPrefabs/**`：运行期不直接加载（构建期由 "
+                               "ArenaBuilder / 清单消费）—— " + fix)
+                    cls = ""
                 if cls:
                     cls_counts[cls] += 1
                     if len(cls_examples[cls]) < args.top:
@@ -984,23 +1126,34 @@ def run(args):
                                 d = pixel_diff(p, ctx.orig_tex[stem][0])
                                 if d is None:
                                     p2 = "尺寸读取不一致"
+                                elif d["all"] <= 3.0:
+                                    content["NEAR"] += 1
+                                    p2 = "几乎相同(RGBA mean|Δ|=%.2f，压缩/重编码差)" % d["all"]
+                                elif d["rgb_mask"] <= 3.0 and d["rgb_mask"] < d["rgb"]:
+                                    content["NEAR"] += 1
+                                    p2 = ("仅透明区 RGB 不同：可见像素 mean|Δ|=%.2f / 全图 %.2f"
+                                          "（alpha=0 的像素不可见，不算内容差）"
+                                          % (d["rgb_mask"], d["rgb"]))
+                                elif d["gamma"] <= 3.0:
+                                    content["NEAR"] += 1
+                                    p2 = ("gamma 编码等价：srgb2lin(一方) vs 另一方 mean|Δ|=%.2f"
+                                          "（我们存 sRGB / 原版存 linear；导入 sRGBTexture=1 后 GPU 取值一致）"
+                                          % d["gamma"])
+                                elif d["rgb"] <= 1.0:
+                                    content["NEAR"] += 1
+                                    p2 = ("RGB 相同、仅 alpha 不同(RGB mean|Δ|=%.2f / RGBA=%.2f)"
+                                          % (d["rgb"], d["all"]))
                                 else:
-                                    dall, drgb = d
-                                    if dall <= 3.0:
-                                        content["NEAR"] += 1
-                                        p2 = "几乎相同(mean|Δ|=%.2f，压缩/重编码差)" % dall
-                                    elif drgb <= 1.0:
-                                        content["NEAR"] += 1
-                                        p2 = "RGB 相同、仅 alpha 不同(mean|Δ| RGB=%.2f / RGBA=%.2f" \
-                                             " ⇒ 疑似法线通道重排)" % (drgb, dall)
-                                    else:
-                                        content["DIFF"] += 1
-                                        hint = ""
-                                        if re.search(r"(Normal|NRM|nrm)", stem):
-                                            hint = "（法线图：压缩通道重排会放大差异）"
-                                        p2 = "内容不同(RGB mean|Δ|=%.1f / RGBA=%.1f)%s" % (drgb, dall, hint)
-                                        cls, fix = "内容不同（需核）", \
-                                            "核：是否拿错图/换过异画（法线图先排除压通道重排）"
+                                    content["DIFF"] += 1
+                                    hint = ""
+                                    if re.search(r"(Normal|NRM|nrm)", stem):
+                                        hint = ("（法线图：旧说法『压缩通道重排』已作废 —— 真因是 gamma 编码；"
+                                                "本行是连 gamma 复检也不等价）")
+                                    p2 = "内容不同(RGB mean|Δ|=%.1f / RGBA=%.1f / 可见区 RGB=%.1f)%s" % (
+                                        d["rgb"], d["all"], d["rgb_mask"], hint)
+                                    cls, fix = "内容不同（需核）", \
+                                        ("核：是否拿错图/换过异画（判据 B110_R1 §4：先过 alpha=0 掩码与 "
+                                         "gamma 复检，两档都不等价才算真差异）")
                         except Exception as e:
                             content["SKIP_NO_PIL"] += 1
                             p2 = "比对失败:%s" % type(e).__name__
@@ -1023,6 +1176,11 @@ def run(args):
                         p3 = "sprite json 读失败"
                 else:
                     p3 = "查不到原版 sprite"
+                # 🆕 2026-10-31（B110_R5）：源树里的贴图缺陷一律转信息项（同 ② 层；判据 §B-39/§B-40）
+                if in_source_tree(r) and cls:
+                    misc_counts["源树（ArenaOriginalPrefabs）· " + cls] += 1
+                    fix = "源树 `WarpforgeVFX/ArenaOriginalPrefabs/**`：运行期不直接加载 —— " + fix
+                    cls = ""
                 if cls:
                     cls_counts[cls] += 1
                     if len(cls_examples[cls]) < args.top:
@@ -1038,34 +1196,53 @@ def run(args):
                 our_props, our_kws = set(), set()
                 if our_shader_path and os.path.isfile(our_shader_path):
                     our_props, our_kws, our_name = parse_shader(our_shader_path, ctx.shader_cache)
-                colors, floats, texenvs, kws = parse_mat_props(b)
+                colors, floats, texenvs, kws_valid, kws_invalid = parse_mat_props(b)
                 p1 = p3 = p4 = ""
                 cls = ""
                 fix = ""
                 if nm in ctx.orig_mat:
                     mat_pairs += 1
-                    oj, opid = ctx.orig_mat[nm]
-                    oname = ctx.shader_pid2name.get(opid, "")
-                    p3 = "shader 我们=%s / 原版=%s" % (our_name or "(未解析)", oname or "(未解析)")
-                    if oname and our_name and oname != our_name:
-                        p3 += "  ⚠不同"
-                    try:
-                        o = json.load(io.open(oj, encoding="utf-8"))
-                        sp = o.get("m_SavedProperties") or {}
-                        oc = {}
-                        for item in sp.get("m_Colors") or []:
-                            try:
-                                oc[item[0]] = tuple(round(float(item[1][k]), 4) for k in ("r", "g", "b", "a"))
-                            except Exception:
-                                pass
-                        of = {}
-                        for item in sp.get("m_Floats") or []:
-                            try:
-                                of[item[0]] = round(float(item[1]), 6)
-                            except Exception:
-                                pass
+                    # 🆕 2026-10-31（B110_R5）：`d:/2` 里**真的存在同名多份原版材质**（例 `SandParticle`
+                    #   两份：`battleprefabs_vfxandmisc` = `_QueueOffset 0` / `battlesharedresources` = `1`，
+                    #   而原版 `Battle Arena 2.unity` 引的是后者）。原来 `ctx.orig_mat` 只留第一份 ⇒
+                    #   会拿**错的那份**当唯一真值、把正确的我们判成「漂移」。
+                    #   ⇒ 逐份比、取「**未裁定差异最少**」的那份；**都不匹配且有多份**才报「需人工判」。
+                    cands = ctx.orig_mat_all.get(nm) or [ctx.orig_mat[nm]]
+                    best = None      # (未裁定差异数, diffc, difff, oc, of, shader_name, json)
+                    for oj, opid in cands:
+                        oname = ctx.shader_pid2name.get(opid, "")
+                        try:
+                            o = json.load(io.open(oj, encoding="utf-8"))
+                            sp = o.get("m_SavedProperties") or {}
+                            oc = {}
+                            for item in sp.get("m_Colors") or []:
+                                try:
+                                    oc[item[0]] = tuple(round(float(item[1][k]), 4) for k in ("r", "g", "b", "a"))
+                                except Exception:
+                                    pass
+                            of = {}
+                            for item in sp.get("m_Floats") or []:
+                                try:
+                                    of[item[0]] = round(float(item[1]), 6)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            continue
                         diffc = [k for k in oc if k in colors and oc[k] != colors[k]]
                         difff = [k for k in of if k in floats and abs(of[k] - floats[k]) > 1e-4]
+                        nunruled = len([k for k in (diffc + difff) if k not in RULED_DIFFS])
+                        cand = (nunruled, diffc, difff, oc, of, oname, oj)
+                        if best is None or cand[0] < best[0]:
+                            best = cand
+                    if best is None:
+                        p1 = "原版材质读失败"
+                    else:
+                        nunruled, diffc, difff, oc, of, oname, oj = best
+                        p3 = "shader 我们=%s / 原版=%s" % (our_name or "(未解析)", oname or "(未解析)")
+                        if oname and our_name and oname != our_name:
+                            p3 += "  ⚠不同"
+                        if len(cands) > 1:
+                            p3 += "  ⚠同名原版 %d 份（逐份比、取最接近的一份）" % len(cands)
                         common = set(oc) & set(colors)
                         p1 = "共有属性 颜色%d/浮点%d，差 颜色%d/浮点%d" % (
                             len(common), len(set(of) & set(floats)), len(diffc), len(difff))
@@ -1077,15 +1254,18 @@ def run(args):
                             if ruled:
                                 p1 += "  ⚑已裁定有意:%s" % ",".join(sorted(set(ruled)))
                             if unruled:
-                                cls, fix = "参数漂移", "核：颜色/浮点是否照原版 m_SavedProperties"
+                                if len(cands) > 1:
+                                    cls, fix = ("参数漂移（同名多源、需人工判）",
+                                                "人工判：`d:/2` 里有 %d 份同名原版材质，先定哪一份是本 prefab/本场用的"
+                                                % len(cands))
+                                else:
+                                    cls, fix = "参数漂移", "核：颜色/浮点是否照原版 m_SavedProperties"
                             else:
                                 cls, fix = "参数漂移（已裁定有意）", "不修（判据 RULED_DIFFS → 特效线任务总表:164）"
                             for k in diffc:
                                 drift_props["颜色 " + k] += 1
                             for k in difff:
                                 drift_props["浮点 " + k] += 1
-                    except Exception:
-                        p1 = "原版材质读失败"
                 else:
                     p1 = "查不到同名原版材质"
                 if our_props and our_shader_path and our_shader_path.startswith(ASSETS) \
@@ -1095,7 +1275,14 @@ def run(args):
                     #    按 .shader 正文判会整批误报（实测 1,164 → 只留自写 shader 后大幅收敛）。
                     undeclared = [x for x in (texenvs + list(colors) + list(floats))
                                   if x not in our_props and not x.startswith("unity_") and not x.endswith("_ST")]
-                    unk = [k for k in kws if k not in our_kws]
+                    unk = [k for k in kws_valid if k not in our_kws]
+                    # 🔴 2026-10-31 `B110_F3`：`m_InvalidKeywords` 不再计入缺陷。
+                    #   Unity 把「目标 shader 不认识」的关键字放在这一节（原版材质从 URP/Mobile 粒子
+                    #   shader 切到 Everguild shader 时的残留），运行时开着也不起作用 = 纯死值
+                    #   （`B110_R1 §7` ①）⇒ 单独进信息项，⛔ 别当「未声明」缺陷报。
+                    dead = [k for k in kws_invalid if k not in our_kws]
+                    if dead:
+                        misc_counts["关键字死值(在 m_InvalidKeywords、目标 shader 不认)"] += len(dead)
                     p4 = "属性未声明 %d · 关键字未声明 %d" % (len(undeclared), len(unk))
                     if undeclared:
                         p4 += " 例:" + ",".join(sorted(set(undeclared))[:3])
@@ -1110,6 +1297,11 @@ def run(args):
                     p4 = "目标 shader 非自写（包内 / ShaderGraph）⇒ 不判消费"
                 else:
                     p4 = "shader 未解析，无法判消费"
+                # 🆕 2026-10-31（B110_R5）：源树里的材质缺陷一律转信息项（同 ② 层；判据 §B-38）
+                if in_source_tree(r) and cls:
+                    misc_counts["源树（ArenaOriginalPrefabs）· " + cls] += 1
+                    fix = "源树 `WarpforgeVFX/ArenaOriginalPrefabs/**`：运行期不直接加载 —— " + fix
+                    cls = ""
                 if cls:
                     for cc in [x for x in cls.split("＋") if x]:
                         cls_counts[cc] += 1

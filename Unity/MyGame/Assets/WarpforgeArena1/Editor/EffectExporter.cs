@@ -3389,72 +3389,101 @@ public static class EffectExporter
         var mat = new Material(sh) { name = Sanitize(src.name) };
 
         // 逐属性搬数值（名字对得上就搬）
-        var srcSh = src.shader;
-        int n = srcSh != null ? srcSh.GetPropertyCount() : 0;
-        var names = new string[n];
-        for (int i = 0; i < n; i++) names[i] = srcSh.GetPropertyName(i);
+        //
+        // 🔴 **2026-10-31（B110_R5）**：枚举源从「`src.shader` 的反射表」改成
+        //   「材质自己序列化的 `m_SavedProperties`」。原因与上面 `WFMatDef` 那段（`:3027-3042`）是同一条：
+        //   **bundle 里的 shader 反射只返回残缺的一部分**（实测 `Particle Premultiply` 只报 4 个 float），
+        //   `GetPropertyCount()/GetPropertyName()` 拿不全 ⇒ `_ColorMode` / `_SrcBlend` / `_DstBlend` /
+        //   `_Cull` / `_Cutoff` 这些**真被消费**的属性从来没被搬过来，目标材质一直停在默认值上
+        //   （实测 `Army_Icon_GSC_add._ColorMode` 我们 0（乘法）vs 原版 1（加法））。
+        //   判据 → `资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-10。
+        var fNames = new List<string>(); var fVals = new List<float>();
+        var cNames = new List<string>(); var cVals = new List<Color>();
+        var tNames = new List<string>(); var tVals = new List<Texture>();
+        ReadSaved(src, "m_Floats", fNames, fVals, cNames, cVals, tNames, tVals);
+        ReadSaved(src, "m_Colors", fNames, fVals, cNames, cVals, tNames, tVals);
+        ReadSaved(src, "m_TexEnvs", fNames, fVals, cNames, cVals, tNames, tVals);
 
         int copied = 0;
         int dropped = 0;                       // 源材质上**真有值**、目标 shader 却不认 ⇒ 这是丢件，不是正常跳过
         var droppedWhat = new List<string>();
-        for (int i = 0; i < n; i++)
+
+        // 标量 / 整数（`m_Floats` 里都按 float 存）
+        for (int i = 0; i < fNames.Count; i++)
         {
-            var pn = names[i];
+            var pn = fNames[i];
+            var tp = MapProp(mat, pn);
+            if (!mat.HasProperty(tp)) continue;      // 目标 shader 没这个名字 = 死值，正常跳过
+            try { mat.SetFloat(tp, fVals[i]); copied++; }
+            catch (Exception e) { WarnCopyFail(src, pn, e); }
+        }
+
+        // 颜色 / 向量（`m_Colors` 两族混装 ⇒ 按**目标 shader**（工程资产，反射可信）的属性类型二选一）
+        for (int i = 0; i < cNames.Count; i++)
+        {
+            var pn = cNames[i];
             var tp = MapProp(mat, pn);
             if (!mat.HasProperty(tp))
             {
-                // 🔴 2026-09-17：这里原来是一句**裸 `continue`**。源 shader 的独有属性本来就该跳过
-                //    （每张材质几十个，全报出来会淹掉真话），但**源上真有贴图/颜色却没搬过去**是丢件。
-                //    拖尾那张就是这么丢的：`MapProp` 把 `_MainTex` 改成了 `_BaseMap`，而自建 shader
-                //    只声明了 `_MainTex` ⇒ 目标材质一个都没有（既没有映射名，也没退回原名）。
-                var st = srcSh.GetPropertyType(i);
-                if (st == ShaderPropertyType.Texture)
-                {
-                    var lost = src.GetTexture(pn);
-                    if (lost != null) { dropped++; droppedWhat.Add($"{pn}={lost.name}"); }
-                }
-                else if (st == ShaderPropertyType.Color)
-                {
-                    var lc = src.GetColor(pn);
-                    if (lc != Color.white) { dropped++; droppedWhat.Add($"{pn}={lc}"); }
-                }
+                var lc = cVals[i];
+                if (lc != Color.white) { dropped++; droppedWhat.Add($"{pn}={lc}"); }
                 continue;
             }
-            var t = srcSh.GetPropertyType(i);
             try
             {
-                switch (t)
+                bool isVector = false;
+                // ⚠️ 这台引擎上**没有**按名字取属性类型的 API（`ShaderUtil.GetPropertyType(Shader,string)` 与
+                //    `Material.GetPropertyType(string)` 都不存在 —— 2026-10-31 两次 typecheck 都在这一条上红）
+                //    ⇒ 按 (Shader,int) 那对重载**逐项找名字**。目标 shader 是工程资产、反射可信。
+                try
                 {
-                    case ShaderPropertyType.Color: mat.SetColor(tp, src.GetColor(pn)); copied++; break;
-                    case ShaderPropertyType.Vector: mat.SetVector(tp, src.GetVector(pn)); copied++; break;
-                    case ShaderPropertyType.Float:
-                    case ShaderPropertyType.Range: mat.SetFloat(tp, src.GetFloat(pn)); copied++; break;
-                    case ShaderPropertyType.Int: mat.SetInt(tp, src.GetInt(pn)); copied++; break;
-                    case ShaderPropertyType.Texture:
-                        var tx = src.GetTexture(pn);
-                        if (tx != null)
+                    var sh2 = mat.shader;
+                    if (sh2 != null)
+                    {
+                        int pc = UnityEditor.ShaderUtil.GetPropertyCount(sh2);
+                        for (int pi = 0; pi < pc; pi++)
                         {
-                            var imported = ImportTexture(tx);
-                            // 🔴 **2026-09-17 加守卫**：原来这里直接 `mat.SetTexture(tp, ImportTexture(tx))`，
-                            //    `ImportTexture` 返回 null 时就**静默把贴图写成 null** ——
-                            //    实测 `Plasma_basic_blue` 等效果的**拖尾材质**（`Trail_fading` / `LightningTrail`）
-                            //    就是这样丢的，渲出来是一块实心拖尾（就是「黑方块」那个形状）。
-                            //    ⇒ 导不出来就**保留原值 + 大声报**，绝不静默清掉。
-                            if (imported != null) { mat.SetTexture(tp, imported); copied++; }
-                            else Debug.LogWarning($"[EffectExporter] 贴图导不出来，**保留原值不清空**："
-                                                + $"{src.name} / 属性 {pn} = {tx.name}（{tx.GetType().Name}）；"
-                                                + $"目标材质 {mat.name} 的属性 {tp}");
+                            if (!string.Equals(UnityEditor.ShaderUtil.GetPropertyName(sh2, pi), tp, StringComparison.Ordinal))
+                                continue;
+                            isVector = UnityEditor.ShaderUtil.GetPropertyType(sh2, pi)
+                                       == UnityEditor.ShaderUtil.ShaderPropertyType.Vector;
+                            break;
                         }
-                        break;
+                    }
                 }
+                catch { isVector = false; }
+                if (isVector) mat.SetVector(tp, new Vector4(cVals[i].r, cVals[i].g, cVals[i].b, cVals[i].a));
+                else mat.SetColor(tp, cVals[i]);
+                copied++;
             }
-            catch (Exception e)
+            catch (Exception e) { WarnCopyFail(src, pn, e); }
+        }
+
+        // 贴图（`ReadSaved` 只收 `m_Texture` 非 null 的槽；null 槽不用写）
+        for (int i = 0; i < tNames.Count; i++)
+        {
+            var pn = tNames[i];
+            var tp = MapProp(mat, pn);
+            var tx = tVals[i];
+            if (!mat.HasProperty(tp))
             {
-                // 🔴 2026-09-17：原来是**空 catch** —— 逐属性拷贝中途抛一次，这个材质**剩下的属性
-                //    就全都不搬了**，而且一声不吭。抛异常这件事本身必须看得见。
-                Debug.LogWarning($"[EffectExporter] 材质 {src.name} 的属性 {pn} 拷贝失败"
-                               + $"（该材质后续属性可能一起没搬）：{e.GetType().Name}: {e.Message}");
+                if (tx != null) { dropped++; droppedWhat.Add($"{pn}={tx.name}"); }
+                continue;
             }
+            try
+            {
+                var imported = ImportTexture(tx);
+                // 🔴 **2026-09-17 加守卫**：原来这里直接 `mat.SetTexture(tp, ImportTexture(tx))`，
+                //    `ImportTexture` 返回 null 时就**静默把贴图写成 null** ——
+                //    实测 `Plasma_basic_blue` 等效果的**拖尾材质**（`Trail_fading` / `LightningTrail`）
+                //    就是这样丢的，渲出来是一块实心拖尾（就是「黑方块」那个形状）。
+                //    ⇒ 导不出来就**保留原值 + 大声报**，绝不静默清掉。
+                if (imported != null) { mat.SetTexture(tp, imported); copied++; }
+                else Debug.LogWarning($"[EffectExporter] 贴图导不出来，**保留原值不清空**："
+                                    + $"{src.name} / 属性 {pn} = {tx.name}（{tx.GetType().Name}）；"
+                                    + $"目标材质 {mat.name} 的属性 {tp}");
+            }
+            catch (Exception e) { WarnCopyFail(src, pn, e); }
         }
         if (dropped > 0)
             Debug.LogWarning($"[EffectExporter] 目标 shader {sh.name} 认不出 {dropped} 个属性，"
@@ -3580,20 +3609,26 @@ public static class EffectExporter
     static void ApplyRenderState(Material dst, Material src)
     {
         string sn = src.shader ? src.shader.name : "";
-        bool hasBlend = src.HasProperty("_SrcBlend") && src.HasProperty("_DstBlend");
-        float esb = hasBlend ? src.GetFloat("_SrcBlend") : -1f;
-        float edb = hasBlend ? src.GetFloat("_DstBlend") : -1f;
+        // 🔴 **2026-10-31（B110_R5）**：原来这里用 `src.HasProperty/GetFloat` —— 那是走 **shader 反射**，
+        //   而 bundle 里的 shader 反射**只返回残缺的一部分**（同 `ImportMaterial` 那段的长注释：
+        //   `Particle Premultiply` 的 `_SrcBlend/_DstBlend/_ZWrite/_Cull` 全读不到）⇒ 判据落空、退到「按名字猜」。
+        //   改成读材质自己序列化的 `m_SavedProperties.m_Floats`（与本方法上面那条拷贝**同一份判据**）。
+        var saved = SavedFloats(src);
+        bool hasBlend = saved.ContainsKey("_SrcBlend") && saved.ContainsKey("_DstBlend");
+        float esb = hasBlend ? saved["_SrcBlend"] : -1f;
+        float edb = hasBlend ? saved["_DstBlend"] : -1f;
         bool explicitOpaque = hasBlend && Mathf.Approximately(esb, 1f) && Mathf.Approximately(edb, 0f);
 
         if (hasBlend && !explicitOpaque)
         {
             // 原材质明确写了混合模式 → 照搬
+            float zwrite;
             SetBlend(dst, (BlendMode)esb, (BlendMode)edb,
-                     src.HasProperty("_ZWrite") ? src.GetFloat("_ZWrite") : 0f);
+                     saved.TryGetValue("_ZWrite", out zwrite) ? zwrite : 0f);
         }
-        else if (src.HasProperty("_Surface"))
+        else if (saved.TryGetValue("_Surface", out var surface))
         {
-            bool tr = src.GetFloat("_Surface") > 0.5f;
+            bool tr = surface > 0.5f;
             SetBlend(dst, tr ? BlendMode.SrcAlpha : BlendMode.One,
                           tr ? BlendMode.OneMinusSrcAlpha : BlendMode.Zero,
                      tr ? 0f : 1f);
@@ -3605,11 +3640,36 @@ public static class EffectExporter
             SetBlend(dst, sb, db, zw);
         }
 
-        if (dst.HasProperty("_Blend") && src.HasProperty("_Blend")) dst.SetFloat("_Blend", src.GetFloat("_Blend"));
-        if (dst.HasProperty("_AlphaClip")) dst.SetFloat("_AlphaClip", src.HasProperty("_AlphaClip") ? src.GetFloat("_AlphaClip") : 0f);
-        if (dst.HasProperty("_Cutoff")) dst.SetFloat("_Cutoff", src.HasProperty("_Cutoff") ? src.GetFloat("_Cutoff") : 0.5f);
-        if (dst.HasProperty("_Cull")) dst.SetFloat("_Cull", src.HasProperty("_Cull") ? src.GetFloat("_Cull") : (float)CullMode.Back);
+        float v;
+        if (dst.HasProperty("_Blend") && saved.TryGetValue("_Blend", out v)) dst.SetFloat("_Blend", v);
+        if (dst.HasProperty("_AlphaClip")) dst.SetFloat("_AlphaClip", saved.TryGetValue("_AlphaClip", out v) ? v : 0f);
+        if (dst.HasProperty("_Cutoff")) dst.SetFloat("_Cutoff", saved.TryGetValue("_Cutoff", out v) ? v : 0.5f);
+        if (dst.HasProperty("_Cull")) dst.SetFloat("_Cull", saved.TryGetValue("_Cull", out v) ? v : (float)CullMode.Back);
         if (dst.GetFloat("_AlphaClip") > 0.5f) dst.EnableKeyword("_ALPHATEST_ON");
+    }
+
+    /// <summary>读材质**序列化**的小数字段（`m_SavedProperties.m_Floats`）成字典。
+    /// 🔴 2026-10-31（B110_R5）：判「原版材质这条属性有没有值」**不能**用 `Material.HasProperty/GetFloat`
+    /// （那是 shader 反射，bundle 里的 shader 会漏属性）⇒ 只认序列化表。与 `ImportMaterial` 同一份判据。</summary>
+    static Dictionary<string, float> SavedFloats(Material m)
+    {
+        var d = new Dictionary<string, float>(StringComparer.Ordinal);
+        if (m == null) return d;
+        var n = new List<string>(); var v = new List<float>();
+        var cn = new List<string>(); var cv = new List<Color>();
+        var tn = new List<string>(); var tv = new List<Texture>();
+        ReadSaved(m, "m_Floats", n, v, cn, cv, tn, tv);
+        for (int i = 0; i < n.Count; i++) d[n[i]] = v[i];
+        return d;
+    }
+
+    /// <summary>逐属性拷贝失败时的唯一出声口（原来那段是内联的空 catch 上面才补的警告；抽出来给三段共用）。</summary>
+    static void WarnCopyFail(Material src, string pn, Exception e)
+    {
+        // 🔴 2026-09-17：原来是**空 catch** —— 逐属性拷贝中途抛一次，这个材质**剩下的属性
+        //    就全都不搬了**，而且一声不吭。抛异常这件事本身必须看得见。
+        Debug.LogWarning($"[EffectExporter] 材质 {(src != null ? src.name : "<null>")} 的属性 {pn} 拷贝失败"
+                       + $"（该材质后续属性可能一起没搬）：{e.GetType().Name}: {e.Message}");
     }
 
         public static Texture2D ImportTexture(Texture tex)

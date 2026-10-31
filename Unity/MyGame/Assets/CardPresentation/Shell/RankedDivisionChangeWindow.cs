@@ -530,7 +530,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 _clipsError = "`Resources/" + ClipsResourcePath + ".json` 载不到 —— 跑一次 "
-                            + "`python -I -X utf8 工具/gen_division_clips.py`";
+                            + "`python -I -X utf8 工具/gen_division_clips.py --write`";
                 _clipData = new DivisionClip[0];
                 _clipByKey = new Dictionary<string, DivisionClip>();
                 return;
@@ -1268,7 +1268,7 @@ namespace CardPresentation
             var tex = string.IsNullOrEmpty(art) ? null : Tex(art, "`Division Image` 的段位大图");
             bool drawn = tex != null;
             var quad = MenuDraw.Rect(transform, drawn ? tex : CardArt.Solid(), DivisionR, "Division Image", QDivision,
-                                     new Color(1f, 1f, 1f, drawn ? 1f : 0f));
+                                     new Color(1f, 1f, 1f, drawn ? 1f : 0f)); ApplyDivisionChangeMaterial(quad);   // 原版 `Rank Change` 材质（B110_M1；必须在下面的 AMP.Attach 之前）
             if (quad == null)
             {
                 // `MenuDraw.Rect` 整块落在裁切框外 ⇒ 不建（既有语义）。这一档丢的是**材质挂载点**，不是图。
@@ -1315,7 +1315,7 @@ namespace CardPresentation
         Transform BuildRankIcon()
         {
             var quad = MenuDraw.Rect(_division, CardArt.Solid(), RankIconR, "Rank Icon", QRank,
-                                     new Color(1f, 1f, 1f, 0f));
+                                     new Color(1f, 1f, 1f, 0f)); ApplyDivisionChangeMaterial(quad);   // 原版 `Rank Change` 材质（B110_M1；必须在下面的 AMP.Attach 之前）
             if (quad == null)
             {
                 WarnChannel("carrier:Rank Icon",
@@ -1681,12 +1681,59 @@ namespace CardPresentation
                 return;
             }
 
-            quad.SetTexture(tex);
+            quad.SetTexture(tex); SyncDivisionSecondary(quad);   // 第二张图跟主图（B110_M1 · 见 `ApplyDivisionChangeMaterial` 的「自己设计」）
             quad.SetTint(Color.white);          // α 0 → 1（原版在这一拍是 `Image.sprite = <图>`，`m_Color` 不动、仍是白）
             // `ApplyParticleAndGlow` 的 ①②③④ 要的是 `Sprite`（原版 `Image.sprite`）。同一张图复用同一个 `Sprite`，
             // 免得重复 `Build()` 每次 new 一个（那是托管 + native 两侧各一份）。
             if (_rankIconSprite == null || _rankIconSprite.texture != tex)
                 RankIconSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // ============================================================ #1 `Division Change` 材质（2026-10-31 · B110_M1）
+        /// <summary>原版材质 `Rank Change`（`Everguild/UI/Division Change`）的工程等价物 =
+        /// `Resources/Art/vfx/WFUI_DivisionChange.mat`（shader `WarpforgeVFX/UI/UI Division Change`）：
+        /// 算式逐指令抄自 `ruri_out_1020_allshaders/…/Everguild_UI_Division Change.shader:115-186`，
+        /// 参数逐字段抄自 `assets_full/bundle_menus_assets_all/Material/Material_-7300284622968135969.json`。
+        /// <para>🔴 **必须在 `AnimateUIMaterialProperty.Attach` 之前调** —— AMP 的 `OnEnable` 会**当场**把
+        /// 那一刻的 `sharedMaterial` 克隆成它的 `instancedMaterial`，之后它只往那份克隆里写 `_Blend`。
+        /// 反过来（先 Attach 后换材质）⇒ `_Blend` 写进一个已经不画在屏幕上的孤儿材质，**静默无效**
+        /// （= 施工单 §1 #1 说的「材质没这个属性 ⇒ 静默 no-op」的同一个坑，换了个位置）。</para>
+        /// <para>🔴 **必须在 `MenuDraw.Rect` 之后调** —— `ImageQuad.SetMaterial` 会保留调用前的
+        /// `renderQueue`（`ImageQuad.cs:296-303`），而 `Rect` 里的 `SetRenderQueue(QRank/QDivision)` 在它之前；
+        /// 顺序反过来这块图会掉到别的件下面（`QShade 3410 / QDivision 3412 / QRank 3413`）。</para></summary>
+        void ApplyDivisionChangeMaterial(ImageQuad quad)
+        {
+            if (quad == null) return; var keep = quad.Tint;   // 🔴 换材质**之前**先记下染色（`MenuDraw.Rect` 刚设的 α 占位 / 将来别的调用点给的色）
+            var src = Resources.Load<Material>("Art/vfx/WFUI_DivisionChange");
+            if (src == null)
+            {
+                WarnChannel("mat:Division Change",
+                            "取不到 `Resources/Art/vfx/WFUI_DivisionChange.mat` ⇒ `Division Image` / `Rank Icon` "
+                          + "退回 `Sprites/Default`（**原版那套 `_Blend` 溶解 + 火线整块没有**）。");
+                return;
+            }
+            // 每窗一份：AMP 会再从这份克隆（它的 `instancedMaterial`），而 `ImageQuad.SetMaterial` 会往
+            // 传进来的那份写 `mainTexture` ⇒ 直接传共享资产会把工程里那份写成脏的。
+            var m = new Material(src);
+            var tx = quad.Texture;
+            m.SetTexture("_MainTex", tx);
+            // 🔶 自己设计（非原版）：原版 `_MainTex` / `_SecondaryTex` 是**两张**图（`m_PathID 0`，
+            //   运行期由服务端 `RankedDivisions.GetRankData` 的 `RankArt` 分别灌）。我们只有一张名次图
+            //   ⇒ 两张绑同一贴图。为什么必须自定：第二张图的来源在关服后的远端包里，本地拿不到
+            //   （判据 → `B109_R15_菜单13材质.md` §4·3）。谁定的 + 日期：调度台 2026-10-31（B110_M1）。
+            m.SetTexture("_SecondaryTex", tx);
+            quad.SetMaterial(m); quad.SetTint(keep);   // 🔴 `ImageQuad.SetMaterial` **不复制 `_Color`**（`ImageQuad.cs:296-304`；同类里只有 `EnsureGreyCapable:394` 会 `m.color = old.color`）⇒ 不补这一句，α=0 占位会被新材质的 `_Color.a = 1` 冲成**实心白块**。同文件 `BuildRankIconGlow` 早就是「SetMaterial 之后补 SetTint」的写法。
+        }
+
+        /// <summary>名次图换了之后把 `_SecondaryTex` 跟着换（见 <see cref="ApplyDivisionChangeMaterial"/> 的
+        /// 「🔶 自己设计」那一段）。写的是**此刻真正在渲染的那份**材质 —— `FeedRankIcon` 拿到图的时候
+        /// `sharedMaterial` 已经是 AMP 克隆出来的实例，⛔ 不能再走 `SetMaterial`（那会顶掉 AMP 的实例）。</summary>
+        void SyncDivisionSecondary(ImageQuad quad)
+        {
+            if (quad == null) return;
+            var mr = quad.GetComponent<MeshRenderer>();
+            var m = mr == null ? null : mr.sharedMaterial;
+            if (m != null && m.HasProperty("_SecondaryTex")) m.SetTexture("_SecondaryTex", quad.Texture);
         }
     }
 }

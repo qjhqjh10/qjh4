@@ -99,7 +99,7 @@ namespace CardPresentation
 
         /// <summary>原版 `Inventory.Add(item, amount, instanceId, customData, overrideAmount)`。
         /// 我们的 `customData`（原版给条目挂的自定义字典）**暂不需要** ⇒ 不做形参（等真有调用点再加，⛔ 别先建空壳）。
-        /// `overrideAmount = true` ⇒ 直接设成 `amount`（不累加）。</summary>
+        /// `overrideAmount = true` ⇒ 直接设成 `amount`（不累加）。🔴 ⛔ **别把这个 4 参 `Add` 改成 `virtual`**：`CardInventory.Add` 那个 5 参 override 会经 `UpdateCardTier` 写**持久**等级（`CardProgress`），而 `SeedCardsAllUnlocked` 走的正是这一支 —— 一改 `virtual`，「播种全解锁」每次都会把玩家升过的卡打回 1 级并落盘（2026-10-31 `B110_F1`）。</summary>
         public ItemInfo<T> Add(T item, int amount, string instanceId = null, bool overrideAmount = false)
         {
             if (item == null) return null;
@@ -1379,7 +1379,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 private static `UpdateCardTier(RawCardScript card, Dictionary customData)`：
-        /// **异画不登记**；否则读 `customData["CardTier"]`（缺省 `"0"`）⇒ `CardServices.RegisterCardTier(card, tier)`。
+        /// **异画不登记**；否则读 `customData["CardTier"]`（**没有这一格 ⇒ 什么都不写** —— 原版缺省 `"0"` 只写**运行时** `TierCollection`，而我们的落点是**持久**等级，见方法体那条 🔴）⇒ `CardServices.RegisterCardTier(card, tier)`。
         /// ⚠️ 落点差异：我们的档位正本 = `CardProgress`（`CardProgress.Level` 是 **1 基** = 原版 `CardTier + 1`，
         /// 判据见 `Core/CardArt.cs:326-330` 那一串）⇒ 这里写 `SetLevel(id, tier + 1)`。
         /// ⚠️ 原版 `int.Parse` 遇坏串会**抛**；我们出声 + 跳过（不崩）。</summary>
@@ -1389,7 +1389,7 @@ namespace CardPresentation
             if (IsAlternateArt(card)) return;
             string s = null;
             if (customData != null) customData.TryGetValue("CardTier", out s);
-            if (s == null) s = "0";
+            if (s == null) return;   // 🔴 2026-10-31（`B110_F1`）原版这一跳写的是**运行时** `TierCollection`（ctor 里 `CleanTierCollection()` 每次清空、由服务端 `CardTierConfig` 重建）⇒ 对玩家可见状态**零影响**；我们的落点 `CardProgress` 是**持久**等级 ⇒ 服务端没给档位时**不写**（`customData == null` 就是这一档，`RewardService.CollectItemReward<T>` 传的就是 null，判据 `RewardService.cs:890`）。⛔ 别改回 `s = "0"`：tier 0 ⇒ `SetLevel(id, tier + 1)` = 1 级，会把玩家已升级的卡**打回 1 级并落盘**。
             int tier;
             if (!int.TryParse(s, out tier))
             {

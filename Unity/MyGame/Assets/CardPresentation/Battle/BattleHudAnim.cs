@@ -152,7 +152,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 LastError = "`Resources/" + ResourcePath + ".json` 载不到 —— 跑一次 "
-                          + "`python -I -X utf8 工具/gen_battlehud_clips.py`";
+                          + "`python -I -X utf8 工具/gen_battlehud_clips.py --write`";
                 _file = new BattleHudFile { clips = new BattleHudClip[0], refs = new BattleHudRef[0] };
                 _byName = new Dictionary<string, BattleHudClip>();
                 _byRef = new Dictionary<string, BattleHudRef>();

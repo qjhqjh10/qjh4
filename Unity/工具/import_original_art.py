@@ -1388,7 +1388,8 @@ def ui_sprite_pad(name, bundle):
     `bundle_liveopsicons_assets_all`）⇒ 该 bundle 查不到时**全库按同名 glob**：
     只有一处命中、或多处命中的 `(m_Rect, 偏移)` **完全一致**才采用（判据唯一）；否则 None。
 
-    :return: `(w, h, ox, oy)` = `m_Rect` 的宽高 + `textureRectOffset`（取整像素）；
+    :return: `(w, h, ox, oy)` = `m_Rect` 的宽高 + `textureRectOffset`（取整像素；
+             ⚠️ **`oy` 是 Unity 的下偏移**，调用方 `copy_ui_sprite` 贴图前要换算成上偏移）；
              查不到那份 json / 字段缺失 / 多处判据打架 ⇒ **None**（调用方整张照拷并**出声**，⛔ 不猜位置）。
     """
     import glob as _glob
@@ -1435,7 +1436,13 @@ def copy_ui_sprite(src, dst, bundle):
         shutil.copyfile(src, dst)
         return 'noinfo'
     canvas = Image.new('RGBA', (tw, th), (0, 0, 0, 0))
-    canvas.paste(im, (ox, oy))
+    # 🔴 **2026-10-31（B110_R5）**：`textureRectOffset` 是 **Unity 的「下偏移」**（原点在左下），
+    #   而 PIL 的 `paste` 原点在**左上** ⇒ 必须先换算成上偏移再贴。
+    #   原来直接贴 `(ox, oy)` ⇒ 整张图**上下错位**（实测 `40K_shop_offer_booster_Ork`：
+    #   旧写法贴到 y=63，正确是 y=56；可见像素 mean|Δ| 28.8，换算后 = 0.000）。
+    #   判据 → `资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-09。
+    top = th - oy - im.size[1]
+    canvas.paste(im, (ox, top))
     canvas.save(dst)
     im.close()
     return 'padded'
@@ -1493,11 +1500,31 @@ def fix_art_meta(dst):
 
     ⚠️ `.meta` 是 Unity 生成的：**第一次导入（还没开过 Unity）时它不存在** → 这里跳过。
     开过一次 Unity 之后再跑一遍本脚本即可（脚本是幂等的）。
+
+    🔴 **2026-10-31（B110_W6 · 账 `B-36`）：本脚本【从不生成 `.meta`】—— 这一格不是缺陷，是分工。**
+       · 它只做两件事：拷 PNG；**盘上已经有 `.meta` 时**把 `alphaIsTransparency` 关掉（就是本函数）。
+       · `.meta` 的**创建** = Unity 首次导入（默认 `nPOTScale` 是 ToNearest，NPOT 图会被放大到最近的 2 次幂，
+         见本文件 `40k_UI_bt_back_pressed` 那条注记）。
+       · `.meta` 的**导入设置正本** = `CardPresentation/Editor/ArtBaker.cs` 的 `ApplyImportSettings()`
+         （按子树写 `maxTextureSize` / `npotScale = None` / 压缩档 / `alphaIsTransparency = false`；
+         它每次烘焙都会跑，且**与这里这条 alpha 口径是同一条**）。⇒ 两边别各写一套。
+       · 所以「本脚本产出的 PNG 没有 `.meta`」是**正常中间态**：跑一次 Unity（或那条烘焙菜单）再由
+         `ArtBaker` 补齐。下面的摘要行会把这条出路直接打出来，⛔ 别静默。
     """
     meta = dst + '.meta'
     if not os.path.exists(meta):
         return False
     s = io.open(meta, encoding='utf-8').read()
+    # 🔴 2026-10-31（B110_W6 · 账 `B-36`）：本脚本**不生成** `.meta`（见上面的 doc），但**盘上已经有**的那份
+    #   顺手核一格 —— `nPOTScale` 必须是 **0(None)**：默认的 1(ToNearest) 会把**非 2 次幂**的图放大到最近的
+    #   2 次幂（本文件 `40k_UI_bt_back_pressed` 那条注记就是 88×87 ⇒ 会被放大成 128×128）。
+    #   **只报不修**：这一格的正本在 `CardPresentation/Editor/ArtBaker.cs` 的 `ApplyImportSettings()`
+    #   （`ti.npotScale = None`）；在这里改 = 两个工具各写一套（也正是 B-36 问的那个「谁负责」的答案）。
+    #   现读：`Resources/Art` 下 3,312 份 `.meta` **全部是 0** ⇒ 这条今天零噪音，只在真回归时出声。
+    if 'nPOTScale: 1' in s:
+        print(f'  ⚠️ `.meta` 的 `nPOTScale` 是 **ToNearest**（{os.path.basename(dst)}）—— 非 2 次幂的图会被**放大**'
+              '到最近的 2 次幂（如实拍 88×87 → 128×128）。正本在 `Editor/ArtBaker.ApplyImportSettings()`，'
+              '本脚本**只报不修**')
     if 'alphaIsTransparency: 1' not in s:
         return False
     io.open(meta, 'w', encoding='utf-8', newline='').write(
@@ -2184,7 +2211,12 @@ def main() -> int:
     if meta_fixed:
         print(f'插图的 .meta：关了 {meta_fixed} 个 alphaIsTransparency（不关的话透明区会被 Unity 填成马赛克）')
     elif not args.check:
-        print('插图 .meta 没动（要么已经是关的，要么还没生成 —— **没生成的话开过一次 Unity 再跑一遍本脚本**）')
+        # 🔴 2026-10-31（B110_W6 · 账 `B-36`）：把**谁负责生成 `.meta`** 打在脸上 —— 本脚本从不生成它
+        #   （见 `fix_art_meta` 的 doc：生成 = Unity 首次导入；导入设置正本 = `Editor/ArtBaker.ApplyImportSettings`）。
+        print('插图 .meta 没动（要么已经是关的，要么还没生成）')
+        print('  ⚠️ **本脚本不生成 `.meta`**（这是分工，不是缺陷）：首次导入由 Unity 建，导入设置由 '
+              '`CardPresentation/Editor/ArtBaker.ApplyImportSettings()` 按子树统一写'
+              '（`maxTextureSize` / `npotScale = None` / 压缩档）。⇒ 跑一次 Unity 烘焙，再跑一遍本脚本关 alpha。')
 
     if not args.check and not args.only_menu:
         # 抠图清单：运行时靠它决定「要不要画前景层（角色越出卡框）」

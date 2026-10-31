@@ -5546,7 +5546,7 @@ public static class SettingsScene
             MenuDraw.CheckShadeClickRule(CheckTrue, "设置窗", win.transform, win.ShadeHit,
                                          () => win.CurrentState);
 
-            B109_E1_SettingsPersist_Assert.Run(win); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; CheckTrue(win.TryOpen(), "（B109_E1 现场）把设置窗开回来 —— 下面那张实拍要开着窗"); Shoot("settings_online.png", true);
+            B109_E1_SettingsPersist_Assert.Run(win); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; CheckTrue(win.TryOpen(), "（B109_E1 现场）把设置窗开回来 —— 下面那张实拍要开着窗"); Shoot("settings_online.png", true); C2_Assert.Run(); _sink.Pass += C2_Assert.Pass; _sink.Fail += C2_Assert.Fail;
         }
         finally
         {

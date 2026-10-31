@@ -288,6 +288,13 @@ namespace WarpforgeVFX
             // ⚠️ **能不能在这台 6000.3.23f1 上 `SetPass` 还没验**（源包构建版 6000.2.6f2，与其它 64 个已在用的
             //    原版 shader 同一批）⇒ 判据只能跑一次 Unity 的 `B97W23Assert.Run`（本轮不起 Unity）。
             "Everguild/Cards/Shader Graphs/Booster Pack",              // 16（`Card Booster Pack*`）
+            // ---- 🆕 2026-10-31（B110_R5 · 判据 `资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-42）----
+            //   GSC 场 `SumpOverspill` 环境条件要换的 `Battle Arena Genestealers Water Floor` 材质用的就是它。
+            //   原来它**不在任何随包 bundle、也不在两张表里** ⇒ 该环境条件只会补间 `_Blend`、整套水漫没效果。
+            //   ⚠️ 光登记这条**不够**：还要调度台把 shader（+ 那个 Material）打进 `wf_arena_*.bundle`
+            //      （`工具/extract_missing_shaders.py` 加一个源包 `bundle_scenes_scenes_battlearenagenestealers` 的 group）；
+            //      没打进时 `WarpforgeShaderMap.TryResolve` 会照旧回落，不会炸。
+            "Everguild/FX/Genestealers Flood",                 //   1（进白名单 = 走原件；静态包不在时自然回落）
         };
 
         /// <summary>原版 shader 名 → 本工程 shader 名</summary>

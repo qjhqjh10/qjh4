@@ -762,7 +762,7 @@ namespace CardPresentation
         // 结构**照原版**：一条轨上 4 个 `Entry`（一天一格），每格两个抽屉（`NormalReward` / `Premium Reward`），
         // 每个抽屉**各自**持一个四态 `RewardState`。状态怎么算照原版
         // （`DF:DailyRewardItemContainer__GetCurrentState.c:18-46`，见 `资料/日常_调用链_三窗.md` §一·D；⚠️ 更正：原来指 `资料/日常_调用链_DailyRewardPopup.md`，2026-10-10 已并入）。
-        // 🔶 自己设计（非原版）：每日奖励的天数 / 奖励内容与数量 / 里程碑目标值 · 原版由服务端下发 · TODO(谁定的)｜原注：❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。
+        // 🔶 自己设计（非原版）：每日奖励的天数 / 奖励内容与数量 / 里程碑目标值 · 原版由服务端下发 · TODO(谁定的)｜原注：❌ **我们挑的**：天数、奖励内容与数量、里程碑目标值、有没有买 Premium。🔴 原版判据**查不到**（不是没查）：原版 `DailyRewardItemContainer.Initialize` 收的是服务端 `ChallengeMilestone.rewards` 按 `rewardTier` 分组下发的那份列表（`decomp_full/DailyRewardItemContainer__Initialize.c:95-114`；关服后本地 0 命中）⇒ 本地唯一可用判据 = **自洽**：`_reward*Name` 卡面上印的数 == `_reward*Count` == `CollectReward` 实发数（`B110_W3` 2026-10-31 按此修正：卡包 20/40→1/2、骷髅 160/320→20/40，原值与名字矛盾；同口径见 `_streakName`/`_streakAmount`）。
 
         public const int RewardDays = 4;
         /// <summary>⚠️ 我们挑的：已领到第几天（`index &lt; 它` ⇒ 该格 `Collected`）。</summary>
@@ -776,8 +776,8 @@ namespace CardPresentation
                                                      "40k_topmarquee_currency_gold", "40K_missions_icon_Daily_skulls" };
         static readonly string[] _rewardPremIcon = { "40k_topmarquee_currency_gold", "40k_main_bt_rewards",
                                                      "40k_topmarquee_currency_gold", "40K_missions_icon_Daily_skulls" };
-        static readonly int[] _rewardFreeCount = { 150, 20, 200, 160 };
-        static readonly int[] _rewardPremCount = { 300, 40, 400, 320 };
+        static readonly int[] _rewardFreeCount = { 150, 1, 200, 20 };      // ⚠️ 必须等于 `_rewardFreeName` 卡面上印的那个数（2026-10-31 `B110_W3` 修：原为 20/160，与「1 Booster pack」「20 Skulls」矛盾）
+        static readonly int[] _rewardPremCount = { 300, 2, 400, 40 };      // ⚠️ 同上（原为 40/320）；这两张表与 `_streakName`/`_streakAmount` 同一口径：名字里的数 == 实发数
         static readonly bool[] _rewardClaimed = new bool[RewardDays];
         /// 🔶 自己设计（非原版）：本地模拟「买 Premium 轨」（`_premiumOwned` 可写） · 原版走真商店 `PremiumOffer.TryPurchaseOffer`、服务器已关服 ⇒ 判据在远端 · 调度台 2026-10-28 裁定｜原注：⚠️ 我们挑的：**单机不卖 Premium** ⇒ 出厂 `false`、Premium 抽屉恒 `PremiumLocked`；买过了才转可领（见 `PurchasePremiumLocal`）。
         static bool _premiumOwned;
@@ -3033,7 +3033,7 @@ namespace CardPresentation
         /// <summary>见 <see cref="ItemTypeNameOf"/>（连登窗同一跳 —— 原版 `DailyStreakItemContainer` 与每日奖励是同一段字节）。</summary>
         static string StreakItemTypeNameOf(int i) { return ItemTypeNameOfIcon(StreakRewardIcon(i)); }
 
-        /// <summary>🔶 自己设计（非原版）：**图标名 → 原版 item 类型名**。
+        /// <summary>🔶 自己设计（非原版）：**图标名 → 原版 item 类型名**。🔴 **全仓唯一一份映射**：`DailyRewardPopup.RewardItemTypeOf` 只转发到这里（`B110_W3` 2026-10-31 收敛，⛔ 别再在别处写第二份 switch）。
         /// <para>为什么必须是自设计：原版的类型来自 `RewardInfo.item`（服务端 `ChallengeMilestone.rewards` 下发的 SO），
         /// 关服后本地拿不到（`CurrencyNames` 只认 `C2/C3/C5`；`40k_topmarquee_currency_gold` 只有 Sprite、没有 SO）·
         /// 调度台 2026-10-31 裁定（授权「按图标类型映射而不是一刀切」）。</para>
@@ -3041,7 +3041,7 @@ namespace CardPresentation
         /// `Currency` 抽屉 ⇒ `showItemInfoOnClick = 1`，R13 §4·1）；`40k_main_bt_rewards`（卡包）按 `ShopContainer`
         /// （原版 `Icon Container Drawer Variant` ⇒ `0`，§1.5）。⛔ 别把这张表当「原版类型真值」引用。</para>
         /// <para>返回 `null` = **这个图标本地没有判据** ⇒ 调用方出声 + 返回 false（铁律 2：不猜）。</para></summary>
-        static string ItemTypeNameOfIcon(string art)
+        public static string ItemTypeNameOfIcon(string art)
         {
             switch (art)
             {

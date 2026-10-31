@@ -1003,7 +1003,11 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-31（`C3`）就地订正（铁律 5）**：原文写「……其余情形**关按钮音**」——**两句都不成立**：
         /// 原版 `ItemDrawer.OnPointerClick`（`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:29-41`）第二跳是
         /// 「有 `onClick` 就跑它、**没有就 `HandlePointerClick()`**（开 `ItemDisplayWindow(item, quantity)`）」，
-        /// 而末句 `inspectSound.Play2D()` **两条分支都放**。见下方 `else` 与 `clickCue`（与 `DailyRewardPopup.cs:1257-1263` 逐句同形）。</para>
+        /// 而末句 `inspectSound.Play2D()` **两条分支都放**。见下方 `else` 与 `clickCue`（与 `DailyRewardPopup.BuildPreviewHit` 逐句同形）。</para>
+        /// <para>🔴 **2026-10-31（`B110_W1`）补第一道闸（铁律 5：上面那句「两条分支都放」只在闸【开着】时成立）**：
+        /// 原版第一句是 `if (showItemInfoOnClick(+0x44) == 0) return;`（同文件 `:14`）—— 闸关 ⇒ **整条方法 return**，
+        /// 那一声音写在闸内（`:31-34`）⇒ **无窗、无预览、连音都没有**。我们这一侧的闸 = <see cref="DailyData.StreakRewardClickable"/>
+        /// （`showItemInfoOnClick` 的等价物；连登第 0/3 格是卡包 ⇒ false）。改前 `else` 支是**无条件**开窗 + **无条件**放按钮音。</para></summary>
         /// <para>🔴 **2026-10-31（`B106_W71`）就地订正（铁律 5）**：原文写「队列 `QContent + 1`（3011，&gt; 内容档、&lt; `QOverlay`）」——**在本窗不成立**：本窗**没有 `colider` / `QOverlay` 那一层**（那是每日奖励窗才有的结构），
         /// 而领奖钮 `Collect` 自己就建在 `QContent`(3010) ⇒ 3011 会把它整颗盖死（真机点了不生效）。3009 与吸收层同档（`Absorb` 算的也是 `qContentMin - 1`），平局按兄弟序 ⇒ 预览件（面板子树里的后兄弟）赢。</para>
         /// <para>⚠️ **本窗没有 `Shadow`**：原版连登奖格只有 `highlight` / `claimLabel` / `claimButton` 三件
@@ -1018,7 +1022,10 @@ namespace CardPresentation
             if (node == null) return null;
             var hit = node.GetComponent<WindowButton>();
             if (hit == null) return null;
-            if (DailyData.StreakRewardCountOf(day) > 1 && DailyData.StreakRewardClickable(day))
+            // 🔴 **原版第一道闸**（`ItemDrawer_object___OnPointerClick.c:14`）：`showItemInfoOnClick == 0` ⇒ **整条 return**。
+            // 我们这一侧的等价物 = `DailyData.StreakRewardClickable`（卡包格 = `Everguild.LiveOps.ShopContainer` ⇒ 闸关）。
+            bool clickable = DailyData.StreakRewardClickable(day);
+            if (DailyData.StreakRewardCountOf(day) > 1 && clickable)
             {
                 hit.onClick = () =>
                 {
@@ -1029,11 +1036,14 @@ namespace CardPresentation
             }
             // 原版第二跳：**有 `onClick`（= `OverrideOnClickAction`，只有 `Count > 1` 才挂）就跑它**，
             // 否则 `HandlePointerClick()` 开 `ItemDisplayWindow(item, quantity)` —— 后者是**每一格的常态**。
-            else hit.onClick = () => OpenItemInfo(day);
-            // 原版末句 `if (inspectSound != null) inspectSound.Play2D()` —— **两条分支都放**（`decomp_generic_trial/out/
-            // ItemDrawer_object___OnPointerClick.c:38-41`；cue = `ButtonClick 1` / clip `UI Click 1`，同 `ItemDrawer.PlayInspectCue`）。
-            // ⛔ 别再写 `playClickSound = false`：那是「闸关着」那一支的写法（`showItemInfoOnClick = 0`），而这一格闸是开的。
-            hit.clickCue = WindowSounds.ButtonClick1Cue;
+            // 🔴 `B110_W1`：这两跳**都在第一道闸里面** ⇒ 闸关那一格**一条都不走**（`onClick` 保持 null）。
+            else if (clickable) hit.onClick = () => OpenItemInfo(day);
+            // 原版末句 `if (inspectSound != null) inspectSound.Play2D()` —— 它在**闸内**、且**两条分支都放**
+            // （`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:31-34`；cue = `ButtonClick 1` / clip `UI Click 1`）。
+            // ⛔ 别再无条件写 `hit.clickCue`：闸关着的那一格原版**整条 return**，一声都不响。
+            // ⚠️ 闸关时命中件**照旧建着**（原版那颗抽屉 `Image` 也是 raycast target：吃掉这一下、什么都不做）。
+            if (clickable) hit.clickCue = WindowSounds.ButtonClick1Cue;
+            else hit.playClickSound = false;
             // 🔶 自己设计（非原版）：**本窗没有 `Shadow`** ⇒ 用命中闸复刻「可领那一下被领奖钮吞掉」的遮挡语义 ·
             // 判据 = `DailyStreakItemContainer__SetState.c:2-29`（claimButton ⇔ Unlocked）· 调度台 2026-10-31 裁定
             hit.Interactable = !claimWins;
@@ -1066,23 +1076,48 @@ namespace CardPresentation
         /// （`Count &gt; 1` 那一支被 `OverrideOnClickAction` 截走）；③ 连登奖格的抽屉与每日奖励是**同一份 prefab**
         /// （`Currency ▸ Key:10` = `Icon Currency Drawer Variant`，`showItemInfoOnClick = 1`，闸是开的；
         /// 判据 → `资料/完全复刻/判据/B109_R13_AUD05剩余.md` §4·1）⇒ **未领那一格点一下必须开窗**。</para>
-        /// <para>⚠️ **数量那一格传不进去（如实标注，⛔ 不塞进标题里冒充）**：原版 `ItemDisplayWindowContext` 的
-        /// `+0x18 = amount`，而我们这一侧的 `ItemDisplayWindow.Context` **没有 Amount 字段**
-        /// ⇒ 这里只能把「物品 = 图 + 名」送进去（补法与限制见 `资料/完全复刻/报告/B109_E23.md` §五·①）。</para>
+        /// <para>🔴 **2026-10-31（`B110_M2F`）就地订正（铁律 5）**：本段原文写「`ItemDisplayWindow.Context` **没有 Amount 字段**、
+        /// 数量传不进去」—— **已过期**：`Context.Amount` / `ShowAmount` 已由 `B110` 的 `C2` 补上（`ItemDisplayWindow.cs:150/159`）。
+        /// 现在这一跳照原版实参给 **`Amount` = 这一格的数量**（= 抽屉自己的 `+0x40`，见 `StreakAmountOf`），
+        /// `ShowAmount` 与每日奖励**同一份判据**（`DailyRewardPopup.ShowAmountForReward`）。</para>
         /// <para>⛔ 不发奖、不关本窗（原版这一段只做 `OpenWindow` 一件事）。</para></summary>
         void OpenItemInfo(int day)
         {
+            var ctx = ItemInfoContext(day);
+            var w = WindowsManager.OpenItemDisplay(ctx);
+            if (w == null)
+                Debug.LogWarning("[DailyStreak] 点奖格 ⇒ **物品展示窗没开出来**（原版 `ItemDrawer.HandlePointerClick`）—— 不静默");
+        }
+
+        /// <summary>= 上面那一跳交给 `WindowsManager.OpenItemDisplay` 的那份 <see cref="ItemDisplayWindow.Context"/>
+        /// —— **生产路与自检读口是同一份**（`OpenItemInfo` 只转调它；⛔ 别在 `OpenItemInfo` 里再拼一份）。
+        /// <para>逐格判据：① 物品 = `StreakRewardIcon` 那张图（= 抽屉 `image.sprite`）；② <b>第 2 个实参 = 数量</b>
+        /// （原版 `ItemDrawer_object___HandlePointerClick.c:15-25` 的 `+0x40`；同一份数量也是 `CollectStreak` 发的那个数
+        /// —— `DailyData.cs:1234`）；③ `ShowAmount` = 物品窗里那具抽屉会不会画数量行 —— **与每日奖励同一个判据**
+        /// （原版两处是同一段字节：`out_il2csharp/Assembly-CSharp/DailyStreakItemContainer.cs:105-127`）
+        /// ⇒ 转调 `DailyRewardPopup.ShowAmountForReward`（⛔ 不另写一份表）。</para></summary>
+        public static ItemDisplayWindow.Context ItemInfoContext(int day)
+        {
             var art = DailyData.StreakRewardIcon(day);
-            var ctx = new ItemDisplayWindow.Context
+            return new ItemDisplayWindow.Context
             {
                 Title = DailyData.StreakRewardName(day),      // 原版 `item.LocalizedName`；= 格上 `Reward Name` 印的那一条
                 Description = null, Type = null, Army = null, Lore = null,
                 Art = ItemDrawer.ArtTexture(art),             // 与奖格图标同一张（= 原版 `ItemDrawer.Draw` 换 `image.sprite` 那一下）
-                ArtName = art,
+                // 🔴 原版 `ItemDisplayWindowContext(item, quantity)` 的三个实参：`Amount` 不写就落 struct 的 0 ⇒ 印 `"0"`
+                ArtName = art, Amount = StreakAmountOf(day), ShowAmount = DailyRewardPopup.ShowAmountForReward(art),
             };
-            var w = WindowsManager.OpenItemDisplay(ctx);
-            if (w == null)
-                Debug.LogWarning("[DailyStreak] 点奖格 ⇒ **物品展示窗没开出来**（原版 `ItemDrawer.HandlePointerClick`）—— 不静默");
+        }
+
+        /// <summary>连登第 `day` 格的数量（= 原版抽屉的 `+0x40`）。
+        /// <para>唯一公开取数口 = `DailyData.StreakRewardSpecsOf(i)[0].Quantity`（`_streakAmount` 本身是 `private`、
+        /// 本批白名单不含 `DailyData.cs`）⇒ 走它，⛔ 别在这儿另抄那张 `_streakAmount` 表
+        /// （抄一份 = 两处写同一条规则，迟早不一致）。</para>
+        /// <returns>空表（这一格没有奖励）⇒ **0**（`Context.Amount` 的默认值；不猜）。</returns></summary>
+        static int StreakAmountOf(int day)
+        {
+            var specs = DailyData.StreakRewardSpecsOf(day);
+            return specs != null && specs.Length > 0 ? specs[0].Quantity : 0;
         }
     }
 }

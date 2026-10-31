@@ -624,6 +624,24 @@ public static class NetSelfTest
         var back2 = NetProtocol.FromWire(NetProtocol.ToWire(a2, null, 0));
         Eq(back2.TargetP, 0, "I⑧ 座位 0 过来还是 0（**原来会翻成 1**）");
 
+        // 🆕 2026-10-31（`B110_R3` · 账 `N07`）：誓约二选一的答案**随动作走**。
+        // 🔴 生产路径 `NetBattle.OnLocalAction` / `BattleDriver.RecAct` 调 `ToWire` 时 `ctx` 传的是 **null**
+        //    ⇒ 答案**只能从 `AiAction` 上取**（下面 I⑩ 故意传 `null` 就是为了钉这一点）。
+        var ao = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 0, Slot = -1,
+                                OathChoiceRecorded = true, OathChoice = 1 };
+        var wo = NetProtocol.ToWire(ao, null, 0);
+        Ok(wo.oathRecorded && wo.oathChoice == 1,
+           "★ B110_R3-I⑩：答案随动作上线（`ToWire(act, ctx:null, …)` 也带 —— `OnLocalAction` 就是这么调的）"
+         + $"（实得 recorded={wo.oathRecorded} choice={wo.oathChoice}）"
+         + "｜🧨 只在 `ctx != null` 时拷 ⇒ 本条红");
+        var bo = NetProtocol.FromWire(wo);
+        Ok(bo.OathChoiceRecorded && bo.OathChoice == 1,
+           "★ B110_R3-I⑪：`FromWire` 反方向同语义（⛔ 两条路径语义必须一致）");
+        var wd = NetProtocol.ToWire(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = 0, Slot = -1 }, null, 0);
+        Ok(!wd.oathRecorded,
+           "★ B110_R3-I⑫：没答 / 老档 ⇒ `oathRecorded == false`（⛔ 不能默认成『平版』——"
+         + " `JsonUtility` 缺键填 0，所以必须有这一格在场哨兵）");
+
         Ok(NetProtocol.Fingerprint(null) == 0, "I⑨ 空上下文指纹是 0（不炸）");
     }
 

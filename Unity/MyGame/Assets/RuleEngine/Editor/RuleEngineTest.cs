@@ -1375,7 +1375,7 @@ public static partial class RuleEngineTest
         // 🆕 2026-10-31（调度台 · AUD11）：`EngineE1Assert`（v24 三列 / 版本守卫 / 按能力种类归位）
         //   头注释自己写着「请主对话并进宿主」，此前**全仓 0 宿主** ⇒ 一条都没跑过。
         {
-            EngineE1Assert.Run(); _pass += EngineE1Assert.Pass; _fail += EngineE1Assert.Fail;
+            EngineE1Assert.Run(); _pass += EngineE1Assert.Pass; _fail += EngineE1Assert.Fail; C1_EngineFixes_Assert.Run(); _pass += C1_EngineFixes_Assert.Pass; _fail += C1_EngineFixes_Assert.Fail; C8_Assert.Run(); _pass += C8_Assert.Pass; _fail += C8_Assert.Fail; B110C09(); B110_E5_Assert.Run(); _pass += B110_E5_Assert.Pass; _fail += B110_E5_Assert.Fail;
         }
 
         // ---- 汇总 ----

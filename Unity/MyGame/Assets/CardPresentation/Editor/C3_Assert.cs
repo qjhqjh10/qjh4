@@ -2,7 +2,7 @@
 //   施工单 = `资料/完全复刻/报告/B109_E23.md` §五·③ / §五·④ · `判据/B109_R13_AUD05剩余.md` §J6 · `判据/B109_D1_八条红.md` §5/§6。
 //   报告   = `资料/完全复刻/报告/C3.md`。
 //
-// ============================ 它盯的两件 ============================
+// ============================ 它盯的三件 ============================
 //  ① **`DailyStreakPopup.BuildPreviewHit` 的 `else` 支**（`Shell/DailyStreakPopup.cs`）：
 //     原版 `ItemDrawer<T>.OnPointerClick`（`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c`）三跳：
 //       ① `if (showItemInfoOnClick(+0x44) == 0) return;`
@@ -14,6 +14,10 @@
 //  ② **`DailyData.RewardClickable` 对「每日/连登」这一格是误判**：
 //     R13 已把这一格用的 prefab 钉死（`ItemDrawerConfig` 的 `Currency ▸ Key:10` = `Icon Currency Drawer Variant`，
 //     `showItemInfoOnClick = 1`）⇒ 一刀切 `false` 与原版不符；`C3` 改成按图标映射（🔶 自设计，见 `ItemTypeNameOfIcon`）。
+//  ③ 🆕 **2026-10-31（`B110_W1`）：上面 ① 之前还有一道闸** —— `showItemInfoOnClick == 0` ⇒ **整条 return**
+//     （`ItemDrawer_object___OnPointerClick.c:14`），`inspectSound.Play2D()` 在闸内 ⇒ **连音都没有**。
+//     两处 `BuildPreviewHit`（`DailyRewardPopup` / `DailyStreakPopup`）的 `else` 支原来**无条件**开窗 + 无条件播音
+//     ⇒ 点卡包那几格会开一扇原版不会开的窗、还响一声。D 段盯它（闸关 ⇒ 三样都没有 / 灭自证：闸开 ⇒ 三样都回来）。
 //
 // ============================ 怎么跑（⚠️ 执行代理无权跑 Unity）============================
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
@@ -33,6 +37,8 @@
 //  · B8/B9：传空串 / 传别的天数 / 传 null 图 ⇒ 红。
 //  · B11：点一下顺手发了奖（接错 `CollectStreak`）⇒ 红。
 //  · C3/C5：让新分支抢走旧的（`Count > 1` 也开物品窗）⇒ 红。
+//  · D4-D8：把 `else` 支改回「无条件挂回调 + 无条件播音」（= `B110_W1` 之前那样）⇒ 红 —— 真点卡包那一格会开窗 + 响一声。
+//  · D9-D11：闸不读（恒 true / 恒 false）⇒ 卡包那一格与金币那一格读数会分不开 ⇒ 红。
 using UnityEngine;
 using CardPresentation;
 
@@ -73,6 +79,7 @@ public static class C3_Assert
             SectionA_ClickableMapping();
             SectionB_LockedClickOpensItemWindow(wm);
             SectionC_MultiRewardStillPreviews(wm);
+            SectionD_ShowItemInfoGateOff(wm);
         }
         catch (System.Exception ex)
         {
@@ -287,16 +294,127 @@ public static class C3_Assert
         MainMenuSubmenuWindow.DestroySafe(ds.gameObject);
     }
 
-    /// <summary>挑一格「未领（⇒ 命中件没被 `claimWins` 按灰）+ 命中件建出来了」的奖格；没有 ⇒ −1。</summary>
+    /// <summary>挑一格「未领（⇒ 命中件没被 `claimWins` 按灰）+ 命中件建出来了 + **闸开着**」的奖格；没有 ⇒ −1。
+    /// <para>🔴 **2026-10-31（`B110_W1`）补第三条判据（`DailyData.StreakRewardClickable`）**：本轮把原版第一道闸
+    /// （`showItemInfoOnClick == 0` ⇒ 整条 return）补进 `BuildPreviewHit` 之后，**闸关那一格点一下什么都不做**
+    /// ⇒ B 段（「点一下要开窗 + 出声」）的夹具**必须先挑闸开着的那一格**。改前这里不挑，
+    /// 而连登第 0 格正是卡包（闸关）⇒ 夹具会挑到一格「本来就不该有反应」的，B4-B13 全红
+    /// （**那不是回归，是夹具前提不成立**）。闸关那一档由 D 段单独验。</para></summary>
     static int FindLockedClickableDay(DailyStreakPopup ds)
     {
         if (ds == null || ds.entries == null) return -1;
         for (int d = 0; d < ds.entries.Count; d++)
         {
             if (DailyData.StreakRewardUnlocked(d)) continue;          // 可领那一格：命中件被按灰（`Interactable = false`）
+            if (!DailyData.StreakRewardClickable(d)) continue;        // 🆕 B110_W1：闸关那一格原版整条 return（无窗、无声）
             var h = ds.PreviewRewardsHitForTest(d);
             if (h != null && h.Interactable) return d;
         }
         return -1;
+    }
+
+    // ============================================================ D · 第一道闸（`showItemInfoOnClick == 0` ⇒ 整条 return）
+    // 🆕 2026-10-31（`B110_W1`）：原版 `ItemDrawer<object>.OnPointerClick` **第一句** =
+    //   `if (*(char*)(this + 0x44) == 0) return;`（`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:14`）
+    //   ⇒ 闸关时**不开窗、不预览、连 `inspectSound.Play2D()` 都不放**（那一句写在闸内，同文件 `:31-34`）。
+    // 我们这一侧的闸 = `DailyData.RewardClickable` / `StreakRewardClickable`（= 抽屉 prefab 的 `showItemInfoOnClick`）。
+    static void SectionD_ShowItemInfoGateOff(WindowsManager wm)
+    {
+        MenuCheck.Section(_sink, "D 第一道闸（`showItemInfoOnClick == 0` ⇒ 整条 return）：不开窗、不出声、不挂回调");
+
+        // 本段只用出厂态（C 段会把 Test 口摆成 2 条奖励 + 可点）
+        DailyData.StreakRewardCountOverrideForTest = -1;
+        DailyData.StreakRewardSpecsOverrideForTest = null;
+        DailyData.RewardCountOverrideForTest = -1;
+        DailyData.RewardSpecsOverrideForTest = null;
+        DailyData.RewardClickableOverrideForTest = null;
+
+        // ---------------------------------------------------------- D1-D8：连登窗「卡包那一格」（真实映射 ⇒ 闸关）
+        var ds = BuildStreak(wm);
+        if (ds == null) { Tr(false, "D0 **前提不成立**：连登窗没建出来"); return; }
+
+        int pack = -1;
+        for (int i = 0; i < DailyData.StreakDays; i++)
+            if (DailyData.StreakRewardIcon(i) == "40k_main_bt_rewards" && !DailyData.StreakRewardUnlocked(i)) { pack = i; break; }
+        Tr(pack >= 0, "D1 **前提**：连登轨里找得到一格「卡包（闸关）+ 未领」");
+        var hitPack = pack >= 0 ? ds.PreviewRewardsHitForTest(pack) : null;
+        Tr(hitPack != null, "D2 **前提**：那一格的命中件建出来了（视口内）");
+        Tr(hitPack != null && hitPack.Interactable,
+          "D3 **前提**：命中件**可点**（⛔ 不是被 `Interactable = false` 挡住的 —— 那样 D4-D8 就成了空转绿）");
+        Tr(hitPack != null && hitPack.onClick == null,
+          "D4 ★ 闸关 ⇒ **不挂回调**（原版 `ItemDrawer_object___OnPointerClick.c:14` 第一句就 return）"
+        + "｜🧨 把 `else` 支改回无条件 `hit.onClick = …` ⇒ 红");
+        Tr(hitPack != null && !hitPack.playClickSound,
+          "D5 ★ 闸关 ⇒ **按钮音关着**（`inspectSound.Play2D()` 写在闸内，同文件 `:31-34`）"
+        + "｜🧨 删掉 `else hit.playClickSound = false` ⇒ 走默认按钮音 ⇒ 红");
+        C(hitPack != null ? hitPack.clickCue : "<没有命中件>", null,
+          "D6 ★ 闸关 ⇒ **没有 cue**（原版整条 return，`inspectSound` 那一声根本没进）");
+
+        var idwBefore = ItemDisplayWindow.LastOpened;
+        int openBefore = RewardWindowFixture.OpenRewardWindowCount();
+        WindowSounds.ResetCounters();
+        if (hitPack != null) hitPack.ClickForTest();      // = 真点（`WindowButton.Click()` 那条生产路）
+        Tr(hitPack != null                                   // ⛔ 前提写进结论里：`hitPack == null` 时这两条不许空转变绿
+           && ReferenceEquals(ItemDisplayWindow.LastOpened, idwBefore)
+           && RewardWindowFixture.OpenRewardWindowCount() == openBefore,
+          "D7 ★ 点一下 ⇒ **一扇窗都没开**（物品展示窗与预览领奖窗都不该有）"
+        + "｜🧨 闸没补 ⇒ 卡包那一下会开物品展示窗（B110_M2F 顺手发现 #1）");
+        C(hitPack != null ? WindowSounds.LastCue : "<没有命中件>", null,
+          "D8 ★ 点一下 ⇒ **一声都没响**（`WindowSounds.LastCue` 仍为 null）");
+
+        KillStreak(ds);
+
+        // ---------------------------------------------------------- D9-D11：灭自证（闸摆成「开」⇒ 三样都回来）
+        DailyData.RewardClickableOverrideForTest = true;   // 连登窗读同一个口（`StreakRewardClickable` 共享它）
+        var ds2 = BuildStreak(wm);
+        if (ds2 == null) { Tr(false, "D9 **前提不成立**：灭自证那一份连登窗没建出来"); return; }
+        var hitOpen = pack >= 0 ? ds2.PreviewRewardsHitForTest(pack) : null;
+        Tr(hitOpen != null && hitOpen.onClick != null,
+          "D9 ★（灭自证）**同一格**把闸摆成开 ⇒ `onClick` **挂上了**（D4 读的确实是闸，不是「这一格恒 null」）");
+        Tr(hitOpen != null && hitOpen.playClickSound,
+          "D10 ★（灭自证）…按钮音**回来了**（D5 读的确实是闸）");
+        C(hitOpen != null ? hitOpen.clickCue : "<没有命中件>", WindowSounds.ButtonClick1Cue,
+          "D11 ★（灭自证）…cue 也回来了 = `" + WindowSounds.ButtonClick1Cue + "`（D6 读的确实是闸）");
+        DailyData.RewardClickableOverrideForTest = null;
+        KillStreak(ds2);
+
+        // ---------------------------------------------------------- D12-D15：每日奖励窗「卡包那一天」（同一道闸的第二处落点）
+        var dr = BuildPopup(wm);
+        if (dr == null) { Tr(false, "D12 **前提不成立**：每日奖励窗没建出来"); return; }
+
+        int packDay = -1;
+        for (int d = 0; d < DailyData.RewardDays; d++)
+            if (DailyData.RewardIconOf(d, false) == "40k_main_bt_rewards") { packDay = d; break; }
+        Tr(packDay >= 0, "D12 **前提**：每日奖励表里找得到卡包那一天");
+        var hitDay = packDay >= 0 ? dr.PreviewRewardsHitForTest(packDay, false) : null;
+        Tr(hitDay != null, "D13 **前提**：那一天的命中件建出来了");
+        Tr(hitDay != null && hitDay.onClick == null && !hitDay.playClickSound && hitDay.clickCue == null,
+          "D14 ★ 每日奖励窗同一处：闸关 ⇒ **不挂回调 + 关按钮音 + 没有 cue**（`DailyRewardPopup.BuildPreviewHit`）"
+        + "｜🧨 只补了连登窗那一处、漏了每日奖励窗 ⇒ 红");
+        DailyData.RewardClickableOverrideForTest = true;
+        dr.ResetRewards(); dr.Build();
+        var hitDayOpen = dr.PreviewRewardsHitForTest(packDay, false);
+        Tr(hitDayOpen != null && hitDayOpen.onClick != null && hitDayOpen.playClickSound,
+          "D15 ★（灭自证）每日奖励窗同一格把闸摆成开 ⇒ 回调与按钮音**都回来**"
+        + "｜🧨 闸写成「按图标名硬判」而不是读 `RewardClickable` ⇒ 红");
+        DailyData.RewardClickableOverrideForTest = null;
+
+        KillPopup(dr);
+    }
+
+    /// <summary>建一扇每日奖励窗（生产入口 `Create` + `OpenWindow`，⛔ 不复制建法）。</summary>
+    static DailyRewardPopup BuildPopup(WindowsManager wm)
+    {
+        var dr = DailyRewardPopup.Create(wm);
+        if (dr == null) return null;
+        wm.OpenWindow(dr);
+        return dr;
+    }
+
+    static void KillPopup(DailyRewardPopup dr)
+    {
+        if (dr == null) return;
+        try { dr.Close(); } catch { }
+        MainMenuSubmenuWindow.DestroySafe(dr.gameObject);
     }
 }

@@ -9002,7 +9002,7 @@ public static class RewardsScene
         Section("★ B106_W51：连登窗抽屉「点图标 ⇒ 预览整串奖励」（原版 count>1 同一跳）");
         {
             Check(DailyData.StreakRewardCountOf(0), 1, "（前提）出厂第 0 格连登奖励列表 = 1 条");
-            var dsHit1 = ds.PreviewRewardsHitForTest(0);
+            var dsHit1 = ds.PreviewRewardsHitForTest(1);   // 🔴 2026-10-31（B110_W1 补闸后订正）：第 0 格 = 卡包，闸关 ⇒ 原版整条 return，`onClick` 该是 null；这一节的语义要「闸开」的格，用第 1 格（gold）
             CheckTrue(dsHit1 != null, "（前提）第 0 格的预览命中件建出来了");
             CheckTrue(dsHit1 != null && dsHit1.onClick != null,
                       "`Count == 1` ⇒ 连登命中件挂的是**物品详情**那一支（原版没有 `OverrideOnClickAction` ⇒ `HandlePointerClick()`）；B109_C3 起 `onClick != null` 是**对的**（旧断言「不挂回调」已过期）");
@@ -9015,7 +9015,7 @@ public static class RewardsScene
             };
             DailyData.RewardClickableOverrideForTest = true;      // 连登窗读同一个可点口（`StreakRewardClickable` 共享它）
             ds.RefreshRewards();
-            var dsHit2 = ds.PreviewRewardsHitForTest(0);
+            var dsHit2 = ds.PreviewRewardsHitForTest(1);
             CheckTrue(dsHit2 != null && dsHit2.onClick != null,
                       "`Count == 2` + 可点 ⇒ 连登命中件**挂上预览回调**（与每日奖励窗同一跳）；改坏法：删守卫 ⇒ 红");
 
@@ -9023,7 +9023,7 @@ public static class RewardsScene
             DailyData.StreakRewardSpecsOverrideForTest = null;
             DailyData.RewardClickableOverrideForTest = null;
             ds.RefreshRewards();
-            var dsHit3 = ds.PreviewRewardsHitForTest(0);
+            var dsHit3 = ds.PreviewRewardsHitForTest(1);
             Check(DailyData.StreakRewardCountOf(0), 1, "（灭自证）复位后连登 `StreakRewardCountOf` 回到 1");
             CheckTrue(dsHit3 != null && dsHit3.onClick != null, "（灭自证）复位 + 重建后连登命中件回调 = **物品详情**那一支（`Count == 1`；⛔ 不再是「空」）");
         }
@@ -13522,7 +13522,7 @@ public static class RewardsScene
 
         RunCampaignRewardLocalization(wm2); B107_W20_Assert.RunAll(root, wm2); _sink.Pass += B107_W20_Assert.Pass; _sink.Fail += B107_W20_Assert.Fail;   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）｜🆕 B107_W30 代接线：N131 `Collected Badge` 三层 + N130 四窗换语言 / `RewardsWindow` 整窗重建（本件自建自毁各窗 ⇒ 不借宿主那几具已被 `ReapClosedWindows` 收割的实例；判据 → 报告/B107_W30.md）
         Debug.Log(P + win.Dump());
-        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。

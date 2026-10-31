@@ -181,7 +181,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 LastError = "`Resources/" + ResourcePath + ".json` 载不到 —— 跑一次 "
-                          + "`python -I -X utf8 工具/gen_camera_intro_clips.py`";
+                          + "`python -I -X utf8 工具/gen_camera_intro_clips.py --write`";
                 _all = new CameraIntroClip[0];
                 _byKey = new Dictionary<string, CameraIntroClip>();
                 return;

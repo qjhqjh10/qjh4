@@ -1236,7 +1236,13 @@ namespace CardPresentation
         /// （取子树里第一张图）⇒ 建在前面会让「窗里 Id = 画的那张图」那几条静默变弱。</para>
         /// <para>🔴 **2026-10-31（`B109_E23`）就地订正（铁律 5）**：原文写「其余情形 `onClick` 留空、且关掉按钮音」——
         /// **两句都不成立**：原版 `ItemDrawer.OnPointerClick` 的第二跳是「有 `onClick` 就跑它、**没有就 `HandlePointerClick()`**」
-        /// （开 `ItemDisplayWindow(item, quantity)`），而末句 `inspectSound.Play2D()` **两条分支都放**。见下方 `else` 与 `clickCue`。</para></summary>
+        /// （开 `ItemDisplayWindow(item, quantity)`），而末句 `inspectSound.Play2D()` **两条分支都放**。见下方 `else` 与 `clickCue`。</para>
+        /// <para>🔴 **2026-10-31（`B110_W1`）补第一道闸（铁律 5：上面那句「两条分支都放」只在闸【开着】时成立）**：
+        /// 原版 `ItemDrawer.OnPointerClick` **第一句**就是 `if (showItemInfoOnClick(+0x44) == 0) return;`
+        /// （`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:14`）—— 闸关 ⇒ **整条方法 return**，
+        /// 那一声 `inspectSound.Play2D()` 写在闸内（同文件 `:31-34`）⇒ **无窗、无预览、连音都没有**。
+        /// 我们这一侧的闸 = <see cref="DailyData.RewardClickable"/>（`showItemInfoOnClick` 的等价物；卡包那几天是 false）。
+        /// 改前 `else` 支是**无条件**开窗 + **无条件**放 `ButtonClick1Cue` ⇒ 点卡包抽屉会开一扇原版不会开的窗、还响一声。</para></summary>
         WindowButton BuildPreviewHit(Transform holder, PxRect rect, int day, bool premium)
         {
             if (holder == null) return null;
@@ -1245,7 +1251,10 @@ namespace CardPresentation
             if (node == null) return null;
             var hit = node.GetComponent<WindowButton>();
             if (hit == null) return null;
-            if (DailyData.RewardCountOf(day, premium) > 1 && DailyData.RewardClickable(day, premium))
+            // 🔴 **原版第一道闸**（`ItemDrawer_object___OnPointerClick.c:14`）：`showItemInfoOnClick == 0` ⇒ **整条 return**。
+            // 我们这一侧的等价物 = `DailyData.RewardClickable`（卡包 = `Everguild.LiveOps.ShopContainer` ⇒ 闸关）。
+            bool clickable = DailyData.RewardClickable(day, premium);
+            if (DailyData.RewardCountOf(day, premium) > 1 && clickable)
             {
                 hit.onClick = () =>
                 {
@@ -1256,11 +1265,15 @@ namespace CardPresentation
             }
             // 原版第二跳：**有 `onClick`（= `OverrideOnClickAction`，只有 `rewards.Count > 1` 才挂）就跑它**，
             // 否则 `HandlePointerClick()` 开 `ItemDisplayWindow(item, quantity)` —— 后者是**每一天的常态**。
-            else hit.onClick = () => OpenItemInfo(day, premium);
-            // 原版末句 `if (inspectSound != null) inspectSound.Play2D()` —— **两条分支都放**（`decomp_generic_trial/out/
-            // ItemDrawer_object___OnPointerClick.c:38-41`；cue = `ButtonClick 1` / clip `UI Click 1`，同 `ItemDrawer.PlayInspectCue`）。
-            // ⛔ 别再写 `playClickSound = false`：那是「闸关着」那一支的写法，而这一格 `showItemInfoOnClick = 1`（§J6 ①）。
-            hit.clickCue = WindowSounds.ButtonClick1Cue;
+            // 🔴 `B110_W1`：这两跳**都在第一道闸里面** ⇒ 闸关那一天**一条都不走**（`onClick` 保持 null）。
+            else if (clickable) hit.onClick = () => OpenItemInfo(day, premium);
+            // 原版末句 `if (inspectSound != null) inspectSound.Play2D()` —— 它在**闸内**、且**两条分支都放**
+            // （`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:31-34`；cue = `ButtonClick 1` / clip `UI Click 1`）。
+            // ⛔ 别再无条件写 `hit.clickCue`：闸关着的那一天原版**整条 return**，一声都不响。
+            // ⚠️ 闸关时命中件**照旧建着**（原版那颗抽屉 `Image` 也是 raycast target：吃掉这一下、什么都不做）；
+            // ⛔ 别改成「不建命中件」—— 那样这一下会漏给下面那层（我们这套没有 uGUI 的射线吸收）。
+            if (clickable) hit.clickCue = WindowSounds.ButtonClick1Cue;
+            else hit.playClickSound = false;
             return hit;
         }
 
@@ -1293,24 +1306,87 @@ namespace CardPresentation
         /// （`count > 1` 那一支被 `OverrideOnClickAction` 截走）；③ 抽屉 prefab 由 `ItemDrawerConfig` 的
         /// `Currency ▸ Key:10` 唯一确定 = `Icon Currency Drawer Variant`（`showItemInfoOnClick = 1`，闸是开的）
         /// ⇒ **Locked 态点一下必须开窗**（AUD05 `J6` 那两处偏离之一）。</para>
-        /// <para>⚠️ **数量那一格传不进去（如实标注，⛔ 不塞进标题里冒充）**：原版 `ItemDisplayWindowContext` 的
-        /// `+0x18 = amount`，而我们这一侧的 `ItemDisplayWindow.Context` **没有 Amount 字段**（只铺 名/描述/类型/阵营/lore/图 六格）
-        /// ⇒ 这里只能把「物品 = 图 + 名」送进去。补齐要动 `Shell/ItemDisplayWindow.cs`（不在本代理白名单）
-        /// ⇒ 已写进报告 `资料/完全复刻/报告/B109_E23.md`「交回补丁」一节。</para>
+        /// <para>🔴 **2026-10-31（`B110_M2F`）就地订正（铁律 5）**：本段原文写「`ItemDisplayWindow.Context` **没有 Amount 字段**、
+        /// 数量传不进去」—— **已过期**：`Context.Amount` / `ShowAmount` 已由 `B110` 的 `C2` 补上（`ItemDisplayWindow.cs:150/159`）。
+        /// 现在这一跳照原版实参给 **`Amount = RewardAmount(day, premium)`**（= 抽屉自己的 `+0x40` 数量），
+        /// `ShowAmount` = 物品窗里**那一刻现挑的主档抽屉**会不会画数量行（判据 → `ShowAmountForReward`）。</para>
         /// <para>⛔ 不发奖、不关本窗（原版这一段只做 `OpenWindow` 一件事）。</para></summary>
         void OpenItemInfo(int day, bool premium)
         {
+            var ctx = ItemInfoContext(day, premium);
+            var w = WindowsManager.OpenItemDisplay(ctx);
+            if (w == null)
+                Debug.LogWarning("[DailyReward] 点抽屉 ⇒ **物品展示窗没开出来**（原版 `ItemDrawer.HandlePointerClick`）—— 不静默");
+        }
+
+        /// <summary>= 上面那一跳交给 `WindowsManager.OpenItemDisplay` 的那份 <see cref="ItemDisplayWindow.Context"/>
+        /// —— **生产路与自检读口是同一份**（`OpenItemInfo` 只转调它；⛔ 别在 `OpenItemInfo` 里再拼一份）。
+        /// <para>逐格判据：① 物品 = `RewardIconOf` 那张图（= 抽屉 `image.sprite`）；② <b>第 2 个实参 = 数量</b>
+        /// `RewardAmount(day, premium)`（原版 `ItemDrawer_object___HandlePointerClick.c:15-25` 的 `+0x40`；
+        /// 同一份数量也是 `CollectReward` 发的、抽屉上印的那个数 —— `DailyData.cs:871`）；
+        /// ③ `ShowAmount` = **物品窗里那具抽屉**会不会画数量行（判据 → <see cref="ShowAmountForReward"/>）。</para></summary>
+        public static ItemDisplayWindow.Context ItemInfoContext(int day, bool premium)
+        {
             var art = DailyData.RewardIconOf(day, premium);
-            var ctx = new ItemDisplayWindow.Context
+            return new ItemDisplayWindow.Context
             {
                 Title = DailyData.RewardName(day, premium),   // 原版 `item.LocalizedName`；我们这一格的名字串就是抽屉上印的那一条
                 Description = null, Type = null, Army = null, Lore = null,
                 Art = ItemDrawer.ArtTexture(art),             // 与抽屉图标同一张（= 原版 `ItemDrawer.Draw` 换 `image.sprite` 那一下）
-                ArtName = art,
+                // 🔴 原版 `ItemDisplayWindowContext(item, quantity)` 的三个实参：`Amount` 不写就落 struct 的 0 ⇒ 印 `"0"`（判据 → `ItemDisplayWindow.Context` 的 doc）
+                ArtName = art, Amount = DailyData.RewardAmount(day, premium), ShowAmount = ShowAmountForReward(art),
             };
-            var w = WindowsManager.OpenItemDisplay(ctx);
-            if (w == null)
-                Debug.LogWarning("[DailyReward] 点抽屉 ⇒ **物品展示窗没开出来**（原版 `ItemDrawer.HandlePointerClick`）—— 不静默");
+        }
+
+        // ============================================================ 🆕 2026-10-31（`B110_M2F`）
+        // 本节**追加在类尾**（铁律 18·b /「新成员追加到类尾」）：上面最后一条落点 `ItemInfoContext` 之后
+        // ⇒ 本文件既有账行（最新一条 = `:1112`）零行号漂移。
+        // 内容 = 原版 `ItemDrawer.Draw(holder, item, amount, /*override*/0)` **在物品窗里重挑抽屉**那一跳的判据
+        // （`ItemDisplayWindow__Open.c:35-46` → `decomp_full/ItemDrawer__Draw.c:22-46`）。
+
+        /// <summary>奖励图标 → **原版 item 类型名**（= `ItemDrawer.ItemTypeSets` 那张 `ItemDrawerConfig` 真表的键）。
+        /// <para>🔴 **唯一一份映射 = `DailyData.ItemTypeNameOfIcon`**（`B110_W3` 2026-10-31 收敛）：本方法只是**转发** ——
+        /// ⛔ 别再在这里写第二份 `switch`（本仓「两处写同一条规则 = 迟早不一致」；`B110_M2F` 那天就是两份）。
+        /// 表内容与出处见 `DailyData.ItemTypeNameOfIcon` 的 doc（`gold` / `Daily_skulls` ⇒ `Currency`；
+        /// `40k_main_bt_rewards` ⇒ `Everguild.LiveOps.ShopContainer`；时间限定 = 2026-10-31 的那三张表）。</para>
+        /// <returns>`null` = 这个图标**本地没有判据** ⇒ 调用方出声 + 按「不画数量」办（铁律 2：⛔ 不猜）。</returns></summary>
+        public static string RewardItemTypeOf(string art)
+        {
+            return DailyData.ItemTypeNameOfIcon(art);
+        }
+
+        /// <summary>「物品窗里会不会出现数量那一行」—— 照原版那条链算，⛔ **不是**「奖励列表里那颗抽屉画不画」。
+        /// <para>判据链（逐跳实读）：① `ItemDisplayWindow__Open.c:35-46` —— 窗把 `itemHolder(+0x70)` + `item` +
+        /// `context.amount(+0x18)` 交给**静态** `ItemDrawer.Draw(holder, item, amount, /*override*/0)`；
+        /// ② `decomp_full/ItemDrawer__Draw.c:22-46` —— 它先 `GetDrawerConfig(item.GetType(), override)` 再
+        /// `Instantiate(prefab, holder)` ⇒ 窗里那具抽屉是**那一刻现挑的**；
+        /// ③ `ItemDrawerConfig.ItemDrawerReference__GetDrawer.c:19-33` —— **`override == 0` ⇒ 取主档**
+        /// （不进 `customDrawerOverrides` 那张按 key 查的表）；
+        /// ④ 主档那一族画不画数量行 = `ItemDrawerComponents.quantity != null` 且 `Content/Label` 在激活链上
+        /// （逐份 prefab 现读，表 → `ItemDrawer.HasQuantitySlot`）。</para>
+        /// <para>🔴 **所以不能按「奖励列表里那颗抽屉的族」判**：每日 / 连登奖励摆的是 `Icon Currency Drawer Variant`
+        /// （`quantity` / `label` 全 null ⇒ 它自己**不画**），而物品窗会另挑**主档** `Currency Drawer`
+        /// （数量槽非 null、`Content/Label` active ⇒ **画**）—— 两者答案不同，⛔ 别把本方法改成按调用方的族判
+        /// （那会**比原版少画**一个数字）。</para></summary>
+        public static bool ShowAmountForReward(string art)
+        {
+            string type = RewardItemTypeOf(art);
+            if (string.IsNullOrEmpty(type)) { SayShowAmountUnknownOnce(art); return false; }
+            string how;
+            string cls = ItemDrawer.GetDrawerClass(type, DrawerOverride.Default, out how);
+            string family = ItemDrawer.ImplOfDrawerClass(cls);
+            if (family == null) { SayShowAmountUnknownOnce(art); return false; }
+            return ItemDrawer.HasQuantitySlot(family);
+        }
+
+        static bool _saidShowAmountUnknown;
+        /// <summary>「这个奖励图标 → 原版类型」判据空 ⇒ **只说一次**（与 `DailyData.SayRewardTypeUnknownOnce` 同形）。</summary>
+        static void SayShowAmountUnknownOnce(string art)
+        {
+            if (_saidShowAmountUnknown) return;
+            _saidShowAmountUnknown = true;
+            Debug.LogWarning("[DailyReward] 奖励图标 `" + art + "` 不在「图标 → 原版 item 类型」映射里 ⇒ 物品窗的 `ShowAmount`"
+                           + " 按 **false** 办（铁律 2：判据没读到就不猜）。映射见 `DailyRewardPopup.RewardItemTypeOf`。");
         }
     }
 }

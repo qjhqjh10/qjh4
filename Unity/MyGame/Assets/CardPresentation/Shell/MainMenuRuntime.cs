@@ -3015,9 +3015,9 @@ namespace CardPresentation
                 //   判据 → `bundle_menus_assets_all` 的 `Base Game Mode Container 1x1` 的 `Border` 那一颗
                 //   （`40k_square_border` · `m_Border (13,13,13,13)` · `m_PixelsPerUnitMultiplier 5` ·
                 //     `m_FillCenter 0` · 色 `0.33962`）。
-                MenuDraw.Nine(card, borderTex, new PxRect(x, y, x + w, y + h), new Vector4(13, 13, 13, 13),
+                var borderNine = MenuDraw.Nine(card, borderTex, new PxRect(x, y, x + w, y + h), new Vector4(13, 13, 13, 13),
                               64f, 64f, QOverlay, new Color(0.33962f, 0.33962f, 0.33962f, 1f), false, "Border",
-                              new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f), clip);   // = 2.6px（13 ÷ ppuMul 5）
+                              new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f), clip);  MenuFxMaterials.ApplyAll(borderNine, "Art/vfx/WFUI_Additive");   // = 2.6px（13 ÷ ppuMul 5）· 🆕 B110_M3：原版这颗 `Border` 的材质 = `Material_-8464978790139598553`（`UI Additive`，`Blend One One`）⇒ 九宫八块逐块换加法材质；⛔ 必须在 `Nine` 之后（`SetMaterial` 会从旧材质读走队列）。判据 → `判据/B109_R15_菜单13材质.md` §1·7
             }
 
             // ④·b 排位卡那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps ▸ RankedSealStep ×N`）。

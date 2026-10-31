@@ -7346,6 +7346,223 @@ def ability_effect_texts_of(cid, name, trow, report):
     return out
 
 
+# ==========================================================================================
+#  🆕 2026-10-31（B110_W6 · 账 `N53`）：**生成器列 → JsonUtility DTO 的同步闸**（纯 Python、只读）
+# ==========================================================================================
+# 为什么要有它：`CardDatabase` 用 **`JsonUtility.FromJson`** 读这张表，而 `JsonUtility` 对 JSON 里
+#   **多出来的键是【静默忽略】** —— 生成器加了一列、DTO（`Data/CardDatabase*.cs` 的 `CardDto` / 各嵌套
+#   `*Dto`）没跟着加，运行时**永远读不到**，**零报错、零日志**（这就是 `N53` 说的「静默窗口」）。
+#   2026-10-31 现读的铁证 = `chosenAbility`：1,129 张卡全有这一列，`CardDto` 里**没有**它
+#   （它由 `Data/ForcedAttackRefundMap.cs` 的瘦 DTO `CardRowDto` 读，属本闸的「已知例外」）。
+#
+# 判据口径（三档，⛔ 不发明）：
+#   ① **卡片顶层**：`doc["cards"][*]` 的键取并集，与 `CardDto` 的**字段**名做差集 ⇒ **非空即红**
+#      （退出码 1、**一个字节都不写**）。
+#   ② **嵌套数组**：`CardDto` 里 `XxxDto[]` 型字段 → 用元素的实际键集与那个 `XxxDto` 类做同样的差集。
+#   ③ **已知例外必须点名消费者**（`_CARD_COLUMN_VIA_THIN_DTO`）—— 「同一份 JSON、另一个瘦 DTO 读」是
+#      合法形状（先例 = `ForcedAttackRefundMap.CardRowDto`）。例外表里每一条都会被**回查**：那个字段名
+#      必须真的以 `public … <名>;` 的形式出现在 `Data/*.cs` 里，否则 ⚠️ 出声（防止例外表变成垃圾桶）。
+# ⚠️ 方向是**单向**的：**DTO 有、JSON 没有的列不红** —— 这张表有大量「非默认才落列」的列
+#   （`skipDraws` / `quest` / `questTimes` / `initial*Modifier` …），缺席是正常态。
+_CARD_COLUMN_VIA_THIN_DTO = {
+    "chosenAbility": "v32 的 `chosenAbility` 列由 `Data/ForcedAttackRefundMap.cs` 的瘦 DTO `CardRowDto` 消费"
+                     "（`CardDatabase.CardDto` 故意不收 —— 见那个文件的文件头「为什么要再读一遍」）。",
+}
+
+_CS_FIELD_RE = re.compile(
+    r"\bpublic\s+(?!class\b|struct\b|enum\b|partial\b|static\b|readonly\b|override\b|abstract\b|virtual\b)"
+    r"([A-Za-z_][\w\.]*(?:\s*<[^;{}()]*>)?(?:\s*\[\s*\])*)\s+([A-Za-z_]\w*)\s*(?:=[^;{}]*)?;")
+
+
+def _cs_strip_noise(text):
+    """把 C# 的 `//` / `/* */` 注释与字符串 / 字符字面量抹成空格（**保留换行与长度** ⇒ 花括号配对不受影响）。"""
+    out = list(text)
+    i, n = 0, len(text)
+    bs = chr(92)
+
+    def blank(a, b):
+        for k in range(a, b):
+            if out[k] != "\n":
+                out[k] = " "
+
+    while i < n:
+        c = text[i]
+        if c == "/" and i + 1 < n and text[i + 1] == "/":
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            blank(i, j)
+            i = j
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            blank(i, j)
+            i = j
+        elif c == "@" and i + 1 < n and text[i + 1] == '"':
+            j = i + 2
+            while j < n:
+                if text[j] == '"':
+                    if j + 1 < n and text[j + 1] == '"':
+                        j += 2
+                        continue
+                    j += 1
+                    break
+                j += 1
+            blank(i, j)
+            i = j
+        elif c in ('"', "'"):
+            quote, j = c, i + 1
+            while j < n:
+                if text[j] == bs:
+                    j += 2
+                    continue
+                if text[j] == quote:
+                    j += 1
+                    break
+                j += 1
+            blank(i, j)
+            i = j
+        else:
+            i += 1
+    return "".join(out)
+
+
+def _cs_brace_close(txt, lb):
+    depth = 0
+    for k in range(lb, len(txt)):
+        if txt[k] == "{":
+            depth += 1
+        elif txt[k] == "}":
+            depth -= 1
+            if depth == 0:
+                return k
+    return -1
+
+
+def _cs_dto_classes(paths):
+    """`[路径…]` → `{类名: {字段名: 类型}}`（partial 类跨文件**合并**；嵌套类的体不参与外层字段收集）。"""
+    classes = {}
+    for path in paths:
+        clean = _cs_strip_noise(open(path, encoding="utf-8", errors="replace").read())
+        for m in re.finditer(r"\b(?:class|struct)\s+(\w+)", clean):
+            lb = clean.find("{", m.end())
+            if lb < 0:
+                continue
+            rb = _cs_brace_close(clean, lb)
+            if rb < 0:
+                continue
+            body = list(clean[lb + 1:rb])
+            txt = "".join(body)
+            # 把**嵌套类**的体整段抹掉（它们各自的字段归各自的类名）
+            for nm in re.finditer(r"\b(?:class|struct)\s+(\w+)", txt):
+                lb2 = txt.find("{", nm.end())
+                if lb2 < 0:
+                    continue
+                rb2 = _cs_brace_close(txt, lb2)
+                if rb2 < 0:
+                    continue
+                for k in range(lb2, rb2 + 1):
+                    if body[k] != "\n":
+                        body[k] = " "
+            ent = classes.setdefault(m.group(1), {})
+            for fm in _CS_FIELD_RE.finditer("".join(body)):
+                ent[fm.group(2)] = fm.group(1).strip()
+    return classes
+
+
+def _dto_column_gate(doc):
+    """生成器列 ↔ JsonUtility DTO 的差集闸。**只读**。返回 True=过 / False=红。"""
+    data_dir = os.path.normpath(os.path.join(os.path.dirname(DST), "..", "Data"))
+    try:
+        names = sorted(n for n in os.listdir(data_dir) if n.endswith(".cs"))
+    except OSError as e:
+        print(f"  🔴 DTO 同步闸**自身失效**：读不到 `{data_dir}`（{e}）⇒ **判红**"
+              "（闸坏了不许静默放行）")
+        return False
+    card_files = [os.path.join(data_dir, n) for n in names if n.startswith("CardDatabase")]
+    if not card_files:
+        print(f"  🔴 DTO 同步闸**自身失效**：`{data_dir}` 下没有 `CardDatabase*.cs` ⇒ **判红**")
+        return False
+    classes = _cs_dto_classes(card_files)
+    if "CardDto" not in classes:
+        print("  🔴 DTO 同步闸**自身失效**：`CardDatabase*.cs` 里找不到 `class CardDto` ⇒ **判红**")
+        return False
+
+    top = classes["CardDto"]
+    keys = set()
+    for c in doc["cards"]:
+        keys |= set(c.keys())
+    missing = sorted(k for k in keys if k not in top and k not in _CARD_COLUMN_VIA_THIN_DTO)
+
+    # ② 嵌套：`XxxDto[]` 型字段 → 元素键集 vs 那个 DTO
+    nested_problems = []
+    groups = 0
+
+    def _elem(t):
+        t = t.strip()
+        return t[:-2].strip() if t.endswith("[]") and t[:-2].strip().endswith("Dto") else None
+
+    def _walk(cls_name, rows, path, depth=0):
+        nonlocal groups
+        if depth > 4 or cls_name not in classes:
+            return
+        groups += 1
+        fs = classes[cls_name]
+        ks = set()
+        for r in rows:
+            ks |= set(r.keys())
+        miss = sorted(k for k in ks if k not in fs)
+        if miss:
+            nested_problems.append((path, cls_name, miss))
+        for f, t in fs.items():
+            et = _elem(t)
+            if not et:
+                continue
+            sub = []
+            for r in rows:
+                v = r.get(f)
+                if isinstance(v, list):
+                    sub.extend(x for x in v if isinstance(x, dict))
+            if sub:
+                _walk(et, sub, path + "." + f, depth + 1)
+
+    for f, t in top.items():
+        et = _elem(t)
+        if not et:
+            continue
+        rows = []
+        for c in doc["cards"]:
+            v = c.get(f)
+            if isinstance(v, list):
+                rows.extend(x for x in v if isinstance(x, dict))
+        if rows:
+            _walk(et, rows, f)
+
+    # ③ 例外回查：那个字段名必须真的是某个 `Data/*.cs` 里的字段声明
+    all_src = _cs_strip_noise("\n".join(
+        open(os.path.join(data_dir, n), encoding="utf-8", errors="replace").read() for n in names))
+    for col, why in sorted(_CARD_COLUMN_VIA_THIN_DTO.items()):
+        if not re.search(r"\bpublic\s+[^;{}()=]*\b%s\s*(?:=|;)" % re.escape(col), all_src):
+            print(f"  ⚠️ 例外表里的 `{col}` **在 `{data_dir}/*.cs` 里找不到同名字段声明** —— 例外可能已过期"
+                  f"（{why}）")
+
+    print(f"DTO 同步闸   列 → JsonUtility DTO：卡片顶层 **{len(keys)}** 列（并集）/ `CardDto` "
+          f"**{len(top)}** 个字段 · 嵌套 **{groups}** 组 · 已知例外 **{len(_CARD_COLUMN_VIA_THIN_DTO)}** 条")
+    bad = False
+    if missing:
+        bad = True
+        print("  🔴 **生成器产了、JsonUtility DTO 里没有的列**（运行时**静默读不到**）："
+              + " · ".join(f"`{k}`" for k in missing))
+        print("     ⇒ 要么给 `CardDatabase.CardDto` 补字段（`.cs`），要么把它登记进 "
+              "`_CARD_COLUMN_VIA_THIN_DTO` 并**点名读它的那个 DTO**（⛔ 别只写「没人用」）。")
+    for path, cls_name, miss in nested_problems[:20]:
+        bad = True
+        print(f"  🔴 嵌套列对不上：`{path}`（`{cls_name}`）缺 "
+              + " · ".join(f"`{k}`" for k in miss))
+    if not bad:
+        print("  ✅ 没有「生成了但 DTO 读不到」的列")
+    return not bad
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
@@ -8468,6 +8685,13 @@ def main():
         print(f"  ⚠️ `DefinedTrait` 枚举桩读不到（{DEFINED_TRAIT_STUB}）⇒ 这 "
               f"{_etr['missing_stub']} 次查询一律**未知**（列缺席；⛔ 不猜名字）")
 
+    # 🆕 2026-10-31（B110_W6 · 账 `N53`）：**列 → DTO 同步闸**（纯 Python、只读）。放在 `--check` 之前 ⇒
+    #   `--check` / `--write` / 干跑三条路都过它；红则 `_bad`（`--write` 一个字节都不写）。
+    #   它只**检查**产出与 DTO 的键集，⛔ 不改任何产出逻辑（本文件的白名单口径）。
+    _dto_gate_ok = _dto_column_gate(doc)
+    if not _dto_gate_ok:
+        _bad = True
+
     if args.check:
         if os.path.exists(DST):
             old = json.load(open(DST, encoding="utf-8"))
@@ -8478,8 +8702,12 @@ def main():
                     and old.get("version") == doc.get("version")
                     and old.get("cards") == doc["cards"]
                     and old.get("talentNameIds") == doc.get("talentNameIds"))
-            print(f"\n--check：现有 {DST} "
-                  f"{'一致 ✅' if (same and not _bad) else '**已过期** ❌（重跑时加 `--write` 落盘）'}")
+            # ⚠️ 2026-10-31（B110_W6 · 账 `N53`）：三态分开打 —— 「内容一致但闸红」（如 DTO 忘记跟列）**不是**
+            #   「已过期」，混成一句会把人骗去重跑生成器（跑了也红，因为问题在 `.cs` 侧）。
+            _verdict = ("一致 ✅" if (same and not _bad) else
+                        ("**内容一致，但自检/闸报红** ❌（见上面 🔴 行；多半是 `.cs` 侧没跟列，重跑生成器不会好）"
+                         if same else "**已过期** ❌（重跑时加 `--write` 落盘）"))
+            print(f"\n--check：现有 {DST} {_verdict}")
             return 0 if (same and not _bad) else 1
         print(f"\n--check：{DST} 不存在")
         return 1
@@ -8504,6 +8732,8 @@ def main():
             _why.append(f"「稀有度第 1 层（真值 `cardRarity`）改掉了 {len(_rarity_unexpected)} 张的值"
                         "（基线 0 —— 见 `_bad` 那段：要么真值映射表被改错、要么快照换了，"
                         "两边必有一个过时，核完再决定改哪边）」")
+        if not _dto_gate_ok:
+            _why.append("「生成器列 ↔ JsonUtility DTO 差集非空 / 该闸自身失效」")
         print(f"\n🔴 退出码 1、**一个字节都不写**（{' ＋ '.join(_why)} 没解决之前"
               "不落盘 —— 见 `A1626` 那条口径）")
         return 1

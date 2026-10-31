@@ -225,7 +225,7 @@ namespace CardPresentation
         public const string ArtUnlockBtn = "UI_Button_Mulligan";              // `Unlock Button`（Simple）
         public const string ArtGlow = "40k_bt_underbutton";                   // 标题那团底光（Sliced 240,0,240,0 —— **Sliced 下 PA 不生效** ⇒ 拉满 600×75）
         public const string ArtBadge = "40k_campaign_Premium-icon";
-        public const string ArtPointIcon = "40K_genearl_icon_Campaign_points"; // 按钮里的战役点图标（⚠️ 原版拼写就是 genearl）
+        public const string ArtPointIcon = "40K_genearl_icon_Campaign_points"; // ⚠️ 原版拼写就是 genearl；🔴 2026-10-31（B110_D2 · 死码 C07）：**战役奖励窗那一格已不再用它** —— 原版画的是该战役阵营的徽记（`CampaignPointDrawer__DrawForArmy`），见 `BuildUnlockButton`。常量留给别处/历史，⛔ 别拿它当「点数格画的那张图」
 
         /// <summary>标题两态的底光颜色（`m_Color` 原文）。
         /// ⚠️ 出厂**没有 Tint 的 `Text *`**：`Text Get Reward` / `Text Preview Reward` 都是纯白。</summary>
@@ -735,8 +735,8 @@ namespace CardPresentation
             const float ptBox = PtIconBox, ptVis = PtIconBox * PtIconScale;
             float ptRight = r.x1 + 145f, ptCY = r.CY;
             var ptRect = new PxRect(ptRight - ptVis, ptCY - ptVis * 0.5f, ptRight, ptCY + ptVis * 0.5f);
-            var pi = MenuDraw.Node(btn, "Icon Campaign Points Drawer Variant", ptRect);
-            DrawRect(pi, Art(ArtPointIcon), ptRect, "Icon", QUnlockPt, null, true);   // A182：吃视口裁切
+            var pi = MenuDraw.Node(btn, "Icon Campaign Points Drawer Variant", ptRect); var pointIcon = ArmyIcons.Texture(ctx.Army);   // 🔴 2026-10-31（B110_D2 · 死码 C07）：原版这一格画的是**该战役阵营的徽记**（`CampaignPointDrawer__DrawForArmy.c:41-55`：`image.sprite = ArmyUtilities.GetArmyIcon(army)` → `image.enabled = (sprite != null)`），⛔ 别改回固定的 `Art(ArtPointIcon)`（任何阵营都长一样 = 真偏离；断言 → `Editor/B110_C07_Assert.cs`）
+            DrawRect(pi, pointIcon, ptRect, "Icon", QUnlockPt, null, true);   // A182：吃视口裁切（`pointIcon == null` ⇒ `MenuDraw.Rect` 首句早退、这一格不画 = 原版 `image.enabled = false`）
             pi.gameObject.SetActive(false);
 
             // `Point Count`：N(8, .5,0, 1,1, 0,.5, 5,0, −5,−14.3902)
@@ -807,7 +807,7 @@ namespace CardPresentation
             }
             else
             {
-                pi.gameObject.SetActive(true);                 // = `ToggleTexts(true)`：开 pointDrawer 与 costText
+                pi.gameObject.SetActive(pointIcon != null);     // = `ToggleTexts(true)`：开 pointDrawer 与 costText；再照原版那一句 `image.enabled = (sprite != null)`（`CampaignPointDrawer__DrawForArmy.c:52-54`）—— 阵营认不出 ⇒ 这一格**不显示**（⛔ 别兜底画别人的徽记／别恒 true）
                 SetText(claimed, ""); SetText(cost, ctx.PointCost.ToString());
             }
 

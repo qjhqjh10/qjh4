@@ -167,6 +167,14 @@ namespace CardPresentation
         {
             ParticleSystem ps = Instantiate(particleSystemPrefab, transform);
             if (ps == null) return null;
+            // 🆕 2026-10-31（`B110_D1` · 判据 `判据/B109_R17_挪层分片.md` §1 批 A′）：池件也过 501 挪层。
+            //   「模板里有没有失真材质」= **有**（现读 2 条，全在这一件环境 prefab 里）：
+            //     `Environmental Condition Astra Militarum Planetary Invasion/Far explosion/Shockwave`
+            //     与 `…/Explosion controller sky/Far explosion (1)/Shockwave`，材质 `RippleSubtle Distort`。
+            //   外部模板（`GSC Rockfall`/`Rockfall`/`Orbital 3/4/5 repeat`/`Meteor Angled`）**0 条失真**。
+            //   ⚠️ 走的是与 `EnvironmentApplier` / Tap 同一个函数（⛔ 不在这里另写一份判据）：
+            //   关档 / 不是失真件 ⇒ 原样返回 −1，层一个都不动（与改前逐位等价）。
+            EnvironmentApplier.RelocateGrabLayer(ps.gameObject);
             var poolable = ps.GetComponent<ParticleSystemPoolable>();
             if (poolable == null)
             {

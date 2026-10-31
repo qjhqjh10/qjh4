@@ -671,10 +671,10 @@ namespace CardPresentation
                 //   **线性噪声图**（`VoiceWaveMaterial.Create`）。shader = 原版 ps_4_0 37 条逐条复刻
                 //   （`Resources/VoiceWave.shader`，名字保留 ⇒ `Shader.Find` 不变）。
                 //   ⚠️ **tint 传 null**：原版 `m_Color` 已经是 `WaveTint`（0.6988/0.9811/0.9265），
-                //   而原版 shader 把**顶点色乘两次**；上面 `SetTint(WaveTint)` 已经给了顶点色
-                //   ⇒ `_Color` 必须保持白，否则会变成 tint³（偏暗）。
+                //   而原版 shader 是 `tint = i.color * _Color; v * tint * tint`；uGUI 档的顶点色由上面 `SetTint(WaveTint)` 给了
+                //   ⇒ `_Color` 必须保持白，否则会变成 4 次方（偏暗）。🔴 世界档 `SetTint` 写的是**材质色**、换材质会被冲掉 ⇒ 见下一句。
                 b.waveMat = CardPresentation.VoiceWaveMaterial.Create(waveTex, null);
-                if (b.waveMat != null) b.wave.SetMaterial(b.waveMat);
+                if (b.waveMat != null) { var keep = b.wave.Tint; b.wave.SetMaterial(b.waveMat); b.wave.SetTint(keep); }   // 🔴 2026-10-31（B110_W2）：`SetMaterial` 只搬贴图/队列、**不搬材质色**（`Battle/ImageQuad.cs:296-304`），先 tint 后换材质 = 空转 ⇒ 存/恢复（同 `Shell/TitleTab.cs:568`）；uGUI 档本来安全，世界档会真丢色
                 else Debug.LogWarning("[UnitChat] `VoiceWaveMaterial.Create` 失败 ⇒ 音波仍是直线"
                                     + "（Shader.Find(`CardPresentation/VoiceWave`) 或噪声图缺失，见上一条 Log）");
             }

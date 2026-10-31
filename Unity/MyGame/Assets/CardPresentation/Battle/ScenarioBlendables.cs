@@ -1332,7 +1332,7 @@ namespace CardPresentation
         { return CollectTargets(it, "renderer", rd); }
 
         /// <summary>目标 kind == `renderer` 且旁挂里带 `blendProps` 的（只有 `ScenarioGenericMaterialBlend` 那种）。
-        /// `customMaterial` 只当**留档 / 出声用**（原版那个 Material 资产我们工程里没有 —— 见类注释偏离 ②）。</summary>
+        /// 🆕 2026-10-31（B110_R5）：`customMaterial` 改为**从随包 bundle 按原版名取原件并克隆**（见 `TryLoadOriginalMaterial`）；取不到才退回旧的「恒 null + 出声」。</summary>
         static ScenarioGenericMaterialBlend.RendererMaterialBlender[] CollectMaterialBlenders(
             EnvBlendables.Item it, IEnvTargetResolver res)
         {
@@ -1352,7 +1352,7 @@ namespace CardPresentation
                 list.Add(new ScenarioGenericMaterialBlend.RendererMaterialBlender
                 {
                     renderer = r,
-                    customMaterial = null,                 // ⚠️ 原版那条资产引用我们工程里没有（见类注释偏离 ②）
+                    customMaterial = TryLoadOriginalMaterial(t.customMaterial),   // 🆕 2026-10-31（B110_R5）：按名从随包 bundle 取原件并克隆；取不到 = null + 出声
                     propertiesToBlend = t.blendProps,
                     originalMaterialName = t.customMaterial,
                 });
@@ -1461,6 +1461,130 @@ namespace CardPresentation
         public static void ResetClipCache()
         {
             _clipBundle = null; _clipBundleTried = false; _clipByGuid.Clear(); _warnedClip.Clear();
+        }
+
+        // ==========================================================================================
+        // 🆕 2026-10-31（B110_R5）：原版 `RendererMaterialBlender.customMaterial` 的**取件口**。
+        //
+        //   问题：原版那条资产（例 `Battle Arena Genestealers Water Floor`）是 **bundle 里的一个 Material**；
+        //   我们工程里没有同名件（arena 材质是按清单 `props` 现建的）⇒ 原来这一格**恒 null**，
+        //   `ScenarioGenericMaterialBlend` 只能补间现有材质上的 `_Blend` ⇒ **SumpOverspill 水漫整套没效果**。
+        //   判据与原始数据 → `资料/完全复刻/判据/B110_R5_资源侧放回11条.md` §B-42。
+        //
+        //   做法：**从随包 `StreamingAssets/WarpforgeVFX/*.bundle` 按原版材质名取 → 克隆一份**。
+        //   与 `ArenaOriginalShaderRebind` 的「克隆一份、不脏化资产」同一个思路（原版是 `renderer.material =`，
+        //   即**实例**，不是 `sharedMaterial` 直接指 bundle 资产）。
+        //   ⚠️ **依赖调度台把该 Material（连同 shader/贴图）打进 `wf_arena_*.bundle`**；
+        //      没打进时这里**出声并返回 null**（⛔ 不静默），行为与旧版完全一致（不换材质）。
+        //   ⚠️ 容器别名：本 build 的 `LoadAsset<T>(名字)` **只认容器键**（CLAUDE.md 已知坑），
+        //      所以这里两条都试：① `GetAllAssetNames()` 里按**文件基名**匹配再按路径 `LoadAsset`；
+        //      ② 直接 `LoadAsset<Material>(原版名)`（重打包时把容器键登记成材质名就能命中）。
+        // ==========================================================================================
+        static readonly System.Collections.Generic.Dictionary<string, Material> _origMatCache =
+            new System.Collections.Generic.Dictionary<string, Material>(StringComparer.Ordinal);
+        static readonly System.Collections.Generic.HashSet<string> _origMatMiss =
+            new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        static readonly System.Collections.Generic.HashSet<string> _warnedOrigMat =
+            new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>给自检用：清掉原版材质缓存（与 `ResetClipCache` 同一个用途）。</summary>
+        public static void ResetOriginalMaterialCache()
+        {
+            _origMatCache.Clear(); _origMatMiss.Clear(); _warnedOrigMat.Clear();
+        }
+
+        /// <summary>按**原版材质名**从随包 bundle 取一份并克隆。取不到返回 null 并出声（每个名字只报一次）。</summary>
+        static Material TryLoadOriginalMaterial(string assetName)
+        {
+            if (string.IsNullOrEmpty(assetName)) return null;
+            Material cached;
+            if (_origMatCache.TryGetValue(assetName, out cached) && cached != null) return cached;
+            if (_origMatMiss.Contains(assetName)) return null;
+
+            Material src = null;
+            foreach (var b in ShippedBundles())
+            {
+                if (b == null) continue;
+                // ① 按 `GetAllAssetNames()` 的文件基名匹配（生产包里这些路径是小写）
+                string matchPath = null;
+                string[] all = null;
+                try { all = b.GetAllAssetNames(); } catch { all = null; }
+                if (all != null)
+                {
+                    for (int i = 0; i < all.Length; i++)
+                    {
+                        var p = all[i];
+                        if (string.IsNullOrEmpty(p)) continue;
+                        if (string.Equals(System.IO.Path.GetFileNameWithoutExtension(p), assetName,
+                                          StringComparison.OrdinalIgnoreCase)) { matchPath = p; break; }
+                    }
+                }
+                if (matchPath != null)
+                {
+                    try { src = b.LoadAsset<Material>(matchPath); } catch { src = null; }
+                    if (src != null) break;
+                }
+                // ② 容器键就是原版材质名（重打包时登记别名）。
+                //    ⚠️ 先用 `Contains` 问一句再 `LoadAsset`：`LoadAsset` 取不到会往 Console 打错误，
+                //    而「包不在 / 还没重打包」是**预期中的缺**（每个名字只该出声一次，不该刷 30 行 Unity 错）。
+                if (src == null)
+                {
+                    bool has = false;
+                    try { has = b.Contains(assetName); } catch { has = false; }
+                    if (has) { try { src = b.LoadAsset<Material>(assetName); } catch { src = null; } }
+                }
+                if (src != null) break;
+            }
+
+            if (src == null)
+            {
+                _origMatMiss.Add(assetName);
+                if (_warnedOrigMat.Add(assetName))
+                    Debug.LogWarning($"[EnvBlend] 原版材质 `{assetName}` 在随包 `StreamingAssets/WarpforgeVFX/*.bundle` 里取不到 —— "
+                                   + "`ScenarioGenericMaterialBlend` 这一条**仍然不会换材质**（保持旧行为，出声不静默）。"
+                                   + "补救：把该 Material（连同 shader / 贴图）打进 `wf_arena_*.bundle`（工程侧任务，见 §B-42）。");
+                return null;
+            }
+
+            Material clone = null;
+            try { clone = new Material(src) { name = src.name }; }
+            catch (Exception e)
+            {
+                Debug.LogError($"[EnvBlend] 克隆原版材质 `{assetName}` 失败：{e.GetType().Name}: {e.Message}"
+                             + " —— 这一条不会换材质（出声，不静默）");
+                return null;
+            }
+            _origMatCache[assetName] = clone;
+            return clone;
+        }
+
+        /// <summary>随包的 `StreamingAssets/WarpforgeVFX/*.bundle`。**已加载的优先认领**（同 `WarpforgeAnimatorBridge`：
+        /// 同一个包二次 `LoadFromFile` 在 Unity 里会返回 null）。按包名去重。</summary>
+        static System.Collections.Generic.List<AssetBundle> ShippedBundles()
+        {
+            var list = new System.Collections.Generic.List<AssetBundle>();
+            var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var b in AssetBundle.GetAllLoadedAssetBundles())
+                if (b != null && seen.Add(b.name)) list.Add(b);
+
+            string dir = System.IO.Path.Combine(Application.streamingAssetsPath, "WarpforgeVFX");
+            string[] files = null;
+            try { files = System.IO.Directory.Exists(dir) ? System.IO.Directory.GetFiles(dir, "*.bundle") : null; }
+            catch { files = null; }
+            if (files != null)
+            {
+                var byName = new System.Collections.Generic.Dictionary<string, AssetBundle>(StringComparer.OrdinalIgnoreCase);
+                foreach (var b in list) byName[b.name] = b;
+                for (int i = 0; i < files.Length; i++)
+                {
+                    var fn = System.IO.Path.GetFileNameWithoutExtension(files[i]);
+                    AssetBundle b;
+                    if (byName.TryGetValue(fn, out b) && b != null) continue;   // 已加载 ⇒ 已在 list 里
+                    try { b = AssetBundle.LoadFromFile(files[i]); } catch { b = null; }
+                    if (b != null && seen.Add(b.name)) { list.Add(b); byName[b.name] = b; }
+                }
+            }
+            return list;
         }
 
         static AssetBundle _clipBundle;

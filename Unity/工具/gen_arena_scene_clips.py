@@ -87,8 +87,10 @@ euler 曲线的 `m_RotationOrder` **全是 4（OrderZXY，与 `Quaternion.Euler`
 ## 幂等
 跑两遍逐字节相同（clip 按 `(arena, name, pid)` 排序、曲线按 position→euler→rotation→scale→float 的
 固定类序 + 原序、无时间戳）。`--check` 只比对不写盘。
+🔴 **不带参数 = 只打印用法并退出（退出码 0），零读零写**；真动作必须显式 `--write`
+（CLAUDE.md「会写盘的脚本：不带显式动作参数时必须什么都不做」）。
 用法：
-    python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py
+    python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py --write
     python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py --check
 """
 import glob
@@ -97,6 +99,26 @@ import json
 import os
 import sys
 
+## 🔴 2026-10-31（B110_W6 · 账 `N55`）：**不带显式动作参数 = 只打印用法、零读零写**；真写盘必须 `--write`
+##   （CLAUDE.md「会写盘的脚本：不带显式动作参数时必须什么都不做」；先例 = `merge_ledger_parts.py`
+##   不解析 `--help`、不带参就是真合并 ⇒ 整批冲掉 232 行手工修订。改前本文件**不带参就直接写 JSON**）。
+##   形状照抄 `工具/gen_misc_clips.py:96-114`（那一份是 `B106_W45` 按同一判据改好的）。
+USAGE = (
+    '用法：python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py --write\n'
+    '      python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py --check\n'
+    '  选项： --write  真写产物（`数据/游戏数据/arena_scene_clips.json`）\n'
+    '                    —— **唯一会写盘的参数**；不带它 = 只打印本用法并退出，零读零写\n'
+    '         --check  只比对现有产物与现生成，不写盘\n'
+    '  -h, --help     只打印本用法并退出（退出码 0）'
+)
+
+## 🔴 2026-10-31（B110_W6 · 账 `B-35` 同族）：主路径也要 UTF-8 —— 下文打 `✅` / `✗`
+##   在 GBK(cp936) 控制台会 `UnicodeEncodeError` 直接崩（`-h` 那条分支早就 reconfigure 了）。
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
 import sys as _wf_help_sys
 if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
@@ -104,7 +126,7 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：\n    python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py\n    python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_clips.py --check\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print(USAGE)
     _wf_help_sys.exit(0)
 
 ASSETS = r"d:/2/新解包资源/assets_full"
@@ -442,13 +464,18 @@ def render(doc):
 
 def main(argv):
     check = "--check" in argv
+    # 🔴 不带显式动作参数 ⇒ 只打印用法并退出（**零读零写**，连 `build_all()` 都不跑）。
+    #    真写盘必须 `--write`（账 `N55`；见文件头 USAGE 那段）。
+    if not check and "--write" not in argv:
+        print(USAGE)
+        return 0 if not argv else 2
     doc = build_all()
     self_check(doc)
     txt = render(doc)
     if check:
         old = io.open(DST, "r", encoding="utf-8").read() if os.path.exists(DST) else None
         if old != txt:
-            print("[gen] ✗ 与 %s 不一致（重跑一次不带 --check 即可写出）" % DST)
+            print("[gen] ✗ 与 %s 不一致（重跑一次加 `--write` 即可写出）" % DST)
             return 1
         print("[gen] ✅ --check：%s 与现生成一致" % DST)
         return 0

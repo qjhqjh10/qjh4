@@ -173,6 +173,17 @@ namespace RuleEngine
             new[] { "talent", "talent" }, new[] { "sniper", "sniper" },
             new[] { "penitence", "penitence" }, new[] { "sabotage", "sabotage" },
             new[] { "cruelty", "cruelty" }, new[] { "bloodthirst", "bloodthirst" },
+            // 🆕 2026-10-31（`B110_X2` · 判据 `判据/B110_X1_六条红诊断.md` §1；先例 = 上面 `blind` / `dodge`）：
+            //    `poisoned`（`DefinedTraitNumber == 200`）在 `KeywordTable.Implemented` 里（`CardDef.cs:8058`）、
+            //    引擎也有真执行分支（`RuleCore.EndTurn` 的毒支），但**载荷词表缺它** ⇒ 效果文本给出的
+            //    `give … poisoned` 一律被判「本版不认识」（`EffectResolver.cs:11847-11853` 记 `unresolved`），
+            //    连带 `EffectResolver.cs:12240` 那条「通用 addTrait 钩子」（`appliedTrait != null &&
+            //    DefinedTraitNumber(p.Keyword) == 200 ⇒ BroadcastUnitPoisoned`）**从文本路永远不可达 = 死代码**。
+            //    **零行为变化**：现池 1129 张里 `poison` 只命中 **2 处**（`GSC10` 的 desc 提到
+            //    `Poisoned Supplies`、以及那张卡自己的卡名），**两处都是卡名 / 卡面文字、不是授予**，
+            //    `give poisoned` **0 处** ⇒ `play check` 指纹应逐字节不变。
+            //    前缀安全：`poisoned` 与 `poisonous` 第 7 字符 `e` / `u` 互不为前缀，表内顺序无所谓。
+            new[] { "poisoned", "poisoned" },
             new[] { "cantattack", "cantattack" }, new[] { "can't attack", "cantattack" },
         };
 

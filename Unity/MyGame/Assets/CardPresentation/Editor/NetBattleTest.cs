@@ -590,6 +590,127 @@ public static class NetBattleTest
                            "★ **引擎替玩家挑的那一支：两端挑出来的是同一个**（同种子 + 同顺序 ⇒ 指纹仍然一致）");
                     }
                 }
+                // ---- 🆕 2026-10-31（`B110_R3` · 账 `N07`）：**誓约二选一的答案过网** ----
+                //  判据 → `资料/完全复刻/判据/B110_R3_N07_oath三处.md`：
+                //    原版把「选哪个变体」当**一个下标**塞在动作里（`BattleAction.actionValueTens(+0x54)` →
+                //    `ChoiceOfCardEnemy(…, selectedCard)` → `fullPool[idx]` → `cardChosenInSelection(+0x2E8)`），
+                //    我们同形（`MsgAction.oathRecorded/oathChoice`）。
+                //  ⚠️ 本自检**没有表现层面板** ⇒ 答案只能来自 `ToWire`（下面故意传 `ctx: null`，
+                //     与生产路径 `NetBattle.OnLocalAction` 逐字同形）。
+                CardDef oathCard = null;
+                foreach (var c in pool) if (c != null && c.Name == "Adaptive Strategy") { oathCard = c; break; }
+                Ok(oathCard != null, "（R3 前提）卡池里有带 `Oath` 的战术卡 `Adaptive Strategy`（`UM109`，1 费 + Oath 1）");
+                if (oathCard != null && !ctxA.IsOver && !ctxB.IsOver && ctxA.Active == ctxB.Active)
+                {
+                    int a = ctxA.Active;
+                    var actCtx = a == 0 ? ctxA : ctxB;          // 「行动方」本机那一份
+                    var otherCtx = a == 0 ? ctxB : ctxA;        // 对面那一份
+                    var actNb = a == 0 ? na : nc;
+                    int oathVal = oathCard.GetDefaultTraitValue(KeywordTable.Oath, out _);
+                    Ok(oathVal > 0, $"（R3 前提）`{oathCard.Name}` 的 `oath` 值 > 0（实得 {oathVal}）");
+
+                    // —— 正例①：平版（不付誓约）——
+                    actCtx.Players[a].Hand.Add(actCtx.NewInstance(oathCard));
+                    otherCtx.Players[a].Hand.Add(otherCtx.NewInstance(oathCard));
+                    actCtx.Players[a].Energy = 20; otherCtx.Players[a].Energy = 20;
+                    int hIdx = actCtx.Players[a].Hand.Count - 1;
+                    int slotP = SimpleAI.FirstFreeSlot(actCtx.Players[a]);
+                    // 🔴 两边手牌必须逐位相同（同一次「塞卡」）—— 不成立的话下面的对比没有意义
+                    Eq(otherCtx.Players[a].Hand.Count, actCtx.Players[a].Hand.Count,
+                       "（R3 前提）两端手牌张数一致");
+                    var actP = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = hIdx, Slot = slotP,
+                                              OathChoiceRecorded = true, OathChoice = 0 };   // 0 = 平版
+                    int canP = RuleCore.CanPlayCard(actCtx, a, hIdx, slotP);
+                    Ok(canP == RuleCodes.OK,
+                       $"（R3 前提）那张 oath 卡现在打得出去（{RuleCodes.Describe(canP)}）"
+                     + "｜⚠️ 不 OK 就换 `UM110 Fall Back` / `UM116 No Mercy`，或先给两方各摆一个单位");
+                    if (canP == RuleCodes.OK)
+                    {
+                        int eBefore = actCtx.Players[a].Energy;
+                        var wP = NetProtocol.ToWire(actP, null, 0);   // ← 故意 `ctx: null`：生产路径就是这么调的
+                        wP.actor = actNb.MySeat;
+                        Ok(wP.oathRecorded && wP.oathChoice == 0,
+                           "★ R3-N1：`ToWire(act, ctx:null, …)` 也把答案带上（= `OnLocalAction` 那条路）");
+                        int rcP = NetApply.Apply(actCtx, wP, actNb.MySeat);
+                        actNb.OnLocalAction(actP);
+                        PumpBoth(hs2, cs2, na, nc, 12);
+                        Eq(rcP, RuleCodes.OK, "（R3 前提）平版那一手落地成功");
+                        Eq(actCtx.Players[a].Energy, eBefore - oathCard.Cost,
+                           $"★ R3-N2：**平版 ⇒ 本机只扣卡费**（{eBefore} → {actCtx.Players[a].Energy}，卡费 {oathCard.Cost}）");
+                        Eq(otherCtx.Players[a].Energy, eBefore - oathCard.Cost,
+                           $"★ R3-N3：**对面也只扣卡费**（{eBefore} → {otherCtx.Players[a].Energy}）—— 答案真的过了网"
+                         + "｜🧨 删掉 `NetApply` 里那两行注入 ⇒ 对面按「付得起就付」多扣誓约 ⇒ 本条红");
+                        Eq(NetProtocol.Fingerprint(otherCtx), NetProtocol.Fingerprint(actCtx),
+                           "★ R3-N4：两端指纹一致"
+                         + "｜🧨 只让本机认答案、线上不带 ⇒ 本条红");
+                    }
+
+                    // —— 正例②：誓约版（付誓约）—— 同一张卡再来一遍，证明两个取值都过得去
+                    if (!actCtx.IsOver && !otherCtx.IsOver && actCtx.Active == otherCtx.Active)
+                    {
+                        a = actCtx.Active;
+                        // ⚠️ 座位可能刚换人（战术卡本身不换，但**别指望**）：按新的行动方重算三件，
+                        //   否则 `actNb.MySeat` 与 `a` 会对不上（那会把动作记到错的人头上）。
+                        actCtx = a == 0 ? ctxA : ctxB; otherCtx = a == 0 ? ctxB : ctxA; actNb = a == 0 ? na : nc;
+                        actCtx.Players[a].Hand.Add(actCtx.NewInstance(oathCard));
+                        otherCtx.Players[a].Hand.Add(otherCtx.NewInstance(oathCard));
+                        actCtx.Players[a].Energy = 20; otherCtx.Players[a].Energy = 20;
+                        int hIdx2 = actCtx.Players[a].Hand.Count - 1;
+                        int slot2 = SimpleAI.FirstFreeSlot(actCtx.Players[a]);
+                        var actO = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = hIdx2, Slot = slot2,
+                                                  OathChoiceRecorded = true, OathChoice = 1 };   // 1 = 誓约版
+                        int canO = RuleCore.CanPlayCard(actCtx, a, hIdx2, slot2);
+                        Ok(canO == RuleCodes.OK, $"（R3 前提②）第二张 oath 卡打得出去（{RuleCodes.Describe(canO)}）");
+                        if (canO == RuleCodes.OK)
+                        {
+                            int eB2 = actCtx.Players[a].Energy;
+                            var wO = NetProtocol.ToWire(actO, null, 0); wO.actor = actNb.MySeat;
+                            int rcO = NetApply.Apply(actCtx, wO, actNb.MySeat);
+                            actNb.OnLocalAction(actO);
+                            PumpBoth(hs2, cs2, na, nc, 12);
+                            Eq(rcO, RuleCodes.OK, "（R3 前提②）誓约版那一手落地成功");
+                            Eq(actCtx.Players[a].Energy, eB2 - oathCard.Cost - oathVal,
+                               $"★ R3-N5：**誓约版 ⇒ 卡费 {oathCard.Cost} + 誓约 {oathVal} 都扣**"
+                             + $"（{eB2} → {actCtx.Players[a].Energy}）");
+                            Eq(otherCtx.Players[a].Energy, eB2 - oathCard.Cost - oathVal,
+                               "★ R3-N5b：**对面同样扣卡费 + 誓约** —— 两个取值都过得去（不是「恒平版」）");
+                            Eq(NetProtocol.Fingerprint(otherCtx), NetProtocol.Fingerprint(actCtx),
+                               "★ R3-N5c：两端指纹一致");
+                        }
+                    }
+
+                    // —— 负例：**没记**（老报文 / AI 那一手）⇒ 兜底「付得起就付」= 加这一格之前逐字相同 ——
+                    if (!actCtx.IsOver && !otherCtx.IsOver && actCtx.Active == otherCtx.Active)
+                    {
+                        a = actCtx.Active;
+                        actCtx = a == 0 ? ctxA : ctxB; otherCtx = a == 0 ? ctxB : ctxA; actNb = a == 0 ? na : nc;
+                        actCtx.Players[a].Hand.Add(actCtx.NewInstance(oathCard));
+                        otherCtx.Players[a].Hand.Add(otherCtx.NewInstance(oathCard));
+                        actCtx.Players[a].Energy = 20; otherCtx.Players[a].Energy = 20;
+                        int hIdx3 = actCtx.Players[a].Hand.Count - 1;
+                        int slot3 = SimpleAI.FirstFreeSlot(actCtx.Players[a]);
+                        var actN = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = hIdx3, Slot = slot3 };
+                        int canN = RuleCore.CanPlayCard(actCtx, a, hIdx3, slot3);
+                        Ok(canN == RuleCodes.OK, $"（R3 前提③）第三张 oath 卡打得出去（{RuleCodes.Describe(canN)}）");
+                        if (canN == RuleCodes.OK)
+                        {
+                            int eB3 = actCtx.Players[a].Energy;
+                            var wN = NetProtocol.ToWire(actN, null, 0); wN.actor = actNb.MySeat;
+                            Ok(!wN.oathRecorded, "★ R3-N6a：没答 ⇒ 线上 `oathRecorded == false`（⛔ 不能默认成平版）");
+                            int rcN = NetApply.Apply(actCtx, wN, actNb.MySeat);
+                            actNb.OnLocalAction(actN);
+                            PumpBoth(hs2, cs2, na, nc, 12);
+                            Eq(rcN, RuleCodes.OK, "（R3 前提③）没带答案那一手落地成功");
+                            Eq(actCtx.Players[a].Energy, eB3 - oathCard.Cost - oathVal,
+                               "★ R3-N6：没带答案 ⇒ 按原兜底**付誓约**（= 加这一格之前的行为，逐字不变）");
+                            Eq(otherCtx.Players[a].Energy, eB3 - oathCard.Cost - oathVal,
+                               "★ R3-N6b：对面同一条兜底 ⇒ 两端一致");
+                            Eq(NetProtocol.Fingerprint(otherCtx), NetProtocol.Fingerprint(actCtx),
+                               "★ R3-N6c：两端指纹一致");
+                        }
+                    }
+                }
+
                 hs2.Close(); cs2.Close();
                 NetConfig.Current.port = savedPort;          // 🔴 还原（后面那节负例还用主那套会话）
             }

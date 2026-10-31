@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: WFUI_Clock
+  m_Shader: {fileID: 4800000, guid: 7c1d3e5f9a2b4c6d8e0f1a3b5c7d9e21, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 3710
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 440d04fdc5ad3be49ba460b0daeb13fb, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _ColorMask: 15
+    - _MinutesHandleStartOffset: 0
+    - _Rotation_Speed_Minutes: -0.002652582
+    - _Rotation_Speed_Seconds: -0.1591549
+    - _SecondsHandleStartOffset: 0
+    - _Stencil: 0
+    - _StencilComp: 8
+    - _StencilOp: 0
+    - _StencilReadMask: 255
+    - _StencilWriteMask: 255
+    m_Colors:
+    - _ClockHandle_Offset_Seconds: {r: 0, g: 0.17, b: 0, a: 0}
+    - _ClockHanldeMinutes_W_H_R: {r: 0.08, g: 0.25, b: 0.1, a: 0}
+    - _ClockHanldeSeconds_W_H_R: {r: 0.08, g: 0.37, b: 0.1, a: 0}
+    - _Clock_Handle_Offset_Minutes: {r: 0, g: 0.1, b: 0, a: 0}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _MinMaxScale: {r: 1.1, g: 1, b: 0, a: 0}
+    - _Pulse_toOn_On_toOff_Off: {r: 2, g: 0, b: 2, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

@@ -80,6 +80,19 @@ DST_MENU = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu"
 #    （2026-10-07 核过：`ui_menu/UI_Deck_button_click.png.meta` vs `ui_menu/40K_ArmyTrack_bar.png.meta` vs
 #      本模板，三份 `diff` 只差 guid），所以不必给 `ui_menu/` 另配一份。
 META_TEMPLATE = os.path.join(DST, "40k_battle_Win_Skull.png.meta")
+# 🔴 **2026-10-31（B110_W6 · 账 `B-36`）：模板里 `platformSettings ▸ DefaultTexturePlatform ▸ maxTextureSize`
+#   是 **1024**（其余两份 `/ui_deck`、`/ui_menu` 的 550 份 `.meta` 都是 2048）—— **这一格不动，是判断不是遗漏**：
+#   · **谁说了算**：`Resources/Art` 下所有贴图的导入设置**正本**在 `CardPresentation/Editor/ArtBaker.cs`
+#     的 `ApplyImportSettings()`：`maxTextureSize = (isBackdrop || /ui_menu/ || /boosterpack/ || /ui_deck/) ? 2048 : 1024`
+#     ⇒ **`/ui/` 这一支就是 1024**（本脚本三个目标目录里的 `DST` 正是 `/ui/`）。
+#     ⚠️ 本模板只写**新建**的 `.meta`；下一次 Unity 烘焙 `ArtBaker` 会把这一格**改回 1024**
+#     （盘上 `/ui/` 那 104 份 `.meta` 现读**全是 1024**，与这条一致；`/ui_deck` 93 / `/ui_menu` 457 全是 2048）
+#     ⇒ 所以在这里单方面抬到 2048 只会造成「两个工具互相打架」（`ArtBaker.cs` 里同族那条注释的原话）。
+#   · **抬不抬有没有观感差别**：没有。2026-10-31 现读 `Art/ui` 的 104 张源 PNG，**最大 1024×128**
+#     （`ui_deck` 1100×701 · `ui_menu` 65 张 2048²）⇒ 这一格是 1024 还是 2048，**导入结果完全相同**；
+#     而且平台块 `overridden: 0` ⇒ 本来也不生效。
+#   · 将来真要整棵抬到 2048（例如往 `/ui/` 里加大图）：**必须改 `ArtBaker` 那一行**（`.cs`，本脚本够不到），
+#     并同步改本模板 —— 只改一边 = 下一次烘焙被抹掉。
 
 # 原版 sprite 名 → 我们文件名（空格换下划线，其余照旧）
 NAMES = [

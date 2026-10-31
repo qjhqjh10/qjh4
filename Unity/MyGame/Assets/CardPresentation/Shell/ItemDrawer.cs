@@ -1668,7 +1668,7 @@ namespace CardPresentation
             HandlePointerClick(); PlayInspectSound();
         }
 
-        /// <summary>原版 `HandlePointerClick()`：开物品详情窗（`ItemDisplayWindowContext(item, 0)`）。</summary>
+        /// <summary>原版 `HandlePointerClick()`：开物品详情窗（`ItemDisplayWindowContext(item, quantity)`）。</summary>
         public void HandlePointerClick()
         {
             if (DeckClick()) return; if (string.IsNullOrEmpty(Id))
@@ -1686,7 +1686,7 @@ namespace CardPresentation
                 Army = null,
                 Lore = null,
                 Art = ItemDrawer.ArtTexture(_styleArt),
-                ArtName = _styleArt,
+                ArtName = _styleArt, Amount = Quantity, ShowAmount = ItemDrawer.HasQuantitySlot(Drawer),   // 🔴 原版 `HandlePointerClick` 的第 2 个实参 = 抽屉自己的 `+0x40`（`ItemDrawer_object___HandlePointerClick.c`：`uVar1 = *(undefined4*)(param_1+0x40)`）⇒ `(item, quantity)`；`ShowAmount` = 这一族的抽屉 prefab 会不会真的画出那一行（表 → `ItemDrawer.HasQuantitySlot`）。⚠️ 零行数变化（账按行号钉着本文件）。
             };
             ItemDisplayWindow.Create(mgr, ctx);
         }
@@ -2395,5 +2395,103 @@ namespace CardPresentation
         public Transform ClaimedImageLayer { get { return _claimedImage; } }
         /// <summary>自检读口：`Collected Badge/Image/Text (TMP)`（黑 `Claimed` 那颗；没打开徽章时为 null）。</summary>
         public Label ClaimedTextLayer { get { return _claimedText; } }
+    }
+
+    // ============================================================ 追加区 · 2026-10-31（批次 B110 · F2）
+    // 🔴 **行号守恒**：本段只往**文件尾**加东西 ⇒ 账里钉在 `Shell/ItemDrawer.cs:427…2339` 的 A 落点零漂移。
+
+    public static partial class ItemDrawer
+    {
+        /// <summary>「这一族的抽屉会不会**真的画出**『数量』那一行」—— `ItemDisplayWindow.Context.ShowAmount` 的判据
+        /// （原版 `ItemDisplayWindowContext(item, amount)` 里的 `amount` 到底看不看得见）。
+        /// <para>口径 = **两道闸，与关系**：① 该族 prefab 的 `ItemDrawerComponents.quantity != null`
+        /// （原版 `ItemDrawer&lt;T&gt;.Draw` 只在槽非 null 时 `quantity.setText(amount.ToString())`，判据 →
+        /// `d:/2/tools/decomp_generic_trial/out/ItemDrawer_object___Draw.c`）；② 那颗 TMP 所在的 `Content/Label`
+        /// 在**激活链**上（`m_IsActive = 0` ⇒ 写进去了也看不见）。</para>
+        /// <para>🔴 判据 = **逐份 prefab 现读**（2026-10-31 `B110_F2` 扫 `d:/2/新解包资源/assets_full/bundle_menus_assets_all`
+        /// 里 374 份带 `showItemInfoOnClick` 的 MB，按 `m_Script` → `MonoScript.m_ClassName` 归类，
+        /// 再沿 `RectTransform.m_Father` 爬到 prefab 根、在根子树里找 `Content/Label` 的 `m_IsActive`）。
+        /// 每族取的是**以类名命名的那个 prefab**（`Xxx Drawer`）；旁挂变体（`General Basic Offer Container …` /
+        /// `General Basic Offer Popup Variant …`）的 `Content/Label` 多数是关的，但那些是**别的槽位组合**、
+        /// 不是这一族的判据 ⇒ ⛔ 别拿它们改这一格。</para>
+        /// <para>⚠️ 与 `ItemDrawerLayout.DrawerNameQuantity(..., hasQuantity:)` 是**同一条判据的两个消费者**：
+        /// 那边管「我们的抽屉自己画不画」，这边管「物品窗补不补那一格」。改一处必须核另一处。</para>
+        /// <para>⛔ 未知族 ⇒ `false` + `Note` 一次（铁律 2：不猜）。</para></summary>
+        public static bool HasQuantitySlot(string drawer)
+        {
+            switch (drawer)
+            {
+                // ---- 两道闸都过（10 族）· 2026-10-31 逐份 prefab 现读（数量槽非 null 且 `Content/Label` active）
+                //      ⚠️ 这 4 族的 **Icon 档是另一个类**（`WildcardIconDrawer` / `ForgePointIconDrawer` /
+                //      `TitleIconDrawer` / 无变体）⇒ 按族判**没有歧义**。
+                case DrawerWildcard:              // `Wildcard Drawer`（sig `(qty=有, Label=True)`）
+                case DrawerForgePoint:            // `Forge Points Drawer`
+                case DrawerTitle:                 // `Title Drawer`（⚠️ `Title Drawer Horizontal Variant` 是**另一族**，见下）
+                case DrawerXSolla:                // `XSolla Offer Drawer`
+                    return true;
+
+                // ---- 🔴 这 6 族的 **Icon 档变体与主档是同一个类名、但槽位不同** ⇒ 「按族」判有歧义，如实出声
+                //      （`ItemTypeSets` 里 `Currency` / `Container` / `CampaignPoints` / `ExpansionPassPoints` /
+                //       `AllianceTrophyData` / `DropTableItem` 的 Icon(10) 列写的仍是主档类名）。
+                //      逐份 prefab 现读：`Icon … Drawer Variant` 的 `quantity` 全是 `{fileID:0}`、`Content/Label` 也不在。
+                case DrawerCampaignPoint:
+                case DrawerAllianceBadge:
+                case DrawerContainer:
+                case DrawerCurrency:
+                case DrawerExpansionPassPoint:
+                case DrawerRandomCard:
+                    Note("qtyslot|iconvariant|" + drawer,
+                         "`" + drawer + "`：**主档** prefab 的 `ItemDrawerComponents.quantity` 非 null 且 `Content/Label` 在激活链上"
+                         + " ⇒ 原版画数量；但这一族的 **Icon 档变体**（`Icon … Drawer Variant`）里 `quantity` / `label` 全是 "
+                         + "`{fileID:0}`、`Content/Label` 也不在 ⇒ 原版**不画**。我们这一侧 `ItemTypeSets` 把主档与 Icon 档"
+                         + "归到**同一个类名** ⇒ 这里只能按族给 true。⛔ 若将来有调用方在 Icon 档走 `HandlePointerClick`，"
+                         + "这一格要改成「按 override 判」（今天的生产者不传 override ⇒ 没接，如实记）");
+                    return true;
+
+                // ---- 数量槽 `{fileID:0}`（null）⇒ 原版连 `setText` 都不跑
+                case DrawerWildcardIcon:          // `Icon Wildcard Drawer Variant`
+                case DrawerAvatar:                // `Avatar Drawer`（`Avatar Drawer Shop Variant` 同）
+                case DrawerAvatarBorder:          // `Avatar Border Drawer`（`… Shop Variant` 同）
+                case DrawerPremium:               // `Premium Drawer`（`Premium Drawer No Glow` 同）
+                case DrawerPremiumIcon:           // `Icon VIP Premium Campaign Drawer Variant`
+                case DrawerExpansionPremium:      // `Expansion Pass Premium Drawer`
+                case DrawerForgePointIcon:        // `Icon Forge Points Drawer Variant`
+                case DrawerTitleIcon:             // `Icon Title Drawer Variant`
+                case DrawerDeck:                  // `Deck Drawer`
+                case DrawerDeckAndCardback:       // 只在 `General Basic Offer … Deck_cardback_avatar` 里出现（quantity null 且 Label 关）
+                case DrawerCard:                  // `Card Drawer`：`background/image/label/quantity` **全 null**（这一档只画那张卡）
+                case DrawerCardAltArt:            // `Card Alternate Art Drawer`：同上
+                case DrawerGenericArmy:           // `Generic Army Item Drawer`：除 `ephemeral*` 外全 null
+                    return false;
+
+                // ---- 数量槽**非 null**、但 `Content/Label` 的 `m_IsActive = 0` ⇒ 写进去整行也不画（关键反例）
+                case DrawerCardback:              // `Cardback Drawer`：quantity 非 null（TMP 出厂文本 `'2'`）· Label active=False
+                case DrawerCosmetic:              // 原版这一类走的就是 `CardbackDrawer` prefab（`cosmeticIcon` 那份 MB 的 `m_Script` = `CardbackDrawer`）
+                case DrawerTitleHorizontal:       // `Title Drawer Horizontal Variant`：quantity 非 null · Label active=False
+                    return false;
+
+                // ---- 原版没有这个类 ⇒ 判据空
+                case DrawerIcon:
+                    Note("qtyslot|" + drawer, "原版没有 `IconDrawer` 这个类（`cpp2il` 全库 0 个）⇒ "
+                         + "「这一族画不画数量」**判据空**，按 false 办（⛔ 不猜）；判据同 `ShowInfoOnClickOf` 那条");
+                    return false;
+                case DrawerPlaceholder:
+                    Note("qtyslot|" + drawer, "`PlaceholderDrawer` 是**我们自己的兜底档**（原版没有这个 prefab）⇒ "
+                         + "数量槽无从谈起，按 false 办");
+                    return false;
+            }
+            Note("qtyslot|" + drawer, "抽屉族 `" + drawer + "` 不在「有没有数量槽」那张表里 ⇒ 按 false 办"
+                 + "（铁律 2：判据没读到就出声，⛔ 不猜）。要补这一格：扫 `bundle_menus_assets_all` 的这一族 prefab，"
+                 + "读 `ItemDrawerComponents.quantity` 是否为 null **且** `Content/Label` 的 `m_IsActive`");
+            return false;
+        }
+    }
+
+    /// <summary>自检读口（`B110_F2`）：句柄上留着的**数量**（原版实例字段 `+0x40`）—— 断言要验
+    /// 「`ItemDisplayWindow.Context.Amount` 真的来自这一格」⇒ 先得能读到它。
+    /// ⚠️ 只是**转发**（字段 `Quantity` 仍是 `internal`，⛔ 别把它改成 `public` —— 那会动到既有那行）。</summary>
+    public sealed partial class ItemDrawerView
+    {
+        public int QuantityForTest { get { return Quantity; } }
     }
 }

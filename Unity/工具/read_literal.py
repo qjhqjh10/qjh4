@@ -52,6 +52,15 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
     print('用法：\n    PY=D:/2/Warpforge_tools/py312/python.exe\n    $PY d:/4/Unity/工具/read_literal.py "D:/2/unity_run_ref/GameAssembly.dll" 0x1834b31c4 0x1834b2bbc\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
     _wf_help_sys.exit(0)
 
+## 🔴 2026-10-31（B110_W6 · 账 `N35`）：**主路径也要 UTF-8** —— 下面打的是 `✅` / `⚠️`（`:104` 那两行
+##   `mark()` 的返回值）以及中文提示，Windows 控制台默认 **cp936(GBK)** ⇒ `UnicodeEncodeError`
+##   直接崩（不是「打印成问号」，是**异常退出**）。`-h/--help` 那条分支早就 reconfigure 了，主路径漏了。
+##   ⚠️ `reconfigure` 要 3.7+；缺就退回默认（老解释器上照旧，不额外引入新失败）。
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 if len(sys.argv) < 3:
     print(__doc__)
     sys.exit(2)

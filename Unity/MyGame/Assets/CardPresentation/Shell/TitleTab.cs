@@ -372,7 +372,7 @@ namespace CardPresentation
                 var facBase = Rect(content, hasFac ? facArt : null, fr, "Image", 3, FacTint, hasFac);
                 if (facBase != null)
                 {
-                    var facTop = Rect(facBase.transform, hasFac ? facArt : null, fr, "Image Top", 4, FacTopTint, hasFac);
+                    var facTop = Rect(facBase.transform, hasFac ? facArt : null, fr, "Image Top", 4, FacTopTint, hasFac); ApplyGreyscaleAddMaterial(facTop);   // 原版 `UI Greyscale Add` 材质（B110_M1）
                     // ⚠️ 显式给两态（原版只在 null 那一支 `SetActive(false)`、没有回 true 的那一支 ——
                     //    因为它每格都是新 `Instantiate` 的；我们这里同样是**新建**，显式写清更稳）。
                     facBase.gameObject.SetActive(hasFac);
@@ -533,6 +533,39 @@ namespace CardPresentation
         void OnSelectClicked()
         {
             ConfirmSelect();
+        }
+
+        // ============================================================ #2 `Greyscale Add` 材质（2026-10-31 · B110_M1）
+        /// <summary>`Image Top` 那一层的原版材质（`Everguild/UI/Greyscale Add`，材质 `UI Greyscale Add`）
+        /// 的工程等价物 = `Resources/Art/vfx/WFUI_GreyscaleAdd.mat`（shader `WarpforgeVFX/UI/UI Greyscale Add`）。
+        /// 算式逐指令抄自 `ruri_out_1020_allshaders/…/Everguild_UI_Greyscale Add/Sub0_Pass0_Fragment_b7.hlsl:39-61`，
+        /// 参数逐字段抄自 `assets_full/bundle_menus_assets_all/Material/Material_-4471755909380014346.json`。
+        /// <para>**静态**（无 `_Time`、无脚本驱动）：`_GreyScale = 1` 常驻 ⇒ 输出 = `tex.a * colorA * 灰度`，
+        /// 再按 `OneMinusDstColor One`（滤色）叠上去。原版**为什么**给阵营徽记上灰度滤镜没找到设计意图
+        /// （B109_R15 §4·6）—— 这里只按数值复刻，⛔ 不编理由。</para>
+        /// <para>⚠️ 材质**按贴图缓存**：`ImageQuad.SetMaterial` 会把自己那张图写进 `material.mainTexture`，
+        /// 所以「一个阵营徽记一份材质」是必须的；但格子会随滚动（`RebuildRows`）反复重建，
+        /// 逐格 `new Material` 会每滚一格就造一批原生对象 ⇒ 按贴图复用。</para></summary>
+        static readonly System.Collections.Generic.Dictionary<Texture, Material> _facTopMats =
+            new System.Collections.Generic.Dictionary<Texture, Material>();
+
+        void ApplyGreyscaleAddMaterial(ImageQuad quad)
+        {
+            if (quad == null || quad.Texture == null) return;
+            Material m;
+            if (!_facTopMats.TryGetValue(quad.Texture, out m) || m == null)
+            {
+                var src = Resources.Load<Material>("Art/vfx/WFUI_GreyscaleAdd");
+                if (src == null)
+                {
+                    Debug.LogWarning("[TitleTab] 取不到 `Resources/Art/vfx/WFUI_GreyscaleAdd.mat` ⇒ `Image Top` 退回 "
+                                   + "`Sprites/Default`（**阵营徽记那一层没有原版的灰度 + 滤色**）。");
+                    return;
+                }
+                m = new Material(src);
+                _facTopMats[quad.Texture] = m;
+            }
+            var keep = quad.Tint; quad.SetMaterial(m); quad.SetTint(keep);   // 🔴 2026-10-31（B110_X2 同族普查揪出）：`SetMaterial` 只搬贴图/队列、**不搬材质色** ⇒ 换完后新材质的 `_Color.a=1` 会把 `Rect(...)` 刚写的 `FacTopTint`（α=0.416）冲成 100%。⛔ 别改成写 `m.color`（这份材质按贴图缓存共享）
         }
     }
 }

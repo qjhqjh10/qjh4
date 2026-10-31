@@ -71,6 +71,7 @@
          🔴 **以后任何新增的 `Data/*.cs` 都要在这里补一行** —— 漏了就是「探针读不出数」而不是「代码错」。 -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B97W5.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B98H7.cs" />
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B110E5.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.StableSort.cs" />
     <Compile Include="AiProbe.cs" />
     <!-- 🆕 `tutorial`（`G5`，2026-10-26 · 第 5 轮）：**教程局读数口**。

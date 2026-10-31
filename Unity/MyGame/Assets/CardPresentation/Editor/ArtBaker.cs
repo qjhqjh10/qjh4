@@ -477,7 +477,22 @@ public static class ArtBaker
                 ti.wrapMode = TextureWrapMode.Clamp;
             }
             ti.filterMode = FilterMode.Bilinear;
-            ti.maxTextureSize = isBackdrop ? 2048 : (path.Contains("/ui_deck/") ? 2048 : 1024);
+            // 🔴 **2026-10-31（B110_T1）：`ui_menu` / `boosterpack` 也抬到 2048** —— 别再压掉一半像素。
+            //   判据（现读源 PNG 的 IHDR，逐张量的）：这两个子树里**只有 66 张**源边 > 1024 ——
+            //   `ui_menu` 65 张（64 张 2048² 的 `UI_Deck_Warlord_*` + `UI_Deck_Master_Zacharial`，
+            //   外加 `UI_Main_Upper_bar` 2048×92）· `boosterpack` 1 张（`40K_shop_offer_booster_UM_Expansion_1` 2048²）。
+            //   其余源图全部 ≤ 1024 ⇒ 抬到 2048 **不会改变它们的导入结果**（上采样不会发生），只救回这 66 张。
+            //   ⚠️ 原来对 `ui_menu` 写 1024（2026-09-15 那次），而督军方形立绘是 **2026-10-18** 才导进来的
+            //   （`工具/import_deck_warlord_art.py`）⇒ **不是有意的取舍，是规则写在素材之前**。
+            //   构建产物实测（`_tmp_view/player/WarpforgePlayer_Data/resources.assets`）：65 张落到 1024²、
+            //   `UI_Main_Upper_bar` 落到 1024×46 ⇒ 2048² 的方形立绘**掉一半像素**（玩家可见）。
+            //   ⚠️ 这个值**只写进 `platformSettings` 的 `DefaultTexturePlatform` 块**（顶层 `maxTextureSize` 不生效，
+            //   Unity 存盘时会把它写回 2048）—— 同族记录 → `工具/import_original_card_sdf.py:113`。
+            //   判据出处 = 原版 `bundle_uiwarlords_assets_all` 里这批就是 2048²（`工具/import_deck_warlord_art.py:7`）。
+            //   ⚠️ 因为整批重导只影响这 66 张，按**子树**写规则（不按 66 个文件名硬编码）：将来往这两个子树里
+            //   再导 2048 的图会自动拿对，也不会外溢到 `cards/` / `avatars/` / `vfx/` 那些不需要 2048 的目录。
+            bool hiResUi = path.Contains("/ui_menu/") || path.Contains("/boosterpack/");
+            ti.maxTextureSize = (isBackdrop || hiResUi || path.Contains("/ui_deck/")) ? 2048 : 1024;
             // ⚠️ **必须关掉 NPOT 缩放**：默认会把非 2 次幂的图缩到最近的 2 次幂 ——
             //    背景图 1920×1080 会被拉成 2048×1024（宽高比从 1.78 变 2.0），
             //    背景一「铺满」就整体放大 12.5%，和原版量出来的槽位坐标对不上了（踩过）。
@@ -517,6 +532,43 @@ public static class ArtBaker
             ti.SaveAndReimport();
         }
         Debug.Log(P + "导入设置已重设");
+
+        // 🔴 **2026-10-31（B110_T1）：实读校验 —— 判据是「导入后的真实尺寸」，不是 `.meta`、也不是「日志说改了 N 张」。**
+        //   只查 `ui_menu` / `boosterpack` 里**源边 > 1024** 的那些（现读 66 张）：其余源图本来就 ≤ 1024，
+        //   抬到 2048 也不会变，查了只是白加载一遍贴图。
+        //   ⚠️ 源尺寸必须用 `GetSourceTextureWidthAndHeight` —— `LoadAssetAtPath<Texture2D>` 拿到的是
+        //   **已导入**的那一份（被上一次的 `maxTextureSize` 砍过），拿它当「源」= 自证
+        //   （同 `ApplyArenaImportSettings` 里 `:604` 那次踩的坑）。
+        int hiChecked = 0, hiShrunk = 0;
+        var hiShrunkList = new System.Text.StringBuilder();
+        foreach (var g in AssetDatabase.FindAssets("t:Texture2D", new[] { ArtDir }))
+        {
+            var p2 = AssetDatabase.GUIDToAssetPath(g).Replace('\\', '/');
+            if (!(p2.Contains("/ui_menu/") || p2.Contains("/boosterpack/"))) continue;
+            var ti2 = AssetImporter.GetAtPath(p2) as TextureImporter;
+            if (ti2 == null) continue;
+            int sw2 = 0, sh2 = 0;
+            try { ti2.GetSourceTextureWidthAndHeight(out sw2, out sh2); } catch (System.Exception) { }
+            int want2 = Mathf.Max(sw2, sh2);
+            if (want2 <= 1024) continue;                    // 不在本规则能救的范围内
+            hiChecked++;
+            var tex2 = AssetDatabase.LoadAssetAtPath<Texture2D>(p2);
+            if (tex2 == null) { Debug.LogWarning(P + "实读校验：取不到贴图 " + p2); continue; }
+            if (Mathf.Max(tex2.width, tex2.height) < want2)
+            {
+                hiShrunk++;
+                if (hiShrunk <= 8)
+                    hiShrunkList.Append($"\n    {System.IO.Path.GetFileName(p2)}：源 {sw2}×{sh2} → 导入 {tex2.width}×{tex2.height}");
+            }
+        }
+        // ⚠️ 先断「前提成立」再断结论：0 张 = 这条校验**什么都没验到**，不能算绿（本工程踩过「`if (x != null)` ⇒ 静默跳过」）。
+        if (hiChecked == 0)
+            Debug.LogWarning(P + "实读校验：ui_menu/boosterpack 里**一张源边>1024 的都没找到** —— 前提不成立，" +
+                                "这条校验没验到东西（图没导进来？还是 `GetSourceTextureWidthAndHeight` 读不到？）");
+        else if (hiShrunk > 0)
+            Debug.LogWarning(P + $"🔴 hi-res UI（ui_menu/boosterpack）仍有 {hiShrunk}/{hiChecked} 张被缩：" + hiShrunkList);
+        else
+            Debug.Log(P + $"实读校验：hi-res UI（ui_menu/boosterpack）源边>1024 的 {hiChecked} 张**都没有被缩** ✅");
     }
 
     /// <summary>

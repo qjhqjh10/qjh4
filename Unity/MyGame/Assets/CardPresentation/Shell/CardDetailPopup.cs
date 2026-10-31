@@ -299,7 +299,7 @@ namespace CardPresentation
         }
         public static void SetLevel(string id, int l)
         {
-            if (string.IsNullOrEmpty(id)) return;
+            if (string.IsNullOrEmpty(id)) return; EnsureLoaded();   // 🔴 2026-10-31（`B110_F1`）：**先读档再写** —— `Save()` 会把当时的 `_lvl`/`_owned`/`_wild` **整份写回**；若在任何人摸过 `Level()`/`Owned()` 之前调一次本方法，不先 `EnsureLoaded()` 就会把玩家的等级/拥有数/通配符**整份清空**（静默数据丢失）。
             _lvl[id] = Mathf.Clamp(l, 1, MaxLevel);
             Save();                                   // 🆕 2026-10-18：落盘
         }

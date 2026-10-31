@@ -1154,8 +1154,9 @@ namespace CardPresentation
             var fill = MenuDraw.Node(bar, "ProgressionBar", PersonalBarFillR);   // 出厂 0 宽 = 进度 0
             MenuDraw.Rect(fill, Tex(ArtArmyTrackFill, "战令进度条填充"), PersonalBarFillR, "Image",
                           QCardBar, BarFillTint);
-            MenuDraw.Rect(fill, Tex(ArtArmyTrackPos, "战令进度条端帽"), PersonalBarEndR, "BarEnd",
-                          QCardBar, Color.white);
+            var barCap = MenuDraw.Rect(fill, Tex(ArtArmyTrackPos, "战令进度条端帽"), PersonalBarEndR, "BarEnd",
+                                       QCardBar, Color.white);
+            ApplyDistortAtlas(barCap);   // #6 `UI Distort`（判据与「为什么只这一处」见 `ApplyDistortAtlas` 的 doc）
 
             // `Points`（HLG）：`icon`（**原版就没有 `Image` 组件**，运行时由 `ItemDrawer` 灌）+ `text`
             var pts = MenuDraw.Node(_personalBar, "Points", PersonalPointsR);
@@ -2784,6 +2785,57 @@ namespace CardPresentation
         {
             OnClose();
             base.Close();
+        }
+
+        // ============================================================ #6 `UI Distort`（`B110_M2`，2026-10-31）
+        //
+        // 🔶 本节**没有**自设计数值，判据全部现读原版解包：
+        //   · 材质 `UI Distort in Atlas Small objects` = `Material_-6878048798577840027.json`
+        //     （`_DistortionSpeedAndScale = (1,1,20,10)` · `_DistortionAmount = 0.002`；
+        //      shader 名 = `WarpforgeVFX/UI/UI Distort`，逐指令复刻 → `Resources/Shaders/WFUIDistort.shader`）。
+        //   · 节点判据：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-8075034885493303330.json`
+        //     的 `m_Material.m_PathID = -6878048798577840027`，其父链现读 =
+        //     `BarEnd < ProgressionBar < Bar < Expansion Pass Progress Bar` —— 与本窗 `BuildPersonalProgression`
+        //     建出来的 `Expansion Pass Progress Bar > Bar > ProgressionBar > BarEnd` **逐级吻合**。
+        //   · 另两颗同名 `BarEnd` 也吃这份材质：`Forge Menu Reward Button > Progress Bars` ·
+        //     `Raid Progress Bar`（都在别的窗口，⛔ 不在本代理白名单）。
+        //     ⚠️ `Personal/Community Raid Progress Bar`（Raid 奖励容器那两支）吃的是
+        //     `Raid Distort UI Purple to Orange`（**另一条 shader，不归本条**）⇒ ⛔ 别一起换。
+        //   · 🔴 **`AchievementsMenu` 那颗 `end` 不是本条**：`Achievement Container` 的 `end` 那格
+        //     Image 的 `m_Material.m_PathID = 0` ⇒ 原版走默认 UI 材质、**本来就不失真**。
+        //
+        // ⚠️ 为什么不走 `MenuFxMaterials`：本轮文件所有权表里 `Shell/MenuFxMaterials.cs` 没分给任何代理，
+        //    而本代理白名单没有它 ⇒ 就地实现同一套纪律（**逐颗克隆**）。调度台若要并进去，
+        //    等价改动 = 加一个 `DistortAtlasSmall` 常量 + 一条 `Apply(...)` 调用。
+        static Material _distortAtlasProto;
+        static bool     _distortAtlasWarned;
+
+        static Material DistortAtlasProto()
+        {
+            if (_distortAtlasProto != null) return _distortAtlasProto;
+            _distortAtlasProto = Resources.Load<Material>("Art/vfx/WFUI_Distort_AtlasSmall");
+            if (_distortAtlasProto == null && !_distortAtlasWarned)
+            {
+                _distortAtlasWarned = true;
+                Debug.LogWarning("[ExpansionPassEventWindow] 取不到材质 `Resources/Art/vfx/WFUI_Distort_AtlasSmall`"
+                               + " ⇒ `BarEnd` 退回静态贴图（出声，不静默）");
+            }
+            return _distortAtlasProto;
+        }
+
+        /// <summary>把 `BarEnd` 那颗 quad 换成原版 #6 的 `UI Distort` 材质。
+        /// ⚠️ 每颗 quad **各拿一份克隆**：`ImageQuad.SetTint` / `SetRenderQueue` 写的是
+        /// `sharedMaterial.color` / `.renderQueue`（`ImageQuad.cs:400` / `:425`）⇒ 共用一份 = 染色/队列互相盖。
+        /// 渲染队列由 `ImageQuad.SetMaterial` 从**旧材质**读出并带过去（`:299-303`）。</summary>
+        static void ApplyDistortAtlas(ImageQuad q)
+        {
+            if (q == null) return;
+            var proto = DistortAtlasProto();
+            if (proto == null) return;
+            Color tint = q.Tint;                       // 换之前那一份（`Sprites/Default` 的 `_Color`）
+            var inst = new Material(proto);
+            if (inst.HasProperty("_Color")) inst.color = tint;
+            q.SetMaterial(inst);
         }
     }
 

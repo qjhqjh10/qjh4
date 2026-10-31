@@ -168,7 +168,7 @@ namespace CardPresentation
                     var pos = cam != null ? cam.transform.position : Vector3.zero;
                     var rot = cam != null ? cam.transform.rotation : Quaternion.identity;
                     CurrentInstance = Instantiate(prefab, pos, rot);
-                    CurrentInstance.name = "Env_" + it.prefabName;
+                    CurrentInstance.name = "Env_" + it.prefabName; RelocateGrabLayer(CurrentInstance);
                     // 原版 `EnableEnvironment` ③：对**新实例子树里每个** blendable 调 `DoScenarioBlend(lVar7)`
                     _currentBlendables = AttachBlendables(CurrentInstance, it.prefabName, it);
                     InstanceBlendableCount = _currentBlendables.Length;
@@ -925,6 +925,27 @@ namespace CardPresentation
             if (lib != null && lib.TryGet(name, out var e) && e != null && e.prefab != null)
                 return e.prefab;
             return null;
+        }
+
+        /// <summary>🔶 自己设计（非原版）：开 `WF_GRAB501=1` 时，把**环境 prefab 实例**（批 A 的 10 件失真件，
+        /// 见 `判据/B109_R17_挪层分片.md` §0 汇总 / §1 批 A）整棵子树搬到 `GrabScreen501.LayerIndex` 层，
+        /// 让它和走 `WarpforgeEffectPlayer.Play` 的那 220 件 / Tap 那 3 件一样由 501 重画，而不是留在
+        /// prefab 自带层 6 被 URP 默认透明 pass 画一遍（`m_TransparentLayerMask` 已清掉 501 层 ⇒ 那边根本画不到）。
+        /// <para>为什么必须自己定：原版没有这条代码路径 —— 它靠自身 `UniversalRendererData` 的
+        /// `Settings.LayerMask` 分工，而那份资产本地没解出来、**目标层号是我们挑的（非原版值）**。
+        /// 判据 → `判据/B109_R17_挪层分片.md`（§0 汇总 · §1 批 A）· `判据/B107_B14_失真效果挪层清单.md` §七。
+        /// 调度台 2026-10-31 裁定（`B110_D1`）。</para>
+        /// <para>⚠️ 与 `TapHitMaterialDefinition.RelocateGrabLayer` 同一口径（同一判据 `GrabScreen501.FinalLayer`
+        /// ＋ 同一个落层实现 `WarpforgeEffectPlayer.SetLayerRec`，⛔ 别在别处再写第三份）。
+        /// **生产调用点两处** —— `Apply` 里 `Instantiate` 之后那一句（追加在同一物理行上，保住账的行号）；
+        /// A′ 那条（`ParticleSystemAreaSpawner.CreatePooledItem` 的池件）；自检同样只调这里。</para>
+        /// <para>⚠️ 默认档（不设 `WF_GRAB501`）**逐位等价**：`FinalLayer` 第一句就原样返回入参 `-1`
+        /// ⇒ 下面那行**不执行**（层不变、连日志都不打）。返回值 = 实际设的层（`-1` = 没设）。</para></summary>
+        public static int RelocateGrabLayer(GameObject go)
+        {
+            int layer = WarpforgeVFX.GrabScreen501.FinalLayer(go, -1);
+            if (layer >= 0) WarpforgeVFX.WarpforgeEffectPlayer.SetLayerRec(go, layer);
+            return layer;
         }
     }
 }

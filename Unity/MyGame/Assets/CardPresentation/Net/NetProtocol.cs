@@ -107,6 +107,19 @@ namespace CardPresentation.Net
         public int targetSlot = -1;
         public bool ranged;
         public string altKeyword;
+        /// <summary>🆕 2026-10-31（`B110_R3` · 账 `N07`）：**这一手带不带「平 / 誓二选一」的答案**。
+        /// `false` = **没记**（老报文 / 老录像 / AI 那一手 / 玩家没答）—— 与「记了、选了平版」**必须分得开**
+        /// （`JsonUtility` 缺键填 0 ⇒ 只用一个 int 的话两种情形在线上同形；同族先例 = `MsgDeck.draftPropsVer`）。
+        /// 🔴 原版是「**把下标塞在动作载荷里**」：`BattleAction.actionValueTens(+0x54)` →
+        /// `ChoiceOfCardEnemy(…, selectedCard)` → `fullPool[idx]` → `cardChosenInSelection(+0x2E8)`
+        /// （`out_il2csharp/Assembly-CSharp/BattleManager.cs:28810-28816 / :8951-8965`；
+        /// 编码侧 `decomp_full/BattleManager__ParsePlayerAction.c:608` 把它打进 `PlayerAction.pos` 的十位）。
+        /// ⇒ 我们同形：答案**随动作走**，⛔ 不另开消息。
+        /// ⚠️ 与 <see cref="altKeyword"/> == "oath"（**单位主动技**那条路）不是一回事。</summary>
+        public bool oathRecorded;
+        /// <summary><see cref="oathRecorded"/> 为真时有效：**0 = 平版 · 1 = 誓约版**（= 原版 `filterSpecificCards` 的下标）。
+        /// ⚠️ **不进** `Fingerprint` / `StateHash`（它是「怎么落地」的输入，落完就体现在能量/局面上）。</summary>
+        public int oathChoice;
         /// <summary>面板答案（`ctx.ChoosePicks`）—— **顺序必须和结算顺序一致**（少发一格会让后面每一处**全部错位且不报错**）。</summary>
         public int[] picks;
         /// <summary>选牌那一族的 `CardDef.Id`（`ctx.ChooseCardIds`，与 `picks` **同序同长**）。</summary>
@@ -507,6 +520,10 @@ namespace CardPresentation.Net
                 targetSlot = a.TargetSlot,
                 ranged = a.Ranged,
                 altKeyword = a.AltKeyword,
+                // 🆕 2026-10-31（B110_R3 · 账 N07）：誓约二选一的答案**随动作走**。⚠️ 这里必须从 `a` 上取 ——
+                //   生产路径 `NetBattle.OnLocalAction` / `BattleDriver.RecAct` 调本方法时 `ctx` 传的是 **null**。
+                oathRecorded = a.OathChoiceRecorded,
+                oathChoice = a.OathChoice,
             };
             if (ctx != null)
             {
@@ -534,6 +551,9 @@ namespace CardPresentation.Net
                 TargetSlot = m.targetSlot,
                 Ranged = m.ranged,
                 AltKeyword = m.altKeyword,
+                // 🆕 2026-10-31（B110_R3 · 账 N07）：反方向同语义（⛔ 两条路径的语义必须一致 —— 见本方法 doc）。
+                OathChoiceRecorded = m.oathRecorded,
+                OathChoice = m.oathChoice,
             };
         }
 

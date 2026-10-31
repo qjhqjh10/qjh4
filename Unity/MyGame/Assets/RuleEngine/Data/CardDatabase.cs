@@ -3622,6 +3622,13 @@ namespace RuleEngine
         public class EnchantmentTemplateAbilityDto
         {
             public int trigger = -1;
+            /// <summary>🆕 B110/E5（2026-10-31 · 判据 `判据/B110_V4_真缺陷复核D.md` §H·2）：原版
+            /// `CardAbility.triggerValue // +0x20`（`dump.cs:20340`）。`-1` = **缺键 / 旧表**。
+            /// <para>🔴 现读 `enchantment_templates.json`（v1 · 85 张 · 110 条 ability）**还没有这一列** ——
+            /// 要调度台按 `报告/B110_E5.md` §生成器补丁 重跑 `工具/gen_cards_engine.py` 才会带上；
+            /// 在此之前这里恒 `-1` = 未知。⛔ **不是 0**（`0` = 「明确 val 0」这一档）。</para>
+            /// <para>唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）。</para></summary>
+            public int triggerValue = -1;
             public EnchantmentTemplateLogicDto[] logic;
         }
 
@@ -3695,6 +3702,13 @@ namespace RuleEngine
                 def.AttachCardType(t.cardType);
                 def.AttachWhileInPlayAnim(t.whileInPlayAnim);
                 def.AttachPermanentBuffs(MapPermanentBuffs(t.permanentBuffs, t.id, t.name));
+                // 🔴 2026-10-31（B110/E5 · 判据 `判据/B110_V1_真缺陷复核A.md` §🔴5）：原版模板卡**恒有** `cardAbilities`
+                //    ⇒ 这一列永远挂（**不是**「有些模板没有 ability」那种三态）。缺这一跳 ⇒ 池外模板在引擎里
+                //    一条 ability 行都没有 ⇒ `EnchantmentHasAbilityForTrigger` 只能落「按文本 op 兜底」那档
+                //    （`EffectResolverPartial_B109E6.cs:160-183`）⇒ 池外被授予的 30 张模板今天**一条 trigger 都派不出来**
+                //    （其中 **28 张**经「打出即挂」钩子 `Enchantments.AttachGrantedByPlayedCard` 可达；另 2 张走别的 trigger）。
+                //    形状 / 三态口径 → `Data/CardDatabasePartial_B110E5.cs` 的文件头（⛔ 别在这里抄第二份）。
+                def.AttachTriggerAbilityIndices(MapEnchantmentTriggerAbilityIndices(t.abilities, t.id));
                 list.Add(def);
             }
             if (file.count != list.Count)

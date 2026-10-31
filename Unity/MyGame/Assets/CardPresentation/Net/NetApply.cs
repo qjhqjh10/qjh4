@@ -142,6 +142,21 @@ namespace CardPresentation.Net
                     //    前面打过几局就走到哪儿了），**两台之间根本不可比** ⇒ `handId` 在这里没用。
                     //    ⚠️ 2026-10-19（`A1114`(a) 同族）就地订正：原来这里写「两端『自己 = 0 号位』时实例号不一样」
                     //    —— 那是**镜像时代**的理由，**已作废**（座位从 2026-09-26 起是绝对的）；结论不变。
+                    // 🆕 2026-10-31（`B110_R3` · 账 `N07`）：**誓约二选一的答案随动作过来** ——
+                    //   原版把它当**一个下标**塞在动作里（`BattleAction.actionValueTens(+0x54)` →
+                    //   `ChoiceOfCardEnemy(…, selectedCard)` → `fullPool[idx]` → `cardChosenInSelection(+0x2E8)`）。
+                    //   我们同形：落地前摆进 ctx（`DecideOathChoice` 只认同座位、**一次一取**）。
+                    //   🔴 `oathRecorded == false`（老录像 / 老报文 / AI 那一手 / 玩家没答）⇒ **一格都不写**
+                    //      ⇒ 引擎走「付得起就付」兜底 = 加这一格之前**逐字相同**。
+                    //   🔴 先清一次：`TakeOathAnswer` 只在出牌里消费，被引擎拒掉的那一手会把残答留到下一手。
+                    ctx.ClearOathAnswer();
+                    if (m.oathRecorded)
+                    {
+                        if (m.oathChoice == 0 || m.oathChoice == 1)
+                            ctx.SetOathAnswer(actorSeat, m.oathChoice == 1);
+                        else if (log != null)
+                            log($"⚠️ 誓约答案的下标 `{m.oathChoice}` 不在 {{0,1}} 里 ⇒ 这一手按「没记」处理（付得起就付）");
+                    }
                     code = RuleCore.PlayCard(ctx, actorSeat, m.handIdx, m.slot);
                     break;
                 case AiActionKind.AttackMelee:

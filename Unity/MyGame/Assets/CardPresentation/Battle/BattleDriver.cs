@@ -295,6 +295,21 @@ namespace CardPresentation
                 return RuleCodes.ErrBadHand;
             }
             if (_net != null) _net.CaptureLocalAnswers(Ctx, act);
+            // 🆕 2026-10-31（`B110_R3` · 账 `N07`）：**誓约二选一的布尔答案也要在 `apply()` 之前抓**
+            //   —— 与下面 `picks` 同一个道理（`DecideOathChoice` 会在结算里 `TakeOathAnswer` 取走它），
+            //   而且它必须**跟着动作走**（`AiAction` → `ToWire` → 线上 / 录像）。
+            //   不抓 ⇒ 对面与回放一律按「付得起就付」兜底 ⇒ 玩家选了平版的那些局**两端分叉、回放演成另一局**。
+            //   ⚠️ 只对**出牌**抓（`DecideOathChoice` 只在 `PlayCard` 的战术支里读；攻击/技能/收集/结束回合没有这一格）。
+            //   ⚠️ 没答（`TryPeek…` 为假）⇒ 两个字段保持「没记」⇒ 兜底路径不变。
+            if (Ctx != null && act != null && act.Kind == AiActionKind.PlayCard)
+            {
+                bool oathPay;
+                if (Ctx.TryPeekOathAnswer(_me, out oathPay))
+                {
+                    act.OathChoiceRecorded = true;
+                    act.OathChoice = oathPay ? 1 : 0;
+                }
+            }
             // 🆕 2026-09-27（录像）：**面板答案要在 `apply()` 之前抓** —— 引擎一结算就把队列吃空了
             //   （与 `NetBattle.CaptureLocalAnswers` 同一条规矩，只是我们这份单机也要）。
             int[] picks = (_rec != null && Ctx.ChoosePicks.Count > 0) ? Ctx.ChoosePicks.ToArray() : null;
@@ -877,6 +892,10 @@ namespace CardPresentation
                 targetP = m.targetP, targetSlot = m.targetSlot, ranged = m.ranged, altKeyword = m.altKeyword,
                 picks = m.picks, pickIds = m.pickIds, marks = m.marks,
                 envSlot = m.envSlot, envSO = m.envSO, defId = m.defId,
+                // 🆕 2026-10-31（`B110_R3` · 账 `N07`）：**誓约二选一的答案**也要抄进来 ——
+                //   本方法是**权威流**（对手那一半 + 换牌定序）唯一的录像口，而且它是**逐字段手抄**的
+                //   （不是整体拷贝）⇒ 少抄两格 = 联机录像里**对手的誓约答案丢光**，而单机自检看不出来。
+                oathRecorded = m.oathRecorded, oathChoice = m.oathChoice,
             });
             // 逐动作轨迹：与 `RecAct` / `RecRaw` **同一条纪律**（`trace` 与 `actions` 一一对应，
             // `PlayReplay` 拿它定位分叉点）—— 少记一次 = 后面每一条都对不上号。
@@ -40108,6 +40127,22 @@ namespace CardPresentation
         /// `Tutorial(4)`」—— 残留的入口模式号会让 `PickBotDeck` 按 4 去筛预组、把 `Ctx.PlayMode` 写成 4。</para></summary>
         public PlayerDeck BotDeckForTest { get { return _botDeckForTest; } }
         PlayerDeck _botDeckForTest;
+
+        // ==========================================================================================
+        //  🆕 2026-10-31（执行代理 `B110_R3` · 账 `N07`）· 自检口
+        //  ⚠️ 新成员追加在**类尾**（本文件有 400+ 处账按行号引用；铁律 18·b：新成员一律追加在这里）
+        // ==========================================================================================
+        /// <summary>录像里**最后一条**动作（`null` = 没在录像 / 还没动作）。只给断言读，⛔ 别在别处拿它判业务。
+        /// <para>用途：钉住「录制侧真的把誓约二选一的答案写进动作里了」——
+        /// 判据 → `资料/完全复刻/判据/B110_R3_N07_oath三处.md` §四 步骤 8·3。</para></summary>
+        public MsgAction LastRecordedActionForTest
+        {
+            get
+            {
+                return (_rec != null && _rec.actions != null && _rec.actions.Count > 0)
+                     ? _rec.actions[_rec.actions.Count - 1] : null;
+            }
+        }
     }
 }
 

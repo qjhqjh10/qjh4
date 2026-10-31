@@ -2173,8 +2173,8 @@ namespace CardPresentation
                 m.color = MilestoneDisabledTint;
                 if (q.Texture != null) _greyMilestoneMats[q.Texture] = m;
             }
-            q.SetTint(MilestoneDisabledTint);  // `SetMaterial` 只带贴图、不带颜色（同 `WindowButton.RefreshGray`）
-            q.SetMaterial(m);
+            q.SetMaterial(m);   // 🔴 2026-10-31（B110_W2）：顺序改回「先换材质、后写 tint」—— `SetTint` 写的是 `sharedMaterial.color`（`Battle/ImageQuad.cs:398-400`），而 `SetMaterial` 整份换材质、**不搬材质色**（`:296-304`）⇒ 先 tint 后换 = 空转。⛔ 别照 `TitleTab` 写成 `keep = q.Tint`：这里要的是**灰**（换之前的白会被写回去）。
+            q.SetTint(MilestoneDisabledTint);
         }
 
 

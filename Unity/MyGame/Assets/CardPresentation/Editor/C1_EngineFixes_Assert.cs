@@ -23,6 +23,9 @@
 //   · B6：把 `RuleCore.cs:9534` 的 `|| amount == 0` 删掉 ⇒ 广播会被走到；但池内今天 0 张卡带 60 正文
 //     ⇒ 事件数仍是 0。本条的判别式在报告里写清（**断言不是万能尺**，⛔ 别拿它当「闸一定在」的证明）。
 //   · C1：把 `CardDatabase.cs:1749` 的 `AttachTriggerOpsByNumber` 那一跳删掉 ⇒ `HasTriggerOpsByNumber` 全 false ⇒ 红。
+//     🆕 2026-10-31（`B110_X2`）：原来这里的阈值写的是 `known > 500`，**凭空估的、从未成立过**
+//     （现读真值 = 163 = 已挂表 44 + 列空 119；判据 → `判据/B110_X1_六条红诊断.md` §4）。
+//     已改成 `known > 0`，判别力**一点没减**（删那一跳 ⇒ 0 ⇒ 红），并补 `C1b` 钉住「已挂表 / 列空 两档都非空」。
 //   · D1/D2：卡表一改（那 6 / 5 张的关键词或 abilityTriggers 变了）⇒ 数字变 ⇒ 红（提示回来重核影响面）。
 using System;
 using System.Collections.Generic;
@@ -79,6 +82,13 @@ public static class C1_EngineFixes_Assert
         CheckTrue(ctx != null && u != null, "A3 前提：夹具单位摆上了（0 号玩家格 3）");
         if (ctx == null || u == null) return;
         CheckTrue(!u.Has(KeywordTable.Poisoned), "A4 前提：夹具单位一开始**没有** `poisoned`");
+
+        // 🆕 2026-10-31（`B110_X2` · 判据 `判据/B110_X1_六条红诊断.md` §1）：**直接钉词表**，比走 `ResolveOps` 更近。
+        //    这是 A5-A7 三条的**共同前提**；`GiveKw` 里那行一删 ⇒ 本条先红，省得从 A5 的 `unresolved` 倒推。
+        var pv = GivePayload.Parse("poisoned");
+        CheckTrue(pv != null && pv.Count == 1 && pv[0].Keyword == KeywordTable.Poisoned,
+                  "A8 ★ `poisoned` 在载荷词表里（`GivePayload.Parse(\"poisoned\")` ⇒ 恰一条 Keyword=poisoned）"
+                + "｜🧨 从 `GiveKw` 删掉那一行 ⇒ null ⇒ 红（这条是 A5-A7 的**前提**，先红它）");
 
         var ops = new List<EffectOp>
         {
@@ -159,10 +169,21 @@ public static class C1_EngineFixes_Assert
                 if (ops != null && ops.Count > 0) { withOps++; break; }
             }
         }
-        CheckTrue(known > 500,
+        // 🆕 2026-10-31（`B110_X2` · 判据 `判据/B110_X1_六条红诊断.md` §4）：阈值原来是凭空估的 `> 500`，
+        //   **从未成立过** —— 现读真值 = 163（= 已挂表 44 + 列空 119，与同趟 `[triggerOpsByNumber]` 汇总逐位吻合）。
+        //   ⛔ 别写死 163 / 别改回 500 附近（卡表一改就假红；覆盖率为 44 是**另一件事**，见 X1 报告「顺手发现 1」）。
+        //   判别力靠的是 `Attached > 0`：删掉 `CardDatabase.cs:1749` 那一跳 ⇒ `known = 0` ⇒ 两条一起红。
+        CheckTrue(known > 0,
                   "C1 ★★ `HasTriggerOpsByNumber` 为真的卡 = " + known + " / " + pool.Count
-                + "（`AttachTriggerOpsByNumber` 没挂时**恒 false** ⇒ 本条红）—— 证明 `CardDatabase.cs:1749` 那条接线真的在生效"
+                + "（= 已挂表 " + CardDatabase.TriggerOpsByNumberAttached
+                + " + 列空 " + CardDatabase.TriggerOpsByNumberEmptyColumn + "；"
+                + "`AttachTriggerOpsByNumber` 没挂时**恒 false** ⇒ 本条红）"
                 + "｜🧨 删掉 `def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def))` ⇒ 0 ⇒ 红");
+        CheckTrue(CardDatabase.TriggerOpsByNumberAttached > 0 && CardDatabase.TriggerOpsByNumberEmptyColumn > 0,
+                  "C1b ★ 三态里的两档都**真的有卡**（已挂表 " + CardDatabase.TriggerOpsByNumberAttached
+                + " · 列空 " + CardDatabase.TriggerOpsByNumberEmptyColumn + "）"
+                + "｜🧨 把 `rows.Length == 0` 那档并进「不挂」⇒ 列空 = 0 ⇒ 红；"
+                + "把「一条都归不了位」改成挂空表 ⇒ 已挂表 ≥ 119 ⇒ 与列空的口径分家");
         CheckTrue(withOps > 0,
                   "C2 ★ 至少 " + withOps + " 张卡能从 `TriggerOpsByNumber(n)`（n ∈ " + probes.Length + " 个探测值）取到正文 —— 数据半不是空表"
                 + "｜🧨 组装口 `MapTriggerOpsByNumber` 全返回空 ⇒ 0 ⇒ 红");

@@ -53,9 +53,19 @@ public static class C8_Assert
         Section("A 数据形状：`TriggerValue` 三态 + 真表映射");
 
         // A1 列未知（没有 Attach）⇒ `TriggerAbilityRowsOf` 是 null（⛔ 不是空数组）
-        var bare = MakeCard("C8Bare");
+        // ⚠️ 2026-10-31（`B110_X2` · 判据 `判据/B110_X1_六条红诊断.md` §5）：**C# `params` 陷阱** ——
+        //    `MakeCard("C8Bare")` 传进来的是 **`Array.Empty<…>()`（非 null）** ⇒ 那造的是「列**已知且空**」，
+        //    不是本断言要的「列**未知**」。要造未知态必须显式给一个 null 数组。
+        var bare = MakeCard("C8Bare", (CardDef.TriggerAbilityIndexSpec[])null);
         CheckTrue(bare.TriggerAbilityRowsOf(410) == null,
                   "A1 列未知（没 `AttachTriggerAbilityIndices`）⇒ `TriggerAbilityRowsOf(410)` 是 **null**（不是 `[]`）");
+
+        // 🆕 A1b：把「未知」与「已知且空」这一对三态**分开钉住**（A1 单独一条分不出这两种态）。
+        var knownEmpty = MakeCard("C8Empty", new CardDef.TriggerAbilityIndexSpec[0]);
+        CheckTrue(knownEmpty.HasTriggerAbilityIndices && knownEmpty.TriggerAbilityRowsOf(410) != null
+                  && knownEmpty.TriggerAbilityRowsOf(410).Length == 0,
+                  "A1b 「列已知且空」⇒ 返回**空数组**（不是 null）—— 与 A1 的未知态**必须分得开**"
+                + "｜🧨 把 null 与 [] 折成同一档 ⇒ A1 或本条必红一条");
 
         // A2 手建行：TriggerValue 原样带出来
         var marked = MakeCard("C8Marked", Row(0, 0, 130, 0), Row(1, 0, 410, 1));
@@ -108,7 +118,8 @@ public static class C8_Assert
         Section("B `HasTriggerAbilityWithValue`（原版 `.c:148` 的置位条件）");
         var marked = MakeCard("C8BMarked", Row(0, 0, 410, 1));
         var plain = MakeCard("C8BPlain", Row(0, 0, 410, 0));
-        var bare = MakeCard("C8BBare");
+        // ⚠️ 2026-10-31（`B110_X2`）：与 A1 同病 —— 不传参 ⇒ 空数组 ⇒ 「列已知且空」。文案说「列未知」，那就得真的给 null。
+        var bare = MakeCard("C8BBare", (CardDef.TriggerAbilityIndexSpec[])null);
 
         CheckTrue(Enchantments.HasTriggerAbilityWithValue(marked, 410, 1), "B1 `410 ∧ val==1` 的行 ⇒ true");
         CheckTrue(!Enchantments.HasTriggerAbilityWithValue(plain, 410, 1), "B2 `410 ∧ val==0` ⇒ false（⛔ 别把 0 当命中）");
@@ -202,6 +213,8 @@ public static class C8_Assert
     // ==================================================================
     //  夹具 / 读数
     // ==================================================================
+    /// <summary>⚠️ **`params`：不传参 = 空数组 ≠ null**。要造「列未知」那一态，调用方**必须显式传**
+    /// <c>(CardDef.TriggerAbilityIndexSpec[])null</c>（2026-10-31 `B110_X2`：A1 与 B3 都栽在这个陷阱上过）。</summary>
     static CardDef MakeCard(string id, params CardDef.TriggerAbilityIndexSpec[] rows)
     {
         var c = new CardDef(id, id, "unit", "", null, "Test", 1, 1, 5, 0, null);

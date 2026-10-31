@@ -646,7 +646,7 @@ namespace CardPresentation
                  : AvatarButtonTerm(BtnLabelTerm, "Select", "选择");
         }
 
-        void OnSelectClicked() { ConfirmSelect(); }
+        void OnSelectClicked() { DoShine(ShineDuration); ConfirmSelect(); }
 
         // ============================================================ 头像边框层（2026-10-28 · B88_B3）
         // 判据：`AvatarTab.CheckEnableAvatarBorder`（ILSpy `AvatarTab.cs:17755`）＝
@@ -760,5 +760,114 @@ namespace CardPresentation
         public string BigNameForTest { get { return _bigName != null ? _bigName.Text : null; } }
         /// <summary>大图 `Highlight` 现在开着吗（原版 `AvatarDisplay.highlight`；本页两个调用点都传 `false`）。</summary>
         public bool BigHighlightActiveForTest { get { return _bigHighlight != null && _bigHighlight.gameObject.activeSelf; } }
+
+        // ============================================================ #3 扫光：`AvatarDisplay.DoShine`（🆕 2026-10-31 · B110_S1）
+        //
+        // 🥇 判据 = `decomp_full/AvatarDisplay__DoShine.c` 全文 + 唯一调用点 `AvatarTab__OnChoseAvatar.c:21`：
+        //   ① `:28-45` `if (instanceMaterial == null) { instanceMaterial = new Material(image.material);
+        //      image.material = instanceMaterial; }` —— **每颗头像一份材质实例**（缓存在 `+0x90`）。
+        //      `+0x60` = `avatarImage`（判据 = `AvatarDisplay__ChangeAvatar.c:58-69` 用同一个偏移 `set_sprite`）。
+        //   ② `:46-52` `DOTween.Kill(image.material)`。
+        //   ③ `:53-70` `SetVector("_Shine_Movement", (0, 0.2, 0, 0))` → `DOVector((0, 1, 0, 0), "_Shine_Movement", time)`。
+        //      `time` = `DAT_1834b2df0` = **4.0f**；起点 `0x1834b32b4 = 0.2`、终点 `0x1834b2f14 = 1.0`（`.rdata` 直读）。
+        //      ⚠️ 属性名 = `0x184242a78 = "_Shine_Movement"`（**不是** `_Color`：原版全程没写过 `_Color`）。
+        //   ④ `:71-84` `DOTween.Kill(avatarHolder)` → `avatarHolder.transform.DOPunchScale(...)`。
+        //      `+0x68` = `avatarHolder`（判据 = `AvatarDisplay__ChangeBorder.c:45-52` 用同一偏移 `set_sprite`）。
+        //      punch 向量 = `Vector3.one`（`dump.cs` 里 `Vector3` 静态区 `+0xC` = `oneVector`）× `0x1834b2dc4` = **0.1**；
+        //      时长 `0x1834b2dc8 = 0.3` · vibrato **0** · elasticity `0x1834b2bb8 = 1.0`。
+        //      ⚠️ 抖的是**边框图**（`avatarHolder`），⛔ 别改成 `_bigArt` —— 原版就是抖边框那一颗。
+        //   ⑤ 原版那条 `if (!button.interactable) return;`（`:12-17`）在本页是**结构性**的：
+        //      `WindowButton.Interactable = false` 时 `OnPointerClick` 根本进不来（`Shell/WindowButton.cs` 三处 `if (m_Interactable)` 闸）。
+        //
+        // ⚠️ **缓动**：原版 `DOVector` 没给 ease ⇒ 吃 DOTween 出厂默认（`Ease.OutQuad` = 6；本工程
+        //    `Resources/DOTweenSettings.asset` 的 `defaultEaseType` 也是 6）。原版那份 `DOTweenSettings` 本地没定位到
+        //    ⇒ 这一点**没有原版实据**，按 DOTween 出厂默认写（如实记在报告「没查清」）。
+        // ⚠️ **材质色**：`ImageQuad.SetMaterial` **不搬 `_Color`** ⇒ 换材质前后必须自己存/恢复 tint（本仓踩过两次）。
+
+        /// <summary>原版 `DoShine` 的四个常量（全部 `.rdata` 直读，见上面那一段）。声明在类尾：插在字段区会挪本文件账落点。</summary>
+        public const float ShineDuration = 4f;
+        public const float ShineStartY = 0.2f;
+        public const float ShineEndY = 1f;
+        public const float PunchScale = 0.1f;
+        public const float PunchDuration = 0.3f;
+        public const int PunchVibrato = 0;
+        public const float PunchElasticity = 1f;
+
+        /// <summary>原版材质出厂 `_Shine_Movement.y`（`Material_1349812993706917952.json` = 0.9994769096374512）
+        /// —— 扫光**停在屏幕外**，所以「没扫过」时上屏与普通材质逐像素一致。</summary>
+        public const float ShineRestY = 0.9994769096374512f;
+
+        const string ShineMatPath = "Art/vfx/WFUI_FxShine";
+        static readonly int ShineMovementId = Shader.PropertyToID("_Shine_Movement");
+
+        /// <summary>本页的扫光材质实例（原版 `AvatarDisplay.instanceMaterial`，`+0x90`）。</summary>
+        Material _shineMat;
+        /// <summary>材质已经挂在哪一颗 quad 上（quad 被重建过就要重挂，否则扫光**静默不出现**）。</summary>
+        ImageQuad _shineAppliedTo;
+
+        /// <summary>自检读口：`DoShine` 一共被调过几次。</summary>
+        public int ShineCountForTest { get; private set; }
+        /// <summary>自检读口：扫光材质此刻是不是真的挂在**当前这颗**大图上（`false` = quad 换过但没重挂）。</summary>
+        public bool ShineMaterialAttachedForTest { get { return _bigArt != null && _shineAppliedTo == _bigArt; } }
+        /// <summary>自检读口：扫光材质实例（`null` = 还没扫过）。</summary>
+        public Material ShineMaterialForTest { get { return _shineMat; } }
+
+        /// <summary>原版 `AvatarDisplay.DoShine(float time)`（🥇 `decomp_full/AvatarDisplay__DoShine.c` 全文）。
+        /// 调用点 = `OnSelectClicked`（= 原版 `AvatarTab.OnChoseAvatar`，`AvatarTab__OnChoseAvatar.c:21`）。</summary>
+        public void DoShine(float time)
+        {
+            if (_bigArt == null) return;              // 原版 `ItemDrawer.get_image()` 为空 ⇒ 整段不做
+
+            // ① 首次：`new Material(image.material)` 缓存成实例（原版 `:28-45`）
+            if (_shineMat == null)
+            {
+                var proto = Resources.Load<Material>(ShineMatPath);
+                if (proto == null)
+                {
+                    // ⛔ 不许静默失败：这一拍就是没有扫光，出声（少一次扫光 ≠ 画成别的样子）
+                    Debug.LogWarning("[Profile] 扫光材质取不到：`Resources/" + ShineMatPath + ".mat`"
+                                   + "（原版 `FX Shine UI Avatar Menu` ⇒ 我们 `WFUI_FxShine`）⇒ 这一拍不扫光。");
+                    return;
+                }
+                _shineMat = new Material(proto);
+                _shineMat.SetVector(ShineMovementId, new Vector4(0f, ShineRestY, 0f, 0f));   // 出厂值：扫光停在屏幕外
+            }
+            if (_shineAppliedTo != _bigArt)
+            {
+                // 🔴 `SetMaterial` 只搬 `mainTexture` 与渲染队列，**不搬 `_Color`** ⇒ 自己存/恢复（本仓踩过两次）
+                var keep = _bigArt.Tint;
+                _bigArt.SetMaterial(_shineMat);
+                _bigArt.SetTint(keep);
+                _shineAppliedTo = _bigArt;
+            }
+
+            // ② `DOTween.Kill(image.material)`（原版 `:46-52`）—— 连点时先把上一条杀干净
+            DG.Tweening.DOTween.Kill(_shineMat);
+
+            // ③ 起点 → 终点：`_Shine_Movement` 从 (0,0.2,0,0) 扫到 (0,1,0,0)（原版 `:53-70`）
+            _shineMat.SetVector(ShineMovementId, new Vector4(0f, ShineStartY, 0f, 0f));
+            var move = DG.Tweening.ShortcutExtensions.DOVector(
+                           _shineMat, new Vector4(0f, ShineEndY, 0f, 0f), "_Shine_Movement", time);
+            CardTween.Use(move, DG.Tweening.Ease.OutQuad, _bigArt);   // DOTween 出厂默认缓动 = OutQuad
+
+            // ④ 边框那一颗抖一下（原版 `:71-84`；目标 = `avatarHolder`，⛔ 不是头像图）
+            if (_bigBorder != null)
+            {
+                DG.Tweening.DOTween.Kill(_bigBorder);
+                var tf = _bigBorder.transform;
+                var baseScale = tf.localScale;
+                var punch = DG.Tweening.ShortcutExtensions.DOPunchScale(
+                                tf, Vector3.one * PunchScale, PunchDuration, PunchVibrato, PunchElasticity);
+                // 批处理下没有帧循环 ⇒ punch 被打断时可能停在半路：走完 / 被打断都显式复位
+                //（同 `Shell/CollectionWindow.cs` 的 `PunchCardCell` 那条纪律）
+                // ⚠️ `OnComplete/OnKill` 是 `DG.Tweening.TweenSettingsExtensions` 的扩展方法；
+                //    本文件**不能**加 `using DG.Tweening;`（会挪下游所有账落点行号）⇒ 全限定写。
+                DG.Tweening.TweenSettingsExtensions.OnComplete(punch, () => { if (tf != null) tf.localScale = baseScale; });
+                DG.Tweening.TweenSettingsExtensions.OnKill(punch, () => { if (tf != null) tf.localScale = baseScale; });
+                CardTween.Use(punch, DG.Tweening.Ease.Linear, _bigBorder);
+            }
+
+            ShineCountForTest++;
+        }
     }
 }

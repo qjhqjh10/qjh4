@@ -1,10 +1,16 @@
-# _stale —— 过期补丁（⛔ 永远不要合并）
+# `_stale/` —— 未合并 / 已过期 / 危险 的账补丁存档
 
-## B92_B1_过期_勿合并.tsv（2026-10-28 重同步点归档）
-这是 B1 第一轮的原始补丁。它的 10 行里：
-- 5 行与主表**逐字相同**（no-op）
-- **5 行会覆盖主表里更新的内容** —— `BroadcastActivateMinions` / `CheckUnitsCancellingAttack` /
-  `ResolveAction` / `ResolveFollowAfterResolution` / `UpdateManaLeftAccumulation`
-  这 5 行已被后续 `B92_B1b/B1c/B1d` 更新过 ⇒ 合并这份 = **用旧内容盖掉新内容，零报错**。
+> 🔴 **这个目录里的 `.tsv` 一律不要再合并。** 它们不是待办，是**拆掉的雷**。
+> 归档日期：**2026-10-31**（第一百一十会话末，由 `B110_G5D` 顺手发现 + 调度台处置）
 
-⇒ 保留作证据，**⛔ 不要合并**。
+| 文件 | 为什么要移走 |
+|---|---|
+| `B103_W5.tsv` · `B103_W5b.tsv` · `B103_W5d.tsv` · `B103_W5e.tsv` | 🔴 **危险**：这 4 份互相重复、且**状态是 `B`**，而主表里对应行（`RawCardScript.ResolveActiveAbility` ×2 = `战斗逻辑驱动.tsv:1282/:1380`、`CardScript.GetCardEffectsToShow()` ×1）**已经是 A**。**一次不带 `--only` 的整目录合并就会把 3 行 A 静默打回 B，闸不报错。** ⛔ 永远别再合 |
+| `B103_R1.tsv` | 已于 2026-10-31 合并（更新 2 · 新增 1：`GameWindow.OnLanguageChanged()` 那条 B 首次进主表）⇒ 存档 |
+| `B103_W1.tsv` · `B103_W2.tsv` · `B103_W3.tsv` · `B103_W4.tsv` | 内容已并入主表（dry-run 判「无变化」）⇒ 存档 |
+| `B107_W24.tsv` | 只有 11 列表头（`B110_D1` 那类「纯自己设计、无原版对应物」的批惯例，只交表头）⇒ 无实质内容 |
+| `B108_A7.tsv` | **按当时裁定「不并入」**（不是漏做）；2 条 A 档（`RuleEngineTest.TestEngineX2/X18()`）从未进主表。⚠️ 若将来要并入，**必须先重新裁定** |
+| `C9.tsv` | 已合并（只是文件名没有批次前缀，`--only B109_` 看不见它）⇒ 存档 |
+
+**归档后的状态**：`_parts/` 根目录**没有未归档补丁**；`merge_ledger_parts.py --dry` = 「没有 patch 补丁，无事可做」。
+账闸读数：**A 5,830 · 通过 5,830 · 漂移 0 · 失败 0**；B **2**（`菜单_外壳.tsv:435` + `GameWindow.OnLanguageChanged()`）· C **1**（`商店.tsv:312`）。
