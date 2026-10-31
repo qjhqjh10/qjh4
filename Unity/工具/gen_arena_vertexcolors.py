@@ -44,7 +44,7 @@
   都进不去**（静默漏账，实测 `battlearena2` 的 `Rubble1`）。现在从流里按 `(offset,size)` 取。
 
 用法：PYTHONIOENCODING=utf-8 python 工具/gen_arena_vertexcolors.py [--arena <场>] [--check] [--selftest]
-  · `--check` 只扫不写；`--selftest` 只跑「流式网格」那一路的三条断言（**不写任何文件** —— 见 `selftest()`）。
+  · `--check` 只扫不写；`--selftest` 只跑「流式网格 + 多 stream 步长」那一路的四条断言（**不写任何文件** —— 见 `selftest()`）。
 """
 import argparse
 import collections
@@ -123,6 +123,24 @@ def _dim(c):
 
 def item_size(fmt, dim):
     return FMT_SIZE.get(fmt, 4) * dim
+
+
+def stream_stride(ch, stream=0):
+    """某个 **stream** 的顶点步长 = 该 stream 内有效通道 `(offset + 字节数)` 的最大值。
+
+    🔴 **2026-10-31 追加（与 `工具/cmp_mesh_vertices.py` 同一条修正）**：Unity 的 `m_VertexData`
+    **按 stream 分块存**（stream 0 在块首），**每个 stream 有自己的步长**。本工具只用 ch0（位置）与
+    ch3（顶点色）：ch0 实测在 **stream 0**（`Cone.001`）；这 4 个多 stream 件的 ch3 都 `dim=0`（没色），
+    所以「按 stream 0 的步长解 ch0/ch3」是当前唯一正确的读法（⚠️ 若将来遇到顶点色在别的 stream，
+    还要再按那个 stream 的偏移解，别直接套用）。
+    旧写法取「所有通道的 max」，遇到多 stream 网格（实测 `Cone.001`：stream0 真步长 **24**、
+    被 stream2 顶成 **32**）会**从第 2 个点起全解错、而且不报错**。
+    本工具扫的 14 个 bundle 里有 4 个多 stream 网格（`Spore_Large` / `Spore_Large1` / `Chain11` /
+    `Firepits.002`，都**没有顶点色**）；`--selftest` ④ 用 `battleprefabs_vfxandmisc` 的 `Cone.001` 钉死这条。
+    """
+    vals = [c['offset'] + item_size(c.get('format'), _dim(c))
+            for c in ch if _dim(c) and c.get('stream', 0) == stream]
+    return max(vals) if vals else 0
 
 
 def read_channel(raw, stride, ch, n, fmt):
@@ -206,7 +224,9 @@ def _vd_channels(d, res=None):
         if raw is None:
             return None
     n = vd['m_VertexCount']
-    stride = max(c['offset'] + item_size(c['format'], _dim(c)) for c in ch if _dim(c))
+    stride = stream_stride(ch, 0)       # 🔴 只取 stream 0（多 stream 网格见 `stream_stride` 头注释）
+    if not stride:
+        return None
     if stride * n > len(raw):
         return None
     return raw, stride, n, ch
@@ -567,11 +587,14 @@ def static_batch_join(own, mdir, names, index):
 
 
 def selftest():
-    """`--selftest`：**流式那一路的自检**（只读、不写任何文件）。三条断言，逐条打 PASS/FAIL：
+    """`--selftest`：**流式那一路的自检**（只读、不写任何文件）。四条断言，逐条打 PASS/FAIL：
 
     ① **步长不变量**：每个流式网格都满足 `m_StreamData.size == stride × m_VertexCount`
-       （`stride` 按 `_dim` 掩码算）。**这条就是当年揪出「`dimension` 高 4 位是垃圾」的那条** ——
+       （`stride` = **stream 0** 的步长，按 `_dim` 掩码算）。**这条就是当年揪出「`dimension` 高 4 位是垃圾」的那条** ——
        实测 165/165 成立；按未掩码的原值算有 152 个对不上。
+       ⚠️ **2026-10-31 现扫**：本工具扫的 14 个 bundle 里这 165 个流式网格**全是单 stream**
+       （多 stream 的 4 个都在非流式网格上：`Spore_Large` / `Spore_Large1` / `Chain11` / `Firepits.002`）
+       ⇒ 这条今天等价于「所有通道 max」，仍 165/165；**别拿它外推到多 stream 的流式网格**。
     ② **位置对得上 `m_LocalAABB`**：读出来的顶点包围盒必须**落在** `m_LocalAABB` 里（容差见下）。
        AABB 是**序列化里另一个字段**（不是同一段字节算出来的）⇒ 拿它当尺子是**独立证据**，
        不是自己证自己。位置读错（错 stride / 错 offset）这条必红。
@@ -579,6 +602,10 @@ def selftest():
        这条同时挡住那个**消耗式 `read()`** 的坑（读第二次返回 0 字节）。
        ⚠️ 整份读很贵（`battlesharedresources` 的 `.resS` **122.9 MB**）⇒ 只对**最小的那份**做，
        其余包只验「同一段取两次结果相同」。
+    ④ **多 stream 步长（2026-10-31 追加）**：`Cone.001`（`battleprefabs_vfxandmisc_assets_all`，
+       pid `-4292304064909405024`）的 **stream0 步长必须是 24**、而「所有通道 max」是 **32**，
+       且按 stream0 解出的第 1 个点 = `(-0.244027, -0.093714, -0.448607)` —— 钉住「位置只能用 stream 0 步长」。
+       缺那个 bundle 时打 ⚠️ **跳过**（不算失败）。
     """
     FMT = FMT_SIZE
     ok = [True]
@@ -606,7 +633,9 @@ def selftest():
             n_mesh += 1
             ch = vd.get('m_Channels') or []
             n = vd['m_VertexCount']
-            stride = max(c['offset'] + item_size(c['format'], _dim(c)) for c in ch if _dim(c))
+            stride = stream_stride(ch, 0)      # 🔴 只取 stream 0（2026-10-31；多 stream 网格见 `stream_stride`）
+            if not stride:
+                continue
             if stride * n != sd['size']:
                 n_bad += 1
                 print('      🔴 %s/%s：stride %d × %d = %d ≠ %d'
@@ -727,6 +756,42 @@ def selftest():
                     print('      🔴 %s/%s 取两次不一致（%d / %d / 期望 %d）'
                           % (bb, dd.get('m_Name'), len(x1), len(x2), sd['size']))
         chk(n_rep_bad == 0, '其余 %d 个流式网格都可重复取（坏 %d 个）' % (n_rep, n_rep_bad))
+
+    print('④ 多 stream 网格的步长（stream0 必须 24，旧口径「所有通道 max」= 32）')
+    b4 = 'battleprefabs_vfxandmisc_assets_all'
+    p4 = os.path.join(AA, b4 + '.bundle')
+    if not os.path.isfile(p4):
+        print('    ⚠️ 跳过：缺 `%s.bundle`（这一条不算失败）' % b4)
+    else:
+        env4 = UnityPy.load(p4)
+        found = None
+        for o in env4.objects:
+            if o.type.name != 'Mesh':
+                continue
+            if str(o.path_id) == '-4292304064909405024':
+                found = o.read_typetree()
+                break
+        if found is None:
+            chk(False, '在 `%s` 里找不到 `Cone.001`（pid -4292304064909405024）' % b4)
+        else:
+            vd4 = found.get('m_VertexData') or {}
+            ch4 = vd4.get('m_Channels') or []
+            n4 = vd4.get('m_VertexCount')
+            s0 = stream_stride(ch4, 0)
+            allmax = max(c['offset'] + item_size(c.get('format'), _dim(c)) for c in ch4 if _dim(c))
+            print('    （`%s` n=%s · stream0=%d · 全通道 max=%d）' % (found.get('m_Name'), n4, s0, allmax))
+            chk(s0 == 24, 'stream0 步长 = 24（位置 12B + 法线 12B）')
+            chk(allmax == 32, '复现旧口径「所有通道 max」= 32（被 stream2 顶上去）')
+            r4 = _vd_channels(found, RessReader(env4))
+            if r4 is None:
+                chk(False, '按 stream0 读不出顶点（`_vd_channels` 返回 None）')
+            else:
+                raw4, st4, _n4, _ch4 = r4
+                p0 = read_channel(raw4, st4, ch4[0], 1, ch4[0]['format'])[0]
+                exp = (-0.244027, -0.093714, -0.448607)
+                dev = max(abs(p0[i] - exp[i]) for i in range(3))
+                chk(dev <= 1e-5, '第 0 点 = (%.6f, %.6f, %.6f)（与真值偏差 %.1e）'
+                    % (p0[0], p0[1], p0[2], dev))
 
     print()
     print('自检结果：%s' % ('✅ 全过' if ok[0] else '🔴 有 FAIL'))

@@ -495,12 +495,12 @@ namespace CardPresentation
             ContentSpan(out cx1, out cx2);
             if (_trackScroll == null)
             {
-                _trackScroll = new MenuScroll(_vpR, cx1, cx2, 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Campaign Track` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
+                _trackScroll = new MenuScroll(_vpR, cx1, TrackCx2(cx1, cx2), 120f);   // 滚轮 120px/格（2026-10-18 主对话定；原版 `Campaign Track` 的 `m_ScrollSensitivity = 1.0`（D_N29）实测一格 1px=纹丝不动；同 `MainMenuRuntime._modeScroll` 的 N66 口径 —— ⛔ 不是原版值，是我们挑的）
                 _trackScroll.Owner = _root != null ? _root.gameObject : null;
                 _trackScroll.OnChanged = RefreshNodes;
                 PointerLayer.RegisterScroll(_trackScroll);
             }
-            else { _trackScroll.ContentX1 = cx1; _trackScroll.ContentX2 = cx2; }
+            else { _trackScroll.ContentX1 = cx1; _trackScroll.ContentX2 = TrackCx2(cx1, cx2); }
 
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildNode` 里
             //   `if (_trackScroll != null && !_trackScroll.Intersects(r)) …`）从今天起读**同一颗节点**的状态
@@ -534,11 +534,11 @@ namespace CardPresentation
             //      ⛔ **别再把那三行 `_win.Clip…` 加回来** —— 那会让 A489 那条
             //      `NodeShadowedByParam == 0` 红（= 「节点挂着却一个像素都不生效」）。
 
-            // 连线**先建**（照原版 `SetAsFirstSibling`：连线在节点的所有图形下面）
-            for (int i = 0; i < CampaignData.NodeCount; i++)
+            // 连线**先建**（照原版 `SetAsFirstSibling`：连线在节点的所有图形下面）；空态（无战役内容）⇒ `TrackNodeCountToBuild == 0`，连线与节点都不建
+            for (int i = 0; i < TrackNodeCountToBuild; i++)
                 foreach (int j in CampaignData.At(i).Next) BuildLine(i, j);
 
-            for (int i = 0; i < CampaignData.NodeCount; i++) BuildNode(i);
+            for (int i = 0; i < TrackNodeCountToBuild; i++) BuildNode(i);
         }
 
         /// <summary>清空轨道的内容（`_trackContent` 的全部子件 + `_nodeTf`）。
@@ -1212,7 +1212,7 @@ namespace CardPresentation
         public void RefreshNodes()
         {
             if (_trackContent == null) return;   // ⚠️ 原来还判 `_nodeTf == null` —— 而 `ClearTrackContent()` 自己就把 `_nodeTf` 置 null ⇒ 有了下面那句「无内容早退」之后，那个判据会让**再切回有内容的阵营**也永远早退（轨道再也建不回来）。`_trackContent` 才是「建过没有」的真信号。
-            ClearTrackContent(); if (!CampaignData.HasContent(CampaignData.Selected)) return;   // 🔶 自己设计（非原版）：原版切到无内容阵营直接 return · 本地只有 UM 一套战役数据 · 调度台 2026-10-31 裁定
+            ClearTrackContent(); ApplyTrackSpan(); if (!CampaignData.HasContent(CampaignData.Selected)) return;   // 🔶 自己设计（非原版）：原版切到无内容阵营直接 return · 本地只有 UM 一套战役数据 · 调度台 2026-10-31 裁定（2026-10-31 B107_W2：滚动区两端也要跟着空态/回来 ⇒ 多调一句 `ApplyTrackSpan()`）
             // 🔴🔴 **2026-10-13（A435 甲 · A198② 阶段 2）：三件套【改了载体】—— 这里原来那六行没了。**
             //   旧写法 = 「存三件 → 设 `_win.Clip = _vpR` / pad 0 / soft 0 → 建完还原」（A48 与 A303① 两批
             //   先后补出来的）。现在裁切状态长在**视口节点**上 —— `Build()` 里
@@ -1902,6 +1902,49 @@ namespace CardPresentation
         {
             CampaignData.PremiumItem it;
             return CampaignData.TryPremium(CampaignData.Selected, out it) ? it.Army : 0;
+        }
+
+        // ================================================================================
+        // 🆕 2026-10-31（`B107_W2`）—— 空态（无战役内容）时轨道**不建连线/节点**、滚动区**零宽**
+        // ================================================================================
+        //
+        // 判据（第一权威 = 反编译方法体，`d:/2/tools/decomp_full/`）：
+        //  · `CampaignTrack__Initialize.c`：**先** `CampaignTrack__ClearTrack(this)`，**再** `if (campaign != null) { …逐个
+        //    `UnityEngine_Object__Instantiate` 节点… }` ⇒ 传 null 时**只清、不建**（`*plVar1 != 0` 那一道闸）。
+        //  · `CampaignWindowTab__ChangeArmy.c`：`FirstOrDefault(campaigns, c => c.<Data>.Army == army)` 查不到 ⇒ **整条 no-op**
+        //    （连 `SetActiveCampaign` 都不调 ⇒ 轨道原样不动）。
+        //  · `CampaignWindowTab__OnOpen.c` + `__c___OnOpen_b__13_1.c`：阵营选择器的条目 = **把 campaign 列表 map 成 army id**
+        //    （不是 13 个阵营全列）；`ArmySelector__Initialize` 收的就是这个 map 出来的列表。
+        //  ⇒ **原版根本选不到「没有战役」的阵营** ⇒ 「空态」这一态在原版不存在，「空态下轨道长什么样」= 我们定义的。
+        //  ⇒ 我们的口径（本地 13 阵营全列、只有 Ultramarines 一套战役表，其余在服务端 / 已关服）：0 节点 + 0 连线 +
+        //    滚动区零宽 —— ⛔ 否则空态下还能横向滚进一大片空白（`B106_W73` 只修了 `RefreshNodes` 那条入口，
+        //    `BuildTrack()` 这条入口原来照建 47 个节点）。
+        //  ⚠️ 「原版节点数」= `CampaignData.NodeCount`（= 原版那个 campaign 的节点数）；我们只在**视口内**建节点
+        //    （A435 的裁剪口径），那与「空态不建」是两件事。
+
+        /// <summary>空态闸：`false` ⇒ `BuildTrack` 不建连线/节点、轨道滚动区两端收成零宽。
+        /// <para>🔶 自己设计（非原版）：原版**选不到**无战役阵营（判据见上面那段头注）· 本地 13 阵营全列、只有 UM 一套数据 · 调度台 2026-10-31 裁定。</para></summary>
+        static bool TrackHasContent { get { return CampaignData.HasContent(CampaignData.Selected); } }
+
+        /// <summary>这一趟要建几个节点 = 空态 **0**、有内容 `CampaignData.NodeCount`（`BuildTrack` 的两个建件循环读它）。</summary>
+        int TrackNodeCountToBuild { get { return TrackHasContent ? CampaignData.NodeCount : 0; } }
+
+        /// <summary>滚动区右端：空态收成左端（`ContentX2 == ContentX1` ⇒ `MenuScroll.ClampHi == 0` ⇒ 一格都滚不动）。
+        /// <para>🔶 自己设计（非原版）：同 <see cref="TrackHasContent"/>（原版没有「空态滚动区多宽」这条判据）。</para></summary>
+        static float TrackCx2(float cx1, float cx2) { return TrackHasContent ? cx2 : cx1; }
+
+        /// <summary>按**当前**阵营重算并写回轨道滚动区的两端（`ContentSpan` 的三个消费者之一，另两个在 `BuildTrack`）。
+        /// <para>🔴 **为什么 `RefreshNodes` 也要调它**：切到无内容阵营 ⇒ `BuildTrack` 那一趟算出的跨度**不能留着**
+        /// （否则空态能横向滚进空白）；切回有内容阵营 ⇒ 跨度必须**跟着回来**（否则 `RefreshNodes` 建出来的节点滚不动、
+        /// 且 `MaxOffset` 还是 0）。⚠️ 只动 `ContentX1/ContentX2` 两个字段 —— 不碰 `Offset`（滚动位置记忆照留）。</para>
+        /// <para>⚠️ `_trackScroll` 还没建（`BuildTrack` 之前）⇒ 直接返回：那时 `BuildTrack` 自己会按同一算式建它。</para></summary>
+        void ApplyTrackSpan()
+        {
+            float cx1, cx2;
+            ContentSpan(out cx1, out cx2);
+            if (_trackScroll == null) return;
+            _trackScroll.ContentX1 = cx1;
+            _trackScroll.ContentX2 = TrackCx2(cx1, cx2);
         }
     }
 }

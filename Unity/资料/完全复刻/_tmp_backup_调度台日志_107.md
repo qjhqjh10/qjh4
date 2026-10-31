@@ -1,0 +1,11828 @@
+# 调度台日志 · 完全审查 + 完全复刻
+
+> 只记三样：**口径裁定**（谁问的、怎么裁的、依据在哪）· **转派**（哪条请求给了谁）· **域外发现**（代理看见但不归它管的事，进对应批次）。
+> 账与进度不写这里（账在 `账/`，批次进度在 `完全审查与完全复刻_方案.md` §五）。
+
+---
+
+## 2026-10-25 · 批次 1
+
+### 裁定
+
+| # | 谁问 | 问题 | 裁定 | 依据 |
+|---|---|---|---|---|
+| 1 | C 收藏 | 卡池搜索结果的顺序：原版是输入序的**反序**，我们正序 | **照抄反序**（搜索生效时 `.Reverse()`） | 我亲读 `CardNameFilter.cs:54-212`：`num = _size-1` 递减、逐个 `list.Add` ⇒ 结果必为池序反序；铁律 11 |
+| 2 | C 收藏 | 稀有度搜索用的 `MainMenu/General/Rarity<int>` 在官方 10,854 条词条里 0 命中 | **不改语义，改实现方式**：无条件走「取词条翻译 → ToLower → Contains」，缺键只降噪不跳过；⛔ 不许改成比 `Card_Rarity/*` | 原版 `CardNameFilter.cs:190-200` 是**无条件** `LocalizationManager.GetTermTranslation(...)`，没有「键在不在表里」的分支；用户口径「一切按原版、不做多余的自我设计」 |
+
+### 转派
+
+| 请求 | 从 | 给 | 内容 |
+|---|---|---|---|
+| R1 | C | E | `Core/CostCurveDrawer.cs` 归一化 = `count/10` 夹 [0,1]（不是按本卡组最大值）；末行 `8+` |
+| R2 | C | E | `CardView` 加公开的兵种本地化名访问器（现 `RaceTerm` 是 private） |
+| R3 | A | A | `DeckLibrary` 复制卡组后缀 = 原版 `deckName + "+"`（建议 `UniqueName` 兜撞名） |
+| R4 | A | A | `CardDef` 缺 `Expansion`；⚠️ `CardDatabase.expansionPack` 挂着 `[Obsolete("死列")]`，先查明再动 |
+| R5 | A | A | 拖拽排序第一件：`DeckLibrary.UpdateOrder`（原版 `CollectionDisplay.ReorderCollectionByHierarchy`） |
+| R6 | 批次 2 | 共用件（H） | `PointerLayer` 加拖拽 move/up · `MenuDraw.DeckCell` 的 0.8 缩放与压制 hover |
+| R7 | C | C | 收藏域两条裁定落地 → 追加【卡组编辑】域（323 条，所有权已扩） |
+
+### 域外发现（进对应批次）
+
+- **红点通知 18 条**（收藏代理判 C，属**菜单/外壳**域）⇒ 进批次 2 的 H 代理。
+- `CardListItemScript`（16 条）判 **D**：全库只有接口 `CardListHolderBase` 引用它，而该接口**无实现类** ⇒ 原版这条链是死代码（静态结论）。
+- `GenericSelectCardContainer`（11 条）判 **D**：唯一消费者是 `UICardSelector` ← 轮抽选将 demo，不属收藏域。
+- `cards_engine.json` 1,128 张**没有 Neutral 阵营**（13 阵营）⇒ 徽记链不可能撞 `Id("Neutral") = -1`；也说明 Cards 页第一格永远是 Ultramarines。
+- ilspy 里 `CardArmy.Neutral` 是**解不出来的实参占位符**（前一行有 `+0x2C` 内存 load）⇒ 真参数是那张卡的 `cardArmy`，`CardCollectionTab.OnItemSelected` 同理。
+
+### 代理 G 的顺手发现（判据 §七，影响所有人）
+
+- 🔴 **ILSpy 泛型方法体丢类型信息** ⇒ 约一半 C/B 是推出来的；已在 `判据/泛型与启动链.md` §六 逐条标注。**落地前必须复核**（RVA → `decomp_full` / oracle 探针）。已写进方案 §九。
+- **平局 = 2.0**（`PlayEvent.MatchFinished` 与 `FastModeBaseEvent` 同一套）—— 极易写成 0/1。
+- 两条现成文案 key：`MenuDeck/Error/InvalidDeck` · `MenuDeck/Error/HasNotAssignedDefensiveCard`；初始化失败弹窗 key `CustomErrors/FailedToInitializeServices`。
+- `LoginManager.CheckDataLoaded` **会等 Steam**（0.3 s 重试）—— 这就是「普通启动必须先开 Steam」的原因。
+- 弹窗排期必须带 `handlerActions` **去重表**，否则每次刷新重弹。
+- `SceneInitializer` 的静态钩子在场景没就绪时**要出声**（LogWarning/LogError），⛔ 别实现成静默 return。
+- 第三方 FancyScrollView（70 条）含 **cell 回收池**；`MenuScroll` 覆盖滚动/裁切/拖拽但**不覆盖回收** ⇒ 条目多时是性能差异（非画面）。
+- `Draggable<T>` / `DraggableController<T>` 我们已 **A**（`Core/DraggableController.cs` 逐 RVA 复刻）⇒ 可当其它拖拽件的模板。
+- 账本行数 vs `n_nt` 有 ±5% 出入（生成器把 indexer/事件访问器也算进方法）⇒ 账是工作清单，不是精确计数。
+
+### 代理 B 的交付与裁定（战斗界面/HUD）
+
+- **账 678/679 非 E**，唯一 E = `CardDisplayWindow.CardUIClicked`（ILSpy `Invalid jump target`），如实留 E。
+- **K2 三条尾巴的终局**：① 目标型卡两段式手势 = **真缺口 P0**（原版整链已读到 `BattleManager__Update.c:191-310` / `_ChooseUnitTarget d__780:24-75` / `_ResolvePlayCardFromHand d__447:370-395`）⇒ 转 A；② 技能友方目标 = 现池 0 张可达 ⇒ 降 P2 防御性；③ **「攻击点自己人出声」K2 原判断不成立**（`IsValidAttackTarget.c:123-124` 同侧先 return 0，在 notify 分支之前）⇒ **AUD8 #16 剩余半可核销**。
+- 🔴 **裁定：`D 不适用` 不能用来表示「不归我管」**。A 账里 75 行标了「归B」，其中约 40 行被判 D、理由「纯表现层」—— 这违反 §四（D 只给「原版没有/离线不可用/死代码」）。已要求 A 按 B 报告 §⑦ 的落点改判 A/B。**账的一行属于那个类，不属于某个代理**。
+- 顺手证实：`ClockManager` 的 `inOutAnimPrefab/inAnimPrefab/noActionsAnimPrefab` **13/13 场全 null + 全量反编译零赋值** ⇒ 原版那三条恒 early-return，「我们没做」= 原版（例外①，⛔ 别再当欠账）。
+
+### 代理 C 第 2 轮（口径落地 + 卡组编辑）
+
+- 两条口径已落地：`Deck/DeckEditorState.cs` 的 `VisibleCards()` 尾部 `if (needle != null) outList.Reverse();`；稀有度改成原版那条件件取词路径（`Loc.T` 缺键按 key 去重只出声一次并**返回键名本身** ⇒ 搜 `rarity3` 会命中所有卡，**这是原版行为**）。
+- 🔴 **工具纪律（已广播全部代理）**：⛔ **代理不得跑 `工具/gen_replica_ledger.py`**。它虽有「保留已填行」的合并保护，但并发写回会盖掉新增行。只有调度台在批次之间跑。脚本头注释已按实际情况改正（铁律 5）。
+- 🔴 **判据口径升级（已写进方案 §四）**：判 `D`/判「没人引用」**不能只凭 C# 引用为 0** —— 必须查 prefab 的 `m_PersistentCalls` / 场景挂接 / SO / Addressables。先例 `ViewDeckInfoPopup` 需重判。
+- **K3 的一处坐标错**：`Reference Card Pointer` 的 **417.69,260.95 → 611.53,306.05 是【卡组编辑窗】的**，收藏窗（`CardsTab`）那颗是 **402.3,236.4 → 596.1,281.4**。两份 doc 与报告已就地订正。
+- 「**Demo 类不是演示壳**」：`DeckGeneralInfoDemo` / `DeckSelectorMenuItemDemo` / `DemoDeckInfoSO` / `PlayerDeckDemoDeckInfoWrapper` 的消费者是 `PracticeModePopup` / `TutorialModePopup`（练习/教学模式，真功能）⇒ 落点 `Shell/PracticeModePopup.cs`。只有 `CardsInDeckPanelDemo` 真死代码。
+
+### 代理 E（卡牌面/渲染）
+
+- 账 **167/167**（A 81 · B 33 · C 13 · D 40 · E 0）。C 13 = `ToggleGlitch`（素材全盘 0 命中）· 两颗 collider 我们只有一颗 · `ToggleMask` 无 SoftMask · `CheckForCardCrafting` 通配符只按稀有度（原版 army+rarity 且带兜底）· `CraftAlternateArt` 只切换没合成 · **`GetCardTier` 原版按原卡键、异画共用升级档**（我们按 `artId` 各存一份）· `CardTierConfig` 6 条（参数全在服务端 `IConfigData`，本地 0 命中 ⇒ 值判据不可及）。
+- **K4 官方值已修**：`Card_Race` 并入官方名表，`official_names.json` 3,240 → **3,263**；卡面兵种行现为「心灵力量/战斗灵药/基因增强/霸主力量/防守/黑暗契约」。
+- 🔴 **`TraitDescriptionUI` 整族（27 个方法）是幻影缺口**：cpp2il 全量 0 调用点 + `assets_full` 全量按方法名与独有字段 0 命中，只剩 3 份 MonoScript；现存关键词提示由 `EverguildTooltipItem` 族承载（我们已复刻）。覆盖账 Top30 #28 已就地订正。
+- ⚠️ **陷阱**：`colliderHeightMultiplierInHand` 的 C# 默认 **1.2**，序列化真值 **1.01**（两份 prefab 实读）—— 照 C# 常量改会让可点区高 19%。
+- 延迟未做（等并排比定型）：费用 TMP 载体、尾随 `\n`（注入口在 `BattleDriver.ToCardData` = A 域）。
+
+### 代理 F（资源 R1+R0）
+
+- **R1 905/905 全部有归属，③「判明不可解」= 0**：① 解出 286 · ② 判明无关 619（其中 **599 个是 Unity Rendering Debugger 面板层级，游戏内不可达**）。根因不是「解不出」，是 **UnityPy 拿不到类型树** ⇒ 用 `TypeTreeGeneratorAPI` 从 `GameAssembly.dll` + `global-metadata.dat` 反推布局 + 自写 `ttread.py`（UnityPy 自带读法会把 `List<string>` 读跑飞）。自读器与 UnityPy 在 879 个可比对象上 **878 个完全一致**。
+- **R0**：247,612 对象 / 引用图 **933,086 边**（PPtr 929,851 含 UnityEvent `m_Target` 1,386 + AssetReference 3,235）→ 可达 **99.4%**；**没用上的原版资产 21,834**（其中 MonoScript 4,914 = 没复刻的代码面候选；Sprite 1,449；Texture2D 1,447；AudioClip 488；**SpriteAtlas 28/30 没用上**；ComputeShader 23/24）。
+- ⚠️ **不可达 ≠ 死资源**：1,510 个不可达里 **884 个我们反而在用** ⇒ 还有按名加载（`Resources.Load` / `LoadAsset(name)`）没建模。
+- 工具坑三条（已写进报告）：`TypeTreeGeneratorAPI` **必须用裸程序集名**（带 `.dll` 会静默失败）· UnityPy 的 `List<string>` 读法只读第一个串 · **`assets_full` 把 `globalgamemanagers` 与 `globalgamemanagers.assets` 混进了同一目录**（导出脚本 `os.path.splitext` 切错）。
+- 金矿：**69 个 `CardTrait` SO 全部解出**（`_traitEffects` / `_traitIcon` / `_stackable` / `_aIScore`）⇒ 已派 F 产出「关键词权威表」。
+
+### 代理 D（特效动画）
+
+- 账 **482/482，E 清零**（A 94 · B 105 · **C 125（P0×2 / P1×31 / P2×92）** · D 158）。
+- 🔴 **K5 尾巴①的答案反过来了**：那 15 个「一次性特效整局驻留」在原版里全是 **`preventDestroy=1`，一个都不该按 `destroyTime` 销毁**；原版靠「实例化在卡的 `effectsAnchor` 下，卡离场整棵子树没」+ trait 框字典的 `DoDestroy`。按 `loops` 分：2 个循环发射器（真可见残留：`MarkOfSlaanesh_enchantment` / `Buff EC Stimulate passive`）+ 13 个 `loops=0`（只是空对象常驻）。⛔ **不要用 `autoDestroySeconds` 糊**。
+- ✅ **K5 尾巴②已修**：`AutoLifetime` 三档 —— `>0` 取原值 · **`==0` 返回 ∞** · `<0` 才落 natural/SAFE（判据：原版 `OnEnable` 只 `if (0<destroyTime && !preventDestroy)` 才排销毁）。
+- 🔴 **新的根因级发现**：原版模块的 `Initialize` 是 **`AnimFXController.SetData(actingCard, targetCard)` 里广播的**（`decomp_full/AnimFXController__SetData.c:31-46`）。我们在 `Play()` 里初始化 ⇒ 这是 **`isRetaliation` 恒 false（全仓 0 个赋值点）**、`TransformModifier` 4 条分支、`ScaleByTarget` 卡缩放全走静态回调的**共同根因**。
+- **13 战场常驻特效**：469 个 PS，`looping=0` 52 个，**与原版 prefab 序列化值一致 ⇒ 不是我们引入的，不改**。
+- **D 档复核升级**：只以「C# 0 调用点」判 D 的 28 行，补查 84 bundle + globalgamemanagers 的 `"m_MethodName"`、场景、SO ⇒ 27 个名字**四处全 0**；同时用对照组证明扫描有效（`ToggleMaterial` 1 命中 / `AnimEventDoShake` 5 命中 / `Play` 0 命中）。
+- ⚠️ **两次账本事故（已恢复，我独立校验过 482 行 / 11 列 / 表头正确）**：① 合并时 `wb` 打开后断言失败 ⇒ 文件被截断成只剩表头（正是 CLAUDE.md 记过的「`io.open(p,'wb').write(表达式)` 先截断后求值」）；② 一次补丁把表头写成 277 列。**处置正确**：没跑 `gen_replica_ledger.py`，而是把脚本复制到 `_tmp_view/wf_ledger_rebuild/` 改 OUTDIR 到临时目录取骨架再合并。
+
+### 代理 A（战斗逻辑驱动）
+
+- 账 **1,535/1,535，E=0**（A 129 · **B 1,194（如实：方法在、注释引了判据，但没逐句核方法体的一律记 B）** · C 72 · D 140）。
+- ✅ **P0 两段式目标手势已落**（判据自核）：`NeedToChooseMinionTarget.c:7-19` → `_ResolvePlayCardFromHand:849-860` → `_ChooseUnitTarget d__780:24-75` → `Update.c:1103-1163` → `:903-970`。引擎加 `PlayCard(..., UnitState chosen)` + `FireTriggerOnBoard(..., chosen)` + `RuleCore.PlayTargetPool/IsLegalPlayTarget`（**与 `CanPlayTactic` 同一条判据链 —— 高亮与结算不分叉**）。
+  **如实标的两处差别**：① 我们点定目标后一次 `PlayCard`（原版先落位、取消时 RemoveMinion+回手）—— 净效果同、少撤回路径；② tooltip 省略（卡表无 `targetedText`）。
+
+- ✅ **P1 攻击目标闸补两个过滤器**：`IsDefender` 含 `!stealth && !precognition`；`IsThereDefender` 还要求 `!EnoughPendingDamageToDie`。**改前「敌方只剩隐身/将死先锋」时玩家打不出去**（主链可见）。
+- 🔴 **光环的真相（推翻旧表述）**：**原版没有 Aura 类**（全 ilspy 只命中 AiScripted/CardScript/ScriptedActionType 的字段名）⇒ 光环 = `WhileInPlay` / `WhileInPlayVariable` 触发的通用重估。`BroadcastWhileInPlay` **只有 6 个调用点**，都已落在 `RuleCore.EmitWhileInPlayPass`（ActionPump.cs:106）。**仍差两条**（已入账 C）：① 手牌那一半没扫（池内 0 张可达）；② **数值光环走手工挂的 9 个棋盘写入点 + BeginTurn**，「非棋盘变动却影响光环」会停在上一次状态。
+- 🔴 **卡表管线丢了两列**：`specialAttackScoringCriteria`（AI `IsBetterAction` 少一维）与 `targetedText`（选目标 tooltip 做不了）⇒ 数据侧待办。
+- **其它已查到未做**：`orderInPlay`（入场序）没建模 ⇒ `GetMinionList` 三处顺序会不同（含 `ResolveForceAttackFriendly` 强制攻击先后）· `extrinsic`（外来增益）维度整条没建 · `precognition` 未建模（池内 0 张）· Mob/Codex/Regiment/Requiem 的 trigger→trait 映射缺（`TriggerKeywordOfKind` 只有 5 条；**Mob 真可达 1 张 GOF68**）· `cantBeRandomlyCreated` 有 **167 张** =1 且真可达（`AbilityLogic.cs:132` 的「回落全卡池」那段要先建）。
+- 账口径纠正：**53 行**原以「纯表现层/不归我管」判 D 的，已按 B §⑦ 改判 **B**；`RandomSeedProvider` 10 行改 B（唯一调用方 = `DraftEventBase` = 轮抽）；`ActivatesNoReturnShurikenAttack` 补查三处后维持 D（这才是 D 该有的证据形态）。
+
+### 代理 C 第 4 轮（日常/奖励 · 只审不动工）
+
+- 账 **779/779，E=0，一行 `.cs` 未改**：**A 0（只读普查轮不冒充已对齐）** · B 318 · C 408 · D 53。
+- 🔴 **纠正**：**`LiveOpsLocalCatalog` 是我们自建的类**（`Shell/LiveOpsLocalCatalog.cs`，1083 行），原版**没有**这个类（全量 ilspy 0 命中）。
+- 🔴 **`blockedEvents` 与 `shared` 两层我们都没有**：原版 `ILiveOpsHandler.cs:37,39,71` 的 `SetupEvents(events, blockedEvents, sharedData)`。**`blocked` ≠ 过期** —— 一个是运营维、一个是时间维；只按「日期 + enabled」筛，**运营临时下架的活动会被我们照常显示**。⇒ 恢复活动线时**必须先建框架两件并把这个签名纳进去**（后补会牵动 `SetupEvents` 形状），再动那 318 条 B。
+- 🔴 **`ShopData._owned` 是 `static readonly Dictionary`（`ShopData.cs:276`）、全文件无落盘 ⇒ 玩家买过的件数重启清零**。已派 C 做最小本地持久化（⛔ 不建 `PlayerDataManager` 大层，注释里写清是临时等价物 + 迁移路径）。
+- 本地存档 **6+ 份各自为政**（`WarpforgeDaily` / `WarpforgeDraft` / `CardLevels` / `Profile` / `BattleLog` / `Replays` / 卡组库各一份）。
+
+### 🔴 验收第 ③ 法（成品并排比）· 首轮结果
+
+跑 `CardFaceProbe.Run`（Unity 批处理，唯一一次）渲 3 张卡，与 `D:/2/Warpforge部队卡片/` 成品并排（图存 `_tmp_view/shots/20261025_r1/`）：
+
+| 卡 | 内容维 | 版面维 |
+|---|---|---|
+| `Howling Banshee Exarch` | ✅ 费用 5 · 6/3 · 生命 6 · 无护甲 · 步兵 · 灵魂石/伪装/攻击 · 紫钻，逐项一致 | 未发现异常 |
+| `Deathwing Terminator` | ✅ 费用 4 · 3/3 · 护甲 1 · 生命 4 · 步兵 · 盔甲1/传送 · 浅蓝钻，逐项一致 | 未发现异常 |
+| `Sense of Stone`（计策卡） | ✅ 费用 2 · 祈祷 · 绿钻 | 🔴 **阵营行「钛帝国」（橙）与效果文字首行「向己方军队送出」压在同一 y 上互相叠字** |
+
+⇒ **缺陷只在计策卡分支**（无数值行、文字块另起一套位置）；单位卡正常。已派 E 修 `Core/**` 的卡面文字块几何，并要求补一条**「两层不许重叠」**的断言（这类断言以前完全没有 —— 正是它让 16k 断言全绿却看着不对）。
+📌 **版式不拿 PnP 当尺子**（卡框绿角标 = 升级档，是数字版行为；PnP 是印刷品无此概念）。
+
+### 代理 G 第 2/3 批（社交/成就 + 教程/音频/本地化）
+
+- 新增 **1,104 行**（社交 444 · 成就 341 · 教程 155 · 音频 154 · 本地化 10），G 名下累计 **1,970 行**。全部 E=0。
+- **D 档写法升级（已成标准）**：每条 D 的备注都写到断点 —— 方法体内后端调用 220 行 · 类级后端入口 154 行 · 同族真实调用行 74 行 · 编译器生成物 42 行 · 显式理由 15 行。第一批 481 条也已**回补断点**。
+- 硬结论：社交 54% 是 D（`ChatGlobalManager`=Photon Chat、`AlliancesManager`=PlayFab Groups），但 **UI 那半边我们全建了** · **排位是最大缺口**（七扇窗都在、数据层没有，44 条 C）· **排行榜的 `LocalScore/UpdateEntry/ApplyScoringMode` 是离线唯一算分入口**（别整族判 D）· **成就已有完整本地引擎**（`ProfileData`）· **教程 80% 是 B**（`MenuTutorialFlow` 已按原版复刻 stage 链）· **音频 C 全在基础设施**（AudioSource 池 / cue 冷却 / 淡变族）· 本地化 0 C。
+- 三条会踩的坑：**平局按 2 格**（三处同一套，一起改）· `SoundManager.GetAudioSource` 的池与 `Update` 回收是**一对**（只做池会泄漏）· `AudioCue` 冷却**三处共用 `timeToLiveAgain`**（只改一处会时好时坏）。
+- **已转为执行角色**：排位数据层 → 排行榜本地计分 → 联盟奖杯 → 教程三件。⛔ 数值公式若三级取证都拿不到，必须显式标 `// 判据不可及` 并做成可注入常量，**不许编一个看起来合理的公式**。
+
+### 代理 D 第 2 轮（战斗表现 P0/P1/P2 落地）
+
+- **P0 归零**（账里 P1 31 · P2 91）。三条改判并写清落地位置与「仍差什么」。
+- ✅ **Volume 栈每帧刷新**：`BattlePostFx.Attach(Volume, Camera boardCamera = null)` 挂 `OnFlushVolumeStack`；相机解析 `CameraRenderType.Base` → 退 `Camera.main`，**找不到就 `MissingBoardCamera++` + 出声**（不静默）；⛔ 没改相机上的 `m_VolumeFrameworkUpdateModeOption`（原版序列化值）。
+- ✅ **`ScenarioMaterialFader.DoScenarioBlend`**：入口**无条件** `foreach r: r.enabled = true`（判据 `decomp_full/…:78-84`）⇒ 撤环境时被关掉的渲染器能回来了；`fadeOnEnable && direction` ⇒ `SetAlpha(0)` + `_toA = 1`（原版 `:86-119`，**不看** `targetValue`）。顺手订正过期数字「12/43 env prefab」→ **prefab 15 + 场景 8 = 23**。
+- ✅ **一次性 `preventDestroy` 特效的持有者离场收尾**（本轮踩过再改对的）：
+  🔴 **⛔ 别改成 `DoDestroy()`** —— `Teleport Recall` / `Tidewall Gunrig` / `CoordinatedEngagement` 都挂着模块，而 `DoDestroy()` 对「有模块」的实例**不销毁** ⇒ 换过去等于没修。
+  两个坑：① 必须用**单独 bool** 当开关（Unity fake-null 会让 `if (_ownerWatch != null)` 永远进不去）；② 必须「**先见它活性一次**」才把 inactive 当离场（`_ownerWasActive`），否则构建中/池里的持有者会把特效当场收掉。
+  ⚠️ **副作用面**：这条也作用于 `TraitFrames` 的持续型框 ⇒ **真机验收时要专门看持续型状态框会不会被提前收**。
+
+- ✅ **`isRetaliation` 按原版那一拍算**（在模块 `Initialize` 广播之前 = 原版 `SetData` 同一跳），公式 `ctx.actingIsPlayer != IsLocalPlayersTurn()`；没挂钩子 ⇒ false + 出声一次 + `RetaliationUnknown`。**只差 `BattleDriver` 一行**（已转 A）。
+- 断言 **R26 / R27** 已加（R27 用**计数**而非 `p == null` —— play 模式下 Destroy 延迟到帧末会假红）。
+- **仍开着（已进账）**：`doFade = !doFade` 缺调用次数统计 · `GetModifiedPreset` 不复制 `rawSignal` · `DoDestroy` 判据（有模块就不销毁）· `MoveParticlesToTarget` 应改比例式。
+
+### 代理 C 第 5 轮（`_owned` 落盘 + 其他/基础设施 + 跨账冲突）
+
+- ✅ **`ShopData._owned` 已落盘**：`persistentDataPath/WarpforgeShop/owned.json`，与 `DailyData` **逐条同形**（含「批处理绝不碰玩家真存档」那道门）；落盘范围 = 拥有数 + 限购 `Available`（后者原来也只是静态结构体字段）。注释里如实写了三条：**不是原版做法**（原版在 `PlayerDataManager` 的每活动 `TSave`，读走 `InventoryManager.GetOwnedCount`）· **是活动线框架落地前的临时等价物** · **三条迁移步骤**。断言是「删掉 `PersistOwned()` 就红」那种。
+- **其他/基础设施 769/769**：A 1 · B 100 · C 257 · D 411。**`PlayerDataManager` 217 条 C = 本域 C 的 84%** —— 它就是「缺的那一层」的正身（中央存档 + 每活动 `TSave`）；我们换成了 **7 份各自为政的本地存档**。
+- 🔴 **跨账冲突已裁**：`Inventory<T>` / `ItemInfo<T>` 这一层，G 判 **C**、C 自己的 `收藏`(51 行)/`商店`(9 行) 判 **D**。**裁定按 C**：① 它是必需件，`_owned` 这轮恰好证明「拥有数没地方存」；② D 只给「原版没有/离线不可用/死代码」，而这是「原版有、我们缺」；③ G 已给最小可用接口。⇒ C 已把 60 行 D→C，G 的账不动。
+  ⚠️ **统计口径**：`LoginManager` / `SceneInitializer` 在 C 的 `其他_基础设施.tsv` 与 G 的补读账里**各有一份**（生成器分域所致，三列逐行相同）⇒ **合并统计只算一次**；本项目的 `ledger_progress.py` **不统计补读账**，所以不会重复计。
+
+- 两条建议（**均不在本轮做**）：**存档归并**做薄 `ProfileStore`（⛔ 别再加第 8 份存档；但会牵动暂停线的 `DailyData`，等用户恢复）· **恢复活动线的顺序** = 存档归并 → `LiveOpsHandler`+`LiveOpsEvent<TSave>`（**签名里就带 `blockedEvents`/`shared`**）→ 再动 318 条 B（⛔ 别先改窗，会返工）。
+
+### 代理 A 第 2 轮（四条 C 项，两条结论翻转）
+
+- ✅ **`orderInPlay` 翻转：不是「没建模」** —— 我们的 `UnitState.PlayOrder`（部署时 `ctx.TakePlayOrder()`）就是它，事件层早就按它排序（`StableSortByPlayOrder`）。`GetMinionList` **三个调用点逐条核过**：两个是收局演出，第三个 `_ResolveForceAttackFriendly` 是**随机挑一个**（顺序无关）⇒ **全仓没有一处依赖「格号序 vs 进场序」**。新增 `PlayerState.UnitsByPlayOrder()` 把判据收成一处。
+- ✅ **`cantBeRandomlyCreated` 回落全卡池已建**（`CardDef.CantBeRandomlyCreated`，167/1128=1）；🔴 **入口闸仍留**：放开注入前要逐张核「这张卡真会消费选中那张」，否则等于开个选了不生效的面板。
+- ✅ **trigger→trait 补 4 条**：`Mob→OtherCardMob(645)` · `Codex→TriggeredCodex(650)` · `Regiment→OtherCardRegiment(646)` · `requiem→OtherCardRequiem(435)`（判据各自 `CardScript__TriggerOtherCard{X}.c:14`）。**Mob 真可达 1 张（GOF68）**。
+- ✅ **`extrinsic` 翻转：不是缺机制** —— 它是卡 SO 上 `ability.buff` 的序列化布尔（C# 里**一次赋值都没有**），`cards_truth.json` 现读 **10 处 / 8 张卡**，全是「给别的单位加 buff」的光环型；四个消费者里 `GetCurrentExtrinsicAttackEffects` **0 调用点 = 原版死代码**，其余三个是去重与偷单位/变身时先摘 —— 我们 `Aura.Recompose` + `Aura.GrantTag` 整体重算**结构上不可能不满足**。⇒ 6 行改 D，**不新增死列**。
+- **卡表两列的真面目（⛔ 不是文本列）**：
+  - `specialAttackScoringCriteria` = **`bool`**（`RawCardScript.cs:276`），读点 `CardScript.HasSpecialAttackScoring()`（`CardScript.cs:20964` = 该 bool && !jam），消费方 **AI 四处**；数据已在 `资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `full_raw`；**现读 1351 张全 false ⇒ 本 build 不可达**。
+  - 选目标 tooltip = **本地化键**：字段 `targetingTextReferenceId`（`RawCardScript.cs:232`），拼 `"Card_Targeted/" + (refId 空 ? uniqueId : refId)`；**51 张有 refId / 17 个不同值**，官方表 `Card_Targeted/*` 31 键**17 个全部命中**；空值回落那条 **0 命中 ⇒ 那 1300 张原版也没有 tooltip**。⚠️ 部分词条是 I2 参数语法（`((Deal_x_damage,2))`），消费时要展开。
+
+- 没查到：`RawCardScript.IsHidden()` 方法体（两处都没有）⇒ 回落全卡池第三道闸暂用代理判据（卡名带 `(tutorial)`），收在 `EffectResolver.IsHiddenCard` 一处。
+
+### 代理 H（菜单/外壳）
+
+- 账 **873/873，E=0**（A 204 · B 343 · C 84 · **P0/P1 = 0，全 P2**）。
+- ✅ **红点整族落地** `Shell/BadgeNotifications.cs`：`Notification` 族（含 **`MissionsBadge : RewardsBadge`** 派生 ⇒ 层级传递）+ `INotificationProvider` + `UiBadgeNotificationManager` + `BadgeNotificationDefinition.Validate` + `UiBadgeNotification`（计数 / 3/s alpha 补间 / 0.01 贴值停更）。**原版接线逐份现读**（`bundle_scenes_scenes_mainmenuwarpforge`）：Home 空 · Collection`CollectionBadge` · Shop`ShopBadge+InventoryBadge` · Rewards`RewardsBadge`(useFilter=1,parentId="") · Social`SocialBadge` · 齿轮空 · 信封`InboxBadge`。**没有真值的三类不登记假 provider ⇒ 恒隐藏（零可见变化）**。
+- ✅ **`ItemDrawer` 8 条 C + 生命周期全落地**：查实 **`claimedWarning` 在原版 prefab 里是空节点**（`Collected Badge` **80/80 份只有 RT+CanvasRenderer**）⇒ 照判据几何建空节点、出厂隐藏，**不自绘缎带**。
+- ✅ **`SceneInitializer` 落地** `Shell/SceneInitializer.cs`：出错**固定模板 LogError + 首次弹 `CustomErrors/FailedToInitializeServices` + 不中断**。两处**有意差异**写进文件头：`Error` 也算 settled（否则原版会永远等下去）、多一个批处理入口。
+- 🔴 **纠正 G 的判据三处**（已按铁律 5 订正 `判据/泛型与启动链.md` §五）：`InitializationPriority` 真名 **Data/Manager/UI/AfterUI** · `IInitializableAsync.Initialize()` **返回 `IEnumerator`** · `IInitializationComplete` 是**方法**不是属性 · `IBaseInitializable` 带 `Status{get;set;}` · **「等组完成」真语义 = 组内每件 `Status == Initialized`**（`IInitializationComplete` 只是事后回调名单）。
+- 没查到：`claimedWarning` 的视觉载体（80/80 空节点，原版到底画什么）；`MenuActions` 动作队列与 `NestedShadowGroup` 全族（C·P2）。
+
+### 代理 C · B 升 A 第 1 轮（166 条 B）
+
+- **升 A 25 · 降 C 11 · 降 D 3 · 仍 B 127**（没有为好看改 A）。
+- 查清了 K3 留的「`ValidateDeck` 第三参是什么门」= **`validateOwnership`**（`decomp_full/DeckUtility__ValidateDeck.c:16` 的 `if (param_3 == 0 || …)`）；我们全解锁 ⇒ `TryImportDeck` 等价。
+- **裁定 ①**：`CarouselOfferPopupDrawer` ×4（原版**轮播式**奖励抽屉）→ **C / P2**。轮播是可翻页看多个奖品的**真实交互**，不是表现细节；铁律 11 全部要做，只分先后。
+- **裁定 ②**：「载体不同」8 条 → **D**，但理由必须写死并带替代物：多货币 → 「用户 2026-09-17 拍板不做真实经济 / 资源固定 2000（2026-10-24）」；`CardDeck.GetID/Equals` → 「替代物 = Name + 有序列表」。⛔ 不许写「影响小」。
+- 109 条「共用件不在我名下」已分流：`ItemDrawer`/`PrebuiltDecks`/`PracticeModePopup` → H；`Core/FilterPanelModel` 一族 → E。
+
+### 代理 E 第 2 批（战役 + 轮抽 + 卡面 P0）
+
+- **战役 126/126**（A52 · B38 · C12 全 P2 · D24）· **轮抽 167/167**（A65 · B41 · C14）。两域 **P0=0**，E 独占的 8 个 Shell 文件一个字节没改（只审）。
+- **裁定 ③**：轮抽 5 条 P1 里 **3 条与用户拍板冲突 ⇒ 改 D**：领奖/退赛退款 = 「用户 2026-10-24 轮抽不做奖励」；付费入场 = 「用户 2026-09-17 不做真实经济」。
+- ✅ **卡面 P0 真因算出来了**：态 4（战术卡 + 兵种行）走原版 `DescTacticSmall`（rect **160×62.64px**、中心 y01 **0.7595**，`assets_full/.../DescTacticSmall.json` 实读）——那个矩形是**按一行英文**设计的；中文在 fs19/160px 折两行 ⇒ 块顶升到 ≈0.683、阵营行行盒底 ≈0.720 ⇒ **压 ≈0.037 y01（≈22px）**。
+  修法：`CardView.ClampDescBelowArmy` + `TmpBoxLocal`，**只在装不下时**先往下让、仍越界才缩字号（最多 3 趟，收不住**出声**）；**一行文本时中心仍逐位是 0.7595**。
+  ⚠️ **代价如实记**：中文两行时字号缩到 ≈0.7×（fs≈13）—— 这是「不叠字」与「原版固定矩形」之间**我们选的偏离**，英文/短中文与原版逐位相同。
+
+- ✅ **`Core/UnitTweenTable.TargetDirection` 订正**：方向 = **`away − target`**（原来反了）· **y 恒 0**（原来带了 y）· 距离 ≤1e-5 ⇒ **`Vector3.zero`**（不是 forward）· `away` 取不到 ⇒ `target.body3D.forward` **只取 x/z**。
+- 🔴 **`CardEffect.IsSameEffect` 转 A**：原版**逐字段比**（12 组字段）；我们 `AttachHandEffectCopy` 只按 `RecordId` ⇒ 同字段两条会叠两层。**⛔ 别退回「来源+载荷字符串」去重**（2026-10-18 的 `W4` 正是从那里改到 RecordId 的）。
+- 待用户拍板：**战役点仍是 9999**（`CampaignData.Points`），而 2026-10-24 只把**钱包**改成 2000 ⇒ 是否一并改，等用户定。
+
+### 代理 C · 补 C 第 1 轮
+
+- 两条裁定已落账（轮播 → C/P2「登记为待做」；载体 8 条 → D 带替代物）。
+- ✅ **卡池搜索六项全齐**：④ 兵种本地化名转 `CardView.RaceDisplayName`（3 步口径只此一处）· ⑤ 资料片转 A 新加的 `CardDef.Expansion` + `ExpansionSearchName`。空位行 **C→A** 核销。
+- 新增两条**超集式**断言（防假红）：搜 `leviathandrop1` ⇒ 所有 `Expansion==10` 的卡必须在结果里；搜 `psychic power` ⇒ 所有 `Subtype=="Psychic Power"` 的卡必须在结果里。
+- 🔴 **我纠正了一个过期前提**：C 以「自检暂停、跑不了验收 ⇒ 轮播写进去没人验」为理由不做。**真机验收**确实取消了（用户 2026-10-25），但**验收第 ③ 法「成品并排比」仍然成立**（拿我们的渲染图与原版实拍比，≠ 用点击找问题）⇒ 轮播可以照判据建、标「待并排比」。
+- **短档文案的真面目**：官方 `MenuDeck/Error/*` 共 15 条，**只有 2 条有 `/Short`**（`InvalidDeck/Short`、`InvalidDeckBannedCards/Short`）；**唯一外部调用点 = `SkirmishEventWindow.cs:505`**。⛔ 别按「每条都加 Short」补文案。`DeckRules.DescribeShort` 转 A，调用点转 E。
+- ⚠️ **口径纠正**：`CardDef.Expansion` 默认 **`-1`（未知）不是 `0`**；`ExpansionSearchName` 对 `<=0` 返回 null ⇒ 搜索行为同、语义不同，⛔ 别把 `-1` 当 `Default`。「按屏上印的兵种名搜」一律转 `CardView.RaceDisplayName`，⛔ 别抄 `RaceKeyBySubtype`。
+- ⏳ **待我裁**：收藏「自适应缩放」1 条 —— C 说**照原版公式会压住张数条 = 用户报过的 `W11`**。已要求它把「原版公式 / 我们的现状 / W11 现象」三者摊开，⛔ 在那之前不许动。
+
+### 代理 F 第 2 轮（R2/R3/R4 + CardTrait 权威表 + R6）
+
+- 🔴🔴 **F 主动订正了 R0 的对象身份口径**：原来用 **(file, PathID)** —— **错的**。一个 `.bundle` 里可以有 **2 个序列化文件**（主 CAB + `…sharedAssets`），**实测 1,434 个 PathID 两边都有**，会**静默串对象**（R3 第一版就把 AnimationClip 读成了同名 GameObject）。
+  ⇒ 改成 **(文件, CAB, PathID)** 三元组重算：**边 938,803**（PPtr 935,568 + GUID 3,235）· 可达 **246,678/247,612 = 99.62%** · 原版不可达 **1,510 → 934**（其中 779 个我们反而在用）。`R0_资源覆盖账.tsv` / `R0_未使用清单.md` 已重生成。
+  ⚠️ **项目级注意**：今后任何按 `(文件名, PathID)` 定位原版对象的脚本/结论**都不可信**，必须带 CAB。
+
+- **R3 · 99/99 有数据，空壳 0**：90 条 legacy 共 14,849 关键帧；9 条 muscle 全带 `m_StreamedClip`（curveCount 3–160）。
+  ⚠️ 与旧坑区分：「muscle clip 搬进工程变空壳（length 1 vs 0.8167）」是 **Unity 导入侧**问题，不是源数据缺。
+
+- **R2 · 834 个网格：808 干净 + 26 已重建，0 数据丢失**：169 个流式网格里 **166 个顶点数与原版完全一致**；23 个「同名覆盖」（一个包 2~3 个同名 mesh）+ 3 个 `MeshExporter` 抛错（`CandleFlame_*`：只有顶点 0 三角形，原版就这样）⇒ 26 个按 PathID 重导到 `资源/R2_重建网格/`。4 个 `vertexCount=0` 是**压缩网格**（`m_CompressedMesh`），本来没坏。
+- **R4**：ComputeShader **24 = 16（VFX Graph 自动生成的内核）+ 8（引擎/URP 工具件）**，24/24 给了 kernel 名 + 常量缓冲表；Shader **234 对象 / 197 唯一名**，**211 个**在 Ruri 产物里逐条对上（422 个 `.shader`，**0 Dummy**）；余 23 个：**7 个空 blob（10 字节）URP/XR 内部**（原版 build 里就没字节码）+ **16 个 Unity 内置**。
+  ⚠️ Shader 真名在 `m_ParsedForm.m_Name`（`peek_name()` 对 Shader 恒空 ⇒ R0 台账里 Shader「无独立名字」是正常的）。
+
+- **69 个 CardTrait → `判据/CardTrait词条权威表.md`（74 条）**：英文键 / 官方中文名 / 图标 sprite / `_stackable` / `_aIScore` / 三个显示开关 / `customObject` / **`_traitEffects` 效果链逐条原文**。**与 AssetRipper 的 `Ambush.asset` 逐字段一致** ⇒ 不是我们自己算的。
+  分类：**规则层有名字 68** · **只在显示层 4**（DaemonicAllegiance / FirstStrike / Piercing / TraitsCollection）· **完全没有 2**（NotFerocity / OathAdditionalEffect）。⚠️ `_stackable` 72/74 都是 10、`_aIScore` 73/74 都是 0.0 ⇒ **本 build 无区分度，别拿它判差异**。
+
+- **R6 sharedassets0 漏网候选（26 个）**：**9 个只在这里、卡牌包里没有**（8 RawCardScript + 1 AlternateArtCard）⇒ 我们原来「卡牌 bundle + allcards」那条路**结构上就搜不到**；17 个与 cosmetics 重复；**全工程零命中 2 个**（`AA_HB_Goff_war_Ghazghkull Thraka` `#HB_GOF28` · `AllianceBadge UM_Forge_Badge`）；`Ultramarines_war_Uriel Ventris_tutorial1` **不在 `cards_engine.json`**。
+- 已派 F 继续：**74 条 CardTrait 与我们的关键词实现逐条对账**（四档：一致 / 语义不同 / 我们完全没有 / 我们有原版没有）+ R6 那 9 个对象的补核。
+
+### 代理 A · B 升 A 第 1 轮（查出 4 处真差异）
+
+- 数字：A 131→**141** · B 1,193→**1,184** · C 65→64。10 条升 A 每条都读了原版方法体，**没有批量改 A**。
+- 🔴 **【P1 主链可见】`ephemeral` 的牌死掉不该进墓地**（`CardScript.GoToCemetery`，`CardScript.cs:16401-16415`）：
+  `if (!HasCurrentTrait(ephemeral)) AddToCemetery(this); else gameObject.SetActive(false);`
+  我们原来**无条件** `Discard.Add` + 进 `DeadUnits` ⇒ 墓地张数、`Choose a unit that died …` 候选、重燃目标全受影响；**现读卡池 105 张带 ephemeral**。已修（虫群压着的照旧进，它们没死）。
+
+- 🔴 **【P1】手牌效果到期缺三块**（`PlayerHand.UpdateCardEffects(endOfTurn)`）：① 缺 `endOfTurn` 门控（三种 `until*` 只在回合末判）；② 缺两条「施放者换主」支线；③ 原版在**单位离场**时对两手牌各调一次（`DestroyUnitSilent` 末尾），我们只在回合末扫。三块全补（新增 `SweepHandEffectsOnRemoval`，三个离场点各一次）。
+- ✅ `CardEffect.IsSameEffect` 改**逐字段比**（新增 `IsSameHandEffect`），⛔ 没退回 `W4` 判死的「来源+载荷字符串」；缺的两维（`enchantmentCardId`/`extrinsicVariable`）在 doc 里标恒等。
+- ✅ `DeckRules.DescribeShort` 已加（只那 2 档拼短键）。🔴 **`MenuDeck/Error/InvalidDeck/Short` 等两条词条不在 `Core/Loc.cs` ⇒ `Loc.T` 会把键名印到屏幕上** —— 已转 E 补词条 + 加「取到键名 == 键本身 ⇒ 回长档」兜底 + 断言。
+- 🔴 **我定的一条判据标准（只适用于 `Add*`/`Resolve*` 那约 300 条）**：原版「入队 + 协程逐拍」vs 我们「同步结算」是**引擎架构级差异**，永远不可能逐句对齐。允许升 A，但必须 ① `判据要点` 写明机制差异与等价依据；② 至少一个**可观察量**（墓地/血量/手牌/触发序列/随机数消费数）把等价钉住；③ **没核的不许归进这一族**。⛔ 不许当通用后门。
+- 断言：`TestA3EphemeralSkipsCemetery` 4 条（含尺子+正题）· `BattleScene` 两段式表现半 4 条（落位 / 点中目标 / 点空白 / 回放局不进）；`TryResolvePlayTarget` 拆出 `ResolvePlayTargetByUnit`，**产品与自检走同一段代码**（防「断言测的是另一条路」）。
+
+### 代理 C · `Inventory<T>` 框架层建成
+
+- 新文件 `Shell/Inventory.cs`：`Inventory<T>`（Add/Create/Get/GetItems/GetItemInstances/GetWhere/RegisterSubset…+ `OnItemCountChange(T, **变化量**)`）· `ItemInfo<T>`（`Add` 负数**扣到 0 为止**，不出负库存）· `InventorySubset<T>` · `InventoryStore`（`persistentDataPath/WarpforgeInventory/<name>.json`，与 `DailyData` 同套路 + **三步迁移路径**）· `Inventories`（= 原版 `InventoryManager.GetInventory<T>()` 最小版；`Shop` 的 id 键**与旧键逐字相同 ⇒ 旧存档能读**；`Cards` + `SeedCardsAllUnlocked`）。
+- **迁移完成**：`ShopData` 的 `static Dictionary _owned` 与整段临时持久化**已删**，改走 `Inventories.Shop`；对外 API 全保持 ⇒ `ShopScene` 既有断言**一行没改**。
+  ⚠️ **限购 `Available` 的位置如实标**：原版在 store 的 `TSave`、**不在 `ItemInfo`** ⇒ 暂存同一份文件的 `extra` 格，⛔ 没塞进 `ItemInfo`。
+  两处如实差异写进文件头：原版 `T : IIdentifiable` ⇒ 我们注入 `Func<T,string> idOf`；原版 `Item` 是 `LoadableReference<T>`（未建）⇒ 我们直接持 T。
+
+- 灭自证强化：`ReloadForTest()` 先清背包 → 按出厂值重播种 → 最后读盘 ⇒ **把 `PersistShop` 与 `Load` 两边一起删掉，断言仍会红**。
+- 账：`Inventory` 族 C **60 → 41 行**（14+4 升 A，2 条判 D 因「Addressables 解包回调 / 待处理报价解包队列」我们预导入 `Resources/` 结构上不存在）。
+
+### 🔴 裁定 · W11「自适应缩放」（C 摊开后我定的）
+
+- **原版公式**（`CollectionCard.cs:172-181`，常量 `:24-25`）：`cardUI.localScale = rect.sizeDelta.**y** × 150 / 512`；输入 = 卡格 `sizeDelta.y`（运行时 **384**）⇒ 世界缩放 **1.0417** ⇒ 卡体 **374.8px**，而格子张数条以上可用高只有 **345.7px** ⇒ **恒重叠 ≈29.1px（不是概率，是 100%）**。
+- 我们现状 **0.9609**（卡体 345.7，正好停在张数条上沿）。
+- 用户参考图实测 **82.8%/81.7%**，与原版公式（97.6%/89.7%）和我们的（90%/82.7%）**都不吻合** —— 大概率它量的是**立绘/边框内沿**，⛔ 不能当尺子反推公式。
+- 🔴 **裁定**：既然原版是**恒压住**，这更像**原版长相**而不是 bug ⇒ **按原版公式改**，但**先卡一闸**：
+  ① 先把**张数条**按 prefab 判据重核（位置/sizeDelta/**底色 alpha**/渲染队列/有无渐变遮罩）；
+  ② 条与 prefab **不一致** ⇒ **W11 的真凶是条不是缩放**，先修条；
+  ③ 条与 prefab **一致** ⇒ 照原版套公式，注释写清「重叠是原版长相」；
+  ④ 断言改成「卡体高 == 公式值」+「条的 alpha/队列 == prefab 值」，标「待并排比」。
+
+- ⚠️ **已告知用户**：若他真正想要「不重叠」，那是**主动偏离原版**，要由他拍板，不是我们自己选。
+
+### 代理 G · 执行批（排位 / 排行榜 / 联盟奖杯 / 教程）
+
+- ✅ **排位积分→段位公式 1:1 复刻**：`RankedV3Event.cs:1067` 方法体可读（`FindLastIndex(MMR<=points)` / `next=下一段 MMR（末段=LegendaryElo）` / `step=max((next-MMR)/max(seals,1),1)` / `SealCount=(points-MMR)/step` / `IsLegendary`）；`LegendaryElo` 缺省 **2500**（`RankedEventBase:100`）；**平局=2**。
+  - ❌ 阈值表 `GameModesConfig.rankedRanks` = **TitleData 远程配置**（assets_full / AssetRipper / 素材三处都没有）⇒ **可注入 + 默认空表 + `WhyNoRankTable`**。
+  - ❌ 每局增减在**服务端 CloudScript**（payload 实读）⇒ **可注入 `PointDelta`，默认 0 + 出声，没有编任何公式**。
+
+- ✅ **排行榜 `LocalScore` 六步**（currentEntry → totals 仅已存在键 → 列表同 entryId → 降序重排 → `position=i+1`）；`ApplyScoringMode` 三分支逐条照伪码；`GetTotalByArmy/Team` = **查表不是求和**。
+  ⚠️ 一处**刻意的隔离**：原版第 ⑤ 步会对同 entryId 再跑一次 `UpdateEntry`，若与 currentEntry 同一对象 `Increment` 会加两遍 ⇒ 我们让两者是不同对象（`CloneEntry`，注释写明）。
+
+- ✅ **联盟奖杯**：`CurrentTier = Math.Max(SavedTier, 已达成里程碑数)`；格数改为「有定义表⇒可见数，无⇒原计数」（**行为零变化**）；服务器侧显式 D + `WhyNoGroupScore`。
+- ✅ **万能牌教程**：状态机 `NoState/Filter/Owned/End` 逐条照原版守卫；节点名与偏移 **(0,−10)/(−20,0)/(−270,690)** 从 `Intro.unity:7694-7696` 实读；第三步 `showPointer=false`。
+- ✅ **战役指针淡出**：公式与常量**第一手核实** —— `.ctor` 的 `+0x28=0x41480000`（**12.5f**）、`alpha = clamp01(1 − clamp01(norm×12.5))`（`DAT_1834b2bb8=1.0` / `DAT_1834b2bc8=−1.0` 按 RVA 从 `GameAssembly.dll` 读出）。
+- 🔴 **自我纠偏**：那个「两个缺失 FTUE stage」**其实早已实现**（`MenuTutorialStageDef` 第 5/6 条 + `MenuTutorialFlow.Enter/CheckCompletion`，含 `_forgeAtEnter` 快照与 `_cardDetailSeen` 等价物）⇒ **C→B，不再当缺口**。
+- ✅ **签名级清扫落成 §六·b**：A 段 5 条已订正；B 段 **14 条「未核实（签名级）」**逐条写「出现在哪 / 为什么不可信 / 怎么核」。`SceneInitializer` 16 条 + `ItemDrawer` 8 条经 H 落地后逐条核对 ⇒ **C→A**。
+- 留后：**排位结算未接进对局结束调用点**（`BattleDriver` = A 域，已转）· **万能牌教程 3 行接线**（`CollectionWindow` = C 域，已转）· `RankedDivisions` 运行时模型仍 B · 赛季百分位**近似且必须标注** · `RankedScoreBoost*` 7 条（活动线暂停）。
+
+### 代理 A · B 升 A 第 2 轮（只升 1 条，刻意的）
+
+- A 142 · B 1,183。**只升 1 条是故意的**：力气花在「按三条标准判断那约 300 条 `Add*/Resolve*` 能不能升」上 ⇒ 结论「能，但只对**已用可观察量钉住**的行」。样本 `BattleManager.NextTurn`：机制差异（协程 6 跳 vs 同步）+ 依据行号 + 可观察量（`ctx.Turn` / 双方 `Energy` / 手牌张数，已有三条断言）三条齐 ⇒ 升 A。**其余约 300 条仍留 B**（第 2 条没逐条核，⛔ 不为凑数升）。
+- **副产品判据**：`PlayerManager.TurnStart(manager, param_2)` 第一句就是 `if (param_2 == 0) return;`（`PlayerManager__TurnStart.c:17`），而 `_NextTurn:338/340` 对**双方**各调一次 ⇒ **实际只有行动方补能量**。我们原来的行为是「大概对」，现在有判据。
+- 🔴 **新查出的次序差异（C·P2，未修，已定触发条件）**：`BattleManager.ResolveEndTurn` 里原版次序 = 狂暴 → `BroadcastTurnBeforeEnd`(:385) → `BroadcastTurnEnd`(:433) → `ResolveEndTurnEnchantment`(:483) → `PlayerManager.OnTurnEnd`×2(:623/672) → **手牌 `UpdateCardEffects(true)` 最后**(:678/680)；我们把清扫排在 **`TurnEnd` 触发段之前**（`RuleCore.cs:2259`）⇒「`this turn` 手牌增益」在回合末触发跑之前就没了。
+  **触发条件 = 自检恢复后的第一批**（`EndTurnCore` 有 14 处次序注释/断言互相咬合，搬它必须整批跑 `RuleEngineTest`）。⛔ 自检暂停期不单方面搬。
+
+- **接线一**：`DeckError.InvalidDeck` **追加在枚举末尾**（⛔ 没插中间 —— 插中间会让序号静默位移）。`Loc.T` 印键名的兜底写法：`var t = Loc.T(key); if (t == key) t = Loc.T(DeckRules.Describe(err));`（已转 E）。
+- **接线二**：排位结算落在 `BattleDriver.ShowEndPanelAndFreezeInput()` **最前面**（在 `_endPanel == null` 早退之前，与 A382「面板没了账照记」同口径）；`RankedMatchScore` 是 struct ⇒ 另设 `_rankedSettled` 布尔挡重复结算；三道闸 `_replaySession` / `_net == null` / `RankedData.IsRanked`；**驱动里没有一行结算逻辑**。
+
+### 代理 A · B 升 A 第 3 段（收局簇）
+
+- A 142→**144** · B 1,183→**1,180** · D +1（`ProcessMatchResult` 方法体全是 PlayFab / 云函数上报 ⇒ 服务端专用，离线那半走 `BattleLogData` 另计）。
+- 🔴 **平局的真判据（`DeadHero`）**：原版三步 = 算 winner → **平局门**（取胜方督军也必须活着：`cardState != waitingToDie` ∧ `Health > 0` ∧ `!= inCemetery` ∧ `battleResult != DrawButton`，否则判 `Draw`）→ 教程 `playerAlwaysWins` 覆盖。我们 `CheckWinner` 一个口算完同一套。可观察量 = `Ctx.Winner`(1/2/3) + `[BattleResult]` 码。
+- `BattleFinished`：原版是**演出链**（停 AI 协程 → 教程战后脚本 → `BasicBattleEndSequence`），引擎侧判据只 `battleWinner−10==0 ⇒ isVictory`，**净结果等价**。⚠️ **战后教程脚本那支整套没做**（FTUE 未建，已单列）。
+- 那条次序 C 的备注已按裁定写死（row 561，三样齐全）。
+
+### 质量闸（调度台，2026-10-25 现跑）
+
+- **A 档不合格 = 0**：全部 20 份域账里凡 `状态=A` 的行，`判据要点` 与 `我们的落点` **都非空** ⇒ A 不是空壳。
+- 之前那两条闸也仍然成立：`D` 档 0 条缺理由、`C` 档 0 条缺等级。
+
+### ⚠️ 一条运维坑（2026-10-25 收尾发现）
+
+- **僵尸进程**：某个代理的命令开头写成 `python -I 2>/dev/null;` —— **`-I` 后面漏了脚本名/`-c`** ⇒ Python 起了个 **REPL 等 stdin、永不退出**（占 12 MB + 挂住一个 `bash`，从 17:27 挂到 18:30 才被发现）。
+- 📌 **纪律**：写「多段 python」这类命令时，**带 `-I` 的那一段必须有脚本名或 `-c`**；收工前扫一眼 `Get-Process python,Unity` 有没有残留。
+- 本次已 `Stop-Process` 清掉，并复查三个新交付文件完好（`UIBorderGlow.cs` 304 行 · `UITransformTweenController.cs` 292 行 · `TipPrebattle.cs` 392 行）、`typecheck` 仍 **0/0**。
+
+
+### 🔴 W11 自适应缩放 —— 已按裁定落地，且**用 prefab 自己的矩形反证了公式**
+
+- **A1 张数条逐值对账（prefab 现读）**：`Content/Counter` = **100,461 → 250,511**（150×50.01）、`Image` **`Simple(1,1,1,1)` + preserveAspect`**、`Counter/Text` fs **31.9** / auto[7~32] / Center-Midline、**无 Mask/RectMask2D/渐变** ⇒ **与我们的常量逐位相同**。
+- **A2 反证**：`CardUI/2DCard` = **18,6.2 → 332,505.8**（313.91 × **499.70**）⇒ 高 **499.70/512 = 97.6%**、宽 **89.7%**，与公式 `384×150/512 ÷ 108 = 1.0417` 算出的 **97.6% / 89.7% 逐位吻合** ⇒ **公式就是原版卡体的真实大小**。卡体 y `6.2→505.8` vs 条 y `461→511` ⇒ **重叠 44.8px（折 384 = 33.6px），是原版长相**。
+- **A3 已改**：`scale` 由 0.9609 → **`CardsCellH*150f/512f/108f`（1.0417）**；`CardsCardRect` 由「格高−张数条」改回**整格**；注释按判据就地改写（铁律 5）。
+- **A4 断言**：① 卡体缩放 == 1.0417（🧨 退回 0.9609 就红）· ② **卡体高÷格高 == 97.6%**（**断言的是「等于公式值」，⛔ 不是「不重叠」**）· ③ 张数条 tint == 白 · ④ 张数条队列 ≥ `QPageRow`。
+- ⏳ **唯一没查清**：**张数条与卡体的真实前后序**（uGUI vs 2D sprite renderer，静态 prefab 判不出）⇒ 要读 `Card2DController._SortingOrder` 与 Canvas `sortingOrder` 比大小。已派 C 下一轮查。
+
+### 代理 C · 4 件（W11 / 已拥有 / 轮播 / 万能牌教程）
+
+- ✅ **收藏「已拥有」接进 `Inventories.Cards`**：`SeedCardsAllUnlocked(Pool)`（每张 = `DeckRules.CopyLimit`，幂等）；`CardsCounterText` 读 `Inventories.Cards.Get(def).Amount`（原版 `InventoryManager.GetOwnedCount`）；条目缺失时回退 `CardProgress.Owned` **并出声一次/张**（⛔ 不静默给 0）。**可见变化 = 0**。
+- ✅ **轮播奖励（P2）**：布局数学已落（`WrapOffset` / `IndexAt` / `Pages` / `Apply`）+ **过滤口 `Carousel.Filter` 可注入、默认 null** —— 原版那个 `Where` 谓词只解出 `+0x1C8/+0x1D0` 虚调用、**没方法名 ⇒ 判据不可及**，⛔ 没编过滤。UI 与输入未接（要过 `PointerLayer`，且本店每份报价只有 1 条奖励 ⇒ 今天零可见收益）⇒ **4 行仍 C/P2**，没冒充 A。
+- ✅ **万能牌教程接线**：`BuildCardsPage` 尾部 `TryStart` + `OpenCardDetail` 开头 `NotifyCardDisplayOpened` + `WildcardTutorialBindings`（`Owned` 那格我们叫 `Cell_owned`，**绑定里转一次，⛔ 不改节点名**）。两处如实差异：我们没有 `FeatureConfig` 服务端开关、`Inventory<Wildcard>` 层还没有。
+  🔴 **加了一道 `Application.isPlaying` 闸**（原版没有）：教程会建指针节点 + 写 `PlayerPrefs`，而 11 条自检全在 `-batchmode` ⇒ 不加闸会污染自检与「已做过」记录（同 `DailyData.StoreOn` 纪律）。
+
+### 代理 F 第 3 轮（CardTrait 对账 + R6 补核）
+
+- 🔴 **必须先知道的前提**：`CardTrait` SO **只有 8 个字段、全是表现元数据**（图标 / 三个显示开关 / `_stackable` / `_aIScore` / `customObject` / `_traitEffects`），**规则语义不在它里面**。枚举：`EffectTriggerType = Start0/End1/OnPlay2/Trigger3/OnHand4/FromCode5/TriggerOnPlay6`、`TraitStackType = replace0/add10/count20`。
+  🔴 **自我订正**：`_stackable = 10` **不是「10 层」而是枚举 `add`**（72 条 add、`MarkOfChaos` 一条 count=20）。
+
+- **对账结果（74 条）**：**① 一致 64 · ② 语义不同 9 · ③ 我们完全没有 0** · ④ 特殊 1（`TraitsCollection` 是集合 SO）。
+- **两处真·语义不同**：
+  1. 🔴 **TriggerOnPlay(6) 去重表写入时机** —— 原版在**动画播完的回调**里写表，我们**同步**写（`Core/TraitFrames.cs:38` 自记「既有简化」）⇒ **动画被打断时原版重播、我们不会**。影响 `Agenda / BloodThirst / Duty / Ecstasy / HuntMark / Pray / Uprising` 共 7 条。已转 E。
+  2. 🔴 **`overrideByArmies` 的阵营来源** —— 原版读**卡自己的 `cardArmy`**，我们只能从 `CardView.Data.faction`（= 拥有者阵营）反推 ⇒ **跨阵营盟军 / 中立卡可能选错件**（`Shield` 4 处 / `Invulnerable` 6 处）。根治 = `BattleDriver` 传 `CardDef.Faction`（已转 A）。
+
+- **辅助互证全过**：F 自己的 R1 解码 ↔ 工程已有 `trait_collection.json` **74/74 逐字段一致**（两个独立解码互证）；图标 66/66 全有；`DefinedTrait` 134 条里 **77 条有 SO、57 条没有**（原版本身没给表现元数据，⛔ 别当缺口）；`OnHand(4)` 本 build **一条都没有**。
+- **R6 结构性结论**：那 26 个 SO **0 条 PPtr、0 条 Addressables 容器路径** ⇒ 只能 `Resources.Load("<名字>")` 按名加载 —— 这就是「卡牌 bundle + allcards」搜不到它们的原因。
+  - 8 个 `RawCardScript` 里 7 个的 uniqueId 都在 `cards_engine.json`；唯一不在的 `Uriel Ventris (tutorial)` 是**教程专用战将**（2 费 30 血 2/2）。
+  - 🔴 **`#HB_GOF28` 是真漏网**：原版**双向 PPtr**（`GOF28.alternateArts → #423`、`#423.originalCard → #426`，`style=5`），而我们的 `cards_engine.json` **`alternateArts` 字段 0 张卡有值**（异画美术体系本身有：`Art/altarts/` + `alt_cutouts.json`）⇒ 差「生成 `card → altArt[]` 表」。
+  - `UM_Forge_Badge` 三处（PPtr / 容器 / 字面量）全 0 ⇒ **静态判不了，F 不猜**。
+
+- 🔴 **两处文档记错了（待订正）**：
+  1. **`Core/CardView.cs:7060` 写着「CardTrait 资产本地没有（grep `_traitIcon`/`customObject` 0 命中）」—— 错**。资产在 `sharedassets0.assets`（pid 413–446 / 458–531），当年 grep 不到正因为**它们就是那 905 个解不出的**（无类型树）。**结论（拿不到）不成立，但取法（走材质 `_CardImage`）行为仍等价**（同一张贴图）。已转 E 就地改注释。
+  2. **`trait_collection.json` 把 4 个 `customObject` GUID 标成「未解」，其实 `guid_map_bundles.tsv` 里都有**（`GenestealerCults_special_Ambush` / `BloodThirstEffect_Gain` / `CrueltyEffect` / `Swarm Card Merge VFX` —— 最后这个**我们代码已在用**，`BattleDriver.cs:23591`）。
+
+- 反向核对：`cards_engine.json` 的 trait token 50 个里 45 个命中 `DefinedTrait`；3 个是**拆分伪影**；**2 个只在粉丝规则书里**（`Destroyer` 10 卡 / `Penitence` 5 卡，枚举与词条表都没有）⇒ **需卡面核**（数据卫生）。
+
+### 代理 E 第 3 批（战役/轮抽 B 升 A + 共用件 + 费用 TMP + 短档）
+
+- **B→A：战役 B 38→8（A 52→68）· 轮抽 B 41→4（A 65→99）**。留下的 B 逐条写了缺什么（三个浮点常量 `DAT_*` 未解出 · `matches.Length` 在服务端 · 活动时间窗服务端 · 读档不校验场次/胜败边界）。
+- **新产出的 C（真缺口 P2）**：战役进度条**流光** · 头部 **Premium 购买入口**（`PurchasePremiumWindow` 没接）· `alreadyPremium` 节点 · **战役红点（`CampaignBadge` 类在 `BadgeNotifications.cs:75`，全仓 0 消费者）** · 每日登录点数 · 背景**淡入淡出** · 战役点阵营画法/两套图标 · 排位窗内轮播 9 条（活动线）；轮抽 = 阶段格补间 · 右栏 shine 流光 · 胜负徽章动效。
+- 🔴 **共用件 `FilterPanelModel` 一族的共同根因只有一条**：**「同一类筛选多选（并集）+ 已选筛选的可删 chip 行」整条没做**（`grep ActiveFilter|FilterChip|RemoveFilter` **全仓 0 命中**；原版 `ToggleCollectionFilter.typeFilters` 是**集合**）。落点 = `DeckEditorState.DeckFilter`（单值→集合）+ `CollectionWindow`/`DeckRuntime` 的 chip 行 ⇒ **已转 C**。判据 → `判据/共用件_过滤模型_B升A.md`。
+  ⚠️ `ArmyItemContainer` / `DeckDrawer` / `DeckAndCardbackDrawer` **我们根本没有这三个类**（`class` 声明 0 命中）⇒ 记 C，⛔ 别当 B 挂着。
+
+- ✅ **K4 尾巴① 费用 TMP 已做**（`Core/CardView.cs`）：两档逐值照 prefab（普通档 **框 0.38×0.35 · em 0.34 · autoSizing 1（0.025~0.34）**；大号档 **0.456×0.42 · em 0.475 · auto 关**），`InfoTexture` **不再烘费用数字**（闸 = `TmpFont.Available`，防重影），接进 `_statFlash[StatCost]` 与 `BumpStat`。断言三条含极性翻转的灭自证。**等渲图定稿**（已起 `CardFaceProbe.Run`）。
+- 🔴 **K4 尾巴② 尾随 `\n` 的裁定：⛔ 不注入**。E 查清原版四个调用者，关键那条是 `BattleCardUI:1324-1343` = `desc + "<i>目标可用数</i>"` ⇒ **`\n` 的唯一用途是分隔那条斜体目标提示**；**我们没有那条提示** ⇒ 照抄只会多一个纯空行。按 **D** 记，理由写死「若将来做目标提示，再把 `\n` 与它同批加」。
+- ✅ **短档文案**：E 亲核发现「505 行」是文档行（文件已前移），**真正的调用点 = 「Banned card in deck」那行**；实现 `RefreshBannedLine()`（按这副牌自己的 `GameMode` 调 `Validate`，⛔ 不写死 skirmish；解析==键名 ⇒ 回长档；长档也缺 ⇒ 出声并整行关）。
+  🔴 **顺带发现长键原本也不在 `Core/Loc.cs`**（`DeckInfoPopup` 那条会印键名）⇒ 一次补了 4 条（`InvalidDeck` / `InvalidDeck/Short` / `InvalidDeckBannedCards` / `InvalidDeckBannedCards/Short`），不只是 `/Short`。
+  ⚠️ 如实记：**窗内换卡组后不立即刷新**（`RefreshDeckColumn` 在基类且非虚，本批不能改基类）。
+
+### 🔴🔴 P0 · `Loc` 词条重复键把本地化整个搞崩（2026-10-25 抓到并修掉）
+
+- **现象**：`CardFaceProbe.Run` 当场 `TypeInitializationException: The type initializer for 'CardPresentation.Loc' threw an exception`，**一张图都没渲出来**；根因 = `ArgumentException: An item with the same key has already been added. Key: MenuDeck/Error/InvalidDeck`。
+- **根因**：E 补 4 条 `MenuDeck/Error/*` 词条时，在 1667 行新增了**长键** `MenuDeck/Error/InvalidDeck`，而 §⑥（1866 行）**早就有一条一模一样的**。`Loc` 那张表是**字典初始化器** ⇒ 重复键抛异常 ⇒ **`Loc` 静态构造失败 ⇒ 任何走本地化的路径全部崩**。
+- 🔴 **致命之处：`typecheck` 是 0/0 —— 编译完全合法**。这类错**只有真正跑起来才现形**。
+- **已修**：删掉 1667 那条重复长键，改写成醒目注释指向 §⑥。
+- ✅ **新增防呆工具**：`工具/check_loc_dupes.py` —— 扫 `Core/Loc.cs` 所有 `{ "键", new Entry(`，报重复键与行号。现读 **753 条 / 重复 0**。**今后任何往 `Loc` 加词条的动作，加完必须跑它。**
+
+### 代理 C · 拥有数统一第一步 + 张数条前后序
+
+- ✅ **拥有数口径统一（第一步）**：`SeedCardsAllUnlocked(pool, amount=null)` 加可选数量选择器；收藏播种口径改成 `CardProgress.Owned` ⇒ 背包与 `CardProgress` **逐值相等**，`CardsCounterText` 读背包 = 之前读 `CardProgress` 的同一个数（**可见变化 0**）。一致性断言：遍历全卡池逐张比，`nBad == 0`（🧨 播种口径改回 `CopyLimit` 就红）。
+- 🔴 **张数条 vs 卡体的真实前后序 —— 判据换了**：`Card2DController` 的字段**全是 `UnityEngine.UI.Image`**（`Card2DController.cs:7-25`）⇒ 卡体**不是 SpriteRenderer**，与 `Counter` **同一张 canvas** ⇒ 先后由**兄弟序**定，而 prefab 兄弟序 = **`Counter`(0) → `CardUI`(1)** ⇒ **原版是「卡体盖在条上」**。
+- **那为什么条看得见**：推断是 `2DCard` 的框 499.70 ≠ 不透明区，卡框在 `y > 461`（512 帧）那段透明 ⇒ **⚠️ 还没验**（要采样贴图 alpha）。
+- **我们仍取「条在上」= 主动偏离**（我们的 `CardView` 卡体是**实心块**，照原版放条下面就整条看不见）。断言 ④ 的文案已从「判据不可及」换成这条真判据 + 为什么仍这样。已派 C 采样 alpha 定性。
+- 三族 **B→C** 改判（`ArmyItemContainer` 6 / `DeckDrawer` 4 / `DeckAndCardbackDrawer` 1）⇒ **采纳为全项目统一口径：类不存在 ⇒ C；有等价物但没逐方法核 ⇒ B。**
+
+### 代理 G · B 升 A 第 1 轮（四域）
+
+- **B 695 → 136**（教程 25 · 泛型 50 · 成就 45 · 社交 16）· A **622**。**复核反查出 6 条真缺口改 C、2 条改 D**，没有为数字好看改 A。
+- 抽查四条全过：教程 stage 守卫与顺序（`GetMission` 在 RewardWindow 里不算完成等逐条对上）· 泛型容器边界（`SetAchievementValueAtLeast` **幂等**：value≤cur 直接 return 不写盘）· 成就幂等 · 社交 UI 状态机（`ChatPanel.Open→Build→Click(0)→RefreshHighlights` 一致）。
+- 新 C：`PlayEvent.StartMatch` 两条错误弹窗文案（P1）· `PlayEvent.GetEventDeck` 缺「上次用的卡组」记忆 · `PlayerAvatarDataManager.RefreshExpiredBorders`（限时边框到期不卸）· `TutorialTipScript.FadeElements` 缺 0.2s 淡变 · `TutorialPointer` 三种动画只做了点击 · `FriendsTab` 两条排序。
+- 自我纠偏：`TutorialMessageWindowPopUp.ShowCampaignPointsDrawer` 此前误记 C，实际早已实现 ⇒ 改 A。
+- 口径差如实记：原版达标 `OnReachMilestone` **发奖**，我们**按阈值派生积分**（派生天然幂等、不重复发）。
+
+### 代理 D · 「未分类/其他」754 条（E 清零）
+
+- A 43 · B 196 · C 74（**P1×8**）· D 441。D 的断点分布：方法体内调用行 50 / 类级入口 37 / 编译器生成物 17 / 显式理由 334。
+- 🔴 **玩家可见的三件真缺口**：
+  1. **点战场地面/场景物件什么都不发生** —— `TapHitMaterialDefinition` 6 方法全 C/P1（**213 处实例**）+ `TapParticleController` + 三道前置闸 + `collisionMask`。**要做就整族一起做**。
+  2. **猎杀标记 / 标记光没有数字、不弹动** —— `HuntMarkController.UpdateValue` + `MarkerlightController` + 🔴 **`TraitEffectController` 这层钩子整层缺失**（全仓 0 命中）；原版三个调用点 `BattleCardUI.cs:1765` / `BattleManager.cs:287` / `CardScript.cs:17179` ⇒ **没有它，补了两个 `UpdateValue` 也不会被调用**。
+  3. **Energy 活动窗屏上是字面 `{0}`**（`ShowCurrentEnergyRegenText.cs:13` 的模板没填；真值一半来自远端 Config）。
+
+- 🔴 **结构性缺口（最重要的一条）**：**特效重建链只携带 `AnimFXController` 模块，其它 MonoBehaviour 一律丢**（`WarpforgeEffectPlayer.BuildModules`）。已知漏：`SubEmitterManualTrigger`（3 prefab，子发射器永不触发）· `DestroyByTime`（12 prefab，`lifeTime` 0.8/1.5/2/2.2/3 秒落兜底）· `SyncParticleSeeds`（42 实例）。已派 D 普查 + 修。
+- 🔴 **文档记错了（4 处，数值对、理由错）**：`UIGradient` 旧记「角度是 `(sin,cos)`、我们助手 `(cos,sin)` ⇒ 差 90°」。实际 `RotationDir` 返回 **`(cosθ,sinθ)`**（`UIGradientUtils__RotationDir.c:9-11`），**有效渐变轴**才是 `(sinθ,cosθ)`（`UIGradient__ModifyMesh.c:148-149` + `LocalPositionMatrix.c:20-27`），换算 = **φ = 90°−θ+180°（镜像 + 反色序）**。**数值 188 是对的，只改理由。** 四处：`DeckRuntime.cs:1452`（C）· `MainMenuRuntime.cs:750` / `MainMenuSubmenuWindow.cs:197` / `ParentEventWindow.cs:215`（H）。
+- `TutorialOverlay.cs:50` 写「`CursorByArmySO` 本地没解出来」也是错的：表在 `ExportedProject/Assets/MonoBehaviour/CursorsByArmySO.asset`（11 阵营），图 20 张在 `bundle_armycursors_assets_all/Sprite/Cursor_*` ⇒ 教程指针按阵营换图**可直接做**。
+- 其它顺手：**场上 3D 卡 `_MatCap` 写死 tier1**（四档贴图本地全在，只差 `CardView.BuildBody3D` 一处接线，已转 E）· 每局对手都叫「新玩家」（`NameGenerator` 马尔可夫链）· 13 场每场 3 个 `Highlight` 不转（`SimpleRotation`，共 39 件，原版 100°/s）· 货币数字变化不滚动（0.5s）· 低画质档不换材质（`MaterialChangerByQuality`）· 收件箱消息不在屏内也播音（`RendererExtensions.IsVisibleFrom`）。
+- ⚠️ 两条**别误读**：`Teleport`/`Fireball` 是两个只有一句 `Debug.Log` 的 **`Effect` 桩**（⛔ 与战斗里真正的 Teleport 机制同名不同物）；`decomp_full/LiveOpsTriggerController__Run.c` 里装的其实是 `NetworkingPeer__OnMessage` —— 又一处「文件与方法撞名」的反编译假货。
+
+### ✅ 渲图验收（第 2 次成功，第 1 次被 P0 挡掉）
+
+- **费用 TMP 通过**：`ASH69`(5) / `DA17`(4) / `TAU46`(2) 三张，数字**居中、无重影、字号与宝石框相称** ⇒ `InfoTexture` 不再烘数字那道闸生效。
+- **上一轮的卡面 P0 确认修好**：`Sense of Stone` 现在「石之感 → 钛帝国 → 向己方军队送出 [盾]盔甲 1 → 祈祷」四段分开、不叠字；而且**没有触发缩字号**（一行就够）⇒ 那个「只在装不下时往下让」的策略没误伤。
+
+### 代理 C · 多选筛选数据层 + **W11 彻底结案**
+
+- ✅ **多选筛选（并集）数据层已做**：`DeckFilter` 加 `HashSet<string> Factions/Rarities/Types`（= 原版 `typeFilters` 集合语义）；判定收成**单一放处** `FactionOk/RarityOk/TypeOk`（**集合非空 ⇒ 并集，否则走旧单值**）；`IsEmpty` 把集合算进去。**兼容路径：集合空 ⇒ 逐字等价于原来三行 ⇒ 今天行为零变化，既有筛选断言一条没删、全绿。** 断言 4 条（并集 / 不许外溢 / 稀有度同款 / `IsEmpty` 漏算即红）。
+- 🔴🟢 **W11 彻底结案 —— 用贴图采样反证了「条在卡之上」是原版的可见结果**：
+  采样 `Resources/Art/cards/frame_*.png` **底部 10%**（512 帧 y 461..511）的 alpha：不透明率 **0.26~0.35**、平均 α 0.27~0.35，而卡面中部只有 0.06~0.10 ⇒ **那段是卡框自己的实心下边框**。
+  推论：若原版真按兄弟序让卡体盖在条上，`xN` 会被这条**实心边框盖掉**；而实拍里 `xN` 看得见 ⇒ **原版的有效先后必然是「条在卡之上」**（真机制可能在**材质队列**，不是兄弟序）。
+  ⇒ **我们「条在上」= 视觉等价，不是偏离。** 断言 ④ 文案已按此改写。
+  ⚠️ 机制（卡体材质队列具体值 / `2DCard` 子树有没有自己的 Canvas）**仍未读到，但不影响结论**。
+
+- ✅ **`CardProgress` 第二步前置核对完成**：`CardDetailPopup.cs:2008` 的 `== 1` · `:1514` 的 `<= 0` · `:1621` 的 `> 0` —— **只要播种口径 = `CardProgress.Owned` 不变，三处布尔都不变**。⇒ 第二步可安全做（`AddOwned` 写背包 · `Owned` 读背包 · 旧档 `owned` 键逐字不变照读）。
+- ✅ **UIGradient 措辞订正**（`DeckRuntime.cs:1452`，只改理由、数值 188 不动），并**发现第四处**：`Shell/DailyRewardPopup.cs:266`（已转 H；那文件属暂停线，但**只改注释不改行为**，不违反暂停）。
+
+### 代理 G · B 收尾第 2 轮（四域 136 → 2）
+
+- **四域 B 合计 136 → 2**（唯一剩的 2 条 = `RankedDivisions`，**判据在远端**，不是没做）。A 合计 **718**。
+- ✅ **指针两种动画**（`Shell/TutorialPointerUi.cs`）：判据 = `TutorialPointer._ClickAndHold_d__24` / `_ClickAndDrag_d__25` 的 `MoveNext.c` + 常量按 **RVA 从 `GameAssembly.dll` 读出**。
+  - Hold = 起手 0.5 → 点击 0.5 → 循环
+  - Drag = 起手 0.5 → 点击停起点 `0.5×0.5=0.25`（`DAT_1834b2bb4=0.5`）→ 瞬移终点（`moveDuration=0`）→ 等 `0+0.1`（`DAT_1834b2dc4=0.1`）→ 回起点循环
+
+- ✅ **提示淡出**：`TutorialTipScript.FadeElements` 的 `DOFade(0.2)`；**淡入早就有**，缺的是关闭时立即 `SetActive(false)` ⇒ 改成 alpha 推到 0 后再关。
+- ✅ **`FriendsTab` 两条排序**：判据 `FriendsTab.cs:223/234/320/328` —— **`SortByName = Compare(b.name, a.name)` ⇒ Z→A**（不是 A→Z！）；`SortByConnected` = Connected 排前；原版**先名字再在线**，`List.Sort` 不稳定（照做）。
+- **D 的判定都写了替代物**：`LoadableReference` 6 → 资产直接引用 · `CollectionItem` 拖拽 9 → 收藏不拖、拖拽走 `DeckRuntime`+`DraggableController` · `SingletonBehaviour` 2 → 各 Manager 静态 Instance · `SetupCursor` → 判据不可及（固定默认光标）· `IsAvatarLocked` → 用户全解锁。
+- **新复核出的 C（P2）**：`TutorialManager.ToggleTutorial`（缺教程开关）· `AlliancesTrophyController.GetTierFrame/UnloadTierFrame`（缺档位框）· **`CollectionItem.OnPointerEnter` —— 原版拖动中不悬停，我们无此闸 ⇒ 拖动时也亮描边**（可见的小毛病）。
+- ⚠️ G 本轮改了 `Battle/TutorialOverlay.cs`（战斗域文件，是我派的活）—— 已提醒它：**以后动 `Battle/**` 前先报**，避免与 A/D 撞车。
+
+### 代理 E 第 4 批（卡牌面收口 · matcap 档位 · **TriggerOnPlay 判据推翻**）
+
+- **卡牌面 B 33 → 5**（A 81→**104** · C 13→16 · D 40→42）。升 A 的依据都是 prefab/代码实读（如 `With counter` 3 子件 vs `Without counter` 2 子件，差的就是计数器）。
+- ✅ **场上 3D 卡 `_MatCap` 按档位**：新增 `CardView.CardTierFor(CardData)`（**一处口径**：`DebugFrameTier` → `CardProgress.Level(artId)` → 无 artId 回落 `MaxTier`），**卡框与 matcap 共读它**；`BuildBody3D` 不再写死 tier1。断言两条含「四档贴图都在且互不相同」（缺档会静默退回 tier1 ⇒ 防假绿）。
+- 🔴🟢 **TriggerOnPlay 写表时机：原判据是错的，代码不改。** 一手判据 `decomp_full/CreateAnim.c:62-79`：`Instantiate` 之后**紧接着** `invoke(param_8, GameObject)`，且在 `CardAnimController.Initialize` **之前** ⇒ 那是**实例化回调**、**不是「动画播完回调」**。⇒ **我们同步写与它等价**；已就地订正 `TraitFrames` 文件头与 `DisplayTrigger` 注释，并写明「⛔ 别造一个『动画结束』事件当判据」。
+  ⇒ F 的 `判据/CardTrait对账.md` 那 7 条要从「语义不同」改回「一致」（已转 F）。
+
+- **新 C（P2）**：`ToggleTooltips` —— **没有逐卡 tooltip 开关**（原版 6 个调用点在动画/翻面/开包期间临时关，我们只有全局悬停、无卡级闸）· `UICardInfoItem.Initialize` **缺异画名后缀 `*`** · `ToggleInvalid` 原版是 **alpha 0.5**、我们用的是去饱和灰（观感不同）。
+- 🔴 **一处文件所有权冲突已处理**：`Core/FilterPanelModel.cs` 被 C 改动（多选筛选落点）⇒ **临时转给 C**，`Core/**` 其余仍归 E；C 做完归还。
+- `Loc` 重键事故已写进 E 的报告（病因 + 纪律），并复核它新加的三条各出现 1 次 ✅。
+
+### 代理 F · 资源侧 R0–R6 全部收口
+
+- 🔑 **找到本地那份 allcards 包**：`D:/2/关服前存档/…/54bdb7b1…/ea8bca4f…/__data`（CAB-`fb8f0144…`，**1,360 个对象 = 1,351 RawCardScript + 7 AlternateArtCard**）⇒ `cards_raw.json` 两边 PPtr 直接对得上。
+- **7 张异画全部查清**：`#HB_<卡id>` / `AA_HB_<阵营>_war_<卡名>` / style **全部 5** / **双向 PPtr** / **美术 7/7 全在**（`DA1` 的文件名是 `alt_da_azrael.png`，不是 alt_da1）；`currentAlternateArt` 原版 **7 张全 null**（没有默认偏好，⛔ 别自己补）。
+- **给了精确到行的插入点**：`工具/gen_cards_engine.py` **`:4539` 之后、`:4554` 之前**加 `"alternateArts": _alt_ids(trow)`；**缺值必须落 `[]` 不是 `null`**（`:3854` 的契约）。**消费点 = 0** ⇒ 这一步**只落数据、不改行为**。
+- **`trait_collection.json` 的 4 个「未解」GUID 全部解出**（Ambush / BloodThirst / Cruelty / Swarm），改完**必须重跑 `gen_trait_effect_bindings.py`**。
+- ✅ **`UM_Forge_Badge` 按裁定不判**：写「静态判不了 + 查过哪三处（0 PPtr 边 / 0 容器路径 / stringliteral 0 命中，同族 `Default_Badge` 也 0）」，⛔ 没注「大概没用」。
+- **「资源侧还欠什么」九条诚实清单**（要点）：①「已用（数据表）」**不等于**运行时加载 · ② **按名加载路径没建模**（934 个不可达里 779 个我们在用）· ③ GameObject 13,086 个「没用上」不能直接当缺口 · ④ R2 只对了顶点数量没对坐标 · ⑤ 7 个空 blob shader 原版就没有字节码 · ⑥ CardTrait「判过 D」只有方法级映射 · ⑦ `UM_Forge_Badge` 静态判不了 · ⑧ 音频/材质/贴图只到「名字命中」级 · ⑨ `Destroyer`/`Penitence` 待卡面核。
+
+### 代理 H · 菜单 B 升 A + 锻造账 + 三件插单
+
+- **菜单/外壳：B 343 → 43**（A 204→**332** · C 84→**182** · D 242→**316**）。300 条 B 逐条核了原版方法体；**43 条核不动的留在 B**，每行写清「差什么」。
+- **锻造 118 条全判完**：A 55 · B 28 · C 9 · D 26。
+- 🔴 **新查出的一组「无通用件」（按实例数算是当前最大一块）**：**`UIImageMaterialColorChanger` 666 处** · **`UIGroupTint` 306 处** · **`UIScaleToFit` 183 处** —— 我们都没有通用件 ⇒ 全部记 C。另有**页签生命周期**（`CloseTab`/`OnClose`/`OnTabChange`/`ForceCloseTabs`/`GetTab…`）我们只有 `SetActive`+`OnOpen` ⇒ C。已派 H 建。
+- 🔴 **P1 已修（玩家天天能看见）**：**顶栏资源数字在领奖/购买后停在旧值** —— 全工程唯一发奖口 `Wallet.Grant` 无刷新、`TopBar` 数字只在 Build 时写一次。已加 `CounterRef` + `RefreshCountersIfChanged`（变了才写）+ 每帧调。
+  ⚠️ 如实记：**只重写文字、不重算药丸宽**（位数增多靠 `SetAutoFitBox` 缩字；原版 `ContentSizeFitter` 会加宽）—— 已写进「没查清」。
+
+- ✅ **锻造红点 P1 已修**：`ForgeHandler.CheckNotification` = `Repeat(new ForgeBadge(army), GetRewardsToCollect().Count())` ⇒ **一个可领奖励 = 一条 badge**；我们的 `ForgeBadge` 类建了但 **0 消费者** ⇒ 永不亮 ⇒ 补 `ForgeNotificationProvider` 并登记。
+- 🔴 **纠正 E 的判据**：战役红点**实际是两条**（`CampaignBadge` + **`MissionsBadge{parentId="CampaignMission"}`**，`MonoBehaviour_-287428095701543169.json` 的 `references.RefIds` 实读），E 只报了 `CampaignBadge` 一条。
+- ✅ 另修：`GameWindow.OnCloseWindow`（原版 `+0x60`；`Hide()` 末句 Invoke、`Close()` 不调）· UIGradient **四处**措辞全订正（数值 188 未动）· `OneText` 结构差异写进代码注释 + 同心断言（⛔ 照原版改回子件而不同步坐标会让字偏一个红点中心）。
+- **判据归域的订正**：`ScreenHighlightPosition`（28 处全在战场）/`UICameraSetRenderScale`（26 处全在战场）/`ShaderProperySetter`（4 处 battleprefabs）⇒ **归战场/特效域**，不在菜单域记 C。
+
+### 代理 C · 多选筛选 UI 层 + `CardProgress` 第二步
+
+- ✅ **`Core/FilterPanelModel.cs` 所有权确认为 C**（5 处**加法**改动：四处格子 `On` + `Click` 三个 `$` 支改 toggle 集合 + 一个私有助手 + 一行 `using`）。⛔ 其余 `Core/**` 一行没碰。**chip 行做完那一轮归还 E。**
+- 🔴 **关键语义拆分（改错会「没筛选时全亮/全灭」）**：
+  - **`*Ok` = 「这张卡过不过」**（空筛选 ⇒ `true`）
+  - **`*Selected` = 「这一格亮不亮」**（空筛选 ⇒ `false`）
+  格子 `On` 全改 `*Selected`。
+
+- 🔴 **隐藏消费点**：`FilteredCosmoNames()` 原来不感知集合 ⇒ 不改它的话**卡背页多选后点了筛不动**（grep 才发现的）。
+- ⚠️ **`Click` 改 toggle 集合时必须同时清空旧单值字段**，否则集合 + 单值叠成 **AND，越筛越少**。
+- ✅ **`CardProgress` 第二步：写口已迁到背包**——`Owned` 先读背包、`AddOwned` 先写背包；卡不在背包里才回旧「给足」口径（`_owned` 降为兜底）。
+  🔴 **读盘顺序不能反**：建池时**先 `InventoryStore.Load("cards")` 再播种**（反过来播种会盖掉盘上的值 = **静默丢数据**），注释写死。
+  ✅ **前提条件已写进代码注释**：播种口径必须仍是 `CardProgress.Owned`，谁改掉就必须回来重核 `== 1` / `<= 0` / `> 0` 三处。
+
+- ✅ **异画名 `*` 后缀已做**（`UICardInfoItem__Initialize.c:116-119`；落点 `DeckRuntime.IsAltArtCard()` 查那 7 条静态表；如实标「原版是卡 SO 字段、我们查表，语义等价机制不同」）。
+- ⛔ **`ToggleInvalid` 保持 C**：我们的**卡组行根本没有「无效」状态**（`CannotAddToDeck|IsBanned|不可用` 在 `DeckRuntime` 0 命中、行上无 CanvasGroup）⇒ 现在加入口就是**死代码**。等「卡组行会判无效」那件事，届时照判据用**行容器 `CanvasGroup.alpha = 0.5`**（⛔ 不是去饱和）。
+- **未做（如实）**：**chip 行**（判据要求「在该开关自己的父节点下建」，而我们抽屉是**固定网格几何**，塞进去会溢出 ⇒ 要新几何/自动布局，单开一轮）· **费用筛选多选**（我们费用是 `Cost..CostMax` **区间编码**，多选要换 `HashSet<int>`）。
+
+### 代理 E 第 5 批（卡牌面 **B 清 0**）
+
+- `账/卡牌面_渲染.tsv`：**A 104 · C 21 · B 0 · D 42 · E 0**。
+- 🔴 **`120 GetTooltipPosition` 核完判 C（确实不等价）**，一手判据 `decomp_full/TextTooltipController__Show.c`：
+  原版 = `ScreenToWorldPoint(new Vector3(mouse.x, mouse.y **+ 10**, text.transform.position.z))` ⇒ **面板跟鼠标、在鼠标上方 10px**（`DAT_1834b2da8 = 10.0f`）；`EverguildTraitTooltipData` 的第一个 Vector3 是 **Position**（`Offset` 是另一个可空字段）⇒ **不是「触发器 + offset」**。
+  我们锚在 `v.KeywordAnchor`（`BattleDriver.cs:30975`）⇒ **不跟鼠标**。落点 = Battle（已派 E）。
+
+- ✅ **`ToggleTooltips` Core 侧已做**（`Core/Tooltip.cs`）：**按 owner 的抑制计数** —— `SuppressTooltips/ReleaseTooltips/TooltipsSuppressed`，`Show` 在抑制期**直接返回并 Hide**（正在显示的立刻淡出）；owner 用 `HashSet<object>` ⇒ 同 owner 不叠加、多 owner 可叠加、**重复 Release 安全**。断言 4 条（删掉 `Show` 里那句闸 ⇒ 第一条红）。
+  ⏳ **还差 6 个原版调用点**（`BattleCardManager:128` · `CardDisplayWindow:965/1181` · `CardInBoosterPack:284/299` · `CardScript:10595/11033`），账里写明「Core 已落、调用点待接」。
+
+- ✅ **`ToggleInvalid` 主动让路**：落点 `Deck/DeckRuntime.cs` 正被 C 用（多选筛选那批）⇒ 按铁律 13·3 没动，账里写「归还后一行接上：`alpha = state ? 1 : 0.5`」。**这个自觉值得记住。**
+- 路由：`CardServices`（CraftCard/UpgradeCard 错误分支）→ **C**；`CardTrait._hide`（原版 `GetNewTrait` 第 2 参 / `ShowingTrait` 要求 `!_hide`，我们 `CardDef` 无该字段 ⇒ **判据今天恒真**）→ **A**。
+
+### 代理 C · chip 行调研 + 费用多选 + **一次静默事故**
+
+- 🔴🔴 **事故（本轮最重要的一条经验）**：改断言时用了一次**全局字符串替换**（`wantC`→`wantCostTmp`），**误伤三个同前缀既有变量**：`badCostPost`→`badCostTmpost` · `wantCells`→`badCostTmpells` · `badCntVis`→`badCostTmpntVis` —— **后三个编译不报**（比 CS0136 那个报错的危险得多：报错的会被发现，不报错的**静默改语义**）。
+  处置正确：**按行范围**重命名、没删外层、`grep CostTmp` 0 命中、typecheck 两行 0。
+  📌 **纪律：改断言里的局部变量名一律不许全局替换**（`wantC`/`badC` 这种短名会被 `wantCost…`/`badCost…` 吃掉）。
+
+- ✅ **费用筛选多选已做**：`DeckFilter.Costs` + `CostOk`（集合非空 ⇒ **夹过的费用 ∈ 集合**，与原版一样**夹完再比**）+ `CostSelected`；兼容路径（空集合走旧区间）⇒ 既有 N10 断言全绿。断言 3 条含「两档外一张不许混进来」。
+- 🔴 **chip 行的真面目**：那层父节点**确实是布局组**（`menu_dump` 现读）
+  - `Army Filter/Content` = `GridLayoutGroup` **+ `ContentSizeFitter(v:MinSize)`**，100×100 · 7/0 · pad 14,0,0,0
+  - `Rarity/Cost/Type Filter/Content` = `GridLayoutGroup` / `HorizontalLayoutGroup`，**都没有 CSF**
+  ⇒ **chip 不是「另起一行」，而是塞进同一批 cell 的下一格**；Army 行会长高，**另三行会溢出压到下一行标题**。
+  **裁定：走网格算术（不引入我们没有的布局组件族），且照抄溢出** —— 那是原版事实（判据 = prefab 组件表），先照抄；要不要更好看由用户拍板。
+
+- 🔴 **`CardServices` 的真相（比转述更准）**：原版这两个方法**没有本地业务错误分支** —— 判定（通配符/货币/上限）**全在 CloudScript 服务端**；本地只有两条「不走网络」的（#2 静默 return · #5 崩）。⇒ 我们「错误分支更简」的真实内容是「**我们把服务端判定在本地模拟了一层**」= **不是少了分支，是多做了一层校验** ⇒ **判 A（含如实差异）**，⛔ 别去补更多错误分支。
+
+### 代理 F · 数据侧落地（含一条预防回归的发现）
+
+- ✅ **`alternateArts` 列已接进卡表**：`gen_cards_engine.py` +59 行（`altart_index` + `alt_ids_of`），**两条建行路径各加一列**（主循环 + **隐藏附魔模板那条**）。
+  **逐列 diff：`count` 1128 不变 · `id` 集合完全相同 · 字段变化只有 `{'+alternateArts': 1128}` · 顶层键不变 · 体积 +21,501 B**。结构级证明：AFTER 去列后的 key-set 多重集与 BEFORE **完全相同（22 种）**。7 张有值、其余 1,121 张 `[]`。
+  🔴 **过程抓到**：只改主循环时 diff 是 **1,127/1,128**，差的那张是**隐藏附魔模板**（走另一条建行路径）—— 与 `:3979` 那次「成为池里唯一的 `null` ⇒ 6 红」是**同一个坑**。
+
+- ✅ **`trait_collection.json` 4 个 GUID 已解**，重跑 `gen_trait_effect_bindings.py` **逐行 diff = 0**（只时间戳变）⇒ 证明 `customObject` 不在那条链上，这步只把「已解出」记对、**没改运行时行为**。
+- 🔴 **发现一个会打回原状的隐患（已授权修）**：`工具/export_trait_collection.py` 的 `build_guid_map()`（`:452-486`）**只扫 14 个 `*cardanim*` 包**，而这 4 个 GUID 在 `genestealercultscardassets` / `battleprefabs_vfxandmisc` ⇒ `:615-620` 会把它们**写回 `unresolved`**。谁重跑那个 exporter，这 4 格就打回 null。修法：`:616` 的 `guid_map.get()` 后加**回落**到 `guid_map_bundles.tsv`。
+- ✅ **CardTrait 对账四档现为：73 一致 · 0 语义不同 · 0 没有 · 1 特殊**（7 条 TriggerOnPlay 改判一致、2 条 `overrideByArmies` 自己核代码后改判一致）。
+
+### 代理 A · 第 6 段（③ trait 族开工）
+
+- `_hide` 按裁定 **改判 A**（备注写死「原版零可达 ⇒ 行为等价；将来真出现 `hide=true` 时再给 `UnitState.AddKeyword` 加 `hidden` 变体 + `Badges.For` 跳过」）。
+- ✅ **`CardScript.AddTraitSilently` → A**（`CardScript.cs:19299` + `.c:1-90`）：**已有该 trait ⇒ 直接 return**，否则造一条并**同时**进 `CurrentTraits(+0x128)` 与 `CurrentShowingTraits(+0x130)`。
+  **结构性差别如实标**：原版「一 trait 一条 `CardTraitData`、重复被 `Enumerable.Any` 挡掉」vs 我们「字典一键一值」；原版 `Armour +1` 走 `AddEffect` 另一条（多条 effect 各带 `traitValue` 求和），我们把两条合成 `AddKeyword(k,+v)` **总数等价**。
+
+- 🔴 **`CardScript.AddEffect` 保持 B**（第 3 条标准）：824 行 `buffType` 分派器，**反编译在这段丢了大量条件**（连续空 `if` 块 + `attackTypes = Melee` 占位）⇒ 按 `.c` 只能读出「看着像」。差什么已写进账：① `BuffType` 枚举逐个对上 ② 每支回 `.c` 对应地址段读条件 ③ 四条闸 VA 级逐句核。**没有为数字升 A。**
+  💡 已建议它试 **`out_il2csharp`（独立第二意见）** 取**分支骨架** —— 它已知枚举映射会丢，但现在缺的正是**条件**；纪律：只当骨架来源，枚举/常量一律回 `decomp_full` 或 VA 级核。
+
+### 代理 A · 第 7 段（**第二意见源奏效 + 8 个真未建的 BuffType**）
+
+- ✅ **`out_il2csharp` 的分支骨架确实保住了**：`AddEffect`（1083 行）= `switch (buffType - 1)` 覆盖 1..30，外层再按 `<=35 / ==35 / <=45 / >45` 分档（ILSpy 那份在这一段是**连续空 `if` 块**，完全读不出条件）。
+- **读出四条进门票闸（我们这边都已实现）**：① 卡状态 `waitingToDie/…/removedFromGame` ⇒ 不收（`LogWarning`）· ② `extrinsic ∧ 施放者 jam` ⇒ 不收 · ③ `ContainsExtrinsicEffectFrom` 命中 ⇒ 不收（`removeExtrinsic` 除外）· 🔑 ④ **`doubleAttack(20)` 在分派【之前】被改写成 `addStats`**（`meleeAttackChange = CurrentMeleeAttack`，原版日志 `"Convering doubleAttack buff into +N"`）⇒ **「翻倍」不是独立分支，是先算成「+当前近战」**。
+- **`BuffType` 29 值覆盖表**（已写进账 row 768）：**10 个**有落点且核过 · **4 个**有落点未逐句核（`changeCost`/`replaceAbility`/`setMeleeAttack`/`setCost`）· 🔴 **8 个真未建**：`swapStats` · `changeRace` · `setHealth` · `changeAbilityCost` · `choiceEnchantment` · `addRace` · `setRangeAttack` · `setCurrentHealth` · 5 个不可达 · **`daemonHost` = 原版自己 `LogError("not implemented")`**（我们不需要）。
+- 仍判 B（第 3 条标准），差什么写清且可执行：① 扫 `cards_raw.json` 的 `abilities[].logic[].buff.buffType` 定那 8 个的**池内可达性**；② 4 个 🟡 回 `.c` 地址段读条件；③ 第二意见源**只当骨架**。
+- ⚠️ **事故（当轮自捉自修）**：写账时把**带换行的多行文本**塞进 TSV 单元格 ⇒ 一行被拆成 3 行（1537 行 / 列数校验失败）。按「首行前 7 列 + 续行 + 尾行后 3 列」重组回一行，校验回到 1,535 行 / 全 11 列。
+  📌 **纪律：TSV 单元格永远不许有换行。**
+  🛠 **我已给 `工具/ledger_progress.py` 加了形状校验**：凡列数 != 11 的行都会列出来并提示「最常见原因 = 单元格里塞了换行」，**不再静默跳过**（以前 `len(cells) < 11` 是 continue，会把拆开的行吞掉、总数悄悄变少）。
+
+### 代理 C · chip 行落地（**照抄溢出**）+ `FilterPanelModel` 归还
+
+- ✅ **chip = 同一批 cell 的值拷贝**（`Cell` 是 **struct** ⇒ 原样复制 `R/Bg/Lab` 并按格位位移），key = `$chip:`+原 key、`On=true` ⇒ **长得跟选项格一模一样**（原版 `FillToggleList` 派生的就是同一个 prefab）。
+- **四条行各按 prefab 参数**：Army `100/7/pad14/3perRow` + `ComputeLayout(facs.Count + armySel)`（**行会撑高**，对应 CSF）· Rarity `100/raritySpX/14/3` · Cost `65/15/20/pad15/4` · Type `80×100/0/pad15/3`。
+  🔴 **Rarity/Cost/Type 三行无 CSF ⇒ chip 落在行框外（费用那行直接压到 Type 标题上）= 原版长相，照抄**；注释写死判据路径与 `menu_dump` 现读日期。
+
+- **点 chip = 取消**：`Click` 开头剥掉 `$chip:` 前缀、走**同一条** toggle（该项当前选中 ⇒ 会被删掉）—— 一份逻辑两处复用。
+- 🔴 **三条断言，其中两条是「防美化」的**：① 多选 4 阵营 ⇒ 槽位 13+4=17 ⇒ 行数 5→6 ⇒ 下面三行整体下移 100px · ② 费用 chip 必须落在**行框之外**且压住 Type 那行（**🧨「按 CSF 撑高修好」⇒ 红**）· ③ 前提：费用行真的生出 `$chip:$cost:` 格。
+  ⇒ **「照抄原版」被钉成了断言**，以后谁顺手美化就立刻红。
+
+- 📌 **`Core/FilterPanelModel.cs` 已归还 E**（累计改动全是加法）。
+- **`CardServices` 两行判 A**（含差异全文），因在 E 的账里 ⇒ 三列已转 E 落账。
+
+### 代理 C · 补 C 收口（到了「单方面推不动」的地板）
+
+- 核销 **+5 A**：`ToggleCollectionFilter.FillToggleList`（chip 行刚落地）· `CollectionFilterController.NotifyFilterChange`（chip 不单独维护、随格子重建）· `CardInventory.Create/Add/UpdateItemCollection`（背包框架落地后直接对上；**`Add` 的 `customData` 形参无调用点 ⇒ 未建，如实标**）⇒ `收藏.tsv` **A141 / C63**。
+- **每条剩余 C 都指到人或指到口径**（这才是「到地板」该有的样子）：
+  收藏 63 = 拖拽 9（A 的 `UpdateOrder` + H 的 `PointerLayer`/`MenuDraw`，**A 侧其实早已就绪**：`DeckLibrary.cs:297` / `DeckRules.cs:603`）· `InventoryManager` 24（**今天无消费点 ⇒ 建了是死代码**）· 红点 18（H）· `ArmyItemContainer` 6（原版有我们无）· 卡档/异画/万能库存 5（数据面无解锁记录）· 徽记闪光 1（缺 `shinyEffect` 的 prefab 字段）
+  卡组编辑 18 = 费用曲线 5（E）· 拖拽 5（A+H）· 短档 2（已就绪）· 复制后缀 1（A 已做）· 类不存在 5
+  商店 52 = 活动线 36（暂停）· 轮播 4（零可见收益，已裁先不做）· LiveOps 容器 5 · 货币/容器库存 7
+
+- **裁定（口径）**：**货币/容器那 7 条暂不建，保持 C**。理由不是「不做」，是**「今天没有消费点」**（`Inventories` 只有 `Shop`/`Cards`；「商店买到的货币要不要进 HUD 钱包」还没人需要）⇒ 建了是死代码。备注写死触发条件：**「等出现『商店买到的货币要进钱包』时，加 `Inventory<Currency>` 并接 `Wallet.Grant`」**。
+- 派给 C：**读 `shinyEffect`**（`WildcardDisplay` MB 的 PPtr → 对应 bundle 的 `UIEffectTweener` JSON 逐字段）+ 实现徽记闪光；读不到就写「查过哪几个包 + 哪些字段名」。
+
+### 代理 C · `shinyEffect` 参数读全（实现卡在缺失件）
+
+- **参数已逐字段读全**：`WildcardDisplay.shinyEffect` PPtr → `UIEffectTweener`（`m_Duration 1.0` · `m_Delay 0` · 曲线**线性** · `m_WrapMode 0` · `m_ResetTimeOnEnable 1`）+ 同 GO 的 `UIEffect`（**`m_TransitionFilter 4 (Shiny)`** · **`m_TransitionRotation 139°`** · `m_TransitionWidth 0.213` · `m_TransitionSoftness 0.533` · **`m_TransitionColor (2,2,2,1)` 超白** · `BlendType 1 / Src 1 / Dst 10` · **`m_TransitionTex` 在 `externals[14]`**）。
+- **缺两件**：① **Coffee `UIEffect` 的 Shiny 着色器我们没有**（我们 quad 走自建 `WPFX`/`ImageQuad`）；② 那张 shine 贴图在 **`externals[14]`**，要解 bundle serialized file 的 externals 表。
+- **裁定：走 (a) 忠实移植 Shiny shader，⛔ 不做加法 quad 近似**（那是发明观感）。约束：**P2 排后** · shader 放 **`CardPresentation/Shaders/`**（⛔ 不进 `WarpforgeVFX/**`，那是 D 的地盘）· 贴图解不出时先做 shader + 占位跑通参数链，**账里写明「贴图待 external 解析」**，⛔ 不拿「看着像」的图冒充。
+- 📌 **可复用的坑（C 挖出）**：拿 GO 的 pathID 找 GameObject，**`GameObject/` 里不一定有按 pid 命名的文件** ⇒ 可靠办法 = **扫 `RectTransform/` 里 `m_GameObject.m_PathID == pid` 的那份**，再顺 `m_Father`/组件表走。
+
+### 代理 F · 第二轮数据侧（**修掉两个让结论失真的统计口径 bug**）
+
+- ✅ **`export_trait_collection.py` 的 GUID 回落已修**：新增 `load_guid_fallback()` 读 `guid_map_bundles.tsv`（6,264 行，只收 `source == bundle-container` 且有名字的行，同 GUID 优先 `exact == True`）。验证四项：重跑后 **7/7 换到名字、0 条 unresolved** · 输出与手改那份**逐字节相同**（md5 `cbb9809d…`）· **连跑两遍幂等**（`--check` 均「与盘上逐字节相同」）· vs 手改前只差 4 格 + 1 个列表。
+- 🔴🔴 **两个统计口径 bug（影响面比 exporter 修复大得多）**：
+  1. **`数据/索引` 被当成集合差** —— 原来「扫整个 `数据` 再 `data_tok -= index_tok`」，把**同时出现在数据表与索引**的名字误判成「只在索引里」（实例：`Craftworld_SaimHann_inf_Ranger` 明明在 `cards.json` 的 `art` 里却被判 U2b）⇒ 改成**扫 `数据` 时排除 `数据/索引`**。
+  2. **扩展名表漏了 `.ogg/.wav`** —— 我们 VO/音效**逐字沿用原版名**，结果 **486 个 clip 全被判「没看过」**；实测 **479/486 逐字同名就在工程里**。
+  ⇒ **「没用上」21,834 → 17,719，候选 3,549 → 279。** 两份旧报告与 `R0_覆盖账`/`未使用清单` 已同步并留「原 X」痕迹。
+  ⚠️ 教训：**「数字虚高」比漏算更危险** —— 它会让我们去复刻根本已经有的东西。
+
+- **未使用资产候选 279**（七类，逐组给了「是不是缺口」）：引擎内置 65（不是）· **`Orc Frame` 88（不是缺口，但我们按档位自绘卡框；⚠️ 同名撞车，将来按 PathID 核）** · UI 图集容器 28（不是，我们按切好单图用）· ComputeShader 24（R4 已给参数表）· 🔴 **战场单位/卡牌演出 AnimationClip 24（唯一真候选）** · 应用图标+默认皮肤 34（部分判不了）· 杂项 Sprite 9 · 占位台词 7（原版没采用）。
+
+### 🔴 口径收紧 · **`A` 的双侧都必须到【方法级】**（2026-10-25 由 D 的异议触发）
+
+- **起因**：`账/未分类_其他.tsv` 被按「类级命中」升了 142 行 A（其中 85 行备注含「类级」）。D 提出异议，说这与该域「必须逐句、两侧落点都指得出」的 A 口径不一致。
+- **我核了盘上实际内容**：抽样的 A 行里，**判据侧确实是方法级**（`cpp2il AlternateArtCard.cs:80-92` 这种），但**我们侧落点有好几条都指向同一个 `CardPresentation/Core/CardArt.cs:994`** ⇒ 那是**类级命中**。
+- **裁定（已写进方案 §四）**：`A` 的**双侧都必须到方法级** —— 判据侧能给**该方法的**出处、我们侧能指到**实现该行为的那几行**（不是整个类的入口/文件头）。**同一个 `文件:行` 覆盖多个不同方法 ⇒ 类级命中 ⇒ 只能记 `B`。**
+  ⛔ 「这个类我们做了」≠「这个方法我们逐条对过」。
+
+- **动作**：85 行退回 B（**保留判据要点、只改状态**），并要求 G 自查其它账里同样「一个落点行覆盖多个方法」的情况。
+
+### 代理 D · 第 2 轮（特效重建链普查 + 联机域）
+
+- ✅ **特效重建链丢模块：普查 + 补挂**。口径可复跑：扫 AssetRipper 导出工程 **963 件特效 prefab**，按 `m_Script.guid` → `.cs.meta` 反查类名，节点路径按 `Transform.m_Father` 拼回（与 `WFEffectModule.ResolvePath` 的 `名字#下标` 语法一致）。结果 **88 件 / 164 处**非 AnimFX 挂载。
+  - **69/56 已补**：7 个新等价组件（`SyncParticleSeeds` 40/36 · `SubEmitterManualTrigger` 12/3 · `DestroyByTime` 9/7 · `ParticleFindFloorCollider` 9/5 · `ShaderProperySetter` 2/2 · `ParticleEmitOnEnable` 2/2 · 其余 2）+ 1 个复用。
+  - 落地：新 `WarpforgeVFX/Runtime/WFEffectExtras.cs` + `Resources/WarpforgeVFX/effect_extras.json`（27 KB）+ 生成器 `工具/gen_effect_extras.py`（`--check` **幂等**）。
+  - 🔴 **顺序坑**：`AttachAll` 必须排在 `ps.Clear+Play` **之后**（反了 `SyncParticleSeeds` 的种子会被我们的 `Play` 盖掉）；需要逐帧的走 `IWFEffectExtraTick`（⛔ 不让它们自己写 `Update`）。
+  - ⛔ **未实现的 kind ⇒ 计数 + 按 kind 出声一次**（不静默）。
+  - ⏳ **仍缺**：`ShakeAndSoundObject`（**35/35 prefab**，环境卡开卡该有一记屏震 + 声音，**现在完全没声**）· `MaterialFlickerEffect`（51/5）· `SpriteFlickerEffect`（2/1）⇒ **已派下一件优先**。
+  - ⚠️ 两个前置缺口在 `BattleDriver`/场景：`FloorPositionReference` **没打 tag**（7 个碰撞平面）· `ShakeAndSoundObject` 要抽 `onEnableShakes[]/sounds[]`。
+
+- ✅ **联机域 179 条全部落判**：A 9 · B 58 · C 9 · D 103 · **E 0**，P0/P1 = 0（两条原本 P1 的当场修了）。
+  - 🔴 **修 1**：**模式不一致时客机永久静默等待** → 主机现在除本机提示外**关台**（`bye` → 客机 `OnClosed` → 「对面取消」+ 撤回搜索）。原版对应 `PUNReceiveWrongPlayMode`（`SearchOpponentManager.cs:1915-1985`）。
+  - 🔴 **修 2**：**构建版本不比对** → `CheckProofKey` 现在也比 `gameVer`（原版按 gameVersion 隔离大厅，`NetworkCustomManager.cs:341-354`）。
+  - 🔴 **结构缺口：三类消息我们完全不发也不接** —— `MatchFinished`（对局结束；原版会为对手最后几条动作**多等最多 12.5 秒**）· `CardSeen`（对面查看手牌）· `CardReorder`（对面手牌换位）。
+  - ⚠️ **`NetSelfTest` / `NetBattleTest` 跑不了 —— 自检是用户明确暂停的**。两条修改与建议的反向断言（「删掉新增的 `Close` ⇒ 客机永远停在 `BeginNetWait`」）都**进「自检恢复后第一批」**，账里标 P0 待验。
+
+- ✅ **两条不盲抄的处置都对**：`DoDestroy` 改回原版「只要挂了模块就不销毁」 · `MoveParticlesToTarget` 比例式**判据从「推断」升格为「读到」**；`doFade` 加了**计数探针**不改行为（盲抄会把该淡的那次取消掉）· `rawSignal` 方案写死按调用点分叉。
+
+### 🔴 又踩一次「某类型没导出」的假结论（2026-10-25）
+
+- C 做 Shiny 移植时报「`bundle_menus_assets_all` **根本没有 `Image/` 目录** ⇒ 拿不到那个 GO 指向的 Material」。
+- **实测：`Image/` 目录确实 0 个，但 `MonoBehaviour/` 里有 6,876 个带 `m_Sprite` 的 Image 组件**（字段齐全：`m_GameObject` / `m_Script` / `m_Material` / `m_Color` / `m_RaycastTarget` / **`m_RaycastPadding`** / `m_Maskable` / `m_Sprite` / `m_Type` …）。
+- **根因**：`UnityEngine.UI.Image` 是 **MonoBehaviour 子类** ⇒ 它不在自己的类型目录里，在 `MonoBehaviour/` 里按 `m_Script` 反查。
+- 已写进方案 §九：**「某个资产类型没导出」多半是假结论**，⛔ 别因为「没有那个目录」就写「本地没有」。
+- 附带确认：`AssetRipper` 那份 `Hidden_UI_Default (UIEffect).shader` **只有 64 行 + `//DummyShaderTextExporter`** ⇒ **是存根不是源码**（C 已识别，对）；本包 `Shader/` 里也确实没有它 ⇒ 真件在别的 bundle。
+
+### 代理 C · 假结论就地订正 + **Shiny 着色器已定位**
+
+- ✅ C 按正解重走：`Content_-2571570060004938831` → `MonoBehaviour/` 按 `m_GameObject.m_PathID` 反查到 5 条 → `MonoBehaviour_5058986616577207217.json` 带 `m_Sprite` = 那颗 `Image`。
+- 🔴 **它的 `m_Material` = pathID 0（默认 UI 材质）** —— **不是没导出**，而是 **Coffee `UIEffect` 运行期自建材质 + `Shader.Find` 按名取**（材质引用本来就是空的）。
+- ✅ **全库按名找到真件**：`globalgamemanagers/Shader/Shader_77.json`，`m_ParsedForm.m_Name` = **`Hidden/UI/Default (UIEffect)`**，带 `compressedBlob` ⇒ **DXBC 在**。pass 状态（`_SrcBlend`/`_DstBlend`/`_ColorMask`/`unity_GUIZTestMode`）**全是「材质属性驱动」**，与 `m_BlendType 1 / Src 1 / Dst 10` 自洽。
+- 🔴 **工具盲点（比 Shiny 本身重要）**：`dump_shader_blob.py "UIEffect"` **0 命中**。
+  🔴🔴 **2026-10-25 就地订正（C 现核推翻我的诊断）**：我最初判「工具按 `m_Name` 索引」—— **错**。工具 `:125` 一直读的就是 `pf.m_Name`（`m_ParsedForm.m_Name`），**名字那一半一直是对的**。
+  **真盲点 = 它只扫 3 个文件**（`shaders_assets_all.bundle` + 我们重打包的两份），而**内置 shader 在 `Warpforge_Data` 的序列化文件里**（`globalgamemanagers` / `globalgamemanagers.assets` / `resources.assets` / `sharedassets0.assets`）⇒ **恒 0 命中**。
+  ❌ **错因是「没扫内置文件」，不是「名字取错」** —— 两条都要记。
+  ✅ **修复**：`BUILTIN_FILES`（四个内置文件；路径 = `AA` **上溯 3 层**到 `Warpforge_Data`，⚠️ 上溯 2 层是 `StreamingAssets`，C 第一次数错已改）+ 双名匹配（`m_ParsedForm.m_Name` 优先、`m_Name` 兜底）+ 新增 `--list`。
+  **验证三项全过**：`UIEffect` 查到（`globalgamemanagers.assets`）· 回归 3 个原能查到的仍能查到（含 full dump `Eclipse Tau` 22,880 B）· **全库 202 个 Shader、`m_Name` 空 = 202（100%）**（`resources.assets` 21 / `sharedassets0` 2 / `shaders_assets_all` 45 / `wf_shaders` 45 / `wf_shaders_extra` 42）。
+  📌 **Shiny 前置通了**：`dump_shader_blob.py "UIEffect"` 现输出 **446,148 字节** + **41 个常量**，`_Transition*` 全家都在。🔴 **`_TransitionRotation` 不在常量表里**（组件上是 139）⇒ **旋转很可能烘进 `_TransitionTex_ST`（UV 矩阵）**，下一轮第一件要确认；⛔ 别把 139° 硬编码进 shader。另注：`_EdgeShiny*` 是 **Edge Shiny 变体**，别与 Transition Shiny 混。
+
+### 代理 H · 第 3 轮（三个通用件 + 页签生命周期 + 拖拽前置件）
+
+- 三个通用件**都是先读原版方法体再建**：`UIImageMaterialColorChanger`(188 行，**逐句照「先算 t、后累加 dt」**；缺属性出声) · `UIGroupTint`(224 行) · `UIScaleToFit`(191 行)。
+- **页签生命周期补齐**：`WindowTabBase` / `GameWindowWithTabs` / `TabButtons` 的 `Setup/TryOpenTab/CloseTab/OnClose/ToFocus/OnTabChanged/CurrentTabView/SetupTabs/OpenTabs/GetStartingTab/ChangeTab/ChangeTab<T>/GetTab(Type)/GetTab<T>/ChangeTabCO/ForceCloseTabs/CreateTabButton/DestroyTab`。枚举 `ChangeTab(WindowTabType)` **已改道 `ChangeTabCO`** ⇒ 生产切页现在会调旧页 `OnClose` 并触发 `OnTabChanged`。`FriendsTab.OnClose` 补 `override`（**否则基类调不到 = 静默漏执行**）。
+- **拖拽前置件**：`PointerLayer` 加 `RegisterDrag/UnregisterDrag/UnregisterDragsOwnedBy/ClearDrags` + move/up 分发（**纯加法**，未改 enter/exit/click；**可拖件优先于滚动区**；越 10px 才算拖，抬起发 `onDrop` 且**不派发 `onClick`**）；`MenuDraw.DeckCell` 两个重载加 `sortMode`（`localScale=0.8` + 压制 hover/选中高亮）。
+- 断言：`ShellScene` 新增一节 **92 个调用点（约 130 条）**，含「接上后值随源变」与灭自证（`q.Tint.r=0.4 < tint.r=0.5`、父框改变后 scale 变 1.5、排序列 hover 仍 0.8）；`RewardsScene` 锻造领奖 12 条。
+- 🔴 **裁定 1：`UIGroupTint` 的 `RefreshIfEmpty()` 撤掉。** H 自己的判据说清了：**`Refresh()` 在反编译里零调用点、306 个实例的 `m_PersistentCalls` 全空 ⇒ 原版这个组件就是空转的**。加一个方法让它「做点什么」= **自我设计**，违反用户口径。⇒ 删掉；306 处实例**先不接**，账判 **D**（理由：原版零调用点、空转，我们不接 = 行为一致）。
+- 🔴 **裁定 2：四扇窗的 `Open()` 必须先走 `base.Open()`** —— H 刚建的 `SetupTabs`/`ForceCloseTabs`/`OnTabChanged` **现在没有生产调用点 = 整条页签生命周期是死代码**。这比接实例优先。⚠️ 接的时候别让基类在每次 `Open()` 重做重活（`SetupTabs` 若重建按钮，加「已建过就跳过」的闸）。
+- **然后才接实例**：`UIImageMaterialColorChanger`(666) → `UIScaleToFit`(183)，**分批接**（先一类窗跑通再铺开）。`UIScaleToFit` 的 `fitInParent` 依赖父框、我们大量父节点是 `0×0` 锚点 ⇒ **逐处确认父框，遇到 0×0 停下来报，别自己补尺寸**。
+- `DeckCell` 以根为对应层（原版缩 `CollectionDeck.Content`）、不套 `UIScaleToFit` —— 结构性对应，口径认可。
+
+### 代理 D · 第 3 轮（11 种特效 kind 补齐 + 联机三类消息定级）
+
+- ✅ **11 种非 AnimFX kind 全部有等价组件**：
+  - **`ShakeAndSoundObject`（35/35）**：`OnEnable` 播 preset 屏震 → `WFModuleScreenShake.PlayPresetByName`（为此把 `Play` 尾巴抽成静态 `Fire`，**唯一收口**）+ `Tick` 按 `time/interval/total` 播 cue。**7 件带屏震**，preset 只有两张资产（`Shake Earthquake` / `Shake Hit Medium`，都在我们 17 条 preset 表里）；**23 件带声音，cue 全部解到**（例 `Dawn Attack` / `Factory Overdrive`）。
+  - **`MaterialFlickerEffect`（51/5）**：直接挂 `WFMaterialFlicker` + 从数据灌 `amplitude/frequency/fadeIn/fadeOut/randomStart`（`desync` 照原版 `Random.Range(0,100)`）。
+  - **`SpriteFlickerEffect`（2/1）**：新 `WFExtraSpriteFlicker`（同一套四正弦写 `SpriteRenderer.color` 的 α）。
+
+- 🔑 **`Unimplemented` 语义升级**：从「已知会丢」→「**加了 kind 却忘了加 case 的红旗**」⇒ 遗漏变成**可检测**的（比补组件本身更有价值）。
+- 断言 **R28** 升级为行为级：屏震 preset 名 + 音效 cue 都非空 · `amplitude≈0.4/frequency≈1`（**参数真从数据灌进来了**）· sprite flicker 在 · ④ 断 `Unimplemented` **不增加**。
+- 生成器 `gen_effect_extras.py` 扩展后 `--check` 与盘上一致；顺手修掉「`.asset.meta` 要去两段扩展，否则 cue 名带 `.asset`」。
+- ⚠️ **需 A 补的**：`ParticleFindFloorCollider`（9 处）靠 tag **`FloorPositionReference`** 找地面，而 7 个碰撞平面在 `BattleDriver.cs` 没打 tag ⇒ 今天走「找不到地面」那条（会出声不静默）。**已转 A**。
+- ✅ **联机三类缺失消息的定级（都没 P0）**：
+  | 消息 | 会不会不同步/卡死 | 级 | 理由 |
+  |---|---|---|---|
+  | `MatchFinished` | **不会** | **P1** | 局面正确性由「主机定序动作流 + 每回合指纹」保证；只影响时序 —— 原版收尾方会为对手最后几条动作**多等最多 12.5 秒**（`ShouldWaitForOpponentLastActions.c:16` + `_WaitOpponentLastActions…c:20` 的 `0x41480000`），我们直接结束 ⇒ 对手最后几拍可能「没演完就切走」 |
+  | `CardSeen` | 不会 | P2 | 纯表现（`ShowEnemyCardSeen.c:30`） |
+  | `CardReorder` | 不会 | P2 | 纯表现（`ShowEnemyHandReorder.c:31`） |
+
+- 联机两条 P1 的**自检已写进代码**：`NetSelfTest.TestGameVersionMismatch`（发 `protoVer` 同、`gameVer` 异 ⇒ 断主机关连接 + `LastError` 点明两个构建号；⚠️ 与既有的 `TestVersionMismatch` **不是同一件事**）+ 反向抓手 `NetMatchmaking.ModeMismatchCloses` 计数（**删掉新增的两句 `Close` ⇒ 客机永远停在 `BeginNetWait`**）。三条都标 **「🔴 P0 待验：自检恢复后第一批」**，本轮**没跑**。
+
+### 代理 F · 资源侧最终收口（**真实缺口 0**）
+
+- ✅ **24 条 AnimationClip「唯一真候选」也核销了：24/24 已覆盖、0 条真缺**。三条判据同时成立：
+  ① **数据在**：`MyGame/Assets/WarpforgeVFX/Animations/<同名>.anim` **24/24 逐字同名存在**；
+  ② **曲线在**：24/24 都是 **legacy clip**（不是 muscle 空壳），关键帧 2–6,019；
+  ③ **挂得上**：每个 `.anim.meta` 的 **GUID 都被我们自己的预制体引用**（3,123 个 prefab/asset/unity/controller/mat 里搜，**24/24 命中**）。
+  ⚠️ 名字对不上的几个（例 `Choppa Animation` 挂在我们 `NoMukkinAboutEffect.prefab`）**是按 GUID 判的，不是按名**。
+  ⚠️ 边界写明：本表只证「数据在 + 挂在对应预制体上」；**预制体有没有接进玩法**是特效线的事。
+
+- 🔴🔴 **第三处同类口径 bug（比结论更重要）**：这 24 条当初被判「没用上」，是因为 R0 的扩展名表**又漏了 `.anim`**（我们的 `.anim` 逐字沿用原版 clip 名）。补上 `.anim/.controller/.overrideController/.mask/.playable/.mixer` 后，24 条**全部自动转为「已用（工程内）」**。
+  | # | bug | 症状 |
+  |---|---|---|
+  | 1 | `数据/索引` 当集合差 | 「两边都有」被判「只在索引」（读过索引 5,119→1,232；已用数据表 14,539→16,818） |
+  | 2 | 扩展名漏 `.ogg/.wav` | 486 个 VO/音效全判「没看过」（实测 479 逐字同名在工程里） |
+  | 3 | 扩展名漏 `.anim` | 24 条战场 clip 全判「没看过」（实测 24/24 在工程里且被预制体引用） |
+  ⇒ **三次同型 ⇒ 问题在方法，不在个别疏忽。** 已写进方案：**统计「没用上」之前先验证扩展名/类型表完整；任何集合差都要先排除「同一份数据的另一种视图」**（索引目录就是这种）。
+
+- **净效果：「没用上」21,834 → 17,692；七类候选 3,549 → 255，其中真缺 0 条。**
+- **「判不了」只剩 4 项**（都写了「查过哪三处」）：应用图标 `Warpforge_*_512x512px`（桌面/商店图标，**做不做等用户拍板**）· `warning_icon`/`error_icon`/`timer_1`/`clearOnSceneLoaded` · `Skull_jaw`/`Skulltop`/`BW_Trim1-3` —— 全是 0 PPtr 按名加载、检索不到消费点。
+- **`Orc Frame` 88 个同名撞车**已写进候选表：「将来按 **PathID** 核卡框，⛔ 别按名」（与 R2 的 mesh 同名覆盖同族）。
+
+### 🔴 我转派错了一条（A 纠正）：`FloorPositionReference` tag 只打 **1 块**，不是 7 块
+
+- 我把 D 的「那 7 个平面要打 tag」原样转给了 A。**A 现读原版后证伪**：
+  1. `ParticleFindFloorCollider__Start.c:20-45` 的 `floorCollider` 是**静态缓存**（全场只有一块地面），`FindGameObjectWithTag` **返回第一个匹配**；
+  2. 另外 6 块的法线是 **±Z（竖直的墙）** ⇒ **7 块全打会让碰撞面随机变成一面墙**；
+  3. 场景 JSON 实读：`Floor Position Reference` = **`m_Tag: 20001`**，其余 6 块 **`m_Tag: 0` = Untagged**。
+
+- ⇒ 只给 `i == 0` 打；`ProjectSettings/TagManager.asset` 原本 `tags: []`，已补 `FloorPositionReference`。
+- 🔑 **断言选得好**：`FindGameObjectsWithTag(...).Length == 1` —— **用「唯一性」挡住「7 块全打」这个错误方向**，比逐个坐标断言更省也更准；再加「带 tag 的那块位置 == `ParticleColliderAt(0)`」钉住「打对了块」。
+- 📌 教训（对调度台）：**转述代理的需求时也要标「这是 D 的说法，判据请自己核」** —— 这次 A 核了，没照做；若它照做，碰撞面会变成墙，而且**只有真跑起来才看得出来**。
+
+### 🔴 口径收紧的第一次全量落地：代理 G 六账 **A 969 → 247**
+
+- G 按「A 必须双侧方法级」重判了六份账，判法三步：① 落点必须是**方法声明/数据表项** → ② 不行就在同文件按方法名找声明行 → ③ 仍没有 ⇒ **B**。**特意不做**「全仓唯一同名」兜底（实测会把 `OnDestroy` 认到 `BattleMusic.cs:262`、`CleanUp` 认到 `BadgesNotifications.cs` 这种别的类上，**假精确更糟**）。
+  | 账 | A→B | 改写为 `文件:行` 保留 A | 最终 A |
+  |---|---:|---:|---:|
+  | 其他_基础设施 | 36 | 0 | **11** |
+  | 未分类_其他 | 73 | 15 | **34** |
+  | 泛型与启动链_补读 | 86 | 54 | **73** |
+  | 社交_聊天 | 155 | 25 | **25** |
+  | 个人资料_成就_排行 | 214 | 46 | **52** |
+  | 教程_引导 | 90 | 29 | **52** |
+
+- 🔴 **退 B 的实据（这是重点）**：原 A 的 `:行` 大量指在**注释/函数中间** —— 例 `Loc.cs:720` 是**分节注释**、`TutorialFlow.cs:314` 是 `_selectSeen = true;`、`AchievementTally.cs:53` 是**讲 CardPlayedCount 的注释**、`SettingsWindow.cs:932` 被 **4 个 AccountTab 方法共用**。
+  ⇒ 也就是说：**过去那 722 行「已对齐」里，很大一部分根本指不到实现**。
+
+- **裁定（数据表项算不算方法级）**：✅ **算**，但**只在「该行为就是纯查表」时**（例 `CardRarityToString` → `RarityNames:386`）；⛔ 若原版方法还有**分支/兜底/条件**，光指表不够，必须把分支的落点也写出来，否则 B。⇒ G「保守记 B」的那两条（语言回落）**保持 B 是对的**。
+- 其它实修：`BiDirectionalDictionary` **C/A 混判 → 统一 D**（唯一消费点 `WindowsManager.automaticallyLoadedWindows`；我们等价物 `WindowsManager.cs:671 _openByRef`，单向 + 惰性删），**两份账同步改**。
+- 新 C 8 条（全 P2）：`CheckIfNewCards`/`FoundNewCard`（缺新卡标记）· `Decorator`×5（缺可装饰对象订阅-刷新，归活动线）· `UIResourceCounter.AddQuantity`（缺数字滚动动画）。
+- 更正我报的数：那批「抄账」盘上实际是 **LoginManager 35 + LoadableReference 17 + SceneInitializer 16 = 68 行**（不是 62），其中 63 行本来就不是 B，只动了仍是 B 的 5 行。
+- **已派 G 做跨账 A 档审计**（用同一套三步判法审其余 14 份账，**只出清单不改别人的 TSV**）。
+
+### 代理 F · 功能点索引（方案 §2.2 那张空表建起来了）
+
+- **输入 21 份账 / 9,614 行（20 个域）→ 归并出 96 个功能点**：主链 31（2,675 方法）· 边角 58（5,816）· 🔴 暂停 7（1,123）。**方法覆盖 9,614/9,614 = 100%**（无一行被丢；落兜底的 4,153 行也逐类列在 §3）。最高档分布 **A 70 · B 11 · C 4 · D 11**。
+- **归并规则三层，写死在 `_tmp_view/wfres/gen_feature_index.py`（可重跑 <1s）**：① **方法名正则**（只对巨型类：`BattleManager` 578 / `CardScript` 361 / `PlayerDataManager` 217，按类归并会把「出牌/攻击/死亡/回合」揉成一坨；⚠️ 规则顺序=优先级）② **原版类名正则**（其余域）③ **兜底 `.*`**（保证不丢行）。
+  三个踩出来的处理：**泛型类名先归一化**（`CollectionItem<T>`→`CollectionItem`，否则 `$` 锚点漏 21+27+27 行）· **编译器生成类型单独一档**（`<>f__AnonymousType…` 267 行全 D，不许混进真实功能点）· 状态 = **分布 + 最高档**（表头注明「最高档 A 只代表至少一个方法已对齐」）。
+
+- 🔴 **最高档 = C 的 4 个功能点**：`存档与玩家数据`（254 方法，C217）· `战斗场景加载与开场`（C10）· `UI 特效（描边/淡入/位移）`（C33）· `抽卡箱 Gacha`（暂停，C15）。
+- 🔴 **裁定：`存档与玩家数据` 那 217 条 C 【保持 C，不改 D】**。F 建议「PlayerDataManager 我们整体替换了 ⇒ 该判 D」—— **不采纳**：原版那层的行为是「**中央存档 + 每活动一份 `TSave`**」，我们换成了 **7 份各自为政的本地存档** ⇒ **是替代物但不是等价物**。
+  证据就是我们自己的分析：**「恢复活动线的正确起点 = 存档归并 → `LiveOpsHandler`」** —— 这一层缺着，活动线一恢复就得返工。
+  📌 **纪律**：⛔ 别把「我们有别的做法」当成 D；**D 只给「原版没有 / 离线不可用 / 死代码」**。
+
+- **F 的顺手发现**：`战斗场景加载与开场` 那 10 条 C **全部来自 `TipPrebattle`**（同组 `EverguildSceneManager`/`LoginScreenManager`/`TestLoginManager`/`ShowStatusWhenConnecting` 一条 C 都没有，全是 D）· **`UI 特效` 33 条 C = `UIBorderGlow` 13 · `NestedFadeGroupBase` 11 · `UITransformTweenController` 9**（看起来是真缺，建议单派一条）· `BattleManager` 还有 **224 个方法**没归进 14 个战斗功能点 · 同一份账被多个域共用（`泛型与启动链_补读.tsv` 有 8 个域）⇒ **归并按行的「域」列分、不按文件名分**。
+
+### 代理 D · 联机三条纯表现消息（含**读出来的**等待条件）
+
+- ✅ 三层都做了：**协议**（`match.finished` / `card.seen` / `card.reorder` + 三个 Msg）· **收发**（统一过 `CanSendPresentation`；参数非法/无会话 ⇒ **出声+丢掉**，不静默）· **宿主口**（新接口 `INetFoePresentationHost`，3 方法，**不实现不影响对局**）。
+- 🔑 **收尾窗口的条件读出来了（不是硬等）**：`ShouldWaitForOpponentLastActions` = **`matchFinished || ActionsLeftInQueue() > 0`**；循环 `while(cond && remaining>0){ remaining -= 2.0f; yield ≈1s }`；**`FinishWaitStep = 2.0f` 从 `GameAssembly.dll` `0x1834b2bbc` 直读**（= `00000040`），上限 **12.5 s**。
+  ⚠️ **没读清的一格如实标**：`ActionsLeftInQueue()` 的切口径用了 `Session.Inbox.Count` 当**代理量**，注释写死「这是代理、不是原版那个函数」。
+
+- 🔴 **兼容性口径（很容易踩）**：三条都是**新增 kind、不改既有格式 ⇒ 不 +`NetProtocol.Version`**；**给已有消息加字段才是改格式** —— 而 `JsonUtility` 会**静默忽略多出来的字段**（不报错、语义悄悄偏掉）⇒ 那种必须 +版本。已被 **R(N4)** 钉成可观测。
+- **自检配方 7 条**（`NetBattleTest.TestFoePresentation`，待自检恢复）：含 R(N4) 多发字段仍解析、**R(N5) 条件不成立 ⇒ 立刻结束（⛔ 不硬等）**、R(N6) 12.5/2.0 ≈ 7 步、R(N7) 超时自动结束；🧨 反向 `TickFinishWait` 恒 false/恒 true 各有对应红。
+- ✅ **它自己把报告里「给 7 个平面打 tag」那两处就地订正了**（铁律 5），并核实**它的消费点本来就走 tag**（`FindGameObjectWithTag` → `SetPlane(0, floor.transform)`，**取 Transform 不是 Collider**）⇒ 口径一致、不用改。也确认这不是死代码：5 件 prefab / 9 处挂载走 `effect_extras.json` 在 `Init` 时补挂。
+- 账：`联机.tsv` A 9 · B 64 · **C 3（全 P2）** · D 103（三条消息行 **C→B**「已实现、未跑验证」）。
+
+### 代理 A · ③ `RemoveTrait` 族（5 条升 A + **又一处真差异**）
+
+- 🔴 **真差异（已修）：摘掉 `flank` / `fast` 时没有重算 `canAct`/`canAttack`。**
+  判据 `CardScript.RemoveTrait`（`CardScript.cs:19361-19410`）：`blind ⇒ UpdateFigures()` · **`flank||fast ⇒ UpdateSummonSicknessAnims()`**（→ `ActivateMinion`，把 `canAttack(+0x23C)` 与 `canAct(+0x230)` **一起**写成 `!displaySummonSickness`）。
+  **我们原来只有「加」的半边**（`AddKeyword`/`AddAuraKeyword`，`AddEffect.c:570-572`），**摘的半边没有** ⇒「本回合给的侧翼/迅捷到期、或被效果摘掉」之后单位仍按带 `flank` 算，**两位静默停在上一次的值**。
+  修法：`UnitState.RemoveAll` 补一跳；**外加 `ClearAuraGrants`**（光环那本账**直接改字典、不走 `RemoveAll`**，所以光环收回 `fast/flank` 同样要重算）。
+  断言 `TestA6RemoveFlankRecomputesAct`（含灭自证）：召唤病 ⇒ 两位真 → 加 `flank` ⇒ 两位假 → **摘 `flank` ⇒ 两位立刻回真**；🧨 删掉那句 `RecomputeActAndAttack` ⇒ 红。
+  📌 **可复用的缺陷类型**：**「加的半边做了、摘的半边没做」** —— 本项目已经踩过多次（词条、光环、手牌效果）。以后凡是「Add/Apply/Grant」有了对应重算，**必须同时查 Remove/Clear/Expire 那一半**。
+
+- 5 条升 A：`AddArmour`（**结果 < 0 夹 0**）· `ContainsTrait` · `RemoveTrait` · `RemoveTraitAndEffects` · `RemoveTraitSilently`。
+- ⚠️ **一处如实标的不对称（未修，入账）**：原版 `RemoveTraitSilently` **不重算**，我们 `RemoveAll` 现在**无条件重算** ⇒ 若某条路用 Silently 摘 `fast/flank`，我们会**立刻恢复疲劳**、原版**停在旧值**。它**有 6 个真实调用点**但**没有一条核过会不会摘 fast/flank** ⇒ 账里写「可达性未核 + 差什么」，并且**明确拒绝**「没核实就加 `silent` 形参 = 死参数」。**这个拒绝是对的。**
+
+### 代理 E · 第 6 批（HUD 的 101 条 B）→ **全项目未读归零**
+
+- **HUD：B 101 → 2**（A 353→**423** · C 32→**62** · D 192 · **E 1→0**）。两条仍 B = **判据在服务端**（`RankedV3Event` 活动存在 ⇒ `gameModeSelector` 显隐 · `FeatureConfig.IsArmyHidden` + `GetActiveEvent(mode).GetEventDeck()`）。
+- 🔴 **`E 1 → 0`**：`CardDisplayWindow.CardUIClicked` 的 ILSpy `Invalid jump target` **只是 Cpp2IL 的问题**，`decomp_full` **有方法体**（`if (cardUIs.Count != 0) ChangeCardPosition(cardUIs[0])`）⇒ 点卡换前台、点前排早退；我们入口在 `BattleDriver.cs:12609 HitSlot → SwapToFront` ⇒ **A**。
+- 🔴 **5 条 P1（都是玩家能感知的）**：
+  1. **389 时钟 `PauseForAnim/UnpauseForAnim`** —— 原版在演出/结算期间**停表**（`timeInAnimation` 从已用时里扣），我们照走 ⇒ **玩家实际回合时长变短**；
+  2. **178/185 缺「本机掉线」那一支**（`status=1 ⇒ ShowDisconnectionPopUp(true)`，含 WaitingForOpponent/LostConnection/WaitForConnection 三行）⇒ **本机断网时我们说成「对手掉线」**；
+  3. **182 `OpponentDesyncCancelMatch`** —— 指纹不一致时原版**判玩家胜并结束这局**，我们只 Abort ⇒ **这局挂着不结束**；
+  4. **258 设置窗 Skip 钮**：原版首句 `SetActive(matchType==Tutorial)` ⇒ 我们**非教程局也显示**；回放局投降钮文案该换 `Battle/Settings/Exit`（键已在 `Loc.cs:1302`）。
+  5. （第 5 条在 P2 里，见报告）
+
+- 🔴 **`manaAccumulation` 挂错字段（真缺陷）**：原版 `SetupBoardPhase.c:181/196` 读的是 `GameplayVariablesData **+0x34**` = **`addedManaSecond`**（`manaAccumulation` 在 **+0x40**）⇒ 「能量累积」整组亮灭的判据应是 `addedManaSecond`。而我们 `public int manaAccumulation = 0` **全仓无赋值点** ⇒ **遭遇模式那盏灯永不亮**，且只在 `BuildHudExtras` 算一次不随局变。已转 A。
+- **一整族「发行版死代码」确认**（以后别再当缺口）：`CemeteryLogGroup` · `HoverManager` · `BattleScoreIcon.Config/Check` · `BasicCardUI` 星标族 · `CardDisplayWindow.TryInitializeCard` · `BattleCardUI` 的 vanguard/stealth/reflected 框族 —— 证据 = 全量反编译 0 调用 + `assets_full` 25 万 JSON 独有序列化字段 0 命中/只剩 MonoScript。
+- 卡牌面账同步：**95/97 → A**（`AddTraitSilently`/`GetNewTrait` 的**生产调用点 4 处全部走默认 `hideTrait=false`** ⇒ `_hide` 零可达）· **61/65 → A**（亲核 `CraftCard.c:44-46` 静默 return、`UpgradeCard.c:28-33` 崩、CloudScript 900/901）。现状 **A 108 · C 17 · B 0 · D 42**。
+
+### 代理 H · 第 4 轮（UIGroupTint 改回空转 + 页签进生产 + 接实例主动停手）
+
+- ✅ **`UIGroupTint` 改回「与原版同为空转」**：删 `RefreshIfEmpty` 与各处自动调用；保留 `Refresh()` 仅自检显式调；**断言先钉空转**（未 Refresh ⇒ `RendererCount=0`、`Toggle` 不自动收、`SetColor` 一件都不改）**再单独验算法**；账 **13 行改 D**（理由：原版 `Refresh` 零调用点 + 306 实例 `m_PersistentCalls` 全空 ⇒ 空转，铁律 11 例外①）。
+- ✅ **四扇窗页签生命周期进生产**：新增 `GameWindowWithTabs.EnsureTabsSetup()`（**`_tabsInitialized` 闸，只跑一次**）。
+  🔑 **理由很实**：**我们的窗每次开都重建页对象，每开都 `ForceCloseTabs` 会多一次 `OnClose`** —— 照抄会多跑一次回调，这种差别正是要人判的地方。
+  四扇窗各加一句（`RewardsWindow`/`ShopWindow`/`CollectionWindow`/`SocialWindow`）⇒ `SetupTabs`/`ForceCloseTabs`/`OnTabChanged`/`UpdateTab` **全部有生产调用点**；`RewardsScene` 新 2 条断言（`TabsInitializedForTest` + `Open()` 后只有一页 active）。
+
+- 🔴 **接实例时主动停手（对的做法）**：接线目标是 `Core/CardView.cs`（`SetOutline` / `ApplyShadowColor` / `CardbackFace`），而**卡面代理正在那个面上工作** ⇒ 按单写手规则停手，**没有随便挑个非原版宿主「先跑通」**（⛔ 跑在不存在的宿主上等于验证了一个假东西）。
+- **为接线做的准备（已落地、未碰 CardView）**：`UIImageMaterialColorChanger` 支持**同一 Renderer 多颗组件共用一份实例材质 + 引用计数** —— 因为卡面要**同时补间 `_Outline` 与 `_ShadowColor`**，否则后建的那颗会换掉 `sharedMaterial`、先建的写入**静默丢失**；配断言「两颗组件 `InstancedMaterial` 必须同一对象」。
+- **接实例的输入已查清**：**83 个 menu 实例全部在卡牌 UI 上**（`…/2DCard/Front/Card Highlight And Shadow` 与 `…/Cardback Container/Cardback Shadow SDF`）；属性 `_Outline`/`_ShadowColor`（global-metadata stringLiteral 19898/19752）；**`DoColorChange` 的 time = 0.2f**（PE `0x34b2bb0` = `cd cc 4c 3e` 亲读）；调用点已列全。
+- **接实例顺序（我记下了）**：主菜单 83 处（CardView/CardbackFace）→ 583 处战斗 prefab → `UIScaleToFit` 183。**排队等卡面代理收口。**
+
+### 🔴 代理 F 的功能点索引第 2 轮 + **一个要拍板的信号**
+
+- 索引 **96 → 144 个功能点**（主链 41 · 边角 93 · 暂停 10），兜底 **4,153 → 2,609 行**（1,096 → 862 类），方法覆盖仍 100%。逐域兜底率大幅下降（战斗 42%→11% · 特效 64%→21% · 社交 42%→4% · 收藏 34%→8%）。
+- ✅ **它自己纠了一处错**：把 `Ranked*`/`Skirmish*` 塞进暂停桶是**错的**（我的暂停清单里没有它们，遭遇战已做完）⇒ 改成 `排位赛与遭遇战` = **主链（未暂停）**，暂停只留 `Raid|ExpansionPass` 这类运营事件。
+- 🔴🔴 **关键信号：9,614 行里 `等级 = P0` 的是【0 条】**（C 行只有 P1×369、P2×1,202）⇒ **「从账推主链」这条口径永远判不出来**。
+  两种解释：**(a) P0 都被当场修掉了**（特效那 2 条 P0 确实是修完就没了）· **(b) 判等级时没人往 P0 上打**。
+  ⚠️ **这是有风险的信号**：如果没人打 P0，「P0 当场修」这条规矩就形同虚设。**已派 F 列出「主链功能点下的 P1 行」供 owner 复核**（判据：**「每一局都会遇到吗？」** 是 ⇒ 主链 ⇒ P0）。
+
+### 🔴🔴 代理 G · 跨账 A 档审计（**本次会话最重要的发现**）
+
+- **A 1,784 条 → 方法级 OK 只有 276（15.5%）· 有问题 1,508（84.5%）**。
+  | 账 | A | OK | 问题 |
+  |---|---:|---:|---:|
+  | 战斗界面_HUD | 423 | 81 | **342** |
+  | 菜单_外壳 | 344 | 89 | **255** |
+  | 卡组编辑 | 177 | **0** | 177 |
+  | 战斗逻辑驱动 | 151 | 20 | 131 |
+  | 收藏 | 141 | **0** | 141 |
+  | 商店 | 114 | 1 | 113 |
+  | 卡牌面_渲染 | 108 | **0** | 108 |
+  | 轮抽 | 99 | **0** | 99 |
+  | 特效动画 | 95 | **56** | 39（**唯一「真做过」的账**） |
+  | 战役 | 68 | **0** | 68 |
+  | 锻造 | 55 | 27 | 28 |
+  | 联机 | 9 | 2 | 7 |
+
+- **按修复成本分档**：🟢 **601 条一行就能改**（报告里已把该补的**方法声明行**算好）· 🟡 **343 条要重新指一次**（注释 143 · 函数中间 102 · 指到别的方法/字段 83 · 被多方法共用 15）· 🔴 **558 条等于没落点**（文件级 272 · 仅类/描述 220 · 仅类.方法解析不到 39 · 间接指认 27）。
+- 🔴 **结论：我之前报的「定案 54%」里，大部分 A 行指不到实现。** 六份账（卡牌面/轮抽/战役/卡组编辑/收藏/商店）的**方法级 A = 0**。
+- **分发**：E（HUD 342 + 卡牌面 108 + 轮抽 99 + 战役 68）· C（卡组编辑 177 + 收藏 141 + 商店 113）· A/H 后续。**改法：只修落点不改状态；🟡/🔴 两档找不到就退 B，⛔ 不许硬凑一行**（凑出来的正是下轮要抓的「假精确」）。
+- G 已停手待命；**修完后由它做复审计**，只交三样：修好了多少 / 仍不合格的具体行 / **新造出来的假精确**（重点）。
+
+### 代理 F · P0 候选清单 + 两处账质量问题
+
+- 全账 P1 **369** 条 → 主链功能点下 **236** 条，逐行判：**是 5 · 否 65 · 不确定 170**。
+- 🔴 **「是」的 5 条**：`BattleHud.SetTurnPlayedCards` · `ChooseCardMenu` 的 `CountdownTrigger`/`EndSelectionWithDelay`/`SetTimer`（**文案 `0:xx` 直接给玩家看**）· **`ClockManager.ClockRunningAnim`（就是 E 报的那条）**。
+- ⚠️ **抓到一处等级不一致**：`PauseForAnim`(:402)/`UnpauseForAnim`(:415) 与 `ClockRunningAnim`(:389) 是**同一个缺口的三行**，却判 **P2/P2/P1** ⇒ 已让 E 三行一起改 P0 并当场修。
+- 🔴 **账质量问题**：`存档与玩家数据` 那 217 行的 `判据出处` 各不相同，但 **`判据要点` 只有 1 种**（同一句类级摘要）⇒ **账里没有逐方法行为描述，「每局是否遇到」无法从账判**。
+  **裁定：不合并行**（会丢方法级覆盖），但要求每条 `判据要点` 指向判据文件里的**逐方法条目**；没有就补。已派 C。
+
+- ⚠️ **`商店`（54 C）与 `卡组编辑`（18 C）一条 P1 都没有、全是 P2** —— 两个高频域，已让 C 抽看。
+
+### 代理 A · 四件小接线（含 1 个真缺陷）
+
+- ✅ **`manaAccumulation` 挂错字段已修**：改成 `EnergyAccumulationOn`（`Ctx.Vars.addedManaSecond > 0`）+ `RefreshEnergyAccumulation()`（**判据只此一处**），建完 + **每次 `RefreshAll()`** 都走它。顺带订正旧注释「这个数是 LiveOps 下发、本地拿不到」—— `addedManaSecond` 是**规则书口径**（经典 0 / 遭遇 1）。
+- ✅ Tooltip 改 `ShowAtMouse(body, MouseWorld, v.KeywordAnchor.z, 1f/TipPx)`（⛔ 没自己写 `ScreenToWorldPoint`）。
+- ✅ 逐卡 tooltip 开关的消费侧：`TickTraitTip`/`TickCardTip` 各加 `if (!v.TooltipsEnabled) return false;`；「新卡先关、摆好后开」落在**手牌唯一建件点**（`SyncHand`）。
+- ✅ 「Skip 钮常驻」**3 处注释一起订正**（原版 `BattleSettingsWindow.cs:225-232` 第一句就是 `SetActive(matchType - 100 == 0)`）。
+  🔴 **由此暴露跨域待办**：**Skip 钮的显隐我们还没接**（落点 `Battle/SettingsPanel.cs` = E 域）⇒ 已转 E。
+
+### 代理 H · 菜单域 C 首批（6 件实功能）
+
+- ✅ **货币数字 0.5 s 滚动**（`TopBar` 的 `CounterRef{Value,Target,From,T,Animating}` + `StepCounters()`，`CounterAnimTime=0.5`；**批处理/不在屏上直接落终值**）。判据 `UIResourceCounter__SetQuantity.c` + `b__0/b__1`（每帧 `ceil`）+ `b__2`（终值）。
+- ✅ **`ResourcesBarController.ToggleOverlay`**：无 Canvas ⇒ **资源条子树渲染队列整体 +134（2986→3120，高于详情窗最高 3118）**，逐件记旧值、关掉逐件还原；接线 `CardDetailPopup` 的 6 个入口。**这个数值是按原版量出来的，不是估的。**
+- ✅ **`EverguildButton.OnTransformChildrenChanged`**：`WindowButton` 立即重收图形件、**保留已有件基色**（修「Collect 只收一次 ⇒ 运行期新增子件不染色/不灰」）。
+- ✅ `WindowsManager.GetOpenWindow<T>/CloseWindow<T>/RefreshWindow<T>`（B，暂无生产调用点）· `MainMenuWindow.ToggleScroll` + `MenuScroll.Enabled` + `PointerLayer` 三处闸（B，教程线未接）· `MainMenuWindow.ToFocus`/`GameWindow.ToFocus`（**原版虚表 `+0x1a8` 口**，进生产，A）。
+- **判死 6 项（都给了证据）**：`ResourcesBarController.Toggle` · `Shade.SwitchBlack*` · `ScrollViewFocusFunctions` 三个 `*Coroutine`（实际用瞬跳，我们 `MenuScroll.FocusOn` 已等价）· `GraphicsTab.ExtendedCompatibilityClick` · `MainMenuWindow.DelayedDisable` · `ObjectTogglerByQuality.OnEnable`（**全库仅 2 实例、都在 `battlearenaaeldari` ⇒ 归战斗线**）。
+- 账：C **136 → 120**（⚠️ **纠正我的旧数**：我给的 182 是 R3 前的数、实际 P1=0）· A 347 · B 79 · D 327。
+- 🔴 **我已让它停下继续做 C，先补 A 落点**（它账里 255 条不合格，其中 80 条是**纯文件级**）。
+
+### 代理 E · A 落点整改 + **P0 复核推翻了我的判断**
+
+- **四份账 A 落点全部收紧**（机检：A 行 0 条无 `文件:行`、0 条越界/文件不存在）：
+  | 账 | 改前 A/问题 | 改后 A | 方法级落点 | 降 B |
+  |---|---|---:|---:|---:|
+  | 卡牌面_渲染 | 108/108 | 100 | 99（+1 数据表项行） | 8 |
+  | 轮抽 | 99/99 | 98 | 96（+2 属性声明行） | 1 |
+  | 战役 | 68/68 | 60 | **60/60** | 8 |
+  | 战斗界面_HUD | 423/342 | 414 | **414/414** | 10 |
+
+- 顺带**修掉 4 条错指**：3 条旧行号因别人编辑 `BattleDriver.cs` 已失效（指到不相干方法）+ 轮抽里 `PlayButtonOnClick`↔`Resign`、`PackPreview`↔`ReRollClicked` 那组**指反了**的落点。
+- 🔴🔴 **P0 复核推翻我的判断（我错了）**：我判「时钟不停表 ⇒ 每局每回合 ⇒ P0」。E 逐句读 `ClockManager`：
+  - `PauseForAnim` **只置一位** `clockForAnimFlag`；
+  - `Update` 的 `timeInAnimation += dt` **排在「还没进倒计时就 return」那一整块之后** ⇒ **只有 15 秒倒计时阶段才累计**；
+  - 回合表 `timePercentagePassed` 在进倒计时前就 return，**该标记根本不参与**；
+  - `ClockRunning()/ClockRunningAnim()` **全库 0 调用者（死 API）**。
+  ⇒ **真实缺口 = 「15 秒倒计时遇演出不顺延」，不是「回合表不停」** ⇒ 不满足「每局每回合」⇒ **三行统一 P1**（原来 P1/P2/P2 三档，已对齐）。
+
+- 🔴 **它复核出 18 条该是 P0 的**（每局可见）：42 抬牌态开窗 · 194 抽牌终点锚 · 448/449/450 自绘光标 · 543/552 能量数字弹跳 · 455 结算收窗 · 653-662 战前提示 `TipPrebattle`。**它名下无这些文件**（`BattleDriver` = A；光标/战前提示是新件）⇒ 已转 A/F。
+- ✅ `SetTurnPlayedCards` **已实现**（`BattleDriver.cs:27702` 建三枚 + `:30553` 逐枚点亮）⇒ 原记录「整组没建」过期 ⇒ 铁律 5 就地订正为 **A**。
+- ✅ **设置面板侧已经做完**（`SetMatchType:2468` / `SkipWanted:2456` / `SetResignText:2482` + 断言 4 条）；**只剩驱动两行**（转 A）。
+- 📌 **它留了一条判据（已广播）**：等级复核就一句 —— **「不是每局都遇到，因为 ……」写不出来的，就该是 P0。**
+
+### 代理 D · A 落点整改（+ **自己写了机检**）
+
+- `特效动画` A 95 → **93**（37 条改指我们实现的**方法声明行**、2 条如实退 B：`UpdateTargetCollisionPlanePosition` 我们只在 `Initialize` 算一次、原版每帧跟卡动；`TweenInfoBase.GetTween` 原版 `abstract` 无方法体）· 顺带把 **17 处相对路径补成全路径**。
+- `联机` A 9 → **9/9 全部重落**（每条都指到具体方法与 case）。
+- 🔑 **它写了一个机检脚本**：每个 A 落点 → 文件存在 + 行号在范围内 + **那一行像方法声明** ⇒ 特效 93/93、联机 9/9 通过。
+  ⇒ **已让它把这个做成公共工具 `工具/check_ledger_points.py`**，以后每个 owner 交活前自己跑，不用等复审计再返工。
+
+### 代理 A · A 落点 131 条全处理（**148/148 带 `file:行`**）+ E 的四条 P0
+
+- **落点**：🟢 **121 条抄 G 算好的声明行**（落点改成 `文件:行 ｜ <原落点>`，**只改落点、状态与判据要点一字未动**）· 🟡 **7 条现找方法级**（`BoardSlots.cs:87` 的 `RoomOnSide(side)` 覆盖 5 条「可用格」· `EffectResolver.cs:7148` 分发器覆盖 2 条 `OnTrigger`）· 🔴 **3 条退 B**（`SendToCemetery` 我们模型无对应方法 · `CardDef.RelatedIds` **grep 0 命中**）。
+  ⚠️ 顺手订正自己两处：`GetBaseCardsInHandCount`/`GetSecondExtraCardsCount` 原指 `RuleCore.cs:276/348`（**函数中间**）⇒ 改指 `RuleCore.cs:105 HandMaxFor`（起手张数公式真身）。
+
+- **E 的四条 P0**：① **倒计时遇演出顺延** ✅（`_clockInCountdownAnimDepth` + `PauseClockForAnim/UnpauseClockForAnim` + `TickClock` 闸，**只在 `_clockInCountdown` 生效，⛔ 没放进回合表分支**）② **结算收窗** ✅（`ShowEndPanelAndFreezeInput()` 第一句 `CloseAllWindows()`，放在「等对手最后动作」闸**之前**）③ **抽牌终点锚 ⏸ 判据备齐但没做**（13 份战场树都有 `CardDrawPositions/{PlayerDrawnPos,EnemyDrawnPos}`，arena1 = `[1350,1030 100x100]`，但**那份 dump 的坐标约定没核** ⇒ 按铁律 3 **不猜参数**）④ **设置面板两行** ✅。
+- 🔴 **A 拒绝把「自绘光标」塞进 `BattleDriver`**（理由：原版 `OnGUI` 每帧按 Layout/Repaint 多次回调、`deltaTime` 在里面不可靠，与驱动「`Update` 单入口 + 显式时间泵」冲突；且文件已 3 万行；规矩上 `Battle/**` 除 `BattleDriver.cs` 外归 D）⇒ **已转 D 新建 `Battle/CursorManager.cs`**。
+
+### 代理 A · ③ 收口（3 A · 1 C · 3 B）+ **一条整类现象的根因**
+
+- **A 151 / 带 `文件:行` = 151/151** ✅。
+- 升 A：`RemoveActiveEffect`（摘掉产生该 trait 的 effect ↔ `UnitState.RemoveAll`）· `RemoveActiveEffects`（加 trait 前清 `removeTrait` 效果 ↔ `AddKeyword` 里 `_removedTraits.Clear()`）· `RemoveBuffedTrait`（**总与 `RemoveTrait` 成对调** ⇒ 合起来 = trait 消失；「只摘 buff」单独用**全量反编译 0 个单独调用点 ⇒ 不可达**）。
+- 🔴🔴 **最有价值的发现（C·P2）**：**我们的附魔层不把附魔卡的关键词并进载体**。
+  原版把附魔的 `CardEffect` 放进 `activeEffects`、由 `GetCurrentTraitValueWithModifiers` 把 `addTrait` **并进 trait 表** ⇒ **附魔带的关键词真会挂到载体上**；我们附魔是另一层、载体的 `_keywords` 不并它 ⇒ **「附魔带 `Armour 1` 之类在我们这边不生效」的整类现象**。
+  还缺第五步：追加附魔后调 `ActivateTraitsOnSummonOrEnchantment(onSummon:false)`；但**不是加一句就行** —— 得先做「附魔关键词并进载体」再接那句。
+  ⇒ **已让 A 查可达性并按新判据定级**（卡池里多少张附魔带 `addTrait` / 预组里有没有 ⇒ 高可达就升 P1/P0）。
+
+- 留 B：`GetCopyOfCardEffects`（没核复制品是否继承源卡的 `_keywords`/`_grantedOps`）· `RemoveEffect`（原版摘**一条记录**、我们按关键词整份撤 ⇒ 「同关键词叠多条来源」时不同）· `SetBaseCardTraits`（原版「`CurrentTraits` 整体重置回卡面」、我们只有构造期装载）。
+- `AddEffect`（824 行分派器）是这一族**唯一剩下的硬骨头**，保留 B。
+
+### 🔧 代理 D · 机检工具落地 + **自绘光标其实是原版死代码**
+
+- ✅ **`工具/check_ledger_points.py` 已落地**（纯只读）：逐条检 A —— ① 落点能解析 `文件:行` ② 文件存在（**四个根**，含 `Unity/` 以吃下 `MyGame/Assets/...` 写法）③ 行号在范围内 ④ **那一行像声明**（不是注释；`)` 后只能接 `{`/`=>`/`//`/`where`/`:`；`;` 结尾的必须带访问修饰符＝抽象声明；`.json/.tsv/.asset` 只要求行存在）。
+  ⛔ **不做「全仓唯一同名」兜底**（那会把「落点写错文件」洗成通过），已写进文件头。
+  **现读全账：A 1,936 · 通过 1,296 · 失败 640**（最重 `菜单_外壳` 267 · `战斗界面_HUD` 108 · `战斗逻辑驱动` 60）。D 自己三本 **135/135 全绿**。
+  ⚠️ **口径差异（必须记）**：这个工具只查**行号形态**，**判不出「指到了另一个方法的声明」** ⇒ 它报失败**一定**是问题；它报通过**只说明形态合法**，仍要人判「是不是这个方法」。
+
+- 🔴🔴 **自绘光标（448/449/450）其实是原版死代码 ⇒ C/P0 改判 D**。三条互相独立的证据：
+  1. **唯一实例的 GameObject 是关着的**：`Intro.unity` 里 `CursorManager`（`&118`）**`m_IsActive: 0`**，组件 `&420` 的 `cursorTextureNormal/cursorTextureClicked` **都是 `{fileID: 0}`（null）** ⇒ `Start/Update/OnGUI` 一个都不跑；就算跑，`GUI.DrawTexture(rect, null)` 也画不出东西，而它 `Start` 里会 `Cursor.visible=false` ⇒ **光标会彻底消失**；
+  2. **全库 grep `cursorTextureNormal` = 0 命中**（84 包 / 24.7 万文件）⇒ 出货包里连组件数据都没有；
+  3. **原版 PC 上系统光标可见**：全量反编译里动 `Cursor.visible` 只有 4 处，那句的闸是 **`SteamUtils.IsSteamRunningOnSteamDeck() && GameStaticData.touchInput`**（只有 Steam Deck + 触屏才藏）。
+  ⇒ **我们一直用系统光标 = 与原版实际表现一致**（铁律 11 例外①）。方法体已读全留档（热点 `(宽/70, 高/40)`、尺寸 `宽/21`、`mouse.y = Screen.height − Input.mousePosition.y`），将来真要做不用重查。
+
+- 🔴 **抽牌终点锚（194）：「树 y 一律翻转」的假设被两个反例推翻** —— 拿树里另两个节点反算：`CenterCameraButton` `1108+568.174=1676.17` vs `OffensiveButton` `987+446.857=1433.86`，两个「和」**不同** ⇒ 树里的 y 是**各自父节点的 `m_AnchoredPosition`**，要逐节点带 anchor/pivot + 父链换算。
+  ⇒ **A 当时不猜参数是对的**；要核必须先补那三个节点的 `m_AnchorMin/Max` · `m_Pivot` · 父链 rect（可从 `RectTransform/*.json` 直读）。⚠️ 在那之前**别把 `(1350, 646.2)` 之类写进代码**。
+
+- ✅ `MaterialChangerByQuality` 实例位置核实：**5 处全在战场**（`Battle Arena 3 Baked.prefab` · `Battle Arena Aeldari Baked.prefab` · `Battle Arena 3.unity` · `Battle Arena Aeldari.unity` · `Battle Arena Tau Viorla.unity`），菜单侧 0 ⇒ 备注「归战斗线，本账只留判据不留施工」。
+
+### 代理 H · 菜单账 A 落点修复完成（255 条）
+
+- **183 条补到真实声明行**（144 条用 G 建议行、**先校验**那一行确实是声明，26 条指向注释/邻行的已 snap 到声明；另 39 条手工等价映射）· **72 条退 B**（`差异` 列统一追加「G审计 2026-10-25：A 落点无法精确定位（<问题类型>）⇒ 退 B，待重新找本方法实现」，**原落点原文保留**）。
+- 现账：**A 278 · B 149 · C 120 · D 326**；**A 全部带 `\.cs:\d+`**。
+- 落点统一格式 `CardPresentation/<相对路径>:<行号>（<声明名>）` ⇒ **复审计可一键核**。
+- 6 条「无方法体的等价实现」已标注（数据表 / 属性写入点 / 内联绑定），复审计时按「等价实现」判。
+
+### 🔧 落点机检进度（调度台现跑）
+
+- **A 1,936 · 通过 1,404 · 失败 532**（一小时前 1,296 / 640）。
+- **剩余失败集中在一个代理的三份账**：`卡组编辑 177` + `收藏 141` + `商店 114` = **432 / 532**。其余零散（战斗逻辑 60 · 锻造 20 · 菜单 4 · 教程 4 · 轮抽/社交/泛型/HUD/其他 各 2）。
+- ⚠️ **A 报「151/151 都带 `文件:行`」但工具报它 60 条失败** ⇒ 印证了「**有行号**」和「**行号指向声明**」是两件事 —— 已让它跑工具修。
+
+### 代理 A · 附魔那条 C 的定量判级 + **自己推翻了上一段的话**
+
+- **现读数据**：附魔类 buff（`buffType 12/15/16`）**132 条**，带非零载荷 **37 条 / 33 张卡**，其中 **14 张出现在预组里共 50 次**（BL74/UM73/SAU53/TL47/索里塔斯 9 张）。
+- **但缺的那一步不可观察**：`ActivateTraitsOnSummonOrEnchantment` 只在附魔授予 **`fast/flank/ferocity/oath`** 时才改 `canAct/canAttack`；而全池附魔载荷的 trait **只有两个** —— **`1185 pray`**（15 张索里塔斯，**卡面本来就印着 Pray** ⇒ 重复授予）与 **`480 vulnerable`**（BL04→BL74，**走正常文本 op、不经过附魔层**）。数值类同理由卡面文本驱动。
+  ⇒ **P2 保持，备注写死**：「每局不遇到，因为附魔载荷里没有任何 `fast/flank/ferocity/oath`；其余载荷要么是重复授予、要么由卡面文本 op 覆盖。」
+
+- 🔴🔴 **它订正了自己上一段的话（铁律 5）**：原话「我们的附魔层不把附魔卡的关键词并进载体 —— 这解释了『附魔带 `Armour 1` 之类不生效』的**整类现象**」—— **不成立**（37 条载荷逐条看过，**没有** `armour`/`melee`/`range` 这类只靠附魔层才生效的项）。
+  它的自评：**「我把『重要』当成了『等级高』」** —— 这句自评很准，也正是「等级按可达性定、不按实现难度定」这条判据要抓的。
+
+- **顺手发现（数据侧，未核、未改）**：`SAU53 Undying Legions` 的附魔载荷是 `meleeAttackChange 2 + rangeAttackChange 2`，但**卡面是「Remnant 得 Shield / 给督军 Shield」对不上** ⇒ 可能把同卡另一条 ability 的载荷归并进来了（**若真如此是影响结算的数据 bug**，不只是读错）。
+
+### 代理 E · 收口（四份账落点全绿 + 光标改 D）
+
+- ✅ **机检四份账全绿**：卡牌面 **100/100** · 轮抽 **98/98** · 战役 **60/60** · **战斗界面_HUD 414/414**。
+- ✅ 自绘光标 448/449/450 **改判 D**（按 D 的三条证据），报告死代码表加第 11 项；HUD 现状 **A 414 · C 58（P0 15 / P1 11 / P2 32）· B 12 · D 195**。
+- 🔴 **它报了一个影响整本账的运维事实**：
+  > `BattleDriver.cs` / `DeckRules.cs` 本会话内至少撞到**两次行号漂移**（`UpdateHud` 从 30456 挪走、`SkullsFor` 529→536）⇒ **这批 `文件:行` 是快照**。
+  ⇒ **已让 D 给机检工具加「按方法名重定位」**：落点若带 `（声明名）`，就按名字找 —— 找到且行号一致 = 通过；**找到但行号不同 = 报「漂移（实际在 X 行）」而不是失败**；找不到才算失败；可选 `--fix` 就地改正。
+  ⇒ **这样账才抗编辑**，否则每次改完代码几百条落点全变假失败。
+
+- 它自己把落点统一成 `CardPresentation/<路径>:<行号>（<声明名>）` 格式 —— **正好是这个能力的的前提**，已要求保持。
+- 它第一轮跑出 106 条失败的两类原因也值得记：① **正则把 `new Vector2(` 当成方法名**（落点里混进了 `Vector2`/`Color`）；② **行号被别人编辑漂移**。
+
+
+---
+
+### 🗂 批次 · 第七十九会话第一批（2026-10-25 晚 · 调度台派活）
+
+**目标** = 清「语义闸」**1,116 条缺注解**（这是 A 这个数可信的前提）+ 顺手清落点尾巴（2 失败 / 20 漂移）。
+**派了 7 路 = 5 执行 + 2 查判据**（铁律 13·7 上限）：
+
+| 代理 | 活 | 独占账 / 文件 |
+|---|---|---|
+| **P1** | HUD **377 缺注解** + 4 漂移（P2 那 13 条仅作余力） | `账/战斗界面_HUD.tsv` |
+| **P2** | 菜单 **161** + 卡牌面 **96** + 5 漂移 | 两份账 |
+| **P3** | 战斗逻辑 **139** + 5 漂移 + **`BattleDriver` 7 条接线**（`待A接线清单.md` #1–#7） | `账/战斗逻辑驱动.tsv` · `RuleEngine/**` · `BattleDriver.cs` |
+| **P4** | 轮抽 **93** + 战役 **54** + 锻造 **44** + 教程 **35** + 6 漂移 | 四份账 |
+| **P5** | 特效 **25** + 未分类 **21** + 个人资料 **16** + 其他 **11（含 2 条形态失败）** + 联机 **8** + 社交 **4** | 六份账 |
+| **G** | 泛型补读 **32**（可写）+ **语义复核 57**（只读，写报告） | `账/泛型与启动链_补读.tsv` |
+| **F** | `AddEffect` 824 行分派器判据切割 + `TipPrebattle` 调用点取证 | 只写 `判据/**` |
+
+**两条口径裁定（调度台，2026-10-25）**：
+
+1. 🔴 **「漂移」必须由该账的写手自己 `--fix`，⛔ 不设「落点尾巴专岗」。**
+   理由：20 条漂移散在 4 份 TSV（轮抽 6 · 卡牌面 5 · 战斗逻辑 5 · HUD 4）；两份写手同时改同一份 TSV 会**静默盖掉**（铁律 13·3）。
+   ⇒ 按域分给 P4(6) / P2(5) / P3(5) / P1(4)。⚠️ `--fix` 前先看清单，同文件多处命中同名**一律手工改**（「一行式属性假阳性」先例）。
+2. ✅ **抽牌终点锚（接线 #3）没有冲突 —— 以判据文件为准，P3 直接接。**
+   早先日志里那句「别把 `(1350, 646.2)` 之类写进代码」说的是**换算方法核出之前**；
+   `判据/HUD光标与抽牌锚.md:115-128` 已给出订正值：`CardDrawPositions (0,490,100,100)` ·
+   `PlayerDrawnPos` / `EnemyDrawnPos` 都是 `(1350,490,100,100)`，**13 场同值**。
+   ⛔ 别按场分支，⛔ 别给对手挪一格。
+
+**顺手核到、就地落盘的三件事（⛔ 别重复查）**：
+
+- 🔴 **「账里 A 1,835」与「机检 A 1,908」不矛盾** —— 差额 **73** = `账/泛型与启动链_补读.tsv` 的 A 行（它不在 20 域统计里，但机检 `--all-A` 会扫）。以后**两个数分开读**，别当成不一致去查。
+- 🆕 **缺注解按域分布**（`工具/list_missing_annot.py` 现读）：HUD 377 · 菜单 161 · 战斗逻辑 139 · 卡牌面 96 · 轮抽 93 · 战役 54 · 锻造 44 · 教程 35 · 泛型补读 32 · 特效 25 · 未分类 21 · 个人资料 16 · 其他基础设施 11 · 联机 8 · 社交 4 = **1,116**。
+  ⚠️ **无一条是 `NO_LINE`** ⇒ 1,116 条全是「落点声明的名字 ≠ 原版方法名」（不是「没写行号」）。
+
+- 🆕 **新增工具** `工具/list_missing_annot.py`（**只读**，不改账）：
+  `python -I -X utf8 工具/list_missing_annot.py`（各域计数）/ `... <域> [--limit N]`（逐行：类 | 方法 | 落点原文 | 实际声明名 | 判据要点 | 判据出处）。
+  口径与 `verify_annot.py` **完全一致**，以后清注解一律用它认领，别自己写临时脚本。
+
+### 代理 P5 · 六域缺注解 85 条全部清完 + 2 条形态失败清掉
+
+- 六域 `list_missing_annot.py` 现 **0 条**；`其他_基础设施` 形态闸 **0 失败**。
+  处置 85 条 = **①补注解 80 · ②改指真声明 4 · ③退 B 1**（特效 25 / 未分类 21 / 个人资料 16 / 其他 11 / 联机 8 / 社交 4）。
+
+- 两条形态失败的裁法：`CardRarityToString` → 改指 `Core/Loc.cs:3414（T）`，注解点名整链
+  （键表 `FilterPanelModel.RarityTermKeys:389` → `Loc.T` → 可见调用点 `:738`）；`IsNeutralArmy` → **退 B**
+  （原落点是 `ArmyIcons.cs:54 public const int Neutral = 0;`，**常量 ≠ 方法实现**）。
+
+- 3 处改指都带证据：`AnimFXModuleTween.OnDisable` 的复位在 `WarpforgeVFX/Runtime/WFModuleTween.cs:291-297`（**不在** `DoDestroy`）·
+  `MulliganFrame.ChangeCardButtonOnClick` → `Battle/MulliganPanel.cs:1400（HandleClick）` · `CardArmyToString` → `ArmyIcons.cs:137（LocalizedName）`。
+
+- 核验：六域形态闸 **A 219 / 通过 219 / 漂移 0 / 失败 0**；六份账**行数不变 · 无 BOM · 纯 LF · 每行 11 列**；备份 `D:/tmp/p5_bak/`。
+
+**裁定（回它「CardRarityToString 该不该保 A」）**：✅ **保持 A**。
+依据 = 本日志 `:652` 已裁过「**数据表项算方法级，但只在『该行为就是纯查表』时**」—— 这条正是那个裁定的原型例子；
+且它的落点不是裸表，而是「**键表 + `Loc.T` + 调用点**」三点齐，满足方法级。
+
+**它的三条「没查清」我这样处置**：
+1. `HasPlayerReachedLegendaryDivision(highestElo, highestEloSeason)` —— 原版按**赛季**取事件表，我们只有一张可注入阈值表 ⇒
+   **语义闸不负责掩盖差异**：这条若确实是「不同」，应记 `C` 而不是只写进注解。⇒ **已交 P6 核 `差异` 列并改判**。
+2. `UnitTweenSO.BuildSequence` 的 `useCallBack` 支：「原版 4 个调用点全传 null」是**旧说法，它没复核** ⇒ **已交 P6 逐个复核**。
+3. `GetLocalizedArmyName(useShortName=true)` 短名支未落地 + 官方表**确有 6 条 `_short` 键** ⇒ **已交 P6 查可达性并落地**。
+
+🔴 **它带回来一个整类的账质量问题（我当场抓到的，⛔ 别重犯）**：
+**「账写着 `A`、`差异` 列却写着缺口」** —— 实测两条：
+`账/未分类_其他.tsv` 的 `CatalogItemContainer.TryPurchase()`（状态 A，差异写「`ExtraLegendaryWarning` 确认框未落地（待做）」）·
+`账/其他_基础设施.tsv` 的 `ArmyUtilities.GetLocalizedArmyName`（状态 A，顺手发现里写「短名支未落地」）。
+⇒ **口径写死**：**`差异` 列只要写了「未落地 / 缺 / 不同」，状态就不可能是 `A`**；要么 `C`（要做），要么 `B`（没核清）。
+这两条已交 P6 一并改判。
+
+### 代理 G · 泛型补读 32 条清完 + 语义复核 58 条（**本批第二个高价值发现**）
+
+**第一件（可写账）**：`账/泛型与启动链_补读.tsv` 32 条缺注解**全清** = 18 等价补注解 + 9 改指真声明 + 5 退 B。
+两道闸现读：`list_missing_annot.py 泛型与启动链_补读` → **0**；形态闸 **A 68 / 通过 68 / 漂移 0 / 失败 0**（改前 A 73）。
+
+🔴🔴 **它抓到的跨账通病（已广播给 4 个写账代理，务必进交接坑表）**：
+> **上一轮有人把「（等价实现 = X）」写在【备注】列，而语义闸 `verify_annot.py` 只认【落点】列** ⇒ 那 32 条**一直清不掉**。
+> ⇒ **口径写死：等价注解一律写「我们的落点」列末尾，写备注列不算。** 这也解释了 1,116 里可能有一批「其实早就写了、只是写错列」。
+
+**第二件（只读）**：`报告/G_语义复核_第2轮.md`（7 节）—— 交接写 57，按 `G_A档审计_复核.md` 各域「仍不合格 + 新出现」相加实为 **58**（多出 HUD 的 `CombatCameraZoom.OnDestroy`）。
+**合格 11 · 指错 11 · 类级命中 34 · 名字假精确 2 · 无法判定 0。**
+
+- 🥇 **最值钱的假精确**：`BattleCardUI.GetTraitListForCardIcons` 落到 `Core/Badges.cs:532(For)`，而 `For` 用的是**更严的 in-play 口径**（要求 `isInPlayIcon`），原版这条只要 `hasIcon+traitIcon`（判据就在 `Core/Badges.cs:40-46` 的注释「同族但不同用途」）⇒ **真缺口**。
+- **零风险改指 4 条（G 已给目标）**：`CombatCameraZoom.OnDestroy` → `Battle/CombatCameraZoom.cs:340`（现指 `:329 Awake`）· `ChooseCardMenu.GetTittleText` → `Battle/ChoosePanel.cs:202(ResolveTitle)`（现指 `:218 Open`）· `AttackTypesButtonsController.OnEnable` → `Battle/AttackSelector.cs:1160(Show)`（现指 `:817`）· `MulliganManager.Setup` → `Battle/MulliganPanel.cs:951`（现指 `Open:960`，**方向反了**）。
+- 🔴 **「一行挂多条」= A 虚高**：`ClockManager` 6 条同指 `BattleDriver.cs:13581(Update)` · 轮抽 7 条同指 `DraftModeWindow.cs:1024(Close)`（Close 只有 `SetNavPanelVisible+base.Close`，**没有任何解绑**）· 锻造 4 条同指 `ForgeTab.cs:764(Refresh)` · `TargetReticle` 2 条同指 `:563(Aim)`。
+- **其它方向反了的**：`MulliganManager.Setup`（Open vs 初始隐藏）· `PracticeModePopup.OnDestroy → Build:1323`（构建 vs 解绑）· `ForgeRewardItemContainer.ConfigurePoints → ForgeTab.cs:918`（**函数中间**，真落点 `BuildCell:869`）· `BoosterPackOpenWindow.BoosterPackOpen` 应指 `:413(Show)`。
+- **账面卫生**：`泛型账 L249/L250` 两条 `LiveOpsHandler.GetEvent` **完全重复**；`b__9_0` 的判据出处 `il2cpp_out/dump.cs:71442` **不可用**（正解 cpp2il `CollectionFilterController.cs:819`，整句 `gameObject.SetActive(false)`）；`轮抽账 L138` `DraftModeWarlordSelectionStateDemo.OnDestroy()` 的判据写成了 `:65 OnOpen` 的行为。
+
+**我的处置（不另开一轮，直接转给当前写那份账的人）**：
+58 条按域拆开后**转给 P1(HUD 30) / P2(菜单 5 + 卡牌面 1) / P3(战斗逻辑 2) / P4(轮抽 9 + 锻造 7 + 战役 2) / P6(特效 3)**，
+要求它们在**做完手上缺注解之后**同批处理（同一份账、同一个写手，不撞车）：
+① 指错 ⇒ 改指（G 已给目标）；② **类级命中 ⇒ 退 B**（除非能补出**行号范围 + 「这段代码如何分别满足各方法」**，那才可保 A —— 方案 §四的例外条款）；③ 名字假精确 ⇒ 退 B 或按 G 建议补实现。
+
+**它的 3 条「没查清」我记在这里，⛔ 别当成已核**：
+1. 34 条类级命中的判定依据是**形态**（一个方法承载多个原版方法 / 落在整面板构建器），**没有逐句核**内部（Build/Update 动辄上千行）。
+2. `ForgeRewardSelector.RewardCollected` 的关特效 / `CardHighlight.Start` 初始态 / `CampaignWindowTab.OnSetup` 的隐藏 debug 钮 / 战斗逻辑 `ResolveDrawCard` 是否另有 coroutine 分片 —— **均未查**。
+3. 泛型/迭代器方法体的原版判据本身是「签名+片段+派生类调用点」推的（`判据/泛型与启动链.md` §六 已标），**未核实**。
+
+### 代理 F · 判据第 2 轮（AddEffect 切块 12 个 + 池内可达性全表 + TipPrebattle 定性）
+
+**第一件：`CardScript.AddEffect` 切成 12 个可认领块 K0–K11**，每块带「分支条件 + `.c` 行号 / 枚举真值 / 我们落点 + 行号 / 现状 / 置信度 / 归属」。
+**额外重头产出**：**池内可达性全表**（`cards_raw.json` 1,351 张卡 SO 逐 `buffType` 计数，非 0 共 **2,386 次**）—— 这是「排先后」的一等判据。
+**最该先做的顺序**：K7 `markOfChaos(8)/lastMarkOfChaos(17)`（池内 58+2）→ K9 `choiceEnchantment(16)` 五个 spellType 子支（26）→
+K8 `setCurrentHealth(100)+setMeleeAttack(70)+setCost(95)`（2+2+6，且我们 `DoSetHealth` **两档语义都不对**）→
+K3 addTrait 11 条特例（入口最多：flank 124 / vanguard 68 / fast 64 / shield 60）→ K2 addTrait 主体（738 次，我们结构上没有）。
+
+**它要求回写正本的三条（铁律 5，我已转给 `战斗逻辑驱动` 的写手 P3）**：
+1. 「**8 markOfChaos 池内 0 张**」**错** —— 实际 **58 次**（`EC41 Internal Rivalry` / `BL30 Chaos Lord` 等）。
+2. 「**16 choiceEnchantment 未建**」没写可达性 —— 实际 **26 次**。
+3. 「`BuffType` 全表 **29 值**」**错** —— `BuffType.cs` 只有 **28 个成员**（含 `none`），非 none **27**。
+
+**关键判据（进下一批口径）**：
+
+- 🥇 权威 = `D:/2/tools/decomp_full/CardScript__AddEffect.c`（974 行，`switch` 用 **buffType 原值**，常量保留）。
+  ⚠️ **`out_il2csharp` 是 `switch(buffType-1)` ⇒ case 号整体差 1，抄错全错位**；ILSpy 那份条件已丢，只能交叉核单行。
+
+- **前置闸实为五道**（卡状态 / jam / extrinsic 去重 / **残骸门 `.c:159-170`** / 施放者不在场 `.c:171-195`）—— **我们一道都没有**。
+  最危险是残骸门：`isRemnant` 时只放行 `addStats(healthChange≠0)` 与 `addTraitRemnant(90)`，漏了会**静默**给残骸挂增益。
+
+- `SameTimingAsEffect` = **五个时长旗标**分桶（`CardEffect.cs:142-167`），我们是**单值 `HandEffect.Expire`**。
+- 池内不可达 **13 档**：`5/6/7/9/10/11/20/26/30/35/40/45/85`。⚠️ `20 doubleAttack` 的 0 是**自洽**（原版 `.c:198` 先改写成 addStats）；
+  ⛔ `7/26/40` **不许**因「AddEffect 不管」就判 D。
+
+**第二件：`TipPrebattle` —— 定性为「原版代码残留、离线零可达」**
+1. **拿不到触发点，且能自证**：当前 build **84 个 bundle（100% 覆盖）+ 4 个基础文件**里 `TipPrebattle` 的 MonoBehaviour 实例 **0 个**；
+   4 个独有字段名 + 5 个方法名（UnityEvent 的 `m_MethodName` 是落盘字符串）**全 0 命中**；
+   **对照实验**（同法搜 `BattleTipController` 的独有字段 → 多个战场场景命中）证明搜法有效。
+2. 「传什么参数」查到了：原版是 `DisplayTips(PlayerDataManager)` → `playerData.GetRandomTip()` → 本地化键 `PrebattleTips/<key>`，
+   数据形状 `Tips{ int maxHeroLevel; List<string> tips; }`（按督军等级分档）。
+3. 「什么时候显示」**判据缺失、且这个功能在当前 build 连数据都没有**：`PrebattleTips/*` 在 10,854 条官方本地化里 **0 条**；
+   `PlayerDataManager.tips`（`:5102`）**没有赋值点**。
+
+> 🔴 **裁定（调度台 2026-10-25）：`TipPrebattle` 记 `D 不适用`**，理由写死上面三条（代码残留 / 无实例 / 无文案 / 无赋值点）。
+> 依据 = 方案 §四「`D` 必须引到原版调用链断在这儿的代码行」—— 这里断在「没有实例、没有数据」。
+> **E 那 392 行实现保留但不接线**（它比报告写的更完整：6 次重试 / 比上一条 / 前缀查词条都照原版）。
+> ⚠️ 这不是「因为难所以不做」，是**原版本身就没有**（铁律 11 例外①）；将来若 `PrebattleTips` 词条出现，再回来接。
+
+**已就地改正一处文档错**（铁律 5，我自己复验后改的）：
+`资料/战斗规则与数值_出处.md:152` 那张「按 MonoScript 的 PathID 找实例」——原文写「**文件名里就是 PathID**」，
+实测**只对 `bundle_Waprforge_monoscripts/MonoScript/`（722 个）成立**；
+**`globalgamemanagers/MonoScript/`（4,453 个）是【序号】命名、且 JSON 里没有 `m_PathID` 字段**
+（`MonoScript_1941.json` 的 `m_Name` 是 `TipPrebattle`，1941 只是序号）。已在原处加订正块（保留更正痕迹）。
+
+**它的「没查清」（⛔ 别当已核）**：
+1. `PlayerDataManager.GetRandomTip()` 按 `maxHeroLevel` 挑档的比较式 —— 反编译丢方法（`Method not found @180F3FA70`）。
+2. `replaceAbility(40)` 的真实入口（SO 里 0 次，但 `hasAlternativeAbility` 字段在）。
+3. `removeExtrinsic(11)` 的 `extrinsicVariable` 支：`Aura.Recompose` 整体重算是否覆盖**未核**。
+4. `ContainsExtrinsicEffectFrom` / `AddArmour` / `EntityScript.Current*` 的方法体（`.c` 只调不展开）。
+5. `SpellType` 五个数字（`0x3c/0x78/0x82/0x8c/0xbe`）→ 名字**没二次核**。
+6. `TipPrebattle` 未跑原版实况（跳战场 dump UI 树是唯一一锤定音，属重操作）。
+7. 905 个导出失败对象是哪些（只知分布；战场/menus `fail=0`，风险低）。
+
+**顺手发现（3 条）**：
+
+- 🔴 `DoSetHealth`（`EffectResolver.cs:13729`）**与原版两档都不同**：原版 `setHealth(9)`=**回满血**、`setCurrentHealth(100)`=**无条件设为 N**；
+  我们=**只降 + 比当前小才改 + 查 Invulnerable**。`EC39 Eternal Servitude`（池内 2）可观测。
+
+- ⚠️ `判据/CardTrait词条权威表.md` 的 `stackable` 列**全是 `10`** —— 那是「未解」占位、**不是枚举值** ⇒ K2 的三种叠层规则**目前没有逐 trait 真值**。
+- ⚠️ `ruleprobe` README 自述：`A1759` 把 `WhileInPlay` 那一族判「我们缺」**很可能是口径缺口**（`bt=3 addTrait` 同理）⇒ 已写进 B2A 口径防重踩。
+
+**它建议的下一批切法（我采纳，Q1/Q2 已派出）**：Q1 池内不可达 13 档入口再证 · Q2 前置门与现算口径（**E 组共同前置，先发**）；
+E1 K2+K3+K4（trait 全族，独占 `UnitState.cs`/`ConditionEval.cs`）· E2 K7→K9→K8（`EffectResolver.cs` 的 markOfChaos/附魔/sethealth 段 + `Enchantment.cs`）·
+E3 K10+K1（`RuleCore.cs`/`CardDef.cs`）· E4 K0 五道闸 · E5 K5（5/6/30，等 Q1 证入口）。
+⚠️ `UnitState.cs` / `EffectResolver.cs` / `Enchantment.cs` **同文件不许两个写手**。
+
+**产出**（全部 LF / UTF-8 无 BOM）：`判据/战斗逻辑驱动_AddEffect分派器.md`（39,976 B）· `判据/战斗逻辑驱动_B2A_口径.md`（11,627 B）·
+`判据/TipPrebattle_调用点.md`（12,760 B）· `报告/F_判据_第2轮.md`（17,136 B）。
+
+### 代理 P2 · 菜单 161 + 卡牌面 96 = 257 条缺注解清零
+
+| 域 | 改前 | ①补注解 | ②改指 | ③退 B | 改后 |
+|---|---:|---:|---:|---:|---:|
+| 菜单_外壳 | 161 | 150 | 8 | 3 | **0** |
+| 卡牌面_渲染 | 96 | 78 | 16 | 2 | **0** |
+
+另外：**卡牌面 5 条漂移全修**（都是 `ComputeTextState` 真声明在 `CardView.cs:5144`，账里错写成属性 `TextState` 的 `:5097`）·
+**G 的 6 条全处理**（②改指 2 · ③退 B 2 · 合格保持 2）· **自纠 2 条**（`CardCollider.Awake` / `CardTrait.ShowingTrait` 从 B 恢复 A）。
+两账形态闸：菜单 **A 272 / 272 通过 / 0 漂移 / 0 失败** · 卡牌面 **A 97 / 97 / 0 / 0**。
+
+**它的两条自纠值得记（都是「先判错、后按判据翻回来」）**：
+
+- `CardCollider.Awake`：原版只在 `sendEventsToScrollRect` 时缓存父 `ScrollRect`；我们的转发在 `Shell/PointerLayer.cs:384 Update`（`HitScroll:460 → BeginDrag:489 / DragTo:491 / EndDrag:503`）⇒ **A**（先前只 grep 到注释，误判 B）。
+- `CardTrait.ShowingTrait`：cpp2il `CardScript.cs:19301 AddTraitSilently(..., bool hideTrait = false)`，**4 个生产调用点全走缺省** ⇒ `_hide` 恒 false ⇒ 落在 `RuleEngine/Core/UnitState.cs:806（Has）` ⇒ **A**。
+
+**退 B 的 5 条**（每一条都写清了缺什么）：`HideStat`（原版写 "?"+hiddenStat，我们没这条）· `ResetHide` ·
+`EverguildInput.GetKeyDown`（无 `IsEditingInputField` helper）· `TitleTab.SetTitle`（无「当前称号」存储）·
+`MainMenuWindow.Initialize`（G 判类级命中，内容在 `Build:401`、`SetBaseMenu+OpenWindow` 在 `ApplyBaseMenu:716`）。
+
+🔴 **它报了两条「我们的代码确实错」的实差异，我当场抓出账里的自相矛盾并派回给它修**：
+1. `账/菜单_外壳.tsv:762` **`UIGradientUtils.RotationDir` 状态是 `A`**，而注解自己写着
+   「原版 `(sin,cos)`；我们的 `Core/CardArt.cs:775-776` 是 `dx=cos, dy=sin`」—— **差 90°**。
+2. `账/菜单_外壳.tsv:758` **`CompensateAspectRatio` 也是 `A`**，而它在顺手发现里写「rect 宽高比补偿**整档没有**」。
+⇒ **这正是我上一轮写死的口径**：「`差异`/注解只要写了缺口，就不可能是 `A`」。已让 P2 回头处置（要么改代码对齐 → 再 A，要么记 C）。
+
+**它的「没查清」（⛔ 别当已核）**：
+1. `SetColliderNotInHand` 的 `removedFromGame / inCemetery ⇒ Toggle(false)` 支**未复刻**（**卡碰撞体开关这一层整体没做**），该行仍 A 但只覆盖常态矩形。
+2. **战术卡初始态**：原版按 `spellType` 选 3/4，我们按 `SubtypeLine` 非空（hasRace）—— 是否逐卡等价**未核**。
+3. `HideStat` 写 "?" 的上游用途（哪个链在用）未追。
+4. `EverguildToggle.allowClickWhenAlreadySelected` 只核了 `SettingsWindow` 一处。
+5. G 提到的 `BoosterPackOpenWindow.BoosterPackOpen`（在**锻造**账）与 `CampaignWindowTab.OnSetup`（在**战役**账）**不在这两份账里**（按「类+方法」全账 grep 确认），它没动 —— 已转给 P4。
+
+**顺手发现（10 条，⛔ 一条都没自己改）**：
+
+- 🆕 **`工具/check_ledger_points.py` 只认带 `.tsv` 的账名**，任务书里写的 `... 战斗界面_HUD` 会报「找不到账本」。
+  ⇒ 🔧 **调度台已修（2026-10-25）**：现在 `X` 与 `X.tsv` 都收，两种写法实测都通。
+
+- 菜单域约 **20 条落点缺 `CardPresentation/` 前缀**（能解析、能合闸，但不符合统一格式）⇒ 留作后面一次归一化。
+- ⚠️ **`Shade.finish()` 原版方法体在 cpp2il 里是 `NotImplementedException`**（产物缺失）⇒ 这一条要按「读不到」记，⛔ 别用序列化默认值顶替。
+- ⚠️ **`GetNewTrait` 的签名缺省是 `hideTrait = true`，而唯一调用点 `AddTraitSilently` 传的缺省是 `false`** —— 差点据此判错；建议记进卡牌正本（⛔ 别按参数名猜语义）。
+- ⚠️ **`BattleDriver.cs` 本批期间被别的写手连改**（`15362→15414`、`26725→26809`）⇒ P2 已把两条落点改指到稳定文件；**同步点我在没人写该文件时跑一次 `--all-A --fix` 收号**。
+
+### 代理 P4 · 轮抽 93 + 战役 54 + 锻造 44 + 教程 35 = 226 条缺注解清零（含 G 的 18 条）
+
+| 域 | 处理 | ①补注解 | ②改指 | ③退 B | 处理后 A |
+|---|---:|---:|---:|---:|---:|
+| 轮抽 | 93 | 77 | 9 | 7 | 91 |
+| 战役 | 54 | 43 | 10 | 1 | 59 |
+| 锻造 | 44 | 34 | 7 | 3 | 51 |
+| 教程_引导 | 35 | 30 | 4 | 1 | 51 |
+
+G 的 18 条：合格不动 4 · 改指 4 · 退 B 10。四份账形态闸**全量通过 / 0 漂移 / 0 失败**；`list_missing_annot` 四域 **0**。
+**全局缺注解：1,116 → 70**（剩下基本都在 HUD，P1 还在跑）。
+
+🔑 **漂移的根因它找对了**：轮抽那 6 条「漂移」其实是账里行号**指到了 `MenuDraw.Hit(...)` 调用点**，
+`--fix` 只改行号改不掉这个 ⇒ **它没用 `--fix`，6 条全手工改到真声明**（`PickPack :2468→3087` · `ReRollPack/OnReRollSuccess/OnReRollFailed/ReRollClicked :1622→2971` · `PlayDebugButtonOnClick :1686→3144` · …）。
+⇒ 这条要写进坑表：**「漂移」里有一种是「指到调用点」，`--fix` 治不了，必须按方法名找声明。**
+
+**它和 G 的两处分歧 —— 我的裁定**：
+1. **`RefreshLevel` ×2（`ForgeSelectedArmyInfo` / `ForgeWindowTab`）**：G 判退 B，P4 改指 `Shell/ForgeData.cs:184（LevelText）`。
+   ✅ **采纳 P4 的改指**。理由：原版这两个方法体的行为就是「拼 `{Level} cur/max` 并写进 `levelText`」，拼接整段确实在 `LevelText`，`Refresh:774` 只做赋值 —— 落点是**方法级**且指到了实现该行为的那几行，符合方案 §四。
+   ⚠️ 附带条件：备注里要把**赋值那半边**也点名（`Refresh:774`），别让下一个会话以为赋值没做。
+2. **`CampaignWindowTab.OnSetup`**：G 说「隐藏 debug 点按钮是否在 Build 未核」，P4 核到了 —— **不是 `SetActive(false)`，是按判据一律不建**（`CampaignTab.cs:9` 纪律①）。
+   ✅ **维持 B**。理由：这条方法的两半里，「取战役列表」那半退化成唯一一套 `ArmiesWithContent`，没有方法级落点。**一半核清不足以升 A**（方案 §四：双侧都要到方法级）。
+
+**它的「没查清」（⛔ 别当已核）**：
+1. 原版方法体在 cpp2il 里**大量 `NoteDecompilerIssue`**（只有签名+片段）⇒ 本轮「原版做什么」取的是「签名+片段+既有判据要点」，**未逐句读透**。
+2. `BattleDriver.cs` 正被 P3 改写（`EnsureTutorialOverlay` `15992→16025→16044` 三次漂移），账里是快照。
+3. `ForgeRewardSelector.Initialize/RewardCollected`、`BoosterPackOpenWindow.ToggleTextHelper` 退 B 后**没有拆分/补实现方案**（要改代码，超本批白名单）⇒ 进下一批。
+
+**顺手发现（4 条）**：
+1. 🔴 **`轮抽.tsv` 还有 6 处「判据要点」与方法名错位**（它只被我点了 L138 那一处）：`PackPreview/PackSelected/ReRollClicked/RefreshReRollPrice` **四条成四循环**；
+   `DraftModeMenuOngoingState.OnEnable/OnDisable` 两条**要点互换**（行号是对的，错的只有要点）。⇒ **已让它回头就地修**（这 6 条是事实性错位，不是判断）。
+2. `DraftModeMenuOngoingState.OnEnable/OnDisable` 同指 `RefreshOngoingPage(:2588)`，属「一行挂多条」同族，G 本轮未点名，它保 A（该函数确实同时刷胜场数字/胜负格/战将立绘）⇒ **保留，记在这里备查**。
+3. ⚠️ **「拿 `*ForTest` 自检口当落点」的风险**：本轮抓到 1 条（`ResetReOpenProtectionForTest`）。⇒ **已让它全账扫描一遍 `*ForTest`**（只读报告）。
+4. 建议其它域也做「落点补 `（声明名）`」规范化（教程 30 + 锻造 8 条原来没有）⇒ **排到同步点之后**（那时各账没有写手）。
+
+### 代理 P3 · 战斗逻辑驱动 139 条缺注解清零 + `BattleDriver` 7 条接线全接上
+
+**① 139 条** = ①等价注解 **121** · ②改指真声明 **14**（全过形态闸）· ③退 B **4**：
+`AI.ScoreFromBuff`（addStats 系数是我们配的）· `CardScript.SetHealthToZero`（原版全量反编译**零调用点**，它建议裁 D）·
+`CardTraitCollection.GetTraitFromAbilityTrigger`（无 trigger→trait 逐值映射）· `BattleManager.ResolveDrawCard`（G 判名字假精确）。
+本域 $A$：151 → **147**；形态闸 **A 147 / 通过 147 / 漂移 0 / 失败 0**；`typecheck 0/0`。
+
+**② 七条接线**：#1 选牌面板倒计时（`:14074-14091`）· #2 抬牌态不开窗（`:12665`）· #3 抽牌终点锚（常量 `:2716-2729` **与判据逐位一致**；
+`CardDrawAnchor01/PositionWorld` `:23541/23549`；我方发牌航程改飞锚点 `:26499-26512`）· #4 能量数字弹跳（`:30603-30610`，**变了才弹**）·
+#5 设置面板两行（**上一轮已落地**，`:27915-27917`）· #6 联机表现宿主三方法（**已实现**，`:2129-2155`，最后一条不判胜负）· #7 本机打完收尾等待（**已实现**，`:30866-30880` + `:13618`）。
+
+**③ 它把 `ResolveDrawCard` 的协程全文读了**（`decomp_full/BattleManager._ResolveDrawCard_d__432__MoveNext.c` 313 行）：
+空牌库时按 `GameplayData.shouldReshuffle` 分叉 —— **真 ⇒ 墓地回填牌库再抽（我们整支没实现）**；假 ⇒ `ResolveFatigue`（我们等价）。
+另陷阱支 / `BroadcastCardDrawn` / `SetCardTurnDrawn` / `FinishResolvingAction` 全部写进差异列。
+
+**它的四处「需你裁」—— 我的裁定**：
+1. ✅ **`HudAnchor01(EvtKind.Draw)`：改到抽牌锚，并同步改 `Editor/BattleScene.cs:2795-2802 / 2955-2966` 那两个纯函数断言**。
+   理由：那两个断言钉的是**旧值**（手牌格位），而旧值已被 `判据/HUD光标与抽牌锚.md §二·订正` 推翻；
+   断言应当盯**原版参数**而不是盯我们自己的常量（铁律 12）。⚠️ 改断言时**必须**在旁边写「期望值依据 = 判据 §二·订正」，否则就成了「改绿」。
+2. ⛔ **`SetHealthToZero` 现在不判 D**：它只做了「全量 C# 零引用」这一查，而 `D` 的口径明令**必须再查 prefab `m_PersistentCalls` / 场景挂接 / SO·Addressables**。
+   ⇒ **保持 B**，三查做完才能改 D（三查全空 ⇒ D，理由写死「查过哪三处」）。
+3. ⏭ **#3 的「我方第二跳」与「敌方那半」暂不做** —— 要动 `HandLayout` / `CardFeel`，而 `Hand/**` 此刻归 P1（还在跑）⇒ **排下一批**，别撞车。
+4. ✅ **`IsEnviromentaleffect` 200/210 今天零消费点** ⇒ 记 `B` + 备注写死「进攻卡走 `envSO`，这两档零消费」，⛔ 不判 D（判据没断，只是今天没入口）。
+
+**顺手发现（已报未改）**：`TraitScore` 缺 `ward/poisoned/poisonous/blast/shuriken` 出口，**且 `shuriken` 写 0** ⇒ 若可达就是**静默少给分**；
+`PayloadScore` 的 addStats 系数是我们配的；`AddEffect` **五道前置闸**（残骸门最危险）缺失；`shouldReshuffle` 回填支休眠未做。
+
+### 代理 P6 · 四条落地（P5 顺手发现里「判据已清」的那批）
+
+1. **`GetLocalizedArmyName` 短名支 —— 可达，已实现**。全库 **5 个调用点**逐个看过实参：
+   `AvatarDrawer.cs:19` / `CampaignHeaderDisplay.cs:124` / `DeckSelectionTabController.cs:449` / `:605` 不传；
+   **`RankedDeckSelector.cs:645` 真传 `useShortName: true`**（排位窗空态 `MainMenu/Ranked/NoDeckMessage` 的 `{1}`）⇒ **不是死代码**。
+   落地 `Core/ArmyIcons.cs:149`（int 重载）/ `:158`（新增 string 重载），先 `Armies/<Faction>_short`、空则回落全名（走 `CardText.TermOr`）。
+   官方 `_short` 键**确为 6 条**，两份本地化文件现读一致、zh 列非空 ⇒ **不用动 `Core/Loc.cs`**。
+2. **`ExtraLegendaryWarning` —— 早已落地，是同一个**。原版条件（`decomp_full/CatalogItemContainer__TryPurchase.c`）=
+   **`Rarity == 4 ∧ GetOwnedCount == 1`**，弹窗后 `return`。我们 `Shell/ShopTabPage.cs:714 Buy → :716 NeedsLegendaryConfirm（ShopData.cs:414，同一判据）→ :723/:753 ShowLegendaryConfirm → :764 DoBuy`。
+   **没有新增第二个弹窗** —— P5 当时写「未落地」是错的，已就地订正（这条正是我上轮写死的「账/差异自相矛盾」口径抓出来的）。
+3. **`IsNeutralArmy` —— 已补 helper**：`Core/ArmyIcons.cs:178 IsNeutral(int)` + `:186 NeutralArmies`（保留「集合」形状）。
+   原版 `GameStaticData.cs:981-984` = `Enumerable.Contains`，数组在 cctor `:2444-2445` 建成**长度 1、元素 `Neutral(0)`**；4 处内联全换走（`Shell/ProfileData.cs:790/824/943` · `Shell/DraftPacks.cs:248`）。账 **B→A**。
+4. **`useCallBack` 支 —— 旧说法不准确，已实现**。全量反编译里 `BuildSequence` **5 处调用 / 4 个文件**，
+   其中 `_ResolveTraitAnim_d__465:194` **确实传非空 delegate**，但只在该方法的 `useCallBack != 0` 分支里；
+   `UseCallBack` 属性**全库 0 消费者**；真正挡住的是**数据**：74 份 `数据/游戏数据/tween/*.json` 的 `useCallBack` **全 0**
+   （53 显式 0、21 无字段=默认 false；`callBackTime` 非 0 只有 `Summon Troop Tween`=1.15）。
+   按铁律 11 **仍实现**：`Core/UnitTweenTable.cs:186 Build(..., Action onSequenceSignal = null)` + `:231-234 InsertCallback`（判据 `UnitTweenSO.cs:287-298`）。
+
+G 的 3 条已按三档处理：`Card3DAnimationController.Start` 合格不动 · `TweenInfoBase.GetTween` A→B（类级命中，`Build` 同时是 `BuildSequence` 的落点）· `BuildSequence` A 保留 + 落点更新（注解写在**落点列**）。
+
+**核验**：`typecheck 0/0` · 三份账列数异常 0 / CRLF 0 / 无 BOM · 形态闸 **11/11 · 31/31 · 92/92**（漂移 0 失败 0）·
+`verify_annot` 这三份 **0** · **「A 行 × 差异词（未落地/未实现/缺）矛盾扫描 = 0 条」**（这条自检很好，建议以后每批都跑）。
+⚠️ 它改了 `.cs` 推移行号，**顺手把三份账里失效的 A 行落点修准**（`ArmyIcons.cs:145→190` / `:137→149`×2 / `:242→287`；
+`UnitTweenTable.cs:218→243`×5 / `:172→186` / `:369-390→424-447` / `:393-414→448-494`），另修两条**别人改动推移的**预存失效行号（只改行号没改判定）。
+
+**改动请求（我没让它自己改，已单独授权）**：`Shell/LiveOpsEventWindow.NoDeckMessage()`（`:433-441`）实现的是原版 `RankedDeckSelector.ChangeDeck` 空态，
+而原版那句用 `useShortName: true`（`RankedDeckSelector.cs:645`），我们用的是全名 `CardText.Faction` ⇒ 建议 `:439` 改 `ArmyIcons.LocalizedName(SelectedArmyFaction, true)`。
+它已 grep 过**无自检断言拼整句**，改动不会红。
+
+**没查清**：短名支与 `useCallBack` 支都只有静态判据 + 类型检查，**无真机实证**（红线不跑 Unity；`useCallBack` 还要改数据才造得出一例）。
+`neutralArmies` 确认只有 cctor 一处赋值（`GameStaticData.cs:400` 声明 / `:2445`），**没逐字节核运行时是否被反射改**。
+
+**它留下的两条提醒（⛔ 别当已解决）**：`Core/UnitTweenRuntime.cs:92` 不传 `onSequenceSignal` 与原版 `AnimFXModuleTween.PlayAnimCoroutine:43` **同口径**（都传 null）⇒ **不算缺口**；
+将来若换数据，要补 `ResolveTraitAnim` 那条链的 `WaitUntil` 第二半。`账/特效动画.tsv` 里 `MoveTween`/`RotateTween` 的 `isLocal+isPlayer` 取反仍是 **C / P2**（未动）。
+
+### 代理 P4 · 第 2 轮跟进（两处裁定落地 + 6 处要点订正 + `*ForTest` 全账扫描）
+
+- **裁定 1 落地**：`RefreshLevel` ×2 落点保持 `Shell/ForgeData.cs:184（LevelText）`（A 不变），备注已点名**赋值那半边**
+  「`LevelText(:184)` 只算这串字；赋值在 `ForgeTab.Refresh():774`」⇒ 双侧都到方法级。
+
+- **裁定 2 落地**：`CampaignWindowTab.OnSetup` **维持 B**，备注写清两半（「隐藏 debug 钮」= 按 `CampaignTab.cs:9` 纪律① **一律不建**，已核清；「取战役列表」退化成唯一一套 `ArmiesWithContent`，无方法级落点）。
+- **6 处判据要点订正**（只动这 6 行的 `判据要点` + `备注`，逐格 diff 证明）：四条四循环已归位；
+  `DraftModeMenuOngoingState.OnEnable/OnDisable` 两条互换已换回（依据 `cpp2il` 的 `OnEnable :37-51` / `OnDisable :53-…`）。
+
+- 🔴 **顺带查出 `判据出处` 也同一轮转错位**：`DraftModeSelectPacksStateDemo` 四条现为 `PackPreview→:671` / `PackSelected→:460` / `ReRollClicked→:254` / `RefreshReRollPrice→:274`，
+  **正确应为 `:274 / :254 / :671 / :460`**。⇒ **我已单独授权它改这 4 格**（事实订正，不是编造）。
+
+**`*ForTest` 全账扫描（只读，严格命中 3 条）** —— 这条扫得很值，**自检口当落点会让 A 变假**：
+| 账 | 行 | 原版方法 | 落点 | 判断 |
+|---|---:|---|---|---|
+| 战役 | L102 | `CampaignWindowTab.TryCollect` | `CampaignTab.cs:1059（ClaimForTest）` | ⚠️ 名字带 ForTest 但**确是生产入口**（`BuildContext` 的 `OnCollect = tier => ClaimForTest(i,tier)`，`:1027`）⇒ **A 站得住**，建议**改名** |
+| HUD | L201 | `BattleHud.OffensiveButtonTransform` | `BattleDriver.cs:31524（HudButtonPieceForTest）` | 纯自检取名口（只转发 `HudPiece.transform`）⇒ 改指真身或退 B |
+| HUD | L543 | `ManaManager.ToggleSpiritStoneMana` | `BattleDriver.cs:1990（SetMulliganWaitStateForTest）` | 🔴 **落点与注解名字对不上**（括号写 `SetFactionResourceVisible`、行里是 `SetMulliganWaitStateForTest`）⇒ 明显指错 |
+
+松散命中 5 条（落点正文**提到**自检口当可观察量，落点本身不是）⇒ 无需处理。
+**已分派**：战役 L102 交 P4（改名 `Claim`，备注写明原名带 ForTest 但确为生产入口）；HUD 两条交 P1。
+
+**落点 `（声明名）` 规范化**：它四份账**注解当首括号的行 = 0**；但 **105 行是旧写法 `（`Name`：desc）`** —— 能过闸但**抗漂移弱**（读不出名字，上游加行即硬失败）。
+⇒ 统一规则已给出（`` （`Name`：desc） `` → `（Name）；desc`），**排到同步点之后**再做（那时各账没有写手）。
+
+**下一件我让它做的（比规范化更值钱）**：**它四域共 52 条 C**（战役 26 · 轮抽 17 · 锻造 9）——
+判据已定 + 改动小的**直接做掉**；判据缺的只写「还差什么 + 可达性」。硬规矩两条：每改一处 `.cs` 跑独立 TMPDIR 的 `typecheck`；**不许把 C 判成 D 来清账**（D 要做足三查）。
+
+### 代理 P3 · 第 2 轮跟进（断言改写 + `SetHealthToZero` 判 D + `shouldReshuffle` 立 C）
+
+- **① 抽牌落点改到锚点，两处断言同步改写**（我授权的 `Editor/BattleScene.cs`）：
+  `HudAnchor01(EvtKind.Draw)` 直接回 `CardDrawAnchor01(mine)`；`PlaySignals` 里同批多张的 `drawPoints[k]` 也改成同一个锚（原来按 `HandRow01` 各算一格）。
+  两处断言块**都在原地写死**「期望值依据 = `判据/HUD光标与抽牌锚.md` §二·订正」+ 为什么（旧值 = 手牌末尾格，已被该判据推翻）。
+  🥇 **它自己补了一条「灭自证」断言**：抽牌锚 ≠ 手牌末尾那一格（改回 `HandRow01` 时两条不可能同时绿）—— 这正是本项目要求的写法（铁律 12 那条反模式）。
+
+- **② `CardScript.SetHealthToZero` → D（三查全空）**，而且**带对照组**：`m_MethodName` 全库命中 **1,442 处 / 860 文件**（证明搜索有效），
+  ① prefab/场景 UnityEvent `m_PersistentCalls`/`m_OnClick` **0** ② 场景挂接 `bundle_scenes_*` **0** ③ SO/Addressables **0**；叠加全量 C# 零引用 ⇒ D，理由写死在差异列。
+  ⇒ **这是 `D` 的样本做法**（有对照组、三查齐全），以后判 D 照这个格式。
+
+- **③ `RawCardScript.IsEnviromentaleffect` → B**：差异写死「原版 = `spellType ∈ {200,210}`；我们读 `CardDef.SpellType` 真值 ⇒ 今天零消费（进攻卡走 `OffensiveCardData.envSO`）」。
+- **④ `shouldReshuffle` 回填支 → 新增一行 `C / P2`**：判据 `BattleManager._ResolveDrawCard_d__432__MoveNext.c:52-186`，差异列保留四条支路
+  （`ResetToValuesInHand → UndissolveToDeck → reparent/RemoveFromCemeteryList → CreateCardInGame→MoveToDeck→AddCardInPlayToDeck`），备注写「现池三档 false ⇒ 休眠；按铁律 11 照做（配置改动兜底）」。
+
+- **⑤ 两条静默风险写进 `AI.ScoreFromBuff` 行备注**（下一批派）：`TraitScore` 缺 `ward/poisoned/poisonous/blast/shuriken` 且 `shuriken` 写 0.0（原版返回 `traitValue`）；
+  `PayloadScore` 的 addStats 系数是我们配的（原版 = 近战+远程+血 原值和）。
+
+**核验**：`typecheck 0/0`（含 `Editor/BattleScene.cs`）· 本域缺注解 **0** · 形态闸 **A 146 / 146 / 0 / 0** · 形态 1,537 行 / 0 CRLF / 列数异常 0。
+**账面变化**：`战斗逻辑驱动` **A 146 · B 1,176 · C 66 · D 148**（A 由 147 降 1 = `SetHealthToZero` 判 D）。
+
+**仍开着的（下一批）**：#3 第二跳（我方锚→手牌格补间）与敌方 `DealInQuad` 终点（要 `Hand/**`，等 P1 收线）；
+`AddEffect` 的 K 块（等 Q1/Q2）；`DrawCard` 第二跳 / 特效挂点与航程终点的分工（未查清）。
+
+### 代理 P2 · 第 2 轮跟进（角度那条「推翻」半对半错 —— 我按 2026-10-11 的旧裁决核过）
+
+**它做的**：调用面审计 + 逐卡比对 + 三处「A 但写着缺口」的处置。**一个 `.cs` 都没改**（三条落地都要跨 `Battle/**` 或 8 个调用点）。
+`RotationDir` 保持 A（注解按现读订正）· `CompensateAspectRatio` **A → C/P1** · `CardCollider2D.SetColliderNotInHand` **A → C/P1** ·
+`CardTextsController.SetCardTextLayout` **A → C/P1** · `SetStartingState` **A → C/P1**。
+
+- **调用面审计**：`CardArt.Gradient` 全仓 8 个调用点**全部传 188**（`DailyRewardPopup:270` · `MainMenuRuntime:765` · `MainMenuSubmenuWindow:566` ·
+  `ParentEventWindow:613` · `ExpansionPassEventWindow:617` · `GachaEventWindow:443` · `RaidEventWindow:495` · `DeckRuntime:1472`），
+  全部来自同一条换算 **「90 − 82 + 180 = 188」**，**没有任何一处手工补偿**。
+
+- **`CompensateAspectRatio` 的量化**：原版 = `normalize(dir.y, dir.x·h/w)`，我们**没有这一档**；16:9 + θ=82 ⇒ 我们 ≈8.0° vs 原版 ≈4.5°，**差 ≈3.5°**。补它要改 `Gradient` 签名 + 8 个调用点。
+- **战术卡初始态逐卡核完**：原版 `SetStartingState` 与 `SetCardTextLayout` 的战术支**都**是 `3 + (spellType != 0)`，**`race` 参数完全不参与**（旧注解写「按 race」是错的）。
+  逐卡比对（现读 1,128 张；tactic 446）：**445/446 一致**，唯一不一致 = **`Spear of Macragge`**（`d94f9105…`，Ultramarines，`spellType=0` / `subtype=Psychic Power` ⇒ 原版态 3、我们态 4）。
+  旁证：`CardView.cs:5411-5417` 的既有注释早就记过「白名单与 spellType!=0 只差一张」。
+
+> 🔴 **裁定（调度台 2026-10-25）—— 它那句「原版 `(sin,cos)` ⇒ 差 90° 是错的」只对一半，必须写准**：
+> 1. ✅ **对的一半**：`RotationDir` **返回的就是 `(cos,sin)`**，两侧同一约定 ⇒ **那 90° 不是 `RotationDir` 造成的**。
+> 2. ⛔ **不能推成「没有 90° 差」**：**原版有效渐变轴仍是 `(sin,cos)`** —— 因为 `UIGradient__ModifyMesh.c:148-149` 是
+>    `pos.y·(dir.x/size.y) + pos.x·(dir.y/size.x)`，**`dir.x`(cos) 配 y、`dir.y`(sin) 配 x（转置着用）**。
+>    这条**2026-10-11 已经裁过（A320）**，判据在 `资料/主菜单_原版规格.md:288` + `资料/普查产出_1011/F1_W1修复.md:90-92`；
+>    **「结论不变、只改解释」**。而且我们从一开始就靠 **188° = 90−82+180** 把这一档补偿掉了（`调度台日志:367` 已记）。
+> 3. ⇒ **账里的措辞必须是**：「`RotationDir` 两侧同为 `(cos,sin)`；**有效轴 `(sin,cos)` 来自 `ModifyMesh` 的换位**，我们靠 188° 换算已补偿；本行 A」。
+>    ⛔ **不许**写成「差 90° 不存在」—— 那句话会推翻 2026-10-11 的裁决，也会让下个会话以为 `ModifyMesh` 那行（`未分类_其他.tsv:677`，现 B）没问题。
+>    🔑 **这次差点重犯的错**：**拿「函数返回值」当「屏幕上的轴」** —— 中间隔了 `ModifyMesh` 一步。已写进下面 P2 的第 3 轮任务里。
+
+**它的改动请求（我已授权，见第 3 轮）**：
+① `CompensateAspectRatio` 落地（`Gradient` 签名 + 8 调用点，含 `Deck/DeckRuntime.cs`）；
+② `CardView.cs` 加 `SetHitEnabled(bool)`（只加 helper，Battle 侧接线写改动请求）；
+③ `CardData` 加 `spellType`（缺省 −1，因 0=Normal 合法）+ `BattleDriver.ToCardData` 填 + `ComputeTextState` 战术支换轨 —— **这半在 `Battle/**`，等 P1 收线**。
+
+**没核清**：`Spear of Macragge` 的 `spellType=0` 是**原版 SO 真值**还是抽表丢了（卡面印着 Psychic Power 看着像该 ≠0）⇒ 已让它回查 SO 原件。
+
+### 代理 P6 · 第 2 轮跟进（短名接线 + 把「A×差异矛盾」做成工具）
+
+**① `LiveOpsEventWindow.NoDeckMessage()` 短名接线已改**（`:439` → `ArmyIcons.LocalizedName(SelectedArmyFaction, true) ?? 阵营名`，`typecheck 0/0`）。
+🔴 **它没有笼统写「6 个都修好」**，而是逐条核了中文档：**真有视觉差异 4 条**（Leviathan 利维坦虫 / Sautekh 索泰克 / Sororitas 修女 / Genestealers 基因窃取者）·
+**逐字相同 2 条**（Goff=欧克蛮人 / AstraMilitarum=星界军 ⇒ **接线了但视觉不变**）· 其余 7 阵营官方无 `_short` ⇒ 回落全名（与原版同）。**这个写法要保留。**
+
+**② 沉淀成工具 `工具/check_a_vs_diff.py`（188 行，只读）** —— 扫全部 `状态 = A` 的行，查 `差异` / `备注` 两列的缺口词。
+
+- **强弱两段输出**（否则强信号被淹）：强 = 未落地/未实现/未复刻/待做·待办·TODO；弱 = 没有/缺/不同/不适用。
+- **排除规则写进文件头**（这是工具能不能用的关键）：`缺注解`（流程标记不是缺口）· `原版名不同`（G 的等价注解模板）· `不缺/无缺/零缺/没缺` · `没有差异/没有不同/没有问题/没有缺口`。
+  ⇒ **首跑 549 条 → 定型后 104 条**，光两条模板就占了约 390+128。
+
+- 文件头明写「**只报候选，判据仍要人读**」，退出码恒 0（报告器不是闸）。
+- **全账结果：强 0 · 弱 104**。按域：卡组编辑 30 · 收藏 12 · HUD 8 · 战斗逻辑 8 · 菜单 8 · 特效 7 · 教程 5 · 轮抽 5 · 卡牌面 4 · 战役 4 · 联机 4 · 社交 3 · 个人资料 2 · 商店 2 · 未分类 1 · 泛型补读 1。
+
+✅ **工具的准头有交叉验证**：首跑唯一的**强信号**是 `卡牌面_渲染.tsv` 的 `CardCollider2D.SetColliderNotInHand`（当时状态 A、备注写着「`removedFromGame` 这一支未复刻」）——
+P6 **没动**（不是它的账），而最终它已被写手 P2 改成 **C / P1** ⇒ **工具首跑与人工裁定指向同一行**。这个交叉验证值得记。
+
+它自己三份账的 12 条候选**逐条判过**：强 1 条（`CatalogItemContainer.TryPurchase`，是它引用 P5 旧结论带进来的「未落地」，**已改写**，A 保留）；
+弱 11 条逐条读原文后判为**正当解释**一条未改（典型：`AnimFXModulePostProcess.…` = **原版 0 调用点** ⇒ 铁律 11 例外①；`ParticleSystemPoolable.Start` 的「没有它池子只进不出」= 在说明**为什么需要它**；`SkewedImage.OnPopulateMesh` 的「原版没有九宫这一层」= **我们多做了**）。
+
+**核验**：`typecheck 0/0` · 三份账形态闸 11/11 · 31/31 · 92/92（0 漂移 0 失败）· 三份账列数异常 0 · 各自缺注解 0。
+**并发留痕**：`BattleDriver.cs` 在它两次核验之间被别的写手推动（`void PlaySignal` `:21843→:21847`），它把 `RemnantAeldari.CollectWaystoneEffect` 落点又重定位了一次 ⇒ **以后动 `BattleDriver.cs` 就跑一次相关账的形态闸**。
+
+### 代理 P1 · 战斗界面/HUD 377 条缺注解清零（含 G 的 30 条 + TipPrebattle）
+
+**377 条最终**：**A 359 · B 17 · D 1**（另 TipPrebattle 10 行判 D）——
+①补等价注解 **342**（大多**同时改了落点**：原落点是 grep 撞到的属性 get / 自检口 / 读口，只加注解会把错落点钉死）·
+②改指到与原版同名的声明 **17** ·③退 B **17**。
+**账面**：A 415→**397** / B 22→**29** / C 46 / D 196→**207**；形态闸 **A 397 / 397 通过 / 0 漂移 / 0 失败**。
+
+🔴 **它解决了一个跨批的格式问题（要进方案 §四）**：
+`BattleDriver.cs` 本轮被持续改写（`void UpdateHud()` `30480→30567`、`public void Begin(` `4057→4848`），
+所以它把本域所有等价注解行改成**抗漂移形状**：
+`路径:行（`声明名`）（等价实现 = 声明名：理由）` —— **第一个括号只放裸声明名**。
+理由：`check_ledger_points` 的 `decl_name_in` 只认这种 ⇒ 将来 `--fix` 才能按名字重定位；
+旧形状（`` （`Name` 的X段 :a-b） ``）会被判「不像声明」直接失败。**已由我写进方案 §四（见下）。**
+
+**典型改指（都值得记）**：`GetRarity` `CardArt.TierOf`（**恒 MaxTier=4，不是稀有度档号**）→ `Core/RarityColors.cs:70 Tier` ·
+`SetLayer` `FaceShowsArmy`（谓词）→ `CardView.cs:2248 SetLayer` · `RemoveHealthAndAttack/ToggleStats` `FaceStatVisible`（**自检读口**）→ `CardView.cs:12949 StatShownFor` ·
+`BattleHud/ReplayHud` 8 条回放钮 → `OnReplayButtonClicked` 一个分派口 · **`ClockManager` 8 条按 `TickClock / UpdateClockLabel / EndPlayerTurn / ResetClock / AutoEndTurnIfStuck` 拆开**（G 点名的「6 条同指 `Update`」已不存在）。
+
+**它的两处「请裁」—— 我的裁定**：
+1. ✅ **`TipPrebattle` 改 10 行（不是 5 行）—— 保留**。理由：我点名的是 5 个方法，但它另外 5 行（`HideTips/OnTouchUpAsButton/OpenTip/RenewTip/SetupClosed`）用的是**同一份类级证据**（整类 0 实例 / 0 字段命中 / 0 词条 / tips 无赋值点）⇒ 同一份证据要覆盖整类，**一份账不能两套说法**。
+2. ⛔ **`PracticeModePopup.LoadSavedDeck` 判 D 不够，`IsSavedDeck` 也不能靠 UI 构建器撑 A**：
+   · `D` 必须写出「原版调用链**断在哪一行**」或「我们用了 X 代替它、语义是否覆盖」；只有「我们没这个功能」不是 D。
+   · `IsSavedDeck → ShowYourDeckCell`：**那是 UI 构建器，不是谓词实现** ⇒ 要么找到真正的等价谓词，要么退 **B**。
+   ⇒ 两条都按这个改：拿得出 D 的证据就 D，拿不出就 B（⛔ 不许 C，因为**还没核清**我们练习模式有没有等价数据流）。
+
+**它的「没查清」（⛔ 已如实标在注解里，不是静默）**：
+`BattleCardUI.HideExtraEffects` 的「常驻伤害计数」我们只有飘字 · `ToggleStats(bool,bool activateArmour)` 的 `activateArmour` 独立开关我们没有 ·
+`RadioMessageScript.FadeElements` 我们的气泡**没有 α 通道（显/隐硬切）** ⇒ 退 B · `Core/Badges.cs` 要补一条**较松的 in-play 图标筛选器**（原版 `GetTraitListForCardIcons` 只要 `hasIcon+traitIcon`，`Badges.For` 要求 `isInPlayIcon`）。
+
+**顺手发现（这条最有价值，已分派它自己去做）**：
+🔴 **旧落点里大量是「属性 get 行」** —— `BattleDriver.cs:6290` = `SettingsBtnHitPx` 的 `get { return new Vector2(...); }`、`CardView.cs:332` = `BoardMeleeGlowAt`。
+**形态闸认「一行成员」为合法声明，所以这类一直没被报出来**。⇒ 建议给 `check_ledger_points.py` 加 `--warn-getters`（**只报不改、不算失败**），并把「落点第一个括号只放裸声明名」写进方案 §四。
+另：`ClockManager` 那 6 条证明**上一轮「落点收紧」只改对了编号、没核方法对不对**；`TargetReticle/MulliganPanel/CardChoicePanel` 的 **C 行**可能还有「指向方法中间一行」的旧账（**C 行不过闸，不会被报出来**）。
+
+### 代理 P4 · 第 3 轮（判据出处订正 + `ClaimForTest` 停手 + 52 条 C 分堆）
+
+- **4 行 `判据出处` 已订正**（`轮抽.tsv` · `DraftModeSelectPacksStateDemo`：`:274 / :254 / :671 / :460`），备注写明订正理由。
+- **`ClaimForTest` 改名 —— 它停手了，判断正确**：`grep` 发现 `Editor/RewardsScene.cs`（自检宿主）**实调 6 处 + 注释 10 处**，改名要连带改 `Editor/**`。
+  ⇒ **裁定：不改名**。备注已写清「原名带 ForTest 但确为生产入口（`OnCollect = tier => ClaimForTest(i,tier)`，`:1027`）」，
+  **「下轮别再误判」这个目的已经达到**，而改名要动 5 个宿主共用的自检 —— 收益小于风险。⛔ 以后别再派人碰它。
+
+- **52 条 C 分堆**：**C→A 3 条**（都有等价实现，未改代码）——
+  · 战役 `CampaignHandler.CheckNotification` → `Shell/BadgeNotifications.cs:409`（原账「CampaignBadge 全仓 0 消费者」是**过期结论**，已按铁律 5 订正）
+  · 轮抽 `DraftEventBase.FreeEventEntrance` → `DraftModeWindow.cs:2946（ClickFree）`
+  · 轮抽 `DraftWins.OnTrigger` → `DraftModeWindow.cs:2190（UpdateState 成就段 :2207-2217）`（「只涨不落」由 `SetAchievementValueAtLeast` 实现）
+
+**剩 49 条 C 已按六堆落进各账备注（含「缺什么 + 可达性」）**：
+| 堆 | 条数 | 代表 |
+|---|---:|---|
+| ① 后端/服务端（本地无数据源） | 14 | `AddPoints` · `SaveSelectedArmy` · `Expire` · `PayEventEntrance` · `RefundRun` · `DraftRankingDataProvider`×3 · `CollectPoints` |
+| ② 共用件要先扩 | 15 | `CampaignUIBackground`×4 + 轮抽 3 条动效（**页签没有帧循环**）· `MenuScroll` padding/补间/锁档 6 条 · `ItemDrawer` 族 2 条 |
+| ③ 新 UI 件/新子系统 | 15 | `CampaignHeaderDisplay`×2（头部 Premium 钮/已购标签缺 prefab 几何）· `RankedDeckSelector`×11（窗内轮播）· `ForgePlayerContainer` |
+| ④ 口径待定 | 1 | `SetFirstTutorialTrackArmyNodeDone`（教程要不要替玩家自动领首节点） |
+| ⑤ 架构差异（无对象可做） | 3 | `DraftWins.OnInitialize/OnReset`（无 Signal 总线）· `ForgeWindowTab.OnClose`（无事件订阅可解绑） |
+| ⑥ 用户拍板不做 | 1 | `DraftEventBase.CollectRewards` |
+
+**可达性**：界面/池内能碰到 **20 条**、碰不到 **29 条**。
+
+**它这一轮一处 `.cs` 都没改，理由如实且有据**：`ForgeTab.cs` 18:17 · `DraftPacks.cs` 18:48 · `MenuScroll.cs` 17:45 · `WindowTabBase.cs` 17:17 ——
+**全在 1 小时内被别人写过**（代理 H 的复刻第 3 轮）⇒ 按铁律 13·3 不碰，这是**对的**（宁停手不撞车）。
+另外它判断「①要后端、②要先扩共用件、③要先有 prefab 几何、⑤写空 `override` = 假实现」——**都成立**，⛔ 别硬做。
+
+**我的裁定（下一轮它执行）**：
+1. **⑥ `CollectRewards` → D**，理由引**用户 2026-10-24 拍板「轮抽不做奖励」**（本日志 `:182` 已有同类裁定：领奖/退赛退款判 D）。
+2. **① 那 14 条要逐条把「断在服务端哪一处」的证据写出来**才能判 D（方案 §四：D 必须引到「原版调用链断在这儿」的代码行）；写不出证据的**退回 C**。
+3. **⑤ 那 3 条是 `B` 不是 D** —— 「我们没有 Signal 总线」是**实现差异**，不等于「原版这条离线不适用」；要么找到等价落点，要么留 B。
+4. **④ 教程自动领首节点：照原版做**（判据已定 `:454` + 调用点 `TutorialStageGetCampaignNode.cs:340`）—— 用户口径是「一切照原版」，不需要再问。
+
+### 代理 P3 · 第 3 轮（C 清理：3 条账陈旧 → A、1 条 → B、63 条留 C 且写清差什么）
+
+**做掉 3 条（都不是写代码，而是「账陈旧」—— 代码本来就在，按铁律 5 就地校正）**：
+| 行 | 原版方法 | 结论 | 我们的实现 |
+|---|---|---|---|
+| 724 | `BroadcastUnitCodex` | **C→A** | `RuleCore.FireTriggerAt:12254` 的 `BroadcastWhen(Triggers(keyword))` + `EffectResolver.cs:7225` 的 `case KeywordTable.Codex → "TriggeredCodex"` + 源 `CheckCodex:12689`；可达 = 池内 5 张（`UM40 Avenging Zeal`） |
+| 618 | `ResolveTriggerUprising` | **C→A** | `RuleCore.cs:3997` 部署入口 `FireTriggerOnSide(...,Uprising,unit)` + `:12815`（按**进场序**）；**「池内 0 张、机制未建」两条都不成立** ⇒ 池内 **8 张**（GSC23/34/30/8…） |
+| 734 | `BroadcastUnitObtainedMark` | **C→B** | `GetsDarkPact` 事件本来就有（广播 `EffectResolver:11566`、监听 `:11580/:11611`、trigger 名 `:7160`）；判 B 只因为池内 `mark of chaos` **0 张 ⇒ 休眠无可观测面** |
+
+⇒ 🔴 **这三条印证了「C 也会过期」**（交接 §三已列为坑）：**账上写着「机制未建」，其实半年前就建了**。以后清 C 一律先核「是不是早就做了」。
+
+**剩 63 条全保持 C**，逐行写死「还差什么判据 + 可达性」：
+| 类 | 条数 | 还差什么 | 可达性 |
+|---|---:|---|---|
+| 远端 LiveOps 配置（`AIBotsConfig.Get*` 9 + `MatchData.GetBotConfig*/FTUE/FastMode` 9 + `ShouldDisableTweak…ByMode`） | 19 | **远端配置快照**（本地 `assets_full` 0 命中），现用自定常量 | **单机 AI 每局都跑到，但值取不到** |
+| 卡表缺列（`AI.IsBetterAction` / `SelectBestAction` / `HasSpecialAttackScoring`） | 3 | 卡表缺 **`specialAttackScoringCriteria`** 列 | **每局跑评分 ⇒ 缺列时该维恒 0 = 静默少给分** |
+| 事件族（ReturnedDeck/Hand · Healed · Jammed · Marked · Requiem · Sacrifice · EarnSkull · RemoveFromGame · Trap/Whisper） | 23 | 三件都要建：`WhenEventKind` 常量 + `BroadcastWhen` 源 + 监听短语解析 | 池内**全 0**（1,128 张复核）⇒ 休眠 |
+| 机制族（Jam/Requiem/Sacrifice/DaemonHost/MarkOfChaos/Mutation + `AddEnchantment`） | 16 | 整套机制；`AddEnchantment` = **「附魔关键词并进载体」的数据通路**（不是加一句调用） | 前几族池内 0 ⇒ 休眠；`AddEnchantment` **132 条附魔 buff / 33 张卡 / 14 张进预组（50 次）** ⇒ 每局会遇到，但缺的那步**不可观察** |
+| 其他（`GetInteractiveUnitsCount` · `DrawCard` 空牌库回填支） | 2 | ① `CountEval` 排除 `summonRift` 的集合口径 ② 墓地回填牌库再抽 | ① `summonRift` 0 张 ② 三档 `shouldReshuffle=false` ⇒ 都休眠 |
+
+⛔ 它**一条 C 都没判 D**；⛔ 没碰 `AddEffect` 分派器 / 五道前置闸 / `SameTimingAsEffect` / `DoSetHealth`；⛔ 没把 `*ForTest` 当落点；本轮**未改任何 `.cs`**（只改账，顺手把备注里一个 `summerift` 笔误改成 `summonRift`）。
+核验：`typecheck 0/0` · 本域缺注解 0 · 形态闸 **A 148 / 148 / 0 / 0** · 账面 **A 148 · B 1,177 · C 63 · D 148**。
+
+**它的下一批排序建议（我采纳）**：① 每局必跑且有静默风险的 `specialAttackScoring` 缺列（3 条）+ 远端 bot 配置（19 条，要先拿远端快照）；
+② 有卡会碰到但不可观察的 `AddEnchantment` 数据通路；③ 休眠机制（事件族 23 + 机制族 15 + 2 条）。
+
+### 代理 Q1 · 13 档「池内不可达」入口再证（**抓出 F 的 2× 计数错误**）
+
+**归口：① 真不可达 12 档 · ② 可达但走别的字段 0 档 · ③ 可达 1 档（`11`）**，无未分类。
+
+| 档 | 结论 | 关键依据 |
+|---|---|---|
+| 5 swapStats | ① | 数据 0、构造点 0、**连读取点都是 0**（全库只有 `BuffType.cs:8` 声明） |
+| 6 changeRace | ① | `newRace` 全池 **0/4,392**，无构造点，**且全库无人读 `newRace`（消费端也缺）** |
+| 7 skipCardDraw | ① | `handBuff.cardEffect.buffType` 全池只有 {0:1809, 2:63, 3:1}；`PlayerHand__AddHandEffect.c` 全文**只读不写** |
+| 9 setHealth | ① | 数据 0；`healthValueOptions` 非零 10 条全在 bt 1/3 |
+| 10 changeAbilityCost | ① | 数据 0 + 无构造点，**且读取端 `currentAbilityCost` 被 ICF 常量化成 `xor eax,eax; ret`** ⇒ 有数据也没效果 |
+| **11 removeExtrinsic** | **③ 可达** | 🔴 **代码里有构造点** `AbilityLogic__PlayAbility.c:1246`（写 `0xb`）；门 = `trigger=240(WhileInPlayVariable)` ∧ `chosenAbility=30(buffOthers)` ⇒ **池内 32 条**（UM107/TAU19/SAU36/UM14/DAU27…） |
+| 20 doubleAttack | ① | **没有任何地方产出 20** ⇒ `.c:198-207` 那条「20→1」的改写**本身永不触发** |
+| 26 tideCopy | ① | 全库 0 构造 / 0 读取；真正的潮涌+伙伴复制品写的是 **`0x19=25 ephemeralCopy`**（`ProcessTide.c:55`、`ProcessCompanion.c:67`） |
+| 30 addRace | ① | 同 6（`newRace` 0/4392、0 构造、0 读取） |
+| 35 daemonHost | ① | `daemonHostType` 0/4392 + 无构造点 + **原版自己 `LogError("…not implemented")`**（`.c:964-966`） |
+| 40 replaceAbility | ① | `activeAbilityRef` 唯一写点就在 case 40 体内；**`hasAlternativeAbility` 已证明是另一套机制**（`RawCardScript.cs:2020-2028`，SW21 的 alternativeAbility 只 `chosenAbility=10`） |
+| 45 addStatsDropPod | ① | 数据 0、无构造点；dropPod 数值真入口是 `addTrait(dropPod)`（`.c:573`） |
+| 85 setRangeAttack | ① | 数据 0；`rangeAttackValueOptions` 非零 2 条全在 bt 1 |
+
+**方法学（这套要复用）**：全库只有 `CardEffect` 一个类有 `BuffType` 字段（`CardEffect.cs:28` 一处）⇒ 只有「SO 一条 CardEffect」或「代码 new 后写 buffType」两条路；
+`.c` 里用类型指针 **`DAT_1842d44f8`** 定位出 **14 个分配点**，写 `buffType` 的只有 `=1/=3/=8/=0xb/=0xc/=0x19` + 拷贝 —— **13 档里的 12 个一个都没有**。
+`assets_full`（90 bundle / ~24.7 万文件）全树 `"buffType"` ⇒ **0 文件**（用 `"m_Name"` 验过 grep 没失效）⇒ 客户端本地 bundle 里根本没有 CardEffect。
+
+> 🔴🔴 **它抓出 F 报告的两处硬错（铁律 5，F 已被告知就地改）**：
+> 1. **F 第 2 轮 §〇·三 的池内计数整体是 2×** —— 把 `full_raw`（同一棵 SO typetree 的副本）与摘要树各数了一遍。
+>    **实测：含 `full_raw` 13,012 / 2,386 ⇒ 去重后 4,392 / 1,187**，每格恰好一半。**13 档的 0 不受影响**，但那张表要逐格除 2。
+>    ⚠️ 连带影响：「`markOfChaos` 池内 58 次」「`choiceEnchantment` 26 次」「addTrait 738 次」这些**数字全部要减半**（P3 已按 F 的数写进账的备注，要跟着改）。
+> 2. **`11 removeExtrinsic` 不是 D，而是可达（32 条入口）** —— F 把它排在第 10 位并写「先花半天再证入口」，现已证。
+> 3. **`20 doubleAttack` 的「自洽」理由要改措辞**：不是「一定会被改写成 addStats」，而是「**无人产出 20**」。
+
+**落账建议（我采纳）**：12 档按 **D** 落，备注统一写「当前 build 本地卡池 0 入口（SO 1,351 张 + 全库 0 构造点 + `assets_full` 0 命中）；原版有实现（`.c:NNN`），**数据若出现需重跑**」；
+**`11` 保持 B**（等价物 `Aura.Recompose`），升 A 需要的观测量 =「同一施放者第二次进入 `WhileInPlayVariable` 时，目标 `ActiveEffects` 里同源 extrinsic 条目数**不增**」。
+
+**它的「没查清」**：`newRace` 无读者只做了 ilspy 扫描（要一锤定音需 VA 反汇编扫该偏移）· `assets_full` 的 **905 个导出失败对象**没逐个看 · 结论时限 = **当前 build 本地快照**（⛔ 别写成「原版永远不会有」）· `11` 的运行时效果没跑差分 · `33 C0 C3`（恒 0）是引既有记录未重核。
+
+### 代理 Q2 · 前置门与现算口径（**问了一个必须拍板的模型题**）
+
+**四件的结论（都是「原版行为 → 我们现状 → 差在哪 → 怎么改」的完整链）**：
+1. **`ContainsExtrinsicEffectFrom` 去重键 = 三元组**：`(extrinsic==true) ∧ (effect.enchantingCard == 施放者) ∧ (buffType 相同，「none」通配) ∧ (effect.baseEnchantmentCard 相同)`。
+   **没有时间戳、不按效果 id、不按 `enchantmentCardId`**；去重表就是 `activeEffects(+0x108)` 这条 list，「清」= 条目离开 list。
+   我们**只有手牌层半条道**（`HandEffect.Extrinsic` + `ActingUnit` + `IsSameHandEffect`），**通用层没有载体** ⇒ 不是「加个 if」能补的。
+   🔴 **它自我订正过一条假否定**：第一版写「我们完全没有 extrinsic 概念」是**假否定**（错因：①在 ILSpy `.cs` 里 grep 赋值点，那份丢了这几行 ②用错路径 grep）。已就地订正并留痕。
+2. **`AddArmour`**：`currentArmourValue += delta` → **<0 夹 0、无上限** → 只 `UpdateHealthText`（**不**调 `UpdateFigures`）；护甲只有这一个存储、**不参与任何 `Current*` 现算**。我们的 `case "armour"`（`EffectResolver.cs:11373-11394`）**数值语义等价，不用改**。
+3. **`EntityScript.Current*` 一半存档一半现算**：存档 = `currentHealth` / `currentMaxHealth` / `currentArmourValue` / `currentBase{Melee,Ranged}Attack`；
+   现算 = `CurrentMeleeAttack` / `CurrentRangeAttack` / `CurrentCost` / `currentMaxHealthProcessed` / `CurrentIntrinsic*` / 全部 `Current<关键词>`。
+   ⇒ `setCurrentHealth(100)` 写 `currentHealth`（**无条件、不夹上限、不查 Invulnerable**）；`addStats` 的攻/远程/费用**不写字段**、生命与护甲**当场物化**。
+   🔴 **我们把全部物化成了字段（`UnitState.cs:53-57`）⇒ 模型差一层。**
+4. **`SpellType` 五值**：`0x3c`=**SecretOrder 60** · `0x78`=**Quest 120** · `0x82`=**Mutation 130** · `0x8c`=**Wing 140** · `0xbe`=**MarkOfChaos 190**（三重证据：枚举 + `.c` 判断式 + 分支里写的字段名）。
+
+**另一条真差异（可直接修）**：`get_CurrentRangeAttack.c:24-28` —— **`blind ⇒ return 0`**；我们只在 `RuleCore.cs:4808` 判伤害时才归零 ⇒ 读 `CurrentRangeAttack` 的地方（不只是伤害）都会不一致。
+
+**三条会改 E 组排序的数据侧发现**：
+1. `choiceEnchantment(16)` 的 `effect.enchantment` 在 SO 里 **26/26 全 null** —— 运行时由 `bm.cardChosenInSelection` 填（`BattleManager.cs:36427-36435`，池子 `GetChoiceFullPool:25622`，「选一张牌当附魔」）。**不做这条选择链，`16` 永远挂不上东西。**
+2. 26 条 `choiceEnchantment` 的候选池 46/46 全部解出：`spellType=190(MarkOfChaos)` **28 条** · `0 Normal` **18 条** · **60/120/130/140 = 0**；且全池 1,351 张 SO 里 `spellType∈{60,120,130,140}` **也是 0** ⇒ 五个子支**只有 190 静态可达**（按铁律 11 仍要做，只排先后）。
+3. ⚠️ **`460` 在两个枚举里都有**：`AbilityTrigger.Mutated = 460` 与 `DefinedTrait.flank = 460` —— Mutation 分支里那个 `0x1cc` 是**前者**，它差点写成「给侧翼」。
+
+> 🔴🔴 **口径裁定（调度台 2026-10-25）：数据模型走【方案 A —— 跟原版做投影】，分三阶段落地。**
+> **为什么不是 B**：B（保留物化字段 + 每条增益落记录 + 拆 `MaxHealthRaw/Processed`）是「省事但对不上版」—— 本项目红线是**照原版、不做自我设计**（用户 2026-10-18 第二次纠偏 + 铁律 11）。
+> 而且 B 会在每次「加/摘 buff」时依赖**写入顺序**，与原版「现算」的语义天然不同 —— 那会变成一类**无法用判据核的死角**。
+> **三个阶段（每阶段都要能 typecheck、能独立交付，⛔ 不许一口气全改）**：
+> · **Stage 1（先做，纯加法）**：在 `UnitState` 上**新增投影属性** `CurrentMeleeAttack / CurrentRangeAttack / CurrentCost / CurrentMaxHealthProcessed`，
+>   同时保留旧字段；投影 = 原版口径（base + 修饰 + 关键词）。**此时无人调用投影**，风险为零。
+> · **Stage 2（换读者）**：把所有**读**点从物化字段换到投影；每换一处，账里点一个名。**写点先不动**（写点仍写旧字段，Stage 2 结束时读旧字段的位置必须为 0）。
+> · **Stage 3（换写者 + 删字段）**：`addStats`/`setMeleeAttack`/`setRangeAttack`/`setCost` 改成「落修饰或写 base」；然后删掉**原版没有**的物化字段。
+> ⚠️ **每一步都要给一个可观察量**（例：`setMeleeAttack(70)` 之后再叠 `addStats(+1 melee)` ⇒ 原版 `CurrentMeleeAttack` 不涨，因为 `get_CurrentMeleeAttack` 命中即 return）。
+> ⚠️ **`blind ⇒ CurrentRangeAttack = 0` 这条单独先修**（小、清楚、不复刻它就等于读点全错）。
+
+**待它下一轮查的（E4 最该先查的一条）**：`whileInPlay` / `whileInPlayVariable` **本地不存在**（只在签名桩里）⇒ 我们能算出的 `extrinsic` **恒为 false**；
+「`AbilityTrigger.WhileInPlay(20)` 与 `AbilityData.whileInPlay` 是不是同一件事」**未证** —— 不证这条，E4 的五道前置闸建了也是空的。
+
+### 代理 F · Q1 三处更正（判据文件已改，**池内计数以此为准**）
+
+- **① 池内计数逐格除 2**，并**精确定位了 F/Q1 的 6 条差**：F 得 `1,193`、Q1 得 `1,187`，差 6 = `90(2) + 95(3) + 100(1)`（Q1 那趟没算这三档）。
+  **最终表**（`判据/战斗逻辑驱动_AddEffect分派器.md` §〇·三，⚠️ 数字只留这一处）：addStats **501** · changeCost **139** · addTrait **369** · removeTrait **14** · markOfChaos **29** ·
+  enchantment **75** · singleUseEnchantment **44** · choiceEnchantment **13** · lastMarkOfChaos **1** · ephemeralCopy **1** · setMeleeAttack **1** · addTraitRemnant **2** · setCost **3** · setCurrentHealth **1**；
+  **`11 removeExtrinsic` 单列 32（代码构造）**，不进 SO 合计（含代码构造总可达 `1,225`）。
+
+- **② `11` 从「池内 0」改成「可达 32」**，`§三 排序`**从第 10 位提到第 2 位**（每局可能跑到 + 判据只有 `.c:823-825` 三行 + 我们靠 `Aura.Recompose`、`extrinsicVariable` 那一支没人核）；
+  同块的 `replaceAbility(40)` 池内 0 ⇒ **拆成两半**。`池内 0 命中` 名单 13 → **12**。
+
+- **③ `20 doubleAttack` 措辞**改成「**全库没有任何地方产出 20** ⇒ `.c:198-207` 的改写永不触发」，并加防混一条：「我们的 `DoDouble`（×2）**不是**它的对应物」。
+- **④ 方法学新开 `§〇·五`**（这是本轮最可复用的东西）：只有两条路（SO 数据 / **代码构造**）——**只扫数据就说「池内 0」必然漏，`11` 就是这么漏的**；
+  数据路要先按 `full_raw` 去重；代码路用类型指针 `DAT_1842d44f8` 定位 14 个分配点，真写 `buffType` 的只有 `=1/3/8/0xb/0xc/0x19`。
+
+- K 块内引用数字全部同步（K4 `28→14` · K7 `58+2→29+1` · K8 `2→1`、`6→3` · K9 `26→13` · K10 `4→2` · K1 `1280→640` · K3 的 13 个 trait 数全减半）。
+- 文件 **45,039 B**（+5 KB）。它另在自己报告的**开头加了 3 行「更正指针」** —— **我批了**（下批只读报告的人会顺着指针找到 §〇·三），这不是「抄第二份」。
+
+### 代理 P2 · 第 3 轮（措辞订正 + 补宽高比 + SO 回查 + 命中开关）
+
+- **〇 措辞已按我的裁定改**：账里 `RotationDir`（维持 A）现在写「**两侧同为 `(cos,sin)`**（`CardArt.cs:775-776`；原版 `CONCAT44(F130, F6e0)`，后者在 `CalculateMaxHeight` 里以 `v²·sin²θ/2g` 被平方 ⇒ sin）；
+  **有效轴 `(sin,cos)` 来自 `UIGradient__ModifyMesh` 的换位**；我们靠 **188°=90−82+180** 已补偿（A320「结论不变、只改解释」）」，并明写「⛔ 别读成『没有 90° 差』—— `未分类_其他.tsv:677`（ModifyMesh，B）仍然有问题」。
+
+- **① `CompensateAspectRatio` 已落地（C → A），数值验收逐位相同**：`CardArt.Gradient` 加第 4 参 `aspectHoverW`（目标矩形 h/w，缺省 1 = 老行为），生成轴上 `dy *= aspectHoverW`；**贴图仍正方 128²、不在运行期读 RectTransform**（这点很关键：Editor 批处理拿不到 RectTransform）。
+  验收：改前 `atan2(|sin188|,|cos188|)` = **8.02°** → 改后 16:9 = **4.52°**；原版目标 `atan2(cos82·9/16, sin82)` = **4.52°**，**逐位相同**。另三个实际矩形 4.63° / 1.92° / 4.75°。
+  改动：`Core/CardArt.cs` + 8 个调用点；`188°` 语义未动；`typecheck 0/0`。
+  ⚠️ 同族 `CardArt.GradientKeys`（alpha 键位版，调用点 `MissionsTab`/`ExpansionPass`）**没加**这一档（不在授权清单）⇒ 下一批。
+
+- **② `Spear of Macragge` 的 `spellType=0` 是字段真值**（真值快照 `资料/普查产出_1018/allcards_1350/cards_raw.json`：`cardType=20 Tactic`、**`spellType=0`**）⇒ 不是抽表丢了 ⇒ 换轨后原版态就是 **3**。
+  🔴 **它发现一处「印刷品 vs 数字版」冲突要我裁**：该卡 PnP 成品图底部**印着橙字 `Psychic Power`**、我们 `SubtypeLine` 也印；但按 `CardRaceToString(spellType)`（`CardView.cs:5413`：spellType=0 ⇒ 空串）**原版不该印**。
+
+- **③ `Core/CardView.cs` 加了 `SetHitEnabled(bool)`**（先 grep 确认**全仓从未写过 `_hitCollider.enabled`**，没有第二套开关）：`HitEnabled` 读口 + `SetHitEnabled`（缺省 true）+ `SyncHitCollider` 末尾唯一写点 + `Contains`/`HitByCollider` 早退。**只加 helper、未接线**。
+- **④ 战术卡换轨的 Battle 侧**按指令没做。
+- **漂移收尾**：动 `CardView.cs`/`CardArt.cs` 后两份账共 **23 条**落点过期 —— `--fix` 自动收 14（唯一同名声明），**11 条手工**改（`RefreshDeckList 4288→4289`×4 歧义 · `HitRect 9355→9376` · `HitFrame 9338→9359` · `BumpStat 13354→13377` · `ArtScaleFor 12103→12126` · `FaceStatInk 13184→13207` · `BuildDeckList 2006→2007` · `DestroySafe 8690→8691` · `LightNavToggle 876→877` · `TickNavPanelTween 1529→1530`）。
+
+> 🔴 **裁定（调度台 2026-10-25）：`Spear of Macragge` 的副标题行【不印】—— 以数字版为准。**
+> 依据 = **铁律 10 第 3 条**：**PnP 成品卡图是「印刷品」，当尺子的只有内容**（卡名/费用/攻血甲/效果文字/立绘/关键词图标），
+> **版式与显隐规则不行**。而「这一行印不印」正是显隐规则 ⇒ 判据取 `CardRaceToString(spellType)`（`CardView.cs:5413`，spellType=0 ⇒ 空串）。
+> ⇒ 实现 = `SubtypeLine` 走 `CardRaceToString(spellType)`，与战术卡 3/4 换轨**同一批**做（都等 Battle 侧 `CardData.spellType`）。
+> ⚠️ 这不是「印刷图错了」—— 印刷版可能是人工排版时手填的，**两边证据都留着**，但**数字版行为以字段为准**。
+
+### 🔴 新口径 · 子代理【轮换】+ 允许子代理派子代理（用户 2026-10-25 定，已写进 CLAUDE.md 铁律 13·1）
+
+> 用户原话：「**注意自己和子代理的上下文进度，子代理上下文窗口接近 1m 的时候，注意换新的子代理，不要让一个子代理一直做，
+> 子代理应该也可以在必要的时候派子代理去分担任务**。」
+
+**两条规则（已进正本）**：
+1. **轮换**：主对话每批记录各代理 `subagent_tokens`；**接近 60 万准备换人、到 70 万必须换**。
+   换人方式 = 让它**先做完当前这一轮** + 在报告里写一节「**交接给下一个代理**」（做到哪 / 剩什么 / 动过哪些 `.cs` / 下一步命令 / 踩过的坑）；
+   ⛔ **不许改到一半切换**（半成品比慢更糟）。新代理的简报里带上那份交接。
+2. **子代理可以派子代理**（取代旧限制「扇出只有一层」）：条件是**任务能切成文件互不相交、判据已定的块**，且自己上下文吃紧；
+   约束不变 —— **同一份文件只有一个写手** · 简报必须自包含 · **报告里必须写明「派了谁、做了什么」**。
+   ⚠️ **扇出深度未实测** ⇒ **只用一层，别套第三层**。
+
+**本会话各代理的 `subagent_tokens` 现读（累计，含多次 resume）**：
+
+| 代理 | 累计 tokens | 状态 |
+|---|---:|---|
+| **P2** 菜单+卡牌面 | **471,787** | 🔴 最接近阈值 ⇒ 已通知：本轮做完收工并写交接 |
+| **P3** 战斗逻辑 | **460,551** | 🔴 同上 |
+| **P1** HUD | **423,773** | 🟡 已通知：工具做完收工 |
+| **P4** 轮抽/战役/锻造/教程 | **408,238** | 🟡 已通知：本轮做完收工 |
+| **F** 判据/存档 | **274,611** | 🟢 |
+| **Q2** 前置门 | **259,336** | 🟢 |
+| **Q1** 池内不可达 | **243,453** | ✅ 已收工 |
+| **P6** 特效/未分类 | **239,420** | 🟢 |
+| **G** 泛型+语义复核 | **263,745** | ✅ 已收工 |
+| **P5** 六域 | **207,752** | ✅ 已收工 |
+
+**下一批的换人计划**：P2/P3/P4 收工后，**开新代理接手各自的账与文件**（新代理简报里必须带上它们报告里的「交接给下一个代理」那一节）；
+P6/F/Q2 继续（还不到阈值）。⚠️ **新代理不要再沿用旧代理的名字**，避免我这边串上下文。
+
+### 代理 P6 · 第 3 轮（特效域 C：**120 → 81**，清掉 35 条 + 证伪 2 条旧备注）
+
+**① 40 条 UI 特效 C 重定级（清掉 35）**：`UIBorderGlow` **8 → A**（`Shell/UIBorderGlow.cs:97/103/120/129/136/167/190/205`，5 保持 C + 3 D）·
+`UITransformTweenController` **9 → A**（`Shell/UITransformTweenController.cs`）·`NestedFadeGroupBase`+`NestedFadeGroup` **18 → B**（**不是缺口**，但组件本体不复刻 ⇒ 无方法级落点；⛔ **没判 D**：57 实例真挂在 `CardPrefab` 上）。
+**`UIBorderGlow` 那 5 条为什么保持 C（关键）**：原版动画的**消费点在 C# 的 `ModifyMesh(VertexHelper)`（顶点重映射）**，
+不是 shader；`OnRectTransformDimensionsChange`/`Update` 只是「强制重建网格」的触发器。我们只补间材质浮点 ⇒ 若 shader 不自消费 `_Reveal`，那 3 处「呼吸」**看不见**。
+可达性：89 实例里**只有 3 处会动**（Forge 已接 · **Raid `RaidEventWindow.cs:818` 未接** · Expansion Pass 属暂停线）。
+
+**② `MoveTween`/`RotateTween` 的 `isLocal+isPlayer` 取反 —— 判据已逐句复核，写成「改动请求」交给 Core 的写手**：
+`MoveTween` local 支三分量乘目标 `localScale.x` 后，**目标 `isPlayer` ⇒ `z *= -1`**（`DAT_1834b2bc8` = −1.0f），`from != 0 ⇒ isRelative` 置假；
+`RotateTween` **`awayFromUnit==0` && `isLocal` && 目标 `isPlayer` ⇒ `x *= -1`**，**与 `relative` 无关**（我们现在挂在 `relative` 名下且不取反，`Core/UnitTweenTable.cs:466-470`）。
+可达性：74 份 SO 里 `isLocal=1` 只有 `Execution_BL` 两步，而它在我们侧 **0 引用** ⇒ 当前无可见后果，但**确实是差异**。
+
+**③ 工具加「停机位」**：`check_a_vs_diff.py` 新增 **`[非缺口]` 标记**（A 行含它就整行跳过并计入「已标注跳过」），
+文件头写死口径：**只有人读过原文才能加，⛔ 不是消音器**。它三份账现在 A 行矛盾候选 **0**（全账 强 0 · 弱 102 · 跳过 8）。
+
+**④ 剩余 80 条 C：做掉 4 条 + 证伪 2 条旧备注 + 70 条打标签**
+
+- **4 条 C→A**（早已实现）：`SyncParticleSeeds.Awake → WFEffectExtras.cs:255` · `ParticleFindFloorCollider.Start → :345` · `SpriteFlickerEffect.Awake → :504` · `.Update → :516`；
+  后者的 `fade` 斜坡两支**原版零可达**（2/2 实例 `playOnAwake=1` + `Play/Stop` 全量 0 外部调用点）。
+
+- 🔴 **两条旧备注被就地证伪（铁律 5），所以⛔ 没有顺手判 D**：
+  `MaterialFader`（6 条）原写「驱动者未找到」→ **不成立**（驱动 = `MarkerlightController`，由 `CardScript.cs:11272/11290/11309/11327` 驱动）⇒ **保持 C**；
+  `SegmentationController`（5 条）原写「只供 LiveOps」→ **不完整**（还被 `FTUESelectDeckWindow` / `MainTutorialManager` / `AlliancesManager` / `GameAnalytics` 用）⇒ **保持 C**。
+
+- **70 条**追加「P6第3轮分类」标签（状态不动），按 9 个桶给了「差什么 / 可达性」。
+
+**⚠️ 并发留痕**：它跑 `typecheck` 时第一次出现 **3 条运行时错，全在 `Shell/MissionsTab.cs:1562`**（`HeaderGradient` 少一个实参）——
+那是**别的代理正在写的文件**，隔一次重跑恢复 0/0。⇒ **这正是铁律 13·3 那条「报假错」的现实版**，已在报告里如实记录、没有去改别人的文件（做得对）。
+
+### 🔄 轮换（2026-10-25）：P1（485,910）与 P4（474,977）已收工 → 开新代理接手
+
+**P1 收工读数**：HUD 377 条最终 **A 358 · B 18 · D 1**；账本 **A 396 / B 30 / C 46 / D 207**；两闸全绿。
+
+- **`PracticeModePopup` 两条按证据收紧**：`LoadSavedDeck` **D** 且把「断在哪」写进差异 —— 它是 `private`、cpp2il 全量（≈97.7% 方法体）除定义行 **0 处引用**、`decomp_full` 本类 12 份方法体**也 0 处调用** ⇒ **没有任何调用者、无代替物**。
+  🔴 **它主动撤掉了自己一条不成立的证据**（`assets_full` 搜 `m_MethodName` 0 命中，但**对照组同样 0 命中** ⇒ 搜法对本类无效）—— 这个自我否定要记。
+  ⚠️ 残余风险已写清：cpp2il 本类方法体**有错位**（`IsSavedDeck` 的体是 `DeckSelected` 的）⇒ 结论靠全树符号搜索 + `decomp_full` 交叉；并纠正旧说法 —— **`PlayerDeckChanged` 是活的**（`:709` 当 `Action<CardDeck>` 传给 `deckInfo.SetContent`），⛔ 别跟两个 `*Saved*` 一起判死。
+
+- **`IsSavedDeck` → B**（原落点 `ShowYourDeckCell` 是 UI 构建器、不是谓词）。
+- **新工具 `--warn-getters` 落地**（可与 `--all-A`/`--fix` 组合；判据含「一行式 getter / 表达式体属性 / getter 体那一行」；**表达式体方法不报**；退出码不变）。
+  **全账 20 条 getter 候选**：战斗逻辑 9 · 卡组编辑 3 · **HUD 3（人读结论 = 保留，原版本身是取值器）** · 收藏 2 · 泛型补读 2 · 未分类 1 ⇒ **17 条待人读**。
+  顺手把工具里 `apply_fixes()` 的「先截断再求值」写法改成临时文件 + `os.replace`。
+
+- 另修：`ClockManager.PauseClock/UnpauseClock` 原落点是只读属性 `NetClockPaused`（读口当落点）⇒ 改指联机层**动作点**（`Net/NetBattle.cs:406` / `:966`）。
+- 🔴 **它给下一个代理的三句话（要进交接）**：
+  1. `BattleDriver.cs`/`CardView.cs` 一直在被别人改，**行号只当快照**；落点必须是 `路径:行（裸声明名）（等价实现 = 声明名：理由）`，随时 `--fix`。
+  2. **散文括号写在第一个括号里的行，`--fix` 修不了** —— 实测 **卡组编辑 53 + 收藏 6 + 战役 4 + 社交 2 + 泛型 1 = 60 条**全是这个形态。
+  3. 建议把「**注解里的名字 vs 落点那一行的声明名**」并进 `verify_annot.py`（它一次性脚本扫出 **106 条不一致**）—— 说明 `verify_annot` **只查「注释在不在」，不查「对不对」**。
+
+**P4 收工读数**：49 条 C → **D 11（有据）· B 3（架构差异）· A 5（真做）· 仍 C 30（P0-10/P1-4/P2-16）**；
+四域最终 **轮抽 A93 B14 C5 D55 · 战役 A65 B17 C17 D27 · 锻造 A51 B33 C8 D26 · 教程 A51 B91 C0 D13**；两闸全绿。
+
+- **证据不足、它拒绝改 D 的 4 条**（做得对）：`Campaign.AddPoints`（方法体 9 行、本身不调服务端）· `ForgeHandler.CollectPoints`（只刷红点）· `DraftEventBase.Expire`（110 行只见到一处 `AlliancesManager`）· `DraftEventBase.RefundRun`（74 行无 `Playfab`/`CloudHandle` 符号）。
+- **真做掉 5 条**：`SetFirstTutorialTrackArmyNodeDone`（`CampaignTab.cs:1032`，调用点接 `MenuTutorialFlow.cs:851` = 原版 `DoMenuActions` 同一步）·
+  `CampaignUIBackground` 全套（`CampaignTab.cs:972/980/995/1000/1007/1022/1026`，`Refresh()` 改成「淡出→换图→淡入」）。改动仅 2 个 `.cs`（+70/+4 行），typecheck 0/0。
+
+- 🔴 **它记录了「文件冷热表」**（下个代理最需要）：`ForgeTab` 18:17 · `DraftPacks` 18:48 · `MenuScroll` 17:45 · `WindowTabBase` 17:17 · `ItemDrawer` 16:31 · `DraftModeWindow` **11:26** · `CampaignTab` **最冷**。
+- **下一批前 5 件**（判据已定、只差一处机制）：① 锻造 `SnapTo/SnapToItem/FinishedSnapping`（动共用件 `MenuScroll.cs`）② 锻造 `ToggleScrollLock` + 两套 padding（同上）③ 轮抽三条动效（**要先给窗加帧循环**）④ 战役 `OnObjectUpdated`（缺 `shinyEffect` prefab 参数）⑤ 战役 `CampaignHeaderDisplay`×2（缺头部 Premium 钮 RectTransform）。
+
+### 🔄 轮换：P3（529,913）收工 —— `specialAttackScoringCriteria` 一条龙做完
+
+**做到哪**：
+
+- **13 档落账**：12 档判 **D**（统一写「当前 build 本地卡池 0 入口（1,351 张 SO + 全库 0 构造点 + `assets_full` 0 命中）；原版有实现（`.c:NNN`），数据若出现需重跑」）；
+  **`11 removeExtrinsic` 保持 B**（真构造点、池内 32 条款）。⚠️ 这 13 档是 **`AddEffect` 那一行内的覆盖表**，不是 13 行。
+
+- **F 的更正数字已回写**：markOfChaos **29** · choiceEnchantment **13** · **SO 合计 1,193**（注明「Q1 报 1,187，差 6 在 90/95/100」）· 总可达 **1,225**。
+- 🥇 **`specialAttackScoringCriteria` 三步全做完**（这是本轮最有价值的一条：它原来让 AI 每局**静默少算一维**）：
+  1. 真名 `specialAttackScoringCriteria`（**bool**，`RawCardScript +0x2F8`），藏在 `cards_raw.json` 的 **`full_raw`** 里（顶层 41 键没有）；**1,351 张全 0**（与 `AUD_T06` §二 同结论 —— 即原版这个字段存在但从未被置 1）。
+  2. `gen_cards_engine.py` **两处 emit 都加**（主循环 + **隐藏附魔模板独立路径**）→ count 现读 **1,128**、键 **1128/1128**、值全 0、`--check` 一致。
+  3. 接线：`CardDef.SpecialAttackScoring` → `CardDatabase` DTO/透传 → `SimpleAI.HasSpecialAttackScoring`（`Card.SpecialAttackScoring ∧ !Has(jam)`）→ `SimpleAI.KillerOverride`（原版 `AI.cs:702/:822` 的排除项）。三条 C **已改 A**。
+
+**它踩到并记录的坑（都是跨会话级的）**：
+1. 🔴 **`Editor/BattleScene.cs` 行尾被翻成 LF**：`git diff --numstat` 一度 **47061/46807**（整文件重写）；二进制确认 `\r\n = 0` 后**已还原 CRLF**，diff 降到 290/36。⇒ **改 CRLF 的 `.cs` 后必看 `numstat`**（这条 CLAUDE.md 里有，今天又踩了一次）。
+2. **形态闸不认字段声明**（`public int Energy;`）⇒ 落点必须指属性/方法，或把等价注解写在落点列并指到合格行。
+3. **同名多声明 `--fix` 不改**（`AbilityTriggerPresence` 1965/2462）⇒ 手工改到 1965。
+4. **别人改 `.cs` 会让我的账漂**（`Core/Badges.cs` 532→570 是 P2 动的）⇒ **收工前再 `--fix` 一次**。
+5. **`cards_engine.json` 有两条 emit 路径**（主循环 + 隐藏附魔模板）—— 只改一处就是 1,127/1,128。
+
+**留在它身后（下一批）**：`11` 升 A 的观测量（要动 `Core/Aura.cs` + `Editor/` 断言）· C 剩 **60 条**（远端配置 19 / 事件族 23 / 机制族 16 / 其他 2）·
+`AddEffect` 五道前置闸 + `SameTimingAsEffect` + `DoSetHealth` **留给 E1–E5** · 抽牌第二跳 + 敌方那半（`CardFeel`/`HandLayout`）。
+
+### 🔄 轮换：P2（505,213）收工 —— 卡牌面工具的最后一环补齐
+
+**做到哪**：
+
+- **`CardArt.GradientKeys` 补同一档宽高比补偿**（第 6 参 `aspectHoverW`，进缓存键；三个调用点全接）。
+  🥇 **它的数值验收很有说服力**：这三个调用点角度**全是 0°（Horizontal）⇒ `dy=sin0=0`，补偿恒等**（改前改后都是 0.00°、贴图逐像素相同）；
+  但它另给**反例证明参数真生效**：r=0.0637（828.6×52.8）θ=45° ⇒ **45.00°→3.65°**；r=0.2480 ⇒ **45.00°→13.93°**。
+  ⇒ **「恒等 ≠ 没生效」这个区分要记**（以后加同类参数都要这么证）。
+
+- **`Core/Badges.cs` 补了「较松的卡面图标筛选器」**：`CardIconKeys`（**59 键**，由 `trait_collection.json` 的 `hasIcon && traitIcon` 现算）+
+  `For(..., bool cardIcons = false)`（**缺省 false ⇒ 场上 7 枚徽标行为一字未变**）。与场上那 47 条**差 12 个键**：
+  `armour/companion/ephemeral/fast/flank/pack/rally/talent/teleport/tide/uprising/vanguard`。**按指令没改任何调用点** ⇒ HUD 那条 B 可升 A（我已转 N4）。
+
+- **卡牌面 20 条 C 逐个分堆**（完整表在报告）：建议先做 `#63 GetCardTier`（异画与原卡共用升级档）· `#162 UICardInfoItem.Initialize`（异画名后缀 `*`）· `#168 ToggleInvalid`（alpha 0.5）；
+  可达但要连带 `Battle/**` 的 `#21/#27/#81/#84`；贵的有 `#28/#30/#55/#57/#60/#120`；**判据缺/不可达 7 条**（`#19 ToggleGlitch` 素材 `d:/2` 全盘 0 命中；`#89–#94` XP 曲线 + `tiersByRarity` 在服务端）—— **一条都没判成 D**，留给我/用户拍板。
+
+- 裁定已写进账：`Spear of Macragge` 副标题**不印**（依据铁律 10 #3 + `CardRaceToString(spellType=0)`），注明与 3/4 换轨同批做。
+
+**它交接的坑（9 条里最该记的）**：`RotationDir` 返回值 ≠ 屏幕轴（别推翻 A320）· 改 `CardView/CardArt` 后**必跑形态闸**（两轮共漂 25 条，`--fix` 只收唯一同名）·
+`CardData.spellType` 缺省必须 **−1**（0 是合法值）· `Gradient` 不传第 4 参 = **静默偏 3.5°** · `Badges.For` 缺省是**严的那族** ·
+读方法体优先 `decomp_full/*.c` · 写账用 `os.replace`。
+
+### 代理 F · 存档体系语义审查（**全项目最大那块 C**）—— 结论：差的是「层」不是「实现」
+
+**原版是两层，我们是 N 份**：
+
+- **原版**：① **云端中央存档** = PlayFab user data 的 **53 个 `PlayerDataKey`**（每 key 一份 JSON）；② **本地设置档** = **一个**二进制文件 `persistentDataPath/PlayerDecks{dataVersion}.dat`（`BinaryFormatter`），**只存设置 + 加密凭据，不存任何进度**。
+- **我们**：`WarpforgeDaily` / `WarpforgeDraft` / `WarpforgeBattleLog` / `WarpforgeReplays` / `ShopData` / `ProfileData` + `PlayerPrefs` —— **无中央入口、无版本、无迁移、原子写不一致**。
+- **四条结构性差距**：G1 无中央入口 · G2 无版本/迁移 · G3 **只有 `DailyData` 有 tmp+rename 原子写**（其余直接 `WriteAllText`）· G4 无写失败策略。
+
+**四问的答案（都可直接用）**：
+
+- **版本迁移**：**有版本号、没有迁移**。`PlayerDataKey.ProfileVersion` 存游戏版本串；**全库 0 个 `Migrate*/Upgrade*`**；每个 key 的 JSON **没有 schema 版本**；
+  本地档靠**文件名带版本**（换版本 ⇒ 读不到 ⇒ `LoadStarterData()`）。
+  ⇒ **原版唯一的兜底形态 = `CheckForTutoriaDoneAndDataFix()`（`:11229`）「按 key 探测 → 缺就补 → 不认识就忽略」，照抄应该是这个形态，不是版本→迁移函数表。**
+
+- **写盘时机**：本地档 `SavePlayerData()` = `FileMode.Create` + `BinaryFormatter.Serialize`，**无 tmp / 无备份 / 无 fsync / 无 try-catch**；
+  **7 个调用点全是关键节点**（不是每次 set 就写）。⇒ **崩在写中间 = 整份损坏**。
+  云端 `UpdateOnlineUserData` 失败**重试一次**；**`!IsLoggedIn` ⇒ 丢弃**；全库只有 **7 个调用点** ⇒ 大部分进度由 **CloudScript 在服务端写**。
+
+- **多活动隔离**：**按 key 硬隔离，53 个 key（52 有效）= 现成的分表清单，照抄即可，⛔ 别自创 key 名**。
+  **合并规则 = 无**（按 key 整值覆盖，没有字段级 merge / 版本比较 / 时间戳）⇒ **将来多端同步必须自己加版本，原版没有可照抄的算法**。
+
+> 🔴🔴 **它推翻了自己上一轮的方法学（这条我已写进 CLAUDE.md §三）**：
+> **别用「反编译里搜 `字段 = `」证明「这个字段没人写」** —— **ILSpy 把私有 setter 反编译成 `object obj = this + 偏移; obj = value;`，字段名丢了**。
+> 它第一版自动扫出「167 个字段里 **119** 个无赋值点」——**是假数字，已作废**。
+> 已人工确认「有读无写」的**只有 `tips`**，且**来源未证**（可能 ILSpy 丢了写方法体）。
+> ⇒ 它**就地把它自己上一轮写的「`tips` 只能来自存档/远端」降级为「来源未证」**（`判据/TipPrebattle_调用点.md` §3.3 + `报告/F_判据_第2轮.md` §②·3，留了更正痕迹）。
+
+**迁移路线（方案文件 §七，Step 0–5）**：0 立规（52 个 key 键表 + `_v` schema 版本）→ 1 建 `SaveCenter`（**纯新增**，统一 tmp+rename 原子写）→
+2 **导入式**迁移旧档（`LegacyReader`，幂等，**旧文件不删**）→ 3 补兜底（缺 key 出声 / 坏 JSON 回 `.bak` / **未来版本拒绝覆盖**）→ 4 逐子系统切（双写期 + 切前切后全字段 dump 相等）→ 5 关双写。
+⛔ **两条红线**：**不许删档重来**（原版敢删是因为云端有权威副本，我们**没有**）· **`PlayerPrefs` 那几项不并进中央存档**（原版归「设置」，是另一层）。
+
+**顺手发现（4 条）**：
+1. `GetPlayerGameVersion` 无 key 时**返回一个异常对象**（`return (Version)(object)new NullReferenceException();`，ILSpy 对 `throw` 的误译）⇒ 照抄会 NRE，我们要按「null + 出声」写（已进 CLAUDE.md）。
+2. 本地档**换版本后旧文件不删**（只有显式 `ClearLocalPlayerData` 才删）⇒ 长期占盘，迁移时要主动清理。
+3. **`ProfileData` 不是玩家存档**（读 `Resources/*.json` 定义，只有 `avatarIndex/titleIndex` 是玩家选择）⇒ 既有「7 份存档」的口径要改。
+4. 我们只有 `DailyData` 有原子写（`DailyData.cs:1934`）。
+
+**没查清（7 条）**：`ReadDataFromFile()` 的异常处理 · `dataVersion` 真值（`assets_full` 全文 0 命中）· `tips` 写点 · CloudScript 写链 · 另外 32 个 key 的消费者 · `ShopData`/`ProfileData` 落盘细节 · 「零出现」那 14 个 private 字段。
+
+### 代理 Q2 · 第 3 轮（施工图定稿 + 两条验收用例 + 交接节）
+
+**① 蜂群合并**：落成「**一条带来源的修饰**」，⛔ 不并 base；明确标注 🔴「**这条我们原版无判据**」（⛔ 没写成「原版就是这么做的」），并给了「**若将来查到原版写 base 怎么改**」的一行注（`RuleCore.cs:4431-4434` 改成 `host.AttackBase += just.AttackBase`，`Health` 那句改成重算上限 + 夹一次）。
+
+**② Stage 2 = 2a / 2b / 2c（2-甲）**，验收按步写死：**2a 结束** = `typecheck 0/0` + `ruleprobe` **逐字节同结果**；**2c 结束** = 只有预期会变的那 11 组 + 四条逐条给两侧数值。
+🔴 **它顺手补了自己清单的一个漏**：`UnitState` 内部**有限定写**（构造 `UnitState.cs:752-755`/`:1164-1165`/`:1399`/`:1448`/`:442`）它的 grep（只抓 `x.Field`）**没抓到**
+⇒ **清单只用于审计，完备性由 2a 的编译错误保证** —— 这正是选 2-甲的全部理由（这条要写进给执行代理的简报）。
+
+**③ 三条口径提到显眼处**：
+
+- 🔴 **`extrinsic` 按 trigger 算** → §六 顶部「开工前必读」第 1 条，原话「SO 那两列是运行时会被覆盖的序列化残留（17 个里 5 个是 1；36 个里 18 个全 0）⇒ **读 SO = 静默错一半**」。
+- 🔴 **`NetProtocol` 单列**：投影进哈希 ⇒ **新旧客户端不兼容**；提示要落在**握手/协议版本号那一格**，⛔ 别只写注释。
+- ✅ **`AddEnchantment`** 账里那句改成「**缺的是第 ⑦ 步：附魔关键词并进载体**」，⛔ 别写成「没实现」。
+
+**④ 两条验收用例（可直接拿来测）**：
+
+- **局面 A（夹具，无卡依赖）**：4 血部队 A → `+2 health`（duration=`turn`）⇒ 6/6 → 造成 3 点伤害 ⇒ 3/6 → 回合结束：
+  **原版 = 3/4**（`RemoveEffect.c:147-181`：先 `List.Remove`，再 `currentHealth = min(currentHealth, 摘掉后的 currentMaxHealthProcessed)`）· **我们现 = 1/4**（`UnitState.cs:1399` 直接 `Health -= b.Value`）。
+  ⚠️ **断言必须断 `Health == 3 && MaxHealth == 4`** —— 只断上限**断不出来**（两侧都是 4）。
+
+- **局面 B（真卡）**：`DA5 Apothecary`(1/4) + `Grisly Feast`（中文卡面「**本回合** +1 攻击和 +1 生命」）⇒ 2/5 → `AM42 Pinning Fire`（Deal 2 damage）⇒ 3/5 → 结束回合 ⇒ **期望 3/4，今天 2/4**。
+  ✅ 顺带确认：`Grisly Feast` 的生命那半**确实是限时的**（中文卡面就这么写）⇒ **不是解析歧义**，可放心当验收集。
+
+- **`CardView.statBasesKnown`**：填了之后颜色从「值变时闪一下」变**持续态** `StatColorVsBase(当前值, 印刷值)`（`CardView.cs:3422-3435`/`:12953`）；
+  **`base*` 只能填卡面印刷值**（⛔ 填 `u.Attack` = 恒白、废掉机制）；**不必同批**，但同批好处 = `ToCardData` 只改一次、2c 后正好一起截图核。唯一读口 `CardView.StatBaseValue`（`:12922-12932`）。
+
+**⑨ 交接节已写好**（报告 §⑨）：做到哪（六项状态表）· 剩什么（5 条，含「**E4 另外四道闸与 Stage 1 无依赖、可并行**」）· 下一步命令（留基线 → 只加投影 → `typecheck` → 恒等验收）· **踩过的坑 8 条**（SO 两列 / 460 双枚举 / 同名成员与无限定写 / `case` 差一格 / 假否定的错路径 / `IsSameEffect` 的漏比字段 / `setCost` 别新造机制 / `NetProtocol` 哈希）。
+
+**唯一仍开着的小口**：`AddEnchantment` 第 ⑦ 步（附魔关键词并进载体）**没有数据输入**（卡表无「附魔→关键词」列）⇒ 如实挂着，等数据侧。
+
+### 代理 P6 · 第 4 轮（`_Reveal` 查明 + 新建 UIEffectToggler 族三件）
+
+**① `_Reveal` 谁消费 —— 结论：shader 消费；`ModifyMesh` 只把「相机视口坐标」写进顶点。证法两步闭合（不靠猜）**：
+1. **C# 侧不读它**：`decomp_full/UIBorderGlow__ModifyMesh.c`（96 行全读）只做 `CalculateViewPosition → PopulateUIVertex → 改顶点 → SetUIVertex`，**全篇无 `GetFloat`/材质字段读取**；
+2. **唯一被动画的是材质浮点**：`DoAnimation` = `SetFloat(_Reveal,-0.5)` → `DOFloat(…,1f,animTime)` ⇒ **一个没有任何 C# 读取的材质浮点只能由 GPU 读**；
+3. 旁证：`dump_shader_blob.py` 两个变体（27/26 名）都绑 `_Reveal`，同族参数全是几何扫光参数。
+⇒ **`ModifyMesh` 的真实作用 = 扫光的屏幕空间锚点**；`OnRectTransformDimensionsChange`/`Update` 只是「强制重算网格」的触发器。
+**没钉死的只有一格**：视口坐标写进哪个顶点通道 —— 因为这批 DXBC 被剥过（容器只有 `ISGN/OSGN/SHDR`，**没有 `RDEF`/反射**，`m_ParsedForm` 也无 `m_CommonParameters`）；但 `ISGN` 只吃 `POSITION0/NORMAL0/TANGENT0/TEXCOORD0/COLOR0` ⇒ 必在这五格之一。
+**结论（做不做）**：`_Reveal` 扫光**不用补**（Forge 那处材质就是原版 shader ⇒ `Shell/UIBorderGlow.cs:205` 的补间**会出画面**）；顶点重映射**很可能不用补**，但**要先真机看一眼**（紫边动不动）：动了 ⇒ 那 5 条 C 可整批处理；不动 ⇒ 再把 `WorldToViewportPoint` 写进 `ImageQuad` 自建 mesh 的同名通道（通道用「候选逐个填 0.5 看扫光起点往哪跳」一次真机定）。
+
+**② 落地一条：`UIEffectToggler` 族**（可达 = Forge 的 `Ready for level up`）。
+**先现核了实例归属**：`menus_assets_all` 里 `UIEffectCanvasGroupToggler` **恰好 2 个实例、两个都在名为 `Ready for level up` 的 GameObject 上**；`UIEffectTogglerController` **298** 个。
+**新建 3 个文件**（`CardPresentation/Effects/`，类名 == 文件名，避免 `!u!115` 存根，typecheck 0/0）：`UIEffectTogglerBase` / `UIEffectCanvasGroupToggler`（**换实现**：无 `CanvasGroup` ⇒ 对 `ImageQuad.Tint`/`Label.color`/`Graphic.color` 逐件记原 α × fade）/ `UIEffectTogglerController`（同态短路 · `duration<=0` 瞬间档 · 中途反向接上剩余进度）。
+**改动请求（就 2 行，我已授权它自己改）**：`Shell/ForgeTab.cs:392` 加两个组件 + `Toggle(false,0f)`；`:782` 换成 `_readyToggler.Toggle(ForgeData.HasToCollect(a))`。
+另：原版 `:345-349` 还有「把 `canLevelUpEffect.transform.position` 挪到 `target.position`」一句，**我们没有对应件** ⇒ 写进报告「缺件」，⛔ 不造假的。
+**账**：那 7 行**仍留 C**（玩家今天看到的仍是硬切），但落点已指到实体代码、差异**收窄到「接线那 2 行」** —— 符合本批口径（C = 玩家能感知的缺口）。接线完成后应改 A。
+
+**③ `MoveTween`/`RotateTween` 4 步施工单**已写进报告（接手不用重读判据）。⚠️ 第 1 步要动 `Core/UnitTweenTable.cs`，而 **`Core/**` 归 N5** ⇒ **这轮不做**，下一批派给 Core 的写手。
+
+**⚠️ 它如实记的一条**：账里旧备注「`UIEffectTogglerController` 原版 **300** 个实例里 296 个空列表」—— 本轮只扫了 **menus 包**得 **298**，**没扫别的包 ⇒ 不动那条备注**。这个克制要保留（⛔ 别拿局部扫数去改全局备注）。
+
+### 代理 P6 · 第 5 轮 + 交接收工（47 万）—— 特效域 C 从 **120 → 74**
+
+**① `ForgeTab` 接线完成（我授权的那 2 行），7 行账 `C → A`**：`:288` 新字段 · `:402-405` 建组件 + **`Toggle(false,0f)`**（= 原版 `ForgeRewardSelector.Initialize:160` 的瞬间档）· `:798` `Refresh()` 末句 `_readyToggler.Toggle(ForgeData.HasToCollect(a))`（0.3 s），**组件没建成时退回硬切（不静默）**。
+动手前 `ls --time-style` 确认 `ForgeTab.cs` 最后写于 18:17、当时 19:15 ⇒ 冷文件。
+⚠️ **没真机验**（建议进 `资料/真Play待验清单.md`：FORGE → 领奖 → `Ready for level up` 是否 0.3 s 淡入）。
+
+**② 再落地 `UIEffectTogglerImage`（第 5 个文件）**：与 CanvasGroup 版逐句同形，唯一差别是原版淡**本节点自己的 `Image[]`**（不递归子件）。
+4 行账落点已指到它，**状态仍 C**（接线在别人地盘，2 个实例现核）：`Done Highlight`（`Deck/DeckRuntime.cs:4869`，现 `SetOn` 硬切）· `Prebuilt Pack UI`（`Shell/DraftModeWindow.cs:2410`）。
+
+**③ 缺件登记（按口径没造替身）**：原版 `ForgeRewardSelector.ToggleCollectReward:345-349` 在 `Toggle` 之前还有「把 `canLevelUpEffect.transform.position` 挪到 `target.position`」——
+我们**没有对应件**（`Ready for level up` 固定在页上，不是跟格走的浮动体）⇒ 记**缺件**，未做。
+
+**④ 明确没做的（理由都成立）**：
+
+- `MoveTween/RotateTween` 4 步：`Core/**` 归 N5 ⇒ 没做，施工单完整留在报告。
+- **`TapParticleController`（13 场各 1，可达性最高）：评估后放弃本轮** —— 原版 `Update` 被反编译打烂、依赖 `TapHitMaterialDefinition`（本地无成品数据）+ `BattleManager.matchType` 闸，输入路由又在 `Battle/**`。
+  ⇒ **它的原话「不是不值得做，是本轮判据/数据都不够，硬做会造假实现」是对的**；账里保持 C，⛔ 别判 D。
+
+**账终值：A 120 · B 130 · C 74 · D 158**（本轮起点 92/112/120/158）—— 特效域 C 从 **120 降到 74**。
+
+**它写的 `_Reveal` 残余不确定（交接节单列，⛔ 别让下一个代理重啃 DXBC）**：
+已证 **shader 消费 `_Reveal`**；**没钉死的只有「视口坐标写进哪个顶点通道」**；Unity 剥过（只有 `ISGN/OSGN/SHDR`，无 `RDEF`；`m_ParsedForm` 无 `m_CommonParameters`）；
+已知边界 = ISGN 只吃 `POSITION/NORMAL/TANGENT/TEXCOORD0/COLOR`；**最省的下一条路 = 真机拨值法**（候选通道逐个填 0.5 看扫光起点，5 个候选一轮定）；
+**先回答「要不要补」**：FORGE 领奖后紫边动不动。
+
+**6 条新坑（进交接）**：反引号被 shell 吞字 · `io.open(wb).write(表达式)` 先截断 · **类名==文件名**（否则 `!u!115` 存根）· checker 的括号口径 · **旧分类标签立刻过期**（改完代码要顺手改标签）· 并行写手（`BattleDriver` / `MissionsTab`）。
+
+### 代理 N7 · 属性模型 **Stage 1 完成**（只加投影、零行为变化，恒等验收过硬）
+
+**六条投影全部落地、旧字段与所有读写路径一字未动、新投影零调用者**：
+`CurrentMeleeAttack`（`UnitState.cs:116`）· `CurrentRangeAttack`（`:135`）· `CurrentMaxHealthProcessed`（`:162`）· `CurrentIntrinsicHealth`（`:174`）·
+`CurrentIntrinsicMeleeAttack`（`:190`）· `CurrentCostOf(ctx,owner,inst)`（`RuleCore.cs:987`，doc `:951-986`）。
+每条注释都带 `.c` 行号与原版口径，其中三条最要命：
+
+- **`get_CurrentMeleeAttack` 命中即返回**：`buffType==70` ⇒ `return meleeAttackChange`，**连 base 与已累加部分都不算**；**正序**遍历 ⇒ 多条时**列表第一条**胜出。
+- **`CurrentRangeAttack` 的 `IsBlind⇒0` Stage 1 故意没加**（加了就不恒等），写明归 2c；§7·2 那 11 组读点届时一次性全对。
+- 🔴 **2c 的递归陷阱**已写成红线：2c 会把 `Attack/RangedAttack/MaxHealth` 变成转发到本段的属性 ⇒ **本段必须同时改成「读 `*Base` + 查修饰表」，否则无限递归**。
+
+**恒等验收（两层，都是实测、不是「看着对」）**：
+1. **逐单位**（临时探针 `_tmp_view/n7/probe`）：全池 **1,128 张 × 6 局面**（含 `+3/+2/+2` 永久增益、受伤、`blind`、`armour`/`bastion`、上限压到 1）⇒ **33,840 次比对，差异 0**；`CurrentCostOf` 对 4 种 ctx ⇒ **4,512 次，差异 0**。
+2. **端到端逐字节**（改前留基线、改后同命令重跑）：`ruleprobe.sh check` 前后都「解析差异 0 行 / 哨兵失败 0 条」；
+   `ruleprobe.sh play all dump …` 的**结算指纹 md5 改前 = 改后 `a2a94183…`**、**全池 dump md5 `351c9504…`** ⇒ **逐字节相同**。
+⇒ **这是「纯加法」该有的验收形态，以后同类改动照这个做。**
+
+`typecheck` **0/0**；`git diff --numstat`：`UnitState.cs 173/0`、`RuleCore.cs 345/42`（**删行 0 增量 ⇒ 两文件 LF 未被翻**）。
+
+> 🔴 **它证伪了判据文件里的一个公式（已交 Q2 订正）**：
+> **`§3·3·5` / `§6·5` 的 `setCost` 推导不成立** —— 反编译 `get_CurrentCost.c` 的 `setCost` 支在 **`:66-73` 就 return**，而 `+ rawCardData.manaCost` 在 **`:84-91`** ⇒ **有 setCost 时不含 base**：`clamp0(setCost.costChange + Σ 全部 changeCost)`。
+> 数据侧同证：`buffType==95` 共 3 条、`costChange` **全是 1**，而卡 `manaCost` = 2/3/6（`GSC39` / `TAU68` / `TL69`），卡面写 **`reduce its cost to 1`** ⇒ **`costChange` 存的是目标绝对值，不是 `N − manaCost`**。
+> ⇒ **这改变 Stage 3 的落地口径**，已让 Q2 复核后就地订正（铁律 5），并顺带核 `setMeleeAttack/setRangeAttack/setHealth` 是不是同样「命中即 return、不含 base」。
+> 另两条事实：`cards_engine.json` 现读 **1,128** 张（不是 1,127）；`ruleprobe check` 的 1,121 是**另一个口径**。
+
+### 代理 N6 · 存档体系 **Step 0–2 完成**（纯新增，现有行为零改动）
+
+**三个文件落地，`typecheck 0/0`，离线真跑 95 条断言全绿**：
+1. **`Shell/SaveKeys.cs`（363 行）**：原版 `PlayerDataKey` 逐条照抄，**51 条数据 key**（**不是 52/53**），每条带「原版行号 + 原版语义 + 我们对应哪份旧档 / 目前空缺」；另单列**不在枚举里的 3 个字符串 key** 与 2 个 `_ours_` key；带运行期自检（条数/重复/非法字符）。
+2. **`Shell/SaveCenter.cs`（731 行）**：落盘 `persistentDataPath/WarpforgeSave/<key>.json`，payload 顶层第一键 `"_v"`；
+   接口 `Get/GetRaw/Set/SetRaw/Exists/Delete/Flush/RegisterMigration/CurrentVersion/DumpAll`；
+   **写一律 tmp → `File.Replace` 原子换名**（不可用时退回删旧+换名**并出声**；失败 `LogError` + 返回 false ⇒ **G4 不再静默丢**）；
+   **缺 key ⇒ null + 出声** · **坏 JSON ⇒ 改名 `.bak`（不删）+ 出声** · **未来版本 ⇒ 拒绝读/写/删**（没读过也能靠探盘挡住 Set）· `Delete` 也**不真删**（留 `.del-*`）。
+3. **`Shell/LegacySaveReader.cs`（308 行）**：覆盖 **8 类来源**，整份逐字搬；**旧档只读、零改动**；**幂等**（第二遍 0 写）；**已有新档不覆盖**；`PlayerPrefs`（语言/音量）/`WarpforgeNet.json`/录像明确不导入。
+4. **没有接入任何子系统**（Step 4 才切），现有代码**一个字节没碰**。
+
+**核验（很硬）**：`typecheck` 3 次全 0/0；**工程外 `dotnet` 脚手架**（`D:/tmp/wf_n6_verify/`，绝对路径引用工程 3 个 `.cs`、UnityEngine 用替身）**PASS 95 · FAIL 0** ——
+覆盖信封往返 / 缺 key 出声 / 坏档隔离 `.bak` / **未来版本三拒且文件 sha 不变** / 无 `_v` 档 / 迁移 / **断电模拟（`.tmp` 不换名主文件仍旧）** / 键表防线 / Delete 不真删 / `DumpAll`；
+**拿玩家真档副本跑导入**：导入 7 · 跳过 1 · 失败 0；6 份**逐字相等**；**旧档文件数与逐个 sha 全不变**；第二遍 0 写。
+🔑 **脚手架抓到一个真 bug 并已修**：**无 `_v` 的合法档曾被当坏档隔离**（现在整份当 payload 读）—— 这就是「工程外可复现验证」的价值。
+
+> 🔴 **它用实施硬证据推翻了判据文件的三处数字/口径（已交 F 复核订正）**：
+> 1. **key 数 = 52 个成员 / 51 个数据 key**（`undefined=0` 是哨兵）；另**3 个字符串 key 不在枚举里**（`CurrentSelectedObjects`/`StarterDeckGranted`/`EventSaveGames`）。
+> 2. **「我们 7 份存档」漏了 5 类，实际 11 份（10 导入 + 1 设置层）**：**卡组 `WarpforgeDecks.json`（玩家最重要进度之一，原判据没列）** · 卡牌等级 · 段位 · 背包 · 联机设置。
+> 3. **`profile.json` 不止两个字段**：还有 `playerName` / `avatarBorderOn` / `achIds+achValues`（真档 `Ach_1=63`、`Ach_19=6`）—— 本轮按简报**只迁了 2 个**。
+> 另：**`TutorialV2`（原版 key）我们存在 `PlayerPrefs`**（`MenuTutorialManager.cs:329`）⇒ **进度躺在设置层、导入器覆盖不到**，Step 4 要专门处理。
+> ⚠️ 别和红线搞混：红线说的「`PlayerPrefs` 不并进中央存档」指**语言/音量**；教程进度是**原版进度**、属于该迁的。
+
+**没查清（5 条）**：`DailyLimits`/`CurrentDeck`/`PlayerSeason`/`LevelData` 的 JSON schema（本轮整份塞进对应 key，那三个**留空**）· `LevelData` 到底指什么 · 3 个字符串 key 的消费者 · `ReadDataFromFile()` 的异常处理 ·
+**离线验证用 `System.Text.Json` 近似 `JsonUtility` ⇒ Step 4 接入前必须在 Unity 宿主里再跑一次**；`File.Replace` 只在 NTFS 上验过。
+**下一步**：Step 3 与 `SaveCenter.cs` 同文件 ⇒ **串行下一轮**（补坏 JSON 回退 + 三条负例断言）；Step 4 才逐子系统切。
+
+### 代理 Q2 · 第 5 轮（`setCost` 订正 + **挖出「卡表统计翻倍」这条纪律**）
+
+**① N7 的两条证据它自己复核过了，N7 是对的（它原写错了）**：
+`get_CurrentCost.c` **有 `setCost`**：`:66-73` 整表重扫加回全部 `changeCost` → `clamp0` → **`:73` 直接 return（不含 base）**；
+**无 `setCost`**：`:84-91` 才 `+ rawCardData.manaCost`。⇒ **它原来把这两段读成了一条路**（漏看 `:73` 的早退），把 `:84-91` 的 base 加算当成了公共尾巴。
+数据侧同证：`buffType==95` **3 条**、`costChange` **全是 1**，而 `manaCost` = 2/3/6，卡面写 `reduce its cost to 1` ⇒ **`costChange` = 目标绝对值 N**。
+
+**② 订正了 7 处判据 + 6 处报告**（都带「2026-10-25 订正：原写 X，实际 Y，错因 Z」），新增 `§7·6`（两条出口 + 数据实证 + 同族四档复核表 + Stage 3 新口径 5 条）与 `§7·7`（口径翻倍规则 + 单份权威值表）。
+
+**③ Stage 3 口径（订正后）**：`setCost(95)` 记录存 **`TargetCost` 绝对值**（⛔ 不是 delta），`CurrentCostOf` 两支：
+**有 `Kind=Set` ⇒ `clamp0(TargetCost + Σ全部 changeCost)`；无 ⇒ `clamp0(rawManaCost + Σ)`**。
+⚠️ 我们现有 `RuleCore.CostOf` 是 `base + ΣCostMods` 的形状 ⇒ **有 set 记录时要把 base 整项换掉（不是相加）**。
+
+**④ 同族四档复核（回答我的第三问）**：
+| 档 | 含 base？ | 含别的修饰？ | 结论 |
+|---|---|---|---|
+| `setMeleeAttack(70)` | ❌ | ❌ **连已累加的 addStats 也不含** | 读时覆盖 |
+| `setRangeAttack(85)` | ❌ | ❌ 同上 | **与 70 同形，成立** |
+| `setCost(95)` | ❌ | ✅ **含全部 `changeCost`（重扫）** | ⚠️ **与 70/85 不同族** |
+| `setHealth(9)` | ❌（连非 extrinsic 加血一起覆盖） | ✅ 保留 extrinsic 加血 | **写时物化**，且盖的是**上限**不是当前生命 |
+| `setCurrentHealth(100)` | —— | —— | 写时物化当前生命 |
+⇒ **70/85/95 是「读时覆盖」（getter 早退），9 与 100 是「写时物化」**；若把三档写成同一套「覆盖」，**95 会少算其它降费/加费**。
+
+> 🔴🔴 **连带发现（比 `setCost` 影响更大）：`cards_raw.json` 的统计口径整体翻倍**
+> 每张卡**同时存了两份**同构技能树（解析视图 `cardAbilities` **和** `full_raw.cardAbilities`）⇒ **任何递归扫整份卡的统计都 ×2**。
+> 实证：`buffType==95` 递归数出 **6**，按路径分组是「解析视图 3 + `full_raw` 3」，`cards_truth.json` 是 **3**。
+> **受影响**：Q2 第 1 轮的 `extrinsic 20 / extrinsicVariable 42 / doNotStack 44 / permanentBuff 2` 与附魔 `150·88·26` —— 真值 **10 / 21 / 22 / 1** 与 **75 / 44 / 13**；
+> `buffType` 非 0 总数 **2,386 → 1,198**；**F 的池内表也仍有残差**（`addTrait` 369 vs 真值 **368**）。
+> **不受影响（已逐条验）**：`ability.trigger` 14/35 · 两档下 buff 15/36 · `choiceEnchantment` 候选池 46（28+18）—— 都是按**单份**遍历得来的。
+> **新纪律（已写进 CLAUDE.md §三 + 判据 §7·7 + 交接坑 9）**：**统计一律用 `cards_truth.json`；用 `cards_raw.json` 时跳过 `full_raw`**。
+> 另：**三个张数口径别互相校验** —— SO 总数 **1,351** / `cards_engine.json` `count` **1,128** / `ruleprobe check` 基线 **1,121**。
+
+**已转派**：N11（战斗逻辑账的写手）拿到了更正数字与四档口径；F（AddEffect 判据文件写手）排队改 §〇·三 表并把纪律写进 §〇·五。
+
+### 代理 N2 · 收藏 / 卡组编辑 / 商店（散文落点清零 + 123 条 C 分堆 + 20 条 C→A）
+
+**① 散文落点：三域 410 条 A 行全部整形**成 `路径:行（裸声明名）（等价实现 = …）`（`--fix` 以后能按名自愈）；其中**指错行的 59 条全修**
+（收藏 6：4×`CollectionFilterToggle.*` → `DeckRuntime.cs:7505 RefreshFilterCells`、2×`CollectionScreen.OnEnable/OnDisable` → `MainMenuRuntime.cs:1022 RepaintNavHighlight`；
+卡组编辑 53：28 条按注解名重定位、22 条按「最近声明」收 off-by-one、3 条手工 `Drop@4102` / `TryClose@5661` / `CheckFocusedArmy@4922`）。
+
+**② 123 条 C 全部分堆并写清「差什么 + 可达性 + 优先级 + 序」**：收藏 63 → 18 A + 45 C（乙门面 24 · 乙库存子类 5 · 丁拖拽 UI 9 · 丁阵营格 6 · 丙资源缺 1）·
+卡组编辑 11 → 2 A + 9 C · 商店 49 → 全 C（丙活动线 36 · 丙 LiveOps 2 · 乙轮播 UI 4 · 丙已裁暂不建 4 · 乙商店通知 3）。
+**⛔ 一条都没判 D**；`InventoryManager` 24 条按裁定保持 C。
+
+**③ 它诚实交代的偏离（这点很重要）**：**做掉 20 条 C→A，但 0 行 `.cs` 改动** —— 20 条里 18 条是**红点整族**（`Shell/BadgeNotifications.cs`，上一批已落地，它按原版 18 个方法逐条核等价），
+2 条是今天刚落的数据层（副本名后缀 `+`、`DeckLibrary.UpdateOrder`）⇒ **原判 C 的依据已过期**。
+剩下 103 条按「判据最全 · 改动最小 · 文件最冷」筛完，**落进它白名单的只有 3 组，每组都不是小改** ⇒ 按「不许改到一半」**没有落半成品**：
+1. **拖拽排序 13 条**：数据层 `DeckLibrary.UpdateOrder:297` 与输入层 `PointerLayer.RegisterDrag:313` **今天刚落地**，缺的是收藏卡组页格子接线 + 排序模式入口钮 + `MenuDraw.DeckCell` 0.8 缩放 —— **入口钮版面要真机验**；
+2. **`DeckDrawer`/`DeckAndCardbackDrawer` 5 条**：改 `ItemDrawer.cs` 一处是对的，但**我们数据里 0 条 `"PrebuiltDeck"` 发放物** ⇒ **写完今天看不见效果**（时间限定：当前 build 0 条发放物）。🔴 **2026-10-26 订正**：原文写「⛔ 不应该做」—— 那句**违反铁律 11**（「没实例」不是合法的不做理由，只有「原版本身没有」或「用户拍板不做」可以）⇒ 改判 **要做，排 P2**；做完在账里写清时间限定即可。原先那句「死抽屉」的事实（0 发放物）不变。
+3. **商店活动 36 + 轮播 4 + 容器库存 3**：活动线**用户已暂停**；轮播/容器今天 **0 实例**。
+
+**账面**：收藏 A 133→**151** · C 63→**45**；卡组编辑 A 172→**174** · C 11→**9**；商店 A 105（不变）· C 49（全部加堆）。
+核验：`typecheck 0/0` · 三域形态闸 **151/151 · 174/174 · 105/105（0 漂移 0 失败）** · `verify_annot` 本域 0 · `check_a_vs_diff` **强 0**。
+
+> 🔴 **它报的一条跨账矛盾（我已转 N1 核）**：`账/战役.tsv` 把 `ArmySelector.Initialize` 判 **A**（落点 `CampaignTab.cs:791 BuildArmyItems`），
+> 而原版 `ArmyItemContainer.cs:202` 的两个非 `Neutral` 分支会给每颗阵营格挂 `CampaignBadge`/`ForgeBadge`；
+> 收藏账里有 6 行 C 正是「阵营格没挂红点」⇒ **若战役阵营格其实也没挂，那行 A 是错的**，两份账会变成对同一件事的两套说法。
+
+**它顺手记的两条卡点订正（已写进账备注，⛔ 下一批别再按旧备注派活）**：
+`DeckLibrary.UpdateOrder` 与 `PointerLayer.RegisterDrag` **今天已落地** ⇒ 拖拽排序**只差 UI 接线**；
+`Shell/Inventory.cs:249 UpdateItemCollection()` 是**空实现** ⇒ 收藏 `WildcardInventory.UpdateItemCollection` 真正缺的是**信号层/provider**，不是重建逻辑。
+
+### 代理 N4 · HUD 域（C 46 → 40）+ 两处手牌接线（Hand 侧完成）
+
+**C 清理**：**5 条 C→A**（`ActiveSkillDisplay.Drag/OnTouchDrag` · `BattleHud.GetCardDrawPosition` · `CemeteryLogCard.SetupCemeteryCard` · `CemeteryLogGroup.SetActionImage`）+ **1 条 C→D**（`CardDisplayWindow.ToggleCardState`，三查齐全）。
+等级 **P0 3 / P1 14 / P2 23**（与 C=40 对上）；每条「还差什么 + 可达性 + 序号」已进备注。
+**代码改动 2 处**（都在白名单）：`Battle/SkillPanel.cs` 按原版补 acting 白层 **0.4 s OutQuad 淡入 / 0.3 s 淡出**（常量用 `read_literal.py` 现读 `0x1834b3158`/`0x1834b2dc8` 核过），并把拖拽路径逐句改成原版形态（`pressingLight` 亮着就 return）；`Hand/HandLayout.cs` 新增 `TweenIntoSlot`（0.2 s OutQuad）。
+**两处手牌接线的关键一跳被白名单挡住** ⇒ 写成可直接照抄的 R1/R2/R3（`BattleDriver.PlayDealAnimation` 调用点 · `CardFeel.DealInQuad` 签名 · `FinishActing` 调用点），未越界。
+
+**它求裁的两条 —— 我的裁定**：
+1. **`ManaTypeHolder.DoTextAnim/TryDOVfx` 维持 `P0`**：每场 8 个 holder 里**稳定 2 个** `useTweenOnValueChange=1` ⇒ 每局都会看到那两颗动；备注要**两说并存**（「每局可见」+「其余 6 颗不动是数据标志」），⛔ 别只留一半。
+2. 🔴 **「死类」一律判 `D`，不许判 `A`** —— 依据方案 §四（`D` 的定义里就写着「死代码」）。**判 A 等于声称「我们和它对齐了」，可它根本没有行为可对齐 ⇒ 虚增定案率。**
+   ⇒ 317/324 改 **D**，并把 **319–323 那 5 条一起从 A 改成 D**（老账同口径，留一半会让下个代理以为两套都行）。**这条已写进方案 §四（正本）。**
+
+**授权**：让它改 `Battle/BattleDriver.cs` 做 `FinishActing` + R1 —— 但**先读反编译把 `CancelActiveAbility` 那条链读清**（谁先调谁、面板是否 Hide、Hide 时长）：读得清就按原版接，**读不清保持 C**，⛔ 不许靠真机试（真机验收暂停）。
+**R2（`Core/CardFeel.cs`）这轮不动** —— `Core/**` 归 N5。
+
+**它提的两条工具建议**（我收了，下批修）：形态闸对「一行内含声明+调用」（`void Awake() { Build(); }`）报假候选；`ledger_progress` 的 P 级计数靠「等级列非空」而非 `状态==C`。
+
+### 代理 F · 两批订正都做完（全部自己复核，⛔ 没照抄转述）
+
+**A. 存档（5 处）**：
+
+- **key 数**：它确认自己原来错在**拿 ILSpy 的无值裸枚举手数**（`grep -c "="` 返回 **0**，因为全是裸列表）⇒ 真值 **52 成员 / 51 数据 key**。
+  **另补一节我没提的**：`PlayFabReadOnlyDataKeys.cs:1-17` 有 **6 个字符串常量**，其中 **3 个不在枚举里** ⇒ **完整分表 = 51+3 = 54 个数据槽**；并标了易混点：`CloudHandle.CheckStarterDeckGranted = 800` 是**云函数句柄**，不是数据 key。
+
+- **11 个落盘通道逐条核实**（带 `文件:行号`）：`WarpforgeDecks.json`（`DeckStore.cs:22`）· 卡牌等级（`CardDetailPopup.cs:161`）· 段位（`RankedData.cs:154,158`）· 背包（`CollectionScene.cs:5603` / `ShopScene.cs:1879`）· 联机设置（`NetConfig.cs:33`）。
+  ⚠️ 它原来写的 `ShopData → persistentDataPath` **也是错的**，真实落点是 **`WarpforgeInventory/shop.json`**，已改。
+  计数口径写成三种粒度并说明**不矛盾**：8 类导入（按目录）/ 9 份（按文件）/ 11 个通道。
+
+- **`profile.json`** 实读 `ProfileData.cs:972-979` `SaveDto`：`playerName / avatarIndex / titleIndex / avatarBorderOn / achIds / achValues`（6 个），已给逐字段的迁移落点与 key 值。
+- **`TutorialV2`** 出处更精确：`Shell/MenuTutorialFlow.cs:58`（`PrefDonePrefix`）· `:61/:63` 两个 v1 旧键；并明确「**语言/音量（设置层，不进）vs 教程进度（原版 key，该迁）** 同在 `PlayerPrefs` 但归属相反」。
+- 新增 **`§8.2 已知未知`**：`DailyLimits` / `CurrentDeck` / `PlayerSeason` / `LevelData` 各自的当前处理与**未证线索**（⛔ 没假装已知）。
+
+**B. `AddEffect` 判据表第三版（用 `cards_truth.json` 重算，合计 = 1,198）**：
+`addStats` **507**（501→+6）· `addTrait` **368**（369→−1）· `setCost` **3**（三条 `costChange` 全是 1，逐条 dump 核过）· 其余不变；
+连带：K1 **640→646** · K2 **369→368** · K3 的 **`vanguard 34→33**（其余 12 个 trait 数复核相符）。
+§〇·五 加两条硬纪律（`cards_truth.json` 优先 / **枚举值一律读带显式值的签名桩，别数裸列表**）—— **后一条已由我写进 CLAUDE.md**。
+
+**连带发现（两条已进正本）**：
+1. 🥇 **`cards_truth.json` 在 `MyGame/Assets/RuleEngine/Resources/`** —— **统计口径的唯一正确源**，不只 `AddEffect` 用得上。
+2. 🔴 **`PlayerDataKey` 的 ILSpy 版没有 `= 值`** ⇒ **数任何枚举成员都必须用签名桩**，这条适用于全项目。
+
+### 代理 N1 · 四域 C 第 1 轮（3 个 `.cs` / +448−9 · 四账全绿 · 跨账已对齐）
+
+| # | 件 | 结果 |
+|---|---|---|
+| 1 | 锻造 `SnapTo`/`SnapToItem`/`FinishedSnapping` | **机制做了、宿主未接** ⇒ C→**B** |
+| 2 | 锻造 `ToggleScrollLock` + 两套 padding | **机制做了、宿主未接** ⇒ C→**B** |
+| 3 | 轮抽三条动效 | `DoToggleAnim` **A**；`PerformBadgeAnimations` 退 **B**（败场 cue 表未收）；`UpdateDeckInfoPanelAnimSync` Punch 三处按判据订正、**shine 仍缺** ⇒ C |
+| 4 | 战役 `OnObjectUpdated` | **做了一半 + 修掉一条真缺陷**；shine 缺同一颗着色器 ⇒ C（差异写准） |
+| 5 | 战役 `CampaignHeaderDisplay` ×2 | 判据全读出、**未建**：原版这条链**断在容器（死 UI）** ⇒ 建议 D |
+| 6 | **跨账（战役阵营格 badge）** | **完全没挂 ⇒ 战役那行 A→C**，与 `收藏.tsv` 那 6 行**同一句描述** |
+
+**改动**：`Shell/MenuScroll.cs`（+182/−3，**共用件、37 宿主行为零变化**：`FocusOnAnimated` 补间吸附 + onFinish = `FinishedSnapping`、`ToggleScrollLock`、`SetExtraPadding`、拖拽/滚轮取消吸附）·
+`Shell/DraftModeWindow.cs`（+96/−4：`BuildStageMarkToggleTween` / `BuildBadgeCountTween` / `PerformBadgeAnimations` / 三处 Punch 订正）·
+🔴 **它没给那个窗加 `void Update()`** —— 因为窗已接 DOTween，再加 `ManualUpdate` 会**双重推进**（这个判断很对）；
+`Shell/CampaignTab.cs`（+170/−2：`OnArmyAmountChanged` 幂等 + `PlayArmyIconShine` 体只出声一次）。
+
+**它修掉的真缺陷**：**战役滑条「领奖后不刷新」** ⇒ 真机验收要专看「领奖后滑条前进 + 满档变绿」。
+
+**账面**：轮抽 94A/15B/3C/55D · 战役 64A/17B/18C/27D · 锻造 51A/**39B/2C**/26D · 教程 51A/91B/0C/13D；四账形态闸全绿。
+
+**我的三条裁定**：
+1. ✅ **`Premium Button Container`（P1-11/P1-12）判 `D`**，但差异列**必须写死残余风险**「只扫了 menus 包 MB + 真机 dump，未穷举场景包/其它包的 persistent calls、未查祖先 Animator 是否动画 `m_IsActive`」—— ⛔ 别把「没穷举」省略。
+2. **锻造 `Badge Highlight` 有节点无驱动 ⇒ 不新增账行**（`ArmySelector.Initialize` 那一行已经把三个宿主都点了）⇒ 把锻造那半补进**同一行**的差异（铁律 6）。
+3. ✅ **授权它改 `Shell/ForgeTab.cs`** 接那 6 行 B 的**宿主一行**（判据它已读全），接完行为对得上就升 A。
+
+**它抓到的第三个工具级盲点**：`check_ledger_points` 对**散文括号**（`（Refresh 方法）`）只验「那行像声明」、**不验同名** ⇒ 曾指到 `SelectArmy:764` 还全绿。
+建议加「散文括号按前缀方法名比 `decl_name`」的告警 —— 已记，下一批修工具。
+
+### 代理 N4 · 第 2 轮（死类口径统一 8 行 + `FinishActing` 接线 + R1 落地）
+
+**① `ManaTypeHolder` 维持 P0**：账 544/553 的**原句一个字没删**，后面追加「每场 8 个里稳定 2 个 `useTweenOnValueChange=1` ⇒ 每局都会看到那两颗动；其余 6 颗不动是**数据标志**不是我们没做；⛔ 别只留一半」—— 两说并列做对了。
+
+**② 死类口径统一 —— 改了 8 行（比我点名的多 1 行，已批）**：317/324（本轮 C→A 的）→ D、319–323 → D，**另把 `318 CemeteryLogGroup.ClearActions` 也从 A 改 D**
+（理由：同一类里留一行 A，下个代理会照着学 ⇒ 两套口径并存）。同族 `CemeteryLogManager` 7 条本来就是 D ⇒ **该类从此只有一套口径**。
+差异列统一写死证据：「两类只以 MonoBehaviour 脚本存在（`MonoScript_319/2187.json`）；`SetupCemeteryCard|SetActionImage` 全量反编译 0 引用 ⇒ 原版零实例、离线无行为」。
+
+**③ `FinishActing` 接线 + R1 都做了（`BattleDriver.cs` 净 +4 行）**，而且它把那条链**从反编译读透**：
+`FinishActing` 全库**只有两个调用点**（失败支 `FinishedChoosingAbilityTargetByClick` / `CancelAbilityTargeting`）；
+失败支顺序 = `NotifyCantDoAction` → `waitingToResolveActiveAbilityFlag=false` → `CancelActiveAbility()` → **`FinishActing()`** → `StopShowingPotentialTargets(false)`；
+🔴 **这一支不 FadeOut 面板** —— `FadeOut` 的调用点全在别处（成功路径 `ExecuteActiveAbility` / 几个 Stop* / Recall / ResolveTransformUnit）⇒ **原版取消后技能面板留在屏上**，只有白层 0.3 s 褪 + 目标高亮清掉。
+落地：`CancelTargetChoosingByInvalidClick` 里、`ClearSelection()` **之前** +4 行（含三个 `文件:行号` 注释）；R1 第二跳调用点压成一行（净 0 行，免漂移）。
+
+**④ 账行 9 仍 C**，理由写死：接线对了，但我们的 `ClearSelection()` 紧跟 `skillPanel.Hide()`（0.1 s）⇒ 0.3 s 白层淡出被盖掉。
+**它顺手报的这条比参数差异更值得做**：**原版「点到非法目标」不隐藏面板 ⇒ UX 也不同**（原版可继续点别的目标/再点面板，我们得重选技能）。
+⇒ **我批了改这一支**，但带三条约束：① 改断言必须注「期望值依据 = `FinishedChoosingAbilityTargetByClick.c:32` 的调用顺序」；② 若那条 `SelectedSlot < 0` 守的是**通用不变量**而不是这一支的期望值 ⇒ **别改，先报我重裁**；③ **必须补观测量**「面板保留后再点释放能重进选目标」—— 否则「面板留着但点不动」比隐藏更糟。
+
+**⚠️ 它要求同步点做的一件事**：`BattleDriver.cs` 净 +4 行 ⇒ **别的账里 26 条落点会漂**（未分类 10 · 战斗逻辑 5 · 特效动画 5 · 教程 3 · 卡牌面 2 · 音频 1）。
+⇒ **我统一在同步点 `--fix`**（那些账现在各有写手，逐个改会撞车；而且**漂移不是失败**，不急）。
+
+**工具盲点第五、第六条**：`check_ledger_points` 把**调用行 / 重载 / `*ForTest` 转发**当成声明（`SetHint` 三处只有 15649 是真实现），与「一行内含声明+调用」同族 ⇒ **今天已累计 4 个工具级盲点，形态闸需要一次系统性体检**（排进下一批）。
+
+### 代理 N11 · `AddEffect` 前置闸（第一批四道）落地 —— **每条都有「改前错 / 改后对」的实测**
+
+| 闸 | 实现 | 实测（离屏探针） |
+|---|---|---|
+| ① 卡状态 | `AddEffectCardStateAllows`（`EffectResolver.cs:11046-11055`），接 `DoGive/DoStun/DoBlind/DoSetHealth/DoDouble` 逐目标位 | 墓地目标 `+1 melee`：改前 **1→2（错）** → 改后 **1→1 + 日志** |
+| ② jam | `AddEffectCasterNotJammed`（`:11104-11114`），接 `AttachHandEffect:5315`（**extrinsic 唯一载体那层**）+ `AttachHandEffectCopy:5554` | 被 jam 施放者发的 extrinsic 手牌效果：改前 **返 True / 挂 1 条（错）** → 改后 **False / 0 条 + 日志**；对照组照挂 |
+| ③ **残骸门**（最危险） | 判据只一处 `AddEffectRemnantAllows`（`:11070-11082`）+ 逐载荷口 `…Payload` + 整条 op 口 `…Op` | 改前 **5 红**（近战也涨、收 stun、sethealth 把残骸 3→1）→ 改后：近战 **0→0**、生命 **1→2**、混合只落生命那半、stun/sethealth 全不收 + 日志 |
+| ④ 施放者不在场 | `AddEffectCasterInPlayGate` + `…InHand`（`:11116-11146`） | 施放者已离场时目标涨不涨：改前 **0→1（错）** → 改后 **0→0 + 日志**；在场照常 |
+
+**探针 20 条断言：改前 13 红 → 改后 20 全绿**（`_tmp_view/n11probe/`，dotnet 纯离线，⛔ 不在工程里）。
+
+**两处模型映射它写进代码头注**（这种「映射说明」要保留）：
+· 闸①落成 `!IsUnitInPlayOrDying` —— ⛔ **没拿 `IsPendingDeath` 当 state 5**（我们的待死标记落得比原版状态迁移**早**，`Sacrifice:`/`W62` 两族在原版那一刻仍是 2/3）；
+· 闸④「在场」落成「在棋盘 ∨ `DyingThisAction`」⇒ 「血≤0 但还在棋盘上」我们**放行**。
+⛔ 闸装在各 buff handler、**不装** `ResolveOneCore` 入口（`deal`/`destroy`/`heal` 原版不走 `AddEffect`，装入口会改伤害语义）。
+
+**它报的关键事实（都成立）**：
+1. 🔴 **结算基线与工作树差 10 张**（`AM23/DA29/DA65/SOR18/20/25/30/35/68/SW11`）—— **四闸全关时同样 10 张同样指纹** ⇒ 是**并发在飞的 `UnitState.cs(+173)/RuleCore.cs(+345)`**，不是它的闸。
+   ⇒ **裁定：基线重钉由我在收口时统一做**，三个指纹（`PinnedPoolMd5`/`PinnedBaselineMd5`/`PinnedParseMd5`）一起重钉；⛔ 不许单代理各自重钉（会把半成品钉成基线）。
+2. 🟡 **`!t.IsAlive` 比原版严**（原版对 `cardState==2` 且 `Health≤0` 是收 buff 的）⇒ 记**已知偏离**，按铁律 11 要做的，只是排后；⛔ 别顺手改。
+3. 🟡 闸② **在板上那一半判不了**（`extrinsic` 只有手牌层载体）⇒ 等**通用效果记录表**；⛔ 没拿「此刻有单位」近似（`W4` 因此误摘过）。
+4. ℹ️ `GrantDarkPact:11639` 直调 `ApplyOneGain` ⇒ **只过闸③、不过②④**（隐性前提，已写备注）。
+
+**转派下一件**：**K7 `markOfChaos(8)` / `lastMarkOfChaos(17)`（池内 29+1，F 排序第 1 位）**，验收照这次的做法（先探针报「改前错/改后对」+ `ruleprobe play check` 确认除预期卡外指纹不变）。`RuleCore.cs` 现在空出来了（N7 已收工）⇒ 给它放开；⛔ `UnitState.cs` 仍留到 Stage 2a。
+
+---
+
+### 🔧 同步点（2026-10-25 中场实测，只测不改）
+
+`typecheck` **0/0** · 形态闸 **A 1,971 · 通过 1,852 · 漂移 104 · 失败 15** · 语义闸 **缺注解 14** ·
+账 **8,749 方法：A 1,903 · B 2,801 · C 1,181 · D 2,864 · E 0 ⇒ A+D = 54.5%**（本会话起点 53.2%，**+1.3pt 且是在大量降级之后**）。
+
+- **漂移 104 + 失败 15 全是并发写代码的次生现象**（`BattleDriver.cs`/`ForgeTab.cs`/`CampaignTab.cs`/`CardView.cs` 等一天里被反复追加）。
+  失败样例：`锻造.tsv` 三条指到了 `ForgeTab.cs` 的**空行 / `}` / 注释行**（因为 N1 正在那个文件里加代码）。
+
+- ⇒ **收口动作（等所有写手停下再做）**：`check_ledger_points --all-A --fix` 一次收干净 + 重钉三个指纹 + 重跑语义闸。
+- ⚠️ **别在还有写手时跑 `--fix`** —— 那会把半成品的行号钉进账。
+
+### 代理 N5 · 菜单/外壳 + 卡牌面（3 条卡牌面落判 · 菜单 C 69→51 · 3 件代码）
+
+**① 卡牌面三条（P2 点名的）全部落判，且都不需要动 `Deck/**`**：
+
+- **`#63 GetCardTier` → A**（**原 C 的前提不成立**）：原版按 `GetOriginalCard()` 取键；我们三处取档口都喂 `artId`，而 `artId = ArtKey(c) = c.FromOriginalPool ? c.Id : c.Name`，
+  **异画在本工程只是 `CardData.artOverride` 一张贴图、没有第二个卡 id**（`AltArtCards.CardId` 就是原卡 id）⇒ 键恒为原卡，与原版同义。
+
+- **`#162 UICardInfoItem.Initialize`（异画名 `*`）→ A**：**已经实现了**（今天落在 `Deck/DeckRuntime.cs:4419`，注释引的还是同一处判据 `UICardInfoItem__Initialize.c:116-119`）⇒ 原账「缺星号」**已过期**。
+  附语义边界：原版判「这条 SO 是不是异画克隆体」，我们判「这张卡有没有异画」（本工程无克隆实体），当前数据等价，将来若引入双条目要改判法（已写进账）。
+
+- **`#168 ToggleInvalid` → D**：**三查齐全 + 对照**（全程序集 0 引用 / 6 个相关包 `ToggleInvalid` 0 命中 / 其它程序集元数据 0 命中；**对照 = 同族 `CheckLinkText` 在 menus 命中 1 颗 `m_PersistentCalls`，证明搜法有效**）。
+  ⇒ **以后判 D 就照这个姿势**：三查 + 一个「同族能命中」的对照组。
+
+**② 菜单 69 条 C**：18 条当场处理（2 A · 3 B · **13 D**），其余 51 条逐条写「还差什么 + 可达性 + P 级 + 序号」（P1×4 · P2×47）。
+
+**③ 代码 3 件**：
+1. **新建 `Core/ScreenUtilities.cs`**（+ `.meta`）：原版 `GetScreenDPI` / `GetScreenPhysicalSize` / `GetDiagonalSizeReferenceValue` 三式逐句照抄 ⇒ **C→B**（函数对了，消费点在 `Hand/**` 未接观感）。
+   🔴 **顺手纠正一条既有落点错误**：原账把这三条指到 `TransformScalerBySmallScreenUI`，而**那个文件自己写着「没有任何一处拿 dpi/物理英寸去算它」**。
+2. **`Shell/WindowButton.cs` 禁用态**：`State` 加 `!_interactable ⇒ Normal`，`Enter`/`Exit`/`Press` 三处同一早退，`Interactable` setter 清 `Hovered/Pressed` 并重跑状态（只在已绑图形件时，防 `Collect()` 缓存空表）⇒ `SetToStateActiveOrDisabled` **C→A**。
+   🥇 **判据它找到了**（原来账/代码都写「本地没有判据」）：原版 `EverguildButton` **自己覆写了** `OnPointerEnter/OnPointerExit/OnPointerDown`，三处第一句都是 `if (this.m_Interactable) { … }` ⇒ 不可交互时**连 `base.OnPointerEnter` 都不调、不产生 `Highlighted`**；而 `OnPointerUp` **没有**这道闸（抬指永远收尾）。
+3. **`Shell/PopUpGameWindow.cs` 正文链接**：`CheckLinkText()` + `MessageText Hit` 透明命中区（`QText+1`，`tintOnHover=false`/`playClickSound=false`/`onDown=CheckLinkText`）⇒ **C→A**；命中复用 `Label.LinkAt`，没写第二份。
+   判据：`PopUpGameWindow__CheckLinkText` 方法体 + prefab 的 `m_Delegates[0] = {eventID:2(PointerDown), m_MethodName:"CheckLinkText"}`，宿主 = `MessageText` 那颗 GO。
+
+**账面**：菜单 A 272→**274** · B 168→171 · C 69→**51** · D 364→**377**；卡牌面 A 94→**96** · C 20→**17** · D 42→**43**。两域 0 缺注解 / 0 漂移 / 0 失败。
+
+**它报的第 5 条工具盲点**（已触发我派专门代理做工具加固）：`check_ledger_points` 把**一行式成员里的调用**误当声明（`RefreshDeckList` 2 处 · `Click` 3 处）。
+**它提的其它**：`DragAndDropItem` 12 条「我们的拖拽在 `DeckRuntime`、原版在 `DragAndDropItem`，两套是否逐条等价一个字没核」⇒ 记进账，下一批派；`Shell/WindowButton.cs` 里有**别人未提交的** `OnTransformChildrenChanged` 改动，同步点统一看 diff。
+
+**已转派**：tooltip 标题行（序 01/02）+ 触发体系（序 06，**放开 `Shell/PointerLayer.cs`**）+ 顺手判掉两域那 15 条弱候选。
+
+### 代理 N13 · `TraitEffectController` 钩子层判据（**"整层缺失"其实只差 3 个文件 + 2 个前置修**）
+
+**六问结论**：
+1. **是什么**：`abstract class TraitEffectController : MonoBehaviour`（3 抽象方法 `Toggle`/`UpdateValue`/`AimingAttack` + 死字段 `currentValue`）。**没人 `new`** —— 是 prefab 上的序列化组件，随 `BattleManager.CreateAnim` 的 `Instantiate` 出生。
+   ⚠️ **澄清一处常见误读**：「3 个调用点」里**第 1 个其实是 `ResolveTraitAnim` 的内部回调包装**（⇒ 所有走 `ResolveTraitAnim` 的路径都会调）、**第 2 个 `PlayTriggerAnim` 实际无效**（唯一调用方传的是 `sentinelUnitAnim`）、**第 3 个（`DisplayStatusAnim` 的「框已存在」分支）才是真正的刷新入口**。
+2. **管哪些 trait**：**只有 2 条** —— `huntMark`(1260) / `markerlight`(1170)；**84 个 bundle 里两个控制器各只有 1 个实例**，分别挂在 `HuntMark_IdleEffect` / `MarkerlightIdle`（都是这两条的 **OnPlay(2)** 框）。
+   **事件驱动、绝不每帧**：框出生 1 次 · 被再次显示 1 次 · 触发显示 1 次。
+3. **输入输出**：输入 = `GetCurrentTraitValueWithModifiers(trait)`（基值+Σmodifier，**钳≥0**）；输出 = **只改 prefab 里那个 TMP 的 `text` + `DOPunchScale(one*0.1, 0.5s, 10, 1.0)`** —— **不写引擎状态、不发事件**。
+4. **我们现状**：**0 命中，但接收端全在** —— `TraitFrames` 已按原版两本字典建好、这两条的 OnPlay 框**已经在播**（`trait_effect_bindings.json` 已绑）。缺的只有 ① 计数器组件 ② 「再次显示时刷新」的调用 ③ **两个 idle 框 4 秒后自杀（必须先修）**。
+5. **关系**：**互补不重叠**。`Auras.Recompose` = 产出值的上游 · `ActivateTraitsOnSummonOrEnchantment` = 首次显示时机（我们用「新视图⇒`_prev` 空⇒全集重演」等价实现）· `EvtKind.Trigger` = 「触发了」· **本层 = 「值变了/又被加了一层」**（天然落点 = 已有 `EvtKind.StatusApplied`，目前 0 显示侧消费者）。
+   裁定 = **并存，但 `TraitFrames` 是唯一实例化者**，本层只挂在它生出来的实例上。
+6. **怎么做**：**3 个新文件**（每类一个，A1506/A1508）+ 在 `TraitFrames.Play` 里按 **prefab 名**挂组件 + **4 个入口 E1–E4 各传一次值** + **8 条断言（含 2 条灭自证）**；另有 **2 件前置修**（idle 框不许自动销毁 · 把 trait 值传进 `TraitFrames`）。`MarkerlightUsed`/`AimingAttack` 排 P2（要先新写 `MaterialFader`，我们没有）。
+
+**关键判据**：`TraitEffectController.cs:5-15` · `HuntMarkController.cs:19-29`（**`AimingAttack` 原版直接 `throw NotImplementedException`**）· `MarkerlightController.cs:25-79` ·
+刷新触发源 `CardScript__AddEffect.c:645-664`（`cardState∈{2,0xf,3,0x11}` ∧ **`CardTrait._hasInPlayAnim(+0x20)`** ⇒ `DisplayStatusAnim`）· `ActivateTraitsOnSummonOrEnchantment.c:42-69`。
+**prefab 真值**：`fadeTime = 0.5`（prefab 覆写，⛔ 不是 ILSpy 的 1f）· `updateMarkerLightVFX = null`（**死支**）· `floors` = 两个 `Grid floor` · `Normal/Expiring State` 序列化时都是 active=1（所以 `Start` 必需）。
+
+> 🔴 **它挖出两条真缺陷（都不是「新功能的前置」，而是今天就能看见的错）**：
+> **F1**：两条 idle 框在我们这边 **4.3s / 4s 自毁**（prefab 无 `AnimFXController` ⇒ `destroyTime:-1, natural:4.3/4` ⇒ `AutoLifetime():78-79` **回落 natural**）⇒ **计数器会凭空消失**，玩家侧表现就是「框过一会儿没了」。⇒ **已派 N5**（在其 `Core/**` 地盘），并要求**先确认回落逻辑、能按 prefab 名单收窄就别一刀切改全局** `AutoLifetime`。
+> **F2**：**`markerlight` 摘除时机不对** —— 原版攻击后**只置标志**（`+0x57`）、**回合末**才 `RemoveTrait(0x492)`（`CardScript__OnTurnEnd.c:135-141`）；我们 `RuleCore.cs:6884` **当场 `RemoveAll`** ⇒ 「攻击后到回合末」那段窗口里原版还有、我们已经没了。
+> ⇒ **已转 N11**（`RuleCore.cs` 现由它持有），并明确「读完 `.c:135-141` 再改；K7 吃满就只记账别动手」。
+
+**已转派**：N15 建三个新文件（**只新建不接线**，类名==文件名），并要求把「接线点清单」写进报告给下一批。
+
+### 代理 N12 · Tap 族判据 —— **上一批「做不了」的两条理由全被推翻**
+
+**给调度台的一句话**：① `TapParticleController.Update` 在 **Ghidra 版 `.c` 里 0 条 IL 注记、控制流完整**（ilspy 版 87 条只是**反编译器噪声**）；
+② **数据全解得出，19 个粒子 prefab 早就在我们工程里**（`WarpforgeVFX/Prefabs/`，共 22 件 Tap 相关）。**真正的工作量在我们侧没有碰撞体**，不在取证。
+
+**五问要点**：
+1. 原版是**独立组件在自己的 `Update` 里读按下沿** → `ScreenPointToRay` → `Physics.RaycastNonAlloc(ray, hits[3], FLT_MAX, 0x40000001)` → 取**最近**那条上的 `TapHitMaterialDefinition`。
+   我们断在两处物理事实：**战场 0 个 Collider、运行时 .cs 里 0 处 `Physics.Raycast`**（边沿/屏幕坐标/UI 闸/世界换算全有，点击最后落进 `DrivePlayerTurn` 的空分支）。
+2. `TapHitMaterialDefinition` = `particleDefinition{particles, audio}` + `delayTimeToPlayAgain` + `useTargetAnchor`(**死字段**) + `targetAnchor`。
+   **213 实例 / 15 bundle / 去重仅 25 种组合**；**19 个粒子 prefab + 11 个音效 cue 全部解出真名**（粒子全在 `battleprefabs_vfxandmisc`，名字全是 `Tap *`；cue 全在 `soundcollection`）。21 条 clip 名也解出（**必须 UnityPy 读真束**）。
+3. `Update` **100% 复原**（判据给了可照抄伪码）：hits 上限 3 · 掩码 `0x40000001` · **最近优先且不按组件过滤（最近那条没挂定义就 return，不顺延）** · 世界点 = `point + normal×0.1f`（常量 `0x1834b2dc4` 直读 = 0.1）· 锚点非空则挂锚点本地零位 · 粒子**按 prefab 全局缓存一件反复挪**。
+4. 不播条件：**`matchType == Tutorial(100)` 整件关掉**（其余 17 档全开）+ 7 道闸。
+5. 落点：新建 `Battle/TapParticleController.cs` + `TapHitMaterialDefinition.cs`（**独立组件、自己读按下沿，⛔ 别复用 `BattleDriver._downEdge`**）；manifest 加 `tapHits[]`；建场在 `ArenaBuilder.cs`；音频走 `import_original_sfx.py`。
+   **最小可验收件 = 每场必有且仅有 1 颗棋盘地面**（`CardLowBoardLimit`，13 场逐一验过）。
+
+**它还纠正了一条反编译口径**：**反编译「打烂」要看 Ghidra `.c`，ILSpy 的 `IL_xxxx` 注解多是噪声** —— 别再拿「ilspy 87 条」当「做不了」。
+
+**顺手发现里最要紧的三条**：① **我们的 arena manifest 完全不含 Collider**（只有 `meshes`/`particles`），而源 `07_场景/<场>/` 的 `BoxCollider/` `MeshCollider/` **是齐的** ⇒ 缺口在生成器没提取；
+② arena3 有 1 条定义挂在**没有碰撞体的宿主**上 ⇒ 原版永远不触发，⛔ **别给它补碰撞体**；③ `WFSoundPlayer.Play` **没有 cue 自身冷却**（原版 `AudioCue.timeToPlayAgain=0.1`）⇒ 在组件里自己实现，⛔ 别改全局播放器。
+
+**已派 N16**：T1（两个新文件）+ T2（10 cue / 20 wav）+ manifest 提取 `Collider` + `ArenaBuilder` 建场侧；**只写代码不跑 Unity**，并要求它交一份「需要调度台执行的命令清单」（⚠️ 铁律 15：战场**一场一场**做，⛔ 不许 `--all`）。
+
+### 代理 N1 · 第 2 轮（三处裁定全部落地 · 锻造 **6 行 C→A** · 抓到一个「不报错但差 895px」的坑）
+
+**① `Premium Button Container` → `D`（两行）**，差异列按我的要求写死了取证边界：「只扫了 `bundle_menus_assets_all` 的 `MonoBehaviour/*.json` + 真机 dump，**未穷举场景包/其它包的 `m_PersistentCalls`，也未查祖先 Animator 是否会动画 `m_IsActive`**」。
+`Initialize` 那行同时写清「正文四件已对齐，落点 `CampaignTab.cs:801（Refresh）`」，缺的只有两颗互斥节点，⛔ 没建。
+
+**② 锻造 badge 不另开账行**：补进 `战役.tsv` 的 `ArmySelector.Initialize` **同一行**备注，**三个宿主并列**（战役＝一颗没建 · 锻造＝节点在 `ForgeTab.cs:742-746` 但无驱动 · 收藏抽屉 `Cell_fac_*`＝无对应物），并删掉原「（锻造域那一行另记）」。
+
+**③ `ForgeTab.cs` 接线 +238/−11 ⇒ 锻造 6 行 `C→A`**：`FocusClaimable:891`（瞬跳 → **补间吸附** `FocusOnAnimated(center, 1.5f, onFinish)`）· `OnSnappedToCell:912`（= `FinishedSnapping`）·
+`PlaceReadyGlowAt:926`（= `ToggleCollectReward` 里「`canLevelUpEffect.position = target.position`」那句，**上一批记的「缺件」补上了**）· `ApplyCollectLayout:949`（= 原版 `Refresh` 末两句：padding 两档 + `ToggleScrollLock`）。
+
+> 🔴 **它踩到并写死的一个坑（典型「不报错、只是画面错」）**：
+> padding 那一半已经折进排版参数 ⇒ `ToggleScrollLock` 的 `extraPad` **必须传 0**，否则滚动侧**再算一遍 895** ⇒ 范围大 895、画面差 895px，**全程不报错**。
+> 为此给 `MenuScroll.ToggleScrollLock(bool, float extraPad = RewardClaimExtraPadding)` 加了形参 + doc。
+> ⇒ 这类「同一份数值在两个抽象层各加一次」的错，以后凡是「排版层 + 滚动层」双消费的参数，都要问一句「另一边是不是也加了」。
+
+**账面**：轮抽 A 93→**94** · 战役 A 65→**64** / C 17→**16** / D 27→**29** · 锻造 A 51→**57** / C 8→**2**。
+四账形态闸 **94/94 · 64/64 · 57/57 · 51/51（0 漂移 0 失败）**；`typecheck 0/0`。
+它改 `ForgeTab.cs` 后移了行号 ⇒ **已按声明名重算 `锻造.tsv` 14 处其它 A 行**；`特效动画.tsv` 那 21 处 `ForgeTab.cs` 都在备注/差异、不在落点 ⇒ 不受影响。
+
+**仍没做（都在白名单外/已裁 P2）**：Coffee `UIEffect` Transition(Shiny) 移植（轮抽右栏 + 战役阵营图标两处共用）· `Draft Mode Loss Jingle` 进 cue 表（要先加 `EXTRA_CUES`）· 三条 `Build*Tween` 的断言（`Editor/**`）。
+**它给的真机建议**（等用户开口恢复真机再跑）：锻造看「可领时轨道锁横滚 + 开页补间吸附 + 光效落在该格上」· 轮抽看「胜场 +1 时该格弹一次、数字 OutBounce、领完不重播」。
+
+### 代理 N9 · 社交/联机 **B 清零**（220 条核完 · 派出 10 路只读代理）
+
+| 域 | 入 | 出 |
+|---|---|---|
+| 社交/聊天 | A24 / B156 / C16 / D248 | **A86 / B0 / C89 / D269** |
+| 联机 | A9 / B64 / C3 / D103 | **A64 / B0 / C7 / D108** |
+
+220 条 B → **A 117 · C 77 · D 26**。⚠️ **它把 C 从 19 涨到 96** —— 因为核出真缺口就降级，**这是我要的诚实度**（⛔ 不是退步）。
+
+**它报的判据级新发现**：
+1. **原版一批方法在全量反编译里 0 个 C# 调用点 = 死码**（`ChatManager.GetActingWarlord` / `ChatMessageHeader.Initialize` / `AllianceView.Initialize()` / `AllianceScoreBar.SetProgressBar` 等 9 处）。
+2. **账上 7+ 处落点已漂或指错**，全部换成现读声明行；其中 **社交 362 原指 `Shell/DeckInfoPopup.cs` 是错的**（原版 `DeckInfoAllianceTab` 只被 `DraftModeDeckInfoPanel` 持有）⇒ 改指 `DraftModeWindow.cs:1818` 并判 D。
+3. **`A 不许带缺口措辞`**：社交 65 `AllianceScoreBarLine.ShowChestOpen` 原判 A 但差异写着「开箱图本地缺」⇒ **降 C**（缺五张开箱图）。
+4. **过期记录就地订正**：385/386 备注写「缺在线优先/按名排序」，实际 `SortByName`/`SortByConnected` 都已实现并在 `BuildRows` 生效。
+
+**B 里查出的真缺口（判 C）**：
+· **联机 162 P1**：模式不一致时我们**关整条会话**（原版只 `LeaveBattle`、连接留着）⇒ 玩家要重连/重输房间码；且**客机完全不复核 `MsgStart.mode`**。
+· **联机 79 P2**：练习链一律先走 12 秒 bot 搜索，原版约 1 秒 ⇒ 玩家多等约 11 秒。
+· **联机 27/28 P2**：`SendCardReorder` / `SendCardSeen` **全仓零生产调用点** ⇒ 对面永远收不到换位与「在看哪张牌」；收侧已通，**只差一句接线**（发送点在 N4 域）。
+
+**我的裁定**：① 匹配期 **loading 遮罩要做**（原版 `FindMatch` 有 `ShowLoading(true)`，我们 12 秒无反馈）⇒ `C / P1`；② 联机 162 保持 P1 并**单列「客机不复核 mode」**（那是安全不是体验）；③ `_wasInBattle` 5 处耦合**不盲改**（要重连自检）⇒ 账里写死「等自检恢复第一批做」并列出 5 处行号。
+🔴 **④ 社交那 16 条 Inbox —— 这轮不派**：`Shell/{Inbox*}` 在方案附录 A 里属**「日常/奖励」域（用户已暂停，只审不动工）** ⇒ 停在记账，⛔ 不许找写手绕过。
+
+**它报的四条发现（都很实）**：`TabButtons.cs:81` 的 `OnTabChanged += UpdateTab` **随每次开面板累积**（真实泄漏）· **`ChatPreview` 有两份独立实现**（字号 18 vs 23）⇒ 任何修法必须两处一起改 · 两处过期注释 · **`Shell/SearchOpponentManager.cs` 与原版同名类毫无关系**（只是常驻推帧器，⛔ 别当等价物）。
+
+### 代理 N4 · 第 3 轮（「取消后不 Hide 面板」整支做完 ⇒ **账行 9 → A**）
+
+- **死类 8 行已落地不回退**（317–324 全 D），`CemeteryLogManager` 那 7 条本来就 D ⇒ **该类不再有两套口径**。
+- **它把 `SelectedSlot < 0` 查清了**：这条断言**只出现在这个失败支**，块注释也自承「原版接着 CancelActiveAbility / FinishActing / StopShowingPotentialTargets」，**没有别的断言依赖它** ⇒ 按我的口径「不是通用不变量」⇒ **可以改期望值**。
+- **改动 3 处**：`CancelTargetChoosingByInvalidClick` 逐句照失败支重写（出声 → `FinishActing()` → `ClearTargetHighlights()`（新抽出的等价 `StopShowingPotentialTargets`）→ 关选择器/准星；**不隐藏面板、不清 `_selectedSlot`/`_command`**）· `SkillPanelConfirmRelease` 补 `HighlightTargets() + ShowReticleNow()`（= 原版 `StartChoosingAbilityTargetByClick` 那两半）· 断言改 1 条 + **新增 3 条观测量**（①c 出声+面板留着+仍在选目标 · ①c2 目标高亮归 0 · **①d 再点释放 ⇒ 计数回到取消前、准星回来、亮 acting**）。
+- **判定三条全成立 ⇒ 行 9 判 A**。⚠️ 如实记：批处理 DOTween 走 Manual 档不推进 ⇒ **0.3 s 本身自检测不到**，只测状态/流程；时长判据仍是 `read_literal` 现读 0.3/0.4 + `SetEase(6)`。
+
+> 🔴 **它顺手挖出一条新缺口（归 `战斗逻辑驱动` 账，它没权限改）**：
+> **成功结算那一支也有 `FinishActing`** —— `ExecuteActiveAbility.c:41 → CancelAbilityTargeting → FinishActing`，**之后**（`:160`）才 `StopDisplayingActiveAbility`=FadeOut
+> ⇒ 原版在「技能正在结算」那段里，**白层是看得见地在褪**。我们 `DoResolve` 是同步的：`SetActing()` 后**立刻** `ClearSelection()`（0.1 s 收面板）⇒ **这段看不见**。
+> ⇒ **已转 N11 记账**（`ExecuteActiveAbility` / `CancelAbilityTargeting` 两行）。
+
+### 🔴 用户三条新决定（2026-10-25，已写进正本）
+
+> 原话：「**日常/活动线 779 条（其中 408 条真缺）要不要开？开吧。** · **实现基本复刻后再真机和自检。** · **子代理达到 80% 再停，别 50% 就开新的。**」
+
+1. ✅ **日常/活动线开线**：原「只审不动工」**作废**，可以改 `.cs`。方案 §五 批次表、附录 A 域表、附录 C 的 K 行**三处已就地订正**（留了日期）。
+   ⚠️ **旧约束不变**：不做真实经济（资源固定 **2000**）· 轮抽不做奖励 · 过期的活动不做。
+   ⇒ 已派 **N17**（日常 779 条：C 408 分堆+落地、B 318 核实、外加社交域那 16 条 Inbox —— 它们之前就是因为「属日常线」被挡下的）。
+2. ✅ **真机与自检仍暂停**，恢复条件 = **实现基本复刻之后**（不是按时间、不是按批次）。
+3. ✅ **轮换阈值 50–60 万 → 上下文的 80%（约 80 万）**：`CLAUDE.md` 铁律 13·1 已改，并写明「⛔ 别在 50%–60% 就切，新代理要重读一遍背景，反而更慢更贵」。
+   ⚠️ 今天早先按 60 万切掉的 P3(53 万)/P1(48.6 万)/P4(47.5 万)/P2(50.5 万) 属于**切早了**，但它们都写了完整交接、没有损失；后续按 80% 执行。
+
+### 代理 N15 · `TraitEffectController` 三件建完（135k，纯新增零接线）
+
+新建 3 个 `.cs` + 3 个 `.meta`（LF、类名==文件名）：`Core/TraitEffectController.cs`（abstract 基类 + `TraitEffectControllers.Attach(go, prefabName)` 挂载助手，**按 prefab 名、幂等、0 调用点**）·
+`Core/HuntMarkController.cs`（`UpdateValue` = 改 TMP `text` + `DOPunchScale(one*0.1, 0.5, 10, 1.0)`；**`AimingAttack` 照原版 `throw NotImplementedException`**）·
+`Core/MarkerlightController.cs`（9 字段名逐一同原版 · `Start` 关 `Expiring State` + 两个 `Grid floor` 设 `_RippleScale` · 死支 `updateMarkerLightVFX` **不做** · `ChangeState` 逐字（原版死代码））。
+`typecheck 0/0`；**推断 vs 实读在注释里分开标了**（只有 `Vector3.one × 0.1` 那个乘法是**高置信推断**）。
+
+🔴 **它就地发现判据文件有 4 处错（⛔ 它没改判据，只报）**：
+· **F-A**：判据 §6.2 说「两个 `Grid floor` 都是根的直接子件」——**实测不成立**（照判据写 `transform.Find("Grid floor")` 会**恒 null**）；它改成 `GetComponentsInChildren<ParticleSystemRenderer>(true)` + 名字过滤（正好 2 个）。
+· **F-B**：判据 §6.1③「`MarkerLightUsed`/`AimingAttack` 都走 `ChangeState`」与源码不符 —— `MarkerLightUsed` 是直接三句；`ChangeState` 与 `FadeFixedElements` **类内零调用 = 死代码**。
+· **F-C**：判据骨架把 `counter` 写成 `public`，原版是 **`private` 序列化字段** ⇒ 保留 private + `[SerializeField]`，自检走只读观测量。
+· **F-D**：我们导入的两个 prefab 根比原版多一个 `WarpforgeEffectBinder`（我们导出加的），不影响本层。
+⇒ **判据文件由我转给 N13 订正**（它是原作者）。
+
+### 代理 N10 · 未分类/其他（B 175 核完 · C 68 分堆）
+
+| 状态 | 前 | 后 |
+|---|---:|---:|
+| A | 31 | **90** |
+| B | 175 | **111** |
+| C | 64 | **68** |
+| D | 484 | **485** |
+
+**B→A 53 · B→C 12 · B→D 1 · 留 B 109**；另 **C→A 7**（早已被别线做完）· **C→B 1** · **原 A 降 B 1**（查出真语义差：`Countdown.Update` 原版有 `speedFactor` 变速 + 剩余<5 秒播音，我们只刷文本）。
+**1 条 D**（`CardRarityColorsSO.TryGetColor`，三查全空）；⛔ **没有为好看升 A**（`AlternateArtStyleIconsSO` 等价物是属性 ⇒ 形态闸不收 ⇒ 留 B）。
+**它守住了「不编数字」**：`#582` Energy 窗模板把「1 Energy」写死、参数序与原版 `Format(译文, amount, timespan)` 不对应 ⇒ **留 C/P1**，没硬填。
+
+**它提出一个口径问题**（我答了）：「同一实现方法服务多个原版方法」的 8 组会永久停 B，除非给落点加 `文件:行#分支` 语法。
+⇒ **不需要新语法** —— 方案 §四 的**例外条款**已覆盖：「多个原版方法确实由同一段代码实现时，落点给**行号范围** + `判据要点` 写清『这段代码如何分别满足各方法』⇒ 仍算 A」。
+它误用了严格版（只给主方法记 A）⇒ 已让它按例外条款重判那 8 组。
+
+**改动请求（落点在别人文件，它没动）**：`#116 CardDisplayOptions.ResetDisplayOrder` · `#292/#434 ExpansionPass 两处` · `#660/#661 UICardSelector 进出场补间`（`DraftModeWindow`）· `#230 CustomRaycaster`（教程线整层缺「只允许点注册过的物件」）。
+
+### 代理 N9 · 五条裁定全部落账（+ **它订正了我一个说法**）
+
+**🔴 它订正的（我记错了，已在给用户的汇报里更正）**：匹配期**不是「屏幕上什么都没有」** —— 我们有 `SearchingMatchPopup`（带 12 秒倒计时的小窗），
+**缺的是原版那层全屏遮罩**（`Everguild/MatchMakerManager.cs:458` 的 `GeneralMenuController.ShowLoading(true)`）。账里口径已写成「只有小窗、没有全屏遮罩 ⇒ 状态强度与原版不同」。
+
+**五条裁定回执**：
+① loading 遮罩记 `C / P1`，挂在**联机 68 `ChangeToBotBattle`**；`OnMatchMakingErrorScreenCloseButtonPress`（行 75）加交叉引用「同 68，不重复计数」。
+② **联机 162 加安全口径**：「其中 ③ **不是体验问题**：客机完全不校验对端声明的模式，恶意/错版主机可声明别的模式开局（原版 `PUNReceiveStartGame` 里 `text2 != text3` 就报 WrongPlayMode）⇒ **不能等体验优化那一档**」。
+③ **联机 81 写死 5 处耦合点**：`NetSession.cs:287`（wasReconnect 判定）· `:352`（退避支闸门本体）· `:390`（待替换候选 armed）· `:709-710`（Ack 里 sessionToken 下发）· `:775`（客机是否发 `Reconnect{token,lastSeq}`），并写明「改一处必须同步核这 4 处」。
+④ 社交 16 条 Inbox **只记账、未找写手绕过**（`Shell/{Inbox*}` 属日常域）—— 但**用户已开线**，已转给 N17。
+⑤ **四条发现不起新行**（我批了它的理由）：账表头是「原版类/方法」，这四条**没有对应原版方法** ⇒ 新开行会**污染 A/B/C/D 统计口径**，也会让别的会话已引用的行号失效 ⇒ 挂现有行备注 + 报告 §⑧ 单列。
+（`TabButtons` 累积泄漏 → 社交 309 · `ChatPreview` 两份实现 → 343 · 两处过期注释 → 402 · `SearchOpponentManager` 同名陷阱 → 联机 149）
+
+**它的 §⑨ 交接（下一批不用重读原版）分三档**：
+· **A 类（判据齐 + 等价 API 本仓已有，纯接线）**：社交 313（图标 `LeaderboardWindow.cs:265/267` 在用）· 129/130 · 43/329（`WindowsManager.ShowPopUp:1333`）· 30/99（`AllianceMemberOptionsPopup` 窗与入口都建好，只差调用点）· 联机 27/28（收侧通，只缺发送侧各一句）。
+· **B 类（判据齐 + 要新写一小块）**：收件箱族（⛔ 只记账）· 奖杯格 · 联盟排序 · 计分条 `InterpolateMilestones`（我们线性、原版按档等分）· 聊天行分侧底色左右交换（各偏 35px）· 选项面板要拿被点消息（前置 `SocialData.ChatMessage` 缺 `playerId`）· 联机 68/162/81/74/136/79。
+· **C 类（原版 IL 本身不可读）**：`GetConnectionStatus` 的 ClientState 映射 · `ReconnectToBattleRoom` 七条分支 · `LeaveCurrentRoom:360` 之后 · `AllianceRatingDisplay` 段位拼接 · `InterpolateMilestones` 内部分母 —— 五处都要读 VA 级反汇编，账里已写「还差哪一份 `.c`」。
+
+**已转派**：A 类全做（含授权 `Hand/CardInteraction.cs` + `BattleDriver.cs` 各一句发送侧；⚠️ 那两文件今天被改过，**按方法名 grep 定位，别用行号**）。
+
+### 代理 N5 · 第 2 批（**又推翻三条旧账** + F1 修完 + 两域弱候选清零）
+
+**① tooltip「标题行」不是「补一条」，是三条账各有各的真相**：
+
+- `EverguildTraitTooltipItem.Show` → **C→A**：**2026-10-23 就做完了**（`Core/Tooltip.cs:671 LayoutTrait`，逐字段照 `Trait Tooltip` prefab：面板 494.98×141.60 · Title 398.10×34 fs32 · Description 397.39×89.71 fs30 · TraitImage 75×75 · `Line` 原版 active=0）⇒ 原账「我们只画正文」**已过期**。
+- `EverguildTooltipWithTitle.Show` → **C→D**：**这个变体在本 build 一个实例都没有**（`bundle_Waprforge_monoscripts` + 6 个 UI 包全 0 命中；**对照组 = 同族基类/Trait 都有 MonoScript**）。
+- `EverguildTooltipItem.Show`（基类）→ **C→B**：**基类根本没有 title 字段**（只有 `defaultOffset`/`canvasGroup`/`body`）⇒ 原判据要点「标题+正文」**是错的**；内边距与最小宽高是我们挑的 ⇒ B。
+
+**② tooltip 触发体系 4 条逐个判，⛔ 原账两条判据是错的**：
+
+- `OnPointerDown` → **D**：**方法体为空**（`{ }`）—— 原账写「按下 ⇒ 收起」**是错的**；我们 `Press()` 也不碰 tooltip ⇒ 天然一致。
+- `OnPointerClick` → **留 C/P2**：它**不收 tooltip**，只在 `preventPassingClickEventToParent` 时 `SetSelectedGameObject(null)`；**241 颗 trigger 实例里只有 1 颗**开了这个 flag（`(0,0)×205 / (1,0)×35 / (1,1)×1`，现读）。
+- `OnSelect`/`OnDeselect` → **C→B**：在 `WindowButton` 落了触发器等价物（`tipText/tipAnchor/tipOffset/tipRegisterEvents` + `Enter/Exit/SetSelected/ToggleTips`）；**接线数 0**（没人设 `tipText`）。
+- `Toggle` → **B→A**：`ToggleTips` 与原版 `Toggle` 逐句同形。
+
+**③ F1（idle 框自毁）确认并已修，影响面恰好 2 条**：
+自核：两个 prefab 里 `AnimFXController` **0 次**；库条目 `HuntMark_IdleEffect = destroyTime:-1 · natural:4.3`、`MarkerlightIdle = -1 / 4`。原版 `OnEnable` 只在 `destroyTime>0` 才排自毁 ⇒ **无组件 = 原版常驻**；我们的 `AutoLifetime()` 对 `<0` 有**自拟的 `natural` 兜底** ⇒ 4 秒被收。
+**修法按持有者收窄（⛔ 不动共用回落）**：`Core/TraitFrames.Play(name, held=false)` —— 只有**本类持有的框**（OnPlay(2) / `TriggerOnPlay(6)`）**且该条目 `destroyTime<0`** 才显式传 `autoDestroySeconds = ∞`；一次性档与 `destroyTime>0` 的持有框**一个字没动**。
+**影响面实测**：绑定表 75 行里 `triggerType∈{2,6}` 的持有播放点 **33 个** → 与库交叉后落在 `destroyTime<0` 的**只有那 2 条**。
+⇒ **这正是「改窄不改宽」的样板**（共用逻辑不动、按持有者收窄、影响面量化）。
+
+**④ 两域弱候选 15 条全判完 ⇒ `check_a_vs_diff` 两域 0（强 0 弱 0）**
+10 条标 `[非缺口]`（其中 `CompensateAspectRatio` 那条是「**缺省** = 默认参数」被当成缺口词的**假阳性**）· **2 条降 B**（真缺口：`ResourcesBarController.OnCurrencyChange` 自己写着「仍无 `+N` 飘字」；`Shade.finish` 写着「方法体缺失、按 CIL 推断、未核」）· 1 条是自己上一批的过期措辞已订正。
+
+**⑤ 它没用上 `PointerLayer` 的授权**：`Select()` 已经会调 `prev.SetSelected(false)` / `b.SetSelected(true)`，挂那两个口就够 ⇒ **少改一个高风险文件**（如实记在报告）。
+
+**账面**：菜单 A 272→**274** · B 168→**175** · C 69→**45** · D 364→**379**；卡牌面 A 94→**96** · C 20→**17**。两域 `check_ledger_points` **370/370 · 0 漂移 · 0 失败**。
+
+**转派**：① 号改动请求（`特效动画.tsv:4` 补「`natural` 是自拟兜底、持有框已收窄」）由它自己落；`未分类_其他.tsv:356` 由 N10 落（已发消息）。
+
+### 代理 N11 · **K7 `markOfChaos` 做完**（15 红 → 2 红，剩的 2 条是别人的缺口）
+
+**判据这次真找到了（上一版「回反编译查不到」= 查错地方）**：
+· `AddEffect.c:776-792`（case 8）= `Enchantments.GetMarkOfChaos(+0x78)` → **取到的那张附魔卡** → `TriggerEnchantment`（= 它的 500 能力）→ `bm.lastMarkOfChaos(+0x2f0) = 附魔卡` → `BroadcastMarkResolved`；
+· `.c:933-940`（case **17**）= 只 `TriggerEnchantment(lastMark)`，**不写槽、不广播**；
+· 那 4 张附魔卡就是 `cards_truth.json` 里的 `Mark of Khorne/Nurgle/Slaanesh/Tzeentch (enchantment)`，**它们的 500 能力就是四份印记的真实效果**；`Enchantments.json` 的 `cardEffect: 50 Random` 挂 4 张 ⇒ 均匀四选一。
+
+**两处就地订正（都写进账）**：
+1. 🔴 上一版「同一单位只能有一份契约、换一份就 `RemoveAll`+`AddKeyword(1)`+`RevertGrantsFrom`」**判据不成立** —— 原版 case 8 **从不撤旧印记**（`addStats` 逐项累加）⇒ 改累加。**顺带修好 `BL48 Skeins of Fate`**（`Draw a card for each Dark Pact on it` 以前**恒抽 1**）。
+2. 🔴 `CopyEventPact`（`it as well`）原来「再跑一次 case 8」⇒ 会再广播 510 + 重写槽 + 重 roll；改成原版 case 17（读全局槽、只重放效果）。另新增 `markofchaos`(330) 授予（每份 +1）与 `ResetTransientForNewBattle` 清槽。
+
+**观测量（探针 `k7` 模式）：改前 15 红 → 改后 2 红**
+四种印记逐项对上（含 `markofchaos1`）· 四份叠一起 = 近战+4/远程+2/生命+3/层数 4（改前近战回 2、层数 1）· 同一份挂两次 = 近战 6/层数 2 · **BL72 复制到同一份**（+2 近战 + Vanguard，不是随机）· **BL48 抽 2 张**（改前 1）· random 40 次覆盖 4 种。
+
+**⚠️ 剩的 2 红是别人的缺口**：`BL46 Gifts of Chaos`「Give **2** random Dark Pact to a friendly troop」实测**只落 1 份** ⇒ 缺口在**解析层 `EffectText`**（`2` 没变成两次授予）。
+🔑 **它拒绝在 resolver 里按 `op.Amount` 循环硬补** —— 理由「会让『给 2 个目标』那类变 4 次」**完全正确**（修一处坏三处）。⇒ 已授权它去解析层做，并要求验「`Give N … to a friendly troop` = N 份，不是 N×目标数」。
+
+**回归（`ruleprobe play check`，全池 1,128 张）**：主档 **13 张卡变化，全部只是关键词集合多一个 `markofchaos1`**，**数值一格没动**；
+事件电池 10 张的变化来自「同一份印记重复给 ⇒ 生命/攻击累加」这条**原版语义**（如 BL6 每抽一张牌一份命运）。指纹 `393bc15626fca28a501b51e54548385b`。
+
+> 🔴 **它订正了 N4 的一个说法（我要跟着更正）**：**`ExecuteActiveAbility.c:41` / `:160` 不在成功支上** ——
+> 整个文件 168 行只有这两个调用点，`:41` 是 `WaitingForBlockingAction` 的 **LogWarning 中止支**调 `CancelAbilityTargeting`；`:160` 是另一条 **LogWarning + StopDisplayingActiveAbility** 中止支。
+> **成功支的 `FinishActing` 到底由哪一处发起 —— 未核**（可能在 `ResolveActiveAbility` 一族）。
+> ⇒ 账里两条说法都写清了，**没把 N4 的数字当定论**（B2A G1：注释不是判据）。要动这条之前必须先补这一步。
+
+**三件改动请求（我全授权给它自己做）**：① `RuleEngineTest.cs:6673-6677` 那条断言断的是**已推翻的旧语义** ⇒ 改，但**必须写「期望值依据 = case 8 累加不撤旧」**，⛔ 别只把 `false` 改 `true` 了事；
+② `EffectText.cs` 的 `Give 2 random Dark Pact`；③ `markofchaos` 并进 `KeywordTable`（**⛔ 不放进 `Implemented`**，否则战斗界面会显示假徽章）。
+
+### 代理 N15 · `Editor/TraitEffectAssert.cs` 建完（8 组 / 36 个 Check，只写不断线）
+
+新文件 `Editor/TraitEffectAssert.cs`（607 行，全局命名空间 + `-executeMethod TraitEffectAssert.Run`）+ `.meta`；**没改任何既有文件**；`typecheck 0/0`。
+覆盖 A-E1 首次挂载（含**比对四个原版常量** `0.1/0.5/10/1.0`，期望值来自 `.rdata` 实读）· A-E2 再次刷新（**三个 `InstanceID` 全不变** ⇒ 挡「销毁重建冒充刷新」）·
+A-E3 调用必须发生 + 出声（假 GO 故意没有 `Counter` ⇒ 计数照涨但 `PunchCount 0`，并捕获 `LogError`）· A-E4 只按 **prefab 名**挂（同族别的 prefab 与 trait 名都不挂）·
+A-ML（`Start` 绑两个 `floor` + 一个 `Ground Effect` **诱饵**、`fadeTime==0.5` ⇒ 挡 ILSpy 的 1f）· A-ML2（`HuntMarkController.AimingAttack` **必须抛**、`MarkerlightController` 不抛但出声且不改状态）· **2 条灭自证**。
+
+> 🥇 **它有一处【刻意不照判据做】，理由写死在代码里 —— 这是本轮最有价值的判断**：
+> 判据原文「同帧连刷 3 次（值不变）⇒ `PunchCount` 仍 1」那道闸门**在 `TraitFrames` 的帧锁（W8），不在控制器**（原版 `UpdateValue` 每调一次就弹一次）。
+> **在本层断它会逼出一个原版没有的实现** ⇒ 改成两颗等价钉子（① 没人调用 ⇒ 文本仍 `"1"`/`PunchCount 0`；② 同值连调两次 ⇒ **弹两次**），判据原话留给 W8。
+> ⇒ **这比写十条断言有价值**：它守住了「不为了让断言好看而改实现」这条线。
+
+同类克制：**`_RippleScale` 数值没验到就明写「没验到」**（工程里没有带该属性的 shader），⛔ 没当通过；
+**用判据的错来设计断言** —— A-ML 的假层级故意造真实路径，因为判据 §6.2「都是根的直接子件」已被证伪，这样等判据订正后断言仍有效。
+
+**已让它收尾两件**：① 在自己报告里补「8 组断言 ↔ W 几」的对应表 + **那处拒做的理由**（否则下批看判据原文会以为它漏做）；② 写清「`TraitEffectAssert.Run` 现在会红在哪几条、分别等哪个 W 接线」，并且**⛔ 不许为了让断言能跑而去接线**。
+
+### 代理 N13 · 5 条复核 + **一条判据级真差异**（`Renderer.GetMaterial` 到底是哪个）
+
+**N15 报的 4 条：全部成立，逐条亲核后订正**（判据 500 → 612 行，头部新增「第 1 轮订正」表留痕）：
+
+- **F-A（最危险）** ✅：他用脚本**按 prefab YAML 的 `m_Father` 链逐级上溯**复核 —— `Grid floor` 在 **4 层深**；上一版是**外推**（只对 `Counter`/`Normal State`/`Expiring State` 真算了链，`Grid floor` 没验就顺手带上）。
+  ⇒ §6.2 改成「字段 → 实测层级 → 能不能 `Find`」的表 + `GetComponentsInChildren<ParticleSystemRenderer>(true)` + 名字过滤（实测全树**恰好 2 个**，`!=2` 必须出声），并写明「⛔ 绝不用 `transform.Find`（恒 null 且静默）」。
+  ⚠️ **顺带发现新坑**：两支**大小写不一样** —— `Expiring State` 那支叫 **`Base Vfx`**、`Normal State` 那支叫 **`Base VFX`** ⇒ ⛔ 别按路径字符串找。
+
+- **F-B** ✅：`MarkerLightUsed` 是**直接三句**（`.c:5-12`）；`ChangeState` 与 `FadeFixedElements` 是 `private` 且**全 build 零调用** ⇒ 改判死代码，并注明「实现照 `MarkerLightUsed` 写，⛔ 别让它转发给 `ChangeState`」。
+- **F-C** ✅：`private` + **确实被序列化**（prefab JSON 里有 `"counter"`）⇒ `[SerializeField] private`；并补两条：我们**运行期 `AddComponent`**、序列化字段恒空 ⇒ 必须 `Setup/Start` 里按名字绑；自检走只读观测量。
+- **F-D** ✅：`WarpforgeEffectBinder` 是我们导出时加的，**不是差异**。
+
+> 🔴 **第 5 条 `Renderer.GetMaterial()` —— 查到了，是【真差异】，别再猜**：
+> **`GetMaterial()` = `renderer.material`（实例副本），⛔ 不是 `sharedMaterial`。**
+> 🥇 决定性判据：`il2cpp_out/dump.cs:526597-526599` 的 `[FreeFunction(Name="RendererScripting::GetMaterial", HasExplicitThis=True)] private Material GetMaterial()`
+> 与 `:526579` 的 `public Material material { get; set; }` **成对**；`sharedMaterial` 走**另一个** native 入口 `RendererScripting::GetSharedMaterial`（`:526601-526603`）。
+> 旁证：`MarkerlightController__Start.c:41` 调的就是 `UnityEngine_Renderer__GetMaterial`（扩展方法会落成 `<定义类>__GetMaterial`）；`MaterialChangerByQuality.cs:33` 里两者**并列出现**。
+> **为什么重要**：用 `sharedMaterial` 会让**多张卡互相写死 `_RippleScale`**（A 卡缩放决定 B 卡涟漪）。两张 `Grid floor` 是两张不同材质，但仍是**资产级共享** ⇒ 必须用 `material`。
+> **代价（原版同形，照抄）**：副本材质不自动回收，要收只能 `OnDestroy` 里 `Destroy` —— ⛔ 别为了「干净」改成 `sharedMaterial`。
+
+**它顺手审计了 `判据/Tap族_地面点击反馈.md`（484 行）**：主体可靠（4 个序列化字段名逐字对 · `hits` 3 · `collisionMask 0x40000001` · 分布数 45/20 与判据一致 · arena1/2 各 1 个控制器 · 3 处死代码结论正确）。
+**但查出两处精度问题（其中一处可能让实现者抄错文件）**：
+1. **归属写错**：`CheckCollision()` 是 **`TapParticleController.CheckCollision`**（`TapParticleController.cs:475`），判据那张表把它和 `TryPlayParticles` 并成一行。
+2. 🔴 **真正被 `Update` 调用的播放助手，判据里【从没出现过】它的名字**：**`TapHitMaterialDefinition.ParticleCollisionDefinition.PlayParticle`（149 行）** ——
+   `Update.c:356` 调它、`TryPlayParticles.c:32` 也调它；**粒子实例化 / `targetAnchor` / 音效全在这 149 行里**，而 `TryPlayParticles`（42 行）**只是门+校验+转调+重置冷却的包装层**。
+   ⇒ 实现者若照那行去读 `TryPlayParticles` 再照抄，**会抄到包装层，真正的行为体没读**。
+   ⇒ **我已立即转给正在实现 Tap 的 N16（让它停下来按 `PlayParticle` 重写），并授权 N13 去订正那份判据**（原写手 N12 已收工，文件归 N13）。
+
+**它提的一条建议我采纳并推广**：判据表里凡是没真算过的（层级、字段序、常量），加一列「**实读 / 外推**」 —— 比再查十个数更值钱，实现者能一眼看出哪些能信。
+
+### 代理 N14 · `check_ledger_points.py` 系统性加固（5 条盲点一次体检 + 自测 56 条）
+
+**四档分开**：**失败 / 漂移 / 告警 / 通过**，优先级 失败 > 漂移 > 告警 > 通过；「告警」是通过的子集（⛔ 否则通过数会假降）。退出码语义不变（0=无失败 / 1=有失败 / 2=参数错）。
+
+| # | 盲点 | 处理 | 档位 |
+|---|---|---|---|
+| 1 | 一行式属性 getter | 新增 `decl_name_at()`；**`--fix` 拒绝把漂移改到 getter 行**（`fix_block_reason`）—— 正是历史事故点（`KwValue` 被改到 392 行那个属性） | **告警** |
+| 2 | 一行内含声明+调用 `void Awake() { Build(); }` | 新闸门③：**名字必须在本行第一个 `{` 之前**；「既声明又调用同名」单列 `SELFREF` | 候选不算声明 / 告警 |
+| 3 | 调用行被当声明 | 同一闸门③；`STMT` 前缀表补齐 `foreach/switch/using/lock/try/catch/finally/throw/await` | 假声明消失 ⇒ 真声明唯一命中 ⇒ 漂移 |
+| 4 | 散文括号不验同名 | `paren_idents()`：整组标识符⇒严格比；散文⇒按「非 ASCII 词字符」切词，**恰好 1 个就严格比**；另加 `head_name()` 处理「名字写在括号之前」（**全账 36 行**旧工具完全不认） | 能确定 ⇒ **失败** / 否则告警 PROSE |
+| 5 | `*ForTest` 转发口 | 三处任一以 `ForTest` 结尾即记 | 告警 FORTEST |
+
+**自测：PASS 56 / FAIL 0** —— `python -I -X utf8 工具/check_ledger_points_selftest.py`，全部在 `tempfile.mkdtemp()` 里造假账 + 假 `.cs`，**一条真账都不读**，跑完清理。
+
+> 🔑 **它做了一个我没要求但必要的判断**：核查期间**账与 `.cs` 全程被别的代理并发编辑**（A 档 1985 → 2111），所以「改前跑一次、改后跑一次」的四数**不能直接相减**。
+> 它改成**逐行背靠背 A/B**（同一账行在同一秒内被新旧两个工具各判一次；「旧工具」是从改动前原文重建的副本，只用于 A/B、不在仓库里）。
+> **现账 2109 行结果：旧 通过 2001 / 漂移 105 / 失败 3 → 新 通过 1998 / 漂移 107 / 失败 4 / 告警 174。**
+> **通过 −3 逐条都是旧工具的假通过**：① `CampaignRewardsWindow.Open()` 落到 `{ Build(); }` 那行（真声明在 337）② `MaterialFlickerEffect.Update()` 落到 `{ Tick(…); }` 那行（真声明在 82）③ `DraftModeMenuWindow.cs:3144` 那行**只是一个 `{`**，旧工具把 `{` 当声明才全绿。
+> **失败只 +1，且是真错**；`--fix` 本轮没跑（别的代理正在写代码）。
+
+**它顺手修了两个旧 bug（今天以前没人碰过）**：
+1. 🔴 **`--root DIR` 一直是坏的** —— `main()` 只按 `--` 前缀过滤 `args`，把 DIR 当成账本路径 ⇒ **直接返回 2**。
+2. 🔴 **`check_file` 返回值元组长度不一致**（空账返回 4 元、其它 5 元）⇒ `main` 解包会崩。
+
+**它给的一条账务建议（重要，同步点做）**：**告警里 PROSE 约 141 条**，几乎全是 `（等价实现 = X：长散文）` 这种写法 ⇒
+**账里统一成 `` （`X`） `` 或 `path:NNN X(...)` 后，告警能掉一大半**，而且 `--fix` 能真正按名字自愈。
+⇒ **排进同步点**：一次「落点括号归一化」+ `--all-A --fix` + 重钉基线。
+
+### 代理 N15 · 收尾（报告 §⑦ 补齐，**只动 `.md` 未动代码**）
+
+**§⑦·1 对应表**（A-E1…灭自证 2 → W#）：A-E1→W0+W1 · A-E2→W2+W7 · A-E3→W3/W4 · A-E4→W0 · A-ML→W0（寿命那半见 A-LIFE）· A-ML2→W9+W10 · 灭自证 1→W8 · 灭自证 2→W7/W8（接线后升级成「**局面哈希不变**」）。
+
+**§⑦·2 它把「没照原话做的那一处」+ 三条理由写进报告**（防下批以为它漏做）：
+原话是「值没变时计数不弹 / 同帧连刷 3 次 ⇒ `PunchCount` 仍 1」；理由：
+① 那道闸门在 **W8 的 `TraitFrames` 帧锁**，原版 `UpdateValue` **每调一次就弹一次**（`HuntMarkController__UpdateValue.c:13-30` 无同值判断）；
+② 在本层断它会逼出 `if (newValue == LastValue) return;` = **改实现迎合断言**；
+③ 会让 A-E2 与 W7 的重刷互相抵消。
+替代的两颗钉子：(a) 没人调用 ⇒ 文本仍 `"1"`/`PunchCount 0`；(b) 同值连调两次 ⇒ **弹两次**。判据原话没丢，列为断言文件末尾「⏳ 待接线」第 4 条。
+
+**§⑦·3 「现在跑是什么结果」**：按设计**接线前 8 组应全绿**（只测本轮三个类 + `Attach`，不碰 `TraitFrames`/`BattleDriver`）；并明写 **「8 组绿只证明这一层自己没写错，不证明接上之后对」**。
+两种「看着绿其实不对」：假 TMP 造不出 ⇒ 那 5 组**显式报「没验到」**；`_RippleScale` 数值**没验到**（工程无该 shader）。
+**还没写、等 W 接线的 6 条**已列在断言文件末尾注释（写进来会编译不过）。
+
+**它还顺手就地订正了 §⑥ 的一处旧行**（把 `A-LIFE` 与「同帧 3 次」从「本批断言」改成「本轮没写 + 为什么 + 等谁」，指向 §⑦）—— 避免同一份报告两处说法打架（铁律 5）。
+
+**已派下一件**：新建 **`Core/MaterialFader.cs`**（`MarkerlightController.AimingAttack` 那条链的**最后一个缺口**；⚠️ 要求它分清「调用方是死的」与「组件是死的」，若只被死方法调也**照建**，按铁律 11 只是暂时没入口；并提醒 `Renderer.material` 用实例副本那条判据）。
+
+### 代理 N5 · 第 3 批（菜单 C **45 → 41**，清掉的 4 条**全是「原版根本没有行为」**）
+
+1. `WindowsManager.UnregisterAnchorOverride` **C→A**（顺带补齐 `_anchorOverride` 字段 + `GetWindowAnchor` 覆盖支 + `RegisterAnchorOverride`；⚠️ 唯一偏离 = **我们自己的哨兵 `-1` 防御留在 override 之前**，理由「那是『忘了赋值』的 bug、不该被临时覆盖掩盖」）。
+2. `PromptPopup.InstantiateDropdown` **C→D**：`PromptContext.DropdownData` **全程序集 0 个构造点**（唯一输入生产点用的是 `InputData`、且整段 `if (!IsLiveEnv)`）⇒ **该分支本 build 永远进不去**。
+3. `GameModeDirectButton.PlayEvent` **C→D**：**方法体逐字 = `Debug.LogError("Not Implemented"); return;`** ⇒ **原版自己是桩**，我们账里却把「原版没做的事」当成我们的缺口。
+4. `EverguildButton.OnCancel` **C→D**：只 invoke 一个 **全程序集 7 处命中全在自己文件里（0 订阅）**、**且 C# 事件不能由 prefab 订阅** ⇒ 方法跑但什么也不发生。
+5. 另：上一轮判 D 的 `RegisterAnchorOverride` **D→A**，并**如实写「是实现之后的 A，不是清账」** —— 这个区分很重要。
+
+**第 ① 号改动请求它自己落掉了**：`账/特效动画.tsv:4` 补「`natural` 是自拟兜底、持有框已按 `held && destroyTime<0 ⇒ ∞` 收窄、影响面 = 那两个 prefab」。
+（⚠️ 该账另有一条**与本次无关**的既有漂移 `WFMaterialFlicker.cs:79→82`，它没动。）
+
+**它要拍板的两条 —— 我的裁定**：
+
+- **`DuelPopupWindow` 两颗模式钮 ⇒ 照原版【藏】**（离线无活动 ⇒ 原版本来就会全藏）；账里写死「**这不是 bug**；将来要单机可玩是**新的自我设计**，需用户单独拍板」，⛔ 不许自作主张保留恒显示。
+- **`OpenWindow<T>` ⇒ 不新建注册表，判 `D`（载体不同）**：我们逐窗 `Create(...)`、原版 12+ 调用点条条有对应。⚠️ **但 D 之前必须先查实「`OpenWindow<T>` 除构造外还做了什么」**（已开则聚焦 / 关旧开新 / 置顶）—— 若有多于构造的行为而我们没有，**那不是 D 是 C**。
+
+**tooltip 接线方案（它给建议、我采纳）**：选 **`tipText`（收回 `WindowButton`）** ——
+① 原版就是「触发器组件挂节点、数据在 prefab 序列化字段」的模型；② **只有它能白拿 `OnSelect/OnDeselect`**（键盘/手柄），`onEnter` 只有指针路径；③ 迁移每处 1–3 行。
+🔴 硬性要求：**同批删掉 `onEnter` 里的 `Show`**（⛔ 两套同挂会进两次退两次）· 逐处照抄现值（如 `CampaignTab:1600` offset `(0,−80,0)` 世界单位）· 动手前 `ls --time-style` 跳过 1 小时内被写过的文件。
+⇒ **已授权它做那 5 个文件的迁移**（原分属 N1/不在白名单，这次放开）。
+
+**账面**：菜单 **A 276 · B 175 · C 41 · D 381**（接手时 272/168/69/364）· 卡牌面 **A 96 · B 11 · C 17 · D 43**。
+两账形态闸 **372/372 · 0 漂移 · 0 失败**；`check_a_vs_diff` 两域 **0**。
+**它如实说「本代理白名单内已无可做项」**，剩下的 41 条分散在：活动线 20 · `DragAndDropItem`（N2）· 抽屉角标（N2）· `ErrorPopupWindowController` · `ReferralPopupWindow`（服务端）· `CollectorLevel`（XP 曲线）· `OnPointerClick`（我指定先留）· `OpenWindow<T>`×2（已裁）· `BoostMenu`×3（新面板 + 加成数据源）。
+
+### 代理 N10 · 第 2 轮（**例外条款落地 8 组** + Energy 文案做掉 + 两条阻塞）
+
+**① 例外条款落地**：8 组「同一段代码服务多个原版方法」按方案 §四 改成 **`文件:行a-b`**（不是文件级、不是单行共用），`判据要点` 里一句一句对上，**99/99 通过形态闸**：
+`Core/CardArt.cs:71-89（Frame）` → `SetFrame`/`SetTier` · `BattleDriver.cs:26857-26867（KeywordActive）` → `CardTraitDuty/Ferocity/Oath.IsActive` ·
+`BattleDriver.cs:20830-20838（TryRemnantIdleWorld）` → `RemnantAeldari/Necrons.GetDeathParticlePosition` · `Core/CardView.cs:2524-2647（SetRemnantBody）` → `RemnantNecrons.Initialize`/`Toggle(bool,bool,Action)` ·
+`Battle/AttackSelector.cs:1377-1482（RefreshLayout）` → `SelectAttackBackgroundController.ChangeSizeByElements`/`ByInput` · `Core/CardView.cs:8576-8614（SetSwarm）` → `SwarmIconController.Initialize`/`SetActivationState`/`Toggle`。
+只剩 `AlternateArtStylesUtilities.GetAlternateStylesOnly` 留 B —— 共享落点是**属性** `CollectionWindow.AltStyles`，形态闸不收属性 ⇒
+**它的判断：「要收得让闸认属性，而不是改账」**（保持工具与账的边界，正确）。
+
+**② C 的 #3 做掉**：`ShowCurrentEnergyRegenText` **C→A** —— 词条键 `Event_Description/ScoringEvent/EnergyRules`（13 语全有）· 参数 `EnergyConfig` 序列化默认 `rechargeAmount=1` / `rechargeCooldown=300000ms` ·
+时长串走 `TimerDisplay.FormatTimeString`（`SupportMethods.GetTimeString` 逐句移植）⇒ `Shell/EnergySinglePlayerOnlyEventWindow.cs` **+63/−12**，`typecheck 0/0`。
+**残余如实标注**：`{1}` 的 `M_Only` 格式串是我们机械拼的（原版没解出）⇒ **数值对、单位文案可能有细微差别**。
+
+**③ 两条阻塞（都是热文件）**：#1 `HuntMarkController.UpdateValue` 接线（`TraitFrames.cs` 19:41 / `BattleDriver.cs` 19:33 刚被改）· #2 `TapHitMaterialDefinition` 主循环（热文件 + 213 处实例要先抽 `collisionMask` + 三道闸，不是一轮能安全落地）。
+
+> 🔴 **它报的一条操作细节，同步点必须照做**：
+> **`--fix` 只改起始行，`文件:行a-b` 这种 range 的【结束行】会失真。**
+> ⇒ 同步点流程加一步：`--all-A --fix` 之后**逐个抽查 range 尾**，⛔ 不能只看闸绿。
+
+**终态**：`未分类_其他` **A 99 · B 103 · C 67 · D 485**；形态闸 99/99（12 条 getter 告警）· 缺注解 0 · `check_a_vs_diff` 强 0 弱 0 · `typecheck 0/0`。代码改动 **1 个文件**。
+**并发现场**：`BattleDriver.cs`/`EffectResolver.cs`/`EffectText.cs`/`CardView.cs`/`TraitFrames.cs` 收工期间都在被别人改；它 `--fix` 收了 3 轮 + **手工校正 2 个 range 尾**；`typecheck` 三次跑出别人文件的假红（隔次重跑恢复 0/0，按铁律 13·3 没去改别人的文件）。
+
+### 代理 N13 · `判据/Tap族_地面点击反馈.md` 订正（484 → 578 行）+ **发现同一根因的第三处错**
+
+**① 补上真正的方法体（最要紧）**：§2.3 新增 `TapHitMaterialDefinition.ParticleCollisionDefinition.PlayParticle()`（**149 行**）= **真正被执行的行为体**；
+并在底部加更正块写清「**为什么这条一定会让人抄错**」：`TryPlayParticles`（42 行）与 `Update:322-361` 是**同一套逻辑的两份实现**（冷却门 → 两个 `RuntimeKeyIsValid` → `PlayParticle` → `enabled=true` → 重置冷却），
+「零调用」那行会把人引去读 `TryPlayParticles` —— **它读起来完全自洽、也能跑**，但**粒子实例怎么缓存 / 锚点怎么用 / 音效怎么播一行都不在里面**。
+⇒ 明确规定实现顺序：**先 `PlayParticle`(149) → 再 `Update:322-361` → `TryPlayParticles` 只用来交叉验证门的顺序**。另在 §3.3 开头 / §5.3 的 T1 行 / §8 速查各加一处指路。
+
+**② `CheckCollision` 归属**改成 `TapParticleController.CheckCollision`（`:475`，私有、零调用），并写清**为什么容易搞混**：两个类在同一个 `Update` 流程里前后脚出现（一个被射线找到、一个负责射线），文件又都在 `Tap*` 前缀下。
+
+**③ 🔴 它顺带挖出同一根因的第三处错**：§2.1 原来引的 **`TapHitMaterialDefinition__CheckCollision.c` 这个文件根本不存在**
+（`ls decomp_full | grep TapHitMaterialDefinition` 只有 `__.cctor/__.ctor/__Awake/__OnDestroy/__TryPlayParticles/__Update` + 嵌套类 3 个）。
+⇒ 「`CheckCollision` 被当成 `TapHitMaterialDefinition` 的方法」这个错，**在判据里出现了两次**（§2.3 与 §2.1）。
+
+**④ 「实读 / 实读+外推 / 外推」三档落地**：§0 新增图例（含「动手前要不要复核」）；**§0·b 新增「其余外推/未抽核点一览」（12 行）**，例：
+· §1.1 第 12 步「挑最小 `hit.distance`」= **实读+外推**（控制流实读，但「那个 float 就是 distance」是按偏移 0x20 + 参与比较推的）；
+· §2.2 的 213/25 种/分布/delay 六档/锚点 18 条 = **实读但只抽核了 2 项**（`battlesharedresources=45` ✅ / `arena1=20` ✅）；
+· §2.4 cue 参数表、§2.5「22 件 prefab / 缺 10 cue / 缺 20 wav」= **未抽核**（明确写出来，别让人以为复核过）；
+· §3.3「`cacheParticles` 是 **static** Dictionary」= **实读（结构）/ 建议复核**（若真是 static，`.c` 里应以 `DAT_xxx` 静态槽出现而不是 `this+偏移`）。
+
+**⑤ 顺手修表格格式**（会让行被拆错列 = 「照判据抄会抄错」的物理原因）：§2.5 两个代码段内的竖线没转义 ⇒ 已补 `\|`；**全文件 19 个表块逐块校验列数：改前 1 块不一致 → 现在 0 块**。
+
+> 🔴 **已转派它做「全部判据文件的引用体检」**（三类**机械可查**的错，今天一天抓到 8 个实例，其中 3 类可机器扫）：
+> **A. 引用存在性**（`decomp_full/**.c` / `cpp2il/**.cs` / `assets_full/**` 逐条确认文件真的存在）·
+> **B. 路径 → 类名一致性**（`.c` 文件名里的类名与该行上下文说的类是不是同一个；`CheckCollision` 就是这一类）·
+> **C. 「外推当结论」措辞**（应该是/推测/大概/通常/按序可推）。
+> 产出 `判据/_体检_引用与措辞.md`（新文件，三张表 + 总体判断），⛔ **不改判据本身**（一文件一写手）。
+
+### 代理 N11 · 三件授权全做完（**K7 探针 15 红 → 30/30 绿**）
+
+**① `RuleEngineTest.cs` ⑧ 段旧语义断言 —— 按判据改（不是改绿）**：4 条 → 7 条（`camouflage == true` · `MaxHealth == 8`（5→7→8 **累加**）· `Attack == 2` · `regeneration == 1` · `KwValue(DarkPact) == 2` · `KwValue(MarkOfChaos) == 2`）。
+**期望值依据写清**：`AddEffect.c:776-792`（case 8 的 `TriggerEnchantment` **没有「先摘旧印记」**）+ `.c:385-402`（逐项 `+=`）+ `.c:933-940`；
+并写明**旧期望错在哪**：「`kws.darkpact` 是赋值」这个写法**是我们上一版 Godot 复刻的写法、原版根本没有**。
+同一段顶部的判据来源也从「规则书 `:179` / `DARK_PACT_FX:1655`」换成反编译判据（那两份**都不是权威**）。
+
+**② `EffectText.cs` `Give 2 random Dark Pact` —— N 成为【授予次数】**
+落点 `TryGiveInner`（`:9322-9383`），用 `Tail` 重放同一条 `give … to …`（与 `SplitTargetList` 处理「第二个目标」同一机制）⇒ **目标只挑一次，不放大目标数**。
+🔴 **窄规则（防「修一处坏三处」）**：N 只在「**带数字那版解析解不出** / **或与去掉数字那版逐项等值**」时才算次数。
+**它自己的第一版踩了坑**：只看「去掉数字那段解得成关键词」⇒ **实测把 `Give 3 Armour to …` 拆成 3 次**（`Armour` 本身就是关键词）⇒ 加判别式后收住，**并把这条反向用例钉进探针 I**。
+读数：探针 `G` 同一目标 **2** 层 / 全场合计 **2**（3 个友方在场上也还是 2，**不是 2×目标数**）· `BL46` 解析差异 **1 行**（全池只有这一张用「Give N」写法，已核）。
+
+**③ `markofchaos` 并进 `KeywordTable`**（`CardDef.cs`，紧跟 `DarkPact`），**⛔ 没放进 `Implemented`**，理由写进常量注释（330 没有每关键词机制；`BattleDriver.cs:27102/27111` 按 `Implemented` 过滤外观 ⇒ 放进去会渲染**假徽章**）。`EffectResolver` 里临时那份常量**已删**（铁律 6：一处定义）。
+
+**核验**：`typecheck 0/0`（编辑器那份**确认覆盖 `RuleEngineTest.cs`**）· 探针 N11 四闸 20/20 绿 · **K7 `A~I` 30/30 绿** · `ruleprobe check` 全池 1,121 · 解析差异 1 行（有意）· **哨兵失败 1 = ⑧ 输出指纹待重钉** · 行尾无一文件被翻转。
+
+> 🔴 **它留给我的两条收口**：
+> 1. **三个指纹重钉**：`PinnedParseMd5 = 9cf3481c648981963ca654614e117d9c`（BL46 那 1 行解析变化**是有意的**，不是回归）；
+> 2. **重生成 `基线/out_play_baseline.txt`**（本批 K7 的 13+20 张卡变化 + 别的代理在飞的 `UnitState/RuleCore` 变化，一次钉掉）。
+> ⇒ **都在同步点做**（现在还有 N5/N9/N16/N17/N10 在写 `.cs`，这时候钉会把半成品钉成基线）。
+
+**已转派 K9 `choiceEnchantment(16)`（池内 13）**，并要它**先回答**「这条链是纯引擎侧还是要 UI」——
+· 纯引擎侧 ⇒ 直接做（`Battle/**` 已空）；
+· 要 UI ⇒ **先把「选牌界面长什么样」的判据查清**，⛔ 不许自己发明一个选牌界面（红线：不做自我设计）。
+（前置已知：`effect.enchantment` 在 SO 里 **26/26 全 null**，运行时由 `cardChosenInSelection` 填；候选池 46 条里 **只有 `spellType=190` 28 条与 Normal 18 条**，其余三支全池 0。）
+
+### 代理 N9 · A 类接线**全部落地**（8 个账行 / 7 处代码点）+ 抓到一条**能减少账漂移的纪律**
+
+| 账行 | 落点 | 做了什么 |
+|---|---|---|
+| 社交 **313** → A | `Shell/ChatPanel.cs:437（TabChannelIcon）` | 两个频道页签不再共用母版图标（判据 = prefab 的 `globalIcon`/`allianceIcon` pid + `AddTabButton.c:62`） |
+| 社交 **129/130** → A | `AllianceEventScorePanel.cs:249/264` | `CloseAllWindows + OpenSocial + SetNavToggle(Social)` / `OpenLeaderboard(Draft)` |
+| 社交 **43/329** → A | 两处 `ShowConfirmation(text,onConfirm)` | OK 跑回调再关窗 / Cancel 只关窗 / `closeOnEsc:false`；接在 Quit/Kick/Demote、Block/Report/Add-friend 六条上 |
+| 社交 **99** → A | `AllianceMemberTab.cs:1526（OpenMemberOptions）` | 成员行命中区 ⇒ **那扇 22 节点的窗游戏内第一次能打开** |
+| 社交 **30** → 仍 C/P2 | 同上 | 主缺口（无调用点）已消除；剩 ① `Role`/`IsFriend` 本地无数据 ② 原版「摆到那一行」的定位没有口 |
+| 联机 **27/28** → A | `CardInteraction.cs:1499` / `BattleDriver.cs:12655` | 换位后发 `SendCardReorder`；开卡面展示窗前发 `SendCardSeen`（闸 = 新增 `NetBattle.InBattle` 只读口，判据只此一处） |
+
+**账面**：社交 **A92** / C83 / D269 · 联机 **A65** / C6 / D108；两域形态闸 **92/92 · 65/65（0 漂移 0 失败）**；`check_a_vs_diff` 两域 **0**。
+
+> 🔴 **它踩出一条能显著减少账漂移的纪律 —— 已写进 `CLAUDE.md` §三**：
+> 把 `InBattle` 插在 `NetBattle.cs` 的 `Session` 旁边（第 219 行）⇒ **整个文件下游行号 +6** ⇒ 形态闸**立刻 10 条漂移 + 2 条失败**（`:406→412`、`:1266` 落到 `try { Dispatch(f); }`）。
+> 挪到**类尾**后只 `+3` 行、**行号全部回位**。
+> ⇒ **新成员一律追加到类尾**；同源连带：`ChatPanel.cs` 插三个成员 ⇒ `ChatMessageRow.Build` `612→681` ⇒ 账里 3 条 A 行必须同步改。
+
+> 🔴 **第二条纪律也已进正本**：**`git diff --numstat` 在「工作树本来就有大量别人未提交改动」时不可用** ——
+> `BattleDriver.cs` 报 `693/63`、`CardInteraction.cs` 报 `223/38`，而它实际只加了 **7 / 25** 行。
+> ⇒ **替代判据 = 字节级行尾计数**（`io.open(p,'rb')` 数 `\r\n` vs `\n`），确认整篇没被翻即可；⛔ 多代理并行时别动 `git stash`。
+
+**`playerId` 前置评估（它只给结论、没实现）**：不是「要新建一层」—— `SocialData.ChatMessage` 加 1 个字段、`SocialData.Friend` 加 1 个 id，行上下文本来就在作用域内。
+⚠️ **但现在做也观测不到**：`SocialData.ChatMessages` **没有生产写入方**（只有自检在填）⇒ **等本地聊天数据源落地时一起做**，之前加字段是纯死代码。**这个判断我认。**
+⇒ 已转派它做 §⑨ 的 B 类（奖杯格 · 联盟排序与 `Members X/Y` · `InterpolateMilestones` 按档等分 · 聊天行分侧底色与内边距），**跳过 Inbox 一族**（归 N17）与「选项面板拿被点消息」（等数据源）。
+
+### 代理 N8 · 音频/语音域（**B 清零**：86 → 0 · A 0 → 76）
+
+**状态迁移**：A 0→**76** · B 86→**0** · C 50→**50** · D 18→**28**（B→A 52 / B→C 33 / B→D 1；C→A 24 / C→D 9 / C 留 17）。派了 **5 个只读核实代理**，主对话只判口径 + 落账。
+
+**重要反直觉结论**：**音频基础设施「大半早就做了、只是没核」** —— `timeToPlayAgain` 冷却 · `AudioWaveEqualizer`（`Core/VoiceWaveDriver.cs` 逐句复刻）· `PlaySoundOnTime` · `ShakeAndSoundObject` · `AudioSourceTogglerByVolume` · `AudioSourceMixerGroupFixer` · `SoundManager` 源池与 dB 换算，**全部等价**。
+
+**4 条 P1（都不是「没做」，是「做错一处」）**：
+1. **行68 没有 `MusicManager.StopMusic`** ⇒ 进战斗时**菜单音乐不停、与战斗 BGM 叠放**（判据 `BattleManager.cs:15452`；我们 `ShellRuntime` 里 `_musicA` 全程无 Stop）。
+2. **行85/94/108 聊天气泡「隐藏」与「停音」被拆成两口且无默认配对** ⇒ 教程跳过聊天后语音继续念完；三颗气泡共存时还会连另一侧一起关。
+   根因：**三颗 AudioSource 都 AddComponent 在面板根**（`UnitChatPanel.cs:714`），原版是 VoiceLineBox 自己的组件。
+3. **行134/150/152 聊天钮 6 颗印的是分类词**（问候/威胁…），原版印的是**该督军那 6 句台词全文**（`Chat_Messages/<chatId>-Chat5..10`，数据现成）—— **每局点开就看得见**。
+4. **行35 `invokeCUE` 的 ambush 判反**：原版 `num = ambush ? 1 : rarity`，只有 4 才 legendary ⇒ 伏击走**普通**音；我们走 legendary（当前池 0 张 ambush ⇒ 休眠）。
+
+**它的判据源建议（值得采纳）**：`cpp2il/out_cpp2il_dev_ilspy/*.cs` **带完整方法体、行号与账里「判据出处」一一对应**，比 Ghidra 覆盖全；
+**多个原版方法在 Ghidra 侧整份缺失或符号串了**（例 `Missions__BlockAutoUpdates.c` 装的其实是 `SetPopUpDisabled` 的函数体）。
+⇒ ⚠️ 这与「判反编译打烂要看 `.c`」那条**不矛盾**：**先看哪份更全，再交叉**；具体到 Tap 族是 `.c` 更干净，音频这族是 ILSpy 更全。
+
+**改动清单：`.cs` 一个没改**（能落地的全在白名单外）⇒ 写成 **12 条改动请求**（`ShellRuntime.cs` StopMusic/交叉淡变/开场视频音量 · `BattleDriver.cs` invoke cue/认输台词/开场白禁聊天 · `UnitChatPanel.cs` 每颗自己的音源+隐藏即停音+只有某侧 · `ChatPopupPanel.cs` 钮文字+曲线 · 新建 `Core/AudioSourcesController.cs` 与 `Effects/UIEffectTogglerPlaySound.cs` · mixer 补快照需跑 Unity）。
+
+**顺手发现最该马上用的三条**：① `UnitChatPanel` **两处注释与判据相反**（「CloseChatBox 是否停音没核」→ 判据是停音；「FinishChat 排在 AnimateText 之后」→ 原版是两个协程**并发**）；
+② `BattleDriver.cs:16009/17484` 两条注释的前提已被 2026-10-24 的 A13 推翻（三颗气泡现在可同时亮，「全关 ≡ 只关一侧」不再成立）；
+③ `UnitChatPanel.ChatTermKey:908` 用**裸卡 id** 拼键，而 `CardChatIntro.TermFor` 走 `ChatIdOf` —— 两条路不一致，今天 56 张卡 chatRef 全空所以看不见，**一旦有卡非空，6 颗钮台词就取不到官方词条**。
+
+### 代理 N10 · 第 3 轮（**冷文件 C 抄到底** · A 99→102 · 逐类给出「剩下都不可安全做」的理由）
+
+**终态**：`未分类_其他` **A 102 · B 101 · C 66 · D 485**；形态闸 **102/102（0 漂移 0 失败，12 条 getter 告警）** · 缺注解 0 · `check_a_vs_diff` 强 0 弱 0 · `typecheck 0/0`。
+**`.cs` 改动 2 个**：`Shell/EnergySinglePlayerOnlyEventWindow.cs` **+78/−16**（LF 未翻）+ 新建 `Shell/ScoringIcons.cs`（53 行 + `.meta`）。
+
+**做掉 1 条 C + 顺带 2 条 B→A**：
+
+- **`#555 ScoringIconsSO.GetScoringIcon` C→A + 接图**：新表 `Skulls → 40k_battle_Win_Skull` · `Victories → Rank_Skull`（**SO 的 icon GUID 与 `ExportedProject/…meta` 的 guid 逐字相等**才算命中 —— 这个判据比「名字像」硬）。
+  如实标注：本地无事件数据 ⇒「计分物是不是 `ScoringPoint`」判不了，按本窗类型画；`Victories` 本地无消费者、表里照样留。
+
+- 顺带 `FlavourTextSO.GetClanFlavorBackground` → `Core/CardArt.cs:731（FlavorBg）`（两扇详情窗共用同一张 13 条 army→图 表）·`UIGradient.ModifyMesh` → `Core/CardArt.cs:776（Gradient）`（φ=90°−θ+180° 烘焙成贴图，8 处共用）。
+
+**「剩下都不可安全做」逐类理由**（这个分类我采纳，下一批按它派）：
+· **文件热**：`HuntMarkController` 接线（`TraitFrames.cs` / `BattleDriver.cs`）· `TapHitMaterialDefinition`（主循环在 BattleDriver）· `FatigueCard`/`MaterialChangerByQuality`（要动 CardView/BattleDriver）· `CollectSpiritStone`（写点在 EffectResolver）。
+· **文件归别人**：`CardDisplayOptions.ResetDisplayOrder`/`ExpansionPass…`/`MilestoneStep`（N2）· `UICardSelector`（N1）· `UIResourceCounter`（HudCanvas → N4）· `CustomRaycaster`/`CursorByArmySO`（教程线）· `CryptoString`（存档层 N6）。
+· **没有消费者 / 数据在远端**：`ArmyProgressBar`（无界面用，建了是死代码）· `Decorator` · `BackgroundOverDrawController`（要改建窗栈）· `ActionScheduler` · `NameGenerator`（语料 + 调用点在热 BattleDriver）· `Points`/`ExpansionPassSave`/`FeatureChecker`/`ContainerService`/`Identify`（服务器账）· `ItemInfo.Convert`（唯一消费者 = 未建的 ShopContainer）· `RendererExtensions`（Inbox 根本没有槽位动画这一档，只补可见性判定是空转）。
+
+**它确认的两条操作细节（我同步点照做）**：
+1. **`--fix` range 尾失真实测两次**：`26850-26860 → 26857-26860`、`20823-20831 → 20830-20831`，已手工校正。
+2. **收工期间 `--fix` 收了 4 轮漂移**（`DoFactionResource` 12055→12167→12182→**12246**）⇒ 并发写手对账的影响很大，**同步点必须等写手全停**。
+（另：`typecheck` 第三次记录到**别人文件的假红**（`WindowButton.cs` 5 条 · `EffectText.cs` 1 条），隔次重跑恢复 0/0，按铁律 13·3 没动别人的文件。）
+
+### 代理 N5 · 收工（四批合计：菜单 C **69→38** · 卡牌面 C **20→17**）
+
+**终态**：菜单_外壳 **A 277 · B 175 · C 38 · D 383**（接手 272/168/69/364）｜卡牌面_渲染 **A 96 · B 11 · C 17 · D 43**（接手 94/11/20/42）。
+两账形态闸 **373/373 · 0 漂移 · 0 失败** · 缺注解 0 · `check_a_vs_diff` 两域 **0**。
+
+**它改过的 `.cs`（交接里的表，⚠️ 行号全是快照）**：`Core/ScreenUtilities.cs`（新建）· `Core/TraitFrames.cs`（F1 `Play(name,held)`，51/16）· `Shell/WindowButton.cs`（禁用态 + tooltip 触发器，172/9 ⇒ **30+ 条 A 行分三批重定位**）·
+`Shell/PopUpGameWindow.cs`（`CheckLinkText`）· `Shell/WindowsManager.cs`（`_anchorOverride`，64/1 ⇒ **18 条重定位**）· `Shell/DuelPopupWindow.cs`（44/0 ⇒ 2 条）· `Shell/BoosterInfoPopup.cs`（tooltip 迁移）。
+
+**tooltip 迁移 1/5 落地，剩 4 处配方已写进报告 §⑰·3**（逐处给了「文件:行 + 现在的代码 + 换成什么 + anchor/offset 原值 + 位置等价理由」）：
+`CampaignTab.cs:1600` · `ExpansionPassEventWindow.cs:1535` · `MissionsTab.cs:1658` · `RaidEventWindow.cs:807`。
+⚠️ 每处要**同批删掉** `onEnter` 里的 `Tooltip.Show` 与 `onExit = Tooltip.Hide`（⛔ 两套同挂会进两次退两次）。
+⚠️ 为此补了 **`WindowButton.tipTextFunc`（`Func<string>`）** —— 那几处文案是 `Loc.T(...)` **悬停时现取**，静态 `tipText` 会把建窗那一刻的语档**冻住**（静默错语言）。
+
+**`SoftDisabled` 口径已按我拍板写死两处**（账的差异列 + 报告 §⑳·3）：维持原版 `GetEventDeck()==null ⇒ SoftDisable`；**有活动时两钮「变灰但仍可点」是原版口径、不是 bug**；改成「直接可点」属新自我设计，需用户单独拍板。
+
+> ⚠️ **它报了一个必须记的现场事实**：**`typecheck` 最后两次不是 0/0**，错在
+> `RuleEngine/Core/EffectResolver.cs` 的 `FindPactCard` 未定义 + `Shell/AllianceMemberTab.cs` 的 `SortedMembers` 未定义
+> —— **两者都属于正在并发的写手（N11 做 K9、N9 做 B 类）**；它自己的 7 个文件在错误里 **0 命中**，且在那几笔之间跑到过干净的 0/0。
+> ⇒ **同步点必须等 N9/N11/N16/N17 全部停下**，否则 `--fix` + 重钉指纹会把半成品钉进基线。
+
+**下一批开工第一件事（它留的）**：先跑 `check_ledger_points 菜单_外壳.tsv 卡牌面_渲染.tsv` —— `WindowButton.cs`/`TraitFrames.cs`/`WindowsManager.cs` 上**还有别的代理的未提交改动**，行号会再漂；
+唯一同名的 `--fix` 能收，`Click`/`RefreshDeckList` 这类同名多处要手工改；⚠️ 工具会把「一行式成员里的调用」误当声明（它已三次手工纠正 —— N14 的加固版已覆盖这一类，但账里那几行仍需人看）。
+
+### 代理 N15 · `Core/MaterialFader.cs` 建完（292 行，只新建不接线）
+
+**照原版逐字**：4 个序列化字段 + 5 个运行时字段（偏移 `+0x20…+0x44` **实读**）+ 9 个方法。
+`Update`：`MoveTowards(material.color.a, targetFade, dt/blendTime)`，`currentBlendTime<=0` 那一帧按开关**还原材质/关渲染器** → `doFade=false` → **每帧都减**；
+`Toggle`：cache（`sharedMaterial`）→ 逐 renderer `enabled=true` → 两个时间 → `targetFade` → **`doFade = !doFade`**（机器码级确认 `Toggle.c:60/64` 是 `doFade == 0` 的比较）。
+材质一律 **`renderer.material`（实例）**，只有「存档/还原」用 `sharedMaterial` —— 与 N13 的判据一致（`Update.c:28` 也是 `Renderer__GetMaterial`）。
+
+**四件一手发现（判据/账要改）**：
+
+- **F-E（账 244 行错一半）**：两个实例**不是**都在 `Expiring State > Fixed` —— normal 在 **`Normal State > Fixed`**、expiring 在 `Expiring State > Fixed`（按 `Transform.m_Father` 父链解析）。
+- **F-F 🔴（prefab 覆写 ≠ C# 默认）**：`restoreOriginalMaterialsOnFadeOut` 被 prefab 覆写成 **0**（C# 默认 `true`）；`restoreOnFadeIN=0`、`disableOnFadeOut=1` ⇒ **W10 必须调 `ApplyPrefabFlags(false,false,true)`**，否则淡出后多一步还原。
+- **F-H（把「死组件」钉准）**：`MaterialFader` **全库 28 个实例 / 7 个 bundle** ⇒ **通用组件、不是 Markerlight 专用**；准确说法 = **唯一活驱动是 `MarkerlightController.AimingAttack`**，死的是 `FadeIn`/`FadeOut`/`SetTargetFade`/`ToggleRenderers` 这 4 个（全库 UnityEvent **0 处**指向它们，亲核）。
+- 附带（W10 需要）：两实例 `renderers[]` 各 4 条 —— normal = `Base VFX`/`Ground Effect`/`Ground glow pulse`/`Grid floor`；expiring = `Base Vfx`/`Ground Effect`/**null**/`Grid floor`；**我们导入的 prefab 里 0 个 `MaterialFader` 组件** ⇒ W10 必须运行时加。
+
+> 🔴 **F-G 要我拍板（我已裁）**：原版 `Toggle`/`Update` 遇到 `renderers[i] == null` **抛 `NullReferenceException`**，而**原版 expiring 实例的 `renderers[2]` 就是 null** ⇒ **照抄会在切到 expiring 那支时崩掉整条攻击链**。
+> N15 改成「**跳过该下标 + `LogError` 一次**」（不静默、不崩）。
+> **裁定：保持这个改法，但必须做成三件事**：
+> 1. **注释/账里写死这是【有意的偏离】**（原版抛 NPE、我们跳过+出声），⛔ 不许写成「等价实现」；
+> 2. **「那个 null 到底会不会被走到」列为 W10 之前必须查清**（取决于 `_PrepareAttack` 里两次 `AimingAttack` 与 `MarkerLightUsed` 的先后）；
+> 3. 两种结果两种处置：**不可达** ⇒ 死分支，写清「原版会崩但我们不照抄崩溃」；**可达** ⇒ **原版这里本身就是坏的** ⇒ 不许照抄，且**要作为「原版有缺陷」案例上报用户**。
+> ⇒ **已派它去做第 2 条**（只读）：读 `_PrepareAttack` → 两个方法的调用顺序，结论必须明确写「可达 / 不可达 / 判不了」，⛔ 不许写「大概」。
+
+**W10 接线清单**（本批一条没做）：`Normal State/Fixed` 与 `Expiring State/Fixed` 各 `AddComponent<MaterialFader>()` → `BindRenderers`（4 条，null 允许）→ `ApplyPrefabFlags(false,false,true)` → `MarkerlightController` 两字段类型改回 `MaterialFader`、`AimingAttack` 换成 `fader.Toggle(!option, fadeTime)` → 断言用 `ToggleCalls`/`TargetFadeForTest`/`BoundCount`（⚠️ 批处理 `Update` 不自动跑，要反射显式调）。
+
+### 代理 N11 · K9 `choiceEnchantment(16)` 普查 —— **又推翻一条「未建」**（本轮净代码改动 = 0）
+
+**① 先回答我的问题：纯引擎侧，UI 早就有了**。原版确实「玩家点选一张牌」（`BattleManager.SelectCard`，结果写 `bm.cardChosenInSelection`），
+**但我们有同形通道**：`ctx.ChooseCardIds`/`ChoosePicks`（表现层 `CardChoicePanel` 在动作发起前按结算序排好答案）+ `TakePickCard`（等概率 `Rng` + 记账）⇒ **不需要发明任何界面**。
+
+**② 普查结果：`16` 的主干已经被另一条路做完了 —— 账里「未建」是错的**
+探针 `K` 把 13 张 `buffType 16` 卡逐张 parse（⚠️ **必须用带 card 的 `EffectText.Parse` 重载**；不带 card 的那版**不跑 `choicesDefinition` 注入**，它第一次栽在这儿读出了假「注入=False」）：
+**6 张暗契卡**（`Unhallowed Gifts`/`BL13`/`BL37`/`BL38`/`BL4`/`BL57`）→ **`EffectText.InjectChoicesDefinitionOp` 已插入 `choosecard`**，候选 = 那 4 张 `Mark of X`，`GrantDarkPact` 消费 `ctx.LastChosenCard` ⇒ **玩家真的能挑哪一份印记**（`A1960`/`W5` 那批做的）；数据侧也齐（`cards_engine.json` 已有 `choicesSpecificCardIds`，50 张）。
+其余 7 张走文本层（`chooseone`/`chooseeffect`/自带 `choosecard`/种类写死/`create` 随机）⇒ **净效果等价**。
+⇒ 账行 771 已就地订正为 🟡「主干已被另一条路覆盖、**记账层**未建」，并补了整段普查。
+
+**③ 真正还缺的（排后）**：`ActiveEnchantment` 记账层（对 190 无所谓，**对 60 SecretOrder / 120 Quest 是必需的**）· 五子支数据可达性（**60/120/130/140 池内 0 张**）· `SpendEnchantment` 语义。
+
+> 🔴 **一次「修一处坏一处」的现场记录 + 整段回滚**：
+> 它一度按「没写种类 ⇒ 用选牌通道问玩家」写了第二套。普查发现**注入那条已经在问** ⇒ 它那条在真局**永远进不去**，而在注入没触发的边角会**再问一遍** = `ChoosePicks`/`ChooseCardIds` **双出队** ⇒ 后面每一处**静默错位**。
+> ⇒ **整段回滚**：`git diff --numstat GivePayload.cs` = **空（与 HEAD 逐字节相同）**；`PickPactKind` 已删。
+> **回滚后读数与 K7 收工逐字节相同**（`play check` 指纹 `374ae748…`、主档 13 / 电池 20）—— **这种「回滚到指纹一致」的验证方式以后照做。**
+
+**我的裁定**：**采纳它的建议，转做 K8**（`setCurrentHealth`/`setMeleeAttack`/`setCost`，池内 5、有可观察量，正好用上「四档不是一套代码」）。
+**K9 记账层记成「排后」而不是「不做」**（理由写死：四支不可达 ⇒ 今天没有可观察量、写完无法验证，等 60/120 有数据再回来）—— 符合铁律 11「只排先后」。
+K8 的判据要点已重申给它：`setCost` 存**目标绝对值**（不是 `N−manaCost`）· 有 `Kind=Set` 时**把 base 整项换掉不是相加** · `setMeleeAttack` **命中即 return（连 addStats 都不含）** · `setCurrentHealth` **无条件写、不夹上限、不查 `Invulnerable`**。
+
+### 代理 N13 · **判据引用体检**（`判据/_体检_引用与措辞.md`，244 行 / 13 表）
+
+**总体结论（最重要的一句，我已采纳进方案 §九）**：
+> **引用体系是干净的：`.c` 引用 0 处真断链。** 今天那 8 类错**不是「引错文件」，而是「把文件里的东西读错」**（早退读成一条路 / 归属配错 / 外推当结论 / 统计翻倍 / 枚举差一）。
+> ⇒ **机械体检能保住「引用完整」，保不住「语义正确」**。
+
+**A 引用存在性**：命名 `.c` 131 次 / 去重 64 个 → **126 命中**；未命中 5 = 2 次「**故意引用那个不存在的文件**」（Tap 判据更正块里的反例）+ 3 次省略号简写 ⇒ **0 真断链**。
+裸名 `.c`（62 次）按**后缀匹配**后 0 断链 —— ⚠️ 它第一版直接判「`AddEffect.c` 不存在」，其实是**方法名简写**（坑写进报告了）。
+其它路径 32 条逐条分类，**唯一真缺陷**：`基础设施与未分类.md:101` 引 `TutorialFlow.cs:314` —— **文件不存在、实为 `MenuTutorialFlow.cs`**（行号对、**缺 `Menu` 前缀**）。
+另：1 条示例不可复核（`BadgesNotifications.cs` 全库 0 命中）· 2 条脚本在 `_tmp_view`（一清就断）· 20 条是**施工方案里要新建的目标文件**（不是缺陷）· 37 条运行期存档路径。
+
+**B 路径→类名一致性**：机械命中 9 条、**逐条判后 0 条真问题**（全是「同一行同时提到两个类」的假阳性）。
+🔴 **但它说清了这条规则抓不到今天那个真错** —— 那个错的形态是「**裸名** `CheckCollision.c` + 归属写成另一个类」；改进方案写了，**没实施**（裸名简写是判据常态 62 次，加进来会立刻产生几十条要人工读的告警）。**这个取舍是对的。**
+
+**C 「外推当结论」措辞**：命中 9 条，**8 条是判据自己在讨论/标注「外推」**（说明已自觉）；**1 条真·未标注**：`存档体系:179`「167 个字段里约 44 个 public 且无赋值点 —— **大概率是** Inspector 序列化字段」。
+
+**顺带扫表格格式**：19 份判据 **231 张表**逐行比列数，只有 2 处不一致 —— `前置门:342` 少一列 · 🔴 **`泛型与启动链.md:640` 疑似内容被截断**（代码段没闭合、行尾没竖线）。
+
+**定向抽核 5 条全过**（`setCost` 不含 base · `BuffType` 六值 · `setCost` 池内正好 3 张且 `costChange` 全 1 · 卡费夹 `[1,8]` · 三个类我们一个都没有）。
+**由此提炼的规律（我采纳）**：**「今天被打回过的结论，作者都已经改对了；真正的风险在『从没被质疑、又最像常识』的那几句。」**
+⇒ 已派它按这条规律去抽核「下游要照着写、但至今没人怀疑过」的判据（**六条投影公式**优先 —— N7 已经照着写进代码了，公式错代码就错；以及 `AddEffect分派器` §〇·三 那 12 个 `buffType` 数字）。
+另派它直接修 5 处小缺陷（`Menu` 前缀 / `BadgesNotifications` 例子 / `ttread.py` 挪进 `工具/` / `存档体系:179` 坐实或标推断 / `泛型与启动链:640` 补全）。
+
+### 代理 N10 · 收工交接（三项已写清）
+
+- 改过两个 `.cs` 的**当前行号**：`EnergySinglePlayerOnlyEventWindow.cs`（1063 行，78/16）关键行 `:838/:858/:865/:875` · 新建 `ScoringIcons.cs`（53 行）`:27/:35/:47`。
+- `ScoringIcons` 残余如实挂着：本地无事件数据 ⇒「计分物是不是 `ScoringPoint`」判不了，按本窗类型画 Skulls；`Victories` 无消费者但**保留**；判据是 **SO icon GUID 与 `.meta` 的 `guid` 逐字相等**（不是名字像）。
+- **五条改动请求的目标域**：`#116/#292/#434` → **N2**（`#434` 的 `RankedDivisionChangeWindow` 那半在 **N5** 白名单 ⇒ **建议拆两行派**）· `#660/#661` → **N1** · `#230` → 教程线。
+- 收工最后一轮 `typecheck` 有 **4 条错全在 `Shell/AllianceMemberTab.cs`**（N9 正在写），它自己两个文件多时点跑都是 0/0，按 13·3 没动别人的文件。
+
+### 代理 N13 · 5 处小修 + **第二轮抽核 5/5 全过** + 抓到「只扫 `abilities` 会少 73 条」
+
+**① 5 处小修全做完**（19 份判据 **231 张表 → 0 处列数不一致**，修前 3 处）：
+`TutorialFlow.cs:314` → **`MenuTutorialFlow.cs:314`**（`_selectSeen` 确实在 `:314`）· `BadgesNotifications` → **`BadgeNotifications.cs:170`**（见下）·
+`ttread.py` 从 `_tmp_view/wfres/` **移进 `工具/`**（5,213 B / 140 行，文件头自述「Generic Unity type-tree reader」⇒ 通用工具）·
+`存档体系:179`「大概率是」→ **🔶 推断（未坐实）** + 写明为何坐实不了（`assets_full` 搜 `dataVersion` 0 命中 ⇒ 那份序列化数据不在已解包资源里）+ 坐实路径 ·
+`泛型与启动链:640` 跨行 C# 字符串撑断表格 → 压回一行（**内容一个字没丢**）· `前置门:342` 缺行尾竖线（回源核过 `AddEffect.c:853-893`，`120 Quest` 那支正好 5 项，**内容完整**）。
+
+**② 它自己订正了两处误判（都留了痕迹）**：
+· `BadgesNotifications.cs` —— **只多了一个 `s`**（真身 `Shell/BadgeNotifications.cs:170 = CleanUp()`）⇒ **那个例子本来是对的**，它第一版判「不可复核」判重了；
+· `前置门:342` —— 它第一版判「第三列缺失」，回源核后发现**内容完整、只是排版**。
+
+**③ 第二轮抽核（按「最像常识、从没被质疑」挑）—— 5 条全过**：
+§〇·三 表里每个 `buffType` 数字 ✅（与 `dump.cs:45434-45461` 的 28 个常量逐值吻合，表里 15 个 + 池内 0 的 12 个**一个不差**）·
+14 个命中数 + 合计 **1,198** ✅（`cards_truth.json` 现算精确吻合）· `CurrentMeleeAttack` / `CurrentRangeAttack` / `CurrentMaxHealthProcessed` / `CurrentIntrinsicHealth` **四条投影公式逐句吻合**（含「命中即 return」「两遍倒扫」「全程无 clamp」「第一句 `HasCurrentTrait(0x3cf) ⇒ return 0`」）。
+⇒ **结论：N7 照判据写进代码的那几份投影公式，公式本身是对的。**
+
+> 🔴 **抽核顺带抓到的新坑（已补进判据 + `CLAUDE.md`）**：**只扫 `c["abilities"]` 会少 73 条** ——
+> `buffType` 还藏在 **`activeAbility`（143 张卡）** 与 **`alternativeAbility`（2 张）** 里。它第一次就是这么算的 → 得 **1,125**（不是 1,198），**差点反过来判「判据错了」去改一张本来正确的表**。
+> 差额构成：`addStats` −46 · `changeCost` −5 · `addTrait` −21 · `removeTrait` −1 = **73**。
+
+**④ 它给的两条教训（已进 `CLAUDE.md` §三）**：
+1. **报「某文件不存在」之前先做模糊匹配**（复数 `s` / 前后缀 / 大小写 / 缺 `Menu` 前缀）——`find` 一次空手不等于不存在。
+2. **「表格坏了」≠「内容丢了」** —— 先回源核内容，再判是排版还是内容，否则会让人去「补」一段本来就有的东西。
+
+### 代理 N9 · B 类四件全部落地（社交 **A 92→102 · C 83→73**）
+
+**做了什么**：聊天行**底色分两侧 + 内边距对调**（`RowBgColor` 自己发 `(0.0431,0.0941,0.1333,0.808)` / 别人发 `(0.1059,0.0039,0.0039,0.706)`，prefab 实读；内边距 `L25/R60` vs `L60/R25`，原来两侧恒 25 ⇒ **头像侧多出 35px**）·
+成员列表按 `Rating` **降序、同分按原下标**（复刻 LINQ `OrderByDescending` 的稳定语义，⛔ 不是 `List.Sort`）+ `Members {n}/{cap}` · **计分条改成原版 `InterpolateMilestones`**（按档位等分 + 段内线性，常量 `1.0f` 从 GameAssembly 现读）·
+奖杯格**选中态接上**（原来只有「出厂就关」一档）、`title` 第一次有消费方、`tier == 0 也取 TIER1`（原版 `Math.Max(0, tier-1)`）、`N Trophies Achieved!` 按**达成数**拼（原来写死 prefab 样例 `45`）。
+
+**仍开着三件（都写了前置条件，⛔ 不是「不做」）**：
+· **88 进度条填充宽度**：要给 `Fill` 单开渲染队列号，而 `QCellStride` 是 **6 号/格**、90 号带子装不下 15 格×7 ⇒ **必须先把队列带扩容**（文件原注释就写着）。
+· **73 两件**：大徽标卡「徽标图 id→映射」本地无；`FeatureConfig.IsArmyHidden` **判据空**（本地没有那份配置资产）。
+· **128**：`leaderBoardID` 空/非空分支的真值来自远端 `DraftEventData`。
+
+> 🔴 **它踩到的坑 + 可复用的处置（建议进工具下一轮）**：
+> **改大文件会把整本账的行号打漂** —— 它往四个文件加成员 ⇒ **账里 30+ 条落点一次性过期**（9 漂移 + 1 失败）。
+> 它写了个一次性重对齐脚本（按声明名用 `find_decl_candidates` 重定位，多处命中取**离旧行号最近**的那处），但抓到**两类必须人复核的误判**：
+> 1. **名字在调用行上也「像声明」**（`Dropdown(v, cf, "LanguagesDropdown",` 被当成声明行）⇒ 手改回真声明；
+> 2. 🔴 **`public struct Entry` 这种「没有 `(`/`{` 的声明行」不满足 `looks_like_decl`** ⇒ 会被甩到一个**使用处**，必须手改回。
+> ⇒ **工具下一轮应补**：`struct`/`class`/`interface`/`enum` 声明行若同行为 `{` 则应算声明；以及「名字在字符串字面量里」要排除。
+> ⇒ 结论仍是我那句：**能不改就别改大文件；要改就把新成员追加到类尾** —— 它这一步做对了（新助手全在类尾），但**必需的插入点**（排序、数据源前移、标签）避不开，那些行还是漂了。
+
+### 代理 N15 · `MaterialFader` null 分支可达性调查（**主路径已证死**）
+
+**结论（三选一，明确到字）**：**主路径：不可达（已证死）· 边角路径：结构上可达、但未穷尽 · 整体：判不了（只差最后一步枚举卡效）**。
+
+**六条证据链（机制侧逐条读死，不是「大概」）**：
+1. `AimingAttack` 唯一上游 = `SetTraitsOnPlayAttackingStatus`（`CardScript.cs:11298-11333`），其唯一调用者 = `PrepareAttack` 协程两分支（`:3637` / `:3649`）。
+2. `MarkerLightUsed` 唯一上游 = `SetRemoveMarkerlight`，全库**唯一调用点** = `_ResolveAttack` 的 **`case 0x1a`（最后一个状态）**。
+3. 🔴 **它作用在【被打方】不是攻击者**：对象是协程字段 `+0x130`，`case 0` 由 `+0x30` 拷来，而 `+0x130` 在同一协程里就是**吃伤害的那张卡**（`.c:999 ReceiveDamage(+0x130,…)`）⇒ `alreadyAttacked=true` 只发生在**被打的那张卡**身上，而 `AimingAttack` 只在该卡**自己攻击**时被调。
+4. **标记何时消失**：`OnTurnEnd` → `RemoveTrait(0x492)`，而 `RemoveTrait` **内部立刻** `CardUI.RemoveStatusAnim + CleanStatusAnims` ⇒ **框在摘 trait 的同一拍 `Destroy`**。
+5. `OnTurnEnd` **广播给全场面 + 双方手牌** ⇒ 标记在**施加它的那一回合末**就摘掉。
+6. ⇒ 被标记单位**下一次正常攻击**时旧框已销毁、新框 `Start()` 重置 `alreadyAttacked` ⇒ 走 **normal fader** ⇒ **`renderers[2]==null` 碰不到**。
+
+**边角路径（结构可达、未穷尽）**：同回合内被卡效**强制再攻击**（`AddScriptedAttack:40151` / `AddRedirectedAttack:40243` / `AddAttackAction:36480` 三处都会先 `SetupAttack`）· 同回合内 `CancelAttack`（`OnTurnEnd` 里它在 `RemoveTrait` **之前**；`Stun` 同理）。
+⚠️ 三处 API **只证明了存在**，**没逐张卡枚举**「有没有卡能让被标记单位当回合再攻击 / 触发 CancelAttack」。
+
+> 🔴 **我的裁定：边角枚举【先不做】，但要做成「绑定条款」而不是放弃。**
+> 理由：① 现在**碰不到** —— 我们的 F2（`RuleCore.cs:6884` 打完就 `RemoveAll("markerlight")`）比原版早，**Expiring 状态几乎不存在**；
+> ② 一旦把 F2 改成原版口径（**留到回合末**），边角**立刻暴露**。
+> ⇒ 已让它在 **F2 那一行的备注里**加绑定条款：「本行的修改会让 `MaterialFader` 的 null 分支从『不可达』变成『结构上可达』⇒ **届时必须先枚举那三处 API 的卡效调用方**，再决定跳过是否仍无害」，并把六条证据链出处写在同一备注（或指向报告 §⑨）。
+> **这是「排先后」不是「不做」**：当前无害，等 F2 动时一起做，那时就知道到底有没有那张卡。
+> ⚠️ 另：它证实 **「协程抛异常会中断该协程」是 Unity 既定行为，但本条未实机验** —— 已如实标注。
+
+**状态**：报告 391 行 / 44.3 KB / LF，表格一致性已核。**本轮零代码改动**（只读）。
+
+### 代理 N11 · **K8 做完**（探针 4 红 → 11 全绿）+ 主动报了一次白名单越界
+
+**K8 结果**：
+
+- **`100 setCurrentHealth`**（`EC39 Eternal Servitude`，池内 1）：解析层 `Lower its Health to N` → **新动词 `setcurrenthealth`** → `DoSetCurrentHealth`：**无条件写、不夹上限、不查 `Invulnerable`、不发伤害事件**；写前先判**狂喜 715**（抽成 `RuleCore.CheckEcstasyCrossing`，与受伤那一跳共用一份）。
+  读数：**Invulnerable 单位也被设成 1**（改前拒绝、仍 4）· 普通 4→1 **且没有伤害事件** · 带 `Ecstasy 2` 的 5→1 **触发狂喜**（改前不触发）。
+
+- **`95 setCost`**：按算式换成**记录模型** —— `CostMod.SetTo = N`（目标绝对值），`RuleCore.CostOf` 现算 **`clamp0(N + Σ全部 changeCost)`、不含 base**（`get_CurrentCost.c:52-79`，`:73` 直接 return）；`DoLowerCost` 不再折「快照 delta」。
+  读数（最漂亮的一条）：**手牌先 +2 费（4→6）再「设为 1 费」⇒ 3**；**改前是 1**（快照 delta 把先前的 +2 吃掉了）。
+
+- **`70/85`：只记录不实现**（🟡）。今天 `CardDef.MeleeEqualsHealth`（`SAU27`）**只在伤害那一跳**读 Health（`RuleCore.cs:4857`）；原版是「读时覆盖」⇒ **所有读点都要看到覆盖值 ⇒ 必须等 Stage 2c**。
+  ⚠️ **它补的一条要在 Stage 2c 施工前先核**：`meleeAttackValueOptions`（`SAU27` = `50 ThisCardHealth`）在哪一步折成 `meleeAttackChange` ——
+  若在 `PlayAbility` 建 `CardEffect` 时折，则记录里是**快照**，「always equal」靠 `240 WhileInPlayVariable` 反复重挂刷新 ⇒ **别把「快照」实现成「活读」**。**已进交接 §二。**
+
+**回归**：`ruleprobe check` **解析差异 2 行 = `BL46`（K7）+ `EC39`（K8），都属有意**；`play check` 指纹 **`374ae748…` 与 K7 收工逐字节相同** ⇒ **对现有 1,128 张卡零行为变化**（差异只在探针构造的边角现形）。
+
+> ⚠️ **它主动报了一次白名单越界（我已批、不撤回）**：为做 95 的模型，它改了 `RuleEngine/Core/BattleContext.cs` —— 给 `CostMod` 加 `SetTo` 字段（`-1` = 普通 delta、`>=0` = 目标绝对值，**+18 行含 doc**）。
+> 理由：`CostMod` 已带 `Key/HandInstanceId/Criteria/HandOf/ExpireTurn/Once` 和**唯一匹配判据** `CostModApplies`，另造 side table 会把这套规则复制一遍（**撞铁律 6**）；且当时该文件无别的写手（N7 已收工）。
+> ⇒ **批准保留**。以后的规矩：**同类越界可以先做，但必须在报告里主动报**（它这次就是这么做的）。
+
+**⚠️ 指纹又动了一格**：`PinnedParseMd5` K7 时 `9cf3481c…` → **K8 `193c1b25b0b4073f3da99f7085d6558d`**（两行解析差异都有意）。
+⇒ **交接文档里的值我已更新**，并写死「**这个值每批都会动 ⇒ 现算现钉，⛔ 别照抄**」。
+
+**它顺手发现三条（我收了）**：① `DoSetHealth` 现在是**无数据生产者的死实现**（`buffType 9` 池内 0 张），而注释还写「对应卡面 `Lower its Health to N`」—— 那句已指错（归 100）⇒ **改注释的活让它直接做掉**；
+② `setHealth(9)` 要 `currentMaxHealthProcessed`，与 `addStats.health` 的「上限现算」**同一刀** ⇒ 归属性模型后续阶段；③ `setCost` 支里我们自建模的两条静态费用修正被整项丢掉 —— **如实标注是对的**，⛔ 别为了保住它们改公式。
+
+### 代理 N11 · 收尾（DoSetHealth doc + setHealth(9) 落账）—— 本轮交接
+
+- **`DoSetHealth` 的 doc 已就地改正**：只对应 `buffType 9`（`.c:794-820` = `currentHealth = currentMaxHealthProcessed`）；🔴 **该动词今天无数据生产者**（池内 0 张）；**不再是「`Lower its Health to N` 那一条」**（那条正文 EC39 是 `buffType 100`，已改判给新动词 `setcurrenthealth`）；它保留的是**老近似**（只降+比当前小才改+查 Invulnerable），⛔ 别拿它当 100 的落点、也别把 100 的无条件语义搬回来。
+- **`setHealth(9)` 已记进账**（行 771）：不做，理由「真语义要 `currentMaxHealthProcessed`，我们 `MaxHealth` 两格并一格 ⇒ 与 `addStats.health` 的『上限现算』是同一刀」。
+- **最终状态**：`RuleEngine/Core/` 五处 + `Editor/RuleEngineTest.cs`；`typecheck 0/0` · 三套探针全绿 · 解析差异 2 行（BL46+EC39，均有意）· `play check` 指纹 `374ae748…`（K8 对 1,128 张零行为变化）· 行尾无一翻转。
+- **它给的下一步排序（我采纳）**：① **K1 `addStats` 复核**（入口最大、有可观察量）② K2/K3 trait（🔴**前置：`CardTrait._stackable` 真值表当前全是占位 10**）③ Stage 2c/3 合批（`setHealth(9)` + `MaxHealth` 并格 + `70/85` 读时覆盖），做前先核 `meleeAttackValueOptions` 折成 `meleeAttackChange` 那一步（**快照 vs 活读**）④ K9 记账层排后。
+
+### 代理 N15 · 收尾（账里绑定条款已落 · 本轮零代码改动）
+
+- **绑定条款已写进 `账/战斗逻辑驱动.tsv` 的 `CardScript.SetRemoveMarkerlight()` 那一行备注**（1264→1762 字）：原版只置 `+0x57`、真正摘除在 `OnTurnEnd`、`RemoveTrait` 内部**立刻** `RemoveStatusAnim + CleanStatusAnims`（框当场销毁）、`BroadcastTurnEnd` 对全场面+双方手牌广播 ⇒ 标记在**施加它的那一回合末**就没了；我们 `RuleCore.cs:6884` 打完立刻 `RemoveAll` ⇒ **早一整个回合**。
+  明文写死：**本行一旦改成原版口径，`MaterialFader` 的 null 分支就从「不可达」变成「结构上可达」** ⇒ 届时**必须先**枚举强制攻击 API 的卡效调用方，再决定「跳过 null + 出声」是否仍无害；并给六条证据链的指针。
+  `OnTurnEnd` 那一行只留**一句指针**（铁律 6：只留一处）。校验：1538 行不变 · 全行 11 列 · CRLF 0 · 只改了 2 个单元格。
+
+- **「要不要现在枚举」它判断「不便宜」，按我的裁定排后**，但把剩余缩到最小：真正的入口不是 `AddScriptedAttack`，而是 **`AddForceAttack(targetCard, …)`（`BattleManager.cs:39952`，第一个参数就是「被强制攻击的那张卡」）** 与 `AddForceAttackFriendlyUnits（:40079）`；
+  两者经 `BattleActionType.forceAttack / forceAttackFriendly` → `ResolveForceAttack(:26531)` / `ResolveForceAttackFriendly(:26629)` → `AddScriptedAttack`。
+  ⚠️ 五个入口在 ILSpy 与 `decomp_full` 里**都是 0 处文本调用点**（间接派发/方法表）⇒ **再往反编译里挖不会有新信息**，剩下只能从**卡效表**查；而卡效活文件一时没定位到（只在 `_tmp_view/*_bak` 找到备份）⇒ 不值得为当前不可达的分支现在做。
+
+- **报告 §⑩ 已写成自包含交接**（451 行 / 51.7 KB）：产出清单 · **下一批简报「已知什么」8 条可直接抄**（2 个 prefab / 两个 fader 的真实节点 / 各自 4 条 renderers 含 null / `ApplyPrefabFlags(false,false,true)` 必须调 / null 是原版会抛 NRE 的分支 / `Grid floor` 不是直接子件 / `fadeTime=0.5` / 防抖在 W8 不在控制器）· 派单与依赖 · 现状与红线（**「8 组绿只证明这一层自己没写错」**）。
+- ✅ **它问「要不要我写正式交接文件」—— 我答：不用**。交接文件是主对话写手（铁律 13·3/13·8），它的 §⑩ 整段可直接搬。**它主动停下来问，而不是直接建文件，这个判断对。**
+
+**N15 线到此收工**：3 个 `Core/` 文件（`TraitEffectController` / `HuntMarkController` / `MarkerlightController`）+ `Editor/TraitEffectAssert.cs` + `Core/MaterialFader.cs` + 报告 ①–⑩ + 账里的绑定条款。
+
+### 代理 N17 · 日常/奖励（含活动线）第 1 轮 —— **一次推到 A 0→264**
+
+| 账本 | 前 | 后 |
+|---|---|---|
+| `账/日常_奖励.tsv`（779） | A0 · B318 · C408 · D53 | **A 264 · B 85 · C 315 · D 115**（C 等级 P1 74 / P2 241，**无 P0**） |
+| `账/社交_聊天.tsv`（只动收件箱那批） | — | **A 125 · B 2 · C 48 · D 269**；收件箱 36 行 = 26 A · 2 B · 3 C · 5 D |
+
+- **C 408 分堆完**（C1 LiveOps 核心 125 / C2 挑战·任务 107 / C3 事件类型·UI·奖励·问卷 176），工作项 W1–W9 每条都有「还差什么 / 可达性 / P0-P1-P2 / 先后」。
+  **没有把 C 判 D 清账** —— D 的 61 条全部能指到「原版本身无行为 / 抽象空方法 / 第三方 / 机制不同」。
+
+- **B 318 逐条核完**：A 165 · **降 C 144** · 留 B 3。
+- **本轮真落地三件**：
+  1. **收件箱整条链**：新增 `Shell/InboxData.cs`（531 行）+ 重写 `Shell/InboxWindow.cs` 正文/选中/领取那半（+443/−28）—— Header/Message/Footer + Claim reward warning + 选中底图 + 领取（`Wallet.Grant` + 领奖窗）+ **入场动画（0.1s 步进 / 0.15s / ×0.5 起）** + **未读行周期闪 3.0×(1±0.2)s** + 红点=未读条数。
+     ⚠️ **简报写「16 条」，实测 28 条 C** —— 16 只是备注里写「移交 Inbox 域」的那批，另 12 条（`MessageContainer`/`MessageDisplay`）是同一条链、同批做掉。**这类「简报与实测不一致」它主动报了。**
+  2. **`DailyData` 两个 P0**：周常/骷髅「可领取」在生产里**永无写入点**（两颗 Collect 钮永久灰、永远领不到）+ 周常进度既不涨也不落盘 ⇒ 已修（跨阈值入 Collectable；每局 +1；`StoreDto` 补 `weeklySet/weeklyProgress/weeklyState`）。
+     🔑 判据细节：**「跨档才可领」不是「≥第一档」** —— 否则出厂 13 一开局就可领。
+  3. 日常账 9 条公告/消息行复核 ⇒ 7 A · 2 B。
+
+**核验**：`typecheck 0/0` · `日常_奖励` 形态闸 **264/264（0 漂移 0 失败，17 告警）** · `社交_聊天` **125/125** · 缺注解本域 0 · `check_a_vs_diff` 两账各 0。按用户口径**没跑 Unity / 没真机**（收件箱观感未截图）。
+
+> 🔴 **它报了两条「现在就会红」的断言（我已授权它改）**：
+> 1. **`Editor/RewardsScene.cs:10445` `Check(inbox.HasMessages, false)`** —— 出厂 2 条消息 ⇒ **必红** ⇒ 改成「有消息 + 非空态」。
+> 2. **`Editor/MainMenuScene.cs:15703/15714`** 挡着任务红点补四卡（`DailyData.RewardsHasBadge` 加 `|| CanCollectWeekly/Skulls/Login`）的旧口径断言 ⇒ **必须同一笔改**。
+> 硬性要求同前：**断言旁写「期望值依据 = 文件:行号」+ 旧期望为什么错**，⛔ 不许只把 `false` 改 `true`。
+
+**顺带发现（9 条，我分流）**：
+· 🥇 **liveops 图标「拿得到」**（GUID `3a8a1016497754066b40d88caeee722b` → `bundle_liveopsicons_assets_all` → `Sprite/40k_campaign_Expansion Pass.json`）⇒ 缺口只是「**未导入 + `EventImageSelectorController` 没接**」，已让它直接做。
+· `TopBar` 挑战钮注释与 ILSpy 不符（真源是 `chatGlobalManager.PendingPracticeMatches`）· `EventProgressBarController` 一族**填充恒 0、端帽恒显、分数恒 `--/--`**（有在期事件时一眼可见，现休眠）· **里程碑格没有命中区 ⇒ 点了不出声**（原版弹该档奖励预览；我们无逐档数据，⛔ 不许编奖励，先做「点它出声说明原因」）· `LoginBonusRewardDisplay` 缺一颗钮 · 活动窗倒计时都传 `null` target。
+· 🔴 **反编译另两处「文件名与内容不符」**：`SkirmishEventWindow__StartBattle.c` 装的其实是 `BattleButtonClick`；`__CloseButtonClick.c` 装的是 `TutorialTipScript__StopTipPermanent`。⇒ 这是**第五、六例**（前四例：`Missions__BlockAutoUpdates.c`、`TapHitMaterialDefinition__CheckCollision.c` 不存在、`setCost` 早退、`CheckCollision` 归属），**这类「引用的文件存在但内容不是那个方法」只有读方法体才发现**。
+
+### 代理 N17 · 追加轮（三处断言 + 四卡红点 + 顺手发现入账）
+
+**三处断言改动，每处都写了「期望值依据 = 文件:行号」+ 旧期望为什么错**：
+1. `Editor/RewardsScene.cs` §六 `Inbox Menu`：旧 `Check(inbox.HasMessages, false)` 成立于「收件箱没有数据源」的年代；本轮加了 `InboxData.BuildSeed()`（`local_welcome` + `announce_<eventId>`，共 **2** 条）。
+   新期望 = `HasMessages==true`（依据原版 `InboxWindow__Open.c:49` 非空支）+ **新增** `Rows.Count==2` + **新增** `Message Display 开 / No News Warning 关`（同 `:49` else 支）。
+   **改坏法**：删掉 `InboxWindow.Build()` 的 `LoadFromStore()` ⇒ 三条一起红。
+2. `Editor/MainMenuScene.cs` A384 ③：旧 `Check(RewardsHasBadge,false)` 的错因 —— 紧邻上一行刚断 `CanCollectLogin()==true`，而原版 `Missions.CheckNotification()` 是**遍历全部 mission 逐条发 badge** ⇒ **登录卡可领时红点本就该亮**；旧断言只数三条每日。
+   新期望 = `RewardsHasBadge==true`（依据 `Missions.CheckNotification` + 本地唯一计数口 `DailyData.CollectableMissionCount()`）。
+3. 🥇 **新增「灭自证」断言**：把每日全部摆成不可领、只让**周常+骷髅+登录**可领 ⇒ `CollectableMissionCount()` 必须**恰好 3**；随后逐条还原（含三张卡原始三态，不留给后面的节）。
+   **两个方向的改坏法**：删任一张卡 ⇒ 2 ⇒ 红；`RewardsHasBadge` 改回只数每日 ⇒ 0 ⇒ 红。
+   ⇒ **「结构上不可能同时满足」，这是改断言的样板。**
+
+**四卡红点（C2-W2，B→A，与断言同一笔）**：`DailyData.CollectableMissionCount()` = **唯一计数口**（三条每日 + 周常 + 骷髅 + 登录）；`BadgeNotifications.RewardsNotificationProvider` 改读它（删掉本地循环与写死的 `DailyTaskCount = 3`），顺带订正「收件箱单机恒 0」的过期注释。
+
+> ⚠️ **第二次越界，我批**：`Shell/BadgeNotifications.cs` 不在简报列的白名单里，但它是**红点的唯一生成点** —— 不改它而只改断言，那就是**改绿**。它**主动报**了（写清为什么必须改 + 改动集中在 `:359-397`）。
+> ⇒ 规矩同前：**同类越界可以先做，但必须主动报**。
+
+**liveops 图标它不做、只记账 —— 判断对**：导入要动 `工具/import_original_art.py` 和 `Resources/Art/`，两处都不在白名单；**「不导入就接线」是空转**。它把 GUID→PathID→Sprite 完整链记进账（4 行），并写明「未导入 + 未接」必须**同一批**做。
+
+**最终数字**：`日常_奖励` **A 265 · B 84 · C 315 · D 115**（迁移矩阵：B318 → A171/B3/C144；C408 → A94/B81/C171/D62）· `社交_聊天` **A 125 · B 2 · C 48 · D 269**。
+`typecheck 0/0` · 两账形态闸 **265/265 · 125/125（0 漂移 0 失败）** · 缺注解本域 0 · `check_a_vs_diff` 各 0 · 行尾四文件全 LF 未翻转。
+
+**下一步（它给的先后）**：C1-W1 **LiveOps 框架核心**（38 条 P1，**5 扇活动窗的前置**）→ C3-W2 TwoSides 选边/领取 + C1-W6 EVENT 导航回落（同批）→ C1-W3 活动资产装载层（**与图标导入同批**）→ C2-W3/W4（需 BattleDriver/RuleEngine，跨线）→ C2-W5（需 Net）。
+
+### 代理 N17 · 收工交接（日常线第 1 轮的完整交付）
+
+**① 状态迁移矩阵**：B(318) → **A171 / B3 / C144** · C(408) → **A94 / B81 / C171 / D62** · D(53) 不动 ⇒ 终值 **A 265 · B 84 · C 315 · D 115**。
+C 等级 P1 74 · P2 241（**无 P0**）；工作项 C1-W1..W7 · C2-W2 已做 · C3-W1..W9。`社交_聊天` **A 125 · B 2 · C 48 · D 269**。
+
+**② 本轮改过的 5 个 `.cs`（当前行号，交接里逐入口列了）**：
+`Shell/InboxData.cs`（**新建 531 行**：`BuildSeed:107` · `UnreadCount:192` · `CanCollect:282` · `TryClaim:301` · `StoreDto:389` / `EnsureLoaded:404` / `Persist:463` · 自检口 `ReloadForTest:506`）·
+`Shell/InboxWindow.cs`（`Open:360` · `LoadFromStore:702` · `SelectMessage:745` · `OnClaimClick:833` · `StartAnimateIn:941` · `ShineTick:997`）·
+`Shell/DailyData.cs`（`InboxCount:909` · `RewardsHasBadge:929` · **`CollectableMissionCount:939`** · `AddSkulls:1477` · `AdvanceWeekly:1516` · `StoreDto.weeklySet:1854`）·
+`Shell/BadgeNotifications.cs`（`RewardsNotificationProvider:381` / `CheckNotification:388`）· `Shell/ParentEventWindow.cs`（`:108` 铁律 5 订正）。
+另两处 **Editor 断言**（我已批）：`RewardsScene.cs`（收件箱 §六 空态→非空态 + 3 条新增）· `MainMenuScene.cs`（A384 四卡口径 + **灭自证 `CollectableMissionCount()==3`**）。
+
+**③ C1-W1「LiveOps 框架核心」= 下一步的前置（交接里给全了）**：
+
+- **它挡着**：5 扇活动窗（Ranked/Skirmish/Raid/ExpansionPass/Energy）+ C1-W2（过滤/触发/冷却/过期/排期）+ C1-W3（资产装载层）+ C1-W4（主菜单活动容器）+ C3-W3（Scoring 里程碑数据层）。
+- **账里怎么取**：筛 `状态=C` ∧ 备注含 `工作项 W1` ∧ `原版类 ∈ {LiveOpsHandler, LiveOpsManager, LiveOpsEvent, LiveOpsEventData, LiveOpsEventFactory, SharedEventDataManager}` ⇒ **38 行 P1**。
+- **判据入口**：`判据/泛型与启动链.md` §三 #1/#2（要新建的 7 件）+ `判据/日常与活动.md` §二 Q1 / §四（**恢复顺序：存档归并 → `LiveOpsHandler` + `LiveOpsEvent<TSave>` → 把「当前活动」选择从 catalog 挪进去 → 再逐窗把 B 换成真事件实例**）。
+  原版真身：`LiveOpsHandler.cs:1538-3210` · `LiveOpsManager.cs:1648-2090` · `LiveOpsEvent.cs:631-1103` · **`ILiveOpsHandler.cs:37/39/71` 的 `SetupEvents(events, blockedEvents, sharedData)` 三参签名**。
+
+- **我方现有底座（⛔ 别重造）**：`Shell/LiveOpsLocalCatalog.cs`（`Events:644` · `TrySelectActive:659` · `TryPickEventIn:681` · `TryResolveSurface:768`）· `Shell/SaveCenter.cs`（**未接线**）· `Shell/Inventory.cs` · `Shell/WindowsManager.cs:1141 OpenEventHub`（事件→主窗**唯一口**）· 窗基类 `LiveOpsEventWindow.cs` / `ParentEventWindow.cs`。
+- **两个必须一起定的设计点（不能后补）**：① `blockedEvents` 第二列表（**运营维 ≠ 过期**）② `sharedData(JObject)` 跨事件共享块 —— 二者都牵动 `SetupEvents` 签名。
+- ⚠️ **可达性：现在无玩家可见入口**（13 份 SO 全过期 + EVENT 导航钮 2026-10-24 起整颗隐藏）⇒ **做完也不会有画面变化**；它是「5 扇窗接真事件」的前置，**不是验收件**。
+
+**④ 第五、六例「文件名与内容不符」**（今天累计六例）：
+`SkirmishEventWindow__StartBattle.c` 的函数体**逐字等于 `BattleButtonClick`**；`SkirmishEventWindow__CloseButtonClick.c` 装的是 **`TutorialTipScript__StopTipPermanent`**。
+⇒ 判法：**该条以 ILSpy 方法体为准**，⛔ **别按文件名认函数**。（前四例：`Missions__BlockAutoUpdates.c` 装的是 `SetPopUpDisabled` · `TapHitMaterialDefinition__CheckCollision.c` 不存在 · `setCost` 早退读成一条路 · `CheckCollision` 归属错两次。）
+
+**⑤ 收工状态**：`typecheck 0/0` · 两账形态闸 **265/265 · 125/125（0 漂移 0 失败）** · 缺注解本域 0 · `check_a_vs_diff` 各 0 · 改过的 `.cs` 全 LF 无翻转 · 备份在 `_tmp_view/n17shards/*.n17bak`（**没放回账本目录**）。
+⚠️ **按口径没跑 Unity / 没真机**：收件箱观感（正文排版 / 入场动画 / 选中态）只做静态核对，**截图欠账留给真机批**。
+
+### 代理 N13 · Tap 判据订正（8 处）+ **两条新方法论已被我采纳进方案 §三**
+
+**① 「点棋盘空地」——它独立复现了 N16 的结论，还补了第三条决定性链路**：
+除 `m_Layer=11` / `layers[11]='BoardCardLimit'` 外，它把 `CardLowBoardLimit.json` 的组件表解出来 → `Transform 1302 → m_GameObject 332` → **`BoxCollider 1582` 也挂在 332 上** → 在 arena1 的 `MonoBehaviour/` 里按 `m_GameObject==332` 反查 → 命中 `MonoBehaviour_5122.json` ⇒ **那条 tapHit 确实挂在那颗 layer 11 的 GO 上** ⇒ 永远射线不到。
+
+**并且把 arena1 全部 20 条逐条解析出「层 + 节点名」**（bundle 内 GO→Transform→m_GameObject 闭环，不是跨 bundle 按 pid 乱找）：
+· **19 条在 layer 0**：`Barrels Right` / `Barrel Left` / `Barrel Right 2` / `Barrels Left2` / `Generator 1` / `Generator 2` / `Fences top` / `Cube`×4 / `Collision`×2 + `Collision (1)`×2 / `Collision (3)`；
+· 第 20 条 = `CardLowBoardLimit`（layer 11）。
+· **emperorschildren / spacewolves 各只有 1 条、且都是 `CardLowBoardLimit`** ⇒ **整场无反馈**。
+⇒ 给 T1 的直接结论：**真正「看得见的道具」只有 `Barrels*` / `Generator 1·2` / `Fences top`**；`Cube`/`Collision` 是**隐形命中盒**。**T1 验收改成指着 arena1 `Barrels Right`**，并并列强调「**点棋盘正中央应当没有任何反馈**」。
+
+**② `B-3` 它自己复核后确认 N16 对**：`.c:182` `lVar18 = i * 0x2c`、`:267-274` `get_constantMax(lVar10 + 0x20 + i*0x2c)` ⇒ **喂给 getter 的是元素首地址**；它原来写「`hit+0x20`」是**把数组寻址当成了结构体字段偏移**。结论（取最小 `distance`）仍成立。
+
+**③ 订正 8 处**（头部加「第 2 轮订正」块 · §2.2 棋盘段整段换 + 分布表两场标注 · §5.3 T1 换验收对象 · §8 加两条硬结论 · §1.1/§3.2 的 B-3 · §3.4 B-3 整条重写 · §0·b 六项「未抽核」改「已抽核」）。19 份判据 **231 张表 → 0 处不一致**。
+
+**④ 它自己否掉了一条猜想（如实报）**：先猜「`ParticleTapCollider`=layer 12 是为了避免粒子自击」——**现读否掉了**（原版 bundle 里 **25 个 `Tap*` GO 全在 layer 0**，我们导入的 3 个也全在 layer 0）⇒ **层 12 服务的是别的东西（未查）**，这条**没写进判据**，只在报告里报。
+⚠️ 由此留一个真风险：粒子在 layer 0，若该 prefab 带 Collider ⇒ **下一次射线可能打到粒子自己**，`GetComponent<TapHitMaterialDefinition>()` 拿不到 ⇒ 按原版逻辑 **return、不顺延**（原版同理，照抄即可）；但**建碰撞体时别把碰撞体加在粒子上**。
+
+> 🔴 **它给的两条方法论我已采纳进 `方案 §三`**：
+> 1. **「实读」两个字不够，要写「实读了什么字段」** —— 今天两例**都落在标着「实读」的行里**（`CardLowBoardLimit` 那行实读了「它有个 collider」却没实读 `m_Layer`；`hit.distance` 那行实读了「有个 float」却没实读 `i*0x2c` 的数组寻址）。
+> 2. **「实现方按判据写代码会把判据的错暴露出来 ⇒『实现完回头核判据』不能省」** —— 今天累计 **8 例**，**它比任何扫描器都强**，因为写代码的人必须把每个值落到**可执行的位置**。
+
+### 🔴 用户两条口径变更（2026-10-25 收尾前）
+
+> 原话：「**卡池拖拽 · 轮抽模式。可以做，轮抽模式都已经做了一些了。**」「**战场线可以复刻，只是暂停的是验收。**」
+
+1. **卡池拖拽 / 轮抽模式 解禁** —— `CLAUDE.md` 铁律 11 的「不做清单」现在只剩 **NAT-PMP**。⚠️ **轮抽「不做奖励」仍有效**（那是「奖励」不是「模式」）。
+2. **战场线：复刻可以做，暂停的只是【验收】** —— `CLAUDE.md` 第 15 行与 §四 第 1015 行两处已就地订正。⇒ **逐场复刻 / 改战场 prefab 都放开了**，⛔ 只是别拿它当「验收通过」。
+
+### 战场建场（Tap 族）· 第 1 场已完成
+
+**`battlearena1` 建好**：清单 **20 条** ⇒ 建碰撞体 **20 颗**（其中另建空宿主 5）· 挂定义 **20 个** · 控制器 **1 颗** · 掩码外 1 条（`CardLowBoardLimit`，layer 11，**照原版**）· **自检相等 ✅**（建场时挂 20 vs prefab 产物 20）。
+
+> 🔴 **建场时发现并修掉一个真 bug（会影响全部 13 场）**：原版清单写 `Barrel Left1`，我们从 OBJ 建出来的 MeshFilter 实际叫 **`Barrel_Left1_0`**（**空格→下划线 + 末尾 `_<子资产序号>`**）⇒ 精确同名找不到，**6 个道具的碰撞体「退回第一个网格」**（= 形状错）。
+> 修法：`ArenaBuilder.cs` 的 Mesh 匹配加**归一化比较**（空格→下划线 · 转小写 · 去掉末尾 `_数字`），取最长匹配。
+> 修后重跑：6 个全部「归一化匹配到」，**退回第一个的警告消失**，自检仍 ✅。`typecheck 0/0`。
+
+> ⚠️ **还剩一个计数口径 bug（未修，已记）**：汇总行报「**锚点 0 条接上 / 失败 20**」，但 arena1 的 manifest 实测 **`tapHits` 20 条里带 anchor 的 = 0**（13 场合计：arena2 1 · arena3 3 · blacklegion 7 · sororitas 2 = 13 条）。⇒ 计数器把「没有锚点」也当失败计了（`e.anchor` 若是非空结构体，`!= null` 恒真）。**不影响运行时行为**（`targetAnchor` 仍是 null ⇒ 走「世界点 + 法线」），但**会误导下个会话以为锚点全失败**。
+
+**待建**：其余 **12 场**（命令与逐场期望读数在 `报告/N16_Tap_第1轮.md` §⑥；⚠️ 铁律 15：**一场一场，⛔ 不许 `--all` / 不许 for 循环**）。
+
+### 代理 N19 · 任务核销审查（第 1 轮 · 已给修正权限）
+
+**核销结果**：表内 106 条数据行 ⇒ **✅ 今天核销 11 条** · 🟡 保留 76 · ⏔ 卡住 11 · ❓ 判不了 7 · 📌 非任务 12 ⇒ **真·未完成 = 94 条**。
+
+> 🔴🔴 **它最重要的发现：任务线表 ≠ 复刻账。**
+> 我今天点的 6 类（宽高比补偿 / `UIBorderGlow` / `UIEffectToggler` / `MaterialFader` / `TraitEffectController` / Tap 族）在 `资料/任务线/**` 里 **0 命中** —— 它们只活在**账 / 判据 / 报告**里。
+> 而真正的大欠账**根本没进任务表**：工具文档线的「泛型反编译 178 类 + 第三方 UI 库 155 类 + **资源侧 R0–R4 五项**」、界面线 K3 十条、活动线 N17 的 C1-W1…C3-W9。
+> ⇒ 已在 `资料/任务线/README.md` 顶部加「**两本账的关系**」：**查「还剩什么没复刻」看账（8,749 条）；查「旧任务有没有顺带解决」看任务线表**；两本账在完全复刻走完之后才合并回核。
+
+**我给的 9 项裁定**（要点）：
+· T02「壳卡死」/ T16 D10 / S1 结算屏穿透 **一律保持 ⏔**（「真机作废」≠ 已解决）；
+· 🔴 **T06 / T11 搬回 §一** —— 用户 2026-10-25 原话「实现基本复刻后再真机和自检」⇒ **真机是暂停不是作废**，「只剩真机听感/验证」= **未完成**；
+· `questTimes` 保持 🟡（现池 0 张可达 ≠ 不做，铁律 11）；
+· §29·c 三行**不搬**（跨文件结构动作留给新会话）；
+· **§29·d 与 `远端挂起线` §二 重复 4 条 ⇒ 保留 `远端挂起线`、删 §29·d 那 4 行**（铁律 6）；
+· 活动钮图标 `40k_main_bt_event` 未导入 ⇒ **拆成单独一条真缺口**；E01（`✓`）搬 §二。
+**另修 4 个结构问题**：音效线真缺陷（`SoundCueAssertT.cs` 全仓无宿主调用）搬回 §一 · 卡牌线 §二 6 行列数不一致 · 战斗线 T09 与 T09-残 重复 · `§29·c` 表头死指针。
+
+### 📦 收尾提交（2026-10-25 第七十九会话结束前）
+
+- **提交**：`bb0f3d34` —— 「feat(复刻): 第七十九会话 —— 完全审查+复刻第二批 · 同步点收口 · 战场建场首场」，**457 个文件 / +217,052 −23,305**。
+- **推送失败（只试一次，不重试）**：`fatal: unable to access … Recv failure: Connection was reset` ⇒ **ahead 1**，等网络恢复再推（铁律 9）。
+- **未进 git 的**：`Unity/资料/完全复刻/资源/R0_资源覆盖账.tsv`（**88 MB**，24.7 万对象 dump）—— 已加进 `.gitignore`，**留在盘上**；仓库原本 174 MB，收它会把仓库翻倍。
+- **提交前状态**：`typecheck 0/0` · 形态闸**失败 0**（通过 2,464 / 告警 27 / 漂移 34）· 语义闸缺注解 10 · `ruleprobe check`/`play check` 双 rc=0 · 词条无重复 · 13 个任务线文件仍全 LF。
+
+---
+
+## 🆕 第八十会话（2026-10-25 · 批次 1 开工）
+
+### 🔴 用户两条新口径（**已落正本**）
+
+> 原话①：「**这些情况，应该每一个交接文件里都说明一下。**」（指「账的覆盖边界」那一套）
+> 原话②：「我主要是想复刻好游戏的**主要功能：对战、卡组编辑**之类的。可能有一些文件其实是**原版服务器、玩家账户的网络服务器**相关的信息，这些的**优先度应该不重要，不复刻也行**。」
+
+**我的落盘（四处，缺一不可）**：
+1. `方案.md` **新增 §2.4「覆盖边界」**（权威版：六个数字 + 四类已知未覆盖 + 判 D 的合法性）与 **§五「优先级总纲」**（P0–P3 + 不许判 D 的四类）。
+2. `交接_第七十九会话.md` **新增 §1·b（覆盖边界，六行 + 指针）** 与 **§二·0（优先级总纲）**。
+3. `CLAUDE.md` **铁律 6 加一条**（每份交接必带「账的覆盖边界」，⛔ 别把「账填完」当「复刻完」）；**§四 加边界 ④**（P0–P3 + 不许判 D）。
+4. `任务线/README.md` 顶部加同一份压缩口径；顺手订正「§〇 / §三」这个死指针（七十九会话没有 §〇）。
+
+**关键裁断**：**P3「可判 D」只覆盖「客户端里根本不执行 / 只有服务器返回值在用」的那部分**。
+⛔ **四类不许判 D**：我们自己的 **P2P 联机**（`Net/*` —— 用户点名要的功能）· **本地存档** · **本地战斗引擎** · 一切「客户端 UI + 服务端数据」的 **UI**（只有数据层可本地模拟/出声）。
+
+### 📋 批次 1 派活（10 路，全部在跑）
+
+| 代理 | 任务 | 独占文件 |
+|---|---|---|
+| **E1** | 属性模型 Stage 2a–2c + 合批（`setHealth(9)`/`MaxHealth` 并格/`70/85` 读时覆盖）+ K1 `addStats`(507) | `Assets/RuleEngine/**` + `账/战斗逻辑驱动.tsv` |
+| **E2** | LiveOps 框架核心 C1-W1（38 条 P1，新建 7 件，**只做框架不接窗**） | `Shell/LiveOps*.cs` + `账/日常_奖励.tsv` |
+| **E3** | 存档 Step 3 → Step 4 双写期（同文件串行） | `Shell/{SaveCenter,SaveKeys,LegacySaveReader}.cs` |
+| **E4** | 社交/联机 B 类接线（奖杯格/成员排序/计分条插值/消息行分侧/选项面板三行同根因 + 联机 68·162·74·79） | 5 个 `Shell/Alliance*`·`ChatPanel`·`LeaderboardWindow` + `Net/NetBattle.cs` |
+| **E5** | `TraitEffectController` W0–W10 接线 | `Core/TraitFrames.cs` + `Battle/BattleDriver.cs` |
+| **E6** | N10 五条改动请求（#116/#292/#434/#660/#661/#230）+ 两域 P1 | `Shell/{CardDetailPopup,ExpansionPassEventWindow,RankedDivisionChangeWindow,DraftModeWindow}.cs` |
+| **Q1** | `CardTrait._stackable` 真值表 + `meleeAttackValueOptions` 折叠点（E1 的 2c 前置） | 只写 `判据/` |
+| **Q2** | `ArenaBuilder` 锚点计数口径 bug + 12 场建场清单 + 5 条缺失锚点方案 | `Editor/ArenaBuilder.cs` |
+| **Q3** | 34 漂移 + 10 缺注解 + 85 弱候选 → **修正清单**（⛔ 不写 tsv，同步点由我统一应用） | 只写 `报告/` |
+| **Q4** | 服务器/账户/云后端普查 → **不复刻清单**（a/b/c 三档） | 只写 `判据/` |
+
+**主对话（我）**：等 Q2 修好计数器后，**一场一场**跑 12 场 Tap 建场（⛔ 不 `--all`、不 for 循环）；同步点统一跑 L2 五道闸 + 应用 Q3 清单 + 落交接。
+
+---
+
+## 🆕 第八十会话 · 第一批回执（2026-10-25）
+
+### ✅ 已收工（5 个）：E1 · E2 · E3 · E5（含追加轮）· G4（主对话自己做）
+
+| 代理 | 结果 | 关键数字 / 读数 |
+|---|---|---|
+| **E1** | **属性模型 Stage 2a/2b/2c + 合批 + K1 `addStats` 全部落地** | 编译器给出 **43 处写点**（运行时 20 + 编辑器 23）全部处理、**0 处回退成可写**；新建 `UnitState._statMods` 修饰表；`setHealth(9)`/`MaxHealth` 并格；`70/85` 读时覆盖；K1 修 3 处真差异（`health` 负值**只夹不减** · `doubleAttack(20)` 口径 · `TempBuff.Name` 没过 `NormalizeAttr` 导致限时 `+N Melee` **到期撤不掉**的老 bug）。`typecheck 0/0` · `ruleprobe check rc=0` · **`play check rc=1`＝预期内**（8 张卡的 `-N` 负攻值原来真成负数、**给目标回血**，现在 clamp0）⇒ **同步点重钉基线** |
+| **E2** | **C1-W1 LiveOps 框架核心**：新建 5 文件 2,184 行（`LiveOpsEvent/Handler/Manager/EventFactory/SharedData`） | 38 条 P1 → **A 20 / B 18 / C 0**；日常域 **A 265→285 · C 315→277**；两个「不能后补」的设计点按判据落地（`blockedEvents` 独立第二列表 · `sharedData` 独立 JSON 块）；**可达性如实：无玩家可见入口 + 画面零变化** |
+| **E3** | **存档 Step 3 做完 · Step 4 机制做完（真子系统 0 个切换）** | `SaveCenter` 731→1355 行（坏档**从 `.bak` 自动救回** · **批处理门**（落盘关着时不动玩家文件）· 保留键 `_v` 闸门）；新增 `SaveJsonDiff` 逐字段比对；**脚手架 PASS 168 / FAIL 0**（N6 的 95 条一条没退）· **六次变异测试证负例真会红** |
+| **E5** | **`TraitEffectController` W0–W8 接线完成**；追加轮补 5 组断言 | 断言 **8 组 → 13 组**（含 **W8 灭自证**「同帧连刷 3 次 ⇒ PunchCount 仍 1」）；`typecheck 0/0`；**W9/W10 接不了**（缺引擎事件，已点名 `RuleEngine/Core/BattleEvent.cs` + `MarkerlightController` 四步改动请求） |
+| **G4**（我） | **「文件名与内容不符」全量扫完** | **4,130 / 25,096 = 16.5%**（不是 6 例）。分档：**≤2 行 3,008＝体大概率对、名字不可引用** · **>2 行 1,122（非访问器 626 最高危）必须用 cpp2il 复核**。产出 `普查产出_第八十会话/G4_*`（TSV 4,130 行） |
+
+### 🔴 本批裁定（4 条）
+
+1. **`SaveKeys.LiveOps`（"LiveOps"）归 LiveOps 域（E2）** —— 它现在装全部事件存档；**存档 Step 4 的双写登记表 ⛔ 不登记这个 key**（否则静默互相覆盖）。E3 本轮 0 子系统切换，暂无实际冲突。
+2. **`LiveOpsManager.Initialize()` 会死等**（`waitingForHandlers` 初值 true、本地无服务器载荷）⇒ **启动链⛔ 别直接挂它**，必须先 `Unpack` / `MarkHandlersReady`。
+3. **判据两处订正（我改的）**：① `前置门 §6·2·A` 的 `DoDouble` —— 原写「按 base × 2」**错**，`.c:198-207` 是「改写成 `addStats`、`mechanicalAttackChange` = 施加那一刻的**投影值快照**」（E1 第一版照它写，探针把 `EC30` 从 20 变 19 当场暴露）② `存档体系` 里 `LegacySaveReader` 三个行号 `:115/:119/:120-121` → **`:315/:319/:321`**（E3 把调用收进 `Entries` 表后挪位）。
+4. **`.c` 引用纪律（新，已进 CLAUDE.md §三 + 交接坑表 + 方案 §2.4）**：引用任何 `.c` 之前先查 `G4_文件名与内容不符_全量.tsv`；**≤2 行可读行为但名字不可引用**；**>2 行必须 cpp2il 复核**。⛔ 别按文件名认函数。
+
+### ⏭ 仍在跑（10 路）：E1 第二段（`doNotStack` + `extrinsic 240`）· E4 · E6 · Q1 · Q2 · Q3 · Q4 · G2 · G1 · G3
+
+---
+
+## 🆕 第八十会话 · 第一批全部收口 + 用户三条裁定（2026-10-25）
+
+### ✅ 全场收工（13 个代理 + 主对话 1 项）
+
+E1（两段）· E2 · E3 · E4 · E5（两段）· E6 · Q1 · Q2（两段）· Q3 · Q4 · **G4（主对话自己做）**；
+G1 / G2 / G3（未覆盖面普查）仍在跑。**`typecheck` 现读 0/0**（所有写手停手后复跑确认）。
+
+### 🔴 用户三条裁定（**他本人选的**，已写进 `方案 §五` / `CLAUDE.md §四④` / 交接 §二·0）
+
+| 问题 | 用户裁定 |
+|---|---|
+| 纯服务端 **84 类 / 759 方法**（PlayFab · CloudScript · 登录 · 服务器匹配/榜 · 远端目录 · 遥测 · 反作弊） | **全判 `D`** |
+| `PlayerDataManager`（219 方法） | **73 行带后端 ⇒ `D`** · **144 行本地逻辑（读档/存档/清档/应用设置/卡牌收集）⇒ `A`** |
+| b 档 **117 类**（UI + 服务端数据：联盟/聊天/排行榜/活动/货架/收件箱） | **保持现状**（UI 照原版、数据本地模拟 + 出声） |
+| ⛔ 本批以外的 P3 候选 | **仍须报用户裁定**，调度台与代理都不得自行判 D |
+
+### 📋 第二批派活（5 路，全在跑）
+
+| 代理 | 任务 | 独占 |
+|---|---|---|
+| **R1** | **账务总收口**：先修 `--fix` 给错行（18/79）的工具 bug + 负例自检 → `--fix` → 手改 18+2+34 → 23 缺注解 → 85 弱候选 → Q4 的 57 行判错 → **落用户三条裁定** | `账/*.tsv` 全部 + `check_ledger_points*.py` |
+| **R3** | **卡组编辑 P0**：`CardDeck.CanAddCard` 缺「传奇总数」错误键（玩家当场可观察）+ 抽核 30 行复制粘贴的差异列 | `Deck/**` + `Shell/{DeckEditingWindow,CollectionWindow}.cs` |
+| **R4** | **存档 Step 4 真子系统切换**（E3 的 C1–C11） | `Shell/{Inventory,BattleLogData,DailyData,DeckStore,RankedData,ShellRuntime,SaveCenter,SaveKeys,LegacySaveReader}.cs` |
+| **R5** | **战斗界面接线**：#230 `CustomRaycaster` 点击过滤 + **W10 Markerlight** | `Shell/{PointerLayer,MenuTutorialFlow}.cs` + 新建 `RaycastFilter.cs` + `Core/MarkerlightController.cs` + `Battle/BattleDriver.cs` + `Core/TraitFrames.cs`(W10 段) |
+| **E1（第三段）** | **K2/K3 `addTrait(368)`**（Q1 判据已备齐，D1–D5）+ **240 重挂点**（解锁 `MeleeEqualsHealth`） | `Assets/RuleEngine/**` |
+
+### 🔴 本批新查出的真缺陷（都已分派或记账）
+
+1. **`UnitState.AddKeyword` 的 `_removedTraits.Clear()` 是行为错**（不是注释错）—— 现注释「原版不带 trait 过滤」来自 **Ghidra 少印第 3 个实参**；两份独立 IL 都是 `(removeTrait, newEffect.trait)`。**已派 E1（D1）**。
+2. **`doNotStack` 不是缺口**（E1 自我订正）：原版唯一按记录摘的场合 = 手牌效果，而那一层被强制 `doNotStack=true`；我们从不合并 ⇒ 等价。**`cards_truth.json` 里那 22 条是序列化残留**，⛔ 不能读成「池内 22 条会不叠」。
+3. **`SkillPanel.cs:139-140`「`AbilityBoxClick` 资源不在本地」很可能是错的**（Q3）：本地 `bundle_soundcollection` 有 618 个音频、工程已导入 647；该 cue 的 GUID 非空 ⇒ 原版有这个音效。**改成「cue 在、尚未做 GUID→clip 映射」**，P2。
+4. **`specialAttackScoringCriteria` 原版全 0 / 1351 张**（Q3 硬判据）⇒ 账里 3 条「卡表缺这一列」的备注**已过期**。
+5. **`Transform.Find` 把 `/` 当路径**（E4 踩到）—— 节点名带斜杠时按名找必须逐子件比 `name`。
+6. **「父件改尺寸、子件不跟着」是整套布局的通病**（E6）—— 子件全是绝对设计 px；同族于 `ForgeTab` padding 双加。
+
+### ⏭ 下一步（主对话）
+
+- **等本波 `.cs` 写手停手** → 跑 `battlearena1` 校准 → 一场一场建其余 12 场（Unity 批处理会整体编译，⛔ 不能在写手在飞时跑）。
+- 同步点：五道闸 + **重钉 `out_play_baseline.txt`**（E1 的负攻值 `clamp0` 是唯一行为变化）+ 落交接。
+
+---
+
+## 🆕 第八十会话 · 第二轮回执（2026-10-25）
+
+### ✅ 未覆盖面四类**全部查完**（G1/G2/G3 + 主对话的 G4）
+
+| # | 结论 | 产物 |
+|---|---|---|
+| ① 读过≠复刻过 | 未进账 64 类/364 方法，**真业务缺口 0**；口径修正：业务类 **1,378 / 8,956 方法**（原 1,488 含 110 个编译器生成类型） | `G2_未进账类普查.md` + TSV 3,214 行 |
+| ② 724 条无方法体 | **全部闭合**：有体 677 · 本来空 20（全局空桩 `RVA 0x4B33B0`=`ret 0`）· **真缺口 2**（机器码读出来了）· 归属错位 25 | `G1_无方法体724条_普查.md` + TSV 724 行 |
+| ③ 只能靠 VA 反汇编 | 真缺口 **262**（SEV1 91+SEV2 171），**242 条 `.c` 本来就有**，只剩 20 条；**VA 已实证跑通** | `G3_IL不可读方法_VA反汇编清单.md` + TSV 4,639 行 |
+| ④ 文件名与内容不符 | **4,130 / 25,096 = 16.5%**，其中 ≤2 行 3,008（体对名错）· >2 行 1,122（非访问器 626 最高危） | `G4_文件名与内容不符_全量扫描.md` + TSV 4,130 行 |
+
+**顺带纠了覆盖账两个算法 bug**（已在 `复刻覆盖账_首版_1025.md` §1.1 就地订正、保留痕迹）：
+`parse.py` 的「`{}` 单行空类型」串档（165/724 → **159/699**）· `count2.py` 的 `dec` 对泛型类恒为 0（至少 10 个类其实有 `.c`）· `types.json` 漏 29 类型。
+
+### ✅ R4 存档 Step 4 —— 5 个子系统真切换
+
+`InventoryStore` · `BattleLogData` · `DailyData` · `DeckStore`(预演未改文件) · `RankedData`；`ShellRuntime.Awake` 接上 `ImportAll()+RegisterMirrors()`（**`ImportAll` 全仓唯一调用点**）。
+**中央档 vs 切前 dump / 旧档 vs 切前 dump 全部逐字段相等**；玩家真存档**一个字节没动**（5 个文件 sha256 与 fixtures 逐条相等）· 脚手架 **PASS 236 / FAIL 0**（E3 的 168 条一条没退）· **4 次变异测试全部真变红**（M7–M10）。
+
+🔴 **R4 的两条硬规矩已写进 `方案 §九`**：
+1. **切换口必须回答退化分支** —— `SaveCenter.StoreOn` 与子系统**自己的** `StoreOn` 是两个独立的门；既有自检只注入子系统的 `OverrideDir` ⇒ 直接换 `SetRaw` 会**静默不落盘且全绿**。
+2. **切了读口必须同步切删除口** —— 读口「先中央后旧档」⇒ 只删旧档 = 什么都没删（「空态起手」变假空）。C3/C5/C7 切换时必须同改。
+
+**另外三条订正/风险（记账）**：
+
+- ⚠️ E3 报告里「`RegisterMirrors()` 内部也判 `StoreOn`」**不成立**（它只填内存登记表）；R4 已把门抬到 `ShellRuntime.Awake` 层，**没改契约**。
+- ⚠️ **`RankedData` 本来就没有落盘门** ⇒ 若只注入 `SaveCenter.OverrideRoot` 不注入 `RankedData.OverrideDir`，双写会写到**玩家真旧档**上。**没擅自加门**（会改批处理行为，需先定口径）。
+- 📌 **C5 `DeckStore` 未做**：真身是 `Assets/RuleEngine/Data/DeckStore.cs`（简报写的 `Shell/DeckStore.cs` **全仓不存在**）⇒ 归 RuleEngine 写手（E1/R2）后续接。
+
+### ⏭ 又派 2 路（判据侧，不碰 `.cs`）
+
+**G5** 半缺口 322 条按 VA 补（P0 先挑池内可达）· **R8** 收藏域 132 条未读逐条查（收藏在用户 P0 名单，却是全项目读过率最差 37%）。
+
+---
+
+## 🆕 第八十会话 · E1 第三段回执 + H1 裁定（2026-10-25）
+
+### ✅ K2/K3 `addTrait(368)` —— D1–D6 落地
+
+- **D1（真行为错，已修）**：`UnitState.AddKeyword` 的 `_removedTraits.Clear()` → **`Remove(keyword)`**。判据 = **两份独立 IL 一致**（cpp2il `CardScript.cs:17651` / il2csharp `:10855` 都是 `RemoveActiveEffects(removeTrait, newEffect.trait)`），Ghidra `AddEffect.c:474` 只印 2 个实参 = **少印**。影响面 = `ConditionEval` 的 siege 280；**池内零可观察量**。
+- **D2**：`IsCountStackableTrait` —— `count(20)` 只认 `markOfChaos(330)`，每次施加 **+1**（不看给的值）。
+- **D3/D4**：毒×抗性**双向**拦 + `survivor ⇒ 静默摘 survivorSpent`。`markerlight`/`huntMark` **不会双响**（`EmitStatusApplied` = 原版 `DisplayStatusAnim` 那一拍 · `BroadcastKeywordEvent` = 原版 `BroadcastXxxResolved`，原版本就是紧邻两句）。
+- **D5**：`lose <trait>` 改**整条摘掉** + `stealth ⇒ BroadcastKeywordEvent(LosesStealth)`；池内 14 条全是布尔 ⇒ 零行为变化。
+- **D6**：`CheckPossibleCombinations` **不实现**（本地无 `TraitCombinationsList` SO 实例，只有 `MonoScript_3059.json`）⇒ 铁律 11 例外①。
+- **池内可达性（现读）**：`poisoned/resistant/survivor/tide/companion/pindown/dropPod` **各 0 条** ⇒ 这几条特例今天零可观察量（仍按铁律 11 实现）。可达的：`flank 62 / fast 32 / markerlight 18 / huntMark 14 / blind 12 / markOfChaos 7`。
+
+### ✅ `240` 重挂 + `MeleeEqualsHealth`（SAU27）
+
+8 处重挂点对账：第 1 条（`FinishResolvingAction` → 我们 `ActionPump.ActionScope.Dispose`）补上，其余 6 + `ResetToValuesInHand` 已有等价物，**第 7 条 `ResolveExchangeMinion` 未单独核**（如实标注）。
+🔴 **第一版把 `Auras.Recompose` 挂到每个动作边界 ⇒ 实测把 `BL18`/`UM18` 的 `net` 改了（+4）** ⇒ 收窄成只跑 `Auras.RefreshMeleeEqualsHealth`（只遍历 `MeleeEqualsHealth` 的单位，池内 1 张），差异随即消失。
+`SAU27` 现在 = 每趟重建一条 `IsSet` 近战修饰（值 = 当时 `Health`），**同时删掉** `RuleCore.FieldAttack` 里那条「换基础值、加值照常叠」的老特判（**那是我们挑的，不是原版**）。
+实测 6 条读数全对：重挂后 5（卡面 2）· 叠 `+4 melee` **仍 5** · 同动作内掉血 **仍 5**（快照）· 下一个动作边界 **变 3**。
+
+### 🔴 H1 裁定：走 **(b) 区分「重算」与「真移除」两路**
+
+**问题**：`Auras.Recompose` 是「先全清、再加回」；而 Stage 2 把「摘 `+N health`」从「减」改成「夹到新上限」⇒ 每次棋盘变动对带 `+N health` 光环的单位**净结果不为零（会回血）**。池内今天 0 入口，但是 Stage 2 引入的**语义洞**。
+**裁定理由**：原版里这是两件事 —— `trigger 20`（光环）重复施加是**幂等空操作**，`trigger 240` 才是「摘 + 加」；「夹到新上限」那条判据是给**真移除**用的，不该被重算复用。
+**要求**：重算路径**零副作用**（不改 Health / 不重登记费用 / 不重授誓约）；真移除保持 Stage 2 口径不动；配**两条相反的断言**（重算前后 Health 逐位相等 + 真移除仍掉到新上限）挡「两边改成同一个」。已派 E1 第四段。
+
+### 📌 两条跨会话硬知识（已写进 `CLAUDE.md §三`）
+
+1. **`Auras.Recompose` 不能当重挂点** —— 幂等 ≠ 无副作用（会重放夹血 / 费用重登记 / 誓约授予）。
+2. **原版随机数是「开局预烧 100 个整数 + 按下标取」**（`MatchData.cs:213-228` / `:541-573`）⇒ 同一局内确定、但**不是种子可复现**；将来实现 `RandomizedOnResolution(90)` 必须用 `ctx.Rng` 预烧 100 元素数组，⛔ 别在结算里直接 `ctx.Rng.Next`。
+
+---
+
+## 🆕 第八十会话 · R3 / R5 / R6 回执（2026-10-25）
+
+### ✅ R3 卡组编辑 P0
+
+**`CardDeck.CanAddCard` 补上「传奇总数」那一档**（`Deck/DeckEditorState.cs:458` + 新方法 `LegendaryTotalReached:1043` / `LegendaryCountInDeck:984` / `AddErrorText:1067` / `LegendaryTotalErrorText:1080`），`TryAdd` 与 `DeckRuntime.cs:4067` 的提示都切到**原版键** `MenuDeck/Error/MaxLegendayCopiesReached`（原版拼写就少一个 r）。
+**值有官方文案做判据**：经典 = `No Legendary card limit`（上限 `int.MaxValue`）· 遭遇 = `Up to 4 Legendaries`。
+**顺手补第二条真差异**：原版 `CanAddHero`/`CanAddDefensive` **只在「槽里就是这张」和「异阵营」时挡**，同阵营 = **允许换**；我们原来「槽里有人就一律挡」⇒ 玩家点同阵营另一位战将没反应。已按原版改成可换。
+**账**：差异列改写 27 行 + 改正 14 条陈旧落点 + 新增 1 行；**A 行 174/174 逐行回读通过**（改前 144/174）。
+
+🔴 **R3 挖到的坑（已在 `CLAUDE.md §三` 固化）**：`RuleEngine/Core/DeckRules.cs` 有 **7 个裸 CR（`\r\r\n`）** ⇒ `check_ledger_points.py` 文本模式读会把该文件行号**整体偏 +7** ⇒ `--fix` 会把 **15 行账改成错行、而且闸变绿**。**主对话已二进制修好**（709 行 CRLF 不变、裸 CR 0），全仓 `Assets/**/*.cs` 现读 **0 个文件还有裸 CR**。已紧急通知 R1 重查。
+
+### ✅ R5 战斗界面（#230 + W10）
+
+**#230 三个落点全落地**：新建 `Shell/RaycastFilter.cs`（146 行）+ `PointerLayer.cs:1580` 剪枝（**必须在 `take` 判据之前** —— 放后面就是「点得中却什么都不响」）+ `MenuTutorialFlow` 的 `RefreshPointer`/`FiltersRaycast:995`。
+🔴 **R5 就地收窄了 E6 的判据**：原写「那三个 stage 一律过滤」，逐调用点读下来过滤是「**某一档目标**的属性」（只 5 个 `(stage, kind)` 组合）；理由：**漏过滤只回到改前行为，过度过滤会软卡死** —— 拿不准选漏。
+**W10 四步全做完**（字段改 `MaterialFader` · `AimingAttack` 真实现 · 两个 fader 挂 `Normal/Expiring State/Fixed` · `ApplyPrefabFlags(false,false,true)`），并**亲手重解了 E5 那张 fader 表**（bundle + 我们导入的 prefab 逐节点相同）⇒ E5 的表逐条对。
+🔴 **R5 推翻 E5 的一条**：`EvtKind.Attack` **不是**「结算那一拍」—— 我们自己的注释 `BattleDriver.cs:20460-20461` 写着它是「伤害之前发」= **抬手那一拍**；原版两拍已用 cpp2il 逐句坐实（起手 `CardScript.cs:3649` `hideStatus:true` / 收手 `:3637` `hideStatus:false`）。
+
+### ✅ R6 AI 打分判据（847 行判据 + 10 条改动清单）
+
+覆盖 10 组函数：`ScoreFromCriteria`（**20 个分支逐指令读出公式**，36 项跳转表 = `RVA 0x93B148`）· `GetActionScore` · `ExecuteAction` · `MeetsConditionCriteria`（35 档）· `MeetsStatCriteria`（11 档）· `Evaluation.Check` · `GetValueFromCriteria`（26 档）· `CanPlayAbility` · `GetTargets`（34 档）。
+🔴 **反推翻 G3**：`AI__ScoreFromCriteria.c` **不是「完整的 367 行」** —— 签名被反成 `void`、**每一处浮点累加都被 Ghidra 丢了**，尾部只剩 `return;`。⇒ **`.c` 只给控制流骨架，算式必须读 RVA**。已在 G3 报告顶部加更正块。
+🔴 **纠正调度台给的简报**：`Evaluation.Check` **不是胜负/威胁评估** —— 全量反编译里唯一调用点是 `LiveOps.AttributeCondition.Validate`，**战斗侧 0 调用**，我方不需要实现。
+**10 条改动**已派 **R11**（只碰 `Assets/RuleEngine/Data/{SimpleAI,AiScoring,AiTargets}.cs`，与 E1 的 `Core/**` 互不相交）。最要紧三条：`sacrifice(470)` 整支 · `blast/markerlight/poisonous` 三条加分 · 小兵伤害比值应取**扣甲前**伤害。
+
+### ✅ R7 `LiveOpsHandler` 11 方法 —— **11/11 全部完整拿到**
+
+判据 `判据/LiveOpsHandler_11方法_第2轮.md`（654 行）· 只读手段（`script.json` 反查 + VA 反汇编 + 从 41 个状态机反推），**没往 `D:/2/` 写一个字节**。
+
+**E2 那 4 条「未坐实」全部定案**：
+1. `hours*3600000` = `Data.filter.eventDuration`（**单位＝小时**）× 3,600,000 ms ＋ `SaveGame.triggerTime`；**唯一早退 = `filter.hasDuration == false`**。
+2. `CreateNewSave` = `Activator.CreateInstance<TSave>()` ＋ **只抄 `save.eventId = data.GetID()`**；**`triggerTime` 不来自 `startDate`**（新档 = 0）⇒ E2 现有写法**已等价**，只需改注释。
+3. `SetupEvents` 排序键 = **`GetBaseData().Priority` 降序**（两条独立判据：`OrderByDescending<object,int>` + key selector 读 `+0x40`）。
+4. `DeserializeSharedData` 那一跳 = **`TryScheduleHandlerRefresh(shared["NextRefresh"])`**，**不是** `ScheduleHandlerRefresh(DateTime)`；且读**字段 `this.shared`**（形参根本没用）。
+
+**12 条改动已派 R12**，其中 **6 条真偏差**，最危险的一条：
+🔴 **`ResetEvents` 语义与名字直觉相反** —— 原版 = **只 `foreach(e) e.ResetEventProgress()`**（不清空、不 Dispose），E2 整条做反了；判据 `0x181018B90`（只读 `[this+0x20]`、`slot 7`、**无任何 `List.Clear`**）。
+
+**R7 的两把通用钥匙（已写进 `资料/全量反编译_入口与用法.md`）**：
+1. **接口分派的 `idx` = `dump.cs` 的 `Slot:` 列**（本轮印证 9 个：1=Initialize · 3=Dispose · 7=ResetEventProgress · 10=TryScheduleHandlerRefresh · 13=ToggleEventActivation · 15=GetBaseData · 16=GetBaseSave · 18=GetEndDate · 21=get_Priority · 27=GetEvents）
+2. **`klass` vtable 基址 `0x138` / 槽宽 `0x10`** ⇒ `[klass+0xNNN]` → 虚方法号 → `Slot:`（本轮印证 `0x2E8/0x2F0` = vtable[27] 的 `{methodPtr, methodInfo}`）
+
+**又纠正了 G3 一条**：`LiveOpsHandler<T>.GetBaseEvents` **不是缺口** —— 那 5 条指令就是 `return GetEvents(b);` 的尾跳 ⇒ **真缺口 20 → 19**（G3 报告已加更正块）。
+
+**顺手发现（3 条要紧）**：
+- 🔴 **`MenuActions.ReleaseAction` 是全局静态** ⇒「排期表清空」≠「菜单队列撤销」，`ClearEvents` 两个口都要做。**我们有没有等价物待 R12 核**；没有就先只做 `blockedEvents` 的 `Dispose`。
+- 🔴 **`DeserializeSharedData` 的形参根本没用** —— 原版「形参残留」，照抄必须写成读字段。
+- 🟢 **「下次刷新/到期时刻」全工程只有一条算式**：`filter.eventDuration*3600000 + triggerTime`（`EventFilter.GetExpirationTime` 与 `LiveOpsEvent.Initialize` 逐字重复）⇒ **可当验收尺子**。
+- 🟡 **泛型类 `LiveOpsEvent<TSave,TData>` 的普通方法在 `decomp_full` 也没有产物** —— 与 G3 报的「`LiveOpsHandler` 11 条缺失」**同族**：缺的是「**泛型类的普通方法**」这一类。**建议补导 `0x1016000`–`0x101A600` 整段**。
+
+### ✅ G5 半缺口 —— **318 条**（不是 322），其中 **42 条补出、0 条在对战/卡牌链上**
+
+**口径更正**：G1 的 `check_notes.py` 在候选体里「取真语句最多」，把**同名同元数的另一个重载**当成了本体 ⇒ 5 条误入（`Inventory.TryGetItem/Get` · `UiContainer.Initialize` · `AssetReferenceTyped.ValidateAsset` · `ComponentReference.ValidateAsset`），这 5 条真身**一处 MNF 都没有**。**318 条**。
+
+| 桶 | 数 |
+|---|---:|
+| **已补出逻辑** | **42**（33 条完整伪码 · 6 条结构+大部分语句 · 1 条原版即空 · 2 条编译器生成） |
+| **明确不可达（对战/卡牌链）** | **0** ⇒ 这 318 条**一条都不在对战/卡牌效果链上** |
+| **本轮不补（有确定补法）** | **276** |
+
+按域：收藏/卡组编辑 UI（P0 可达）**75** · LiveOps/活动/任务/轮抽 **107** · Addressables 包装 **27** · 编译器生成匿名类型 **109**。
+
+🔴 **G5 的最有价值判断（能省一整轮白工）**：「顺着 MNF 的 VA 反汇编补齐」**这条路对 276 条不成立** —— 那些体已被 `Unmanaged memory load` 打成 `if ((nint)0 != 0)`，**洞后面没有可读的业务逻辑**。只有 42 条补得出来。
+
+🔴 **另一个口径修正**：`script.json` 有 **13,991 个地址被多个方法共用**（354,653 条记录只落在 216,881 个地址上；最极端 `0x1804B33B0` 一个地址服 **6,376 个空方法**）⇒ G3 的「206/305 反查成功」里**有一部分反查到的只是同址的任意一个名字**。实证：`LiveOpsHandler.RefreshHandler` 被反查成 `TMP_Text.GetCompoundBounds`（显然错），按同址方法族读真身 = `AsyncTaskMethodBuilder.Create()`。**⇒ 单个反查必须用「同址方法族」交叉**。两处旧账（G1 §3.2 的 322、G3 §3·D 的 206/305）**已就地订正**。
+
+### 🔴 调度台裁定：109 条「编译器生成匿名类型」⇒ 判 `D`（铁律 11 例外①）
+
+理由：`<>f__AnonymousType*` 是**编译器生成的，原版没有作者逻辑**（我们也没有对应类型）；只留 2 条 `ToString` 作格式参考（`{ EntryCountToFetch = {0} }`）。⛔ 这不是 P3（服务器/账户）那种要报用户的事 —— 例外① 是**事实判定**，不是「做不做」的选择。
+
+### ⏭ 待用户拍板（**不在本轮阻塞**）
+
+**G5 批次 0：重导一次 Ghidra 的泛型共享体** —— `decomp_full/ItemDrawer__Release.c`（32 行）证明 Ghidra **能**出可读结果（裸字段偏移 + `il2cpp_runtime_class_init`），真因是「**没导出**」而不是「不能」。
+若成，276 条的单价从「**半天/类**」降到「**5 分钟/条**」。⚠️ 但要**动 `D:/2` 档案库**（CLAUDE.md 要求先确认）⇒ **等用户一句话**。
+
+---
+
+## 🆕 第八十会话 · Ghidra 泛型试导成功（2026-10-25）
+
+### ✅ 用户批准「先试导一个类」→ **G6 试导成功，根因查明**
+
+**结果**：`ItemDrawer<object>` **28/28 出产物 · 78.6% 完全可读 · 0 条空壳 · 7.7 秒**（含 JVM + 打开 2.6 G 工程）。
+`decomp_full/` **零改动**（mtime 仍是 9-18）；`ghidra_proj/` 仍是 2.6 G，全程 **`-readOnly`**（G6 新验：日志 `Processing read-only project file`）。
+
+### 🔴 根因：**不是 Ghidra 出不来，是名单把它整类筛掉了**
+- `dump.cs` 对**泛型类**的方法体写 **`// RVA: -1`**，真地址只在 **`GenericInstMethod` 子块**。
+- ⇒ **按「`// RVA:` 非负」筛名单会静默丢掉【全部泛型类方法】**。
+- 铁证：全量那次的 `wanted_full.txt`（26,282 行）里 `grep -c "ItemDrawer<"` = **0**；**而已有产物里早就在按名字调用** `ItemDrawer<object>__get_image(...)` ⇒ **Ghidra 早就把共享体当函数并起了名，只是从没被请求过**。
+- ⇒ **与 2026-09-18「漏掉 29% 嵌套类型」是同一类名单口径 bug**。已写进 `CLAUDE.md §三` + `全量反编译_入口与用法.md`。
+
+### 📐 口径修正：**G5 的「276 条」→ G6 实测「615 条」**
+G6 按「泛型声明类型 + 类型定义在桩目录里」量到 **615 条 / 67 个声明类型 / 39 个类型定义**（`<object>` 代表体 290 条）。差的是口径不是发现。
+大户：`LiveOpsHandler<object>` 36 · `ItemDrawer<object>` 28 · `LoadableReference<object>` 25 · `FastModeBaseEvent/MissionEvent<object,object>` 各 25 · `CollectionDisplay<object>` 25 · `CollectionItem<object>` 24 · `Inventory<object>` 22。
+⚠️ **615 条落在 514 个地址，187 条（30%）与他人共用地址** ⇒ 那部分签名名字会是「别人」（ICF 折叠），**体是对的、不是失败**；但**同址多方法会撞文件名**。
+
+### 🔴 G6 还纠正了 G5 一条证据归属
+`decomp_full/ItemDrawer__Release.c` **不是泛型产物** —— 它是**非泛型** `ItemDrawer` 的 `static Release(ItemDrawer)`。它证明的是「非泛型早有产物」，**不能当「泛型能出」的证据**（G5 引用错了；结论仍成立，但证据要换成上面那条 `CurrencyDrawer__Draw.c` 调 `ItemDrawer<object>__get_image`）。
+
+### ⏭ 已派 G7 做全量导出（615 条）
+仍**只写新目录** `D:/2/tools/decomp_generic_trial/out/`、**全程 `-readOnly`**、⛔ 不覆盖 `decomp_full/`、⛔ 不删 `ghidra_proj/`。验收 = `fail=0` + 逐大户抽样可读率 + 一节「怎么确认这份产物可信」。
+
+---
+
+## 🆕 第八十一会话 · 开工现读复核（2026-10-26）
+
+### ✅ 五道闸现读全绿（不照抄交接，重跑过）
+
+| 闸 | 现读 |
+|---|---|
+| `ledger_progress` | **8,772 行**：A 2,541 · B 2,415 · C 913 · D 2,903 ⇒ 定案 **62.1%** |
+| `check_ledger_points --all-A` | **A 2,610 · 通过 2,610 · 漂移 0 · 失败 0**（告警 30） |
+| `verify_annot` | 同名 612 · 异名已注解 1,998 · **缺注解 0** |
+| `check_a_vs_diff` | 合 6 条（**强 0 · 弱 6**）· `[非缺口]` 跳过 228 |
+| `check_loc_dupes` | 词条 754 / 唯一 754 / **重复 0** |
+| git | 工作树**干净** · HEAD `978a6309` · **ahead 6**（推送仍失败，铁律 9 不重试） |
+
+### 🔴 就地订正 4 处过期记录（铁律 5）
+
+1. **交接 §1·b「功能点验收索引 = 尚未生成」不成立** —— 实际 `完全复刻/功能点索引.md` **1,152 行初稿**已于 2026-10-25 17:36 由账推导生成（mtime + `git log` 双证）。批次 5 要做的是**全量复核**，不是从零建。已改交接 §1·b 与 §2.7。
+2. **交接 §5 第 5 项「`SoundCueAssertT.Run()` 全仓无宿主」已过期** —— §8 自己就写了 RU 已修（`工具/_run_8_checks.sh:53` 现读确有 `run CardFaceAssertE5.Run`，全脚本 14 条）。
+3. **`待A接线清单.md` 7 条待接项全部已落地**（逐条 `grep` 核实，证据已写进该文件文末「核实」节）⇒ 该文件改性质为「已收口记录」，⛔ 不再当待办。
+4. **方案 §五 批次 4·b「A 1,846 / 通过 893 / 失败 953」是 R1 修账【之前】的快照** —— 现读 2,610/2,610/0/0 ⇒ **批次 4·b 已收口**，批次 9（复审计）解锁。
+
+### 📌 下一批的口径（调度台定）
+
+- **不再把「交接里的数字」当现状** —— 每批开工先跑 `ledger_progress` + 四道闸，10 秒内出真数字。
+- 主战场 = **战斗逻辑驱动 B 1,178 条**（P0 最大存量）+ **P0 五域的 C 200 条**（战斗逻辑驱动 65 · 战斗界面_HUD 46 · 收藏 49 · 卡牌面 17 · 卡组编辑 23）。
+- 跨线零头（判据已定、可直接派）：卡牌线 **2 处一行接线**（`BattleDriver.ToCardData` 填 `spellType` · `Hand/*` 调 `SetCollidersShowBig`）· 战场线 **Tap 两件**（`FindBuiltByGo` 漏匹配 · 5 条锚点是否静态）· **glitch 族**（素材本地有，R16 已订正）。
+
+---
+
+## 🆕 第八十一会话 · 批次 3 派活（2026-10-25 深夜 → 10-26）
+
+> 用户口径（本轮开工时确认）：「**按你的建议执行，不要怕麻烦**」·「**先持续完成，必要时再向我汇报或者让我决策**」。
+> ⇒ 主战场 = **战斗逻辑驱动 B→A** + **P0 五域 C** + 跨线零头；**不做「按性价比分档」**（铁律 11）。
+
+### 📋 十路分工（文件级独占，互不相交）
+
+| 代号 | 独占文件 | 活 | 量 |
+|---|---|---|---|
+| **E1** | `RuleEngine/Core/{RuleCore,ActionPump,BattleContext}.cs` | `BattleManager` 结算族 | C 20（BattleManager 6 + BattleManagerSupport 9 + RawCardScript 5）· B ≥60（BattleManager 545 里挑 P0 主链） |
+| **E2** | `RuleEngine/Core/{EffectResolver,WhenEvent}.cs` | `CardScript` 触发族 | C 25（CardScript 21 + EntityScript 4）· B ≥60（CardScript 282） |
+| **E3** | `RuleEngine/Core/` 除 E1/E2 六文件外的全部 + `Data/{CardDatabase,DeckLibrary,DeckBuilder,StarterCards,RelatedCardMap,TalentCardMap,OffensiveCardMap}.cs` | RawCardScript / PlayerHand / MinionManager / AbilityLogic / SupportMethods / CardTraitCollection 族 | C 1 + B ≥60 |
+| **E4** | `RuleEngine/Data/{SimpleAI,AiScoring,AiTargets,AiScoringData}.cs` | AI 族 + 落地 R6 剩余 + 核 R11 | C 19（AIBotsConfig 9 + MatchData 9 + AI 1）· B ≈73 |
+| **E5** | `Battle/BattleDriver.cs`（**单写手**） | ① 卡牌线 2 处一行接线（**先做**）② HUD C 里落在本文件的部分 ③ 本文件里的 B 行 | 46 条 C 的归属分派 + 2 处接线 |
+| **E6** | `Battle/**`（除 BattleDriver）· `Hand/**` · `Board/**` | 战斗界面/HUD 主体 + `SetSavedMana` 悬案 | C 46 + B 31 |
+| **E7** | `CardPresentation/Core/**` · `Effects/**` · `WarpforgeVFX/**` | 卡牌面 C + **glitch 族** + Tap 三行弱候选 | C 17 + glitch |
+| **Q1** | `Shell/{CollectionData,CollectionTabPage,CollectionWindow,DeckInfoPopup,DeckSelectionPopup,ImportDeckPopup,ItemDisplayWindow,ItemDrawer,Inventory,WildcardTutorial,PrebuiltDecks,DeckEditingWindow,CardDetailPopup}.cs` · `Deck/**` | 收藏 C + 卡组编辑 C（**查判据 + 顺手修完**） | C 49 + 23 = 72 |
+| **Q2** | `WarpforgeArena1/Editor/ArenaBuilder.cs` · `工具/gen_arena_*.py` · `工具/scripts快照/gen_unity_arena_manifest.py` | 战场 Tap 两件（只改代码，⛔ 不建场） | 2 件 |
+| **Q3** | `Shell/LiveOps*.cs`（7 个）· 判据文件 | `ScheduleEventPopups` VA 反汇编 + C1-W2/C1-W3 + `MenuActions` 方案 + 核 R12 | 4 件 |
+
+### 🔴 本批新增的两条口径（写给下一会话）
+
+1. **`账/战斗逻辑驱动.tsv` 有 3 个写手（E1/E2/E3）⇒ 全部改走补丁文件** `账/_parts/B3_<代号>.tsv`（同 11 列），
+   **调度台在同步点按 `(原版类, 方法)` 合并**。⛔ 别再让多个代理直接写同一份主 TSV。
+   （同族：E5/E6 各写 HUD 的部分、Q1 写两个域 ⇒ 也都走补丁。）
+2. **6 条 `A×差异` 弱候选已全部分派**：特效动画 3 → E7 · 卡组编辑 1 → Q1 · AI 1 → E4 · 未分类_其他 1（`InitializableBehaviour.Initialize`）→ E1。
+
+### ⏭ 同步点（全部回来之后由调度台做）
+① 合并 `账/_parts/B3_*.tsv` → 主 TSV（按 `(原版类,方法)` 覆盖）→ 重跑 `ledger_progress` + 四道闸
+② 逐份转述报告（重点：**谁「归属待定」、谁「转别人」、谁「等用户裁定」**）
+③ `CardTierConfig` 6 条 + 其他 P3 候选 → 整理成**决策表报用户**
+④ 引擎行为有变 ⇒ `ruleprobe check` / `play check`（**基线现算现钉**）· 真机与全量自检仍暂停
+
+---
+
+## 🆕 批次 3 · Q3 回执（活动线 LiveOps）—— 2026-10-26
+
+**typecheck 0/0** · 只改白名单两文件：`Shell/LiveOpsHandler.cs`（925→1,407 行）· `Shell/LiveOpsEvent.cs`（584→745 行）· 纯 LF 无裸 CR。
+判据落 `判据/LiveOps_C1W2_C1W3_第3轮.md` + `判据/LiveOps_MenuActions_第3轮.md` · 报告 `报告/Q3_第3轮.md` · 补丁 `账/_parts/B3_Q3.tsv`（16 行）。
+
+### ✅ 四件结论
+1. **`ScheduleEventPopups` 真身「早就拿到了」** —— 在 `d:/2/tools/decomp_generic_trial/out/LiveOpsHandler_object___ScheduleEventPopups__1018d60.c`，**VA `0x181018D60`**。
+   🔴 **「还差一次 VA 反汇编」这个前提是错的** ⇒ 命中「泛型类方法体从未被导出」那条老坑。真身逻辑：逐事件取 `GetBaseData().drawData`；`ShowWindowOnTrigger && !WasSeen && !handlerActions.ContainsKey(id)` ⇒ `QueueEventPopup` 并 `continue`；否则若 **`EventState == Finished(3)`**（`ILiveOps` slot 23；**不是 `Expired=4`**）⇒ `QueueEventPopup(ExpirePopupOptions, …)`。另三个下游 `QueueEventPopup` / `ShowTriggerEventPopup` / `ExpireEvent` 也全部拿到并落地。
+2. **C1-W2 已落地**（四方法 + `PopupOptions`/`EventElements` + `LiveOpsEventData.drawData` + `ILiveOps` 三个新成员 slot 2/12/13）。
+   唯一未接 = **弹窗 prefab 解析**（`LiveOpsAssetUtility.GetComponentReference`，本地只解到 GUID 没到 prefab 名）⇒ 做成注入缝 `LiveOpsPopupPresenter.Open`：空时**出声不出窗**、排期链照走。
+   **C1-W3「接 5 扇活动窗」= 数据受阻（不是不做）**：本地 13 份 SO 全是 Parent/Scoring/PremiumItemOffer，**没有**排位/遭遇/Raid/ExpansionPass/Energy 类实例。5 扇窗本身已建已可开。已写 3 条改动请求。
+3. **`MenuActions` 已查清 + 已落地**：整类反编译读完（49 个 `.c` + `dump.cs` TypeDefIndex 1560/1565/1566）。`ReleaseAction` = **全局静态** `actions.Remove(handle)`；`MenuActions` 本身**没有**批量 Clear —— 「两个口」是 `LiveOpsHandler.ClearEvents` 的「清排期表 vs 撤全局菜单队列」。已落地 `ActionRule`/`MenuAction`/`MenuActions`（句柄 + 释放 + 组去重 + 优先级降序 + filter + 每帧 `TryDrain`）。如实简化：协程→同步 drain。
+4. **R12 12 条逐条核过**（按代码现读，未信报告自陈）：**11 条已落 · 1 条本轮补上 · 1 条本轮落地 · 0 遗漏**。
+
+### 🔴 三条要进正本的订正（**调度台已收**）
+- **R7 的 `ILiveOps` 槽表不全**：实际到 **slot 26**（23=`get_EventState` · 24=`get_Handler` · 25=`get_ShowInMainMenu` · 26=`GetMainMenuData`）。过期支判据 `==3` 正藏在 slot 23。
+- **方法论**：「泛型类普通方法缺失」**要先查 `decomp_generic_trial/out/`** 再下结论。
+- 🟢 R7 §四·2 悬案结案：`ExpireEvent` 里的匿名信号类型 = **`EventExpiredSignal`**（cpp2il 现读）。
+
+### ✅ 账本漂移已由调度台当场收口
+Q3 在 `LiveOpsHandler.cs` **中部**插了 ~160 行 ⇒ 下游落点全漂（它自己报了 12 条）。调度台处理：
+- `check_ledger_points 日常_奖励.tsv --fix` ⇒ 自动修 **9 条**（按符号名重定位）；**3 条多义**（`GetBaseSave`/`UpdateSaveGame`/`ResetEventProgress` 各有 2 处声明）**人工指认**：这三行是 **`LiveOpsEvent<TSave,TData>` 的 override**（判据出处 `LiveOpsEvent.cs:652/944/980`）⇒ 落点改 **482 / 631 / 645**，⛔ 不是基类抽象声明（338/343/344）。
+- 现读：`日常_奖励.tsv` **A 285 · 通过 285 · 漂移 0 · 失败 0**。
+- ⚠️ **全 A 复跑现读 漂移 48** —— 那是 E5/E6/Q1 正在写 `.cs` 的**在飞漂移**，⛔ **不许现在 `--fix`**（会改到半成品），同步点统一收。
+- 📌 **教训（给下一批简报）**：新成员要**追加到类尾**；Q3 插在中部虽功能正确，但换来 12 条账漂移 + 3 条人工指认。
+
+### 🆕 合并器 `工具/merge_ledger_parts.py`（本会话新写，同步点用）
+> 起因：批次 3 有三份主表被**多个代理同时写**（`战斗逻辑驱动.tsv` 被 E1/E2/E3；`战斗界面_HUD.tsv` 被 E5/E6；Q1 写两份）。
+> 主表是「一个文件一个写手」⇒ 改走**补丁** `账/_parts/B3_<代号>.tsv`，本工具负责合并。
+
+用法：`python -I -X utf8 工具/merge_ledger_parts.py --dry`（先 dry，再不带 `--dry` 写盘）。
+
+**定位规则（重要，别再自己按域猜）**：补丁行的真身靠 **`(原版类, 方法)` 在【全部】主表里找**，⛔ 不靠补丁自己写的 `域`。
+- 恰好 1 处命中 ⇒ 就地更新，并把 `域` 归一成**那份主表自己的域值**
+- 命中 >1 处 ⇒ **报错跳过**（人指定）
+- 0 处命中 ⇒ 新行，此时才用 `域` 找落点
+理由：账里有一份**跨域文件** `泛型与启动链_补读.tsv`（装着 10 个域的泛型补读行，域值仍是 `日常/奖励` 之类），硬按「域→文件名」映射会把它错并进 `日常_奖励.tsv`。
+
+**三道闸（都会拒绝写盘）**：① 列数必须 11 ② `方法` 必须**单方法签名**（拒全角括号注记 / 拒绝无 `(...)` / 拒一格多方法）③ 裸 CR 检出即停。
+**行尾**：每份主表照抄自己的（二进制读、二进制写）。
+
+**已抓到的两类真实不合规（批次 3）**：
+- `B3_Q3.tsv` 13 条：域写成 `活动/LiveOps`（账里没这个域）· `（数据类）` / `C1-W3 接 5 扇活动窗` 不是方法 · `Routine()/TryTriggerAction()/CanTrigger()` 一格三方法 ⇒ **已退回 Q3 重交**。
+- `B3_E5.tsv` 第 2 行：`方法` 列带了 `（注记）`、域写成 `卡牌面渲染`（应为 `卡牌面/渲染`）⇒ **已通知 E5**。
+⇒ **下一批的简报里直接把这段抄进去**（三条格式要求 + 收工前自跑 `--dry` 到 0 error）。
+
+### 🔴 补丁格式的**第四个坑**：`方法` 列写**占位签名**（2026-10-26 实抓 53 行）
+E1 的补丁里有 **53 行**把 `方法` 写成 `Foo(...)` / `Foo(参数1, 参数2`（**缩写**），而主表存的是**完整签名** ⇒
+合并器按 `(原版类, 方法)` 精确匹配时**全部落空** ⇒ 会**追加 53 条新行**，结果是**同一个原版方法在账里占两行**（重复键）。
+⚠️ 我的 `looks_like_one_method()` **拦不住这种** —— `Foo(...)` 只有一个 `(` 一个 `)`，格式上是「合规」的。
+
+✅ **新工具**：`工具/fix_ledger_patch_keys.py`（幂等）
+```bash
+python -I -X utf8 d:/4/Unity/工具/fix_ledger_patch_keys.py --dry   # 只看
+python -I -X utf8 d:/4/Unity/工具/fix_ledger_patch_keys.py         # 写回补丁（⛔ 不碰主表）
+```
+规则：按**方法名**在全部主表里找 → **恰好 1 处**才把 `方法` 换成主表的完整签名；**0 处**（可能是真·新行）与 **>1 处**（重载歧义）**一律不动**、只报。
+本批结果：**修正 53 · 主表无同名 0 · 歧义 0** ⇒ 合并 dry 从「更新 626 / **新增 53**」变成「更新 679 / **新增 0**」。
+
+📌 **下一批简报要加的一条**：`方法` 列**必须从主表逐字复制**（先 `grep` 那一行），⛔ 不许自己缩写、⛔ 不许写 `(...)`。收工前跑 `merge_ledger_parts.py --dry`，**「新增」那一栏应当接近 0** —— 不是 0 就要逐条说明为什么是真·新行。
+
+---
+
+## 🆕 批次 3 · Q2 回执（战场 Tap）—— 2026-10-26
+
+**typecheck 0/0** · 只改 `WarpforgeArena1/Editor/ArenaBuilder.cs`（CRLF 5,910 行、0 裸 LF/CR）· 账本 0 引用（不会漂）· 报告 `报告/Q2_第3轮.md`。
+
+### ① 漏匹配根因 = **坐标口径**，不是名字、不是路径
+5 颗锚点**名字一字不差、路径一模一样**。真因：清单 `pos` 走 `gen_unity_arena_manifest.py:658-672` 的 `world_chain()`，它沿父链**只累乘旋转与平移、不乘父级缩放**；而 Unity 的 `Transform.position` 是**真世界坐标**（父级缩放乘进子 `localPosition`）⇒ 父链上有非单位缩放就**结构性对不上**（5 条实测差 0.089 / 1.479 / 1.365 / 0.590 / 0.584）。
+**改法**：`FindBuiltByGo` 失败后**再用 `FindBuiltByPath`**（清单 `anchor.path` 逐段精确同名）认身份，命中**出声**；`FindBuiltByGo` 实现**一字未动**、自建兜底也没动。
+⛔ **还没跑重建**（Unity 批处理要等 `.cs` 写手停手）⇒ 见下「待我跑」。
+
+### ② 5 条锚点静态性 = **2 会动 / 3 静态**（这条最要紧）
+- 🔴 **arena3 `Monolith Front Left/…Anchor`** —— 会动（`Battle Arena 3 Baked` 的 `Animation` 播 legacy clip，曲线含其 pos+rot）
+- 🔴 **blacklegion `Firepits/FirePit/Firepit Anchor`** —— 会动（`Battle Arena Black Legion Baked 2` 的 clip 曲线含 `Firepits`）
+- ✅ blacklegion `Top_Ornament/Ornament Anchor` / sororitas `Cauldron L` `Cauldron R` —— 静态
+⇒ **上一轮「自建一颗空节点」对前两条不等价**；改走 `FindBuiltByPath` 后挂回真节点，**自动跟着动画动**（`PlayParticle` 只 `SetParent` + 本地零位，`.c` 与 `cpp2il_dev_ilspy/TapHitMaterialDefinition.cs:127-146` 双证）。
+顺手核了仍在自建的 5 条：arena2 `Squig Anchor` 静态、blacklegion 4 条 `Grill *` 静态。
+
+### 🔴 Q2 挖出的**大账**（比 Tap 族大得多）—— 已落 `战场线/任务总表.md` **T09**
+同一个口径 bug 的波及面**远不止锚点**：清单里 **18 meshes / 159 particles / 9 tapHits / 8 anchors** 的 `pos` 与真世界坐标差 > 0.05，**最大 26.33**。
+**实测铁证**：arena2 `Toxic Pump/Container1` 清单 `(126.3733, 0.1666, 20.8826)` vs 真 `(115.1118, 0.3011, 18.5692)` ⇒ **差 11.50**，而我们 prefab 里那颗正好在清单值上、它的 OBJ 是局部空间 ⇒ **这棵子树整体偏了 11.5**。
+⇒ 按铁律 11 **记成「要做」，不是「不做」**：单开一轮（改 `world_chain()` + `gen_arena_groups.py` 的 `_world_of` → 13 场清单 + 旁挂重生成 → 13 场 prefab 重建 → 逐场视觉复验；`FindBuilt`/`SameObject`/粒子挂点一串都写死旧口径）。
+⚠️ 修前**先重渲 base**（我们侧 12 张 preview 是 10-11/10-12 的，`ArenaBuilder.cs` 已到 10-23）。
+
+### ✅ 三场重建已跑（2026-10-26 调度台，**一场一条**）—— **全部对上 Q2 的预期数**
+| 场 | 锚点 接上 / 失败 / **自建** | Q2 预期 | Tap 自检 |
+|---|---|---|---|
+| `battlearena3` | 2 / 0 / **0**（原 1） | 0 ✅ | 相等 ✅ |
+| `battlearenablacklegion` | 7 / 0 / **4**（原 6） | 4 ✅ | 相等 ✅ |
+| `battlearenasororitas` | 2 / 0 / **0**（原 2） | 0 ✅ | 相等 ✅ |
+
+日志：`_tmp_view/wf_{arena3,blacklegion,sororitas}_build.log`。5 条都打出了「按整条路径命中」+ 差异来源 = `world_chain()` 不乘父级缩放。
+🔴 **一处数字订正（铁律 5）**：Q2 报告 §① 表里 `blacklegion Firepits/FirePit` 一行的「Unity 真值」写成 (91.797, **5.838, 8.138**)、差 **1.479** —— **运行时实测是 (91.797, 4.406, 7.819)、差只有 0.184**（y/z 与清单值相同，只有 x 差）。⇒ 那一行是 Q2 **解析算错**，其余 4 行（0.089 / 1.365 / 0.590 / 0.584）与实测一致。**结论不变**（仍是口径差），但引用数字以运行时日志为准。
+⚠️ Q2 §④·1 那组「18 meshes / 159 particles / 9 tapHits 受影响、最大 26.33」是**解析推算**（不是运行时实测）⇒ T09 开工时**必须先实测复核**再改生成器。
+
+### ✅ `CardGlitchProbe.Run` = **40 过 / 0 红**
+3 条关键「灭自证」都真绿：①开/关两档是**两个不同对象 + 不同 shader**（`SetGlitch` 写成空实现 ⇒ 红）②参数**不等于** shader 默认值（只 `new Material(shader)` ⇒ 红）④溶解时 `SetGlitch(true)` **不抢**材质（删掉 `OnFrameDissolveMaterial` 闸 ⇒ 红）。
+
+### 🔴 顺带修了一条真缺陷：`RuleEngineTest_Diag.cs` 过期
+`CardGlitchProbe` 日志里冒出一条 `RE ✗ [诊断入口过期]`：反射看到 **355** 个用例方法、产物只认 **349** 个（缺 6：`TestA2AttackGateAndPlayTarget` / `TestA3EphemeralSkipsCemetery` / `TestA6RemoveFlankRecomputesAct` / `TestR11ArmourIgnoredInDamageScore` / `TestR11Option35BaseInsideMultiplier` / `TestR11Option5MightActGate`）。
+⇒ 已按提示重生成：`PYTHONIOENCODING=utf-8 python -I -X utf8 d:/4/Unity/工具/gen_diag_runner.py`（**355 条**，⛔ 那个文件不许手改）。重生成后 typecheck 0/0。
+
+### ⏭ 待我（调度台）跑 —— **等 `.cs` 写手全停手**
+```
+WF_ARENA=battlearena3          Unity -batchmode -quit -executeMethod ArenaBuilder.BuildPrefabFromCLI
+WF_ARENA=battlearenablacklegion Unity -batchmode -quit -executeMethod ArenaBuilder.BuildPrefabFromCLI
+WF_ARENA=battlearenasororitas   Unity -batchmode -quit -executeMethod ArenaBuilder.BuildPrefabFromCLI
+```
+要认的数：arena3 自建 **0**（原 1）· blacklegion 自建 **4**（原 6）· sororitas 自建 **0**（原 2）· 自检 `相等 ✅` · 「锚点…找不到」warning **0 条**。逐字预期在 Q2 报告 §④·C。
+⚠️ **铁律 15**：一场一条，⛔ 不许 `--all` / for 循环；另 10 场 `FindBuiltByGo` 从未失败 ⇒ 产物与日志逐字不变，不用重跑。
+
+### 另外 3 条 Q2 顺手发现（都未改，已记账）
+1. `tapHits` 里 `hasMesh:false` 的宿主被建在**场根**（`ArenaBuilder.cs:4295-4297`）而非原版父件下（blacklegion `Grill collision (0..3)`）—— 静态父件下功能等价，记账即可。
+2. `battlearena3` 有一条 `collider:null` 的 tapHit 带锚点、路径与真条目重复（被 `TapColliderPresent` 挡掉，不影响结果，但审计易误读）。
+3. `Animation` 的循环标记有两个来源（组件 `m_WrapMode=0` vs clip `m_WrapMode=2`）—— 判「会不会动」两处都要看。
+
+---
+
+## 🆕 批次 3 · E5 / E7 回执（2026-10-26）
+
+### E5（`BattleDriver.cs` 单写手）—— typecheck 0/0 · 补丁 16 行
+- ✅ **①a 卡牌线接线做完**：`ToCardData`（`:26939`）尾部 +9 行：`spellType = c.SpellType; spellTypeKnown = c.SpellType >= 0;`。
+  判据双证：`decomp_full/CardTextsController__SetTexts.c:47-52`（`state = 3 + (spellType != 0)`）+ `GameStaticData__CardRaceToString.c:71-73`（`spellType == 0` ⇒ 空串）。顺带坐实「督军那支恒取 `Card_Race/Warlord`、不受 spellType 管」。
+  数据不缺列：`CardDef.SpellType` 已存在、`cards_engine.json` **1128/1128 全有值**，`-1` = 未知（我们自设计那 26 张 ⇒ 仍走白名单兜底）。
+  影响面现算：446 张战术卡里白名单与 `spellType != 0` **445/446 一致**，只差 `Spear of Macragge`。
+- ⏭ **①b 不归它** —— 整段在 `Hand/CardInteraction.cs`，已给 E6 的精确请求（`ApplyHoverCollider` 小口 + **6 个 `_hovered` 变迁位置** `:735/:385/:608/:854/:893/:1486` + `SetCards`(`:584`) 换列表复位 + 2 条断言）。
+- **46 条 C 全部三选一**：**11 条其实早已落地（账过期）⇒ 改 A**（43/258/389/397/402/409/412/413/415/544/553）· **2 条建议 D**（`ManaBuff.DeepCopy` / `GetNewInstanceOfThisEffect`：本地卡池 psyker/reactor **0 张** + `UsesPsychicEnergy() ≡ false`，带时间限定）· 余 33 条按归属转出。
+- 🔴 **查出一条真缺陷**：`NeedToChooseMinionTarget` 四条闸都齐，但**目标池是「落位前」算的**（`EffectResolver.PlayTargetPool` 只扫当前棋盘），原版是**落位后**算 ⇒ 待落地那张自己不在候选里；最坏一格 = 池算成空 ⇒ **我们根本不问**。可指友军的 50 张 targeted 单位卡里 **11+ 张受影响**（AM70/DA5/GSC4/SOR22/SOR31/GOF80…）。
+  ⇒ **要 E2 的 `PlayTargetPool` 加 `asIfOnBoard`**（下一批）。
+- ✅ 顺手查清此前记为「没查到」的：能量累积 **OFF 图**开关点 = `ManaTypeHolder__SetSavedMana.c` 的 `VFXOFF.SetActive(savedMana < 1)`。
+- 🔴 又抓一例 G4（文件名与内容不符）：`decomp_full/EntityScript__UsesPsychicEnergy.c` 内容是 `SpriteAtlasReference__ValidateAsset`；真体在 `out_cpp2il_dev_ilspy/EntityScript.cs:3026-3029`。
+- 漂移：**38 条落点在 `BattleDriver.cs`**，全是它这次 +9 行造成的（N → N+9），⛔ 它没改账 ⇒ 同步点我按符号名重定位。
+
+### E7（卡牌面 + glitch）—— typecheck 0/0 · 补丁 21 行
+- ✅ **glitch 族做完了**（不再只是判据订正）：新建 `Resources/Shaders/CardFrameGlitch.shader`（片元**逐条照抄原版 DXBC**，本轮新跑 `工具/disasm_dxbc.py "Sprite Scan Lines"`）+ `Core/CardView.cs:14058 SetGlitch` / `:3465 ShowEphemeral` 合并成「角标 + 换材质」+ 溶解优先闸；噪声图复用 `cardback_noise.png`（与原版 `Noise Combined` **sha256 逐字节相同**）。
+  🔴 **为什么不直接挂原版 shader**：它 VS 里把顶点色乘了 `unity_SpriteColor`（SpriteRenderer 专用），我们卡面全是 MeshRenderer ⇒ 会渲成黑/透明。
+  **新探针** `WarpforgeVFX/Editor/CardGlitchProbe.cs`（`-executeMethod CardGlitchProbe.Run`，约 39 条，含 5 条灭自证）—— ⚠️ **本批没跑**，等 `.cs` 写手停手我跑。
+- **17 条 C**：**5 → A**（`ToggleGlitch` 本轮 + `SetCollidersShowBig`/`ToggleShowInBigCollider`/`SetCardTextLayout`/`SetStartingState` 复核 R16 落点）· **5 → 判据齐、只差白名单外一次接线** · **1 → 判据订正**（`CardImageController.ToggleMask` 原文盯的是 private + 0 调用的死代码，活路在 `ChangeState(ImageInFrameSize.Big)`；本工程**无** `SoftMaskScript` ⇒ 要先搬插件，**是「要做」不是不做**）· **6 → CardTierConfig 等裁定**。
+- ✅ **Tap 三条 + 第 4 条**：`Awake/Initialize/Update` 去过期措辞 + `[非缺口]`；`CheckCollision` **B→A**（整段就是 `Tick()` 的 ⑬⑭ 段，`Battle/TapParticleController.cs:253-263`）。
+- 🔴 **shader 换了一条不依赖 Unity 的体检路**（值得进 `工具/`）：`d3dcompiler_47.dll` 的 `D3DCompile` 单独编抽出的 CGPROGRAM 段，**抓到过一个真错** —— 4-tap 段里 `float2 ddx = ddx(...)` 把内建 `ddx` 遮蔽（X3005），留到 Unity 里就是「编不过 ⇒ 整张卡品红」。脚本 `_tmp_view/e7/hlslcheck.py`。
+- 顺手：原版材质 `Card Frame Glitch` 上有 4 个**该 shader 根本没声明**的死属性（`_Aplha` / `_MainColorIntensity` / `_NoiseIntensity_Color_Alpha` / `_NoiseScaleAndSpeed2`）—— `_MainColorIntensity`(0.29) 与真属性 `_MainColorIntensityFix`(1.29) 极易被当成一对活值抄进去。
+
+### 🔴 `CardTierConfig` 6 条 —— 我自己把「本地有没有」查穿了（判据 → `判据/CardTierConfig_服务端数据_取证_第3轮.md`）
+- **算式本地完整可读**（`GetXPRequired` = 标准 logistic，逐句）；构造函数里 `RoundPrecision = 5f` **写死**；三处 `Method not found` 都是**内联数学内建**（Exp/Round），**不是缺口**。
+- **四条独立取证全部为负**（不是「没搜到」）：① `assets_full` 0 命中 ② **`关服前存档/com.unity.addressables/catalog_main.json` 搜 `Tier` = 0**（⇒ 不是可寻址资源）③ 3 份 `__data` 包 0 ④ `Player.log`(18.6 MB)+`Player-prev.log` 0。
+- 🔴 **用户已经裁过一半**：`Shell/CardDetailPopup.cs:40/:62` 白纸黑字「升级表数值是我们编的…**用户 2026-09-22 已裁决照办**」⇒ `tiersByRarity` 那张表**不用再问**。
+- ⏳ **仍需裁定的只剩 4 个标量**：`Y_Max` / `X_Inflection` / `Offset` / `Base`（玩家等级曲线，不在 2026-09-22 那条裁决射程内）。**调度台建议 (b)：算式照原版、4 个数自拟、注释写明**。已报用户。
+
+### 📋 下一批必做（本批没人的白名单，已记账不丢）
+| # | 事 | 落点 |
+|---|---|---|
+| 1 | `PlayTargetPool` 加 `asIfOnBoard`（落位后算目标池）—— 影响 11+ 张可指友军卡 | `RuleEngine/Core/EffectResolver.cs`（E2） |
+| 2 | `Hand/**` 每张手牌 `SetCollidersShowBig(i == hoveredIndex)` 成对 + 6 个 `_hovered` 变迁点 | `Hand/CardInteraction.cs`（E6） |
+| 3 | `removedFromGame`/`inCemetery` 时 `SetHitEnabled(false)` | `BattleDriver.cs` |
+| 4 | 关键词 tooltip 改 `Tooltip.ShowAtMouse(..., MouseWorld, 该 TMP 世界 z, 1/TipPx)`（原版面板在鼠标上方 10px） | `BattleDriver.cs` |
+| 5 | 6 处成对 `SuppressTooltips/ReleaseTooltips` | `Battle/**` + `Shell/CardDetailPopup.cs` |
+| 6 | `CardDetailPopup` 通配符按 `(army,rarity)` + 同阵营兜底 + `CanCraft()` 闸；另加「合成异画」 | `Shell/CardDetailPopup.cs` |
+| 7 | 搬 `SoftMask` 插件 + `textBackground` 软遮罩 + `ChangeState(Big)` 接线（体量大，单开） | 新件 |
+| 8 | 三处过期注释（「生产者还没填 spellType」）：`Editor/CardBaseDemo.cs:5992` · `Core/CardView.cs:5443` / `:13981-13983` | 本批 E5 已填，注释没改 |
+
+---
+
+## 🆕 批次 3 · E1 / E2 / E3 / E6 回执（2026-10-26）
+
+### E1（`BattleManager` 结算族）—— typecheck 0/0 · `ruleprobe check` rc=0 · 补丁 **91 行**
+- 代码：`Core/RuleCore.cs`(+89/−3) · `Core/BattleContext.cs`(+46/−0)。🔑 **三处改动刻意做成 0 行增减**（`:618`/`:3001`/`:3053` 行内改条件），新成员全追加类尾 ⇒ **本批对 `RuleCore.cs` 零漂移**（它有 88 处 A 档账行引用 ≥2900 行）。
+- C 20 条：**1 条真落地**（`ResolveDrawCard` 空牌库回填：新增 `RuleCore.ReshuffleCemeteryIntoDeck:13665` + `BattleContext.InitialDeckInstanceIds:2020` = 原版 `CardScript.createdInInitialDeck +0x223`）· **19 条仍 C**（16 条卡在白名单外、2 条卡在 2026-10-25 裁定「本轮不实现」、1 条 P1）。
+- B 71 条：**0 条转 A —— 是账规封死的**：60+ 条是「同一个 `文件:行` 服务多个原版方法」（`DeclareAttackCore:6152` 承接 5 个 `Resolve*`、`ApplyDamage:8143` 承接 4 个 `Deal*`、`PumpActionQueues:1379` 承接 4 个、`HealUnit:8939` 承接 3 个）⇒ 按 §4.1 只能 B。最接近 A 的两条：`CanPlayCard`（落点 1:1，只差 `CustomError`↔`RuleCodes` 对表）· `ResolveFatigue`。
+- 顺手：`InitializableBehaviour.Initialize` 判 `[非缺口]`（`Shell/SceneInitializer.cs:81-95` 四个成员逐字一致，驱动链 `:174→:185→:344/:374→:478` 与原版 `Awake:540→InitializeDefaultBehaviours:713→OnInitializationComplete:1488` 一一对应）。
+- 🔑 **硬知识（进 `全量反编译_入口与用法.md`）**：`BattleManager` 有 **20 个 `Resolve*` 的 `.c` 只是 83 行的协程工厂**，真体在同名 `BattleManager._X_d__NNN__MoveNext.c`（`ResolveAttack` = 1,652 行 vs 工厂 83 行）⇒ **只读前者会得出「这方法没逻辑」的假结论**。
+- 另：`+0x223 = createdInInitialDeck`；回填**只搬开局就在牌库的卡**，非初始牌只从墓地删掉不回牌库。触发号一对：`ReturnedToDeck=480` / `ReturnedToHand=470` / `TrapDrawn=250` / `TrapResolved=270` / `UnitHealed=70` / `EarnedSkull=640` / `OtherCardRequiem=435`（自己=430）/ `Sacrifice=220`。
+- 8 个改动请求（**R1+R2 一起做最划算：`WhenEvent.cs` 加 8 常量 + 8 短语 + 6 处广播 ⇒ 一次消掉 12 条 C**）。
+
+### E2（`CardScript` 触发族）—— typecheck 0/0 · `ruleprobe check` rc=0（全池 1,121 张 · 解析差异 0）· 补丁 **95 行**
+- 代码：`Core/WhenEvent.cs` · `Core/EffectResolver.cs`。**派了 3 个子代理**（只读，各 23–24 方法），自己交叉核对并用 `E8/E9 rel32` 扫 `GameAssembly.dll` 直调点数坐实死代码。
+- 25 条 C：**A 4**（新增 `CardReturnedHand`/`CardReturnedDeck` 两个 Kind + 解析 + `DoReturn` 两个发射点 + `TriggerNameOfWhenKind` 的 470/480）· **D 14**（双证据：VA 直调扫描 + 卡池 0 入口；均带时间限定）· **保持 C 6** · B 1。
+- B 70 条：**B→A 14 · 保持 B 41 · B→C 11 · B→D 4**。
+- 🔴 **实锤差异 4 条（建议立账）**：① **`Uprising(680)` 过触发**（可达，池内 9 张）—— 原版要求监听者自己是**本回合**上场，我们只排除刚落地那个 ⇒ 修法 = `RuleCore.cs:12933-12958` 或 `:4065` 加 `u.DeployedTurn != ctx.Turn` ② `RemoveTraitSilently` 不对称（我们无条件重算 act/attack，原版不重算）③ `ClearEndOfTurnEffects` 时机**可能反了**（原版在每张卡 `OnTurnEnd` **末尾**入队 action 61）④ 结构缺口：伏击被攻击但 0 伤害不翻面 · `untilNextAttack` 到期档缺 · `RemoveExtrinsicEffectsFrom` 死亡链路无统一责任人。
+- 🔴 **就地推翻两条上游结论**：「`FollowUpSchedulerOf` 漏 5 张卡」**是误报**（那 5 张原版本身没有 320/325，⛔ 别去补）· 「`Heal.c:77` 有 `BroadcastUnitHealed`」**是我给子代理的简报写错了**（`Heal.c` 0 命中，唯一调用点 `UseSurvivor.c:87`）。
+- ⏭ 漂移：`EffectResolver.cs` **>6376 整体 +34**（`BroadcastWhen` 9491→9525）⇒ 主账 14 条要重定位。
+
+### E3（RawCardScript / PlayerHand / MinionManager / AbilityLogic 族）—— typecheck 0/0 · `ruleprobe check` rc=0 · 补丁 **185 行**
+- 代码：`Core/BoardSlots.cs`(+40 类尾) · `Core/CardDef.cs`(2 行换 2 行，订正一个引用了**全仓不存在符号**的 doc)。
+- **B 184/208 = 88.5%** 逐条 G0–G8；**升 A = 0（如实）**—— G3 要两侧数值、G4 要同卡两次读数，而多数观测量在原版侧就不可达，大块（`PlayAbility` 2,878 行 / `GetTargets` 1,427 行 / `NewBuffStat` 281 行）**没读全**。
+- **剩余 24 条 = 全部 `BattleManagerSupport.Broadcast*`，与 E1 那 9 条 C 同族** ⇒ **调度台裁定：归 E1**（同一判据源，避免双写）。
+- 🔴 **最值钱的判据（下一轮直接照抄）**：① `SupportMethods.IsCustomAbility` 的 20 个 trigger 值 `10,20,30,31,40,50,60,70,90,155,160,170,175,190,240,250,260,270,470,480` ② `CardTraitCollection.GetTraitForActiveAbilityRawCard` 六档（Ultramarines→oath · Sororitas→pray · AstraMilitarum→duty · DarkAngels→agenda · SpaceWolves→ferocity · 其余→activeAbility） ③ 🔴 **`EnergyContext` 是【元游戏体力】不是战斗法力**（`maxRechargeableEnergy` 缺省 100 / `rechargeCooldown` / `TimeHelper.ServerTime`；消费者 `Currency`/`RewardService`）—— **账上 7 行原落点 `PlayerState.Energy`+`SpendNormalMana` 是错的，已改**，属「真实经济 + 服务器时间」⇒ **报用户裁定，没擅自判 D** ④ `GetInteractiveUnitsCount` 整条链**原版死代码**（唯一消费者 `BoardAnalysis.EnemyHasMoreTroops*` 调用方 = 0，三处独立查过）⇒ 建议账行 750/751 改 D，**等用户裁定** ⑤ `PlayerHand.AddActiveTrapToHand` 不可达（`SetAsActiveTrap` 全树 0 调用）⑥ `GetMulliganOption` 是死代码且标签 30/20/10 与真实现 20/10/0 不一致，⛔ 别照它改档位 ⑦ `GetWhispersCardsCount` 产物撞名（`<>f__AnonymousType31__GetHashCode`）⇒ 并进 G4 清单 ⑧ `ShuffleCardList` 钉位 = `RawCardScript._stratagem`，全池 1,351 张全 0 ⑨ `AbilityTrigger 200` 池内 0 ⑩ `RawCardScript.IsKeyword` 读 `+0x98` = **兵种枚举**，对应 `CardDef.Subtype` 不是 `Type`。
+- 🔴 **建议优先修的三条（都落 `RuleCore.cs` ⇒ 归 E1）**：① **`IsValidTarget`/`CanUseAbilityTarget` 少 camouflage 闸**（原版 `RawCardScript__IsValidTarget.c:24-33`：目标伪装 ⇒ 只有卡型 20 的法术且同方才合法；另有 `trait 0x46` 同方闸）② **`RuleCore.Mulligan`（`:440`）缺整批校验** —— 原版一条不合法就 LogError + **整批拒绝**，我们逐条 `continue` **静默跳过**（踩「不许静默失败」红线）③ **出牌回滚用手牌追加不是原位插回**（`EffectResolver.cs:3508`，全仓 `Hand.Insert` 0 处 ⇒ 手牌顺序玩家可见）。
+
+### E6（战斗界面/HUD）—— typecheck 0/0 · 补丁 **77 行**（C 46 + B 31 全覆盖）
+| | A | D | C | B |
+|---|---|---|---|---|
+| C 46 | **15** | **12** | 19（2 条已动手） | — |
+| B 31 | **8** | **14** | 5 | 4（`PracticeModePopup×4` 转外壳线） |
+
+- 真改代码 3 文件：`SkillPanel.cs`（「可选目标」并进 `descText`、`TargetsAvailableText` 那颗节点保持空 —— 原版那颗**全库零写入**）· `SettingsPanel.cs` · 新建 `BattleHudLanguage.cs`（换语言广播口，0 订户明确告警）。
+- 🔴 **两条「铁律 5」就地订正**：① `ActiveSkillDisplay.ClickDown` 的音效**不是**「尚未做 GUID→clip 映射」—— 映射早做了，是 `abilityBoxClick` 的 GUID `2eee7367…a8c4` **本地两个 catalog + 全部束里都解不出（悬挂引用）⇒ 原版这一格也不响** ⇒ 该行 → A ② **`UISafeAreaManager`（4 行）判 D**：`Awake(){enabled=false}`（cpp2il + decomp_full 双证）+ `CheckForUpdate`/`UpdateSafeArea` 全量反编译 **0 调用者** + `assets_full` 同名 0 命中 ⇒ **挂组件 ≠ 在跑**。
+- ✅ **悬案 `SetSavedMana` 结案：不是「查不到」，是「没做」**。六步状态机全读全（VFXON/OFF 按 `savedMana>0 / <1` 切 → 累积期 `useNumberChange` 写 `SetMana(unUsedMana-1,…,silently:false)` → `ToggleManaAccumulation` 两支 → `Mathf.Approximately` 为真就**整段 return 连音效都不播** → `DOFade(1.0s)`+`SetDelay(0.5s)`+`DelayedCall(1.0s)`（**onComplete 比补间早 0.5 s**）→ 音效按静态 `Time.frameCount` 去重）。13 场现读 `manaAccumulationObj` 非空 ⇒ **活件**。→ 转 E5。
+- **B 行里 5 条真缺口**：战斗侧异画缺失 · 战斗卡背用阵营默认背（`CardArt.DeckCardback` 早就有，只差把 `cardbackId` 传进来，8 处调用点）· 手牌抬牌不显示可用目标 · 敌方伏击单位展示窗支 · 对局记录页签缺本方督军过滤。
+- 转 E5 的 9 件 + 需要落 `Editor/BattleScene.cs` 的 3 条断言（含灭自证设计，代码在报告 §④ 可直粘）。
+- 🔴 顺手：**`BattleAnims` 一族 prefab 全是 null**（`stealthPrefab`/`reflectedPrefab`/`codexActivePrefab`/`plasmaEnergyGainAnim`/`psykerAnim`/`reactorAnim`/`sentinel*` 的 `m_PathID` 全 0）⇒ 一批「状态框」方法在本 build 恒空转。· **`RadioMessageScript` 是教程气泡（`TutorialTipScript` 子类），不是单位语音气泡** —— 旧落点 `UnitChatPanel` 是错的。
+
+---
+
+## 🆕 用户两条新裁定（2026-10-26）
+
+> 用户原话：「**有两条要你裁定（我现在就报，不自己判），这里按照你的建议执行，之后有需要决策的地方由你决策。**」
+> ⇒ ① 这两条按调度台建议落；② **以后需要决策的地方由调度台决定**（不再逐条回来问）。
+> ⚠️ 边界没变：**真机 / Unity 批处理 / 动 `d:/2` / 删东西**这类**破坏性或对外**的动作仍要先问（旧约定不变）。
+> ⚠️ 判 D 的**证据门槛**也没放宽：仍须「引用断链代码行」或「写出我们的替代物 + 覆盖说明」，⛔ 「影响小」不能当理由。
+
+### 裁定 1 · `EnergyContext` 7 行 ⇒ **判 `D`**
+- **两条理由（都写进 `差异` 列）**：
+  ① 用户 2026-09-17 边界②「**不做真实经济**，资源固定 2000（2026-10-24 改）」—— `EnergyContext` 是**元游戏体力**（`maxRechargeableEnergy` 缺省 100 / `rechargeCooldown` / `TimeHelper.ServerTime`），正是真实经济那一档；
+  ② `TimeHelper.ServerTime` 本地不可得（P3）。
+- **时间限定**：「远端/服务器时间若可用，需重跑本 7 行」。
+- ⚠️ **不连带**：若有 **UI** 消费它（体力条之类），那些 UI 行**照旧要做**（P2：UI 照原版、数据本地模拟）—— ⛔ 不因这条判 D 把 UI 也删掉。
+
+### 裁定 2 · `战斗逻辑驱动.tsv` 750/751 `GetInteractiveUnitsCount` ⇒ **判 `D`**
+- 理由（例外① 原版本身就没行为）：唯一消费者 `BoardAnalysis.EnemyHasMoreTroops*` **调用方 = 0**（E3 三处独立查：`decomp_full` + cpp2il 全树 + `assets_full` 字符串）；且 `ai_scoring.json` 里**没有任何** `enemyHasMoreTroops` 类评分项 ⇒ 原版侧与我们的消费端**两头都是死的**。
+- 写法：`差异` 列写死「原版零调用 ⇒ 离线无行为」+ 三处查证 + 时间限定。
+- 备注：E3 已按原语义建了等价物 `BoardSlots.InteractiveUnitsCount:491`（保留，作为语义存档；⛔ 不算「已复刻」）。
+
+⏭ **落地时机**：这两笔要在**补丁合并之后**直接改主表（E3 的补丁会先覆盖 `EnergyContext` 的落点列，我的 D 判断必须**在其后**落）。⛔ 不建 `B3_DISPATCH.tsv` —— 排序上会跑到 `B3_E*` 前面被覆盖。
+
+---
+
+## 🆕 新铁律 18（用户 2026-10-26 定）：自己设计的代码必须打 `🔶 自己设计` 标记
+> 用户原话：「**注意，我们自己设计的地方的代码那里，需要你打上「自己设计」一类的注释，方便以后检查。**」
+
+已写进 `CLAUDE.md` 铁律 18（+36 行）。要点：
+- 固定标记串 **`🔶 自己设计`**（`grep -rn "自己设计" Assets` 列全）；写在**声明处一条**，不逐行打。
+- 必须写全三样：**这是什么 · 为什么必须自己定（判据在哪/为什么拿不到）· 谁定的 + 日期**。
+- ⛔ 三种不许打：① 原版就是那样 ② 只是命名/结构不同 ③ 还没查清（那写 `TODO`）。
+- ⏭ **已通知 E8**（等级曲线那 4 个标量就是本批第一个该打的点；`GetXPRequired` 算式**不许**打，它是复刻）。
+- ⏭ **下一批要做一次全仓普查**：把**已有的**自设计点补上标记（已知至少：`CardProgress` 升级消耗表 · 通配符初始库存 · 自设计 26 张卡的 `spellType=-1` · 卡面白名单兜底 · 「一次合并只发一条事件」这类接受的差异）。⚠️ 普查要改很多文件 ⇒ **必须等本批写手全停**，否则撞车。
+
+---
+
+## 🔴 主表结构性缺陷：**42 组 / 85 行重复键**（2026-10-26 调度台扫出）
+> 起因：E4 的补丁报「`('AIBotsConfig','GetBotDecks()')` 在 2 份主表里都有」—— 一查，是**同一份主表里就有两行**。
+
+- **根因**：`工具/gen_replica_ledger.py` 按「**显示类名**」建键，而显示类名**剥掉了泛型参数与嵌套关系** ⇒
+  同一个外层名下的**嵌套类**（`AIBotsConfig.BotConfig` / `.BotConfigFTUE`）与**泛型变体**（`LiveOpsEvent` / `LiveOpsEvent<TSave,TData>`）**撞成同一个键**。
+- **分布**：`收藏 11 组` · `日常_奖励 12 组` · `菜单_外壳 7 组` · `联机 4 组` · `泛型与启动链_补读 4 组` · `未分类_其他 2 组` · `特效动画 2 组`。
+- **影响**：`merge_ledger_parts.py` 遇到会**拒绝合并**（不猜，正确行为）；`check_ledger_points` 的落点校验**不受影响**（按落点查，不看键）。
+- **清单已生成** → `账/_重复键_待消歧.md`（逐行带状态 + 判据出处，生成脚本 `_tmp_view/dupkeys_1026.py`）。
+- **消歧约定（已用先例）**：`方法` 列写 **`<嵌套/闭包类型>.<原签名>`**，`原版类` 列**不动**。
+  ✅ 已改：`战斗逻辑驱动.tsv:47` → `BotConfig.GetBotDecks()` · `:48` → `BotConfigFTUE.GetBotDecks()`（先例）。
+- ⏭ **下一批**：按清单逐组回原版源码认真身、改 `方法` 列；⛔ **不合并两行、不删行**。
+
+---
+
+## 🔧 合并前的两处手工清障（2026-10-26，调度台）
+1. **`战斗逻辑驱动.tsv:563`** —— 这行的 `方法` 原本是 `ResolveDrawCard(BattleAction) · 空牌库回填支（shouldReshuffle）`（**带附注的非合规写法**，是历史上手工造的「子支行」）。
+   E1 的补丁键是 `ResolveDrawCard(BattleAction)` ⇒ 若不改，补丁会**新增一行**、而 `:563` 变成孤儿。已把 `:563` 的 `方法` 改成纯签名 ⇒ 补丁变**就地更新**。
+   ⚠️ **遗留味道（下一批处置）**：账里存在「**同一原版方法占两行**」（`:562` 整条抽牌链 B 主行 + `:563` 空库回填子支 C 行）。E1 已在 `判据要点`/`备注` 写清「本行是子支」，但按「一行 = 一原版方法」它是违规的 ⇒ 下一批考虑**并进主行**（并在备注里保留子支信息）。
+2. **E1 补丁首行 `方法` 带附注** ⇒ 已退回 E1 改（附注挪到 `判据要点`/`备注`），它已改好并 `--dry` 到 0 error。
+
+📌 **踩坑自记**：我上一次用 `python -c "…"` 写含**反引号**的 markdown 时，被 bash 当命令替换执行了（`工具/gen_replica_ledger.py: No such file` 那串）—— **正是 `CLAUDE.md §二` 2026-10-25 记下的那条**。以后一律 **先 `Write` 脚本文件再跑**。✅ 已改成 `_tmp_view/dupkeys_1026.py`。
+
+---
+
+## 🆕 批次 3 · E4 回执（AI 族）—— typecheck 0/0 · `ruleprobe check` rc=0 · 补丁 **101 行**
+
+- **19 条 C**：**1 条 → A**（`AI.ShouldDisableTweakAvailableActionsByMode` —— 原账写「判据在远端」**只对旋钮的值成立**，**模式闸是本地逻辑** ⇒ 已实现 `SimpleAI.ShouldDisableTweak`）；**18 条维持 C**（`AIBotsConfig` 9 + `MatchData` 9，它是按**旧口径**「不自动判 D」留的）。
+  🔴 **这 18 条要按 2026-10-26 新授权重新判**（详见下面「欠账」第 2 条）。
+- **80 条 B**：**A 32 · B 15 · C 14 · D 19**，逐条 G0–G8。派了 2 个只读子代理（`AiScripted` 34 行 / `BoardAnalysis` 6 + 成就计数 9 + `YourTurnUI` 3）。
+- **R11 那 10 条逐条核实：8 落 · 1 已核无需改 · 1 数据受限**，与自陈一致；另发现它**没覆盖的 2 处**，本轮已修。
+- **6 处真实行为改动**（`SimpleAI.cs` / `AiScoring.cs`）：`ScoreFromAttack` 反击段（守方 `ambush(1200)` ⇒ 反击伤害**替换成常数 4**、去掉「守方攻击 0 就跳过」那道闸）· `countDamagedBastion` 可选参 · **`ScoreStun` 整个重写**（旧实现在两类目标上**系统性高估**）· **`TweakAvailableActions` 按原版重写**（多轮重扫、删一条后上面条目**重掷** —— 旧版单趟 ⇒ RNG 消费序列不同）· `BestAttackScore` 补四项（含 **`poisonous` 追加分整段漏**）· `ReturnToHandValue` 两处订正（改 `CurrentCost`、`rally`/`codex` 改读**卡面默认 trait**）。
+- 🔴 **P0 级发现（玩家可见，本批无人能修）**：**`AiScripted` 有 5 条数据带 `TapCard(playerAction=true)` 却无推进口** ⇒ AI 走到那条时**其它动作全被闸门拦** ⇒ **玩家卡死/软锁**。落点在 `BattleDriver` / `TutorialScript`（白名单外）。
+- 三条新查实：① **`CardTrait._aIScore` 本地有、77 个全程 `0.0`** ⇒ `ValueOfTraits ≡ 0` ⇒ 我们 `ScoreFromJam` 是**精确值**（铁律 5 已订正判据/注释）② **6 个 AI 方法全量反编译 + cpp2il 全树 0 调用点** ⇒ 判 D ③ `AI__CombatAttackWithType` 的账里描述**是误读**（不是「发动一次攻击」，是「按攻击型取当前攻击力」）⇒ 已订正。
+- ⚠️ **模式闸会改 AI 放水范围**：`PracticeLodge(90)` / `Tutorial(100)` 等**不再套难度旋钮**（与原版一致）⇒ 若某条自检依赖「Practice 局 AI 放水」，先看它的前提是不是原版口径。
+
+### 📋 由此新增的欠账（下一批，按优先级）
+| # | 事 | 为什么重要 |
+|---|---|---|
+| 1 | 🔴 **`AiScripted` TapCard 软锁**（5 条 `playerAction=true` 无推进口） | **P0 玩家可见**：走进去就卡死 |
+| 2 | **`AIBotsConfig` 9 + `MatchData` 9 按新授权重判** | E4 是按**旧口径**留 C 的；现在要逐条看证据判（`AIBotsConfig.GetBotDecks` 我们**有**预组卡组线 ⇒ 大概率不是 C） |
+| 3 | **`RuleEngineTest.Run` 必须跑一次** | 本批 6 处真实行为改动**零断言保护** |
+| 4 | 补三条判别式断言：`ScoreStun` 四档 / `TweakAvailableActions`「多轮重扫⇒重掷」/ ambush 反击 4 | 灭自证（改回旧写法必红） |
+| 5 | `BoardAnalysis.MeetsCriteria` 的 ability 级 boardCriteria **第三道闸（board +0x38）缺** + 生成器丢行 | 转卡牌/引擎线（不属 AI 族） |
+
+### 📐 铁律 18 普查的**范围实测**（2026-10-26 现读 `Assets/**/*.cs`）
+| 写法 | 命中 |
+|---|---:|
+| `自己设计`（新标记，可能含 E8 刚打的） | 39 |
+| `我们挑的` | 831 |
+| `我们自己` | 673 |
+| `非原版` | 60 |
+| `自己编` | 51 |
+| `我们编的` | 35 |
+
+🔴 **结论：不能「全量把零散写法改成 `🔶 自己设计`」** —— 那是 1,600+ 行 churn，而且 `我们挑的`/`我们自己` 里**大量是解释性散文**（如「我们挑的是 X 而不是 Y」），不是「必须让验收别误当原版判据」的那类。
+✅ **下一批的做法**（别硬刷）：
+1. 先只覆盖**真正会误导验收**的那批 —— **常量/数值表/兜底白名单/默认值/行为简化点**（判据：**它是「值」或「行为分支」，不是散文**）。
+2. 写一个**候选清单工具**（`工具/selfdesign_census.py`：扫常量定义行附近的 `我们挑/我们编/非原版/自己编` 注释 + 扫已知的自设计文件），产出 `资料/完全复刻/判据/自设计清单.md`，**逐条人工确认后再打标记**。
+3. 散文类**不改**（它们已经写清了「这是我们挑的」，读得懂；统一改写只增 churn）。
+
+---
+
+## 🆕 批次 3 · Q1 回执（收藏 49 C + 卡组编辑 23 C）—— typecheck 0/0 · 补丁 **74 行**
+
+| 归属 | 条数 | 明细 |
+|---|---:|---|
+| **C→A（它做的）** | **50** | InventoryManager 22 · CardInventory 2 · AlternateArtInventory 2 · WildcardInventory 1 · CollectionItem 7 · CollectionDisplay 2 · ArmyItemContainer 5 · CardNameFilter 1 · CollectionDeck 2 · DeckDrawer 3 · DeckAndCardbackDrawer 1 · DeckCollectionDisplay 2 |
+| 转别人 | 18 | FilterMethods 3→E1–E4 · DeckAndWarlordData 6 + DeckManager 1 + UIMessageController 1→E5/E6 · PrebuiltPackUI 6→轮抽线 · ArmyItemContainer.Initialize 1→战役/锻造线 |
+| 仍卡着 | 4 | 2 条 `LoadableReference` 重载（缺 `Core/LoadableRef<T>`）· WildcardDisplay（缺 Coffee Shiny shader+贴图）· `DeckDrawer.HandlePointerClick`（抽屉已建，缺消费方挂点击） |
+
+- 改动：`Shell/Inventory.cs`(962/15) · `Shell/ItemDrawer.cs`(165/4) · `Shell/CollectionWindow.cs`(16/2)。**行号守恒做到了**：`收藏.tsv` 漂移 **0**。手法 = `ItemInfo/Inventory/ItemSpec/ItemDrawer` 全改 **partial 第二部追加在文件尾**、`CollectionWindow` 新成员只加在 5965 行之后。
+- **3 颗 cue 已查清、接了 2 颗**：页头 Filter Toggle（Deck 页 = `Select Toggle`，另三页 null+默认音）· 模式卡（对，不动）· **Deck Name Filter 的组件是 `EverguildInputField`（R17 猜成 EverguildButton/Toggle，猜错了）**，整个 MB **没有 `m_onClickSound` 字段** ⇒ 原版**无声**，已 `DisableClickSound`。
+- 🔴 **三条真缺陷**：① **`Inventory<T>.OnItemCountModifyInternal` 漏了虚拟钩子那一跳**（原版第一句就是 `OnItemCountModify(item, amount)`）⇒ **子类 override 永远不被 `Add` 触发，静默**。已补（钩子名 `OnItemCountModified`，多一个 d，因为旧名已给外部入口、合并会递归）② **R13 J12 的「理由」错了**（结论对）：它说「`dump.cs` 里没有 `DeckCollectionTab` 的 ctor」—— **有**（`dump.cs:72148`），只是体里**只调基类 ctor、不写 `+0x38`** ⇒ `sortDeckMode` 确实恒 false，但⛔ 别再引 R13 那句当证据 ③ `CardNameFilter` 那行「④⑤ 没做所以不该 A」**已过期**（2026-10-25 已接）。
+
+### 🔴 调度台裁定 1 · 收藏窗卡组格**能不能拖** ⇒ **🔴 2026-10-26 晚【整条撤销】：原版能拖，保留可拖**
+> 🔴🔴 **上一版裁定（「照原版关掉」）是错的，已被用户推翻。** 用户原话：「**卡组应该可以调整位置，否则不合理。这里你也进行注释**」。
+
+**我错在哪（两层）**：
+1. 第一版理由（Q1 给的）：「`sortDeckMode` 恒 false ⇒ 原版拖不动」—— `sortDeckMode` 管的是**点击**行为（`DeckCollectionTab.OnItemSelected`：`if (!sortDeckMode)` ⇒ 开 `DeckInfoPopup` + `SaveDeckOrder()`；`else` ⇒ `item.SetSortMode(true)`），**根本不是拖拽开关**。
+2. 第二版理由（我自己查的）：看到 prefab 里 `DragAndDropItem.autoInitialize = 0` 且 `scrollRect = null`、`Awake()` 末尾 `if (!scrollRect) enabled = false;`、而 `CollectionDeck.ToggleReorder` 全树 0 调用者 ⇒ 判「出厂即禁」。**漏了运行时第二条开启路。**
+
+**原版真机制（判据：`CollectionDisplay<T>.SetCell`，RVA `0x1815EEB64` 反汇编逐条）**：
+```
+cmp byte [this+0x49], 0                  // allowItemDrag
+⇒ 非 0 才比 collection.Count(+0x50) 与 filteredCollection.Count(+0x58)
+⇒ 相等: GetComponent<DragAndDropItem>(cell).Initialize(父 ScrollRect) + Toggle(true)
+⇒ 否则: Toggle(false)
+```
+而 `DragAndDropItem.Initialize(ScrollRect)` 体内**第一句就是 `enabled = true;`**（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/DragAndDropItem.cs:79-104`）。
+⇒ **prefab 里 `autoInitialize=0` / `scrollRect=null` 是【故意的】**，那两条只服务 `Awake()` 的自动初始化路；Deck 页走 `SetCell` 运行时注入。
+
+**原版落盘那一跳**：`DeckCollectionDisplay.SaveDeckOrder()` → 比较显示序与旧序、变了才 `DeckInventory.UpdateOrder(list)` → `PlayerDataManager.singletonManager.OrderDecks(playMode, ok, err)`（成功 `"Success ordering decks"` / 失败 `"[ERROR] Can't reorder decks"`）⇒ **顺序存服务器**。
+
+**结论**：
+- ✅ **保留可拖**（我们 `DeckDragAllowed()` 已忠实照抄 `allowItemDrag` + 「两张表长度相等」两道闸 ⇒ **有名字/阵营筛选时不给拖**，与原版一致）。
+- 🔴 **账里凡是写「我们用超集 / 拖拽恒开」的措辞都过期** ⇒ 正解是「**与原版一致**」。
+- ✅ **已写勘误注释**：`Shell/CollectionWindow.cs` **文件末尾**那段 `🔴🔴 勘误：原版收藏窗的卡组格【是可以拖拽重排的】`（39 行，**追加在 namespace 关闭之后 ⇒ 上游行号零漂移**，已核 `:6095` 仍是 `DeckDragAllowed`）；并在 `DeckDragAllowed` 的 doc 里加了一行指针（**行数不变**）。typecheck **0/0**。
+- ⛔ **这不是 `🔶 自己设计`** —— 是**忠实复刻**（铁律 18 明令：原版就是那样的不许打自设计标记）。
+
+### ✅ 判据来源**溯源自查**（2026-10-26 用户点名：「不要搞了半天搞到我们自己的项目或之前的复刻项目了」）
+**四条独立证据，全部指向原版**：
+| # | 查了什么 | 结果 |
+|---|---|---|
+| 1 | **反证：我们自己的编译产物里有没有这些原版类** | `d:/4/Unity/MyGame/Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll` 里 `DeckCollectionDisplay` / `DragAndDropItem` / `DeckCollectionTab` 各 **0 次**；同一份 dll 里 `CollectionWindow`(4) / `BattleDriver`(4) / `RuleCore`(3) 都在（⇒ 搜索方法有效，0 是真的 0） |
+| 2 | 我们**源码**里有没有同名类 | `grep -rn "class DeckCollectionTab\|class DeckCollectionDisplay\|class DragAndDropItem" d:/4/Unity/MyGame/Assets` = **0** |
+| 3 | **原版签名桩**里有没有 | `d:/2/Warpforge_code/Scripts/Assembly-CSharp/` **2,294 个 `.cs`**（与 `CLAUDE.md` 记的 2294 完全一致），5 个类**全在** |
+| 4 | 反编译的**输入二进制** | `d:/2/unity_run_ref/GameAssembly.dll`（76.7 MB · Aug 25）+ `d:/2/unity_run_ref/Warpforge_Data/il2cpp_data/Metadata/global-metadata.dat`（20.8 MB · Aug 25）= **原版游戏本体** |
+
+**报告引用面统计**（`资料/完全复刻/报告/*.md`）：`d:/2/tools/` **55 处** · `d:/2/Warpforge_code/` **8 处** · `d:/2/Warpforge_tools/` **1 处**（那处是「切好的原版 UI 图」且明写「本轮没采」）—— **全部在 `d:/2/` 档案侧**。
+**唯一提到我们自己 Godot 复刻**（`d:/warpforge/scripts/rule_core.gd`）的是 `报告/E2_第3轮.md:189`，原话：「注释里的唯一出处是我们自己的 `rule_core.gd:3018`（**旁证，非判据**）」⇒ **口径正确**。
+⇒ **本轮没有把「我们自己的项目/旧复刻」当原版判据。** 我们的路径只出现在「我们的落点」那一栏（那是应该的）。
+
+---
+
+## 🆕 批次 3 · E12 回执（账语料）+ 调度台四条裁定（2026-10-26）
+
+**E12 收工读数**：`verify_annot` **缺注解 0**（开工现读 16 条，简报写的 32 是上会话的旧数）· `check_a_vs_diff` **合计 0 条（强 0 · 弱 0）**、`[非缺口]` 跳过 259 · `check_ledger_points --all-A` **A 2,749 · 通过 2,749 · 漂移 0 · 失败 0** · `ledger_progress` **A 2,678 · B 2,295 · C 833 · D 2,966**（总 8,772 不变）。
+82 条候选的处置：**误报 28 行**（尾加 `[非缺口]` + 理由）· **改措辞 43 行**（其中 6 类是共用条款：「还差什么 = InventoryManager…」24 处、「确实缺持久化」5、「而不是不适用」5、`RegisterDrag（0 调用点）`13、抽屉 8、同音词 8）· **真缺口降 A→C 3 行**。
+✅ **卡组格拖拽的措辞已按新裁定刷**：`收藏` 9 行 + `卡组编辑` 2 行的「原版入口不可达 / sortDeckMode 恒 false / 我们是超集」→ 换成 `SetCell` RVA `0x1815EEB64` 的新判据 + 「**与原版一致，不是超集**」，⛔ 未打 `🔶 自己设计`。
+⚠️ E12 还顺手修了 5 条漂移（1 条是开工就有的 + 4 条是 E11 改 `EffectResolver.cs` 引起的），**只改 `我们的落点`、没用 `--fix`**。
+
+### 🔴 E12 提的四件 —— 调度台裁定
+| # | E12 的问题 | 裁定 |
+|---|---|---|
+| 1 | 3 条降档行 `等级` 列仍是旧值 | ✅ **要填，三条都填 `P1`**（`RadioMessageScript.FadeElements` 纯视觉淡入 · `LiveOpsEvent.ToggleEventActivation` 与 `LiveOpsHandler<TEvent>.QueueEventPopup` 都是功能缺口，按 §4.2 都归 P1） |
+| 2 | 方案 §4.1「死类一律判 D」与 2 条 A 行冲突（`DeckDrawer.SetShowOwnership` / `ArmyItemContainer.ToggleInteractable`，原版 0 调用点却判 A） | ⏸ **先不判 D**：§4.1 同时要求「判『没人引用』前**必须查 Unity 侧挂接**（prefab `m_PersistentCalls` / 场景 / SO / Addressables）」，E12 没查那三处 ⇒ 现在保持 A + 备注「原版 0 调用点；**待查 prefab 挂接后再定 A/D**」，把检查列进下一批 |
+| 3 | `AI.TweakAvailableActions`（判误报）与 `QueueEventPopup`（判真缺口）两条「可回退判断」 | ✅ **接受 E12 的判断**（它读了代码；且 `eventGroups` 缺口与 Q3 报告 `filter.eventGroups` 未查清自洽） |
+| 4 | 收藏 9 行备注里仍有旧「还差什么 ②③④」和「可达性 = 主动开『排序』才进」 | ✅ **要刷**（「Deck 页可拖；只有排序模式 0.8 才需要入口钮」），与上面的新判据对齐 |
+
+### 🆕 顺带查出一个**系统性缺口**：**107 条 C 行的 `等级` 列没填**（§4.2 要求 C 行必须填 P0/P1/P2）
+分布：`其他_基础设施 42` · `战役 15` · `卡组编辑 13` · `菜单_外壳 9` · `日常_奖励 8` · `商店 5` · `轮抽 5` · `收藏 3` · `战斗界面_HUD 2` · `社交_聊天 2` · `锻造 2` · `泛型与启动链_补读 1`。
+⇒ 与上面裁定 1 一起，**并给下一个账务代理**（E13）一次做完：① 3 条降档行填 P1 ② 107 条 C 行补等级（按 §4.2 口径判 P0/P1/P2）③ 收藏 9 行备注刷 ④ 2 条死类行的 prefab 挂接核查（查到 0 命中才判 D）。
+⚠️ **顺序**：E13 只改 TSV；**必须等 E11 停手、我先跑完 `--fix`** 再派 —— 否则两边同时 read-modify-write 同一批 TSV 会**静默互相覆盖**。
+
+---
+
+## ✅ 批次 3 · 同步点正式收口（2026-10-26 01:20）
+
+| 闸 | 读数 |
+|---|---|
+| `check_ledger_points --all-A` | **A 2,749 · 通过 2,749 · 漂移 0 · 失败 0**（告警 40） |
+| `verify_annot` | 同名 649 · 异名已注解 2,100 · **缺注解 0** |
+| `check_a_vs_diff` | **合计 0 条** |
+| `check_loc_dupes` | 词条 754 / 唯一 754 / **重复 0** |
+| **`RuleEngineTest.Run`** | **9,312 / 9,313 通过 · 1 条失败**（只剩 `#1`，判据未知，见下） |
+| `ruleprobe check` / `play check` | **rc=0 / rc=0**（基线未变，**不重钉**） |
+| `CardGlitchProbe.Run` | **40 过 / 0 红** |
+| `ledger_progress` | **A 2,678 · B 2,295 · C 833 · D 2,966 · E 0** ⇒ 定案 **5,644 / 8,772 = 64.3%** |
+| 建场 | arena3 / blacklegion / sororitas **三场全部对上预期** |
+
+### 🔴 `#1` 的根因已闭合到第 4 层（E11 用自建离屏探针，纯 dotnet，3 秒）
+(a) 解析 ✅ `Verb=persist` / `When.Kind=becomesremnant` / `AtTurnOps=[gain shield]`
+(b) 登记 ✅ `ctx.PersistentEffects.Count = 1`
+(c) 广播 ✅ 日志出现 `—— 事件「becomesremnant」触发**常驻效果**`
+**(d) 结算 ❌**：`AddEffect` **闸③ 残骸门** 拒绝 ——「残骸只收生命增减与 `addTraitRemnant`，`shield` 不收」。
+⇒ **两条各自都忠实的东西撞上了**：闸③ 是照原版 `CardScript__AddEffect.c:159-170` 抄的；`becomesremnant` 广播是我们**自设计**的（`RuleCore.cs:9518-9531` 自称）。
+⇒ 基线 10-24 绿是因为闸③ **`bb0f3d34`（10-25 21:37）才进仓** ⇒ **不是批次 3 回归**。
+⏭ **处置**：⛔ 不许改断言、⛔ 不许放宽闸③；已派 **F2** 去挖原版真实机制（假设：`SAU53` 的 SO 是 `buffType 12 + enchantment PathID` + `buffType 3 trait 80` ⇒ 原版可能走「**附魔 + trait 监听**」族，而不是把 `AddEffect` 打到残骸上）。**结论出来后由调度台裁定**。
+
+### ⚠️ E11 报的两处**简报路径写错**（我记下来，别重复）
+1. `RuleEngine/Core/EventTiming.cs` **不存在** —— 真身是 **`CardPresentation/Core/EventTiming.cs`**。
+2. `RuleEngine/Editor/RuleEngineTest_EngineE2.cs` 里**没有** E2T3 —— 真身是 **`CardPresentation/Editor/RuleEngineTest_EngineE2.cs:194`**。**两处同名文件是不同的两份。**
+
+---
+
+## 🆕 批次 4 派活（2026-10-26 · 10 路 = 7 执行 + 3 账务/判据）
+
+> 主战场 = **战斗逻辑驱动 B 1,089**（该域完成率仅 **24.7%**，其余四个 P0 域 76%–96%）。
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **F1** | `RuleEngine/Core/{RuleCore,ActionPump,BattleContext}.cs` | ① `Mulligan` 整批校验（现逐条 `continue` 静默跳过）② `IsValidTarget` camoufflage 闸 ③ 出牌回填原位插回（真身可能在 EffectResolver ⇒ 写请求）④ `Uprising` 过触发 ⑤ `ClearEndOfTurnEffects` 时机 ⑥ B ≥60（含 `BattleManagerSupport` 那 24 条 `Broadcast*`）⑦ `RuleCore.cs:2529-2535` 加「不可达」注记 |
+| **F2** | `RuleEngine/Core/{EffectResolver,WhenEvent,EffectText}.cs` | ① **R1+R2 = 一次消 12 条 C** ② `PlayTargetPool` 加 `asIfOnBoard`（11+ 张卡）③ `PlayTargetPool`/`RemoveTraitSilently` 调用侧 ④ **`#1` 判据挖掘（只查不改）** ⑤ B ≥60 |
+| **F3** | `RuleEngine/Core/{UnitState,CardDef,Aura,Enchantment,CardInstance,GivePayload,ConditionEval,CountEval}.cs` | R3 Jam 族 · R4 Requiem/Sacrifice · **R5 `Aura` 零副作用整体重算口** · `RemoveTraitSilently` 加 `silent` · B ≥60（只做 E3 标「没读全」的三块大方法） |
+| **F4** | `RuleEngine/Data/{SimpleAI,AiScoring,AiTargets,AiScoringData}.cs` + `RuleEngine/Editor/RuleEngineTest.cs`（仅补断言） | 三条**判别式断言**（`ScoreStun` 四档 / `TweakAvailableActions` 重掷 / ambush 反击 4）· **`AIBotsConfig` 9 + `MatchData` 9 按新授权重判** · B 剩余 |
+| **F5** | `Battle/BattleDriver.cs`（单写手） | 🔴 **P0 `AiScripted` TapCard 软锁（玩家卡死）** + E5 转来的 9 件 + 卡背 `cardbackId` + 战斗侧异画 |
+| **F6** | `Hand/**` · `Board/**` · `Battle/**`（除 BattleDriver） | `SetCollidersShowBig` 成对 + 6 个 `_hovered` 变迁点 · 6 处 tooltip 成对 · 抬牌态显示可用目标 · 对局记录页签 · 伏击展示支 · HUD 的 4 条 B |
+| **F7** | `Shell/{CardDetailPopup,ToastNotifications,RankedTab,ProfileTab,TopBar,CardTierConfig}.cs` | 通配符 `(army,rarity)` + `CanCraft()` + 合成异画 · **给 `CardProgress` 加 `XpAward` 列（带 `🔶` 标记）** · 另 3 处等级格统一 · `EphemeralState` 单一形状 · 收藏 B ≥30 |
+| **E13** | 只改账 TSV | ① 3 条降档行填 P1 ② **107 条 C 行补 `等级`** ③ 收藏 9 行旧拖拽说法刷成新判据 ④ **85 行重复键消歧** |
+| **Q2** | 工具 + 判据文件 | **`🔶 自己设计` 全仓普查**：`工具/selfdesign_census.py` + `判据/自设计清单.md`（只覆盖值/行为，不刷散文）+ 下一轮执行计划 |
+| **Q3** | 判据 + 报告 | **T09 清单坐标口径**：实测复核 Q2 那组「18/159/9/8」（**那组是算式推的**）+ 坐实或推翻 arena2 `Toxic Pump/Container1` 那 11.50 的硬证据 + 三档影响面 + 施工单 |
+
+**批次 4 的四条新纪律**（写进每份简报）：
+1. `账/_parts/B4_<代号>.tsv` 补丁制；`方法` 列**必须从主表逐字复制**（⛔ 不许 `(...)`）；收工前 `merge_ledger_parts.py --dry` ⇒ errors=0 且**新增≈0**。
+2. 铁律 18：`🔶 自己设计` 三样写全；⛔ 原版就是那样的不许打。
+3. 改 `.cs` **新成员一律追加到类尾**。
+4. `d:/warpforge/scripts/rule_core.gd` 是我们自己的 Godot 复刻 ⇒ ⛔ 只能当旁证，不许当判据。
+
+### 🔴🔴 批次 4 开跑后立刻修的两个**会静默丢账/回退**的工具 bug（F6 报的）
+1. **合并器写死 `B3_` 前缀**（`merge_ledger_parts.py:143` + `fix_ledger_patch_keys.py:61`）⇒ **批次 4 的 `B4_*.tsv` 会被整批静默忽略**。
+   ⇒ 已改成 `^B\d+_.*\.tsv$`（认任意批次号）。
+2. **更危险的一条：整目录合并会把旧补丁盖回主表。**
+   `B3_*.tsv` 合并完**留在 `_parts/` 里**，而之后 E12/E13 又手工改过主表（备注 / 等级 / 落点 / 卡组拖拽措辞）。
+   再整目录合并 = 补丁「后写的赢」⇒ **把那批手工修订覆盖回旧内容，且零报错**。
+   **实测**：`--only B4_` ⇒ 更新 **44**；整目录 ⇒ 更新 **126** ⇒ **多出的 82 行就是会被回退的**。
+   ⇒ 已给合并器加 `--only <前缀>`：**批次 4 的合并必须用 `--dry --only B4_` 再 `--only B4_`**。
+   📌 **规矩（写进下一批简报）**：每批合并完把该批补丁挪进 `_parts/_merged_<批次>/`，或**永远带 `--only`**。
+
+### 🆕 批次 4 · F6 回执要点（2026-10-26）
+- ① `SetCollidersShowBig` 成对 **做完**（`Hand/CardInteraction.cs` 类尾新增 `SetHovered:1871` / `ApplyShowInHand:1882` / `ResetShowInHandAll:1903`，**6 个 `_hovered` 写点全部 1:1 同行号替换** ⇒ 上游零漂移）。
+- ② tooltip 成对 **4/6 已闭**（另 2 处转 F5/F7）。🔴 **口径订正**：`ToggleTooltips(option)` 里 **`true` = 开**（`registerEvents = option`），原版是**逐卡**开关 ⇒ 正确等价物是 `CardView.TooltipsEnabled`，**不是**全局 `Tooltip.SuppressTooltips`（账已订正）。
+- 🔴 账里 `CardDisplayWindow.ShowBattleCard` 原判 **A「一致」是过高判定**（漏了整条伏击支）⇒ 已按铁律 5 订正为 **C**。
+- 🔴 `PracticeModePopup.IsSavedDeck` / `LoadSavedDeck` 是**死代码**（cpp2il 0 引用 + private + bool 返回不能挂 UnityEvent + assets 全库 0 命中）；而 `SaveSelectedDeck` 写的 `currentDeck` 唯一读者就是这两个死方法 ⇒ **原版这版「记住上次卡组」只写不读**。
+- ⚠️ 抬牌后命中区 = 并集（第二颗 collider 在卡心下方）⇒ 既有 `HandAssertE8`「实绘矩形外侧必不中」若在**已抬牌态**取卡下沿外点会变红，**那不是回归**（原版同构），该改断言不该关接线。
+- ⚠️ 给将来接 `SetHitEnabled(false)` 的人：`SetCollidersShowBig(on)` 自带 `SetHitEnabled(true)` ⇒ 被禁点的卡若还留在 `_cards` 且 `_hovered` 停在它身上，下一帧会被成对开关**重新打开**。
+- ⚠️ E7 那 6 处 tooltip 清单漏了 **第 7 处** `MulliganManager.cs:284`（落在 `Battle/MulliganPanel.cs`，判据未读透）⇒ 下一批。
+- 🔴 需下一批 Core 加**三个运行期写口**：`SetStatsHidden` / `SetRarityGemTier` / `SetDescriptionOverride` —— 一条同时解开 ③（抬牌显示可用目标）与 ⑤（伏击展示支）的一半。
+
+### 🔴🔴 工作节奏变更（用户 2026-10-26 定）：**不再「一批一同步点」**
+> 用户原话：「**我建议你先多做一些，把战斗逻辑（引擎）、战斗界面、卡组编辑、特效动画等主要任务的完成率给进一步提高（最好 100%），之后再走一次同步点。而不是完成这一批任务就走同步点。**」
+
+已写进 `CLAUDE.md` **§16·8**。要点：
+- 子代理**回一个补一个**，不留空档；**轻量记账随时做**（合并补丁带 `--only B<批>_`、更新日志），**重同步点**等主场域接近 100% 再做一次。
+- 中间态安全：账的「漂移」只是行号，不影响内容正确性；合并补丁**不需要 `.cs` 写手停手**。
+- ⚠️ 两条硬约束不变：**主表只有调度台合并时写**（代理只写 `_parts/`）；**`--fix` / 重钉 / 重生成**必须在「没有账写手 + 没有 `.cs` 写手」时做。
+
+### 🔴 E13 报的并发写事故（2026-10-26 01:20 / 01:22）+ 调度台的处置
+**事故**：主账被**一次整表重写**冲过（连 E13 没碰过的 `卡牌面_渲染` / `战斗逻辑驱动` mtime 都变了），把 E13 的 195 项修订、**E12 的 3 条 A→C 降档**、以及**上一批 E9 修好的 35 条落点**全部打回旧值。E13 按**键**重放了它自己的 195 项（现读标记数 195 对得上），并确认 01:31 起账本稳定。
+
+**处置（调度台当场做，不再派活）**：
+1. ✅ **重新降回 C** 3 条（`RadioMessageScript.FadeElements` / `LiveOpsEvent.ToggleEventActivation` / `LiveOpsHandler<TEvent>.QueueEventPopup`），`等级=P1` 保留，备注写「调度台 2026-10-26 裁定：重新降回 C（并发写曾把它冲回 A）」。
+2. ✅ **删掉 3 组逐字节重复行**（`LiveOpsHandler<TEvent>.GetEvents` / `.GetEvent` / `BiDirectionalDictionary<TKey,.GetEnumerator`，各自同一 `判据出处` = 同一真身）⇒ 泛型补读表 860→857 行。**总账 8,772 不变**（`ledger_progress` 本来就不数那一份跨域文件）。
+3. ✅ **修 `verify_annot.py` 的永久冲突**：消歧约定把 `方法` 写成 `<真类型>.<原签名>`，而工具拿它跟落点声明名**全等**比较 ⇒ 一定假阳性。已改成比较前 `rsplit('.', 1)[-1]` 剥前缀。缺注解 **41 → 35**（剥掉 6 条假阳性）。
+4. ⏭ 剩 35 条是**E9 那批被冲掉的落点**（指向注释行/语句行）⇒ 已派 **G2** 按 E9 报告映射表**现 grep 行号**重修（⛔ 不许重跑 `--fix`，那正是整表重写的来源）。
+
+### 🆕 批次 5 已开两路（滚动补位）
+- **G1**：**特效动画域冲 100%**（现读 482 行 · A 136 / B 130 / C 64 / D 152 ⇒ **59.8%**，全项目第二差）。白名单 `WarpforgeVFX/**` · `Effects/**` · `Core/**` · `TapParticleController.cs` · `TapHitMaterialDefinition.cs`。
+- **G2**：账本修复（35 条落点 + 两处列错位 + 稳定性快照对比）。
+
+### 📊 当前主场域（现读，重同步点的目标）
+| 域 | 总 | A | B | C | D | 完成率 |
+|---|---:|---:|---:|---:|---:|---:|
+| **战斗逻辑驱动** | 1,536 | 196 | **1,087** | 68 | 185 | **24.8%** |
+| **特效动画** | 482 | 136 | **130** | **64** | 152 | **59.8%** |
+| **卡组编辑** | 324 | 204 | **62** | 15 | 43 | **76.2%** |
+| 收藏 | 351 | 202 | 56 | 7 | 86 | 82.1% |
+| 卡牌面_渲染 | 167 | 107 | 11 | 6 | 43 | 89.8% |
+| **战斗界面_HUD** | 679 | 418 | 4 | 25 | 232 | **95.7%** |
+| **合计** | **8,772** | **2,680** | **2,293** | **833** | **2,966** | **64.4%** |
+
+---
+
+## 🆕 批次 4 · F4 回执（AI 族）+ 批次 5 已补两路（2026-10-26）
+
+### F4 —— typecheck 0/0 · `ruleprobe check` rc=0 · 补丁 33 行
+- **三条判别式断言**（`RuleEngineTest.cs:37913-38106` 新增 `TestB4AiDiscriminants()`，追加类尾；`Run():1237-1241` 注册；**28 条 `Check`** = 8 前提 / 2 参照值 / 3 灭自证），每条都写了**手算解析式 + 判据出处 + 🧨 改坏法**：
+  1. `ScoreStun` **五道闸**（旧实现在两类目标上系统性高估：`cantAttack∧无主动技` 旧给 1.4、`不会出手∧无技` 旧给 3）
+  2. `TweakAvailableActions` **多轮重扫 ⇒ 重掷**（固定夹具 + `seed=3`：原版形状**消耗 4 个乱数**、单趟形状 3 个；另配 `seed=4` 对照防「无脑全砍」）
+  3. `ambush(1200)` **反击 = 常数 4**（`8.42` vs 用守方攻击力那版的 `6.32`，另有一条「必须不是 6.32」）
+  - 期望值**不是从实现读回来的**：先建一次性核对台 `_tmp_view/f4probe/`（ruleprobe 副本，**不进仓库**）读出实际值再写死。`ruleprobe ai "Fire Dragon"` 读数 **3.075 / 7.25** 与 E4 逐位相同 ⇒ **零行为变化**（符合预期：只加断言）。
+- **18 条 C 重判 ⇒ 4 B · 4 C · 10 D**（每条带证据 + 统一时间限定「当前 build 0 条配置，数据若出现须重跑」）：
+  - **D 10 条**判据 = 输入只来自远端 liveops/账户 ∧ 本机 0 条 ∧ 有替代物或非远端分支与我们逐值等价。⛔ **没有一条用「影响小」当理由**。
+  - 搜证亲跑可复跑：`assets_full` + `关服前存档` 搜 `BotListFTUE`/`skipChance`/`minLossStreak` = **0 文件**；19 个方法名逐个 grep `Assets/**/*.{prefab,unity,asset,json,txt}` = **全 0**（Unity 侧无挂接）。
+  - **C 4 条**：`GetActionDelay`/`GetEndTurnDelay`/`GetFirstActionDelay` —— 原版是 `Random.Range(min,max)`，我们现在是**单一固定 0.55s** ⇒ **机制可做未做**（下一批）。
+- **15 条 B → 0 升 A（如实）**：全部卡在 **G3 可观察量**（落点全在 `CardPresentation/**` 或私有谓词，`ruleprobe` 结构上读不到；「断言绿」按口径不算）。其中 **3 条已到「逐句等价、只差可观察量」，给一个教程局读数口就能直接改 A**。
+- 🔴 **第三道闸判据闭合 + 归属已定**：`CardAbility__CanTriggerAbility.c:127-140` 三道闸次序 `acting(+0x28) → target(+0x30) → board(+0x38)`；第三道是 `BoardAnalysis.MeetsCriteria`（不是 `CheckIfMeetsCriteria`）。
+  两处缺口：**引擎线** `ActionPump.AbilityLevelCriteriaAllows` 只喂 target、**board 一次没求值**；`CountEval.MeetsBoardCriteria` 只被技能可点闸用、**不是同一对象**。**工具线** `gen_cards_engine.py:2748` —— board gate 数据搭在 `role=="count"` 行上，而 `count` 不在 `CONDITION_ROLES_OPTIONAL_COND` ⇒ `countCriteria.conditionsFilter==0` 的行**整行被丢**。
+  **池内量**：ability 级 `boardCriteria` **130 条 / 91 张卡**；`countCriteria==null` 42（原版也 `return true` ⇒ 无需数据，**之前记的「整行不落」是误判**）· `conditionsFilter==0` **81（真缺口）** · `≠0` 7（有数据没人读）· `triggerIf==8` 0 条。
+  ⚠️ **F4 明确：只做一处 = 有数据没人读 / 有人读没数据** ⇒ **引擎线与工具线必须在同一时刻落**。已派 **G3** 做工具线（`gen_cards_engine.py`），两处引擎侧改动请求留给下一批统一派。
+- 顺手订正 3 条：`BotConfig.GetBotDecks` 原落点**指错对象**（那是玩家那副）· 「FTUE 整套未建」不准确（**选阵营窗已建**，缺的是 bot 配置/胜场状态机）· **新坑 3 条**：`ScoreStun` 的「不会出手」**不能拿疲劳当探针**（`get_mightAct` 六条闸里没有 `Exhausted`）· 夹具关键词必须写**卡面原文**（`"Cant Attack"`，规范名会被 Normalize 前缀匹配**静默丢弃**）· 加用例后**必须重生成 `RuleEngineTest_Diag.cs`**。
+
+### ⏭ 欠一次 Unity 跑（等重同步点，现在不能跑）
+F4 那 **28 条新断言一次都没执行过** ⇒ 记进重同步点清单：**`RuleEngineTest.Run`**（+ 已知还剩 `#1` 那条判据未知的红）。
+⚠️ 现在不能跑 —— F1/F2/F3/F5/F7/G1/G3 都在写 `.cs`，Unity 批处理要整工程编译，半成品会编不过。
+
+### 📋 重同步点待办清单（滚动批次期间累积，到点一次做完）
+1. 合并 `账/_parts/B4_*.tsv` + `B5_*.tsv`（**必须带 `--only`**，⛔ 别整目录）
+2. 五道闸 + **`--fix` 按符号名重定位**（现在漂移很高，是正常在飞态）
+3. `ruleprobe check` / `play check`（引擎行为改了 ⇒ 基线可能要**现算现钉**）
+4. **Unity**：`RuleEngineTest.Run`（含 F4 的 28 条新断言）· `CardGlitchProbe.Run` · 3 场建场复核
+5. 交接落盘
+
+### 🆕 批次 5 已补三路（滚动补位）
+- **G1** 特效动画域冲 100%（B 130 + C 64）
+- **G2** 账本修复（35 条被冲掉的落点 + 两处列错位 + 稳定性快照）
+- **G3** 战斗逻辑驱动「未被占用」那一片（`CreatePool`/`TargetCriteriaEval`/`BoardSlots`/`CardCriteria`/`TutorialScript`/`Data/CardDatabase` 等）+ **工具线第三道闸**（`gen_cards_engine.py:2748` 丢行）
+
+---
+
+## 🆕 批次 4 · F3 / Q2 回执 + 批次 5 再补三路（2026-10-26）
+
+### F3（UnitState/CardDef/Aura 族）—— typecheck 0/0 · `ruleprobe check` rc=0 · 补丁 **70 行**
+| # | 任务 | 结果 |
+|---|---|---|
+| ① | **R3 Jam 状态侧** | ✅ `UnitState.ApplyJam()`（照 `CardScript.ReactToUnitJammed` ①②③④⑤ 逐句搬）+ `RemoveAllAppliedEffectsForJam()` + `RemoveExtrinsicEffectsFrom(卡名)` + 新字段 `ActiveAbilitySuppressed`（原版 `hasActiveAbility=+0x220`，督军除外） |
+| ② | **R4 Requiem/Sacrifice** | ✅ `KeywordTable.Requiem = "requiem"`（`CardDef.cs:7131`，`DefinedTrait.requiem=760`）+ `Prefixes` 一条 —— 之前卡数据写 `Requiem` 会被 `Normalize` **静默丢弃** |
+| ③ | **R5 零副作用重算口** | ✅ `Auras.RefreshInPlayNumericAndKeywords`（`Aura.cs:1003`）：与 `Recompose` **共用 `RecomposeCore` 和 ③ 的迭代**（判据只一处），只多 `numericOnly` 开关（跳过费用登记 + 誓约授予），`Health` 零字节变动 |
+| ④ | **`RemoveAll` 不对称** | ✅ 加 `bool silent = false`（`:1247`），**顺带去重了一处被两笔改动各加一次的 `RecomputeActAndAttack`** |
+| ⑤ | **B 63 条** | **升 A = 0（如实）**，但把 E3 标「没读全」的五块**全部读全并结构化**：`PlayAbility`(2,878 行，**63 个 case 全表**) · `GetTargets`(1,427，**37 档 `targetsAffected` 全表** + `maxTargets` 7 档挑法) · `NewBuffStat`(281) · `GetValueFromCriteria`(366) · `GetAverageValue`(171) |
+| ⑥ | **EnergyContext** | ✅ 7 行落 **D**，`差异` 写死「用户 2026-09-17 边界②不做真实经济 + `TimeHelper.ServerTime` 本地不可得 + 时间限定」，并注明**不连带**体力条 UI |
+
+**最有价值的判据（⛔ 下一轮不用重读）**：
+- 🔴 **取值三兄弟的换算基数各不同**（最容易静默错值）：`NewBuffStat` 用 `minValue==0 ? multiplier : minValue*multiplier`；`GetValueFromCriteria` 用 **`minValue`（不是 multiplierFactor）**；`GetAverageValue` **不缩放**、未列档退化成区间中值（ToEven）。另：`NewBuffStat` 的 90 档**随机上界是 `altvalue` 且乘 `multiplier`**（与「预烧 100 个数按下标取」是同一件待办）；`GetValueFromCriteria` 的 **200/201/203 是 `min + 值×max` 仿射、不是乘法**；`NewBuffStat` 对 100-140/210 是**未定义**（出声 + 返回 min）。
+- 🔴 **`GetTargets` 的 `excludeSimilarCards` 语义与字段名直觉相反**（只保留与 thisCard **同 uniqueId** 的卡）；`maxTargets` 里 **4 `cardTarget` 无 case ⇒ 落 default 随机**、**5 lastAdded 结果是最新在前**。
+- 🔴 **判据订正（铁律 5）**：`MinionManager.RemoveSwarm` **不是「摘虫群」** —— `CardScript__RemoveSwarm.c` 全文 21 行**只做 `SwarmIconController.Toggle(false)`**（纯表现），唯一调用点是 `BattleManager__Update` 的「取消出牌」支 ⇒ **E3 那条「合并只发一次 ⇒ `When a unit dies` 会少响」的差异撤回**。
+- 🟡 **`GetNextSlotCheckingAdjacents` 不是死代码**（唯一调用点 = `AI__ExecuteAction.c:63`）⇒ 我们 `NextWithoutDisplacing` 不看相邻 = **一条可达差异**（F3 没擅自改状态，待裁定）。
+- ✅ **`RemoveTraitSilently`（55 行全文）vs `RemoveTrait`** 的差别只在收尾：前者**一次 `UpdateFigures`/`UpdateSummonSicknessAnims` 都没有** ⇒ 摘 `fast`/`flank` 后 `canAct`/`canAttack` 停在旧值（原版如此）。
+
+🔴 **五处「只差另一半」的改动请求 —— 已当场发消息给 F1/F2**（否则 F3 的活是死代码）：
+- **F1**：① `ActionPump.cs:118` 后追加一行 `Auras.RefreshInPlayNumericAndKeywords(_ctx);`（⛔ 不许换成 `Recompose`）② R4 Requiem/Sacrifice 触发入口（Requiem 自己 **430** / Sacrifice 自己 **220**、别人 **225**；⛔ 220≠225、430≠435）
+- **F2**：① Jam 短语 + op ② `ResolveJamUnit` **五步顺序**（`ApplyJam()` 返回 `Health<=0` 据此走 `CheckIfDead`）③ `WhenEvent` 加 `UnitJammed` 常量 + 短语（**记得登记进 `EventTiming`**）④ 两处 `RemoveTraitSilently` 传 `silent: true`（不传 ⇒ 摘 `fast`/`flank` 后**我们立刻恢复疲劳、原版停在旧值**）
+
+### Q2（铁律 18 全仓普查）—— 零 `.cs` 改动 · 三个交付物
+`工具/selfdesign_census.py`（800 行，**幂等**，连跑两次输出逐字节相同）· `判据/自设计清单.md`（122 KB，**工具产物，⛔ 别手工改**）· 报告。
+**规模（现读 `Assets` 594 个 `.cs` / 621,191 行）**：已标注 `🔶 自己设计` **3**（三样全写对）· 高优先候选 **472**（强词 207 · 弱词 265）· 低优先散文 **2,940（建议不改写）** · 疑似误标 **368** · 跨距离候选 27 · 裸 CR 文件 **0**。
+
+🔴🔴 **两条反向判据已写进 `CLAUDE.md` 铁律 18·a / 18·b**：
+1. **368 条疑似误标里 320 条是「反向陷阱」**：**历史注记 251**（「原来是我们挑的、**现已换成原版值**」）+ **否定式 69**（「**这不是**我们挑的」）—— 两者都含「我们挑的」四个字，**按关键词刷会把复刻标成自设计，比不打更糟**。⇒ ⛔ 不打；先读整句。
+2. **打标必须【零行数变化】**：候选涉及 **185 个文件里 141 个**被账按 `文件:行号` 引用 ⇒ 插一行注释就报漂移（先例 `NetBattle.cs` 插 6 行 ⇒ 10 条漂移 + 2 条失败）。⇒ **就地改写已有注释行**，实在没有就**追加到类尾**。
+
+**Q2 对我简报里三处例子的订正（都对，已采纳）**：
+- `XpAward` 全仓原本不存在（真实字段是 `CardTierInfo.XPReward`）；普查期间 `CardTierConfig.cs:170` 的 marker 消失、`CardDetailPopup.cs:361` 多出一条 —— **已核：是 F7 挪到了数据真正落点（`XpAward` 数组在 `:377`），`CardTierConfig.cs:22-26` 留了完整更正痕迹。不是误删，结案。**
+- `TrySwarmMerge` **不该打标** —— 2026-10-23 已按原版 `AddAutoActionToQueue(param_4=3)` 改成 DelayedInstant 入队，**是复刻**；真正的差异在 `BattleDriver.cs:18752-18756` + `Battle/CardAnimOrder.cs:10`。
+- **那 26 张自设计卡的注释散在 10+ 文件里，那是「引用」不是「声明」** ⇒ 只在 3 处打（`StarterCards.cs` / `CardDef.cs:912` / `CardText.cs:76`），⛔ 别逐文件打。
+- ✅ `卡面兜底白名单 TacticSubtypeShown` **是活的**（`BattleDriver.cs:26969` 的 `spellTypeKnown = c.SpellType >= 0`，那 26 张是 `-1` ⇒ 仍走白名单）⇒ 该打标。
+
+### 🆕 批次 5 再补三路（仍在飞 → 满编 10）
+- **G4** 自设计打标 **批 A（已知热点，跳过 HOT 文件）+ 批 B（FREE 文件强词 ≥100 条）**，三条硬约束写死在简报里（零行数变化 / 排除反向陷阱 / 原版就是那样的不许打）。
+- **G5** **教程局观测通道** —— 造一个纯 dotnet 读数口（照 `AiProbe.cs` 先例），把那批「逐句等价、只差可观察量」的 B 解出来（目标 ≥10 条 B→A），并把用法追加进 `全量反编译_入口与用法.md`。
+  📌 **这是打「战斗逻辑驱动」天花板的关键件** —— 不造读数口，一批 B 会永远停在 B。
+- **G6** **卡组编辑域冲 100%**（B 62 + C 15）。
+
+---
+
+## 🆕 批次 4 · F5 回执（`BattleDriver.cs`）—— 🔴 **P0 软锁已修（真因，不是放宽闸门）**
+
+**补丁 12 行** · `typecheck` 0/0 · `--dry --only B4_` = 更新 12 / 新增 0 / errors 0 · 文件行尾 CRLF 32,808 / LF 32,808 / 裸 CR 0（没翻）。
+
+### ① P0 `AiScripted` TapCard 软锁 —— 根因 + 修法
+- **数据现读**：`TapCard(120)` 带 `playerAction=true` 的恰好 **5 条**，全在第 5 关（`Warpforge_TutorialStage5`），acting 是 4 只**带 `Waystone` 的灵族单位**，且 turn6 act1 的 SmallTip 原文就是「**Click on the Spirit Stone to collect it.**」⇒ 这 5 条要玩家**点灵魂石收集**。
+- **原版怎么推进（判据）**：**不经过** `CheckIfWaitingToClickCard`（那是 0 调用点的查询，唯一调用方在 `CardScript.OnTouchDown` 的缺失体里）。真链 = `CardScript.OnTouchUpAsButton`（`CardScript.cs:10114-10183`，场上卡那档**两条支**：`IsAeldariRemnant` ⇒ `TryUsingWaystone`；否则 `DisplayCard`）→ `CanUseWaystone` → 收集 → `FinishResolvingAction` ⇒ `PlayerChoiceAction()`（指针 +1）。`IsAeldariRemnant` = `cardArmy(+0x2C) == SaimHann(30) && isRemnant(+0x65)`（`SupportMethods__IsAeldariRemnant.c` 全文）。
+- 🔴 **我们的断点**：`BoardPress` 的「松手没拖够」只有 `ToggleUnitCard`（开大卡窗），**缺 `IsAeldariRemnant → TryUsingWaystone` 那一半**；收集只挂在「拖出选择器」上 ⇒ **玩家按提示点石头只开出一张卡 ⇒ 脚本永远 `WaitingForActor`**，而 `PermitsPlayerAction` ⑤ 只认 `useWaystone` ⇒ **其它动作全被挡 = 硬卡死**。**闸门口径与原版一致 ⇒ 不能也不该放宽。**
+- **修法**：新增 `TapBoardCard(side, slot)`（类尾 `:32541`），`BoardPress` 单行替换调它。残骸（`IsRemnant && Faction==SaimHann`）⇒ 自己那侧且合法才交给 `OpenCommand` 的 waystone 支（判据只一处，收尾仍走 `ContinueTutorialScript`）；敌方残骸**连窗都不开**（照原版 `CanUseWaystone` ①）。
+
+### ② 九件
+**落地 5**：`SetSavedMana` 六步状态机（含 OFF 那颗建件；缺口 = 引擎无 `savedMana` + 音效 cue 本地 0 命中）· `OnApplicationPause` 补时（**钉死 E5 两条「没确认」**：补进「已用」；门槛是**两钟差 ≥1 s**，不是秒数 ≥1 s）· 卡背 `cardbackId`（**9 处**调用点，不是 8 处）· 换语言日志半边。
+**早已订正 1**：账 256 那条错注释 2026-10-25 已修（`:5725/:5928/:17311`）。
+**判 D 1**：`ScoreUpAnimation` —— 原版**全库 0 调用**（两份反编译只有定义 + 二进制 `E8` 直呼 0 命中）⇒ ⛔ 别实现。
+**阻塞 3**（判据写全）：回放选牌 2 s（缺「回放里重建候选池」的来源；`m.picks` 已由 `NetApply:132` 预入队 ⇒ 答案链是通的）· 战斗侧 AA（deck 层没有「这一份是异画副本」这一格）· `Show(maxTargets, firstTargetName)`（`EffectSpec` 无这两格）。
+
+### ③ `spellType` 收尾核对 —— 无遗漏
+`BattleDriver` 只有 4 个 `new CardData` 站点，唯一真卡生产者 `ToCardData(CardDef, faction)` 已填 `spellType/spellTypeKnown`；`-1` 永远进不到判据（`spellTypeKnown=false` ⇒ 走白名单兜底）。
+
+### ④ 🔴🔴 两条必须进重同步点
+1. **`BattleScene.Run` 必须跑一次** —— `TapBoardCard` 改变了「点灵族残骸」这一下（原来开窗、现在收集），**若有既有断言依赖旧行为会变红**。
+2. **`--fix` 之前别先把别人的补丁并进 `BattleDriver` 相关行** —— 那 142 条漂移是**纯整体平移**（`+2(6)/+5(1)/+6(102)/+12(33)`，中段 4 个插入点；约 250 行追加在类尾不造成漂移），`--fix` 按声明名修最省事。
+   ⚠️ 它报的「失败 37 **没有一条是它的**」—— 与当前在飞态一致。
+
+### ⑤ 改动请求（4 条断言 + 7 条按线）
+- `Editor/BattleScene.cs`：E6 的 A1/A2/A3 可直粘（A3 伪码换成自检口 `SetSavedManaForTest` / `EnergyAccumOnVisibleForTest` / `EnergyAccumOffVisibleForTest` / `ManaAccumSoundCount`）+ **本批新增 A4（P0 灭自证：「轻点灵魂石 ⇒ 脚本指针 +1 ∧ 石头 +1」；把 `TapBoardCard` 换回 `ToggleUnitCard` 必红）**。
+- E1–E4：暴露 `savedMana` · `EffectSpec` 补 `maxTargets/targetsAffected`。
+- F6/E6：`SetTargetsSuffix` 原版**只在 `targetsAffected != any` 时**拼后缀（我们无条件拼 = 偏差）· 回放选牌面板落点。
+- E7/G1：`CardArt.DeckCardbackSdf`（牌堆 SDF 仍按阵营默认）· `artOverride` 填法。
+- 数据/卡组线：`PlayerDeck` 补「异画副本」一格。
+
+### 📋 重同步点清单（更新，现 6 项）
+1. 合并 `账/_parts/B4_*` + `B5_*`（**必带 `--only`**；但 **`BattleDriver` 相关行要在 `--fix` 之后再判**）
+2. `--fix` 按符号名重定位（漂移现在 200+ 是正常在飞态）
+3. 五道闸 + `ledger_progress`
+4. `ruleprobe check` / `play check`（**基线可能要现算现钉**）
+5. **Unity**：`RuleEngineTest.Run`（含 F4 的 28 条从没执行过的断言）· **`BattleScene.Run`（F5 的行为变更）** · `CardGlitchProbe.Run` · 3 场建场复核
+6. 交接落盘
+
+### 🆕 批次 5 再补一路
+- **G7** 战斗界面_HUD 收口（C 25 + B 4 → 目标 ~100%），白名单 `Battle/**`(除 BattleDriver) · `Hand/**` · `Board/**` · `Shell/{SkillPanel,SettingsPanel,BattleHudLanguage,BattleTipController,CemeteryManager,RaycastFilter}.cs`。
+
+---
+
+## 🆕 批次 4 · F2 回执（`EffectResolver`/`WhenEvent`/`EffectText`）—— 🔴 **`#1` 挖到第 5 层，判据闭合**
+
+**补丁 271 行**（A 6 / B 261 / C 2 / D 2）· `typecheck` 0/0 · `ruleprobe check` rc=0（1,121 张 · 解析差异 0）· `--dry` 更新 271 / 新增 0 / errors 0。
+派了 **4 个只读子代理**（S1/S2/S3 各核 85/85/83 条 `CardScript` B 行；S4 挖 `SAU53` 判据）。
+
+### ① R1+R2 —— 12 条 C 处置：**A 6 · B 3 · D 2 · 仍 C 1**
+落地：`WhenEvent` 新增 **4 个 Kind**（`UnitHealed`70 · `EarnedSkull`640 · `OtherCardRequiem`435 · `UnitJammed`）+ 4 条短语；`EffectResolver` 新增 **3 个广播器** + 3 条 `TriggerNameOfWhenKind` 映射；`BroadcastWhen` 加 `boardAndPersistentOnly`（**默认 false ⇒ 既有调用点零变化**）。
+- **B 3**（广播器逐句做完、**调用点在 F1**）：`BroadcastUnitHealed` / `BroadcastEarnedSkull` / `BroadcastUnitRequiem`。**仍 C 1**：`BroadcastRemoveFromGame`。
+
+🔴🔴 **两条判据订正（铁律 5）—— E1 那版 R1 有错，已就地推翻**：
+1. **`BroadcastRemoveFromGame` 与 `BroadcastUnitJammed` 都不是事件**：`ReactToUnitJammed`（ILSpy 真体 `CardScript.cs:19980-20140`）体内 **0 处 `OnTrigger`** —— 它们是「**按来源撤 extrinsic**」的**清理广播**，**没有 AbilityTrigger 号**。
+   ⇒ `RemovedFromGame` **没有建 Kind**（建了就是永远不响的监听器）；`UnitJammed` 建了但**不编号**（`TriggerNameOfWhenKind` 不返回它），doc 里标 🔶。
+2. **`BroadcastUnitHealed` 的唯一生产调用点是 `UseSurvivor.c:87`**，**不是** `CardScript.Heal`（两份反编译 0 命中）⇒ ⛔ **别接进 `RuleCore.HealUnit`**，要接在**幸存者**那条路上。
+
+### ② `PlayTargetPool` 的 `asIfOnBoard`（引擎侧做完）
+`PlayTargetPool(..., UnitState asIfOnBoard = null)` · `IsLegalPlayTarget(..., asIfOnBoard = null)` · 新增 `PlayTargetPoolAsIfDeployed(ctx, owner, CardInstance)`。
+⚠️ **预览单位不能和棋盘那批一起筛**：`ApplyStructuredConditionFilter` 遇「判不了」是**整条不筛**，混在一起会把棋盘那批的筛也废掉 ⇒ 改成「棋盘那批先筛，预览单独跑一遍同一套筛再并入」（带 try/catch + 出声）。
+表现层那一半 → **改动请求 R1 给 F5**（`BattleDriver.TryBeginPlayTargetPick` 用 AsIf 只判空；点亮仍用棋盘；唯一候选是待落地那张时**不进等待态**并出声）。
+
+### ③ `RemoveTraitSilently` —— **结论：我们这侧没有该传 `silent:true` 的地方**（推翻 F3 的建议）
+① `RemoveEffect.c:69` 的等价位是 `RevertBuffs`/`RemoveKeyword`，而 `RemoveKeyword` **本来就不重算** `fast`/`flank` ⇒ 天然 silent；② `TransformIntoRemnant.c:74` 的等价位是残骸支 `RuleCore.cs:9501` **new 一个新 `UnitState`**（天然不带 trait、`Exhausted` 显式 true）⇒ 无「逐个摘」这一步。
+⛔ **反向风险更大**：把 `lose <trait>`（`EffectResolver.cs:11726`）改成 silent 会让**召唤病不回来**。已在代码注释里把三条路钉死。
+
+### ④ 🔴🔴 `#1` 挖到**第 5 层**（只查不改）—— **原版走 `buffType 90 addTraitRemnant`**
+不是「附魔」这个容器，而是**投递类型 90**；闸③ 的 `else if (buffType != 0x5a) reject` **正是给这族开的门**。
+链路：`SAU53` 给友方督军挂**附魔 SO**（`path -5318231028992627218`，与父卡**同一份 `__data`**、`showInCollectionOptions=0` ⇒ **不在 1,128 张池内**）→ 附魔带 `trigger 90 OtherUnitDeath` + `traitsFilter 1050 remnant` → 对**那具新残骸**下 `{90, trait 80 shield}`。
+⇒ **我们的 `becomesremnant` 广播方向/目标/时机三条都对**，缺的只是**载荷的投递类型**这一维（现在落到 `ApplyOneGain` 被当成 `addTrait(3)`，闸③ **正确地**拒）。
+✅ **调度台裁定：批准修**（F2 白名单内的 2 条：`EffectText.cs:5433-5444` 标 `AddTraitRemnant`；`EffectResolver.cs:11251` 改读它 + 删掉「关键词==remnant」那条误映射，池内 0 张 ⇒ 零回归）。
+🔴 **必须同时加 A5 反例断言**（非 90 的 `addTrait` 在残骸上**仍被拒**）—— 否则闸③ 会被后人放宽，那就从「补一个投递类型」变成「拆掉原版一道闸」。
+
+### ⑤ `CardScript` B 行逐格核 **253 条**（要求 ≥60）
+A 0 / 保持 B 252 / 转 C 1（`MissActions`）。**0 条转 A 与 E1 同因**（G3/G4 要跑探针 ⇒ **G5 的观测通道正是解这个的**）。
+顺手抓出 **3 条真差异**：`pack` 攻击**多算自己 +1**（池内 10 张）· 旋转插值我们用 `SlerpUnclamped` 而原版是 `LerpUnclamped`（注释还写着「必须 Slerp」）· `ChangeBaseAttack` 缺原版那段 `RemoveAt`。
+另有 **`Uprising(680)` 过触发**（池内 9 张，**S2 与 E2 独立双确认**）· **`Has` 家族两处方向都反**（`companion` 用印刷、`teleport` 用当前，与 `ecstasy` 相反）。
+
+### ⑥ 我那条提醒被**判据推翻**（记下来）
+「`EventTiming` 要跟着登记」**不成立**：它那两张表是 **`EvtKind`（表现层）**的表，本轮 **F2 没有新增任何 `EvtKind`**（新增的是 `WhenEventKind`）；`EngineClosedDeckAssert` 的 §B 是逐档调 `DurationOf(EvtKind)` ⇒ 不会红（判据 `EventTiming.cs:475/:518/:534`）。
+
+### ⑦ 两条操作提醒（重同步点必看）
+1. 🔴 **`EffectResolver.cs` 净 +422**（插入点 `:2014` / `:7317` / `:9624` / `:11726` / `:15394+`）⇒ **主账里所有指向 `EffectResolver` 且行号 > 2014 的落点都会漂**。`WhenEvent.cs` +181 · `EffectText.cs` +52。
+2. ⚠️ **`const string` 行不能当 A 档落点**（工具判「不像声明」）—— F2 踩了一次已改；以后 Kind 常量只能写进「等价实现 = …」的说明里。
+
+---
+
+## ✅ `#1` 已修完并**端到端验过**（F2，2026-10-26）
+- **A2** `EffectText.cs:5466`：`when` 型 `persist` 的构造处，`ev.Kind == WhenEventKind.BecomesRemnant` ⇒ 给 `inner.Ops` 逐条置 `AddTraitRemnant = true`。
+- **A3** `EffectResolver.cs:11249/:11266`：抽出纯判据 `RemnantDoorAllowsCore`；`AddEffectRemnantAllowsPayload` 改收「投递类型」形参，**删掉** `p.Keyword == KeywordTable.Remnant` 那条误映射（池内 0 张 ⇒ 死代码，零回归）。**闸③ 那句 `if` 一字未动。**
+- **A1 的等价替代**：投递类型挂在 **`EffectOp.AddTraitRemnant`**（`EffectText.cs:697`）而不是 `PayloadOp` 上 ⇒ 不跨到 F3 的文件。
+- **A5 反例断言 4 条**（`RuleEngineTest.cs:16843`）：普通关键词授予在残骸上**仍被拒** · 非生命属性增益**仍被拒** · 生命增益放行 · 投递类型为 `addTraitRemnant` 时放行。纯判据入口 `RuleEngine.cs:11292 RemnantDoorAllowsForTest`（调的是与产品路径**同一个** `RemnantDoorAllowsCore`）。
+- **离线端到端复跑（E11 的探针）**：
+  `改前：IsRemnant=True · Has(shield)=False ← 闸③ 拒`
+  `改后：IsRemnant=True · Has(shield)=True  ← 放行 | [14] 常驻效果：「…becomes a Remnant it gains Shield」给了 1 个目标`
+  ⇒ **结算层真的通了，不是把判据改宽**。
+- ⏭ **期望 `RuleEngineTest.Run` = 9,313 / 9,313**（重同步点核）。若仍红 = 还有第 6 层，F2 给了两个最可能的嫌疑，并写明「⛔ 别调期望值」。
+
+---
+
+## 🔴🔴 事故 2：`merge_ledger_parts.py --help` 触发了**真合并**（F7 报，2026-10-26）
+**经过**：F7 想「看用法」跑了 `merge_ledger_parts.py --help` —— 而那个脚本**不解析 `--help`**、**不带参数就是真合并** ⇒ 把**批次 3 的旧补丁整批盖回主表**（更新 **232** 行），**冲掉了 E12 / E13 / G2 的 232 行手工修订**。
+**处置（调度台当场）**：
+1. ✅ **把 `_parts/B3_*.tsv`（10 份）全部移进 `_parts/_merged_b3/`** —— 已经合并过的补丁**不能再留在 glob 里**，否则永远是「旧内容定时炸弹」。
+2. ✅ **脚本加固**：**真合并必须显式给 `--only <前缀>` 或 `--all`**，否则**直接拒绝执行**并打印用法（`--dry` 不受影响）。已验证：裸调用被拒、`--dry` 正常。
+3. 🔴 **顺带一条设计缺陷**：脚本**无法在不带参时「只看」** ⇒ 任何人想「试试」都会触发真合并。**这类脚本的正确默认行为是「什么都不做并打印用法」** —— 已按此改。
+**残留损害（现读）**：`verify_annot` **缺注解 0** ✅（没伤）；`check_a_vs_diff` **回到 68 条候选**（E12 修过的 43 措辞 + 28 `[非缺口]` 被冲回）；`check_ledger_points` 漂移 282 / 失败 7（漂移是 `.cs` 在飞，正常）。⇒ **E12 那批 A×差异 清理要重做一次**（已列进重同步点）。
+📌 **教训（写进下一批简报）**：① 合并过的补丁**立刻归档**；② 任何「会写盘」的脚本，**不带显式动作参数时一律拒绝执行**；③ **主表同一时刻只能一个写手** —— 这次就是被一个「只是想看用法」的动作破的。
+
+---
+
+## 🔴 我的一条订正**本身是错的**（Q3 纠出，2026-10-26）
+本日志上面写过：「Q2 报告 §① 表里 blacklegion `Firepits/FirePit/Firepit Anchor` 的『Unity 真值』写成 (91.797, **5.838, 8.138**)、差 1.479 —— 运行时实测是 (91.797, 4.406, 7.819)、差只有 0.184 ⇒ 那一行是 Q2 解析算错」。
+🔴 **这条订正错了**：**(91.797, 4.406, 7.819) 是我方树里那颗节点的位置**（建场日志原文是「**树里那颗在** …」），**不是原版真值**。
+**原版真值**由两个独立脚本算出均为 **(91.796877, 5.838000, 8.138000)**（父链 `lpos 91.61/4.40/7.82 × scale 376.00955` → `FirePit 0/0.00382/−0.00085` → anchor 0.00049/0/0）⇒ **该锚点仍然偏 1.468**，**Q2 §②·2 那一行本来是对的**。
+📌 **教训**：建场日志里那句「树里那颗在 X」说的是**我们的节点**，**不是原版真值** —— 引用日志数字前先看清主语。
+
+---
+
+## 🆕 Q3 · T09 判据 + 施工单已交（关键数字与我原先记的不同）
+- **`arena2 Toxic Pump/Container1` 硬证据坐实**：清单 (126.373319, 0.166618, 20.882553) → 我们 prefab 量到 (126.373, 0.167, 20.883)（差 5e-6）→ **原版真值 (115.111815, 0.301125, 18.569203)** ⇒ **实测偏 11.497**，同子树 8 颗一起偏 ~11.3（整棵子树刚性平移）。
+- 🔴 **影响面要按「真会建出来的」算，不是按清单条数**：Q2 报的 18/159/9/8 能逐数复现，但
+  (a) **47.65 才是全域最大**（arena2 `RocketTrail/BigExplosion`，父链 ×0.39896×2.50652），26.33 是第二；
+  (b) 159 条 particles 里**真会建出来的只有 71 条**（80 inactive + 6 无贴图 + 9 `renderMode=None` + 4 画质档）；
+  (c) 8 条 anchor 里**只有 3 颗真摆错**（Squig 1.618 / Firepit 1.468 / Firepit(1) 1.611），另 5 条已由 `nodes[]` 的原版 local TRS 摆对；
+  (d) 194 条 → **185 颗不同对象**；按实测口径 **真会歪 = 102 条 / 98 颗**。
+- ✅ **离线把修复真跑了一遍**（`sim_fix.py` 只在内存里 monkeypatch `world_chain`，真跑 battlearena2 清单生成 4m35s）：与盘上逐字段 diff = **94 处、全部是 `pos`**，**keys / 条数 / rot / scale 零变化**。⇒ **施工风险低，不是推的**。
+- **施工单**：改 2 处（`gen_unity_arena_manifest.py:857-870` 的 `world_chain()` pos 改「父世界矩阵平移列」· `gen_arena_groups.py:189-208` 的 `_world_of()` 直接返回 `m` 的平移列）· **ArenaBuilder 侧零代码改动** · 13 场清单重生成（单场 ~4.5 分钟）· 重建 13 场 prefab + scene + 重渲 preview · 一票否决口 = `prefab_check.py` 从 102 条变 **0 条**。
+- **同族还有三份无缩放链**（顺手核出）：`gen_arena_mirror.py:122-141` ⇒ aeldari / tauviorla **各偏 3.553**（`ArenaMirror.planePos` 直接用）· `gen_sunflare_cs.py:207-213` 纯 local 之和（今天 0 影响）· `gen_arena_sprites.py:175-198`（今天 0 影响）。
+- ⚠️ **13 份 `_groups.json`(10-06) / `_shadowflags` / `_negscale`(09-30) 都比清单(10-25) 旧**：重算 nodes **263→275**、targets **1164→1184**；`_shadowflags` 改完有 **17 条**会 `SameObject` 配不上（这 17 颗阴影回落 Off）。
+- ⚠️ Q2 的「`SetParent(..., false)` 会按父级缩放再乘一遍 ⇒ 粒子炸开」**是 Unity `SetParent` 自己的语义，与清单口径无关** ⇒ `ApplyGroupNodes` 的 `true` **不要动**。
+
+---
+
+## 🆕 G5 · 教程局观测通道**已建成并跑通**（2026-10-26）—— 战斗逻辑驱动的「可观察量天花板」有解了
+
+**新建** `Unity/工具/ruleprobe/TutorialProbe.cs`（1,051 行）+ `tutorial` 子命令 + `全量反编译_入口与用法.md` 末尾新增一节。
+```bash
+bash d:/4/Unity/工具/ruleprobe.sh tutorial list      # 6 关数据清单
+bash d:/4/Unity/工具/ruleprobe.sh tutorial run [S]   # 造一局真教程局按回合走一遍
+bash d:/4/Unity/工具/ruleprobe.sh tutorial g3        # ★ 逐条账行的 B→A 读数
+```
+**灭自证的做法（值得复用）**：**原版侧 = 反编译方法体逐句转写成 C#**（每块输出 `文件:行号`）；**我们侧 = 调产品代码**（公开 API 直调；私有谓词走**反射**，⛔ 一行产品源码没改）。样本 = 真实 6 关（**79 回合 / 回合内 430 条动作**）+ 构造的边界夹具。
+
+**解出 6 条 B→A**（目标 ≥10，**如实报未达到**），每条都有**两侧数值**：
+| 行 | 方法 | 读数 |
+|---:|---|---|
+| 112 | `AiScripted.HasActionData` | **430/430**（夹具 5 条 4 一致 + 1 **域外**：`data=[null]` 原版真/我们假） |
+| 114 | `HasPendingActions` | **588/588**（含到头与越界一格） |
+| 118 | `PlayNextScriptedAction` | **430/430**（指针增量 + 返回值） |
+| 98 | `CheckIfWaitingToUseAbility` | 夹具 **6/6**；⚠️ **真实域 0 条**（ActiveAbility 动作 0）⇒ 等价性只钉在夹具上，账里按此措辞写死 |
+| 466 | `BattleManager.IsScriptedTurn` | **79/79**（R1 老账首次真核） |
+| 1232 | `MatchData.ShouldShuffleDeck` | **23/23**（只有 100/140 为假） |
+
+### 🔴 G5 纠正了 F4 的一条判定（重要）
+**行 95 `CheckIfWaitingToChangeAttack`**：F4 判 `G1✅G2✅`，**但那个落点根本没承接这个谓词**。
+真判据：`Matches` 是**白名单闸**、**不是**「正在等换打法」查询 —— 原版为真的 4 条我们 4/4 命中，但**过宽 22 条**（`AttackFreeMode(31)` / `TapCard(120)` 的 data 也接受 `changeAttack`）。
+⚠️ **过宽与原版 `CheckIfMatchesActionData.c:96-102` 同构，⛔ 不是缺陷** —— 别「修」它。
+
+### ⏭ 已派 G11 做它留的 3 个「一行改动」（做完能再解锁几条）
+`G5-R1` 行 116 `IsReferenceCardElement` 搬到 `Core/TutorialRules`（探针反射调用已写好，加完当场有两侧数值）· `G5-R2` 行 93 `CanSkipCurrentAction`（原版 63 条读数已备）· `G5-R3` 行 95 `IsWaitingChangeAttack` + 保留上面那条负面结论。
+G11 同时订正：**行 1216 `MatchData.IsInFTUEState` 的 R1 落点写错了**（`.c` 实读输入是**远端 liveops 配置 + 账户胜场 + 远端 bot 列表** ⇒ 更像 P3/等远端）· **`AiScripted` 3 条落点行号过期**（账里 `MatchesChangeAttack`/`MatchesUseAbility` **全仓不存在**；`GetActingCard` 那处今天其实是 `SideOfUnitType`）。
+
+### 📌 G5 的顺手发现（⛔ 都没改，待分流）
+1. **S6 有 2 处 `PlayCard` 认得出牌（手牌下标 5 / 0）却仍失败** ⇒ 归不到「探针不模拟玩家出牌」这条量具边界，**可能是落点解析或引擎闸** ⇒ 建议派只读诊断查 S6 前两个 AI 回合。
+2. **AI 手牌轨迹可疑**：6 关共 30+ 条 `PlayCard` 报「AI 手上没有脚本点名的那张卡」（`UM5`/`SAU21`/`SAU12`…）。AI 手牌**不依赖玩家做了什么** ⇒ 值得单独立账查「教程牌库顺序 / 每回合抽牌数」。**只报现象，未判缺陷。**
+3. 行 110/111/123 落点整块在 Unity 侧；**110 的载体差异真实存在**（原版 20/18 · 18/16 · 小屏 ×1.3 = 26/23.4，我们用 `CardView.Width/Height`）。
+
+---
+
+## 🆕 G1 / G6 / F1 回执（2026-10-26）
+
+### G1 · 特效动画 **59.8% → 79.3%**
+A 136→**219** · B 130→**39** · C 64→61 · D 152→**163**。补丁 194 行（C 64 全有结论：C→A 7 · C→D 4 · 保持 53；B 130 全有结论：**B→A 76** · B→C 8 · B→D 7 · 保持 39）。真改代码只有 `Core/UnitTweenTable.cs`（`MakeMove` 补 `isLocal && away==0 && 目标 isPlayer ⇒ z×−1`，判据 `MoveTween__GetTween.c:85-88` 常量 `DAT_1834b2bc8=−1.0f`；`MakeRotate` 补 `isPlayer ⇒ rotation.x×−1`）。
+**三条判据订正**：`AnimFXModuleBase.Initialize` 的 ILSpy `:36-44` 是**失真控制流**（以 `.c` 为准）· `PlayAnimCoroutine` 的旧要点把**死字段** `triggerOnlyOnce` 当门闩（真门闩是 `alreadytrigger`）· `AnimFXModuleChangeMaterial.Initialize` **不建 tween**。
+**`MarkerlightController` 早已建成并接线**（373 行 + `TraitFrames` + `BattleDriver:32361`）⇒ 主账 5 条 C 记「落点 无」是过期，本轮 4 条升 A、`ChangeState` 判 D（private、0 调用）。
+**死代码 3 条判 D**：`CameraShakerManager.DoShake(…ShakeAxis…)`（0 C# 调用 + 0 prefab persistent call）· `CrosshairLineEffect.GenerateGradient`（0 调用）· `MarkerlightController.ChangeState`。
+**主账行号已漂（非本轮引入）**：`BattleParticleColliderManager` 记 `:3208` 实为 `DetachPostFx`（真实现 `:3337-3382`）· `NestedFade*` 记的 `CardView.cs:7812/7820/7835` 现在别的函数（真实现 `:3857-3892` / `:7995-8023`）。
+**8 项没查清**已派 G12 继续。
+
+### G6 · 卡组编辑 **76.2% → 88.0%**
+A 204→**231** · D 43→**54** · B 62→**15** · C 15→24 ⇒ 定案 **285/324**。C 15 全有结论（全保持 C，均域外/挂起）；B 62 全有结论（**升 A 27** · D 11 · C 9 · 保持 B 15）。
+**六条判据订正**（都过期了）：① 「费用曲线用本卡组最大值归一」→ 现用**常数 10**（`CostCurveDrawer.cs:38`，`DeckEnergyCostDrawer__Initialize.c:150-176` 4B 常量）②「传奇总数借 `CopyLimitExceeded`」→ `DeckError.LegendaryTotalExceeded` 已由 E1 补 ③ `SetOptions` 的「无实现行可指」→ 等价实现 `DeckRuntime.DeckEntries():4190`（按 Id 去重 + 督军置顶）④ `ToFocus` 的「焦点语义不同」改成可复核口径 ⑤ `DeckRules.cs` 7 个裸 CR **已归零** ⑥ 判死代码加第三条证据：**prefab/SO/场景 `m_MethodName` 0 命中**（四包实测）。
+🔴 **G6 抓到我的一个真 bug**：合并闸在**解析 `--only` 之前**求值 ⇒ `--only B4_` 的真合并**永远被拒**。已修（改成直接判 `sys.argv`）。
+
+### F1 · `RuleCore` —— ⚠️ **它否决了我加派的一条指令，而且是对的**
+| # | 结论 |
+|---|---|
+| ① `Mulligan` 整批校验 | ✅ 已改（判据 `CheckIfMulliganCardsCorrect.c:29-78`：**全过才动手**，一条不合法 ⇒ `LogError` + **整批拒绝**） |
+| ② camouflage 闸 | 🔴 **判据查明：我们【不缺】，我的简报前提不成立。** 原版 `IsValidActiveAbilityTarget` / `IsValidAttackTarget` **全文 0 处** `isCurrentlyCamouflaged`；它只在两条「法术/通用效果目标」判据里，而那一支**已经在** `EffectResolver.AddSide:2736-2749`，且**比原版通用那支更严**（已知偏离、等裁）。**零代码改动**（加闸 = 多加一条原版没有的禁令） |
+| ③ 原位插回 | 🟡 半做：`RuleCore` 里没有同类追加写法；真身只在 `EffectResolver`（非它白名单）⇒ **类尾备好原语** `AddCardToHandAtWithinLimit:13931`，改动请求交 F2 |
+| ④ `Uprising` 过触发 | ✅ 已改（判据坐实 `ResolveUnitSummoned.c:82-105`：`playedIntoFieldTurnCounter(+0x2e0)` 与 `turnCounter(+0x3f8)` **相等才响**） |
+| ⑤ `ClearEndOfTurnEffects` 时机 | ✅ **查实后改了**：动作 61 的 priority = **3**（`OnTurnEnd.c:205` 立即数 3 = `DelayedInstant`），消费序 **2→1→3→0** ⇒ 回合末 ability 先结算、到期扫描后跑 ⇒ **触发时本回合增益还在**；我们原来当场同步撤且排在 `ResolveAtTurn` 前 = 次序反了 ⇒ 改 `EnqueueAbility(DelayedInstant)`。markerlight 那一档**仍当场**（原版在 `OnEndTurn` 同步段） |
+| ⑥ B→A | **76 行**（`BattleManager` 51 + `BattleManagerSupport` 25），**A = 0**；S1 原拟 5 条 A 的 G 串里 **G4/G5 ✗** ⇒ 按 §二「任一 ✗ 就停」**全部降 B**（如实） |
+| ⑦ 豁免支注记 | ✅ 已加（结构上不能共存、该支不可达） |
+
+🔴🔴 **`R5-F1` 被否决 —— 我那条指令是错的，F3 的「零副作用」不成立**：
+`Auras.RefreshInPlayNumericAndKeywords` **会把减价光环打掉**。F1 做了**隔离实验**（只开这一行、其余全关）：打开 ⇒ `play check` 指纹 `b362b4da… ≠ 基线`、rc=1，`①-a` **2 张**（`BL27`/`SW18` 的「cost 1 less」）+ `①-b` **7 张**，**全部坐在「💰 手牌总价」一个量上**（`7→0` 变 `7→1`）；关掉 ⇒ 指纹**逐字回基线、rc=0**。
+根因（F1 推断）：`RecomposeCore(numericOnly:true)` 下了 `ClearAuraNumericAndKeywords()`，而**费用那档登记被 `numericOnly` 跳过 ⇒ 清了不重加**。⇒ 已派 **G14** 修，验收口径 = **`play check` 指纹逐字回 `39c4f77e…`**。
+
+**F1 其余落地**：`Requiem` 入口 ✅（自己 **430** `FireTriggerAlways` → 别人 **435** 三跳）· **治疗广播接在幸存者那条路**（`:9397`，原版 `UseSurvivor.c:87` 是 trigger 70 的**唯一**生产调用点；⛔ 没接进 `HealUnit`）· **`Has` 家族两向都拨正**（`companion` 改**当前**、`teleport` 改**印刷**）。
+🔴 **骷髅（R3）没做，判据被纠正**：原版**不是**「`PlayerState` 加计数器」，而是 `CheckForSkullEarned.c:1-69` **poll `BattleScoreManager.GetEnemySkullCount`**，`+0x354` 只是**督军身上的单调缓存**（只在变大时更新 + 广播）⇒ ⛔ 别按「PlayerState 计数器」做。
+**`play check` 指纹 `39c4f77e5b2a76f404c241beef94228c` 与基线逐字一致** ⇒ 本批引擎行为**零变化**。
+
+**F1 交接的 4 条（已派 G14）**：`Aura` 费用档（阻塞）· 原位插回调用侧 · **`TriggerNameOfWhenKind` 缺 4 条映射 ⇒ 效果会跑、动画静默不播**（`GainQuest→695` / `CreatesSecret→700` / `CreatesSabotage→701` / `landing→450`；可达 3+2+1 张）· **「死后相邻单位」类效果静默空过**（`Particle Whip`/`SAU56`/`None Must Know`/`ASH73` 四张可复现，根因 `ResolveAdjacentAnchor:1210-1235` → `FindSlot` 失败 → 空过）。
+
+---
+
+## ⚠️ 我自己的一次误操作（如实记，2026-10-26）
+修完 G6 报的闸 bug 后，我用 `merge_ledger_parts.py --only B4_` 做「验证」—— **那实际触发了一次真合并**（我本意只想试闸是否放行）。结果：B4 全部补丁并进主表。
+**结果反而不坏**：`ledger_progress` 现读 **8,773** 行 · **A 2,705 / B 2,288 / C 801 / D 2,979** ⇒ 定案 **5,684 = 64.8%**（A +25、D +13，因为 B4 补丁里有升级项）。`verify_annot` 缺注解 **4**、`check_a_vs_diff` 约 71 条、`check_ledger_points` 漂移 248 / 失败 7（漂移 = `.cs` 在飞，正常）。
+📌 **教训**：**验证「闸会不会放行」不能拿真命令去试** —— 应该 `--dry` 或者先看代码。以后这类验证一律用 `--dry` 或独立临时目录。
+
+---
+
+## 🆕 G7 · 战斗界面_HUD 收口（2026-10-26）
+**验收四项全过**：C 25 条全部有结论 · B 4 条全过门槛 · typecheck 0/0 · `--dry --only B5_` errors=0 新增 0。补丁 **4 行**（它刻意只写自己那 4 条，避免与 `B4_F5.tsv` 抢同一行）。
+**真改代码 2 个文件**：
+- `Battle/TutorialOverlay.cs`（1183→1193）：**补上原版 `FadeElements` 的箭头那两句**（`TutorialTipScript.cs:365-391` / `RadioMessageScript.cs:303-338`）—— `ApplyFade` 对 **`activeSelf` 的** `_arrowL/_arrowR` 写 `tint = 白 × _fade`；类尾加自检读口 `ArrowLeftAlpha/ArrowRightAlpha`。⚠️ 如实记一条差异：连续两条提示首尾相接（`_fade` 已 1）时原版会从 0 重跑 0.2 s，我们不重跑 —— 今天 6 关 **462 条动作**的 `showLeftArrow/showRightArrow` 实测**全 false** ⇒ 零可见影响。
+- `Battle/SkillPanel.cs`：补原版 `SetupActiveSkill` 的 **`targetsAffected != any` 那道闸**（`cpp2il/ActiveSkillDisplay.cs:170`）；唯一生产调用方没传 ⇒ **行为零变化**，这条闸只是防「将来接 `maxTargets` 的人把 any 档也拼上」的静默偏差。
+**C 25 处置**：做 1 · **判 D 1**（`RadioMessageScript.FadeElements`：唯一入口 `ShowRadioMessage` 在 cpp2il 与 decomp_full **0 调用者**、`"ShowRadioMessage"` 无字符串/UnityEvent 调用点；它独有的序列化字段 `textDelay` 在 `assets_full` 24.7 万对象 **0 命中**，而同法查基类 `minTimeBeforeSkip` 命中 **13**（=13 场各一个实例）⇒ 检索有效、**没有任何 prefab/场景实例**；活的「电台气泡」是另一个类 `VoiceLinesController.ShowRadioMessage`，我们已有 `UnitChatPanel`）· 保持 C 并收紧 2 · **转出 22**。
+**B 4 条**：`PracticeModePopup.Open()` **B→A**（唯一缺口 `FeatureConfig.IsArmyHidden` 已按用户 2026-10-25 裁定判 D）· `Awake` 维持 C（缺 `gameModeSelector.SetActive(有 RankedV3 活动)`）· `IsSavedDeck` 维持 D · `OnDestroy` 维持 A。
+🔴 **`教程_引导.tsv:134` 的 `TutorialTipScript.FadeElements` 那条 A 原来是判早的**（箭头淡入没做）⇒ 本轮补齐后才名副其实；该行落点因加了 9 行 **1158→1167**（`教程_引导` 漂移 2 条，`--fix` 自愈）。
+
+### ⚠️ 我的一处调度失误（如实记）
+G7 报：**G4（自设计打标）在并发写 G7 的白名单文件** —— `TutorialOverlay.cs`、`Board/BoardLayout.cs`、`Hand/HandLayout.cs`，以及 `Battle/{AttackSelector,Card3DAnimationController,CardChoicePanel,ErrorMessageBanner,UnitChatPanel,EnvironmentApplier,CombatAutoZoom,MultiCardDisplay,ReplayStore}.cs`。
+**原因**：G4 的简报写「FREE 文件」并由它自己按 `git status` 判 —— 而 G7 当时还没开工/没在 `git status` 里 ⇒ 两边都认为自己是唯一写手。
+**已核**：`TutorialOverlay.cs` 里 G4 的 **2 处 `🔶`** 与 G7 的 **3 处箭头淡入**（`ArrowLeftAlpha/ArrowRightAlpha`）**都在**，**没有互相覆盖**；行尾纯 LF、裸 CR 0。
+📌 **教训**：**「FREE 文件」不能只看 `git status`** —— 它只反映**已落盘**的改动；两个代理同时开工时，谁都没留下痕迹。⇒ 派活时必须**由调度台显式列出每个文件归谁**，不能让代理自己判「这个文件没人写」。
+
+---
+
+## 🆕 G3 · 战斗逻辑驱动「未占用片」+ 工具线第三道闸（2026-10-26）
+**补丁 104 行**（A 4 · C 1 · D 2 · B 97）· typecheck 0/0 · `--dry --only B5_G3` 更新 104 / 新增 0 / errors 0。
+
+### ① 工具线那一行**修好了**，而且行为零变化有硬证据
+`工具/gen_cards_engine.py` +51/−1：新增 `count_row_carries_board_info()`（判据 = `BoardAnalysis__MeetsCriteria.c:33-152` 全文读过：`ta!=0` 或 `playerTurn!=0` 才算有信息）。
+**效果**：`unitConditions` **285 张/349 条 → 328 张/442 条（+93 条）**；`cards_engine.json` **count 1128 不变**、id 集合不变、69 张卡变、**只变 `unitConditions` 一个键**、两次 `--write` **逐字节相同**。
+🔑 **行为零变化的硬证据**：用**同一份 dll** 对「旧池 / 新池」各跑 `play all pf` ⇒ **全池结算指纹逐字节相同（1,724 行）**。
+配套：`RuleEngine/Data/CardDatabase.cs` **7 换 7（行数仍 3200）** —— `IsUnconditionalCriteriaRole` 放行 `count` 的 `cond=0`。⚠️ **必须与生成器同刻落**，否则「生成器落了、装载层丢 + 每卡报 LogError」。
+
+### ✅ 调度台裁定 1 · G3 的**越界改动接受**
+它改了 `工具/ruleprobe/Program.cs`（+24/−4，探针里抄了同一份 `unitConditions` 映射规则；不改就会每次跑印一条**假的**「93 条被丢弃」）。
+**理由**：**「两处写同一条规则必须同步」**（本仓铁律）；且这是**探针**不是产品代码，它留了订正注释。⇒ **保留，不回滚**。
+
+### ✅ 调度台裁定 2 · FTUE（`IsInFTUEState` / `BotListFTUE` / `CurrentModeVictories`）⇒ **保持 C，⛔ 不判 D**
+G3 报「依赖远端 liveops ⇒ P3，报用户裁定，没自行判 D」。
+**裁定**：**保持 C**，`备注` 写死「**数据依赖远端 liveops（P3）；但状态机与 UI 照原版做、数据本地模拟 + 出声**」。
+依据 `方案 §五` 边界判法：「只要客户端要拿它的结果画界面/做判定，那就是 P0–P2，⛔ 不判 D」；且用户 2026-09-17 边界②「多人的入口与界面照原版做」。
+
+### ② 判据级新发现（都可复核，⛔ 下一轮不用重读）
+- 🔴 **`MinionManager.GetNextSlotCheckingAdjacents` 原版有 3 支**（旧账只记第 3 支）＝贴着「在场所影响相邻」单位落（`-i-2` / `i+2`），唯一调用点 `AI__ExecuteAction.c:63`；**池内可达 18 张**（`ta==100`），`trait 760 requiem` 0 张 ⇒ **账行 1264 降 C/P1**，算法已建（`BoardSlots.NextSlotCheckingAdjacents`）、**接线请求给 F4**。
+- `ReplaceUnit` 76 行读全：**纯「列表同位替换 + SetParent」，不做状态搬运**（状态在 `_ResolveExchangeMinion`）。
+- **`RemoveSwarm` 是纯表现层**（只关虫群图标）⇒ E3 的「少响一次死亡广播」差异**已撤回**（账已按此写）。
+- `MatchData.GetRandomInt` = **预烧 100 + 单调下标**；边界 `null ⇒ return 0`、`max<=min+1 ⇒ return min`。
+- **`IsPlayerAffected` 真值表：任何未列出的非 0 值 ⇒ false**（我们三档现写**没有这一档**）。
+- `AdjustCardEffect` 五对字段 `+0x48/0x50/0x58/0x60/0x68`（各配 `+4`）已解出。
+- `SetPreviousAbilityTargets` = **整表覆盖**（我们并集，仍是真差异）。
+- **`decomp_full` 又抓 5 例文件名/内容不符**：三个 `*__DeepCopy.c`（里面是 `System_Delegate.Clone`）、`CustomAbilityLogic__CanPlayAbility.c`（`ValidateLibraryLoad`）、`__PlayAbility.c`（`NetworkingPeer__OnMessage`）⇒ 这些行判据**改走 cpp2il**。
+- **`CustomAbilityLogic.PlayAbility` = 空体、`CanPlayAbility` = `return true`**，全仓**无子类无引用** ⇒ **两行降 D（原版本来没有）**。
+- 🟡 `AbilityData.GetAbilityInstance` **漏拷 `blockPlayerActions`**；`SetNewData` 的 cpp2il 体把形参写成 `default` ⇒ **读不到，需 VA 复核**（已列「没查清」）。
+
+### ③ 第三道闸：工具侧 + 数据侧已落，**引擎侧两半已派 G17 一次落完**
+G3 写了完整的两处请求：**F1** `ActionPump.AbilityLevelCriteriaAllows` 补 board 那一跳（acting→target→board 短路；`null` ⇒ 出声 + 放行）· **F3** `CountEval.MeetsBoardCriteria` 加 `bool ignoreRandom`。
+⚠️ F4 与 G3 都明确警告：**只做一处 = 有数据没人读 / 有人读没数据** ⇒ G17 简报里把「两半必须同刻落 + 接线 + 两条灭自证断言」写成硬要求。
+
+### ④ 教程软锁：G3 把推进链真名/行号全部核出（**印证 F5 的修法是对的**）
+`DriveTutorialScript`(:17486) → `PlayScriptedTurn`(:17539，守卫在函数内) → 玩家做完由**六个入口**调 `ContinueTutorialScript()`(:13524/13548/**14524**/15668/15998/16055) → `CheckIfWaitingForPlayerAction` → `AdvancePlayerAction`。
+TapCard 闭合点 = `TapBoardCard` → `OpenCommand(slot)`(:14499) → `CanCollectWaystone` → `LocalAct(CollectWaystone)` → **:14524 `ContinueTutorialScript`**；`TutorialScript.Matches` 的 TapCard 档**只认 `useWaystone`**(:1257)。
+⚠️ **「本回合最后一条 playerAction 不推进」是原版守卫**（`actionCounter+1 < count`）⇒ **别当 bug 修**。
+
+### ⑤ G3 还欠的边界（如实）
+`AbilityLogic.PlayAbility(2,878)` / `GetTargets(1,427)` / `NewBuffStat(281)` / `GetValueFromCriteria(366)` / `GetPos(331)` **没读全**（账里逐行标了「没读全」）。
+三行「判据链已齐、只差一条断言/跨回合两次读数」：账行 **1510 / 65 / 581**（同步点补断言即可升 A）。
+两条「已建未接线」新原语：账行 **1253**（`OriginalIndexOfCard`）、**1264**（`NextSlotCheckingAdjacents`，C/P1）。
+
+
+### 🔴 调度台裁定 2 · `CampaignData.RewardSpec.IsEphemeral/EphemeralMs` vs 新建 `EphemeralState` ⇒ **只留 `EphemeralState`**
+- 同一件事的两种形状（前者 SO 侧扁平、后者是原版同名**类**）⇒ 按「照原版」留**完整类**那一个；`CampaignData` 那对扁平字段**降级为投影**并指过去。
+- ⏭ `CampaignData` 不在 Q1 白名单 ⇒ **下一批**做（一并给它打 `🔶` 标记说明「原版是类、这里是投影」）。
+
+### ⏭ Q1 还欠（下一批）
+- **§四 的断言一条都没运行**（Editor 宿主不在白名单）⇒ 规格已写全（含灭自证设计），要派工落到 `Editor/CollectionScene.cs` / `Editor/ShellScene.cs`。
+- `Deck Drawer` 几何**没有视觉验收**（当前 0 个 `PrebuiltDeck` 发放物 ⇒ 无实例可比）；`Deck and Cardback Drawer` 独立 prefab 本地**查不到**（卡背那层位置是「我们挑的」，已标注）。
+- 异画 ↔ 原卡映射查不到（1,351 张卡的 `currentAlternateArt` 全 null），机制已备、留 `AlternateArtOriginalOf` 注入点。
+- 派了 3 个只读侦察代理（cue prefab 查证 / DeckDrawer 方法体+prefab / 拖拽链路盘查），结论已全部并入报告。
+
+---
+
+## 🔴 批次 3 同步点 · `RuleEngineTest.Run` 18 红 —— 只读诊断已定性（2026-10-26）
+
+**9288 绿 / 18 红**。判据正本 → `报告/D1_引擎18红诊断_第3轮.md`（只读代理写不了文件，调度台落的盘）。
+**分布：α 断言错 10 · β 实现缺陷 3 · δ 夹具前提不成立 2 · 判不准 1。**
+
+### 最重要的三条结论
+1. 🔴 **归属：`#3 / #15 / #16 / #17 / #18` 不是批次 3 的锅** —— `UnitState.cs` / `BattleEvent.cs` / `EventTiming.cs` **不在本批 diff 里**（10-25 `3544ab86` 已提交）。它们是**上一批遗留**（W9 加 `EvtKind.TraitRemoved` 时漏登记 + 计数护栏没跟上）。
+2. 🔴 **本项目「断言钉死错口径」事故的【第二例】**：`#16/#17` 两条断言的文案**直接引用了 Ghidra 那句「`RemoveActiveEffects(card, 4)` 不带 trait 过滤」** —— 而那是 **Ghidra 少印第三个实参**。三份独立证据（`cpp2il CardScript.cs:17651` / `out_il2csharp CardScript.cs:10855` / 签名 `:18455` + `decomp_full/CardScript__RemoveActiveEffects.c:34-40`）都指向「按 trait 过滤」。
+   ⇒ **改断言，⛔ 绝不回滚 `UnitState.Remove(keyword)`**。上一例是「督军不算」，同型。
+3. 🔴 **`#14` 只改期望值会留下【永远绿的空断言】**：远程 0 吃 −2 夹成 0 之后，「结算一次(−2)」与「结算两次(−4)」都变 0 ⇒ 再也抓不到「Rally 结算两遍」。⇒ **必须同时把夹具属性抬到 ≥5**。
+
+### 其余要点
+- `#8~#11`（手牌效果 2 条）**是断言自证**：原版 `SetupCardInHand` 有 `AlreadyContainsEffect` **逐字段**闸（`CardEffect__IsSameEffect` 比 `buffType`/`enchantingCard`/五个 `until*`/数值，**无记录号、无 `numberOfUses`**）⇒ 新牌只吃 **1** 条、打出后 **3** 攻。我们 `EffectResolver.cs:5536-5575` 的逐字段比**恰好就是原版那条闸**。
+- `#4/#5` 红在**自检口径**，**E4 是忠实的**（`AI__ScoreFromBuffedAttack.c:55-75` 逐句核过：`EnemyReturnsAttack` **没有「守方攻击 0 就跳过」那道闸**，反击伤害 < health 时 **+0.1**）⇒ ⛔ 不许回滚 E4。
+- `#12/#13` 是**夹具前提不成立**：`poisoned` 与 `resistant` **结构上不能共存**（加 resistant ⇒ 摘毒；有毒 ⇒ 加毒作废，`cpp2il CardScript.cs:18142-18151` / `:17631-17643`）⇒ `RuleCore.cs:2529-2535` 那条回合末豁免支**原版不变式下不可达**。
+- `#1`（常驻效果真的响了）**判不准**：已排除卡片数据未变 / 解析未变 / 本批 diff 不经过 / 基线曾绿 四条；**还差一个探针**（解析层 op dump / 登记层 `PersistentEffects.Count` / 广播层 `LogTail`）。⚠️ **那条机制是我们自设计的**（`RuleCore.cs:9516-9540`）⇒ ⛔ 不许靠改宽断言来消它。
+
+### ⏭ 已派两路
+- **E11（执行）**：按 P0→P6 修 18 红 + 补 #1 探针。三处「不许回滚」写死在简报里（`Remove(keyword)` / #1 断言 / E4）。
+- **E12（执行）**：账语料清理 —— `verify_annot` **缺注解 32** + `check_a_vs_diff` **82 条候选**（强 2：一条是「待办表」= 到期队列的措辞误报，一条是真缺口 `LiveOpsEvent.ToggleEventActivation` 的 `AddOrRemoveFromGroups` 未实现 ⇒ 降 C）。
+
+---
+
+## 🆕 G11 回执 + 🔴 **收尾合并必须按【逐份指定顺序】做**（2026-10-26）
+
+### G11 —— 3 条 B→A（都有两侧读数）+ 2 条账错订正
+| 行 | 方法 | 新落点 | 读数 |
+|---:|---|---|---|
+| 116 | `IsReferenceCardElement` | `TutorialScript.cs:1674` | **20/20 一致**（真值域 `{11,12,13}∪{21,22,23}`） |
+| 93 | `CanSkipCurrentAction` | `TutorialScript.cs:1713` | 原版命中 **63 条**；两侧 **430/430** |
+| 95 | `CheckIfWaitingToChangeAttack` | `TutorialScript.cs:1750（IsWaitingChangeAttack）` | 两侧 **430/430** |
+
+- `BattleDriver` 三处改成转发，**行数 32808 → 32808（零行数变化）** ⇒ 该文件几百条账的落点不因本批漂移。
+- 🔴 **G5 的负面结论已写进代码注释**：`Matches` 是**白名单闸**、不是「正在等换打法」查询；拿它顶会**过宽 22 条**，而过宽与原版 `CheckIfMatchesActionData.c:96-102` **同构 ⇒ ⛔ 别修**。
+- ⚠️ **G5 给的两个落点行号已过期**（`16000` 现读是 `EndTurnAndAdvance` 收尾、`16028` 是注释段）⇒ 真身是 **`TutorialCompleteChangeAttack`（方法 :16034，谓词调用 :16042）**。
+- 账错订正 2 条：**行 1216 `MatchData.IsInFTUEState()` → D**（`.c` 全文：输入 = 远端 liveops 配置 `:30` + 账户胜场 `:36` + 远端 bot 列表 `:37`；7 种 matchType 直接 false；**我们教程流程本来不经过它**）· **行 104 落点订正**（`GetActingCard`/`ResolveUnit` **全仓 0 个声明**，`:1553` 今天是 `SideOfUnitType`）。
+  🔴 **与先前的 FTUE 裁定对齐**：`MatchData.IsInFTUEState()` 的**唯一角色就是远端数据闸**且我们流程不经过 ⇒ **判 D（带时间限定）成立**；另两条 `BotListFTUE` / `CurrentModeVictories` **保持 C**（状态机与 UI 要做、数据本地模拟 + 出声）。⇒ 以 G11 这一版为准。
+
+### 🔴🔴 收尾合并**不能**一次 `--only B5_` —— 72 条跨补丁重复键，其中 **13 条状态不同**
+**新工具** `工具/check_patch_conflicts.py`（只读）：
+```bash
+python -I -X utf8 d:/4/Unity/工具/check_patch_conflicts.py        # 批次 4/5/6
+python -I -X utf8 d:/4/Unity/工具/check_patch_conflicts.py --all  # 连已归档的 B3
+```
+**按文件名字典序合并会错的 4 条**：
+| 键 | 各补丁状态 | 字典序会选 | **应该是** |
+|---|---|---|---|
+| `AiScripted.CanSkipCurrentAction` | F4=B · **G11=A** · G3=B · G5=B | G5 ⇒ B ✗ | **A**（G11） |
+| `AiScripted.CheckIfWaitingToChangeAttack` | 同上 | B ✗ | **A**（G11） |
+| `AiScripted.IsReferenceCardElement` | 同上 | B ✗ | **A**（G11） |
+| `MatchData.IsInFTUEState` | **G11=D** · G3=B | G3 ⇒ B ✗ | **D**（G11） |
+
+**⇒ 收尾合并固定做法：逐份 `--only <完整文件名不带 .tsv>`，按此顺序串行**（后者赢）：
+```
+B4_F1 → B4_F2 → B4_F3 → B4_F4 → B4_F5 → B4_F6 → B4_F7
+→ B5_G1 → B5_G3 → B5_G5 → B5_G6 → B5_G7 → B5_G8 → B5_G10 → B5_G11
+→ B6_G12 → B6_G14 → B6_G15 → B6_G16 → B6_G17
+```
+（**G11 必须在 G3/G5 之后**；B6 在最后。）
+⚠️ 合并前**先跑一次 `check_patch_conflicts.py` 复核这张表**（新回来的补丁可能带新冲突）。
+⚠️ 合并完再跑 `check_ledger_points --all-A` + `verify_annot` + `check_a_vs_diff` + `ledger_progress`。
+
+### ⚠️ 本日志的**编辑落点已经不按时间顺序**了（如实记）
+本轮大量用「中间锚点」Edit 追加，导致**文件末尾不是最新内容**（末尾还停在 E11/E12 派活那一段）。
+⇒ **下一个会话别按「最后 400 行」读**；以 `交接_第八十一会话.md` 里给的 `文件:行` 指针对准。
+（这条也是给下一轮的纪律：**长日志要真追加到文件尾**，或者一开始就按节分段写多份文件。）
+
+---
+
+# ✅ 第八十一会话 · 收尾摘要（2026-10-26 03:3x · 调度台）
+
+> 本段是**真·追加到文件末尾**的收尾摘要。本日志中途用过大量「中间锚点」Edit，**正文并不严格按时间序** ——
+> 以 `交接_第八十一会话.md` 给的 `文件:行` 指针对准，⛔ 别按「最后 400 行」读（本段以下才是最新）。
+
+## 一、最终读数（全部现跑）
+
+| 检查 | 结果 |
+|---|---|
+| **`RuleEngineTest.Run`** | **9,346 / 9,346 全过 ✅**（会话起点 9,288/9,306 · 18 红） |
+| `BattleScene.Run` | **5,497 通过 / 5 失败** —— 5 条全是**故意留的**（残骸 3D 体 4 条 + 1 条新前提断言） |
+| `HandAssertE8` | **70 ✓ / 0 ✗**（原 66/3） |
+| **落点闸** `check_ledger_points --all-A` | **A 2,922 · 通过 2,922 · 漂移 0 · 失败 0**（告警 56） |
+| `verify_annot` | **缺注解 0**（合并后一度回 59，G20 清） |
+| `check_a_vs_diff` | **0 条**（合并后一度回 66，G20 清） |
+| `check_loc_dupes` | **0** |
+| `ruleprobe check` / **`play check`** | **rc=0 / rc=0**（基线**已重钉 `a93ffb8f…`**，5 张卡变 · 事件电池 586 张逐字节一致） |
+| `CardGlitchProbe.Run` | **40 过 / 0 红** |
+| `typecheck` | **0/0** |
+| **13 场 prefab** | 全部按 T09 新口径重建（02:53–02:56 · rc 全 0 · Tap 自检 13/13 相等 · 自建锚点 4 值全对） |
+| `Battle.unity` | **零 diff**（自检宿主没把场景改坏） |
+
+**账**：8,773 行 · **A 2,852 · B 2,117 · C 788 · D 3,016** ⇒ 定案 **5,868 / 8,773 = 66.9%**（会话起点 62.1%）。
+
+## 二、本会话交付要点
+
+1. **批次 3 收口**：五道闸全绿 · 18 红 → 0（`#1` 挖到第 5 层后修完，离线探针端到端验过）。
+2. **滚动推进批次 4/5/6（20 个代理）**：四个 P0 主场拉起 —— **战斗界面 97.8% · 卡组编辑 88.0% · 特效动画 82.0%**；**战斗逻辑驱动仍 27.3%（B 1,077）**。
+3. **T09 战场坐标口径端到端做完**：改 3 处生成器 → 13 场清单重生（逐场只 pos 变）→ **13 场 prefab 全部重建**。`arena2 Toxic Pump/Container1` 从偏 **11.50** 归零。
+4. **两个 P0 教程缺陷修好**：**牌库方向装反**（整副倒着抽，`Unresolved PlayCard` 30→10）· **`RunPlayCard` 丢脚本 target**（`S6/AI1 Master of the Fleet` 转绿）。
+5. **两条 2026-10-25 的用户可见缺陷被诊断出来并修好**：触屏点手牌不开卡面窗 · 打过普通局再进教程局「跳过教程」钮不出现。
+6. **新建 7 个工具**：`merge_ledger_parts` · `fix_ledger_patch_keys` · `fix_ledger_bare_paths` · `fix_ledger_drift` · `check_patch_conflicts` · `selfdesign_census` · `ruleprobe tutorial`（**教程局读数口**，用来破「可观察量天花板」）。
+7. **铁律 18 建立并落地**：`🔶 自己设计` 标记（含两条反向陷阱 + 零行数变化）· G4 打了 **112 条**。
+
+## 三、故意留的唯一红：残骸 3D 体那 5 条
+探针读数**推翻了**诊断时的假设（`Face=Board` · 新建 · `Body3DWorldScale=0` · **无告警**）⇒ 问题变精确但仍未定。
+**下一步**：读 `CardView.Build` 在批处理下建 3D 体的前置条件 + `Body3DWorldScale` getter 的其它 0 分支。
+⚠️ 报告 §4 两条「不要」：⛔ 别把断言放宽成 `|| Body3DWorldScale == 0`；⛔ 别在读到 `v.Face` 之前改 `SyncBoard`。
+
+## 四、本会话犯的错（如实）
+1. **`merge_ledger_parts.py --help` 触发真合并**，冲掉 232 行修订（已加固脚本；见 `CLAUDE.md §三`）。
+2. **一次 `--only B4_` 的「验证」其实是真合并**（结果把定案率推高，但那是运气，不是设计）。
+3. **调度失误**：G4 与 G7 并发写同一批文件（已核无覆盖）——「FREE 文件」不能只看 `git status`。
+4. **一条「订正」本身是错的**（把「树里那颗的位置」当成原版真值），被 Q3 纠出。
+5. **给 F1 的 R5 接线指令是错的**（F3 的「零副作用」不成立），F1 用隔离实验推翻。
+6. **两块 `play check` 基线写错位置**（相对路径被解析到 CWD）—— 已挪回。
+
+---
+
+## 2026-10-26 · 第八十二会话（开局）
+
+### 开局闸核（调度台亲跑，现读）
+
+| 闸 | 读数 |
+|---|---|
+| `ledger_progress` | 8,773 行 · A 2,852 / B 2,117 / C 788 / D 3,016 ⇒ 定案 **66.9%**（与交接逐格一致） |
+| `check_ledger_points --all-A` | A 2,922 · 通过 2,922 · 漂移 0 · 失败 0（告警 56） |
+| `verify_annot` | 修前**缺注解 1** · 修后 **0** |
+| `check_a_vs_diff` / `check_loc_dupes` | 0 / 0 |
+| `git status` | clean（上一会话已提交 `685cb0b1`） |
+
+- **修的那 1 条**：`战斗界面_HUD.tsv` 的 `BattleSettingsWindow.Open()`（G21 补丁带来的）——首个落点是 `SettingsPanel.cs:939（Build）`，与原名 `Open()` 不同却**没有「等价实现」字样** ⇒ `verify_annot` 报缺注解。**就地补一句**（`（等价实现 = 原版 Open：建场半边 = Build、打开时读一次 matchType = Show）`），**行数不变、`.cs` 未动、漂移仍 0**。
+- **补丁归档**：`账/_parts/` 下 **34 份**已合并补丁 → 移入 `_parts/_merged_至第八十一会话/`。归档前实测：**1,102 行补丁键在主表全部存在（缺键 0）**，其中 **44 行状态与主表不同**（= 后来的手工修订/降档，如 E13 那 3 条）⇒ 确认「已全部合并」后才动，避免变成旧内容定时炸弹。
+
+### 转派（待发：第一波 10 路）
+
+按交接 §二 的优先级切块，**一文件一写手**；`CardView.cs` + `BattleDriver.cs` 归 3D 残骸代理独占，其余引擎代理⛔不许碰这两个文件。
+
+| 路 | 类型 | 独占文件 | 活 | 目标 |
+|---|---|---|---|---|
+| **A** | 执行 | `Core/CardView.cs` · `Battle/CardView` 之外的 `Battle/BattleDriver.cs` · `Editor/BattleScene.cs` | 残骸 3D 体 5 条红（第一优先）+ `TryUsingWaystone` 缺 `UIstate` 闸 | 根因 + 修 + 重跑单 |
+| **B** | 执行 | `RuleEngine/Core/RuleCore.cs` | 133 条 B→A + `PlayCard(...,chosen)` 丢参 | ≥12 条 A |
+| **C** | 执行 | `Core/EffectResolver.cs` · `WhenEvent.cs` · `EffectText.cs` | 81 条 B→A + `WhenEventKind` 4 种未映射 | ≥10 条 A |
+| **D** | 执行 | `Core/CardDef.cs` · `UnitState.cs` · `Aura.cs` · `Enchantment.cs` | 71 条 B→A + `KeywordTable` 全词对账 + `HasWhileInPlayAdjacentEffect` 撤替代 | ≥10 条 A |
+| **E** | 执行 | `Data/SimpleAI.cs` · `Data/AiScoring.cs` · `Core/PlayerState.cs` · `BattleContext.cs` | 43 条 B→A（读数口 = `ruleprobe.sh ai`） | ≥10 条 A |
+| **F** | 执行 | `Hand/**` · `Board/**` · `Core/CardFeel.cs` | 表现层 157 条「—（表现层）」+ 210 条按文件族 | ≥12 条 A |
+| **G** | 执行 | `Core/` 下 19 个杂项文件（`ActionPump`/`CountEval`/`CounterAttack`/`GivePayload`/`CreatePool`/`FirstSeatRules`/`DeckRules`/`BoardSpec`/`BoardSlots`/`CardCriteria`/`CardInstance`/`ConditionEval`/`TargetCriteriaEval`/`PlayedThirdCardInTurn`/`TalentCardData`/`RelatedCardData`/`OffensiveCardData`/`AchievementTally`/`ActionQueue`） | B→A + `ActionPump:143` R5「保持关闭」写死证据 | ≥10 条 A |
+| **H** | 判据 | 只写 `判据/` | **610 条无落点 B 行的定位表** | 一张 TSV |
+| **I** | 判据 | 只写 `判据/` | 收藏 33 + 卡组编辑 15 + 卡牌面 11 的 B 判据 + C 定级 | 两张 TSV |
+| **J** | 判据（可改 `WarpforgeVFX/**`） | 只写 `判据/` + VFX | 特效动画 B38/C49 + 战斗界面 C15 + 三条缺口（`DoSimpleShake` 接线 / `ItemDrawer` 点击声 / `OpponentDesync`） | 判据 + 接线点 |
+
+**调度台同批自办**：① 新工具 `工具/ledger_slice.py`（按文件/类切账，只读）② 新工具 `工具/roll_merge.py`（冲突预检→逐份合并→归档→只读闸，**不带参数什么都不做**）③ 新工具 `工具/ledger_to_lines.py`（账 → 任务线对账口，第四优先那条）④ `CLAUDE.md` 的「十一条线」就地订正为**十四条**（新逮到 `卡牌ID逆推线` / `新手引导线` / `活动线` 三个目录没进清单）。
+
+### 域外发现（调度台亲核，两处记账问题）
+
+1. 🔴 **33 条「D」其实是「还没定」，不是「不复刻」** —— 全在 `账/战斗逻辑驱动.tsv`，`差异` 列写「不适用：…」+ `备注` 写 **`归B`**（= 待办批次标签，不是结论）。
+   涉及：`SupportMethods` 14 条（`SetImageAlpha` / `SetSpriteAlpha` ×2 / `SetTextAlpha` ×2 / `SetTextSortingOrder` / `SetTerm` / `ShowRacePlaque` / `Rect` 三件 `Multiply·Offset·With` / `DestroyAllChildren` / `GetChildGameObject` / `SetAllChildrenAlpha` / `IsScrollDragThreshold`）· `RawCardScript` 卡牌音效与闲聊 10 条（`GetAttackSound` / `GetDeathSound` / `GetSummonSound` / `GetRangedAttackParticles` / `HasCustomRangedAttackParticles` / `GetChatId` / `GetChatSound` / `GetAvailableSounds` / `GetLocalizedChatMsg` / `GetCustomIntroChatMsg` ×2 / `GetLocalizedSummonChat`）· `CardScript` 2 条（`IsRightButtonOrTwoFingerTouch` 输入层 / `ShouldShowTargetsAvailable` 提示层）· `MinionManager.BroadcastActivateMinion` · `PlayerHand.GetMulliganCardsToDiscard` · `RawCardScript.ShouldShowSpecialMiniDesc(×Counter)`。
+   **裁定（调度台 2026-10-26）**：`D` 只允许「原版没有 / 用户拍板不做 / 服务端」三类理由（铁律 11 例外① + 方案 §五 P3）⇒ 这 33 条**一律不算定案**，必须逐条重判（有等价实现 → `A` + 落点；没有 → `C` 并入待办）。⛔ **不许**把「不属本域」写成 `D`。
+   影响：`战斗逻辑驱动` 的 D 204 → 实际至少 **171**；定案率被高估 **33 条**。⇒ 已排进下一波执行（等空位）。
+2. 🟠 **`21 份 tsv / 8,773 行` 这个口径混了两个分母**：`ledger_progress.py` 只算 **20 个业务域**（8,773 行），而 `账/` 下还有第 21 份 **`泛型与启动链_补读.tsv`（858 行：A 70 / B 91 / C 181 / D 513）**不参与统计。⇒ 全账真实行数 = **9,631**；按全量算定案率 = **67.0%**（6,451/9,631），与 66.9% 几乎相同，**但写文档时必须说清是哪个分母**（铁律 5：两份说法打架比没有更糟）。
+
+### 裁定 · `B8_A`（残骸 3D 体）—— 上一轮的 `(β)` 定性被推翻
+
+- **根因（代码已亲核）**：探针 `ProbeRemnantView` 合成的 `CardDef` **阵营写死 `"Test"`** ⇒ `CardArt.Frame("Test")` 返回 **null** ⇒ `CardView.Build` 走**占位卡面那条 `else`**（`CardView.cs:4541-4565`），而**那条支路压根不调 `BuildBody3D`**（3D 卡身只在 `frameTex != null` 那支的 `:4361` 建）。
+  ⇒ 一次解释四个读数：`Face=Board`（`SyncBoard` 确实传 Board）· `同一对象=False`（确实新建）· `Body3DWorldScale=0`（`_body3D == null`）· **警告 0 条**（那句 warning 在 `BuildBody3D` **体内**，占位支线根本不进这个函数 —— **不是通道被吞，是没人报警**）。
+- **定性改判**：`(δ) 夹具前提不成立`（不是 `(β)` 产品缺陷）。**上一轮「残留 3D 体」的「用户可见缺陷」结论作废**。
+- **落地**：`ProbeRemnantView` 加 `faction` 形参（默认 `"SaimHann"`，死灵传 `"Sautekh"`）；`TapBoardCard` 补原版第 ③ 道闸 `UIstate == normalBattle`（判据 `BattleManager__CanUseWaystone.c:44-47`，`+0x290 == 1`）+ 2 条新断言；`CardView.cs` **一个字未改**。
+- **账**：`B8_A.tsv` 1 行（`TryUsingWaystone` **保持 C** —— ③ 已落地，但「我们侧实测值」要跑 Unity 才有 ⇒ 跑绿后补读数升 A）。已合并（更新 1 / 新增 0），只读闸仍 **0/0**。
+- **待跑（等本批 `.cs` 写手全部停手）**：`BattleScene.Run` 期望 **5,504 / 0 红**；A 组与第三具应读 `Body3DWorldScale=(0.31891,…)`，2D 组仍 `(0,0,0)` 但日志会**多 1 条** `[CardView] DebugNoBody3D 开着`（预期内）。
+- **行漂移（待 `--fix`）**：`BattleDriver.cs` **+12 @32560** ⇒ `战斗界面_HUD.tsv` **6 条**锚点 `32584→32596`·`32596→32608`·`32673→32685`×2·`32713→32725`·`32790→32802`。
+
+### 域外发现（`B8_A` 顺手报，⛔ 未改，按铁律 11 全部要做、只排先后）
+
+1. 🔴 **占位卡面支路不建 3D 卡身、也不报警告** —— 任何 `CardFace.Board` 且 `CardArt.Frame` 返回 null 的卡（faction 为 null/未知）在场上是一张**平面占位卡**，**静默降级**；而原版 `ChangeCardToMinion` 换 3D 体**与卡框无关**。产品今天不可达（13 阵营 + Ember/Tide 卡框全在），但踩在「不许静默失败」红线上 ⇒ **要做**（判据：原版 `BattleCardUI.ChangeCardToMinion`）。
+2. **占位支里根节点 `_face`（MeshRenderer）在 `Board` 档没人关** —— 全仓 `Show(_face, …)` **零调用**。
+3. `SimulateTapUnit` 的返回值对「被封锁」与「窗没开」**不可区分**（测试靠另外两条独立判据兜住）。
+4. `ProbeRemnantView` 的 `ctx.Players[0]` **写死** ⇒ 换座位夹具会静默读错侧。
+
+---
+
+## 2026-10-26 · 第一波收口（A–K 全部回来）· 第二波（L–V）
+
+### 口径裁定
+
+| # | 谁问 | 问题 | 裁定 | 依据 |
+|---|---|---|---|---|
+| 1 | `B8_K` | 7 个**原版全树 0 调用点**的死工具（`SetTerm`/`GetChildGameObject`/`SetAllChildrenAlpha`/`Multiply`/`Offset`/`With`/`ShowRacePlaque`）该判 `A` 还是 `D`？账里另一族（`AI.CombatAttackWithType`）是**按 0 调用点判 D** 的 ⇒ 两条口径打架 | **判 `A`**（函数逐句照搬 = 复刻了）。**`D` 只留给「原版没有 / 用户拍板 / 服务端」**；「死代码」本身不足以判 D ⇒ **已派 `B8_V` 把全账「以死代码判 D」的行复判** | 铁律 11 例外① 的原文是「原版本身就没有 / 判据是空的」，**不是**「没人调用就当没有」；我们既然能逐句照搬，就没有理由不复刻 |
+| 2 | `B8_F` | 「原版不镜像敌方槽位、我们镜像了」——要不要改？ | **先独立复核再动**（已派 `B8_M` 按三步证据逐条重取，并**要求找反证**） | 这条会改棋盘几何 + 要把 `mirror` 重烘进场景，**不能只信一份推理**（上一轮 G21 的推理就被探针推翻过） |
+| 3 | `B8_C` | `AdjustManaEffect`：原版乘一次，我们把 op 重复 N 遍 | **要修**（已派 `B8_P`）；**会改 `play check` 指纹 ⇒ 由调度台统一重钉** | 铁律 11；且它会让「When you gain Faith」类卡多响 N−1 次 |
+
+### 工具修正（调度台自办）
+
+- 🔴 **`ledger_slice.py` 打的行号原来是「真实行号 − 1」**（表头占 0）—— 两个代理（I / J）各自独立撞到。**已改成真实行号**（表头 = 第 1 行）。
+- 连带把 `B8_H` 的 `战斗逻辑驱动_无落点610_定位表.tsv` **第一列整体 +1**并改名「账真实行号」（610 行全改）⇒ 后续照它改账**不会整体偏一行**。
+
+### 合并与闸（现读）
+
+- 已合并补丁：`B8_A`(1) · `B8_F`(21) · `B8_B`(11) · `B8_C`(11) · `B8_D`(14) · `B8_E`(10) · `B8_G`(15→7 更新/8 无变化) · `B8_K`(33)，全部归档到 `_parts/_merged_B8*/`。
+- 冲突 2 条（`CardScript.Stun` / `BattleManager.GetAdjacentUnits` 两份都判 A）⇒ 按「先合该输的那份、后合该赢的那份」执行（合并顺序 `B→C→D→E→G`）。
+- 🔴 **`I` 的 59 行判据表已由调度台直接落账**（20→A / 4→C / 29→D / 5 留 B / 1 A→D）：其中 12 条落点是**裸文件名**（正则把目录吃掉了）、7 条是 `:**NNN**` 粗体行号、1 条只能落到 lambda 体区间 —— 已逐条修到**能过闸**（那 1 条回退 B 并写明理由）。
+- **现读闸**：`check_ledger_points --all-A` ⇒ **A 3,023 · 通过 3,014 · 漂移 9 · 失败 0** · `verify_annot` **缺注解 0** · `check_loc_dupes` 0 · `check_a_vs_diff` 强 0 / 弱 13（候选，卡组编辑 10 · 收藏 2 · 卡牌面 1，待逐条判）。
+- **现读账**：**A 2,953 / B 2,012 / C 797 / D 3,011** ⇒ 定案 **68.0%**（会话起点 66.9%）。
+
+### 第一波各代理的核心发现（一句话索引）
+
+| 代理 | 升 A | 关键发现 |
+|---|---:|---|
+| A | — | 残骸 3D 体 5 红 = **夹具阵营写死 `"Test"`** ⇒ 走占位卡面支路（不建 3D 体、不报警）；`(β)` 定性**作废** |
+| B | 10 | `PlayCard(...,chosen)` 修好；新增 `AddToCemetery` 收口 6 处散写；`play check` 指纹**未变** |
+| C | 10 + 1C | `AdjustManaEffect` 真差异（乘一次 vs 重复 N 遍）；`WhenEventKind` 4 种：`kills`/`losestealth` **真缺已补**、另 3 种**原版也没有** |
+| D | 6 | 关键词全集对账 **133 词**；`Requiem` 的真含义 = **行为层缺机制**（识别层早就有）；`HasWhileInPlayAdjacentEffect` 撤替代 ⇒ 41 张 → **0 张** |
+| E | 6 | AI 侧 4 类结构性卡点（动作表无读数口 / `PlayOrder` 不可读 / 判据丢值 / 远端配置） |
+| F | 14 + 3C | 表现层 14 条「实现早在、没人逐句对过」；**敌方槽位镜像**待复核（→ M） |
+| G | 9 + 1D | 内置值 `HasBastionHigherThanAttack` 方向**判据写反**已订正；`GetPlayerGoesFirst()` 是死代码 |
+| H | — | 610 条无落点 B 行**定位表**（已实现 154 / 部分 279 / 未实现 34 / 表现层 131 / 无处可落 12） |
+| I | — | 三域 59 B + 36 C 判据表；**敌方埋伏数值原版印 `?`、我们关层** = P0 真缺陷（→ N） |
+| J | — | 特效动画 102 条判据；**7 处判据出处/语义错误**（含 `ObjAnimEffects` 七行整体串位）；`DoSimpleShake` 缺 4 跳接线；`UI Click 1` 资源已定位 |
+| K | 32 + 1C | 33 条「误标 D」全部重判；新建 `Core/SupportMethods.cs`(327 行) + `Core/CardFaceRules.cs`(133 行) |
+
+### 第二波（已发 9 路）
+
+`L` 联机 30 条 + `LeaveWithoutResult` · `M` 敌方槽位镜像复核 · `N` 埋伏数值 `?`（P0）· `P` 四条引擎真缺陷 + `AdjustManaEffect` · `Q` `armour` 算不算 trait（79 张）· `R` `EvtKind` 20 vs 35 · `T` 自检夹具三条 · `U` 战斗界面 7 处判据纠错 + 15 C · `V` 死代码 D 复判（只出判据）。
+随后补位：`W` 手牌与卡感剩余 7 项 · `X` `BattleDriver`/`BattleContext`/`ActionPump`/`PlayerState` 的 66 条 B。
+
+### `B8_T` 回（自检夹具）
+
+- `ProbeRemnantView` 座位改成**当前视角**（缺省 `driver.MyIndex`），越界/空 ctx ⇒ **`LogError` + 返回 null**（⛔ 不静默退回 0）。
+- `SimulateTapUnit` 三态化：`enum TapOutcome { NotBlockedAndOpened / Blocked / NotBlockedButOpened }` + 类尾仪表；**通过条件一条没变**（旧绿 ⇒ 新绿）。驱动侧根治留给 `BattleDriver` 写手。
+- 2D 组「碰巧绿」改成**抓 warning** 断言（`nD2D >= 1` 且 `Body3DWorldScale == 0`）—— ⛔ 没放宽任何断言。
+- `Editor/BattleScene.cs` **+152 行**，CRLF 保持、裸 CR 0；全账对它的 A 落点只有 1 条且在改动点之前 ⇒ **账漂移 0**。
+- 🔴 **顺手发现（要另立账）**：`CardView._frame` 在**场上形态恒为 null**（`CardView.cs:4412` 的 `if (!board)`）⇒ `FrameTexture` / `FrameDrawSize` / `FrameUvRect` 这三个「自检用」口在 `CardFace.Board` 的卡上**恒答 null/零值** —— 任何拿它们当判据的断言都会**恒红或恒绿**。另：`BattleScene.cs` 里还有多处 `ctx.Players[0]` / `FreeSlot(ctx, 0)` 写死座位（`:9476`、`:15957` 等）。
+
+### `B8_M` 回（**敌方槽位镜像 —— 结案**）
+
+- **F 的结论成立：原版不镜像敌方槽位**。M 用比 F 更硬的第四条证据收口：序列化里敌方 `leftSlotPosNormal` 只有 **3 项**而 `slotsPerSide = 4` ⇒ 若 `Awake` 不重填，`SpacesInTheBoard` 会返 3、以 4 为上限的索引全走兜底 ⇒ **牌位必坏** ⇒ 序列化那套（含镜像）**只能是死值**。
+- 已删镜像：`ArenaSlots.Position(0,true).x` **+6.25 → −6.25**（= −(4×1.53+0.13)，与原版同式）；`BoardLayout.NxOf(0)` 敌方 **0.8112 → 0.1888**。**净 0 行变化**。
+- **唯一驳回 F 的一点**：`FillMinionPositions`「0 调用者」属实，但「死代码」不成立（其体与 `Awake` 内联块逐句相同、只缺 prologue ⇒ 更像被 IL2CPP 内联）⇒ 账里 **C→B**，不判 D。
+- **调度台已办**（跨白名单）：`Editor/BattleScene.cs` 那条**钉着旧行为**的断言已就地订正（`Position(0,true).x` 改成 **+**(4×1.53+0.13) 即 −6.25），并**新增一条只盯符号的对照断言**（槽 0 两侧都 < 0、槽 8 两侧都 > 0）—— 它挡的是「以后有人把镜像加回来」。
+- **文档就地更正（铁律 5）**：`资料/对战排版_原版数值与改造方案.md` 的「两条判据打架、判不了」与「三条可直接照搬 · ② 敌方镜像」两处已改正。
+- 顺手：`PlayerHand` 21 条几何**落 `Board/` 的是 0 条**（全在 `Hand/**`）；`AreMinionsOutOfPos` 阈值 **0.2**、距离用**曼哈顿**；`ExtraYOnBoard` 13 场全 0。
+
+### `B8_N` 回（埋伏数值 `?` —— P0 已修）
+
+- 原版 `HideStat` **一个 GameObject 都不关**，它把数值文字写成 `"?"`（`+0x65 hiddenStat=1` / `+0x60 currentAmount=-1`）；我们原来 `SetActive(false)` ⇒ 一片空白。
+- 已改成印 `?`：场上四件烘出来的字形网格**原位换成 TMP**（`PragatiDigits` 表没有 `?`，这一档是**载体差异**、已打 `🔶 自己设计`），2D 面那四件本就 TMP ⇒ 直接写 `?`。字号/对齐/描边/颜色照原版 prefab 逐值抄。
+- **两个入口判据不同**（这是 `hideArmourCell` 形参的来源）：场上 `ToggleStats(false,false)` 只关**护甲词条框**、盾牌不藏；2D 展示窗 `ToggleStats(false)` 连护甲那件**整格关**。
+- `CardView.cs` **+216/−10**（净 +206）⇒ 预期漂移：`≤7979` 0 · `7980–13118` +5 · `13119–13219` +6 · `13220–14181` +8 · `≥14182` +198。
+
+### `B8_R` 回（**「EvtKind 20 vs 35」不是缺口** —— 重要订正）
+
+- **两条不同的轴，条数无可比性**：原版根本没有「事件种类枚举」；原版是 `BattleManagerSupport__Broadcast*`(43) + `BattleManager__Broadcast*`(30，其中 24 个纯转调) + `MinionManager__BroadcastActivateMinion`(1)，最终落到 `RawCardScript.OnTrigger` 的 **57 个 trigger id**。我们的对应物是 **`WhenEventKind`(29 + `triggers:<kw>`) + `EffectResolver.BroadcastWhen`**；`EvtKind` 是**表现层词汇**。
+- **49 条 `Broadcast*` 逐条去向：44 已有等价 · 5 真缺口（可达性全 = 0 张）· 0「原版也没有」** ⇒ ⛔ **不新增 `EvtKind` 成员**（加了就是没有发射口/消费口的死代码）。
+- 🔴 **查出一条真差异（不是「种类缺」，是「跳数多」）**：原版有 **6 条**广播**只有棋盘一跳**（`CollectFaith`/`CollectQuestPoints`/`CollectSpiritStone`/`SabotageCreated`/`SecretCreated`/`EarnedSkull`），我们只有 `EarnedSkull` 收窄了，另 5 处仍走**四跳**（含手牌）。因为 `BroadcastHandWhen` 会对手牌里的单位卡**真的 `ResolveOps`** ⇒ 例：`SOR38` 躺在手里、你获得 1 点信仰 ⇒ **我们会对敌督军造成 4 点伤害，原版不会**。可达监听卡 **11 张**。修法 = 5 处加 `boardAndPersistentOnly: true`（落 `EffectResolver.cs` / `RuleCore.cs`）⇒ **已排队给 P 之后的引擎写手**。
+
+### `B8_U` 回（战斗界面 7 处判据纠错）
+
+- `ObjAnimEffects` **实际串了八行**（连 `Start` 也中）⇒ 八行判据出处/要点/落点/差异/备注全部重写 + 附正确映射表。
+- `ResolvePlaySound` / `ResolveScreenShake` = **原版死代码**（private + 全类 0 调用者，`PlayEffect` 把两段内联）⇒ **判 D**（铁律 11 例外①），⛔ 别另建两个永不跑的方法。
+- `特效动画.tsv:196` 的 `B→C` **不成立**：上限**早已实现且 = 5**（13 场序列化逐场实测 `cardEffectSlots` 数组长恒 5）⇒ **判 A**。
+- 15 条 C：**2 升 A**（`SetEmptyRarityStars` / `ShowBattleCard`，后者把 ① 藏数值接上）· **12 保持 C**（写死阻塞归属）· **1 撤出**（`OpponentDesync` 已由 `B8_L` 判 A，避免被 C 盖回）。
+
+---
+
+## 2026-10-26 · 第四波（AU–BJ）· 裁定与纠错
+
+### 裁定
+
+| # | 谁问 | 问题 | 裁定 | 依据 |
+|---|---|---|---|---|
+| 11 | `B8_AR` | 共享落点能不能记 A？ | **能**（依《方案》§4.1）：① 行号范围 ② `判据要点` **逐条写清这段代码如何分别满足各方法** ③ 每条一个可观察量。几何这类纯函数**不是自证**（期望值来自原版 prefab/公式，实际值来自我们运行时） | 更严的 B2A 那句本意是挡「类级命中一笔带过」，这三条正好挡住 |
+| 12 | `B8_AR` | 给 `ArenaSlots` 加 1:1 入口？ | **不加**（今天无消费者 ⇒ 死件） | 撞「⛔ 别建死件」 |
+| 13 | `B8_AT` | 「原版有实现、出货 0 入口」/「抽象声明无体」怎么判？ | 出货 0 入口 ⇒ `D` + 时间限定；**abstract 声明（无方法体）⇒ `D`**（子类实现另在账） | 铁律 11 例外① |
+| 14 | `B8_AQ` | 4 条战役开局序列（`LandWarlordsInCampaign` 等） | **判 `D`**：原版客户端**没有战役关卡入口**（`CampaignWindowTab.OnNodeClicked` 只开奖励窗；全树 26 处 `MatchType.Campaign` 全是读取/比较）⇒ 战役在原版是**奖励轨**、不是一局战斗。⚠️ 措辞订正：「全仓 0 处写 `GameMode.Campaign`」按字面不成立（`BattleContext.cs:2096` 有派发表项），准确说法是「0 处把 `PlayMode` 设成 Campaign」 | 用户 2026-10-26 授权调度台判 P3；本批给全了证据 |
+| 15 | `B8_BC` | 「架构性无对应物」怎么办（17 条 uGUI 运行时组件 + 3 条 `ScreenUtilities`） | uGUI 那 **17 条判 `D`**（理由：原版是 uGUI 运行时组件、本工程无 uGUI 运行时 ⇒ 由 `<等价物>` 承担同一语义；时间限定 = 若引入 uGUI 需重开）；**`ScreenUtilities` 3 条判 `C`**（我们要用，只是消费点没接） | 同「我们对应用了 X 代替它」那一支 |
+| 16 | `B8_AN` | 召唤时「限定词认不出」照抄 `list[0]` 还是保持不猜？ | **照抄原版**（原版就是取第一个），但**我们这侧打一条信息级日志**说明「原版这里也是取第一个」，⛔ 不假装是我们算出来的 | 铁律「原版自己也有 bug 要照抄」+ 红线「不许静默失败」 |
+| 17 | `B8_BD` | 11 条与别的域重复的行要不要标「属别的域」让执行代理跳过？ | **不标**，保留真实实现状态，备注写清重复即可 | 账的目的是「原版方法 vs 我们做到哪」；跨域重复是类归属的产物 |
+| 18 | `B8_AX` | `SOR66 Armorium Cherub` 原版按阵营补 `pray`、卡表没有 | **照原版行为**（数据会加），账里写清「卡面未印」（玩家不可见） | 卡面管内容、代码管行为 |
+
+### 🔴 给用户的转述里我自己写反了一次（就地更正）
+
+我在一条汇报里写「`Homing Beacon`：原版召唤 `TAU28 Enforcer`、我们原来给 `TAU11`」——**方向反了**。正确是：
+**原版真值 = `TAU11 Crisis Battlesuit`；我们改前错给 `TAU28 Enforcer`；`B8_AN` 已改成 `TAU11` ✓**（`B8_AN` 报告 §一 本来写的就是对的，是我转述时写反；`B8_BE` 用 truth / 卡面英文 / `descZh` 三处取证复核过）。
+⇒ 错因：转述时把「改前/改后」两栏对调。**教训：转述代理结论前先回读原文那一行**（铁律：两份说法打架比没有更糟）。
+
+### 关键发现
+
+1. 🔴 **`unitsToSummon` 不是「召唤」专用字段 —— 25% 是惰性遗留值**（`B8_BE`）：原版只在 `chosenAbility ∈ {70,71,72,75,77,90,100,101,270}` 时读它；实测 **93/335 条（卡引用 111/444）** 的 chosen 是 `doDamage/buffOthers/buffSelf/buffHand` ⇒ 游戏根本不读。**照字面做「335 条全量对拍」会报出 ~93 条假缺陷**（第一版脚本就是这么报的，逐条查清后全撤）。
+2. 🔴 **真值里有 70 组「同一张卡两个 id」**（短 id 在池内 / GUID 在池外），其中 **9 组召唤数据只挂在池外那份上** ⇒ **任何按 id 把 truth 连到池子的分析都会静默漏卡**。
+3. 🟠 **24 张卡的 `unitsToSummon` 是「随机池」**（原版 `summonAllTargets==0` ⇒ `GetRandomInt` 取 1）⇒ ⛔ 别把「候选 N 个」当「要召 N 张」。
+4. ✅ **反向验证**：220 张跑 `play`，49 张真落场，**落场卡名全部出现在卡面文本里 49/49** ⇒ 「落错卡」没有残留；剩余风险变成「没落」（169 张没被夹具触发）。
+5. 🔴 **`BattleManager.Resolve*` 只有 39/83 是闭包**（`B8_BG` 推翻 `B8_AU` 的「全是」）：另 **44 个是同步方法、`.c` 即真体**，可以直接当判据升 A。39 个状态机**全部对上**（ILSpy kickoff 体的 `new <X>d__NNN(0)` 一手证据 + 逐份核首行函数名），**没有一份空壳**。
+6. 🔴 **ILSpy 那份 `ResolveAction` 不可用**（全是 `goto IL_xxxx` 垃圾，一行 switch 都读不出）⇒ `BattleActionType` 分派判据**只能看 `.c`**。
+7. 🔴 **返回 `Vector2/Vector3` 的方法，il2csharp 的 float 返回形态不可信**（看着像 y 塌成 0）；真值要看 Ghidra 的**双浮点包值**（`B8_BC`）。
+8. 🟠 **换语言后已画出的卡面/日志仍是旧语言**（`B8_BC`）：换语言链 4 跳已等价，**唯一不等价 = 广播订户 0** ⇒ 卡面重排字 / 日志重拼行还没订。
+9. 🟠 **「按阵营切光标」12 族我们完全没有**（`B8_BF`）：光标美术本机只有 SM 一族 2 张，且没有任何按阵营切的代码 ⇒ 待立账（不是 D）。
+
+---
+
+## 2026-10-26 · 重同步点（第八十二会话收尾）
+
+### 做了什么
+
+| 项 | 结果 |
+|---|---|
+| 四颗指纹重钉 | 卡池 `8aa37475…`（v32 加 `chosenAbility` 列）· 基线 `5fb45aec…` · 解析 `18439d96…` · 结算 `6e888bbe…` |
+| 探针夹具 | `FixtureWaystoneTroop` 阵营 `"Fixture"` → `"SaimHann"`（原版收灵魂石**按阵营**判）⇒ 电池里 **546 行假差异**一次消掉 |
+| 测试夹具 | 新增 `UnitFaction(...)`；四处灵魂石夹具改 `SaimHann` · 三处（+1）残骸夹具改 `Sautekh` |
+| `check_ledger_points --all-A --fix` | 漂移 **191 → 12**（剩 12 条是「落点写法解析不出方法名」的 NEED-HUMAN 类）· **失败 0** |
+| `verify_annot` / `check_a_vs_diff` | 缺注解 **0** / 强 0 · 弱 41（候选） |
+| **`RuleEngineTest.Run`** | 首跑 9,329/9,346（**17 红**）⇒ 修完 **9,354 / 9,354 全过 ✅** |
+| **`BattleScene.Run`** | 首跑 5,529（**5 红**）⇒ 修完 **5,536 / 0 失败 ✅**（断言数 +2 = 两条「静默跳过」变成真跑） |
+| 其它宿主 | `SettingsScene` 1,561/1 · `ShellScene` 2,055/6 · `MainMenuScene` 6 ✗ ⇒ 已派 `B8_BN` 收尾 |
+
+### 17 条红的定性（`B8_BK`，β 实现缺陷 **0**）
+
+- **γ 本会话回归 9 条** = 强制攻击「退还额度」修过头：`B8_BH` 把退还套到了**全部** `forced:true`，而原版只有 **231/237/238** 三族退还（`AddForceAttack` / `AddScriptedForceAttack`）；**235/236** 走 `AddScriptedAttack`，签名**没有 `dontCountAttack`**、体里 `RemoveAttackThisTurn` **0 命中**。池内 235×2（`GOF86` trigger 30 · `GOF93` trigger **410**）+ 236×1（`SAU33`）被错退。
+  ⇒ 修法（`B8_BM`）= **数据驱动**：生成器加 `chosenAbility` 列（v32）× `RuleCore` 只在 `∈{231,237,238}` 时退还；⛔ 明确否掉「按文本形状」的过渡修法（会把 238 那 6 张该退还的做错且无断言能抓）。
+- **δ 夹具 3+1 条** = 残骸夹具阵营仍 `"Test"`，而 `DestroyRemnants` 已按阵营（`Sautekh`）判 ⇒ 扫不到 ⇒ 其中一条「被罩住的残骸留场」是**空转绿**。
+- **α 断言过期 5 条** = 卡表 `version` 还写 30（现读 32）· 能力族号 231/237/238 写错。
+
+### BattleScene 的 5 条（`B8_BL`）
+
+- 2 条**旧镜像断言**（`B8_M` 结案前的）⇒ 调度台就地改成「两侧同号」+ 灭自证。
+- 1 条 `CardHoldPeek` = α（`B8_BB` 按原版改了末环判定，断言没跟上）。
+- 1 条 3D 卡体立绘 = **δ + 第三条「静默跳过」**：夹具 `CardData.Simple(...)` 的 `faction` 恒 `null` ⇒ `CardArt.Frame` 返 null ⇒ 3D 卡体压根没建 ⇒ 断言包在 `if (bm != null)` 里**一次没跑过**。
+- 1 条 面板「3 可用」= α + **一条真缺口**：原版读 **`ActiveAbility.targetsAvailableCounter(+0x40)`**，`B8_X` 接的是**卡级** `+0x298`（另一个消费者），而 **`+0x40` 这列从没落表** ⇒ 池内 **17/1128** 该显示、其余不该，今天全不显示。
+
+### 新知识（已进 `CLAUDE.md §三`）
+
+- **自检里的 `if (x != null) Check(...)` = 前提不成立时静默跳过**（一天撞到 **3 次**）⇒ 一律改成「先 `Check(前提)`，再 `Check(结论)`」；「日志里只有 ✓ 没有那条断言」≠ 它对。
+- **编辑模式 `AddComponent` 不触发 `Awake/OnEnable/Start/Update`**。 
+- **首行名不是自己，也可能是 ICF 折叠**（良性），与「文件名与内容不符」要分开判。
+- **ILSpy 只找到定义 ≠ 不可达**（编译器内联会让调用点消失）。
+- **`RVA 0x4B33B0` = 全局空桩**，判「原版方法体是空的」先查它。
+- **落点不能机械往上找最近声明**（9 条里 6 条会指到无关方法）。
+
+### 裁定
+
+| # | 谁问 | 问题 | 裁定 | 依据 |
+|---|---|---|---|---|
+| 4 | `B8_V` | 「原版有实现、但出货数据 0 入口」该 D 还是 C？ | **`D` + 理由改写成「原版出货数据 0 入口（本 build 池内 0 张可达）；时间限定 = 若数据集变化需重开」**；⛔ 不许再写「死代码」 | 「没人调用」≠「原版没有」；这两件事在账里被混成了同一件（那 33 条误标 D 就是这么来的） |
+| 5 | `B8_K`/`B8_V` | 「0 调用点的死工具」判 A 还是 D？ | **A**（函数逐句照搬 = 复刻了） | 我们既然能照搬就没有理由不复刻；`D` 只留三类理由 |
+| 6 | `B8_AG` | 27 条「原版体为空 / 落点写『—（不需要）』」的行停在 B 行不行？ | **不行 —— 必须二分**：原版体为空 ⇒ `D` + 出处；原版有行为而我们没实现 ⇒ `C`。已派 `B8_AT` 逐条定案 | 铁律 11：只有先后、没有「糊过去」 |
+| 7 | `B8_AK`/`Z` | `日常/奖励` 整域是否仍算「暂停」？ | **仍标暂停 = 不在当前工作队列**，⛔ 不是「不做」（`CLAUDE.md §四` 把它列 P1，只排先后） | 用户 2026-10-25 口径 |
+| 8 | `B8_W` vs `B8_AF` | 换牌行几何：`292/414` 还是原版序列化的 `183.41/502.2`？ | **保持 `292/414` 不动**，账里写「两套判据冲突、**实拍优先**，父链 `lossyScale≈0.794` 待真机复测」 | 铁律 4「实况与解包字段冲突时以实况为准」；`183.41/502.2` 落在**选牌面板侧**（实测 502.2px） |
+| 9 | `B8_AE` | `GainSpirit` 的预调主体要不要补？ | **要补**（判据清楚 ⇒ 铁律 11），但**单列一批、单独验指纹** | 同上 |
+| 10 | `B8_AF`/`N` | `ShowCardBeingDrawn`（弃牌/偷牌揭示）判什么？ | **`C`**（整条路我们不存在，约 40–60 行） | 不是「原版没有」 |
+
+### 关键发现（跨会话可用）
+
+1. 🔴 **表现层不是没有读数口** —— `BattleScene.Run` 里早就有状态环/徽章/虫群/场上队列/四格数值一大片 `Check`（`B8_AA` 把 18 条 B 升 A 就是靠连回它们）。⇒ 判「没有读数口」之前先 `grep "Check(" Editor/BattleScene.cs`。
+2. 🔴 **`armour` 不是 trait**（`B8_Q`）：原版是独立字段（`+0xA0`→`+0xB8`），与血量/两个攻击值四兄弟并列；81 张带 `Armour N`，只有 **5 张**真在 trait 表里 ⇒ 旧映射有 **76 张假阳**（`B8_AH` 已修 + 上了 `ruleprobe traits` 读数口）。
+3. 🔴 **`your warlord and adjacent units` 修了两处**（`B8_AE`）：① 解析层判成 `warlord`；② 修完 ① 之后**棋盘仍只动督军** —— `DoGive` 里还有一道「目标数 == 1 ⇒ 只留第一个」的裁剪把相邻那一圈又抹掉。改后 `play f826…` **1 → 3 个目标**。
+4. 🔴 **5 条广播多跳手牌**（`B8_R`/`AE`）：原版 6 条广播**只跳棋盘**，我们跳了四跳（含手牌），而手牌里的监听卡会**真的结算** ⇒ 例 `SOR38` 躺手里、你加 1 点信仰 ⇒ 我们白打敌方督军 4 点。已在 **9 个发射点**收窄；但 **`play all dump` 改前改后逐字节相同 = 夹具盲（量具盲区）**，不是没改。
+5. 🔴 **`ObjAnimEffects` 全族判 D**（`B8_AB`）：84 bundle / 66,459 个 MonoBehaviour 全部解析到内置 722 份 MonoScript，**它不在其中**（0 实例 / 0 引用 / 0 字段命中）⇒ 原版这个组件在本 build 里**根本不存在**；同时推翻旧文档「9 个 prefab 的 AnimEffectData 数组」。
+6. 🔴 **`m_StopTime: 1` 是假缺陷**（`B8_AB`）：原版同一条 clip 序列化也是 1.0 ⇒ 我们照抄是对的，⛔ 别去「修」。
+7. 🟠 **功能点索引整体过期**（`B8_Z`）：144 条里 **106 条过期**；真漏项不在「账里没行」而在「行被并进粗归并桶」（**36 个玩家可见窗口**没有独立功能点）。生成器 4 处缺陷已修（`B8_AK`），**重跑要等账写手停手**。
+8. 🟠 **账里 50 行在 `泛型与启动链_补读.tsv` 与业务域重复**（同域同类同方法）⇒ 状态分布会被重复计一次；哪份权威待定。
+9. 🟠 **合并工具会拒收「没带表头」的补丁**（`B8_AA` 撞到，补头后正常）⇒ 派活简报里已加这条。
+
+---
+
+## 2026-10-26 · 第八十三会话（开局：补跑宿主 + 7 路并行账升级）
+
+### 调度台开工三件事
+
+| 项 | 现读 |
+|---|---|
+| 工作树 | clean · **ahead 1**（`b1d40fe5`）· 推送上次失败，按铁律 9 不重试 |
+| 账 | **8,774 行** · A 3,144 / B 1,750 / C 842 / D 3,038 ⇒ **70.5%** |
+| 落点闸 `--all-A` | A 3,221 · 通过 3,209 · 漂移 12（NEED-HUMAN）· 失败 0 |
+| `_parts/` | 空 ⇒ 无欠合并补丁 |
+| typecheck | 0 / 0 |
+
+**关键读数**：P0 四个主场域里三个已 90%+（战斗界面_HUD 97.8% · 卡牌面 93.4% · 收藏 92.9% · 卡组编辑 90.4%），**唯一大口子 = `战斗逻辑驱动` 38.2%（B 892）**。⇒ 本会话火力集中在这一域。
+
+### 第一优先 · 补跑上会话没跑的 7 个自检宿主
+
+前留副本 `_tmp_view/scene_bak_0827/`（Battle / CardBase / DeckEditor / MainMenu / Shell 五份 .unity）· 旧日志 `_tmp_view/bak_0827/`。
+串行单：`NetSelfTest` → `NetBattleTest` → `RewardsScene` → `ShopScene` → `DeckScene` → `CollectionScene` → `CardBaseDemo`。
+日志口径沿用 `_tmp_view/wf_<Host>.Run.log` · 摘要 `_tmp_view/batch7_summary.txt`。
+
+### B 892 的真实形状（调度台现扫，别再用旧口径）
+
+`--status B` 拆开 = **493 无落点 + 399 有落点**（399 那半按落点文件：`RuleCore.cs` **171** · `EffectResolver.cs` **118** · `BattleDriver.cs` **54** · `CardView.cs` 24 · `UnitState.cs` 23 · `CardDef.cs` 23 · 其余零散）。
+**493 无落点里 385 条的原版类是 `BattleManager`** —— 那就是 `Resolve*` 族的主体。
+
+### 第一批派活（7 路，全部**只写账补丁 / 判据文件，不写 `.cs`** —— 因为 Unity 批处理正在跑）
+
+| 代号 | 块 | 产出 |
+|---|---|---|
+| `B9_E1` | 落点 `EffectResolver.cs` 的 B（118）· 先做前 40 | `账/_parts/B9_E1.tsv` · `报告/B9_E1_EffectResolver_账升级.md` |
+| `B9_E2` | 落点 `BattleDriver.cs`(54) + `CardView.cs`(24) · 先做前 40 | `_parts/B9_E2.tsv` · `报告/B9_E2_*` |
+| `B9_E3` | 落点 `CardDef`/`UnitState`/`CardInstance`/`PlayerState`/`BoardSlots`（61）· 整块 | `_parts/B9_E3.tsv` · `报告/B9_E3_*` |
+| `B9_E4` | 落点 11 个小文件（`RandomSeedProvider`/`Enchantment`/`CardFeel`/`BattleContext`/`ActionPump`/`CardInteraction`/`WhenEvent`/`SimpleAI`/`HandLayout`/`DeploySequence`/`CounterAttack`，77） | `_parts/B9_E4.tsv` · `报告/B9_E4_*` |
+| `B9_E5` | 落点 `RuleCore.cs` 的 B（171）· 先做前 45 | `_parts/B9_E5.tsv` · `报告/B9_E5_*` |
+| `B9_J1` | 493 无落点（重点 385 `BattleManager`）：用两张现成地图补真实落点 + 出施工单 | `_parts/B9_J1.tsv` · `判据/B9_BattleManager_施工单.tsv` · `报告/B9_J1_*` |
+| `B9_Q1` | 第三优先 6 条真缺口的**判据补齐**（#1 `targetsAvailableCounter` · #3 光标 12 族 · #4 探针读数口 · #6 `GetExtraAbilityTraits` · #10 `SOR66` · #11 死灵残骸判据合并） | `判据/B9_第三优先_判据补齐.md` · `报告/B9_Q1_*` |
+
+🔴 **本轮禁 `.cs` 的理由**：Unity 批处理跑着时改 `.cs`，别人的类型检查会编到半成品（实测过：报一串假错）。发现真缺口 ⇒ 判 `C` + 写清「差什么、该改哪儿」，**留到批处理结束后由执行代理做**。
+
+### 第一优先那条真缺口 · 调度台已核到根因（简报已备）
+
+`Editor/MainMenuScene.cs:9449-9487` 那条断言（`B8_BR` 改成**动态不变式**）要的是「`Banned card in deck` 的显隐 = 当前这副牌校不通过」。
+生产侧**已有** `Shell/SkirmishEventWindow.cs:760` `RefreshBannedLine()`，但只在 **`BuildBanned`(:745) · `Open`(:802) · `StartMatch`(:806)** 三处刷 —— **窗内换卡组那一跳没刷**（基类 `RefreshDeckColumn` 不是虚方法，代码注释里已如实记了这条限制）。
+⚠️ **交接 §1·b 那句话（「全仓只有测试引用它」）已过期** —— 现读代码里生产路径是有的，缺的是**换卡组那一跳的钩子**。
+⇒ 等 Unity 批处理结束派执行代理：让基类的换卡组路径**回调一次可写的刷新口**（原版 `SkirmishEventWindow.OnDeckSelected` 就是这个位置），并在 `MainMenuScene.Run` 复验。
+
+### 第一优先 · 7 个宿主补跑结果（2026-10-26 现跑，串行）
+
+| 宿主 | 读数 | 退出码 |
+|---|---|---|
+| `NetSelfTest.Run` | **通过 351 · 失败 0 · 跳过/警告 1** ✅ | 0 |
+| `ShopScene.Run` | **合计 2406 / 0** ✅ | 0 |
+| `NetBattleTest.Run` | 245 / **1** | 1 |
+| `RewardsScene.Run` | **合计 2321 / 27** | 1 |
+| `DeckScene.Run` | 1821 标记 / **38**，**无「合计」行**（`Editor/DeckScene.cs:1348` `LogError` 后退出） | 1 |
+| `CollectionScene.Run` | 1327 / **6**，**然后抛异常终止**（见下） | 1 |
+| `CardBaseDemo.Run` | **555 / 2** + `[cardface-chk]` **232 / 2** = **共 4** | 1 |
+
+### 🔴 本批查出两条**真缺陷**（不是自检问题）
+
+**① 生产代码读 legacy `UnityEngine.Input` ⇒ 运行时必抛**（P0，功能面）
+`Shell/CollectionWindow.cs:5043` `HoverSuppressed` 的 `get { return _hoverSuppressedForTest || Input.GetMouseButton(0); }`。
+本工程 `ProjectSettings.asset` 的 `activeInputHandler: 1` = **只启用 Input System 包** ⇒ 抛 `InvalidOperationException`。
+后果：① `CollectionScene.Run` **中途终止**（后面的断言根本没跑到）；② **player 里鼠标移到卡格上就会抛**。
+⇒ 已派 `X2` 改成工程在用的输入源（`Battle/TouchInputManager.cs` 文件头写着「输入源换了」），并**全仓扫同类真调用**。
+
+**② 「类名 ≠ 文件名」的 `MonoBehaviour` 又冒出 12 个**（P0，player 加载即崩）
+普查 `python -I -X utf8 工具/scene_class_filename_census.py d:/4/Unity/MyGame/Assets` 现读 = **12 个**（上一轮拆完时是 0）。
+清单：`Editor/ShellScene.cs` → `ProbeTab` · `Shell/BadgeNotifications.cs` → **`UiBadgeNotification`** · `Shell/SceneInitializer.cs` → `InitializableBehaviour` · `WarpforgeVFX/Runtime/WFEffectExtras.cs` → **9 个 `WFExtra*`**。
+**一手证据**：`DeckScene.Run` 重生成 `Scenes/DeckEditor.unity` 后 `grep -c "^--- !u!115"` = **1**（HEAD 版 = 0），那个存根的 `m_EditorClassIdentifier` = `Assembly-CSharp::CardPresentation.UiBadgeNotification`。
+⇒ 已派 `X1` 拆成同名文件 + 迁移账落点（`BadgeNotifications.cs` 有 **35** 条账锚、`SceneInitializer.cs` 37 条、`WFEffectExtras.cs` 12 条）。
+⚠️ **场景文件我**（调度台）尝试 `git checkout --` 还原被权限拦下 ⇒ **保留未提交的重生成状态**；等 `X1` 拆完类之后**重建一次** `DeckEditor.unity` 并复查 `!u!115` = 0。
+
+### 第三批派活（10 路满员：B9_E1/E2/E3/E4/E5/J1/Q1 + X1/X2/X3）
+
+| 代号 | 活 | 权限 |
+|---|---|---|
+| `X1` | 12 个「类名≠文件名」拆同名文件 + 账落点迁移 | **可写 `.cs`**（不跑 Unity） |
+| `X2` | 修 `Input.GetMouseButton` 崩溃 + 全仓扫同类真调用 | **可写 `.cs`**（不跑 Unity） |
+| `X3` | 四宿主 **70 条**失败逐条定性（Deck 38 / Rewards 27 / CardBase 4 / NetBattle 1） | **只读**，只写报告 |
+
+⚠️ 本轮 `.cs` 写手 = `X1` / `X2` 两路，**文件集合互不相交**（X1 = 4 个文件 + 12 个新同名文件；X2 = `Shell/CollectionWindow.cs` + 真调用同类）。`B9_*` 那 7 路只读源码、只写账补丁。
+
+### X1 / X2 验收（调度台实跑，2026-10-26 18:16）
+
+| 项 | 结果 |
+|---|---|
+| `pip`-free 普查 `scene_class_filename_census.py` | **无同名文件 12 → 0** |
+| typecheck（`TMPDIR=/tmp/wf_desk1`） | **0 / 0** |
+| `DeckScene.BuildAndSaveScene` | **rc=0**，重建后 `grep -c "^--- !u!115" DeckEditor.unity` = **0**（重建前 = 1）✅ **类名/文件名缺陷闭合** |
+| `CollectionScene.Run`（第 2 趟） | **不再抛异常**，跑到 **182,432 行**（第 1 趟 151,623 行就崩）⇒ 崩溃已修；但**暴露出 32 条此前被崩溃挡住的失败**（几何 4 · 拥有数 1 · 通配符合成 16 · 删卡组失败路径 11）⇒ 已派 `C1` |
+| `X2` 全仓同类扫描 | `Input.` 命中 **43** 条，**真调用 2**（本次全修），其余 **41 条是注释/反编译摘录**（删了会丢判据） |
+
+**X2 顺手发现（记账，未修）**：`CollectionWindow.SetHoverSuppressedForTest(bool)` **全仓 0 调用者** ⇒ 「按住主键 ⇒ 悬停被抑制」这条**从来没有断言覆盖过**。补法 = 在 `Editor/CollectionScene.cs` 那组悬停断言里加 `onExit() → SetHoverSuppressedForTest(true) → onEnter() → 断 alpha == 0`。⚠️ 属于「新发现缺口」，按铁律 11 要做，按铁律 14 排在当前批之后。
+
+### 账合并（轻量记账）· `B9_J1` 已并入主表
+
+`roll_merge.py --apply B9_J1` ⇒ **更新 145 行**（升 A 14 · 补真实落点 131）· 归档进 `_parts/_merged_B9_J1/`。
+现读：`战斗逻辑驱动` **1,538 · A 432 / B 878 / C 58 / D 170**；全账 **A 3,158 · 已定案 70.6%**。
+🔴 **跨补丁冲突已裁定（两条）** —— `B9_E2` 与 `B9_J1` 在 `BattleManager.ClickSettings()` / `ClickSkip()` 上打架：
+- `ClickSettings`：J1 判 `B`，**E2 判 `D`**（判据 = `decomp_full/BattleManager__ClickSettings.c:1-4` 方法体只有 `return;`，且 `dump.cs:31651` 的 RVA `0x6C2B50` **不是**共享空桩 `0x4B33B0`）⇒ **E2 赢**
+- `ClickSkip`：J1 判 `B`，**E2 判 `A`**（判据体 + 钮显隐闸都读到，落点 `BattleDriver.cs:17363 ApplyTutorialSkip`）⇒ **E2 赢**
+⇒ **合并顺序必须是「J1 先、E2 后」**（字典序 `B9_E2 < B9_J1` 恰好相反，所以**不能**用 `--only B9_` 一把梭）。E2 回来时**单独 `--apply B9_E2`**。
+
+### 下一批的瓶颈（写手排班用）
+
+`B9_J1` 的施工单 `判据/B9_BattleManager_施工单.tsv` **319 行**（P0 **54** · P1 **176** · P2 **89**）。
+**文件写手瓶颈现读**：`RuleCore.cs 74` 条 · `EffectResolver.cs 54` 条（P0 里各 **29 / 21**）⇒ 这两个文件**各只能一个写手**，是并行度的硬约束。
+
+### `B9_E2` 回执并入 + 一条裁定（2026-10-26）
+
+`B9_E2`（BattleDriver 前 40 条）：**A 19 · C 7 · D 13 · B 1**，`check_ledger_points --warn-getters` 全过。已合并 **40 行**、归档进 `_parts/_merged_B9_E2.tsv`。
+现读 `战斗逻辑驱动`：**1,538 · A 451 / B 839 / C 65 / D 183 ⇒ 41.2%**（会话起点 38.2%）。全账 **A 3,177 / D 3,051 ⇒ 71.0%**。
+
+**裁定（`B9_E2` 问）**：13 条 D 里有 5 条是「渲染架构不同 ⇒ 用别的方式覆盖」（`Awake` / `DestroyHiddenCards` / `Get2DPosOfCard` / `Get2DPosOfSpecificItemInCard` / `GetBoardCardMousePos`）——
+**保持 `D`**（依据 = 《方案》§4.1 的 D 二选一第 ② 支 + 本会话裁定 #15「uGUI 那 17 条」先例），**但每条必须补**：① `差异` 列写清**覆盖语义**（覆盖了哪些 / **没**覆盖哪些）② `备注` 列写**时间限定** `时间限定 = 若引入 <X> 需重开`。缺一样 ⇒ 降回 `C`。
+
+`B9_E2` 已续派 **CardView 那批 111 行**（它上轮没动），补丁另开 `B9_E2b.tsv`。
+
+### 第二轮记账（2026-10-26 19:0x · 轻量合并，未做重同步点）
+
+**已并入主表的补丁（共 11 份 / 460 行）**：`B9_J1` 145 · `B9_E2` 40 · `B9_E2b` 5 · `B9_E2c` 66 · `B9_E1` 40 · `B9_E1b` 13 · `B9_E3` 31 · `B9_E4` 50 · `B9_X1` 48 · `B9_X1b` 16 · `B9_X4` 4 · `B9_DESK1` 2。
+
+**现读**：`战斗逻辑驱动` **1,538 · A 503 / B 710 / C 111 / D 214 ⇒ 46.6%**（会话起点 **38.2%**）；全账 **A 3,244 / D 3,082 ⇒ 72.1%**。
+
+### 🔴 落点闸那个「1 条失败」是**闸自己的 bug**，不是账错（已修工具）
+
+`RandomSeedProvider.GetSeedState(string)` 的声明是 C# 7 **元组返回**：
+`public static (ControlledSeedState state, bool found) GetSeedState(string seedID)`
+`decl_name_at()` 把**第一个 `(`**（元组本身）当成形参表 ⇒ 读出的「声明名」是 `static` ⇒ 假失败。
+**修法**（`工具/check_ledger_points.py`）：取「紧贴 `(` 的**第一个非关键字**标识符」，并保留原有的泛型剥离（否则 `Get<T>(` 会漏）。
+⚠️ 中途一度把 `SaveCenter.Get<T>` 与 `MainMenuRuntime.OpenByRef<T>` 打成新失败 —— 就是漏了泛型剥离，补回后 **通过 3262 · 漂移 12 · 失败 0**，工具自带自检 **77/77 PASS**。
+备份：`_tmp_view/check_ledger_points.py.bak_0827`。
+
+### 裁定三条（本批）
+
+1. **`B9_E2` 的 5 条「渲染架构不同 ⇒ 用别的方式覆盖」判 `D`** —— 依据《方案》§4.1 的 D 二选一第 ② 支 + 本会话裁定 #15（uGUI 那条先例）；**但每条必须写「覆盖语义」（覆盖了什么 / 没覆盖什么）+ 时间限定「若引入 X 需重开」**，缺一样降回 `C`。`B9_E2` 已补齐（`B9_E2b`）。
+2. **`B9_J1` 与 `B9_E4` 的 2 条冲突 → 采纳 `B9_E4`（判 C）**：`EntityScript.HasEnchantmentWhileInPlay` 原版判的是 **`enchantmentCard.whileInPlayAnim`**（表现开关序列化字段，`EntityScript.cs:1856`），我们 `HasAny` 只数总数 ⇒ 语义不同、且 `whileInPlayAnim` 全仓 0 命中；`EntityScript.HasSecretOrder` 原版**先**过 `HasSecretOrders() > 0` 的闸（数的是 **activeEnchantments**），而 body 走 **activeEffects** —— 两个列表，我们没有那道闸。→ `B9_DESK1` 落地。
+3. **`B9_E1` 那 16 条 `BattleManager.Add*` 判 A 不成立 → 3 条保持 A / 13 条改判 B**：
+   判据 = 「A 要求**行为一致**」。保持 A 的 3 条各自有等价理由（`AddAutoActionToQueue` 本身就是入队原语；`AddCardInPlayToDeck` 原版也是即时方法；`AddExecuteSwarm` 我们真的入了**同一个道号 3、同一个入队点**）。其余 13 条原版入队、我们同步施加 ⇒ 与其它入队动作的**先后不保证** = 有已知顺序差 ⇒ 只能 B。
+   🔴 **同时查清一件关键事实**：**「入队层」不是真缺口** —— `ActionQueue.Enqueue` 有 **4 道 + 泵点 + 非法道号丢弃**，生产唯一入口 `Core/ActionPump.cs:562`（`EnqueueAbility` 尾部），队列里跑什么由 `EnqueueAbility` 的 **27 个生产调用点**决定。**缺的只是「把 `Add*` 这族逐条接进去」**（给 `QueuedAction.Payload` 定结构化载荷 + 一个 `ResolveAction` 式分派）⇒ 这是一条**明确、可派**的施工项。
+
+### 第三轮：宿主复跑结果 + 判据做深（2026-10-26 19:3x）
+
+#### 6 个宿主复跑（修复后，串行）
+
+| 宿主 | 修复前 | **复跑后** |
+|---|---|---|
+| `ShellScene.Run` | 2055/6 | **全绿**（0 条 `✗`） |
+| `CollectionScene.Run` | 崩（151k 行终止）→ 32 红 | **0 失败 · rc=0** ✅（`C1` 的 32 条全好） |
+| `ShopScene.Run` | 2406/0 | **2406 / 0** ✅ |
+| `CardBaseDemo.Run` | 555/2 + cardface 232/2 | **555/2 + cardface-chk 234 / 0** ✅（`F1` 的 `_statFlash` 修对了） |
+| `RewardsScene.Run` | 2321/27 | **2322 / 25**（`F1` 的两条生产修复生效；剩 25 条是 α/δ，已派 `F3`） |
+| `DeckScene.Run` | 19 条唯一 | **18 条**（`F1` 的 `IsEmpty` 生效；已派 `F4`，共同根因是**一处夹具**串出 11 条） |
+
+`DeckEditor.unity` 重建后 `!u!115` **= 0** ✅。
+
+#### `B9_E5`（RuleCore 前 45 条）并入
+
+**A 26 · C 1 · B 11 · D 7**（4 条旧账就地订正）。
+现读 `战斗逻辑驱动`：**1,538 · A 526 / B 686 / C 110 / D 216 ⇒ 48.2%**（会话起点 38.2%）。
+
+🔴 **它报的疑似 P0**（已派 `A1` 专查）：`BattleManager._ResolveAttack_d__438__MoveNext.c` 的
+「**伏击翻开**」(`:305` → `LAB_1809ad363`) 与「**landing 取消**」(`:426`) 两支**原版都会压一条续攻动作**
+（`AddAttackContinuationAction` / `AddFollowResolutionAttackContinuationAction`），
+我们两支都只 `return RuleCodes.OK`、**不补续攻** ⇒ **带 landing 的单位我们永远打不到人**，而伏击在池内**可达**。
+缺的那一步 = 续攻动作出队后走 `_ResolveAttack` 是否**真出伤害**（case 与标记位未解；⚠️ **ILSpy 那份 `ResolveAction` 全是 `goto IL_xxxx` 垃圾 ⇒ 只能看 `.c`**）。
+
+#### `B9_Q2` · P0 54 行判据做深（供写手直接照做）
+
+**50 条可照着写 · 4 条卡在「只能靠 VA 级反汇编」· 0 条查不到**。
+按目标文件：`RuleCore.cs` **20** · **`ActionPump.cs` 20** · `EffectResolver.cs` 4 · `ForcedAttackRefund.cs` 3 · `RandomSeedProvider.cs` 2 · `CardCriteria.cs` 1 · `NetBattle.cs` 1 · 只改账 3。
+产出：`判据/B9_P0_判据表.tsv`（54×12）· `报告/B9_Q2_P0判据.md`。
+
+🔴 **它纠正了施工单两处**：① 施工单第 8 列「**我们无动作队列**」**已过期** ⇒ 19 条 `Add*` 不是造队列，是「核我们的直接调用点与原版入队动作的字段/闸是否同形」；② 施工单第 5 列（我们的落点）**行号大量漂移/误指**（抽查 18 个至少 6 个指到无关方法）⇒ **写手一律以 `B9_P0_判据表.tsv` 第 6 列为准**。
+
+🔴 **真缺口只有 3 条**：`187 Stimulation` · `602 Ambush` · `607 PlayerCodex` —— 原版三张卡各不相同，我们 `FireTriggerAt` 只有 `u`+`subject` 两个槽、表达不了。**607 是群体触发**（对自己触发完还要扫全同阵营在场单位各触发一次）⇒ 若只做了第一段，**Codex 卡强度会系统性偏低**。
+
+#### 🥇 可复用的硬知识（跨会话，写进 `CLAUDE.md §三`）
+
+- **`VarsGlobal` 的 5 个优先级字段**：`+0xb4 playerActionPriority / +0xb8 instantPriority / +0xbc deathPriority / +0xc0 backlashPriority / +0xc4 turnEndPriority`（字段序 + 两处独立验证：`+0x6c addCardToDeckShowScale`、`+0x70 cardDrawnScale` 与字段表吻合）。
+- **`BattleAction` 字段偏移**：`+0x00 type / +0x04 isPlayer / +0x08 actingCard / +0x10 targetCard / +0x18 multiTargetCard / +0x38 attackType / +0x70 cardEffect / +0x78 manaBuff / +0x88 newCardData / +0xD0 checkIfCasterStillInPlay / +0xD8 casterCard / +0xE0 casterCardRaw / +0xEC keepEffects / +0xF4 blockPlayerActions / +0xF6 toRemnant`。
+- **判「`AddTrigger*` 写不写 `actingCard(+0x08)`」**：看 Ghidra 局部变量声明宽度 —— `local_208 [2]`（16 字节，盖住 +8）⇔ **没写**；`local_208`(8)+`uStack_200` ⇔ **写了**。**16/16 一致**。
+- **我们自己的动作队列形状**：`Core/ActionQueue.cs`（四条队列 FIFO + **消费序 2→1→3→0**）+ `ActionPump`，**自 2026-10-21 起就是原版形状**；生产唯一入队入口 = `Core/ActionPump.cs:562`（`EnqueueAbility` 尾部）。
+
+### 第四轮（2026-10-26 20:2x）· 自检收口 + 结构变更
+
+#### 自检四宿主：全部收敛
+
+| 宿主 | 起点 | 现状 |
+|---|---|---|
+| `CollectionScene` | 崩 → 32 红 | **0 红 · rc=0** ✅ |
+| `DeckScene` | 19 红 | **18/18 修完**（净行数 0，账零漂移）· 待复跑验 |
+| `RewardsScene` | 27 红 | **25/25 修完** · 待复跑验（期望 **2347 通过 / 0 失败**） |
+| `CardBaseDemo` | 2+2 红 | **3/3 修完**（`cardface-chk` 已 234/0） |
+| `NetBattleTest` | 1 红 | **修完** |
+
+#### 🔴 `F3` 挖出的一条**真缺陷 + 一条连带死闸**
+
+原版 `Ready for level up` 那颗节点**自带 `CanvasGroup`**，同节点的 `UIEffectCanvasGroupToggler.canvasGroups` 指向它、`deactivateOnDisable = 1` ⇒ `AnimationFinished → ToggleGameObjects(false)` 会 **`SetActive(false)` 根节点**。
+我们的 `Effects/UIEffectCanvasGroupToggler.Add()` **只收带渲染件的节点**（`ImageQuad`/`Label`/`Graphic`），而 `_readyRoot` 是 `MenuDraw.Node` 建的**裸 `RectTransform`** ⇒ **根永远不在开关目标里**、恒 active。
+⇒ **连带死闸**：`Shell/ForgeTab.cs:355` 的 `_readyRoot.activeInHierarchy` 闸（「关着 ⇒ 时钟冻住」的原版语义）**永远不会触发**，`Clock` 照推。
+修法（两处各 1 行）：`ToggleGameObjects` 除三张表**也 `SetActive(gameObject)` 自己**（两个原版实例实测 `CanvasGroup` 都挂在 toggler 自己那颗上，`sameNode=True`）+ `UIEffectTogglerController.Toggle` 在非 Play 时 `duration = 0f`。
+⚠️ **新前提写进 `Add()` 行尾**：这个等价只在「`CanvasGroup` 挂在 toggler 自己那颗」时成立；将来出现别的形状要改成真按 `canvasGroups` 收节点。
+
+#### 🔴 待办（铁律 5·b，`F3` 的越界发现）
+
+**`音效线` 缺口**：原版「可领光效」节点上第二颗 toggler 带 **`onSound` / `offSound`**（`bundle_menus_assets_all/MonoBehaviour_-6285932516663814401.json`，`{time:0, sound: PathID -7638648381113274586, is2d:1}`）⇒ **我们一侧一个音都没接**。→ 进 `音效线` 待办。
+
+#### 🔴 结构变更：`B7` 的 166 条纯表现层行**整批移交**
+
+《方案》与 `判据/战斗逻辑驱动_B2A_口径.md` §六 定「战斗逻辑驱动不覆盖纯表现层」；而 §4.1 明令 **「不归我管 / 不在我这个域」不能作为判 `D` 的理由** ⇒ 唯一正确做法是**移交**。
+`_tmp_view/migrate_b7.py`（可复跑，默认只打预览、`--apply` 才写）：按「类 + 方法」逐条核对后搬走，**⛔ 不是按行号盲搬**。
+结果：`战斗逻辑驱动` **1,538 → 1,372**（B 686 → 520）· `战斗界面_HUD` +**127** · `特效动画` +**39**。
+**全账总数 8,774 一分没变、完成率 72.4% 一分没涨** —— 搬走的还是 B，只是换了域去跟。
+现读完成率：`战斗逻辑驱动` **54.1%**（起点 38.2%）· `战斗界面_HUD` **82.4%** · `特效动画` **78.9%**。
+⇒ 已派 `M1` 去这两本账里照常往 A 推（其中 **80 条连 `.cs` 落点都没有**，要先定位）。
+
+#### 17 条「休眠」不直接判 D
+
+`B9_Q5` 初判「原版死代码/恒常量/0 调用 ⇒ 建议 D」。**我否掉直接判** —— 本项目有过先例：`ViewDeckInfoPopup` 只凭「全量 C# 0 引用」判 D，实际很可能挂在 **prefab 按钮的 `m_PersistentCalls`** 上。
+⇒ 派 `D1` 按**三源合判**重核（① `.c` + ILSpy 体 ② **prefab `m_PersistentCalls` / 场景 / SO / Addressables** ③ 从活入口往上追可达性）。
+⚠️ `BattleManager.AddInitialCardToDeck` **不参与判 D** —— 它和「牌库取 `[0]`」（G13）是同批件，判 D 会让牌序问题失去落点。
+
+#### 🔴 新坑（已写进 `CLAUDE.md §三`）
+
+**ILSpy 会把实参常量反编译成 `default`（= 静默做错）**：`BroadcastCardCreated` / `QuestResolved` / `TrapResolved` 里的 `GetCardsInHandList(六个开关)` 在 ILSpy 里**六个实参全成 `default`(=false)**，而 `.c` 里**六个数全是 `1`**（双方手牌 + 全卡种含 weapons）。照 ILSpy 写会把这三条广播**做成空转**。
+判法：**看到「一整排实参全是 `default`/`false`/`null`」一律回 `.c` 复核**。
+
+### 🔴 用户提出的根本问题 + 两条决定（2026-10-26 20:5x）
+
+> 用户原话：「我们现在这样复刻，是否可以较好的完整复刻？因为之前复刻的方式，依然战斗引擎有问题、**很多词条效果无法实现**、特效动画也表现得不好等等一系列问题。」
+
+**调度台的回答（结论先给）**：**方法方向是对的，但只靠现在这条主线（账 + 自检断言）不够 —— 会重演那几类问题。**
+
+**证据（今天的实测）**：逐方法读原版体确实抓到了断言抓不到的：伏击/landing **不补续攻**（12 张 `ambush` 卡永远打不到人）· 5 条广播多跳手牌（`SOR38` 躺手里白打督军 4 点）· `your warlord and adjacent units` 两处 · `armour` 当 trait（76 张假阳）· 召唤限定词被静默丢 · 强制攻击退还修过头 · legacy `Input` 崩溃 · 类名≠文件名（player 加载即崩）。
+
+**三个结构性缺口**：
+1. **账说「实现了」≠「效果对」** —— 今天三次踩到「数据/解析口径错 ⇒ 静默错一大片且断言全绿」：`buffType` 因 `full_raw` 翻倍（2,386 → 真值 1,198）· `armour` 当 trait · `unitsToSummon` 25% 惰性值（照字面做会报 93 条假缺陷）。**「词条效果无法实现」正是这一类的下游。**
+2. **特效/动画的正确性根本不在账里** —— 账只能记「组件建了」，记不了「粒子是不是这时候放、颜色对不对、时长对不对」。反例：`m_StopTime: 1` 被当缺陷记了很久，**原版也是 1** ⇒ 只有并排比能定。
+3. **验收三法只跑了第 ① 条** —— ② 原版 oracle 对拍只做过零散取证、③ 成品并排比只做过卡面。
+
+#### ✅ 用户拍板的两件事
+
+1. **插入「回路 A：全卡池效果对拍」**（用户选的是这一条；回路 B 特效 oracle 并排比、真机批量验收**本轮不插**）。
+   ⇒ 已派 `P1`：枚举 **92 个 `chosenAbility` 族** × 1,128 张，给每族定「可观察的期望结果」形状，盘点哪些族有夹具、哪些没有，并**真正跑出第一张差异表** `判据/B9_全池对拍_差异.tsv`（判定分「对 / 错 / 未验到」）。
+   ⚠️ 已知盲区必须先排除：`play all dump` **看不见 AI** · 对照局保留关键词 · `RelatedCardData` 没灌（`Companion` 8 张恒不触发）· 81 张「净差 0」从未被结算验到 · 夹具直接摆棋盘（不走部署链）。
+
+2. **指标从此两个数一起报**（⛔ 不许只报 72.4%）：
+   - **(A+D)/总** = 已定案率
+   - **A/(A+B+C)** = **玩家可见的真复刻率**
+
+   | 域 | (A+D)/总 | **真复刻率** |
+   |---|---:|---:|
+   | 全账 | 72.4% | **57.4%** |
+   | 卡牌面 | 93.4% | 91% |
+   | 战斗界面_HUD | 82.4% | 75% |
+   | 特效动画 | 78.9% | **68%** |
+   | 战斗逻辑驱动 | 54.1% | **45.7%** |
+
+   ⚠️ 76~79% 那几个「(A+D)/总」里 D 占比很大（全账 D = 3,084 / 8,774 = **35%**）⇒ **⛔ 别拿 72.4% 当「差不多好了」**。
+
+### 🔴 用户新分工（2026-10-26 21:1x）· 特效走代码层、引擎走完整正确
+
+> 用户原话：「**特效动画，主要是我亲自来看**，你想办法**在代码层面抓不足**。另一个你主要抓**战斗引擎**方面，找出问题，要**完整、正确复刻原版**。」
+
+⇒ **分工定死**（已存进 `C:\Users\qjh36\.claude\projects\d--4\memory\d4-vfx-visual-vs-code-split.md` + `MEMORY.md` 索引）：
+- **特效动画**：⛔ **不再派「截图并排比 / 视觉验收」类代理**（用户自己看真机）；✅ 只做**代码/字段层**三件 —— 参数级审计 · 触发链对账 · 资源覆盖差集。
+- **战斗引擎**：目标 **完整 + 正确**，⛔ 不许「看起来对」就算了。
+
+已派两路只读审计：
+
+| 代号 | 产出 |
+|---|---|
+| `V1` | `判据/B9_特效参数对账.tsv` —— 原版每个特效 prefab 的 `ParticleSystem` **逐字段**（duration/looping/startLifetime/startSpeed/startSize/Emission bursts/Shape/各 over-lifetime 模块/Renderer 队列/stopAction）+ 材质 `_Color`/`_EmissionColor`/blend/renderQueue，与我们的比，判定 `一致/不一致/缺模块/缺 prefab/判不了`，并按「影响面」排序 |
+| `V2` | `判据/B9_特效触发链.tsv` + `判据/B9_特效资源覆盖.tsv` —— ① 原版所有播特效的调用点 vs 我们有没有入口（`已接/未接/接了但缺闸`）② `assets_full` 里原版特效资源全集 vs 我们用了的，**差集里追它被原版谁引用**（追到 = 真缺口） |
+
+⚠️ 两路都写死了**已知假线索**不许再踩：`m_StopTime: 1` 原版同值不是缺陷 · `ObjAnimEffects` 全族本 build 不存在 · `_EmissionColor` 默认黑 · `AnimatorController`/muscle clip 拷出来是空壳（要分清「拷不出来」与「真没做」）· ILSpy 把实参常量反编译成 `default`。
+
+**战斗引擎线当前在跑**：`A1` 续攻 P0 已修（12 张 `ambush` 卡）· `A2` 手牌目标型卡点选目标 P0 · `A3` 伏击续攻收尾 + 探针 `preset face=ambush` 夹具 · `W1` Stimulation 的 VA 判据 + 补 (b) · `W2` `NetBattle` P1 31 条 · `P1` 全池效果对拍。
+
+### 第五轮（2026-10-26 21:4x）· 账批 + 引擎写手回执
+
+| 代理 | 结果 | 要点 |
+|---|---|---|
+| `L1` | 128 条 → **A 12 / B 116** | 🔴 **路线图「B1 零代码可升 A」对本块偏乐观**：128 条只有 12 条真只差判据；其余 116 条账里早写清卡点 |
+| `L1b` | 38 条 → **A 14 / B 26** | 🔴 **`X-字段落点-引擎` 26 条 0 条能升 A** —— 全是**账里的错误等价**：`GetCardsPlayPlayer/HandPlayer/DeckPlayer` 原版是 **`private unsafe string` 调试字符串构造器**（原账等价成 `Board`/`Hand`/`Deck`）；`GetDeckManager`/`GetPlayerHand` 返回我们**不存在的类型** |
+| `M1` | 166 条移交 → **A 13 / B 133 / C 17 / D 3** | 87 条原本无 `.cs` 落点：**定位到 72 · 仍找不到 15**（逐条写了搜过哪 21 个符号） |
+| `D1` | 17 条休眠 → **D 12 / B 4 / C 1** | 三源 + **自写 VA 级 E8/E9 rel32 调用扫描（157,170 个函数起点）** |
+| `W2` | `NetBattle` 31 条 → **A 27 / C 2 / D 2** | `NetBattle.cs` +287 行，新增全在类尾、既有成员 0 漂移 |
+
+#### 🔴 `D1` 推翻/纠正的四条（比它那 17 条本身更重要）
+
+1. **`ShouldUseEnviromentalEffects()` 恒 false**（机器码 `1809C2D90 call 0x6FB110`，而 `0x6FB110` = `xor al,al; ret` 共享桩）⇒ **原版「选进攻卡/防御卡」的选择面板永不出现**；但环境效果本身仍由 `_ApplyOffensiveAndDefensiveEffects` 对 PracticeOffline/EventAI/ClosedDeck/ClosedDeckBot **随机取一张**应用。
+   ⇒ **我们的 `BattleDriver.BeginOffensivePhaseIfAny` 会弹这扇面板 = 开局多一扇原版没有的交互**。已派 `E1` 钉死「撤掉后环境效果还会不会被应用」再动。
+2. **`GetCampaignScriptedData` / `IsCampaignScriptAvailable` 不是死代码** —— 调用点在**异步状态机体**内（`out_il2csharp` `:40240`/`:40660`、`:40356`/`:40657`）。
+   ⇒ `D1` 的补丁把这两条判了 D，**与它自己的发现矛盾**，调度台**就地订正为 B**（`_tmp_view/fix_d1_patch.py`）。
+   🔴 **新纪律**：判「0 调用」必须拿 **`out_il2csharp`** 再核一遍异步体（ILSpy 把它们丢成 `NoteDecompilerIssue`）。
+   🔴 另：`IsCampaignScriptAvailable` 与 `ShouldUseEnviromentalEffects` 在 `dump.cs` 里 **RVA 同为 `0x6FB110`** ⇒ **按地址归因无效**，只能按实参个数区分。
+3. **`GetTraitEffect` 的「0 调用」是错的** —— 有 **5 个二进制调用者 / 6 个 IL 调用点**（`BattleCardUI.DisplayStatusAnim` · `RemoveStatusAnim` · `ResolvePlayCardFromHand` · `CardScript.ActivateTraitParticlesFromCode`×2）⇒ 保持 B。
+   ⇒ 连带把 `CardTraitCollection.GetTraitEffectObject` 从 **D 改回 B**（它是它的转发目标）。
+4. **`CardScript.GetAvailableMarksOfChaos` 原判 A 不成立** —— VA `0x5ED9E0` 调用扫描 = **0 调用** ⇒ 按 §4.1「死类一律判 D，不许判 A」改为 **D**。
+
+#### 🔴 引擎侧新查出的真缺口（排队）
+
+- **`CheckIfCodexTriggered` 缺闸②**：原版两格闸 = `.c:30` `manaLeft==0`、`.c:31-36` `shouldCheckCost ∧ CurrentCost<1`（**0 费卡不触发**）；我们只有闸①，且签名里没有「刚打出的那张卡」⇒ 补闸② 要先改调用点。
+- **`Side=="any"` 的引擎不一致（19 张卡打不到对面）**：`PlayTargetPool` 对 `Side=="any"` 给**两侧并集**，而 `CanPlayTactic`/`PlayTacticCore` 只解**我方** ⇒ 现池 `SAU38`/`AM39`/`ASH73` 等 **19 张**「任意侧」实际打不到对面。（`A2` 在其链里已收窄不会错打，但引擎该打到对面。）
+- **`Courtesy` / `Relentless` 两族引擎整条没有**（无关键词常量 / 无 `Prefixes` / 无映射行 / 无触发口），卡池 0 张可达 ⇒ 休眠机制也要做。
+- **`SpentAllMana` 缺 `TriggerNameOfKeyword` 映射行** ⇒ `abilityContext` 恒走 `-1` 回退（静默）。
+
+### 🔴 更正我的一个转述错误（2026-10-26 22:1x，`E1` 现核推翻）
+
+我在上一条汇报里写「**我们的 `BeginOffensivePhaseIfAny` 会弹这扇面板 = 开局多一扇原版没有的交互**」——**不成立，我说错了。**
+
+**`E1` 四源现核的实际结论**：
+1. **原版没有任何模式**（Ranked/Unranked/各类 Bot/PracticeOffline/EventAI/ClosedDeck/ClosedDeckBot/Tutorial/Campaign/Replay，无一例外）会弹「选进攻卡/防御卡」面板 —— 这一半我是对的。
+2. 🔴 **我们也没有多一扇窗**：`offensiveCardEnabled` / `defensiveCardPanelEnabled` **出厂都是 `false`**（`A1664` 2026-10-12 已按同一判据关掉），`BeginOffensivePhaseIfAny()` 两条分支都在 `_choosePanel.Open(...)` **之前** `return false`（`BattleDriver.cs:9010` / `:9044`）；全仓只有 `Editor/BattleScene.cs` 的自检会临时置 true 再复原。
+   ⇒ **我读的是 `D1` 的推断，没回读工作树实际代码**，这是转述代理结论前不核实的老毛病（与第八十二会话那次「把改前/改后两栏对调」同族）。**教训再来一次：转述之前回读代码。**
+3. 🔴 **更深的一半（`D1` 没看到）**：`ShouldUseEnviromentalEffects()`（恒 false）在**两个**调用点上闸；第二处 `_FinishMulliganFinalPhase`（Ghidra `_d__351__MoveNext.c:108-124`）**直接跳过 `ApplyOffensiveAndDefensiveEffects()`**，而那是 `ApplyEnvEffect` 的**唯一调用点**
+   ⇒ **本 build 里环境效果整套是死代码**：进攻卡不进手牌、`ApplyEnvEffect` 从不执行、战场环境**永不因它而变**。
+   `ClickChosenCardDone(null)` 下游**不会**应用效果（它只把 `matchData+0x90/98` 两个字符串写掉）。
+   后手那张防御卡走的是**另一条活路** `AddGoesSecondCardToDeck()`（`StartBattlePhase`，同一个闸的**取反** ⇒ 会跑）。
+4. **恒 false 的四源取证**：`dump.cs` RVA `0x6FB110`（与 `IsCampaignScriptAvailable` 同址 ⇒ 用**实参个数**区分，两处都是 2 实参 = 0 参实例方法）· **亲自读 `GameAssembly.dll` 文件偏移 `0x6F9B10` = `32 c0 c3`**（`xor al,al; ret`）· ILSpy `BattleManager.cs:42873-42876` 就是 `return false;` · IL2CSharp 三个调用点全渲染成 `shared body, 3540 candidates`。
+
+#### 裁定
+- ⛔ **不要为「让环境效果生效」去打开那两个开关** —— 「自动取一张」正是原版那条**不可达**分支。
+- ⛔ **别把「环境效果没生效」记成缺口** —— 我们「环境停默认」**与原版一致**。
+- ✅ 该记的是：`AddGoesSecondCardToDeck` 与环境闸是**取反关系**（「环境开着时后手卡由面板给、关着时由牌库给」）；`ChooseCardMenu` 是**共用件**（`ChoiceOfCardPlayer` 也调它，`ProcessChooseDone` 无条件回调 `ClickChosenCardDone`）—— **那一支会不会被顺带写脏 `offensiveCard`/`UIstate` 没核，另开一条账**。
+
+### 🥇 回路 A 建成：全池效果对拍跑出第一张真实差异表（2026-10-26 22:4x · `P1`）
+
+**这是本会话对「词条效果无法实现」最直接的一份量化答案。**
+
+#### 数字（全部现读）
+
+| 判定 | 行数 | 卡级 |
+|---|---:|---:|
+| **对** | **1,081** | 811 |
+| **错** | **1** | 1 |
+| **未验到** | **846** | 429 |
+
+覆盖 **1,241 张 SO / 卡池 1,128 张**。
+**有夹具 49 族 / 没夹具 8 族**（其中 **5 族池内卡 = 0**，真正「池里有卡但完全没夹具」只有 **3 族 / 3 张卡**）。
+卡级：1,128 张里 **987 张**至少一条可观测行；56 张有效果无通道；85 张无效果行。
+
+#### 🔴 就地订正一个数：**不是 92 族，是 57 族**
+原版 `AbilityEffect` 枚举 = **83** 个成员（`AbilityEffect.cs` 逐行数）；`cards_truth.json`（1,351 张 SO）实际出现 **57 个值 / 2,078 处**；卡池 1,128 张里 **52 个**。
+「92」既不是枚举数也不是池内数 —— **旧文档的错数**，`P1` 已订正，脚本里**不写死任何族计数**。
+
+#### 唯一那条「错」
+
+`BL47 Disgustingly Resilient`「Give Armour 1 … **每有一个 Dark Pact 再加 1**」——
+单体 `play BL47` 实测**零变化**，引擎日志自己写「按 it 计 **0 遍**」。
+**根因 = 倍数算成 0 时，连基础那一份一起跳过**（不是单行数据问题）。⇒ **真引擎缺陷**，待修（`EffectResolver` 现在有写手）。
+
+#### 🔴 846 条「未验到」≠ 引擎干净（这 6 类要分开读）
+
+- **236 条** = 战术 / 防御 / 附魔的**事件触发** —— 探针电池只覆盖 `type=unit`，**这一类今天没有任何夹具**
+- **228 条** = 池外卡
+- **119 条** = 条件 / 夹具闸
+- **110 条** = 该 trigger 电池不触发
+- **58 条** = 无法归因
+- 其余 95 条 = 各档夹具闸
+
+**判定规则（防假缺陷）**：`错` 只在「trigger 0 ＋ 卡真打出去 ＋ 非督军 ＋ 无任何闸 ＋ 整张卡零实得」时成立；其余一律 `未验到` 且备注写明**哪一档闸**。共 **6 道防假缺陷闸**（`unitsToSummon` 惰性值 · 同名双 id · `TargetsAffected` 盲档 · 附魔注册/剥关键词/负向加成 · 卡面条件句 · `fixtureFit` 结构不适用）。**第一版不加闸会报 ~45 条假缺陷**（已逐条复核撤掉）。
+
+#### 最划算的三块（都已派 `P3`）
+
+1. **`doHeal` 族 63 张**（69 条未验到 / 对只有 4）—— 整族「看不到」**只来自一个夹具口径**：单位卡 `targetsAffected=30` 被解析成「刚打出的这张卡自己」（通常满血）。实证 `DA5 Apothecary`「治疗 1 个目标 2 点（**实际合计 0**）」。
+   ⚠️ **`ta=30` 在单位卡上的原版语义还没取证** —— 取证不出就 ⛔ 别改。
+2. **`reanimate` 8 张**（8 条未验到）—— `preset dead=1` 已存在，只是全池默认没铺坟场。
+3. **`followAfterResolution` 25 张**（27 条未验到）—— 当拍本来无变化（延后结算），缺的是「**结算之后再扫一遍局面**」那一拍快照。
+
+#### 探针四条新坑（`P1` 顺手发现，已写进报告 §七）
+
+1. 🔴 **`play all pf` 的 `E|` 行带 `netFull`（电池净差逐条原文，586 行）** —— 全池级「效果有没有发生」的**唯一机器可读口**；别再一次一张跑单卡（每张 ≈4 秒）。
+2. 🔴 **`other` 列把所有带自己 id 的 `✚ 落场` 都算成 `selfPlace`** ⇒ `Kroot Hound` 那种「召唤自己的复制体」在 `other` 上**恒 0**（只看 `other` 会误判零实得）。
+3. 🔴 **`Rally: Gain +3 Attack` 这类自身加成烘在「落地那一行」**，不在「效果」行。
+4. ⚠️ **`Armoured Lightning` 的 `unitsToSummon` 是池外 GUID、实际落场是池内 `AM68`**（同一张卡的两个 SO）⇒ 只按 id 比会误报「落错卡」。
+
+### 特效代码层审计（`V2`）· 2026-10-26 23:0x
+
+> 用户口径：「**特效动画主要是我亲自来看**，你想办法**在代码层面抓不足**。」
+
+#### 好消息：**资源零缺口**
+
+- **原版战斗特效 prefab 全集 962 / 962 全部已在工程**（我们 978 件；唯一名称差异 = `Orbital 5 repeat ` 尾随空格）。
+- 资源覆盖：**已用 20** · **未用且有原版引用方 = 0**（= 没有缺口）· 未用且原版也查不到引用方 **44**（0 MonoBehaviour GUID 引用 + 0 代码字面量 + pid 直引 90 处全是自引用 + 单一定义副本）⇒ **不是缺口，⛔ 不要接线**。
+
+⇒ **用户感觉到的「特效表现不好」不是缺资源，是触发点没接。**
+
+#### 触发链 45 条（三层枚举：实例化层 8 类 / 排队动作层 11 个 / 数据 SO 6 类）
+
+| 判定 | 条数 |
+|---|---:|
+| 已接 | **28** |
+| **未接** | **4** |
+| 接了但缺闸 | **0**（唯一一条 `_hasInPlayAnim` 已由 `B8_BA` 于 2026-10-26 补齐） |
+| 判不了 | 3 |
+| **原版本身没有** | **10** |
+
+四条未接：
+1. 🔴 **`BattleManager.RemoveDestroyableAnims`** —— **唯一有肉眼可见后果**：`destroyTime==0` 的持续型一次性件**没有清理点** ⇒ `EC54` 的 `Blind_continuous_effect`（**1.5 秒循环发射器**）**留到本局结束**。改动请求已写在 `WarpforgeEffectLibrary.cs:60-75`。⇒ **已派 `V3`**。
+2. `BattleManager.CancelAnimsFromUnit` —— 单位已死但排队动画照播完（观感级）。
+3. `CardTrait Ambush End(1) → AmbushEffect` —— 判据不明，现有实现是留空 + 出声（铁律 3）。
+4. `BattleManager.PreloadTraitEffect` —— 预热，非画面。
+
+三条判不了（都差一次 UnityPy 重读）：`StartTargetedSpellAnim`（卡 SO 的 `targetedSpellAnim` 全表取不到）· `SetAsMulliganSelected` 的 `mulliganSelectedPrefab`（pid 在本包导出里无文件）· `BattleCardUI.genericBattleAnims`（pid 只在 preloadTable）。
+
+#### 🔴 两批「假缺口」被消灭（可省掉下一轮返工）
+
+- **原版 `BattleAnims` SO 的 13 个字段里只有 `heal`（= `Healing_Circles`）非空，其余 12 个全空** ⇒ `PlayBossAnim` / `PlaySkullsAnim` / `PlayCampaignBossAnim` 等**原版本身就没有**（只有 `LogWarning`）。
+- `ResolvePsyker` / `ResolveReactor` / `ResolveTransient` **全 build 0 调用点** · `ActivateAbilityAnim` **空体** · reactor 前置在 1,127 张卡里 **0 命中** ⇒ 判「原版本身没有」（铁律 11 例外①）。
+
+#### 顺手订正两处过期判据（铁律 5）
+
+- `判据/Tap族_地面点击反馈.md` 第 1 轮「战场一个 Collider 都没有 / 代码 0 处 `Physics.Raycast`」**已过期** —— Tap 系统 2026-10-25/26 已落地（`TapParticleController.cs:228` 真射线 · `ArenaBuilder.cs:4407` 每场建控制器 · 13 个 ArenaPrefabs 都引用得到 tap 件）。
+- `判据/TraitEffectController_钩子层.md` 第 1 轮「全仓 0 命中」**已过期** —— `Core/HuntMarkController.cs` 已在，`BattleDriver` 有取值口与转发。
+
+#### 两个留给下一个代理的坑
+
+1. **`rg --glob "MonoBehaviour/*.json"` 匹配不到 `bundle_x/MonoBehaviour/y.json`** ⇒ 必须写 `**/MonoBehaviour/*.json`（第一次因此得到「0 命中」，差点把 12 件 Tap 判成孤儿）。
+2. **对我们自己的特效 prefab 用「按 GUID 扫引用」完全无效**（我们按名字从效果库/数据表取）⇒ 判「用没用」必须 **名字查数据表 + GUID 查 prefab 引用** 两条一起。
+
+### 🔴 引擎缺口队列（待派写手）· 2026-10-26 23:2x 汇总
+
+> 这些是今天各路查出来、**判据已清、只差写手**的引擎缺口。等 `--fix` 与「无写手窗口」一起处理。
+> ⚠️ 写手瓶颈：`RuleCore.cs` 与 `EffectResolver.cs` **各只能一个写手**。
+
+| # | 缺口 | 判据 / 落点 | 来源 | 可达性 |
+|---|---|---|---|---|
+| 1 | **`BL47` 效果零变化** | 「倍数算成 0 时**连基础那一份一起跳过**」——不是单行数据问题 | `P1` 全池对拍（唯一那条「错」） | **池内 1 张，可达** |
+| 2 | **`CheckIfCodexTriggered` 缺闸②** | 原版两格闸：`.c:30` `manaLeft==0`、`.c:31-36` `shouldCheckCost ∧ CurrentCost<1`（**0 费卡不触发**）；我们只有闸①，且签名里没有「刚打出的那张卡」⇒ 补闸②要先改调用点 | `L1b`；干净判据在 `.c:30-36`（ILSpy 那份带 `NoteDecompilerIssue`） | 可达 |
+| 3 | **`Side=="any"` 19 张卡打不到对面** | `PlayTargetPool` 给两侧并集（`EffectResolver.cs:2046-2050` / `IsLegalPick:1988-1992`），但格位解析只读我方（`:1975` / `PlayTacticCore:2435-2440`）⇒ **分流口 `RuleCore.cs:3890` 要改成「侧 + 格」才治本**，`EffectResolver` 那三处跟着改 | `A2` | **池内 19 张**（`SAU38`/`AM39`/`ASH73`…） |
+| 4 | **`Courtesy` / `Relentless` 两族引擎整条没有** | 无关键词常量 / 无 `Prefixes` / 无映射行 / 无触发口 | `W1` | 池内 0 张（休眠机制也要做） |
+| 5 | **`OnQuestResolved` 真行为差** | `TriggerNameOfWhenKind` **没有 490 分支**，真实实现靠「督军阵营 == DarkAngels」代理 | `L4`（旧账记「逐句等价」是错的） | 可达 |
+| 6 | **`IsValidTarget` 的 camouflage 闸我们比原版严** | 原版那支多一个「**施放者 `cardType == 20`**」条件 | `L4` 悬案查清 | 池内 0 张 ⇒ 排后 |
+| 7 | **`BroadcastEarnSkull` 发射点缺失** | `BroadcastEarnedSkull` 全仓无生产调用者 | `L2` | 今天不可观测（池内 640 监听者 = 0） |
+| 8 | **单位卡「撤单位 → 回手到原索引」** | 我们是「点完目标才落位」，没有「已落位再撤回」这一跳；`KillUnit` **不是**原版的撤牌 ⇒ 引擎要给「撤销一次已生效部署」的口（⚠️ 先写清副作用：不走死亡路 / 要 `Auras.Recompose` / 不许改 `ctx.Events`） | `A2`（与 `AUD8` 同一条账） | 可达 |
+| 9 | **`CountEval` 5 类筛维度** | 19 条 count 行 / **14 张卡**被 `SetGap` 挡成 `null`：`keywordFilter` 12 行（AM76×2/DA44/EC54×2/SAU57×5/GOF79/GOF94/GOF5）· `traitsFilter` 2 行（ASH85=70 · SW9 卡级=1260）· `currentHealthFilterOption` 2 行（AM54=3 · GOF105=2）· `filterSpecificCards` 1 行（GOF15）· `selectFromChooseResolution` 1 行（ASH82） | `B1`（**在做**，白名单已扩到 `CountEval.cs`） | **可达** |
+| 10 | **`Sacrifice` 残差** | 「用献祭那张卡自己有正文」那条路走 `FireTriggerAt`，快照是 `RuleCore.cs:12345` 拍的（默认不含待死）⇒ 一行修法：`SnapshotBoardListeners(ctx, null, null, includePendingDeath: keyword == KeywordTable.Sacrifice)` | `B1` | 今天不可达（池内 0 张 sacrifice 监听者） |
+
+#### 三条 P0 C 的最终定性（`B1` 现核）
+
+| 原判 | 最终 | 理由 |
+|---|---|---|
+| `BroadcastCardCreated` C/P0 | **D + 时间限定** | 原版有实现、本 build **池内 `abilityTriggers` 含 210 = 0 张** ⇒ 短语表定不了；**只加发送口 = 死代码**（要做必须三处一起：发送口 + `WhenEvent` Kind + 短语表）。原版真实调用点只有 `_ResolveCreateHandCard` 与 `_ResolveRecallToHand` 两处（旧账写的 `_ResolveCreateDeckCard` **本 build 不存在**）。 |
+| `BroadcastTrapResolved` C/P0 | **D + 时间限定** | 上游整条链都不存在（我们连「抽到陷阱 → 陷阱结算」都没有）；池内 270 监听 0 张、陷阱机制本身 0 入口。与账里 `CardScript.TrapResolved` = D 一致。 |
+| `BoardAnalysis.MeetsCriteria` C/P0 | **保持 C，但缺口收敛** | 主体已在 `CountEval.cs`（`MeetsBoardCriteria:234` / `SetGap:365` / `IncludeUnit:678` / `Compare:697`），`ignoreRandomTrigger` 真当第 6 实参接进去了；那段今天零可达（`triggerIf==8` 的 0 行）。**真可达缺口 = 上面第 9 条那 5 类筛维度 / 19 行**。 |
+
+#### 两条方法论（今天新增，已可用）
+
+- **`play check` 指纹变了，先做 A/B 隔离再归因**：把可疑文件换回 `git HEAD` 再跑一次；指纹逐字相同 ⇒ 与本批无关（`B1` 就这么证明的）。
+- **`GetCardsInHandList` 是【六个】bool 不是七个** —— 旧账三处写「七个 true」已订正；ILSpy 把后三个渲染成 `default`，`.c:41` 是 `1,1,1,1,1,1`。
+
+### 🔴 `L5` 的一条结论改变了「100%」这个目标本身（2026-10-26 23:5x）
+
+`L5` 把 `BattleManager`(181) + `CardScript`(72) = **253 条 B** 全部归类：
+
+| 离 A 还差什么 | 条数 |
+|---|---:|
+| 只差判据要点/观测量（零代码） | **92** |
+| 落点仍无方法级（格式/指向待改） | 3 |
+| **有已知行为差（须先改码）** | **81** |
+| **应判 C（我们没实现）** | **30** |
+| 应判 D / 域外 | 13 |
+| 🔴 **结构上不能升 A** | **34** |
+
+**能升 A：0 条**（不是没找 —— 5 条 G0–G8 全绿但落点形状不合格，今天已 A→B，不翻回去）。
+
+#### 🔴 34 条「结构上不能升 A」= 这个域的天花板
+
+那些行的落点**只能**指**字段 / 只读属性 / 注释**（`PlayerState.Hand/Deck/Board/Warlord`、`UnitState.Prayed/IsRemnant/DeployedTurn`、`AiTargets.HighestAttack` 这类）。
+按《方案》§4.1「纯属性 getter / 字段不能当方法落点」⇒ **永远只能记 B**。
+⇒ **`战斗逻辑驱动` 不可能到 100%（A+D 口径）**。真实天花板 = `A + D + 这 34 条结构性 B`。
+⚠️ 同时订正 `Q5` 路线图的一处判断：它把这批算进 `B3「改到方法级」`，**实测改不出来**。⇒ 别再派「升 A」的活给这 34 条。
+
+#### 🔴 需要新加一道闸：「落点裸名在当前源码里找得到声明」
+
+`L5` 查实：**`RuleCore.CanUseAbilityTarget` 这个方法已经不存在了**（全仓只剩 `<see cref>` 注释），而 **3 条账的落点还指着它** ⇒ `check_ledger_points --fix` **永远修不好这类行**（它按名字重定位，名字不存在就永远失败）。
+⇒ 建议在闸里加一条只读检查：**落点括号里的裸名，在当前源码里能否找到声明**；找不到 ⇒ 单独列「名字已消失」一类，交给人工改落点（⛔ 别让 `--fix` 反复试）。
+
+#### 🔴 行号漂移的实测数字（值得记住）
+
+`L5` 抽查 12 处方法级落点，**11 处已漂**，最大漂 **416 行**（`GetLowestHealthUnit` 1798 → 1382）。
+⇒ **裸声明名是唯一保险**；`--fix` 只能在「无 `.cs` 写手」时跑，而且跑完要复核。
+
+#### 30 条「应改判 C」—— 我**不**批量翻档（决定与理由）
+
+`L5` 建议这 30 条直接改判 `C` 进施工单。我**没有批量翻**，理由两条：
+1. 其中 **2 条**（`GetCampaignScriptedData` / `IsCampaignScriptAvailable`）与 `D1` 的「**不是死代码**、调用点在异步状态体内」以及本会话 `DESK1` 的订正**冲突**，未最终定；`AddInitialCardToDeck` 也被 `D1` 证明**源码级 0 调用**（与 `L5` 的「可达」相反）⇒ 这三条先保持 `B`。
+2. **档位不如工作清单重要** —— 这 30 条已进下面这份清单，下一批引擎写手照单取活即可；为翻档再动 30 行账，churn 大于收益。
+
+**C 候选工作清单（30 条，下一批引擎写手直接照取）**
+- **整条机制缺 + 池内 0 可达（11，休眠档，P2）**：`AddExchangeMinions` · `AddTransformCardWithBuff` · `AddTriggerCourtesy` / `ResolveTriggerCourtesy` · `AddTriggerRelentless` / `ResolveTriggerRelentless` · `CopyUnitInCemetery` / `ResolveCopyUnitInCemetery` · `ResolveStealFromDeck` / `ResolveStealFromHand` · `WaitingForBlockingAction`
+  ⚠️ 与引擎缺口队列第 4 条（`Courtesy` / `Relentless` 两族整条没有）是**同一件事**。
+- **单点缺口、成本极小（14，P1）**：`IsAgainstAI` · `IsAgainstOnlineBot` · `IsReplayMatch` · `PayCardPlayedCostOath` · `RegisterPlayerActionCancelled` · `CancelMulliganAfterBattleEnd` · `ResolveMissAction` · `SetHealthToZero` · `CanPlayWithOathNowInPlay` · `RemoveDuplicitous` · 战役链 4 条（`GetCampaignScriptedData` / `IsCampaignScriptAvailable` / `IsCampaignStageAvailable` / `IsScriptedStageAvailable`）
+  📌 `IsAgainstHuman` = `!IsAgainstAI()` 两行，与 `IsAgainstAI` 同批做。
+- **可达性 / 影响主链（5，P1）**：`GetHighestHealthWarlord` · `GetWarcry` · `CheckForHeroDeckTransform` · `AddInitialCardToDeck` · `ChangeMaxHealth`
+
+#### 另外三条查实
+
+- `StartBattlePhase` / `PlayAi` 的原版体只是**协程 kickoff**，真体在 `_StartBattlePhase_d__334__MoveNext.c` / `_PlayAi_d__399__MoveNext.c` —— 已在账里写死，**防下一轮误判「没逻辑」**。
+- `GetRandomAttackTarget`：`decomp_full` / `out_cpp2il_dev_ilspy` / `assets_full` **三方 0 调用点** ⇒ 疑死代码；但 **724 条无方法体未扫**，扫完仍 0 才判 D。
+- 判据订正 4 处（`CheckIfAbilityCancelsAttack` 原版只是转调 `CardScript__HasCancelAttackEffect` · `GetTraitEffect` 一句转调 · `IsAgainstHuman` · `TriggerOtherCardAbility` 落点挂错 → 改到族闸）。
+
+## ✅ 第八十三会话 · 重同步点（2026-10-26 20:0x 起）
+
+### 已完成（现读）
+
+| 步 | 结果 |
+|---|---|
+| `typecheck` | **0 / 0**（运行时 0 · 编辑器 0） |
+| **结算指纹重钉** | `6e888bbe1415ee84f05ecb82ec1111d1` → **`af8e817839fa1dd199d33320f6bf1b2e`** ⇒ `play check` **rc=0** · `parse check` **rc=0** |
+| 基线文件 | 重新生成 `工具/ruleprobe/基线/out_play_baseline.txt`（1,715 行）；旧版备份 `_tmp_view/out_play_baseline_6e888bbe.bak` |
+| 落点闸 `--all-A --fix` | **漂移 366 → 19** · 失败 **16**（账已备份 `账_bak_同步点_0827/`，13 MB / 21 份） |
+
+**为什么重钉**：`A1`/`A3` 修了 **伏击 / landing 续打一记** —— 原版两支都压一条 `BattleActionType=1` 续攻、出队后再进 `_ResolveAttack` ⇒ **12 张 `ambush` 卡从「零次攻击」变成「一次」**。
+电池段 **5 张变**（GSC11/GSC15/GSC25/GSC69/GSC7）。`A3` 做过 A/B 实证：**不是卡行为变了** —— 控制臂 `Blank(card)` 保留了 `ambush` 关键词、现在也面朝下，与真卡**逐字相同**被净差减掉（插桩证明两版 `a`/`b` 条数完全相同 45/43，只有 `b` 里一行**内容**变了；反过来把 `Blank` 的 ambush 删掉会变成 11 张卡变、更糟 ⇒ 保留关键词是对的）。**主档 1,128 张逐字节一致。**
+
+### 在跑
+
+| 路 | 内容 |
+|---|---|
+| **14 宿主全量复跑** | `bash 工具/_run_8_checks.sh`（串行，20+ 分钟）。⚠️ 今天动了 `RuleCore` / `EffectResolver` / `ActionPump` / `BattleDriver` / `CardPresentation/**` / 多个 `Editor/*` ⇒ 必须全量 |
+| `F9` | 那 16 条失败落点（指到注释行 / 空行 / 语句中间 / 名字已消失）逐条修；**只改账不改 `.cs`**，可与宿主并行 |
+
+### 🔴 本会话新增的三条「闸/工具」待办
+
+1. **加一道「落点裸名在当前源码里找得到声明」的只读检查** —— `L5` 查实 **`RuleCore.CanUseAbilityTarget` 这个方法已经不存在了**（全仓只剩 `<see cref>` 注释），而 3 条账的落点还指着它 ⇒ `--fix` **永远修不好**这类行（它按名字重定位，名字不存在就永远失败）。
+2. **`--fix` 的边界**：它只修「行号漂移」，修不了「落点写成注释行 / 空行 / 语句中间」—— 那 16 条失败就是这一类，只能人工改。
+3. **合并工具的两条硬校验**（今天多路踩过）：① 补丁**第一行必须是 11 列表头**（`B9_P3` 漏了表头被拒）② `方法` 列**必须是完整签名带 `(...)`**（裸方法名被拒；`B9_A3` 三条裸名、`B9_V3` 两条带全角括号，都被拒过）。
+
+### 本会话产出的「方法论」（下一会话直接可用）
+
+- **`play check` 指纹变了，先做 A/B 隔离再归因**：把可疑文件换回 `git HEAD` 再跑；指纹逐字相同 ⇒ 与本批无关（`B1`/`A3`/`P3` 三次都用这招洗清了自己）。
+- **全池对拍的两条铁律**：① **「错」只在「trigger 0 ＋ 卡真打出去 ＋ 非督军 ＋ 无任何闸 ＋ 整张卡零实得」时才成立**，其余一律「未验到」并写明哪一档闸（第一版不加 6 道防假闸会报 ~45 条假缺陷）。② **判据脚本自己也会错** —— `Sig` 把 `right.split()[0]` 取成卡名，害 `hp_up`/`hp_down` 两桶从来没点亮，修它一次 +44 行。
+- **`ta=30 (target)` 的语义** = 「**调用方传进来的那一个目标**」，传 null 就是空表、**⛔ 不以「自己」兜底**（`AbilityLogic__GetTargets.c:192-207`）；而 `targeted` 的卡没目标时整段 `ThisCardPlayed` **直接跳过**（`RawCardScript.cs:1138-1156`）。⇒ **夹具不给目标 ⇒ 看起来"治疗 0"，其实是测法不对。**
+- **`ILSpy` 三种静默丢失**（今天各踩到实例）：① 实参常量变 `default`（`GetCardsInHandList` 六个 bool 全成 false，`.c` 里全是 1）② 异步状态机体整个丢成 `NoteDecompilerIssue`（**判「0 调用」必须拿 `out_il2csharp` 核异步体**）③ 私有 setter 变 `obj = value`（字段名丢了）。
+- **`dump.cs` 里同 RVA 不等于同方法**：`0x6FB110` 是高频共享 `return false` 桩（`IsCampaignScriptAvailable` 与 `ShouldUseEnviromentalEffects` 同址）⇒ **按地址归因无效，只能按实参个数区分**；`0x4B33B0` 是全局空桩 `ret 0`。
+
+### 🔴 本会话订正的六处「旧文档错数/错结论」
+
+1. **不是 92 族，是 57 族**（`AbilityEffect` 枚举 83 成员，`cards_truth` 实际出现 57、池内 52）
+2. **`GetCardsInHandList` 是六个 bool 不是七个**
+3. **`+0x30` 不是 `keywordFilterOption` 而是 `excludeRace`；`+0x3C` 不是 `traitsFilterOption` 而是 `excludeTrait`** —— 那两个 `…FilterOption` 字段**原版根本不存在**
+4. **`GetTraitEffect` 的「0 调用」是错的**（5 个二进制调用者 / 6 个 IL 调用点）
+5. **`GetCampaignScriptedData` / `IsCampaignScriptAvailable` 不是死代码**（调用点在异步状态机体内）
+6. **「按阵营切光标 12 族没有资源」不成立**（21 张图全在，映射表在 AssetRipper 导出里，11 条）
+
+### 第六轮（2026-10-26 22:5x 起）· 20 条残余红的定性 + 修复
+
+#### `D2` 只读诊断：**α 12 · β 7 · γ 0 · δ 1**（20 条）
+
+| # | 宿主 | 定性 | 根因 |
+|---|---|---|---|
+| 1 | `RuleEngineTest`「目标照样掉 4 血」期望 6 实得 9 | **β / P0** | 见下「`X1` 推翻调度台简报」 |
+| 2-6 | `RewardsScene` 5 条（可领光效该灭没灭 / 时钟还在走） | **β / P1** | `UIEffectTogglerController.togglers` **只由 `Awake→Rescan()` 填**，而**编辑/批处理下 `AddComponent` 不触发 `Awake`** ⇒ 列表恒空 ⇒ `Toggle` **空转**。**运行期 play 会跑 `Awake`，真机看不出** |
+| 7 | `AnimFXCheck`「模块引用路径零解析失败（实测 1）」 | **β / P1** | `gen_effect_extras.py` 读**已废弃的 `m_RootOrder`** ⇒ 兄弟下标恒 0 |
+| 8-11 | `RuleEngineTest` 4 条 | **α** | **夹具 `Unit(name, cost, atk, hp)` 的 `cost` 被当成 `atk`**（`T1` 的错）· 3 条 S14 `landing` 断言编码的是**修前**行为 |
+| 12-17 | `AnimFXCheck` 6 条 | **α** | 今日 `G12` 改了 `Resolve` 默认 ⇒ 要显式传 `usePresetSignal: true` |
+| 18-19 | `CardFaceAssertE5` 2 条 | **α** | 今日 `F7` 把通配符库存键升成**两维**（`army|rarity`），自检仍摆**一维旧桶** |
+| 20 | `MainMenuScene` banned 行 | **δ** | 夹具在窗已 `Open()` 后 `ResetForTest()`，**没通知窗** |
+
+`D2` 如实标了两处「牙口缺口」：**`E5` 的 C6 负例自 `F7` 起是空跑**（从未真摆 0 张 ⇒ 该判据今天没有断言在守）· **`Rewards` 的「空表」是推断、未实测**。
+
+#### 🔴 `X1` **推翻了调度台简报给的改法**（本条最值钱）
+
+简报（转述 `D2`）说：在 ambush/landing 块末尾各补一句 `atk = FieldAttack(ctx, p, attacker, ranged);`。
+**实测无效**：`play GSC16 preset face=ambush` 仍 5 伤（应为 7）。
+**根因**：`FireTriggerAt` **只入队**（`EnqueueAbility`）⇒ **动作体内无论重取多少次 `FieldAttack`，读到的还是翻开前的值**；日志序也印着 `AMBUSH：…给了 1 个目标` **排在那记攻击之后**。
+⇒ **光补「重取」不动「续攻落点」= 无效。**
+
+**真正的形状**（`X1` 查实）：原版伏击是**两拍** —— `:305 SetAmbush(false)` 那条 ability 走 `PlayAbility → AddAutoActionToQueue` 入队；`:478 AddFollowResolutionAttackContinuationAction` 才把续攻压成一条 `attack(1)`，入队道 = `VarsGlobal.instantPriority`（`dump.cs:120117`）⇒ **与伏击 ability 同一条道 = 严格 FIFO** ⇒ **ability 先结算、续攻后结算**，攻击力在续攻那一遍现算（`_ResolveAttack…:1116 GetCombatDamage`）。
+
+**修法**：`RuleCore.cs:6260` 伏击支删掉「就地继续往下打」，改成
+`EnqueueAbility(ctx, ActionPriority.Instant, "伏击续攻:…", () => DeclareAttack(…))` + `return RuleCodes.OK`。
+
+**实测（唯一能分辨的四张卡）**
+
+| 卡 | 攻击力 | 伏击正文 | 改前 | **改后** |
+|---|---:|---|---:|---:|
+| `GSC16` | 5 | `Gain +2 [Attack]` | 5 伤 | **7 伤** ✅ |
+| `GSC9` | 4 | `+2 Attack and +2 Ranged` | 4 伤 | **6 伤** ✅ |
+| `GSC11` | 1 | `Deal 2 damage to a random enemy` | 1 伤 | 1 伤（本来就对） |
+| `GSC32` | 8 | `Gain Armour 1` | 8 伤 | 8 伤（本来就对） |
+
+🔴 **为什么结算指纹没变（`play check` 仍 rc=0、`af8e8178…` 未变）**：`play all` 的夹具把单位**正面朝上**摆 ⇒ **1,121 张结构上进不了伏击支**。⇒ **「指纹没变」不等于「改动没生效」**，这条改动只能靠 `preset face=ambush` 的读数证明。
+（`D2` 那句「`selfChip` 会先翻开 ⇒ 到不了这一支」同因。）
+
+**landing 支没跟着改**：它排在**扣配额之后**（我们 `:6362` `AttacksThisTurn++`，原版在 `_AttackMeleeAnim:116` 之前），若也进队，续攻会在 `CanAttackNow` 的配额闸上被误判成打不了 ⇒ 要改对得把 `DeclareAttackCore` 劈成「声明层 / 执行层」，不是能顺手做的。**可达性 0**（全池 0 张带 `landing`/`dropPod`）。
+
+#### `X2` — 光效 `Rescan` + banned 夹具（**零行数变化**）
+
+- `Shell/ForgeTab.cs:426` 建完 `UIEffectTogglerController` 后补一次**显式** `_readyToggler.Rescan()`。
+- **为什么不用「`Toggle` 里懒加载」**：那会把「编辑期特例」藏进**运行时共用件**、改变将来空列表实例的语义、还会牵动 `Effects/` 共用件；显式调用只动全仓唯一那个 `AddComponent` 点。**幂等已核**（`Rescan` 先 `Clear` 再重填，play 路径 `Awake` 先填一次、这句再清后重填同一批）。
+- 编译坑：`var sk = SkirmishEventWindow.LastOpened` 的**声明类型是基类** `LiveOpsEventWindow` ⇒ 直接 `sk.RefreshBannedLine()` 是 `CS1061`，必须 `as SkirmishEventWindow` 下行。
+
+#### `X3` — **真正坏掉的是 94 处，不是 1 处**
+
+- `gen_effect_extras.py` 读**已废弃的 `m_RootOrder`**（Unity 2023+/6 已删该字段）⇒ 兄弟下标恒 0；而 `ResolvePath` 是「`GetChild(idx)` 取完再**逐字比名字**、不按名字筛」⇒ 取到错的那个 ⇒ 失败 ⇒ **`WFEffectExtras.Attach` 整件组件根本不补**。
+- **为什么自检只报 1 处**：`AnimFXCheck` 只实例化少数特效，且**对 `effect_extras` 的节点没有全量 sweep**（`:178-211` 只扫 AnimFX 的 `__node`/`@node:`）。
+- 离线全量解析器验证（不跑 Unity）：**改前 164 处里失败 94，改后失败 0**；有负例证明解析器非空转。
+- **顺手抓出第二个同类 bug**：YAML 给**带首尾空格的名字**加单引号（1,314 件 prefab 里 **107 处**，如 `m_Name: 'Impact '` = 真名 `Impact `），旧代码 `.strip()` **脱不掉引号** ⇒ 2 条记录路径带 `'` 必然失败（`Blast_Big_Ork_Missiles` 与 `Sau_ParticleWhip`，后者**尾随空格必须保留**）；已确认没误改名字本身含撇号的 3 条（`Emperor's Children`）。
+- 🔴 **留给调度台的账**：建议给 `AnimFXCheck` 补一段「**88 件 × 164 处 extras 节点全解、失败计 0**」的断言，否则「**大面积坏了只报 1 处**」的盲区会复发。
+
+#### `X4` — 12 条 α（**它拒绝了 `D2` 给的「把期望改成 `selfHp`」那条路**）
+
+- 理由：那条会把该行退化成「**没有反击也没关系**」、**鉴别力归零**。⇒ 改的是**夹具**：`Unit("EFoeB", 1, **0**, 10)` → `Unit("EFoeB", 1, **1**, 10)`（签名是 `Unit(name, cost, atk, hp)`，**atk 原来是 0**），并补夹具前提 `Check(foe.Attack, 1)`。
+- **三处新增灭自证**：① S14 `landing` 翻成 0 之后补**新子例 ④**（攻方 `dropPod 2 + landing 1`），① 与 ④ 成对 —— `fireLanding` 恒 `true` ⇒ ①红，恒 `false` ⇒ ④红 · ② `AnimFXCheck` 那 5 个 preset 走**默认支**必须回 `DefaultSignal`（否则 `G12` 默认值被改回去时原来 6 条照样绿）· ③ `E5` 的 C6 **真的摆 0 张**且**前提用生产侧读口读回来**（以后谁摆回一维旧桶，**前提先红**）。
+- 启发式扫了「别处有没有同族 cost/atk」的 17 处，逐条看过**全是刻意**（注释写着「攻 0 ⇒ 不反击」）⇒ **没发现第二例**（启发式，非穷举，已在报告写清）。
+
+#### 闸（本轮收口）
+
+`typecheck` **0/0** · 落点闸 **A 3,484 · 通过 3,462 · 漂移 22 · 失败 0** · `verify_annot` **缺注解 0** · `check_loc_dupes` **0** · `play check` **rc=0**（指纹未变 = 正常，见上）。
+
+---
+
+## 十 第八十四会话 · 开场（2026-10-26）
+
+### 10·1 交接检查 + 一处数字订正（铁律 5）
+
+`交接_第八十三会话.md` §1·c 原写「真实天花板 = A + D + 34 条结构性 B ≈ **93%**」——
+**那个数没有算式支撑**（本文件 §4940-4960 只写了公式 `A + D + 34`，没给百分比）。
+按现账直接算：34 / 1,373 = **2.5%** ⇒ 该域上限 **97.5%（A+D 口径）**。
+要低于它，只有等其余 **106 条未归类的 B**（不在 `L5` 那 253 条里）也核出结构性行 —— 那要核过才知道。
+⇒ 已在交接正文就地订正（带更正痕迹）。
+
+### 10·2 账缺陷修复：`战斗逻辑驱动.tsv` 10 行「闸全绿但没被统计」
+
+**症状**：`ledger_progress` 总数 8,775 而 A+B+C+D 只有 8,765 ⇒ **10 行静默漏统计**（工具不报，因为它只校验「列数 == 11」）。
+
+**三类形状**：
+1. **2 行整行右移一列**（`:663` `BroadcastUnitSpiritStone(BattleManager,…)` · `:668` `BroadcastUnitUsedSacrifice`）—— 多了一个「判据出处」格，档位列被挤掉；落点/差异也各多出半格。
+2. **1 行同样右移**（`:229` `BroadcastUnitSpiritStone(CardScript unitSpiritStone)`）—— 状态列成了要点散文、档位挤到了落点列（档位 `A` 还在）。
+3. **7 行状态列写散文**（`:1078-1083` `MatchData.Set*` + `:1091` `ShoultSetAiOpponent`）—— 填的是 `归C（Shell）`（**归属标记、不是档位**），等级列同样是这句散文。
+
+**修法**（调度台自己做，主表只有他能写；已备份 `/tmp/战斗逻辑驱动.tsv.bak_0828`）：
+- 右移的 3 行：把两个「判据出处」格合并成一个、补回空的等级格；
+- 7 行 `归C（Shell）`：按《方案》§4.1 判 **B**（我们已有等价实现、差异列写「净结果同」，但 `MatchData` 那 7 个方法体**没逐句对拍**）⇒ 要升 A 由 Shell 线逐句核，⛔ 不是"归档"；
+- 🔴 **代价如实记**：右移那 3 行里，`:663`/`:668` 的**原档位已随错列丢失**，保守判 **B**；`:229` 的档位 `A` 还在、予以保留，但它的落点是「`EffectResolver.cs` **类尾**」**无行号** ⇒ 按 §4.1 只能算 B —— **下一批写手该把它改成带行号的落点或降 B**（闸现在只给告警、不拦）。
+
+**修后现读**：`A 3,423 · B 1,357 · C 888 · D 3,107 = 8,775`（形状异常 0）·
+`(A+D)/总 = 74.4%` · **真复刻率 A/(A+B+C) = 60.4%** ·
+落点闸 `A 3,485 · 通过 3,463 · 漂移 22 · 失败 0`（告警 118 → 119，多的是 `:229` 那条无行号落点）。
+
+### 10·3 「34 条结构性 B 会不会影响游戏」的裁定（用户 2026-10-26 追问）
+
+- **「记为 B」本身不影响游戏**：B = 「已实现未核」，这 34 条记 B 的唯一原因是**落点形状**不合 §4.1（我们的等价物是字段/只读属性），不是功能缺失。账行原文自带证据：`GetHighestAttackValue` 写「逐句 2/2」、`BoardAnalysis.GetTotalMana` 写「无差异」、`IsThereDoubleOathEffect` 写「判据本身已对齐」—— **都是 B**。
+- **但不能因此当成"已核等价"**：至少一例藏着真偏离 —— `CardScript.SetPray`（原版 `set_isPraying(…,0)` 全树 0 命中，我们按卡面语义补了 4 处清零，已标 `🔶` 并用断言钉住）。
+- ⛔ **不为了升 A 给字段包一层方法**（刷指标 + 动 `.cs` 引入风险）。这 34 条的 B **就是终点**。
+- ⇒ 处置：派**只读查证代理 J1** 逐条真核（等价 / 有差异 → 判 C），顺带把其余 106 条未归类 B 是否结构性一并查清。**查证代理不碰 `.cs`**，查出真差异只进引擎缺口队列、由引擎写手统一改。
+
+### 10·4 第一波派活（10 路 = 7 执行 + 3 查证，2026-10-26）
+
+| 代号 | 角色 | 独占文件 | 活 |
+|---|---|---|---|
+| `E1P01` | 执行 | `RuleEngine/Core/RuleCore.cs` | ① landing 支续攻（唯一红，劈 `DeclareAttackCore` 声明/执行层）② `Side=="any"` 19 张卡 ③ `CheckIfCodexTriggered` 闸② ④ `Sacrifice` 快照不含待死 ⑤ P-01 那 18 条 |
+| `E2P11` | 执行 | `CardPresentation/Battle/BattleDriver.cs` | P-11 那 28 条 + 单位卡「撤单位→回手到原索引」 |
+| `E3P13` | 执行 | `Core/{CardFeel,CardView,UnitTweenTable}.cs` + `Board/DeploySequence.cs` | P-13 视觉链 10 条 |
+| `E4P08` | 执行 | `RuleEngine/Data/{AiScoring,SimpleAI}.cs` + `Core/BoardSlots.cs` | P-08 4 条（不接线、指纹必须不变）+ P-09 3 条（只标 `🔶`）+ P-10 1 条 |
+| `E5P12` | 执行 | `Battle/{BattleSfx,BattleBigChat,AbilityIconAnim}.cs` | P-12 表现小件 6 条（后两个新建；🔴 类名必须 == 文件名） |
+| `E6P14` | 执行 | `Hand/CardInteraction.cs` + `Core/TutorialScript.cs` | P-14 4 条 |
+| `E7P06` | 执行 | `RuleEngine/Core/{ActionPump,CountEval}.cs` | ① `Courtesy`/`Relentless` 两族整条缺 ② `MeetsCriteria` ④⑤⑥ ③ `669` 接线（重钉基线留给调度台） |
+| `J1SB` | 查证 | — | 34 条结构性 B 真核 + 106 条未归类 B 是否结构性 |
+| `J2WS` | 查证 | — | 弱信号 129 条逐条定性（α 措辞 / β 真缺口 / γ 判不了） |
+| `J3SH` | 查证 | — | 287 个近似 shader 对账 → 可执行施工表（⛔ 不看截图，只做代码层） |
+
+**故意推迟到「无 `.cs` 写手」的同步点**：
+- **P-04 随机源预烧 100 + 下标取**（会让**所有**对局指纹变、旧录像全失配 ⇒ 与其它写手并行会污染归因）
+- **P-07 卡表重生成**（动全池 ⇒ 同上）
+- **P-02 `EffectResolver`**（等 P-01 的广播骨架）· **P-06 的 ③ RandomChance**（等 P-04）· **P-05 `UnitState`**（等 P-01）
+- `check_ledger_points --fix` / 重钉 `PinnedPlayMd5` / 功能点索引重跑（批次 5）
+
+### 10·5 用户 2026-10-26 新口径（本会话定，已进 `CLAUDE.md` 相邻条目的判据）
+
+> 原话：「**请你先推进主线。单独派子代理查一些困难的地方，就比如这些。不要让这些情况妨碍到游戏引擎，否则就会影响整个游戏的对战。**」
+
+⇒ 三条边界（以后每批都照此）：
+1. **主线（引擎写手）只吃「判据已清」的活**，⛔ 不在未核的地方顺手改引擎；
+2. **查证线只产出证据/账补丁，⛔ 不碰 `.cs`** —— 真差异进引擎缺口队列，由引擎写手统一改（一条规则只有一处写）；
+3. **会动全局指纹/全池数据的改动（随机源、卡表重生成）不许与主线并行**，只在同步点做。
+
+### 10·6 第一波回执（E1 / E6 / J1 / J2 / J3）+ 两条被推翻的旧结论
+
+**回执摘要**
+
+| 代号 | 交付 | 关键结论 |
+|---|---|---|
+| **E1P01** | `RuleCore.cs` +161/−56 | landing 续攻（劈 `DeclareAttackCore` 成声明层/执行层）· `CheckIfCodexTriggered` 闸② · `Sacrifice` 快照收待死 · typecheck 0/0 · 指纹未变 · 伏击回归仍 7 伤 |
+| **E6P14** | `CardInteraction.cs` +58/−7 · `TutorialScript.cs` +12/−1 | `DisplayHandMinusCard` C→A；`HandCardMovedToNewIndex` 差最后一跳（订阅方在 `BattleDriver`，已转 E2）；`SendCardReorder` **不在**该方法里 |
+| **J1SB** | `报告/B9_J1SB_结构B真核.md` + 34 行账补丁 | **26 等价 / 7 有差异 / 1 判不出**，**没有一条需要补代码**；另核 112 条未归类 B（结构性 58 · 可升 A 25 · 有行为差 19 · D 休眠 5 · 判不出 5） |
+| **J2WS** | `报告/B9_J2WS_弱信号129定性.md` + 123 行账补丁 | **α 112 / β 6 / γ 5**；模拟合并后扫描器只剩这 11 行需人拍板 |
+| **J3SH** | `判据/B9_shader近似映射_对账.tsv` + 报告 | **287 条在正常态是休眠的**（31/32 同时也在 `UseOriginal`，白名单优先）；**真暴露面 = 另 35 个材质（P0，54 张卡）** |
+
+---
+
+#### 🔴 推翻一：`SetPray` 的旧结论是**反的**（J1SB 实读）
+
+账里原写「原版 `set_isPraying(…,0)` 全树 0 命中 ⇒ 我们按卡面语义补了 4 处清零 ⇒ `🔶 自己设计`」。
+**错**：原版**有清零点**，只是**绕过 setter 直写字段** ——
+`CardScript__OnTurnStart.c:100`（`+0x67 = 0`；`BroadcastTurnStart` 对**全场 + 双方手牌**逐张调）· `CardScript__ResolveDamageDealt.c:168`（自己挨到真伤害就清）。
+我们的 4 处清零与之**一致 ⇒ 等价**。
+⇒ 处置：账的「判据要点 / 差异 / 备注」已就地订正；**代码里本来就没打过 `🔶 自己设计` 标记**（查过 `RuleCore.cs` = 0 命中），不需要撤。
+⚠️ 教训：**「按 setter 搜不到」≠「没清零点」** —— 与 CLAUDE.md §三「搜不到赋值点 ≠ 没来源」同族。
+
+#### 🔴 推翻二：S14 子例 ④ 的末条断言**不可满足**（E1P01 查出，调度台已改）
+
+原断言 `Check(defL.Health, 6, "伤害照落 3 点")`，但该子例给**守方**挂了 `dropPod 5`，而引擎对带 `dropPod` 的单位是「**池吃伤害、生命一点不动**」（`RuleCore.Hurt` 的 `if (u.Has(DropPod))` 支：`absorbed=true`、池 5→2、生命恒 9）⇒ **那条断言与实现无关、永远不可能绿**。
+同一个测试的子例 ① 早就自证了这个口径（它断的是 `KwValue(DropPod) == 2`、**从不断生命**）。
+⇒ 改成两条：① 生命 9（池吃伤害）② **池 5−3=2**（= 伤害照落 3 点）；**并且**在读数前补 `RuleCore.PumpActionQueues(ctx)`（续攻是入队的两拍）。
+🧨 **鉴别力仍在**：续攻一次都不打 ⇒ 池停在 5 ⇒ 两条都红。
+⚠️ 交接里那句「断言是对的、实现是缺的」**只对了一半**：实现确实缺（已补），但断言另有独立的 α。
+
+---
+
+#### 调度台这一轮做的订正（铁律 5 / 11）
+
+**账（`战斗逻辑驱动.tsv` 13 行）**
+- 落点改错 → 改对：`GetCurrentPlayerId`（原版返回 playerId/opponentId **字符串**、唯一调用点只打日志 ⇒ 落点撤）· `GetTotalMana`（`Energy` → **`MaxEnergy`**）· `HasDiedSinceLastTurn` / `HasDiedThisTurn`（全局计数 → **`BattleContext.DeadTurn` 逐卡回合号**）
+- 行 838 `ReactToUnitUsedSacrifice` **形状坏行**（等级列写成散文、差异列粘了落点复本）⇒ 归位
+- 行 1367 `WarlordMasteryContainer.OnInitialize`（状态 B 与落点「归C」自相矛盾）⇒ 判 **C / P1**
+- `ResolveWeaponKilled` 维持 **D**（`decomp_full` + `cpp2il` 双源 0 调用点），但记下 J1SB 的异议 + **第三源（assets 的 prefab `m_MethodName` / SO 引用）未查**
+- **J2WS 的 5 条 β → A 改 C**：`SetupFullHero`(P1) · `ResolveRecallToHand`(P1) · `ResolveCardAutoSummoned`(P1) · `IsRightContext`(P2，时间限定) · `UpdateFigures`(P2)
+  ⇒ **账面因此下降**（A 少 5、C 多 5）：这是"查出真缺口"，**不是退步**
+- `联机.tsv` 的 `SendCardReorder` 判据出处订正：真调用点 = `BattleManager__Update.c:223-240`（只有返回 1 且联网且 Photon 连着才发）
+
+**文档**
+- `报告/V1_特效参数审计.md` §八·3 **就地收窄三处**（287 休眠 / 真暴露面 = 35 个硬锁材质 / 4 个未声明属性的说法不成立）
+- `判据/B9_剩余C_派活包.md` 与 `调度台日志:4930` 的**矛盾待裁**：派活包把 `#203/#217` 当 P0，日志判它们 D + 时间限定 ⇒ 下一批开工前先按 **D** 走（只加发送口 = 死代码，须三处同批）
+
+**测试**
+- `RuleEngineTest_S14.cs`：子例 ④ 末条按上面「推翻二」改写 + 补泵点（**唯一那条红的根因不全是实现**）
+
+#### 现读
+
+`A 3,419 · B 1,357 · C 893 · D 3,107 = 8,776`（E1 新增 1 行）· **(A+D)/总 = 74.4%** · **真复刻率 A/(A+B+C) = 60.3%** · 缺注解 **0**
+落点闸因**并发写手正在增删行**暂时漂到 150/失败 3（全部是 `AMBIG 有 N 处声明` 那一类）⇒ **`--fix` 留到无 `.cs` 写手的同步点**。
+
+#### 第二波又派了 4 路（用户 2026-10-26 追加要求：其它域的 C 也要推）
+
+| 代号 | 类型 | 活 |
+|---|---|---|
+| `K1P0` | 判据 | **P0 四域剩余 C ≈63 条**（HUD 25 · 卡组编辑 25 · 收藏 9 · 卡牌面 4）→ 施工单 + 派活包 + P3 候选表 |
+| `K2DL` | 判据 | **`日常_奖励` C ≈282 条**（最大一坨）→ 先分三类（可真做 / P3 候选 / 判不了），再给真做得出施工单 |
+| `K3SH` | 判据 | **菜单 50 + 商店 54 + 锻造 2 + 战役 16 ≈122 条** → 施工单 + 派活包（含 `Shell/` 共享件瓶颈表） |
+| `E8SH` | 执行 | **J3 挖出的 P0：35 个硬锁材质**（`WFMatDef.shader` 被写成替身名 ⇒ 三格不覆盖 + 孤儿值不过滤，54 张卡）+ `_TintColor` 等 P1 |
+
+🔴 **口径**：其它域**不能直接派写手** —— 只有 `战斗逻辑驱动` 做过 114 行施工单；其余 19 域的 C 先要**判据代理**把施工单 + 派活包做出来，写手才照单干活（否则就是"看着有依据"地发明口径）。
+
+### 10·7 第二波回执（E7 / K1 / K2）+ 一条**未解的正本冲突**
+
+#### E7P06（`ActionPump` + `CountEval`）
+
+- **`Courtesy` / `Relentless` 两整族落地**：原版两个 `Add*` **逐字节同形**（只差 type 65/62），两个 `Resolve*` **去掉常数后完全一致**（只差 id 43/230）；唯一调用点 `AbilityLogic__PlayAbility.c:2006`(370)/`:2102`(400)。
+- **`MeetsCriteria` ⑤ 原来是静默错**：`playerTurn` 缺 ctx/owner 时我们**恒 false**（把「不知道」当「不是自己回合」）⇒ 改成出声放行。④ `maxTargets` 截断 + `countOptions==10`「先选后加权」三档已实装（另四档缺随机源/等价字段，出声）。
+- **669 接线**：指纹 `af8e8178…` → **`16db33fa…`**，只 `BL18`/`UM18` 各 +4。隔离实测 **①②④ 零行为变化**。**重钉基线 = 调度台在无 `.cs` 写手时做。**
+- 🔴 **它推翻了 CLAUDE.md 的一条自记**：`RefreshInPlayNumericAndKeywords` 的「9 张卡手牌总价」副作用**已不存在**（根因被批次 6 `G14` 的 `!numericOnly` 修掉）；ON/OFF 两态各跑 `play all dump`（1128 张 × 23 列，含 `handCostDelta`）⇒ **变化卡数 0**。已就地订正 CLAUDE.md（「幂等 ≠ 无副作用」仍成立，只是作用面只剩那 2 张卡的快照重折）。
+- `selectFromChooseResolution` 的「判据读不出」**是错的**：消费点至少三处（`AbilityLogic.cs:1075/1414/1628`），语义 = 「候选池是本次选牌结算**选中的那一张**」（`BattleManager.cardChosenInSelection`）；我们缺那个等价槽。已订正 `SetGap` doc 与账 676。
+
+#### K1P0（P0 四域剩余 C 63 条）
+
+- 63 = HUD 25 · 卡组编辑 25 · 收藏 9 · 卡牌面 4；等级 **P0 6 / P1 16 / P2 41**；分 **18 包**（16 可派 + 1 待裁 + 1 挂起）。
+- 🔴 **唯一大瓶颈 `BattleDriver.cs` 一个文件装 20 条**（K-01）⇒ 等 E2 交文件。
+- **已派 6 包**（文件互不相交）：K-02+K-05 · K-03 · K-04 · K-06+K-12 · K-09 · K-11。
+- **调度台裁定**：`收藏:203` 账文过期已订正（机制已在，只差模式图标释放口）· `卡组:285/286` **P2→P0** · `卡面:21` **P2→P1** · `卡组:75` **要做（P2）**，并把 `调度台日志:1904` 那句「⛔ 不应该做」订正（**违反铁律 11**：「没实例」不是合法的不做理由）· `收藏:244/247` **暂不判 D** —— 已回派 K1 查**第三源**（prefab `m_PersistentCalls` / 场景 / SO·Addressables）。
+
+#### K2DL（日常/奖励 282 条）
+
+- 三类：**① 可真做 258（91.5%）· ② P3 候选 7 · ③ 判不了/别域/非缺口 17**；① 出 12 列施工单 + 15 个写手包。**本域没有 P0**（① 里 P1 33 / P2 225）。
+- 玩家最常看到的：`430` 进主菜单自动弹每日奖励/连登窗（**今天恒不弹**）· `548` 活动钮标题硬编码 `EVENT` + 倒计时恒 `--` · `518` 任务 toast 一次都不弹 · 活动图标留空。
+- 🔴 **4 行账过期已改判 C→B**（`LiveOpsHandler.{ExpireEvent,QueueEventPopup,ScheduleEventPopups,ShowTriggerEventPopup}`，实际行 **383/392/398/402**，落点 `Shell/LiveOpsHandler.cs:419/334/274/378`；`Q3` 2026-10-26 已逐句照抄）⇒ ⛔ 别当新工作派。⚠️ 注意：K2 报的账行号 382/391/397/401 **偏一行**，实际是 383/392/398/402 —— **又一次「账行号别信、按方法名认」**。
+- 顺带三条判据升级：`GetTimeDescriptionTextKey` 的四档字面量在官方本地化里有**唯一候选**（`TimeStartsIn`/`TimeEndsIn`/`TimeFinished` + 空串）· `PlayEvent<T>` 在 Ghidra 侧 **0 产物**（`FastModeBaseEvent<T>` 有 25 个 ⇒ **G7 泛型导出名单漏了 PlayEvent**）· GUID→prefab 判据**只写了第一跳**（`guid_map.tsv` 只到 bundle 名，第二跳取 `m_Container` 任何文档都没写）。
+
+#### 🔴 未解的正本冲突（**我没动任何一边，请用户裁**）
+
+同一日期、相反结论：
+
+| 出处 | 说了什么 |
+|---|---|
+| `资料/任务线/活动线/任务总表.md:11` | 「**2026-10-25 用户【暂停本线】**（原话：「活动 / 新手引导 先暂停。以后需要再恢复。」）⇒ 本线的活一律不开工」；同文件 `:50` 又写「2026-10-23 的暂停**尚未解除**…⛔ 不是解除暂停」 |
+| 本文件 `:2185` | 「**2026-10-25 用户三条新决定**…原话：「日常/活动线 779 条（其中 408 条真缺）要不要开？**开吧**。」⇒ 原「只审不动工」**作废**，可以改 `.cs`」 |
+
+⇒ 两句都是**用户原话的直接引用**，我无法从文本判断先后。**处置**：① 不派 258 条那批（本波已有 10 路在跑）；② **两份都先不改**（改错一边比留着冲突更糟）；③ 等用户一句话裁定，再按结果订正另一边并记录时间线。
+⚠️ 在此之前，K2 的 258 条施工单**只当待命方案**。
+
+#### 现读
+
+`A 3,427 · B 1,363 · C 878 · D 3,108 = 8,776`（E7 6 行 + 日常 4 行改判后）· **(A+D)/总 74.5%** · **真复刻率 60.5%** · 缺注解 0
+**在跑 10 路**：E2 · W1–W6 · K1（第三源取证）· K3（菜单商店 122）· E8（shader 硬锁）
+
+### 10·8 ✅ 上面那条正本冲突已由用户裁定（2026-10-26，第八十四会话）
+
+**用户选择：开线，全做（含 P2）。**
+⇒ **处置**（三处都改了，铁律 5「同一句话抄到别处要一起改」）：
+1. `任务线/活动线/任务总表.md` 顶部暂停令 → 换成**三段式时间线**（10-23 暂停 → 10-25「开吧」作废「只审不动工」→ **10-26「开线，全做」正式解除**），原文留痕。
+2. 同文件 §二 那条「本线按用户 2026-10-23 暂停（只记账，⛔ 不开工）」→ 改成「已于 2026-10-26 开线」。
+3. 同文件「与本线暂停令的关系」那段（原文写「尚未解除」）→ 订正为已解除。
+
+**据此派出 2 路**（当天其余 10 路仍在跑）：
+- `W7P9` = K2 的 **P9**（每日/连登/任务页/自动弹窗 16 条，含玩家最常看到的 `430` 自动弹窗 / `518` 任务 toast）
+- `W8P1` = K2 的 **P1**（活动事件过滤/触发/冷却/状态机 25 条，是 P8/P10 的前置地基）
+⚠️ **并发一度到 12 路**（超 §13·7 的 10）。理由：新增两包文件与在跑的 10 路**完全不相交**，且用户明确要求推进；⛔ 后续若再派，先等这一批回 2–3 路。
+⚠️ `Shell/LiveOpsHandler.cs` 标为**任何人不得修改**（Q3 刚落，四方法逐句照抄）——已在两份简报里点名。
+
+### 10·9 对战引擎（主线）的推进 + K3 回执
+
+#### A. 引擎主线：派出 `E9ER`（独占 `EffectResolver.cs` + `RuleCore.cs`）
+
+用户 2026-10-26 明确「**对战逻辑是主线**」⇒ 引擎各路优先。当前引擎侧的家底：
+
+| 文件 | 谁在做 | 状态 |
+|---|---|---|
+| `RuleCore.cs` | E1P01（已交 4 条）→ **E9ER 接着用** | landing 续攻 / Codex 闸② / Sacrifice 快照 已落；**P-01 那 18 条还没开工** |
+| `ActionPump.cs` · `CountEval.cs` | E7P06（已交） | Courtesy/Relentless 两族 + MeetsCriteria ④⑤⑥ |
+| **`EffectResolver.cs`** | **一直没人动** → **E9ER 现在独占** | 见下 |
+| `BattleDriver.cs` | E2P11（在跑） | P-11 28 条 + E3 的 6 组接线 + E6 的一跳 |
+| `AiScoring.cs`/`SimpleAI.cs`/`BoardSlots.cs` | E4P08（已交） | 三包 8 条 + 22 条单测 |
+| `TargetCriteriaEval.cs`/`CardCriteria.cs`/`CountEval.cs` | W6K11（在跑） | 目标筛三格（K-11） |
+
+`E9ER` 的活按**价值**排序（不是按施工单顺序）：① `BL47`（全池对拍里唯一确认的「错」）② **`Side=="any"` 19 张卡打不到对面**（玩家可见）③ Codex 战术调用点一行 ④ camouflage 闸我们比原版严 ⑤ `OnQuestResolved` 490 分支 ⑥ `BroadcastEarnSkull` 发射点 ⑦ 之后才做 P-02 那 10 条。
+**基线口径**：`play check` 现在是 `16db33fa…`（P-06 接线后的新值）⇒ 写手不许改 `PinnedPlayMd5`，指纹变了要逐条解释。
+
+**下一路引擎（等 E9 交文件）**：`P-01` 的 18 条（`RuleCore.cs`）+ `P-05 UnitState.cs` 3 条（残骸 `Has` 语义，要全池对拍）。
+**再往后**：`P-04` 随机源（预烧 100 + 下标取）**只能在无 `.cs` 写手的同步点做**（会让所有对局指纹变、旧录像全失配）。
+
+#### B. K3SH 回执（菜单/商店/锻造/战役 122 条）
+
+- 产出：12 列 × **122** 施工单 + 派活包（12 个共用件 + 排程）+ 报告（13 条没查清 / 13 条顺手发现）。
+- 规模：菜单 50 · 商店 54 · 锻造 2 · 战役 16 ⇒ **可派 54 条 · H 包 68 条原本挂在「活动线暂停」上**。
+
+🔴 **用户口径变化后怎么处置这 68 条（调度台裁定）**：
+「活动线暂停」**已于 2026-10-26 解除**（用户：「开线，全做（含 P2）」），**但「过期的活动不做」这条仍然有效**（同日我在正本里保留）。
+⇒ **拆成两半**：
+- **要做的（活动基础设施，不是「某个已过期的活动」）**：活动容器 · 报价格 · 徽记（含 `CampaignBadge` 缺的 `army` 字段）· 商店货架装载与服务端目录的**本地模拟层**；
+- **不做的（写清理由 + 时间限定）**：具体**已过期**活动的实例配置与轮播 —— 理由 = 用户拍板「过期的活动不做」，出处 = 用户 2026-10-24/26 口径 + `调度台日志` 10·8。
+⚠️ 两者都要在账里分开写，⛔ 不许一句「H 包不派」把它们一起埋掉。
+
+#### C. K3 查出的三条账/口径问题（记下来，下一批处理）
+
+1. 🔴 **`Inventory<T>` 层已经存在**（`Shell/Inventory.cs`，含 2026-10-26 `Q1` 补的 `OnItemCountModified` 钩子）⇒ 商店 `59–62` / `239–241` 账里「整层没有」**已过期**，估工差一个量级。
+2. 🔴 **`ShopData._shopItems` 是字典（丢顺序）**，而原版是按序「`items` 在前 + `offerLists` 展开」⇒ **潜在真差异（货架排列）**。立为新债：判据 = `FixedStoreData.AddItem`（= `items.Add` 一句）+ `OfferData.ToRewards`（同 `TargetId` 分组、数量 = `Count`）。
+3. 🔴 **菜单 2–5 的宽高比公式 2026-10-19 就做完了**（`MainMenuRuntime.cs:2384-2398` + 用户实拍复核）⇒ 账里要补指针，否则下个会话会当「完全没做」重做一遍。
+
+#### D. 待拍板（K3 提的 4 件里，我只留了一件）
+
+1. **要不要支持非 16:9**？我们现状**钉死 16:9**。若不支持 ⇒ 菜单 `2/3/4/5` 判 **D + 时间限定**（「当前 build 只做 16:9」）；若支持 ⇒ 要按 `AdaptFlexibleGridLayoutByAspectRatio` 的浮点公式做（`k = max(1, 1.7777778/aspect)`）。**等用户一句话**。
+2. 「`Inventory<Currency>` + `HasEnough`」维持 2026-10-25 的「暂不建、等消费点」—— **不改**。
+3. 写手所有权：`Deck/DeckRuntime.cs` 归卡组编辑线 · `BattleDriver.cs` 归 E2 · 新件 `Shell/ErrorPopupWindowController.cs` 到时新开。
+
+### 10·10 E8SH 回执（shader 硬锁 P0）—— 两处推翻 J3、一处规模订正
+
+**规模订正（我 10·6 报给你的「35 材质 / 76 块」是 J3 的两个口径记混了）**：
+现读（逐 prefab 扫 `WarpforgeEffectBinder` 的 `WFMatDef` 块，按 `m_Script` guid 判）=
+**43 个基材质 · 76 个不同材质名（34 个带 `__<hash>`）· 417 个 `WFMatDef` 块 · 343 个 prefab**。
+J3 的 35 是基材质数（本身也偏低：`Extra Color EC` 是 **14** 不是 9、`Extra Color` 是 **8** 不是 6）；76 是「不同材质名」，块数是 **417**。
+
+**做了什么（路 A，没动任何 prefab/材质数据、没跑全量重生成）**
+- `WarpforgeShaderMap` 新增 `SurrogateToOriginal`(8) + `SurrogateMaterialOverrides`(2) + `MaterialBaseName`/`IsSurrogateName`/`OriginalNameFor`
+- `WarpforgeEffectBinder` 新增 `OriginalShaderNameOf(WFMatDef)`，**5 处「按原版名查表」改为走它**（`OriginalProperties`/`InferBlend`/`InferCull`/`InferZTest`/`ApplyDerivedParticleDefaults`），这些行**零增删**、`:397` 之后行号一个没动
+- **`TryResolve(d.shader)` 一字未改**（改它 = 417 块整体换渲染源，必须先 A/B）
+- 验收（推演）：四格 × 43 基材质 = 172 格，**改前 0 有取数 → 改后 80**；反查覆盖 **417/417**
+- 🔴 **一个替身顶 3 个族**（J3 漏了）：`IceTrail` 其实是 `Particles/Standard Unlit`、`smokesoft_dark` 是 `Mobile/Particles/Alpha Blended` ⇒ 反查必须按「替身名 + 材质基名」分流
+
+**🔴 顺带修的一条真缺陷**：`InferCull` 的名字兜底把 `Particles/Standard Unlit` **强判成 Cull Off**，而该族 cull 是**属性驱动**（`IceTrail` 的 `_Cull = 2`）⇒ 删掉那一支，5 个行为不变、`IceTrail` 恢复 Back。
+
+**🔴 推翻 J3 的两条（都已在 J3 的两个文件里就地更正）**
+1. `Legacy Shaders/Particles/Alpha Blended` **不缺 `_TintColor`** —— PS 实读只有 **5 条指令、零 constant buffer** ⇒ 原版**根本不采**它。**⛔ J3 那条「补 `_TintColor`」不能做**（做了就是凭空多一个乘项）。
+2. `Anim Alpha Blended` 的机制不是「滚 UV」，PS 实读是**两帧插值** `lerp(tex(uv0.xy), tex(uv1.zw), uv2.x)`；`_TintColor` 在 **VS** 里还有 **×2**；真正缺的是「两帧插值 + `_TintColor` + ×2 + `_InvFade` + ColorMask RGB」。
+
+**留给同步点（我记在待办里）**
+1. ⚠️ 本批动了**共用件** `WarpforgeVFX/Runtime/*` ⇒ 按铁律 12，同步点要跑**全部 12 条**自检。
+2. 实跑读数口：`BlendProbe.Run`（已改，正好把这 43 个基材质从「跳过」变「真判」）· `ShaderResolveProbe.Run`。
+3. 画面 A/B：`WFBIND_FORCE_BUILTIN` sweep 前后各一次（用户自己看画面）。
+4. **后果①「永远走不到原件」仍未修**，两条路：数据侧让 `WFMatDef.shader` 回原名（417 处，要重跑导出）or 代码侧把 `TryResolve` 也反查（**1 行**，但 417 块整体换渲染源，必须先 A/B）⇒ 我倾向**代码侧 1 行 + A/B**。
+5. 账：本批**没有补丁**（改的是资产级事实，账的坐标系是「原版方法」，强写=伪账）；证据落在 `判据/B9_shader近似映射_对账.tsv` 的硬锁小节 + 报告。
+
+### 10·11 J11RA（资源「没用上」17,692）回执 + 两条现场核正
+
+**五档：A 225（1.3%）· B 7 · C 13,877（78.4%）· D 3,059（17.3%）· E 524（3.0%）**
+⇒ **结论与预期相反：78.4% 是「账看不见」，不是「我们没用」。**
+
+**根因（同族 bug 第三例）**：`工具/r0_report.py:163-170` 的 `scan_tree(...)` 扩展名白名单**没有 `.cs`** ⇒ 工程里明明有 `ChatPanel.cs` / `BattleHud.cs` / `DragAndDropItem.cs`，账照样判「没用上」。
+（前两例：`.ogg/.wav`、`.anim`，已在 R0 文档订正过。）
+另：**预制体树内节点不是文件** —— GameObject 12,276 行（69%）永远不可能被 U1 命中；按 `m_Father` 回溯到根做「预制体级」判断后：`menus` 308 根命中 304、`battleprefabs` 292 根命中 287。
+
+**→ 要修（数据重生成，归同步点）**：给 `r0_report.py` 加 `.cs` 后**重算**「没用上」列（预估 17,692 → ~4,000 量级）。
+
+#### 🔴 现场核正（铁律 5）：J11 自己犯了同一个错
+它报「**工程内 0 个 `.mp4`** ⇒ 开场动画没做」。**实读**：
+- 原版**有 8 个**视频（`Defeat` / `Draw` / `Victory` / `Main Menu Multiplayer` / `Main Menu Practice` / `Gacha Crate Opening` / `Menu_Chronomancer_Animation` / **`Warpforge Intro`**）；
+- **我们工程里有 4 个 `.webm`**：`defeat` / `draw` / **`intro`** / `victory` ⇒ **`intro.webm` 就在工程里**（它只找 `.mp4`，而我们存的是 `.webm` —— **与它刚批评的白名单 bug 同族**）。
+
+⇒ 所以「开场动画」这件事要拆两句：
+- ✅ **素材在**（`intro.webm`）；
+- ❌ **没有播它的链** —— 全仓 `VideoPlayer` 只出现在 `Battle/BattleDoors.cs`（战斗结算门：defeat/draw/victory），**没有 boot/intro 场景、没有引用 `intro.webm` 的播放器**。
+- 另缺 **4 个视频**：`Main Menu Multiplayer` / `Main Menu Practice` / `Gacha Crate Opening` / `Menu_Chronomancer_Animation`。
+
+⚠️ 这条与项目目标直接相关（用户 2026-09-17：「像进原版一样：**开场动画** → 主界面 → …」）⇒ 已列为界面线待办（素材现成、缺播放链）。
+
+#### 另一条 J11 说对了、且是玩家第一眼
+**主菜单是静帧**：`MainMenuRuntime.cs` / `MainMenuScene.cs` / `ShellScene.cs` 里 **`ParticleSystem` 计数 = 0**，而原版主菜单有 **21 个环境光效**（`Swirl`×4 / `Glow Explosion Up·R·Down` / `Side Border L·R` / `Ray Right` / `Sparks R·RL` / `EffectElement`×5 / `Cog` / `Craft` / `Level Up Effect Down` / `Animated Loading Image`）。
+
+#### 账的判据要换（两条）
+1. **「原版不可达 934」不能当死资源证据** —— 那是**引用解析缺口**（457 Mesh + 171 Material + 84 AssetBundle + 50 Texture2D…），不是「原版不用」。
+2. **「疑似死资源 101」里真死资源 = 0** —— 82 个是 bundle 头对象、14 个 URP 后处理 Volume、5 个第三方脚本。
+
+### 10·12 新会话派活表（用户 2026-10-27 定：**主线 + 空位跑别的线**）
+
+> 用户原话：「**新会话的一些空的子代理，也可以做一下其他任务（非战斗逻辑主线它们）**」
+> ⇒ 主线不独占并发；**有空位就填别的线**。并发上限 10（7 执行 + 3 查判据），**主线常驻 4–5 路，其余给别的线**。
+
+#### A. 主线（战斗逻辑驱动）· 常驻 4–5 路
+| 序 | 活 | 谁 | 备注 |
+|---|---|---|---|
+| **A1** | **修 32 条红**（等 `D1DG` 定性后按 α/β/γ/δ 分流） | 我 + 原写手 | ⛔ **不修完不写交接**（用户 2026-10-27 明确） |
+| **A2** | **P-04 随机源**（`375 GetRandomInt` + `1058 GenerateRandomNumbers` + `BattleContext`：预烧 100 + 按下标取） | 1 路引擎写手 | 🔴 **会改所有对局指纹、旧录像全失配**；做完**再重钉一次**（这是最后一次引擎级指纹变动） |
+| **A3** | **P1 剩 15 条**（`500/531/579/627/631/669/690/972` + 战役 `100/105/109/111`） | 1–2 路引擎写手 | 判据在 `判据/B9_剩余C_派活包.md` |
+| **A4** | **B 329 条逐条核**（421 − 结构性 92） | 2 路只读+落账 | 最大工作量，**不写代码**，只需逐条对判据 → A 或标「已知偏离」 |
+| **A5** | P2 25 条 | 排在 A3 之后 | —— |
+
+#### B. 别的线（空位就填）· 3–5 路
+| 序 | 活 | 施工单 |
+|---|---|---|
+| **B1** | 界面线 **R1 开场动画链**（Boot → Intro UI → 播 `intro.webm`）+ **R3 三张 offer 底图**（最便宜） | `任务线/界面线/任务总表.md` §一 R1/R3 |
+| **B2** | 界面线 **R2 主菜单 21 个环境光效** | 同上 R2 |
+| **B3** | K1 剩的小包：**K-07**（`PracticeModePopup` 2 条）· **K-08**（`ItemDrawer` 2 条）· **K-14**（战役/锻造页徽记 1 条） | `判据/B9_P0剩余C_派活包.md` |
+| **B4** | 日常/奖励：K2 派活包 **P2（资产装载）+ P4（里程碑/进度条基类）** | `判据/B9_日常C_派活包.md` |
+| **B5** | 特效：J4 派活包的 **J-01…**（40 条里 25 条可派 / 11 个包） | `判据/B9_特效C_派活包.md` |
+| **B6** | 音频：J5 派活包 **A-03 `ChatPopupPanel`（10）· A-04 `UnitChatPanel`（6）· A-05 `BattleDriver`（10）** | `判据/B9_音频C_派活包.md` |
+
+#### C. 新会话开局三步
+1. 读 `交接_第八十四会话.md` + 本日志 §10·1–10·12
+2. 先跑**受影响的宿主**确认起点（不跑全量）
+3. 按 A1 → A2 → （A3 ∥ B 线）的顺序：**A1 必须在任何 `.cs` 写手开工前完成**（否则修红时树在变）
+
+#### D. 仍然挂着、⛔ 别自己决定
+- **13 场战场串行重建 + 出图**（约 1 小时 Unity 独占）：用户 2026-10-27 明确「**以后再做，到时你询问我**」
+- **真机批验**（`真Play待验清单` D61–D65）：用户说**不急**
+
+### 10·13 收尾修红：W18 / W19 / W20（用户 2026-10-27：**修完 + 复跑绿了才写交接**）
+
+`D1DG` 把 32 条红定性为 **18 α · 2 β · 7 γ · 5 δ**（按根因只有 11 个独立问题）。三路已派：
+
+| 路 | 文件 | 修什么 | 结果 |
+|---|---|---|---|
+| **W18AR** | `ActionPump.cs` · `UnitState.cs` | 🔴 **唯一会伤玩家的那 6 条 γ**：光环给的 `fast`/`flank` 单位每次动作收尾被重新判成疲劳 | ✅ 新增窄口 `RequestActRecomputeAfterAuraChange()`；`Begin/EndAuraRecompute` 改成「**按前后差判**」（净零那趟不碰 `Exhausted`/`CannotAttackThisTurn`；真丢照旧重算）。**没引入新规则**，也没把 669 的接线注释回去 |
+| **W19FX** | `BattleDriver.cs` · `DailyRewardPopup.cs` | 2 个 β：残骸音效阵营判错（`now.Has(Waystone)` 恒假 ⇒ **所有**残骸播死灵那条）+ 每日奖励窗图名带空格 | ✅ 一并修了**同族第二处**（`RemnantPrefabOf` 的关键词兜底路，真残骸上恒 null ⇒ 静默不建残骸体）；两处都零行数变化 |
+| **W20AS** | `RuleEngineTest.cs` · `BattleScene.cs` | 18 条 α 断言过期 + 3 条夹具 γ + 一条夹具对齐（`ProbeRemnantView` 没照生产 `ClearAllKeywords`） | ⏳ 在飞 |
+
+**三条订正/发现（都记下来）**
+1. 🔴 **`W18AR` 解释了「指纹为什么没变」**：`PlayProbe.Capture` 只记 攻/远/甲/血/关键词，**不记 `Exhausted`/`AttacksThisTurn`**（`RuleCore.cs:14457-14459` 注释原话）⇒ **这条修复 `play check` 结构上看不见**，只能靠那 4 条断言（`RE1` `:16142` / `RE2` `:16155` / `RE3` `:12822` / `RE4` `:12837`）验。
+   ⚠️ `D1DG` 说 6 条、`W18AR` 说 4 条 —— **以实跑为准**，复跑后按断言原文对齐。
+2. 🔴 **新债（判据未闭合，先记不做）**：`Aura.cs:900` 的 `AddAuraKeyword` 只写 `_keywords`、**不写 `_remnantTraits`** ⇒ 残骸上「`Has` 说没有 / `KwValue` 说有」**两本表打架**。实卡 = `SAU67 Damaged Plasmacyte` + 相邻 Sautekh 残骸。**今天零可观察差异**（`EndTurnCore:2531` 挡掉），但要立账；两条候选修法（① 残骸整条不施加，最接近原版 `AddEffect.c:159-170` 的残骸闸 ② 也记 `_remnantTraits`）**要先补判据**。
+3. **`RuleCore.cs:3522-3524` 的 doc 过期**（写「光环那条路没接」，实况是收回那侧早接了、今天起还有「周期内延后」）—— 替换文本在 `报告/B9_W18AR_光环侧翼疲劳.md` §5·3（三行改三行、零行数变化），**要派 `RuleCore.cs` 的写手落**。
+4. `W19FX` **推翻了 `D1DG` 的一条顺手发现**：`ForgeTab.cs:756` **本来就是下划线**（`HEAD` 也是）⇒ D1 疑似与 `DailyRewardPopup` 的常量记混。
+
+**账**：`--fix` 要重跑（`W18AR` 在 `UnitState.cs` 插了 3 行 ⇒ 23 条落点 +2 漂移）；已给 `战斗逻辑驱动` 的 **682/861/978** 三行加了「同一判据、实现只此一份」的指针。
+
+---
+
+## 十一 第八十五会话（2026-10-27）· 用户授权「按建议执行、不停下汇报」
+
+### 11·1 起点（不重跑 14 宿主）
+
+- 工作树干净，HEAD = `87a94009`（叠在第八十四会话收口提交 `6151803d` 上，0 ahead/0 behind）⇒ **起点读数直接沿用交接 §1·b**，不重跑全量。
+- 用户 2026-10-27 原话：「**按照你的建议执行，不必停下向我汇报（除非我中途向你询问），请你持续完成任务。**」
+
+### 11·2 第一波 = 10 路（7 执行 + 3 查判据）· 🔴 文件所有权表
+
+| 代理 | 角色 | 独占文件 / 产出 |
+|---|---|---|
+| `E1RNG` | 执行 | 🔴 **`RuleEngine/Core/*.cs` 全归它**（P-04 随机源要改 ~96 处 `ctx.Rng.Next`，横跨 BattleContext/RuleCore/EffectResolver/CountEval/CreatePool） |
+| `E3CMP` | 执行 | `CardPresentation/Battle/BattleDriver.cs` + 新建 `CampaignScriptRunner.cs`（战役 `100/105/109/111` + `94`） |
+| `E2UDW` | 执行 | `CardPresentation/Core/CardFeel.cs` · `CardView.cs`（`972 UnDissolveWholeCard`，同族 973/730 判据齐则一并做） |
+| `B1UI` | 执行 | `CardPresentation/Shell/**`（**除** `ChatPopupPanel.cs` / `UnitChatPanel.cs`）—— 界面线 `R1` 开场链 + `R3` 三张 offer 底图 |
+| `B2AU` | 执行 | `ChatPopupPanel.cs` · `UnitChatPanel.cs` —— 音频 `A-03`(10) + `A-04`(6)；⛔ `A-05` 因 BattleDriver 被占**本波不做** |
+| `R1T3A` | 只读+落账 | `判据/B行逐条核_R1_前半.tsv` + `账/_parts/B9_R1T3A.tsv`（战斗逻辑驱动 B 行前一半 ≈165 条） |
+| `R2T3B` | 只读+落账 | 同款后半 ≈166 条 |
+| `C1T7` | 查判据 | `Aura.AddAuraKeyword/_remnantTraits` · `BL37` 弃牌代价 · `ResolveTargets` 挡 stealth/camouflage/ward |
+| `C2T7` | 查判据 | `ShopData._shopItems` 顺序 · `CampaignBadge.army` · 三个 trait 词条 · **按阵营卡框真规模重算** |
+| `C3T4` | 查判据 | `532` 的两个引擎侧输入（`ActiveCardEffect.Trait` 列 / 摘效果表现信号）· `Premium Campaign` 15 SO |
+
+### 11·3 本波的两条硬后果（下一波必须知道）
+
+1. 🔴 **`RuleEngine/Core/` 全被 `E1RNG` 占** ⇒ 本波**任何引擎活都不能派**（`627/631/669/690` 等 P1 全排队等它放锁）。
+2. 🔴 **`E1RNG` 会让所有对局指纹变** ⇒ 它一回来我**立刻重钉基线**（`play`/`parse`），重钉前**别的代理的 `play check` 红灯一律不算回归**。重钉必须在「无 `.cs` 写手」时做。
+
+### 11·4 待办顺序（滚动推进）
+
+`E1RNG` 放锁 → 立刻派 `627/631/669/690`（EffectResolver/ActionPump/Aura）· 同时派 `532` 施工（C3T4 判据到手后）· 继续 `R1T3A/R2T3B` 剩下的 B 行 → `P2 25 条` → `全卡端到端 S3 引擎维`。
+
+### 11·5 滚动记录（第一批回件）
+
+**`R1T3A` 前半 165 条（`R1–R165`，止于 `ResolveExchangeMinion`）**
+- 建议分布：**A 32 · B 125 · 落点失效 8 · 判据缺 0**。
+- 补丁 `B9_R1T3A.tsv` 165 行已合并（`--only B9_R1T3A`，`check_patch_conflicts` 0 冲突）并归档到 `_merged_B9_R1T3A/`。
+- 🔴 **我裁 A 时被落点闸打回 15 条**：审计把「字段级 / 无落点 / 注释行」也算成等价（如 `PlayerState.Board`、`（无落点：…）`）⇒ `check_ledger_points` 判**失败**。
+  ⇒ **裁定：这类只能记 B（方案 §4.1）**，已回退并写进备注；口径已回灌给 `R1T3A` 第三段。
+  **净 +17 条 A**（3,533 → **3,550**）· (A+D) 75.6% → **75.8%** · 真复刻率 62.3% → **62.6%**。
+- 8 条**落点失效**是这一批最值钱的：`GetCardsDeck/Hand/PlayPlayer` 原版是 **`private unsafe string` 调试摘要构造器**（不是取列表）· `GetTotalMana` 应指 `MaxEnergy`（原指 `Energy` = 剩余）· `IsThereValidAbilityTarget/SpellTarget` 原落点的方法**已不存在**。
+- ⚠️ **闸的读数被在飞改动污染**：跑 `--all-A` 时 `B2AU` 正在改 `UnitChatPanel.cs`/`ChatPopupPanel.cs` ⇒ 那 6 条失败是**瞬时漂移**，不是真缺陷。
+
+**`C2T7` T7 四条数据判据**
+- `ShopData._shopItems` = **假账**（字典只作身份缓存、货架渲染走有序数组）⇒ 待裁 D。
+- `CampaignBadge` 缺 `army` = **真缺口，要做**（`BadgeNotifications.cs:75` + provider `:313`；值取 `ArmyIcons.Id`）。
+- `Card_Trait/{trap,secretOrder,classified}` = **官方表真的没这三条**（二进制里有字面量，引用点 `BattleCardUI.cs:937/943/1310/1326`），**可达性 0**（`spellType` 60/70 池内 0 张）⇒ 待裁 D + 时间限定。另发现 `Card_Trait/quest`、`questClassified` 同病。
+- **按阵营卡框 `120 未导入` = 假账**：真规模 = **13 阵营 × 4 tier × 4 字段 = 208 槽位 / 207 图**，**208/208 已在盘**。`120` 是 `clanFrames[11].army`（EmperorsChildren 的阵营 id）。
+
+**`C3T4` 532 的两个引擎侧输入 + Premium Campaign**
+- `532`：`Trait` 数据**早就在** `cards_truth.json`（`buffType∈{15,16}` 57 条里 **28 条**带 trait）；真正要改的是 **`工具/gen_cards_engine.py`**（引擎只读 `cards_engine.json`，它无任何 buff 列）⇒ `CardDef` 加 `EnchantTrait` · `ActiveCardEffect` 加 `Trait`。
+- `532` 表现信号：**原版根本没有「摘效果」广播**（`ResolveAction` case 0x10 内联，`BattleManager__ResolveAction.c:1640-1738`）⇒ 我们要新开 `EvtKind.EnchantmentRemoved`，发射点 = `Enchantment.cs:287`，消费点 = `BattleDriver.PlaySignal:22436`。
+- 🔴 **「15 个 SO」是错的（铁律 5 订正）**：实为 **13 阵营 `PremiumItem` + 1 个 `Premium Campaign Store`（另一个脚本）**；报告里的「13+Store+UM」把 UM 数了两遍。图标 13/13 本地已有。原版 Store `items[]` 最后一条 `targetId` 写 `premium_campaign_ec` 但引用的是 **SW** ⇒ **原版自己的 bug，照抄不修**。
+
+### 11·6 滚动记录（第二批回件）
+
+**`R2T3B` · 战斗逻辑驱动 B 后半 211 行** —— 建议 A 1 · B 207 · **回 D 3**。补丁已合并。
+- 🔴 **最值钱的是「原账说只剩观测缺口、实为真偏离」那一类**（抓到 7 条真偏离）：
+  - **#68 `RemoveAttackThisTurn`**：原版对 `dontCountAttack` 三族（231/237/238）**入队时先记 `wasFree`、再无条件下调**，真打后按 `wasFree` 再 −1；我们**不在入队预扣** ⇒ 已攻击单位被强制攻击时：原版净不变（1→0→1），**我们 1→2（多 1）**。
+  - **#131 `SetMatchRecording`** 判据整条读错（原版是「把 `BattleRecordData` 灌进 `MatchData` 的回放装载」，不是 bool）· **#134 `ShoultSetAiOpponent`** 原版按 `playMode` 白名单（0/1/2/7/10/11 非 AI），我们 `AiShouldDriveOpponent = _net == null` ⇒ **任何单机局都判 AI** · **#152 `CompleteMulliganPhase`** 判据只读了前半 · **#27 `CancelAttack` 漏一道闸** · **#130 `SetBotOpponentDeck` 洗牌闸漏 140** · **#164 `SetMulliganCardsToDiscard`** 校验其实在本方法内。
+- 裁定：**#43 `GetHighestAttackValue` 升 A**（落点改到 `CountEval.cs:999（HighestAttackKey）`）· **#202/#203/#204 `TurnExtensions` 判 D**（死类；**推翻 J12DK 的 D→B 回退**）。
+- 🆕 **工具坑（已写进 `工作准则_操作经验.md`）**：`R2T3B` 的补丁基于**会话早期快照**、覆盖范围与已合并的 `R1T3A2` 重叠 73 行 ⇒ 直接 `merge_ledger_parts.py` 会把前批备注**整段冲掉、零报错**。改用 `_tmp_view/tools_adhoc/merge_r2t3b_keep_prev.py`（按 `(原版类,方法)` 定位、发现前批带 `[R1T3A2` 而补丁没有就把那段接回末尾）。
+
+**`C2T7` 收尾** —— 补丁 9 行已合并。裁定：**商店两条 T7-1「假账」C→D**（原版排列由服务端 store 决定、本地 0 份）· **`CampaignBadge` record 行** `方法` 列原是「（数据模型 record…）」**非法签名**（补丁校验器会拒）⇒ 改成 `CampaignBadge(CardArmy army = 0)` 且 **A→B（真缺口，要做）**。
+- **tier 基准核查结案**：`CardProgress.Level` / `CardView.CardTierFor` / `CardArt.Frame|Sdf` **端到端 1 基、无偏档、不用改**；唯一 0 基的 `BattleDriver._cardTiers` **不喂 CardArt**（源码注释明写两条链别合并）⇒ 结掉上一轮「还差什么②」。
+
+**`E3CMP` 战役脚本执行器** —— 新建 `CardPresentation/Battle/CampaignScriptRunner.cs`（733 行）+ `CampaignScriptTurnDriver`，四条方法 + `ExecuteAction` 六支全实现，`typecheck 0/0`。
+- 🔴 **数据源本地不存在**（三条取证全空）：四张表在 `WarlordPathData`，由 **`TimedCampaignObject : ScriptableObject`（服务端 LiveOps 下发）**持有；`MatchType.Campaign` 构造点全量反编译 **0 命中** ⇒ **今天零可观测行为，也没有入口接上**。按「查不到就写查不到」停手，**⛔ 没编任何战役脚本内容**。
+- 关键订正：这 5 条属 **`AiScripted`**（不是 `BattleManager`），与教程那 5 条**同名重载**，区别只在 `actionCounter @+0x10` vs `actionCampaignCounter @+0x14`；`ExecuteAction` 战役那份 `decomp_full` **无产物**（同名重载互相覆盖）⇒ 用 VA 反汇编 `0x1809407F0–0x180940DAF` 读出。
+
+**`E2UDW` 972 / 730 / 973** —— `CardFeel.cs` 净 +9 行、**账锚点零漂移**、`typecheck 0/0`。
+- 修掉两处真不符：**淡错了量**（整卡 `SetAlpha` vs 原版只淡 2D 的 `fadeGroup` ⇒ 改 `SetAlpha2D`）· **缓动错**（Linear vs `DOTweenSettings.asset:31 defaultEaseType = 6` = OutQuad）。
+- 结案：`730` 的 `+0x2e0` = **`RemnantBody3D`**（原账说字段表断在 `0x298` **是错的**，实际排到 `0x2E8`）。
+- 🔴 **新账**：原版战术/附魔卡打出会先「**出对半**」（关碰撞 + `DOScale` + `FadeCardItems(0,t)`），取消才 `UnDissolveWholeCard` 淡回；**我们战术卡打出去视图直接销毁** ⇒ 这一段整段缺。
+
+**`B2AU` A-03（10）+ A-04（6）** —— 只动两个面板、`typecheck` 运行时 0 / 编辑器 0。
+- 把派活包原本标「未查清」的 **`+0x44` 查实 = 打字机已显字数** ⇒ 0.1 s 等待只在「上一句打到一半被顶掉」时触发。
+- 🔴 **新静默坑**：`Loc.HasEntry` **只认手写表（754 条）**，不认官方全表 ⇒ 用它判 `Chat_Messages/*`（1,736 条）**恒 false 却照常有字**。判法改用 `Loc.T(key) != key`。
+
+**`R1T3A2` 手牌两条 + B 段深挖** —— **1157/1170 早已由 `E6P14`（2026-10-26）实现并接线**（施工单那两行过期）；1170 已由 C 改 B（只能 B：实现散在 `Release` 的 else 支、无单一声明落点）。
+- 深挖出三条**结构性差异**（引擎侧，等放锁）：**R387 `TriggerAbilities` 双列表**（标准 `cardAbilities+0x290` vs 附魔 `thisCard+0x110`）+ `ability+0x40` **逐目标各触发一次** · **R380** 扇出缺 trigger 690/15/10/20 与 `0x4dd` 那一支 · **R388** `ability+0x48` 为真且 logic>1 ⇒ **ability 级随机取 1 条**（我们按 EffectOp 粒度，无这一档）。
+
+**账现读**：A 3,550 · B 1,475 · C 644 · D 3,108 —— **(A+D) 75.9%** · 真复刻率 **62.6%**（起点 75.6% / 62.3%）。
+
+### 11·7 滚动记录（第三批回件 · 引擎放锁 + 基线重钉）
+
+**🔴 `E1RNG` P-04 随机源 —— 已完成并放锁**
+- 引擎随机源改成原版形状：**开局预烧 100 + 游标按下标取**（`MatchData__GenerateRandomNumbers.c:1-40` / `MatchData__GetRandomInt.c:8-40`）；**结算路径 `ctx.Rng.Next` 已清零**（只剩烧表那一行）。
+- 洗牌也从 Fisher–Yates 换成**原版「按名次挑选」**（`SupportMethods__GetRandomOrder.c:1-98`）。
+- 新文件 `RuleEngine/Core/BattleContextRandom.cs`（`partial class BattleContext`）。
+- 🔴 **顺手发现的坑（已进 `CLAUDE.md` 同级口径）**：`BattleContext` 类在 `BattleContext.cs:2035` 就结束了、后面还有 `MatchTypes` 等类 ⇒ **往 `BattleContext` 加成员⛔ 别追加到文件尾**（会落进 `MatchTypes`，`CS0708`）。
+- **基线重钉（调度台做）**：`play` 指纹 `1b40f42a…` → **`b671acdb0b60d86b17ffe3a9f9e69c25`**，快照在 `基线/_bak_1027/`；同时手改 `PlayProbe.PinnedPlayMd5`（哨兵**不能靠重生成基线抹掉**）。重钉后 `play check` **rc=0**、`check` 仍绿。
+- 差异面：主档 **100 张** / 电池 **76 张**（`dmg` 变值 15 张，其余是「随机挑到哪一张」变了），逐条归因见报告 §5.2/§5.3。
+- ⚠️ 遗留（**已记，未做**）：`AiRng` 仍独立（原版 AI 与结算共用一张表）· `ShowRng` 独立 · `QuestAux.InsertRng` 系列已成死代码但为零行数变化保留 · `Data/DeckBuilder.cs:423` 的凑牌洗牌未查判据。
+
+**`B1UI` 界面线 R1 + R3**
+- 🔴 **R1「✗ 未做」是过期账**：开场链 2026-09 阶段二就落地且有断言；账判错的根因是 `grep "intro.webm" = 0`，而代码是 `Resources.Load<VideoClip>("Art/videos/intro")`（**不带扩展名**）⇒ 那条 grep 命中 0 是必然的。
+- R3：新脚本 `工具/import_offer_backgrounds.py`（默认只打印用法、必须 `--apply`），按 `SpriteAtlas.m_RenderDataMap` 现切三张 tier 底图；新文件 `Shell/OfferArt.cs`。
+- 🔴 **顺手修掉一条真缺陷**：`BaseOfferPopup.BuildBadge()` 取错图（`40k_OfferBadge` vs 原版 `WF_Special offer_Value` 324×87 九宫 tint 0.651）—— 以前没现形是因为 `40k_OfferBadge.png` 10-24 才进 `Resources/`。
+
+**`C1T7` T7 引擎三条判据**
+- ① **残骸光环关键词**：修法选「**残骸整条不施加**」（原版两层闸都指向不施加：`CardEffect.extrinsic = true` + 残骸门只放行 `addStats`/`healthChange≠0`/`addTraitRemnant`，且目标池 `includeRemnants` 现扫 52/53 行 = 0）。🔴 **严重度上调**：`Armour N` 走关键词 ⇒ 残骸被算成更耐打（活例 `UM14`/`AM38`/`AM28`）。
+- ② **`chosenAbility 160`**：卡在**全 SO 1 张 / 池内 0 张**（`T1 BlackLegion-Abaddons Chosen_startinghand`），且我们**「手牌里一张卡的结构化 TurnStart」整条通道缺失** ⇒ 光把卡加进池也不会响。
+- ③ **`ResolveTargets` 不挡 stealth/camouflage/ward 是【对的】，⛔ 不许改** —— 原版三族只在**合法性层**挡，`AbilityLogic.GetTargets` 里 `HasCurrentTrait` 调用数 = 0。我们三条路都已对齐。
+
+**核账（只读）**：`C3T4b` 社交 45 条（B 25 / **落点失效 18** / A 2）· `C2T7b` HUD 后半 56 条（**A 9** / B 47）· `R1T3A4` 小域四份 49 条（B 47 / 判据缺 2）· `B2AU` HUD 的 8 条 C（**0 改动** —— 8 条全挡在别人文件或已是错账）。
+- **裁定**：`C2T7b` 9 条 + `C3T4b` 1 条 **升 A**；`MessageDisplay.Update` **留 B**（只在出厂 `RedeemableAt=0` 时等价，休眠机制仍要做）。
+- `B2AU` 三条**账写错了**：① 行 20「`gen_cards_truth.py` 不 emit ability 级 `targetsAvailableCounter`」**不成立**（`工具/gen_cards_truth.py:308-311` 就在 ability 级循环里），真断点在 `CardDef`/`CardDatabase:802` 只落卡级；② 行 750/756/758 落点**指错载体**（原版返回卡本体的展示位，我们已在 `BattleDriver` reveal 链实现；`CardDisplayWindow` 是放大窗，⛔ 别在那再加一套）；③ 行 755 原版三档后缀链**全解出**，数据现成。
+
+**`E3CMP` 第二批**
+- `804 MinionPlayedIntoField`：`DeploySequence` 总时长 **0.65 → 0.75**，新增 `LandTailTime = CardFeel.AttackStepTime`（**引用不写第二份字面量**），判据 = `_MinionPlayedIntoField_d__314__MoveNext.c:186-205`。
+- `782 HeroLandIntoField`：BattleDriver 侧**早已落**，本轮把 `showStats` 那半的判据解出来（四个 counter 容器 × `activationRules`，与 `CardView.cs:514-533` 同一套）。
+- 账会漂 4 行：`战斗界面_HUD.tsv` 的 `:746/:769/:786/:788` 都指 `DeploySequence.cs:224` ⇒ 现为 `:249`（同步点 `--fix`）。
+
+**账现读**：A 3,560 · B 1,466 · C 641 · D 3,110 —— **(A+D) 76.0%** · 真复刻率 **62.8%**。
+
+**本波新派（引擎放锁后）**：`E5ENG`（`RuleCore.cs`：`RemoveAttackThisTurn` 预扣 / `CancelAttack` 闸 / `SetBotOpponentDeck` 洗牌闸）· `E6ENG`（`EffectResolver`+`Aura`+`ActionPump`：光环残骸 / `669` / `690` / `627`+`631`）· `E7ENG`（`532` 引擎侧 + `EvtKind.EnchantmentRemoved` + `AchievementTally` 过滤）· `E3CMP`（教程线 `TutorialScript.cs`）· `B1UI`（R2 主菜单 21 光效）· `E2UDW`（特效派活包）· `C2T7`（菜单_外壳 B）· `C3T4`（日常_奖励 B）。
+
+### 11·8 滚动记录（第四批回件 · 全仓最大欠账浮出水面）
+
+**🔴 本批最重要的发现：「落点失效」是**全仓系统性欠账**，而且**落点失效 ≠ 未实现****
+- 现读计数：**日常 76 条** · **社交 18 条** · **菜单 80 条「落点非方法级」** · **HUD 6 条**。
+- 构成：落点停在**字段/常量/数据表/注释/`{`/空行/类声明**，或行号漂移后落到**方法体中间的语句**。
+- 🔴 **实证**：`LiveOpsHandler.GetEvent(string)` 的等价实现在 `Shell/LiveOpsHandler.cs:696`，而账指到 `LiveOpsLocalCatalog.PrimaryTerm` 字段 ⇒ **等价实现存在、只是账没指过去**。
+- ⇒ **处理动作 = 重钉落点，不是当新活派单**。已派两路专项（`R2T3B3` 日常+社交 / `C3T4d` 菜单+HUD），要求**每条改完实际打开目标文件那一行、把该行原文抄进报告**（唯一能证明「真钉上了」的证据）。
+
+**核账（只读）追加**：HUD 前半 55 条（A 2 / **D 1** / 落点失效 6 / 判据缺 1 / B 45）· 日常 114 条（B 32 / **落点失效 76** / 判据缺 6 / A 0）· 菜单 119 条（A 17 / B 102）。
+- 裁定：HUD 前半 `DeepCopy` + `IsTutorialOrCampaignMatch` **升 A**、`GetNewInstanceOfThisEffect` **回 D**；菜单 **17 条升 A**；日常 0 条可升。
+
+**`R2T3B2` 一次抓到 7 个「文件名与内容不符」的 `.c`**（`AddNextReplayAction` / `BasicBattleEndSequence` / `ResolveDisplayFromHand` / `ResolveDisappearUnit` / `GetMainCamera` / `ActiveWarlordAbility.GetParentCard` / `ManaBuff.DeepCopy`）⇒ 累计已 **14 例**，应并进 G4 全量表。
+- 另抓到**判据本身写错**的：`#52 CardDamageCounterController.DamageReceived` 原版**不累加**（显示本次值 + 播动画，账写「累计」）· `#0 CheckToBeAlternate` 扫完没命中**返回入参那张卡**（不是 null）· `#54 ActivateCard` 档位集合是 **{4,5,12,13}**（账写 {4,5,6,7,10,11}）。
+
+**`E3CMP` 教程线**
+- `ResetActionCounter` 改成**一次清两个计数器**（原版 `*(long long*)(this+0x10)=0`；用 `ResetCampaignActionCounter` delegate 避免 `RuleEngine → CardPresentation` 反向依赖）。
+- `ExecuteAction` 的 `ActiveAbility(40)` 桩照原版接通。🔴 **判据只能读 ILSpy**：落盘 `.c` 的 switch 里**根本没有 `case 0x28`** ⇒ 拿 `.c` 当这一支的证据会落空。
+- ⚠️ 现读：`资料/任务线/` **没有「教程线」**（14 个目录）；战斗内教程属**战斗线 `T11`**，其 §一 已标完成。
+
+**`B2AU` HUD 的 8 条 C 行 —— 0 改动，但三条账写错了**
+- 行 20「`gen_cards_truth.py` 不 emit ability 级 `targetsAvailableCounter`」**不成立**（`工具/gen_cards_truth.py:308-311` 就在 ability 级循环里）⇒ 真断点在 `CardDef`/`CardDatabase:802` 只落卡级，**派活范围可缩**。
+- 行 750/756/758 落点**指错载体**：原版返回**卡本体**的展示位，我们已在 `BattleDriver` 的 reveal 链实现；`CardDisplayWindow` 是放大窗，⛔ 别在那再加一套（会造第二条常驻路径）。
+- 行 755 原版三档后缀链**全解出**，数据现成（`CardDef.ActiveAbilityNeedsLoading` v21 + `ConditionEval.ReloadTrait`），卡在 `SkillPanel.Show` 收不到三个形参。
+
+**账现读**：A 3,579 · B 1,446 · C 641 · D 3,111 —— **(A+D) 76.2%** · 真复刻率 **63.2%**。
+
+### 11·9 滚动记录（第五～九批 · 账 77.0%）
+
+**账现读**：A **3,642** · B **1,410** · C **607** · D **3,118** —— **(A+D) 77.0%** · 真复刻率 **64.4%**（起点 75.6% / 62.3%）。
+
+**B 行逐条核已覆盖全部域**（战斗逻辑驱动 · HUD · 社交 · 菜单 · 日常 · 个人资料 · 教程 · 未分类 · 特效 · 轮抽 · 锻造 · 收藏/卡牌面/卡组编辑/本地化）。**三种「B 压着」的根因已定型**（写进正本）：
+1. **架构差异**：原版「一组件一回调」vs 我们「一页一 Builder」（个人资料 182 条 · 教程 84 条）；
+2. **落点没到方法级**（全仓约 180 条）：等价实现其实存在、只是账没指过去 —— 重钉后 62+25+11 条真钉上；
+3. **本地已等价、缺服务器那半（P3）**：不判 D，记 B。
+
+**引擎三件**（`E5ENG`/`E6ENG`/`E7ENG`）
+- `RemoveAttackThisTurn` **入队预扣**已修（玩家可见的「已攻击单位被强制攻击多打一次」没了）。⚠️ **预扣必须在 `DeclareAttackCore` 之前**（否则嗜血读 2 不亮）；**唯一不照抄**：原版「预扣了但目标不合法 ⇒ 白扣」是它自己的 bug，我们失败即退回。
+- `CancelAttack` 的 `+0x350` = **`playerInitiatedAttack`**，引擎侧 10 个调用点里 **8 处传 0** ⇒ 在 `RuleCore` 加闸是死代码，**刻意不加**。
+- **光环给残骸**：`ApplyAura` 首行 `if (t.IsRemnant) return;`，读数 `UM14`/`AM28` 残骸 `Armor` **1→0**、**非残骸正对照 1→1 不变**。
+- `627 BroadcastCardDrawn` 三跳补齐（**照抄原版漏 `!` 的 bug**）· `631` 两处信仰口改「预调 + `preCalled` 排除」（第三处 `RuleCore.cs:1649` 在补）· `690` 查明两维是**恒等维**（附魔 `CardEffect` 绝不进 `HandEffects`）⇒ 可观察差 0，但顺手把手牌去重从「拼字符串」换成逐字段 `IsSameHandEffect`。
+- `532`：`gen_cards_engine.py` 落 `enchantTrait`（**表版本 32→33**）→ `CardDef` → `ActiveCardEffect.Trait`。🔴 **判据 §1a 按字面「读模板卡的 `EnchantTrait`」会永远读到空**（`1187` 写在**挂它的那张卡**的 buff 上）⇒ 列落在**载体卡**。
+- `EvtKind.EnchantmentRemoved`（第 21 档，🔶 自设计）+ `AchievementTally` 补 20/240/630 过滤。
+
+**🔴 指纹账（重钉时要照这个来）**
+- 「全池 1128+586 张都变」的谜**已解**：不是假回归，是 **`E7ENG` 重生成 `cards_engine.json` 改了卡池**。
+- 重钉 = **`PinnedPoolMd5` → `cc603636fab13c241014eef53d6109fc`** + 重生成 `play` 基线 + 改 `PinnedPlayMd5`；`PinnedParseMd5` / `PinnedBaselineMd5` **不动**。
+- `play check` 现在的红 = **`Aura.cs` 那一行残骸闸**（电池 `FIX_WAY {armour1,waystone1}` → `FIX_WAY 0/0/0/1`），不是别人。
+- ⚠️ **重钉前必须重跑一次隔离实验**（改前改后各跑一次、单开自己那一行），⛔ 不能直接重生成基线把真回归洗绿。
+
+**🔴 新立/待办**
+- **`OnTrapDrawn`（trigger 250）全无实现**：`CardScript__CardDrawn.c:23`「自己==被抽那张 ∧ 陷阱卡 ⇒ 走 250 而不是 260」（`E7ENG` 在写判据）。
+- **`NestedFadeGroup` 结构面**：我们 9 组根同在一 prefab、**组树不嵌套**；原版到底嵌不嵌套**未判**（`C2T7i` 在判）。真嵌套 ⇒ 结构缺；不嵌套 ⇒ 可判 D（时间限定 = 结构不变）。
+- **`SOR24` 卡名**：`cards_engine.json` = `Simulacrum Celestian`，真值 SO = `Simulacrum Imperialis`（按铁律 7 拿 PnP 图核）。
+- **`J-08 doFade` 回归风险**：`DoScenarioBlend` 三路调用，若同一变更对同一件调 2 次 ⇒ 翻转会把该淡的冻住（`E2UDW` 在用静态调用链定死）。
+- **`ShellRuntime.StopMenuMusic()` 全仓零调用点** ⇒ 「进战斗后菜单 idle 与战斗 BGM 叠着放」今天仍会发生（`E4BDR` 一行）。
+- **`J-05` 那 7 条**在 `BattleDriver.cs`（等 `E4BDR` 放锁）。
+
+**新发现的两条知识**
+- **`play check` 对「计数类偏离」全盲**（`PlayProbe` 不记 `AttacksThisTurn`/`Exhausted`），`E6ENG` 用 ON/OFF 对照实验实测坐实 ⇒ `E5ENG` 正在补这两列（最后一次指纹变动）。
+- **`UIEffectTogglerImage` = 绝对覆盖 α；同族 `UIEffectTogglerCanvasGroup` = 乘性**（长得一样、语义相反，⛔ 别一起改）。
+
+### 11·10 滚动记录（第十～十五批 · 账 77.2%）
+
+**账现读**：A **3,662** · B **1,390** · C **607** · D **3,118** —— **(A+D) 77.2%** · 真复刻率 **64.7%**。
+
+#### 🔴 本段最重要的三条「方法论订正」（都已进正本）
+1. **数据源优先级（同一件事本会话撞了三次）**：说「读不出」之前**至少两份都打开看一眼** ——
+   ① `decomp_generic_trial/out/`（**泛型类**；G7 全量早已完成，640 个 `.c` / 索引 `_MANIFEST_generic_all.tsv` 615 行）→ ② `decomp_full/*.c`（Ghidra 普通方法）→ ③ `out_cpp2il_dev_ilspy`（ILSpy，⚠️ 有 `NoteDecompilerIssue` **噪声**，但**异步状态机体**有时只有它）→ ④ `工具/disasm_va.py`。
+   - 实证 A：`ItemDrawer.Draw` 账里「20+ 处读不出」= **ILSpy 噪声**，Ghidra 泛型产物 **155 行 0 条、完全可读**。
+   - 实证 B：`C2T7i` 判的「7 条判据缺」全错 —— 换 ILSpy 一读全有真体（`VoiceLinesPopUpHid` 就 1 行 `isAnyPopupOpen = false`，`.c` 的 `return;` 是假象）。
+2. **判据结论是【双向】会过期的**：6 条「过期判据」里 5 条是「写着缺、其实早补上了」，第 6 条相反 —— `LiveOpsEvent.IsActive()` 账上写「等价」，实际是**真偏离**（原版读**存档位** `save.IsActive` + `OneTime && IsCompleted ⇒ false`；我们走日期窗 `data.IsActive(now)`）。**已修**（行数中性，`save.IsActive` 字段与 `ToggleEventActivation` 写口都在）。
+3. **`.c` 文件名与内容不符 ≠ ICF 折叠**：前者是**内容错位**（会凭空造出调用方），后者是**链接器把相同机器码折叠**（体是对的、首行是别人名）。⛔ 别拿首行名判「解错」。本会话已累计 **15 例**（`G4` 表在并）。
+
+#### 引擎
+- **`RemoveAttackThisTurn` 预扣 + 五组断言落地**（`RuleEngineTest.TestB9EngForcedAttackAndShuffleGate`）：
+  🔑 **最强的是 (A2) 时序灭自证** —— 「嗜血单位被强制攻击后信号必须 1 条」，能把「**净结果一样、时序错**」唯一分开（打后补减的写法会在 `++` 时读到 2 ⇒ 信号 0 条）。
+  (A) `!wasFree` 净计数 1→1（改前 = 2）· (B) 失败候选退回（原版「白扣一点」是它自己的 bug，我们刻意不照抄）· (C) 洗牌闸 100/140 不洗、Ranked 必须不同。
+- **631 / 632 预调补齐**（三处 `GainFaith` 口同形、`GainQuest` 逐点配对），**行数中性**避开下游 40 条账落点。
+- **`EvtKind.EnchantmentRemoved`（第 21 档）** + `AchievementTally` 过滤 20/240/630。
+- **trigger 250 判据全解**：`isTrapCard = cardType(+0x94)==20 ∧ spellType(+0x90)==70`（**陷阱与附魔模板共用 cardType 20**，靠 spellType 区分）；`armedTrap` 唯一写点 = `SetAsActiveTrap`，唯一调用者 = `BattleCardManager.CreateCard`（🔴 **ILSpy 把该常量丢成 `default`，必须看 Ghidra `.c:91-95`**）。可达性两端全 0（`spellType==70` 池内 0 张）。
+  ⚠️ 主表**已有两行**（`战斗逻辑驱动.tsv` 的 `1272` D / `703` B）⇒ 增量并进那两行，⛔ 不新开。
+
+#### 表现 / 界面
+- **`NestedFadeGroup` 原版【真嵌套】**（推翻「组树不嵌套」—— 那只查了 9 组根**彼此**的父链，没查子树；真嵌套是「根 → 38 个 SR + 10 个 TMP」）⇒ **18 条判「要做（结构缺）」，不是 D**。
+- **设置窗底部钮点不到**：真机点击记录自己列的候选表证明**那一刻压在该点上的只有 `AbsorbHit` + `BackgroundHit`，钮的 `Hit` 根本没建** ⇒ 排除队列/坐标/整页未建三个假说。已装**出声探针**（报错带钮名 / 命中矩形 / 最近 `ViewportClip.ClipPx`）+ 3 条硬断言，等同步点跑 `SettingsScene.Run` 定案。
+- **`U2·V1` 头衔种子**下沉到 `ProfileData.TitleIndex` **读口**、**只兜内存不走 setter**（不落盘 ⇒ 双写期安全）。
+- **`UIBorderGlow` 参数接好但全仓 `.shader`/`.mat` 里 `_Reveal` 命中 = 0** ⇒ 画面出不来（组件会自己出声；shader 到位后不用改代码）。
+- **`Generic Popup Background` 补 `m_PixelsPerUnitMultiplier = 0.75`**（端帽 169 → 225.33）。
+
+#### 音频
+- **37 条 cue 真补进去**（走生成器⛔ 不手抄；`.meta` 用共用件模板）⇒ `animfx_sounds.json` 473→510；**34 不是 35 正是「`148`/`150` 共用同一 clip」**。映射表三个「缺」状态全归零。
+- 🔴 **`ShakeAndSoundObject` 整条没复刻**（原版环境音载体；我们 `grep` = 0）⇒ **环境音那一跳根本没接**。17 条里 **11 条是环境事件音**（不是一次性音）。
+
+#### 特效
+- **`J-08 doFade` 回归风险已定死**（三处调用分别对「新建实例 / 战场自带缓存 / 撤旧实例」，**同一变更同一实例只调 1 次** ⇒ 保留翻转）；跨变更翻转是**原版逐字如此**。
+- **`J-12 Coffee`：能做但要用户拍板** —— 本地那两个 dll 是 **MelonLoader 从 il2cpp 重建的产物、不是发行版**、两处目录**无 LICENSE**。⇒ **(A) 搬 dll 报用户**；**(B) 只做外壳等价类**已派。
+
+#### ⏳ 等用户拍板（新）
+- **Coffee.UIEffect 的第三方 dll 要不要搬进 `Assets/ThirdParty/`**（许可查不到、非发行版）。不搬也能做外壳（`Toggle` 两句语义 + 两个回调原版就是空桩），只是**滤镜本体**缺（Coffee 的 shader）。
+
+#### 账数据缺陷（本会话修掉的）
+`QueueAction` / `QueueActionWithCallback` 签名截断 · `LiveOpsAssetUtility.GetReference<T,TRef>` 截断 · `CampaignBadge` 方法列非法（改成 `CampaignBadge(CardArmy army = 0)`）· 轮抽 `DraftWins.OnInitialize/OnReset` 与锻造 `ForgeWindowTab.OnClose` 的 `差异` 格只剩孤字（标成「已丢失」）。
+
+### 11·11 同步点（第八十五会话 · 2026-10-27）
+
+**① 落点闸 `--fix`（在没有 `.cs` 写手时跑）**
+- `check_ledger_points --all-A --fix` ⇒ **漂移 512 → 28**（剩下的是「同名方法 2+ 处声明」，工具**保守不自动改**）。
+- **失败 68**（多数 `AMBIG`，同样是同名多处；需人工按 `原版类` 消歧）。
+- ⚠️ **教训**：`--fix` 的第一遍输出里那行「漂移 511」是**修前快照**，容易误读成「没修」⇒ **必须复跑一次闸看真实数字**。
+
+**② 三颗指纹重钉**
+| 颗 | 旧 | 新 |
+|---|---|---|
+| `PinnedPoolMd5` | `8aa37475268b685929c113e925f613ad` | **`c2ee753d96ad11ea548843c861fd8890`**（卡表 v34：v33 加 `enchantTrait`、v34 加 `cardType`；两次重生成前后 `play all dump` **0 行不同** ⇒ 纯数据面扩展） |
+| `PinnedPlayMd5` | `b671acdb0b60d86b17ffe3a9f9e69c25` | **`0766fbe1f712696f4e57d2b7cfeb8f38`**（两笔已归因：① 探针新增 `atkCount`/`exhausted` 两列；② `Program.LoadPool` 给 `ForcedAttackRefund.Install` 灌 `chosenAbility` ⇒ 影响面**恰好 1 张** `GOF93`，其余 1127 逐列全等、电池 586 逐字节一致） |
+| `PinnedParseMd5` | `c9a64798…` | **不动**（解析层无改动） |
+- 基线快照备份在 `基线/_bak_1027/`（上一版）。
+- ✅ 重钉后 **`play check` rc=0 · `check` rc=0**。
+
+**③ 未做/待做**
+- 14 条宿主自检：**已启动**（`_run_8_checks.sh`，串行，约 20 分钟）—— 跑前场景已备份到 `_tmp_view/scene_bak_20261027/`，跑后要比 `git diff --numstat`。
+- **28 漂移 + 68 失败**（同名多处）需人工按 `原版类` 消歧，**不阻塞**。
+
+### 11·12 收尾（第八十五会话 · 最终）
+
+**用户 2026-10-27 的裁定**
+- ✅ **Coffee.UIEffect 第三方 dll = 「要搬」**（原顾虑：本地那两只是 MelonLoader 从 il2cpp 重建的产物、非发行版、两处目录无 LICENSE）⇒ **由「等拍板」转为执行项**，已进 `待接线与排队项` 与 `任务线/特效线/任务总表.md §一`。
+- ⏸ **13 场战场重建 + 真机批验 = 不急**（⛔ 新会话别自己开工）。
+
+**最终读数**：A **3,669** · B 1,384 · C 607 · D 3,117 → **(A+D) 77.3%**（起点 75.6%）· **真复刻率 64.8%**（起点 62.3%）。
+**闸**：落点 漂移 **29** / 失败 68（同名多处，需人工）· 双探针 **rc=0**。
+**自检**：**14 宿主 13 绿**；唯一红 = `MainMenuScene` 2 条「有据的预期红」（等 `J-05`）。
+
+**核销审查（`AUD1`，用户 2026-10-27 点名要的）**
+- 14 条线全过，改了 **9 份 `任务总表.md`**：**§一 136 → 141 行**（移走 2 · 补进 7 · 就地订正 6）。报告 → `报告/AUD1_任务线核销审查.md`。
+- **移走 2 条**（→ §二，原文留痕 + 证据）：`ResolveTargets` 不挡 stealth（**判据推翻：原版本来就只在合法性层挡**）· 界面线 `R1 开场动画链`（**已完成，账过期** —— 判据是 `grep "intro.webm"` 命中 0，而代码是 `Resources.Load("Art/videos/intro")` **不带扩展名**）· `ShopData._shopItems` 字典丢顺序（**假账，判 D**）。
+- **补进 7 条**本会话新账（引擎 3 / 战斗 1 / 卡牌 1 / 特效 1 / 联机 1 / 自检断言 1）。
+- 🔴 **它自己标明的覆盖面边界**：没有逐条回源核全部 136 行（那等于重做一遍复刻）；做法是「以交接 §三 + 本日志 §十一 筛出本会话可能动过的条目、只对这些回代码现核」⇒ **「留在 §一」= 「本会话没有做掉它的证据」，≠「我核过它确实没做」**。
+
+**文档同步（本会话收尾做的）**
+- `项目任务.md` §〇：从「第八十三会话」更新到「**第八十五会话**」，数字/指纹/自检全换现读。
+- `CLAUDE.md §三`：补 **7 条**新坑（`--fix` 印的是修前快照 · 文件名大小写不敏感 · `git status` 的 `M` ≠ 有人在写 · `ctx.Events` 无 drain 却进指纹 · Unity 拒 `AddComponent` 的真条件 · ILSpy 丢 `= true` 写点 · **判「某链没有」别只 grep 带扩展名的文件名**）。
+- `工作准则_操作经验.md`：补「文件名大小写不敏感」那条。
+- 交接 → `资料/交接_第八十五会话.md`（含账的覆盖边界、T1–T5 任务清单、怎么完成、怎么检查）。
+
+**⛔ 下一会话别重复做的**：`--fix` 已跑 · 三颗指纹已重钉 · 14 宿主已跑。同步点只在改完 `.cs` 后按覆盖面复跑。
+
+---
+
+## 十二 第八十六会话（2026-10-27）· 用户「按你的建议执行，不必停下汇报」
+
+### 12·1 开场：交接体检
+
+用户指令 = 检查 `交接_第八十五会话.md` → 报任务清单 → 说明怎么做 → 批准后**滚动推进不汇报**。
+
+**现场核过（不是转述）**：`ledger_progress.py` = **8,777 行 · A 3,669 / B 1,384 / C 607 / D 3,117** ⇒ **(A+D) 77.3%**、真复刻 **64.8%**；`账/_parts/` 顶层**待合并 = 0**（174 个 `_merged_*` 归档目录）；工作树干净、**1 ahead（未推送）**、第八十五会话已提交 `6e2de6bb`。
+
+**就地订正 4 处过期（铁律 5 / 6）**：
+1. 交接表头原写「同步点未做」→ 改为已做（附「那是落盘时快照」的痕迹 + 提交号）。
+2. 交接 §五 **有两版 T1–T5 并存、编号冲突** → 合并成一版；重复段唯一独有的「引擎剩余真偏离」并入 T1；留一行订正说明。
+3. `待接线与排队项.md`：Coffee 从「等用户拍板」删掉（用户 10-27 已批准，同文件自己有矛盾）；`EffectOp→CardEffect` 映射标 ✅已出；「同步点专属」三条（`--fix` / 重钉指纹 / 合 `B9_R2T3B5`）与「等 Unity 自检」五行全部标为**已做完**。
+4. **`ForcedAttackRefundMap` 装载已闭合**（探针 `Program.LoadPool:1111` 灌 `chosenAbility`；产品侧 `Data/ForcedAttackRefundMap.cs` 懒加载）⇒ 从待办删除。
+
+### 12·2 第一波派活（10 路 = 7 执行 + 3 查判据）· 文件所有权表
+
+| 代号 | 独占文件（唯一写手） | 活 |
+|---|---|---|
+| **B9_W1BDR** | `Battle/BattleDriver.cs` | 特效施工单 **#7 / #13 / #10 / #11** |
+| **B9_W2FEEL** | `Core/CardFeel.cs` | **#14 震屏 / #15 `ReturnToDeckAnim` / #16 震幅分档表** |
+| **B9_W3ANIM** | `Battle/AnimFXController.cs` · `Hand/CardInteraction.cs` · `Core/CardHighlight.cs` | **#2 / #6** + 复核 **#4 / #5** + **K-04 五条**（HUD:682·683·684·686·687） |
+| **B9_W4NFG** | `Core/CardView.cs` · `Editor/CardFaceAssertE5.cs` | **`NestedFadeGroup` per-group alpha + 子树订阅 + 断言**（18 条） |
+| **B9_W5COF** | `Assets/ThirdParty/**`（新建）· `Effects/UIEffectTogglerCoffeeEffects.cs` | **Coffee dll 搬运**（前置三件） |
+| **B9_W6DECK** | `Core/CostCurveDrawer.cs` · `Deck/DeckEditorState.cs` · `Editor/DeckScene.cs` · `Battle/ErrorMessageBanner.cs` · `Deck/DeckRuntime.cs` · `Shell/ItemDrawer.cs` · `工具/import_original_sfx.py` · `RuleEngine/Core/DeckRules.cs` | **K-05 / K-06 / K-12 / K-08** |
+| **B9_W7COLL** | `Core/CardArt.cs` · `Shell/CollectionWindow.cs` · `Shell/CampaignTab.cs` · `Shell/ForgeTab.cs` · `Shell/Inventory.cs` · 新建 `Core/LoadableRef.cs` | **K-02 / K-13 / K-14 / K-17**（K-17 只做 247，244 待裁） |
+| **B9_R1DUTY** | 只读 → `判据/cond341_canUseDuty_ex语义.md` | `cond=341` 的 `ex` 语义 |
+| **B9_R2DA42** | 只读 → `判据/DA42与BroadcastHandWhen剩余_判定.md` | `DA42` 三个前提 + `BroadcastHandWhen` 剩余族（**每族回代码现核**，判据结论双向会过期） |
+| **B9_R3CEFF** | 只读 → `判据/GetCardEffectsToShow_施工细则.md` | 项源统一的逐文件施工细则（**收窄版不接受**） |
+
+**下一波已排定**（等 W1 释放 BattleDriver.cs）：施工单 **#8 / #9 / #12**（同文件，第二个写手接手）；`K-01` 剩余 20 条（见 `判据/B9_P0剩余C_派活包.md`）；`K-09 / K-10`（预组 / 轮抽）。
+
+### 12·3 本会话纪律（沿用交接 §六，未改）
+L0 `typecheck` 每个写手自带 `TMPDIR` · L1 探针（我跑）· L2 闸只在同步点 · **Unity 批处理与真机只有调度台跑** · 账补丁只写 `_parts/`、合并只带 `--only`、合完归档。
+⏸ 用户说不急的（13 场战场重建 · 真机批验 D61–D65）**不开工**。
+
+### 12·4 回执 ① `B9_R3CEFF`（`GetCardEffectsToShow` 施工细则）
+
+产出：`判据/GetCardEffectsToShow_施工细则.md`（§一~§六，可直接施工）+ `报告/B9_R3CEFF.md`。只读，未改任何 `.cs` / 主表 / 资产。
+
+**它推翻/补全了旧判据的三件（我采信，判据 = `.c` + ILSpy 双源）**：
+1. **原版有两道过滤** —— `EntityScript.GetCardEffectsToShow` 之后，`CardDisplayWindow.DisplayCardEffects` **再删 4 类**（`buffType ∈ {6,30,35}`；无任务附魔时的 `16`）。旧判据只记了第一道 ⇒ **按旧判据做会多印 4 类**。
+2. **`+0x108` = `EntityScript.activeEffects`（`dump.cs:22025`），印刷关键词在 `+0x128`** ⇒ 投影必须**减掉卡面基线**，否则多出字样。
+3. **还有一道整组闸**：被展示卡若 `spellType ∈ {200,210}`（环境效果卡）⇒ **整组隐藏**；池内 `spellType==210` **39 张**（全 `type=defence`）⇒ 可达、必须做。
+
+**今天就在错的三条**（它给的证据 → `CardDisplayWindow.cs:835-939`）：① 关键词行缺 `Get {0}` / `Get {0} one turn` 外壳（我们印裸名）② 属性行**恒用 `…OneTurn` 键** ⇒ 永久增益被印成「…一回合」③ mark 族完全不出（只有总数 `markofchaos`）。
+
+**它的「顺手发现」纠正了我的简报**（记下来，下轮别再说错）：`Badges.For + TraitFrames` **不是**效果清单的项源 —— `Badges` 是场上 7 枚徽标、`TraitFrames` 是特效框；项源**只有** `CardDisplayWindow.RowsOf(TempBuff)`，全仓唯一调用点 `BattleDriver.cs:13080`。
+
+**总闸 = S0**（不先做，A1/A4 全白做）：① `EffectResolver.ApplyOneGain:11877` 切到 `UnitState.ApplyTraitEffect`（今天 `ApplyTraitEffect` **零调用者**）② `ApplyMarkBody:12369` 的 `AddKeyword("markofchaos",1)` 换成按神传 `markOfChaosType`（`blood→10` · `resilience→20` · `excess→30` · `fate→40`，三重已证）。
+
+**待办（我裁）**：
+- ✅ **派 `B9_S0EFFECT` 去做 S0**（引擎文件本轮无人占用）—— 见 §12·5。
+- 📌 旧判据 `判据/CardEffectsToShow_判据.md` **就地订正 3 处**（`+0x78` 叫 trigger 的正文残句 · 缺第二道过滤 · 「type2/3 排除」没说只对非 mark 生效）—— 由调度台自己改（铁律 5）。
+- 📌 `Enchantment.cs:141-143`「卡表没有 spellType 列」已过期（`cards_engine.json` 有、`CardDef.SpellType` 有值）—— 下轮顺手改。
+- 📌 `CardDisplayWindow.cs:913` 的 doc 注释「我们按 buff 铸行、空的根本不铸」改完要同步更新（两条说法打架比没有更糟）。
+
+### 12·5 第二波 ① `B9_S0EFFECT`（补位）
+
+- **独占**：`RuleEngine/Core/EffectResolver.cs` · `RuleEngine/Core/UnitState.cs`
+- **只做 S0 两件 + 三件验收**（S2 的 `Seq` / S1 的投影 / S4 的槽位模型**不派给它**，避免半成品）
+- **验收**：`ruleprobe check` / `play check` **期望保持 rc=0**（净行为应等价）；若红了逐张归因，⛔ **不许为了让闸变绿改基线**（重钉指纹只有调度台能做）
+- ⚠️ 它要防的坑：`Auras.Recompose` **幂等 ≠ 无副作用**（会重放夹血/费用重登记/誓约授予）—— 接线后若走到 Recompose 要单独验证
+
+### 12·6 回执 ② `B9_W6DECK`（卡组编辑剩余 C） · ✅ 已合并
+
+**最重要的一条（口径级）**：派活包里 4 个包 6 条，**只有 2 条还是 C**；K-05 / K-06 / K-12 的 4 条**早已是 A**（前序会话落地）⇒ **`B9_P0剩余C_派活包.md` 的「现等级」列普遍过期**，后续派活**必须先核现等级再动手**（已在 `B9_W8PREB` 简报里写成硬要求）。
+
+**真做的两件**：
+- `卡组:75` `DeckDrawer.HandlePointerClick` —— 原版覆写 = `DeckInfoContext(deck, View(2), selectButton=null, checkOwnership=<+0x70>, editButtonAction=null)` + `OpenWindow<DeckInfoPopup>`。落点 `Shell/ItemDrawer.cs`（`DeckClick()` 同行内替换 + 类尾追加 `ShowDeckInfo`/`DeckClick`/`SetShowOwnership`/`LastDeckInfo`）。🔴 **刻意不走 `CreateForPicked`**（那支会多一颗 `Select Deck`，原版这里是 `null`）。
+- `收藏:273` 抽屉点击音 —— `PlayInspectCue()` → `WindowSounds.PlayFx(ButtonClick1Cue)`（cue 名唯一来源 `WindowSounds.cs:243`）；表里查不到就退回「出声说明」，⛔ 不拿别的 clip 顶。
+
+**合并**：`merge_ledger_parts.py --dry` → `--only B9_W6DECK` → 已归档 `_parts/_merged_B9_W6DECK/`。现读 **A 3,669 → 3,671 · C 607 → 605**，**(A+D) 6,788/8,777 = 77.3%**。
+
+**它交回来的三条（我受理）**：
+1. 🔴 `卡组:75` **有时间限定**：当前 build 225 个 `PrebuiltDeck` 里**没有**任何商店/奖励 SO 以 `ObtainableItem` 发放 ⇒ **游戏里还看不见**，只能靠夹具；远端目录回来即自动可见（代码不用改）。
+2. ⚠️ 它引用了 `Shell/WindowSounds.cs:243` 的 `ButtonClick1Cue`（**不在它白名单**、是 `B2AU` 今天新加的）—— 现 typecheck 0/0；**若那条被改名会编不过**，下轮谁动 `WindowSounds.cs` 要连带核。
+3. ⚠️ `账/收藏.tsv` 有 **5 条既有漂移**全在 `Shell/Inventory.cs`（W7 的文件）⇒ **等 `.cs` 写手停手后跑 `--fix`**（同步点）。
+4. 过程里两次 typecheck 撞到别人的半成品（先 `CardView.cs` 17 条、后 `CardFeel.cs` 2 条），按口径没去碰 ✅ 正确处置。
+
+**待调度台跑**：`DeckScene.Run`（它新加了夹具 `Editor/DeckScene.cs:10097 TestItemDrawerDeckClick()`，由 `TestLayout:9716` 尾部调）—— 属 L3 单宿主，**等本波 `.cs` 写手停手后跑**。
+
+**顺手发现（我记下，暂不动）**：`Core/CardDef.cs:910` 的注释写「我们自设那 26 张卡的 `spellType = -1`」，而现读 `cards_engine.json` **`spellType == -1` 的卡 = 0 张**（1049×0 / 39×210 / …）⇒ 又一条过期注释，等写手停手一起改（⛔ 改注释也要零行数变化）。
+
+### 12·7 补位 `B9_W8PREB`· K-07 + K-09 + K-10
+
+- **独占**：`Shell/PracticeModePopup.cs` · `Shell/PrebuiltDecks.cs` · `Shell/DraftModeWindow.cs` · `Shell/BoosterPackAnim.cs` · `工具/gen_prebuilt_decks.py` / `gen_prebuilt_bot_decks.py` / `check_prebuilt_decks.py`
+- **简报里加了两条硬约束**：① 先核现等级再动手（吸收 W6 的教训）② K-10 的 shiny 半依赖 K-13 ⇒ 跳过并记「等 K-13」，⛔ 别碰 `CollectionWindow.cs`
+
+### 12·8 回执 ③ `B9_R1DUTY`（`cond=341` 的 `ex` 语义）
+
+产出：`判据/cond341_canUseDuty_ex语义.md`（355 行）+ `报告/B9_R1DUTY_cond341.md`。只读。
+
+**结论（我采信，证据是结构性的不是推理）**：`ex` = 原版 `TargetCriteria.excludeCondition`（`+0x3D`），**0/1 取反位**，✋ 不是阈值/索引。`TargetCriteria` 38 格里根本没有「条件数值」字段（`dump.cs:23850/23853`）⇒ 数据上没地方放阈值。判定 = 出口处 XOR 一次（`FilterMethods__MeetsConditionCriteria.c:384-389`）。
+✅ **我们这一层没错**（`ConditionEval.cs:169-175` + 四个消费口都传了 `Exclude`）⇒ ⛔ **不要去改 `ConditionEval` 的取反**（这条同时确认第四批 `E5ENG` §E-(a)）。
+
+**但查出两条真偏离（都不是 ex 本身）**：
+- **A（必修，`BL64` 打不出去的真因）**：原版 `CheckIfMeetsCriteria` **先按 `targetsAffected` 短路**（`0/20/30/40/70/80/200/201/235`，`.c:57-157`；`ta=30` 直接 `return 候选==targetCard`）。`BL64` 的 cond=341/ex=1 正是 `ta=30` ⇒ 原版是**死字段**；我们 `EffectResolver.ApplyStructuredConditionFilter:2348-2377` **不看 ta**，无条件套用 ⇒ 友方池被筛空。原版合法目标来自**卡级** `cardTargetCriteria = {ta:10, friendly, damaged(40), ex=0}`。作用面 **18 行 / 16 张卡**。
+- **B（必修）**：原版 `+0x4c` 在**任何主动能力发动**（duty/oath/ferocity/agenda 同一链）时置 1，**不随回合重置**（`OnTurnEnd` 只清 `+0x48/+0x50`）。我们只在 `keyword==duty` 时置 `DutyUsed`，另有个**每回合重置**的 `UsedActiveAbilityThisTurn` 被注释**误标成 `+0x4c`**。会置位的 **63 张卡**，我们只覆盖 **23** ⇒ 漏记 40 张。
+
+**排队（⛔ 现在不能派：`EffectResolver.cs` / `UnitState.cs` 正被 `B9_S0EFFECT` 独占）**：
+- **W10（S0 回来后派）**：A + B 一起做（A 落 `EffectResolver`、B 落 `UnitState` 类尾 + `RuleCore:11533/11737/11960` + `ConditionEval:548-550` + `ResetToValuesInHand:2696`），验收 = `ruleprobe check` / `play check` + `BL64` 能被打出 + 逐张归因。
+- 📌 **顺带作废一条旧账**：`判据/主档夹具缺口_评估.md:131-132` 的「(a) 修 cond=341 的 ex 语义」**按本件作废**（原始 SO 已确认 `BL64` 就是 `excludeCondition=1`，不是抽取错误）。
+- 📌 `UnitState.cs:748-760` 注释把 `UsedActiveAbilityThisTurn` 标成 `+0x4c` —— 错，W10 一并订正。
+
+### 12·9 补位 `B9_W9KENV`· K-11 三条（引擎筛选口径）
+
+- **独占**：`RuleEngine/Core/TargetCriteriaEval.cs` · `RuleEngine/Core/CardCriteria.cs` · `RuleEngine/Core/CountEval.cs`
+- **条目**：`收藏:188` · `收藏:189` · `收藏:201`（每格一条正负夹具；`ruleprobe play all dump` 差异逐条解释；未知 ta = 0）
+- **已知（R1 交付，别重查）**：今天带 `cond` 的 count 行只有 6 条且 `ex` 全 0 ⇒ 「count 行的 ex 该不该取反」**今天不可区分**；将来有 `ex=1` 的 count 行必须先查清。⛔ **不要改 `ConditionEval` 的取反**（R1 已证那层是对的）
+
+### 12·10 回执 ④ `B9_W1BDR`（施工单 #7/#10/#11/#13） · ✅ 已合并
+
+`BattleDriver.cs`（35,091 → 35,130 行）。账补丁 4 行已合并（**A 3,671 → 3,673 · B 1,384 → 1,382**）。
+
+- **#7 语音弹窗音**：施工单「cue 未接」是**过期结论** —— 我们早在 T06 就接了，cue 也解析到真 clip；它只把 `_chatPopup.Show()` 与播音**对调**（对齐原版「在 `Show()` 之内触发」）+ 补入口唯一性核证。
+- **#10 远程攻击震屏**：逐句读完 149 行 ⇒ 补了 `screenShake`（`attack_ranged` 桶 13 件带 `shk`、`attack_melee` 0 件）。🔴 **`skipSound` 是死形参**（`d__468` 字段表里没有它）⇒ 施工单那条验收**原版里不存在**，⛔ 别照它造闸。
+- **#11 远程链**：逐句核完**本来就对**（`VfxFactionOf` 取卡自己的 `Card.Faction`、`VfxMap.ResolveRangedAttackPieces` 兜底链逐字对应）⇒ 未改代码。
+- **#13 嗜血**：原版四条合取里有「`isPlayer == IsPlayerTurn()`」，**两侧都没挡** ⇒ 已在表演层补闸。另有改动请求：`RuleCore.cs:12390 EmitBloodThirst` 也缺这条闸（引擎侧），**排进 W13**。
+
+**它的顺手发现（我立账，尚未派）**：
+1. 🔴 **`AnimInfo.unitsShake`（`+0x78`）整条没做** —— 原版抖**单位本体**；量：全池 259 个 CardAnim，`attack_ranged` 桶 **127/215 件**带它。落点三处：`工具/gen_cardanim_clips.py`（无该列）· `Battle/CardAnimClips.cs`（`RtRow`）· 调用方（`BattleDriver`）。
+2. `minionAnimationClipInfo`（`+0x68`）无数据列（今天无观测差：只有 2 件非空且 clip 为 null）。
+3. `OverwriteCameraShakePreset` 的 `sustainTime/direction/attackTime/decayTime` 四组覆盖我们没传（`RtRow` 只收 amplitude/frequency）。
+4. 原版 `_ResolveAttack_d__438:700/803` 另有两个 `ResolveAnimInfoRangeAttack` 调用点（哨戒/反制族，acting/target 相反）我们**没复刻** ⇒ 单开一条账。
+5. ⚠️ **施工单的「我们的落点 文件:行」全部漂移** ⇒ 以后派活**只给方法名**，⛔ 别给行号（已写进 W10 简报）。
+
+### 12·11 回执 ⑤ `B9_W2FEEL`（施工单 #14/#15/#16） · ✅ 已合并
+
+`CardFeel.cs`（3,824 → 4,070 行，**唯一行为变化 = `ShakeScaleOfUnitSize(u>=4)` 从 8 变 2**，线上只产 0/2/3 ⇒ 不影响）。账补丁 4 行已合并（**A → 3,674 · B → 1,382 · C → 604**）。
+
+- **#16 施工单判错了**：三个 `_DAT_` 4B float 实读 = **2.0 / 4.0 / 8.0**，与 `ShakeAmpUnitSize1/2/3` **逐格一致** ⇒ 幅度不动。🔴 **真偏离是 `SetDirection`**：原版喂的是**目标棋盘坐标 `(x,0,z)`**（`GetBoardPosOfCard`），`_DoShake` 里 `m_Velocity = normalize(它)`（y=0 ⇒ **屏幕竖直分量 = 0**）、`m_AmplitudeGain = |它| × amplitude`；我们只建模竖直一个通道 ⇒ 照抄会完全不震 ⇒ **已派 W11 先加水平通道**。
+- **#14 `ResolveUnitShake`**：原版四步（`delay → IsInPlay → 击退|抖动`）全落地；档位 `>=3→8` 改成 `==3→8`（原版非 0/1/2/3 一律落回 2）。
+- **#15 `ReturnToDeckAnim`**：「`.c` 体薄疑体丢」是**误判** —— 真体在 `CardScript._ReturnToDeckAnim_d__248__MoveNext.c`（142 行）；**唯一调用点 = `PlayerHand._FinishMulligan`**（`timeToMove = VarsGlobal.timeToDrawEnemyCard = 0.15`）。已逐句实现 `CardFeel.ReturnToDeck`，**待接线**（调用点在 `BattleDriver.cs` ⇒ 排 W13）。
+- 原版自身不一致处（`DOMove` 世界坐标 / 收尾 `SetInDeckPosition` 局部坐标）**照抄**，注释已写死。
+
+**它立的两条账**：
+1. `PushBackDir` 两点重合退路我们写 `Vector3.up`、**原版是 `Vector3.zero`** ⇒ **已派 W11**（连带改 `Editor/BattleScene.cs:13439` 的断言）。
+2. `DoPushBack` 的 `duration` 形参是**死值**（体里写死 0.4）⇒ 照抄 + doc 记，⛔ 别修。
+
+### 12·12 补位 `B9_W11SHAKE`· 震屏方向 + 推回零向量
+
+- **独占**：`Core/CardFeel.cs` · `Editor/BattleScene.cs`
+- 两件：① `PushBackDir` → `Vector3.zero`（带断言改）② `ShakeCamera` **加水平通道** + 按原版喂棋盘坐标（要先确认世界 x/z ↔ 屏幕 x/y 映射，⛔ 别想当然）
+- ⛔ 明令：**幅度表不动**（已证 2/4/8 对）、`unitsShake` 与 `ReturnToDeck` 接线**不在本波**
+
+### 12·13 回执 ⑥ `B9_R2DA42`（DA42 + 广播六族）
+
+产出 `判据/DA42与BroadcastHandWhen剩余_判定.md`。只读。**DA42 的 7 跳机制已从二进制读到端到端（全有出处）**，并**订正了普查件**：
+- 🔴 **DA42 今天不是「看不到效果」，而是「给错了」**：`Choose …` 只挑不做（`EffectResolver.cs:4742-4756` 有明文日志），而 `When played, gain 3 Quest Points` **被主解析器照常解成 `gainquest 3` ⇒ 打出当刻就 +3** ⇒ 夹具两条今天都该红。
+- 「三个前提」应重排为 **5 条**（P0 数据侧 / P1 挂手牌 / P2 承载卡打出时的派发 / P3 附魔能力的执行体 / P4 极性）。**P3 是最大缺口**：我们没有被动 `cardAbilities[].abilityLogic[]` 解释器（`Pray` 是硬编码）；`gen_cards_engine.py:3964-3972` 已把「31 张模板因同一原因不入池」写死。
+- **六族现核**：F1/F2 已做 · F3 就是 DA42 这条链 · F4 复算仍 0 缺口（非单位 486 张里带非 0 trigger 的 76 张，落在原版手牌态派发集合 `{0,10,190,250,260}` 的只有 2 张）· F5/F6 数据为 0。
+
+**排队（⛔ 现在不能派全链：`EffectResolver.cs` 在 S0 手上）** → **W14 = DA42 全链**（等 S0 回来）：
+`EffectText.cs:8751/8765` 注释 `DA47`→`DA42`（铁律 5，一行）→ `Enchantment.cs` 类尾 4 个成员 → `EffectResolver.cs:2575` + `RuleCore.cs:4087` 两个出牌广播后各调一次 → **+3 落 `gainOwner = 1-载体属主`** 再 `EnqueueRemove` → **最后**才去掉「打出即 +3」（顺序反了会双给）。
+⚠️ **A1a（`gen_cards_engine.py` 加 `ENCHANTMENT_EXECUTORS` 收 DA42 模板）会让池 1,128 → 1,129 ⇒ 必须由调度台在「无账写手」的窗口做，然后重钉池指纹**，⛔ 不派给写手。
+📌 `gen_cards_engine.py:3964-3972` 的「31 张模板缺口」与 `buffType 12` 那 18 张的 `PersistentEffects` 替代（A1950/A1955）**是同一件事的两个半**，⛔ 别两条线各修一半。
+
+### 12·14 回执 ⑦ `B9_W5COF`（Coffee dll） · ✅ 已合并
+
+**三件前置全做完**：① **全库只有 1 只 Coffee shader** = `Hidden/UI/Default (UIEffect)`（在 `globalgamemanagers/Shader/Shader_77.json`；⚠️ 顶层 `m_Name` 恒空、真名在 `m_ParsedForm.m_Name`，`dump_shader.py` **扫不到内置文件**，要用 `dump_shader_blob.py`）—— 9 属性 / 44 关键字 / 41 uniform / 1 pass；**HLSL 源码被剥 ⇒ 落不成工程资产**。② **7 实例 × `uiEffects[]` 全表**（全在 `bundle_menus_assets_all`，5 个非空全挂 toggler 自己的节点上）：**唯一真在用的是 `m_TransitionFilter = 4 Shiny`**（Width 0.25 / Softness 0.5 / Rotation 120 / KeepAspectRatio 1 / ColorFilter 6）；5 个 Tweener 完全一致（线性 0→1 / **Duration 1.0**），**只有 `Deck Editing Menu/Done` 那颗 `WrapMode=Loop`（一直扫）**。③ `UIEffectTogglerCoffeeEffects.cs` 已从等价外壳改成真 `Coffee.UIEffects.UIEffect`（94→106 行），**并修掉上一版一个语义错**（原来 `enabled=option` 打在 `ImageQuad` 上 = 把图标整个隐藏；原版关的是滤镜组件、图还在）。
+
+**三个真实阻塞（它查得很干净）**：
+1. 🔴 **载体不重合** —— 7 个原版实例全在 uGUI `Image` 节点，我们的对应节点是 `ImageQuad`（`MeshRenderer`，不是 `Graphic`）⇒ `UIEffect`（`IMaterialModifier`/`IMeshModifier`）**挂不上**。**这是决定这条线能不能落地的分叉点**。
+2. **shader 缺**（HLSL 被剥）⇒ 补法 = 按 G12 的 `extract_mirror_shaders.py` 烘进载体包（要 Unity）。
+3. **dll 是残缺重建物**（自定义特性全被剥、约 800 条 IL 类型错乱）⇒ 好消息：无 `RuntimeInitializeOnLoadMethod`、本类**当前零调用者** ⇒ **零运行时风险**。
+
+**我裁**：既然**只用到一个 `Shiny` 滤镜**、且携带体是 `ImageQuad`，就走 **「自写等价 Shiny 扫光」**（自建 shader + `ImageQuad` 载体），参数直接照上面那组真值；Coffee dll 保留在 `ThirdParty/` 但标「结构参考、不参与运行」。⇒ **W15 排队**（等 W7 交还 `CardPresentation/Shaders/` 与三个宿主文件）。
+⛔ 不许把 7 个节点改成 uGUI `Image`（会动整套 `ImageQuad` 渲染/队列模型，代价远大于自写一只 shader）。
+
+**它顺手发现（已采信）**：上一版对空 `uiEffects` 报警是**误报**（原版 A/E 两处本来就空）；账 453/454 落点早已漂。
+
+### 12·15 调度台自己动的一件事：给 `typecheck` 补上 Coffee dll 引用
+
+W5 落地后 `typecheck.sh` 对全仓报 **1 条 `CS0246 Coffee`**（csproj 是**上次 Unity 生成**的，不认识新 dll）⇒ 会让**所有在跑的执行代理**看到假红。
+我在 `Assembly-CSharp.csproj` 与 `Assembly-CSharp-Editor.csproj` 的 DOTween 引用块后各插一条 `<Reference Include="Coffee.UIEffect">`（**二进制按 CRLF 写、锚点唯一性已 assert**），复跑 `typecheck` = **运行时 0 / 编辑器 0** ✅。
+⚠️ 这是改**生成物**：下次 Unity 批处理会自己重生成（那时新 dll 会被自动收进来），这条手插不冲突。
+
+### 12·16 回执 ⑧ `B9_W3ANIM`（#2/#6 + 复核 #4/#5 + K-04） · ✅ 已合并
+
+- **#2 `PlayTriggerAnim`：施工单前提两处错** —— 原版是 `CardScript.PlayTriggerAnim(animPrefab, targetCard, traitValue)`，**不是** `AnimFXController.SetData(prefab,card,traitValue)`；`traitValue` 的唯一消费者是 `TraitEffectController.UpdateValue`。`SetData`（`:365`）**本来就逐句对齐**。已新增 `AnimFXController.PlayTriggerAnim`（`:433`，类尾）+ 原版空 prefab 的警告原文。🔴 **实况**：`BattleAnims.json` 的 `sentinelUnitAnim`/`sentinelDeckAnim` **都是空 PPtr**（唯一调用点传的就是它）⇒ 可达分支只有「警告 + null」= 铁律 11 例外①。
+- **#6 `StopHandAnim`：前提整条错** —— 真体 = `yield WaitForSeconds(delay)` → **`tutorialPointerBattle.OnDisable()`**（与 `TutorialPointer.StopAnim` **同址 `RVA 0x854B20` = ICF 折叠**），**与手牌动画 / `IsDoingAnim` 无关**（原版 `PlayerHand.IsDoingAnim` 全量 0 调用）。唯一调用点 = `EndTurnClick` 的 pending-berzerk 教程支、**delay = 2.0f**；我们没这一跳 ⇒ 账 `特效动画:497` **B→C**。
+- **#3 `ActivateIconAnim`：亮图标那半已实现**（`AbilityIconAnim.PlayNow:148-167`，顺序也对）。🔴 **但整条链原版就是死代码**（`PlayIconAnim`/`ResolveAbilityIconAnim` 在 `decomp_full` + ILSpy 两棵树**只命中定义**）⇒ 账里写「建议裁 D」，**未替调度台改状态**（我准：按铁律 11 例外①判 D，证据 = 全树只命中定义 + 我仓同样 0 调用；⏳ 落实在下次同步点）。
+- **#4 `ActivateTriggerTraitAnim`：已实现**（`PlayTraitPulse:24602`，1.6/0.5s/2Yoyo/OutCubic 逐句）。两处小偏差（调用序相反 · `playIfWarlord` 门粒度），实测 7 个多行 trait **0 条混合 ⇒ 今天等价**。
+- **K-04 五条：682/683/686 已齐全**。两处待补：**684 的接线是 `tapHasAbility` 二选一互斥（🔶 自设计）**，原版是两颗组件各触发一次、两条链都跑；**687 `PressedBtn` 建层判据本地拿不到**（四路搜尽：AR prefab 0 / 解包整理 0 / `assets_full` 只有 MonoScript / `CardPrefab` 10 个组件逐个解过都无此组件）⇒ 状态机与 0.4s 时序在、钩子未接会出声。
+- 常量亲读：`0x1834b3158=0.4f` · `0x1834b2bb0=0.2f` · `ctor+0x40=0x3e99999a=0.3f`。
+- **改动请求（并入 W16，`BattleDriver.cs` 归 W10 时一起做）**：① 松手支去掉 `tapHasAbility` 互斥 ⇒ 两条都跑，并处理与 `TapBoardCard` 的残骸/开窗重复（⛔ 别删 `ToggleUnitCard`）；**棋盘 inPlay 档原版没有 0.2s 门**（那道门只挂 `inHand 1`/`inHandShowing 8`）⇒ ⛔ 别加。② pending-berzerk 支补三件（`DisplayTrigger(berzerk)` · `TutorialOverlay.SetPointer(true)` · **2.0s 后 `SetPointer(false)`**）。③ `PlayTraitPulse` 换序。④ `TraitFrames.BlocksForWarlord` 改逐条（低优先）。
+- ⚠️ **它未做的事**：K-04 五条在 `Editor/BattleScene.cs` 里 **0 条断言**（本波禁 Unity）⇒ 同步点要补跑/补断言。
+
+### 12·17 回执 ⑨ `B9_W4NFG`（NestedFadeGroup 18 条） · ✅ 已合并
+
+账补丁 **26 行**已合并（18 条 `NestedFadeGroup*` **B→A** + 8 条既有 A 行的落点）⇒ 现读 **A 3,693 / B 1,362 / C 605**，**(A+D) 77.6%**。
+
+- 它**自己用 UnityPy 现算了整棵 `m_Children` 树**（不是转述判据件）：57 = 9 组根 + 38 SR + 10 TMP，9 个组根子树件数 **4 / 1 / 6×7** ✅ 与判据件一致。
+- 🔴 **补两条判据件没写的**：① **子树里实际只有 47 个子件（37 SR + 10 TMP）**，第 57 个 SR 是**孤儿 `Armour Background`**（无组根祖先）⇒ 引「子树子件数」别用 38；② 7 个 trait 组根各 6 件里，`TraitIcon`/`Trait Not Active` 各有 **With/Without counter 两套变体**（原版靠 activeSelf 二选一）⇒ **语义角色只有 4 个**，所以「我们 4 件 vs 原版 6 件」**不是缺件**，⛔ 别按 6 补。
+- 实现：9 个组根各一份 `_fadeGroupAlpha` + `FadeGroup` 枚举；`ApplyBadgeAlpha` 从「整卡单标量」重写成「9 组根逐个广播」（MR 相对乘 / 角标 TMP 绝对赋值 / 底光 `ImageQuad` 直赋）；**旧 API 零影响**（`SetBadgeAlpha`/`FadeBadges` 仍是「一次推全部 7 个 trait 组根」= 原版 `FadeAllTraitsIcons`）。
+- 🔴 **`ApplyTint` 尾部次序调换**：`ApplyStatFlashes()` 先、`ApplyBadgeAlpha()` 后（否则 `_stats[]` 被刷回、2 个数值组静默不淡）。
+- 断言 12 条 + 4 条前提硬检查进 `Editor/CardFaceAssertE5.cs`（E6/E7 是灭自证对偶：旧单标量实现必红）—— **未执行，定案在同步点**。
+- ⚠️ **它造成 `CardView.cs` 里 36 条既有 A 行行号漂移** ⇒ 同步点 `--fix`；**另有 2 条 range 落点失败是既有的**（改前改后 fail 都是 16），`--fix` 修不了 range，要人工改。
+
+### 12·18 补位 `B9_W14FX`· 特效组件两族
+
+- **独占**：`Effects/UIEffectTogglerImage.cs` · **新建** `Effects/AnimateUIMaterialParameters.cs`
+- **条目**：`UIEffectTogglerImage` 5 条 + `AnimateUIMaterialParameters` 4 条（`UIEffectTogglerImage` = **绝对覆盖 α**，⛔ 别和乘性的 `UIEffectTogglerCanvasGroup` 一起改）
+
+### 12·19 补位 `B9_W15CVIEW`· K-03 五条
+
+- **独占**：`Core/CardView.cs` · `Editor/CardFaceAssertE5.cs`
+- **条目**：`HUD:108` 传说溶解材质 → `HUD:153` 残骸 3D 卡身 → `HUD:148` 描述写口 → `HUD:189` `RefreshLocalizedText` → `卡组:148`（调用点在 W8 的 `PracticeModePopup.cs` ⇒ 只写请求）
+- ⚠️ 简报里写死：`BeginDissolve`/`SetRemnantBody` 的行号已被前面两批改动挪过两次 ⇒ **只按符号名定位**
+
+### 12·20 回执 ⑩ `B9_W7COLL`（K-02 / K-13 / K-14 / K-17） · ✅ 已合并
+
+账补丁 3 行已合并 ⇒ **A 3,694 / B 1,363 / C 603**。
+
+| 账行 | 结果 |
+|---|---|
+| `HUD:101` / `收藏:203` | **核销，零改动**（早已实现：`CardArt.DeckCardbackSdf:1300` · `ReleaseModeIcon:1268`） |
+| `收藏:247` | **C→A**：新建 `Core/LoadableRef.cs`（142 行，三格 + `TargetId` 回填语义）+ `Inventory.HasEnough<T>`（**空 TargetId ⇒ 出声 + false**，堵掉原版「空 id 静默 true」） |
+| `收藏:15` | **C→B**：`CampaignTab:1633` / `ForgeTab:1295` 各建 `Badge Highlight`（35×35 · 锚(1,1) · pos(−17.5,−17.5) · `40K_notification_number` · fs34/base36/auto[18,34]）；**差「按阵营过滤」** |
+| `收藏:348` | **仍 C（部分交付）**：`Shaders/WildcardShine.shader` 已写好（169 行，`TRANSITION_SHINY` 忠实移植）；**卡在九宫格** |
+
+🔴 **两条重要订正（铁律 5·c「一个值 ≠ 全部情况」的又一例）**：
+1. **账里 `收藏:348` 的 W64 参数表（139 / 0.213 / 0.533 / 1.0s / (2,2,2,1)）不是收藏窗那颗** —— 它属 `Deck Editing Menu ▸ WIldcard Counter`。收藏窗那颗现读 = **rotation 120 / width 0.25 / softness 0.5 / color (1,1,1,1) / tweener 0.75 s**。
+2. 🔴 **`ForgeHandler.CheckNotification` 现在账里判 A「一致」不成立** —— 原版 `b__9_0.c` 是 `Repeat(new …Badge(army), Count(GetRewardsToCollect()))`（**逐阵营**），我们是全阵营摊平 ⇒ 应降 B 并补 army。**已并入 W16**。
+3. ✅ **`m_TransitionTex` 不必解**：逐像素实测是**沿 y 的严格线性斜坡**（254/223/190/159/127/95/63/31，横向全同）⇒ `1-saturate(uv.y)` 是逐像素等价复现。
+4. 🔴 **`收藏:348` 的卡点写清了**：原版那颗 `UIEffect` 挂 `WIldcard Display ▸ Background`，而那颗 Background 是我们用 `ImageQuad.CreateNineSlice` 建的 **9 个子 quad** ⇒ 掩码要用整框 uv、子块是图集 uv ⇒ **每块各需一份仿射 + 各自材质**。上一路为此**完整回滚**了半成品（正确地停手）。
+
+**排队（已派 W16）**：`WildcardShine` 接进九宫格 9 块 · 7 个 Coffee 实例改走我们自己的 shader（不再依赖残缺 dll）· `收藏:15` 补 army。⚠️ **shader 一次都没编译过** ⇒ 同步点要验（含 AlwaysIncluded 包设置）。
+**同步点还要做**：`收藏:247` 三档夹具（落 `Editor/CollectionScene.cs`）· `收藏:15` 三条断言（落 `Editor/RewardsScene.cs`）· `CampaignTab`/`ForgeTab` 改动造成的行号漂移（`--fix` 一次）。
+
+### 12·21 回执 ⑪ `B9_W9KENV`（K-11 三条） · ✅ 已合并（1 行）
+
+**三条早已是 A**（又一处「派活包现等级过期」），核验通过；核验中查出**一格真缺口**并当天补掉：
+- `TargetCriteriaEval.TypeGatePasses` 的 `type="whispers"` 分支原来直接 `return null`（判不了），而**两处 doc 都写着「whispers 照样保留」** ⇒ 补 `need = set.IncludeWhispers`（判据 `FilterMethods__CheckIfRawCardMeetsCriteria.c:29-34` 的四格之一）。**零漂移做法**：把尾部两句合成一条三元 ⇒ 总行数不变、账的三个落点行号全不动。
+- 验证：`typecheck 0/0` · `ruleprobe check` rc=0（解析差异 0 行）· **`play check` rc=0、指纹 `0766fbe1…` 一致（零差异）** · 夹具 85/85 + 新夹具 9/9（含棋盘侧同格正负）。
+- ✅ **「未知 ta = 0」成立**：池内 1,128 张 criteria 行 `targetsAffected` 全部有值、无缺失/无 −1；代码侧未知 ta 走 `null + gap`，⛔ 非静默 true。
+- 📌 **全局闸读数（同步点对账用，本会话第一次有基线）**：`check_ledger_points` **A 3,755 · 通过 3,435（告警 140）· 漂移 247 · 失败 73**。
+- 📌 账里夹具条数过期（188 写「81 条」、189「30」、201「12」；现读分段 **32/32/14/2**，合计 81 处调用点 / 执行 85 条）⇒ 同步点按分段口径订正。
+
+### 12·22 补位 `B9_W17FX2`· 特效组件第二批
+
+- **独占**：`Battle/ScenarioMaterialFader.cs` · **新建** `Effects/CardDisplayLevelUp.cs` · **新建** `Effects/SwarmVFXController.cs`
+- **条目**：`CardDisplayLevelUp` 6 · `SwarmVFXController` 2 · `ScenarioMaterialFader` 2
+- ⚠️ 简报里写死：先核现等级（本批三路都是「早已是 A」）；「原版死代码」要**三源合判 + 反汇编活方法查内联**
+
+### 12·23 回执 ⑫ `B9_W10BDR`（施工单 #8/#9/#12） · ✅ 已合并（3 行）
+
+- **#12 `MoveAndDisappearAnim` → A**（388 行状态机 + 7 个 `b__` + `MinionScaleByPositionSO.GetScale` 逐句对完，**本来就全对**）。**唯一真缺口已补**：三条 tween 的 `OnUpdate` = 逐帧 `localScale = GetScale(...)`，我们一次都没算 ⇒ 已合并进 `PlayMinionMovement` 的 `OnUpdate`，走 `CardFeel.ApplyDepthScale`（⛔ 没写第二份曲线）。`:154 StopSummonSicknessAnim` 是**空操作**（`BattleAnims.summonSickness` 是空 AssetReference）⇒ 不做，有出处。
+- **#8 `ShowPlayerActionAnim` → B（落一半）**：关键发现 **分档依据是 `data[0].type(+0x10)` 不是 `unitType`**，旧代码按 `unitType` 猜、猜不到给屏幕中心 ⇒ **数据里 36 条 `playerAction` 的 `EndTurn` 动作指针全画在屏幕正中**。原版取 `clockManager(+0x118).clockButton(+0x28)` 的 position − **(2.0, 1.0)**（两个常量 `read_literal` 现读）⇒ 已改成 `TutorialPointerAnchorFor` 按动作大类分档（20/30/31/35/36/40/110/120 = acting 卡；100 = EndTurn 位；150 与其余 = **不画**，原版就是 LogWarning）。**没做**（如实记）：指针的 `to`（`TutorialOverlay.SetPointer` 只收单点）· `LightPlayableHand()`（全仓无实现）· `ShowAttackTypeMark` · `hasActiveAbility` 拷贝。
+- **#9 `PlayAnim` → B（无代码改动）**：逐档已一一对应（连**原版 `:129` 重复查 `0x18` 而不是 `0x1c` 这个 bug** 都照抄了）。🔴 **结构性缺口在引擎侧**：原版外层走 `cardAnimations`、内层走 `abilityTargets`，**逐目标各播一份**；我们的 `EvtKind.Ability` **只带 0/1 个目标**（`RuleCore.cs:11563/11983` 的 `Emit` 只填 `chosen`）⇒ **多目标能力只播一份、拍序也不同**。
+
+**🔴 新账（引擎，排 W18）**：`BattleEvent` 加**目标列表**，让 `EvtKind.Ability` 能带多目标 ⇒ 解锁「多目标能力逐目标播放」。⛔ 不许让表现层按 criteria 自算（那是第二份判定）。
+
+### 12·24 补位 `B9_W19BDR`· K-01 P0 两条 + K-04 接线
+
+- **独占**：`Battle/BattleDriver.cs` + `RuleEngine/Core/CardProgress.cs`（只这一处引擎文件）
+- **条目**：`卡组:48`（开局 CardTiers）· `HUD:92/93`（战斗侧异画，92 并入 93）· K-04 接线四处（**去掉 `tapHasAbility` 互斥** · pending-berzerk 三件 · `PlayTraitPulse` 换序 · `BlocksForWarlord` 逐条）
+- ⛔ 明令不做：`HUD:537/548`（动 `ManaCarry` 会改全池指纹）· `卡组:52/54/194` · `HUD:702`（碰联机）· 指针 `to` · `LightPlayableHand` · `ShowAttackTypeMark`
+
+### 12·25 回执 ⑬⑭⑮（`W14FX` / `W12USHK` / `W13CDW`） · ✅ 全部已合并
+
+**`B9_W14FX`（特效组件两族，8 行）** —— 结论出人意料：8 条 C 的**唯一原因是「零挂载点」**，`decomp_full` 逐句核完**没有一条需要改语义**。但核出两处**我们适配层的真缺陷**并修：
+1. 🔴 `UIEffectTogglerImage.Capture()` **死锁** —— 原版 `Image[]` 是序列化数组，我们换成运行时 `List<GameObject>` ⇒ `if (_captured) return;` 变成 bug：`Awake` 已收过一轮（表空 ⇒ 收的是**根**），之后 `Add` 永远进不来 ⇒ **会把整张包卡关掉而不是淡亮描边**。改成按 `fadeTargets.Count` 判重 + 类尾 `RefreshTargets()`。
+2. 🔴 `AnimateUIMaterialProperty.Attach(…, changeMaterial)` **克隆源时序**错（`AddComponent` 当场触发 `OnEnable` ⇒ 克隆源退化成 `originalMaterial`），受影响 = `Level Up Effect` ×2。补 `RebuildOwnInstanceMaterial()`。
+📌 **纠了我两处简报**：`AnimateUIMaterialParameters` 真名 = **`AnimateUIMaterialProperty`**（文件早已存在 `WarpforgeVFX/Runtime/`）；`UIEffectTogglerImage` 只有 **4** 条不是 5。
+📌 **顺手发现**：三处代码在向日志输出**错误事实**（「那个组件我们工程里没有」「原版 shader 本地没有」）；账里「缺 3 条 clip」也已过期（`Rank Up.anim` / `Division Up.anim` / `Level Up Card.anim` 都在 `WarpforgeVFX/Animations/`，`m_Legacy:1`、`ChangeFrame @1.45s`）⇒ **已派 W20 修**。
+
+**`B9_W12USHK`（unitsShake 数据链，2 更新 + 1 新增）** —— 数据链补齐，**未接调用方**（`BattleDriver` 归 W19）。🔴 **两条会改验收口径的发现**：
+1. **本数据下「抖单位本体」一次都不会发生**：271 条里 **235 条 `targetUnit==0(undefined)`** ⇒ 原版 `GetTargetUnit` 返 null ⇒ 协程只白等就退出。真正有效 36 条、今天可达 28 条，**全部**是 `(target=30, awayFrom=10)` ⇒ 走**击退支**、**0 条**走 `DoUnitShake` ⇒ **玩家看到的是「被弹开/后坐」，按「抖」验收会误判**。
+2. **纠了我两处简报**：数据落点是 **`cardanim_clips.json`**（`RtRow` 读的那个），**不是** `card_anim_order.json`；**`attack_melee` 桶不是 0 件，是 4/12**（W1 那句「0 件」指 `shk` 屏震那一族）。
+3. `minionAnimationClipInfo` 核完：**2 行、`enable` 全 0、`clip` 全 null** ⇒ 今天零可观测差，只补列与读数口、没伪造值。
+
+**`B9_W13CDW`（K-15 四条，4 行）** —— 四条现等级**都还是 C**（派活包这栏没过期），但**它写的「前置」过期了**：
+1. 「6 个展示偏移要先从解包实例取」**不成立** —— 那 6 个 float 是 `DAT_1842da2a8`（= **`UnityEngine.Vector3` 的 Il2CppClass**）的 `+0x18/+0x3c` = `up`/`right`，**引擎常量**；真正要读的 8 个值 **2026-09-17 就实读过了**（`资料/VarsGlobal_原版数值.md:35-38`）。已收成 `RuleEngine.VarsGlobal` 一处（文件尾新增，**账落点零漂移**），含 px 桥 **14.835 px/世界单位 @1080p**。
+2. **载体不是 `CardDisplayWindow`** —— 原版移动的是**卡本体**（`DOMove(transform,…)`/`DOScale(transform,…)`）⇒ 落点在 `BattleDriver` 的 reveal 链（**改动请求给 W19**）。
+3. 🔴 **`HUD:755` 两处真判据错**（已派 W21）：**键前缀是 `Card_Abilities/` 不是 `Card_Description/`**；「RemovingSiege 后缀没解出来」**不成立**（ILSpy 内联了常量 ⇒ 裸键 + 剥 `[[reload]]` 四变体）。实测官方表 10,862 键里那几档 **0 条** ⇒ 改完**显示与改前逐字相同**（这是正确的，⛔ 别当成「没生效」）。
+4. ⚠️ **还缺一格**：`enemyHand` 的**屏幕锚点**（运行时 dump 里 `UpperAnchor/EnemyArea/HandArea`、`HandAnchor` 都是**裸 `Transform`**、无 rect/pos）⇒ `RevealStartPx/EndPx` 至今是 🔶。**还差**：沿 `Safe area BackCanvas → UpperAnchor → EnemyArea` 的父链累加 `anchoredPosition` 再乘 1/14.835，或进原版读那台 Transform。
+
+### 12·26 补位三路
+
+| 代号 | 独占文件 | 活 |
+|---|---|---|
+| **B9_W20WIRE** | `Deck/DeckRuntime.cs` · `Shell/CardDisplayEffects.cs` · `Shell/BoosterPackOpenWindow.cs` · `Shell/RankedDivisionChangeWindow.cs` · `Effects/UIEffectCanvasGroupToggler.cs` | 接线 A–E 五处（照 W14 §二·3 粘）+ 修三处过期文案 + 同族 `_captured` 死锁 |
+| **B9_W21SKILL** | `Battle/SkillPanel.cs` | 技能描述取键：前缀 `Card_Description/`→`Card_Abilities/` · 实现 `[[reload]]` 剥离 · 裸键档先查 `Card_Abilities/<id>` |
+| **B9_W22GLOW** | `Shell/UIBorderGlow.cs` | `UIBorderGlow` 5 条 C（几何/回调；**`_Reveal` shader 不在范围**，要 Unity 差分实验） |
+
+### 12·27 回执 ⑯ `B9_W8PREB`（K-07 / K-09 / K-10） · ✅ 已合并（13 行）
+
+账补丁 13 行已合并 ⇒ **A 3,704 / B 1,363 / C 594 / D 3,117**，**(A+D) 77.7%**。
+- **做了 7 条 C**（`卡组:134/138/148` + `卡组:293/299/300/302/303/305`）；`卡组:284/285/286` 现核**早已是 A**（只核验）。
+- 🔴 **两条判据订正**：① 「卡背 5 连轮播」**是错的** —— `DeckGeneralInfoDemo.cardBacks` 序列化数组**实读长度 = 2**（`Cardback` + 子件 `Cardback Front`）；那条「轮播」= `OpenCardbacks` clip（0.25 s、`m_WrapMode=1` Once），内层 `anchoredPosition (0.3,0.3)→(11.2012,4.9016)`、两层 z 旋转到 +1.60° / 相对 −3.43°。② **`OpenAnim` 起点是 0 不是 0.6**（`content.localScale = Vector3.zero`；0.6 是**关包**与**选包第二段**的终值）。
+- **改动请求 R1（已派 W23）**：`卡组:290` 的调用点仍在 `Shell/DraftPacks.cs:332 RollRound` ⇒ 候选循环 `cand.Add(p)` 前加 `PrebuiltDecks.PackIsValid(...)`；🔴 **判据只写这一处**，⛔ 别在 `DraftModeWindow` 再判；现池 882/882 全 valid ⇒ **必须造负例才验得出**。
+- ⚠️ `DraftModeWindow.cs` 被改了 **+368/−40**（3,635 → 3,964）⇒ 五域行号整体下移 **+10～+21**（同步点 `--fix`）；⚠️ `轮抽.tsv` 里另有一批**改动前就已指错**的引用（`GetBaseSave()` / `Validate(TS)` / `LoadEventData`）—— 存量漂移，`--fix` 会给 `NEED-HUMAN`，需人工按符号+语义确认。
+- 📌 **顺手发现**：`WindowSounds.cs:245-248` **早就有** K-10 那四条 cue（Appear / Finish Animation / Selected Moving / Prebuilt Pack preview）—— 前几轮把「cue 名查不到」记成缺口，实际只差接。
+- 📌 **⛔ 别删 `PrebuiltDecks.BotDecks`**（零调用点，但它是 `卡组:284` 的验收口径 196 条）。
+
+### 12·28 补位 `B9_W23DRAFT`
+
+- **独占**：`Shell/DraftPacks.cs` · `Shell/DraftModeWindow.cs` · `Shell/BoosterPackAnim.cs`
+- 三件：`卡组:290` 调用点 · `Prebuilt Pack UI` 扫光接线（**`RefreshTargets()`/`Rescan()` 不能省**）· `BoosterPackAnim.cs` 文件头那句「`OpenCardbacks.anim` 用途未查清」订正 + 四条 cue 是否已接
+
+### 12·29 回执 ⑰⑱⑲（`W11SHAKE` / `W15CVIEW` / `W17FX2`）· ✅ 全部已合并
+
+账现读 **A 3,706 / B 1,372 / C 583 / D 3,117 ⇒ (A+D) 77.7%**。
+
+**`B9_W11SHAKE`（震屏方向，3 行）** —— 两条都按原版补齐：`PushBackDir` 退路改 `Vector3.zero`（`BattleScene:13439` 断言同步改）· `ShakeCamera` **加屏幕水平通道**（`ShakeScreenDirOf` 取 `FromToRotation(down,v)·up` 的 x 与 y）。幅度表 2/4/8 **未动**，既有 15 个调用点**逐位不变**（有灭自证断言钉住）。
+🔴 **两条判据订正（比施工本身更重要）**：① **`GetBoardPosOfCard` 返回完整 3 分量**，不是上一路记的 `(x,0,z)`（VA 反汇编 `0x180965BC0` 是 12 字节整抄；ILSpy 那版**丢 store**）；② **原版场地根在 x = 100**（`Transform_1301` localPosition (100,0,0)）⇒ 这一档 `|direction| ≈ 101`、`m_AmplitudeGain ≈ 200/400/800`，与 preset 那版**相差 ≈ 357 倍**。按机器码算出的**峰值位移 ≈ 10.2 / 20.3 / 40.7 世界单位**（屏高 10 ⇒ 1/2/4 个屏高）—— **这是照抄的结果**，但**没有真机对照过** ⇒ 换算收在 `OrigBoardPosOf` **一个函数**里，真机若判「不该 +100」**只改那一行**。
+⚠️ `ShakeCameraForAttack` **目前 0 调用点**，接线在 `BattleDriver.PlayHitFrameShake` ⇒ **并入 W19 的后续批次**。
+
+**`B9_W15CVIEW`（K-03 五条，5 行）** —— 4 条**本来就是 A**（本轮 = 核验 + 补 47 条断言 F 组），`卡组:148` 的调用点由 `B9_W8PREB` 在 `PracticeModePopup` 落地 ⇒ **本行状态 C→A**（⚠️ 跨补丁冲突：`B9_W8PREB` 先合已写 A，`B9_W15CVIEW` 的 C 会盖回去 ⇒ 我用生成器重生成后按主表 A 落盘，**手工改的行因 bash 反引号被吞、已用生成器复原**）。
+🔴 **本次踩到 CLAUDE.md 记过的坑**：在 `bash` 双引号里跑含反引号的 python ⇒ **反引号被当命令替换、文字静默吞掉**（补丁行被写坏，已用生成器复原）。⛔ 以后往 `.md/.tsv` 写含反引号内容：**先 Write 临时文件再 append**。
+
+**`B9_W17FX2`（特效组件第二批，12 行）** —— `CardDisplayLevelUp` **新建**（417 行，类名==文件名）⇒ 8 条 **C→B**（不到 A 的原因：① 挂点没接 ② 3 条 clip 未导；⛔ 不拿「代码写了」冒充「跑起来了」）；`ScenarioMaterialFader` 2 条 **C→A**；`SwarmVFXController.Initialize` **C→B**。
+🔴 **三处硬发现**：
+1. **`ScenarioMaterialFader` 缺最后一句且是静默的**：原版完成时把 `doFade` **归零**（`__Update.c:75`）⇒ 漏它的话「淡完一次后 `_doFade` 恒 true ⇒ 下次取反翻成 false ⇒ 那次淡被整条冻住」（`onComplete` 永不触发）。已就地补（同一行 ⇒ 零行数变化）。
+2. 🔴 **`SwarmVFXController.ToggleBody3D` 的落点错了（真缺陷，在 `BattleDriver.cs:24812`）**：原版 `card` 是**被并掉那张**，我们的 `e` 是**存活那张** ⇒ `v.SetBody3DVisible(false)` **藏的是存活小兵的 3D 体且无人复原**（3D 档下它会一直没体，直到下一次 `SetFace(Board)`）。自检抓不到是因为 `BattleScene:43334` 断完立刻还原。⇒ **并入 W19 后续**（① 删掉那一句 或 ② 改藏被并掉那张；⛔ 别「藏完再复原」）。
+3. 🔴 **整批定级的一记提醒（我已照做）**：**主表的 A/B/C/D 在【`状态`】列（第 6 列），不是【`等级`】列（第 9 列 = P1/P2 优先级）**。我已在合并前扫过所有待合并补丁：`等级` 列**无**被误填 A/B/C/D ✅。
+
+### 12·30 补位两路
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **B9_W25UPGR** | `Shell/CardDetailPopup.cs` | `DoUpgrade()` 末尾挂 `CardDisplayLevelUp` + `onChangeFrame = RebuildKeepingState` + 两条灭自证断言 |
+| **B9_W26ANCHOR** | 只读 → `判据/enemyHand屏幕锚点_判定.md` | 沿 `Safe area BackCanvas → UpperAnchor → EnemyArea` 父链累加 `anchoredPosition` 算 `enemyHand` 屏幕锚点（**展示位偏移表最后缺的一格**） |
+
+### 12·31 回执 ⑳ `B9_S0EFFECT`（效果项源总闸）· ✅ 已合并（2 行）
+
+**S0-①** `ApplyOneGain` 切到记录原语：关键词支改成 **`val > 0` 两档都走** `u.ApplyTraitEffect(…, timingBits: TimingBitsOfDuration(duration))`（改前**只有无限期那档走**，限时档是裸 `AddKeyword`）；`TempBuff` 多填 `TraitRec`；类尾新增 `TimingBitsOfDuration`（`""→0` · `"turn"→bit0` · `"nextturn"→bit1）与 `MarkOfChaosTypeOf`。**限时记录的到期清理三处撤法全接上**（`RevertBuffs` / `RemoveBuffsFromCard` / `RemoveAllAppliedEffectsForJam`）—— 不接就是「只增不减的账 + 投影永远显示一回合」。
+**S0-②** `ApplyMarkBody` 按四神分行（blood 10 / resilience 20 / excess 30 / fate 40），`AddKeyword(DarkPact,1)` 保留。
+
+**验收**：`typecheck 0/0` · `check` rc=0 · `play check` **rc=0，指纹 `0766fbe1…` 一个没动**（等价重构）。它还额外做了**仓库外夹具 13 条**（不进仓库）做正面证明，其中 4 条带鉴别力（限时/永久同 trait 必须 2 条；两个神 ⇒ 2 条 mark 记录）。可达性：池内带「give + 时长」的卡 **85 张** ⇒ 限时那档不是死路。
+
+**它报的两件（我处理了）**：
+1. 🔴 **`ruleprobe` 一度对全批次不可用**：`GameplayVariables.cs` 新增的 `RuleEngine.VarsGlobal` 用了 `UnityEngine.Vector3/Vector2`（W13 那批），**Unity 侧编得过、离屏桩没有这两个类型** ⇒ `CS0234`，探针整批编不过。
+   ✅ **我修了**：给 `工具/ruleprobe/Stub.cs` 的 `namespace UnityEngine` 补最小 `Vector2`/`Vector3`（两个构造），复跑 **`check` rc=0 · `play check` rc=0（指纹 `0766fbe1…` 一致）**。⛔ 别把它扩成完整向量库（只补探针用到的成员）。
+2. **它造成 34 条漂移**（全是「漂移」不是「失败」）：`EffectResolver.cs` 落点整段 **+20**、`UnitState.cs` **+11/+13/+14** ⇒ 同步点 `--fix`。
+3. 📌 **账里原来根本没有这条链**：`战斗逻辑驱动.tsv` 的 `EntityScript` 段**没有 `GetCardEffectsToShow` / `CreateMarkCardEffect`** ⇒ 按 C 新记两行。⛔ **别把「账里没有」当「原版没有」**。
+
+**它给的交接（下一个做 S1/S2 的人必读）**：`u.TraitEffects` 现在**第一次有真内容**（永久 `buffType 3/90` × 限时 × mark 按神），`Trait/BuffType/TraitValue/MarkOfChaosType/TimingBits/Source` 都被真路径写过；S1 投影用 `(r.TimingBits & 0x1F) != 0` 判 `Timed`；S2 的 `Seq` 加在 `TraitEffectRecord` 类尾、**建记录那一刻写戳**。
+
+**顺手发现（只记不修）**：`ApplyTraitEffect` 合并分支**先改 `rec.TraitValue` 再 `AddKeyword`**，后者拒收（毒×抗性）时会凭空 +1 —— 池内 **0 入口**（`poisoned`/`resistant` 的 buffType 条目为 0）；`ApplyOneGain` 之外还有三处挂 trait 不带记录（`give <关键词>: <正文>` · `RuleCore.cs` stun · droppod（我们自己的表示 ⇒ 按铁律 18 判「不建」））。
+
+### 12·32 补位 `B9_W27ENG`（引擎，接管 `EffectResolver`/`UnitState`/`RuleCore`/`ConditionEval`）
+
+两件：**A** `EffectResolver` 的 **ta 短路闸**（`{0,20,30,40,70,80,200,201,235}` 不套结构化条件；`ta=30` 直接「候选 == targetCard」；短路集合**与 `TargetCriteriaEval` 共用一份常量**；作用面 18 行/16 卡）· **B** `+0x4c`「主动能力本局已用过」（`UnitState` 类尾 + duty/ferocity/agenda 置位 + 装填 duty/`ResetToValuesInHand` 清零 + `ConditionEval` 改读 + 订正 `UnitState` 里把它误标成 `+0x4c` 的注释）。
+⚠️ 简报写死：**A 会改目标池 ⇒ `play check` 指纹很可能变，必须逐张归因，⛔ 不许改基线**。
+
+### 12·33 回执 ㉑ `B9_W20WIRE`（特效接线 + 过期文案）· ✅ 已合并（8 行）
+
+账现读 **A 3,713 / B 1,370 / C 578 / D 3,117 ⇒ (A+D) 77.8%**。
+
+- ✅ **A `Done Highlight`** 接上（`DeckRuntime` 硬 `SetOn` → `ToggleDoneHighlight`）；✅ **C `Booster pack Background`** 接上（`AttachBgDistort`/`StepBgShake`，三处挂钩**零行数变化**）；✅ 三处过期文案改写，**还多抓了同族第 4 处** —— `BoosterPackOpenWindow.HintGaps()` 的 **运行期日志**（写着「⑦ … ⇒ 没做」），比文件头更该改。
+- ✅ 同族 `_captured` 死锁在 `UIEffectCanvasGroupToggler` 也补了（现有唯一调用点不填 `fadeTargets` ⇒ 行为零变化）。
+- 📌 **它偏离补丁字面一处、有判据**：`WarpforgeVFX/Animations/` **不在任何 `Resources/` 下**（`find … -path "*Resources*"` = 0）⇒ 运行期取不到 `AnimationClip`；走本工程既有做法「采样表 + 代码补间」，键值与 slope **逐字现读自那份 `.anim`**（两条曲线的 `script` guid 逐字节等于 `AnimateUIMaterialProperty.cs.meta` 的 guid ⇒ 本来就绑在我们这个类上）。
+- 🔴 **两处挂载阻塞（已派 W28）**：
+  - **D** `Division Image` / `Rank Icon` 只用 `MenuDraw.Node` 建空节点、**没有 `ImageQuad`/`MeshRenderer`**；原版那两颗 **`m_Sprite = 0`、图由服务端喂**。
+  - **E** ① **`Level Up Effect` 容器我们根本没建**（判据 JSON 的 `images` 只有两条 Side Border + `Level Up Effect Down`，生成器名单里也没有）；② `Level Up Effect Down` 已挂 `UIBorderGlow`，而 `CacheMaterial()` 会顶掉 `sharedMaterial` ⇒ 再挂材质动画会**写进已被顶掉的克隆（假挂载）**。
+
+**它立的两条新账（我采信）**：① 「**运行期日志里的事实陈述**」这一族值得单独扫一遍（文件头注释过期只是噪声，**日志过期是输出错误事实**）；② **「假挂载」风险面**：`AnimateUIMaterialProperty` 挂到会被 `ImageQuad.SetMaterial`/`EnsureGreyCapable` 换材质的图上 = `Update` 写进空气。
+
+### 12·34 补位 `B9_W28MOUNT`
+
+- **独占**：`工具/gen_mainmenu_effects.py` · `Resources/Art/card_display_effects.json`（生成物）· `Shell/CardDisplayEffects.cs` · `Shell/RankedDivisionChangeWindow.cs`
+- 两件：**D 补 `ImageQuad` 载体**（图空是对的 —— 原版也 `m_Sprite = 0`、由服务端喂）· **E 补 `Level Up Effect` 容器**（走生成器，⛔ 不手改生成物）+ **两组件抢材质**（🔴 **先查原版那棵树上的组件次序**，照抄优先；`Shell/UIBorderGlow.cs` 归 W22 ⇒ 只能写改动请求）
+
+### 12·35 回执 ㉒㉓（`W19BDR` / `W21SKILL`）· ✅ 均已合并
+
+**`B9_W19BDR`**（`BattleDriver.cs` 35,252 → 35,376）：
+- `卡组:48` 开局 CardTiers **早已是 A**（核验通过、零改动）。
+- `HUD:92/93` 战斗侧异画：**视图链早已接**；卡表那一半**现核已落地**（`cards_engine.json` 现读 **7 张**带 `alternateArts`）。**唯一还缺 deck 层**：`PlayerDeck.CardIds` 没有「异画副本」表示、`DeckBuilder.FromDeck` 会把 `#` 条目丢进 `skipped` ⇒ 改动请求（`DeckRules.cs`/`DeckBuilder` 不在它白名单）。
+- **K-04 三处接线做完**：撤掉 `tapHasAbility` 二选一互斥（🔶 自设计）⇒ **两条链都跑**（`wa.OnTouchUpAsButton` + `TapBoardCard(..., heldDisplayed)`），`ToggleUnitCard` 保留；⛔ **没加 0.2s 门**（原版 inPlay 档不量时长）。pending-berzerk 从一件补到四件（含 2.0s 熄灯，挂 `AdvanceTimeline` 泵）。
+- 🔴 **两条真缺陷（已派/已记）**：① **DA1 异画贴图文件名不符**（`CardArt.AltArt("DA1")` 取 `alt_da1`，磁盘上叫 `alt_da_azrael.png`）⇒ 7 张里 **DA1 恒 null**（派 W30）；② `Resources/Art/` **整目录被 `.gitignore:93` 忽略**（**这是既定设计、美术不入库**，⛔ 别当成缺陷去改 gitignore）。
+- ✅ **一条「看似缺口其实是空转」**：`berzerk` 的 `traitConfig` 是 null、`trait_effect_bindings` 75 行里 berzerk **0 行** ⇒ 原版 `DisplayTriggerAnim(berzerk)` 也什么都不播 ⇒ ⛔ 别为它造数据。
+- ⚠️ 非教程局 `TutorialOverlay` 不建 ⇒ 狂暴指针画不出来（已出声 + 记偏离，本波不动建件条件）。
+
+**`B9_W21SKILL`**（1 行账）—— 技能描述取键三处全改：前缀 → **`Card_Abilities/`**；`RemovingSiege` 支按原版（键 = `Card_Abilities/<id>`，后缀**空串**，剥 4 个 `[[reload]]` 变体）；裸键档先查 `Card_Abilities/<id>`。**还顺手补齐了原版 `SupportMethods.ModifyLocalization` 那一层**（`CardIcons.RewriteMarks` + 字体闸）—— 因为现读 120 条值里 **102 条**带 `[[..]]`/`((..))`/`$$..$$`，不过这层就是把记号原样印到面板上。
+- ✅ **行为影响已量化**：官方表 120 条 `Card_Abilities/*` 里 **86 条能由卡 id 拼出**，`hasActiveAbility==1` 的卡 **87 张**，且这 86 条**全部落在其中**（`hit ⊂ hids`）⇒ **86 张卡的描述文本与改前不同**（正是要修的偏差）。`-load`/`-effect`/`GenericSiegeText` 各 0 条 ⇒ 那三档仍落裸描述。
+- ⚠️ **它把状态留 C 有理由**：原版 id 一半是 `(activeAbilityTextReferenceId ?? uniqueId)`，**我们没那一列** ⇒ 34 条键取不到；今天可见样本 = **`SOR66`**。⇒ 补数据列后才能转 A（**要动 `cards_engine.json` ⇒ 必须我在无账写手窗口做并重钉池指纹**）。
+- 📌 **它的提醒**：「`Card_Abilities/*` 34 条拼不出」**不全是缺口** —— 其中 `EffectDisplayCardsAddToDeck` 是**效果标题**那条链在用。⛔ 别当定论。
+
+### 12·36 补位两路
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **B9_W29BDR2** | `Battle/BattleDriver.cs` | ① 修 **`ToggleBody3D` 藏错对象**（藏的是存活小兵、原版藏被并掉那张）② 接 `CardFeel.ShakeCameraForAttack`（现 0 调用点）③ 接 `unitsShake`（数据已备、`ResolveTargetUnit` **逐字照 `.c`**，`0` 档不许兜底） |
+| **B9_W30ALTART** | `工具/import_original_art.py` · `Resources/Art/altarts/*`（gitignore 的生成物） | 修异画贴图链（DA1 恒 null）；全链核 7 张；命名规则**收敛成一处** |
+
+### 12·37 回执 ㉔㉕（`W24ASSERT` / `W22GLOW`）· ✅ 均已合并
+
+账现读 **A 3,718 / B 1,370 / C 573 / D 3,117 ⇒ (A+D) 77.9%**。
+
+**`B9_W24ASSERT`**（5 行）—— `Editor/BattleScene.cs` 尾部新增 `K4HoldAssert`（+272 行，**新增全在原最后一行之后 ⇒ 既有行号零漂移**），**17 条断言**（14 功能 + 3 前提硬检查，**6 条灭自证**）：0.3/0.4/0.2 三常量 = 原版字面量 · 686 的 0.3s 门**严格大于**（0.3001 弹）· 683 真清 flag · ④b 下一按重新武装 · ⑤a 顺序 `setup>use>btn:on>btn:off` · ⑥a `isPlayer` 闸 · ⑦a/⑦b 687 钩子未接**出声一次且不假装** · ⑨b **棋盘 inPlay 档不量时长**（喂 9 秒照开窗）· ⑩ 同一时刻 0.2s 两条门结论相反。时间**全部手动推时钟**。
+- 📌 它就地订正了一条过期账：`HUD:684` 的「差异」还写着「🔶 按有没有主动技二选一分派」，而 W19 已撤掉互斥 ⇒ 真缺口只剩 ④ `PressedBtn` 建层（判据本地拿不到）。
+- ⚠️ 17 条断言**一条都还没跑过**（禁 Unity）；⑦P 那条依赖 `Application.logMessageReceived` 在批处理下同步派发（有先例但没验过「`LogType.Warning` + 中文文案」组合）⇒ 已拆成「哨兵前提 + 两条结论」，捕获器坏了**先红在前提上**。跑 `BattleScene.Run` 时若 ⑦P 红先查这条。
+
+**`B9_W22GLOW`**（8 行）—— `UIBorderGlow` **5 条 C 全部 C→A**，另订正 2 处原版记录错 + 修掉 **1 处会让图块永久消失的隐患**：
+1. 🔴 **`+0x68` 那个「反编译未解字段」= `graphicOriginalColor.a`** —— 原版**播完把 graphic 的 α 还原成原值**，我们停在 0 ⇒ **图块永久消失**。已照抄（reveal / 无 `_Reveal` 两支各一处）。
+2. 🔴 **`Play()` 顺序**：我们的 `ImageQuad.Tint` 写的是 `sharedMaterial.color`，而 `ForgeGlowMaterial()` 返回**缓存共享**的 mat ⇒ 照原版「先置 α 再克隆」会**污染所有 cell**；已把 `CacheMaterial()` 提前（净结果与原版相同）。
+3. **真正的缺口在载体**：`ForgeTab` 那个唯一挂载点只 `AddComponent<UIBorderGlow>()`、**没挂 `UIViewportUvWriter`** ⇒ `uv0.zw` 恒 0。修法落在**它自己文件内**（`Awake → EnsureCarrier()` 自愈）⇒ 「装上这个组件就有 uv0.zw」的原版**单件契约**恢复，别人的文件一行没动。⚠️ **J-04（ImageQuad 原生写 4 分量 uv）不再是这 5 条的阻塞**；J-04 落地后**整体删掉载体**（⛔ 别两处都写）。
+- ⚠️ 未实测：`OnRectTransformDimensionsChange`/`OnTransformParentChanged` 这两条 Unity 消息**会不会发给普通 MonoBehaviour**（不影响结论 —— 净效果只是刷相机缓存，载体每帧比对会补上）。
+- ⚠️ 待裁（我记下，暂不裁）：原版取 `MaskableGraphic`、拿不到会**抛**；我们取更宽的 `Graphic` 且不抛。
+
+### 12·38 补位两路
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **B9_W31ALTART** | `RuleEngine/Core/DeckRules.cs` · `CardPresentation/Deck/**` | `HUD:92/93` 的 **deck 层那一半**：`PlayerDeck.CardIds` 没有「异画副本」表示、`FromDeck` 把 `#` 条目丢进 `skipped` |
+| **B9_W32S3** | `工具/ruleprobe/**` | **全卡端到端核验 S3 的引擎维**：量清「未验到」到底是哪一档、按根因分族、落地一族夹具 |
+
+### 12·39 回执 ㉖（`W23DRAFT`）· ✅ 已合并（2 行）
+
+三件全做完：`卡组:290` 调用点接上（`RollRound` 在 `cand.Add` 前过 `PackIsValid`，判据只此一处）· `Prebuilt Pack UI` 扫光接上（三拍 Toggle 按 `__OnEnable.c` / `__SelectAnimDummy.c:59,65` 的 `0.4`）· `BoosterPackAnim.cs` 文件头订正（零行数变化）。
+
+🔴 **三条会让人做错的发现**：
+- **A（最重要，已派 W34）**：`B9_W14FX` 补丁 B 的字面写法 `tg.fadeTargets.Add(hl)` **在我们这边会静默空转** —— `MenuDraw.Nine` 返回的是**容器节点**，九宫 `ImageQuad` 全在子件里，而 `UIEffectTogglerImage.Add` **只 `GetComponent` 不递归** ⇒ `TargetCount == 0`。⇒ **W20 接的 `Done Highlight` 很可能中同一枪**，已派 W34 现核并照 W23 的 `PackScanFeed` 做法改。
+- **B**：`B9_W8PREB` 记的「shiny = Coffee `UIEffect Shiny` shader，等 K-13」**不成立** —— 字段是 `UIEffectTogglerController`（`+0x60`，`dump.cs:107070`），驱的是 `UIEffectTogglerImage`（**纯 α，无 shader**）。⚠️ 这条**同时影响 W16 的「自写 Shiny」前提**（W16 正在按 Coffee Shiny 做 7+1 处）⇒ 待 W16 回来时**必须核它接的是哪一族**；若接成 shader 扫光而原版是纯 α，就是**做多了**。
+- **C**：`images[0]` 归属已由 prefab 现读复核（`MonoBehaviour_-535494133076742670.json` 的 `images[0]` = `Highlight` 上的 Image，`deactivateOnDisable=1`）。
+- 📌 `__OpenAnim.c` / `__CloseAnim.c` **全文无 Toggle** ⇒ 已在注释写死「⛔ 别补」。
+- ⚠️ 本批漂移 6 条（`DraftPacks.cs` 332→336 / 372→394、`DraftModeWindow.cs` 3820→3821 / 3849→3850 / 3874→3875 / 3916→3923）⇒ 同步点 `--fix`。
+
+### 12·40 补位 `B9_W34FEED`
+
+- **独占**：`Deck/DeckRuntime.cs` · `Shell/BoosterPackOpenWindow.cs` · `Editor/DraftAssertD1.cs`
+- 四件：① 核 `Done Highlight` 喂的是容器还是子块（**给「改前/改后 `TargetCount`」证据**）② 扫同类挂载点 ③ 补 W23 给的那 4 条负例断言 ④ 两条过期文案（`BoosterPackOpenWindow:93/:1255`）
+- **裁量已给**：`UIEffectTogglerImage` 那 4 条 C 行 —— **只有确认真的喂上子块且出声兜底之后**才改 A，⛔ 不许为数字好看改 A
+
+### 12·41 回执 ㉗（`W30ALTART`）· ✅ 已合并（1 行）
+
+**异画链 7/7 打通**。根因**不是规则写错，是「id 改过名、脚本没重跑」**：`ALT_ART` 表里 DA1 的 id 换过两次（`DA3` → `DA_Azrael`(10-14 16:26) → `DA1`(10-15 02:24)），而盘上 PNG 的 mtime 是 **10-14 15:25**（那时叫 `alt_da_azrael.png` 是对的）⇒ 改成 `DA1` 后**从没重跑 `--only-altart`**，旧名残留 **13 天**。而 `CardArt.Get` 走 `Resources.Load` 且 **null 也缓存** ⇒ **缺图静默**。
+
+- 修法：命名规则**收敛成一处**（Python 用 `slug()`，与 C# `CardArt.Slug` 同规则）· `--check` **新增「产物存在性」**（原 `--check` 只查「源在不在」，**正是这个缺口让它静默 13 天**）· 重生成 `alt_da1.png`（与旧件**逐字节相同**，`.meta` 原样拷贝保住 guid）· 删旧名（**实测零引用后才删**）· 7 PNG + `alt_cutouts.json` 连跑两遍 sha256 一致（幂等）。
+- 📌 取图真源确认：**PNG 才是贴图源**；`alt_cutouts.json` 只被 `AltArtHasCutout` 读来判「画不画越框前景层」。
+- 📌 改动请求（`BattleDriver.cs:34541`，归 W29）：缺图日志串拼的是 `"Art/altarts/alt_" + c.Id` ⇒ 打出 `alt_DA1`（大写），真实路径是 `alt_da1` —— 只误导排查。**已记，等 BattleDriver 空出来一起改**。
+
+### 12·42 补位 `B9_W35CHECK`（工具族）
+
+**生成器 `--check` 全族体检**：`import_original_art.py` 那种「只查源、不查产物」的缺口可能还有 ⇒ 普查 `gen_*.py` / `import_*.py` / `bake_*.py`，给「产物缺失」补报警（先做**产物会被运行期静默消费**的族），产物清单落 `判据/生成器check覆盖表.tsv`。
+
+### 12·43 回执 ㉘（`W16SHINE`）· ✅ 已合并（5 行）
+
+三件都做完：`收藏:348` **→ A**（收藏窗野牌格扫光接线）· 7 个 Coffee 实例**层 + 3 个宿主已接**（C 战役图标 / G 锻造图标 / F Deck 的 Done 按钮跳 Loop；**A/E 原版就是空数组**、B/D 宿主未定）· `收藏:15` **→ A**（`army` 过滤，13 颗阵营格只有该阵营亮）。
+
+🔴 **它推翻了自己上一轮的判断（且对）**：W7 判「`Background` 是 9 个子 quad ⇒ 每块各需一份 uv 仿射 + 各自材质」—— **不成立**。它用 `ilspycmd` 反编译 `Coffee.UIEffect.dll` 拿到 `UIEffect.transitionRoot` 的 getter = **`m_CustomRoot ?? 自己的 transform`**，而 5 个实例 `m_CustomRoot` 全是 null ⇒ 掩码实为「**顶点世界位置对本件自己的 Rect 归一**」⇒ **9 块共用一份材质、掩码天然连续**，裁切/软边重切也不失效；材质泄漏从「9 份」压到「每层 1 份」。
+⚠️ 唯一仍需重构的一步（θ 之后「统一 1/max(W,H) 归一」）拿不到逐句原文 ⇒ 已按口径打 `🔶 自己设计 · 调度台 2026-10-27`。
+
+🔴 **它点出的两个真机阻塞（我处理了第 2 个）**：
+1. **这个 shader 一次都没编译过**（禁 Unity）—— 同步点必验。
+2. ✅ **shader 原来在 `Shaders/` 不在 `Resources/`** ⇒ player 包里 `Shader.Find("CardPresentation/WildcardShine")` 返回 null ⇒ **扫光不出现**（只打 warning）。**我把它移到 `Resources/Shaders/`（同 `CardSprite.shader` 先例）**，并把 4 处注释里的路径同步改掉；`typecheck` 复跑 **0/0**。⛔ 不用去改 `ProjectSettings` 的 AlwaysIncludedShaders。
+
+**它自报的一次越白名单**：改了 `Shell/BadgeNotifications.cs`（+37 行，`Badge` record 的 `Validate` 要带 `army`）—— 已核**不在任何代理的禁写表**里，无撞车，接受。
+⚠️ **它报告 `Deck/DeckRuntime.cs` 被「别人」改过** —— 那是我同时派了 **W34**（喂子块）造成的**真实并发写**（我的派活失误：`Deck/**` 同时给了 W16 和 W34）。它说重读后把自己的改动挂在对方新代码之后、`git diff` 里对方内容仍在。⇒ **W34 回来后必须逐符号核两边都在**（`ToggleDoneHighlight` / `PackScanFeed` / `WildcardShineLayer` / `StillAttached`），缺了就补。
+
+📌 **它的三条顺手发现**：① `账/战役.tsv` 里「army **不进** Validate」是错的（`CampaignBadge__Equals.c` 比 `+0x18` 的 army）⇒ 已就地订正；连带 `账/社交_聊天.tsv:453` 那行的「方法」列是**全角括号**、补丁校验器会拒 ⇒ **要人工改**。② **`WindowButton.RefreshGray` 会把 quad 材质换走再换回**（换回用「变灰那一刻存下的」那份）⇒「先灰后挂扫光」会**静默丢扫光**；已加 `StillAttached` + 只在「该亮」时重挂。③ `Coffee.UIEffect.dll` 现在**零引用**（建议留着当物证）。
+
+### 12·44 补位 `B9_W36SHINEA`
+
+- **独占**：`Editor/CollectionScene.cs` · `Editor/RewardsScene.cs` · `Editor/DeckScene.cs` · `Shell/CollectionWindow.cs` · `Effects/UIEffectTogglerCoffeeEffects.cs`
+- 三件：**落 4 条扫光断言**（≥2 条灭自证；shader 取不到要**红**不许静默跳过）· **定位 B/D 两处宿主**（`Army Item Button (No Arrow Variant)/Icon`）· 接 Deck 编辑窗 `WIldcard Counter ▸ Background` 那颗（参数已写死）
+
+### 12·45 回执 ㉙（`W25UPGR`）· ✅ 已合并（5 行，状态保持 B）
+
+`Shell/CardDetailPopup.cs` 2816 → 3265：**三条既有行就地改写（零行数变化，账里 5 个落点逐个现验未漂）** + 类尾 8 个成员 + 三段自检。组件挂**窗根**（`Build()` 只销毁子件，而 `ChangeFrame`@1.45s 会再触发重建 ⇒ 挂子件会半途被销毁）—— 这个选择是对的。
+- **输入锁的硬条件**：`myAnimation != null`（clip 接不上时 `AnimationFinished` 永不到达 ⇒ 锁**永久释放不了**、升级钮永久点不动）。⚠️ 已打 `🔶 自己设计`。
+- **关窗收尾**（也 `🔶`）：组件时钟只在它自己的 `Update` 里推进，窗一关就停 ⇒ 抖动的 `localPosition` 位移会永久留在窗根上（≤20 px 静默缺陷）。
+- **看得见的现状（如实）**：升级后玩家只见「窗抖 + 1.45s 再抖 + 换框」；背景淡入淡出 / 2D cue / `Level Up Effect` 两件**都不发生**，且都已**出声**。
+
+🔴 **它抛出的关键争议（我没让它直接改，派了 W37 先证）**：三条 clip **`m_AnimationClipSettings.m_StopTime = 1`，而动画事件在 3.48–3.92 s** ⇒ 它判「挂了 `Animation` 也永远到不了事件时刻」。**但** `工具/gen_anim_clips.py:167` 的注释写着「**原版也是 1，⛔ 别改**」⇒ 两种可能：(a) 这个字段不是运行时 `length` 的来源（由曲线最后一帧决定）⇒ 不该改；(b) 真会截断 ⇒ 那要解释**原版为什么也这么写还能触发**。⇒ **W37 的第一件事就是判 (a)/(b)**，⛔ 不许直接改生成物。
+- ✅ 同时确认：三条 `.anim` **已经在工程里**（今天 07:00 落盘，`m_Legacy:1`，`Level Up Card` 的两条事件时间与原版**逐位相同**）—— `B9_W17FX2` 与 `AnimateUIMaterialProperty.cs:75`、`CardDisplayLevelUp.cs:69` 的「工程里没有，要导入」**已过期**。
+- ❌ 但它们**没有运行时路径**（不在 `Resources/`、全工程 0 引用）⇒ 运行期取不到。
+
+📌 顺手：升级 2D cue 的 AudioCue 名**查不到**（MB `MonoBehaviour_2522.json` 的 `sound` 指向 `m_FileID 12`，`assets_full` 按文件名 0 命中）⇒ `sound` 留 null。
+
+### 12·46 补位 `B9_W37CLIP`
+
+- **独占**：`工具/gen_anim_clips.py` · `WarpforgeVFX/Runtime/AnimateUIMaterialProperty.cs` · `Effects/CardDisplayLevelUp.cs` · `Shell/CardDetailPopup.cs` · 新建 `Resources/Animations/**`
+- 四件：**判 (a)/(b)**（⛔ 先证再改）· 给三条 clip 一条 `Resources/` 路径（走生成器）· 接通 `Animation` 并把锁判据换成「真在播」· 两处过期注释订正
+- ⚠️ 简报写死：判「字段生效」⛔ 别看字段存在 —— 本项目踩过 `m_RootOrder`（2023+/6 删除）、`m_PreserveAspect`（`Sliced` 时不生效）这类「字段在但不生效」
+
+### 12·47 回执 ㉚（`W29BDR2`）· ✅ 已合并（4 行）
+
+账现读 **A 3,722 / B 1,368 / C 571 / D 3,117 ⇒ (A+D) 77.9%**。
+
+- **① 虫群藏错对象 —— 已修（选项 ⓐ 删那一句）**。三处反编译互证原版对象 = **被并掉那张**（`CardScript__ExecuteSwarm.c:39-80` → `SwarmVFXController__Initialize.c:15-26`（`+0x290` → `ToggleBody3D(false)`）→ 闭包 `…b__0.c:23-55`）；我们 `PlaySwarmMergeFeel` 的 `v` 是**存活那张** ⇒ 3D 档下存活小兵体被永久藏掉。⛔ **没选 ⓑ（改藏被并掉那张）**：事件里**根本拿不到它**（`BoardSlots.RemoveAt` 在触发前就摘了）⇒「藏它」今天**没有载体**，已在账里如实记成未复刻的一小段。
+- **② `ShakeCameraForAttack` 已接**（`PlayHitFrameShake(CardView target)`，受击视图不在 ⇒ 退 `Vector3.zero` 换算后 `(100,0,0)`、y 恒 0 ⇒ 只横抖）。
+- **③ `unitsShake` 已接**（两个落点：攻击件循环 + `PlayPlacedOne`）；`ResolveUnitShakeTargetUnit` 逐字照 `.c`（`20`/`30` 都 ⇒ target、**`0`/其它 ⇒ null 不兜底**）。🔶 一处：`unitsShake` **只在 `animateFeel` 开时排**（原版无条件，沿用本文件手感口径）。
+
+🔴 **两条必须改的断言（已派 W38）**：
+1. `Editor/BattleScene.cs:43329` 虫群 ⑤ 断言**现在恒红、且钉的是错口径** —— **正是它把上面那个缺陷掩盖了**（存值 → 断「被藏掉」→ 立刻还原）。正确改法 = 反成 `Check(vSwarm.Body3DVisible, "存活那张的 3D 体仍然显示")`（判别式）。
+2. **R10③ 是源级字面串断言**（找 `"PlayHitFrameShake();"`、要求该行**不含** `tgtView`）⇒ 一接线**三格同时红**。要改成断**语义**（找方法名 + 断行为），⛔ 别再断「这一行不含某个词」。
+
+📌 顺手：`CardFeel.cs:3896-3898` 的 doc 仍写「它没有调用者 / `card_anim_order.json` 没有 `unitsShake` 字段」—— **两半都过期**；`CardAnimClips.cs:194-196` 的「可达 28」与「有效 36」**是两个口径**，要标明免得下轮拿 36 对 28 判红。
+
+### 12·48 补位 `B9_W38ASSERT2`
+
+- **独占**：`Editor/BattleScene.cs` · `Core/CardFeel.cs` · `Battle/CardAnimClips.cs`
+- 三件：虫群 ⑤ 断言反成判别式 · R10③ 三格改成语义断言 · 两处过期 doc 订正（零行数变化）
+
+### 12·49 回执 ㉛（`W28MOUNT`）· ✅ 已合并（4 行，只改备注列）
+
+**两处挂载阻塞都解开了，而且找到了「零观感」的真正根因**：
+- **D**：`Division Image` / `Rank Icon` 补上 `ImageQuad + MeshRenderer` 载体（原版 `m_Sprite = 0`、图由服务端喂 ⇒ **我们建载体但 α=0**，⛔ 不编图）。节点名/位置/尺寸不变 ⇒ 账落点零漂。
+- **E-①**：`Level Up Effect` 容器**确实存在**（`m_IsActive = false`，是 `…Down` 的唯一父件），生成器补 `TARGETS` + 新增 `IMAGE_NODES`（**父件排子件前**），DTO 3→4 条，`CardDisplayEffects` 按 `parent` 真嵌套。🔴 **顺手修掉一个 37 倍的错**：`…Down` 锚点是 stretch ⇒ 真尺寸 = 父矩形 + sizeDelta = `2.3003×3.2588`，原来把 `|sizeDelta|`（`110×121`）当尺寸。
+- **E-②**：**原版本来就同时挂两个组件**（`Image → UIBorderGlow → [Cinemachine] → AnimateUIMaterialProperty`）⇒ 照抄顺序。**逐条证明不抢材质**：唯一写 `sharedMaterial` 的 `CacheMaterial()` **只被 `Play()` 调**、两件 `playOnEnable` 都是 0、本层无 `Play()` 调用点 ⇒ `UIBorderGlow.cs` **一个字没碰**、也没有改动请求。
+
+🔴 **真根因（不是挂载）**：原版那两件用的材质是 **`Border Effect For Level up`**（`Material_4.json`，`_Reveal −0.5` / `_Noise_… (0.02,−0.1,8.17,0)`，shader = **`Everguild/UI/UI Border Highlight Appear Pulsating Scale`**）—— **这张材质没导进工程** ⇒ 我们写进 `Sprites/Default` 是**静默 no-op**。✅ 好消息：等价 shader `WarpforgeVFX/UI/UI Border Highlight` 工程里早有、**属性同名** ⇒ **只需做一张 `.mat`，AMP 一行都不用改**（已派 W39）。
+
+📌 它留的两条：① **`Rank Icon Glow` 是同族第四个缺口**（`m_Sprite = 0` · 黄 `(1,0.9168,0,1)` · 自带 `_Noise_…` 材质）⇒ 「靠 `_Reveal` 揭开的黄辉光」，不是纯色块 ⇒ **与那张材质同批做**（已并入 W39）② `Division Image` 原版还带自有 `Canvas`（`m_SortingOrder −1` 单独一层排最底），我们只能用渲染队列近似，**这条没验**（今天 α=0 看不出来）。
+
+### 12·50 补位 `B9_W39MAT`
+
+- **独占**：`工具/import_mainmenu_effect_mats.py` · `Resources/Art/vfx/**` · `Shell/CardDisplayEffects.cs` · `Shell/RankedDivisionChangeWindow.cs`
+- 三件：导 `Border Effect For Level up` 材质（用等价 shader，**逐字段照原版、残留值不搬**）· `Rank Icon Glow` 同批 · 接上两个宿主
+- ⚠️ 简报写死：⛔ 不动 `AnimateUIMaterialProperty.cs` / ⛔ 不动 `UIBorderGlow.cs`（不抢材质已证）
+
+### 12·51 回执 ㉜（`W33FX3`）· ✅ 已合并（2 行）· **源码改动 = 0 行**
+
+两条都**不改状态（仍 C）**：缺口是真的，但**全落在别人白名单里**：
+- **行 130 掉舱震屏**：**VFX 侧零缺口**（三条逐条现核同形：preset 逐字段 = 原版 SO · `overwriteAmplitude` / `usePresetSignal` 同一条 · 下游 `HookAnimFxShake` 用原版口径 `amplitude × |direction|`）。**唯一缺口 = 那一跳接线**（`grep DoSimpleShake` 仍 0 调用点）。
+- **行 208 环境卡轮抽**：**规则层本日已由 `B9_E2UDW` 落地**（`OffensiveCards.ChoicesForDraft:182` 与 `.c` 逐条同）⇒ 原「落点 = 无」已过期；**剩的缺口 = 分派接线**（`ChoicesForDraft` 0 外部调用点，`BattleDriver:9337` 仍一律按锻造等级筛）。
+
+📌 **它顺手订正两条过期话**：① 「我们没有 drop pod」**不成立**（`RuleCore.OpenDropPod:7870` 早在，两处都在调）② `OnShake` 挂点不是 `:3555`，今天是 **:3581**。
+📌 **常数复读**：`DAT_1834b2bb4` = 4B float **0.5** · `DAT_1834b2e8c` = 4B float **3.0**（形参是 `undefined4` ⇒ 取 4B；8B 档读到的是垃圾）。
+📌 **可达性**：当前 build 池内带 `droppod` 的卡 **0 张** ⇒ 今天不可观测（补等级 P2；⛔ 不据此判 D）。
+
+🔴 **它提出一条**账口径**问题（我采纳并按此裁）**：`战斗逻辑驱动.tsv` 有三行**判 A 但差异列自己写着「ClosedDeck 那一档只给普通名单」/ 漏了震屏那一跳** ⇒ **A 既表示「已对齐」又表示「缺一条分支」，自相矛盾**。⇒ **我的裁量**：这三行先降 **C**（`:851` `RemoveDropPod` · `:351`/`:352` `GetEnvEffectCards`/`GetEnviromentalCardList`），**接完线验证后再改回 A**（已写进 W40 简报）。
+
+📌 **环境坑（值得记住）**：本机 `python -c "…中文路径…"` 会在 **argv 解码**处失败（`FileNotFoundError`，文件明明存在）⇒ 工具脚本**把路径写进 `.py` 源码，⛔ 别走命令行**。
+
+### 12·52 补位 `B9_W40WIRE2`
+
+- **独占**：`Battle/BattleDriver.cs`（现空出）
+- 两件：**A** 掉舱震屏的**事件消费端**（`e.CardId == KeywordTable.DropPod` ⇒ `DoSimpleShake(0.5/3.0)`；⚠️ **用 `e.CardId` 不是 `e.Keyword`**；引擎侧还没发事件时走不到 ⇒ 先接无害）· **B** `GameMode.ClosedDeck` 分支走 `ChoicesForDraft`（空卡仍由 `Choices()` 前插）
+- ⚠️ 明令如实记：原版取**两端** `+0x88` 的 **min**（对面那一半胜场），我们只有本机 `Victories` ⇒ **判据不足，只接本机一侧**并标 `🔶 自己设计`
+
+### 12·53 回执 ㉝（`W32S3`）· S3 引擎维第一批 · 无账补丁（生产物是夹具与量具）
+
+**「未验到」重新量准 = 786 行（592 个卡 id）**，⛔ 不是 783、也**不是** `play all dump` 的 `rc != 0`（那个现读 **16 张**）。三个口径**别互校**。现状 `对 1142 / 错 0 / 未验到 786`。
+
+**786 行按根因分成 18 族**（落 `判据/S3未验到_分族与夹具.md`，含每族卡清单）。最大三族：
+- **B 卡不在池内 228** —— 🔴 **不是夹具问题，是分母口径**：拆成 **B1 同名重复 SO 119 行/97 id** + **B2 名字也不在池 109 行/101 id** ⇒ `pool_effect_check.py` 的分母**该从 1,241 SO 收到 1,128**。采纳后 786 先掉 228。
+- **A1 督军 144** —— 电池写死 `if (c.Type=="unit")`；督军的 `activeAbility` 61 行 + `Talent` 56 行**从没被主动用过** ⇒ 要**新电池宿主**，不是加 preset。
+- **D 电池不触发 110** —— 15 个子 trigger（`81 Unstable` 17 · `605 UseFaith` 12 · `720 Cruelty` 11 · `240` 11 · `715 Ecstasy` 10 …）。
+
+**第一批夹具做透 = C 族（50 行/41 张）**：新增 `preset big=1`（P1 摆 0 攻/30 血靶，一次解决 `softAtk` 的两条挡法）。**零基线影响**（不传 `big=1` 时夹具逐字节不变）。
+- 实测：`softAtk` 从 `skip(would-kill) ×24` → `0@7/survived ×23 + 26 ×1`；**电池净差 >0 从 0 张 → 6 张**（`ASH13`/`TL3`/`SW5`/`TL17`/`GOF78` 救回）。
+- 🔴 **但只救回 29 行里的 7 行（≈24%）** ⇒ **C1 的「未验到」主因不是 `softAtk` 打不出去**，剩下 18 张瓶颈在别的事件步/载荷 ⇒ **别再加厚靶子**。
+
+**顺手修掉一个量具缺陷**：`play <id> preset …` 的**事件电池那一路把 `preset` 丢了**（`PlayProbe.cs:250`）⇒ 同一个 preset 在单卡与全池给出**两套电池读数**，一声不响。已修。
+
+🔴 **它报告的 `play check` rc=1 我确认了根因**：主档**只 1 张变 = `BL64`**（`playRc 18→0`, `dmg 0→2`）—— 那是 **W27 的 `ta` 短路闸**带来的正确变化（`ta=30` 在原版是死字段）。⇒ **基线比引擎旧一张卡，需我重钉**（⛔ 它按红线没动）。
+✅ 已就地订正 `判据/主档夹具缺口_评估.md` 里「`BL64` 打不出去」那条过期读数。
+
+📌 两条**别踩**：① `steps` 里的 `oath=14` / `abil=14` 是**正常的**（`ErrNoAbility=14`）；② 探针是纯 dotnet，**一次构建会把别人正在写的源一起编** ⇒ 落在别人文件上的错等一会儿重跑，⛔ 别拿旧 dll 出读数。
+
+### 12·54 补位 `B9_W41S3B`
+
+- **独占**：`工具/ruleprobe/**` · `工具/pool_effect_check.py`
+- 四件：**分母 1,241 → 1,128**（B 族是口径不是夹具）· 把 `big=1` 加进预设扫描 · **D 族 `Unstable(81)` 17 行**（新 preset 开关，⛔ 别直接加步 —— `steps` 进指纹）· **A1 督军 144 行新电池宿主**
+
+### 12·55 回执 ㉞（`W27ENG`）· 引擎两件真偏离 · ✅ 已合并（2 更新 + 1 新增）
+
+**A `ta` 短路闸**：`ApplyStructuredConditionFilter` 首句后加 `if (CondDeadByTa(...)) return;`；**短路集合只有一份**（`TargetCriteriaEval` 类尾两个数组 + 唯一判定口 `ConditionIsDeadByTargetsAffected(ta)`，`EffectResolver.CondDeadByTa` 转调它，⛔ 没有第二张数字表）。**判不了 ⇒ 不闸 + 出声**（同 key 只喊一次）。`ta` 从 op 的 `TargetCriteriaSet.TargetsAffected` 经 `ApplyTargetFilters` 新形参传进 5 个调用点 ⇒ **高亮与结算读同一条 op**。
+**B `+0x4c usedActiveAbility`**：`UnitState` 类尾 `ActiveAbilityUsed`；置位 = duty/oath/agenda 三处（**pray 不置**）；清零 = 装填 duty + `ResetToValuesInHand`，**不随回合重置**；`ConditionEval` 的 `cond=341` 改读它；错注释就地订正。
+
+**验收**：`typecheck 0/0` · `check` rc=0 · **`play check` rc=1，主档 1128 张里恰好 1 张变 = `BL64`**（`playRc 18→0` · `played 0→1` · `dmg 0→2` · `changes 0→9`，全是「原来打不出去、现在真打出去了」），**事件电池 586 张逐字节不变**。指纹 `0766fbe1…` → **`b731235b…`**（⛔ 我没让任何人重钉，**同步点由我重钉**）。
+**正面证明**（仓库外夹具，未进仓库）：BL64 三个友方（A/B 受伤、C 满血）—— 改前可选目标 **0**（`ErrNoTargetAvailable`=18）、改后 **2**（`FIX_A` / `FIX_B`），**满血 `FIX_C` 仍非法**（回落卡级「一个受伤的友方」）。
+
+✅ **它报的两条必做后续，第 1 条我已做掉**：`RuleEngineTest.cs:37253` 的 `u.DutyUsed = true` → **`u.ActiveAbilityUsed = true`**（不改同步点会出「假红」），typecheck 复核 0/0。
+⏳ **第 2 条排进下一个 BattleDriver 写手**：`:27866` Duty 徽标仍读 `!u.UsedActiveAbilityThisTurn`（每回合重置，= `+0x50` 族），原版 `CardTraitDuty__IsActive.c:19` 读 **`+0x4c`** ⇒ 应改读 `!u.ActiveAbilityUsed`（否则徽标每回合亮回来）。
+
+### 12·56 回执 ㉟㊱㊲㊳（`W34FEED` / `W35CHECK` / `W31ALTART` / `W37CLIP`）· ✅ 均已合并
+
+**`W34FEED`（4 行）** —— 🔴 **纠正了我的简报前提**：`Done Highlight` **本来就不是静默空转**（`Img()` → `ImageQuad.Create` 把 quad 加在**返回的 GO 自己身上** ⇒ `TargetCount` **改前就是 1**）。W23 那个坑**只对 `MenuDraw.Nine`/`CreateNineSlice` 容器成立**。仍按 W23 口径加固（`DoneHlFeed` 含自身 + 收不到就 LogWarning + `Build()` 重建后自动重接线），**行为逐位不变**。负例断言 `A8_PackIsValidNegative` 已落（4 条，含端到端 `RollRound(..., cardPool: 只含 2 张)`）。两条过期文案改掉（零行数变化）。
+
+**`W35CHECK`（无账补丁）** —— `工具/` 下 **106 个生成器/导入器**，**64 个有 `--check`**、另 29 个只有 `--dry`。**主流是 A 型**（重算 vs 盘上逐字节比）。**真 B 型补齐 9 个**（都只改**只读 check 分支**，写盘路径一字节未动）：音频/语音 cue 五件（拷贝循环整段在 `if not args.check` 里 ⇒ 缺产物静默绿）· 美术两件 · `gen_frame_uv`（**早退在 data 构造之前 —— 「看着有 check、其实啥都没查」的最隐蔽形态**）· `gen_simple_animation_clips`。红绿双验都做了。产出 `判据/生成器check覆盖表.tsv`。
+⏳ **`gen_arena_*` 十个仍是 B 型**（`if check: continue`，编辑器消费）⇒ 已派 W45。
+
+**`W31ALTART`（4 行，状态保持 B）** —— 先查了原版：**卡组数据层没有 id 前缀也没有另一列** —— `CardDeck.cardLibrary` 是 `List<RawCardScript>`（**对象引用**），异画天然带着；异画副本 = `currentAlternateArt(+0x88) != null` 的另一张，`GetOriginalId(+0x178)` = 原卡 id；「同一张卡」一律 `GetOriginalId` 判。⇒ 我们的 `#HB_<原卡id>` 是 **🔶 自己设计**（取它因为那是唯一有真值的表 + 视图侧现成认 `#`）。
+已落地：`DeckRules`（`IsAltArtEntry`/`SameCardKey`/`ResolveEntry` 等）+ `DeckBuilder`（`#` 条目**不再进 `skipped`**、`MigrateDeckVerified` 也换异画感知，否则会清异画防御卡）+ `DeckLibrary`（分享串写原版克隆 id）+ `DeckEditorState`（`Find`/`TryRemove`/`SetWarlord`）。**账锚点逐条复核未漂**。
+🔴 **关键改动请求（排队给下一个 BattleDriver 写手）**：① `CollectAltArtCopies` **只扫 `CardIds`**，而**本地 7 张异画全是督军**（住 `WarlordId`）⇒ **永远不触发**；② 4 处裸查 `WarlordId` 换成 `PlayerDeck.SameCardKey(...)`（`WarlordFaction` / initiative / `AddTierOfDeckWarlord` / 日志）。⇒ **HUD:92/93 转 A 的必要条件**。
+
+**`W37CLIP`（5 行，状态保持 B）** —— ✅ **裁定 (a)：`m_StopTime` 不是 legacy clip 的运行时 length ⇒ ⛔ 不要改它**。四条独立证据：① AssetRipper 导出的**原版 74 条 clip 里 66 条 `m_Legacy:1` 全部 `stopTime: 1.0`**（不管曲线是 0 s 还是 **7.05 s**），**8 条 `m_Legacy:0` 才是真值**（0.8167 / 10.05 / 17.133…）⇒ 1.0 是 legacy 的常量默认值；② `AnimationClipSettings.stopTime` 只存在于 **编辑器程序集**（运行时 `UnityEngine.CoreModule.dll` **0 命中**）；③ **原版自己依赖 >1 s 的事件**（3.4833 / 3.9167 / 1.8333 / 1.2 s，接收方法体都在 `decomp_full`）；④ legacy 的 `m_MuscleClip.m_Clip` 是空的 ⇒ length 只能来自**曲线最晚键**。
+- 已做：`gen_anim_clips.py` 改**分目录输出** ⇒ 三条升级 clip 进 `Resources/Animations/`（内容与原份 `cmp` 逐字节相同、连跑两遍幂等）+ **确定性 `.meta`**；`CardDetailPopup` 接 `Animation`（设为默认 clip，原版 `DoAnim` 是无参 `Play()`）；锁判据换成 `AnimationWillRun`（🔶，带裁定人/日期）。
+- ✅ **它拒绝了任务里的错误自检建议**（`StopTime >= max(events)`）—— 理由正确（按 (a) 那会把正确值判成缺陷），改成 `max(事件) <= max(曲线键)`。
+- 🔴 **两条要记**：① `m_ScaleCurves` **被生成器整批丢掉**，且 `Level Up Card` 的 `path:''` 值是 **250 → 288.98 → 250**（原版窗根 true localScale）⇒ 照搬会把我们窗根放大 250 倍 ⇒ **要「原版节点 ↔ 我们节点」的映射判据**（已派 W47）② `WarpforgeVFX/Animations/` 里三份旧副本现在是**重复且 0 引用** ⇒ **删还是留我裁：暂留**（删文件要用户点头），但 `--check` 只覆盖 Resources 那份。
+
+### 12·57 补位两路
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **B9_W46ALTD** | `Shell/DeckInfoPopup.cs` · `Core/CostCurveDrawer.cs` · `RuleEngine/Core/CardDef.cs` · `Data/CardDatabase.cs` · `Editor/DeckScene.cs` | 异画显示侧两处「少算 1」· 卡表 `AlternateArts` 列（**只改读侧**，⛔ 不动生成器）· 接 `AltArtDeckSelfCheck` |
+| **B9_W47SCALE** | 只读 → `判据/升级动画scale曲线_节点映射.md` | `m_ScaleCurves` 的「原版节点 ↔ 我们节点」映射判据（含 250 这个量纲是什么） |
+
+### 12·58 回执 ㊴（`W38ASSERT2`）· ✅ 已合并（2 行）· 零行数变化
+
+- ✅ **虫群 ⑤ 断言反成判别式**：`bodyWasSwarm` 换成**前提硬检查**且挪到两次 `SimulateSwarmMergeTriggerForTest` **之前**；结论改成「存活那张的 3D 卡体仍然显示」（🧨 把 `SetBody3DVisible(false)` 加回去就红）；**还原行已删**。⇒ 从「断被藏掉 + 断完立刻还原」（互相抵消、结构上照不到缺陷）变成**灭自证**。
+- ✅ **R10③ 从源级字面串改成语义断言**（找 `PlayHitFrameShake(tgtView);` + 三元空转容忍 + 无早退）；原「调用行不含 `tgtView`」那条**假红线拆掉**（接线后必假红，留着只会逼人关整条）。
+- 🔑 **它不跑 Unity 也自验了**：写脚本从源码**抽出实际字面串**按同一口径复跑扫描 ⇒ `iShake/iSfx/iHit/iRecoil = 22264/22265/22271/22272`、`early=False / tolerant=True / calls=True` ⇒ FINAL True。⚠️ 它自记：第一版**漏改匹配串**（只改结论），那样会恒红 —— 是**回读文件 + 抽字面串重跑**才抓到的。**这个自验手法值得复用**（不跑 Unity 也能验源码级断言）。
+- 📌 顺手（⛔ 它没越界）：`BattleDriver.cs:34757/:34766` 的「`CardFeel.ShakeUnit` 零消费者」**已过期**（`ResolveUnitShakeNow` 的抖动支就调它，且 `ResolveUnitShake` 现在有调用方）⇒ 开局 `WarnMissingPresentationData` 那条警告的因果链已断，**排进下一个 BattleDriver 写手**。
+
+### 12·59 🔴 用户 2026-10-27 追问「引擎推进得够不够」⇒ 我调了配比
+
+用户原话：「**现在有在推进战斗逻辑（引擎）之类的任务吗？还是得主要推进战斗逻辑（引擎）**」。
+
+我给的判断：**引擎的物理瓶颈不是人手，是文件数** —— 活集中在 `RuleCore`/`EffectResolver`/`UnitState`/`Aura`/`CardDef`/`Enchantment`，一文件一写手 + 彼此有依赖链，多派只会撞车（本会话已撞过一次 `DeckRuntime.cs`）。
+
+⇒ **调整（从此生效）**：
+1. **引擎写手优先**：W43（DA42，正在 `Enchantment→EffectResolver→RuleCore` 链上）一交还，立刻上 **`BattleEvent` 带目标列表**（解锁多目标逐目标播放）+ **Duty 徽标改读 `+0x4c`**。
+2. **新开 `B9_W48BROW`（只读，不占引擎文件）**：把 `战斗逻辑驱动` 的 **402 条 B** 重新裁定 —— 这是「引擎到底还欠什么」的糊涂账，先量清比再加写手更值。
+3. **表现/界面线缩到「只填空槽」**：在飞的不打断（半成品比慢更糟），新槽**先给引擎或 B 行裁定**。
+
+### 12·60 回执 ㊵（`W40WIRE2`）· ✅ 已合并（5 行）· 三行 **A→C**
+
+- **A 掉舱震屏消费端**接上（`e.Kind == TraitRemoved ⇒ OnTraitRemovedShake`，**用 `e.CardId` 不是 `e.Keyword`**，`0.5/3.0` 按 `e.Effect` 分），并加 `animateFeel` 闸（批处理 DOTween 不推进会把相机/HUD 留在推歪的位）。
+- **B 轮抽分派**接上（`ClosedDeck` ⇒ 空卡前插 + `ChoicesForDraft`；其余模式**逐字不变**），胜场口标 `🔶 对面胜场缺失，暂用本机值`。
+- 🔴 **它拒绝「接线完成就改 A」是对的**：五行**全留 C** —— ① 掉舱的**发端点**（`EffectResolver` 加 `effect` 形参 + `RuleCore` 两处发事件）归 W43、未落地 ⇒ **玩家今天看不到震屏**；② 轮抽只接了**面板路径**，**AI 路径 / 防御半边 / 对面胜场**三处未接。差什么、归谁，已逐条写进补丁「差异/备注」列。
+- 📌 顺手：`BattleDriver.cs` 有**非本笔引入**的既有行号漂移（`BuildHud` 账里 `28160` → 实际 `28227`，是工作树此前未提交改动）⇒ 同步点 `--fix` 一并归位；`DraftModeWindow.RunForTest` 的 doc 自己写着「⛔ 别在生产路径拿它算账」，本笔只能用它（唯一公开且活过场景切换的只读口）⇒ 界面线该补正式只读口；`OffensiveCards.ChoicesForDraft` 仍 **0 自检宿主**。
+
+**引擎域现读**（`战斗逻辑驱动`）**1,376 行 · A 711 / B 402 / C 45 / D 218** ⇒ 定案 **67.6%**、真复刻 **61.4%**。⚠️ **A 从 714 掉到 711 是好事**：这三行本来就是「A 但差异列自己写着缺一条分支」，降 C 才是诚实口径。
+
+### 12·61 补位 `B9_W49BDR3`（引擎口径四条，全在 `BattleDriver.cs`）
+
+1. **Duty 徽标读错字段**：现读 `!u.UsedActiveAbilityThisTurn`（每回合重置）⇒ 改读 `!u.ActiveAbilityUsed`（`+0x4c`，判据 `CardTraitDuty__IsActive.c:19`）；不改徽标每回合亮回来。
+2. **过期警告的因果链已断**：`ShakeUnit` 早已有消费者、数据改由 `cardanim_clips.json` 的 `ush` 供 ⇒ 改注释 + 改警告文案（零行数变化）。
+3. **异画卡组层接线**：`CollectAltArtCopies` 加扫 `WarlordId`（**本地 7 张异画全是督军**）+ 4 处裸查换 `SameCardKey`。
+4. **`RevealEndPx` (960,520) → (589,495)** 并删 🔶（这一格已算出）；`RevealStartPx` **保持 🔶**（结构上不可表示）。
+
+### 12·62 回执 ㊶（`W39MAT`）· ✅ 已合并（1 行）
+
+- ✅ **`Border Effect For Level up` 材质已导入并接线**（升级动画「零观感」的根因消除）：生成器新增「按原版材质 JSON **新生成** `.mat`」（不再只是字节拷贝），用工程等价 shader `WarpforgeVFX/UI/UI Border Highlight`，**只搬原版 `m_PropInfo`（19 条）里真实存在的属性**（`_Add/_Range/_ColorMask/_NoiseStrength/_Length/…` 是 Standard 残留死值，**未搬**）。`CardDisplayEffects` 的 `Attach(...)` 由 `null` 改成真材质 ⇒ AMP 会 `new Material(source)` 克隆、逐帧写 `_Reveal`，**不再写进 `Sprites/Default` 静默 no-op**。连跑两遍幂等。
+- 🔴 **同一批把 W28 的一个猜测推翻了（铁律 5 就地订正）**：`Rank Icon Glow` 的 `Image.m_Material` 真名是 **`UI Additive`**（shader `Everguild/UI/Additive`，属性表只有 `_MainTex/_Color/_Stencil*`）—— **不是边框 shader**。材质里的 `_ColorMain 337.79…` / `_Reveal 0.723` / `_Noise_…` **全是上一颗 shader 的残留**。⇒ 它**不是**「靠 `_Reveal` 揭开的黄辉光」，而是「白图(`m_Sprite=0`) × 黄 `m_Color` × **加法混合**」的加色块。载体已按此重建。
+- 📌 **两条通用教训**：① **`Material_<pid>.json` 的「文件名 ≠ 材质名」**（该件文件名叫 `Material_-846…`、`m_Name` 是 `UI Additive`）⇒ 按 pid/文件名猜一定错，**必须读 `m_Name`**；② **`m_SavedProperties` 里可能整批留着上一颗 shader 的默认值** —— 这是「原版材质带 Standard 残留」那条铁律的**兄弟面**（上一面是 shader 换过、这一面是材质复用）。
+- ⚠️ 现状：`division_clips.json` 里 `Rank Icon Glow` 的 **alpha 曲线 0 关键帧**（三条 clip 都是）⇒ 即便载体建好，段位窗辉光**目前也不会自己显现**（alpha 恒 0 + 出厂 `SetActive(false)`）⇒ 已记，不在本批。
+
+### 12·62·b 回执 ㊷（`W36SHINEA`）· 无账补丁（它会与已合并的 `特效动画:455`/`收藏:348` 撞键，正确停手）
+
+**3 个宿主共 77 条断言**（`CollectionScene` 36 · `DeckScene` 26 · `RewardsScene` 15），**条条先写前提硬断言**（`Shader.Find(...)!=null` · `WildcardShineRate>=0` · `doneMat!=null` · 期望集合非空且≠全部），⛔ **无一处 `if (前提) Check(结论)`**。**灭自证 5 处**：9 块「同一份材质 ∧ shader 名对」并排 · `_ShineFrame/_ShineRot` 一半取原版参数一半**本段独立算世界并集** · `Rate` 与 `Playing` 拆开「没播」与「播完了」 · Neutral/非 Neutral 并排 · 红点过滤带「不带过滤 = 全体总数」对照组（挡「把 provider 关掉也能让格子全灭」）。
+- **D 宿主查到了**：`Army Item Button` = **排行榜三扇 + 每日奖励弹窗的 `Army Selector` 军种格**（判据：`grep "armyItemButton:"` 在 AssetRipper 导出里**正好把三种格分开**，D/GUID `da958ae8…`）；语义 = **该格被选中才扫**。落点 `Shell/LeaderboardWindow.cs:518` 的 `:555` 与 `Shell/DailyRewardPopup.cs:752` 的 `:765`（白名单外 ⇒ 改动请求）。
+- **B `Army Item Button No Arrow Variant` 判「原版死资源」**（铁律 11 例外①）：三条独立证据（`armyItemButton` 七处全指 C/G/D · 它的 prefab GUID 全 `assets_full` 0 命中 · 三个组件 pathID 除自己外无人引用）。⚠️ **强证据不是铁证**：远端 Addressables catalog 本机没有 ⇒「按地址加载」这条排除不了。
+
+🔴 **它把 Deck 那颗的参数查清了，并推翻了两处旧记录**：**Deck 编辑窗那颗 = 120 / 0.25 / 0.5 / (1,1,1,1) / filter 6 / 0.75 s / Once**，与收藏窗**逐字段完全相同**；而 **139 / 0.213 / 0.533 / 1.0 s 那套不属于任何一份清单里的实例** —— 全库只有一个 `m_TransitionRotation==139` 的 UIEffect，父链是 **`Message Container ▸ Content`**（脚本 `MessageContainer`）⇒ **可能的第 9 个实例**。
+✅ **我已就地订正两处报告**（`B9_W7COLL` §K-13 与 `B9_W16SHINE` 的旁注表）。
+
+📌 另记：`Resources/Shaders/WildcardShine.shader` **缺 `.meta`**（同目录另两个都有）⇒ 同步点首次跑 Unity 会自动生成并编译（⛔ 不让子代理造 GUID）。
+
+### 12·62·c 补位 `B9_W51SHINE2`（卡组编辑窗扫光 + 第 9 实例）
+
+- **独占**：`Deck/DeckRuntime.cs`（W31/W34 已交还）+ 新定位到的 `MessageContainer` 相关文件
+- 两件：接 Deck 编辑窗那颗（**复用 `Params.WildcardDisplay` 一行**，⛔ 别新建 139 预设）· 查 `Message Container ▸ Content` 那颗 139° 在我们工程里有没有对应窗（有就同批接，⛔ 别套 120 那组参数）
+
+### 12·62·d 回执 ㊸（`W48BROW`）· 引擎 402 条 B 重裁 · 无账补丁（只读）
+
+**402 条 B 按理由聚成 13 族**（脚本可复现），比例预估：**A ≈50（12%）· C ≈43（11%）· D ≈17（4%）· B ≈292（73%）**。⚠️ 抽样外推、非定案。
+- 🔴 **核心判断：≈73% 是「已实现但没核完 / 没跑观测」，不是缺口**（F9 观测未跑 94 · F10 未核验 57 · F14 其它 58）。⇒ **引擎那 402 条 B 里，真正没做的是少数**；之前把「没验」当「没做」的读法是错的。
+- **真缺口 C ≈43**，集中在 F4（交换 / 变形 / **复制墓地** / 谓词 / 计数器 / **`ReleaseCardbacks`** 未实现，`grep` 实证 0）+ F3（`ChooseValueOptions` 未落）。
+- **能立刻升 A 的硬证据 ≈50**，其中**零风险 3 条**（`L326→RuleCore:5374 IsValidTarget` · `L280→:8431 ApplyDamage` · `L380→:1662 BeginTurn`）+ **F6 本地化 8 条**（`Loc.cs:3421 T()`）。
+
+🔴 **它发现一条口径级问题（我已裁定）**：**纯取值器等价 → 字段落点，在 §4.1 下永远过不了机检**（F7 的 12 条 + F6 大部分）。这不是没复刻，是「复刻成字段直读」。
+**我的裁定**：`§4.1` 加例外 —— **纯取值器允许用【字段/属性声明】当落点，`check_ledger_points` 只报告警不计失败**；防滥用两条：① `差异` 列必须明确写「等价物 = 字段/属性直读」② 落点声明**必须真实存在且名字逐字对上**（仍机检，只是从「方法」放宽到「成员」）。
+理由：**为了过闸去加一个无行为的转发方法 = 为工具写代码**，那比「告警」更糟。⇒ 已派 **W52** 改工具 + 改 §4.1 + 先升那 11 条。
+
+📌 顺手：① `L380` 账里 `RuleCore.cs:1738` **已漂到 `:1754`**；② `L457 PlayAi` 的 MoveNext 体**存在**（`BattleManager._PlayAi_d__399__MoveNext.c`）⇒ 归「没读」不归「读不到」，⛔ 别再写「异步体缺失」；③ `L381 GetTargetInPos` 的 `.c` **有 271 行**，别判整条体被剥。
+
+### 12·62·e 回执 ㊹（`W47SCALE`）· `m_ScaleCurves` 节点映射判据 · 只读
+
+**5 条曲线逐条定性**：
+1. **`Level Up Card` 的 `path: ''` 根不是 `Upgrade Panel`，是 `CardUI`**（`Animation` 组件在 GO 88，`localScale = {250,250,250}`）⇒ **250 = 「1 卡单位 = 250 画布 px」，不是倍数**；有效量是比值 **1 → 1.155908(x/y) · 1.017216(z) → 1**，峰值 1.45 s。**照抄后果**：我们的 `Animation` 挂在**窗根** ⇒ `path:''` 会绑到窗根 = **整扇窗放大 250 倍**；且 **1.45 s 的 `ChangeFrame` 正好在峰值**会重建整棵卡树。⇒ **等价值 = 代码补间**（先例 `CardFan` 开窗动画），判「要做」。
+2. `2DCard/Level Up Effect`（0.0045454→0.0051882）**我们树上没这个节点** ⇒ 现在绑不上，将来建了**逐字照抄**即可。属「要做」。
+3. 🔴 **真缺陷（此前从未记录）**：`Rank Up` 的 `Division Image`/`Rank Icon` scale 曲线写进 `division_clips.json` 的值**整体大 `1.0903292` 倍** —— 我们的框已把原版 `localScale 1.0903292` **烘进尺寸**、节点静止缩放是 1，而曲线末键仍是 1.0903292 且**无人复位** ⇒ **播完永久大 9.02%**（两条驱动读同一份 JSON，都会写）。⇒ **已派 W53 修生成器**（÷1.0903292 + 断言首键改 1.0），⛔ 别只改消费端。
+4. `Rank Up`/`Division Up` 的 **`Division Image` 那 3 条现在是正确的**（是相对自身静止缩放的乘数，两边静止都是 1）⇒ 不动。
+
+📌 顺手：`gen_anim_clips.py:29` 的「原版 `Upgrade Panel` 根」措辞该订正（根是 `CardUI`）；`CardDisplayEffects.cs:11` 的层级注释错（`Lighting Rays` 是 **`CardUI` 的直接子件**，不在 `2DCard` 下）；`Resources/Animations/` 里 `Rank Up`/`Division Up` 目前**无人加载**（⛔ 本波别删）；`CardDetailPopup.SwapToFront` **没被 `UpgradeAnimLocked` 闸住**（动画期间仍可点相关卡换前台）⇒ 将来做脉冲时要顺带定。
+📌 判据链订正：`m_StopTime` 其实**两处都有**（`.anim` 的 `AnimationClipSettings` 与 JSON 的 `MuscleClip`，两边都=1、都不是 length）⇒ W37 的结论成立，只是「JSON 里没有」那句要说得更准。
+
+### 12·64 回执 ㊺㊻㊼（`W43DA42` / `W44HUD` / `W46ALTD`）· ✅ 均已合并
+
+**`W43DA42`（5 行）—— DA42 附魔全链落地**：`Enchantment` 类尾 8 个成员（+211 行）+ `EffectResolver` 战术钩/闸/挂载端/文件尾 + `RuleCore` 单位钩 + `EffectText` 两处 `DA47→DA42`（行数不变）。**仓库外夹具 11 条断言全绿**：打出当刻 0 任务点 → 附魔挂到**对手手牌**（模板 id 正确、`buffType 15`）→ 那张牌被打出 ⇒ **施放方里程碑 0→1、载体属主不加、附魔消失** → 再打未附魔的牌不再加。
+- ⚠️ **两处与判据字面的出入（我认可）**：① A5 没抽 `DoFactionResource` 成显形参版，改薄封装（`owner` 传载体属主 + `op.Target.Side="enemy"` 走既有换边支）⇒ 「既有调用点零行为变化」**结构上成立**；② **A7 落成「结算层闸」而不是「解析器不产 op」** —— 因为 `PinnedParseMd5` **钉死整池解析 md5**，动解析输出会让 `check` **永久 rc=1**，而重钉要改 `tools/ruleprobe`（W41 在写）。⇒ 代价 = 解析报表里那条 op 仍在。
+- ⏳ **A1a 待我做**：`gen_cards_engine.py` 的 `ENCHANTMENT_EXECUTORS` 收 DA42 模板（池 1,128→1,129、31→30），**只能在无账写手窗口**；入池后这条链**自动开始工作**。
+
+**`W44HUD`（7 行）—— 8 条 C 逐条定位，无一条能在它白名单内落地**（唯一代码改动 = `SkillPanel` 两处 `🔶` 标记）。三条最有价值的发现：
+- 🔴 **`GetEnemyCardPlayedDisplayPosition` 的落点是错的**：我们移到**屏幕正中 `(960,540)`**，原版 = `enemyHand(960,50) + (−26,+24)×14.835` ⇒ **(574,406)**（小屏档 `(1331,406)`，**X 符号相反**）。⇒ 已排队给下一个 BattleDriver 写手。
+- 🔴 **`activeAbilityTextReferenceId.Contains("((")` 那一支**：整条**跳过本地化、把 id 当正文** —— 这才是「34 条拼不出来」里 **30 条 `Effect<名>`** 的归属（**它们不是键**）。⇒ 已派 W55 提真值表。
+- ✅ `DisplayOffensiveCardInCenter` 的 reveal 落位**已被别人在 19:05 落地 = (589,495)** ⇒ 残差只剩已标注的 🔶 起点；它**不自行升级**（建议我复判 A/B）。
+- 📌 顺手：`hasActiveAbility==1` **SO 口径 88 / 池口径 87**（差的 `Tempestus Scion` id 是 32 位 hex、不在池内）⇒ 两个数都对，别混用。
+
+**`W46ALTD`（无账补丁，会给重复键）—— 异画显示侧 + 卡表读侧**：`CardDatabase.ResolveDeckEntry` 四处整行替换（**零行数变化**，含 W31 漏掉的**防御卡那一处**）；`CardDef` **类尾**挂载（走「构造后挂载」不新增构造参数 ⇒ **`CardDef.cs` 零账漂移**）；`DeckScene` 接自检件 + 4 条新断言。
+- 🔴 **它明确拒绝「只改代码让夹具变绿」**：收紧要接进 `PlayerDeck.ResolveEntry`，而 W31 的 ②④⑥⑦ 用的是 `#HB_<非督军>`（表里没有）⇒ **一接就红 4 条**，必须**同刻改夹具 + 补负例**。⇒ 已派 **W56** 照此执行。
+- 📌 它给了可用的漂移新号（`CardDatabase` +8/+13、`DeckScene` 10 个点 +37）⇒ 同步点 `--fix` 用。
+
+### 12·65 补位三路（`W54ENG2` / `W55ALTREF` / `W56ALTT`）
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **W54ENG2** | `RuleEngine/Core/BattleEvent.cs` · `EffectResolver.cs` · `RuleCore.cs` | ① **掉舱震屏发端点**（`EmitTraitRemoved` 加可选 `effect` + `RuleCore` 三处发 `droppod-open`/`droppod-destroyed`）② **`BattleEvent` 带目标列表**（解锁多目标逐目标播放；**只做事件层，不改表现层**） |
+| **W55ALTREF** | 只读 → `判据/activeAbilityTextReferenceId_真值.md` | 提 `activeAbilityTextReferenceId` 的 1,351 张真值表（重点是那 30 条 `Effect<名>` 归属）+ ability 级 `targetsAvailableCounter` 是否原版有 |
+| **W56ALTT** | `DeckRules.cs` · `DeckEditorState.cs` | 异画收紧接进 `PlayerDeck.ResolveEntry` + **同刻改 W31 夹具 + 补负例**（⛔ 不许只改代码让它变绿） |
+
+### 12·66 回执 ㊽（`W49BDR3`）· ✅ 已合并（7 行）· **零新增行**
+
+四条全部落地，**行数守恒（35,534 → 35,534）⇒ 账里 A 落点零漂移**：
+- ① **Duty 徽标改读 `!u.ActiveAbilityUsed`**（`+0x4c` 本局一次；旧的是 `+0x50` 族 ⇒ 徽标每回合会亮回来）；与 `cond=341` 现在是**同一格**。
+- ② 过期警告改写：`unitsShake` 数据改由 `cardanim_clips.json` 的 `ush` 供（**现读 rows=1067 / 非空 257**），消费链已通到 `ShakeUnit`。
+- ③ **异画扫描加 `WarlordId`/`DefensiveId`** + 4 处裸查换 `SameCardKey`（含 `WarlordFaction` 影响开局阵营那条）。⚠️ `HUD:92/93` **仍 B** —— 只解决了必要条件，还差「**没有任何入口把异画条目放进卡组**」（收藏窗异画页签）。
+- ④ `RevealEndPx` → **(589,495)** 并删 🔶；`RevealStartPx` 值与 🔶 都没动。
+- 📌 它顺手把三处**倒序坏行号段**（`27797-26867` 那种）接到 `:27864`，并在临时副本上验过：7 行全 OK，失败 26→24、漂移 404→402。
+- 📌 待我：`战斗逻辑驱动.tsv:300`（`DisplayRevealedCard`）差异列「目标旋转没解出来」已过期（2026-10-24 已解 = 零向量）⇒ 已并入 W57。
+
+### 12·67 补位 `B9_W57BDR4`
+
+- **独占**：`Battle/BattleDriver.cs` · `Core/UnitState.cs`（仅注释）
+- 三件：① **敌方位展示落点修正**（现读**屏幕正中**，原版 `enemyHand+(−26,+24)×14.835` ⇒ **(574,406)**，小屏档 `(1331,406)` X 符号相反；用 `VarsGlobal.PlayedCardDisplayOffsetPx`，⛔ 别写死）② **技能面板喂参**（`maxTargets=0/firstTargetName=null` ⇒ 单目标 `(卡名)` 支结构上不可达）③ 两处过期 doc
+
+### 12·68 回执 ㊾（`W50ENGT`）· ✅ 已合并（2 行）· **36 条仓库内断言**
+
+在 `RuleEngineTest.cs` **文件最后一个已注册用例的尾部**追加 E4 组（+280 行）：`cond=341` 只跟 `ActiveAbilityUsed` 走 · **不随回合重置**（含 `PassTurn×2` 真走完一整个来回）· 清零两处 · **pray 不置 / agenda 置**（对偶）· ta 短路闸正反例（含 `ta=30` = 「候选 == targetCard」的点选语义）· 判不了时两种情形（**闸不生效照旧筛** vs `cond` 本身判不了整条不筛）⇒ **8 条前提硬检查 + 3 对灭自证**（要求 2 对）。
+- ✅ **它绕开了 diag 覆盖坑**：新增 `Test*` 方法必须同时重生成 `gen_diag_runner.py` 的产物，否则 diag 入口报 `missing` ⇒ 它**挂到已注册用例尾部**，零漂移、零产物变更。
+- 🔴 **它抓到我的简报写错了一条**：我写「`ta` 读不到时**不闸（池不空）**」，而实现/报告/代码自己的告警文案都是「判不了 ⇒ **不加这道闸 ⇒ 照旧筛**」⇒ **池会被筛空**。**它按实现断的、并把两种情形拆成两条对读**。⇒ **是我的口径错，不是它的实现错**；记下来：**「不闸」≠「池不空」**，这两件事必须分开写。
+- 🔴 **它主动让补丁冲突**：与 `B9_W49BDR3` 同键时按文件名排序它会赢，而它整行副本会冲掉 W49 的内容 ⇒ **它主动少写一行让给 W49**（W49 已先合，处理正确）。
+- 📌 顺带记：`RuleEngineTest.cs` 已 **38,819 行 / 2.78 MB**，后续宜按主题分册（但分册要连带重生成 diag）。
+
+✅ **我已把这一批的 5 条断言经验写进 `资料/工作准则_操作经验.md`**（新增「自检与断言」一节）：diag 覆盖坑 · 别断「这一行不含某词」· 「断被藏掉 + 立刻还原」是互相抵消的假断言 · **不跑 Unity 也能自验源码级断言**（抽字面串复跑）· 新增断言前先核现等级。
+
+### 12·69 补位 `B9_W58GAPS`（引擎真缺口判据）
+
+- 只读 → `判据/引擎真缺口_施工判据.md`
+- 把 W48 判为**真缺口 C 的那 ≈43 条**逐条落成「原版逐句 / 我们现状（三源 grep）/ 该落哪文件.方法 / 施工步骤 / 验收口 / 阻塞」；按「**今天能不能做**」排序（`BattleEvent`/`EffectResolver`/`RuleCore` 正被 W54 占、`BattleDriver` 正被 W57 占 ⇒ 落在这四个文件上的标 ⏳）
+
+### 12·70 回执 ㊿（`W45ARENA`）· ✅ 12 个生成器 `--check` 补齐 · **新 check 上线即抓到三处真缺陷**
+
+改了 **12 个脚本的只读 `--check` 分支**（写盘路径**一字节没动**）：6 个 `gen_arena_*` 补「缺产物点名 + 内容过期 + 多余残留」· `gen_arena_sprites` 另查每个 PNG 存在性 · `gen_arena_texslots` 查逐条 `texFile` 的 PNG · `gen_vfx_texture_mips` 由「只比行数恒 rc0」改成**逐字节比内容**（并实测「行数不变、改 1 个字符 → rc=1 并点名第 2 行」）· `gen_module_events` 补 json 侧比对。**红绿双验 12/12**（移走产物 → rc=1 点名 → 当场还原，`git status` 零残留）。
+
+🔴 **新 check 一上线就抓到三处真缺陷（已派 W59）**：
+1. **13 场里 11 场根本没有 `<场>_sprites.json`**，而 `BuildSprites` 是 `if (!File.Exists(path)) return 0;` ⇒ **静默不建**（10 场各缺 1 个 `Crosshair`、sororitas 缺 4 个 `Bottom Filler`）。
+2. **`battlearenaastramilitarum_sprites.json` 是旧格式（缺 `active` 键）** ⇒ `JsonUtility` 反序列化成 `false` ⇒ **该场 10 个 `Fake Light Glow*` 全被跳过**（产物在、等于没有）。
+3. **`battlearenaastramilitarum_meshkeywords.json` 真过期**（少 2 条，**名字带尾随空格** `Bunker Gun ` / `Generator `）。
+
+📌 **两条通用教训（我已写进正本）**：
+- ✅ **`已知的坑.md` 新增一节**：**旧格式旁挂能被 `JsonUtility` 吃下去不报错**（缺 bool 键 ⇒ 默认 `false` ⇒ 整族静默关闭）⇒ **旁挂加字段必须重生成全部 13 场**；与「`JsonUtility` 把 null 物化成整棵子树」同族。
+- 📌 它**没做** `import_remnant_sfx` 的 `remnant_cue_props.json` 内容比对（在白名单外，代价是整批作废 ⇒ 正确停手）；29 个 `--dry` 脚本只判了一眼，**能确定「产物被运行期直读但只有干跑」的三个**：`gen_cardbacks`（`Resources/Cardbacks.json`，11 处引用）· `gen_offensive_cards_flat`（6 处）· `gen_prebuilt_decks`（8+4 处）⇒ 都需按文件所有权另派。
+
+### 12·71 补位 `B9_W59ARENA`
+
+- **独占**：`工具/gen_arena_sprites.py` · `工具/gen_arena_meshkeywords.py` · `Assets/WarpforgeArena1/Editor/ArenaBuilder.cs` · `Assets/WarpforgeArena1/arenas/**`（**本波特批可写**）
+- 三件：① **一场一场**重跑 `gen_arena_sprites`（⛔ 别 `--all`）② `BuildSprites` 的静默失败改出声（⛔ 不改反序列化语义）③ 重跑 `gen_arena_meshkeywords`
+- ⚠️ 口径：用户 2026-10-25「**战场线可以复刻，只是暂停的是验收**」⇒ 可以做，⛔ 别把它当验收通过
+
+### 12·72 回执 （`W53DIV`）· ✅ 段位 clip 缩放缺陷已修（无账补丁，理由正确）
+
+- **生成器修好**：新增 `RANK_ICON_REST_SCALE = 1.0903291702270508`（出处 = prefab tran 的序列化 `localScale`），对**该 path** 的 `v/si/so` **一起除**（用除法不用乘倒数 ⇒ 首末键精确 `1.0`）；断言 ⑥ 期望 `1.09033→1.0` + 新增 ⑥b（四个键全断，**期望取判据表的值，⛔ 不拿常量反算 = 不自证**）。
+- **回读验证**：`1.0903292→1.0` · `2.2275424→2.043` · `0.77230197→0.70832` · `1.0903292→1.0`，比例恒 `0.9171542`。**「其它 path 零变化」用整份 JSON 深 diff 证**：差异恰好 12 条、全是那三条曲线的 `v`；`Division Image` 与全部 float 曲线连同 `t/si/so` **逐位相同**。两遍 `cmp` 逐字节相同。
+- 两处注释订正（零行数变化）：`gen_anim_clips.py:29`（根是 **`CardUI`**，`250` = 「1 卡单位 = 250 画布 px」不是倍数）· `CardDisplayEffects.cs:11`（`Lighting Rays` 是 **`CardUI` 直接子件**、不在 `2DCard` 下；它**自己现读 `m_Children` 序核过**）。
+- 🔴 **它点出这条缺陷为什么能长期全绿**：`ShellScene` 段位那一段的现有断言**一条都没断 `Rank Icon` 的缩放** ⇒ **已派 W60 补这条（灭自证：把除法撤掉就该红）**。
+- 📌 顺手：`gen_anim_clips.py:30`「我们树上没有这两个节点」已过期（段位窗已建）⇒ 并入 W60；`Division Up` 里 `Rank Icon` **只有 `m_IsActive`、没有 scale 曲线** ⇒ ⛔ 别以为两条 clip 要一起除；两份死资产 `.anim` 列进「待用户裁定删除」。
+
+### 12·73 补位 `B9_W60SCALE`
+
+- **独占**：`Editor/ShellScene.cs` · `工具/gen_anim_clips.py`（仅 `:30` 注释）
+- 两件：补 **`Rank Icon` 缩放 = 1.0** 的灭自证断言（旧数据差 0.09）· 订正那条过期注释
+
+### 12·74 回执 （`W52LAND`）· ✅ 已合并（10 行）· 账 **(A+D) 77.9% → 78.0%**
+
+- **工具改了**：`check_ledger_points.py` 新增「成员级落点」= **`MEMBER` 告警**（合法但只报告警、⛔ 不计失败）；**局部变量语句因无访问修饰符 ⇒ 仍判失败**（防「语句中间」被放宽）；自检 **77/77**，全表 `--all-A` 跑通无 traceback。
+- **方案 §4.1 例外已写**（diff 仅 +11 行、只动 §4.1）。
+- **mini15 前后读数**：BEFORE 通过 1 / 失败 14 ⇒ AFTER-修 **通过 14 / 告警 14 / 失败 1**（那 1 条是「无落点」行，本例除外**不该救它**）。
+- **升 A 10 条**（不是 11）：`280→RuleCore:8436 ApplyDamage`（W43 改动后现读）· `326→:5374 IsValidTarget` · `380→:1662 BeginTurn` · 7 条本地化 → `Loc.cs:3421 T()`（逐条核过 term 族 key）。
+- 🔴 **第 11 条 `L1241 GetLocalizedTargetted` 被排除并留证**：`grep -rn "Card_Targeted" Assets` = **0 命中**、`cards_engine.json` 无对应列、`BattleDriver.cs:7959-7961` 明写「tooltip 省略」⇒ **我们根本没实现**（不是字段直读）⇒ 升 A 就是**假 A**。⇒ **已派 W61 做实现**。
+- 📌 全表无回归（同快照隔离比对）：**失败 121 → 117（−4）**，4 条去向全部可解释（2 条按名重定位到真声明 = 正确漂移，2 条记 MEMBER 告警）。
+- 📌 它记了一条精度提醒：`MEMBER` 只负责「放行+告警」，**精度仍要人读**（例：`CardFeel.cs:3289` 首行其实是常量、真方法在 3291 起）。
+
+### 12·75 补位 `B9_W61TARG`
+
+- **独占**：`Core/Loc.cs` · `Battle/SkillPanel.cs`
+- 把 **`GetLocalizedTargetted`** 做出来（原版方法体 + 调用点先读；数据侧 `Card_Targeted/*` **31 键无消费者**）；落点若在 `BattleDriver.cs`（W57 占）⇒ 写改动请求。至少一条灭自证断言。
+
+### 12·76 回执 （`W56ALTT`）· ✅ 已合并（2 行）
+
+- **收紧接线**：`PlayerDeck.ResolveEntry` **一行**（`:890`）⇒ 表里没登记的 `#HB_<id>` 返回 null；**五个解析口自动一致**（`Validate`/`RemoveInvalidCards`/`FromDeck`/`SplitByType`/编辑器 `Find`），**纯字符串层刻意未收紧**（原版比 `GetOriginalId()`、不查表）。
+- **夹具同刻改**：`AltArtDeckSelfCheck` **11 条 → 21 条 + 4 条前提硬检查**；正例换 `#HB_SW1`，`#HB_<同阵营单位卡>` **降级成负例**，四条通道各自出声，每条负例配对照（防恒真/恒假桩）。⛔ **不是「改断言让它绿」**：方向一条没改，改的是**夹具取值**（改前正例用的正是这条收紧要否掉的东西）。
+- 🔴 **它抓到一条已经失效的灭自证**：`Editor/DeckScene.cs:1375` 的判别式还指着 `CardDatabase.ResolveDeckEntry` 里那条收紧，而收紧**已搬到 `PlayerDeck.ResolveEntry`** ⇒ **只删那半句断言仍然绿**。⇒ 已派 **W62** 修（连 `CardDatabase.ResolveDeckEntry` 退化成纯转发，⛔ 别留两处同一条规则）。
+- 📌 边界如实记：`CardIds` 里「合法异画」**今天无真值**（7 张全督军）⇒ 卡位/防御卡位**正向**路径仍验不到，只补了负例、**没造数据**；短写法 `#SW1` 现在会被拒（仓内无生产路径，⛔ 不要顺手支持）。
+
+### 12·77 补位 `B9_W62FIX`
+
+- **独占**：`Editor/DeckScene.cs` · `RuleEngine/Data/CardDatabase.cs`
+- 三件：① 失效判别式改指向 `PlayerDeck.ResolveEntry`（写清「删哪句会红 / 旧为什么不红」）② 注释 11 条 → 21+4 ③ `ResolveDeckEntry` 退化纯转发
+
+### 12·78 回执 （`W51SHINE2`）· ✅ 已合并（3 行）
+
+- **卡组编辑窗扫光已接**：`DeckRuntime.WildcardShineAfterTab`，由 `SetTab` 末句驱动（**两条已有语句就地加词 ⇒ 零行数变化**，74 处落点零漂移）；参数**复用** `Params.WildcardDisplay`（120/0.25/0.5/0.75 s），**一行新预设都没加、139 那组一个字段都没进 Deck**。🔴 **播放时机比 brief 写的更严**（按反编译真体重排）：只在计数条**由关变开**那一拍播、`Cards ↔ Deck info` 之间不重播、**开窗那一拍也不播**。
+- 🔴 **第 9 个实例我们工程里【有】** —— 收件箱 `Shell/InboxWindow.cs`（原版 `Inbox Menu` 每条 `Message Container`，**全工程唯一对应物**）。父链按 `m_Children/m_Father` 真解；用途 = **未读行每 `effectTimer×(1±0.2)` 播一次**；参数 = **139/0.213/0.533/(2,2,2,1)/1.0 s/Once**（⛔ 没套 120 那组）。**并把原来「`New!` 字亮度抬一档」的替代实现删掉**（那颗字原版本来不动）。
+- 🔴 **新缺口（已派 W63）**：`WildcardDisplay.UpdateCounters` **也播扫光**（由万能卡库存变动信号驱动）⇒ 我们**只有事件、没有画面反应**；而账里 `收藏.tsv` 把它判了 **D** —— **本地可做 ⇒ D 不成立，应改 C 再做掉**（铁律 11）。另 `MessageContainer.curve` **其实有完整数值**（3 键 Clamp），现标 🔶 的 `EaseOutQuad` 可升级成原版曲线。
+- 📌 待同步点：`WildcardShine.shader` 首编（`.meta` 这趟生成）· `DeckScene.Run` + `RewardsScene.Run` · `InboxWindow.cs` 行号 **+68**（37 处）⇒ `--fix`。
+
+### 12·79 补位 `B9_W63WC`
+
+- **独占**：`Shell/InboxWindow.cs` · `Shell/CollectionWindow.cs` · `Deck/DeckRuntime.cs`
+- 两件：① **`UpdateCounters` 扫光**（账 D→C→A，写清「本地可做」判据）② `EaseOutQuad` → **原版 3 键 Clamp 曲线**（⛔ 别留两套）
+
+### 12·80 回执 （`W55ALTREF` / `W41S3B` / `W60SCALE`）· ✅
+
+**`W55ALTREF`（只读判据）—— 三条改变既有判断的结论**：
+1. 🔴 **派活前提不成立**：那 **30 条 `Effect<名>` 一条都不来自 `activeAbilityTextReferenceId`**（该字段 1,351 张里**只有 3 张非空**、池内 2）。真链是 **`abilityLogic[].buffEffect.effectText` → `GameStaticData.GetEffectDesc` → 键 `Card_Abilities/<effectText>`**（缺键时**原版把 id 原样印到屏幕上**）；29 条有主 + 1 条孤儿键。⚠️ 我们 `cards_engine.json` 里 `effectText`/`buffEffect`/`handBuff`/`cardEffect` **全部 0 命中** ⇒ 这条链整条没有。
+2. 🔴 **同族里有一条影响大 5 倍的**：`cardDescriptionTextReferenceId`（非空 44 / **池内 15**）⇒ **10 张池卡今天在印旧版正文**（`TL66`/`SOR24`/`SOR30`/`SOR39`/`UM72`/`SOR47`/`TL24`/`TL44`/`UM57`/`UM68`）。⚠️ 该字段**还兼任卡名兜底**（`Card_Name/<ref>`）⇒ 补列时别只当描述。⇒ 已派 W64 出判据。
+3. ✅ **ability 级 `targetsAvailableCounter` 原版 1,351 张 100% 全 0** ⇒ 今天恒 false **与原版一致**，**不该**给它加数据路径；而**卡级**那格 17 张非零、我们 `role="avail"` **正好是那 17 张**（已做对）。
+
+**`W41S3B`（量具/夹具）—— 「未验到」786 → 411（−375）**：分母口径采纳（1,351→**1,128**，池外出声出表，B 族 228 行整批消失）· `big=1` 进主循环（**只加分不减分**，否则会丢已有的「对」）· **`81 Unstable` 打通 16/18**（三件必须同时成立：打死被测单位用 `HurtWithSourceForTest` · **对照局剥 `unstable` 关键词** · 剔掉「被测卡自己那格」的净差）· **A1 督军新宿主 144 → 21（`Talent` 56/56 全中）**。
+- 🔴 **它报了一条影响真游戏的引擎缺口（已派 W65）**：**原版卡的 `activeAbility` 在本引擎里没有可执行入口** —— `CardDef.Ability` 永远不填 ⇒ `UseAbility` 恒 `ErrNoAbility(14)`，**56 张督军里只有 11 张**带替代行动关键词能走到。
+- 📌 待我：`判据/B9_全池对拍_差异.tsv` 还是 10-26 那份 ⇒ 重生成要跑 `pool_effect_check --run`（≈6–7 分钟，须无并发探针）。
+
+**`W60SCALE`（断言）**：`ShellScene` 段位节补了 **`Rank Icon` 末帧 = 1.0 ± 0.005** 的灭自证（旧数据差 0.09）；`gen_anim_clips.py:30` 注释订正（293→293）。
+- ⚠️ 它自己指出残余风险：**若 `Animation.Stop()` 在当前版本会把 `localScale` 复位到 1.0**，这条末帧断言会**碰巧绿** ⇒ **已派 W66 补中段峰值（2.043）断言**，与末帧结构上互斥。
+
+### 12·81 补位 `B9_W64DESC` / `B9_W65ABIL` / `B9_W66MID`
+
+| 代号 | 独占 | 活 |
+|---|---|---|
+| **W64DESC** | 只读 → `判据/卡面描述引用id_判据.md` | 10 张印旧版正文的逐卡新旧对照（含中文）+ 卡名兜底核查 + 施工规格 |
+| **W65ABIL** | `Core/CardDef.cs` · `Data/CardDatabase.cs` | **督军 `activeAbility` 入口**（三跳里缺哪一跳；56 张只剩 11 张能发） |
+| **W66MID** | `Editor/ShellScene.cs` · `Shell/CardDetailPopup.cs`（注释） | 段位中段峰值断言（挡「复位碰巧绿」）+ 一处过期注释 |
+
+### 12·82 回执 （`W57BDR4`）· ✅ 已合并（1 行）
+
+- **① 敌方展示终点修好**：`(960,540)` 屏幕正中 → 原版 `enemyHand(960,50) + PlayedCardDisplayOffsetPx` ⇒ **1080p 桌面 (574,406) / 小屏 (1331,406)**（X **符号相反**）。`PlayedCardDisplayOffsetPx` 从此有**唯一消费者**。
+  🔴 **判据级提醒**：**`PlayedCardDisplayPosition`（世界版）不能在这条链上消费** —— 它偏移单位是原版 UI 画布世界单位（1 = 14.835 px），而 `LayoutSpace` 1 世界单位 = **108 px** ⇒ 直接用会放大 **7.28 倍**（−26 世界单位 = −2808 px，跑到屏外）。
+- **② 技能面板喂参接对了，但如实说「可见行为今天仍不变」**：挡在前面的是另一道闸 `targetsAny`（现实现恒 true）—— 而它关着**是对的**：现扫 1,351 张 SO，`targetsAffected` 全是 `any`、`maxTargets = 0` ⇒ **原版在这份数据上也从不拼后缀**。⇒ 要点亮 `(卡名)` 得先让 ability 级 `targetsAvailableCounter` 落进 `CardDef` **且数据非 any**（与 W55 的「100% 全 0」互相印证）。
+- **③ 过期 doc 订正**，且它**多抓到同一条错话的第三处副本**（`BattleDriver.cs:10002`；账只点了 1 处、交接点了 1 处）。
+- 📌 **断言缺口（已派 W67）**：`Editor/BattleScene.cs` 目前**没有一条**钉「中央展示终点」（只有「载体建出来了」）⇒ 这类「放在屏幕正中」的错不会被抓。
+- ⚠️ 它另报：`SkillPanel.Show` 的 `targetsAny` **语义是反的**（true = 不拼后缀）⇒ 建议改名 `suppressTargetsSuffix`（`SkillPanel.cs` 归 W61）。
+
+### 12·83 补位 `B9_W67CENTER`
+
+- **独占**：`Editor/BattleScene.cs`
+- 两条**结构断言**（别比浮点）：① 落点**不在屏幕正中**（`Distance > 100` 且明显更靠左）② **小屏 X 反号判别式**（`x(小屏) > 960 > x(桌面)`，同一个错误值不可能同时满足）
+
+### 12·84 回执 （`W58GAPS`）· 引擎真缺口判据（只读）· **808 行 / 37 个施工块 / 覆盖 41 条账行**
+
+- **W48 的外推对得上**：逐条核完 F4=29 · F3=7 · F14=7；F1 的 7 条**全判 D**（P3 服务端半）⇒ **施工 41 条 / 37 块**。
+- **今天可做的只有 7 块**（判据齐 + 落点不在 W54/W57 占用的文件）⇒ **已派 W68**。
+- 🔴 **最有价值的三条不是「补机制」，是「补 bug/接线」**：① **`Uprising` 过触发**（缺「本回合上场」闸，唯一一条**多触发**型实锤差异）② **死亡路径不摘外来增益**（原语 `RemoveExtrinsicEffectsFrom` **已存在**、只是 `Die` 不调）③ **`MissActions` 入队点**（动作体**早已逐句实现**，账说「没有计数器」是过期结论，只差在「无合法目标」支接线）。
+- 📌 **休眠机制 4 块**（换位/变形/复制墓地/偷牌）判据已齐到可施工，按铁律 11 **要做**、排最后。
+- 🔴 **它订正了 6 条账/注释过期**：`MissActions` 已实现 · `AiTargets` 的 230 早读完 · `CardDef` **有** `CardTypeWhispers = 40` · 账 205/206/207 **自相矛盾**（两条 GainFaith 发射点都传了 `boardAndPersistentOnly: true`，后一句是旧残留）· `CardDef.cs:7663` 与账 558 打架 · **W48 说「`ChooseValueOptions` 40+/170 档」是误读**（枚举 **26 个成员**、最大 210）。
+- 🆕 **新数据**：池内 `*ValueOptions` 只用 **16 个不同值**、其中 13 个合法档；另有 `8`（38 处）/`17`（8 处）**两个异常值**（两个枚举都没有）⇒ **必须先查清再实现分派**，否则静默按 0。
+
+### 12·85 补位 `B9_W68ENG3`（引擎第一批）
+
+- **独占**：`BattleContext.cs` · `AiTargets.cs` · `Enchantment.cs` · `ActionQueue.cs`
+- 七块：**G08–G12 五个 `MatchType` 谓词**（位测试已逐值还原）· **G16 `ta=230`** · **G37 Whispers 闸** · **G19 队列查询口** · **G06① 计数器字段**
+- ⛔ **G34/G28① 不做**（`CardDef.cs` 归 W65）；⛔ 第二批及以后不做
+- 硬要求：**纯增量、零行为改动**；发现某处接线会改行为 ⇒ **停下来写报告**
+
+### 12·86 回执 （`W54ENG2`）· ✅ 已合并（3 行）· 引擎两件全通
+
+- **① 掉舱震屏整链已通**：`EmitTraitRemoved(…, string effect = null)` 透传 + `RuleCore` 三处发射（`droppod-open` 0.5 / 主伤害打空 3.0 / 易伤打空 3.0）。**两处既有调用点字节不变**（可选形参）。
+  🔴 **它对转派单做了一处有判据的收窄**：第 ③ 处**只在池 `after2 < 1` 时发**（原版 `CheckIfDead.c:76-95` 只在池 < 1 时调 `RemoveDropPod`）⇒ 无条件发会**多震一下**。
+- **② `BattleEvent` 带目标列表**：新字段 `AbilityTargetList` + struct；挂在两处 `EvtKind.Ability` 发点；**`Target*/` 三位原样保留**（「玩家点没点目标」的判别式，与列表是两件事）。**判据只一份**（`AbilityTargetsFor` 转调结算用的同一个 `ResolveTarget`）⇒ 事件目标与真结算目标**结构上不可能不一致**。
+  ⚠️ 如实标：封闭文法每条能力至多一个目标 ⇒ **今天列表长度只有 0/1**，多目标档**无法证明**（池内 0 张）。
+- **仓库外夹具 9 组全绿**（掉舱五档 + 目标列表四档，含「`Self` 1 条而 `Target*` 仍是 −1/−1 ← **没点 ≠ 没目标**」）。
+- 🔴 **它撞到一类脆断言并绕开了**：`RuleEngineTest.cs` 有两条按 **`EvtKind.Ability` 字面出现次数**断的结构断言（期望 3 / 4）；它第一版改成走公共 helper ⇒ 计数 3→2 当场会红 ⇒ 最终**两行逐字不动、下一行挂列表**。⚠️ 后来人只要在 `Core/` 新增任何一处该符号（**含 `e.Kind != EvtKind.Ability` 比较**）都会撞它。✅ **已写进 `工作准则_操作经验.md`**。
+- 账：`特效动画:130`/`战斗逻辑驱动:851` **C→B**（两条真缺口如实记：原版第 4 个调用点我们没有等价路径 · `RemoveDropPod` 体内两步对应物没核）；`特效动画:484` 差异列订正（缺口从「引擎缺字段」移到「表现层逐目标播放」）。
+
+### 12·87 补位 `B9_W69ENG4`（引擎第三批前三）
+
+- **独占**：`RuleCore.cs` · `EffectResolver.cs` · `UnitState.cs`
+- 三块（**本项目最有价值的三条：不是补机制，是补 bug/补接线**）：**G23① `Uprising` 过触发**（缺「本回合上场」闸，唯一多触发型实锤）· **G22② 死亡路径不摘外来增益**（原语已存在、`Die` 不调）· **G07 `MissActions` 入队点**（动作体早已实现，只差接线）
+- ⚠️ ①③ 是行为改动 ⇒ **会改 `play` 指纹**；新差异卡**逐张归因**（很可能就是「改前错、改后对」），⛔ 不许改基线
+
+### 12·88 回执 （`W66MID`）· ✅ 段位窗中段峰值断言（无账补丁，理由正确）
+
+- 新增断言：`ShellScene` 段位节 `winRank` 块内（**末帧那段之前**，+48 行），把 `Rank Up` 手动推到**峰值键那一拍**，断 `Rank Icon.localScale.x ≈ 2.043`（容忍 0.02）。**峰值时刻从 `division_clips.json` 扫出来（⛔ 不写死）**，但**值 2.043 用原版判据**（原版峰值 `2.2275424` ÷ 原版静止 `1.0903292`）。
+- 🔴 **它自己抓到自己一次自证**：第一版把 `peakV`（同一份 JSON 读出的值）当期望 ⇒ **那是自证**，已在本轮内改成原版常量 + 另加一条独立的数据侧钉值。
+- ✅ **判别式成立**：末帧 1.0、峰值 2.043，两容忍带相隔 1.04 ⇒ **任何单一静态值不可能同时满足**。⇒ 把「`Animation.Stop()` 会不会复位」从**悬案变成可判**：
+  - 峰值绿 + 末帧绿 ⇒ 动画**真在播**；
+  - **峰值红 + 末帧绿 ⇒ 典型假绿**（静态 1.0 蒙对末帧）⇒ 查 `_rt.scales` 是否被按节点存在性过滤、`ApplyChannels` 缩放段是否还在；
+  - 峰值绿 + 末帧红 ⇒ 播到峰值但末键不对；两条都红 ⇒ 整段没接上。
+- ⚠️ `ShellScene.Run` 的**断言合计会 +6** ⇒ 别拿旧合计当基线。
+- 📌 顺手：`Effects/CardDisplayLevelUp.cs:47` 与 `:69` **口径打架**（`:47` 还写「没导入」、`:69` 已订正）⇒ 按铁律 5 该改 `:47`，**等写手**。另：`BoosterPackOpenWindow.cs:1283` 的 `Resources.Load<AnimationClip>` **是注释**，别当第二处加载点。
+
+### 12·89 补位 `B9_W70VOPT`（判据）
+
+- 只读 → `判据/ValueOptions异常值_判定.md`
+- 查清 `*ValueOptions` 的**两个异常值 `8`（38 处）与 `17`（8 处）**：是枚举缺项 / 字段类型用错 / 我们抄错；46 行逐条核原版 SO 真值。**不查清就实现分派 = 静默按 0**。
+
+### 12·90 回执 （`W62FIX`）· ✅ 无账补丁（理由正确：不改覆盖关系、两行无过期记录）
+
+- **① 失效判别式修好**：断言改成**直调 `PlayerDeck.ResolveEntry`**，文案同步。
+  🔴 **它给出「为什么旧的两个方向都不红」**：旧断言调 `ResolveDeckEntry`，而它改前**自己还留着收紧的第二份半句** ⇒ 删 `ResolveEntry` 那半句，第二份照样判 null ⇒ 仍绿；**按字面去删 `ResolveDeckEntry` 那半句也仍绿** ⇒ **两边都做不出反证**。
+- **② 注释订正**：11 条 → **21 条断言 + 4 条前提**（现数核对：26 个 `C("` 减去守卫 1 + 前提 4 = 21 ✔）。
+- **③ `ResolveDeckEntry` 退化成纯转发**（body = 一行）；「永远走不到」是**可证的**（`isAltArt = true` 只在那条收紧之后赋值）。**四个调用点逐条核过、没有一处依赖它自判**，两文件**零行数变化**。
+- 📌 它留了一条**刻意冗余**的建议：`DeckScene:1375` 与 `DeckEditorState:1189` 是同一条判别式的两处副本 ⇒ **⛔ 别合并成常量**（合并后删常量会一次抹掉两条）。
+
+### 12·91 补位 `B9_W71SYNC`（同步点执行清单，只读）
+
+把本会话**所有「已接线但没跑过 Unity / 没重钉基线」**的待验项汇总成**可照着执行**的清单（顺序 / 命令 / 判读四象限 / 预期红 / 前置条件 / 耗时），覆盖：shader 首编 · 三颗指纹重钉（`BL64`+`DA42` 逐张确认「改前错、改后对」）· `--fix`（**只在无写手 + 补丁全合完时**）· 各 Unity 宿主 · `RuleEngineTest` 的 E4 组 36 条 · 「改前必红 / 改后应绿」的鉴别力验证。
+
+### 12·92 回执 （`W61TARG`）· ✅ 已合并（1 行）· 取键口已落地
+
+- 🔴 **它推翻了两条前提**：
+  1. **原版是「必有」但只在单位卡那一条路**：唯一活调用点 = `BattleManager._ChooseUnitTarget_d__780__MoveNext`（取值 → `TooltipManager.Show(标题=空串, 本方法, 卡位)` → 点亮候选 → 离开 UIstate 9 `Hide`）；进入闸 = `NeedToChooseMinionTarget`（`isPlayer ∧ cardType==0 ∧ targeted ∧ matchType!=0xA0`）。⇒ **战术/Whispers 卡那条选目标支全篇 0 处 `TooltipManager.Show`** ⇒ **接：只对单位卡**，⛔ 别给 196 张非单位 targeted 卡弹原版没有的提示。
+  2. 🔴 **数据侧「有」—— 上一路判「没数据」是查错了文件**：真值在 **`cards_raw.json` 的 `full_raw.targetingTextReferenceId`**（1,351 张）⇒ **51 张非空 / 18 种取值**；其中「单位卡 ∧ targeted」= 50 张。「官方 31 键 ⇒ 17 可达 · 14 条原版无卡引用」。
+  3. 它**不是技能面板**（SkillPanel = `ActiveSkillDesc`，无关）⇒ `SkillPanel.cs` 一个字没改。
+- **落地**：`Loc.cs` 类尾 5 个成员（`TargetedTermPrefix` / `TargetedKey`（两支拼法逐字照 `RawCardScript.cs:2450-2451`）/ `TargetedText` / `HasTargetedText` / `CheckTargetedText`）；端到端链已核（`Card_Targeted/deal3Dmg` → `((Deal_x_damage,3))` → `造成 {0} 点伤害` → **造成 3 点伤害**）。
+- ✅ **断言的鉴别力是实测的**（同一份数据模拟三版）：本件这版 **0/31** · 删掉 ref 支 **31/31 全红** · 常量桩 **31/31 全红**。且**断言里没有硬编码键表**（复用 `Loc.Lang13Keys(prefix)`）。
+- 🔴 **它给的通用教训（同族错误第 N 次）**：报「某列没有」时要把 **`cards_engine.json` / `cards_raw.json(full_raw)` / `cards_truth.json` 三个都点一遍** —— 这次栽在只查了解析视图。
+- 🟡 闸要判 **`targeted`** 不是「ref 非空」（`SAU24` 有 ref 但 `targeted=0`）；14 条孤儿键是**原版自己的余额**，⛔ 别当我们的缺口补卡。
+
+### 12·93 补位 `B9_W72TIP`
+
+- **独占**：`Battle/BattleDriver.cs`
+- 接**选目标提示**（只在单位卡支）+ 三处真出口 `Hide()`（`:8122` 不弹不收）+ 订正 `:7959-7961` 注释
+- ⚠️ `targetingTextReferenceId` 还没落进 `CardDef` ⇒ 按「字段一到就能工作」写，**取不到就出声不弹**（⛔ 别弹空串、别硬编码）
+
+### 12·94 回执 （`W64DESC`）· 卡面描述引用 id 判据 · 只读 · **429 行**
+
+- 🔴 **「10 张印旧版正文」成立，但真实面更大**：15 张池卡的 `Card_Description/<id>` 与 `<id>_new` **中英两档 15/15 实质不同**（不是 10/15）；另 5 张只是**被白名单遮住**（它们根本不读官方表，不是因为旧版对）。
+- 🔴 **白名单不是免疫机制，是根因的创可贴**：那 5 张的 `<id>_new` 官方正文**恰好就是白名单注释里写着「官方缺」的那半句** ⇒ 该字段就是根因。**6 条白名单里只有 `AM72` 仍必需**（在池、`descRef` 空、无 `_new` 键）。
+  ✅ **我已裁（见下）**。
+- 🔴 **它否掉了上一路的猜测**：`W55ALTREF` 说「`AM72` 疑似应为 `UM72`」——**不成立**，两张不同的卡、两条不同的理由。
+- ✅ **卡名不会印错**（15 张的 `Card_Name/<ref>` 在 13 个语言列里**全不存在**，而 `<自己id>` 13 列全在）；⚠️ 但原版那条「名字回退」**我们没实现**（今天 0 对象，记为已知偏离）。
+- 🔴 **白名单能被绕过、今天就绕过了**：`BattleDriver.cs` 的**「其余 10 种语言」分支不查白名单** ⇒ 德/法语档下那 5 张印官方**旧**正文。⇒ 换键时**最易漏的第 4 处就是那一路**。
+- **施工规格**：生成器 `A1799_FIELDS` 追加一列 + `version 34→35`；`CardDef` 类尾属性 + 参数表末尾可选形参；**`CardDatabase` 透传 + `dto.version < 35` 出声**；消费端 **4 处**统一走 `OfficialDescKey(id, descRef)`（逐字照 `RawCardScript.cs:2337-2346` 三元），⛔ 不加「ref 缺键退回自己 id」。
+- 🔴 **会打红 3 处既有断言，必须同批改**（`BattleScene.cs:25106` / `:25336-25339` / `:25365-25368`，⑤⑥ 的 `want` 要改用同一个 helper）；`TL24` 不能再当「官方 vs 我们」判别式样本（我们 `Desc` 也写新版），建议**整行换卡**。
+- 📌 顺手：**`TL24` 的旧中文列是朝鲜语** ⇒ 今天中文档 `TL24` 卡面**中朝混排**；**`UM72` 旧版多印一条本不存在的效果**（`Armour 1`）。
+
+### ✅ 我的裁定（两件）
+
+1. **白名单那 5 条：摘掉**（`ASH48`/`SAU58`/`SAU15`/`TAU65`/`SOR25`），**只留 `AM72`**。
+   理由：白名单是**我们自己的创可贴**，而 `descRef` 才是根因（官方 `_new` 正文正好补上「官方缺」的那半句）；铁律 11 = 有根因就做根因，不做凑合。**代价** = 5 张卡显示措辞变化 + `BattleScene` 那 3 处断言要**同批改**（⛔ 不许为了让它们绿而保留白名单）。
+2. **批 A 合并成一次重生成**：`cardDescriptionTextReferenceId`（池 15）+ `activeAbilityTextReferenceId`（池 2）+ `targetingTextReferenceId`（池 51，可达 50）**三列一起出**，**共用一次池指纹重钉**（分三次 = 白付两次）。⚠️ 重生成窗口 = **无 `.cs` 写手 + 无账写手**，由我做；重钉后 `PinnedParseMd5`/`BaselineMd5`/`PlayMd5` **应不变**，变了就停下查。
+
+### 12·95 补位 `B9_W73EFFT`（只读判据）
+
+`effectText` 链（30 条 `Effect<名>` 键的真正归属）—— 我们**整条没有**；产出逐卡逐挂点真值表 + 键可达性 + 施工规格 + 能否并入批 A。
+
+### 12·96 回执 （`W59ARENA`）· ✅ 三处指定缺陷修完 · 两个 `--check` rc=0
+
+- 11 场缺 `_sprites.json` ⇒ **13/13 齐**（36 条目）；astra 旧格式 ⇒ **13 场 0 条缺 `active`**；astra `_meshkeywords` 78→80（补的正是 `Generator ` / `Bunker Gun `，**尾随空格逐字对上**）。
+- 🔴 **它推翻了我（和 `已知的坑.md`）的一条判断**：我写的「缺 `active` 键 ⇒ 反序列化成 `false` ⇒ 整族静默关闭」**不成立** —— `JsonUtility` 对**缺失的键**是「**保持 C# 字段初始化值**」（`SpriteEntry.active = true`）。**产物实证**：astra 那份旧格式 json 在 10-26 的建场里**建出了 9 个 `!u!212`**（10 条 − 1 条无贴图）⇒ 缺键时为 **true**。⇒ 该缺陷**降级为「格式隐患（会多建，不会少建）」**。
+  ✅ **我已就地订正 `已知的坑.md`**（保留更正痕迹 + 写明「仍成立的是：旁挂加字段必须重生成全部 13 场」）。
+- 🔴 **真正让 sororitas 缺东西的是另一条（本件新查出并修）**：`Crosshair` / `Bottom Filler *` 的 `m_RD.texture` 全是 `{0,0}` —— **像素在 SpriteAtlas 里**，生成器原来把 `tex` 写成空串 ⇒ `LoadSpriteAsset("")` 返 null ⇒ **永远建不出来**。已补 `atlas_crop()`（按 `SpriteAtlas.m_RenderDataMap` 裁切 + **自检裁出尺寸 == `m_Rect`，不符就不写**），两张已人眼核过。另补 `sr.size = e.size`（`m_Size` 原来一处未用）+ Tiled/Sliced 设 **FullRect**（`TextureImporter.spriteMeshType` 在 Unity 6000.3 **不存在**，第一版 CS1061）。
+  **净效果：建出来的 SR 11 → 14（+3 全在 sororitas）。**
+- 🆕 顺手修了一个新坑：`--check` 红行在本机 **GBK 控制台会 `UnicodeEncodeError` 崩掉**、点名一行都看不到 ⇒ **同族还有 7 个文件没修**（都在它白名单外，每个加 3 行即可）。
+- ⚠️ **同步点只建 2 场（⛔ 别 `--all`）**：`battlearenasororitas`（唯一画面真变，`!u!212` 0→3）+ `battlearenaastramilitarum`（网格多 2 条）；其余 11 场**判过「真没变」不重建**。建完核：sororitas `!u!212` **0→3** · astra **9→9**（若变 10 说明它那条反推错了）· 日志不许出现本件新加的 `Warning`。⚠️ Unity 首次刷新会生成 **11 个目录 + 11 份 json + 18 个 PNG 的 `.meta`**，**那是产物别删**。
+
+### 12·97 回执 （`W67CENTER`）· ✅ 已合并（1 行）
+
+`BattleScene` 补了 **5 条 ★ 断言 + 10 条硬前提**（此前**零条**钉中央展示落点）：
+- **「不是屏幕正中」**：距 `(960,540)` **> 100 px** + X **< 860** + **身份检查**（两维 = 锚 `(960,50)` + 原版偏移 ±2px）—— 后者的必要性：**只靠前两条抓不到「只挪 X 不挪 Y」**。
+- **小屏 X 反号判别式**：`x(小屏) > 960 > x(桌面)` + `|Δx| > 500` ⇒ **一个错误值不可能同时落在中线两侧**（改回 `ToWorld(0.5f,0.5f)` 两档都 960，两个不等号一个都不成立）。
+- **量法走真演出**（建临时卡 → 推过 `DOMove` → 读卡位置 → 转设计 px），⛔ 没用世界版公式（单位差 7.28 倍）；已核 `FromPixel`/`ToDesignPixel` **严格互逆且与宽高比无关** ⇒ 期望可精确到 ±2px 不假红。
+- 前提里有两条「读数口非退化」（`Distance(p1,p0) > 50` 否则读到的是起点 ⇒「不在正中」会**假绿**；`Distance(p2,p1) < 0.5` 否则读到半路）；**失败返回 NaN 而非 0** ⇒ 下游每条比较都变红。
+- 📌 顺手：账 `HUD:756` 在 W57 之后就是错的（仍写「落点是我们挑的 (960,540)」）⇒ 已追加带日期订正段；**状态列它没单方面改级**，建议跑绿后由我判 C→A。
+- ⚠️ 未跑 Unity ⇒ 两条断言一条都还没真跑过；⚠️ `Measure` 每次让全局补间前进 ≈1.15s（两次 ≈2.3s）⇒ 若 `BattleScene.Run` 出现**无关动画类红**，先怀疑这里。
+
+### 12·98 🔻 收敛：当前只等 8 路回完，然后我做重同步点
+
+在跑 8 路（W63 扫光/曲线 · W65 督军能力入口 · W68 引擎第一批七块 · W69 引擎第三批三条 · W70 `*ValueOptions` 判据 · W71 同步点清单 · W72 选目标提示接线 · W73 `effectText` 判据）。
+**待合并账补丁只剩 1 个**（`B9_W63WC.tsv`，其写手仍在跑）。
+⇒ **不再补位**（新槽先空着）：同步点需要「没有 `.cs` 写手 + 补丁全合完」，再加活只会把窗口推远。等它们回完 → 我按 `判据/同步点执行清单_第八十六会话.md`（W71 产出）依次跑：shader 首编 → 三颗指纹重钉（先逐张确认 `BL64`/`DA42` 是「改前错、改后对」）→ `--fix`（复跑看真实数字）→ 各 Unity 宿主 → `RuleEngineTest` E4 组。
+
+### 12·99 回执 （`W63WC`）· ✅ 已合并（6 行）· 我补了它的改动请求 1
+
+- **① `UpdateCounters` 扫光（真缺口）已接，账 D→C→A**：判据 = `WildcardDisplay__UpdateCounters.c`（`if (shinyEffect != 0) { Play(_,1,0); SetCountersText(_,0); }`），唯一注册点 = `OnEnable` 前 3 行（**在 army 闸之前无条件注册**），唯一发信人 = `WildcardInventory.UpdateItemCollection` 的 `Signal.Raise`。落两个宿主（收藏窗 + Deck 编辑窗），**复用既有层与既有参数组**，⛔ 没新造第三组；`SetCountersText` 按用户 2026-09-28 拍板**仍不做**（账里补了边界句）。
+- **② `MessageContainer.curve` 换成原版 3 键**（`(0,0,slope 0)` · `(0.35165453,0.62446737,slope 1.53013289)` · `(1.00219727,1.0,slope −0.40184420)`，末键 1.00219727 照抄）。🔴 **它还查实一件更细的**：原版缓动**只挂 `DOScale`**，`DOFade` 走 DOTween 默认 **`Ease.OutQuad`** ⇒ 改成两个进度（淡入 OutQuad / 缩放 curve），⛔ 不留两套。
+- ✅ **它报的改动请求 1 我当场做了**（铁律 14，2 处、**零行数变化**）：`CardProgress.TrySpendWildcard` 扣成功后调 `Inventories.Wildcards.UpdateItemCollection()`（`:528` 后与 `:2499` 后各一处，只在返回 true 时发）—— 不做的话**我接的扫光只在自检里亮**。`typecheck` 复跑 **0/0**、`CardDetailPopup.cs` 仍 **3323 行**、裸 CR 0。
+- ⚠️ 两条**未接、已记账**：① Deck 侧「层与订阅一起晚」（开窗停在 Cards 页就合成扣卡时原版会重播、我们不做；修法要改建期挂载、代价 = `DeckRuntime` 约 70 条落点漂移）② 收藏窗**切回 Cards 页签不重播**（原版 `OnEnable` 会；接它必须连 `CollectionScene` 那串扫光断言一起改）。
+
+### 12·100 回执 （`W68ENG3`）· ✅ 已合并（10 行）· 引擎第一批七块全落地
+
+**纯增量、零行为改动**（三条必跑全绿：`typecheck 0/0` · `check` rc=0 且解析指纹不变 · `play check` 仍只有 `BL64`+`DA42`）。
+- **G08–G12 五谓词**（`BattleContext.MatchTypes` 类尾，全 static 纯函数，真值集照 `.c` 写死）· **G16 `ta=230`**（`AiTargets`）· **G37 Whispers 闸**（`Enchantment`，行数 1284→1284 零漂移）· **G19 查询口**（`ActionQueue.QueuedAction.ActionType` + `Has(Predicate)`）· **G06①**（**新建** `BattleContextTurnCounter.cs`，`partial` ⇒ **零行号漂移**，沿用 `BattleContextRandom.cs` 先例）。
+- 🔴 **它按 `.c` 纠正了判据文件两处**：① **G16「相等⇒空表」不完整** —— `GetHighestHealthWarlord` 相等确返回 null，但**消费支在 null 时取 `GetHero(bm,1)`** ⇒ **端到端永不空表**，已按 `.c` 实现；② **G19「倒序扫」与 `.c` 不符**（道内是**升序**），布尔 `Has` 下无可观测差别，按 `.c` 实现并标注。
+- ⚠️ 两处如实留白：`IsAgainstOnlineBot` 的 `IsNetworkedGame` 引擎层**无权威位**（作形参传入、由表现层给）；`IsDuringBattle` 的「开打前」档无法用现有两个量区分 ⇒ 该档判 true（原版 false，**0 消费者**，已标注）。
+- ⏳ 它**没新增 `RuleEngineTest` 夹具**（不在白名单）⇒ 真值表/夹具建议同步点后补。
+- 📌 漂移：`ActionQueue.cs` **7 处**、`AiTargets.cs` 原 `:303` 1 处 ⇒ 同步点 `--fix`。
+
+**引擎域现读：1,376 行 · A 728 / B 386 / C 44 / D 218** ⇒ 定案 **68.8%**、真复刻 **62.9%**（本会话起点 61.6%）。
+
+### 12·101 回执 （`W71SYNC`）· ✅ 同步点执行清单落盘（343 行 / 47 步 / 5 段串行）
+
+现读：`check` rc=0（指纹 `c9a64798…` = `PinnedParseMd5`）· `play check` **rc=1**（现算 `e7f1de8f…` vs 基线 `0766fbe1…`，**差异卡 2 张** BL64/DA42，电池 586 逐字节一致）· `check_ledger_points --all-A` = **A 3,795 · 通过 2,907（告警 184）· 漂移 770 · 失败 118**。
+🔴 **失败 118 的形态分布**（`--fix` 修不了这批，要单独立账为「落点形状」）：无 `文件:行` 27 · 注释行 26 · 分隔符 21 · 名字对不上 12 · 空行 12 · 语句中间 11 · 文件不存在 6 · 不像声明 2。
+
+**它写死的 4 条顺序（写错就白跑或钉错基线）**：
+1. **裸导入（不带 `-executeMethod`）必须排最前** —— `WildcardShine.shader` 从未编译、`CardDisplayLevelUp.cs`/`LoadableRef.cs` 无 `.meta`、Coffee dll / 3 个 `.anim` / 13 份 `*_sprites.json` 全是首导。
+2. **`play` 指纹重钉必须等 W69 回来并逐张归因之后**（它改行为，会再动一次指纹）。
+3. **`--fix` 只在「无 `.cs` 写手 + 补丁全合完」时跑**，且**第一遍输出是修前快照**，必须复跑读数。
+4. `--fix` **修不了**那 118 条失败。
+
+**两张差异卡的判定（已实跑补证，可直接钉）**：`BL64` = W27 的 ta 短路闸（改前 `playRc=18` 打不出去 → 改后 rc=0、`dmg=2`）⇒ **改前错、改后对**；`DA42` = W43 的 A7 结算层闸，唯一变化「牌库 +1 张」，⚠️ **完整链要等 A1a（模板入池）会再钉一次 play + 一次池指纹** ⇒ **这条必须写进 `PinnedPlayMd5` 注释**，否则下个会话当新回归。
+
+⚠️ **`W59` 的 2 场建场要问用户**：用户 2026-10-27 对战场线说的是「以后再做，到时你询问我」⇒ 我**不替它拍板**，进同步点时问。
+
+📌 它的三条顺手发现（我处理了两条）：
+- ✅ **`Loc.CheckTargetedText()` 全仓 0 调用点**（`Card_Targeted/*` 31 条键**零覆盖**）⇒ **我已接线**：`BattleScene.cs` 数据断言窗口那行**行内追加** `foreach (var bad in Loc.CheckTargetedText()) Check(false, bad);`（**行数 49,018 不变、CRLF 未翻、typecheck 0/0**）。
+- ⏳ `Shell/UIBorderGlow.cs` 的 `SelfCheckViewUv()` 也 0 调用点 —— 它需要**带 carrier 的实例夹具**，盲接会假红 ⇒ **留待专件**。
+- 📌 `账/_parts/` 顶层还堆着 **12 个 `_gen_*.py`**（生成器、不是补丁）⇒ 会让「看目录判有没有未合并补丁」的人**误判一次**（顶层 `.tsv` 现在是 0）⇒ 同步点时清掉。
+
+### 12·102 回执 （`W72TIP`）· ✅ 已合并（1 行）
+
+- **接上了，且只在单位卡那条路**（`TryBeginPlayTargetPick` 的 `if (unitCard) ShowPlayTargetPrompt(...)` 那一行 + 三处真出口各 `Hide()`）；战术/Whispers 那一支**一个字都不弹**（原版全篇 0 处 `Show`）。
+- 🔴 **它多做了一件「不做就静默失效」的事**：`TickTooltipAt` 末尾**每帧无条件 `Hide()`** ⇒ 照 §4·3 只加 `Show` 的话**下一帧就被扫掉、且零报错**。改法 = 让扫描在「等目标态」时让位（依据：原版那条是 `StartTrackingFrom` **钉住**的；鼠标按下仍 Hide，照抄）。
+  ✅ **我已把这条写进 `工作准则_操作经验.md`**：**新增任何非 hover 驱动的弹层时，必须同时问「有没有每帧扫描会收掉它」**。
+- **数据侧没到就出声不弹**：`CardDef.TargetingTextReferenceId` 现读不存在 ⇒ 反射桥（属性优先、字段兜底、**只探一次**），都没有就出声一次；`Loc.T` 缺键会返回键名 ⇒ 也拦一道（⛔ 不弹空串/键名、⛔ 不硬编码）。
+- 📌 它**按符号名定位又救了一次**：W61 报告给的两个出口行号偏了两处（实为 `:8254`/`:8282`）。
+- 🟢 它明说**断言没做**（要落在 `Editor/BattleScene.cs`，三条可直接粘）⇒ 记在待办。
+
+### 12·103 回执 （`W70VOPT`）· 判据 · 只读 · **259 行**
+
+- ✅ **`8`（38 处）与 `17`（8 处）都是【原版 SO 里就有的值】**（typetree 逐字节双向确认，1351 张、异常 0）—— **不是我们抄错、不是串位**；四份反编译**都是 26 个成员、都没有 8/17** ⇒ **也不是枚举缺项**。
+- ✅ **版本配对已核**：本地可运行原版 = **1.35.0 / Unity 6000.2.6f2**，allcards bundle 头同代 ⇒「8/17 是旧版枚举成员」不成立。📌 这条**以前没落在任何文档里**，建议并入判据公共前提。
+- ✅ **原版运行时对未知档走 `default` 支**（三条逐字）：取值 ⇒ **`minValue`**；buff 折叠 ⇒ **原始 `*Change`、⛔ 不乘 multiplier**（与 `Normal(0)` 支**不等价**）+ 先打一条 Log；AI 评分 ⇒ `(min+max)/2`。
+- ✅ **这 46 行在可观测行为上全是死数据**（伤害族一个都没有 / 3 行 `buffType=3` 的应用阶段**从不读那两格** / `(3,5,5,8)` 在伤害行 283 行里出现 **0 次**，是非伤害行的 editor 残留模板）。
+- **施工结论**：**枚举不改、数据不改**（8/17 是「原版有超纲值」的唯一活标本，抹平就没法验 `default` 支）；**解析层未识别 ⇒ 返回 `minValue` + 出声**（⛔ 不许按 0、⛔ 不许当 Normal）；**buff 折叠未识别 ⇒ 原始值不乘 + 先 Log**。
+- 🔴 **最高危一处（已点名）**：**2 条 `doHeal` 行的 `damage` 是垃圾 `(3,5,5,8)`，真正生效的是 `heal`** ⇒ **任何把 `damage` 当「通用取值结构」的实现都会把这两张的治疗算成 3**（卡面是 1 / 1-5）。
+- 📌 另两条：`gen_cards_engine.py:1802` 的注释只说了一种默认模板（实际有第二种 `(3,5,5,8)`）；`damageCriteria(+0x40)` 的全部读取点**未穷举**（建议 G26 落地前反汇编扫一遍）。
+
+### 12·104 回执 （`W73EFFT`）· 判据 · 只读 · 41 KB
+
+- ✅ **链已钉死**：`CardEffect.effectText(+0x28)` → `GetEffectDesc` → `term = "Card_Abilities/" + effectText` → `GetTranslation` → `ModifyLocalization` → **缺键时 `return effectText`（把 id 原样印屏）**；前缀常量已从 `stringliteral.json` 解析确认。`GetEffectDesc` **全树只有 2 个调用点**（都在 `CardEffectItem.LoadEffect`，即**战斗卡面「受到以下影响」右列**那一格）。
+- **真值 = 38 行 / 31 值 / 31 卡 / 31/31 全在池**；挂点只在 `cardAbilities[].abilityLogic[]`（`buffEffect` 33 · `handBuff.cardEffect` 5）；全树 8,620 个 `CardEffect` 里只有这 38 个非空。**键可达性 31/31 全中（en+zh 都非空）⇒ 一条都不印 id**。
+- 🔴 **它更正了一条既有记录（含我自己写过的）**：「`effectText` 这条链整条没有」**只对 `cards_engine.json` 成立** —— 三源逐个点过：**`cards_truth.json` 里 38/38 全在**（`abilities[].logic[].buff.effectText`），生成器早就抽了。⇒ 真缺口是「**没进运行时表 + 没有运行期载体 + 没有消费端**」，比「整条没有」轻一档。
+- ✅ **展示面其实已经建好**：`CardDisplayWindow` 的 5+5 个槽、排版字号全照原版，**只差喂文本**；`SkillPanel` 里那三件套（键→官方词条→`ModifyLocalization`+字体闸）是现成的，只是私有静态。
+- **施工规格**：生成器加 `abilityEffectTexts: [{ab,lg,src,text,name}]`（**`src` 必须有** —— `TAU51` 同一 `(ab,lg)` 两条同值）；`CardDef` 加列 + `EffectTextOf(ab,lg,isHand)` + 三态；载体 `ActiveCardEffect`/`TempBuff` 各加两格。
+- 🔴 **与批 A 能合并**（同一次读 SO / 一次 version bump / 一次 `ruleprobe check`），**但断言与对拍要分两套**（批 A 改「已显示的正文」，本链是「新增一条链」），且两者都改 `gen_cards_engine.py` ⇒ **必须同一个写手**。
+- ✅ **我裁一件**：官方表自身 bug `EffectIdolatrous` **EN `vulnerable 1` / ZH `vulnerable 8`** ⇒ **照抄各自语言列**（中文档显示 8、英文档显示 1），⛔ **不「修正」** —— 原版客户端本来就按当前语档显示，抹平反而偏离。
+- 📌 三条顺手：**ILSpy 第三次丢 `= true` 写点**（`isHandBuff` 真写点在 `.c`）；**同一个 `+0x28` 在两份文件里含义不同**（一处 string、一处 `TextMeshProUGUI`），读 `.c` 极易串；**8 条 `bt2/bt3` 原版也进 `+0x108`** ⇒ 别用「附魔? = 否」推「不该显示」。
+
+### 12·105 回执 （`W69ENG4`）· ✅ 已合并（3 行）· **只动 1 处代码，另两条一条复核、一条拒做**
+
+| 条目 | 判定 |
+|---|---|
+| **G23① `Uprising` 过触发** | ✅ **已在**（上一轮 F1 就落地了，它**独立复核 + 仓库外夹具证明闸是承重的**：无闸版后续回合仍打掉 1 血、现行代码 0 血）。⚠️ **仓库里没有这一档断言** ⇒ 已记待补。 |
+| **G22② 死亡不摘外来增益** | ✅ **真缺口、已修**：`CleanupDeaths` 在「观察者 Die 广播 + 死因三族之后、`FlushDeathWatches` 之前」调新方法摘掉「来源 = 死者」的外来增益；判据 = `ResolveDeadCard.c:236→242-244`。夹具实测 `改前 4 → 改后 2`，负例「来源还活着」两档都保留。 |
+| **G07 `MissActions` 入队点** | ⛔ **判据不成立 · 零代码改动（它拒做了，做得对）**：原版**没有**「无合法目标 ⇒ 记一次空放」这条路 —— 唯一生产者是 `chosenAbility == 290 (missAction)` 那一支，池内 **0/4156** ⇒ 休眠。按原判据做会**造出原版没有的行为**，且「一次空放就把攻击额度花掉」已被夹具坐实是错的。 |
+
+🔴 **这条正是我要的判断力**：判据与 `.c` 冲突时**以 `.c` 为准、拒做**，而不是「照施工单交差」。已把这一点写进调度台备注。
+- ⚠️ 它另报 **G23③ 新缺口**：**召唤路径 `DeployFree` 根本不发起义广播**（全仓只有手牌打出那一处发）⇒ 效果召唤的部队不会叫醒本回合上场的起义监听者。
+- 📌 **通用教训（它自己总结的）**：G07/G22 两处判据错法**同源**（按名字推断 + 同名方法混淆）⇒ 建议抽检「判据要点里出现『调用点 = X』」的条目，核一句 **X 真的调的是这个方法吗**。
+- 📌 `play` 这类读数**看不见死亡** ⇒ 以后「死亡路径」的验收口要写成仓库外夹具 / Unity 自检，⛔ 别拿 `play check` 绿当证据。
+
+### 12·106 现状：只剩 `W65ABIL` 一路，补丁已全部合并
+
+账补丁待合并 = **0**（`find -maxdepth 1 -type f -name "*.tsv"` 现读 0）。账 **8,779 行 · A 3,740 / B 1,353 / C 571 / D 3,115 ⇒ (A+D) 78.1%**。
+⇒ **W65 一回来就开重同步点**（清单已由 W71 备好：裸导入 → 各宿主 → W69 归因后的 `play` 重钉 → `--fix` 复跑 → 落盘）。
+
+### 12·107 回执 （`W65ABIL`）· ✅ 已合并（3 行）· 🔴 **纠正我 12·80 那条转述**
+
+🔴 **我在 12·80 对用户说过「56 张督军里只有 11 张能发主动能力，影响真游戏」—— 那是错的，现予更正**：
+- **全池 `hasActiveAbility == 1` 的 87 张里，86 张今天已经能发出主动能力**（替代行动 68 / 誓约 18）；**唯一没有入口的是 `SOR66 Armorium Cherub`** 一张。
+- **那 45 张督军不是缺陷** —— 它们原版真值就是 `hasActiveAbility == 0`（`activeAbilityLogic` 行全 `gate=0`，卡面只有 `Talent:` 被动），原版 `ResolveActiveAbilityPlayed.c:26-31` **同样早退**（`LogWarning` + return）。
+- 三条独立证据：① 数据自洽 `hasActiveAbility=1` 的卡 **87** = 带 `gate=1` 行的卡 **87**，逐张相等、双向 0 例外；② `ruleprobe play all pf preset hero=1` 实测 87 张里 alt=0 的 68 + oath=0 的 18，只有 `SOR66` 两个都为 14；③ 45 张逐张 `hasActiveAbility=0`。
+- **真缺的那一跳是别的**：①'' **能力对象自己的四个标量**（`manaCost/psychicCost/plasmaCost/targeted`，没它没法按原版收费）——**代码侧本轮已补**（新建 `CardDefActiveAbility.cs` 作 `CardDef` 的 `partial` 半边，避开 `CardDef.cs` 里那 1 处按行号引用的落点；`CardDef.cs:48` 同行改 `partial`，零行数变化）；数据列待 v35。② **「把 `activeAbilityLogic` 行直接当效果执行」那台执行器**（大工程，排 R3）。
+- ✅ **本轮零行为变化**：卡表 v34 没那四列 ⇒ 一律 `-1`（未知）；56 张督军的 `abil` 读数**改前/改后逐字节相同**；`check` rc=0 指纹不变、`play check` 仍只有 `BL64`+`DA42`。
+- ⚠️ **它纠了一条会误导的读法**：`Resources/cards_truth.json` 是**缩编**真值（`activeAbility` 里键叫 `logic`，143 张有对象但 **0 张带行**）；**问「某卡 `activeAbilityLogic` 真值」只能读 `资料/普查产出_1018/allcards_1350/cards_raw.json`**。
+- ⏳ 四条改动请求已排期（R1 卡表 v35 四列 · R2 `AiScoring` 一行 · R3 引擎执行器 · R4 `SOR66` **先查清原版技能钮做什么再实现**）。
+
+### 12·108 🔴 重同步点（已启动）
+
+1. ✅ **裸导入跑完**（`exit=0`）：`Resources/Shaders/WildcardShine.shader.meta` **已生成**（guid `53ec2e2d…`）、`ShaderImporter` 跑过并连上 `UnityShaderCompiler`、**日志里 0 条 shader 编译错误**；4 个新 `.cs` 的 `.meta` 全部生成（`CardDisplayLevelUp` / `LoadableRef` / `CardDefActiveAbility` / `BattleContextTurnCounter`）。
+2. ✅ **账补丁待合并 = 0**（已归档进 `_merged_*/`）；顺手把 `_parts` 顶层 12 个 `_gen_*.py` 收进 `_gen_archive/`（它们会让「看目录判有没有未合并补丁」误判一次）。
+3. ✅ **场景已备份**到 `_tmp_view/scene_bak_20261027b/`（6 个 `.unity` / 168 MB）。
+4. 🔄 **14 宿主自检串行跑中**（`工具/_run_8_checks.sh` → `_tmp_view/checks_86.log`，预计 50–65 分钟）。
+5. ⏳ 之后：`play` 指纹重钉（`BL64`/`DA42` 逐张已确认「改前错改后对」）→ `--fix` + **复跑看真实数字** → 交接落盘。
+6. ⚠️ **战场 2 场建场要问用户**（用户对战场线说过「以后再做、到时你询问我」）。
+
+### 12·109 重同步点 · 实跑读数与第一批修
+
+**① 14 宿主读数（`工具/_run_8_checks.sh`，19:52–20:00，全部首次真跑本会话新断言）**：
+
+| 宿主 | 读数 | 退出码 |
+|---|---|---|
+| `RuleEngineTest` | ——（2 条红，见 D1） | 1 |
+| `BattleScene` | **5,620 通过 / 4 失败** | 1 |
+| `DeckScene` | ——（1 条红 + 探针预期 ✗） | 1 |
+| `ShellScene` | **2,102 / 0** ✅ | 0 |
+| `MainMenuScene` | **5,036 / 3** | 1 |
+| `RewardsScene` | **2,392 / 1** | 1 |
+| `ShopScene` | **2,406 / 0** ✅ | 0 |
+| `CollectionScene` | ——（1 条前提红） | 1 |
+| `NetSelfTest` / `NetBattleTest` / `SettingsScene` | ✅ | 0 / 0 / 0 |
+| `CardBaseDemo` | **557 / 0** ✅ | 0 |
+| `AnimFXCheck` | **241 / 0** ✅ | 0 |
+| **`CardFaceAssertE5`** | **129 / 0** ✅（上一版 64 ⇒ 本会话新增的 E/F 组**首次全绿**） | 0 |
+
+⚠️ **判读纪律**：`✗` 会出现在**断言文案里** ⇒ 按**行首标记**数；`Deck` 日志里 `✗ 截图 no_camera.png` 是**探针子 sink 的预期输出**（旁边那条「必须出声 ⇒ 恰好 1 条 ✗」已过），⛔ 别当失败。
+
+**② 已做（我，串行）**：
+- ✅ **`play` 指纹重钉**：备份 `基线/_bak_1027b/` → `play all pf` 重生成 → 常量改 **`e7f1de8f96f9e7a255ae72534cf263de`**（注释写明两张差异卡与 **A1a 会再钉一次**）⇒ `play check` **rc=0**；`check` **rc=0**。
+- ✅ **落点闸 `--fix`**：**漂移 770 → 52**，通过 2,907 → **3,625**（告警 181），失败 **125**（比本会话早些时候的 118 多 7 = 本会话新加的 A 行）；⚠️ **第一遍输出是修前快照**（印 770），已复跑取真实数字。
+- ✅ **`_parts` 顶层 12 个 `_gen_*.py` 已归档**（`_gen_archive/`），顶层待合并 `.tsv` = **0**。
+
+**③ 四路只读诊断已派（D1–D4）**，D4 已回：
+- **D4（menu 3 红）**：① ② = **既有预期红**（账 128 / 界面线 `J-05` 未落地的 `SetActive(go, !IsNullOrEmpty(leaderBoardID))`，与 `m_Children` 顺序无关 —— 名字与次序逐字相同，只差 `*` 前缀）⇒ **不是回归**；③ 升段窗段位大图 = **γ 本批回归**，但**红的是断言用的代理量**：本会话把三颗从 `MenuDraw.Node` 换成 `MenuDraw.Rect`（给材质挂载建 `ImageQuad` 载体）⇒ 断言「子树里 `ImageQuad` 数 == 0」不再成立，而**行为目标仍成立**（两颗载体 tint α=0、Glow 节点 `SetActive(false)`）⇒ **修断言、⛔ 不回退三个 `Build*`**；新目标态 = 「每个 ImageQuad `Tint.a <= 0 || !activeInHierarchy`」。
+  🔴 顺手订正一条错记录：`报告/B9_W28MOUNT:264` 写「`DivisionNode`/`RankIconNode` 全仓 0 使用者」**是错的** —— `DivisionNode` 恰好只有这 1 个使用者，就是那条断言。
+
+### 12·110 诊断 D3（deck / collection / rewards 三条红）· **全部 (α) 断言写错，生产实现没错**
+
+1. **Deck**（`DeckScene.cs:10302`）**cue 断言读得太晚**：点一下**确实播了** `ButtonClick 1`，但断言前先 `dip.Close()` ⇒ 关窗音 `ButtonClick Back` 把 `WindowSounds.LastCue`（**每次 Play 无条件首写**的槽）覆盖了；**关窗音是原版行为**。
+   ⇒ 修法：在 `OnPointerClick()` 之后**取 `LastCue` 快照**，断言断快照（⛔ 别只把关窗音挪后）。
+2. **Collection**（`CollectionScene.cs:12759` 前提）**读一个生产代码故意会重算的字段**：helper 先置 `_wcArmy=Neutral` 再 `RebuildCardsPage()`；重建链里 `BuildWildcardShine` 用 Neutral（**闸正确地没播**），但**尾句 `CheckFocusedArmy()` 会按命中的第一格把 `_wcArmy` 改成 Ultramarines** —— 这是原版 `RefreshCollection` 尾部的行为。紧随其后的三条（Neutral ⇒ 不播 / rate 停 1 / 推进不动）**全 ✓**，说明闸确实跑到了。
+   ⇒ 修法：断「`BuildWildcardShine` **那一刻**的 `_wcArmy`」快照（加只读口）；⛔ **不要只删这条前提**（它是「闸真被跑到」的直接证据）。
+3. **Rewards**（`RewardsScene.cs:6862`）**期望 0.75 只在 Lerp 下成立，原版是 `MoveTowards`（恒定速率）**：`1.0→0.5`、`Advance(0.5)` ⇒ 一步贴到 **0.5**（既不是「没推」也不是「推了被复位」）。
+   ⇒ 修法：探针 `duration` 改 **2f**（或 `Advance(0.25f)`）⇒ 恒定速率得 0.75、Lerp 得 0.875（仍红）⇒ **期望值不用动，且这条才有鉴别力**（现写法两种语义都得 0.5、零鉴别力）。
+4. 🆕 **它另报一条疑点（未实跑，建议另立账）**：`ScenarioMaterialFader` 的**次序与原版相反** —— 原版「先写 α 再判 `currentBlendTime<=0` 收尾」，我们 `base.Advance` 到点直接 `Complete()` 再 `if (_busy) ApplyFade` ⇒ **走完那一帧不写 α**，停在差最后一步（只在「不还原材质」的档可见）。今天没有断言撞上它，所以不红。
+
+### 12·111 诊断 D1（ruleengine）· **γ 本批回归，1 条断言（印了两遍）**
+
+🔴 **先纠数字**：不是 2 条 —— **1 条断言被印两遍**（`Check` 既 `LogError` 又 `_failures.Add`，收尾汇总再印一遍）；汇总自己写的是 `9440/9441 通过，1 条失败`。
+- 断言 = `RuleEngineTest.cs:29646`（宿主 `TestCoreLayerPurity()`；白名单 `CoreAllowedUnity = {Debug, Random}`）。**它没过时** —— 意图就是「探针只编 `Core/*.cs` + 极简桩、在 net8 下跑真解析器」，check/play/ai/tutorial/traits 全靠它；而且本批中途**真的**因此断过（`CS0234`，全批读数一度不可用）。
+- 命中 5 处：`GameplayVariables.cs:650/651/660`（Vector3）+ `:682/692`（Vector2），都是本批新增。
+
+**它给出的修法对比（我采纳 (A-1)）**：**(A) 改实现** vs **(B) 放宽白名单**。
+- 成本关键：`PlayedCardDisplayOffsetPx` **只有 3 个调用点、且只读 `.x/.y`**；`PlayedCardDisplayPosition` **零调用点** ⇒ 改签名零成本；账锚 `:682` 正好是要改那一行、**同格改可零漂移**。
+- **不选 (B) 的理由**：白名单会失去「探针要哪些桩」这层意义；下一个值类型（`Color`/`Quaternion`/**`Mathf`**）会以同一理由继续推开，而 `Mathf` 桩要复刻 Unity 语义（本仓已有 `Mathf.Lerp` 自带 `Clamp01` 的坑）；且与 `A941` 先例**反向**（当年是把 Unity 依赖**搬进 `Data/`**，不是放宽）。
+- 📌 它顺带核清：`Core/` **41 个文件**里 `UnityEngine.*` 代码引用合计 85 处 = `Debug` **80**（白名单内）+ `Vector3` 3 + `Vector2` 2；`Random` **代码里其实一次没用**（14 处全在注释/字符串）；6 条禁用词 12 次出现**剥注释后 0 次**。
+⇒ **已派 F2** 做 (A-1)：新建 `Core/VarsGlobalTypes.cs`（两个小 struct）+ 5 行同格改 + 3 个调用点改 `var` + **撤回探针桩**（要求删桩后 `check` 仍 rc=0，并复核账锚不漂）。
+
+### 12·112 诊断 D2（battle 4 红）· 3 γ + 1 α · **三处各自独立**
+
+🔴 **先纠计数**：`grep -c "✗"` = 6，真红 **4**（另两处一个是「E2 合计」行、一个是**文案里**的 ✗）。
+
+- **① ② bloodthirst 两条（`BattleScene.cs:10857` / `:10866`）= γ，但错的是夹具**：日志实证两条红前各有一行「血渴触发点不在行动侧（player=1 / Active=0）…不演」；**闸是本会话新增且忠实**（原版 `ActivateBloodThirst.c` 全文 = `HasCurrentTrait(0xdc) && +0x48==1 && (char)+0x40 == IsPlayerTurn() && state!=5`，`ResolveBloodThirstAnim.c:21-24` 用它门住整条动画）。**夹具造了真机不可能的状态**：事件写死 `Player=1` 而本局 `Ctx.Active=0`。
+  ⇒ 修：两段前 `ctx.Active = 1`、`:10868` 后还原；**并补一条「非行动侧 ⇒ 一次都不演」把新闸钉住**（⛔ 别拆闸）。
+- **③ 飘字没落在挨打那张卡上（偏差 0.1453）= γ**：上一版同一条是 **0.0006**；实现与断言读同一份常量 ⇒ 唯一变量是**输入相机**（`BoardLayout.DropTargetWorld` 走 `boardCam.WorldToScreenPoint`）。而这一刻 boardCam 正在动 —— 本会话把命中帧震屏从 `ShakeCameraForHit`（0.057、纯竖直）换成 **`ShakeCameraForAttack`（20.38/40.76/81.52、纯水平）**，`20.38/0.057 ≈ 357`，`0.0006×357 ≈ 0.21 ≈ 实测 0.1453`（差的是包络/噪声）；且**偏差只在 x**（独立断 y 的那条绿）。时序也吻合：震屏 0.4 s 起于 `HitFrameLag`、伤害 `Hit` 在 `+0.4` ⇒ **锚点取在震屏最后一帧**，把残余位移烘进飘字。
+  ⇒ 修：取 `at` 前先 `CardFeel.SettleShake()`（此刻本来只剩最后一帧、视觉无损）；长期正解是让飘字跟着震屏位移走（原版 `DamageCounter` 是 3D 卡的子件）。⚠️ **另记**：`CardFeel.cs:4146-4152` 自己写着这套 353 倍幅度**没真机对照过** ⇒ 真机验收前别当定稿。
+- **④ `W11ShakeAssert`（`BattleScene.cs:48589`）= α 断言错**：实现（`CardFeel.cs:1473`）是刚体变换 `camHome + d + M*(hudHome − camHome)`，断言拿**绝对位置**比、**漏了整项 `M*(hudHome − camHome)`**、也没记 `hudHome` ⇒ 本场景误差 ≈ **20 世界单位**（`hudHome=(0,0,0)`、`cam=(0,0,−20)`）vs 阈值 1e-4。**反证接线是好的**：同意图的老断言（`:24099-24113`，含那一项）**本批绿**，实得位移 2.6E-006。
+  ⇒ 修：照抄 `:24099-24113` 的算式；更好的是断**屏空间不变式**（HUD 钉子点震前/震后 `WorldToScreenPoint` 相同）。
+- 📌 **分流**：③ 与 ④ **不同源**；①② 与 ③④ 各自独立。①②④ 全在 `Editor/BattleScene.cs`（**只能一个写手**），③ 在 `BattleDriver.cs`。
+- ⏳ **现在不能派**：`BattleScene.cs` 与 `BattleDriver.cs` 正被 **F2** 占着 ⇒ 排到 F2 交还后。
+
+### 12·113 修 F1（4 条断言）· 修 F2（架构纯度）· ✅ 都已回，未改生产行为
+
+**F1（deck/collection/rewards/menu）**：四条都改成**保鉴别力**的写法，**四条零账漂移**：
+- ① Deck：断「点完立刻取的 `LastCue` 快照」（🧨 `PlayInspectCue` 改回只出声 ⇒ 快照 null ⇒ 红）
+- ② Collection：断「**`BuildWildcardShine` 那一刻**的 `_wcArmy`」，哨兵 `int.MinValue` = 一次都没跑到（🧨 把 `BuildWildcardShine` 挪到 `RebuildCardsCells` 之后 ⇒ 红）；**没删前提**
+- ③ Rewards：**只改探针 `duration=2f`**，期望 0.75 与物性一字未动 ⇒ 恒定速率得 0.75 / Lerp 得 0.875（🧨 两种改坏法都红）
+- ④ MainMenu：改成「`quad 数 == 3` **且**「亮着且 α>0」的 == 0」（🧨 载体退回裸节点 ⇒ 数<3 红；tint α 改回 1 ⇒ 红）；**未回退三个 `Build*`**、**未**用 `IncludeInactive=false`
+- ⚠️ 它提醒：④ 的「==3」是**静态核**出来的，**若下次跑出 ≠3，正确动作是回建树代码重数，⛔ 不是放宽成 `>=1`**（那就抓不到「载体被回退」这条回归）。
+✅ **我已就地订正 `报告/B9_W28MOUNT:264`** 的错记录（「`DivisionNode` 全仓 0 使用者」不成立 —— 它恰有 1 个使用者，就是那条断言；错因是只 grep 了 `Shell/` 没扫 `Editor/`）。
+
+**F2（架构纯度 · 方案 A-1）**：5 行**同格改**（`GameplayVariables.cs` 695→695，账锚 `:682`/`:607-623` 逐行复验在原位）+ 新建 `Core/VarsGlobalTypes.cs`（35 行，两个 struct 只有字段+构造）+ 3 个调用点改 `var` + **探针两个桩已删**（75→64 行，留「⛔ 别再补回来」说明）。
+- 四项全绿：`typecheck 0/0` · `check` rc=0（指纹 `c9a64798…` 未变）· **`play check` rc=0**（基线 `e7f1de8f…` 未变 ⇒ 结算零变化）· `--all-A` 里 `GameplayVariables.cs` **零行**漂移。
+- ⇒ `RuleEngineTest` 那条架构断言**应当转绿**（待跑 `RuleEngineTest.Run` 实测；要看 `9440/9441` → `9441/9441`）。
+- 📌 它报了两条有用的话：① `--all-A` 全局 rc=1 里 **11 条指着 `CardPresentation` 文件，全是「同名声明歧义 / 落点指法」这类文本层问题、不是行号漂移** ⇒ 要改的是账的落点指法（另派人工）。② **`check_ledger_points` 不评估落点括号里嵌的第二个 `文件:行`** —— 主表 `HUD:756` 的落点列第一个是 `BattleDriver.cs:25877`，`GameplayVariables.cs:682` 只在括号里 ⇒「无新漂移」有一半是**空转绿灯**；它另用「行数守恒 + 内容逐行未变」两条硬判据补上。
+
+### 12·114 派 F3（battle 四条红）
+
+- **独占**：`Editor/BattleScene.cs` · `Battle/BattleDriver.cs`
+- ①② **夹具**：两段前 `ctx.Active = 1` + 还原，**并补一条「非行动侧 ⇒ 一次都不演」把新闸钉住**（⛔ 不拆闸）
+- ③ **飘字锚点**：取 `at` 前 `CardFeel.SettleShake()`（视觉无损；长期正解「让飘字跟着震屏位移」写进还欠）
+- ④ **`W11ShakeAssert` 公式**：照抄含 `M*(hudHome−camHome)` 的算式，或改断**屏空间不变式**（二选一，理由写报告）
+
+### 12·115 修 F3（battle 四条红）· ✅ 已回 · 三项全绿
+
+- **①② bloodthirst**：**闸原样保留**，改夹具（`ctx.Active` 临时拨 1 + 段末还原）+ **新增反向断言「触发点不在行动侧 ⇒ 一次都不演」**。
+  🔑 **它踩到一个会让断言空转的细节**：必须先 `TraitFrames.Remove(BloodThirst)` 清去重表，否则第三条会被 `DisplayTrigger` **自己的去重守卫**挡下 ⇒ 断言空转。
+- **③ 飘字锚点**：取 `at` 前先 `CardFeel.SettleShake()`（`OnKill` 把 相机 / `boardCam` / HudRoot **各自精确归位**）⇒ 不再吃命中帧震屏的最后一帧。**这是本波唯一的生产行为改动**，诊断判视觉无损。
+- **④ `W11ShakeAssert`**：它选**屏空间不变式**（钉点震前/震后 `WorldToScreenPoint` 相同 + 同时断相机空间坐标相同）；不照抄老算式的理由写进注释 —— ① 那才是「屏幕上纹丝不动」的语义本身；② 抄算式要拿到 `camHomeRot`/`ShakeOrientationRef`，**文件尾静态类拿不到**；③ **照抄实现 = 同源自证**。阈值 `<0.1 px` / `<1e-3`（旧错是 **40 世界单位**量级）。
+- 📌 它留的两条：**③ 的长期正解没做**（原版 `DamageCounter` 是 3D 卡的子件、跟着卡晃）⇒ 单开一条；`SettleShake()` 的 doc 仍自称「自检专用」**已过期**（现在生产路径也在用）。
+- 📌 **它给了一条系统性提醒**：`PinFirstSeat(driver, 0)` 让全文件 40+ 处夹具假设我方先手，而新表演闸**开始真读 `ctx.Active`** ⇒ 以后加「某一侧触发」的夹具必须显式声明事件侧是否行动侧（`:10851-10862` 是样板）。
+
+**落点闸第二次 `--fix`**（F3 插入 +79/+13 行后）：第一遍印 **127**（修前快照）→ 复跑 **漂移 52 / 通过 3,625（告警 181）/ 失败 125** —— 与 F3 之前**同一个数**，说明它插的行已被修回、**没留永久漂移**。
+
+### 12·116 重跑受影响 6 个宿主
+
+`RuleEngineTest`（验架构纯度转绿）· `BattleScene`（验 4 条修好）· `DeckScene` / `CollectionScene` / `RewardsScene` / `MainMenuScene`（验 F1 的 4 条）。跑完出最终读数，再落交接。
+
+### 12·63 补位 `B9_W50ENGT`（引擎断言）
+
+给 W27 的两条改动补**仓库内断言**（现在只有外部夹具证明）：`cond=341` 只跟 `ActiveAbilityUsed` 走 · **不随回合重置** · 清零两处 · **pray 不置** · ta 短路闸正例/反例（`ta=30` 的「候选 == targetCard」）· 判不了就不闸 · **≥2 条灭自证**。⚠️ 明令：⛔ 不改被测实现、⛔ 不为变绿改期望值（发现不符就停下来写报告）。
+
+---
+
+## 十三、第八十七会话（2026-10-27）· 滚动推进（用户授权「不必停下汇报」）
+
+### 13·1 开场状态（现读，与交接 §一 逐项核对一致）
+
+- 20 业务域 **8,779 行**；A **3,740** / B **1,353** / C **571** / D **3,115**；(A+D)/总 **78.1%**；真复刻率 **66.0%**；主战场 `战斗逻辑驱动` **1,376**（A 728 / B 386 / C 44 / D 218）。
+- 三指纹：池 `c2ee753d…` · parse `c9a64798…` · play `e7f1de8f…`。`账/_parts/` 顶层待合并 = 0。git 干净、ahead 3（未推送）。
+
+### 13·2 用户口径（本会话新定）
+
+- **战场 2 场建场**（sororitas / astra）：**暂时不做**。
+- **13 场串行重建**：**提前做**（本会话已启动，后台串行，日志 `_tmp_view/arena13_20261027/`）。
+- 其他任务线（卡牌 / 特效 / 界面）：**有空闲子代理就派**。
+
+### 13·3 第一波（Unity 独占窗口内，⛔ 不碰 `.cs`）
+
+| 代理 | 活 | 写什么 |
+|---|---|---|
+| G1 | A1a 模板入池 + 批 A 三列重生成 | `工具/gen_cards_engine.py` + 生成产物 json |
+| R1 | `SOR66` 主动能力判据 | `判据/SOR66主动能力_判定.md` |
+| R2 | Coffee 前置三件 | `判据/J-12_Coffee前置判据_补充_第八十七会话.md` |
+| R3 | 落点闸 125 条失败分类 | `判据/落点失败_125条分类.tsv` |
+| R4 | `战斗逻辑驱动` B 行核验 120 行 | `账/_parts/B87_R4_B行核验.tsv` |
+| R5 | 功能点验收索引（第二层账）设计与样板 | `判据/功能点验收索引_设计与样板.md` + `_样板.tsv` |
+| R6 | `战斗界面_HUD` B 行核验 99 行 | `账/_parts/B87_R6_HUD核验.tsv` |
+| R7 | `卡牌面_渲染`8 + `收藏`16 + `卡组编辑`8 B 行核验 | `账/_parts/B87_R7_卡面收藏卡组核验.tsv` |
+
+### 13·4 第二波预案（等 Unity 窗口结束才发，`.cs` 文件所有权互斥）
+
+| 代理 | 活 | 独占 `.cs` |
+|---|---|---|
+| E1 | `EffectResolver` 五个新动词（G01 换位 / G02 变形 / G03 复制墓地 / G04 偷牌库 / G05 偷手牌） | `RuleEngine/Core/EffectResolver.cs` |
+| E2 | `RuleCore` 缺口（G23 召唤广播 / G25 手牌移出 / G31 洗牌 / G32 受治疗广播 / G33 骷髅 / G29 快照） | `RuleEngine/Core/RuleCore.cs` |
+| E3 | 小件（G08–G12 MatchTypes / G06 字段 / G16 ta=230 / G19 队列查询口） | `BattleContext.cs` · `ActionQueue.cs` · `AiTargets.cs` |
+| E4 | `CardDef` / `Enchantment` 侧（G28① 前缀 / G34 聚合口 / G37 闸 / G30） | `CardDef.cs` · `Enchantment.cs` |
+| P1 | 多目标逐目标播放 + 摘 5 条白名单 + `BattleScene` 3 处断言 | `Battle/BattleDriver.cs` · `Editor/BattleScene.cs` |
+| P2 | 升级动画根脉冲补间（判据 `判据/升级动画scale曲线_节点映射.md`） | `Core/CardView.cs` |
+| P3 | Deck 编辑窗「层与订阅一起晚」+ 收藏窗切回页签不重播 | Deck 编辑 / `Editor/CollectionScene.cs` |
+| P4 | Coffee dll 搬进 `Assets/ThirdParty/` + 接真组件（等 R2 判据） | `ThirdParty/**` · `Effects/UIEffectTogglerCoffeeEffects.cs` |
+
+> ⛔ `G26/G27`（`ChooseValueOptions` 26 档）落点在 `EffectText` + `EffectResolver.StatOf` ⇒ **与 E1 同文件，排到 E1 交还之后**。
+
+### 13·5 `G1` 回执（生成器数据批）· ✅ 已落地 · **指纹已重钉（我做的）**
+
+- **`A1a` 模板入池**：`gen_cards_engine.py` 的 `ENCHANTMENT_EXECUTORS` 加第 2 条（`:4028-4047`）⇒ 池 **1,128 → 1,129**；入池闸逐条现核（`cardType 20` ∧ `m_Name` 含 enchant ∧ 形状逐条相等 ∧ 挂载者 `DA42` 在池 ∧ `cardArmy 110` / `cardRarity 2`）。
+- **批 A 三列**：`cardDescriptionTextReferenceId` **15** · `activeAbilityTextReferenceId` **2** · `targetingTextReferenceId` **51**；`version 34 → 35`；`A1799_FIELDS` 加三列。
+- **验收**：`--check` 0 差异 · 两次 `--write` 逐字节相同 · 三列与两份判据真值表**逐条等号**（脚本比对）· 除三新列外**逐卡逐列 0 处差异**。
+- ⚠️ **白名单外动了 1 行**（已核，接受）：`数据/游戏数据/cardface_fixes.json` 把裸键 `"Reconnaissance Mission"` 改成 `"DarkAngels/Reconnaissance Mission"`。**不改写不出产物** —— 入池后池里有两张同名卡，触发生成器既有安全闸（裸卡名键必须全池唯一）⇒ exit 1、一个字节都不写。该格 `desc` 与 `card_stats.json` 源值逐字相同 ⇒ 零行为变化。
+- 🔴 **重钉（我做的，两处常量）**：
+  - `Program.PinnedPoolMd5` → **`7a79ef8d097573532b6716e7a6efedf4`**（= `cards_engine.json` 文件 md5，`md5sum` 现核）。
+  - `PlayProbe.PinnedPlayMd5` → **`139e10462829aee61eb29216b520ba08`**（基线文件已重生成，上一版留 `基线/_bak_1027c/`）。差异面：**主档 ①-a 0 张变**（新增 1 行 = 模板自己）· **电池 ①-b 1 张 = `DA71`**（从 DarkAngels 池随机加一张 ⇒ 摇号 `DA61`→`DA58`；`G1` 已用 `WFPROBE_POOL` 指改前池做 A/B 复现 ⇒ **池成分变化、非引擎行为**）。
+  - 🔴 **重钉后双探针复跑：`check` rc=0（解析差异 0 行 · 哨兵 0）· `play check` rc=0**。
+  - ⚠️ `PinnedParseMd5`（`c9a64798…`）与 `PinnedBaselineMd5`（`ce3faf91…`）**未动** —— 纯数据面扩列，解析器零影响。
+- 🔴 **4 处 `.cs` 断言会红，**已排进第二波**：`BattleScene.cs:25355`（`n == 1128`）· `RuleEngineTest_EngineE1.cs:77`（`pool.Count 1128`）· `RuleEngineTest.cs:22258`（`pool.Count == 1128`）· `RuleEngineTest_EngineD4.cs:99`（`dto.version == 34` → 35）。
+- 📌 它顺手报的（**只报未改**）：`ruleprobe/Program.LoadPool` 手工 `new CardDef(...)` 少传 4 列（`spellType`/`cardType`/`enchantTrait`/卡级 `keyword`）⇒ 探针口径缺口（`A1911` 同族第 6/7/8 例）；文档里 **1128 死数 9 处**。
+
+### 13·6 第一波只读代理回执（6 路已回，`R4` 仍在跑）
+
+| 代理 | 结论（一句话） | 产出 |
+|---|---|---|
+| `R1` SOR66 | **数据不缺**：两行逻辑 + 四标量 `0/0/0/1` 全在；没入口的**唯一原因 = 全池 87 张里只有它 `CardTraits` 五 trait（`duty/pray/agenda/ferocity/oath`）全缺** ⇒ 我们三条等价入口全部以这五个 trait 为载体 | `判据/SOR66主动能力_判定.md` |
+| `R2` Coffee | **⛔ 真组件路线架构上不成立**：`UIEffectBase` 要求 uGUI `Graphic`+`Canvas`，7 个宿主全是 `ImageQuad`（MonoBehaviour+MeshRenderer）；且 **dll 早就在 `Assets/ThirdParty/Coffee/`**（md5 与 cpp2il 那份逐字节相同）。全库 152 颗 `UIEffect` **100% 只用 `TransitionFilter=4 (Shiny)`** ⇒ 真缺的是**另一件事**：148 颗常驻扫光要 `PlayOnEnable` 自播 + `m_Interval 1.5/5.0 s` 停顿，我们 `WildcardShineLayer.Tick` 用 `Mathf.Repeat` 无停顿、不自播 | `判据/J-12_Coffee前置判据_补充_第八十七会话.md` |
+| `R3` 落点闸 125 条 | **六分类**：注释/空行 39 · 无 `文件:行` 33 · 语句中间 33 · 指法 19 · 方法已不存在 1 · **同名歧义 0**（简报里那句「11 条」不成立，歧义都在**漂移段**：52 条里 44 条是歧义）⇒ **116 条可机修 / 9 条需人工**；125/125 都给了具体落点，临时副本上应用后**16 个账本 失败=0** | `判据/落点失败_125条分类.tsv` |
+| `R5` 功能点索引 | schema **16 列**定稿，`等级取最差档`（旧的 144 条索引取最高档会骗人）；`验收口` 必须 `文件:行（逐字子串）`（`★` 断言代号**不唯一**：`A964` 出现 52 次）；3 条样板过机检，**注入 7 类故障全被抓到**；批量按**域**切 12 块（⛔ 不能按文件切） | `判据/功能点验收索引_设计与样板.md` + `_样板.tsv` |
+| `R6` 战斗界面_HUD 99 行 | **A 42 · B 43 · C 14**。最贵三条：**收局摧场整段没有**（原版逐个 `UnitDeath` + 0.5 s/1.0 s 节奏）· **结转能量只有壳**（六步状态机做了但生产路径无人调）· **血渴我们多了一下可见动作**（原版 `bloodThirstFrame` 恒 null ⇒ 零画面） | 补丁已合并 |
+| `R7` 卡牌面/收藏/卡组 32 行 | **A 11 · B 10 · C 1 · D 10**。唯一 C = `WhereToGetCardsSection.Release()` 关窗不回收图；⚠️ 它用 D 判「原版无行为可复刻」，我已接受（主表本来就有 D 档） | 补丁已合并 |
+
+### 13·7 已做的裁定
+
+1. **SOR66 施工**：⛔ **别走「造一条 `Pray:` 正文」的捷径** —— `RuleCore.UseAlternativeCore` 的 `pray` 分支**无条件** `Enchantments.AttachPray`，而原版那张附魔是卡自己 `trigger=655` 行挂的，SOR66 没有 655 行 ⇒ 走 pray 会**多挂一张原版不会挂的附魔**（静默做多）。正确形状 = 新增 `RuleCore.UseActiveAbility(...)`，两个 op：`buffOthers`（+2 远程到回合末）+ `triggerPray`（`Prayed=true` + `FireTriggerAt("pray")` + `BroadcastWhen(Prays)`，**不调** `AttachPray`）。
+2. **Coffee**：接受 `R2` 的路 C —— **不挂真组件**，把 `m_Interval` 停顿 + `PlayOnEnable` 自播补进 `WildcardShineLayer`。原「搬 dll」这条**已经满足**（dll 在工程里）。
+3. **`ToggleMask` 不降 D**（驳回 `R5` 建议），理由见 `账/卡牌面_渲染.tsv:55` 备注。
+4. **`R1` 报的两处正本订正**：`判据/督军activeAbility入口_判定.md` 的 J6' 已就地订正（143 张**全部带 `logic` 行**，「0 张带行」不成立）；「`+0x220` 卡型≠Hero 压 false」那句被误引（真初始化在 `CardScript.SetBaseCardTraits`，被误引的是 `ReactToUnitJammer` 的体）⇒ 涉及的三处 `.cs` 注释（`UnitState.cs:2180/2200/2202`、`CardDefActiveAbility.cs:21-23`）**排进第二波**改。
+
+### 13·8 合并与读数（现读）
+
+- `R6`/`R7` 补丁已合并（**99 + 32 行**），补丁已归档到 `账/_parts/_merged_B87_R6/` · `_merged_B87_R7/`；合并前 `check_patch_conflicts.py` = 无跨补丁重复键。
+- 账现读：**20 域 8,779 行 · A 3,793 / B 1,275 / C 586 / D 3,125** ⇒ **(A+D)/总 78.8%**（起点 78.1%）· **真复刻率 A/(A+B+C) = 67.1%**（起点 66.0%）。
+- 战场 13 场重建：**8/13 已完成**（每场 3.5–5 分钟，逐场 rc 全 0）。
+
+### 13·9 `R4` 回执（引擎 B 行前 120 条）· ✅ 已合并 · `R3` 落点修订已应用
+
+- `R4`：**A 4 · C 11 · B 105**（账行 L64～L469，覆盖 AbilityLogic / ActiveAbility / AiScripted / BattleManager）。它顺手按现读**重钉了 29 处落点行号**（21 个符号）。
+- **最有价值的三条 C**：① `PayCardPlayedCostOath` —— 带 oath 的**战术卡**付 oath 费 + 重放整支没出口（唯一调用点 `AbilityLogic__PlayAbility.c:2033`，chosenAbility 360；池内含 360 的 18 张里 10 张带 oath trait、全是战术卡 ⇒ **可达**）② `GetValueFromCriteria` —— 池内可达的 `101/140/210` 三档**解析层完全没有**（`Warlord Melee`/`excess`/`equal to its` 全 0 命中）⇒ 3 张卡三段正文**静默不生效** ③ `GetWarcry` / `ApplyEnvEffect` 前半 `TriggerOtherCardAbility`（全仓 0 命中）。
+- 🔴 **它抓到 2 例新的「`.c` 文件名与内容不符」**：`BattleManager__DeviceVariables.c` 实为 `AlternateArtCard__get_CardImage`；`BattleManager__GetCampaignScriptedData.c` 实为 `<>f__AnonymousType31__GetHashCode`。
+- 🔴 **战役脚本链在原版恒不执行**（`GetCampaignScriptedData` 恒 null / `IsCampaignScriptAvailable` 恒 false，两份独立产物一致）⇒ 相关行**成组判 D**（待我逐条复核后落账）。
+- **`R3` 的 116 条机修落点已应用**（脚本 `_tmp_view/apply_r3_landings_87.py`，**条件替换**：当前值不等于 R3 看到的串就跳过 ⇒ 0 条不匹配、9 条需人工保留）。
+- 🔴 **落点闸现读：A 3,859 · 通过 3,796（告警 127）· 漂移 52 · 失败 11**（应用前 = 失败 127）。
+
+### 13·10 `K1` 回执（功能点索引试点 · 商店域）· ✅ 试点通过 · 六条裁定已落
+
+- **13 个功能点 / 351 行全部有主**（未认领 0 / 多认领 0），机检 0 失败；它另做了两项机检不验的（54/54 判据文件存在 · 25/25 验收口子串唯一），故障注入 11 类全被拦。
+- 🔴 **简报里「商店 342 行」是错的，实际 351** —— 该域 9 行散在 `泛型与启动链_补读.tsv`。**域行数一律 `--manifest` 现读，⛔ 别手打进简报**（这条已进工具改进项）。
+- 🔴 **两层比率的差距是这套索引存在的理由**：`商店` 域**方法级** `(A+D)/总 80.3%` / 真复刻率 `61.7%`，**功能点级**只有 **30.8% / 18.2%**。
+- **我的六条裁定（已落账）**：
+  1. `泛型与启动链_补读.tsv:39` 泛型 `GetBaseSave` **C→A**（函数级等价物在 = `ShopData.cs:349 PersistShop`，与 `商店.tsv:293` 同一条）。
+  2. `补读:42` 落点 `ShopData.cs:276` 现读是 `//` ⇒ 改指 **397**（现读 `public static int AvailableOf(...)`）。
+  3. `商店.tsv:23` `ToFocus` **B→A**（原 B 理由「无实现行可指」与落点列 `BaseOfferPopup.cs:668(Open)` 自相矛盾，现读该行确实是 `public override void Open()`）。
+  4. `商店.tsv:314` `CheckNotification` 的**判据出处原写我们自己的代码（自证）** ⇒ 改成「查不到（原版数据在服务端）+ 订正说明」。
+  5. `商店.tsv:54` `Validate` **保持 C、驳回降 D** —— 「补不出」不是判 D 的理由，本行自证它只调本地 `InventoryManager.HasEnough`（0 处 PlayFab）⇒ **可观察、可实现**。
+  6. `商店.tsv:132` 同族 78 行（等级 D 与备注「保持 C 等裁定」矛盾）⇒ **派 `T2` 按 2026-10-26 授权重判**（判 D 必须写全「断链在哪行 + 我们的替代物 + 时间限定」）。
+- **`K1` 报的三个工具洞**（判据只验前缀不验存在 · 多认领只告警 rc 仍 0 · 没有按域口径）⇒ **派 `T1` 加固**，并搬进 `工具/`。
+
+### 13·11 第二波派出的只读/工具代理（滚动，不设同步点）
+
+| 代理 | 活 |
+|---|---|
+| `R8` | 原版 `BattleManager.Update` **1416 行 / 13 分支**逐条对（`R6` 点名「最贵一条」） |
+| `R9` | `特效动画` B 行 48 条核验 |
+| `R10` | `战斗逻辑驱动` B 行**第 2 批 120 条**（接着 `R4` 的位置） |
+| `R11` | `日常_奖励` B 行 109 条核验 |
+| `R12` | `菜单_外壳` B 行 102 条核验 |
+| `R13` | **通读 `AbilityLogic.PlayAbility`(132 KB) + `BattleManager.GetTargets`(59 KB)**，产出分支索引，解 `R4` 报的「45 条 B 卡在这两个方法」 |
+| `T1` | 功能点索引机检加固（三洞）+ 搬进 `工具/` |
+| `T2` | `商店` 域 P3 档 78 行按授权重判 |
+
+### 13·12 第二波回执（`R8`/`R9`/`R10`/`R12`/`R13`/`T1`/`K1`）· 账已到 **80.0%**
+
+| 代理 | 结果 | 已合并？ |
+|---|---|---|
+| `R8` `BattleManager.Update` | **实为 18 段不是 13 段**（switch 9 case 覆盖 10 枚举值 + switch 外 8 段）⇒ **A 11 / B 4 / C 4**。长期卡点 `FUN_180617800` 坐实 = **`TouchInputManager.get_TouchPressed`**（我们那两处实现本来就对，只是注释过期） | ✅ |
+| `R9` `特效动画` 48 行 | **A 33 / B 11 / C 3 / D 1**。查出 5 条文档记错（`UpgradePanel.TryUpgrade` **有**方法体 105 行；账 484 引的 `RuleCore.EmitAbilityEvent` **不存在**，真身 `AttachAbilityTargets`） | ✅ |
+| `R10` `战斗逻辑驱动` 第 2 批 120 行 | **A 3 / C 32 / B 85**，落点重钉 78 行 / 169 个 token。C 集中在：开局不给督军 `ActivateTraitsOnSummonOrEnchantment` · pack 计数**含自己**（多 +1，池内 10 张）· `HealUnit` **不清 `pendingHealing`**（粘性累计，一处修覆盖 6 个调用点）· 先摘固有增益/写上限/一次写三格全无 | ✅ |
+| `R12` `菜单_外壳` 102 行 | **A 49 / B 23 / C 16 / D 14**。C 里玩家可见度最高：拖拽让位量恒 2.0（原版按临界张数 n 缩放）· `IsPointerOverUIObject` 链没接（鼠标在手牌/HUD 上时原版不缩放、我们会）· 提示窗 `inputs`/`Error Message` 整层不建 · 回放/转场表只做了一条淡入淡出 | ✅ |
+| `R13` 两个巨型方法 | **`PlayAbility` 2878 行 → 86 行分支表**（A20/B47/C19）· **`AbilityLogic.GetTargets` 1427 行 → 41 行档位表**（A16/B21/C4）。⚠️ **更正：不是 `BattleManager.GetTargets`**。另给两条结构性口径：两套分派轴不同（原版按 `ta`、我们按卡面文本主语）· `grep steal` 全是 `stealth` 假阳性 | 判据文件 |
+| `T1` 机检加固 | `工具/feature_index_check.py` 正式件：判据**验文件存在 + 行号在界**（原型 0/5 → 新 5/5）· `--strict` 多认领判红 · `--domain` 域口径 + 越域认领闸 · 落点 `—` 合法 · 等级可带 `🔶` 后缀 | ✅ 工具 |
+| `K1` 商店索引 | 见 §13·10；我修了它的生成器（无落点写 `—`），重算后 `--strict --domain 商店` **失败 0 / 告警 0** | ✅ |
+
+**我另外做的三件账务**：
+1. **190 行「裸文件名落点」补成完整相对路径**（`RuleCore.cs:1234` → `RuleEngine/Core/RuleCore.cs:1234`；歧义 4 个 basename 未动）。
+2. `VarsDesktop/VarsMobile` 五个值逐字段复核 → 写进 `资料/VarsGlobal_原版数值.md`，推翻「取不到 ⇒ 只能自定」。
+3. `泛型与启动链_补读:39/42` · `商店:23/54/293/314` 六条裁定落账（见 §13·10）。
+
+**现读**：**A 3,883 / B 1,107 / C 649 / D 3,140** ⇒ **(A+D)/总 80.0%**（会话起点 78.1%）· **真复刻率 68.9%**（起点 66.0%）。落点闸：通过 3,8xx · 漂移 52 · 失败 11。
+
+### 13·13 第三波：`.cs` 攻坚波（2026-10-27 夜）· 战果与裁定
+
+**用户口径（当日）**：① 战场线**以后再做**，重心=**战斗逻辑驱动**（已跑完的重建/diff 收工，⛔ 不再派战场代理）② 允许**多派写手**，只要不影响战斗引擎。
+
+**已回并合并的执行代理**
+
+| 代理 | 战果 | 合并 |
+|---|---|---|
+| `A1` `EffectResolver` 四动词 | `exchange`/`copycemetery`/`stealhand`/`stealdeck` **全部落地**（+546 行，类尾追加）；临时探针实测行为正确；**纠正判据件一处**：G03「复制品进场」错，`.c` 里送墓的是刚造那张 ⇒ **复制品进墓地、不进场** | ✅ 6 行 C→A |
+| `A2` B04 上下文/玩家状态 | 6 A / 2 B / 2 C；新建 `BattleContextPlayedThisTurn.cs`（partial、零写点、从 `PlayedCards` 现算） | ✅ 11 行 |
+| `A3` `RuleCore` 四件 | **仍在跑** | — |
+| `A4` `BattleDriver` 八件 | 多目标逐目标播放（**并修了一个会「一次技能响 N 遍」的结构坑**）· 拖卡准星 · ESC 开聊天（15 档掩码 `0x402C`）· 回放键位（`A/←` 重播、`D/→` `timeScale=15`、`Space` 自动播放）· **白名单只剩 `AM72`** · `targetingTextReferenceId` 落地（**选目标 tooltip 不再一律不弹**）· 收局摧场 · 结转能量桥 | ✅ 6 行 |
+| `A5` `BattleScene` 断言 | 池 1,128→1,129、v34→v35、hash 复算、D4 另三处整池计数、白名单连带 3 处断言、`TL24` 换 `GOF48` | 代码侧 |
+| `A6` B03 动作泵/AI | `IsRightContext` **fail-open → 原版 fail-closed**；`play check` rc=0、零行数变化 | ✅ 8 行（4 C→A） |
+| `A7` B08 战斗表现 | 5 行落代码（临界张数让位量按曲线、`UpdateFigures` 原子总入口、异画督军立绘、新卡角标）+ 5 行建议升 A；12 行逐条写清残留在哪批 | ✅ 23 行 |
+| `R25` 引擎 B 收尾 | **主战场 B 清零到最后 22 条**（A4/B17/C0/D1） | ✅ 22 行 |
+| `C1` B09 活动基类 | 新建 `PlayEvent.cs`(802) + `FastModeBaseEvent.cs`(596)，A40/B37；`LiveOpsEvent.cs` 零行号漂移 | ✅ 77 行 |
+| `C2` B10 事件种类 | 新建 11 个文件、58 行；**修掉 `ScoringEvent.cs` 的 CS1529（它挡住了全仓类型检查）** | ✅ 58 行 |
+| `C4` B26 背包层 | 37/37 A；**修了 8 处真缺陷**（`UpdateItemCollection` 原来是空方法、漏 `set.OnUpdate +=` 订阅、数量 0 会飞 1 个、`""` 抹掉实例 id…） | ✅ 34 行 + 3 行直改 |
+| `C5` B28 聊天面板 | 18/18 落地（含聊天行点击队列 `QHit`/`QHit+1` 的优先级、6 条模板 + DeckShare） | ✅ 18 行 |
+| `C6` B15 通行证窗 | 51/51（`ExpansionPassEvent.cs` 568 行 + 窗改 807 行）；**零行号漂移**（12 个落点逐个 awk 复验） | ✅ 51 行 |
+
+**我这一波做的裁定**
+1. **`ScoringEvent.cs` × `ExpansionPassEvent.cs` 重复定义**（`ScoringDataInfo`/`ScoringMilestoneState`）⇒ 判 **C2 持有定义、C6 删自己那份改继承**（原版 `Everguild.LiveOps.ScoringMilestone` 是 LiveOps 共享类型）。已双向发指令，C6 已执行。
+2. **白名单摘了但根因没做**：`FaceTextFull` 仍按 `<卡 id>` 取键 ⇒ 5 张卡印旧正文。**已派 `A8`**（`CardDef` 属性 + `CardDatabase` DTO + 三语言分支），⛔ 不加「ref 缺键退回自己 id」。
+3. **C4 的 4 个决策**：`CardInventory.CollectionUpdated` **不加生产者**（原版就没有，靠 `ToFocus` 重灌）· `Inventory<ICurrency>` 注册留给 `DailyData.Wallet` · `CurrencyExtensions` 按**新批次表**建（推翻 10-25 的「暂不建」）· 重复账行按「一行一个 owner」处理。
+4. **3 条 record 行**（`BoosterPackBadge`/`OfferBadge`/`ChallengeMatch`，方法列是全角括号注记）**merge 工具不认** ⇒ 我在主表直接改（判 A，落点=record 声明），并把这 3 行从补丁里剔掉。
+5. **B10 新建的 11 个文件已补进 `C档施工批次表.tsv` 的独占清单**（原清单没列全，下批会重复建）。
+
+**现读**：全域 **86.1%** 定案率 · **真复刻率 77.9%** · 待办 **1,218**；主战场待 A3 回流。
+
+### 13·14 收尾（2026-10-27 23:0x）· 全部基线绿
+
+**用户口径**：「当前任务结束，你就可以进行自检，以及你认为必要的任务。这样新会话就可以直接开始工作了。」
+
+**收尾做了什么**
+1. **全仓类型检查修到 `0 / 0`** —— 根因 = `C5` 重写 `SocialData.ChatMessage` 时删掉了 `Channel` 字段，而 `ChatTab.cs:156/176` 与 `MainMenuRuntime.cs:3700` 在读 ⇒ 运行时程序集挂 ⇒ 编辑器侧级联 478 条「找不到类型」。补回字段（带订正说明）。
+2. **落点闸 `--all-A --fix` 三轮**：通过 3,811 → **4,389**；漂移 617 → **64**（剩下全是「同名歧义」，`--fix` 按设计不碰）；失败 **25 → 0**（`F2` 逐条改指法，一条没降级）。
+3. **`play` 基线重钉**：`PinnedPlayMd5` → `03b6591f93dd9bf6f8649624553d6666`；`play check` / `check` 双 rc=0。
+4. **14 条 Unity 自检全绿**：`RuleEngineTest` **9,441 / 0** · `MainMenuScene` **5,039 / 0** · `BattleScene` 5,637/0 · `ShellScene` 2,102/0 · 其余 10 条退出码 0。
+5. `F3` 把 5 条红全判为「断言过期、零实现改动」；其中 `MainMenuScene` 那条**诊断出是 `C5` 改对了**（原版 `FriendUIElementWarpveforge.Initialize` 两颗 sprite 都建、只切 active），断言改得**更严**。
+
+**下一会话开局四条硬判据（必须全绿才算基线好）**
+`typecheck 0/0` · `ruleprobe check rc=0` · `ruleprobe play check rc=0`（`03b6591f…`）· `check_ledger_points --all-A` **失败 0**。
+
+**`F3` 指出未做**：`ApplyStatus` 的在线两支（status 2 Away / 3 Connected）**没有任何断言** —— 把在线判定写坏，离线断言照样绿。建议补。
+
+---
+
+## 十四、第八十八会话（2026-10-27 晚）· 用户三条口径 + 波 1（13 路）
+
+### 14·1 用户口径（当日，三条）
+
+> 原话：「按照你的建议执行，不必停下向我汇报（除非我中途向你询问），请你持续完成任务。
+> ② 修改一下项目准则：子代理可以有 13 个，因为可以多派一些子代理去核查信息，必要时可以补发消息让他们根据查到的信息进行编辑复刻工作。
+> ③ 其他快完成的任务线，需要你尽快把它们完成。但是你主要还是继续推进战斗逻辑这一部分。」
+
+⇒ 落实：
+1. **滚动推进、不设「一批一同步点」**（沿用 `CLAUDE.md` §16·8）。
+2. **并发上限 10 → 13**（= 9 执行 + 4 查判据），并新增「**查判据代理可经 `SendMessage` 转岗做复刻**」三条前提
+   （文件所有权表先更新 / 补发指令自带验收标准与账补丁格式 / 产出照执行代理规矩交）。落点 = `CLAUDE.md` §13·7。
+3. **火力分配**：主战场 `战斗逻辑驱动` 优先（E1～E6 六路）；其余**快收尾**的线（教程 / 轮抽 / 锻造 / 收藏 / 卡组编辑 / 联机 / 音频 / 卡面 / 社交）各派一路。
+
+### 14·2 开局四条硬判据（调度台实测，非照抄交接）
+
+| 判据 | 读数 |
+|---|---|
+| `typecheck` | **运行时 0 / 编辑器 0** |
+| `ruleprobe check` | **rc=0** |
+| `ruleprobe play check` | **rc=0**（基线 `03b6591f93dd9bf6f8649624553d6666` 未被改） |
+| `check_ledger_points --all-A` | **A 4,453 · 通过 4,389（告警 200）· 漂移 64 · 失败 0** |
+
+另：工作树干净（0 个未提交）· `账/_parts/` 顶层**无待合并补丁** ⇒ 上一会话同步点是真收干净了。
+⚠️ 与交接 §一 的轻微差异（交接写「通过 4,365」）＝ 交接写于 `--fix` 第三轮之前，**不视为缺陷**。
+
+### 14·3 波 1 派活表 + 文件所有权（**下一波派活前先看这张表**）
+
+> 硬约束：**一个文件同一时刻只有一个写手**。下表是 2026-10-27 晚波 1 的所有权快照。
+
+| 代理 | 角色 | 独占文件（白名单） | 账域 / 目标 |
+|---|---|---|---|
+| `E1` | 执行 | `RuleEngine/Core/RuleCore.cs` | 战斗逻辑驱动 B01（约 20 条 C） |
+| `E2` | 执行 | `RuleEngine/Core/EffectResolver.cs` | 战斗逻辑驱动 B02（约 26 条 C） |
+| `E3` | 执行 | `ActionPump.cs` · `SimpleAI.cs` · `Editor/RuleEngineTest_Engine*.cs` | B03（8 条 C）+ AI ④ 档 + `IsRightContext` 断言 |
+| `E4` | 执行 | `CardDef.cs` · `UnitState.cs` · `Aura.cs` · `CardDatabase.cs` | B05（15 条 C）+ **「costs 1 less」的 CardDef 侧**（先做） |
+| `E5` | 执行 | `Battle/BattleDriver.cs` | **`PlayAsks` 一行接线（先做）** + B07(36) + HUD(18) + 战斗逻辑(5) + 特效(9) |
+| `E6` | 执行 | `Battle/CardDisplayWindow.cs` · `Hand/HandLayout.cs` · `Core/CardView.cs` | B08（23 条 C）+ 特效(2) |
+| `E7` | 执行 | `Shell/MenuTutorialFlow.cs` · `TutorialModePopup.cs` · `TutorialPointerUi.cs` · `TutorialOverlay.cs` · `DraftModeWindow.cs` · `BoosterPackOpenWindow.cs` · `ForgeData.cs` | **教程(9) + 轮抽(7) + 锻造(7) 清零** |
+| `E8` | 执行 | `Shell/ItemDrawer.cs` · `RuleEngine/Core/DeckRules.cs` · `Deck/*` · `Net/NetMatchmaking.cs` · `Net/NetSession.cs` · `Shell/WarpforgeAudio.cs` · `Shell/ChatPopupPanel.cs` · `Core/CardArt.cs` · `Core/CardImageController.cs` | **收藏(3) + 卡组编辑(3) + 联机(3) + 音频(3) + 卡面(1) 清零** |
+| `E9` | 执行 | `Shell/AllianceSearchTab.cs` · `AllianceMemberTab.cs` · `AlliancePanelWindow.cs` · `LeaderboardRow.cs` · `SocialData.cs` | 社交_聊天 C（约 24 条） |
+| `J1` | 查判据 | —（只写报告） | 裁两条悬案：`addedManaSecond` 值 · 四格 bool（`0x242/0x243`）是否复位 |
+| `J2` | 查判据 | —（只写判据表） | **353 条「无落点」C 里 P0/P1 的全部判据**（喂波 2） |
+| `J3` | 查判据 | —（只写判据表） | 活动线 9 批「判据部分」+ `LocalLiveOpsHandler.SelectInTable` 的 `GetState` 六档 |
+| `J4` | 查判据 | —（只写判据表） | `ApplyStatus` 在线两支断言清单 + `LiveOpsPopupPresenter.Open` 装配链 |
+
+### 14·4 波 1 期间**冻结**的文件（下一波派活必须避让，直至本波收口）
+
+`RuleCore.cs` · `EffectResolver.cs` · `ActionPump.cs` · `SimpleAI.cs` · `CardDef.cs` · `UnitState.cs` · `Aura.cs` ·
+`BattleDriver.cs` · `CardDisplayWindow.cs` · `HandLayout.cs` · `CardView.cs` · `RuleEngineTest_Engine*.cs` ·
+`MenuTutorialFlow.cs` / `Tutorial*` · `DraftModeWindow.cs` · `BoosterPackOpenWindow.cs` · `ForgeData.cs` ·
+`ItemDrawer.cs` · `DeckRules.cs` · `Net/NetMatchmaking.cs` · `Net/NetSession.cs` · `WarpforgeAudio.cs` · `ChatPopupPanel.cs` ·
+`Alliance*.cs` · `LeaderboardRow.cs` · `SocialData.cs`。
+
+### 14·5 本波**明确不做**的三件（下一波统一做，⛔ 波 1 任何代理都不许顺手改）
+
+1. **`AddCardAnim` 的四道 priority 是「插队」语义**（消费序 `p2→p1→p3→p0`），我们是纯 FIFO。
+2. **`CanContinueAnim` 应是 1 条共用闸**（含 `activeSelf`，原版 11 个协程用；我们 0 个声明、**78 处**各写 `ViewAt==null` 且不判 `activeSelf`）。
+3. **朝向的「旋转」整条没做**（瞄准/拖卡只做了位移）。
+
+> 理由：这三件都**跨多个文件**（`BattleDriver` + `CardDisplayWindow` + 表现层其它），必须等波 1 的两个写手都交回、由调度台按「新建共用件 + 各自接线」的方式派，否则一定撞车。
+
+### 14·6 顺手发现（调度台，待用户点头才动）
+
+`Unity/资料/完全复刻/` 目录下躺着 **13 个 0 字节垃圾文件**（名字像被 shell 拆碎的句子：`**产出**：F` · `⛔` · `2026-10-27` · `判据代理` · `执行代理` 等），另有一个误建的 `Unity/` 子目录。
+形态像某次重定向写坏（`cmd > 文件` 被拆词）。**删文件要用户点头**，先记账。⛔ 别在没确认前 `rm`。
+
+### 14·7 波 1 回执（滚动记账 · 截至 3 路交回）
+
+**`E5`（`BattleDriver.cs`）**
+- ✅ **`PlayAsks` 少的那一行落地**（`BattleDriver.cs:10974`，原地改写、行数不变）：`RuleCore.PlayerChooseOps(card)` → `PlayerChooseOps(Ctx, _me, card)`，再过 `NeedsToChooseFromPool(Ctx,_me,card,null)` 原版闸；判否返回空表 + `Ctx.Log` 出声。⛔ 未碰 `AbilityAsks`（`UM97` 的 ask 在誓约正文里会被误吞）。
+- 账 **8 条**（4 条真改：`ToggleCurrentMana` 伏击态能量印 `?/{total}` / `CanShowCemetery` 补 `duringBattleFlag(+0x25c)` 等价物 / `battleStartMillis` 同刻取 UTC 毫秒 / `DOTween.Init + SetTweensCapacity(200,10)` 幂等；4 条复核确认早已在盘上）。
+- **35 条仍 C**，四类：原版死码（三源 0 调用点）×3 · 判据在别人文件 ×11 · 简报划给下一波（旋转/AddCardAnim/CanContinueAnim）· 数据/素材/时序缺 ×13。
+- 顺手发现：① `战斗界面_HUD:759` 在账里**两行同 (类,方法)**（一行 D 落点「—」+ 一行 C 落点 `PlayTraitPulse`）⇒ **合并脚本会拒，调度台必须手工去重**；② HUD:731「Assets 全树 0 处写 `Time.timeScale`」已过期；③ `日常_奖励` 的 `Initialize()`/`CheckHealth()`/`Update()` 是**同一个机制**，别当三条重复施工；④ HUD:725 ⑦ 的等价物是 `_replayPaused`（**反向**语义），按 `0x521` 找字段永远找不到。
+- ➡️ **转岗派第二批**：朝向「旋转」整条（`R14`，761/767/776 + 762/768 合成一条）+ **新建 `Battle/AnimGate.cs`** 作 `CanContinueAnim` 共用闸（只接 `BattleDriver`，其余三文件出「逐文件待接清单」）+ `AddCardAnim` 四道 priority（先判排期口在谁的文件）。
+
+**`E6`（卡展示 / 手牌 / 卡感）**
+- 白名单内**实际只剩 5 条 C**：1 升 A + 4 条保持 C 带反证。
+- 升 A：`CardView.ApplyAmbush()`（声明 `:7212`、改点 `:7236-7237`）—— 伏击且非我方时**同时藏数值与护甲格/盾**，判据 `decomp_full/CardScript__UpdateHealthText.c:127-140`（`armourCounters(+0xc0).Toggle(false)` + `armourFrame(+0x150).SetActive(false)`）。池内 12 张可达。
+- 4 条反证里 **2 条落在 `UnitState.TempBuff` 缺字段**（`+0x90/+0x91` 可见性掩码 · `+0x38 buffType` 分派 + `+0x40` 追数值 · `+0x20 effectName`；成员表 = `UnitState.cs:1637-1671`）⇒ **已转 E4**。
+- 行数守恒 **15,177 → 15,177**，纯 LF、裸 CR 0。
+- ➡️ **转岗派第二批**：`EnableEffects` 空文本占槽（**授权同时改 `Editor/BattleScene.cs:9719-9726` 那条断言**，实现与断言须同刻改）+ **`个人资料_成就_排行` 整线 33 条 C**。
+
+**`J2`（无落点 C 普查）**
+- 产出 `判据/B88_无落点C_判据总表.tsv`（**141 行 / 9 列**，141/141 都有出处）+ `报告/B88_J2_无落点C普查.md`。
+- **全账「无落点 C」现读 434**（交接与我的简报都写的 353 —— **已漂移**）；其中 P0/P1 = **109**（P0×1 / P1×108）；另补 4 个优先域的 32 条 P2。
+- 判定：**该做 136 / 不适用 5 / 查不到 0**。5 条不适用**没有一条是「影响小」**：`GameStaticData` 三条（`CardEffect` 类型本工程不存在、等价物已在）· `Campaign.AddPoints`（用户 2026-09-17 边界②不做真实经济）· `RemoveVoiceLinesControllerListeners`（我们无 voice popup 订阅链）。
+- 建议：`242/243/248` **应改判 A**（不是新工作，否则会被反复派单）；`ChallengeManager` 12 条是**一整块（W5）别拆**；「prefab UnityEvent 接线」类建议批量归「机制等价」而非逐条记 C。
+- ➡️ **转岗派第二批**：`PrebuiltDecks`(6) + `CardDetailPopup`(4) + `ParentEventWindow`(4) + 单行落点 6 个。
+
+### 14·8 本会话的调度教训（写下来别再犯）
+
+🔴 **派活前必须用 `ledger_slice` 现读行数，⛔ 别抄交接里的「约 N 条」**。
+我给 `E6` 的简报写「B08 约 23 条」，实际那是**第八十七会话 `A7` 已合并**的旧数字 —— 现读该落点族（`CardDisplayWindow/HandLayout/CardView/CardFeel/CardInteraction`）是 **A 64 / D 6 / B 8 / C 0**。E6 自己重扫才发现只剩 5 条。
+⇒ **与「数字现读」同族**：交接里的条数是**快照**，派活必须**现读**（`ledger_slice.py --file/--domain --status C`）。
+⚠️ 同族已记录过的：`check_ledger_points --fix` 第一遍输出是**修前快照**；`ledger_progress.py` 的域表与 `check_ledger_points` 的 A 计数**口径不同**（4,336 vs 4,453）。
+
+### 14·9 波 1 回执（续 · 再 3 路）
+
+**`E2`（`EffectResolver.cs`）**：23 条 C → **13 升 A / 10 留 C 带反证**（`typecheck 0/0`）。
+- 主文件**只改 5 处**（`diff 8+/7−`，**净 +1 行**）；新建 `EffectResolverPartial_B88E2.cs`（337 行，同一个 `partial class RuleCore`）装 7 个新口。
+- 升 A 里两条值得记：`ChangeBaseAttack`（倒序摘非 extrinsic 近战增益 + 写 base）· `ChangeMaxHealth`（清零非 extrinsic 生命项 + 写 base + **只向下夹**）· `ForceChangeMaxHealth`（三格同写）。
+- 10 条留 C 的阻塞点**全在白名单外**：`EffectText.cs`(77) · `RuleCore`+`CardDef`(172) · `ActionPump`(521) · `UnitState`/`PlayerState` 缺「移出游戏」状态(637) · `RuleCore.BroadcastTurnStarted`(644) · `CardInstance`/`Enchantment`(690) · `BattleDriver.PlayAsks`(808) · `createAtPos` 无格子(1122) · `Enchantment.cs` 缺通用 0/500 派发层(1287) · 特效521。
+- 顺手发现：① `HuntMark`/`Markerlight` 两族的原版广播同样没有 `IsInPlay`，今天仍被待死闸挡着（**建议单列新账**）；② **`Enchantments.OnCarrierPlayed` 是 DA42 专用硬编码、长得像通用派发** ⇒ 1287 容易被误判「已做」；③ `TryApplyAmountRef` 只认 3 个来源，另 6 档 `ChooseValueOptions` 靠解析期写死、**误差面无任何文档**。
+- ➡️ 第二批：先关 **808**（`PlayAsks` 三参 E5 已落地）· `1287` 通用派发层（授权扩 `Enchantment.cs`）· `77` 解析层（授权 `EffectText.cs`，改完必跑 `ruleprobe check`）· `690`；`1122` 只写「要补哪个 DTO 字段」。
+- ⚠️ **合并顺序**：跨补丁重复键 3 条（`BroadcastCardDrawn` E1/E2 都 A · `BroadcastCollectFaith` E1/E2 都 A · `BroadcastRemoveFromGame` E2/E4 都 C），状态互容 ⇒ **`B88_E2` 放最后合**（保留它的证据）。
+
+**`E3`（动作泵 / AI）**：`ledger_slice` 现读 1+5 = **6 条 C**（不是简报说的约 8），**0 条能升 A**（残余全在 B01/B02/B05 的地盘）。
+- **真产出 = 两个已知缺口**：① AI 现在枚举**第 ④ 档主动能力**（新建 `SimpleAI.ActiveEntry.cs` 88 行，入门谓词逐条照 `BattleDriver.IsActiveAbilityEntry`，**打分一行没动**）；② `IsRightContext` fail-closed 断言 3 档（`999`/`7`/`-2`⇒false、`-1`⇒true）+ ④ 档枚举断言 3 档（**共 181 行断言，一条都还没跑过**，唯一判据 = `RuleEngineTest.Run`）。
+- `SimpleAI.cs` **2228 → 2228 行零漂移**（`class`→`partial` 1→1）⇒ 账里 41 处 `SimpleAI.cs:行` 不用重定位。
+- ⚠️ **`ruleprobe play check` rc=1**（指纹 `1ada22c2…` ≠ 基线 `03b6591f…`）：E3 归因为**本波 5 路同时改引擎**（它的 `EnumerateActions` 在 `PlayProbe` 里 0 调用点），**未重钉** ⇒ **调度台在「无 `.cs` 写手」窗口统一复核**。
+- ⚠️ **唯一白名单例外**：`工具/ruleprobe/ruleprobe.csproj` 加了 **1 行** `<Compile Include>`（不加则该工程 `CS0103`、全组读数口一起坏）。**长期建议**：改成 `Data/*.cs` 通配。
+- 顺手发现：`ai actions` 夹具把被测卡放**手牌** ⇒ 任何「只有上场单位才产」的候选**结构上不可观测** ⇒ 需给 `AiProbe` 加 `ai board <卡>` 档（**已派 E3 自己做**）。
+- ➡️ 第二批：`ai board` 探针 + 用它实测 ④ 档「真会挑、真结算」+ **B22 挑战引擎批次**（`ChallengeEngine.cs` / `ChallengeData.cs`）。
+
+**`J4`（`ApplyStatus` + `LiveOpsPopupPresenter.Open`）**
+- **`status` 共 4 档**（`ChatPlayerStatus.cs:1-6`，声明序即值）：`0 Default` / `1 Disconnected` = 离线图 active、**颜色不变**；`2 Away` = 在线图 active + `awayColor(0.996,0.596,0.118,1)`；`3 Connected` = 在线图 active + `connectedColor(0.309,0.642,0.257,1)`。
+  **原版只给在线图染色**，离线图恒为 prefab 出厂色；**四档都不碰三颗按钮**。⚠️ **ILSpy 的 `Initialize` 是坏的**（会把 Away 读成离线支）⇒ 只能看 `.c`。
+- **`Open` 缺【两处】调用点**：A. `LiveOpsPopupPresenter.Open` 生产 **0 赋值**（只有自检）；B. 上游 `LiveOpsLocalHandler.LoadFromCatalog`（`LiveOpsHandler.cs:897`）**0 调用者** ⇒ events 空 ⇒ 排 0 条。**只补一处开不出窗。**
+- 🔴 **旧结论被推翻**：`EventComponents` 的 **GUID→prefab 本地可解** —— `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container` 给 GUID→pathID，再反查 GameObject 根名（e4c251→Base Event Popup · 44c1eb→Full Screen Event Announcement Variant · be526b→Base Expiration Popup）。**label 20/21 是 key 不是 prefab id。**
+
+#### 14·9·1 🔴 调度台裁定（`ScheduleEventPopups` 日期问题）
+
+> J4 提问：`ScheduleEventPopups` 的触发支**不看日期**，而我们把 13 份（含过期）全装 ⇒ 接上后会首启排 5 条触发弹窗（含 `enabled=0` 的 Dark Zealots），与用户边界「过期活动不做」冲突。
+
+**裁定：日期过滤放在【数据装载口】，⛔ 不许改 `ScheduleEventPopups` 的判定支。**
+- 理由：原版**由服务端下发「当前有效」的活动集合**，客户端本来就不该自己过滤 ⇒ 「不看日期」在客户端是**照抄对**的。
+  我们的替代物错在**数据侧**：把 13 份（含过期）全装 = 模拟了一个**从不做过滤的服务端**。
+- 做法：`LoadFromCatalog` 只保留**未过期**的（`GetState` < `Expired`，**`Finished` 仍保留** —— 完成弹窗是原版行为），规则逐条写清并打 `// 🔶 自己设计（非原版）：… · 调度台 2026-10-27 裁定`。
+- ⛔ **`enabled=0` 不单独当过滤依据** —— 要先判清原版 `enabled` 语义（服务端是否下发 vs 客户端是否显示）再决定放哪侧；判不清就写「还没查清」。
+
+### 14·10 波 1 回执（续 · E1 / J1）
+
+**`E1`（`RuleCore.cs`）**：24 条 C → **A 10 · B 4 · C 9 · D 1**（每条的反证/移交对象都写死在账里）。
+- 改法：`RuleCore.cs` **8 处就地编辑、净行数 0（15,587→15,587）**；新成员全进**新建** `RuleCorePartial_B88E1.cs` ⇒ 账里 41 处 `RuleCore.cs:行` 一处都不用重定位。
+- 真修的点：督军 summon trait(`:645`) · `turn_setup` 钩子(`:1965`) · pack `Count-1`(`:5034`) · 摘 tainted(`:6641`) · **去掉「自打自己」那道闸**(`:6999`) · **被攻击即翻开伏击**(`:7006`) · 灵魂石预调(`:12403-12404`) · 主动能力分派(`:15397/:15466`)。
+- **D 1 条**：`ResolveTransient` = 原版死代码（`.c` 0 调用者 / ILSpy 0 / **二进制 `E8 rel32` 全 `.text` 扫描 0 命中** / 池内 0）。
+- 9 条 C 的移交对象：E5 ×1 · E2 ×5 · E2+E4 ×3 · BattleContext 写权 ×1。
+- 顺手发现（**都未自行改**）：① **`trigger 250`（trap drawn）未实现**（`CardScript__CardDrawn.c:23` → `OnTrapDrawn` → `OnTrigger(0xfa=250)`）⇒ 新账；② **「按 `script.json` Address 做全 `.text` 调用点扫描」应做成常驻工具**（可批量把「死代码 D」判掉）；③ 同一段逻辑在 `decomp_full` 有**两份产物**（`.c` 体 + ILSpy 内联体）⇒ 只看 `.c` 会漏外层闸；④ `BattleManager.BroadcastUnitDamaged`（非 Support 版）与 `BattleManagerSupport` 版同族缺口；⑤ `ResolveBloodThirstAnim` 的缺口在 `BattleDriver.cs:24630`（`DOScale` 单次 vs 原版 `DOFade×6 Yoyo`）⇒ 归 E5/特效域。
+- ➡️ 第二批：**把一次性脚本做成常驻只读工具 `工具/deadcode_xref.py`**（含 `--selftest`，用「已知死」`ResolveTransient` 与「已知活」`DrawCardFromDeck` 自证）+ **全池死代码普查** → `判据/B88_死代码普查.tsv`（阈值三条全中才判「候选 D」，⛔ 不许凑）。
+
+**`J1`（两条悬案）**
+
+#### 14·10·1 悬案 1 `addedManaSecond` —— **两份文件都错**
+- `GameplayVariables.cs:236`「两模式都 0」**错**（把「服务端取不到」写成「值 = 0」）；`BattleDriver.cs:2887` **方向对**。
+- 硬判据：`0 < addedManaSecond` 是「能量累积」整组 UI 的**唯一显隐闸**（`BattleManager__SetupBoardPhase.c:179-181/194-196` → `PlayerManager__SetAccumulationMana` → `ManaManager__SetAccumulationMana.c`）；而散战文案「accumulate 1 unused point」+ 教程 tip「累积 1 点能量」都明写这机制 ⇒ 若恒 0，那组 UI 在正式版里**永不显示**（= 死代码）。
+- 读点全库只有 2 处：HUD 闸 + `BattleManager._NextTurn_d__395__MoveNext.c:306-334`（`turnCounter==1` ⇒ 给后手 `SetSavedMana(addedManaSecond)`，**只加当前能量、不动上限**）。
+- 🔴 **调度台裁定**：散战取 **1**、教程补 **`addedManaSecond=1` + `manaAccumulation=1`**；⛔ **不动 `startingManaSecond`**（会动整条 MaxEnergy 曲线 + 撞 `EngineClosedDeckAssert:90`）。因服务端真值取不到，这是**推断落地** ⇒ 必须打 `🔶 自己设计` 并写明「将来拿到散战实拍/服务端值以那个为准（看后手首回合 3/3 还是 4/4）」。账 **585 维持 B**。
+
+#### 14·10·2 悬案 2 四格 bool —— **确实复位，已证实**
+- `BattleManager._NextTurn_d__395__MoveNext.c:174`：`*(undefined4 *)(bm + 0x240) = 0;` —— **一条 4 字节零写清掉 `0x240/0x241/0x242/0x243` 四格**，紧挨 `turnCounter++`。
+- 上一轮判成「无写回 0」的根因 = **相邻 bool 的清零被编译器合并成宽 store** ⇒ 按单偏移 grep `0x242/0x243` **必漏**；且 ILSpy 树里**根本没有这一行**。
+- 🔴 **裁定**：账 **195 维持 A**，「差异」列那句「随回合清零未被证实」**就地订正**为「已证实：宽写 `+0x240` 清 4 格」；`🔶` 只剩「表示法（现算 vs 存格）」。附带：这两个方法原版**全树 0 调用者** ⇒ 可观察后果为零。
+- ➡️ 这条坑已写进 `资料/工作准则_操作经验.md`（两条：宽 store 清零 · 两份产物）。
+
+**J1 顺手发现**：官方文案被误引 `P1 3 Energy P2 4 Energy`，原文是 `P2 at **3+1** Energy`，**抄在 9 处**（`GameplayVariables` ×3 / `RuleCore:1749` / `RuleEngineTest` ×3 / `BattleScene:17898` / `EngineClosedDeckAssert:90`）；其中 `:90` 还把**推断值** `startingManaSecond==2` 钉成了断言（**自证风险**）；`addedManaSecond` 那格缺 `🔶` 标记；教程局缺累积两格（新账）。
+
+### 14·11 波 1 回执（续 · E4 / E9 / E6b）
+
+**`E4`（CardDef / 状态 / 光环）**：7 条 C 落地（战斗逻辑驱动 5 + 特效动画 2），`typecheck 0/0`、`ruleprobe check rc=0`（解析差异 0 行）。
+- 🔑 **「costs 1 less for each X」的 CardDef 侧完成**：新类型 `CardDef.CostPerKeyword`，入口 **`CardDef.CostPerKeywords`**（`IReadOnlyList`），每条含 `Delta`（**负数**）/`Keyword`/`Side`/`TroopsOnly`/`Body` + **`Count(ctx,owner)`**（按 `KwValue` 求和）。数据来源 = 卡面自解析；**池内命中只有 `BL52`（darkpact/own/units）与 `SW58`（huntmark/enemy/troops）**；`GSC37`/`ASH85` 不收（不重复降费）。落在新建 `Core/CardDefCostPerKeyword.cs`（partial，**零行号漂移**）。
+  ⇒ **接法已转 E1**：在 `RuleCore.CostOf` 的 **`CostMods.Count==0` 早退之前**逐条 `v += r.Delta * r.Count(ctx,owner)`（现在手牌价不减正是因为唯一消费点在付费之后）。
+- 其余落地：`Auras.RemoveExtrinsicBySource`（只摘不重挂，⛔ 非 `Recompose` 替身）· `UnitState.RemovedFromGame`（cardState 11 状态位）· `CardDef.ActiveAbilityTrait` + `ActiveAbilityTraitForFaction`（六档）· **`TempBuff` 扩档**（`BuffType`/`TraitValue`/`EffectName`/`SecretBuff`/`QuestBuff`/`DisplaySourceName`，落 `UnitStateEffectDisplay.cs`）· `UnitState.IsEffectListEntry(buffType,hasQuests)`。
+- 改动：`Aura.cs` 1019→1064 · `UnitState.cs` 3190→3216 · `CardDef.cs` **净零** · 两个新文件。全 LF、裸 CR 0。
+- 顺手发现：① **`UnitState.ActiveAbilitySuppressed` 是死格**（`RuleCore.CanStartActiveAbility:15304` 只读 `HasActiveAbility`），且账 **783** 同理，而 `CardDef` 是**共享不可变、写它污染全池** ⇒ 783 需在 `UnitState` 加实例 override + `RuleCore` 读；② **`EffectText.ClassifyCount` 的 board 档丢关键词**（`Hunt Mark on enemy troops` → countRef=enemy|troop|all，**Hunt Mark 丢失**）⇒ ⛔ 别拿 `CountFor` 数 huntmark；③ `ruleprobe.csproj` 的 `Data/` 是**显式列表**（只有 `Core/*.cs` 通配）⇒ 新增 `Data/` partial 必须手加进 csproj。
+- ➡️ 第二批：**`战斗逻辑驱动` 的无落点 C 整链**（`transformUnit` / `ref card` / `createAtPos` 这类，一条链一个交付件）。
+
+**`E9`（社交 / 聊天）**：**C 24 → 0**（A 12 · B 10 · D 2）。落地 12 条（邀请行 `Interactable` 闸 · 公开行隐私闸 + 钮文案 · 成员行 `IsPlayer` 换色 · 页签记忆 · 排行榜行无条件建节点 · 联盟战斗面板出场动画 · 邀请列空表整颗关 …）。
+- **D 2 条**：`Inbox.RefreshHandler` / `ValidateData`（入参 `LiveopsHandlerData` 只能服务端下发，替代物 `InboxData` 常量表已在 N17 落地）。
+- 剩 10 条 B 的卡点全在白名单外（`AllianceMemberOptionsPopup` / `WindowsManager` / `BattleDriver` / `InboxWindow` / `Editor/MainMenuScene.cs`）+ **徽章族同一判据缺口：`AllianceBadge` SO 本地 0 份、无 id→图映射**。
+- ⚠️ 它在 `SocialData.cs` 加了字段行 ⇒ 主表 **10 条 `SocialData.cs:<行>` 锚点会漂**（47/62/74/100/102/200/213/235/257/314），另四个文件的旧锚点同样漂 ⇒ 同步点 `--fix` 处理。
+- ➡️ 第二批：**`菜单_外壳` 线**（84.9%，剩 73）。
+
+**`E6b`（EnableEffects + 个人资料线）**：做到 **8/33 主动停手交接**（上下文高，已换新代理 E10 接手）。
+- **`特效动画:198` C → B**：① 「空文本占一槽」已复刻（判据 `CardEffectsService__EnableCardEffectSlots.c:46-60`：`IsTextEmpty ⇒ Disable()`，**两支都 `cursor += 1`** ⇒ 空洞、后面不往前补）；三处落地，`CardDisplayWindow` **1918→1918 行数守恒**；**断言同刻改**（旧钉我们自己的偏差「印属性名」，新钉 `What == ""`，`BattleScene.cs` 49115→49115 零漂移）。② 判 **D**（`root.SetActive(!IsEnviromentaleffect())` 在本载体**不可达**）。③ `buffType` 过滤要 E4 的 `TempBuff` ⇒ 所以是 B 不是 A。
+- 个人资料 8 条：**排位两窗补关窗入口**（`MenuDraw.ShadeHit(...)`，判据五份 `__OnEnable.c:15-22` 逐字同形）。🔴 **同刻订正既有记录**：两扇窗原注释写「`BackgroundCloseButton.window = 0` ⇒ 点暗底不关窗」**不成立** —— 那只是关掉基类自动关窗，派生窗自己补了监听 ⇒ **点暗底会关窗**。
+- 🔴 **它报告 `CardView.cs` 15177→15177 与本会话记录一致**。
+
+#### 14·11·1 🔴 补丁撞键裁定：`特效动画:195/198`
+
+E4 与 E6/E6b 都写了这两行。**我实读三份补丁后裁定**：
+- `LoadEffect`(195)：`B88_E4` 与 `B88_E6` **内容逐字相同**（都 C、同落点、同差异）⇒ 先后无所谓。
+- `EnableEffects`(198)：**`B88_E4` 是 C（旧快照）、`B88_E6b` 是 B（① 已复刻）** ⇒ **必须 `B88_E6b` 最后合**。
+- E4 自称「我的 195/198 是 E6 内容 + 追加的超集」—— **这句不成立**（它写于 E6b 动手之前）。
+⇒ **合并顺序写死：`--only B88_E4` → `--only B88_E6` → `--only B88_E6b`**。
+⚠️ **教训（与 14·8 同族）**：**「谁的内容是超集」不能听代理自述，必须实读补丁比**。
+
+### 14·12 第二/三批回执（续 · E5b / E8 / J2 / E4b / E3b / J4b）
+
+**`E5b`（朝向旋转 · `AnimGate` · `AddCardAnim`）**
+- **朝向「旋转」落地**（762/768/777 → A）：瞄准期 `TickTargetingLean` 每帧 `Slerp`、起手捕获 `_leanHomeRot`、收手 slerp 回；拖卡倾斜照抄 `.c:69-96`（`rx=(max−min)×clamp01(Δy/reduction+0.5)+min`、`ry` 用 **|Δx|**）。
+  🔑 **就地推翻 R14 一条**：`min/maxCardRotation` **不是**「卡 prefab 里有、本地缺」—— 出自 `CardScript__.ctor.c:41-45`（`20 / −20 / 10`），且 `CardScript.cs:1437-1443` **没有 `[SerializeField]`** ⇒ 预制体不覆盖、**ctor 值即真值**。
+- **`CanContinueAnim` 共用闸已建**：新建 `Battle/AnimGate.cs`（判据 = `CardScript__CanContinueAnim.c` 全 3 句，含 `activeSelf`），`BattleDriver` **8 处动画闸已接**。
+  🔴 **就地订正 R24 的「78 处」**：`BattleDriver` 里 `ViewAt(` 共 **79 个调用**，但「取局部量 + 紧接 `== null` 早退」形状**只有 11 处**（8 已接 + 3 是读数据/读时长，⛔ 不能换）；另有 ~10 处经三目喂给动画；且 **`CardDisplayWindow`/`HandLayout`/`CardView` 根本不使用 `ViewAt`**（那是 `BattleDriver` 私有助手）⇒ 那三个文件**没有同一形状的缺口**。
+- **`AddCardAnim` 四道 lane 骨架落地**（`:19842` `lane` 字段 · `:20681` 并列判据 · `:36334` `AnimLaneRank`（`2→0·1→1→3→2·0→3`）· `:22161` `ScheduleAction(...,lane)`）。⚠️ **现有调用点一律传 0 ⇒ 与改动前逐字等价（零回归）**；仍缺「原版调用点 → priority」映射表。
+
+**`E8`（收藏/卡组编辑/联机/音频/卡面）**：13 条 → **A 4 / C 9**。
+- A：`ItemDrawer.Draw` 数量文字 · `ItemDrawer.GetItemName` 野牌补 `Name` 层 · `GetSerializedData`+`GetSerializedDeckData`（新建 `Deck/DeckSerializedData.cs`）。
+- 🔴 **待我裁的一条（暂缓）**：`ItemDrawer` 数量文字从 `"x"+qty` 改成 `qty.ToString()`。**我抽查发现别的 prefab 里确实有 `x2`×13 / `x14`×9 / `x3`×4** ⇒ 「`Wildcard Drawer` 的 Quantity 是 `2`」不足以证明代码不该加 `x`（可能分档/可能是占位）。**已要求 E8 补证三条**（哪些 prefab 带 x · 原版 `Draw` 那一步到底怎么算 · 若是分档则各档判据）⇒ **`Editor/RewardsScene.cs:9637` 那条 `"x3"` 断言我【先不改】**。
+- 其余 9 条 C 每条写了反证（联机 C81 **试改后完整回退**：放宽闸会打红 `NetSelfTest` M 族；施工单已写进 `NetSession.cs:352` 注释）。
+
+**`J2`（执行段）**：14 行落地（`PrebuiltDecks.cs` 6 · `CardDetailPopup.cs` 4 · `ParentEventWindow.cs` 4）· **4 行改判 A**（242/243/248 + 🆕 `菜单_外壳:612 ScrollViewFocusOnItemCoroutine`）。
+- 🆕 **过期判词**：`MenuScroll.FocusOnAnimated`（`Shell/MenuScroll.cs:407`）已是 `FocusOnItemCoroutine` 的等价物且 `ForgeTab` 在用 ⇒ **C→A，别再派**。
+- 6 个单行候选全部「前置/判据缺」，逐条写了差什么。
+
+**`E4b`（无落点整链）**：16 行里**只 1 条**能整链落在白名单内 —— `1228 RawCardScript.GetExtraAbilityTraits()`（新建 `CardDefExtraTraits.cs`：25 对 `(trigger→trait)` 表 + 六档阵营补 `hasActiveAbility` 那条）。
+- 🔴 **重要**：账 1228 的验收尺子「508 张 / 514 条」**复现不出**（同一套 `.c` 逻辑复算：`cards_engine` 426/432 · `cards_truth` 875/948 · 池∩truth 752/825）⇒ **写断言前必须重算尺子**，⛔ 别拿 508/514 当期望。
+- 其余 15 条的落点全在黑名单，逐条移交。
+
+**`E3b`（读数口 + B22 挑战引擎）**
+- ✅ **`ai board <卡>` 新档建成并实测 `SOR66`**：④ 档候选 **0 → 3 条** · 真分 `3/1/5` · ④ 档最高 5 > 其余最高 3 ⇒ **AI 真会挑** · `ExecuteAction=True`、目标远程 `0→2`、发动者 `Exhausted 假→真`、`Events=4`。
+- 🔴 **顺手修掉一个读数口盲区**：`AiScoringData` 靠 `Resources.Load` 装载，**离屏恒 null** ⇒ 产品那条打分路在探针里**恒 0**（现在显式喂 dto 打真值）。同族：任何依赖它的读数都会「恒 0」。
+- B22：新建 `Shell/ChallengeData.cs`(217) + `ChallengeEngine.cs`(147)（待处理队列 / 五格计数 / 循环补时 / 记数口 / 挑战钮模型），补丁 9 行（8 升 B）。⚠️ **五格计数今天零发射端**（`sync` 需 E1/E2/E5 各加一行回调）· 挑战内容全 `🔶`（`ChallengeList` 本机 0 资产）。
+
+**`J4b`（转岗前那批）**：四件全落地 —— `LiveOpsLocalBoot`（`:1443` `RuntimeInitializeOnLoadMethod(AfterSceneLoad)` 装 resolver + 调 `LoadFromCatalog`）· `:1493` `OpenEventPopup`（GUID→三个变体：e4c251→BaseEvent / 44c1eb→FullScreenAnnouncement / be526b→BaseExpiration；词条取**该事件自己的** Labels，⛔ 不用 `TryResolvePopupLabels`）· `:1472` `ShouldLoadEvent`（滤 `Expired(4)` 与 `NotAvailable(-1)`，**保留 Finished(3)**）· `ApplyStatus` 三通道断言（`:12474` 起，逐条先 Check 前提）· `FriendsTab.cs:392` 出厂色 `(1,1,1,1)`。
+- **`enabled` 语义判清了**：`GetState` 首句 `if (*(char*)(this+0x22)=='\0') return -1;` ⇒ 语义是「**不可激活**」，不是「不显示」；而 `ScheduleEventPopups` 不查 `enabled` ⇒ 放进 events 会让 `Dark Zealots`（enabled=0 且 ShowWindowOnTrigger=1）弹一个原版不会弹的公告 ⇒ **在装载口排除**。⚠️ **服务端是否下发仍未证**（已写进代码注释）。
+- ⚠️ **13 份 SO 今天全 `Expired`** ⇒ 装载 0 个、端到端仍不出窗 —— **这是正确结果不是缺口**；要看窗需假时钟（留真机）。
+
+### 14·13 🔴 我被执行代理推翻了一次（`addedManaSecond`）—— 记下来
+
+J1 **没有照我的裁定办**，它用算术给了反证：
+
+- 后手首回合「实得」= `startingManaSecond + manaPerTurn + addedManaSecond`
+  （判据：`PlayerManager__TurnStart.c:74-84` 每回合按 `manaPerTurn` 加；`_NextTurn_d__395__MoveNext.c:306-334` 把 `addedManaSecond` 记成 saved、`RefillCustomMana` **只加 unused、不动上限**；`SetupInitialMana.c:20-46` 起始值**不含**它）
+- 代入：**现状 `2,+0` ⇒ 4**（＝官方 `3+1`，也＝用户实况「后手首回合上限 4」）；**我裁的 `2,+1` ⇒ 5**（两边都对不上）；文案字面 `1,+1` ⇒ 4 但**上限变 3**（与实况冲突，还要动 `startingManaSecond` + 一串 4/6/8 断言）。
+- ⇒ **我的裁定算错了**：我把「文案说 accumulate 1」直接当成「把 `addedManaSecond` 设成 1」，没代进公式验算。
+- **处置（采纳 J1）**：**Skirmish 保持 0**，二选一方案与反证写进 `GameplayVariables.cs:235` 的 `🔶` 段与报告 §一。教程那格仍落地 ⇒ `SetAccumulationMana` 那条链**不再是死代码**。
+- 📌 **教训**：**裁定数值前必须先代进公式验算**，不能凭「文案这么写」直接翻开关。**执行代理给反证时，以证据为准 —— 谁对听谁的，包括推翻我。**（与「判据与 `.c` 冲突以 `.c` 为准」同族）
+- 仍欠：散战那格的 (a)/(b) 取舍需**一张散战实拍**或**服务端 `gameplayVariables` 真值** ⇒ 挂「等判据」。
+
+### 14·14 `J1` 第二批（商店线）与 `E2b` 回执
+
+**`J1`（商店线，47 条 C）**：**C→A 6 · C→B 17 · 维持 C 24**（每条写依赖链，⛔ 无一条写「影响小」）。
+- 落地：`GameplayVariables.cs`（695→695 零漂移：Tutorial 补 `manaAccumulation=1`+`addedManaSecond=1` 带 `🔶`；旧注释「两个模式都是 0」就地作废；文案订正为 `P2 at 3+1 Energy`）· `EngineClosedDeckAssert.cs`（把**推断值** `startingManaSecond==2` 的自证断言改成**断关系**「P1 首回合 3 · P2 = P1+1」，对 `2,+0` 与 `1,+1` 都成立）· `ShopTabPage.cs` 新增 `PageShowsTimer` + `BuildTimeCounter` 按页 `SetActive(false)`（判据 `ShopTab__SetStore.c:22-40` · `CardShopTab__CheckTimer.c`（9 点）· `ItemShopTab__CheckTimer.c`；原版**没有** `DailyShopTab` 类 ⇒ 对应关系已打 `🔶`）。
+- 维持 C 的 24 条分六类：LiveOps 数据层 6（真值远端、本地全盘搜 0）· 轮播抽屉 4（缺 `ItemDrawer` Draw 口 + `UI_InfiniteScroll` + 输入层，且今日不可达；`DrawRewards` 的 `Where` 谓词语义**仍查不到**）· **VIP 页签 5（真缺口，整页没有）** · 主菜单报价格 1（全仓 0 命中）· 等待弹窗 1（`WaitingPopup` 全仓 0 命中，判据齐）· `FixedDateDailyStoreItem` 1（铁律 11 例外①）。
+- 🔴 **顺手订正**：`商店.tsv` 里「活动线暂停，未复刻」**已过期**（活动线 2026-10-26 开线、抽卡窗 2026-10-19 就建成），本批换掉 23 行 —— **别处同一句要按铁律 5 一起改**。
+- ⚠️ **预期红候选**：`ShopTabPage` 改动让 Daily/Items 的 `TimeCounter` 首次隐藏。我核了 `ShopScene.cs` 那段断言（`:1543-1580`）全是**结构类**（`FindChild` / 矩形 / 文本），**没有断言 `activeSelf`** ⇒ 大概率不红，但同步点跑 `ShopScene.Run` 要确认。
+
+**`E2b`**：808 → **A**（实读 `BattleDriver.cs:10974` 三参、`AbilityAsks` 仍一参 ✅）· 1287 → **A**（新增 `Enchantments.TriggerEnchantment`，判据 `RawCardScript__TriggerEnchantment.c:1-22` 两跳 0/500 + **`.c` 第 8 实参 `isEnchantment=1`（ILSpy 渲染成 `default`）**；⚠️ 数据今天为空 ⇒ 两跳都空时**出声**不静默；原版两个调用点我们都没有 ⇒ 0 调用点休眠）· 690 → **A**（两维在本仓**结构上恒等**，⛔ 没写「影响小」）· 77 仍 C（2/3 档闭合，**读数实证**：`EC47` 从「1 目标 0 点」→「4 目标 3 点（共 12）」；`UM118` 从 3 目标 0 → 各 5）。
+- 🔴 **行数影响（同步点必须 `--fix`）**：`EffectResolver.cs` 累计 **+8** · `EffectText.cs` **+42** · `Enchantment.cs` **+91** ⇒ 三个老文件被账按 `文件:行号` 引用。
+- ⚠️ `ruleprobe check` 哨兵 ⑦ 红 1 条（现算 `fd890dc5…` vs 钉住 `c9a64798…`）—— **预期，未重钉**；解析差异 2 行正是 `EC47`/`UM118`。
+- ⚠️ `play check` 3 张变：`EC47`/`UM118` 是本笔，`GOF57` 不是（同族要等同步点）。
+- 顺手发现：**`Beautiful Death` 的 for-each 计数假绿**（认不出的短语被当 `own|any|all` 计 4 遍）⇒ **已派 E2 修**（认不出就出声，⛔ 静默兜底）。
+
+### 14·15 `E7`（教程/轮抽/锻造）与 `E3`（第三批，停手交接）
+
+**`E7`**：23 条 C 全部交代 —— **教程 C 清零**（A 8 / B 1）· 轮抽 A 4 / C 3 · 锻造 B 5 / C 2。
+- 教程：格内标题词条 · Hold 4 拍 2.0s（旧「与 Click 同」作废）· 6 关 loreKey 逐关查表 · 先 `SelectArmy(第一个可领阵营)` 再指 Claim · 第一条简报带 `PointsMode` · `ToggleScroll(true/false)` 一对 · **行 132 判据前提被推翻**（`AiScripted` 传的是 `SmallTipData` **不是** TutorialTip SO，SO 本地 **0 实例** ⇒ 真缺口是 `ModifyLocalization`，已在 `SetTip` 过 `CardIcons.RewriteMarks`；`TutorialData/*` 204 条里 26 条带 `[[…]]`）。
+- 轮抽：**行 4/158 改回归一算法**（`wins/MatchesToFinish` + MB 实读阈值 0/0.334/0.667/0.92/1 ⇒ 0..4 胜 → Quote0/1-4/5-8/9-11/12）· 行 99 原版那跳在 **`ToFocus`** 不是 OnOpen · **行 131 旧「缺 Coffee 着色器」已过期**（`WildcardShine.shader` + `WildcardShineLayer` 早就有）。
+- 锻造：`StateAt` 是**五态**（多出 `3=ToCollectButFirstRedeemThePrevious`）· 行 40 **k 已结**（`_DAT_1834b31f8=1.1` / `_DAT_1834b2dc8=0.3` 与代码一致）。
+- 顺手发现（重要）：**「原版有个 SO 类」≠「本地有实例」**（`TutorialTip` 0 实例）；**「缺 Coffee UIEffect」这类账可能有多处已过期**（shader 变体早移植）⇒ 已派 E7 做普查。
+
+**`E3` 第三批**（到 80% 停手交接）：**挑战钮视图半边已接** ⇒ 账 24/25/28/29 由 B 升 **A**。
+- `TopBar.cs`：`SetActive(false)` 硬编码 → `WireChallengeButton(...)`（`:336`）+ `Parts.ChallengeRoot` + `ApplyChallengeVisible(bool)`；`ChallengeEngine` 新增 `VisibleChanged`（**只在真变时发**）。
+- 口径：**判据不复制到视图**（判据仍是 `PendingPracticeMatches.Count > 0`）；订阅幂等（`-=` 再 `+=`）；出厂态仍**关**；⛔ 没建第二条徽标总线。
+- 账 26 `OnButtonClick` 仍 C（确认框在 `DuelPopupWindow.cs` = 黑名单 + 服务端邀约协议 ⇒ P3）。
+- 交接（→ **已派新代理 `E11`**）：TopBar 剩 8 行（`BoostTimerPanel` 4 三档格式 `≥4天 "n d"` / `≥1小时 "hh:mm:ss"` / 否则 `"mm:ss"`；`OpenEventButton` 3 行牵 `MainMenuRuntime.cs`）· 五格计数 **6 处发射点**（全在别人文件）· 活动窗三族 14 行 · 58 条无落点（多为 LiveOps 服务器件）。
+- 🔴 **裁定**：`BoostTimerPanel` **要做** —— 「不做真实经济」指**不做付费/经济系统**，**不是不做 UI**。
+
+### 14·16 🔴 本会话的第二个调度错误（记下来）
+
+**我给 `E9` 写的白名单是【目录级】**（「`Shell/**` 里当前没人写的那些」）—— 这**违反铁律 13·3「文件级白名单，不是目录级」**。
+后果：它进了 `Shell/MainMenuRuntime.cs`，而那个文件当时正有人在写 ⇒ 一度出现 5 条红（`LiveOpsLocalEvent` 无 `Id`、`:3802` 六参调用撞五参重载）。
+
+**更正**：已给它改成**文件级**清单，并把 `MainMenuRuntime.cs` **显式判给 E9**（其余人一律不许碰），要求它回报「实际改过的每个文件」以更新所有权表。
+📌 **教训**：**派活时凡是写「XX 目录里没人写的那些」，就等于没写所有权** —— 代理没法知道谁在写，只能自己猜。**必须逐文件点名**。
+（同族旧记录：「`git status` 的 `M` 不代表此刻有人在写，判『能不能动』看所有权表」。）
+
+⚠️ **当前全仓构建状态**：**5 条红，全在 `Shell/MainMenuRuntime.cs`**（E9 的在飞改动）；其余文件 0 错（`SocialData.Friend.Status` / `FriendsTab.RefreshStatuses` 那批是我第一次跑时的**陈旧读数**，文件里其实都有，复跑即消失 —— **别被单次 typecheck 的读数骗，复跑一次再判**）。
+
+### 14·17 🔴 更正 14·16：`MainMenuRuntime.cs` 那 5 条红**不是 E9 的**
+
+我在 §14·16 把账算到了 E9 头上 —— **错了**。实查：`MainMenuRuntime.cs` 里写着 `🆕 2026-10-27（B88_J2）`（`:1154` / `:1279`），是 **`J2`** 在写。
+**真凶是我自己**：我给 J2 派的「活 1：`OpenEventButton.SetButtonInfo`」**没先确认那个类落在哪个文件**，它正好落在 `MainMenuRuntime.cs`。
+- 处置：`MainMenuRuntime.cs` **判给 J2**（其余人一律不碰）；已告知 E9 跳过它分诊里 `AdaptFlexible…`×4 那组；E9 复跑时那 5 条已消失、整棵树回到 **0/0**。
+- 📌 **教训（与 §14·16 同一条的加强版）**：派「给某个方法补 X」这类活，**必须先确认那个方法/类落在哪个文件**，再落白名单 —— **光写领域、不写文件，等于没写所有权**。而且**归因不能按域猜**：`菜单_外壳` 域里有 J2、E9、E10 三个写手，谁写都合法。
+
+### 14·18 `E9` 第二批（菜单_外壳）与 `J1` 第三批
+
+**`E9`（菜单_外壳批二，10 行：A 3 / B 6 / D 1）**
+- **318 `GameWindowWithTabs.DestroyTab` → A**：修两处偏离 —— ③ 缓存改「命中且同引用」才摘键；⑤ 原版**不清** `CurrentTab/CurrentTabView`，我们原来置 `null`/`None` ⇒ 已删。全仓无调用点 ⇒ 零回归。
+- **545 `PromptPopup.SetError` → A**：四格全有出处；🔑 **`errorColor = (1,0,0,1)`，⚠️ 不是那颗 TMP 作者填的 `(0.84,0,0.127,1)` —— `SetError` 每次覆盖它**（「字段里有值但被运行时覆盖」＝铁律 5·c 那类坑）。
+- **612 `ScrollViewFocusFunctions.FocusOnItemCoroutine` → A**：账里那条**已过期**（2026-10-25 `N1` 就落地了，等价物 `MenuScroll.FocusOnAnimated` + 调用点 `ForgeTab.cs:909`）⇒ 只做核对与落点重钉。
+- **586 `SceneTransitionList.GetTransition` → D**：`transitions` 表本地资产**零命中**（判据空），⚠️ 已写明「下一轮换关键词/换包再搜一次，别当定论」。
+- 它实际改过的文件（**所有权表据此更新**）：批一 `AllianceSearchTab/AllianceMemberTab/LeaderboardRow/AlliancePanelWindow/SocialData`；批二 `GameWindowWithTabs/PromptPopup/WindowButton`。**⛔ 没碰 `WindowsManager.cs` / `MainMenuRuntime.cs` / `CardView.cs` / `LiveOpsHandler.cs`。**
+
+**`J1` 第三批（本批 0 行 `.cs` 改动 —— 两条都被共享件挡住，⛔ 没有半建）**
+- **VIP 页**：唯一硬门槛 = `Shell/RewardsWindow.cs:35` 的 `WindowTabType` 里**没有 `ShopVip`**。四件门槛：① 枚举加成员 ② 左栏第 4 键（`ShopWindow.cs:112-114`）③ `Store.CanPurchase`（**服务端 ⇒ 只能 `--`+出声**）④ 页内容（`ShopTabPage` 同构复用）。⛔ **它拒绝建一个永远打不开的页**（= 死代码）—— 这个判断是对的。
+  ➡️ 已派 **`E12` 做整条垂直线**（`RewardsWindow.cs` 枚举 + `ShopWindow/ShopTabPage/ShopData` 页内容，一个 owner）。
+- **`WaitingPopup`**：它**自己推翻了自己的上一批判断** —— 我们**已经有** `WindowsManager.ShowPopUp/HidePopUp`（`:1359`/`:1496`）⇒ **「按类名 grep 0 命中」≠「没有」**（同族错误）。真缺口 = ① `ShopStore.TryPurchase` 的**方法体没有产物**（`decomp_full` 只有三个回调，本体不在 26,282 个方法体里）⇒ 弹什么话**查不到，⛔ 不编玩家可见文案**；② 拿到后 `ShopTabPage.cs:764 DoBuy` 前后各一句。
+  ➡️ ① 属方案 §2.4「少数只能靠 **VA 级反汇编**」那一类未覆盖面。
+- **铁律 5**：`账/商店.tsv` 的「活动线暂停，未复刻」**36 处已清零**；`资料/` 全仓 957 处宽口径 / 210 处精确短语**逐文件看过**：多数是「2026-10-25 暂停令」的**历史留痕（按铁律 6 该留）**，另有些是别的批次的产物 ⇒ 建议**只改当前批次产物**那部分。
+- 文案引文 5 处（`RuleCore.cs:1749` · `RuleEngineTest.cs:4709/4770/5343` · `BattleScene.cs:17898`）对照表已给，各有写手 ⇒ **同步点我统一改**。
+
+### 14·19 `J3`（活动线 9 批判据）与 `E5c`（priority 普查 + 三目逐点判）
+
+**`J3`**：产出 `判据/B88_活动线判据总表.tsv`（**106 行 / 8 列**，9 批：B05 16 · B24 8 · B27 16 · B34 13 · B36 19 · B37 15 · B40 8 · B41 7 · B44 4；⚠️ 批次表里 B05 写 15，实为 16）。R19 判「无施工步骤」的 51 条里 **43 条查清到可施工**。
+- 🔴 **`GetState` 六档**（`LiveOpState`）：`NotAvailable=−1`(enabled=0) / `Planned=0` / `OnPreview=1` / `Active=2` / `Finished=3` / `Expired=4`；判定**自上而下、全部严格小于**。
+- 🔴 **我们的 `IsInPeriod`（`start ≤ now < end`）差四点**：① 无 Planned/OnPreview 档 ② **完全不看 `expirable`/`expireDate`（无 Expired 档）** ③ 无 `activationType`（**`Permanent`/`OneTime` 会被我们误判过期**；本 build 有 3 个 Permanent）④ 边界含等号而我们 `.c` 是严格 `<`。
+- `IsActive()`：`enabled=0` ⇒ 返回 `includePlanned`；否则 **OnPreview / Active / Finished 都算 active**（Finished 也算）。
+- `EventFilter.Validate` = 所有 `EventGroup.CanAddToGroup` && 所有 `Conditions.Validate`；🔑 **`Inventory`/`HasDeck` 是 `has == required` ⇒ `required=false` 表示「必须没有」**。
+- 本 build 实测：`previewable` **全 0**（OnPreview 永不出现）· `expirable=1` 仅 3 个 · `eventGroups`/`Triggers` 全空 · `Conditions` 只 2 个。
+- 🔴 **`TMProWarpText` 出货值 ≠ `Reset()` 默认**：34 个实例全在 `bundle_boosterpacks`，**axis=Z · yCurveScaling=−0.09 · 两种曲线各 17**；Reset 默认 axis=Y · 100 · 单峰 0.25 ⇒ 只按 Reset 实现**差 1000 倍**。（已转 E9）
+- ➡️ **转岗**：按 §2·5 修法做「补 3 列 + `GetState` + `SelectInTable` 改判 `== Active` + `IsActive` + `EventFilter`」（文件 `LiveOpsLocalCatalog/LiveOpsHandler/LiveOpsEvent/LiveOpsManager`）。
+
+**`E5c`（本批零 `.cs` 改动，判断类工作）**
+- **`AddCardAnim` 调用点普查完成**（`判据/B88_AddCardAnim_priority表.tsv`，12 处 / 6 个方法）：`AbilityLogic.PlayAnim` ×2 = **数据驱动**（`AbilityData.priority` ← `CardAbility.priority(+0x18)`）；其余 10 处全 **priority = 1**。⚠️ **这 10 个常量在 ILSpy 里全被渲染成 `default`**，逐处回 `.c` 才拿到 1。
+- 🔴 **铁律 5 就地订正**：原账差异句「我们时间线没有道」**只对表现层成立** —— **引擎侧四道早就有了**（`ActionQueue.ActionPriority` + 消费序 `2→1→3→0` + 同道 FIFO + 不抢占；`ActionPump.ListenerLane:1413`，`EffectResolver` 13 处 / `RuleCore` 3 处消费）⇒ `CardAbility.priority` 的分道**已接上**；缺的只是「表现层同一时刻多条动画的先后」。
+- **三目 `ViewAt` 12 处逐点判完，一处都不该换**：判「问」5 处；**判「混合」4 处 —— ⛔ 加闸会吞掉法术动画**（`PlayAbilityBeat` 对 `self == null` 有合法回退，战术/非单位卡走中央展示锚）；判「演但 null 另有语义」3 处 —— `ApplyOwnAttackType` 传 null = **清空那一档**，换掉就改语义。
+- ➡️ **第四批**：在 `BattleEvent` 加 `Priority` 列 + `BattleDriver` 侧消费（发侧那一行写成施工单给 E1/E2）。
+
+### 14·20 `E1b`（死代码工具 + 全池普查）与 `J4b`（战役线）
+
+**`E1b`**：建成 `工具/deadcode_xref.py`（只读，`--method` / `--batch` / `--selftest` / `--all` / `--assets`）；`--selftest` **PASS**（已知死 `ResolveTransient` ⇒ 候选 D · 已知活 `DrawCardFromDeck` ⇒ 活的要做）。
+- 🔴🔴 **自检抓到两个真 bug（已修）—— 两条都进工作准则**：
+  1. **本 build 的代码在名为 `il2cpp` 的节里、不在 `.text`** ⇒ 只扫 `.text` 会把活方法判成死代码（调用目标 **14,942 → 212,994**）。
+  2. **`dump.cs` 的 RVA 是十六进制、`script.json` 的 `Address` 是十进制** —— 第一版按十进制读 ⇒ 全读成 0。
+  ⇒ ⚠️ **同时订正我先前记的一条证据描述**：`ResolveTransient` 判 D 时我写过「全 `.text` 扫描 0 命中」—— **那个口径本身是错的**；结论不变（修好的工具复跑仍是候选 D），但凭据要按新工具重述。
+- **普查 `判据/B88_死代码普查.tsv`（1,368 行 = 账里全部 B/C）**：活的要做 **594** · 内联可疑 **470** · 查不到 RVA **300** · 死代码可判D **4**。
+- 🔴 **它自己踩的两个坑也已修**：① 正则把「池内 **10** 张」误判成 0（`CheckAndApplyCurrentPack` 被误判 D，实为**内联活样本**）；② 三类「调用者本来不是 `E8`」的族（参数含 `BattleAction` = 动作队列 switch / `*Signal` = 委托 / UI 回调 = prefab `m_MethodName`）⇒ 直接降「内联可疑」，⛔ 不判 D。
+- ✅ **`CostOf` 按 E4 的接法落地**：`RuleCore.cs:1027` 行末（**零净行数 15,587→15,587**）`v += r.Delta * r.Count(ctx, owner)`，位置在 `:1029` 的 `CostMods.Count==0` 早退**之前**。账 **669 C→A**。
+- **本次裁定**：那 4 条 **判 D** —— `BattleManager.ResolveMissAction`(驱动:523) · `CardScript.IsSameTrait`(:796) · `ResolveTransient`(:873) · `hasMaintenanceEffects`(:984)；依据 = 铁律 11 例外①，四源（`E8=0 · lea=0 · dec=0 · il=0`）+ 池内 0，且补丁里必须写全四源读数 + 「调度台 2026-10-27 裁定 D」。**「内联可疑」470 条一律不许判 D。**
+
+**`J4b`（战役线，23 条分完）**
+- 🔴 **又推翻一条旧判据**：账 row 69 那句「`x` 乘了 `−1.0`」**不成立** —— `DAT_1834b2bc8 = −1.0f` **乘在 y 上**。四条独立证据：`CampaignTrack__GetNodePosition.c:12-14` 的 `CONCAT44` · `SetTrackSize.c:58`（低 32 位 = 写进 `sizeDelta` 的**宽度**）· `GetNodesOffset.c:52-57` 同构（低半 = `minX − 330`）· `CampaignData` 的 X 从 −8 递增到 6712 与 SO 原值同向（**没预取反**）。
+  ⇒ **我们 `_centerY − n.Y*Ratio` 已经做了取反；x 侧无取反；代码和数据都不用改**，只需改判据描述。
+- 落地 3：row 3 `FocusOn` → **`FocusOnAnimated`**（前提已核：`_armyScroll` 在 `:309` 已 `PointerRegister`，生产里 `PointerLayer.Update → MenuScroll.Tick` 会推进它）· row 69 `CalculateRatio` 分子 **−100**（`:458`；判据 = `trackHolder.height − nodePrefab.background.height` = 659.06 − 100 = **559.06**）· row 19 判 A（流光早由 `B9_W16SHINE` 落地）。
+- row 12 **判 D**（`Campaign.AddPoints`：不做真实经济 + 原版加点在服务端）。
+- **76 / 78 未动（反证）**：76 —— `startingOffset` 两份 prefab 实读都是 `(330,0)`，但我们 `_shiftX` 里「躲左栏四键」那项**是我们自己加的、原版没有**，而**原版滚动初值还没查** ⇒ 改了只是换一种猜法；78 —— `this+0x28` 已被 row 69 证明是 `nodePrefab`（`+0x40` = 节点底图 100×100，**不是视口**）⇒ 账里「视口宽 × 1.5」与 row 69 互相矛盾，**很可能是节点宽 100 ⇒ +150**（差 7.6 倍）。
+- **未查清**：① **x 方向换算少一跳**（`ratio`≈0.1276 算出的 x 跨度≈857px，与 `SetTrackSize` 的 `Max(node.x)+…`（6712 量级）对不上）② **原版滚动初值**（`SetActiveCampaign` 里的 offset / normalizedPosition）未读。
+- ➡️ 已派 **`E13`** 接手（第一件 = 读 `CampaignTrack__Initialize.c` 建节点那一段把「x 那一跳」定掉，否则 76/78 只能再猜一次）+ `RankedDeckSelector` 15 条。
+
+⚠️ **当前 typecheck 仍红**：`Core/CardView.cs`（`CS0103 ApplyFrameMaskFade`，E8 在写）+ `Shell/SettingsWindow.cs`（`CS0103 InactivateAccount`，E10 在写）⇒ 运行时程序集没产出、编辑器侧 `CS0006`。**两个都是在飞的文件**，待各自收口后复核。
+
+### 14·21 合并前的冲突预演（`check_patch_conflicts` 现读）
+
+**现读 26 份 `B88_*.tsv` · 跨补丁重复键 23 条。** 绝大多数无损（同状态，或后写的更新：`E1c` D 赢 `E1` C · `E2b` A 赢 `E2` C · `E6b` B 赢 `E4` C · `E5c/E5d` 覆盖 `E5b`）。
+
+🔴 **只有一条会在「按文件名排序自动合并」时把 A 降回 C**：
+```
+BattleManagerSupport.BroadcastWhileInPlay(...)
+  B88_E1b.tsv :2  状态=A     ← 新（CostOf per-count 落地后 E1b 升的 A）
+  B88_E4.tsv  :5  状态=C     ← 旧（E4 第一批的快照），按字典序排在后面 ⇒ 会赢
+```
+⇒ **合并顺序不能直接用文件名排序**：必须 **`--only B88_E4` 先合，再 `--only B88_E1b`**。其余按字典序即可。
+
+📌 **口径（已写进 §14·11·1，再强调一次）**：**「谁的内容更新」不能听代理自述、也不能靠文件名巧合** ——
+每次都跑 `check_patch_conflicts.py`，**逐条看「状态是不是被降级」**，只调那些会降级的。
+
+### 14·22 `J2` 第三批（`MainMenuRuntime` 那颗活动钮 + 三条判死判活）
+
+- **`OpenEventButton.SetButtonInfo` 落地（B）**：**本仓没有 `OpenEventButton` 类** —— 原版那颗钮 = `MainMenuRuntime.BuildNavigationPanel` 末尾建的第 6 颗 `Event Navigation Button` ⇒ 落点就在这个文件（这也解释了我 §14·17 的归因错误从哪来）。
+  - title = 在期 Parent 活动 `label 4 → 0 → TermText`，取不到保留 `EVENT` 兜底；倒计时几何/字号按 `menu_dump … "Event Navigation Button" --depth 6` 现读（`Timer` 221.56×25 · `Timer Text` fs26.35/base30/auto[18~28]/白）。
+  - `overIcon`：**本机无该批活动图 ⇒ 出声 + 不建**（不拿 Icon 顶上）⇒ 该格仍 C。
+  - 🔶 两处自设计已标：格式串 `Xd Yh Zm`（原版 `TimeHelper.FormatTimeSpan` 的 ILSpy 体是 `Method not found @181F58920`，判据只有 prefab 样例串 `5d 20h 15m`）· 倒计时**只在建树时算一次**（本壳无按秒刷新泵）。
+- **三条判死/判活**：
+  - `GetTransition` ⇒ **D（判据为空）**：`MonoScript_3327` 与 `SimpleTransition` **场景**都在，但 **`SceneTransitionList` SO 实例 0 个**（91 bundle + `resources/` 按 `m_Script.m_PathID==3327` 精确扫 = 0）。🔴 **坑：粗搜 `"m_PathID":3327` 的 7 个命中全是 `m_GameObject` 长整数前缀撞车** ⇒ 必须用 `m_Script` 精确重扫。
+  - `TryOpenContainerArmy` ⇒ **活的(C)**，前置 4 处定位到行：`ShopData.cs:114`（Pages 只 3 项）· `ShopWindow.cs:81/83/85` + `WindowTabType` 加 `ShopBoosters` · `ShopWindow.cs:118` `Create` 带 `OpenData` · `ShopTabPage.cs:238` 第 4 档；**上游 = 战役 `RankedDeckSelector` 119/120/121**。
+  - `UpgradeForgeLevel.OnTrigger` ⇒ **D（判据为空）**：换宽词复搜 102 条成就仍 0（只有 `k="UpgradeCard"` 的**升级卡**族，⛔ 不能顶）；且**组件 0 实例**（`MonoScript_4027` 在、`m_Script.m_PathID==4027` 的 MonoBehaviour = 0）。
+- ✅ **`WarlordMasteryContainer` 数据槽查到了，并订正它自己上一批的错话**：`VictoryCounters` **就是** `PlayerDataKey` 第 44 项，我们侧 `SaveKeys.cs:193` + `:289`（`// 44`）**同名同号**；值 = `Dictionary<string, VictoryCounter{totalVictories, victoriesById, HighestCardId}>`；写入源 = `PlayerDataManager.cs:9480` ← `OnlineMatchResult.VictoryCounters`（对局结束）；读取链 `:11557` → `PlayerInfo.GetVictoryCounters()` → `WarlordMasteryContainer.cs:81`。
+  ⇒ **槽位不用新建**，缺的只有 ① `VictoryCounter` 的 `[Serializable]` DTO ② 结算时写 key 44 那一跳（页面填充在 `ProfileTab.cs:1219` = E10 地盘）。
+- ➡️ 第四批：**`其他_基础设施`（769 行 · 真复刻 39.5% · 剩 112，全项目最差）**。
+
+### 14·23 `E4c` / `E5d` / `E7b` 回执
+
+**`E4c`**：`UnitState.ActiveAbilityHidden`（`public bool`，默认 false，类尾）+ 只读合并视图 `UnitState.ActiveAbilityAvailable = Card != null && Card.HasActiveAbility == 1 && !ActiveAbilityHidden` ⇒ **解账 783 的锁**（E1 改读点 `RuleCore.CanStartActiveAbility:15304`）。⛔ 未与 `ActiveAbilitySuppressed`（jam）合并。`UnitState.cs` 3,253 行、全在类尾、零落点漂移。
+
+**`E5d`**：**`BattleEvent.Priority` 通道铺好**（`BattleEvent.cs:787` 加一列 + doc 写全判据链 `AbilityLogic__PlayAnim.c:223` → `AbilityData.priority` → `RawCardScript__TriggerAbility.c:32`；主动技固定 1：`ResolveActiveAbility.c:47`；缺省 1：`CardAbility__.ctor.c:5`）+ `BattleDriver` 三处排期带道（`:19558` 主信号 · `:19724` 每拍 · `:19745` 空拍兜底），全走批 2 的 `AnimLaneRank`。
+- ✅ **零回归**：发侧一处没接 ⇒ 所有事件 `Priority=0` ⇒ `AnimLaneRank(0)=3`（最低道）⇒ 与批 2 之后**逐字等价**。
+- 🔴 **口径**：**「填 1 ≠ 不填」** —— 不填 = 0 = `Player` 道 = 消费序**最后**；原版缺省是 **1**。
+- 发侧施工单 → `判据/B88_E5_AbilityPriority_发侧施工单.md`（`BattleContext.Emit` 加形参 + `RuleCore.cs` 四处 11621/11789/12047/15425；⚠️ 15425 形状不同要先判支；🔴 **`CardDef` 有两本 priority 字典**：`TriggerPriority(keyword)` 引擎关键词 vs `AbilityTriggerPriority(name)` 原版枚举名，⛔ 别混）。**E2 不用做**（`EffectResolver` 现读 0 处直接发 `EvtKind.Ability`）。
+
+**`E7b`**：教程段 4 条断言改成 `Loc.T(词条)`（逐处行数守恒、全文件仍 20,202 行）· `ForgeTab.ClaimCell → ClaimAll`（判据：原版把**状态 3 与 4 并成同一条分支** `ForgeRewardItemContainer__Initialize.c`：`if ((cVar8 != 3) && (cVar8 != 4)) goto …` ⇒ **第 3 态不单独造视觉**是照抄不是省事；Claim 钮仍只在状态 2 建）· Coffee 过期账普查（24 张表 / 43 处命中 ⇒ **只有 4 行过期**）。
+- 🔴 **它自己纠正了自己第一次汇报的一处错**：`:6223` 那条 `CheckText(..., "TUTORIAL 01")` 与 `:6327` 的「TUTORIAL 03」**也会红** —— `StageTitle` 是 `ToUpper(Loc.T("Demo/Tutorial")) + " 0n"`，而 **`ToUpper` 对汉字无效** ⇒ 中文档下是 `教程 01`。**已批准**改这两条，并要求「与生成端同源」（`StageTitle(0)` / `StageTitle(2)`，退路 `Loc.T(...).ToUpperInvariant() + " 01"`），**⛔ 不许把实现改成英文写死来迁就断言**。
+- 新硬数据：`CampaignArmyUIDecorator.shinyEffect` 的 4 个 tweener = duration **1.0/1.0/0.75/0.75**，同 GO 的 `UIEffect` 三颗 = **120/0.25/0.5/白/filter6**、一颗 = **139/0.213/0.533/(2,2,2,1)** ⇒ 接线要按 GO→父链定位、⛔ 被一把套四个。`_TransitionTex` **不需要**（shader `_UseTransitionTex = 0` 解析式等价）。
+- 冲突提示：`BoosterShopTab.TryOpenContainerArmy` 两份都 C，但 `B88_J2b:4` 的落点更具体 ⇒ **合并以 `B88_J2b` 为准**。
+
+⚠️ **当前构建红**：`Shell/LiveOpsState.cs:192/199`（`CS0101` `CurrencyCondition` 重复定义，J3 在写）—— **这种错不会自愈**，已带错误码报给 J3 并要求「按原版命名空间判归属、另一份改引用」。
+
+### 14·24 `E1c` 回执（上下文见底，已交接）
+
+- ✅ **4 条 D 落补丁**（`B88_E1c.tsv`）：`ResolveMissAction`(驱动:523) · `IsSameTrait`(:796) · `ResolveTransient`(:873) · `hasMaintenanceEffects`(:984)；每条带**四源读数** + 口径订正（「全 `.text` 扫描」在本 build 不成立）+ 内联残余风险 + 「调度台 2026-10-27 裁定 D」。
+  ⚠️ **`账行号` 是 `ledger_slice` 的 0 基物理行**（与 1-based 差 1）⇒ **合并按 (类, 方法全签名)，行号只作参考**。
+- ✅ **637 的 `BroadcastRemoveFromGame` 三跳方法已建**（`RuleCorePartial_B88E1.cs`）+ `MarkRemovedFromGame` 置 `UnitState.RemovedFromGame`（原版 `cardState 11`，⛔ 不调 `CleanupDeaths`）。
+  🔴 **但发射口为零**：原版 4 个调用点全在 exchange / steal / transform 族（**我们一条都没实现**）⇒ 这是**为它们预埋的唯一入口**；637 **仍 C**（发射口 + 视图两半未到位）。
+- ✅ **`工具/deadcode_census.py` 并库**：**默认 dry（一个字节都不写）**，只有显式 `--out <路径>` 才落盘；`--selftest` 先跑 `deadcode_xref --selftest`，不 PASS 就停手。（「写盘脚本默认不动作」那条纪律已写进用法）
+- ✅ **783 读点已改**：`RuleCore.cs:15304` `if (u.Card.HasActiveAbility != 1)` → **`if (!u.ActiveAbilityAvailable)`**（用 E4 的实例级合并视图）。**写点没接** ⇒ 783 仍 C。
+- `RuleCore.cs` 行数仍 **15,587**（3 处改动全零净行数）。
+- 顺手发现：`check_ledger_points` 指 `RuleCore.cs` 的 **11 条全是「同名重载歧义」告警**（`--fix` 永远修不好，只能人工加签名）；写脚本时 heredoc 里的 `\\n`/`\\t` 会被吃成裸控制字符（已用 `chr(92)` 绕过）。
+
+📌 **代理上下文尺度**（🔴 **2026-10-28 用户就地订正，我原来写错了**）：
+- 本会话有 5 个代理在 `subagent_tokens` 显示 **26～49 万**时**自报**「上下文见底 / ≈92%」并主动停手（`E6b` / `E3` / `J1` / `J4` / `E1`）。
+- 🔴 **但那不是上下文占用** —— `subagent_tokens` 是**跨整轮累计的输入+输出**（每轮都带上下文跑、含缓存读取）⇒ **累计用量 ≠ 当前上下文大小**；代理**自报的百分比也只是它自己的估计，不可靠**。
+- ⇒ **口径按用户定的不变**：子代理上下文 **1M**，轮换阈值 = **上下文的 80%（约 80 万）**，`CLAUDE.md` §13·1 那行**不改**（⛔ 别在 50%–60% 就切）。
+- ⇒ **正确做法**：⛔ **别拿 `subagent_tokens` 或代理自述当「快满了」的判据**；它主动交回时**就收下并按交接续派**，但**调度台不主动在 30 万就换人**。
+
+### 14·25 `E2c` 与 `J2c` 回执（两路均到 ~40 万 tokens，已停手）
+
+**`E2c`**（补丁 1 行，77 → **A**）
+- 🔴 **「假绿」的根因和最初判断不同**：不是 `CountEval`，是 **`EffectText.ClassifyCount` 的 ④ 盘面支** —— `excess damage` 这种短语四道支都不命中 ⇒ 落进 ④，靠两条默认值（没写谁⇒本方 / 没写什么⇒any）得到**合法**的 `own|any|all` ⇒ 数出「本方棋盘人数」，日志看着像在跑。
+- 改法：④ 支新增 `guessed` 判定 → 记进 `EffectOp.CountFallback` → `TryComputeRepeats` **出声**。⛔ **没把返回值改 false**（那会让二十几张卡一起哑掉）。
+- ⚠️ **今天实际出声 = 0**：全池按条件复算只剩 1 条（`GSC56`），而它被 `ReCountInHand` 先接走；唯一真走兜底的 `Beautiful Death` 已被活 3 接管 ⇒ **这条是「防将来」的机制**，不是当下有卡在响。
+- ✅ **`210 TargetExcessDamage` 落地，账 77 整条 A**：`BattleContext.LastDamageExcess`（**partial 新文件**，主文件一行未动）+ 两处伤害点写值 + `CountFor` 的 `excess` 支 + 解析层一档。默认 `0` = 没有超额**或**本条 ability 还没造成伤害（**故意同值**）；**每条 ability 起手清零**。
+  - **读数 + 隔离实测**：`EC42` 现「按 excess 计 4 遍」（10 点打 6 血）；把写值临时置 0 ⇒ 「计 0 遍」，复原 ⇒ 4 ⇒ **计数源确实是超额量**。⚠️ **原来那个假 4 与现在的真 4 数字巧合相同**（fixture 恰好 4 个单位）⇒ 光看数字分不出真假，**隔离实测就是为这个做的**。
+  - 已知近似：超额 = `DamageAfterReduction − 当前血`，**不含 `ignoreBastion`**；多目标取**最后一个**。今天唯一消费者是单目标卡 ⇒ 零可观察。
+- **要新立的两条账（它按规矩没碰主表，交给我）**：`90 RandomizedOnResolution` = **P1**（87 行 / 63 张，判据齐，**会改 63 张卡的指纹** ⇒ 必须在「无 `.cs` 写手」时一次做完）· `80 MinPlusMaxTimesMultiplier` = **P2**（3 行 / 2 张，判据缺，需 VA 反编译找 `multiplierFactor` 的乘法点）。判据文件 = `判据/ValueOptions_剩余档_判定.md`。
+- 行数影响：`EffectText.cs` **+94** · `EffectResolver.cs` **+29** · `Enchantment.cs` +91 · 新 partial 43 行。
+- 顺手发现：`GSC35`/`GSC59` 数据里的 `80` 是**死值**（被 `AmountRef=enemyhand` 覆盖），但它**不是**「editor 残留」那类（形状错，将来会露）。
+
+**`J2c`**（基础设施线：域内 C 74 条，本批处置 12，累计 25，剩 49 已按类给出最短路径）
+- **`Extensions.AlmostEquals` ×3 ⇒ 判 A（不新建门面）**：本仓**没有 `Extensions` 类**，需要近似相等的地方**全部就地内联**（`BattleDriver` 5 处 `sqrMagnitude < 1e-8/1e-6` + 1 处夹角型）；`.c` 逐句 = `(a-b).sqrMagnitude < precision`（**严格小于**）⇒ 与内联式逐字等价。⛔ **不新建一个无调用者的门面**（那才是死代码）。
+- **新建 `Core/VarsGlobal.cs`（7 条，B）**：`GetNextLevelXP` / `GetHeroLevel` / `GetXPInLevel` / `GetXPMissingToNextLevel` / `GetPlayerDivision` / `MaxDivision` / `ConvertTierToCheckPrize` / `CheckIfPlayerChangedDivision`。
+  🔴 两个语义陷阱已写进注释：① `CheckIfPlayerChangedDivision` = `Div(old) < Div(new)` ⇒ **只管升段、降段返 false**（⛔ 不是 `!=`）② `GetXPMissingToNextLevel` 的 `.c` 末句 `iVar6 - param_2` ⇒ 等价 = **阈值 − XPInLevel**（⛔ 不是「下一级总 XP − 累计」）。
+  🔶 三组配置数（xpPerLevel / maxLevel / 段位阈值）原版在服务端、本机四条取证全负 ⇒ 做成**可注入参数 + 缺省 100/50/空表**（**缺省不是原版数**）；段位阈值空表 ⇒ 恒 0 **且出声一次**。⚠️ **消费者目前 0 个**（档案窗那格是空态 `-`）—— 如实写「先落数学层」，⛔ 不是「已经能看到等级」。
+- `GetProgressInLevel` **留 C**（`.c` 109 行含 float 局部与未解出的间接调用，**没逐句读** ⇒ 不拿 XP/阈值猜百分比冒充）。
+- 剩 49 条的最短路径：`GetMD5Hash` → `AreDecksEqual` → `GetXPFromMatch`(P0) → `GameStaticData 234/237`；`LoadableReference<T>` 12 条**在确认方法体可得前别动手**；`GameModes` 12 条依赖 liveops 事件实例。
+
+### 14·26 🔴🔴 我的一条指令把全仓弄红了（记下来，同类别再犯）
+
+我让 E14 给 `BattleContext.Emit` 加一个「尾部多一个 `int priority = 0`」的重载。**带默认值 ⇒ 所有既有 15 参调用同时匹配两个重载** ⇒ 现读 **20 条 `CS0121`**（`TutorialScript.cs:1496` · `Enchantment.cs:360` · `EffectResolver.cs` 多处 · `RuleCore.cs:2947` …），**运行时程序集 27 错**。
+📌 **纪律**：给「已有大量调用点的方法」加参数时，**重载的参数一律不给默认值**（`int priority` 而非 `int priority = 0`）—— 否则老调用会二义。要「不填就默认」的语义，就**在重载体内给默认**（`priority == 0 ? 默认 : priority` 之类），⛔ 不要靠可选参数。
+🔧 已让 E14 去掉 `= 0`。
+
+同批第二个阻塞：**`VarsGlobal` 撞名** —— J2c 新加的 `CardPresentation/Core/VarsGlobal.cs`（`namespace CardPresentation`）与既有的 `RuleEngine.Core.GameplayVariables.cs:596` 的 `VarsGlobal` 同名 ⇒ `Editor/BattleScene.cs:48999/49031` 报 **`CS0104`**。
+- E5 在 `BattleDriver.cs:35763` 用 `RuleEngine.` 全限定做了运行时侧的修（**那个前缀必须留**）。
+- 但根没除 ⇒ 已授权 E14 把**新加那个**改名 **`LevelCurve`**（该新类**全仓 0 调用点**，改名零风险）。
+
+### 14·27 `E5e` / `E4d` / `E7c` 回执
+
+**`E5e`**
+- **`战斗界面_HUD:722 ResolveDisplayFromHand` → A**，并顺手修掉「借 `EvtKind.Draw` 当载体」带来的**三处假动作**（真缺陷、玩家看得见听得到）：① `PlaySignals` 的「第几张/倒数第几张」**跳过 display**（不跳那张手牌会**从牌库方向飞出来**）② 抽牌两声音效**跳过 display**（原版该动作全篇无 `SoundAssetCollection.get_*`）③ 抽牌通用特效**跳过 display**。如实留一格：原版 `SetCardState(10→1)+TurnCardAround` 是 3D 卡状态机，我们 2D 无等价物。
+- **`特效动画:516` 仍 C 但订正掉一半**：原行「①命中音三档」**不是缺口** —— 三个 cue 在原版**指向同一个 pathID**（`-3640304923993188049`，判据 `BattleSfx.cs:78-80`）⇒ 我们恒小档 = 听感逐位等价。真剩 **②命中粒子两档**。
+- ⚠️ **提醒**：前四批已做完的那些（`其他:589` · `HUD:696/725/731` · `战斗:532` · `日常 Update` · `特效:505` · `HUD:762/768/777`）主表**仍显示 C**，只是补丁未合并 ⇒ **合并时一并核**。
+
+**`E4d`（VictoryCounters 上游）**
+- 新建 `Shell/VictoryCountersStore.cs`（209 行）：DTO 字段名/序逐字照原版（`totalVictories` / `victoriesById` / `HighestCardId` 是**只读属性**不是字段）；`HighestCardId` = `victoriesById` 里计数最大者的 **key**（`OrderByDescending().FirstOrDefault()`，空表 null，平手取枚举第一个）。
+- 🔴 **`JsonUtility` 不能序列化 `Dictionary`** ⇒ 落盘用 `[Serializable]` 展开壳（Blob/Group/Pair 列表），对外仍是 Dictionary。
+- 旧档缺失 ⇒ Load **出声 + 空表**，`HasData()` 分「没档」vs「0 胜」。
+- 🔶 `RecordVictory` = 本地**累加**（原版是服务端整份 `matchResult.VictoryCounters` **替换**，`PlayerDataManager.ProcessMatchResult` @cpp2il:9480）。
+- **`victoriesById` 的 key 实读 = 卡 id 字符串**（如 `UM47`），⛔ 不是数字 uniqueId、不是本地化名（证据：`WarlordMasteryContainer.OnInitialize` 把 `HighestCardId` 直接喂 `AssetLocator.GetAsset<RawCardScript>(id)`，兜底字面量 `"UM47"`）。
+- 施工单（未接）：`RuleCore.cs:13885`（`CheckWinner`）判出**本地玩家获胜**处调 `RecordVictory`。⚠️ `victoriesById` 的**语义分工**（外层 key 属哪个督军 vs 分桶依据）由服务端填、本地读不出 ⇒ 注释写「未判定」。
+
+**`E7c`（教程两条断言 + 未分类线 3 条）**
+- 🔴 **它拒绝了我建议的 `StageTitle(0)`，理由正确**：那会让**断言与实现同源** ⇒ `StageTitle` 改坏时两边一起变绿 = **自证**。改用 `Loc.T("Demo/Tutorial").ToUpperInvariant() + " 01"` —— **同源只到 `Loc` 为止**，既满足「别写死英文」又保留「格式改了会红」的判别力。**这个判断我采纳。**
+- 行 65/66 `BackgroundOverDrawController.OnEnable/OnDisable` → **A**：新建 `Shell/BackgroundOverDrawController.cs`（`Push`:44 / `Pop`:56 逐句照两段 `.c`；「栈非空⇒关栈顶⇒入栈」/「只有自己曾是栈顶才恢复新栈顶，自己末尾一律 `enabled=true`，**两个方法体都不写 `m_Color`**」）。🔶 触发时机从 `OnEnable/OnDisable` 改成显式 `Push/Pop`（本仓件在编辑模式下建，`AddComponent` **不触发生命周期** ⇒ 照生命周期写自检里会**静默不跑**）。
+- 行 215 `CryptoString.DecryptRijndael` → **D**（4 个调用点全在 `PlayerDataManager` 的 `loginPassword`/`deviceId`，本仓无账户体系 ⇒ P3）。
+  🔴 **我补裁 216/217/218/219 一并判 D** —— 那是**同一个 5 行工作单元**，只判 215 会让账一半 D 一半 C。理由同上（P3 / 本仓无账户体系），「调度台 2026-10-27 裁定 D」。
+- ⚠️ 它两行断言因编辑器程序集被 `VarsGlobal` 二义挡住**没过编译器**（表达式只用 `Loc.T + ToUpperInvariant + 拼接`，风险低）⇒ **下个能编的窗口必须复跑**。
+
+### 14·28 `E8b` 回执 + 调度台两处落地
+
+**`E8b`（8 行）**
+
+#### 「数量文字不带 `x`」—— **三条独立证据证死，且不是分档**
+1. **代码侧无分支**：`ItemDrawer_object___Draw__1ae9cc0.c:58` = `System_Int32__ToString(n,0)` **直接喂 `set_text`**，全篇 **0 条 `String__Concat`**；唯一闸是「那格组件非 null」⇒ 与 `ItemDrawerOptions` 三字段、卡状态、稀有度、可堆叠**全都无关** ⇒ **不是分档**（所以没有「各档判据」）。
+2. **字面量 `"x"` 全量反编译只被 2 个方法用过**（`stringliteral.json` `"x"` = `0x4255810`）：`CardListItemScript__UpdateDisplayData`（`Concat("x", n)`，**Count 那一族**）与 `SupportMethods__GetShortString`（空输入返回 `"x"`）。**抽屉族 0 命中。**
+3. **prefab 侧 31 条 `^x\d+$` 一条都不是抽屉数量槽**：`x2`×13 → 节点 **`Count`**（13 个卡组/牌库 prefab）· `x14`×9 → **`Text (TMP)`**（9 个 shop prefab）· `x3`×4 → **`skullCounter`** · `x160000`×3 → **`counter`** · `x160`/`x10` 各 1。反过来**逐个抽屉 `quantity` 槽出厂文本 = `2`/`500`/空串，0 条带 `x`**。
+
+#### 其余
+- **4 处施工单落地**：① `WhereToGetCardsPopup` 类尾 `override Close()`（`base.Close()` → `PointerLayer.UnregisterOwnedBy` → `MenuDraw.ClearChildren` → 清两表；**放类尾是为了不动 6 条 A 行行号**）② `CardView` Big 态第三样（`frameMask` 0↔1）：**方向已证死** —— `ChangeState.c` Big 支 `maskStrength = DAT_1834b2bb8`，`read_literal.py` **4B float = 1.0**（8B 的 2.0 是紧邻常量）⇒ `a_out = a_obj(1−M)` ⇒ Big 态**卡框+文字底板淡到 0**；🔴 **`:7993` 那一跳必须**（`ApplyTint` 会 foreach `_layers` 重刷 `_Color`，`_frame` 在其中 ⇒ 不重贴会被刷回不透明）③ `NetSession` 掉线边沿**在 `OnPeerLost()` 之前**快照 `_wasInLobbyMatch`（那一下 `ClearMatch` 会清 `_myDeck`，事后读**恒假** —— 上一轮白改就是这个原因）④ 新 `Editor/AudioSnapshotCheck.cs`。
+- `联机:136` 已按裁定写 **D**。
+- ⚠️ **行号漂移**：`ItemDrawer.Draw` 仍在 `:840`（上一批加的 `NodeName` 常量本批**已撤**、改字面量，就是为了不撞那 ~30 条）；但 **`Wildcard`(:1177) 之后整体 +67**（`ArmyName` 现读 1493 / 账里 1426）⇒ 那 ~20 条 A 行同步点 `--fix`。
+- 顺手：`CardView.cs:4451` 自己记着「至今没人渲图看过」⇒ **渲一张并排图一起验收**（Big 态这张账同源）。
+
+#### 🔧 调度台自己做的两处（都是 E8 交回来的、且是我/脚本的地盘）
+1. **`Editor/RewardsScene.cs:9637` 断言 `"x3"` → `"3"`**，并把上面那三条证据逐条写进注释（含「改回 `"x"+qty` 会红」）。⚠️ 这是**把断言从「编码我们自己的偏离」改成编码原版**，不是拿我们的改动去改断言 —— 判别力反而变强。
+2. **`工具/_run_8_checks.sh` 并入 `AudioSnapshotCheck.Run`**（14 → **15** 条；`echo` 与末尾计数说明同步改）。理由同 `AnimFXCheck` / `CardFaceAssertE5`：**现有宿主没有一个碰过 `WarpforgeAudio`**，不加进清单那几条断言**永远不会执行**。
+
+### 14·29 `J3b` 回执（`GetState` 六档落地）
+
+**落了 4 个白名单文件 + 1 个新建，全部零行号漂移**（`LiveOpsEvent.cs` 240/269/404/538/578/596/1232 全部落在原行 ⇒ 两份共 **135 条账落点不受影响**）：
+- **新建 `Shell/LiveOpsState.cs`**：① 六档**唯一实现** `LiveOpsStateMachine.Compute` / `ComputeIsActive` ② `LiveOpsLocalEvent` 的 partial 半（`ActivationType`/`Previewable`/`PreviewDateMs` + `GetState`/`IsActive`/`StateName`）③ `LiveOpsConditionBindings`（注入查询口）④ 五个条件子类。
+- `LiveOpsHandler.SelectInTable` 闸 `IsInPeriod` → **`IsCurrentlyActive`（`GetState==Active`）**；`MapData` 的 `activationType`/`previewable`/`previewDate` 改从本地事件取（原来**硬编码** `OnDate`/`false`）。
+- `LiveOpsEventData.GetState/IsActive` 的**体**改为转发共用实现（语义一字未改，**判据单源化**）。
+- 🔴 **CS0101 已按裁定处理**：`grep` 出既有 `CurrencyCondition` 在 **`Shell/Inventory.cs:1809`** ⇒ **删掉新写那份**、原地留注释指向既有份。六种条件里**只有 Currency 早已存在**，另五种本批新建。
+  ⚠️ 遗留形状偏差（交 `Inventory.cs` 归属人）：原版 `CurrencyCondition` 是**全局命名空间顶层类**，我们这份嵌在 `CurrencyExtensions` 里。
+- 🩹 **顺手清掉一处「二份实现」隐患（铁律 6）**：它一开始把六档写在 `LiveOpsLocalEvent` 里，而 `LiveOpsEventData` 早已有一份逐句照抄的 ⇒ 抽成**唯一实现** `LiveOpsStateMachine`（`LiveOpsState.cs:37`），两个载体只转发。⛔ 以后只改那一处。
+
+🔴 **可达性（重要，纠正我先前的说法）**：`OnPreview` **今天不可达**（16 份 SO `previewable` 16/16 = 0）· `Expired` 只有 3 份 Scoring 可达 · **`Permanent` 短路在本目录不触发** —— 那 3 份 Permanent 的 SO（`PremiumCampaignStore`/`RewardsMenu`/`UMCampaign`）**不在**目录那 13 份里，13 份实测**全 = `OnDate`**（字段默认值已取 `OnDate`；将来加那 3 份必须显式写 `Permanent`，注释已写在字段上）。
+⇒ 我先前记的「3 个 Permanent 会被我们误判过期」**在本 build 的 13 份目录里不成立**（那 3 份根本没被装载）。
+`SelectInTable` 改口径后，**13 份的结果集合与改前一致**（只有「now 恰等于 start/end 那一毫秒」会按原版行为改变）。
+- 六个条件**一条都不会跑**（groups/Triggers 全空、Conditions 只 2 份且 rid 未定位）。
+- 遗留：① 六条件注入口现全 null（跑起来出声 + false）—— 等教程线 `SegmentationController` 等价物与「玩家等级」各接一条，**条件类不用改** ② `ExpirationTime = min(endDate, triggerTime + eventDuration*3600000)`（`LiveOpsUtility.cs:173`）已查清未接（避免与 `ScheduleHandlerRefresh` 打架） ③ `Editor/SkirmishWindowAssertE15.cs:316` 的**文案**「`IsInPeriod` 那道闸」已过期（断言仍绿）。
+
+### 14·30 `E10` 回执（个人资料/成就/排行 25 条 C）
+
+**9 条落地（3 A / 6 B）· 2 条判 D · 14 条维持 C（逐条写清 blocker）**。
+- A：`48` · `244` · `337`；B：`2` · `29` · `221` · `241` · `328` · `332`；D：`301`/`315`（LiveOps 到期 + PlayFab CloudScript = P3，**附「活动线建出状态机后必须重跑」的时间限定**）。
+- 改动全部**零漂移**，且**所有「加行」都落在该文件最后一条账落点之后**（逐文件核过最大落点）⇒ **不需要 `--fix`**。新建 `Shell/SettingsDeleteAccountFlow.cs` · `Shell/AchievementMilestoneToast.cs`；`gen_profile_cosmetics.py` 新增 `load_borders()`。
+- 🔴 **它推翻了「7 条边框本地无数据」这个前提并补齐了数据**：5 条 `borders` 已进 `profile_cosmetics.json`（且 `avatars`/`titles`/`achievements` 三表**逐字节未变**）。还差 ① `Player Profile Border Gold` 这张 Sprite 未进美术树（需导入器）② 「玩家拥有哪几条」在服务器 ③ 装备层。`75` 的**可观测差别今天是 0**（默认边框恒在）。
+- `197/198/270/271` + `289`：落点 `Shell/RankedTab.cs` 不在白名单；且 `RankedArmyBonusContainer`/`RankedMenuContainer` 的 prefab **没定位到**（已证不在 `Ranking Tab` 树里，按 `Ranked Menu Container` 在 `bundle_menus_assets_all` 也找不到）；`289` 缺 **per-army leaderboard key 表**（`LocalScore` 全仓只有 `RaidEvent` 一个调用点）。
+- `219` 真语义是**横切**的「弹窗期间封禁聊天预览」（5 扇排位窗 + 其它窗都调），落点在 `MainMenuRuntime.cs`。
+- 顺手发现：① `Editor/ProfileRankAssertE10.cs` **已存在**（第七十三会话的另一个 E10，断的是 `Profile` 页段位大图）—— 与本笔 `221` 的**排位升段窗**是两处，⛔ 别混 ② 🔴 **`RankedDivisionChangeWindow.Context` 是漂移陷阱**：往里加一个字段会让该文件 **6 条账落点整体下移**（本笔改用类尾字段）⇒ 又一条「新成员追加到类尾」的实证 ③ `MenuDraw.ShadeHit` 的 doc 里 `ProfileTab` 的 `DarkBgHit` 是**裁定过的例外**，⛔ 别去「收口」。
+
+### 14·31 `E11` 回执（`日常_奖励` 15 条）
+
+**C→B 11 · C→D 4**（`49/54/56/58` ChallengeManager 的 PlayFab 账户目录半边：证据 + 时间限定写全，断点 `:349/:69/:527/:513`，替代物 = 我们的 P2P 直连）。
+- 新建 `Shell/BoostTimerPanel.cs`（226 行，`Init`/`SetDescription`/`SetTimer`/`UpdateTimer` 逐句照 `.c`）。
+  🔴 **就地订正账**：账上写「≥1 小时 `hh:mm:ss`，否则 `mm:ss`」—— **`.c` 不是**（短于 1 小时也给 `00:mm:ss`）⇒ 已按 `.c` 实现并订正账行。
+- `LiveOpsEventWindow.OnRefresh`：查 `LiveOpsLocalCatalog`（`Selectable && IsInPeriod`）取不到 ⇒ `Close()`；取到 ⇒ `Build()` + 不在顶层 `ToFocus()`；`Open`/`Close` 挂撤 `LiveOpsScheduler.Schedule(EndUtc, …)`。
+- Energy 窗 6 行：状态机逐句（`i<collectedRewards ⇒ Collected`）、开箱图 `<Tier>_open`（5 张本机都有）、`Permanent ⇒ Timer.SetActive(false)` 已接（入参默认 false，不改今天行为）。
+- 剩：63 条以「无」开头的行（账上旧记 58）里 **47 条按线内口径仍可做**，**保留 C 并逐组指向 B9 施工单元**（U02/U03/U07/U09/U10/U12/U13/U15）—— **没有一条按「影响小」判掉**。
+- 顺手发现：① 🔴 **`B9_日常C_分类.tsv` 的「账行号」比主表 `物理行` 少 1**（序号 vs 行号）⇒ 引用必须说清用哪套，否则 `--fix` 会**改到隔壁行** ② `BoostMenu`/`BoostTimerPanel` 在解包资源里**只有 MonoScript、全库 0 个 prefab 引用** ⇒ Boost 面板宿主线**本地不完整**（不是「没找到」） ③ **`BoostManager.UpdateTimer`（顶栏「最近到期」）是另一套格式**（`hh:mm`/`mm:ss`/过期隐藏）且**账里没有这条** ⇒ 建议立账 ④ Energy 窗缺原版 `RewardProgressBarPanel` 的 `scoreText`/`scoringImage`/`scoringTitleText` 那一行（未建）。
+
+#### 14·31·1 🔴 调度台裁定：「prefab UnityEvent 接线层」怎么记档
+
+`UIGenericEventCatcher`（3 行）与 `SurvivalEventWindowEnemyMarker`（3 行）两份判据打架（J2/B9 建议判 A · 另一份说判别域 · G2 改判 C）。
+
+**裁定（作为通则，之后同类一律照此）**：
+> **原版靠 prefab 上的 UnityEvent 接线来触发某个行为，而我们在建树那一刻（`Build()`）直接把那个行为做掉 —— 这是【载体不同、行为等价】⇒ 判 `A`，落点写「等价实现 = `Build()` 里那一步」，`差异` 列写明「原版走 prefab UnityEvent，我们建树即执行」；⛔ 不许留 `C` 挂一句「天然没有」。**
+> **反之，如果那个行为我们根本没做（或只做了一半），判 `C`**，并在 `差异` 里写清**缺的是哪个行为**（不是「缺那个组件」）。
+
+⇒ 上面两族按这条逐条重判：**行为做了的判 A，没做的判 C 并写清缺哪个行为**。⛔ 不许以「组件我们没有」为理由记 C。
+
+📌 同时**新立一条账**（E11 发现③）：`BoostManager.UpdateTimer`（顶栏「最近到期」）—— 格式 `hh:mm`/`mm:ss`/过期隐藏，**与 `BoostTimerPanel` 是两个不同的格式化器**，账里从来没有这条。
+
+### 14·32 `E14` 回执 + 783 裁定
+
+**① `Emit` 用重载、没动 `BattleContext.cs` 本体**（新 `RuleEngine/Core/BattleContextPartial_B88E14.cs:48`）。
+🔑 **它没有照我批的形状做，而是给了更好的解法**：`priority` 挂**第 5 位、必填**，不是尾部 `int priority = 0`。
+理由：**C# 不许「必填排在可选之后」（`CS1737`）**；而第 5 位必填 + 后面全可选 ⇒ 既有 15 实参调用**少一个位置实参、本重载不适用**（零二义），新调用写 `priority: 1` 具名 ⇒ 只有本重载适用。**零 `CS0121`、既有调用点一个都没改。**
+实现 = 转调主文件唯一实现后，给刚发出那一条补 `Priority`（`Signals`/`ActionLog` 是同一对象引用，`BattleContext.cs:1880-1881`）⇒ **字段清单只留一处**。
+📌 这比我的「别给默认值」更彻底：**不但不给默认值，还把参数挪到可选参数之前**，从签名层面就不可能二义。
+
+**② 四处传值**（`RuleCore.cs`，全部零净行数，仍 15,587 行）：`:11626` 主动技=**1** · `:11791` 誓约=**1** · `:12054` 替代行动=`AlternativeAbilityTriggerPriority(...)`（duty/pray/ferocity/agenda → 原版 `AbilityTrigger` 名再查 `CardDef.AbilityTriggerPriority`；**该列现读只有 6 个键、四族全缺 ⇒ 今天恒 1**）· `:15432`（`effect: activeAbility` / `ResolveActiveAbilityRows`）判为与 ① 同一族 ⇒ **1**（判据 `RawCardScript__ResolveActiveAbility.c:47` 固定 1）。
+全仓 `EvtKind.Ability` 发射点**就这四处**；施工单「步骤 3（EffectResolver）」确认 **0 处**不用做。
+
+**③ 783 写点 —— 它拒绝做，我采纳并裁定 D**
+- 证据：`HideWarlordActiveAbilityForTutorial` 在原版**没有调用点**，五源全 0；最硬的是**二进制** —— `GameAssembly.dll` 的 `il2cpp` 整节（VA `0x1804B3000` + `0x2FFE15C`）扫 `E8/E9/lea` 三种引用 = **0**；**同一套扫法对 `Show` 精确命中 1 处**（`0x18094474D` = `AiScripted__ShowPlayerActionAnim.c:606` 的 TapCard 支）⇒ **扫法本身可信，不是工具失灵**。
+- 另有四条辅证：`Show` 语义是「从卡数据恢复」不是「显示」（**名字骗人**）· `set_hasActiveAbility` 也 0 调用 · `tutorial_stages.json` 6 关只有四个 hide 开关 · 23 个 `ScriptedActionType` 无一相关。
+- ⇒ 「哪一关对哪张督军隐藏」这个判据**原版就没有**，造写点 = **发明行为** ⇒ 铁律 11 例外①。
+- 🔴 **裁定：783 判 `D`**。我们的 `UnitState.ActiveAbilityHidden` 与读点 `RuleCore.cs:15304` **不动**（行为与判 D 前逐位等价，且注释已写明用途；删掉反而要再动一次已验过的代码）。
+- 📌 **教训**：我让它「补写点」时**没有先问「原版有没有这个调用点」** —— 差一步就会造出原版没有的行为。**派「补某个写点/调用点」之前，先做一次调用点扫描。**
+
+**④ `typecheck` 运行时 0 / 编辑器 0**（连跑两次）。
+
+**⑤ 授权项已修**：`CardPresentation/Core/VarsGlobal.cs` → **`LevelCurve.cs`**（类名改名、旧文件已删：**未进过 Unity、无 `.meta`、全仓 0 调用点**；判据里的 `VarsGlobal__*.c` 一律保留原名）。`RuleEngine` 那个老 `VarsGlobal` 与 `BattleDriver.cs:35763` 的 `RuleEngine.` 前缀都没动。
+
+**⚠️ 合并顺序补充（推翻字典序）**：`B88_E14` 在字典序上**输给** `B88_E5d`（AddCardAnim）与 `B88_E4c`（783）⇒ 必须按 **E5b → E5c → E5d → E14**、**E4c → E14** 逐份 `--only <完整文件名>` 合并。
+
+**顺手发现**：① 🔴 **`cards_truth.json` 顶层是【对象】**（14 个元数据键 + `cards` 数组 1,351），**直接当 list 迭代会静默扫到 0 张卡**（它踩了一次，差点把「1 张」读成「0 张」）⇒ **一律 `d["cards"]`** ② `hasAlternativeAbility` 全池**只有 1 张 = 1**（`SW21`，且 `abilities` 空）⇒ **别拿它当判据**，我们靠卡面文本 ③ 账 486 仍保持 C：本次只接了 `EvtKind.Ability` 一族，**攻击等动画族的 priority 生产者仍未接**（`ScheduleAttackPresentation` 恒 lane 0）—— 谁要判 A 请先核那一族。
+
+---
+
+## 十五、第八十八会话 · 重同步点（2026-10-27 夜 ~ 10-28 凌晨）
+
+### 15·1 合并（无 `.cs` 写手窗口）
+
+- **41 份 `B88_*.tsv` 补丁 → 更新 384 + 新增 2**（`merge_ledger_parts.py --only B88_`）。
+- 🔴 **合并前先删掉 `B88_E4.tsv` 里 `BroadcastWhileInPlay` 那一行** —— 它会把 `B88_E1b` 的 **A 盖回 C**（按文件名排序 E4 在后）。这是 `check_patch_conflicts` 报的 23 条跨补丁重复键里**唯一会降级**的一条；其余同键行状态相容或后写更新。
+- 备份：`账_bak_同步点_1028/`。
+
+### 15·2 账本读数（合并后）
+
+| 项 | 数值 |
+|---|---|
+| 合计 | **8,781 行** |
+| 分档 | **A 4,452 · B 689 · C 372 · D 3,268** |
+| 已定案 (A+D) | **87.9%**（会话起点 86.5%） |
+| **真复刻率 A/(A+B+C)** | **80.8%**（会话起点 **78.5%**） |
+| C 的变化 | **606 → 372**（−234） |
+
+⚠️ **B 从 581 涨到 689** 不是退步：一大批 C 被做到「有实现但没核完」的 **B**（比 C 近一步）。
+
+### 15·3 落点闸：失败 0（本波最花时间的一件）
+
+- `--fix` 把漂移 **785 → 79**。
+- 但 **失败 102 → 0** 是另一件事：`--all-A` **只校验 A 行**，本波把大批 C 升 A 后，这些行的**落点格式不合规**才暴露出来（备份里同一条一模一样 ⇒ **不是 `--fix` 改坏的**）。
+- 逐类：括号/分隔符 20 · 注释行 20 · 空行 15 · 既无 `(` 也无 `=>`/`{` 14 · `)` 后接语句 13 · 括号名找不到声明 7 · 落点里没有 `文件:行` 6 · 括号名与那行声明不符 5 · 路径错 2。**没有一条落到「需要人工重判」**。
+- 最终：**A 4,569 条 · 通过 4,490 · 告警 188 · 漂移 79 · 失败 0**。
+- **漂移 79 的构成**：同名歧义 **62** · getter/`*ForTest` **12** · NEED-HUMAN **5**。
+- 🔴 **裁定（落点语义）**：「内联族给单个落点」**可以**（落点是承载该行为的真声明 + `等价实现` 说清），**但 `Extensions.AlmostEquals` 那 3 条例外** —— 本仓没有统一实现、是逐调用点内联，落一个示例调用点**不是「实现该行为的那几行」** ⇒ 要么把**全部内联调用点**列进 `差异` 列，要么降 B。
+
+### 15·4 人工裁定入账（补丁里没有、由调度台直接改主表）
+
+| 行 | 改成 | 理由 |
+|---|---|---|
+| `战斗逻辑驱动:783` `HideWarlordActiveAbilityForTutorial` | **C → D** | 原版**无调用点**（`il2cpp` 整节扫 `E8/E9/lea` 三源 = 0；同法对 `Show` 命中 1 处 ⇒ 扫法可信）⇒ 写点 = 发明行为（铁律 11 例外①） |
+| `未分类_其他:216/217/218/219` `CryptoString.*` | **C → D** | 与 215 同一 5 行工作单元；4 个调用点全在 `PlayerDataManager` 的 `loginPassword`/`deviceId`，本仓无账户体系 ⇒ P3 |
+
+### 15·5 探针（未重钉，等自检全绿再钉）
+
+- `ruleprobe check`：解析差异 **3 行** —— `EC42`（超额伤害）· `EC47`、`UM118`（两条 equal-to 正则）。**全是 E2 的有意改动**。
+- `play check`：①-a **3 张**（`EC47` 伤害 0→12 · `UM118` 0→15 · `GOF57` 自落场）①-b **32 张**（`AM*` 的 duty/vanguard 附魔链）。**都能归到本波的有意改动**。
+
+### 15·6 Unity 15 条：先红 5 个宿主，全部判「断言/夹具过期」修完
+
+| 宿主 | 首跑 | 根因 | 修后 |
+|---|---|---|---|
+| `ShellScene` | 🔴 **抛异常中止** | `BackgroundOverDrawController.Pop` 摸到**已销毁**件：`Build()` 每次 `Open` 都重建整屏底、销毁旧 `_shade`，而 `Push` 只 `Remove` 同一引用 ⇒ **死件留在全局栈** | ✅ **2102 / 0** |
+| `MainMenuScene` | 5067 / **2** | ① E7 把 UI 改成取词条、断言仍写死英文；② `endDate` 边界：原版 `Finished` 是**严格 `<`** ⇒ `now == endDate` 仍在期，旧断言「不在期」过期 | ✅ **5070 / 0**（含新补的配对断言） |
+| `RewardsScene` | 2391 / **2** | ① 行距断言是**自证式期望**（照旧实现写的，改了分子才脱节、只是那批没跑这个宿主）；② 「有斜坡」探针取「最右顶点」，`x3`→`3` 后只剩窄字形 | 待复跑 |
+| `ShopScene` | 2486 / **2** | VIP 页只有 1 行 ⇒ 内容 **482 < 视口 952.38** ⇒ `MaxOffset` 夹成 0；旧断言隐含「每页都比视口高」（前 3 页 957 只高 4.62px 才一直绿）。**差 470.38 一分不差** | 待复跑 |
+| `NetSelfTest` | M⑪ 红 | **夹具耦合**：单进程双会话**共用** `NetMatchmaking` 静态，主机先被 pump 到、`OnPeerLost → ClearMatch` 清掉账，客机读到假 | 待复跑 |
+
+🔴 **本波新增的一条自检**：`AudioSnapshotCheck.Run` 已并入 `_run_8_checks.sh`（14 → **15** 条），首跑通过。
+
+📌 **四处「自证式断言」在本波被揪出来**：`ProfileData` 的 `startingManaSecond==2`（J1）· 排位窗的 `StageTitle`（E7 拒绝了我建议的同源写法）· 行距的 `(vpH−节点高)/784`（E13）· `Beautiful Death` 的「假 4 与真 4 数字相同」（E2 用隔离实验证明）。**共同点：期望值是从我们自己的实现推出来的** ⇒ 实现错了它们跟着一起绿。
+
+### 15·7 落点闸收尾：**失败 0 · 漂移 0 · 告警 200**（A 4,569 条全过）
+
+- 62 条「同名歧义」**全修完**（判法 = 先看**宿主类**、再看**真实现 vs 转发口**）：`Deck`→ItemDrawer 的函数 1768（不是 `ItemSpec.Deck` 字段 1740）· `Open`→3392（不是 `FilterPanel.Open` 字段）· `SetHint`→16371（非转发 16363）· `GoEdit`→5504（非生产入口 5489）· `CostOf`→1002 · `DeployFree`→4759 · `PlayCard`→3900 · `PlayReplay`→980 等。
+  特判两条：`INotificationProvider<T>` 落**接口本身**（括号名必须写接口名，写 `CheckNotification` 会去找 4 个 provider）· `OfferBadge` 落单参 ctor。
+- 顺带清掉 **14 条非歧义漂移**（`--fix` 按设计不碰 getter/`*ForTest`）。三处换成更准的落点：`TryCollect`→`CampaignData.cs:228（Claim）`（原落自检缝）· `GetCards`→`Deck/DeckEditorState.cs:568（VisibleCards）`（原落 `CardsVisibleCount` 是**张数**，语义不符）· `CanDisplayLargeCardInTutorial` 试过真属性但**声明跨两行、闸判「不像声明」** ⇒ 退回 `AllowsCardDisplayForTest`。
+- **告警构成**：MEMBER 33 · PROSE 126 · GETTER 37 · FORTEST 1 · SELFREF 3。
+
+#### 15·7·1 🔴 裁定：`Extensions.AlmostEquals(Quaternion)` → **C**（不是 A）
+
+F1 按我「内联族给单个落点可以，但要列全部调用点」的裁定补完可审计性后，**主动提出这条该降 C**，我采纳：
+- `Vector2` / `Vector3` 两支：改落 `UITransformTweenController.cs:184/185（Near）` —— 那是仓里**唯一**把 `sqrMagnitude < eps` 收成方法的实现（原来落的 `AttackVfxRotation`/`RefreshPointer` 只是抽样点，确实不够）；`差异` 列写入**全部调用点**：Vector2 4 处 · Vector3 24 处（`<` 12 / 否定式 8 / `<=` 4）。
+- 🔴 **`Quaternion` 那支不同**：全仓 `Quaternion.Angle` / `Quaternion.Dot` **0 命中** ⇒ **连内联等价都没有**（最接近的是 `CombatCameraZoom.cs:923-925` 的 dot 守卫）⇒ **判 C**。
+  理由写进账：**原版【有】这个方法**（不是铁律 11 例外①）；要做需先查**原版的调用者**落在我们哪一族（旋转/朝向），**⛔ 不是「新建一个没人调的静态类」**（那才是死代码）。
+
+📌 **两个坑（已写进报告）**：
+1. **F1 干活期间 `.cs` 被别的代理改动**（`NetSession.cs` −1 · `BackgroundOverDrawController.cs` +1 · `CampaignTab` 试领那一带）⇒ 当场冒出 **6 条新漂移**，它按现读修掉了。⇒ **重同步点收尾必须【再跑一次闸】**（本会话已记这条）。
+2. 🔴 **`id(临时元组)` 做去重集合会静默丢数据**：CPython **复用 id** ⇒ 14 条只落 8 条**且不报错**；改用**元组本身**当键才对。**这类「不报错的丢数据」比报错危险**，已进脚本坑。
+
+### 15·8 `R2`：`80 MinPlusMaxTimesMultiplier` 的乘法点找到了（**枚举名骗人**）
+
+**乘法点**（节 `il2cpp`，`AbilityLogic.GetValueFromCriteria` 起 `0x18081B070`）：
+```
+0x18081b71f  cmp  eax, 0x50
+0x18081b728  imul r14d, [rsp+0xf8]
+0x18081b731  lea  eax, [rdi+r14]
+```
+- 寄存器：`rdi` = `minValue`（param3 / r8d，读 0xb093）· `r14d` = `maxValue`（param4 / r9d，读 0xb090）· `[rsp+0xf8]` = `multiplierFactor`（param8 栈实参）；路径全程不碰 rdi/r14。
+- 🔴 **公式 = `minValue + maxValue × multiplierFactor`**（⛔ **不是** `(min+max)×mult` —— **枚举名有歧义，以机器码为准**）。`.c` 逐字一致；`GetAverageValue.c:136-137`（AI 均值）同式。
+  📌 **这条同时推翻了上游「`.c` 也读不到该分支」的判断** —— Ghidra 的 `.c` 里就有这一支，只是当时没找到。
+
+**取值域**：
+- `min`/`max` 是 **int**，**80 档不掷骰、无端点**（随机只发生在 `Normal=0`）。
+- `multiplierFactor` 是 int、**默认 1**（签名 `int multiplierFactor = 1`），**非常量**；来源 = `PlayAbility.c:181-236` 的 `local_178`：`multiplier(+0x30).targetsAffected(+0x10)` 为 any(0) ⇒ 1；为 210/220 ⇒ Σ特质；否则 = `GetTargets(multiplier)` 目标数；再 × `furtherMultiplier(+0x38)`（>0 才乘）。
+- 这两张卡现读 `minDamage=0, maxDamage=1`、multiplier = 敌方手牌（单位+战术）⇒ 值 = `0 + 1 × 敌方手牌数`。
+
+**施工面**：
+- 错值在 `RuleEngine/Core/EffectResolver.cs:2985`（`GetRandomInt(Amount, AmountMax+1)` = 区间随机）。
+- 需给 `EffectOp` 带上「原版 valueOptions」位，80 档改成 `dmg = Amount + AmountMax * multiplierFactor`，**只结算 1 次**。
+
+🔴 **一个埋着的雷（重要）**：我们**已把 `role == "mult"` 当【循环遍数】**（`TryComputeRepeats`，`:13853`/`:7269`）。80 档的乘数**必须折进数值**，⛔ **不能再当 repeats**（否则平方）。
+今天没炸纯属巧合 —— `CountEval.cs:633-638` 把 `ta=50` 判为未实现 ⇒ repeats 停在 1；**一旦补上 `ta=50` 计数而 80 档没改，这两张卡会变成「敌方手牌数²」**。
+⇒ 这两件事**必须同批做**，⛔ 别只做其中一件。
+
+**可观察差**：今天 **= 0**（`ruleprobe play GSC35`：敌方手牌 3 → 造成 3；原版 `0+1×3=3`，两路殊途同归）。覆盖解除后：若删 `AmountRef` 而按现 `DoDeal`，正文无数字 ⇒ `Amount=0` ⇒ **0 伤害**（少 3）；只补 min/max 不接 mult ⇒ 随机 0/1（**更错**）。
+边差：原版 `multiplier` 只数「单位+战术」，我们 `AmountRef=enemyhand` = `Hand.Count`（**全部卡种**）⇒ 敌方手牌若有武器/密语类卡会不同。
+
+**没查清**：`ta=50` 目标计数的精确口径（原版已关服、未到实况读数级）· `fm>0 × 80 档`组合（全池 80 档仅 3 行 / 2 卡，无第二用户）· AI 打分侧估值 · heal 侧是否有 80。
+
+### 15·9 `R5`：挑战/成就计数 —— **原版 10 个口，我们真正只缺 3 条**
+
+🔴 **这条推翻了任务书里的「6 处发射点」**（那是上一波代理凭印象列的）。
+
+**原版到底几个口**：`ChallengeLogMgr` 有 **10 个 public 方法**（`LogPlayTroop` / `LogPlayTactic` / `LogTriggerAbility` / `LogHeal` / `TroopKilled` / `DamageStat` / `LogDamage` / `LogAttack` / `LogMatchEnd` / `LogAddEffect`），其中 **9 个只 `Signal.Raise`**，只有 3 个真写数（`LogPlayTactic→tacticsPlayed++` · `TroopKilled→enemyTroopsDied++` · `DamageStat→damageDone+=`，`.c` 尾部偏移 `0x14/0x10/0x18` 亲读）。
+第 11 个口是 `BattleEventsController.CheckHealth()`（**每帧拉**，发 `Enemy/PlayerHealthChangeSignal`）。真正的「数」在 **24 个 `MissionChallenge` 子类**（27 个派生类、覆盖 22 种信号）。
+
+**各在哪调（发射点）**：`TroopKilled`←`_ResolveMinionDeath_d__454:112`（**死在 `RemoveMinion` 之后、`UnitDeath` 之前**）· `LogHeal`←`_ResolveHeal_d__491:89`（**每次 ResolveHeal 无条件**）· `LogAddEffect`←`ResolveAddEffect:81`（闸 = `targetCard.AddEffect(...) == true`）+ `ResolveAction.c:1411` · `LogPlayTroop`←`_ResolvePlayCardFromHand_d__447` / `_ResolveSummonUnit_d__510` / `_ResolveCardAutoSummoned_d__511` · `LogTriggerAbility`←`LogActivatedTrigger`（**排除 `0x14/0xf0/0x276` 三档**）· `LogDamage`+`LogAttack`←`_ResolveAttack_d__438` · `DamageStat`←`BroadcastUnitDamaged` · `LogMatchEnd`←`ProcessMatchResult`。
+
+#### ✅ 我们早就有一半（这是关键发现）
+- `RuleEngine/Core/AchievementTally.cs` **自称「原版 challenge 触发源在本地的等价物」**，**已接 8 类**：`AddDamage` / `AddTrigger`（**三档排除已照抄**）/ `AddCardPlayed` / `AddSecret` / `AddSabotage` / `AddHuntMark` / `AddMarkOfChaos` / `AddReanimated` / `AddSwarmMerge`。
+- `BattleContext` 另有 `DamageToEnemy`(:329) · `TroopsPlayed`(:330) · `DamageToEnemyWarlord`(:339) · `AttacksDeclared`(:340-341)。**读点是活的**（`AwardAchievements` @32142 + `DailyData.OnBattleEnd` @32129）。
+- ⇒ **真正缺发射的只有 3 条**：
+  1. **击杀** → 插 `RuleCore.cs:6239`（`TryCreditKillCore` 的 `return true;` **前**）
+  2. **治疗** → 插 `RuleCore.cs:9319`（`HealUnit` 的 `Emit` **后**）
+  3. **通用施加效果** → 建议**最小档，不加代码**
+- `SurviveTurns` 用 `Ctx.Turn` 现算（`(Turn+1)/2`）。
+
+🔴 **「督军受伤」不需要新发射点** —— `RuleCore.cs:8970` **早就在写** `ctx.DamageToEnemyWarlord[1-_own] += actual`（**扣盾 / 减伤 / 易伤拆分后的实际伤害**），**比 `UpdateHud` 那份准**。
+⇒ 「⛔ 别在 `UpdateHud` 再比一次血量差」这条**现在有了双重理由**：既有「第二份 = 迟早不一致」，又有「这里已有一份更准的」。
+
+🔴 **施工方向（重要）**：新增计数一律进 `AchievementTally` / `BattleContext`，**⛔ 不要把 `ChallengeEngine.*` 塞进 `RuleEngine/`**（那会造成**表现层反向依赖**）；表现层在结算处读，沿用既有模式。
+
+#### 休眠判定（照实记，⛔ 不许静默）
+- 我们的 `ChallengeData` 五格（`:127-131`）**写进去也没人读**：唯一读口 `ChallengeEngine.ProgressOf`(:143) **全仓 0 调用者**，`IsComplete` 也 0；**挑战清单 UI 根本没建**。
+- `ChallengeEngine` 全仓只被 `TopBar.cs:340-344` 用到，**全是显隐那一半**；五个计数 API **0 调用者**。
+- 原版侧：`ChallengeResults.SetChallengeResults` / `UpdateChallengeResults` 在 `decomp_full` 全量里**只有自己文件里那两个调用** ⇒ `ChallengeVariable` / `ChallengeLevelReached` 整条是**服务端通道**，客户端即休眠 ⇒ **判 D**。
+- 活的只有 `Tally.*`（成就界面）与 `BattleContext` 那 5 格（日常任务）。
+
+#### 两个必须记的风险
+1. 🔴 `EnemyHeroDamageScorer` 是**「创新低才算」**，我们 `DamageToEnemyWarlord` 是**逐次相加** ⇒ 敌方督军「治疗后挨打」时会**重复计**。
+2. 🔴 `ChallengeData.Reset()` 会**连 `_pending` 一起清** ⇒ 接进 `BattleDriver.Begin` 前**必须拆成 `ResetRunCounters()`**。
+
+### 15·10 `R1`：`90 RandomizedOnResolution` 的上游数字**已过期**
+
+🔴 **「87 行 / 63 张」不成立了** —— 预烧表 `RuleEngine/Core/BattleContextRandom.cs`（2026-10-27 `E1RNG`）**已经落地**（`RandomNumbers[100]` + 游标 + 按下标取，`BattleContext.cs:681` 调 `InitRandomNumbers`）⇒ **⛔ 不要再重做预烧表**。
+
+**原始扫描仍对，但施工面小得多**：
+- 任意 `*valueOptions == 90` = 87 行 / 63 张；
+- 其中 **22 行 / 7 张落在非伤害族**（`chosenAbility ∈ {0,30,60,260,40,100,3}`），`damage` 字段根本不读 = **死字段**；
+- ⇒ **真正施工面 = 65 行 / 56 张**（伤害族 `chosenAbility ∈ {10,12,13}`），池内 52 张、池外 4 张（224 重复卡，不施工）。
+- **而可观测差只有 16 行 / 14 张多目标卡**：`AM12·AM30·AM53·ASH49×2·BL53·DA66×2·GOF15·GOF3·GOF44·GSC5·SAU51·SW30·SW36·UM28`。其余 49 行单目标**今天已等价**。
+
+**原版消费形状（三问都有出处）**：
+1. **取值**：开局 `new int[100]`，逐格 `UnityEngine.Random.Range(0,1000)` ⇒ `[0,1000)`（`MatchData__GenerateRandomNumbers.c:19,26`）；种子 = 全局 `UnityEngine.Random`（**不可复现**），我们换 `System.Random(seed)` 已标 🔶。
+2. **游标**：一局**一条表、一个全局游标**，每消费 `+1`、按 `Count(100)` **取模回绕**；**区间空 / 单值不消耗**（`MatchData__GetRandomInt.c:22-27,34`）。
+3. 🔴 **不共享**：90 档在 `AbilityLogic__GetValueFromCriteria.c:200-204` **直接 `return min`、不掷骰**；掷点在 `CardScript__GetAdjustedDamage.c:23-30`（仅 `damageType ∈ {5,10,12}`，掩码 `0x1420`），而它在**逐目标循环**里被调 ⇒ **一次「伤害落地」（op × 目标）取一次**。
+   对照：`Normal(0)` 的区间值在 `GetValueFromCriteria.c:33-42` **取一次、多目标共用**。
+
+**施工清单**：
+1. `EffectResolver.cs:2986`（`DoDeal`）—— 90 族的掷骰**挪进逐目标 `foreach`**；非 90 族保持循环前共用。单目标不变。
+2. `EffectText.cs` 的 `EffectOp` —— 追加 `public bool RollPerTarget`（**加到类尾**）。
+3. **真正难点 = 把 `valueOptions/damageType` 带到 op**：`CardDef.ActiveAbilityDamageSpec` 已带 `ValueOptions`（`CardDef.cs:3150`）但**只覆盖 7 行 activeAbility**，其余 **58 行在 `abilities[]`** 无列 ⇒ 推荐扩 `工具/gen_cards_engine.py`（`:1787-1798` 已吐 ta/fm/ca）加 damage 列；备选 = 解析期读 `cards_truth.json`。🔴 **⛔ 禁止「有区间就逐目标」的近似** —— 会把 `GOF22 Deff Dread` 这类 `(0,5)` 卡改错。
+4. 预烧表**不改**。
+5. `PlayProbe.PinnedPlayMd5` 重钉 + `RuleEngineTest.Run` 必跑。
+
+🔴 **级联风险**：随机表是**一局一条流**，多目标从「消费 1 次」改「N 次」⇒ **该局后续所有随机整体平移**，`play all dump` 变化面**可能远超 16 张（不是回归）** ⇒ **重钉前必须单开一处改动跑 A/B 隔离归因**。
+
+**没查清**：「单/多」列是按 `ta+maxTargets` 推断的**上界**（未逐张跑结算）· `case 0xc`（`DealMultiDamageVariable`）**没有 `!=0x5a` 闸**，其 `(0,5)` 是否逐目标掷未定 · `valueOptions=8`（枚举里没有 8，38 行）全落非伤害族、⛔ 别当新档实现 · `decomp_full/DamageInfo__.ctor.c` **文件名与内容不符**（其实是 `<>f__AnonymousType31___ctor`），改用 ILSpy 版作证。
+
+### 15·11 `R3`：战术卡 oath 二选一 —— **UI 层不用重建**
+
+- **变体结构**：**两个 `RawCardScript` SO**（同名同卡），一个带默认 trait `oath`(0x4FB=1275)、一个不带。绑定 = `choicesDefinition`（`RawCardScript.cs:193`，类型 `TargetCriteria`）→ **`filterSpecificCards`（`List<RawCardScript>`，`:87`）= 两个变体 SO 的直接 PPtr**；`maxTargets`(`:61`)=2；`targetsAffected`(`:9`)=`ChoiceResolution`=0xB4=180。
+  `.c` 偏移：`choicesDefinition`=+0x2A0 · `filterSpecificCards`=+0x70 · `maxTargets`=+0x40 · `targetsAffected`=+0x10。
+- 🔴 **我方数据是一张【合并卡】**（`UM110` 等，oath 效果并进 `desc`），`choicesSpecificCardIds` 里两个变体 id **都不在池内**。
+- **UI**：`ChooseCardMenu`（每个 battlearena 场景一份、初始 inactive）= 卡排 `ChooseCardMenuAnchor`（`CardsHorizontalLayout`，spacing **502.2**、maxLayout 0.98）摆 **2 张 2D 卡** + 每张叠 `SelectCardButtonFrame`；顶部 `ChooseText/Text` fs55 `"Choose one card"`；右下 `Continue Button` 548×75.9 fs45；左上 `HideChooseButton` 78.4²。⇒ **是卡排 + Select 钮，不是两个按钮/扇形**。**我们 `ChoosePanel` 已逐项复刻（布局/词条全对）⇒ UI 层不用重建。**
+- **时机**：**基础卡费在选择【之前】扣，誓约费在选择【之后】扣**（`PayCardCost` `d__447:377` → `NeedsToChooseFromPool` → `ChooseCardMethod` → 开 `ChooseCardMenu` → 结算 → `PayCardPlayedCostOath` @`PlayAbility.c:2031→2033`）。闸 = 剩法力 ≥ 誓约值（`NeedsToChooseFromPool.c:142-147`）。
+- **施工面 4~5 个文件**：`EffectResolver.cs`（oath-choice ask + `PlayTacticBodyDeferred` 加 oathChosen 过滤 + `CanPlayTactic` 加 oath 费）· `BattleContext.cs`（答案队列）· `BattleDriver.cs`（ShowAsk/OnChooseDone 接面板）· `RuleEngineTest.cs` · `BattleScene.cs`。**断言约 8 条**（引擎 5 + 战斗 3）。
+- 🔴 **关键约束**：我方是合并卡 ⇒ **不能照原版「选哪个 `CardDef`」落地**；**推荐做成「布尔 ask＝付不付誓约」**，⛔ **不要往池里塞两个变体 SO**（会动数据口径）。
+
+### 15·12 `R6`：`WaitingPopup` 与 `Store.CanPurchase` —— **两条判据缺口都关掉了**
+
+**① 等待弹窗：有。** `ShopStore.TryPurchase`（RVA `0x1253FA0`）**第一句无条件**弹：
+`ShowPopUp("MenuShop/WaitingPopup", localizeTexts:true, closeOnEsc:false, primaryButton:null, secondButton:null)`。
+- **文案键 = `MenuShop/WaitingPopup`**（`script.json` ScriptString @ RVA `0x42D2BE0` 实读）→ EN `Processing your purchase...` / ZH `正在处理您的购买...`（`official_loc_13lang.json` 实读）。🔴 **不用编文案。**
+- **形态 = 0 颗按钮**：`ConfigurePopUp`(4 参 `0x83A6E0`) 在 buttons 为 null/空时转 `ConfigurePopUp`(3 参 `0x83A570`)，后者对每颗 `LiveButtons` 调 `SetActive(false)`；+ `closeOnEsc:false` ⇒ **不可点、不可 Esc**。
+
+**② 分支顺序**：`ShowPopUp` → `offer.IsItem ? PurchasesManager.PurchaseItem(..., showRewardWindow:true) : offer.TryPurchaseOffer(onComplete,onError)`。
+三条终态回调（`b__0` `0xEBCBC0` · `HandlePurchaseComplete` `0xEBCC50` · `HandlePurchaseError` `0xEBCCC0`）**都是先 `HidePopUp(forceHide:true)` 再调调用方回调**；rewards / error 字串**都被丢弃**。
+🔴 **`TryPurchase` 内没有任何本地校验**（无货币 / 等级 / 限购）。
+
+**③ `Store.CanPurchase` = 2 条条件，且是【纯本地逻辑】**（VIP 页的 `Store` = `DailyStore`，vtable slot 69）：
+- `RequiredItem == null` ⇒ **true**；
+- 否则 `InventoryManager.Instance.HasItem(RequiredItem)` = **背包持有该 id 且数量 > 0**（`DailyStoreData.requiredItem` @+0x70；`ItemInstance` `+0x58` Id / `+0x78` `int?` Amount）。
+- ⛔ **没有货币 / 等级 / 限购 / VIP 档。** 我们缺的**只是 `requiredItem` 这格输入**（`assets_full` 对 `requiredItem`/`fixedDateItems`/`itemSource`/`itemCategories` **全 0 命中**，只有 MonoScript 名）。
+- 🔴 附带：`InventoryManager.GetExpirationDate` **也是本地**（背包实例的 `EphemeralEndTime`）⇒ `ShopData.VipExpiresAt` 现在写的「服务端值」理由**要按铁律 5 就地订正**。
+
+**④ 要改的几行**：
+1. `Shell/ShopTabPage.cs:764 DoBuy` 开头 → `wm.ShowMessagePopUp("MenuShop/WaitingPopup", null, null, null, null, closeOnEsc:false)`；第 766 行 `ShopData.Buy` **之后**、`Setup()`(769)/开窗前 → `wm.HidePopUp(true)`。
+2. `Shell/PopUpGameWindow.cs:517,524 Build()` 与 `:383,388 RefreshLiveContent()` → `out _` 改 `out _primaryNode`，`_primaryKey` 为空时 `SetActive(false)`（= 原版 3 参 `ConfigurePopUp` 行为）。
+3. 常量加在 `Shell/ShopTabPage.cs:926-928` 旁：`WaitingPopupTerm = "MenuShop/WaitingPopup"`。
+4. **铁律 5 注释订正**：`Shell/ShopData.cs:523-524,528,535-536` + `ShopTabPage.cs:907`（把「服务端 CanPurchase」改成上面的**本地公式**）。
+
+#### 15·12·1 🔴 裁定：同步购买导致弹窗同帧开关
+
+R6 问：「我们购买是同步即时的 ⇒ 弹窗会在同一帧开关、玩家看不见。要不要加延迟？」
+
+**裁定：照原版结构原样接，⛔ 不加延迟。**
+- 理由：原版是**异步服务端购买**，弹窗的可见性是那个异步的**副产品**，不是设计意图；我们本地同步 ⇒ 它本来就该是瞬时。
+- **⛔ 自己加延迟 = 发明原版没有的 UX**（还会让「点一下卡半秒」变成我们的行为）。
+- 处置：代码里照原版接 + **注释写明「本地同步 ⇒ 同帧开关、玩家不可见；⛔ 别加延迟」**；断言只断**结构**（弹了、无按钮、随后隐藏），⛔ 不断「可见时长」。
+
+**没查清**：弹窗有无转圈动画（需读 `MessagePopupWindow` prefab 的 Animator + `WindowsManager._LoadPopUpAndShow_d__59__MoveNext.c` 全文）· `IsItem` 的真实赋值调用点 · `PurchasesManager.PurchaseItem` 方法体。
+
+### 15·13 `R4`：`637` 三族 —— **接收端不是「置 `cardState=11`」**，原计划的接法会造幽灵单位
+
+**三族 / 4 个广播点 / 我们的覆盖（现读：接了的发射口 = 0）**：
+
+| 点 | 族 | 原版入口 → 结算 | 我们的路 | 覆盖 |
+|---|---|---|---|---|
+| #1 | exchange | `AddExchangeMinions`→`ResolveExchangeMinion`（`IL:BattleManager.cs:35381`，**双卡 `(a,b)`**） | `DoExchange`（`EffectResolver.cs:16924`） | 结算 ✅ / 发射口 ❌ |
+| #2 | steal（棋盘） | `AddStealMinion`→`ResolveStealMinion`（`IL:38706`） | `DoTakeControl`（`:9312`） | ⚠️ 部分 / ❌ |
+| #3 | transform→残骸 | `AddTransformIntoRemnant`→`ResolveTransformIntoRemnant`（`IL:39259`） | `RuleCore.CleanupDeaths` 残骸支（`RuleCore.cs:9858`） | 结算 ✅ / 发射口 ❌ |
+| #4 | transformUnit | `AddTransformCard(WithBuff)`→`ResolveTransformUnit`（`IL:11385`） | `DoBecome`（`:3434`，**仅手牌**） | ⚠️ 部分 / ❌ |
+
+- 现读卡池（`cards_truth.json` 1,351 张）：`90`=1 张（Hrolf）· `180`/`185`=各 1 张（Telephatic Domination）· `190/200/170/175/210/80/85`=**0 张** · **`remnant`/`waystone` = 55 张**。
+- ⇒ **已覆盖 0 条、还缺 4 条**；但**只有 #3（残骸翻面）今天在真牌上跑（55 张）** ⇒ 优先 #3 → #2 → #1/#4。
+- `copycemetery`/`stealhand`/`stealdeck` **在原版里本来就不广播**（4 个调用点不含它们）⇒ 它们实现没问题、**缺的不是广播**。
+
+#### 🔴 最关键的一跳（推翻原计划）
+**接收端不是「置 `cardState=11`」**：`BroadcastRemoveFromGame` 的三条循环**都排除**那两张卡 ⇒ 永远走 `ReactToUnitJammed` 的 **else 支**：
+> **`RemoveExtrinsicEffectsFrom(来源)` + `UpdateWhileInPlay(false)`**（按来源撤外来效果 + 重算在场正文）。
+
+这两个零件我们**都有**（`UnitState.RemoveExtrinsicEffectsFrom` / `Auras.RefreshInPlayNumericAndKeywords`），**只是没人调**。
+
+#### 🔴 裁定：`MarkRemovedFromGame` 这 4 条路**不该调**
+- `cardState=11` 的唯一置位支 `CardScript.RemoveFromGameCard(自己)` **全库零调用者** —— 三源合判通过（`.c` / `out_il2csharp` / `ExportedProject` 的 `m_MethodName` grep = 0，而同一 grep 对 `m_MethodName` **能命中**，证明搜法有效）。
+- 「不调 `CleanupDeaths`」**是对的**（那个函数首闸就是 `!u.IsAlive`，`RuleCore.cs:9543`）。
+- 🔴 **但置 flag 是不完整的，而且危险**：`RemovedFromGame` 全仓**零读点**（6 处 grep 全是写/注释），且 `Auras.RecomposeCore` 扫棋盘**只跳 null、没有 `IsInPlay` 闸**（`Aura.cs:644-651`）⇒ **置了 flag 却不从 `Board[]` 摘掉 = 幽灵单位照投光环、照能被选为目标**。
+  ⇒ 真要用必须**三件同做**：置 flag + 从 `Board[]` 摘 + 给 `RecomposeCore` 补 `IsInPlay` 闸。⛔ 只做第一件比不做更糟。
+
+#### 两条账外发现（一条要改正本，已改）
+1. ✅ **CLAUDE.md §三「`out_il2csharp` 没有方法体」这条不成立** —— 本次在 `out_il2csharp` 里读到 `BroadcastRemoveFromGame`/`CheckIfDead`/`ReactToUnitJammed`/两个 `_Resolve*_d__5xx.MoveNext` 的**可读真方法体**，且**比 ILSpy 干净**（没有 `(CardScript)0` 丢实参）；但**按方法而异**（`AddStealMinion`/`ResolveTransformUnit` 是 struct 复制式、极难读）。
+   ⇒ 已就地改成「**第三条可用源、逐方法判**」（另两份 `out_cpp2il_ilspy`/`DiffableCs` 确实仍是签名壳）。
+2. 🔴 **`actionType → Resolve*` 那张大 switch 两份反编译里都丢了**（全树 grep 只有定义 + 自己的状态机，零调用者）⇒ 本单只能保证 4 条 `Resolve*` 的**内部顺序**，**给不出队列相对优先级**。今天不影响（我们不走那层队列），但**复刻「priority 1/2/3 三段队列」前必须补反汇编**。
+
+#### 🔴 裁定：`stealMinion` 永久 vs 本回合
+R4：原版 `stealMinion` 是**永久**抢（全库无归还路径），我们 `takecontrol` 做成「本回合 + 回合末归还」（卡面写 `this turn`）⇒ 问要不要按原版改永久。
+
+**裁定：照抄原版 = 永久**，但**改之前必须先做三源确认**（`.c` + `out_il2csharp` + `assets_full` 的 `m_MethodName`；⛔ 「全库无归还路径」是个**否定断言**，只查一份会误判 —— 本项目栽过 `BadgeNotifications` 少个 `s` 那种）。
+理由：**「原版自己也有 bug 就照抄，不修好」** 已是本项目确立的原则（`G14` 的 `BroadcastCardDrawn` 漏 `!` 先例）；**卡面是印刷品，不覆盖行为**。
+处置：改完在代码里写明「卡面写 `this turn`，但原版无归还路径 ⇒ 照抄原版；⛔ 别按卡面改回去」。
+
+**没查清**：`twoFractDelay` 值 · `MinionManager.RemoveMinion→RefreshOccupationSlots` 体 · `stealMinionSelf(185)` 语义与「同一卡名两个 id」 · 🔴 **`AddTransformCard` 的 `keepEffects` 在 `ResolveTransformUnit` 里的消费点没定位**（接 #4 之前必须补）· 表现层（DOMove/DOScale/隐身）全不在本单。
+
+### 15·14 `F4`：`RuleEngineTest` 3 条红 —— **断言错，实现对**
+
+**判定 = (α) 断言过期**。三条期望 `[3]/[5]/[3]` 出自**粉丝实体规则书** `Warbook:195`（该文件自己第 5 行写着 `Not official`）；而**两份反编译一致证明「部队排掉自己、督军不排」**：
+- `CardScript__CheckAndApplyCurrentPack.c:15-38`（`…UpdateWhileInPlay.c:36-52` 同形）：`cardType == 10 → Count`，其余 → **`Count - 1`**
+- `CardTypeOptions.cs:3-6`：`Minion=0 / Hero=10` ⇒ **10 = 督军**
+- `MinionManager__GetUnitList.c`（ILSpy `MinionManager.cs:3397`）= `leftMinions + rightMinions`：**督军不在列表、源自己在列表**（`InsertMinion` 只由 `PlayMinionFromHand`/`SummonMinion`/`MoveMinionIntoSlot` 调用，督军永不进 List）
+- ILSpy `CardScript.cs:16107-16108`：`num` 同时写 `meleeAttackChange` / `rangeAttackChange`
+
+⇒ 本波 `RuleCore.cs:5034`（`B88-E1` 的 `if (!u.IsWarlord) n--;`）是**正确复刻**，**没动实现**。
+
+**它做的改动**（只动 `RuleEngine/Editor/RuleEngineTest.cs`，+29/−5）：
+1. 三条期望改 `2 / 4 / 2`（+ 文案改写）；
+2. 段头加**带判据出处的订正注释**（⛔ 别改回 `[3]/[5]/[3]`）；
+3. 🆕 **新增督军分支 2 条断言**（`wl.AddKeyword("pack",1)` 后断 `FieldAttack = wl.Attack + 3` / `wl.RangedAttack + 3`）⇒ **把 `if (!u.IsWarlord)` 那一半也钉住**（原来只钉了「部队」那一半）。
+
+**复跑：`RE === 结束：9458/9458 全过 ✅ ===`**（总数 9456 → 9458 = 新增 2 条）。
+
+📌 **两条记着**：
+- 🔴 **`RuleCore.cs:4999-5008` 的 doc 注释仍写「包含自己」= 与现实现相反** ⇒ 下轮按铁律 5 改（本轮那文件没在白名单）。
+- **`GetUnitList` 全量反编译里只有 2 个调用点（都为 Pack）** ⇒ 是「Pack 口径只有一处」的强证据。
+
+### 15·15 重同步点：15 个宿主的最终读数
+
+| 宿主 | 读数 |
+|---|---|
+| **`RuleEngineTest`** | **9,458 / 9,458 全过** ✅（F4 修完，含新增 2 条） |
+| `BattleScene` / `DeckScene` / `CollectionScene` / `NetBattleTest` / `SettingsScene` / `CardBaseDemo` / `AnimFXCheck` / `CardFaceAssertE5` / `AudioSnapshotCheck` | 退出码 0 ✅ |
+| `ShellScene` | **2,102 / 0** ✅ |
+| `MainMenuScene` | **5,070 / 0** ✅ |
+| `RewardsScene` | **2,393 / 0** ✅ |
+| `ShopScene` | **2,489 / 0** ✅ |
+| `NetSelfTest` | **351 / 0** ✅ |
+
+**落点闸（两次跑同值）**：A 4,568 · **通过 4,568 · 漂移 0 · 失败 0**（告警 200）。
+
+📌 **本波一共修了 5 个宿主的 7 条红 + 1 处崩溃，全部判为「断言/夹具/探针过期」，零实现缺陷** —— 除 `BackgroundOverDrawController` 那处崩溃是真实现缺陷（`Build()` 每次重建整屏底、旧件留在全局栈里）。
+这条分布本身值得记：**红 ≠ 实现坏了**；本波 8 处里 7 处是我们的**判据自己过期**。
+
+### 15·16 `B4`：战役线 —— **第三例「重复实现」**（`RankedDeckSelector` 早就有活的等价物）
+
+🔴 **推翻 E13 那 11 条 B 的前提**：`RankedDeckSelector` 的行为**早就在 `Shell/LiveOpsEventWindow.cs` 里以「内联等价实现」活着、而且是接线的** ——
+`RankedEventWindow : LiveOpsEventWindow` **未覆写 `Build()`**，其 `Build():601` 就建这一栏；壳里 `MainMenuRuntime.cs:2701` 真的打开排位窗。
+⇒ **E13 新建的 `Shell/RankedDeckSelector.cs` 是【重复实现 + 零调用方】**（文件头「玩家看不到它」已就地订正）。
+
+📌 **本会话第三例「同一功能被建两份」**：`CurrencyCondition`（J3 撞 `Inventory.cs:1809`）· `ChallengeEngine` 五格 vs `AchievementTally` 已有 8 类（R5 查出）· **本条的 `RankedDeckSelector`**。
+⇒ **教训（要进准则）**：**动手新建一个组件前，先 `grep` 那个组件的核心行为词（不是类名）** —— 这三例都是「按类名找不到 ⇒ 以为没有」，而行为早就以**内联**形式在别的类里。
+
+**判定**（15 条）：
+- **→ A（8）**：`4` 徽记节点（`CampaignTab.cs:984`/`:1715`）+ `CampaignBadge.army`（`BadgeNotifications.cs:100`）+ provider `new CampaignBadge(SelectedArmy)` **全在**，旧备注两处缺口**都过期** · `112/113/115/116/118/120` · `119`（换落点 `ShownWarlord`）。
+- **→ C（6）**：`108` 缺第二道 `Where` = `DeckUtility.ValidateDeck`（判据 `__c___ChangeArmy_b__29_1.c`）· `109` 缺「有卡组但都不合法 ⇒ 去商店」支 · `111` 开的是 DeckEditing 近路不是收藏窗 · `114` 完全没做（且 `ShopWindow.Create` 不收页参数）· `117` 开对了 `DeckSelectionPopup` 且**带回调**（旧备注「没有回调契约」**过期**），仍缺列表级阵营谓词/allowEdit · `121` 谓词没下传。
+- `110 → B`（槽来源是全局当前卡组、非「该活动上次那副」，🔶）· `53/55` 维持 C（`ItemDrawer.cs` 归 E8）· `76/78` 代码里已是 A（`CampaignTab.cs:490/577` 现读确认）。
+- **预期合并后：A 79 / B 1 / C 8 / D 38，真复刻率 89.8%。**
+
+⚠️ **合并顺序**：`check_patch_conflicts` 报 B4 与 E13 在 **14 个 `RankedDeckSelector` 键**上重复，字典序 **E13 会赢** ⇒ **必须先 `--only B88_E13.tsv`、再 `--only B88_B4.tsv`**。
+
+📌 **待裁**：`Shell/RankedDeckSelector.cs`（461 行、零调用方、重复实现）**建议删或接线** —— 接线点 B4 已写明。删文件是破坏性动作，**等用户点头**。
+
+### 15·17 `R8`：用户指的安卓包 → **徽章一点都不缺**（上一波「0 份」是搜法错了）
+
+- **16 份 `AllianceBadge` SO 一直在 `assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/`**。铁证 = 它们的 `m_Script.m_PathID = 8712395647440592121`，在 `Waprforge_monoscripts.bundle` 里解出 `m_ClassName = AllianceBadge`。
+- 🔴 **错因**：文件名是 `AM_Forge_Badge` / `Default_Badge` / `UM_Event_Badge` 这类，**类名既不在文件名也不在 JSON 里**（只存 pathID 数字）⇒ **按类名搜必然 0**。
+- **映射表 16/16 确证**：SO 的 `badgeImage.m_AssetGUID` → 包 `AssetBundle.m_Container`（**键就是 GUID**）→ PathID → 名字；每个 GUID 恰好 1 Sprite + 1 Texture2D 同名。
+  两个反直觉点：`GOFF_Forge_Badge` 用的是 `Alliance_Trophies_Ork`（**不是 `_Goff`**）· `UM_Event_Badge` 用的是 `..._Space Marine 2 event`。
+  4 张 tier 边框（TIER1–4，`index = max(0, tier-1)`，**tier=0 画 TIER1**）+ 2 张无人引用的遗留图。⚠️ tier 顺序是「按名字+代码推的」⇒ 代码里必须 `🔶`。
+- **图标本体早就有**：22 张 1024² PNG 在 `素材/Warpforge原版/装饰品/联盟徽章/`（22 PNG + 44 Sprite json）。
+
+#### 🔴 三条高价值附带发现
+1. **`catalog.bin`**（APK 里 `assets/aa/catalog.bin`，已取到 `_tmp_view/apk135/aa/`）= 本机**唯一能回答「原版资产叫什么 / 属于哪个 Addressables 标签」**的地方；12,296 条串、**213 个地址名**。**`AllianceBadge` 本身就是一个标签** ⇒ 徽章原版是**按标签一次性载入**，不是按 id 取。
+2. 🔴 **本地 84 包 vs catalog 261 包 ⇒ 约 177 个远端专属包本机没有字节**（走 CCD、服务器已关）—— 这是很多「查不到」的**真边界**，以后判「没有」可以拿它当尺子。
+3. 🔴 **【方法论】**：**拿类名/字段名扫包内字节永远 0 命中**（序列化数据不含字段名）⇒ **那一整行不能当否定证据**。判 SO 有没有，只能看 `MonoBehaviour/*.json` 的**独有字段名**，或 `m_Script` pathID → monoscripts 的 `m_ClassName`。
+
+**仍是本地 0（已复核）**：`AllianceTrophyData` / `AlliancesTrophyController` / `allianceItems` 组 / `SceneTransitionList` / `ChallengeList` / `requiredItem`。
+**解包目录只占 15 MB**（没整包解，按名取 5 个文件 + 拷 3 个缓存包）；`d:/2` 一个字节没改。
+
+### 15·18 `B5`（商店）与 `B1`（收尾五线）
+
+**`B5`**：3 条 —— **203 `TryPurchase` C→B**（WaitingPopup 做了：`PopUpGameWindow` 补「0 颗钮」档 + `DoBuy` 开头弹/之后隐藏；**照裁定不加延迟**，读口 `LastWaitingPopup`/`LastWaitingPopupHadNoButton`）· **`Store.CanPurchase` 做了**（`ShopData.cs:595`，原版**本地**两条，RVA `0x8CC740`）· **297 订正「虚高 A」**（落点原来只指 `ShopData.Buy`，而方法第一句的等待框当时根本没有）。
+- 🔴 **`requiredItem` 确认本机没有**：`assets_full` 0 命中；**安卓 `UnityDataAssetPack.apk` 85 个束里没有 store/liveops 束**，5 个候选束逐字节搜全 0；Unity_Cache 3 包也无。⇒ **商店那 6 条「真值远端」别再去安卓包找了（已证没有）**。
+
+**`B1`**：五条里 **3 条清零**：
+- 卡牌面_渲染 = **0**（开工即 0）。
+- 收藏 **B→A**（判 **α 账过期**，**零代码改动**）：静态链逐段亲核（`ItemDrawer.Bind:1931` → `Leash.Attach:31`；`Draw` 三条提前返回都在 Bind 之前 ⇒ 不留残登记；`res.Node` 恒非 null；`OnDestroy:43`→`Release:1966` 的 `_handles.Remove`）。
+- 联机 **C→A**（判 **β 实现缺陷**，且「cue 名读不到」是**读法不对**）：改从 **AssetRipper 导出工程**读到真值链 —— `Intro.unity:7299-7307` → `matchFoundSFX` guid `779042f4…` → `MonoBehaviour/Match Found.asset`（cue 名 **`Match Found`**，clip `Multiplayer Match Found 3`，pitch 0.8–1.1 / vol 0.8 / ttp 0.1）→ 消费点 `MatchMakerManager__MatchMakingMatchFound.c:43`（**MixerType 0 = FX**）。落地：导入器 `EXTRA_CUES` 加 `Match Found` → 跑导入器（表 diff **+11/−0**）→ `NetMatchmaking.cs:884 GoToBattle` 接 `WFSoundPlayer.Play(..., is2d:true)`（⛔ 不用 `PlayJingle`，那是 Jingles 组）。
+  📌 **方法论**：**「cue/资产引用链读不到」时，去 `d:/2/tools/assetripper_out/ExportedProject` 读场景 YAML** —— 那里有 `guid` 与 `.asset` 的真身。
+- 卡组编辑 1 C / 教程 1 B：**都卡在黑名单文件**（`BattleDriver.cs` / `RuleCore.cs`），施工单已写。教程那 1 条**今天可见影响 = 0**（6 关 462 条动作 `tipWithContinue` 全 false）。
+
+### 15·19 🔴 合并顺序清单（累积到现在，⛔ 别用宽前缀一把合）
+
+| 必须先合 | 再合 | 冲突键 |
+|---|---|---|
+| `B88_E4` | `B88_E1b` | `BroadcastWhileInPlay`（E4=C 会盖 E1b=A） |
+| `B88_E6` | `B88_A3` | 2 行（E6=C 会盖 A3=B） |
+| `B88_E13` | `B88_B4` | 14 个 `RankedDeckSelector` 键 |
+| `B88_J1` → `B88_J1b` → `B88_E12` | `B88_B5` | 203 / 325 多份同键 |
+| `B88_E8` | `B88_B1` | `MatchMakerManager.MatchMakingMatchFound`（E8=C 会盖 B1=A） |
+
+⇒ **合并时必须逐份 `--only <完整文件名>` 按上表顺序**，⛔ 不许 `--only B88_`。合完把全部补丁挪进 `_merged_B88_wave2/`。
+
+### 15·20 `B2`（音频 / 轮抽 / 锻造，13 条）—— **11 条是 α（账目过期）**
+
+**判 α/β/γ：13 条里 11 条 α · 1 条真实现缺口（锻造 40 的卡背描边那半）· 1 条「实现全、缺触发源/上游」。本波新写的代码只有 2 处。**
+
+**真改动（4 文件，行号零漂）**：
+1. `BoosterPackOpenWindow.cs`：`Cardback Shadow SDF` 换原版 SDF 材质（`CardView.CardbackSdfMaterialBase()` 逐格 clone）+ `Hover` 把 `_Outline.a` 补到 1/0（0.2s）⇒ `CardInBoosterPack.TryHighlightCardback` **B→A**。
+   🔴 **ILSpy 版把 `originalScale` 那支【反了】**（`if(option)` 且初值 0 ⇒ 离开时把卡缩到 0）⇒ **以 `.c` 为准**。
+2. `ForgeData.cs:210`：`ForgePointIcon` 改转调 `ArmyIcons.ForgeIconName`，**删掉原版没有的通用兜底** `40K_general_icon_Forge_points`（原版查不到 = null，且那条兜底**没打 🔶**）。
+3. `PurchasePremiumWindow.cs:204`：`ArmyBackgroundArt` 改转调 `ArmyIcons.MediumBackgroundName` + **就地订正过期注释**（「本地还没导入这 13 张/0 命中」→ 现读 **13/13 全在**）。
+4. `Editor/AudioSnapshotCheck.cs`：加前提断言 `WarpforgeAudio.ParamsOk`（四个 mixer 参数名全认 —— **名字错是静默的**，原先零断言）。
+
+**两条 C→A（追加）**：`ArmyUtilities.GetForgeIconForArmy` / `GetArmyMediumBackGround`（表已解 `ArmyIcons.cs:324/:411`、13+13 张图已导、两个调用点已改转调）· `DraftEventBase.RefundRun` **B→A**（非付费档与原版 `Array.Empty<RewardInfo>()` 逐字等价；付费档 = 服务器 P3 + 用户已拍板不做奖励）。
+
+**两处落点订正（α，重要）**：`ForgePlayerContainer` **不在** `Shell/ForgeTab.cs`，而在 **`Profile Tab › Events`**（父链现读，`ProfileTab.cs:1205/:1254` 几何+标题早建好、只差三处数据）· `DraftModeDeckInfoPanel.ToggleAllianceInfo` 的 `SetDeckTab` 在 `:2803` 不是 `:2702`。
+
+**三条线的真实缺口**：
+- **音频**：3 条全处理但 **0 转 A** —— `.cs` 侧早就逐字对齐，唯一缺口是 **6 条快照资产**。⇒ **调度台跑一次 `-executeMethod AudioSetup.CreateSnapshots` + `AudioSnapshotCheck.Run` 就能让 12/80 自动转 A**。151 等「变身督军」链。
+- **轮抽**：1 转 A（`RefundRun`）。剩 `Expire`（缺服务端到期时钟）· `58`（页内容，阻塞 = `AllianceEventScorePanel.Create` 没烘 0.9558 的口）· `114/147`（付费 Timed 页族不存在，**等用户拍板经济口径**）。
+- **锻造**：1 转 A（`TryHighlightCardback`）。剩 `73`（等 B3 填三处数据）· `23`（先补 15 条贴图导入）· `65`（等战斗结算接线）· `26`（归战役/活动线的商店第 4 页）。
+
+⚠️ **合并顺序追加**：`B88_B2.tsv` 与 `B88_A4/E7/E7b/E8/E8b/J2b` 有重复键 ⇒ **`B88_B2` 必须【最后】合**。
+
+### 15·21 `B3`（个人资料）与 `B7`（社交徽章）
+
+**`B3`**：处理 14 条（**B⇒A 3**：`136/137/138` Borders 清单补齐且**有活消费点** · **C⇒B 4**：`56/57/75/77` 边框层端到端 · 判据更新仍 C/B 7）。
+- 🔴 **E10 判「找不到」的两个 prefab 在远端 `menus_assets_all.bundle` 里都在**，**按脚本反查**（不是按 GameObject 名）才找到：`RankedMenuContainer`×2 挂在 **`Ranked Game Mode Container 1x2`**（535×848.8）· `RankedArmyBonusContainer`×1 挂在 **`Reward Event Container 1x1`**（535×414）。**两者都是主菜单模式卡、不是 `RankedTab`** ⇒ 落点已改。
+  `ToggleLegendaryRankInfo` = `Position #` + `Position Value` + `Global Rating` 三块 `SetActive`；E10 猜的 `Legendary` 节点**不存在**。
+- **边框三样重新判**：① Gold 图**早在工程里**（`Art/原版/去重资源/…Gold.png` 256×286），只是没进 `Resources/` ⇒ 已补 + 新 GUID meta。⚠️ **原始出处仍未查清**（`cosmeticavatarsimages` 475 Sprite 只有非金框；Gold **只在 `duplicateassetisolation`**，本地/远端同形）。②「拥有态在服务器」**不再是 blocker** —— 用户 2026-09-17「全解锁」口径覆盖。③ 已落地一层：`ProfileData` 类尾新增 `Borders`/`EquippedBorder`/`EquippedBorderArtName`/`FindActiveAvatarBorder`（**不落盘**、`SaveDto` 不碰 ⇒ 零行号漂移）。
+- ⚠️ **金框图不可复现**：`Resources/Art/` 在 `.gitignore:93` ⇒ 需在 `工具/import_original_art.py` 的 `MENU_FROM_ART` 加一行。
+
+**`B7`**：6 条 —— 4 条保持 **A**（邀请行 `Frame`+`Badge` 两层、`AllianceListEntry`、大徽标徽记、奖杯格徽记都**画出来了**），2 条保持 **B**（`90①` 落点 `LeaderboardRow.cs` 不在白名单；`187③` 的 `Alliance Badge Drawer` 画出来了但 ②④⑤ 仍缺）。
+- **映射落地**：新建 `Shell/AllianceBadgeArt.cs` —— **16 条 `{uniqueId, Sprite名, cardArmy}`**，一次性建索引按 id 查；空/未知 id ⇒ 原版同一条 `DefaultTrophy → Default_Badge` 回落（**未知 id 出声一次**）；含 `Draw`/`DrawTierFrame` 两个共用绘制口 + `SelfCheck`（**两条灭自证**：`GOFF→_Ork`、`UM_Event→_Space Marine 2 event`）。表头按铁律 18 打 `🔶 自己设计`（数据源 = cosmeticsso 16 份 SO + `AssetBundle.m_Container`，**不是官方清单**）。
+- 🔴 **顺手修了一个真渲染 bug**：奖杯格 `Frame`/`Badge` 把 `CellQ(...)`（**页内偏移**）直接喂 `MenuDraw.Rect`（**收绝对队列**）⇒ 落低 3200 号 ⇒ **2026-10-27 画的框其实一直被 `bg` 压住、看不见**。大徽标 `Frame` 传 `L_Art`(=2) 同病。三处「徽记判据空」陈旧注释已就地订正。
+- 关掉判据 §六-4：`素材/` 22 张 PNG 与 `assets_full` **22/22 md5 全等**。18 张徽章 PNG 已导进 `Resources/Art/ui_menu/`。
+- ⚠️ `Editor/MainMenuScene.cs:13920-13924` 有一条断言把「一块 quad 都没有」钉死（**编码的是已推翻的「SO 本地 0 份」前提**）⇒ 要做必须连断言同改。
+
+### 15·22 合并顺序清单（更新）
+
+| 必须先合 | 再合 | 冲突键 |
+|---|---|---|
+| `B88_E4` | `B88_E1b` | `BroadcastWhileInPlay` |
+| `B88_E6` | `B88_A3` | 2 行 |
+| `B88_E13` | `B88_B4` | 14 个 `RankedDeckSelector` 键 |
+| `B88_J1` → `B88_J1b` → `B88_E12` | `B88_B5` | 203 / 325 |
+| `B88_E8` | `B88_B1` | `MatchMakingMatchFound` |
+| `B88_E10` | `B88_B3` | 14 键 |
+| （归档 `B88_E9`，内容与主表逐字相同） | `B88_B7` 单独合 | 6 行 |
+| 其余按字典序 | **`B88_B2` 必须最后** | 与 A4/E7/E7b/E8/E8b/J2b 多键 |
+
+### 15·23 `R9`：主线真缺口切成 14 批 / 73 条
+
+🔴 **口径订正**：现账「战斗逻辑驱动」= 1,376 行 / **B 274 条**（不是 317）。R7 那 317 行里现仍 B 的 = 可直核A **141** + 差一跳 **100** + 判据有问题 31。
+⚠️ **那 141 条的「缺什么」几乎全是「核 / 口径 / 读数口」—— 派执行代理改不出来**；真缺口在**差一跳**里。R9 逐条复核后挑出 **73 条**（主线的 68 + 多挑 5 条）。
+
+**14 批**：1 队列族 4 · 2 `RuleCore` 薄口 6 · 3 `RuleCore` 触发相位 10 · 4 `EffectResolver` 效果 11 · 5 触发开关 4 · 6 `chosenAbility` 3 · 7 `UnitState`/`Enchantment` 3 · 8 `BattleDriver` 输入 8 · 9 `BattleDriver` 表现 9 · 10 手牌出口 3 · 11 卡表列+生成器 4 · 12 AI/教程 3 · 13 卡面原子入口 1 · 14 广播载荷 4。
+
+**并行方案**：第一波可同时 **8 个写手**（批 1/2/4/7/8/11/12/13，文件全不相交）；**同文件必须串行**：`RuleCore` = 批2→3→6→10 · `EffectResolver` = 批4→5→14 · `BattleDriver` = 批8→9 · `CardDef` = 批11→6→5。
+⛔ 批 5 原要碰 `ActionPump.cs`（与批 1 撞车），已改成「闸写在 `EffectResolver`、泵点挂待接」。
+
+**19 条判据没查清**（单列，⛔ 没塞进批次）：VA 类 5 · 其他 4 · 待裁 4 · 跨线 4 · 夹具/读数口各 1 · L850。
+
+#### 🔴 三条高价值发现（旧账又过期了，按铁律 5 已写进排队文档）
+1. **L976「缺单一总入口」已过期** —— `CardView.UpdateFigures()` 现读就在 `Core/CardView.cs:1782+` ⇒ **照「缺入口」派活会让代理再写一个同职方法**。
+2. **L847「permanentBuff 无字段」需复核** —— `UnitState.cs:2781 public bool Permanent` **早就在**且 `:2819` 有消费点；缺的更像「卡表→记录」灌值。
+3. **`EffectResolver.cs:2107` 注释里出现 `IsThereValidUnitTarget`，全仓无此方法** —— 那是**原版名**，⛔ 别把注释当实现（`IsThereValidAbilityTarget` / `SpellTarget` 确实缺）。
+
+另附「已落地但仍 B，建议一次核销」7 条（L642/645①/875②/871②/851/1308/976），免得被当新缺口重做。
+
+### 15·24 🔴 我又踩了一次【已知的坑】（记下来，第三次）
+
+往 `待接线与排队项.md` 插两行时用了 `python -I -X utf8 -c "…"`，而字符串里**带反引号** ⇒ **bash 把反引号当命令替换执行了**，`RuleCore`/`EffelResolver`/`CardView.cs:1782+` 那些被当命令跑、整段内容**被吞成空白**（而脚本照样报「已插入」，行数也对）。
+- 🔴 **这正是 CLAUDE.md §二 记着的 2026-10-25 那条坑**：「别在 bash 的双引号里写含反引号的 python 代码」。
+- **正确做法（已照做修回）**：**用 `Edit` 工具**，或**先 `Write` 到临时文件再让 python 读那个文件**。
+- 📌 **判据**：插完必须**回读那几行**看反引号内容还在不在 —— 行数与「已插入」**不能当证据**。
+
+### 15·25 `R10`：基础设施 58 条 —— **泛型方法体早就在本地**
+
+🔴 **最重要的一条**：**泛型方法体不需要重导，产物早就在** —— `D:/2/tools/decomp_generic_trial/out/`（G6+G7 = **640 个 `.c`**，2026-10-25 就位）；`LoadableReference<object>` 一族 **25 个文件 / 790 行全部是真体**（不是 `{ }`），**0 秒可得**，重跑也只要 **14.4 秒**。
+⇒ 账上 / 旧简报的「泛型方法体从来没导出过」**已过期**；排队文档里那条「泛型重导 · 要动 `d:/2` ⇒ 必须先问用户」**已就地改成「不需要用户批了」**（这是本会话**唯一**一个被解掉的「等用户」项）。
+
+**总账**：58 条 = **50 本地可真做 · 3 P3 · 5 D**。
+- `GameModes` 12 = 9 本地 + 3 P3 · `LoadableReference` 12 全本地 · `PlayerDataManager` 30 = **25 本地 + 5 D** · `GameStaticData` 4 全本地。
+- **5 批可 5 路并行**（文件互不相交）：B1 `Core/LoadableRef.cs`(12) · B2 `Core/PlayerDataMath.cs` 新建(6，**P0 的 `GetXPFromMatch` 在这**) · B3 `Shell/GameModesHandler.cs` 新建(9) · B4 `Shell/PlayerProfileState.cs` 新建 + 4 个既有文件(11) · B5 7 个零散落点(9)。B1/B2 无前置，B3–B5 要等 Shell/Battle/引擎线放行。
+
+#### 我裁的两件
+1. **`LoadableReference.OnBeforeRead` / `WriteJson` 的形参是 Newtonsoft `JToken`，本工程没有 Newtonsoft**（唯一消费方 `SerializationHelper` 我们也没有）⇒ 🔴 **裁定：建在我们自己的 `LiveOpsSharedData.LiveOpsJson` 上 + 打 `🔶 自己设计`**（⛔ 不引 Newtonsoft —— 为一个形参类型加一整个第三方依赖不划算，而且 `🔶` 能把「表示法不同」显式标出来）。
+2. **`GetFilteredSpareCardsToSell` 逻辑齐全但唯一调用点传 `0`**（原版 `PlayerDataManager.cs:3934`）⇒ 永远返回空、永远不删。
+   🔴 **裁定：照抄函数 + 调用点照抄传 `0`**，并在两处写注释「原版自己就是传 0 关掉的；⛔ 别改成能用的」。理由 = **「原版自己也有 bug 就照抄」**已是本项目确立的原则（`G14` 先例）。
+
+#### 6 条铁律 5 订正（都要进账）
+1. `GetMD5Hash` 空串/null 返 **`string.Empty`**，**不是 `null`**（账写错）。
+2. `ExpansionCardsObtained` / `LegionCardsObtained` **原版就是 `return 0`**（VA `0x1804BD440` = `xor eax,eax; ret`，两方法**同址**）⇒ **D**（原版没有 ≠ 未做）。
+3. `_HandleSuccess_464/465` 各自只有一句 `CustomDebug.Log` ⇒ **零 UI 行为**，属服务器链 ⇒ **D**。
+4. 🔴 **`GetTraitDesc` 的「官方表里没有 `*Alt` 键」是错的** —— 现读有 **3 条**：`CardTraitDescription/{prayAlt, faithsAlt, questPointsAlt}`（`pray`/`questPoints` 本体在、**`faiths` 本体缺**）⇒ 缺口只剩代码分支。⚠️ 该 json 是**列式**（判成员要先取 `keys`）。
+5. `SetDemoDeck` 字段真名 = **`DemoData.currentDeck`**（`+0x20`），不是 `demoDeck`；`ExtractDeckInfo` 的 cardback/warcry **不是 null**（`.c` 里就是 `deck+0x28 / +0x30`）。
+6. `IsOneTurnEffect` = **四者取或**（`untilEndOfTurn ‖ untilPlayerTurnStart ‖ untilEnemyTurnStart ‖ untilFollowingPlayerTurnStart`），**`untilNextAttack` 不算**。
+
+#### 顺带解出的硬知识（下批可直接用）
+`DAT_1834b2bb8` = **`1.0f`**（`GetXPFromMatch` 判赢）· `DAT_1834b2bb4` = **`0.5f`**（`FullyQuitApplication` 延时）· `IsBattleLogCreated` 白名单 = `{10,20,50,90,120,150,170,180,200,210,211}`（**110 ClosedDeck 不在**）· `GetXPFromMatch` 全表（10/20/170/180 → 赢100/输30；**130 Campaign → 赢 130，原版 bug 照抄**；50/80/100/110/120/140 → 0；其余告警+0）· `LoadSharedDefaultValues` = 13 个 `GameStaticData` 静态量的默认值（逐格对上 `dump.cs` 偏移）· `IsTherePendingMatch` 的键 = `PlayerDataKey(18)` = **`LastOpponentInfo`**（另坐实 `(34)=NewCards`、`(44)=VictoryCounters`）· `QuitApplication` = `helpshiftManager`（**全局空桩**）→ `LeaveRoom()` → `WaitForSeconds(0.5f)` → `Quit()`。
+现成 API：`Shell/WindowsManager.ShowMessagePopUp` · `Shell/ToastNotifications.ShowNotification(Context)`；**本仓无 `LoginManager`**（`BlockGame` 那跳只能出声）。
+
+**没查清 7 条**：`isAlt` 何时为 true（追到 `TraitDefinitionDisplay.DisplayTraitList` 就断）· `0x4BD440` 是否高频共享桩 · `SetAltPorts` 首句取反 · `showDevTools` 的静态 ObscuredBool 属哪个类 · `GetActiveEvent` 另两个重载 · `LoadableReference<__Il2CppFullySharedGenericType>` 只抽样。
+
+---
+
+## 十六、第八十九会话（2026-10-28）· 滚动推进 · 波 1（13 路）
+
+### 16·1 开局复核（调度台现跑，⛔ 不是抄交接）
+
+| 判据 | 现读 | 判 |
+|---|---|---|
+| `typecheck.sh` | 运行时 0 / 编辑器 0 | ✅ |
+| `check_ledger_points --all-A` | A 4,634 · 通过 4,611 · **漂移 23 · 失败 0** | ✅（漂移 = 同名歧义 11 + getter 12，`--fix` 按设计不碰） |
+| `ledger_progress.py` | **8,784 行 · A 4,517 · B 687 · C 308 · D 3,272** | 真复刻率 **A/(A+B+C) = 4,517/5,512 = 82.0%** |
+
+⚠️ 与交接 §一 的 `A 4,521 / B 680 / C 310` 有 ±4 的差：交接那份是**合并前**读数，以本表为准（本表是合并后现读）。
+
+### 16·2 用户 2026-10-28 授权（本会话口径）
+
+1. 「**按照你的建议执行，不必停下向我汇报（除非我中途向你询问），请你持续完成任务。**」⇒ 滚动推进（铁律 16·8），**不在每批停下来做完整同步点**。
+2. 「**资料/完全复刻/ 下那 24 个 0 字节垃圾文件，删**」⇒ ✅ **已删 24 个**（`find . -maxdepth 1 -type f -size 0 -print -delete`），删后全目录 `-size 0` = **0**。它们是某次重定向写坏的空文件（名字形如 `⚠️` / `🔴` / `判据代理` / `生成方式：`）。
+
+### 16·3 派活前的三处「过期账」复核 —— **两处已作废、一处不是账错**
+
+`R9` §五 要求「派活前先订正三处过期账」：
+
+| 项 | 现核 | 处置 |
+|---|---|---|
+| **L976「缺单一总入口」** | 🔴 **账已在 2026-10-28（`F8`）就地订正** —— 现读账文已写「🟢 2026-10-28（`F8` 现核）**『我们没有单一总入口』已作废**」，且 `CardView.UpdateFigures()` 已建 | **不用再改**；E8 的简报已写明「入口已建，只剩调用点收口 + 断言」 |
+| **L847「permanentBuff 无字段」** | 🔴 **账已就地订正** —— `UnitState.cs:2781 public bool Permanent` 早在、消费点 `:2819` 也在；真缺的是「卡表→记录」的灌值 | **不用再改**；E6 的简报已写明「⛔ 别再加字段」 |
+| **`EffectResolver.cs:2107` 的 `IsThereValidUnitTarget`** | ✅ **不是账错、也不是代码缺口** —— 现读该处是 `<para>` 注释里引用**原版名字**；全仓 9 处出现**全部**是注释且都标了「原版」 | **不改代码**（改注释会动行号）⇒ 写进 E2/E3 简报的「已知」 |
+
+### 16·4 波 1 派活（13 路 = 9 执行 + 4 查判据）
+
+**文件所有权表（唯一硬约束：一个文件同一时刻只有一个写手）**
+
+| 代号 | 类型 | 内容 | 独占文件 |
+|---|---|---|---|
+| **E1** | 执行 | R9 批 1 动作队列族（L240/L241/L242/L832，4 条） | `RuleEngine/Core/ActionQueue.cs` · `ActionPump.cs` |
+| **E2** | 执行 | R9 批 2 RuleCore 薄口族（6 条，Chain R 第 1 棒） | `RuleEngine/Core/RuleCore.cs` · `BoardSlots.cs` · `BattleContext.cs` |
+| **E3** | 执行 | R9 批 4 EffectResolver 效果族（11 条，Chain E 第 1 棒） | `RuleEngine/Core/EffectResolver.cs` |
+| **E4** | 执行 | R9 批 7 UnitState/Enchantment（3 条） | `RuleEngine/Core/UnitState.cs` · `Enchantment.cs` |
+| **E5** | 执行 | R9 批 8 BattleDriver 输入状态机（8 条，Chain D 第 1 棒） | `CardPresentation/Battle/BattleDriver.cs` |
+| **E6** | 执行 | R9 批 11 卡表列 + 生成器（4 条） | `工具/gen_cards_engine.py` · `RuleEngine/Core/CardDef.cs` |
+| **E7** | 执行 | R9 批 12 AI 预测 / 教程（3 条） | `RuleEngine/Data/SimpleAI.cs` · `Core/TutorialScript.cs` |
+| **E8** | 执行 | R9 批 13 卡面原子入口收口（1 条） | `CardPresentation/Core/CardView.cs` · `Editor/CardBaseDemo.cs` |
+| **E9** | 执行 | R10 B1 `LoadableReference<T>`（12 条） | `CardPresentation/Core/LoadableRef.cs` · 新建 `Editor/LoadableRefCheck.cs` |
+| **R1** | 查判据 | R9 §三 **19 条悬案**（VA 反汇编/裁断） | 只写 `判据/B89_R1_主线悬案19条.md` |
+| **R2** | 查判据 | `日常_奖励` E11 未覆盖的 ~182 条分类 | 只写 `判据/B89_R2_日常奖励182条分类.md` |
+| **R3** | 查判据 | `菜单_外壳` 56 B → 施工单 | 只写 `判据/B89_R3_菜单外壳施工单.md` |
+| **R4** | 查判据 | `战斗界面_HUD` 24 + `特效动画` 19 → 施工单 | 只写 `判据/B89_R4_HUD与特效施工单.md` |
+
+**本波覆盖**：R9 73 条里的 **40 条**（批1/2/4/7/8/11/12/13）+ R10 B1 **12 条** = **52 条**真缺口。
+**未派**：R9 批 3/5/6/9/10/14（`RuleCore` / `EffectResolver` / `BattleDriver` / `CardDef` 的**串行链尾巴**，等本波交回后接）。
+
+### 16·5 调度台在两份简报里当场做的裁定（代理不用再来问）
+
+| 事项 | 裁定 | 依据 |
+|---|---|---|
+| **R10 B1 第 8/10 条**（`OnBeforeRead(JToken)` / `WriteJson(JToken)`，本工程无 Newtonsoft） | 采 **方案 ②**：建在我们自己的最小 token 类型（`LiveOpsJson`）上，语义照抄，打 `🔶 自己设计（替代 Newtonsoft JToken）` | `R10` §1.2 推荐项；铁律 18（自设计必须打标） |
+| **R9 `L96`**（原版手牌两档 `acting`，疑原版瑕疵） | **照抄原版**（含「认不出退回 `list[0]`」那一半），实现处写死「原版如此，⛔ 别修」 | 先例 = `BroadcastCardDrawn` 原版漏 `!`，2026-10-26 `G14` 裁定照抄；用户 2026-10-25「原版是完整正确的」 |
+
+### 16·6 本波硬约束（写进了每一份简报）
+
+- **Unity / `ruleprobe` 一律由调度台串行跑**，代理只跑 `TMPDIR=/tmp/wf_B89<代号> bash 工具/typecheck.sh`。
+- 代理 **不改 git / 不改账主表 / 不改两份正本**；只写自己的报告 + `账/_parts/B89_<代号>.tsv`（11 列表头，`方法` 列必须带完整签名含 `(…)`）。
+- 新成员**一律追加到类尾**（`RuleCore` / `EffectResolver` / `BattleDriver` / `CardView` / `UnitState` 被账大量按行号引用）。
+- 判据与 `.c` 冲突 ⇒ **停下来给反证、宁可拒做**（`B9_W69ENG4` 样板）。
+
+### 16·7 波 1 回执（滚动记账 · 2026-10-28）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **E1** | ✅ 4 条（L240/L241/L242/L832）全落，**建议全 B**；`typecheck 0/0` | 🔴 **施工判据与 `.c` 冲突**：判据写「类型 1 = `CancelAttack(targetCard)`」，`.c` 读的是 **`actingCard`(+0x08)** ⇒ 已按 `.c` 做，**判据文档已就地订正**（`判据/B88_R9` 批次 1 那一行）。🔴 **ILSpy 反编译 bug**：`CancelEffectsFromDisappearingUnit` 把 `shouldIgnoreDestroy` 写成 `shouldIgnoreDestroy2 = default`（恒 false），`.c` 四条调用都传 `param_4` ⇒ 已记入坑表。**剩余全是待接点**（`ResolveJamUnit` 的接线、`RuleCore.CancelAttack`、表现层 `SetActive(false)`）。 |
+| **E4** | ✅ 3 条（L875/L1042/L1376）全落，**建议全 B**；`typecheck 0/0`；**零行数变化**（`UnitState.cs` 3253→3397 · `Enchantment.cs` 1375→1505，新增全在类尾） | L875 `UntilNextAttack` 原语已建（`EffectRecord.UntilNextAttack` + `ExpireUntilNextAttack`）；L1042 三闸 + `HasEnchantmentForTrigger` 三值；**L1376 判据悬案结案**（原版 `AddTraitSilently` 自己不重算、但调用方 `AddEffect.c:570-572` 补了这一跳）。⚠️ **同步点唯一可变量 = L1376**（另两条 0 调用点 ⇒ 指纹应逐字节不变）。 |
+| **R2** | ✅ 分类完成（`判据/B89_R2_日常奖励182条分类.md`，216 行） | 🔴 **推翻了派活口径**：`判据/B9_日常C_施工单.tsv` **已覆盖 74 条 C**（E11 当日记「47」），⇒ **真正漏网 C 只有 16 条**，不是 ~182；B 139 里 115 已闭合。**当场转岗**（铁律 13·7）去做 §一 的 7 条（3 漏网 C + 4 B 残余）。 |
+| **R2 的一条误报（已驳回）** | ❌ 「`B88_E11.tsv` 的 4 条 D 未合并」 | **不成立**：该补丁早已归档到 `_parts/_merged_B88_wave2/`，且那 4 条（`ChallengeManager.CheckIfPlayerOnline` 等）在 `账/日常_奖励.tsv` 里**现读就是 D**。⇒ 不合并、不改账。 |
+
+**新立 / 新记的账（铁律 5·b + 11，全部不是「不做」）**：
+1. 🟠 **光环收回「我们比原版严」**（E4 顺手发现）：`ClearAuraGrants`/`EndAuraRecompute`（`UnitState.cs:2123` 附近）在豁免真丢时**立刻**重算 `displaySummonSickness`，而原版 `RemoveExtrinsicEffectsFrom.c:44 → RemoveEffect → RemoveTraitSilently` **全文 55 行 0 处** `UpdateSummonSicknessAnims` ⇒ **原版不重算**。改它会翻转 `W18AR` 已验证面 ⇒ 需两态对照。已进 `待接线与排队项.md`。
+2. 🟠 **`EffectResolver.TimingBitsOfDuration` 只有三档、缺 `untilNextAttack`** —— 接 L875 之前必须先补（否则那条原语没有到期时刻）。
+3. 🟠 **`ActionQueue.cs` 的三处账落点在本批之前就已偏 15 行**（`CountOf:233`→248 · `TryDequeue:277-292`→292 · `Clear:298`→313）⇒ 同步点跑 `check_ledger_points --all-A --fix` 时一并修（**只能在无 `.cs` 写手 + 补丁合并完之后**）。
+
+**纪律执行**：R2 的「请帮我合并补丁」属于**主表写权限**，调度台现核后驳回 —— 代理不写主表这条不能因为「同一批」而放宽。
+
+### 16·8 波 1 续回执（2026-10-28 · 滚动）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **E7** | ✅ 3 条全落（L1025 / L93 / L96），`typecheck 0/0` | `SimpleAI.ScoreFromAttack` 由四道 `NoCounter` 换成五道 `EnemyReturnsAttack`（**零行数变化**）· `TutorialScript` +102 行（两条新 case + `RunShowManaAura`/`RunResolveCard`）。🔴 **撤回账里「原版两条 AI 入口本来就不一致」那句话**（`.c` 显示两者同源）。🔴 **新发现：L1025 的「③ 战斗预览已接」不成立** —— `BattleDriver.cs` 里 `EnemyReturnsAttack` **0 命中**，`BattleBoardPreview:34357` 的 `isAttacker` 支只有一句 `FieldAttack`、**一个豁免闸都没有** ⇒ 真缺口，已立账。⚠️ `TutorialScript.cs` 账锚点**非均匀漂移**（≥1403 整类 +76）。 |
+| **E2** | ✅ 6 条全落，**建议全 A**；`BattleContext` 行数守恒、`RuleCore` +193 全在类尾 | 三处跨文件待接线（`EffectResolver.ReturnFromCemetery→GetCardsInCemetery` · `DoReloadDuty→AddResetDuty` · `TriggerKeywordOf` 第 6 参）· 🔴 **判据冲突已按 `.c` 裁**：施工单写「调 `UnitState.RefreshForNewTurn`」，`.c` 只有 `UpdateFigures` ⇒ **未调**（照抄会静默清 Fatigue/召唤病）。🔴 **`GetNextCardsInDeck` 的 `cardState==inDeck(0)` 过滤根本不存在** ⇒ 已在主表 `:365` 就地订正。 |
+| **E8** | ✅ L976 收口 + 断言（`CardBaseDemo.AssertFiguresAtom` 8 条，全比**渲染值**） | 入口**没重造**（`UpdateFigures` 在位）· 两处重复 `SetBadges` 收口成注释行（**零行数变化**，`CardView.cs` 15231 行不变）。🔴 **顺手发现待裁**：`SetBadges` 无形态闸 + 手牌 `Data.badges` 非空 + 徽标层挂 `2DCard`（原版挂 `3DBody`、手牌时关着）⇒ **手牌卡可能真的会画出徽标层**（已立账）。 |
+| **E9** | ✅ 12 条全落（A 9 / B 3），新 `Editor/LoadableRefCheck.cs`（36 条断言） | 🔴 **判据与 `.c` 冲突、按 `.c` 做并给反证**：`Equals(LoadableRef<T>)` 传 null **原版抛 NRE**（施工单那句 `if(other==null) return false` 是推的）⇒ 断言把 NRE 钉死防「好心修好」。`SetReferenceByObject(null)` 原版会把 `targetId` 清空、我们原来「不动」⇒ 已就地改（零行数变化）。序列化三钩子用 `object` 替 `JToken`（`LiveOpsJson` 只有对象容器、没有标量 token）并打 🔶。**要加 `-executeMethod LoadableRefCheck.Run`**。 |
+| **E5** | ✅ 8 条（**A 6 / B 2**）；`BattleDriver.cs` +133 行全在类尾、CRLF 无裸 CR、既有行号零漂移 | 三个集中口已建（`CancelAbilityTargeting` / `CancelActionStates` / `IsPlayingCardState`）· L477 计数器改由引擎字段单一持有（**行为零变化**、不在 Fingerprint 里）· **L446/L478 卡在「引擎需要落位后撤回口」** ⇒ 交 Chain R。🔴 判据订正：`RegisterPlayerAction` 本体 **0 调用者**，真 `++` 在 `AddAutoActionToQueue.c:151-165` 内联。 |
+| **R4** | ✅ 施工单（267 行，43/43 全覆盖），**可分 6 组、11 行、全部不碰 `BattleDriver.cs`** | 🔴 铁律 5 级订正：`GetUnitSizeRatio` **三源 0 调用者 = 死方法**（真消费者是 `GetUnitSizeInPlay` else 支 = `0.75×(enemy?0.86:1)`，`0.86` 在 `GlobalVariables.asset:38`，我们 C# 的 0.93 是死值）· **特效 497 其实已做完**（账里「本仓没有这一跳」不成立）· `693` 是误归因 · `animFlag` 不是 0 写点。 |
+
+**调度台裁定（本轮新批）**：
+1. **特效 490 判 D 不批** —— 「无 popup 订阅链」是**我们缺入口**，不是「原版本身没有」（铁律 11 例外①不成立）⇒ 留 B，写清缺什么入口。
+2. **HUD 741 不判 D** —— 原版那条 `LogWarning` 我们没发 = 真差异 ⇒ **做**。
+3. **L584 / L585 回放换牌面板：照原版摆出来**，输入仍锁（两者不冲突；视觉按原版、锁是回放态自己的闸）。
+4. **L103 的 50/70/100 三档锚点照做**（数据 0 条也建）；`ruleprobe` 锚点导出归工具线。
+5. **R4 报的 8 条「升 A」照证据走**（693/750/756/757/86/506/508/497）；**497 剩余的两条真偏离另立新账**（不塞进同一行）。
+
+### 16·9 转岗与补位（铁律 13·7 / 16·7 / 19）
+
+- **R2 → 转岗执行**：做它自己查出的 7 条（3 漏网 C + 4 B 残余），`账/_parts/B89_R2b.tsv`。
+- **E2 → 续派批 3**（Chain R 第 2 棒，RuleCore 触发/相位 10 条）。
+- **E5 → 续派批 9**（Chain D 第 2 棒，BattleDriver 表现族 9 条）。
+- **R4 → 转岗执行**（P1/P2/P3/P6 四组；P4/P5 因 `CardDef`/`RuleCore` 有写手而跳过）。
+- **补位 3 路**：`E10` 基础设施 B2+B4新建（`PlayerDataMath` P0 的 `GetXPFromMatch`）· `E11` GameModes 9 条 · `E12` 基础设施§四 11 条 · `E13` mixer 快照取值 · `R5` HUD/特效缺判据 11 条。
+- **并发始终维持 13**，空一个补一个。
+
+### 16·10 波 1 续回执（二）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **E3** | ✅ 批 4 的 11 条：**代码落 6 条**（L429 `IsThereValidSpellTarget` A · L1278 `RunAbilityOfAnotherCard` B · L809/L935 `TryFireCombo` A（休眠）· **L934② 巧技触发点上移**（本笔唯一改指纹）· L212 督军 490 先行 B · L853 `RemoveEffectRecordFrom` B）；**另 5 条落点在 `RuleCore`**（L64 / L686 case0x10 / L869 / L870 / L934①）⇒ 交 Chain R | 🔴 **`Combo(1130)` 是词条号、触发号是 590**（施工单已订正）· 账里 `BattleContext.EnvName` 全仓 0 命中（真字段 = `OffensiveSlotIdx/OffensiveEnvSO`）· `cards_engine.json` **count 1129 / version 37**（E6 已加列，count 未变） |
+| **R3** | ✅ 施工单（267 行）；账现读 200 行 = **B 56 / C 0**；与 E9 §六 重合 47、另有 9 条它没覆盖 | 🟢 **通用定位法**：`assetripper_out/.../Assembly-CSharp/<类>.cs.meta` 的 guid → `grep -rl` 导出的 prefab/scene ⇒ 一次拿到「谁挂了它」（本轮定位 6 个类）。`LiveopMenuContainer` **不是活动面板、是主菜单模式卡容器**（408–415 + `MainMenuWindow`×4 全是 `MainMenuRuntime` 一段活）。`TMProWarpText` 消费者 = `Booster Pack Standard *.prefab` 的 `Army Text`（34 实例）。**建议 D：`BoostMenu`×3**（三源 0 调用点 + 1,314 prefab/0 挂接 + 无 Boost 命名对象），**还差 MB pathID 扫 0 实例**这一步。**账 63 可直接核销 B→A**（`HandLayout.cs:981/1011` 已逐句对上）。 |
+
+**本轮新增口径 / 坑（已写进 `工作准则_操作经验.md` 或在此记账）**
+1. 🔴 **「活动线暂停」那句账内理由已过期** —— `任务线/活动线/任务总表.md` 头部：2026-10-25「开吧」+ 2026-10-26「开线，全做」。真卡点只剩「容器族未建」+「模式卡映射在服务端」。**已让 R3 在补丁里就地订正那 22 条的理由列**。
+2. 🔴 **`B88_死代码普查.tsv` 的 `账行号` 比 `ledger_slice.py` 的物理行系统性小 1**（读它必须 +1）。
+3. 🟢 **定位「谁挂了某个组件」的通用做法**（R3 实证）：`assetripper_out/ExportedProject/.../Scripts/Assembly-CSharp/<类>.cs.meta` 里的 **guid** → `grep -rl <guid>` 导出的 prefab/scene。比按名字猜快、也不会被「序列化数据不含字段名」骗。
+4. ⚠️ **`Shell/BoostTimerPanel.cs` 可能是我们自己建的孤儿件**（零调用方）—— 若 `BoostMenu` 判 D，`日常_奖励.tsv:22` 要跟着复核。
+
+### 16·11 转岗 / 续派（第二次）
+
+- **E3 → 续派批 14**（广播载荷 / 信号总线 4 条，`EffectResolver.cs` + `WhenEvent.cs`）。
+- **R3 → 转岗执行**：`账 63 核销` → `BoostMenu 补证据` → `G4` → `G5` → `G8` → `G1` → `G7`（`G2/G2b` 因 `MainMenuRuntime.cs` 归 E12 而跳过）。
+- 并发维持 13：`E6 · E10 · E11 · R1 · R2b · E2b · E12 · E13 · R4b · R5 · E5b · E3b · R3b`。
+
+### 16·12 中途体检
+
+- `typecheck` = **运行时 0 / 编辑器 0**（06:5x 现跑）。
+- 已到的 9 份账补丁 **格式全合规**（11 列 · 表头一字不差 · `方法` 列全带 `(…)` · 无裸 CR）。
+- `cards_engine.json`：`count` **1129 未变**、`version` 36→**37**（E6 加列中，符合预期）。
+- `_run_8_checks.sh` 已并入 `LoadableRefCheck.Run`（**15 → 16 条**），判据注释里「`grep -c '^run '` 应得 17」同步改了。
+
+### 16·13 波 1 回执（三）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **E6** | ✅ 批 11 四条**全落数据侧**（状态 B）；生成器 **v37**（`count 1129` 不变、既有字段 0 改、6 新键 × 1129 全落）；`CardDef.cs` +134/−0 单 hunk 类尾、零漂移 | 🔴 **纠正自己初稿的「零行为变化」**：新增的 `activeAbility` 费用四列**已有活消费者**（`RuleCore.cs:15321` 能量闸 / `:15408` `SpendNormalMana`）⇒ **34 张督军主动能力真的开始收费/被拒**（与原版 `CanUseActiveAbility.c:60-70` 对齐）——**这是修正不是回归**。🔴 L1044 真卡点：`whileInPlayAnim=1` 的 3 张附魔模板**全不在池**（入池闸 = `cardType==20 ∧ 名字含 enchant`）。 |
+| **R2b** | ✅ 7 条：**4 条 B**（原语/守卫已建、生产 caller 缺）+ **3 条保持 C**（属未建的 reward-event 层 G1） | 判断「落好但没接线」如实保持 B，⛔ 没有自升 A。 |
+| **E10** | ✅ 10 条**建议全 A**；新建 5 个文件（`PlayerDataMath` 6 纯函数 / `PlayerProfileState` / 两个 Check 宿主），`typecheck 0/0` | 🔴 三处判据订正（我已逐位核机器码并改文档）：`PracticeOffline(50)` 走 `default`（告警+0、**不在显式零值组**）· **`IsBattleLogCreated` 白名单 12 档、`110 ClosedDeck` 在** · `ExtractDeckInfo` 的 ILSpy 折 `default` 比账上写的更宽（**cardID/lastEditTime 也被折**）。🆕 `PlayerDataManager.CurrentMillis()` = **Unix 毫秒**。 |
+| **E2c** | ✅ 3 条落地/核销，**4 条按纪律停手**；`typecheck 0/0` | L1187 `RemoveHandEffectAt`（今天恒空转：`uses==null ⇒ return 0`，记录都不限次）· L934① `HasFx`→`HasCurrentTrait` · **L1185 复核后确认早已做完**（`B88-A2`）⇒ 建议 A。**停手理由全成立**：L64 最小完整改法要动 `BattleContext`（不在当轮白名单）· L870 三支全挂在「伤害类型 4」未坐实 · L1186/L869 **上下文预算用尽**（判据齐、无技术障碍）。 |
+
+**E2c 交回的「本会话 `RuleCore.cs` 会改指纹清单」**（同步点照这张做隔离归因）：
+- 🔴 **只有 2 处要真隔离**：① 批 2 的 `:13274` `TriggerCodex` 加 `chosen: u`（**本会话唯一高风险**）② 批 3 的 `:12461` 嗜血补 ③④ 闸（只发 `Signals`、不进 `ctx.Events`，低风险）。
+- 🟡 `DeadUnit.IsRemnant`：先读 `NetProtocol.cs:743-750` 有没有逐字段展开即可判定（预期不读新字段）。
+- ⛔ 其余 6 处（类尾新方法 / `:2512` / `:2262` / `:13409` / `:15930`）全是「池内 0 可达或无调用方」⇒ 不必单独跑。
+
+### 16·14 补位（第三次）
+- **E14** 接 `E2c` 的残量：L64（含 `BattleContext.cs` 白名单）· L869 · L1186 · L870（**先查「伤害类型 4」，不实就拒做**）。
+- `E6 → E6b`：DTO 两格 + `AttachAbilityDamage` 的 `null→空数组`（`HasAbilityDamage` 恒真）修复 + 附魔模板第二张表的**方案**（⛔ 不放宽入池闸，`count` 不许变）。
+- `R2b → R2c`：G6/G9/G10 三组（⛔ G1 要动 `BattleDriver.cs`，等 E5b）。
+- `E2b → E2c`（已完成）· `E3 → E3b`（批 14）· `E5 → E5b`（批 9）· `R3 → R3b` · `E10 → E10b`（B4 落点 + **P0 XP 发放链**）。
+
+### 16·15 波 1 回执（四）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **R1** | ✅ 19 条悬案（实读 **20 表行 / 25 账行**）**全部查到可照做**；产出 `判据/B89_R1_主线悬案19条.md`（512 行） | **判 A 3 条**（L748「死存」是过期说法 · L934 现池分叉实测 0 · L619 夹具阵营早已是 `SaimHann`）· **B→A 5 条**（L354 真格式串 `"WLP: {0}; WLE: {1}; …"` 账里两个候选**都不对** · L381 `GetTargetInPos` 全解 · L1241 偏移 `Vector3.up*(-3f)` · L866 recall 都调 `ResetToValuesInHand(…,1)` · L96 手牌两档恒用 `actingUnit`、找不到退回 `list[0]`）· 🔴 **抓到一个真 bug：虫群合并加血我们用 `just.MaxHealth`，原版 `currentHealth`** · **6 条与账里现写相反**（要订正账）· 🆕 `catalog_main.json` 是**从没用过的「数据归属」判据源**（建议进 `解包资源使用地图`） |
+| **R4b** | ✅ 改码 6 条 + **8 条升 A**；`typecheck` 4 遍，最终 0/0 | 695 `DragBlocked` 加 `IsDoingAnim`（`animFlag` 四处写点已实证，账里「0 写点」错）· 805/806 常驻「连接中」横幅（新读出 4 个常量 ⇒ 点数 `floor(Repeat(t×3,4))`，**账里「每秒一个点」不准**）· 802 残骸粒子 `y=0`。⚠️ `713` 留 C（真消费者 `BattleDriver.ArenaCardScale` else 支，待 E5b）· ⛔ `761` **拒做 + 反证**：`CardInteraction` 只装我方手牌，敌方手牌只有卡背 `ImageQuad`、无 `CardView` ⇒ 直连是死代码，**要做得先建「敌手牌翻面成可点 CardView」新链路**（已立账）。 |
+| **R2d** | ✅ 7 条落定；`typecheck 0/0`；只动 `DraftEventBase.cs`（+17 行，该类无账行号引用） | **L650 / L539 / L541 反证「已实现」**（`RankedDivisionInfo.cs:197-198` 早走真值、演示段位 7 只是阈值表缺时的兜底；`GiveFeedbackPopup` 窗已建全，缺的是 prefab 上逐题序列化的条件显隐表，本仓未解 ⇒ 硬写=编）· **L585 草稿 gate 已建可注入钩子**（默认 null ⇒ 允许，无回归；**生产者归 E11b**，已通知它）· L728 立账（数据契约写明，**不建空壳**）· L583/L647 保持 C |
+| **E11** | ✅ 12 条（**A 9 / B 3**）；新建 `GameModesHandler : LiveOpsHandler` + `Editor/GameModesCheck.cs`（51 处断言） | 三条按 `.c` 定死：`SetResultCount` 的 `default` 支必须排在 `GetValuesForMode` **之前**（否则未知 winner 会往战绩表塞空记录，**静默**）· `FastMode` 无 Ranked 级回落、第三条取整份 · `CombatFinished` 末尾清 `CurrentPlayingEvent` 是原版行为。⚠️ **当时还没注册进 `LiveOpsManager`** ⇒ 已转岗补接（E11b）。 |
+
+**调度台新批的两条裁定**：
+1. ✅ **`L1247` 判 D**（`knightCriterias` 1,351 张全空 + 三源 0 调用点 ⇒ 例外①）。
+2. ✅ **`L410` 判 D（带时间限定）**（`currentCampaignStage` 是计算属性；本地 Addressables `catalog_main.json` 里 `campaign` 只命中 `campaignrewardbackgrounds`、`tutorialso` 只有 6 个教学关）。
+3. ⛔ **驳回「建 `RefreshScore` 投影原语占位」**（零数据零 caller = 死代码，红线不放宽）。
+
+**工具**：`_run_8_checks.sh` 现 **18 条**（+`GameModesCheck.Run`；此前 +`LoadableRefCheck` / `PlayerDataMathCheck`）。
+
+### 16·16 波 1 回执（五）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **E5b** | ✅ 批 9 的 9 条：**A 7 / B 2**；`BattleDriver.cs` 产品改动**全是就地改同一行（零漂移）**，新成员在 `:36566-36700` | L298/L682/L806 **零改动转 A**（旧账过期；`canAttackAnim` 第二句是 **RVA `0x4B33B0` 全局空桩** ⇒ 照抄会得到死代码；`OutFromPlayingAreaAnim` 被 `CardFeel.MoveBackToHand` 覆盖 ⇒ **不建同名空壳**）· L392 只做读口（原版 0 调用者）· L584/L585 回放摆面板 + 输入锁（按裁定）· L103 三档按 `.c` 逐 case 建。L782/L930 残差收窄且有明确下游。 |
+| **E12** | ✅ 基础设施§四 11 条：**A 7 / C 1 / D 2**；新建 `Shell/GameStaticData.cs` + `Editor/GameStaticDataCheck.cs` | 🔴 三条反证：`IsBattleLogCreated` 白名单 **110 在、100 不在**（与 E10 一致）· `GetDefaultQualitySetting` 不是缺体而是 **`return 4`（Ultra）** · `ExpansionCardsObtained.c` 内容竟是 `<>f__AnonymousType31__GetHashCode`（**文件名与内容不符**又一例）。🆕 顺手发现：**`SettingsWindow.TextInHand` 没接到 `CardView.SetHandTextFormat`** ⇒ 设置页改手牌文本画面不变（已派 E12b 修）。 |
+| **E10b** | ✅ 6 条落地 + 一条**口径反转** | 🔴 **`GetXPFromMatch` 在原版全树 0 调用点** —— 赛后 XP 是**服务器回包**链给的（`ProcessMatchResult` → `RecordMatchFinished` 回包 → `RewardService.Collect` → `Sum(grantedXp)` → `AddCollectorXp` + `ShowGrantedXpToast`）⇒ **「P0 缺一次调用」这个因果链是错的**，真缺口是整条奖励链；我们连 `AddCollectorXp` 的增量口都没有（XP 恒从背包反推）。 |
+| **E3b** | ✅ 批 14 的 4 条；`EffectResolver.cs` 18079→18198（+119 全在类尾） | 🔴 **判据订正**：账里「预调主体 = 造出来的那张卡」**错** —— 两个唯一调用点都先 `GetHero(...)` ⇒ 主体是**造牌那一方的督军**（在棋盘上、有 UnitState）。L645 `attackType` 载荷已通并已消费 ⇒ **会改 Mob 16 张 + Regiment 13 张卡的指纹**（同步点单独归因）。⚠️ 另查出一条**与账 `L556` 的 A 直接打架**的差异（我们在攻击者本人身上多发一次 Mob/Regiment，原版 `ResolveUnitAttacked.c:31` 对攻击者直接 return）⇒ 已交 `RuleCore` 写手复核后再动。 |
+| **R1b** | ✅ 14 条施工指令 + **11 条账订正**；改码只 1 处（`UnitState.cs:2676` 两行 doc，零行数变化） | 🔴 **撞车教训**：它把 `git diff --numstat` 的**累积差异**当成「此刻有人在写」⇒ **判「文件能不能动」看文件所有权表，⛔ 别看 `git status`/`git diff`**（CLAUDE.md 2026-10-27 那条，本轮又踩一次）。§6 最要紧三条：`L381`「Ghidra 失真」**是误记** · `L584/L585` **其实早已落地** · `L748`「反成死存」**不成立**。 |
+| **R5** | ✅ 11 条缺判据查实 9 条 | 🔴 推翻前提：`targetedSpellAnim` **1,351 张全空**（这族恒不生效）· `attackHitBigParticles` 与 `attackHitSmall` **同一 pathID** · **`battleWinner/battleResult` 是本地算的不是服务端**（689①/704 从 D 改回 B）。⚠️ `PressedBtn` 三源全负，但**还没挖安卓 APK** ⇒ **没批判 D**，改派去挖 `D:/2/关服前存档/…xapk`（两级解 · 只读 · ⛔ 不执行包内东西）。 |
+| **E11b** | ✅ `GameModesHandler` **真注册进 `LiveOpsManager.cs:92`**（注册序未动、行数 356→356） | 🔴 **`LiveOpsManager.Instance` 全仓 0 个生产调用方**（`LiveOpsLocalHandler` 同样因此从未登记）⇒ **整个 liveops 层在运行期是死的**。L585 阻塞：R2d 的闸是**泛型类上的 static**（每个闭合类型各一份）而本机**没有具体子类** ⇒ 无处可注入；已在 `GameModesHandler` 类尾建 `DraftModeUnlocked`/`InstallDraftGate<TS,TD>`/`NotifyPracticeMatchWon`，**没编闭合类型装作接上了**。 |
+| **E15** | ✅ `未分类_其他`：做掉 4 条（`ActionScheduler` 四方法）+ 判 D 1 条；31 条挡因已分类 | `ActionScheduler` 含原版真语义（过点不排 / Guid 兜底 / **同 actionId 替换 + LogWarning** / 按 TargetTime 排序 / **每拍只弹队首 1 条**）· `Countdown` 类**三源 0 实例 0 引用**。 |
+
+**本轮裁定**：
+1. **U9（HUD 741）不判 D，做**（原版那条 `LogWarning` 我们没发 = 真差异）。
+2. **U1（`PressedBtn`）暂不判 D** —— 先挖安卓 APK 再定。
+3. **L866 口径冲突裁「按 `.c`」**：recall 路 `ResetToValuesInHand(…,1)` **就该清 `+0x222`**；「实例态默认保留」指的是**实例身份/视图不重建**，不是不复位状态字段。
+4. **204–207 判 D 先验归属** —— 账把它们落在 `TimerDisplay` 类下，可能与 `Countdown` 不是一回事；**先把归属订正，再谈 D**。
+
+**音频**：`E13` 把**原版 6 条快照的真值全查到**（3 份 mixer · 映射来自战场 SO · `FX 0/‑80`、`Music 0/0.025578511878848076/0/‑80` · 过渡 `Attenuation(6)`，FX 两条原版本来没有）⇒ 自定值 **0 条**（唯一 🔶 = 「投影到哪个组」）。已写 `SetSnapshotValues()`，**Unity 三步因别人半成品编译失败未跑成**，改为「等 typecheck 绿了自动跑」的后台任务。
+
+### 16·17 波 1 回执（六）
+
+| 代号 | 回执 | 关键点 |
+|---|---|---|
+| **E15c / E15d / E15e / E15f** | **过期账抽检**（同一代理连跑 4 批，已按纪律换人） | 扫 **9,623 行 / 21 本账** → 383 有落点含否证词 → **178 条机械候选** → 强档 24 条逐条核完 = **升 A 13 · 只改判词 4 · 维持 7**；另扫「生命周期名」族 25 行（**命中 0，但如实说是判据弱不是做完了**）与「无落点」288 行（**83 条「可能已内联」= 机械共现，⛔ 不能当结论**）。🆕 工具 `工具/ledger_stale_audit.py`（**不带参数只打印用法、代码里没有写主表路径**）。 |
+| **E15f 实测出的头号模式** | 🔴 **原版一个类 ↔ 我们一个合并类**：原版 `GameModes` 的 `CombatFinished`/`DeserializeSharedData`/`GetActiveEvent`/`InitializeHandler` **全在 `Shell/GameModesHandler.cs` 里活着**，账却记「无落点 / 整类没建」⇒ L215/L216/L220/L221 **升 A** | 这解释了「无落点 288 条」为什么显得那么多：**不是没做，是做完并进了别的类**。已换新代理带着这个假设核剩下 68 条。 |
+| **E11c / E11d** | ✅ liveops 启动链接上（`ShellRuntime.cs:342` 追加在 `Instance = this;` 同一行以保 19 处落点 + `MainMenuRuntime.cs:55`）· 幂等三证（复位→ShellRuntime 先跑→MainMenu 再跑 `ReferenceEquals` 同一实例） | 🔴 **收益边界原话**：「收益 = `HandlerLookup` 从永远空变有两个 handler，只有按原版形状取 handler 的那批代码才有东西可取；**不包含** ① 现有活动窗口一个都不会多/少显示（它们直读 `LiveOpsLocalCatalog`/`LiveOpsLocalHandler.Default`）② 数据本来就有 ③ 不跑 `BuildHandlers`/`Unpack`」。⛔ **别记成「活动线修好了」**。另：`LoadSharedDefaultValues` 会写 `cardsTextInHandFormat`，但**不覆盖玩家档位**（那一格我们没有任何生产消费者，玩家档在 `PlayerPrefs` + `CardView.HandTextFormat`，两条链不相交）。 |
+| **E12b** | ✅ 手牌文本接线（`Shell/SettingsWindow.cs`，**行数守恒 13/13**） | 判据：原版 `GraphicsTab__CardsTextInHandDropdownChange` **本体不重刷卡面**（只写 `+0x140/+0x144`），真消费者是 `BasicCardUI` **每次进手牌读那一格** ⇒ 我们两半必须各自接线。断言量 **TMP 层 `activeSelf + .text`**（档 1 只剩描述、档 2 只剩卡名且与档 0 逐字相同）。✅ **那行账原来记 A 是错的，现在才算真的 A**。 |
+| **E13 / E13b** | ✅ **音频 6 条快照的原版值全部查到并写入**（自定值 **0** 条，唯一 🔶 = 「投影到哪个组」） | 判据：原版**是 3 份 mixer**（Main/Music/FX），快照挂在 Music、FX 子 mixer；映射来自战场 SO `AudioMixerAddresableReferences.snapshots[]`（13 战场逐项相同）。值 = `FX 0.0 / −80.0`、`Music 0.0 / 0.025578511878848076 / 0.0 / −80.0`，过渡 `Attenuation(6)`、FX 两条原版就没有。**调度台实跑：SetSnapshotValues 6/0 · VerifySnapshotValues 6/0 · SetMixerDefaults 6/0 · AudioSnapshotCheck 11 通过 / 0 失败**。🔴 E13b **推翻了我给的「组存线性、要 10^(dB/20)」口径**：`AudioMixerGroupController` **没有 `volume` 属性**，只有 `GetValueForVolume/SetValueForVolume(controller, snapshot)`，读写的就是快照 `values` 那一格，而它**装的是 dB**（同一数组还装 pitch `1.0`，线性不可能为负）。 |
+| **E16** | ✅ 个人资料 3 条落地 + 25 条逐条写清挡在谁身上 | 🔴 `Achievement.OnReachMilestone` 原版走 `ToastNotificationController.ScheduleNotification`，**E10 却接到了 `MessageToast`（错误横幅，另一套系统）** ⇒ 已改，并派**全仓通道误用扫描**（E16b）。`51 FocusOnArmy` 判 D（三源不可达）。 |
+| **E10d / E10e** | ✅ 收集者 XP 增量口 + 落盘 + 生产调用点 + **升级飘窗文案自证纠错** | 🔴 **我怀疑得对，那确实是自证**：原版升级飘窗正文 = **等级数字本身**（词条 13 语言全是 `{0}`），我们原来是「收藏者升级！」，还多写了一个原版从不写的格子（`Player Level Text` 的 baked 值是 `"-"`、**全树没有写手**）⇒ 已按原版改、账 510 判词订正。`🔶` 只有「这个值由谁给」一条是对的（分支表 100/30/**130** 全是 `.c` 逐句）。 |
+| **E17** | ✅ 商店 48 条：**A 127 · B 33 · C 12 · 建议 D 1** | 🔴 **4 条 C 是「账没跟」不是没做**（`VIPCardShopTab` 四个方法早在 `ShopTabPage.cs:1007/1013/1019/1027`）· **「本地没有那只开箱 mp4」是假的**（`assets_full/bundle_menus_assets_all/VideoClip/`，5.14 MB）· ✅ 货币显示名落地（`Shell/CurrencyNames.cs` + `ItemDrawer.cs` 单行），战役奖励窗 `C2` 格改为「水晶」。 |
+| **E18** | ✅ 特效 19 条：**5 升 A · 1 判 D · 13 维持并补卡点**；**零 `.cs` 改动**（11 条落点全在禁碰文件） | 🔴 `497/485` 的「指针单点→双点」定性不准：**双点组件早就有**（`Shell/TutorialPointerUi.cs:167`，`Tier.Combat` 参数齐全，**至今 0 使用点**），缺的是**选件/接线 + 坐标空间裁定** · 🔴 账 403「查不到判据」应订正（`CardMaterialHelper__ConfigureMaterial.c:23-58` 可读，且我们早有同一套 `CardFeel.cs:2864-2872`）· **资源覆盖差集：`battleprefabs_vfxandmisc` 962/962 已导出，「原版有引用我们缺」= 0**。 |
+| **E5e** | ✅ 761 的判定层落地（`CardHighlight.FoeHandCardTapOpens:1149`，真值表 8 格纯函数） | 🔴 **推翻施工单前提**：`BattleCardUI__ShouldShowCardback.c:29-39` = `inHand ∧ !isPlayer ⇒ return 1`（**恒卡背**）⇒ 原版敌方手牌**任何状态都不翻面**，点的是**卡背那一格**、开的是卡面展示窗 ⇒ **不该建敌方 CardView、不该有「亮出敌方手牌」**。施工单已就地订正。另核：**第二条开气泡的路不存在**（`_chatPopup.Show` 全仓 1 处，ESC 显式复用 `ClickChatHud()`）。 |
+| **E11e** | ✅ HUD 无剩余可做项（20 条 A、4 条 B 全落 BattleDriver/RuleEngine） | 🔴 **订正 R4b 的三处细节**：`Connecting` 基串是**硬编码英文**不是 `Loc.T`；每点是 **`" ."`（带空格）** 不是 `'.'`；节奏是**每 1/3 秒 4 态循环**不是「每秒一点」——`read_literal.py` 独立复读两个常量确认。**HUD 的 C 行不是「没人做」而是被文件归属锁死**（20 条全在 `BattleDriver.cs`）。 |
+| **R3c** | ✅ RaycastFilter 三条断言（落 `Editor/MenuCheck.cs` 类尾）+ 账 215 `EverguildLayoutGroup.CalculateSpacing`→A + G9 `WindowHeaderWithBackButton` 类已建 | 🔴 **761 `UIGradientUtils` 拒改 + 反证**（按账里那句去掉归一后 188° 那支在 u=+0.5 处 ≈ −0.99 ⇒ 整幅饱和成纯色，缺的正是 `dir` 模长/平移那 4 个常量）。判据收紧法很好用：guid `7b66bd01…` → `Missions Tab.prefab` 的 GO **`steps`** 挂着它（`m_Spacing 262.8113`）⇒ 运行期覆盖为 `(325−n×40)/(n−1)`，骷髅格距 **20 → 31.25**。 |
+| **R1c / R1d** | ✅ L866 三跳落地（`UnitState.AlreadyTriggeredBacklash` + 两处写点 + `CleanupDeaths` 置位）· 战役 117/121 的 `filter` 口建好 | 🔴 **第 3 跳的闸拒做 + 反证**：原版那道闸防 `_ResolveMinionDeath` 与 `_ResolveBacklash` **两条**死亡广播路，我们只有 `CleanupDeaths` 一条且当场 `RemoveAt` ⇒ **读点结构上不可达**，写了就是死代码。另：**战役 53 零可观测**（我方没有「战役点奖励 item」，`CampaignPoints` 是标量 9999）· **战役 55 结案**（两套图**早已导入**，源名把 `general` 拼成 **`genearl`**，换拼写搜必 0 命中）。 |
+| **R5b** | ✅ **APK 里没有 `PressedBtn`**（四级源全负：ILSpy/`.c` · `assets_full` · AssetRipper GUID · 安卓 1.35.0 APK）⇒ U1 判 D 成立 | 挖法：XAPK 两级解 → pathID **2589** → 裸字节解析 `m_Script.pathID@偏移20`（Android 包 typetree 被剥）· 扫 battleprefabs 2847/2847、menus 35013/35014 等全 0。另查出 **U9（741）的文案与七条件** + **U10（507②）原版 AI 那一拍就是 2D Hand 卡**（`MinionManager.cs:1191-1203`）。 |
+
+### 16·18 波 1 收口 · 重同步点（2026-10-28 07:40–08:2x）
+
+**合并**：74 份账补丁全部合入并归档（`_merged_B89_wave1/` 73 份 + `_merged_B89_RF/` 1 份）。
+- 合并顺序按 `判据/B89_E23_合并顺序表.md`（该文件是权威：含 68 条现成命令 + 冲突谁赢 + 为何这个顺序）。
+- 🔴 **`--only` 是前缀匹配** ⇒ 一律给**完整文件名**（`--only B89_E1` 会一次吃掉 25 份）。
+- 🔴 **`merge_ledger_parts.py` 扫到一行不合规就整份不写、且输出像「什么都没发生」** —— `B89_RXb` 初版就因此被静默挡掉一次。
+
+**账（合并前 → 合并后）**：8,784 → **8,795 行**；A 4,517 → **4,670**；B 687 → **607**；C 308 → **242**；D 3,272 → **3,276**；**(A+D)/总 88.7% → 90.3%**；**真复刻率 A/(A+B+C) 82.0% → 84.6%**。
+
+**落点闸**：`--all-A --fix` 把漂移 **616 → 41**（剩下的是 getter / 同名歧义 / 需人读，工具按设计不自动改）；失败 **63 → 0**（`B89-RF` 逐条改落点，**一条都没降档** —— 全是「实现或等价物在、落点写成散文/注释行/语句中间/旧行号」）。
+
+**探针**：`check` **rc=0** · `play check` **rc=0**（各连跑两次同值）· `play all` **rc=1**（只剩 ⑧ 自检里 `Mob（攻击那一发）` 一格，已判**夹具盲区**，见下）。
+- 重钉 **两颗**：`PinnedPoolMd5 = 519c262985964ab3ff570588992ec336` · `PinnedPlayMd5 = 5f945c49463d8e818a445811447836b1`。`PinnedBaselineMd5` / `PinnedParseMd5` **不变**（`B89-RP` 纠正了「解析两颗都要改」的旧口径 —— 第八十八会话 `F5` 已钉过第二颗）。
+- 🔴 **本会话最重要的一次判断：`B89-RP` 拒绝重钉**。差异面里 9 张（`UM16 UM21 UM24 UM26 UM55 UM56 UM59 UM68 UM72`）是**回归** —— `chosen: u`（`B89-E2` 的 `L943`）撞上 `EffectResolver` 池解析末尾缺 `ta ∈ {30,220}` 同形闸。若当时重钉，这 9 张回归会被永久钉进基线。修法是**补闸**（`RuleCore` 一个字节没动），另顺带修好第 10 处同类 `AM49`。
+- 归因结论：**归不了因的卡 = 0**。差异面 26 行 = `EC48`（光环挂 Flank 重算召唤病）+ `AM49` + Mob 13 / Regiment 10 + `AM70` 连带。
+
+**20 条 Unity 自检**：首跑 **8 个宿主 34 条红** → 只读诊断判出 **11 个根因** → 全修 → 7 个宿主全绿（`RuleEngineTest` 9508/9508 · `ShopScene` 2510/0 · `BattleScene` 5664/0 · `MainMenuScene` 5089/0 · `AnimFXCheck` 241/0 · `LoadableRefCheck` 36/0 · `EnchantmentTemplateCheck` 68/0）。
+- 🔴 **34 条红只有 11 个根因**，其中 **8 条是 β 真缺陷**：商店 `ItemDrawer.cs:827` 用入参 `art` 判 `Kind`（该用 `s.Art`）⇒ 货币 `C2` 落到 `Unknown` → 占位板，**生产也中招**（战役奖励窗的 `C2` 一直画的是占位板，现已改为真货币抽屉 —— **真机请顺眼看一眼**）。
+- **γ 回归 4 条**：`CardFeel.cs` 的 `pos.y = 0f`（原版是整份 `Transform.position`）· `TopBar.cs:612` 每帧重排打断滚动动画。
+- **δ 夹具 13 条**：12 处 Mob/Regiment 夹具把 `Mob:` 挂在**出手那张卡**上（而本批删的正是「攻击者自己触发」）⇒ 结构上永远不绿。
+- **α 断言过期 9 条**（`GetChosenCard` 旧口径 ×3 · T26 泵点 · 卡表 v36→v37 · 里程碑间距 81.94 等）。
+- 🆕 另一条越界红：`MainMenuScene` 的 `[E13] D3 飘窗节点名` —— `Instantiate` 会给克隆体加 `(Clone)`，断言写死 `"Toast"` ⇒ 改成接受两种写法。
+  ⚠️ 教训：**收日志要核体积量级**（那次拿到的 `menu.log` 只有 201 KB，全量 17.9 MB，`[E13]` 段整段不在里面 ⇒ 差点漏掉这条红）。
+
+**第二层账（功能点验收索引）全库铺完**：**180 功能点 / 9,623 行 = 全账，100% 认领，五道机检 0 失败**。
+- 等级按**最差档**：`A42 · B23 · C40 · D13 · E1`（P0 五域 `A22 B19 C17 D2 E1` + 其余 15 域 `A42 B23 C40 D13 E1` 的合并口径见两份报告）。
+- ⚠️ **两个口径别混**：**行级**真复刻率 84.6%（看「读懂了多少」），**功能点级** 40.0%（看「玩家能不能真用上」）—— 后者取最差档，一个功能点捆几十行账，1 行没做完就不算 A。
+
+### 16·19 收口（第八十九会话 · 最终读数）
+
+| 项 | 读数 |
+|---|---|
+| 账 | **8,795 行 · A 4,670 · B 607 · C 242 · D 3,276** |
+| (A+D)/总 | **90.3%** |
+| 真复刻率 A/(A+B+C) | **84.6%** |
+| 落点闸 | A 4,790 · 通过 4,749 · 告警 231 · 漂移 41 · **失败 0** |
+| `ruleprobe check` / `play check` | **rc=0 / rc=0**（各连跑两次同值） |
+| `ruleprobe play all` | rc=1（只剩 ⑧ `Mob（攻击那一发）` 一格 = **夹具盲区**） |
+| Unity 20 条 | **全绿**（最后一条 `GameModesCheck` 72/0：`D10` 判 **α** —— 期望写 `e2`，但 `.c` 那条普通 LINQ 只有「类型闸 ∧ Active ∧ Priority 降序」**没有模式闸**，夹具里 `e4` 也是 `FakePlayEvent` ⇒ 正确答案是 `e4`。产品代码零改动） |
+| 第二层账 | **180 FP / 9,623 行 / 100% 认领 / 5 机检 0 失败** |
+
+**本轮「先判档再动手」的收益**：34 条红 → 11 个根因，其中 **α 断言过期 9 · β 真缺陷 8 · γ 本批回归 4 · δ 夹具 13**；若照「看到红就改实现」的惯性，那 9 条 α 和 13 条 δ 都会把正确的实现改坏。
+
+**给下一会话的交接** = `资料/交接_第八十九会话.md`（含「账的覆盖边界」与「两个口径别混」）。
+
+**未做（留给下一波，判据已齐）**：`play all` 电池加「同方陪练」· 附魔模板池内还剩 61 张 · `extrinsic` 4 分支 · `40k_Rewards_icon_base card` 底板图导入 · 电池只覆盖 `type=unit` · 41 条历史漂移。
+
+---
+
+## 十七、第九十会话（2026-10-28）· 波 2（13 路）· 用户口径「先刷 90%+ 的域，同时留几路给主战场」
+
+### 17·1 用户原话（会话起点，⛔ 别改口径）
+
+> 「先推『把 90%+ 的域刷到 100%』。但是不是还有子代理空位可以留给主战场：战斗逻辑吗？留一些子代理给战斗逻辑，继续推进，剩下的全力解决把 90%+ 的域刷到 100%」
+
+⇒ **分配 = 战斗/工具 5 路 · 高率域 8 路**（13 = 9 执行 + 4 只读）。
+
+### 17·2 起点现读（会话开头的实测，⛔ 别抄交接的数字）
+
+| 项 | 现读 |
+|---|---|
+| 20 业务域 | **8,795 行** · A 4,670 · B 607 · C 242 · D 3,276 |
+| 行级真复刻率 | **84.6%** |
+| 功能点级 | **40.0%**（180 FP：A 64 · B 42 · C 57 · D 15 · E 2，存疑档按主字母折叠） |
+| 第 21 份账 `泛型与启动链_补读.tsv` | **839 行**（A120·B100·C78·D539）· 40.3% —— **不计入 20 域的口径** |
+
+⚠️ **铁律 5 订正**：`资料/交接_第八十九会话.md` §二 原写「代码账 **21 份 tsv / 8,795 行**」—— 两个数字对不上（8,795 是 20 域之和）。已就地改成「21 份 / 9,634 行（20 域 8,795 ＋ 补读 839）」。
+
+### 17·3 高率域 B/C 的成因普查（123 条，调度台逐条扫过）
+
+| 类别 | 条数 | 含义 | 做法 |
+|---|---:|---|---|
+| ① **账过期**（备注里已写「已复刻/已落地/接线已落地」） | **30** | 代码做了、账没回改 | 现读核实 → 升 A，**零开发量** |
+| ② **真没做、判据齐** | **68** | 正常开发 | 派写手照判据补 |
+| ③ **数据在上游/远端、判据为空** | **25** | 一半是「原版离线也拿不到」 | b 档（UI 照原版 + 本地模拟 + 出声）或判 D + 写全证据 |
+
+按域：个人资料 27（①12 ③11 ②4）· 菜单 30（①6 ③3 ②21）· 社交 17（①5 ③3 ②9）· 战斗HUD 13（①1 ③3 ②9）· 特效 12（①3 ③1 ②8）· 战役 9（②9）· 轮抽 4（③2 ②2）· 锻造 4（③2 ②2）· 卡组 3（①2 ②1）· 音频 2（①1 ②1）· 收藏 1（②1）· 教程 1（②1）· 卡牌面 0。
+
+### 17·4 🔴 回答「九十几的能不能到 100%」（用户第二问，结论留档）
+
+**能，但三条要说清**：
+1. ②那 68 条当然能到，只是写手时间；
+2. ①那 30 条**是白捡的**（个人资料 27 条里 12 条明写「已复刻」⇒ 该域 88.5% 预计直接跳到约 97%）；
+3. ③那 25 条**不能靠「做」到**，只能靠口径闭合（例：`LeaderboardConfig` 是服务端下发 config、`DraftEventBase.Expire` 缺服务端事件时刻、`AlliancesManager.GetCurrentTrophies` 原版返回集合而我们只有计数）。
+
+🔴 **但「行级 100%」≠ 复刻完成**：菜单_外壳 93.7% 行级 / **18% 功能点级**；个人资料 88.5% / **17%**；收藏 99.6% / **43%**；轮抽 96.2% / **33%**。
+⇒ **行级是「读懂了多少」，功能点级才是「玩家能不能真用上」**。第三层：账只有 9,634 行，分母是 **13,182** 个原版非平凡方法 —— 账填满 ≠ 原版全复刻。
+
+### 17·5 本波派活（文件所有权表 = `判据/B90_波2_文件所有权与派活表.md`）
+
+| 代号 | 角色 | 独占文件 | 条数 |
+|---|---|---|---:|
+| B1 | 执行 · 战斗 | `RuleCore/EffectResolver/ActionPump/CardDef.cs` | 10（R9 批5+批6+R5 挑战发射） |
+| B2 | 执行 · 战斗 | `Battle/BattleDriver.cs`（独占） | 18 +1（豁免闸） |
+| B3 | 执行 · 战斗 | `工具/gen_cards_engine.py` · `RuleEngine/Data/CardDatabase.cs` | 61 张附魔 |
+| N1 | 执行 · 高率 | `ProfileData/ProfileTab/AvatarTab/Leaderboard*/Settings…/Ranked*` | 22 |
+| N2 | 执行 · 高率 | `MainMenuRuntime/WindowButton/MenuDraw/BoostTimerPanel/TransformScaler…` | 13 |
+| N3 | 执行 · 高率 | `LiveOpsEventWindow/LiveOpsHandler/LiveOpsState/Inbox*/MainMenuWindow/RankedDeckSelector` | 20 |
+| N4 | 执行 · 高率 | `DeckRuntime/DeckInfoPopup/CardView/CardArt/CardDisplayWindow/CardHighlight` | 15 |
+| N5 | 执行 · 高率 | `Alliance*/SocialData/ChatPopupPanel/UnitChatPanel` | 16 |
+| N6 | 执行 · 高率 | `BattleEvent/EffectsToShow(新)/Draft*/Booster*/ShopData/ForgeData/ItemDrawer/OffensiveCards/TutorialOverlay/SkillPanel/ArenaSlots` | 19 |
+| C1 | 只读 | —— | 6（R9 §三 VA 反汇编） |
+| C2 | 只读 | —— | 25（③ 阻塞裁定证据） |
+| C3 | 执行 · 工具 | `工具/ruleprobe/**` | 电池两处盲区 + 漂移 41 定位 |
+| C4 | 只读 | —— | 18 FP（高率域功能点 C 档施工单） |
+
+**跨路冲突已在简报里写死**：`BattleDriver.cs` 只 B2；`RuleCore/EffectResolver/CardDef` 只 B1；`MainMenuRuntime` 只 N2；`LiveOpsHandler` 只 N3；个人资料域按**文件**在 N1/N2 之间分工。
+
+### 17·6 待办（本波收口时回填）
+
+- [ ] 13 份报告收齐 + 账补丁按 `check_patch_conflicts.py` 排顺序逐份 `--only <完整文件名>` 合并
+- [ ] 合并后：`check_ledger_points --all-A` 复跑（第一遍是修前快照）+ 重算 20 域比率
+- [ ] ③ 25 条按 C2 的证据由调度台逐条判 D / b档（判 D 必须写全证据 + 时间限定）
+- [ ] `typecheck` 串行跑一次（多写手并行期间会有假错）
+
+### 六、波 2 重同步点（2026-10-28 下午）· 已过/未过
+
+**已合并 10 份补丁 + 4 份调度台补丁 = 265 行，0 跳过**
+合并顺序（按重复键裁定）：`N3 → N4 → N2 → N1 → N6 → B2 → C4A → B1 → B3 → N5`，其后调度台自建 `B90_SYNC1..4`（DynamicList 回退 25 行 + 落点改声明 17 行 + 3 行 + 1 行）。
+
+| 闸 | 结果 |
+|---|---|
+| `check_ledger_points --all-A` | A **4,854** · 通过 **4,854** · 漂移 **0** · **失败 0**（告警 249） |
+| `ruleprobe check` | **rc=0** |
+| `ruleprobe play check` | **连跑两次 rc=0**；指纹 `be75a11de9e7f4bb910537056951caf9`（旧基线备份 `基线/_bak_1028c/`） |
+| `typecheck` | 运行时 **0** / 编辑器 **0** |
+| Unity 20 条自检 | **16 绿 / 4 红（49 条失败）** |
+
+**账面（20 业务域 8,795 行）**：A **4,734** · B **568** · C **213** · D **3,280** · 真复刻率 **84.6% → 85.8%** · `(A+D)/总` 90.3% → **91.1%**（⚠️ 2026-10-28 就地订正：原写 4,750/86.0% 是 `B90_SYNC1` 回退前的数）。
+
+### 🔴 Unity 49 条红（未过，已派只读诊断 `X1`）
+
+| 宿主 | 结果 | 已看出的线索 |
+|---|---|---|
+| `RuleEngineTest` | **3 红** | ① 卡表 version 断言写 37，B3 已升 **38** ②③ `EvtKind.Play` 计数期望 3/4 实得 **2/3** —— **假设**（未证）：B1 按原版重写 `CardsPlayedString`（原版 `GetCardsPlayPlayer` 不读 `EvtKind.Play`）⇒ 读点被**正当删除** |
+| `BattleScene` | 5674 通过 / **1 红** | B2 本轮**新加**的 `5b′` 星镖豁免闸断言 —— 要么闸实现不对、要么夹具不对 |
+| `CollectionScene` | **1 红** | `A601` 期望 16 实得 17 ⇒ 疑与 N4 的 `DeleteDeck`/`RestoreDeck` 有关 |
+| `MainMenuScene` | 5027 通过 / **44 红** | 已认出 N3 新加的「升段窗演完即解禁」「队伍卡三格还原」两条；其余待诊断。⚠️ `Editor/MainMenuScene.cs` 本轮被 N3 大改（换遭遇战夹具 + 加 4 个断言块） |
+| 其余 16 条 | 全绿 | Deck 1941/0 · Shell 2129/0 · Rewards 2393/0 · Shop 2510/0 · Settings 1567/0 · NetBattle 247/0 · CardBase 574/0 · AnimFX 241/0 等 |
+
+**纪律**：按「**红了先派只读诊断代理、别猜着修**」—— `X1` 要把 49 条逐条判成 **α 断言过期 / β 实现缺陷 / γ 本批回归 / δ 夹具前提不成立**，并归因到具体哪一笔改动。
+⛔ **在自检修绿之前不开下一波写手**（否则新旧问题混在一起查不清）。
+
+### 已备好的下一波输入（4 份只读施工单，见 `判据/D_下一波施工单汇总.md`）
+- **D1**：高率线剩余 **63 条** = ①核销 4 · ②可做 26 · ③阻塞 26 · 需裁定 7
+- **D2**：79 颗小屏字号 → **19 站点/51 行**（26 颗无对应物）· ColorTint 294 颗 → **缺 `DisabledTint` 机制**（不是站点没接）· 下拉展开面四点真机验法
+- **D3**：战斗逻辑 **275 条** = ②可做 **84** · ③证据/口径 **140** · 需裁定 **48** · 反对 10（含 6 条可直接回账）；**46 条「没人读完」最值钱**
+- **D4**：断言缺口 **55 条**（P0 27）+ 12 条「不要做」+ 7 个测试薄口
+
+### 17·7 波 2 收尾（2026-10-28 晚）· 交接见 `资料/交接_第九十会话.md`
+
+**账面**：A **4,743** · B **559** · C **213** · D **3,280** · 真复刻率 **84.6% → 86.0%** · `(A+D)/总` 90.3% → **91.2%**。
+
+**已过三闸**：`ruleprobe check` rc=0 · `play check` **连跑两次 rc=0**（重钉 `be75a11d…`，旧基线备份 `基线/_bak_1028c/`）· `typecheck` 0/0。
+**未过/待办**：账落点闸 **漂移 3 / 失败 9**（E1 9 行 + F1/F5 落账后**没跑第二次 `--fix`**，失败 9 原因**未查**）· Unity **只重跑了 `MainMenuScene`（5118/1）**，其余 19 条是会话起点的结果。
+
+**自检 49 红 → 1 红**。`X1` 判 α 8 / β 40 / γ 0 / δ 1，其中 **38 条同一根因**：`InArmyDeckList` 把 `OrderByDescending(ValidateDeck)` 读成了第二道 `Where`。
+🔴 **`decomp_full` 的 C 伪码把谓词打成 `void`** ⇒ 只看它会得出同样的错判；**这条只认 `out_il2csharp`**。
+5 个修复代理 F1~F5 全部落地（F2 还修掉一个**产品缺陷**：升段窗的 promote 演出被 `Show()` 掐死，输入只能等 10.4 秒兜底）。
+
+**10 路全账判据普查（E1~E9）覆盖 ~818 条 B/C**，核心结论：**约 311 条是「已经做对了、账没回改」**。
+**33 条「阻塞」归零**（E8：11 D / 8 b档 / 11 其实可做 / 3 我裁）。
+**调度台本会话新裁的**：E4 的 14 族口径（31 条纯记账 + 17 条行为题）· E8 的 3 条（轮抽 Expire 保持 B · HUD MoveMinion 做但排后 · SetHighlightedRow 判 D）· DynamicList 非泛型 2 条判 D、泛型 7 条判 A（**后被闸否决，全部回 D** —— A 档要求指得出真实落点）。
+🔴 **`CLAUDE.md` §三 新增 7 条坑**：0 调用点可能是内联假象 · C 伪码吞返回值 · `globalgamemanagers` 的 n 不是 pathID · 泛型补导只覆盖 39 类 · 拉伸锚点要量 `rect.rect` · `AddTempBuff(IsKeyword)` 挂不上词 · `CardArt.Get` 缓存 null。
+
+**下一会话按 `交接_第九十会话.md` §四 的 5 步走**（修最后 1 条断言 → 一次性改 ≈311 条核销 → `--fix` → 跑全套 → 重算两把尺子）。
+
+---
+
+## 十八、第九十一会话（2026-10-28）· 收口五步 + 波 3（6 写手 + 2 账补丁转岗）
+
+### 18·1 收口五步（交接 §四）全部做完
+
+| 步 | 结果 |
+|---|---|
+| ① 修 `[D3]` 最后 1 条红 | ✅ **根因不是量纲、是产品缺陷**（见 18·2）；`MainMenuScene` 复跑 **5119 通过 / 0 失败** |
+| ② 一次性改账 | ✅ **8 份 `B91_*` 补丁 / 217 行**（L1 102 · L2 30 · L3 22 · L4 62 · L4b 16 · L5 12 · L6 64 · L7 42；其中 L1/L3/L5 是「已合并在先、报告在后」） |
+| ③ 落点闸 | ✅ 先人工修 5 条（`--fix` 修不了的：语句中间 / 注释 / 空行）⇒ **A 4,950 · 通过 4,950 · 漂移 0 · 失败 0**（会话起点：A 4,863 / 漂移 3 / 失败 9） |
+| ④ 自检 | ✅ 只跑会话起点红过的 4 个宿主：`RuleEngineTest` **0 ✗**（起点 3 红）· `MainMenuScene` **5119/0**（起点 44 红→1 红→0）· `CollectionScene` **0 ✗**（起点 1 红）· `BattleScene` **5675/0**（起点 1 红） |
+| ⑤ 两把尺子 | 行级 ✅ 重算；功能点级 ✅ 新工具 `工具/recompute_fp_levels.py`（默认只打印、`--apply` 才写盘） |
+
+**账面（20 业务域 8,795 行）**：A **4,743 → 4,829** · B **559 → 480** · C **213 → 171** · D **3,280 → 3,315**
+· 真复刻率 **86.0% → 88.1%** · `(A+D)/总` **91.2% → 92.6%**。
+
+### 18·2 🔴 本会话查出并修掉的真缺陷：面板根是裸 `Transform`
+
+`Shell/AllianceEventScorePanel.Create` 与 `Shell/AllianceEventScoreInfo.Create` 都用 `new GameObject(name)` 建根
+⇒ 是**裸 `Transform`、没有 rect** ⇒ 紧随的 `MenuDraw.ApplyPxRect` 里 `SetPxSize` 的 `t as RectTransform == null` **早退**
+⇒ **面板根从来没拿到原版那个 383.59 × 511.52 的根框**，`localScale = 0.95581` 照打、画面看着没错，**只有量 rect 时才现形**（自检 [D3] ⑦ 恒 −1×−1）。
+✅ 修法 = `new GameObject(name, typeof(RectTransform))`（本仓统一写法，见 `Shell/MenuDraw.cs:154`）；两处都改，**行数零变化**（该文件有 4+6 条账行按行号钉着）。
+⚠️ 判据纪律：交接里「该节点是拉伸锚点，应量 `rect.rect`」**只对了一半** —— `rect.rect` 也读到 −1，因为根本没有 RectTransform。**先问「这个节点有没有 rect」，再谈量哪个量。**
+
+### 18·3 新工具 / 新产物（别重做）
+1. **泛型 10 个基类方法体已补导**：**202/203 个真体** → `d:/4/_tmp_view/decomp_b91/`（740 KB）。复现命令与判读纪律 `判据/B91_泛型补导_复现.md`；⛔ 不用改 `D:/2` 的脚本（`DecompG7.java` 本来就参数化），`-readOnly` 照跑。
+2. **`工具/recompute_fp_levels.py`**：按现账逐 FP 取最差档（**D 不参与竞争**）。现读 **180 FP 里仍有 C 行的 = 48**；旧 C/C? 57 → 45 仍 C。⚠️ E9 曾算 36（只数原 46 条 + 存疑档折叠口径不同）⇒ **36 / 45 / 48 三个数别混用**，报数一律注明口径。
+3. **18 份 `B90_*` 补丁已归档**到 `账/_parts/_merged_B90wave2/`（原来散在 `_parts/` 顶层 = 旧内容定时炸弹）。本波 8 份 `B91_*` 已归档 `账/_parts/_merged_B91/`；合前整表备份 `账/_bak_B91pre/`。
+
+### 18·4 🔴 D 档口径（**全项目统一，2026-10-28 调度台定死**）
+
+> 起因：本波三个代理各自撞到「0 调用点要不要判 D」，且 `账/其他_基础设施.tsv:160` 记着 2026-10-28 的「死代码本身不足以判 D」，与 `教程_引导.tsv:52` 已判 D 的先例并存。
+
+**D = 原版可观测行为为零，或原版那条路在本 build 永不可达。** 四类可判：
+- (a) 原版体是空桩 / `return` 常量 / `abstract` 声明（先查 `RVA 0x4B33B0` = 全局空桩、`0x4BD440` = `return 0`）；
+- (b) 原版数据恒 0 / 表恒空（如 `mutationType` 1,351 张全 0、prefab 全库 0 实例）；
+- (c) **四源全负的死代码**（`decomp_full` / `out_cpp2il_dev_ilspy` / `out_il2csharp` / `assets_full` 的 `m_MethodName`）——有体但零调用路径；
+- (d) **架构性不适用**（原版依赖的子系统本工程根本没有、玩家不可观测，例：Addressables 句柄 Load/Release）⇒ 必须写 `🔶 机制不同 + 接入条件`。
+
+**⛔ 不判 D**：单纯「我们没做」；「0 调用点」但原版体有真实行为**且数据一变就可达**（= 休眠，保持 C）。
+每条判 D 必须带证据 + **时间限定**「本 build / 2025-07-30 资源快照 / 安卓 1.35.0」+ 可逆备注（发现生产点即回 C）。
+
+### 18·5 波 3 派活（文件级所有权）
+
+| 代号 | 独占文件 | 活 |
+|---|---|---|
+| W1 | `RuleEngine/Core/RuleCore.cs` | E1 的 8 条②可做 + E3 的 21 条可达 + 落点在本文件的 B/C |
+| W2 | `RuleEngine/Core/EffectResolver*.cs` | E2 的 11 条②可做 |
+| W3 | `CardPresentation/Battle/BattleDriver.cs` | 攻击预览星镖豁免闸 · `ToggleCombatState` · `PracticeEvent.OnMatchWon` + HUD B/C |
+| W5 | `Shell/{ShopData,RewardsWindow,ShopWindow,ShopTabPage,BoosterPackOpenWindow,OfferContainer}.cs` | 商店 Boosters/Crates 七步（**第 7 步缺 prefab 几何，不做**）+ 商店 ②可做 |
+| W6 | `RuleEngine/Editor/RuleEngineTest*.cs` + `Core/LoadableRef.cs` | 17 条「只差断言」批 + `LoadableReference` 双向运算符 |
+| Q1→账 | `账/_parts/B91_Q1.tsv` | Q1 普查的 36 升 A + 6 接线 + 5 判 D |
+| L3→账 | `账/_parts/B91_L3b.tsv` | 7 条死代码按新口径判 D + 3 条 `LoadableRef` 重复键 |
+
+### 18·6 本波代理提上来的待办（⛔ 别当已完成）
+1. 🔴 **门检只查 A 行** ⇒ **B/C 行的落点漂移永远静默**（L2 实测：`348`/`428`/`708`/`709`/`514-517` 等 12 处全指错）。要一边同步点补一次 B/C 落点体检。
+2. 🔴 **`泛型与启动链_补读.tsv` 里有 159 行与主题表同键**（L5 实测；`merge_ledger_parts` 按 `(原版类,方法)` 逐字匹配，`LoadableReference` ≠ `LoadableReference<T>` ⇒ **抓不到、会双份计数**）⇒ 该表 42.3% 这个数被低估，需一次「以主题表为准」的对齐。
+3. 🟠 **基础设施「只差断言」17 条**（W6 在做）、**日常 137 条**（其中 77 条 ②可做）、**战斗 253 条**（92 ②可做）—— 波 4 输入。
+4. 🟠 `E7` 有三处判据过期（判 D 的「同口径」理由、`ExpansionPassEventWindow:892` 落点、§一·2 的 4 个行号）；`E2` 把 `SendClearEndOfTurnEffects` 的生产者写成 `CardTurn.OnTurnEnd`，**全库没有 `CardTurn` 类**（真名 `CardScript`）—— 已在主表落点改正，判据文件待订正。
+5. 🟠 `其他_基础设施` 判「只差断言」那 17 行在 `Editor/` 里 **0 条断言**（L3 现读），W6 补完才能升 A。
+
+### 18·7 本会话收尾（2026-10-28 晚）· 全绿 + 基线重钉 + 交接
+
+**账面**：20 域 **86.0% → 89.8%**（A 4,743 → 4,908 · B 559 → 424 · C 213 → 131 · D 3,280 → 3,332）· `(A+D)` 91.2% → **93.7%** · 泛型补读 **62.3% → 74.7%**。
+
+**五道闸**：
+- 落点闸 **A 5,130 · 通过 5,130 · 漂移 0 · 失败 0**（起点 漂移 3 / 失败 9；`--fix` 把 187 漂移清到 1，人工 + L1 再清到 0）
+- `typecheck` 0/0 · `ruleprobe check` **rc=0** · `play check` **rc=0**
+- Unity 自检 **20 宿主全绿**
+- B/C 落点体检（新工具）**196 段 → 0**
+
+**基线重钉（两颗，归因已写死）**：
+- `PinnedPlayMd5` `be75a11d…` → **`6cbb80d7…`**，差异面**只有 2 张卡**：`UM118`（`valueOptions 101` 照抄原版 ⇒ 誓约伤害恒 0）· `GSC49`（`stealMinion` 改回永久）
+- `PinnedPoolMd5` `519c2629…`(v37) → **`81d580f3…`**(v39)；v38 是 B90 波 2 漏钉的那一列
+- `PinnedParseMd5` / `PinnedBaselineMd5` **原样未动**
+
+**本会话最大的两类产出（下个会话直接用，⛔ 别重查）**：
+1. **推翻 6 条旧判据**（`createAtPos` 71→11 · `attackType` 非卡表列 · 关卡 5→4 个整数 · `referencedBaseCard` 恒 null · `chosenAbility`「只落 2 个」实为 99.6% · 五族「整条缺失」一半是虚的）
+2. **一个真产品缺陷**：`SellSpareCards` 的闸读「刚写进去的字段」⇒ **卖卡这条链事实上是死的**（生产侧 0 调用点，线上没暴露；是 W6 新断言首跑才炸出来的）
+
+**用户本会话定的两条新口径（已进正本）**：
+- `CLAUDE.md` **18·0**：需要拍板的地方**默认照原版**（含原版 bug / 死支 / 恒 null），**只有服务器相关才允许自设计**；说「我们的更准」之前必须先读透原版分支
+- `CLAUDE.md` **铁律 9（改）**：说「**收尾交接**」= **默认允许 commit + push**，不再逐次问
+
+**下一会话入口** = `交接_第九十一会话.md` §四（238 条战斗剩余的推进形状：**多路并行查 → 按文件分批落地**）。
+
+## 十九、第九十二会话（2026-10-28）· 用户两条口径 + 波 4（13 路）
+
+### 19·1 用户本会话两条口径（已进正本）
+
+1. **优先级**：「**先把非战斗的 5 个域刷到 100%，再集中打战斗。**」
+2. **并行查判据**：「**你可以派子代理（派多一些）去查战斗逻辑还没有判据的地方，先找判据并形成文件，
+   之后合适的时候，子代理直接看判据完成任务。**」
+
+### 19·2 第三条口径（服务器类 ⇒ 先讨论，别自己拍板）
+
+> 用户原话：「有一些远端/服务器的地方，比如**抽卡概率、结算奖励**等，**到时你和我进行讨论**，
+> 看看能不能我们自己设计替代官方的设计。这个**以后再说**，
+> **等做完可以做的地方，或者合适的时候你主动问我**。」
+
+- ⇒ **服务器类自设计 = 用户拍板，不是调度台拍板**。已落 `待接线与排队项.md` §⏳ 第一行。
+- 决策表载体 = `判据/服务器类_自设计讨论清单.md`（随查随加；每条写「原版那格是什么 / 本地能观测到什么 / 建议 / 影响哪些界面」）。
+- 与 `CLAUDE.md` 18·0 的关系：18·0 说「只有服务器相关的才允许自己设计」——**本轮补充：允许 ≠ 我自己定，要先问**。
+
+### 19·3 波 4 派活（13 路 = 5 写手 + 1 无落点判据 + 7 战斗判据）
+
+派活表 = `判据/B92_波4_派活与文件所有权.md` · 通用纪律 = `判据/B92_波4_通用纪律与交回格式.md`。
+
+| 代号 | 角色 | 范围 | 行数 |
+|---|---|---|---:|
+| N1 | 写手 | `LiveOpsEvent/Handler/Filter/Manager/State/SharedData` · `ParentEventWindow` · `FastModeBaseEvent` · `PlayEvent` · `InitializableBehaviour` | 59 |
+| N2 | 写手 | `BaseInboxEvent` `GameNewsEvent` `MissionEvent` `ScoringEvent` `Ranked/DraftEventBase` `DailyData` `DraftModeWindow` `LiveOpsEventWindow` `RaidEventWindow` `SkirmishEventWindow` `EnergySinglePlayerOnlyEventWindow` 三扇奖励窗 `CampaignRewardWindow` `ChallengeData` | 72 |
+| N3 | 写手 | `GachaEventWindow` `OfferContainer` `ExpansionPassEventWindow` `ShopTabPage` `ShopData` `CampaignTab` `ForgeData` `BoosterPackOpenWindow` `DraftPacks` `PurchasePremiumWindow` | 39 |
+| N4 | 写手 | `MainMenuRuntime` `CollectionWindow` `ProfileData` `RankedData/Tab` `ProfileTab` `AvatarTab` `RankedDivision*` `LeaderboardWindow` `SocialData` `Alliance*` `ChatPanel` `BadgeNotifications` `PlayerProfileState` `AllianceEventScoreInfo` `MissionsTab` `TopBar` `LoadingMenu` `SearchingOpponentWindow` `SceneInitializer` `SettingsWindow` | 42 |
+| N5 | 写手 | 其余非战斗件（`UguiRect` `Tooltip` `WindowsManager` `ItemDrawer` `MenuTutorialFlow` `SaveCenter` `Inventory` `GameplayVariables` `CountEval` `AiScoringData` …，以任务单为准） | 60 |
+| N6 | 判据 | **无落点 90 行**逐条定落点 + 施工单（判完可转岗） | 90 |
+| B1–B7 | 判据 | 战斗域 231 行，按**原版类**切：`BattleManager` 流程/目标/生命周期三组 · `CardScript` · `BattleManagerSupport`+`MinionManager` · `RawCardScript`+`PlayerHand`+`CardTraitCollection` · `MatchData`+`AiScripted`+`EntityScript`+零散 | 231 |
+
+### 19·4 本轮两条已知边界（⛔ 别当成「没做完」）
+
+1. **非战斗 5 域里有 20 行落在战斗文件上**（未分类 12 · 基础设施 4 · 日常/社交/菜单/教程 各 1）
+   ⇒ 归战斗波；所以这 5 域本轮**最多到 99%+ 而非纯 100%**（除非某行判定能由非战斗件承接，另行放行）。
+2. **特效动画 11 · 战斗界面_HUD 6** 归战斗波（落点基本在 `BattleDriver` 等战斗表现件），本轮不算。
+
+### 19·5 本轮纪律
+
+- **不在每批结束做完整同步点**，滚到「非战斗 5 域接近 100%」再做一次（`CLAUDE.md` 16·8）。
+- 账补丁只由代理写 `账/_parts/B92_<代号>.tsv`，**主表只有调度台合并**；合前必跑 `check_patch_conflicts.py`，合并带精确 `--only`。
+- `--fix` / 重钉 `PinnedPoolMd5` 只在「无 `.cs` 写手 + 无账写手」窗口做。
+
+### 19·6 波 4 进度（2026-10-28 晚 · 滚动中，⛔ 别当收工）
+
+**账面**：全表 **9,636 行** · A **5,128** · B **561** · C **111** · D **3,836** · **真复刻率 88.4%**（会话起点 89.8%）。
+
+🔴 **下降 = 修正，不是退步**：`日常_奖励` 一次批量判的 137 行全量重核（19 保 A / 117 降 B / 1 改落点）+ 48 行「泛型体不可读」D→B；落点错配抽样 100 条又降了 6 条真语义差。
+
+**本会话四类核心产出**：
+1. **战斗判据 B1–B11 全部闭合**（231 行 B/C 全覆盖 + 补查 + 94 条「内联可疑」）⇒ 推翻 18+ 条旧判据
+2. **落点质量普查**：5,087 条 A 行里只有 25.3% 落点方法名与原版同名；125 条「无方法名」全部补全；11 条落点整个指错已修
+3. **7 个真行为缺陷**被找到（伴生卡 ephemeral 缺失 · stunned 从不被清 · 卖卡链死 · 环境卡不进池导致进攻卡全线不结算 · ItemDrawer quantity 硬编码 1 · 主动技能角标恒空 …）
+4. **判档口径 5 条**（判据未闭合取 B · 空体判 D · 同键取更硬 · actionType 保持 0 · GetBaseEvents 统一 B）
+
+**新建的 5 个 `.cs` 无 `.meta`**（`TriggerCarrier` / `Decorator` / `SingletonInitializableBehaviour` / `EventBadge` / `EventBadgeController`）⇒ 跑一次 Unity 批处理即生成。
+
+**重同步点未做**（写手一直在跑）：`--fix` 重定位 · 重钉 `battle`(Skirmish) 探针 · 6 条 `W61T33` 断言首跑 · `.meta` 生成 · 全部在 `交接_第九十二会话.md` §五 列清。
+
+---
+
+## 二十、第九十三会话（2026-10-28 晚）· 阶段 0 收尾 + 波 5（5 判据 + 3 执行）
+
+> 入场交接 = `完全复刻/交接_第九十二会话.md`。**本会话起点：工作树 clean · HEAD `6c4a111f` · `_parts/` 顶层未合并补丁 0 份。**
+
+### 20·1 阶段 0 第 1 步：`PinnedPlayMd5` 重钉（**先测后钉 · 已完成**）
+
+| 步 | 读数 |
+|---|---|
+| 重钉前 `play check` | rc=1：**①-a 主档 1,129 张逐字节全等** · **①-b 事件电池只有 1 张卡变 = `DA72`（net 8→6）** · ② 哨兵过（基线文件 = `6cbb80d7…`） |
+| 归因（回源核过） | `报告/B92_B2b.md` §2·2 = W2「`create`+`decktop` 照抄原版随机」（`AddCardInPlayToDeck.c:48-51` 的 `toTop` 是**字面 0**、卡面却承诺 `at the top` ⇒ **原版 bug**，18·0 照抄）。全池只有 `DA72` 写 `at the top of your deck` ⇒ 与「只有它变」完全吻合 |
+| 同批另三件为何 0 差异 | W1 伴生卡 `ephemeral`（回合末 sweep）· `IsUnitInPlay` 收紧（extrinsic 施主当拍判死窗口）· `cardState` 写点 —— **结构上不在 `play check` 的可见窗口** ⇒ 必须靠 `RuleEngineTest.Run` 覆盖 |
+| 旧基线备份 | `工具/ruleprobe/基线/_bak_1028f/out_play_baseline.txt` |
+| 重钉后 | **`ef8a0249d78cd91808db49e30da6cd2a`** · `play check` **rc=0** |
+
+⚠️ **`battle`(Skirmish) 探针**：全仓**没有**独立的 `PinnedBattleMd5`（`ruleprobe` 只有 4 个 Pinned：`Play` / `Pool` / `Baseline` / `Parse`）；`BattleProbe.cs:192` 用的是 `Skirmish`，`能量结转` 那处行为变化由 `played`/`b19test` 等具名探针覆盖，⚠️ **本轮未单独重钉任何 battle 侧常量**（不存在）。
+
+### 20·2 账面现读（⛔ 别抄，自己跑）
+
+全表 **9,637 行**：A **5,154** · B **534** · C **111** · D **3,838** · **真复刻率 88.9%** · `(A+D)/总` 93.3% · A 落点闸 **5,154 通过 / 漂移 0 / 失败 0**。
+逐文件剩 B+C 前六：战斗逻辑驱动 **204** · 日常_奖励 **190** · 泛型与启动链_补读 **92** · 未分类_其他 **63** · 商店 **29** · 其他_基础设施 **21**（合计 645）。
+
+### 20·3 本会话派活（波 5 · 8 路：5 判据 + 3 执行）
+
+| 代号 | 类型 | 范围 | 产出 |
+|---|---|---|---|
+| Q0 | 只读诊断 | 「准星起点 = 施法者」那 1 条红定性（α/β/γ/δ） | `判据/B93_Q0_准星起点定性.md` |
+| Q1 | 只读判据 | `actionType` 9 个差集真实处理路径 + `cardState` 3/15/17 现状复核 | `判据/B93_Q1_*` |
+| Q2 | 只读判据 | `日常_奖励` 190 条分批施工表 + 两条中件施工单 | `判据/B93_Q2_*` |
+| Q3 | 只读判据 | 220 条 `n<3` 无落点死代码三档 | `判据/B93_Q3_*` |
+| Q4 | 只读判据 | 泛型补读 92 条 + `原版类` 列正确值清单 | `判据/B93_Q4_*` |
+| E1 | 执行 | 挑战/成就两条真缺口（`TriggerAbility.OnTriggerAbility` 1356 · `TroopsKilledCount.OnTroopKilled` 1359）+ 1354/1355 | `账/_parts/B93_E1.tsv` · `报告/B93_E1.md` |
+| E2 | 执行 | 落点错配**第 4 批 50 条**（只 A 行） | `账/_parts/B93_E2.tsv` |
+| E3 | 执行 | **B/C 落点体检 216 段**重定位（只 B/C 行） | `账/_parts/B93_E3.tsv` |
+
+**文件所有权**：E1 = `AchievementTally.cs` / `RuleCore.cs`（只加点发射）/ `BattleContext.cs`；E2 = 只写 A 行账补丁；E3 = 只写 B/C 行账补丁；Q0–Q4 全只读。
+调度台（主对话）独占：`CLAUDE.md` / `项目任务.md` / 账主表合并 / 任何 Unity 批处理 / 任何 Pinned 重钉。
+
+### 20·4 就地订正（铁律 5）
+
+- 🔴 **`CLAUDE.md` 第一站命令**：原 `ls -t Unity/资料/交接_*.md | head -1` **只扫 `Unity/资料/`**，而第九十二会话起交接件写在 **`Unity/资料/完全复刻/`** ⇒ 按旧命令会读到**上一会话**那份。已改为两目录一起按 mtime 排。
+
+
+### 20·5 工作模式切换：按【文件】切（用户 2026-10-28 提出）
+
+> **决定**：战斗域从「按问题类 / 原版类切」改为「**按文件切 · 文件所有者**」。分片表 = `判据/B93_F_战斗按文件分片.tsv`（221 条逐行标落点文件）；代理 = F1 `RuleCore.cs`(60) · F3 `BattleDriver.cs`+表现族(41) · F4 引擎小文件族(49) · F5 杂项单文件(8) · F6 无落点16（只读定落点）+ 日常线 D1(26) / D2(33)；F2 = `EffectResolver.cs`(30) 等 E25 交回再派。
+> **理由**（用户原话：「是否可以根据文件类别去查？……这几个子代理分别根据这些文件作为其写手，追着完成这几个文件的任务。」）：
+> 1. 原版类 → 我们的文件是**多对多**（`BattleManager` 的活散在 `RuleCore`/`EffectResolver`/`BattleDriver`）⇒ 同一个 `.cs` 被不同代理轮流改，每个都要重新理解上下文；
+> 2. 判据由 A 写、实现由 B 做 ⇒ **交接丢信息**（本轮因此出过 **4 次**「断言文件建了没人接线」、十余条判据被后人推翻）。
+>
+> **每条四步**（写进 F* 简报）：① 回源查判据（`.c` 第一权威）→ ② 当场实现 → ③ 写断言并**自己接线**（宿主一并进白名单）→ ④ 交账补丁。
+> **仍然是唯一硬约束**：一个文件同一时刻只有一个写手；两个代理抢同一宿主时，一个改代码、另一个把可粘贴断言交回由调度台派。
+
+### 20·6 同步点结果（2026-10-28 夜 ~ 10-29 凌晨）
+
+**五道闸 + 20 条 Unity 宿主，全绿。**
+
+| 闸 | 读数 |
+|---|---|
+| `typecheck` | **运行时 0 / 编辑器 0** |
+| `ruleprobe check` | **rc=0**（解析差异 0 行 · 哨兵失败 0） |
+| `play check` | **rc=0**（重钉 `2f901cc9…`，归因写死在常量注释里） |
+| `check_ledger_points --all-A` | **A 5,327 · 通过 5,327 · 漂移 0 · 失败 0**（告警 452） |
+| `check_ledger_points_bc` | 578 段 · OK 578 |
+| Unity 自检 20 条 | **全部 0 失败** |
+| 场景重生成 | `!u!115` 存根 = **0**（与 HEAD 一致） |
+
+**首轮自检 5 个宿主红（约 30 条）→ 三路只读诊断 → 六路修复 → 复跑全绿**：
+- **α 断言错 10 · β 实现缺陷 3 · γ 本批回归 3 · δ 夹具 19**
+- **只有两处真需要改实现**：① `RuleCore.cs:2766` 能量结转闸 `ctx.Turn > 1` → **`> 0`**（`B92_B1b` 昨天引入的**真回归**，原版闸的入参是**自增后**的 `turnCounter`）；② `MissionsTab` 把树**压平**（`Mission Milestones Progress Bar` 容器只算矩形、不建节点）。
+- **一处「本批该撤」**：`B93_F7` 的 `TriggerSacrificeOnDeath` 挂在 `leftPlay` 支，而原版那支的宿主必须过 `IsInPlay`（只认 2/15/3/17）、真死是 `waitingToDie = 5` ⇒ **结构不可达** ⇒ 撤调用、口保留、断言改成**反向**（防挂回）。
+- **一处「本批是对的、别回滚」**：`Battle!` 的 `interactable` 门闸；红是**夹具卡组是空的**（`TooFewCards`）⇒ 补合法牌。
+- **一条方法论**：`grep -c '✗'` 会把 **✓ 文案里含 `✗` 字符**的行也数进去 ⇒ **必须按行首标记数**（本会话因此误报过一次 `RuleEngineTest` 有 1 红，实际 0）。
+
+**新增/订正的知识（都进正本）**
+1. `DAT_1842xxxxx` **不是读不出**：`stringliteral.json` 每条带 `address`（与 Ghidra 同址）；另有 `工具/read_il2cpp_string.py` 直解。已订正 `交接_第九十二会话.md`。
+2. 虚槽式 `offset = 0x168 + slot*8` **对泛型类不成立**（`LiveOpsHandler<TEvent>` 已证伪）。
+3. **滚动区断言别用「位移 > N px」**：一格多少由该视图的 `m_ScrollSensitivity` 定（本仓见过 **10** 与 **48** 两种）⇒ 正确写法 = 量 `Offset` 的一格位移（样板 `MainMenuScene.RankedWheelProbe`）。
+4. **`io.open(p,'wb').write(<表达式>)` 第 5 次踩**（`RuleEngineTest.cs` 39,434 行被写成 0 字节）⇒ 复原 = `git show HEAD` + **transcript 回放**；**大文件每次代理交回后立刻备份**。
+5. **`b[:-len(str)]` 在 bytes 上按字符数切** ⇒ CJK 静默截错（`RuleEngineTest_N1.cs:335` 24 条语法错的根因）。
+6. **`const` 常量行不能当 A 档落点**（`const float` 与 `const string` 同病）。
+7. **`uGUI` 画布上不能用 `ItemDrawer`**（它走 `LayoutSpace.Px` ÷108 ⇒ 变 1/108 且不报错）。
+8. **断言可以红，但不许让夹具问题打断整个宿主**（`Find(...)` 的 null 根让 `RunCore` NRE ⇒ 后面所有批次一条都不跑）。
+
+---
+
+## 二十一、第九十四会话 · 波 1（2026-10-29）
+
+### 21·1 开局现读
+| 项 | 值 |
+|---|---|
+| 全表 | **9,596 行**：A 5,327 · B 321 · C 60 · D 3,888 |
+| 真复刻率 A/(A+B+C) | **93.3%**（(A+D)/总 = 96.0%） |
+| 在飞写手 / 待合并补丁 | 无 |
+| 五道闸 | 上一同步点全绿 |
+
+### 21·2 重切派活清单（旧的 `B93_F_战斗按文件分片.tsv` 已过期：221 行 vs 现账 186）
+新正本 = **`判据/B94_派活.tsv`**（381 行 B/C 全表，按**落点文件**归属写手组；生成器 `_tmp_view/gen_b94_dispatch.py`）。
+- **跨组文件 = 0**（逐文件核过）；`CardPresentation/Editor/SettingsScene.cs` 那行其实是「无落点」，已归 R-B。
+- 分组：F1 62 · F2 22 · F3 23 · F4 63 · F5 28 · S1 26 · S2 52 · S3 22 · S4 35 · R-B 48。
+
+### 21·3 波 1 派出的 13 路
+**9 执行**：F1 `RuleCore.cs` · F2 `EffectResolver.cs` · F3 `BattleDriver.cs`(+`BattleScene.cs` 宿主) ·
+F4 引擎小文件族(23 文件) · F5 表现小文件族(24 文件) · S1 商店 · S2 日常 · S3 未分类 · S4 其它小域。
+**4 只读**：R-A 48 条非 `.c` 出处补全 · R-B1 战斗域无落点 23 · R-B2 非战斗无落点 25 · R-C 381 条出处体检。
+
+### 21·4 ★ 接线待办（防「断言建了没人接线」再犯）
+宿主归属：`RuleEngineTest.cs`→F1 · `Editor/BattleScene.cs`→F3 · `Editor/ShopScene.cs`→S1 · `Editor/ShellScene.cs`→S2。
+**其余 5 路（F2 · F4 · F5 · S3 · S4）只交断言文件 + 入口名，由调度台合并时统一加接线行**：
+- [ ] F2 → `RuleEngineTest.cs` 加 Step
+- [ ] F4 → `RuleEngineTest.cs` 加 Step
+- [ ] F5 → `BattleScene.cs` 加调用
+- [ ] S3 → 按报告指定的宿主加调用
+- [ ] S4 → 按报告指定的宿主加调用
+
+### 21·5 工具链问题（C# 日志「加载项目 Cpp2il.csproj 时出现问题」）
+根因：`_tmp_view/cpp2il_run/.../global.json` 钉死 SDK **10.0.100**，本机只有 **8.0.425**（`dotnet --version` 在该目录直接报 SDK not found）。
+处置：`.vscode/settings.json` 加 `dotnet.defaultSolution = Unity/MyGame/MyGame.sln`，让 C# 扩展只加载 Unity 方案。
+兜底（未做，需用户点头）：把那棵 728 MB 源码树移出工作区 / 装 SDK 10（会影响 `ruleprobe` 的默认 SDK，不推荐）。
+
+### 21·6 判据补查队列（用户 2026-10-29：「没判据的再派子代理去查，之后合适就直接做」）
+
+**现读的人口**（全表 9,596 行）：
+| 口径 | 条数 | 谁在查 |
+|---|---:|---|
+| B/C 行「判据出处**不含 `.c`**」（只引 ILSpy/dump.cs） | **48** | R-A（在飞） |
+| B/C 行**无落点** | **48**（战斗 23 / 其他 25） | R-B1 / R-B2（在飞） |
+| 出处可能指向错文件/错行/要点对不上 | 待 R-C 出数 | R-C（在飞） |
+| `判据出处` **整列为空** | **0**（全表没有空出处 —— 每条至少有个指针） | —— |
+| `判据要点` < 40 字（有指针、结论薄） | **23**（B/C） | 写手读 `.c` 时顺手补 |
+
+**槽位策略**：13 路已满（9 执行 + 4 只读）。**每回来一路，立刻补一路**，按下列优先级：
+
+1. **补判据**（消费者明确）：
+   - `R-A/R-C` 回来说「仍查不到」的行 → 派回源代理（`.c` 优先，其次 VA 反汇编）
+   - `R-B1/R-B2` 定不了落点的行 → 派「定落点 + 判 D/休眠」代理
+   - 「其他域没有判据」= 上面三类的非战斗部分，同一批处理，不按线分开
+2. **判据已定、可直接做的**（用户原话「之后合适的时候就直接做」）：J at-turn 发射 · K premium 抽屉可无限领 · L 内容页页签红点 4 扇 · M `TriggerSacrificeOnDeath` 调用点 · N `ReleaseEventAssets` 搬回 · O `OnlineMatchResult.EndMatchData`
+3. **账整理**（不产代码，只产清单）：H 重复账 353 组 · I 原版类列残缺 448 · F 落点错配 ~488 · G `n<3` 无落点 220（已判完三档、只落了 12 条）
+
+**转岗规则**（铁律 13·7）：查判据的代理查完、且文件所有权无冲突时，直接 `SendMessage` 让它**接着做实现**，⛔ 不另开执行代理（它已把判据读进上下文）。
+
+### 21·7 波 1 交回进度与账务处置顺序（2026-10-29 滚动更新）
+
+**已交回**：R-A（战斗 48 条出处）· R-B1（战斗无落点 23）· R-C（381 条出处体检）· R-B2（非战斗无落点 25）· R-D（C 档 60 条体检）· S1（商店 26）· S2（日常 52）· S3（未分类，进行中）· S4（其它小域 35）· F3（BattleDriver 23）。
+**仍在跑**：F1 · F2 · F4 · F5 · T1 · W1 · X1 · R-A2 · R-A3 · R-E · R-F · R-G。
+
+**🔴 账务处置顺序（必须按这个来，否则互相覆盖）**
+1. **先合并全部补丁** `账/_parts/B94_*.tsv`（`--only B94_` 逐份；合并前跑 `check_patch_conflicts.py`；S2 那条**新键** `DailyRewardItemContainer.GetCurrentState` 合并脚本可能拒绝 ⇒ 手工追加）。
+2. **再应用 R-D 的 16 条改账**（A 11 · B 5，逐条带证据，产物 `判据/B94_R-D_C状态体检.md` §三）。
+3. **再应用 R-C 的 8 条行号订正**（全部是裸 ILSpy 行号，`.c` 出处零错行，产物 `判据/B94_R-C_出处体检.md` §二）。
+4. **再应用 R-A / R-B1 / R-B2 的「账记错/需订正」条**（R-A §三 5 条 · R-B1 §三 7 条 · R-B2 §④ 6 条）。
+5. 最后跑 `check_ledger_points --all-A --fix`（**第一遍输出是修前快照，必须复跑看真实数字**）。
+
+**★ 断言接线待办（已做 1 条）**
+- [x] `B93S4Assert.Run()` → `Editor/MainMenuScene.cs:18447`（**同一行追加、行数零变化**）
+- [x] 修掉 `Editor/ShopFamilyAssertB94S1.cs` 缺 `using CardPresentation;`（3 条 CS0246/CS0103，整族断言原本编不过）
+- [ ] `RuleEngineTest_EngineB94F4.TestB94F4EngineGaps()` → `RuleEngineTest.cs` 的 `Step(...)`（F1 在写该文件）
+- [ ] `B93F5Assert.Run()` → 待 F5 交回后接 `Editor/BattleScene.cs`
+- [ ] `B93S3Assert.Run()` → 待 S3 交回后接其指定宿主
+- [ ] `B94T1_Assert.Run()` / `B94W1_Assert.Run()` / `B94X1_Assert.Run()` → 各自指定宿主
+
+**typecheck（调度台 2026-10-29 现跑）**：编辑器程序集 **0**；运行时 3 条全在 `LiveOpsFilter.cs` / `LiveOpsEvent.cs` 引用 `LiveOpsContainers.ReleaseEventAssets` —— **T1 正在搬这个类，属在飞状态**，非缺陷。
+
+---
+
+## 二十二、第九十四会话收口（2026-10-29）
+
+### 22·1 规模
+派了 **7 波 / 40 路**子代理（执行 + 只读），全部按「一个代理 = 一组文件」切。用户当次授权并发 **15**。
+
+### 22·2 结果
+| 项 | 起点 | 现在 |
+|---|---:|---:|
+| A / B / C | 5,327 / 321 / 60 | **5,445 / 240 / 33** |
+| 真复刻率 | 93.3% | **95.2%** |
+| `(A+D)/总` | 96.0% | **97.2%** |
+
+五道闸全绿（含**新加的两道**：B 行落点体检、`play all` 自检）；卡表 v40；20 宿主里 15 条 0 失败、剩 12 条红（逐条定性在交接 §四）。
+
+### 22·3 重要裁定
+1. **誓约费的修法**：DG2 主张「删调用点」，DG1 主张「函数本体加闸」⇒ **按 DG1**（删调用会丢 `.c:24` 的 Codex 检查）。一处加闸，两个调用点受益。
+2. **不建 `cardState` 状态机**：R-W 现读后发现 `UnitStateCardState.cs` 早已把 `2/5/3·15·17` 拼出来 ⇒ 那 4 条不是缺位、是时机问题。**拦下了一笔大浪费**。
+3. **`randomSeed` 与 `joinState` 序列化**：都是「服务器/本地存档」相关 ⇒ 保留 + 打 `🔶 自己设计`（18·0 的唯一例外门类）。
+4. **`OwnerSeat` / `EventActingCard` 两格**：原版确实是**存在对象上、离场不清**的字段 ⇒ 建格 + 接线（`OwnerSeat=-1` 时回落棋盘扫描，今天零行为变化）。
+5. **`buffType` 管线**：卡表 v40 新增 `abilityBuffs` 列（954 行/636 张），但 **11 个分组里 8 个本 build 数据为 0 行** ⇒ ⛔ 别把「补齐了」当成复刻率 +11。
+
+### 22·4 踩过的坑（新）
+- **合并过的补丁留在 `_parts/` 是定时炸弹**：一次整批合并会把后来的手工修订盖回旧内容（零报错）。本会话已归档 38 份到 `_parts/_merged_B94_1029/`。
+- **跨补丁重复键的胜负由字典序决定，而字典序是巧合不是语义**（`B94_B16` < `B94_B2` ⇒ B2 覆盖 B16）。合并前必跑 `check_patch_conflicts.py`。
+- **一个文件两个写手**：`Shell/PracticeModePopup.cs` 被 B7 与 B11 同时写（B11 的 Edit 被工具挡回）。派活时白名单要交叉检查。
+- **「查过的判据会过期」**：R-A/R-A2/R-A3 的「账现值」读的是派活快照，不是主表 ⇒ 约 1/3 的订正在盘上早已改好。
+
+### 22·5 下一步
+按交接 §四 的 A–J 清单继续；**先修 12 条宿主红**，再推战斗 155 条。
+
+## 二十三、第九十五会话（2026-10-29）· 用户三条口径 + 波 1（12 路）
+
+### 23·1 用户口径（本轮现行）
+1. **12 条宿主红修完 ⇒ 先别自检，继续推进任务**。
+2. **战斗逻辑部分没到 100% 之前：不作合并（账补丁一律留 `_parts/B95_*.tsv`）、不跑自检**。`typecheck` 照跑（那是编不过的闸，不算自检）。
+3. **空槽子代理别闲着**，优先推 特效动画 / 收藏 / 战斗界面 等其他任务线。
+
+### 23·2 战斗 132 条按落点文件切片（调度台现数，2026-10-29）
+`RuleCore.cs 38` · `EffectResolver.cs 12` · `UnitState.cs 8` · `PlayerState.cs 7` · `ActionPump.cs 6` ·
+`BattleDriver.cs 5` · `CardDef.cs 5` · `BattleContext.cs 4` · `(散文/无落点) 4` · `TutorialScriptPredicates_B94B8 3` ·
+`AchievementTally 3` · 其余 ≤2（`SimpleAI`/`TutorialScript`/`TransformUnit_B94B12`/`RuleCorePartial_B94B8`/`Aura`/`CardDatabase`/
+`MulliganPanel`/`Enchantment`/`CardDefPartial_B94B16` …）= 39 个不同文件。
+
+### 23·3 回执 · `B95_A2P`（Shell 6 红）2026-10-29
+- **② 周常倒计时两态 = α（断言写法错）**，已改 `Editor/B94B4_Assert.cs`。🔴 **推翻交接 §四 A2 的猜测**「B4 的修复没生效或被覆盖」—— **实现是对的**：原写法把模板里的 `{0}` 剥掉再 `Contains`，而实得串里 `{0}` 已被填成 `--`（`MissionTimerDisplay__Update.c:100` 证 `{0}` 一定被填）。
+  ⇒ 以后判「某修复没生效」之前，先问「是不是断言自己在比一个不可能出现的串」。
+- **`--` 是设计内行为**：周常刷新时刻原版由**服务端下发**、本地模型里不存在（`DailyData.cs:746-754` 注释逐字记着）⇒ `TimerDisplay.Compose(prefix, "--")`。⛔ 别把它当缺陷去修。
+- **① Premium 两态 = α ×2，根因在 `Editor/ShellScene_B94S2SelfCheck.cs`**（白名单外）：一条是断言把「两轨独立」理解成「Premium 可脱离普通轨前进」，与原版 `DailyRewardItemContainer__GetCurrentState.c:40-44`（`cVar2 = cVar4`，Premium **派生**自普通轨）相反；一条是**反射漏 `NonPublic`**（`MissionRewardsDisplay.Cell.Quantity` 是 `internal` ⇒ `GetField` 恒 null ⇒ 读成 0 ⇒ 假红）。
+  ⇒ 已按 13·7 **转岗**给 A2P 直接改该文件（所有权表已登记）。
+- ⚠️ **基线要重记**：修完断言条数会变（Premium 段 2→4、归并段 +1）⇒ **预期 ≈ 2733 通过 / 2 失败**（剩 2 条是 B17 的）。⛔ 别拿 `2728/6` 当历史对照。
+- 📌 **未覆盖一格**：`RewardStateOf` 的「普通轨 Locked + Premium 已领」—— 原版 `.c:43` 与原版一致，但**任何断言都没覆盖**，如实记。
+
+### 23·4 回执 · `B95_H`（103 条泛型方法体补导）2026-10-29 —— **任务 H 收口**
+
+| 指标 | 数 |
+|---|---:|
+| 导出 | **103 / 103**（`fail=0`）|
+| 体可读 | **103 / 103**（4,425 行；最短 4、最长 228）|
+| 首行名是自己 | 32（其余 = FUN_ 56 + ICF 15 —— **都不是失败**）|
+
+- **产物**：`D:/2/tools/decomp_generic_trial/out_b95b/`（103 个 `.c` + `_MANIFEST_b95.tsv` 11 列）。旁证 `out_b95/`（原版脚本跑的 94 个，与 out_b95b 逐字节相同）。
+- 🔴 **顺手发现（工具级）**：原版 `Decomp.java` / G7 的 `fm.getFunctionAt(addr)==null` 分支是**假失败** —— 9 个地址在 Ghidra 里没有函数对象但**有合法指令流**（6 个尾调用 thunk + 3 个真函数）。加一句 `createFunction(addr,null)` 就能出体。
+  ⇒ 本会话产出改进版 **`DecompG95.java`**（在 `b95_scripts/`，**没动原脚本**）。**以后导泛型体一律用 G95**。
+  ⚠️ 「并回 `DecompG7.java`」要动 `d:/2` 的正式脚本 ⇒ **挂起等用户点头**（不是技术问题，是档案库改动需确认）。
+- ✅ **B94 §五·二 第 2 条实测坐实**：`decomp_generic_trial/out/` 里 `fancyscroll|fancygrid|fancycell|dropdownlist|tweenrunner` 命中 **0**，同一批地址喂 Ghidra **103/103 出体** ⇒ 那是**覆盖口径缺口**，不是二进制里没有。
+- ⚠️ **`FUN_` 56 条 = 名字含 `", "` 的 `<T, object>` 泛型类**（Ghidra 拒建符号并吞异常）；**`ICF` 15 条首行是「别人」的名字但体确实是本人的**（逐个读过 getter/setter）⇒ ⛔ 别按首行名判错。
+- 🎯 **对账有用的一条**：`FancyScrollView.ResizePool` 就是「cell 回收池」那条未覆盖项的判据正本（`target = ceil((1-position)/cellInterval)`；缺口循环 `Instantiate(cellPrefab) → Initialize(cell) → OnVisibilityChanged`；仍缺抛 `MissingComponentException`）⇒ 拿去逐条核 `Shell/MenuScroll.cs`。
+- ⏭ **账要做的事（等战斗 100% 后一并做）**：`泛型与启动链_补读.tsv` 里那批「三源全无 ⇒ 判 D/B」的行，现在**有体了** ⇒ 要按新体重判，⛔ 别继续挂着「判据为空」。
+
+### 23·5 回执 · `B95_WRC`（RuleCore.cs 38 条）2026-10-29
+
+- **改代码 3 条**（642 `BroadcastTurnSetup` 接线 · 847 `HandEffect.Permanent` 三处闸 · 1248 新建 `ValidTargetSlots` 类尾 +50 行）；**typecheck 5 次全 0/0**；`RuleCore.cs` 8 个地标行号逐一守恒、345 个 `RuleCore.cs:<行号>` 落点零漂移。
+- **其余 35 条逐条核过未改**，阻断点全部指名到文件/裁定 —— 没有一条是「懒得做」。分布：`EffectResolver`(279/658/850) · `UnitState`(871 `+0x222`) · `BattleDriver`(500/820) · `BattleContext`(193 ④) · `Enchantment`(1053) · 结构性裁定(E4 族2/3/9、B93_F7) · 需 Unity 读数(523/193) · 原版判据本身读不出(815 `+0x230` ObscuredBool)。
+- 🔴 **`AllowResolveAttack` 的 ③ 那一格没独立坐实**（`lStack_110` 是「目标」还是「被打的那张」要追 500 行结构体拷贝伪码）⇒ 保持账上口径，**接线前必须复核**。
+- 🔴 **`CardScript+0x222`（`skipBacklash`）全库找不到写点** —— 871 ③ 要落地必须先确定「谁置的」。
+- ⚠️ **账闸查不出的改动形状**：「行数守恒、内容替换」（本轮 1248 把 `HasAnyValidAttackTarget` 里 `int foe = 1 - p;` 换成注释行）⇒ **同步点要用「按符号名重定位」再核一次**。
+- ⏭ **等调度台裁定**：125 `AddCardToDeck` 判 D（四源负证据已齐，但要补 `ResolveAction.c` 91 路 switch + prefab/SO `m_MethodName` 两道核查）。
+
+### 23·6 回执 · `B95_A2B17`（B17 2 红 + 角度盲区）2026-10-29
+
+- **B17 根因 = β（生产缺陷）不是断言错**：`Shell/FactionScore.cs` 的 `IconNodeAt` 直接 `MenuDraw.Rect`，而 `ImageQuad.Create` 是 `new GameObject(name)`（**裸 `Transform`**）⇒ `icon` 节点没有 `RectTransform` ⇒ 断言恒红。已改成「`RectTransform` 容器 + 铺满它的 `Image` 图块」（同族先例 `PurchasePremiumWindow.cs:797/509`），子节点数仍 3 ⇒ F1c/F3c 不受影响。
+- 🔴 **盲区数值从「交接说法」升级为实证**（ILSpy 现读本机 `UnityEngine.CoreModule.dll`）：
+  `private const float kEpsilon = 1E-06f;` · `IsEqualUsingDot(dot) => dot > 0.999999f` · **`operator ==` / `!=` 用的是同一个** ⇒ 盲区 = `2·acos(1−1e-6)` = **0.16205695°**。
+  ⇒ **不止 `Quaternion.Angle`，`Quaternion` 的 `==`/`!=` 同病**（这是对旧口径的扩写）。
+  自证：0.05° 改前读 **0.000000**、改后 **0.050000**；盲区外 `Quaternion.Angle` 还有 **~0.002° 的 acos 量化误差**（0.17° 读 0.167859），`AngleDegTiny` 同点 ~1e-6。
+- 白名单内 6 条断言已换算式；`CardBaseDemo:543` 新增一条**量角器自证断言**。
+- 🔴 **全仓普查**：`Quaternion.Angle` **49 处**、`Quaternion.Dot` **0 处**。盲区敏感且在白名单外：
+  · **`Core/CardView.cs:9975-9976`（生产码）** —— 「转过却带裁切 ⇒ 出声告警」的闸用 `> 0.01f` ⇒ 0.01–0.162° 的转动**永远不告警（漏报）**
+  · `Editor/BattleScene.cs:26138`（`> 0.05f`）· `:26211`（`< 0.05f`）
+  · `Quaternion ==`/`!=` 同族：`BattleScene.cs:15364` · `:17315` · `:17319` · `:24687` · `:26190`
+- ⚠️ **`AngleDegTiny` 现已有 3 份**（`BattleScene.cs:48500` · `B94X1_Assert.cs:342` · `CardFaceProbe.cs:3208`）⇒ 要合并进共用件。
+- ⚠️ **账合并顺序**：`_parts/B94_B17.tsv`（上会话遗留、未归档）与本批 `B95_A2B17.tsv` 同键 ⇒ **必须先 `--only B94_B17` 再 `--only B95_A2B17`**。
+- ⚠️ 交接指错了判据文件：`判据/B94_DG3_shell_settings.md` **没有 B17 节**；B17 真判据在 `报告/B94_B17.md` §五。
+
+### 23·7 回执 · `B95_RD`（日常 58 分诊）2026-10-29
+
+58 条 = **档1 可做 23**（13 单点 + 1 组 10 条同根因=资产容器层）/ **档2 判据缺 13**（其中 5 条只读查完即转档1）/ **档3 REMOTE 21** / **档4 本地确无 1**。产出 `判据/B95_日常58_分诊.md`。
+
+**六条总裁断（比 58 条本身更值钱，全部是「账里的残差已过期」）：**
+1. 🔴 **`d:/2/tools/il2cpp_out/stringliteral.json`（26,507 条）能解 `DAT_xxx` 字符串常量**（`RVA = DAT − 0x180000000`）⇒ 所有「`.c` 只有 `DAT_xxx`」的行都有通用钥匙。账 `日常:44` 三键已闭合（`CustomErrors/PracticeUserNotFound` 等，官方表有正文）。
+2. 🔴 `FUN_1800021f0(idx, iface, obj)` 的 `idx` = `dump.cs` 的 `Slot:` ⇒ 「虚槽名读不出」不是死路。
+3. `日常:680` 的 `+0x1b8` = `ObtainableItem.HandleOnCollect(int)`（ILSpy 逐字）。
+4. `日常:582` 残差**作废**（`MenuActions` 早在 `Shell/LiveOpsHandler.cs:1273`）。
+5. `日常:507` 残差②**作废**（`RewardEventHandler.ApplyExtraRewards` 早已实现，`Shell/RewardEventHandler.cs:66`），只剩「没接上」。
+6. `日常:158` punch 基向量 = `Vector3.one × 0.2f`（8 个动画常量 READ 命中）。
+- 🔴 顺手：`Shell/TimerDisplay.cs:18` 注释说「三条词条键官方表没有 ⇒ 我们挑的」——**官方 13 语言表六条全有** ⇒ 出处要改、三条硬编码应改走 `Loc.T`（铁律 5 就地订正）。
+- 🔴 **6 条账行残差已过期**（44/159/271/507/548/582）⇒ 建议全仓 grep「Il2Cpp 元数据指针解不出」这类措辞（别的域会照抄）。
+- 🟠 `stringliteral.json` 与 `dump.cs` 的 `Slot:` 钥匙要补进 `资料/全量反编译_入口与用法.md`（本会话已补 `DecompG95` 一条）。
+
+### 23·8 回执 · `B95_A3`（TransformUnit）2026-10-29 —— **又是「简报错、代理顶回来」的一例**
+
+- 🔴 **交接 §四 A3 的「召唤广播」是错的，已就地订正**：`ResolveTransformUnit.c` 2252 行里 `Broadcast*` **只有两条**（`BroadcastRemoveFromGame` / `BroadcastWhileInPlay`），**没有** `BroadcastUnitSummoned`/`ResolveUnitSummoned`；`shouldTriggerSummon` 只被读两处（`_MinionPlayedIntoField…MoveNext.c:188/:194`），只 gate **落地特效 + 一个委托**，两支都进同一 state ⇒ **状态层完全不受它影响**。给变身补 195/190/605/680 = 造出原版没有的触发。
+- ✅ **真缺口只有一格 = 落地回合号**：`.c:42-52` 的 `card+0x2E0 = manager+0x3F8` ≡ `UnitState.DeployedTurn = ctx.Turn`；改前我们是「搬旧值」或「默认 -1」，**两种都与原版不同**。读者有三个（起义监听 `RuleCore.cs:13436` · 誓约闸 `:11752` · `IsTheSameTurnPlayed` 等价物 `:16011`）⇒ **不是装饰**。已新建 `Core/TransformUnit_B95A3.cs`（`MinionPlayedIntoField`）。
+- ✅ `Editor/RuleEngineTest.cs` 的 `pinned` 已由**调度台**加 `"TransformUnit"`（该文件归调度台独占）；`UnitState.cs` 的 `DeployedTurn` doc 第 4 个写点转给 `B95_WRS`。
+- 🔴 **顺手发现（可能是真偏离，待核）**：`RuleCore.cs:4946` 的 `if (fromHand) FireTriggerOnBoard(Rally)` —— 二进制里 `shouldTriggerSummon` **不管 Rally**，而**两条召唤入口都显式调了** `BroadcastUnitSummoned`（`_ResolveSummonUnit…MoveNext.c:185` / `_ResolveCardAutoSummoned…MoveNext.c:292-293`）⇒ **效果召唤可能也该发 195/605**，我们只在 `fromHand` 发。⛔ 未改，已派只读核查（要闭它得先核 `d510` 调广播那一刻 `card+0x228 == 5` 是否成立）。
+- ⚠️ 本批还没做的两格：`.c:1775-1825` `HasCurrentTrait(0x4B0)` ⇒ `SetAmbush`（本仓**没有** `defaultTrait 1200 = ambush` 这条映射）；`.c:1828-2030` 两手 `PlayerCard.UpdateCardEffects` 的重算点（等价物存在但没在这个点接）。
+
+### 23·9 补丁归档（调度台，2026-10-29）
+
+`_parts/` 里有 **12 份第九十四会话遗留的 B94 补丁未归档**。逐个 `--dry` 结果：
+- **更新 0（内容已在主表）⇒ 已归档 6 份**：`B94_B17/B18/B19/B20/B21/B23` → `_merged_B94_1029/`
+- **仍有「更新 N」⇒ 暂不动，留到同步点逐行核**：`B94_B11`(2) · `B94_B14`(12) · `B94_B15`(1) · `B94_B22`(10) · `B94_B24`(2) · `B94_RL`(1)
+  ⚠️ 这 6 份要么是「从未合并」，要么是「合并后主表又被手工修订」—— **同步点必须逐行 diff 再决定**，⛔ 别整目录 `--all` 合。
+- 🔑 教训：**上会话报告「已归档 38 份」与盘上 50 份不符** ⇒ 以后收尾要以 `ls _parts/*.tsv` 为准，⛔ 别信数字。
+
+### 23·10 回执 · `B95_HUDCOL`（战斗界面 3 + 收藏 2）2026-10-29
+
+- `战斗界面_HUD:306` `CardDisplayWindow.SetupTutorialObj` **B→A**（本轮实现；挖到三个字段真身 `MonoBehaviour_4750.json`：`tutorialObj=904`/`tutorialObjUnit=617`/`tutorialObjCost=468`；**两条原版怪癖照抄不修**：闸不过只关 `tutorialObj` 不动另两格 · `tutorialObjCost` 的闸是**非负**不是 `>0`）。
+- `战斗界面_HUD:788` `MinionManager.MoveMinionToConversionPoint` **C→A** —— **`B94_W1` 上一会话就已落地、账没回填**。落点行号 `:26361` 已漂到 `:26343`。
+- `战斗界面_HUD:364` `ChooseCardMenu.AutoProcessDone` **保持 B**，理由不是困难：我们的回放是纯引擎重放（`MsgAction.picks` 直接喂 `ctx.ChoosePicks`），**面板根本不会开** ⇒ 原版 `Setup` 的 Replay 支走不到。要复刻必须先改**录像结构**（`ReplayRecord` 加 `askCands` + 回放侧摆面板）⇒ ⏭ **单列「录像结构批」**（`ReplayStore` + 回放泵 + `CardChoicePanel`），要连带 8 条以上回放断言，只能在无 `.cs` 写手时做。
+
+### 🔴 23·11 派活切片的错误（调度台自查，2026-10-29）
+我给 `B95_HUDCOL` 的简报写「`收藏` 域剩 2 条 → 读 `账/收藏.tsv`」，**读错了文件**：那 2 条实际在 **`账/泛型与启动链_补读.tsv:137-138`**（`ToggleCollectionFilter…b__5_0` / `b__7_2`），而 `收藏.tsv` 里同名键**早已是 A**（`B94_S4` 升的）。
+⇒ **同一原版方法在两份 tsv 里各有一行、状态不同**。这不是孤例风险 ⇒ 必须做一次 **跨文件重复键普查**（按「域? 不按域 —— 按 `原版类 + 方法签名`」比），否则「战斗 100%」会算错。
+🔑 **纪律**：以后按「域」派活，**必须扫全部 tsv 的 `域` 列**，⛔ 别默认同名的那个文件就是全部。
+
+### 23·12 回执 · `B95_WRC` 批 2（RuleCore 族 12 条）2026-10-29
+
+- **改 2 处**：`1004 DamageDeltToEnemyUnit.OnDamageDelt` 的「归属」通道（`ApplyDamage`/`ApplyDamageCore` 各加尾形参 `int attackerSeat = -1`，**零行数变化**；记账口 `:8475` 有值用它、否则**回落旧口径**）；`HasAbilityTriggerBody` 合并（顺手发现 #1 收口，两个旧名降为一行转调）。
+- **就地订正**：账 1360 的「覆盖差 (a)」**已过期** —— `B94_Y1` 已把 `AddTroopKilled` 搬进 `CleanupDeaths` 两处无条件路径。只剩 (b) 无读者。
+- ✅ **125 `AddCardToDeck` 判 D 已落**（五源负 + 两道对照都有效）⇒ 补丁 `_parts/B95_MAIN_125.tsv`（调度台写，`--dry` 校验「更新 1」）。
+- 🔴 **`AllowResolveAttack` ③ 的旧账口径可能是错的**：`B92_B1d` 记「要的是**目标**那张的 {3,17}」；WRC 按结构体拷贝偏移 + `BattleAction` 字段序（`actionType+0x00` / `isPlayer+0x04` / **`actingCard+0x08`** / `targetCard+0x10`）推出 **`lStack_110` = `actingCard`（攻方）**。
+  ⚠️ **但两个版本都未坐实** ⇒ ⛔ 不许按任何一个实现。最小输入 = `dump.cs` 里 `BattleAction` 的结构大小/逐字段偏移（用来确认 +0x08 那一格）。
+- ⚠️ `OathExtraReplays`（`RuleCore.cs:11685`）只读卡面 `Card.OathDouble`，**原版读 `HasCurrentTrait`（含运行时授予）** ⇒ 旧账没记的一条偏差，今天零可观测。真收口点在 `EffectResolver.cs:9165` / `EffectResolverPartial_B88E2.cs:994`（两个消费点都把 count 算在循环外）。
+
+### 23·13 跨文件重复键普查（`B95_HUDCOL`）· 调度台三条裁定 2026-10-29
+
+**普查结果**：精确键 **31 组**（全是 `LoginManager`，D=D 全一致，但**让总行数虚高 31 行 ⇒ 覆盖率分母要扣**）· 归一化键 **322 组**跨文件重复（**290 组状态一致 · 32 组状态打架**，全部判完）。根因 = `泛型与启动链_补读.tsv` 把主题表记过的方法又记一遍，且**类名带泛型实参**导致两本账永远对不上键。
+
+**裁定三条（今后口径）：**
+1. **DynamicList 7 行 ⛔ 不判 D** —— D 只认「原版本身没有 / 判据为空 / 用户拍板不做」；这里原版**有**、我们 0 命中 ⇒ 那是「**该做没做**」= **C**。先查原版活调用点：有 ⇒ C + 要新建该类；真的 0 调用点且无行为 ⇒ 才可 D（四源负 + 时间限定 + 可逆）。「补读判 A 的落点全是同一个字段」**不能当 A 卖**。
+2. **lambda 靠共享落点判 A —— 允许**，但备注必须写全三样：共享落点是哪一条账 / 为什么语义相同 / 反向条件。缺一 ⇒ B。
+3. **`轮抽.tsv:10` 加 `GetBaseSave()` —— 批准**（原版有、本类漏，同族 3 个兄弟都有），与 `B94_X1` 给 `GetBaseData` 补的那行同形；加完该行**保持 A**。
+4. **账规（今后）**：`原版类` 列**一律写不带泛型实参的类名**，实参进备注。⛔ **不改存量**（改 322 组键风险远大于收益）。
+5. **11 行人工对齐清单**：`泛型与启动链_补读.tsv` 是**账主表**，只有调度台能写 ⇒ 我按 HUDCOL 给的照抄格式在同步点一次性改。
+
+🔴 **合并器的一个盲区（已证实）**：`merge_ledger_parts.py` 多份主表同键时用「**域 == 文件名**」消歧，而补读表的域写 `收藏`/`日常_奖励`… ⇒ **永远被消歧到主题表**，补读表那半边**用补丁改不动**（脚本注释也这么写）。⇒ 那半边只能人工对齐。
+🔴 **状态列被单独改过、备注没跟**：`收藏.tsv:317/318`（状态 A、备注写「保持 B」）、`菜单_外壳.tsv` DynamicList 7 行（差异写「同判 A」、状态 D、备注写「改判 D→A」）⇒ **合并器只比键、查不出来**。建议给合并器加一条「状态×备注矛盾」的**提示**（不阻断）。
+
+### 23·14 回执 · `B95_A3` 批 2（Rally 闸核查）2026-10-29 —— **不是漏，是注释归因错**
+
+- **Q1 已闭合**：效果召唤调 `BroadcastUnitSummoned` 那一刻 `card+0x228` = **2（InPlay）不是 5**（`:101 SetAsUnitInPlay` 第一句就写 2，`:183-185` 才广播，中间无写点）⇒ 闸**放行** ⇒ 195/605 在效果召唤路上**确实会发**，**我们的现状已经对上**（`RuleCore.cs:4950` 605 · `:4910-4912` 195）。
+- **Q2 已闭合**：`Rally` = `AbilityTrigger.ThisCardPlayed(0)`，入口**只有「牌被打出」**一条链（`ResolveCardPlayed` ← 全库唯一 `BroadcastCardPlayed` ← `_ResolvePlayCardFromHand`）。数据侧：desc 含 Rally 的 **85 张，85/85 的 abilityTriggers 都含 0**；全池含 195 的只有 1 张（`SW10 Grey Hunter`，而且**不是 Rally**）。
+  ⇒ **我们的 `if (fromHand)` 与原版一致**，⛔ 别加 195/190/605/680。我们代码里本来就写着 `{"ThisCardPlayed", 0}`（`CardDef.cs:1917`），「Rally=195」只活在**注释**里。
+- **Q3 这个数是反向的**：去掉 `if (fromHand)` = **85 张会多打**（不是补回来）；`TransformUnit` 补 195 = 正确性收益 **0 张**。⚠️ **反方向真有一个小偏离**：`fromHand: true`（`autoPlayFromHand`）那档今天只有 **2 张**战术用（`BL55 Black Crusade` · `SW57 Birth of a Saga`），拉出来的带 Rally 部队**我们会发、原版不发**。
+- **`1200` 语义钉死** = `0x4B0` = **Ambush 的卡面默认 trait**（`CardSetup.c:244 HasDefaultTrait(raw,0x4b0)`）；`SetAmbush` 真/假两支分别是「换卡背图」与「翻开就摘掉 1200」；670 是 **AbilityTrigger**、与 trait id 两套编号。⇒ 批 1 那句「本仓没有 1200=ambush 映射」**判据上不必补**，降级为「不必做」。
+- 🔴 **新发现（待核，未改）**：`PlayCardCore` 里 190/195（`:4127`）**早于** Rally（`:4211`）；原版是**自己那张先 `ResolveCardPlayed`（`:1081`，含 trigger 0）再 `BroadcastCardPlayed`（`:1426`，通知别人 = 190）** ⇒ **我们这两步先后与原版相反**。对「190 监听者给新单位加成 ⇒ Rally 看不看得见」这类卡会有差异。
+
+### 23·15 五路回执（2026-10-29）· 关键 6 条
+
+1. 🔴 **`RuleCore.cs` 曾整文件编不过（`CS1501`）**：`B95_WRC` 加了调用点实参、**没加形参**，`internal ApplyDamage` 7 参 ↔ 调用 8 参。`B95_WRE` 开工第一次 typecheck 就撞上并补齐。
+   ⇒ **教训（已采纳为同步点准入）**：多代理并行时 **`typecheck 0/0` 是「逐时刻」的读数，不能当「这一批干净」的证据**；合并前必须**在无写手时重跑一次**。
+2. ✅ **`B95_WRE` 驳回了我的「521③ 改真调用」指示并给反证**：`CardScript__UpdateWhileInPlay.c` 只跑 `TriggerAbilities(20)` + `(240)` 两趟，而「×2 + `BroadcastWhileInPlay` ⇒ `Auras.RefreshInPlayNumericAndKeywords`」**已是本仓既有唯一口径**（`ActionPump.cs:143` + `EffectResolver.cs:17027`，`B9_E7P06` 有隔离读数）。改成 `FireTriggerAt` 会**重跑 while-in-play 正文（无去重）⇒ `+N attack` 会叠**，且 `FireTriggerAt` 没有「算不在场」那形参。⇒ **维持现状**，不硬做。
+3. ✅ `B95_WRE` 账 647 落地（`EmitHit`/`ApplyDamage` 链带施害卡 + `EffectResolver` 类尾 +63 行，逐句照 `BroadcastUnitDamaged.c:31-45`）；账 658 核对结论 = **我们从未建模 `BuffType 200`**，我们那条是 poisoned **trait(3)** 的等价物、**不是同一条闸**（池内 290=0）。
+4. ✅ `B95_WPUMP` 12/12：账 L1025 的 `dropPod` **拿到硬判据并实现**（`DropPodAttack=0`/`DropPodMaxHealth=2`，锚点 = 紧随 4 个已知值 20/180/20/1.0f 逐个吻合）；`ActionPump.cs` 六处账落点**逐条验回原位**；**没有一条判 D**（都是休眠或残差在别人文件）。
+5. ✅ `B95_MISC`：`其他:460` **A**（新文件 `Net/NetRoomExit.cs` 公开包装，**没动任何既有 Net 文件 ⇒ 124 条 Net 落点零漂**）；`社交:100` **A**（`TextInputField` 接入，Confirm **出声**说「提交需要服务器」，不是静默）；`菜单:427/434/438` 落地 `forceClean` 那支（增量复用支**不做**，原因写进注释）。
+   🔴 **`个人资料:293` 的入口已查清**：原版**没有**「新赛季 ⇒ 甲窗 / 赛季结束 ⇒ 乙窗」的映射 —— 窗由**事件数据里的 `EventComponents[ExpirePopup(21)]`** 决定（`RankedV2Event__Expire.c:1-66` + `EventComponentReferenceType` 枚举 `dump.cs:125603`）。⛔ 别自己造映射。
+   ⚠️ 顺带抓到**真差异**：我们 `RankedData.cs:361 ShouldShowSeasonChange` 的闸（`_points != 0 && _lastPlayedSeason == 0`）与原版 `Expire` 的闸（**`LastPlayedSeason == data.seasonNumber` 才拉榜弹窗**）**不是同一条判据**。
+6. ✅ `B95_RS`：`商店:44` **A**（谓词① = `ObtainableItem.ShowOnRewardScreen`，三处证据闭合 + 3 条断言含灭自证）；`商店:38` 保持 **B**（点数文案改注入位、图标走 `CampaignPointDrawer`，仍差 `DrawForArmy` 的阵营两层 + 断言未接线）。
+
+### 23·16 一条新的工程风险（连撞三次）
+`typecheck` 的**编辑器程序集**在运行时程序集失败时**根本不跑**（`error CS0006 找不到 WFCheck.dll` 是级联）⇒ 好几个代理这一段**拿不到 0/0**，有的还**从未验过编辑器侧**（`B95_RS` 的 3 条新断言就是这样）。
+⇒ 同步点必须：**先让运行时程序集 0 错 → 再跑一次编辑器侧 → 才能说 0/0**。
+
+### 23·17 回执 · `B95_WRS` 批 2（2026-10-29）
+
+- 🔴 **账 863 判 A 成立，但「唯一调用点」那条证据是错的**：`RemoveTraitSilently` 现读有 **7 个调用点**（`CardSetup.c:124` · `ResetToValuesInHand.c:141/142/144/146` · `RemoveEffect.c:69` · `AddEffect.c:607` · `ResolveCardPlayed.c:42` · `TransformIntoRemnant.c:74`）。**真判据** = `AddTraitSilently` 先 `Enumerable.Any` 去重、命中直接 return ⇒ `+0x128` 里同一 trait **永远只有一条** ⇒ `Remove` 一条 == 摘光 ⇒ 我们 `RemoveAll`（整键摘）**对每个调用点都逐字等价**。反向条件已写（出现「只摘一条留其余」的调用点 / `ShowTraits(+0x130)` 被引擎读 ⇒ 回 B）。
+  ⇒ **教训**：「唯一调用点」这种证据要**双向扫**（按符号名在全 `decomp_full` 找），一个人给的「唯一」可能是只扫了一个方向。
+- ✅ **`Aura.RemoveExtrinsicBySource` 补 `IsInPlayState` 闸**落地（`Aura.cs:1054-1075`）。**如实交代零可观测**：该原语现读 **0 个调用点** ⇒ 不改变任何执行路径、不写断言（写了就是自证）。真卡点是「动作类型 47 那一拍接线」。
+- 🔴 **`+0x244/+0x246` 的闸覆盖【两段】，不是只挡手牌**：五处读法里只有 `CanPlayCard` 是手牌段，`CanAttackCard` / `CanUseActiveAbility` / `CanUseWaystone` / `ReadyToUseActiveAbility` **全是棋盘段**。⇒ `B95_WBD` 在 `SimpleAI.cs:314` 写的那句「只挡手牌那一段」**与 `.c` 冲突**，要订正（已转 WBD）。
+- 🔴 **新解出 `+0x30c = int turnPlayed`**（`dump.cs:35503`）：`CardSetup.c:96` 写 **-1**；`ResolveCardPlayed.c:55` 写当前回合号。等价物 = `UnitState.DeployedTurn`。⚠️ **未核**：原版初值 -1，我们默认值若为 0，而某夹具 `ctx.Turn == 0` ⇒ `IsTheSameTurnPlayed` 会**假阳性**。
+- 🔴 **两条新缺口（建议立账）**：`AddEffect.c:607` 摘 `0x1b8=440 landing` · `ResolveCardPlayed.c:42` 摘 `5 ephemeral` —— 我们侧都**没找到落点**。
+- ⚠️ `ResolveCardPlayed.c:40-42` 那个 `if (+0x290 BattleCardUI != 0)` **不是纯表现、是引擎副作用的守卫**（StopReflected / RemoveTraitSilently(ephemeral) / 写 turnPlayed 都在里面）⇒ **照抄时别当表现层删掉**。
+
+### 23·18 `B95_A2B17` 批 3：`BattleAction` 结构坐实 → **账 193 的 ③ 判的是攻方，不是目标**
+
+| 问 | 结论 | 依据 |
+|---|---|---|
+| 结构大小 | **0x100**（不是「两份各 0x100」，是**一份分两轮搬**） | `dump.cs:118998` 末字段 `cardAnim // 0xF8` 止于 0x100；`.c` 里 9 处内联拷贝皆 `2 轮 × 0x10 qword = 0x80`×2 |
+| `+0x08` | **`actingCard`** | `dump.cs:118963` 明写；`il2cpp.h:20412`；`Warpforge_code/…/BattleAction.cs` 声明序；**函数内算术三重自证**（`lStack_110` = `local_118+0x08`，被当 `this` 调 `IsAttacking()`、读 `+0x40/+0x228`） |
+| ③ 判谁 | **攻方（`actingCard`）** | 目标那张 `local_208` 全函数只在 `:334` 出现一次、从未读字段当 this；`IsValidAttackTarget.c`（343 行）里 `IsAttacking` **0 命中** |
+
+- ✅ 已落 `_parts/B95_MAIN_193.tsv`（只改备注，`--dry` = 更新 1）；`判据/B92_战斗判据_B1.md` 已就地订正（保留原文 + 更正痕迹）。⛔ 同节 ④ 教程闸写 `actingCard.isPlayer`、本来是对的、没动。
+- ⚠️ 100% 字节级坐实仍需对 `:439` 那个调用点做 VA 反汇编（看 rcx 从哪个栈槽装载）—— 本轮未做，其余 4 条佐证 + 3 个 API 形参名可判到高置信。
+- 🔴 **纠正 `B95_WRC` 两点**：`+0x222` **在本函数不存在**（只用 `+0x228`）；「每份 0x100」口径不对。
+- ⚠️ `typecheck` 现在回 **0/0**（运行时 0 / 编辑器 0）—— 全工程当前是绿的。
+
+### 23·19 回执 · `B95_WCD`（CardDef 族 12 条）2026-10-29 · + 调度台裁定
+
+- **12/12 处理完**：1 A（993，我裁的 A 它**独立现读三条依据全部成立、没推翻任何一条**）· 9 B · 2 C。改代码 3 条（`CardDefPartial_B94B16.cs` 类尾 +48 · `CardDatabase.cs` EOF +128），**零行号漂移**。
+- 🎯 **结掉一条长期悬案**：账 867 的「`hasActiveAbility` 88 vs 池内 87，余 1 张未对号」—— `cards_truth.json` 的 88 张里多出那张是 **`Tempestus Scion`（`66486b3f…`）**，**不在池内**，与 `AM68` 同名同阵营同三围 = **重复 SO** ⇒ **SO 88 = 池内 87 + 池外重复 SO 1，池内一张不缺**。
+  ⇒ 坐实「**三个张数口径别互相校验**」这条老规矩：`cards_truth` 88 / `cards_engine` 87 / 池内真卡数 —— 差异有确定成因，不是错。
+  🔴 **跨表 join 一律按 `id`**（本仓 **40 处 name 不一致**，另有 2 组同名同阵营双池卡）⇒ 「同名」永远不能当判据。
+- **裁定 `:1065 GetBotDeck`：⛔ 不建分派壳。** 理由：今天**无活调用者**，且七个分派的来源全在远端 `AIBotsConfig` / 存档 stage（stage 数据挂在 `BattleDriver` 关卡装配上、不在 `PrebuiltDecks`）⇒ 建了就是死代码 + 造一个不属于本类的职责。原版分派表已记在 `判据/` 里，等真有调用方再建。
+- 🔴 **新查出 `CardEffect` 还有 7 格载荷没进 DTO**（`enchantment +0x88` / `baseEnchantmentCard +0x98` / `secretBuff +0x90` / `questBuff +0x91` / `usedEnchantment +0x92` / `originalIsPlayer +0xA0` / `enchantmentCardId +0xA4`，判据 `dump.cs:119075-119109`）。⚠️ **正确顺序 = 生成器先落列 + DTO 同步**，⛔ 别只加 DTO（会推走 `CardDatabase.cs:4510/:4528` 两条账落点）。
+- ⚠️ **`abilityMutations` 不能用 `abilityBuffs` 拼**（后者只落 `buffType != 0`，而原版谓词**不看** buffType；v40 那列 954 行里 `buffType==0` 的 2,288 格根本没落）。
+- ⚠️ 订正旧口径（账 1379）：`+0x220` 是**无条件** `= rawCard+0x2a9`；「非 Hero 压 false」在 `ReactToUnitJammed` 里。我们只对 `!IsWarlord` 置位 ⇒ **督军被 jam 不丢主动能力**，与原版一致，⛔ 别改成一律压制。
+
+### 23·20 待合并盘子（2026-10-29）
+`账/_parts/` 现读：**B95 新补丁 18 份 + B94 遗留 6 份 = 24 份**；`check_patch_conflicts.py` 报 **41 处键冲突**。
+⇒ 收口时**不能只按「先输后赢」盲排**：合完必须**逐键回读主表**确认最终值是我裁定的那个（41 处里至少 6 处是我裁过档的：993 A · 178/183 A · 1025 B · 863 A · 125 D · 193 攻方）。
+
+### 23·21 🔴 `B95_A3` 批 3：确认一条**真偏离** —— 出牌触发次序与原版相反（可观测上界 ≤ 53 张）
+
+**原版完整次序**（`_ResolvePlayCardFromHand_d__447__MoveNext.c` 里与触发有关的只有四处：`:659`/`:892`(无触发) · `:1081` · `:1426`）：
+`Rally(0)` → `600 UseSpiritStone` → `590 Combo` → `195 ThisUnitSummoned` → `605 UseFaith` → 【广播轮】`190/550/680`
+
+**我们**（`Core/RuleCore.cs`）**五处次序全反**：
+| # | 原版 | 我们 |
+|---|---|---|
+| ① | Rally 是自己那一跳**第一件事**（`:1081`） | `:4211`（排在 195/190/550/680/600/590 **之后**） |
+| ② | 190/550/680 在**广播轮**=最后（`:1426`） | `:4127` / `:4133` / `:4156` |
+| ③ | 600 紧跟 trigger 0（`OnCardPlayedWithTarget.c:43→:66`） | `:4183` |
+| ④ | 590 在 trigger 0 与 195 之间 | `:4104`（在全部触发之前） |
+| ⑤ | 195 → 605 **紧邻**（`:47→:51`） | 195 在 `:4125-4126`、605 在 `:4213`，中间夹了四跳 |
+
+🔴 **三处「🔶 自己设计」要一起推翻**（`RuleCore.cs:4131/:4175/:4221` 与 `CardDef.cs:8091` 都写着「`ResolveDeploy` 排在 Rally 之前是我们挑的」）—— 按 18·0，**原版有判据 ⇒ 照原版**。
+
+**可观测面**：`abilityTriggers` 含 190 的 **11 张**，其中「给刚打出的那张加东西」**9 张**；Rally 卡 85 张里「正文读属性/关键词」**53 张 = 上界**（Vehicle 那 13 张另受 3 张影响；Stormboy/Drone/Destroyer 三族 **0**）。
+
+**施工方案（推荐 (a)）**：**只下移非 selfOnly 的三句**（`BroadcastWhen(Deploy)` / `ResolveDeploy` / `Uprising`）到 `:4213` 之后，**把 195 的 selfOnly 预调留在原位** ⇒ 得到 `Rally → 600 → 590 → 195 → 605 → 190/550/680`。⛔ 别选 (b)（整块下移会让 195 跑到 605 之后）。
+**代价**：这是**行为改动** ⇒ `play check` 指纹**会变**，且变化面可能超出 53 张（排序变化会影响所有依赖触发次序的卡）⇒ 同步点必须单开一处、A/B 隔离归因，⛔ 不能混在别的改动里。
+
+📌 已转 `B95_WRE`（`RuleCore.cs` 写手）执行，并要求同批改掉四条「我们挑的」注释。
+
+### 23·22 回执 · `B95_WRS` 批 3（2026-10-29）· 抓到一个真 bug + 两个真缺口
+
+- ✅ **`DeployedTurn` 默认值 = -1（与原版 `turnPlayed` 初值一致）**，本批零改动。但顺带核出**真问题**：
+  🔴 **残骸是新造的 `UnitState`、只搬 `PlayOrder`、没搬 `DeployedTurn`**（`RuleCore.cs:9861`）⇒ 残骸回落 -1。而原版残骸是**同一个 `CardScript`**、`turnPlayed` 原样保留 ⇒ **「本回合上场 → 被摧毁变残骸 → 复活回单位」这一族**：原版 `IsTheSameTurnPlayed` 为真、我们为假 ⇒ **誓约能力会被 `RuleCore.cs:11752` 挡掉**。修法 = 对象初始化器加 `DeployedTurn = u.DeployedTurn,`。
+- 🔴 **两处字段名由「猜的」改成 `dump.cs` 真名**（铁律 5）：
+  · `+0x59` = **`triggeredAbility`**（不是「HasTriggerOnceAbility」）—— `UpdateWhileInPlay.c:21/:29` 是**一次性闩**（触发后置 0）；**我们没有那枚运行时闩** ⇒ 若一局里调多次可能**重复触发 trigger 200**。
+  · `+0x224` = **`activeAbilityLoaded`** = **「一发一装」装填机制**（第一次点=装填、第二次点=发射）；**我们整体没有**。可达性取决于 `abilityData+0x22`，我们的解析层没这一列。
+  · ⚠️ 顺带**推翻自己上批的猜测**：`AddEffect.c:607` 摘的不是 landing，是 **`0x1b8 = survivorSpent`**（`0x1ae = sur...`）；`430/440` 曾被错记成 requiem/landing。
+- ✅ `+0x130` 真名 = **`CurrentShowingTraits`**（显示表），判定仍是 A。
+
+### 23·23 回执 · `B95_RD`（日常资产容器层 10 + 顺带 8 条 D）2026-10-29
+
+- **9/10 升 A**，1 条仍 B（`日常:523 MissionsConfig.CleanUp`：原版遍历 `List<MissionChallenge>` 调它自己的 vtable slot 8，**要先建 `MissionsConfig`/`MissionChallenge`/`ChallengeList` 三个类型**（本仓 0 个、0 实例，三源否定）⇒ 建议与账 30/31/460 那条**并入同一笔**。⛔ 不判 D（原版有）。
+- **顺带判了 8 条 D 行**：4 条 D→A（309/317/318 + 主包内）· 4 条 D→B（316/314/315/306/307「已实现但零消费者」—— ⛔ **不判 A 以免自证**）。补丁 18 行。
+- ✅ 建出**整层 `LiveOpsAssetUtility`**（`LoadComponent<T>`×2 / `TryLoadComponent`×2 / `LoadAsset<T>`×2 / `UnloadComponents`×2 / `UnloadAssets`×2 / `ReleaseEventAssetsById` / `UnloadAssetByEventId` + 引用计数表），在 `Shell/LiveOpsLocalCatalog.cs` **EOF 追加 339 行**（既有 21 行原地重排仍 21 行、仍从 1259 起 ⇒ 零漂移）。
+- 🔴 **`LiveOpsContainers.{Load,Unload,...}` 的默认值从 `null` 改成了真实现** ⇒ `Shell/OfferContainer.cs:1867` 的 `if (LiveOpsContainers.Load != null)` **现在恒真、会真的走一次装载**；13 份本地活动里没有 `Container(0)`/`SubContainer(1)` 的那些事件会打 `Debug.LogError`（原版 `FirstOrDefault` 未命中同样拿不到引用，属如实出声）。
+  ⇒ ⚠️ **同步点必须跑受影响宿主**：若某条断言按「错误日志条数」判，这条会打红。**这是行为改动，不是纯新增。**
+- ✅ 五条只读查询全部有结论：`680` 两条虚槽全解（Slot 8 = `ObtainableItem.HandleOnCollect(int)`；**「AllianceTrophy 的 +0x1e8」是记错了** —— 它根本不走虚槽，`.c:118-127` 直接写 `AllianceTrophySave` 三格）· `623` 的 `iconAssetType` **实测序列化名 = `imageEventAssetReferenceType`，值 = 9 = `LiveOpsAssetRef.OverIcon`**（⛔ 按手写字段名搜必 0 命中）· `714` 的 `activationType` **本地 13/13 都有、值全 1**，只是我们目录没搬 · `509` 的 `displayRule` **全量只有 2 和 -1 两档**（21 个实例）。
+- 🟠 顺手：`ObtainableItem` 的虚槽表可当模板（Slot 6 `RewardType` / 7 `LocalizedName` / **8 `HandleOnCollect(int)`** / 9 `ShowOnRewardScreen` / 10 `CanBeCollected`）⇒ 以后遇 `+0x1xx` 直接 `(0x1xx−0x138)/0x10` 查 `dump.cs` 的 `Slot:`（钥匙 2 第三次印证）。
+
+### 23·24 回执 · `B95_WBD` 批 2（2026-10-29）· 6/7
+
+- 账 500 我方 `autoPlayFromHand` **手牌形态载体**：新方法 `TryStartPlayerHandCarrierFlight`（类尾 +140 行）—— 父节点取**场上视图的父节点**（挂 `hand` 下会因手牌层 `lossyScale ≠ 1` 缩错）；0.4 s 交接**只 `SetActive(false)` 不 `Kill`**（完成回调绑在它身上）。⛔ 未做真机视觉验收。
+- 账 820 `PrepareAttack` 五项逐项对账，**就地订正一处事实**：真体类是 **`CardScript`** 不是 `BattleManager`（转述的文件名不准）。残差 = **sorting layer**（我们这侧没有这个概念，分层走 `CardView.SetQueue`）⇒ ⛔ 不凭猜造队列号；⑥ `ShowStealth` 两件 prefab 在 `BattleAnims.json` 里**是空引用** ⇒ **判据为空**（铁律 11 例外①）。
+- 教程:133 `ClickContinue` **判 A**（输入半边接线完成，三句齐）。关键顺序：**必须排在「点空白消提示」之前**，否则那一下被 `DismissTutorialTip` 吞掉、脚本不推进。
+- 账 324 闸**真落了**（`SimpleAI.EnumerateActions` 加可选形参 `forSide`，只给手牌段加闸，⛔ 没包整表）。并按 `B95_WRS` 的五处读法订正了 `SimpleAI.cs:314` 的「只挡手牌段」。
+- 账 489 调用点改名、**删掉原 `OnBattleEnd` 那句**（防双记）。
+- ⛔ `社交:100` ④ **不在它的文件**（落点 `Shell/AllianceMemberTab.cs:1665`）⇒ 未动，已转。
+- 🔴 **跨路冲突待判**：`Core/CardFeel.cs:2273-2274` 用 `AttackStepTime = 0.1`，原版收手支是 **0.25 s**（`.c:41-44`，`DAT_1834b2e7c`）⇒ 已转 `B95_WSC` 判「是不是同一条序列 / 改会不会波及共用面」。
+
+### 23·25 ✅ `B95_WRE` 批 3：出牌触发次序重排完成（**本会话唯一确认的行为真偏离，已照原版改**）
+
+- **`RuleCore.cs` 17,139 → 17,139（一行没变）**；机检 `A 998 · 通过 998 · 漂移 0 · 失败 0`；typecheck 0/0。
+- 重排后实际次序：`Rally(0)` → `600` → `590` → `195` → `605` → `190/550/680` —— **逐拍对齐原版 8 拍**。
+- 手法：`195` 的 `PreCallBoardListener` **留在原位**（方案 (a) 的关键）；被搬的 6 个**函数本体一个字没动**，只搬调用位置；原位置等量换成注释存根 ⇒ 行数守恒。
+- 残骸 `DeployedTurn` 修复也已落（`RuleCore.cs:9871` 行内追加），**与次序重排独立、可分别归因**。
+- 🔴 **它顶回了我一条措辞**（且是对的）：我让它把 `:4221` 也写成「已按原版次序」，它**没照抄** —— 因为 `Teleport` **本身不在那 8 拍表里**，它与 605/广播轮的相对位置**仍无据可查**。照抄 = 把「我们挑的」伪装成「原版的」（18·0 的另一半）。
+- ⚠️ **两处可能超出「53 张 Rally 卡」的影响面，同步点要单独量**：
+  ① `ResolveDeploy` 下移到 `SpawnTideCopies`/`PlayCompanions` **之后** ⇒ 潮涌复制/伴生**新部署**的单位会**多被看见**（方向与原版一致，但不属于 Rally 卡那一族）；
+  ② `Uprising(680)` 下移若与那些计数器相交就可能不等价 —— **未核实**。
+- ⚠️ **断言必须扫【完整调用串】不是关键词** —— 重排后源码里留了**注释存根**（`FireTriggerOnBoard(Rally)` 等，不带实参），按关键词找会**先命中注释、断言永真**。前提三条：两锚点都找得到 / 不是同一处 / 每个锚点全文只出现一次。
+- ✅ 断言接线已由调度台加：`Step(CheckB95WREAttackerPlumbing);`（typecheck 0/0）。
+
+### 23·26 ✅ `B95_WSC`（战斗零散 14 条）2026-10-29 —— **战斗 132 条的最后一路**
+
+- 14/14 核完，**只改 2 处**（都零行数变化）：`TutorialScriptPredicates_B94B8.cs` 的 372/422 **重复实现转调节省**（铁律 6，单一正本 = `TutorialPremulligan.cs`）· `CardFeel.cs:2241` 补 doc。
+- ✅ **账 820 的时长疑问已澄清，结论是「不改」**：`CardFeel.cs:2273-2274` 对应的是 **`_ResolveAttackRangedAnim:83-104`**（三条同时、时长 = `CardScript+0x1A0 attackStepTime` **卡实例字段**）；WBD 说的 0.25 是 **`_PrepareAttack:40-56` 收手支**（全局常量 `DAT_1834b2e7c`、**没有 DOScale**、是**不同方法**）。⇒ 不同序列、不同时长来源、不同组成，⛔ 不改常量（全仓共用 8 处，改会波及近战/远程收招/部署落地尾拍）。
+- 🔴 **重大发现 · 原版 `BattleManager.DisplayBigChat` 两个重载在本 build 【什么都不显示】（VA 级）**：A `@0x1809604B0` 校验后 **tail-call `get_fullHeroSprite` 并丢弃返回值**；B `@0x180960580` 在「文本非空 ∧ sprite 非空」时**直接 return**（另两早退是 `CustomDebug.LogWarning/LogError`，`工具/resolve_va.py` 已解那两个地址）。⇒ 我们 `BattleBigChat.cs`（走 RadioChat）是在**补一个原版二进制里不存在的显示**。
+- ✅ **1178 用用户实拍独立复测**：`战斗—替换手卡参考图（先手）.png` 列亮度一阶跃变求卡左沿 ⇒ 卡宽 292.3 / 间距 **400.5 设计 px** ⇒ **`292/399` 成立、`414` 不成立**；后手那张是 4 张、spacing/width 比不同 ⇒ 与 `GetPosition.c:201-213` 的压缩支方向一致 ⇒ **固定 414 对 n=4 必错**。
+- ⚠️ **所有权表共名**：`CardView.cs` 同时挂在两条 `B95_A2B17` 名下（我记重了）⇒ 本代理没碰它。
+
+### 23·27 `B95_MISC` 批 3 + `B95_WBD` 收尾（2026-10-29）
+
+- ✅ **联盟面板头像立绘**：`AlliancePanelWindow.Open/Apply` 两个重载**合并成一个全可选形参**的（老调用点零改动）；立绘节点**惰性建**（`Img` 拿到 null 贴图会返回 null，不能拿空图建）；`avatarArt` 空 ⇒ **不建/不换图**（`ChangeAvatar(NULL)` 整段跳过）；`avatarBorderArt` 空 ⇒ 保持出厂那张。
+  🔴 它如实交代一处：dump 另给 `Image` 的「视觉框 ×2」，那是 `EverguildButtonMaterialModifier` 的**运行时视觉缩放**，**没复制那个倍率**（本窗 `Border` 用的是 ×1.25 的视觉框，两格口径本来就不同）。
+- ✅ **`社交:100` ④ 落地（判 A）**：两个下拉的初值属服务器字段 ⇒ **保持出厂项 + 出声**；顺手订正两条过期文案（「descriptionText 是 Label」/「假下拉」都已不成立）。
+- ✅ **`B95_WBD` 最后一格**：`ClickAllianceHud` 补两格实参 + 出声（🔶 自设计标记）。
+  🔴 **它按语义顶回了我给的片段，而且是对的**：我给的是「第 8 格 = 我方 `ProfileData.AvatarArt`」，但这扇窗开的是 **`AlliancePanelName`（敌方名牌）**、原版 `BattleHud.AlliancePanelOpenButton` 取的也是 `matchData` 里**对面**的资料 ⇒ 应传**对手头像**。我确认「不用换」。
+- ⚠️ **行号漂移待 `--fix`**：`AlliancePanelWindow.cs` 5 条落点（504→512 · 826→839 · 870→884 · 883→897 · 1064→1081）· `AllianceMemberTab.cs` 9 条（>1452 的全部 +13，且**还背着批 2 那次的漂移**）⇒ 累计量以 `check_ledger_points --fix` 按符号名重定位为准。
+
+### 23·28 ✅ **合并完成**（2026-10-29 · 用户授权「解除限制，按执行单全量合并」）
+
+| 项 | 合并前 | 合并后 |
+|---|---:|---:|
+| 全账 A | 5445 | **5480** |
+| 全账 B / C | 240 / 33 | **225 / 46** |
+| 真复刻率 | 95.2% | **95.29%** |
+| `(A+D)/总` | 97.2% | **97.18%** |
+| **战斗线真复刻率** | **88.3%** | **92.66%** |
+| 战斗线剩余 B/C | 132 | **124**（B 103 + C 21） |
+
+- **20 份 B95 补丁全部合入**，按执行单顺序（`WPUMP→WCD→WBD→WRS→WRC→WRE→A2B17→MISC→HUDCOL→HUDCOL_dup→A2P→A3→RS→D1→FX→RD→WSC→RBW→MAIN_125→MAIN_193`），逐份 `--only`。
+- 🔴 **6 份上会话遗留的 B94 补丁【不合】**，已隔离到 `_parts/_stale_B94_1029_未合并/`。理由（逐个 `diff_patch` 现读）：**它们比主表旧**——例如 `B94_B14` 的 686 行少了 `B94_B23` 的 v40 数据侧更新；`B94_B24` 的备注比主表短；`B94_B15` 会把状态从 **A 降回 B**；`B94_RL` 甚至要改**域列**（键会变）。⇒ 再合会倒退。
+- ✅ 补丁已全部归档到 `_parts/_merged_B95_1029/`。
+
+**闸：`--fix` 跑完** ⇒ 漂移 **65 → 5**；**失败 27 条**（合并前 19，涨是因为合并改了落点文本 + 上一轮 D→A 重判没补落点）。已派 `B96_GATE` 逐条按语义修（⛔ 不许机械往上找最近声明）。
+⚠️ **`--fix` 第一遍确实是修前快照**（印的是 65/36），复跑才是 5/27。
+
+### 23·29 七路分诊 + 两路执行（2026-10-29）
+
+- **`B96_L1`（日常 50 条，不是 53）** —— 数字差异有确定成因：B95 已关 12 条、RD 又新增 5 行。分档：**可推 A 7 · 差一跳 15 · 结构差 3 · 休眠 1 · 判据空 6 · REMOTE 18**。
+- ✅ **7 条「可推 A」已由调度台写成补丁并合入**（`账 53/94/315/316/317/490/508`），命中 7 行、已归档 `_parts/_merged_B96/`。
+- 🔴 **它订正了三条过期账**：`508`「`RewardEventHandler` 未建」**已过期**（`RewardEventHandler.cs:38/66` 在）· `490`「0 调用方」**已过期**（`BattleDriver.cs:32214` 已单点、无双记）· `745`「新建 `SupportMethods.cs`」**是错的**（类早就在 `Core/SupportMethods.cs:69`，327 行/15 成员 ⇒ **就地加成员**，新建会同名重复定义编不过）。
+- 🔴 **`549` 的「本机无该 sprite 资产」不成立**：4 个 `OverIcon` GUID 全在 `assets_full/bundle_armyicons_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container`；该 bundle 图集外正好 4 张（`40k_UI_icon_ranked_{classic,Skirmish}` / `40k_gamemode_icon_{classic,skirmish}`）。**只剩「GUID→哪张」定名一步**（`Sprite/*.json` 不带 pathID，要走 `SpriteAtlas.m_RenderDataMap` 或 preloadTable 次序）。
+- 🟠 **一条可复用的判法**：「零消费者是不是我们的锅」⇒ `rg -l "<类>__<方法>" d:/2/tools/decomp_full` + ILSpy 同扫。本轮靠它把 `TryLoadComponent`（原版 0 调用 ⇒ 我们忠于原版）与 `LoadAsset`（原版 20+ 调用 ⇒ 真缺消费者）**判成相反结论**。
+
+**已派出执行写手（差一跳的 15 条）：** `B96_WA`（`MainMenuRuntime.cs` 7 条：549/621-624/307-308，先做 GUID 定名）· `B96_WB`（6 个文件 7 条：492/510/272/561/676/681/745）。
+
+### 23·30 `B96_L1/L2/L4/B1/C1/GATE` 回执与调度台裁定（2026-10-29）
+
+**已合入主表（共 21 条）**：GATE 27 条落点修正 · L1 日常 7 条 A · L2 未分类 7 条 A · B1 战斗 7 条 A · L4 `社交:283` A · L4 `其他:381` **C→D**（纯 CloudScript 上传、零本地可观察，远端存档三处 0 命中）。
+
+**🔴 调度台裁定 1 —— 4 条「可推 A（口径障碍）」：保持 B，不升。**
+`收藏:317/318` + `泛型与启动链_补读:137/138`（同一对 `ToggleCollectionFilter` lambda）。行为已等价（内联谓词在 `DeckEditorState.cs:568` / `CollectionWindow.cs:2074`），但 **A 要求落点是同名方法级**；按方案 §4.1「类级命中 ⇒ 只能 B」，⛔ **不给它们编落点、⛔ 不建空壳方法**。
+
+**🔴 调度台裁定 2 —— 「100%」在本账的定义下【不可达】，这一点要讲清楚。**
+账的 A 档要求「双侧方法级 + 落点的行确实是那个名字的声明」。而实际存在三类**永远到不了 A** 的：
+① **机制等价但落点不是同名方法**（内联谓词 / 字段 / switch case / 常量表 —— 战斗的「口径层 10 条」就属这类）
+② **结构性差异**（异步队列 vs 同步、分层边界不同 —— 战斗 30 条）
+③ **休眠**（池内 0 张，实现齐了也永远 0 可观测 —— 战斗 14 条）
+⇒ **这三类加起来的 B 是「诚实的 B」，不是「没做完」**。把目标定成「B/C 归零」等于要求把等价实现重写成同名壳，那是倒退。
+
+**三条过期账（L4 现读）**：
+- `特效:521` 的 S0 残差**已过期**：`ApplyOneGain` 已在 `EffectResolver.cs:12018` 调 `u.ApplyTraitEffect`（+`:12539`/`:16143` 两个生产者）⇒ 真残差只剩 S2/S3/S4。
+- `社交:187` 的残差**已过期**：`BattleDriver.cs:5978` 已把 `avatarArt`/`avatarBorderArt` 喂进去，与 9 参 `Open` 对得上 ⇒ 只剩联盟名/分/徽章 = 服务端（P2，⛔ 不判 D）。
+- `其他:160 AlmostEquals` 判休眠：原版 Quaternion 重载 **0 调用点**、我方 `Quaternion.Dot` 0 命中 ⇒ 无落点，⛔ 别新建 helper。
+
+### 23·31 `B96_WB` 回执 + 🔴 **闸数字在并发写手期不可信**（2026-10-29）
+
+- `B96_WB` 7 条：**1 条判 A**（`561 MakeOpponentInfo` 用两把钥匙定名成功、撤掉 🔶）· 3 条落地（`745 ModifyLocalization` 复用到既有 `CardIcons.RewriteMarks`、⛔ 没抄第二份；`492` premium 渐变已建但**无 IsPremium 数据源 ⇒ 休眠**；`272` armyStats 支已接）· 3 条受阻带证据。
+- 🔴 **它推翻了账 681 的前提**：`AllianceTrophy` **只有 Slot 4**（`dump.cs:96064-96137`），`+0x1e8`（Slot 11）的接收者是 **`reward.Item` 本身** ⇒ 账里「没读出」应改成「**前提不成立、需重查接收者类型**」。
+- 🔴 **闸这次报「漂移 708 · 失败 70」是【假警报】**：此刻有 **9 个写手同时在改 `.cs`**，行号在跑。⇒ **闸只能在「无 `.cs` 写手」的静止点跑**，中途跑的读数没有意义（本会话已踩两次）。
+  📌 收口纪律：**写手全停 → typecheck 0/0 → 跑闸 → 读数**，三者顺序不能颠倒。
+
+### 23·32 `B96_VID` + `B96_WA` 回执（2026-10-29）
+
+**`B96_VID` —— 开箱视频找到了，已拷进工程**
+- 源：`D:/2/新解包资源/assets_full/bundle_menus_assets_all/VideoClip/Gacha Crate Opening.mp4`（5,141,522 B）
+- 落地：`Resources/Art/videos/gacha_crate_opening.mp4`，**md5 已校验一致** `fac0d416…`；代码不用改（`GachaEventWindow.cs:1339` 早就这么写）
+- **真容器 = 标准 MP4（`ftyp`/`mp42`）+ H.264、无音轨**（读头判的）；3840×1080 · 4.4s · 110 帧/25fps；**全库唯一一支**（5 个箱档开箱态是 Sprite）
+- 🔴 **导入后大概率仍不显示**：原版 VideoPlayer prefab 是 `m_RenderMode = 1`（`CameraNearPlane`、`targetCamera=Camera.main`），我们 `BuildCrateVideo` **没设 renderMode** ⇒ 走默认 RenderTexture 且没设 targetTexture。**未跑 Unity，标「待实机确认」**
+- ⚠️ 注释写「转成 .webm」与真容器不符 ⇒ 要就地订正
+- 🔑 **方法学**：`m_Container → pathID` **对本资产不适用** —— 这支 clip 的 PathID **不在** container 里，是被 **prefab 的 `VideoPlayer.m_VideoClip` 直接 PPtr** 引用的 ⇒ ⛔ **别拿「container 0 命中」当「资产不存在」**（这是「按名字搜 0 命中 ≠ 没有」的第五个变体）
+
+**`B96_WA` —— 549/307/308 升 A；621-624 维持 B（研究到位但不只是「差一跳」）**
+- ✅ **4 个 OverIcon GUID 全部定名，且三源交叉印证**（图集 `m_PackedSprites[i]` ↔ `m_PackedSpriteNamesToIndex[i]` ↔ 各 `Sprite/*.json` 的 `m_RenderDataKey`，13/13 对上）：
+  `5037de52…`=`40k_DeckSelection_icon_FactionOrks`(idx 1) · `5c839d39…`=…`FactionUM`(5) · `9fcb1488…`=…`FactionEmperorsChildren`(4) · `cd1608df…`=…`FactionSpaceWolves`(12)
+- 🔴 **推翻了上一轮的推断**：原文说「4 个 OverIcon GUID = 图集**外**那 4 张 `40k_UI_icon_ranked_*`/`40k_gamemode_icon_*`」——**错**。四个 pathID 全落在图集**内**，是**阵营图**；「图集外正好 4 张」与「OverIcon 4 个」**数量 4=4 是巧合**。（教训：数量吻合 ≠ 同一批，必须逐 pathID 落位。）
+- ✅ `307/308 LoadAsset<T>` 两重载通过 `OverIconTexOf` 成为**首个真消费者**（`LoadAssetInstance` 后端缝接上了）
+- ⛔ **621-624 被它顶回「不是差一跳」**：要落 `RaidEvent` 那四方法，得先**建整段 `Event Progression` 视觉子树**（模式卡现在只有卡图/文字/边框/倒计时）+ 解决**坐标帧歧义**（prefab 根 535×848.8 vs 可见裁切 535×414.4，盲建会差 100+px）+ player progress **在服务端**（本地无源，建了也是空态）⇒ 维持 B 并把闭合条件写清。
+
+### 23·33 🔴🔴 **`play check` 指纹变了 28 张卡，指向 oath 付费链 —— 疑似回归，未归因**（2026-10-29 `B96_CA` 报）
+
+- 现指纹 `431d7b0d…` ≠ 基线 `228f4304…`；**28 张卡变了，全部 `desc` 含 `oath`**（`UM89–UM118` + 2 张 hash id），差异形态统一 = **`energyDelta` 差 1、`other` 少 1**。
+- `B96_CA` 的**证伪方式**：把它自己唯一会碰棋盘的三个调用（`WhileInPlayVariablePass` / `TriggerOncePass` / 那次 `PumpActionQueues`）**全部摘掉再跑一次** ⇒ 指纹与 28 张差异**一字不变** ⇒ 不是它。`B96_CB` 独立记了同一条，归因到「另一写手在 `EffectResolver.cs` 的 +461 行」。
+- 🔴 **方向判断（`B96_CA` 给的，我认同要核）**：原版 `PayCardPlayedCostOath` 是「打出后再付一次 trait 值」⇒ **应该多付**；现在「少付 1」更像**回归**，不是修复。
+- ⛔ **在归因之前不要重钉基线**。下一步 = 派只读诊断代理，对 `EffectResolver.cs` 那 +461 行做逐行归因（谁改的、改了什么、`PayCardPlayedCostOath` 调用条件有没有变）。
+
+### 23·34 `B96_W2`（轮抽 12+33）回执（2026-10-29）
+
+- ✅ **`DeckRules` 加了 ClosedDeck 尺寸入口，且「既有调用点零影响」自证了三遍**：① 全仓 `Validate` 45 个调用点 / `CardCount` 31 个，**无一传第 4 个实参** ⇒ 缺省 `null` 走原分支；② `git diff -U0` 只有三处、`--numstat = 8/8`、**文件行数 1059 不变**；③ 闸现跑这三个文件**零漂移零失败**。这是本轮「加可选形参」做得最规矩的一次。
+- 🔴 **推翻「`d.<0x28>` = 卡组名」**：`CardDeck` 声明序是 `deckName +0x10` / `deckId +0x18` / `prebuiltDeckId +0x20` / **`cardbackId +0x28`** / `warcryId +0x30`；且第 ④ 跳把 `GetDefaultCardback().+0x38` 写进同一格 ⇒ **`<0x28>` = `cardbackId`**。已就地订正。
+- 🔴 **新账（未改，建议立）**：原版 `PlayerDataManager.GetClosedDeckByPackIds(string warlordId, …)`（`dump.cs:87014`）**第一形参是 string 卡 id**，查不到督军会 `LogError` 并 return 0；我们的 `BuildClosedDeck(int warlordId, …)` 收的是**阵营 id 标记** ⇒ 原版那条「查不到督军就不开」的分支**本地没有等价物**。
+- ⚠️ **一条要盯的风险**：本地轮抽有 **2%~7% 的 4 包组合会超同名上限**（13 阵营各模拟 5,000 次）⇒ 接上这条闸后这类局会在 `To Battle` 被挡（原版由**服务端**校验选包 ⇒ 非法组合根本选不出来）。这是唯一可能让 `DraftWindowAssertD2 ⑤` 转红的风险（约 96% 概率仍过）。
+- ⚠️ `轮抽:12/33` 它填了 **A**，并说明「若按『ClosedDeck 是 DTO / warlordId 是阵营标记』判载体不同可降 B」。**调度台裁定：保留 A**（缓存复用与四跳逐句对上、`Validate` 的 `mode` 形参也接了），但上面那条「string warlordId」的差异**另立账**，不混在本行里。
+
+### 23·35 `B96_GEN` 回执（2026-10-29）—— 一条**该做未做**、一条**反证不该做**、一条**真 bug**
+
+- ✅ **1254**：生成器出 v41 `abilityMutations`（形状 `[{ab,lg,mut}]`，**不看 buffType / 不扫 handBuff / 只扫 cardAbilities**）；干跑落列 1,129/1,129 = 1,621 行。⚠️ `mut` **值全 0**（全池 1,873 行）⇒ **休眠件**，⛔ 不是 D。
+- 🔴 **686 反证「不该做」**：`CardEffect` 那 8 格里 **7 格带 `[NonSerialized]`**（`CardEffect.cs:82-100` 逐个确认），且当前 build 卡 SO 的**内嵌 type tree** 到 `enchantment PPtr(0x88)` 为止、`0x90` 之后**一个字段都没有** ⇒ **它们从来没被序列化进 SO**，落不了列。它是**运行期赋值**。
+  ⇒ **它拒绝给这 7 格造假 0 值 —— 这是本轮最正确的一次「不做」**（照做会往卡表里灌一批伪造数据）。
+- ✅ **1288**：生成器出 v42 `triggerAbilityIndices`（形状 `[{ab,lg,trigger}]`，`lg=-1` = 无 logic 行仍落一行）；干跑 1,129 张 / 1,012 非空 / 1,622 行。⚠️ `trigger 200` **0 张** ⇒ 同样休眠。
+- ✅ **804 普查**：1,359 个卡 SO 里 `summonAnimDelayed` 非空只有 **1 张 = `SOR33 Saint Celestine`**，prefab 名可解（`Sororitas Saint Custom summon`，本地有）；🔴 **账原写「落点 = 无」不准确** —— 值**早就在** `Resources/card_vfx_by_card.json` 里，走通用 deploy 路径。
+
+🔴🔴 **新发现一个真 bug（未改，等裁定）**：`gen_cards_engine.py` 的 `ability_buffs_of` 扫的是 `obj.get("abilityLogic")`，而卡 SO 里主动能力那棵树叫 **`activeAbilityLogic`**。实测：`activeAbility.abilityLogic` **0 行**、`activeAbility.activeAbilityLogic` **143 张 / 204 行** ⇒ **v40 的 `abilityBuffs` 列里一个 `ab = -1/-2` 的行都没有，那 204 行载荷整批漏了**。
+⚠️ **修它会改 v40 列内容 ⇒ 要重钉基线**；而 oath 回归还没归因 ⇒ **暂不动**，等 `B96_OATH` 出结论后一起处理。
+
+⚠️ `Resources/card_vfx_by_card.json` **已过期**（盘上 1,098 张 / 新算 1,100 张）⇒ 重生成的 diff **远大于** `so` 键那一片，先确认卡池增长是否预期再跑。
+
+### 23·36 ✅ `B96_OATH` 诊断结论：**(β) 修复，不是回归** —— 🔴 **不要恢复到旧基线**
+
+- **决定性时序**：基线 `out_play_baseline.txt` **03:11:48** → `B94_FX4` 加闸 **03:56:11** → 闸与旧 pin 一起提交 **04:07**。⇒ **pin 比闸早 44 分钟，基线本身是错的**。
+- **原版判据（全树只有 4 处 `UseMana`）**：`PayCardCost.c:27`（手牌打出，**只收卡费**）· `PayActiveAbilityCostOath.c:27`（单位**用主动能力**时收 oath 值）· `PayCardPlayedCostOath.c:22`（收 oath 值）· 第 4 处是 SpiritStone 不吃能量。
+  `PayCardPlayedCostOath` **全树唯一调用者** = `PlayAbility.c:2033` 的 `chosenAbility 360` 支，**且以 `cardChosenInSelection` 非空为前提**（手牌出牌时是 null）。
+- **实测闭合**：28 张的 `energyDelta` 增量**逐张 = 探针的 `KwValue(Oath)`**（26/26 + 2 张战术卡 2/3），**零例外** ⇒ 现在这一版与原版一致。
+- ⛔ **不要撤闸**（撤 = 单位卡凭空多付 + 战术卡双计：`Angel's Wrath` 1+2=3 vs 基线 5）。正确做法是**机制订正三处**：删 `RuleCore.cs:3955` 与 `EffectResolver.cs:2587` 两处无条件付费 + 恢复 `RuleCore.cs:16976-16978` 的 `.c` 1:1。已派 `B96_OATHFIX` 执行，并**强制要求自证「净行为不变」**（三处缺一不可，只做一两处会改行为）。
+- 🔴🔴 **现在【不能】重钉基线**：指纹已从 `431d7b0d…` 变成 `5580b29e…`，且 **①-b 事件电池 48 张变了、其中 17 张与 oath 无关**（`ASH6/12/62/63/69/77/79/80` · `GOF91` · `SAU6/9/12/15/50/69` · `SOR69` · `SW34`）—— 那是**别的写手在飞的 `EffectResolver +495`**。**钉早了会把半成品钉进去。**
+- 🔴 **真缺陷（另立账，未改）**：`KwValue(Oath)` 在 **20/28 张读成 1** —— `cards_engine.json` 的 `keywords` 是裸 `"Oath"`，真实 N 在 `cardTraits`。原版读 `GetCurrentTraitValue` = N。今天只在休眠的 360 路可见。
+- 📌 反面教材：粉丝规则书 `规则书_…_中文翻译.md:194` 写「Oath X：部署时支付 X 能量」**与二进制冲突** ⇒ 按本仓口径**以二进制为准**（它自己第 5 行写着 `Not official. Fan project.`）。
+
+### 23·37 ✅ `B96_OATHFIX` 交付（2026-10-29）—— oath 三处订正落地，**主档 1,129 张逐字节相同**
+
+- 三处全部落地、**全行内替换**：`RuleCore.cs` 17,149 / `EffectResolver.cs` 19,538 **行数完全不变**；typecheck 0/0。
+- **`play all dump` 主档 diff 空文件**（1,129 张零差异）。
+- **电池 22 行变化 = 探针「对照替身」的产物，不是真卡行为**：`Blank(card)` 保留 `keywords`(含 oath) 但清空 `desc` ⇒ **替身的 `OathOps` 为空 ⇒ 闸对它放行** ⇒ 改前**只有对照局在付、真卡不付**（那是 `B94_FX4` 那道闸造的不对称）。
+  **实证**：`strip=oath` 剥掉替身的 oath 后 —— `UM101` 改前 27→**18** / 改后 26→**18**；`Angel's Wrath` 改前 5→**8** / 改后 **8** ⇒ **完全重合**。
+- ✅ **它自证没有别人混入**：改前拿到 `5580b29e…`，把三处**临时还原**后又逐字节复现 `5580b29e…`，并核 `RuleEngine/Core/` 全部 mtime。
+- **现指纹 = `dff65607877e5a577285eb6db739c310`**（⛔ 仍未重钉 `PinnedPlayMd5`，等静止点）。
+
+🔴 **调度台裁定（`CheckCodex` 那一格）**：删掉的两个调用点**也带走了 `CheckCodex(inst, shouldCheckCost:false)`**。真打里「付完卡费后能量恰为 0 ∧ 己方场上有 codex 单位」时，**今天会多响一次 Codex**，改后只剩出牌收尾那一次。
+⇒ **接受，不改回去**：原版 `.c` 手牌路**没有**这一次（`CheckIfCodexTriggered` 只在 `PayCardCost.c:30` 与 360 支里）⇒ **改后更贴原版**（18·0）。已记入交接 §四·1 的「已知偏差」。
+
+🔴 **下一个真缺陷（数据侧，未修）**：`KwValue(Oath)` 在 **22 张变化里 13 张**读成 1（`keywords` 是裸 `Oath`、真实 N 在 `cardTraits`）⇒ **360 支一旦可达会少收**。必须走数据侧修。
+
+---
+
+## 二十四、第九十六会话（2026-10-29）· 静止点收口 → 战斗线清零
+
+### 24·1 开场现读（⛔ 别抄，每次现读）
+- 工作树 **clean**（HEAD `a1f3858b`）· **无活跃写手** —— 第九十五会话的 `B96_OATHFIX` 已交回。
+- `typecheck` **0 / 0**（运行时 0 · 编辑器 0）。
+- 账：**9,598 行** · A **5517** / B **199** / C **34** / D **3848** ⇒ 真复刻率 **95.95%** · `(A+D)/总` **97.57%**。
+- 战斗线（`战斗逻辑驱动` 1,378 + `战斗界面_HUD` 806 = 2,184）：A 1581 / B 98 / C 10 ⇒ **93.61%**，**剩 108 条**。
+- 🔴 **顺手发现（工具口径差）**：`工具/ledger_progress.py` 报 8,800 行 / A 5266，与主表直读差 **798 行** —— 差的就是 `泛型与启动链_补读.tsv`（它按「域」并进主题表并**按方法键去重**，已知 322 组跨文件重复键）。
+  ⇒ **报数字一律用主表直读**（裸 `split("\t")` 数「状态」列）；那个工具要加一行「已去重视图」的注或修掉。
+
+### 24·2 `play check` 指纹（先测后钉的前半段）
+- 现算 = **`dff65607877e5a577285eb6db739c310`** · 钉住 = `228f43042d8eab318bcf40bd9b00cd5c`（**第九十四会话** `cef436cd` 钉的）。
+- 差异面：①-a 主档 **28 张**（oath 出牌费，第九十五会话已判「补上的原版行为」）；①-b 事件电池 **48 张**，其中 **17 张与 oath 无关**（`ASH6/12/62/63/69/77/79/80` · `GOF91` · `SAU6/9/12/15/50/69` · `SOR69` · `SW34`），形状多为 **`exhausted` 列 `P0[2]=1` → 空**，`SOR69` 另有 `raw 51 → 47`。
+- ⇒ **未钉**。先派只读诊断 `B97_DIAG17` 逐卡归因（产物 `判据/B97_指纹17卡归因.md`），**归因清楚才钉**。
+
+### 24·3 账闸（静止点第一遍）
+| 步 | 结果 |
+|---|---|
+| `check_ledger_points --all-A`（修前） | 漂移 **706** · 失败 **73** |
+| `--all-A --fix`（第一遍 = 修前快照） | 改了 706 条行号漂移 |
+| 复跑 | 漂移 **706 → 47**（12 唯一命中 + 35 AMBIG）· 失败 **73**（`--fix` 从不碰失败） |
+| `fix_ledger_bare_paths.py`（先 `--dry` 后真跑） | 改 39 行裸路径 ⇒ 失败 **73 → 72** |
+
+- 剩余 **119 行**（FAIL 72 · DRIFT 12 · AMBIG 35）切成四份（`_tmp_view/gate_fix/work_G{1..4}.tsv`），派 4 个只读代理按「符号 + 语义」给**精确新落点**（产物 `out_G{1..4}.tsv`），由调度台统一写盘。
+- 🔴 顺序理由：**闸不关就派实现写手 ⇒ 行号又跑，白修一遍**。所以先收口、再钉指纹、再开实现波。
+
+### 24·4 🔴 指纹 17 卡归因结论（`B97_DIAG17`）—— **暂不重钉**
+- **唯一根因**：`aa5a5dee`（第九十五会话）在 **`ActionPump.cs:143`** 加的 `RuleCore.BroadcastActivateMinions(_ctx, true)` —— 每个动作收尾重算 `Exhausted`（`RuleCore.BroadcastActivateMinions` → `RecomputeActAndAttack:3541-3551`）。`cef436cd..HEAD` 期间这是**全仓唯一改 `Exhausted` 语义的改动**。
+- **原版对**：`BattleManager__FinishResolvingAction.c:105/:115` 逐字调 `MinionManager.ActivateMinions` + `PlayerManager.ActivateHero` ⇒ **每条动作后重算**是对的（旧值不回刷才是偏离）。
+- 🔴 **但新值对残骸是错的**：原始 20 张里 **14 张**终局那格是**残骸**。原版残骸是**同一个 `CardScript` 对象**（`CardScript__TransformIntoRemnant.c` 只写 `+0x65=1`、抄数值、`RemoveTraitSilently`，**不碰 `+0x228` cardState，也不碰 `+0x48` 攻击数**）；
+  我们变残骸时**新造** `UnitState`（`RuleCore.cs:9880-9888`）⇒ `AttacksThisTurn` / `SummonSickness` **没搬** ⇒ `RecomputeActAndAttack` 把它算成 `canAct=true`。**原版会保持 `false`（已打过/召唤病仍在）**。
+- ✅ **修法（1 处、零行数变化）**：残骸初始化那句 `PlayOrder = u.PlayOrder, DeployedTurn = u.DeployedTurn,` 后面追加 `AttacksThisTurn = u.AttacksThisTurn, SummonSickness = u.SummonSickness,`。
+  ⛔ **不要**改用「`cardState==2` 守卫跳过残骸」—— 已核 `TransformIntoRemnant` **不改 cardState**，原版残骸仍是 2 ⇒ 那道闸不排除残骸，跳过会与原版相反。
+- ⏳ **未查清**：`SOR69`（`steps`/`raw 51→47`，少一张牌 / 每次抽牌=2 条净差）不是这一族；`ASH63`/`ASH80`/`SAU6` 的 `steps` 与终局 `atkCount` 自相矛盾。⇒ **这三/四张查清前不钉**。
+- 📌 功能影响：残骸 `Attack=0` ⇒ `ErrNoMeleeAttack`，**指纹级偏差，不是玩法级 bug**。
+
+### 24·5 账闸收口（同一静止点完成）
+| 步 | 失败 | 漂移 |
+|---|---:|---:|
+| 起点 | 73 | 706 |
+| `--fix` + `fix_ledger_bare_paths` | 73→72 | 706→47 |
+| G2 23 行 + G3/G4 63 行落点修正 | 72→0 | 47→3 |
+| 手改 3 条（`PlayEvent.GetEventDeck`×2 · `CanShowCemetery`） | 0 | **0** |
+| 🔴 **升 A 30 条后**（见 24·6）| **7** | **8** |
+
+⇒ 那 7+8 全部是**刚升上来的 A 行**（以前是 B，落点从没被闸查过）⇒ 已派 `B97_G5` 出精确落点。
+
+### 24·6 账务裁定（两条独立审查 / 再裁，2026-10-29）
+1. 🔴 **`B97_REV7` 推翻了 `B96_战斗B103_分诊.md` 的前提**：那份分诊 §三 说的 7 条「可推A」**在账里本来就是 A**（不是 B）⇒「派写手回填」是空操作。真正该问的是「这个 A 判得对不对」。重新审的结果：
+   - **5 条降 A→B**（`:93` ExecuteAction · `:324` GetAvailableActions · `:424` IsScriptedStageAvailable · `:500` ResolveCardAutoSummoned · `:521` ResolveJamUnit），每条缺口与判据已写进账的「差异」列。
+   - **2 条维持 A**（`:930` StopAnimsInPlay · `:1357` OnTriggerAbility），并把口径写准（`any` 那支**代码里根本没有**，不是「有实现但无数据」）。
+   - 顺带订正：`GetAvailableActions` 的两档闸**读错了 `.c`**（`goto` 落在 `:69 return *(param_1+0x560)` = 返回**整张清空的表**），`SimpleAI.cs:326` 与 `RuleEngineTest_EngineB95WBD.cs:43` 都按错口径钉了。
+2. ✅ **`B97_STRUCT30` 再裁 47 条「不推」**：**30 条判甲**（净行为等价 = 已复刻，附「原版 `.c` 行 → 我们 `文件:行`」逐条论证）⇒ **已升 A**；**9 条判乙**（必须做，附最小改法）；**8 条判丙**（原版不可达 / 判据为空）。
+   ⇒ 依据全文 = `判据/B97_结构差与休眠_再裁.md`；**升 A 不是「把账填完」，是「证明等价」**，报告里每条都有可核的两侧行号。
+3. 账现读：**A 5542 / B 174 / C 34 / D 3848 · 9,598 行** ⇒ 真复刻率 **96.38%**（会话起点 95.95%）。
+
+### 24·7 指纹归因结案（`B97_DIAG17` + `B97_SOR69`）
+- **17 张「非 oath」变化卡** = `ActionPump.cs:143` 每个动作收尾重算 `Exhausted`（原版 `FinishResolvingAction.c:105/:115` 确实这么做）。
+- **残骸那 14 张**：原版残骸是**同一个 `CardScript`**（`TransformIntoRemnant.c` 只写 `+0x65=1`，不碰 `+0x48`/`+0x58`/`+0x228`）⇒ 我们新造 `UnitState` 时**必须搬** `AttacksThisTurn`/`SummonSickness`，已于 `RuleCore.cs:9881` 同**一行内**补上（零行数变化）。
+- **`SOR69` = 旧基线错，不是回归**：两版 `steps` 只差一处 —— ④b 的 `aa` 由 `0` 变 `6`（`ErrExhausted`）。pray 走主动能力协程会 `UsedActiveAbility.c:20` 的 `+0x48++` ⇒ 用掉本回合那次行动 ⇒ 与 `CanStartActiveAbility` 的 `Exhausted` 闸一致。旧基线是陈旧值。
+- **`ASH63`/`ASH80`/`SAU6` = 上面那条残骸修复的产物**：36/38 张 `atkCount` 变动卡是 Waystone/Remnant；`play <id> preset selfdies=1` 实测三张终局都已是残骸。修后 `atkCount`/`exhausted` 同时回来，与原版一致。
+- ⚠️ **唯一未闭合**：`pray` 是否**真的**消耗本回合那次行动，只到间接（原版 pray 解析本身不写 `+0x48`）。⇒ 重钉时这一条按「倾向旧基线错」记录；要逐跳坐实只能进原版实测。
+- 📌 指纹在那之后又动过（`CanTriggerAbility` 闸等），**最终一次见 §24·9**。
+
+### 24·8 同步点（2026-10-29 13:4x · 全部写手交回后）
+| 项 | 结果 |
+|---|---|
+| 账闸（修前） | 漂移 **411** · 失败 **25** |
+| `--all-A --fix` | 漂移 **411 → 8** |
+| 复跑 | 漂移 **8** · 失败 **26**（其中 1 条是 `--fix` 把漂移重定位成失败）⇒ 已派 `B97_G6` 出 29 行精确落点 |
+| **`play check`** | ✅ **rc=0 绿**（指纹 `e04907bcaa6c6a33366b12816759999c`，基线文件已重生成，`PinnedPlayMd5` 已重钉） |
+| 账现读 | A **5608** / B **124** / C 14 / D 3852 |
+| 指纹归因 | ①-a **28 张** = oath 出牌费订正；①-b **75 张** = (a) 每动作重算 `Exhausted`（原版 `FinishResolvingAction.c:105/:115`）+ (b) 残骸搬 `AttacksThisTurn`/`SummonSickness`，其中 **2 张**（`GSC31`/`GSC52`）由 `ambush ⇒ FaceDown` 引入 |
+| ⚠️ Unity 宿主 | **一条没跑**（用户口径：战斗没到 100% 前不跑自检）⇒ 本会话新接的 **14 处断言全部只过了 `typecheck`，没被执行过** |
+
+---
+
+## 二十五、第九十七会话（2026-10-29 下午）· 波 3（11 路）
+
+### 25·0 起点（现读，非抄交接）
+| 项 | 值 |
+|---|---|
+| 全账 A/B/C/D | 5608 / 124 / 14 / 3852（9,598 行）· 真复刻率 **97.60%** |
+| 账闸 `--all-A` | 通过 5608 · 漂移 0 · 失败 0（告警 634） |
+| `play check` | rc=0 · 指纹 `e04907bcaa6c6a33366b12816759999c` |
+| `typecheck` | 运行时 0 / 编辑器 0 |
+| git | `feat/0924-hud-cardback-clicklog` **ahead 2**（推送按铁律 9 只试一次、失败不重试） |
+
+### 25·1 用户口径（本会话）
+1. 「按照你的建议执行，**不必停下向我汇报**（除非我中途询问），持续完成任务。」
+2. 「**还没有判据的可以先派子代理去查**。」
+3. 承接上会话：**战斗没到 100% 前不跑 Unity 自检 / 真机批验**。
+
+### 25·2 本波 11 路（文件所有权见 `文件所有权_当前.md` 波 3）
+执行 6 路：`B97_W1`(RuleCore) · `B97_W2`(EffectResolver) · `B97_W3`(BattleDriver) · `B97_W4`(ActionPump/ActionQueue/UnitState/Aura/Enchantment) · `B97_W5`(数据/解析层) · `B97_W6`(收藏窗 ban 徽标)
+查判据 5 路：`B97_R1`(施工单 §二 五条缺判据) · `B97_R2`(日常 35 条) · `B97_R3`(特效 4 条) · `B97_R4`(战斗队列三件) · `B97_R5`(其余零散 19 条)
+
+### 25·3 调度台本轮自己做的事（非代理产出）
+- 刷 `文件所有权_当前.md`：新增「波 3」表（上一版停在第九十四/九十五会话，直接派活会破「一文件一写手」）。
+- 现读核对：账 A/B/C/D、账闸、`play check`、`typecheck` 四项均与交接一致；**唯一口径差** = 施工单写「战斗逻辑驱动 B 71」，现读 **B 70**（施工单 13:22 早于账 13:52，中间 1 条已核销）。
+
+### 25·4 待办（本波交回后按此推进）
+- 施工单 §1·8 三条（`play`/`ai` 探针加 `PlayOrder` 列）**归调度台独占** ⇒ 只在「无 `.cs` 写手」的同步点做（会改 dump 列 ⇒ 需重钉基线）。
+- 合并账补丁：先跑 `check_patch_conflicts.py`，逐份 `--only`，合完归档 `_parts/_merged_B97/`。
+- 重同步点：账闸 `--all-A`（`--fix` 第一遍是修前快照，必须复跑）+ `play check` 重钉归因 + 该跑的 Unity 自检。
+
+### 25·5 `B97_R2` 交回后调度台的处置（2026-10-29）
+- **裁定（按 §四 授权 / 18·0）**：日常 15 条 ④-a（`30·31·42·45·51·54·103·106·269·460·473·519·675·714·721`）**判 A**，口径 = 服务器相关 ⇒ 客户端 UI 照原版 + 本地模拟 + 出声 + `🔶`；要求补丁每行带「远端证据 + 等价物落点 + 出声位置 + 时间限定」。由 `B97_R2` 写 `账/_parts/B97_R2.tsv`（15 行）。
+- **不拍 `:38` 的形状**（a/b）：按用户 2026-10-28 口径「需拍板一律照抄原版」，派 `B97_R2` 回源读原版形状，读不到就写「查不到」。
+- **`ParentEventWindow.CollectClicked`**：调度台现核 —— 定义在 `:1856`、**全文件 0 调用**，真点击走 `:1361-1365` 的内联 lambda（文案重复）⇒ R2 的「不是等价、是没接线」成立 ⇒ 派 `B97_W9` 落零行数改法。
+- **待修（调度台，同步点做）**：日常 B/C 行 **6 处落点行号已漂**（B/C 不进账闸 ⇒ 没人报）：`ChallengeManager.cs 273→293` / `291→311` · `EnergySinglePlayerOnlyEventWindow.cs 1418→1433` · `SkirmishEventWindow.cs 599→617` · `MissionsTab.cs 913→922` / `2500→2538`。
+
+### 25·6 波 3 滚动推进（2026-10-29 · 中途，未到同步点）
+**已交回 8 路**：`B97_R1`（两轮）· `B97_R2` · `B97_R4` · `B97_R5` · `B97_W3` · `B97_W4` · `B97_W6` · `B97_W7`。
+**账补丁已合并并归档 4 份**（`--dry` → `--only` → 归档 `_parts/_merged_B97_R2/` 与 `_merged_B97_wave3/`）：`B97_R2` 15 行 · `B97_W3` 3 行 · `B97_W4` 5 行 · `B97_W7` 1 行。合并前跑过 `check_patch_conflicts.py`（无跨补丁重复键）。
+**现读账**：A **5623** / B **110** / C **13** / D 3852 · 真复刻率 **97.86%**（⚠️ 多件虽已落代码，账行仍留 B —— 残差如实记，等对应尾项做完才翻 A）。
+**门**：`typecheck` 0/0（多次复跑）· `play check` 未重跑（有 `.cs` 写手在飞，按口径不在中途重钉）。
+
+#### 本轮调度台裁定（写死在账里的口径）
+1. **日常 15 条服务器相关 ⇒ 判 A**（UI 照原版 + 本地模拟 + 出声 + `🔶`），补丁由 `B97_R2` 写并已合并。
+2. **`:38` cost 格形状不拍 (a)/(b)** → 由原版定：**per-play 通道**（每打出一张 raise 一次，载荷四格），⛔ 不是 `int[2] LastCost`、⛔ 不是 `List<int>`——原版**没有那个容器**。
+3. **`:253` 终态 = eq-1（照原版）**，且**出队体不用新建**（74 与 attack 同 case 同协程）；真缺口只有 `RuleCore.cs:6659` 一行；`eq-2` 只当临时守卫、不许记 A。
+4. **`:1278` 走 `FireTriggerAt` 同族（入队）** —— 原版同步、我们全域入队 ⇒ **机制不同·语义等价** ⇒ 按 §18 打 `🔶` 标。
+5. **`R5` 的 D2**：`RankedEventInterfaceType` **维持 null + 出声**（原版那格 throw 是因远端 `config` 缺失 ⇒ 属服务器相关，按 18·0 例外允许本地模拟），账里写清「原版离线也会崩」。
+6. **D3（轮抽内开 P2P 房）= 做**（用户 2026-10-25 已授权轮抽模式 + 联机线已做），排后续波次。
+7. **D4（锻造 3D 物件）= 做**，按三段：图（11+16，**不是 17**）→ mesh（1 份）→ 3D 物件本体。
+
+#### 被现核推翻、已就地订正的旧说法（⛔ 别按旧账施工）
+- `:661`/`:556` 自排除**口径差不存在**（零改动）；`:234` ④ 教程闸**早已做完**；`:866` 真缺口只有 2 条（第 (c) 条不存在）。
+- `:255` / `:292` **早已由 `B97_BD` 落地**，账该翻 A。
+- `:1004` 的消费侧**不是** `BattleDriver.AwardAchievements`，真读点 = `Shell/ProfileData.cs:666`。
+- `:1121` 引擎半 `BoardSlots.NextSlotPos` **有实质缺陷**（上界用人数而非每侧格数 + 缺 `required==1` 中性支）⇒ 先修再接线。
+- `商店:297` **`m_DisabledColor` 是死值**（70/70 实例走 SpriteSwap + `SwitchMaterial` 材质路径）⇒ 改成 `SetSoftDisabled(true)` + 买后 `RebuildForScroll()`，零新增取值。
+- 锻造 `WF_Booster Pack_*` = **16 张不是 17**；`ChooseNameWindow` **已建**（缺的是内层 `Login Window` 分支）。
+- `收藏:317` 2074→**2087** · `收藏:318` 2857→**2870** · `社交:187` 5978→**5988**（B/C 行不进账闸，只能人手改）。
+
+#### 在飞（13 路满额）
+执行：`B97_W1`(RuleCore) · `W2`(EffectResolver) · `W5`(数据/解析层) · `W8`(EndPanel) · `W9`(ParentEventWindow) · `W10`(SimpleAI) · `W11`(BoardSlots+EnsureMinionSpotAnchor) · `W12`(ProfileData 伤害格) · `W13`(RankedTab) · `W14`(SettingsWindow Cog) · `W15`(售罄格)
+查判据：`B97_R3`(特效 4 条)
+补接线（窄口授权，只准改一行）：`B97_W3` → `BattleScene.cs` · `B97_W4` → `RuleEngineTest.cs`
+
+#### 已接线（调度台代接）
+`B97W6Assert` → `CollectionScene.cs`（同一物理行）· `B97W7Assert` → `ShellScene.cs:10639`（同一行追加，零行数变化）。
+
+### 25·7 波 3 第二批交回（2026-10-29 · 中途续）
+**又交回 6 路**：`B97_W2` · `B97_W4`（含宿主接线）· `B97_W5` · `B97_W9` · `B97_W3`（含宿主接线）· `B97_R3`。
+**账补丁再合 3 份并归档**（`_parts/_merged_B97_wave3b/`）：`B97_W2` 4 行 · `B97_W6` 2 行 · `B97_W9` 3 行。
+**断言已接线**：`B97W4Assert` → `RuleEngineTest.cs:1237-1241`（**零行数变化**，该文件纯 CRLF 未翻）· `B97W3_Assert` → `BattleScene.cs:46630`（同行追加，**49,658 行不变**，接在方法尾 ⇒ 污染面 0）· `B97W9Assert` → `ShellScene.cs:11023` · `B97W7Assert` 同文件 `:10639` · `B97W6Assert` → `CollectionScene.cs`。
+**调度台新裁定**：
+- `:427` **保持原样**（`oathDouble` 刻意不在 `KeywordTable` ⇒ `Has()` 恒 false；`cards_truth` 全扫 `trait==1277` 的 `addTrait` = **0 行** ⇒ 现实现与原版**净等价**）。「登记进词表」另立可选账（会牵动两张报表），⛔ 别当成本条残余。
+- `:686` **不接进主结算路径**（我们效果来自卡面正文、原版来自 SO 数据行 ⇒ 同一件事两种表示，再接一遍 = 做两遍）；4 行有数据的全被正文路覆盖。
+- `:725` **判 A（净等价）**：`mulliganOption` 是 `CardScript` 运行时属性且 `+0x3c` 写 0 后无写点 ⇒ `30` 原版不可达 ⇒ `!= 0x1e` 闸恒真 ⇒ 生成器不增列、`CardDef` 不映射。
+- `B97_W5` 转岗去落 `EffectResolver.cs` 的两处一行接线（`:18531` 的 160/165 分派、`:1446` 的候选池来源筛）+ 订正 `DoDiscardWholeHand` 的日志文案（日志与行为不符）。
+**在飞 13 路**：`W1`(RuleCore) · `W8`(EndPanel) · `W10`(SimpleAI) · `W11`(BoardSlots+BattleDriver 锚点) · `W12`(ProfileData 伤害格) · `W13`(RankedTab) · `W14`(SettingsWindow Cog) · `W15`(售罄格) · `W16`(EffectsToShow 投影) · `W18`(录像/重演两条) · `W5`(EffectResolver 补线) · `W17`(锻造资源导入) · `R6`(轮抽 P2P 房判据)
+
+### 25·8 波 3 第三批交回（2026-10-29 · 中途续二）
+**累计已交回 16 路**：`R1`(两轮) `R2` `R3` `R4` `R5` · `W1` `W2` `W3` `W4` `W5`(含转岗) `W6` `W7` `W8` `W9` `W10` `W13`。
+**账补丁累计合并并归档 12 份**（`_merged_B97_R2` / `_merged_B97_wave3{,b,c,d}`），合并前一律 `--dry` + `--only` + `check_patch_conflicts.py`。
+**现读账**：A **5630** / B 109 / C 10 / D 3849 ⇒ 真复刻率 **97.93%**（会话起点 97.60%）。
+**`typecheck`**：多次复跑，最后一次 **0 / 0**（编辑器程序集也绿）。
+
+#### 断言宿主接线（全部同一物理行追加 ⇒ 零行数变化）
+`RuleEngineTest.cs`：`B97W4Assert`（:1237-1241 块内）· `{CheckB97W2Gaps + CheckB97W5DataColumnsAndPoolFilters}`（:1303 同行）· `CheckB97W10PlayOrderAndStableSort` + `Step(TestB97W1)`（:1365 同行）
+`BattleScene.cs`：`B97W3_Assert` + `B97W8Assert`（:46631 同行，方法尾聚合行）
+`ShellScene.cs`：`B97W7Assert`（:10639）· `B97W9Assert`（:11023）
+`CollectionScene.cs`：`B97W6Assert` · `MainMenuScene.cs`：`B97W13Assert`
+⚠️ 另订正了一条**过期断言**：`BattleScene.cs:13965`「奖励行一块都不建」——奖励行已建，改成断「生产态 0 条奖励 ⇒ 整行隐藏」（行数不变，不再假绿）。
+
+#### 本轮新增 / 变更的裁定
+- 🔴 **`:867` 施工方向被推翻**（`B97_W1` 对账）：`hasActiveAbility=1` 的 87 张卡 manaCost/psychic/plasma **全 0**；「卡面 `Oath N:` vs manaCost」**28/28 不一致** ⇒ 统一切数据四格会把 **27 张 oath 卡费用静默归零**。正确模型 = **oath 费读 `trait 1275`** + 主动能力费读 `ActiveAbility.manaCost` ⇒ **拆成两条新账**。
+- **`:193` ③ 判甲不实现**：原版判「队列里那条 attack 动作的攻方状态」，我们是同步结算无该窗口，照抄会拒掉每一次玩家攻击。
+- **`:427` 保持原样**（`oathDouble` 不在词表 ⇒ `Has()` 恒 false；`trait 1277` addTrait 0 行 ⇒ 净等价）。
+- **`:686` 不接主结算路径**（卡面正文 vs SO 数据行两种表示，再接一遍 = 做两遍）。
+- **`:725` 判 A**（`mulliganOption` 是运行时属性，`30` 原版不可达 ⇒ 闸恒真）。
+- **`:253` 终态 eq-1**：出队体不用新建（74 与 attack 同 case 同协程），真缺口只有 `RuleCore.cs:6659` 一行（已派 `W19`）。
+- **`:1278`** 走 `FireTriggerAt` 同族（入队）+ 打 `🔶`（原版同步，机制不同语义等价）。
+- **`:1004` 真读点在 `ProfileData.cs:666`**（已派 `W12`）。
+- **`:1121` 引擎半有实质缺陷**（`BoardSlots.NextSlotPos` 上界用人数），先修再接（已派 `W11`）。
+
+#### 顺手修掉的账准确性缺陷（闸不覆盖 B/C 行，只能人手修）
+`日常_奖励.tsv` 2 行（`ChallengeManager.cs 273→293 / 291→311` · `EnergySinglePlayerOnlyEventWindow 1418→1433` · `SkirmishEventWindow 599→617` · `MissionsTab 913→922 / 2500→2538`）· `收藏.tsv` 2 行（`CollectionWindow 2074→2087 / 2857→2870`）。
+⚠️ `收藏.tsv` 仍有一处 `CollectionWindow.cs:2074` 未动（不是同名键那一行）⇒ 同步点逐条核，⛔ 别盲改。
+
+#### 在飞（13 路满额）
+`W11`(BoardSlots 修复 + 锚点接线) · `W12`(伤害原值格) · `W14`(设置 Cog) · `W15`(售罄格) · `W16`(效果投影) · `W17`(锻造资源) · `W18`(录像/重演) · `W19`(`:253` + RuleCore) · `W20`(动画序列数据列) · `W21`(EffectResolver 第二批 5 条) · `W22`(引擎小件第二批) · `R6`(轮抽 P2P 房判据)
+
+### 25·9 波 3 第四批交回（2026-10-29 · 中途续三）
+**本批又交回 12 路**：`W14` `W15` `W16` `W18` `W19` `W20` `W21` `W22` `W23` `W24` `W25` `R7`。
+**现读账**：A **5640** / B **101** / C **9** / D 3849 ⇒ 真复刻率 **98.09%**（会话起点 97.60%）。
+**补丁**：累计合并并归档 **23 份**；**断言宿主已接线 15 处**（全部同一物理行追加 ⇒ 行数零变化）。
+
+#### 本批最重要的四条
+1. 🔴 **`W18` 推翻 R1 的 `:1081` 设计**：`varsJson` 若在 `FromStart` 之后装回会**晚一步**（`deckSize`/`startingHand`/`warlordLifeChange` 在 `NewBattle` 那趟已读掉）⇒ 必须在 `NewBattle` **之前**经形参落。`version` 不 +1（纯新增 + 出声）。
+2. 🔴 **`W23` 把「卡包 shader 不可用」翻案**：shader 无 `.shader` 源（ShaderGraph 生成体），工程资产路**结构上不存在**、⛔ 不建 `.mat`；但原件在 `StreamingAssets/WarpforgeVFX/wf_boosters_extra.bundle`，**经 prefab 传递**可连带解出材质→shader→贴图（0 悬空）。该包 `m_Container`/`m_PreloadTable` **不含 shader** ⇒ 直接 `LoadAsset<Shader>` 取不到。三处装载补丁已派 `W29`。
+   顺带新账：该包 **299 个 `ParticleSystemRenderer` 里 200 个材质槽指向包内不存在的材质**、8 个包内材质 shader 悬空 ⇒ 开包爆散会缺材质（未修）。
+3. 🔴 **`W21` 改了 `:546` 语义 ⇒ 两条宿主断言必红**，已按它给的补丁同批改（`RuleEngineTest_W12.cs` 探针 1 次→2 次、`RuleEngineTest_Order.cs`「复活=取新号」→「沿用原号」），**行数守恒**。
+4. 🔴 **`W24` 推翻我的一条裁定前提**：我写「`GameModes.GetActiveEvent` 原版 throw、我们没做 ⇒ 判 D」，实际 `B93_N3` 早已把 NRE 照抄进去（`GameModesHandler.cs:278`）⇒ 判 D = 删既有代码。**改判 A**，并保留 `RankedEventInterfaceType` 默认 `null`（`config` 已查实来自 CloudScript/远端 ⇒ 18·0 服务器相关例外），`🔶` 标保留。
+
+#### 其他口径与订正（⛔ 别按旧账施工）
+- **`W20` 两条判据错**：本 build **没有 `tweenWeaponAnim`**（`AnimInfo` 只有 `tweenAnim`）⇒ `tww` 实为那个 SO 的 `waitAnimation`；`unitsShake` 与补间是**并列**不是 if/else ⇒ 139 行两样都播、244 行全播（原「106」作废）。已写进 `判据/B97_R3_特效4条施工单.md` §九。
+- **`W20` 生成器实跑校验**：`cardanim_clips.json` 297,943 B · md5 `6907a2d5daff5957ecb5cb8c682f3160`，**与它预测逐字相同**；`CardAnimClips.cs` 三处接入已由调度台补（否则两列是死数据）。
+- **`W16` 的一条不确定**：`CardEffectItem.IsTextEmpty` 只读 `effectText(+0x28)`，而 mark 支写 `enchanterText(+0x20)` ⇒ 按 `.c` 推论原版 **mark 行整格 Disable（不显示）**，但与 `B95_FX` 结论冲突且手里那份 `Disable.c` 首行是别的类 ⇒ **暂保持可见并立账**（判错只多一行，反向判错整族消失）。
+- **`W16` 的 S5 已由 `W18` 落**（`BattleDriver.cs:13211-13212` 项源改 `RowsOfEffects`）；账仍 B，因 S3-c/d/f 与 S7 仍缺。
+- **`W24` 口径**：`收藏:316/317` B⇒A（lambda 本身不含筛条件，等价实现在 `DeckEditorState.VisibleCards` / `CollectionWindow.ApplyFilter`）· `其他_基础设施:217` B⇒A · `社交:187` **维持 D**（Photon SDK 类、体内零后端调用、消息源已关服 ⇒ 无消费者）。
+- **`W15` 没照施工单加 `RebuildForScroll()`**：`DoBuy` 成功路径本来就调 `Setup()` 重建整棵 Content，再加一次 = 同帧建两遍。
+- **`W17` 资源**：41/41 全导入（11 商品图 + 16 阵营贴图 + 1 mesh + 8 共享 + 5 自包含副本），逐张读回 IHDR 与源比对 0 不符；`import_original_art.py` 纯追加 +93 行。`WF_Booster Pack_*` = **16 张不是 17**。
+
+#### 🔴 `R7` 账闸告警分诊（第一次有人读那 600+ 条「通过得可疑」）
+- 口径：**645 是「告警实例」不是账行**，去重后 **570 行**（65 行挂多种 kind）。
+- 三档：🟢 354 / 🟡 284 / 🔴 **7**。分型：GETTER 36 · MEMBER 83 · PROSE 291 · SECOND 228 · SELFREF 6 · FORTEST 1。
+- **7 条 🔴**（真实现都在仓里，只是 A 落点指到邻居符号）—— 同步点用 `apply_landing.py` 逐条重定位：
+  1. `个人资料_成就_排行:211` `RankedEventBase.GetBaseData` ⇒ `Shell/RankedEventBase.cs:174`
+  2. `个人资料_成就_排行:258` `RankedFastMode.GetBaseData` ⇒ `Shell/FastModeBaseEvent.cs:152`
+  3. `日常_奖励:281` `GameNewsEvent.GetBaseData` ⇒ `Shell/GameNewsEvent.cs:100`
+  4. `未分类_其他:321` `GenericArmyItem.GetItem` ⇒ `Shell/ItemDrawer.cs:2334`
+  5. `战斗逻辑驱动:921` `CardScript.ShowCardBeingDrawn` ⇒ `Core/CardFeel.cs:3770`（改这一处同时消 MEMBER+PROSE 两档）
+  6. `战斗界面_HUD:155` ShowStealth 的次要指针 `TraitFrames.cs:61`（全文件 0 处 `SpriteOf`）⇒ **删该指针**
+  7. `未分类_其他:151` `CatalogItemContainer.OnInitialize` 的次要指针 `ItemDrawer.cs:94`（该行是枚举值）⇒ 改 `ShopTabPage.cs:484`
+- 🟡 284 主成分 = SECOND 217（次要证据指针行号漂移，主落点已 A，低危）。
+- ⚠️ **`--fix` / `apply_landing` 前必须重跑一次闸**（十几个写手在改 `.cs`，同一会话两次现跑已从「5620/2/10」变到「通过 5618 · 告警 645 · 漂移 3 · 失败 11」）。
+
+#### 顺手修掉的两处账内自相矛盾（闸不覆盖 B/C 行，只能人手修）
+`泛型与启动链_补读.tsv` 两行「状态 A 但备注写保持 B」· `GameModesHandler.cs:36-39` 的 `🔶` 段写「出声后返回 null」与 `:278` 的 `throw` 打架（已改注释、行数零变化）。
+
+### 25·10 重同步点 · 第一轮收束（2026-10-29 · 全部写手已停）
+
+**前提**：13 路全部交回，工作区静止；`typecheck` **0/0**。
+
+| 项 | 现读 |
+|---|---|
+| 账 A/B/C/D | **5642 / 100 / 9 / 3849** · 真复刻率 **98.10%**（会话起点 97.60%）· 战斗逻辑驱动 **93.44%** · 战斗界面_HUD **100.00%** |
+| 账闸（`--fix` 后复跑） | 通过 5615 · **漂移 4 · 失败 23** · 告警 655 |
+| `play check` | **rc=1** · 当次 `e4d04a1c…` vs 钉住 `e04907bc…` · ①-a **0 张变** · ①-b **50 张变** |
+| 补丁 | 累计合并归档 **26 份**；`_parts/` 顶层零未归档 |
+| 断言接线 | 宿主 **17 处**（全部同一物理行追加 ⇒ 零行数变化） |
+
+#### A · 已修的基础设施缺陷（本会话发现）
+1. 🔴 **`账/战斗逻辑驱动.tsv` 里混进 1 个真实 NUL 字节**（第 875 行，本意是 C 字面量 `'\0'`）⇒ `grep` 把整份 1,379 行的账判成 **"Binary file"**，任何基于 grep 的审计会**静默跳过整份账**。已替换为字面量 `\0`（+1 字节，行/列数不变）。
+   ⚠️ 踩坑：命令里的 `b'\\0'` 反斜杠会被吃掉、`b'\0'` 又变回 NUL ⇒ 只能用 `bytes([92,48])`。
+2. 🔴 **`工具/ruleprobe/ruleprobe.csproj` 对 `Data/` 是逐个列举**（`Core/` 才是通配）⇒ 写手新建的 `CardDatabasePartial_B97W5.cs` / `SimpleAI.StableSort.cs` 没进名单，探针构建期 `CS0103`、`play check` 根本跑不起来。已补两行 + 写了「以后新增 `Data/*.cs` 都要补」的注释。
+3. `泛型与启动链_补读.tsv` 两行「状态 A 但备注写保持 B」的自相矛盾已订正。
+4. `GameModesHandler.cs:36-39` 的 `🔶` 段说「出声后返回 null」与 `:278` 的 `throw` 打架 ⇒ 已改注释（行数零变化）。
+
+#### B · 指纹归因（A/B 隔离 8 次，**尚未重钉**）
+- **已确认 37/50**：`B97_W1` 的 `:866` 残骸支 `ResetToValuesInHand(clearBacklash:false)`（原版 `_ResolveTransformIntoRemnant…c:43`）。关掉它 ⇒ 50 张 → **13** 张。这是**更正**（原版就该清），基线钉的是旧行为。
+- **仍未归因 13 张**：差异列全是「手牌/牌库/灵魂石/手牌总价」+ `net`，形状像抽牌/手牌效果。
+- **已用 A/B 排除**（关掉后指纹与张数**均不变**）：`W19 :253` 取消攻击 · `W1 :193` 攻方 `cardState` 闸 · `W30 extrinsic` 闸 · `W28 :503` 死亡 `Amount` · `W28 :871` 死亡观察者闸 · `W21 :482` 手牌先查 · `W21 :636` 手牌跳 · `W22` `TempBuffRecord` 摘分支 · `W1 :866` 回填支。
+- ⇒ **决定：不重钉**（13 张没归因就重钉会把未知差异固化进基线）。`play check` 保持红，归因进度写在这里。
+
+#### C · 账闸剩余 27 条（4 漂移 + 23 失败）
+`--fix` 修不了（落点落在注释行/空行/名字已消失）。只读代理 `B97_W33` 已逐条定位：**高把握 21 · 中 6 · 低 0**，完整表（含可直接替换的落点原文）→ `判据/B97_W33_精确落点.md`。**尚未写盘**。
+其中几条要点：`未分类:41` 的 `SetArmies` 真身在 `DraftModeWindow.cs:4363`（**没有 `Shell/ArmyProgressBar.cs`**，我派活时的猜测不成立）· `轮抽:32` `Validate` 在 `DraftModeWindow.cs:4445` · `战斗逻辑驱动:1081` 因原落点缺 `:行` 导致首个 ref 解析成裸 `BattleDriver.cs`。
+
+#### D · 下一波（战斗线剩 74 条 B+C）的入口
+- `RuleCore` 侧：`W28` 交回时列的「oath **付费侧**仍读文本（`EffectResolver.ResolveOathAbility` / `Card.OathCost` / 日志 `:11826`）· `FireTriggerByNumber` 无端到端断言（数据半没落列）· `:503` 督军死讯没带 `Amount`」。
+- `EffectResolver` 侧：`:241/:242` 的最后一个调用点、`:1282` 三处（`AM22`/`SOR13`/`SW9` + 手牌族 9 项 + 墓地族 2 项）、`:540` 族。
+- 需真机/Unity 才能判：`B97W23Assert` / `B97W29Assert` / `B97W32Assert` 的 `SetPass` 与 `LoadFromFile` 段 · `:523` 残骸死亡判别式 · `:1178` 换牌行位置 · `W11` 的动画锚点。
+
+### 25·11 重同步点 · 第二轮收束（2026-10-29 晚）
+
+**起点 → 现在（现读）**
+| 项 | 波 4 起点 | 现在 |
+|---|---:|---:|
+| 全账 A/B/C/D | 5642 / 100 / 9 / 3849 | **5664 / 79 / 8 / 3852** |
+| 真复刻率 | 98.10% | **98.49%** |
+| 战斗逻辑驱动 | 93.44%（剩 74） | **95.4%**（剩 **52**） |
+| 战斗界面_HUD | 100% | 100% |
+| 账闸 | 漂移 4 / 失败 23 | 漂移 **11** / 失败 **21** |
+| `play check` | rc=1 · 50 张 · 13 未归因 | **同**（本波那个 414 张的回归已回退） |
+
+**本波 13 路**：`W34`–`W43`（执行）+ `R8`/`R9`（查判据）+ `W44`（出落点）+ `W45`（写落点）。累计补丁 **30+ 份**已合并归档；断言宿主接线 **20+ 处**。
+
+#### 🔴 同步点抓到的唯一真缺陷（最重要）
+`W34` 把账 `:325` 的两条**攻击**闸（0 攻 / 打将死目标）落在**共用**的 `IsValidTarget` 里 ⇒ `play check` ①-b 由 **50 张 → 414 张**（该判据同时服务**技能目标**）。A/B 隔离确认后**已回退**，只保留 `CanAttackNow`(`:5770`) 那处；账 `:325` **改回 B**，并新增待办「AI 攻击枚举需要**单独的攻击目标判据**」。
+⇒ 教训：**指纹基线不能按「已归因一部分」就重钉** —— 否则这类扩散会被当成新基线吃进去。
+
+#### 我自己犯的两个操作错（都当场修了）
+1. **回退时用截断字符串做 Edit 锚点** ⇒ 原行尾部残留拼到 `return RuleCodes.OK;` 后，`CS1056`。
+2. 那个回退把 1 行写成 4 行（**+3**），而 `RuleCore.cs` 有 359 条账落点 ⇒ 下游全部 +3 ⇒ 闸报 **漂移 169**。跑 `--fix` 后回到 **11**。
+   ⇒ 纪律：**在任何被账大量引用的文件里「加注释」也要按加行算**，改完立刻 `--fix` 或写成同行。
+
+#### W45 写盘（W44 的产出）
+29 条高把握落点写进 10 份账（备份 `_tmp_view/w45_bak/`），闸自证：28 条 A 行**全部转绿**（通过 +28 / 失败 −25 / 漂移 −3，逐项吻合）。写盘前用闸自己的 `check_file()` 在临时单行账上预跑预测、写盘后逐行回读「只有第 7 列变、其余 10 列逐字未变」。
+
+#### 仍红的 32 条（下轮）
+11 漂移 + 21 失败 = **6 条「中把握」未写**（`HUD:93/795/364` · `日常:31/32/461`）+ 若干 W44 未覆盖项。**下一轮仍需一次 W44 式只读定位**。
+⚠️ `W45` 明确提醒：`.cs` 若再有改动，这批落点会再漂 —— **每次同步点都要重跑闸**，不能复用旧结论。
+
+#### 本波新增待办（波 5 入口）
+1. **攻击目标判据要单独一份**（不能落 `IsValidTarget`）—— 账 `:325`。
+2. `RuleCore.cs:12865` 通用附魔递归**缺 `IsSpentEnchantment` 闸**（`W35` 顺手发现，该行 A→B）。
+3. `m_OnDisplaySummonMessage`（召唤语音）与 summon 动画**共用同一道闸**，我们缺 `shouldTriggerSummon/ephemeral/ambush` ⇒ 效果召唤与 ephemeral 单位也会播召唤语音（`W37`/`W43` 都报了）。
+4. `:804` state 4 的 `+0x290→+0xd8` GO 隐藏（`W43`：不知是哪颗子件，⛔ 不猜）。
+5. `B97W37_Assert.cs` 的 `W37-804-2` 文案已过期（`W43` 请求改派）。
+6. 边框奖励会先打一条 `rs-item:unresolved` **假告警**（`W40`），根治要动 `:2093` 破坏零行数预算。
+7. `:526 FlexibleGridLayout` 先按 `m_Script` pathID 回源找真身；找不到按例外①记账，⛔ 不自造组件。
+
+#### 遗留外部文件（需用户处理）
+`D:/tmp_wf_w37_merged_test.tsv`（`W37` 留的验证副本，我被安全闸拦下无法删除）。
+
+---
+
+## 二十六 · 第九十八会话（2026-10-29 晚 · 开工复核）
+
+### 26·0 交接现读复核（数字全部自己重算，不是抄交接）
+
+| 项 | 交接写的 | 我现读 |
+|---|---|---|
+| 全账 A/B/C/D | 5664/79/8/3852 | ✅ **5664/79/8/3852**（21 份 tsv · 9,603 行）· 真复刻率 **98.49%** |
+| 战斗逻辑驱动 | 剩 52 | ✅ **A1074 / B46 / C6 = 剩 52** |
+| 其它线剩 B+C | 35 | ✅ 日常 20 · 轮抽 4 · 商店 3 · 特效 3 · 社交 2 · 其它基建 1 · 教程 1 · 锻造 1 = **35** |
+| 账闸（`check_ledger_points.py`） | A 5664 · 漂移 0 · 失败 0 | ✅ **A 5664 · 通过 5664 · 漂移 0 · 失败 0 · 告警 672**；B 档另报：落点问题 **72**（BFAIL 16 · BDRIFT 8 · ONCOMMENT 10 · SECOND 9 · MEMBER 1 · PROSE 28） |
+| `typecheck` | 0 / 0 | ✅ **运行时 0 / 编辑器 0** |
+| `play check` | rc=1 · 50 张 · 13 未归因 | ✅ rc=1 · 指纹 `e4d04a1c…` ≠ 钉住 `e04907bc…` · ①-a **0 张** · ①-b **50 张** |
+
+### 26·1 🔴 交接里「13 张未归因、差异列全是手牌/牌库/灵魂石」这句**在现读数上不成立**（铁律 5）
+
+把当次 `play check` 的 ①-b 差异按**差异列组合**归类（脚本 `_tmp_view/pc_group.py`，只读）：
+
+| 签名（差异列） | 张数 |
+|---|---:|
+| 只有 `atkCount` + `exhausted`（均 `P0[2]` 由 `1` → 空） | **38** |
+| 只有 `net` + `netFull` | 5 |
+| 只有 `netFull` | 5 |
+| `net` + `netFull` + `atkCount` + `exhausted` | 1 |
+| 汇总行（非卡） | 1 |
+
+⇒ **最大那一簇（38/50）是「那一格不再攻击」**（`atkCount` 与 `exhausted` 同时 1→0），**不是**手牌/牌库类差异。
+交接 §六 那句是按更早的中间态写的，**现读数已不是那个形状** —— 下一轮归因**先按这一簇单点归因**（一个根因能解释 38 张）。
+
+### 26·2 A/B 已排掉一个候选：`AttackActionPowerGate` 的 `CanAttackNow` 调用点**不是**主因
+
+- 做法：把 `RuleCore.cs:5773` 的 `if (_pg != RuleCodes.OK)` 临时改成 `if (false && _pg != RuleCodes.OK)`（**行数零变化**），跑 `play check`，再**逐字节还原**（已还原，`git status` 干净）。
+- 读数：**闸关 = 274 张变**（指纹 `1a10b879…`）· **闸开 = 50 张变** ⇒ 闸开着**更接近钉住的基线**，它不是这 50 张的成因。
+- ⚠️ 顺带得到一条硬事实：这道闸**显著影响 200+ 张卡的行为**（关掉后差异面从 50 涨到 274）—— 以后动它必须有 `play check` 同批。
+
+### 26·3 开工时的两条外部现状（非本会话产生）
+
+- `D:/tmp_wf_w37_merged_test.tsv`（2.0 MB · 2026-10-29 19:41）**仍在**，待用户点头后删。
+- `文件所有权_当前.md` 停留在**波 3** 的状态段（在飞名单已全部交回）⇒ 派波 5 前必须重写。
+
+### 26·4 `play check` 归因完成 + **已重钉**（2026-10-29 21:06 · 调度台串行）
+
+**结论：那 50 张 = 两个根因，逐张归因完、零残留 ⇒ 已重钉 `PinnedPlayMd5` = `e4d04a1c…`（上一版 `e04907bc…`）。`play check` 现读 rc=0 绿。**
+
+| 根因 | 张数 | 判据 | 形态 |
+|---|---:|---|---|
+| (a) `RuleCore` 残骸支 `ResetToValuesInHand(clearBacklash:false)`（账 `866`） | **37** | `_ResolveTransformIntoRemnant_d__554__MoveNext.c:43` = `CardScript__ResetToValuesInHand(card, 0)` ⇒ 把 `+0x48 AttacksThisTurn` 清 0 | 一律 `atkCount` / `exhausted` 由 `P*[n]=1` 变空 |
+| (b) `EffectResolver.TakePickCard` 的 `BuildChoiceOptions` 按原版消耗 `min(池, maxTargets)` 次随机（账 `254/255` ①） | **13** | `decomp_full/BattleManager__GetChoiceOptions.c:38-70`：循环 `iVar1 = min(+0x40, 池.Count)`，**每轮一次 `BattleManager__GetRandomInt`** | 一律 `net`/`netFull` 里 `filler` 序号位移（派生随机流位置变化，与 2026-10-20 `DA44` 同型） |
+
+**A/B 实证（都做过、都逐字节还原）**
+- `BuildChoiceOptions` 换回空表 ⇒ 指纹 `c86ca111…`、差异面只剩那 37 张 `atkCount/exhausted`；整个 `EffectResolver.cs` 回退 `HEAD~1` 指纹**完全相同** ⇒ 该行解释了 EffectResolver 的全部贡献。
+- `RuleCore.cs` 回退 `HEAD~1` ⇒ 只剩 13 张 `net`。
+- 另排掉两个候选：`CanAttackNow` 新接的 `AttackActionPowerGate`（关掉 ⇒ 差异面 50 → **274**，即闸开着更接近基线）· `SetupStartWith` 改读 SO 真值口（关掉 ⇒ 指纹**一位不变**）。
+- ⚠️ 顺带得到一条硬事实：`AttackActionPowerGate` 关掉会让 **200+ 张卡**行为变 ⇒ 以后动它必须同批跑 `play check`。
+
+**纪律（这次照做了）**：先逐张归因、**再**重钉；`基线/_bak_1029_r98_pre_choiceopts.txt` 留了上一版备份；`PinnedPlayMd5` 旁边写全了归因（下一个人能看到「为什么这 50 张是补上的原版行为、不是回归」）。
+⚠️ **重钉的那个数是「指纹」不是「文件 md5」**：本会话先误填了 `md5sum` 的 `a8ba3af7…`，哨兵立刻报「基线文件内容 ≠ 钉住」—— 那条哨兵正是为这种手误写的。
+
+### 26·5 波 5a 交回与合并（`B98_A1/A2/A3/R1/R2/R3`）
+
+| 事项 | 结果 |
+|---|---|
+| 账合并 | 4 份补丁全部 `--dry` 后再 `--only` 合并、已归档到 `账/_parts/_merged_B98/`；**账闸：A 5665 · 通过 5665 · 漂移 0 · 失败 0 · 告警 664**（告警 672 → 664 = `R3` 的 7 条 🔴 修掉 8 条） |
+| `日常:681` | 实现**早已由 `B97_W40` 落在 `Shell/Inventory.cs`**（W40 与 A1 断言重叠 ⇒ **只接一份**，本波不额外接线）；状态 `B → A` |
+| `日常:155` | 实现由 `B97_W41` 落在 `EndPanel.cs:1062-1068`（`SetAutoFitBox` 用 `qk` 换算）；A2 只补三条 W41 没覆盖的断言，状态**维持 B**（还差 `Draw` 之后那次虚槽 `+0x1f8`） |
+| `日常:526/515` | 只补 `🔶` 标记（零行数变化），状态不动 |
+| 🔴 **`R1` 挖出一条在线可见的偏差** | **mark 行右列应为 `Battle/Effect/<神>` 却被我们写成空串**：`B95_FX` 曾把**正确的**施工细则反标成错。判据 = `CardEffectItem__LoadEffect.c:53-99`（mark 支写完左列后 `goto` ⇒ 右列照样 `GetEffectDesc`）+ `out_il2csharp/GameStaticData.cs:1344-1353`（前缀字面量 `"Battle/Effect/"`）；四条键在官方表里都在 ⇒ 原版**两列都有字**。我们 `CardDisplayWindow.cs:2484-2492 MarkRow` 返回 `EffectRow(who, "")` ⇒ **右列空白，今天就在屏幕上**。⇒ 记入波 5c 待办 |
+| 🔴 **`R2` 的裁定问题（3 条，待调度台拍）** | Q1「原版只做监听记账/只写字段缓存、我们无对应物」判 A 还是 B —— 账里同族**已判 A 的 6 条先例**（`社交:341/22`、`日常:645/427`、`菜单:177`、`商店:111`），反向口径 = `B94-R-L`（2026-10-29）⇒ **现状两种待遇并存** |
+| `R2` 顺带 | `商店:95`（`GachaCratePanel.Awake`）唯一残差 = **一次 Unity 导入**；本仓 `gacha_crate_opening.mp4` 与原版 **md5 完全相同**（`fac0d416…`）⇒ **⛔ 别转码、⛔ 别改名 webm**；下次 Unity 批处理顺手生成 `.meta` 即解锁 5 条 |
+
+### 26·6 波 5b / 5c 派活（11 路在飞）+ 调度台自己做的账务
+
+**波 5b（战斗线写手，按文件切，铁律 13·3）**
+
+| 代号 | 独占文件 | 条目 |
+|---|---|---|
+| `B98_G1` | `RuleEngine/Core/RuleCore.cs` ＋ 新 `RuleCorePartial_B98G1.cs` | `241` `242`(核销) `534①` `853` `1004` `1285` ＋ 追加的 `573`(口径 A：离库即清) `867`(口径 b：留闸+写死注释) |
+| `B98_G2` | `RuleEngine/Core/EffectResolver.cs` | `533`(核销) `534②` `645` `832①` ＋ 追加的 `482`（R4 已证「ability 级 criteria 数据面缺失」这句**过期**） |
+| `B98_G3` | `RuleEngine/Data/SimpleAI.cs` ＋ 新 `RuleCorePartial_B98G3AI.cs` | `324` `325`（攻击目标判据单独一份，⛔ 不落共用 `IsValidTarget`） |
+| `B98_G4` | `CardPresentation/Battle/BattleDriver.cs` | `240` `254` `255` `233` `94` `1037` ＋ 召唤语音闸（`SpeakFor` 与 `PlaySummonDelayedVfx` 共用 `SummonAnimGate`） |
+| `B98_G5` | `RuleEngine/Core/Aura.cs` ＋ `UnitState.cs` | `636` `832②`（`caster:`）＋ 追加的 `1041`（口径 B：一行 `\|\| AuraKwValue(trait) > 0`，⛔ 别塞记录 = 双计） |
+| `B98_G7` | `RuleEngine/Core/TutorialScript.cs` ＋ 新 `RuleEngineTest_B98G7.cs` | `93` `548` |
+| `B98_D1` | `工具/gen_cards_engine.py`（**本波唯一写手**） | 出 `startingCardInHand` / `triggerOpsByNumber` 两列（= `607`/`1288`/`506`/`647` 的真瓶颈） |
+
+**波 5c（表现层 + 账务）**：`B98_A6` 修 **mark 行右列空白**（`CardDisplayWindow.cs`）· `B98_A7` 按调度台口径生成非战斗 11 条核销补丁。
+
+**R4 交回的两条口径由调度台当场定**（用户 2026-10-26 授权「有需要决策的地方由你决策」）：
+- **`573` = 口径 A「离库即清」** —— R4 订正了账里「原版没有可抄的」：`16` 就是 `cardState(+0x228)`，`CardScript__IsInDeck.c:6-11` 把它当「还在牌库」、`DrawCard → SetStateInHand` 写回 1 ⇒ **有原版可抄**。
+- **`867` = 口径 b「保留闸 + 写死注释」** —— R4 证：本 build **没有**通用 `PayActiveAbilityCost`，非 oath 读的 `EntityScript.currentAbilityCost` 的 getter = **编译期 `return 0`**（RVA `0x4BD440` 与 **409 个方法共用** = 合并的 `return 0` 桩）⇒ 原版非 oath 主动能力**零费用**，我们那条闸恒放行；保留它只为保住账落点。
+
+**调度台自己做的账务（`B98_DESK` 补丁，已合并归档）**
+- `BattleManager.GetRandomAttackTarget` **B → D**（铁律 11 例外①：三源 0 外部调用 + 原版 RNG 形状不同；时间限定 = 本 build）
+- `MatchData.GetBotDeck` **B → D**（P3：远端 `AIBotsConfig` / 存档 stage；⛔ 别加分派壳）
+- `SupportMethods.GetCardListFromIds` **B → D**（P3：唯一调用点是序列化卡组链）
+- ⇒ 战斗线 **52 → 49**，全账 **A 5665 / B 75 / C 8 / D 3855 · 真复刻率 98.56%**（账闸：通过 5665 · 漂移 0 · 失败 0 · 告警 664）
+
+### 26·7 波 5b/5c 第一批交回（2026-10-29 晚 · 中途，未到同步点）
+
+**账（现读）**：A **5676** · B **64** · C 8 · D 3855 ⇒ 真复刻率 **98.75%**；战斗线 **49 → 46**（B40/C6，95.90%）。账闸：通过 5676 · 漂移 0 · 失败 0 · 告警 665。
+
+| 代号 | 结果 | 关键点 |
+|---|---|---|
+| `G1` | `241` `242` **→A**、`534①` `853` `1004` `1285` `573` `867` 代码已落 | 9 个物理行、**行数 17,614 → 17,614 零变化** |
+| `G3` | `324` **→A**；`325` 落成独立 `AttackTargetGate` | ⛔ 没碰共用 `IsValidTarget`；`AiScoring` 按反证**没加**闸（原版 `GetPotentialBuffedAttackActions` 只调 `IsValidAttackTarget`） |
+| `G5` | `636`/`832②` 的 `caster:` + `1041` 一行 | 判据现读 `PlayAbility.c:1199`（施工单写 `:1198`，差 1 行）；三个候选里排除 `actingCard`/`GrantTag` |
+| `G7` | `93`（改认活跃实例）+ `548` 两跳夹具 | `TutorialScript.cs` +44 行**全部追加类尾** ⇒ 7 条既有落点逐条未漂 |
+| `A6` | `特效动画:195` **→A** | **mark 行右列空白**这条在线偏差已修（判据 `LoadEffect.c:98-101`）；四条 `Battle/Effect/<神>` 键在官方 10,862 键表里 |
+| `A7` | 11 条核销（6 A） | **社交 / 教程两份账清零** |
+| `A5` | `锻造:22` **→A** | 真缺口只有「那件 3D 物件」；动画/粒子/材质全在原版 prefab 的 legacy clip 里 |
+| `D1` | 生成器 **v40 → v43**：`startingCardInHand` **已出并落盘**（1129/1129，非空 **2** 张：`SW1`/`BL36`）· `triggerAbilityIndices` 也一并落盘（1129/1129 非空 1010） | ⛔ `triggerOpsByNumber` **不出**（源里没有 `EffectOp` 列表，硬出 = 重写解析器）；`count` 1129 不变、只有 3 列变 |
+| `A9` | `B97W34_Assert` 的 A1–A7 过期断言已改指 `AttackTargetGate`（走反射，因 `internal` + 无 `InternalsVisibleTo`） | 静态预期全绿；⚠️ 它同时揭出 **W34 那批落点列仍指向已回退的 `IsValidValidTarget`** |
+
+**本批新抓到的 4 条真问题（都已立账 / 已落盘）**
+1. 🔴 **光环给的【关键词】没有 `caster` 通道**（`Aura.cs:900 AddAuraKeyword`）—— 原版光环给的关键词同样带 `enchantingCard`；而 `_auraKw` **不在** `Extrinsic` 四本账里 ⇒ 按来源/按施放者**都摘不到**。这是 `636` 残余③的**姊妹格**（施工单只写了数值那半）。**待办**。
+2. 🔴 **`SetNextCardAsDeckDrawing` 从 `Deck[0]` 起扫，而本仓「末尾才是顶」**（`MoveDeckTopToHand` 取 `Count-1`）⇒ 它标的是**牌库底**。已派 `B98_A10` 一行修 + 同步改 `B97W34_Assert:202-211`（那边把 `deck[0]` 当顶）。
+3. 🔴 **反编译产物打架时以机器码为准**（已写进 `资料/已知的坑.md`）：`ResolveTrigger*.c` 与 `out_il2csharp` 都把 `IsInPlayOrDying` 的极性写反，**只有 `out_cpp2il_dev_ilspy` 对**（机器码 `test al,al / jz` ⇒ 真才发 430）。
+4. ⚠️ **`B97W16_Assert.cs:357` 的 B1-b 会被今天的 mark 行修复打红** —— 已派 `B98_A10` 一并改。
+
+**`B98_R6` 的结论与本调度台的裁定**
+- 「trigger 230/435 分派」**不是一个号、是一件事**：= 「按 trigger 数值取该 ability 正文并派发」那张表；数据半（`triggerAbilityIndices`）**已落**，缺的只有**一格桥接** `CardDef.AttachTriggerOpsByNumber`（全仓 0 调用点）。
+- 🔴 **裁定：Step 0（桥接）先不做**，理由：① 池内 `abilityTriggers` 含 230/430/435/210/200 的卡 **各 0 张**（整批今天零可观测）② 桥接会改 `410`(30 张)/`240`(33 张) 两档的换源 ⇒ **必须各自单独一次 `play check` 窗口**，不能在多写手在飞的批次里做。
+  ⇒ **进波 6 排队**（不丢账；与 `871` `952` `506①` `647` 同批）。
+- `R6` 另报两条要订正：账里 `EffectResolver.ResolveTriggerRequiem` 的**真身是 `RuleCore.ResolveTriggerRequiem`**（`RuleCore.cs:14298`）；`RuleCore.cs:17503-17506` 那句「数据半还没落列」**已过期**（v43 已落，缺的是桥接）。
+
+### 26·8 波 5b/5c 第二批交回（`G2` `G4` `G6` `A6` `A8` `A9` `A10` `D1` 等）
+
+**账（现读）**：A **5681** · B **60** · C 8 · D 3854 ⇒ 真复刻率 **≈98.83%**；账闸 **通过 5681 · 漂移 0 · 失败 0 · 告警 669**（`G6` 在 `CountEval.cs` 加 1 行造成的 9 处漂移已由 `--all-A --fix` 收平）。
+
+#### A · 本批抓到的三个**真缺陷**（都不是本批引入的）
+
+1. 🔴🔴 **`EffectResolver.cs:10047` 有三句手牌跳写在 `//` 之后 ⇒ 从来没上线**
+   `BroadcastUnitDamagedHandHops` / `BroadcastUnitRegimentHandHops` / `BroadcastUnitDamagedExtraAttacker`，全仓**只此一处**，而它们自己的 doc 都写着「已在该点调用」⇒ 账 `B94_Z2` 那两条的接线**实际没生效**。
+   **待办（波 6）**：把它们移到 `//` 之前（`B98_G2` 的 645 那一跳是正确写法，可照抄）。
+   📌 教训：**「接线了」要看它在不在注释里** —— 这一类静默失败，`typecheck` 与断言都看不见。
+
+2. 🔴🔴 **`ca ∈ {30,31}` 分支执行【全部】已挂 op，而且每条 `ca=30` 行各跑一次 ⇒ 一张卡有两条 `ca=30` 行就双份**
+   现池实证：**`SOR25 Imagifier` 今天就双份**（`6/5 → 8/7 {flank2}`，卡面只写 +1/+1/Flank 各一次）。
+   `B98_G6` 为了不静默错，在挂载口留了一道**执行器耦合闸**（`use.Count > 1` 且含 `ca∈{30,31}` ⇒ 不挂）⇒ `SOR13` 因此仍 `gap:kind-ambiguous`。
+   **已派 `B98_G8`**：按 `报告/B98_G6.md` §3·3 的补丁改执行器（计划表带行号 + 只跑本行 op）＋ 删那道闸 ＋ 同步 `EngineE1` 两处期望。
+
+3. 🔴 **`SetNextCardAsDeckDrawing` 从 `Deck[0]` 起扫，而本仓「末尾才是顶」** ⇒ 标的是牌库底 ⇒ `ClearDeckDrawingMark` 永远清不掉、`DeckDrawingInstanceIds` 随每次抽牌累积。
+   **`B98_A10` 已修**（`RuleCorePartial_B97W34.cs:130` 改倒序）+ `B97W34_Assert` 期望同步改向。
+   ⚠️ 这一条**订正了我在派单里写的「今天零可观测」**：`B98_G1` 已把它接进 `RuleCore.cs:2965` 的 `Draw`，修前是**在跑的真错**。
+
+#### B · 判据订正（都已就地改）
+- **trigger 名是 `UnitAttack`（50），不是 `UnitAttacked`** —— 写错 ⇒ `AbilityTriggerPresence` 一路回「未知」⇒ **两跳一条都不入队、还不报错**（`G2` 抓到）。
+- **`enchantingCard`（`+0x18`）= 能力属主 `AbilityData.thisCard`（`+0x10`），⛔ 不是 `actingCard`（`+0x18`）** —— `G5`/`G2` 两边独立核到同一结论。
+- **`R5` 说的「`SOR13` 还要新建 `ca=462` 分派」已不成立** —— `RuleCore.cs:15494-15505` 早就有。
+- **`AM22` 的 `chooseone` 建模仍是偏离**（任务线/引擎线/任务总表.md:116：原版靠 `enemyUnits/friendlyUnits` 互斥 ⇒ 选目标即选分支、**不随机**）⇒ 引擎线 **C3③ 仍开**，⛔ 别用本笔核销。
+
+#### C · 表现层
+- `A6`：**mark 行右列空白**已修（`特效动画:195` → A）；四条 `Battle/Effect/<神>` 键在官方 10,862 键表里（中英逐字现读）。
+- `A5` + `A8`：卡包 3D 物件建成（`锻造:22` → A）。`A8` 把 `A5` 那句「画布 local −z 方向拿不到判据」**订正为「能拿到」** —— 相机与各级画布 `m_LocalRotation` 全恒等 ⇒ **local −z 恒 = 朝相机 = 更近**；**卡在最前不靠 z**（`Cards` 节点挂着一颗嵌套 WorldSpace `Canvas`，`m_OverrideSorting=1 · m_SortingOrder=2`）。A5 摆的 `0 / −0.25 / −0.5` 顺序**正确，保持不动**，只把注释从「拿不到判据」改写成实测结论。
+- **开包时间线早 2 s**：判据 = clip `Booster Open Standard` 的 `m_Events[0]`（`time=2.0` **clip 内相对时间**、`functionName=StartCardAnimationEvent`、打在同 GameObject 的 `BoosterPackVisualItem` 上）⇒ **排队**（动它会改 `锻造:24` 口径 + A5 断言 + 批处理推进约定）。
+
+#### D · 数据侧（`D1`）
+`cards_engine.json` **v40 → v43**：`startingCardInHand` **已出列**（1129/1129 · 非空 **2** 张 `SW1`/`BL36`；⚠️ 坑：第一版在「官方显示名换名」之前落列 ⇒ 写出源表名、消费端 `FindByName` 找不到 ⇒ **静默少发一张**，已把调用点钉在换名之后）· `triggerAbilityIndices` 一并落盘（非空 1010）· `triggerOpsByNumber` **判不出**（源里没有 `EffectOp` 列表，硬出 = 重写解析器）· `count` 1129 不变、只有 3 列变。
+
+#### E · 仍开着的口径（调度台裁定）
+- **`254/255` 维持 B**：面板侧已落，但 options 在**结算里**才算 ⇒ 大多数 ask 时还没指向这一问 ⇒ 走旧兜底。根治要在 `EffectResolver` 里「开面板前算好」（波 6）。
+- **`233` 维持 B**：`showTips` 已收口、教程闸我们有；残余 = `actionAlreadyStarted` 引擎体内没读。
+
+### 26·9 波 6 收口：执行器双份修好 + **第二次重钉**（2026-10-29 21:41 · 调度台串行）
+
+**`B98_G8` 修掉的那条 P0**：`RuleCore` 的 `ca ∈ {30,31}` 分支原来跑的是「**该卡已挂的全部 op**」、而且**每条 `ca=30` 行各跑一次** ⇒ 一卡两条 `ca=30` 行就双份。
+改法 = 计划表带上行号 + 只跑本行 op（`RuleCore.cs:15434` / `:15485-15486`，**源码零行数变化 17,614 → 17,614**）＋ 删掉 `G6` 留的执行器耦合闸 ＋ `EngineE1` 四处期望同步（84→86 / gap 3→1 / SOR13 & AM22 → attached）。
+
+**`play check` 第二次重钉**：`e4d04a1c…` → **`5ba2967a…`**，差异面 **5 张**（`AM22` `AM59` `SOR13` `SOR25` `SW8`），**逐张方向都对**：
+- `SOR25`（卡面 `Pray: Give +1 [Attack], +1 [Ranged] and Flank`）现读 `6/5/0/2 {pray1} → 7/6/0/2 {flank1, pray1}` = **各一次**（改前 +2/+2 两次）
+- `AM59` / `SW8` 的「多抽一张」消失（`net 7→5` / `11→8`）
+- `SOR13` 从 gap 变真结算；`AM22` 的主动能力第一次真的跑一次
+- ⚠️ **预测 6 张、实到 5 张**：`DA27` / `SOR37` **未观察到变化**，原因未查清 ⇒ **已记待办**（可能它们的 op 不在 `ca=30` 行上，或电池抬不到那一支）
+
+**本批新增待办（波 7）**
+1. 🔴 **`ActiveAbilityRow` 的行号 `j` 在「一卡两个 `activeAbilityLogic` 对象」时会撞** —— 现池唯一一例 **`SW21 Wulfen Pack Leader`**（两个 gate=1 对象、`ca` 都是 `[10]`）⇒ 两条行 `j` 都是 0 ⇒ 两条行跑同一组 op = 双份。**本笔没修**（`ca=10` 不走那一支）。建议把键改成「(对象, 行)」二元。
+2. **`B98G6_Assert.cs` 的 B4/B4' 会红**（它钉「`SOR13` 仍 gap」）—— `G8` 报告 §六 给了可粘贴补丁。
+3. **`RuleEngineTest_G12.cs:436/439` 的 `attached/gap` 期望**现应 **86 / 1**（`G6` 之后就已 stale）。
+4. `DA27` / `SOR37` 未变化的原因。
+5. `A11` 顺带发现：**`MatchPlayMode`/`MatchIsReplay`/`MatchIsTutorial` 三个注入口生产代码一个都没装** ⇒ `ValidateMatchConditions()` 今天**恒真**；消费方存在之后这就有后果了（`B4` 一接，回放局/允许名单/教程白名单三档闸全不生效）。
+6. `A11` 顺带发现：**`IsComplete()` = 「`AvailableRewards()` 条数 ≤ `collectedRewards`」** ⇒ `rewards` 为空的挑战**天生「已完成」、进度永远推不动**（原版同）；装载方必须给 ≥1 条里程碑。
+
+**最终读数（现读）**：全账 **A 5681 / B 60 / C 7 / D 3855 · 真复刻率 98.83%**；战斗线 **剩 41**（B36/C5，96.35%）；账闸 **通过 5681 · 漂移 0 · 失败 0 · 告警 669**；`typecheck` **0/0**；`play check` **rc=0 绿**（`5ba2967a…`）。
+
+### 26·10 🔴 就地订正：`SW21` **今天并没有双份**（`B98_H1` 用现读代码推翻了我的前提）
+
+我在波 7 派单里写「`ActiveAbilityRow` 的行号 `j` 会撞 ⇒ 两条行跑同一组 op = **双份**，现池唯一一例 `SW21`」。
+**`B98_H1` 回源推翻了这个前提**：
+1. `RuleCore.cs:15529-15554` 的 `ResolveActiveAbilityRows` **只返回一个对象组**（两组都有行时由 `UsesAlternativeAbility` 二选一，**从不把两组拼起来**）⇒ `plan` 里只有**一条** `{10, ta, 0}`；
+2. 同一组内部 `j` 本来就互不相同 ⇒ 组内不撞键，跨组的两条行又不可能同时进 `plan`。
+
+⇒ **「键能撞」是真的**（`EffectOp.ActiveAbilityRow` 只存行号），**但撞不出双份**。
+- 处置：`H1` 仍把计划表第 4 格扩成**能力对象**（`{ca, ta, j, row.Ability}`）＋类尾 `ActiveRowOpsOf(u, ab, row)` 作二元键的**唯一取 op 口** —— 这是**结构闸**（铁律 11：休眠也留着），**对现池零行为变化**（`play check` 预期 0 张变，已实测 0）。
+- ⚠️ 要让键真正严格还差两步（都不在白名单）：① `CardDef.ApplyActiveAbilityLogic` 改成**按对象分别挂**（需 `EffectOp` 加一格对象 + `EffectText.cs`）；② `EffectResolver` 的四个 `Run*Row` 加 `ab` 形参。**不做 ① 就别单独做 ②**（会把 `SW21` 替代支打空 = 真回归）。
+- 📌 教训（与「零调用点可能是内联假象」同族）：**「结构上可能撞」≠「今天就撞」** —— 判「有没有双份」必须读**生产端的组装逻辑**（`ResolveActiveAbilityRows` 到底返回几组），只看「键的类型」会得出过强的结论。
+
+**`B98_J0`（战斗剩余 41 条全部定终局）**：**B 已落可核销 20** · **A 可做 14** · **D 不可做 1**（`47` 纯服务端 RemoteConfig）。
+⇒ `B97_R10` 判的「真欠账 27」**现读实际只剩 14** —— 波 7/8 与 `A10`/`D1`/`H7` 早干完了、账没回填。
+另订正两条假记录：**`635`**「原版三跳调无参重载」不成立（三源都表明**按来源摘**，我们本来就是原版口径 ⇒ 全闭）；**`685`** 账写「4 行有数据的卡会双份」，实测 `buffType 6/10/11/30` 在 v43 池内**全 0 张**。
+
+---
+
+## 二十七 · 第九十九会话（2026-10-29 夜 → 2026-10-30 凌晨）
+
+### 27·0 开场核验（调度台现读，⛔ 非抄交接）
+
+| 闸 | 结果 |
+|---|---|
+| `typecheck` | **0 / 0** |
+| `play check` | **rc=0**，基线 `5ba2967a…` 一致 |
+| 账闸 `check_ledger_points` | **A 5715 · 通过 5715 · 漂移 0 · 失败 0**（告警 693；B 档 24 条落点问题只报告） |
+| 账分布（逐份 tsv 第 6 列现数） | **A 5715 / B 25 / C 3 / D 3860 = 9,603 行 · 真复刻率 99.51%** |
+| 工作树 | 干净（`97c2c33c`；push 未成功 = ahead 1，按铁律 9 不重试） |
+
+**B+C 剩余 28 条**：战斗逻辑驱动 16（B15+C1）· 日常_奖励 9（B8+C1）· 特效动画 2（B2）· 其他_基础设施 1（C1）。
+
+### 27·1 用户本会话三条裁定（写死）
+
+1. 🔴 **战场线暂停，以后再说**（原话「战场线暂停，以后再说」）⇒ **`T02/T03/T04/T05/T08` 五条不进任何波次**；`CLAUDE.md` 两处「2026-10-25 复刻可以做、只暂停验收」已**就地订正**为本条（铁律 5）。
+2. 🔴 **服务器类自设计（抽卡概率 / 结算奖励 / 远端商店目录 / 排行榜 / LiveOps 服务端事件 …）等账清零后一起给** —— 调度台**先在 `判据/服务器类_自设计讨论清单.md` 攒表**，账清零后一次交给用户，⛔ 不自己拍板。
+3. ✅ **13 个 0 字节垃圾文件允许删除** —— 但**现读 `Unity/资料/完全复刻/` 下 0 个 0 字节文件**（第八十八会话之后已被清掉，那条待办已过期）。全库另剩 1 个：`Unity/资料/原版参照图/Unity参照管线_0825/data/prefab_names.txt`（**未入 git 的管线输出**，生成器没写内容）—— 不在那 13 个之内，**本会话不动**，留待确认。
+
+### 27·2 波 1 派活（12 路：执行 6 + 查判据 6）
+
+所有权表已按铁律 6 重写（旧波次全部清掉）：`资料/完全复刻/文件所有权_当前.md`。
+
+| 代号 | 类型 | 独占文件 | 活 |
+|---|---|---|---|
+| `B99_E1` | 执行 | `RuleEngine/Core/RuleCore*.cs` | 账 `232` · `706①` · `769`(调用点) · `866` · `870` |
+| `B99_E2` | 执行 | `RuleEngine/Core/UnitState.cs` | 账 `852`（case 5 / case 45） |
+| `B99_E3` | 执行 | `EffectResolver*.cs` · `Parse/CountEval.cs` | 账 `1281` / `1379` 三处缺口 |
+| `B99_E4` | 执行 | `CardPresentation/Battle/MulliganPanel.cs` | 账 `1177` |
+| `B99_E5` | 执行 | `CardPresentation/Battle/BattleDriver.cs` | 账 `706②` |
+| `B99_E6` | 执行 | 新建 `RuleEngine/Editor/RuleEngineTest_B99E6.cs` | 账 `522` 三条夹具 |
+| `B99_R1` | 查判据 | 只读 | 战斗 6 条未定终局（`93` `253` `254` `505` `1359` `1372`） |
+| `B99_R2` | 查判据 | 只读 | 日常 9 条终局（B8+C1） |
+| `B99_R3a` | 查判据 | 只读 | 48 条里「战斗 18 + 引擎 8」按文件施工单 |
+| `B99_R3b` | 查判据 | 只读 | 48 条里「界面 7 + 卡牌 5 + 特效 2 + 音效 1 + 自检 2」施工单 |
+| `B99_R4a` | 查判据 | 只读 | `R1x` 10 条 B 里的卡牌/界面 5 条（FitToBox · CampaignData · Rank Icon Glow · P03 · X2） |
+| `B99_R4b` | 查判据 | 只读 | `R1x` 10 条 B 里的引擎/工具 5 条（#19 · #21 · #1 全档 · P06 · UI.Extensions 方案） |
+
+**已核过的现成判据（⛔ 别重派重查）**：日常 9 与特效 2 的施工细则**早就在** `判据/B97_R2`（日常 35 条）· `B97_R9`（日常 20 条）· `B97_R3`（特效 4 条）—— `B99_R2` 只需**补终局判定**，不许从零重查。
+
+**本会话新增口径（对 R2 下达）**：用户 2026-10-29 定「账清零后才做真机验收、验收由用户自理」⇒ **「等真机」不再能当挂起理由**；`RaidOrArmyReleaseMenuContainer` 的坐标帧要求**先从 prefab 树/父链静态解**，确实解不出才标「等真机」并把「还差哪一个数」写死。
+
+### 27·3 🔴 用户 2026-10-29 提问：48 条「真·还没复刻」为什么还在？是不是旧任务本身是「自己设计」？
+
+**用户原话（两问）**：「旧任务『真·还没复刻』48 条。我们不是逐条复刻了吗？原版就是有离线对战的代码啊，复刻了原版，为什么还会有这些问题？」「请你复刻结束后，再看看这些地方。是不是其实复刻了原版，原版就是有其内在的代码运行逻辑，这个旧任务的复刻其实是自己设计的？或者还是其他什么原因导致的」
+
+**调度台的答复口径（已回复用户）**：
+1. **账的分母 ≠ 已复刻的行为** —— 账按「原版顶层类 × 非平凡方法」计（分母 13,182，其中**业务方法 8,956**、第三方 SDK 3,897 不是复刻对象），账 9,603 行 ⇒ 业务侧基本齐（`G2` 普查：**真业务缺口 = 0**）。🔴 **2026-10-29 就地订正**：本条原来写「反编译方法体只覆盖约 29%（25,096 / ~85,440）」—— **那个 29% 只是 Ghidra `.c` 一份的覆盖**（`方案 §3.1` 🥈 级），**主力源是 `out_cpp2il_dev_ilspy`（2,404 文件 / ≈97.7% 真方法体）**。⇒「读过/有落点」≠「行为对齐」这句话仍成立，但**不能拿 29% 当「读不到」的规模**。这 48 条本身**不是账行**，来源是自检红与手工比对。
+2. **旧任务的前提有相当比例是错的/过期的** —— `B98_O1` 实测 122 条：**对 100（82%）· 已证伪 4 · 拿不到判定 18**，另 12 条「判据已变」⇒ 合计 **11.9% 被证伪**。已查实的「其实是我们自己设计」样本：`CampaignData` 逐档拒绝（原版 `CampaignNode.Collect` 有体 + `CampaignTrack.cs:722` repeatable ⇒ **原版允许重复领**）· `卡-2 FitToBox`（`DescEmOfCard=0.0707` 已是原版 em，PnP 是印刷品）· `V1·865`（原版就是 `m_PathID=0` 空槽）· `卡-15`（5 键全缺、原版缺键返 null ⇒ 印空）· `Rank Icon Glow`（曲线逐键相同，缺的是 `_rankIconSprite` 没人喂）· `#19/#21`（判据一直在，只是没人取）。
+3. **真缺口也确实有** —— 那 48 条是「判据已明、代码没写」；它们长期没写是因为被归进「等真机 / 等判据 / 等 Unity」这些桶（旧口径允许挂起），不是原版没有。
+
+**🔴 处置（关键：归因前置，不是事后补看）**：若旧任务本身是自设计的，照它补做会让我们**离原版更远** ⇒ 已用 `SendMessage` 给 `B99_R3a` / `B99_R3b` / `B99_R2` / `B99_R1` **补发硬要求**：每条必须标**【归因】四档之一**（`真缺口` / `原版没有` / `判据过期` / `已实现`）+ 一句「原版真正的做法是什么」+ 一张**反向清单**（我们做了但原版没有的 ⇒ 按 §18·0 改回原版）。
+- **波 2 执行前的闸**：施工单里凡是 `原版没有` 的条目**一律不做**（从待办剔除，不是"做完"，是不做）；`判据过期` 的先订正旧任务；只有 `真缺口` 进波 2。
+- **复刻走完后**（波 2/3 结束）再做一次**完整归因普查** ⇒ `判据/B99_48条归因.md`（四档计数 + 逐条名单 + 自设计清单 + 我们多做的清单）。
+
+**顺带**：全仓还有 1 个**被 git 跟踪**的 0 字节文件 `Unity/工具/cardframe/findguid.out`（工具输出残留），不属于用户批准的那 13 个（那 13 个已不存在）⇒ **未删，等用户点头**。
+
+### 27·4 波 1 交回 · `B99_E2`（账 `战斗逻辑驱动:853` / J0 §852）—— **又一次「判据过期」实证**
+
+**结论**：简报上写的「剩 2 处」**开工前就已经被 `B98_K6` 落完**（`UnitState.cs:2781` 调类尾 `RestoreSwapStatsBase()`；`:2789-2790` 走 `CurrentDropPodHealth/Attack`，且 case 45 处**已无 `🔶 自己设计` 标记**）⇒ **J0 §852 那两行是过期叙述**（与用户 2026-10-29 的疑问同型：旧账把「已完成」记成「还没做」）。
+
+**但它抓到并补了一处真缺口**：`CardScript__ChangeMaxHealth.c` 体末六句**自己还会夹一次血**（写完 `+0xa4` 后 `currentHealth = min(currentHealth, 新 +0xa4)` ⇒ **夹 base**），`B98_K6` 只落了 case 5 外层的 `ClampHealthToMax()`（夹 processed）⇒ 净效果应为 `min(Health, base, processed)`；只留外层时「生命落在 base 与 processed 之间」会**多留血**。
+- 落点：`RuleEngine/Core/UnitState.cs:2744`（doc 行内追加）+ `:2782`（**同一物理行追加**）
+- **行数守恒**：LF 4125 → **4125**（CRLF 0 / 裸 CR 0；该文件被 43 条账行按 `文件:行号` 引用，零漂移）
+- 断言：新建 `CardPresentation/Editor/B99E2_Assert.cs`（+ `.meta`）；**调度台已接线** = `RuleEngine/Editor/RuleEngineTest.cs:1294` 同一物理行末尾追加 `Step(TestB99E2);`（该文件 LF 39624 → **39624**，CRLF 39624，裸 CR 0）
+- 账补丁：`账/_parts/B99_E2.tsv`（1 行，整行原样复制主表 + 只在 `备注`/`轮次` 追加 ⇒ 合并不会覆盖前人的长注记）
+
+**新账（⛔ 本件未做，等派）**
+1. 🔴 **`case 45` 的「加」那一半仍是另一本账**：`EffectResolverPartial_B97W2.cs:326` 仍 `target.AddKeyword(KeywordTable.DropPod, b.HealthChange)`；`:320` 的 `if (b.HealthChange == 0) return false;` 还会把「只有近战没有血量」那条**连攻击一起吞掉**。而「摘」已经走 `CurrentDropPodHealth/Attack` ⇒ **两本账**。判据 `AbilityLogic__PlayAbility.c` 的 `case 45`。池内 `buffType 45` = 0 ⇒ 今天零可观测，但铁律 11 要做。**该文件归 `B99_E3`** ⇒ 波 2 派给 `EffectResolver*` 写手。
+2. ⚠️ `判据/B98_J0_战斗剩余终局.md` §852 正文过期（写「剩 2 处 / 攻击半仍是自设计」）⇒ 调度台就地订正。
+3. ℹ️ `RestoreSwapStatsBase()` 两个 for 没带原版 `value != 0` 前置 —— 只有「显式加 0」才可能出现，摘与留数值等价 ⇒ **不改**，仅记录。
+
+### 27·5 波 1 交回 · `B99_E5`（账 `706②` `ShowSkillPanel` 的装填两格）
+
+**结论**：`BattleDriver.ShowSkillPanel` 原来**各自现写**的两格，改为走唯一读点（类尾新成员 `SkillPanelLoadingFlags(u, out requiresLoading, out abilityLoaded)`，`BattleDriver.cs:38882`）：
+- `requiresLoading` ← `UnitState.RequiresAbilityLoading`（原来读**卡级** `CardDef.HasActiveAbility == 1 && …` 自拼合取 ⇒ **看不见 `ActiveAbilityHidden`（教程关闸）/ `ActiveAbilitySuppressed`（jam）两个实例位**）
+- `abilityLoaded` ← `UnitState.ActiveAbilityLoaded`（原来**写死 `false`**，理由「我们没有装填机制」—— 该理由在 `B97_W22`/`B98_K2` 建好机制后**已过期**）
+- 判据：`CardScript__DoesAbilityRequireLoading.c:13` 读的是 **CardScript 实例字段 `+0x220`**；方向没反（`GetCurrentLocalizedAbilityDescription.c:22→:23→:43`）
+- **今天行为零变化（如实标）**：全池 `needsLoading` 全 0 ⇒ 两格恒假，指纹预期零。休眠照建（铁律 11）。
+- 行数：38,869 → **38,888**（+19 = 类尾块；中段同行替换 3→3 / 4→4，两个 hunk 等量抵消，段落点行号零漂移）；CRLF 38,888 / 裸 CR 0
+- 断言：新建 `CardPresentation/Editor/B99E5_Assert.cs`（15 条，每条带灭自证）；**调度台已接线** = `RuleEngineTest.cs:1294` 同一物理行追加 `Step(TestB99E5);`（LF 39624 → **39624**，CRLF 39624）
+- 补丁：`账/_parts/B99_E5.tsv`（键 = `CardSetup(...)`，命中主表 `战斗逻辑驱动.tsv:707`）；**状态仍 B**（残余 ② `isPlayer` 来源 + 同族三个能力入口未接装填）
+
+**⚠️ 合并提示**：若 `B99_E1` 也补了同一键（`CardSetup`），**先跑 `check_patch_conflicts.py` 定序**，两份备注都要保留（后合并者会整行覆盖）。
+
+**新账（⛔ 未做，等派）**
+1. 🔴 **技能钮入口 `IsActiveAbilityEntry`（`BattleDriver.cs:36396-36401`）读的是卡级 `u.Card.HasActiveAbility`，与原版差一层**：原版 `UnitOnBoardAttackTypeSelector__Toggle.c:45-47` 读的是 **CardScript 实例** `+0x220`（同函数 `:84` 调 `HasCurrentTrait`、`:105` 调 `CanUseAbilityNow`，证明 `param_3` 是实例）。推断后果（**未实测**）：被教程关闸 / jam 压制的单位**技能钮仍会出现**。**没改的理由**：属另一个判断（入口分档 ≠ 装填读点），且会改真机可见性、需自己的判据与回归；同段注释写明「四处读同一个谓词」⇒ 改一处要连同 `CommandTargetSideFor` / `LegalTargetCode` / `DoResolve` 一起。判据 = 上述 `.c:45-47` + `ActiveAbilityAvailable`。
+
+### 27·6 波 1 交回 · `B99_E6`（账 `522 ResolveMinionDeath` 三条夹具）
+
+**结论**：规则侧**零代码改动**（`B97_R8` §1 已逐句证等价），本件把「同批死两个 / 死亡里再死一个 / 残骸档」三条夹具落成可跑自检 —— 新建 `RuleEngine/Editor/RuleEngineTest_B99E6.cs`，`RunB99E6()` 共 **50 条断言**（G4 15 / G5 11 / G7 24），每条带 `🧨` 反证；`typecheck` 0/0。
+**调度台已接线**：`RuleEngineTest.cs:1294` 同一物理行追加 `Step(RunB99E6);`（LF 39624 → **39624**，CRLF 39624）；⛔ 用 `Step` 不用裸调用（`Step` 有逐条 try/catch，裸调一个异常会带断其后所有用例）。
+补丁：`账/_parts/B99_E6.tsv`（1 行，状态 `A`，已做「往返 11 列逐列等」校验）。
+**⚠️ 断言本身还没被执行** —— 要调度台跑一次 `RuleEngineTest.Run` 才算数（本会话未跑 Unity）。
+
+**两条值钱的「顺手发现」（已立账，⛔ 未改）**
+1. 🔴 **`B97_R8` §1 的 G4/G7 判据照抄会写出「恒绿 / 莫名红」的断言**：它写的 `Tally.TroopsKilled[凶手座位]` 配的是 **4 参 `HurtForTest`**，而那个重载 `killer` 缺省 `-1`、`actingCard` 缺省 `null` ⇒ 落点 `AddTroopKilled(-1)` 被 `SeatOk` 挡掉 ⇒ **一次都不计**。正解 = `RuleCore.HurtWithSourceForTest(ctx, u, 5, "夹具", killer: 0)`。
+2. 🔴 **直接调伤害入口的夹具必须先 `RuleCore.PumpActionQueues(ctx)`**：`EvtKind.Death` 自 `W62·R2` 起是**入队**发的 ⇒ 不泵队，`ctx.Signals` 里一条死讯都没有（假红）。判据里没写这一条。
+（小记：「账 522」= 数据行序号、「战斗逻辑驱动:523」= 文件行号，同一行；`EvtKind.Death` 是**表现层信号**，⛔ 不是「死亡触发结算次序」的观测口。）
+
+**没查清（已记报告，⛔ 故意没写成断言 —— 写死一边 = 把没核实的口径钉死）**
+1. **残骸被摧毁那一步该不该 `DiedThisTurn +1`**：现读 `RuleCore.cs` 的 `if (u.IsRemnant)` 支在 `:9868 DiedThisTurn++` **之前 return**，而原版那一跳走 `CheckIfDead.c:135`（死亡支，同样写 `+0x250`）；两种可能都说得通（写了但我们少算 / 写了但残骸进墓地带着 `+0x65` 被 `GetCardsInCemetery.c:60` 排除、观测不到）。⇒ **立一条小账**。
+2. G4 只覆盖「两个都是纯伤害致死」；「伤害 + `DoDestroy` 混批」（`PendingDeath.MaySurvive` 分叉）未覆盖。
+3. G5 只覆盖「反噬溅死」；监听器 / Unstable / 残骸翻面触发的嵌套未各配一条。
+
+### 27·7 波 1 交回 · `B99_R1`（战斗 6 条终局）—— **又是 3 条「已实现」、2 条「判据过期」**
+
+**结论**：6 条**全部维持 B**（无 C / 无 D）。四档：**已实现 3**（`93` · `253` · `1372`）· **判据过期 2**（`254` · `1359`）· **真缺口 1**（`505`）· 原版没有 0。**反向清单 = 空**（没有「我们做了但原版没有」需要改回的行为）。
+产出：`判据/B99_R1_战斗6条终局.md`（含【归因】列 + 原版真正做法 + 四档计数）· `报告/B99_R1.md` · `账/_parts/B99_R1.tsv`（6 行）。
+
+**两处简报订正（重要，别再按旧说法挂账）**
+1. **`254`/`253` 的「根治」其实已经在 `B98_H2` + `B98_H4b` 落地**（`EffectResolver.cs:20177 PeekChoiceOptions` 开面板前推演 + `:20221` 结算复用 + `BattleDriver.cs:11233` 面板接线）⇒ 简报里「根治要在 `EffectResolver` 里开面板前算好」**已过期**。
+2. **`1359` 的旧「覆盖差(a) 只数本方回合」别再引**（`B94_Y1` 已搬进 `CleanupDeaths` 无条件路 = 已闭）。
+
+**调度台追问（已 SendMessage 回给 `R1`）**：6 条**逐条回答「本行能不能判 A」** —— 判 A 的标准 = **本行方法的行为在给它输入时已与原版一致**，残差若已由别行承接（休眠 / P3 / 别的域）就当 A 并写「残差 → `文件:行号`」，⛔ 不让同一件事在两行各挂一份；残差今天没有账行承接的，先建议新建哪一行。**理由**：若按「残差在别处 ⇒ 本行永远 B」，账**永远清不了**，而用户 2026-10-29 的门槛是「账清零后才做真机验收」。
+
+**顺带**：`R1` 报 `EffectResolver.cs:19652` 的 `🔶 自己设计：缺值⇒不摆` **疑似误标**（与原版「返回空表⇒不摆」一致）⇒ 已要它给判据行号，合并时一并处理（铁律 18·a）。
+
+### 27·8 波 1 交回 · `B99_R2`（日常 9 条终局）—— 🔴 **「等真机」这个卡点被静态推翻，而且原因是旧账拿错了 prefab 变体**
+
+**结论**：9 条状态**全部维持原档**（B×8 / C×1），**但 #4–#7 的「坐标帧 / 等真机」卡点已静态解除**。归因四档：**真缺口 9**（原版确有、离线适用、我们缺一条）；**反向清单：行为层 = 无**（只 1 处**标记误标**，见下）。
+
+**🔴 卡点解除的实质（这条要记住，别再犯）**
+旧账（`B96_WA` / `B97_DAILY` / `B98_H5`）反复写「`Event Progression` `ap(0,122)` 从根底算会落到可见裁切外，无 live 判不了」。
+本轮用 `assets_full` 的 prefab 树逐级解出，**结论相反**：
+1. `Event Progression` 是 prefab 根 `Base Game Mode Container 1x2 Raid or Army Release` 的**直接子节点**；
+2. 根 RectTransform = **535×848.8**，挂 `RectMask2D` 裁到 848.8；
+3. **旧账的「可见 535×414.4」是拿错了 1×1 变体**（`Base Game Mode Container 1x1.json` 根才是 414）；
+4. `Event Progression` 底边距卡底 122、顶边 181.39 ⇒ **即便按 414.4 算也在卡内**，绝不落裁切外；
+5. 我们 `MainMenuRuntime` 早已支持 1×2 高卡（`CardHTall=848.8` `:2402`，`Put` 按 `h > CardH+1` 选档 `:2540`）。
+⇒ **#4–#7 今天就能建子树，几何全在 `判据/B99_R2_日常9条终局.md` §二**。
+
+**逐条「缺在哪」（每条都已指名到文件/账行）**
+- `#1 LogPlayTactic` = B，缺 cost 通道（`AchievementTally.cs:210` 仍 2 参）⇒ 引擎文件归 `B99_E1/E3`，**排队**。
+- `#2 GetPointsPerArmyOnDailyLogin` = C，缺 `MissionsConfig` 实例 SO（本机 0 份）⇒ 远端，`?` 是正确答案。
+- `#3 InstantiateGridMissions` = B，真体已落 `MissionsTab.cs:2691`；缺谓词体 + 容器载体（0 份）+ 单参 `SetChallenge` + 远端数据。
+- `#4–#7 RaidOrArmyReleaseMenuContainer` 四跳 = B，逻辑已在 `RaidEvent.cs:1161/1187/1254/1218` 逐句等价；缺**宿主 Event Progression 子树**，残差指名到 `菜单_外壳:434`。
+- `#8 InitializeMilestones` = B，数据半+行半已接；缺 `chestOpen` 图（46 实例 PPtr 全 `m_FileID=7` 另一 CAB，可继续挖）+ 远端数据。
+- `#9 OnOpen` = B，建树+注入口已落；缺 P3 排行榜段 + 远端 `TwoSidesEventData`（0 份）。
+
+**反向清单（铁律 18·0）**
+- **行为层：无**。
+- **标记层 1 处误标**：`MissionsTab.cs:2611` 的 `🔶 自己设计（非原版）` —— `GridMissionLayoutLogic` 的列数/开关规则**逐字来自 `.c:53-100`**，是复刻；按铁律 18·a 应**去标**（纯文案、零行为变化）。
+- **保留**：`PurchasePremiumWindow.cs:465` 的 `?` 兜底 🔶（服务器相关，§18·0 允许）。
+
+**调度台动作**：已开辟位执行代理 `B99_E7`（独占 `MainMenuRuntime.cs` / `RaidEvent.cs` / `MissionsTab.cs`）——建 `Event Progression` 子树 · 订正 `RaidEvent` 的 `+0x88` 过期注释 · 去 `MissionsTab:2611` 的 🔶 误标。所有权表已更新。
+
+### 27·9 波 1 交回 · `B99_R3b`（48 条里「其余 17 条」按文件施工单）—— **4 条又是「早就做完了」**
+
+**最重要**：**17 条里 4 条已经做完**，旧报告记成「仍未解决」，根因是**查的是 API 名/类名而不是行为**：
+- 卡-9 尾随 `\n` → `Core/CardView.cs:14702-14705` **就在加 `"\n"`**（旧报告用 `grep AppendLine` 零命中 ≠ 没加换行）
+- 卡-14 `CardFramesByArmy` → `Core/CardArt.cs:71-77` **SO 优先已接** + `Resources/Art/cards/clan/` **104 张卡框 PNG 已全导**
+- 卡-16 → `CardDef.cs:9347/9353` → `BattleDriver.cs:15765` → `SkillPanel.cs:1541/2137` **全通**
+- 特效 #11 → `Enchantment.cs:120`（`Trait`）+ `:360`（发 `EvtKind.EnchantmentRemoved`）+ `BattleDriver.cs:23040-23044`（消费 + `buffType∈{15,16}` 闸）**三跳齐**
+- 另：音效那条「类已按原版逐句写好、cue 已导，**只差 `ForgeTab` 一行接线**」（`Effects/UIEffectTogglerPlaySound.cs` 已存在且零接线）
+
+**1 条旧判据只对一半（必须让下一波知道）**：界面 #2「Deck 开窗播扫光」—— 原版 `WildcardDisplay__OnEnable` 的闸是 `currentArmy(+0x50) != 0`，而 `DeckEditingWindow__TryOpen.c:125-134` 的 `ToggleDisplay(1)` 排在 `FilterToDeck→Initialize` **之前** ⇒ **首次开窗不播、第二次起才播**；`Signal.Register` 无条件。**照旧任务「无条件播」= 造出原版没有的一下多播**。
+
+**四档计数**：`已实现` **4** · `真缺口` **12** · `原版没有` **0**（最接近的是 #2 那一半，已单列）· `判据过期` **0 整条**，但 **3 处注释过期**要就地改：`CardArtClanFrames.cs:53-54` · `:344-346` · `SkillPanel.cs:2260-2261`。
+**合并后独立工作 = 16 件**（界面 #7 并入 #3）。
+
+**反向清单 6 条（我们做了、原版没有 ⇒ 按 §18·0 改回原版）**
+① `TimerDisplay` 印 `--`（原版 `return;` 静默）② 收藏窗「开卡片详情就换徽记阵营」（原版唯一调用点 = `OnListDrag`）③ Deck 库空时给演示满编卡组（原版 `GetEmptyDeck` 是空卡组）④ 扫光材质惰性挂载（已标 🔶、可见性 0，**保留**）⑤ `EvtKind.EnchantmentRemoved`（原版无广播，已标 🔶，**保留**）⑥ `frame_*.png` 自绘卡框兜底（SO 命中走不到，**无需处理**）。
+
+**并行/串行**：必须串行仅两处 —— `Deck/DeckRuntime.cs`（#2+#5，**~70–74 条账落点**钉行号）· `Shell/CollectionWindow.cs`（#3+#7+#5，**36 条扫光断言**）。
+
+**调度台动作**：已按施工单开**波 2 前四路**（文件互不相交）——
+`B99_W1`（`Deck/DeckRuntime.cs`：#2 → #5）· `B99_W2`（`CollectionWindow.cs` / `BaseOfferPopup.cs` / `SkirmishEventWindow.cs` / `Inventory.cs` / `SkirmishWindowAssertE15.cs`：#3+#7 → #1 → #4 → #5 播种）· `B99_W3`（`gen_cards_engine.py`（**只改不跑**）/ `CardDef.cs` / `CardDisplayLevelUp.cs` / `DeckStore.cs` / `ScenarioMaterialFader.cs`：#12 → #14 → #6 → #11）· `B99_W4`（`ForgeTab.cs` / `AnimFXCheck.cs`：#15 → #16；#17 只出补丁，`RewardsScene.cs` 调度台独占）。
+
+### 27·10 `B99_R1` 补判（按调度台 A 口径重判）—— **3 条转 A**
+
+**最终档位**：**A = `93` · `1359` · `1372`**（3 条）· **B = `253` · `254` · `505`**（3 条）· C/D = 0。`账/_parts/B99_R1.tsv` 已按此覆盖（11 列 + 6 行）。
+- `93` 残差 → **P3 远端**（`WarlordPathData`）+ **休眠**（战役数据本地 0 条）+ 宿主 3 薄成员（承接于 音频_语音:113/136 · 战斗界面_HUD:598 · 战斗逻辑驱动:437(D)）。⚠️ `音频:136`（`SpeakTutorialChat` 含立绘）与 `host.ShowRadioMessage`（`UnitChatPanel.Speak` 无立绘）**是两条路径** ⇒ 若需立绘是「宿主接到已有完整实现」的接线活，不属本行。
+- `1359` / `1372` 残差 → `账/日常_奖励.tsv:525`（UI）+ P3 远端（`MissionsConfig` 装载方）+ 休眠（102 成就 = 0）。
+- `253` / `254` **维持 B**：peek/reuse 边缘档（开面板→结算间又消耗过随机 / 一卡 2+ choosecard ⇒ 复用失败回落，`EffectResolver.cs:20231` LogWarning）；**未量化是否可达** ⇒ 不能当休眠。
+- `505` **维持 B**：**本行自有残缺** = sabotage 造牌时**未调 `DisplayEnemyCardInCenter`**（原版 `.c:state1`，**可达**）；表现方法已落 `战斗界面_HUD:748`(A)，缺「create→展示」挂钩。棋盘跳（210 = 0/1129 → 承接账 1287）与 carried effect（`+0x90` = 0 休眠）已承接。
+
+**调度台裁定**
+1. **`505` 不拆行、不转 A** —— 那条挂钩是真缺的一环，转了就是「把没做算成做了」。做法 = 波 3 单独派「引擎发信号 + 表现层消费」的挂钩，落地后 `505` 再转 A。
+2. **`253`/`254` 已 SendMessage 追问 R1**：把触发条件写成「A ∧ B ∧ C」+ 用 `cards_engine.json` v43 扫出**同时满足**的卡（逐张名单）。**池内 0 张 ⇒ 按 `B98_J0 §五②` 判 A（休眠，数据到即自动可达）**；非 0 张 ⇒ 维持 B + 给最少复现路径。
+
+**🔴 自我订正（`R1` 自己撤回的）**：它先前口头说 `EffectResolver.cs:19652` 的 `🔶 自己设计：缺值⇒不摆` **疑似误标**，复核后**撤回**——该标记**正确**：
+- `GetChoiceOptions.c:42-48`：`maxTargets(+0x40)` 封顶，`if (0 < iVar1)` 为假 ⇒ 循环不进 ⇒ **返回空 options**；
+- `BattleManager__ChoiceOfCardEnemy.c:33-34`：非空档里 `get_Item(options, 0)` 在**空表上越界抛异常**；
+⇒ 「不摆」与原版「返回空表」一致（**是复刻**），但随后「不摆 ⇒ 按旧口径等概率挑 1 张」是避开原版会崩那条路的**防御性自设计** ⇒ 🔶 标的正是它，**保留**。
+
+### 27·11 波 1/2 交回 · `E3` · `E4` · `R4a` · `R5` · `T1/G2/G3` 开波
+
+#### `B99_R5`（读不到清单闭合）—— **战斗域「两层都读不到」= 0 条**
+| 清单 | 全量 | 战斗域 |
+|---|---:|---:|
+| G1「无方法体」 | 724 行 / 164 类 | **0** |
+| G1「体带 `Method not found` 空洞」 | 323 | **0** |
+| G3「两层都读不出」 | 20 | **1**（另有 `.c`，正名后可读）⇒ 真值 **0** |
+| G3「IL 结构破坏」 | 262 | 66 ⇒ 全部可读（48 直读 + 8 尾调 + 7 虚分发 + 2 折叠 + 1 正名） |
+| G4「文件名≠内容」 | 4,130 | 434（体 >2 行仅 **31**） |
+
+**结构性理由**：G1 那 159 个真实类 **159/159 全是泛型类型**，而 `BattleManager` / `CardScript` / `EntityScript` / `RawCardScript` / `AbilityLogic` / `MinionManager` / `CardEffect` / `Enchantment` **没有一个是泛型类** ⇒ 构造上不可能进名单。
+**证据链**：`play all` 覆盖 100%（1,129 卡 + 1,073 电池 / 基线 2,202 行）；核心循环八段全在「已可读」档，对应原版 `ResolveAction.c` 9,300 行、`PlayAbility.c` 2,878 行。
+**两条实证**：① `AI.ScoreFromCriteria` 367 行看着完整，**每处浮点累加被 Ghidra 吞、尾只剩 `return;`** ⇒ 已用 VA 逐 case 补出并落地 `AiScoring.cs`；② `RawCardScript.do → GetChatSound` 是**假缺口**（成员名被解析成裸 `do`），`.c` 完整给出 11 支 switch。
+**遗留**：6 条 vtable 槽名未枚举（公式 `槽号 = (偏移 − 0x138) / 0x10`，两个独立锚点坐实）· G4 战斗域 31 条待找真身 · `GetChatSound` 只判「读得到」没判「复刻没复刻」。
+**调度台动作**：已派 `B99_T1` 把「`.c` 返回值降级检测」做成**常驻闸**并全库扫（战斗域抽样命中 **15/66 = 22.7%**，全库 25,096 份从没扫过）。
+
+#### `B99_E4`（账 `1178 MoveCardToMulliganPos`）—— 换牌行几何换成原版算法
+- 步长 = `lossyScale.x × m_betweenElementsSpacing(502.2)` → 压缩支 `n×step > 0.98×视口宽 ⇒ step = maxWidth/n` → `x = 行心 + step×(k−(n−1)/2)`，`k = i`（本方）/ `n−1−i`（非本方反向支）；y 恒 = 行心（`m_yAxisCurve ≡ 0`）、z 不动（`useZOrder=0`）；卡宽 292 与「替换」钮**一字未动**。
+- **实况互证（真正的尺子）**：原版运行期探针直接调 `GetPosition(i,n)` ⇒ n=2/3 **502.2** · n=4 **470.6** · n=5 **376.5** · n=6 **313.7** · n=7 **268.9**；本式算得 502.2 / 470.4 / 376.32 / 313.6 / 268.8 ⇒ **逐档 ≤0.2px**，且「n=4 起压缩」与探针一致。
+- **就地订正 `B97_W37` 两处读错**：① `SetSortingOrder` 的自变量是 `PlayerHand.currentHand(+0x50).Count`（不是 total）；② 非本方支的位从 **`handAnchorLayout(+0x88)`** 取，不是从 `MulliganAnchor` 取。另：`PlayerHand__get_currentHand.c` / `__get_currentMulligan.c` **文件名与内容不符**。
+- **⚠️ 冲突未决**：`502.2` 与两张实拍量到的 ~400 设计 px 冲突，而录屏缩放未校准（图 1579×887 上下有黑边）⇒ 按账 `1178` 裁定「先落算法，`A1749` 真机复测定稿」。⛔ 别拿截图反推。
+- 行数 1790 → 1851（新增 61 行全在 `:1550` 之后，被账引用的 22 个行号**原地不动**）；断言 26 条。
+- 🔴 **接线坑（差点静默失效）**：`Editor/BattleScene.cs` 的合计行（`:46649`）**末尾是 `//` 注释** —— 按「追加到行末」会把断言写在注释后面 = 永远不执行。**已插在第一个 `//` 之前**，并核实「代码区含 `B99E4_Assert.Run`、注释区不含」，行数 49,677 不变。
+- 顺手：`战斗界面_HUD:560` 的落点 `MulliganPanel.cs:1400` **在本次改动前就已漂**（`HandleClick` 现在在 `:1550`）。
+
+#### `B99_E3`（账 `1281`/`1379`）—— 计数层建完、执行层如实留待
+- `ca=320` 执行器已落（复用 `EmitFollowUpResolution` + `FireTriggerByNumber(410)`）；**差一条计划闸**：`RuleCore.cs:17322` 同一物理行加 `|| ca == 320` ⇒ **已转派 `B99_E1`**（它有 `RuleCore.cs` 写权），并附调用链自证。
+- 手牌族 `ta=50/51/65`：`CountEval` 建了 `CountCardPool` 一族、逐候选转调**全仓唯一**卡面判据 `TargetCriteriaEval.MatchesRawCard`；**修掉两条现池真缺陷**（`GSC75` `keywordFilter=10 Vehicle`、`GSC37` `includeWhispers=1` 原本整行 gap）+ 修掉手写 `Type=="tactic"` **漏算防御卡**。
+- ⚠️ **执行层没做**（`ResolveTargets` 卡候选池 + 5 个消费口），且 `ta=65` 一刀切会波及大批普通能力 ⇒ 如实留 B。
+- 墓地族 `ta=60`：`CemeteryCandidatePasses` 改走同一判据，**现池 10 行只用到 `keywordFilter` ⇒ 零行为变化**。
+- 🔴 **`play check` 指纹会变**（`GSC37`/`GSC75` 由「gap ⇒ 退回正文」改成结构化计数）—— 是**修对了**，由调度台统一重钉并逐张归因。
+- 断言已接线：`RuleEngineTest.cs:1294` 同一行追加 `B99E3_Assert.Run(); _pass += …; _fail += …;`（39,624 → 39,624）。
+- **账闸现读**：A 5715 · 通过 5714 · **漂移 1** · 失败 0（那 1 条 = `CountEval.cs:1039`→实际 1005，E3 改动造成，同步点 `--fix`）。
+
+#### `B99_R4a`（近似 → 原版值 · 卡牌/界面 5 条）—— 判据全查清
+- **最值钱的发现**：原版每层 `m_fontSizeBase` 都是 **0.145~0.16**，而 `enableAutoSizing=1` 时 TMP 每次重建都 `m_fontSize = clamp(base,min,max)`（`TextMeshPro.cs:2147-2152`）⇒ **作者填的 `m_fontSize`（23.55/19/21.5）运行时完全不起作用**；字号 = `[min,max]` 上**括号二分 + 会往上放大到 max**。
+- 换算铁律：我们的 `fontSize` = 原版 pt **÷10** ⇒ 原版「0.05」在我们这里是 **0.005**（`(int)(fs*200+0.5)/200`）。
+- 我们现读：`CardView.cs:5787` `lo=nominal*0.05, hi=nominal`（**永不放大**）· `:5788` 固定 8 次 · `:5795` 无量化 ⇒ `NameTextTactic` 原版运行时 **24**、我们 **19**（小 26%）。
+- `CampaignData`：原版闸只有 `State∈{10,40}`、repeatable 覆盖 20/30（**可无限重复领**）、高级档不写基础档、「完成」= 末节点∈基础档。
+- `Rank Icon Glow`：是**接线问题**（`_rankIconSprite` 只被自检写），原版 `…NewSystem__Open.c:150-197` 六跳已取到。
+- `P03` 拖拽：原版**过阈值同一拍就 `RemoveCard`、完全不看指针位置**；落回列表才 `AddCard`。我们松手才删、且只判右缘 325.4。
+- `Ach_89/97`：`Ach_97` 原版 `anyTrait=1` ⇒ 整段跳过 ⇒ **每张牌 +1**；我们按 `Has("pack")` 筛 ⇒ 池内只 10 张 ⇒ 非 SW 卡组**整局 0 进度**。
+- **调度台裁定（按用户既定口径：凡需拍板一律照原版，含原版怪癖）**：卡-2 参数照改（含「向上放大」那一半）；`CampaignData` **E/F 两条也照抄原版怪癖**，代码注明「原版怪癖，照抄，⛔ 别修」。
+- 开波：`B99_G2`（`CampaignData.cs`）· `B99_G3`（`RankedDivisionChangeWindow.cs`，1 行换 1 行）。**G4 排队**（`DeckRuntime.cs` 归 `B99_W1`）· **G5 排队**（`RuleCore.cs` 归 `B99_E1`）· **G1 排队**（`CardView.cs`，改完要 `--fix`）。
+
+#### `B99_E1`（战斗 RuleCore 面 5 条）—— **只有 232 真需要改代码，两条「不该硬做」**
+| 账 | 结论 | 证据 |
+|---|---|---|
+| `232 CanPlayCard` | ✅ **做了**（本笔唯一代码改动） | `.c:68-71` 的双闸 + 总旁路 `actionAlreadyStarted ∧ +0x245`；落地 `RuleCore.cs:3279`（同一物理行）+ 类尾 `ResolvingTurnEnd`（`:17683`，**恒 false**，doc 写全三面旗与「为什么恒 false」） |
+| `706 CardSetup①` | ⏭ **早已落**（`B98_K2`） | `RuleCore.cs:11623` 现读就是 `… if (u.StepActiveAbilityLoading()) { ctx.Log(…); return RuleCodes.OK; }` |
+| `769 HasCancelAttackEffect` | ⏭ **早已切五参，建议核销 A** | `RuleCore.cs:8064` = `Enchantments.FindCancelAttack(ctx, attacker, attacker, target)`；另两处单参是「只判在不在」的**正确**用法 |
+| `866 ⑤ +0x418` | ⏭ **核到「不是」⇒ 不补** | `dump.cs:30874 = waitingToResolveActiveAbilityFlag`（**选目标重入锁**，不是「战斗结束」）；既有裁定 `BattleDriver.cs:36913-36915`「默认放行、不造闸」 |
+| `870 ①Requiem` | ⛔ **零改动 + 反证** | 全树唯一调用点 = `ResolveAction.c:5574`（`case 0x40`），生产者在 `PlayAbility.c:2073`（`chosenAbility 390`，池内 0）；死亡收尾走的是 `ResolveDeadCard.c:264-283` 的**观察者直调 430 + BroadcastUnitRequiem** ⇒ 强接 = **造原版没有的半条路** |
+- 改动：`RuleCore.cs` **17,663 → 17,694**（`:3279` / `:17311` / `:17322` 各 1↔1，类尾 **+31**）⇒ `:17661` 之前**零漂移**；账里 `RuleCore.cs` 最大引用 = 17322（正是改的那行、没挪位）。
+- **代落 `B99_E3` 的跨文件补丁**：`RuleCore.cs:17322` 已加 `|| ca == 320`（同一物理行 + 行尾注明判据），`:17311` doc「四种」→「六档」；独立核过 `SW9` 的 `activeAbilityLogic = [{ab:-1,gate:1,trigger:400,ta:[20],ca:[320]}]` ⇒ `ActiveRowHasOps` 恒 false；池内 `ca 320` = **1/1129**。
+- 补丁 `账/_parts/B99_E1.tsv`：5 行（`232=A · 706=B · 769=A · 866=B · 870=B`）。
+- 🔴 **合并注意**：232 那行的「我们的落点」列被**整列重写成 `文件:行` 形态**（原来的点号形态闸解析不出 ⇒ 只翻状态会「失败 +1」，它实测过）。
+- 断言已接线：`RuleEngineTest.cs:1294` 同一行追加 `B99E1_Assert.Run(); _pass += …; _fail += …;`（39,624 → 39,624）。
+- **顺手发现（已立账，未改）**：① `Enchantment.cs:885-886` 的 doc 是旧口径（说「`RuleCore` 调用点还没切」，实际早切）② 232 的合并闸是改前就有的近似（原版 ② 只在 `initiateAction` 为真时成立，今天不可观测）③ **`CountEval.cs` 正在被别人改 ⇒ 在他停手前别跑 `--fix`** ④ **账 870 的真缺口是 `ca == 390` 没有分派**（比「把 `ResolveTriggerRequiem` 接进 `CleanupDeaths`」有意义得多）⑤ `B98_J0` 的 870 施工建议**别再照派**。
+
+### 27·12 开波（2026-10-30 凌晨）
+- `B99_T1`：`.c` 返回值降级闸（工具 + 全库扫）—— 见 27·11。
+- `B99_G2`（`CampaignData.cs` 原版状态机，含 E/F 原版怪癖）· `B99_G3`（`RankedDivisionChangeWindow.cs`，1 行换 1 行）。
+- `B99_E8`：账 `870` 的**真缺口** = `ca == 390` 三处（(a) `ActiveRowEntersPlan` (b) `RunActiveRowOpsOrGrantedTrigger` (c) 观察者侧 430，⛔ 不用 `FireTriggerAlways`；先核 `ResolveDeadCard.c:258-260` 的 `uStack_210`）。
+- `B99_G1`：`CardView.FitToBox` 照原版（补「向上放大」半 + 量化 0.005 + 逐层 `[min,max]` + §1·5 恢复可用高，**视觉会变**）。
+- **排队**：G4（`DeckRuntime.cs` 归 `B99_W1`）· G5（`RuleCore.cs` 归 `B99_E1`，现已空出可派）。
+
+### 27·13 `B99_R1` 第三格：`253`/`254` 的可达性定量 —— **非 0（1 张）⇒ 维持 B**
+**复用成功判据** = `TakePeekedChoiceOptions`（`EffectResolver.cs:20229`）：`StartIndex==RandomNumbersIndex ∧ Limit==ChoiceLimitOf(ctx) ∧ ChoiceSameCandIds`。破 A 的条件 = 同一张卡在它的 `choosecard` **之前**还有一条消耗 `ctx.GetRandomInt` 的 op。
+**池内扫描（v43 / 1129 张）**：2+ choosecard = **0 张**；choose 之前有 effect 的 = **1 张** → `40667e34… Author of the Codex`（`Trigger the Codex ability of a friendly unit **and** choose a Codicil and put it in your hand`）；`valueOptions` 不是卡数据字段（0 命中）。
+**复现路径**：控制 `UM56 Intercessor Sergeant`（codex = 随机敌人）或 `UM55`/`UM79`/`UM82`（均 Ultramarines、codex 含随机）上场后打出 `Author of the Codex` ⇒ codex 先结算消耗随机 ⇒ Codicil 的 choosecard 复用失败 ⇒ 引擎真抽、面板 3 张可能与引擎抽的不同 + `EffectResolver.cs:20231` LogWarning。
+**⇒ 253/254 维持 B**（不判 A）。
+**退路（⛔ 本波未做，下一波单独查）**：让 `TakePeekedChoiceOptions` 在游标已动时按 peek 那份 + 前推 Draws —— 会**改随机流语义**，须先查原版「choose 之前有随机时怎么算 options」。
+**最终状态**：`93=A · 253=B · 254=B · 505=B · 1359=A · 1372=A`。
+
+### 27·14 🔴 接线坑（第二次）：宿主行末尾带 `//`
+`CardPresentation/Editor/BattleScene.cs:46649` 的合计行**末尾是 `//` 注释** —— `B99_E4` 的接线指令写「追加到行末」，照做会把 `B99E4_Assert.Run()` 写在注释后面 = **永远不执行**。
+**已按铁律改正**：插在第一个 `//` 之前，并核实「代码区含调用、注释区不含」，行数 49,677 不变。
+⇒ **纪律补充**：给代理写「同一物理行追加」时，**必须写「插在第一个 `//` 之前」**，不能只写「行末」。
+
+### 27·15 `B99_W4` 交回（音效 #15 · 自检 #16 / #17）
+
+| # | 件 | 结果 |
+|---|---|---|
+| 15 | 可领光效开/关音 | ✅ 接线落地（`Shell/ForgeTab.cs` **1 行换 1 行**，+11 全是类尾读口 `ReadySound`/`ReadyToggler`）；本文件账引用最大行号 = `:1343`，新增行全在 1388 之后 ⇒ **零漂移** |
+| 16 | `AnimFXCheck` 缺 `effect_extras` 全量 sweep | ✅ 落地（③b 之后新增 ③c，8 条断言，分母现读 json）；`AnimFXCheck.cs` 账引用 = **0** |
+| 17 | `RewardsScene` 倒计时断言没鉴别力 | ✅ **补丁写出，⛔ 调度台扣住未落**（见下） |
+
+**为什么扣住 #15/#17 的宿主补丁**：`Editor/RewardsScene.cs` 被账按行号引用 **4 处**（`:1061` `:2543` `:4933` `:9637`）⇒ 改动行数会让它们漂。**处置 = 等所有 `.cs` 写手停手后，一次性「落补丁 + `--fix`」**（铁律：`--fix` 只能在无写手时跑）。
+
+**🔴 三条判据订正（施工单写错，以代码/原版为准；已记进账补丁备注）**
+1. **§2·10「`WindowSounds.Played` +1」不成立** —— 这条链是 `PlaySoundOnTime.Play → AnimFXController.PlayCue → WFSoundPlayer.Play`（`Battle/AnimFXController.cs:382-393`），**全程不经过 `WindowSounds`**。断言必须读 **`WarpforgeVFX.WFSoundPlayer.Played`**（不受 `Enabled` 影响），并可用 `Enabled=false` 让批处理只记账不出声（先例 `Editor/BattleScene.cs:454-468`）。
+2. **§2·10「`Toggle(false)` ⇒ `DrivenOffCount > 0`」不成立** —— `offSound` 是**空槽**，`DoUpdate` 在 `if (slot == null) return;` 处返回 ⇒ 改断 **`LastDroveOn == false`** + `Played` 不变。
+3. **§2·12「数字段可 `int.TryParse`」不成立** —— `TimerDisplay.FormatTimeString` 在剩余 > 1h 时是 **`{H}h {M}m`**（中文 `{H}小时 {M}分钟`），不是纯数字 ⇒ 改「形状正则 + 三档两两不同」。
+
+**#17 补丁的做法比施工单更好（记下来）**：直接拿**真实那颗 `TimerDisplay` 组件**，用 `DailyData.ForceNextResetForTest` 把目标挪近 2/4 分钟再 `Refresh()`，三档采样两两不同 ⇒ 证「活倒计时」；再加**形状正则** ⇒ 原版 prefab 那颗死串 `12h 34 m`（`m` 前多一空格）当场红。⚠️ **不能用 `DailyData.RewardTimerText()` 比** —— 它走 `Missions/CollectCounter`（`准备在 {0} 收集`），登录卡那颗走 `Missions/CompleteCounter`（`在 {0} 可用`），**两键正文不同，拿错会假红**。
+
+**#16 的离线预核（不是运行结果）**：88 个 `effect` 名全在 `Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset`、guid 全非空；164 处 `node` 路径逐段对得上 ⇒ `Play()` 应 88/88、`NodeMisses` 应 0、`Attached` 应 164。⚠️ **真跑若不等于这些数，那是真发现 —— ⛔ 别改期望值去凑绿**。
+**它问的「`AnimFXCheck.Run` 属不属于标准自检宿主」**：✅ 属于 —— `工具/_run_8_checks.sh:47` 第 13 条。
+
+**顺手发现（已记，⛔ 未改）**
+- `Missions/{CompleteCounter,CollectCounter,ActiveCounter}` 三键正文不同（`在 {0} 可用` / `准备在 {0} 收集` / `在 {0} 结束`）⇒ 任何跨键比对都会假红。
+- 离线核 `effect_extras` 路径**又踩了 `CLAUDE.md` 记的两条坑**（这次是自写脚本踩的）：`#N` 是**兄弟下标**不是名字的一部分；YAML 给带首尾空格的名字加单引号、`.strip()` 脱不掉 ⇒ 谁再写「按名字核路径」的脚本不处理这两条，会得到成百上千条假缺口。
+- `WFSoundPlayer.Enabled=false` 时 `Played` 照样涨 ⇒ 批处理验「音效有没有被请求」的唯一干净口（先例 `Editor/BattleScene.cs:454-468`、`Editor/CardFaceAssertE5.cs:475-506`）。
+
+### 27·16 `B99_W1` 交回（界面 #2 Deck 开窗扫光 · #5 四格通配符）
+
+- **#2 按机器码补上「首次开窗不播、第二次起才播」**（旧任务「开窗就播」**只对一半**）：判据 = `WildcardDisplay__OnEnable.c:10-14` 的 `Signal__Register` **前后无任何 `if`**；`:15-20` 才 `if (*(int*)(param_1+0x50) != 0) { Play(…); SetCountersText(…) }`；而 `DeckEditingWindow__TryOpen.c:125` 的 `ToggleDisplay(…,1,0)` 排在 `:133` `FilterToDeck` 之前（`FilterToDeck.c:28` 才 `Initialize` 写 `+0x50`）⇒ **首次开窗那一刻 `+0x50` 仍是 0 ⇒ 不播**。
+- **#5 四格通配符**：Deck 编辑窗那 4 格改读**真库存** `CardProgress.Wildcards(army,rarity)`（不再恒定 `99`）。**只做完 1/3**，另两处在别人文件（见下）。
+- 改动 `Deck/DeckRuntime.cs`：`:1397` / `:4874-4883` / `:8785-8789` 三处**等行替换**，类尾 **+44**（`_wcArmyInitialized` / `WildcardDisplayEnable()` / `DeckArmyName()`）；总行 9601 → 9645，`git diff --numstat` 59/15 ⇒ 净 +44；地标逐一对上。
+- 断言 `CardPresentation/Editor/B99W1_Assert.cs`（12 条，A1 首次不播 / A2 第二次播 **结构上不可能同时被同一实现满足**）；**调度台已接线** = `CardPresentation/Editor/DeckScene.cs:825` **同一物理行追加** `B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail));`（该文件 10,337 行不变，1/1）。
+  ⚠️ 按原指令是「在 :825 之后插一行」，但 `DeckScene.cs` 被账按行号引用 **6 处**（最早 `:1401`）⇒ 插行会让它们全漂 ⇒ 改成**同一物理行追加**（等价执行点、零漂移）。
+
+**跨文件请求（⛔ W1 未改，已记）**
+1. `Shell/CollectionWindow.cs:1071` —— 收藏窗四格仍读常量 `DeckRuntime.WcCountText`（`"99"`）⇒ 归 `B99_W2`（它正在改这个文件，**要排队**）。
+2. `Shell/Inventory.cs:1526` —— `WildcardInventory` 目前**空表**。🔴 **调度台裁定**：**`CardProgress` 是数量正本，⛔ 不在两处各存一份**（铁律 6）⇒ `Inventory` 那层**只负责「存在性/枚举」**（13 阵营 × 4 档的键存在即可），**数量一律回 `CardProgress` 读**。不做「把正本迁进背包」的跨文件改造。
+
+**W1 的顺手发现（已立账，⛔ 未改）**
+1. 🔴 `DeckRuntime.Build()` **不重置 `_tab`**，而原版 `TryOpen.c:122-124` 会把 tab0 的 `Toggle.isOn` 置 1（每次开窗回第一页）⇒ 已派 `B99_W5` 修，并**先查会牵动哪些既有断言**。
+2. 🔴 **「第二次起才播」依赖「窗口对象复用」**：`WindowsManager__CloseWindowCO.c:43` 的 `Object__Destroy` 是**有条件**的（要 `+0x68` 表命中 = addressable 载入的窗）。若是「每次新实例」⇒ 原版语义应为**永远不播**。**已派 `B99_W5` 静态查明**并据此定夺。
+3. `CardDetailPopup.WildcardRarities` 是 `internal` ⇒ **编辑器程序集看不见**（踩到 `CS0117`）。
+4. `CardProgress.SetWildcardsForTest(string rarity,int n)` **名字误导**：实参可以是 `WildKey(army,rarity)` 整串；传裸 `"rare"` 在两维读口下**永远命中不到、静默拿 99**。
+5. 施工单那条「改完数字会从 99 掉到 0」**实测不成立**：`Wildcards` 只在「该档不在 `WildcardRarities`」时返 0；无存档仍 99/档。
+
+### 27·17 `B99_T1`：`.c` 返回值降级常驻闸 + 全库普查
+
+**工具**：`工具/check_c_return_type.py`（默认不带 `--scan` = 只打印用法并退出；不给 `--out` = 打 stdout）· 全量产出 `判据/B99_T1_c返回值降级_全量.tsv`（25,096 行 / 8 列）· 报告 `报告/B99_T1.md`。
+**判法**：取 `.c` 首行（二进制读、跨折行拼到 `(`）、**用内容里的函数名**去 `dump.cs` 查声明（⛔ 不用文件名）；dump 侧还原 Ghidra C 名（命名空间写在类声明上一行注释 ⇒ 匹配率 68.8% → **91.3%**）。
+
+| 归类 | 条数 |
+|---|---:|
+| **降级_void（严格丢值）** | **1,770** |
+| 降级_未定指针（需人工） | 7 |
+| 疑似_结构体按值（**非降级**） | 341 |
+| 一致（都 void / 都非 void） | 14,351 / 6,431 |
+| 未匹配（泛型实例 1,768 · `FUN_`/thunk 299 · 其他 118） | 2,185 |
+
+**战斗/核心域 117 条（去重 107）**，最危险族：`AI` 14（**整条打分链 `float→void`**）· `EntityScript` 16（**15 个 `get_Current*` 全被吞**）· `BattleManager` 38（含 **`GetRandomInt int→void`** —— 与「原版随机数 = 预烧 100 整数按下标取」直接相关）· `RawCardScript` 22（14 个 `GetLocalized*/字符串`）· `CardScript` 17。
+
+**🔴 调度台交叉核对（本会话现跑）**：9,603 条账行里 **115 条的「判据出处」正好引用这些丢值文件**（**A 108 · D 7**；账本：战斗逻辑驱动 58 · 其他_基础设施 25 · 卡组编辑 8 · 日常 5 · 未分类 4 · 社交 4 · 战斗界面 2 · 收藏 2）。
+⚠️ **丢值 ≠ 判错**（Ghidra 常把返回值改成「写出参」，体内可能仍完整）⇒ **已派 `B99_R6` 逐条判四档**：`仍可信`（给出「体内写出参」证据行）/ `需换源`（去 ILSpy 取真体并写原版语义）/ `体本就是空` / `归属错或 ICF 折叠`。**先做战斗那 58 条。**
+**接闸建议（T1 给）**：**不塞进 `_run_8_checks.sh`**（那是起 Unity 的自检宿主；本件纯工具、3.5 秒）⇒ 单列「文档/工具级」常驻闸，钉基线 `降级_void=1770`，重跑超基线即新增。
+**已知盲区**：未匹配的 **1,768 条泛型实例**（Ghidra 用 `<object>` 实参、dump 是 `<T>`）—— 这些若真丢值本工具看不到。
+**附带发现**：`decomp_full` 有大量 ICF 折叠的**共享体**（例：`CollectionManager…GetRawCardFromId_b__0.c` 里装的其实是 `BattleManager…ApplyOffensiveAndDefensiveEffects.b__1`）⇒ **复刻时以「内容里的函数名」为准**；降级里 152 份是这种重复体。
+
+### 27·18 `B99_E7` 交回（Event Progression 子树 + 两处订正）
+
+- **`Event Progression` 子树已建**（`Shell/MainMenuRuntime.cs` 类尾）：`CardHasEventProgression`（闸 = 只有 `Base Game Mode Container 1x2 Raid or Army Release` @ 848.8 才建；1×1 / 1x2 / 1x2 No Timer 三棵都**没有**这棵子树）+ `BuildEventProgression*` 四件；生产接线在 `BuildModeCardForCard` 的 `:4066` **同一物理行内**追加（在 `//` 注释**之前**，可执行）。
+  建出的树逐件照 prefab；**进度未知（服务端）⇒ 不印档位数字 / 不印 counter / 不画 Fill+end，如实出声**。
+- **`RaidEvent.cs` `+0x88` 过期注释订正为 9 = OverIcon**（prefab `imageEventAssetReferenceType=9` 实读），1287→1287。
+- **`MissionsTab.cs:2611` 误标已去掉**（`ColumnCount`/`WritesSwitch` 逐字来自原版 `.c`），2806→2806。
+- 行数：`MainMenuRuntime 5201 → 5386`（中段只改 `:4066` 一行不动行数，追加全在类尾 >5199；账对 `MainMenuRuntime.cs` 最大引用 = `:5171` ⇒ **零漂移**）。
+- 断言已接线：`Editor/MainMenuScene.cs:2536` **同一物理行追加** ` B99E7_Assert.Run(_sink);`（20,744 行不变，1/1）。
+- **顺手订正 `B99_R2` 的两处引错**：① `m_Direction` 实读是 **0 LeftToRight**（它引的是另一份 `Progress Bar_5909…`）② §二的父子链是**平铺写法** —— `Fill Area` 是 `Background` 子、`end` 是 `Fill` 子、`Over Image` 是 `Scoring Icon Holder` 子、`Current Milestone Level text` 是 `Level` 子。
+- **没查清**：`matchedKind`（ExpansionPass / Raid）本地判定入口没接（传 0，按 §18·0 服务器门类**不据此隐藏**，代码已标 `🔶 自己设计`）· 真实进度与 `Scoring Icon Holder` 占位图 = 服务端 / 未定位 · `ProgressRewardLevelObject` 的「可领奖励换 on 图」未接。
+
+### 27·19 `B99_W3` 交回（卡牌 #12 → 特效 #14 → 界面 #6 → 卡牌 #11）
+
+| # | 条目 | 结果 |
+|---|---|---|
+| 1 | 卡牌 #12 升级根脉冲 | **已实现（施工单判据过期）** —— `B98_P1`/`B98_M1` 2026-10-29 已落地 + 接线 + 8 条断言 ⇒ **零代码改动**（再做一遍会造出**第二套脉冲**） |
+| 2 | 特效 #14 `ScenarioMaterialFader` 收尾次序 | **真缺口 → 已修**（4↔4 行，仍 211 行，账落点 `:118/:128/:174/:182/:190/:193` 零漂移） |
+| 3 | 界面 #6 存档 Step4 `DeckStore` | 数据半已修（拆出 `Serialize`/`Parse`）；**切换点 2 行在 `DeckLibrary`** ⇒ 已派 `B99_W6` 落 |
+| 4 | 卡牌 #11 `effectText` 链 | 数据半已修（生成器 **v44** `abilityEffectTexts` 列 + `CardDef` 三态 API）；`CardDatabase` 映射 ⇒ 已派 `B99_W6` |
+
+🔴 **它没照施工单字面做，而且是对的**：施工单说「把 `ApplyFade` 提到 `base.Advance` 之前 + 去掉 `if(_busy)`」，但 `base.Advance` 是「先递减后判完成」，原版是「**先判完成（用递减前的值）→ 末尾才递减**」（`ScenarioMaterialFader__Update.c:31/:75/:79`，同族 `ScenarioGenericMaterialBlend__Update.c:76/79`）⇒ 照字面做**收尾帧仍只写到 t≈0.98、施工单自己的验收判据会红**。按「与 `.c` 冲突以机器码为准」改成三行。
+
+**🔴 两条判据过期（再做会做错）**
+1. 施工单 §2·8（卡牌 #12）**整条过期** ⇒ 再做一遍 = 第二套脉冲。
+2. 施工单 §2·7「官方表自身 bug `EffectIdolatrous`：EN `vulnerable 1` / ZH `vulnerable 8`」**已过期** —— 现读 `官方本地化_en+zh-CN.json` **EN/ZH 都是 `[[vulnerable]] 1`**；`A1956`（2026-10-18）在那份表 `_note` 里写明「zh 原写 8 是错值、已改回 1」⇒ **`8` 是我们上次抽取的错，不是原版 bug**。谁按施工单写「ZH == 8」的断言**一定红**。（`activeAbilityTextReferenceId_真值.md` 与施工单本身建议就地订正。）
+3. 顺带：判据写「`handBuff.cardEffect` 那一路 6 行」，**现读 5 行**。
+
+**调度台已做**：跑生成器 干跑 → `--check`（报过期）→ `--write`（v43→**v44**，4,647 KB）→ `--check`（**一致 ✅**）；干跑读数与预期逐格相符（`abilityEffectTexts` 落列 1129/1129 · 行数 **38** · 有行的卡 **31** · 不同 src **31** · handBuff **5** · no_truth 0 · 坏格 0）。**写完立刻跑 `play check` = rc=0（`5ba2967a…` 不变）** ⇒ 证实 v44 新列「只落数据、不接线」零行为变化。
+备份：`_tmp_view/cards_engine.bak_v43.json`。
+断言已接线：`Editor/BattleScene.cs` 合计行 **第一个 `//` 之前**追加 `B99W3_Assert.Run(); …`（49,677 行不变，已核「代码区含、注释区不含」）。
+
+### 27·20 `B99_W2` 交回（界面 #3+#7 / #1 / #4 / #5）
+
+四件全落地（`typecheck` 0/0）：
+- **#3+#7 收藏切页签扫光**：`RefreshHighlights` 按 `CurrentTab` 订/退（回 Cards 页 ⇒ `Hook` + `Play(true)` + `SetCountersText`；离开 ⇒ `SetEnabled(false)` + `Unhook`）；改前 `ChangeTab` 不重建页 ⇒ **永不重播**。
+- **#1 offer 底图**：`Artwork/background` 改走 `Content.BgArt`（原版 `LoadAsset(offer, BackgroundImage=1)`），`null` 才回常量；**并给 `BgArt` 接上生产来源**（在期 Premium 报价 → `WithEventArt`，它原来**全仓 0 调用者**）。
+- **#4「结束于 `--`」**：经典式左列 `Content/Timer` **整棵不建**（原版那一支就是 `return;` 静默）；`Compose(prefix,"--")` 已从可执行路径消失；断言与 B3（活动期 `Timer` 在）并排当灭自证。
+- **#5 四格通配符**：`CollectionWindow` 类尾 `RefreshWildcardCounters`（3 个调用点同一物理行）+ `Inventory` 文件尾 `WildcardInventorySeed.SeedAllArmies`（13 阵营 × 4 档 = **52 条**，幂等，id = `Wildcard<阵营><1..4>` = 原版 SO 名）。
+- 行数：四份文件**正文净 0**（唯一插入都在类尾/文件尾，且账最大落点均在插入点之前）。
+
+**调度台已落 P0 补丁（`Editor/CollectionScene.cs`，2 处）**：扫光节读数前 `win.ChangeTab(CollectionCards);`（否则 2 条假红）、节末 `win.tabButtons.Click(0);` 复原 —— 两处都做成**同一物理行追加**（12,924 行不变）。
+**断言已接线**：`CollectionScene.cs` 既有 `B97W6Assert` 那行**第一个 `//` 之前**追加 `B99W2Assert.Run(null, win); …`。
+
+**它的顺手发现 / 立账**
+- 🔴 **反向清单还剩三处印 `--`**：`Shell/TimerDisplay.cs:240`/`:377`（`target == null` 支）、`Shell/RankedEventWindow.cs:222-236`、`Shell/EnergySinglePlayerOnlyEventWindow.cs:780-790`；原版那一支是 `return;` 静默 ⇒ 建议照 `SkirmishEventWindow` 的 `HasDeadline` 闸改。⚠️ 改 `TimerDisplay` 会连带 `DailyData.RewardTimerText` 等静态口；改排位窗要同步改 `MainMenuScene.cs:10009-10025`、`:11845-11851` 共 5 条断言。
+- `InventoryWildcard.Rarity` 由「小写英文」改成 **1..4 档位数字**（否则 `Id` 拼出 `…Ultramarinesrare`、`ItemDrawer.Spec` 认不出）；已核全仓只有 `Id` 读它。
+- `LiveOpsState.HasItemById("Wildcard<阵营><n>")` 会由 false 变 true（按原版玩家确有 99/档是对的），但本机 13 份活动 SO 里有没有以这种 id 作条件的行**没逐条查** ⇒ 建议活动线复核。
+- 跨文件过期注释 2 处（`CardArtClanFrames.cs:53-54/:345-346`、`SkillPanel.cs:2260-2261`）—— 已由 `B99_W3`/`W2` 双证「104 张卡框全在」「三跳早已接齐」。
+
+### 27·21 `B99_R4b` 交回（引擎与工具 4 条 + UI.Extensions 方案）
+
+- **没有一条是「判据拿不到」**：`#19`/`#21` = **纯接线缺口**（闸的实现早在 `ActionPump.EnqueueAbility`，缺的是路径没喂 `(trigger名, targetCard)`）；`#1` = **38 档全表普查完**；**P06 结论要改**（见 `B99_P6`）。
+- **三条 B98 数字就地订正**：① `#21` 的「8 行」**复算不出来**，现读 **30 行未过闸**（0:22 · 280:1 · 410:3 · 580:2 · 620:1 · 701:1）；② P06 的「2×2」不成立（密码恒为一个常量、盐只有 2 分支 ⇒ **1×2**）；③ `TargetsAffected` 枚举 = **38**（不是 39），且「23 档只抽核 6 档」**已过期**（实际覆盖 15+ 档）。
+- **#19**：`BroadcastCostWhen` 完全不过闸、调点 `:10024` **只传 `CardDef`、把 `subject`/`actingCard` 丢了**；**不是「已经错」**（`WhenEvents.Matches` 的 `OwnerIs` 已判 friendly/enemy ⇒ `AM56`/`TAU57` 今天碰巧对），是**形状不对 + 第三张同类卡就会漏**。
+- **#21**：`ASH70` 原版「目标已带 Vanguard ⇒ 整条 ability 不触发」，我们**总是给**（会叠）；根因 `FireTriggerAt`（`RuleCore.cs:12745-12750`）**根本不传 `abilityTrigger`/`abilityTarget`**。
+- **P06 三条活路未排除**（⇒ ⛔ 不能写「永久不可解」），已派 `B99_P6` 做 E0（**只许静态解析字节，⛔ 不许 `BinaryFormatter.Deserialize`** —— 那是可执行代码的外部数据）。
+- **UI.Extensions**：原版**真的只用 8 个类**（按 `m_Script.m_PathID` 归组，⛔ 不按类名 grep）；余 **122/130 = 0 实例 0 引用** ⇒ 铁律 11 例外①，可整体 D。唯一真缺口 = `CurvedLayout`（全仓 0 命中）。另纠正两处注释「`UI_InfiniteScroll` 源码本地没有」—— **本地有**。
+- **派活建议**：G1+G2（`EffectResolver` + `RuleCore`）**必须同一人**（共用同一条 `&&` 链）⇒ 现被 `B99_E8` 占着，**排队**；G3（`CountEval`+`TargetCriteriaEval`）已派 `B99_T2`。
+
+### 27·22 开波（2026-10-30 凌晨续）
+- `B99_W6`：落 `CardDatabase` + `DeckLibrary` 两段补丁。
+- `B99_P6`：旧 profile **静态解析**判 P06（三档结论）。
+- `B99_T2`：`TargetsAffected` 档位补齐（`CountEval` ta 20/30/90/52 + `ApplyMaxTargets` 两处 + 140/40/70 口径写死；⛔ 不做建池那批）。
+
+### 27·23 `B99_G3` 交回（`Rank Icon Glow` 恒灭 = 接线问题）
+
+- **真因**：`Build()` 第 4 段以前只有一句 `NoteNoArt`，`_rankIconSprite` **没有任何生产写点**（只有自检注入）⇒ `ApplyParticleAndGlow` 的 `visible = sprite != null` 恒假。**曲线一行没动**。
+- 已按原版链补齐：名次号 → `RankedDivisionInfo.RankArt`（6 条 `Roman_I..VI`）→ 换纹理 + α 0→1 → 喂 `RankIconSprite`；**只接线、不给演示名次号**（拿不到 ⇒ 不画 + 原话出声）。
+- 判据：`RankedEventDivisionChangeWindowNewSystem__Open.c:172→:178→:183→:186→:197`。
+- 改动：`RankedDivisionChangeWindow.cs` `:296` **1 行换 1 行** + 文件头 doc 2 行 + 类尾 **+89**；前 1601 行里只有 3 行不同；九条账落点**逐行 identical**。
+- 🔴 **`FeedRankIcon` 的「没图」支必须清回 `RankIconSprite = null` + quad 复位**（= 原版 `sprite = null` + `SetActive(false)`），否则 `Show()` 复用同一实例会把上一张名次图的辉光留着。
+- 断言已接线：`Editor/ShellScene.cs` 合计行**第一个 `//` 之前**（`Debug.Log(合计)` 之前）追加 `B99G3Assert.Run(_sink);`（11,109 行不变）。
+- **顺手订正**：① 施工判据 §3·1 的「`GetRankData` 查不到退 `Last()`」**不成立**（`Last()` 只属于 `GetDivisionData`），已按机器码实现；② `RankedDivisionInfo.cs:147/:140` 两句注释过期；③ `RankedSeasonEndedWindow.cs:200` 是**同类死代码**（那扇窗无 `RankIconSprite`/辉光/粒子）⇒ 立账，待定要不要一并接；④ `Editor/MainMenuScene.cs:17038` 断言文案过期。
+
+### 27·24 `B99_G2` 交回（`CampaignData` 领奖状态机 → 原版）
+
+- 四处偏离全部改完；**非可重复的 46 格行为一个字未变**，变的是可重复终点 `UM47` 与「完成」判据：
+  `StateOf` → `_prem → (Repeatable ? 40 : 30)` · 删逐档拒绝 · 领高级档**只写 `_prem`** · 「完成」= `_base[Nodes.Length-1]` · 新增 `_sessionUnlocked`（原版 `Collect` 末段把相邻 `locked` 置 10 那一拍）。
+  原版怪癖①（先领高级 ⇒ 基础档永远领不到）②（只领高级的后继重开窗退回 locked）**照抄**并写死「⛔ 别修」。
+- 🔴 **它对施工判据 §2·3 F 行做了一处有意偏离，而且是对的**：F 行建议 `BaseClaimed = _base || _prem`，该等式**只在非可重复节点成立**；机器码（`CampaignWindowTab__OnNodeClicked.c:36-60`）是 `BaseCollected = State∈{20,30}`，可重复节点领过后 `State=40` ⇒ `BaseCollected=false`，**正是靠这一点**奖励窗才重新亮出可领钮。照 F 行写 ⇒ `CampaignRewardWindow.cs:858` 的 `clickable` **恒假** ⇒ UI 再也点不了、「无限重复领」等于白做。⇒ 按 `.c` 落地。
+- 改动：`CampaignData.cs` **681 → 705 行**（`:197/:209/:220/:223/:289` 同一物理行；`Claim` 16→16；类尾 +23）；被账引用的 11 个行号**逐格相同**；`check_ledger_points` 对 `战役.tsv` **零漂移零失败**。
+  ⚠️ **它实测：`AllNodesClaimed` 的 doc 压掉 1 行 ⇒ 立刻 6 条漂移 + `RewardsOf` 变歧义** —— 账对「类中部增删 1 行」极敏感。
+- 断言已接线：`RuleEngineTest.cs:1294` 同一行追加 `B99G2_Assert.Run(); _pass += …; _fail += …;`（39,624 行不变）。
+- **顺手发现（已立账）**：① `CampaignTab.cs:1311` 的「领高级档会顺带置基础档」**已过期**；② **`ClaimedCount` 语义变了**（现在只数基础档 = 原版 basicList 口径）⇒ `MenuTutorialFlow.cs:583` / `MenuTutorialManager.cs:305` 的「领到第一格」判据要教程线确认；③ `RewardsScene.cs` 战役那几条走基本档路径、推演不变，但**没跑 Unity**，同步点复跑确认。
+
+### 27·25 账闸现状（**在飞改动导致，⛔ 暂不 `--fix`**）
+`A 5715 · 通过 5502 · 漂移 204 · 失败 9`。分布：`卡牌面_渲染` 漂移 57 / **失败 7**（`G1` CardView）· `战斗界面_HUD` 漂移 71 · `战斗逻辑驱动` 漂移 24 / **失败 2**（`E8`/`E3`/`E6`）。
+⇒ **等所有 `.cs` 写手停手后**：先 `--all-A --fix` 收漂移，再逐条看那 9 条失败（失败 = 重定位也找不到，要人改）。
+
+### 27·26 `B99_G1` 交回（`FitToBox` 照原版 TMP autosize）—— **本会话唯一会改变画面的改动**
+
+**改动**：`Core/CardView.cs` 净 **+187 行**（231 加 44 删）
+- `FitToBox`（`:5899`）整条重写成原版算法：括号式二分 · `lo/hi` = 该层 `[m_fontSizeMin, m_fontSizeMax]`÷10 · **起点 `clamp(base,min,max)` = min** · **上界 = 该层 max（⇒ 能放大）** · 结果落 **0.005** 网格 · 收口 `hi−lo ≤ 0.0051` · 上限 100 次 · 撞 min 就停 min。加了一条与算法等价的「先量上界」快路 ⇒ 装得下的层仍是 1 次量测（不制造性能退步）。
+- 逐层档位表（`:5533-5571`，按 `B99_R4a` §1·2 的 15 个原版 TMP 实例 ÷10）：单位卡名 1/19 · **战术卡名 1/24** · 单位正文 1/24 · 战术正文 1/19 · 阵营 1/15 · 兵种 **3**/18 · 4 个 Big 档。
+- `FaceDescBand01` 加 `showsArmy` 一维（不印阵营行那侧不再让位）；**旧 4 参重载保留并转发 `showsArmy: true`** ⇒ 两个既有断言宿主零改动即可编过。
+- 顺手给 `FitToWidth` / `ClampToInk` 打 `🔶 自己设计（非原版）`（铁律 18·b，就地改写注释行零行数变化）。
+
+**关键数字**
+- 单位卡效果文字：`Roboute Guilliman` **1.411 → 1.410/1.415**（Δ ≤ 0.005 = 0.05 pt，与判据 §1·3 预判逐位一致）。
+- **战术卡卡名：1.900 → 2.155~2.400（至少 +13%）** ← 本件最明显的可见修复。
+- **手牌/场上战术卡（态 3）效果文字：可用高 `0.424 → 0.7898` 卡单位（= 原版矩形），3 行中文 1.49 → 1.90（+27%）**。
+- ⚠️ **视觉会变的是「手牌/场上不印阵营行那两档的战术/防御卡」**，其余逐位不变（单位卡受数值门约束、未变）。**这条要进真机验收的风险清单。**
+
+**账落点**：231 处全部漂移，但只有 **4 档**（`1661..4876` +37 · `5118..5215` +56 · `5313..5401` +62 · `6205..15275` +187），**没有一条落在被重写的块内部**（`5402..6204` 一条账都没有）⇒ `--all-A --fix` 按符号名一次全绿，不需人工重判。
+**断言已接线**：`Editor/CardBaseDemo.cs:326` 同一物理行追加 `{ B99G1_Assert.Run(); }`（6,301 行不变）。
+
+**顺手订正判据文件两处（它没权限改）**
+1. `B99_R4a` §1·1 第 6 条行号错：「只看纵向溢出」写在 `TextMeshPro.cs:3295`，**那是 3D 版「缩」那一支的闸**；真正的判据在 **`TextMeshPro.cs:3044`**。
+2. `§1·5` 的行为变化**范围要收窄**：实际只有「战术/防御卡 · 文字态 3（不印兵种行）」会变大 —— 态 4 的 `descH` 被 `TacticDescSmallH`(0.6264) 覆盖（`CardView.cs:5034-5039`），`FaceDescBand01` 在态 4 根本不参与。
+
+**没查清**：`CreatedByText` 那层的 `[min,max]` 没查到（band 0/0，仍只缩不放）· `ArmyTextUnit`/`RaceText` 档位未接上（我们那两层不传 `maxHeight`，原版也不折行 ⇒ 今天零差异）· 行盒口径没逐字对齐（原版 `textHeight` vs 我们 `textBounds.size.y`）⇒ 复算用区间表述。
+
+### 27·27 `B99_E8` 交回（账 870 真缺口 `ca == 390` 三处全落）
+
+- **(a)** `RuleCore.cs:17322` 同物理行加 `|| ca == 390`；**(b)** `EffectResolver.cs:18532` 同物理行加 `if (ca == 390) return RunTriggerRequiemRow(...)`（执行器新建 `RuleCorePartial_B99E8.cs:53`）；**(c)** `FireObserverRequiemOnDeath`（`RuleCorePartial_B99E8.cs:132`）由 `RuleCore.cs:10122` 的 `CleanupDeaths` `leftPlay` 支**行内接线**。
+- 🔴 **`B99_E1` 没查清的那格查清了**：`uStack_210` = `BattleAction.actingCard(+0x08)` = **凶手/死亡来源**。双证：① `ResolveDeadCard.c:236` 的 `TriggerOnMinionDeath(param_1, uStack_210, local_308, …)` 对上 `dump.cs:23526` 签名 `OnMinionDeath(manager, thisCard, actingCard, deadCard, …)`；② 同函数 `:248` 的 Slay 闸 `op_Equality(uStack_210, param_1)`（凶手==观察者才响）只有「=凶手」自洽。
+- 邻接换算：`CleanupDeaths` 调它**前**已 `BoardSlots.RemoveAt`（连续无洞）⇒ 死者原邻里在摘除后落在 `{slot, slot+warlordDir}`。
+- 顺带正确性修正：`ResolveTriggerRequiem` 内部 430 由 `FireTriggerAlways` → `FireTriggerAt`（原版这一支无 `DisplayTriggerAnim`，无正文不该凭空发 `EvtKind.Trigger`）。
+- **指纹预期不变**（池内 `chosenAbility 390` / `abilityTriggers 430/435` / 卡面 `requiem` **各 0**）。
+- 断言已接线：`RuleEngineTest.cs:1294` 同一行（39,624 不变）。
+- **新账（已立）**：🔴 **`Requiem` 不在 `CardDef.RoutableTriggers`**（`CardDef.cs:1547-1607`）⇒ 将来卡面写 `Requiem:<正文>` 会被 `IsRoutableTrigger` **拒收**、`TriggerOps("requiem")` 恒 null ⇒ 430 永远只发事件不结算正文。要让 430 真能结算，得先加进 RoutableTriggers（解析/数据层，另一笔）。
+
+### 27·28 `B99_W5` 交回 —— **推翻了 `W1` 的「第二次起才播」**
+
+**判定链（逐跳可复核）**：`WindowsManager` 是 `Intro.unity` 里的常驻单例；`temporaryWindowDictionary[0]` 指向 **addressable** 的 `Deck Editing Menu`（`m_AssetGUID` 是 `bundle_menus_assets_all/AssetBundle_1.json` 的 `m_Container` 键）；`OpenWindow(ComponentReference)` = `Load()`+`Instantiate`+`automaticallyLoadedWindows.Add`；`CloseWindowCO.c:36-47` 命中 ⇒ **`Object.Destroy` + `Release` + `Remove`**（只有 `CurrentBaseMenu` 那支才仅 `Hide`）。
+⇒ 关一次即销毁 ⇒ `WildcardDisplay.currentArmy(+0x50)` **不跨开窗保留** ⇒ **开窗那一拍闸恒关 = 永远不播**。
+- 施工：`WildcardDisplayEnable()` 里 `if (hadArmy)` 那支**删掉**、字段 `_wcArmyInitialized` 删除。
+- **`Build()` 重置 `_tab`**：`DeckRuntime.cs:1397` 同物理行前置 `_tab = 0;`（必须先于 `RefreshAll()`）。既有断言已查、零影响。
+- 行数守恒：`DeckRuntime.cs` **2 处 1↔1 / 31↔31**，与本件无关（与 `W1` 的 +44 一致）。
+- **调度台已做**：① 删掉 `B99W1_Assert.cs` 的 **A2 / A4**（已被推翻，接了必红；154 → 145 行）；② 接线 `B99W5_Assert` 到 `DeckScene.cs:825` 同一物理行（10,337 行不变）。
+- **合并顺序**：先 `--only B99_W1` 再 `--only B99_W5`（同键 `收藏/WildcardDisplay/OnEnable()`，W5 是订正版，必须后并）。
+- **新账**：🔴 **我们复用窗对象、原版每次新实例** ⇒ 除 `_tab` 外，`_deckScroll`/`_poolScroll`/`_fltScroll`/`_filtersOpen`/`_cosmoFltOpen` 在原版每次开窗都回出厂值，我们**跨开窗保留**。建议 `Build()` 开头一并归位（或每次 `Open()` 重建）—— 会牵动 `DeckScene` 那批用例，另排。
+
+### 27·29 `B99_W6` 交回（两段跨文件补丁已落）+ 两条要裁的
+
+- `CardDatabase.cs` **4804 → 4879**（+75 全在文件末）：`:1749` **同物理行**追加 `def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c));`（脚本核过该行第一个 `//` 在字符 568，调用写在 **568 之前** = 真执行）；DTO/映射照文件里 `AbilityMutationRowDto` 的实际形状（平铺 class），缺列返 `null` = 未知。
+- `DeckLibrary.cs` **591 → 591**（净 0）：`existed` OR 上中央档、读走 `ReadThroughLegacy`+`Parse`、写走 `Serialize`+`SaveThroughLegacy`；`SaveAll` 一字未动。
+- 账引用 20 处逐行比内容：只有 `CardDatabase.cs:1749` 内容变（同行未挪），其余逐字节相同。
+- 🔴 **它报的两条（已派 `B99_W7`）**：① **反向依赖** —— `RuleEngine/` 现在引用 `CardPresentation.*`，与 `AchievementTally.cs:281` 的成文约束冲突；② **`existed` 潜在假阳性** —— `SaveCenter.Exists` 不看 `StoreOn`，而 `ReadThroughLegacy` 在 `StoreOn==false` 时不看中央档 ⇒ 玩家真有中央档后，批处理自检里 `existed` 恒 true ⇒ `ClassifyLoad` 判 **Failed**（应为 NoSaveFile），会打红 `RuleEngineTest.cs:31841-31844` 与 `DeckScene.cs:8442`。
+- **它顺带纠了一个坑**：`CardPresentation.Shell.SaveCenter` 的命名空间其实是 **`CardPresentation`**（目录叫 `Shell/`、命名空间不带 `Shell`）⇒ 照文档照抄必 `CS0234`。
+
+### 27·30 `B99_R6` 交回（115 行判据可信度复核）—— **没有一条结论是错的**
+**115 行 = 109「仍可信」· 6「需换源」· 0「体本就是空」· 0「归属错/ICF 折叠」**；战斗 58 行 = 52 可信 / 6 需换源，6 条**全在 `AI` 打分族**。
+🔴 **它给了一条重要的判法订正（对 `T1` 的闸）**：「`.c` 首行 void」**不等于「值丢了」** —— Ghidra 把返回值渲染成两种**等价**形态且值都在：**A 尾调用转发**（`Foo(...); return;`，占 95%+）· **B 出参/写内存**。
+**真丢的判别式**：死代码消除只删「只服务返回值的纯算术/浮点常量」，**调用与控制流留下** ⇒ 「`.c` 里还剩调用与控制流、却一点不剩算出来的数，而 ILSpy 的 `return` 是个累加/乘出来的局部变量」= **需换源**。
+⇒ **`T1` 的 `降级_void = 1770` 这个数偏大**（它只按首行类型判）；真实「需换源」面要按 R6 的判别式重扫。另：`T1` 的 `体标志` 列与真丢值**零重叠**（33 文件全是纯尾调转发）⇒ **建议作废该列**；`降级_未定指针` 里至少 `ParseEnemyAction` 是误报（指针 vs 引用类型本来就一致）。
+**补丁**：`账/_parts/B99_R6.tsv` 3 行（`战斗逻辑驱动` 的 16 / 18 / 41 补 ILSpy 出处）；另 3 条（11 / 20 / 25）**账早已换源到 RVA**，且其中 `ScoreFromCriteria` 的 **ILSpy 也是坏的**（12 Notes + `Jump target not found`）⇒ **RVA 才是真判据，别换回 ILSpy**。
+
+### 27·31 `B99_R3a` 交回（战斗 18 + 引擎 8 = 26 条按文件施工单）—— **归因结论：只有 14 条真缺口**
+
+**这是「旧任务是不是自己设计」这个问题目前最有力的一次实证**：
+
+| 归因 | 条数 | 名单 |
+|---|---:|---|
+| **真缺口** | **14** | T21 · T09-新账 · RE1 · AN1 · AUD8-先锋豁免 · AUD6-六道闸 · AUD6-抬手 · AUD8-Any并集 · AUD8-拖空出声 · AUD8-让位预览 · 多目标播放 · `#4` · `#9` · `#34` |
+| **原版没有（旧任务自设计）** | **6** | U3·T1 · AUD6-Spell=3 · **AUD8-落位点目标** · AUD8-Phrase词条 · `#6` · `#31` |
+| 判据过期 | 0 主档 · 1 子项 | AN1·R12 |
+| **已实现** | **6** | W63·余2 · W64·兜底审计 · GetCardEffectsToShow · `#10` · `#22` · `#26` |
+
+且 **14 条真缺口里 9 条现池可达性 = 0**（改完画面逐字节不变）⇒ **真正会动画面的只有 4 条**：T21 · AUD6·抬手 · AUD8·拖空出声 · AUD8·让位预览。
+⇒ **「48 条」的重头落到战斗+引擎只剩 14 条真缺口、其中 4 条可见**。⛔ **别按旧任务数排活。**
+
+**反向清单 7 条（我们做了、原版没有 ⇒ 按 §18·0 改回原版）**
+1. **拖空对所有卡都 `SetHint`**（`BattleDriver.cs:13277`）—— 原版 `NotifyCantDoAction` 只在 4 处（`BattleManager.cs:26054/26677/26685/26693`），`case 3`/`case 5` 松手支 **0 处** ⇒ 收窄到 `Targeted==1 && !IsUnit`。
+2. **「三项全无」拖起喊 `THIS UNIT CANNOT ACT`**（`:15241`/`:15264`）—— 原版 `TryDraggingFromBoard.c:35-38` **裸 return 静默** ⇒ 删 2 处。
+3. `Battle/Phrase/*` 整族 12 条自造词条（官方 `Battle/*` 156 条里 **0 条 `Phrase/*`**）⇒ 其余 11 条逐条回源核。
+4. `UnitState.DutyUsed` 自造布尔（原版等价物 = `+0x4C usedActiveAbility`）。
+5. `NeedChooseDeployTarget`/`deployTargetSlot` 原是**不存在的机制**，⛔ 别新建。
+6. ⛔ 别为「逐字照抄」补第二个效果过滤入口（原版那份是 0 调用者的重复实现）。
+7. ⛔ 别给「召唤」补 `BroadcastCardCreated`（召唤走 `BroadcastUnitSummoned`）。
+
+**按文件分组**：A `BattleDriver.cs` **11**（组内串行）· B `RuleCore.cs` **5** · C `EffectResolver*`+`EffectsToShow`+`BattleEvent`+新建 `CardPoolCriteriaFilter.cs` **4** · D `card_anim_order.json`+生成器 **2**（纯数据/工具，**不占 `.cs` 写手**）· E `AttackSelector/Badges/Loc/EffectText` **7** · F `CardInteraction.cs` **1**（与 A 耦合，排 A 之后）· G `ReplayStore.cs` **1**（原版没有 ⇒ 不做）。
+🔴 **冲突热点**：`Editor/BattleScene.cs` 会被 A/B/C 同时追加断言 ⇒ **统一由调度台接线**（各组只交断言新文件 + 接线指令）。
+
+**点名要随改随订正的过期注释**：`CardDisplayWindow.cs:409-413` / `MultiCardDisplay.cs:135-136`（说「放大窗也不出 tooltip」，实际不缺）· `EffectResolverPartial_B97W2.cs:96`（说 `FireTriggerAt` 缺 `opsOverride`，实际 `RuleCore.cs:12557` 已有）。
+**新账**：`MultiCardDisplay` 还欠 `closeOnESC=1`（`MB_4182` 现读=1；窗开着按 ESC 确实不关）。
+**顺带**：`decomp_full` 的「文件名≠内容」本批又抓 3 例；**ILSpy 丢实参新变体** —— 账 `战斗逻辑驱动.tsv:203` 说「`createdCard` 实参没被用」是错的，机器码是 **7 实参**、created 送进 `actingCard`。
+
+**调度台动作**：已按分组开 **`B99_A1`（组 A 11 条）· `B99_A2`（组 D 生成器+数据）· `B99_A3`（组 E 7 条）**；组 B/C 排队（`RuleCore`/`EffectResolver` 仍归 `B99_E9`）；组 F 排 A 之后。
+
+### 27·32 `B99_P6` 结案：P06「旧机器 id / 静态盐」= **真不可解，但不阻塞复刻**
+
+- **静态解析（纯字节流，未调任何反序列化 API）自校验通过**：**恰好消耗 1211/1211 字节** + `lastBuildSaved == "1.35.0"` 双重反证。
+- **关键三格**：`loginPassword` = **空串**（BF `MemberReference` 指向 loginName 那个空串，**不是密文**）· `deviceId` = **64 字符 base64（48 字节 AES-CBC 密文）** · `dataVersion` = **39**（≠0）。
+- **三档判定**：`无阻塞`? 否（deviceId 非空）· `可解（dataVersion==0 常量盐）`? 否（=39）· **E1 常量盐实测判死**（PBKDF2 → AES → **非法 PKCS7 填充 pad=0x42 + 非可打印**）· **E2 旧 DUID 拿不到**（本机 MachineGuid 24 种变形全不命中；`Windows.old/System32/config` 不存在；`Windows.old/Users` 只有 `qjh` 无 `shen0`；`d:/2` 全盘 0 命中；`Player.log` 18.6 MB 关键字 0 命中）⇒ **`真不可解`**，R4b 留的三条活路**全部关闭**。
+- 🔴 **但不阻塞复刻**：密文背后**只是一台已消失机器的硬件哈希**，`loginName`/`loginPassword`/`playFabId` **全是空串**；我们的复刻本来就会自生成 `deviceId`（`Shell/RandomSeedProvider.cs:206`）。
+- **对账的影响（B98 要改的）**：
+  - `B98_L5:93` → **方向保留、理由换**：静态盐**不是一半而是整条被实测排除**；`B98_R1x:36` 的「2×2 组合 / 先试 DUID 空或长度<5」**作废**。
+  - **P07**：结论不变（PlayFab 关服 ⇒ 永久不可解），但**新增两条非 TitleData 旁证源**：`RemoteConfigCache.json`（`EnableTroopVOs`/`EnableWarlordVOs` + assignmentId/environmentId）与 `eventcache`（`UGSEventCache` 6,058 B 事件 GUID 串）⇒ 转活动线/远端线挖。
+  - **P09**：`B98_L5:96`「永久不可解」与 `B98_R1x:17`（`MissionsTab__CreateMissions.c` 全文 0 次 `LoadComponent`、三 holder 全是本地 PPtr）**自相矛盾** ⇒ **以 `B98_R1x:17` 为准，本地结案**，删旧口径。
+
+### 27·33 `B99_W7` 交回（解反向依赖 + `existed` 修正）
+
+| 项 | 结果 |
+|---|---|
+| ① 反向依赖 | **已解** —— `RuleEngine/` 里**再无 `CardPresentation.*` 的代码引用**（只剩 `AchievementTally.cs:281` 那句禁令本身与路径注释） |
+| ② `existed` 假阳性 | **已修** —— 中央档那一路**只在读钩子也在时才问**，且**由注册方按 `StoreOn` 收口** |
+| 钩子全空时 | = **`W6` 之前**那三条语句**本身**（`File.Exists` / `DeckStore.LoadAll` / `DeckStore.SaveAll`，同一个方法调用） |
+
+- **做法**：`DeckLibrary` 类尾加三个注入点（`ReadLegacyText` / `SaveLegacyText`（自定义 delegate 带 `out`）/ `CentralSaveExists`）+ 两个类尾一跳函数；本类**不认识** `SaveCenter`/`SaveKeys`/`StoreOn`。
+- **注册点** = `Deck/DeckRuntime.cs` 文件尾新 `partial` 段 + `[RuntimeInitializeOnLoadMethod(BeforeSceneLoad)]`。**它没用 `Awake()`**，三条理由都对：① `Awake()` 只在卡组编辑窗存在时才跑，而 `DeckLibrary.Load()` 还有 `BattleDriver.PickSavedDeck` 等**开窗之前**的调用方 ⇒ 挂 Awake 会让那些路退回纯文件路、双写白做；② **批处理自检是 edit mode**（不进 play）⇒ 钩子不触发 ⇒ 自检零变化；③ 真跑起来才注册。
+- `existed` 选「**钩子自己按 `StoreOn` 收口**」：把 `StoreOn` 判进 `DeckLibrary` 等于让 `RuleEngine` 认识「允不允许写盘」，那是 `CardPresentation` 的门 ⇒ **换个方向的反向依赖**。
+- 行数：`DeckLibrary` 593 → 651（类尾 +60，中段 4↔4 / 1↔1 / 1↔1）· `DeckRuntime` **文件尾纯追加 37**（旧 1..9645 一字节没动）；7 处账落点逐个现读命中。
+- **与 W6 的唯一行为差异（如实报）**：旧档存在但读它抛异常时，W6 吞异常 ⇒ `NoSaveFile` 的细分码，W7 ⇒ `ReadFailed`；两者 `ClassifyLoad` **都是 `Failed`**，W7 更准，**未对齐**（要对齐就得再抄一遍吞异常逻辑，而 `DeckStore.LoadAll` 才是正本）。
+- **没做**：未跑 `check_ledger_points`（在飞改动会混入，留同步点）· 未跑 Unity ⇒ 「player 里双写真生效」**只有静态论证**，验收法已写进报告（起 Shell 改一次卡组，看两份都更新且 `DiffWithLegacy` 返回 `""`）。
+
+### 27·34 `B99_A5` 交回（工具/台账债小批）
+
+- **`r0_report.py` 搬回 `工具/`**（410 行，判定口径**一个字没动**）；**默认零动作**（不带参 = 打印用法 + rc 0），真动作要 `--scan`；新增 `--in/--out`。
+  - 🔴 **`cap_bytes` 的真相**：40 MB 这个默认值**没有任何调用点用到**（6 处调用全显式传值）；真正挡住 91 MB `R0_资源覆盖账.tsv` 的是 **`资料` 那一处的 20 MB** ⇒ 旧文档「账缩到 40 MB 以下会归零」**不成立**，真阈值是 **20 MB**（这就是 20/40 两种写法打架的根因）。处置 = 三档提成 `CAP_CODE/CAP_DATA/CAP_DOC`（**逐字同值**）+ 写清哪道才是那道闸；**动 20 MB 属口径变更，留调度台裁**。
+  - 🔴 **`meta` NameError 是真雷已修**：旧 `:127` 的 `meta` **本文件从未定义**，且**没有任何 except 兜住**（旧记录「被上层 except 静默吞」不准 —— 它就直接抛）。修法 = 从 `r0_files.json` 载入 + 缺键/空表都不炸 + 取不到 CAB 名的对象**计数并点名打印**（原来直接崩）。
+  - 未跑整轮 `--scan`（约 10 分钟、会**重写 91 MB** 的 `R0_资源覆盖账.tsv`）⇒ **建议静止点跑一次做端到端验收**。
+- **两个生成器补 `--check`**：`gen_cardbacks.py` / `gen_offensive_cards_flat.py` 都 **SAME / rc=0** ⇒ **这两份产物不过期**，⛔ 别再去 `--write`。
+- **`tutorial_decks.json` 确实过期（未重生成）**：只有 **stage 3 两副**不同 —— SO 各 **30** 张、重算 **30/30 `complete=true` `missing=[]`**，盘上 **28/28 `complete=false`**；根因 = 那个 GUID 的名字 `"Gauss Warrior (tutorial)"` 被 `norm()` **剥掉括号** ⇒ 归一成池里 `SAU4`。另顶层 `format` 盘上 1 / 生成器 2（仅版本号滞后）。**没重生成**的理由：会改玩家可见教程牌、`G13:106` 明写这条「判不准」、且**同一生成器一次写两份产物**（想只重生成教程那份做不到）。
+- **排队项里 4 条已过期（只列未改）**：
+  1. 🔴 **「攻击预览没有星镖豁免闸」两半都不成立** —— `BattleDriver.cs:34493` 已调 `CounterAttack.EnemyReturnsAttack(...)`、`:34423` 自述已接、`BattleScene.cs:9900` 已有断言 ⇒ **账 L1025 该从 B 复核**。
+  2. **`637 BroadcastRemoveFromGame`** 的三条路**三处都已接**（steal `EffectResolver.cs:9436` · exchange `:17146` · 残骸翻面 `RuleCore.cs:9871`），只剩 `transformUnit` 未实现（账 548）。
+  3. **关键词 290 已有发射点**（`RuleCore.cs:16157` 生产调用、`:16820` 定义）⇒ 改成「已建、休眠（池内 0 张）」。
+  4. **`CardView.UpdateFigures()` 现读在 `CardView.cs:15241`**（`:1782` 现在是 `{`）。
+  - **仍成立、别误销**：`486 ScheduleAttackPresentation 恒 lane 0`（`Priority =` 全仓 0 命中）。
+- **留给调度台**：`gen_unused_md.py` 没搬（`R0_未使用清单.md` 是它生成的，只搬 `r0_report.py` 还不够）· `r0_*` 的输入与 `r0_enumerate/r0_refs` **仍在 `_tmp_view`** ⇒ 一清就跑不了 · 文档路径指针 4 处要改。
+
+### 27·35 `B99_A2` 交回（动画时长数据 + 生成器）—— **它纠了施工单一条口径**
+
+- 🔴 **施工单写「`工具/gen_card_anim_order.py` 不存在、须新建」—— 错**：该文件**一直在库**（2026-10-24），是「全量件 → 运行期瘦身版」的**瘦身投影器**；真正没入库的是**全量件的上游生成器**（`A6` 当年用仓外一次性脚本 `d:/tmp/a6/build.py` 建的）。⇒ 它**没有新建第二个同名文件**（会覆盖在用的），而是把全量生成**并入同一文件**：原瘦身逻辑逐字未改，新增 `build_full()`；CLI 改为**不带参 = 只打印用法并退出**。
+  ⚠️ 旧文档「跑 `python 工具/gen_card_anim_order.py`（不带参）重建瘦身版」**现在只会打印用法** ⇒ 重建瘦身版要用 `--write-slim`。
+- **交付**：全量件 **897 → 928 卡**（1,148 能力行 / 1,527 步级 / **551 件唯一 CardAnim，551/551 解析成功，unresolved=0**）；增量 **31 卡 / 59 拍**；**全池 1,129 张 → 93 张能取到主动能力动画时长**（施工单预期 62→~93，命中）。取不到的 1,036 张逐张复核：「当前 build 其实有主动动画却被漏」= **0**。
+- **幂等**：`--write` 两次 sha1 相同；`--check` = True。
+- **调度台已补做最后一步**：`--write-slim`（瘦身件不在它白名单）⇒ `Assets/CardPresentation/Resources/card_anim_order.json` **62 卡/99 拍 → 93 卡/158 拍**（+1138/−9，LF 3,127 行、无 CRLF）；`--check-slim` 复跑 **幂等 = True**。
+- **待办（它如实留的）**：① `SOR13` 基数冲突（2022 基底 1 组 vs 当前 build 2 组重复）⇒ 可能少播两拍，**未查清待裁**；② `CardDef.AnimTimes`（`cards_engine.json`）**不由本表生成**（走 `gen_cards_engine.py` + `guid_map_bundles.tsv`）⇒ 施工单说「这 31 卡 AnimTimes 非空」**不会自动成立**，要另派；③ 5 张卡还有 `cardAbilities` 动画未落（运行期不消费，与基底口径一致）。
+
+### 27·36 `B99_T2` 交回（`TargetsAffected` 档位补齐）
+
+四条全做（⑤ 按要求不做）：`CountSet` 补 **ta 20/30/90**（`CountEval.cs:1290`）· `ApplyMaxTargets` 两处修（`:959` method1 加 `isRemnant` 主键 / `:978` method4 = **随机支**）· 补 **ta 52**（手牌 ∪ 场上，`:1345-1358`）· 140/40/70 口径写死（只改注释）。
+- 判据：`GetTargets.c:184-191`（20：池=`[thisCard]` ⇒ 不筛不裁，个数恒 1）· `:192-206`（30：池=`[targetCard]`，**null ⇒ 空池**）· `:747-759` + `:1086-1095`（90：池=`[targetCard]` 后**仍落常规筛**）· `:920-948`（52：手牌覆盖 + 场上追加）。
+- 行数：`CountEval.cs` **1262 → 1400**，旧 ≤1260 区间**零漂移**（新增 138 行全在旧末行之后）；A 档 11 个落点逐行内容与改前一致。`TargetCriteriaEval.cs` 1211→1211（只改 6 条注释）。
+- **`play check` 预期 0 张卡变**（三条实测：`unitConditions[].countSet` 的 ta 在 20/30/90/52 **各 0 行**；`maxTargets>0` 在 countSet/multiplierSet **各 0 条**；无调用点传 `target`）。
+- 断言已接线：`RuleEngineTest.cs:1294` 同一行（39,624 不变）。
+
+**🔴 两条订正 / 新账**
+1. **`R4b` ① 的归因不对**：它写「触发闸 23 行落 `CountSet`」—— 数字 23 对得上（`abilityLevelCriteria` 的 ta = 20:8 · 30:8 · 90:7），但**那一列是 `targetCriteria`**，走 `TargetCriteriaEval.Matches`，**不进 `CountSet`**。⇒ 本件其实是「判据闭合的机械补齐、今天零可观测」。
+2. **`ta = 220 targetCountTraits` 是真缺口**：`R4b` 把它与 30 写成同一支，但 `CountSet` **至今没有 220 分支**；池内 `multiplier` 有 **2 行** ta=220 ⇒ **单独立账**。
+3. **同义复制**：`CountSet` ① 支与新 `CountUnitsOnBoardForCount` 是同一套判据的两份（10 行），因 `CountEval.cs:495` 是 A 档落点、不能在 ① 里增删行 ⇒ 两处都写了「改一处必须同时改另一处」，待落点重钉后合并。
+4. ⚠️ **`ta=30/90` 的计数要 `targetCard`**，而 `ActionPump.BoardLevelCriteriaAllows`（`:1606`）**签名不吃 candidate** ⇒ 要接线得先加形参（与 `R4b §2·5` 的 `RuleCore.FireTriggerAt` 补 `abilityTarget` 是同一条链）。
+
+### 27·37 `B99_E9` 交回（`#19` 降费闸 + `#21` ability criteria）—— **实测指纹零变化**
+
+- **#19**：`BroadcastCostWhen` 现在过 ability 级闸（`false ⇒ continue`，**连 `EmitListenerTrigger` 都不发**），调点补传 `subject`/`actingCard`。`EffectResolver.cs` **20454 → 20530**（类尾 +76，既有落点零漂移）。
+  - ⚠️ **一处有意偏离判据**：闸放在 `FireCostWhen(...)` **之后**（判据说「之前」）—— 两者都无副作用，而 `FireCostWhen == null` = 这张卡**根本不在听这个事件** ⇒ 原版只对 trigger 命中的 ability 调闸；放前面会让每条广播 × 5 张降费卡各刷一行「判不了」。**载重的那条约束（闸在 `:10677 EmitListenerTrigger` 之前）一字未动。**
+- **#21①**：`RuleCore.cs:12750` 补 `abilityTrigger: _kwTriggerName` + `abilityTarget: chosen`（+ 🔶 `abilityHostCard: _carrierCard`，附魔那一路必需；`only == null` 时行为逐字不变）；⛔ 没补 `abilityActingGate`。`RuleCore.cs` **17694 → 17694**。
+- **#21②**：窄闸③只在 `EffectResolver.ApplyAbilityFamilyGate` 一侧；`RuleCore.AbilityFamilyGateOpsForTrigger` **故意保持原样**（两侧都判 = 双重闸，警告各加一次）。
+- ✅ **`play check` 实跑 rc=0（`5ba2967a…` 不变）** ⇒ 本批在现池**行为零变化**（`E9` 预测的 22 行变化没有出现，如实记）。
+
+**🔴 判据订正（重要）**：`R4b` §2·2/§2·6 说「ASH70 目标已带 Vanguard ⇒ 整条 ability 不触发」——**机器码不支持**：ASH70 那份 criteria 是 **`ta=30 (target)`**，而 `FilterMethods__CheckIfMeetsCriteria.c:73-91`（`iVar17 == 0x1e`）**只做一次身份比较就 return**，常规格（含 `traitsFilter`/`excludeTrait`）**一格不判** ⇒ 那格是**死格**。
+⇒ 30 行里 `ta=30` 的 8 行（含 ASH70）**本批零可观测**；真正有效的是 **ta=10 的 15 行 + ta=90 的 7 行 = 22 行**（判据写「30 行」，据此订正）。
+**另立账**：① `actingCardCriteria(+0x28)` 在手牌监听 / `FireTriggerAt` 两路「哪一格」**没查清**（本批不启用）② `FireTriggerAt` 的 `emitSignal()` 排在 `EnqueueAbility` **之前** ⇒ 闸拒了但 `EvtKind.Trigger` 已发（与棋盘监听那条不一致，本批未动）③ `ta=30` 且 `targetCard==null`：原版 `return 0`、我们回 `null`（判不了⇒放行）—— 全仓同一条。
+
+### 27·38 `B99_A3` 交回（组 E 7 条）
+
+| # | 判定 |
+|---|---|
+| `AUD6·Spell=3` | 做了（**零行为**）：`AttackKind` 补 `Spell = 3`（逐值 = 原版 `dump.cs:24798-24807`）；`KindOf` **保持 `default: None`** |
+| `#6 sneakAttack` | **原版没有 ⇒ 白名单不改**（`Badges` 47/59 两表都无它、73 个 CardTrait SO 无它）；顺手补了**别名键** `Card_Trait/sneakattack`（值逐字照抄官方 `Card_Trait/sneak`） |
+| `#10 ferocity` / `#22 chooseone` / `#31 CanApply` / `W64 兜底审计` | **已实现 ⇒ 零改动**（`CanApply` 用反射扫全程序集钉住「不存在」） |
+| `#26 账盘点` | **114/114 命中 · 0 缺 · 0 错配**；补丁 `:770 HasCancelAttackEffect` **B→A** |
+
+- 行数：`AttackSelector.cs` 2046→2046（L93 doc + L99 `Ranged = 2, Spell = 3,`）· `Loc.cs` 3947→3947（同一物理行追加）。
+- 断言已接线：`BattleScene.cs` 同一行 `B99A3_Assert.Run();`（49,677 行不变）。
+- **调度台已补**：`UnitState.cs` 补 `public const int AttackTypeSpell = 3;`（**同一物理行追加**，4125 行不变）。
+- 🔴 **它自己踩了一个坑并自己修好**：在 bash 双引号里写含反引号 + 中文的 python ⇒ 把 `B99A3_Assert.cs` 整份写成乱码（汉字变「的」），已整份重写恢复（389 行 / 0 个 U+FFFD / typecheck 0 错）。**建议把 `CLAUDE.md` 那条坑扩成「含中文或反引号一律走 `Write` 工具或先写 .py 文件」。**
+- 文档订正：施工单指的 `RuleEngine/Parse/EffectText.cs` **不存在**，真身 = `RuleEngine/Core/EffectText.cs`。
+
+### 27·39 `B99_A4` 交回（反向项「去掉原版没有的 `--`」）—— **带出一个必须先收口的连锁风险**
+
+**三处全是静默**（判据 `TimerDisplay__UpdateTimer.c:19-21` 第一条 `if (*(char*)(param_1+0x78)=='\0') return;`，**在任何 `SetActive`/写 `text` 之前就返回**）：
+- ① `TimerDisplay.UpdateTimer()` 的 `!target.HasValue` ⇒ 删掉 `ShowLabel(true)` + `SetText(Compose(prefix,"--"))`，**不写字、不动 GameObject**
+- ② 静态口 `TextFor(…)` 的 `null` 支 ⇒ `Compose(prefix, "")`
+- ③ `RankedEventWindow` / ④ `EnergySinglePlayerOnlyEventWindow` ⇒ 类尾 `RankTimerDeadline`/`EnergyTimerDeadline` 做闸，**整棵 `Timer` 不建**（留开关，将来接上 liveop 截止时刻只改那两个静态字段）
+
+行数：`TimerDisplay.cs` 590→590 · `RankedEventWindow.cs` 486→499（+13 全在类尾）· `EnergySinglePlayerOnlyEventWindow.cs` 1729→1742（+13 全在类尾）；账引用逐行未动。
+
+**🔴 连锁风险（它如实报的，已派 `B99_A6` 收口）**：`--` 一去掉，有 **3 处会露出假倒计时**（建树串里的死数，原来被 `--` 盖住）——
+- `SkirmishEventWindow`（活动期）屏上会停在**「结束于：23d 5h」= 假数**
+- `OfferContainer.cs:1524` 默认条目建树串 `"5d 20h 15m"`
+- `BaseOfferPopup.cs:968`（用户看不见，只是文字从 `--` 变 `23h 34m`）
+⇒ **`--` 至少是「明确没有」，假数看着像真的** ⇒ 这三处必须同批收口。
+
+**另有 5 处宿主断言按旧口径写、会红**（`MainMenuScene` A/B/C/E + `ShellScene` D），补丁逐字在报告 §5·3；⚠️ D/E 是它**回源时新查出**的（简报只点名 A/B/C）。
+
+**新账 3 条**：上述三处假倒计时 · `MainMenuScene:11845` 的 `CheckAtWorld(tmr, 7.33, 630.67, 785.75, 846.65, …)` 四个数与同块写的 `248.44×55.90` 对不上（**疑似 x/y 传反**，一直是用错量纲的绿）· `账/日常_奖励.tsv:715` 的 `ApplyTimerVisibility :1148` 现读 `:1168`（又漂 20 行）。
+**仍印 `--` 的 6 处**（`ExpansionPass`×2 · `Gacha`×2 · `Raid:768` · `ParentEventWindow:1289` · `CampaignTab:1500` · `MissionsTab:1532`）印的是**它们自己建树串**、不是 `TimerDisplay` 编的 ⇒ 属另一笔。
+
+**调度台动作**：已派 `B99_A6`（独占 `MainMenuScene.cs` / `ShellScene.cs` / `SkirmishEventWindow.cs` / `OfferContainer.cs` / `BaseOfferPopup.cs`）—— 收口 3 处假倒计时 + 落 5 处宿主断言补丁 + 接线 `B99A4Assert`。
+
+### 27·40 `B99_A1` 交回（组 A `BattleDriver` 11 条）
+
+| # | 任务 | 结论 |
+|---|---|---|
+| 1 | T21 表现面 | **反证不做（零改动）** —— 见下「裁定」 |
+| 2 | T09 tooltip | 做了：`:32642` 同物理行追加 `|| TipMultiCards(wp)`；类尾 `TipMultiCards`（先廉价门再两趟扫描） |
+| 3 | T09 `AbilityBoxClick` | **核销**（原版 cue GUID PC + 安卓远端 catalog **都 0 命中**） |
+| 4 | W63·余2 / 5 `GetCardEffectsToShow` / 6 多目标消费端 | **核销**（都已有落点） |
+| 7 | `#9 TermResolver` | 做了：`Begin()` 里 `:4949` 同一行 `RuleCore.TermResolver = Loc.T;`。🔴 **落点从 `Start()` 改到 `Begin()`** —— 批处理自检只调 `driver.Begin(...)`、**不跑 `Start`**（同 `HookAnimFx*` 的先例），且 `Begin` 是「新一局唯一入口」 |
+| 8 | AUD6 抬手 | 做了：删 `DOTween.IsTweening` 早退；`_leanHome` 改取**静止位**（类尾 `BoardRestLocal`） |
+| 9 | AUD8 Any 并集 | 做了：`Any` ⇒ 哨兵 `TargetSideBoth = -2`；**删掉表现层那份 `AbilityPickSide`**、改转发 `RuleCore.AbilityPickSideOf`；6 个消费点两侧都试（敌先友后）。⚠️ **施工单漏一处**：`ShowSkillPanel` 前 `CommandTargetSide() < 0` 必须改 `== -1`（否则 −2 被当「不用选目标」） |
+| 10 | 拖空出声（反向 #1） | **照原版改回**：`SetHint(...)` 无条件写 → `if (CardNeedsTargetOnDrag(card)) NotifyCantDoAction(...)`，`else` 整句删 |
+| 11 | Phrase（反向 #2） | **照原版改回**：两处 `NotifyCantDoAction(CardPresentation… THIS UNIT CANNOT ACT)` 删除只留 `return;`；词条保留并标「未使用」 |
+
+- 行数：**38,888 → 38,959**（+71 = 类尾 +96 ／ 中段 −25），CRLF 全、裸 CR 0。**中段漂移不是常数**（按地标实测五段：0 / −3 / −35 / −27 / −20 / −25）⇒ **合并后必须 `--all-A --fix`**。
+- **`play check` 指纹：11 条全不动**（纯表现 + 纯读；池内 `Any` 可达性 0）。
+- 断言已接线：`BattleScene.cs` 同一行 `B99A1_Assert.Run();`（49,677 行不变）。
+
+**🔴 调度台裁定 —— T21 是「真缺口，另立一笔」，⛔ 不是「不做」**
+施工单指的 `PlayPlacedOne`（`:24059`）那条路**今天不可达**：手牌陷阱的 trigger 事件是 `EvtKind.Trigger ∧ Slot=-1` ⇒ `PlaySignal` 的 `TryHudAnchor` 不认 `Trigger` ⇒ `if (slot < 0) return;`（`:23300`）在进 `PlayPlacedPieces` **之前**就返回 ⇒ **那 4 张手牌陷阱的 `sp=0` 动画一次都不播**。只照施工单改 = **改一段永不执行的代码**。
+真修法（另派）：在 `PlaySignal` 给「`Trigger` ∧ `Slot<0` ∧ 卡在手里」开一条**手牌锚路**（我方 = 手牌 `CardView` → `EffectAnchor(false)`；对手侧只有卡背 `ImageQuad`，退 `AnimAnchors.HandAnchorOf(seat)`）。超出「方法内零行数」口径。
+
+**其它待办**：`MapSelf`（`:24657`）只把 `abilityTarget(2)` 映射成 self、**不处理 `cardTarget(1)`** ⇒ 某拍 `ep=1` 且事件无目标时落 `Missing` 出声返 null（原版 `GetPos.c:186-190` 是 `+0x20` 非空取、无退路）· `PlayPlacedOne` 的 `createCardPos(140)` 降级对**所有 `slot<0`** 生效（改 T21 时 ⛔ 别把整条降级删掉）· 全仓 `grep "结算层只认敌方"` 清同族过期 doc。
+
+### 27·41 `B99_R7` 交回（资源账「没用上」分层归因）—— **17,371 逐条分桶**
+
+| 桶 | 行数 |
+|---|---:|
+| ① 原版不可达（死资产） | **101** |
+| ② 属未建功能 | **0**（见下） |
+| ③ 可解释（重建 / 动态加载 / 父件已用 / 引擎内置） | **9,752** |
+| ④ **真缺口（候选）** | **2,821**（**250 个根对象**） |
+| ⑤ 需人判 | **4,697** |
+
+🔴 **最大的一条口径问题：17,371 里有 4,698 个是 `MonoScript` = 原版 C# 类定义**（97.7% 在 `globalgamemanagers.assets`），**不是美术/场景资源**（525 个可判第三方/引擎库 DOTween/PlayFab/TMP/SIMD；4,168 游戏类）⇒ **建议整体移出资源缺口口径、交给 `账/` 的代码覆盖账**，否则「真缺口」被高估近一倍。剔掉后「资源类未用」= **12,673**。
+
+**② = 0 是证据性结论**：简报把「活动/战场/轮抽/社交」当未建，但**当前仓库这些都有实现类**（`DraftModeWindow.cs` 4,633 行 · `CollectionWindow.cs` 6,754 · `SkirmishEventWindow.cs` 1,030；Shop/Forge/Campaign/Social/Alliance/Chat/Leaderboard/LiveOps 窗都在 `Shell/`）⇒ 它们缺的是**具体 prefab 变体**，落进 ④。
+
+**④ 按域**：**轮抽 543** · **商店 526** · **菜单外壳 518** · **社交 310** · **排名 275** · 卡牌 172 · 活动 110 · 收藏 107 · 战役 68 · 日常 59 · 卡组 36 · 锻造 23 · **战斗 23** · 教程 21 · 特效 19 · 音频 9 · 联机 2。
+单根最大：`Social Submenu Variant` **210** · `Draft Mode Timed Mode Window` 190 · `Rewards Base Submenu Variant` 153 · `Orc Frame` 88（卡面框 Sprite，我们按阵营取框、Orc 框没导）· `Two Sides Event Window` 87。
+
+**③ 的解释力分布**：战场/战斗场景对象 5,166（`ArenaRuntimeLoader.cs:100` 按 key 加载）· 父件已被使用 1,459 · 根名↔已实现类 2,528 · 引擎内置 450 · 其余。
+🔴 **重要**：`Resources.Load` 全量 = **49 处 / 34 条路径**，而**这些路径全是我们自己的结构名**（`Art/cards/…`、`ArenaPrefabs/<key>`、`WarpforgeVFX/…`、`Art/videos/…`），**没有一条直接点名原版对象** ⇒ 「按字面路径动态加载」对 17,371 的覆盖 ≈ **0**；真正解释掉的是「按 key / 按表 / 父件」。
+
+**边界（如实）**：④ 是**候选**不是「功能没做」—— 本仓 UI 多为代码构造、与原版 prefab 不同名；标 `近似类=` 的多半是「**功能已建、具体变体未导**」。追根可信度：重放 BFS 与账里 2,284 行比对 ⇒ **1,835 一致 / 75 不一致（全是 MonoScript 多实例）/ 374 重放不可达**。
+
+### 27·42 `B99_A6` 交回（假倒计时收口 + 5 处宿主断言补丁）
+
+**三处假倒计时都收口了**：
+1. `SkirmishEventWindow.cs`：`:632` 闸改成 `if (HasActiveSkirmishEvent && TimerDeadline.HasValue) BuildTimer(root);`；`:708` `Attach(tx, () => TimerDeadline, …)`；类尾 `public static DateTime? TimerDeadline;`（1030→1043，**仅类尾 +13**，账最大落点 954）
+2. `OfferContainer.cs` `:1519-1525`（7↔7）+ 文件尾 `partial` 续块（1988→2002）
+3. `BaseOfferPopup.cs` `:968` 目标改 `() => TimerDeadline`（1209→1219）
+
+**5 处宿主断言全部同号替换、零行数变化**（`MainMenuScene.cs` 20744→20744 的 A/B/C/E + 它**回源时新查出**的 F `:16508 CheckAtWorld(Timer,…)`；`ShellScene.cs` 11109→11109 的 D）。每条都做了「改完还咬不咬」自证，⛔ 没有 `CheckTrue(true,…)` 占位。
+**如实登记的覆盖损失**（无 1:1 替身）：排位窗 `Content/Timer` 的 3 个世界坐标 · `Timer Icon` 的贴图名 `WF_icon_clock` · 词条有值那一条；遭遇战活动期那一档 `B99A4Assert` **不覆盖**（宿主没夹具）。
+
+**它提出两条要我拍的，都采纳**：
+- 商品条目**关整颗 `Timer` 节点**（不是只关 Label）—— 因为 `Editor/ShopScene.cs:466` 的 `KidNames()` 会给出厂关着的孩子加 `*` 前缀 ⇒ 「只关 Label」会读成 `*Timer Text|Icon` 而打红结构断言。
+- `BaseOfferPopup` **保留接线换目标**（删 3 行会漂其后 6 条账、且丢了将来 liveop 的落点）。
+
+**🔴 调度台裁定（口径）**：去掉 `--` 之后，**原版离线时屏上其实会显示 prefab 占位串**（`TimerDisplay` 无值就 return、占位串留着）⇒ 我们「不显示」= 与原版可见面的**主动偏离**。
+⇒ **裁定 = 「不给假数」，但必须打 `🔶 自己设计` 标记**。理由：截止时刻来自 LiveServer、关服后判据在远端 ⇒ 正落在 §18·0 的**唯一例外**；且项目红线「不许让玩家以为它有作用」⇒ **显示假倒计时比不显示更糟**。
+⇒ 已 `SendMessage` 让它补四处标记（三个 `TimerDeadline` + `TimerDisplay.Compose(prefix,"")`），全部**就地改写注释行、零行数变化**。
+
+### 27·43 `B99_B1` 交回（组 B `RuleCore` + 组 F `CardInteraction`）
+
+| # | 任务 | 结果 |
+|---|---|---|
+| B1 | AUD8·先锋豁免（Flying 闸漏 `!vanguard`） | ✅ 行内 1 行 |
+| B2 | `precognition` | ✅ `:5433` 块 + 类尾常量（`IsDefenderUnit`/`targetIsDefender` 同源对齐） |
+| B3 | `tainted`（攻击侧） | ✅ `:5636` 块（**无需新成员**，转调既有 `ConditionEval.Tainted`） |
+| B4 | `coward` | ✅ `:5661` 块 + 类尾常量 |
+| B5 | RE1·R6 死讯信号次序 | ✅ 整段下移到 反噬之后 · 不稳定之前（**净行数 0**） |
+| B6 | 多目标 Step1 | ⛔ **零改动 + 三条反证**（见下） |
+| F1 | 让位预览 | ✅ `Release` 先摆 `DropAccepted` 再 `ClearDropIndicator()`；删 `DropAccepted = !tactic;` |
+
+- 行数：`RuleCore.cs` **17,694 → 17,762（+68）**，LF 未翻；漂移**按段**：`≤5423` 0 · `5424–5625` +14 · `5626–5652` +29 · `≥5653` +42（**B5 的块移动净 0**）。`CardInteraction.cs` 2232→2246（+14，CRLF）。
+- **`play check` 预期全零**（三个词池内各 0 张；B5 只改表现层 `EvtKind.Death` 的入队位置；F1 纯表现）。建议同步点挑 `GOF3 Bomb Squig` 验 B5。
+
+**🔴 B6 的三条反证（施工单那一行不能照做）**
+1. **类型对不上**：`AbilityTargetsFor` 的 `spec` 是 `EffectSpec`（封闭文法），而 `ResolveTargets` 要 `EffectTargetSpec` ⇒ 照抄 `CS1503`。
+2. **`ResolveTargets` 有副作用**（无条件写 `ctx.LastTargets/LastTarget` + `NoteTriggerTargetSink`）⇒ 会改掉这条能力后续 op 的 `it/them` 指代，**「零可观测」不成立**。
+3. **映射不等价**：`EnemyUnit` 在 `ResolveTarget` 里「有 `chosen` 就用它（含督军）」，而 `ResolveTargets(enemy,unit,1)` **先排督军**、敌方没部队时返回**空表** ⇒ 丢目标。
+**Step 0 结论（已做）**：`targetsAffected=any(0)` **没有专属分支** ⇒ 落通用建池 `GetUnitsInPlayList(both=true)`；`PlayAnim.c:170-176` 的逐目标循环只与 `sp/ep/pt==2` 有关、与 ta 无关 ⇒ **「多目标」不是文法扩档问题，是卡数据 `activeAbilityTargets[].criteria.targetsAffected` 没进事件层**。建议**另立一笔**（`card_anim_order.json` 62 张里 38 张有 `sp/ep/pt==2`）。
+
+**🔴 调度台裁定（`CardDef.cs` 两词登记）**：施工单要求 `Prefixes` + `Implemented` 都加，而 `:8657` 那段把这两词列进「不补的 45 个」、`:8687` 又补过一批 —— **两段口径相反**。
+⇒ **裁定 = 两词都进 `Prefixes` 和 `Implemented`**。理由：`B1` 自己反证「不登记 ⇒ `Normalize` 会丢掉这两个词、闸从卡数据永远不可达」= **把刚建好的闸做成死代码**（违反铁律 11）；而 `:8657` 的旧理由在 `:8687` 那批落进去之后**已不成立**。
+⇒ 已 `SendMessage` 让它做三件：① 两词登记；② 就地订正 `:8657` 的「不补名单」；③ 订正 `RuleCore.cs:5430-5443`（还写「precognition 整条没建模」，现在就错）与 `:12693`（还写「死讯在反噬之前」）。
+
+**断言已接线**：`BattleScene.cs` 同一行 `B99B1_Assert.Run();`（49,677 行不变）。
+
+### 27·44 `B99_A6` 收尾（补 `🔶` 标记）
+
+四处标记全部**零行数变化**：`SkirmishEventWindow.cs:1041`（`TimerDeadline`，占位串 `23d 5h`）· `OfferContainer.cs:2000`（`5d 20h 15m`，整颗 `Timer` 节点建成关着）· `BaseOfferPopup.cs:1217`（`23h 34m`，整件恒建成关着）· `TimerDisplay.cs:239`（就地改写原注释）。
+🔴 **第 4 处它避开了一个坑**：账在 **`TimerDisplay.cs:240`**（`return Compose(prefix, "");` 那行本身）有落点 ⇒ 它只改 `:239` 的注释行、`:240` 一字未动。
+行数核对：`TimerDisplay` 590→590 · `SkirmishEventWindow` 1043 · `OfferContainer` 2002 · `BaseOfferPopup` 1219（四处均不变）。
+`check_ledger_points` 只读复跑：它碰过的 **6 个文件**在「漂移/失败」清单里 **0 命中**。
+**未验（如实）**：没跑 Unity；「不建 / 关着」是读代码 + 读夹具推的；商品条目关掉整颗 `Timer` 后**连时钟图标一起不显示**，需真机确认可接受。
+
+### 27·45 `B99_B1` 补充（按裁定登记两词 + 三处订正）
+
+| # | 位置 | 内容 | 行数 |
+|---|---|---|---:|
+| 1 | `CardDef.cs:8686` | `Prefixes` 尾加 `coward` / `precognition`（两词同一物理行 + 裁定理由） | **+1** |
+| 2 | `CardDef.cs:8058` | `Implemented` 清单**行内**追加两词 | 0 |
+| 3 | `CardDef.cs:8660` | 「不补的 45 个」就地订正（划掉两词 + 写明裁定与旧理由为何不成立） | 0 |
+| 4 | `RuleCore.cs:5445-5446` | 「precognition 整条没建模」⇒ 改成「已建模」 | 0 |
+| 5 | `RuleCore.cs:12690-12693` | 「死讯在同层恢复原次序」⇒ 改成「已下移到 `FireTriggerAt(Backlash)` 之后、`Unstable` 之前」 | 0 |
+
+- `CardDef.cs` **9,453 → 9,454（+1）**，漂移段 `≤8685` **0** / `≥8686` **+1**；`RuleCore.cs` 仍 **17,762**。两文件 LF 未翻、裸 CR 0。
+- **前缀撞车已现核**：`coward` vs 既有 `c*` **第 2 字符即分岔**；`precognition` vs `pray` 第 3 字符分岔、vs `pindown/pack/penitence/poisoned` 第 2 字符分岔；反向也无既有条目以这两词开头。
+- 账补丁已同步重生成（`IsValidAttackTarget` 那行备注改成「已落地」），`--dry` 仍 **更新 3 · 新增 0**。
+- **它没做的**：`BattleDriver.cs:24121-24123` 的过期 doc（替换文本在报告 §5.2）⇒ 记下来，同步点后单独派或我落。
+
+### 27·46 `B99_C1` 交回（组 C）+ 🔴 **`play check` 红了，是回归**
+
+**C1 做了什么**：#34 `G23③`（补 `BroadcastCardCreatedBoardHop`，并**新发现补了「回手」那条口**）· #4 `C5·Q4`（新建 `CardPoolCriteriaFilter.cs`，卡池侧 36 格 criteria 消费端）· U3·T1 ③ · `GetCardEffectsToShow` 只订正过期注释（**S3-c 被 `UnitState.cs` 阻塞**，如实留）。
+**判据订正两条**：① 施工单的闸 `CardStateOf != inPlay` **漏 3/15/17 三档** ⇒ 按 `.c` 用 `IsInPlayState`；② 施工单验收里「残骸不算」**不成立**（`CardScript__IsInPlay.c` 全文不读 `isRemnant`，残骸照算）。
+**「召唤路径」那半 = 原版没有 ⇒ 不做**（`grep BroadcastCardCreated decomp_full` 只有 2 个调用点；召唤走 `BroadcastUnitSummoned`）。
+断言已接线（`BattleScene.cs` 同一行）。
+
+### 🔴 27·47 **回归：`play check` rc=1，3 张卡抛 `ArgumentOutOfRangeException`**
+```
+结算指纹：72c5f20f… ≠ 基线 5ba2967a…
+①-a 逐卡差异：3 张卡变了 · 新增 0 · 消失 0
+  EC59  playRc 0 → -1  · crash: ArgumentOutOfRangeException (Parameter 'index')
+  e9952f50…（GUID 卡）同样 playRc 0 → -1
+  第 3 张同样
+```
+- **归属**：`B99_C1` 新加的 `CardPoolCriteriaFilter.Apply` 及其两处调用（`EffectResolver.cs:4707` / `:4791`）。**不是**它预判的 `UM114`。
+- **已知可疑点（未确认）**：① `TargetCriteriaEval.cs:1098-1100` 的 `rar.Value` **没做 null 检查**；② `EC59` 的 rarity 是 **`special`**；③ `Apply` 的 `pool.Clear()` 是**原地改调用方那张表**。
+- **处置**：按铁律「红了先派只读诊断、别猜着修」⇒ 已派 `B99_D1`（允许它跑 `ruleprobe`、只许在 `_tmp_view` 副本上二分），要它给**真抛点 + 二分归属 + 最小修法**（⛔ 不许 try/catch 吞掉）。
+- ⚠️ **`play check` 在修好前不能重钉** —— 现在重钉 = 把回归钉进基线。
+
+### 27·48 `B99_R9` 交回（P1/P2 资源缺口逐根裁定）
+
+**207 根 / 2,483 行** = `代码构造等价 148 根（1,978 行）` · `真缺 43 根（189 行）` · `属未做功能 12 根（270 行）` · `死资产 3 根（15 行）` · `不做（用户拍板）1 根（31 行）`。
+优先级：P1 = 159 根 / 2,168 行 · P2 = 44 根 / 269 行。
+
+**核心结论：这批「未用资源」绝大多数不是缺口** —— 我们的 UI 全是代码构造，而原版 prefab 根名恰好就是 `WindowsManager.OpenByRef` 的键 ⇒ 同名 prefab「没用上」是**结构性副产品**。判据不是类名像，而是代码里**真的建出同名节点**（`MenuDraw.Node/Rect/Text/Hit(..., "<原版节点名>")`）。
+
+**真缺 43 根 / 189 行，只有三个根因**：
+1. 🔴 **抽屉本体未实现（25 根 / 171 行，P1，收益最大）** —— `Shell/ItemDrawer.cs:724-730` 的 `DrawerImpls` 只有 **5 档**，原版 23 个抽屉类**其余 18 个没实现**，`ItemDrawer.Draw` 落到 `Placeholder`（`:1313`，注释自称「版式我们挑的」）。⚠️ 那些根的 ④ 行**绝大多数是三个状态节点**（`Ephemeral Drawer`/`Premium Highlight`/`Collected Badge`），**已由通用实现**（`:908/992/1612`），真正缺的只有「抽屉本体那一行」⇒ **一次做完 18 档 = 商店格 / 礼包弹窗 / 结算格 / 任务奖励格全部受益**。
+2. **美术/音效缺口（6 根 / 6 行）**：`Draft Mode Atlas` **4 张全没导**（轮抽胜/败格现画金/红占位块，`DraftModeWindow.cs:1760-1800`）· `0_RewardsAtlas` **缺 4 张** · `SocialMediaIconsAtlas` 缺 1 张（Steam）· mixer **无 `BattleGroupLow/Medium/High` 子组**（`AudioSetup.cs:405-418` 自己写「⛔ 别当等价」）。其余图集全部已进工程。
+3. **灵族 VFX Graph（12 根 / 12 行，P1）**：`Aeldari Portal`/`Aeldari Dust` 两个 VisualEffectAsset 的 12 个 ComputeShader 内核；我们只登记了输出 shader 与混合表，**VFX Graph 资产整块没导**（本地 `battleprefabs_vfxandmisc` 里有 3 份）。
+
+**已拍板不做 / 死资产**：`Sunset Popup` 31 行 = **用户拍板不做（过期活动）**，⚠️ 它**不是死资产** · `Android extra compatibility` · `Ranked Leaderboard Display` · `Placeholder Generic Leaderboard Display` = 真死资产（原版运行期就不在树上/零引用）。
+⚠️ **2026-09-22 那批「Expansion Pass 不做 / Two Sides 不做」已不适用**（两者后来都建完了）。
+
+**顺手发现**：🔴 `Shell/DraftModeWindow.cs:1772` 的「亮格图本地没有」**是错的** —— 那 4 张就在 `bundle_atlasgroup_assets_all/SpriteAtlas`（`m_PackedSpriteNamesToIndex` 实读）⇒ 铁律 5 的旧记录。
+**它建议派三路**：① 抽屉 18 档（一个文件口，P1）② 导 3 组美术 + mixer 子组（P1）③ 灵族 VFX Graph（P1）。
+
+### 27·49 `B99_R8` 交回（P0 四域资源缺口逐根）—— **资源侧真缺只有 1 处**
+
+**338 行 / 43 个根** = `真缺 1（6 行）` · `已导入=假缺口 1（88 行）` · `死资产 9（9 行）` · `属未做功能 2（12 行）` · `代码构造等价 30（223 行）`。
+
+- **唯一的真缺**：`Gargoyle Swarm Near`（VFX Graph + 3 ComputeShader + 2 个 Texture3D）—— 属 `EnvironmentalCondition Leviathan Sweeping Infestation`（进攻卡整场换环境）的三个子件；**环境链齐、prefab 也重建了**，但那三颗 `VisualEffect.m_Asset` 是**悬空引用**（guid 全 0），**运行时什么都不播且不报错**（违反「不许静默失败」）。⚠️ 全工程 **4 件 prefab 带 `VisualEffect`、`.vfx` 一个都没有**（本件 + 两场 Scenario + `Saim Hann Infinity Circuit Overload`）。可行性**没验**（属「运行时格式」那族）。
+- **`Orc Frame`（88 行）是假缺口**：88 个同名 Sprite 只是打包对象，**Texture2D 内容我们 104/104 已导**，取用链已通。🔴 附带：`Core/CardArtClanFrames.cs:53` 仍写「104 张卡框贴图没导 ⇒ `FrameTexture()` 恒 null」—— **已过期且与事实相反**（铁律 5）。
+- **死资产 9 根**：`CardHalo` · `Battle Debug Atlas`（唯一使用方 `BattleDebugController` 正式版被裁掉）· 7 条 VO。
+- **卡组 5 根全等价**；唯一小缺口 = **卡组行没建 `banned Icon`**（卡池与收藏卡格都有），且**禁卡表本身还没有** ⇒ 今天恒不显示。
+
+**🔴 跨根系统性发现（比这 43 个根更值钱，与 `R9` 的 ① 是同一件事）**：原版 `ItemDrawerConfig` 类型表 **20 条 → 13 个抽屉类**，我们 `DrawerImpls` **只实现 5 条**（`Shell/ItemDrawer.cs:724-728`）⇒ **`CardDrawer` / `CardAlternateArtDrawer` / `CardbackDrawer` / `AvatarDrawer` / `AvatarBorderDrawer` / `RandomCardDrawer` 这 6 个类在「通用抽屉路」上全落 `DrawerPlaceholder` 或近似**。消费方现读：`OfferContainer`（商店格）· `GachaEventWindow`（掉落奖励格）· `BaseEventProgressRewardDrawerController` · `Editor/DeckScene`。
+**不是静默**（`PickDrawer` 会出声），但**画出来的不是原版那张**。6 个 `Draw` 的判据本批已逐条读过，**工作量很小**。
+
+**它给的关键判据**：这些小抽屉的原版 `Draw` 体本身就极短（`CardbackDrawer__Draw.c`/`AvatarBorderDrawer__Draw.c` 只有一句 `Image.set_sprite`；`AvatarDrawer__Draw.c` = set_sprite + 印阵营名；`CardDrawer__Draw.c` = 藏 quantity + `BasicCardUI.SetCard`）⇒ **不需要 prefab，代码等价成立**。
+
+---
+
+## 二十八、第一百会话（2026-10-30）
+
+### 28·0 起点现读（与交接 §一 一致）
+
+账 **A 5728 / B 19 / C 3 / D 3858（9,608 行）· 真复刻率 99.62%** · `typecheck` **0/0** · 工作树干净 · **ahead 4**（push 仍待网络）。
+20 个断言件**逐个按类名核过接线**（⚠️ 文件名 ≠ 类名：`B99A4_Assert.cs` 里是 `B99A4Assert`、`B99E2/E5/E9` 是 `RuleEngineTest` 的 partial）—— **全部已接到 7 个宿主**，交接 §四·一 的说法成立。
+
+### 28·1 自检第一跑（7 个受影响宿主，串行，06:35–06:41）
+
+| 宿主 | 结果 |
+|---|---|
+| `RuleEngineTest.Run` | 🔴 **异常中断** `ArgumentOutOfRangeException` @ `RuleEngineTest_EngineB96CB.cs:150`（63s vs 正常 3m53s ⇒ 后面全没跑） |
+| `ShellScene.Run` | 7 处 `✗`（E15 A7/A7b/A7c/B3 · `Rank Up Sparks` · `B98K3 E3b`） |
+| `MainMenuScene.Run` | **5750 通过 / 5 失败** |
+| `DeckScene.Run` | 🔴 **异常中断** `MissingReferenceException` @ `B99W1_Assert.cs:87 → DeckRuntime.Build → Label.NoteNotApplied`（14s vs 2m06s） |
+| `CollectionScene.Run` | W2 **30 / 1** + `B97W6` 1 条 |
+| `CardBaseDemo.Run` | CBD **573 / 2** · cardface-chk **233 / 1** · B99G1 **35 / 1** |
+| `BattleScene.Run` | 48 处 `✗`（E8 70/0 · B99B1 31/0 绿；E3 56/1 · B99A3 34/2 · B99A1 32/2 · B99C1 27/5 · B98H4 44/1 红） |
+
+- 🔴 **每个日志开头都有 `[诊断入口过期]`**：`RuleEngineTest_Diag.cs` 认 **367** 个用例，`Run()` 里实际 **391**（缺 24）⇒ 诊断索引没跟着第九十九会话的新用例更新。
+- 自检把 `CardBase.unity` 整篇重写（41104/41094）⇒ **已 `git checkout` 还原**；Unity 补出的 16 个 `.meta` 保留。
+- 判据查法：日志在 `_tmp_view/b100_*.log`；红条按**行首标记**数（⛔ 别 `grep -c ✗`）。
+
+### 28·2 派活
+
+- **4 路查判据**（在自检跑的同时填满槽位）：`B100_D1` 抽屉 18 档 · `B100_D2` T21 手牌锚路 + 多目标 `targetsAffected` · `B100_D3` 美术/音效/VFX · `B100_D4` 引擎三条（`ta=220` / `Requiem` / `253-254` 随机流）。
+- **4 路只读诊断**（红条先诊断、⛔ 不猜着修）：`B100_X1` 引擎崩溃 · `B100_X2` 卡组崩溃 · `B100_X3` 战斗 48 条红 · `B100_X4` 菜单/外壳/收藏/卡面 17 条红。
+
+### 28·3 `B100_D3` 交回 —— 接手交接件的 3 处数量/根因**被推翻**（已就地订正）
+
+1. `0_RewardsAtlas`「缺 4 张」→ **实际只缺 1 张**（`40k_campaign_bar_fill color`，与已导的 `40k_campaign_bar_fill` 是两张不同 sprite）；另 3 张早在 `ui_menu/`。错因 = 拿带空格原名 `find`、没做空格↔下划线归一。
+2. 「Steam 图标缺 1 张」→ 实为 **`SocialMediaIconsAtlas` 7 张全没导**（6 张代码已引用）。错因 = 把「代码里有名字」当成「资源已导入」。
+3. 灵族 VFX「12 件没导」→ **资产已在工程里**（`Aeldari Portal.asset` 48KB / `Aeldari Dust.asset` 20KB / 13 个 kernel / 5 个 .mat 都是真 YAML）；**真根因 = `com.unity.visualeffectgraph` 包没装**（manifest / lock / PackageCache 三处皆无）⇒ 原生组件与 `VisualEffectAsset` 都不被识别。**真正缺的资产只有 `Gargoyle Swarm` 1 件**。
+- 另订正 `报告/B99_R9.md` 的「Aeldari 12 行真缺」段（已在原文件加 2026-10-30 更正行）。
+- 汇总：**21 件全部本地可导**，外部依赖只有「装 VFX 包」一项。
+
+### 28·4 两个崩溃的诊断结论（都不是第九十九会话的回归）
+
+**① `RuleEngineTest.Run` 崩溃 = 夹具牌库为空 + 裸块不走 `Step`**
+- 根因三条算式：`d0` 只有 3 张 ⇒ `BuildPlayer` 把 `hero` 抽走当督军（`RuleCore.cs:628/632/641`）⇒ 牌库 2 张；经典局起手 3 张（`GameplayVariables.cs:101/369`）⇒ 抽空后走疲劳支（`RuleCore.cs:3066/3070-3111`）⇒ 牌库 0 张 ⇒ `Deck[0]` 越界。
+- 放大成整轮中断的原因：`RuleEngineTest.cs:1288` 是裸块 `{ CheckB96CBEngine(); }`，**没走 `Step`** ⇒ 异常直穿 `Run()`。崩点之后 **918 条**断言从未执行。
+- 证据链证明**不是** `31f69eef` 的回归（测试文件出自 `aa5a5dee`；`Run()` 的这行在崩点之后；这段代码从未跑过）。
+- 修：`B100_F2` 扩展夹具（d0 = hero+4、d1 = hero+5）+ 补「前提：牌库非空」断言 + (c) 改走纯谓词（门级因 `mode=0` 走 default ⇒ 「不换」不可达，**判据为空**，已在注释写死）。
+- 另：调度台已把 `:1288` 改成 `{ Step(CheckB96CBEngine); }`（同一物理行，零行数变化）。
+
+**② `DeckScene.Run` 崩溃 = `DeckRuntime.Build()` 不清登记表**
+- `Build()` 的清理块只清 `_btns/_missingArt/hover/*`（`:1284-1292`），**不清** `_deckRowName` 等 12 张表（`:1047-1066`，只 `Add` 于 `:2100`）⇒ 第二次 `Build` 后表长 12→24、`[0..11]` 全是已被 `DestroyImmediate` 销毁的 `Label` ⇒ `Label.NoteNotApplied` 第一句读 `this.name` 抛 `MissingReferenceException`。
+- 生产面：玩家「关掉卡组编辑器 → 再打开」走同一条路（`DeckEditingWindow.cs:132/143` 复用 `_runtime`）。
+- 修：`B100_F1` 追加 `ClearBuildRegistrations()`（文件类尾）+ `Label.NoteNotApplied` 加 `this == null` 闸。⚠️ 诊断报告给的修法 B 代码**照抄编不过**（会丢掉 `path` 声明，`Label.cs:1917/1918/1920` 全 `CS0103`）—— 已由 `B100_F1` 在同行补回。
+
+### 28·5 诊断工具链的两处修复（每轮必红的假红）
+
+1. **`gen_diag_runner.py` 只认「一行一个 `Step`」** —— 而 `Run()` 里有一行挤了 23 条（上一会话为不挪账落点故意挤的）⇒ 产物比反射少 24 条、每次 Unity 启动都 `LogError`。改成**按位置扫全文**；并新增「子用例」口径（名字是 `Test*`、但由父用例内部调用的 16 个）写进产物 `DiagSubCases`，对账时减掉；`unknown` 口径从「`Test`/`Report` 前缀」改成「**类里有没有这个方法**」。
+2. **抓到一个真缺陷**：`RuleEngineTest.cs:1365` 的 `Step(TestB97W1);` 被追加在行尾 `//` 注释**之后** ⇒ **从来没执行过**（正是「同一物理行追加必须插在第一个 `//` 之前」那个坑）。已挪到注释前。
+- 现读：`Run()` 用例表 **379** · 用例方法 **392** · 子用例 **16** · 产物 `--check` 逐字节一致。
+
+### 28·6 四路查判据的产出（判据文件已落，施工时直接用）
+
+| 代理 | 产出 | 关键结论 |
+|---|---|---|
+| `B100_D1` | `判据/B100_D1_抽屉18档_施工单.md` | 真缺口 **19 类 / 16 类型**（「18 档」是老账）；本机无判据 **0**；跨 20 档硬前置 = 底图族没进 `Resources/` |
+| `B100_D2` | `判据/B100_D2_T21与多目标_施工单.md` | T21 受影响 **6 张**（必须手牌锚 3 张）；多目标真缺口 **11 拍 / 8 卡**；`ta=150` 落手牌等 4 条**无判据**待裁 |
+| `B100_D3` | `判据/B100_D3_资源缺口_施工单.md` | 21 件全部本地可导；灵族 VFX 真根因 = **包没装**；真正缺的资产只有 `Gargoyle Swarm` 1 件 |
+| `B100_D4` | `判据/B100_D4_引擎三条_施工单.md` | `ta=210/220` 真缺口（4 行/4 张，今日零可观测）；`Requiem` 真缺口（0/1129 张，3 行即可）；`253/254` **结论是「不要改」**（原版就是那时才现算 options） |
+
+### 28·7 波 1 修复清单（4 诊断 + 9 执行代理，共 14 路）
+
+**修掉的实现真缺陷（全部带判据，不是调断言换绿）**
+
+| # | 缺陷 | 落点 | 证据 |
+|---|---|---|---|
+| 1 | `DeckRuntime.Build()` 不清登记表 ⇒ 二次 Build 拿已销毁 `Label`（**崩溃**） | `Deck/DeckRuntime.cs:1284` + 类尾 `ClearBuildRegistrations()` | `报告/B100_X2` |
+| 2 | `_cosmOnly` 只增不清（无界增长） | 同上方法内 | `报告/B100_F1` |
+| 3 | `Label.NoteNotApplied` 读已销毁对象（把「出声」变成「炸宿主」） | `Battle/Label.cs:1916` | 同上 |
+| 4 | 引擎自检夹具牌库为空（**崩溃**）+ 裸块不走 `Step` | `RuleEngineTest_EngineB96CB.cs:137-141` · `RuleEngineTest.cs:1288` | `报告/B100_X1` |
+| 5 | `Step(TestB97W1)` 写在行尾注释之后 ⇒ **从未执行** | `RuleEngineTest.cs:1365` | 生成器现读 |
+| 6 | 诊断入口只认单条 `Step` ⇒ 产物少 24 条、每轮必红 | `工具/gen_diag_runner.py` | 同上 |
+| 7 | 事件窗倒计时**闸写反**（非活动期一直画「结束于：」） | `Shell/SkirmishEventWindow.cs:395` | `报告/B100_X4` S1–S3 |
+| 8 | 活动期**永远没有倒计时**（`TimerDeadline` 恒 null） | 同上 `:632` + 类尾 `ActiveEventDeadline()` | S4（含 `EndUtc.ToLocalTime()` 时区修正） |
+| 9 | 排行页徽记**压窄 17.7%** | `Shell/FactionScore.cs:182` `SetTexture(…, keepAspect:true)` | M5 |
+| 10 | `abilityEffectTexts` 的 `handBuff` 整列**读串格**（3 卡/5 行，2 行被静默丢弃） | `RuleEngine/Data/CardDatabase.cs:4864/4875` + `ResolveIsHand` | `报告/B100_F9`（端到端实跑对拍） |
+| 11 | 老录像规则参数**死支** ⇒ 全 0 开局（`JsonUtility` 物化 null） | `ReplayStore.cs` + `BattleDriver.cs:38362` | `报告/B100_F10` |
+| 12 | `UnitDamaged` 桶**收进附魔卡** | `工具/gen_card_vfx_by_card.py`（键 = `type=="enchantment"`，**不是** `cardType 20`） | `报告/B100_F11` |
+| 13 | 两档事件**没登记时长** | `Core/EventTiming.cs:514/697/1199-1216` | 同上 |
+| 14 | **24 张卡框贴图文件名带空格** ⇒ 只命中 80/104 | 盘侧改名（GUID 不变）⇒ **104/104** | `报告/B100_F12` |
+| 15 | **104 张 clan 卡框 `isReadable:0`** ⇒ 拱窗裁切静默失效（13/13 阵营） | `Editor/ArtBaker.cs:443` 路径过滤 | `报告/B100_F13`（F7 查出根因、F13 修） |
+| 16 | `Requiem` 不在路由表 ⇒ 430 正文永不结算 | `CardDef.cs` 三表（同一行内追加，行数 9454 不变） | `报告/B100_F4`（`play check` 指纹不变） |
+
+**账**：`253 ChoiceOfCardEnemy` **B→A**（`B100_V1` 独立复核）；`254 ChoiceOfCardPlayer` **维持 B**，但**理由换新** —— 面板在「牌还在手」时算候选池，原版是牌离手后与 options 同一刻算 ⇒ `Path of the Seer` 每局把「正在打的那张牌」摆成选项 + 每局刷 `LogWarning:20231`。修法不动随机（面板剔除 `PendingCard`），**待派**。
+现读账闸：**A 5729 / 通过 5729 / 漂移 0 / 失败 0**。
+
+**被推翻的口径（都已就地订正到原文件）**
+- 交接件 5 处（抽屉 19 类/16 类型 · rewards 缺 1 张 · 社交图集 7 张 · 灵族 VFX 根因是包没装 · T21 6 张/多目标 8 卡 11 拍）
+- `报告/B99_R9`（Aeldari 不是真缺）· `报告/B100_X4`（`WorldW/WorldH` 不是框）· `报告/B100_X3`（判据键不是 `cardType 20`）· `B98M1_Assert` C8 反转 · `CardBaseDemo` AM52 期望名与注释
+
+**待办（已指名，未做）**
+1. `254` 面板池剔除 `PendingCard`（`BattleDriver.cs`）
+2. `#28` 出场气泡夹具（在 `Editor/BattleMiscAssertE4.cs:365`，**不是** `B99E4_Assert.cs`）
+3. `CardPoolCriteriaFilter.cs` 文件头仍列 `180`/`190`（实现已删，文件头没跟着改）
+4. `Pray_Exit` 附魔被摘的演出无判据（`EvtKind.EnchantmentRemoved` 侧无消费者）
+5. `VFX Graph` 包未装（灵族 12 kernel 已在工程里，装了才会播）
+
+### 28·8 第二轮自检（烘焙 + 7 宿主）
+
+**`ArtBaker.BakeFromCLI` 成功**：`cards/clan/*.png.meta` 的 `isReadable: 1` 现读 **104/104**（修前 0/104）。
+
+| 宿主 | 上一轮 | 本轮 | 说明 |
+|---|---|---|---|
+| `CardBaseDemo.Run` | CBD 573/2 · cardface 233/1 · G1 35/1 | **575/0 · 234/0 · 36/0** | K1/K3/K4 改期望 + **K2 烘焙后自动转绿**（期望值一个字没动） |
+| `CollectionScene.Run` | W2 30/1 | **31/0** | C1/C2 修好 |
+| `ShellScene.Run` | 7 ✗ | **0 ✗** | S1–S6 全清 |
+| `MainMenuScene.Run` | 5750/5 | **5755/1** | M1–M9 只余 1 条 |
+| `BattleScene.Run` | 48 ✗（42 真失败） | **30 行 ✗** | B99A1 34/0 · B99C1 32/0 · B99B1 31/0 · E8 70/0 全绿；`B100F12` 22/2 是**它自己**的断言 bug |
+| `DeckScene.Run` | **崩溃** | **rc=0 跑完** | 崩溃修好 |
+| `RuleEngineTest.Run` | **崩溃（空牌库）** | 连修三级后仍崩 → 见下 | |
+
+**`RuleEngineTest` 连撞三次，暴露的是同一个系统性问题**：`Run()` 里除了 `Step()` 还有 **29 处裸调用**（16 处 `X.Run();` + 13 处 `{ X(); }` 块），任何一条抛异常就掐死整轮，后面几百条静默消失。
+- 第一次崩在 `EngineB96CB`（空牌库，已修）· 第二次崩在 `B98G2_Assert.Run()`（NRE）· 第三次崩在 `B97W5` 的 `CardDatabase.Parse`（断言自己传了坏 JSON）。
+- 修法：新增 `Guard(string label, Action a)`（try/catch + 记一条失败 + 带异常类型/消息），把 **29 处全部套上**（同一物理行内替换，行数零变化）。
+- 判据：这才是 `Step()` 当初存在的理由（2026-10-01 `A1394` 丢 65 条用例那次的教训）；`Guard` **只兜异常、不判断言真值**，⛔ 不是吞掉。
+
+**诊断器第三处口径**：`DiagDriftAlarm`（每次 Unity 启动的过期警报）此前仍用旧比较 ⇒ 每轮必红；已与 `VerifyDiagCoverage` 对齐（减子用例 / 按「类里有没有这个方法」判「多」）。现读 `Run()` 用例表 **379** · 用例方法 **392** · 子用例 **16** · `--check` 逐字节一致。
+
+### 28·9 第三轮：`RuleEngineTest` 第一次**跑完整**（不再异常中断）
+
+- 连撞三次（`EngineB96CB` 空牌库 → `B98G2` NRE → `B97W5` 坏 JSON），每次都是**另一处裸调用** ⇒ 加了 `Guard(label, action)` 护栏，把 `Run()` 里 **29 处裸调用**（16 处 `X.Run();` + 13 处 `{ X(); }` 块，其中两处是多调用块共 23 个调用点）**全部套上**（同一物理行内替换，**行数零变化**）。
+- 现读：**0 处 `executeMethod … threw exception`**；日志末行 `=== 结束：11975/12077 通过，**102 条失败**` —— **这是全项目第一次「所有断言都真的跑过」的基线**。
+- 🔴 **2026-10-30 就地订正（`B100_X5` 现核）**：我先前写「`B97_W3` 段 70 条」**是误判** —— `B97_W3_Assert.cs` 自己 **24 ✓ / 0 ✗**；那 70 行是**末尾重打的全量失败清单**（无栈帧），因为 `B97_W3` 恰好是最后一个段头，之后的 ✗ 被算给了它。这 70 条来自 **25 个断言文件**。
+- 🔴 **2026-10-30 二次订正（`B100_X7` 现核）**：我先前写的「140 条红」是**双计**（末尾 `:350071-350140` 是**重印**）；也**没有「32 条未列出」** —— 那 32 条是用**各自 sink 前缀**打的：`RE` **70** + `[K2]` 13 + `[G5]` 6 + `[G6]` 4 + `[W38]` 3 + `[G1]` 2 + `[T2]` 2 + `[G2]` 1 + `[E3]` 1 = **102**。⇒ 统计失败**必须按所有前缀数，⛔ 不能只 `grep "RE    ✗"`**。
+- 判据：`Guard` 只兜异常、**不判断言真值**（记一条失败 + 异常类型 + 消息），⛔ 不是吞掉。
+
+**同轮修掉的两条断言自身错误**
+- `B97W27_Assert.cs:215` `C4`：期望 `320°` —— **那正是「漏乘 dt」的坏读数**（正确 = `340 + (−20)×2 = 300`）⇒ 已订正为 300，并把 🧨 改成「漏乘 dt ⇒ 320 ⇒ 红」。
+- `B100F12_Assert.cs:143/144`：`Near(wMin, 682f)` 拿**归一化 uv（0–1）**比**像素 682** ⇒ 量纲错、恒红；改成 `wMin * 1024f`。
+
+### 28·10 第二批修复（7 路执行 + 2 路诊断）与终值
+
+**终值**：`RuleEngineTest.Run` **102 → 64 条失败**（12168/12232 通过，**0 异常中断**）· `BattleScene.Run` **rc=0**（27 行 `✗`）。
+
+| 组 | 条数 | 归因 | 落点 |
+|---|---:|---|---|
+| **C 组**：`FireTriggerAt` 把 trigger 名**无条件**传下去 ⇒ 族闸与 ability 闸**双判**、正文被掐死 | 6 | **β** | `RuleCore.cs` 类尾新增 `AbilityFamilyGateIsActive`（零既有行号变化） |
+| **G 组**：`EffectResolver.cs:10048` 行尾 `//` **吞掉后面三句代码**（手牌两跳 / 兵团 / 额外攻击者三条广播一直没执行） | 2 | **β** | 同一物理行内把三句挪到 `//` 之前；全仓扫过**只此一处** |
+| **B 组**：夹具 `RecordGrant` 少标 `extrinsic: true` | 5 | **α**（`B100_F17` 回源推翻 X5 的 β 判定：`RemoveExtrinsicEffectsFrom` **早已在调** `RevertGrantsFrom`） | `RuleEngineTest_EngineB95WRS.cs:100-101` |
+| **D 组**：夹具用 `ApplyDamage`（doc 自陈「少了受伤触发 + 离场结算」） | 5 | **α** | `B97W28_Assert.cs` 四处换 `HurtWithSourceForTest` |
+| **夹具起手张数**：`Battle()` 自带 20 张 filler + 起手 3/4 ⇒ 「手里恰好 N 张」全塌 | 11 | **δ** | 换 `ProbeBattle`，**期望值一个没改** |
+| **测试自身 bug**：JSON 少括号 / 反射传错类型 / 探针比错值 | 3 | **α** | `B97W5_Assert` · `B97_ER_Assert` · `RuleEngineTest_W12` |
+| **过期常量**：卡表版本 40→44 / 泵点 20→22、26→28 / G12 第五档 / `A1337` 扫描器范围 / `TestBacklash` 次序 | 6 | **α** | 5 个文件，`RuleEngineTest.cs` **行数 39642→39642** |
+| **覆盖闸**：`Step(TestB97W1)` 排在闸后 ⇒ 记不到 | 1 | **α** | 上移到闸前 |
+| **两件断言起局不建 `PlayerState`** ⇒ NRE、39 条断言一半没跑 | — | **α** | 8 处补 `ctx.Players[i] = new PlayerState()` |
+
+🔴 **两条口径被打架的记录（已就地订正）**
+1. `B100_X5` 说「`RemoveExtrinsicEffectsFrom` 未调 `RevertGrantsFrom`」**已过期**（`B97_W30` 2026-10-29 就接上了）。
+2. `B100_X8` 说「`:198/:250` 段头注里写了 `ApplyDamage`」**不成立**（全文没有任何注释描述过这个入口）。
+
+**仍红的 64 条**已按 sink 前缀拆清：`RE` 31 · `[K2]` 13 · `[G5]` 6 · `[G6]` 4 · `[W38]` 3 · `[G1]` 2 · `[G2]` 2 · `[T2]` 2 · `[E3]` 1。
+**下一批的重点**（已由诊断点名）：`[K2]` 13 条与 `B100_X7` 的「未查清 26 条」有重叠，需先补判据；`[G5]`/`[G6]` 是 `B100_X7` 已定的 G5–G8 产品组（4 组 7 条），**尚未派活**。
+
+### 28·11 第三批（F25–F29 + X9/X10）
+
+| 代理 | 产出 |
+|---|---|
+| `B100_X9` | 64 条逐条定性 + 聚类；指出 31 条可纯断言修、6 条产品、~20 待查 |
+| `B100_X10` | **全池级**：`normalAbilityBoardCriteria` 1127/1129 张缺键被物化成 `Unknown(-1)`（每次加载刷 ~4,508 行错误，契约 `== null` 恒假，**今天零玩法差异**）· #26=夹具 · #64=断言过期（与 `cardTraits` 无关） |
+| `B100_F25` | 29 条（K1 13 条同一根：`Place()` 漏 `Exhausted=false`）· 顺带纠正「`DiagSubCases` 只修好一道闸」 |
+| `B100_F26` | `CountEval` 收窄后重算 `count`（判据 `BoardAnalysis__MeetsCriteria.c:101-103`）；现池 0 行命中 ⇒ 零可观测 |
+| `B100_F29` | #26 夹具挂空 traits 表（+ 补两条前提）· #64 期望 1→2（手牌出牌只扣牌费） |
+
+**调度台自己补的**
+- 覆盖闸 `VerifyRunCaseCoverage` ① 补上子用例排除（与诊断入口同口径）—— 这是 F25 指出的、我之前误判为「已修好」的那道闸。
+- 账落点漂移 1 条（`社交_聊天.tsv` 的次要落点被我的 `BattleScene.cs` 改动挪了一行）⇒ 已同步，账闸回绿。
+
+**被推翻的结论（已就地订正）**：`B100_X9` 的 #26/#64 归因（`AttachCardTraits` 0 调用者）**错** —— 生产路径 `CardDatabase.cs:1721` 一直在调；#64 与 `cardTraits` 无关。
+
+### 28·12 第四批（F34–F37 + X11–X15）
+
+| 代理 | 产出 |
+|---|---|
+| `B100_X11` | 资源第二/三层普查：**154 个 `Resources.Load` 调用点全解析** · 派生名族 10 族全核 · **抓到 4 条要动手的**（D1 `CardDisplayWindow` 用 `CardArt.Ui` 查 `ui_menu` 的图 ⇒ 教程箭头永远建不出；D2 `FTUESelectDeckWindow` 自造督军立绘名 37/56；D3 两张图源在本地没导进 `Resources`；D4 两张卡面无图待查） |
+| `B100_X12` | 账上 21 条刷新：**7 条可升 A** · **10 条维持 B 但卡点换了、今天能做** · 4 条 C 仍成立；附行号漂移表（`RuleCore.cs` 集体 +55） |
+| `B100_X13` | 资源「真缺」重数：**只剩 3 根 / 3 行**（音频 mixer）；25 根抽屉走 D1（**`ItemDrawerCurrency` 其实已实现、只差 3 行登记**）；12 根灵族是「资产已在、卡在别处」 |
+| `B100_X14` | **推翻 D3 的「根因 = VFX 包没装」**：`VisualEffect` 是 Unity **原生模块**类型，工程已引用 ⇒ 证据链断。真阻塞 = ① 4 处 `m_Asset` guid 全空 ② 6 个输出 shader 不存在 ③ 2 个 Texture3D 被展平。给了 30 秒判定法 A0 |
+| `B100_X15` | 24 条逐条定性（**其中「γ 7 条」那节已被 `B100_F35` 推翻并就地订正**） |
+| `B100_F34` | 6 条纯断言（5 修 + 1 保持红等产品补 `case 780`） |
+| `B100_F35` | **推翻 X15 的 γ 归因**：那 8 条在**纯净 HEAD（06:36）就已经全红**，是 10-29→10-30 那 45 小时累积的回归（五个会话没跑过引擎自检）。给出 5 处精确落点 |
+| `B100_F36` | `TraitNameOf` 补 `case 780: mutation` · 墓园候选补「已取走」判据（同族第二处） |
+| `B100_F37` | 5 处累积回归的断言（`exhausted` 夹具补 `AttacksThisTurn` ×3 · E3/E9 期望跟上产品演进 · 回填断 `Hand` · berzerk 平手按 `PlayOrder`） |
+
+**调度台自己补的**
+- `CardDisplayWindow.cs` D1（`CardArt.Ui` → `MenuUi`）· `FTUESelectDeckWindow.cs` D2（改用 `CardArt.TryDeckHero`）—— **两条都是活的可见缺陷**
+- 账落点同步 2 次（`BattleScene.cs` 挪行、`FTUESelectDeckWindow.cs` 挪行）
+
+---
+
+## 二十九、第一百零一会话（2026-10-30 晚）
+
+### 29·0 起点现读（三闸全部本会话实跑）
+- 账：21 份 tsv / **9,608 行** ⇒ **A 5,729 · B 18 · C 3 · D 3,858**（直接扫主表算，⛔ 不是抄 `ledger_progress.py` 的 8,810 —— 那个数另有口径差，见 §29·1）。
+- **真复刻率 `A/(A+B+C)` = 99.635%**。
+- `typecheck` **0 / 0** · 账闸 `check_ledger_points --all-A` **A 5,729 / 通过 5,729 / 漂移 0 / 失败 0（告警 723）** · `play check` **rc=0 · 指纹 `5ba2967a…` 与钉住的一致**。
+- 自检基线（第一百会话末，`_tmp_view/b100g_*.log`）：`RuleEngineTest` **12272/12282 · 10 红** · `BattleScene` **5952 通过 / 0 失败** · 其余宿主 0 红。
+- git：工作树干净 · **ahead 6**（push 上次网络失败，按铁律 9 只试一次）。
+
+### 29·1 交接件的三处订正（铁律 5，均已就地改）
+1. 交接 §四·3「`BattleScene` 剩余 ~20 条（`W41`/`W16`/`B98N1`/`W3`/`M1`/`B98H4`/`B99A3`/`A462`）」**已过期** —— 那批正是 `B100_F23`/`F24` 的活，`b100g_battle.log`（09:04）末行 `BT === 结束：5952 通过 / 0 失败 ===`。
+2. 同一条里「`com.unity.visualeffectgraph` 包未装」**已过期** —— `B100_X14` 推翻（`VisualEffect` 是 Unity 原生模块类型）；真阻塞换成三点（`m_Asset` guid 空 / 6 个输出 shader 不存在 / 2 个 Texture3D 被展平）。
+3. 交接 §四·3「出场气泡夹具 `#28` 未落地」**已过期** —— 现读 `Editor/BattleMiscAssertE4.cs:365` 附近已补 `DeployFrom = DeploySource.HandPlayed` + 硬前提断言（`B100_F24` 做的），`E4 42/0`。
+- ⚠️ **`ledger_progress.py` 与主表直读差 798 行**（它按域并入主题表 + 按方法键去重）⇒ 报进度**一律以主表直读为准**，这个工具的合计只能当参考（旧账，`调度台日志 §24·1` 已记）。
+
+### 29·2 数据契约（调度台自己做的）
+- `工具/gen_cards_engine.py` 落**显式布尔** `hasNormalAbilityBoardCriteria`（`ability_gate_of` 里、`board_gate_of` 返回 `None` ⇒ 0），版本 **44 → 45**，重生成 `cards_engine.json`。
+- 现读：`count 1129` · `has=1` **2 张**（`SW9` / `SW21`）· `has=0` **1127** · 缺键 **0**。文件 diff **1/1 行**（单行 JSON），`enchantment_templates.json` 一字未动。
+- ✅ **读取侧已接（同会话）**：`RuleEngine/Data/CardDatabase.cs` ① 文件末 `CardDto` partial 新增 `hasNormalAbilityBoardCriteria`（**加在文件末 ⇒ 零行号漂移**）；② `MapBoardGate` 的 `if (d == null) return null;` **同一物理行**改成 `if (c.hasNormalAbilityBoardCriteria == 0 || d == null) return null;`（+13 行全在 EOF 之后）。
+- ✅ **零行为变化的依据（已核，不是声称）**：`NormalAbilityBoardCriteria` 全仓**只有** `CardDef.UsesAlternativeAbility` 一个消费者，而它先判 `HasAlternativeAbility == 0 ⇒ return false`（池内只有 `SW21` 是 1，`SW21` 的 `has=1`）⇒ 走不到「gate 由非 null 变 null」的分支。
+- ✅ 断言侧同步：`RuleEngineTest_EngineD4.cs` 的 `Check(dto.version, 44 → 45)`（同一物理行，2/2 行）。
+- ⚠️ 还没验的：`Load()` 那 ≈4,508 行 `LogError` 是否真的归零（**只能跑 Unity 宿主才看得到**，排到同步点）· `play check` 指纹（同样排同步点，因为 `ruleprobe` 桩用 `System.Text.Json`，**结构上复核不了这一条**）。
+
+### 29·3 波 1 派活（9 路：4 查判据 + 5 执行）
+| 代号 | 类型 | 活 |
+|---|---|---|
+| `B101_R1` | 查判据 | 引擎三条未查清：`[G1]` A4/A5（jam 队列）· `B99E9` ①②（敌方死降费 / Vanguard）· `W19 280`（`DeclareAttack` 接线） |
+| `B101_R2` | 查判据 | `150642`/`152543`（`ta=50` 80 档折叠）· `180282`（A20 替代支）· `320826`（`traitsFilter=780` 夹具+期望重定） |
+| `B101_R3` | 查判据 | 资源「导了未接线」4 处 · `Gargoyle Swarm` · mixer 三份结构 + `40k_Rewards_icon__` 有无消费者 |
+| `B101_R4` | 查判据 | `Pray_Exit` 演出 · 手牌徽标层 · 攻击预览星镖豁免闸 |
+| `B101_R5` | 查判据 | 账 637 三路（exchange / steal / transform）机制施工单 + 池内覆盖 |
+| `B101_E1` | 执行 | `RuleEngine/Core/CardPoolCriteriaFilter.cs` 文件头 `180`/`190` 过期（零行数变化） |
+| `B101_E2` | 执行 | 账 `254`/`255`：面板候选剔 `PendingCard` + 断言（宿主接线由调度台做） |
+| `B101_E3` | 执行 | 抽屉 19 类 / 16 类型（`判据/B100_D1`）+ `B0` 复位 + `CurrencyDrawer` 登记 |
+| `B101_E4` | 执行 | B/C 行落点体检（`NAME-ABSENT` 216 段）三个域重定位 → 只写 `账/_parts/B101_L1.tsv` |
+
+- 文件所有权已刷新 → `文件所有权_当前.md`（本波一节）。
+- ⏸ 本波**不动**：引擎 10 条红（判据未回）· `BattleDriver` 只归 `B101_E2` · `ItemDrawer` 只归 `B101_E3`。
+
+### 29·4 波 1 回执（滚动记录 · ⛔ 别当最终）
+
+**账（已合并归档，`账/_parts/_merged_B101/`）**
+- `B101_L1`（`B101_E4`）：B/C 落点 **5 行 / 31 段**重定位（账 254 / 706 / 866 / 1281 / 1379）。合并 `--dry` 先跑、更新 5 / 新增 0。
+- `B101_E1`（`B101_E1` 转岗）：`收藏.tsv:189` 两列过期（射程只剩 `ta=50` 三行；`UM114` 已不在射程）+ 落点 `:85→:88`。⚠️ 合并前按它查出的冲突顺序：`B99_C1`（no-op）→ `B101_E1`。
+- 🔴 **`B101_E4` 的两条口径订正**（都成立）：① 简报的「B/C 794 行 / 段 674 / NAME-ABSENT 216」**已过期**，现读 = **B/C 21 行**（= B 18 + C 3）；②「文件不存在 6 段」现读 **0**。
+- 🔧 **工具升级 `工具/check_ledger_points_bc.py`**（调度台自己改，四处盲区，判据 = `B101_E4` §五）：
+  ① **裸 `:NNNN` 段**（同一格内继承前一个文件；原来 23/31 段被漏检）· ② 括号名上限 40→**80** 字符 ·
+  ③ 括号里写 `Method(实参)` 时按 `(` 截断 + **大小写不敏感**再比（原来两处假阳性）· ④ 路径认 `.py`（`工具/gen_cards_engine.py:行号` 原来被当成裸段、继承到 `.cs` 名下）。
+  现读：**B/C 21 行 · 110 段 · OK 110 · 问题 0**（A 闸同轮：A 5,729 / 通过 5,729 / 漂移 0 / 失败 0）。
+
+**数据契约（续 §29·2）**
+- 追加 `normalAbilityBoardCriteria.conditionsFilter`（`B101_R2` 判据：`BoardAnalysis__MeetsCriteria.c:110-113`；SW9/SW21 真值都是 **0**）。
+- 重生成后 `play check` **rc=0 · 指纹 `5ba2967a…` 未变** ⇒ 两条数据改动**零行为变化**（`B101_R2` 曾预计「SW21 会开始选支」，实测没有 —— 原因是它 `hasAlternativeAbility=1` 但今天没有任何可达路径调 `UsesAlternativeAbility`，⛔ 别据此以为 SW21 那条闸可以从红变绿）。
+
+**引擎 10 条红**
+- ✅ `B101_R1` 落地 **4 处夹具**（`B98G1_Assert` / `B97W19_Assert` / `B99E9_Assert`，typecheck 0/0，行尾纯 LF，既有断言文案一字未动）⇒ 预期 10 → 4。
+  · `[G1]` A4/A5：两条 `EnqueueAbility` 原本写在 `using (BeginAction)` **之前**，而 `ActionScope` 构造函数先泵一次队 ⇒ 入队当场被跑掉。
+  · `W19 280`：夹具把普通部队 `Place(...,4,...)` 摆进**督军格**（`BoardSpec.WarlordSlot`）⇒ 督军被挤出盘面 ⇒ `TryCancelAttackByUnits` 第一句就 return。
+  · `B99E9` ①②：文本 `friendly dies` 与「敌方死」互斥、`TargetsAffected=10` 不认 `chosen`。
+- ⏳ `B101_R2`（已转岗）做 `150642` / `152543` / `320826` 三条的夹具修。
+- 🔴 **`B101_R1` 顺手发现（已立账待办）**：`Place(...,4,...)` 是一族（现读 ≥16 处），`Place` 不检查督军格 ⇒ 可能还压着别的红。`B101_E1` 正在逐处判。
+
+### 29·5 波 1 第二批回执
+
+**`B101_E2`（账 254/255）✅ 落地**
+- `BattleDriver.cs:11221` 同一物理行换成 `ChoicePanelPool.PanelChoiceCandidates(...)`；类尾之后（类闭合现读 `:38958`）新增 `public static class ChoicePanelPool`；新建 `Editor/B101E2_Assert.cs`（A–E 五段）。`git diff 82/1`，账闸 0 漂移；`play check` **rc=0 指纹逐字符相同**。
+- **逐族核对**（`B100_X12` 点名的那一步）：`hand` **4 张**会差（面板时牌还在手）⇒ 剔；`deck/enemyhand/dead/pool/specific` 54 条不动；`played` 1 条结构上会差但**今天零影响**（`UM97` 走誓约主动技能不经出牌）⇒ **不预留**（照 §18·0，原版没那条路就不造）。
+- ⚠️ **两个断言文件尚未跑过**（`B101E2_Assert` / `B101R4_Assert` / `B101R5_Assert` 都已由调度台接进 `BattleScene.cs:46699` 那条聚合行，**同一物理行追加**）。
+
+**`B101_R4`（手牌徽标层）✅ 落地**
+- `CardView.SetBadges` 5 处同一物理行替换（行数 15510 不变）：**层照建、只掐可见性**（`badgeFaceVisible = _faceMode == CardFace.Board`）。判据 `BattleCardUI__SetObjectVisibility.c`（原版是「`3DBody` 父节点被关」，不是「不刷新」）。
+- 调度台同批改了两处宿主探针（各 1 行）：`BattleScene.cs:3426` 与 `CardBaseDemo.cs:6250` 的 `CardView.Create(...)` 补 `CardFace.Board` —— 不改的话那 11 条既有断言全部空转。
+- 🔴 **`B101_R4` 推翻了 `B100_F11` 的一条裁定（重要，已立新账）**：`Pray_Exit` **原版确实会播** —— 走的是**附魔自己 ability 的 `cardAnimations`**（`dump.cs:19457` `AbilityLogic.cardAnimations` → `PlayAnim` → `AddCardAnim(actingCard = 载体)`），不是 trait 动画那条（那条确实空）。⇒ `gen_card_vfx_by_card.py` 的 `strip_enchantment_unit_anims` **删掉了原版真实行为**；`VfxMap.cs:3521` + `BattleScene.cs:13423-13430` 那两条尺子「附魔不是单位 ⇒ 跳过」与判据不符。**处置未做**（要重生成两份产物 + 重裁两条尺子，单独一批）。
+- ⏳ **待用户拍板**：徽标探针从 `CardFace.Full` 换成 `Board` 会让截图 `28a_徽标_四枚.png` 从「2D 卡面」变「3D 卡体」（只影响观感，11 条断言期望与形态无关）。
+
+**`B101_E3`（抽屉）✅ 落地＋收尾**
+- 17/19 档 + `CurrencyDrawer` 登记 + `B0` 四句复位；`ItemDrawer.cs` **2349 行不变**（12/12 纯替换）；11 个新 `ItemDrawer<名>.cs`。
+- 余 2 档 `CardDrawer` / `CardAlternateArtDrawer` ⇒ 已派 `B101_R8` 复核「本机没有 `BasicCardUI` 等价件」这句（本项目的经典误判形状）。
+- 账补丁 **0 行**（它抽查的 43 行全是 A/D、无「未建」字样）。**三条待我判**：① `商店:164/166` 落点可更准（改指新文件）② `菜单_外壳:680/681/683` 把 `TitleDrawerHorizontal` 判 **D「全库 0 实例」**，与映射表/施工单的「25 份 MB」矛盾，而本轮已按 A 实现 ⇒ **该行判据要重核** ③ `收藏:271` 的「命中区 3 档」现读 **7 档**（已追加 4 档）。
+
+**`B101_R3`（资源）✅ 判据回来，已转岗执行 A1/A2/A3**
+- A1 Draft 结算页三处映射**订正**：胜场格不是 `Victory_round_v2`（真身 `Rank Skull Empty`/`Rank Skull`）；败场格叉号 `40k_DraftMode_icon_cross`（**已由调度台导入**，`Resources/Art/ui_menu/` 现读 6,523 B）；背景 = `Victories_Background_V2` 绝对矩形 `(737.1,400.3)–(1411.2,689.0)`。
+- A2 `Premium Glow` 图已在 ⇒ 只差 `MenuDraw.Rect`。A3 设置窗社交图标 **不是图缺、是代码没画**（`AcSocArt[]` 只有名字）。
+- 🔴 **C 组最大发现**：原版三份 `.mixer` 真身就在 `EP/Assets/` 根目录（`Main Mixer` / `Music` / `FX`，guid 无冲突）⇒ **直接拷**，不必手搓组/快照。⚠️ `AudioMixerController/` 下有同名不同对象的副本，⛔ 不能混拿。
+- B 组 `Gargoyle Swarm` 9 件全部本地可取（真阻塞还是那三点：`m_Asset` guid 空 / 6 个 shader 缺 / 2 个 Texture3D 被展平）。
+
+**`B101_R6` / `B101_E1` / `B101_R2` / `B101_R8`** 在飞。
+
+### 29·6 `B101_E1` / `B101_R2` 回执（夹具族）
+
+- **`B101_E1` 13 处 `Place(...,4,...)` → 5/6**（`B97_ER_Assert` ×3 · `B99E9_Assert` ×1 · `EngineE3` ×6 · `EngineE8` ×1 **改用 6**（5 已被 `cUnknown` 占）· `EngineP1` ×1 · `EngineX1` ×1）。全部同一物理行、行数零变化；typecheck 0/0；账闸漂移 0。
+- 🔴 **13/13 都没有现存判别式**（逐条读码核过三条可能变化的通道）⇒ 它们是**消除夹具与引擎模型偏离的预防性修复**，不改任何断言的期望结果；⚠️ **未跑 Unity，是读码推理不是实测**。
+- 🔴 **新立一条（`B101_E1` 顺手发现，只报未改）**：改完仍有 **9 个夹具的棋盘不连续** —— **8 处**把敌方卡摆在 **P1 的 1 号格**（`Place(ctx,1,1,…)`，1 号有人而 2/3 空 = 洞），**1 处** `EngineP1:226` 的 `GOF86` 在 P0 的 2 号格。⇒ **另开「`Place(...,1/2,...)` / 外格有人内格空」普查**（判据 `BoardSlots.IsContiguous` + `WarnHoley` 的 `LogError`）。
+- **`B101_R2` 三条红 + 4 处督军格**：`RuleEngineTest.cs` **39/39 净 0 行**；新建 `RuleEngine/Editor/RuleEngineTest_B101R2.cs`（89 行，只放 helper）；`B98G6_Assert.cs` +10。
+  · **路径订正（已改进所有权表）**：`RuleEngineTest` 真身在 `Assets/RuleEngine/Editor/`（`partial` 不跨程序集）。
+  · 3 处督军格实际格号与简报不同（`26717→3`（5 已被 `gone` 占）· `37947→2`（5/6 都被占）· `37963→6` · `37987→5`）。
+  · **追加指令**：把 4 处改成**可断言的前提**（helper 在 partial 里、调用点同一物理行追加 ⇒ 行数仍零变化），在跑。
+
+### 29·7 旧任务核销审查（用户 2026-10-30 点名「同步点之前先看旧任务能不能核销」）
+
+派 4 路只读代理（`B101_K1`–`K4`）逐线回源核（**不看账的文字**，抽验落点那一行），范围 = **除战场线外 13 条线**。逐条依据落在四份报告：
+`报告/B101_K1_引擎战斗线核销.md` · `B101_K2_界面卡牌线核销.md` · `B101_K3_特效音效联机自检线核销.md` · `B101_K4_工具引导活动卡ID远端核销.md`。
+
+| 线 | §一 条数 | ✅ 可核销 | 🟡 部分 | ❌ 不可 |
+|---|---:|---:|---:|---:|
+| 引擎线 | 36 | 12 | 9 | 15 |
+| 战斗线 | 37 | 9 | 8 | 17（+3 非任务） |
+| 界面线 | 41 | 24 | 5 | 10（+1 非任务） |
+| 卡牌线 | 27 | 21 | 1 | 4（+1 非任务） |
+| 特效线 | 17 | 8 | 5 | 4 |
+| 音效线 | 3 | 2 | 0 | 0 |
+| 自检断言线 | 8 | 1 | 0 | 7 |
+| 联机线 | 5 | 0 | 1 | 4 |
+| 工具文档线 | 22 | 12 | 5 | 4 |
+| 活动线 | 10 | 6 | 0 | 3 |
+| 卡牌ID逆推线 | 2 | 1 | 0 | 1 |
+| 远端挂起线 | 12 | 4 | 0 | 7 |
+| **合计** | **220** | **100** | **34** | **86** |
+
+**本批实际搬运**（按 `任务线/README.md` §五）：
+- ✅ **已逐行搬进 §二**：引擎线 **12** · 战斗线 **9** · 特效线 **3** · 音效线 **1** · 自检 **1**（每线在 `## 一、未完成` 下加了**一行汇总裁定**，数字与报告一致）。
+- ⏳ **只登记未搬**：界面 24 · 卡牌 21 · 工具文档 12 · 活动 6 · 卡牌ID 1 · 远端 4 · 特效剩余 5 —— **原因**：批量按行号删表**实测会错位**（一次跑挂 19 行校验失败、另一次把散文行当表格行删）；改成「先登记 + 下批按报告逐条搬」，⛔ 别拿脚本硬搬。
+- 🔴 **本轮抓到三处口径打架（已就地订正）**：
+  1. **战场线暂停口径**：`远端挂起线 §三` 与 `战场线/任务总表.md` 顶部**都还写 10-25「复刻放开、只暂停验收」**，与 `CLAUDE.md` 顶部 2026-10-29「**战场线暂停，以后再说**」冲突 ⇒ 两处都改成 10-29 口径（战场线整条暂停、`T02/T03/T04/T05/T08` 不进波次）。
+  2. **战斗线 L288 那行是截断的**（`D14（`abi` 处断掉），`git show HEAD` 同形 ⇒ **不是本地丢失**；`D14` 说明全仓已无第二份 ⇒ 行内加「此处被截断、勿当完整」标记。
+  3. **`B98` 两张旧核销表已有 9 行被 10-30 的提交推翻**（`B101_K1` 标 🔁）⇒ 下个会话别照旧读数行事。
+
+**核销审查顺手挖出的真缺口（⛔ 别再当已做）**：界面线「整链路审查」（用户 2026-10-24 点名最后做、全库无产出）· 联盟页头像未乘 ×2/×1.25/×1.9（`AllianceMemberTab.cs:1904-1912`）· `effectText` 数据已到（v45 / 31 张）但 **UI 未喂**（`EffectTextKeyOf` 全仓 0 命中）· 战役格 `ArmyName` 仍空串（`ProfileTab.cs:1283`）· `CurvedLayout`（第三方唯一真缺口）· `PlayEvent<T>` 已补导但 `MonoScript` 173 判档仍未做。
+
+### 29·8 同步点（20 条宿主，12:39–12:48 全跑完）
+
+| 宿主 | 结果 |
+|---|---|
+| `RuleEngineTest.Run` | **12285/12286 · 1 红**（会话起点 10 红） |
+| `BattleScene.Run` | **5952 / 0** ✅ |
+| `MainMenuScene.Run` | **5756 / 0** ✅ |
+| `DeckScene.Run` | **1963 / 1963** ✅ |
+| `CollectionScene.Run` | **2527 / 2527** ✅ |
+| `AnimFXCheck.Run` | **248 / 0** ✅ |
+| `CardBaseDemo.Run` | `CBD 575/0` · `cardface-chk 232/2` |
+| `RewardsScene.Run` | **2509 / 4** |
+| `ShopScene.Run` | **2945 / 11** |
+| 其余 10 条（Shell/Net×2/Settings/GameModes/GameStaticData/EnchantmentTemplate/AudioSnapshot/LoadableRef/PlayerDataMath） | 退出码 0 |
+
+- 🔴 **唯一剩下的引擎红 = `A1 （前提）normalAbilityBoardCriteria 落成 BoardGateSpec（不是 null）`** —— 这条**正是被本会话的数据契约 v45 改掉的期望**（1127 张现在正确地是 `null`）⇒ 属 α（断言期望过期），**判据在** `报告/B100_X10.md` §A + `报告/B100_X15.md` #19（「把 A5 的期望改成物化后的那棵树，或删掉」）。
+- `Rewards` 4 / `Shop` 11 / `cardface` 2 已派 `B101_D1` 分诊（⛔ 不猜着修）。
+
+### 29·9 旧任务「判据被推翻」的核销（用户点名：这些核销没有？）
+
+- **`P09`（`MissionsTab` 来源）**：调度台**自己回源**核了 `D:/2/tools/decomp_full/MissionsTab__CreateMissions.c` —— `grep -c LoadComponent` = **0**，整段只调 `ContainerHolder__Clear`×3 + 自己的 `InstantiateNormalMissions`/`InstantiateGridMissions`/`RefreshRefillCount` ⇒ **纯本地实例化**，原判「永久不可解」**被证伪**，已结案。
+- **`P06`（旧机器 DUID）**：仍不可解，但 `B99_P6` 已证「旧档账号字段全空、不阻塞复刻」⇒ **取消「等远端」挂起**、按结案收口。
+- **三份 B98 旧核销表**（`B98_旧任务核销_总表` / `B98_L1` / `B98_L4`）各加**订正横幅**：至少 12 行已被 10-30 提交推翻，逐条列旧判 → 现读落点，并写明**权威版改看 `B101_K1`–`K4`**。
+- **`B101_Q2` 又挖出 8 条「旧任务错」**（特效 5 + 卡牌 3），已就地改写：`新账-72`（② 已有断言 `BattleScene.cs:41545-41579`）· 静音桶（例外①，理由在 `card_vfx_by_card.json` 的 `notPlayed[].why`）· `V1·865`（两侧同样落空，不是我们的偏差）· `K5·P1-4`（真修复是 `_ownerWatch`，加返回值那条路已被明确推翻）· `Coffee` 另 2 个 dll（伪需求；真阻塞是 shader 要 Unity 批）· `FitToBox`（已整条重写 `CardView.cs:5899-5978`）· `Card_Trait` 三键（原版表里也没有 ⇒ 不可达）· `_BaseMap.a`（`Card3D.shader:192` 早已实现）。
+- 🔴 **`B101_Q4` 反查出 `B101_K1` 自己判错 7 条**（其中一条「把 `sneakattack` 加进徽标白名单」会**当场把自检做红**）⇒ 连「审查结论」也要回源复核，⛔ 不许抄。
+
+### 29·10 联盟页头像 ×2 / ×1.25 / ×1.9 溯源（用户点名的例子）
+
+- **参数来源**：`bundle_menus_assets_all` 的 prefab **`Avatar Item Small`（7 个实例同值）**，其 `Image Container` 下三个子件的 `m_LocalScale` = **`Image` (2.0,2.0,1.0) · `Border` (1.25,1.25,1.25) · `Highlight` (1.9,1.9,1.9)** —— **调度台本会话亲自解包复核**（不是照抄旧判据）。
+- **账里对应行**：`AllianceMemberEntry.Initialize(...)` = **A**，落点 `Shell/AllianceMemberTab.cs:1879（Build）`，差异列**没提倍数**。
+- **为什么会这样**：账的坐标是「**原版方法**」，而这三个数是 **prefab 序列化字段、不在任何方法体里** ⇒ **方法级口径结构上看不见**。「行级 A」与「画面差 2 倍」可以同时为真 —— 这是「逐条复刻」的**系统性盲区**，不是旧任务错。
+- ⇒ **新账（要做）**：一次「**prefab 视觉参数 vs 我们实现**」普查（`m_LocalScale ≠ 1` / `m_LocalRotation` / `m_Color.a` / `m_Enabled` / `CanvasGroup.alpha`），逐条到代码里找对应件；本例的修法 = 用已有 `ScaleAboutCenter` 同族补 `AllianceMemberTab.cs:1904-1912` 与 `AlliancePanelWindow.cs:658`（判据已齐）。
+
+### 29·11 「非方法体」九项审查立项（用户 2026-10-30 点名）
+
+- **根因**：账的坐标是「原版方法」⇒ 凡**不在方法体里**的东西（prefab 序列化参数、复用路径、交互命中、状态矩阵、链路、本地化三档、我们多做的、资源落地）**账结构上都看不见**。本会话实证 = `Avatar Item Small` 的 `m_LocalScale` 2.0/1.25/1.9 vs 账 A。
+- **正本** → `判据/非方法体审查_任务清单.md`（**AUD01–AUD09**，含每项的：为什么看不见 · 数据源 · 方法 · 产出 · 验收 · 已知实例 · 状态）。⛔ 别在别处再抄第二份（铁律 6）。
+- **建议顺序**：AUD01（在跑）→ AUD02（同一工具扩列）→ AUD03/AUD04（每窗一张清单）→ AUD05 → AUD06 → AUD08；AUD07/AUD09 归各自线定期跑。
+- **交接**：本会话的交接件 = `交接_第一百零一会话.md`（§四·1 就是这九项）。
+
+### 29·12 收尾（用户 2026-10-30 说「收尾交接」）
+
+- **交接件** → `交接_第一百零一会话.md`（新会话第一站）。
+- **三闸终值**：`typecheck` **0/0** · 账闸 **A 5,729 / 通过 5,729 / 漂移 0 / 失败 0** · B/C 落点闸 **21 行 / 110 段 / 0 问题**。
+- ⚠️ **最后一次 Unity 自检 = 12:48**；之后改了 `W1/W2/F2/W3`（`GameWindow`/`Loc`/effectText/3 条视觉参数/7 条断言）⇒ **全部未跑 Unity**，新会话第一件事跑全套。
+- **本会话新增待办（已在交接 §3·4 逐条记）**：`AllianceMemberTab` 的 `Highlight` 布局框高度实算 67.549（我们 70.22）· 头像放大溢出 49.4px 的重叠队列 · `Done Highlight` tint / 页头 `Filler` 渐变 · `CardDetailPopup.Close()` 双调 `Hide()` · `Loc.HasEntry` 其余 198 处（AUD07）。
+- **下一批第一顺位** = 账剩下 **21 条**（交接 §4·0 已分 A/B/C/D 四类）。
+
+---
+
+## 三十、第一百零二会话（2026-10-30 下午）
+
+### 30·0 开局现状（现读，⛔ 别抄旧值）
+
+| 项 | 会话起点 | 现读（30·9 收口时） |
+|---|---|---|
+| 账 | 21 份 tsv / 9,608 行 · **A 5,729 · B 18 · C 3 · D 3,858** · 真复刻率 **99.635%** | 21 份 / **9,609 行** · **A 5,732 · B 17 · C 2 · D 3,858** · **99.670%** |
+| git | 工作树干净 · ahead 9（push 失败一次） | 见 §30·9 |
+| `typecheck` | 0 / 0 | 见 §30·9 |
+
+### 30·1 🔴🔴 本会话最大发现：**17 个断言类从未执行过**（接线被行末 `//` 吞掉）
+
+**症状**：复跑全套后 `battle.log` 里**没有「=== 合计：」那一行**，`BattleScene` 退出码 1。
+
+**根因**：项目有一条正确的纪律 —— 新增断言接线走「**同一物理行追加 ⇒ 行数零变化**」（避免账的 A 行落点按行号漂移，铁律 18·b）。
+但那条「方法尾聚合行」**本身已经以一段 `//` 说明结尾**；此后每次「在同一行追加」，文本就落在**该 `//` 之后** ⇒
+**看起来接上了、`typecheck 0/0`、账闸全绿、断言一条没跑**，连「合计」都被吞掉 ⇒ **连「数字变小」这个信号都没有**。
+
+**受影响（全仓扫描，逐行判「类名是否出现在别的文件的非注释片段」）**：
+
+| 宿主行 | 被吞掉的 |
+|---|---|
+| `Editor/BattleScene.cs:46701` | `B101R5_Assert` · `B101F2_Assert` · **`Debug.Log("=== 合计…")`** |
+| `Editor/ShellScene.cs:11023` | `B94Y6_Assert` · `B94B4Assert` · `B94B6Assert` · `B94B17Assert` · `B97W2Assert` · `B97_DAILYAssert` · `B97MISC2Assert` · `B97_MENU_Assert` · `B97MINI2Assert` · `B98A1/A5/A8/A11_Assert` · `B98H5Assert` · `B98K5_Assert` · `B98M2_Assert` · `B101R8_Assert` · `B101W3_Assert` · `B99G3Assert` · `B99A4Assert` · **合计行** |
+
+其余宿主（`MainMenuScene` / `CollectionScene` / `DeckScene` / `BattleVfxAssertE3`）扫出的「注释内调用」**都另有可执行副本**。
+
+**修复**：只做**行内文本搬家**（被吞那一段从 `//` 之后移到 `//` 之前），⛔ 不改行数 ——
+`BattleScene.cs` 49729 → 49729、`ShellScene.cs` 11109 → 11109，`git diff --numstat` 都是 `1 1`；`typecheck 0/0`。
+
+**复跑（第一次真跑）**：`BattleScene` **6623 通过 / 3 失败** · `ShellScene` **3251 通过 / 6 失败**（另有 `B98A5`/`B98A8`/`MINI2` 用自带计数器，不并进合计）。
+分诊见 §30·4。
+
+**教训（已写进 `报告/B102_W1_断言接线被注释吞掉.md`）**：
+1. 🔴 「同一物理行追加」必须**先确认该行没有 `//`**，或者把代码追加在 `//` **之前**。
+2. 🔴 `typecheck 0/0` + 账闸全绿 + 退出码 0，**三样都不能证明断言执行了**。
+3. ✅ 判「某个断言类接没接上」= 看**类名有没有出现在【别的文件】的【非注释片段】**里；**定义行必须排除**（否则恒真）。
+4. 这是「断言文件建了但没人接线」的第 5 次复发 —— 前 4 次都是「压根没写接线」，这次是**写了但落在注释里**，更难发现。
+
+### 30·2 账：已判 A 的三条 + 一条订正 + 一条新账
+
+| 账行 | 处置 | 证据 |
+|---|---|---|
+| `收藏.tsv:349` `WildcardDisplay.SetCountersText` | B → **A** | 两个宿主都已接（`DeckRuntime.cs:4883` / `CollectionWindow.cs:6699`）；`DeckScene` 的 `DK ✓ 界面5·★ 四格数字 == CardProgress.Wildcards(army,rarity)` 绿。⚠️ 落点原写 `:4883`（语句行）过不了 A 闸 ⇒ 改锚到 `:4746 void RefreshHeader()` |
+| `战斗逻辑驱动.tsv:255` `ChoiceOfCardPlayer` | B → **A** | 残余①②都落（`B97_BD` 数据上限 / `B101_E2` 剔 `PendingCard`）；`B101E2_Assert` **24/0**；`play check` **rc=0**、指纹 `5ba2967a…` 未变 |
+| `其他_基础设施.tsv:160` `AlmostEquals(Quaternion,…)` | C → **A** | 等价实现 = `Core/AngleMath.cs:51 AngleDegTiny`（生产调用点 `CardView.cs:10162-10163`）；**如实标残差**：原版 `|dot|>0.999999 ⇒ maxAngle>0` 那一支不复刻（`AngleMath` 故意不设 dot 阈值），而原版**全树 0 调用点** ⇒ 无可观察量 |
+| `日常_奖励.tsv:39` `LogPlayTactic` | 就地订正（仍 B） | 🔴 **「cost 通道未建」撤销** —— `CardPlayedSignal.CurrentCost(+0x28)` 原版**零消费方**，唯一消费者读的是 `RawCard.manaCost(+0x78)`。建 cost 通道会造出死格 |
+| `日常_奖励.tsv` **末尾新增一行** `CardPlayedCount` | 新账（B） | 本仓**从零**缺：`CardPlayedSignal` DTO/注册表/发点 + `CardPlayedCount : MissionChallenge` 子类 |
+
+### 30·3 判据普查（4 路只读代理，产出全部落 `判据/`）
+
+| 文件 | 结论要点 |
+|---|---|
+| `B102_R1_战斗B类三条.md` | ① `:506` 的「棋盘那一跳缺」**已过期**（`B99_C1` 已落），真残差 5 条（R1 `DisplayEnemyCardInCenter` 挂钩可达、R2 carried effect 原版死支、R3 actingCard 只能传 null、R4 `unitsInPlay≠Board`、R5 sabotage 顺序）② `:707` 5 条，其中 `SetupFTUELowLifeInvulnerability` **全仓无产品调用方**（要调度台定 `isPlayer` 口径）③ `:867` **可直接照做**：`StepActiveAbilityLoading` 的唯一调用点在 `UseAbilityCore`，而那条路服务 `Card.Ability`（原版池恒 null）⇒ 装填永远不跑 |
+| `B102_R2_日常奖励B类五条.md` | ① `:39` cost 通道撤销（见上）② `:526` 谓词真相 = **`SelectMany` 选择器**（不是 `Where`）⇒ `n` = 总进度条数；唯一必改 `MissionsTab.cs:2704` ③ `:621–624` **宿主子树其实已建好**（`B99_E7` `BuildEventProgression`），真残差只有 2 条（`Scoring Icon Holder` 不画图 · 三张进度条九宫图被当单块拉伸） |
+| `B102_R3_特效B类两条.md` | ① `:503` 消费侧空；施工单 4 步全给；🔴 `B98_R1 §503` 的**放置位置是错的**（照做会静默不播一格），正确落点 `BattleDriver.cs:25442` 之后、`:25463` 残骸守卫之前 ② `:521` 的 5 张残差**没有一张是「只能到这」**：3 张 `changeCost` 缺一族行生产者、2 张 Bjorn 缺 `Caster` 格 |
+| `B102_R4_C类大工程两条.md` | ① `RawCardScript.ResolveActiveAbility` 的 **「只实现 2/86」是 2026-10-27 旧值，现读 52/86**；另有 11 支「有等价实现可优先核销」⇒ 可核销上限 63/86 ② `TwoSidesEvent_OnGoingTab` **已由 `B98_K3` 落了大半**，拆 10 段：6 段已落、4 段未做/未接线 ⇒ 顺带：`chestOpen` 五张图**已在工程**（原判「未解」过期） |
+
+### 30·4 同步红分诊
+
+**`BattleScene` 3 条**（`报告/B102_D1_三条红分诊.md`）：**0 条 β、0 条 γ** —— 全是新启用断言**第一次跑**暴露的断言/夹具问题：
+- `B101R3` `③a 前提：Social Media Links 在` = **(δ)** 断言只 `Create` 从不 `Open()` ⇒ `Build()` 没跑
+- `B101R5` `B5 灭自证` = **(α)** 负向 token `⇒ 跳过` 被**新日志自己**引用 ⇒ 永远过不了
+- `B101R5` `手牌张数 4→3` = **(α)** 基线取在出牌**之前**，含被打出去的那张（原版判据：`ResolveTransformUnit.c:1880` 那段不碰手牌 List，**变身确实保张数**）
+- 顺手：`B101R5` 的 **B4 灭自证其实自证了**（断言的方法名就长在新日志里）
+
+### 30·5 本会话派出的波次（写手 7 · 只读 5）
+
+| 代号 | 活 | 状态 |
+|---|---|---|
+| `B102_AUD01` | AUD02 #1 `Done Highlight` 空心九宫格 | ✅ 交回：`DeckRuntime.cs` 4 处行内改 + 文件尾 +44 行；断言 17 条；调度台已接 `DeckScene.cs:825` |
+| `B102_AUD02` | AUD02 #2 筛选标题 `UpperCase` | 在飞 |
+| `B102_AUD03` | AUD02 #3 排行榜字距 1.2 | 在飞 |
+| `B102_AUD04` | AUD02 #4 聊天窗 `ppuMul`（2.0/3.0） | 在飞 |
+| `B102_AUD05` | AUD02 #6 `ChatPreview` 的 `Filled` | 在飞 |
+| `B102_R1_867` | 账 `867` 装填挪进 `UseActiveAbilityCore` | 在飞 |
+| `B102_MISS` | 账 `日常_奖励:526` 列数 = 总进度条数 | 在飞 |
+| `B102_FIX1` | 三条红的断言侧修 + B4 灭自证 | 在飞 |
+| `B102_AUD03P` / `B102_AUD04P` / `B102_D2` | AUD03 / AUD04 普查 · ShellScene 红诊断 | 在飞 |
+
+### 30·9 收尾（待补）
+
+### 30·6 自检结果（三轮：开局全套 → 六宿主 → 收口全套）
+
+| 宿主 | 会话起点 | 收口（`_tmp_view/b102_sync_final.txt`） |
+|---|---|---|
+| `RuleEngineTest` | 12285 / 1 红 | **12332 / 0** ✅ |
+| `BattleScene` | 5952 / 0 —— **假象：合计行被注释** | **6652 / 0** ✅（首次印出真合计） |
+| `ShellScene` | 无合计 —— **假象** | **3363 / 0** ✅（首次印出真合计） |
+| `MainMenuScene` | 5756 / 0 | **5799 / 0** ✅ |
+| `DeckScene` / `CollectionScene` / `ShopScene` | 退 0 | 退 0 ✅ |
+| `RewardsScene` | 2509 / 4 | **2510 / 3**（会话起点就有的遗留，未分诊） |
+| `CardBaseDemo` | CBD 575/0 · cardface 232/2 | **CBD 575/0 · cardface 234/0** ✅ |
+| 其余 12 条 | 退 0 | 退 0 ✅ |
+
+**修复过程里两次「红了先诊断」的收获**：
+- `BattleScene` 3 条 → 全 α/δ（断言只 `Create` 不 `Open` · 负向 token 被新日志自己命中 · 手牌基线含被打出的那张）⇒ `B102_FIX1` 全修，**0 条 β**。
+- `ShellScene` 11 条 → 8 α / 1 δ / 2 β（β = 卡包 `armyTexts` / 粒子材质取不到）⇒ `B102_RED5` 修完断言侧，两条 β 立账。
+- `RuleEngineTest` 8 条 → **γ：`B102_R1` 自己的代码又被行末 `//` 吞了**（今天第 6 次）⇒ 搬到 `//` 之前后 **34/0**。
+
+### 30·7 账终值（现读）
+
+| 口径 | 值 |
+|---|---|
+| 账 | 21 份 tsv / **9,628 行** |
+| 状态 | **A 5,744 · B 23 · C 3 · D 3,858** |
+| 真复刻率 `A/(A+B+C)` | **99.549%**（起点 99.635% ⇒ ⬇ 0.086 pt，**因为新查出 9 条真缺陷并如实立账**，不是回退） |
+| A 行落点闸 | **通过 5,744 · 漂移 0 · 失败 0**（告警 737） |
+| `play check` | **rc=0 · 指纹 `5ba2967a…` 未变**（账 867 的改动对池内行为零影响） |
+| `typecheck` | **0 / 0** |
+
+### 30·8 本会话新增的审查进度
+
+| 编号 | 状态 |
+|---|---|
+| AUD01 | ✅ 普查完 · 3 条已修 |
+| **AUD02** | ✅ **7 件事里 6 件已修**（#7 `Label` 无 overflow 口 ⇒ 待做） |
+| **AUD03** | ✅ **普查完成**：119 行 · ❌ 25 / ？ 13 / ✅ 81；**三个跨窗根因已立账** |
+| **AUD04** | ✅ **普查完成**：70 行 · ❌ 0 / ⚠️ 4 / ？ 1（交互层基本健康） |
+| AUD05–09 | ⬜ 未开始 |
+
+### 30·9 收尾
+
+- 交接件 → `交接_第一百零二会话.md`（新会话第一站）。
+- 三闸终值：`typecheck` **0/0** · 账闸 **A 5,744 / 0 失败** · `play check` **rc=0 指纹未变**。
+- **自检重写过的两份场景已 `git checkout` 还原**（`Scenes/CardBase.unity` · `Scenes/DeckEditor.unity`）。
+- 🔴 **留给下一个会话最要紧的一条**：「同一物理行追加」这个动作**本身会制造「代码落进注释」** —— 本会话 6 次。追加后**必须**看一眼该行第一个 `//` 在哪。
+
+### 30·10 收口终值（15:13–15:22 最后一遍全套）
+
+| 宿主 | 终值 |
+|---|---|
+| `RuleEngineTest` | **12332 / 12332 全过** ✅ |
+| `BattleScene` | **6678 / 0** ✅（含新接的 `B102TRAIT` 猎杀标记粒子 21 条） |
+| `ShellScene` | **3363 / 0** ✅（⚠️ `B98A5 ✓73/✗1` · `B98A8 ✓12/✗1` 用自带计数器、不并进合计 —— 那两条 ✗ = `商店` 里卡包粒子材质的 2 条 β） |
+| `MainMenuScene` | **5812 / 0** ✅（含 `B102AUD03/AUD05/AUD06`） |
+| `ShopScene` | **2982 / 0** ✅（2956 → +26 = `B102PACK` 卡包 Army Text） |
+| `DeckScene` / `CollectionScene` | 退 0 ✅（`B102AUD01/AUD02/DECK` 全绿） |
+| `RewardsScene` | **2510 / 3**（会话起点就有的遗留，未分诊） |
+| 其余 12 条 | 退 0 ✅ |
+
+| 口径 | 终值 |
+|---|---|
+| 账 | **9,629 行** · **A 5,745 · B 23 · C 3 · D 3,858** · 真复刻率 **99.549%** |
+| A 行落点闸 | **通过 5,745 · 漂移 0 · 失败 0**（告警 740） |
+| `play check` | **rc=0 · 指纹 `5ba2967a…` 未变** |
+| `typecheck` | **0 / 0** |
+
+### 30·11 本会话最后一段：两条「红了先诊断」的战果
+
+1. **`MainMenuScene` 1 条**（`聊天行放得进 327.3px` 渲出 **4.6e11**）—— 根因 = `Label.SetOverflow` 里调 `ForceRelayout()`，
+   `Ellipsis` 档下把 TMP 网格量成未初始化值。**去掉那次重排** ⇒ 5812/0。
+2. **`BattleScene` 3 条**（`B102TRAIT`）—— 分诊出两个独立原因：
+   - ① 假红：夹具样本卡 `Leviathan` 不在该阵营卡池 ⇒ 视图被 `Kill` ⇒ Unity 的 `==` 认为「销毁 == null」⇒ 引用比较恒假；
+   - ② 真缺口：粒子播放口压根没被调到。
+   最后一跳的根因是**宿主级**：`BattleScene.Run:632` 那局用**自设计阵营**（`Ember`/`Tide`），`CardDatabase.Find(_pool,…,"Tide")` 必然落空
+   ⇒ 那一局任何死讯都拿不到 `CardDef`。
+   **修法 = 断言自建驱动**（`RuleCore.NewBattle` + 反射灌四个私有字段 + 自己的 `boardRoot` + 只读借用宿主的 BoardLayout，
+   **⛔ 不调 `Begin()`** —— `Begin` 会抢静态钩子并建 HUD 画布，编辑模式下 `OnDestroy` 不跑 ⇒ 会毁掉宿主后面几万行断言）。
+   改完 **6678 / 0** ✅。
+
+---
+
+## 三十一、第一百零三会话（2026-10-30 晚）
+
+### 31·0 开工现读（⛔ 别抄旧值）
+
+| 口径 | 值 |
+|---|---|
+| 账 | 9,632 行 · A 5,761 / B 16 / C 0 / D 3,855（真复刻率 99.723%） |
+| `typecheck` | 0 / 0 |
+| git | 工作树干净 · ahead **15** |
+| 交接订正 | `交接_第一百零二会话.md` §一 原写「B 15 / 9,631」= 过期；§4·1 清单漏了 `DisplayEnemyCardInCenter`。**已就地订正**（现读 B 16）。 |
+
+### 31·1 阶段 0：三个宿主实跑（`_tmp_view/b103/`）
+
+| 宿主 | 结果 |
+|---|---|
+| `ShopScene` | **2982 / 0** ✅（`B102PACK` ✓26/✗0）⇒ 账 `商店.BoosterPack(ArmyText)` 可转 A |
+| `ShellScene` | **3467 / 5** —— 卡包材质那 8 条**确实绿了**（`B98A5` ✓74/✗0 · `B98A8` ✓13/✗0）；冒出 5 红：`B97W32` 1（贴图槽 1459 空 1248）+ `B102AUD03R` 4（`DropDeadHandlers` 组） |
+| `RewardsScene` | 🔴 **崩在 `RewardsScene.cs:7092`**（`CampaignRewardWindow` 已销毁仍被 `cw.transform` 访问）⇒ 宿主没跑完、无合计行。交接的「2510/3」**作废**。 |
+
+> ⚠️ 调度台自己踩的坑：`"$UNITY" ...; echo "$(date) 退出码 $?"` —— `$?` 取到的是 **`date` 的**退出码（`_run_8_checks.sh` 里早就写过这条注释）。**判绿红只看日志里的合计行**。
+
+### 31·2 丙类裁决（用户 2026-10-30 授权「这些由你裁决」）
+
+正本 → `判据/B103_丙类裁决.md`。结论：**三条判 A**（`InitializeMilestones` · `OnOpen` · `ClickAddFriend`），依据 = 方案 §4.1 边界（客户端要拿结果画界面 ⇒ 不判 D）+ §18·0 + 既有先例（缺数据即「出厂态 + 出声」，⛔ 不编假数据）。
+一条待裁：`BuyOriginalCard`（等 `B103_W4` 查判据）。**账闸复核 5,764 / 通过 5,764 / 漂移 0 / 失败 0**。**账现读 A 5,764 · B 13 · D 3,855 · 真复刻率 99.775%**。
+
+### 31·3 本会话波次（10 路，文件互不相交 · 所有权表已登记）
+
+| 代号 | 活 |
+|---|---|
+| `B103_W1` | 账 `日常_奖励:39` `LogPlayTactic` cost 通道 + `:623/624` `CardPlayedCount` 整族 |
+| `B103_W2` | 账 `个人资料.SearchInput` —— 联盟成员搜索框 + 建盟 Name/Desc 接 `TextInputField` |
+| `B103_W3` | 账 `特效动画.GetCardEffectsToShow` 5 条残差（S3-c/d/f · `RemoveTrait` 有序；S7 探针归调度台） |
+| `B103_W4` | 账 `菜单_外壳.BuyOriginalCard` —— 先查判据，纯服务端则给反证 |
+| `B103_W5` | 账 `战斗逻辑驱动.ResolveActiveAbility` ×2 —— 剩 32 支执行器 |
+| `B103_R1` | AUD03 剩 25 条 ❌ 施工单 → `判据/B103_R1_AUD03施工单.md` |
+| `B103_R2` | AUD05 状态 × 参数矩阵（卡组编辑卡池） |
+| `B103_R3` | AUD07 `Loc.HasEntry` 全量调用点逐条判 |
+| `B103_R4` | AUD08 反向普查（我们多做的） |
+| `B103_D1` | `ShellScene` 5 红 + `RewardsScene:7092` 崩溃分诊 |
+
+**留给下一波（等 `RuleCore.cs` / `EffectResolver.cs` 空出来）**：`CardSetup` 的 ② FTUE **读点**（伤害结算 `ResolveDamageDealt.c:186` 那一段，本地代码还没写 —— FTUE 配置值是远端 `🔶`，但读点本身是本地活）· `DisplayEnemyCardInCenter` 的 0.6 s 阻塞建模。
+
+### 31·4 波 1 交回结果（2026-10-30 晚 · 逐条）
+
+| 代理 | 结论 |
+|---|---|
+| `B103_D1` | `B102AUD03R` 4 红 = **单一根因 β**：`TabButtons.cs:287/:310` 的 `target != null && target == null` 两边都绑 Unity 的 `==` 重载 ⇒ **恒假** ⇒ 摘死 handler 的路从落地起就是死的。`B97W32` 拆成 **α 尺子错 1057 + β 真悬空 191**（7 条 `material→texture` 指向我们没发的旧 CAB）。`RewardsScene:7092` = **γ+δ**（`Close` 延后销毁后复用旧实例）。 |
+| `B103_W2` | 账落点**指错文件**：真身是 `Shell/AllianceSearchTab.cs`，且**早被 `B102_ALLY` 接好并有断言**。原版 `AllianceMemberTab` 类根本没有输入框。 |
+| `B103_W4` | `BuyOriginalCard` 落点也是错的（`CardDisplayWindow.cs:2527` 是空行）。判据 = **本地可做 2 段 + 纯服务端 2 段 + 1 段「客户端跑、值从回包来」** ⇒ 离线落不下真购买。 |
+| `B103_R1` | AUD03 25 条 ❌ → **确认 16 · 翻案 9**（`#60` 经现读发现原版也只清表不关窗）。 |
+| `B103_R3` | AUD07 真实调用点 **177 行 / 190 处**（剥掉 139 行注释）；**138 该宽 / 39 该窄 / 0 判不准**；今天就已经错的 **4 处**。 |
+| `B103_R5` | ① `DisplayEnemyCardInCenter` 阻塞真值 **1.078 s**（原记 0.6 错），我们动画序列已同形、缺的只是时间线那一格。② 🔴 **FTUE 低血无敌读点我们读错了**：原版看**掉血之前**的血，我们看**之后**；现有 `B98K2_Assert` D1/D2 把错口径钉死了，落地后必须翻面。 |
+| `B103_W5` | 86 支：52 已实现 + 2 已接线 = **54**；休眠 32 里 **5 支前人已落地**、**2 支 `160`/`165` 分派在但闸不在（死代码）**、**本轮建 5 支**、**20 支未动**。 |
+| `B103_W1` | `CardPlayedSignal` 整族从零建起；补丁两行（`:39` + `:786`），`--dry` = 更新 2 · 新增 0。 |
+| `B103_W3` | `RemoveTrait` 有序 + `RowGroup` 数据槽/投影落地；S3-d/S3-f 因文件不在白名单交回补丁。 |
+| `B103_R4` | AUD08 覆盖 **237 条 / 114 类**严格子集；查实「我们多做了」**5 件**，其中 4 件未接线（零可见），只有 `TroopsKilledCount` 有可见风险且取决于 P3 远端日任务数据。 |
+
+### 31·5 本会话调度台亲手改的（⛔ 别重做）
+
+1. `Editor/RewardsScene.cs` —— `:7079` 前**重造** `CampaignRewardWindow`（B102_D9 样板）+ 把 `NoIconItems.Count >= 0`（恒真）改成 `!= null`。**+14 行** ⇒ `收藏.tsv:265` 的 `:9637` 会漂，收口时 `--fix`。
+2. `Editor/MainMenuScene.cs:18447` —— 接 `B103W2_Assert`；**并把合计行挪到行尾**（原来 `B97_SMALL_Assert` 的结果根本不进合计）。
+3. `Editor/ShellScene.cs:11023` —— 接 `B103W1_Assert`。
+4. `Editor/BattleScene.cs:46705` —— 接 `B103W3_Assert`（原参考行号 `46701` 已过期，现读 `46705`）。
+5. `Shell/CardDetailPopup.cs:2525` —— 补原版第一句**等待框**（`MenuShop/WaitingPopup` + 失败回调 `HidePopUp(true)`）。
+6. 账：`日常_奖励` 3 行（丙类）、`商店` 2 行判 A；`CardPlayedCount` 方法格修规整；`DisplayEnemyCardInCenter` 阻塞值 0.6→1.078 s；`EventBadgeController` 备注订正；`商店` A 行落点改声明行。
+
+### 31·6 待办正本
+
+→ `判据/B103_本会话待办与裁定.md`（收口时并进 `待接线与排队项.md`，本文件随之删除）。
+
+### 31·7 🔴 本会话终态（2026-10-30 · 第一百零三会话）
+
+| 口径 | 终值 |
+|---|---|
+| 账 | 9,641 行 · **A 5,786 / B 0 / C 0 / D 3,855** |
+| **真复刻率** | **100.000%** |
+| 账闸 | **5,786 / 通过 5,786 · 漂移 0 · 失败 0** |
+| `typecheck` | 0 / 0 |
+| `play check` | **rc=0**（指纹 `45283594…` 未变） |
+| 全套宿主 | 见 `_tmp_view/b103_full3.txt`（三个曾红的宿主已逐个转绿：`Collection` 2631/2631 · `Deck` 2013/2013 · `Shell` 3594/0） |
+
+**B 清零的 11 条，全部有实跑证据**（不是「看着对就翻」）：`CardPlayedCount` 整族 · `LogPlayTactic` · `SearchInput` · `BuyOriginalCard` · `GetCardEffectsToShow` · `ResolveActiveAbility`×2 · `ResolveCreateHandCard` · `CardSetup` · `DisplayEnemyCardInCenter` · `ActivateTraitParticles…`。
+
+**本会话查出并修掉的真缺陷（按价值排序）**：
+1. **`TabButtons` / `SceneInitializer` 两处「同操作数两边各判一次 Unity 重载」⇒ 谓词恒假**（摘死 handler 的路从落地起就是死的；协程可能永久空转）。
+2. **FTUE 低血无敌读点早一拍**（原版读掉血**前**的血，我们读之后）⇒ `RuleCore.cs:9010` 已改，`B98K2` D1/D2 重排成「判别档 + 正例」。
+3. **`DisplayEnemyCardInCenter` 阻塞真值 1.078 s**（原记 0.6 s 错），已建模进 `CardFeel`/`EventTiming`。
+4. **卡包 + 同族 5 只包的悬空贴图**：卡包 191→0 · `menus 29→0` · `prefabs 31→0` · `battleshared 13→0` · `mainmenu 58→0`（真悬空）；并纠正尺子（原「空槽」里 1057 个是原版本来就空）。
+5. **`wf_prefabs_extra` 容器登记错**：原版登记**根** `VanguardIdleEffect`，我们登记了子物件 ⇒ 运行时少看见 26 个渲染器。
+6. **收藏窗四页小屏系数各不相同**（1.5/1.5/1.2/1.25 ⇒ 列 4/4/5/5，不是一律 1.5）；**商店是 4 列不是 2 列**（`m_ConstraintCount` 是死值）。
+7. **小屏档格子内容不跟着缩放**（`MenuDraw.DeckCell` 不读 `r.W/r.H`；卡背光晕写死偏移）⇒ 桌面逐位不变、小屏已撑满。
+8. **AUD03 生命周期族**：`Close` 延后销毁后仍拿旧实例（RewardsScene 三处崩溃）· 静态事件订阅泄漏（编辑模式 `DestroyImmediate` 不派 `OnDestroy`）。
+9. **AUD07 本地化**：4 处今天就把键名/英文印到界面上；宽化 26 运行时 + 103 宿主 + 5 镜像。
+10. **`Loc.NotifyLanguageChanged` 的 try/catch 不逐家兜底**（第一家抛异常后面全收不到）。
+
+**审查进度**：AUD01/02/04/07/08/09 ✅ · AUD03 16 条全做（`#94` 还剩 4 窗绑文本）· AUD05 七窗矩阵 ✅（施工建议待做）· AUD06 180/180 判完（37 🟡 + 2 ❌ 待补）。
+
+---
+
+## 第一百零五会话（2026-10-31 续 · 第 0 位 + AUD11）
+
+> 主题 = 交接 §三 **第 0 位 5 件** + AUD11 判据。按铁律 16·8 **滚动推进**，不每批同步点。
+> 所有权表已切到本波；每个代理只写白名单文件。
+
+### 第一波（5 路）
+
+| 代号 | 结果 |
+| --- | --- |
+| `B105_W1` | ✅ 教学左右箭头**整层删除**（`TutorialOverlay.cs` +81/−95）。判据 = 原版 `TutorialArrows/arrow1·arrow2` 的 `m_Sprite={0,0}`（本地 + 安卓 1.35 双证）。`ArrowLeft/RightVisible` 恒 false、`Alpha` 恒 −1；新增 `ArrowObjectCountForTest`（看真实对象树，`-1` = 根未建 ⇒ 判红，⛔ 不静默跳过）。`BattleScene` 的 G-5/G16 两组断言由调度台改写/删除（旧的写死读口自证已去掉）。账：12 漂移 + 1 失败，待无写手时 `--fix`；`TutorialPointer.StartPointer` 落点需人工改到 `SetupCursor:1606` |
+| `B105_R1` | ✅ T03 两件**均为尺子假象**（峰值 57–63，差 1–3 个像素；两侧 `sum` 比 0.96–1.05）。`工具/analyze_sweep.py` 已加闸「另一侧峰值 ≥ `LIT_MIN×0.6` 才允许判 C/D」并重算：**C 8→1 · D 1→0 · Z 703→706**；台账已重生成。假 `sweep_targets.txt`（2 行）已删 |
+| `B105_R2` | ✅ 46 条 legacy `m_StopTime` 探针已备（`B105ClipLengthProbe.Run`，typecheck 0/0），待 Unity 跑。**新硬事实**：原版 AssetRipper 导出的 66/66 条 legacy **自己就写 `m_StopTime: 1`** ⇒「原版无该字段」只对 bundle typetree 成立 |
+| `B105_W2` | ⏳ 0-2 能力 162 溶解特效 + `DissolveCardInHand` · 0-3 能力 310 墓地动作日志 + 中央亮牌通道 |
+| `B105_R3` | ⏳ AUD11 断言执行度全量普查（行末 `//` 吞代码 / 断言类未接线 / `if(x!=null)` 静默跳过） |
+
+### 调度台动作
+
+- `文件所有权_当前.md` 已切到本波（含各代理文件白名单）。
+- `任务/T03_C组导出整个丢了.md`：**8 条 → 现读 1 条**（`Swarm Battle Card Icon`），写明尺子修复与「重扫全量前必须删 `_tmp_view/sweep_targets.txt`」的坑。
+- `资料/比对基线/README.md`：958 → **orig 962 / exp 957**，并列 5 条「原版有、我们没 prefab」。
+- `analyze_sweep.py` 的修复零 Unity 依赖，已用现有 `sweep_*.tsv` 重算并覆盖台账（备份在 `资料/比对基线/台账_before_1031fix.tsv`）。
+- 待 Unity（`B105_W2` 交回后**串行**跑）：`B105ClipLengthProbe.Run`；若 `Swarm` 那条 `C` 要查导出链，再跑 `EffectExporter.RunListed`。
+- 🔴 **本波新发现（待查）**：`Swarm Battle Card Icon` 在 `ListedPrefabs` 里、但 `Assets/WarpforgeVFX/Prefabs/` 与 `WarpforgeEffectLibrary.asset`（962 条）**都没有它** ⇒ `CardView` 运行期取不到、虫群图标没动画。先查导出器为何没落件（子树 0 个 `ParticleSystemRenderer` ⇒ 只走 `RunListed`）。
+
+### 第二波（滚动补位）
+
+| 代号 | 结果 |
+| --- | --- |
+| `B105_W2` | ✅ 0-2 能力 162：`PlayDisappearFromHandFeel`（`CardFeel.DissolveInHand` 0.2 s + `_DissolveAmount`）+ `EventTiming` 0.3 s（判据 `_ResolveDisappearFromHand:134` `DestroyCard(…,0.3f)`）；顺手修 **`SyncHand` 当场 Kill 视图** 的真 bug（改为 `HandExitPendingFor` 先停车）。0-3 能力 310：引擎 `ActionPump.ResolveDisplayFromHand` 在 `IsInHand` 闸后 `ctx.Emit(EvtKind.Draw, … effect:"display")` ⇒ 墓地日志容器（`ctx.ActionLog`）+ 中央亮牌通道，时长 **2.7 s**；**未新增 `EvtKind`** ⇒ 结构护栏不用改。断言已由调度台接进 `BattleScene` 合计行。typecheck 0/0 · `play check` rc=0 指纹不变 |
+| `B105_W3` | ⚠️ 首版把「换将即清卡」接到玩家路径；**调度台按 18·0 裁定回滚**（原版 `RemoveNoValidArmyCards` 三源 0 调用点，只在开窗时 `DeckUtility.RemoveInvalidCards` 清）⇒ 已发回重做：恢复 `TryAdd` 不清卡、断言改成钉「原版不清 + `Validate=WrongFaction`」 |
+| `B105_R3` | ✅ AUD11 全量：**行末 `//` 吞代码 = 0**（1,019 个 `.cs`；B102 那 22 类已修且日志反证真跑）；**9 个断言类无执行路径**（8 个日志 0 命中）；**439 条条件执行/恒过**（3A 235 / 3B 195 / 3D 9）；**新发现类 4：整段 `try/catch` 截断**（16 候选、`GameModesCheck` 已证实 7 段只跑 4 段）。已修 `GameModesCheck` D8（原版该支**抛 NRE**，旧断言写 `null` ⇒ 每跑必红并吃掉 D9/D10），并把 `GameModesCheck` / `B93D3Assert` / `B100F26_Assert` 三个 0 宿主类接进 `ShellScene` / `MainMenuScene` / `BattleScene` 合计行 |
+| `B105_R4` | ✅ 结算奖励行 **判 D + 空着即原版离线等价**（奖励只来自服务器回执；原版离线档全藏）。已写进 `账/战斗界面_HUD.tsv:457` 与 B104 §一 #6 |
+
+### 本波修掉的「假绿/假红」
+
+- **尺子假阳性**：C/D 判据缺「另一侧峰值 ≥ `LIT_MIN×0.6`」闸 ⇒ 台账 **C 8→1 · D 1→0**。
+- **断言假红**：`GameModesCheck` D8 期望 `null` 而实现照抄原版抛 NRE ⇒ 改断言（不改实现）。
+- **断言从未执行**：三个类（`GameModesCheck`/`B93D3Assert`/`B100F26_Assert`）已接线；`B93D3Assert` 与 `B100F26_Assert` 的头注释自己写着「请主对话并进宿主」却一直没并。
+
+### 🔴 2026-10-31 新坑：`EffectExporter.Run` 会擦掉 listed 的非粒子 prefab
+
+- **现象**：`BattleScene.Run` 从 7,146/0 变成 **7,175/30**，一片红全是 `Remnant Aeldari Destroy particles` / `Card 3D Death Explosion` / `Swarm Battle Card Icon` 取不到。
+- **根因**：**不是代码回归** —— `EffectExporter.Run`（10-31 03:26 那次 287 shader 重导）**重写了 `Assets/WarpforgeVFX/Prefabs/`**，而它只导「子树有 `ParticleSystemRenderer` 的效果根」；这三件是 `ListedPrefabs` 里的**非粒子根**（0 个 PSR），只有 `RunListed` 会写 ⇒ **`Run()` 之后必须跟一次 `RunListed`**，否则它们从工程里消失（且 `Assets/WarpforgeVFX/*` 在 `.gitignore`，git 也看不出来）。
+- **修法**：重跑 `EffectExporter.RunListed`（**59/59**）+ `EffectLibraryBuilder.Run` ⇒ prefab **958 → 978**，库条目恢复（`Card 3D Death Explosion` 1 / `Remnant Aeldari Destroy particles` 5）。
+- **纪律（写死）**：**任何一次 `EffectExporter.Run` 之后，必须串行跟一次 `EffectExporter.RunListed` + `EffectLibraryBuilder.Run`**，再跑 `BattleScene`；⛔ 别只看「`Run()` 成功」就收工。
+- **连带**：`T03` 台账的 `C=1（Swarm Battle Card Icon）` 是**当时 prefab 缺失**测出来的；prefab 已恢复，**下次重跑两趟 sweep 前不能拿它当「导出真缺」**。
+- ✅ **复跑结果**：`BattleScene` **7,218 通过 / 9 失败**（从 7,175/30 下来；21 条资产红全清）。剩 **9** = `B100F26_Assert` 6 + `TraitEffectAssert` 3，**正是诊断代理 `B105_D1` 的 14 条之九**（另 5 条在 `MainMenuScene` 的 `B93D3Assert`）。
+
+### 首跑 14 条红 · 诊断与处置（`B105_D1`：α 6 / β 0 / γ 7 / δ 1）
+
+> **β = 0：没有一条是产品新缺陷。** 逐条证据 → `判据/B105_红项诊断.md`。
+
+| 处置 | 涉及 | 做了什么 |
+| --- | --- | --- |
+| **退役重复接线** | F26 6 条 | `B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本**（10-30 08:16 vs 12:19）⇒ 从 `BattleScene` 合计行移除，覆盖由 B98G6 保住 |
+| **断言过期（α）** | A-ML2 · A-W8 | `MaterialFader` 10-25 已接上 ⇒ A-ML2 改断「真的调了一次 `Toggle`」（不再要求出声）；A-W8 不再拿 `UpdateValueCalls` 当「刷没刷」判据（它在去重前自增），改看 `PunchCount` + 文本 |
+| **夹具/环境（γ）** | 灭自证1a · 账549×2 · GameModes×2 | 补 `InvokeVoid(h,"Start")`（编辑模式 `AddComponent` 不跑 Awake）；倒计时断言改喂 `UtcNow+26h/+90m`（原来喂 2026-01-01 过去时间 ⇒ 恒 `0m`）；`B93D3` 先 `LiveOpsManager.EnsureStarted()`（宿主同样不跑 Awake） |
+| **污染（δ）** | 账26灭自证 | `B94Z4` 的 D 段弹的 `MessagePopupWindow` 没收 ⇒ 段尾 `HidePopUp(true)`；`B93D3` 的判据改成「与点击前同一个 popUpWindow」快照比较 |
+
+- ⚠️ **副产物**：`B93D3.RunPracticeSettlement` 用 `if (gm != null)` 包住整段被测调用（CLAUDE.md 点名的静默跳过反模式）—— 本批把前提改成显式起 manager，**没有**重构成硬前提；单列进待办。
+- ⚠️ `MainMenuScene` 用 `AddComponent<MainMenuRuntime>()`、编辑模式不跑 `Awake` ⇒ **该宿主里所有依赖 Awake 的初始化都没发生**，可能还有别的断言正被降级成「没验到」（AUD11 类 3B 的一支）。
+- ✅ **复跑（第一次）**：`MainMenuScene` **6,244 / 0**（B93D3 **53/0**）· `BattleScene` 7,218 / 1 —— 只剩 A-ML2（`ExpiringFaderForTest` 为 null：夹具把节点建成 `Base Vfx/Fixed`，而 `EnsureFaders` 找的是 `[Normal|Expiring] State/Fixed`）⇒ 已改夹具路径。
+- ✅ **复跑（第二次）**：`BattleScene` **7,219 / 0** ✅ · rc=0。**本波六宿主最终读数**：`RuleEngineTest` **12,534/12,534** · `BattleScene` **7,219/0** · `DeckScene` 2,057/2,057（⚠️ **W3 的 44 条断言是这次之后才接的，需补跑一次**）· `ShellScene` 3,781/0 · `MainMenuScene` 6,244/0 · `typecheck` 0/0 · 账闸 5,786/5,786/0/0。
+
+### 下一波（在飞）：AUD11 3A（235 条静默跳过）
+
+- 按宿主文件切 4 路：`A1` Collection 37+Rewards 26 · `A2` RuleEngineTest 35+Settings 9 · `A3` Battle 24+Shell 23 · `A4` Deck 22+MainMenu 12。
+- 改法：前提条件拆成 `Check(前提)` + 无条件断结论；业务分支列 3B 不动。
+- ⛔ 代理不跑 Unity；交回后统一 typecheck + 复跑受影响宿主 + `--fix` 账闸。
+- ⚠️ **本波必须补跑 `DeckScene`**（W3 断言接线晚于上次运行）。
+
+#### 3A 施工结果（4 路全部交回）
+
+| 代理 | 文件 | 派单 | 真改 | 已被前置前提覆盖 | 3B |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `A1` | Collection 37 + Rewards 26 | 63 | **7** | 55 | 1（允许缺件） |
+| `A2` | RuleEngineTest 35 + Settings 9 | 44 | **15** | 29 | 0 |
+| `A3` | Battle 24 + Shell 23 | 47 | **24** | 19 | 4 |
+| `A4` | Deck 22 + MainMenu 12 | 34 | **9** | 25 | 0 |
+| 合计 | 8 个宿主 | 188（去重后） | **55** | 128 | 5 |
+
+> 🔴 **235 是形状命中数，不是缺陷数**：实修后 **真静默 55 条**（29%），其余 128 条前 1–8 行早有 `（前提）` 断言。
+> ⚠️ **两个新形态本轮没扫到**（下轮补）：
+> ① **3A-b 块级 guard**（`if (…) { …≥2 条断言… }`）：`DeckScene` 的 `legendary` 块**真空洞**（已由调度台补前提）；
+> ② **花括号块让 Check 落在 `if` 下第 2 行**：`A2` 在 `RuleEngineTest` 现数 **≈20 处**、`SettingsScene` 1 处 ⇒ **235 / 195 两个数都是下限**。
+> 另：`ShellScene` 没有 `Check(bool,string)`（要用 `CheckTrue`）、`QuadPxRect(out …)` 放 `&&` 里要给 `out` 初值（CS0165）—— 已写进 `判据/B105_AUD11.md`。
+- ✅ 8 个受影响宿主已串行复跑（`RuleEngineTest` / `Battle` / `Deck` / `Collection` / `Shell` / `MainMenu` / `Rewards` / `Settings`）：
+  `RuleEngineTest` **12,542/12,542** · `BattleScene` **7,234/0** · `DeckScene` **2,064/2,064**（`B105W3` **44 ✓ / 0 ✗**，确实在跑）· `ShellScene` **3,791/0** · `MainMenuScene` **6,244/0** · `RewardsScene` **2,553/0** · `SettingsScene` **1,736/0** · `CollectionScene` **2,700/2,701**（1 红）。
+- 🔴 **Collection 那 1 红 = 新前提把一条「从来没跑过」的断言翻出来了**：`y10` 在偏移 0 时恒 `NaN`
+  （`msg-10` 中心 896、行跨 866..926，只有一部分在视口 161..911 里 ⇒ 按「整行在视口外不建」的口径它**没建**，
+  滚前那次恒 NaN，旧断言被 `!IsNaN` 静默吃掉）。⇒ 已改成**绝对位置**：偏移 650 后中心应 = `196 + 10×70 − 650 = 246`。
+  ✅ 复跑 `CollectionScene` **2,701/2,701**。
+- ✅ **本波收口读数**：八宿主全绿（`RuleEngineTest` 12,542/12,542 · `BattleScene` 7,234/0 · `DeckScene` 2,064/2,064 · `CollectionScene` 2,701/2,701 · `ShellScene` 3,791/0 · `MainMenuScene` 6,244/0 · `RewardsScene` 2,553/0 · `SettingsScene` 1,736/0）· `typecheck` 0/0 · **账闸 5,786/5,786 · 漂移 0 · 失败 0**（`Catalog` 扩表导致 35 条漂移已 `--fix`；两条落点人工改：`CardFeel.Reassemble:3306`、`ShowCardBeingDrawn` 的次要落点去掉过期行号）· `play check` **rc=0**（指纹 `45283594…` 未变）。
+- ⏭ **下一波**：`B105_R5` 只读补扫 **3A-b 块级 guard / 花括号块 3A / 3A 真实余量**（产出 `判据/B105_AUD11b.md` + 分片表）。
+
+### 第一百零五会话 · 收尾读数（2026-10-31 10:30）
+
+> 侦查 12 路（R5–R15）全部交回、产出落文件；AUD11 修复 6 路（F1–F6）全部交回；账闸与 typecheck 复跑。
+
+| 项 | 读数 |
+| --- | --- |
+| 方法账 | **9,641 行 · A 5,786 / B 0 / C 0 / D 3,855** |
+| 账闸 | **5,786 / 5,786 · 漂移 0 · 失败 0**（人工修了 12 条次要落点：LiveOps 8 + BattleScene 4） |
+| `typecheck` | 0 / 0 |
+| `play check` | **rc=0**（指纹 `45283594…`） |
+| 宿主 | `RuleEngineTest` **12,601/12,601** · `DeckScene` **2,117/2,117** · `CollectionScene` **2,745/2,745** · `ShellScene` **3,796/0** · `RewardsScene` **2,564/0** · `ShopScene` **3,051/0** · `SettingsScene` **1,736/0** · `BattleScene` **7,271/2**（2 条前提红，见下）· `MainMenuScene` **6,260/0**（奖杯页 `TrophiesHit` 路径修复后） |
+
+**本会话挖出、留给下一会话的 3 条红（都是「从未验到」，不是回归）**：
+① `BattleScene` 展示窗夹具只有 1 格（建议换 `Master of Arcana`）；② `BattleScene.cs:47304` 的 `hcam/arenaRend` 取的是 46878 的旧变量（`BuildArena3D` 在 47607）⇒ **HUD 相机整块从未执行**；③ `MainMenuScene` 奖杯页 `FindChild("…/Hit")` 用复合路径（`FindChild` 只认直接子件）⇒ 已改逐层下钻，复跑确认中。
+- 交接已写：`资料/完全复刻/交接_第一百零五会话.md`（含 §三 的 A→B→C 顺序、§六 的 10 条坑）。
+
+### 🆕 2026-10-31 用户改口径：**先侦查、后实施**
+
+> 用户原话：「**先去查。除了 AUD 审查，不是还有其他审查任务吗？**」「**找出问题，记得及时形成文件，之后会话有机会再做。**」「**资源覆盖账 R0–R4 也先去查，完成 AUD 审查和举一反三发现的问题后就做它。**」
+
+- **总索引** = `判据/审查侦查_索引_第105会话.md`（12 路侦查的产出、状态、后续动作）。
+- **执行顺序（用户定）**：AUD 收尾 → 举一反三遗留 → 资源 R0–R4。
+- 已开/在飞：`R5` 3A-b · `R6` AUD07 198 窄谓词 · `R7` AUD11 3B+类4 · `R8` AUD10 玩家主链 · `R9a/R9b` AUD02「？」473+419 · `R10` T21-c 名单 · `R11` 功能点三法+推断清单 · `R12` R0 · `R13` R1 905 · `R14` R2/R3 · `R15` R4。
+- ✅ `W4` 已交回并合并账补丁：`CanAddCore` 按原版 `deck.deckArmy`（督军阵营 > 卡表第 0 张 > Neutral；中立跳过；`CardCount(countHero:true)>0` 才挡；返回 `MenuDeck/Error/InvalidArmy`）。顺手发现（已落 B104 §七）：`DeckArmyName` 徽记仍只看督军 · `Validate/RemoveInvalidCards` 阵营支 · `CanAddHero/Defensive` 错误码 · 导入无督军卡组串的 `deckArmy` 差异。
+- 账闸：`check_ledger_points` **5,786/5,786 · 0/0**（W4 零行号漂移）。
+
+## 第一百零六会话 · 第一波（2026-10-31 开波）
+
+- **口径**：用户「按你的建议执行，不必停下汇报，持续完成任务」+「子代理空着就派去查判据 / 补位做不冲突的其他任务」。
+- **顺序**：交接 §三 的 0（两条红）→ A（AUD 收尾 + 零散）→ B（资源侧）→ C（大件）。
+- **本波 13 路**（9 执行 + 4 查判据），文件所有权表已更新为「第一百零六会话 · 第一波」：
+  `W1 BattleScene` · `W2 AUD10 主链` · `W3 MainMenu+Settings` · `W4 RuleEngineTest` · `W5 Rewards/Shop/Shell` ·
+  `W6 Deck/杂` · `W7 零散 W4 四条` · `W8 命中区并集` · `W9 卡UI AUD02`；`R1 AUD03` · `R2 AUD05+AUD06` · `R3 AUD02 余问` · `R4 功能点三法`。
+- **新工具**：`Unity/工具/aud11_rescan.py`（AUD11 3A 家族**修后复扫**；已排除 null-eq 对照组与 3B 家族）。
+  标定：`BattleScene 20/9` · `MainMenu 21/2` · `Settings 4/4` · `Rewards 15/2` · `Shop 5/2` · `Shell 5/3` ·
+  `Deck 5/2` · `CardBaseDemo 3/1` · `CardFaceProbe 0/1` · `RuleEngineTest 15/0` · `N1 0/1`；`CollectionScene = 0`（F2 已清）。
+- **裁定（调度台代行，用户 2026-10-26 授权「之后有需要决策的地方由你决策」）**：
+  1. **AUD07 P1 两句哨兵**（`SettingsWindow.AcTerm/UiTerm` 的 `Loc.HasEntry`）⇒ **保持窄谓词，不改行为**，只补注释。理由：改宽 = 关掉「新增键漏进表」的告警。
+  2. **AUD02 `Card Info/Created By Text`** ⇒ **不建**。实况 dump 里该节点 `activeSelf` 全 False（原版运行期不显示）⇒ 按铁律 18·0「复刻原版」。
+  3. **AUD10 #5 教程完成位** ⇒ 本地模拟接 `DemoDataStore.SetTutorial`，打 `🔶 自己设计（服务器相关）`（铁律 18·0 唯一允许门类）。
+- **下一波预排（等本波交回）**：类 4 `try/catch` 13 文件（其中 `GameModesCheck` / `NetSelfTest` / `B104_P3_Assert` / `B99W3_Assert` 优先）；
+  `Editor/*Scene.cs` 缺 catch；`AUD08 边框 dump`/`AUD04` 需真机，归最后批次。
+
+### 第一百零六会话 · 第一波滚动记录
+
+- **`B106_W6` 交回**：12 条 → **1 条真缺陷已修**（`CardBaseDemo.cs:3284` 补前提断言），11 条经核为扫描器假阳性，逐条落盘理由。typecheck 0/0。
+- **`B106_W5` 交回**：32 条 → **实修 5 条**（`RewardsScene` 4 · `ShellScene` 1），27 条判「已有覆盖·不静默」（根因 = 扫描器只看前 1–8 行，本仓前提常写在 9–120 行前）。typecheck 0/0。顺手订正 `RewardsScene.cs:2165` 的错注释；报 `RewardsScene.cs:4130-4134` 潜在 NRE（未改）。
+- **`B106_R2` 交回**：AUD05 七窗 **可施工约 40 条**（集中在「奖励与收件箱」与「设置窗」）；AUD06 计数**订正为 38🟡 + 3❌**（原记 37🟡+1❌，铁律 5）。产出 `判据/B106_AUD05_AUD06.md`。
+- **工具订正（`工具/aud11_rescan.py`）**：按 W5/W6 实测补了三条规则 —— ① `CheckTrue(UnionQuadsPx(x,…))` 同变量进断言实参算硬闸；② `else` 里三参 `Check<T>(true,false,…)` 算报红；③ **判空覆盖窗口从「前 8 行」放宽到「同作用域 + 变量无再赋值」**（正是 R5 §五 与 W5/W6 两次实测指出的系统性假阳性根因）。现读余量 **119 → 26**。
+- **补位（3 路）**：`B106_W10` 类 4 `try/catch` 分段 · `B106_W11` AUD05 奖励与收件箱 · `B106_R5` 资源侧 R0–R4 施工单。
+- **待裁定（R2 提出）**：`FP-NET-05`（`AcceptInvite`/`AllowInvite` 全仓 0）· `FP-ENG-017`（`GetGameState` 生产 0 调用）· `FP-CAMP-05`（缺「原版 CampaignTab 有无开战入口」判据）。**暂记待核**，不阻塞当前波次。
+- **`B106_W4` 交回**：**零代码改动**。3A 15 条全 A（条件假时已有断言先红）· 3B 49 条 = 40 A / 9 B / 0 C · 判据表点名的 3 条 C 档已被同日 `B105_F3` 修完（`:14186` / `:18344` / `:18355`）。**⛔ 别再派代理重扫这一族**。
+  - 🔴 **裁定（调度台）**：**不为让扫描器收敛而补重复断言**。`aud11_rescan.py` 是**候选生成器**，不是验收闸；`B105_AUD11_3B与类4` §四 明写「112 条 A 批量刷收益为零」。**A 档一律不改**。
+  - 顺手发现记两笔：① `RuleEngineTest.CheckDiceTables`（约 `:24515`→`:24521`）`CheckTrue(book != null)` 之后**无 guard**，`book.Length` 会 NRE ⇒ 一次抛打断整条 `RuleEngineTest.Run`（类 4 同族，目前不可达）；② `工具/aud11_rescan.py` 目前**未跟踪**，收尾提交时要一起进 git。
+- **`B106_W12` 补位**：AUD05 主菜单 16:9 / 侧栏淡入 / 聊天行高 / 成员在线档 / 收藏空态文案 / 两个红点 provider。
+- **`B106_R3` 交回**：AUD02 余问 **747 条全部分级**（✅693 / ❌12 / ⛔7 / ？35，零 unmatched）。产出 `判据/B106_AUD02_余问分级.md`（239 KB）。
+  - **巨大去重**：`Content/CardUI/**` 与独立 `CardUI` prefab 同构同值（416 行里 413 行逐位相同）⇒ 直接继承 `AUD02_裁定_卡UI.tsv`，省掉 416 条重判。
+  - **本批真要手改的只有 2 处 7 条** ⇒ 派 `B106_W13`（`ItemDrawer.SetPremium` Highlight 九宫 · `LeaderboardRow.Name Holder` 自然高居中）+ Capline（V=8192）系统性一项。
+  - 7 条 ⛔ = 原版运行期死值（Sliced 下 PA 无效 / 无 sprite / 被首句 `SetActive(false)` / `iconSprite=null`）⇒ 照抄不改。
+  - **缺判据 1 条**：sprite `OctagonUI_Filled_Fade_SDF` 的 `m_Border` 未采进 TSV，要 W13 回 `assets_full` 现读。
+- **`B106_R5` 交回**：资源侧 R0–R4 **35 条施工单**（R0 9 / R1 7 / R2 6 / R3 5 / R4 8），按文件归并 + 四波分批，产出 `判据/B106_资源侧R0R4_施工单.md`（273 行）。
+  - **5 条「判据说要做、其实已完成」**已核销：`r0_report.py` 已在 `工具/` · `R0_未使用清单.md:49` 已订正 · `extract_missing_shaders.py:588-592` 已订正 · `R1_905对象归属.tsv:17/18/774` 已改判 · `R2_重建网格/` 是**尺子**（全仓 0 引用，⛔ 不是出货）。
+  - **硬发现**：① `com.unity.timeline 1.8.13` **已装**（`Packages/manifest.json:10`）⇒ R3 的 `Recorded` Timeline 只缺我们的绑定层；② `com.unity.visualeffectgraph` **确认未装**；③ `B101_R3` 的 Gargoyle prefab 行号已漂，施工必须按符号（`m_Asset:` + 全零 guid）定位。
+  - **裁定（`R4-01` A0，调度台代行）**：按铁律 18·0「默认复刻原版」⇒ **先尝试装 `com.unity.visualeffectgraph`**（内置版），装完先验 `VFXManager.m_RuntimeVersion == 38`；**不兼容或装不上**才退回「手写 6 个 shader + 编辑器期 `.mat` 重绑」，并在账里写清两条路的取舍证据。R5 建议的「手写 6 shader」仍要一并做（两条修法不互斥）。
+- **`B106_R6` 补位**：AUD06 **32 条成立待修**按文件切施工单（含三条待裁：`FP-NET-05` / `FP-ENG-017` / `FP-CAMP-05` 要证据）。
+- **`B106_W2` 交回**（AUD10 六件全落地，typecheck 0/0，`check_ledger_points` 5,786/5,786 漂移 0）：
+  ① `BeginTutorial` 三处失败 → `FailTutorialStartAndExit()`（批处理直接离场 / 真 Play 走 `ErrorPopupWindowController`）· ② 两处裸 `LoadScene` → `ShellRuntime.LoadSceneWithFade` · ③ `_rankedSettled` 在 `Begin` 清零 · ④ `PracticeModePopup.StartedBattle` 在 `Open()` 复位 · ⑤ 回放支 `_pendingPlayMode` 已清（切场失败那半从调用方不可观测，需改 `ShellRuntime`，**记为跨文件请求**）· ⑥ **结算调 `GameModes.CombatFinished` + 开战设 `CurrentPlayingEvent`**（排除条件照 `.c` 是**四条**不是三条）· ⑦ 教程完成位本地模拟（`DemoDataStore.SetTutorial`，与现有读口同键空间）。
+  - 如实记：本地**没有 FastMode 等事件实例** ⇒ 接线补好但今天仍空转（**数据缺失 P3，不是接线缺失**）；`TutorialModePopup.CompletedCount` 改成数 `DemoDataStore`。
+  - 3 条 `🔶 自己设计` 标记已打。
+- **`B106_W3` 交回**：实修 2 条（`MainMenuScene.cs:10002` / `:15182` 两处 `PointerLayer.Instance` 前提）· `:18497-18498` 聚合行的 `//` 用**零行数变化**做法把注释整段搬到上方（20800 行不变）· AUD07 P1 裁定落地（`SettingsWindow.cs:2372`/`:2405` 就地补哨兵说明，**零行数变化**）。
+  - ⚠️ **订正 W3 的一条误判**：「31 条 vs 6 条」不是文件被别的进程改过，而是**我在它开工后改进了 `aud11_rescan.py`**（判定窗口从「前 8 行」放宽到「同作用域 + 变量无再赋值」）⇒ 同一命令前后读数不同。**不是文件漂移**。
+- **`B106_W8` 交回**：`PointerLayer` 命中区从**单件**改成**可射线件并集**（`HitBoxPx` 32→32 行逐行替换 + 类尾 +112 行；缓存判据 = `Transform.hierarchyCount`；调用点零改动）· `ShopTabPage.cs:231` 打 `🔶 自己设计`（**零行数变化**，`A6` 编号保留）。
+  - 如实记：原版是**逐矩形真并集**，我们是**外接盒**（`MenuDraw.Union` 同口径）⇒ 盒内空白照样命中；⛔ 别把「盒内空白点不中」写进断言。
+  - **待办（调度台）**：`B106_W8_Assert.cs` 已由代理新建但**未接线**，等宿主空出后由调度台接。
+  - 已按铁律 5 就地订正 `B104 §七` 两行（命中区 / `ShopTabPage.InfoHit`）。
+- **补位 2 路**：`B106_W15` AUD05 设置窗六条 · `B106_W16` 五宿主补 `catch`（A3）+ `RewardsScene` A4。
+- **`B106_W1` 交回**（`Editor/BattleScene.cs` +102/−21；typecheck 0/0）：
+  - **0-1 夹具**：两处「手牌那张凑不出 ≥2 格」时换 `Master of Arcana`；原 3 处前提/断言**一条没删**。
+  - **0-2 HUD 相机块**：搬成类尾 `CheckHudCameraStack(int[])`，在 `BuildArena3D → driver.Begin → Step` **之后**调用；`CheckSavedScene` 里那段永不执行的删掉留指针。
+  - 🔴 **订正交接的诊断（铁律 5）**：交接说「`bcam/hcam` 建场前取、那时 HUD 相机还没建」**不成立** —— `CheckSavedScene` 读的是**存档场景**，两台相机都在（`Battle.unity:1476/1821/1506/1756/1824`）。**真正恒假的只有 `arenaRend > 10`**（`BuildArena3D` 现只挂 loader 并 `return 1`）。结论（该块一次没跑过、搬到建场后）仍成立。
+  - AUD11 本文件：现读 9 条，**改 2**（`13606` / `42560` 补前提），7 条逐条书面理由不改。
+  - 顺手发现 → **派 `B106_W17`**：`BuildArena3D` 恒 `return 1` ⇒ 兜底背景 `BattleBackdrop` 是**死支**，战场 prefab 缺失时玩家看到纯色底。
+- **`B106_W10` 交回**：9 个断言文件全部改成**段级 try/catch**（GameModesCheck 7 · NetSelfTest 28 · B104_P3 7 · B94B7 7 · EnchantmentTemplateCheck 9 · DraftAssertD1 8 · B93D3 4 · B101R3 3 · B99W3 5+合计行）。断言一条未删、公开签名未动；`Run` 内**零行数变化**。
+  - 顺手发现 → **派 `B106_W18`**：`B103W4_Assert` 仍是整段 catch · `B93D3.RunChallengeFamily` 抛异常漏 `DestroyImmediate` · `B94B7.Run` 的 `Snapshot()` 在 `try` 之外。
+  - 另记：`账/战斗逻辑驱动.tsv:1044` 的 `EnchantmentTemplateCheck` 三个行号与内容不符（既有问题，与 HEAD 一致）。
+- **调度台动作**：`B106_W8_Assert.cs` 已接进 `Editor/MainMenuScene.cs:18498` 的聚合行（在第一个 `//` **之前**、`Debug.Log(合计)` **之前**），typecheck **0/0**。
+- **补位 2 路**：`B106_W17` BattleScene 兜底死支 · `B106_W18` 断言文件余项收尾。
+- **`B106_W7` 交回**（五件全落地；四份被账引用的文件**行数零变化**；typecheck 0/0）：
+  ① `DeckRuntime.ArmyFaction` / `DeckArmyName` 改走 `state.DeckArmyFaction()`（复用 `B105_W4` 那口，**没写第二份**）· ② `DeckRules.RemoveInvalidCards` / `Validate` 改比 `deckArmy`（判据 `ValidateDeckCards.c:58` / `ValidateDeck.c:38-40` / `TryRemoveInvalidCards.c:32-36`；原版「`CanAddCard` 有中立例外、校验/清理没有」**照抄别修**）· ③ `CanAddHero`/`CanAddDefensive` 改返 `InvalidArmy`（原版 `DAT_1842cf3f0` = `MenuDeck/Error/InvalidArmy`）· ④ W4④「导入无督军串 `deckArmy=Neutral`」**只出施工单未动数据结构**（13 条）· ⑤ `DeckLibrary.Create` 用 `[System.Obsolete]` 封口（代价：编辑器程序集 +21 条 CS0618，全在夹具）。
+  - **待办（调度台）**：`B106_W7_Assert.cs` 已建**未接线**（要接进 `DeckScene.cs`，等 W16 交回）。
+  - **必跑**：`play check` 对指纹（改了 `DeckRules` 两条校验路径）· `DeckScene.Run` · `RuleEngineTest.Run` · `CollectionScene.Run`。
+  - 顺手发现 → **派 `B106_W19`**（`MainMenuScene` + `SettingsScene` 补 catch）。另记两笔：`DeckRuntime.ArmyFaction()` 全仓 0 调用点（新断言未直测）· 账 `其他_基础设施.tsv:441` 落点 `CardPresentation/Shell/DeckLibrary.cs:270` **文件不存在**（指空）。
+- **`B106_W16` 交回**：五个宿主（Rewards / Shop / Shell / Deck / Collection）`Run()` 全部补上 `catch`（`_sink.Fail++` + 「其后的断言段没跑」文案 + `finally` 照原格式补印合计 + 沿用各宿主原退出写法）。正常路径逐字节不变；行尾零翻转；账落点影响 **0 条**。
+  - **A4 复查**：`RewardsScene` 那处早已由 `B103_F1` 修好 ⇒ **A4 现在 0 处漏网**（已按铁律 5 订正 `报告/B103_D1.md:281`）。
+  - 顺手发现 → **`B106_W19`**（`MainMenuScene`/`SettingsScene`，已在飞）· **`SendMessage` 给 `B106_W17` 追加**（`BattleScene.Run` 补 catch，同文件）· **派 `B106_W20`**（`CardBaseDemo.Run` 无外层 try + `ShellScene.Play()` 的 `Build/SaveScene` 裸奔）。
+- **调度台动作**：`B106_W7_Assert.cs` 接进 `Editor/DeckScene.cs:1397` 同一物理行（第一个 `//` 之前），**行数零变化**。
+- 另记：`报告/B102_D9.md` **目录不存在**（「重造」样板只能从 `ShellScene.cs` 的 `B102_D9` 注释现读）——待 W17/W20 之后核一下引用编号。
+- **`B106_W19` 交回**：`MainMenuScene` / `SettingsScene` 的 `Run()` 补上 `catch`，**行数零变化**（20,800 / 5,770 不变；`SettingsScene` 那 8 处账落点守住）。
+  - 🔴 **实况订正**：这两个宿主的合计行**不在 `finally` 而在 `RunCore` 末尾** ⇒ 异常时到不了，所以「合计照旧印」只能在 `finally` 的异常分支里补印（与 `W16` 的 `RewardsScene` 逐字同构）。
+  - 未拿到干净 typecheck 0/0：运行时 `CS0103` 在 `ShopTabPage` / `AllianceMemberTab` / `DailyRewardPopup` 三条 **仍在飞的 Shell 写手**上（数字 11:00–11:08 从 20 涨到 40）⇒ 同步点必须等它们收手后复跑。
+- **补位**：`B106_R7`（AUD04 交互逐条分诊：能静态判的 vs 必须真机的，并给「一次开游戏验多条」的分组）。
+- **`B106_R1` 交回（AUD03）**：**25 条 ❌ 已全部落地**（TSV 是 2026-10-30 快照，已过期）—— 15 条已落地并接线（`B103R1_Assert` / `B103A03_Assert` → `DeckScene.cs:825`；`B102AUD03R_Assert` → `ShellScene.cs:11073`）· 9 条翻案（原版同形/跨窗根因已修）· 1 条 `#94` 部分余额。
+  - 🔴 **`#94` 挖出真缺陷**（判据 = `assets_full` 的 I2 `Localize` → `mTerm` + `m_Enabled`）：`DailyRewardPopup` 的 `FreeTrackTitle="Ruta Gratuita"` / `PremiumTrackTitle="Ruta Premium"` 是**原版 prefab 的西语占位串**，英文界面今天直接显示西语；`RewardWindow.TxtPreview="You will get"` 官方值是 **"Available rewards"**；`InboxWindow` 绑了一颗原版 **`m_Enabled=0`** 的节点（我们多做了本地化）。
+  - 🔴 **设计陷阱**：`OnLanguageChanged` = `if (Label.RelocalizeUnder(transform) == 0) Open();` ⇒ **一窗只要绑了 ≥1 颗就再也走不到整窗重建**，未绑标签会**静默**停在旧语言 ⇒ **每窗必须「全绑或全不绑」**。
+  - **派活**：`B106_W21`（`RewardWindow` / `RewardsWindow` / `DailyStreakPopup`）· `SendMessage` 给 `B106_W11`（`InboxWindow` / `DailyRewardPopup`，同文件转岗）。
+  - 另记：`Loc.NotifyLanguageChanged`（`Loc.cs:3880`）的 `try { h(); }` 仍**包整条组播** ⇒ 一个订户抛异常，其它订户全收不到（注释说「其它照常收到」但实现做不到）—— 转给 `B106_W12`（`Core/Loc.cs` 归它）。
+- **`B106_R6` 交回（AUD06）**：**32 条施工单**（八列 + 并行性），产出 `判据/B106_AUD06_施工单.md`。计数订正：R2 的 41 条扣掉已失效/部分失效/不属缺口/判不了 = 32，且**补回 R2 漏掉的 `FP-INFRA-08`**。
+  - 🔴 **三条待裁全部回源判掉（不再凭印象）**：
+    · **`FP-NET-05` ⇒ 判 D**。语义是**公会/联盟邀请**（`OnlineData.DoesPlayerDataAcceptInvites` 读 PlayFab `PlayerProfile.Tags` 的 `"NotInv"`；`PlayerDataKey.GuildInvites=25`），**不是 P2P 对局邀请** ⇒ ⛔ 别当成 P2P 去实现（会造原版没有的功能）。
+    · **`FP-ENG-017` ⇒ 判 D / 零改动**。`GetGameState` 三个调用点全在联机同步路径（`ParseEnemyAction` / `ReceiveEnemyDesync` / `CancelMatchWithVictory`），我们的 P2P 用 `Fingerprint`/`PlayerHash` 等价覆盖。
+    · **`FP-CAMP-05` ⇒ 非缺口（等价）**。原版类名是 `CampaignWindowTab`，**全部方法里没有** `StartMatch/ToBattle/StartBattle`；`Campaign : LiveOpsEvent`（不是 `PlayEvent`）⇒ 无 `StartMatch`；`CampaignNodeData` 无 battle 引用。**原版战役页本来就没有开战入口**，⛔ 别再补。
+  - **三条旧判据纠错**：`FP-AUDIO-03` 的 `AudioSnapshotCheck.Run` **已在 `工具/_run_8_checks.sh:58`**（R2 只 grep 了 `Editor/`）· `FP-CARD-003` 大部分已失效（`ConfigureMaterial` 已实现且有断言 `B97_FXC_Assert.cs:127`）· `FP-MISC-03` 只有 `SetShear` 真不可达（全仓无生产传非零 skew）。
+  - ⚠️ **`Loc.Contains` 全仓不存在**，等价物 = `Loc.HasEntry`（`Core/Loc.cs:3593`）⇒ 以后判「有没有」别 grep `Loc.Contains`（会得假「没有」）。
+  - **派活**：`B106_W22`（W-A 里不冲突的三条：`FP-ENG-021` / `FP-SOCIAL-05` / `FP-TUT-04`）。
+- **`B106_R4` 交回（功能点三法）**：产出 `判据/B106_功能点三法缺口.md`（305 行）。
+  - **分母定案**：`功能点索引_*_part.tsv` 是 **20 份**（不是 21）· **180 行 = 167 玩家可见功能点 + 13 个桶** ⇒ **对外进度用 167**；`功能点索引.md` 的 173 是**域桶**，⛔ 不进分母。
+  - 🔴 **等级尺子已饱和**：现账只剩 A/D 两档 ⇒ 重算 = **A164 / D16**，**不能再当进度指标**。进度只认「落点全绿 + 验收口全绿 + ②③ 有记录」（现状：落点空 15 / 验收口空 22 / ②③ 0 条）。
+  - **②oracle**：按方案 §八 原定义对「战斗内局面」**结构上做不到**（`inj FAIL: empty Data`，卡 SO 在远端）⇒ 能做五样（原版运行时 dump / 特效 prefab 直渲 / 序列化字段 / 卡面真值 / 官方本地化）。给了 `判据/功能点_oracle规格.tsv` + `工具/fp_oracle_check.py` 的最小实现规格。
+  - **③并排比**：现成五套可复用的都有，**缺「任一功能窗的渲染成图 + 归一并排」**；补法 = 给 `Editor/*Scene.cs` 加只读 `RenderWindowTo(png)`，对比复用 `arena_diff.py` 的四个函数。
+  - **工具缺陷三条**：两个 expander 不一致（9,608 vs 9,189，差 419 行次）· `FP-MISC-01` 的 90 个 token 里 66 个被逗号截断 · `构成条数` 有重复。`recompute_fp_levels --apply` 会抹掉 `?`，**修工具后再跑**。
+  - **51 条未定里 10 条已定案/给了确定判据源**（0 条判不了）；其中一条是**真行为差异** ⇒ **派 `B106_W23`**：临时卡「回合末触发」与「移出手牌」**次序反了**（原版先触发 `turn_end` 后移出，我们在 `RuleCore.cs:2624` 移出早于 `:2630` 触发），今天不可观测但按铁律 11 要改。
+- **`B106_W9` 交回（AUD02 卡UI 9 条）**：2 件落地、1 件**按判据拒做**、1 件零改动。
+  - **New Card Badge 九宫**：已按原版结构落地（`SlicedBadgeQuad` + `_badgeQuads`），但**算出改前改后逐像素相同** —— sprite `WF_Special offer_Value` 的 `m_Border=162` 远超矩形 1.2101 卡单位 ⇒ uGUI `GetAdjustedBorders` 缩到中段宽 0 ⇒ **只画两块铺满**。审计表「压扁 1.53×」**复现不出来**；能算出的 1.206 横向压扁是 `m_PreserveAspect=0` 的**原版行为**。**没把「改了」说成「修好了」**。
+  - **战术卡 fs14 ⇒ 拒做（`B9_W69ENG4` 样板）**：41/41 实例是 `m_fontSize=14` **`m_fontSizeMax=15`**、autoSizing=1 ⇒ 14 只是**起点**，有效上界 15 = 我们现在的 0.15；改成 0.14 会**比原版小 7.1%**（方向相反）。留一条 Unity 探针待钉。
+  - **字号按宿主分档 ⇒ 已落地**：决定性判据来自直接 walk 三棵 prefab 树；🔴 **推翻审计两条前提**：(a) 有效字号由 **`m_fontSizeMax`** 定，名义值只是起点；(b) **「商店页签 16」那 5 个实例 `max` 仍是 19 = 标准档 ⇒ 不需要改**（审计拿名义值比，**不成立**）⇒ `AUD02_裁定_卡UI.tsv` 那一行建议降为 ✅（**待调度台订正**）。
+  - **`Created By Text` ⇒ 不建**（原版 8/8 `activeSelf=False`），裁定记录已写。
+  - ⚠️ **编译错误遗留**：`Editor/B106_W9_Assert.cs` 15 条 `CS1955`（`ArmyFontSizeForTest`/`RaceFontSizeForTest` 属性 vs 方法用错）⇒ **已 `SendMessage` 退给 W9 自己修**。
+  - **待办**：`CardView.cs` 净 **+201 行** ⇒ 同步点要跑一次 `check_ledger_points --all-A --fix`。
+- **补位**：`B106_W24`（AUD06 W-B：`FP-VFX-05` / `FP-INFRA-07` / `FP-SHOP-009`）。
+- **`B106_W12` 交回**：做 5 条 · **反证 1 条** · 2 条「半条」在白名单外。
+  - 🔴 **反证「主菜单 16:9 常量」不该做**（零改动）：原版那条 `× max(1,(16/9)/aspect)` 是给 `CanvasScaler(Expand)` 服务的，而我们的设计空间是**钉高**的（`Core/LayoutSpace.cs:13-14,36`）⇒ 占屏比例本来就恒定，再乘 s 是**多乘一次**。用户实拍算术复核差 **0.8px**。且 `MainMenuRuntime.cs:3884-3918` 已有 2026-10-28 裁定写着「⛔ 别建这个适配器」（会放大 1/s 倍、与 5 条 `CheckCard` 冲突）。⇒ **接受反证**，建议划掉 `AUD05_state_matrix_主菜单与侧栏.md` §4 缺口① / §5 施工建议 A。
+  - 已落地：侧栏 0.1s 淡入（线性、unscaled、非 Play 瞬间完成）· 聊天行高 `57 + 正文实测高`（与 OSA 60 取大）· 成员在线单颗图标 + tint 三档（自己恒绿）· 空态文案 `or game mode`（`Loc.cs:776`，**改的是已有键**——施工单指名，我接受）· 两个红点 provider（`AllianceUser`/`Friends`，数据源是真的）· `Loc.NotifyLanguageChanged` 逐家 try（**零行数变化**）。
+  - **半条**已转派：`ChatPanel.cs:849` → `W13`；`ShopTabPage.cs:140` → `W14`；`DeckScene.cs:9300` → `W24`；`SocialData.Member.Status` + `CollectionWindow.cs:4233` → **`B106_W25`**。
+- **`B106_W18` 交回**：`B103W4_Assert` 段级 catch（A0–A4）· `B93D3.RunChallengeFamily` 清理搬进 `finally` · `B94B7` 快照纳入保护 + 「取到才算有效」。三份文件 `grep` 账落点 **0 命中**。
+  - 🔴 **抓到调度台的接线错误**：`Editor/B106_W7_Assert.cs:55` 类名是 **`B106W7_Assert`（无下划线）**，我在 `DeckScene.cs:1397` 接的是 `B106_W7_Assert` ⇒ `CS0103`×3。**已就地改成 `B106W7_Assert`**。
+  - 另一笔：`B93D3_Assert.cs` 的行号被四份文档引用且已漂（`B105_红项诊断.md` / `B105_AUD11.md:128` / `B105_D1.md` / `AUD06_链路验收_第2轮.tsv:39`）⇒ 施工按符号 grep 现读。
+- **`B106_W9` 补交（typecheck）**：**运行时 0 / 编辑器 0**。那 15 条 `CS1955` 是**旧 `WFCheck.dll` 的级联假错**（CLAUDE.md §二 2026-10-30 那条坑的又一次现形）—— 那几趟运行时程序集被别人在飞的文件打断 ⇒ 编辑器拿旧 DLL 编，而旧 DLL 里两个成员还是属性版。**代码无需改动**。判据不变：`$TMP/wfcheck/WFCheck.dll` 的 mtime 早于你改的文件 ⇒ 编辑器错一律不可信。
+- **`B106_W20` 交回**：`CardBaseDemo.Run()` 补外层 try/catch/finally（计数口 `_pass/_fail`，**不是 `_sink`**）· `ShellScene.Play()` 的 `CreateDirectory → SessionState → EnterPlaymode` 整段纳入保护。两处**行数零变化**、正常路径逐字节不变、账落点 0 条。
+- **`B106_R7` 交回（AUD04）**：70 行分诊 = **✅46 / ？必须真机 23 / ⛔原版没有 1 / ❌确实缺 0 / ？缺判据 0**。
+  - 🔴 **原 tsv 唯一「判不准」已静态结案**：`#33` 任务列表滚动 —— 现读整棵树**无 `ScrollRect`/无 `RectMask2D`** ⇒ **原版本来就没有滚动**，我们不建 = 对齐，⛔ 别补。
+  - **tsv 摘要已过期**（写 ❌0/⚠️4/？1）：`#49/#50/#53` 已于 2026-10-30 由 `B102_ALLY`/`B102_CHAT` 修成真输入；`#10` 悬停双派发已由 `B102_HOVER` 修掉。**建议把摘要改成 ✅46 / ？真机23 / ⛔1 / ❌0**（我只读，未改那份 tsv）。
+  - **tsv 两处事实错误**：`#3` 顶栏是 **4 颗**不是 6 颗；`#18`「看扣 2000」错 —— 我们**不做真实经济**、资源固定 2000 **不扣**。
+  - **真机分 3 次启动覆盖全部 23 条**：批 A（Shell 进 9 扇窗，19 条）· 批 B（同一局战斗，4 条）· 批 C（键盘/悬停 2 条附记）。
+- **`B106_W17` 交回**（`Editor/BattleScene.cs` 净 +10，typecheck 0/0）：
+  - **「兜底归谁」有硬证据：原版根本没有兜底** —— 三处反编译全树 grep `Backdrop` = 0 命中、`assets_full` 文件名 0 命中；原版进战场是 `BattleArenaByArmySO.GetBattleArena` → `LoadScene(arenaName)`（整份场景），失败只 `LogWarning`，**不画任何替代物**。⇒ 按 18·0 **删掉我们自加的 `BattleBackdrop`**（`driver.backdrop` 恒 null）。失败可见性由 `ArenaRuntimeLoader:102-107` 的 `LogError` + 自检红保证。
+  - 同时把 `BuildArena3D` 返回值 `int → bool`（`arenaRend` 名不副实），旧死支换成等行数的 `Check(false, "原版没有兜底背景")`，存档场景加「**没有** `BattleBackdrop`」断言。
+  - `Run()` 补 catch：本宿主**没有 `_sink`**（`pass/fail` 是 `RunCore` 局部变量）⇒ 只出声 +「合计不完整」+ `rc=1`，⛔ 没为此引入静态计数口。
+  - 🔴 **同步点要 `--fix`**：本文件所有 `BattleScene.cs:<行>` 账点 **≤47376 的 +20**、`48506`/`48794` 两处 **+10**。
+- **补位 3 路**：`B106_W27`（ShopScene 队列 `SHOP-004→008→003→SOCIAL-03`）· `B106_W28`（RewardsScene 队列 `SOCIAL-04→FORGE-03→CAMP-01→CAMP-06`）· `B106_W29`（MainMenuScene 队列 `DRAFT-01→DRAFT-06→TUT-05`；**`FP-SHELL-04` 按裁定跳过**）。
+- **`B106_W11` 交回**（AUD05 奖励与收件箱 6 条 + AUD03 `#94` 两窗本地化）：`Extra Reward Indicator` 整颗新建（原版 `rewards.Count > 1 ⇒ SetActive`）· 空档抽屉隐藏闸 · 天数标题走词条 · `StreakDays` 由 `const 7` 改公式 · 收件箱领奖倒计时接上（`IsWaitingRedeemable` 原本 0 调用）· 未解锁警告口接到开启。本地化：`InboxWindow` 撤 1 绑 + 补 3 绑；`DailyRewardPopup` 补 6 term / 16 颗，**修掉西语占位串** `Ruta Gratuita`/`Ruta Premium`。两窗**全绑**，不踩静默陷阱。
+  - 🔴 **顺手发现 R2（真偏差，已派 `B106_W30`）**：抽屉 `localScale=0.8` 被近似成「绕 Entry 左上角」缩放，原版是**绕抽屉中心** ⇒ **8 个子件系统性偏 `(+31.5, +41.2)` px**（内部相对关系对）。
+  - **R1（不判 D，已派 `B106_R8` 只读侦查）**：点抽屉 ⇒ `RewardService.Preview` 预览整串奖励 —— 我们既无 `ItemDrawer` 也无预览窗 ⇒ 按铁律 11 要做，先出施工单。
+- **`B106_W14` 交回**（AUD05 商店七条 + 追加一条）：小屏档 Grid ×1.18 / Flexible ×1.05 · `Open ({n})` · `Owned` · 余额闸（`2 400`/`2 200` 两件打开即「买不起」，**不扣钱**）· Flexible 两行货架族 · 页签禁用态 · 空态文案对齐。
+  - 🔴 **两条硬发现可直接销账**：`store + 0x22` = `LiveOpsEventData.enabled`（AUD05 §6·4 的那个 `?` 销掉）· `ModifyFlexibleLayout` **方法体在本地**（「0 命中」指的是我们工程没这个类），公式 + 三个常量已读出。
+  - **必须别人接的**：`Editor/ShopScene.cs` 宿主补丁（断言过期，不补必红）⇒ 已 `SendMessage` 转给 `W27`（它正持有该文件）。
+  - 裁定：`ShopData._cards` 被第 1/5 页共用导致 `Owned` 互相漏 —— **保持现状**（数据来自服务端，我们没有判据支持拆成两份；⛔ 别自己设计第二份出厂值）。
+- **`B106_W25` 交回**：`SocialData.Member.Status` 补上（`partial class` 零行数变化 + 类尾字段/`ResolveStatus` 唯一兜底口 + 🔶 标记）；`CollectionWindow.cs:4233` 注释对齐官方串。
+  - 🔴 **抓到编译阻塞**：`Shell/SocialBadgeProviders.cs` 与 `Shell/AllianceMemberTab.cs` **重复定义**同名三类型（`CS0101`×3 + `CS0111`×2）⇒ **运行时程序集编不过、所有人都拿不到编辑器半边**。这是 `W12` 内联定义 + `W22` 又新建独立文件的**半搬状态** ⇒ 已 `SendMessage` 要 `W22` **删掉它自己那份**（`AllianceMemberTab.cs` 已有全套且已接线）。
+  - 接线：`AllianceMemberTab.StatusOf` 还没读 `Member.Status` ⇒ 派 **`B106_W31`** 收口到 `SocialData.ResolveStatus(m)`。
+- **`B106_W21` 交回**（三窗本地化）：`RewardWindow` 0→**4/4 全绑**（原版错字 `Widnow` 照抄）· `DailyStreakPopup` 3→**全绑**（补 4 颗，行数 996 不变）· `RewardsWindow` **有意保持 0 绑**（它自己建的 Label = 0 颗，绑任何东西都只能是「部分绑」⇒ 会把「整窗重建」那条路废掉）。
+  - 🔴 `TxtPreview` 按官方值改成 **`Available rewards`**；`Collect`（原版 `m_Enabled=0`）保持字面量不绑。
+  - **需要别人接的**：`Editor/RewardsScene.cs` 3 条断言（7515/7896/7898）+ `10328-10332` 两条 `"More Rewards In"` 字面量 ⇒ 已转 `W28`；`Shell/DailyData.cs` 三条硬编码英文口 ⇒ 已转 `W30`。
+- **`B106_W23` 交回**：临时卡「回合末触发 vs 移出手牌」次序已按原版改正（`RuleCore.cs` 那句挪到眩晕/失明闸门块之后），**行数零变化**；新建 `Editor/B106_W23_Assert.cs`（三段：前提 / 核心含反自证 `triggerIdx < removeIdx` / 控制组）。
+  - 判据：`CardScript__OnTurnEnd.c:64→72→80→…→141→147`（**先触发、后移出**）。
+  - **调度台已接线**：`B106_W23_Assert.Run()` 接进 `Editor/BattleScene.cs:46866` 聚合行（`Debug.Log(合计)` 之前、代码区之内）。
+  - 顺手发现（未改）：原版移出是**排队动作 56**、逐卡跑**手牌快照**、标记光段物理位置也对不上 —— 三条今天都 **0 张可达**，另立账。
+- **`B106_W31` 交回**：`AllianceMemberTab.StatusOf` 收口到 `SocialData.ResolveStatus(m)`（`ResolveStatus` 成为唯一兜底口径）；过期注释就地订正；**行数 2608 不变**，「自己恒绿」语义自证保持。
+- **`B106_W13` 交回**：ItemDrawer 九宫 / LeaderboardRow `Name Holder` 自然高居中 / Capline（V=8192）· `ChatPanel` 正文框改随行高。
+  - 🔴 **重大发现（已裁定）**：`Highlight` 与 `Blackout` 两颗 Image 在 **208/208 实例 `m_Enabled=0`**，且**任何代码路径都不会打开**（`TogglePremiumHighlight` 反汇编 `0x1AEAA30` 只有 `SetActive`）⇒ **原版这一格只画 `Badge`**。
+  - **裁定**：按 18·0 **不画这两层** ⇒ 已 `SendMessage` 给 `W28`（并**扩权**给它 `Shell/ItemDrawer.cs`），删那两句 + 把 `Editor/RewardsScene.cs:9837-9843` 三条断言改成「这两层不画」。
+  - 顺带订正三处判据前提：sprite 实为 `Highlight Rounded Square`（`m_Border 73,75,73,75`）· `m_Color` 是 `(1,1,1,1)` 不是 0.8 · 拉伸锚 ⇒ 每边 **+25** 不是 +50。
+- **`B106_W32` 新派**：资源侧 **R0 第一波**（R0-01→02→03→04 同文件串行 + R0-05，纯 Python，`d:/2` 只读）。
+- **`B106_W15` 交回**（AUD05 设置窗 6 条）：5 条落地 —— `Disable Notifications` 整行隐藏（`Touch Input` 按 VLG 上移）· PC 上 `Delete Button` 关 · 已登录态密码 `**********` + 两颗 `SetInteractable(false)` · 小屏字号 **27 站**接线（只调 `Label.SetSmallScreenFontSizes`，未改共用件）· 登录长度闸 + 等待态。第 6 条（语言 12→13）只交 `Core/Loc.cs` 补丁。
+  - 判据全部回源（`GeneralTab__OnSetup.c` 首句 `SetActive(+0x40,0)` · `PlatformBasedComponents` `PC=20` · `AccountTab__Refresh.c` 的 `"**********"` 字面量 · 五个输入/登录方法逐句）。
+  - **需要别人接的** ⇒ 已派 `B106_W34`：`Core/Loc.cs` 补丁（`Turkish=120` / `Lang13Column` / `Languages` 13 项序）+ `Editor/SettingsScene.cs` 5 条过期断言 + 3 处 `12→13` + 接线 `B106W15_Assert`。
+  - 顺手发现：`AcInput` 原先**完全没有 interactable 概念**（原版 `disabledColor` 外观那半本工程无对应物 ⇒ 只挡交互、外观不变，已如实标注）· `PlatformBasedComponents.Start` 是**硬编码 PC 组**（出移动版要改）· `Label.SetSmallScreenFontSizes` 收的是**画布 px**（要 `× RootScale(0.9)`）。
+- **`B106_W22` 交回**（先决事故已收口：删掉 `Shell/SocialBadgeProviders.cs` + 撤销 `BadgeNotifications` 里那两句 `Register`，否则与 `EnsureRegistered()` **双登记 ⇒ 红点翻倍**；typecheck **0/0**）：
+  - `FP-ENG-021` ✅ **16 条断言**（预烧 100 个随机数：长度/游标/区间/**D4 ≥50 个不同值专挡「清零」**/回绕/同种子逐格相同/换种子不同）；**产品代码零改动**（构造器本来就调 `InitRandomNumbers()`，成员本来就 public）。
+  - `FP-SOCIAL-05` ⇒ **实现「已失效（W12 已修）」**，改做**断言补齐 17 条**（联盟三态 + 原版「已入盟就不发」闸 + 登记幂等；好友走真数据口 `ChallengeData.PendingPracticeMatches`）。
+  - `FP-TUT-04` ✅ **12 条断言**（`PollInterval` 轮询闸 / 完成⇒`Advance()`⇒下标换 `TutorialFinished` / 上一段被标完成 / 玩家进度逐段还原）。⚠️ 只能用反射搭态（`Attach` 被 `isPlaying` 挡住、字段全 private）⇒ 建议后续给 `MenuTutorialFlow` 加测试口。
+  - ⚠️ 它说 `B97W21Assert.Run()` 全仓 0 宿主 —— **现读不对**：`RuleEngineTest.cs:1365` 已有 `B97W21Assert.Run(); _pass += …; _fail += …;`（已接线，无需再动）。
+  - 顺手发现 → **`B106_W35`**：原版 `AlliancesNotificationBadge : SocialBadge`，我们 `: BadgeNotification` ⇒ **左竖导航 SOCIAL 那颗不会被社交通知点亮**（`IsInstanceOfType` 单向）。
+  - 另记一笔（未改）：`SocialBadgeProviders.EnsureRegistered()` 是「缓存句柄」式幂等 —— 有人调过 `UiBadgeNotificationManager.ResetForTest()` 后会**静默空转**（今天全仓无人调）。
+- **`B106_W24` 交回**（四条）：
+  - `FP-VFX-05` ✅ `Done Highlight toggler` 驱动 **7 条断言**（判据 `DeckEditingWindow__UpdateDoneButton.c`；含**反自证**：手动推到相反态后必须由**生产链** `RefreshAll→RefreshHeader→ToggleDoneHighlight` 拉回）。接在 `DeckScene.cs:1397` 聚合行第一个 `//` 之前，行数零变化。
+  - `FP-INFRA-07` ✅ `SceneInitializer` 协程逐帧等 pending **11 条**（反射取真实枚举器当泵；判据 `SceneInitializer._InitializeBehaviours_d__19__MoveNext.c` 状态 1 `return 1`）。
+  - `FP-SHOP-009` ✅ 轮播「拖一格⇒槽位换」**16 条** + 新建 `Shell/ShopCarousel.cs`（`CarouselOfferPopupDrawer` 只有 `ManualInit()`；「拖一格回绕」在第三方 `UI_InfiniteScroll.OnScroll`，**真体只在 `out_il2csharp`**，assetripper 那份是空壳）。⚠️ 轮播今天**不可达**（每份报价仅 1 条奖励，`ShopData.Grants` 全长度 1）⇒ 断言绿但功能未真用。
+  - 追加项：`DeckScene.cs:9302` 空态期望值与 `Core/Loc.cs:776` 对齐。
+  - 顺手：`DeckScene.cs:9299` / `ShopScene.cs:1922` 还有同类**注释**写旧串（不红、未动）。
+- **补位 2 路**：`B106_R10`（AUD06 剩三个桶 `FP-COLL-005`/`FP-CARD-003`/`FP-HUD-006` 逐件拆解，供下一步切块派写手）· `B106_W36`（资源侧 **R1 第一波** `R1-01/02/04/07`；与 `W32` 的 R0 文件不重叠）。
+- **`B106_W35` 交回**：`AlliancesNotificationBadge` 已按原版改成 `: SocialBadge`（三源一致：`out_cpp2il_dev_ilspy/Everguild.UI.Notifications/…:7` · `out_il2csharp` · `dump.cs:124145`）；`SocialBadge` 去 `sealed`；**行数零变化**、**没有新增任何 `Register`**（`EnsureRegistered()` 仍是唯一登记口）。typecheck 0/0。
+  - 自证路径：`MainMenuRuntime.BuildNavItem(4)` → `"Social"` → `BadgeWiring.DefinitionsFor("Social")` → 外闸 `SocialBadge.IsAssignableFrom(AlliancesNotificationBadge)`（改前 false、改后 true）⇒ 计数成立。
+  - 断言 **H18~H27** 写进 `Editor/B93S4Assert.cs`（宿主 `MainMenuScene.cs:18498` **本来就在**，无需接线）。
+  - 顺手发现 → **`B106_W37`**：`CampaignBadge` / `ForgeBadge` 原版 **`: RewardsBadge`** 且 ctor 把 `parentId` 写 `""` ⇒ **原版「战役/锻造有可领」会让 REWARDS 导航钮也亮**，我们少了这两类；改它要同时改 `Validate`（`army`→`parentId`）与 `B94Z1_Assert.cs:197-207` 的反例。
+  - 如实提醒：真机上 SOCIAL 那颗**正常游玩仍隐藏**（本地没有写入 `SocialData.Invitations` 的生产方）—— 那是「数据源为空」不是类型不匹配，⛔ 别当没修好。
+- **`B106_W29` 交回**（MainMenuScene 三条；`FP-SHELL-04` 按裁定跳过）：
+  - `FP-DRAFT-01` ✅ 点 `Draft Game Mode Container 1x2` 的 `Hit`（**走生产点击链** `MainMenuRuntime.cs:3158 → 2731-2746`）⇒ 窗换人 / `CurrentState==Open` / 页 `PayScreen`；`finally` 全还原。
+  - `FP-DRAFT-06` ✅ 给 `LeaderboardData.SelfCheck` **接上首个宿主**（5 条纯函数 + 3 条走生产计分口的驱动，8/5/3）。
+  - `FP-TUT-05` ⚠️ **判据冲突已写死**：`MenuTutorialFlow.MarkStageDone` 首句是 `if (!Application.isPlaying) return false`（🔶 我们自己的自检安全闸）⇒ 批处理里**字面上写不进去**，改成三段（闸生效 / 绕道反射写 / 落盘重读 + 灭自证）。
+  - 行号：新方法追加在类尾（20800 → 21024）⇒ 账锚点（最大 `:20285`）**全部不动**；调用点插在 `:18498` 的 `Debug.Log(合计)` 之前（该行现读**无 `//`**）。typecheck 0/0。
+  - 顺手发现 → **`B106_W38`**：`MenuTutorialFlow.cs:99-100` 缺 `🔶 自己设计` 标记 · `:57` 的 `🔶` 留着 `TODO(谁定的)` 占位。
+  - 另记两笔：`MainMenuScene.cs` 现有 4 条 `CS0618`（`DeckLibrary.Create` 被 W7 标 Obsolete）建议另开迁移 · 聚合行 `:18498` 已挂 20+ 个 `*_Assert.Run()`，**任何人加行末 `//` 都会让后续静默失效**（要拆行须与 `--fix` 同批，因为会让 `:20285` 锚点漂）。
+- **`B106_W33` 交回**（`CampaignRewardWindow` B11 缺口 + `SocialData` 注释）：
+  - B11 已补齐（`:707` 同物理行追加 `SetText(wl, lockedHere ? TxtPremWarning : TxtPremTip)`，原版三元两臂都写全）；两条词条值从**我们自拟占位**换成**官方 13 语言表原文**（`Upgrade to Premium to unlock` / `Premium Extra Rewards`）。三份反编译互证。
+  - ⚠️ 如实记：严格读二进制那句 `set_text` 在**锁支内部** ⇒ `premiumExtraTip` 那臂**恒不可达**（死支），与 AUD05 B11 的措辞有差异但**屏幕等价**（都不可见）。
+  - 本地化：本窗 **0 绑定 / 6 颗带 `Localize`** ⇒ 0/6，无半绑风险；`Warning` 节点原版 prefab **无 `Localize`**（组件列只有 `TextMeshProUGUI,LayoutElement,EverguildTextController`），文案由代码设 ⇒ 不计入分母。
+  - 🔴 **两条真缺陷** ⇒ 派 `B106_W39` + 转 `W28`：
+    ① `:247-248` 那条 `🔶 自己设计` 写着「I2 词条表在远端、本地没有 value」**是假的**（`Rewards Menu/Claimed` 与 `MainMenu/General/Claim` 都在官方表里且与常量逐字相同）⇒ 那是「本窗还没接本地化」，不是「必须自己定」；
+    ② **本窗换语言不刷新**（无 `OnLanguageChanged` 覆写 + 0 绑定）⇒ 标题/按钮/警告全停在旧语言。
+- **`B106_W26` 交回**（AUD06 四条全补，typecheck 0/0）：
+  - `FP-FORGE-06` 造异画：`WillCraftAlternateArt` 是私有属性 ⇒ 走**行为**断言（摘目标异画 + 摆 owned/通配符 → `ChangeAltStyle(1)` → **真点 `CraftHit`** → 断「入库 / 桶 3→2 / owned 仍 1 / 不出传奇确认窗 / 2 件特效 / 标题回退」），**改坏法**（属性恒假）⇒ 五条一起红。
+  - `FP-TUT-02` 万能牌指引：**走生产入口** `CollectionWindow.OpenCardDetail`（验的就是 `CollectionWindow.cs:5366` 那条接线）；PlayerPrefs 完成位快照→还原→断言还原。
+  - `FP-DRAFT-02` 9 行费用分布：反汇编确认分桶（`cost < 行数−1` 落第 cost 行，否则并进最后一行）；拿包后逐行读 Label，与**卡表独立算出的 9 个桶**逐值比。
+  - `FP-DRAFT-04` 三档报名：价格是 🔶（服务端）⇒ **注入 137/1370**（≠出场 150/1500）再断，避免写死自造常量。
+  - ⚠️ 订正一条旧判断：`DraftAssertD3.Run()` **不是无宿主**，现读由 `Editor/MainMenuScene.cs:10422` 调用（已就地订正）。
+  - 顺手发现 → **`B106_W40`**：`DraftModeWindow.cs:3107` 的 `d.Cost < 0 ⇒ continue` 是我们加的（原版裸下标）· `CollectionWindow.cs:1214` 的 `isPlaying` 闸是我们加的且批处理验不到 —— 两处都缺 `🔶` 标记，后者还建议给自检口。
+  - 另记：`账/轮抽.tsv:58` 备注引的 `DraftAssertD3.cs:1355-1370` 因本批插了 49 行 ⇒ 现 `:1404-1419`（备注列、非机检落点）——**同步点顺手改**。
+- **`B106_W32` 交回**（资源侧 R0 第一波 R0-01~05 全落地；`d:/2` 只读、未碰 `.cs`）：
+  - **R0-01** 自产排除面（`DOC_ROOT` + `_doc_self_exclude()` + `--selftest` 双向判）；顺手修掉裸 `startswith` 吞掉 `判据旧` 的 bug。
+  - **R0-02** `by_phrase=True`（多词短语终于能命中），`--selftest` 三条断言。
+  - **R0-03** 语料日期戳：`_corpus_snapshot()` + `_write_stamp()`（写后回读 assert）+ `--stamp` 轻量模式；**TSV 表头一个字没动**。
+  - **R0-04** 新建 `Unity/工具/gen_unused_md.py`（不带参只打印用法 / `--check` 不写盘 / `--apply` 才写）—— 🔴 **把 `B105_R12` 那条人工订正烘进了模板**（`_tmp_view` 旧版没有它，任何重跑都会静默冲掉 md 第 49 行）。
+  - **R0-05** 新建 `gen_r0_undecodable_view.py` → `资源/R0_解不出视图.tsv`（906 行 / 档位 718/90/50/18/15/13/1）。
+  - **U3 口径前后对比**（现账现语料）：旧 **8,207/7,970** → 现行 **9,628/6,549**（「没用上」总数 17,371 不变 —— 这正是自污染难察觉的原因）。D 是预计值，以 R0-06 实跑为准。
+  - **三条裁定（调度台）** ⇒ 派 `B106_W41`：① 排除面**扩到 `资料/普查产出_*` + `资料/完全复刻/` 根下那几份自产文档**（理由：名字出现在我们的审计产物里 ≠ 读过原版资产）② `_tmp_view/wfres/gen_unused_md.py` **移走不删**（旧内容定时炸弹）③ R0-06 先**跑副本** `--out _tmp_view/r0_new`，**⛔ 不覆盖主表**（`R0_资源覆盖账.tsv` 被 gitignore、无历史）。
+- **`B106_W30` 交回**（抽屉 0.8 枢轴 + `DailyData` 三常量复核 + 三处词条口）：
+  - 原版判据三路互校：`RectTransform_8761675323560527454.json` `m_LocalScale=0.8` / `m_Pivot=(0.5,0.5)`；**`DailyRewardDrawerController` 全文无 `localScale` 写点** ⇒ 枢轴就是 prefab pivot。改成 `visual = P + 0.8·(layout − P)`，8 个子件新值与原版 dump **逐个 ≤0.05 px**。
+  - ⚠️ 订正派单里一个数：偏差**不是**统一 `(+31.5,+41.2)` —— `Premium Reward` 是 **`(+31.5,+120.1)`**（它的枢轴 y 也是 +394.49）。
+  - ⚠️ 踩到**同名不同实例**的坑并订正：另一具 Entry 下也有个 `NormalReward`（`scale=1.2`、`389.658×503.556`），`B106_W11` 引的是那一份。
+  - 🔴 **最重要的发现（假绿）**：`RewardsScene` 的 A524 断言值 `255.1` 是「×0.8 之后**不加 pivot 补偿**」算出来的，**恰好落在旧实现的 254.33±1.5 里 ⇒ 一直是绿的** —— 典型的「断言把错口径钉死」。原版真值 **287.8**，现测 287.83 ⇒ 已 `SendMessage` 给 `W28` 改。
+  - `DailyData` 三常量：`StreakAheadSlots=7` **照抄**（`.c:51` 字面量）；`StreakCurrent/Collected=5` 是**服务端对象字段**，保留夹具值 + 补 `🔶` 标记（硬接会越界，`SI(i)` clamp 到 `StreakDays−1` 而数组只有 7 条）。
+  - 三处口走 `Loc.T`（en 值逐字不变）⇒ 🔴 **可见变化：`Loc.Default = Chinese`，默认界面这三处会从英文变中文**（与同窗其它文案同口径）。
+  - **没查清** ⇒ 派 `B106_W42`：抽屉节点的 `UITransformTweenController`（`animScale` 等）**可能**在开窗时改 `localScale`，上一代理没读它的方法体 ⇒ 若会改，`0.8` 只是出厂值，刚算出的坐标就只对一帧。
+  - 账漂移（非本件造成）：`账/日常_奖励.tsv` 指向 `DailyRewardPopup.cs` 的 8 处 A 行相对 HEAD 已漂（`BuildDrawer` 470→477、`Drawer.SetState` 891→914，成因是 `W11` 在前面加了约 23 行）⇒ 同步点 `--fix`。
+- **`B106_R9` 交回**（第一波收口盘点）：产出 `判据/B106_第一波收口盘点.md`（表 A 闭环 40+ 行 / 表 B 遗留 / 节 C 数字）。
+  - **规模**：盘点时 **39 路已交回 / 8 路在飞**；本波改/新建 `.cs` **71 个**、`报告/B106_*.md` 40 份、`判据/B106_*.md` 8 份、断言调用口约 **236 个（约 228 会跑 / 8 不会跑）**。
+  - **本波真正还剩三件**：① 断言没接线只剩 **`B106W9_Assert`**（其余 W7/W8/W23/W15 都已接）② 账落点（现跑漂移 393→391 / 失败 42，**`--fix` 修不了失败那 42 条**，且 6 条 NEED-HUMAN 会被跳过，必须人工）③ 23 条交互只能真机。
+  - 🔴 **本波 `账/_parts/B106_*.tsv` 补丁 = 0 份** —— 对账的落盘动作还没发生（同步点要补）。
+  - 盘点指出的**待确认的用户可见变化**：W30 把连登三处文案改走 `Loc.T`，而 `Loc.Default = Chinese` ⇒ 默认界面这三处从英文变中文。
+  - **调度台已做**：`B106W9_Assert` 接线进 `Editor/CardBaseDemo.cs:392`（**注意类名是 `B106W9_Assert` 无下划线** —— 我又踩了一次同名坑，第一次接成 `B106_W9_Assert` 立刻 CS0103）；typecheck **0/0**。
+- **`B106_W38` 交回**：`MenuTutorialFlow.cs` 三件全落地（`🔶` 标记 2 行零行数变化 · `TODO(谁定的)` 用 `git log -S` 追到 **第五十六会话 2026-10-19** 的出处并补齐 · 加 `MarkStageDoneForTest` 自检口，**`#if UNITY_EDITOR` 包住**、默认开关 false ⇒ 生产路径逐句不变）。账落点 170 处锚点最大 `:1157` < 插入点 ⇒ 零漂移。
+  - 顺手发现 → **`B106_W43`**：同批遗留的 `TODO(谁定的)` 还有几十条（G4 报告列了清单），这次证明**都能追**，派一个代理按线批量补齐（本轮只挑没有写手在跑的那 10 个文件）。
+- **`B106_W27` 交回**（`Editor/ShopScene.cs` 队列四条 + W14 宿主补丁 12 条；typecheck 0/0）：
+  - `FP-SHOP-004` ✅（同一变体建三份只换报价；**关键那条 =「两个集合不同」**，改回「第一个非 INACT 的槽」就红）。
+  - `FP-SHOP-008` ⛔ **判「判据不成立」，零代码改动**（`B9_W69ENG4` 先例）：原版商店页签由**服务端 store 列表**生成，`ShopWindow__CreateStoreTab.c` **全文没有一次 `OpenWindow`** ⇒ **点页签只切页**；真正相关的链是「点**活动报价**⇒开该活动 Popup」（读远端活动资产，P3）。按施工单原话做会**造一个原版没有的行为**。→ **调度台采纳本反证**；并记下它找到的替代链：「活动窗『去商店』⇒ 开商店落第 5 页」**已实现**（`LiveOpsEventWindow.cs:2128`）但 `grep "OnGoToStoreButtonClick()" Editor/` = **0 驱动点**（进账）。
+  - `FP-SHOP-003` 仍成立但落点在别人名下 ⇒ 已派 `B106_W44`。
+  - `FP-SOCIAL-03` ✅ 4 态 × 8 钮 = 32 条 + 一条「前 7 颗都既亮过也关过」的覆盖闸。
+  - W14 宿主补丁 **12 条全落地**（含 `PriceTextForTest` 不手抄、`Available` 两档、买不起灰+出声、页签禁用、小屏档真建格实测 396.008）。
+  - 顺手发现 → 已并进 `W44` 第 3 件；另记：`FindChild` 是**递归整棵子树**，`MenuDraw.Hit` 在每颗命中节点里都建**同名** quad `Hit` ⇒ `FindChild(cell,"Hit")` 会抓错，正确是 `cell.Find("Hit")`。
+- **`B106_R8` 交回（奖励预览链）—— 推翻了 `W11` 的两条断言**：
+  - `W11` 说「我们既没有 `ItemDrawer` 也没有 `RewardService.Preview` 那扇窗」**两半都错**：`Shell/ItemDrawer.cs`（2,349 行）是完整抽屉库、**30 个文件在调** `ItemDrawer.Draw`；`Shell/RewardWindow.cs:869 ShowPreview(...)` + `DailyData.cs:2592 PreviewRewards(...)` **存在且有 ≥4 调用点**。
+  - **真正缺的只有三件**：① 每日奖励抽屉图标是裸 `MenuDraw.Rect`，不是可点抽屉对象；② 「抽屉的奖励列表」数据结构不存在（`RewardCountOf` 是 🔶 占位、恒 1）；③ 连登窗 `DailyStreakPopup.cs:762` 是逐字同构的第二处。
+  - 🔑 **关键新判据**：原版这条链**「看类型才活」** —— `ItemDrawer<T>.OnPointerClick` 第一句 `if (!showItemInfoOnClick) return;`，而 `OverrideOnClickAction` **不写这一格**；按 `ItemDrawerConfig` 逐 prefab 核过：**=1 可点**（Currency/Avatar/Title/Card 一族…）· **=0 不可点**（**ShopContainer 卡包** · Campaign/ForgePoints · Wildcard · PremiumItem …）。⇒ **一刀切全接 = 给卡包/骷髅做出原版没有的一下**。
+  - **裁定**：A1（行为级复刻、**零视觉变化**）可以做；`RewardClickable` 在本地查不到 item 类型时**返回 false + 出声**（铁律 2），并在账里记「本地奖励无类型 ⇒ 该链今天恒不触发 = 数据缺失（P3），不是接线缺失」。**A2（换真 `ItemDrawer.DrawView`）等 A1 稳定后另起一波**。
+- **`B106_W28` 交回**（RewardsScene 队列四条 + 追加四件；typecheck 0/0）：
+  - `FP-SOCIAL-04` / `FP-FORGE-03`（灭自证：`Army` 贴图 ≠ 阵营徽记）/ `FP-CAMP-01` / `FP-CAMP-06` 全落地。
+  - 🔴 **一条判据冲突已按二进制落地**：`FP-CAMP-06` 的「领掉唯一可领 ⇒ 红点 alpha 0」**不可达**（`Claim` 会 `MarkSuccessorsUnlocked`，且末节点 `UM47 Repeatable=true` ⇒ 永远可领）。改成「领一格 ⇒ 可领 1→2」+「切到无战役阵营 ⇒ alpha 0」。→ **调度台采纳**，并派 `B106_R12` 去核实原版这几句。
+  - **`ItemDrawer.SetPremium` 已按裁定删掉 `Highlight`/`Blackout`**（208/208 `m_Enabled=0`），宿主断言改断「这两层计数 = 0」+ 层级 `qIcon < qBd < qVig`。
+  - 抽屉 `Claimed Tex` 假绿已改：`255.1` → **`287.8`**（注释写清旧值为何落在旧实现的容差里）。
+  - 4 处本地化过期断言改成「官方表当前语档列」，**新增唯一取值口 `OfficialText(key)`**（走 `Loc.OfficialCurrent`/`Loc.Lang13Current`，⛔ 不用 `Loc.T`）。
+  - 顺手发现：`BadgeNotifications.cs:332` 注释「领完根节点后红点会灭」与 `MarkSuccessorsUnlocked` 矛盾；账里 4 处**叙述性**坐标已漂（`收藏.tsv` 的 `:9637` 现在落在 `}` 上）。
+- **`B106_W40` 交回**：`DraftModeWindow.cs:3107` 与 `CollectionWindow.cs:1208` 两处 `🔶 自己设计` 补标（**就地改行尾注释、行数 0**）· 新增 `CollectionWindow.RunPoolBuiltHookForTest`（**只绕过 `isPlaying` 安全闸**，`IsDone` 闸照走、体内仍走真实 `TryStart` + 原绑定 + 原 root + 原 try/catch，日志以 `【测试口】` 起头；+42 行全在最后一条账落点 `:6699` 之后 ⇒ **零漂移**）。typecheck 0/0。
+  - **给断言文件的改造建议** ⇒ 派 `B106_W46`：`FP-TUT-02` 收尾改成走这个自检口（含灭自证「再调一次 == null」）；⚠️ 加口后 `[WildcardTutorial]` 日志条数会变多，**按条数数的断言要改成按关键字**。
+  - 现读账闸：A 5786 · 通过 5324（告警 799）· **漂移 417 · 失败 45** —— 工作树全局状态（多代理并发），它逐行 grep 核过「坏行 0 条指向它的文件」。
+- **`B106_R10` 交回（AUD06 三桶）**：249 行 → **只剩 3 条断言任务、3 个互不相交文件**。
+  - `FP-COLL-005` 25 行/14 类（✅12 / ⛔12 / ❌1）· `FP-CARD-003` 19 行/5 类（✅7 / ⛔8 / ❌4 但**一条改动全清**）· `FP-HUD-006` 205 行/33 类（✅129 / ⛔76〔**P3 服务器 26 条/7 类**〕/ ❌1）。
+  - 三条要改的：① 卡背格 SDF 悬停 `AttachOutlineHover` 有实现、**全仓 0 断言** ② `CardTierConfig.SelfCheck()` **0 宿主** ③ `ManaBuff` 的 **HUD 那一跳从没验**（引擎侧有断言）。
+  - **两条就地订正**：`FP-CARD-003` 的桶成员**不是 `CardMaterialHelper`**（那是 `FP-MISC-08`，已 ✅）；「伤害阈值」也不在它里面（真叫阈值的是 `HealthThresholdData`，属战分里程碑）⇒ 施工单那句是误判。`FP-COLL-005` 桶成员比施工单多（14 类 / 25 行）。
+  - **新取证**：`CursorManager` **= 原版死支**（`level0/GameObject/CursorManager.json` `m_IsActive: false`，全库唯一实例）⇒ **别建**；`EntityObjectsManager` **= P3**（类桩顶部 `using PlayFab;`、`Unpack` 是 `GetObjectsResponse` 异步体）；`InventoryCondition` 本 build 无数据触发；`WildcardInventory` 发放源**已接**（`CardDetailPopup.cs:564`，账里「0 调用者」已过期）；Boost 一族已全判 D（本地 + 安卓 1.35 双侧 0 引用）⇒ 别重开。
+  - **派活**：`B106_W47` = W2 + W3（`Editor/PlayerDataMathCheck.cs` + `Editor/BattleScene.cs`）；W1 等 `W46` 交回 `Editor/CollectionScene.cs` 后再派。
+- **`B106_W34` 交回**（13 语言 + SettingsScene 断言；typecheck 0/0）：
+  - `Core/Loc.cs`：`Turkish = 120` · `Languages` 整块换成**原版 `languagesDefinition` 13 项声明序** · `Lang13Column` 加 `case Turkish: return 12` · **额外补了手写表 `LanguageName/Turkish = Türk`**（不补的话第 11 项只能落官方表兜底，且与同段注释自相矛盾）。10 处「Turkish 不进下拉 / 12 项」的过期说法全部就地订正留痕。
+  - `SettingsScene`：3 处 `12→13` + 5 条过期断言全改 + **额外修了 3 处 brief 没列的连带红**（`:1326` 的 `Chinese` 下标 11→8、`:1328` 新增「原版下拉第 11 项 == Turkish」、`:1476-1479/:1494` 非中英循环加 `tr` 且计数 10→11）—— 不修必红，这是它自己回源发现的面。
+  - `B106W15_Assert` 已接进 `SettingsScene.cs:5528` 聚合行（**第一个 `//` 之前**，位置在关窗之前，满足「必须在开着窗上跑」的前提）。
+  - **账**：`SettingsScene.cs` **0 条 A 档漂移**；`Core/Loc.cs` **12 条 A 档漂移**（`188→196`、`3001→3021`、`3421→3444`〔7 行〕、`3685→3708`、`3701→3724`、`3789→3812`）⇒ 同步点统一 `--fix`。
+  - 顺手发现 → 已转 `W47`：`Editor/BattleScene.cs:20126-20127` 拿 `Loc.Languages[11]` 比 `LangRowLabel(11)`（两边同下标）⇒ **绿但语义过期**，应改 `Loc.Languages.Length - 1`。
+  - 另记：`判据/AUD03_reuse_paths.tsv:97` 的 `LangRowCount==12` 已过期（文档账，待改）。
+- **补位**：`B106_W48`（资源侧 R2-01）。
+- **`B106_W39` 交回**：`CampaignRewardWindow` 接上本地化 —— **逐颗读原版 `Localize.m_Enabled`（MonoBehaviour 原文，不是 `menu_dump` 的 act 列）**，6 颗全 `=1` ⇒ **全绑**（6 颗 Localize + 1 颗代码设文案的 `Warning` = 7 条 `BindText`）；新增 `OnLanguageChanged`（只重取、不重建窗）；假 `🔶` 就地订正并保留更正痕迹。
+  - 🔴 **屏幕文字会变一处**：`Text Get Reward` 英文由 `Campaign Rewards` → **`Rewards claimed`** —— 这是**原版行为**（该颗 `LocalizeOnAwake=1`，Awake 即被词条覆盖），不是我们改编。
+  - 🔴 **原版 4 颗按钮的 `Localize.mTerm` 是模板残留 `MainMenu/RankedWindow/ChangeDeck`** ⇒ 照抄那个 term 会让 `Claimed Text` 切语言后变成 "Change Deck"（**疑似原版 bug**）。本件改绑**代码语义那条词条**（`claimedKey`/`claimKey`）⇒ **建议账里记一条口径**（复刻原版会显示 Change Deck，我们不照抄这一格）。
+  - **需要 `Editor/RewardsScene.cs` 同步 4 条断言**（默认中文档必红）⇒ 派 `B106_W49`。
+  - ⏳ **待裁定（占位，等槽位空出派只读代理核）**：按铁律 18·0「默认复刻原版（含原版 bug）」，那 4 颗按钮**应当照抄 `mTerm = MainMenu/RankedWindow/ChangeDeck`**（切语言后显示 "Change Deck"），而本件改绑了语义词条（`claimedKey`/`claimKey`）。**先核准「原版到底会不会真重写成 ChangeDeck」再定**——若会，按 18·0 要照抄；若那 4 颗的 `Localize` 实际不生效（如 `m_Enabled` 与 `LocalizeOnAwake` 组合下被代码覆盖），则本件做法正确。**核之前不改、也不把它当已定案。**
+- **`B106_W41` 交回**（R0 三条裁定全部落地，**主表一个字节没改**；selftest 12/12 PASS）：
+  - ✅ 排除面扩围：`资料/` 根下 **74 个 `普查产出_*`** + `完全复刻/` 根下 **23 个文件**；另做单文件排除（目录仍走前缀边界）。排除清单现读 **112 项**。
+  - 🔴 **顺手揪出更严重的自污染源**：`完全复刻/账_bak_*` 有 **10 目录 / 1,794 个 .md|.tsv / 124 MB**，全是账的历史备份（含 247k 行原始资产名），**此前一直在 U3 语料里** ⇒ 按「所有自产审计产物」一并排除。
+  - ✅ 旧脚本隔离（**未删**）：`_tmp_view/_stale/gen_unused_md.py.disabled_20261031` + `README_stale.md`。
+  - ✅ R0-06 **副本重跑**（`--out _tmp_view/r0_new`，81 秒，EXIT=0）：主表三个文件 md5 与备份逐一相同。
+  - **数字**：读过（文档）**8,207 → 8,301**；从没看过 **7,970 → 7,684**；没用上合计 **17,371 → 17,179**。被排掉的语料 `资料/` **5,183 → 732 文件（−85.9%）**。
+  - ⏳ **待决策（同步点）**：副本 `_tmp_view/r0_new/` 已自洽就绪，**转正与否由我在同步点做**（现在不能覆盖，还有写手）。
+  - **裁定（调度台）**：**不再继续收紧口径** —— `资料/说明书` / `战斗复刻_正本.md` 这类是「我们读过原版之后的产物」且记录的是**原版事实**，把它们判成「没读过」会把真实覆盖一起抹掉。
+- **派 `B106_R13`**：核 `CampaignRewardWindow` 那 4 颗按钮的 `Localize` **切语言后到底会不会真显示 "Change Deck"** —— 决定 `W39` 改绑语义词条是「偏离原版」还是「照抄了个不生效的残留」。
+- **`B106_W37` 交回**：`ForgeBadge` / `CampaignBadge` 已按原版改成 **`: RewardsBadge`**（三源一致），新增 ctor 把 `parentId` 置 `""`、**删掉各自多余的 `Validate` override**（原版没有），`RewardsBadge.Validate` 补齐原版**两支**（同属 RewardsBadge 但运行时类型不同 ⇒ 只比 `parentId`；其余 ⇒ record 相等性）。`B94Z1_Assert` 新增 **21 条**（⑥a~⑥t），关键灭自证是 **⑥i（删 `army` 比较⇒红）+ ⑥s（基类改回兄弟类⇒红）**，两处一起改回去不可能同时绿。typecheck 0/0。
+  - 🔴 **我派活时给的前提错了**：`BadgeNotifications.cs` **不是「账落点 0」**（上一代理 W35 说的），实际有 **20 条 A 档落点**；它加行后全部下移（净 +41），**2 条由「通过」变「失败」**（`社交_聊天.tsv` 老 `:97`→现 `113`；老 `:560`→现 `604`）。报告 §⑥·1 有**完整 17 个行号对照表**，其中 5 组（`CheckNotification`/`Refresh`/`Validate`/`OfferBadge`/`INotificationProvider`）**`--fix` 修不了**（工具报「歧义，请人工确认」）⇒ **同步点我按表人工改账**。另 3 行**差异列内容**也过期，随行号一起改。
+  - **连带**：`Editor/B94T1_Assert.cs:189-190` 的 ②e 会绿转红（它断「REWARDS 计数 == Missions 计数」，而 REWARDS 现在聚合三类）⇒ 派 `B106_W50` 打补丁（改成 `onNav == onMissions + onCampaign + onForge`，比原来更强）。
+- **`B106_W42` 交回** —— **`UITransformTweenController` 不改抽屉的 `localScale`**（本次零代码改动，只把证据写进注释）：
+  - 三源一致：`Awake` 首句 `if (*(char*)(p+0x48)==0) return;`、`OnEnable` 首句 `if (*(char*)(p+0x49)==0) return;` ⇒ **两道闸全关**；真正写缩放的 `DoAnimScale` **无生命周期自动调用**，**调用者只有 `ForgeRewardItemContainer`**（全库唯一持有该组件的类）；日常奖励四层链 + `ItemDrawer` 逐份 grep 该组件与两个方法名 = **0 命中**。
+  - prefab 序列化值（15 具逐值相同）：`initializeOnAwake=0` · `playOnEnable=0` · `animTime=1.5` · `targetScale=(1.12,1.12,1.12)`（**这组是死配置**，只服务锻造窗）；抽屉 `RectTransform` `scale=0.8` / `pivot=(0.5,0.5)` 与 `DrawerW/H`、`DrawerPitch=394.49` 逐值吻合。
+  - ⇒ **`B106_W30` 按「绕 pivot 缩放 0.8」算的 8 个子件坐标成立**，那个悬着的不确定消掉了。
+  - 顺带就地订正：`rt=2995499467956296833` **不是**「同一 prefab 的第二具实例」，而是 `Daily Streak Reward Popup Entry` 那一格。
+  - 顺手发现（未改）→ 并入 `B106_W51`：`Shell/DailyStreakPopup.cs:435` 的**归因已过期**（`SetAutoFitBox` 现在不调 `RefreshBounds`；真正量宽的是 `AlignLeftOn` 的 `Battle/Label.cs:1756`）。
+- **派 `B106_W51`**：奖励预览链 **A1**（`DailyData` 奖励列表 + `RewardClickable` 类型表 + 抽屉隐形命中件 + 连登窗同跳 + `premiumLocked` 改 true）。⚠️ **类型不是判空能推的**：`ItemDrawer<T>.OnPointerClick` 第一句是 `if (!showItemInfoOnClick) return;`，而 `OverrideOnClickAction` 不写这格 ⇒ **卡包/骷髅/Premium 原版是不可点的，一刀切全接会做出原版没有的一下**。
+- **`B106_W46` 交回**：`FP-TUT-02` 补上「卡池建完 ⇒ 起教程」那一跳（走 `CollectionWindow.RunPoolBuiltHookForTest`），**+30 行、只新增**、没改既有断言、没动生产代码。typecheck 改完即 0/0（收尾复跑撞到 `Editor/RewardsScene.cs` 别人在写的 `RunCampaignRewardLocalization`，不是它的）。
+  - 灭自证：`built != null` 与「再来一次 `== null`」是 `TryStart` 那道 `IsDone` 闸的两面 —— 闸写恒真 ⇒ 第一条红；把 `TryStart` 换成 `ForceStart` ⇒ 第二条红；两次调用之间没有写 `PrefDone` 的路径 ⇒ **结构上不可能同时满足**。
+  - **与建议的一处有意偏离（对）**：插在 `if (tut != null)` **外面**，因为 `ForceStart` 里的 `Destroy` 在编辑模式**不生效**、`_instance` 只靠 `OnDestroy` 清 ⇒ 必须先 `DestroyImmediate` 再调自检口。
+  - 顺手发现 → 并入 `B106_W52`：`Shell/WildcardTutorial.cs:143` 的 `Destroy` 在编辑模式报错且不生效（建议 `isPlaying ? Destroy : DestroyImmediate`）；`账/卡组编辑.tsv:170` 的说明列有 `--fix` 拼接残留（不在落点列、机检不报，但本批 +30 行后 A503 断言已移到 `11659-11672`）。
+- **派 `B106_W52`**：AUD06 三桶的最后一条（卡背格 SDF 悬停断言，带前提 + 灭自证）+ `WildcardTutorial` 销毁口。
+- **`B106_W43` 交回**：白名单 10 条 `TODO(谁定的)` **全部补齐（0 条查不到）**，零行数变化、只改注释、纯 LF。每条补成「谁定的 + 日期 + 出处 `文件:行号`（⛔ 非用户拍板）· 调度台 2026-10-31 追认」。
+  - 3 条查不到「第 N 会话」编号（`GameWindow.cs:42` / `LeaderboardWindow.cs:216` / `MissionsTab.cs:1019`）⇒ 写成「日期 + 角色 + 出处文件」，**不编会话号**；`InboxData.cs:113` 的「300 点」N17 报告并未单独论证，注释已如实写明。
+  - 🔴 **方法教训**：`git log -S` 全局搜索会跨文件/文档命中，**必须先按目标文件路径收窄**再取最早提交。
+  - 另：`grep "TODO(谁定的)"` **仍会命中这 10 行**（按规定格式保留了「原 TODO 由…留下」）⇒ 以后判据改用 `grep "调度台 2026-10-31 追认"`。G4 报告的行号也已过期（820→828、2371→2405、3290→3370、965→1019）。
+- **派 `B106_R14`**：把本波几十份报告里散落的「账落点会漂 / 需人工改账」汇总成**同步点可执行清单**（四张表 + 执行顺序），表 B 要求**把行号抄全**，不许写「见某报告」。
+- **`B106_W50` 交回**：`B94T1_Assert` ②e 改成原版聚合口径 `onNav == onMissions + onCampaign + onForge`（+8 行，**零账落点**）。
+  - **灭自证更强**：`RegisterDefaults` 登记的 `RewardsBadge` 派生 provider 恰好只有 Missions/Campaign/Forge 三类 ⇒ **等式恒成立，且只有「原版继承链」这一种配置能让它绿**。
+  - 顺手提醒：②e 是「已知三类」的硬编码和，将来登记新的 `RewardsBadge` 派生会红（而 `onNav` 其实对）—— 符合聚合契约本意，文案已写明判读方式。
+- **`B106_W45` 交回**（资源侧 R3-01 + R4-08）：
+  - R3-01 ✅ `Resources/misc_clips.json` 已生成，与全量件 **sha256 逐字节相同**，11 条 clip 与 git HEAD **deep-equal**；`--check`/`--write` 幂等。⚠️ 报告如实标注「**有数据 ≠ 有消费者**」（11 条仍无运行期消费者，接消费者是 R3-02）。
+  - R4-08 ✅ `工具/r4_shaders.py` 已搬入并参数化（**不带参只打印用法**）；现有 TSV **只改第 1 行表头**，尾部 sha 未变。
+  - 顺手发现：**R4 清单与最新 R0 账已差 6 格**（状态升级，根因 = R0 账 10-26 重算早于清单 10-25）⇒ 真表重跑要等 R0-06 定稿；**家族里另 4 个生成器仍「不带参就写盘」**（未碰，另立活）。
+- **`B106_W36` 交回**（资源侧 R1 第一波，四条**全是证实**）：
+  - `DOTweenSettings` **改判 ① 解出**（不用同名 YAML，改读原版**对象字节**；37 同 / 1 不同，`showPlayingTweens` 仅 Editor 面板默认）⇒ 与 R0「已用（工程内）」不再打架。
+  - `reporterScrollerSkin` **推翻「不可解」**：🔴 **复核给的路是错的** —— UnityPy 自带 tpk **根本没有 GUISkin**；真路 = **IL2CPP 元数据 `assembly=UnityEngine.IMGUIModule` / `type=UnityEngine.GUISkin`** ⇒ 7772/7772 读满。
+  - `I2Languages` `dumped=False` **只是 `r1_decode2.py` 的 >4MB 落盘阈值**（静默），解出 **10,857 条 × 15 语言**；与 addressables 那份只差 1 条文案（内置这份修订更早）。
+  - 🔴 **新账（数据地雷）**：`_tmp_view/wfres/r1_decoded2/` 的 **885 份里 858 份 `m_Script` 是垃圾值** —— 根因 = TypeTreeGeneratorAPI 生成的树里 **`m_Enabled` 漏了 `kAlignBytes(0x4000)`** ⇒ PPtr 早读 3 字节。修法一行（已写进新工具），**但没重跑那 886 条** ⇒ 派 `B106_W53`。
+  - 另一笔：`R0_解不出视图.tsv`（W32 产物）对 `#1430`/`#544` 已是旧值 ⇒ 一并交 `W53` 重生成。
+  - 它还改了白名单外两份（`报告/F_资源_R1R0_第1轮.md` / `报告/B105_R13.md`），理由是 R1-07 的验收标准原文就是「同一句被复制的别处一起改」⇒ **我接受**（本波那两份没别的写手）。
+- **`B106_W44` 交回**（商店收尾三件；typecheck 0/0）：
+  - `FP-SHOP-003` ✅ 原版 `ProcessPurchase` 前四句 + 成功/失败回调**都只** `loading=false` + `refreshCallback`、**谁都不 `Close()`** ⇒ 我们补「防重入出声 + 置灰 + 不关窗」，断言 D1~D5 全走**玩家那颗钮**。它还对 `W27` 的补丁给了 **3 条反证**（路径 `Hit` 的父是 `Price Display` 不是 `Generic UI Button`；第 1 页第 1 件 `Owned=3` 买了也不 +1；买完必再开一扇窗 ⇒ 那一刻是 `Background` 不是 `Open`）—— **照抄会红，它按反证改了**。
+  - `ShopTabPage.Available` 闸补 `🔶`（零行数变化）· `MenuCheck.FindChild` doc 补警告（零行数变化）。
+  - 🔴 **顺手发现真缺陷** ⇒ 派 `B106_W55`：`Editor/ShopScene.cs:2178-2189` / `:2313-2315` 两条断言会被 `W14` 新加的「已拥有闸」打破（第 1 页第 1 件 `Owned=3` ⇒ `RefuseOwned`）。
+- **`B106_R12` 交回（UM47 repeatable 核实）**：
+  - Q1 原版 `IsRepeatable` = **「可无限重复领取」**（三处消费点：`CampaignNode.Collect` 只放行 `{unlocked, repeatable}`、`GetNodeState` 把已领的 20/30 覆盖成 40、`AvailableNodes` 对 repeatable 不再按「已领」过滤）。
+  - Q2 **`UM47` 的 `Repeatable=1`**（`Campaign Node Data_4535086074611093881.json`：`IsRepeatable:1` / `Cost:1100` / `nexts:[]`）—— 全量 47 个节点数据里**唯一一个** repeatable。
+  - Q3 红点 = `CampaignHandler.CheckNotification()` = `AvailableNodes.Any()`。
+  - ⇒ **「全领完 ⇒ 红点灭」在原版不可达**；原版红点灭只有两种：① 余额 < 最便宜可领节点的 `Cost` ② 连 UM 战役都取不到。
+  - 🔴 **另一处真偏离**：原版红点会**回退到 Ultramarines(10)**（`GetCampaign(SelectedArmy) ?? GetCampaign(10)`）⇒ **选中「没战役」的阵营，原版红点照样亮**；我们能造 alpha 0 是因为 `Shell/BadgeNotifications.cs:382` 加了原版没有的 `HasContent` 闸。另 `Shell/CampaignData.cs:217` 的 `Claimable` 少了原版的 `AvailablePoints >= NodeCost` 闸。
+  - **裁定** ⇒ 派 `B106_W54`：**按 18·0 移除 `HasContent` 闸**（对齐「回退到 UM」）+ **补上点数闸**。
+- **`B106_W49` 交回**：`RewardsScene` 4 条本地化断言改走 `OfficialText(...)`（**行数零变化**），另新增 `RunCampaignRewardLocalization` **15 条硬断言**（换语言往返 / 灭自证〔`Label.BindText(null)` 退绑后停在旧语言而其它绑着的仍跟变〕/ **全绑 7/7 逐颗断**，⛔ 未用 `RelocalizeUnder` 计数兜底）。语档用 `Loc.PersistOverride=true` 全程不写 PlayerPrefs。
+  - 账：主表指向本文件的 4 个落点 `:1061/:2543/:4933/:9637` 全在改动点之前 ⇒ **零漂移**。
+  - 顺手就地订正 `:2282` 的假记录（「本仓 EN/ZH 两列是自拟的、原版中文在远端拿不到」—— 官方 13 语言表早已落地）。
+- **派 `B106_R15`**：把本波所有「只能真机验」的项目汇成**一次开游戏跑完**的清单（复用 R7 的批 A/B/C 分组 + 本波已知的玩家可见变化）。
+- **`B106_W47` 交回**（两桶 + 语言行数自适应；typecheck 0/0）：
+  - **W2** `CardTierConfig.SelfCheck()` 已接进 `PlayerDataMathCheck.Run()`（**同一物理行追加**，行数零变化 —— 该文件 `:92` 被账按行号引用）；新增 `CheckCardTierConfig()` 约 **54 条**（四档×五稀有度逐格 + 转发关系 + 越界 null + 满级 null + **灭自证「不是常数」** + 单调/整数倍/`<1⇒0`/手算 Σ）。升级表与曲线标 🔶 自设计（原版在服务端）。
+  - **W3** `ManaBuff` HUD 那一跳：新开一局 → 手牌塞 **0 费合成 `Gain 2 Energy`** → `driver.SimulatePlay`（**真打**，⛔ 没直改 MaxEnergy）→ 断 `MyEnergyText` **分母 == max0+2**、分子不动、对面逐字不变；灭自证 = 分母换常数或只印分子 ⇒ 必红。
+  - 🔴 **顺手抓到一条我没点名的硬缺陷**：`BattleScene.cs:20099` 的几何断言 `-12.7354f - 11f * 40.8707f` 是**最后一行**的 y，12→13 后会差 **40.87 px 直接变红**（不是「绿但语义过期」）⇒ 已改自适应 `(LangRowCount - 1) * 40.8707f`。
+  - 顺手发现 → 派 `B106_W56`：`CardTierConfig.cs:293-295` 的 doc 写「找不到就出声 + null」而实现**静默 return null**（本项目铁律是不许静默失败）；`Battle/SettingsPanel.cs` 三处注释仍写「12 行」。
+- **`B106_R11` 交回（特效线剩余）**：产出 `判据/B106_特效线剩余_施工单.md`（三节八列表）。
+  - **T21 真断链 1 条**：`Avenging Zeal`（UM40）的 `TriggeredCodex(650)` 仍在 `VfxMap.NoEmitTriggerNames`、不在路由白名单 ⇒ 生成器把它放进 `trigger_unmapped`，而 `TryResolveTriggerPicks` 只读 `trigger`/`ability` 两桶 ⇒ **今天一次都不播**；但引擎侧**有发射口**（`TriggerNameOfWhenKind` → `case KeywordTable.Codex`）⇒ **是接线漏了，不是原版没有**。
+  - **精度缺口 1 条**：`EmitCardTrigger` 对 `unit==null` 恒写 `InstanceId=0`，三处手牌调用点没传 `CardInstance.Id` ⇒ 同名两张手牌只能取第一张。
+  - 其余 5 张现读均已落地（T21-a/b 断言文件 `Editor/B104_T21_Assert.cs` **已接线** `BattleScene.cs:46866`），只差逐卡断言。
+  - **VfxMap 兜底**：W64 的 B1–B9 九条**现读全部闭合**；剩「兜底链自检锁 / `SharedRangedVfxDuration` 数据化 / `ByEvent[Hit]` 过期注释（实证 `attackHitSmallParticles` 与 `attackHitBigParticles` **同 pathID**）/ `ByEvent[Trigger]` 死条目裁决」。
+  - **AN1 定义找到了**：不在 `AnimFX_实现与接线.md`（全文 0 命中），在 `普查产出_1024c/AN1_*`。R1–R8/R10–R16 全有落点，**R3/R12 数据侧已修且断言已接线**；真正还开的是 **R9③ 不可达 trait 清单 / U4 AnimFXModule 全量字段比对 / U5 notPlayed 22 条 / U7 `overrideByArmies` 10 条 / U2 真机 / U6 随机 vs 回放**。
+  - ⇒ **派 `B106_W57`**：修 `Avenging Zeal` 触发链（VfxMap 白名单 + 重跑生成器，**顺序不能反**）+ 三处手牌调用点补 `CardInstance.Id`。
+- **`B106_W48` 交回（R2-01 流式网格顶点逐点比）**：**169/169 顶点坐标与工程出货件逐点一致，缺陷 0 条**（`.asset` 偏差 **0.0**、OBJ **≤5e-7**）；另 1 条 `Bunker` 是「点集相同、末 9 个顶点序不同」，几何一致**不是缺陷**。
+  - 🔴 **施工单 R2-01 的前提只对 3/169 成立**：`WarpforgeVFX/Meshes/` 那 169 个 `.asset` **不是**这 169 个流式网格（只有 3 个同名）；流式网格真出货件在 `ArenaOriginalPrefabs/**/*.asset`（168/169）与 `Arena1/arenas/*/Models/*.obj`（165/169）。**两个 169 是巧合。**
+  - 另：两侧坐标空间不同（OBJ = 原版 **X 取反**；`.asset` = 原样）；**抽样哈希不能当判据**（`Fences` 逐点一致但哈希不同）；同顶点数会伪造「我们的件坏了」（`BoosterPack` 330 撞 `Gun 21` 330）。
+  - 新工具 `工具/cmp_mesh_vertices.py`（无参只打印用法；`--all` 才写盘；跑两遍逐字节相同）+ 产出 `资源/R2_顶点比对.tsv`（169×24）。
+  - **已按铁律 5 把两条坑写进 `资料/已知的坑.md` 第 17、18 条**（「同样一个数字可能是两个不同集合」· 「抽样哈希不能当判据，只能逐点比」）。
+  - 顺手发现：`EffectExporter.cs:4610` 注释「Meshes/ 全部 .asset = 250」已过期（现读 **169**）。
+- **派 `B106_W59`**：AN1 · U7（`TraitFrames.cs:553` 的 `overrideByArmies` 10 条仍按拥有者阵营取）。
+- **`B106_W54` 交回**（两处按 18·0 对齐原版；typecheck 0/0、**两处均零行数变化**）：
+  - ✅ **删掉** `BadgeNotifications.cs:382` 的 `HasContent` 闸（原版无此闸；本地只有 UM 一套 ⇒ 无条件遍历 = 原版的「回退到 Ultramarines」）。顺手订正 `:371` doc 的「`army + 10`」—— 那是 ILSpy 噪声，机器码是**字面量 10**。
+  - ✅ **补上** `CampaignData.cs:217` 的点数闸 `AvailablePoints >= Nodes[i].Cost`；`NeutralPoints` 本地确认无来源（`PointsCatalog` 全仓零 `Register`）⇒ 用 `Points` 近似并打 🔶。`Claim` 的 `why` 补一支「战役点不够（需要 N，可花 M）」—— 否则点数不够会被说成「基础档已经领过了」（违反不许静默失败）。
+  - **会让 4 处断言变红** ⇒ 派 `B106_W60`（`RewardsScene` 的「切到 Goff ⇒ alpha 0」要反成「alpha 1（回退 UM）」；另 `B94Z1_Assert` / `MainMenuScene` 各一处；并补 `W54-1`/`W54-2` 两组断言）。
+  - **待裁（口径差，先记着）**：原版 `CampaignNode.Collect` 的闸**只有** `{10,40}` 不看点数，真正花钱在 `_CollectRewards` 的**基础档**支、**高级档那支根本不碰点数**。我们 `Claim` 一个口管两档 ⇒ **基础档与原版一致、高级档比原版严一点**；今天零观测差异（`Points` 恒 9999 ≥ 最大 Cost 1100）。将来真做经济时要决定是否把高级档拆出点数闸。
+  - 账侧待改（同步点）：`账/战役.tsv:23`「原版 `?? GetCampaign(10)` 回退仍未做」**已过期**；`:17`、`:38` 两格内容也要订正。
+- **`B106_R15` 交回（本波真机验收总清单）**：**2 次启动**就能跑完本波「只能真机验」的项目 ——
+  - **启动① `-wfscene Shell`**：R7 的 19 条交互 + 2 条附记 + **19 条可见变化**（V1~V19），按 11 步依次进主菜单→设置→商店→战役→日常→活动→联盟→聊天→收藏→卡组编辑→键盘/悬停；
+  - **启动② `-wfscene Battle`**：4 条交互 + 「打完一局点继续能回主菜单（有淡出）」；
+  - 教程三条（`BeginTutorial` 切场 / `Completed 1/6` / 场景缺失错误出口）需完整打一关 ⇒ **另开一次专项**。
+  - 它自查纠正了一处：`FP-VFX-05 Done Highlight` 在 **`DeckScene`**（卡组编辑 Done 钮）不是战斗；`FP-INFRA-07`/`FP-SHOP-009` 在 `ShellScene`。
+  - 🔴 **它说「无需跑 `CardBaseDemo`」是错的**（我订正）：`B106_W6` 改了 `CardBaseDemo.cs:3284` 的前提断言，且 `B106W9_Assert` 就接在 `CardBaseDemo.cs:392` ⇒ **不跑它那 8 条断言永远不执行**。⇒ **`CardBaseDemo.Run` 加进必跑清单**。
+  - 另记：`B106_*_Assert.cs` 共 5 个仍是未跟踪 `??`，收尾提交要一起进 git。
+- **`B106_W51` 交回（奖励预览链 A1）**：A1-1/2/3/4 全落地，**画面零变化**（`Count>1` 在我们数据上恒假，是 🔶 占位不是遗漏）。
+  - `DailyData`：`RewardSpecsOf` / `RewardClickable`（**类型查不到 ⇒ false + 一次性出声**，⛔ 不猜）+ §1.5 类型表 + 连登窗数据面；`PreviewRewards` 默认 `premiumLocked` **false→true**（原版写死 true）。
+  - `DailyRewardPopup`：图标**之后**建隐形命中件（队列 3011，>图标 3010 且 < colider 3014），`Count>1 && Clickable` 才挂回调；`SetState` 里 `Unlocked/Collected` 关 `Interactable` 复刻遮挡。
+  - `DailyStreakPopup`：同跳；`:435` 归因按 `W42` 订正为 `AlignLeftOn` 自己先调 `RefreshBounds()`。
+  - **三份文件全部零行数变化**（同一行追加 / 逐行替换 / 类尾追加）。
+  - **要交给别人的**：`Editor/RewardsScene.cs` 的 8 条断言块 ⇒ **已 `SendMessage` 转给 `W60`**（它正持有该文件）；`Shell/RewardWindow.cs` 两处过期 doc ⇒ 并入 `B106_W61`。
+  - 顺手发现 → **`B106_W61`**：连登窗 `Extra Reward Indicator` **当前恒显示**，原版按 `Count>1` 显隐（改它会变画面，已要求它写清「哪几格会从显示变不显示」）。
+  - ⚠️ `DailyRewardPopup.cs` 的账落点已有 **+23 预存漂移**（来自 W11/W30），本件未加剧，同步点 `--fix` 会重定位。
+- **`B106_W53` 交回**（解码树修复 + R0 视图重生成）：
+  - `r1_decoded2` 的 `m_Script`：**885 坏 → 0 坏**，`--verify` **885/885** 解析出合理类名，**且与 R1 表 `类名` 列逐条相等**（两条独立证据链互证）。逐字节比：885 个文件**只差 `m_FileID`/`m_PathID` 那两行**。
+  - 根因修法落在 `_align_fix`：只给 `m_Level==1` 的 `m_Enabled` 节点加 `|0x4000`（深层同名节点加了会推错后文）。
+  - 🔴 **「858」是 `m_FileID` 口径、真实是 885（全部）**：`globalgamemanagers.assets` 那批 `m_FileID` 真值本来就是 0，错位后仍是 0（错的是 `m_PathID`）⇒ 按 `m_FileID` 判会**漏 27 条**。
+  - `R0_解不出视图.tsv`：**906 行不变**，只有 2 行变（`#1430` / `#544` → `① 解出`）；① 合计 289→**291**、② 616→**614**，与 `W36` 对得上。
+  - 幂等：三个产物两遍 sha256 全等；三个脚本「默认零动作」都实测过。
+  - 🔴 **调度台已处置**：`_tmp_view/wfres/r1_decode2.py`（有 bug 的那份、且 `ttread` 已搬走 ⇒ 先崩后污染）**已改名隔离** 为 `_stale_r1_decode2.py.disabled_20261031`，并在 `_tmp_view/_stale/README_stale.md` 写清「现行正本 = `Unity/工具/r1_decode2.py`」。
+- **`B106_W56` 交回**：`CardTierConfig.GetTierInfo` 改成**「结构性缺失出声一次 / 越上界静默」两档**（越上界静默是因为 `GetNextTierInfo(MaxLevel)` 在升级面板天天走，一律出声会变**假警报**）；收掉调用方那条重复警告（两处写同一条规则）；`SelfCheck()` 补 4 条断言（含「首查 +1、再查 2 次 +0」用 Guid 造键避免第二遍假红）。`SettingsPanel` 9 处「12 行」注释就地订正（**零行数变化**），并把「**14 种仍装得下、第 15 种起溢出**」写进注释。
+  - 顺手发现：`Editor/PlayerDataMathCheck.cs:458` 注释里的行号因它加行已变 `:466`。
+  - **复跑提示**：`PlayerDataMathCheck.Run` 会多出 2–4 行 `[CardTierConfig] … 返回 null` 的 `LogWarning` —— **预期输出，不是失败**。
+- **`B106_W52` 交回**（两件落地；typecheck 0/0）：
+  - **卡背格 SDF 悬停断言**（AUD06 三桶最后一条）：判据 = `CollectionCosmetic__HoverHighlight.c`（取材质色 → **只把 alpha 换成参数** → `DoColorChange(…,0.2f)`）；**3 条硬前提 + 9 条被测 + 2 条灭自证**（删 `AttachOutlineHover` 调用 ⇒ `onEnter` 为 null ⇒ 红；第 2 格不被点亮 ⇒ 红）。批处理驱动靠对本补间实例 `SetUpdate(Manual)`（依据已反编译 DOTween.dll 核过）。
+  - **`WildcardTutorial` 编辑模式 `Destroy` 不生效**：`ForceStart` 改 `isPlaying ? Destroy : DestroyImmediate` 并**先 `_instance = null`**（编辑模式 `OnDestroy` 未必被派）；**顺手同修 `:251`**（`OnDestroy` 里的 `Destroy(_pointer.gameObject)`，同类缺陷）。账落点一个没挪。
+  - 🔴 **顺手发现真缺陷** ⇒ 派 `B106_W62`：`CollectionWindow.TweenOutline` **没设补间档位**（全仓其它补间走 `CardTween.Use` 会自动设）⇒ **编辑模式/批处理下这条补间永不推进**。
+  - 另一笔：`WildcardTutorial.ForceStart` 的早退支会把刚建的实例留在树上（生产路径走不到），判据不足未改。
+- **`B106_R13` 交回（CampaignRewardWindow 按钮 term 核实）** —— 答案是**「会，那 4 颗 `Localize` 是真生效的」**：
+  - `m_Enabled=1` / `LocalizeOnAwake=1` / `mTerm=MainMenu/RankedWindow/ChangeDeck`，目标 = 本节点自己的 `TextMeshProUGUI`；切语言时若节点 `activeInHierarchy` ⇒ 文字被写成该 term 的译文（**en `Change Deck` / zh `更换卡组`**），**没有代码会改回来**。
+  - `Claimed Text` 的 TMP **序列化文本本身就是 `Change Deck`**（模板残留的第二条硬证据）。
+  - ⚠️ 同 bundle 另有 2 颗 `ChangeDeck` 的 `Localize` 是 `m_Enabled=0`，上溯根是 **`Debug Reward Window`** —— 别误算进本窗。
+  - **打开顺序决定稳态**：`GameWindow.TryOpen` 是 `SetActive(true)` → `Open()` ⇒ OnEnable 写的 `Change Deck` 必被 `Open()` 覆盖 ⇒ **开窗永远停在 `Claimed`/`Claim`/点数**。
+  - 例外：`ToBackground` 只改状态**不 SetActive(false)** ⇒ 被顶到后台的窗仍 active，此时切语言会被重写；返回走 `UnHide + TryOpen`（状态 `Background` ⇒ 不调 `Open()`）⇒ **错误会留在屏幕上**。
+  - 🔴 **调度台裁定**：**保留 `W39` 的语义绑定**，不照抄那个残留 term。理由（`R13` 自己也点出）：我们的 `Label.BindText` **开窗时也取值**，直接把 term 换成 `ChangeDeck` 会让**打开稳态**也显示 Change Deck，**比原版更不像**；真正等价的实现要两段式，而触发路径（`ToBackground` 下切语言）静态看**倾向不可达**。
+  - **落账（同步点）**：记「原版 4 颗 term 残留、**真会生效**、切语言且节点 active 时显示 Change Deck」，并补记 **`Point Count` 两颗也会被同一残留 term 覆盖**（付费解锁态下切语言会把点数写成 Change Deck）。
+- **`B106_R14` 交回（同步点账务清单）**：产出 `判据/B106_同步点账务清单.md`（320 行，四表 + 节 E），同步点照它做。
+  - **闸现读**：A 5786 · 通过 5325（告警 800）· **漂移 417 · 失败 44**。
+  - **表 A（`--fix` 可修）**：`CardView.cs` **205 条统一 +10** · `ShopTabPage.cs` 55 · `MainMenuRuntime.cs` 31（+6）· `DailyData.cs` 30 · `SettingsWindow.cs` 27 · `BadgeNotifications.cs` 17 · `InboxWindow.cs` 15 · `Loc.cs` 12 · `DailyRewardPopup.cs` 12 · `AllianceMemberTab.cs` 3。另附 **6 条「报告说要 `--fix`、闸现读不需要」的反向条目**。
+  - **表 B（人工 60 条 = 失败 44 + 歧义 8 + NEED-HUMAN 8）**：**行号已抄全并逐条给了现行号**；W37 那份 18 行对照表整表抄入；歧义 8 条逐条给了「该选哪个声明」（如 `CheckNotification` 4 处 → Campaign=380 / Missions=359 / Forge=404 / Inbox=338）。
+  - **表 C（落点指空 6 条，机检抓不到）**：除已知 `其他_基础设施.tsv:441` 外，**新查出 2 条同类** —— `社交_聊天.tsv:290/292` 指向 `SocialData.cs:102`（那里是 `public string Role;`，`ChatMessage` 在 `:136`）· `社交_聊天.tsv:459` 指向 `BadgeNotifications.cs:536`（那里是 `{`，类在 `:580`，**闸既不报漂移也不报失败**）· `战斗逻辑驱动.tsv:850` 文件名少一个 `De`。
+  - **表 D（内容过期不改行号）10 处**。
+  - **节 E 执行顺序**：备份 `账/` → **等写手全收** → 只读闸取基线 → `--fix` → **复跑（第一遍输出是修前快照！）** → 人工改表 B 60 条 → 改表 C/D → 第三次闸（目标 5786/5786 · 0/0）。
+  - 🔴 **它推翻了 3 条报告的判断（别照报告改）**：`W6` 说 `CardBaseDemo.cs` +5 会漂 —— **落点列 0 条**；`W27` 说 `Editor/ShopScene.cs` 可能位移 —— **0 条**；`W17` 说 `BattleScene.cs ≤47376 +20` —— 账里 11 条提到它的行**首落点都在 `BattleDriver.cs`**，`BattleScene.cs` 只在次要位 ⇒ **闸 0 漂移，只能人工**。另 `W14` 报 `OpenBoosterPack` 858→946 **现读实为 925**；`W30` 报 8 处**闸现读 12 条**。一律以现读为准。
+  - **新发现三类「机检盲区」**：① 老行号恰好落在「像声明」的代码上 ⇒ 判通过但内容错；② 老行号落在 `{`/空行、方法名又能匹配别行 ⇒ 既不报漂移也不报失败；③ **次要位置的 `文件:行`（`｜` 之后 / 括号里）完全不机检**。
+- **调度台准备**：已把六个场景备份到 `_tmp_view/scene_bak/b106_sync/`（`Battle` / `CardBase` / `CollectionCheck` / `DeckEditor` / `MainMenu` / `Shell`），供同步点跑宿主前对照。
+- **`B106_W55` 交回**：`ShopScene` 两条过期断言改好（第 1 件 `Owned=3` → **第 2 件 `Sautekh Booster`**〔`Owned 0` / 限购 `2/5` 未售罄 / `2 000` = 余额 2000〕；传奇确认段尾巴 `Buy(0)`→`Buy(1)`），并**新补 5 条反向断言**（点已拥有件 ⇒ 拥有数不变 / `OwnedRefusals +1` / **真捕到含 `[Shop]`+`已拥有` 的 `LogWarning`**）。
+  - 它**没用** `W44` 建议的「第 3 页第 3 件」，理由写清了：本段收尾是**容器档专用**的 `ClosePackAndReopenShop`，换商品档要新接领奖窗开关，而它不能跑 Unity 验证 ⇒ 取**爆炸半径最小**的同页换格。
+  - **账：A 档落点零漂**（`账/*.tsv` 第 6 列含 `ShopScene.cs` 的行 = 0；`商店.tsv` 那几处是备注散文里的旧行号）。
+  - 🔴 **顺手发现 4 处同源过期断言（会给 `ShopScene.Run` 造红/假绿）** ⇒ 派 `B106_W63`：`A439③ Buy(3)` 买不起 ⇒ `LastBoosterPack` **假绿**；`A544` 黑石 `Owned=1` ⇒ **真红**（要数据注入，⛔ 别换件）；`A7` 两包都 `Buy(3)` ⇒ 两处红。
+  - 另记：判成功⛔ 别用 `ShopData.PurchaseSucceeded`（不认 `BuyOwned`/`BuyCannotAfford` 两个哨兵），改用**拥有数变化**。
+- **`B106_W61` 交回**（两件，**零行数变化**；typecheck 0/0）：
+  - 连登窗 `Extra Reward Indicator` 改成 **`StreakRewardCountOf(day) > 1` 才画**（三级判据互校：`out_il2csharp` 的 `SetActive(rewards.Count > 1)` · `.c` 的 `SetActive(lVar5, 1 < iVar2)` · 同族已上线先例 `DailyRewardPopup`）。
+  - **取「不建」而非「建了再 SetActive」**：原版树里恒在只关显，但我们这套「视口外的子件按设计不建」（A182），而 `MenuDraw.Node` 不判可见 ⇒ 照 `W11` 的 Node+SetActive 写法会让 `entries[6]` 凭空出现、**直接打红 `RewardsScene.cs:9362`**。已在注释写明这是**载体差异、非原版差异**。
+  - **哪些格会变（逐格现算）**：第 1–5 格右上多奖小图标 **显示 → 不显示**（第 5 格右侧 23.4px 已被视口切）；第 6、7 格本来就不建。净效果 = **少 5 颗小图标**，正是原版「每格 1 条奖励」的画面。
+  - `RewardWindow.cs` 两处过期 doc 就地订正；**现读调用点 ≥6 处**（它自己 grep 核的，并把 W51 写的「周常」按实读改成「里程碑格」）。
+  - 🔴 **顺手发现真缺陷（假绿）**：`RewardsScene.cs:9355-9363`「★ 真裁住了（一）」靠断 `entries[6] == null` 证明「视口外不建」；改后 `Count` 恒 1 ⇒ **永远不建 ⇒ 再证明不了裁切**，而它的「改坏法」注释仍写「拿掉裁切三件套 ⇒ 当场红」（**已不成立**）。⇒ 已 `SendMessage` 转给 `W60`（用 `Count=2` 重钉 + 改注释）。
+  - 另：`RewardWindow.Preview`（`:1581`，账 `日常_奖励.tsv:682` 的 A 落点）**仍 0 调用者**，6 个活调用点全走 `ShowPreview` ⇒ **A 落点无人执行** —— 同步点我在账里处理（要么把调用点改走 `Preview`，要么把 A 落点改指 `ShowPreview`）。
+- **`B106_W62` 交回**：`CollectionWindow.TweenOutline` 漏 `SetUpdate(CardTween.Mode)` 已补（POS：`DOTweenSettings.asset` 现读 `defaultUpdateType: 0`；编辑模式既无帧循环、`DOTweenComponent` 又无 `[ExecuteInEditMode]`，而 `CardTween.Advance` 只推 `Manual` ⇒ 这条 0.2s 悬停补间**永不推进**；**Play 模式行为完全不变**）。
+  - **删掉 `W52` 的两条 `SetUpdate(Manual)` hack**，改成**建之前切 `CardTween.Mode = Manual`** + **档位直断**（反射读 `Tween.updateType`）。理由写得很准：**留着 hack 反而是自证** —— 生产侧漏设也能被测试手动兜底推起来。
+  - 它诚实交代：除两条 hack 外还改了 `:7385/:7408` 两行，因为**若 Mode 保持默认 Normal，改前后 `updateType` 都是 Normal，断言没有鉴别力**。两处均同物理行、行数零变化。
+  - 顺手发现：`BoosterPackOpenWindow.cs:1435-1443` 同形缺 `SetUpdate`，但上一句有 `!Application.isPlaying` 早退 ⇒ 批处理里不建补间，**不是同一缺陷**；广扫剩 **48 处候选**，绝大多数是 Sequence 子补间（继承父档）或被外层 `CardTween.Use` 包住 ⇒ **⛔ 不能当缺陷数**。
+- **`B106_W57` 交回**（两件都做完；typecheck 0/0）：
+  - **`Avenging Zeal`(UM40) 断链已修**：`VfxMap.NoEmitTriggerNames` 删 `TriggeredCodex` + 路由白名单加 `case "codex"/"triggeredcodex"` + 两张 MustRoute 表各追加（现读各 19 项、同长同序）。**全部同一物理行改写 ⇒ 行数 4161 不变**。生成器**先改表后重跑**，`--check` 两遍逐字节一致；`Resources/card_vfx_by_card.json` 只有 1 处变化（`cards[UM40].events` 第二项 `trigger_unmapped → trigger`）。
+  - **手牌 `InstanceId` 不再恒 0**：`EmitCardTrigger` 加 `int instanceId = 0`，`InstanceId = unit != null ? unit.InstanceId : instanceId`（**单位那一趟语义没改**）；三处手牌调用点传 `inst.Id`。**全同一物理行 ⇒ 既有行号零漂移**。
+  - **断言**（新建 `Editor/B106_W57_Assert.cs`，`partial class RuleEngineTest`）：第 1 件用 `ResolveAllTimed(...)` **断到件**（`Name=="Card_Buff_Hand"`），不是「函数返回字符串」那种空断言；第 2 件合成两张不同实例的手牌 ⇒ `Count==2` 且两条 `InstanceId` **不同且各自等于对应实例 Id**；两条都有灭自证。
+  - **调度台已接线**：`B106W57();` 加进 `RuleEngineTest.cs` 的 `Run()`（在 `EngineE1Assert` 那段之前，独立 `{ }` 块）；typecheck **0/0**。
+  - ⚠️ **必须跑** `bash 工具/ruleprobe.sh play check` 对指纹（预期不变：`Fingerprint` 只含 Turn/Active/Winner/`ctx.Events.Count`/PlayerHash×2，本次只给**已发出的事件多写一个字段**，事件条数没变 —— 仍是推理，要实测）。
+  - 如实记：手牌陷阱 / 手牌监听两条调用点**只有代码改动、没有端到端断言**（受 `EnqueueAbility` 返回值约束，造能入队的夹具不跑 Unity 验不出来）。
+  - 顺手：`EffectResolver.cs:8014` 的 doc「表现层今天没有手牌锚」已过期（未改，怕动行号）。
+- **`B106_W59` 交回（AN1·U7）—— 施工单的「按拥有者」是过期读数**：
+  - 逐环回源：`TraitEffect__GetEffect.c:13-44` **无条件**比 `army == override+0x10`（**没有 `army > 0` 这类闸**）；army 实参来源 = `BattleCardUI+0xe0` → `BasicCardUI.rawCardData` → `CardScript+0x28` → `+0x2c` = `ObtainableItem.cardArmy` ⇒ **原版取的是卡自己的阵营**。
+  - 我们**早就按原版取**（`TraitFrames.ArmyId` → `CardView.Data.faction`，棋盘卡 `Data` 由 `BattleDriver.ToCardData` 用 `u.Card.Faction` 生成）⇒ **「仍按拥有者取」不成立**；`B106_R11` 只读了 `TraitFrames.cs` 单文件、没往上追 `Data.faction` 的来源。
+  - 实际只改了 1 处（行数零变化）：`TraitFrames.cs:565 PrefabOf` **去掉自拟的 `army > 0` 闸**（原版无；现数据零差异，`-1` 哨兵语义仍成立）+ 三处注释订正。
+  - 顺手发现：`Core/TraitParticles.cs:157` 注释「`CardData.faction` 是拥有者阵营，不是卡自己的」**已过期** —— **很可能就是这次误判的来源之一**。
+- **`B106_W60` 交回**（三份文件；typecheck 0/0）：简报的 5 处全部落盘（`RewardsScene` 的「切到 Goff ⇒ 计数 1 / alpha 1（回退 UM）」、`campWantCount` 去 `HasContent`、`B94Z1_Assert` ④d、`MainMenuScene` 去壳）+ `W54` 的 `SectionW54()`（W54-1/W54-2）+ `W51` A1 的 8 条 + 连登窗 4 条 + `W61` 的 4 条并**把「真裁住了（一）」用 `Count=2` 重钉**（「改坏法」注释也换成现在真正成立的说法）。
+  - ⚠️ **必要偏离**：`W51` 的代码用裸 `dr.Build()`，它全改成 **`dr.ResetRewards(); dr.Build();`** —— 因为 `DailyRewardPopup.Build()` **不清 `_drawers`**，否则 `DrawerForTest` 返回已销毁的旧抽屉、后面 `SetState` 三条打在尸体上。
+  - 🔴 **顺手发现真缺陷** ⇒ 派 `B106_W64`：`DailyRewardPopup.Build()` **不清 `_drawers`**，而生产路径每关一次领奖/预览窗就 `Build()` 一次 ⇒ `_drawers` 每次叠 8 个、`DrawerForTest` 返回已销毁的旧件、`SetState` **静默失效**。最省修法 = 在 `MissingArt.Clear(); entries.Clear();` 同一行加 `_drawers.Clear();`（零行数变化）。
+  - **行数漂移（同步点处理）**：`RewardsScene.cs` **N ≥ 8811 一律 +177**（`账/收藏.tsv:265` 的 `9637`→**9814**、`Shell/CurrencyNames.cs:26` 的 `9223`→9400，以及四份判据文档里的一批行号）；`B94Z1_Assert.cs` 的 `Run()` 之后 **+2**（几份报告引用会过期）。**`账` 的正式落点列不含 `Editor/RewardsScene.cs`** ⇒ 闸不会因本件报漂移。
+  - 如实记：本件新断言**一行都没执行过**；若 `RewardsScene.Run` 有红，优先查它列的四个点（预览命中件队列 3011 vs 图标 3010 能不能赢下 `ClickButtonByQuad` / `RewardWindow` 关掉后 `dr.CurrentState` 是否仍 `Open` / `ds.RefreshRewards()` 会不会重置 `TrackScroll.Offset` / `CampaignData.Select` 在该宿主里 `StoreOn` 是否 true）。
+- **`B106_W63` 交回**（`Editor/ShopScene.cs` 净 +142；typecheck 0/0）：4 处被 `W14` 新闸打破的购买点全部修好 ——
+  - `A439③` `Buy(3)`（买不起）→ **`ResetForTest()` 后 `Buy(1)`**，并把「照旧开包」从 `LastBoosterPack != null`（**旧引用假绿**）改成 `!= null && !ReferenceEquals(…, bpBefore)`，再加前置 `Owned 0→1` 证明真进了 `DoBuy`；
+  - `A544` 黑石 `Owned=1` ⇒ 按简报用**数据注入**（`off[0].Owned=0` + `ResetForTest`，`finally` 全还原），**没换件**（断的就是黑石那格的 `bigIcon`）；
+  - `A7` 两包同理；🔴 **连带必改**：`3676-3678` 的 `Check(bp.Army, "Leviathan")` → **`"Sautekh"`**（换件后 `ArmyOfArt` 跟着变，简报没点，属换件必然带出的新红）。
+  - 每处补硬前提（格在 / 未售罄 / `PriceButtonBlocked` 假 / **角标 = 出厂值** / 买完拥有数真 +1）；⚠️ 角标那条必须先 `pg.Setup()`（`ResetForTest()` **只改数据层、不重建视图**）。⛔ 全篇没用 `PurchaseSucceeded` 判成功，一律「拥有数 0→1」。
+  - 新补 **9 条反向断言**（已拥有再点 ⇒ `BuyOwned` / `OwnedRefusals +1` / 拥有数不变 / 不再开包或不弹领奖窗 / **出声**）。
+  - 🔴 **顺手发现真问题** ⇒ 派 `B106_W65`：`ShopData.ResetForTest()` **只还原第 1 页两件的限购**，其余页的 `Available` **从不还原** ⇒ 夹具不还原、会跨节污染。
+  - 另记：`ResetForTest()` 会**删默认目录的存档文件**；`ResetOwnedAffordForTest()` **全仓 0 调用点**；`OwnedRefusals`/`AffordRefusals` 是**单调全局计数** ⇒ 断言只能用「前后差」。
+- **`B106_W64` 交回 —— 它推翻了 `W60` 的顺手发现（又一次「上一代理的结论不能当已知」）**：
+  - `W60` 说「`Build()` 不清 `_drawers` ⇒ 每次叠 8 个」。**现读调用链不成立**：`Build()` → `InitializeRewards()` → `ResetRewards()` → **`_drawers.Clear()` 在 `:982`** ⇒ 每次 `Build()` 都已经清表。
+  - 处理：`DailyRewardPopup.cs:313` **同一物理行加 `_drawers.Clear();`**（**零行数变化**），按事实定性为「**防御性/局部不变量**，不是修生产缺陷」；`Editor/RewardsScene.cs:8816-8818` **就地订正那条错误注释**（铁律 5）；新增 `★ B106_W64` 断言节（+26 行）：连调两次 `Build()` ⇒ `DrawerCount == RewardDays*2`、`DrawerForTest(0,false)` 不是同一引用、再 Build 一次不翻倍。
+  - 🔴 **灭自证的边界它主动说清了**：只删 `:313` 不会红、只删 `:982` 也不会红（两处互为兜底）—— **必须两处都删**才会红。
+  - 🔴 **这是本会话第三次「我转述上一代理的结论、结果那条是错的」**（前两次：`BadgeNotifications` 的「账落点 0」、`TraitFrames` 的「按拥有者取」）。**教训固化**：派活时凡是「上一代理说 X」，一律写成「**报告称 X，请自己 `grep -n` 核实再动手**」，⛔ 不再当事实转述。
+  - 顺手：`Editor/RewardsScene.cs:9063` 一句说明里的行号引用整体过期（`:8533/:8537/:8651` → 现读 `:8931/:8935`，差约 398 行），未改。
+- **`B106_W65` 交回**：`ShopData.ResetForTest()` 改成**按出厂快照逐件还原 `Available`**（`RestoreAvailableFromFactory()`，按 `KeyOf(页,商品名)` 索引、覆盖 5 页 13 件；第 5 页与第 1 页共用 `_cards` ⇒ 写两次同值、幂等；**按名字不按下标**，避免 `RemoveFinishedOffer` 换数组后错位）。快照字段声明在类尾、早于 `EnsureSeeded`/`Buy` 等一切写入 ⇒ **不会被污染**。doc 补两句（会删存档文件 / 计数器是单调全局、断言只能用前后差）。`ShopTabPage.ResetOwnedAffordForTest()` 确认全仓 0 调用点，但**语义不重复**（它清的是 UI 层读口计数器）⇒ 未删未改。
+
+---
+
+## 第一百零六会话 · 同步点（2026-10-31）
+
+- **全部 `.cs` 写手已停**（本波最后一个代理 `W65` 交回），开始同步点。
+- **闸基线**（`check_ledger_points --all-A`）：A 5786 · 通过 5319（告警 800）· **漂移 423** · 失败 44。
+  - 已 `cp -r 账 账_bak_同步点_106`。
+- **`--fix` 跑完 → 复跑取真实数字**：通过 **5725** · **漂移 17** · 失败 44（`--fix` 修掉 406 条；**第一遍输出是修前快照**，已按纪律复跑）。
+- **剩余 60 条人工修**（漂移 17 + 失败 44 里有重叠，按 `R14 §B` 的 44+8+8）⇒ **特批派 `B106_W66` 独写账主表**（此刻无并发写手；要求裸 `split("\t")`、11 列、逐列往返比对、先备份）。
+- **`typecheck` 0/0**（全部写手停下后）。
+- **`bash 工具/ruleprobe.sh play check` ⇒ `rc=0`** —— 引擎指纹未变。这是本波两处引擎改动的实收口：`W23` 挪了「临时卡移出」次序（`RuleCore`）、`W57` 给手牌事件补 `InstanceId`（`EffectResolver`）—— 两者都**不改变事件条数**，与推理一致。
+- **`_run_8_checks.sh` 已后台启动**（12 条串行，预计 20+ 分钟），日志 `_tmp_view/b106_sync_8checks.log`。
+  - 场景已备份到 `_tmp_view/scene_bak/b106_sync/`（六个 `.unity`）。
+
+### 同步点 · 全套自检结果（`_run_8_checks.sh`，20 条串行，12:01–12:09）
+
+| 宿主 | 结果 | 备注 |
+|---|---|---|
+| `RuleEngineTest` | 退出码 0 | ✅ |
+| `BattleScene` | **退出码 1 · RunCore 抛异常** | `System.Reflection.TargetParameterCountException: Number of parameters specified does not match the expected number.` |
+| `DeckScene` | 退出码 1 | **2155/2156，1 条失败** |
+| `ShellScene` | 退出码 0 | ✅ |
+| `MainMenuScene` | 退出码 1 | **6395 通过 / 1 失败** |
+| `RewardsScene` | 退出码 1 | **2693 通过 / 12 失败** |
+| `ShopScene` | 退出码 1 | **3187 通过 / 8 失败** |
+| `CollectionScene` | 退出码 1 | **1758/1761，3 条失败 + RunCore 抛异常**（`MissingReferenceException: WildcardTutorial has been destroyed but you are still trying to access it`） |
+| `NetSelfTest` / `NetBattleTest` | 退出码 0 | ✅ |
+| `SettingsScene` | 退出码 1 | **1780 通过 / 3 失败** |
+| `CardBaseDemo` | 退出码 0 | ✅（`W9` 那 8 条断言**首次执行**） |
+| 其余 9 条（`AnimFXCheck` / `CardFaceAssertE5` / `AudioSnapshot` / `LoadableRef` / `PlayerDataMath` / `GameModes` / `GameStaticData` / `EnchantmentTemplate`） | 退出码 0 | ✅ |
+
+- 🔴 **`CollectionScene` 的异常高度可疑**：本波 `W52` 把 `ForceStart` 的 `Destroy` 改成 `DestroyImmediate`（编辑模式）+ **先 `_instance = null`**，`W46` 又加「连 `ForceStart` 两次」的断言 ⇒ **很可能是这三件拼出来的悬垂引用**。
+- **按纪律：红了先派只读诊断、不猜着修** ⇒ 派 `B106_D1`（两处崩溃）· `B106_D2`（Rewards/Shop/Settings 共 23 条失败）· `B106_D3`（Deck/Menu 各 1 条）。
+- 另：**`play check` rc=0**（引擎指纹未变，`W23`/`W57` 两处引擎改动的实收口）；`typecheck` 0/0；账 `--fix` 已把漂移 423→17，剩余 60 条人工交给 `B106_W66`。
+
+- **`B106_D1` 交回（两处崩溃诊断）**：
+  - **BattleScene = γ 本批回归（`W57`）**：`EffectResolver.EmitCardTrigger` 签名 6→7（末尾加了 `selfOnly`/`instanceId`），而 `BattleScene.cs:41877/41890` 的**反射 `Invoke` 仍传 6 个实参** ⇒ `TargetParameterCountException`。**反射 Invoke 不补可选参数**，`object[]` 编译期查不出 ⇒ **`typecheck 0/0` 放行**。代价：死点后 **416 处** `Check/CheckTrue` 从未执行。
+  - **CollectionScene = α（`W46` 断言前提错）+ γ（`W52` 的 `DestroyImmediate` 让它致命）**：起完教程**不写 `PrefDone`** ⇒ 第二次调用**真的重启** ⇒ `ForceStart` 把 `built` 真删 ⇒ `:10217` 对已销毁对象取 `.gameObject` **抛**（Unity 假 null 只在 `==/!=` 上成立）。`W46` 那句「两次调用之间没有写 PrefDone 的路径 ⇒ 结构上不可能同时满足」**推反了**。
+  - **第三条红**：`:10164` 判 `ta != null`（`ta` 已被删）而紧邻 `:10165` 判 `ta == null` —— **两条同一时刻结构上互斥**。
+  - ⇒ 派 `B106_W67`（BattleScene 反射实参 + 加 `GetParameters().Length` 硬前提）· `B106_W68`（CollectionScene 夹具先写 `PrefDone` + 假 null 安全访问 + 挪动互斥断言）。
+  - **已把方法论写进 `资料/已知的坑.md` 第 19 条**（改签名会静默打断反射调用点；Unity 假 null 两面）。
+- **`B106_W66` 交回 —— 账闸回到全绿**：`A 5786 · 通过 5786（告警 805）· 漂移 0 · 失败 0`（rc=0）。
+  - 覆盖 §B-1 失败 44 + §B-2 歧义 8 + §B-3 NEED-HUMAN 8 = **60 条全部落地** + 另修 1 条 getter 漂移（`MissionEvent.GetNextRefreshTime` `1686→1721`）。
+  - 共改 **68 行 / 13 个账文件**，**只动第 7 列「我们的落点」**；每次写盘后「读→写→再读」校验（11 列、非第 7 列一字未变、未列入改动的行逐字节相等）；裸 `split("\t")`、未用 csv。备份 `账_bak_预W66/`。
+  - **三处与清单建议不同（它自己回源纠正）**：`卡牌面_渲染:169/170` 改指 `FitToBox :5909`（清单建议 `ClampToInk :5870`，但 `ClampToInk` 是 `FitToBox` 的第二段）；`本地化:5` 改指 `BuildLangItem :3678`（`:3701` 是语句行、闸仍会判失败）；`日常_奖励:621-624` 按建议删掉 `MainMenuRuntime.cs:5260` 的行号（现读是空行）。
+  - **表 C「落点指空」6 条也全改了**（`DeckLibrary` 路径 / `SocialData` 两处 / `B97W5_RowsAndDedupe` 少个 `De` / `Core/ImageQuad.cs`→`CardPresentation/Battle/ImageQuad.cs`）。
+  - **没改的**：表 D（差异/备注列的过期**文案**，不参与机检）⇒ 建议另开一条纯文案账务；`商店.tsv:329` 一处判不准原意，未硬改。
+- **`B106_W67` 交回**：`BattleScene` 的反射实参已补齐（两处 `false });` → `false, 0 });`），并加了**硬前提** `Check(miEmitArity == 7, …)`（用三元折成 `-1` 而不是 `if (前提) Check(...)` ⇒ 前提不成立时**不会静默跳过**）。净增 7 行，账落点 40 条**全部在插入点之上 ⇒ 0 漂移**；闸复跑 `A 5786 / 通过 5786 / 0 / 0`；typecheck 0/0。
+  - ✅ **它纠正了我的简报**：被反射调的其实是 **`EmitListenerTrigger`**（`EmitCardTrigger` 同批也加了 `instanceId`，但**全仓没有反射调用点**，与本崩溃无关）。
+  - 本文件全量核了 4 处 `.Invoke`，另两处（`SkirmishEventWindow.OnSearchFinished` / `RankedEventWindow.OnSearchFinished`）都是 0 形参、匹配。
+  - 🔴 **如实指出两个「查不出来」**：`typecheck` 与 `check_ledger_points` **都发现不了这一类**（实参是 `object[]`，编译期看不出；账闸只看落点）⇒ **唯一内环防线就是这条硬前提 + 跑一次宿主**。
+  - 另记风险：`GetMethod("EmitListenerTrigger", …)` **没给 `parameterTypes`** ⇒ 将来若出现同名重载会抛 `AmbiguousMatchException`（比参数个数异常更早更隐蔽）；彻底防的写法会让「签名一变就取不到方法」，两种方案各有取舍，它没自作主张改。
+  - **必跑 `BattleScene.Run`**：预期异常消失，且死点之后 **416 处 `Check/CheckTrue` 是第一次真正执行** —— 很可能暴露新账（**不是本次回归**，是之前一直被吞掉的）。
+- **`B106_W68` 交回**（`CollectionScene.cs` +5 行；typecheck 0/0）：
+  - **崩溃**：第二次 `RunPoolBuiltHookForTest` **之前**先 `PlayerPrefs.SetInt(PrefDone,1) + Save()` 摆成「已看过」⇒ 第二次 `TryStart` 走 `IsDone` 闸返回 null、不再重启、不会删掉 `built`；收尾两行改成 `if (built != null && … && ….gameObject != null)` 守卫（`built != null` 走 Unity `==` 重载，假 null 会短路）。
+  - **互斥断言**：`CheckTrue(ta != null, …)` 挪到第二次 `ForceStart` **之前**（同物理行追加、代码在 `//` 之前），`:10164` 简化成只判 `tb2 != null`，`:10165` 的 `ta == null` 保留 ⇒ 三条现在可同时成立。
+  - **铁律 5 就地订正**：`W46` 那句「两次调用之间没有写 `PrefDone` 的路径 ⇒ 结构上不可能同时满足」**推反了**，已改。
+  - 顺手把 ③ 段收尾 `tut` 两行也补了 `tut != null`（同族假 null 裸取，零行变化）；全文件裸取 `X.gameObject` 只剩 2 处且都已守卫。
+  - ⚠️ **未处理（要记）**：上一轮崩溃把 `WfWildcardTutorial.Done` 删了且没还原 ⇒ 修好后下次运行 `hadDone` 读到 false ⇒ **完成位不会自动恢复**，真 Play 时万能牌教程会再弹一次（要改注册表，它没动）。
+  - ⚠️ 编辑模式 `DestroyImmediate` 后 `_instance` 可能残留假 null（当前无害，入口都 `== null` 短路）；建议后续在 `WildcardTutorial` 加显式 `DetachForTest()`。
+  - 需人工 +5 的文档坐标：`判据/B105_AUD11.md:256` 的 `10341→10346`、`B105_AUD11b.md:202` 的 `10390→10395`、`账/卡组编辑.tsv:170` 内的 `11629-11642→11634-11647`。
+- **`B106_D3` 交回（Deck / Menu 各 1 条）**：
+  - **DeckScene = α（夹具前提永远不成立）**：失败原文 `✗ E0（前提）30 张同阵营 ⇒ 合法 —— 期望 [None]，实得 [CopyLimitExceeded]`。`Editor/B106_W7_Assert.cs:258-260` 用了 **30 次同一张 common/unit** ⇒ 必然撞同名上限 `30 > CopyLimit = 2` ⇒ **任何输入下前提都不成立**。E1/E2 都 ✓，被测语义没坏。⇒ 派 `B106_W69`（换成 15 张不同 id × 2 份 = 30；⛔ 改 `skirmish` 无效，同名上限与总张数无关）。
+  - **MainMenuScene = γ（`W13` 回归）**：`★ A833：整块在视口下的 Guild Name 连节点都不建` 期望 True 实得 False。根因 = `Shell/LeaderboardRow.cs:250`（`Guild Name`，同病 `:242` `Name`）**建节点用的 rect 从设计框 `GuildR 50..96` 换成了 `NameHolderR` 全高 `0..100`** ⇒ 压边行的 rect 从 `942.83..988.83`（整块在视口下、不建）变成 `892.83..992.83`（跨过视口底、建了）⇒ 红。
+    - **它明确说别改断言**：那条 10-18 立、连绿 12 天，且与**原版语义一致**（`Guild Name` 的 RT 是 `Name Holder` 的子件，不是整个 holder）⇒ 按 18·0 改生产代码。
+    - ⇒ 派 `B106_W70`：**autofit 用全高框（保留）、粗筛用设计帧真实框**（`MenuDraw.VisibleAbove(holder, Abs(r, GuildR), null)`），与 `Text` 内部走同一条父链、同一 `RenderClip` ⇒ 其它调用方零影响。
+  - 另记：`W13` 同批还带进一条**无断言覆盖的残余保真差** —— `PlaceAt` 只改 `localPosition`、**不改 Label 的 RectTransform 高**（原版 VLG 会把 RT 高写成 TMP 首选高）；补不补待定。
+- **`B106_D2` 交回（Rewards / Shop / Settings 共 23 条）**：归成 **8 个根因**，其中 **2 条是玩家可见的真缺陷**：
+  - 🔴 **R4（γ · `W51`）连登窗领奖钮点不动**：`B106_W51` 加的 `Preview Rewards Hit` 队列 **3011 > `Collect` 3010**，而**本窗没有 `colider`/`QOverlay` 那一层**（每日奖励窗有）⇒ 预览件压住领奖钮；日志实证 `[Button] Preview Rewards Hit 点了不生效`。**真机也点不到** ⇒ 派 `B106_W71`（队列改 `QContent - 1`）。
+  - 🔴 **R5（γ · `W14`）「已拥有」闸做宽了**：`OwnedOf > 0` 对**所有**商品生效，但原版**只对 `CosmeticItem` 算**（`out_cpp2il_dev_ilspy/CatalogItemContainer.cs:206-257`）⇒ 卡包被误判已拥有（点不动、图标不建、还抢在传奇确认之前）⇒ 派 `B106_W72`（`ShopTabPage` + `ShopScene` 同一写手，含两处连带必改）。
+  - **R2/R3（β · 既有缺陷）**：`CampaignTab.RefreshNodes` **无条件**按恒 47 重建（切到无内容阵营仍建 16 个节点）；`CloseBackground` 把**目标 alpha 清零且不清 `_bgArmy`** ⇒ **离开战役页再回来背景永久透明**（原版 `CampaignUIBackground__Close.c:13-16` 只清 current/pending）⇒ 派 `B106_W73`。
+  - **R1（α）**：Rewards 的 5 条取样用 `fcontent.GetChild(0)`，实取到 `ForgeCell_1`（`ForgeCell_0` 视口外没建），该格一半在视口左外 ⇒ `Points` 子块整块在裁切框外、按设计不建 ⇒ 派 `B106_W74`。
+  - **R6/R7/R8**：`W15_Assert` 量纲 ÷0.9 应为 ×108（生产对、断言错）· `SettingsWindow:2247` 的 General `Tab Title` 没走小屏两格 · `W15_Assert:148` 夹具没还原 Tab（`B94W2` 切到 Graphics 后没切回）⇒ 派 `B106_W75`。
+  - 🔴 **一处判据要订正**：`判据/AUD05_state_matrix_商店窗.md:259` 的 S8「可拥有型：卡/外观」应改成「**仅外观件**」（它未改，不在白名单）—— 同步点我处理。
+- **`B106_W71` 交回 —— 连登窗「领奖钮点不动」已修**（`DailyStreakPopup.cs` **行数零变化**，typecheck 0/0、闸 0/0）：
+  - `Preview Rewards Hit` 队列 **`QContent + 1`(3011) → `QContent - 1`(3009)** ⇒ `Collect`(3010) 在重叠区重新赢下射线；`hit.Interactable` 语义保留。
+  - **它把机理讲透了**：射线候选只枚举 `WindowButton`，`HitQuad` 只挡 `!isActiveAndEnabled`/`!activeInHierarchy` —— **`Interactable = false` 不在剪枝条件里** ⇒ 这正是「按灰的 3011 仍赢下 3010、`Click()` 头一句 return、日志打『点了不生效』」的完整路径。
+  - 与 `AbsorbHit` 同档 3009 靠**兄弟序**平局（`IsAboveInHierarchy` 后兄弟优先）：预览件在「奖格→成功面板」子树、吸收层是根下第 4 个子件 ⇒ 预览件赢；锁定/已领格 Collector 被 `SetState` 整颗 `SetActive(false)` ⇒ 预览仍点得到。
+  - 全窗核对：**改后无任何命中件高于 3010**。⚠️ 记一笔：**将来本窗再加 3009 命中件必须复核兄弟序**。
+- **`B106_W75` 交回**（Settings 三条全修；typecheck 0/0、闸 0/0）：
+  - **R7（β）**：`SettingsWindow.cs:2249` 行尾补 `, 62f, 10f`（**零行数变化**，7107→7107）—— 选这条路是因为**第 2 条路（改走 `PageTitle`）会让 27 条账落点全部漂移**，而行为逐位等价（`autoMinPx=4f` 也一致）。
+  - **R8（δ）**：`B106_W15_Assert.cs` 外包 `OpenTab(Account)` + `finally` 还原，并**加了一条前提硬断言**（不靠「没红」推断）。它指出上游污染源是 `B94W2_Assert.cs:225` 的 `OpenTab(Graphics)` **不还原页** ⇒ 建议它自己的 `finally` 补上（不在白名单）。
+  - 🔴 **R6（α）—— 它推翻了 `D2` 的修法并给了反证**：`D2` 说「`RootScale 0.9` 不参与坐标换算 ⇒ 应为 `×108f`」，**修了仍会红**（`72.577 ⇒ Round 73 ≠ 81`）。真相是本窗节点一律经 `Node → Screen`，而 `Screen` 的 `S(v,c)=c+(v−c)×RootScale` **把原版 px 先按 0.9 缩了一遍** ⇒ 正确写法是「先 `LayoutSpace.PxY` 换 px、再 `/ RootScale`」，与 `Editor/SettingsScene.cs:126 OrigPxY` 那条唯一权威换算一致。
+    - 🔑 **它点出方法论**：日志读数 `Round 1` **区分不了两个假设**（`0.7467/0.9` 与 `0.672/0.9` 都能得 1）⇒ **量纲问题只能靠代码链判，不能靠日志吻合度判**。
+  - **已按铁律 5 就地订正 `报告/B106_D2.md` 的 R6 那两处**（保留更正痕迹 + 写清教训）。
+- 另记（待办）：`Editor/B94W2_Assert.cs:225` 切页不还原，是这次 δ 的上游污染源。
+- **`B106_W74` 交回（Rewards R1 · 5 条假红）**：取样格从 `fcontent.GetChild(0)`（实取到第一个建出来的 `ForgeCell_1`，一半在视口左外 ⇒ `Points` 子块整块在裁切框外、按设计不建）改成**按格号取「可领格 + 邻格」**，期望值改用 `ForgeData.PointsText(army, 邻格号)`。净 +14 行，**生产代码零改动**，typecheck 0/0、闸 0/0。
+  - 它选了推荐方案而非备选（备选要先 `ScrollBy(-MaxOffset)` 再重建，会改滚动状态，而本宿主后面大量断言依赖「可领格吸附」，风险大）。
+  - **断言强度不降**：两格格号不同 ⇒ `NeededAt` 单调 ⇒ 分母 300 vs 400，「写死分母」照样红。
+  - 顺手发现：**同族 α 可能还有两处** —— `Editor/CollectionScene.cs:1573` 的 `contentN.GetChild(0)`、`Editor/ShellScene.cs:7390` 的 `content.GetChild(0)`（未核，另立账）。
+  - 另：`RewardsScene.cs` +14 行 ⇒ 约 25 份文档里的行号引用漂了（**机检账落点不受影响**，落点列无 `RewardsScene.cs:行号` 条目）。
+- **`B106_W73` 交回（CampaignTab 两个 β）**：改动全部同一物理行 ⇒ **1907 → 1907 零行数变化**，typecheck 0/0、闸 0/0。
+  - **R3 背景永久透明**：`CloseBackground` 改 `{ _bgPending = null; _bgArmy = null; }`（⛔ 不再写 `_bgTarget = 0`，原版 `CampaignUIBackground__Close.c:13-16` 只清 `+0x40`/`+0x38`）；`OnOpen` 补 `InitBackground(Selected)`；`InitBackground` 补原版「`current` 非空且 ≠ campaign ⇒ 只挂 pending、目标 alpha 置 0、return」那一支。
+  - **R2 空态**：`RefreshNodes` 在 `ClearTrackContent()` 之后 `if (!CampaignData.HasContent(Selected)) return;` + `🔶` 标记。
+  - 🔴 **它发现一条判据没写、但不改就更坏的连带**：`ClearTrackContent()` 自己会把 `_nodeTf` 置 null，而原首句是 `if (_nodeTf == null || _trackContent == null) return;` ⇒ **空态早退之后这句恒真 ⇒ 再切回 UM 时轨道永远建不回来**。故首句去掉 `_nodeTf == null`（`_trackContent` 才是「建过没有」的真信号）。
+  - 顺手发现：`BuildTrack()` 仍无条件建 47 个节点（存档恢复时 `Selected` 可能就是无内容阵营）⇒ 空态下**还能横向滚进一大片空白**；改它会牵动两条 A 档落点的语义，未动，另立账。
+  - 另一条它**判定「原版同一形状、照抄不修」**：快速 A→B→A 切阵营会显示错的背景（原版 `Initialize` 在 `current == campaign` 时直接 return、不清 pending，`Update` 随后照样 `LoadImage(pending)`）⇒ 只记账。
+- **`B106_W72` 交回（商店「已拥有」闸，8 红根因）—— 它有意偏离了我的施工单，而且是对的**：
+  - 我在简报里写「`:1517` 改成 `Type=="Cosmetic" && OwnedOf>0`」（不分族）。**照字面做会把第 4 页的 `Open ({n})` 整条做死**（`OpenOwnedOffer` 零调用）。
+  - 它回源发现**原版这一格分两族**：catalog 族走 `CatalogItemContainer`（`if (item is CosmeticItem){…} else obj8 = 0`）；**Crates 页那族的价签钮走 `PriceDisplayButton.cs:52-101`，`if (ownedCount > 0) { Interactable = true; priceText.SetText(OpenButton, n); return; }` —— 无任何类型判断**。
+  - 最终实现：`IsOwnedCell = idx 合法 && OwnedOf>0 && (IsOfferFamily || Type=="Cosmetic")`；顺手把 `PriceTextForTest` 从「自写一份口径」收口到 `IsOwnedCell`（**读口与生产各写一份 = 自证隐患**）。
+  - `Editor/ShopScene.cs` 四处连带断言按新语义重写（卡包正例→负例；`RefuseOwned` 段换外观件注入；两处「买完再点」从「必须被拒」改成「照旧买到 1→2」并补 `ClosePackAndReopenShop`/`DismissRewardWindows` 做夹具卫生）。
+  - **判据定为 `B97W15` 对、`W14` 错** ⇒ `B97W15_Assert.cs` 一字未动，生产收窄后 E1~E6 应自然转绿；**不存在两边同时绿的中间态**。
+  - 两文件行数守恒（`ShopScene 6771` / `ShopTabPage 1672`），闸 5786/0/0。
+  - 建议下一步由 `ShopData.cs` 写手补 `ShopOffer.Ownable` 字段（本批白名单外）。
+
+### 同步点 · 第二轮全套自检（修复后）
+- `typecheck` **0/0** · 账闸 **A 5786 · 通过 5786 · 漂移 0 · 失败 0**。
+- `_run_8_checks.sh` **第二轮已启动**（日志 `_tmp_view/b106_sync2_8checks.log`）。
+
+### 第二轮结果（20 条 · 12:36–12:44）
+
+**17 绿 / 3 红**（第一轮是 13 绿 / 7 红）。红的三条：
+
+| 宿主 | 第一轮 | 第二轮 | 说明 |
+|---|---|---|---|
+| `BattleScene` | **崩溃**（反射）+ 416 处未执行 | **7347 通过 / 1 失败** | ✅ 崩溃已修；**416 处第一次真跑**，只剩 1 条 |
+| `ShopScene` | 3187 / 8 失败 | **3197 / 3 失败** | 剩 1 条款前提（「商店重开之后真的开着」）+ 2 条 `InfoHit` **疑为级联** |
+| `CollectionScene` | 1758/1761 + **崩溃** | **2798/2805 / 7 失败** | ✅ 崩溃已修；**之前被吞的 330 处第一次执行**，7 条全在「聊天内容滚动/行高」一段 |
+
+- 新增绿：`DeckScene` / `MainMenuScene` / `RewardsScene` / `SettingsScene` 全部转绿。
+- **Collection 那 7 条的高度线索**：`1917.84 / 20 ≈ 95.9` 一行（期望 70）⇒ 高度可疑与 `W12` 把聊天行高改成 `57 + 正文实测高` 有关。
+- ⇒ 派 `B106_D4`（Collection 7 条）· `B106_D5`（Battle 1 + Shop 3，重点分清「根因 vs 级联」）。
+- **`B106_D4` 交回（Collection 7 条）—— 全部 α（断言过期），⛔ 不要回退 `W12`**：
+  - 🔴 **它纠正了我给题面的算法**：`1917.84/20≈95.9` 是没扣 pad 与行距；正确分解 `(1917.84−161−padT5−padB5−19×10)/20 = **77.842**`。
+  - **一行实际高 `h = 77.842`**，来源是原版 prefab 的 CSF 算式：`pad10+pad10+头25+VLG spacing12+正文行盒20.842`；而 **20.842 = Pragati `m_LineHeight 90 / m_PointSize 95 × 22px`**（字体资产现读），与 `ChatTab.MeasureMessagePx` 走的 `Label.WorldH` **逐位相等**（日志里「量正文高度失败」0 次，没走兜底）。
+  - **7 条实得值全部可由 `h=77.842` 逐位复算 ⇒ 没有第二个独立缺陷**。
+  - **「70 不是原版规格」的三条判据**：`ChatMessageRow.prefab` 的 CSF `VerticalFit=1(MinSize)` + VLG `pad(25,60,10,10) spacing12 childControlHeight0`；原版**确实把量出的行高回灌**（`ChatContentView.UpdateViewsHolder → MarkForRebuild() + ScheduleComputeVisibilityTwinPass(prefer…IfSizeChanges:true)`）；`_DefaultItemSize=60` 只是 OSA **估计值**且 `_PrefabControlsDefaultItemSize=1`。
+  - ⇒ 派 `B106_W76`（改断言，期望值从公式推、⛔ 不读 `RowHeightFor` 自证；锚点行 `msg-10` 换 `msg-15`）。
+  - 另记两条待办：`ChatTab.cs:221` 的 `Mathf.Max(60,…)` 是**自设计下限**（原版空正文应为 57）⇒ 按 18 打 🔶 或去掉；原版只对**已实现**的行回灌尺寸、我们每次量全部行 ⇒ 机制差异另立账。
+- **`B106_D5` 交回（Battle 1 + Shop 3）**：**3 个根因 + 1 个级联**，且**推翻了简报里的假设**（Shop 的 3 条不是同一根因）。
+  1. **Battle = γ（接线位置错）**：`W47` 的 `CheckManaBuffHud(driver, …)` 在 `:46873`，而 **`:45243` 那行末尾就有 `DestroyImmediate(driver)`** ⇒ 拿到假 null 早退 ⇒ **11 条 check 一条没跑**。**同族先例已踩两次**（`RunE7Fixture` / `RunR13`+`B102C506` 都搬过）⇒ **这是第三次** ⇒ 派 `W77`（挪进 `:45243`、`RunR13()` 之后、`DetachStaticHooks()` 之前）。
+  2. **Shop `:86381` = α + δ（自检编排不完整，不是产品缺陷）**：`ClosePackAndReopenShop` **只处理 `Closed`，`Background` 无人管**；且 `bp = PageOf(0).LastBoosterPack` 因页重建恒 null。日志佐证：失败前有 `TryOpen 命中 Background 支` ⇒ 开包窗压在商店上 ⇒ 红 ⇒ 派 `W78`（三档收口 + `GetOpenWindow<T>()` 现取 + 断言文案补实得状态）。
+  3. **B103F4 `:131964` = β（场景卫生）+ 级联**：铁证是紧接的 `[Shop] 没有 WindowsManager ⇒ 开不了 Booster Info Popup`（早退条件 `_win == null`）⇒ 点击落在一颗 **陈旧页**的 `InfoHit` 上（宿主窗已销毁、页仍激活），同像素两颗 `InfoHit` 平局判给了陈旧那颗 ⇒ premise 红 + 点错 + `LastBoosterInfo` 恒 null（**#4 = #3 级联**）。
+     - 两个候选成因未定：**A** `shop435` 只 `Close()` 无销毁点、`ReapClosedWindows` 有**静默豁免**（`!= Closed` 就摘掉不销毁）；**B** `BuildPages()` 只 `tabs.Clear()` 不销毁旧页。
+     - ⇒ 派 `W79`：**先加可指名性**（`PointerLayer.ButtonsAtForTest` / `ShopTabPage.OwnerWin` / 失败文案带 got 名与宿主状态）+ 卫生断言，**判不出 A/B 就别猜着改**。
+- **`B106_W76` 交回（Collection 7 条）**：全部改成**从公式推**的期望（⛔ 未回读 `ChatTab.RowHeightFor` / `ClampHi`），并补 1 条**结构断言**钉「行高回灌」。**未回退 `W12`**。净 +22 行，typecheck 0/0、闸 5786/0/0。
+  - 常量都带出处：`kLineH=90/95*22=20.842`（Pragati 字体资产）· `kRowH=77.842` · `kStep=87.842` · `kContentBottom=1917.842` · `kClampHi=1006.842`。
+  - **锚点 `msg-10` → `msg-15`**：动态行高下滚到最底时 `msg-10` 行底 115.42 < 视口顶 161 ⇒ **整行在视口外、正确地不建**（拿不到）；`msg-15` 完全在视口内，复算中心 515.711。
+  - 结构断言：`首行中心 − 视口顶 − padTop(5) == 该行 rect 高/2`，先断前提再断结论（⛔ 不用 `if(前提)Check(...)`）。
+  - ⚠️ 它踩了一个小坑并记下：`MenuCheck.DesignPx` 返回 **Vector2（中心）不是 PxRect**，第一版误写 `.H` 被 `CS1061` 挡下，改用 `RectOf(...)` 取设计帧矩形。
+  - 待裁定（两条，均未动）：`ChatTab.cs:221` 的 `Mathf.Max(60,…)` 是**自设计下限**（原版空正文应为 57）⇒ 按 §18 打 🔶 或去掉；原版只对**已实现行**回灌尺寸、我们量全部行 ⇒ 机制差异另立账。
+- **`B106_W77` 交回**：`CheckManaBuffHud(driver, Check)` 已从 `:46873`（`DestroyImmediate(driver)` 之后 4,630 行）挪进 **`:45243` 同一物理行**（`RunR13();` 之后、`DetachStaticHooks();` 之前），旧调用已删。**零行数变化**（50036 行不变），typecheck 0/0、闸 5786/0/0。
+  - 顺序理由写清了：`CheckManaBuffHud` 自己 `Begin` 重开一局 ⇒ 排 `DetachStaticHooks()` 之前（否则紧随的 `StaticHookCount == 0` 会连带红）、排 `RunR13()` 之后（否则污染 R13 的读数）。
+  - 🔴 **它顺手发现同一行还有三处同族**：`B104_T21_Assert.RunPresentation(driver)` ≈19 · `RunEngine(driver.Ctx)` ≈14 · `B105_W2_Assert.RunPresentation(driver)` ≈14 ⇒ **合计约 47 条断言从未执行**（日志里 `B104_T21` 0 次命中、`B105W2：表现侧` 段标题 0 次命中）。
+  - **裁定** ⇒ 派 `B106_W80`：三处一并搬进 `:45243`，顺序 `RunEngine → T21 表现 → B105_W2 表现 → CheckManaBuffHud`（**W47 必须最后**，它会 `Begin` 冲掉前面现场）→ 最后才 `DetachStaticHooks()`。
+  - 另记：`调度台日志.md:11561` 那句「已接线 `BattleScene.cs:46866`」**属实但无效** —— 被 `if (driver != null)` 挡在销毁之后。这是「接线了 ≠ 会执行」的又一例。
+- **`B106_W79` 交回（陈旧 ShopTabPage）—— A/B 都判不出来，它拒绝猜着改**：
+  - **B 被静态排除**：`BuildPages()` 全仓只有 1 个调用点（`ShopWindow.cs:153`，紧跟 `:152 Build()`），而 `Build()` → `BuildShell` **第一句就是 `DestroyChildren(root)`** ⇒ 旧 `Content Area/Tabs` 整棵被销毁。「`tabs.Clear()` 不销毁旧页」这条路**永不触发**。
+  - **A 只解释窗泄漏、解释不了本条红**：`shop435` 即便落进 `ReapClosedWindows` 的静默豁免，它也是 **inactive**，而命中表 `AllButtons()` 用 `FindObjectsByType<WindowButton>(FindObjectsSortMode.None)`（**排除 inactive**）⇒ 一颗钮都进不了命中表。
+  - ⇒ **零行为改动**，只加可指名性：`PointerLayer.ButtonsAtForTest(px,py)` · `ShopTabPage.OwnerWin` · `ClickByQuad` 失败文案印 `got` 身份 + 同像素全部候选；另加**成对调用的卫生断言** `CheckNoOrphanShopPages`（进场基线 + 出事现场各一次，红在哪条就知道陈旧页是本段前还是本段造的）。
+  - 🔴 **顺手发现一条同族真缺陷**（未改，白名单外）：`GameWindow.Hide()` 首句 `if (!gameObject.activeSelf) return;` ⇒ 对已 inactive 的窗 Hide 时**不写 `Closed`** ⇒ `ReapClosedWindows` 静默摘账不销毁、之后 `TryOpen()` 走 `Open` 支**什么都不做** ⇒ **永久僵尸窗**（既回不来也销毁不掉）。
+  - typecheck 0/0、闸 5786/0/0；三文件 LF、裸 CR 0。

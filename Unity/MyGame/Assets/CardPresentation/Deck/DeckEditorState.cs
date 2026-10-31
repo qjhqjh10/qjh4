@@ -1565,8 +1565,8 @@ namespace CardPresentation
         /// <see cref="CanAdd"/> 阵营那一闸比的就是它；<c>null</c> = 原版的 `CardArmy.Neutral`。
         /// <para>判据 / 全部写点 / 为什么是「派生」而不是存字段 / **唯一不等价的那一格**（导入一副没有督军的卡组串）
         /// → `RuleEngine/Core/DeckRules.cs` 类尾 `DeckArmy` 的 doc（只此一处，⛔ 别在这里再写第二份算式）。</para>
-        /// <para>另外两个消费方**还没接过来**（它们今天只看督军，本笔白名单外）：
-        /// `DeckRuntime.DeckArmyName`（页头徽记 · 四格通配符）与 `DeckRuntime.ArmyFaction` —— 已作为待办交回调度台。</para></summary>
+        /// <para>两个消费方**已接过来**（2026-10-31 `B107_W14` 现读）：`DeckRuntime.DeckArmyName`（页头徽记 ·
+        /// 四格通配符）与 `DeckRuntime.ArmyFaction`（实例读口，`RefreshHeader` 页头那一句用它）。</para></summary>
         public string DeckArmyFaction()
         {
             return DeckRules.DeckArmy(Deck, Find);

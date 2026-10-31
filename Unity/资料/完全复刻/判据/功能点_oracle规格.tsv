@@ -1,0 +1,102 @@
+FP_ID	功能点	域	oracle类型	输入/命令	期望	读数来源	判定方式	覆盖档	证据(文件:行/资产路径)	日期	备注
+FP-AUDIO-01	播放对手与单位的语音台词（按类型分框、逐字显示）	音频/语音	code_const	const FadeTime	0.5	CardPresentation/Battle/ChatPopupPanel.cs:135	code_num	②A	CardPresentation/Battle/ChatPopupPanel.cs:134 注释「原版 timeToOpen / timeToClose，两个都是 0.5 s」	2026-10-31	语音弹框淡入淡出
+FP-AUDIO-01	播放对手与单位的语音台词（按类型分框、逐字显示）	音频/语音	code_const	const Cooldown	4	CardPresentation/Battle/ChatPopupPanel.cs:138	code_num	②A	CardPresentation/Battle/ChatPopupPanel.cs:137 注释「原版 VoiceLinesController.CHAT_INTERACTABLE_COOLDOWN = 4f」	2026-10-31	聊天钮冷却
+FP-AUDIO-03	播音效与多源混音（音量、冷却、混音组、频谱）	音频/语音	code_const	const LERP_DURATION	3.0	CardPresentation/Core/AudioSourcesController.cs:68	code_num	②A	CardPresentation/Core/AudioSourcesController.cs:63 注释「AudioSourcesController__.cctor.c:9-11 静态表 [2] = 0x40400000（3 s）」	2026-10-31	音量插值时长
+FP-AUDIO-04	卡牌与震动的音效挂点（召唤 cue、动画结束播音效）	音频/语音	asset_field	src=数据/游戏数据/animfx_components.json;key=effects.*.*.fields.sounds.*.sound.name	0	ours=CardPresentation/Resources/animfx_sounds.json;key=cues.*.name	set_subset	②A	原版 912 个 AnimFX 效果的 sounds[].sound.name（d:/4/Unity/数据/游戏数据/animfx_components.json，生成器 工具/dump_animfx.py）	2026-10-31	原版 cue 名 406 个，全部要在我们的 513 cues 里；缺 0
+FP-VFX-03	AnimFX 模块族（按动作时序改材质/速度/变换/销毁）	特效动画	asset_field	src=数据/游戏数据/animfx_components.json;key=effect_count	912	-	json_eq	②A	数据/游戏数据/animfx_components.json 的 effect_count（由 工具/dump_animfx.py 从原版 bundle 抽出）	2026-10-31	原版 AnimFX 效果数
+FP-LOC-02	界面与卡面按词条键取译文并填参数（缺键才退回英文）	本地化	asset_field	src=数据/游戏数据/官方本地化_en+zh-CN.json;key=_count	10854	-	json_eq	②A	官方本地化 en+zh 表（源自 APK 1.35.0 I2Languages；判据 资料/普查产出_1018/K07_本地化并入_报告.md）	2026-10-31	官方表条数必须仍是 10,854
+FP-LOC-03	语言表资源从远端加载、并按平台改键名（触屏/PC 后缀）	本地化	asset_field	src=CardPresentation/Resources/official_loc_13lang.json;key=langs	13	-	json_len	②A	APK 1.35.0 内嵌 I2Languages：13 个真语言（判据 资料/完全复刻/判据/B106_功能点三法缺口.md §2.3）	2026-10-31	13 语言槽
+FP-DECK-005	导入/预组卡组	卡组编辑	asset_field	glob=d:/2/新解包资源/assets_full/bundle_prebuiltdecks_assets_all/MonoBehaviour/*.json	236	-	glob_count	②A	assets_full/bundle_prebuiltdecks_assets_all/MonoBehaviour（B106 §5 #10：236 文件 / 231 个不同 deckId）	2026-10-31	预组卡组 SO 文件数
+FP-DECK-005	导入/预组卡组	卡组编辑	asset_field	glob=d:/2/新解包资源/assets_full/bundle_prebuiltdecks_assets_all/MonoBehaviour/*.json;key=deckName	0	-	json_files	②A	同上；原版 236 份 SO 的 deckName 缺失 0 条	2026-10-31	预组名一个都不能少
+FP-DECK-005	导入/预组卡组	卡组编辑	asset_field	glob=d:/2/新解包资源/assets_full/bundle_prebuiltdecks_assets_all/MonoBehaviour/*.json;key=deckId	231	-	json_distinct	②A	同上；distinct deckId = 231	2026-10-31	同名 id 去重后的套数
+FP-COLL-008	收藏 · 卡背页签	收藏	asset_field	glob=d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/Cardback_*.json	243	-	glob_count	②A	assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/Cardback_*.json	2026-10-31	卡背 SO 数
+FP-COLL-008	收藏 · 卡背页签	收藏	asset_field	glob=d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour/Cardback_*.json;key=cardBackSDF	0	-	json_files	②A	B106 §5 #3：每个 Cardback 都有 imageReference + cardBackSDF（同一 GUID 的 _Main / _SDF）	2026-10-31	_distance field 版一张都不能缺
+FP-ENG-018	卡牌静态数据与本地化取值	战斗逻辑驱动	asset_field	src=数据/游戏数据/cards_truth.json;key=count	1351	-	json_eq	②A	原版卡 SO 总数 1,351（数据/游戏数据/cards_truth.json 的 count，源自 allcards SO）	2026-10-31	卡牌真值表仍是全池
+FP-SOCIAL-03	公会/联盟：浏览、加入、成员管理与公会排行	社交/聊天	code_const	const PpuMul	1.5	CardPresentation/Shell/AllianceMemberTab.cs:2201	code_num	②A	CardPresentation/Shell/AllianceMemberTab.cs:2200 注释「两张页签底图的 m_PixelsPerUnitMultiplier（prefab 实读 = 1.5）」	2026-10-31	联盟成员页签底图
+FP-MISC-05	通用 UI 控件（抽屉、计数器、提示框、进度条、倒计时）	未分类/其他	code_const	const TabPpuMul	1.5	CardPresentation/Shell/DeckSelectionPopup.cs:255	code_num	②A	CardPresentation/Shell/DeckSelectionPopup.cs:254 注释「40K_tab_button / …_overwindow 两张图的 m_PixelsPerUnitMultiplier（prefab 实读 = 1.5）」	2026-10-31	页签底图 ppuMul
+FP-DECK-001	卡组编辑窗（四页签）	卡组编辑	code_const	const CardAnimateDelayStep	0.1	CardPresentation/Shell/CollectionWindow.cs:1356	code_num	②A	CardPresentation/Shell/CollectionWindow.cs:1355 注释「AppendInterval 的步长 —— 原版 .rdata 0x1834B2DC4 实读 0.1 秒/每格」	2026-10-31	卡格入场步长
+FP-DECK-001	卡组编辑窗（四页签）	卡组编辑	code_const	const CardAnimateDuration	0.7	CardPresentation/Shell/CollectionWindow.cs:1358	code_num	②A	CardPresentation/Shell/CollectionWindow.cs:1357 注释「DOFade / DOLocalMoveY 的时长 —— 0x1834B3188 实读 0.7 秒」	2026-10-31	卡格入场时长
+FP-DECK-001	卡组编辑窗（四页签）	卡组编辑	code_const	const CardAnimateRise	200	CardPresentation/Shell/CollectionWindow.cs:1364	code_num	②A	CardPresentation/Shell/CollectionWindow.cs:1359-1363 注释「DOLocalMoveY(…).From(y + 200) 的 200 —— 0x1834B3258 实读」	2026-10-31	卡格入场上移
+FP-DECK-001	卡组编辑窗（四页签）	卡组编辑	code_const	const UnlockW	186.01	CardPresentation/Shell/CollectionWindow.cs:3369	code_num	②A	CardPresentation/Shell/CollectionWindow.cs:3368 注释「Unlock 的宽（原版 186.01，高 60 与另两颗同）」	2026-10-31	Unlock 钮宽
+FP-DECK-001	卡组编辑窗（四页签）	卡组编辑	code_const	const CardPunchVibrato	10	CardPresentation/Shell/CollectionWindow.cs:5186	code_num	②A	CardPresentation/Shell/CollectionWindow.cs:5185 注释「DOPunchScale 的 vibrato —— 原版调用里的立即数 10」	2026-10-31	卡格 punch
+FP-DRAFT-02	选卡包并看卡组信息与能量配比	轮抽	code_const	const DeckScrollNotchPx	50	CardPresentation/Shell/DraftModeWindow.cs:537	code_num	②A	CardPresentation/Shell/DraftModeWindow.cs:536 注释「原版 Cards in deck panel/Scroll View 的 m_ScrollSensitivity = 50.0」	2026-10-31	轮抽卡组滚动灵敏度
+FP-DAILY-04	每日奖励与连续登录（7 天轨道/领取格）	日常/奖励	code_const	const StreakAheadSlots	7	CardPresentation/Shell/DailyData.cs:1098	code_num	②A	d:/2/tools/decomp_full/DailyStreakWindow__RefreshRewards.c:51 的 iVar15 < *(int *)(lVar9 + 0x40) + 7（代码字面量）	2026-10-31	连登轨道「往后铺 7 格」
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	code_const	const PointsPerLevel	100	CardPresentation/Shell/CampaignData.cs:38	code_num	②A	CardPresentation/Shell/CampaignData.cs:37 注释「照原版 CampaignEventData.PointsPerLevel = 100（本地实读到）」	2026-10-31	每级战役点
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	code_const	const NodeSize	100	CardPresentation/Shell/CampaignTab.cs:111	code_num	②A	CardPresentation/Shell/CampaignTab.cs:110 注释「节点的原始尺寸（原版 Campaign Node 根 = 100×100）」	2026-10-31	战役节点尺寸
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	code_const	const HighlightSize	178.915	CardPresentation/Shell/CampaignTab.cs:113	code_num	②A	CardPresentation/Shell/CampaignTab.cs:112 注释「Collectable Highlight 的尺寸（原版 N(1,.5,.5,.5,.5,.5,.5,0,0,178.915,178.915)）」	2026-10-31	收集高亮尺寸
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	code_const	const StartingOffsetX	330	CardPresentation/Shell/CampaignTab.cs:119	code_num	②A	CardPresentation/Shell/CampaignTab.cs:117-118 注释「两份 prefab 实例实读都是 (330, 0) · MonoBehaviour_4404165622776507789.json」	2026-10-31	轨道起点
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	code_const	const ScalerMenuScale	1.125	CardPresentation/Shell/CampaignTab.cs:123	code_num	②A	CardPresentation/Shell/CampaignTab.cs:121-122 注释「prefab 实读 menuScale = 1.125 · MonoBehaviour_-6243382103206324481.json」	2026-10-31	缩放器 menuScale
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	code_const	const BgChangeSpeed	2	CardPresentation/Shell/CampaignTab.cs:1130	code_num	②A	CardPresentation/Shell/CampaignTab.cs:1129 注释「changeSpeed 原版字段 = 2f」	2026-10-31	背景切换速度
+FP-CAMP-02	在战役节点轨道上滚动并看节点解锁状态	战役	code_const	const TrackHolderInset	100	CardPresentation/Shell/CampaignTab.cs:469	code_num	②A	CardPresentation/Shell/CampaignTab.cs:468 注释「该 RectTransform 实读 sizeDelta = 100×100（RectTransform_6791446287889289095.json）」	2026-10-31	轨道容器内缩
+FP-CAMP-03	领取战役节点奖励并结算整条战役	战役	code_const	const BtnBottom	15	CardPresentation/Shell/CampaignRewardWindow.cs:173	code_num	②A	CardPresentation/Shell/CampaignRewardWindow.cs:172 注释「Unlock Button 与 Warning 共用的 m_AnchoredPosition.y（prefab 原文 = 15）」	2026-10-31	奖励窗按钮位置
+FP-CAMP-03	领取战役节点奖励并结算整条战役	战役	code_const	const WarnH	45	CardPresentation/Shell/CampaignRewardWindow.cs:182	code_num	②A	CardPresentation/Shell/CampaignRewardWindow.cs:181 注释「Warning 的高（prefab 原文 m_SizeDelta.y = 45）」	2026-10-31	警告条高
+FP-DECK-004	卡组详情弹窗	卡组编辑	code_const	const GmSepRotDeg	-10.60	CardPresentation/Shell/DeckInfoPopup.cs:271	code_num	②A	CardPresentation/Shell/DeckInfoPopup.cs:270 注释「Game Mode Separator 的自带 z 旋转（原版 m_LocalRotation · ↻ -10.60°）」	2026-10-31	模式分隔条角
+FP-DECK-004	卡组详情弹窗	卡组编辑	code_const	const CardbackRotDeg	1.60	CardPresentation/Shell/DeckInfoPopup.cs:275	code_num	②A	CardPresentation/Shell/DeckInfoPopup.cs:274 注释「Cardback 的自带 z 旋转（原版 m_LocalRotation · ↻ +1.60°）」	2026-10-31	卡背角
+FP-DECK-004	卡组详情弹窗	卡组编辑	code_const	const MaxCustomDecks	114	CardPresentation/Shell/DeckInfoPopup.cs:617	code_num	②A	d:/2/tools/decomp_full/GameStaticData__.cctor.c:308 的 *(undefined4 *)(… + 0x250) = 0x72（= 114）	2026-10-31	自定义卡组上限
+FP-SOCIAL-03	公会/联盟：浏览、加入、成员管理与公会排行	社交/聊天	code_const	const OpenRowGap	5	CardPresentation/Shell/AllianceSearchTab.cs:79	code_num	②A	CardPresentation/Shell/AllianceSearchTab.cs:75-78 注释「PolyAndCode VerticalRecyclingSystem _InitCoroutine_d__19__MoveNext.c:57-63 ⇒ 行距 = _spacingY」	2026-10-31	联盟搜索行距
+FP-SOCIAL-03	公会/联盟：浏览、加入、成员管理与公会排行	社交/聊天	code_const	const MaxOpen	200	CardPresentation/Shell/AllianceSearchTab.cs:607	code_num	②A	CardPresentation/Shell/AllianceSearchTab.cs:606 注释「JoinAllianceMenu.cs:860 那个字面量 Take(200)」	2026-10-31	开放联盟取前 200
+FP-VFX-09	战斗内卡牌/单位表现（技能动画、残骸、光环、震击）	特效动画	code_const	const ActionKind	21	CardPresentation/Battle/AbilityIconAnim.cs:70	code_num	②A	CardPresentation/Battle/AbilityIconAnim.cs:69 注释「原版 BattleActionType.abilityIconAnim = 21（0x15，PlayIconAnim.c:31）」	2026-10-31	技能图标动画动作号
+FP-VFX-09	战斗内卡牌/单位表现（技能动画、残骸、光环、震击）	特效动画	code_const	const LandingTrigger	440	CardPresentation/Battle/AbilityIconAnim.cs:72	code_num	②A	CardPresentation/Battle/AbilityIconAnim.cs:71 注释「原版 AbilityTrigger.Landing = 440（0x1b8，MoveNext.c 那一次比较）」	2026-10-31	落地触发号
+FP-VFX-07	LUT 调色与后处理（场景色调/泛光）	特效动画	code_const	const TimeToReset	1	CardPresentation/Battle/BattlePostFx.cs:450	code_num	②A	CardPresentation/Battle/BattlePostFx.cs:449 注释「原版 PostFXController.TIME_TO_RESET（..cctor：0x3f800000 = 1.0f）」	2026-10-31	后处理复位时长
+FP-HUD-011	战斗设置窗	战斗界面/HUD	code_const	const ResignFontPx	38	CardPresentation/Battle/SettingsPanel.cs:438	code_num	②A	CardPresentation/Battle/SettingsPanel.cs:437 注释「原版文字字号 fs38（MonoBehaviour_3799.json 的 TMP m_fontSize）」	2026-10-31	认输钮字号
+FP-HUD-011	战斗设置窗	战斗界面/HUD	code_const	const AzFontPx	42	CardPresentation/Battle/SettingsPanel.cs:517	code_num	②A	CardPresentation/Battle/SettingsPanel.cs:516 注释「原版 TMP m_fontSize = 42（autoSizing 上限）」	2026-10-31	Auto zoom 字号
+FP-HUD-011	战斗设置窗	战斗界面/HUD	code_const	const MuteOnOffFontPx	30	CardPresentation/Battle/SettingsPanel.cs:589	code_num	②A	CardPresentation/Battle/SettingsPanel.cs:588 注释「ON / OFF 那两颗：m_fontSize = 30 · autoSizing = 1 · [1,30]」	2026-10-31	静音开关字号
+FP-TUT-01	教程指针与提示条（指向目标、点继续收起）	教程/引导	code_const	const FadeDuration	0.2	CardPresentation/Battle/TutorialOverlay.cs:232	code_num	②A	CardPresentation/Battle/TutorialOverlay.cs:231 注释「淡入时长 —— 判据 TutorialTipScript.fadeDuration = 0.2」	2026-10-31	提示条淡入
+FP-TUT-01	教程指针与提示条（指向目标、点继续收起）	教程/引导	code_const	const MinTimeBeforeSkip	1.0	CardPresentation/Battle/TutorialOverlay.cs:237	code_num	②A	CardPresentation/Battle/TutorialOverlay.cs:236 注释「minTimeBeforeSkip = 1.0（原版 TutorialTipScript）」	2026-10-31	最短不可跳过时间
+FP-TUT-01	教程指针与提示条（指向目标、点继续收起）	教程/引导	code_const	const PointerWaitBeforeClick	0.5	CardPresentation/Battle/TutorialOverlay.cs:1246	code_num	②A	CardPresentation/Battle/TutorialOverlay.cs:1245 注释「waitBeforeClick = 0.5（起手 → 点击态之间）」	2026-10-31	指针点击前等待
+FP-TUT-03	战斗内教程（含点空白跳过当前一步）	教程/引导	code_const	const TutTipOffsetPx	20	CardPresentation/Battle/BattleDriver.cs:17063	code_num	②A	CardPresentation/Battle/BattleDriver.cs:17062 注释「原版 VarsDesktop.tutorialTipHorizontalOffset = 20.0」	2026-10-31	提示框相对卡横向偏移
+FP-TUT-03	战斗内教程（含点空白跳过当前一步）	教程/引导	code_const	const TutTipOffsetForElementsPx	18	CardPresentation/Battle/BattleDriver.cs:17066	code_num	②A	CardPresentation/Battle/BattleDriver.cs:17065 注释「原版 VarsDesktop.tutorialTipHorizontalOffsetForElements = 18.0」	2026-10-31	相对卡元素的偏移
+FP-HUD-002	战斗界面 · 手牌/牌库/坟场/能量/计时 HUD	战斗界面/HUD	code_const	const DeckLightPx	23.4	CardPresentation/Battle/BattleDriver.cs:2508	code_num	②A	CardPresentation/Battle/BattleDriver.cs:2507 注释「贴图 60×59 是 KEEP_ASPECT 缩进这个矩形 → 实绘 23.4×23.4」	2026-10-31	牌堆高光尺寸
+FP-HUD-002	战斗界面 · 手牌/牌库/坟场/能量/计时 HUD	战斗界面/HUD	code_const	const FoeDeckPlatePx	200	CardPresentation/Battle/BattleDriver.cs:2533	code_num	②A	CardPresentation/Battle/BattleDriver.cs:2532 注释「敌方牌堆底板小一号（原版 EnemyDeck 200×200，我方 230×230）」	2026-10-31	敌方牌堆底板
+FP-HUD-002	战斗界面 · 手牌/牌库/坟场/能量/计时 HUD	战斗界面/HUD	code_const	const DeckSizeAlpha	0.6941177	CardPresentation/Battle/BattleDriver.cs:2559	code_num	②A	CardPresentation/Battle/BattleDriver.cs:2558 注释「张数底板那张图的颜色 —— 原版 m_Color = (1,1,1,0.6941177)」	2026-10-31	牌堆计数底板透明
+FP-ENG-005	棋盘与站位	战斗逻辑驱动	code_const	const MinionInPlayScale	0.75	CardPresentation/Board/ArenaSlots.cs:245	code_num	②A	CardPresentation/Board/ArenaSlots.cs:244 注释「原版 VarsGlobal.minionInPlayScale（+0x68）= 0.75」	2026-10-31	场上随从缩比
+FP-ENG-005	棋盘与站位	战斗逻辑驱动	code_const	const EnemyUnitsScaleRatio	0.86	CardPresentation/Board/ArenaSlots.cs:249	code_num	②A	CardPresentation/Board/ArenaSlots.cs:248 注释「原版 VarsGlobal.enemyUnitsScaleRatio（+0x74）= 0.86」	2026-10-31	敌方单位缩比
+FP-CARD-001	卡面渲染（图文/数值/图标/高亮）	卡牌面/渲染	manual_only	人眼并排比：我们的卡面 vs d:/2/Warpforge部队卡片 的 PnP 成品卡图	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版成品卡图 d:/2/Warpforge部队卡片/<阵营>/<档>/*.png；我们渲的 _tmp_view/cardface/	2026-10-31	卡面像不像只能人签
+FP-CARD-002	卡面 tooltip 与词条说明	卡牌面/渲染	manual_only	人眼并排比：悬停卡面关键词的 tooltip 位置/内容	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版 tooltip 无实拍；判据看 资料/关键词图标_现状与总表.md 与规则书词条	2026-10-31	位置与溢出观感
+FP-VFX-06	补间与卡牌动画控制（位移/旋转/缩放/升级演出）	特效动画	manual_only	人眼并排比：出牌/升级演出的动效	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版侧 _tmp_view/cmp/ 与 资料/比对基线/sweep_*.tsv；观感需人看	2026-10-31	动效手感
+FP-VFX-09	战斗内卡牌/单位表现（技能动画、残骸、光环、震击）	特效动画	manual_only	人眼并排比：战斗内技能动画与原版同一动作	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版特效直渲 _tmp_view/cmp/（EffectCompare.cs，70 个文件）	2026-10-31	观感类
+FP-SHELL-01	开窗/关窗与场景转场（含页签窗、压暗层、返回上一窗）	菜单/外壳	manual_only	人眼并排比：开窗/关窗转场与压暗层	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版侧只有用户实拍 C:/Users/qjh36/Desktop/warpforge参考图（16 张）	2026-10-31	窗口画面无原版运行时 dump
+FP-SHELL-03	通用按钮/开关/输入控件（灰化、悬停、按下）	菜单/外壳	manual_only	人眼并排比：按钮灰化/悬停/按下的观感	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版参照图 资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_*.tsv（顶栏）	2026-10-31	交互观感
+FP-SHELL-06	tooltip（悬停说明）	菜单/外壳	manual_only	人眼并排比：tooltip 的位置/显隐/压层	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	判据 资料/关键词图标_现状与总表.md §六（tooltip 线）	2026-10-31	观感
+FP-COLL-001	收藏 · 卡池与筛选	收藏	manual_only	人眼并排比：收藏窗的卡池与筛选栏布局	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版无收藏窗实拍；参数判据见 判据/AUD02_serialized_params.tsv	2026-10-31	窗口画面
+FP-DECK-001	卡组编辑窗（四页签）	卡组编辑	manual_only	人眼并排比：卡组编辑窗四页签整体版面	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版侧无实拍；参数判据 判据/AUD02_裁定_卡组编辑.tsv（473 行人工裁定）	2026-10-31	窗口画面
+FP-SHOP-001	打开商店窗并切换货架页签（左栏三档键 → 落地页 → 页签高亮）	商店	manual_only	人眼并排比：商店窗左栏与货架页签	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版无商店窗实拍；版面参数见 AUD02_serialized_params.tsv	2026-10-31	窗口画面
+FP-CAMP-01	打开战役页、切阵营并看该战役进度	战役	manual_only	人眼并排比：战役页节点轨道与进度条	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版实拍 资料/原版实拍/ 与 资料/原版参照图/	2026-10-31	窗口画面
+FP-PROFILE-01	打开自己/别人的玩家档案并切页签（含改名与账号页）	个人资料/成就/排行	manual_only	人眼并排比：玩家档案窗页签与信息区	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版无档案窗实拍；参数判据 AUD02_serialized_params.tsv（AllianceRankingRow 等）	2026-10-31	窗口画面
+FP-SOCIAL-01	在聊天频道里收发消息、看预览与消息选项	社交/聊天	manual_only	人眼并排比：聊天窗与消息预览	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版 ChatPopup 参数见 AUD02_serialized_params.tsv（Chat / ChatPanel 段）	2026-10-31	窗口画面
+FP-AUDIO-01	播放对手与单位的语音台词（按类型分框、逐字显示）	音频/语音	manual_only	人眼/人耳：语音台词框的逐字显示与音色	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	资料/语音线_原版规格与ASR管道.md；1844 条语音 / 606 卡	2026-10-31	需人听
+FP-AUDIO-02	战斗音乐随强度档淡入淡出（含主菜单主题曲）	音频/语音	manual_only	人耳：强度档切换时 BGM 淡入淡出	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	判据出处 decomp_full/BattleMusicManager__{ChangeState,CheckMusicState,FadeOut,FinishMatch}.c	2026-10-31	需人听
+FP-DAILY-02	活动窗与页签（标题/帮助/进度/领奖、双阵营与突袭窗）	日常/奖励	manual_only	人眼并排比：活动窗页签与进度条	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版无活动窗实拍；参数判据 判据/AUD05_state_matrix_奖励与收件箱.md	2026-10-31	窗口画面
+FP-FORGE-01	打开锻造页、切阵营并看该阵营的等级与点数	锻造	manual_only	人眼并排比：锻造页阵营与点数显示	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版实拍 资料/原版实拍/menu_forge_1016	2026-10-31	窗口画面
+FP-TUT-01	教程指针与提示条（指向目标、点继续收起）	教程/引导	manual_only	人眼并排比：教程指针的位置与提示条	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	判据出处 decomp_full/TutorialTipScript 系列；观感需人看	2026-10-31	观感
+FP-DRAFT-01	进入轮抽活动并看当前场次与宝箱档	轮抽	manual_only	人眼并排比：轮抽窗场次与宝箱档	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版无轮抽实拍；参数判据 判据/AUD05_state_matrix_商店窗.md 相关段	2026-10-31	窗口画面
+FP-HUD-004	战斗场景加载与开场	战斗界面/HUD	manual_only	人眼并排比：战斗开场动画与加载转场	一致	判据/功能点_并排比记账.tsv	human_sign	③人签	原版开场 dump 资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Intro.tsv + menu/shot_Intro_t*.png	2026-10-31	观感类
+FP-ENG-001	关键词与词条（含光环 / buff）	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	判据 资料/完全审查与完全复刻_方案.md §八；B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-002	攻击与伤害结算	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2：卡 SO 在远端 Addressables（allcards）	2026-10-31	inj FAIL: empty Data
+FP-ENG-003	召唤 / 造牌 / 偷牌 / 变身	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-004	回合流转与能量	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-005	棋盘与站位	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-006	出牌与目标选择	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-007	死亡 / 残骸 / 墓地	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-008	开局换牌	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-009	胜负判定与结算	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-010	手牌与牌库流转	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-011	棋盘随从增删与重整	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-012	战斗动作队列与结算流水	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-013	战斗结束 / 投降 / 断线重连	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-014	事件触发链与广播	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-015	战斗引擎 · 其它（查询/缓存/辅助）	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-016	对手 AI	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-017	战斗查询与辅助	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-020	卡牌状态查询与判定	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-021	对局配置与 Bot 随机	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-022	战斗初始化与战役衔接	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-023	战斗内界面交互（点击/显示/调试）	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-024	卡牌状态切换与动画	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-025	战斗内声音与回放	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-026	随机与种子	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-ENG-027	战斗统计与成就口径	战斗逻辑驱动	impossible	跑原版造同一局面后再比结算	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-HUD-001	战斗界面 · 场上卡与状态框	战斗界面/HUD	impossible	跑原版造同一局面后再比运行时态	-	-	n_a	②B	B106 §2.2：原版能到达的状态只有不需要卡数据的菜单/场景/开场	2026-10-31	inj FAIL: empty Data
+FP-HUD-006	战斗界面/HUD · 其它	战斗界面/HUD	impossible	跑原版造同一局面后再比运行时态	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-HUD-008	战斗回放 HUD 与结算界面	战斗界面/HUD	impossible	跑原版造同一局面后再比运行时态	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data
+FP-HUD-015	战斗环境条件管理	战斗界面/HUD	impossible	跑原版造同一局面后再比运行时态	-	-	n_a	②B	B106 §2.2	2026-10-31	inj FAIL: empty Data

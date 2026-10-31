@@ -213,5 +213,15 @@ namespace CardPresentation
             DamageEnemyWarlord = 0; SurviveTurns = 0;
             _refillBase = DateTime.MinValue;
         }
+
+        // ============================================================ ⑦ 🆕 2026-10-31（`B107_W18` · N22）
+        /// <summary>**每局开局**清「本局计数」那五格（⛔ 不动 `_pending` / `_refillBase` —— 那两个跨局留着）。
+        /// <para>判据：原版的挑战进度按**一局**累计，而我们这五个计数从来没人清过 ⇒ 第 2 局起进度是「两局之和」。
+        /// ⚠️ 它**不代替** <see cref="Reset"/>：后者是自检/换档用的整份复位（含待处理队列与补时基线），生产路径仍不调。</para></summary>
+        public static void ResetRunCounters()
+        {
+            TroopsKilled = 0; HealAmount = 0; EffectsAdded = 0;
+            DamageEnemyWarlord = 0; SurviveTurns = 0;
+        }
     }
 }

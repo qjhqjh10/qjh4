@@ -272,8 +272,30 @@ namespace CardPresentation
         /// 合并办法写在 `WindowsManager.OpenByRef` 的注释里。</summary>
         public ChatPanel OpenChat()
         {
-            var chat = WindowsManager.OpenByRef(WindowsManager.PrefabRefChat, m => ChatPanel.Create(m));
-            Debug.Log("[Social] 开聊天窗（原版 `ChatPreview.OpenChat`，频道 = `ChatRoom.Global`）。");
+            // 🆕 **2026-10-31（B107_W21 · N92 生产入口）**：原版 `ChatPreview.OpenChat` **不是恒 Global** ——
+            //   它把**自己实例上的序列化字段 `channelType`** 塞进 `ChatPanelContext.startingChannel`
+            //   （`out_cpp2il_dev_ilspy/ChatPreview.cs:123-124` / `:330-331`），再 `OpenWindow(chatWindow, ctx)`。
+            //   本窗（社交窗）那一块的实测值 = **`1` = `ChatRoom.Alliance`**：
+            //   判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/Social Submenu Variant.prefab`
+            //   的 ChatPreview 实例（`m_Script` 那个 MonoBehaviour :39623 `channelType: 1`），
+            //   父链 `ChatPreview / AllianceMemberVariant / Alliances Tab / Tabs / Content Area / Social Submenu Variant`；
+            //   rect 也是同一颗（锚右上 · `sizeDelta 400×60` · `anchoredPosition (−40.70, −68.93)`）。
+            //   主菜单那块是**另一份 prefab 实例**、值 = `0` = Global
+            //   （`ChatPreview.prefab` 默认 + `MainMenu Warpforge.unity` 实例）⇒ 它走 `MainMenuRuntime.OpenChat`（另一入口），
+            //   ⛔ 别把这里改成 Global，也⛔ 别去动主菜单那一条。
+            //   ⚠️ 为什么写在**工厂**里而不是「拿到实例之后再设」：`WindowsManager.OpenByRef` 只在**新建**那一支调工厂，
+            //   而 `Open()` 只在 `CurrentState == Closed` 那一支跑（`GameWindow.OpenByState`）——两条正好对齐。
+            //   复用**已开着**的那一扇时工厂不跑 ⇒ 不会留下一个「等下次开窗才误用」的起始频道
+            //   （`StartingChannel` 是一次性的，`ChatPanel.StartTabIndex` 取完即清）；
+            //   而原版那一下（`OpenWindow` 命中已开着的窗）同样是 `TryOpen` 早退、也不切页 ⇒ 语义一致。
+            string channel = ChatPanel.Channels.Length > 1 ? ChatPanel.Channels[1] : null;   // = `ChatRoom.Alliance`（唯一真值在 `ChatPanel.Channels`，⛔ 别在这里再写一遍字面量）
+            var chat = WindowsManager.OpenByRef(WindowsManager.PrefabRefChat, m =>
+            {
+                var c = ChatPanel.Create(m);
+                c.StartingChannel = channel;
+                return c;
+            });
+            Debug.Log("[Social] 开聊天窗（原版 `ChatPreview.OpenChat`，频道 = `ChatRoom.Alliance` —— 本窗那块 ChatPreview 的 `channelType = 1`）。");
             return chat;
         }
     }

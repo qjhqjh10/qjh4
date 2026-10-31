@@ -387,7 +387,7 @@ namespace RuleEngine
         /// ⚠️ 别和 `SW36 Bjorn the Fell-Handed` 的 `When a friendly unit uses Ferocity, it stays in play`
         ///    （**常驻、无 `next time`、无 `this turn`**）搞混 —— 那是**另一张卡、另一条语义**。
         /// </summary>
-        public bool FerocityStay; public string FerocityStayBy;   // 🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：`FerocityStayBy` = 原版 `CardEffect.enchantingCard(+0x18)`（`AbilityLogic__PlayAbility.c:1199`）—— **这条「留在场上」标记是谁给的**（施放者卡名）。写点 = `EffectResolver.DoFerocityStay`；读点 = `EffectsToShow.AddExtraRecordRows`（把原版那条 `buffType 3 addTrait trait 1270` 记录投影成一行）。⛔ 别拿它做判据：结算只看 `FerocityStay` 那个布尔
+        public bool FerocityStay; public string FerocityStayBy; public int FerocityStayAb = -1; public int FerocityStayLg = -1;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：`FerocityStayAb`/`FerocityStayLg` = 那条原版 `buffType 3 addTrait trait 1270` 记录的 `(ab, lg)`（由 `UnitState.DeriveEffectOrigin` 按卡表 `abilityBuffs` 反解；写点 = `EffectResolver.DoFerocityStay`）——**只给展示层取 `effectText` 用**，⛔ 不进任何结算 / `PlayerHash` / `Fingerprint`｜🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：`FerocityStayBy` = 原版 `CardEffect.enchantingCard(+0x18)`（`AbilityLogic__PlayAbility.c:1199`）—— **这条「留在场上」标记是谁给的**（施放者卡名）。写点 = `EffectResolver.DoFerocityStay`；读点 = `EffectsToShow.AddExtraRecordRows`（把原版那条 `buffType 3 addTrait trait 1270` 记录投影成一行）。⛔ 别拿它做判据：结算只看 `FerocityStay` 那个布尔
 
         /// <summary>
         /// **压在下面那几张牌**（虫群合并来的，2026-09-13 A2）。规则书 `:216`「置于其下」。
@@ -1354,11 +1354,11 @@ namespace RuleEngine
         /// `source` = 给予者（比如黑暗契约的种类名），用来在来源被替换时整份收回。
         /// </summary>
         /// <returns>🆕 2026-10-25（Stage 2）：这条账在修饰表里的那一格（`armour` 返回 `null`）。</returns>
-        public StatMod RecordGrant(string attr, int value, string source = null, string keyword = null, string caster = null, bool extrinsic = false)
+        public StatMod RecordGrant(string attr, int value, string source = null, string keyword = null, string caster = null, bool extrinsic = false, EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：末位可选 `origin` = 归属四元组（缺省 = 判不到；既有调用点逐字不变）
         {
             var g = new GrantRecord { Keyword = keyword, Attr = attr, Value = value, Source = source, Caster = caster, Extrinsic = extrinsic || IsExtrinsicSource(source) };   // 🆕 2026-10-29（`B97_W1` · 账 832 ②）：`caster` = 原版 `CardEffect.enchantingCard(+0x18)`，见 `GrantRecord.Caster` 的 doc ｜🆕 2026-10-29（`B97_W30` · 账 64）：`extrinsic` 是**新的可选实参**（缺省 false ⇒ 既有调用点逐字不变）；`IsExtrinsicSource(source)` 那一半是原有口径（光环 = whileInPlay），两者**取或** —— 与 `AddStatMod` 那一格同源（下一行）。
             _grants.Add(g);
-            g.Mod = AddStatMod(attr, value, source, g.Extrinsic);   // 🔴 2026-10-29（`B97_W30`）：原来就地算 `IsExtrinsicSource(source)` ⇒ 现在与 `GrantRecord.Extrinsic` **共用同一份判据**（否则 grant 说 extrinsic、它连带的那条 StatMod 说不是 ⇒ 两本账打架；`RemoveExtrinsicEffectsFrom` 先按 grant 摘、再扫 `_statMods` 会撞见已摘条目）
+            g.Mod = AddStatMod(attr, value, source, g.Extrinsic, origin: origin);   // 🆕 2026-10-31（`B107_W19`）：归属四元组跟着这条 grant 落到它那条 `StatMod` 上（此前只到 `RecordGrant` 就断了，展示层拿不到 `(ab,lg)`）｜🔴 2026-10-29（`B97_W30`）：原来就地算 `IsExtrinsicSource(source)` ⇒ 现在与 `GrantRecord.Extrinsic` **共用同一份判据**（否则 grant 说 extrinsic、它连带的那条 StatMod 说不是 ⇒ 两本账打架；`RemoveExtrinsicEffectsFrom` 先按 grant 摘、再扫 `_statMods` 会撞见已摘条目）
             ApplyGrant(g, +1);
             return g.Mod;
         }
@@ -1641,7 +1641,7 @@ namespace RuleEngine
             public int Value;
             public int Owner;                // 施放者玩家号（`until your next turn` 按他的回合算）
             public bool UntilMyNextTurn; public bool UntilOpponentNextTurn;   // 判据 = CardScript__OnTurnSetup.c:+0x33/+0x34/+0x35 三档。my-next-turn=true ⇒ 施放者下回合开始撤 · opponent-next-turn=true ⇒ **对面**回合开始撤（Owner≠player）· 两者都 false ⇒ 本回合结束撤；UntilOpponentNextTurn 优先
-            public string Src; public int Seq; public int RowGroup;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = 同一次 `give` 的合并组号（`AddTempBuff` 建 `Mod` 时透传进 `StatMod.RowGroup`）｜Src = 来源卡名（日志用）｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（同 `StatMod.Seq`，由 `AddTempBuff` 在登记那一刻取；今天无消费者 = 休眠）。⚠️ `BuffType` / `TraitValue` 本类**不在这里**定义 —— 它们是 `UnitStateEffectDisplay.cs` 里的**派生属性**（⛔ 别加同名字段，会撞属性）
+            public string Src; public int Seq; public int RowGroup; public EffectOrigin Origin;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：`Origin` = 归属四元组（`AddTempBuff` 建/补 `Mod` 时写进 `StatMod.EffectOwner/EffectAb/EffectLg/EffectIsHand`；关键词那条不用它，`TraitRec` 自带）｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = 同一次 `give` 的合并组号（`AddTempBuff` 建 `Mod` 时透传进 `StatMod.RowGroup`）｜Src = 来源卡名（日志用）｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（同 `StatMod.Seq`，由 `AddTempBuff` 在登记那一刻取；今天无消费者 = 休眠）。⚠️ `BuffType` / `TraitValue` 本类**不在这里**定义 —— 它们是 `UnitStateEffectDisplay.cs` 里的**派生属性**（⛔ 别加同名字段，会撞属性）
             /// <summary>
             /// **施加它的那张卡的卡名**（2026-09-13 A4 批 1 加）。
             ///
@@ -1678,11 +1678,11 @@ namespace RuleEngine
         /// 🔴 **2026-10-25（Stage 2）**：非关键词的那几条**在这里建修饰表那一格**（调用方不必自己建），
         /// 除非调用方已经建好并塞进 <see cref="TempBuff.Mod"/>（`ApplyOneGain` 的带来源那条路）。⚠️ `IsKeyword=true` 只 `_buffs.Add`、**不写 `_keywords`** ⇒ <see cref="Has"/>（只读 `_keywords`）看不到它；关键词必须由调用方**先** `AddKeyword`/`ApplyTraitEffect` 挂上（现有三条生产者都如此：`EffectResolver.cs:11102 AddKeyword` / `:12004 ApplyTraitEffect`）；⛔ 别在这里补 `AddKeyword`，那会和调用方**双记**关键词值。
         /// </summary>
-        public void AddTempBuff(TempBuff b)
+        public void AddTempBuff(TempBuff b, EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：`origin` = 归属四元组（缺省 = 判不到；只写进它连带的那条 `StatMod`，关键词那条由 `TraitRec` 自带）
         {
             if (b != null && !b.IsKeyword && b.Mod == null)
-                b.Mod = AddStatMod(b.Name, b.Value, null, b.Extrinsic, rowGroup: b.RowGroup);   // 🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：限时那一路也要带组号（否则「带时长的一次 give 多属性」照样各印一行）   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原来写死 `false` ⇒ 限时增益的那条修饰**永远不会**被「按来源撤」认成 extrinsic。现在跟 `TempBuff.Extrinsic` 走（**同一份判据**，⛔ 别让两本账各说各话）
-            if (b != null && b.Extrinsic && b.Mod != null) b.Mod.Extrinsic = true; if (b != null && b.Seq == 0) b.Seq = NextEffectSeq(); _buffs.Add(b);   // 🆕 2026-10-29（`B97_W30`）：调用方**自带** `Mod` 的那条路（`ApplyOneGain`）也要标上 —— 否则「账说 extrinsic、修饰说不是」；🆕 2026-10-29（`B97_US2` · S2）：加序戳（同上，登记那一刻取）
+                b.Mod = AddStatMod(b.Name, b.Value, null, b.Extrinsic, rowGroup: b.RowGroup, origin: (origin.Owner != null ? origin : b.Origin));   // 🆕 2026-10-31（`B107_W19`）：限时那条也带归属四元组（`origin` 实参优先、否则用 `b.Origin` 那一格；否则「一回合」的属性行取不到原版原文）｜🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：限时那一路也要带组号（否则「带时长的一次 give 多属性」照样各印一行）   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原来写死 `false` ⇒ 限时增益的那条修饰**永远不会**被「按来源撤」认成 extrinsic。现在跟 `TempBuff.Extrinsic` 走（**同一份判据**，⛔ 别让两本账各说各话）
+            if (b != null && b.Extrinsic && b.Mod != null) b.Mod.Extrinsic = true; if (b != null && b.Seq == 0) b.Seq = NextEffectSeq(); if (b != null && b.Mod != null && (origin.Owner != null || b.Origin.Owner != null) && b.Mod.EffectOwner == null) { var __o = origin.Owner != null ? origin : b.Origin; b.Mod.EffectOwner = __o.Owner; b.Mod.EffectAb = __o.Ab; b.Mod.EffectLg = __o.Lg; b.Mod.EffectIsHand = __o.IsHand; } _buffs.Add(b);   // 🆕 2026-10-31（`B107_W19`）：调用方**自带** `Mod` 的那条路（`ApplyOneGain` 的 `RecordGrant` 支）也补归属四元组（只补空，⛔ 不覆盖已有 —— 首次归属就是原版合并后保留的那条记录）｜🆕 2026-10-29（`B97_W30`）：调用方**自带** `Mod` 的那条路（`ApplyOneGain`）也要标上 —— 否则「账说 extrinsic、修饰说不是」；🆕 2026-10-29（`B97_US2` · S2）：加序戳（同上，登记那一刻取）
         }
 
         /// <summary>
@@ -1765,7 +1765,7 @@ namespace RuleEngine
             // 卡面写 `this turn`：这一回合没用到，就作废。
             // ⚠️ **消费点是 `RuleCore.UseAlternative` 的狂暴那一段**（用掉当场清，才是「下一次」）；
             //    这里只是「回合过了」的兜底。两处都要，缺一个就会「用两次」或者「跨回合还留着」。
-            FerocityStay = false; FerocityStayBy = null;   // 🆕 2026-10-30（`B102_EFF`）：标记作废 ⇒ 归属卡也一起清（否则 `EffectsToShow` 会投影出一行早已失效的记录）
+            FerocityStay = false; FerocityStayBy = null; FerocityStayAb = -1; FerocityStayLg = -1;   // 🆕 2026-10-31（`B107_W19`）：`(ab,lg)` 与归属卡同生共死（⛔ 只清标记、留下旧 `(ab,lg)` = 下一次用狂暴时展示层会拿上一张卡的原文）｜🆕 2026-10-30（`B102_EFF`）：标记作废 ⇒ 归属卡也一起清（否则 `EffectsToShow` 会投影出一行早已失效的记录）
             // 🆕 2026-09-16 誓约（Oath）能力的每回合激活计数 —— 原版在回合末清零
             // （`CardScript__OnTurnEnd.c:209`）⇒ 「本回合没用完就作废」。
             // ⚠️ `DeployedTurn` **不清**（它记的是历史：那张牌是哪一回合上场的）。
@@ -1850,7 +1850,7 @@ namespace RuleEngine
             /// <summary>`true` = `setMeleeAttack` / `setRangeAttack` / `setHealth` 那三档（**覆盖**语义）。</summary>
             public bool IsSet;
             /// <summary>`Source` = 来源标签（`Auras.GrantTag` / 黑暗契约种类 / `"虫群合并"` / `null`），只用于「整份收回」｜🆕 2026-10-26（`B8_Q`）`Trait` = 原版 `CardEffect.trait`(`+0x3c`，`DefinedTrait` 名)｜`BuffType` = 原版 `CardEffect.buffType`(`+0x38`)：`1` = `addStats`、`-1` = 明确不是从 `CardEffect` 来的、`0` = 未知（判据 → 类尾 `HasWhileInPlayAbility` ⑥ 那一段）｜🆕 2026-10-29（执行代理 `B97_US` · 账 521）`Permanent` = 原版 `CardEffect.permanentBuff`(`+0x74`，`dump.cs:119100`，Tooltip `Can't be jammed`)：真 ⇒ 被 jam 时**摘不掉**（`decomp_full/CardScript__RemoveEffect.c:43-45` 第一句 `return`）。⚠️ 数据槽 + 消费点已建，**生产点尚未接线**（`EffectResolver` 那几处 `AddStatMod` 都还没传它）⇒ 今天恒 `false`（休眠，铁律 11 照建；与 `GrantRecord.Caster` 同一处置）。</summary>
-            public string Source; public string Trait; public int BuffType; public bool Permanent; public int Seq; public int RowGroup;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）
+            public string Source; public string Trait; public int BuffType; public bool Permanent; public int Seq; public int RowGroup; public string EffectOwner; public int EffectAb = -1; public int EffectLg = -1; public bool EffectIsHand;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：**归属四元组**（同 `TraitEffectRecord` 那四格，判据 `decomp_full/AbilityLogic__PlayAbility.c:1189-1205`）；`EffectOwner == null` ⇒ 判不到（`Ab`/`Lg` 留 `-1`，⛔ 不猜）。⚠️ 不参与任何结算、不进 `PlayerHash`/`Fingerprint`｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）
         }
 
         readonly List<StatMod> _statMods = new List<StatMod>();
@@ -1864,7 +1864,8 @@ namespace RuleEngine
         ///   被所有改属性的地方调到（见该方法注释）。🆕 `buffType` / `trait` = 原版 `CardEffect.buffType(+0x38)` / `CardEffect.trait(+0x3c)` 两列，**今天只有类尾 `HasWhileInPlayAbility` 的 ⑥ 支消费**；缺省 `buffType = 0` ⇒ 按 `isSet ? -1 : 1(addStats)` 推断（⚠️ `RuleCore` 虫群合并那条也走这一支、它不是 `CardEffect`，只是今天 `Trait` 为空 ⇒ 不影响任何结果）。🆕 2026-10-29（`B97_US` · 账 521）`permanent` = 原版 `CardEffect.permanentBuff(+0x74)`，写进 <see cref="StatMod.Permanent"/>；唯一消费点 = <see cref="RemoveAllAppliedEffectsForJam"/> ④（被 jam 时那条**不清**）。
         /// </summary>
         public StatMod AddStatMod(string attr, int value, string source = null,
-                                  bool extrinsic = false, bool isSet = false, int buffType = 0, string trait = null, bool permanent = false, int rowGroup = 0)
+                                  bool extrinsic = false, bool isSet = false, int buffType = 0, string trait = null, bool permanent = false, int rowGroup = 0,
+                                  EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（缺省 = 判不到 ⇒ 四格留空/`-1`，既有调用点逐字不变）
         {
             // 🔴 **2026-10-25（K1 / K8）**：原版 `CardScript__AddEffect.c:208-213` 对
             //   `buffType == 0x46 setMeleeAttack` / `0x55 setRangeAttack` **先**
@@ -1879,7 +1880,7 @@ namespace RuleEngine
             }
             var m = new StatMod
             {
-                Attr = attr, Value = value, Source = source, Extrinsic = extrinsic, IsSet = isSet, BuffType = (buffType != 0 ? buffType : (isSet ? -1 : 1)), Trait = trait, Permanent = permanent, RowGroup = rowGroup,   // 🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：组号透传（缺省 0 = 不合并）｜🆕 2026-10-29（`B97_US` · 账 521）：`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)`
+                Attr = attr, Value = value, Source = source, Extrinsic = extrinsic, IsSet = isSet, BuffType = (buffType != 0 ? buffType : (isSet ? -1 : 1)), Trait = trait, Permanent = permanent, RowGroup = rowGroup, EffectOwner = origin.Owner, EffectAb = origin.Owner != null ? origin.Ab : -1, EffectLg = origin.Owner != null ? origin.Lg : -1, EffectIsHand = origin.IsHand,   // 🆕 2026-10-31（`B107_W19`）：归属四元组透传（缺省 `origin.Owner == null` ⇒ 判不到）｜🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：组号透传（缺省 0 = 不合并）｜🆕 2026-10-29（`B97_US` · 账 521）：`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)`
             };
             if (m.Seq == 0) m.Seq = NextSeqFor("st:" + attr, source); _statMods.Add(m);   // 🆕 2026-10-29（`B97_US2` · S2）：加序戳（光环重算时按来源复用旧戳，见类尾 `NextSeqFor`）
             return m;
@@ -2883,7 +2884,7 @@ namespace RuleEngine
             public int TimingBits;
             /// <summary>谁给的（我们的日志/收回用；原版没有这一列 —— 🔶 自己设计，理由同上）。
             /// 只为「以后按来源整份收回」留一个抓手，今天**没有消费者**。</summary>
-            public string Source; public int Seq;   // 🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（`ApplyTraitEffect` 建记录那一刻取；今天无消费者 = 休眠）
+            public string Source; public int Seq; public string EffectOwner; public int EffectAb = -1; public int EffectLg = -1; public bool EffectIsHand;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：**归属四元组** = 原版 `CardEffect` 是从**哪张卡的哪一条 `abilityLogic.buffEffect`** 克隆出来的（判据 `decomp_full/AbilityLogic__PlayAbility.c:1189-1205`）。展示层拿 `CardDef.EffectTextOf(EffectAb, EffectLg, EffectIsHand)` 取回原版 `effectText(+0x28)`。⚠️ `EffectOwner == null` ⇒ 判不到（`Ab`/`Lg` 留 `-1`；⛔ 不猜）｜写点 = `ApplyTraitEffect(…, origin:)`（生产点 `EffectResolver.ApplyOneGain`）｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（`ApplyTraitEffect` 建记录那一刻取；今天无消费者 = 休眠）
 
             public override string ToString()
             {
@@ -2942,7 +2943,8 @@ namespace RuleEngine
         public TraitEffectRecord ApplyTraitEffect(string trait, int value, int buffType = BuffTypeAddTrait,
                                                   int stackType = -1, string source = null,
                                                   bool extrinsic = false, int markOfChaosType = 0,
-                                                  int daemonHostType = 0, int timingBits = 0)
+                                                  int daemonHostType = 0, int timingBits = 0,
+                                                  EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（只在**新建记录**那一支写 —— 合并进既有记录时**不换归属**，原版 `AddEffect` 合并同样保留第一条 `CardEffect` 实例的 `effectText`；缺省 = 判不到）
         {
             if (string.IsNullOrEmpty(trait) || value <= 0) return null;
             int stack = stackType >= 0 ? stackType : TraitStackTypeOf(trait);
@@ -2987,7 +2989,7 @@ namespace RuleEngine
                     Source = source,
                     MarkOfChaosType = markOfChaosType,
                     DaemonHostType = daemonHostType,
-                    TimingBits = timingBits, Seq = NextEffectSeq(),   // 🆕 2026-10-29（`B97_US2` · S2）：加序戳（合并进既有记录时**不换戳**，只有新建这一支取新值）
+                    TimingBits = timingBits, Seq = NextEffectSeq(), EffectOwner = origin.Owner, EffectAb = origin.Owner != null ? origin.Ab : -1, EffectLg = origin.Owner != null ? origin.Lg : -1, EffectIsHand = origin.IsHand,   // 🆕 2026-10-31（`B107_W19`）：归属四元组（`origin.Owner == null` ⇒ 判不到、两格留 -1）｜🆕 2026-10-29（`B97_US2` · S2）：加序戳（合并进既有记录时**不换戳**，只有新建这一支取新值）
                 };
                 _traitEffects.Add(rec);
             }
@@ -4277,6 +4279,69 @@ namespace RuleEngine
             for (int i = 0; i < _removedOrder.Count; i++)
                 if (_removedOrder[i].Key == trait) return _removedOrder[i].Value;
             return 0;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：**效果记录的「归属四元组」**
+        //  （原版 `CardEffect` 是从**哪张卡的哪一条 `abilityLogic.buffEffect / handBuff.cardEffect`**
+        //   克隆出来的）。追加在类尾 ⇒ 既有行号零漂移。
+        //
+        //  判据（🥇 `decomp_full/AbilityLogic__PlayAbility.c:1189-1205`）：原版
+        //  `CardEffect__GetNewInstanceOfThisEffect(abilityData.buffEffect(+0x50))` 克隆一条 `CardEffect`
+        //  （`MemberwiseClone` 连 `effectText(+0x28)` 一起拷）⇒ **每条效果记录天生自带它的原文**。
+        //  我们没有 `effectText` 这一格，等价物 = 记住 `(ab, lg, isHand)` 那一格，展示层再拿
+        //  `CardDef.EffectTextOf(ab, lg, isHand)` 取回同一段原文（消费端已由 `B101_F2` 接好）。
+        //
+        //  ⛔ 这不是「第二本记录账」：`TraitEffectRecord` / `StatMod` / `FerocityStay` 各加四格**附属信息**，
+        //     不参与任何结算、不进 `NetProtocol.PlayerHash` / `Fingerprint`。
+        // ================================================================================================
+        /// <summary>见上面那段。`Owner == null` ⇒ 判不到（`Ab`/`Lg` 一律 `-1`，⛔ 不猜）。</summary>
+        public struct EffectOrigin
+        {
+            /// <summary>归属卡名（原版 `CardEffect.enchantingCard(+0x18)` = `abilityData.thisCard(+0x10)`）。</summary>
+            public string Owner;
+            /// <summary>`cardAbilities` 下标（原版 `ab`）。`-1` = 判不到。</summary>
+            public int Ab;
+            /// <summary>`abilityLogic` 下标（原版 `lg`）。`-1` = 判不到。</summary>
+            public int Lg;
+            /// <summary>`true` = `handBuff.cardEffect` 那一格（`false` = `buffEffect`）。</summary>
+            public bool IsHand;
+        }
+
+        /// <summary>
+        /// 见 <see cref="EffectOrigin"/>。把「这条增益属于哪张卡的哪条 `(ab,lg)`」从**卡表数据面**反解出来。
+        /// <para>⚠️ **只做有判据的匹配，判不准就只回 `Owner`**（`Ab`/`Lg` 留 `-1`）—— 本工程红线：
+        /// 宁可不出原文，也不许按猜的一条出。闸门与 `EffectsToShow.AttachEffectTexts` **同一份**：
+        /// 同 `buffType` ∧ 同 `isHand`（给了 <paramref name="traitDefinedId"/> 时还要求同 trait）∧
+        /// **多条候选的 `effectText` 必须逐字相同**（不同 ⇒ 判不了）。</para>
+        /// <para>⚠️ `AbilityBuffsOf` 回 `null` = 卡表这一列**未知**（旧表 / 夹具直建）⇒ **四格全空**，
+        /// ⛔ 不当「明确没有」。</para>
+        /// <para>取哪张卡：`ActingUnit.Card` → `CreationSource` → `PlayingCard`（与 `GrantCasterCardName`
+        /// 同一条判据，⛔ 别在别处再写第三份）。</para>
+        /// </summary>
+        public static EffectOrigin DeriveEffectOrigin(BattleContext ctx, string trait, int buffType,
+                                                      bool isHand = false, int traitDefinedId = -1)
+        {
+            var o = new EffectOrigin { Ab = -1, Lg = -1, IsHand = isHand };
+            if (ctx == null) return o;
+            var card = (ctx.ActingUnit != null && ctx.ActingUnit.Card != null) ? ctx.ActingUnit.Card
+                     : (ctx.CreationSource != null ? ctx.CreationSource : ctx.PlayingCard);
+            if (card == null) return o;
+            var rows = CardDatabase.AbilityBuffsOf(card); if (traitDefinedId < 0 && !string.IsNullOrEmpty(trait)) { int __tid = CardDef.DefinedTraitNumber(trait); if (__tid > 0) traitDefinedId = __tid; }   // 🆕 2026-10-31（`B107_W19`）：关键词名能**逐字**折成 `DefinedTrait` 时顺便收紧（`CardDef.DefinedTraitNumber` 是大小写敏感的 ⇒ 小写关键词多半折不出、那时保持不筛）
+            if (rows == null || rows.Count == 0) return o;
+            int n = 0, ab = -1, lg = -1; string text = null;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var b = rows[i];
+                if (b == null || b.BuffType != buffType || b.IsHandBuff != isHand) continue;
+                if (traitDefinedId >= 0 && b.Trait != traitDefinedId) continue;
+                string t = card.EffectTextOf(b.Ab, b.Lg, b.IsHandBuff);
+                if (n == 0) { ab = b.Ab; lg = b.Lg; text = t; n = 1; }
+                else if (!string.Equals(text, t, System.StringComparison.Ordinal)) return o;   // 两条原文不同 ⇒ 判不了
+            }
+            if (n != 1) return o;
+            o.Owner = card.Name; o.Ab = ab; o.Lg = lg;   // 🆕 2026-10-31（`B107_W19`）：**四格同生共死** —— 只有能唯一钉到那一条行时才回 `Owner`（否则 `Owner` 单留会被消费端误当成「有归属、只是没原文」）
+            return o;
         }
     }
 }

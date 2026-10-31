@@ -3998,7 +3998,7 @@ public static class CollectionScene
                                           "★ A1045⑥：……而且面板**没被关掉**（原版没派发 ⇒ 也就没有 `Close` 那一下）");
 
                                 // ---- 收尾：面板关掉、三道门拨回出厂（⛔ 别留一扇开着的窗给后段）----
-                                if (GenericOptionsPanel.LastOpened != null) GenericOptionsPanel.LastOpened.Close();
+                                if (GenericOptionsPanel.LastOpened != null) GenericOptionsPanel.LastOpened.Close();   if (ChatPanel.LastOpened != null && ChatPanel.LastOpened.CurrentState != WindowState.Closed) ChatPanel.LastOpened.Close();   // 🆕 B107_W27：分享到聊天（原版 `HandleShare` 第 ⑤ 跳）现在**真会开** `ChatPanel` ⇒ 「⛔ 别留一扇开着的窗给后段」这条纪律也管它：本段点过两颗分享钮，收尾把那扇关掉（否则它的整屏压暗层会进后面那 8 张截图与亮度断言）
                                 sPop.SetChatState(false, false, false);
                             }
                         }
@@ -11686,7 +11686,7 @@ public static class CollectionScene
                         CheckTrue(under == csc,
                                   "★ 视口中央那一点，**滚轮落到的就是这一区**（`SocialPage.RegisterScroll` 那条路）——"
                                   + "拿到 " + (under == null ? "**null**（没登记）" : "`" + under.GetType().Name + "`"));
-                    }
+                    } B107W2_Assert.RunChatRowHeight(ctab); _sink.Pass += B107W2_Assert.Pass; _sink.Fail += B107W2_Assert.Fail; B107W13_Assert.RunAll(chat); _sink.Pass += B107W13_Assert.Pass; _sink.Fail += B107W13_Assert.Fail;   // 🆕 2026-10-31（调度台代接线 · B107_W2）：同一物理行追加 ⇒ 行数零变化。A 段 = 聊天行高空正文 57（原版无 60 下限）+ 单行 57+90/95×22；判据 → 报告/B107_W2.md ｜ B107_W21 同一物理行再追加 `B107W13_Assert.RunAll(chat)`（A N91 去富文本 / B N93 赛季闸 / C N92 起始频道 / D N88 滑入 / E N89 15s 计时五段；判据 → 报告/B107_W21.md）
 
                     // 收尾：清数据 + 关窗（它的压暗层是整屏的，留着会顶掉后面那些真命中路）
                     SocialData.ChatMessages.Clear();
@@ -13246,7 +13246,7 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else

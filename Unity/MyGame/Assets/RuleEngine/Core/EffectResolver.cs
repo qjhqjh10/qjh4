@@ -7997,16 +7997,19 @@ namespace RuleEngine
 
         /// <summary>🆕 **A 族发射口**：给一张卡发 `FollowUpResolution`（410）事件。
         /// 闸 = <see cref="HasTriggerSource"/>（动画行 **或** 真值里有这条 ability）。
-        /// `slot` = 动画落点（棋盘格号；`-1` = 不在场上）。</summary>
-        internal static void EmitFollowUpResolution(BattleContext ctx, CardDef card, int player, int slot, int instanceId)
+        /// `slot` = 动画落点（棋盘格号；`-1` = 不在场上）。
+        /// 🔴🆕 2026-10-31（执行代理 `B107_W10` · 施工单 T21-8）：返回值 = 真发出去的那条 `BattleEvent`（`null` = 没发）。
+        /// 410 的 `option 2` 目标要等本卡 `TriggerOpsByNumber(410)` 在**队列体**里解析出来才填得出来（判据
+        /// `AbilityLogic__PlayAnim.c:185-222` 逐目标 `GetPos(2)`）⇒ 必须把**同一个对象**交给 `FireTriggerByNumberWithSink` arm。</summary>
+        internal static BattleEvent EmitFollowUpResolution(BattleContext ctx, CardDef card, int player, int slot, int instanceId)
         {
-            if (ctx == null || card == null) return;
-            if (!HasTriggerSource(card, TN_FollowUpResolution, ctx, "followAfterResolution(320)")) return;
-            ctx.Emit(EvtKind.Trigger, player, slot, card.Name,
-                     keyword: TN_FollowUpResolution,
-                     effect: "followAfterResolution(320)",
-                     instanceId: instanceId);
-            ctx.Log($"「{card.Name}」结算完毕 —— 后续结算触发（原版 `FollowUpResolution` = 410）");
+            if (ctx == null || card == null) return null;
+            if (!HasTriggerSource(card, TN_FollowUpResolution, ctx, "followAfterResolution(320)")) return null;
+            var evt = new BattleEvent { Kind = EvtKind.Trigger, Player = player, Slot = slot, CardId = card.Name,
+                     Keyword = TN_FollowUpResolution, Effect = "followAfterResolution(320)",
+                     InstanceId = instanceId };
+            ctx.Emit(evt);
+            ctx.Log($"「{card.Name}」结算完毕 —— 后续结算触发（原版 `FollowUpResolution` = 410）"); return evt;
         }
 
         /// <summary>🆕 **E 族发射口**：监听者**真的结算了** ⇒ 给它发一条按它自己卡名的
@@ -8015,15 +8018,21 @@ namespace RuleEngine
         /// <para>🆕 **2026-10-24（引擎线 `G2` · `C4` D8）**：多一个 <paramref name="selfOnly"/> ——
         /// 透传给 <see cref="TriggerNameOfWhenKind"/>（`Deploy` 的 190/195 分流）。
         /// 只有「主体自己那一跳」（`FireBoardWhenListener` 的 `selfOnlyOnly`）传 `true`；
-        /// 其余调用点（常驻 / 手牌陷阱 / 手牌监听 / 棋盘循环）**一律缺省 `false`**，行为逐字不变。</para></summary>
-        internal static void EmitListenerTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
+        /// 其余调用点（常驻 / 手牌陷阱 / 手牌监听 / 棋盘循环）**一律缺省 `false`**，行为逐字不变。</para>
+        /// <para>🔴🆕 **2026-10-31（执行代理 `B107_W10` · 施工单 T21-8）**：返回值从 `void` 改成
+        /// **真发出去的那条 `BattleEvent`**（`null` = 没发）—— 监听者的正文目标要等队列体里 `ResolveOps`
+        /// 解析完才填得出来（`option 2` = `possibleTargets` 里那个，判据 `AbilityLogic__GetPos.c:191-219`），
+        /// 由队列体 `ResolveWithTriggerTargetSink` arm（⛔ 别让调用方再 `ctx.Signals[...]` 反查）。
+        /// 闸、字段、事件进 `Signals` 的方式逐字未变。</para></summary>
+        internal static BattleEvent EmitListenerTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
                                                  string kind, bool selfOnly = false, int instanceId = 0)   // 🔴🆕 2026-10-31（执行代理 `B106_W57`）：`instanceId` 透传给 `EmitCardTrigger`（**只在 `unit == null` 时生效** —— 手牌里同名两张要靠它配对；`0` = 没写 = 改前行为）。
         {
-            if (ctx == null || card == null) return;
+            if (ctx == null || card == null) return null;
             string tn = TriggerNameOfWhenKind(kind, selfOnly);
-            if (tn == null) { WarnUnmappedListenerKind(kind); return; }   // 🔴 2026-10-26（批次 6 · `G14` ③）：不再静默 —— 未映射 ⇒ 效果照跑、动画不播，必须出声（见 `WarnUnmappedListenerKind`）
-            if (EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind, instanceId: instanceId) == null) return;
-            ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）");
+            if (tn == null) { WarnUnmappedListenerKind(kind); return null; }   // 🔴 2026-10-26（批次 6 · `G14` ③）：不再静默 —— 未映射 ⇒ 效果照跑、动画不播，必须出声（见 `WarnUnmappedListenerKind`）
+            var evt = EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind, instanceId: instanceId);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：把它留在手上交给调用方存进队列作业（arm 用）
+            if (evt == null) return null;
+            ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）"); return evt;
         }
 
         /// <summary>🆕 **2026-10-24（引擎线 `G1b` · `C2` §6）：关键词施加的统一发射口。**
@@ -10410,9 +10419,10 @@ namespace RuleEngine
             // ⚠️ `owner` / `u` / `subject` 全部**在入队时定死**（原版把 `actingCard` /
             //    `targetCard` 一起打包进 action；我们靠闭包）。⛔ 别改成「出队时现查」——
             //    监听者可能已经被别的动作打死/离场，现查会得到 -1。
+            BattleEvent triggerEvt = null;   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：队列体要 arm 的那条事件（入队时还不知道 —— 下面 `EmitListenerTrigger` 发完才赋值；闭包后读，出队时已就绪）
             bool queued = EnqueueAbility(ctx, ListenerLane(u.Card, TriggerNameOfWhenKind(kind, selfOnlyOnly)), (u.Name ?? "?") + "·listen:" + kind,
                            () => FireBoardListenerDeferred(ctx, u, owner, subject, kind, ops,
-                                                          card, target, selfOnlyOnly),
+                                                          card, target, selfOnlyOnly, triggerEvt),
                            // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：施放者 = **监听者自己** `u`。
                            //   ⚠️ **但这一族【不】判「必须在场」** —— 数据现读
                            //   `OtherUnitDeath(90)` 的 `abilityContext` = `{50:11, 0:18, 40:1, 10:2}`，
@@ -10465,7 +10475,7 @@ namespace RuleEngine
             //   → `PlayTriggerTraitAnim`（`:60`）。⇒ `queued == false`（被闸拒 / 参数非法）
             //   ⇒ **连 `EvtKind.Trigger` 一起跳过**（只由 `EnqueueAbility` 那边出声）。
             //   🧨 灭自证：把这一句改回无条件调用 ⇒ 「被拒 ⇒ `EvtKind.Trigger` 0 条」那条断言红。
-            if (queued) EmitListenerTrigger(ctx, u.Card, owner, u, kind, selfOnlyOnly);
+            if (queued) triggerEvt = EmitListenerTrigger(ctx, u.Card, owner, u, kind, selfOnlyOnly);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：把刚发的事件交给队列体 arm（监听者正文的目标 = `option 2`，判据 `AbilityLogic__GetPos.c:191-219`）
         }
 
         /// <summary>
@@ -10552,7 +10562,11 @@ namespace RuleEngine
         /// </summary>
         static void FireBoardListenerDeferred(BattleContext ctx, UnitState u, int owner,
                                               UnitState subject, string kind, List<EffectOp> ops,
-                                              CardDef card, UnitState target, bool selfOnly = false)
+                                              CardDef card, UnitState target, bool selfOnly = false,
+                                              // 🔴🆕 2026-10-31（执行代理 `B107_W10` · 施工单 T21-8）：广播那一刻发出的监听事件；
+                                              //   本队列体用它 arm `TriggerTargetSink` ⇒ `ResolveTargets` 把「监听者正文解析出的第一个目标」
+                                              //   （= 原版 `option 2`，判据 `AbilityLogic__GetPos.c:191-219`）写回同一个对象。`null` = 这次没发事件 ⇒ 原样结算。
+                                              BattleEvent triggerEvent = null)
         {
             // 🔴 **事件槽必须在这里重种一次**（`EventSlotsScope`）：广播那边那个 `using` 在
             //    **入队之后立刻退出**、把 `EventTarget` / `EventCard` 还原了；队列体在另一个时刻跑，
@@ -10560,9 +10574,9 @@ namespace RuleEngine
             //    判据 = 原版把 `actingCard` / `targetCard` **打包进 action**（`RawScript.OnTrigger` 的形参表）。
             using (EventSlotsScope.TargetAndCard(ctx, target, card))
             {
-                ctx.EffectChain++;
+                ResolveWithTriggerTargetSink(ctx, triggerEvent, () => { ctx.EffectChain++;
                 try { ResolveOps(ctx, owner, u, ops, "事件触发", subject); }
-                finally { ctx.EffectChain--; }
+                finally { ctx.EffectChain--; } });
             }
 
             // 🆕 2026-10-19（`T21` · 缺口 A 的另一半）：这张监听卡自己的能力里带
@@ -10696,8 +10710,9 @@ namespace RuleEngine
                     //      （原版走同一个 `PlayAbility → AddAutoActionToQueue`）。
                     //      `EventSlotsScope` 与 `CardPlaySource` 的种/还原**一起搬进队列体**（见那边）。
                     var _pe = pe;                      // 循环变量按帧捕获（C# 5 起 foreach 才是逐帧；这里是 for）
+                    BattleEvent triggerEvt = null;     // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：队列体要 arm 的那条事件（`if (pqueued)` 那一句才赋值；闭包后读 = 出队时已就绪）
                     bool pqueued = EnqueueAbility(ctx, ListenerLane(_pe.Source, TriggerNameOfWhenKind(kind)), "常驻:" + kind,
-                                   () => PersistentListenerDeferred(ctx, _pe, kind, subject, target),
+                                   () => PersistentListenerDeferred(ctx, _pe, kind, subject, target, triggerEvt),
                                    abilityTrigger: AbilityLevelGateTrigger(kind, false),
                                    abilityTarget: AbilityLevelGateTarget(kind, subject, target),
                                    abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
@@ -10705,7 +10720,7 @@ namespace RuleEngine
                                    abilityActingGate: AbilityActingGateApplies(kind),
                                    abilityHostCard: _pe.Source, abilityOwnerSeat: _pe.Owner);
                     // 🧨 灭自证：把 `if (pqueued)` 改成无条件调用 ⇒「被闸拒 ⇒ 0 条事件」那条断言红。
-                    if (pqueued) EmitListenerTrigger(ctx, _pe.Source, pe.Owner, null, kind);
+                    if (pqueued) triggerEvt = EmitListenerTrigger(ctx, _pe.Source, pe.Owner, null, kind);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：交给队列体 arm
                     if (ctx.IsOver) break;
                 }
             }
@@ -10722,7 +10737,9 @@ namespace RuleEngine
         /// ⚠️ `EffectChain` 的 `++/--` 也一起搬到这里（它量的是**嵌套深度**，不是排队长度）。
         /// </summary>
         static void PersistentListenerDeferred(BattleContext ctx, PersistentEffect pe, string kind,
-                                               UnitState subject, UnitState target)
+                                               UnitState subject, UnitState target,
+                                               // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：广播那一刻发出的监听事件（arm 用，见 `FireBoardListenerDeferred` 同名形参）；`null` ⇒ 原样结算
+                                               BattleEvent triggerEvent = null)
         {
             using (EventSlotsScope.TargetOnly(ctx, target))
             {
@@ -10733,7 +10750,7 @@ namespace RuleEngine
                 //   这条常驻效果 / 手牌监听造牌时，原版的 `creator` 就是写出这条效果的那张卡
                 //   （`AbilityLogic__PlayAbility.c` 传 `AbilityData.thisCard`；这里 = `pe.Source`）。
                 var prevCreationSource = ctx.PushCreationSource(pe.Source);
-                try { ResolveOps(ctx, pe.Owner, null, pe.Ops, "常驻效果", subject); }
+                try { ResolveWithTriggerTargetSink(ctx, triggerEvent, () => ResolveOps(ctx, pe.Owner, null, pe.Ops, "常驻效果", subject)); }
                 finally
                 {
                     ctx.EffectChain--;
@@ -10800,7 +10817,7 @@ namespace RuleEngine
                     //   `TargetCriteria` 把效果挂到牌上」，没证它在触发那一刻还过一道闸）。
                     //   ⇒ 本路径**维持改前**：无条件发事件。⛔ 别为了对齐形状在这里硬造一个入队点
                     //      （那会让降费变成「排队结算」，是**行为变化**，且没有判据支撑）。
-                    EmitListenerTrigger(ctx, c, p, null, kind, instanceId: handInst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
+                    EmitListenerTrigger(ctx, c, p, null, kind, instanceId: handInst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）｜🔴 2026-10-31（`B107_W10` · T21-8）：**本跳不 arm** —— 降费是「登记一条 `CostMod`」，**没有队列体**可包（这一路根本没有 `ResolveTargets`）⇒ 事件保持「无目标」（原版这条修正有没有 ability 目标，判据没查到；报告 §没查清）。
 
                     foreach (var h in hits)
                     {
@@ -10893,8 +10910,9 @@ namespace RuleEngine
                     //   照同族 `:7458` 的 `var _pe = pe;` 同形修：**入队这一刻拷一份**。
                     var _p = p;                        // 循环变量按帧捕获（for 不是逐帧）
                     var _opsT = ops;
+                    BattleEvent triggerEvt = null;     // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：队列体要 arm 的那条事件（`if (htqueued)` 那一句才赋值）
                     bool htqueued = EnqueueAbility(ctx, ListenerLane(c, TriggerNameOfWhenKind(kind)), "手牌陷阱:" + kind,
-                                   () => HandTrapListenerDeferred(ctx, _p, _opsT),
+                                   () => HandTrapListenerDeferred(ctx, _p, _opsT, triggerEvt),
                                    abilityTrigger: AbilityLevelGateTrigger(kind, false),
                                    abilityTarget: AbilityLevelGateTarget(kind, subject, target),
                                    abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
@@ -10902,7 +10920,7 @@ namespace RuleEngine
                                    abilityActingGate: AbilityActingGateApplies(kind),   // 🔴 2026-10-29（`B97_ER` · #54）：`actingCard` 已由 `BroadcastWhen` 透传下来 ⇒ 本跳不再恒不判
                                    abilityHostCard: c, abilityOwnerSeat: _p);
                     // 🧨 灭自证：把 `if (htqueued)` 改成无条件调用 ⇒「被闸拒 ⇒ 0 条事件」那条断言红。
-                    if (htqueued) EmitListenerTrigger(ctx, c, _p, null, kind, instanceId: inst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
+                    if (htqueued) triggerEvt = EmitListenerTrigger(ctx, c, _p, null, kind, instanceId: inst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）；🔴🆕 `B107_W10` · T21-8：交给队列体 arm
                 }
             }
         }
@@ -11057,13 +11075,14 @@ namespace RuleEngine
                         //    与常驻 / 手牌陷阱两跳同一条契约），并按它的返回值发 `EvtKind.Trigger`
                         //   （判据 `RawCardScript__TriggerAbilities.c:108/:207`，同 `E8-2`）。
                         bool hlqueued = false;
+                        BattleEvent triggerEvt = null;   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：队列体要 arm 的那条事件（`selfOps` 那一支没有队列体 ⇒ 恒 `null`，见下）
                         if (restOps.Count > 0)
                         {
                             var _restOps = restOps;
                             var _lcard = c;
                             hlqueued = EnqueueAbility(ctx, ListenerLane(_lcard, TriggerNameOfWhenKind(kind)), "手牌监听:" + kind,
                                            () => HandListenerDeferred(ctx, p, _restOps, subject,
-                                                                      target, card),
+                                                                      target, card, triggerEvt),
                                            abilityTrigger: AbilityLevelGateTrigger(kind, false),
                                            abilityTarget: AbilityLevelGateTarget(kind, subject, target),
                                            abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
@@ -11075,7 +11094,7 @@ namespace RuleEngine
                         //   ⚠️ 只有 `selfOps` 那一支**没有入队口**（`AttachHandEffect` 不是 ability 结算）
                         //      ⇒ 它照旧算「结算过、要发」。
                         if (selfOps.Count > 0 || hlqueued)
-                            EmitListenerTrigger(ctx, c, p, null, kind, instanceId: inst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）
+                            triggerEvt = EmitListenerTrigger(ctx, c, p, null, kind, instanceId: inst.Id);   // 🔴🆕 2026-10-31（`B106_W57`）：带**这一份**手牌的 `CardInstance.Id`（改前恒 0 ⇒ 同名两张只认得出第一张）；🔴🆕 `B107_W10` · T21-8：入队那一支交给队列体 arm（`selfOps` 那一支没有队列体 ⇒ 没人读它 ⇒ 保持「无目标」）
                     }
                 }
             }
@@ -11086,10 +11105,12 @@ namespace RuleEngine
         /// ⚠️ 原同步段**没有** `EventSlotsScope`（这一跳不种事件宾语，只有 `seed = null` 的
         /// `ResolveOps` —— 见那边的注释），所以这里也不开，**逐句等价**。
         /// </summary>
-        static void HandTrapListenerDeferred(BattleContext ctx, int p, List<EffectOp> ops)
+        static void HandTrapListenerDeferred(BattleContext ctx, int p, List<EffectOp> ops,
+                                             // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：广播那一刻发出的监听事件（arm 用，见 `FireBoardListenerDeferred` 同名形参）；`null` ⇒ 原样结算
+                                             BattleEvent triggerEvent = null)
         {
             ctx.EffectChain++;
-            try { ResolveOps(ctx, p, null, ops, "手牌陷阱"); }
+            try { ResolveWithTriggerTargetSink(ctx, triggerEvent, () => ResolveOps(ctx, p, null, ops, "手牌陷阱")); }
             finally { ctx.EffectChain--; }
         }
 
@@ -11099,12 +11120,14 @@ namespace RuleEngine
         /// 立刻退出，队列体在另一个时刻跑（理由同 `FireBoardListenerDeferred`）。
         /// </summary>
         static void HandListenerDeferred(BattleContext ctx, int p, List<EffectOp> ops,
-                                         UnitState subject, UnitState target, CardDef card)
+                                         UnitState subject, UnitState target, CardDef card,
+                                         // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：广播那一刻发出的监听事件（arm 用，见 `FireBoardListenerDeferred` 同名形参）；`null` ⇒ 原样结算
+                                         BattleEvent triggerEvent = null)
         {
             using (EventSlotsScope.TargetAndCard(ctx, target, card))
             {
                 ctx.EffectChain++;
-                try { ResolveOps(ctx, p, null, ops, "手牌监听", subject); }
+                try { ResolveWithTriggerTargetSink(ctx, triggerEvent, () => ResolveOps(ctx, p, null, ops, "手牌监听", subject)); }
                 finally { ctx.EffectChain--; }
             }
         }
@@ -12204,7 +12227,7 @@ namespace RuleEngine
                                    //   ⇒ 恒 `false`。判据（原版 `CardEffect.extrinsic // +0x30` = 合并键的一格）→
                                    //   `decomp_full/CardScript__AddEffect.c:469-568`。
                                    source: by, extrinsic: ctx.ResolvingExtrinsic,
-                                   timingBits: TimingBitsOfDuration(duration))) != null;
+                                   timingBits: TimingBitsOfDuration(duration), origin: UnitState.DeriveEffectOrigin(ctx, p.Keyword, viaAddTraitRemnant ? UnitState.BuffTypeAddTraitRemnant : UnitState.BuffTypeAddTrait, false))) != null;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组 `(owner, ab, lg, isHand)` —— 由**这张卡自己的 `abilityBuffs` 行**反解（同 buffType / 同 trait 且候选原文唯一）；判不到只回卡名、`(ab,lg)` 留 -1
                     else
                         added = u.AddKeyword(p.Keyword, val);
                     if (!added)
@@ -12298,7 +12321,7 @@ namespace RuleEngine
             }
             else if (grantSource != null && p.Attr != "energy")
             {
-                appliedMod = u.RecordGrant(NormalizeAttr(p.Attr), val, grantSource, caster: GrantCasterCardName(ctx), extrinsic: ctx.ResolvingExtrinsic);   // 🔴 2026-10-29（B98_G2 · 账 832 ①）：**施放者那一格补上** —— 原版 `CardEffect.enchantingCard(+0x18) = abilityData.thisCard(+0x10)`（`decomp_full/AbilityLogic__PlayAbility.c` 那三句；`AbilityData` 字段表 `dump.cs` `thisCard 0x10` / `actingCard 0x18`）⇒ 取数口 = `GrantCasterCardName`（= 本仓既有的「能力属主」判据 `ActingUnit ?? CreationSource`，与 `BattleContext.NewInstance` 盖 `createdBy` 那一格**同一份**）。⚠️ **今天零可观测**：本格的 `extrinsic` 仍是 `ctx.ResolvingExtrinsic || IsExtrinsicSource(source)`（`source` = 黑暗契约种类名，不是 `Auras.GrantTag`）⇒ 带 `Caster` 的那几条记录 `Extrinsic` 恒假，而 `ContainsExtrinsicEffectsFrom` / `RevertGrantsCastBy(extrinsicOnly:)` 要求 `Extrinsic` 才认它   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原版 `CardEffect.extrinsic(+0x30)`（判据 `decomp_full/AbilityLogic__PlayAbility.c:1197-1200`）的作用域量；⛔ 缺了这一跳 = 「关键词算 extrinsic、属性不算」，同一个效果被拆成两半
+                appliedMod = u.RecordGrant(NormalizeAttr(p.Attr), val, grantSource, caster: GrantCasterCardName(ctx), extrinsic: ctx.ResolvingExtrinsic, origin: UnitState.DeriveEffectOrigin(ctx, NormalizeAttr(p.Attr), EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（`buffType 1 addStats` 档；判不到只回卡名）｜🔴 2026-10-29（B98_G2 · 账 832 ①）：**施放者那一格补上** —— 原版 `CardEffect.enchantingCard(+0x18) = abilityData.thisCard(+0x10)`（`decomp_full/AbilityLogic__PlayAbility.c` 那三句；`AbilityData` 字段表 `dump.cs` `thisCard 0x10` / `actingCard 0x18`）⇒ 取数口 = `GrantCasterCardName`（= 本仓既有的「能力属主」判据 `ActingUnit ?? CreationSource`，与 `BattleContext.NewInstance` 盖 `createdBy` 那一格**同一份**）。⚠️ **今天零可观测**：本格的 `extrinsic` 仍是 `ctx.ResolvingExtrinsic || IsExtrinsicSource(source)`（`source` = 黑暗契约种类名，不是 `Auras.GrantTag`）⇒ 带 `Caster` 的那几条记录 `Extrinsic` 恒假，而 `ContainsExtrinsicEffectsFrom` / `RevertGrantsCastBy(extrinsicOnly:)` 要求 `Extrinsic` 才认它   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原版 `CardEffect.extrinsic(+0x30)`（判据 `decomp_full/AbilityLogic__PlayAbility.c:1197-1200`）的作用域量；⛔ 缺了这一跳 = 「关键词算 extrinsic、属性不算」，同一个效果被拆成两半
             }            else
             {
                 switch (NormalizeAttr(p.Attr))
@@ -12311,10 +12334,10 @@ namespace RuleEngine
                     //   「限时 → 记一条」那一段（`AddTempBuff` 会在那里建同一条修饰），
                     //   否则一次施加会记两条修饰（数值翻倍、且到期只摘得掉一条）。
                     case "attack":
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 `RecordGrant` 那一跳（限时那一种不走这里、由 `AddTempBuff` 建）
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("attack", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "attack", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 `RecordGrant` 那一跳（限时那一种不走这里、由 `AddTempBuff` 建）
                         break;
                     case "ranged":
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("ranged", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "ranged", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳
                         break;
                     // 🔴 **2026-10-25（Stage 2b + K1）**：生命**正加**当场加到当前生命（原版
                     //   `CardScript__AddEffect.c:331-346` `healthChange >= 1 ⇒ currentHealth += healthChange`，
@@ -12325,7 +12348,7 @@ namespace RuleEngine
                     //   ⚠️ 以前这里是两条都 `Health += val` + 物化 `MaxHealth` ⇒ 负值会**多减一次**。
                     case "health":
                         if (val >= 1) u.Health += val;
-                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup);   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳（`u.Health += val` 那一半是当场加血、与修饰账无关）
+                        if (string.IsNullOrEmpty(duration)) appliedMod = u.AddStatMod("health", val, extrinsic: ctx.ResolvingExtrinsic, rowGroup: rowGroup, origin: UnitState.DeriveEffectOrigin(ctx, "health", EffectsToShow.BuffTypeAddStats, false));   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：同 attack 那一跳（`u.Health += val` 那一半是当场加血、与修饰账无关）
                         break;
                     // 负甲 clamp 0（原版 `:3320`：防「负甲反而加伤」）
                     //
@@ -12439,7 +12462,7 @@ namespace RuleEngine
                     // 带来源那条路（`RecordGrant`）已经建好了修饰 ⇒ 复用它，⛔ 别再建一条。
                     Mod = appliedMod,
                     // 🆕 2026-10-27（B9 · S0-①）：限时关键词那条记录（`null` = 非关键词 / 空给 / 没挂上）。
-                    TraitRec = appliedTrait, Extrinsic = ctx.ResolvingExtrinsic,   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原版 `CardEffect.extrinsic(+0x30)` 的作用域量；`AddTempBuff` 会把它同步到 `Mod` 那一格（两本账一份判据）
+                    TraitRec = appliedTrait, Extrinsic = ctx.ResolvingExtrinsic, Origin = UnitState.DeriveEffectOrigin(ctx, p.IsKeyword ? p.Keyword : NormalizeAttr(p.Attr), p.IsKeyword ? (viaAddTraitRemnant ? UnitState.BuffTypeAddTraitRemnant : UnitState.BuffTypeAddTrait) : EffectsToShow.BuffTypeAddStats, false),   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：限时那条的归属四元组（`AddTempBuff` 会写进它建/补的那条 `StatMod`；判不到只回卡名）｜🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原版 `CardEffect.extrinsic(+0x30)` 的作用域量；`AddTempBuff` 会把它同步到 `Mod` 那一格（两本账一份判据）
                 });
             }
 
@@ -12590,7 +12613,7 @@ namespace RuleEngine
                 //   ⚠️ 今天这三张原版卡走的是**事件层**（`WhenTriggers` + `SelfOnly`），
                 //   本支只覆盖 `EffectSpec` 那条旧路（`FromOriginalPool == false`）⇒
                 //   两条**互斥**、不会双发（见 `BodyResolves` 的口径）。
-                EmitListenerTrigger(ctx, card, owner, u, WhenEventKind.GetsDarkPact);
+                var selfEvt = EmitListenerTrigger(ctx, card, owner, u, WhenEventKind.GetsDarkPact);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：交给下面那条队列体 arm（⚠️ 该队列体走 `ResolveEffect`(旧 `EffectSpec` 路)、不经 `ResolveTargets` ⇒ arm 恒不填；真池 0 张可达 —— 报告 §没查清）
                 ctx.Log($"{u.Name} 的「After receiving a Dark Pact」触发");
                 // 🔴🆕 2026-10-21（审查 `W61b` 第 2 条 · CONFIRMED）：**只入队，不就地结算**。
                 //   判据 = 本支自己的注释上面那一条：原版走 `CardScript__ReactToUnitMarked.c:7`
@@ -12602,7 +12625,7 @@ namespace RuleEngine
                 //   ⚠️ 触达面如实记：只有 `FromOriginalPool == false` 的旧 `EffectSpec` 卡走这条
                 //      （原版三张 BL 卡走事件层），**今天真池 0 张可达**（铁律 11：照样要接）。
                 EnqueueAbility(ctx, ListenerLane(card), (u.Name ?? "?") + "·darkpact-self",
-                               () => DarkPactReactDeferred(ctx, owner, u, selfFx, "收到黑暗契约后"),
+                               () => DarkPactReactDeferred(ctx, owner, u, selfFx, "收到黑暗契约后", selfEvt),
                                // 施放者 = 拿到契约的那个单位（原版 context `Play(0)`）
                                // 🔴 **2026-10-22（`W63` · C6）：保持 `requireActorInPlay: true`，不传 `abilityContext`。**
                                //   这一支只覆盖 `FromOriginalPool == false` 的旧 `EffectSpec` 卡（见上面那段注释）
@@ -12621,12 +12644,12 @@ namespace RuleEngine
                 var fx = hv.Card != null ? hv.Card.Effect("when a friendly troop receives a dark pact") : null;
                 if (fx == null) continue;
                 // 🆕 2026-10-19（`T21` · 缺口 E）：同上 —— 按**反应者**（同伴）的卡名发事件。
-                EmitListenerTrigger(ctx, hv.Card, owner, hv, WhenEventKind.GetsDarkPact);
+                var allyEvt = EmitListenerTrigger(ctx, hv.Card, owner, hv, WhenEventKind.GetsDarkPact);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：同上（交给下面那条队列体 arm）
                 ctx.Log($"{hv.Name} 的「When a friendly troop receives a Dark Pact」触发");
                 // 🔴🆕 2026-10-21（审查 `W61b` 第 2 条）：同 ② —— 只入队（判据同上）。
                 var _hv = hv;
                 EnqueueAbility(ctx, ListenerLane(_hv.Card), (_hv.Name ?? "?") + "·darkpact-ally",
-                               () => DarkPactReactDeferred(ctx, owner, _hv, fx, "友方收到黑暗契约时"),
+                               () => DarkPactReactDeferred(ctx, owner, _hv, fx, "友方收到黑暗契约时", allyEvt),
                                // 🔴 2026-10-22（`W63` · C6）：同上（`EffectSpec` 旧路、无 `abilityContext` 数据）
                                //   ⇒ 保持 `requireActorInPlay: true`，不传 `abilityContext`。
                                actor: _hv, requireActorInPlay: true);
@@ -12802,7 +12825,9 @@ namespace RuleEngine
         ///    出队时 `ctx` 上的代词槽可能已被别的动作改过（同 `QueuedAction.Execute` 的口径）。
         /// </summary>
         static void DarkPactReactDeferred(BattleContext ctx, int owner, UnitState u,
-                                          EffectSpec fx, string label)
+                                          EffectSpec fx, string label,
+                                          // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：广播那一刻发出的监听事件（arm 用）；`null` ⇒ 原样结算
+                                          BattleEvent triggerEvent = null)
         {
             if (ctx == null || u == null || fx == null || ctx.IsOver) return;
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
@@ -12811,7 +12836,7 @@ namespace RuleEngine
                 return;
             }
             ctx.EffectChain++;
-            try { ResolveEffect(ctx, owner, u, fx, null); }
+            try { ResolveWithTriggerTargetSink(ctx, triggerEvent, () => ResolveEffect(ctx, owner, u, fx, null)); }
             finally { ctx.EffectChain--; }
         }
 
@@ -15184,7 +15209,7 @@ namespace RuleEngine
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
-                t.FerocityStay = true; t.FerocityStayBy = GrantCasterCardName(ctx) ?? (ctx.PlayingCard != null ? ctx.PlayingCard.Name : null) ?? by;   // 🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：补「这条记录是谁给的」（原版 `CardEffect.enchantingCard(+0x18)`）—— `by` 对**战术卡**恒为 `"战术卡"`（`ResolveOps:355`），所以先取 `GrantCasterCardName`（= `ActingUnit ?? CreationSource`）、再取 `ctx.PlayingCard`（战术卡那条路），最后才退 `by`。⚠️ 只用于**展示归属**，⛔ 结算仍只读 `FerocityStay` 布尔
+                t.FerocityStay = true; t.FerocityStayBy = GrantCasterCardName(ctx) ?? (ctx.PlayingCard != null ? ctx.PlayingCard.Name : null) ?? by; var __fo = UnitState.DeriveEffectOrigin(ctx, EffectsToShow.FerocityStayTrait, UnitState.BuffTypeAddTrait, false, CardDef.DefinedTraitNumber("dontReturnFerocity")); t.FerocityStayAb = __fo.Ab; t.FerocityStayLg = __fo.Lg;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：`FerocityStayAb/Lg` = 原版那条 `buffType 3 addTrait trait 1270` 记录的 `(ab, lg)` —— 这 2 张卡（`SW40` / `SW36`）**不走 `ApplyTraitEffect`**（正文是 `ferocitystay`、模型是布尔）⇒ 归属只能记在这里；`traitDefinedId = 1270` 用来把候选行钉在同 trait 上（⛔ 别放宽）｜🆕 2026-10-30（执行代理 `B102_EFF` · 账 `特效动画:521`）：补「这条记录是谁给的」（原版 `CardEffect.enchantingCard(+0x18)`）—— `by` 对**战术卡**恒为 `"战术卡"`（`ResolveOps:355`），所以先取 `GrantCasterCardName`（= `ActingUnit ?? CreationSource`）、再取 `ctx.PlayingCard`（战术卡那条路），最后才退 `by`。⚠️ 只用于**展示归属**，⛔ 结算仍只读 `FerocityStay` 布尔
                 n++;
                 // 🆕 2026-09-16：常驻版（`SW36 Bjorn the Fell-Handed` 的 `it stays in play`）走同一个标记，
                 // 但措辞不能再说「本回合下一次」—— 它每次用狂暴都会重新标一次（事件层），
@@ -20578,9 +20603,9 @@ namespace RuleEngine
             if (ctx == null || u == null || u.Card == null) return 0;
             int slot = -1;
             FindSlot(ctx, u, out _, out slot);                                 // 不在场上 ⇒ `slot = -1`（`EmitFollowUpResolution` 的 slot 口径）；`FindSlot` 两边都先置 -1，所以失败时也是 -1
-            EmitFollowUpResolution(ctx, u.Card, p, slot, u.InstanceId);
-            bool fired = RuleCore.FireTriggerByNumber(ctx, u, 410, p, slot,
-                                                      actingCard: chosen ?? u, targetCard: chosen ?? u);
+            var fuEvt = EmitFollowUpResolution(ctx, u.Card, p, slot, u.InstanceId);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：410 的 `option 2` 目标在队列体里才解析得出来 ⇒ 把这条事件交给 `FireTriggerByNumberWithSink` arm
+            bool fired = RuleCore.FireTriggerByNumberWithSink(ctx, u, 410, p, slot,
+                                                      actingCard: chosen ?? u, targetCard: chosen ?? u, triggerEvent: fuEvt);
             ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 320`（followAfterResolution）：已登记后续结算 → "
                   + $"`trigger 410`（{(fired ? "已排入行动队列" : "本卡没有可结算的 410 正文 ⇒ 不会有后续")}）"
                   + "（判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` → "
@@ -20953,6 +20978,47 @@ namespace RuleEngine
                                                          string triggerName, string effect, int instanceId)
         {
             return EmitCardTrigger(ctx, card, owner, unit, triggerName, effect, -1, false, instanceId);
+        }
+
+        // ==========================================================================
+        //  🔴🆕 2026-10-31（执行代理 `B107_W10` · 施工单 T21-8）：`FireTriggerByNumber` 的 **arm 版**
+        //  —— 与 `RuleCore.FireTriggerByNumber` **同一份判据**（同一道闸 / 同一张正文表 / 同一条道 / 同一队），
+        //  只多一件事：把调用方给的那条 `EvtKind.Trigger` 事件放进 `ResolveWithTriggerTargetSink`，
+        //  让队列体里的 `ResolveOps` → `ResolveTargets` 把「410 正文解析出的第一个目标」
+        //  （= 原版 `option 2` 的 `possibleTargets`，判据 `AbilityLogic__GetPos.c:191-219`）写回**同一个对象**。
+        //
+        //  ⚠️ **为什么在本文件里另起一份、而不是改 `RuleCore.cs` 那个**：`RuleCore.cs` **不在本代理白名单**
+        //  ⇒ 那边的「7 参版改成转调本方法」写成**可粘贴补丁**交回（`报告/B107_W10.md` §可粘贴补丁）。
+        //  补丁落地之前这两份体是**暂时的重复**（闸 / 取表 / 入队三处）—— 补丁落地后只剩本方法一份。
+        //  ⛔ 调度台别忘了落那条补丁；⛔ 别在原地再写第三份。
+        // ==========================================================================
+        internal static bool FireTriggerByNumberWithSink(BattleContext ctx, UnitState u, int triggerNumber,
+                                                         int owner, int slot, UnitState actingCard, UnitState targetCard,
+                                                         BattleEvent triggerEvent)
+        {
+            if (ctx == null || u == null || u.Card == null) return false;
+            string tn;
+            if (!CardDef.TryAbilityTriggerNameOfNumber(triggerNumber, out tn))
+            {
+                ctx.Log($"⚠️ trigger 数值 {triggerNumber} 不在 `AbilityTriggerNumberOfName` 里 ⇒ 这条触发不结算（⛔ 不猜）");
+                return false;
+            }
+            var ops = u.Card.TriggerOpsByNumber(triggerNumber);
+            if (ops == null || ops.Count == 0) return false;      // 数据半没落列 ⇒ 今天恒走这一支（休眠）
+            return EnqueueAbility(ctx, TriggerLaneOfCard(u.Card, tn),
+                u.Name + "·trigger#" + triggerNumber,
+                () => ResolveWithTriggerTargetSink(ctx, triggerEvent, () =>
+                {
+                    using (EventSlotsScope.TargetCardAndActing(ctx, targetCard, u.Card, actingCard))
+                    {
+                        ctx.EffectChain++;
+                        try { ResolveOps(ctx, owner, u, ops, tn.ToUpperInvariant(), chosen: targetCard); }
+                        finally { ctx.EffectChain--; }
+                    }
+                }),
+                actor: u,
+                requireActorInPlay: ActorMustBeInPlayForTrigger(u.Card, tn, null),
+                abilityContext: AbilityContextOfAbilityV14(u.Card, tn, null));
         }
     }
 }

@@ -16,8 +16,8 @@
 //      凡祖先链上有全屏拉伸的，高度退化成 sizeDelta、y 偏 +1080）；§五 的注释里有完整判据。
 //   ② **布局组算出来的位置不是 JSON 值**：5 个导航钮（VLG sp −16.35 / padTop −5）、
 //      `InboxBtn`/`Challenge`（HLG sp 9.75）—— §五 C/B 两表里标了「按 VLG/HLG 算」，**别回头去查 JSON**。
-//   ③ **出厂 `activeSelf=False` 的一律不建**（`Profile border` / `Tutorial highlight` …
-//      —— 原版是运行时按状态开的，我们还没实现那套状态就先别摆一个常显的假件）。
+//   ③ **出厂 `activeSelf=False` 的默认不建**（`Profile border` 等 —— 原版是运行时按状态开的，没接状态驱动就先别摆一个常显的假件）。
+//      🔴 **2026-10-31（`B107_P5`）订正（铁律 5）：`Tutorial highlight` 不在此列** —— `Shell/MenuTutorialHighlight.cs` + `Shell/MenuTutorialFlow.cs` + `Shell/LoadingMenu.cs` 都已建、本文件 `:645` `MenuTutorialFlow.Attach(this)` 已接（判据 = `判据/B107_补判据_新账15条.md` N81）。
 //      🔴 **2026-10-11（`A1522①` / `A1523①`）就地订正（铁律 5）：顶栏那两颗是【例外】——【建、但出厂关着】。**
 //        触发它的事实 = 同一排三颗的处理**自相矛盾**：`InboxBtn` 常显 · `Challenge button` 我们建成**常显**
 //        （原版运行期实况是**关**的）· `Feedback Button` 我们**根本不建**（原版是**建了、出厂关着**）。
@@ -25,7 +25,7 @@
 //        ⛔ 不删节点 —— 删了 `Editor/{MainMenuScene,DeckScene}.cs` 里按名字找它的断言会红）。
 //        判据（逐颗）与落地 → 共用件 `Shell/TopBar.cs`（那一排建在那边）· 判据全文 →
 //        `资料/普查产出_第十七会话/P_信箱与名牌.md`。⛔ 别把这两颗退回「不建」。
-//      ⚠️ **其余那些出厂 `False` 的件（`Profile border` / `Tutorial highlight` 等）照旧不建** ——
+//      ⚠️ **其余那些出厂 `False` 的件（`Profile border` 等；`Tutorial highlight` 除外 —— 见 ③）照旧不建** ——
 //        本条只给**顶栏那两颗**开口子（它们有「原版实况 = 关着」+「结构照原版留全」两条判据）。
 //
 // ⚠️ **已知缺口（本批没做，别当已完成）**：

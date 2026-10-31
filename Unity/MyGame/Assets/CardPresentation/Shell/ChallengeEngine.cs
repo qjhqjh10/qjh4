@@ -8,13 +8,13 @@
 //     收到徽标信号就重算、`Toggle` 只是把「该显」写下来（真正的 `SetActive` 在视图侧）。
 //   ⛔ **`BattleEventsController.CheckHealth()` / `Update()` 不在本文件** —— 那两行本波由 `B88_E5` 在
 //     `BattleDriver.UpdateHud` 里内联落地（`_foeSkullHpSeen` / `_myWarlordMinHp`），账上已判 **A**。
-//     ⇒ 这里**⛔ 不重算血量差**（同一规则的第二份，迟早不一致），只留 `OnWarlordDamaged` 这个计数口。
+//     ⇒ 这里**⛔ 不重算 HUD 的血量差**（同一规则的第二份，迟早不一致）；挑战那一格走 `OnWarlordDamaged`（口径 = 本局最低血，`B107_W18` N22）。
 //
 // 🔴 **本文件为什么是「拉」而不是「推」**（这条决定了下游怎么接）：
 //   `CheckHealth` 在原版就是**每帧读当前血量再比对**（它自己存上一次的值）⇒ 它天生是**拉**。
 //   🔴 **那两行不由本文件顶**：本波 `B88_E5` 已在 `BattleDriver.UpdateHud` 里内联落地
 //   （`_foeSkullHpSeen` / `_myWarlordMinHp` 缓存），账里那两行已判 **A** ⇒ 本文件
-//   **⛔ 不重算血量差**（同一规则的第二份），只保留挑战计数口 `OnWarlordDamaged`。
+//   **⛔ 不重算 HUD 的血量差**（同一规则的第二份）；挑战计数口只有 `OnWarlordDamaged` 一处。
 //
 // 🔴 **三条计数口为什么是「推」**：`TroopKilled` / `LogHeal` / `LogAddEffect` 在原版由**动作结算那一刻**
 //   回调（`BattleAction` 里带 `CardEffect`），事件流里没有「治疗量」这种量（`ctx.Signals` 也没有 `Heal`）。
@@ -34,16 +34,16 @@ namespace CardPresentation
     {
         // ============================================================ ① 血线计数（⛔ 不重算血量差）
 
-        /// <summary>敌方督军掉了 <paramref name="amount"/> 血（挑战里的「对敌方战将造成 N 点伤害」那一类）。
-        /// <para>🔴 **这里只记数，⛔ 不做「血量差」**：`BattleEventsController.CheckHealth` / `Update` 那两行
-        /// 已经由 `B88_E5` 在本波落地（等价实现 = `BattleDriver.UpdateHud` 里的 `_foeSkullHpSeen` /
-        /// `_myWarlordMinHp` 内联缓存）⇒ 在这里再比一次血量就是**同一条规则的第二份**（迟早不一致）。
-        /// 本口只服务**挑战计数**，发射点与 `LogHeal` / `LogAddEffect` 同一族（结算侧，白名单外）。</para></summary>
-        public static void OnWarlordDamaged(bool isPlayerWarlord, int amount)
+        /// <summary>敌方督军掉了 <paramref name="deltaHealth"/> 血（挑战里的「对敌方战将造成 N 点伤害」那一类）。
+        /// <para>🔴 **口径 = 原版 `EnemyHeroDamageScorer__OnHealthChange.c` 的「本局最低血」**：首次吃信号的
+        /// `DeltaHealth`；之后 `delta = 本局最低血 − CurrentHealth`，**>0（创新低）才累加并刷新最低血**。
+        /// ⚠️ **不是逐次累加**：敌方督军「治疗后挨打」在原版只按**最低血推进量**计（打 3、治回 3、再打 2 ⇒ 计 1、不是 5）。
+        /// `BattleEventsController.CheckHealth` / `Update` 那两行的落地仍在 `BattleDriver.UpdateHud`（`B88_E5`）。</para></summary>
+        public static void OnWarlordDamaged(bool isPlayerWarlord, int deltaHealth, int currentHealth)
         {
-            if (amount <= 0) return;
-            if (!isPlayerWarlord) ChallengeData.DamageEnemyWarlord += amount;   // 只数「对敌方」的伤害
-            UiBadgeNotificationManager.Refresh(typeof(ChallengeMatch));
+            if (isPlayerWarlord) return;                                              // 只数「对敌方」的伤害
+            int d = _foeLowestSet ? _foeLowestHealth - currentHealth : deltaHealth; if (d <= 0) return;   // 原版：首次 `+0x14`(DeltaHealth)，之后 `+0x28`（最低血）−`+0x10`（CurrentHealth）；`if (0 < iVar1)` 才发
+            _foeLowestHealth = currentHealth; _foeLowestSet = true; ChallengeData.DamageEnemyWarlord += d; UiBadgeNotificationManager.Refresh(typeof(ChallengeMatch));
         }
 
         // ============================================================ ② 三条计数口（`ChallengeLogMgr`）
@@ -169,5 +169,15 @@ namespace CardPresentation
         {
             get { var h = VisibleChanged; return h == null ? 0 : h.GetInvocationList().Length; }
         }
+
+        // ============================================================ ⑦ 🆕 2026-10-31（`B107_W18` · N22）：本局最低血基线
+        /// <summary>敌方督军的「本局最低血」与「基线是否已建立」= 原版 `EnemyHeroDamageScorer` 的 `+0x28` / `+0x2c` 两格。
+        /// <para>⚠️ **每局开局必须清**（`BattleDriver.Begin` 调 <see cref="ResetWarlordHealthBaseline"/>）：
+        /// 不清的话上一局的最低血会被带进新局 ⇒ 新局第一下伤害算成 `最低血 − 当前血`（负数）⇒ **静默计 0**。</para></summary>
+        static int _foeLowestHealth;
+        static bool _foeLowestSet;
+
+        /// <summary>开局清「本局最低血」基线（⛔ 不清 `ChallengeData` 那五个计数 —— 那是 `ResetRunCounters` 的事）。</summary>
+        public static void ResetWarlordHealthBaseline() { _foeLowestHealth = 0; _foeLowestSet = false; }
     }
 }

@@ -667,7 +667,7 @@ namespace CardPresentation
         /// 逐句 = `GameWindow__Hide.c`：
         /// <list type="number">
         /// <item>`Component.get_gameObject(this) == null` ⇒ return（那两个 null 判据是 IL2CPP 的样板）；</item>
-        /// <item>**`!gameObject.activeSelf` ⇒ return**（首句守卫）；</item>
+        /// <item>**`!gameObject.activeSelf` ⇒ return**（首句守卫）—— 🔴 **原版同形，⛔ 别修**（`.c` 与 `out_il2csharp` 双证：它排在 `state = Closed` **之前**）⇒ 对已 inactive 的窗调 `Hide()` **不写 `Closed`**、也**不进 `_pendingDestroy`**（入表只经 `Close()` 尾句、且入表前已写 `Closed`，见 `WindowsManager.QueueDestroyOnClose`）；本仓生产路径上「inactive 却 `state != Closed`」只剩 `Background`（`ToBackground()` 族）⇒ `TryOpen` 的 `Background` 支会带回来，**不是僵尸窗**（判据 → `资料/完全复刻/报告/B107_W3.md`）；</item>
         /// <item>`CurrentState = Closed`（`*(undefined4 *)(param_1 + 0x68) = 0`）；</item>
         /// <item>`gameObject.SetActive(false)`；</item>
         /// <item>末尾 `OnCloseWindow`（字段 `0x60`）非空就 Invoke（顺手把它换成一份缓存委托）。</item>

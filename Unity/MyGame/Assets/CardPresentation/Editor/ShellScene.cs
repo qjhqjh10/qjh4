@@ -4809,6 +4809,7 @@ public static class ShellScene
         CheckNear(WarpforgeAudio.MusicVolumeMultiplier, 0.2f, 0.0001f,
                   "★ 音乐的 ×0.2 在 **mixer 侧**（`WarpforgeAudio.MusicVolumeMultiplier` = 原版 `MusicManager.musicVolumeMultiplier`，"
                 + "预制体实证 0.2）—— 源侧已是 1.0，这一格不是 0.2 时**总响度**就与原版不等（少乘 = 响 5 倍）");
+        B107W15_Assert.RunAudioRouting(); _sink.Pass += B107W15_Assert.Pass; _sink.Fail += B107W15_Assert.Fail; B107R3c_Assert.Run(); _sink.Pass += B107R3c_Assert.Pass; _sink.Fail += B107R3c_Assert.Fail; B107R3d_Assert.Run(); _sink.Pass += B107R3d_Assert.Pass; _sink.Fail += B107R3d_Assert.Fail;
 
         // ---- 🆕 2026-10-26（W11AU · 账行 19·20·21·22·23·27·28·29·30·31）：`AudioSourcesController` 双源 3 s 交叉淡变 ----
         // 判据：`AudioSourcesController__{Blend,DecrementVolume,FadeIn,FadeOut,IncrementVolume,SetMaxVolume,SetMinVolume,Stop,

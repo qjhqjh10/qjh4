@@ -953,5 +953,19 @@ namespace WarpforgeVFX
         /// <summary>原版 `SwarmVFXController.OnAnimationEndEvent` 里 `Destroy(gameObject, 5f)` 的 **5.0**
         /// （`DAT_1834b2df4` 现读 4 字节 float）。</summary>
         public const float SwarmAnimationEndTail = 5f;
+
+        /// <summary>🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：把「持有者离场 ⇒ 自毁」补挂到**已经播出来**的实例上。
+        /// <para>为什么需要：`Play` 只在 `parent != null` 时记 `_ownerWatch`；而
+        /// <see cref="CardPresentation.CardEffects.FireGet"/> 的**根退路**（`parent == null`）拿不到父件，
+        /// 原版那一件本来仍实例化在卡的 `GetEffectAnchor` 下（`BattleManager__CreateAnim.c:62-72`）⇒
+        /// 卡没了它一起没。这里是同一语义的后挂口。<b>⛔ 不是新行为</b>：走的就是 `Tick` 里既有那条 `_ownerWatch` 分支。</para>
+        /// <para>⚠️ `owner == null` / 已销毁 ⇒ 什么都不做（不抛）。</para></summary>
+        public void AttachOwner(Transform owner)
+        {
+            if (owner == null || _destroyed) return;
+            _ownerWatch = owner;
+            _hasOwnerWatch = true;
+            _ownerWasActive = false;   // 「见过它活着一次」由 Tick 自己记（同 `Play` 里那条）
+        }
     }
 }

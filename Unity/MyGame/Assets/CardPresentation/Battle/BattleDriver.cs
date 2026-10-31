@@ -4952,7 +4952,7 @@ namespace CardPresentation
             _endSeqStarted = false;
             _endSeqSteps.Clear();
             _endSeqDead.Clear();
-            _endSeqCursor = 0; _endSeqHudHidden = false;
+            _endSeqCursor = 0; _endSeqHudHidden = false; ChallengeData.ResetRunCounters(); ChallengeEngine.ResetWarlordHealthBaseline();
             // 🆕 2026-10-27（`A4` · 结转能量桥）：`_savedMana*` 在本方法里被重置成「未知」⇒ 桥那三个影子值
             //   也必须一起清，否则新局里 `carry/energy/max` 恰好与上一局相同时**不会再喂**（灯停在「未知」档）。
             if (_manaBridgeCarry != null)
@@ -8970,7 +8970,7 @@ namespace CardPresentation
         void OnMulliganCardSeen(CardView card)
         {
             if (FeedMulliganCardSeen(card)) return;
-            OnCardTapped(card);
+            OnCardTappedForced(card);
         }
 
         void OpenMulligan()
@@ -13292,7 +13292,7 @@ namespace CardPresentation
             //   「拖到目标上再松手」）**收回** —— 轻点不是一次失败的拖拽，它开的是卡面展示窗。
             //   ⚠️ 放在**所有早退之前**：`SameFrame` / `TutorialAllowsCardDisplay` 那两道闸
             //   只决定「开不开窗」，不改变「这一下是轻点」这个事实。
-            SetHint("");
+            SetHint(""); if (CardWinUiStateBlocked()) return;
             // 🆕 2026-10-25（待A接线清单 #2）：**抬牌态不开窗** —— 原版 `ShowCardInHand:10484` 期间
             //   走 `ToggleOpenCardDisplayOnTouch(false):10597`（把 OnClick 摘掉）⇒ 这时轻点**不翻窗**。
             //   判据口 = `Hand/CardInteraction.cs:549-566` 的 `CardDisplaySuppressedFor`（E 已实现，只差这一句）。
@@ -20014,7 +20014,7 @@ namespace CardPresentation
             /// <summary>非 null ⇒ 走 `CardEffects.Fire(name, points, parent)` 的多落点重载（抽卡那一族）。</summary>
             public Vector3[] cuePoints;
             /// <summary>父节点（与事件那一拍同一个口径；目前生产调用都是 null）。</summary>
-            public Transform cueParent;
+            public Transform cueParent; public Transform cueOwner; public bool cueRequireOwner;   // 🆕 2026-10-31（`B107_W29` · FX-04 C-4）：`cueRequireOwner` = 这条 cue 走原版 `CreateAnim` 那条路（要求 `startParent` 非空）；为真且到点时 `cueOwner` 没了 ⇒ **整件跳过**（判据 `BattleManager__CreateAnim.c:41` 判 `startParent` 空 → `:91 return 0`）
             /// <summary>🆕 2026-10-23（`新账-82④`）：**排期那一刻**的 AnimFX 卡上下文。
             /// `WFEffectCards.Resolver` / `WFModuleScaleByTarget.CardResolver` 等全局静态读的是
             /// 「特效**创建那一刻**」的 `_animfxCtx`，而延迟件到点时那个值早就被清成 `default` ⇒
@@ -22024,10 +22024,10 @@ namespace CardPresentation
                 {
                     // 🆕 2026-10-19（T05 · 卡上特效改走挂载）：`parent != null` 时 `pos` 是**局部**点
                     //   （`CardEffects.Fire` → `WarpforgeEffectPlayer.Play(..., parent, localPosition, ...)`）。
-                    //   延迟件**不能**带着 parent 排期 —— 到点时那个父件（卡/锚点）可能已经被销毁 ⇒
-                    //   `Instantiate(prefab, 销毁的 parent)` 是不可预期行为。⇒ 排期时当场换算成世界点、不挂父件。
-                    Vector3 world = parent != null ? parent.TransformPoint(pos) : pos;
-                    ScheduleVfxCue(items[i].Name, world, null, null, items[i].T, items[i].Duration);
+                    // 🔴 2026-10-31（`B107_W29` · FX-04 C-4，**推翻**旧口径）：原版延迟件到点仍走
+                    //   `CreateAnim(..., startParent, ...)`，而 `!startParent ⇒ return 0`（**整件跳过**，`BattleManager__CreateAnim.c:41` 判 `startParent` 空 → `:91 return 0`）
+                    //   ⇒ 不再「排期时换算成世界点、根播」（原版没有这条播法）：把 `parent` 记成 `cueOwner`；到点 owner 已没（或本来就没有）⇒ `FireCueVfx` **跳过并出声一次**。
+                    ScheduleVfxCue(items[i].Name, pos, null, parent, items[i].T, items[i].Duration, owner: parent, requireOwner: true);
                 }
             }
         }
@@ -22235,14 +22235,14 @@ namespace CardPresentation
         /// 事件压在它身上开场（同 `EventTiming.DurationOf` 那条口径）。`0` = 数据里没有时长 ⇒ 只按起点算。</para>
         /// <para>⚠️ 它**不是事件**：`AdvanceTimeline` 弹到它只 `CardEffects.Fire`（见 `PendingSignal.cueVfx`）。</para></summary>
         void ScheduleVfxCue(string name, Vector3 pos, Vector3[] points, Transform parent,
-                            float delay, float duration)
+                            float delay, float duration, Transform owner = null, bool requireOwner = false)
         {
             if (string.IsNullOrEmpty(name)) return;
             float at = _clock + Mathf.Max(0f, delay);
             float end = at + Mathf.Max(0f, duration);
             _timeline.Add(new PendingSignal
             {
-                at = at, cueVfx = name, cuePos = pos, cuePoints = points, cueParent = parent,
+                at = at, cueVfx = name, cuePos = pos, cuePoints = points, cueParent = parent, cueOwner = owner, cueRequireOwner = requireOwner,
                 // 🆕 2026-10-23（`新账-82④`）：把**排期那一刻**的卡上下文一起带下去（见字段 doc）
                 cueCtx = _animfxCtx, cueEvt = _animfxLastEvent,
             });
@@ -22266,7 +22266,7 @@ namespace CardPresentation
         /// 铁律 10 第 5 条：一个对象有多个入口时，状态要在每个入口都带上。</para></summary>
         void FireCueVfx(PendingSignal p)
         {
-            var sCtx = _animfxCtx;
+            if (p.cueRequireOwner && p.cueOwner == null) { NoteCueOwnerGone(p.cueVfx); return; } var sCtx = _animfxCtx;   // 🆕 2026-10-31（`B107_W29` · FX-04 C-4）：原版 `CreateAnim` 对空 `startParent` 整件跳过（`BattleManager__CreateAnim.c:41` 判 `startParent` 空 → `:91 return 0`）
             var sEvt = _animfxLastEvent;
             if (p.cueCtx.HasValue) { _animfxCtx = p.cueCtx.Value; _animfxLastEvent = p.cueEvt; }
             try
@@ -23651,8 +23651,8 @@ namespace CardPresentation
             //   那条「视图在不在棋盘上」的推断 —— 调用方已经**在手牌里找到了它**（`HandCardViewOf`），
             //   比推断更硬。`1 cardTarget` / `2 abilityTarget` **不动**（目标真在棋盘上时锚就该是目标那张卡）。
             if (handAnchored && self != null && sp == (int)PositionOption.self) anchor = self.EffectAnchor(false);
-            // 🔴🆕 2026-10-31（`B104_T21` · T21-a）：手牌档 —— `0/1/2` 三档里 `1 cardTarget` / `2 abilityTarget`
-            //   在**没有目标**时会解析成 null（`AnimAnchors.CardAnchor(null)` 出声后回 null）。
+            // 🔴🆕 2026-10-31（`B104_T21` · T21-a）→ **2026-10-31 `B107_W33` 订正**：手牌档 —— 这条降级**只有 `1 cardTarget` 够得着**；
+            //   ⛔ `2 abilityTarget` 在**没有目标**时**不会**解析成 null（`AnimAnchors.Resolve` 退到 `self`，见 `AnimAnchors.cs:171-172`），别照上句以为它也走这里。
             //   原版那一格是 `FUN_1803f47a0()`（**抛异常**、反编译标 `Subroutine does not return`）——
             //   我们⛔ 不抛（会把一局打断）⇒ **退回这张手牌卡自己的锚**（= 原版 `GetEffectAnchor` 手牌档那一支）。
             //   🔶 自己设计（非原版）：目标锚为空时的降级 · 因为原版在这一格抛异常、我们选择不中断对局 · 调度台 2026-10-31 裁定（施工单 T21-a）
@@ -23726,7 +23726,7 @@ namespace CardPresentation
                     EnsureAnchorSpace(anchor);
                     CardEffects.Fire(vfx, Vector3.zero, anchor);
                 }
-                else CardEffects.Fire(vfx, pos);
+                else AttachVfxOwner(CardEffects.FireGet(vfx, pos), self);   // 🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：根退路补挂持有者（与 `PlayPlacedOne` 同口径）
                 _animfxCtx = default;
                 return;
             }
@@ -24178,7 +24178,7 @@ namespace CardPresentation
             if (!place.HasValue)
             {
                 // 判据为空（这条候选没有 `CardAnim` 名 / 表里没有它）⇒ **退回今天那条单点路**。
-                CardEffects.Fire(vfx, fallbackPos);
+                AttachVfxOwner(CardEffects.FireGet(vfx, fallbackPos), self);   // 🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：根实例同样要「跟卡一起走」（见 `AttachVfxOwner`）
                 return;
             }
             var p = place.Value;
@@ -24197,7 +24197,7 @@ namespace CardPresentation
                     // 有格位、却没有卡视图 ⇒ **与改前逐字一致**：根特效播在这一格（= 改前 `FireEventAll` 那条）。
                     // ⛔ 不拿 140 硬套（那会把本该在棋盘上的件挪到 HUD 中央）；也⛔ 不去调
                     // `AnimAnchors`（它对空卡视图会逐条 `LogError`，几百行会把日志冲掉 —— 判据本来就空）。
-                    CardEffects.Fire(vfx, fallbackPos);
+                    AttachVfxOwner(CardEffects.FireGet(vfx, fallbackPos), self);   // 🆕 2026-10-31（`B107_W29` · `FX-04`）：这一支 `self` 恒 null ⇒ 挂持有者是空操作；保留同一形状
                     return;
                 }
             }
@@ -38147,7 +38147,7 @@ namespace CardPresentation
             {
                 // 原版 `BattleManager.DisplayCard(card, show, …, mulliganException)` 的开窗那一半
                 // ⚠️ 只在**开**的那一支开窗：关的那一支由 `OnTouchExit` 那条路走（我们这里没有 exit 源）⇒ 不接成 toggle
-                h.DisplayCard = show => { if (show) OnCardTapped(card); };
+                h.DisplayCard = show => { if (show) OnCardTappedForced(card); };
             }
             var inp = new CardHighlight.TouchInput
             {
@@ -39851,6 +39851,72 @@ namespace CardPresentation
                            + "，我们不许把玩家留在空战场 —— `AUD10` §二 #8）");
             if (Application.isBatchMode) { LeaveBattle(); return; }
             ErrorPopupWindowController.ShowErrorMessage(CustomError.UnhandledError, LeaveBattle);
+        }
+
+        // ============================================================ B107_W18 · N26：`DisplayCard` 的 UIstate 闸
+        //
+        // 判据（原版，唯一一处）= `d:/2/tools/decomp_full/BattleManager__DisplayCard.c:14-18` 现读：
+        //   `iVar1 = *(int*)(this + 0x290)`（`UIstate`）；
+        //   `if ((((iVar1 != 0) && (1 < iVar1 - 7U)) && (1 < iVar1 - 0xbU)) || (param_4 != '\0'))` ⇒ 进入开窗段
+        //   ⇒ **只挡 {0,7,8,11,12}**；第 4 实参 `param_4`（= 强制档）为 1 时**一律开**。
+        //   `CardScript__OnTouchUpAsButton.c:52-61`（换牌期 cardState 13/14）= `DisplayCard(card, 1, 1)` ⇒ 走强制档。
+        // ⚠️ 状态号只从 `ChatHotkeyUiState()` 取（⛔ 不另算一份 —— 那会是同一条规则的第二份）。
+        // 🔴 与 `Hand/CardInteraction.FullBlocked()` 的分工：那里管「指针还进不进得来」（模态窗遮挡层吃射线），
+        //   这里管「**已经点到了**、但 UIstate 说不许开窗」—— 原版是同一条链上的两道，两处都要有。
+
+        /// <summary>原版 `UIstate ∈ {0,7,8,11,12}` ⇒ **不许开卡面展示窗**。
+        /// <paramref name="forced"/> = 原版 `DisplayCard` 第 4 实参：换牌期那两支传 1 ⇒ 绕开这道闸。</summary>
+        public static bool CardWinUiStateBlockedForState(int st, bool forced)
+        {
+            if (forced) return false;                                      // 原版 `param_4 != 0` 那一支
+            return st == 0 || st == 7 || st == 8 || st == 11 || st == 12;  // 原版 `UIstate != 0 && UIstate-7 > 1 && UIstate-11 > 1`
+        }
+
+        /// <summary>同上（非强制档）。</summary>
+        public static bool CardWinUiStateBlockedForState(int st) { return CardWinUiStateBlockedForState(st, false); }
+
+        /// <summary>这一下轻点该不该被 UIstate 档挡掉（`OnCardTapped` 的唯一闸）。
+        /// ⚠️ `_tapForced` = 原版强制档（换牌期点牌看牌），由 <see cref="OnCardTappedForced"/> 置位。</summary>
+        bool CardWinUiStateBlocked() { return CardWinUiStateBlockedForState(ChatHotkeyUiState(), _tapForced); }
+
+        /// <summary>自检读口：生产判据本身（⛔ 不另算一份）。</summary>
+        public bool CardWinUiStateBlockedForTest() { return CardWinUiStateBlocked(); }
+
+        /// <summary>自检读口：把 `ChatHotkeyUiState()` 暴露出来（断言要能证明闸读的就是它）。</summary>
+        public int ChatHotkeyUiStateForTest() { return ChatHotkeyUiState(); }
+
+        /// <summary>强制档的一层包装（原版 `DisplayCard(card, show, …, param_4: 1)`）—— 换牌面板点牌专用。
+        /// ⛔ 别把它当通用的「绕过闸」口子：原版只有 `OnTouchUpAsButton.c:52-61` 那一处传 1。</summary>
+        void OnCardTappedForced(CardView card)
+        {
+            _tapForced = true;
+            try { OnCardTapped(card); }
+            finally { _tapForced = false; }
+        }
+
+        /// <summary>「这一下轻点是强制档」—— 只在 <see cref="OnCardTappedForced"/> 里为真（finally 复位，⛔ 不留残值）。</summary>
+        bool _tapForced;
+
+        /// <summary>🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：给**根实例**补挂「卡离场 ⇒ 自毁」
+        /// （原版等价物 = `BattleManager.CreateAnim` 把实例 `Instantiate` 在起锚点下）。
+        /// 依赖 `WarpforgeEffectPlayer.AttachOwner`（`WarpforgeVFX/Runtime/WarpforgeEffectPlayer.cs` 类尾）。
+        /// <para>⚠️ `fx == null`（钩子没接 / 名字没解出）或 `owner == null` ⇒ 什么都不做（不抛）。</para></summary>
+        static void AttachVfxOwner(GameObject fx, CardView owner)
+        {
+            if (fx == null || owner == null) return;
+            var p = fx.GetComponent<WarpforgeVFX.WarpforgeEffectPlayer>();
+            if (p != null) p.AttachOwner(owner.EffectAnchor(true));
+        }
+
+        /// <summary>🆕 2026-10-31（`B107_W29` · FX-04 C-4）：一条延迟特效的持有者（原版 `CreateAnim` 的 `startParent`）不在了
+        /// ⇒ **整件跳过**（判据 = `decomp_full/BattleManager__CreateAnim.c:41` 判 `startParent` 空 → `:91 return 0`：`!startParent ∥ !endParent ⇒ return 0`）。
+        /// <para>⛔ 不再退回「换算世界点 + 根实例播」——那是原版没有的播法（旧口径见 `FireEventAll` 延迟档那段注释）。
+        /// 同一件只喊一次（去重 + 有上限，走 <see cref="BeatSoundOff"/>；本仓红线：不静默）。</para></summary>
+        static void NoteCueOwnerGone(string vfx)
+        {
+            BeatSoundOff("cueOwnerGone:" + vfx,
+                $"延迟特效 `{vfx}` 的持有者已不在（原版 `CreateAnim` 的 `startParent` 为空 ⇒ 整件跳过；"
+              + "判据 `BattleManager__CreateAnim.c:41` 判 `startParent` 空 → `:91 return 0`）");
         }
     }
 }

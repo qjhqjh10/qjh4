@@ -83,7 +83,7 @@ public static class WhiteboardTest
                     + "\t" + string.Join("\t", Times.Select(t => $"亮点@{t:F2}s"))
                     + "\t峰值亮点\t实际存活\t自己销毁\t预计寿命\t结论");
 
-        int okRender = 0, okLife = 0, prevented = 0, lowConf = 0;
+        int okRender = 0, okLife = 0, prevented = 0, lowConf = 0, heldByDesign = 0;
         var badRender = new List<string>();
         var badLife = new List<string>();
 
@@ -158,10 +158,13 @@ public static class WhiteboardTest
                 if (p == null) { gone = true; goneAt = t; break; }
             }
 
-            // 没自己走的：不一定是 bug（原版 preventDestroy 的那 97 个就是要外部收），但要记下来
+            // 没自己走的：不一定是 bug，但要先断前提再断结论 —— 原版 `AnimFXController__OnEnable.c:20-27`
+            // 只在 `destroyTime > 0 && !preventDestroy` 时才 `Destroy(go, destroyTime)` ⇒ 下面两档本来就不自己走：
+            //   ① `preventDestroy`（97 个，外部收）；② `destroyTime == 0`（持续型，原版不排销毁，`AutoLifetime` = ∞）
             if (!gone)
             {
                 if (e.preventDestroy) prevented++;
+                else if (e.destroyTime == 0f) heldByDesign++;
                 else { badLife.Add(n); }
                 WarpforgeEffectPlayer.KillAll();
             }
@@ -259,7 +262,7 @@ public static class WhiteboardTest
         // ---- 结论 ----
         Debug.Log(P + "=== 结束 ===");
         Debug.Log(P + $"  闭环：自己销毁 {okLife}/{names.Count}"
-                    + $"（另有 {prevented} 个是原版 preventDestroy，本来就该外部收）");
+                    + $"（另有 {prevented} 个是原版 preventDestroy、{heldByDesign} 个是 destroyTime == 0 的持续型，本来就该外部收）");
         Debug.Log(P + $"  渲染：与台账一致 {okRender}/{names.Count}"
                     + (lowConf > 0 ? $"（另有 {lowConf} 个台账置信度低，判定不了，不算失败）" : ""));
         if (badRender.Count > 0) Debug.LogWarning(P + $"  ⚠️ 台账说该有内容却没渲出来：{string.Join(", ", badRender)}");

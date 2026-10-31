@@ -700,8 +700,8 @@ namespace CardPresentation
             //    `lVar5` = `ConfigManager.GetConfig<AlliancesConfig>()`、`+0x10` 就是 `maxMemberCount`）。
             //    ⚠️ 行上的 `MemberMax` 印的就是那个 `maxMemberCount`（`memberCountText = "{MemberCount}/{max}"`）
             //    ⇒ 用行上的两份数据比即可，⛔ 不另引一份配置。
-            RowButton(row, r, 1046.30f, 24.46f, "Join", Loc.T("SocialMenu/Alliances/Join"), () => Say(
-                "`Join`（接受邀请）：要**服务器**（原版 `AllianceInvitationEntry.HandleJoin`）。"),
+            RowButton(row, r, 1046.30f, 24.46f, "Join", Loc.T("SocialMenu/Alliances/Join"),
+                () => RefuseServerAction("加入", m.Name, "邀请", "AllianceInvitationEntry.HandleJoin"),
                 interactable: m.Members < m.MemberMax);
             // 🔴 **2026-10-18（第十轮 · B 类）**：这颗钮的**文案**走词条（只换第 4 实参）——
             //   键 = 原版那颗 `Reject/Button Text` 的 `Localize.mTerm` 原文 `SocialMenu/Alliances/Dismiss`
@@ -752,8 +752,8 @@ namespace CardPresentation
             bool openForJoin = m.Privacy == 0 && m.Members < m.MemberMax;
             string joinText = m.Privacy == 1 ? Loc.T("SocialMenu/Alliances/Privacy/Private")
                                              : Loc.T("SocialMenu/Alliances/Join");
-            RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", joinText, () => Say(
-                "`Join`（加入这个联盟）：要**服务器**（原版 `AllianceListEntry.TryJoin`）。"),
+            RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", joinText,
+                () => RefuseServerAction("加入", m.Name, "公开列表", "AllianceListEntry.TryJoin"),
                 interactable: openForJoin);
             // 🆕 2026-10-04（A55②）：**点公开列表里的某个盟 → 看它的详情**那一态（原版
             // `AllianceListEntry.HandleInfo` → `OnInfoClick` → `JoinAllianceMenu.OnDisplayAlliance`
@@ -951,8 +951,8 @@ namespace CardPresentation
                 Debug.Log("[Alliance] `Continue`（建盟请求的参数已收下）：Name = \"" + (nm ?? "") + "\" · Desc = \""
                         + (ds ?? "") + "\"（描述长度 " + (ds != null ? ds.Length : 0) + "）"
                         + " —— 原版把这两格 + 语言/隐私发给服务器；**本机没有服务器** ⇒ 不发请求、不落任何本地状态。");
-                Say("`Continue`（花 1000 建盟）：要**服务器** —— 本地没有联盟系统，资源也花不掉。"
-                  + "你输入的名字/描述**已经收到**（见日志），但**不会发出去**。");
+                RefuseServerAction("建盟", nm, "建盟表", "CreateAllianceMenu.TryCreateAlliance");
+                // 🔶 自己设计（非原版）：建盟请求（Name/Desc/语言/隐私）原版发 PlayFab CloudScript（`CreateAllianceMenu__TryCreateAlliance.c` → `AlliancesController__CreateGroup.c` 的 `GenericCloudScriptHandler(0x42C, …)`），本地无后端 ⇒ 当帧改走本仓既有 `MessageToast` 横幅并明说「没有建」 · 为什么必须自己定：服务器已关服、回包判据在远端 · 调度台 2026-10-31 裁定
             });
             var pbWb = pbH != null ? pbH.GetComponent<WindowButton>() : null;
             if (pbWb != null) pbWb.BindNine(pbNine, "40K_button");
@@ -1059,5 +1059,83 @@ namespace CardPresentation
         /// <summary>⚠️ 两处都**没有「样式档」常量**（别照着加）：搜索框走 `TextInputField.Bind`（版面/占位字/命中区
         /// 都是本文件 `BuildListView` 里原来那几句画的）；建盟两格走 `Create` 的 `bgTint` / `face` 两个形参
         /// （见 `Field` 那一段）。⛔ 数值只写在调用点一处，别在这儿再抄一份。</summary>
+
+        // ============================================================================================
+        // 🆕 2026-10-31（执行代理 `B107_W4`）—— **类尾新增**：「加入联盟」这条点击的**唯一出口**
+        // ============================================================================================
+        // 为什么追加在**类尾**：本文件上半部有一批账行是**按行号**引用的（`账/社交_*.tsv`），
+        //   往成员之间插东西会让它们整体漂（同 `Shell/NetBattle.cs` 那条教训，见 CLAUDE.md §18·b）。
+        //
+        // 判据（第一权威 = 反编译）：两款行的「加入」原版都是**发服务器请求** ——
+        //   · `AllianceListEntry.TryJoin`（`decomp_full/AllianceListEntry__TryJoin.c`）=
+        //     `WindowsManager.ShowPopUp("MainMenu/GenericWait")` → `AlliancesManager.JoinGroup(groupId, cb)`；
+        //   · `AllianceInvitationEntry.HandleJoin`（`decomp_full/AllianceInvitationEntry__HandleJoin.c`）=
+        //     同一形状，转调 `AlliancesManager.AcceptInvitation`；
+        //   两条最终都落到 `AlliancesController.JoinGroup`（`decomp_full/AlliancesManager__JoinGroup.c`
+        //   第二跳即 `AlliancesController__JoinGroup`）→ PlayFab Groups。
+        //   · 🆕 **建盟 `Continue`**（`CreateAllianceMenu__TryCreateAlliance.c`）：
+        //     `ShowPopUp("MainMenu/GenericWait")`（同一个常量 `0x42BEF18`）→ 读 Name(+0x20)/Desc(+0x28)/
+        //     language(+0x38)/privacy(+0x30) → `AlliancesManager__CreateGroup.c` →
+        //     `AlliancesController__CreateGroup.c` 的 **`PlayfabWrapper.GenericCloudScriptHandler(0x42C, …)`**
+        //     ⇒ 同样是 PlayFab CloudScript（**服务器**）。
+        // ⇒ 本地没有联盟后端（原版已关服）= P3「玩家账户 / 云后端」那一类，三条都只能**出声**，
+        //     ⛔ 不许假装成功（不加成员、不建盟、不改列表）。落地 = `Shell/AllianceSearchTab.RefuseServerAction`
+        //     （三处点击的**唯一出口**）。
+        // 🔶 自己设计（非原版）：三条「要服务器」的点击当帧都改走本仓既有的瞬时提示通道（`MessageToast`，与 `DeckInfoPopup` / `DuelPopupWindow` 同一个 `UIMessageController` 横幅口）并明说「没有加入 / 没有建」 · 为什么必须自己定：服务器已关服，原版那条回包/失败弹窗的判据在远端、本地永远拿不到 · 调度台 2026-10-31 授权（`B107_W4` 加入半 / 2026-10-31 裁定 建盟半）
+        //   ⛔ 不造本地假链：不加成员、不建盟、不改任何列表 —— 原版这些点击成功与否由服务器决定，本机**没有**成功态。
+
+        /// <summary>自检读口：玩家点过几次「加入」（= 走过几次本类的服务器拒绝出口）。</summary>
+        public int JoinRefusals { get; private set; }
+        /// <summary>自检读口：上次点「加入」点的是哪个联盟（`null` = 还没点过）。</summary>
+        public string LastJoinAlliance { get; private set; }
+        /// <summary>自检读口：上次「加入」来自哪一行（`邀请` / `公开列表`）。</summary>
+        public string LastJoinSource { get; private set; }
+
+        /// <summary>自检读口：**要服务器**这一类点击一共走过几次出口（加入 + 建盟 `Continue`）。</summary>
+        public int ServerRefusals { get; private set; }
+        /// <summary>自检读口：上一次走出口的动作（`加入` / `建盟`）。</summary>
+        public string LastServerAction { get; private set; }
+        /// <summary>自检读口：上一次走出口的对象（联盟名；建盟时 = Name 输入框里那一刻的值，可能 `null`）。</summary>
+        public string LastServerSubject { get; private set; }
+        /// <summary>自检读口：上一次走出口的来源（`邀请` / `公开列表` / `建盟表`）。</summary>
+        public string LastServerSource { get; private set; }
+
+        /// <summary>自检用：把上面七格清回初值（点之前调，防止读到上一轮的残值）。
+        /// ⚠️ **只给自检**（生产里这几格只由 <see cref="RefuseServerAction"/> 写）。</summary>
+        public void ResetJoinForTest()
+        {
+            JoinRefusals = 0; LastJoinAlliance = null; LastJoinSource = null;
+            ServerRefusals = 0; LastServerAction = null; LastServerSubject = null; LastServerSource = null;
+        }
+
+        /// <summary>「要服务器」这一类点击的**唯一出口**（加入联盟两族行 · 建盟 `Continue` 共用）。
+        /// <para>原版 = 发服务器请求（见上面那段判据）；本机没有后端 ⇒ **不发请求、不落任何本地状态**，
+        /// 只把这次点击**说出去**：`[Alliance]` 日志 + 玩家可见的瞬时横幅（红线：不许静默失败）。</para>
+        /// <para>⚠️ 横幅宿主不在时**只**降级成一条 `LogWarning` 并带上全文 —— ⛔ 不假装弹过。</para></summary>
+        /// <param name="action">`加入` / `建盟`（只影响文案，以及是否计入 `JoinRefusals` 那一组读口）。</param>
+        /// <param name="subject">对象名（联盟名 / 建盟时输入的名字，可 `null`）。</param>
+        /// <param name="source">哪一处点的（`邀请` / `公开列表` / `建盟表`）。</param>
+        /// <param name="originalMethod">原版那个方法（写进日志，便于回源）。</param>
+        void RefuseServerAction(string action, string subject, string source, string originalMethod)
+        {
+            ServerRefusals++;
+            LastServerAction = action;
+            LastServerSubject = subject;
+            LastServerSource = source;
+            if (action == "加入")
+            {
+                JoinRefusals++;
+                LastJoinAlliance = subject;
+                LastJoinSource = source;
+            }
+            string verb = action == "建盟" ? "创建联盟" : "加入联盟";
+            string who = string.IsNullOrEmpty(subject) ? "这个联盟" : ("「" + subject + "」");
+            string msg = verb + who + "需要服务器连接 —— 本机是离线复刻版、没有联盟后端，这次没有" + verb + "（联盟列表保持不变）。";
+            Debug.Log("[Alliance] " + source + "行点「" + action + "」：原版走 `" + originalMethod + "`（**服务器** PlayFab Groups/CloudScript，"
+                    + "`AlliancesManager__JoinGroup.c` / `AlliancesController__CreateGroup.c` 那一跳）；"
+                    + "本机没有后端 ⇒ 不发请求、不落任何本地状态。对象 = " + (subject ?? "<null>"));
+            if (!MessageToast.Show(msg, false))
+                Debug.LogWarning("[Alliance] 「" + action + "」的提示**没弹出来**（`MessageToast` 宿主不在）—— 文案：" + msg);
+        }
     }
 }

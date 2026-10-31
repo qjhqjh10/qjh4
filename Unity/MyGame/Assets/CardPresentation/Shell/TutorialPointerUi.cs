@@ -12,7 +12,7 @@
 //     `clickScaleFactor = 0.699999988079071`（**4 个 prefab 逐值相同**）；Menu/Wildcards 另有
 //     `useLocalPositions = 1` · `xOffset/yOffset = (0,0)` · `moveDuration = 0`；
 //     Base/Combat 是 `useLocalPositions = 0` · `(2,-2)` · `0.7`。
-//   `Glow (1)` 只在 **Menu** 那一份里；`clickAnim` 四处**全 null**。
+//   `Glow (1)` 在 **Menu 与 Wildcards 两份里都有**（2026-10-31 `B107_R5` 就地订正：原写「只在 Menu」，错）；`clickAnim` 四处**全 null**。
 // · 文字气泡（`TutorialPointerWildcards` 的子树 + 独立 prefab `TutorialText`，实读）：
 //     `Generic Popup Background` **500×200**（`40k_popup` · `m_Border (169,160,169,160)` · `m_Rect 359×336` ·
 //       `m_Type = Sliced`；出厂 **active = false** —— 由 `SetTutorialText` 打开）
@@ -59,7 +59,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>原版 `TutorialPointer`（菜单侧那一份 = `TutorialPointerMenu`）的等价实现。</summary>
-    public class TutorialPointerUi : MonoBehaviour
+    public partial class TutorialPointerUi : MonoBehaviour
     {
         // ============================================================ 原版实读参数（prefab 逐值）
         public const float PointerW = 100f, PointerH = 100f;
@@ -176,10 +176,10 @@ namespace CardPresentation
             _dragWait = 0f;
             Rebuild(posPx, text);
             _visible = true;
-            _phase = 0f; _phaseT = 0f;
+            _phase = 0f; _phaseT = 0f; _glowTime = 0f;
             _fade = 1f;
             ApplyFade();
-            ApplyPhase();
+            ApplyPhase(); GlowApply();
         }
 
         /// <summary>只换文字（不重建几何）。</summary>
@@ -206,7 +206,7 @@ namespace CardPresentation
         public void Tick(float dt)
         {
             if (!_visible || _pointer == null) return;
-            _phaseT += dt;
+            _phaseT += dt; GlowTick(dt);
             if (_action == PointerAction.ClickAndDrag)
             {
                 TickDrag();
@@ -292,9 +292,9 @@ namespace CardPresentation
             _anchor = MenuDraw.Node(transform, "TutorialPointer" + _tier, new PxRect(pos.x, pos.y, pos.x, pos.y));
             _anchor.gameObject.SetActive(true);
 
-            // `Glow (1)`（**只有 Menu 那一份 prefab 有**）。⚠️ 原版 `TutorialPointer` 的四个方法体
+            // `Glow (1)`（**Menu 与 Wildcards 两份 prefab 都有**、`Base`/`Combat` 没有 —— 2026-10-31 `B107_R5` 现读 `GameObject/Glow (1)*.json` 与各自 `Animation` 组件核过）。⚠️ 原版 `TutorialPointer` 的四个方法体
             // **一次都没读 `glowObj`** ⇒ 它恒停在根的局部原点（= 手指尖）。我们照此摆在指针处。
-            if (_tier == Tier.Menu)
+            if (_tier == Tier.Menu || _tier == Tier.Wildcards)
             {
                 var gr = Centered(pos, GlowSize);
                 _glowImg = MenuDraw.Rect(_anchor, Art(ArtBorderGlow, "`Glow (1)` 的光圈"), gr, "Glow (1)", QGlow,
@@ -316,7 +316,7 @@ namespace CardPresentation
             _lightImg = MenuDraw.Rect(_pointer, Art(_glowArt, "`Pointer/light` 的高光图"), pr, "light", QLight,
                                       LightTint, true, MenuDraw.NoClip);
             _pointer.gameObject.SetActive(_showPointer);
-            ApplyPhase();
+            ApplyPhase(); GlowApply();
 
             // `Generic Popup Background` + `TutorialText`（=`SetTutorialText` 那一支）
             if (!string.IsNullOrEmpty(text)) BuildBubble(pos, text);
@@ -346,8 +346,8 @@ namespace CardPresentation
             if (_pointerImg != null) _pointerImg.SetTint(new Color(1f, 1f, 1f, _fade));
             if (_bubbleBg != null) _bubbleBg.SetTint(new Color(1f, 1f, 1f, _fade));
             if (_bubbleFill != null) _bubbleFill.SetTint(new Color(1f, 1f, 1f, _fade));
-            // `Glow (1)` 原图本来就半亮，这里只乘 fade
-            if (_glowImg != null) _glowImg.SetTint(new Color(1f, 1f, 1f, _fade));
+            // `Glow (1)`：alpha = **脉冲曲线 × 整组 fade**（脉冲判据 = 文件尾那个 `partial` 块）
+            if (_glowImg != null) _glowImg.SetTint(new Color(1f, 1f, 1f, GlowAlphaAt(_glowTime) * _fade));
             // ⚠️ 气泡里的 `TutorialText` 是 TMP（`Label`）—— 本工程 `Label` 只有 `SetColor`，没有独立 alpha 口；
             //    指针淡出时**气泡文字不淡**（如实记：原版 CanvasGroup 是整组一起淡）。
         }
@@ -558,6 +558,80 @@ namespace CardPresentation
                 Debug.LogError("[ERROR] Tutorial. Can't find button with ID " + id);   // 原版 `CustomDebug.LogError(string.Concat(...))`
                 return null;
             }
+        }
+    }
+
+    // ============================================================ 🔴 2026-10-31（`B107_R5`）：`Glow (1)` 的**脉冲**
+    //
+    // 判据 = 原版那条 legacy clip **`Tutorial Pointer Menu`**（`Resources/misc_clips.json` 现读；源件
+    //   `bundle_generalgamewindows_assets_all/AnimationClip/AnimationClip_846904233807445656.json`）：
+    //   `m_Legacy = true` · `m_SampleRate 60` · `m_WrapMode 2`(**Loop**) · `m_StopTime` = **1.0 s** · 曲线 **2 条**：
+    //     · `Transform m_LocalScale`（`path = ""` ⇒ 绑在 `Animation` 所在的 GO = **`Glow (1)` 自己**）
+    //       t=0 → **0.24** · t=1.0 → **6.0**（2 键，`inSlope/outSlope` 全 0 ⇒ 逐段线性；`m_Pre/PostInfinity = 2`）
+    //     · `MonoBehaviour m_Color.a`（`classID 114` · `script = UnityEngine.UI.Image`）
+    //       t=0 → **0.5** · t=1.0 → **0**（同上，线性）
+    //   挂载点 = `Glow (1)` 上那颗 `Animation` 组件（`m_PlayAutomatically = true`、`m_Animations` 只此一条）：
+    //     `TutorialPointerMenu` → `Animation/Animation_-4428924928474591948.json`
+    //     `TutorialPointerWildcards` → `Animation/-5936930161473697592.json`（两份都指向同一条 clip）
+    //
+    // 🔴 **同 GO 上的 `UIBorderGlow` 不是这条脉冲的来源**：两颗实例的 `playOnEnable` 都 = **0**
+    //   ⇒ `UIBorderGlow__OnEnable.c` 第一道门就 return（`animTime 1` / `animDelay 0` 因此是死值），
+    //   而 `TutorialPointer` 的 8 个方法体（`StartPointer` / `ClickInPosition` / `ClickAndHold` / `ClickAndDrag` /
+    //   `ShowStartingPointer` / `ShowClickedPointer` / `SetTutorialText` / `StopAnim`）**一次都没调** `UIBorderGlow.Play()`。
+    //   ⛔ 别拿 `ForgeRewardItemContainer` 那几处的 shader-reveal 当成这里（那是另一套用法）。
+    //
+    // ⚠️ 我们**不建** `Animation` 组件（legacy clip 搬进工程会变空壳 → `资料/已知的坑.md`），
+    //   等价物 = 这里按 dt 推进播放头、逐帧写 `Glow (1)` 的 `localScale` 与 tint alpha；Loop 与原版一致
+    //   （到 1.0 s **直接回 0**，不插值回环）。
+    public partial class TutorialPointerUi
+    {
+        /// <summary>脉冲一圈的时长 = clip 的 `m_StopTime` = **1.0 s**（`m_WrapMode = 2` Loop）。</summary>
+        public const float GlowLoop = 1.0f;
+        /// <summary>t = 0 的 `m_LocalScale`（clip 第 1 键）。</summary>
+        public const float GlowScaleFrom = 0.24f;
+        /// <summary>t = 1 的 `m_LocalScale`（clip 末键）。</summary>
+        public const float GlowScaleTo = 6f;
+        /// <summary>t = 0 的 `m_Color.a`。</summary>
+        public const float GlowAlphaFrom = 0.5f;
+        /// <summary>t = 1 的 `m_Color.a`。</summary>
+        public const float GlowAlphaTo = 0f;
+
+        /// <summary>脉冲播放头（秒，`0..GlowLoop`）。</summary>
+        float _glowTime;
+
+        /// <summary>`Glow (1)` 在播到 `t` 秒时该有的**缩放倍率**（两键直线 ⇒ 线性；`t` 按一圈回绕）。</summary>
+        public static float GlowScaleAt(float t)
+        {
+            return Mathf.Lerp(GlowScaleFrom, GlowScaleTo, Mathf.Repeat(t, GlowLoop) / GlowLoop);
+        }
+
+        /// <summary>`Glow (1)` 在播到 `t` 秒时该有的 **alpha**（判据同 <see cref="GlowScaleAt"/>）。</summary>
+        public static float GlowAlphaAt(float t)
+        {
+            return Mathf.Lerp(GlowAlphaFrom, GlowAlphaTo, Mathf.Repeat(t, GlowLoop) / GlowLoop);
+        }
+
+        /// <summary>脉冲播放头（自检读口）。</summary>
+        public float GlowTime { get { return _glowTime; } }
+        /// <summary>`Glow (1)` 此刻的 `localScale.x`（**没画 glow ⇒ -1**；自检读口）。</summary>
+        public float GlowScaleNow { get { return _glowImg != null ? _glowImg.transform.localScale.x : -1f; } }
+        /// <summary>`Glow (1)` 此刻的 tint alpha（**没画 glow ⇒ -1**；自检读口）。</summary>
+        public float GlowAlphaNow { get { return _glowImg != null ? _glowImg.Tint.a : -1f; } }
+
+        /// <summary>推进脉冲并写回 `Glow (1)`（`Tick` 每帧调一次；不建 DOTween / 不建协程 —— 同本类 `Tick` 的口径）。</summary>
+        void GlowTick(float dt)
+        {
+            if (_glowImg == null) return;
+            _glowTime = Mathf.Repeat(_glowTime + dt, GlowLoop);
+            GlowApply();
+        }
+
+        /// <summary>把当前播放头写进 `Glow (1)` 的缩放与 alpha（alpha 还要乘整组的 <see cref="_fade"/>）。</summary>
+        void GlowApply()
+        {
+            if (_glowImg == null) return;
+            _glowImg.transform.localScale = Vector3.one * GlowScaleAt(_glowTime);
+            _glowImg.SetTint(new Color(1f, 1f, 1f, GlowAlphaAt(_glowTime) * _fade));
         }
     }
 }

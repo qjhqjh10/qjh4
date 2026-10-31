@@ -41,7 +41,7 @@ namespace CardPresentation
         static readonly float[] _rot = { 0f, 2.510f, 5.890f, 12.750f, 19.200f, 22.5f, 25.8f, 29.1f, 32.4f };
         static readonly float[] _scl = { 250f, 232.9537f, 221.5926f, 204.5463f, 181.8148f, 170.8f, 159.8f, 148.8f, 137.8f };
 
-        /// <summary>卡位个数：**1 主卡 + 8 相关卡**（原版是 1+4；**8 这一档是我们挑的**，用户授权的冗余）。</summary>
+        /// <summary>卡位个数：**1 主卡 + 8 相关卡**。🔶 自己设计（非原版）：槽 5–8（含 `_x/_y/_rot/_scl` 的 5..8 项）是我们外推的 · 判据 = 原版只有 1+4（`CardUI (0..4)` = `RawCardScript.relatedCard1..4`）· 用户 2026-09-26 授权做 8 个相关卡槽。</summary>
         public const int Slots = 9;
 
         /// <summary>换位动画时长 —— 原版 `CardDisplayWindow.relatedCardSwapTime`（字段 `+0xC0`，

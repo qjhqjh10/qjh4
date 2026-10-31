@@ -563,7 +563,7 @@ namespace CardPresentation.Net
                 h = h * 31 + ctx.Turn;
                 h = h * 31 + ctx.Active;
                 h = h * 31 + ctx.Winner;
-                h = h * 31 + ctx.Events.Count;
+                // 🔴 2026-10-31（调度台裁定 · NET-01）：**不再算 `ctx.Events.Count`** —— `ctx.Events` 无 drain、只增，是诊断日志不是局面；算进指纹会让单端写诊断日志造成假分叉（实测 4×31²=3844 而 PlayerHash 相同）；`StateHash` 已不含它。⛔ 别加回来。
                 h = h * 31 + PlayerHash(ctx, 0);
                 h = h * 31 + PlayerHash(ctx, 1);
                 return h;
@@ -571,9 +571,9 @@ namespace CardPresentation.Net
         }
 
         /// <summary>🆕 2026-09-27：**只看局面**的哈希 —— 与 <see cref="Fingerprint"/> 唯一的差别是
-        /// **不含 `ctx.Events.Count`**。
+        /// **多算 `OffensiveChosen` / `OffensiveSlotIdx` / `OffensiveEnvSO` / `EnchantmentsUsed` 四格；`ctx.Events.Count` 自 2026-10-31 起两边都不含**。
         ///
-        /// 🔴 为什么要多这一个：`Fingerprint` 把 `ctx.Events.Count` 也算进哈希（见 `:566`），而**这一格不稳**。
+        /// 🔴 为什么要多这一个：**改前** `Fingerprint` 把 `ctx.Events.Count` 也算进哈希，而**这一格不稳**（🔴 2026-10-31 调度台裁定 NET-01 已从 `Fingerprint` 去掉；本方法保留并另外多算上面那四格）。
         /// ⚠️ **2026-10-29 订正（`B98_O1` 现读 + 本次复核）**：原文写「`ctx.Events` 是待播事件队列、表现层随时抽干它」—— **不成立**：
         /// 表现层抽的是 `Ctx.Signals`（`BattleDriver.PlaySignals` 里的 `Ctx.DrainSignals`），`ctx.Events` **没有任何 drain**，
         /// 只在 `BattleContext.cs:1858` 超 `EventCapacity` 时从头部裁掉 ⇒ 「抽干时刻不同」这个**归因是错的**（真因还没查清，已记待办）。
@@ -598,7 +598,7 @@ namespace CardPresentation.Net
                 //  · 附魔计数（原版 `BattleManager.enchatmentsUsed // +0x4e4`，每挂一件 +1）
                 h = h * 31 + ctx.EnchantmentsUsed;
                 h = h * 31 + PlayerHash(ctx, 0);      // ⚠️ 与 `Fingerprint` 的差别就在这里：
-                h = h * 31 + PlayerHash(ctx, 1);      //    **没有** `ctx.Events.Count` 这一项
+                h = h * 31 + PlayerHash(ctx, 1);      //    **改前**没有 `ctx.Events.Count` 这一项（2026-10-31 起 `Fingerprint` 也没有）
                 return h;
             }
         }

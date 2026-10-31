@@ -302,8 +302,8 @@ namespace CardPresentation
         /// <summary>自检读口：这一帧是「选目标 / 打法选择器 ⇒ 只禁拖」吗（`K2`）。</summary>
         public bool DragOnlyBlockedNow { get { return DragOnlyBlocked(); } }
 
-        /// <summary>**整帧硬闸**：这一帧连「轻点看牌」都不许（原版那 8 扇模态窗的**全屏压暗层吃射线**
-        /// ＋ 终局 `matchFinishedAndWaitingToLeave` 那一支）。两个来源都是 `BattleDriver` 的公开只读口。</summary>
+        /// <summary>**整帧硬闸**：这一帧连「轻点看牌」都不许（原版那 8 扇模态窗的**全屏压暗层吃射线** ＋ 终局 `matchFinishedAndWaitingToLeave` 那一支）。两个来源都是 `BattleDriver` 的公开只读口。<para>🆕 2026-10-31（`B107_W18` · N26）**原版 `BattleManager__DisplayCard.c:14-18` 那 5 态在本类的逐态对照**（`UIstate != 0 &amp;&amp; UIstate−7 &gt; 1 &amp;&amp; UIstate−11 &gt; 1` ⇒ 只挡 {0,7,8,11,12}）：· **7 `finishBattleSequence`** = `Ctx.IsOver` ✓（本方法 ①）· **8 `postBattle`** = `Ctx.IsOver` ✓（①）· **11 `mulligan`** = 换牌面板被 `PointerOverBlockingUi` 挡住 ✓（②）· **12 `mulliganFinished`** = 我们**没有这一档**（转瞬态，`ChatHotkeyUiState()` 也从不产 12，如实记）· **0 `inactive`** = 本类**无对应**（没有驱动时 `Driver == null` ⇒ 放行；那一档由 `BattleDriver.CardWinUiStateBlocked()` 兜）· **9/10/13/6** = **放行**（判据见 <see cref="DragOnlyBlocked"/> 的 ②）。</para>
+        /// 🆕 **本方法【不】管「已经点到手牌之后开不开窗」** —— 那一跳在原版是 `DisplayCard` 里的 `UIstate` 闸，落在 `BattleDriver.OnCardTapped` 的 `CardWinUiStateBlocked()`（⛔ 别在本类再写第二份）。</summary>
         bool FullBlocked()
         {
             if (_battleStateBlockedForTest.HasValue) return _battleStateBlockedForTest.Value;

@@ -37,7 +37,7 @@
 //      原版那两条式子本地都读得到，`A870`（2026-10-18）已经照它现算了：
 //        · **列数** = `floor(视口宽 ÷ (_cellWidth + _spacingX))`
 //          （`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c:127-167`，用 `_cellWidth` **原值**）
-//          ⇒ 桌面 **6 列**（1589.8 ÷ 262.5）、小屏 **4 列**（1589.8 ÷ 393.75）；⛔ 不是写死的 4/6。
+//          ⇒ 桌面 **6 列**（1589.78 ÷ 262.5）、小屏 **4 列**（1589.78 ÷ 393.75）；⛔ 不是写死的 4/6。
 //        · **行数** = 覆盖 **1.5 个视口高** 与「池格下限 20」两条阈值合成
 //          （同文件 `:186-193` / `:256-271`）⇒ 桌面 4 / 小屏 5。
 //      实现 = 本文件 `Pool` 属性 / `PoolRowsFor`（搜这两个名字；两档由同一条式子算，不是 if-else）。
@@ -700,7 +700,7 @@ namespace CardPresentation
 
         // ---- Card Display 卡池（R:167-170）----
         // 🔴 **2026-09-23 按定案改**（`项目任务.md` §三 第 12 条 **第 6 项**）：
-        //    **原版默认那一套** = 视口 **1589.8×924.1** · **6 列** · 格 **262.5×384** · **间距 0** · **贴左起排**
+        //    **原版默认那一套** = 视口 **1589.78×924.06** · **6 列** · 格 **262.5×384** · **间距 0** · **贴左起排**
         //    ⇒ 一屏 **6 × 2.4**（两行满 + 第三行露头）。出处（真货）：
         //    `decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c` L127-167 ——
         //    `_coloums = floor(viewport.rect.width ÷ (_cellWidth + _spacingX))`，**用 `_cellWidth` 原值、不乘任何系数**。
@@ -710,14 +710,14 @@ namespace CardPresentation
         //    硬证据（私有 `Initialize()` 的指令流，RVA `0x89F460`）与两套的对照表都在
         //    `项目任务.md` §三 第 12 条 第 6 项；开关本体 = `Shell/TransformScalerBySmallScreenUI.cs`
         //    的静态类 `SmallScreenUI`（= 原版 `GameStaticData.smallScreenUI`，⛔ 别在别处再存一份）。
-        const float PoolX = 330.2f, PoolY = 156f, PoolW = 1589.8f, PoolH = 924.1f;
+        const float PoolX = 330.2f, PoolY = 156f, PoolW = 1589.78f, PoolH = 924.06f;   // 🔴 2026-10-31（B107_W14 · 账 N83）：**量纲 = 画布参考 px（1920×1080），不是 ÷PPU**。原版 prefab 是**拉伸锚点** ⇒ 序列化字段是 `m_SizeDelta = (−163.05, −85)`、**不是 1589.x**；真宽 = 1920 − `Content Area` 的 167.17498779296875 − 163.0500030517578 = **1589.775**、真高 = 1080 − 70.94 − 85 = **924.06**（`RectTransform_3034975885635478229.json` / 父链 `RectTransform_675656078588768036.json`）。AUD05 记的「1589.75」无出处（≈1589.775 截断）⇒ 按派生值 1589.78 收口（与 `CosmoW`/`DeckScene.cs:2393` 已有口径一致）
         // ---- 以下全是**桌面那一档**的基准值（= 乘数 1）；小屏那一档**逐项 ×1.5**（见 `Pool`）----
         const float PoolCellW0 = 262.5f, PoolCellH0 = 384f;   // 原版**卡位**（不是 `Collection Card` 那张图的 350×512）
         const float PoolMobileSizeScale = 1.5f;               // 原版本界面 `_mobileSizeScale` 的值（判据同上）
         /// <summary>🆕 **2026-10-13（A1702 ③）**：卡池那一颗 `RectMask2D` 的**等效物** —— 视口矩形
         /// （画布 px · 左上原点）。判据 = 原版 `Content Area/Card Display/Scroll View/**Viewport**` 上挂的
         /// `RectMask2D`（`m_Softness=(0,0)` · `m_Padding=(0,0,0,0)` ⇒ **硬边、不内缩**，
-        /// 与收藏窗那四处**逐字段相同**），视口尺寸 1589.8×924.1 的出处见上面 `PoolX/…` 那一段。
+        /// 与收藏窗那四处**逐字段相同**），视口尺寸 1589.78×924.06 的出处见上面 `PoolX/…` 那一段。
         /// <para>两处共用**同一个矩形**：① 渲染那一刀（<see cref="RefreshPool"/> 把它喂给
         /// `CardView.SetPose(…, clip:)`）② 命中那一刀（<see cref="HandlePoolClick"/> 拿它挡越界的点）。
         /// ⛔ 别写成两份 —— 两处写同一条规则 = 迟早不一致（本项目反复踩过）。</para>
@@ -787,18 +787,18 @@ namespace CardPresentation
         /// <para>两套（判据 → `项目任务.md` §三 第 12 条 第 6 项；硬证据 = 原版私有 `Initialize()`
         /// 的指令流 RVA `0x89F460`）：</para>
         /// <list type="bullet">
-        /// <item>**桌面**（`smallScreenUI = false`）：格 **262.5×384** · **6 列** · 视口 1589.8×924.1</item>
+        /// <item>**桌面**（`smallScreenUI = false`）：格 **262.5×384** · **6 列** · 视口 1589.78×924.06</item>
         /// <item>**小屏**（`= true`）：格 **393.75×576**（= 桌面 × `_mobileSizeScale` **1.5**）· **4 列**</item>
         /// </list>
         ///
         /// <para>🔴 **列数【不是】写死的 4/6** —— 原版是
         /// `_coloums = floor(viewport.rect.width ÷ (_cellWidth + _spacingX))`
         /// （`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c` L127-167，**用 `_cellWidth` 原值、
-        /// 不乘任何系数**）⇒ 两档都由同一条式子算出来：`floor(1589.8 ÷ 262.5) = 6` ·
-        /// `floor(1589.8 ÷ 393.75) = 4`。这里照那条式子写，而不是「if 小屏 then 4」。</para>
+        /// 不乘任何系数**）⇒ 两档都由同一条式子算出来：`floor(1589.78 ÷ 262.5) = 6` ·
+        /// `floor(1589.78 ÷ 393.75) = 4`。这里照那条式子写，而不是「if 小屏 then 4」。</para>
         ///
-        /// <para>🔴 **居中的量（`PadX`）两档恰好都是 7.4** —— 桌面 6×262.5 = 1575、小屏 4×393.75 = 1575，
-        /// 同一个数（`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`）。⛔ 别据此把 `PadX` 写死成 7.4：
+        /// <para>🔴 **居中的量（`PadX`）两档恰好都是 7.39** —— 桌面 6×262.5 = 1575、小屏 4×393.75 = 1575，
+        /// 同一个数（`RecyclableScrollRect` 的居中量常量 `0x1834b2bb4 = 0.5f`）。⛔ 别据此把 `PadX` 写死成 7.39：
         /// 它仍是 `(视口宽 − 列数×格宽) ÷ 2`，两档相等是**算出来的巧合**。</para>
         ///
         /// <para>⚠️ **每次访问都现算**（开关是静态、运行期可翻；这几条算式是纯算术，没有分配）。
@@ -4886,7 +4886,7 @@ namespace CardPresentation
             //   写在 `BuildHeader` 那一行 + `DeckArmyIcon` 的 doc 上）—— 换督军/清督军都会走到这里
             //   （`TryAddCard` → `MarkDeckDirty()` → 本函数；`ClearWarlord` 那条链同理走 `RefreshAll`）。
             //   `SetSprite` **同一张图不再设**，所以这里每次刷新调它不花代价。
-            SetSprite(Lookup("hdr_army"), DeckArmyIcon(State));
+            SetSprite(Lookup("hdr_army"), FactionIcon(ArmyFaction() ?? NoArmyFaction));   // 🔴 2026-10-31（B107_W14 · 账 N120）：本窗**自己的卡组**走实例读口 `ArmyFaction()`（= 原版 `DeckEditingWindow__FilterToDeck.c:24` 读的 `editingDeck.deckArmy`）；`DeckArmyIcon(State)` 仍保留给「外部传任意 state」那一档（自检/断言）
             // 🔴🔴 **2026-10-25（`C` 卡组编辑域）：原版还有一条「跟着列表走」的换图路径 —— 本轮补上。**
             //   判据 = `DeckEditorCollectionDisplay__CheckFocusedArmy.c`（与收藏窗 `CardCollectionDisplay` 同形：
             //   `RectExtensions.OverlapsAny(referenceCardPoint, Cells 的 RectTransform, out 命中格)` ⇒
@@ -9785,5 +9785,14 @@ namespace CardPresentation
             _deckScroll = deck; _poolScroll = pool; _fltScroll = filt; _cosmScroll = cosm;
             _filtersOpen = filtersOpen; _cosmoFltOpen = cosmoFiltersOpen;
         }
+
+        // ============================================================ 🆕 2026-10-31（B107_W14 · 账 N83 / N120）自检读口
+        /// <summary>自检读口：卡池视口**宽**（= `PoolW` 常量；2026-10-31 `B107_W14` 收口成原版派生值 **1589.78**）。
+        /// ⚠️ 只给断言读，生产路径一处都不调。</summary>
+        public static float UiPoolViewportWidthForTest { get { return PoolW; } }
+        /// <summary>自检读口：卡池视口**高**（= `PoolH` 常量；**924.06**，见 `PoolX/…` 那一段的派生式）。</summary>
+        public static float UiPoolViewportHeightForTest { get { return PoolH; } }
+        /// <summary>自检读口：卡池当前**居中偏移**（= `Pool.PadX`，桌面/小屏都应是 **7.39**）。</summary>
+        public float UiPoolPadXNowForTest { get { return Pool.PadX; } }
     }
 }

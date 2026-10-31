@@ -674,6 +674,7 @@ namespace CardPresentation
         ///    （等价于 refresh 之后 `PriceDisplayButton.Setup` 重新判可点那一支）；成功 ⇒ 保持置灰。</para></summary>
         public void Buy()
         {
+            BuyCallsForTest++;                                           // 🆕 自检读口：这一下**真的进了购买入口**（把「没点」与「点了没生效」分开）
             if (_loading)
             {
                 // 原版这一档是 `interactable = false`（点了**什么都不发生**）；我们走软禁用（灰了仍点得动）
@@ -776,5 +777,10 @@ namespace CardPresentation
         /// <summary>= 原版 `BoosterInfoPopup.loading`（防重入）：`true` 期间再点价签**什么都不做**。
         /// `Build()` 每次归零（= 我们的 `Refresh()` 等价物），`Buy()` 失败时当场清掉（= 原版失败回调那一句）。</summary>
         bool _loading;
+
+        /// <summary>🆕 2026-10-31（`B107_W4`）自检读口：这一扇窗的购买入口**被进入过几次**（`Buy()` 的第一句就 +1，
+        /// 早于防重入那道闸 ⇒ 连点两次 = 2）。用途 = 让断言能把「**没点**」（命中区/点击没落到 `onClick` 上）
+        /// 与「**点了但没生效**」（进了购买但被拒）分开 —— 只看拥有数变化时这两种是同一个红法。</summary>
+        public int BuyCallsForTest { get; private set; }
     }
 }

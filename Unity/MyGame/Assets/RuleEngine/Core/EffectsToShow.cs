@@ -235,7 +235,7 @@ namespace RuleEngine
                     IsSet = m.IsSet,
                     Timed = false,
                     Source = m.Source,
-                    Seq = m.Seq, RowGroup = m.RowGroup,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：组号透传（生产端补丁见 `报告/B103_W3.md` §四；未接 ⇒ 恒 0 = 不合并）
+                    Seq = m.Seq, RowGroup = m.RowGroup, OwnerCard = m.EffectOwner,   // 🆕 2026-10-31（执行代理 `B107_W28` · 账 `特效动画:N20②`）：归属卡名（原版 `CardEffect.enchantingCard(+0x18)`，生产点 = `EffectResolver.ApplyOneGain`；`null` = 判不到 ⇒ `AttachEffectTexts` 退回旧口径按 `Source` 找卡）｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：组号透传（生产端补丁见 `报告/B103_W3.md` §四；未接 ⇒ 恒 0 = 不合并）
                 });
             }
 
@@ -321,7 +321,7 @@ namespace RuleEngine
                     // 原版「一回合」= 五个 `until*` 位任一为真 ⇒ 我们把那五位压进了 `TimingBits` 的 bit0..4
                     Timed = (r.TimingBits & 0x1F) != 0,
                     Source = r.Source,
-                    Seq = r.Seq,
+                    Seq = r.Seq, OwnerCard = r.EffectOwner,   // 🆕 2026-10-31（执行代理 `B107_W28` · 账 `特效动画:N20②`）：归属卡名（生产点 = `EffectResolver.ApplyOneGain` 的 addTrait 支；`null` = 判不到 ⇒ `AttachEffectTexts` 退回旧口径按 `Source` 找卡）
                 });
             }
 
@@ -865,7 +865,7 @@ namespace RuleEngine
                     TraitValue = 1,
                     Timed = false,
                     Source = u.FerocityStayBy,
-                    OwnerCard = u.FerocityStayBy,
+                    OwnerCard = u.FerocityStayBy, EffectAb = u.FerocityStayAb, EffectLg = u.FerocityStayLg,   // 🆕 2026-10-31（执行代理 `B107_W28` · 账 `特效动画:N20②`）：把 `DoFerocityStay` 记下的 `(ab,lg)` 一并透传（`SW40` = `(0,1)` · `SW36` = `(0,0)`）；⚠️ `AttachEffectTexts` 今天仍只读 `OwnerCard`，这两格是**结构补强**、不是唯一通路
                     Seq = 0,
                 });
             }

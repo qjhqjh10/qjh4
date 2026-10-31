@@ -44,7 +44,7 @@
 //       ⚠️ 三门的**值**走**显式状态口**（`SetChatState`，本仓没有 `AlliancesManager` / 服务器）；
 //       **唯一还缺的一跳 = 原版 `ChatGlobalManager.ShareDeck(串, 频道)`**（本仓没有聊天服务器、也没有
 //       `CreateChatEvent`/`SendChatMessage` 那条链）⇒ 点两颗钮都**如实出声**「**面板在、发送口不在**」
-//       （日志 + toast），⛔ **不写剪贴板**。判据与四跳 → `ShareOnChat` / `ShareDeckToChat`。
+//       （日志 + toast），⛔ **不写剪贴板**。判据与五跳 → `ShareOnChat` / `ShareDeckToChat`。
 //     🔴 **订正（铁律 5）**：本条原文写「原版走平台/服务端，我们**给卡组串**」—— **两半都不对**：
 //       原版既不上服务端、也没做平台分享（就是本地 `GUIUtility.systemCopyBuffer`，`DeckInfoPopup__ShareDeck.c:16`），
 //       而「把卡组串印出来给玩家自己抄」**已于 2026-10-12 取消** —— 那是面板没建时的权宜兜底、原版没有
@@ -2693,9 +2693,9 @@ namespace CardPresentation
 
         /// <summary>原版两颗钮**共用**的那个回调 = `DeckInfoPopup.<ShareDeckOnChat>g__HandleShare_30_0`
         /// （`d:/2/tools/decomp_full/DeckInfoPopup___ShareDeckOnChat_g__HandleShare_30_0.c`，
-        /// ⚠️ **文件名是三下划线**）。四跳逐句：
+        /// ⚠️ **文件名是三下划线**）。五跳逐句：
         /// ① **再查一次** `IsBannedFromChat(目标)` —— 真则**直接 return**（原版那一句之外没有别的话）；
-        /// ② `CardDeck.Serialize()` 造串；③ `ChatGlobalManager.ShareDeck(串, 频道 id)`；④ `Close()` 关面板。
+        /// ② `CardDeck.Serialize()` 造串；③ `ChatGlobalManager.ShareDeck(串, 频道 id)`；④ `Close()` 关面板；⑤ `WindowsManager.OpenWindow<ChatPanel>(new ChatPanelContext(channelType))` **开聊天窗**（`channelType` = 点的那颗钮的 `ChatRoom`；我们照做，见方法体内末句）。
         /// <para>两个 lambda 的差别**只在** ③ 的目标：群组传 `AlliancesManager.CurrentGroupId`、
         /// 全局传一个常量串（`b__30_1.c` / `b__30_2.c` 实读）。</para>
         /// <para>🔴 **③ 本仓做不到 ⇒ 如实出声**（日志 + 一条 toast）：没有 `ChatGlobalManager` 的对等物
@@ -2704,7 +2704,7 @@ namespace CardPresentation
         /// 全库唯一一处；本条**故意**只调 `ExportString`）。</para>
         /// <para>④ 那一跳由 `OptButton.AutoClose = true` 在 `GenericOptionsPanel.OnButton` 里做
         /// （= 原版 `SetButtons` 给每颗多挂的那个 `AddListener(this.Close)`，与 `HandleShare` 里那句
-        /// `Close()` 是**同一件事的两次**）⇒ 这里**不再**自己 `Close()`。</para></summary>
+        /// `Close()` 是**同一件事的两次**）⇒ 这里**不再**自己 `Close()`。</para><para>⑤ **开聊天窗**（`out_cpp2il_dev_ilspy/DeckInfoPopup.cs:1166-1180` · `decomp_full/DeckInfoPopup___ShareDeckOnChat_g__HandleShare_30_0.c`）：`WindowsManager.Instance.OpenWindow<ChatPanel>(new ChatPanelContext(channelType))`，落点 = 点的那颗钮的频道（群组 ⇒ `Alliance` / 全局 ⇒ `Global`）。我们同样做（方法体末句），工厂里给 `StartingChannel`。</para></summary>
         void ShareDeckToChat(ChatRoom room)
         {
             // ① 原版第一跳（TOCTOU 守卫）：这一下**照旧直接 return**（原版就这一句、不打任何字），
@@ -2733,7 +2733,7 @@ namespace CardPresentation
             MessageToast.Show("分享到聊天（"
                              + Loc.T(room == ChatRoom.Alliance ? ShareChatAllianceTerm : ShareChatGlobalTerm)
                              + "）：面板在、**发送口不在** —— 本仓没有聊天服务器，这条发不出去。"
-                             + "（要整串卡组请用 `Share`。）", false);
+                             + "（要整串卡组请用 `Share`。）", false);   WindowsManager.OpenByRef(WindowsManager.PrefabRefChat, m => { var c = ChatPanel.Create(m); c.StartingChannel = ChatPanel.Channels[(int)room]; return c; });   // ⑤ 原版第 5 跳 = `WindowsManager.OpenWindow<ChatPanel>(new ChatPanelContext(channelType))`（判据 → 本方法 doc 的 ⑤）。⚠️ `room` 取我们两颗钮**现成的实参**（`ShareDeckToChat(ChatRoom.Alliance)` / `(ChatRoom.Global)`），**不是从原版字面量读出来的**（两个 lambda 体被反编译成 `NoteDecompilerIssue`+throw，实参靠签名推；如实记 → `报告/B107_W21.md` §七·2）。⚠️ 设在工厂里：`OpenByRef` 命中**已开着**的那扇时工厂不跑 ⇒ 不切页（原版 `TryOpen` 同样早退，判据 → `报告/B107_W21.md` §2.3）
         }
 
         /// <summary>`Share On Chat` 面板的**标题**词条键 —— **原版字符串常量表实读**（不是自拟）：

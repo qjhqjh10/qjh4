@@ -29,7 +29,7 @@
   },
   {
    "key": "armour",
-   "zh": "护甲",
+   "zh": "盔甲",
    "en": "Armour",
    "bodyZh": "受到的伤害减少X点，最少为1",
    "bodyEn": "Damage received is reduced by X, to a minimum of 1",
@@ -37,7 +37,7 @@
   },
   {
    "key": "artifice",
-   "zh": "巧技",
+   "zh": "工匠",
    "en": "Artifice",
    "bodyZh": "在打出计谋时做些什么",
    "bodyEn": "Does something when playing a Stratagem",
@@ -45,7 +45,7 @@
   },
   {
    "key": "backlash",
-   "zh": "反噬",
+   "zh": "反击",
    "en": "Backlash",
    "bodyZh": "当此单位死亡时触发一个效果",
    "bodyEn": "Trigger an effect when this unit dies",
@@ -53,7 +53,7 @@
   },
   {
    "key": "blast",
-   "zh": "爆裂",
+   "zh": "爆炸",
    "en": "Blast",
    "bodyZh": "攻击时，对目标相邻的单位造成X点伤害",
    "bodyEn": "When attacking, deal X damage to units adjacent to the target",
@@ -61,7 +61,7 @@
   },
   {
    "key": "blind",
-   "zh": "失明",
+   "zh": "失明的",
    "en": "Blind",
    "bodyZh": "一个被致盲的单位的远程攻击在一回合内变为0",
    "bodyEn": "A blinded unit's Ranged attack becomes 0 for one turn",
@@ -93,7 +93,7 @@
   },
   {
    "key": "codex",
-   "zh": "典籍",
+   "zh": "圣典",
    "en": "Codex",
    "bodyZh": "当你用完所有能量时做些什么",
    "bodyEn": "Does something when you use up all your Energy",
@@ -101,7 +101,7 @@
   },
   {
    "key": "companion",
-   "zh": "伴生",
+   "zh": "伙伴",
    "en": "Companion",
    "bodyZh": "当这张牌从手牌中打出时，你可以在同一回合中打出多达X张其伙伴的复制品",
    "bodyEn": "When this card is played from hand, you can play up to X copies of its Companion this same turn",
@@ -157,7 +157,7 @@
   },
   {
    "key": "ephemeral",
-   "zh": "临时",
+   "zh": "短暂的",
    "en": "Ephemeral",
    "bodyZh": "在你的回合结束时从你的手中丢弃这张牌",
    "bodyEn": "Discard this card from your hand at the end of your turn",
@@ -173,7 +173,7 @@
   },
   {
    "key": "fast",
-   "zh": "迅捷",
+   "zh": "快速",
    "en": "Fast",
    "bodyZh": "此单位可以在进入战场的同一回合攻击",
    "bodyEn": "This unit can attack the same turn it goes into play",
@@ -181,11 +181,11 @@
   },
   {
    "key": "ferocity",
-   "zh": "狂暴",
+   "zh": "凶残",
    "en": "Ferocity",
-   "bodyZh": "快速非战斗行动；执行时触发效果，然后洗回牌库",
-   "bodyEn": "",
-   "src": "rulebook"
+   "bodyZh": "使用行动。可以在进场的同一回合使用。做些什么，然后将此单位返回到你的卡组",
+   "bodyEn": "Uses action. Can be used the same turn it comes into play. Does something, then return this unit to your deck",
+   "src": "official"
   },
   {
    "key": "flank",
@@ -207,13 +207,13 @@
    "key": "huntmark",
    "zh": "猎杀标记",
    "en": "Hunt Mark",
-   "bodyZh": "可叠加。带此标记的敌方部队被摧毁时：对敌方战将造成伤害并治疗我方战将，数值 = 标记数",
-   "bodyEn": "",
-   "src": "rulebook"
+   "bodyZh": "当这个敌方军队被摧毁时，对敌方战将造成1点伤害并治疗己方战将1点生命值。可以叠加",
+   "bodyEn": "When this enemy troop is destroyed, deal 1 damage to the enemy Warlord and Heal 1 to your Warlord. Can stack",
+   "src": "official"
   },
   {
    "key": "invulnerable",
-   "zh": "无敌",
+   "zh": "无懈可击",
    "en": "Invulnerable",
    "bodyZh": "此单位不能被伤害或摧毁",
    "bodyEn": "This unit cannot be damaged or destroyed",
@@ -221,7 +221,7 @@
   },
   {
    "key": "longrange",
-   "zh": "远射",
+   "zh": "远程",
    "en": "Long Range",
    "bodyZh": "进行远程攻击时，敌人不会反击。受到攻击时失去此能力",
    "bodyEn": "When doing a Ranged attack, enemies don't retaliate. Lose this ability when attacked",
@@ -229,15 +229,23 @@
   },
   {
    "key": "markerlight",
-   "zh": "标记光",
+   "zh": "标记灯",
    "en": "Markerlight",
    "bodyZh": "当此单位受到远程攻击时，它将额外受到 X 点伤害，并在回合结束时失去标记灯",
    "bodyEn": "When this unit receives a Ranged attack, it receives X additional damage and loses Markerlight at the end of the turn",
    "src": "official"
   },
   {
+   "key": "melee",
+   "zh": "近战",
+   "en": "Melee",
+   "bodyZh": "",
+   "bodyEn": "",
+   "src": "none"
+  },
+  {
    "key": "mob",
-   "zh": "群体",
+   "zh": "暴群",
    "en": "Mob",
    "bodyZh": "在另一友方单位进行近战攻击后触发一个效果",
    "bodyEn": "Trigger an effect after another friendly unit does a Melee attack",
@@ -247,17 +255,17 @@
    "key": "oath",
    "zh": "誓言",
    "en": "Oath",
-   "bodyZh": "部署时支付 X 能量以触发效果",
-   "bodyEn": "",
-   "src": "rulebook"
+   "bodyZh": "在出牌的回合中可以使用一次。支付X能量来做某事",
+   "bodyEn": "Can be used once the turn it is played. Pay X energy to do something",
+   "src": "official"
   },
   {
    "key": "pack",
-   "zh": "兽群",
+   "zh": "群体",
    "en": "Pack",
-   "bodyZh": "场上每有 1 个友方部队 +1 近战 +1 远程",
-   "bodyEn": "",
-   "src": "rulebook"
+   "bodyZh": "对于场上每一支其他友方军队，获得+1近战和+1远程攻击",
+   "bodyEn": "Has +1 Melee and +1 Ranged for each other friendly troop in play",
+   "src": "official"
   },
   {
    "key": "penitence",
@@ -270,7 +278,7 @@
   {
    "key": "pindown",
    "zh": "压制",
-   "en": "Pindown",
+   "en": "Pin Down",
    "bodyZh": "此单位不能进行近战攻击",
    "bodyEn": "This unit cannot do Melee attacks",
    "src": "official"
@@ -300,6 +308,14 @@
    "src": "official"
   },
   {
+   "key": "ranged",
+   "zh": "远程",
+   "en": "Ranged",
+   "bodyZh": "",
+   "bodyEn": "",
+   "src": "none"
+  },
+  {
    "key": "regeneration",
    "zh": "再生",
    "en": "Regeneration",
@@ -317,7 +333,7 @@
   },
   {
    "key": "remnant",
-   "zh": "残骸",
+   "zh": "残余",
    "en": "Remnant",
    "bodyZh": "当此单位死亡时，它留下一个残余。残余在你的回合结束时被摧毁。",
    "bodyEn": "When this unit dies, it leaves behind a Remnant. Remnants are destroyed at the end of your turn.",
@@ -333,15 +349,15 @@
   },
   {
    "key": "sentry",
-   "zh": "哨戒",
+   "zh": "哨兵",
    "en": "Sentry",
-   "bodyZh": "对攻击者造成 X 伤害，然后照常结算攻击",
-   "bodyEn": "",
-   "src": "rulebook"
+   "bodyZh": "如果此单位被攻击，解决攻击前对攻击者造成X伤害",
+   "bodyEn": "If this unit is attacked, deal X damage to the attacker before the attack is resolved",
+   "src": "official"
   },
   {
    "key": "shield",
-   "zh": "护盾",
+   "zh": "盾牌",
    "en": "Shield",
    "bodyZh": "吸收一次攻击或效果的所有伤害",
    "bodyEn": "Absorb all damage from one attack or effect",
@@ -357,15 +373,23 @@
   },
   {
    "key": "slay",
-   "zh": "斩杀",
+   "zh": "消灭",
    "en": "Slay",
    "bodyZh": "在战斗中摧毁敌人并存活下来后做些什么",
    "bodyEn": "Does something after destroying an enemy in combat and surviving",
    "src": "official"
   },
   {
+   "key": "sneakattack",
+   "zh": "潜行攻击",
+   "en": "Sneak Attack",
+   "bodyZh": "",
+   "bodyEn": "",
+   "src": "none"
+  },
+  {
    "key": "sniper",
-   "zh": "狙击",
+   "zh": "狙击手",
    "en": "Sniper",
    "bodyZh": "进行远程攻击时，被杀死的敌人不会反击",
    "bodyEn": "When doing a Ranged attack, enemies killed don't retaliate",
@@ -381,7 +405,7 @@
   },
   {
    "key": "stealth",
-   "zh": "潜行",
+   "zh": "隐身",
    "en": "Stealth",
    "bodyZh": "这个单位在一回合内或直到它攻击为止不能被选为目标",
    "bodyEn": "This unit cannot be targeted for one turn or until it attacks",
@@ -389,7 +413,7 @@
   },
   {
    "key": "stimulation",
-   "zh": "激励",
+   "zh": "刺激",
    "en": "Stimulation",
    "bodyZh": "当被计谋目标时会做出某种反应",
    "bodyEn": "Does something when targeted by a Stratagem",
@@ -405,7 +429,7 @@
   },
   {
    "key": "strike",
-   "zh": "猛击",
+   "zh": "攻击",
    "en": "Strike",
    "bodyZh": "如果此单位在攻击后存活，触发一个效果",
    "bodyEn": "Trigger an effect after attacking, if this unit survives the attack",
@@ -429,7 +453,7 @@
   },
   {
    "key": "synapse",
-   "zh": "突触",
+   "zh": "突触节点",
    "en": "Synapse",
    "bodyZh": "当此单位被友方计谋目标时，相邻单位也会受到该计谋的影响",
    "bodyEn": "When this unit is targeted by a friendly Stratagem, adjacent units are affected by that Stratagem as well",
@@ -437,7 +461,7 @@
   },
   {
    "key": "talent",
-   "zh": "天赋",
+   "zh": "才能",
    "en": "Talent",
    "bodyZh": "在你的回合开始时在你的手中创建一张牌",
    "bodyEn": "Create a card in your hand at the start of your turn",
@@ -453,7 +477,7 @@
   },
   {
    "key": "tide",
-   "zh": "潮涌",
+   "zh": "潮汐",
    "en": "Tide",
    "bodyZh": "当这张牌从手中打出时，你可以在这个回合再打出它X次",
    "bodyEn": "When this card is played from hand, you can play it again up to X times this turn",
@@ -485,7 +509,7 @@
   },
   {
    "key": "vulnerable",
-   "zh": "脆弱",
+   "zh": "易受伤害",
    "en": "Vulnerable",
    "bodyZh": "当此单位受到伤害时，它会受到额外的X点伤害",
    "bodyEn": "When this unit is damaged, it receives an additional X damage",
@@ -493,7 +517,7 @@
   },
   {
    "key": "waystone",
-   "zh": "路标石",
+   "zh": "灵魂石",
    "en": "Waystone",
    "bodyZh": "当此单位死亡时，它留下一个可以被收集的灵魂石",
    "bodyEn": "When this unit dies, it leaves behind a Spirit Stone that can be collected",

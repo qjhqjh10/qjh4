@@ -5028,7 +5028,7 @@ public static class ShopScene
                           $"并排第 {k + 1} 份的抽屉真填上了（槽 `{(b.Filled != null ? b.Filled.name : "<没填>")}` · "
                           + $"抽屉 `{b.Drawer}`）");
             }
-            Shoot("05_商店_商品条目族骨架.png");
+            Shoot("05_商店_商品条目族骨架.png"); Object.DestroyImmediate(shot.gameObject);   // 🔴 B107_D1：夹具收尾（与上面 `_offerScratch`/`_offerRuler` 同一档；`shot` 自 `:5008` 建出来从未销毁 ⇒ 它的 `raycast target` 一直留在场景里，是同一像素上的第三颗候选）
         }
 
         // ============================================================ §A218 `sizeDelta`（2026-10-11 新增）

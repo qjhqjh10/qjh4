@@ -1369,7 +1369,7 @@ public static partial class RuleEngineTest
         // 🆕 2026-10-31（调度台接线 · B106_W57）：`Avenging Zeal` 的 `TriggeredCodex` 路由 + 手牌触发 `InstanceId`
         //   断言全文在 `CardPresentation/Editor/B106_W57_Assert.cs`（`public static partial class RuleEngineTest`）。
         {
-            B106W57();
+            B106W57(); B107W10(); B107W19();
         }
 
         // 🆕 2026-10-31（调度台 · AUD11）：`EngineE1Assert`（v24 三列 / 版本守卫 / 按能力种类归位）

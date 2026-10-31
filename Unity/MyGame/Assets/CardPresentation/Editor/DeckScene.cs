@@ -1394,7 +1394,7 @@ public static class DeckScene
             B97_MENU_Assert.CheckB97MenuDeckPoolBanIcon(_rt);   // 🆕 2026-10-29（调度台代接线 · `B97_MENU`）：卡池卡格的 ban 徽标（账 `菜单_外壳:58`）。
 
             B105W3_Assert.Run(); _sink.Pass += B105W3_Assert.Pass; _sink.Fail += B105W3_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · AUD11）：换将不清卡（原版形状；⛔ 别把「换将即清」接回 TryAdd）
-            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail;   TestDoneHighlightToggler();   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
+            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail;   TestDoneHighlightToggler(); B107_W14_Assert.Reset(); B107_W14_Assert.RunStatic(); B107_W14_Assert.RunDeckScene(_rt); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
 
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");

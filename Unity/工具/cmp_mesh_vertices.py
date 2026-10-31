@@ -38,14 +38,20 @@
 -----------------------------------------------------------------
 ① `ChannelInfo.dimension` **只有低 4 位是维度**：流式网格的法线通道存的是 `0x34`（= `4 | 0x30`），
    按原值算步长会得到 116、真值 48；
+   🔴 **2026-10-31 追加：步长只能取 `stream == 0`** —— Unity 的 `m_VertexData` **按 stream 分块存**
+   （块首是 stream 0，位置在 stream 0），每个 stream 各有自己的步长。原先写成「所有通道的 max」，
+   多 stream 网格（实测 `Cone.001`：stream0 真步长 **24**，被 stream2 的通道顶成 **32**）会
+   **从第 2 个点起把位置全解错、而且不报错**。判据与自检 → `--selftest`；
 ② bundle 内层文件的 `read()` 是**消耗式**的（读第二次返回 0 字节）⇒ 必须 `Position = offset; read_bytes(size)`；
 ③ `m_StreamData.offset` 是**相对 `.resS` 起点**的（reader 的 `Position` 已经把 `BaseOffset` 算进去了，别再加）。
 
 用法
 ----
     python -I -X utf8 d:/4/Unity/工具/cmp_mesh_vertices.py              # 只打印用法（不读盘也不写盘）
+    python -I -X utf8 d:/4/Unity/工具/cmp_mesh_vertices.py --selftest   # 自检：多 stream 网格的 stride 只取 stream 0
     python -I -X utf8 d:/4/Unity/工具/cmp_mesh_vertices.py --sample 5   # 抽 5 个逐点细看（只读，不写盘）
     python -I -X utf8 d:/4/Unity/工具/cmp_mesh_vertices.py --all        # 全 169 出表 + 报告
+    python -I -X utf8 d:/4/Unity/工具/cmp_mesh_vertices.py --all --no-write  # 全 169 只算不写盘（核结论用）
 
 产物（仅 `--all`）：
     资料/完全复刻/资源/R2_顶点比对.tsv
@@ -103,6 +109,20 @@ def item_size(fmt, dim):
     return FMT_SIZE.get(fmt, 4) * dim
 
 
+def stream_stride(ch, stream=0):
+    """某一个 **stream** 的顶点步长 = 该 stream 内所有有效通道 `(offset + 字节数)` 的最大值。
+
+    🔴 Unity 的 `m_VertexData` **按 stream 分块存**（stream 0 在块首），**每个 stream 有自己的步长**；
+    位置通道（ch0）在 stream 0 ⇒ 解位置只能用 **stream 0 的步长**。
+    ⚠️ 2026-10-31 前这里取的是「所有通道的 max」：多 stream 网格（实测 `Cone.001`
+    stream0 真步长 24，被 stream2 的通道顶到 32）会**从第 2 个点起把位置全解错**，
+    而且**不报错、看着有依据**（`--selftest` 就是钉这一条的）。
+    """
+    vals = [c['offset'] + item_size(c.get('format'), _dim(c))
+            for c in ch if _dim(c) and c.get('stream', 0) == stream]
+    return max(vals) if vals else 0
+
+
 def read_channel(raw, stride, ch, n, fmt):
     """按通道取 n 个顶点 → [(v...)]。实测原版位置通道只有 fmt 0（Float32）；
     fmt 2（UNorm8）留给顶点色那一路，这里返回 None 让调用方出声。"""
@@ -155,7 +175,9 @@ def vd_channels(d, res):
         if raw is None or len(raw) != sd['size']:
             return None
     n = vd['m_VertexCount']
-    stride = max(c['offset'] + item_size(c['format'], _dim(c)) for c in ch if _dim(c))
+    stride = stream_stride(ch, 0)                  # 🔴 只取 stream 0（坑①追加：多 stream 网格）
+    if not stride:
+        return None
     if stride * n > len(raw):
         return None
     return raw, stride, n, ch
@@ -214,9 +236,12 @@ def asset_meta(path):
     return name, None
 
 
-def read_mesh_asset(path):
-    """Unity Mesh `.asset`（YAML）→ (m_Name, [(x,y,z)])；顶点字节在 `m_VertexData._typelessdata`
-    （十六进制串）。**这个空间 = 原版原样**（实测最大偏差 0.0，见文件头）。"""
+def scan_mesh_asset(path):
+    """Unity Mesh `.asset`（YAML）的扫描段 → `(m_Name, n, raw, chans)`。
+
+    顶点字节在 `m_VertexData._typelessdata`（十六进制串）；取不到 blob 时 `raw` 为 `None`。
+    拆出来是为了让 `--selftest` 能直接读**通道表**（判步长），不必真解顶点。
+    """
     name = None
     in_vd = in_ch = False
     n = None
@@ -248,11 +273,21 @@ def read_mesh_asset(path):
                     datahex = s.split(':', 1)[1].strip()
                     in_ch = False
     if n is None or not datahex or not chans:
+        return name, n, None, chans
+    return name, n, bytes.fromhex(datahex), chans
+
+
+def read_mesh_asset(path):
+    """Unity Mesh `.asset`（YAML）→ (m_Name, [(x,y,z)])；顶点字节在 `m_VertexData._typelessdata`
+    （十六进制串）。**这个空间 = 原版原样**（实测最大偏差 0.0，见文件头）。"""
+    name, n, raw, chans = scan_mesh_asset(path)
+    if n is None or raw is None or not chans:
         return name, None
-    raw = bytes.fromhex(datahex)
     if len(raw) < n * 12:                          # 位置至少 float32×3
         return name, None
-    stride = max(c['offset'] + item_size(c['format'], _dim(c)) for c in chans if _dim(c))
+    stride = stream_stride(chans, 0)               # 🔴 只取 stream 0（同 vd_channels）
+    if not stride:
+        return name, None
     return name, read_channel(raw, stride, chans[0], n, chans[0]['format'])
 
 
@@ -410,12 +445,25 @@ def index_candidates():
 
 
 _CAND_CACHE = {}
+_ASSET_BLOB_CACHE = {}
 
 
 def cand_positions(kind, path):
     if path not in _CAND_CACHE:
         _CAND_CACHE[path] = read_obj(path) if kind == 'obj' else (read_mesh_asset(path) or (None, None))[1]
     return _CAND_CACHE[path]
+
+
+def asset_blob(path):
+    """工程 `.asset` 的**整块顶点字节**（`_typelessdata`）；读不出返回 None。
+    只给 `best_project_match` 的**同分 tie-break** 用（见那里的注释）。"""
+    if path not in _ASSET_BLOB_CACHE:
+        try:
+            _name, _n, raw, _ch = scan_mesh_asset(path)
+        except Exception:
+            raw = None
+        _ASSET_BLOB_CACHE[path] = raw
+    return _ASSET_BLOB_CACHE[path]
 
 
 def rel(path):
@@ -432,10 +480,17 @@ def find_export(row):
     return p if os.path.isfile(p) else None
 
 
-def best_project_match(orig, idx):
+def best_project_match(orig, idx, orig_raw=None):
     """在「同顶点数」的工程件里**按类各取最接近的一份**（`obj` 与 `asset` 两条出货路分开报，
     ⛔ 别只报一条 —— 否则一条坏了另一条 0.0 会把它盖住）。
     `different`（点集连一半都配不上 = 同顶点数的巧合）**直接丢掉**，⛔ 不当"我们的件坏了"。
+
+    🔴 **同分 tie-break（2026-10-31）**：`orig_raw` = 原网格的**整块顶点字节**
+    （`m_VertexData.m_DataSize`）。给了就在 `(bad, dev)` 完全相同时，优先「`_typelessdata`
+    与原件**逐字节相同**」的 `.asset`。为什么需要：同几何重复件（实测 `Cone.003` 的
+    `Cone.002__a76e0f14.asset` 与 `Cone.003__a76e0f14.asset`）**位置逐点相同**，只有非位置流不同；
+    只比位置时选中谁取决于目录枚举顺序，会把「字节相同」那份挤掉。
+    ⚠️ 没有 `orig_raw`（流式网格的 `m_DataSize` 是空的）时行为与以前完全一致。
     → {kind: (path, evaluate()的结果)}"""
     best = {}
     for kind, path, _name in idx.get(len(orig), []):
@@ -445,10 +500,15 @@ def best_project_match(orig, idx):
         ev = evaluate(orig, pos, negate_x=(kind == 'obj'))
         if ev is None or ev['verdict'] == 'different':
             continue
+        byteeq = 0
+        if orig_raw is not None and kind == 'asset':
+            blob = asset_blob(path)
+            byteeq = 0 if (blob is not None and blob == orig_raw) else 1
+        rank = (ev['bad'], ev['dev'], byteeq)
         cur = best.get(kind)
-        if cur is None or (ev['bad'], ev['dev']) < (cur[1]['bad'], cur[1]['dev']):
-            best[kind] = (path, ev)
-    return best
+        if cur is None or rank < cur[0]:
+            best[kind] = (rank, path, ev)
+    return {k: (path, ev) for k, (_rank, path, ev) in best.items()}
 
 
 # --------------------------------------------------------------------------- #
@@ -497,7 +557,11 @@ def analyze(row, idx, cache):
     except ValueError:
         out['n_ok'] = False
 
-    best = best_project_match(orig, idx)
+    # 🔴 同分 tie-break 用：原网格的整块顶点字节（流式网格这里是空的 ⇒ 退回旧行为）
+    _raw = ((_d or {}).get('m_VertexData') or {}).get('m_DataSize')
+    if not isinstance(_raw, (bytes, bytearray)) or not _raw:
+        _raw = None
+    best = best_project_match(orig, idx, orig_raw=_raw)
     for kind in ('obj', 'asset'):
         if kind not in best:
             continue
@@ -797,6 +861,108 @@ def write_report(results, samples, argv):
 
 
 # --------------------------------------------------------------------------- #
+# 自检
+# --------------------------------------------------------------------------- #
+def selftest():
+    """`--selftest`：钉住「多 stream 网格的步长只能取 stream 0」。
+
+    判据（2026-10-31 `B107_R3` 实测；本脚本修的正是它）：
+    工程件 `WarpforgeVFX/Meshes/Cone.001__fc009076.asset`（n=1601）——
+    stream0 = 位置(offset 0, 12B) + 法线(offset 12, 12B) ⇒ **真步长 24**；
+    stream2 的通道把「所有通道的 max」顶成 **32** ⇒ 按 32 解，**第 2 个点起位置全错**。
+    尺子 = `资源/R2_重建网格/Cone.001__-4292304064909405024.obj`
+    （文件头写着 `stride=24`；它是**从 bundle 原样重建**的，坐标 = **原版原样**，
+    与 `.asset` 同一空间 ⇒ 比对时 **不取反**。⚠️ 别和 `assets_full/…/Mesh/*.obj` 那份混淆 ——
+    那份导出件才是「原版 X 取反」）。
+    """
+    L = ['🔎 selftest · stride 必须只取 stream 0', '']
+    ok = True
+
+    def chk(cond, text):
+        nonlocal ok
+        ok = ok and bool(cond)
+        L.append(('  ✅ ' if cond else '  🔴 ') + text)
+
+    def p3(p):
+        return '(%.6f, %.6f, %.6f)' % (p[0], p[1], p[2])
+
+    asset = MESH_HOME + '/WarpforgeVFX/Meshes/Cone.001__fc009076.asset'
+    ruler = REBUILD_DIR + '/Cone.001__-4292304064909405024.obj'
+    if not os.path.isfile(asset):
+        L.append('🔴 缺测试件：%s' % asset)
+        print('\n'.join(L))
+        return 1
+
+    name, n, raw, chans = scan_mesh_asset(asset)
+    used = [(i, c) for i, c in enumerate(chans) if _dim(c)]
+    if not used:
+        L.append('🔴 测试件里没有有效通道（dim 全 0）：%s' % asset)
+        print('\n'.join(L))
+        return 1
+    old = max(c['offset'] + item_size(c.get('format'), _dim(c)) for _i, c in used)
+    new = stream_stride(chans, 0)
+    L.append('测试件：`%s`（m_Name `%s`，n=%d）' % (os.path.basename(asset), name, n))
+    for i, c in used:
+        L.append('  通道 ch%-2d stream=%d offset=%-3d format=%-2d dim=%d'
+                 % (i, c.get('stream', 0), c['offset'], c.get('format'), _dim(c)))
+    L.append('修前 stride（所有通道 max）= **%d**' % old)
+    L.append('修后 stride（仅 stream 0）  = **%d**' % new)
+    L.append('')
+    chk(old == 32, '修前步长 = 32（复现旧行为：被 stream 2 的通道顶上去）')
+    chk(new == 24, '修后步长 = 24（stream0：位置 12B + 法线 12B）· 期望 24')
+    chk(new != old, '两者不同 ⇒ 这个件确实是多 stream（否则本自检没有意义）')
+
+    if raw is None or not chans:
+        L.append('🔴 读不出 `_typelessdata`（Mesh YAML 格式变了？）')
+        print('\n'.join(L))
+        return 1
+    pos_new = read_channel(raw, new, chans[0], n, chans[0]['format'])
+    pos_old = read_channel(raw, old, chans[0], n, chans[0]['format'])
+    chk(pos_new is not None and len(pos_new) == n,
+        '按新步长解出 %d 个点（= n）' % (len(pos_new) if pos_new else 0))
+
+    if not os.path.isfile(ruler):
+        L.append('  ⚠️ 跳过「与尺子逐点比」：缺 `%s`' % ruler)
+    elif pos_new and pos_old:
+        rp = read_obj(ruler)
+        L.append('尺子：`%s`（%d 点，文件头 stride=24、原版原样、不取反）' % (os.path.basename(ruler), len(rp)))
+        chk(len(rp) == n, '尺子顶点数 %d = 测试件 n' % len(rp))
+        if len(rp) == n:
+            dnew, bnew, _ = compare_ordered(rp, pos_new, negate_x=False)
+            dold, bold, _ = compare_ordered(rp, pos_old, negate_x=False)
+            L.append('  修后：最大偏差 %.3e · 超点 %d' % (dnew, bnew))
+            L.append('  修前：最大偏差 %.3e · 超点 %d' % (dold, bold))
+            L.append('  点 #1 —— 尺子 %s · 修后 %s · 修前 %s'
+                     % (p3(rp[1]), p3(pos_new[1]), p3(pos_old[1])))
+            chk(dnew <= TOL, '修后与尺子逐点一致（≤ %.0e）' % TOL)
+            chk(dold > 0.1, '修前与尺子对不上（> 0.1）⇒ 复现「第 2 个点起全错」')
+
+    # 原版侧（UnityPy → bundle 内联 `m_DataSize`）—— 可选，缺环境就跳过
+    bundle_col = 'bundle_battleprefabs_vfxandmisc_assets_all.bundle'
+    bp = bundle_path(bundle_col)
+    L.append('')
+    if not os.path.isfile(bp):
+        L.append('  ⚠️ 跳过原版侧：缺 bundle `%s`' % bp)
+    else:
+        orig = None
+        try:
+            orig, _d = decode_original(bundle_col, '-4292304064909405024', {})
+        except Exception as e:                     # UnityPy 未装 / 包版本不兼容
+            L.append('  ⚠️ 跳过原版侧：%s: %s' % (type(e).__name__, e))
+        if orig:
+            chk(len(orig) == n, '原版侧（UnityPy, 修正后）解出 %d 点 = 测试件 n' % len(orig))
+            if os.path.isfile(ruler) and len(orig) == len(read_obj(ruler)):
+                dev, bad, _ = compare_ordered(read_obj(ruler), orig, negate_x=False)
+                L.append('  原版侧 vs 尺子：最大偏差 %.3e · 超点 %d' % (dev, bad))
+                chk(dev <= TOL, '原版侧（修正后）与尺子逐点一致')
+
+    L.append('')
+    L.append('结论：%s' % ('✅ PASS' if ok else '🔴 FAIL'))
+    print('\n'.join(L))
+    return 0 if ok else 1
+
+
+# --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
 USAGE = __doc__.split('用法\n----\n', 1)[-1].split('\n\n产物', 1)[0].strip('\n')
@@ -806,8 +972,12 @@ def main(argv):
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument('--sample', type=int, default=None)
     ap.add_argument('--all', action='store_true')
+    ap.add_argument('--selftest', action='store_true')
+    ap.add_argument('--no-write', '--dry', dest='no_write', action='store_true')
     ap.add_argument('-h', '--help', action='store_true')
     a, unknown = ap.parse_known_args(argv)
+    if a.selftest:
+        return selftest()
     if unknown or a.help or (a.sample is None and not a.all):
         print(USAGE)
         return 0
@@ -832,6 +1002,15 @@ def main(argv):
         for r in results:
             print('')
             print('\n'.join(detail_block(r)))
+        return 0
+
+    if a.no_write:
+        ok = sum(1 for r in results if r['判定'].startswith('逐点一致'))
+        bad = [r for r in results if r['判定'].startswith('逐点不一致')]
+        print('')
+        print('（--no-write：未写盘）逐点一致 %d / %d · 逐点不一致 %d' % (ok, len(results), len(bad)))
+        for r in bad:
+            print('  🔴 %s（%s）→ %s' % (r['名字'], r['PathID'], r['判定']))
         return 0
 
     write_tsv(results)

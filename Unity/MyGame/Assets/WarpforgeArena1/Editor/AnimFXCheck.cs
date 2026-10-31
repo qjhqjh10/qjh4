@@ -2243,6 +2243,7 @@ public static class AnimFXCheck
                 + $"（{beforeUnimpl} → {WFEffectExtras.Unimplemented}；若变红 = 有人加了 kind 却没加 case）");
         }
 
+        CheckTraitUnreachable();   // 🆕 2026-10-31（B107_W9 / AN1-1）：不可达 trait 登记表自检
         Done();
     }
 
@@ -2266,6 +2267,72 @@ public static class AnimFXCheck
         var s = ps.shape;
         s.angle = deg;
         return ps.shape.angle;
+    }
+
+    // 🆕 2026-10-31（B107_W9 / AN1-1）：不可达 trait 登记表自检。判据 → `Assets/CardPresentation/Core/TraitUnreachable.cs` 文件头 · `资料/完全复刻/报告/B107_W9.md`
+    // ① 表结构（非空 / 严格升序 / 无重复 / 每条字段齐）② 每条在 `trait_effect_bindings.json` 的 rows 里确有 TriggerType∈{3,6} 的行（证「字段在」）
+    // ③ 灭自证：regeneration 必须在表内；stomp / huntMark / bloodThirst 必须**不在**（原版真发，塞进来就红）
+    [System.Serializable] class TraitBindDoc { public TraitBindRow[] rows; }
+    [System.Serializable] class TraitBindRow { public string trait; public int triggerType; }
+
+    static void CheckTraitUnreachable()
+    {
+        var all = CardPresentation.TraitUnreachable.All;
+        Check(all != null && all.Count > 0, "AN1-1：不可达 trait 登记表非空");
+
+        bool sorted = true, dup = false, fieldsOk = true;
+        int prev = int.MinValue;
+        var seen = new HashSet<int>();
+        for (int i = 0; i < all.Count; i++)
+        {
+            var e = all[i];
+            if (e.DefinedTrait < prev) sorted = false;
+            prev = e.DefinedTrait;
+            if (!seen.Add(e.DefinedTrait)) dup = true;
+            if (string.IsNullOrEmpty(e.Trait) || string.IsNullOrEmpty(e.Kind)
+                || string.IsNullOrEmpty(e.Evidence) || string.IsNullOrEmpty(e.Why)
+                || string.IsNullOrEmpty(e.Scope)) fieldsOk = false;
+        }
+        Check(sorted, "AN1-1：登记按 DefinedTrait 严格升序（确定性排序）");
+        Check(!dup, "AN1-1：没有重复的 DefinedTrait");
+        Check(fieldsOk, "AN1-1：每条都有 Trait/Kind/Evidence/Why/Scope");
+
+        var ta = Resources.Load<TextAsset>("trait_effect_bindings");
+        Check(ta != null, "AN1-1（前提）：`Resources/trait_effect_bindings.json` 载得到");
+        if (ta != null)
+        {
+            var doc = JsonUtility.FromJson<TraitBindDoc>(ta.text);
+            var byName = new Dictionary<string, int>();
+            if (doc != null && doc.rows != null)
+            {
+                for (int i = 0; i < doc.rows.Length; i++)
+                {
+                    var r = doc.rows[i];
+                    if (r == null || string.IsNullOrEmpty(r.trait)) continue;
+                    string key = r.trait.ToLowerInvariant();
+                    int cur;
+                    // 同名多行时：只要有一行落在 3/6 档就算「字段在」；否则保留首次读到的档
+                    if (!byName.TryGetValue(key, out cur) || r.triggerType == 3 || r.triggerType == 6)
+                        byName[key] = r.triggerType;
+                }
+            }
+            int missing = 0;
+            for (int i = 0; i < all.Count; i++)
+            {
+                int tt;
+                if (!byName.TryGetValue(all[i].Trait.ToLowerInvariant(), out tt) || (tt != 3 && tt != 6)) missing++;
+            }
+            Check(missing == 0, $"AN1-1：每条登记在绑定表里都有 TriggerType∈{{3,6}} 的行（缺 {missing} 条）");
+        }
+
+        Check(CardPresentation.TraitUnreachable.IsUnreachable("regeneration"),
+              "AN1-1（灭自证）：regeneration 在表内（原版无 AbilityTrigger、回合末直结算）");
+        Check(!CardPresentation.TraitUnreachable.IsUnreachable("stomp"),
+              "AN1-1（灭自证）：stomp **不在**表内（ResolveAttack 状态机真发 0x4d8）");
+        Check(!CardPresentation.TraitUnreachable.IsUnreachable("huntMark"),
+              "AN1-1（灭自证）：huntMark **不在**表内（AddEffect 直接传 0x4ec）");
+        Check(!CardPresentation.TraitUnreachable.IsUnreachable("bloodThirst"),
+              "AN1-1（灭自证）：bloodThirst **不在**表内（HighlightBloodThirst 直接传 0xdc）");
     }
 
     static void Done()

@@ -34,7 +34,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>原版 `ChatPanel`。</summary>
-    public class ChatPanel : GameWindowWithTabs
+    public partial class ChatPanel : GameWindowWithTabs
     {
         // 队列档（本窗自成一档；页与子件在它之上） —— 与社交窗的 3200 段、档案窗的 3160 段都不重叠
         // 🔴 **2026-10-13（A348）就地收窄（铁律 5）**：这一颗原来也是 `public` —— 实测**全仓代码引用 0**
@@ -170,7 +170,7 @@ namespace CardPresentation
         {
             LastOpened = this;
             Build();
-            if (tabButtons != null) tabButtons.Click(0);      // 默认落在 Global（视觉第 1 个）
+            if (tabButtons != null) tabButtons.Click(StartTabIndex());      // #N92：`ChatPanelContext.startingChannel` 有值就落那个页，否则 Global（视觉第 1 个）
             RefreshHighlights();
         }
 
@@ -277,7 +277,7 @@ namespace CardPresentation
             // 🔴 **2026-10-30（`B102_CHAT`）**：原版 `Text Area/Text`（字号 28 · Left/Top · 折行 3 · 白 · 文案零宽空格）—— 我们**原来没有这一颗**（只有 `Placeholder`）⇒ 打进字去没地方显示、看着像「打不了字」（判据 = `资料/普查产出_0927/聊天窗与挑战弹窗.md:76`）
             var textLb = Text(input, InputR, "\u200b", Color.white, "Text", 28f, QText, autoMin: 0f, alignLeft: true, face: TmpFont.Face.LatinCardBody);
             if (textLb != null) { textLb.SetWrappingMode(3); MenuDraw.AlignLeft(textLb, InputR); }   // 重排会把 TMP 子节点挪走 ⇒ 对齐压在它后面
-            TextInputField.Bind(input, new PromptContext.InputData("ChatInput", "MainMenu/Chat/TypeMessage"), ph, textLb, ChatSend.CharLimit, v => ChatSend.SubmitByEnter(this));
+            TextInputField.Bind(input, new PromptContext.InputData("ChatInput", "MainMenu/Chat/TypeMessage"), ph, textLb, ChatSend.CharLimit, v => ChatSend.SubmitByEnter(this), StripRichTextTags);   // B107_W27：末位 `sanitize` = 原版 `m_OnValueChanged → TextMessageValidationTools.RemoveRichTextTags` 那一跳（`ChatPanel.cs:154-161`）；`Update()` 那份轮询保留（幂等空转，W13 口径）
             MenuDraw.Hit(input, "InputHit", InputR, QHit, () => ChatSend.Begin(this));
             // 🔴 原来**这两行**是「`[Chat] 输入框**打不了字**`」的 `Debug.Log`（点输入框只出声 = 静默失败）—— 现在接真输入，
             //   那两句措辞搬进 `ChatSend.Begin` 并改成「离线也能打字」的如实说明；发送键同理（原来的 `:292` → `ChatSend.Send`）。
@@ -726,10 +726,10 @@ namespace CardPresentation
     /// （`menu_dump` 因为 `m_IgnoreLayout` 那个 bug 把行内 y 全算偏了，§0·1 + §A·2 那两段）。
     /// 🔴 **行内一律按「相对行左上角」的偏移摆**（普查找那张表用的就是相对值；行宽由 viewport 给）——
     /// 别拿某个子节点的**世界坐标**去当像素用（那是两套单位，混了会静默摆歪）。</summary>
-    public static class ChatMessageRow
+    public static partial class ChatMessageRow
     {
         const float PadX = 25f;          // 表里 `Player Header`/`Message` 的 x1 = 25.00
-        const float HeadTop = 10f, HeadH = 25f;
+        const float HeadTop = RowPadTop, HeadH = 25f;   // #N127：头部的顶偏移就是 VLG 的 `m_Padding.Top` ⇒ 引用唯一写点，⛔ 别再写死 10
         const float MsgTop = 47f;
         const float PBW = 146.03f, PBH = 163.14f;   // `Profile border` 146.03×163.14
         const float PBdx = 45f, PBdy = 15f;         // `a=(1,1) p=(0.5,1) pos=(45,15)`（自己发）/ `a=(0,1) pos=(-45,15)`（别人）
@@ -846,7 +846,7 @@ namespace CardPresentation
             //     `| ·1 | Message | … | 'This is the message' 字号=22.0 基准=22.0 对齐=Left/Top 折行=1 色=(1,1,1,1) |`
             // 🆕 **2026-10-31（B106_W13）**：**框高改为随行高**（原来写死 `r.y1 + MsgTop + 30f` ⇒ 多行消息会溢出）。
             //   行高由 `ChatTab.RowHeightFor` 按原版 CSF 算式给（`57 + 正文实测高`，与 OSA `_DefaultItemSize 60` 取大）⇒ 底边 = `r.y2 − 10`（10 = 原版 VLG 的 `m_Padding.Bottom`）。
-            Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y2 - 10f),
+            Text(row, new PxRect(r.x1 + padL, r.y1 + MsgTop, r.x2 - padR, r.y2 - RowPadBottom),
                  SocialData.Text(m), Color.white, "Message", 22f, ChatPanel.QText, clip, clipSoft, alignLeft: true,
                  face: TmpFont.Face.LatinCardBody);
 
@@ -1093,7 +1093,7 @@ namespace CardPresentation
                 Debug.LogWarning("[Chat] 发送键：输入框那颗 `TextInputField` 不在（`" + InputPath + "`）⇒ 拿不到正文、不发（如实说）。");
                 return false;
             }
-            string text = input.Value ?? "";
+            string text = ChatPanel.StripRichTextTags(input.Value);   // #N91：原版 `m_OnValueChanged → TextMessageValidationTools.RemoveRichTextTags`（`ChatPanel.cs:154-161`）
             // 闸的顺序照原版 `ChatPanel__TrySendMessage.c`：**先禁言（原版直接 return）→ 再空白检查（原版 `IsNullOrWhiteSpace` + 一条日志）**
             if (IsBanned(win))
             {
@@ -1132,5 +1132,122 @@ namespace CardPresentation
                     + "**对端收不到**，只在本机这一页看得见（用户 2026-09-26 口径）。");
             return true;
         }
+    }
+
+
+    // ==================================================================
+    //  🆕 2026-10-31（B107_W13）—— 类尾第二段 `partial ChatPanel`（N91 去富文本 / N92 起始频道）
+    // ==================================================================
+    // 🔴 纪律：本文件被账按 `文件:行号` 引用 40+ 处（`ChatSend` 那一族现读最高 `:1083`）⇒ 这一整段
+    //    **只许追加在 `ChatSend`（:985-1135）之后**；`ChatPanel` 的声明行就地加 `partial`（**零行数变化**）。
+    //    理由与先例 → 本文件 `ChatSend` 类头那段。
+
+    /// <summary>`ChatPanel` 的两条追加件（原版判据见各成员 doc）。</summary>
+    public partial class ChatPanel
+    {
+        /// <summary>原版 `ChatPanel.ChatPanelContext`（`out_cpp2il_dev_ilspy/ChatPanel.cs:16-24`，**嵌套类**）：
+        /// 开窗上下文只带一格 `startingChannel`（`ChatRoom`：`Global = 0` / `Alliance = 1`）。
+        /// <para>原版开窗 = `WindowsManager.OpenWindow(chatPanel, new ChatPanelContext(room))`
+        /// → `ChatPanel.Open()` 里 `FirstOrDefault(tabs, t => t.channel.ChannelType == startingChannel)` → `ChangeTab`。</para>
+        /// <para>⚠️ 我们的「按引用复用」入口 `WindowsManager.OpenByRef` 传的是 `null`（`WindowsManager.cs:940`）⇒
+        /// 走 `OpenWindow(data)` 的调用点用它；走 `OpenByRef` 的调用点请在 `Open()` 之前直接设
+        /// <see cref="StartingChannel"/>（同一跳语义，见那个属性的 doc）。</para></summary>
+        public class ChatPanelContext
+        {
+            public string startingChannel;
+            public ChatPanelContext(string channel) { startingChannel = channel; }
+        }
+
+        string _startingChannel;
+
+        /// <summary>#N92 本次打开要落哪个频道（`"Global"` / `"Alliance"`；`null`/未知 = Global）。
+        /// <para>= 原版 `ChatPanelContext.startingChannel` 在**本仓两条开窗路**上的统一入口：
+        /// `OpenWindow(win, new ChatPanelContext(...))`（原版那条）与「先设这个属性、再 `Open()`」（`OpenByRef` 那条）。</para>
+        /// <para>语义照原版：**一次性** —— `Open()` 取完就清（`StartTabIndex`），下次没人设就回 Global、不会沿用上一次的频道。</para></summary>
+        public string StartingChannel { get { return _startingChannel; } set { _startingChannel = value; } }
+
+        /// <summary>= 原版 `ChatPanel.Open()` 第一跳的前半（`data as ChatPanelContext`）。判据 =
+        /// `out_cpp2il_dev_ilspy/ChatPanel.cs:245-260`（`object obj = data; … typeof(ChatPanelContext)`）。
+        /// <para>⚠️ 只在拿到 `ChatPanelContext` 时写 —— `OpenWindow(win, null)` / `OpenByRef` 都会传 `null`，
+        /// 那时**不能**把调用方刚设好的 <see cref="StartingChannel"/> 清掉。</para></summary>
+        protected override void SetupData(object data)
+        {
+            var ctx = data as ChatPanelContext;
+            if (ctx != null) _startingChannel = ctx.startingChannel;
+            base.SetupData(data);      // 原版 `GameWindow.SetupData` 只写 data/options；`null` 清空 `Data` 是既有语义
+        }
+
+        /// <summary>频道名 → 页签下标。`Channels`（`{ "Global", "Alliance" }`）是**唯一真值**；
+        /// 取不到 ⇒ **0**（原版 `FirstOrDefault` 取不到时不 `ChangeTab`，我们保留「默认落第一个」这条既有行为）。</summary>
+        public static int TabIndexForChannel(string channel)
+        {
+            if (string.IsNullOrEmpty(channel)) return 0;
+            for (int i = 0; i < Channels.Length; i++) if (Channels[i] == channel) return i;
+            return 0;
+        }
+
+        int StartTabIndex()
+        {
+            int idx = TabIndexForChannel(_startingChannel);
+            _startingChannel = null;      // 原版 context 每次开窗由调用方新传 ⇒ 用完即清（防「上次开 Alliance、这次没传却也落 Alliance」）
+            return idx;
+        }
+
+        // ---------------------------------------------------------------- #N91 输入框去富文本标签
+        /// <summary>#N91 原版 `TextMessageValidationTools.RemoveRichTextTags` 的**标签黑名单**（18 条，**逐条照抄**）。
+        /// <para>判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/TextMessageValidationTools.cs` 的静态构造
+        /// （`new string[18]` 逐槽赋值）+ `decomp_full/TextMessageValidationTools__RemoveRichTextTags.c`
+        /// （`CacheString.Clear()` → `Append(target)` → 逐个 `Replace(tag, "")`）。</para>
+        /// <para>🔴 **只有这 18 条**：`<b>` / `<i>` / `<color=…>` 等**都不在黑名单里**（原版会原样保留、由 TMP 渲染）。
+        /// ⛔ 别顺手把「所有 `<…>`」都剥掉 —— 那是另一套行为、与玩家在原版里看到的字不一致。</para>
+        /// <para>⚠️ 逐条 `Replace` 是**精确子串**匹配：`<size=40>` 会变成 `40>`（原版同样是这个结果，⛔ 别「修好」它）。</para></summary>
+        public const int RichTextTagCount = 18;
+
+        static readonly string[] RichTextTagsToRemove =
+        {
+            "<align=", "<alpha=", "<cspace=", "<font=", "<indent=", "<line-height=",
+            "<line-indent=", "<link=", "<margin=", "<mspace=", "<nobr>", "<page>",
+            "<pos=", "<size=", "<sprite=", "<style=", "<voffset=", "<width=",
+        };
+
+        /// <summary>= 原版 `TextMessageValidationTools.RemoveRichTextTags(string)`：把上面 18 条子串**逐个剔除**。
+        /// `null`/空 ⇒ 原样返回空串（原版这里会 NRE；服务端/输入框不会给 null ⇒ 我们回空、不崩）。</summary>
+        public static string StripRichTextTags(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s ?? "";
+            string outp = s;
+            for (int i = 0; i < RichTextTagsToRemove.Length; i++)
+                outp = outp.Replace(RichTextTagsToRemove[i], "");
+            return outp;
+        }
+
+        /// <summary>#N91 的**实时**那一半：原版在 `Start` 里给 `TMP_InputField.m_OnValueChanged` 挂一条
+        /// `RemoveRichTextTags(m_Text) → text = 结果`（`out_cpp2il_dev_ilspy/ChatPanel.cs:154-161`；另一份等价
+        /// `ValidateInput` 在 `:651-655`）⇒ **边打边剔**。
+        /// 🔶 自己设计（非原版）：本仓没有 uGUI `TMP_InputField`（输入框是 `Shell/TextInputField`，**没有 value-changed 事件**）
+        /// ⇒ 用「编辑态每帧比对、变了就 `SetValue` 回去」等价这一跳 · 为什么必须自己定：`TextInputField.cs` 不在本执行代理白名单
+        /// （要给它加 `Func&lt;string,string&gt;` 钩子是**更干净**的接法，已写进 `报告/B107_W13.md`「需要调度台接线」）·
+        /// 执行代理 B107_W13 2026-10-31。发送那一路另有一道（`ChatSend.Send` 里同一次剥离），⛔ 两道不能少任何一道。</summary>
+        void Update()
+        {
+            var input = ChatSend.InputOf(this);
+            if (input == null || !input.Editing) return;
+            string v = input.Value ?? "";
+            string s = StripRichTextTags(v);
+            if (!string.Equals(s, v, System.StringComparison.Ordinal)) input.SetValue(s);
+        }
+    }
+
+
+    // ==================================================================
+    //  🆕 2026-10-31（B107_W13）—— `ChatMessageRow` 的第二段（N127：行内边距的唯一写点）
+    // ==================================================================
+    public static partial class ChatMessageRow
+    {
+        /// <summary>行 `VerticalLayoutGroup.m_Padding` 的**上下**内边距（设计 px）—— 原版 `ChatMessageRow.prefab` 的
+        /// VLG `m_Padding = L25 / R60 / T10 / B10`（判据见 `ChatTab.cs` 那段行高注释与 `Editor/B107_W2_Assert.cs`）。
+        /// <para>🔴 **#N127：这是【唯一】写点** —— 本文件的 `Build` 用 `RowPadBottom`，`ChatTab.RowPadTop/Bottom` 也
+        /// 改成引用这里（原来两处各写一遍 `10`，改一处忘另一处就静默不一致）。</para></summary>
+        public const float RowPadTop = 10f, RowPadBottom = 10f;
     }
 }

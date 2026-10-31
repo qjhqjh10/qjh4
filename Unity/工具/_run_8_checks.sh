@@ -56,6 +56,7 @@ run CardFaceAssertE5.Run cardface_e5.log  # 卡面音效 cue 断言（含 SoundC
 #   加它的理由同上面两条：**现有宿主没有一个碰过 `WarpforgeAudio`**（`AudioSetup.PlayCheck` 在 batchmode 下直接拒跑）
 #   ⇒ 不加进本清单，那几条断言**永远不会执行**。⛔ 仍然**串行**。
 run AudioSnapshotCheck.Run audiosnap.log # 混音快照：条数 / 逐档取得到 / 0 miss
+run VoiceWaveProbe.Run waveprobe.log # 🆕 2026-10-31（B107_W15 / N105 · FP-AUDIO-03）：VoiceWaveProbe 此前 0 宿主；GPU 段在 headless 下需确认不红
 # ---- 🆕 2026-10-28（第八十九会话 · `B89-E9` 建、调度台并入）----
 #   `Editor/LoadableRefCheck.cs` 断 `LoadableReference<T>` 的 12 条原版语义（`Equals`/`GetHashCode`/
 #   两个 `implicit`/序列化三钩子），含**「`Equals(null)` 原版抛 NRE」**那条灭自证断言。

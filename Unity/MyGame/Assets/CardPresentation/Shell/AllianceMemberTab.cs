@@ -1754,7 +1754,7 @@ namespace CardPresentation
     /// <summary>成员行（750×100 —— 与 `MemberList>Scroll View>Viewport>Content` 的
     /// `GridLayoutGroup` cellSize **逐值相同**，所以直接吃 cell 尺寸即可，不用再推）。
     /// ⚠️ 行里**两处评级圆**用的图不同：`Draft Rating` = **骷髅** · `Ranked Rating` = **段位图标**。</summary>
-    public static class AllianceMemberRow
+    public static partial class AllianceMemberRow
     {
         // ---- 行几何 / 网格（原版 `MemberList>Scroll View>Viewport>Content` 的 `GridLayoutGroup`）----
         /// <summary>`GridLayoutGroup` cellSize **750×100** · spacing (10,**7.22**) · pad **(左0,右0,上9,下75)**
@@ -1936,7 +1936,7 @@ namespace CardPresentation
             // 🔴 2026-10-12（A391）：两颗的【折行**不同档**】—— Draft `折行=1` / Ranked `折行=0`
             //    （判据与理由 → `Rating` 的头注释，⛔ 别在这儿抄第二份）。
             Rating(v, row, r, 3.36f, "Draft Rating", "40k_battle_Win_Skull", m.DraftRating, rightPivot: false, wrap: true);
-            Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", m.RankedRating, rightPivot: true, wrap: false);
+            Rating(v, row, r, 49.86f, "Ranked Rating", "40k_UI_icon_ranked_Skirmish", RankedRatingText(m), rightPivot: true, wrap: false);
             v.Hit(row, "Hit", r, 3, () => OpenMemberOptions(m, r));
         }
 
@@ -2603,6 +2603,34 @@ namespace CardPresentation
         {
             if (_alliances != null) { UiBadgeNotificationManager.Unregister(_alliances); _alliances = null; }
             if (_friends != null) { UiBadgeNotificationManager.Unregister(_friends); _friends = null; }
+        }
+    }
+
+
+    // ==================================================================
+    //  🆕 2026-10-31（B107_W13 · N93）—— `AllianceMemberRow` 的第二段
+    // ==================================================================
+    // 🔴 纪律：本文件被 `账/社交_聊天.tsv` 按行号引用（现读最高 `:2220`）⇒ 这一整段只追加在**文件尾**；
+    //    `AllianceMemberRow` 的声明行就地加 `partial`（零行数变化）。
+
+    public static partial class AllianceMemberRow
+    {
+        /// <summary>#N93 行里 `Ranked Rating` 该显示的串 = 原版 `AllianceMemberEntry.Initialize` 的那一条赛季闸：
+        /// `if (member.season == group.currentSeason) value = member.Rating; else value = 0;`
+        /// （判据 = `out_cpp2il_dev_ilspy/AllianceMemberEntry.cs:196-207` ·
+        /// `decomp_full/AllianceMemberEntry__Initialize.c:118-125`）。
+        /// <para>⚠️ 哪一格吃这条闸：prefab 里 `playerRating` 字段落在 **`Ranked Rating`** 那颗 GO 上
+        /// （`Alliance Member Entry.prefab`：`playerRating: {fileID: 114976365255789935}` 在该 GO 的组件表里，
+        /// 该 GO 的 `m_Name: Ranked Rating`），`draftRating` 落在 `Draft Rating` 上；`Draft` 那格由**限时轮抽活动**
+        /// （`TimedDraftEvent`，P3 远端）供值，不走赛季闸。</para>
+        /// <para>返回 `null` ⇔ 评级 0：`AllianceRatingDisplay.Initialize(…, disableIfZero: true, …)` 在 0 时整块关闭
+        /// ⇒ `Rating()` 的零值支会自动隐藏那两颗子件（见 `Rating` 的注释）。</para>
+        /// <para>⚠️ 本地两格都**没有生产写入方**（服务端字段）⇒ 默认 `Season = 0 == CurrentSeason = 0` ⇒ 照常显示，
+        /// 既有夹具可见态不变。</para></summary>
+        public static string RankedRatingText(SocialData.Member m)
+        {
+            if (m == null) return null;
+            return m.Season == SocialData.CurrentSeason ? m.RankedRating : null;
         }
     }
 }

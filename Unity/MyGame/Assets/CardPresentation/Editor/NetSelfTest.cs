@@ -76,7 +76,8 @@ public static class NetSelfTest
             try { TestOpponentHintA932(); } catch (Exception e) { StepFail("TestOpponentHintA932", 3, e); }            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
             try { TestNetTermBilingual(); } catch (Exception e) { StepFail("TestNetTermBilingual", 2, e); }            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
             try { TestHostResolve(); } catch (Exception e) { StepFail("TestHostResolve", 1, e); }
-            try { TestAddressAndUpnp(); } catch (Exception e) { StepFail("TestAddressAndUpnp", 0, e); }     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
+            try { TestAddressAndUpnp(); } catch (Exception e) { StepFail("TestAddressAndUpnp", 1, e); }     // 🆕 2026-09-27：地址判据（Teredo/6to4）+ UPnP 纯函数
+            try { TestFingerprintIgnoresDiagnosticLog(); } catch (Exception e) { StepFail("TestFingerprintIgnoresDiagnosticLog", 0, e); }   // 🆕 2026-10-31（调度台裁定 NET-01）：`Fingerprint` 去掉 `ctx.Events.Count`（诊断日志不是局面）
         }
         catch (Exception e)
         {
@@ -2905,5 +2906,37 @@ public static class NetSelfTest
         _fail++;
         Debug.LogError("[NetSelfTest] ✗ 跑到 `" + test + "` 时抛异常（算红，⛔ 不是跳过）⇒ 其后 " + rest
                      + " 个 Test **没跑**：" + e);
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-31（调度台裁定 · NET-01）：`Fingerprint` 不许把「诊断日志」当局面
+    // ==================================================================
+    /// <summary>判据 = 调度台 2026-10-31 的 NET-01 裁定：从 <see cref="NetProtocol.Fingerprint"/> 里**去掉 `ctx.Events.Count`**。
+    ///
+    /// <para>🔴 为什么：`ctx.Events` **没有任何 drain**（`BattleContext.Log` 只 `Add`，超 `EventCapacity` 才从头部裁），
+    /// 它是**诊断日志**、不是局面。算进指纹 ⇒ 任何「只在一端发生的引擎调用」只要写了 `ctx.Log`，
+    /// P2P 两端指纹就分叉（实测差 `4×31² = 3844`，而两端 `PlayerHash` 其实完全相同）。</para>
+    ///
+    /// <para>⚠️ **先断前提再断结论**：两个 `BattleContext` 必须同种子 ⇒ 同局面（`StateHash` / `Fingerprint` 都相等），
+    /// 且其中一端**真的多写了一条日志**（`Events.Count` 差 1）—— 否则本条断言是空转绿。</para>
+    ///
+    /// <para>🧨 **灭自证**：把 `h = h * 31 + ctx.Events.Count;` 加回 `Fingerprint` ⇒ F4 红（且恰好差 4×31² = 3844）。</para>
+    /// </summary>
+    static void TestFingerprintIgnoresDiagnosticLog()
+    {
+        var a = new BattleContext(0x1E731);
+        var b = new BattleContext(0x1E731);
+
+        // ---- 前提（不成立 ⇒ 本条空转，必须先红）----
+        Eq(NetProtocol.StateHash(b), NetProtocol.StateHash(a), "F1 （前提）同种子的两个 `BattleContext` 局面相同（`StateHash` 相等）");
+        Eq(NetProtocol.Fingerprint(b), NetProtocol.Fingerprint(a), "F2 （前提）同上，两端指纹相等");
+        Eq(a.Events.Count, b.Events.Count, "F3 （前提）两端日志条数改前相同");
+        b.Log("NET-01 诊断日志：只在 b 端写一条");
+        Eq(b.Events.Count, a.Events.Count + 1, "F3' （前提）b 端确实多写了一条日志（不差 = 本条空转）");
+
+        // ---- 结论 ----
+        Eq(NetProtocol.Fingerprint(b), NetProtocol.Fingerprint(a),
+           "F4 `ctx.Events.Count` **不进**指纹 —— 单端写诊断日志不许造成假分叉（改前这里恰好差 4×31² = 3844）");
+        Eq(NetProtocol.StateHash(b), NetProtocol.StateHash(a), "F5 `StateHash` 同样不受诊断日志影响");
     }
 }

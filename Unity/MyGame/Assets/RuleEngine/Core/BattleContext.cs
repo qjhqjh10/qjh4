@@ -1092,11 +1092,11 @@ namespace RuleEngine
         /// `TargetPlayer/TargetSlot/TargetCardId` 是标量；表现层也是按 0/1 个目标处理的，
         /// 见 `BattleDriver.ExpandAbilityBeats` 的多目标拍注释）⇒ **如实记：取第一个**。</para>
         ///
-        /// <para>⚠️ 只在**有延后结算体**的那几条路上 arm（今天两处：回合起止的**棋盘单位**那一趟、
-        /// **手牌陷阱**那一趟 —— 🔴 2026-10-31（`B104_T21` · T21-b）补上后者，两处共用
-        /// `EffectResolver.ResolveWithTriggerTargetSink` 一处 save/restore）；
-        /// 其余发射点（监听者 / 天赋 / 605 / 410 …）**保持 `null`**，理由见
-        /// `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md`。</para>
+        /// <para>⚠️ 只在**有延后结算体**的那几条路上 arm（今天 8 处：回合起止的**棋盘单位**那一趟 ·
+        /// **手牌陷阱**那一趟 —— 这两处 🔴 2026-10-31（`B104_T21` · T21-b）；**监听者** 6 个有队列体的发射点
+        /// （棋盘 / 常驻 / 手牌陷阱 / 手牌监听 / 黑暗契约 ×2）＋ **410**（`FireTriggerByNumberWithSink` 的队列体）
+        /// —— 这六族 🔴 2026-10-31（`B107_W10` · T21-8）；全部共用 `EffectResolver.ResolveWithTriggerTargetSink` 一处 save/restore）。
+        /// **天赋 = trait 框、无目标（⛔ 不 arm）**；605/600 与「事件触发式降费」仍 `null` —— 理由 / 欠账 / 判据 → `资料/完全复刻/报告/B107_W10.md`。</para>
         /// </summary>
         public BattleEvent TriggerTargetSink;
 

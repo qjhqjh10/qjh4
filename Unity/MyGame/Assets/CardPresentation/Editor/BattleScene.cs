@@ -1076,7 +1076,7 @@ public static class BattleScene
             //    —— `Return` 与三个阵营资源事件 —— 它们**结构上永远不播**，
             //    而且**当时没有任何断言会红**（名字都在库里，只是永远查不到）。
             //    这条就是给那个形状上的锁。
-            {
+            { B107W11_Assert.Run(); pass += B107W11_Assert.Pass; fail += B107W11_Assert.Fail;
                 // 🔴🔴 **2026-10-22（`W64` B1–B8）就地重写（铁律 5）**：这一格原来只有 `attack_melee` 一条白名单，
                 //   现在有**两族必空** + 一个「按阵营/已撤」的见证。判据只读 `VfxMap` 那两个口
                 //   （`IsOriginalNoGenericEvent` / `IsKnownGapEvent`）—— ⛔ 不在断言里另抄一份名单。
@@ -25274,11 +25274,11 @@ public static class BattleScene
         var langBefore15c = Loc.Current;
         Loc.RestoreForTest(AvailableLanguages.Chinese);
         {
-            // ① 文案表本身：**从规则书 61 条生成的**，不是手抄进 C# 的
-            Check(TipText.TraitCount == 62,
-                  $"trait 文案表 62 条（实际 {TipText.TraitCount}）—— 🔴 **2026-10-14（`W4`/`A1803`）换源后**："
-                + "语义从「**规则书** :161-225 那 61 个关键词」变成「**官方 `CardTraitDescription/*` 的规范键条数**」"
-                + "（56 条取官方 + 5 条官方没有、退回规则书 ⇒ 61→62）");
+            // ① 文案表本身：**从规范键表生成的**，不是手抄进 C# 的 —— 期望值取 `Loc` 的 `Card_Trait/*` 键数（2026-10-31 现读 65），⛔ 不写死数字
+            Check(TipText.TraitCount == Loc.CardTraitKeyCount,
+                  $"trait 文案表条数 = `Card_Trait/*` 规范键数（实际 {TipText.TraitCount} / 期望 {Loc.CardTraitKeyCount}）"
+                + "—— 🔴 2026-10-14（`W4`/`A1803`）换源后语义是「**官方 `CardTraitDescription/*` 的规范键条数**」；"
+                + "2026-10-31（`B107_W23`）按 `gen_trait_tips.py` 重生成：official 61 / none 4（`ability`/`melee`/`ranged`/`sneakattack`）");
             string arm = TipText.Trait("armour");
             // 🔴 **2026-10-12（`A1660`）这条【反过来了】**：原来断的是 `arm.Contains(":167")`
             //   （正文尾那句**「（规则书 :167）」**）—— 那是**我们自己加的、原版没有**（判据：
@@ -45240,7 +45240,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckManaBuffHud(driver, Check); driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -50032,5 +50032,553 @@ public static class BattleScene
         int a, b;
         if (int.TryParse(s.Substring(0, slash), out a) && int.TryParse(s.Substring(slash + 1), out b))
         { num = a; max = b; }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-31（执行代理 `B107_W8` · 施工单 `B107_特效线施工单_v2.md` §2）
+    //  **T21-1 / T21-3 / T21-4 / T21-5 / T21-6**：卡上能力动画的三类锚点
+    //  （手牌档 / 己方督军 / 目标部队 / 棋盘中心）在**生产路由**上的落点。
+    //
+    //  判据（第一权威，逐句）
+    //    · `CardScript__GetEffectAnchor.c:9-19` —— 卡状态 ∈ {0,1,4,8,9,10,12,16} ⇒ `cardUI + 0x30`
+    //      （= `CardView.EffectAnchor(false)` = `FaceRoot`）；其余（场上）⇒ `+0x1A0`。
+    //    · `AbilityLogic__GetPos.c` —— `0 self` → 行动卡 `GetEffectAnchor()`；`2 abilityTarget` → 目标卡；
+    //      `3 friendlyHero` → `GetHero(isPlayer)`；`5 boardCenter` → `mgr + 0x1d0`（场景节点 `Board Center`）。
+    //    · `AbilityLogic__PlayAnim.c:185-222` —— 「对手手牌」那一张 ⇒ `LogWarning` 之后**跳过**。
+    //
+    //  期望值怎么来（⛔ 不读 `_fired` 反推 —— 那是拿实现证明实现）
+    //    · **件名 + `sp`** = `card_vfx_by_card.json` 的桶 → `VfxMap.ResolveAllTimed`，再按
+    //      `CardAnimClips.PlacementOf(CardAnim).StartPos` 现算；
+    //    · **锚点** = 上面那几条原版语义（督军 = `EffectAnchor(true)` · 手牌 = `EffectAnchor(false)` ·
+    //      目标 = 目标卡 `EffectAnchor(true)` · 棋盘中心 = 原版 `Board Center` 节点 z = −2.8108）。
+    //
+    //  🔴 灭自证（哪一处改动会让哪一条红）
+    //    · T21-1：同时断「≠ `createCardPos(140)` 中央展示位」；把 `PlaySignal` 的 `EvtKind.Play ∧ Slot<0`
+    //      那一支删掉 ⇒ 播 0 次 ⇒ 红。
+    //    · 手牌档四条（T21-3/4/5/6）：把 `AnimAnchors.OnBoardOf` **临时钉成 `true`** —— 没有 `handAnchored`
+    //      这一跳，`sp = 0 self` 就会落到「场上档」（`EffectAnchor(true)`）⇒ 落点断言红。这条让
+    //      「落在手牌锚」证明的是**接线**、不是碰巧。
+    //    · T21-3：对手手牌那一拍必须**一件都不播**（`HandCardViewOf` 的 `owner != _me` 座位闸）。
+    //    · T21-4：第 2 拍（`sp = 5 boardCenter`）必须 ≠ 手牌锚 —— 挡住「把 `handAnchored` 一律当 true」。
+    //    · T21-5：第 2 拍（`sp = 2 abilityTarget`）必须 = 目标卡锚、且 ≠ 手牌锚。
+    //    · T21-6：`sp = 2 abilityTarget` 而事件**没有目标** ⇒ 走 `handAnchored` 的降级回手牌锚；
+    //      必须 ≠ 中央展示位（没有那一跳就会掉到 `createCardPos(140)`）。
+    //
+    //  ⚠️ 本段**自己开两局**（`Genestealers` / `AstraMilitarum`）：逐卡件按**卡自己的阵营**查，
+    //     而 `VfxFactionOf` 在「不在棋盘、又没实例」时会回落到**座位阵营** ⇒ 座位阵营不对就查不到。
+    //  ⚠️ 按施工单钉在聚合行的 `RunR13();` **之前**（同一物理行追加）。本段自己 `Begin` 两局，
+    //     而 `RunR13()` 紧接着就 `Begin("Ultramarines","Goff",…)` ⇒ 对下游现场零影响；
+    //     ⛔ 无论如何要早于 `CheckManaBuffHud`（它再 `Begin` 一局、会冲掉现场）。
+    // ==================================================================
+    /// <summary>`B107_W8` 的表现侧断言（宿主 = `RunCore` 的聚合行；跑完 driver 仍活着）。</summary>
+    static void CheckT21TriggerAnchors(BattleDriver driver, System.Action<bool, string> check)
+    {
+        const string Tag = "[B107_W8] ";
+        check(driver != null, Tag + "（前提）T21：拿到 `BattleDriver`（拿不到 ⇒ 本段全部空转，⛔ 不静默）");
+        if (driver == null) return;
+
+        var pool = CardDatabase.Load();
+        check(pool != null, Tag + "（前提）T21：卡池 `CardDatabase.Load()` 载得出来");
+        if (pool == null) return;
+
+        int me = driver.MySeat;
+        bool feelWas = driver.animateFeel;
+        var onBoardWas = AnimAnchors.OnBoardOf;
+        try
+        {
+            driver.animateFeel = false;     // 手感 / 中央展示都不参与：本段只量「件播在哪颗锚点上」
+
+            // ---------------- 小工具（本段专用；⛔ 不往产品面暴露） ----------------
+            RuleEngine.CardDef FindCardB107(string nm, string fac)
+            {
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var c = pool[i];
+                    if (c == null || !string.Equals(c.Name, nm, System.StringComparison.Ordinal)) continue;
+                    if (string.IsNullOrEmpty(fac)
+                        || string.Equals(c.Faction, fac, System.StringComparison.Ordinal)) return c;
+                }
+                return null;
+            }
+
+            bool StartGameB107(string myFaction)
+            {
+                driver.SetMySeat(0);
+                driver.Begin(myFaction, "Ultramarines", 20261031, firstSeatOverride: 0);
+                if (driver.InMulligan) driver.SimulateMulliganDone();
+                driver.RefreshAll();
+                StepThrough(driver);            // 把开局那一批排空（⛔ 不让它算进下面每条的前后差）
+                me = driver.MySeat;
+                return driver.Ctx != null
+                    && string.Equals(driver.MyFaction, myFaction, System.StringComparison.Ordinal);
+            }
+
+            // 数据面：某个桶里「叫 wantName 的那一行」的 CardAnim 名 + 起始锚档（⛔ 不读 `_fired`）。
+            bool DataRowB107(RuleEngine.CardDef def, string evt, string keyword, string wantName,
+                             out string anim, out int sp)
+            {
+                anim = null; sp = int.MinValue;
+                if (def == null) return false;
+                var rows = VfxMap.ResolveAllTimed(evt, def.Faction, def.Id, def.AnimTimes, null,
+                                                  perCardOnly: evt == VfxMap.Trigger, keyword: keyword);
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    if (!string.Equals(rows[i].Name, wantName, System.StringComparison.Ordinal)) continue;
+                    anim = rows[i].Anim;
+                    var pl = CardAnimClips.PlacementOf(anim);
+                    sp = pl.HasValue ? pl.Value.StartPos : int.MinValue;
+                    return true;
+                }
+                return false;
+            }
+
+            bool FiredAtB107(string name, Vector3 want)
+            {
+                var p = FiredPosOf(name);
+                return p.HasValue && (p.Value - want).sqrMagnitude <= 1e-6f;
+            }
+
+            string PosTextB107(string name)
+            {
+                var p = FiredPosOf(name);
+                return p.HasValue ? p.Value.ToString() : "(没播)";
+            }
+
+            CardView AddHandB107(RuleEngine.CardDef def, out RuleEngine.CardInstance inst)
+            {
+                inst = driver.Ctx.NewInstance(def);
+                driver.Ctx.Players[me].Hand.Add(inst);
+                driver.RefreshAll();
+                StepThrough(driver);            // 手牌重排排空
+                _fired.Clear();
+                return driver.HandCardViewOfForTest(me, def.Name, inst.Id);
+            }
+
+            void DropHandB107(RuleEngine.CardInstance inst)
+            {
+                if (inst != null) driver.Ctx.Players[me].Hand.Remove(inst);
+                driver.RefreshAll();
+            }
+
+            // `createCardPos(140)` 中央展示锚（R1 的降级位 / 灭自证的反例点）。
+            Transform central = (AnimAnchors.UiAnchorOf != null)
+                ? AnimAnchors.UiAnchorOf(PositionOption.createCardPos, false) : null;
+            check(central != null, Tag + "（前提）`createCardPos(140)` 的中央展示锚（`Anchor: CreateCard`）取得到"
+                                  + " —— 灭自证要拿它当反例点；拿不到这里**如实红**（⛔ 不跳过）");
+
+            // ==================================================================
+            //  第一局：Genestealers —— T21-1 / T21-3 / T21-4 / T21-5
+            // ==================================================================
+            bool gsOk = StartGameB107("Genestealers");
+            check(gsOk, Tag + "（前提）T21-1/3/4/5：Genestealers 那一侧开得起局（`MyFaction` 实得「"
+                        + driver.MyFaction + "」）"
+                      + "｜判据：`VfxFactionOf` 对「不在棋盘、又没实例」的卡回落到**座位阵营**，阵营不对 ⇒ 逐卡件查不到");
+            if (!gsOk) return;
+
+            var wlView = driver.BoardViewAt(RuleEngine.BoardSpec.WarlordSlot, true);
+            check(wlView != null, Tag + "（前提）T21-1/3：我方督军的 `CardView` 在场上（`BoardViewAt(WarlordSlot)`）");
+            Transform wlAnchor = wlView != null ? wlView.EffectAnchor(true) : null;
+            check(wlAnchor != null, Tag + "（前提）T21-1/3：督军那张卡的 `EffectAnchor(true)`（原版 `+0x1A0 effectsAnchor`）取得到");
+            if (central == null || wlAnchor == null) return;
+
+            // ---------------------------------------------------------- T21-1
+            //  `Improvised Barricade`：`play` 桶 1 行 `GSC Sabotage Use` / CardAnim `GSC_Warlord Sabotage`（sp=3 friendlyHero）。
+            //  路由 = `EvtKind.Play ∧ Slot < 0`（未指定目标的非单位卡）→ `PlayPlacedPieces` → `PlayAbilityBeat`。
+            var c1 = FindCardB107("Improvised Barricade", "Genestealers");
+            check(c1 != null, Tag + "（前提）T21-1 卡池里有 `Improvised Barricade`（Genestealers）");
+            if (c1 != null)
+            {
+                string anim1; int sp1;
+                bool row1 = DataRowB107(c1, VfxMap.PlayCard, null, "GSC Sabotage Use", out anim1, out sp1);
+                check(row1 && sp1 == (int)PositionOption.friendlyHero,
+                      Tag + "（前提）T21-1 数据面：`play` 桶解出 `GSC Sabotage Use`、CardAnim `"
+                          + (anim1 ?? "?") + "` 的 `sp = " + sp1 + "`（期望 " + (int)PositionOption.friendlyHero + " = friendlyHero）");
+                check(!c1.IsUnit, Tag + "（前提）T21-1 它是**非单位卡**（`EvtKind.Play ∧ Slot<0` 那一支只放行非单位卡）");
+                if (row1 && sp1 == (int)PositionOption.friendlyHero && !c1.IsUnit)
+                {
+                    _fired.Clear();
+                    driver.PlaySignalForTest(new BattleEvent
+                    {
+                        Kind = EvtKind.Play, Player = me, Slot = -1, CardId = c1.Name,
+                    });
+                    StepThrough(driver);
+                    int n1 = FiredCount("GSC Sabotage Use");
+                    check(n1 == 1, Tag + $"★ T21-1 `Improvised Barricade` 打出 ⇒ `GSC Sabotage Use` 播 **1** 次（实得 {n1}）"
+                                  + "｜🧨 删掉 `PlaySignal` 的 `EvtKind.Play ∧ Slot < 0` 那一支（回到 `if (slot < 0) return;`）⇒ 0 ⇒ 红");
+                    check(FiredAtB107("GSC Sabotage Use", wlAnchor.position),
+                          Tag + "★ T21-1 它落在**己方督军锚**上（原版 `3 friendlyHero` → `GetHero(isPlayer)` → `GetEffectAnchor()`）"
+                              + $"（实得 {PosTextB107("GSC Sabotage Use")} / 期望 {wlAnchor.position}）");
+                    check(FiredParentLayerOf("GSC Sabotage Use") == wlView.gameObject.layer,
+                          Tag + "★ T21-1 它**挂在那颗锚点下**（父层 " + FiredParentLayerOf("GSC Sabotage Use")
+                              + " = 督军卡视图层 " + wlView.gameObject.layer + "；`EnsureAnchorSpace` 把锚点子树拨到卡的层）");
+                    check(FiredPosOf("GSC Sabotage Use").HasValue
+                          && (FiredPosOf("GSC Sabotage Use").Value - central.position).sqrMagnitude > 0.0025f,
+                          Tag + "★ T21-1 **灭自证**：落点 ≠ `createCardPos(140)` 中央展示位"
+                              + $"（中央位 {central.position}）—— 证明量的是「督军锚」、不是所有件都掉到那个降级点");
+                }
+            }
+
+            // ---------------------------------------------------------- T21-3
+            //  `Jammed Communications`：`OtherCardPlayed(10)` 两拍 —— `Card_Buff_Sabotage_trigger`（sp=0 self → 手牌卡）
+            //  ＋ `Jammed Communications damage`（sp=3 friendlyHero → 己方督军）。
+            var c3 = FindCardB107("Jammed Communications", "Genestealers");
+            check(c3 != null, Tag + "（前提）T21-3 卡池里有 `Jammed Communications`（Genestealers）");
+            if (c3 != null)
+            {
+                string a3a, a3b; int sp3a, sp3b;
+                bool r3a = DataRowB107(c3, VfxMap.Trigger, "OtherCardPlayed", "Card_Buff_Sabotage_trigger", out a3a, out sp3a);
+                bool r3b = DataRowB107(c3, VfxMap.Trigger, "OtherCardPlayed", "Jammed Communications damage", out a3b, out sp3b);
+                check(r3a && r3b && sp3a == (int)PositionOption.self && sp3b == (int)PositionOption.friendlyHero,
+                      Tag + "（前提）T21-3 数据面：`OtherCardPlayed` 两拍 —— `Card_Buff_Sabotage_trigger`（CardAnim `"
+                          + (a3a ?? "?") + "` sp=" + sp3a + "，期望 0 self）＋ `Jammed Communications damage`（CardAnim `"
+                          + (a3b ?? "?") + "` sp=" + sp3b + "，期望 3 friendlyHero）");
+                if (r3a && r3b)
+                {
+                    RuleEngine.CardInstance inst3;
+                    var hv3 = AddHandB107(c3, out inst3);
+                    try
+                    {
+                        check(hv3 != null, Tag + "（前提）T21-3 插进手牌后取得到那张 `CardView`（`HandCardViewOfForTest` 按实例号）");
+                        Transform hand3 = hv3 != null ? hv3.EffectAnchor(false) : null;
+                        check(hand3 != null, Tag + "（前提）T21-3 手牌档锚 `EffectAnchor(false)`（原版 `cardUI + 0x30`）取得到");
+                        if (hv3 != null && hand3 != null)
+                        {
+                            _fired.Clear();
+                            AnimAnchors.OnBoardOf = _ => true;   // 灭自证：钉成「在场上」；没有 handAnchored 就会落到场上档
+                            try
+                            {
+                                driver.PlaySignalForTest(new BattleEvent
+                                {
+                                    Kind = EvtKind.Trigger, Player = me, Slot = -1,
+                                    CardId = c3.Name, InstanceId = inst3.Id, Keyword = "OtherCardPlayed",
+                                });
+                                StepThrough(driver);
+                            }
+                            finally { AnimAnchors.OnBoardOf = onBoardWas; }
+                            int n3a = FiredCount("Card_Buff_Sabotage_trigger");
+                            int n3b = FiredCount("Jammed Communications damage");
+                            check(n3a == 1, Tag + $"★ T21-3 首拍 `Card_Buff_Sabotage_trigger` 播 **1** 次（实得 {n3a}）"
+                                           + "｜🧨 把手牌档那一支（`slot < 0 && Trigger`）删掉 ⇒ 0 ⇒ 红");
+                            check(FiredAtB107("Card_Buff_Sabotage_trigger", hand3.position),
+                                  Tag + "★ T21-3 首拍锚 = **那张手牌卡**（`EffectAnchor(false)`）"
+                                      + "｜🧨 灭自证：`OnBoardOf` 已被钉成 true，`handAnchored` 不接线 ⇒ 落到 `EffectAnchor(true)` ⇒ 红"
+                                      + $"（实得 {PosTextB107("Card_Buff_Sabotage_trigger")} / 期望 {hand3.position}）");
+                            check(FiredParentLayerOf("Card_Buff_Sabotage_trigger") == hv3.gameObject.layer,
+                                  Tag + "★ T21-3 首拍**挂在那张手牌卡下**（父层 " + FiredParentLayerOf("Card_Buff_Sabotage_trigger")
+                                      + " = 手牌卡视图层 " + hv3.gameObject.layer + "）");
+                            check(n3b == 1, Tag + $"★ T21-3 第二拍 `Jammed Communications damage` 播 **1** 次（实得 {n3b}；T=0.2 那一拍要 `StepThrough` 才到）");
+                            check(FiredAtB107("Jammed Communications damage", wlAnchor.position),
+                                  Tag + "★ T21-3 第二拍 `sp=3 friendlyHero` ⇒ 己方督军锚"
+                                      + $"（实得 {PosTextB107("Jammed Communications damage")} / 期望 {wlAnchor.position}）");
+                            check(FiredPosOf("Card_Buff_Sabotage_trigger").HasValue
+                                  && (FiredPosOf("Card_Buff_Sabotage_trigger").Value - central.position).sqrMagnitude > 0.0025f,
+                                  Tag + "★ T21-3 **灭自证**：首拍 ≠ 中央展示位（`createCardPos(140)`）");
+                        }
+                    }
+                    finally { DropHandB107(inst3); }
+
+                    // 对手手牌：没有 `CardView` ⇒ 原版同样 `LogWarning` 后跳过（`PlayAnim.c:185-222`）。
+                    _fired.Clear();
+                    driver.PlaySignalForTest(new BattleEvent
+                    {
+                        Kind = EvtKind.Trigger, Player = 1 - me, Slot = -1,
+                        CardId = c3.Name, InstanceId = 999999, Keyword = "OtherCardPlayed",
+                    });
+                    StepThrough(driver);
+                    check(FiredCount("Card_Buff_Sabotage_trigger") == 0
+                          && FiredCount("Jammed Communications damage") == 0,
+                          Tag + "★ T21-3 **灭自证（座位闸）**：对手手牌那一拍**一件都不播**"
+                              + "（原版 `PlayAnim.c:185-222` 对「对手手牌」`LogWarning` 后跳过；我们 `HandCardViewOf` 的 `owner != _me` 当场 return）");
+                }
+            }
+
+            // ---------------------------------------------------------- T21-4
+            //  `Cult Propaganda`：`TurnEnd(40)` 两拍 —— `Card_Buff_Sabotage_trigger`（sp=0 self → 手牌卡）
+            //  ＋ `CreateCard GSC`（sp=5 boardCenter → 棋盘中心）。⛔ 别把 handAnchored 一律当 true：第 2 拍不是手牌锚。
+            var c4 = FindCardB107("Cult Propaganda", "Genestealers");
+            check(c4 != null, Tag + "（前提）T21-4 卡池里有 `Cult Propaganda`（Genestealers）");
+            if (c4 != null)
+            {
+                string a4a, a4b; int sp4a, sp4b;
+                bool r4a = DataRowB107(c4, VfxMap.Trigger, "TurnEnd", "Card_Buff_Sabotage_trigger", out a4a, out sp4a);
+                bool r4b = DataRowB107(c4, VfxMap.Trigger, "TurnEnd", "CreateCard GSC", out a4b, out sp4b);
+                check(r4a && r4b && sp4a == (int)PositionOption.self && sp4b == (int)PositionOption.boardCenter,
+                      Tag + "（前提）T21-4 数据面：`TurnEnd` 两拍 —— `Card_Buff_Sabotage_trigger`（sp=" + sp4a
+                          + "，期望 0 self）＋ `CreateCard GSC`（CardAnim `" + (a4b ?? "?") + "` sp=" + sp4b
+                          + "，期望 5 boardCenter）");
+                if (r4a && r4b)
+                {
+                    RuleEngine.CardInstance inst4;
+                    var hv4 = AddHandB107(c4, out inst4);
+                    try
+                    {
+                        check(hv4 != null, Tag + "（前提）T21-4 插进手牌后取得到那张 `CardView`");
+                        Transform hand4 = hv4 != null ? hv4.EffectAnchor(false) : null;
+                        check(hand4 != null, Tag + "（前提）T21-4 手牌档锚 `EffectAnchor(false)` 取得到");
+                        if (hv4 != null && hand4 != null)
+                        {
+                            _fired.Clear();
+                            AnimAnchors.OnBoardOf = _ => true;
+                            try
+                            {
+                                driver.PlaySignalForTest(new BattleEvent
+                                {
+                                    Kind = EvtKind.Trigger, Player = me, Slot = -1,
+                                    CardId = c4.Name, InstanceId = inst4.Id, Keyword = "TurnEnd",
+                                });
+                                StepThrough(driver);
+                            }
+                            finally { AnimAnchors.OnBoardOf = onBoardWas; }
+                            check(FiredCount("Card_Buff_Sabotage_trigger") == 1,
+                                  Tag + $"★ T21-4 第 1 拍 `Card_Buff_Sabotage_trigger` 播 **1** 次（实得 {FiredCount("Card_Buff_Sabotage_trigger")}）");
+                            check(FiredAtB107("Card_Buff_Sabotage_trigger", hand4.position),
+                                  Tag + "★ T21-4 第 1 拍锚 = 手牌卡（`EffectAnchor(false)`；`OnBoardOf` 已钉 true ⇒ 证明是 `handAnchored` 在起作用）"
+                                      + $"（实得 {PosTextB107("Card_Buff_Sabotage_trigger")} / 期望 {hand4.position}）");
+                            check(FiredCount("CreateCard GSC") == 1,
+                                  Tag + $"★ T21-4 第 2 拍 `CreateCard GSC` 播 **1** 次（实得 {FiredCount("CreateCard GSC")}）");
+                            Vector3 bc = new Vector3(0f, 0f, BattleDriver.BoardCenterZ);
+                            check(FiredPosOf("CreateCard GSC").HasValue
+                                  && (FiredPosOf("CreateCard GSC").Value - bc).sqrMagnitude <= 1e-6f,
+                                  Tag + "★ T21-4 第 2 拍（sp=5 boardCenter）落在**棋盘中心**"
+                                      + "（原版 `BattleManager.battleCenterAnchor` = 场景节点 `Board Center`，localPos z = −2.8108）"
+                                      + $"（实得 {PosTextB107("CreateCard GSC")} / 期望 {bc}）");
+                            check(FiredPosOf("CreateCard GSC").HasValue
+                                  && (FiredPosOf("CreateCard GSC").Value - hand4.position).sqrMagnitude > 0.0025f,
+                                  Tag + "★ T21-4 **灭自证**：第 2 拍 ≠ 手牌锚 —— ⛔ 别把 `handAnchored` 一律当 true"
+                                      + "（它只作用于 `sp = 0 self` 那一档；写成「一律 true」⇒ 这一条红）");
+                        }
+                    }
+                    finally { DropHandB107(inst4); }
+                }
+            }
+
+            // ---------------------------------------------------------- T21-5
+            //  `Poisoned Supplies`：`TurnEnd(40)` 两拍 —— `Card_Buff_Sabotage_trigger`（sp=0 self → 手牌卡）
+            //  ＋ `Toxic Vapors Damage quick`（sp=2 abilityTarget → **目标部队那张卡**）。
+            //  目标筛选只认 `ta=10`（friendlyUnits / includeMinions / includeRemnants）；靶子必须**不是残骸**。
+            var c5 = FindCardB107("Poisoned Supplies", "Genestealers");
+            check(c5 != null, Tag + "（前提）T21-5 卡池里有 `Poisoned Supplies`（Genestealers）");
+            RuleEngine.CardDef targetDef = FindPoolCard("Gauss Warrior");
+            check(targetDef != null, Tag + "（前提）T21-5 靶子卡 `Gauss Warrior` 在卡池里（跨阵营夹具；先例 = `A1905`）");
+            int tSlot = -1;
+            if (driver.Ctx != null)
+            {
+                for (int s = 0; s < RuleEngine.BoardSpec.Size; s++)
+                {
+                    if (s == RuleEngine.BoardSpec.WarlordSlot) continue;
+                    if (driver.Ctx.Players[me].Board[s] == null) { tSlot = s; break; }
+                }
+            }
+            check(tSlot >= 0, Tag + "（前提）T21-5 我方棋盘上有一个空格当靶子");
+            if (c5 != null && targetDef != null && tSlot >= 0)
+            {
+                string a5a, a5b; int sp5a, sp5b;
+                bool r5a = DataRowB107(c5, VfxMap.Trigger, "TurnEnd", "Card_Buff_Sabotage_trigger", out a5a, out sp5a);
+                bool r5b = DataRowB107(c5, VfxMap.Trigger, "TurnEnd", "Toxic Vapors Damage quick", out a5b, out sp5b);
+                check(r5a && r5b && sp5a == (int)PositionOption.self && sp5b == (int)PositionOption.abilityTarget,
+                      Tag + "（前提）T21-5 数据面：`TurnEnd` 两拍 —— `Card_Buff_Sabotage_trigger`（sp=" + sp5a
+                          + "，期望 0 self）＋ `Toxic Vapors Damage quick`（CardAnim `" + (a5b ?? "?") + "` sp=" + sp5b
+                          + "，期望 2 abilityTarget）");
+                if (r5a && r5b)
+                {
+                    var old5 = driver.Ctx.Players[me].Board[tSlot];
+                    driver.Ctx.Players[me].Board[tSlot] = new UnitState(targetDef, false);
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    RuleEngine.CardInstance inst5;
+                    var hv5 = AddHandB107(c5, out inst5);   // ⚠️ 这里会再 `RefreshAll()` 一次 ⇒ `tv`/`targetAnchor` 必须在这之后才取
+                    try
+                    {
+                        var tv = driver.BoardViewAt(tSlot, true);
+                        check(tv != null, Tag + "（前提）T21-5 靶子的 `CardView` 建出来了（格 " + tSlot + "）");
+                        Transform targetAnchor = tv != null ? tv.EffectAnchor(true) : null;
+                        check(targetAnchor != null, Tag + "（前提）T21-5 靶子卡的 `EffectAnchor(true)` 取得到");
+                        var cell5 = driver.Ctx.Players[me].Board[tSlot];
+                        check(cell5 != null && !cell5.IsRemnant,
+                              Tag + "（前提）T21-5 靶子是**活的部队**、不是残骸（`ta=10` 只认 friendlyUnits / includeMinions / includeRemnants；"
+                                + "⛔ 别把残骸算进去）");
+                        Transform hand5 = hv5 != null ? hv5.EffectAnchor(false) : null;
+                        check(hv5 != null, Tag + "（前提）T21-5 插进手牌后取得到那张 `CardView`");
+                        check(hand5 != null, Tag + "（前提）T21-5 手牌档锚 `EffectAnchor(false)` 取得到");
+                        if (tv != null && targetAnchor != null && hv5 != null && hand5 != null)
+                        {
+                            _fired.Clear();
+                            AnimAnchors.OnBoardOf = _ => true;
+                            try
+                            {
+                                driver.PlaySignalForTest(new BattleEvent
+                                {
+                                    Kind = EvtKind.Trigger, Player = me, Slot = -1,
+                                    CardId = c5.Name, InstanceId = inst5.Id, Keyword = "TurnEnd",
+                                    TargetPlayer = me, TargetSlot = tSlot,
+                                });
+                                StepThrough(driver);
+                            }
+                            finally { AnimAnchors.OnBoardOf = onBoardWas; }
+                            check(FiredCount("Card_Buff_Sabotage_trigger") == 1,
+                                  Tag + $"★ T21-5 第 1 拍 `Card_Buff_Sabotage_trigger` 播 **1** 次（实得 {FiredCount("Card_Buff_Sabotage_trigger")}）");
+                            check(FiredAtB107("Card_Buff_Sabotage_trigger", hand5.position),
+                                  Tag + "★ T21-5 第 1 拍锚 = 手牌卡（`EffectAnchor(false)`）"
+                                      + $"（实得 {PosTextB107("Card_Buff_Sabotage_trigger")} / 期望 {hand5.position}）");
+                            check(FiredCount("Toxic Vapors Damage quick") == 1,
+                                  Tag + $"★ T21-5 第 2 拍 `Toxic Vapors Damage quick` 播 **1** 次（实得 {FiredCount("Toxic Vapors Damage quick")}）");
+                            check(FiredAtB107("Toxic Vapors Damage quick", targetAnchor.position),
+                                  Tag + "★ T21-5 第 2 拍（sp=2 abilityTarget）锚 = **目标部队那张卡**的 `EffectAnchor(true)`"
+                                      + "（原版 `AbilityLogic__GetPos` 的 `2` → `abilityData.targetCard`）"
+                                      + $"（实得 {PosTextB107("Toxic Vapors Damage quick")} / 期望 {targetAnchor.position}）");
+                            check(FiredPosOf("Toxic Vapors Damage quick").HasValue
+                                  && (FiredPosOf("Toxic Vapors Damage quick").Value - hand5.position).sqrMagnitude > 0.0025f,
+                                  Tag + "★ T21-5 **灭自证**：第 2 拍 ≠ 手牌锚 —— 证明 `abilityTarget` 真按目标解，"
+                                      + "不是所有拍都被拉回手牌");
+                        }
+                    }
+                    finally
+                    {
+                        DropHandB107(inst5);
+                        driver.Ctx.Players[me].Board[tSlot] = old5;   // 复原棋盘夹具
+                        driver.RefreshAll();
+                    }
+                }
+            }
+
+            // ==================================================================
+            //  第二局：AstraMilitarum —— T21-6
+            // ==================================================================
+            bool amOk = StartGameB107("AstraMilitarum");
+            check(amOk, Tag + "（前提）T21-6：AstraMilitarum 那一侧开得起局（`MyFaction` 实得「" + driver.MyFaction + "」）");
+            if (!amOk) return;
+
+            var c6 = FindCardB107("Vengeance for Cadia", "AstraMilitarum");
+            check(c6 != null, Tag + "（前提）T21-6 卡池里有 `Vengeance for Cadia`（AM56 · AstraMilitarum）");
+            if (c6 != null)
+            {
+                string a6; int sp6;
+                bool row6 = DataRowB107(c6, VfxMap.Trigger, "OtherUnitDeath", "Card_Buff_Hand", out a6, out sp6);
+                check(row6 && sp6 == (int)PositionOption.abilityTarget,
+                      Tag + "（前提）T21-6 数据面：`OtherUnitDeath(90)` 那一拍 `Card_Buff_Hand`（CardAnim `"
+                          + (a6 ?? "?") + "` sp=" + sp6 + "，期望 2 abilityTarget）");
+                // ⚠️ T21-6 **只做表现面断言**：`CostWhen` 是否过 `CanTriggerAbility` 那一格判据未闭合（`EffectResolver.cs:10789` 自述），⛔ 本段不碰。
+                if (row6)
+                {
+                    RuleEngine.CardInstance inst6;
+                    var hv6 = AddHandB107(c6, out inst6);
+                    try
+                    {
+                        check(hv6 != null, Tag + "（前提）T21-6 插进手牌后取得到那张 `CardView`");
+                        Transform hand6 = hv6 != null ? hv6.EffectAnchor(false) : null;
+                        check(hand6 != null, Tag + "（前提）T21-6 手牌档锚 `EffectAnchor(false)` 取得到");
+                        if (hv6 != null && hand6 != null)
+                        {
+                            _fired.Clear();
+                            // ⛔ 别钉 true：`abilityTarget` 无目标时 `AnimAnchors.Resolve` 退到**行动卡自己**（`AnimAnchors.cs:171-172`），
+                            //   而那一跳按 `OnBoardOf` 二选一 —— 钉成 true 会取**场上档**（偏差 = `BoardEffectAnchorLocal`×卡缩放
+                            //   = (0,−0.238,−0.093)），而本条要验的是**手牌档**。手牌卡的自然状态 = false（生产 `OnBoardOf = IsViewOnBoard`）。
+                            AnimAnchors.OnBoardOf = _ => false;
+                            try
+                            {
+                                driver.PlaySignalForTest(new BattleEvent
+                                {
+                                    Kind = EvtKind.Trigger, Player = me, Slot = -1,
+                                    CardId = c6.Name, InstanceId = inst6.Id, Keyword = "OtherUnitDeath",
+                                });
+                                StepThrough(driver);
+                            }
+                            finally { AnimAnchors.OnBoardOf = onBoardWas; }
+                            int n6 = FiredCount("Card_Buff_Hand");
+                            check(n6 == 1, Tag + $"★ T21-6 `Card_Buff_Hand` 播 **1** 次（实得 {n6}）");
+                            check(FiredAtB107("Card_Buff_Hand", hand6.position),
+                                  Tag + "★ T21-6 锚 = **手牌卡**（`sp=2 abilityTarget` 而事件**没有目标** ⇒ `AnimAnchors` 退到行动卡自己的 `GetEffectAnchor`，"
+                                      + "手牌卡 ⇒ 手牌档；判据 `CardScript__GetEffectAnchor.c:9-19`）"
+                                      + $"（实得 {PosTextB107("Card_Buff_Hand")} / 期望 {hand6.position}）");
+                            check(FiredParentLayerOf("Card_Buff_Hand") == hv6.gameObject.layer,
+                                  Tag + "★ T21-6 **挂在那张手牌卡下**（父层 " + FiredParentLayerOf("Card_Buff_Hand")
+                                      + " = 手牌卡视图层 " + hv6.gameObject.layer + "）");
+                            check(FiredPosOf("Card_Buff_Hand").HasValue
+                                  && (FiredPosOf("Card_Buff_Hand").Value - hv6.EffectAnchor(true).position).sqrMagnitude > 0.0025f,
+                                  Tag + "★ T21-6 **灭自证**：≠ 这张卡的**场上档锚**（`EffectAnchor(true)`）—— "
+                                      + "把 `OnBoardOf` 钉成 true（或把 `GetEffectAnchor` 写成恒取场上档）⇒ 红（差值 ≈ `BoardEffectAnchorLocal`×卡缩放）");
+                        }
+                    }
+                    finally { DropHandB107(inst6); }
+                }
+            }
+        }
+        finally
+        {
+            AnimAnchors.OnBoardOf = onBoardWas;
+            driver.animateFeel = feelWas;
+        }
+    }
+
+    // ============================================================ B107_W18 · N26：`DisplayCard` 的 UIstate 闸（5 态）
+    //
+    // 判据（原版，唯一一处）= `d:/2/tools/decomp_full/BattleManager__DisplayCard.c:14-18`：
+    //   `UIstate != 0 && UIstate−7 > 1 && UIstate−11 > 1` ⇒ 只挡 {0,7,8,11,12}；第 4 实参 `param_4 != 0` ⇒ 强制开。
+    // 🧨 灭自证：把闸改成恒 true ⇒ N26-6 红；把强制档删掉 ⇒ N26-7 红。
+    static void CheckCardWinUiStateBlocked(BattleDriver driver, System.Action<bool, string> check)
+    {
+        check(driver != null, "（前提·B107_W18 N26）`BattleDriver` 在");
+        if (driver == null) return;
+
+        check(BattleDriver.CardWinUiStateBlockedForState(0),  "★ B107_W18 N26-1：`inactive(0)` ⇒ **不开窗**（原版 `UIstate != 0` 那一条；我方对应 = `Ctx == null`）");
+        check(BattleDriver.CardWinUiStateBlockedForState(7),  "★ B107_W18 N26-2：`finishBattleSequence(7)` ⇒ **不开窗**");
+        check(BattleDriver.CardWinUiStateBlockedForState(8),  "★ B107_W18 N26-3：`postBattle(8)` ⇒ **不开窗**");
+        check(BattleDriver.CardWinUiStateBlockedForState(11), "★ B107_W18 N26-4：`mulligan(11)` ⇒ **不开窗**（换牌期看牌走强制档，见 N26-7）");
+        check(BattleDriver.CardWinUiStateBlockedForState(12), "★ B107_W18 N26-5：`mulliganFinished(12)` ⇒ **不开窗**（我们是转瞬态，`ChatHotkeyUiState()` 从不产 12）");
+        check(!BattleDriver.CardWinUiStateBlockedForState(1) && !BattleDriver.CardWinUiStateBlockedForState(6)
+              && !BattleDriver.CardWinUiStateBlockedForState(9) && !BattleDriver.CardWinUiStateBlockedForState(10)
+              && !BattleDriver.CardWinUiStateBlockedForState(13),
+              "★ B107_W18 N26-6（🧨 灭自证）：1/6/9/10/13 = 原版**放行**档 ⇒ 必须不挡（把闸改成恒真 ⇒ 红）");
+        check(!BattleDriver.CardWinUiStateBlockedForState(11, true),
+              "★ B107_W18 N26-7（🧨 灭自证）：强制档（原版 `param_4=1`）⇒ 换牌期照样开窗（删掉 `OnCardTappedForced` 那条支 ⇒ 换牌期点牌看不了牌）");
+        check(driver.CardWinUiStateBlockedForTest()
+              == BattleDriver.CardWinUiStateBlockedForState(driver.ChatHotkeyUiStateForTest()),
+              $"★ B107_W18 N26-8：真机的闸读的就是 `ChatHotkeyUiState()`（state = {driver.ChatHotkeyUiStateForTest()}）—— 接线一致性，⛔ 不是另抄一份状态表");
+    }
+
+    // ============================================================ B107_W18 · N22：挑战计数的「本局最低血」口径
+    //
+    // 判据（原版，唯一一处）= `d:/2/tools/decomp_full/EnemyHeroDamageScorer__OnHealthChange.c`：
+    //   首次 `delta = 信号 DeltaHealth`；之后 `delta = 最低血 − CurrentHealth`；`0 < delta` 才累加并刷新最低血。
+    // 🧨 灭自证：把口径退回「逐次累加」（改前那一版）⇒ N22-2 / N22-3 / N22-4 三格全红。
+    static void CheckChallengeCounters(System.Action<bool, string> check)
+    {
+        ChallengeData.ResetRunCounters();
+        ChallengeEngine.ResetWarlordHealthBaseline();
+
+        ChallengeEngine.OnWarlordDamaged(false, 3, 27);
+        check(ChallengeData.DamageEnemyWarlord == 3,
+              $"★ B107_W18 N22-1：首击 `DeltaHealth=3` / `CurrentHealth=27` ⇒ 计数 = 3（实得 {ChallengeData.DamageEnemyWarlord}）");
+
+        ChallengeEngine.OnWarlordDamaged(false, -3, 30);
+        check(ChallengeData.DamageEnemyWarlord == 3,
+              $"★ B107_W18 N22-2（🧨 灭自证）：治疗回满（27→30）**不计** ⇒ 仍是 3（实得 {ChallengeData.DamageEnemyWarlord}；逐次累加写法会变成 6）");
+
+        ChallengeEngine.OnWarlordDamaged(false, 2, 28);
+        check(ChallengeData.DamageEnemyWarlord == 3,
+              $"★ B107_W18 N22-3：打到 28（**高于本局最低血 27、不是新低**）⇒ 不计（实得 {ChallengeData.DamageEnemyWarlord}）");
+
+        ChallengeEngine.OnWarlordDamaged(false, 2, 26);
+        check(ChallengeData.DamageEnemyWarlord == 4,
+              $"★ B107_W18 N22-4：创新低 `27 − 26 = 1` ⇒ 累计 4（实得 {ChallengeData.DamageEnemyWarlord}；🧨 若按信号 `DeltaHealth=2` 累加 ⇒ 5 ⇒ 红）");
+
+        int beforeMine = ChallengeData.DamageEnemyWarlord;
+        ChallengeEngine.OnWarlordDamaged(true, 5, 20);
+        check(ChallengeData.DamageEnemyWarlord == beforeMine,
+              "★ B107_W18 N22-5：`isPlayerWarlord = true` ⇒ 不动「对敌方战将」那一格");
+
+        ChallengeData.AddPending(new PracticeChallenge { PlayerName = "B107W18", ModeKey = "x", PlayerFirst = true });
+        int pendingBefore = ChallengeData.PendingCount;
+        check(pendingBefore > 0, $"（前提·B107_W18 N22）`AddPending` 真进了队（{pendingBefore} 条）");
+        ChallengeData.ResetRunCounters();
+        check(ChallengeData.DamageEnemyWarlord == 0 && ChallengeData.TroopsKilled == 0
+              && ChallengeData.HealAmount == 0 && ChallengeData.EffectsAdded == 0 && ChallengeData.SurviveTurns == 0,
+              "★ B107_W18 N22-6：`ResetRunCounters()` 清空五格");
+        check(ChallengeData.PendingCount == pendingBefore,
+              $"★ B107_W18 N22-7：`ResetRunCounters()` **不动** `_pending`（{pendingBefore} → {ChallengeData.PendingCount}）");
+
+        ChallengeData.RemovePending("B107W18");
+        ChallengeData.ResetRunCounters();
+        ChallengeEngine.ResetWarlordHealthBaseline();
     }
 }

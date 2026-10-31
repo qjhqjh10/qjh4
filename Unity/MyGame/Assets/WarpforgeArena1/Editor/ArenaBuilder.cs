@@ -5774,7 +5774,7 @@ public static class ArenaBuilder
 
         if (p.matProps != null && p.matProps.Length > 0)
         {
-            // 关键字：**先把这一族关掉，再照原版列表打开**。
+            // 关键字：**先把这一族关掉，再照原版列表打开**（⚠️ `_SOFTPARTICLES` → `_SOFTPARTICLES_ON` 的映射只在「URP/ParticlesUnlit / 自建 Extra Color」下成立：`Premultiply`/`Distortion` 两族在 `UseOriginal` 白名单里 ⇒ 本路解析落 `原版bundle（白名单）`、被下方 rsrc==自建/工程自带 那道闸拒绝、最终用 URP 兜底，所以今天是正确的；若白名单被移走或 `WarpforgeShaderLoader` 取件失败回落 `Replacements`（= 自建），这两族认的是**无 `_ON`** 的 `_SOFTPARTICLES`，此映射会把软粒子**静默关掉** —— 2026-10-31 B107_W23）。
             // 🔴 **已知极限（2026-09-24 用五个探针钉死，见 `资料/已知的坑.md`）**：
             //   这三条 API 都能把关键字写进内存、**其中 4 条（`_FADING_ON` / `_FLIPBOOKBLENDING_ON` /
             //   `_SOFTPARTICLES_ON` / `_SURFACE_TYPE_TRANSPARENT`）能存进 `.mat`**，

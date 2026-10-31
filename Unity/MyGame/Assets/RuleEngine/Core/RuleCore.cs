@@ -13031,7 +13031,7 @@ namespace RuleEngine
             {
                 string sched = FollowUpSchedulerOf(u.Card);
                 if (sched != null && sched == AbilityTriggerNameOfKeyword(keyword))
-                    EmitFollowUpResolution(ctx, u.Card, owner, slot, u.InstanceId); FireTriggerByNumber(ctx, u, 410, owner, slot, actingCard: chosen ?? subject, targetCard: subject ?? chosen);   // 🆕 2026-10-29（B97_W28 · 账 517 ②）：原版这一跳是 `CardScript__FollowUpResolutionPlayed.c:7` → `OnTrigger(0x19a = 410)`，**410 那条 ability 才是正文所在**（我们改前只发表现层事件 = 只做了动画那一半）。⛔ 别只加执行口不接线（`B95_WRE` 已反证 = 死代码）
+                { var fuSinkEvt = EmitFollowUpResolution(ctx, u.Card, owner, slot, u.InstanceId); FireTriggerByNumber(ctx, u, 410, owner, slot, actingCard: chosen ?? subject, targetCard: subject ?? chosen, triggerEvent: fuSinkEvt); }   // 🆕 2026-10-29（B97_W28 · 账 517 ②）：原版这一跳是 `CardScript__FollowUpResolutionPlayed.c:7` → `OnTrigger(0x19a = 410)`，**410 那条 ability 才是正文所在**（我们改前只发表现层事件 = 只做了动画那一半）。⛔ 别只加执行口不接线（`B95_WRE` 已反证 = 死代码）
             }
 
             return;
@@ -16303,7 +16303,7 @@ namespace RuleEngine
             // ---- poisonous(380)：给被打的**部队**挂 `poisoned` ----
             if (actingCard.Has("poisonous") && victim.Card != null && !victim.Card.IsWarlordEquivalent)
             {
-                var rec = victim.ApplyTraitEffect(KeywordTable.Poisoned, 1,
+                var rec = victim.ApplyTraitEffect(KeywordTable.Poisoned, 1, origin: UnitState.DeriveEffectOrigin(ctx, KeywordTable.Poisoned, UnitState.BuffTypeAddTrait, false),
                                                   stackType: -1, source: actingCard.Name, extrinsic: false); if (rec != null) BroadcastUnitPoisoned(ctx, victim, actingCard);   // 账 658：原版在 buff **落账之后**广播（`BattleManager__ResolveAddEffect.c:181` 判 `buffType==200` ⇒ `:268` 调用；⚠️ 零行数变化写法，⛔ 别拆成独立行）
                 // `null` = `AddKeyword` 拒收（毒 × 抗性那一档；原版 `.c:469-471` 也是**整支跳过、
                 // 不追加记录**）⇒ 只出声，⛔ 别硬塞。
@@ -17662,31 +17662,14 @@ namespace RuleEngine
         /// 我们统一入队到同一条行动队列（全域单一队列），机制不同、语义等价 —— 与兄弟口 `FireTriggerAt` 同形。</para>
         /// </summary>
         internal static bool FireTriggerByNumber(BattleContext ctx, UnitState u, int triggerNumber,
-                                                 int owner, int slot, UnitState actingCard, UnitState targetCard)
+                                                 int owner, int slot, UnitState actingCard, UnitState targetCard,
+                                                 BattleEvent triggerEvent = null)   // 🆕 2026-10-31（`B107_W10` · T21-8）：可选尾参 = 要 arm 的那条事件（`null` = 改前行为）
         {
-            if (ctx == null || u == null || u.Card == null) return false;
-            string tn;
-            if (!CardDef.TryAbilityTriggerNameOfNumber(triggerNumber, out tn))
-            {
-                ctx.Log($"⚠️ trigger 数值 {triggerNumber} 不在 `AbilityTriggerNumberOfName` 里 ⇒ 这条触发不结算（⛔ 不猜）");
-                return false;
-            }
-            var ops = u.Card.TriggerOpsByNumber(triggerNumber);
-            if (ops == null || ops.Count == 0) return false;      // 数据半没落列 ⇒ 今天恒走这一支（休眠）
-            return EnqueueAbility(ctx, TriggerLaneOfCard(u.Card, tn),
-                u.Name + "·trigger#" + triggerNumber,
-                () =>
-                {
-                    using (EventSlotsScope.TargetCardAndActing(ctx, targetCard, u.Card, actingCard))
-                    {
-                        ctx.EffectChain++;
-                        try { ResolveOps(ctx, owner, u, ops, tn.ToUpperInvariant(), chosen: targetCard); }
-                        finally { ctx.EffectChain--; }
-                    }
-                },
-                actor: u,
-                requireActorInPlay: ActorMustBeInPlayForTrigger(u.Card, tn, null),
-                abilityContext: AbilityContextOfAbilityV14(u.Card, tn, null));
+            // 🔴 2026-10-31（`B107_W10` · T21-8）：**唯一实现搬到了** `EffectResolver.cs` 类尾的
+            //   `FireTriggerByNumberWithSink`（同一个 `partial class RuleCore`）—— 它比这里只多一件事：
+            //   把 `triggerEvent` 交给 `ResolveWithTriggerTargetSink` arm（410 的 `option 2` 目标在队列体里才解析得出来）。
+            //   ⛔ 别再往这里写第二份体（两处写同一条规则 = 迟早不一致）。
+            return FireTriggerByNumberWithSink(ctx, u, triggerNumber, owner, slot, actingCard, targetCard, triggerEvent);
         }
 
         // --------------------------------------------------------------------------------------------

@@ -6198,7 +6198,7 @@ public static class RewardsScene
                         foreach (var t in cContent.GetComponentsInChildren<Transform>(true))
                             if (t.name.StartsWith("CampaignNode_")) nodesBack++;
                         CheckTrue(nodesBack > 0, $"（收工还原）轨道节点回来了（{nodesBack} 个在视口内）");
-                    }
+                    } B107W2_Assert.RunCampaignTrack(cTab, cContent); _sink.Pass += B107W2_Assert.Pass; _sink.Fail += B107W2_Assert.Fail;   // 🆕 2026-10-31（调度台代接线 · B107_W2）：同一物理行追加 ⇒ 行数零变化。B 段 = 空态 0 节点/0 跨度 + 切回有内容阵营能重建；判据 → 报告/B107_W2.md
 
                     // ---- FP-CAMP-06 ②：战役红点跟着「可领节点」变 ----
                     // 🔴 **判据冲突就地记（铁律 5 / 报告 §五）**：施工单写「领掉**唯一**可领节点 ⇒ 红点 alpha 0」——
@@ -12136,7 +12136,7 @@ public static class RewardsScene
                     CheckTrue(bgS.Texture != null && bgS.Texture.name == "40K_settings_button",
                               "…收尾：这一条回到常态图（⛔ 别把换过图的状态留给后面的断言）");
                 }
-            }
+            } B107W15_Assert.RunInboxLink(inbox); B107W15_Assert.RunShear(); _sink.Pass += B107W15_Assert.Pass; _sink.Fail += B107W15_Assert.Fail;
             // ---- 还原成空态（`Initialize(null)` = 原版 `:49` 那条空支）----
             inbox.Initialize(null);
             Check(inbox.Rows.Count, 0, "`Initialize(null)` ⇒ 条目全清");
@@ -13519,7 +13519,7 @@ public static class RewardsScene
             }
         }
 
-        RunCampaignRewardLocalization(wm2);   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）
+        RunCampaignRewardLocalization(wm2); B107_W20_Assert.RunAll(root, wm2); _sink.Pass += B107_W20_Assert.Pass; _sink.Fail += B107_W20_Assert.Fail;   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）｜🆕 B107_W30 代接线：N131 `Collected Badge` 三层 + N130 四窗换语言 / `RewardsWindow` 整窗重建（本件自建自毁各窗 ⇒ 不借宿主那几具已被 `ReapClosedWindows` 收割的实例；判据 → 报告/B107_W30.md）
         Debug.Log(P + win.Dump());
         B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）

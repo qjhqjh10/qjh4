@@ -188,9 +188,9 @@ namespace CardPresentation
         public readonly List<Transform> CardsCells = new List<Transform>();
 
         // ============================================================ Cards 页的几何（A3 实测）
-        /// <summary>卡池视口 **330.2, 155.9 → 1919.9, 1079.9**（1589.7 × 924.06）——
-        /// ⚠️ 与 Deck 页的视口（330.9,155.9→1920,1080）**差 0.7/0.1**，别互相抄（两份实测如此）。</summary>
-        public static readonly PxRect CardsViewport = new PxRect(330.2f, 155.9f, 1919.9f, 1079.9f);
+        /// <summary>卡池视口 **330.2, 155.9 → 1919.98, 1079.96**（**1589.78 × 924.06** —— 2026-10-31（`B107_W14` · 账 `N83`）按原版 prefab **派生值**收口：1920 − 167.169921875 − 163.0500030517578 = 1589.78、高 1080 − 70.94 − 85 = 924.06；⚠️ 原写 1589.7 是 dump 一位小数截断、AUD05 的「1589.75」无出处；序列化字段本身是 sizeDelta（−163.05, −85）、**不是 1589.x**，量纲 = 画布参考 px、与 PPU 无关）——
+        /// ⚠️ 与 Deck 页的视口（330.9,155.9→1920,1080）**差 0.7/0.04**，别互相抄（**两个不同 prefab**：本窗 `Collection Menu Variant` / 卡组编辑 `Deck Editing Menu`）。</summary>
+        public static readonly PxRect CardsViewport = new PxRect(330.2f, 155.9f, 1919.98f, 1079.96f);
         /// <summary>卡位 **262.5 × 384** · spacing **0** · 行距 **384** · **贴左但整体居中**（A3）。
         ///
         /// <para>🔴 **2026-10-24（`E6`）判据补全 + 就地订正（铁律 5）** —— 这一组值的出处是
@@ -209,7 +209,7 @@ namespace CardPresentation
         /// 卡池那三份的 `PrototypeCell` 是 `Collection Card`（`GameObject/Collection Card.json`）。
         /// 🔑 判据不看「谁引了哪份 MB」，看 **`PrototypeCell` 指哪个 prefab**。</para></summary>
         public static float CardsCellW { get { return 262.5f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float CardsCellH { get { return 384f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：格宽高按 `smallScreenUI` ×`_mobileSizeScale`(1.5)（原版 `RecyclableScrollRect.Initialize` 逐句实读）。桌面档 262.5×384 不变；⛔ 别再写回 const。
-        /// <summary>列数 = `floor(1589.7 ÷ (262.5 + 0))` = **6**。
+        /// <summary>列数 = `floor(1589.78 ÷ (262.5 + 0))` = **6**。
         ///
         /// <para>🔴 **2026-10-24（`E6`）：算法**读得到**了**（A3 当年记「运行时算的、算法读不到」）——
         /// `d:/2/tools/decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__ConfigureColumnNumber.c`：
@@ -217,14 +217,14 @@ namespace CardPresentation
         /// `_useFixedCellSize != 0` 时现算**；卡池那三份正好是 1 ⇒ 序列化的 `_segments`
         /// （跨这几页分别是 4 / 5 / 6）**不参与**，真正说话的是这一句）。
         /// ⚠️ 分母是 **`_cellWidth + _spacingX`**（不是 `+spacingY`），Content 宽 = 视口宽。</para></summary>
-        public static int CardsCols { get { return Mathf.Max(1, Mathf.FloorToInt(CardsViewport.W / (CardsCellW + 0f))); } }   // 🔴 2026-10-30 AUD05 S1：走原版式子 `floor(Content.w ÷ (_cellWidth+_spacingX))`（`VerticalRecyclingSystem__ConfigureColumnNumber.c`）⇒ 桌面 floor(1589.7/262.5)=6 · 小屏 floor(1589.7/393.75)=4。⛔ 别写回常量 6。
-        /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 &lt; 视口 1589.7 ⇒ 两侧各留 **7.35**。
+        public static int CardsCols { get { return Mathf.Max(1, Mathf.FloorToInt(CardsViewport.W / (CardsCellW + 0f))); } }   // 🔴 2026-10-30 AUD05 S1：走原版式子 `floor(Content.w ÷ (_cellWidth+_spacingX))`（`VerticalRecyclingSystem__ConfigureColumnNumber.c`）⇒ 桌面 floor(1589.78/262.5)=6 · 小屏 floor(1589.78/393.75)=4。⛔ 别写回常量 6。
+        /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 &lt; 视口 1589.78 ⇒ 两侧各留 **7.39**。
         ///
         /// <para>🔴 **2026-10-24（`E6`）出处**：`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c`
         /// （反汇编 `0x1808A4xxx` 段）—— 网格定位式
         /// `offset = ((Content.rect.width − (spacingX + cellWidth) × coloumns) + spacingX) × **0.5**`、
         /// `x = (spacingX + cellWidth) × col + offset`、`y −= (spacingY + cellHeight)`（每行一次）。
-        /// 本处 `spacingX = 0` ⇒ `((1589.7 − 262.5×6) + 0) × 0.5 = **7.35**`（与本式逐位相同）。</para></summary>
+        /// 本处 `spacingX = 0` ⇒ `((1589.78 − 262.5×6) + 0) × 0.5 = **7.39**`（与本式逐位相同）。</para></summary>
         public static float CardsPadX { get { return (CardsViewport.W - CardsCols * CardsCellW) * 0.5f; } }
 
         public static PxRect CardsCellRect(int i)
@@ -304,7 +304,7 @@ namespace CardPresentation
         /// （`InventoryManager.GetOwnedCount(card)` → `String_Format(DAT_18425ce10, …)`，同一段在
         /// `CardCollectionDisplay__UpdateCardVisuals.c:45-47` 逐字重复）；并把 `拥有数 &lt; 1` 喂给
         /// `CollectionCardCounter.Set(…, setGreyscale)` ⇒ **没拥有的那张置灰**。</para>
-        /// <para>⚠️ **我们这一格印 `min(拥有, 卡组上限)`，这是我们挑的偏离（不是原版的做法）**：
+        /// <para>🔶 自己设计（非原版）：这一格印 `min(拥有, 卡组上限)`，原版印原始拥有数 —— 照原式会因「资源固定 2000 + `Owned` 给足口径」把每格印成无意义的 `x11` ⇒ 必须自定 · 用户 2026-09-28 拍板（同一节点另见 `DeckRuntime.PoolCounterText`）· 2026-10-31 `B107_W14` 补标：
         /// 本作资源固定 2000（用户 2026-10-24 从 9999 改）、`CardProgress.Owned` 是**给足**口径（= 卡组上限 + 升满所需 ⇒ 每张 10~11）
         /// ⇒ 照原式会把**每一格**印成 `x11` 那种没有意义的数。这一档**沿用同一个节点**在
         /// `DeckRuntime.PoolCounterText`（「还没有督军」那一支）里**用户 2026-09-28 已经拍过板**的写法
@@ -2165,7 +2165,7 @@ namespace CardPresentation
         /// <summary>网格视口 **330.22, 287.67 → 1920.01, 1080**（1589.78 × 792.33）。</summary>
         public static readonly PxRect StyleView = new PxRect(330.22f, 287.67f, 1920.01f, 1080f);
         /// <summary>格 **262.5 × 384**（作者 350×512，同 Cards 页）。</summary>
-        public static float StyleCellW { get { return 262.5f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float StyleCellH { get { return 384f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：本页 `_mobileSizeScale` = **1.5**（prefab `MonoBehaviour_7174171443954770645`，与卡池同值）⇒ 小屏 **393.75×576 · 4 列**。⚠️ **2026-10-30 `B103_F5` 订正**：本行原写「四页视口宽都不同源」—— **不成立**：prefab 里本页与卡池**同一个** `sizeDelta.x = −163.05`（视口同 1589.95）；我方这两个常量（1589.79 / 1589.7）的 0.09 差是两次独立实测的舍入差，**不是两个不同 prefab**。⇒ ⛔ 别把 Deck(1589.1)/Cardback(1584.57) 收口给这两个，但「Cards 与 Styles 必须分开」**没有判据**。
+        public static float StyleCellW { get { return 262.5f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float StyleCellH { get { return 384f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：本页 `_mobileSizeScale` = **1.5**（prefab `MonoBehaviour_7174171443954770645`，与卡池同值）⇒ 小屏 **393.75×576 · 4 列**。⚠️ **2026-10-30 `B103_F5` 订正**：本行原写「四页视口宽都不同源」—— **不成立**：prefab 里本页与卡池**同一个** `sizeDelta.x = −163.05`（视口同 **1589.78**）；我方这两个常量（Styles 1589.79 / Cards **1589.78**，2026-10-31 `B107_W14` 按派生值收口、原 1589.7 是 dump 截断）的 0.01 差是 dump 舍入，**不是两个不同 prefab**。⇒ ⛔ 别把 Deck(1589.1)/Cardback(1584.57) 收口给这两个，但「Cards 与 Styles 必须分开」**没有判据**。
 
         /// <summary>列数 = `floor(1589.78 ÷ 262.5)` = **6**。</summary>
         public static int StyleCols { get { return Mathf.Max(1, Mathf.FloorToInt(StyleView.W / StyleCellW)); } }
@@ -2305,7 +2305,7 @@ namespace CardPresentation
                         if (c != null) pool.Add(c);
                         else Debug.LogWarning("[Collection] 异画表里的卡 id 在卡池里查不到：" + a.CardId);
                     }
-                    _stylesState = new DeckEditorState(pool);
+                    _stylesState = new DeckEditorState(pool) { Filter = AltArtInitialFilter };   // 🔴 2026-10-31（B107_W14 · 账 N84）：异画页出厂 `Owned = false`（判据 → `AltArtInitialFilter` 的 doc）
                 }
                 return _stylesState;
             }
@@ -5112,7 +5112,7 @@ namespace CardPresentation
         /// <item>**矩形**：`工具/menu_dump.py bundle_menus_assets_all "CardsTab" --depth 8` 现读（2026-10-25）——
         ///   节点 `Reference Card Pointer` = **402.3,236.4 → 596.1,281.4**（193.84×45.09），父件 = `Collection Display`
         ///   的直接孩子、与 `Scroll View` **同级**；`m_IsActive = 1`（⚠️ 2026-10-29 `B97_MINI2` 订正：原写 `0` 是卡组编辑窗那颗；无 Image ⇒ 画面上本来就不画）。2026-10-29 起该节点已按原版真建并登记唯一 id。
-        ///   本组数与 `CardsViewport`（330.2,155.9→1919.9,1079.9）**同一帧**（同一份 dump 里 `Scroll View`
+        ///   本组数与 `CardsViewport`（330.2,155.9→1919.98,1079.96）**同一帧**（同一份 dump 里 `Scroll View`
         ///   就是 330.2,155.9）⇒ 与 `CardsCellRect` 可直接比，⛔ 不要再加父链偏移。</item>
         /// <item>**命中序**：`RectExtensions.OverlapsAny`（🥇 `out_cpp2il_dev_ilspy/RectExtensions.cs:69-244`
         ///   ＋ `decomp_full/RectExtensions__OverlapsAny.c`，两份一致）= **按传入序返回第一个相交的**
@@ -6369,7 +6369,7 @@ namespace CardPresentation
         {
             PointerLayer.UnregisterDragsOwnedBy(gameObject);
             UnhookWildcardUpdate();     // B9_W63WC：`Inventories.Wildcards` 是**静态**单例 ⇒ 不退订就被按着（原版 `OnDisable` 的 `Signal.Unregister`）
-            CardsState.Filter = DeckFilter.None; CosmoState.Filter = DeckFilter.None; StylesState.Filter = DeckFilter.None;   // B103_R1（AUD03 #28）：三份状态是 **static**（跨窗口实例保留），而原版关窗即 Destroy ⇒ 新实例的筛选是出厂态。⛔ 别动 `ShowInCollectionOnly` / `SortByInventoryOptions` —— 那两个是口径开关、不是玩家筛选（见 `:879-884`）。
+            ResetPageFiltersToFactory();   // B103_R1（AUD03 #28）：三份状态是 **static**（跨窗口实例保留），而原版关窗即 Destroy ⇒ 新实例的筛选是出厂态。⚠️ 2026-10-31（B107_W14 · 账 N84）：异画页的出厂态是 `Owned = false`（见 `AltArtInitialFilter` / `ResetPageFiltersToFactory`），⛔ 别三页一起写 `DeckFilter.None`。⛔ 别动 `ShowInCollectionOnly` / `SortByInventoryOptions` —— 那两个是口径开关、不是玩家筛选（见 `:879-884`）。
             base.Close();
         }
 
@@ -6839,6 +6839,34 @@ namespace CardPresentation
             return (DG.Tweening.UpdateType)_tweenUpdateTypeField.GetValue(t);
         }
         static System.Reflection.FieldInfo _tweenUpdateTypeField;
+
+        // ============================================================ 🆕 2026-10-31（B107_W14 · 账 N84）：异画页的出厂筛选
+        /// <summary>异画页（`Alternate Art Tab`）的**出厂筛选** = `DeckFilter.None` 但 `Owned = false`。
+        ///
+        /// <para>🔴 **判据（原版「按页初值」，与另两页不同）**：`AlternateArtCardCollectionTab` 的
+        /// `private bool showOnlyOwned;` **没有字段初值** ⇒ C# 默认 `false`；
+        /// 而 `CardCollectionTab` / `CardbackCollectionTab` 的同名字段都写成 `= true`。
+        /// 反证（不是只看 ILSpy —— 它有时会丢 `= true`）：三个 `.ctor` 现读，**只有**另两份写
+        /// `*(undefined1 *)(param_1 + 0xNN) = 1`，`AlternateArtCardCollectionTab.__.ctor.c` **不写这个偏移**
+        /// （只写 `+0x5c = -1`）。`Awake` 里 `ownedToggle.isOn = showOnlyOwned` 把它同步给开关。
+        /// 出处 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/AlternateArtCardCollectionTab.cs:99,179`
+        /// ＋ `d:/2/tools/decomp_full/{AlternateArtCardCollectionTab,CardCollectionTab,CardbackCollectionTab}__.ctor.c`。</para>
+        /// <para>⚠️ 另三页（Cards / Cosmetics / Decks）保持 `DeckFilter.None`（`Owned = true`）；
+        /// 关窗重开的那句复位在 <see cref="ResetPageFiltersToFactory"/>，⛔ 别把三页一起改成 false。</para></summary>
+        public static DeckFilter AltArtInitialFilter
+        {
+            get { var f = DeckFilter.None; f.Owned = false; return f; }
+        }
+
+        /// <summary>三份筛选状态复位到**各自页的出厂态**（`Close()` 里那一跳；原版关窗即 Destroy ⇒ 新实例就是出厂态）。
+        /// <para>⚠️ 只复位「玩家筛选」；`ShowInCollectionOnly` / `SortByInventoryOptions` 是**口径开关**、⛔ 别动（见 `:879-884`）。
+        /// ⚠️ 异画页的出厂态与另两页**不同**（`Owned = false`，判据 → <see cref="AltArtInitialFilter"/>）。</para></summary>
+        public static void ResetPageFiltersToFactory()
+        {
+            CardsState.Filter = DeckFilter.None;
+            CosmoState.Filter = DeckFilter.None;
+            StylesState.Filter = AltArtInitialFilter;
+        }
     }
 
 }

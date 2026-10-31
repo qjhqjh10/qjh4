@@ -1532,12 +1532,12 @@ namespace CardPresentation
         //        否则 **有 `onClick` 就跑它、没有就 `HandlePointerClick()`**；末尾放一次 `inspectSound`
         //    · `HandlePointerClick()`（:955）＝ 开 `ItemDisplayWindow`（`ItemDisplayWindowContext(item, 0)`）
         //
-        //  🔴 **`claimedWarning` 那件在原版 prefab 里是【空节点】**：亲扫 `bundle_menus_assets_all` 的
-        //     **80 份 `GameObject/Collected Badge*.json` = 80/80 只有 `RectTransform + CanvasRenderer`**
-        //     （没有 Image、没有 TMP、没有子件）⇒ 它的「警告」视觉**不在这个节点上**。
-        //     ⇒ 我们照这个事实：节点**照判据几何建**（`aMin(0.1,0)` / `aMax(0.9,0.1)` / `ap(0,20)` /
-        //     `pivot(0.5,0)`，出厂隐藏），**不贴任何图**（⛔ 别自己画一条「已领取」缎带冒充原版）。
-        //     可观测的那一半（显示态）照样有，自检读 `ClaimedVisible`。
+        //  🔴 **`claimedWarning` 那件在原版 prefab 里【不是空节点】**（2026-10-31 `B107_W20` 咬 N131 就地订正 · 铁律 5）：
+        //     当年「80/80 只有 `RectTransform + CanvasRenderer`」的**错因 = 读了 GameObject 的 `m_Children`** —— 那个字段在 `Transform/RectTransform` 上（GameObject 那份根本没有它）⇒ 必然读成「没有子件」。
+        //     现扫 `bundle_menus_assets_all`：**104 份 `GameObject/Collected Badge*.json` 各有 1 个子件 `Image`**（103 份解得出 TMP 的 GO、1 份跨包），`Image` 各有 1 个 `Text (TMP)`（RectTransform 104/104 一致）。
+        //     `Image` 组件 **`m_Enabled = 0`（104/104）** + `m_Sprite` null + 白 + `raycastTarget 1` ⇒ **不出图**（「视觉不在这个节点上」那半句仍对）；
+        //     `Text (TMP)` = 黑 · `fontSize 72` · autosize 1（18–72，base 36）· `H=2 center / V=512 middle` · `m_TextWrappingMode 0` · 锚 (0.1,0.1)-(0.9,0.9) · **无 `Localize`**（硬编码英文 `Claimed`）。
+        //     ⇒ 我们**照建两层**（`Image` = 空矩形节点、TMP = 真文字，见 `BuildClaimedLayers`）；可观测的显示态照旧读 `ClaimedVisible`。
 
         /// <summary>取一张装饰图给 `ItemDrawerView.OverridePremiumBadge` 用（原版那个口收 `Sprite`，我们按图名收）。</summary>
         public static Texture2D ArtTexture(string artName) { return Tex(artName); }
@@ -1609,7 +1609,7 @@ namespace CardPresentation
                 float x1 = _box.x1 + 0.1f * w, x2 = _box.x1 + 0.9f * w;
                 float yBottom = _box.y2 - 20f;            // y 向下：底边 = y2 − ap.y
                 float yTop = yBottom - 0.1f * h;          // 高 = 10% × 抽屉高
-                _claimed = MenuDraw.Node(Node, "Collected Badge", new PxRect(x1, yTop, x2, yBottom));
+                _claimed = MenuDraw.Node(Node, "Collected Badge", new PxRect(x1, yTop, x2, yBottom)); BuildClaimedLayers(x1, yTop, x2, yBottom);   // B107_W20（N131）：原版这件的**两层子件**（`Image` → `Text (TMP)`）见 EOF 那个 partial 里的 `BuildClaimedLayers`；同一物理行追加 ⇒ 行数零变化
             }
             if (_claimed != null) _claimed.gameObject.SetActive(toggle);
         }
@@ -2345,5 +2345,55 @@ namespace CardPresentation
 
         /// <summary>自检口：把静态 provider 还原成默认（它是静态字段 ⇒ 每条断言收尾都要调）。</summary>
         public static void ResetForTest() { CurrentArmyProvider = () => DailyData.HeaderArmyValue; }
+    }
+
+    // ==========================================================================================
+    //  🆕 2026-10-31 `B107_W20`（N131）：`Collected Badge` 的**两层子件**
+    //
+    //  判据（`bundle_menus_assets_all` 现扫，2026-10-31 本代理亲读）：
+    //    · `GameObject/Collected Badge*.json` **104 份，各有 1 个子件 `Image`**（当年记成「空节点」是读了
+    //      GameObject 的 `m_Children` —— 那个字段在 `Transform/RectTransform` 上 ⇒ 必然读空）。
+    //    · `Image`：RectTransform 锚 `(0,0)-(1,1)`（= 撑满徽章矩形、ap 0 / sd 0 / pivot .5）；
+    //      Image 组件 **`m_Enabled = 0`（104/104）** · `m_Sprite` null · `m_Color` 白 · `m_RaycastTarget 1`
+    //      ⇒ **不出图**（本壳无 uGUI 运行时：等价物 = 只建节点、不建 quad）。
+    //    · `Text (TMP)`：锚 `(0.1,0.1)-(0.9,0.9)`（= 父矩形各向内缩 10%）；`m_text "Claimed"`（103/103）·
+    //      `m_fontColor` 黑 · `m_fontSize 72` · `m_enableAutoSizing 1`（min 18 / max 72 / base 36）·
+    //      `H=2 center / V=512 middle` · `m_TextWrappingMode 0` · 字体资产 = `Pragati-Regular SDF`
+    //      （pathID 3485036404935369831 ⇒ `TmpFont.Face.LatinCardBody`）· **无 `Localize`**（硬编码英文）。
+    //
+    //  ⚠️ 为什么这些成员写在**文件末尾的 partial 续块**：本文件被账按 `文件:行号` 引用（最大到 `:2339`），
+    //    插在中间会让下游行号整体漂移（铁律 18·b）⇒ 追加在最后一行之后 ⇒ **现有行号零变化**。
+    // ==========================================================================================
+    public sealed partial class ItemDrawerView
+    {
+        /// <summary>`Collected Badge` 的 `Text (TMP)` 字面量（原版无 `Localize` 组件 ⇒ 任何语言都显示英文 `Claimed`）。</summary>
+        public const string ClaimedLiteral = "Claimed";
+
+        /// <summary>原版 `Collected Badge/Image` 那一层（Image 组件 `m_Enabled=0` ⇒ 只是个撑满徽章矩形的空节点、不出图）。</summary>
+        Transform _claimedImage;
+        /// <summary>原版 `Collected Badge/Image/Text (TMP)` 那一层（黑 `Claimed` · 72px · auto 18–72 · center/middle · 折行 0）。</summary>
+        Label _claimedText;
+
+        /// <summary>建 `Collected Badge` 的两层子件（由 <see cref="ToggleClaimedWarning"/> 的懒建那一路调；参数 = 徽章矩形）。
+        /// <para>⚠️ 几何换算：`Image` 锚 (0,0)-(1,1) ⇒ 与徽章**同矩形**；`Text (TMP)` 锚 (0.1,0.1)-(0.9,0.9)
+        /// ⇒ 在 `Image` 矩形上**各边内缩 10%**（本壳的节点矩形只由 `sizeDelta` + 中心决定，锚点按实际矩形折算）。</para></summary>
+        void BuildClaimedLayers(float x1, float yTop, float x2, float yBottom)
+        {
+            float w = x2 - x1, h = yBottom - yTop;
+            // `Image`：原版组件 `m_Enabled = 0`（104/104）⇒ 不出图 ⇒ 只建节点（⛔ 别补 quad、别补图）。
+            _claimedImage = MenuDraw.Node(_claimed, "Image", new PxRect(x1, yTop, x2, yBottom));
+            var r = new PxRect(x1 + 0.1f * w, yTop + 0.1f * h, x2 - 0.1f * w, yBottom - 0.1f * h);
+            _claimedText = MenuDraw.Text(_claimedImage, r, ClaimedLiteral, Color.black, "Text (TMP)", 72f, MenuDraw.QText,
+                                         r.W, 18f, 72f, 36f, face: TmpFont.Face.LatinCardBody);
+            // 原版 `m_TextWrappingMode = 0`：`SetAutoFitBox` 内部那句 `SetWrapWidth` 会无条件开折行 ⇒ 紧跟一句关掉。
+            if (_claimedText != null) _claimedText.SetWrapping(false);
+        }
+
+        /// <summary>自检读口：`Collected Badge` 节点（没打开徽章时为 null）。</summary>
+        public Transform ClaimedNode { get { return _claimed; } }
+        /// <summary>自检读口：`Collected Badge/Image`（原版那层的等价物；没打开徽章时为 null）。</summary>
+        public Transform ClaimedImageLayer { get { return _claimedImage; } }
+        /// <summary>自检读口：`Collected Badge/Image/Text (TMP)`（黑 `Claimed` 那颗；没打开徽章时为 null）。</summary>
+        public Label ClaimedTextLayer { get { return _claimedText; } }
     }
 }

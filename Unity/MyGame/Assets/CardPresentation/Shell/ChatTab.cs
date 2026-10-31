@@ -149,6 +149,19 @@ namespace CardPresentation
             //   **彻底藏掉**（不是「画到框外至少看得见」）—— 同 `BattleLogPopup.BuildRows` 那条注释。
             //   ⚠️ **空表那一支也要写**（写成视口顶）—— 否则上一次的内容高留在区里，是个静默的脏值
             //   （同 `LeaderboardWindow` / `BattleLogPopup` 那两处）。
+            // 🆕 2026-10-31（B107_W13 · N89）：逐行缓存「这一行对应的消息 + 那颗 `Time` 标签」——
+            //   原版 `ChatContentView.Update` 每 `updateDelay` 秒对**可见项**调 `ChatMessageUI.UpdateTimer()`
+            //   重算相对时间（判据 `ChatContentView.cs:71-89` · `ChatContentView__.ctor.c:17`（`0xf` = 15）·
+            //   `ChatMessageUI__UpdateTimer.c`）。我们的行是**全量重建**的、没有 OSA 的 view-holder ⇒
+            //   在 `Rebuild` 里顺手把「能刷新的那几颗」记下来，`RefreshTimeTexts()` 逐颗 `SetText`。
+            _rowMsgs.Clear(); _rowTfs.Clear(); _timeLabels.Clear(); _lastBuiltRow = null;
+            SocialData.ChatMessage lastMsg = null;
+            for (int i = 0; i < all.Count; i++) if (all[i].Channel == _channel) lastMsg = all[i];
+            // N88：只有「本频道的末条换了」才播滑入（原版 `AddMessage` 置 `newMessageReceived`）；
+            //   `Rebuild` 也会被滚轮/切页触发，那时末条没变 ⇒ 不播。
+            bool freshMessage = _hasSeenOnce && lastMsg != null && !ReferenceEquals(lastMsg, _lastSeenMsg);
+            _hasSeenOnce = true; _lastSeenMsg = lastMsg;
+            Transform lastRowTf = null;
             float w = _rect.W - PadL - PadR;
             float y = _rect.y1 + PadT;
             int n = 0;
@@ -190,7 +203,17 @@ namespace CardPresentation
                 //    ⚠️ `VpSoft` 照旧传（它现在是**回落那一档**的软边；节点在时由节点说了算）。
                 ChatMessageRow.Build(_win, _content, all[i], rr, null, VpSoft);
                 BuiltRows++;                     // 现在 = **真建出来几行**（滚出视口的不算；断言用）
+                // 🆕 2026-10-31（B107_W13 · N89）：`Build` 先建行根、再往行里挂件 ⇒ 最后一颗子件就是这一行
+                var rowTf = _content.childCount > 0 ? _content.GetChild(_content.childCount - 1) : null;
+                _rowMsgs.Add(all[i]); _rowTfs.Add(rowTf); _lastBuiltRow = rowTf;
+                _timeLabels.Add(FindTimeLabel(rowTf, all[i].Mine));
+                if (ReferenceEquals(all[i], lastMsg)) lastRowTf = rowTf;
             }
+            // 🆕 2026-10-31（B107_W13 · N88）：**新消息**才滑入 —— 原版 `ChatContentView.AddMessage` 置
+            //   `newMessageReceived`、`Update` 里对**最后一条已建项** `DOMoveY(当前 y, 0.3s).From(y − 10)`
+            //   （判据 `ChatContentView.cs:96-107`）；上一条动画还在 ⇒ 先 `Kill(complete:true)`（`:437`）。
+            //   ⚠️ 末条消息若**滚出视口没建**，就没有滑入对象 —— 原版 `GetItemViewsHolderIfVisible` 同样返回 null、整跳跳过。
+            if (freshMessage && lastRowTf != null) StartSlide(lastRowTf);
         }
 
         // ============================================================ 🆕 2026-10-31（`B106_W12`）：行高
@@ -203,11 +226,11 @@ namespace CardPresentation
         //     · 参与布局的子件两个：两个头各 **25** 高（`Player Header` / `Friend Header`，同时只亮一个）+
         //       `Message`（RT `sizeDelta.y = 0`、自带 `CSF m_VerticalFit 2 = PreferredSize` ⇒ 高度由 TMP 撑）；
         //     · `RowBackground` 挂 `LayoutElement m_IgnoreLayout = 1` ⇒ **不参与**（所以不多数它）。
-        //   ⇒ `h = 10 + 10 + 25 + 12 + 正文高 = 57 + 正文高`，再与 OSA 的 `_DefaultItemSize = 60` 取大
-        //     （那条是**占位估计**，不是原版行高的真值 —— 原版真值由上面的 CSF 撑）。
+        //   ⇒ `h = 10 + 10 + 25 + 12 + 正文高 = 57 + 正文高`（空正文 = **57**）。原版**没有** 60 这个下限
+        //     —— `_DefaultItemSize = 60` 只是 OSA 的**占位估计**（`_PrefabControlsDefaultItemSize: 1` 运行期还会被 prefab 覆盖），CSF 只撑不夹。
         //   ⚠️ 我们原来写死 `DefaultRowH = 60`（`ChatTab.cs` 类头的 `_DefaultItemSize`）⇒ 长消息换行之后
         //     行与行**叠在一起**（原版是往下长）。这一条就是补那半。
-        const float RowPadTop = 10f, RowPadBottom = 10f, RowHeadH = 25f, RowGap = 12f;
+        const float RowPadTop = ChatMessageRow.RowPadTop, RowPadBottom = ChatMessageRow.RowPadBottom, RowHeadH = 25f, RowGap = 12f;   // #N127：上下内边距的唯一写点在 `ChatMessageRow`（原版 VLG `m_Padding.T10/B10`），这里只**引用**、⛔ 不再各写一遍
         const float MsgPx = 22f;                 // = `ChatMessageRow` 正文的 `m_fontSize`（判据同上 prefab）
 
         /// <summary>一行（设计 px）。数据侧显式给了 `ChatMessage.Height` 就用它（原版那一格就是 OSA 的
@@ -218,7 +241,7 @@ namespace CardPresentation
             if (m.Height > 0f) return m.Height;
             float wrap = Mathf.Max(1f, rowW - ChatMessageRow.RowPadLeft(m.Mine) - ChatMessageRow.RowPadRight(m.Mine));
             float msgH = MeasureMessagePx(SocialData.Text(m), wrap);
-            return Mathf.Max(DefaultRowH, RowPadTop + RowPadBottom + RowHeadH + RowGap + msgH);
+            return RowPadTop + RowPadBottom + RowHeadH + RowGap + msgH;   // 2026-10-31（B107_W2）：**不夹 60** —— 原版 CSF 只给 `57 + 正文`，空正文 = 57（判据见上面那段）
         }
 
         /// <summary>量正文的高度（设计 px）。做法照全仓唯一先例 `Shell/ToastNotifications.MeasureTextPx`：
@@ -254,6 +277,147 @@ namespace CardPresentation
             {
                 SocialWindow.DestroySafe(tmp);
             }
+        }
+
+        // ============================================================================================
+        // 🆕 2026-10-31（B107_W13）—— N88 新消息滑入 / N89 15 秒计时刷新（全部追加在类尾）
+        // 🔴 纪律：本文件被 `账/社交_聊天.tsv` 按行号引用（现读最高 `:145`）⇒ 这些成员**只追加在类尾**，
+        //    上面每一行的行号零变化。
+        // ============================================================================================
+
+        /// <summary>#N88 滑入时长（秒）—— 原版 `ChatContentView.Update` 的 `DOMoveY(…, 0.3f)`
+        /// （判据 = `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/ChatContentView.cs:100`）。</summary>
+        public const float SlideDuration = 0.3f;
+        /// <summary>#N88 起始下移量（画布 px）—— 原版 `From(transform.position.y − 10f)`（同上 `:102-104`）。</summary>
+        public const float SlideOffsetPx = 10f;
+        /// <summary>#N89 计时刷新周期（秒）—— 原版 `updateDelay = 15`（`ChatContentView__.ctor.c:17` 写 `0xf`；
+        /// `out_cpp2il_dev_ilspy/ChatContentView.cs:518`）。</summary>
+        public const int TimerRefreshSeconds = 15;
+
+        Transform _slideRow;
+        Vector3 _slideBase;
+        float _slideT;
+        bool _sliding;
+
+        readonly List<SocialData.ChatMessage> _rowMsgs = new List<SocialData.ChatMessage>();
+        readonly List<Transform> _rowTfs = new List<Transform>();
+        readonly List<Label> _timeLabels = new List<Label>();
+        Transform _lastBuiltRow;                        // 最后一个**建出来**的行（自检读口；未必是末条消息那一行）
+        SocialData.ChatMessage _lastSeenMsg;
+        bool _hasSeenOnce;
+        System.DateTime _lastTimerTick = System.DateTime.Now;
+        /// <summary>已执行的 15s 刷新次数（自检读口）。</summary>
+        public int TimeRefreshCount { get; private set; }
+
+        /// <summary>最后一个建出来的行（滚出视口的不算）。</summary>
+        public Transform LastBuiltRow { get { return _lastBuiltRow; } }
+        /// <summary>当前这一页记下的 `Time` 标签数（= 本页建出来的行数；可能含 `null`，见 `BuiltTimeLabelAt`）。</summary>
+        public int BuiltTimeLabels { get { return _timeLabels.Count; } }
+        /// <summary>第 i 个建出来的行（`null` = 没建 / 已被重建清掉；自检读口）。</summary>
+        public Transform BuiltRowAt(int i) { return i >= 0 && i < _rowTfs.Count ? _rowTfs[i] : null; }
+        /// <summary>第 i 个建出来的行对应的消息（自检读口）。</summary>
+        public SocialData.ChatMessage BuiltMessageAt(int i) { return i >= 0 && i < _rowMsgs.Count ? _rowMsgs[i] : null; }
+        /// <summary>第 i 个建出来的行的 `Time` 标签（`null` = 这一颗被裁切闸挡掉、没建）。</summary>
+        public Label BuiltTimeLabelAt(int i) { return i >= 0 && i < _timeLabels.Count ? _timeLabels[i] : null; }
+        /// <summary>正在播滑入吗。</summary>
+        public bool IsSliding { get { return _sliding; } }
+        /// <summary>滑入进度 0..1（没在播 = 1）。</summary>
+        public float SlideProgress { get { return _sliding ? Mathf.Clamp01(_slideT / SlideDuration) : 1f; } }
+        /// <summary>当前行相对基准位的**纵向偏移**（设计 px；负 = 还在下面 10px 那一档）。自检读口。</summary>
+        public float SlideOffsetPxNow { get { return -SlideOffsetPx * (1f - EaseOutQuad(SlideProgress)); } }
+
+        /// <summary>DOTween 的默认缓动 `Ease.OutQuad` = `1 − (1 − k)²`（原版这两跳没显式设 Ease ⇒ 吃默认值）。</summary>
+        static float EaseOutQuad(float k) { k = Mathf.Clamp01(k); return 1f - (1f - k) * (1f - k); }
+
+        /// <summary>取行里那颗 `Time` 标签（原版 `ChatMessageUI.UpdateTimer` 刷的就是它）。
+        /// ⚠️ `Time` 挂在两套头的下面（`Player Header` / `Friend Header`，同时只亮一套）⇒ 按发信侧取路径。</summary>
+        static Label FindTimeLabel(Transform row, bool mine)
+        {
+            if (row == null) return null;
+            var head = row.Find(mine ? "Player Header" : "Friend Header");
+            if (head == null) return null;
+            var lb = head.Find("Time");
+            return lb != null ? lb.GetComponent<Label>() : null;
+        }
+
+        /// <summary>每帧泵（play 模式；批处理没有帧循环 ⇒ 自检直接调 `TickSlide` / `RefreshTimeTexts`）。</summary>
+        void Update() { TickSlide(Time.deltaTime); TickTimers(); }
+
+        /// <summary>#N88 播滑入（生产路：只在 play 模式起来；批处理/自检走 <see cref="BeginSlideForTest"/>）。
+        /// 🔶 自己设计（非原版）：原版用 DOTween `DOMoveY(...).From(...)`，这里用**同一算式**按 `Time.deltaTime` 推进
+        /// （批处理没有帧循环、DOTween 不会走）—— 行为等价（0.3s / 10px / OutQuad）· 执行代理 B107_W13 2026-10-31。</summary>
+        void StartSlide(Transform row)
+        {
+            if (row == null) return;
+            if (_sliding) FinishSlide();                   // 原版 AddMessage：上一条还在播 ⇒ `Kill(complete:true)`
+            if (!Application.isPlaying) return;            // 没有帧就没有动画（同 `AlliancePanelWindow.StartAppear`）
+            BeginSlideCore(row);
+        }
+
+        /// <summary>自检入口：**不受** `Application.isPlaying` 闸（宿主手动 `TickSlide` 推进）。</summary>
+        public void BeginSlideForTest(Transform row)
+        {
+            if (row == null) return;
+            if (_sliding) FinishSlide();
+            BeginSlideCore(row);
+        }
+
+        void BeginSlideCore(Transform row)
+        {
+            _slideRow = row; _slideBase = row.localPosition; _slideT = 0f; _sliding = true; ApplySlide(0f);
+        }
+
+        void ApplySlide(float k)
+        {
+            if (_slideRow == null) return;
+            float e = EaseOutQuad(k);
+            var p = _slideBase; p.y -= LayoutSpace.Px(SlideOffsetPx) * (1f - e);
+            _slideRow.localPosition = p;
+            if (k >= 1f) { _slideRow.localPosition = _slideBase; _slideRow = null; _sliding = false; }
+        }
+
+        /// <summary>推进滑入（`Update` 每帧调；自检直接调）。</summary>
+        public void TickSlide(float dt)
+        {
+            if (!_sliding) return;
+            _slideT += dt;
+            ApplySlide(Mathf.Clamp01(_slideT / SlideDuration));
+        }
+
+        /// <summary>立刻收尾（原版 `Kill(complete:true)` 的等价：落到终态）。</summary>
+        public void FinishSlide()
+        {
+            if (_sliding) ApplySlide(1f);
+            if (_slideRow != null) { _slideRow.localPosition = _slideBase; _slideRow = null; }
+            _sliding = false;
+        }
+
+        /// <summary>#N89 到点才刷（原版 `ChatContentView.Update`：`(DateTime.Now − lastUpdate).TotalSeconds > updateDelay`）。
+        /// 返回 true = 这一拍真的刷了。</summary>
+        public bool TickTimers()
+        {
+            var now = System.DateTime.Now;
+            if ((now - _lastTimerTick).TotalSeconds <= TimerRefreshSeconds) return false;
+            _lastTimerTick = now;
+            RefreshTimeTexts();
+            return true;
+        }
+
+        /// <summary>= 原版 `ChatContentView.UpdateTimers()` → 每个可见项 `ChatMessageUI.UpdateTimer()`：
+        /// 按 `TimestampMs` 与 `UtcNow` 的差重算那颗 `Time`（`SocialData.TimeText` 是同一份实现）。
+        /// 返回刷新的行数。</summary>
+        public int RefreshTimeTexts()
+        {
+            int n = 0;
+            for (int i = 0; i < _timeLabels.Count; i++)
+            {
+                var lb = _timeLabels[i];
+                if (lb == null) continue;
+                lb.SetText(SocialData.TimeText(i < _rowMsgs.Count ? _rowMsgs[i] : null));
+                n++;
+            }
+            TimeRefreshCount++;
+            return n;
         }
     }
 }

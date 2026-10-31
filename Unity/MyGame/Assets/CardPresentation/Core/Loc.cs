@@ -4064,5 +4064,41 @@ namespace CardPresentation
 
     /// <summary>自检用：清空登记表（⛔ 生产别调）。</summary>
     public static void ClearLocalizedForTest() { _localizedLabels.Clear(); _bindSincePrune = 0; }
+
+    // ==========================================================================================
+    //  🆕 2026-10-31 `B107_W20`（N130 · 只补文档，零行为改动）：换语言重取的**时机** —— 原版延后一帧、我们同步
+    //
+    //  判据（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/I2.Loc/LocalizationManager.cs:3687-3710` 现读）：
+    //    `LocalizationManager.LocalizeAll(bool Force = false)` 在 **`Application.isPlaying`** 时**不立即做** ——
+    //    它只置 `mLocalizeIsScheduled`（+`mLocalizeIsScheduledWithForcedValue`）并
+    //    `CoroutineManager.Start(Coroutine_LocalizeAll())`（`mLocalizeIsScheduled` 去重；协程体 `DoLocalizeAll`
+    //    **下一帧**才逐颗 `Localize.OnLocalize(Force)`，最后才发 `m_OnLocalizeEvent`）；
+    //    **编辑器 / 非运行期**那一支才是同步 `DoLocalizeAll(Force)`。
+    //  ⇒ **我们的 `NotifyLanguageChanged()` 是同步的**（本类：广播 + `RelocalizeAll()` 都在同一拍里做完）。
+    //    可见差异 = 原版换语言那一帧画面上仍是旧文案、下一帧才变；我们同一拍就变。
+    //    🔶 自己设计（非原版）：换语言重取走**同步**（取代原版运行期的「延后一帧」协程） · 判据在 I2 的
+    //      `CoroutineManager.Start(Coroutine_LocalizeAll())`，而我们没有 `CoroutineManager`、批处理也没有帧循环
+    //      （同步才可断言；终态逐字相同，差的是同一帧内的可见时机）· 口径 = `判据/B107_补判据_新账15条.md` N130（2026-10-31）。
+    //  逐颗闸（`I2.Loc/Localize.cs:237-300` 现读）：`Localize.OnLocalize(bool Force = false)` 的早退条件 =
+    //    `enabled ∧ gameObject != null ∧ activeInHierarchy ∧ CurrentLanguage 非空`，且
+    //    `AlwaysForceLocalize == false && !Force && !HasCallback()` 时 `LastLocalizedLanguage == CurrentLanguage` ⇒ 直接 return。
+    //    等价物 = `Label.Relocalize()`（`Battle/Label.cs`）—— 它**不看** active（`Label.RelocalizeUnder` 走
+    //    `GetComponentsInChildren(true)` ⇒ 关着的子件也重取），覆盖的正是原版「关着的节点在下一帧 `OnEnable` 里自己补」那一档。
+    // ==========================================================================================
+
+    /// <summary>「规范关键词键」的条数 = 本表里 `Card_Trait/*` 那一族键（2026-10-31 现读 65）。
+    /// <para>这是 `TipText.TraitCount` 的**唯一期望源**：`工具/gen_trait_tips.py` 的 `read_loc_traits()` 取的也是这一族键。</para>
+    /// <para>⛔ 别在断言里再写死数字 —— 2026-10-31 `B107_D6` 失败 1 就是写死的 62 在
+    /// `B107_W23` 按生成器重生成到 65 条后过期（α：断言期望过期，数据侧是净改善）。</para></summary>
+    public static int CardTraitKeyCount
+    {
+        get
+        {
+            int n = 0;
+            foreach (var kv in Table)
+                if (kv.Key.StartsWith("Card_Trait/", System.StringComparison.Ordinal)) n++;
+            return n;
+        }
+    }
     }
 }

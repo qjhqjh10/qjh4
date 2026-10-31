@@ -347,8 +347,8 @@ namespace CardPresentation
 
         // ============================================================ 🆕 B103_A03（AUD03 #94）：换语言后的窗内文案
         // 判据：原版每个 TMP 上挂着 `Localize`（I2），换语言时由本地化系统广播 ⇒ **组件自己重取**，⛔ 不重建整窗。
-        // 本窗走 `Label.BindText` 那一族（`Core/Loc.cs` 类尾登记表 + `Battle/Label.cs` 类尾 `Relocalize`），**⛔ 不再 `Open()`**。
-        // 一颗都没登记来源时**才**退回整窗重建（非回归兜底；本窗正文由各页签类建，逐颗绑定 = 剩余项，见报告）。
+        // 🔴 2026-10-31 `B107_W20`（N130）**本窗保持「全不绑」**：正文由 `MissionsTab` / `CampaignTab` / `ForgeTab` 各页建（那三份都没 `BindText`，且不在本文件）⇒ 只绑左栏 3 颗页签会让**正文档在旧语言**（`RelocalizeUnder(transform) > 0` 就再也不走重建）＝比不绑更糟。
+        // ⇒ 0 绑定 = 保留「整窗重建」兜底（`SettingsWindow.ChooseLanguage` 会对每扇开着的窗调 `OnLanguageChanged()`；换语言这扇没开则下次 `Open()` 自然按新语档建）—— 要「只重取」须连同三页正文一起绑，见 `判据/B106_AUD03.md` §2·3 #6。
         public override void OnLanguageChanged() { if (Label.RelocalizeUnder(transform) == 0) Open(); }
     }
 

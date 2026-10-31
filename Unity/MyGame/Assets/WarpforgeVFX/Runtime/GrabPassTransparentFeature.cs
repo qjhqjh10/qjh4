@@ -648,8 +648,8 @@ namespace WarpforgeVFX
 // ==================================================================
 //  ✅ **2026-10-25 起有【自动档】（推荐 A/B 用）：`WF_GRAB501=1`**
 //     · 它把下面 ① 的开关、② 的 (a)(b) 两步、外加「拷屏 RT ×0.25」（原版 `textureSettingsMultiplier`
-//       = `0x3e800000` = 0.25f，见 `GrabPassPass` 里那段判据）**一起做掉**，层默认 **31**
-//       （`WF_GRAB501_LAYER` 可换；旧名 `WF_GRAB_501_LAYER` 仍认）。
+//       = `0x3e800000` = 0.25f，见 `GrabPassPass` 里那段判据）**一起做掉**，层默认 = `GrabScreen501.DefaultLayer`
+//       （现读 **9**；目标层非原版值，见 `判据/B107_B14_失真效果挪层清单.md` §七）；`WF_GRAB501_LAYER` 可换，旧名 `WF_GRAB_501_LAYER` 仍认。
 //     · 不设 / `WF_GRAB501=0` ⇒ **这三件一件都不执行**，只 Enqueue 500 这一个 pass，
 //       与 2026-10-24 之前**逐位相同**（逐条论证见 `GrabScreen501` 的 doc）。
 //     · 验收时看日志三行：`已把第 N 层从 K 份 RendererData 的 m_TransparentLayerMask 里清掉` ·

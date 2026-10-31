@@ -469,7 +469,14 @@ public static class B103F4_Assert
                 if (wbBuy != null)
                 {
                     ST(!wbBuy.SoftDisabled, "（前置）买之前价签**没有**被置灰");
+                    // 🆕 2026-10-31（`B107_W4`）：**先断「这一下真的进了购买入口」** —— 只看拥有数时，
+                    //   「没点」（命中区/onClick 没落到 `Buy()` 上）与「点了没生效」（进了购买但被拒）是**同一个红法**，
+                    //   修的人会去查错地方。计数口 = `Shell/BoosterInfoPopup.cs` 类尾的 `BuyCallsForTest`。
+                    int buyCallsBefore = pop.BuyCallsForTest;
                     wbBuy.ClickForTest();                     // ⛔ 不是直调 `pop.Buy()`：点的是玩家那颗钮的真 onClick
+                    SC(pop.BuyCallsForTest - buyCallsBefore, 1,
+                        "★ D0 这一下**真的进了 `BoosterInfoPopup.Buy`**（`BuyCallsForTest` +1）"
+                        + "｜🧨 把价签 `Price Display/Hit` 的 onClick 从 `Buy()` 改成别的（或点到别的命中区）⇒ 本条单独红");
                     SC(ShopData.OwnedOf(pgD, cellD) - ownedBefore, 1,
                         "★ D1 弹窗内点购买 ⇒ **拥有数 +1**（`BoosterInfoPopup.Buy` → `ShopTabPage.Buy` → `ShopData.Buy`）");
                     ST(wbBuy.SoftDisabled,
@@ -600,5 +607,201 @@ public static class B103F4_Assert
             + "而且会和活窗的同名命中区**同像素重叠**（判据 → `报告/B106_D5.md` §三）"
             + (bad == 0 ? "（扫到 " + scanned + " 页激活，宿主全在）"
                         : " —— ⚠️ 抓到 " + bad + " 页（扫到 " + scanned + " 页激活）：" + names));
+    }
+
+    // ============================================================ ③ FP-SOCIAL-03「加入 = 服务器出声」半条
+    //
+    // 判据（第一权威 = 反编译）：
+    //   · `AllianceListEntry.TryJoin`（`decomp_full/AllianceListEntry__TryJoin.c`）= `ShowPopUp("MainMenu/GenericWait")`
+    //     → `AlliancesManager.JoinGroup(groupId, cb)`；`AlliancesManager__JoinGroup.c` 第二跳 =
+    //     `AlliancesController.JoinGroup` ⇒ PlayFab Groups（**服务器**）；
+    //   · `AllianceInvitationEntry.HandleJoin`（`decomp_full/AllianceInvitationEntry__HandleJoin.c`）= 同形状，
+    //     转调 `AlliancesManager.AcceptInvitation`。
+    //   ⇒ 本地没有联盟后端（原版已关服 = P3「玩家账户 / 云后端」）⇒ 点「加入」只能**出声**，
+    //     ⛔ 不许假装成功（不加成员、不改列表）。落地 = `Shell/AllianceSearchTab.RefuseJoinServer`
+    //     （邀请行 / 公开行**共用的唯一出口**）。
+    //
+    // 本段**只走玩家那条路**：真建一扇 `SocialWindow` → 喂一条 Open 的夹具 → `RebuildForTest()` →
+    //   点行尾那颗 `Join`（`Entry/Generic UI Button/Hit` 的 `WindowButton.ClickForTest`，与真点同一个 `Click()`）。
+    //
+    // 三条断言互相独立、缺一不可：
+    //   J1 点了**真的有提示**（`MessageToast.ShowCount` +1 且文案里带「服务器」）
+    //      ｜🧨 把 `RefuseJoinServer` 里的 `MessageToast.Show(...)` 删回只打日志 ⇒ J1 红（改前就是这样）。
+    //   J2 **没有假装成功**：联盟表条数与那行的成员数**一个都没变**
+    //      ｜🧨 让出口顺手 `Members++` / 把联盟从表里删掉 ⇒ J2 红。
+    //   J3 **走的是「加入」这一个出口**（`JoinRefusals` +1、指名到那一个联盟、来源 = 公开列表）
+    //      ｜🧨 把 onClick 接到别的分支 ⇒ J3 红。
+    //   J4 **邀请行**那颗「加入」也走同一个出口（`LastJoinSource` = 邀请、邀请表条数不变）。
+    //   J5 🆕 **建盟 `Continue`**（原版 `CreateAllianceMenu.TryCreateAlliance` → PlayFab CloudScript `0x42C`）
+    //      也走同一个出口：有提示 · `ServerRefusals` +1 · `LastServerAction` = 建盟 · 对象 = Name 输入框的值 ·
+    //      联盟表条数与 `SocialData.AllianceName` 都不变（⛔ 不许「点了就当建好了」）
+    //      ｜🧨 把 `Continue` 接回只打日志 ⇒ J5 红。
+    //
+    // ⚠️ **宿主接线归调度台**（本文件既有两段的接线方式同此）：现在**没有任何宿主**调本入口 ⇒
+    //   `Editor/MainMenuScene.cs` 那条接线行加一句即可（`_forge` / `_shop` 在那边是 0 ⇒ 用 `AllyPass/AllyFail`
+    //   只加本段，⛔ 别用 `Pass/Fail` —— 那几个是「锻造 + 商店」的合计）：
+    //       B103F4_Assert.RunAllianceJoin(); _sink.Pass += B103F4_Assert.AllyPass; _sink.Fail += B103F4_Assert.AllyFail;
+    // ⚠️ 它会**临时改写** `SocialData.OpenAlliances`（一条夹具）并建一扇 `SocialWindow`；`finally` 里逐条还原、
+    //   重画、拆窗、并**只拆自己建的那颗 `MessageToast`**（宿主里本来有别人的就不动）。
+
+    static readonly CheckSink _ally = new CheckSink("[B103F4·Ally] ") { Near = MenuNearStyle.Compact2 };
+
+    /// <summary>本段的合计（**不含**锻造/商店那两段）。</summary>
+    public static int AllyPass { get { return _ally.Pass; } }
+    public static int AllyFail { get { return _ally.Fail; } }
+
+    static void AC<T>(T got, T want, string msg) { MenuCheck.Check(_ally, got, want, msg); }
+    static void AT(bool c, string msg) { MenuCheck.True(_ally, c, msg); }
+
+    /// <summary>`FP-SOCIAL-03`：点「加入」⇒ **真的出声**（要服务器）+ 联盟列表**没变**。自建/自拆 `SocialWindow`。</summary>
+    public static void RunAllianceJoin()
+    {
+        _ally.Pass = 0; _ally.Fail = 0;
+        MenuCheck.Section(_ally, "B103_F4 ③ FP-SOCIAL-03：点「加入」⇒ 走真实提示（要服务器）、联盟列表不变");
+
+        var backup = new System.Collections.Generic.List<SocialData.AllianceListing>(SocialData.OpenAlliances);
+        var invBackup = new System.Collections.Generic.List<SocialData.Invitation>(SocialData.Invitations);
+        SocialWindow own = null;
+        AllianceSearchTab view = null;
+        bool toastCreatedHere = MessageToast.Instance == null;   // 只拆**我们自己建的**那一颗
+        try
+        {
+            SocialData.OpenAlliances.Clear();
+            SocialData.OpenAlliances.Add(new SocialData.AllianceListing
+            {
+                Name = "B107_W4 夹具联盟", Region = "Global", Members = 5, MemberMax = 20, Privacy = 0
+            });
+
+            own = SocialWindow.Create(null);
+            AT(own != null, "（前提）`SocialWindow` 建得出来（`Create(null)`，同 `B102ALLY_Assert` 的夹具写法）");
+            if (own == null) return;
+            own.Open();
+            view = own.PageAlliances != null ? own.PageAlliances.Search : null;
+            AT(view != null, "（前提）`Alliances` 页的 `AllianceSearchTab` 拿得到");
+            if (view == null) return;
+            view.ShowJoin();
+            view.RebuildForTest();
+
+            var list = view.OpenListForTest;
+            AT(list != null, "（前提）`Open Alliances` 的行容器在");
+            var row = list != null ? MenuCheck.FindChild(list, "Entry") : null;
+            AT(row != null, "（前提）夹具那一行建出来了（`Entry`）");
+            var btn = row != null ? row.Find("Generic UI Button") : null;
+            AT(btn != null, "（前提）行尾那颗「加入」在（`Entry/Generic UI Button`）");
+            var hit = btn != null ? btn.Find("Hit") : null;
+            var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
+            AT(wb != null, "（前提）它挂着命中区 `Hit` + `WindowButton`");
+            AT(wb != null && wb.Interactable, "（前提）这一颗**可点**（Privacy=Open · Members 5 < 20）");
+
+            var mt = MessageToast.Ensure();
+            AT(mt != null && mt.Built, "（前提）瞬时提示宿主建出来了（`MessageToast.Ensure`）");
+            int show0 = mt != null ? mt.ShowCount : 0;
+            view.ResetJoinForTest();
+            int n0 = SocialData.OpenAlliances.Count;
+            int mem0 = n0 > 0 ? SocialData.OpenAlliances[0].Members : -1;
+
+            if (wb != null) wb.ClickForTest();         // = 真点走同一个 `Click()`
+
+            int show1 = mt != null ? mt.ShowCount : 0;
+            string txt = mt != null ? mt.LastShownText : null;
+            AC(show1 - show0, 1, "★ J1 点「加入」⇒ **真的有提示**（`MessageToast.ShowCount` +1）"
+                + "｜🧨 把出口里的 `MessageToast.Show` 删回只打日志 ⇒ 本条红（改前就是这样）");
+            AT(!string.IsNullOrEmpty(txt) && txt.Contains("服务器"),
+                "★ J1 …而且文案说明了**要服务器**（实得：\"" + (txt ?? "<null>") + "\"）");
+            AC(SocialData.OpenAlliances.Count, n0, "★ J2 **没有假装成功**：联盟表条数不变");
+            AC(SocialData.OpenAlliances.Count > 0 ? SocialData.OpenAlliances[0].Members : -1, mem0,
+                "★ J2 …而且那行的成员数一个都没变（⛔ 不许「点了就当入盟」）");
+            AC(view.JoinRefusals, 1, "★ J3 走的是「加入」这一个出口（`JoinRefusals` +1）");
+            AC(view.LastJoinAlliance, "B107_W4 夹具联盟", "★ J3 …指名到**被点的那个联盟**");
+            AC(view.LastJoinSource, "公开列表", "★ J3 …来源 = 公开列表行（⛔ 不是邀请行）");
+
+            // ---- J4：**第二颗「加入」**（邀请行，原版 `AllianceInvitationEntry.HandleJoin`）—— 同一个出口 ----
+            //   ⚠️ 两族行的「加入」是**两颗不同的钮**（`Entry/Generic UI Button` vs `Invitation List Entry/Join`），
+            //   只断一颗会漏掉另一颗被接回 `Say(...)` 的回归。
+            SocialData.Invitations.Clear();
+            SocialData.Invitations.Add(new SocialData.Invitation
+            {
+                Name = "B107_W4 邀请联盟", Region = "Global", Members = 5, MemberMax = 20
+            });
+            view.ShowJoin();                                   // 重跑 `FillInvitations`（同一条生产路）
+            var invNode = MenuCheck.FindChild(view.transform, "Invitations");
+            var invList = invNode != null ? invNode.Find("List") : null;
+            var invRow = invList != null ? MenuCheck.FindChild(invList, "Invitation List Entry") : null;
+            AT(invRow != null, "（前提）邀请行建出来了（`Invitations/List/Invitation List Entry`）");
+            var invBtn = invRow != null ? invRow.Find("Join") : null;
+            var invHit = invBtn != null ? invBtn.Find("Hit") : null;
+            var invWb = invHit != null ? invHit.GetComponent<WindowButton>() : null;
+            AT(invWb != null, "（前提）邀请行尾那颗「加入」挂着 `Hit` + `WindowButton`");
+            AT(invWb != null && invWb.Interactable, "（前提）这一颗**可点**（Members 5 < 20）");
+            int showI0 = mt != null ? mt.ShowCount : 0;
+            view.ResetJoinForTest();
+            int invN0 = SocialData.Invitations.Count;
+            if (invWb != null) invWb.ClickForTest();
+            AC((mt != null ? mt.ShowCount : 0) - showI0, 1,
+                "★ J4 **邀请行**的「加入」也真的出声（`MessageToast.ShowCount` +1）—— 两族行共用同一个出口"
+                + "｜🧨 只改公开行、邀请行接回 `Say(...)` ⇒ 本条红");
+            AC(view.JoinRefusals, 1, "★ J4 …走的是同一个出口（`JoinRefusals` +1）");
+            AC(view.LastJoinSource, "邀请", "★ J4 …来源 = 邀请行（⛔ 不是公开列表）");
+            AC(view.LastJoinAlliance, "B107_W4 邀请联盟", "★ J4 …指名到**那张邀请里的联盟**");
+            AC(SocialData.Invitations.Count, invN0, "★ J4 **没有假装成功**：邀请表条数不变（⛔ 不许「点了就当接受了」）");
+
+            // ---- J5：**建盟 `Continue`**（原版 `CreateAllianceMenu.TryCreateAlliance`）—— 同一个出口 ----
+            //   判据（`decomp_full/CreateAllianceMenu__TryCreateAlliance.c`）：`ShowPopUp("MainMenu/GenericWait")`
+            //   → 读 Name/Desc/语言/隐私 → `AlliancesManager__CreateGroup.c` →
+            //   `AlliancesController__CreateGroup.c` 的 `PlayfabWrapper.GenericCloudScriptHandler(0x42C, …)`
+            //   ⇒ PlayFab CloudScript（**服务器**）⇒ 本地同样只能出声、⛔ 不许假装建好了。
+            view.ShowCreate();                                 // 切到建盟表（原版 `ShowCreateAllianceMenu` 那条生产路）
+            var createView = MenuCheck.FindChild(view.transform, "Create Alliance View");
+            AT(createView != null, "（前提）建盟表建出来了（`Create Alliance View`）");
+            var priceBtn = createView != null ? createView.Find("Price Display Button") : null;
+            var contHit = priceBtn != null ? priceBtn.Find("Hit") : null;
+            var contWb = contHit != null ? contHit.GetComponent<WindowButton>() : null;
+            AT(contWb != null, "（前提）建盟 `Continue` 那颗钮挂着 `Hit` + `WindowButton`");
+            AT(contWb != null && contWb.Interactable, "（前提）这一颗**可点**");
+            AT(view.NameInput != null && view.DescInput != null, "（前提）建盟两格输入件在（`NameInput`/`DescInput`）");
+            if (view.NameInput != null) view.NameInput.SetValue("B107_W4 建盟测试");
+            if (view.DescInput != null) view.DescInput.SetValue("B107_W4 描述");
+            int showC0 = mt != null ? mt.ShowCount : 0;
+            view.ResetJoinForTest();
+            int openC0 = SocialData.OpenAlliances.Count;
+            string allyC0 = SocialData.AllianceName;
+            if (contWb != null) contWb.ClickForTest();
+            AC((mt != null ? mt.ShowCount : 0) - showC0, 1,
+                "★ J5 建盟 `Continue` ⇒ **真的有提示**（`MessageToast.ShowCount` +1）"
+                + "｜🧨 把 `Continue` 接回只打日志的写法 ⇒ 本条红（改前就是这样）");
+            AC(view.ServerRefusals, 1, "★ J5 …走的是同一个出口（`ServerRefusals` +1）");
+            AC(view.LastServerAction, "建盟", "★ J5 …动作 = 建盟（⛔ 不是加入）");
+            AC(view.LastServerSource, "建盟表", "★ J5 …来源 = 建盟表");
+            AC(view.LastServerSubject, "B107_W4 建盟测试",
+                "★ J5 …对象 = Name 输入框里那一刻的值（证明输入真的被消费，不是空转）");
+            AC(SocialData.OpenAlliances.Count, openC0, "★ J5 **没有假装成功**：联盟列表条数不变");
+            AC(SocialData.AllianceName, allyC0, "★ J5 …而且没有把「本盟名字」写成刚建的那个（⛔ 不许「点了就当建好了」）");
+            AC(view.LastCreateName, "B107_W4 建盟测试",
+                "★ J5 …同一跳仍然收下 Name（`LastCreateName` 读口，`B102_ALLY` 的 A2 依赖它）");
+        }
+        catch (Exception e)
+        {
+            AT(false, "断言段抛异常（后面的条目没跑完）：" + e);
+        }
+        finally
+        {
+            if (view != null) { view.ResetJoinForTest(); view.ResetLastCreateForTest(); }
+            SocialData.OpenAlliances.Clear();
+            SocialData.OpenAlliances.AddRange(backup);
+            SocialData.Invitations.Clear();
+            SocialData.Invitations.AddRange(invBackup);
+            try
+            {
+                if (view != null)
+                {
+                    view.ShowJoin();       // 重跑 `FillInvitations`（邀请列）
+                    view.RebuildForTest(); // 公开联盟列
+                }
+            }
+            catch (Exception e) { Debug.LogWarning("[B103F4·Ally] 还原后重画失败：" + e.Message); }
+            if (own != null) SocialWindow.DestroySafe(own.gameObject);
+            if (toastCreatedHere) MessageToast.DisposeForTest();   // 只拆本件建的那颗（宿主里别人的不动）
+            Debug.Log(_ally.P + "=== B103F4·Ally 合计：" + _ally.Pass + " 通过 / " + _ally.Fail + " 失败 ===");
+        }
     }
 }

@@ -117,7 +117,7 @@ namespace CardPresentation
                         return;
                     }
                     ps = Object.Instantiate(src);          // 克隆整棵子树（原版 `Instantiate(src)`）
-                    CacheParticles[particles] = ps;
+                    CacheParticles[particles] = ps; RelocateGrabLayer(ps.gameObject);   // WF_GRAB501 开时才搬层（关时一行不跑；定义在类尾）
                 }
 
                 // ③ 落点 / 朝向
@@ -213,6 +213,23 @@ namespace CardPresentation
         {
             // 原版：任意一个定义被销毁 ⇒ 整表清空（见 `ClearCache` 的注释）
             ParticleCollisionDefinition.ClearCache();
+        }
+
+        /// <summary>🔶 自己设计（非原版）：开 `WF_GRAB501=1` 时，把**本条 `Object.Instantiate` 路**建出来的
+        /// 失真粒子树也搬到 `GrabScreen501.LayerIndex` 层（默认 9），让它和走 `WarpforgeEffectPlayer.Play`
+        /// 的那 233 件一样由 501 重画，而不是采样上一帧的抓屏。
+        /// <para>为什么必须自己定：原版没有这条代码路径 —— 它靠自身 `UniversalRendererData` 的 `Settings.LayerMask`
+        /// 分工，而那份资产本地没解出来、**目标层号是我们挑的（非原版值）**。
+        /// 判据 → `资料/完全复刻/判据/B107_B14_失真效果挪层清单.md` §5.2 / §七 · `报告/B107_P3.md` 顺手发现 2。
+        /// 调度台 2026-10-31 裁定（`B107_W16`）。</para>
+        /// <para>⚠️ 为什么这个方法是**外层类**的成员、而且放在类尾：内层类里插任何一行都会让账行
+        /// `TapHitMaterialDefinition.cs:200/205/212` 整体漂移（本批 2026-10-31 实测）。</para></summary>
+        static void RelocateGrabLayer(GameObject go)
+        {
+            // 关着（或这件不是失真效果）⇒ `FinalLayer` 第一句就原样返回入参 -1 ⇒ 下面那行**不执行**
+            //   ⇒ 默认档与改前逐位相同（层不变、连日志都不打）。
+            int layer = GrabScreen501.FinalLayer(go, -1);
+            if (layer >= 0) WarpforgeEffectPlayer.SetLayerRec(go, layer);
         }
     }
 }

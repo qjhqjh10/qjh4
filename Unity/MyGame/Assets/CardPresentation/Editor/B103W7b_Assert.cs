@@ -62,18 +62,24 @@ public static class B103W7bAssert
     /// 🔴 **2026-10-30（`B103_D4` 复核）**：这两个数**以静态读为准**（UnityPy 把包里每一个 `Renderer`
     /// 序列化对象都数出来，不看容器登记）；运行时的量法见 `Run()` 里那三条路。
     /// ✅ **2026-10-30（`B103_W7c`）**：`wf_prefabs_extra` 那棵 26 个渲染器的根 `VanguardIdleEffect`
-    /// **已登记进容器** ⇒ 两条路都给 55/57（改前只数得到 30/32 —— 那 26 个当时在容器外）。</summary>
-    struct Pack { public string Name; public long Bytes; public int Renderers; public int Slots; }
+    /// **已登记进容器** ⇒ 两条路都给 55/57（改前只数得到 30/32 —— 那 26 个当时在容器外）。
+    /// `Probe` = 该包 `m_Container` 里的**容器键**（逐字取自 UnityPy 只读核对），
+    /// 用来在「同内容已被别人加载过」时从 `AssetBundle.GetAllLoadedAssetBundles()` **认领**那只包。
+    /// 2026-10-31（`B107_D7` 诊断，`B107_W32` 落）：`B107R3d` 在宿主里先经
+    /// `WarpforgeAnimatorBridge` 加载了 `wf_prefabs_extra.bundle` 并持有句柄 ⇒ 本支再 `LoadFromFile`
+    /// 同一文件被 Unity 拒绝（返回 null）。生产侧早有同一条兜底
+    /// （`WarpforgeAnimatorBridge.EnsureLoaded` / `ScenarioBlendables.EnsureClipBundle`）。</summary>
+    struct Pack { public string Name; public long Bytes; public int Renderers; public int Slots; public string Probe; }
     static readonly Pack[] Packs =
     {
-        new Pack { Name = "wf_menus_extra.bundle",        Bytes = 377660, Renderers = 36, Slots = 36 },
+        new Pack { Name = "wf_menus_extra.bundle",        Bytes = 377660, Renderers = 36, Slots = 36, Probe = "Booster Pack Open Window" },
         // 🔴 `Bytes` 2026-10-30（`B103_W7c`）639212 → **639206**：根登记进容器（+2 条容器项 / 预载 12→13）
         //   之后 LZ4 压出来反而小了 6 B；同一次真打里 `wf_battleshared_extra` 也 88494 → **88489**
         //   —— 后者的原因**与我这条改动无关**（把 `VanguardIdleEffect` 那行临时去掉再真打，它仍是 88489：
         //   上一次真打把 `wf_booster_matsbs` 从 360137 重写成 360130 带出来的漂移）。
-        new Pack { Name = "wf_prefabs_extra.bundle",      Bytes = 639206, Renderers = 55, Slots = 57 },
-        new Pack { Name = "wf_battleshared_extra.bundle", Bytes =  88489, Renderers = 13, Slots = 13 },
-        new Pack { Name = "wf_mainmenu_extra.bundle",     Bytes =  81775, Renderers = 66, Slots = 68 },
+        new Pack { Name = "wf_prefabs_extra.bundle",      Bytes = 639206, Renderers = 55, Slots = 57, Probe = "Vanguard Frame Animated VAT" },
+        new Pack { Name = "wf_battleshared_extra.bundle", Bytes =  88489, Renderers = 13, Slots = 13, Probe = "TurnTimerTickPulse" },
+        new Pack { Name = "wf_mainmenu_extra.bundle",     Bytes =  81775, Renderers = 66, Slots = 68, Probe = "Wildcard_Use_Button 1 Common" },
     };
 
     static int _ok, _bad;
@@ -138,13 +144,36 @@ public static class B103W7bAssert
             Check(size == p.Bytes, p.Name + " 字节数 == " + p.Bytes + "（实得 " + size + "）");
 
             AssetBundle b = null;
+            bool owned = true;   // 只有自己 `LoadFromFile` 来的才允许 `Unload`（借来的句柄是别人的）
             try { b = AssetBundle.LoadFromFile(path); }
             catch (Exception e) { Debug.Log(P + "  🔴 LoadFromFile 抛：" + e.Message); }
             if (b == null)
-                Debug.Log(P + "  🔴 `LoadFromFile` 返回 null —— 要么这台进程里已经加载过同一份内容"
-                          + "（那就换一个宿主跑），要么包本身坏了");
-            Check(b != null, p.Name + " 能被 LoadFromFile 加载（null = 同内容已在进程里 / 包坏了）");
-            if (b == null) continue;
+            {
+                // 🔴 2026-10-31（`B107_D7` 诊断 · `B107_W32` 落）：同一份内容已在进程里加载过时
+                //   Unity 拒绝第二次 `LoadFromFile`（返回 null）—— 这不是包坏了：**认领已加载的那只、
+                //   继续跑材质槽检查**（生产侧同一条兜底：`WarpforgeAnimatorBridge.EnsureLoaded` /
+                //   `ScenarioBlendables.EnsureClipBundle`）。本会话新接线的 `B107R3d` 会先经
+                //   `WarpforgeAnimatorBridge` 加载 `wf_prefabs_extra.bundle` 并**全程持有**句柄。
+                //   ⛔ 这里**不许**改成「null 判绿」，也不许靠「只挪执行顺序」绕开（两者都会复发/掩盖真坏）。
+                b = FindLoadedWith(p.Probe);
+                owned = false;
+                if (b != null)
+                    Debug.Log(P + "  ⓘ " + p.Name + " 的 LoadFromFile 返回 null（同内容已在进程里，认领 `"
+                              + b.name + "` 继续检查）");
+            }
+            Check(b != null, p.Name + " 可用（LoadFromFile 或认领已加载包；null = 包坏了 / 同内容未在进程里且认领不到）");
+            if (b == null)
+            {
+                // ⛔ 不静默：包不可用时下游 4 条检查一条都跑不了 ⇒ 逐条记红（原写法用 `continue`
+                //   悄悄跳过了那 4 条，日志里只留 1 条红、看不出还剩多少没跑）。
+                Debug.Log(P + "  🔴 " + p.Name + " 既加载不上、也认领不到容器键 `" + p.Probe
+                          + "` ⇒ 下游 4 条检查无法执行，逐条记为失败");
+                Check(false, p.Name + " 渲染器数（包不可用 ⇒ 未执行）");
+                Check(false, p.Name + " 材质槽数（包不可用 ⇒ 未执行）");
+                Check(false, p.Name + " 空材质槽（包不可用 ⇒ 未执行）");
+                Check(false, p.Name + " shader 坏（包不可用 ⇒ 未执行）");
+                continue;
+            }
 
             // 取渲染器三条路（顺序 2026-10-30 定过两版，以下是**现行**口径）：
             //   ① `LoadAllAssets<Renderer>()` —— 走**容器登记**（`Renderer` 组件本身不是「主资产」，
@@ -229,9 +258,37 @@ public static class B103W7bAssert
             Check(badShader == 0, p.Name + " shader 坏 == 0（实得 " + badShader
                   + "；改前 6/7/0/3 个 `m_Shader` 悬空）");
 
-            b.Unload(false);   // 只卸自己这份（依赖包句柄在 `depHandles` 里，别一起卸）
+            if (owned) b.Unload(false);   // 借来的句柄是别人的（见上面的认领分支），⛔ 别卸
         }
 
         Debug.Log(P + "=== 小结：" + _ok + " 通过 / " + _bad + " 失败 ===");
+    }
+
+    /// <summary>在**已加载的**包里按容器键找一只（判据 = 生产侧 `WarpforgeAnimatorBridge.HasAsset`：
+    /// ① `Contains(裸名)` ② `GetAllAssetNames()` 按小写比、也认 `assets/<小写名>.prefab` 的尾段）。
+    /// 只问容器/资产名表，**不实例化、不挑类型**；找不到返回 null（⛔ 不抛、⛔ 不静默 —— 调用方会记红并出声）。</summary>
+    static AssetBundle FindLoadedWith(string probe)
+    {
+        if (string.IsNullOrEmpty(probe)) return null;
+        string needle = probe.ToLowerInvariant();
+        foreach (var lb in AssetBundle.GetAllLoadedAssetBundles())
+        {
+            if (lb == null) continue;
+            try { if (lb.Contains(probe)) return lb; } catch (Exception) { }
+            try
+            {
+                var names = lb.GetAllAssetNames();
+                if (names == null) continue;
+                for (int n = 0; n < names.Length; n++)
+                {
+                    var a = names[n];
+                    if (a == null) continue;
+                    if (a == needle || a.EndsWith("/" + needle, StringComparison.Ordinal)
+                                    || a.EndsWith("/" + needle + ".prefab", StringComparison.Ordinal)) return lb;
+                }
+            }
+            catch (Exception) { }
+        }
+        return null;
     }
 }

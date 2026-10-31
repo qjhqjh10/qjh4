@@ -15,13 +15,16 @@ namespace WarpforgeVFX
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Install()
         {
-            CardPresentation.CardEffects.Play = (name, pos, parent) =>
+            // 🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：实体抽成局部函数 —— 两个钩子共用同一份实现。
+            //   `PlayInstance` 与 `Play` 的唯一区别 = 多返回一个实例根（根特效 `parent == null` 时
+            //   `CardEffects` 靠 childCount 差认不出实例）。⛔ 不要让它俩各实例化一次（`FireOne` 里是 if/else）。
+            GameObject Spawn(string name, Vector3 pos, Transform parent)
             {
-                if (string.IsNullOrEmpty(name)) return;
+                if (string.IsNullOrEmpty(name)) return null;
                 if (WarpforgeEffectLibrary.Instance == null)
                 {
                     Debug.LogWarning($"[WarpforgeVFX] 没有特效库，'{name}' 播不了");
-                    return;
+                    return null;
                 }
                 // 🔴 **2026-10-22（W64 · `B17`）**：**落地扬尘**那一族在原版是
                 //   `localScale = Vector3.one × desiredScale`（**赋值**，`CardScript__LandOnGround.c:87-106`）——
@@ -31,7 +34,7 @@ namespace WarpforgeVFX
                 bool assignScale = name == CardPresentation.BattleDriver.LandDustMinion
                                 || name == CardPresentation.BattleDriver.LandDustLegendary;
                 var fx = WarpforgeEffectPlayer.Play(name, parent, pos, 1f, -1f, assignScale);
-                if (fx == null) { Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}"); return; }
+                if (fx == null) { Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}"); return null; }
 
                 // 🆕 2026-10-16：**实例跟随父节点的层**（`parent != null` 时才管）。
                 //   为什么需要：原版那些「挂在卡 / 棋盘上的特效」（落地扬尘、逐卡演出…）是由**透视战场相机**画的
@@ -46,7 +49,11 @@ namespace WarpforgeVFX
                 if (parent != null)
                     SetLayerRec(fx.gameObject,
                                 GrabScreen501.FinalLayer(fx.gameObject, parent.gameObject.layer));
-            };
+                return fx.gameObject;
+            }
+
+            CardPresentation.CardEffects.Play = (name, pos, parent) => { Spawn(name, pos, parent); };
+            CardPresentation.CardEffects.PlayInstance = Spawn;
         }
 
         /// <summary>把这个实例整棵子树设到某一层（层**不会**从父节点继承，必须自己走一遍）。</summary>

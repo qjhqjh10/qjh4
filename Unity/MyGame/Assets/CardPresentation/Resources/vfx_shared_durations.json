@@ -1,0 +1,64 @@
+{
+ "schema": 1,
+ "count": 7,
+ "source": "数据/游戏数据/animinfo_lookup.json",
+ "note": "由 工具/gen_vfx_shared_durations.py 生成（⛔ 别手改）。键 n = prefab 名 · d = AnimInfo.GetAnimDuration() = ts+tm+te。",
+ "rows": [
+  {
+   "n": "BulletImpactBurst_crowd",
+   "a": "BulletImpactBurst_ability_unit",
+   "ts": 0.0,
+   "tm": 0.4,
+   "te": 0.0,
+   "d": 0.4
+  },
+  {
+   "n": "BulletImpact_1shot_trail",
+   "a": "Atk_BulletImpact_1shot",
+   "ts": 0.3,
+   "tm": 0.0,
+   "te": 0.0,
+   "d": 0.3
+  },
+  {
+   "n": "BulletImpact_2shot",
+   "a": "BulletImpact_2shot",
+   "ts": 0.0,
+   "tm": 0.4,
+   "te": 0.0,
+   "d": 0.4
+  },
+  {
+   "n": "BulletImpact_2shot_trail",
+   "a": "Atk_BulletImpact_2shot",
+   "ts": 0.75,
+   "tm": 0.0,
+   "te": 0.0,
+   "d": 0.75
+  },
+  {
+   "n": "BulletImpact_2shot_trail_chaos",
+   "a": "Atk_BulletImpact_2shot_chaos",
+   "ts": 0.75,
+   "tm": 0.0,
+   "te": 0.0,
+   "d": 0.75
+  },
+  {
+   "n": "BulletImpact_2shot_trail_ork_NEW",
+   "a": "Atk_BulletImpact_2shot_ork",
+   "ts": 0.75,
+   "tm": 0.0,
+   "te": 0.0,
+   "d": 0.75
+  },
+  {
+   "n": "NecronGauss",
+   "a": "Atk_Gauss_Basic",
+   "ts": 0.75,
+   "tm": 0.0,
+   "te": 0.0,
+   "d": 0.75
+  }
+ ]
+}

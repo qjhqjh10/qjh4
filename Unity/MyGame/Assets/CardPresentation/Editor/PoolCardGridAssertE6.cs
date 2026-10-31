@@ -48,9 +48,9 @@ public static class PoolCardGridAssertE6
     const float OrigCellH = 384f;            // RSR `_cellHeight`
     const float OrigSpacingX = 0f;           // RSR `_spacingX`
     const float OrigSpacingY = 0f;           // RSR `_spacingY`
-    const int OrigCols = 6;                  // floor(1589.7 ÷ (262.5 + 0))
-    const float OrigPadX = 7.35f;            // ((1589.7 − (0 + 262.5) × 6) + 0) × 0.5
-    const float OrigViewportW = 1589.7f;     // `Scroll View` 视口宽（1919.9 − 330.2）
+    const int OrigCols = 6;                  // floor(1589.78 ÷ (262.5 + 0))
+    const float OrigPadX = 7.39f;            // ((1589.78 − (0 + 262.5) × 6) + 0) × 0.5
+    const float OrigViewportW = 1589.78f;     // `Scroll View` 视口宽（1919.98 − 330.2）
 
     // `/Counter` 的锚点（`/Content/Counter`，prefab 逐字段：anchorMin=(0.2857143, 0.002) / anchorMax=(0.7142857, 0.09966714)）
     const float OrigCntMinX = 0.2857143f, OrigCntMaxX = 0.7142857f;
@@ -89,7 +89,7 @@ public static class PoolCardGridAssertE6
                        $"列数 = **{OrigCols}** = floor({OrigViewportW} ÷ ({OrigCellW} + {OrigSpacingX}))"
                        + "（`ConfigureColumnNumber.c`；⚠️ 序列化的 `_segments` 在 `_useFixedCellSize=1` 时不参与）");
         MenuCheck.Near(s, CollectionWindow.CardsPadX, OrigPadX, 0.01f,
-                       "居中偏移 = **7.35** = ((视口 1589.7 − (0 + 262.5) × 6) + 0) × 0.5（`CreateCellPool.c`）");
+                       "居中偏移 = **7.39** = ((视口 1589.78 − (0 + 262.5) × 6) + 0) × 0.5（`CreateCellPool.c`）");
 
         // 间距：相邻两格的边距 = spacing（原版 0）—— 用格矩形**现算**，改 `CardsCellRect` 的间距必红
         var c0 = CollectionWindow.CardsCellRect(0);
@@ -104,7 +104,7 @@ public static class PoolCardGridAssertE6
         // 整行必须在视口里、左右留白相等（贴左但整体居中）
         MenuCheck.Near(s, CollectionWindow.CardsViewport.W - OrigCols * OrigCellW,
                        2f * OrigPadX, 0.01f,
-                       "6 列内容 1575 + 两侧各 7.35 = 视口 1589.7（**整体居中**，不是贴边）");
+                       "6 列内容 1575 + 两侧各 7.39 = 视口 1589.78（**整体居中**，不是贴边）");
         MenuCheck.True(s, c0.x1 >= CollectionWindow.CardsViewport.x1 - 0.01f
                           && CollectionWindow.CardsCellRect(OrigCols - 1).x2 <= CollectionWindow.CardsViewport.x2 + 0.01f,
                        "第 0 格左沿 / 第 5 格右沿都落在视口内（⛔ 溢出会压到右侧滚动条那一带）");

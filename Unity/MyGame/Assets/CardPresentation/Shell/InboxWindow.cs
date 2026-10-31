@@ -500,10 +500,10 @@ namespace CardPresentation
             var claimBtn = MenuDraw.Node(claimBox, "Claim Button", ClaimBtn);
             var claimBg = MenuDraw.Nine(claimBtn, Art("UI_Button_Mulligan"), ClaimBtn,
                                         new Vector4(333f, 96f, 333f, 96f), 410f, 124f, QContent, null, true, "Image");
-            var claimTxt = MenuDraw.Text(claimBtn, ClaimTx, Loc.T("MainMenu/General/Claim"),
+            var claimTxt = MenuDraw.Text(claimBtn, ClaimTx, "Claim",
                                          Color.white, "Button Text", 40f, QText,
                                          ClaimTx.W, 10f, 40f, 12f, face: TmpFont.Face.LatinCardBody);
-            if (claimTxt != null) claimTxt.SetWrapping(false);   // B106_W11（AUD03 #94）**撤销** B103_A03 在这里绑的 `MainMenu/General/Claim`：原版 `…/Claim Button/Claim Button/Button Text` 那颗 I2 `Localize` 是 **`m_Enabled = 0`**（判据 → `资料/完全复刻/判据/B106_AUD03.md` §2·2）⇒ 原版任何语言都显示 prefab 字面量 `Claim`，绑上反而多一步（中文档会显示「索取」）。⛔ 别再加回来；倒计时那一支的 `Loc.T` 在 `SetClaimText` 里，那是原版 `MessageDisplay.Update` **代码里**自己调的 `GetTranslation`（与这颗停用的 Localize 无关）
+            if (claimTxt != null) claimTxt.SetWrapping(false);   // B106_W11（AUD03 #94）**撤销** B103_A03 在这里绑的 `MainMenu/General/Claim`：原版 `…/Claim Button/Claim Button/Button Text` 那颗 I2 `Localize` 是 **`m_Enabled = 0`**（判据 → `资料/完全复刻/判据/B106_AUD03.md` §2·2）⇒ 原版任何语言都显示 prefab 字面量 `Claim`，绑上反而多一步（中文档会显示「索取」）。⛔ 别再加回来；🔴 2026-10-31 `B107_W20`（N130 减法收尾）：**建窗那句也不走 `Loc.T` 了**（上一轮只撤了 `BindText`，初值仍取词条 ⇒ 中文档仍显示「索取」，与原版不符）；倒计时那一支的 `Loc.T` 在 `SetClaimText` 里保留，那是原版 `MessageDisplay.Update` **代码里**自己调的 `GetTranslation`（与这颗停用的 Localize 无关）
             // 原版 `Button Text` 的 `m_VerticalAlignment = 8192 (Capline)`（TMP 字段实读）
             if (claimTxt != null) MenuDraw.SetVAlign(claimTxt, Label.VAlign.Capline, ClaimTx);
             _claimTxt = claimTxt;                 // 🆕 2026-10-31（B106_W11）：倒计时要改这一格的文本（原版 `collectButton.text`）
@@ -1387,18 +1387,18 @@ namespace CardPresentation
             if (_mdBody == null) return;
             var cam = Camera.main;
             if (cam == null) return;                        // 原版 `GetUICamera()` 取不到 ⇒ 不做
-            Vector3 m = PointerScreenForLink();
+            Vector3 m = PointerOverrideForTest ?? PointerScreenForLink();   // 🆕 B107_W15：自检注入（null ⇒ 真实设备，生产路径不变）
             float z = cam.WorldToScreenPoint(_mdBody.transform.position).z;
             string url = _mdBody.LinkAt(cam.ScreenToWorldPoint(new Vector3(m.x, m.y, z)), cam);
             if (string.IsNullOrEmpty(url)) return;           // 没压在链接上 ⇒ 不动作（⛔ 不出声：原版这一支完全静默）
-            if (int.TryParse(url, out int _))
+            string seg0 = url.Split(';')[0];   /* 🆕 B107_W15：原版 `TryProcessText.c` = `Split(';')` 取第 0 段（⛔ 别把整串当 URL）；块注释放这里，⛔ 别换成 `//`（会把后面的 if 一起注释掉） */ if (int.TryParse(seg0, out int _))
             {
                 // 原版数字型链接的下一个消费者是**空桩**（`TextLinkProcessing__ProcessText.c` 只有 `ret`）⇒ 照抄「什么都不做」。
-                Debug.Log("[Inbox] 正文链接 `" + url + "` 是**数字型动作** —— 原版 `TextLinkProcessing.ProcessText` 是空桩 ⇒ 不动作");
+                Debug.Log("[Inbox] 正文链接 `" + seg0 + "` 是**数字型动作** —— 原版 `TextLinkProcessing.ProcessText` 是空桩 ⇒ 不动作");
                 return;
             }
-            Application.OpenURL(url);
-            Debug.Log("[Inbox] 正文链接 ⇒ 打开 URL「" + url + "」（原版 `TextLinkProcessing.TryProcessText`）");
+            if (UrlExitCaptureForTest != null) UrlExitCaptureForTest(seg0); else Application.OpenURL(seg0);   // 🆕 B107_W15：自检捕获口（null ⇒ 真调原版出口）
+            Debug.Log("[Inbox] 正文链接 ⇒ 打开 URL「" + seg0 + "」（原版 `TextLinkProcessing.TryProcessText`）");
         }
 
         /// <summary>屏幕指针（**屏幕像素、原点左下**，与 legacy `Input.mousePosition` 同口径）。
@@ -1469,7 +1469,7 @@ namespace CardPresentation
         //   } else interactable = false;
         // 🔴 **那个 `!= null` 那一支不是「未到点」那一支** —— 到点之后它还要把文本**改回 `Claim`**。
         // 🔴 `RedeemableAt()` 为 null（= 我们 `RedeemableAtMs == 0`，两条出厂消息都是）⇒ **整段不进**，
-        //    文本保持 `Initialize`/`BindText` 那一句（`Claim`）—— ⛔ 别顺手把它也改成每秒重写。
+        //    文本保持 `Build()` 那一句（原版 prefab 字面量 `Claim`）—— ⛔ 别顺手把它也改成每秒重写。
 
         /// <summary>正文当前显示的那条消息（= 原版 `MessageDisplay.message`）。`ShowDetail` 每次写。</summary>
         Message _shownMsg;
@@ -1499,7 +1499,7 @@ namespace CardPresentation
 
         /// <summary>改 `Claim Button/Button Text` 的文本 —— **只有真的变了才重写**（每秒 tick，别每帧重建 mesh）。
         /// <para>🔴 `SetText` 之后要**重放建窗时那两刀**（`SetWrapping(false)` + `Capline` 纵对齐）：
-        /// 与 `Build()` 里 `BindText` 的 `reapply` 是同一组动作 —— `SetText` 会按新串重排、把对齐/折行带偏。</para></summary>
+        /// 与 `Build()` 里建件时那两刀是同一组动作 —— `SetText` 会按新串重排、把对齐/折行带偏。</para></summary>
         void SetClaimText(string s)
         {
             if (_claimTxt == null || _claimTxt.Text == s) return;
@@ -1507,5 +1507,28 @@ namespace CardPresentation
             _claimTxt.SetWrapping(false);
             MenuDraw.SetVAlign(_claimTxt, Label.VAlign.Capline, ClaimTx);
         }
+
+        // ============================================================ 🆕 2026-10-31（B107_W15 · N104 `FP-SOCIAL-06`）
+        //  本节**追加在类尾**（铁律 18·b / 新成员追加到类尾）：上面最后一条落点 `SetClaimText` 之后 ⇒ 零行号漂移。
+        //  只加**自检读口 / 注入口**（默认值 = 生产路径），⛔ 不改任何既有行为。
+        //  判据 = `TextLinkProcessing__TryProcessText.c`（命中链接 → `GetLinkID` → `Split(';')` 取第 0 段 →
+        //  `int.TryParse` 失败就 `Application.OpenURL`）；断言 = `Editor/B107_W15_Assert.cs` §A。
+
+        /// <summary>自检注入的指针（屏幕像素、原点左下；与 `PointerScreenForLink()` 同口径）。
+        /// <c>null</c>（出厂）= 走真实设备（`Mouse` / `Touchscreen`）⇒ 生产路径逐字不变。</summary>
+        public static Vector3? PointerOverrideForTest;
+
+        /// <summary>自检捕获出口实参。`null`（出厂）= 真调 `Application.OpenURL`（原版那一句）。
+        /// ⚠️ 只给自检用：批处理里真调 `Application.OpenURL` 会在自检机上弹浏览器。</summary>
+        public static System.Action<string> UrlExitCaptureForTest;
+
+        /// <summary>自检读口：当前消息表的**副本**（灌假消息前先存一份，测完灌回去）。</summary>
+        public System.Collections.Generic.List<Message> MessagesForTest
+        {
+            get { return new System.Collections.Generic.List<Message>(_messages); }
+        }
+
+        /// <summary>自检读口：正文 `Label`（= 原版 `MessageDisplay.body`）。⛔ 只读，不建节点。</summary>
+        public Label MessageBodyForTest { get { return _mdBody; } }
     }
 }

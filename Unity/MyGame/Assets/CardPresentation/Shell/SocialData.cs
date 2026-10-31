@@ -104,7 +104,7 @@ namespace CardPresentation
             public string AvatarArt;     // `playerAvatar` 的立绘（`Resources/Art/avatars/` 那批的名字）
             public string DraftRating, RankedRating;
             /// <summary>是不是「我」自己 —— 原版 `isPlayerEntryColor` 会给这一行的几件**换色**
-            /// （`graphicsToChangeColorIfIsPlayer`）。我们照建这个字段，颜色值**本地读不到**（§C）⇒ 不换色、如实标着。</summary>
+            /// （`graphicsToChangeColorIfIsPlayer`）。✅ **2026-10-31（B107_W13 · N94）就地订正（铁律 5）**：原句「颜色值**本地读不到**（§C）⇒ 不换色」**已过期** —— 颜色值是 prefab 序列化实读、已在 `AllianceMemberRow.IsPlayerEntryColor`（`Shell/AllianceMemberTab.cs`）落地，并在建行时覆盖 `background`/`Image` 两颗。</summary>
             public bool IsPlayer;
             /// <summary>🆕 **2026-10-25（N9 · 账 31）**：数值评分（原版 `GroupMember.Rating`，**int**）。
             /// 原版 `AllianceMemberList.Initialize` 用 `OrderByDescending(m =&gt; m.Rating)` 排序、
@@ -622,6 +622,27 @@ namespace CardPresentation
             WarnOnce("member.status", "🔶 [SocialData] 成员的在线状态（原版 `ChatGlobalManager.GetPlayerStatus`）来自远端在线服务，"
                                     + "关服后本地没有数据 ⇒ 退回 `Member.Online`（true ⇒ Connected(3) / false ⇒ Disconnected(1)）");
             return m.Online ? 3 : 1;      // Connected / Disconnected —— 常量名见 `AllianceMemberRow.StatusConnected/StatusDisconnected`
+        }
+
+        // ============================================================ 🆕 2026-10-31（B107_W13 批 · N93）
+        // 🔴 纪律：追加在类尾（本文件被账按行号引用 —— 既有落点最高到 `:586` 的 `GroupById`，本段全在其后 ⇒ 零漂）。
+
+        /// <summary>当前赛季号 = 原版 `Group.currentSeason`（`out_cpp2il_dev_ilspy/Group.cs:33` 的私有字段 ·
+        /// `:186` 的 `CurrentSeason` 属性）。
+        /// <para>唯一消费者 = <see cref="AllianceMemberRow.RankedRatingText"/>：原版 `AllianceMemberEntry.Initialize`
+        /// 里 `if (member.season == group.currentSeason) value = member.Rating; else value = 0;`
+        /// （判据 = `out_cpp2il_dev_ilspy/AllianceMemberEntry.cs:196-207` ·
+        /// `decomp_full/AllianceMemberEntry__Initialize.c:118-125`）。</para>
+        /// <para>⚠️ **本地没有写入方**（`Group` 由服务端下发，P3）⇒ 默认 0；与 `Member.Season` 的默认 0 相等 ⇒
+        /// 默认态 = 「同赛季、照常显示」，既有夹具（只写 `RankedRating`、不写 season）的可见态**不变**。</para></summary>
+        public static int CurrentSeason;
+
+        public partial class Member
+        {
+            /// <summary>成员自己的赛季号 = 原版 `GroupMember.season`（`GroupMember.cs:30` 的私有字段 · `:167` 的
+            /// `Season` 属性）。默认 0；⚠️ 本地**没有生产写入方**（成员表恒空，`AllianceMemberList` 由服务端下发）。
+            /// <para>消费者见 <see cref="SocialData.CurrentSeason"/> 的 doc（不等 ⇒ 评级显示 0/隐藏）。</para></summary>
+            public int Season;
         }
     }
 }

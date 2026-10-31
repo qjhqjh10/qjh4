@@ -1125,7 +1125,8 @@ public static class DraftAssertD3
         //   🔴 期望值由**卡表 `CardDef.Cost` 独立算**（`CardDatabase.FindById`），⛔ 不读实现里的 `buckets`（那是自证）。
         //   🧨 灭自证：写死 0 / 按**卡种**去重 / 最后一行不并桶 / 无费用那档也计进去 ⇒ 下面逐行红。
         {
-            win.SetDeckTab(0);                       // ⇒ `RefreshDeckPanel` → `BuildDeckInfoContent`（重建 9 行）
+            win.SetDeckTab(0);                       B107_W14_Assert.RunDraftSlider(win);   // ⇒ `RefreshDeckPanel` → `BuildDeckInfoContent`（重建 9 行）
+            Ok(B107_W14_Assert.Fail == 0, $"W14 DraftSlider：{B107_W14_Assert.Pass} 通过 / {B107_W14_Assert.Fail} 失败");
             var costContent2 = win.DeckInfoHolder != null ? win.DeckInfoHolder.Find("Content") : null;
             Eq(costContent2 != null ? costContent2.childCount : -1, 9,
                "④-bis 有卡之后费用分布仍是 **9 行**（`DeckCostQuantityRowDrawer` 数组长度）");

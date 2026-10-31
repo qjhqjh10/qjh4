@@ -95,6 +95,13 @@ namespace CardPresentation
         string _value = "";
         bool _editing, _hooked;
         int _maxLen;
+        /// <summary>🆕 2026-10-31（B107_W21 · N91）：每次**收进新字符之后**过一遍的清洗钩子（`null` = 不洗）。
+        /// <para>= 原版 `TMP_InputField.m_OnValueChanged` 的那一跳（`ChatPanel.Start` 给它挂
+        /// `RemoveRichTextTags(m_Text) → text = 结果`，`out_cpp2il_dev_ilspy/ChatPanel.cs:154-161`）。</para>
+        /// 🔶 自己设计（非原版）：本仓没有 uGUI `TMP_InputField`、也没有 value-changed 事件 ⇒ 用**回调形参**等价这一跳
+        /// （原版是 `onValueChanged` 事件订阅，我们是构造时传一个纯函数）· 为什么必须自己定：判据是原版那套 uGUI 事件，
+        /// 本仓没有对应物 · 执行代理 B107_W21 2026-10-31。</summary>
+        Func<string, string> _sanitize;
         readonly List<char> _typed = new List<char>();
 
         /// <summary>当前输入内容（未编辑时也是最后一次的值）。</summary>
@@ -118,9 +125,13 @@ namespace CardPresentation
         /// ⛔ 别拿提示窗那份绿色顶替。</param>
         /// <param name="face">字体面；`null` ⇒ 提示窗那两颗 TMP 的拉丁体。
         /// 🆕 同上：那两格的标题/占位可能含中文 ⇒ 调用点传 `TmpFont.Face.Cjk`。</param>
+        /// <param name="sanitize">🆕 2026-10-31（B107_W21 · N91）：每收进一批字符之后过一遍的清洗钩子
+        /// （`null` = 不洗，**既有调用点行为不变**）。= 原版 `TMP_InputField.m_OnValueChanged` 那一跳；
+        /// 聊天窗那格传 `ChatPanel.StripRichTextTags`（见 <see cref="_sanitize"/> 的 doc）。</param>
         public static TextInputField Create(Transform parent, PxRect r, PromptContext.InputData data,
                                             int maxLen = 0, int qBase = 3142, Action<string> onSubmit = null,
-                                            Color? bgTint = null, TmpFont.Face? face = null)
+                                            Color? bgTint = null, TmpFont.Face? face = null,
+                                            Func<string, string> sanitize = null)
         {
             if (data == null) return null;
             var go = MenuDraw.Node(parent, "template", r);
@@ -130,6 +141,7 @@ namespace CardPresentation
             f._maxLen = Mathf.Max(0, maxLen);
             f._value = data.DefaultValue ?? "";
             f._onSubmitCb = onSubmit;
+            f._sanitize = sanitize;
             var st = face ?? TmpFont.Face.LatinCardBody;    // 字体面（缺省 = 提示窗那两颗 TMP 的拉丁体）
 
             // 底：`40K_dropdown_bg` 九宫（整行 900×90）
@@ -252,6 +264,13 @@ namespace CardPresentation
                 _value += c;
             }
             _typed.Clear();
+            // 🆕 2026-10-31（B107_W21 · N91）：收完这一批字 ⇒ 过一遍清洗钩子（= 原版 `TMP_InputField.m_OnValueChanged`
+            //   那一跳：`RemoveRichTextTags(m_Text) → text = 结果`）。`null` ⇒ 一步都不做（既有调用点零影响）。
+            if (_sanitize != null)
+            {
+                string sv = _sanitize(_value ?? "");
+                if (!string.Equals(sv, _value, StringComparison.Ordinal)) _value = sv ?? "";
+            }
             Refresh();
         }
 
@@ -316,9 +335,12 @@ namespace CardPresentation
         /// <summary>绑定「宿主已经画好」的两颗字：占位 + 正文 —— 本类的 `Refresh` 会自动做
         /// 「空值 ⇒ 显示占位 / 非空 ⇒ 显示正文（编辑时补光标）」。
         /// <para>⚠️ 与 <see cref="Create"/> 的唯一区别：**不建任何视觉件**，宿主给什么就用什么。</para>
-        /// <para>⚠️ 幂等：同一节点上已有本组件时**复用**（重开窗时节点是新的，这里只是保险）。</para></summary>
+        /// <para>⚠️ 幂等：同一节点上已有本组件时**复用**（重开窗时节点是新的，这里只是保险）。</para>
+        /// <param name="sanitize">🆕 2026-10-31（B107_W21 · N91）：每收进一批字符之后过一遍的清洗钩子
+        /// （`null` = 不洗）。聊天窗那格传 `ChatPanel.StripRichTextTags`（原版 `m_OnValueChanged` 那一跳）。</param></summary>
         public static TextInputField Bind(Transform host, PromptContext.InputData data, Label placeholder, Label text,
-                                          int maxLen = 0, Action<string> onSubmit = null)
+                                          int maxLen = 0, Action<string> onSubmit = null,
+                                          Func<string, string> sanitize = null)
         {
             if (host == null) return null;
             var f = host.GetComponent<TextInputField>();
@@ -327,6 +349,7 @@ namespace CardPresentation
             f._maxLen = Mathf.Max(0, maxLen);
             f._value = data != null ? (data.DefaultValue ?? "") : "";
             f._onSubmitCb = onSubmit;
+            f._sanitize = sanitize;
             f._ph = placeholder;
             f._text = text;
             f._editing = false;

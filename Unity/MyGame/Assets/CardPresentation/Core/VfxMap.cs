@@ -392,9 +392,9 @@ namespace CardPresentation
             //   （少了 `_trail`）⇒ 我们播的**不是同一件**。现读 37 张没有
             //   `customRangedAttackParticles` 的卡走这一行。判据 → 同上报告 §B。
             { AttackRanged, "BulletImpact_2shot_trail" },   // 远程：原版查不到时的第一条（Ultra）
-            // 🔴 **这件仍是替代品**：原版攻击结算处接的是 `AttackHitSmall` / `Actual_Explosion`，
-            //    **现在 `Hit` 已经改成原版那件**（见下），这一行留着是为了说明当时的取舍。
-            // ⚠️ 2026-09-15 实拍复核过（`_tmp_view/pick_hit.png`）：五个候选里这件最好看。
+            // ✅ **这就是原版件**（2026-10-31 `B107_W7` 订正，⛔ 别再写「替代品」）：
+            //    `CardScript.ResolveAttackAnimationEffects` 取的 `attackHitSmallParticles` / `attackHitBigParticles`
+            //    **同一个 pathID** `4239831775333917772`（= prefab `AttackHitSmall`）⇒ 两档同件。判据：`CardScript__ResolveAttackAnimationEffects.c:20-48` + `MonoBehaviour_1744609728290659264.json`。
             { Hit,          "AttackHitSmall" },
             // 🔴 **2026-10-22（`W64` §B3）：`death` 这一行【已删】—— 阵亡那件**不走本表**。**
             //   判据（第一权威）= `CardScript._UnitDeath_d__446__MoveNext.c`：整个协程**只有两处
@@ -1883,7 +1883,7 @@ namespace CardPresentation
         /// <para>🔴 现读值（2026-10-22）：`BulletImpact_1shot_trail` **0.3** · `BulletImpact_2shot` **0.4**
         /// （**不再是兜底件**）· 4 个阵营的 `2shot*` / `NecronGauss` 全部 **0.75**（`ByEvent[AttackRanged]`
         /// 现在也取 `BulletImpact_2shot_trail` ⇒ **兜底档同样是 0.75**，与 `EventTiming.RangedVfxFallback` 一致）。
-        /// 原版对这五档的 `sp/ep` 都是 `0/2`（起点 = 攻方 `effectsAnchor`、终点 = `abilityTarget`）。</para></summary>
+        /// 原版对这五档的 `sp/ep` 都是 `0/2`（起点 = 攻方 `effectsAnchor`、终点 = `abilityTarget`）。🔴 **2026-10-31（`B107_W7`）：本表已降级为【交叉校验副本】** —— 生产取值优先读 `Resources/vfx_shared_durations.json`（`工具/gen_vfx_shared_durations.py` 由 `数据/游戏数据/animinfo_lookup.json` 生成），两表不一致 / 生成表载不到时一律**出声**（见 `LookupSharedDuration`）。</para></summary>
         static readonly Dictionary<string, float> SharedRangedVfxDuration = new Dictionary<string, float>
         {
             // ===== `ByFaction[AttackRanged]` 那 4 条（`card_vfx_by_card.json` generic.attackRangedByArmy）=====
@@ -1915,12 +1915,12 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(prefabName)) return 0f;
             float d;
-            if (SharedRangedVfxDuration.TryGetValue(prefabName, out d)) return d;
+            if (LookupSharedDuration(prefabName, out d)) return d;
             if (_warnedNoAnimDuration.Count < 32 && _warnedNoAnimDuration.Add(prefabName))
                 Debug.LogWarning($"[VfxMap] 共享特效 `{prefabName}` 没有登记 `AnimInfo` 时长 "
                                + "⇒ 时间线按「不等」处理（远程攻击那一档还会退回 `EventTiming.RangedVfxFallback` 0.75）。"
-                               + "补它：`数据/游戏数据/animinfo_lookup.json` 里 `ts + tm + te`，"
-                               + "追加到 `SharedRangedVfxDuration`");
+                               + "补它：数据源 = `数据/游戏数据/animinfo_lookup.json` 里 `ts + tm + te`，"
+                               + "重跑 `工具/gen_vfx_shared_durations.py --write`（⛔ 别手改生成物）");
             return 0f;
         }
         static readonly HashSet<string> _warnedNoAnimDuration = new HashSet<string>();
@@ -4156,6 +4156,136 @@ namespace CardPresentation
             go.name = entry.name + " (Preload)";            // 日志里一眼分清「预热件」与真播件
             if (Application.isPlaying) UnityEngine.Object.Destroy(go);
             else UnityEngine.Object.DestroyImmediate(go);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-31（执行代理 `B107_W7` · 特效线施工单 v2 §2 的 `VFX-1` reset 读口 / `VFX-2`）
+        //
+        //  ⚠️ 全部**追加在类尾**：本文件被账按 `文件:行号` 引用（A 档落点 `:377` `:431` `:1757` `:1933` `:3450`），
+        //     往中间插一行就会整体漂移（同 `CardPick.so` 那一行的注释）。⇒ 新成员一律写在这里。
+        // ==================================================================
+
+        /// <summary>🆕 2026-10-31（`B107_W7` · `VFX-2`）：共享件时长**生成表**在 `Resources` 里的路径（没有扩展名）。
+        /// 由 `工具/gen_vfx_shared_durations.py` 从 `数据/游戏数据/animinfo_lookup.json` 生成；
+        /// 形状见生成器头部（`JsonUtility` 只吃数组 ⇒ 是 `rows[]` 不是字典）。</summary>
+        public const string SharedDurationResourcePath = "vfx_shared_durations";
+
+        /// <summary>`Resources/vfx_shared_durations.json` 的 DTO（`JsonUtility` 的字段必须 public）。</summary>
+        [System.Serializable] public sealed class RtSharedDurationFile
+        {
+            public int schema;
+            public int count;
+            public string source;
+            public RtSharedDurationRow[] rows;
+        }
+
+        /// <summary>生成表的一行：`n` = prefab 名 · `a` = 对应 CardAnim 名（人看/排查用）· `d` = `ts+tm+te` 秒。</summary>
+        [System.Serializable] public sealed class RtSharedDurationRow
+        {
+            public string n;
+            public string a;
+            public float ts, tm, te;
+            public float d;
+        }
+
+        static Dictionary<string, float> _sharedDurationData;
+        static bool _triedSharedDuration;
+
+        /// <summary>🆕 2026-10-31（`B107_W7` · `VFX-2`）：生成表载进来几行（0 = 没载到 / 空表 ⇒ 已经出过声，
+        /// 生产退回手写表 `SharedRangedVfxDuration`）。与 `CardTableCards` 同一族的自检读口。</summary>
+        public static int SharedDurationTableRows
+        {
+            get { EnsureSharedDurationsLoaded(); return _sharedDurationData == null ? 0 : _sharedDurationData.Count; }
+        }
+
+        /// <summary>🆕 2026-10-31（`B107_W7` · `VFX-2`）：共享件时长的取值口 —— **优先读生成表**
+        /// （`Resources/vfx_shared_durations.json`），没这一条再读手写表 `SharedRangedVfxDuration`。
+        /// <para>手写表**保留**、但只作**交叉校验副本**：载表时逐条与生成表比，缺条目 / 值不一致一律
+        /// `Debug.LogWarning`（⛔ 不静默）。判据 = `数据/游戏数据/animinfo_lookup.json` 的 `ts+tm+te`，
+        /// 生产者 = `工具/gen_vfx_shared_durations.py`。</para></summary>
+        static bool LookupSharedDuration(string prefabName, out float d)
+        {
+            EnsureSharedDurationsLoaded();
+            if (_sharedDurationData != null && _sharedDurationData.TryGetValue(prefabName, out d)) return true;
+            return SharedRangedVfxDuration.TryGetValue(prefabName, out d);
+        }
+
+        /// <summary>🆕 2026-10-31（`B107_W7` · `VFX-2`）：懒载生成表（**失败也只试一次**，别每帧重试）。
+        /// 载不到 / 解析失败 / 空表 ⇒ 出声并让生产退回手写表；载到了 ⇒ 与手写表逐条交叉校验。</summary>
+        static void EnsureSharedDurationsLoaded()
+        {
+            if (_triedSharedDuration) return;
+            _triedSharedDuration = true;
+            var asset = Resources.Load<TextAsset>(SharedDurationResourcePath);
+            if (asset == null)
+            {
+                Debug.LogWarning($"[VfxMap] `Resources/{SharedDurationResourcePath}.json` **没载到** ⇒ "
+                               + "共享件时长退回手写表 `SharedRangedVfxDuration`（⛔ 不静默）。"
+                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_vfx_shared_durations.py --write");
+                CrossCheckSharedDurations(null, "（生成表没载到）");
+                return;
+            }
+            RtSharedDurationFile dto;
+            try { dto = JsonUtility.FromJson<RtSharedDurationFile>(asset.text); }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[VfxMap] `Resources/{SharedDurationResourcePath}.json` 解析失败：{e.Message} ⇒ "
+                             + "共享件时长退回手写表（⛔ 不静默）");
+                CrossCheckSharedDurations(null, "（生成表解析失败）");
+                return;
+            }
+            if (dto == null || dto.rows == null || dto.rows.Length == 0)
+            {
+                Debug.LogError($"[VfxMap] `Resources/{SharedDurationResourcePath}.json` 是空的 / 形状不对 ⇒ "
+                             + "共享件时长退回手写表（⛔ 不静默）");
+                CrossCheckSharedDurations(null, "（生成表是空表）");
+                return;
+            }
+            var map = new Dictionary<string, float>(dto.rows.Length);
+            for (int i = 0; i < dto.rows.Length; i++)
+            {
+                var r = dto.rows[i];
+                if (r == null || string.IsNullOrEmpty(r.n)) continue;
+                if (map.ContainsKey(r.n))
+                {
+                    Debug.LogWarning($"[VfxMap] `Resources/{SharedDurationResourcePath}.json` 里 `{r.n}` 出现多次 ⇒ 只留第一条"
+                                   + "（生成器应当去重；⛔ 别手改生成物）");
+                    continue;
+                }
+                map[r.n] = r.d;
+            }
+            _sharedDurationData = map;
+            CrossCheckSharedDurations(map, "Resources/" + SharedDurationResourcePath + ".json");
+        }
+
+        /// <summary>🆕 2026-10-31（`B107_W7` · `VFX-2`）：手写表 ↔ 生成表逐条交叉校验（缺条目 / 值不一致都出声）。
+        /// <para>`data == null` = 生成表不可用（调用点已先出过声）⇒ 这里只说「这一条生产会退回手写值」。
+        /// ⚠️ 只在载表时跑一次，不参与播放路径。</para></summary>
+        static void CrossCheckSharedDurations(Dictionary<string, float> data, string src)
+        {
+            foreach (var kv in SharedRangedVfxDuration)
+            {
+                float d;
+                if (data == null || !data.TryGetValue(kv.Key, out d))
+                {
+                    Debug.LogWarning($"[VfxMap] 共享件时长交叉校验：手写表有 `{kv.Key}`（{kv.Value:0.###} s），但 {src} "
+                                   + "里**没有这一条** ⇒ 这一条生产会退回手写值。重跑 `工具/gen_vfx_shared_durations.py --write` 补齐。");
+                    continue;
+                }
+                if (Mathf.Abs(d - kv.Value) > 1e-4f)
+                    Debug.LogWarning($"[VfxMap] 共享件时长交叉校验**不一致**：`{kv.Key}` 手写 {kv.Value:0.###} s vs "
+                                   + $"{src} {d:0.###} s ⇒ **生产以生成表为准**（手写表只是校验副本）。"
+                                   + "判据 = `数据/游戏数据/animinfo_lookup.json` 的 `ts+tm+te`。");
+            }
+        }
+
+        /// <summary>🆕 2026-10-31（`B107_W7` · `VFX-1` 的配套读口）：自检用 —— 清空「按阵营留白」的出声去重表
+        /// （`NoFactionVariantWarns` 就是数它，清完即归 0），让「出声只一次」这类断言可做。
+        /// <para>⚠️ 只动**自检计数器**，⛔ 不改变任何生产播放行为、不写日志、不碰 `_probeDepth`。
+        /// 同族先例 = `ResetUnpinnedForTest`（本类自己的多播计数）。</para></summary>
+        public static void ResetNoFactionWarnsForTest()
+        {
+            _warnedNoFaction.Clear();
         }
     }
 }

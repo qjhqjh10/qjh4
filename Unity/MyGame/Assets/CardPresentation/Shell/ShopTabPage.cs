@@ -245,7 +245,7 @@ namespace CardPresentation
 
         public override void Setup()
         {
-            _win.DestroyChildren(_root);
+            if (_root == null || _win == null) { Debug.LogWarning("[Shop] `ShopTabPage.Setup()` 打在一具**已销毁**的页上（`_page=" + _page + "`）⇒ 跳过（否则会以 `parent == null` 把整页建到场景根、长出孤儿命中区 —— 判据 → `资料/完全复刻/判据/B107_ShopScene孤儿子树.md`）；调用栈：\n" + System.Environment.StackTrace); return; } _win.DestroyChildren(_root);
             NoArtOffers.Clear();
             var page = PageRect;
             var spec = ShopData.Pages[_page];
