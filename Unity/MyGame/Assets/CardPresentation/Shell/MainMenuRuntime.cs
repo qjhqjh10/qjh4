@@ -3020,6 +3020,18 @@ namespace CardPresentation
                               new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f), clip);  MenuFxMaterials.ApplyAll(borderNine, "Art/vfx/WFUI_Additive");   // = 2.6px（13 ÷ ppuMul 5）· 🆕 B110_M3：原版这颗 `Border` 的材质 = `Material_-8464978790139598553`（`UI Additive`，`Blend One One`）⇒ 九宫八块逐块换加法材质；⛔ 必须在 `Nine` 之后（`SetMaterial` 会从旧材质读走队列）。判据 → `判据/B109_R15_菜单13材质.md` §1·7
             }
 
+            // ④·a `Border Glow`（原版 5 份 `Main Menu Offer Container *` 逐份都有，兄弟序在 `Border` 之后）。
+            //   现读 `GameObject/Border Glow.json`：拉伸锚点 + `m_SizeDelta (81.5369034, 74.3423004)` ⇒ 四边外扩 ±40.77/±37.17；
+            //   `OctagonUI Filled Fade SDF`(128²) · 九宫 52,52,52,52 · Sliced · fillCenter 0 · ppuMul 1 · tint (1,.1647,.9659,.537)
+            //   · **`m_Maskable = 0`**（原版故意画到卡外、不吃卡的 `RectMask2D`）· 材质 `Border Highlight Appear White`
+            //   · 组件 `Image, EverguildButtonMaterialModifier` ⇒ **无 `UIBorderGlow`，静态显形**（⛔ 别给它编播放入口）。
+            MenuFxMaterials.ApplyBorderHighlightAppearAll(
+                MenuDraw.Nine(card, Art("OctagonUI_Filled_Fade_SDF"),
+                              new PxRect(x - 40.77f, y - 37.17f, x + w + 40.77f, y + h + 37.17f),
+                              new Vector4(52f, 52f, 52f, 52f), 128f, 128f, QOverlay,
+                              new Color(1f, 0.1647059f, 0.9659156f, 0.5372549f), false, "Border Glow", null, null),
+                MenuFxMaterials.BorderHighlightAppear.White);
+
             // ④·b 排位卡那一排「段位印玺」（原版 `Rating ▸ Mission Milestones Progress ▸ steps ▸ RankedSealStep ×N`）。
             //    ⛔ **只给排位卡** —— 通用卡树（`Base Game Mode Container 1x1`/`1x2`/`No Timer`/`Claim`…）
             //       里**没有这一排**，`Skirmish` 那棵 `Skirmish Ranked Game Mode Container 1x2` 里**也没有**

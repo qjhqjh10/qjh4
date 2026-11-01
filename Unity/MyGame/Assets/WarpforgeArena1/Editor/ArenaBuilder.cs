@@ -1579,7 +1579,7 @@ public static class ArenaBuilder
 
     /// <summary>给某个战场的贴图定导入设置 —— **逐张**按原版 `Texture2D` 实读值，⛔ 不许一刀切。
     /// 🔴 判据 = `UnityPy` 读源 bundle 的 `m_ColorSpace` / `m_MipCount`（旁挂表
-    ///   `数据/游戏数据/arena_texture_import.tsv` ← `工具/gen_arena_texture_import.py`；覆盖 `Textures/`+`Sprites/`+`Textures/LUT/` **251/251** 份。🆕 2026-11-01（B-201/B-202）：范围从 `Textures/` 扩到 `Sprites/`（18 份，`textureType` 保 `Sprite`）与顶层 `Textures/LUT/`（7 份，**只核对不写** —— 归 `EnsureLutImportSettings`，唯一差距 wrap 属账 `B-119`）；新增 wrapU/wrapV/filterMode/aniso 四格照抄原版。
+    ///   `数据/游戏数据/arena_texture_import.tsv` ← `工具/gen_arena_texture_import.py`；覆盖 `Textures/`+`Sprites/`+`Textures/LUT/` **251/251** 份。🆕 2026-11-01（B-201/B-202）：范围从 `Textures/` 扩到 `Sprites/`（18 份，`textureType` 保 `Sprite`）与顶层 `Textures/LUT/`（7 份，**只核对不写** —— 归 `EnsureLutImportSettings`；**wrap 已按原版对上**，账 `B-119` 2026-11-01 结案）；新增 wrapU/wrapV/filterMode/aniso 四格照抄原版。
     ///   原来写死 `mipmapEnabled = false` + 从不设 `sRGBTexture`：前者拿 `Battle Arena 1 Floor`（实读 `m_MipCount = 1`，
     ///   那张确实没 mip）当**全体**判据 ⇒ **77 个名字 / 143 份原版是有 mip 的**（`SplatNormal` 10 级 · `drops_cloud` 9 级…）；
     ///   后者吃 Unity 默认 `1` ⇒ **9 个名字 / 25 份原版是 `m_ColorSpace: 0`（线性）**。地板 4096² 也曾被 2048 砍半。
@@ -3544,7 +3544,7 @@ public static class ArenaBuilder
 
     /// <summary>LUT 的导入设置 —— **原版实读**（`bundle_scenes_scenes_battlearenasororitas` 的 `Texture2D`：
     /// `m_ColorSpace = 0`(Linear) · `m_MipCount = 9`(满链) · `m_FilterMode = 1`(Bilinear) ·
-    /// `m_WrapMode = 0`(**Repeat**；🔴 2026-11-01 订正（`B111_T1C`）：原文写「`None`(Clamp)」—— `None` 不是 `TextureWrapMode` 的成员，`0` = Repeat，`ExportedProject` 的 LUT `.meta` 与 bundle 实读都是 0；本方法仍写 `Clamp`，那是**我们挑的**、不是原版值) · `m_TextureFormat = 3`(RGB24，**未压缩**)）。
+    /// `m_WrapMode = 0`(**Repeat**；🔴 2026-11-01 订正两次：① 原文写「`None`(Clamp)」—— `None` 不是 `TextureWrapMode` 的成员，`0` = Repeat（`B111_T1C`）；② 而本方法**当时仍写 `Clamp`**，那是**我们挑的**、不是原版值 ⇒ 已于 2026-11-01 按原版改成 `Repeat`（账 `B-119` 结案；原版 `ExportedProject` 的 LUT `.meta` 三轴 `wrapU/V/W` **全 0**，bundle 实读同值；`ti.wrapMode` 一次写 U/V/W 三轴，正好对上）) · `m_TextureFormat = 3`(RGB24，**未压缩**)）。
     /// 🔴 LUT 是**数据不是颜色纹理** —— `sRGBTexture` 必须 **false**，压缩必须 **Uncompressed**，
     ///    否则那张表会被解码/量化坏掉（画面表现为整场偏色，且不容易联想到 LUT）。</summary>
     static void EnsureLutImportSettings(string path)
@@ -3552,7 +3552,7 @@ public static class ArenaBuilder
         var ti = AssetImporter.GetAtPath(path) as TextureImporter;
         if (ti == null) return;
         bool ok = !ti.sRGBTexture && ti.mipmapEnabled && ti.filterMode == FilterMode.Bilinear
-                  && ti.wrapMode == TextureWrapMode.Clamp && ti.npotScale == TextureImporterNPOTScale.None
+                  && ti.wrapMode == TextureWrapMode.Repeat && ti.npotScale == TextureImporterNPOTScale.None
                   && ti.textureCompression == TextureImporterCompression.Uncompressed
                   && ti.maxTextureSize >= 256;
         if (ok) return;
@@ -3560,7 +3560,7 @@ public static class ArenaBuilder
         ti.sRGBTexture          = false;
         ti.mipmapEnabled        = true;
         ti.filterMode           = FilterMode.Bilinear;
-        ti.wrapMode             = TextureWrapMode.Clamp;
+        ti.wrapMode             = TextureWrapMode.Repeat;
         ti.npotScale            = TextureImporterNPOTScale.None;
         ti.textureCompression   = TextureImporterCompression.Uncompressed;
         ti.maxTextureSize       = 256;
@@ -6131,15 +6131,15 @@ public static class ArenaBuilder
         ArenaTexImportRow row = default(ArenaTexImportRow);
         bool has = table != null && table.TryGetValue(name, out row);
 
-        // 🔴 LUT：**只核对、不写**。这 7 张的 sRGB / 压缩 / maxTextureSize 是 `EnsureLutImportSettings` 定的
-        //    （LUT 是**数据不是颜色纹理**）；它唯一与原版不一致的是 wrap（原版 Repeat / 我们 Clamp）——
-        //    那是**账 `B-119`**，属战场线执行窗口，本方法⛔ 不在这里悄悄改掉它的结论。
+        // 🔴 LUT：**只核对、不写**。这 7 张的 sRGB / 压缩 / maxTextureSize / **wrap** 全部是 `EnsureLutImportSettings` 定的
+        //    （LUT 是**数据不是颜色纹理**）。⚠️ `B-119` 已于 2026-11-01 结案：wrap 原版是 **Repeat(0)**，我们**已改过去**了
+        //    ⇒ 下面那条警告现在是**回归哨**（再写回 Clamp 就会出声），⛔ 不是「已知差异」。本方法仍只核对、不写。
         if (IsLutTexture(path))
         {
             // 每个场景构建都会扫到这个目录 ⇒ **同一条只出声一次**（否则 13 场 × 7 张 = 91 行噪声）
             if (has && row.WrapU >= 0 && (int)ti.wrapModeU != row.WrapU && _lutWrapWarned.Add(name))
                 Debug.LogWarning($"[Arena] LUT `{name}` 的 wrapU 与原版不一致（我们 {(int)ti.wrapModeU} / 原版 {row.WrapU}）" +
-                                 " ⇒ 账 `B-119`，本方法**不改**（LUT 的导入设置归 `EnsureLutImportSettings`）");
+                                 " ⇒ **回归**（账 `B-119` 2026-11-01 已结案、原版就是 Repeat），本方法**不改**、由 `EnsureLutImportSettings` 修");
             return false;
         }
 

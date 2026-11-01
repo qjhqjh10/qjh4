@@ -128,7 +128,7 @@ public static class B113_G3_Assert
             if (CardArt.Cosmetic(KNames[i]) == null)
             {
                 artMiss++;
-                Tr(false, "K-3 **图取不到**：`Art/cardbacks/" + KNames[i] + "`（跑 `python 工具/import_original_art.py` 补图）");
+                Tr(false, "K-3 **图取不到**：`Art/cardbacks/" + KNames[i] + "`（跑 `python 工具/import_original_art.py --apply` 补图）");
             }
         }
         C(artMiss, 0, "K-3 灭自证：13 条图**全部**取得到（缺一张就红；含 `Cardback_EC_Emperors Children` / `Cardback_SW_Campaign Free` 这两个带空格的）");

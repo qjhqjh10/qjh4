@@ -73,7 +73,16 @@ sys.stdout.reconfigure(encoding="utf-8")
 SRC = r"D:/2/unity_run_ref/Warpforge_Data/globalgamemanagers.assets"
 # 载体**外壳**：拿已有小包当壳（要它那个 AssetBundle 对象 + 类型表）。
 # ⚠️ 壳里的东西**全部会被丢掉**，只借结构 —— 所以借哪个包都行，这里借最小的那个。
-SHELL = r"D:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/wf_arena_shaders.bundle"
+# 2026-11-01（`B113X3` 顺手发现 ①）：**别再钉死** `wf_arena_shaders.bundle` —— 它可能被重出/删除，
+#   而这里只需要「随便哪个已有小包」当壳（上面注释本来就写「借哪个包都行」）。
+#   运行时按**最小**挑一个 `wf_arena_*.bundle`；一个都没有才报错（出声，⛔ 不静默）。
+_SHELL_DIR = r"D:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX"
+_shell_cands = sorted((p for p in __import__("glob").glob(os.path.join(_SHELL_DIR, "wf_arena_*.bundle"))),
+                      key=lambda p: os.path.getsize(p))
+if not _shell_cands:
+    _wf_help_sys.exit("[mirror] 目录里没有任何 `wf_arena_*.bundle` ⇒ 没有可用的**壳**；\n"
+                      "先跑 `extract_missing_shaders.py --arena-shaders --apply` 重出一份。")
+SHELL = _shell_cands[0]
 DEST = r"D:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/wf_arena_mirror.bundle"
 
 WANT = (

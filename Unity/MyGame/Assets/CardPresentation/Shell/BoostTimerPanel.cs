@@ -30,13 +30,13 @@
 //     （PlayFab 清单），`BoostItem.PlayfabItemID` / `PlayfabHoursDuration` 都是 PlayFab 商品字段。
 //     本机没有账户目录（原版已关服）⇒ `BoostStore.Active` **恒空**，并且**每次进程第一次问就出声一次**。
 //     ⛔ 不编造「默认送 X% 加成」——用户边界②「不做真实经济」。
-//   · **宿主 prefab 本地不存在**：`BoostMenu` 在 `d:/2/新解包资源/assets_full` 全库只有一条命中
-//     （`globalgamemanagers/MonoScript/MonoScript_2818.json` = 类资产本身），**没有任何 prefab 引用它**
-//     ⇒ `AllBoostersPanel` / `BoosterPanelPrefab` 的矩形、间距（`PanelSeparation = 30`）、
-//       `infoText` 那一格**都拿不到**。
+//   · **宿主 prefab 本地不存在**（⚠️ 2026-11-01 `B113X5` 按 **pathID 反查**复核，⛔ 不是按名字）：`BoostMenu` /
+//     `BoostTimerPanel` / `BoostManager` 的 MonoScript pathID = **2818 / 4135 / 3930**（`globalgamemanagers.assets`
+//     4,453 个 MonoScript 里读出）⇒ 全库 24.7 万对象 **0 个 `m_Script` 指向它们**（控制实验 `BoosterInfoPopup`
+//     命中 1 ⇒ 扫法有效）· AssetRipper 1,389 prefab/17 场景 0 引用 · 远端 722 类无 ⇒ 几何判据**一格都拿不到**。
 //     ⇒ 本件**只建面板本体（描述一格 + 倒计时一格）**，几何由宿主传进来（`Build` 的 `descRect`/`timerRect`）；
 //        **BoostMenu 那一层（逐件排布）没有宿主几何 ⇒ 未建**（写在报告「没查清」里，⛔ 不拿 30px 去凑）。
-//   · 可玩性：13 份活动 SO 全过期、无加成条目 ⇒ 这条链今天**休眠**，但逻辑是活的（自检可直接喂 `BoostItem`）。
+//   · 可玩性：13 份活动 SO 全过期、无加成条目 ⇒ 这条链今天**休眠**，但逻辑是活的（自检可直接喂 `BoostItem`）。**原版侧同样是死支**（2026-11-01 `B113X5` 实读）：`BoostManager.UpdateTimer` / `SetupDefaultTimer` **0 调用点**（`BoostManager` 无 `Awake/Start` 去 `InvokeRepeating`）、`AddBooster` = 空桩（RVA `0x4B33B0`）、`IsAnyBoosterActive`/`IsBoosterOfTypeActive` = 共享桩 `0x6FB110` ⇒ **`OnTimerUpdated` 在原版 build 里永不触发**。
 //
 // ============================ 与 `BoostManager.UpdateTimer` 的区别（⛔ 别合并）============================
 //   `BoostManager` 自己也有一份 `UpdateTimer`（= 顶栏那颗「最近到期」倒计时），它的格式**与这里不同**：

@@ -1060,7 +1060,7 @@ namespace CardPresentation
                 glowQuad.SetRenderQueue(QCellGlow);
                 var gm = ForgeGlowMaterial();
                 if (gm != null) glowQuad.SetMaterial(gm);
-                var glow = glowNode.gameObject.AddComponent<UIBorderGlow>();
+                var glow = glowQuad.gameObject.AddComponent<UIBorderGlow>();   // 🔴 2026-11-01（`B-205`）挂错节点：原版组件与那颗 `Image` 是**同一个 GO**（`Forge Menu Reward Button.prefab` 的 `Collect Highlight Effect` = RT+CanvasRenderer+Image+LayoutElement+UIBorderGlow 五个组件同属一个 GameObject），而我们的 `ImageQuad.Create`（`Battle/ImageQuad.cs:124-125`）**恒建子对象** ⇒ 挂在 `glowNode`（父）上时 `GetComponent` 恒 null、`CacheMaterial` 永远取不到 ⇒ 紫边一次都不播 + 每帧重挂一条协程。⇒ 必须挂 `glowQuad.gameObject`。
                 glow.animTime = 1f; glow.animDelay = 0f; glow.playOnEnable = true;
             }
             glowNode.gameObject.SetActive(i == _claimedGlowLevel && claimed);
@@ -1117,7 +1117,7 @@ namespace CardPresentation
                 // N(1, .5,.5, .5,.5, .5,.5, −1.5e−05,−134.147, 200.762,47.252)
                 var btn = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                          new Vector2(0f, -134.147f), new Vector2(200.762f, 47.252f));
-                var btnQ = _win.Rect(cell, "40K_button", btn, "Generic UI Button", QCellBtnIcon, new Color(1f, 0.363f, 0.919f, 1f));
+                var btnQ = _win.Rect(cell, "40K_button", btn, "Generic UI Button", QCellBtnIcon, new Color(1f, 0.363f, 0.919f, 1f)); _genericHighlightMod = BuildGenericHighlight(btn, btnQ);   // 🆕 2026-11-01（B-08 #3 第 2 个消费者）：`Generic UI Button/Highlight`（同一行追加 ⇒ 行数零变化，方法体在类尾）；🔴 `B-225` 起它返回那颗 quad 的 `ImageQuadMaterialModifier`
                 // `Button Text` N(2, 0,0, 1,1, .5,.5, 0,0, −26,0) ⇒ 左右各缩 13
                 var btLab = _win.TextBox(cell, new PxRect(btn.x1 + 13f, btn.y1, btn.x2 - 13f, btn.y2), "Claim",
                                          Color.white, "Button Text", 36.8f, 12f, face: TmpFont.Face.LatinCardBody);
@@ -1412,5 +1412,92 @@ namespace CardPresentation
         /// <summary>自检读口（同上）：驱动那两颗 toggler 的 `UIEffectTogglerController`
         /// （自检要直调 `Toggle` —— 批处理没有帧循环，只能自己推）。**只读**。</summary>
         public UIEffectTogglerController ReadyToggler { get { return _readyToggler; } }
+
+        // ════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-01（`B-08` #3 的**第 2 个消费者**）`Generic UI Button/Highlight`
+        //  ⚠️ 追加在类尾 = 不动上面任何行号（`账/` 有 62 条落点在本文件）。
+        //
+        //  判据 = 原版 prefab 现读（`d:/2/tools/assetripper_out/ExportedProject/Assets/
+        //         Forge Menu Reward Button.prefab`）：
+        //    · 节点 = `Forge Menu Reward Button/Generic UI Button/Highlight`（GO `1618682377417806`）；
+        //    · RectTransform `224808113985169905`：`anchorMin (0,0)` · `anchorMax (1,1)` · `pivot (.5,.5)`
+        //      · `anchoredPosition (−0.24606323, −0.010498047)` · `sizeDelta (76.3882, 77.33832)`
+        //      ⇒ 实绘 = 父件 `Generic UI Button`（200.762 × 47.252）+ sizeDelta = **277.1502 × 124.59032**，
+        //        中心 = 按钮中心 + (−0.246, −0.0105)（**外扩**在按钮四周各 ≈38 px）；
+        //    · Image（`114900271049623953`）：`m_Material` = `Border Highlight Appear Purple`
+        //      （guid `b4f5916eee5615c46af7a27629c0498e` ⇒ `Assets/Material/Border Highlight Appear Purple.mat`，
+        //       与 `Collect Highlight Effect` **同一张材质**）· `m_Color (1,1,1,1)` · `m_RaycastTarget 0`
+        //      · `m_Sprite` = `OctagonUI Border SDF`（guid `0fd9569a…`）· `m_Type 1`（Sliced）· `ppuMul 1`；
+        //    · 🔴 **这一颗上没有 `UIBorderGlow`** —— 全 prefab 只有 **1 个** `UIBorderGlow` 实例，
+        //      挂在 `Collect Highlight Effect`（GO `1587765826080250`，`animTime 1 / animDelay 0 / playOnEnable 1`）。
+        //      本节点第 5 个组件是 **`EverguildButtonMaterialModifier`**（guid `3bf2b7d2…`，`IMaterialModifier`、
+        //      序列化零字段）。⇒ **⛔ 别在这里加 `UIBorderGlow` / `playOnEnable`** —— 那是「给原版没有的节点加组件」。
+        //      （施工单原写「`playOnEnable = 0` = 静态显形」：`= 0` 的结论对，但**组件本身原版没有**，见报告 §顺手发现。）
+        //    · 静态显形的来源 = 材质自己的 `_Reveal 0.723`（`ForgeGlowMaterial()` 已按同一张材质逐参落值）。
+        // ════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`Generic UI Button/Highlight` 的渲染层队列。原版它排在 `Button Text` **之后**
+        /// （`m_Children = [Button Text, Highlight]`）⇒ 画在按钮与文字**之上**。
+        /// 取 3032：格内梯子 `QCellBtnText 3010` 之上、`QCellGlow 3030` / `QArmyBadgeText 3031` 之外，
+        /// 不与任何既有层同队列（同队列里 Unity 按到相机的距离排，这几件都在 z≈0 ⇒ 谁盖谁不可控）。</summary>
+        public const int QCellBtnHighlight = 3032;
+
+        /// <summary>建 `Generic UI Button/Highlight`。判据逐条见上方注释块（原版 prefab 现读）。
+        /// ⚠️ `btnR` = `BuildCell` 里那颗 `Generic UI Button` 的矩形（**格内**坐标），`btnQ` = 它那颗渲染件
+        /// （`_win.Rect` **直接**建在 `ImageQuad` 的 GO 上 ⇒ 那个 GO 就是原版的 `Generic UI Button` 节点）。</summary>
+        static ImageQuadMaterialModifier BuildGenericHighlight(PxRect btnR, ImageQuad btnQ)
+        {
+            var hR = UguiRect.Child(btnR, UguiRect.A00, UguiRect.A11, UguiRect.P50c,
+                                    new Vector2(-0.24606323f, -0.010498047f), new Vector2(76.3882f, 77.33832f));
+            var node = MenuDraw.Node(btnQ != null ? btnQ.transform : null, "Highlight", hR);
+            if (node == null) { Debug.LogWarning("[Forge] `Generic UI Button/Highlight` 的节点没建出来（`Generic UI Button` 缺渲染件）—— 原版那颗紫边不显形（出声，不静默）"); return null; }
+            if (node == null) return null;
+            // ⚠️ 渲染件**不能也叫 `Highlight`**：`ImageQuad.Create` 恒建**子对象**，同名会让
+            //   「数 `Highlight` 节点」的口径多算一层（2026-11-01 实测 5→7，奖励窗那条断言红）。
+            var q = ImageQuad.Create(node, CardArt.Solid(), Vector3.zero, LayoutSpace.Px(hR.H),
+                                     new Vector2(0.5f, 0.5f), "Highlight Quad");
+            if (q == null)
+            {
+                Debug.LogWarning("[Forge] `Generic UI Button/Highlight` 的渲染件没建出来（`ImageQuad.Create` 回 null）"
+                               + " ⇒ 原版那颗紫边不显形（出声，不静默）");
+                return null;
+            }
+            q.SetAspect(hR.W / Mathf.Max(1f, hR.H));
+            q.SetRenderQueue(QCellBtnHighlight);
+            var m = ForgeGlowMaterial();
+            if (m != null) q.SetMaterial(m);
+            // 🔴 **`B-225`（2026-11-01）**：原版这颗节点上的**第 5 个组件** `EverguildButtonMaterialModifier`
+            //   —— 它让这颗 `Highlight` 在**按钮变灰**时一起换 `Everguild/UI/Greyscale` 材质
+            //   （判据全文与「为什么不能直接 `AddComponent` 一个 `IMaterialModifier`」→
+            //     `Battle/ImageQuadMaterialModifier.cs` 的文件头）。这里只负责**挂上并交回句柄**，
+            //   `SetGreyScale(...)` 由调用方（自检 / 将来的灰站点）驱。
+            var mmod = ImageQuadMaterialModifier.Attach(q);
+            if (mmod == null)
+                Debug.LogWarning("[Forge] `Generic UI Button/Highlight` 的 `ImageQuadMaterialModifier` 没挂上"
+                               + " ⇒ 这颗紫边在按钮变灰时**不会跟着灰**（出声，不静默）");
+            return mmod;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-01（`B-225`）—— `Generic UI Button/Highlight` 的灰化开关句柄
+        //  ⚠️ 追加在类尾 = 不动上面任何行号（`账/` 有 62 条落点在本文件，现读最高 `:1343`
+        //     —— 本段与 `BuildGenericHighlight` 都排在它之后）。
+        //
+        //  ⚠️ **今天没有任何调用方把它切到 `true`**，这是**如实的现状**，不是漏做：
+        //    · 原版把 `ToogleGreyScale` 置真的**唯一**入口 = `EverguildButton.SoftDisable(true)` /
+        //      `SwitchMaterial(interactable == false)`（`decomp_full:EverguildButtonHelper__DoMaterialRefresh.c`），
+        //    · 而我们所建的 `Generic UI Button` **只在 `ToCollect` 那一态存在**
+        //      （`BuildCell` 的 `if (st == ForgeData.ToCollect)`）⇒ 我们这一支里它**恒可点**，
+        //      没有「存在但不可交互」的那一态。
+        //  ⇒ 本句柄的作用是「**原版有的那一格留着口子**」：将来真有灰站点时直接 `SetGreyScale(true)`，
+        //    不必再回来改这颗节点。自检 `B113X2_Assert` 直接驱它两次来证明**机制真的会换材质**。
+        // ════════════════════════════════════════════════════════════════════════
+
+        ImageQuadMaterialModifier _genericHighlightMod;
+
+        /// <summary>`Generic UI Button/Highlight` 那颗 `ImageQuadMaterialModifier`（= 原版同名的第 5 个组件；
+        /// `null` = 还没建过 Claim 钮 / 那条链在某一步出声退出了）。**只读** —— ⛔ 别拿它当第二个写入口，
+        /// 显隐/挂载的接线在 `BuildCell` → `BuildGenericHighlight` 这一处。</summary>
+        public ImageQuadMaterialModifier GenericHighlightModifier { get { return _genericHighlightMod; } }
     }
 }

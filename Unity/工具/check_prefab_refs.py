@@ -21,6 +21,12 @@
 ⚠️ **`m_Material` 仍然不在默认集里**（`A1325` 的 `Image.m_Material` 那一跳要显式
 `--fields …,m_Material`，交接文档里一直这么用）。
 
+🔴 **2026-11-01（账 `B-217`）：默认集补上 `m_Asset`**（`VFX` 的「资产引用」那一跳）。
+补之前 `B-215` 那一类（`WarpforgeVFX/Prefabs/EnvironmentalCondition *.prefab` 里
+`m_Asset: {fileID: 非0, guid: 0…0}`）**在默认扫描里完全看不见** —— 必须显式
+`--fields m_Asset` 才报得出来，于是「默认跑一遍 = 全绿」是**假绿**。
+⚠️ 补默认集**只加字段，不改任何判定语义**：`fileID == 0` 仍算合法空引用、无 `guid` 仍算本文件内引用。
+
 🔴 **判据不能数「`fileID: 0`」** —— 那是**合法的空引用**（原版本来就空的 `Image` / 没挂脚本的节点），
 一数就会得到几十条假警报（本工具 2026-10-21 第一次写时就差点按那个口径报「`m_Sprite` 坏 32 条」）。
 **坏引用 = `fileID != 0` 且 `guid` 全 0**：文件那头说「我要这张图」，工程里却没有这张图。
@@ -52,9 +58,11 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))      # d:/4/Unity
-DEFAULT_TARGETS = [os.path.join(ROOT, 'MyGame/Assets/WarpforgeVFX/Prefabs/CardPrefab.prefab')]
+# 2026-11-01（`B-217` 续）：默认查**整个 Assets 树**。原默认只指 `CardPrefab.prefab` ⇒ 裸跑是「假绿」
+DEFAULT_TARGETS = [os.path.join(ROOT, 'MyGame/Assets')]
 DEFAULT_FIELDS = ['m_Script', 'm_Sprite', 'm_fontAsset', 'm_sharedMaterial',
-                  'm_Mesh', 'm_Texture']   # 2026-10-21 补后两个（ShapeModule 资产引用，见文件头）
+                  'm_Mesh', 'm_Texture',
+                  'm_Asset']   # 2026-10-21 补 `m_Mesh`/`m_Texture`；🆕 2026-11-01（账 `B-217`）补 `m_Asset`
 ZERO_GUID = '0' * 32
 
 # `m_Sprite: {fileID: -123, guid: <32hex>, type: 3}` —— 也容忍字段顺序变化与缺 guid。
@@ -94,13 +102,22 @@ def scan(path, fields):
 def main(argv=None):
     ap = argparse.ArgumentParser(description='只读检查 prefab/scene 里 guid 全 0 的对象引用')
     ap.add_argument('targets', nargs='*', default=None,
-                    help='要查的 .prefab / .unity（默认 = CardPrefab.prefab）')
+                    help='要查的 .prefab / .unity / 目录（默认 = 整个 Assets 树）')
     ap.add_argument('--fields', default=','.join(DEFAULT_FIELDS),
                     help='要查的序列化字段名，逗号分隔（默认 %(default)s）')
     ap.add_argument('--max-detail', type=int, default=10, help='每个字段最多列几条坏引用（默认 10）')
     args = ap.parse_args(argv)
 
     targets = args.targets or DEFAULT_TARGETS
+    # 目录 ⇒ 递归展开 .prefab（2026-11-01 `B-217`）
+    _exp = []
+    for _t in targets:
+        if os.path.isdir(_t):
+            for _r, _d, _fs in os.walk(_t):
+                _exp.extend(os.path.join(_r, _f) for _f in _fs if _f.endswith('.prefab'))
+        else:
+            _exp.append(_t)
+    targets = sorted(_exp)
     fields = [x.strip() for x in args.fields.split(',') if x.strip()]
     rc = 0
     for path in targets:

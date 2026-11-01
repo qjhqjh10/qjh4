@@ -8044,7 +8044,7 @@ namespace CardPresentation
         //  原版两条闸读的是**同一个字段**（`RawCardScript +0x268 targeted`），落在两个 UI 态上：
         //    · 单位卡 ⇒ `NeedToChooseMinionTarget` ⇒ `choosingUnitTarget(9)`（落位后点人）；
         //    · 战术/防御卡 ⇒ `Update.c:1058-1061` 的 `get_targeted()` ⇒ `playingTargetedSpell(4)`
-        //      （`MoveIntoFieldFromHand.c:35-75` 起准星 + 溶卡；`Update.c:626-793` 选目标 / 取消回手）。
+        //      （`CardScript__MoveIntoFieldFromHand.c:24-44` 旋转/高亮 + `:72-83` 起准星 + 溶卡；`Update.c:626-793` 选目标 / 取消回手）。
         //  ⇒ 「要不要问玩家」只有一处判据：`def.Targeted == 1`（`TryBeginPlayTargetPick`）。
         //  ⚠️ **点亮两类卡都有**（2026-11-01 就地订正）：单位卡走 `ShowPotentialTargets(mode=1)`（唯一调用点
         //     `_ChooseUnitTarget…:62`）；战术卡走 `MoveIntoFieldFromHand.c:75` → `StartSpellFrom` 的内联副本
@@ -8102,7 +8102,7 @@ namespace CardPresentation
             //     · 单位卡 ⇒ `BattleManager__NeedToChooseMinionTarget.c:7-19`（`cardType==0 && targeted`）
             //       ⇒ 落地后 `_ResolvePlayCardFromHand…:849-860` 进 `choosingUnitTarget(9)`；
             //     · 战术/防御卡 ⇒ `BattleManager__Update.c:1058-1061`（`targeted != 0`）进
-            //       `playingTargetedSpell(4)`（`BattleManager__MoveIntoFieldFromHand.c:35-75` 起准星 + 溶卡；
+            //       `playingTargetedSpell(4)`（`CardScript__MoveIntoFieldFromHand.c:24-44` 旋转/高亮 + `:72-83` 起准星 + 溶卡；
             //       `Update.c:626-793` 才是「选目标 / 取消回手」那一支）。
             //   ⇒ 判据收成一处：`def.Targeted == 1`（`NeedsUnitTargetAfterDeploy` 只留作单位专用，⛔ 别再抄一份）。
             if (def.Targeted != 1) return false;
@@ -8170,7 +8170,7 @@ namespace CardPresentation
             _awaitPlayTargetIdx = idx;
             _awaitPlayTargetSlot = slot;
             // 🆕 **2026-10-27（音频线 `B9` A-05 · 新账「出对半」）**：**战术 / 附魔（非单位）targeted 卡进「等目标」态
-            //   这一刻就溶卡** —— 原版 `CardScript__MoveIntoFieldFromHand.c:60-75`：`cardType ∈ {20 Tactic, 40 Whispers}`
+            //   这一刻就溶卡** —— 原版 `CardScript__MoveIntoFieldFromHand.c:72-83`：`cardType ∈ {20 Tactic, 40 Whispers}`
             //   且 `targeted` ⇒ `StartSpellFrom` + `StartTargetedSpellAnim` + **`DissolveWholeCard(VarsGlobal+0xb0 = 0.2)`**。
             //   取消时走 `UnDissolveWholeCard` 淡回来（见 `UndissolveFieldCard`）。
             //   ⚠️ **单位卡（`cardType == 0`）不溶**：同一条判据里那一支是 `StopReflected()` 后直接 return。
@@ -11371,10 +11371,7 @@ namespace CardPresentation
                 }
                 else
                 {
-                    // 原版这时**根本不问**（`NeedsToChooseFromPool.c:142-147` 判否）⇒ 只结算平版。
-                    // 红线：不许静默 —— 说出「为什么没得选」。
-                    Ctx.Log($"（选牌面板：「{(oathCard != null ? oathCard.Name : "?")}」这次**付不起誓约**"
-                          + "（卡费 + 誓约 > 法力）⇒ **不问**，按平版只结算基础效果）");
+                    // 原版这时**根本不问**（`NeedsToChooseFromPool.c:142-147` 判否）⇒ 只结算平版。🔴 死支（账 `B-173`）：`EffectResolver.cs:17937` 的注入被 `:17930` 闸住（闸内 `:17892-17895` 就含「付得起誓约」）⇒ 这里永远走不到、不发声（真实发声走 `NoticeOathGateBlocked`）。
                 }
             }
             else
@@ -35443,7 +35440,7 @@ namespace CardPresentation
         // ------------------------------------------------------------------
         //  🆕 2026-10-27（音频线 `B9` A-05 · 新账「出对半」= `MoveIntoFieldFromHand` + `DissolveWholeCard`）
         //  判据（本轮亲读）：
-        //   · `CardScript__MoveIntoFieldFromHand.c:60-75`：`cardType == 0x14(Tactic)` 且 `targeted`
+        //   · `CardScript__MoveIntoFieldFromHand.c:72-83`：`cardType == 0x14(Tactic)` 且 `targeted`
         //     （`0x28 Whispers` 同一支）⇒ `StartSpellFrom` + `StartTargetedSpellAnim` +
         //     **`CardScript__DissolveWholeCard(VarsGlobal + 0xb0)`**。
         //   · `CardScript__DissolveWholeCard.c:9-33` 四步：① `cardCollider2D.Toggle(cardType == 10)`（战术 ⇒ **关**）
@@ -40149,7 +40146,7 @@ namespace CardPresentation
         // ==================================================================================
         //  现象：`Adaptive Strategy` 这类「平 / 誓二选一」的战术卡，法力只够卡费时，
         //    `RuleCore.PlayerChooseOps(ctx,…)` 在 `NeedsToChooseFromPool` 那一跳判否、把 `chooseoath`
-        //    从 ask 列表里**滤掉** ⇒ 面板里 `op.Verb == "chooseoath"` 那句 else（「这次**付不起誓约**」，
+        //    从 ask 列表里**滤掉** ⇒ 面板里 `op.Verb == "chooseoath"` 那句 else（原先是「这次**付不起誓约**」的 `Ctx.Log`，账 `B-173` 已删，
         //    `BattleDriver.cs` 的 `ShowAsk`）**永远走不到** ⇒ 玩家看不到任何解释
         //    （自检 `BT ✗ 而且说出了为什么` 就是这么红的）。
         //
@@ -40167,10 +40164,10 @@ namespace CardPresentation
         //    理由是 CLAUDE.md §三「不许静默失败」。调度台 2026-11-01 红批 `B115_D5` 裁定。
         //    ⛔ 它**不改变任何结算**：闸（`NeedsToChooseFromPool`）、平版/誓约版的分支、扣费一分不动。
         //
-        //  🔴 **为什么走 `Debug.LogWarning` 而不是 `Ctx.Log`**：`NetProtocol.Fingerprint` 把
-        //    `ctx.Events.Count` 算进指纹（`NetProtocol.cs:564`），而这一处只在**本地玩家的出牌 UI**
-        //    上跑（另一端手上不是同一张牌）⇒ 写 `ctx.Events` 会让「只在一端发生的日志」把 P2P 两端
-        //    指纹分叉（本项目实测过 `4×31²` 那种差，见 `DiscardEventsAddedSince` 的注释）。
+        //  🔴 **为什么走 `Debug.LogWarning` 而不是 `Ctx.Log`**：`NetProtocol.Fingerprint` **自 2026-10-31
+        //    `NET-01` 起已不再算 `ctx.Events.Count`**（`NetProtocol.cs:586`，⛔ 别加回来）；但 `ctx.Events`
+        //    没有 drain、只增，是诊断日志不是局面 —— 而这一处只在**本地玩家的出牌 UI** 上跑（另一端手上
+        //    不是同一张牌）⇒ 单端往里写日志仍会让两端的诊断事件流分叉（旧版指纹因此实测过 `4×31²` 那种差）。
         //    `[Battle]` 前缀与同文件既有的表现层日志一致（`SharedChoiceOptionsFor` 那一处）。
         // ==================================================================================
 

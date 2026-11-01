@@ -332,12 +332,26 @@ namespace CardPresentation
             //    `UIBorderGlow` 自己会出声（`[UIBorderGlow] 材质上没有 _Reveal`），⛔ 不是静默失败。
             if (im.hasGlow)
             {
-                var glow = go.AddComponent<UIBorderGlow>();
-                glow.animTime = im.glowTime;
-                glow.animDelay = im.glowDelay;
-                glow.playOnEnable = im.glowPlayOnEnable != 0;
-                glow.revealFrom = -0.5f;   // 原版 `AnimateUIMaterialProperty.floatProperty1.value = -0.5`（判据 = 判据 JSON 的 fields）
-                glow.revealTo = 1f;
+                // 🔴 2026-11-01（`B-205`）**挂错节点**（与 `Shell/ForgeTab.cs:1063` 同结构、同一个坑）：
+                //   原版 `UIBorderGlow` 与那颗 `Image` 是**同一个 GameObject**；而我们的 `ImageQuad.Create`
+                //   （`Battle/ImageQuad.cs:124-125`）**恒建子对象** ⇒ 挂在 `go`（父）上时 `GetComponent` 恒 null、
+                //   `CacheMaterial` 永远取不到（还会每帧重挂一条协程，见 `UIBorderGlow.MaxMaterialRetries`）。
+                //   ⇒ 挂到 `quad.gameObject`。⚠️ 本层**没有**任何地方调 `Play()`（`playOnEnable` 两件都是 0）
+                //   —— 这次只修「挂在哪」，⛔ **不顺手加触发**（那会是原版没有的一拍）。
+                if (quad == null)
+                {
+                    Debug.LogWarning("[CardDisplayEffects] `" + im.name + "` 原版挂着 `UIBorderGlow`，但这一件尺寸为 0 "
+                                   + "⇒ 渲染件没建、**组件不挂**（⛔ 不静默）");
+                }
+                else
+                {
+                    var glow = quad.gameObject.AddComponent<UIBorderGlow>();
+                    glow.animTime = im.glowTime;
+                    glow.animDelay = im.glowDelay;
+                    glow.playOnEnable = im.glowPlayOnEnable != 0;
+                    glow.revealFrom = -0.5f;   // 原版 `AnimateUIMaterialProperty.floatProperty1.value = -0.5`（判据 = 判据 JSON 的 fields）
+                    glow.revealTo = 1f;
+                }
             }
             // 🔴 2026-10-27（B9_W28MOUNT）：`AnimateUIMaterialProperty` —— 原版这两件**同时**挂着
             //   `UIBorderGlow` 与它，**组件次序** = `Image → UIBorderGlow → [CinemachineIndependentImpulseListener] →

@@ -11059,6 +11059,7 @@ namespace RuleEngine
         ///   现在三档，按原版 `FilterMethods.CheckIfMeetsCriteria(card, handEffect.targetCriteria)` 逐维落：
         ///     · `CardCriteria.FromTarget(条目上的 Target)` —— `Kind` / `KeywordFilter` / `NameFilter` 三维；
         ///     · **`SubtypeFilter`** 单独补一道（`CardCriteria.FromTarget` 不看它）
+        ///     🔴 2026-11-01（`B113X1` · 铁律 5 就地订正）：`CardCriteria.FromTarget` **现在会拷 `SubtypeFilter`**（`CardCriteria.cs`）；上面这道「单独补一道」因此**已冗余但保留** —— 幂等，且挡住「以后又有人把它从 FromTarget 摘掉」的回退。
         ///       —— `Beast Snagga Nob` 的 `all Beasts in your hand` 靠它；
         ///     · **代词那一族**（`give them …` / `give it …`，`Target.Kind == "prev"`）走解析层新填的
         ///       `EffectTargetSpec.PrevAntecedent`（= 上一条 `drawtype` 那个「抽的是哪一类牌」的词，
@@ -11173,6 +11174,7 @@ namespace RuleEngine
         ///
         /// 🔴 **2026-10-18（`W4` 整改 · 第三轮）补一道兵种筛**：`CardCriteria.FromTarget`
         ///    读的是 `Kind` / `KeywordFilter` / `NameFilter`，**不看 `SubtypeFilter`** ——
+        ///     🔴 2026-11-01（`B113X1` · 铁律 5 就地订正）：`CardCriteria.FromTarget` **现在会拷 `SubtypeFilter`**（`CardCriteria.cs`）；上面这道「单独补一道」因此**已冗余但保留** —— 幂等，且挡住「以后又有人把它从 FromTarget 摘掉」的回退。
         ///    而 `Beast Snagga Nob` 的 `all **Beasts** in your hand` 正是靠 `SubtypeFilter` 表达的
         ///    ⇒ 不补这一道的话，那条记录会**发给每一个后进手牌的部队**（卡面只管野兽）——
         ///    「打得比卡面宽」的静默错。（判据与写法 = `GrantHandBuffForTargets` 收候选那一段，
@@ -17989,8 +17991,8 @@ namespace RuleEngine
                         }
                         // 建池：原版 `GetUnitsInPlayList` 按 `friendlyUnits/enemyUnits` 两组取；`AddSide` 会跳过**已死**的单位
                         //（原版 `GetUnitsInPlayPooledList.c:47-86` 也在「不在场且非 dying 档」时跳过 ⇒ 同向）。
-                        if (criteria.FriendlyUnits > 0) AddSide(pool, ctx.Players[owner], false, false, -1);
-                        if (criteria.EnemyUnits > 0) AddSide(pool, ctx.Players[1 - owner], true, false, owner);
+                        if (criteria.FriendlyUnits > 0) AddSide(pool, ctx.Players[owner], false, false, -1, includeRemnants: criteria.IncludeRemnants != 0);
+                        if (criteria.EnemyUnits > 0) AddSide(pool, ctx.Players[1 - owner], true, false, owner, includeRemnants: criteria.IncludeRemnants != 0);
                         // 卡种白名单（`includeHero +0x16` = 督军 / `includeMinions +0x17` = 部队）+ `includeRemnants +0x1b`。
                         // ⚠️ `includeSpells/includeWhispers` 在棋盘上无边（原版按 `cardType 20/40` 排除，我们棋盘只有 0/10 两类）。
                         for (int i = pool.Count - 1; i >= 0; i--)

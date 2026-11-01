@@ -355,7 +355,7 @@ namespace CardPresentation
                 //      `Battle/SettingsPanel.cs` · `Battle/WfSlider.cs` · `Core/Tooltip.cs`）。
                 Debug.LogWarning("[WaitBanner] 提示条底板没建起来（`40k_popup` 没取到？）—— "
                                  + "填充层一并跳过（它挂在框下面）；整条提示不显示（`Visible` 恒假）。"
-                                 + "取图请跑 `工具/import_original_art.py`");
+                                 + "取图请跑 `python 工具/import_original_art.py --apply`");
             }
             else
             {
@@ -502,7 +502,7 @@ namespace CardPresentation
                 //    （它挂在框下面）、整条提示不显示（`Visible` 恒假，因为它的判据就是 `_popup`）。
                 Debug.LogWarning("[WaitBanner] 提示条底板没建起来（`40k_popup` 没取到？）—— "
                                  + "填充层一并跳过（它挂在框下面）；整条提示不显示（`Visible` 恒假）。"
-                                 + "取图请跑 `工具/import_original_art.py`");
+                                 + "取图请跑 `python 工具/import_original_art.py --apply`");
             }
             else
             {

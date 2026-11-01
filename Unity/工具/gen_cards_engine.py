@@ -3024,6 +3024,64 @@ def condition_rows_of(cid, name, trow, cond_names, report, truth_by_path):
 
 
 # ==========================================================================================
+#  🆕 v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反向对账 `B-177`）：
+#    **卡级 `cardTargetCriteria` 的其余 36 格** → 逐卡 `cardTargetCriteriaSet` 列
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
+#   · 字段：`RawCardScript.cardTargetCriteria`（`+0x280`，类型 `TargetCriteria`
+#     —— 与 `cardAbilities[].targetCriteria` **同一个类**，只是挂在**卡**对象上）。
+#   · 唯一消费者 = `RawCardScript__IsValidTarget.c:8-44`：
+#       `:13` `cardTargetCriteria == null` ⇒ 报错并返回假；`:26` `CardScript.IsInPlay(目标)`；
+#       `:30/:36/:42` 三道附加闸（ward / camouflage / `HasCurrentTrait(0x46)`）；
+#       `:44` `FilterMethods.CheckIfMeetsCriteria(…, cardTargetCriteria, …)`。
+#     ⇒ 语义 = 「**这张卡打出时能点谁**」（与 ability 级 `targetCriteria` 是两个落点，⛔ 别混）。
+#   · `conditionsFilter` / `excludeCondition` **不在本列**：它们已经由 `unitConditions` 的
+#     `role="cardtarget"`（`ab=-3, lg=-1`）那一行落成 `cond`/`ex`（与 v25/v26/v27 同一分工）。
+#   · 本列每张卡都落（`targetsAffected == 0 (any)` 也照落）：与「行式」那几列不同 —— 这里一格
+#     就是一整条 criteria，「`ta = 0`」是一个**具体的**选择（原版 `GetTargets` 对它直接 `return 1`），
+#     而且本列只有一行、不会刷噪声（行式那几列的跳过规则见 `criteria_carries_targets`）。
+#   · 形状：`cardTargetCriteriaSet: {36 格}`（**直接复用 `criteria_set_of`**，⛔ 别另写字段表；
+#     `has_player_turn=False` —— `playerTurn` 属于 `BoardCriteria`，纯 `TargetCriteria` 结构上没有）。
+#   · 🔴 **`-1` = 未知**（缺键 / 坏值），⛔ 不是「默认 criteria」（全 0 的 `ta = any` 是具体选择）。
+#
+# ⚠️ **本列只落数据**：`CardDef.CardTargetCriteria` 是**载体**（本笔已接反序列化），今天**没有消费者**；
+#   点选路（把这一格接进 `EffectText.AssignCardTargetFallback` / `IsValidTarget` 的等价物）是
+#   **结构级改动**，另立账（⛔ 不在本笔）。
+# ⚠️ **为什么【不】把它塞进 `unitConditions` 的行式载体**：那一列的行会被
+#   `EffectText.AssignCardTargetFallback` 逐卡消费（`targeted != 1` ⇒ 每卡一条 notice；
+#   `targeted == 1` ⇒ 给每条 op 贴 `TargetCondition`）⇒ 多落 363 行会**改动那个既有消费面**，
+#   而那个文件不在本代理白名单里。本列只加载体、不动任何既有消费路径（零行为变化）。
+CARD_TARGET_CRITERIA_REPORT = {"cards": 0, "no_truth": 0, "bad": [], "set_bad": [],
+                               "set_unresolved": [], "set_rows": 0,
+                               "ta_zero": 0, "ta_nonzero": 0}
+
+
+def card_target_criteria_set_of(cid, name, trow, truth_by_path, report):
+    """一张卡 → `{36 格}`；真值里没有这张卡 / 这一格不是对象 ⇒ `None`（调用方**不落列**）。
+
+    口径 / 判据 / 为什么不进 `unitConditions` 的行式载体 → 上面那一段（⛔ 别抄第二份）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    cr = trow.get("cardTargetCriteria")
+    if not isinstance(cr, dict):
+        # 与 `criteria_set_of` 的区别：那里把「整条 criteria 缺失」也当成一条**已落**的坏行
+        # （行式载体不能丢行）。本列是**整列缺席** ⇒ 不落列 + 出声（`report["bad"]` 由调用方打印）。
+        report["bad"].append((cid, name, cr))
+        return None
+    ta = cr.get("targetsAffected")
+    if isinstance(ta, int) and not isinstance(ta, bool):
+        if ta == 0:
+            report["ta_zero"] += 1
+        else:
+            report["ta_nonzero"] += 1
+    report["cards"] += 1
+    return criteria_set_of(cid, name, cr, None, truth_by_path, report,
+                           label="cardTargetCriteria.", has_player_turn=False)
+
+
+# ==========================================================================================
 #  🆕 2026-10-21（引擎线 `T03·b` · 回合流程残余）：
 #    **① 开局加成三列** · **② `skipCardDraw` 手牌效果的生产列**
 # ==========================================================================================
@@ -4825,6 +4883,15 @@ def trigger_ability_indices_of(cid, name, trow, report):
         return None
     out = []
     trig_seen = {}
+
+    # 🆕 v46（`B113W11` · `B-04` · 判据 `报告/B110_E5.md` §四 补丁 A-1）：
+    #   原版 `CardAbility.triggerValue`（`+0x20`，`dump.cs:20340`；`.c:158` 的
+    #   `*(int*)(lVar2+0x20) == 1`）= 「这条 ability 只有第 N 次触发时才有效」。
+    #   缺键 / 坏值 ⇒ **`-1` 未知**（⛔ 不是 0：`0` = 「明确 val 0」，两者必须分得开）。
+    def _tv(a):
+        v = a.get("triggerValue")
+        return v if isinstance(v, int) and not isinstance(v, bool) else -1
+
     for i, ab in enumerate(trow.get("cardAbilities") or []):
         if not isinstance(ab, dict):
             report["bad"].append((cid, name, "cardAbilities[%d]" % i, "不是对象"))
@@ -4835,7 +4902,7 @@ def trigger_ability_indices_of(cid, name, trow, report):
             continue                 # ⛔ 不猜 0
         logic = ab.get("abilityLogic") or []
         if not logic:
-            out.append({"ab": i, "lg": -1, "trigger": tg})
+            out.append({"ab": i, "lg": -1, "trigger": tg, "triggerValue": _tv(ab)})
             report["empty_logic"] += 1
             report["rows"] += 1
             trig_seen.setdefault(tg, set()).add(i)
@@ -4844,7 +4911,7 @@ def trigger_ability_indices_of(cid, name, trow, report):
             if not isinstance(lg, dict):
                 report["bad"].append((cid, name, "ab%d.lg%d" % (i, j), "abilityLogic 不是对象"))
                 continue
-            out.append({"ab": i, "lg": j, "trigger": tg})
+            out.append({"ab": i, "lg": j, "trigger": tg, "triggerValue": _tv(ab)})
             report["rows"] += 1
             trig_seen.setdefault(tg, set()).add(i)
     out.sort(key=lambda r: (r["ab"], r["lg"]))
@@ -4942,6 +5009,12 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
         abil = []
         for a in (r.get("cardAbilities") or []):
             tg = a.get("trigger")
+            # 🆕 v46（`B113W11` · `B-04` · 判据 `报告/B110_E5.md` §四 补丁 B）：
+            #   与卡表 `triggerAbilityIndices` 那一列**同一条取值口径**（`CardAbility.triggerValue +0x20`）；
+            #   缺键 / 坏值 ⇒ `-1` 未知（⛔ 不是 0）。消费端 = `CardDatabase.LoadEnchantmentTemplates`
+            #   → `CardDatabasePartial_B110E5.cs:75` 的 `TriggerValue = a.triggerValue`。
+            _tv = a.get("triggerValue")
+            _tv = _tv if isinstance(_tv, int) and not isinstance(_tv, bool) else -1
             logic = []
             for lg in (a.get("abilityLogic") or []):
                 tc = lg.get("targetCriteria") or {}
@@ -4952,6 +5025,7 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
                     "fm": truth_int(lg, "furtherMultiplier", -1),
                 })
             abil.append({"trigger": tg if isinstance(tg, int) and not isinstance(tg, bool) else -1,
+                         "triggerValue": _tv,
                          "logic": logic})
         _wp = _tri_bool(r.get("whileInPlayAnim"))
         if _wp is None:
@@ -4998,7 +5072,8 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
             "⛔ **不进** `cards_engine.json` 的 `cards[]`、不改它的 `count`（那些模板不是可玩卡）。"
             "用途 = 账 L1044 的 `HasEnchantmentWhileInPlay` 需要读**附魔卡自己**的 `whileInPlayAnim`，"
             "而那 3 张为真的模板都在本表里。"
-            "口径：`whileInPlayAnim` 三态（-1 未知 / 0 / 1）；`abilities` 只带四格标量 "
+            "口径：`whileInPlayAnim` 三态（-1 未知 / 0 / 1）；`abilities` 带 `trigger` / `triggerValue`"
+            "（= 原版 `CardAbility.trigger(+0x10)` / `triggerValue(+0x20)`；缺键 ⇒ -1 未知）与四格标量 "
             "`ca`(chosenAbility) `pa`(playersAffected) `ta`(targetsAffected) `fm`(furtherMultiplier)，"
             "buff/damage/summon 正文**不在本表**；`permanentBuffs` 与卡表 v37 同形（稀疏）；"
             "`owners` = 谁挂它（`id` / `buffType` / `trigger` / `inPool`）；排序 = uniqueId 升序。"
@@ -5255,6 +5330,10 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         _aac = ability_acting_criteria_of(uid, name, r, truth_by_path or {},
                                           ABILITY_ACTING_CRITERIA_REPORT)
         if _aac is not None: entry["abilityActingCriteria"] = _aac
+        # 🆕 v46（`B113W11` · 对账 `B-177`）：与主循环**落同一批列**（卡级 36 格载体）
+        _ctc = card_target_criteria_set_of(uid, name, r, truth_by_path or {},
+                                           CARD_TARGET_CRITERIA_REPORT)
+        if _ctc is not None: entry["cardTargetCriteriaSet"] = _ctc
         _aapc = active_ability_pick_criteria_of(uid, name, r, truth_by_path or {},
                                                 ACTIVE_ABILITY_PICK_CRITERIA_REPORT)
         if _aapc is not None: entry["activeAbilityPickCriteria"] = _aapc
@@ -5939,6 +6018,13 @@ def build():
                                 truth_by_path)
         if _uc:
             entry["unitConditions"] = _uc
+        # ---- 🆕 v46（`B113W11` · 对账 `B-177`）：**卡级** `cardTargetCriteria` 的其余 36 格 ------
+        # 判据 / 形状 / 为什么与 `unitConditions` 的 `role="cardtarget"` 分工
+        # → `card_target_criteria_set_of` 上面那一段。⚠️ **只落数据、不接线**（点选路另立账）。
+        _ctc = card_target_criteria_set_of(cid, name, trow, truth_by_path,
+                                           CARD_TARGET_CRITERIA_REPORT)
+        if _ctc is not None:
+            entry["cardTargetCriteriaSet"] = _ctc
         # ---- 🆕 2026-10-23（引擎线 · `B-16` 残余）：`cardAbilities[].trigger` 的全量集合 ----------
         # 判据 / 形状 / 「缺列 ≠ 空数组」的契约 → `ability_triggers_of` 上面那段。
         # ⚠️ **每张卡都落**（没 ability 的卡落 `[]`）—— 只有「真值里没有这张卡」才不落。
@@ -6707,7 +6793,8 @@ def build():
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。
                                #      ⚠️ 同表还顺带落了 **v41 `abilityMutations` + v42 `triggerAbilityIndices`** —— 那两列的代码在**第九十五会话**就提交了，只是表一直没重生成（现读盘上仍是 v40）。本次 `--write` 把它们一并落盘；两列都「只落数据、不接线」⇒ 零行为变化（`CardDatabase` **早已接**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c))`；缺的是**消费者** —— `CardDef.TriggerAbilityIndices` 今天还没人读）。
-        "version": 45,         # v45（2026-10-30 · 第一百零一会话 · 数据契约）= 新增**显式布尔** `hasNormalAbilityBoardCriteria`（0/1，逐卡；`board_gate_of` 返回 None ⇒ 0）。理由：`JsonUtility` 把缺失的可序列化类字段物化成默认实例 ⇒ `NormalAbilityBoardCriteria == null` 恒假 + 每次 `Load()` 刷 ≈4,508 行错误（`报告/B100_X10.md` §A）。⚠️ 本版**只落数据**：读取侧（`CardDef` / `CardDatabase`）还没接，接之前行为不变。⛔ 别拿「三格都 == MissingIndex」去猜。
+        "version": 46,         # v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反账 `B-177`）= 加一列 `cardTargetCriteriaSet`（原版 `RawCardScript.cardTargetCriteria +0x280` 的**其余 36 格**，逐卡一个对象；`conditionsFilter`/`excludeCondition` 仍在 `unitConditions` 的 `role="cardtarget"` 行）。⚠️ **只落数据、不接线**（载体 `CardDef.CardTargetCriteria` 已接反序列化，消费端/点选路另立账）⇒ 零行为变化。同一版还补了 `triggerAbilityIndices` / 附魔模板 `abilities` 的 **`triggerValue`**（`B-04`；`CardAbility.triggerValue +0x20`，缺键 ⇒ -1 未知）。判据 → `报告/B113W11_生成器两列.md`。
+        # v45（2026-10-30 · 第一百零一会话 · 数据契约）= 新增**显式布尔** `hasNormalAbilityBoardCriteria`（0/1，逐卡；`board_gate_of` 返回 None ⇒ 0）。理由：`JsonUtility` 把缺失的可序列化类字段物化成默认实例 ⇒ `NormalAbilityBoardCriteria == null` 恒假 + 每次 `Load()` 刷 ≈4,508 行错误（`报告/B100_X10.md` §A）。⚠️ 本版**只落数据**：读取侧（`CardDef` / `CardDatabase`）还没接，接之前行为不变。⛔ 别拿「三格都 == MissingIndex」去猜。
         # v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）= 加一列 `abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28` 逐 `(ab,lg,挂点)` 行，形状 `[{ab,lg,at,src}]`；口径 → `ability_effect_texts_of` 上面那段）。现读 38 行 / 31 值 / 31 卡；🔴 **只落数据、不接线**（消费端尚未接）⇒ 零行为变化（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）；⚠️ `--check` 会报「已过期」—— 需要一次 `--write` 落盘。⛔ 别把这一版当成「已经接了」。
         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
                                # v39（2026-10-28 · 执行代理 `A4` · 判据 `判据/B91_P3_战斗数据列缺口.md`）= 加卡表 `abilitySummon` 列（原版 `SummonCriteria` 七格 `createAtPos` / `moveToPos` / `summonAllTargets` / `chooseCardInPlay` / `keepEffects` / `shouldRemoveFromCemetery` / `isForEnemy`；**只落数据、不接线**⇒ 不改指纹；口径 → `ability_summon_of` 上面那段）
@@ -8574,10 +8661,21 @@ def main():
         print(f"  ⚠️ 真值快照里没有的卡 {_aapr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
     for _bad in _aapr["bad"]:
         print(f"  🔴 `activeAbilityPickCriteria` 坏行：{_bad} ⇒ 整行**不落**并出声")
-    # 四列共用的 `criteria_set_of` 出声（`set_bad` / `set_unresolved`）—— ⛔ 不许静默吞掉。
+    # ---- 🆕 v46（`B113W11` · 反账 `B-177`）：卡级 `cardTargetCriteria` 的 36 格载体 ----------
+    _ctcr = CARD_TARGET_CRITERIA_REPORT
+    print(f"目标判据⑥    `cardTargetCriteriaSet` 落值 **{_ctcr['cards']}/{doc['count']}** 张"
+          "（原版 `RawCardScript.cardTargetCriteria`（`+0x280`）的 36 格；每张卡一个对象）")
+    print(f"             按 targetsAffected（卡数）：`any(0)` **{_ctcr['ta_zero']}** 张 · 非 0 "
+          f"**{_ctcr['ta_nonzero']}** 张（⚠️ `any` 也照落 —— 它是一个**具体的**选择、且本列只有一行）")
+    print("             ⚠️ 只落数据、不接线：载体 = `CardDef.CardTargetCriteria`；点选路另立账")
+    if _ctcr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_ctcr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _bad in _ctcr["bad"]:
+        print(f"  🔴 `cardTargetCriteriaSet` 坏值：{_bad} ⇒ 整列**不落**并出声")
+    # 五列共用的 `criteria_set_of` 出声（`set_bad` / `set_unresolved`）—— ⛔ 不许静默吞掉。
     for _name, _rep in (("activeAbilityTargets", _aatr), ("abilityTargetCriteria", _atcr),
                         ("abilityLevelCriteria", _alcr), ("abilityActingCriteria", _aacr),
-                        ("activeAbilityPickCriteria", _aapr)):
+                        ("activeAbilityPickCriteria", _aapr), ("cardTargetCriteriaSet", _ctcr)):
         for _cid, _nm, _f, _v, _why in _rep["set_bad"]:
             print(f"  🔴 {_name} 的 criteria 坏值：{_cid} {_nm} · `{_f}` = {_v!r}（{_why}）⇒ 该格落 **-1**")
         for _cid, _nm, _f, _pid in _rep["set_unresolved"]:
@@ -8598,6 +8696,12 @@ def main():
                 _crit_rows_all += 1
                 if list((_r.get("criteria") or {}).keys()) != _crit_expected:
                     _crit_key_bad += 1
+        # 🆕 v46（`B113W11` · `B-177`）：卡级那一列是**单个对象**（不是行数组），单独过同一道闸。
+        _ctc_obj = _c.get("cardTargetCriteriaSet")
+        if _ctc_obj is not None:
+            _crit_rows_all += 1
+            if list(_ctc_obj.keys()) != _crit_expected:
+                _crit_key_bad += 1
     if _crit_key_bad:
         print(f"  🔴 **v25 criteria 键集自检失败 {_crit_key_bad}/{_crit_rows_all} 行** —— "
               "键必须是 `playerTurn` + 36 格（`COUNT_SET_*` 的顺序）⇒ **一个字节都不写**")

@@ -248,7 +248,7 @@ namespace RuleEngine
                 if (b.IsKeyword)
                 {
                     string trait = b.TraitRec != null ? b.TraitRec.Trait : b.Name;
-                    if (string.IsNullOrEmpty(trait)) continue;
+                    if (string.IsNullOrEmpty(trait) || TraitRecAlreadyShown(u, b.TraitRec)) continue;   // 🆕 2026-11-01（`B113W3` · 账 `B-126`）：限时关键词的 `TraitRec` **已经是 ③ 那条记录同一个实例**（`UnitState.ApplyTraitEffect:2980-2995`）⇒ ③ 才是正本，② 再出一行就是印两遍。⚠️ 身份只认 `ReferenceEquals`（见 `TraitRecAlreadyShown`），⛔ 别改成按字符串比
                     if (trait == KeywordTable.MarkOfChaos)
                     {
                         // 限时 mark 也进四神聚合（`ApplyMarkBody` 今天不带时长 ⇒ 池内 0 条；防御性地收）
@@ -875,5 +875,27 @@ namespace RuleEngine
         /// 我们 `CardDefPartial_B94B16.cs:70` 的 `trait 名 ↔ id` 表里拼作 `dontReturnFerocity`）。
         /// ⚠️ 只用于**显示这一行**：引擎的「留在场上」判据读的是 `UnitState.FerocityStay`，不读这个关键词。</summary>
         public const string FerocityStayTrait = "dontReturnFerocity";
+
+        /// <summary>
+        /// **②→③ 去重**（账 `B-126` · 2026-11-01 执行代理 `B113W3`）：限时关键词那条 `TempBuff` 上挂着
+        /// `TraitRec`（生产点 `EffectResolver.ApplyOneGain`，`EffectResolver.cs:12454-12472`），
+        /// 而那条记录**本身就是 `_traitEffects` 里的一员**（`UnitState.ApplyTraitEffect:2980-2995`：
+        /// 新建时 `_traitEffects.Add(rec)` 再 `return rec`；合并进既有记录时返回的也是**同一个实例**）
+        /// ⇒ ③ 那一段（原版 `activeEffects(+0x108)` 的**正本**）已经会出这一行，② 再出一次就是同一件事印两遍。
+        /// <para>⚠️ **身份只认 `ReferenceEquals`**：同名不同关键词的两条记录（`TimingBits` / `MarkOfChaosType` /
+        /// `Extrinsic` 任一不同就是两条，见 `UnitState.FindTraitEffect` 的合并键）必须**各出一行** ——
+        /// 按字符串比会把它们误并成一条，那比重复更糟。</para>
+        /// <para>⚠️ 记录**不在** `TraitEffects` 里（例如到期已被 `ExpireTraitEffect` 摘掉、`TempBuff` 还没收）⇒
+        /// 返回 `false`、照旧从 ② 出行：⛔ 不能只凭「有 `TraitRec`」就无条件吞掉，那会让这一行凭空消失。</para>
+        /// <para>⛔ 纯读：不改任何 `UnitState` 字段、不发事件、不写 `ctx.Log` ⇒ `ruleprobe play` 指纹不变。</para>
+        /// </summary>
+        static bool TraitRecAlreadyShown(UnitState u, UnitState.TraitEffectRecord rec)
+        {
+            if (u == null || rec == null) return false;
+            var recs = u.TraitEffects;
+            for (int i = 0; i < recs.Count; i++)
+                if (ReferenceEquals(recs[i], rec)) return true;
+            return false;
+        }
     }
 }

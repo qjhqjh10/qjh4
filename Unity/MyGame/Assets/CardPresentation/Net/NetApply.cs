@@ -202,7 +202,7 @@ namespace CardPresentation.Net
         //  `DeepHash` 两端取的**是同一个程序点**（`BeginTurn` 之前）。
         //
         //  ⚠️ 为什么用弱表而不是 `ctx` 上的字段：`BattleContext` 归 `RuleEngine/**`（本轮不在白名单），
-        //     而且**加字段会进制指纹**（`NetProtocol.Fingerprint` 会数 `Events.Count` 那一族）。
+        //      而「加字段会进制指纹」这条**已过期**：旧版 `NetProtocol.Fingerprint` 数 `Events.Count`，自 2026-10-31 `NET-01` 起已不含。
         //  ⚠️ 为什么不用 `ctx.Turn == 0 && !ctx.MulliganOpen` 当判据：对「没有换牌阶段、`BeginTurn`
         //     还没跑」的裸 `BattleContext` 它**恒真**（自检夹具直接调 `NetApply.Apply`）——
         //     那会凭空开一个回合，**静默改状态**。

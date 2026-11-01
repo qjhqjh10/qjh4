@@ -120,6 +120,49 @@ Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`�
   python 工具/extract_missing_shaders.py --arena-anims --check   # 只体检（找根 + 走树 + 报外部引用），不写盘
   python 工具/extract_missing_shaders.py --arena-anims           # 真写三个小包
 
+--arena-flood 模式（🆕 2026-11-01 · `B113W10` · 账 `B-42`）
+--------------------------------------------------------
+把 **Genestealers 水漫**那三件打进随包（判据与逐件 pid → `GENESTEALERS_SRC` 上面那一整段）：
+  · Material `Battle Arena Genestealers Water Floor`
+  · Shader   `Everguild/FX/Genestealers Flood`
+  · 它的 3 张贴图（`Genestealers Ground reflections` / `rain_ripples` 同包自带；
+    `Noise Combined` 在 `duplicateassetisolation` ⇒ 走**独立依赖包**）
+产物两个：`wf_arena_genestealers.bundle` + `wf_arena_genestealers_noise.bundle`。
+🔴 **不写进 `wf_arena_shaders.bundle`**：那一份里已有 7 个战场 shader（另一个源包），
+  本工具一次只读一个 `src` ⇒ 重写会静默删掉它们。新名字照样命中
+  `WarpforgeShaderLoader.ArenaBundlePattern = "wf_arena_*.bundle"`、
+  `ScenarioBlendables.ShippedBundles()` 又是枚举整个目录 ⇒ 运行时等价。
+
+用法：
+  python 工具/extract_missing_shaders.py --arena-flood --check   # 只体检（两步都 dry-run），不写盘
+  python 工具/extract_missing_shaders.py --arena-flood           # 真写两个包
+
+--arena-shaders 模式（🆕 2026-11-01 · `B113_X3` · 账 `B-226`）
+------------------------------------------------------------
+**重出 `wf_arena_shaders.bundle`** 的专用入口（无条件，不看「当前缺哪些 shader」的差值）。
+
+🔴 **为什么需要单开一个入口**（2026-11-01 实读，判据 → `报告/B113X3_脚本零guid与战场包.md`）：
+  · 盘上那一份 `wf_arena_shaders.bundle`（143,037 B · mtime 2026-09-21 · 内层
+    `CAB-68cc81d35f88d5ad277f2717d6e1ac25` · 7 个 Shader · AssetBundle pid 1）**就是**
+    `repack(battlesharedresources_assets_all.bundle)` 的产物 —— 源包里也**恰好只有 7 个 Shader**、
+    内层 CAB 名与 pid 逐条相同（2026-11-01 UnityPy 1.25.3 双侧实扫）。
+  · 但 `run_arenas()`（`--arenas`）原来的 slug 规则把 `battlesharedresources` 那份写成
+    **`wf_arena_shared.bundle`**（盘上不存在）⇒ **没有任何模式能产出这一份原名的包** ——
+    它一旦被删 / 被覆盖，那 7 个战场 shader 就只能靠改代码重出。
+    症状：利维坦的肉不搏动、触手是冻住的棍子（`Everguild/FX/Tyranids/Pulsating Mesh` /
+    `Tyranid Tentacle` 只在 `battlesharedresources` 里）。
+  · 2026-11-01 起 `run_arenas()` 的 slug 规则**已改**成写回 `DEST_ARENA`（不再产出 `wf_arena_shared`）
+    ⇒ `--arenas` 顺带能重出；本模式是**独立于 `--arenas` 差值判断**的那条保险
+    （`run_arenas()` 把 `wf_arena_shaders.bundle` 算进「已有」集合 ⇒ 文件在的时候它不会重打）。
+
+产物 = `wf_arena_shaders.bundle`（`--out` 可覆盖 ⇒ **先打到临时目录做 dry 复核**，别直接盖）。
+
+用法：
+  python 工具/extract_missing_shaders.py --arena-shaders --check          # 只读：印源包 7 个 shader
+  python 工具/extract_missing_shaders.py --arena-shaders --out <临时路径>  # 打到临时目录（不碰随包）
+  python 工具/extract_missing_shaders.py --arena-shaders --verify         # 只读：产物 ↔ 源包逐条对账
+  python 工具/extract_missing_shaders.py --arena-shaders --out <临时路径> --verify   # 打完立刻对账
+
 ⚠️ 抽出来的仍是**原版的编译字节码**，不是自建 shader。
    ✅ **2026-09-19 更正**：这里原写「要进发布版本必须换成自建替代（见交接文档的红线）」——
    **那条红线已于 2026-09-18 由用户取消**（本项目是个人学习用途，原版美术/语音/文本/shader
@@ -135,6 +178,8 @@ Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`�
 |---|---|---|---|---|
 | 默认（extra） · `--builtin` · `--arenas` | **`repack()`** | `wf_shaders_extra` · `wf_builtin` · `wf_arena_*` | ⛔ **不改**（沿用源包 CAB 名 —— ⚠️ **有条件的**，见 A801 那段） | 别份**照裁**（只留它的 Shader） |
 | `--prefabs` · 🆕 `--arena-anims` · 🆕 `--booster-mats` | **`repack_tree()`** | `wf_prefabs_extra` · `wf_menus_extra` · `wf_boosters_extra` · 卡包那几包 · 🆕 `wf_arena_anims_{arena1,arena2,shared}` | ✅ **整组改名**（`new_base` / `new_base_1/2/…`） | 依赖树引用到的别份**整份留**（按需切流） |
+| 🆕 `--arena-flood`（2026-11-01 `B113W10`） | **`repack_tree()`** ＋ `merge_imports_into_bundle()`（补外部贴图，**不是第三个口**） | `wf_arena_genestealers` · `wf_arena_genestealers_noise` | ✅ **改**（`CAB-wfarenags` / `CAB-wfarenagsnoise`） | 依赖树引用到的别份**整份留**（按需切流） |
+| 🆕 `--arena-shaders`（2026-11-01 `B113_X3`） | **`repack()`**（与 `--arenas` 同一个口；本模式只是**无条件**重出那一份） | `wf_arena_shaders`（源 `battlesharedresources` 的固定产物名） | ⛔ **不改**（沿用源包 CAB 名，同 `--arenas`） | 别份**照裁**（只留它的 Shader） |
 
 > 🆕 **2026-10-29（B97_W32）补一行：`merge_imports_into_bundle()` 不是第三个重打包口** ——
 > 主产物仍走 `repack_tree()`，最后照旧交给 `_write_bundle()`（容器/预载表 / 留哪几个内层文件 / 丢流
@@ -846,6 +891,57 @@ def controller_names(bundle_dir_name):
 ARENA_SRC = os.path.join(BUNDLE_DIR, "battlesharedresources_assets_all.bundle")
 DEST_ARENA = os.path.join(DEST_DIR, "wf_arena_shaders.bundle")
 
+# =====================================================================================
+# 🆕 2026-11-01（`B113W10` · 账 `B-42`）：**Genestealers 水漫**那一个材质。
+#
+# 消费方 = `CardPresentation/Battle/ScenarioBlendables.cs` 的 `TryLoadOriginalMaterial`
+#   （`:1355` 调、`:1497` 实现）：原版 `RendererMaterialBlender.customMaterial` 那件资产是
+#   **bundle 里的一个 Material**，按**材质名**从 `StreamingAssets/WarpforgeVFX/*.bundle` 取；
+#   取不到就 **null + 出声**（`SumpOverspill` 水漫整套没效果）。
+#   shader 那半：`WarpforgeVFX/Runtime/WarpforgeShaderMap.cs:297` 已登记
+#   `"Everguild/FX/Genestealers Flood"`，`WarpforgeShaderLoader` 按 **`wf_arena_*.bundle` 通配**
+#   加载并 `LoadAllAssets<Shader>()` 注册。
+#
+# 🔴 **为什么不写进 `wf_arena_shaders.bundle`（虽然有这个名字的常量 `DEST_ARENA`）**：
+#   那一份里**已经装着 7 个战场 shader**（2026-11-01 实扫，内层 `CAB-68cc81d35f88d5ad277f2717d6e1ac25`）：
+#     `Everguild/FX/Tyranids/Pulsating Mesh`（23 个网格在用）· `Everguild/FX/Tyranids/Tyranid Tentacle`（9 个）
+#     · 5 个 `Hidden/VFX/Aeldari …`。
+#   它们来自**另一个源包**（`battlesharedresources_assets_all.bundle`），而 `repack()` / `repack_tree()`
+#   **一次只读一个 `src`**（文件头那张表：「一个产物 = 一个源包」）⇒ 拿本件重写那一份会**静默删掉那 7 个**
+#   （症状：利维坦的肉不搏动、触手是冻住的棍子 —— 正是 2026-09-21 建那个包的起因）。
+#   ⇒ **另开一个产物** `wf_arena_genestealers.bundle`：名字照样命中
+#     `WarpforgeShaderLoader.ArenaBundlePattern = "wf_arena_*.bundle"`，
+#     并且 `ScenarioBlendables.ShippedBundles()` 是**枚举整个目录** ⇒ 运行时行为与写进那一份完全等价。
+#
+# 🔴 **源包里三件的真身（2026-11-01 UnityPy 1.25.3 实扫，`scenes_scenes_battlearenagenestealers.bundle`）**：
+#   · Shader `Everguild/FX/Genestealers Flood`           pid **36** @`CAB-dfc5d1957f6f8ec53aad732ef391cf25.sharedAssets`
+#   · Material `Battle Arena Genestealers Water Floor`   pid **18** @**同一份**（它的 `m_Shader` 是 `m_FileID=0` 同份引用）
+#   · 贴图（材质的 `m_TexEnvs`，**只有 3 个非空槽**）：
+#       `_MainTex`  → `Genestealers Ground reflections`  pid **27**（4096×4096，**流式**，同份）
+#       `_SampleTexture2D_4b2b807f0f904784b4448ef0c2b579e2_Texture_1_Texture2D`
+#                   → `rain_ripples`                     pid **28**（256×256，**流式**，同份）
+#       `_Noise`    → `Noise Combined`                   pid **-8214795764591836323**，
+#                     ⚠️ **`m_FileID=10` ⇒ 不在本源包里**，在 `duplicateassetisolation_assets_all.bundle`
+#                     （内层 `CAB-6e07b2d16fe55a89121640e51fae0bb9`，128×128，流式）。
+#                     ⇒ 必须走**第二条源包**（`ARENA_FLOOD_IMPORTS` + `merge_imports_into_bundle`），
+#                       否则产物里那一格是悬空的（shader 的 `m_PropInfo` 里 `_Noise` 是真属性，不是死值）。
+#   ⚠️ 三张都在打包时**只当依赖根**：前两张由材质的依赖树自动带走（`m_FileID=0`），
+#      第三张由 import 组显式点名。
+#
+# 产物：
+#   `wf_arena_genestealers.bundle`       —— 材质 + shader + 上面两张贴图（自行切片后的 `.resS`）
+#   `wf_arena_genestealers_noise.bundle` —— `Noise Combined` 一张（内层 `CAB-wfarenagsnoise`，
+#                                           ⚠️ **容器表为空**：贴图不按名字取，只被 PPtr 跨包引用）
+GENESTEALERS_SRC = os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenagenestealers.bundle")
+DEST_ARENA_GS = os.path.join(DEST_DIR, "wf_arena_genestealers.bundle")
+ARENA_FLOOD_MATERIAL = "Battle Arena Genestealers Water Floor"
+ARENA_FLOOD_SHADER = "Everguild/FX/Genestealers Flood"
+ARENA_FLOOD_IMPORTS = [
+    dict(src=os.path.join(BUNDLE_DIR, "duplicateassetisolation_assets_all.bundle"),
+         cab="CAB-wfarenagsnoise", dep="wf_arena_genestealers_noise.bundle",
+         kind="texture", names=["Noise Combined"]),
+]
+
 # 工程自带 / 系统自带，Shader.Find 拿得到，不需要抽
 BUILTIN_PREFIX = (
     "Universal Render Pipeline/", "Sprites/", "UI/", "TextMeshPro/",
@@ -1224,7 +1320,17 @@ def _build_import_parts(imports):
                     break
             src_cab_of[g["cab"]] = src_sf_name
             out = os.path.join(tmpdir, g["cab"] + ".bundle")
-            kw = {"extra_materials": g["names"]} if g["kind"] == "material" else {"extra_shaders": g["names"]}
+            # 🆕 2026-11-01（`B113W10` · `B-42`）：多一档 `kind="texture"` —— 「**只**搬贴图」的依赖包
+            #   （原版把某些贴图单独放在别的包：`Battle Arena Genestealers Water Floor` 的 `_Noise`
+            #   指向 `Noise Combined`，那张只在 `duplicateassetisolation_assets_all.bundle` 里）。
+            #   ⚠️ 这种包里**没有容器项**（贴图不需要按名字取，见 `repack_tree` ①·b·3），
+            #   全靠产物侧改写 PPtr 走 `archive:/<新CAB>/<新CAB>`（同 `B102_D10` 那条分包路）。
+            if g["kind"] == "texture":
+                kw = {"extra_textures": g["names"]}
+            elif g["kind"] == "material":
+                kw = {"extra_materials": g["names"]}
+            else:
+                kw = {"extra_shaders": g["names"]}
             # 🆕 2026-10-30（`B103_W7`）：材质自己的 `m_TexEnvs` 指向、但只存在于本包的贴图
             #   （`textures=[…]`）⇒ 一起抽进来当依赖根（⛔ 不进容器）。
             if g.get("textures"):
@@ -1589,14 +1695,186 @@ def run_arenas(args):
     for p, hit in where.items():
         base = os.path.basename(p)
         if base == os.path.basename(ARENA_SRC):
-            slug = "shared"
+            # 🔴 2026-11-01（`B113_X3` · 账 `B-226`）：**这一份必须写回 `DEST_ARENA`**（= `wf_arena_shaders.bundle`），
+            #   ⛔ 不能再按 slug 拼成 `wf_arena_shared.bundle` —— 盘上那一份（7 个战场 shader ·
+            #   内层 `CAB-68cc81d35f88d5ad277f2717d6e1ac25` · mtime 2026-09-21）本来就是
+            #   `repack(battlesharedresources_assets_all.bundle)` 的产物；按旧 slug 会**多出一只内容重复、
+            #   名字不同**的包，而**原名那一份再也重不出来**（删了/覆盖了就只能改代码）。
+            #   判据 → `DEST_ARENA` 上面那段 ＋ `资料/完全复刻/报告/B113X3_脚本零guid与战场包.md`。
+            #   （`ARENA_SRC` 里**恰好只有 7 个 Shader**，与旧产物的名字+pid 逐条相同，2026-11-01 双侧实扫。）
+            out = DEST_ARENA
         else:
             slug = base.replace("scenes_scenes_battlearena", "").replace(".bundle", "")
-        out = os.path.join(DEST_DIR, f"wf_arena_{slug}.bundle")
+            out = os.path.join(DEST_DIR, f"wf_arena_{slug}.bundle")
         print(f"\n[A5] {base} → {os.path.basename(out)}")
         if not repack(p, out):
             return 1
     print("\n[A6] 完成。Unity 侧按 `wf_arena_*.bundle` 通配加载。")
+    return 0
+
+
+def _scan_shader_objects(bundle_path):
+    """只读：把一个包里 **所有 CAB** 的 Shader 与 AssetBundle 对象扫出来。
+
+    返回 `(内层 CAB 名列表, [(CAB, pid)…] 的 AssetBundle 对象, [(CAB, pid, shader 名)…])`。
+    ⚠️ 与 `collect_shader_names()` 的区别：那个只要「名字 → 对象」的字典（用于差值判断），
+    本函数**保留 pid 与内层 CAB** —— 对账「是不是同一个包 / 同一批对象」要靠这两列。
+    """
+    env = UnityPy.load(bundle_path)
+    cabs, ab, shaders = set(), [], []
+    for o in env.objects:
+        cab = o.assets_file.name
+        cabs.add(cab)
+        t = o.type.name
+        if t == "AssetBundle":
+            ab.append((cab, o.path_id))
+        elif t == "Shader":
+            try:
+                n = shader_name(o.read())
+            except Exception:
+                n = ""
+            if n:
+                shaders.append((cab, o.path_id, n))
+    return sorted(cabs), ab, shaders
+
+
+def verify_arena_shaders(prod_path, src_path=ARENA_SRC):
+    """只读对账：产物 `prod_path` ↔ 源包 `src_path`。
+
+    三条判据（全部按**名字 + pid + 内层 CAB** 比，⛔ 不比字节 —— 重打包本来就不保证字节相同）：
+      ① Shader 的 `(内层 CAB, pid, 名字)` 集合**逐条相同**；
+      ② 内层 CAB 名**相同**（`repack()` 不改名，见 A801 那段）；
+      ③ 产物的 `AssetBundle` 对象恰 1 个（`_write_bundle` 重写容器的前提）。
+    返回 `(ok, 行列表)`；`ok=False` 时行里逐条点名差异。
+    """
+    lines = []
+    ok = True
+    if not os.path.isfile(prod_path):
+        return False, [f"!! 产物不存在：{prod_path}"]
+    if not os.path.isfile(src_path):
+        return False, [f"!! 源包不存在：{src_path}"]
+    pc, pab, ps = _scan_shader_objects(prod_path)
+    sc, sab, ss = _scan_shader_objects(src_path)
+    lines.append(f"产物 {os.path.basename(prod_path)}：CAB {pc} · AssetBundle {pab} · Shader {len(ps)} 个")
+    lines.append(f"源包 {os.path.basename(src_path)}：CAB {sc} · AssetBundle {sab} · Shader {len(ss)} 个")
+
+    pset, sset = set(ps), set(ss)
+    miss = sorted(sset - pset, key=lambda x: x[2])
+    extra = sorted(pset - sset, key=lambda x: x[2])
+    if miss:
+        ok = False
+        lines.append(f"🔴 产物**缺** {len(miss)} 个（源有、产物没有）：")
+        for cab, pid, n in miss:
+            lines.append(f"     {cab} pid={pid} {n}")
+    if extra:
+        ok = False
+        lines.append(f"🔴 产物**多** {len(extra)} 个（源没有、产物有）：")
+        for cab, pid, n in extra:
+            lines.append(f"     {cab} pid={pid} {n}")
+    if not miss and not extra:
+        lines.append(f"✅ ① Shader 逐条相同（{len(pset)} 个：内层 CAB + pid + 名字全对得上）")
+
+    if pc != sc:
+        ok = False
+        lines.append(f"🔴 ② 内层 CAB 名不同：产物 {pc} ≠ 源 {sc}")
+    else:
+        lines.append(f"✅ ② 内层 CAB 名相同：{pc}")
+
+    if len(pab) != 1:
+        ok = False
+        lines.append(f"🔴 ③ 产物里有 {len(pab)} 个 AssetBundle 对象（要求恰好 1 个）")
+    else:
+        lines.append(f"✅ ③ AssetBundle 对象恰 1 个：{pab[0]}")
+
+    lines.append(f"      名字清单：{sorted(n for _, _, n in pset)}")
+    return ok, lines
+
+
+def run_arena_shaders(args):
+    """🆕 2026-11-01（`B113_X3` · 账 `B-226`）：**无条件重出 `wf_arena_shaders.bundle`**。
+
+    为什么不复用 `run_arenas()`：那个模式先算「13 场清单里用到、而运行时还缺的 shader 名」，
+    而它的 `have` 集合**包含 `wf_arena_shaders.bundle` 自己** ⇒ **文件在的时候它一定跳过**这份源包
+    （`miss` 为空就直接 `return 0`）⇒ 不能用它做「重出」。本模式不看差值，直接
+    `repack(ARENA_SRC, args.out)`（`args.out` 默认 = `DEST_ARENA`，`--out` 可把它指到临时目录）。
+
+    `--check` = 只读（印源包的 7 个 shader 名字 + pid）；`--verify` = 只读对账（产物 ↔ 源包）。
+    """
+    print("[arena-shaders] 源 %s → 目标 %s"
+          % (os.path.basename(ARENA_SRC), os.path.basename(args.out)))
+    if args.check or args.verify:
+        sc, sab, ss = _scan_shader_objects(ARENA_SRC)
+        print("[arena-shaders] 源包 CAB %s · AssetBundle %s · Shader %d 个：" % (sc, sab, len(ss)))
+        for cab, pid, n in sorted(ss, key=lambda x: x[2]):
+            print("      %-46s pid=%-22s %s" % (cab, pid, n))
+
+    if args.verify:
+        ok, lines = verify_arena_shaders(args.out)
+        print("[arena-shaders] ---- 对账 %s ----" % os.path.basename(args.out))
+        for ln in lines:
+            print("      " + ln)
+        print("[arena-shaders] 对账结论：%s" % ("✅ 通过" if ok else "🔴 不通过"))
+        return 0 if ok else 1
+
+    if args.check:
+        print("[arena-shaders] --check：只体检，未写文件")
+        return 0
+
+    kept = repack(ARENA_SRC, args.out)
+    if not kept:
+        return 1
+    names = sorted(set(kept.values()))
+    print("[arena-shaders] 产物里的 %d 个 shader：" % len(names))
+    for n in names:
+        print("      ", n)
+    print("[arena-shaders] 建议复核：python -I -X utf8 工具/extract_missing_shaders.py "
+          "--arena-shaders --out %s --verify" % args.out)
+    return 0
+
+
+def run_arena_flood(args):
+    """🆕 2026-11-01（`B113W10` · `B-42`）：把 **Genestealers 水漫材质**那三件打进随包。
+
+    产物 = `wf_arena_genestealers.bundle`（材质 + shader + 2 张自带贴图）
+         + `wf_arena_genestealers_noise.bundle`（`Noise Combined`，跨包依赖）
+    判据 / 为什么另开产物而**不是**写进 `wf_arena_shaders.bundle` / 三件真身 pid
+    → `GENESTEALERS_SRC` 上面那一整段。
+
+    做法（**没有新打包口**：`repack_tree()` 出主产物、`merge_imports_into_bundle()` 补外部贴图，
+    写盘仍只经 `_write_bundle()`）：
+      ① `repack_tree(src, out, roots=[], extra_materials=[材质], extra_shaders=[shader], cab_name=…)`
+         —— 材质与 shader 一起走依赖树（`_MainTex` / `_Sample…` 两张 `m_FileID=0` 的贴图自动带上）；
+      ② `merge_imports_into_bundle(out, ARENA_FLOOD_IMPORTS)` —— 把 `_Noise` 那张从
+         `duplicateassetisolation` 抽成独立小包，并把产物里指向它的 PPtr 改写成
+         `archive:/CAB-wfarenagsnoise/CAB-wfarenagsnoise`（同 `B102_D10` 那条分包路）。
+
+    `--check` 只体检（两步都 dry-run），不写任何文件。
+    """
+    if not os.path.isfile(GENESTEALERS_SRC):
+        print(f"[AF] 🔴 源包不在：{GENESTEALERS_SRC} ⇒ 中止（⛔ 不产出半成品）")
+        return 1
+    print(f"[AF] 源 {os.path.basename(GENESTEALERS_SRC)} → 目标 {os.path.basename(DEST_ARENA_GS)}")
+    print(f"[AF] 材质根 `{ARENA_FLOOD_MATERIAL}` · shader 根 `{ARENA_FLOOD_SHADER}` · "
+          f"外部依赖 {len(ARENA_FLOOD_IMPORTS)} 批")
+    kept = repack_tree(GENESTEALERS_SRC, DEST_ARENA_GS, [], dry_run=args.check,
+                       extra_materials=[ARENA_FLOOD_MATERIAL],
+                       extra_shaders=[ARENA_FLOOD_SHADER],
+                       cab_name="CAB-wfarenags")
+    if kept is None:
+        return 1
+    if args.check:
+        print(f"[AF] --check：主产物会含 {len(kept)} 个对象（材质 + shader + 依赖树）")
+        # ⚠️ `merge_imports_into_bundle(..., dry_run=True)` **仍要读产物文件**（它要先打开产物
+        #    才能算「哪些 PPtr 要改写」）⇒ `--check` 时产物根本不存在。这里改走它的第一步
+        #    `_build_import_parts()`：**纯内存**地把依赖包打出来（不落盘），能验「源包里有那张贴图」。
+        parts = _build_import_parts(ARENA_FLOOD_IMPORTS)
+        print("[AF] --check：只体检，未写文件")
+        return 0 if parts is not None else 1
+    print(f"[AF] ✓ 主产物：{len(kept)} 个对象（材质 + shader + 依赖树）")
+    if not merge_imports_into_bundle(DEST_ARENA_GS, ARENA_FLOOD_IMPORTS):
+        return 1
+    print("[AF] ✓ 完成。运行时 `WarpforgeShaderLoader` 按 `wf_arena_*.bundle` 通配加载 shader，"
+          "`ScenarioBlendables.ShippedBundles()` 枚举整个目录取材质。")
     return 0
 
 
@@ -1980,7 +2258,10 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
               + " · ".join(f"{n}(PathID {o.path_id})" for n, o in hits.items()))
         tex_roots.update(hits)
 
-    if not found:
+    # 🔴 2026-11-01（`B113W10` · `B-42`）：**只搬贴图**的依赖包一个 GameObject/Material 根都没有
+    #   （`extra_textures` 故意不进 `found`，见 ①·b·3）⇒ 判空要连 `tex_roots` 一起看。
+    #   ⚠️ 只在 `extra_textures` 这条路成立时放松；其余三种 extra 仍走 `found`，行为一个字没变。
+    if not found and not tex_roots:
         return None
 
     # ---- ①·d 🔴 A230（2026-10-13）：根落在**别的 CAB** 里 ⇒ **支持**（改前是中止点名 + 更早是静默坏包）----
@@ -2752,6 +3033,17 @@ def main():
                     help="改打内置管线包：源 Warpforge_unitybuiltinassets.bundle → 目标 wf_builtin.bundle")
     ap.add_argument("--arenas", action="store_true",
                     help="改打**战场 shader 包**：源 battlesharedresources_assets_all.bundle → 目标 wf_arena_shaders.bundle")
+    ap.add_argument("--arena-shaders", action="store_true",
+                    help="🆕 2026-11-01（B113_X3 · B-226）：**无条件重出** wf_arena_shaders.bundle"
+                         "（不看「当前缺哪些 shader」的差值 —— `--arenas` 里那份源包会被「已有」集合跳过）。"
+                         "源 battlesharedresources_assets_all.bundle → 目标 wf_arena_shaders.bundle；"
+                         "`--out` 可指到临时目录先 dry 复核，`--check` 只读、`--verify` 产物↔源包对账")
+    ap.add_argument("--arena-flood", action="store_true",
+                    help="🆕 2026-11-01（B113W10 · B-42）：改打**Genestealers 水漫材质包** —— "
+                         "源 scenes_scenes_battlearenagenestealers.bundle → 目标 wf_arena_genestealers.bundle"
+                         "（Material `Battle Arena Genestealers Water Floor` + Shader "
+                         "`Everguild/FX/Genestealers Flood` + 3 张贴图，其中 `_Noise` 走 "
+                         "wf_arena_genestealers_noise.bundle 那条独立依赖包）")
     ap.add_argument("--prefabs", action="store_true",
                     help="改打**非 addressable 的 prefab 包**：源 battleprefabs_vfxandmisc_assets_all.bundle "
                          "→ 目标 wf_prefabs_extra.bundle（含整棵依赖树）")
@@ -2785,13 +3077,16 @@ def main():
                          "⛔ 别把它的产物留在 StreamingAssets 里")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
+    ap.add_argument("--verify", action="store_true",
+                    help="🆕 2026-11-01（B113_X3）：只读对账 `--arena-shaders` 的产物 ↔ 源包"
+                         "（按内层 CAB + pid + 名字逐条比；不通过退出码 1）。配 `--out` 指到临时产物。")
     ap.add_argument("--skip-boosters", action="store_true",
                     help="🆕 2026-10-19：`--prefabs` 时**只重打 wf_prefabs_extra**、不碰卡包/菜单那两包"
                          "（那两包属界面线；只改特效线的活时用这个，避免无谓重写别人的产物）。"
                          "🆕 2026-10-23：`ui=False` 的组（战场 HUD `wf_battleshared_extra`）**不受本开关影响**")
     args = ap.parse_args()
     if args.out is None:
-        args.out = (DEST_ARENA if args.arenas
+        args.out = (DEST_ARENA if (args.arenas or args.arena_shaders)
                     else (DEST_BUILTIN if args.builtin
                           else (DEST_PREFABS if args.prefabs
                                 else (DEST_TMP if args.tmp
@@ -2848,6 +3143,10 @@ def main():
 
     if args.arena_anims:
         return run_arena_anims(args)
+    if args.arena_flood:
+        return run_arena_flood(args)
+    if args.arena_shaders:
+        return run_arena_shaders(args)
     if args.arenas:
         return run_arenas(args)
     if args.builtin:

@@ -107,7 +107,7 @@ namespace CardPresentation
                 }
                 else
                     Note("currency|bg", "货币抽屉的背景图 `" + CurBackgroundSprite + "` **不在 `Resources/`**"
-                        + "（源图在 `CardPresentation/Art/原版/0_mainmenu/`，要跑 `工具/import_original_art.py --only-menu`）"
+                        + "（源图在 `CardPresentation/Art/原版/0_mainmenu/`，要跑 `工具/import_original_art.py --only-menu --apply`）"
                         + "⇒ 这一层**不画**、不拿别的图冒充");
             }
 

@@ -22,7 +22,7 @@
 // ============================ 次序（照原版，⛔ 别倒）============================
 //  `Collect` 里**先发奖、后开窗**（`:117` 的 for 循环在 `:202` 的开窗之前；`showAnimation=0` 那一支更是只发不开）。
 //  ⇒ 调用点必须是 `GrantCampaignRewards(...)` **在前**、`RewardWindow.ShowCollected(...)` **在后**。
-//  节点状态（`CampaignData.Claim`）在 API 语义上仍早于两者 —— 与原版「节点状态在 `onClose`」的差别见报告 §逐跳对照。
+//  节点状态（`CampaignData.Claim`）现已**晚于**两者 —— `Claim` 跑在领奖窗的关窗回调 `FinishClaim()` 里（`Shell/CampaignTab.cs:1339-1347`），与原版「节点状态在 `onClose`」一致。（2026-11-01 `B-89` 订正：原句写「仍早于两者」，那是 `B-15` 修复前的状态。）
 using UnityEngine;
 
 namespace CardPresentation

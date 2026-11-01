@@ -192,7 +192,7 @@ namespace CardPresentation
         //   · **数量没有原版可对** ⇒ 挑的整数（150 / 1 / 5 / 100 / 1 / 1）。
         // 🔴 **2026-10-15 就地更正（A544 · 铁律 5）**：上面那句「这五张图逐张核过工程里存在」
         //    对 `_daily[0]` / `_items[0]` / `_items[1]` **三条已经不成立** —— 那三张（币种的 **big 族**）
-        //    是这一轮新登记的，**要先跑一次导入腿**（`工具/import_original_art.py --only-menu`）才落到
+        //    是这一轮新登记的，**要先跑一次导入腿**（`工具/import_original_art.py --only-menu --apply`）才落到
         //    `Resources/Art/ui_menu/`。跑之前 `RewardWindow.NoIconItems` 会把它们算成**占位板**
         //    （不是静默：会 `LogWarning`），`Editor/ShopScene.cs` 的 A544 那两条断言钉的正是这一格。
         // ⚠️ 件的 `Tier` 一律 `TierBasic` —— 商店这一档**没有基础/高级轨之分**（那是战役奖励的概念），

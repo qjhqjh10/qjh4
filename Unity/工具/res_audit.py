@@ -14,6 +14,7 @@
   python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --only 3        # 只跑第 ③ 层
   python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --no-content    # 跳过逐像素比对（快）
   python -I -X utf8 d:/4/Unity/工具/res_audit.py --scan --top 40        # 摘要里每类列几条
+  python -I -X utf8 d:/4/Unity/工具/res_audit.py --only-mat <名字>      # 🆕 单条材质判定（不写盘 · 约 5 s）
 
 只读：⛔ 不写 `Assets/**` · ⛔ 不写 `d:/2` · ⛔ 不跑 Unity · ⛔ 不动 git。
 唯一写盘动作 = `--scan` 时写 `--out`（默认 `资料/完全复刻/资源/B109_资源可用性.tsv`）。
@@ -59,6 +60,17 @@
     —— ① `<名>__<8 位 hex>.mat` 等价件 · ② TMP 逐文本字体材质变体 · ③ ShaderGraph 无 `.shader` 源 ·
     ④ 菜单 UI 族的自研等价件 `Resources/Art/vfx/WFUI_*`（`MENU_UI_EQUIV` 逐条 1:1）。
     命中任一 ⇒ 转信息项（⛔ 只降级**已有等价物**的，没有等价物的照旧算缺陷）。判据 → `报告/B111_T2B.md`。
+  · 🆕 2026-11-01（账 `B-182` / `B-183`）：
+    ④ 补漏 —— `MENU_UI_EQUIV` 的键是**原版材质名**，同一个 shader 的**兄弟材质**要逐条登记
+      （`Shader Graphs_Division Change` 与 `Rank Change` 共用 `Everguild/UI/Division Change`，原来漏了前者）；
+    ⑤ 新增 **运行期构造** 一档 `RUNTIME_MATERIAL_EQUIV` —— 工程里没有 `.mat`、但代码里 `new Material(shader)`
+      按原版 `m_SavedProperties` 逐值重建的那一族（原来结构上看不见，全被算成「材质未消费」）。
+      ⛔ 别为消账去建空 `.mat`。
+  · 🆕 2026-11-01（`B113X4` / 账 `B-231`）—— **④ 的根治**：新增 `MENU_UI_EQUIV_BY_SHADER`（键 = **shader 名**）。
+    旧表按**材质名**判等 ⇒ 同一支 shader 的兄弟材质漏登记一个就落回假缺陷；新表按 **shader 归组**兜底，
+    同 shader 的所有兄弟自动认到同一批等价件（精确名表仍优先，可登记「唯独这条走别的件」）。
+    两张表的一致性由 `menu_equiv_drift()` **每跑一次 ③ 自检一次**（漂移出声，⛔ 不静默）。
+    另加 `--only-mat <名字>`：单条材质判定（原版材质名或我们的 `.mat` 名），不写盘。
 """
 import argparse
 import collections
@@ -220,12 +232,183 @@ MENU_UI_EQUIV = {
     "UI Distort in Atlas Small objects": "WFUI_Distort_AtlasSmall",
     "UI Clock": "WFUI_Clock",
     "Rank Change": "WFUI_DivisionChange",
+    # 🆕 2026-11-01（账 `B-182`）：原版 `Material_7136131575237692299.json`（`m_Name = Shader Graphs_Division Change`）
+    #   与 `Rank Change` **共用同一个 shader pathID**（`-7358491658560365695` = `Everguild/UI/Division Change`），
+    #   它们是同一支 shader 的两份实例 ⇒ 自研等价件同样是 `WFUI_DivisionChange`。原来只登记了 `Rank Change`，
+    #   兄弟这一条每次都落到「材质未消费（原版有、我们没有同名实例）」的假缺陷里。
+    "Shader Graphs_Division Change": "WFUI_DivisionChange",
     "UI Greyscale Add": "WFUI_GreyscaleAdd",
     "UI Scan Lines Alpha Mask": "WFUI_ScanLines",
+}
+
+# 🔴🆕 2026-11-01（`B113X4` / 账 `B-231`）：**按 shader 归组**的等价件表（旧表的根治）。
+#   旧表 `MENU_UI_EQUIV` 的键是**原版材质名** ⇒ 同一支 shader 的每一个兄弟材质都要**手补一行**，
+#   漏一个就落回「材质未消费（原版有、我们没有同名实例）」的假缺陷（`B-182` 补的 `Shader Graphs_Division Change`
+#   就是这样一条：它与 `Rank Change` 共用 `Everguild/UI/Division Change`）。
+#   ⇒ 这里按 **shader 名**归组：这个 shader 下**所有**原版材质都是兄弟，自动认到同一批等价件。
+#   · 值是 `[(我们的等价件名, 它对着的那条原版材质名), …]` —— ⚠️ **一支 shader 可以对应多份等价件**
+#     （`Everguild/UI/UI Glow SDF Noise` 下 5 份，按原版各条的 `m_SavedProperties` 各调一份）
+#     ⇒ 判等 = **任意一份 `.mat` 在盘上**就成立，`处置` 里逐份列出「哪份对着哪条原版」。
+#   · **顺序**：精确名表 `MENU_UI_EQUIV` 优先（仍可登记「这个 shader 下唯独这条走别的等价件」），
+#     归组表只做**兜底**。
+#   · 两张表的一致性由 `menu_equiv_drift()` 在 ③ 每跑一次自检一次（⛔ 漂移别静默）。
+#   · 判据来源：7 支 shader / 14 条原版材质，逐条现读 `assets_full/bundle_menus_assets_all/Material/*.json`
+#     的 `m_Shader.m_PathID` + `资料/完全复刻/资源/R4_Shader_VFX_清单.tsv` 的「PathID → 真实名字」。
+MENU_UI_EQUIV_BY_SHADER = {
+    "Everguild/UI/UI Glow SDF Noise": [
+        ("WFUI_GlowSdf_BorderChest", "Border Chest"),
+        ("WFUI_GlowSdf_BorderChestCollect", "Border Chest Collect"),
+        ("WFUI_GlowSdf_AllianceTrophy", "UI Highlight Alliance trophy"),
+        ("WFUI_GlowSdf_HighlightRed", "UI Highlight Red SDF"),
+        ("WFUI_GlowSdf_HighlightSmoothRed", "UI Highlight Smooth Red SDF"),
+    ],
+    "Everguild/UI/Pulsating": [
+        ("WFUI_Pulsating_Campaign", "Everguild Campaing Premium node"),
+        ("WFUI_Pulsating_Forge", "Forge UI Light"),
+    ],
+    "Everguild/UI/UI Distort": [
+        ("WFUI_Distort_ForgeCandle", "Forge Candle"),
+        ("WFUI_Distort_AtlasSmall", "UI Distort in Atlas Small objects"),
+    ],
+    "Everguild/UI/Division Change": [
+        ("WFUI_DivisionChange", "Rank Change"),
+        ("WFUI_DivisionChange", "Shader Graphs_Division Change"),
+    ],
+    "Everguild/UI/UI Clock": [("WFUI_Clock", "UI Clock")],
+    "Everguild/UI/Greyscale Add": [("WFUI_GreyscaleAdd", "UI Greyscale Add")],
+    "Everguild/UI/Scan Lines Alpha Mask": [("WFUI_ScanLines", "UI Scan Lines Alpha Mask")],
+}
+
+# 🆕 2026-11-01（账 `B-183`）：**运行期构造的材质**（原版材质名 → 我们代码里 `new Material(shader)` 造的那一份）。
+# 为什么单开一张表：原来的判据只有四条（同名 `.mat` / `hash_equiv` / `MENU_UI_EQUIV` / TMP / ShaderGraph），
+# **结构上完全看不见**「工程里没有 `.mat` 资产，但运行期按原版 `m_SavedProperties` 逐值重建」这一族 ——
+# 全池 `new Material(` 的构造点一个都判不到 ⇒ 它们全被算成「材质未消费」的假缺陷。
+# ⚠️ **别为了消账去建空 `.mat`**：空材质没有原版的属性值/关键字，比「运行期按原版值构造」差得多，
+#    而且会把「运行时用哪支 shader」这条真相从代码挪进一个不参与渲染的资产。
+# 每条 = 原版材质名 / 构造点（文件:行号 + 方法名）/ 用哪支 shader / 依据。
+RUNTIME_MATERIAL_EQUIV = {
+    "Border Highlight Appear Purple": (
+        "CardPresentation/Shell/ForgeTab.cs:1138 ForgeGlowMaterial()（`new Material(sh)` 在 :1150）",
+        "Everguild/UI/UI Border Highlight Appear",
+        "逐值抄原版 `Material_794468876670077408` 的 `m_SavedProperties`"
+        "（shader = `Shader_6773909295900798026`）；属性/颜色/浮点逐条见 ForgeTab 该方法内的 `C()` / `F()` 调用",
+    ),
 }
 TMP_FONT_SHADERS = ("TextMeshPro/Distance Field", "TextMeshPro/Mobile/Distance Field",
                     "TextMeshPro/Sprite")
 SHADERGRAPH_NO_SOURCE = ("Everguild/Cards/Shader Graphs/Booster Pack",)
+
+
+def menu_equiv_mat_path(mat):
+    """自研等价件 `Resources/Art/vfx/<mat>.mat` 的绝对路径。"""
+    return os.path.join(ASSETS, MENU_UI_EQUIV_DIR + mat + ".mat")
+
+
+def menu_equiv_group(shader):
+    """按 shader 归组、且**盘上真有**的等价件 ⇒ `[(我们的 .mat 名, 它对着的原版材质名), …]`；没有就 `[]`。"""
+    out = []
+    for mat, orig in MENU_UI_EQUIV_BY_SHADER.get(shader, ()):
+        if os.path.isfile(menu_equiv_mat_path(mat)):
+            out.append((mat, orig))
+    return out
+
+
+def resolve_material_equiv(nm, oname, hsh, mat_file_stems):
+    """判「原版材质 `nm` 我们**没有同名实例**」这一条是否已有等价物/结构性不可能。
+
+    返回 `(等价类, 处置, 等价件显示串)`；`None` = 真缺（照旧算缺陷）。
+    · `nm` = 原版材质名 · `oname` = 它的 shader 名（解不出传 `""`）
+    · `hsh` = `hash_equiv_map(...)` 的结果 · `mat_file_stems` = 我们 `.mat` 的**文件名**集合
+    ⛔ **判据顺序别乱改**（改顺序 = 改判定结果）；要改先 `--only-mat <名>` 对一条。
+    判据顺序（与 `B111_T2B` / `B-182` / `B-183` 的记载逐条一致）：
+      结构性（ShaderGraph / TMP）→ **精确名** `MENU_UI_EQUIV` → **shader 归组** `MENU_UI_EQUIV_BY_SHADER`
+      → 运行期构造 `RUNTIME_MATERIAL_EQUIV` → 去重后缀 `__hash` → 同名路径。
+    """
+    if oname in SHADERGRAPH_NO_SOURCE:
+        return ("ShaderGraph 无 .shader 源、结构性建不出",
+                "不是缺陷：shader 是 ShaderGraph 生成体、没有 `.shader` 源 ⇒ `.mat` 结构性建不出来"
+                "（`Core/BoosterPackAssets.cs:29-33`）；原版那批在 `wf_boosters_extra.bundle` 包内可解、0 悬空",
+                "-")
+    if oname in TMP_FONT_SHADERS:
+        return ("TMP 逐文本字体材质变体",
+                "不是缺陷：这是 TMP 给**逐文本**生成的字体材质变体；我们统一走 `Label`"
+                "（TMP 顶点色 + `Asar-Regular SDF`），不需要这些变体",
+                "-")
+    if nm in MENU_UI_EQUIV and os.path.isfile(menu_equiv_mat_path(MENU_UI_EQUIV[nm])):
+        return ("有等价件（自研 WFUI_*）",
+                "不是缺陷：我们的等价件 = `Resources/Art/vfx/%s.mat`（1:1，已接线，"
+                "经 `Shell/MenuFxMaterials` 加载）" % MENU_UI_EQUIV[nm],
+                MENU_UI_EQUIV[nm])
+    grp = menu_equiv_group(oname)
+    if grp:
+        # 🆕 `B-231`：同 shader 的兄弟材质**不必逐条登记** —— 归组命中即可（判据见 `MENU_UI_EQUIV_BY_SHADER` 上面那段）
+        return ("有等价件（同 shader 归组·自研 WFUI_*）",
+                "不是缺陷：本 shader（`%s`）下的等价件都在 `Resources/Art/vfx/`：%s"
+                "（按 **shader** 归组 ⇒ 同 shader 的兄弟材质不必逐条登记）"
+                % (oname, " / ".join("`%s.mat`←原版 `%s`" % (m, o) for m, o in grp)),
+                " / ".join(m for m, _ in grp))
+    if nm in RUNTIME_MATERIAL_EQUIV:
+        _rsite, _rshader, _rwhy = RUNTIME_MATERIAL_EQUIV[nm]
+        return ("有等价件（运行期构造）",
+                "不是缺陷：**运行期构造** —— 构造点 `%s`，shader = `%s`；%s"
+                "（⛔ 别为消账去建空 `.mat`：空材质没有原版的属性值，比按原版值构造差得多）"
+                % (_rsite, _rshader, _rwhy),
+                "运行期构造 @ " + _rsite)
+    if nm in hsh:
+        return ("有等价件（去重后缀 __hash）",
+                "不是缺陷：工程里有等价件 `%s.mat`（`EffectExporter` 的去重命名）" % hsh[nm],
+                hsh[nm])
+    if nm in mat_file_stems:
+        return ("有同名路径（.mat 文件名 = 原版名，仅 m_Name 不同）",
+                "不是缺陷：`Resources.Load` 按**路径**取材质，`%s.mat` 就在；它内部的 `m_Name` "
+                "是别的（改名拷贝进来的），**路径身份成立**" % nm,
+                "-")   # ⚠️ 这一档的等价件就是 `nm` 自己（已在「原版对象」列），显示 `-` 保持与改前逐字节一致
+    return None
+
+
+def menu_equiv_drift(ctx):
+    """两张等价件表的一致性自检（只读、零副作用）—— 返回告警串列表（空 = 一致）。
+
+    查四件事：① 精确名表登记的每个原版材质名，原版索引里找得到；
+    ② 它的 shader 进了 `MENU_UI_EQUIV_BY_SHADER`，且那一组里有 `(等价件, 材质名)` 这一对；
+    ③ 归组表引用的 `.mat` 盘上有、引用的原版材质原版索引里有；
+    ④ 两张表对**同一条原版材质**指向的等价件一致。
+    目的：让「登记漂移」**出声**（⛔ 不静默），而不是等某次汇总计数悄悄变了才有人发现。
+    """
+    out = []
+    for nm, eq in sorted(MENU_UI_EQUIV.items()):
+        hit = ctx.orig_mat.get(nm)
+        if not hit:
+            out.append("`MENU_UI_EQUIV` 登记的原版材质 `%s` 在原版索引里 **0 命中**（改名 / 拼错？）" % nm)
+            continue
+        sh = ctx.shader_pid2name.get(hit[1], "")
+        grp = MENU_UI_EQUIV_BY_SHADER.get(sh)
+        if grp is None:
+            out.append("`%s`（shader `%s`）**没进** `MENU_UI_EQUIV_BY_SHADER`"
+                       " ⇒ 同 shader 的兄弟材质不会被自动认到" % (nm, sh or "?"))
+        elif (eq, nm) not in grp:
+            out.append("`%s` 的等价件 `%s` 没登记进 shader `%s` 的归组表" % (nm, eq, sh or "?"))
+    for sh, grp in sorted(MENU_UI_EQUIV_BY_SHADER.items()):
+        for mat, orig in grp:
+            if not os.path.isfile(menu_equiv_mat_path(mat)):
+                out.append("归组表 `%s` 里的等价件 `%s.mat` **盘上没有**（命中它的那几条会落回真缺）" % (sh, mat))
+            if orig not in ctx.orig_mat:
+                out.append("归组表 `%s` 引用的原版材质 `%s` 在原版索引里 **0 命中**" % (sh, orig))
+            elif MENU_UI_EQUIV.get(orig) not in (None, mat):
+                out.append("归组表 `%s`：`%s` 指向 `%s`，而精确名表写的是 `%s`（两表矛盾）"
+                           % (sh, orig, mat, MENU_UI_EQUIV.get(orig)))
+        # ⑤ **新增兄弟**要出声：归组表会把「同 shader 的任何新兄弟」自动判成「有等价件」——
+        #    那是 B-231 想要的效果，但**它可能没有真的等价件** ⇒ 这里把「原版该 shader 下的材质集合」
+        #    与「归组表登记集合」逐名比，多出来的一条就报（⛔ 不静默兜底）。
+        names = set(o for _, o in grp)
+        actual = set(n for n, lst in ctx.orig_mat_all.items()
+                     if any(ctx.shader_pid2name.get(pid, "") == sh for _, pid in lst))
+        for n in sorted(actual - names):
+            out.append("shader `%s` 下出现**没登记**的原版材质 `%s` —— 它现在靠 shader 归组自动判成"
+                       "「有等价件」，**请核它是否真有对应等价件**（没有就补一条、或在归组表里写明）" % (sh, n))
+        for n in sorted(names - actual):
+            out.append("归组表 `%s` 登记的 `%s` **不在这支 shader 下**（换 shader / 改名？）" % (sh, n))
+    return out
 
 
 def hash_equiv_map(all_mat_names):
@@ -923,6 +1106,79 @@ class Ctx(object):
         return None
 
 
+def report_only_mat(ctx, name, log):
+    """`--only-mat <名字>`：**单条材质**判定（`B-231` 加的验证口 · 只读、不写盘）。
+
+    为什么要有它：③ 一次要 ~12 秒、出 5600+ 行 TSV ⇒ 过去「改一条等价件到底命不命中」
+    只能看**汇总计数**（`B182/B183` 就是这么验的，代价是一次全表跑）。这个口拿**同一个判据函数**
+    `resolve_material_equiv(...)` 判一条、把依据逐项打出来，改完立刻能对。
+    · `--only-mat` 收**原版材质名**，也收**我们的 `.mat` 名**（反向查两张等价件表）。
+    · ⛔ 它**不替代**全表跑：归组/汇总的回归仍要 `--scan`（这里只判这一条）。
+    """
+    nm_in = name.strip()
+    all_mat_names = set()
+    mat_file_stems = set()
+    for p, r, ext, sz in ctx.files:
+        if ext == ".mat":
+            all_mat_names.add(mat_name(rb(p)))
+            mat_file_stems.add(os.path.basename(r)[:-4])
+    hsh = hash_equiv_map(all_mat_names)
+
+    # 反向：名字给的是「我们的等价件」⇒ 找它对着的那条原版材质
+    target = nm_in
+    reverse_hit = ""
+    if target not in ctx.orig_mat:
+        for _orig, _eq in sorted(MENU_UI_EQUIV.items()):
+            if _eq == nm_in:
+                target, reverse_hit = _orig, "`MENU_UI_EQUIV` 精确名表"
+                break
+        if not reverse_hit:
+            for _sh, _grp in sorted(MENU_UI_EQUIV_BY_SHADER.items()):
+                for _mat, _orig in _grp:
+                    if _mat == nm_in:
+                        target, reverse_hit = _orig, "`MENU_UI_EQUIV_BY_SHADER`（shader `%s`）" % _sh
+                        break
+                if reverse_hit:
+                    break
+
+    log("—— 单条材质：%s" % nm_in)
+    if reverse_hit:
+        log("   反查：`%s` 是我们的等价件（%s）⇒ 对着的原版材质 = `%s`" % (nm_in, reverse_hit, target))
+    log("   我们的 `.mat` 现状：m_Name 命中=%s · 文件名命中=%s（共 %d 个 .mat）"
+        % (nm_in in all_mat_names, nm_in in mat_file_stems, len(mat_file_stems)))
+
+    if target not in ctx.orig_mat:
+        log("   ❓ 原版索引里没有这个材质名（共 %d 份原版材质）⇒ **别拿它当判据**（拼错 / 不在已解包 bundle 里）"
+            % len(ctx.orig_mat))
+        return [], collections.Counter(), []
+
+    oj, opid = ctx.orig_mat[target]
+    oname = ctx.shader_pid2name.get(opid, "")
+    log("   原版：`%s`" % oj)
+    log("   shader：`%s`（pathID %s · 引用数 %s）%s"
+        % (oname or "?", opid, ctx.shader_orig_refs.get(oname, "?"),
+           "  ⚑R4-07" if oname in R4_07 else ""))
+    log("   精确名表 `MENU_UI_EQUIV`：%s"
+        % ("`%s`" % MENU_UI_EQUIV[target] if target in MENU_UI_EQUIV else "未登记"))
+    _grp = MENU_UI_EQUIV_BY_SHADER.get(oname)
+    log("   shader 归组表：%s"
+        % ("未登记这支 shader" if _grp is None else
+           "；".join("`%s`←`%s`%s" % (m, o, "" if os.path.isfile(menu_equiv_mat_path(m)) else "（**盘上没有**）")
+                    for m, o in _grp)))
+    if target in all_mat_names:
+        log("   ✅ 判定：**我们有同名 `.mat`（m_Name）** ⇒ 根本没进「材质未消费」这一类")
+        return [], collections.Counter(), []
+    eq = resolve_material_equiv(target, oname, hsh, mat_file_stems)
+    if eq:
+        log("   ✅ 判定：%s" % eq[0])
+        log("      等价件 = %s" % eq[2])
+        log("      依据：%s" % eq[1])
+    else:
+        log("   🔴 判定：材质未消费（原版有、我们没有同名实例）—— 四条等价判据全不命中")
+        log("      核：是否已被等价材质替代（R4-07 那 13 条 UI 材质动画就在这一类）")
+    return [], collections.Counter(), []
+
+
 # ---------------------------------------------------------------- 主流程
 def run(args):
     logs = []
@@ -934,6 +1190,10 @@ def run(args):
 
     ctx = Ctx(log)
     ctx.load()
+
+    # 🆕 2026-11-01（`B113X4` / 账 `B-231`）：单条材质模式 —— 只判一条、**不写盘**、判完就退
+    if getattr(args, "only_mat", None):
+        return report_only_mat(ctx, args.only_mat, log)
 
     rows = []
     stats = collections.Counter()
@@ -1433,39 +1693,25 @@ def run(args):
                 all_mat_names.add(mat_name(rb(p)))
                 mat_file_stems.add(os.path.basename(r)[:-4])
         hsh = hash_equiv_map(all_mat_names)          # 🆕 B111_T2B：`<名>__<hash>` 等价件
+        # 🆕 2026-11-01（`B113X4` / 账 `B-231`）：两张等价件表的一致性自检 —— 漂移**出声**，⛔ 不静默
+        _drift = menu_equiv_drift(ctx)
+        log("③ 等价件表自检：`MENU_UI_EQUIV` %d 条 · `MENU_UI_EQUIV_BY_SHADER` %d 支 shader → %s"
+            % (len(MENU_UI_EQUIV), len(MENU_UI_EQUIV_BY_SHADER),
+               "一致" if not _drift else "**%d 条告警**" % len(_drift)))
+        for _d in _drift:
+            log("   🔴 " + _d)
         for nm, (oj, opid) in sorted(ctx.orig_mat.items()):
             if nm in all_mat_names:
                 continue
             oname = ctx.shader_pid2name.get(opid, "")
-            # 🆕 2026-11-01（`B111_T2B` / 账 `B-08`）：四条等价/结构性判据 → 转信息项（见上面那段注释）
-            eq = None
-            if oname in SHADERGRAPH_NO_SOURCE:
-                eq = ("ShaderGraph 无 .shader 源、结构性建不出",
-                      "不是缺陷：shader 是 ShaderGraph 生成体、没有 `.shader` 源 ⇒ `.mat` 结构性建不出来"
-                      "（`Core/BoosterPackAssets.cs:29-33`）；原版那批在 `wf_boosters_extra.bundle` 包内可解、0 悬空")
-            elif oname in TMP_FONT_SHADERS:
-                eq = ("TMP 逐文本字体材质变体",
-                      "不是缺陷：这是 TMP 给**逐文本**生成的字体材质变体；我们统一走 `Label`"
-                      "（TMP 顶点色 + `Asar-Regular SDF`），不需要这些变体")
-            elif nm in MENU_UI_EQUIV and os.path.isfile(
-                    os.path.join(ASSETS, MENU_UI_EQUIV_DIR + MENU_UI_EQUIV[nm] + ".mat")):
-                eq = ("有等价件（自研 WFUI_*）",
-                      "不是缺陷：我们的等价件 = `Resources/Art/vfx/%s.mat`（1:1，已接线，"
-                      "经 `Shell/MenuFxMaterials` 加载）" % MENU_UI_EQUIV[nm])
-            elif nm in hsh:
-                eq = ("有等价件（去重后缀 __hash）",
-                      "不是缺陷：工程里有等价件 `%s.mat`（`EffectExporter` 的去重命名）" % hsh[nm])
-            elif nm in mat_file_stems:
-                eq = ("有同名路径（.mat 文件名 = 原版名，仅 m_Name 不同）",
-                      "不是缺陷：`Resources.Load` 按**路径**取材质，`%s.mat` 就在；它内部的 `m_Name` "
-                      "是别的（改名拷贝进来的），**路径身份成立**" % nm)
+            # 🆕 2026-11-01（`B111_T2B` / 账 `B-08`）：等价/结构性判据 → 转信息项（判据与顺序在 `resolve_material_equiv` 里）
+            eq = resolve_material_equiv(nm, oname, hsh, mat_file_stems)
             if eq:
                 misc_counts["材质未消费（%s）" % eq[0]] += 1
                 cls, fix = "", eq[1]
                 p4 = "原版 shader=%s（引用数 %s）%s  等价件=%s" % (
                     oname or "?", ctx.shader_orig_refs.get(oname, "?"),
-                    "  ⚑R4-07" if oname in R4_07 else "",
-                    MENU_UI_EQUIV.get(nm) or hsh.get(nm) or "-")
+                    "  ⚑R4-07" if oname in R4_07 else "", eq[2])
                 rows.append(["3", "菜单UI" if "UI/" in oname else domain_of(""), nm, "Material", nm,
                              "", "", "", "", "", "", p4, cls, fix, oj])
                 if oname:
@@ -1582,9 +1828,11 @@ def main():
     ap.add_argument("--out", default=DEFAULT_OUT)
     ap.add_argument("--no-content", action="store_true")
     ap.add_argument("--top", type=int, default=25)
+    # 🆕 2026-11-01（`B113X4` / 账 `B-231`）：单条材质判定（原版材质名或我们的 `.mat` 名）· 不写盘
+    ap.add_argument("--only-mat", default=None, metavar="NAME")
     ap.add_argument("-h", "--help", action="store_true")
     args = ap.parse_args()
-    if args.help or not (args.scan or args.dry):
+    if args.help or not (args.scan or args.dry or args.only_mat):
         print(__doc__)
         return 0
     run(args)

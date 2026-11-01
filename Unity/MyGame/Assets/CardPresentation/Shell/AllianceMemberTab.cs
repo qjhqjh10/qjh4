@@ -2257,8 +2257,24 @@ namespace CardPresentation
     /// <para>⚠️ **因此 `Scrollbar`（`Background` 32×32 / `Handle` = `UISprite` 32×32）不建**，理由两条：
     /// ① 那两张是 **Unity 内置图**（`m_Sprite` 名就是 `Background` / `UISprite`，不在 `assets_full` 里）⇒ **判据为空**；
     /// ② 内容装得下 ⇒ 滚条恒为「满条」、功能上无差异（**视觉上少一条轨**，如实记）。</para>
-    /// <para>⚠️ `Item Checkmark` 同样**不建**：它是 `Checkmark`（Unity 内置 40×40）⇒ 判据为空。
-    /// 「当前选中哪一条」改用我们**手上有的** `40K_dropdown_item_selected` 底图表达。</para>
+    /// <para>🔴 **`Item Checkmark`（2026-11-01 `B-229` 补建）**：原版是 `Item` 的**第三颗子件**
+    /// （顺序 = `Item Background` → `Item Checkmark` → `Item Label`），组件 = `Image`：
+    /// `m_Sprite` = Unity **内置** `Checkmark`（`m_FileID 15 / m_PathID 6419449077939965772`；图 40×40）·
+    /// `m_Type 0`(Simple，**拉伸**) · `m_PreserveAspect 0` · `m_Color (1,1,1,1)`；
+    /// RT：`anchorMin/Max (0, 0.5)` · `pivot (.5,.5)` · `m_AnchoredPosition (10, 0)` · `m_SizeDelta (20, 20)`
+    /// ⇒ **实绘 20×20、中轴 = 行左起 10**（正好落在 `Item Background` 与 `Item Label` 左内缩 20 之间，
+    /// **与字不重叠**）。判据 = `d:/2/新解包资源/assets_full/bundle_menus_assets_all/` 的
+    /// `RectTransform_8469044752002744230.json` + `MonoBehaviour_471234375723155366.json`（2026-11-01 现读；
+    /// ⚠️ `battlearena1` 那份 `Item` **逐值相同**，见 `Battle/SettingsPanel.cs` 的 `LstChkS / LstChkCx`）。
+    /// 它是原版 `Toggle`（`MB -4426061888752746586`）的 `graphic` —— `Toggle.isOn` 决定它显隐，
+    /// **`isOn` 跟的是 `_value`（当前值）而不是 `_selRow`（选中行）** ⇒ 那条「按下别的行、却没点成」的路上，
+    /// 底图（`_selected`）挪走了、勾**仍留在当前值那一行**（= 原版就长这样）。</para>
+    /// <para>🔶 **自己设计（非原版）：勾的贴图用 `40K_settings_icon_checkmark`（66×51）替 Unity 内置 `Checkmark`** ——
+    /// 为什么必须自定：那颗内置图**本地 `Resources/` 里没有导入**（运行时只走编辑器
+    /// `AssetDatabase.GetBuiltinExtraResource&lt;Sprite&gt;("UI/Skin/…")`，打包后取不到；`assets_full` /
+    /// 全盘按名字也搜不到一份可用 PNG）。⇒ **沿用既定替代口径**（不是本轮新挑的）：
+    /// `Shell/SettingsWindow.cs:752-753` 与 `Battle/SettingsPanel.cs:730-733` 两处同名的那颗勾早就换成了这张，
+    /// 本轮照同一条。拉伸方式照原版 `m_PreserveAspect = 0`（Simple 拉伸），与那两处一致。</para>
     /// <para>🔶 **自己设计（非原版）**：**哪个状态配哪张图** —— `_selected` 标当前值、`_hover` 标悬停、
     /// 其余 `40K_dropdown_item`。为什么必须自己定：原版那三张图的切换写在 `Toggle` 的
     /// `m_SpriteState` / `m_Colors` 里，**本机那份 dump 对 `Item` 只给了 `Toggle ; isOn=1`、没给这两组字段**
@@ -2302,11 +2318,26 @@ namespace CardPresentation
         readonly ImageQuad _arrowClosed, _arrowOpen;
 
         Transform _list, _blocker;
-        readonly System.Collections.Generic.List<Transform> _itemBgs = new System.Collections.Generic.List<Transform>();
         readonly System.Collections.Generic.List<ImageQuad> _itemQuads = new System.Collections.Generic.List<ImageQuad>();
+        /// <summary>每行的 `Item Checkmark`（原版 `Item` 的第三颗子件）；`null` = 那张图取不到 ⇒ 这一行没有勾。
+        /// 🔴 **`B-229`（2026-11-01）**：原来这个位置是一个只 `Add`、从不读的 `_itemBgs`（死字段）—— 已删；
+        /// 现在这一列**真的被 `RefreshItemArt` 读**（`SetActive(i == _value)`，见那边的注释）。</summary>
+        readonly System.Collections.Generic.List<ImageQuad> _itemChecks = new System.Collections.Generic.List<ImageQuad>();
         /// <summary>每行的命中区节点（`MenuDraw.Hit` 的返回）—— 换底图后要拿它上面的 `WindowButton` 重新 `Bind`。</summary>
         readonly System.Collections.Generic.List<Transform> _itemHits = new System.Collections.Generic.List<Transform>();
         int _value = -1;
+        /// <summary>`_selected` 那一档**此刻**落在哪一行（= 原版那颗 `Item` 的 `Selectable.hasSelection`）。
+        /// 初始 / 每次 <see cref="Open"/> 都回到 `_value`（= 原版 `Dropdown.Show()` 的 `if (isOn) Select()`）；
+        /// **按下别的行那一刻就挪过去、`OnPointerUp` 不清**（原版 `Selectable.OnPointerDown → Select()`，
+        /// `OnPointerExit` 也不清）—— 见 `MoveSelectionTo`。
+        /// <para>⚠️ 它**不是** `_value`：`_value` = 原版 `Toggle.isOn`（画的是 `Item Checkmark` ——
+        /// 🔴 **2026-11-01 `B-229` 已补建**，见类头；勾**只跟 `_value`**），
+        /// `_selRow` = 原版 `m_SpriteState.m_SelectedSprite` 那一档。两者只在「静止 + 值没变」时重合。</para>
+        /// <para>🔴 **判据（2026-11-01 现读，B-147）**：`bundle_menus_assets_all` 的 `Dropdown ▸ Template ▸ Viewport ▸ Content ▸ Item`
+        /// 那颗 `Toggle`（`GameObject/Item.json` 的 MB `-4426061888752746586`）= `m_Transition 2`(SpriteSwap)，
+        /// **`m_SpriteState.m_SelectedSprite` 非空**（`m_FileID 3 / m_PathID 534451138392065100`；另 5 份 `Item` 实例逐值相同）
+        /// ⇒ 这一档**真有图**，不是「原版 1199/1276 颗 null」那一族。</para>
+        int _selRow = -1;
         bool _open;
 
         /// <summary>展开着吗（自检读）。</summary>
@@ -2315,6 +2346,28 @@ namespace CardPresentation
         public int Value { get { return _value; } }
         /// <summary>合上面那颗框节点（= 原版 `languageDropdown` / `privacyDropdown` 这个 GO，显隐梯子切它）。</summary>
         public Transform Node { get { return _field; } }
+
+        /// <summary>自检读口：第 <paramref name="i"/> 行那颗 `Item Checkmark`（原版 `Item` 的第三颗子件）。
+        /// `null` = 那一行没有勾（图取不到 / 下标越界 / 列表还没建）。**只读**。</summary>
+        public ImageQuad CheckAt(int i)
+        {
+            return (i >= 0 && i < _itemChecks.Count) ? _itemChecks[i] : null;
+        }
+
+        /// <summary>自检读口：此刻**显示着勾**的那一行的下标；一个都没显 ⇒ `-1`。
+        /// 口径与 <see cref="RefreshItemArt"/> 同一条（`i == _value` 才亮）—— ⛔ 别在断言里另抄一份判据。</summary>
+        public int CheckShownRow
+        {
+            get
+            {
+                for (int i = 0; i < _itemChecks.Count; i++)
+                    if (_itemChecks[i] != null && _itemChecks[i].gameObject.activeSelf) return i;
+                return -1;
+            }
+        }
+
+        /// <summary>自检读口：列表根（原版 `Template`）；还没建过 ⇒ `null`。</summary>
+        public Transform ListRoot { get { return _list; } }
 
         AllianceDropdownBox(Transform field, PxRect fieldR, Label caption, GameObject bgClosed, GameObject bgOpen,
                             ImageQuad arrowClosed, ImageQuad arrowOpen,
@@ -2384,6 +2437,9 @@ namespace CardPresentation
             if (_list == null) return;
             _open = true;
             _list.gameObject.SetActive(true);
+            // 每次展开都把「选中行」挪回当前值那行（= 原版 `Dropdown.Show()` 的 `if (isOn) Select()`）——
+            // 上次「按下过别的行、却没点到」留下的那个选中态不跨次保留。
+            _selRow = _value; RefreshItemArt();
             SetOpenVisual(true);
             if (_blocker != null) _blocker.gameObject.SetActive(true);
         }
@@ -2440,7 +2496,15 @@ namespace CardPresentation
             var itemTex = _art("40K_dropdown_item");
             if (itemTex == null)
                 SocialPage.Say("[Social] `40K_dropdown_item` 取不到 ⇒ 列表只有字、没有条目底（判据图缺）。");
+            // 🔴 **`B-229`（2026-11-01）**：勾那张图（原版 = Unity 内置 `Checkmark`，本机 `Resources/` 没有
+            //   ⇒ 换 `40K_settings_icon_checkmark`，理由与先例 → 类头那条 `🔶 自己设计`）。
+            //   取不到 ⇒ 出声、那一列不建（`_itemChecks` 里补 `null` 占位，保持与行下标对齐）。
+            var chkTex = _art("40K_settings_icon_checkmark");
+            if (chkTex == null)
+                SocialPage.Say("[Social] `40K_settings_icon_checkmark` 取不到 ⇒ 下拉里**没有「当前值」那颗勾**"
+                             + "（原版那颗 `Item Checkmark` 的替代图缺）。");
             float itemW = w - ScrollbarW;
+            _selRow = _value;      // 建列表那一刻：`_selected` 落在当前值那行（= 原版 `Dropdown.Show()` 的 `if (isOn) Select()`）
             for (int i = 0; i < rows; i++)
             {
                 float y1 = top + i * ItemH;
@@ -2453,14 +2517,34 @@ namespace CardPresentation
                 var lb = MenuDraw.TextBox(row, lbR, _options[i], new Color(0.783f, 0.783f, 0.783f, 1f),
                                           "Item Label", 30f, 18f, QItemText, 40f, 0f);
                 if (lb != null) MenuDraw.AlignLeft(lb, lbR);
+                // 🔴 **`B-229`**：勾（原版 `Item Checkmark` 的 rect 逐值 = 实绘 20×20、中轴 = 行左起 10）。
+                //   `m_Type 0` + `m_PreserveAspect 0` ⇒ **拉伸填满 20×20**（`keepAspect: false`），照原版字段；
+                //   ⚠️ 替代图是 66×51，拉伸方式和 `Battle/SettingsPanel.cs:1787` / `Shell/SettingsWindow.cs:3691`
+                //   两处同名那颗**完全一致**（同一张替代图、同一个 20×20 框）。
+                //   队列取 `QItemText`：它比 `QItemBg` 高（否则会被整条条目底压住），而**与 `Item Label` 同档不冲突**
+                //   —— 勾占 x ∈ [行左, 行左+20]、字的左内缩正好是 20 ⇒ **两者矩形不相交**，同队列也不会打架。
+                var chkR = new PxRect(listR.x1, y1 + (ItemH - 20f) * 0.5f, listR.x1 + 20f, y1 + (ItemH + 20f) * 0.5f);
+                var chk = (chkTex != null && row != null)
+                        ? MenuDraw.Rect(row, chkTex, chkR, "Item Checkmark", QItemText, Color.white, false)
+                        : null;
                 int idx = i;
                 // 命中：队列必须高于挡板（QBlocker），否则点条目会落到「点别处 ⇒ 收起」那一支。
                 // 🔴 **B-78（`B112_A`）**：`art` 必须给**常态图名** —— 按下图只由 `WindowButton.PressedNames`
                 //   那条唯一规则从它推（`40K_dropdown_item → 40K_dropdown_item_press`）；原来传 null ⇒ 按下不换图。
                 //   原版那颗 `Toggle` 是 `m_Transition = 2` + `m_SpriteState.m_PressedSprite = _press`（有按下态）。
-                _itemHits.Add(MenuDraw.Hit(row, "Hit", new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH), QItemBg + 1,
-                                           () => Pick(idx), q, "40K_dropdown_item"));
-                _itemBgs.Add(row);
+                var hit = MenuDraw.Hit(row, "Hit", new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH), QItemBg + 1,
+                                       () => Pick(idx), q, "40K_dropdown_item");
+                _itemHits.Add(hit);
+                // 🔴 **B-147**：按下那一刻把「选中行」挪到这一行（= 原版 `Selectable.OnPointerDown → Select()`）。
+                //   ⛔ **不能调 `Select()` / `EventSystem.SetSelectedGameObject`** —— 壳里没有 UGUI `EventSystem`
+                //   （全仓 `grep SetSelectedGameObject` = 0 命中）⇒ 这是它的**等价物**，接线方式本身属自设计
+                //   （见 `MoveSelectionTo` 的 `🔶 自己设计` 标记）；**行为判据**照原版 `Selectable.currentSelectionState`。
+                if (hit != null)
+                {
+                    var hwb = hit.GetComponent<WindowButton>();
+                    if (hwb != null) hwb.onDown = () => MoveSelectionTo(idx);
+                }
+                _itemChecks.Add(chk);
                 _itemQuads.Add(q);
             }
             // 全屏挡板（原版 `Dropdown.CreateBlocker()`）：**最后建**、档最低 ⇒ 条目与合上面都压得住它。
@@ -2478,11 +2562,16 @@ namespace CardPresentation
             for (int i = 0; i < _itemQuads.Count; i++)
             {
                 if (_itemQuads[i] == null) continue;
-                bool cur = i == _value;
-                SwapArt(_itemQuads[i], cur ? "40K_dropdown_item_selected" : "40K_dropdown_item");
-                if (i >= _itemHits.Count || _itemHits[i] == null) continue;
-                var wb = _itemHits[i].GetComponent<WindowButton>();
-                if (wb != null) wb.Bind(_itemQuads[i], "40K_dropdown_item");
+                // 🔴 **B-147**：「选中行」与「当前值行」是**两档** —— 底图跟 `_selRow`（原版 `m_SelectedSprite`），
+                //   不是跟 `_value`（原版那是 `Toggle.isOn`，画的是 `Item Checkmark`）。两者只在静止时重合。
+                SwapArt(_itemQuads[i], ItemArtName(i));
+                BindRow(i);
+                // 🔴 **B-229**：勾**只跟 `_value`**（原版 `Toggle.graphic` 的显隐由 `Toggle.isOn` 决定，
+                //   而 `Dropdown.Show()` 给每一行设的就是 `isOn = (i == value)`）——
+                //   ⛔ **别写成 `i == _selRow`**：那样「按下别的行却没点成」时勾会跟着选中行跑，
+                //   而原版那一刻勾仍然钉在当前值上（`_selRow` 只换底图）。
+                if (i < _itemChecks.Count && _itemChecks[i] != null)
+                    _itemChecks[i].gameObject.SetActive(i == _value);
             }
         }
 
@@ -2504,6 +2593,61 @@ namespace CardPresentation
             var tex = _art(name);
             if (tex == null) return;              // 取不到就留在旧图上（`MissingArt` 已记）
             q.SetTexture(tex);
+        }
+
+        /// <summary>第 <paramref name="i"/> 行**该有的常态图**（原版 `m_SpriteState`：选中 ⇒ `m_SelectedSprite`，
+        /// 否则 ⇒ `Image.m_Sprite` 那张常态图）。唯一取图口 ⇒ ⛔ 别在别处再写一遍这两个图名。</summary>
+        string ItemArtName(int i) => i == _selRow ? "40K_dropdown_item_selected" : "40K_dropdown_item";
+
+        /// <summary>把第 <paramref name="i"/> 行接回 `WindowButton`：**常态图** = 它这一刻该有的那张；
+        /// **选中行的悬停图也绑「选中」那张** —— UGUI 的 `Selected` **排在 `Highlighted` 之上**
+        /// （`Selectable.currentSelectionState`），悬停选中行时原版画的是 `m_SelectedSprite`、⛔ 不是 `_hover`。
+        /// <para>⚠️ `SetNormalTex` **必须排在 `Bind` 之后**：`Bind` 取的是 quad **此刻**贴的那张图，
+        /// 而正在按下的那一行此刻贴的是 `_press` ⇒ 不纠正的话松开时会还原成按下图。</para></summary>
+        void BindRow(int i)
+        {
+            if (i < 0 || i >= _itemQuads.Count || _itemQuads[i] == null) return;
+            if (i >= _itemHits.Count || _itemHits[i] == null) return;
+            var wb = _itemHits[i].GetComponent<WindowButton>();
+            if (wb == null) return;
+            var normalTex = _art(ItemArtName(i));
+            if (normalTex == null) return;        // 取不到就留在旧图上（`MissingArt` 已记）
+            wb.Bind(_itemQuads[i], "40K_dropdown_item", i == _selRow ? ItemArtName(i) : null);
+            wb.SetNormalTex(normalTex);
+        }
+
+        /// <summary>🔶 自己设计（非原版）：**接线方式** —— 「按下 ⇒ 选中行挪过去」这个动作，原版是 UGUI
+        /// `Selectable.OnPointerDown → EventSystem.SetSelectedGameObject`（由 `EventSystem` 统一派发
+        /// `OnSelect` / `OnDeselect`）；**为什么拿不到**：我们这个外壳**没有 UGUI `EventSystem`**
+        /// （全仓 `grep SetSelectedGameObject` = 0 命中，壳里的指针走 `Shell/PointerLayer`）⇒ 没有那个全局派发器，
+        /// `Select()` 无从调用。⇒ 用「每行 `WindowButton.onDown` 一个回调」做等价物。调度台 2026-11-01 裁定（`B-147`）。
+        /// <para>**行为判据照原版**（不是照我们的方便）：① `OnPointerDown → Select()` —— **按下那一刻**就挪；
+        /// ② `Selectable.OnPointerUp` **不清**选中（`OnPointerExit` 也不清）⇒ 拖出去再松手，选中**留在那一行**；
+        /// ③ 优先级 `Pressed &gt; Selected &gt; Highlighted &gt; Normal` —— 所以按下那几帧画 `_press`、
+        /// 松手后画 `_selected`（本类不自己抢这两档：只改 `WindowButton` 的**常态图引用**）。</para>
+        /// <para>⚠️ 与 `_value` 的关系：`Pick()`（点中）会 `SetValue` ⇒ 两者随后重新合一；只是「按下又没点成」
+        /// 那一路会留下 `_selRow != _value` —— **原版就是这样**（选中挪走了、`Toggle.isOn` 没变，
+        /// 原版那时靠 `Item Checkmark` 指示当前值）。✅ **`B-229`（2026-11-01）起那颗勾已经建了**，
+        /// 所以这一档现在**看得见**：底图跟着 `_selRow` 走、勾钉在 `_value` 那一行。</para>
+        void MoveSelectionTo(int idx)
+        {
+            int old = _selRow;
+            if (old == idx) return;
+            _selRow = idx;
+            if (old >= 0 && old < _itemQuads.Count && _itemQuads[old] != null)
+            {
+                BindRow(old);
+                var wbOld = (old < _itemHits.Count && _itemHits[old] != null)
+                            ? _itemHits[old].GetComponent<WindowButton>() : null;
+                // 旧选中行此刻**没被按住**（按下的那一行是 `idx`）⇒ 立刻换回来；
+                // 仍悬停着就不硬换（悬停那一档的图归 `WindowButton` 管，硬换会抹掉它）。
+                if (wbOld == null || (!wbOld.Hovered && !wbOld.Pressed))
+                {
+                    var texOld = _art(ItemArtName(old));
+                    if (texOld != null) _itemQuads[old].SetTexture(texOld);
+                }
+            }
+            BindRow(idx);   // 新选中行：只改常态/悬停图的**引用** —— 按下那几帧的显示仍归 `WindowButton`（`_press`）
         }
     }
 

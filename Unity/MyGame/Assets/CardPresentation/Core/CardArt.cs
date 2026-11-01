@@ -405,7 +405,7 @@ namespace CardPresentation
                 var t = Cosmetic(name);
                 if (t != null) return t;
                 Debug.LogWarning("[CardArt] 阵营默认卡背的**图**取不到：" + name + "（阵营 " + faction + "）—— "
-                               + "跑 `python 工具/import_original_art.py` 补图；下面退回旧那 4 张手挑的背");
+                               + "跑 `python 工具/import_original_art.py --apply` 补图；下面退回旧那 4 张手挑的背");
             }
             return Get(Root + "cards/back_" + faction.ToLowerInvariant());
         }
@@ -969,7 +969,7 @@ namespace CardPresentation
         /// **100×130.5**，和 `_Main`（707×996）**宽高比都不一样**（0.7663 vs 0.7099）
         /// ⇒ **不是 `_Main` 的缩放版**，两个 sprite 挤在同一张 1024² 图集里。
         /// ⚠️ 低分辨率是距离场的本意，**不是缩略图**。
-        /// 导入器：`工具/import_original_art.py --only-cardback-sdf`。
+        /// 导入器：`工具/import_original_art.py --only-cardback-sdf --apply`。
         /// **用在两处**：收藏窗卡背格（`CosmeticItemCardback` 主 `+0x48` / SDF `+0x50`）与
         /// 战斗牌堆（`DeckManager` 主 `+0x50` / SDF `+0x58`，字段名就叫 `cardbackShadow`）。</summary>
         public static Texture2D CosmeticSdf(string fileName)
@@ -1304,7 +1304,7 @@ namespace CardPresentation
                 var t = CosmeticSdf(cardbackId);
                 if (t != null) return t;
                 Debug.LogWarning("[CardArt] 卡组选的卡背**没有 SDF 掩码**：" + cardbackId
-                               + " → 退回该阵营默认卡背的 SDF（跑 `python 工具/import_original_art.py --only-cardback-sdf` 补图）");
+                               + " → 退回该阵营默认卡背的 SDF（跑 `python 工具/import_original_art.py --only-cardback-sdf --apply` 补图）");
             }
             return CardBackSdf(faction);
         }

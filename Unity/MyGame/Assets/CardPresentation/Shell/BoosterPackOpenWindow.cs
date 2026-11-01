@@ -605,7 +605,7 @@ namespace CardPresentation
             if (back == null)
                 Debug.LogWarning("[BoosterPack] ⚠️ 第 " + (i + 1) + " 格的**卡背图取不到**（`CardArt.CardBack("
                                  + (Army ?? "null") + ")`）⇒ 那一格翻之前是**空的**。阵营 `" + (Army ?? "<空>")
-                                 + "` 的默认卡背在 `Resources/Cardbacks.json` 里对不上，或图没跑 `import_original_art.py`");
+                                 + "` 的默认卡背在 `Resources/Cardbacks.json` 里对不上，或图没跑 `import_original_art.py --apply`");
 
             // ④c 卡面：`2DCard`（= `CardView`）。**先关着**，翻开才开（`ChangeState(1)` 是 ToggleCardBack(true)）。
             var faceGo = new GameObject("2DCard");

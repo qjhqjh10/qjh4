@@ -1234,7 +1234,20 @@ public static class RewardsScene
         CheckArt(FindChild(FindChild(bar, "RewardsTabButton_4"), "Icon"), "40K_shop_bt_boosters",
                  "第 5 键（= **原版母版** `Menu Navigation Panel Button`）图标照旧 `40K_shop_bt_boosters`"
                  + "（A815 只挪了它的位置，值逐值未动）");
-        Check(CountByName(root, "Highlight"), 5, "五个键各有一层高亮（**只有选中的那个可见**）");
+        {
+            var hl = new System.Collections.Generic.List<string>();
+            if (root != null)
+                foreach (var tHl in root.GetComponentsInChildren<Transform>(true))
+                    if (tHl.name == "Highlight")
+                    {
+                        string p1 = tHl.parent != null ? tHl.parent.name : "?";
+                        string p2 = tHl.parent != null && tHl.parent.parent != null ? tHl.parent.parent.name : "";
+                        hl.Add(p2 + "/" + p1 + "/Highlight");
+                    }
+            // 🔴 2026-11-01（`B113W` 就地订正）：**6** 而不是 5 —— 原版这扇窗里除了 5 颗页签，还有
+            //   `ForgeCell_*/Generic UI Button/Highlight` 那一颗（`B-08 #3` 的第 2 个消费者，`B112W_B08_接线图.md:125`）。
+            Check(hl.Count, 6, "五个键各有一层高亮 + 锻造那格的 `Generic UI Button/Highlight`（**只有选中的那个可见**）｜实得：" + string.Join(" · ", hl));
+        }
         Check(CountVisible(root, "Highlight"), 1, "**可见的高亮恰好 1 个**（选中态；原版出厂都亮，可见性由运行时驱动）");
         // ============================================================ 🆕 **2026-10-12（A361）**
         // 判据 = A 表那一条：本文件这份 `CountByName` **首句直接 `root.GetComponentsInChildren`** ⇒
@@ -1250,7 +1263,8 @@ public static class RewardsScene
               "★ A361：`CountByName` 传 `null` 得 **0**（不是抛 NRE）—— 有挡才跑得到这一行");
         Check(CountByPrefix(null, "Item_"), 0,
               "★ …同族的 `CountByPrefix` 本来就有挡 ⇒ 两份**口径一致**（这条钉住「别只改一份」）");
-        Check(CountByName(root, "Highlight"), 5,
+        // 🔴 2026-11-01（`B113W` 就地订正）：与前一条同源，**6**（5 颗页签 + 锻造那格 `Generic UI Button/Highlight`）。
+        Check(CountByName(root, "Highlight"), 6,
               "★ …而 **非 null 时照常数得出来**（⛔ 别把挡写成「恒返回 0」—— 那是另一种静默；"
               + "与上面第一条合起来才分得出「挡 null」与「什么都不数」）");
         // 🔴 **2026-09-23 加（原版值，出处 `d:/2/tools/decomp_full/TabButtons__Initialize.c:35-44`）**：
@@ -4641,7 +4655,7 @@ public static class RewardsScene
                                 + "🧨 不按状态分派 ⇒ 计数 0 ⇒ 红）");
                     }
                     var glowNode = FindChild(cellR, "Collect Highlight Effect");
-                    var glow = glowNode != null ? glowNode.GetComponent<UIBorderGlow>() : null;
+                    var glow = glowNode != null ? glowNode.GetComponentInChildren<UIBorderGlow>(true) : null;
                     CheckTrue(glow != null, "★ `Collect Highlight Effect` 上挂着 `UIBorderGlow`（F 组件）");
                     CheckTrue(glowNode != null && !glowNode.gameObject.activeSelf,
                               "★ 出厂**关**（原版 `Initialize` 无条件 `SetActive(false)`）");
@@ -4707,10 +4721,19 @@ public static class RewardsScene
                 // 🆕 2026-10-25：领到之后那颗 `Collect Highlight Effect` 必须被打开（原版 `ClickClaim` 尾句）
                 {
                     var cellAfter = FindChild(fcontent, "ForgeCell_" + lvR);
-                    var glowAfter = FindChild(cellAfter, "Collect Highlight Effect");
+                    var glowAfter = FindChild(cellAfter, "Collect Highlight Effect"); var glowFx = glowAfter != null ? glowAfter.GetComponentInChildren<UIBorderGlow>(true) : null;
                     CheckTrue(glowAfter != null && glowAfter.gameObject.activeSelf,
                               "★ 领到之后 `Collect Highlight Effect` **被 SetActive(true)**（紫边呼吸；"
-                            + "🧨 `ClaimCell` 漏了这一跳 ⇒ 这条红）");
+                            + "🧨 `ClaimCell` 漏了这一跳 ⇒ 这条红）"); CheckTrue(glowFx != null, "★ `B-205`：`UIBorderGlow` 就在**渲染件那个 GO** 上（`GetComponentInChildren` 才取得到）—— 挂在外层空节点上时本组件永远拿不到 `ImageQuad`/`Renderer`｜🧨 把它挂回 `glowNode` ⇒ 这条红");
+if (glowFx != null)
+                    {
+                        CheckTrue(glowFx.GetComponent<ImageQuad>() != null || glowFx.GetComponent<Renderer>() != null,
+                                  "★ `B-205`：组件所在的 GO **就是渲染件**（同 GO 上有 `ImageQuad`/`Renderer`）—— 挂在外层空节点上时永远拿不到渲染件｜🧨 挂回 `glowNode` ⇒ 红");
+                        int pcBefore = glowFx.PlayCount;
+                        glowFx.Play();   // ⚠️ 批处理（非 Play 模式）下 `OnEnable` 不触发 ⇒ 这里显式模拟「激活那一刻」
+                        CheckTrue(glowFx.PlayCount > pcBefore, "★ `B-205`：`Play()` 进得去（计数 +1）");
+                        CheckTrue(glowFx.HasMaterial, "★ `B-205`：**材质实例已经拿到**（`HasMaterial`）—— 这条才是「它真能画出东西来」的判据（只断「组件在」等于没验）｜🧨 挂错节点 ⇒ `CacheMaterial` 恒 false ⇒ 红");
+                    }
                 }
                 Check(ForgeData.LevelOf(ForgeData.Selected), lvR + 1,
                       "点了 Claim ⇒ 已领格数 +1（原版语义：只把 `rewardsCollected` 加一，不扣经验）");
@@ -13549,7 +13572,7 @@ public static class RewardsScene
 
         RunCampaignRewardLocalization(wm2); B107_W20_Assert.RunAll(root, wm2); _sink.Pass += B107_W20_Assert.Pass; _sink.Fail += B107_W20_Assert.Fail;   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）｜🆕 B107_W30 代接线：N131 `Collected Badge` 三层 + N130 四窗换语言 / `RewardsWindow` 整窗重建（本件自建自毁各窗 ⇒ 不借宿主那几具已被 `ReapClosedWindows` 收割的实例；判据 → 报告/B107_W30.md）
         Debug.Log(P + win.Dump());
-        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; B111_R3WB_Assert.Run(); _sink.Pass += B111_R3WB_Assert.Pass; _sink.Fail += B111_R3WB_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; B111_R3WB_Assert.Run(); _sink.Pass += B111_R3WB_Assert.Pass; _sink.Fail += B111_R3WB_Assert.Fail; C9_Assert.Run(); _sink.Pass += C9_Assert.Pass; _sink.Fail += C9_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
         //   同族四处一起改：`ShellScene` / `CollectionScene` / `ShopScene`（同一句形状）。

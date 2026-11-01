@@ -112,7 +112,7 @@ namespace CardPresentation.Net
             //   **理由码**照引擎那套 token 形态记一条。原版那一刻（`CancelMatch.c:29` → `DeadHero(_, BattleResult)`
             //   的第三个实参）`BattleManager` **已经有 `MatchData`**、码进的是 `ctx`；而**我们取消匹配发生在
             //   还没有 `ctx` 的时候** ⇒ ⛔ **不动「`ctx` 何时出生」那条架构**（裁定原话），改在**匹配层自己的日志**里记，
-            //   并且**如实标注这处差异**（`ctx.Events` 那边**一个字都没有** —— 这一条只落日志）。
+            //   并且**如实标注这处差异**（`ctx.Events` 那边**一个字都没有** —— 这一条只落日志；`Fingerprint` 自 2026-10-31 `NET-01` 起不含 `Events.Count`，这处差异不会让两端指纹分叉）。
             //   🔴 **那行字只有一处拼** = `ReplayStore.ResultLine`（`Battle/ReplayStore.cs`）—— 它与
             //   `RuleCore.Forfeit` / `CheckWinner` 那两句 `ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}")`
             //   **同形**，而录像头尾那两条记录走的也是它 ⇒ 「同一 token 形态」是**用出来的**、不是再抄一份

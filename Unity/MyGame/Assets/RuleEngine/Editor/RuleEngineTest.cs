@@ -1369,13 +1369,35 @@ public static partial class RuleEngineTest
         // 🆕 2026-10-31（调度台接线 · B106_W57）：`Avenging Zeal` 的 `TriggeredCodex` 路由 + 手牌触发 `InstanceId`
         //   断言全文在 `CardPresentation/Editor/B106_W57_Assert.cs`（`public static partial class RuleEngineTest`）。
         {
-            B106W57(); B107W10(); B107W19();
+            B106W57(); B107W10(); B107W19(); Step(B113W2Case); Step(B113X1Case);   // 🆕 2026-11-01（`B113X1` · 调度台接线：B-230 单块 ta 长度不对记原因码 · B-212 FromTarget 补 SubtypeFilter，断言全文 `CardPresentation/Editor/B113X1_Assert.cs`）· 🆕 2026-11-01（`B113W2` · 调度台接线）：B-210 eachunitdeal 出伤池 criteria · B-208 AddSide 残骸闸 · B-181 多 ability 卡出声（断言全文 `CardPresentation/Editor/B113W2_Assert.cs`）
         }
 
         // 🆕 2026-10-31（调度台 · AUD11）：`EngineE1Assert`（v24 三列 / 版本守卫 / 按能力种类归位）
         //   头注释自己写着「请主对话并进宿主」，此前**全仓 0 宿主** ⇒ 一条都没跑过。
         {
-            EngineE1Assert.Run(); _pass += EngineE1Assert.Pass; _fail += EngineE1Assert.Fail; C1_EngineFixes_Assert.Run(); _pass += C1_EngineFixes_Assert.Pass; _fail += C1_EngineFixes_Assert.Fail; C8_Assert.Run(); _pass += C8_Assert.Pass; _fail += C8_Assert.Fail; B110C09(); B110_E5_Assert.Run(); _pass += B110_E5_Assert.Pass; _fail += B110_E5_Assert.Fail; B111E1(); B111E3B_Assert.Run(); _pass += B111E3B_Assert.Pass; _fail += B111E3B_Assert.Fail; B112_T2C_Assert.Run(); _pass += B112_T2C_Assert.Pass; _fail += B112_T2C_Assert.Fail; B112W_B127_Assert.Run(); _pass += B112W_B127_Assert.Pass; _fail += B112W_B127_Assert.Fail;
+            EngineE1Assert.Run();
+            _pass += EngineE1Assert.Pass;
+            _fail += EngineE1Assert.Fail;
+            C1_EngineFixes_Assert.Run();
+            _pass += C1_EngineFixes_Assert.Pass;
+            _fail += C1_EngineFixes_Assert.Fail;
+            C8_Assert.Run();
+            _pass += C8_Assert.Pass;
+            _fail += C8_Assert.Fail;
+            B110C09();
+            B110_E5_Assert.Run();
+            _pass += B110_E5_Assert.Pass;
+            _fail += B110_E5_Assert.Fail;
+            B111E1();
+            B111E3B_Assert.Run();
+            _pass += B111E3B_Assert.Pass;
+            _fail += B111E3B_Assert.Fail;
+            B112_T2C_Assert.Run();
+            _pass += B112_T2C_Assert.Pass;
+            _fail += B112_T2C_Assert.Fail;
+            B112W_B127_Assert.Run();
+            _pass += B112W_B127_Assert.Pass;
+            _fail += B112W_B127_Assert.Fail;
         }
 
         // ---- 汇总 ----

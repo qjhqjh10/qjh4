@@ -133,7 +133,7 @@ namespace RuleEngine
                 return string.IsNullOrEmpty(KindWord)
                     && (KindAnyOf == null || KindAnyOf.Count == 0)
                     && string.IsNullOrEmpty(Keyword)
-                    && string.IsNullOrEmpty(Name)
+                    && string.IsNullOrEmpty(Name) && string.IsNullOrEmpty(SubtypeFilter)
                     && !WarlordOnly
                     && SpellType < 0
                     && Condition < 0;
@@ -177,6 +177,9 @@ namespace RuleEngine
                 WarlordOnly = spec.Kind == "warlord",
                 Keyword = spec.KeywordFilter,
                 Name = spec.NameFilter,
+                // 🔴🆕 2026-11-01（执行代理 `B113X1` · 账 `B-212`）：**兵种这一维原来没拷** ⇒
+                //   `… you deploy` / `… attacked by this unit` 两支拿到的 criteria **少了兵种筛**（静默宽打）。
+                SubtypeFilter = spec.SubtypeFilter,
             };
             return c.IsEmpty ? null : c;
         }
@@ -207,7 +210,7 @@ namespace RuleEngine
         {
             if (c == null) return false;
             if (WarlordOnly && !DeckRules.IsWarlordCardType(c.Type)) return false;
-            if (!KindMatches(c)) return false;
+            if (!KindMatches(c) || !SubtypeMatches(c)) return false;   // 🆕 `B113X1` · `B-212`：兵种精确筛那一维
             if (!string.IsNullOrEmpty(Keyword) && !c.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(c.Name) != CreatePool.Norm(Name)) return false;
             if (SpellType >= 0)
@@ -248,7 +251,7 @@ namespace RuleEngine
         {
             if (u == null || u.Card == null) return false;
             if (WarlordOnly && !u.IsWarlord) return false;
-            if (!KindMatches(u.Card)) return false;
+            if (!KindMatches(u.Card) || !SubtypeMatches(u.Card)) return false;   // 🆕 `B113X1` · `B-212`
             if (!string.IsNullOrEmpty(Keyword) && !u.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(u.Card.Name) != CreatePool.Norm(Name)) return false;
             if (SpellType >= 0 && (u.Card.SpellType < 0 || u.Card.SpellType != SpellType)) return false;
@@ -277,6 +280,7 @@ namespace RuleEngine
                 foreach (string k in KindAnyOf) parts.Add(k);
             if (!string.IsNullOrEmpty(Keyword)) parts.Add("带 " + Keyword);
             if (!string.IsNullOrEmpty(Name)) parts.Add("名为 " + Name);
+            if (!string.IsNullOrEmpty(SubtypeFilter)) parts.Add("兵种=" + SubtypeFilter.Replace("|", " 或 "));
             if (SpellType >= 0) parts.Add("spellType=" + SpellType);
             if (Condition >= 0) parts.Add((ExcludeCondition ? "不满足 " : "满足 ") + "cond=" + Condition);
             if (parts.Count == 0) return "（不限）";
@@ -306,5 +310,37 @@ namespace RuleEngine
         /// 棋盘那一支读的是**当前** traits（`+0x128` 的等价物）—— ⛔ 两个口别混用。</para></summary>
         public static bool? RawCardMeetsTraitCriteria(CardDef card, CardDef.CountSetSpec criteria, out string gap)
             => TargetCriteriaEval.RawCardMeetsTraitCriteria(card, criteria, out gap);
+
+        // ======================================================================================
+        //  🆕 2026-11-01（执行代理 `B113X1` · 账 `B-212`）：兵种这一维的**精确筛**
+        //  （新成员按纪律**追加在类尾** —— 别插进前面那批成员中间，账按行号引用。）
+        // ======================================================================================
+
+        /// <summary>
+        /// 兵种这一维的**精确筛**（`CardDef.Subtype` 全等，`|` 分隔 = 任一命中）。
+        ///
+        /// <para>🔴 **改前 `FromTarget` 不拷它** ⇒ `… you deploy` / `… attacked by this unit` 那两支
+        /// （`EffectResolver.cs:1704` / `:1724`）拿到的 criteria **少了兵种这一维** ⇒ 静默宽打。
+        /// 现池 0 例（带兵种词的只有 2 张，都是裸兵种词走 <see cref="KindWord"/>）⇒ 补上 = **零行为变化**
+        /// （`play check` 差异集合改前/改后逐字相同）。</para>
+        ///
+        /// <para>⚠️ 与 <see cref="KindWord"/> 是**两个维度**：解析层对同一个兵种词两个都填
+        /// （`EffectText.ParseTarget` 的 `MapToSubtype`）—— 两维**并且**、同源同值
+        /// ⇒ 与原来只走 `KindMatches` 等价。</para>
+        ///
+        /// <para>⚠️ **候选的 `Subtype` 为空时保留** —— 与 `EffectResolver.ApplyTargetFilters` /
+        /// `RuleCore.HandEffectFits` 同一条纪律（「查不到兵种 ⇒ 不排除」，⛔ 不是「悄悄筛掉」）。</para>
+        /// </summary>
+        public string SubtypeFilter;
+
+        /// <summary>兵种这一维的比较 —— **判据只此一处**（两个 <c>Matches</c> 都走它）。语义见 <see cref="SubtypeFilter"/>。</summary>
+        bool SubtypeMatches(CardDef c)
+        {
+            if (string.IsNullOrEmpty(SubtypeFilter)) return true;              // 不筛
+            if (c == null || string.IsNullOrEmpty(c.Subtype)) return true;     // 查不到兵种 ⇒ 保留（同上那条纪律）
+            foreach (string w in SubtypeFilter.Split('|'))
+                if (string.Equals(c.Subtype, w.Trim(), System.StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
     }
 }

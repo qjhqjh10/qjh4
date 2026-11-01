@@ -643,7 +643,7 @@ namespace CardPresentation
                                                 new PxRect(CardWinBox.CardL, CardWinBox.CardT, CardWinBox.CardR, CardWinBox.CardB));
                 _cards = MenuDraw.Node(cardsHolder, "Cards",
                                        new PxRect(CardWinBox.CardsCx - CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy - CardWinBox.CardsS * 0.5f,
-                                                  CardWinBox.CardsCx + CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy + CardWinBox.CardsS * 0.5f));   // 🔴 2026-11-01（`B-195`）：原版**战斗窗没有** `Level Up Effect` 那一族（`Battle Arena 1.unity` 里 `Level Up Effect` / `Lighting Rays` 全 0 命中；`Upgrade Panel` / `options` 在 13/13 竞技场为 null）⇒ 这一层**不建**（`_fx` 恒 null）。唯一合法建点 = `Shell/CardDetailPopup` 的主卡 `2DCard` 下
+                                                  CardWinBox.CardsCx + CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy + CardWinBox.CardsS * 0.5f));   // 🔴 2026-11-01（`B-195`）：原版**战斗窗没有** `Level Up Effect` 那一族（`Battle Arena 1.unity` 里 `Level Up Effect` / `Lighting Rays` 全 0 命中；`Upgrade Panel` / `options` 在 13/13 竞技场为 null）⇒ 这一层**不建**（承载它的 `_fx` 字段已随 `B-148` 删除；`_fx` 恒 null）。唯一合法建点 = `Shell/CardDetailPopup` 的主卡 `2DCard` 下
             }
             else Debug.LogError("[展示窗] 世界壳（装卡体那一层）没建出来 ⇒ **卡体建不了**（本窗只剩字）");
 
@@ -1505,7 +1505,7 @@ namespace CardPresentation
                 SlotViews[i] = v; _slotDefs[i] = defs[i];
             }
             CardFan.ApplyQueues(SlotViews, SlotCount, CardFan.QCardBase);
-            PlayOpenAnimation(); EnsureLevelUpFx();          // 开窗那一拍（原版窗根那颗 `Animation`，见 `CardFan` 里那一块判据）
+            PlayOpenAnimation();          // 开窗那一拍（原版窗根那颗 `Animation`，见 `CardFan` 里那一块判据）· 🔴 2026-11-01（`B-148`）：原来这里还顺带调了一次「确保升级动画组件」的口，那个部分类（`CardDisplayWindowPartial_B111F1E.cs`）**已整体退役删除**—— 战斗窗不建光效层；承载它的 `_fx` 字段也**已随该 partial 一并删除**（今天文件里已无此字段），那一跳只会每次开窗挂一个**永不播**的 `CardDisplayLevelUp` 并打一条「接不上」告警；升级播放留在 `Shell/CardDetailPopup.PlayUpgradeAnimation`
             Debug.Log($"[展示窗] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
                     + " —— 位姿：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（`CardFan` 文件头）");
         }
@@ -1945,9 +1945,7 @@ namespace CardPresentation
         //  ⚠️ 这两格**追加在类尾**（插在中间会让本文件 52 条账落点整体漂移，见 CLAUDE.md 铁律 18·b）。
         /// <summary>原版 `Card Displayer Menu For Menu ▸ Card Display ▸ …` 那 10 颗粒子 + 3 条图件的根节点
         /// （判据/换算/没做的两条 → `Shell/CardDisplayEffects.cs` 文件头）。`null` = 判据或材质取不到。</summary>
-        Transform _fx;
         /// <summary>自检读口：光效层在不在（`null` = 没建起来）。⛔ 不拿它当"画得对不对"的判据。</summary>
-        public Transform EffectsRoot { get { return _fx; } }
 
         // ============================================================ 🆕 2026-10-27（B88_E6）：「空文本占一槽」
         //  ⚠️ **追加在类尾**（插进中间会让本文件 50+ 条 `文件:行号` 账落点整体漂移，见 CLAUDE.md 铁律 18·b）。

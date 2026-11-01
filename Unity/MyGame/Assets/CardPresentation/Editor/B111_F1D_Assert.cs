@@ -143,4 +143,16 @@ public static class B111_F1D_Assert
         var line = $"[B111_F1D] === {_ok} 过 / {_bad} 红 ===";
         if (_bad == 0) Debug.Log(line); else Debug.LogError(line);
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  🆕 2026-11-01（`B-216` 接线）：**宿主读回口**
+    //  本件此前 `grep -rln "B111_F1D_Assert"` 只命中它自己 ⇒ **17 条 `Check` 从未执行**。
+    //  要挂进宿主就必须有 `Pass`/`Fail`（宿主聚合行的形状 = `X.Run(); _sink.Pass += X.Pass; _sink.Fail += X.Fail;`）。
+    //  ⚠️ 追加在类尾 = 不动上面任何行号。
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <summary>通过条数（宿主累加用）。</summary>
+    public static int Pass { get { return _ok; } }
+    /// <summary>失败条数（宿主累加用）。</summary>
+    public static int Fail { get { return _bad; } }
 }

@@ -910,7 +910,7 @@ public static class ShopScene
     /// （口径与判据 → 本文件 `CheckNoMissingSwapArt` 调用点上面那一段注释）。</para>
     /// <para>🔴 **失败时把名字列出来**（照 `MissingArt` 的约定；A810① 之前只有 `bp` 那一处列）——
     /// `A808` 记着：`Resources/Art/ui_menu/` 下那十几张手拷图**没有任何导入器登记** ⇒ 谁跑一次
-    /// `工具/import_original_art.py`（或删 `Resources/Art/`），这几条会**静默翻红**：届时先看这份名单。</para></summary>
+    /// `工具/import_original_art.py --apply`（或删 `Resources/Art/`），这几条会**静默翻红**：届时先看这份名单。</para></summary>
     static void CheckNoMissingArt(List<string> miss, string what)
         => CheckTrue(miss != null && miss.Count == 0,
                      what + "：**一张图都不缺**（缺的会列在这里："
@@ -2458,12 +2458,12 @@ public static class ShopScene
                           "★ ② …真画出来的格子数 = 条数（⛔ 不是读 `Context` 自证：数的是 `ListHolder` 下的节点）");
                 }
                 // 这一格该走**真图**（`40k_general_icon_currency_gold` = 2026-10-15（A544）换上的 big 族那张，
-                //   ⚠️ **要先跑过导入腿**才在工程里 —— `工具/import_original_art.py --only-menu`；
+                //   ⚠️ **要先跑过导入腿**才在工程里 —— `工具/import_original_art.py --only-menu --apply`；
                 //   没跑 ⇒ 这条红，那正是它该有的反应：`Shell/ShopData.cs` 填的名字工程里没有 = 占位板）
                 //   ⚠️ 断的是 `NoIconItems` **不包含**它（⛔ 别断某个 sprite 名 —— 那是实现细节）
                 CheckTrue(!rw439.NoIconItems.Contains(grants439[0].Id),
                           "…这一格的图走的是真图（`RewardWindow.NoIconItems` 里没有它 ⇒ 没退化成占位板）"
-                          + "—— ⚠️ 没跑导入腿（`工具/import_original_art.py --only-menu`）时它会红，"
+                          + "—— ⚠️ 没跑导入腿（`工具/import_original_art.py --only-menu --apply`）时它会红，"
                           + "因为那三张 big 族币种图是 2026-10-15（A544）新登记的");
 
                 Check(RewardWindowFixture.DismissRewardWindows(), 1,
@@ -2634,7 +2634,7 @@ public static class ShopScene
                               + "（A544 报的就是这个缺陷）⇒ 这条红");
                         CheckTrue(!rwI544.NoIconItems.Contains(rc544.Rewards[0].Id),
                                   "★ ③ 这一格的图**真画出来了、不是占位板**（`NoIconItems` 里没有它）"
-                                  + "—— 名字写错 / 没跑 `工具/import_original_art.py --only-menu` ⇒ 这条红");
+                                  + "—— 名字写错 / 没跑 `工具/import_original_art.py --only-menu --apply` ⇒ 这条红");
                     }
                     Check(RewardWindowFixture.DismissRewardWindows(), 1,
                           "（编排）把它关掉 —— 关窗 ⇒ `NotifyClosed` → `ShowPreviousWindow` 把商店带回 `Open`");
@@ -5374,7 +5374,7 @@ public static class ShopScene
             //   （`Shell/GenericOptionsPanel.cs:479-489`），而 `Tex(ArtShadow, …)` 在 `Build()` 路径上是
             //   **无条件**调的（`Shell/GenericOptionsPanel.cs:364`）⇒ 这个 `0` 是**实读数**、不是「没跑到所以空表」。
             //   🔴 但**别把它当成稳的**：`Resources/Art/ui_menu/` 下那 13 张手拷图**没有任何导入器登记**
-            //   （= A808）⇒ 谁跑一次 `import_original_art.py`（或删 `Resources/Art/`）这条会**静默翻回红**。）
+            //   （= A808）⇒ 谁跑一次 `import_original_art.py --apply`（或删 `Resources/Art/`）这条会**静默翻回红**。）
             // 🆕 2026-10-15（A810①）：走公共口（「0 才绿」的唯一一份）；上面那整段订正留档不动
             CheckNoMissingArt(gop.MissingArt,
                 "★ 泛用选项窗（`OctagonUI Filled SDF` 已进 `Resources/Art/ui_menu/` —— 源在 `bundle_duplicateassetisolation_assets_all`）");
@@ -5801,7 +5801,7 @@ public static class ShopScene
             //   ⇒ A803 补上 `Build()` 之后这个 `0` 才是**实读数**（本 run 拿到的 0 是 F1 那段「没跑」的平凡值）。
             //   ⚠️ 原来紧随其后还有两行「缺的是哪个名字」（`Count == 0` 时三元取 `"-"`、与任何图名恒不等，
             //   留着必红且已无可断言对象）⇒ **已随之删掉**。
-            //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py` 就翻红。）
+            //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py --apply` 就翻红。）
             // 🆕 2026-10-15（A810①）：走公共口（「0 才绿」的唯一一份）；上面那整段订正留档不动
             CheckNoMissingArt(ppw.MissingArt,
                   "★ 高级包窗（`UI_HIghlight Internal` 已进 `Resources/Art/ui_menu/`）");
@@ -5881,7 +5881,7 @@ public static class ShopScene
             //   `Tex(ArtBanner, …)`（`Shell/RankedRewardEventWindow.cs:378`）在 `Build()` 路径上**无条件**调
             //   ⇒ 这个 `0` 是**实读数**。⚠️ 原来紧随其后那两行「缺的是哪个名字」**已随之删掉**
             //   （`Count == 0` 时三元取 `"-"`、与任何图名恒不等）。
-            //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py` 就翻红。
+            //   🔴 那 13 张手拷图**没有任何导入器登记**（= A808）⇒ 谁跑一次 `import_original_art.py --apply` 就翻红。
             //   🔴 **⛔ 别顺手把下面 `SetBoost` 那一段的缺图也改成 0**：`40K_shop_offer_bg_Sororitas_0`
             //   （阵营卡的底）是**真缺**（`Resources/` 下一张都没有，`Shell/RankedRewardEventWindow.cs:168-170`）。）
             // 🆕 2026-10-15（A810①）：走公共口（「0 才绿」的唯一一份）；上面那整段订正留档不动

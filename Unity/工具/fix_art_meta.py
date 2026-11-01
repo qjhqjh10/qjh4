@@ -33,14 +33,17 @@
   · 其中**真的 NPOT、会被缩放**的（**行动集**，见 `--scan-npot` 现读）
 ⛔ `Plugins/` 是第三方插件自带资产，默认不动（`--include-plugins` 才动）。
 
-── 二、音频导入设置（账 `B-25`）───────────────────────────────────────────────
+── 二、音频导入设置（账 `B-25` / `B-138`）─────────────────────────────────────
 **先判死「判据能不能拿到」**（铁律 18·0：拿不到就不许自己编）：
   · `AudioImporter` 的 `sampleRateOverride` / `normalize` / `3D` / `quality` / `forceToMono` /
     `ambisonic` 是**编辑器侧的导入设置**，**构建时被消费掉、不进包体** ⇒ 本地**没有任何真值源**。
-  · `d:/2/tools/assetripper_out/ExportedProject/Assets/AudioClip/*.meta`（651 份）**不是原版编辑器工程**，
-    是 AssetRipper 的重建：其中**能进包的 4 项**（`loadType` / `compressionFormat` /
-    `preloadAudioData` / `loadInBackground`）**逐条不同**（是从 AudioClip 资产读出来的，可信）；
-    另外那 6 项在 651 份里是**常量填充**（`--scan-audio` 会把这张分布表打出来）。
+  · 🔴 **2026-11-01（`B-138`）换源**：原指 `assetripper_out/.../AudioClip/*.meta`（**651 份**）；
+    现指 `工具/_sfx_audio_truth.json`（**2,549 条去重名字**，来自原版 **30 个含 AudioClip 的 bundle** 的 typetree）。
+    **换的理由是「覆盖」、不是「AssetRipper 的值不可信」** —— 两源**值上 0 差异**（643 条同名 clip
+    逐字段相同，另 8 条是 `_0` 后缀去歧义名）；但 AssetRipper **完全够不到 VO**（`vo_*` = 0），
+    而 `diff` 只在 `common` 上算 ⇒ 旧源下 **`vo/` 那 1,893 条永远进不了名单**。
+    读法**复用共用件 `_sfx_meta`**（`original_prov`：精确 → `NAME_ALIASES` → 去首尾空白索引），
+    ⛔ 不在这里另抄一份真值/别名（同一条规则两处写 = 迟早不一致）。
   ⇒ 所以本工具**只对齐那 4 项**（`--fix-audio-prov`），**其余一项都不碰**。
 ⛔ 另注意：我们 2,494 份全是 `sampleRateSetting: 0`（PreserveSampleRate）+
    `sampleRateOverride: 44100` —— **override 是死值**（`sampleRateSetting != 2` 时 Unity 不看你这个词），
@@ -60,8 +63,8 @@ import sys
 
 DEFAULT_ASSETS = r"d:/4/Unity/MyGame/Assets"
 DEFAULT_BACKUP = r"d:/4/_tmp_view/b111_t2_backup"
-# 原版「能进包」的 4 项真值源（AssetRipper 重建，字段来自 AudioClip 资产本体）
-ORIG_AUDIO_META = r"d:/2/tools/assetripper_out/ExportedProject/Assets/AudioClip"
+# 原版「能进包」的 4 项真值源 = `_sfx_meta` 的真值表（30 个 bundle 的 typetree，2,549 条）
+ORIG_AUDIO_TRUTH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_sfx_audio_truth.json")
 
 AUDIO_DIR_REL = "CardPresentation/Resources/Art/audio/"
 # 能证明的原版字段（进包体，AssetRipper 从资产读出来）→ 逐条不同
@@ -233,6 +236,21 @@ def parse_audio_meta(b):
     return d
 
 
+def _sfxmod():
+    """懒加载共用件 `工具/_sfx_meta.py` —— 真值表 / `NAME_ALIASES` / 去首尾空白索引
+    **只有那一处正本**（⛔ 不在这里另抄一份）。读不到 ⇒ 返回 None 并**出声**（⛔ 不静默退回旧源）。"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import _sfx_meta
+    except Exception as e:                              # noqa: BLE001
+        log("⛔ 读不到 `工具/_sfx_meta.py`（%s）⇒ 原版侧 0 条，逐条比全部跳过" % e)
+        return None
+    if not _sfx_meta.load_truth(ORIG_AUDIO_TRUTH):
+        log("⛔ 原版真值表空/读不动：%s ⇒ 原版侧 0 条，逐条比全部跳过" % ORIG_AUDIO_TRUTH)
+        return None
+    return _sfx_meta
+
+
 def scan_audio(assets, top=25):
     our_dir = os.path.join(assets, AUDIO_DIR_REL.replace("/", os.sep))
     ours = {}
@@ -244,52 +262,53 @@ def scan_audio(assets, top=25):
         if d is None:
             noimp += 1
             continue
-        ours[os.path.basename(p)[:-5]] = (p, d)
-    orig = {}
-    if os.path.isdir(ORIG_AUDIO_META):
-        for f in sorted(os.listdir(ORIG_AUDIO_META)):
-            if not f.endswith(".meta"):
-                continue
-            d = parse_audio_meta(rb(os.path.join(ORIG_AUDIO_META, f)))
-            if d is not None:
-                orig[f[:-5]] = d
+        ours[os.path.basename(p)[:-5]] = (p, d)     # 键 = `<clip 名>.<ext>`（对齐旧口径）
+    mod = _sfxmod()
+    orig = mod.load_truth(ORIG_AUDIO_TRUTH) if mod is not None else {}
     log("── 音频导入设置普查 ──")
     log("我们：%d 份 .meta 带 AudioImporter（无 importer %d）· 目录 `%s`"
         % (len(ours), noimp, AUDIO_DIR_REL))
-    log("原版真值源：%s（%d 份）" % (ORIG_AUDIO_META, len(orig)))
+    log("原版真值源：%s（%d 条去重 clip 名）" % (ORIG_AUDIO_TRUTH, len(orig)))
 
     ALL_FIELDS = PROVABLE + UNPROVABLE
 
-    def dist(src, name):
+    def dist(src, name, fields=ALL_FIELDS):
         from collections import Counter
         c = Counter()
         for _k, d in src.items():
-            for f in ALL_FIELDS:
+            for f in fields:
                 c[(f, d.get(f))] += 1
         log("  %s 分布：" % name)
-        for f in ALL_FIELDS:
+        for f in fields:
             vals = sorted([(k[1], v) for k, v in c.items() if k[0] == f],
                           key=lambda x: -x[1])
             log("    %-20s %s" % (f, " · ".join("%s×%d" % (a, b) for a, b in vals[:6])))
 
     dist({k: v[1] for k, v in ours.items()}, "我们")
-    dist(orig, "原版(AssetRipper)")
+    dist(orig, "原版(真值表)", PROVABLE)          # 真值表只有这 4 项（另 2 项只给 --verify 用）
 
-    log("  ⚠️ 原版那 %d 份里，%s 这 %d 项**恒为同一个值** ⇒ 是 AssetRipper 的填充，"
-        "**不是原版真值**，⛔ 不可当判据、本工具也不碰。"
-        % (len(orig), "/".join(UNPROVABLE[:4]), 4))
+    log("  ✅ 原版那 %d 条是 **AudioClip typetree 的逐条真值**（不是填充）；"
+        "`%s` 这几项在本地**没有真值源**（编辑器侧设置、不进包体），⛔ 本工具不碰。"
+        % (len(orig), "/".join(UNPROVABLE)))
     log("  ⚠️ 我们 2,494 份都是 sampleRateSetting: 0（PreserveSampleRate）+ sampleRateOverride: 44100 "
         "⇒ **override 是死值**（只有 sampleRateSetting=2 才生效），实际没有重采样。")
 
-    common = [k for k in ours if k in orig]
-    log("  逐条比（同名 %d 份，只比那 %d 个能证明的字段）：" % (len(common), len(PROVABLE)))
-    diff = []
-    for k in sorted(common):
+    diff, missing_truth, n_common = [], [], 0
+    for k in sorted(ours):
+        d_r = mod.original_prov(os.path.splitext(k)[0]) if mod is not None else None
+        if not d_r:                                  # 真值表里查不到 ⇒ ⛔ 不拿多数值硬套
+            missing_truth.append(k)
+            continue
+        n_common += 1
         d_o = ours[k][1]
-        d_r = orig[k]
-        bad = [(f, d_o.get(f), d_r.get(f)) for f in PROVABLE if d_o.get(f) != d_r.get(f)]
+        bad = [(f, d_o.get(f), str(d_r[f])) for f in PROVABLE if d_o.get(f) != str(d_r[f])]
         if bad:
             diff.append((k, ours[k][0], bad))
+    log("  逐条比（有真值 %d 份 · **查不到真值 %d 份**，只比那 %d 个能进包的字段）："
+        % (n_common, len(missing_truth), len(PROVABLE)))
+    if missing_truth:
+        log("    ⚠️ 查不到真值（⛔ 不猜、不写）：%s%s"
+            % (", ".join(missing_truth[:top]), " …" if len(missing_truth) > top else ""))
     from collections import Counter
     byfield = Counter(f for _k, _p, bad in diff for f, _a, _b in bad)
     log("    不一致 %d 份：%s" % (len(diff), dict(byfield)))

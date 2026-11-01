@@ -1,14 +1,28 @@
-// B111_F1E_Assert.cs — B-70「选项 b」：`inheritChild` / `inheritTarget` 接在**展示窗**那棵树上的断言
-// （`B111_F1E` · 2026-11-01）
+// B111_F1E_Assert.cs — B-70「选项 b」：`inheritChild` / `inheritTarget` 这一跳的断言
+// （`B111_F1E` · 2026-11-01；🔴 **2026-11-01（`B-148`）就地改口径**：选项 b 的 partial 已整体退役，见下）
 //
-// 判据（详见 `Battle/CardDisplayWindowPartial_B111F1E.cs` 文件头）：
+// 🔴 **现行口径（`B-148` 退役之后，2026-11-01）**：
+//   · 方案 A 的核心**已落地**，升级播放留在 `Shell/CardDetailPopup` ——
+//     光效层 `CardDisplayEffects.BuildUnder2DCard(SlotViews[0].FaceRoot)` 挂在**主卡 `2DCard`** 下（`B-195`），
+//     驱动 `LevelUpEffect.DoAnim();` 在 `PlayUpgradeAnimation()` 里（唯一调用点 `RebuildKeepingState(); PlayUpgradeAnimation(after);`）。
+//   · **`Battle/CardDisplayWindowPartial_B111F1E.cs` 已整体删除**：战斗窗**不建**光效层
+//     （`_fx` 恒 null；原版战斗窗里也没有 `Level Up Effect` 那一族）⇒ 原来开窗那一拍的
+//     `EnsureLevelUpFx();` 只会每次挂一个**永不播**的 `CardDisplayLevelUp` 并打一条「接不上」告警。
+//
+// 判据（原版）：
 //   · 原版 clip `Level Up Card` 的 `Animation` 宿主**就是展示卡本身**（`…/Cards/CardUI`，GameObject &88）
-//     ⇒ 这一跳该待在**同时拥有 `Front` 与 `Level Up Effect`** 的那棵树里 = 本窗。
-//   · 光效层只有一处 builder：`CardDisplayEffects.Build`（唯一调用点 `CardDisplayWindow.cs:646`）。
+//     ⇒ 这一跳该待在**同时拥有 `Front` 与 `Level Up Effect`** 的那棵树里 = 主卡 `2DCard` 那一层。
 //   · 节点名必须**精确**匹配 `Level Up Effect` —— 同层还有 `Level Up Effect Down`（它是前者的子件）。
 //   · 只接**槽 0（主卡）**：原版 5 张 `CardUI` 只有 1 张挂 `ParentConstraint`。
 //
-// 分两半：A 运行时（真跑 `CardDisplayEffects.Build` + 真建一张 `CardView`）· B 源码级（本窗实例化要整套外壳）。
+// 分三段：A 运行时（真跑 `CardDisplayEffects.Build` + 真建一张 `CardView`）· B 源码级（退役形态 + 生产链）
+//         · 🔴 **C 真实例化（`B-222` 补的盲区）**。
+// ⚠️ B 段是**读两个文件的文本**：一条证「旧的没了」（展示窗 + 那个 partial 文件）、一条证「新的在」（`CardDetailPopup`）——
+//    ⛔ 别只留一条，否则「两边一起改回去」也会绿。
+// 🔴 **C 段为什么必须有（`B-222`）**：A/B 两段**从不实例化 `CardDisplayWindow`** ⇒「战斗窗开窗那一拍会挂一个永不播的
+//    `CardDisplayLevelUp` + 打一条『接不上』告警」这件事，**24 个宿主全绿也照不出来**（`B-148` 退役那一半就是这样漏掉的）。
+//    C 段建**真窗**、真开一次窗，断 ① 编译产物里没有那些成员（反射）② 树里 `CardDisplayLevelUp` = 0
+//    ③ 没有「接不上」告警；C5 是**正控**（临时挂一个必须数到 1），防 C3 空转。
 //
 // 怎么跑（主对话 · 串行 · 要跑 Unity）：
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
@@ -21,9 +35,12 @@ using CardPresentation;
 public static class B111_F1E_Assert
 {
     const string P = "[B111_F1E] ";
-    const string WinPath  = "CardPresentation/Battle/CardDisplayWindow.cs";
-    const string PartPath = "CardPresentation/Battle/CardDisplayWindowPartial_B111F1E.cs";
-    const string FxCpPath = "CardPresentation/Shell/CardDisplayEffects.cs";
+    const string WinPath    = "CardPresentation/Battle/CardDisplayWindow.cs";
+    /// <summary>已退役的那个部分类 —— 本文件断言它**不存在**（`B-148`）。</summary>
+    const string OldPartPath = "CardPresentation/Battle/CardDisplayWindowPartial_B111F1E.cs";
+    /// <summary>方案 A 的生产链所在（光效层挂点 + 升级驱动）。</summary>
+    const string PopupPath  = "CardPresentation/Shell/CardDetailPopup.cs";
+    const string FxCpPath   = "CardPresentation/Shell/CardDisplayEffects.cs";
 
     static int _ok, _bad;
 
@@ -124,50 +141,39 @@ public static class B111_F1E_Assert
 
             // ================================================================ B · 源码级
             var win = ReadSrc(WinPath);
-            var part = ReadSrc(PartPath);
+            var popup = ReadSrc(PopupPath);
             var fxCp = ReadSrc(FxCpPath);
             Check(win != null, "B · 前提：读得到 `" + WinPath + "`");
-            Check(part != null, "B · 前提：读得到 `" + PartPath + "`");
+            Check(popup != null, "B · 前提：读得到 `" + PopupPath + "`");
 
-            if (win != null && part != null)
+            if (win != null && popup != null)
             {
-                // B1 · 调用点接上了（**灭自证：删掉这一跳 ⇒ 红**）
-                Check(Count(win, "EnsureLevelUpFx();") == 1,
-                      "B1 · `CardDisplayWindow.cs` 里**恰好一处**调 `EnsureLevelUpFx();`"
-                      + $"（实际 {Count(win, "EnsureLevelUpFx();")} 处）");
-                Check(Count(win, "PlayOpenAnimation(); EnsureLevelUpFx();") == 1,
-                      "B1 · 调用与 `PlayOpenAnimation();` **同一行** ⇒ 在 `BuildFan()` 末尾（卡重建后自动重绑）");
+                // ── B1 · 「**旧的没了**」（`B-148` 退役）
+                //     🧨 把 `CardDisplayWindowPartial_B111F1E.cs` 放回来、或把 `EnsureLevelUpFx` 加回展示窗 ⇒ 红
+                Check(!File.Exists(Path.Combine(Application.dataPath, OldPartPath)),
+                      "B1 · `CardDisplayWindowPartial_B111F1E.cs` **已删除**（`B-148` 退役：战斗窗不建光效层）"
+                      + "（实际 " + (File.Exists(Path.Combine(Application.dataPath, OldPartPath)) ? "**还在**" : "不存在") + "）");
+                Check(Count(win, "EnsureLevelUpFx") == 0,
+                      "B1 · `CardDisplayWindow.cs` 里**不再出现** `EnsureLevelUpFx`（开窗那一拍已不再挂空组件）"
+                      + $"（实际 {Count(win, "EnsureLevelUpFx")} 处）"
+                      + "｜🧨 把那一跳加回去 ⇒ 红");
+                Check(Count(win, "LevelUpFx") == 0 && Count(win, "BindLevelUpInheritTargets") == 0,
+                      "B1 · `CardDisplayWindow.cs` 里不再引用 partial 的读数口 / 绑定方法（退役后不留悬挂引用）"
+                      + $"（`LevelUpFx` {Count(win, "LevelUpFx")} 处 · `BindLevelUpInheritTargets` {Count(win, "BindLevelUpInheritTargets")} 处）");
 
-                // B2 · 只接槽 0（**灭自证：改成 SlotViews[1] ⇒ 红**）
-                Check(Count(part, "var v = SlotViews[0];") == 1,
-                      "B2 · 绑定只取 **槽 0（主卡）**（原版 5 张卡里只有 1 张挂约束）"
-                      + $"（`var v = SlotViews[0];` 出现 {Count(part, "var v = SlotViews[0];")} 次）");
-                Check(Count(part, "SlotViews[1]") == 0 && Count(part, "SlotViews[2]") == 0,
-                      "B2 · 没有顺手挂到相关卡（`SlotViews[1..2]` 出现 0 次）");
-
-                // B3 · 两个字段真的被赋值、且取自本窗真实节点
-                Check(Count(part, "fx.inheritChild = ") == 1 && Count(part, "fx.inheritTarget = ") == 1,
-                      "B3 · `inheritChild` / `inheritTarget` 各被赋值一次"
-                      + $"（实际 {Count(part, "fx.inheritChild = ")} / {Count(part, "fx.inheritTarget = ")}）"
-                      + "（**灭自证③：删掉任一赋值 ⇒ 红**）");
-                Check(part.Contains("v.FaceContentRoot"),
-                      "B3 · `inheritChild` 取的是 `SlotViews[0].FaceContentRoot`（= `2DCard/Front`）");
-                Check(part.Contains("FindFxNode(_fx, \"Level Up Effect\")"),
-                      "B3 · `inheritTarget` 取的是光效层里的 `Level Up Effect`（`_fx` 那棵树）");
-
-                // B4 · ⛔ 不伪造 target（**灭自证：拿窗根/卡体容器顶替 ⇒ 红**）
-                Check(Count(part, "LevelUpInheritTarget = ") == 1
-                      && part.Contains("LevelUpInheritTarget = FindFxNode(_fx, \"Level Up Effect\");"),
-                      "B4 · `LevelUpInheritTarget` **只有一处赋值**，且必须来自 `FindFxNode(_fx, …)`"
-                      + $"（实际 {Count(part, "LevelUpInheritTarget = ")} 处）");
-                Check(!part.Contains("LevelUpInheritTarget = transform")
-                      && !part.Contains("LevelUpInheritTarget = _root")
-                      && !part.Contains("LevelUpInheritTarget = _cards"),
-                      "B4 · 没有拿窗根 / 卡体容器顶替 target（那会让「钉住」变成原版没有的行为）");
-
-                // B5 · 精确名匹配（防 `StartsWith`/`Contains` 误取 `Level Up Effect Down`）
-                Check(part.Contains("root.name == name"),
-                      "B5 · `FindFxNode` 用的是**逐字相等**（`root.name == name`），不是前缀/包含匹配");
+                // ── B2 · 「**新的在**」：方案 A 的生产链仍在 `CardDetailPopup`（⛔ 别又搬回展示窗）
+                //     🧨 删驱动的 `DoAnim` / 删那一句调用 / 把光效层挂到别处 ⇒ 红
+                Check(Count(popup, "LevelUpEffect.DoAnim();") == 1,
+                      "B2 · 升级演出的驱动 `LevelUpEffect.DoAnim();` 仍在 `CardDetailPopup`"
+                      + $"（实际 {Count(popup, "LevelUpEffect.DoAnim();")} 处）");
+                Check(Count(popup, "RebuildKeepingState(); PlayUpgradeAnimation(after);") == 1,
+                      "B2 · 唯一调用点仍接在升级流程里（`RebuildKeepingState(); PlayUpgradeAnimation(after);`）");
+                Check(Count(popup, "void PlayUpgradeAnimation(") == 1,
+                      "B2 · `PlayUpgradeAnimation` 仍在 `CardDetailPopup` 里定义"
+                      + $"（实际 {Count(popup, "void PlayUpgradeAnimation(")} 处）");
+                Check(Count(popup, "CardDisplayEffects.BuildUnder2DCard(SlotViews[0].FaceRoot)") == 1,
+                      "B2 · 光效层仍挂在**主卡 `2DCard`** 下（`B-195`：⛔ 不是战斗窗的层根）"
+                      + "｜🧨 换成 `_cards` / 窗根 ⇒ 红");
             }
             if (fxCp != null && win != null)
             {
@@ -178,6 +184,103 @@ public static class B111_F1E_Assert
                 Check(!win.Contains("CardDisplayEffects.Build(_cards"),
                       "B6 · 光效层**不再**建在战斗窗的 `_cards` 下（`B-195`：那一层属主菜单判据，建在这边是搬错窗）"
                       + "｜🧨 把 `CardDisplayEffects.Build(_cards, …)` 加回去 ⇒ 红");
+            }
+
+            // ================================================================ C · 真实例化（`B-222` 补的盲区）
+            //   🔴 **为什么要有这一段**：A 段测的是 `CardDisplayEffects` **自己建**的那一层、B 段读的是**源码文本** ——
+            //   两段**从不实例化 `CardDisplayWindow`** ⇒「战斗窗里 `_fx` 恒 null ⇒ 开窗那一拍挂一个**永不播**的
+            //   `CardDisplayLevelUp` + 打一条『接不上』告警」这件事，**24 个宿主全绿也照不出来**。
+            //   ⇒ 这里建一具**真窗**、真走一次开窗，把退役那一层的三种痕迹分别断出来：
+            //     ① **编译产物**里没有那些成员（反射，⛔ 不是文本 grep —— 换个文件把它写回来也逃不掉）
+            //     ② 开完窗，整棵窗树里 `CardDisplayLevelUp` = **0**（旧代码每次开窗都挂一个）
+            //     ③ 开窗那一拍**没有**「接不上」告警
+            //   末尾再补一条 **C5 正控**：临时挂一个 `CardDisplayLevelUp`，同一条扫描口必须数到 1
+            //   （否则 ② 是**空转**：扫描口写错时它也恒 0 ⇒ 把 `EnsureLevelUpFx` 加回去也不会红）。
+            CardDisplayWindow cdw = null;
+            GameObject probe = null;
+            try
+            {
+                try { cdw = CardDisplayWindow.Create(null); }
+                catch (System.Exception ex) { Debug.LogWarning(P + "C 段建真窗抛了：" + ex); cdw = null; }
+                // C0 = 前置硬检查（⛔ 不静默跳过）
+                Check(cdw != null,
+                      "C0 **前提**：`CardDisplayWindow.Create(null)` 建得出真窗（推荐宿主 = `Editor/BattleScene.cs`）"
+                      + "—— 这条红就说明 C1–C5 **没跑**");
+                if (cdw != null)
+                {
+                    var ty = typeof(CardDisplayWindow);
+                    const System.Reflection.BindingFlags Any =
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
+                        | System.Reflection.BindingFlags.NonPublic;
+
+                    // ── C1 · 退役那一层在**编译产物**里彻底不存在
+                    Check(ty.GetMethod("EnsureLevelUpFx", Any) == null,
+                          "C1 · 类型上没有 `EnsureLevelUpFx`（`B-148` 退役的那一跳在**编译产物**里也没了，"
+                          + "⛔ 不是只靠源码 grep）"
+                          + "｜🧨 把 partial 的 `EnsureLevelUpFx` 加回来（放在**任何**文件里都算）⇒ 红");
+                    Check(ty.GetProperty("LevelUpFx", Any) == null && ty.GetProperty("LevelUpInheritTarget", Any) == null,
+                          "C1-b · 也没有 `LevelUpFx` / `LevelUpInheritTarget` 两个读数口（退役不留悬挂 API）");
+                    Check(ty.GetField("_fx", Any) == null,
+                          "C1-c · 也没有 `_fx` 字段（战斗窗**不建**光效层 ⇒ 它只能恒 null，留着只会误导）"
+                          + "｜🧨 把 `Transform _fx;` 加回去 ⇒ 红");
+                    // C1-d **正控**：同一套反射参数必须找得到**已知存在**的私有成员——
+                    //   否则「找不到」可能只是 flags 写错（那样 C1/C1-b/C1-c 三条会一起空转成绿）
+                    Check(ty.GetMethod("BuildFan", Any) != null && ty.GetField("_closePending", Any) != null,
+                          "C1-d · 正控：同一套反射参数**找得到**私有 `BuildFan` 与私有字段 `_closePending`"
+                          + "（证明上面三条的「找不到」不是 flags 写错造成的空转）");
+
+                    // ── C2 · 真走一次开窗（先断前提，再断结论 —— ⛔ 别让「窗没开」把 C3/C4 变成空转）
+                    var shown = CardData.Simple("B111 F1E 真窗", 3, 2, 4);
+                    shown.faction = "Ultramarines";     // ⚠️ `Simple` 的 `faction` 恒 null（本工程踩过 ⇒ 卡框/卡背取不到）
+                    var logs = new System.Collections.Generic.List<string>();
+                    Application.LogCallback onLog = delegate(string cond, string stack, LogType type)
+                    {
+                        if (!string.IsNullOrEmpty(cond) && (cond.Contains("接不上") || cond.Contains("[展示窗]")))
+                            logs.Add(cond);
+                    };
+                    Application.logMessageReceived += onLog;
+                    try { cdw.Show(shown, null, null); }
+                    catch (System.Exception ex) { Check(false, "C2 · `Show(...)` 抛了：" + ex.Message); }
+                    finally { Application.logMessageReceived -= onLog; }
+
+                    Check(cdw.Visible, "C2 **前提**：开完窗 `Visible == true`（开窗流程真的跑了）");
+                    Check(cdw.Card != null, "C2-b **前提**：槽 0 的主卡建出来了（`Card != null`）");
+
+                    // ── C3 · 开窗那一拍不再挂 `CardDisplayLevelUp`（旧代码每次开窗都挂一个永不播的）
+                    int fxCount = cdw.GetComponentsInChildren<CardDisplayLevelUp>(true).Length;
+                    Check(fxCount == 0,
+                          "C3 · 开完窗，整棵窗树里 `CardDisplayLevelUp` = **0**（旧 `EnsureLevelUpFx` 每次都挂一个）"
+                          + $"（实际 {fxCount} 个）"
+                          + "｜🧨 把 `EnsureLevelUpFx()` 加回开窗那一拍 ⇒ 红");
+
+                    // ── C4 · 开窗那一拍不再打「接不上」告警
+                    bool warned = false;
+                    for (int i = 0; i < logs.Count; i++) if (logs[i].Contains("接不上")) warned = true;
+                    Check(!warned,
+                          "C4 · 开窗过程中没有「接不上」告警（旧 `BindLevelUpInheritTargets` 每次开窗打一条）"
+                          + $"（捕获 `[展示窗]`/`接不上` 日志 {logs.Count} 条，「接不上」{(warned ? "有" : "0")} 条）");
+
+                    // ── C5 · 正控 / 灭自证：同一条扫描口必须**能数到 1**
+                    probe = new GameObject("B111_F1E_LevelUpProbe");
+                    probe.transform.SetParent(cdw.transform, false);
+                    probe.AddComponent<CardDisplayLevelUp>();
+                    int probeCount = cdw.GetComponentsInChildren<CardDisplayLevelUp>(true).Length;
+                    Check(probeCount == 1,
+                          "C5 · 正控：临时挂一个 `CardDisplayLevelUp` ⇒ 同一条扫描口数到 **1**"
+                          + $"（实际 {probeCount}）—— 证明 C3 不是空转（扫描口写错时 C3 恒绿）");
+                }
+            }
+            finally
+            {
+                if (probe != null) Object.DestroyImmediate(probe);
+                if (cdw != null)
+                {
+                    // ⛔ 只拆本段建的那两个节点（窗本体 + 它的世界壳）—— 共享子画布归 `HudCanvas`，别动
+                    var cdwShell = cdw.CardsShell;
+                    var cdwGo = cdw.gameObject;
+                    if (cdwShell != null) Object.DestroyImmediate(cdwShell.gameObject);
+                    if (cdwGo != null) Object.DestroyImmediate(cdwGo);
+                }
             }
         }
         catch (System.Exception e)

@@ -708,6 +708,10 @@ public static class EffectExporter
         //      已经对的贴图走 `ok++`、**不触发 `SaveAndReimport`** ⇒ 稳态下这一段只是读一遍 `.meta`。
         //   ⚠️ 手动入口仍是同一个方法（`-executeMethod EffectExporter.FixTextureImportSettings`）= 单跑一次修正 + 重导。
         FixTextureImportSettings();
+
+        // 🔴 B-144①（2026-11-01）：**顺序保护，不是纪律** —— 见类尾 `AssertBoosterArtifactsIntact`
+        //   （重导已经删过一遍 VFX 产物，booster 那批 prefab 引用的就是它们）。
+        AssertBoosterArtifactsIntact();
     }
 
     static void LoadReport()
@@ -750,6 +754,7 @@ public static class EffectExporter
     ///   剩下的理由：旧贴图/网格会和新的一起被 binder 引用，排查问题时很误导。</summary>
     static void ClearGenerated()
     {
+        WarnForeignFilesBeforeClear();   // 🆕 B-144②（2026-11-01）：删之前先看里面有没有**不是它自己产**的文件
         foreach (var dir in new[] { MatDir, TexDir, MeshDir, PrefabDir })
         {
             if (!AssetDatabase.IsValidFolder(dir)) continue;
@@ -1725,13 +1730,18 @@ public static class EffectExporter
                           assetPath.Substring("Assets/".Length).Replace('/', Path.DirectorySeparatorChar))
            : assetPath;
 
-    /// <summary>腿② 认的三种（判据 = 包内 `MonoScript.m_ClassName`，出处见上面那段）。
+    /// <summary>腿② 认的四种（判据 = 包内 `MonoScript.m_ClassName`，出处见上面那段）。
     /// ⚠️ **不在表里的 pid 照样出声**（⛔ 不猜、也不静默）—— 要补就照同样的出处核一遍再加一行。</summary>
     static readonly (long pid, string cls)[] KnownScriptPids =
     {
         (350208831926335389L,  "UnityEngine.UI.Image"),
         (7477354737935883349L, "TMPro.TextMeshProUGUI"),
         (6627610752530350053L, "TMPro.TextMeshPro"),
+        // 🆕 2026-11-01（`B-227`）：`WarpforgeBooster/Prefabs/*.prefab` 那 16 条。
+        //   判据 = `assets_full/bundle_Waprforge_monoscripts/MonoScript/MonoScript_-1105334708447906859.json`
+        //   → `m_ClassName = "BoosterPackVisualItem"` · `m_Namespace = ""` · `m_AssemblyName = "Assembly-CSharp"`；
+        //   工程里那份 = `CardPresentation/Shell/BoosterPackVisualItem.cs`（全局命名空间，guid 6887142e…）。
+        (-1105334708447906859L, "BoosterPackVisualItem"),
     };
 
     /// <summary>「落盘 ＋ 修 ＋ 按产物核对」的**唯一入口** —— 两个导出器的 prefab 保存路都走它（一处口径）。
@@ -1768,6 +1778,10 @@ public static class EffectExporter
                            + $"改完还剩 **{left}** 条。" + $"前几条：{string.Join(" / ", sample)}"
                            + (left > 0 ? $" ｜ 剩下的：{string.Join(" / ", leftSample)}" : ""));
         }
+        // 🔴 B-215（2026-11-01）：`m_Asset`（`VisualEffect` 引用 `VisualEffectAsset`）是**同一个成因的第二面** ——
+        //   `SaveAsPrefabAsset` 对「指着包里的 `VisualEffectAsset`」同样只能写 `guid: 0…0`。
+        //   `Run()` / `RunListed()` 两条路都会重导同一批 VFX prefab ⇒ 不修就**每次重导都回零**（与导出顺序无关）。
+        RepairZeroGuidVfxAssets(path);
         return (fixedInMemory, zeroOnDisk, repaired, left);
     }
 
@@ -1905,7 +1919,7 @@ public static class EffectExporter
         return t;
     }
 
-    /// <summary>腿②：把刚写出的 prefab 里**已知三种** pid 的 guid0 `m_Script` 改成工程脚本。
+    /// <summary>腿②：把刚写出的 prefab 里**已知四种** pid 的 guid0 `m_Script` 改成工程脚本。
     /// **字节级替换**（pattern 与替换串都是纯 ASCII ⇒ 不碰编码/BOM/行尾）—— 见 `ReplaceAsciiBytes`。
     /// `unknown` 收「表里有、但工程里找不到这个类」的（点名）。</summary>
     static int RepairZeroGuidScripts(string path, List<string> unknown)
@@ -3539,7 +3553,7 @@ public static class EffectExporter
             AssetDatabase.CreateAsset(mat, path);
             asst = mat;
         }
-        MatCache[src] = asst;
+        if (asst != null) MatCache[src] = asst;   // 🔴 B-209：写口不许写 null（读口 `cached != null` 会短路 ⇒ 整条重导）
         MatMeta[src] = (approx, origShader);
         return asst;
     }
@@ -3797,12 +3811,33 @@ public static class EffectExporter
             if (need > 2048)
                 Debug.LogWarning($"[EffectExporter] 贴图 {src.name} 是 {src.width}x{src.height} " +
                                  $"⇒ `maxTextureSize` 提到 {ti.maxTextureSize}（Unity 默认 2048 会静默缩一半）");
+            // 🔴 B-165（2026-11-01）：**原来这里从不给 `textureCompression` 赋值** ⇒ 525 张全吃 Unity 默认
+            //   Compressed(DXT)。现在按**原版存储格式**映射（判据/映射表 → 类尾 `SrcCompression`）。
+            //   认不出的格式**不写**、出声（⛔ 不猜）。
+            {
+                int comp = SrcCompression(src);
+                if (comp >= 0)
+                {
+                    ti.textureCompression = (TextureImporterCompression)comp;
+                    // 🔴 2026-11-01 补（实测）：**平台覆盖那一档才是实际用的** —— 只改上面那行时，`.meta` 里
+                    //   `buildTarget: Standalone` 那一块仍是旧值（实测 NoiseNRM 通用档 0 / Standalone 1）。
+                    //   已有覆盖的才改（⛔ 不给本来没有覆盖的平台凭空造一个）。
+                    var ps = ti.GetPlatformTextureSettings("Standalone");
+                    if (ps != null && ps.overridden && (int)ps.textureCompression != comp)
+                    {
+                        ps.textureCompression = (TextureImporterCompression)comp;
+                        ti.SetPlatformTextureSettings(ps);
+                    }
+                }
+                else Debug.LogWarning($"[EffectExporter] B-165 贴图 {src.name} 的原版格式 `{src.format}` 在映射表里没有"
+                                    + " ⇒ `textureCompression` 保持导入器现值（⛔ 不猜一档顶上去）");
+            }
             ti.SaveAndReimport();
             if (srcMips == 1)
                 Debug.Log($"[EffectExporter] 贴图 {src.name} 原版**没有 mip**（m_MipCount=1）⇒ 按无 mip 导入");
         }
         var asset = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-        TexCache[tex] = asset;
+        if (asset != null) TexCache[tex] = asset;   // 🔴 B-209：写口不许写 null（读口 `c != null` 会短路 ⇒ 同一张图一次 Run 被完整重导）
         return asset;
     }
 
@@ -3834,7 +3869,7 @@ public static class EffectExporter
             return null;                                // ← 里面已按精灵名**出声**（⛔ 不静默）
 
         var asset = ImportSpriteFromRect(s.name, tex, rect, s.pixelsPerUnit, s.pivot, s.rect.size, s.border);
-        SpriteCache[s] = asset;
+        if (asset != null) SpriteCache[s] = asset;   // 🔴 B-209：写口不许写 null（读口会短路 ⇒ 整条重导）
         return asset;
     }
 
@@ -4694,11 +4729,11 @@ public static class EffectExporter
             EditorUtility.CopySerialized(copy, existing);
             EditorUtility.SetDirty(existing);
             UnityEngine.Object.DestroyImmediate(copy);
-            MeshCache[m] = existing;
+            if (existing != null) MeshCache[m] = existing;   // 🔴 B-209：写口不许写 null（读口会短路 ⇒ 整条重导）
             return existing;
         }
         AssetDatabase.CreateAsset(copy, path);
-        MeshCache[m] = copy;
+        if (copy != null) MeshCache[m] = copy;   // 🔴 B-209：写口不许写 null（读口会短路 ⇒ 整条重导）
         return copy;
     }
 
@@ -4979,7 +5014,7 @@ public static class EffectExporter
         RemapDeadScriptCurves(asst, FontColorCurveAttributes, typeof(TMPro.TextMeshPro));
         RemapDeadScriptCurves(asst, ForceFieldCurveAttributes,
                               "Assets/WarpforgeVFX/Runtime/WarpforgeParticleForceFieldController.cs");
-        ClipCache[src] = asst;
+        if (asst != null) ClipCache[src] = asst;   // 🔴 B-209：写口不许写 null（读口会短路 ⇒ 整条重导）
         AssetDatabase.SaveAssets();
         return asst;
     }
@@ -5208,7 +5243,7 @@ public static class EffectExporter
                            + $"原版那条动作的时长（混合树节点）和我们这份 clip 的长度差 {durWarn:0.###} s"
                            + " ⇒ 播放时长会不一样（原版是 1D 混合树的单节点，我们直接挂 clip）");
 
-        CtrlCache[src] = dst;
+        if (dst != null) CtrlCache[src] = dst;   // 🔴 B-209：写口不许写 null（读口会短路 ⇒ 整条重导）
         return dst;
     }
 
@@ -5395,5 +5430,239 @@ public static class EffectExporter
             h *= 1099511628211UL;
         }
         return (long)h;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // 2026-11-01（第一百一十三会话 · B-215 / B-165 / B-144）：本批新增，**一律追加在类尾**
+    //   （行号纪律：新成员不进文件中部，免得把账里 A 行的落点顶漂）。
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    // B-215：VFX prefab 的 `m_Asset`（`VisualEffectAsset`）落成 guid 全 0
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    //
+    // **病灶**：`VisualEffect` 组件的 `m_Asset` 在真包里指着**包内的** `VisualEffectAsset` ⇒
+    //   `PrefabUtility.SaveAsPrefabAsset` 写出来是 `{fileID: <原包 pathID>, guid: 0…0, type: 0}`
+    //   ⇒ 工程里那个 `VisualEffect` **一个粒子系统都放不出来**（与 `m_Script` 的 `A1298` 同一个成因）。
+    //   受害面（2026-11-01 现读 = **全工程最后一批** `m_Asset` 零 guid，恰好 **4 处 / 2 件**）：
+    //     `EnvironmentalCondition Leviathan Sweeping Infestation.prefab:49075/63767/128775`（`Gargoyle Swarm`）
+    //     `EnvironmentalCondition Saim Hann Infinity Circuit Overload.prefab:143694`（`Aeldari Portal`）
+    //   判据 → `资料/完全复刻/判据/B113W_对账_D_资源导出.md`（B-215 行）；账 `B-215`。
+    //
+    // **为什么只能「按 pid 查表」、走不了腿①（按运行期类型接回）**：`m_Asset` 指的不是脚本、也不是
+    //   MonoBehaviour，没有「运行期类型」可查；能照的只有「这个 pid 在原版里是哪个 `VisualEffectAsset`」——
+    //   而那个真身**我们的工程里已经有一份同名资产**（`WarpforgeVFX/ArenaOriginalPrefabs/**`）。
+    //   ⇒ 表 = 「包内 pid → 我们的 `.asset` 路径」；guid / localFileID 一律**现取**
+    //     （`AssetDatabase.TryGetGUIDAndLocalFileIdentifier`），⛔ 不写死。
+    // ⚠️ **不在表里的 pid 照样出声**（⛔ 不猜、也不静默）—— 要补就照着源核一遍再加一行。
+    //   pid 出处（可复核）：`资料/完全复刻/资源/R0_资源覆盖账.tsv` 里
+    //     `bundle_battleprefabs_vfxandmisc_assets_all` / `bundle_battlesharedresources_assets_all`
+    //     两行的「VisualEffectAsset | Gargoyle Swarm / Aeldari Portal」。
+    static readonly (long pid, string assetPath)[] KnownVfxAssetPids =
+    {
+        (-2190925272322067318L, "Assets/WarpforgeVFX/ArenaOriginalPrefabs/_shared/Gargoyle Swarm.asset"),
+        (-6218776015286680102L, "Assets/WarpforgeVFX/ArenaOriginalPrefabs/battlearenaaeldari/Aeldari Portal.asset"),
+    };
+
+    /// <summary>文件里有没有这个 ASCII 串（B-215 的前置闸；**只读一次字节**，比走 `ReplaceAsciiBytes`
+    /// 那条「读全文 + 拼 List」便宜得多）。</summary>
+    static bool ContainsAscii(string path, string ascii)
+    {
+        var abs = AbsFile(path);
+        if (!File.Exists(abs)) return false;
+        var b = File.ReadAllBytes(abs);
+        var k = System.Text.Encoding.ASCII.GetBytes(ascii);
+        for (int i = 0; i + k.Length <= b.Length; i++) if (MatchAt(b, i, k)) return true;
+        return false;
+    }
+
+    /// <summary>B-215：把刚写出的 prefab 里**已知两个** pid 的 guid0 `m_Asset` 改成工程里的
+    /// `VisualEffectAsset`。**字节级替换**（口径同 `RepairZeroGuidScripts` / `ReplaceAsciiBytes`：
+    /// pattern 与替换串都是纯 ASCII ⇒ 不碰编码/BOM/行尾）。返回改回几条。</summary>
+    static int RepairZeroGuidVfxAssets(string path)
+    {
+        // 便宜的前置闸：**绝大多数 prefab 里根本没有 `m_Asset`** —— 先读一遍字节确认，没有就直接返回，
+        // 省掉下面每条目那次「读全文 + 拼一个 List」（`SavePrefabAndRepairScripts` 对 963 件 prefab 各调一次）。
+        if (!ContainsAscii(path, "m_Asset:")) return 0;
+        int done = 0;
+        var unknown = new List<string>();
+        foreach (var k in KnownVfxAssetPids)
+        {
+            var obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(k.assetPath);
+            string guid; long lid;
+            if (obj == null || !AssetDatabase.TryGetGUIDAndLocalFileIdentifier(obj, out guid, out lid))
+            {
+                unknown.Add($"{k.assetPath}（工程里取不到这个资产的 guid/localFileID）");
+                continue;
+            }
+            var oldS = $"m_Asset: {{fileID: {k.pid}, guid: {ZeroGuid}, type: 0}}";
+            var newS = $"m_Asset: {{fileID: {lid}, guid: {guid}, type: 2}}";
+            int c = ReplaceAsciiBytes(path, oldS, newS);
+            if (c > 0)
+            {
+                done += c;
+                Debug.Log($"[EffectExporter] B-215 落盘后改回 **{c}** 条 `m_Asset` = "
+                        + $"`{Path.GetFileNameWithoutExtension(k.assetPath)}`（guid {guid} / fileID {lid}）"
+                        + $" ← `{Path.GetFileNameWithoutExtension(path)}`");
+            }
+        }
+        if (unknown.Count > 0)
+            Debug.LogWarning($"[EffectExporter] B-215 `{Path.GetFileNameWithoutExtension(path)}` 这些 `m_Asset` **改不回来**："
+                           + string.Join(" / ", unknown));
+        if (done > 0) AssetDatabase.ImportAsset(path);   // 让 AssetDatabase 认这几次改（同 `RepairZeroGuidScripts`）
+        return done;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    // B-165：`ImportTexture` 从不写 `textureCompression` ⇒ 全部吃 Unity 默认 Compressed
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    //
+    // **病灶**（账 `B-165` / 判据 `资料/完全复刻/判据/B113W_对账_B_引擎数据.md`）：
+    //   `ImportTexture` 从 2026-09 起一直**没给 `ti.textureCompression` 赋过值** ⇒ 525 张随默认
+    //   `Compressed`（DXT）导。最明显的代价 = `NoiseNRM`（原版 `m_TextureFormat = 4` = RGBA32 未压缩）
+    //   被压成 DXT，而它在 shader 里要走 `*2-1` ⇒ **误差翻倍**。
+    //
+    // **做法**：按**原版存储格式**映射（`Texture2D.format` 对 bundle 载入的贴图就是原版序列化的
+    //   `m_TextureFormat`；`SrcIsSrgb` 用的 `isDataSRGB` 是同一条推理）。
+    //   枚举真值（从本机 `UnityEditor.CoreModule.dll` 实读，⛔ 不是猜的）→ `判据/B108_AUD09_纹理格式.md` §1·3：
+    //     `TextureFormat`  RGB24=3 · RGBA32=4 · DXT1=10 · DXT5=12 · BC6H=24 · BC7=25 · DXT1Crunched=28 · DXT5Crunched=29
+    //     `TextureImporterCompression`  Uncompressed=0 · Compressed=1 · CompressedHQ=2 · CompressedLQ=3
+    //   映射（`资料/完全复刻/判据/B113W_对账_B_引擎数据.md` 给的判据 + 同族格式按同一语义归类）：
+    //     原版**未压缩**存储（RGBA32 / RGB24）        → `Uncompressed`(0)
+    //     原版 **BC1/BC3**（DXT1 / DXT5 / 各自 Crunched）→ `Compressed`(1)   ℹ️ 就是 Unity 默认那一档，写它 = 不变
+    //     原版 **BC7 / BC6H**                        → `CompressedHQ`(2)
+    // ⚠️ 认不出的格式**不写**、逐张出声（⛔ 不猜 —— 铁律 2）。
+    //   现读影响面（2026-11-01 用 `_tmp_view/b108_r7/*.tsv` 的原版 fmt 逐张对 `.meta` 算：
+    //   402/525 张能对上原版，其中 **63 张**与映射不符 = fmt4→0 有 22 张 · fmt3→0 有 3 张 · fmt25→2 有 38 张）。
+    //   ⚠️ 账上写的「20 张」是**旧口径**（按单个 bundle 数出来的），现读是 22 + 3 + 38。
+    static int SrcCompression(Texture2D t)
+    {
+        if (t == null) return -1;
+        TextureFormat f;
+        try { f = t.format; } catch { return -1; }
+        switch (f)
+        {
+            case TextureFormat.RGBA32:
+            case TextureFormat.RGB24:
+                return (int)TextureImporterCompression.Uncompressed;
+            case TextureFormat.DXT1:
+            case TextureFormat.DXT5:
+            case TextureFormat.DXT1Crunched:
+            case TextureFormat.DXT5Crunched:
+                return (int)TextureImporterCompression.Compressed;
+            case TextureFormat.BC7:
+            case TextureFormat.BC6H:
+                return (int)TextureImporterCompression.CompressedHQ;
+            default:
+                return -1;      // 认不出 ⇒ 调用方出声、保持导入器现值（⛔ 不猜）
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    // B-144：导出链的**顺序保护**（不只是纪律 —— 靠人记已经实际破过一次）
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    //
+    // **病灶**（账 `B-144` / 判据 `资料/完全复刻/判据/B113W_对账_D_资源导出.md`）：
+    //   `Run()` 会先 `ClearGenerated()` 删掉整批 VFX 产物；而 `CardPresentation/Effects/Boosterpack
+    //   Open Card Rarity {1..4}.prefab` 与 `WarpforgeBooster/Prefabs/*.prefab` 引用它们
+    //   ⇒ 重导之后**必须**跟一次 `BoosterPackExporter.Run`。这条纪律只写在两处注释里（本类 `:22`、
+    //   `BoosterPackExporter.cs:29-30`），**代码里零闸**；2026-11-01 已经实际破过一次
+    //   （booster prefab 停在 01:08、`Prefabs/` 最早 03:26 ⇒ 4 条悬空 + 一整轮诊断）。
+    //   ⇒ 这里给「量产物」的闸：`Run()` 收尾扫那两个目录，`{fileID≠0, guid: 0…0}` > 0 就 `LogError` 点名。
+
+    /// <summary>数一个 prefab 文件里**某个字段**的「`fileID != 0` 且 `guid` 全 0」条数。
+    /// ⚠️ **不能数 `fileID: 0`** —— 那是**合法的空引用**（口径同 `工具/check_prefab_refs.py` 的头部注释）。
+    /// `sample` 收前 8 条原文（点名用）。</summary>
+    static int CountZeroGuidRefs(string path, string field, List<string> sample)
+    {
+        var abs = AbsFile(path);
+        if (!File.Exists(abs)) return 0;
+        int n = 0;
+        try
+        {
+            foreach (var line in File.ReadAllLines(abs))
+            {
+                if (line.IndexOf(field + ":", StringComparison.Ordinal) < 0) continue;
+                if (line.IndexOf("guid: " + ZeroGuid, StringComparison.Ordinal) < 0) continue;
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"fileID:\s*(-?\d+)");
+                long fid;
+                if (!m.Success || !long.TryParse(m.Groups[1].Value, out fid) || fid == 0) continue;
+                n++;
+                if (sample.Count < 8) sample.Add($"{Path.GetFileName(path)} | {line.Trim()}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] B-144 读 `{abs}` 失败（这一件没量成）：{e.GetType().Name}: {e.Message}");
+        }
+        return n;
+    }
+
+    /// <summary>B-144①：`Run()` 收尾的「量产物」自检 —— booster 那批 prefab 的悬空引用条数。
+    /// ⚠️ 只报不改（⛔ 不替人决定要不要重跑 `BoosterPackExporter`），但**必须出声**。</summary>
+    public static int AssertBoosterArtifactsIntact()
+    {
+        var files = new List<string>();
+        for (int i = 1; i <= 4; i++)
+            files.Add($"Assets/CardPresentation/Effects/Boosterpack Open Card Rarity {i}.prefab");
+        var boosterDir = AbsFile("Assets/WarpforgeBooster/Prefabs");
+        if (Directory.Exists(boosterDir))
+            files.AddRange(Directory.GetFiles(boosterDir, "*.prefab"));
+
+        var hits = new List<string>();
+        int bad = 0, scanned = 0;
+        foreach (var f in files)
+        {
+            if (!File.Exists(AbsFile(f))) continue;
+            scanned++;
+            // booster prefab 引用**被 `ClearGenerated()` 删掉的那些东西**的字段：
+            // prefab 实例 / 材质 / 网格 / 贴图 / 精灵 / VFX 资产。
+            // ⚠️ **故意不含 `m_Script`**：那是 `A1298`/`A1299` 的另一族（脚本接不回），与「导出顺序」无关；
+            //   ✅ 2026-11-01（`B-227`）订正：原来这里写「16 条 pid -1105334708447906859 不在 `KnownScriptPids` 表里」——
+            //   **已补进表**（= `BoosterPackVisualItem`）⇒ 腿②会把这 16 条改回来；盘上那 16 件也已按同一形状修好。
+            //   本闸仍**不查 `m_Script`**：这 16 件是**参考件**（`BoosterPackExporter.cs:18`），不是 B-144 要保的产物。
+            foreach (var field in new[] { "m_SourcePrefab", "m_Material", "m_Mesh", "m_Texture", "m_Sprite", "m_Asset" })
+                bad += CountZeroGuidRefs(f, field, hits);
+        }
+        if (bad > 0)
+            Debug.LogError($"[EffectExporter] 🔴 B-144 全量特效重导之后，booster 那 {scanned} 件 prefab 里还有 **{bad}** 条"
+                         + "「`fileID≠0` 但 `guid` 全 0」的悬空引用 ⇒ **必须先跑 `BoosterPackExporter.Run`**"
+                         + $"（五步顺序见 `工具/_run_export_chain.sh`）。前几条：{string.Join(" / ", hits)}");
+        else
+            Debug.Log($"[EffectExporter] B-144 收尾自检：booster 那 {scanned} 件 prefab 的悬空引用 = **0**（顺序没破）。");
+        return bad;
+    }
+
+    /// <summary>B-144②：`ClearGenerated()` 删四个产物目录**之前**，把「结构上不可能是导出循环写出」的东西点名。
+    /// 三条判据（都不需要跑导出就能算）：
+    ///   ① 有**子目录** —— 导出器只往这四个目录的**直接子层**写平铺文件；
+    ///   ② 扩展名不在 `{.png,.mat,.asset,.prefab,.meta}` —— 导出器只会写这五种；
+    ///   ③ 名字以 `~` 结尾 / 以 `.` 开头 —— Unity 本来就不导入这类，它们一定不是我们的产物。
+    /// ⚠️ **只出声、不删不拦**（删的仍是原来那四个目录全文，行为零变化）。
+    /// ⚠️ 边界：这条抓的是「结构上不可能」的那些；要更严得由导出器自己记产物清单（B-144 没要求，别扩）。</summary>
+    static void WarnForeignFilesBeforeClear()
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { ".png", ".mat", ".asset", ".prefab", ".meta" };
+        var hits = new List<string>();
+        foreach (var dir in new[] { MatDir, TexDir, MeshDir, PrefabDir })
+        {
+            var abs = AbsFile(dir).TrimEnd('\\', '/');
+            if (!Directory.Exists(abs)) continue;
+            foreach (var f in Directory.GetFiles(abs, "*", SearchOption.AllDirectories))
+            {
+                var rel = f.Substring(abs.Length).TrimStart('\\', '/');
+                var nm = Path.GetFileName(f);
+                var ext = Path.GetExtension(f);
+                bool sub = rel.IndexOf('\\') >= 0 || rel.IndexOf('/') >= 0;
+                if (sub) hits.Add($"{rel}（{dir}：在子目录里）");
+                else if (!allowed.Contains(ext)) hits.Add($"{rel}（{dir}：扩展名 `{ext}` 不是导出器产出的）");
+                else if (nm.StartsWith(".") || nm.EndsWith("~")) hits.Add($"{rel}（{dir}：隐藏/临时文件）");
+            }
+        }
+        if (hits.Count > 0)
+            Debug.LogWarning($"[EffectExporter] B-144 `ClearGenerated()` 马上要**整个删掉** Mat/Tex/Mesh/Prefab 四个目录，"
+                           + $"但里面另有 **{hits.Count}** 个**不是导出循环产出**的文件（照旧会被删，⛔ 请先自行备份/确认）："
+                           + string.Join(" / ", hits.Take(20)) + (hits.Count > 20 ? $" …（共 {hits.Count} 个）" : ""));
     }
 }

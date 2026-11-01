@@ -1473,6 +1473,19 @@ namespace RuleEngine
                                + " `Card_Description/` + 自己 id（= 改前行为；那 15 张印官方**旧**正文）。"
                                + "跑一下 gen_cards_engine.py 重生成。");
 
+            // 🆕 v46（2026-11-01 · 执行代理 `B113W11` · 反账 `B-177`）：**卡级 `cardTargetCriteria` 的其余 36 格**
+            //   （列 `cardTargetCriteriaSet`，原版 `RawCardScript.cardTargetCriteria +0x280`；唯一消费者
+            //   `RawCardScript__IsValidTarget.c:8-44`）。缺列（v45 及更早）⇒ `CardDef.CardTargetCriteria`
+            //   是 **null = 未知**（⛔ 不是「原版说没有筛选」：`ta = 0 (any)` 是一个**具体的**选择）。
+            //   ⚠️ 本版只落数据：载体已接，消费端 / 点选路另立账。
+            if (dto.version < 46)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 46 —— 没有 `cardTargetCriteriaSet` 列"
+                               + "（原版 `RawCardScript.cardTargetCriteria`（`+0x280`）的其余 36 格；"
+                               + "唯一消费者 `RawCardScript__IsValidTarget.c:8-44`）。"
+                               + "`CardDef.CardTargetCriteria` 会是 **null = 未知**"
+                               + "（⛔ 不是「原版说这些卡没有目标筛选」—— `ta = 0 (any)` 是具体选择）。"
+                               + "跑一下 gen_cards_engine.py 重生成。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1746,7 +1759,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c));   // 🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c)); def.AttachCardTargetCriteria(dto.version >= 46 ? MapCardTargetCriteriaSet(c) : null, dto.version >= 46);   // 🆕 v46（`B113W11`）：卡级 `cardTargetCriteria` 的 36 格载体（`version < 46` ⇒ null = 未知）｜🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -3612,7 +3625,9 @@ namespace RuleEngine
             public string[] cardTraits;
             /// <summary>与卡表 v37 的 `permanentBuffs` **同形**（复用 `MapPermanentBuffs`）。</summary>
             public PermanentBuffRowDto[] permanentBuffs;
-            /// <summary>模板自己的 ability 行（只带四格标量：`ca` / `pa` / `ta` / `fm`）。</summary>
+            /// <summary>模板自己的 ability 行（`trigger` / `triggerValue` + `logic` 里四格标量
+            /// `ca` / `pa` / `ta` / `fm`）。🆕 2026-11-01（`B113W11`）：`triggerValue` 已由生成器补上
+            /// （判据 `报告/B110_E5.md` §四 补丁 B）⇒ 上面的「只带四格标量」已过期。</summary>
             public EnchantmentTemplateAbilityDto[] abilities;
             /// <summary>谁挂它（反向索引；`inPool` = 挂载者自己是不是**可玩池**里的卡）。</summary>
             public EnchantmentTemplateOwnerDto[] owners;
@@ -3624,9 +3639,12 @@ namespace RuleEngine
             public int trigger = -1;
             /// <summary>🆕 B110/E5（2026-10-31 · 判据 `判据/B110_V4_真缺陷复核D.md` §H·2）：原版
             /// `CardAbility.triggerValue // +0x20`（`dump.cs:20340`）。`-1` = **缺键 / 旧表**。
-            /// <para>🔴 现读 `enchantment_templates.json`（v1 · 85 张 · 110 条 ability）**还没有这一列** ——
-            /// 要调度台按 `报告/B110_E5.md` §生成器补丁 重跑 `工具/gen_cards_engine.py` 才会带上；
-            /// 在此之前这里恒 `-1` = 未知。⛔ **不是 0**（`0` = 「明确 val 0」这一档）。</para>
+            /// <para>🔴 **2026-11-01 就地订正（铁律 5 · `B113W11` 现读）**：原来这里写「现读
+            /// `enchantment_templates.json`（v1 · 85 张 · 110 条 ability）**还没有这一列**」——
+            /// **已过期**：生成器补丁（`报告/B110_E5.md` §四 补丁 B）已落进
+            /// `工具/gen_cards_engine.py` 的 `build_enchantment_templates` 并重跑，85 张模板的 110 条
+            /// ability **现在全部带 `triggerValue`**（分布 → `报告/B113W11_生成器两列.md`）。
+            /// 缺键仍按 `-1` = 未知（旧表）；⛔ **不是 0**（`0` = 「明确 val 0」这一档）。</para>
             /// <para>唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）。</para></summary>
             public int triggerValue = -1;
             public EnchantmentTemplateLogicDto[] logic;
@@ -4935,6 +4953,54 @@ namespace RuleEngine
             /// <summary>`-1` = **旧表 / 手写夹具没有这一键**（`JsonUtility` 走默认构造 ⇒ 字段初值保留）
             /// ⇒ 退回改前的判法（`d != null` 就当有闸）；`0` = 明确「原版没有闸」；`1` = 有闸。</summary>
             public int hasNormalAbilityBoardCriteria = -1;
+        }
+    }
+
+    // ==================================================================================================
+    //  🆕 v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反向对账 `B-177`）
+    //     —— 卡级 `cardTargetCriteria` 的**其余 36 格**：DTO 字段 + 映射器
+    //
+    //  🔴 **为什么写在【文件最末】的 partial 块里**：同上面 `E6` / `B96_GEN` 那几段 ——
+    //     本文件里大量账落点按【行号】引用 ⇒ 在 `CardDto` 体内 / 已有方法之间插行会让下游整体漂移。
+    //
+    //  📌 口径 / 判据 / 为什么与 `unitConditions` 的 `role="cardtarget"` 分工
+    //     → `工具/gen_cards_engine.py` 的 `card_target_criteria_set_of` 上面那一段（⛔ 别在这里抄第二份）。
+    //     · `conditionsFilter` / `excludeCondition` **不在这一列**（它们是那一行的 `cond` / `ex`）；
+    //     · `playerTurn` 在这里恒 `-1`（纯 `TargetCriteria` 结构上没有那一格）⇒ `noPlayerTurn: true`。
+    //  ⚠️ 本列**只落数据**：`CardDef.CardTargetCriteria` 是载体（已挂），消费端 / 点选路另立账。
+    // ==================================================================================================
+    public static partial class CardDatabase
+    {
+        public partial class CardDto
+        {
+            /// <summary>🆕 v46：卡级 `cardTargetCriteria`（原版 `RawCardScript.cardTargetCriteria +0x280`）的
+            /// **其余 36 格**（`CountSetDto` 与 `unitConditions[].countSet` / `multiplierSet` 逐字同形）。
+            /// <para>形状 = 一个对象 `{36 格}`（不是行数组 —— 这一格每张卡只有一份）。
+            /// 缺列（旧表 &lt; v46）= **未知**（⛔ 不是「原版说全默认」）。</para>
+            /// <para>⚠️ `JsonUtility` 会把**缺失的可序列化类字段物化成默认实例**（判据 → `报告/B100_X10.md` §A）
+            /// ⇒ 判「这一列在不在」**只能看卡表 `version`**（`Load` 里那条 `version < 46` 守卫），
+            /// ⛔ 别看这个字段是不是 `null`。</para></summary>
+            public CountSetDto cardTargetCriteriaSet;
+        }
+
+        /// <summary>🆕 v46（`B113W11` · 反账 `B-177`）：`cardTargetCriteriaSet` →
+        /// <see cref="CardDef.CountSetSpec"/>；`null` = **这一列没落**（旧表 &lt; v46，调用方已按 version 传 null）。
+        /// <para>36 格本体走 <see cref="MapCountSetDto"/>（**同一份字段表**，⛔ 别另写一份），
+        /// `noPlayerTurn: true`（纯 `TargetCriteria`，`BoardCriteria.playerTurn` 结构上没有）。</para></summary>
+        static CardDef.CountSetSpec MapCardTargetCriteriaSet(CardDto c)
+        {
+            var d = c != null ? c.cardTargetCriteriaSet : null;
+            if (d == null)
+            {
+                // 到这一步说明 `version >= 46` 但这一格没被物化 —— 不该发生（生成器每张卡都落）⇒ 出声。
+                if (c != null)
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `cardTargetCriteriaSet` "
+                                 + "**缺失** —— 该列落 **null = 未知**（⛔ 不是「没有筛选」）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                return null;
+            }
+            return MapCountSetDto(c, d, "`cardTargetCriteriaSet`（卡级 `cardTargetCriteria` 的 36 格）",
+                                  noPlayerTurn: true);
         }
     }
 }

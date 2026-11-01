@@ -119,7 +119,7 @@ namespace CardPresentation
         /// <summary>原版 `Play()`（:155）：先把 graphic α 置 <see cref="alphaOnPlay"/>，再起动画。</summary>
         public void Play()
         {
-            CacheRefs();
+            CacheRefs(); _retryAttempts = 0;   // 🔴 2026-11-01（B-205）：每次**显式** `Play()` 重新给 N 次机会（上限只挡 `DelayedAnim` 那条每帧自挂的路）
             bool got = CacheMaterial(); ChangeGraphicAlpha(alphaOnPlay);   // ⚠️ 顺序与原版不同，见 Anim 的注释
             PlayCount++;
             if (got) StartAnim();
@@ -176,11 +176,11 @@ namespace CardPresentation
             }
             if (src == null)
             {
-                // 原版：起 DealyedAnim 协程（等一帧再 CacheMaterial → DoAnimation）
-                if (_anim == null) _anim = StartCoroutine(DelayedAnim());
+                // 原版：起 DealyedAnim 协程（等一帧再 CacheMaterial → DoAnimation）🔴 2026-11-01（B-205）：**补重试上限**
+                if (++_retryAttempts > MaxMaterialRetries) { WarnGiveUpMaterial(); return false; } else if (_anim == null) _anim = StartCoroutine(DelayedAnim());
                 return false;
             }
-            _inst = new Material(src) { name = src.name + " (glow inst)" };
+            _retryAttempts = 0; _inst = new Material(src) { name = src.name + " (glow inst)" };
             if (_inst.HasProperty(_revealId)) _inst.SetFloat(_revealId, revealFrom);
             if (_renderer != null) _renderer.sharedMaterial = _inst;
             return true;
@@ -446,6 +446,37 @@ namespace CardPresentation
                 Debug.LogError("[UIBorderGlow·断言3] uv0 四分量没写对：dimOk=" + dimOk + " valOk=" + valOk +
                                "（uv.Count=" + uv.Count + " 顶点=" + mf.sharedMesh.vertexCount + " view=" + view + "）");
             return dimOk && valOk;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-11-01（`B-205`）**重试上限 + 材质读回口**
+        //  ⚠️ 全部追加在类尾：账里本文件的落点都在 `:97`..`:205`，新增成员不许再把它们顶漂。
+        //
+        //  为什么必须有上限：原版 `CacheMaterial()` 拿不到渲染件材质时**每帧重挂一条 `DealyedAnim` 协程**
+        //  （`DelayedAnim` 回来先 `_anim = null` 再试 ⇒ 永不收敛）。原版这么写没问题，因为它**恒挂在
+        //  那颗 `Image` 自己身上**；而我们一旦把组件挂到**没有渲染件的空节点**上，`GetRenderer` 那一路恒 null
+        //  ⇒ 每帧一条协程、永不停止（`B-205` 现场：`Shell/ForgeTab.cs` 把组件挂在外层 `glowNode` 上，
+        //  而 `ImageQuad.Create` **恒建子对象**）。⇒ 补 N 次上限，到点**出声并停**（本工程红线：不静默失败）。
+        // ════════════════════════════════════════════════════════════════════════
+
+        /// <summary>拿不到渲染件材质时最多再试几帧。8 帧 ≈ 0.13 s @60fps（足够跨过一个 `WaitForEndOfFrame` 的时序差）。</summary>
+        public const int MaxMaterialRetries = 8;
+
+        int _retryAttempts;
+        bool _warnedGiveUp;
+
+        /// <summary>材质实例**已经克隆到手**（原版 `instancedMaterial` 非空）。断言用只读口 ——
+        /// 「组件挂对了节点 ⇒ `CacheMaterial` 真拿到材质」这件事，光看「组件在」是断不出来的。</summary>
+        public bool HasMaterial { get { return _inst != null; } }
+
+        /// <summary>到点放弃：**只出声一次**，然后彻底停（⛔ 不再重挂协程）。</summary>
+        void WarnGiveUpMaterial()
+        {
+            if (_warnedGiveUp) return;
+            _warnedGiveUp = true;
+            Debug.LogWarning("[UIBorderGlow] " + MaxMaterialRetries + " 帧都取不到渲染件材质（`" + name + "`）⇒ 停止重试，本件不会播。"
+                           + "最常见的原因 = **组件挂在没有渲染件的空节点上**（`ImageQuad.Create` 恒建子对象 ⇒ 要挂到 "
+                           + "`quad.gameObject`，不是它的父节点）。");
         }
     }
 }

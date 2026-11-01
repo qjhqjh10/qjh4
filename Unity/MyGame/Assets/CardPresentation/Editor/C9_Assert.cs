@@ -87,6 +87,11 @@ public static class C9_Assert
         Tr(Inventories.Cards != null, "A0b **前提**：`Inventories.Cards` 在（拥有数的正本）");
         if (Inventories.Cards == null) return;
 
+        // 🔴 2026-11-01（`B113W` 就地订正 · 夹具前提）：**第一次发奖会把卡背包懒加载**（存档里 UM2/UM3 本来就有 11 张）
+        //   ⇒ 直接量基线会读到 0、发完读到「存档值 + 1」，A1/A2 假红（实测 0→12 / 0→11）。
+        //   先发一次把加载走掉，再量基线、再发一次断 +1。
+        RewardService.CollectItemReward(new RewardInfo("UM2", 1));
+
         int beforeUm2 = Amt("UM2"), beforeUm3 = Amt("UM3");
 
         // 判据 §3·5 A：public 入口，⛔ 不直接调 private 的 `CollectItemRewardById`
@@ -251,6 +256,11 @@ public static class C9_Assert
                 {
                     int before = Amt(cid);
                     bool ok = tab.ClaimForTest(i, CampaignData.TierBasic);
+                    // 🔴 2026-11-01（`B-88` 接线前置）：`ClaimForTest` 已改成「**关窗回调里才 `Claim`**」
+                    //   （原版次序：先发奖 → 再开领奖窗 → 关窗那一拍才翻节点，`Shell/CampaignTab.cs:1326`）。
+                    //   不关窗 ⇒ 节点永远不翻 ⇒ 后继不解锁（D 组的 `Claimable(i)` 恒 false），
+                    //   而且会留一扇开着的领奖窗污染后面的段。⇒ **每次 `ClaimForTest` 之后立刻关掉**。
+                    RewardWindowFixture.DismissRewardWindows();
                     int after = Amt(cid);
                     targetId = cid; targetNode = i;
                     Tr(ok, "D1 **前提**：`ClaimForTest(" + i + ", Basic)` 领到了（节点 " + CampaignData.NodeName(i) + "）");
@@ -262,6 +272,7 @@ public static class C9_Assert
                 else
                 {
                     if (tab.ClaimForTest(i, CampaignData.TierBasic)) walked++;   // 只为解锁后继
+                    RewardWindowFixture.DismissRewardWindows();                  // 🔴 同上：不关窗 ⇒ 节点不翻 ⇒ 后继不解锁
                 }
             }
 
@@ -273,6 +284,7 @@ public static class C9_Assert
         finally
         {
             if (go != null) Object.DestroyImmediate(go);
+            RewardWindowFixture.DismissRewardWindows();   // 🔴 兜底：这一组中途抛异常时也别把开着的领奖窗留给后面几段
             CampaignData.ResetPointsForTest();
             CampaignData.ResetForTest();
         }

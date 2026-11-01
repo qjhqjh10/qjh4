@@ -9451,4 +9451,50 @@ namespace RuleEngine
         }
     }
 
+    // ==================================================================================================
+    //  🆕 v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反向对账 `B-177`）
+    //     —— `CardDef` 的**数据半**：卡级 `cardTargetCriteria`（原版 `RawCardScript.cardTargetCriteria +0x280`）
+    //
+    //  🔴 **为什么另起 `partial class CardDef` 块、写在【文件最末】**：完全同上面 `B96_GEN` / `A4` / `E6` 那几段 ——
+    //     本文件里已有大量账落点按【行号】引用 ⇒ 在类尾插成员会让它们整体漂移；追加在**文件最末**
+    //     只增加尾部行号，上面一处都不动。
+    //
+    //  📌 **本块只加字段 + 挂载口**（白名单：`CardDef.cs` 只加字段与解析）。
+    //     ⚠️ **今天没有任何消费者** ⇒ 接上之前**零行为变化**：点选路
+    //     （`EffectText.AssignCardTargetFallback` 的「36 格」那半 / `RawCardScript.IsValidTarget` 的等价物）
+    //     **另立账**。⛔ 别把「卡表有值」当成「已经接了」。
+    //
+    //  📌 数据口径（逐行读过；⛔ 别在这里抄第二份 → `工具/gen_cards_engine.py` 的
+    //     `card_target_criteria_set_of` 上面那段）：`conditionsFilter` / `excludeCondition` **不在本列**
+    //     （它们已经在 `unitConditions` 的 `role="cardtarget"` 行 = `cond`/`ex`，`ab=-3 / lg=-1`）；
+    //     本列只装**其余 36 格**（与 v25/v26/v27 那几列同一分工）。
+    // ==================================================================================================
+    public partial class CardDef
+    {
+        /// <summary>🆕 v46：卡级 `cardTargetCriteria` 的**其余 36 格**（`null` = 列未知 / 旧表 &lt; v46）。
+        /// <para>判据 = `RawCardScript.cardTargetCriteria`（`+0x280`，`TargetCriteria`）；唯一消费者 =
+        /// `RawCardScript__IsValidTarget.c:8-44`（`:44` 的 `CheckIfMeetsCriteria(…, cardTargetCriteria, …)`）
+        /// ⇒ 语义 = 「**这张卡打出时能点谁**」。⚠️ 与 ability 级 `targetCriteria`（`cardAbilities[].targetCriteria`
+        /// / `CardAbility.targetCriteria`）是**两个落点**，⛔ 别混成一个来源。</para>
+        /// <para>🔴 三态同其它 criteria 列：`null` = **未知**（旧表 / 手写夹具）；非 null 的
+        /// `TargetsAffected == 0`（`any`）是一个**具体的**选择（原版 `GetTargets` 对它直接 `return 1`），
+        /// ⛔ 不是「不知道」。逐字段语义 → <see cref="CountSetSpec"/> 的 doc（⛔ 别在这里抄第二份）。</para>
+        /// <para>⚠️ `PlayerTurn` 在本格恒 `-1` —— `playerTurn` 属于 `BoardCriteria`，纯 `TargetCriteria`
+        /// 结构上没有那一格；消费端⛔ 别拿它当闸。</para></summary>
+        public CountSetSpec CardTargetCriteria { get; private set; }
+
+        /// <summary>🆕 v46：这一列**来自卡表**的正面信号（`false` = 整列**未知**：旧表 &lt; v46 / 手写夹具）。
+        /// ⛔ 与「明确有一份全 `any` 的 criteria」不是一回事 —— 后者仍是**具体**选择。</summary>
+        public bool CardTargetCriteriaVersioned { get; private set; }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（与 `AttachTriggerAbilityIndices` 同族；
+        /// 理由 = `CardDef` 构造函数上那四十处账落点，⛔ 不往它加形参）。
+        /// <c>null</c> = 旧表（未知）。</summary>
+        public void AttachCardTargetCriteria(CountSetSpec set, bool versioned)
+        {
+            CardTargetCriteria = set;
+            CardTargetCriteriaVersioned = versioned;
+        }
+    }
+
 }

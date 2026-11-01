@@ -10469,4 +10469,15 @@ public static class DeckScene
             rt.RefreshAll();
             CheckNear(tg.CurrentFade, want, 1e-4f, "★⑦ 再刷一次 α 不变（`Toggle` 的同态早退；⛔ 不是把它刷成别的）");
         }
+
+        /// <summary>🆕 **B-55 第 4 件**（宿主 `Editor/WindowShots.cs`）：建出卡组编辑那一棵场并交出根。
+        /// <para>🔴 **只建不存** —— 内部就是自检那条 `Build(DeckLibrary.Load(), out root)`，⛔ 不调 `SaveScene`。</para>
+        /// <para>🔴 **走临时存档**（`DeckStore.OverridePath = TempStorePath()`，与自检同一条）——
+        /// ⛔ 不读也不写玩家的真卡组；库空 ⇒ 画出来的就是自检第一次 `Build` 那一拍，逐字相同。</para></summary>
+        public static Transform BuildForWindowShots()
+        {
+            RuleEngine.DeckStore.OverridePath = TempStorePath();
+            Build(DeckLibrary.Load(), out var root);
+            return root;
+        }
 }

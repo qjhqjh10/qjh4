@@ -899,7 +899,7 @@ namespace CardPresentation
                     //   不是默认的 `CopyLimit` —— 为的是让背包里的拥有数与旧的 `CardProgress` **逐值相等**，
                     //   先把「两套并存」的读口对齐（断言在 `Editor/CollectionScene.cs`），下一步再删旧写口。
                     // 🔴 **2026-10-26（C1）就地订正（铁律 5）**：顺序是**先播种、再读盘**（原来写反了）。`InventoryStore.Load` →
-                    //   `RestoreAmounts` 的契约是「**已在的改、不在的跳过**」⇒ 冷启动背包是空的、一条也读不进来 ⇒ 拥有数（合成/升级加的）**重启清零**；`SeedCardsAllUnlocked` 幂等（只补缺条目）⇒ 先播种不会盖掉盘上的值。
+                    //   `RestoreAmounts` 的契约是「**已在的改、不在的跳过**」⇒ 冷启动背包是空的、一条也读不进来 ⇒ 拥有数（合成/升级加的）**重启清零**；`SeedCardsAllUnlocked` 幂等（只补缺条目）⇒ 先播种不会盖掉盘上的值。🔴 **2026-11-01（B-141）补：读盘之后还有一步** —— `Shell/Inventory.cs:483` 的 `inv.RestoreAmounts(am); if (inv is CardInventory) Inventories.MigrateBadCardAmounts(am);`（把盘上被写成「数量 1」的坏行**一次性抬回基准量**；迁移体与判据见 `Shell/InventoryPartial_B112G.cs`）⇒ 「播种 → Load」不是全部。
                     Inventories.SeedCardsAllUnlocked(_cardsState.Pool,
                         c => CardProgress.Owned(c.Id, c.Rarity));
                     InventoryStore.Load(CardProgress.InventoryName, Inventories.Cards);
@@ -1966,7 +1966,7 @@ namespace CardPresentation
                     }
                     else if (sdfTex == null)
                         Debug.LogWarning("[Collection] 卡背 SDF 取不到：" + names[i] + "_sdf"
-                                       + "（跑 `工具/import_original_art.py --only-cardback-sdf` 补）");
+                                       + "（跑 `工具/import_original_art.py --only-cardback-sdf --apply` 补）");
 
                     // 🔴 同上：卡背本体也走公共件（**整块在视口外 ⇒ 连节点都不建**，同原版 `RectMask2D` 的命中语义）
                     //    🔴 **A16（2026-10-13）**：`CosmoView` → `null`（理由逐条同上面那一处）。

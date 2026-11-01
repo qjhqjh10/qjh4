@@ -2058,7 +2058,21 @@ namespace RuleEngine
                 //   `abilityTargets` 非空 ⇒ 改前会把 `ta=20` 贴上去（错来源）。
                 if (alternativeActionBody || card.IsBareAlternativeActionBody()) return;
                 var blocks = BuildAbilityBlocks(segOps, segHead, segPaid, out var blockStartSeg);
-                if (blocks.Count == 0 || blocks.Count != abil.Count) return;     // G1
+                if (blocks.Count == 0) return;                                   // G1（没有能力块 ⇒ 无从挂）
+                if (blocks.Count != abil.Count)                                  // G1（块数对不上）
+                {
+                    // 🔴🆕 2026-11-01（执行代理 `B113W2` · 账 `B-181`）：**必须出声**（原来是循环之前直接 `return`）。
+                    //   症状：`SW49 Fenrisian Blizzard`（`desc` 一句话、`cardAbilities` 两条）——
+                    //   每一条 op 既没有 `TargetCriteriaSet`、也没有 `TargetCriteriaGap` ⇒
+                    //   `ApplyTargetCriteriaFilter` 的 `set == null` 分支两个出声口**一个都不喊** ⇒ 静默不筛
+                    //   （而 `all units` 那类正文此时会把**残骸**也算进去 —— 那正是 `B-208` 的放大面）。
+                    //   ⚠️ 这里**只记原因码**（不出声、更不按位置猜值）；出声在 `ApplyTargetCriteriaFilter`
+                    //   （同一份去重表，一张卡只喊一次）。⛔ 别顺手改能力解析顺序 / 「谁覆盖谁」。
+                    for (int i = 0; i < ops.Count; i++)
+                        if (ops[i] != null && string.IsNullOrEmpty(ops[i].TargetCriteriaGap))
+                            ops[i].TargetCriteriaGap = "block-mismatch";
+                    return;
+                }
                 for (int b = 0; b < blocks.Count; b++)
                 {
                     // 🔴🆕 **2026-10-24（执行代理 `E1`）：`Duty:` / `Pray:` / `Ferocity:` / `Agenda:` /
@@ -2107,6 +2121,13 @@ namespace RuleEngine
                             else if (blk[j] != null && string.IsNullOrEmpty(blk[j].TargetCriteriaGap))
                                 blk[j].TargetCriteriaGap = "logic-gate";
                         }
+                    else if (ta != null && ta.Length != blk.Count)                    // G2：这一块的长度不对
+                        // 🔴🆕 2026-11-01（执行代理 `B113X1` · 账 `B-230`）：改前这一支**既不贴值、也不记 gap**
+                        //   ⇒ 这一块 op 的 criteria 静默丢失（`ApplyTargetCriteriaFilter` 的 `set == null` 分支一个都不喊）。
+                        //   原因码与 `block-mismatch`（整卡块数不符）**分开记** —— 这是单块的事，别混成一条。
+                        for (int j = 0; j < blk.Count; j++)
+                            if (blk[j] != null && string.IsNullOrEmpty(blk[j].TargetCriteriaGap))
+                                blk[j].TargetCriteriaGap = "ta-length-mismatch";
                     // ---- `furtherMultiplier`（v20 · `A12`）----
                     // 与上面**同一个 spec、同一个块**，各自按自己的长度过 G2（两列可能只有一列坏）。
                     var fm = spec.FurtherMultiplier;

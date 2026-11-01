@@ -1680,7 +1680,8 @@ namespace RuleEngine
                     // 静默换语义比报一行日志糟得多。
                     // 🔴 **2026-10-10（`A1407`）：这句话以前只写在注释里、代码里一行都没有**
                     //    （那一支是**唯一**没有任何日志的降级路）—— 现在真出声，并报出**具体收进了谁**。
-                    AddSide(list, ctx.Players[owner], false, spec.Kind == "troop", -1);
+                    AddSide(list, ctx.Players[owner], false, spec.Kind == "troop", -1,
+                            includeRemnants: IncludeRemnantsOf(op));   // 🆕 2026-11-01（`B113W2` · B-208）：残骸闸按本 op 的 criteria 判
                     ctx.Log($"（「{spec.Raw}」：**没有施放者、也没点目标** ⇒ 按既有近似落到**己方全体**"
                           + $"（{list.Count} 个：{Names(list)}）—— 这条近似不是原版语义，如实报出来；"
                           + $"原版这条 logic 的 `targetsAffected` = {ta}（{TargetsAffectedName(ta)}）"
@@ -1741,8 +1742,13 @@ namespace RuleEngine
             else
             {
                 bool troopOnly = spec.Kind == "troop";
-                if (own) AddSide(pool, ctx.Players[owner], false, troopOnly, -1);
-                if (enemy) AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner);
+                // 🔴 2026-11-01（`B113W2` · 账 `B-208`）：残骸闸按**本 op 的 criteria** 判 —— `includeRemnants` 默认 0
+                //   ⇒ 残骸不进池；只有该 op 的 36 格明写 `includeRemnants = 1` 时才放行（`IncludeRemnantsOf`）。
+                // 🔴 2026-11-01 订正（`B113W` · 回归）：`op == null` 但带 `structuredCondition` 时**不能**在池阶段剔残骸 ——
+                //   `onlyRemnants`(340) 这一类条件正是靠**条件层**把池筛成「只留残骸」；先剔 ⇒ 池恒 0（`TestW64OpAbilityTargetConditions` 红）。
+                bool incRemnants = IncludeRemnantsOf(op) || structuredCondition != null;
+                if (own) AddSide(pool, ctx.Players[owner], false, troopOnly, -1, includeRemnants: incRemnants);
+                if (enemy) AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, includeRemnants: incRemnants);
             }
 
             // ---- 兵种 / 已受伤 / 正在祈祷 这三道筛 —— **判据只一份**（见 `ApplyTargetFilters`）----
@@ -2102,10 +2108,13 @@ namespace RuleEngine
             bool troopOnly = spec.Kind == "troop";
             bool tacticCaster = casterCard != null && !casterCard.IsUnit;   // `!IsUnit` = cardType 20（tactic/defence/enchantment）
             if (spec.Side == "own" || spec.Side == "any")
-                AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true);
+                // ⚠️ 2026-11-01（`B113W2` · `B-208`）：**pick 层故意传 `includeRemnants: true`**（= 行为逐字不变）——
+                //   这一层镜像的是原版 `IsValidTarget`（另一条谓词，对残骸的态度**未核**），不是 36 格 criteria；
+                //   而结算层单目标那一支会 `list.Add(chosen)`（`ResolveTargets` 的 `spec.Count == 1` 支）⇒ 不会分叉。
+                AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true, includeRemnants: true);
             if (spec.Side == "enemy" || spec.Side == "any")
                 AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true,
-                        tacticCaster: tacticCaster);
+                        tacticCaster: tacticCaster, includeRemnants: true);   // ⚠️ 同上一句：pick 层行为逐字不变（`B-208`）
             // ⚠️ **必须和结算那一侧读同一份筛**（2026-09-13 A4 批 2 修）——
             //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
             //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
@@ -2164,10 +2173,13 @@ namespace RuleEngine
             //   的 `施放者.cardType == 0x14`）—— 本函数的 `card` 就是那张要打出的牌 ⇒ 判据直接读它。
             bool tacticCaster = card != null && !card.IsUnit;
             if (spec.Side == "own" || spec.Side == "any")
-                AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true);
+                // ⚠️ 2026-11-01（`B113W2` · `B-208`）：**pick 层故意传 `includeRemnants: true`**（= 行为逐字不变）——
+                //   这一层镜像的是原版 `IsValidTarget`（另一条谓词，对残骸的态度**未核**），不是 36 格 criteria；
+                //   而结算层单目标那一支会 `list.Add(chosen)`（`ResolveTargets` 的 `spec.Count == 1` 支）⇒ 不会分叉。
+                AddSide(pool, ctx.Players[owner], false, troopOnly, -1, stealthGate: true, includeRemnants: true);
             if (spec.Side == "enemy" || spec.Side == "any")
                 AddSide(pool, ctx.Players[1 - owner], true, troopOnly, owner, stealthGate: true,
-                        tacticCaster: tacticCaster);
+                        tacticCaster: tacticCaster, includeRemnants: true);   // ⚠️ 同上一句：pick 层行为逐字不变（`B-208`）
             CardDef.ConditionSpec pickCond = null;
             for (int i = 0; i < ops.Count; i++)
                 if (ops[i] != null && ReferenceEquals(ops[i].Target, spec)) { pickCond = ops[i].TargetCondition; break; }
@@ -2390,6 +2402,25 @@ namespace RuleEngine
                       + " ⇒ 这一条**不挂** `targetCriteria`、目标池**不按它筛**。"
                       + "判据 `AbilityLogic__GetTargets.c` + `AssignAbilityIndices` 的 G3；"
                       + "⚠️ 这是「宁可不筛也不猜」的降级，不是「原版没有这一格」。");
+                // 🔴🆕 2026-11-01（执行代理 `B113W2` · 账 `B-181`）：**多 ability 卡的 criteria 挂载失败**也要出声。
+                //   改前 `EffectText.AssignAbilityTargets` 在 `blocks.Count != abil.Count` 时**循环之前就 return**
+                //   ⇒ 这类卡的 op 既没有 `TargetCriteriaSet`、也没有 gap ⇒ 下面两个出声口都不喊（**静默不筛**）。
+                //   现在那一支改记原因码 `block-mismatch` ⇒ 由这里出声。实测形状 = `SW49 Fenrisian Blizzard`
+                //   （`desc` 一句话、`cardAbilities` 两条）。
+                else if (op.TargetCriteriaGap == "block-mismatch")
+                    StructuredConditionNotice("targetcriteria|block-mismatch|" + (op.Source ?? "?"),
+                        $"「{op.Source}」的正文**能力块数 ≠ `cardAbilities` 条数** ⇒ 这一条 op **挂不上** 36 格 criteria"
+                      + $"（{tcWhere}）—— 目标池**不按结构化 criteria 筛**。"
+                      + "判据 `EffectText.AssignAbilityTargets` 的 G1；要修得先解决「块 = ability」的对齐（⛔ 不按位置猜）。");
+                // 🔴🆕 2026-11-01（执行代理 `B113X1` · 账 `B-230`）：**单块 `ta` 长度不对**也要出声。
+                //   改前 `EffectText.AssignAbilityTargets` 的 `if (ta != null && ta.Length == blk.Count)` 不成立时
+                //   既不贴值、也不记 gap ⇒ 这一类 op 在下面两个出声口**一个都不喊**（静默不筛）。
+                //   现在那一支记原因码 `ta-length-mismatch`（与整卡的 `block-mismatch` 分开）⇒ 由这里出声。
+                else if (op.TargetCriteriaGap == "ta-length-mismatch")
+                    StructuredConditionNotice("targetcriteria|ta-length-mismatch|" + (op.Source ?? "?"),
+                        $"「{op.Source}」这一块正文的 op 数与该 ability 的 `targetsAffected` 长度**对不上**"
+                      + $"（{tcWhere}）—— 这一条 op **挂不上** 36 格 criteria、目标池**不按它筛**。"
+                      + "判据 `EffectText.AssignAbilityTargets` 的 G2；⛔ 不按位置猜值。");
                 return;
             }
             int before = pool.Count;
@@ -3028,12 +3059,22 @@ namespace RuleEngine
         ///   传进来（`IsLegalPick` / `PlayTargetPool` 手上都有 `CardDef`）。
         ///   ⚠️ **池内 0 张可达**（`camouflage` 只能由 `addTrait` 效果授予）⇒ 今天零行为变化。
         static void AddSide(List<UnitState> into, PlayerState ps, bool isFoe, bool troopOnly, int caster,
-                              bool stealthGate = false, bool tacticCaster = false)
+                              bool stealthGate = false, bool tacticCaster = false, bool includeRemnants = false)
         {
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = ps.Board[s];
                 if (u == null || !u.IsAlive) continue;
+                // 🔴🆕 2026-11-01（执行代理 `B113W2` · 账 `B-208`）：原版 `TargetCriteria.includeRemnants(+0x1b)`
+                //   **默认 0 ⇒ 残骸不是合法目标**。以前这里不判，靠下游 `TargetCriteriaEval.cs:289` 兜 ——
+                //   而那只在「这条 op **真挂上了** 36 格 criteria」时才兜得住；`logic-gate` / `no-row` /
+                //   `block-mismatch` 三条降级路拿不到 criteria ⇒ 残骸混进「all units」那类正文（静默多打一个）。
+                //   ⇒ 这里加一道闸，**由调用点按本 op 的 criteria 决定**（`IncludeRemnantsOf(op)`，本文件末尾）。
+                //   ⚠️ 形参**默认 `true`（= 不剔）**：这是**故意的** —— 本文件之外还有调用点
+                //   （`RuleCore.AbilityTargetListFromCriteria`，它自己按 `criteria.IncludeRemnants` 在池后逐条剔，
+                //   见 `RuleCore.cs:18002`），默认改成 `false` 会在那条路上把 `includeRemnants=1` 的残骸**误剔**。
+                //   ⇒ 结算池那三个调用点（`ResolveTargets` ×3）**显式传值**；⛔ 别把默认改成 `false` 而不改那边。
+                if (!includeRemnants && u.IsRemnant) continue;
                 if (troopOnly && u.IsWarlord) continue;
                 if (stealthGate && isFoe && caster >= 0
                     && (u.Has(KeywordTable.Stealth)
@@ -3613,6 +3654,31 @@ namespace RuleEngine
                 // `EffectOp.OtherThanSelf`）。`Each of your units …` 那两支两者都是空的，行为不变。
                 if (op.Subject != null && !op.Subject.IsEmpty && !op.Subject.Matches(u.Card)) { filtered++; continue; }
                 if (op.OtherThanSelf && u == ctx.ActingUnit) { filtered++; continue; }
+
+                // 🔴🆕 2026-11-01（执行代理 `B113W2` · 账 `B-210`）：**出伤单位池也要过这条 op 的 36 格 criteria。**
+                //   判据（第一权威）→ `判据/B112W_B193_criteria静默丢弃裁定.md` §2·2：原版 260 `triggerEffectInCard`
+                //   的 criteria 描述的**正是出伤 / 重复单位池**（决定性样本 `ASH46 Aerial Dominion`：
+                //   lg0 = 敌方池、lg1 = 「己方 Vehicle」= 重复次数 ⇒ 两条 logic 各一份 criteria、不共用）。
+                //   ⇒ 作用在**这个循环**（`mine.Board` 扫出来的开火单位），⛔ **不是**上面那条 `:3597` 的敌人池
+                //   （把同一个 set 传给敌人池会当场筛空，见裁定 §2·2 末段）。
+                //   现实后果：`includeRemnants` 默认 0 ⇒ 残骸**不算出伤单位**（`TargetCriteriaEval.cs:289`）；
+                //   我们扫的是裸 `Board`，而残骸就留在棋盘格上（`RuleCore.CleanupDeaths` 的翻面支）⇒
+                //   `UM82 Sergeant Gadriel`（定值 1-2）场上有残骸时**多打 1-2 点**。
+                //   `null`（本版判不了）= **保留 + 出声**（与 `ApplyTargetCriteriaFilter` 同一契约，
+                //   ⛔ 不在这里另立一个「null 当 false」）。
+                if (op.TargetCriteriaSet != null)
+                {
+                    string critWhy;
+                    bool? critOk = TargetCriteriaEval.Matches(ctx, owner, op.TargetCriteriaSet, u,
+                                                             op.TargetCondition, ctx.ActingUnit, null, out critWhy);
+                    if (critOk == null)
+                        StructuredConditionNotice(
+                            "eachunitdeal|targetcriteria|" + (op.Source ?? "?") + "|" + critWhy,
+                            $"「{op.Source}」的 `eachunitdeal` 出伤单位池要过 36 格 `targetCriteria`，"
+                          + $"但**本版判不了**：{critWhy} ⇒ 这一条**不按 criteria 筛出伤单位**"
+                          + "（⛔ 没有当成「不成立」、也没有把谁筛掉）。");
+                    else if (!critOk.Value) { filtered++; continue; }
+                }
 
                 int n = fixedDmg
                       ? (op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount)
@@ -21091,6 +21157,29 @@ namespace RuleEngine
             if (src == null) return dur;
             return string.Equals(src.Name, "Worst Temper", System.StringComparison.Ordinal)
                  ? "untilEnemyTurnStart" : dur;
+        }
+    }
+}
+
+// ==============================================================================================
+//  🆕 2026-11-01（执行代理 `B113W2` · 账 `B-208` / `B-210`）：criteria 的残骸闸判据（**唯一一份实现**）
+//   · `AddSide(includeRemnants:)` 的唯一取值来源 = 本函数（⛔ 别在调用点各写一份判法）。
+//   · 语义 = 原版 `TargetCriteria.includeRemnants(+0x1b)`：**只有明写 1 才放行残骸**；
+//     `0` / 未知(`-1`) 一律剔（与 `TargetCriteriaEval.cs:289` 的 `FlagOn` 同一口径）。
+//   · ⚠️ `op == null`（这条 op 没有 36 格数据 / 降级路）⇒ 返回 `false` = **按原版默认剔残骸** ——
+//     那正是 `B-208` 要修的形状（`logic-gate` / `no-row` / `block-mismatch` 的 op 拿不到 criteria）。
+// ⛔ 本块追加在**文件尾**（本文件有账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>`B-208`：这条 op 的 36 格 criteria 是否**明确**要求把残骸留在目标池里。
+        /// <para>`false` = 原版默认（`includeRemnants = 0`）⇒ 残骸不是合法目标。</para></summary>
+        static bool IncludeRemnantsOf(EffectOp op)
+        {
+            var set = op != null ? op.TargetCriteriaSet : null;
+            return set != null && set.IncludeRemnants > 0;
         }
     }
 }

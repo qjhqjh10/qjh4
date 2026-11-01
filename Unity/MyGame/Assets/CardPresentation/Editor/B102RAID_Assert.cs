@@ -25,7 +25,7 @@
 //   ⚠️ 本文件**自建探针**（一棵裸 `MainMenuRuntime` + 一张裸卡节点 535×848.8），不依赖宿主已建好的菜单；
 //     也不建资产、不写盘、不跑 Unity 批处理。
 //   🔴 **依赖**：`Icon` 那一组要 `Resources/Art/ui_menu/40k_campaign_Expansion_Pass.png` **已经导进来**
-//     （`工具/import_original_art.py` 的 `MENU_IMAGES` 那一行 → 跑一次导入器）。**导之前那两条恒红**（这是有意的：
+//     （`工具/import_original_art.py` 的 `MENU_IMAGES` 那一行 → 跑一次 `工具/import_original_art.py --apply`）。**导之前那两条恒红**（这是有意的：
 //     资源缺就是缺，⛔ 不许写成「量不到就跳过」）。
 
 using UnityEngine;

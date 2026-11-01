@@ -16441,7 +16441,7 @@ public static class MainMenuScene
                     //    （文件 mtime 早于那次自检的 run）⇒ 现在**取到了、换了图**（`SwapChestOpen` 取到就 `SetTexture`）
                     //    ⇒ `MissingArt == 0` 是**正确行为**，原来断的「取不到 ⇒ 记账 1 张」不再成立。
                     //    改成断「**真的换了哪张图**」（只断「没记账」的话，「取到了但没换」照样绿）。
-                    //    ⚠️ **A808**：这批手拷图**没有任何导入器登记** ⇒ 谁跑一次 `import_original_art.py`
+                    //    ⚠️ **A808**：这批手拷图**没有任何导入器登记** ⇒ 谁跑一次 `import_original_art.py --apply`
                     //    或删掉 `Resources/Art/`，这一条会静默翻回红（那时要恢复「记账 1 张」那一版）。
                     Check(si.MissingArt.Count, 0, "★ 第 1 档已达标 ⇒ 开箱图**取到了**（本轮素材腿已把它拷进盘）⇒ 不记账");
                     var ch0 = si.Chests.Count > 0 ? si.Chests[0] : null;
@@ -16603,7 +16603,7 @@ public static class MainMenuScene
                 //    这张图本轮素材腿（12:31）已进盘（`Resources/Art/ui_menu/`，mtime 早于那次自检的 run）
                 //    ⇒ 现在是**取到、画出来了**（`Art() != null ⇒ MenuDraw.Rect(…)`）⇒ `MissingArt == 0` 是**正确行为**。
                 //    改成断「那一格**画的是哪张图**」（只断「没记账」的话，「取到了但画成别的」照样绿）。
-                //    ⚠️ **A808**：这批手拷图**没有任何导入器登记** ⇒ 谁跑一次 `import_original_art.py`
+                //    ⚠️ **A808**：这批手拷图**没有任何导入器登记** ⇒ 谁跑一次 `import_original_art.py --apply`
                 //    或删掉 `Resources/Art/`，这一条会静默翻回红（那时要恢复「记账 1 张」那一版）。
                 Check(en.MissingArt.Count, 0, "★ 币种小图**已在盘上**（本轮素材腿导入）⇒ 取到、不记账");
                 var enIconT = FindChild(en.transform, "Energy Icon");
@@ -21049,4 +21049,13 @@ public static class MainMenuScene
         //   是有意的）。⇒ 本节**不产生任何断言**，只留这条记录，⛔ 别照施工单把它做回来。
     }
 
+    /// <summary>🆕 **B-55 第 4 件**（宿主 `Editor/WindowShots.cs`）：把本宿主那一棵场**建起来并交出根**。
+    /// <para>🔴 **只建不存** —— 内部就是自检那条 `Build(out root)`，⛔ 不调 `SaveScene`、⛔ 不改任何窗的布局或逻辑。</para>
+    /// <para>用途 = 「单扇窗口 → PNG」那条命令的入口（`-executeMethod WindowShots.RunFromCLI`）：
+    /// 一次建场、连拍多扇窗（`Build` 会 `NewScene` ⇒ 同一时刻只能有一台宿主活着）。</para></summary>
+    public static Transform BuildForWindowShots()
+    {
+        Build(out var root);
+        return root;
+    }
 }

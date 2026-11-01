@@ -86,10 +86,10 @@ namespace CardPresentation
         public int Army;                            // 0x2c → 点数图标的阵营
         /// <summary>0x18 `OnCollect` —— 原版是 **`Action&lt;RewardTier&gt;`、没有返回值**
         /// （签名桩 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/CampaignRewardsWindowContext.cs`）。
-        /// 🆕 **2026-10-12（A448）收窄成 `Func&lt;int, bool&gt;`**，多出来的那个 `bool` = **本次领取成不成**。
+        /// 🆕 **2026-10-12（A448）收窄成 `Func&lt;int, bool&gt;`**，多出来的那个 `bool` = **本次请求受理了**（发奖已当场发生；节点要等关窗那一拍才翻 —— 2026-11-01 `B-89` 订正，原写「本次领取成不成」）。
         /// 为什么需要它：原版「领取成功 ⇒ 关窗」这个决定**不在窗里**，而在**领取成功回调**那一拍
         /// （判据逐句见 `OnUnlock` 的方法头）—— 原版的成功信号走**服务端回包**；
-        /// 我们这一侧的领取是**同步**的（`Shell/CampaignTab.cs` 的 `ClaimForTest` `CampaignData.Claim(i, tier, out why) == true`）
+        /// 我们这一侧的**受理**是同步的（`Shell/CampaignTab.cs` 的 `ClaimForTest` 当场 `GrantCampaignRewards` 并发真领奖窗），但**翻节点不是** —— `CampaignData.Claim(i, tier, out why)` 2026-11-01 起跑在**关窗回调** `FinishClaim()` 里（`CampaignTab.cs:1339-1347`）
         /// ⇒ 把同一个信号沿这条回调**原样带回来**，窗才能在**同一拍**里按它决定关不关。
         /// ⛔ 现有调用点 `Shell/CampaignTab.cs` 的 `BuildContext` 里 `OnCollect = tier => ClaimForTest(i, tier)` 那一句（`OnCollect = tier =&gt; ClaimForTest(i, tier)`
         /// **一个字符都不用改**（表达式 lambda 对 `Action&lt;int&gt;` 与 `Func&lt;int, bool&gt;` 都成立）。
@@ -901,8 +901,8 @@ namespace CardPresentation
         /// <para>⚠️ **落点在窗里（如实标注，⛔ 不是「原版就是这样」）**：原版那一句在**调用方**
         /// （`CampaignTab` 的领取回调）里；我们把它放在窗里，因为 `Shell/CampaignTab.cs` **不在本件白名单**
         /// （本件只能碰三扇窗）。两者**可观测行为一致**。若将来有人接手 `CampaignTab.cs`，
-        /// **更贴原版结构**的等价写法是在 `ClaimForTest` 的 `if (…Claim…)` 支里补一句
-        /// `_win.Manager.CloseWindow&lt;CampaignRewardWindow&gt;()`，并把这个 `Func` 收回 `Action`。</para>
+        /// ⚠️ **2026-11-01（B-89）就地订正（铁律 5）**：原来这里写「更贴原版结构的等价写法是在 `ClaimForTest` 的 `if (…Claim…)` 支里补一句」—— **那个支已经不存在**：
+        /// `ClaimForTest` 现读 = 「`GrantCampaignRewards` → 局部 `FinishClaim`（内含 `CampaignData.Claim`）→ `RewardWindow.ShowCollected(..., collected => FinishClaim())`」⇒ `Claim` 只在**关窗回调**里跑；⛔ 别再按旧句把关窗挪进 `Claim` 支（那会把 `B-15` 的次序改回去）。</para>
         /// <para>**关窗次序**（原版同此）：原版是 `RewardService.Collect(...)` **先**开领奖窗
         /// （调用点 `Everguild.LiveOps.Campaign.__c__DisplayClass11_0___CollectRewards_g__OnSuccess_0.c:27`），
         /// **再**由 `onCollected` 回调关本窗 ⇒ 这里也是先 `OnCollect`（内含 A438 的
@@ -913,7 +913,7 @@ namespace CardPresentation
         void OnUnlock(int tier)
         {
             if (_ctx == null || _ctx.OnCollect == null) return;
-            // ← 原版 `g__Refresh_0` 末尾那一跳；`bool` = 「这一次真的领到了」（判据见方法头）。
+            // ← 原版 `g__Refresh_0` 末尾那一跳；`bool` = 「这一次**请求受理了**」（`ClaimForTest` 当场发奖 + 开领奖窗，**关窗那一拍才翻节点** ⇒ 返回 true 时节点还没翻；判据见方法头）。
             if (_ctx.OnCollect(tier)) Close();
         }
 
