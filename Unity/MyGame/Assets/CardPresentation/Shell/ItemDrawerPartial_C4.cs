@@ -42,7 +42,7 @@ namespace CardPresentation
         /// 判据 → `资料/已知的坑.md`「`internal` 在自检里用不了」）。生产侧唯一调用点 = 本文件的 `AttachC4IconRaycast`。</para></summary>
         public static PxRect RandomCardIconRayRect(PxRect box)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // 与 `RandomCard` 的 `fr` 同口径（`Random Card Drawer` ARF 2 · 0.66）（B-260）
             return fr.Map(RandomIconX1, RandomIconY1, RandomIconX2, RandomIconY2);
         }
     }

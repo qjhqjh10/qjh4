@@ -35,7 +35,7 @@ namespace CardPresentation
         static void XSollaOffer(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
                                 ref ItemDrawResult res)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `XSolla Offer Drawer`：ARF `m_AspectMode 2` · 0.66（B-260）
             var content = DrawerContent(node, fr);
             DrawerBackground(content, fr, st);
 

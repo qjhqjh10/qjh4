@@ -631,14 +631,14 @@ namespace CardPresentation
             if (b == null && shell != null) b = shell.Bake;
             if (b == null)
             {
-                // 独立场景档（`MainMenu.unity` 直起 / `MainMenuScene` 自检）**没有壳** ⇒ 本来就没有这件，
-                // 那不是缺陷（如实记：这一档没有离屏烘焙）。只有「壳在、件却不在」才出声。
-                if (shell == null) return;
+                // 🔴 **B-240（2026-11-01）**：原来 `shell == null` 那条**静默 return**（`WindowShots` 出图宿主
+                // `MainMenuScene` 没有壳 ⇒ 30 张窗图全缺模糊底、零告警）—— 现在**两条路都出声**（各一次）。
                 if (!_bakeMissingWarned)
                 {
                     _bakeMissingWarned = true;
-                    Debug.LogWarning($"[Bake] 常驻主菜单 `{name}` 要{(on ? "开" : "关")}离屏烘焙，" +
-                                     "但场上没有 `UIBakeScreen`（壳里没建 / 已经销毁）—— 这一下**没有模糊底**");
+                    Debug.LogWarning($"[Bake] 常驻主菜单 `{name}` 要{(on ? "开" : "关")}离屏烘焙，但" + (shell == null
+                        ? "**这一档没有壳**（`ShellRuntime.Instance == null`：独立场景 / 自检 / 出图宿主）⇒ 底下是**纯黑**，不是原版的模糊快照 —— 窗图会系统性偏暗"
+                        : "场上没有 `UIBakeScreen`（壳里没建 / 已经销毁）—— 这一下**没有模糊底**"));
                 }
                 return;
             }

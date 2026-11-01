@@ -27,6 +27,24 @@
 //       `General Basic Offer Popup …` 的**实例**上（= `BaseOfferPopup.VariantDrawer.Rot` 那一格）⇒ 由调用点负责。
 //    ② 头像框 `avatarBG` 那件（原版 `Player Profile Border`）是 **prefab 自带的第二层**，
 //       `Draw` **不碰它**（施工单 B1「还差什么」②）⇒ 我们也不建。
+//
+//  ── ③ `Shop` 档（`Avatar Border Drawer Shop Variant`）· `B-256` / 写手 `W-24`（2026-11-01）──────
+//    `ItemTypeSets`（`Shell/ItemDrawer.cs:421`）里 `CosmeticItemAvatarBorder` 的 **Shop(20) 列写的是
+//    `AvatarBorderDrawer` 本身** —— 与原版同形：**同一个类、两套 prefab**。
+//    ① 真包现读（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Avatar Border Drawer Shop Variant"
+//       --depth 4 --relative --no-sprite --no-ancestor-scale`）：`Content/Background` 那一行的 `act` 列印 **`INACT`**
+//       （`m_IsActive = 0`，且它那颗 `Image` 是 `m_Enabled=0` / `Simple (1,1,1,0)`）；
+//       其余 `avatarBG` / `avatar` / `Army` / `Label` / `Label/Name` 五格与本档（基础档）**逐值相同**。
+//    ② 交叉源（`diff` 两份 `d:/2/tools/assetripper_out/ExportedProject/Assets/Avatar Border Drawer*.prefab`）：
+//       **整份文件只有 3 行不同** —— `m_Name`、`Background` 的 `m_IsActive: 1→0`、
+//       以及 `Background` 那颗 `Image` 的 `m_Enabled: 1→0` + `m_Color.a: 1→0`。
+//       ⇒ **唯一的行为差异 = 商店档不画那张底板**（`40k_Rewards_icon_base card`）；几何一处都不用改。
+//    ③ 判据链（「谁会把它打开」这一半也读了）：`ItemDrawer<T>.Draw`
+//       （`d:/2/tools/decomp_generic_trial/out/ItemDrawer_object___Draw.c`）与
+//       `AvatarBorderDrawer.Draw`（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/AvatarBorderDrawer.cs`）
+//       **都不碰 `background` 那格** ⇒ 序列化态说了算 ⇒ 原版商店档屏幕上**没有**底板。
+//    ⇒ 我们的落点：`AvatarBorder(...)` 多一个 `drawBackground`（默认 `true`，基础档调用点零改动），
+//      分流在 `Shell/ItemDrawerPartial_B114W24.cs`（`Dispatch` 的 `ov == Shop` 那一跳）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -62,11 +80,11 @@ namespace CardPresentation
 
         /// <summary>原版 `AvatarBorderDrawer.Draw`（一句话）。图 = `CosmeticItem.Image`。</summary>
         static void AvatarBorder(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
-                                 ref ItemDrawResult res)
+                                 ref ItemDrawResult res, bool drawBackground = true)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Avatar Border Drawer` / `… Shop Variant` / `Icon Avatar Border Drawer Variant` 都是 ARF 2（0.66）（B-260）
             var content = DrawerContent(node, fr);
-            DrawerBackground(content, fr, st);
+            if (drawBackground) DrawerBackground(content, fr, st);   // `Shop` 档不画底板（判据 → 文件头 ③ / `ItemDrawerPartial_B114W24.cs`）
             var tex = CardArt.MenuUi(item.Art);        // 边框图（`Player_Profile_Border` 一族）
             if (!DrawerImage(content, CosmeticAvatarFrame(fr), tex, item.Art, st, ref res))
                 Note("avatarBorder|art|" + (item.Id ?? "?"),
@@ -108,7 +126,7 @@ namespace CardPresentation
                                          ref ItemDrawResult res, System.Func<string, Texture2D> load,
                                          string noteKey, string human)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Cardback Drawer`（ARF 2 · 0.66）：框更窄时原版横向溢出（B-260）
             var content = DrawerContent(node, fr);
             // 🔴 **不画底图**（2026-10-30 `B101_R8` 现读）：`Cardback Drawer.prefab` 的
             //    `ItemDrawerComponents.background` = `{fileID: 0}`（null），`Content` 下也**没有 `Background` 节点**

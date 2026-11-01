@@ -9218,7 +9218,7 @@ namespace RuleEngine
     public partial class CardDef
     {
         /// <summary>🆕 v42：一行「一条 `abilityLogic` 的 trigger」（= 原版 `TriggerAbilities` 的选 ability 那一跳）。
-        /// <para>`Trigger = -1` = 坏值/缺键（⛔ 不是 `0 ThisCardPlayed`）；`Lg = -1` = 这条 ability 没有 logic 行。</para></summary>
+        /// <para>`Trigger = -1` = 坏值/缺键（⛔ 不是 `0 ThisCardPlayed`）；`Lg = -1` = 这条 ability 没有 logic 行。｜🆕 v47（2026-11-01 · 写手 `W-B` · 账 `B-211`）：`Ca` = 原版 **`AbilityLogic.chosenAbility`**（`AbilityEffect`）逐 `(ab, lg)` 行一个值；`-1` = 未知（旧表 `version < 47` / `lg == -1` 无 logic 实例 / 键缺失），`0 drawCard` 是**合法真值** ⇒ ⛔ 别把 `-1` 折成 `0`。</para></summary>
         public sealed class TriggerAbilityIndexSpec
         {
             /// <summary>`cardAbilities` 下标。</summary>
@@ -9226,7 +9226,7 @@ namespace RuleEngine
             /// <summary>`abilityLogic` 下标；`-1` = 这条 ability 没有任何 logic 行。</summary>
             public int Lg = -1;
             /// <summary>原版 `AbilityTrigger` 数值。</summary>
-            public int Trigger = -1; public int TriggerValue = -1;   // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
+            public int Trigger = -1; public int TriggerValue = -1; public int Ca = -1;   // 🆕 v47（`W-B` · `B-211`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（`Assembly-CSharp/AbilityLogic.cs:9`）—— 逐 `(ab, lg)` 行；`-1` = 未知（旧表 / `Lg == -1` 无 logic 实例 / 键缺失），`0 drawCard` 是合法真值 ⇒ ⛔ 别折成 0。  // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
         }
 
         TriggerAbilityIndexSpec[] _triggerAbilityIndices;

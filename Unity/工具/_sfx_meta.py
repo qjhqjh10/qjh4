@@ -49,8 +49,8 @@
     python -I -X utf8 工具/_sfx_meta.py --backfill --dry-run  # 只数
     # ③ 一次性校验（只读）：配对 / guid 全局唯一 + 格式 / **4 项是否等于原版真值**
     python -I -X utf8 工具/_sfx_meta.py --verify
-    # ④ 离线自证（只读，零写盘、不需要 UnityPy）：真值文件完整性 + 模板改写管线 + 覆盖率
-    python -I -X utf8 工具/_sfx_meta.py --self-test
+    # ④ 离线自证（只读，零写盘、不需要 UnityPy）：真值文件完整性 + 模板改写管线 + 覆盖率 + 兜底 normalize
+    python -I -X utf8 工具/_sfx_meta.py --self-test   # 或单独跑 --check-fallback [--deep]（B-238：兜底↔众数↔冷重建）
     # ⑤ 看一眼「某条新音会被写成什么」（只读）
     python -I -X utf8 工具/_sfx_meta.py --probe "Hit Fire 1"
     # ⑥ 真值文件 ↔ 原版 bundle 本体 逐条比（只读，**需要 UnityPy**；`--apply` 才重写）
@@ -94,9 +94,9 @@ AUDIO_EXTS = (".wav", ".ogg", ".mp3", ".aif", ".aiff", ".flac")
 GUID_LINE_RE = re.compile(rb"^guid: (?P<guid>[0-9a-fA-F]{32})(?P<eol>\r?)$", re.M)
 
 # 内置兜底模板（**只在**目标目录一条同扩展名兄弟 meta 都没有时才用；有新目录时请先让 Unity
-# 生成一条、或手工补一条，别指望这里）。两份都是 2026-10-24 从本工程实测的众数**逐字节**抄的：
-#   · `.wav` ← `Resources/Art/audio/sfx/` 510/511 份的模板（`OvertimeStart.wav.meta` 是已知例外）
-#   · `.ogg` ← 同目录 5/5 份的模板
+# 生成一条、或手工补一条，别指望这里）。2026-10-24 抄自当时 `audio/sfx/` 的众数（`.wav` 510/511 · `.ogg` 5/5）；
+# **那 4 项现在按原版真值改写**（口径 4）⇒ 这里只剩非真值字段（`normalize`/`quality`/`sampleRateOverride`/结构行）起作用。
+# 🔴 `normalize` **必须 = 现读全树众数 `0`**（`B-238` 2026-11-01，属 `UNPROVABLE`、原版无真值）：写成 `1` ⇒「目录删空再冷重建」会把 2,494 份从 0 漂到 1；逐字段机检 = `--check-fallback`。
 # ⚠️ 行尾 LF、`userData:` / `assetBundleName:` / `assetBundleVariant:` 后面**各有一个尾随空格**
 #    （Unity 自己就这么写的，别「顺手删掉」）。
 FALLBACK_TEMPLATES = {
@@ -117,7 +117,7 @@ FALLBACK_TEMPLATES = {
         b"    preloadAudioData: 0\n"
         b"  platformSettingOverrides: {}\n"
         b"  forceToMono: 0\n"
-        b"  normalize: 1\n"
+        b"  normalize: 0\n"
         b"  loadInBackground: 1\n"
         b"  ambisonic: 0\n"
         b"  3D: 1\n"
@@ -142,7 +142,7 @@ FALLBACK_TEMPLATES = {
         b"    preloadAudioData: 1\n"
         b"  platformSettingOverrides: {}\n"
         b"  forceToMono: 0\n"
-        b"  normalize: 1\n"
+        b"  normalize: 0\n"
         b"  loadInBackground: 1\n"
         b"  ambisonic: 0\n"
         b"  3D: 1\n"
@@ -604,14 +604,14 @@ def verify(dirpath=SFX_DIR, root=PROJECT_ROOT):
                     continue
                 stem = os.path.splitext(os.path.basename(p))[0]
                 prov = original_prov(stem)
-                if prov is not None:
-                    # 有原版真值 ⇒ 只要 4 项对得上就不算异常（差异是**故意的**，不是漂移）
-                    try:
-                        got = read_prov_fields(io.open(meta, "rb").read())
-                    except (OSError, ValueError):
-                        got = {}
-                    if all(got.get(f) == prov[f] for f in PROV_FIELDS):
-                        continue
+                if prov is not None and _prov_matches(meta, prov):
+                    # 4 项对得上 ⇒ 整篇与众数不同是**故意的**，不算异常。
+                    # 🔴 但**非真值字段**（normalize / quality / sampleRateOverride / 结构行）若也漂了，
+                    # 必须**报黄** —— 这就是 `B-238` 那 55 份 `normalize: 1` 挂了一轮没人发现的盲区
+                    # （`B114_W21` 补）：原来这里是**无条件** `continue`，把整条差异吃掉了，连黄都不报。
+                    for w in _nonprov_drift_notes(meta, canonical):
+                        warnings.append(w)
+                    continue
                 warnings.append(f"模板与同目录众数不同（{c} 条这一款）：{os.path.basename(meta)}")
     return failures, warnings, stats
 
@@ -833,6 +833,255 @@ def probe(name, ext=".wav"):
     return 0
 
 
+# ============================================================================
+# `--check-fallback`（`B-238`，2026-11-01）：兜底模板 ↔ 现读众数 ↔「冷重建会写成什么」
+# ============================================================================
+# 为什么单开一个模式：`--verify` 的 ④ 已经算过「同目录同扩展名的众数」，但它对**有原版真值**的
+# 文件，只要那 4 项对得上就整条 `continue`（见 `verify()` 里那句「差异是**故意的**，不是漂移」）
+# ⇒ `normalize` 这类**非真值字段**的差异被一起吞掉，永远不会报黄。这个模式**不看那 4 项**
+# （它们本来就该被逐条改写），只比**非真值字段 + 结构行**。
+#
+# 三件事，全部只读（唯一的写盘 = `tempfile.mkdtemp()` 里的探针目录，跑完 `shutil.rmtree`）：
+#   ① **兜底模板的非真值行 == 现读全树众数的非真值行**（按扩展名；`pick_template` 是**按目录**投票，
+#      但结构行 / `normalize` / `quality` / `sampleRateOverride` 在 4 个目录 2 种扩展名里本来就一致 ⇒
+#      一个按扩展名的兜底模板够用；不一致时这里会点名是哪个目录）。
+#   ② **`normalize` 现读 == 0**（`B-238` 的口径；写成 1 冷重建会把整棵树漂过去）。
+#   ③ **「冷重建会写成什么」逐份算，与现状逐字节比**：冷重建的第一份没有兄弟 ⇒ 必走兜底模板；
+#      之后所有兄弟的「众数」就等于第一份写出来的东西 ⇒ **逐份「兜底模板 + 真值改写」的产物
+#      就是冷重建的稳态结果**（`apply_original_prov` 只改那 4 行、不改别的，所以这一步是精确的，
+#      不是近似）。`--deep` 时再在临时空目录里**真跑一次 `ensure_meta`** 做端到端复核。
+ZERO_GUID = "0" * 32
+
+
+def _render_or_none(b):
+    try:
+        return render_meta(b, ZERO_GUID)
+    except ValueError:
+        return None
+
+
+def _nonprov_lines(norm_bytes):
+    """→ 去掉那 4 项（`PROV_FIELDS`）之后的非空行。`normalize`/`quality`/`sampleRateOverride`/结构行都在里面。"""
+    out = []
+    for ln in norm_bytes.split(b"\n"):
+        s = ln.strip()
+        if not s:
+            continue
+        if s.split(b":")[0].decode("utf-8", "replace") in PROV_FIELDS:
+            continue
+        out.append(ln)
+    return out
+
+
+def _field_of(line):
+    s = line.strip()
+    return s.split(b":")[0].decode("utf-8", "replace") if b":" in s else s.decode("utf-8", "replace")
+
+
+def _line_diff(a, b, limit=4):
+    """→ 逐行差的人话列表（`对我们 / 兜底` 的标法由调用方加）。"""
+    out = []
+    for i in range(max(len(a), len(b))):
+        x = a[i] if i < len(a) else b"<MISSING>"
+        y = b[i] if i < len(b) else b"<MISSING>"
+        if x != y:
+            out.append(u"%s: %r → %r" % (_field_of(x if x != b"<MISSING>" else y), x.strip(), y.strip()))
+            if len(out) >= limit:
+                break
+    return out
+
+
+def cold_rebuild_meta(audio_path, ext=None):
+    """→ 「把 `audio_path` 放进一个**空目录**里冷重建，会写成什么样」（零写盘、纯内存）。
+
+    冷重建时目录里一条兄弟 `.meta` 都没有 ⇒ `pick_template()` 必走 `FALLBACK_TEMPLATES`，
+    再被 `apply_original_prov()` 按原版真值改那 4 行；第一份写出来之后，后面所有兄弟的众数
+    就等于它 ⇒ **这个函数的结果就是该目录冷重建的稳态值**。"""
+    if ext is None:
+        ext = os.path.splitext(audio_path)[1].lower()
+    tmpl = FALLBACK_TEMPLATES.get(ext)
+    if tmpl is None:
+        return None, None
+    stem = os.path.splitext(os.path.basename(audio_path))[0]
+    out, prov = apply_original_prov(tmpl, stem)
+    return render_meta(out, ZERO_GUID), prov
+
+
+def check_fallback(dirpath=None, quiet=False, deep=False):
+    """只读自证「兜底档现在是 `normalize: 0`，且冷重建不会漂」。→ 退出码（0 = 全过）
+
+    ① 兜底模板非真值行 ↔ 现读众数 · ② `normalize` 现读 == 0 · ③ 逐份冷重建 vs 现状 · ④（`deep`）端到端真跑。"""
+    if dirpath is None:
+        dirpath = SFX_DIR
+    bad = []
+    audio = find_audio_files(dirpath)
+    if not audio:
+        print(u"⚠️ %s 下没有音频 —— 这一步跳过（不判红）" % dirpath)
+        return 0
+
+    # 分组众数（按「相对目录 + 扩展名」，与 pick_template 的口径一致）
+    groups, modal = collections.defaultdict(list), {}
+    for p in audio:
+        meta = p + ".meta"
+        if not os.path.exists(meta):
+            continue
+        try:
+            norm = render_meta(io.open(meta, "rb").read(), ZERO_GUID)
+        except (OSError, ValueError):
+            continue
+        rel = os.path.relpath(os.path.dirname(p), dirpath).replace("\\", "/")
+        groups[(rel, os.path.splitext(p)[1].lower())].append(norm)
+
+    print(u"【① 兜底模板 非真值行 ↔ 现读众数】")
+    for (rel, ext), norms in sorted(groups.items()):
+        c = collections.Counter(tuple(_nonprov_lines(n)) for n in norms)
+        want, n = c.most_common(1)[0]
+        fb = FALLBACK_TEMPLATES.get(ext)
+        if fb is None:
+            print(u"  %-12s %-5s %4d 份 · 无内置兜底模板（不判）" % (rel or ".", ext, len(norms)))
+            continue
+        got = tuple(_nonprov_lines(render_meta(fb, ZERO_GUID)))
+        if got == want:
+            print(u"  %-12s %-5s %4d 份 · 众数 %d · ✅ 非真值行一致" % (rel or ".", ext, len(norms), n))
+        else:
+            print(u"  %-12s %-5s %4d 份 · 众数 %d · 🔴 非真值行**不一致**" % (rel or ".", ext, len(norms), n))
+            for d in _line_diff(got, list(want), limit=6):
+                print(u"      兜底 vs 众数 → " + d)
+            bad.append(u"%s/%s：兜底模板的非真值行 != 现读众数（冷重建会漂）" % (rel or ".", ext))
+
+    print(u"【② `normalize` 现读值】")
+    nz = collections.Counter()
+    for norms in groups.values():
+        for norm in norms:
+            for ln in _nonprov_lines(norm):
+                if ln.strip().startswith(b"normalize:"):
+                    nz[ln.strip().split(b":")[1].strip()] += 1
+                    break
+    for v, c in sorted(nz.items()):
+        print(u"  normalize: %s × %d" % (v.decode("ascii", "replace"), c))
+    fb_nz = {}
+    for ext, fb in sorted(FALLBACK_TEMPLATES.items()):
+        for ln in _nonprov_lines(render_meta(fb, ZERO_GUID)):
+            if ln.strip().startswith(b"normalize:"):
+                fb_nz[ext] = ln.strip().split(b":")[1].strip()
+    print(u"  兜底模板：" + u" · ".join(u"%s normalize: %s" % (e, v.decode("ascii")) for e, v in sorted(fb_nz.items())))
+    for e, v in sorted(fb_nz.items()):
+        if v != b"0":
+            bad.append(u"兜底模板 %s 的 normalize = %s（应为 0 —— `B-238`）" % (e, v.decode("ascii")))
+    if nz and set(nz) != {b"0"}:
+        # 现状里本来就有 55 份是 1（历史遗留，⛔ 不在本模式里判红 —— 只点名）
+        print(u"  ⚠️ 现状里有 %d 份 normalize != 0（历史遗留，冷重建会写成 0；见报告 §一 的清单）"
+              % sum(c for v, c in nz.items() if v != b"0"))
+
+    # ③ 逐份「冷重建会写成什么」vs 现状
+    print(u"【③ 冷重建（纯内存推算）vs 现状：%d 份】" % len(audio))
+    same = diff = 0
+    by_field = collections.Counter()
+    samples = []
+    cold_nz = collections.Counter()
+    for p in audio:
+        meta = p + ".meta"
+        if not os.path.exists(meta):
+            continue
+        real = _render_or_none(io.open(meta, "rb").read())
+        cold, prov = cold_rebuild_meta(p)
+        if cold is None:
+            continue
+        for ln in _nonprov_lines(cold):
+            if ln.strip().startswith(b"normalize:"):
+                cold_nz[ln.strip().split(b":")[1].strip()] += 1
+                break
+        if real is None or cold == real:
+            same += 1
+            continue
+        diff += 1
+        a, b = _nonprov_lines(cold), _nonprov_lines(real or b"")
+        fields = []
+        for i in range(max(len(a), len(b))):
+            x = a[i] if i < len(a) else b"<MISSING>"
+            y = b[i] if i < len(b) else b"<MISSING>"
+            if x != y:
+                fields.append(_field_of(y if y != b"<MISSING>" else x))
+        by_field[tuple(sorted(fields))] += 1
+        if len(samples) < 8:
+            samples.append(u"%s（%s）" % (os.path.relpath(p, dirpath).replace("\\", "/"),
+                                          u", ".join(_line_diff(a, b))))
+    print(u"  冷重建后 normalize 分布：" + u" · ".join(
+        u"%s × %d" % (v.decode("ascii", "replace"), c) for v, c in sorted(cold_nz.items())))
+    print(u"  与现状逐字节一致 %d 份 · 不一致 %d 份" % (same, diff))
+    for fields, c in by_field.most_common():
+        print(u"    差在 %s 的：%d 份" % (u"+".join(fields) or u"(?)", c))
+    for s in samples:
+        print(u"    " + s)
+
+    # ④ --deep：临时空目录里真跑一次 ensure_meta（端到端；证明 `pick_template` 真走到了兜底）
+    if deep:
+        import tempfile
+        print(u"【④ 端到端：临时空目录里真跑 ensure_meta】")
+        root = tempfile.mkdtemp(prefix="wf_sfxmeta_cold_")
+        try:
+            for ext in sorted(FALLBACK_TEMPLATES):
+                src = next((p for p in audio if p.lower().endswith(ext)), None)
+                if src is None:
+                    continue
+                d = os.path.join(root, ext.strip("."))
+                os.makedirs(d)
+                guids = set()
+                # 同一目录连放 3 份：第 1 份必走兜底，第 2/3 份走「众数」⇒ 两档都要对
+                for i in range(3):
+                    t = os.path.join(d, "probe%d%s" % (i, ext))
+                    with io.open(t, "wb") as f:
+                        f.write(b"")
+                    ensure_meta(t, guids=guids, quiet=True)
+                    got = _render_or_none(io.open(t + ".meta", "rb").read())
+                    nzl = [ln.strip() for ln in _nonprov_lines(got) if ln.strip().startswith(b"normalize:")]
+                    ok = bool(nzl) and nzl[0] == b"normalize: 0"
+                    print(u"  %s 第 %d 份：%s %s" % (ext, i + 1, u"✅" if ok else u"🔴",
+                                                    nzl[0].decode("ascii", "replace") if nzl else u"(没有 normalize 行)"))
+                    if not ok:
+                        bad.append(u"端到端 %s 第 %d 份冷重建 normalize 不是 0" % (ext, i + 1))
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    print(u"\n===== %s =====" % (u"兜底档 = normalize: 0，冷重建不漂" if not bad else u"%d 条不过" % len(bad)))
+    for b in bad[:40]:
+        print(u"  ✗ " + b)
+    return 0 if not bad else 1
+
+
+# ============================================================================
+# `verify()` ④ 的两个小件（`B114_W21`，2026-11-01）：补「有真值就整条放行」的盲区
+# ============================================================================
+# 原来 ④ 对有原版真值的文件是**无条件** `continue`（只要 4 项对得上）⇒ `normalize` 这类
+# **非真值字段**的漂移被整条吞掉、**连黄都不报**。`B-238` 那 55 份 `normalize: 1` 因此挂了
+# 一整轮没人发现。下面两个函数把那一档拆开：**4 项对 ≠ 非真值字段也对**。
+# ⚠️ 放在文件尾部（`self_test` 之后）是有意的：**别让 `verify:485` / `self_test:622` 漂**
+#    （外部文档引的就是这几个行号，见 `判据/B114_R4_B93重建性.md:25,31`）。
+def _prov_matches(meta, prov):
+    """这份 `.meta` 的那 4 项是否 == 原版真值？读不出来 ⇒ False（走通配的「报黄」档，⛔ 不静默放行）。"""
+    try:
+        got = read_prov_fields(io.open(meta, "rb").read())
+    except (OSError, ValueError):
+        return False
+    return all(got.get(f) == prov[f] for f in PROV_FIELDS)
+
+
+def _nonprov_drift_notes(meta, canonical):
+    """有原版真值的文件：**非真值行**（`_nonprov_lines`）与同扩展名众数 `canonical` 的差。→ 描述列表
+
+    空列表 = 非真值行完全一致 ⇒ 整篇不同只是因为那 4 项（**故意的**，不报）。
+    非空 = `normalize` / `quality` / `sampleRateOverride` / 结构行真的漂了 ⇒ **报黄**。"""
+    try:
+        real = render_meta(io.open(meta, "rb").read(), ZERO_GUID)
+    except (OSError, ValueError):
+        return []
+    ours, want = _nonprov_lines(real), _nonprov_lines(canonical)
+    if ours == want:
+        return []
+    return [u"非真值字段与同扩展名众数不同（那 4 项已对上真值）：%s → %s"
+            % (os.path.basename(meta), u" · ".join(_line_diff(ours, want)))]
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="音频导入脚本共用的 .meta 补写/校验（模板 = 同目录同扩展名的众数，只换 guid；"
@@ -842,7 +1091,11 @@ def main():
     ap.add_argument("--verify", action="store_true",
                     help="只读校验：配对 / guid 全局唯一与格式 / 那 4 项与原版真值 / 模板一致")
     ap.add_argument("--self-test", action="store_true",
-                    help="只读离线自证：真值文件完整性 + 模板改写管线 + 覆盖率（不需要 UnityPy）")
+                    help="只读离线自证：真值文件完整性 + 模板改写管线 + 覆盖率 + 兜底模板 normalize（不需要 UnityPy）")
+    ap.add_argument("--check-fallback", action="store_true",
+                    help="只读自证（B-238）：兜底模板的非真值行 ↔ 现读众数 · normalize 现读 == 0 · 冷重建 vs 现状")
+    ap.add_argument("--deep", action="store_true",
+                    help="配合 --check-fallback：再在临时空目录里真跑一次 ensure_meta（端到端）")
     ap.add_argument("--scan-truth", action="store_true",
                     help="只读扫原版 bundle 的 AudioClip typetree，与真值文件逐条比（需要 UnityPy）")
     ap.add_argument("--probe", metavar="NAME",
@@ -854,13 +1107,15 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="配合 --backfill：只报条数，不写盘")
     a = ap.parse_args()
 
-    if not (a.backfill or a.verify or a.self_test or a.probe or a.scan_truth):
+    if not (a.backfill or a.verify or a.self_test or a.probe or a.scan_truth or a.check_fallback):
         ap.print_help()
         return 0
     if a.scan_truth:
         return scan_truth(a.apply)
+    if a.check_fallback:
+        return check_fallback(a.dir, deep=a.deep)
     if a.self_test:
-        return self_test(a.dir)
+        return self_test(a.dir) or check_fallback(a.dir)
     if a.probe:
         return probe(a.probe, a.ext)
 

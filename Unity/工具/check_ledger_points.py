@@ -775,9 +775,26 @@ def check_file(path, roots, show_pass=False, do_fix=False):
     b_total = 0
     b_warns = []
     fails, drifts, rewrites, getters, warns = [], [], [], [], []
+    need_cols = max(i_status, i_land, i_cls, i_mtd) + 1
     for ri in range(1, len(rows)):
         c = rows[ri].split("\t")
-        if len(c) <= max(i_status, i_land, i_cls, i_mtd):
+        # 🔴 2026-11-01（B114_W28 · B-259 · 同「静默跳过」族）：**列数不足不再无条件 `continue`**。
+        #   原来这一行既不进 `total`、也不报任何问题 ⇒ 账里只要少一个 tab，**整行就从账里消失**
+        #   （A 的总条数静默少算、闸照样绿）。实测现账 21 份 / 9,687 行里这种行 **0 条**
+        #   （`_tmp_view/w28/scan_silent_skip.py`）⇒ 本条**不改今天的任何数字**，只堵将来。
+        #   归桶：状态列读得出 `B` ⇒ B 桶（只报）；`A` 或**读不出状态** ⇒ A 桶真失败
+        #   （宁可多报，⛔ 不许静默丢行）；其余状态（C/D…）按设计跳过。
+        if len(c) < need_cols:
+            _st = c[i_status].strip() if len(c) > i_status else ""
+            _who = "%s.%s" % (c[i_cls].strip() if len(c) > i_cls else "?",
+                              c[i_mtd].strip() if len(c) > i_mtd else "?")
+            _why = "列数不足（只有 %d 列，至少要 %d 列）⇒ 整行没法机检" % (len(c), need_cols)
+            if _st == "B":
+                b_total += 1
+                b_warns.append((base, _who, "", WARN_BFAIL, _why))
+            elif _st in ("A", ""):
+                total += 1
+                fails.append((base, _who, "", _why))
             continue
         # 🔴 2026-10-29（B94_T1 · 判据 = `判据/B94_R-T_B行落点体检.md` §五）：
         #   原来这里是 `if c[i_status].strip() != "A": continue` —— **只机检 A 行**，

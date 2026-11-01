@@ -4846,7 +4846,16 @@ def ability_mutations_of(cid, name, trow, report):
 #     ——**只有数值、没有 ability 下标**。同一 trigger 下**多条 ability** 时（现读 **89 张卡**）就分不开
 #     「该跑哪一条 / 哪几条」，而原版要的是**列表**。
 #
-#  形状：`[{"ab": int, "lg": int, "trigger": int}, …]`（按 `(ab, lg)` 升序）。
+#  形状：`[{"ab": int, "lg": int, "trigger": int, "triggerValue": int, "ca": int}, …]`（按 `(ab, lg)` 升序）。
+#    · 🆕 v47（2026-11-01 · `W-B` · `B-211`）：**`ca` = 原版 `AbilityLogic.chosenAbility`（`AbilityEffect`）**
+#      —— 字段在 **AbilityLogic 上**（`Assembly-CSharp/AbilityLogic.cs:9` `public AbilityEffect chosenAbility;`），
+#      所以是**逐 `(ab, lg)` 行**、⛔ 不是 ability 级、更⛔ 不是 `chosenAbility` 那个去重集合
+#      （`ability_chosen_abilities_of` 的 `sorted(set(...))` 只能回答「这张卡用过哪些能力种类」）。
+#      `-1` = 未知（`lg == -1` 没有 logic 实例 / 键缺失）；`0`（`drawCard`）是**合法真值** ⇒ 两者必须分得开。
+#      现读（池内 1,129 张 / 1,622 行）：已知 **1,621** 行 · 未知 **1** 行（`GOF97 Gargantuan Squiggoth` 的
+#      `ab=0, trigger=0`，该 ability 没有 `abilityLogic`）· 缺键 0 行 · `ca == 0` 81 行 ·
+#      有任意一行 `ca != 0` 的卡 **1,003** 张 · 51 种取值（最多 `30 buffOthers` 517 行、`10 doDamage` 247 行）。
+#      ⚠️ **本列只落数据**（派发口 `EffectResolver` 归写手 `W-A`，另一波）⇒ 落表本身零行为变化。
 #    · **`lg = -1` = 这条 ability 没有任何 `abilityLogic` 行** —— 仍然落一行：
 #      原版 `GetAbilitiesForTriggerRawcard` 只按 trigger 过滤、**不看 logic 条数**
 #      （空 logic 的 ability 由下游「没有动作可排队」自然空转，⛔ 别在这里替它删）。
@@ -4870,7 +4879,9 @@ def ability_mutations_of(cid, name, trow, report):
 #     ⛔ 不动 `CollectTriggerOps` / `FireTriggerOnce` / `TriggerOpsByNumber`。
 # ==========================================================================================
 TRIGGER_ABILITY_INDICES_REPORT = {"cards": 0, "no_truth": 0, "rows": 0,
-                                  "triggers": 0, "empty_logic": 0, "multi": 0, "bad": []}
+                                  "triggers": 0, "empty_logic": 0, "multi": 0, "bad": [],
+                                  # 🆕 v47（`B114W-B` · `B-211`）：逐行 `ca` 的计数
+                                  "ca_known": 0, "ca_zero": 0, "ca_no_logic": 0, "ca_missing": 0}
 
 
 def trigger_ability_indices_of(cid, name, trow, report):
@@ -4892,6 +4903,20 @@ def trigger_ability_indices_of(cid, name, trow, report):
         v = a.get("triggerValue")
         return v if isinstance(v, int) and not isinstance(v, bool) else -1
 
+    # 🆕 v47（2026-11-01 · 第 114 会话 · 写手 `W-B` · 账 `B-211`）：**逐行 `ca`**
+    #   = 原版 `AbilityLogic.chosenAbility`（`AbilityEffect`；`Assembly-CSharp/AbilityLogic.cs:9`
+    #     `public AbilityEffect chosenAbility;`，字段在 **AbilityLogic 上、不在 CardAbility 上**）
+    #   ⇒ 一个 `(ab, lg)` 行一个值，⛔ 不是 ability 级、更不是「去重集合」。
+    #   ⚠️ `0`（`drawCard`）是**合法真值** ⇒ 未知只能用 `-1`（同 `_tv` 的口径）。
+    #   ⚠️ `lg == -1`（这条 ability 没有 logic 行）⇒ **没有 chosenAbility 可读** ⇒ `ca = -1`
+    #      （与原版「空 logic 循环什么都不跑」自洽：那一行本来就没有 `AbilityLogic` 实例）。
+    def _ca(g):
+        v = g.get("chosenAbility")
+        if isinstance(v, int) and not isinstance(v, bool):
+            return v
+        report["ca_missing"] += 1
+        return -1
+
     for i, ab in enumerate(trow.get("cardAbilities") or []):
         if not isinstance(ab, dict):
             report["bad"].append((cid, name, "cardAbilities[%d]" % i, "不是对象"))
@@ -4902,8 +4927,9 @@ def trigger_ability_indices_of(cid, name, trow, report):
             continue                 # ⛔ 不猜 0
         logic = ab.get("abilityLogic") or []
         if not logic:
-            out.append({"ab": i, "lg": -1, "trigger": tg, "triggerValue": _tv(ab)})
+            out.append({"ab": i, "lg": -1, "trigger": tg, "triggerValue": _tv(ab), "ca": -1})
             report["empty_logic"] += 1
+            report["ca_no_logic"] += 1
             report["rows"] += 1
             trig_seen.setdefault(tg, set()).add(i)
             continue
@@ -4911,8 +4937,13 @@ def trigger_ability_indices_of(cid, name, trow, report):
             if not isinstance(lg, dict):
                 report["bad"].append((cid, name, "ab%d.lg%d" % (i, j), "abilityLogic 不是对象"))
                 continue
-            out.append({"ab": i, "lg": j, "trigger": tg, "triggerValue": _tv(ab)})
+            ca = _ca(lg)
+            out.append({"ab": i, "lg": j, "trigger": tg, "triggerValue": _tv(ab), "ca": ca})
             report["rows"] += 1
+            if ca >= 0:
+                report["ca_known"] += 1
+                if ca == 0:
+                    report["ca_zero"] += 1
             trig_seen.setdefault(tg, set()).add(i)
     out.sort(key=lambda r: (r["ab"], r["lg"]))
     report["cards"] += 1
@@ -6745,6 +6776,25 @@ def build():
           f" · 坏格 **{len(TRIGGER_ABILITY_INDICES_REPORT['bad'])}** 处")
     print(f"             `trigger == 200(TriggerOnceIfBoardCriteria)` 的卡：**{len(_tai_c200)}** 张"
           f"（池内应为 0 ⇒ `UpdateTriggerOnce` 仍是休眠件）")
+    # 🆕 v47（`B114W-B` · `B-211`）：逐行 `ca`（原版 `AbilityLogic.chosenAbility`）的读数
+    _ca_dist = {}
+    _ca_cards = 0
+    for _c in _tai_cards:
+        _nz = False
+        for _r in (_c["triggerAbilityIndices"] or []):
+            _v = _r.get("ca", -1)
+            _ca_dist[_v] = _ca_dist.get(_v, 0) + 1
+            if _v > 0:
+                _nz = True
+        if _nz:
+            _ca_cards += 1
+    _ca_top = sorted(_ca_dist.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
+    print(f"             🆕 v47 `ca`（`AbilityLogic.chosenAbility`）：已知 **{TRIGGER_ABILITY_INDICES_REPORT['ca_known']}** 行"
+          f" · 未知（无 logic）**{TRIGGER_ABILITY_INDICES_REPORT['ca_no_logic']}** 行"
+          f" · 缺键 **{TRIGGER_ABILITY_INDICES_REPORT['ca_missing']}** 行"
+          f" · `ca == 0`（合法值）**{TRIGGER_ABILITY_INDICES_REPORT['ca_zero']}** 行"
+          f" · 有任意非 0 行的卡 **{_ca_cards}** 张 · 取值 **{len(_ca_dist)}** 种"
+          f"｜top：{_ca_top}")
     # 🆕 v43（`B98_D1` · 账 `607` ① 格）：`startingCardInHand` 覆盖读数。
     _sch = STARTING_CARD_IN_HAND_REPORT
     print(f"开局上手     `startingCardInHand` 落列 **{_sch['written']}/{len(cards)}** 张"
@@ -6793,7 +6843,7 @@ def build():
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。
                                #      ⚠️ 同表还顺带落了 **v41 `abilityMutations` + v42 `triggerAbilityIndices`** —— 那两列的代码在**第九十五会话**就提交了，只是表一直没重生成（现读盘上仍是 v40）。本次 `--write` 把它们一并落盘；两列都「只落数据、不接线」⇒ 零行为变化（`CardDatabase` **早已接**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c))`；缺的是**消费者** —— `CardDef.TriggerAbilityIndices` 今天还没人读）。
-        "version": 46,         # v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反账 `B-177`）= 加一列 `cardTargetCriteriaSet`（原版 `RawCardScript.cardTargetCriteria +0x280` 的**其余 36 格**，逐卡一个对象；`conditionsFilter`/`excludeCondition` 仍在 `unitConditions` 的 `role="cardtarget"` 行）。⚠️ **只落数据、不接线**（载体 `CardDef.CardTargetCriteria` 已接反序列化，消费端/点选路另立账）⇒ 零行为变化。同一版还补了 `triggerAbilityIndices` / 附魔模板 `abilities` 的 **`triggerValue`**（`B-04`；`CardAbility.triggerValue +0x20`，缺键 ⇒ -1 未知）。判据 → `报告/B113W11_生成器两列.md`。
+        "version": 47,         # v47（2026-11-01 · 第一百一十四会话 · 写手 `W-B` · 账 `B-211`）= `triggerAbilityIndices` 每行加一格 **`ca`**（原版 `AbilityLogic.chosenAbility`，`Assembly-CSharp/AbilityLogic.cs:9`；逐 `(ab,lg)` 行，`-1` = 未知、`0 drawCard` = 合法值；口径 → `trigger_ability_indices_of` 上面那段）。现读 1,129 张 / 1,622 行：已知 1,621 · 未知 1（`GOF97` 空 logic）· 缺键 0 · 51 种取值。⚠️ **只落数据**（派发口 `EffectResolver` 归 `W-A`）⇒ 零行为变化。上一档 v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反账 `B-177`）= 加一列 `cardTargetCriteriaSet`（原版 `RawCardScript.cardTargetCriteria +0x280` 的**其余 36 格**，逐卡一个对象；`conditionsFilter`/`excludeCondition` 仍在 `unitConditions` 的 `role="cardtarget"` 行）。⚠️ **只落数据、不接线**（载体 `CardDef.CardTargetCriteria` 已接反序列化，消费端/点选路另立账）⇒ 零行为变化。同一版还补了 `triggerAbilityIndices` / 附魔模板 `abilities` 的 **`triggerValue`**（`B-04`；`CardAbility.triggerValue +0x20`，缺键 ⇒ -1 未知）。判据 → `报告/B113W11_生成器两列.md`。
         # v45（2026-10-30 · 第一百零一会话 · 数据契约）= 新增**显式布尔** `hasNormalAbilityBoardCriteria`（0/1，逐卡；`board_gate_of` 返回 None ⇒ 0）。理由：`JsonUtility` 把缺失的可序列化类字段物化成默认实例 ⇒ `NormalAbilityBoardCriteria == null` 恒假 + 每次 `Load()` 刷 ≈4,508 行错误（`报告/B100_X10.md` §A）。⚠️ 本版**只落数据**：读取侧（`CardDef` / `CardDatabase`）还没接，接之前行为不变。⛔ 别拿「三格都 == MissingIndex」去猜。
         # v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）= 加一列 `abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28` 逐 `(ab,lg,挂点)` 行，形状 `[{ab,lg,at,src}]`；口径 → `ability_effect_texts_of` 上面那段）。现读 38 行 / 31 值 / 31 卡；🔴 **只落数据、不接线**（消费端尚未接）⇒ 零行为变化（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）；⚠️ `--check` 会报「已过期」—— 需要一次 `--write` 落盘。⛔ 别把这一版当成「已经接了」。
         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）

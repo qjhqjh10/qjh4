@@ -35,6 +35,8 @@ MSDIR = os.path.join(ASSETS, "bundle_Waprforge_monoscripts", "MonoScript")
 OUT = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/mainmenu_effects.json"
 # 第二份产物：**运行时 DTO**（扁平、`JsonUtility` 能吃；消费方 = `Shell/CardDisplayEffects.cs`）。
 # ⚠️ 两份必须由**同一次运行**产出 —— 判据只有一份，别手工改任何一份。
+# 🔴 2026-11-01（账 `B-248`）：`images[]` 末尾多了 `sprite` / `hasSpriteName` 两列
+#   （= 原版 `Image.m_Sprite` 的**资产名**）。语义与「为什么不是 null」见 `emit_runtime` 里那两列的注释。
 OUT_RT = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/card_display_effects.json"
 
 # 账上 R2 点名的 21 个（**名字逐字照 `GameObject/*.json`**；`Swirl_297` 这类是导出器给同名 GO 加的后缀）
@@ -135,6 +137,70 @@ ALL = {}
 
 def load_json(p):
     return json.load(io.open(p, encoding="utf-8"))
+
+
+# ============================================================ `Image.m_Sprite` → **资产名**
+# 🔴 2026-11-01（账 `B-248` · 写手 `W-18`）：DTO 原来只有 `hasSprite`（布尔）⇒ 消费方只能**按节点名硬编码**
+#   （`Shell/CardDisplayEffects.cs` 的 `BorderSprite` 那张两行的表）。根治 = 把 `Image.m_Sprite` 的**资产名**
+#   也写进 DTO（新列 `sprite` + `hasSpriteName`，见 `emit_runtime` 末尾）。
+#
+# 🔴 **为什么不能只靠新解包（`assets_full`）反查**：它的 `Sprite/` 是按**资产名**命名的
+#   （`bundle_menusharedresources_assets_all/Sprite/OctagonUI Border SDF.json`），**文件名里没有 pathID**，
+#   而 `Image.m_Sprite` 给出来的是跨包 PPtr（`Level Up Effect` = `{m_FileID: 6, m_PathID: 1588741661991143589}`）
+#   ⇒ 新解包里**没有这条路**（`m_Externals` 那张表没被导出成文件，「按 pid 找」无从谈起）。
+# 旧解包 `d:/2/解包整理/**/Sprite/` 的文件名是 `<资产名>_<pathID>.json` ⇒ 正好是 pid → 名字 的索引。
+#   ⚠️ 只借用它的**文件名 / `m_Name`**，⛔ 不碰它的 PNG（旧那批图有 650 张与新版不同 —— CLAUDE.md 铁律 2）。
+#   ⚠️ 名字拿到之后，再用**新解包**的全部 Sprite 名交叉验证一次；对不上就出声，⛔ 不硬塞。
+SPRITE_PID_ROOT = r"d:/2/解包整理"
+_SPRITE_PID = {}          # pathID -> (资产名, 旧解包文件)；只扫一次**文件名**（不读内容）
+_SPRITE_NEW_NAMES = None  # 新解包里全部 Sprite 资产名（交叉验证用）
+
+
+def _sprite_pid_index():
+    """旧解包 `**/Sprite/<资产名>_<pathID>.json` 的文件名索引（不读文件内容）。"""
+    global _SPRITE_PID
+    if _SPRITE_PID:
+        return _SPRITE_PID
+    for root, dirs, files in os.walk(SPRITE_PID_ROOT):
+        if os.path.basename(root) != "Sprite":
+            continue
+        for fn in files:
+            if not fn.endswith(".json"):
+                continue
+            m = re.search(r"_(-?\d+)\.json$", fn)
+            if m:
+                _SPRITE_PID.setdefault(int(m.group(1)), (fn[:m.start()], os.path.join(root, fn)))
+    return _SPRITE_PID
+
+
+def _new_sprite_names():
+    """新解包 `**/Sprite/*.json` 的资产名集合（文件名 = 资产名，同样不读内容）。"""
+    global _SPRITE_NEW_NAMES
+    if _SPRITE_NEW_NAMES is None:
+        _SPRITE_NEW_NAMES = set()
+        for root, dirs, files in os.walk(ASSETS):
+            if os.path.basename(root) != "Sprite":
+                continue
+            for fn in files:
+                if fn.endswith(".json"):
+                    _SPRITE_NEW_NAMES.add(fn[:-5])
+    return _SPRITE_NEW_NAMES
+
+
+def sprite_name_of(pid):
+    """`Image.m_Sprite` 的 pathID -> (资产名, 出处说明)。查不到给 `("", 原因)` —— ⛔ 绝不猜（铁律 2）。"""
+    if not pid:
+        return "", "原版 `m_Sprite` 为空"
+    hit = _sprite_pid_index().get(pid)
+    if not hit:
+        return "", "旧解包 `Sprite/` 里没有这个 pathID（那一份没导出）"
+    name, path = hit
+    real = (load_json(path) or {}).get("m_Name")
+    if real != name:
+        return "", "旧解包文件名 `%s` 与 `m_Name` `%s` 不符" % (name, real)
+    if name not in _new_sprite_names():
+        return name, "⚠️ 新解包 `Sprite/` 里没有同名资产（名字取自旧解包 `m_Name`）"
+    return name, "ok"
 
 
 def _mm(cur):
@@ -305,6 +371,11 @@ def emit_runtime(doc):
         w, h, cx, cy, _kx, _ky = rect_in_card(name)
         col = (img or {}).get("m_Color") or {}
         spr = (img or {}).get("m_Sprite") or {}
+        # 🔴 2026-11-01（`B-248`）：把 `m_Sprite` 的 **pathID** 反查成**资产名**（见文件上部 `sprite_name_of`）。
+        spr_name, spr_src = sprite_name_of(spr.get("m_PathID"))
+        if spr.get("m_PathID") or spr_name:
+            print("  sprite: %-22s pid=%-20s -> %r  (%s)"
+                  % (name, spr.get("m_PathID"), spr_name, spr_src))
         amin = rt.get("m_AnchorMin") or {"x": 0.5, "y": 0.5}
         amax = rt.get("m_AnchorMax") or {"x": 0.5, "y": 0.5}
         f1 = (amp or {}).get("floatProperty1") or {}
@@ -337,7 +408,21 @@ def emit_runtime(doc):
             "ampFloat2Value": f2.get("value", 0.0),
             "ampFloat2UseV4": bool(f2.get("useVector4", 0)),
             "ampFloat2X": v2.get("x", 0.0), "ampFloat2Y": v2.get("y", 0.0),
-            "ampFloat2Z": v2.get("z", 0.0), "ampFloat2W": v2.get("w", 0.0)})
+            "ampFloat2Z": v2.get("z", 0.0), "ampFloat2W": v2.get("w", 0.0),
+            # 🔴 新列（账 `B-248` · 写手 `W-18` · 2026-11-01）—— **必须追加在对象末尾**：
+            #   前面每一行的字节都不动（行级 diff 只多这两行；唯一的例外是上一行末尾多一个 `,`，JSON 语法要求）。
+            #   · `sprite` = 原版 `Image.m_Sprite` 的**资产名**（逐字，含空格）；**没有 sprite 时写空串 `""`**，
+            #     ⛔ 不写 `null`、⛔ 不省掉这个键。为什么：`string` 在 `JsonUtility` 里是**叶子类型**，
+            #     「缺失/`null` 被物化成整棵子树」那个坑只发生在**自定义 class/struct 字段**上（它会调无参构造造实例）；
+            #     写 `""` 还额外赚到一个**免依赖 `null` 的判据**：旧文件（没这一列）读出来是 `null`、新文件里
+            #     「有列但没有 sprite」是 `""` ⇒ 以后要判「这份 JSON 有没有新列」不必去区分「缺失 vs null」
+            #     （那两者在 `JsonUtility` 下本来**无法区分**）。
+            #   · `hasSpriteName` = 「这一件**拿到了**名字」= `sprite != ""`。显式的布尔，和本文件既有的
+            #     `hasGlow` / `hasSprite` / `hasAmp` 是同一套路：**⛔ 不靠 null/缺失判**。
+            #     三档由此可分：`hasSprite=false`（纯色块，正常）· `hasSprite=true && hasSpriteName=true`（按名取图）·
+            #     `hasSprite=true && hasSpriteName=false`（知道是贴图但名字没查出来 ⇒ 消费方必须出声 + 回退）。
+            "sprite": spr_name,
+            "hasSpriteName": bool(spr_name)})
 
     txt = json.dumps({"note": "runtime DTO (gen = 工具/gen_mainmenu_effects.py --apply; judge = mainmenu_effects.json)",
                       "particles": parts, "images": images}, ensure_ascii=False, indent=1)

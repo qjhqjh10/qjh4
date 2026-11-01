@@ -1915,7 +1915,7 @@ namespace CardPresentation
         /// 两处各写一遍 switch 迟早不一致）。</summary>
         internal static void Dispatch(string drawer, Transform node, PxRect box, ItemSpec item, int quantity,
                                       ItemDrawerStyle style, ref ItemDrawResult res, DrawerOverride ov = DrawerOverride.Default)
-        {
+        { if (ov == DrawerOverride.Icon && IconAllianceBadgeFixedNamed(drawer, node, box, item, quantity, style, ref res)) return; if (ov == DrawerOverride.Icon && IconVariant(drawer, node, box, item, quantity, style, ref res)) return; if (ov == DrawerOverride.Shop && ShopAvatarVariant(drawer, node, box, item, quantity, style, ref res)) return; if (ov == DrawerOverride.Shop && ShopAvatarBorderVariant(drawer, node, box, item, quantity, style, ref res)) return; if (HorizontalTitleVariant(drawer, node, box, item, quantity, style, ref res)) return; if (ov == DrawerOverride.OfferPopups && ShopAvatarBorderVariant(drawer, node, box, item, quantity, style, ref res)) return;   // 🆕 2026-11-01（B114_W32 · B-263）：`TitleDrawerHorizontal` = `Horizontal`(15)/`OfferPopups`(30) 两档共用的**横条 prefab**（Content 1028×370），原先与竖卡共用 `Title(...)` ⇒ 整套版面错；**按类名分流**（`Refresh()` 不传 `ov`）。同批：`OfferPopups`(30) 的 `CosmeticItemAvatarBorder` 指的也是 `Avatar Border Drawer Shop Variant`（映射表 §② 那一行），与 `Shop`(20) **同一份 prefab** ⇒ 复用 `ShopAvatarBorderVariant`（它只认 `DrawerAvatarBorder`，其余返回 false）。实现 = `ItemDrawerPartial_B114W32.cs`；判据 = `资料/完全复刻/报告/B114_W32_ARF与两档几何.md` §二。   // 🔴 B114_WC（B-223）：Icon 变体几何 7 档 —— 原版这 7 族「基础档 / Icon 档」是**同一个类、两套 prefab**（`ItemTypeSets` 的 Icon(10) 列写的仍是主档类名），而调用点传进来的 `DrawerOverride.Icon` 原先只有 `GenericArmy` 消费 ⇒ 这里按 `ov` 分流。判据逐张 = `资料/完全复刻/报告/B113X10_Icon变体几何15张.md`（prefab 实读），实现 = `ItemDrawerPartial_B111R3W.cs` 类尾。⚠️ 本行**零行数变化**（只把 `{` 换成 `{ 一句`）。   // 🆕 2026-11-01（B114_W35 · B-277）：在 `IconVariant` **之前**再插一句 `IconAllianceBadgeFixed` 分流 —— `Alliance Badge Drawer Icon` 的根是**固定 165.95×155.74、锚 (0.5,0.5)、上移 44.63**（原版**不跟框走**），而 `B114_WC` 那份 `IconAllianceBadge` 用的是 `frameR = box`（跟框）⇒ 框大画大。实现 = `Shell/ItemDrawerPartial_B114W35.cs`；判据 = `资料/完全复刻/报告/B114_W35_Title底板字号与Alliance定尺.md` §三。⚠️ 接上后 `ItemDrawerPartial_B111R3W.cs:280-298` 的 `IconAllianceBadge` **没有调用点了**（`IconVariant` 只从本行被调）⇒ 由那份文件的所有者删除，本波不动别人的文件。 🔴 **2026-11-01 `B114_W38`（`B-281`/`B-282②`）已收尾**：① 那句已**删除**（`IconVariant` 现在只服务其余 6 族）；② 本行的分流改调 `IconAllianceBadgeFixedNamed`（`Shell/ItemDrawerPartial_B114W38.cs`）—— 它在 W35 那份几何外面只多做一件事：把徽章节点名从基础档的 `Trophy Icon` 改成原版 Icon 档的 **`Badge`**（判据 = `资料/完全复刻/报告/B114_W38_Title垂直档与三项小修.md` §活3②）。⚠️ 本行仍是**零行数变化**。
             switch (drawer)
             {
                 case DrawerWildcard: Wildcard(node, box, item, quantity, style, ref res); break;
@@ -2175,17 +2175,17 @@ namespace CardPresentation
 
         /// <summary>原版 `CampaignPointDrawer.Draw(CampaignPoints item)` ⇒ **`DrawForArmy(item.CardArmy)`** 的等价实现。
         /// 🔴 **2026-10-29（B96_W1）就地订正（铁律 5）—— 原版这格只画【一层】，而且是【替换】不是叠加**：证据 + 出处全在方法体首段那十行注释里。
-        /// 🔶 自己设计（非原版）：`Square()` 那套**居中方块**是我们挑的 —— 理由在方法体末段。</summary>
+        /// 主图几何**两档各照自己的 prefab 锚点**（🆕 2026-11-01 · `B-265` · `W-39`：原来两档共用 `Square(box, st.ArmyFill)`，只有 Icon 档恰好等价 —— 算式与判据 → `ItemDrawerPartial_B114W39.cs` 文件头 ①）。🆕 2026-11-01（B-258 · W-27）：变体判据 = `ItemDrawerStyle.CampaignPointsGlowIcon`（这一族「同一个类、两套 prefab」）：真 ⇒ `Icon Campaign Points Drawer Variant`（根 1080²）、假 ⇒ `Campaign Points Drawer`（根 712.8×1080）；两档的 `Content/Campaign Glow` 静态层由 `ItemDrawerPartial_B114W27.cs` 补画。为什么挂 style 不挂 `ov`：`ItemDrawerView.Refresh()` 重画时**只带 `_style`**（同 `PremiumLayers` 那条口径）。</summary>
         static void CampaignPoint(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
-        {
+        { st.QArt = CampaignPointsArtQueue(st); DrawCampaignPointsBackground(node, box, st); if (st.CampaignPointsGlowIcon) DrawCampaignPointsGlowIcon(node, box, st); else DrawCampaignPointsGlowBase(node, box, st);   // 🆕 2026-11-01（B-266 · W-39）：原版 `Content/Background` 那层（`background` 槽 = 真实节点、`m_IsActive 1`；**Icon 档槽是 `{fileID: 0}` ⇒ 不画**）· 建层次序照 prefab sibling 序 `Background → Campaign Glow → Image`（判据 → `ItemDrawerPartial_B114W39.cs` 文件头 ②）｜🆕 2026-11-01（B-258 · W-27）：原版 `Content/Campaign Glow` 静态层（恒显、在 `Image` 之前 ⇒ 压在它下面）+ 主图让出号（判据/队列 → `ItemDrawerPartial_B114W27.cs` 文件头；本行**零行数变化**）
             // `CampaignPointDrawer__DrawForArmy.c:22-27`（现读）**只有两段**：
             //   ① `if (armyText) armyText.text = GameStaticData.CardArmyToString(army);`
             //   ② `if (image) { image.sprite = ArmyUtilities.GetArmyIcon(army); image.enabled = image.m_Sprite != null; }`
             // ⇒ **主图 = 阵营徽记**（`image` 被**替换**，不是叠加）· `CampaignPoints.GetIcon` 不在这支里（`CampaignPoints__GetIcon.c` 全量反编译 **零调用点**）。
             // 🔴 两处 prefab 事实（`Icon Campaign Points Drawer Variant.prefab` = `Campaign Tab.prefab` 内嵌的那一份，逐字段现读）：
             //   · `armyText: {fileID: 0}` ⇒ **阵营名那层原版根本不画**（只有非 Icon 变体 `Campaign Points Drawer.prefab` 才有 `Army` 节点）；
-            //   · 那张 `Image` 的出厂 sprite 恰好是 `40K_genearl_icon_Campaign points_big`（guid `d2b2111c…`）—— 运行时被 `DrawForArmy` **换掉** ⇒ 它**不是**这格的最终画面（原来按它画 = 画错）。
-            // ⚠️ 几何：`Content/Image` 的 `anchorMin/Max = (0,0) → (1,1)` + `m_PreserveAspect = 1` ⇒ 铺满抽屉框、等比内接 ⇒ `ArmyFill = 1`（= `Square(box, 1)`）。
+            //   · 🔴 2026-11-01（`W-39` · 铁律 5 就地订正）：那颗 `Image` 的 `m_Sprite` 是 **`{fileID: 0}`（无出厂图）** —— 基础档 `&114217368724061974`、Icon 档 `&114632457200066912` 都是 0，`menu_dump` 现读也印 `<无图>`。原句「出厂 sprite 恰好是 `40K_genearl_icon_Campaign points_big`」**不成立**：那张（guid `d2b2111c…`）是**同级 `Campaign Glow`** 的图，被记串了。⇒ `DrawForArmy` 是**从零填**这颗图（不是「换掉出厂图」），原来按 `GetIcon(true)` 画 = 画错。
+            // ⚠️ 几何（🔴 2026-11-01 · `B-265` · `W-39` 就地订正）：**两档锚点不同** —— 本段是 **Icon 档**（`(0,0)→(1,1)` + PA ⇒ 铺满 1080² `Content`、方图内接 = 1080²）；**基础档是 `(0,0.4)-(1,0.8)` 的横带**（根设计 px 216..648，PA 后 432²）⇒ 两档都由 `CampaignPointsImageRect` 算，⛔ 不再用 `Square(box, st.ArmyFill)`（旧写法只有 Icon 档恰好等价）。
             // 第 1 段（`armyText`）：本变体是空引用 ⇒ 原版跳过 ⇒ 我们只在 `st.NamePx > 0` 时才补这一层（`CampaignPointStyle()` 给 0 = 不画，与 prefab 一致）。
             // 第 2 段（`image`）：取不到徽记 ⇒ 原版把 `Image` **关掉**（整格不画、也**不补占位板**）。
             string fac = ArmyName(item.CardArmy);          // `Neutral(0)` ⇒ `GetArmyIcon` 落空 ⇒ 原版把那张 `Image` 关掉
@@ -2194,9 +2194,9 @@ namespace CardPresentation
             var tex = Tex(art);
             if (tex == null) { res.MissingArt = true; return; }
             res.Art = art;
-            MenuDraw.Rect(node, tex, Square(box, st.ArmyFill), NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
-            // 🔶 自己设计（非原版）：`Square()` 那套**居中方块**是我们挑的 —— 原版由 `Content` 锚点直接铺满，我们没有那层 `Content` 包装；
-            //   必须自己定：没有锚点层可照抄（抽屉直接画在 `node` 上）· 执行代理 B96_W1 2026-10-29 定。
+            MenuDraw.Rect(node, tex, CampaignPointsImageRect(box, st), NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
+            // 🔴 **不再是自己设计**（2026-11-01 · `B-265` · `W-39`）：主图框原来是我们挑的 `Square(box, st.ArmyFill)`，现按 prefab 的 `Content/Image` 锚点逐档算（`CampaignPointsImageRect`）；`st.ArmyFill` 在本抽屉**已不再参与几何**（调用点仍传值，⛔ 不影响）。
+            //   判据：`Campaign Points Drawer.prefab` 的 `Content/Image` = 锚 `(0,0.4)-(1,0.8)` + `m_SizeDelta 0` + `m_PreserveAspect 1` ⇒ 正文 → `ItemDrawerPartial_B114W39.cs` 文件头 ①。
             float k = box.H / DecorRefH;
             if (st.NamePx > 0f)
                 ClippedText(node, NameStrip(box, st.NamePx), Loc.T("Armies/" + fac), Color.white, NodeArmyName,
@@ -2234,7 +2234,7 @@ namespace CardPresentation
         {
             if (parent == null || box.W <= 0.01f || box.H <= 0.01f)
                 return new ItemDrawResult { Id = "CampaignPoints", Kind = ItemKind.Generic };
-            return Draw(parent, box, CampaignPointSpec(army, amount), amount, DrawerOverride.Default, style);
+            style.CampaignPointsGlowIcon = true; return Draw(parent, box, CampaignPointSpec(army, amount), amount, DrawerOverride.Default, style);   // 🆕 2026-11-01（B-258 · W-27）：本口专供 `Campaign Tab` 的高级面板点数格 —— 那颗在原版就是 `Icon Campaign Points Drawer Variant`（根 1080² · `Campaign Tab.prefab` 内嵌那一份）⇒ 变体标志置真；⚠️ 挂 `style` 而不是改 override，是因为 `Refresh()` 重画只带 `_style`（视图不存 `ov`）
         }
 
         /// <summary>🔶 本地战役点账（原版 = 服务端 `PlayerData` 标量）。键 = 阵营（`CardArmy` 值，`0`=Neutral）。</summary>

@@ -65,6 +65,7 @@ MonoBehaviour:
   components:
   - {fileID: -4471215098504143044}
   - {fileID: 6112562817913179265}
+  - {fileID: 6852442895912325068}
 --- !u!114 &6112562817913179265
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -93,3 +94,23 @@ MonoBehaviour:
   rounded:
     m_OverrideState: 0
     m_Value: 0
+--- !u!114 &6852442895912325068
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e021b4c809a781e468c2988c016ebbea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ColorLookup
+  active: 1
+  texture:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: aa44b50c925b9db35423b44891251f04, type: 3}
+    dimension: 1
+  contribution:
+    m_OverrideState: 1
+    m_Value: 1

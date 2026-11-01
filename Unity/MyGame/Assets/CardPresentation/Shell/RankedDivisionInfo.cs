@@ -114,11 +114,11 @@ namespace CardPresentation
         /// 那一块**同款**（S4 逐像素认定 = `07-Legend`）。⚠️ 真数据到了只改这一个数。</summary>
         public const int DemoDivisionNumber = 7;
 
-        /// <summary>段位号 → 图名（越界 / 表里没有 ⇒ null，调用方出声、不画）。</summary>
+        /// <summary>段位号 → 图名。⚠️ **2026-11-01（B-239）就地订正（铁律 5）**：原写「越界 / 表里没有 ⇒ null，调用方出声、不画」—— **与原版不符**：原版 `GetDivisionData(n)` = `Math.Max(n,1)` + `FirstOrDefault` + **查不到退回 `Last()`**（`RankedDivisions__GetDivisionData.c:26-33`）⇒ 越界号**永远有图**（&lt;1 夹到 1、&gt;7 落最后一条）；现按原版夹取（错因 = 当年只照「表长 7」推了边界，没读那两句 `Math.Max` / `Last`）。</summary>
         public static string DivisionArtName(int divisionNumber)
         {
-            int i = divisionNumber - 1;
-            return (i >= 0 && i < DivisionArt.Length) ? DivisionArt[i] : null;
+            int i = System.Math.Max(divisionNumber, 1) - 1;                                  // 原版 `Math.Max(n,1)`（`.c:26`）
+            return DivisionArt.Length == 0 ? null : DivisionArt[i < DivisionArt.Length ? i : DivisionArt.Length - 1];   // 查不到 ⇒ `Last()`（`.c:31-33`）
         }
 
         // ------------------------------------------------------------ 名次（罗马数字）· 2026-10-24（A1）
@@ -133,7 +133,7 @@ namespace CardPresentation
         /// ① 反编译 `DivisionImageDisplay__Initialize.c` —— 最高段位那一支里
         ///   `RankedDivisions.GetRankData(rankNumber)` 取返回项 `+0x18` 的 `AssetReference` → `Load` →
         ///   `Image.set_sprite(rankImage)`；而 `RankedDivisions__GetRankData.c` 与 `GetDivisionData` **同构**
-        ///   （`RankedDivisions` 两张表 = `divisions`(+0x18) / `ranks`(+0x20)，元素**同一个类** `RankedDivisionData`）。
+        ///   （`RankedDivisions` 两张表 = `divisions`(+0x18) / `ranks`(+0x20)，元素**同一个类** `RankedDivisionData`）。⚠️ **2026-11-01（B-239）就地订正**：上面的「同构」**只指表结构与元素类型** —— **越界兜底不同构**（`GetDivisionData` 有 `Last()`、`GetRankData` **没有**），判据 → `RankArtName` 的 doc。
         /// ② 官方词条 `Ranked/Rank/1..6` = `I…VI`（**6 条，与 6 张图同数**；`官方本地化_en+zh-CN.json` 现读）。
         /// ③ 用户参考图 `账户-个人资料参考图.png`：徽记中央印着罗马数字（低置信，被骷髅压住），
         ///   而同一块的标题写的就是「**金 II**」⇒ 名次数字与段位名是**并存的两层**。</para>
@@ -144,11 +144,11 @@ namespace CardPresentation
             "Roman_I", "Roman_II", "Roman_III", "Roman_IV", "Roman_V", "Roman_VI",
         };
 
-        /// <summary>名次号 → 图名（越界 ⇒ null）。⚠️ 今天**没有画它的调用点**（见 `RankArt` 的文档）。</summary>
+        /// <summary>名次号 → 图名。⚠️ **2026-11-01（B-239）就地订正（铁律 5）**：原写「越界 ⇒ null」—— **只对一半**：原版 `GetRankData(n)` = `Math.Max(n,1)` + `FirstOrDefault` ⇒ **下越界夹到 1**、**上越界返 null**（它**没有** `Last()` 兜底 —— 与 `GetDivisionData` **不同构**，`RankedDivisions__GetRankData.c:26-33`；错因 = 当年照 `GetDivisionData` 的样子推成两边同构）。⚠️ 今天**没有画它的调用点**（见 `RankArt` 的文档）。</summary>
         public static string RankArtName(int rankNumber)
         {
-            int i = rankNumber - 1;
-            return (i >= 0 && i < RankArt.Length) ? RankArt[i] : null;
+            int i = System.Math.Max(rankNumber, 1) - 1;                                   // 原版 `Math.Max(n,1)`（`.c:26`）
+            return (i < RankArt.Length) ? RankArt[i] : null;                              // 🔴 与 `DivisionArtName` **不同构**：`GetRankData` 没有 `Last()` 兜底 ⇒ **上越界仍返 null**
         }
 
         /// <summary>段位表长度（= **7**，原版 7 大段位）。自检读它，⛔ 别在断言里写死 7。</summary>

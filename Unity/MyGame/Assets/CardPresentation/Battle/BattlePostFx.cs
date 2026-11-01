@@ -25,21 +25,21 @@
 //  ① **`originalLUTTexture` 我们取「进场那一刻 `ColorLookup.texture` 里那张」**
 //     （= 该战场的静态 LUT）。原版这个字段**由场景/预制体塞进去，赋值点没查到**
 //     （`LUTBlender.SetDefaultLUT` 的反编译产物还错配成了 `PlayerHand__set_currentHand`）。
-//  ② **6 个战场（arena1/2/3 · astramilitarum · blacklegion · darkangels）的 profile 没有
-//     `ColorLookup` 槽**（⚠️ **2026-10-11 订正（A293）**：这里原来写「原版那几场静态 LUT **也是空的**」——
-//     **那句是错的**，错因 = 只量了 `battlearena1` 一场就写成通用结论（铁律 5·c）。
-//     **真相**：原版 **13/13 场都有 `ColorLookup`**（`active=1` · `contribution=1.0` ·
-//     `texture.overrideState=1`，逐场现读），只是那 6 场指的那张是**共享的** `LUT Normal`
-//     （`battlesharedresources`，**严格恒等**）；另外 **7 场**（aeldari · emperorschildren · genestealers ·
-//     leviathan · sororitas · spacewolves · tauviorla）的 `m_FileID = 0` = **包内自带**一张 `LUT <场>`。
+//  ② **`ColorLookup` 槽**（⚠️ **2026-11-01 就地订正（`B114_W53`）**：本条原来写「这 6 场 profile 没有槽、
+//     我们构建时不给它建、只在运行时那份副本上补一个」—— **已过期**。`B114_W14` + 13 场重建起，
+//     `ArenaBuilder.ApplyPostFx` **构建时就建槽**，那 6 场（arena1/2/3 · astramilitarum · blacklegion ·
+//     darkangels）回退贴**共享的** `LUT Normal`（`battlesharedresources`，**严格恒等**）；另外 **7 场**
+//     （aeldari · emperorschildren · genestealers · leviathan · sororitas · spacewolves · tauviorla）
+//     `m_FileID = 0` = **包内自带**一张 `LUT <场>`。现读 `arenas/*/Profiles/*_PostFx.asset` **13/13 都有槽**
+//     （`active: 1` · `texture.m_OverrideState: 1` · `m_Value` = 上面那张）⇒ `MissingColorLookup` **恒 0**，
+//     `Attach` 里那条 `prof.Add<ColorLookup>(true)` 支**只剩老 prefab / 补出来的空槽会走到**（⛔ 不是常态）。
 //     判据（判据只此一处）= 逐场读 `ColorLookup.texture.m_Value`：**`m_FileID=0` 的 7 场** /
 //     **`m_FileID = 9`（`arena2` 是 10 —— 那是 externals 表下标，别当常量）+ `PathID 382974660631151556`
 //     的 6 场**；旁证 = `bundle_scenes_scenes_<场>/Texture2D/` 里那 7 个包**各只有一张 LUT**、
-//     而 `battlearena1` 那个包里**一张都没有**。见 `ArenaBuilder.ApplyPostFx` 的注释）
-//     ⇒ 我们**构建时**没给这 6 场建那个槽（本地没有专属 LUT ⇒ 那边那支 `不接`，且**如实出声**）
-//       ⇒ 在**运行时那份 profile 副本**上补一个 `ColorLookup`（见下面「为什么能安全改 profile」），
-//       否则那 6 场的 LUT 特效**一点作用都没有**。⚠️ **这一刀原版没有对应动作**（原版不需要「补」：
-//       它那 6 场的槽本来就在、贴的是恒等那张）⇒ 会计数 + 出声；**净状态与原版一致**。
+//     而 `battlearena1` 那个包里**一张都没有**。见 `ArenaBuilder.ApplyPostFx` 的注释。
+//     ⚠️ 反方向也错过一次（`A293`）：曾写「原版那几场静态 LUT **也是空的**」，错因 = 只量了 `battlearena1`
+//     一场就写成通用结论（铁律 5·c；原版 **13/13 场都有**）。两处订正都留着，⛔ 别再翻回去。
+//     （运行时补槽那条支仍在 `Attach` 里，配「为什么能安全改 profile」那一段 —— ⛔ 别当成已死的代码删掉。）
 //  ③ **`_Blend` 的过渡由模块自己算**（`WFModulePostProcess.TickBlendRamp`，因为批处理没有帧循环、
 //     DOTween 推不动）—— 本文件只负责「拿到 `lutBlend` 就往下写」。
 //  ④ **我们不建 `workingRT`**：原版两张 RT 是为了在两份 LUT 之间来回插值；我们的用法是
@@ -495,7 +495,7 @@ namespace CardPresentation
                 _lutRampActive = false;
                 _lutRampT = 0f;
                 _cl.texture.overrideState = true;
-                _cl.texture.value = _original;      // 原版走到那一步的**净结果**也是这张
+                _cl.texture.value = _original;      // ⚠️ 2026-11-01 订正：**只有降级支**（`_mat`/`_original` 为空）停在这张 —— 全链就绪时下面 `BlendTo(1f)` 会把它改回 `_combined`（内容 = `_original`）；原版 `texture` 恒指 `combinedLUT`（⛔ 别据此把 `BlendTo(1f)` 当冗余删掉）
                 if (_mat != null && _original != null)
                 {
                     // `_LUT1`/`_LUT2` 都归位成原 LUT + `_Blend = 1` ⇒ 之后任何一次 `BlendTo(0)`

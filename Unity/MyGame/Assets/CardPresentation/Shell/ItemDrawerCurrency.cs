@@ -10,7 +10,7 @@
 //  （**prefab 局部坐标 · 1920×1080 设计基准 · 左上原点 · y 向下**，与我们的 `PxRect` 同一口径 ⇒ **不需要换算**）：
 //     Currency Drawer   (603.6, 0) → (1316.4, 1080)   712.8×1080 · `AspectRatioFitter` **高控宽 0.66**
 //       Content         (604.0, 0) → (1316.0, 1080)
-//         Background    (604.0, 0) → (1316.0, 1080)    sprite `40k_Rewards_icon_base card`（Simple · 非 preserveAspect）
+//         Background    (604.0, 0) → (1316.0, 1080)    sprite `40k_Rewards_icon_base card`（Simple · **preserveAspect**；2026-11-01 `B-284` 就地订正：原写「非 preserveAspect」与真包相反）
 //         Image         (604.0, 0) → (1316.0,  864)    主图槽；**`×0.9`（绕中心）⇒ 视觉 640.8×777.6** · preserveAspect
 //         Label         (639.6,810) → (1280.4, 918)    名条底 `40k_main_bt_nametag`（Simple × 拉伸）
 //                       ＋ `HorizontalLayoutGroup`：**spacing 10 · padding (25,25,0,0) · align 4 (MiddleCenter)**
@@ -83,10 +83,10 @@ namespace CardPresentation
             LastCurrency = new CurrencyParts();
 
             // `AspectRatioFitter` 高控宽 0.66：k = 每一设计 px 对应多少实际 px
-            // TODO（还没查清，⛔ 不是「自己设计」）：容器比抽屉**更窄**时按宽缩 —— 原版 ARF 在这种容器下的行为**未读**，
-            //   这里取 min(高, 宽/0.66) 作兜底；容器够宽时与原版逐像素相同（这才是常态）。
-            float ar = CurRootW / CurRootH;                    // 0.66
-            float k = Mathf.Min(box.H, box.W / ar) / CurRootH;
+            // ✅ 2026-11-01（B-260 · W-47）：`m_AspectMode 2` = HeightControlsWidth ⇒ 原版**宽 = 高×0.66、不看父框宽**，
+            //   框比 0.66 更窄时是**横向溢出**（这里原来是「min(高, 宽/0.66) 兜底 + TODO：ARF 行为未读」，判据已读到）。
+            //   算式只此一份 → `ItemDrawer.FitK`（`Shell/ItemDrawerLayout.cs`），⛔ 别在这儿再内联一份。
+            float k = FitK(box, CurRootW, CurRootH, RootFit.HeightControlsWidth);
             float w = CurRootW * k, h = CurRootH * k;
             float ox = box.CX - w * 0.5f, oy = box.CY - h * 0.5f;
 
@@ -96,13 +96,13 @@ namespace CardPresentation
 
             var content = MenuDraw.Node(node, NodeCurrencyContent, M(CurContentX1, 0f, CurContentX2, CurRootH));
 
-            // ① 背景（`40k_Rewards_icon_base card`，Simple 非 preserveAspect）—— 图不在 `Resources/` ⇒ 出声一次、不画
+            // ① 背景（`40k_Rewards_icon_base card`，Simple **preserveAspect**）—— 这一层画 `Content` 整块；图取不到 ⇒ 出声一次、不画
             {
                 var bgTex = CardArt.MenuUi(CurBackgroundSprite);
                 if (bgTex != null)
                 {
                     MenuDraw.Rect(content, bgTex, M(CurContentX1, 0f, CurContentX2, CurRootH),
-                                  NodeCurrencyBackground, st.QBoard, null, false, st.Clip, st.ClipSoftness);
+                                  NodeCurrencyBackground, st.QBoard, null, true, st.Clip, st.ClipSoftness);
                     LastCurrency.Background = true;
                 }
                 else

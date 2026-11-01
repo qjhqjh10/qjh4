@@ -89,11 +89,11 @@ namespace RuleEngine
         /// <param name="cond">`unitConditions` 里同 `(ab,lg)` 的 `role="target"` 行（`cond`/`ex`）。
         /// `null` ⇒ 这一格**没有条件行** = `none(0)` = **放行**（⛔ 不是「判不了」）。</param>
         /// <param name="thisCard">这条 ability 的**载体单位**（`ctx.ActingUnit`）。拿不到（战术卡）⇒ `null`。</param>
-        /// <param name="targetCard">玩家点选的那一个目标（原版 `targetCard`）。没有 ⇒ `null`。</param>
+        /// <param name="targetCard">玩家点选的那一个目标（原版 `targetCard`）。没有 ⇒ `null`。</param><param name="sideOverride">🆕 2026-11-01（`B114_W34` · `B-271`）：**候选在哪一侧**由调用方直接给（`0`/`1`）—— 只服务「还没上棋盘的对象」（`PlayTargetPool` 的 `asIfOnBoard` 预览单位：它落地必在出牌者那一侧，`SideOf` 却恒 -1 ⇒ 整道闸全变「判不了」）。`null` = 照旧回棋盘查。</param>
         public static bool? Matches(BattleContext ctx, int owner, CardDef.CountSetSpec set,
                                     UnitState candidate, CardDef.ConditionSpec cond,
                                     UnitState thisCard, UnitState targetCard,
-                                    out string gap)
+                                    out string gap, int? sideOverride = null)
         {
             gap = null;
             if (set == null) return true;                 // 没有 36 格 ⇒ 不筛（`any` 之外没有东西可判）
@@ -227,7 +227,7 @@ namespace RuleEngine
             //       而我们**战术卡那条路天然没有载体** ⇒ 照抄会让所有战术卡的 36 格 criteria 全变「判不了」。
             //       本工程的口径是「`thisCard` ≡ 这条 ability 的归属方」⇒ `owner` 是行为等价的最小替身。
             //       （2026-10-24 `W19` 复核：裁决线与 `ResolveTargets` 传的 `source` 恒为 `owner` 那一侧。）
-            int side = SideOf(ctx, candidate);
+            int side = sideOverride ?? SideOf(ctx, candidate);   // 🆕 `B114_W34`：预览对象（未上棋盘）的侧由调用方给
             if (side < 0) { gap = "候选不在任何一方棋盘上 ⇒ 阵营判不了"; return null; }
             {
                 bool sameSide = side == owner;

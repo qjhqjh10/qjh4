@@ -397,7 +397,7 @@ namespace CardPresentation
         /// <summary>把 `Context.Amount` 画进**抽屉自己的数量格**（原版 `ItemDrawer&lt;object&gt;.Draw` 的第 ③ 步：
         /// `label.setText(amount.ToString())`，`decomp_generic_trial/out/ItemDrawer_object___Draw.c`）。
         /// <para>🔴 **几何不另起一套**：格子 = `ItemDrawerLayout.Metrics()` 的 `QtyX1..QtyX2 × LabelY1..LabelY2`
-        /// （prefab 逐份实读的共用尺），经 `ItemDrawer.FrameOf(ItemBoxRect())` 折到本窗的 `Item Holder` 框
+        /// （prefab 逐份实读的共用尺），经 <see cref="AmountCellOf"/>（= `ItemDrawer.FrameOf(ItemBoxRect(), fit: RootFit.HeightControlsWidth)`）折到本窗的 `Item Holder` 框
         /// —— 与 `ItemDrawerLayout.DrawerNameQuantity` 用的是**同一份常量与同一条换算**（⛔ 别在这儿抄第二份数字）。
         /// 字号三格照 `Content/Label/Quantity` 那颗 TMP：`75 / auto[12~75] / base 36`（prefab 实读），右对齐、不折行
         /// （`折行=0`）—— 也照 `ItemDrawer.Quantity()` 的同族写法。</para>
@@ -405,11 +405,11 @@ namespace CardPresentation
         /// 它是「把原版那条链补全」，不是死代码：`Context` 是公开的，任何已知抽屉会画数量的调用方都能开。</para></summary>
         void BuildAmount()
         {
-            var fr = ItemDrawer.FrameOf(ItemBoxRect());
-            var m = ItemDrawer.Metrics();
-            var r = fr.Map(m.QtyX1, m.LabelY1, m.QtyX2, m.LabelY2);
+            var cell = AmountCellOf(ItemBoxRect());
+            var r = cell.Rect;
+            float k = cell.K;
             _amount = MenuDraw.TextBox(_holder, r, _ctx.Amount.ToString(), Color.white, ItemDrawer.NodeQuantity,
-                                       75f * fr.K, 12f * fr.K, QItemArt, 75f * fr.K, 36f * fr.K,
+                                       75f * k, 12f * k, QItemArt, 75f * k, 36f * k,
                                        face: TmpFont.Face.LatinCardBody);
             if (_amount == null)
             {
@@ -533,6 +533,41 @@ namespace CardPresentation
         {
             if (!_ctxProvided) return true;
             return _ctx.Art == null && string.IsNullOrEmpty(_ctx.ArtName) && string.IsNullOrEmpty(_ctx.Title);
+        }
+
+        // ============================================================ 数量格的「帧」（`B-292` · 同一条链上的第二个尺度来源）
+        /// <summary>数量格在给定「抽屉框」里的几何（设计 px）：<see cref="K"/> = 设计 px → 框 px 的缩放，
+        /// <see cref="Rect"/> = 那一格的实际矩形（本窗坐标系 · 左上原点 · y 向下）。</summary>
+        public struct AmountCell
+        {
+            public float K;
+            public PxRect Rect;
+        }
+
+        /// <summary>数量那一格的**唯一尺度来源** —— 与抽屉本体走同一条 `AspectRatioFitter` 口径。
+        /// <para>🔴 **为什么是 `RootFit.HeightControlsWidth`**：这一格的父格子就是 `Item Holder` 里那个抽屉
+        /// （`Cardback Drawer`：根 `AspectRatioFitter` = **`m_AspectMode 2` 高控宽 · `m_AspectRatio 0.66`**，
+        /// 判据见本文件文件头「Item Holder 里的卡背」那一行）。原版那一刻根宽**恒等于「高 × 0.66」、完全不看父框宽**
+        /// （UGUI `AspectRatioFitter.cs:151-156` 只有一句 `SetSizeWithCurrentAnchors(Horizontal, rect.height * m_AspectRatio)`；
+        /// 逐档口径 → `ItemDrawer.RootFit` 的 doc / `ItemDrawerLayout.cs` 文件头 ①）。</para>
+        /// <para>🔴 **原来这里是默认的 `Contain`** ⇒ 同一个 `ItemBoxRect()` 被两个尺度来源折算：抽屉本体按 ARF（`B114_W47`
+        /// 已迁完），数量格按等比内接。今天看不出差别 —— `ItemBoxRect()` = 429×650（宽/高 **正好 0.66** ⇒ `K` 两支相等），
+        /// 但**框一旦不是 0.66 就分家**：窄框下 `Contain` 把整格缩进框里、而抽屉根是横向溢出 ⇒ 数字跑到抽屉外
+        /// （`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。</para>
+        /// <para>⚠️ **口径边界（如实记）**：本支只对「根 `m_AspectMode 2`」的抽屉成立。若将来这扇窗要显示
+        /// mode 3（`Icon Campaign Points Drawer Variant` / `Icon Expansion Pass Points Drawer Variant`）或固定尺寸
+        /// （`Alliance Badge Drawer Icon`）的抽屉，**必须按抽屉名分档**再挑 fit —— ⛔ 不能在这里一刀切
+        /// （逐份清单 → `资料/完全复刻/报告/B114_W32_ARF与两档几何.md` §一·4）。今天 `Context` 里**没有抽屉名这一格**，
+        /// 唯一生产入口 `ForCardback` 指向 `Cardback Drawer`（ARF 2 · 0.66），故取 ARF 支。</para>
+        /// <para>⚠️ 位置在类尾：本文件被账按行号钉着（`菜单_外壳.tsv` 的 `:130/:150/:159/:191/:266/:288/:296/:394/:406/:532`），
+        /// 插在字段区 / `BuildAmount` 之前会把它们顶下去 ⇒ `check_ledger_points` 报漂移。</para>
+        /// <para>⚠️ `public` 的原因：断言宿主在**编辑器程序集**里，本仓没有 `InternalsVisibleTo`
+        /// （先例 → `Battle/CardDisplayWindow.cs:1787` 那条记录）⇒ 不能返回 `internal` 的 `ItemDrawer.DrawerFrame`。</para></summary>
+        public static AmountCell AmountCellOf(PxRect box)
+        {
+            var m = ItemDrawer.Metrics();
+            var fr = ItemDrawer.FrameOf(box, fit: ItemDrawer.RootFit.HeightControlsWidth);
+            return new AmountCell { K = fr.K, Rect = fr.Map(m.QtyX1, m.LabelY1, m.QtyX2, m.LabelY2) };
         }
     }
 }

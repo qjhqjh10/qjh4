@@ -11,7 +11,8 @@
 //   · 原版每张卡（含附魔模板）恒有 `cardAbilities` ⇒ 模板的 ability 行**永远挂**（不是「有些模板没有 ability」那种三态）。
 //   · `RawCardScript.GetAbilitiesForTriggerRawcard` / `CardAbility__CanTriggerAbility.c:71` 按
 //     `ability.trigger(+0x10) == 传入 trigger` 选 ability ⇒ 我们的对应物 = `CardDef.TriggerAbilityRowsOf(trigger)`。
-//     形状照卡表主路 `MapTriggerAbilityIndices`（`Data/CardDatabase.cs:4785-4810`）。
+//     形状照卡表主路 `MapTriggerAbilityIndices`（`Data/CardDatabase.cs:4813-4841`）。
+//     ⚠️ 2026-11-01 更正（`B114_WB2`）：原写 `:4785-4810`，v47 加了 `ca` 之后整段下移 ⇒ 已按现读订正。
 //   · `triggerValue` = `CardAbility.triggerValue // +0x20`（`dump.cs:20340`；
 //     语义见 `判据/B109_R18_附魔三判据.md` §2，V4 §H·2 复核过）。
 //
@@ -45,7 +46,7 @@ namespace RuleEngine
         /// <para>`Ab` / `Lg` = **模板自己的下标**（原版 `GetAbilitiesForTriggerRawcard` 就按这套下标取 logic）。</para>
         /// <para>🔴 **三态**：入参 `null` ⇒ 返回 `null`（列未知）；`[]` ⇒ 返回**空数组**（明确没有）；
         /// 否则逐行展开（一条 ability 的 N 条 logic ⇒ N 行，`Ab` 相同 —— ⛔ 别去重、别只取第一条）。
-        /// `trigger &lt; 0` 的行**出声 + 丢弃**。</para>
+        /// `trigger &lt; 0` 的行**出声 + 丢弃**。｜🆕 v47（`B114W-B2`）：`lg >= 0` 的行带 `Ca`（原版 `AbilityLogic.chosenAbility`，数据 = `enchantment_templates.json` 的 `abilities[].logic[].ca`）；`lg == -1`（该 ability 无 logic 行）**没有 `AbilityLogic` 实例** ⇒ `Ca = -1`（未知），⛔ 别去猜。</para>
         /// <para>🧨 灭自证：把 `LoadEnchantmentTemplates` 里那一跳删掉 ⇒ `TriggerAbilityRowsOf` 恒 `null` ⇒
         /// `B110_E5_Assert` 的 C 组红；把本方法的 `null` 与 `[]` 折成同一档 ⇒ B 组红。</para></summary>
         public static CardDef.TriggerAbilityIndexSpec[] MapEnchantmentTriggerAbilityIndices(
@@ -77,7 +78,7 @@ namespace RuleEngine
                 }
                 for (int j = 0; j < a.logic.Length; j++)
                     list.Add(new CardDef.TriggerAbilityIndexSpec
-                    { Ab = i, Lg = j, Trigger = a.trigger, TriggerValue = a.triggerValue });
+                    { Ab = i, Lg = j, Trigger = a.trigger, TriggerValue = a.triggerValue, Ca = (a.logic[j] != null) ? a.logic[j].ca : -1 });   // 🆕 v47（`B114W-B2`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（数据侧 = `enchantment_templates.json` 的 `abilities[].logic[].ca`，DTO `CardDatabase.cs:3657`）—— `-1` = 未知，⛔ 不是 0
             }
             return list.ToArray();                         // 空数组 = **明确没有**（⛔ 不是 null）
         }

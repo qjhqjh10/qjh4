@@ -248,7 +248,7 @@ class Program
     //   ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //   卡池 md5：`5a17f6af…` → `0397005d…`（3,119,176 → 3,235,327 B，+116,151 B 全部来自新列）。
     //   归因 → `资料/普查产出_1025/E4_trigger目标与activeAbility目标池.md` §二·2 / §四。
-    public const string PinnedPoolMd5 = "81d580f3d510678148b3422d21e10ebc";  // 🔴 2026-10-28 重钉（第九十一会话 · 同步点 · 调度台串行执行）：卡表 v37→**v39** —— v38 是 B90 波 2 的 `enchantment` 一列（那一轮漏钉）、v39 是本会话 `A4` 的 `abilitySummon` 一列（`SummonCriteria` 七格，缺键落 `-1`）。`count` 仍 1,129；**解析侧零影响**（`A4` 做了 A/B 隔离：关掉该列重生成 ⇒ 1,129 张只多这一个键、其它差异 0 条）；`PinnedParseMd5` / `PinnedBaselineMd5` 本轮原样不动。上一版 = 519c2629…
+    public const string PinnedPoolMd5 = "64309acdab6d0d8003c9ae26a31bc694";  // 🔴 2026-11-01 重钉（第一百一十四会话 · 账 `B-267` · **三颗一起钉**）：卡表 v46→**v47**（`B-211` 数据面加了逐行 `ca` 一列，`B114_WB` 已核 1129/1129 · 1622 行 · 键集唯一变体 · 缺键 0）；`PinnedBaselineMd5` / `PinnedParseMd5` 同刻一起钉（⛔ 别再单钉一颗 —— `B-267` 就是「只钉池 md5 会把第 ⑤ 段打红」那个坑）。上一版 = 81d580f3… ｜ 🔴 2026-10-28 重钉（第九十一会话 · 同步点 · 调度台串行执行）：卡表 v37→**v39** —— v38 是 B90 波 2 的 `enchantment` 一列（那一轮漏钉）、v39 是本会话 `A4` 的 `abilitySummon` 一列（`SummonCriteria` 七格，缺键落 `-1`）。`count` 仍 1,129；**解析侧零影响**（`A4` 做了 A/B 隔离：关掉该列重生成 ⇒ 1,129 张只多这一个键、其它差异 0 条）；`PinnedParseMd5` / `PinnedBaselineMd5` 本轮原样不动。上一版 = 519c2629…
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -282,7 +282,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "ed2edeabc340c5899940bcda9eda7e66";  // 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：**有意重生成基线** —— 本波三项有意改动（`EC42` 超额伤害接上 · `EC47`/`UM118` 的 `equal to …` 正则），由调度台逐项归因；旧基线（_bak_1028/out_baseline.txt）↔ 新基线 `diff` = **恰好 3 张**（`EC42`/`EC47`/`UM118`，ID 列完全一致、行数 1121 不变）。上一版 = ce3faf91… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
+    public const string PinnedBaselineMd5 = "b6b412f52f5e76cde6c005b6a118b0d4";  // 🔴 2026-11-01 重钉（第一百一十四会话 · 账 `B-267` · **三颗一起钉**）：基线由 `B114_W29` 在**4 行解析差异逐行归因为预期内之后**重生成（`AM41`/`TAU73`/`UM13` 的 `SubtypeFilter` + `Grisly Feast` 2op→4op，⛔ 不是把红抹平）。⚠️ 上一版 `ed2edeab…` 早就与盘上不同，只因卡池 md5 也不同 ⇒ `[基线指纹]` 走「此时不判」才一直没红；**只重钉池 md5 会让第 ⑤ 段立刻红** —— 这就是 `B-267`。上一版 = ed2edeab… ｜ 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：**有意重生成基线** —— 本波三项有意改动（`EC42` 超额伤害接上 · `EC47`/`UM118` 的 `equal to …` 正则），由调度台逐项归因；旧基线（_bak_1028/out_baseline.txt）↔ 新基线 `diff` = **恰好 3 张**（`EC42`/`EC47`/`UM118`，ID 列完全一致、行数 1121 不变）。上一版 = ce3faf91… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -347,7 +347,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "136cbb6731e1d6a6ed171462fdb3de00";  // 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：解析输出随基线同步 —— 唯一差异 = `EC42`/`EC47`/`UM118` 三张（调度台已逐项归因：超额伤害接上 · 两条 `equal to …` 正则）。上一版 = c9a64798… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    public const string PinnedParseMd5 = "ebdac77915a81673bf44114062061ee9";  // 🔴 2026-11-01 重钉（第一百一十四会话 · 写手 `W-29` · 账 `B-264`）：**先判后钉**（解析差异 4 行逐行归因为「预期内」，⛔ 不是把红抹平）—— ① `AM41`/`TAU73`/`UM13`：`Kind=troop` 那条 op 的 `SubtypeFilter: - → Infantry`（病灶 = `<兵种词> troops` 的兵种词被 `troops` 吃掉，`B-203` 修好；判据 = 原版卡数据 `abilityTargetCriteria[].criteria.keywordFilter = 5`，三张逐条核过）；② `b3735ef3… Grisly Feast`：2 op → 4 op（`B-112` 的 `your` 并列分配让 Side `any→own` ＋ `B-203` 兵种筛 ＋ 载荷里的 `this turn` 只修饰前半 ⇒ `+1 attack` 限时 / `+1 health` 永久，与原版 4 条 logic 逐条对齐）。归因提交 = `246eba25`（第一百一十一会话，时长拆分）＋ `b7075d6d`（第一百一十二会话，`B-189`/`B-203`）；逐行「改前→改后」与判据 → `资料/完全复刻/报告/B114_W29_check解析差异归因.md`。上一版 = 136cbb67… ｜ 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：解析输出随基线同步 —— 唯一差异 = `EC42`/`EC47`/`UM118` 三张（调度台已逐项归因：超额伤害接上 · 两条 `equal to …` 正则）。上一版 = c9a64798… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -473,6 +473,17 @@ class Program
         if (args[0] == "traits")
         {
             Environment.Exit(TraitsProbe.Run(args.Length > 1 ? args[1] : ""));
+        }
+        // 🆕 **`triggerops [<id|卡名>] [scan]`**（`W-22`，2026-11-01 · 活状态表 `B-251` 的未尽读数）：
+        //   **「触发数值 → 正文 op」逐条表**（`Verb` / `Tail` / `AbilityIndex` / `LogicIndex`）+ 条数
+        //   ＋ `RandomAbilityChoiceOps` 那几道入口闸的静态读数；`scan` 再全池扫「真有哪张卡会走进『抽一条』」。
+        //   🔴 它**走 `CardDatabase.Parse` 真实装载链**（`TraitsProbe` 同款）—— 因为 `Program.PoolList`
+        //   是手读 JSON、**不挂** `AttachTriggerOpsByNumber` ⇒ `TriggerOpsByNumber` 会静默落进退回档。
+        //   ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play`/`ai` 的任何输出；`rc` 恒 0。
+        if (args[0] == "triggerops")
+        {
+            Environment.Exit(TriggerOpsProbe.Run(args.Length > 1 ? args[1] : "",
+                                                args.Length > 2 ? args[2] : ""));
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;
@@ -1300,6 +1311,10 @@ class Program
                                  activeAbilityLogicVersioned: poolVersion >= 23);
             // 🆕 2026-10-28（B88 · `A1d`）：构造后挂载（与引擎 `CardDatabase.Parse` 同一口径）。
             __def.AttachAbilityDamage(__adRows);
+            // 🔴 2026-11-01（写手 `W-25` · 活状态表 `B-257`）：`triggerAbilityIndices` ＋
+            //   `{触发数值 → 正文 op}` 两列也要挂 —— 与引擎 `Data/CardDatabase.cs:1762` 那两句
+            //   **同一套代码、同一顺序**（判据与理由见 `CardDatabaseProbeHook.cs` 文件头）。
+            AttachTriggerAbilityAndOpsByNumber(__def, c, poolVersion);
             list.Add(__def);
         rawKw.Add(kws);
         }
@@ -1496,6 +1511,112 @@ class Program
         //   否则探针会报「`GoesSecondCard` 有值 0 张」这种**看起来像工程缺陷**的假读数
         //   （与上面 `A1339` 那条同族：**探针与引擎不同口径**）。
         CreatePool.ResolveGoesSecond(list);
+        // 🔴 2026-11-01（写手 `W-25` · 活状态表 `B-257`）：挂载读数 —— **默认一声不吭**
+        //   （`check` / `play check` 的逐字节输出必须保持不变，见本账验收第 2 条）。
+        //   要看就 `WFPROBE_ATTACH_LOG=1`：给出「表挂上了多少张 / 还在退回档多少张」。
+        //   ⚠️ 这行**不进**任何指纹（`check` 的 ⑦ 与 `play` 的结算指纹都只吃各自那条链的输出）。
+        if (Environment.GetEnvironmentVariable("WFPROBE_ATTACH_LOG") == "1")
+            Console.WriteLine("[triggerOpsByNumber] 本条 `LoadPool`：卡 " + list.Count
+                              + "｜已挂表 " + _attachMapAttached + "｜未挂表(退回档) " + _attachMapNull
+                              + "｜" + CardDatabase.TriggerOpsByNumberSummary());
+        // 同一个开关下再给一条**差异面**读数：挂表之后，`TriggerOpsByNumber` 与「卡面关键词退回档」
+        //   到底有多少 (卡, trigger) 对读出来**不一样**（按 op 对象引用逐条比 —— 挂表的 op 与
+        //   `_triggerOps` 是同一批对象，退回档取的也是那一批 ⇒ 引用比较是精确的，不是只看条数）。
+        //   ⛔ 默认不打（`WFPROBE_ATTACH_LOG` 才打）：它的存在只为回答「本账改了以后读数该不该变」。
+        if (Environment.GetEnvironmentVariable("WFPROBE_ATTACH_LOG") == "1")
+        {
+            int cardsWithTable = 0, cardsDiffer = 0, pairsDiffer = 0, pairsTotal = 0;
+            var sample = new List<string>(24);
+            foreach (var d in list)
+            {
+                if (!d.HasTriggerOpsByNumber) continue;
+                var rows = d.TriggerAbilityIndices;
+                if (rows == null) continue;
+                var trigs = new HashSet<int>();
+                foreach (var r in rows) if (r != null && r.Trigger >= 0) trigs.Add(r.Trigger);
+                cardsWithTable++;
+                bool any = false;
+                foreach (var t in trigs)
+                {
+                    pairsTotal++;
+                    var got = d.TriggerOpsByNumber(t);
+                    string nm;
+                    var fb = CardDef.TryAbilityTriggerNameOfNumber(t, out nm) && !string.IsNullOrEmpty(nm)
+                             ? d.TriggerOps(nm.ToLowerInvariant()) : null;
+                    int gn = got == null ? 0 : got.Count, fn = fb == null ? 0 : fb.Count;
+                    bool same = gn == fn;
+                    if (same) for (int k = 0; k < gn; k++) if (!ReferenceEquals(got[k], fb[k])) { same = false; break; }
+                    if (same) continue;
+                    any = true; pairsDiffer++;
+                    if (sample.Count < 24) sample.Add(d.Id + "/t" + t + " 挂表 " + gn + " 条 vs 退回档 " + fn + " 条");
+                }
+                if (any) cardsDiffer++;
+            }
+            Console.WriteLine("[triggerOpsByNumber] 挂表 vs 退回档：(卡,trigger) 对 " + pairsTotal
+                              + "｜读数不同 " + pairsDiffer + "｜涉及的卡 " + cardsDiffer + " / 有表的卡 " + cardsWithTable);
+            if (sample.Count > 0) Console.WriteLine("[triggerOpsByNumber] 差异样例（前 " + sample.Count + " 对）：" + string.Join(" · ", sample));
+        }
+    }
+
+    // ==========================================================================================
+    //  🔴 2026-11-01（写手 `W-25` · 活状态表 `B-257`）：`LoadPool` 也要挂
+    //     `triggerAbilityIndices` ＋ `{触发数值 → 正文 op}` —— **与引擎同一套代码**。
+    //
+    //  病灶（同族 `A1911` / `A1959` / `B8_AV`）：本文件的 `LoadPool` 是 `System.Text.Json` 手读，
+    //    引擎 `Data/CardDatabase.cs:1762` 那两句（`AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c,
+    //    version))` · `AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def))`）**从来没被执行过**
+    //    ⇒ 探针池里 `HasTriggerOpsByNumber` 恒 false ⇒ `CardDef.TriggerOpsByNumber(int)`
+    //    静默落进「卡面关键词 == 触发词名」退回档（`Core/CardDefPartial_B96CA.cs:102` 第二级）。
+    //    任何拿 `Program.PoolList` 量它的读数都**看着像产品口径、其实不是同一条路**。
+    //
+    //  实现：两个 mapper 是引擎的**私有**方法（`Assets/**` 不在本写手白名单，⛔ 不许改成 public）
+    //    ⇒ 走 `CardDatabaseProbeHook.cs` 的 `partial` 转发（**同一程序集的同一个类** ⇒ 私有可见）。
+    //    ⛔ **不用反射**（方法改名时静默落空 = 缺陷原样复发）；⛔ **不自己抄一份映射**
+    //    （行级坏值丢弃 / `(ab,lg)` 撞键 / 按 `ab` 归位 / 同 ability 多 logic 行去重 / 三态 —— 抄一遍迟早不一致）。
+    //
+    //  ⚠️ 挂上之后 **也拿不到 per-logic 的 op 划分**：`MapTriggerOpsByNumber` 只按 `op.AbilityIndex == 行.Ab`
+    //    归位（`CardDatabasePartial_B98H7.cs:208`）⇒ 同一个 `ab` 下 5 条 `lg` 行**共用同一批 op 对象**
+    //    （`:209` 按引用去重）。那不是本探针的缺口，是**原版形状**（`trigger` 是 ability 级、`lg` 只是
+    //    ability 内的第几条 logic）—— 想要 per-logic 划分得先有「op 属于哪条 logic」的真值，今天没有。
+    // ==========================================================================================
+    static int _attachMapAttached, _attachMapNull;
+
+    /// <summary>把「`triggerAbilityIndices` 行」与「触发数值 → 正文 op 表」按**引擎那一套 mapper**
+    /// 挂到探针自己造的这张 `CardDef` 上（顺序与 `CardDatabase.cs:1762` 逐字一致）。</summary>
+    static void AttachTriggerAbilityAndOpsByNumber(CardDef def, JsonElement cardEl, int version)
+    {
+        if (def == null) return;
+        // ⚠️ `CardDto` 是 `CardDatabase.Save` / `Parse` 用的那张 DTO（`Data/CardDatabase.cs:33` 起，public）。
+        //   只喂**这一张卡**的原始 JSON —— 两个 mapper 只读 `triggerAbilityIndices`（＋出错信息里的 id/name）。
+        CardDatabase.CardDto dto;
+        try { dto = UnityEngine.JsonUtility.FromJson<CardDatabase.CardDto>(cardEl.GetRawText()); }
+        catch (Exception e)
+        {
+            // ⛔ 不许静默：这会让本卡落进退回档，而读数是「看着像产品口径」的那种假绿。
+            Console.Error.WriteLine("!! `LoadPool` 反序列化卡片 DTO 失败（" + def.Id + "）："
+                                    + e.GetType().Name + ": " + e.Message
+                                    + " ⇒ 这张卡的 `TriggerOpsByNumber` 会落进退回档。");
+            _attachMapNull++;
+            return;
+        }
+
+        CardDef.TriggerAbilityIndexSpec[] rows;
+        Dictionary<int, List<EffectOp>> map;
+        try
+        {
+            rows = CardDatabase.ProbeMapTriggerAbilityIndices(dto, version);
+            def.AttachTriggerAbilityIndices(rows);                 // ① 行（引擎 `:1762` 同序）
+            map = CardDatabase.ProbeMapTriggerOpsByNumber(def);    // ② 表 —— **必须**在 ① 之后
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("!! `LoadPool` 挂触发表失败（" + def.Id + "）："
+                                    + e.GetType().Name + ": " + e.Message);
+            _attachMapNull++;
+            return;
+        }
+        def.AttachTriggerOpsByNumber(map);
+        if (map != null) _attachMapAttached++; else _attachMapNull++;
     }
 
     /// <summary>🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：`AbilityContext` 的**六档合法值** ——

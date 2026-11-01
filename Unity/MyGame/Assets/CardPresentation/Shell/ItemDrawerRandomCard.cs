@@ -57,7 +57,7 @@ namespace CardPresentation
         static void RandomCard(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
                                ref ItemDrawResult res)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Random Card Drawer`：ARF `m_AspectMode 2` · 0.66（B-260）
             var content = DrawerContent(node, fr);
             int rarity = item.Rarity;      // = `item.cardRarity`
             int army = item.CardArmy;      // = `item.cardArmy`（0 = Neutral）

@@ -143,10 +143,10 @@ public static class RankedArtAssert
              + $" → Sprite `m_Name`）—— 实测 `{got ?? "<null>"}`"
              + "｜🧨 表里换了顺序 / 换了一项 ⇒ 红（⛔ 别再拿「名字前缀」当依据：这里断的是 SO 查表结果）");
         }
-        Ok(boundsOk && RankedDivisionInfo.DivisionArtName(0) == null
-                    && RankedDivisionInfo.DivisionArtName(8) == null,
-           "★ A·1b 越界（0 与 8）**返回 null**（调用方据此出声、⛔ 不拿别的段位顶替）"
-         + $"｜🧨 改成 `Clamp` / 取模 ⇒ 越界会静默画出别的段位 ⇒ 红");
+        Ok(boundsOk && RankedDivisionInfo.DivisionArtName(0) == want[0]
+                    && RankedDivisionInfo.DivisionArtName(8) == want[want.Length - 1],
+           "★ A·1b 越界按原版**夹取**：0 ⇒ 第 1 档、8 ⇒ 最后一档（原版 `GetDivisionData` = `Math.Max(n,1)` + `FirstOrDefault` + 查不到退回 `Last()`，`RankedDivisions__GetDivisionData.c:26-33`）"
+         + $"｜🧨 改回「越界返 null」⇒ 与原版不符 ⇒ 红（2026-11-01 `B-239` 订正：本条原来钉的正是我们自己的偏离）");
 
         // A·3 灭自证：两两不同 + 两族不相交
         bool distinct = true;
@@ -191,8 +191,9 @@ public static class RankedArtAssert
                $"★ A·6 名次 {i + 1} = `{want[i]}`（原版 SO `ranks` 第 {i + 1} 条 → `m_AssetGUID {guidHead[i]}…`"
              + $" → Sprite `m_Name`）—— 实测 `{got ?? "<null>"}`");
         }
-        Ok(RankedDivisionInfo.RankArtName(0) == null && RankedDivisionInfo.RankArtName(7) == null,
-           "★ A·6b 名次号越界（0 与 7）**返回 null**｜🧨 取模 ⇒ 红");
+        Ok(RankedDivisionInfo.RankArtName(0) == want[0] && RankedDivisionInfo.RankArtName(7) == null,
+           "★ A·6b 名次号越界：**0 ⇒ 夹到第 1 档**、**7 ⇒ null**（原版 `GetRankData` = `Math.Max(n,1)` + `FirstOrDefault`，**没有** `Last()` 兜底 ⇒ 上越界确实返 null，与 `GetDivisionData` **不同构**，`RankedDivisions__GetRankData.c:26-33`）"
+         + "｜🧨 给 7 也夹一条（= 抄错函数）或改成取模 ⇒ 红（2026-11-01 `B-239` 订正：本条原来把「0 ⇒ null」这个偏离钉死了）");
 
         // 6 张图都取得到 + 正方形 + 同尺寸（原版 128²）
         int w0 = -1; bool allSame = true, allSquare = true, allFound = true;

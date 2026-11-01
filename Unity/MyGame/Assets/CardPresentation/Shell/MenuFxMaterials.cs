@@ -585,11 +585,11 @@ namespace CardPresentation
         /// 与 `Play()` 的两句。</para>
         /// <para>🔴 **为什么不用 `Shell/UIBorderGlow.cs`**：原版 `Border Highlight Appear *` 与
         /// `… Pulsating Scale` 这两支 shader 的**属性表里没有 `_Color`**（本机 `m_PropInfo.m_Props` 实读），
-        /// 而 `UIBorderGlow.ChangeGraphicAlpha` 走的是 `ImageQuad.SetTint` → `sharedMaterial.color`，
-        /// 那会**每次播都打一条** `Material doesn't have a color property '_Color'`；而且我们的
-        /// `Collect Highlight Effect` 是**九宫多块**（原版是一颗 Image），组件挂在节点上根本找不到渲染件。
+        /// ⚠️ 2026-11-01 就地订正（铁律 5 · `B-268`）：原来这里写「`UIBorderGlow.ChangeGraphicAlpha` 走的是 `ImageQuad.SetTint` → `sharedMaterial.color`，那会**每次播都打一条** `Material doesn't have a color property '_Color'`」——**已不成立**：`B-261`（`W-31`，2026-11-01）起无 `_Color` 时会**先开顶点色通道**（`SetVertexTintChannel(true)` → `SetTint` 写 `Mesh.colors`）⇒ 不再打那条错，这一笔也**真的生效**；
+        /// 结论（不用 `Shell/UIBorderGlow.cs`）不变，但理由只剩后一条 —— 我们的 `Collect Highlight Effect` 是**九宫多块**
+        /// （原版是一颗 Image），组件挂在节点上根本找不到渲染件。
         /// 🔶 自己设计（非原版）：用协程替 `DOTween.DOFloat`、把「一颗 Image」铺成「九宫各块各写一份」·
-        /// 为什么必须自己定：原版组件的两条前提（有 `_Color`、单件 Graphic）在我们的载体上都不成立 ·
+        /// 为什么必须自己定：原版组件那两条前提里，「单件 Graphic」在我们的载体上**仍不成立**（原版是一颗 Image，我们挂在九宫多块节点上）；「有 `_Color`」那条自 `B-261`（`W-31`，2026-11-01）起**已由 `UIBorderGlow` 自己兜住**（无 `_Color` 时先开顶点色通道）⇒ 今天真正的理由只剩「单件 Graphic」这一条（⚠️ 2026-11-01 就地订正，原文把两条并列） ·
         /// 调度台 2026-11-01（`B112W_B08`）指派。</para></summary>
         public static System.Collections.IEnumerator RevealSweep(Transform node, float duration, float delay = 0f)
         {

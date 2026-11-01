@@ -47,7 +47,7 @@
 //   `new GameObject("MainMenu")` 子节点），所以 `SetActive(false)` 一次就够。
 //
 // ⚠️ **两处如实标注（铁律 3，不实现就别写成实现了）**：
-//   · `screenBaker`（`UIBakeScreen.Toggle`，原版给主菜单做离屏烘焙的那个优化）**本仓没有对应物** ⇒ 不实现；
+//   · `screenBaker`（`UIBakeScreen.Toggle`，原版给主菜单做离屏烘焙的那个优化）：⚠️ **2026-11-01（B-239）就地订正（铁律 5）** —— 原写「**本仓没有对应物** ⇒ 不实现」**已过期**：对应物 = `Shell/UIBakeScreen.cs`，接线 = `Shell/GameWindow.cs:626-646`（`SetBake`，只在 `IsBaseMenu` 时调）+ `Shell/ShellRuntime.cs:732`（`Bake = …AddComponent<UIBakeScreen>()`）；错因是写这条时那三件还没落地；
 //   · `priority`（`InitializationPriority`）本仓没有初始化管线 ⇒ 不实现，原版值只记在 ② 里。
 //   ⛔ 别把这两条写成「照原版做了」。
 using UnityEngine;

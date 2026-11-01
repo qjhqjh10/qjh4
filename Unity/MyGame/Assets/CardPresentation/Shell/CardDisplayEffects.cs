@@ -297,30 +297,48 @@ namespace CardPresentation
             // 按 `unitToPx` 折成世界单位 —— 与粒子同一把尺。
             float w = Mathf.Abs(im.sizeX) * s, h = Mathf.Abs(im.sizeY) * s;
             ImageQuad quad = null;
+            Texture2D spr = null;      // 原版 `Image.m_Sprite` 那张图（只有升级那两件认识；见 `BorderSprite`）
             if (w > 0.0001f && h > 0.0001f)
             {
-                quad = ImageQuad.Create(go.transform, CardArt.Solid(), Vector3.zero, LayoutSpace.DesignHeight,
-                                        new Vector2(0.5f, 0.5f), im.name + " Gfx");
+                // ⭐ 两种情形**必须分开**（判据 = 原版 `Image.m_Sprite` 的 PPtr，生成器逐件读出来）：
+                //   · `m_Sprite = 0` ⇒ uGUI 画的是「全白贴图 × 顶点色」= **纯色块**
+                //     （`Side Border Left/Right` 的黑边就是这么来的：color 黑、无 sprite）⇒ 照画 `Solid()`。
+                //   · `m_Sprite ≠ 0` ⇒ 画的是**那张贴图**。判据里现在带**资产名**（`sprite` 列，账 `B-248`）⇒
+                //     `SpriteFor` **优先按名字取**（2026-11-01 `B-248`）；判据是旧的（没这一列）或名字取不到，
+                //     才回退按节点名硬编码的 `BorderSprite`（2026-11-01 `B-205`/`W-8`）并**出声**。
+                //     两条路都拿不到 ⇒ 退回「载体照建、α 置 0 不画错图」+ 出声（⛔ 不静默）。
+                spr = im.hasSprite ? SpriteFor(im) : null;
+                bool noTex = im.hasSprite && spr == null;
+                quad = ImageQuad.Create(go.transform, spr != null ? (Texture)spr : CardArt.Solid(), Vector3.zero,
+                                        LayoutSpace.DesignHeight, new Vector2(0.5f, 0.5f), im.name + " Gfx");
                 if (quad != null)
                 {
                     quad.SetWorldHeight(h);
                     quad.SetAspect(w / h);
-                    // ⭐ 两种情形**必须分开**（判据 = 原版 `Image.m_Sprite` 的 PPtr，生成器逐件读出来）：
-                    //   · `m_Sprite = 0` ⇒ uGUI 画的是「全白贴图 × `m_Color`」= **纯色块**
-                    //     （`Side Border Left/Right` 的黑边就是这么来的：color 黑、无 sprite）⇒ 照画。
-                    //   · `m_Sprite ≠ 0` ⇒ 画的是**那张贴图**。我们这条链一条 sprite 都没有
-                    //     ⇒ **载体照建（材质通道要挂），但 α 置 0 不画错图** + 出声一次（⛔ 不静默）。
-                    bool noTex = im.hasSprite;
-                    quad.SetTint(noTex
+                    Color tint = noTex
                         ? new Color(im.colorR, im.colorG, im.colorB, 0f)
-                        : new Color(im.colorR, im.colorG, im.colorB, im.colorA));
+                        : new Color(im.colorR, im.colorG, im.colorB, im.colorA);
+                    // 🔴 `hasAmp` 那两件的材质会被 `AnimateUIMaterialProperty` 换成
+                    //   `Border Effect For Level up`（shader `WarpforgeVFX/UI/UI Border Highlight`）——
+                    //   **那颗 shader 没有 `_Color`**（判据 → `判据/B114_R5_Reveal_DXBC.md` §2·2 ⑧：
+                    //   末句是 `mul o0.xyzw, r0.xyzw, v2.xyzw`，乘的是**顶点色**）。
+                    //   ⇒ 这两件必须走 `ImageQuad.SetVertexTint`（`B-190` 那条通道），否则写进 `_Color`
+                    //   的那一笔在换材质之后**整笔丢掉**（原版本来就是 uGUI `CanvasRenderer` 的顶点色）。
+                    if (im.hasAmp) quad.SetVertexTint(tint);
+                    else quad.SetTint(tint);
+                    // 🔴 `B-247`：原版这两件是 `Image.m_Type = 1`（**Sliced / 九宫格**），过去我们画成「整张拉伸」。
+                    //   判据与 uv 方案 → `ImageQuad.SetNineSlice` 头部那一段（含 uGUI `Image.cs` 行号）。
+                    //   ⚠️ 必须排在 `SetVertexTint` **之后**：那条路会 `RebuildMesh()`（顶点数 ≠ 4），九宫格要最后落地。
+                    Vector4 nbW, nbUv;
+                    if (BorderNineSlice(im.name, s, out nbW, out nbUv)) quad.SetNineSlice(nbW, nbUv, true);
                     if (noTex && !_warnedNoSprite)
                     {
                         _warnedNoSprite = true;
                         Debug.LogWarning("[CardDisplayEffects] `" + im.name + "` 的原版 `Image.m_Sprite` **不是空**"
-                                       + "（画的是那张贴图），而本链没有 sprite 表 ⇒ 这一件的**图不画**（α = 0），"
-                                       + "只保留载体（原版挂在这颗 `Image` 上的组件要它）。"
-                                       + "判据 → `Resources/Art/card_display_effects.json` 的 `hasSprite`");
+                                       + "（画的是那张贴图），而判据里的 `sprite` 名字与 `BorderSprite` 硬编码表**都给不出**"
+                                       + "那张图 ⇒ 这一件的**图不画**（α = 0），只保留载体（原版挂在这颗 `Image` 上的组件要它）。"
+                                       + "判据 → `Resources/Art/card_display_effects.json` 的 `sprite` / `hasSpriteName` 两列"
+                                       + "（重生成 = `工具/gen_mainmenu_effects.py --apply`）");
                     }
                 }
             }
@@ -328,7 +346,7 @@ namespace CardPresentation
             // 原版 `Level Up Effect`（`animTime 2`）/ `Level Up Effect Down`（`animTime 1`）都挂 `UIBorderGlow`
             // （`animDelay 0 / playOnEnable 0`；判据 = 生成器读 `UIBorderGlow` 的三个序列化字段）。
             // ⚠️ 它靠材质的 `_Reveal` 属性做"从中间往两边揭开"。🔴 2026-10-27 就地订正（铁律 5）：「本工程没有带 `_Reveal` 的 shader」
-            //    **不成立** —— `WarpforgeVFX/Shaders/WFUIBorderHighlight.shader` 就有（`_Reveal` + `_Noise_Strength_X_Speed_Y_Scale_Z`）；缺的是**这块图用的材质**（仍是 `Sprites/Default`）：
+            //    **不成立** —— `WarpforgeVFX/Shaders/WFUIBorderHighlight.shader` 就有（`_Reveal` + `_Noise_Strength_X_Speed_Y_Scale_Z`）；🔴 **2026-11-01（W-8）再订正**：「缺材质（仍是 `Sprites/Default`）」也**不成立**了 —— 材质早在 `B9_W39MAT` 就挂上 `Border Effect For Level up`（见 `im.hasAmp` 那一段）⇒ 这半句现在只在「材质取不到」那一档成立：
             //    `UIBorderGlow` 自己会出声（`[UIBorderGlow] 材质上没有 _Reveal`），⛔ 不是静默失败。
             if (im.hasGlow)
             {
@@ -383,6 +401,17 @@ namespace CardPresentation
                     //  `Resources/Art/vfx/Border Effect For Level up.mat`（shader = 工程等价 `WarpforgeVFX/UI/UI Border Highlight`）。
                     //  AMP 会 `new Material(source)` 克隆它、逐帧写 `_Reveal` ⇒ 升级动画有观感了（⛔ 别再传 null）。
                     WarpforgeVFX.AnimateUIMaterialProperty.Attach(quad.GetComponent<MeshRenderer>(), s1, s2, BorderLevelUpMaterial());
+                    // 🔴 2026-11-01（`B-205` · 写手 `W-8`）：**换材质会把贴图丢掉**，必须重新喂一遍。
+                    //   原版这颗 shader 的 `_MainTex` 是 uGUI 的 **per-renderer 纹理**
+                    //   （`Graphic.mainTexture = Image.m_Sprite.texture`）⇒ 5 份原版材质的 `m_TexEnvs` 里
+                    //   **一份也没有 `_MainTex`**（只有 `_Noise_R`；逐份现读 `assets_full/…/Material/`）。
+                    //   而 `AnimateUIMaterialProperty.CreateInstanceMaterial` 是 `new Material(source)`，
+                    //   source = `Resources/Art/vfx/Border Effect For Level up.mat`（同样没有 `_MainTex`）
+                    //   ⇒ 克隆体的 `mainTexture` 退回 **shader 默认的 1×1 白** ⇒ `c.a = 1` ⇒
+                    //   shader 照原版算出来就是**一整块矩形**（W-7 把形状改成真读 `_MainTex.a` 之后才暴露）。
+                    //   ⇒ 这里把原版那张 sprite 重新写进**克隆后**的材质（`keepAspect: true`：几何已按判据定好，
+                    //   ⛔ 别让 `SetTexture` 反过来改 `_aspect`）。
+                    if (spr != null) quad.SetTexture(spr, true);
                 }
             }
             return go;
@@ -513,6 +542,15 @@ namespace CardPresentation
             public string ampFloat2Property; public float ampFloat2Value;
             public bool ampFloat2UseV4;
             public float ampFloat2X, ampFloat2Y, ampFloat2Z, ampFloat2W;
+            /// <summary>原版 `Image.m_Sprite` 的**资产名**（账 `B-248` · 生成器写的 `sprite` 列；逐字，含空格）。
+            /// `""` = 原版没有 sprite **或**名字没查到（两者靠 <see cref="hasSpriteName"/> 区分）。
+            /// ⚠️ **旧 JSON（没这一列）读出来是 `null`** —— ⛔ 别用 `!= null` 当「有名字」的判据（`JsonUtility`
+            /// 分不清「缺键」与「null」），一律看 <see cref="hasSpriteName"/>。取见 `SpriteFor`。</summary>
+            public string sprite;
+            /// <summary>这一件**拿到了**名字（= `sprite != ""`）—— 显式布尔，与 `hasGlow` / `hasSprite` / `hasAmp`
+            /// 同一套路（⛔ 不靠「字段缺失 / null」判）。三档：`hasSprite=false`（纯色块）·
+            /// `true + hasSpriteName=true`（按名取图）· `true + false`（是贴图但没名 ⇒ 回退硬编码 + 出声）。</summary>
+            public bool hasSpriteName;
         }
         [Serializable] public class CdeDoc { public CdeParticle[] particles; public CdeImage[] images; }
 
@@ -536,6 +574,116 @@ namespace CardPresentation
                                + " 导入入口 = `工具/import_mainmenu_effect_mats.py --apply`（⛔ 别传 null）");
             }
             return _borderLevelUpMat;
+        }
+
+        // ============================================================ 边框高亮的那两张 sprite（2026-11-01 · W-8）
+        /// <summary>原版 `Level Up Effect` / `Level Up Effect Down` 的 `Image.m_Sprite` → 它那张贴图。
+        ///
+        /// <para>**为什么必须有这张表**：`Border Effect For Level up` 这颗 shader 的 `_MainTex` 是 **uGUI 的
+        /// per-renderer 纹理**（`Graphic.mainTexture = Image.m_Sprite.texture`）—— 5 份用到这颗 shader 的原版材质，
+        /// `m_TexEnvs` 里**一份都没有 `_MainTex`**（只有 `_Noise_R`）。而 W-7 把 shader 按 DXBC 重写之后，
+        /// **边框形状就真的来自 `_MainTex.a`**（判据 → `判据/B114_R5_Reveal_DXBC.md` §2·2 ⑤）⇒
+        /// 喂 1×1 白图会渲染成**一整块矩形**。</para>
+        ///
+        /// <para>**判据（逐条现读 2026-11-01）**：
+        /// · 材质 guid `2b1eaf3b9ec4b9d469a8b7570d99d153` 在 `assetripper_out/ExportedProject/Assets/Data/Scenes/
+        ///   MainMenu Warpforge.unity` 里只有两处 `m_Material`：
+        ///   Image 2057 → GameObject **404 `Level Up Effect Down`** → `m_Sprite` = `OctagonUI Border SDF`；
+        ///   Image 2545 → GameObject **338 `Level Up Effect`** → `m_Sprite` = `OctagonUI Filled SDF`。
+        ///   （另两处是 `AnimateUIMaterialProperty.changeMaterialOnAnimation`，指向同一份材质。）
+        /// · sprite → 贴图：两个 `.asset` 的 `m_RD.texture` 分别 = `7622c9f2ff71fc343a384bf40bdb72c4` /
+        ///   `a7ea0f52deaa78746aa6c7ddb858c4f8`；落在 `menusharedresources_assets_all` /
+        ///   `duplicateassetisolation_assets_all`（两张 sprite 的 `.meta` 的 `assetBundleName`）。
+        /// · 128² · `m_Border (52,52,52,52)`；`Border` 是**环**（中心 α = 0）、`Filled` 是**实心**（中心 α = 255）。</para>
+        ///
+        /// <para>⚠️ **落盘名对得上 `CardArt.MenuUi` 的规矩**（切片名里的空格换下划线）⇒ 读的是
+        /// `Resources/Art/ui_menu/OctagonUI_{Border,Filled}_SDF.png`；这两张**盘上本来就有**
+        /// （同族三张 `Border_*_FX.png` 也在这个目录），重建入口 = `工具/import_border_highlight_sprites.py --apply`。</para>
+        /// <para>认不出 ⇒ 返回 null（调用方退回「不画图 + α=0 + 出声」，⛔ 不静默）。</para></summary>
+        static Texture2D BorderSprite(string imageName)
+        {
+            switch (imageName)
+            {
+                case "Level Up Effect":      return CardArt.MenuUi("OctagonUI_Filled_SDF");   // Image 2545
+                case "Level Up Effect Down": return CardArt.MenuUi("OctagonUI_Border_SDF");   // Image 2057
+            }
+            return null;
+        }
+
+        // ============================================================ `B-247`：这两件的九宫格边框（原版 `Image.m_Type = 1`）
+        /// <summary>原版 `Level Up Effect` / `Level Up Effect Down` 的**九宫格边框**（两个输出都是 (左,下,右,上)）。
+        ///
+        /// <para>**判据（逐条现读 `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/MainMenu Warpforge.unity`）**：
+        ///   · Image **2545**（`Level Up Effect`）`m_Type 1` · `m_PixelsPerUnitMultiplier **0.5**`
+        ///   · Image **2057**（`Level Up Effect Down`）`m_Type 1` · `m_PixelsPerUnitMultiplier **1.11**`
+        ///   · 两张 sprite 的 `m_Border = (52,52,52,52)` · `m_Rect = 128×128` · `m_PixelsToUnits = 100`
+        ///   · 同场景 CanvasScaler `m_ReferencePixelsPerUnit = 100` ⇒ `Image.pixelsPerUnit = 100/100 = 1`
+        ///   · 两颗 Image 的 RectTransform `m_LocalScale = 0.004545454`（= **1/220**）⇒ 矩形单位 → 本层局部单位 ×1/220</para>
+        ///
+        /// <para>**算出来的世界单位边框**（= `m_Border ÷ ppuMul × (1/220)`，四边同值）：
+        ///   · `Level Up Effect`：`52 ÷ 0.5 × 0.004545454 = 0.4727272`
+        ///   · `Level Up Effect Down`：`52 ÷ 1.11 × 0.004545454 = 0.2129402`</para>
+        ///
+        /// <para>**uv 分段**（= `m_Border ÷ m_Rect`，归一化）：`52/128 = 0.40625`，四边同值
+        /// ⇒ 中间那块取 `u/v ∈ [0.40625, 0.59375]`。</para>
+        ///
+        /// <para>⚠️ 回退兜底：`s != 1`（旧的 `Build(cardParent, cardWidthPx)` 那条路）时按 `s` 等比放大 ——
+        /// 那条路本身就是近似换算（见文件头 `unitToPx` 那一段），生产路径 `BuildUnder2DCard` 恒 `s = 1`。</para>
+        /// <para>认不出（不在这两件里）⇒ 返回 false，调用方**保持单 quad**（= 今天的行为，⛔ 不猜）。</para></summary>
+        static bool BorderNineSlice(string imageName, float s, out Vector4 borderWorld, out Vector4 uvBorder)
+        {
+            // ⚠️ 三个数全部来自原版字段，⛔ 不要改成本工程量出来的值：
+            //    `52` = sprite `m_Border` 四边 · `0.004545454` = 两颗 Image 的 RectTransform `m_LocalScale.x`（= 1/220）
+            const float BorderPx = 52f;
+            const float RectPx   = 128f;
+            const float LocalScale = 0.004545454f;
+            float mul;
+            switch (imageName)
+            {
+                case "Level Up Effect":      mul = 0.5f;  break;   // Image 2545
+                case "Level Up Effect Down": mul = 1.11f; break;   // Image 2057
+                default: borderWorld = Vector4.zero; uvBorder = Vector4.zero; return false;
+            }
+            float bw = BorderPx / mul * LocalScale * s;    // `m_Border ÷ ppuMul`（矩形单位）× 矩形单位→世界 × 调用方单位桥
+            float bu = BorderPx / RectPx;                  // 归一化 uv 内缩（四边同值）
+            borderWorld = new Vector4(bw, bw, bw, bw);
+            uvBorder    = new Vector4(bu, bu, bu, bu);
+            return true;
+        }
+
+        // ============================================================ `B-248`：按判据里的**资产名**取图（回退硬编码）
+        /// <summary>`SpriteFor` 的「回退到按节点名硬编码」出声口（每次运行只出一次，⛔ 不静默）。</summary>
+        static bool _warnedSpriteName;
+
+        /// <summary>这一件该用哪张图（账 `B-248`）。
+        ///
+        /// <para>① 判据给了名字（`hasSpriteName`）⇒ 按**资产名**取图（空格换下划线 = `Art/ui_menu/` 的落盘规矩）。</para>
+        /// <para>② 判据里**没这一列**（旧 JSON）/ 名字取不到 ⇒ 回退 <see cref="BorderSprite"/>（按节点名硬编码那张两行表），
+        /// 并且**出声一次**。⛔ 不许静默 —— 回退是给旧判据文件兜底的，不是常态。</para>
+        /// <para>③ 两条路都给不出 ⇒ 返回 null（调用方走「载体照建、α 置 0 + 出声」那一档）。</para></summary>
+        static Texture2D SpriteFor(CdeImage im)
+        {
+            if (im.hasSpriteName && !string.IsNullOrEmpty(im.sprite))
+            {
+                string res = im.sprite.Replace(' ', '_');
+                var t = CardArt.MenuUi(res);
+                if (t != null) return t;
+                WarnSpriteFallback("判据给的 sprite `" + im.sprite + "` 取不到（`Resources/Art/ui_menu/" + res + "`）");
+            }
+            else
+            {
+                WarnSpriteFallback("`" + im.name + "` 的判据里没有 `sprite` 名字（旧 JSON？重生成 = "
+                                 + "`工具/gen_mainmenu_effects.py --apply`）");
+            }
+            return BorderSprite(im.name);
+        }
+
+        static void WarnSpriteFallback(string why)
+        {
+            if (_warnedSpriteName) return;
+            _warnedSpriteName = true;
+            Debug.LogWarning("[CardDisplayEffects] " + why + " ⇒ 回退到按节点名硬编码的 `BorderSprite`；"
+                           + "它也不认识这一件时退回「α = 0 不画 + 出声」。");
         }
     }
 }

@@ -471,7 +471,7 @@ namespace CardPresentation
 
         void RebuildMesh()
         {
-            float w = WorldW, h = WorldH, f = Mathf.Clamp01(_fillAmount); float x0 = -anchor.x * w, y0 = -anchor.y * h;
+            if (_nineOn) { RebuildNineSliceMesh(); return; } float w = WorldW, h = WorldH, f = Mathf.Clamp01(_fillAmount); float x0 = -anchor.x * w, y0 = -anchor.y * h;   // 🔴 `B-247`：九宫格态走另一支（**同物理行追加**，行数不变；`_nineOn` 默认 false ⇒ 既有几百个 quad 逐字不变）。为什么非要有这一句 → 类尾那一段注释
             Rect uv = _uv; Color[] cols = _cornerColors;
             // 🆕 2026-10-30（B102_AUD05）`Image.Type = Filled`（Horizontal · `m_FillOrigin=1` 自右向左）的替身 = 逐句照 uGUI `Image.GenerateFilledSprite`：
             //   只留矩形与 uv 的**右段**（`v.x = v.z − (v.z−v.x)·amount` · `tx0 = tx1 − span·amount`）；`amount < 0.001` 时**一个顶点都不生成**（原版那一支直接 return）；`f == 1`（出厂）⇒ 整段不进、与旧代码逐字相同。
@@ -825,6 +825,173 @@ namespace CardPresentation
             for (int i = 0; i < 4; i++)
                 dst[i] = cornerColors != null ? cornerColors[i] * _vertexTintColor : _vertexTintColor;
             return dst;
+        }
+
+        // ============================================================ `B-247`：`Image.Type = Sliced` 的原版九宫格（**追加在类尾**）
+        //
+        // **为什么要它**：原版 `Level Up Effect` / `Level Up Effect Down` 两颗 `Image` 是 `m_Type = 1`（Sliced，九宫格），
+        //   而本链过去是「整张图拉伸的单个 quad」⇒ 128² 的八边形环被按 2.80 × 3.81 的比例**整体拉开**（角与边一起被拉）。
+        //
+        // **为什么是「一个网格里 9 块」而不是 `CreateNineSlice` 的「9 个子 quad」**（关键，⛔ 别改成后者）：
+        //   用这两件的 shader（`WarpforgeVFX/UI/UI Border Highlight`）把**极坐标原点**放在网格 `uv0.zw` 里
+        //   ——原版 `UIBorderGlow.ModifyMesh` 给**整张 Image 的每个顶点写同一个值**，我们由 `UIViewportUvWriter` 写。
+        //   9 个子 quad ⇒ 每个子件各写自己 `transform.position` ⇒ **9 个不同的圆心**，画面会碎成 9 块径向片段；
+        //   而且 `AnimateUIMaterialProperty` / `UIBorderGlow` 都是**按单个 `MeshRenderer`** 挂的，9 个子件只挂得上其中一块。
+        //   uGUI 自己也是**一个 `Image` 生成一张含 9×4 个顶点的网格** ⇒ 单网格才是原版形状。
+        //
+        // **uv 怎么给**（判据 = 原版 uGUI `Image.GenerateSlicedSprite`，
+        //   `com.unity.ugui/Runtime/UGUI/UI/Core/Image.cs:1130-1200` 现读）：每一块拿 **sprite 自己的那一段 uv**
+        //   （`GetInnerUV` = `m_Border / m_Rect` 归一化），⛔ **不是**把整张图压进每一块。
+        //   ⇒ shader 里的 `uv2 = puls*(uv−0.5)+0.5 + nz` 于是**在各自的分段 uv 上**做脉动/噪声位移 —— 这正是**原版行为**
+        //   （原版同样是 9 块各带自己的 uv 子矩形进同一个 shader），⛔ 不是我们引入的观感变化。
+        //
+        // **几何**（判据 = 原版 `Image.GetAdjustedBorders`，同文件 `:1479-1509`）：边框在**矩形局部单位**里四边同值
+        //   `m_Border / multipliedPixelsPerUnit`（`multipliedPixelsPerUnit = pixelsPerUnit × m_PixelsPerUnitMultiplier`，
+        //   `pixelsPerUnit = sprite.pixelsPerUnit / canvas.referencePixelsPerUnit`）；只有「两边之和 > 该轴边长」时才按轴等比缩。
+        //   本方法**直接吃世界单位**的边框（调用方把原版那两个比值折好再传），不在这里做 px→world 的换算。
+        //
+        // ⚠️ **`_uv`（`SetUvRect`）/ `_fillAmount` / 斜切 / 软边子块都不参与九宫格** —— 这四个今天在这两件上都没有消费者；
+        //   真被同时用到会**出声一次**（`_nineWarnedMixed`），⛔ 不静默。
+        //
+        // 🔴 **持久性（为什么 `RebuildMesh` 第一句要有那个 dispatch）**：`CardDetailPopup` 的升级演出把这两件当
+        //   `FadeImage`（`CardDisplayLevelUp.FadeImage.quad`，绑在 `CardDetailPopup.cs:3012-3013`），走
+        //   `quad.SetTint(...)` → `ApplyTintColor` → `UploadVertexTint` → 顶点数 ≠ 4 ⇒ `RebuildMesh()`
+        //   ⇒ 没有那句 dispatch，**九宫格会在动画第一帧被静默换回「整张拉伸」**。
+        //
+        // 判据出处（全部现读 2026-11-01）：
+        //   `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/MainMenu Warpforge.unity`
+        //   · Image **2545**（GameObject 338 `Level Up Effect`）：`m_Type 1` · `m_PixelsPerUnitMultiplier 0.5`
+        //   · Image **2057**（GameObject 404 `Level Up Effect Down`）：`m_Type 1` · `m_PixelsPerUnitMultiplier 1.11`
+        //   · sprite `OctagonUI Filled SDF` / `OctagonUI Border SDF`：`m_Border (52,52,52,52)` · `m_Rect 128×128` · `m_PixelsToUnits 100`
+        //   · 同场景 CanvasScaler：`m_ReferencePixelsPerUnit 100` ⇒ `pixelsPerUnit = 100/100 = 1`
+        //     ⇒ `multipliedPixelsPerUnit = 1 × ppuMul` ⇒ 边框(矩形单位) = `52 / ppuMul`
+        //   · 两颗 Image 的 RectTransform `m_LocalScale = 0.004545454`（= 1/220）⇒ 矩形单位 → 世界单位 ×0.004545454
+
+        Vector4 _nineBorder;        // (左, 下, 右, 上) —— **世界单位**（= 本 quad 的局部单位）
+        Vector4 _nineUvBorder;      // (左, 下, 右, 上) —— **归一化**（0..1，= `m_Border / m_Rect`）
+        bool _nineOn, _nineFillCenter = true;
+        static bool _nineWarnedMixed;
+
+        /// <summary>这块 quad 现在是九宫格几何吗（自检用；`false` = 出厂的单 quad）。</summary>
+        public bool IsNineSlice { get { return _nineOn; } }
+        /// <summary>九宫格的边框（世界单位，(左,下,右,上)）。⚠️ **这只当「配置」读** ——
+        /// ⛔ 不要拿它证明几何对（那是自证）；几何要读网格顶点。</summary>
+        public Vector4 NineSliceBorderWorld { get { return _nineBorder; } }
+        /// <summary>九宫格的 uv 分段（归一化，(左,下,右,上)）。</summary>
+        public Vector4 NineSliceUvBorder { get { return _nineUvBorder; } }
+
+        /// <summary>把这块 quad 切成原版 `Image.Type = Sliced` 的九宫格（**一个网格里 9 块**）。
+        /// 两个边框参数都是 **(左,下,右,上)**：<paramref name="borderWorld"/> 世界单位（会被 `GetAdjustedBorders`
+        /// 的同款规则按轴夹取）· <paramref name="uvBorder"/> 归一化 0..1。</summary>
+        public void SetNineSlice(Vector4 borderWorld, Vector4 uvBorder, bool fillCenter = true)
+        {
+            _nineBorder = borderWorld;
+            _nineUvBorder = uvBorder;
+            _nineFillCenter = fillCenter;
+            _nineOn = true;
+            RebuildMesh();          // ← 走类尾那一段说的 dispatch，几何 + 顶点色一起重建
+            NotifySoftEdgeChanged();
+        }
+
+        /// <summary>退回单 quad（自检的**反证**要用：同一个对象上关掉九宫格，顶点数必须回到 4）。</summary>
+        public void ClearNineSlice()
+        {
+            if (!_nineOn) return;
+            _nineOn = false;
+            RebuildMesh();
+            NotifySoftEdgeChanged();
+        }
+
+        /// <summary>九宫格网格：9 块 × 4 顶点。顶点序与三角序**照抄 uGUI `Image.AddQuad`**
+        /// （BL·TL·TR·BR / `(0,1,2)(2,3,0)`）—— 与 `RebuildMesh` 单 quad 那套 `(0,2,1)(0,3,2)` 同向（顺时针 = 正面）。
+        /// ⚠️ 只在 `_nineOn` 为真时被 `RebuildMesh` 调。</summary>
+        void RebuildNineSliceMesh()
+        {
+            if (_mf == null) _mf = GetComponent<MeshFilter>();
+            if (_mf == null) { Debug.LogError("[ImageQuad] 九宫格重建失败：找不到 `MeshFilter`（⛔ 不静默）"); return; }
+
+            float w = WorldW, h = WorldH;
+            if (w <= 0f || h <= 0f || _tex == null) return;
+
+            if (_fillAmount < 1f || _skewX != 0f || _skewY != 0f || _softKids.Count > 0
+                || _uv.x != 0f || _uv.y != 0f || _uv.width != 1f || _uv.height != 1f)
+            {
+                if (!_nineWarnedMixed)
+                {
+                    _nineWarnedMixed = true;
+                    Debug.LogWarning("[ImageQuad] 九宫格与 `fillAmount` / 斜切 / 软边子块 / `SetUvRect` **不同时支持** —— "
+                                   + "这一块只按九宫格画，其余几项被忽略（⛔ 不静默）。见 `SetNineSlice` 头部注释。");
+                }
+            }
+
+            float l = Mathf.Max(0f, _nineBorder.x), b = Mathf.Max(0f, _nineBorder.y);
+            float r = Mathf.Max(0f, _nineBorder.z), t = Mathf.Max(0f, _nineBorder.w);
+            // uGUI `GetAdjustedBorders`：**逐轴**判「两边之和 > 边长」才等比缩（⛔ 不是两轴共用一个比例）
+            float scX = (l + r) > w ? w / Mathf.Max(1e-4f, l + r) : 1f;
+            float scY = (b + t) > h ? h / Mathf.Max(1e-4f, b + t) : 1f;
+            l *= scX; r *= scX; b *= scY; t *= scY;
+            float wm = Mathf.Max(0f, w - l - r), hm = Mathf.Max(0f, h - b - t);
+
+            float x0 = -anchor.x * w, y0 = -anchor.y * h;
+            float[] xs = { x0, x0 + l, x0 + l + wm, x0 + w };
+            float[] ys = { y0, y0 + b, y0 + b + hm, y0 + h };
+
+            float uL = Mathf.Clamp01(_nineUvBorder.x), vB = Mathf.Clamp01(_nineUvBorder.y);
+            float uR = 1f - Mathf.Clamp01(_nineUvBorder.z), vT = 1f - Mathf.Clamp01(_nineUvBorder.w);
+            if (uR < uL) uR = uL;       // 边框比图还宽 ⇒ 中段取同一列纹素（与 `CreateNineSlice` / uGUI 同形）
+            if (vT < vB) vT = vB;
+            float[] us = { 0f, uL, uR, 1f };
+            float[] vs = { 0f, vB, vT, 1f };
+
+            var cols = CornerColorsWithTint(_cornerColors ?? WhiteVerts);
+            var verts = new List<Vector3>(36);
+            var uvs = new List<Vector2>(36);
+            var colors = new List<Color>(36);
+            var tris = new List<int>(54);
+
+            for (int xi = 0; xi < 3; xi++)
+            {
+                for (int yi = 0; yi < 3; yi++)
+                {
+                    if (!_nineFillCenter && xi == 1 && yi == 1) continue;   // 原版 `m_FillCenter = 0` ⇒ 中间那块不画
+                    float bx0 = xs[xi], bx1 = xs[xi + 1], by0 = ys[yi], by1 = ys[yi + 1];
+                    if (bx1 - bx0 <= 0f || by1 - by0 <= 0f) continue;       // uGUI：零/负尺寸的格子直接跳过
+                    int st = verts.Count;
+                    NinePushVert(verts, uvs, colors, cols, x0, y0, w, h, bx0, by0, us[xi], vs[yi]);         // BL
+                    NinePushVert(verts, uvs, colors, cols, x0, y0, w, h, bx0, by1, us[xi], vs[yi + 1]);     // TL
+                    NinePushVert(verts, uvs, colors, cols, x0, y0, w, h, bx1, by1, us[xi + 1], vs[yi + 1]); // TR
+                    NinePushVert(verts, uvs, colors, cols, x0, y0, w, h, bx1, by0, us[xi + 1], vs[yi]);     // BR
+                    tris.Add(st); tris.Add(st + 1); tris.Add(st + 2);
+                    tris.Add(st + 2); tris.Add(st + 3); tris.Add(st);
+                }
+            }
+
+            var m = new Mesh { name = "ImageQuadNine" };
+            m.SetVertices(verts);
+            m.SetUVs(0, uvs);
+            m.SetColors(colors);
+            m.SetTriangles(tris, 0);
+            m.RecalculateBounds();
+            _mf.sharedMesh = m;
+        }
+
+        /// <summary>九宫格的一个顶点（`RebuildNineSliceMesh` 用）。顶点色按**整块 quad 的归一化位置**做四角双线性插值
+        /// —— 只有一个格子时它与 `RebuildMesh` 的四角顶点色逐值相同。</summary>
+        static void NinePushVert(List<Vector3> v, List<Vector2> uv, List<Color> c, Color[] cols,
+                                 float x0, float y0, float w, float h, float x, float y, float u, float vv)
+        {
+            v.Add(new Vector3(x, y, 0f));
+            uv.Add(new Vector2(u, vv));
+            float nx = w > 1e-6f ? (x - x0) / w : 0f;
+            float ny = h > 1e-6f ? (y - y0) / h : 0f;
+            c.Add(NineVertColor(cols, nx, ny));
+        }
+
+        /// <summary>四角顶点色（顺序 BL·BR·TR·TL）按归一化位置 (nx, ny) 双线性插值。</summary>
+        static Color NineVertColor(Color[] cols, float nx, float ny)
+        {
+            if (cols == null || cols.Length < 4) return Color.white;
+            return Color.Lerp(Color.Lerp(cols[0], cols[1], nx), Color.Lerp(cols[3], cols[2], nx), ny);
         }
     }
 }

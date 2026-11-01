@@ -52,6 +52,13 @@
          ⚠️ `Data/` 下**别的文件不要顺手加进来**：`DeckStore` 要 `persistentDataPath`，探针没有。 -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabase.cs" />
     <Compile Include="DbParse.cs" />
+    <!-- 🔴 2026-11-01（写手 `W-25` · 活状态表 `B-257`）：`CardDatabaseProbeHook.cs` = 对
+         `CardDatabase` 两个**私有** mapper（`MapTriggerAbilityIndices` / `MapTriggerOpsByNumber`）的
+         `partial` 转发 —— `LoadPool` 靠它把「触发数值 → 正文 op」表按**引擎那一套代码**挂上图，
+         不再让 `TriggerOpsByNumber` 静默落进「卡面关键词」退回档。
+         🔴 必须显式列（本 csproj 关了 `EnableDefaultCompileItems`）；漏了 = 构建期
+         `CS0117 CardDatabase 未包含 ProbeMap…` —— **那是我们要的**（⛔ 别改成反射：反射落空是静默的）。 -->
+    <Compile Include="CardDatabaseProbeHook.cs" />
     <!-- 🆕 `ai`（`R11`，2026-10-25 · 第八十会话）：AI 打分的**逐条贡献**读数口。
          🔴 为什么必须把下面四个 `Data/` 文件编进来：`play all dump` 是**结算层**读数、
          **结构上看不见 AI**（实测只改 AI 打分时它前后逐字节相同）⇒ 在那之前 AI 改动没有读数口。
@@ -107,6 +114,10 @@
          ⚠️ 它**不需要**新增别的编译项：`CardDatabase.cs`（上面已列）＋ `Core/*.cs`（`CardDef` / `ConditionEval`）
          就够；它走 `CardDatabase.Parse` 真实装载链 ⇒ 量得到 `cardTraits` / `keyword` 两列的透传。 -->
     <Compile Include="TraitsProbe.cs" />
+    <!-- `W-22`（2026-11-01 · 活状态表 `B-251`）：`triggerops` —— 「触发数值 → 正文 op」逐条读数口。
+         ⚠️ 它**不需要**新增别的编译项：`CardDatabase.cs`（上面已列）＋ `Core/*.cs` 就够
+         （走 `CardDatabase.Parse` 真实装载链 ⇒ 量得到 `AttachTriggerOpsByNumber` 挂的那张表）。 -->
+    <Compile Include="TriggerOpsProbe.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />

@@ -9,6 +9,20 @@
 //     … -executeMethod WindowShots.RunFromCLI -wfWinHost mainmenu
 //     … -executeMethod WindowShots.RunFromCLI -wfWinOnly shop
 //
+//   空图闸的自检（灭自证 · 纯算术、不建场景）：
+//     … -executeMethod WindowShots.GateSelfTest
+//
+// 🔴 **空图闸 = 结构判据**（2026-11-01 · `B-240`）：原来是「平均亮度 ≤ 3 ⇒ 疑似空图」，
+//    而排位窗族自带整屏 `(0,0,0,0.773)` 黑遮罩 ⇒ 平均亮度天生 2.9/3.0（同族 `ranked_division_change` 3.3），
+//    旧闸把**内容齐全的两扇窗**判成空图（假红）。现改为「非黑像素占比 + 窗根子树件数」两条独立判据，
+//    门槛与实测出处写在 `NonBlackMinPct` 那一段；纯黑图 / 空容器仍判空（`GateSelfTest` 里是负例）。
+//
+// 🔴 **出图宿主自带模糊底**（2026-11-01 · `B-240②`）：`MainMenuScene` 这台宿主**没有壳**
+//    ⇒ 原版那件 `UIBakeScreen`（`MainMenuWindow.ToBackground/Hide/Close` 烘的「上一帧 UI 模糊快照」）缺位
+//    ⇒ **31 张窗图**的底是纯黑、系统性偏暗。现在由 `EnsureBake()` 在场景根建一件（⛔ 不进菜单树），
+//    `Shell/GameWindow.cs` **一行不用改**（它的查找链首选 `UIBakeScreen.Current`）。
+//    实际 RT 尺寸 / 是否退化会印进 `_index.tsv` 的 `说明` 列（批处理下 `Screen` 尺寸若为 0，底会退化成一整块平均色）。
+//
 // 产物：
 //   `d:/4/_tmp_view/shots/win/<slug>.png`       每扇窗一张（**我们的**渲染，固定 1920×1080）
 //   `d:/4/_tmp_view/shots/win/_index.tsv`       窗名 | 宿主 | 输出文件 | 分辨率 | rc | 说明
@@ -57,10 +71,36 @@ public static class WindowShots
     /// `LayoutSpace.DesignHeight = 1080`）。⛔ 别按窗口大小去算 —— 这里是「整屏一帧」。</summary>
     const int W = 1920, H = 1080;
 
-    /// <summary>空图护栏阈值（与 7 个宿主 `Shoot` 同一判据）。
-    /// 🔴 为什么必须有：一张**全黑**的图静默写出去 = 「拍了但什么都没拍到」，与「没拍」一样坏，
-    ///    而 `fp_sbs_check` 只会把它当「有图」去比 ⇒ 必须在这里就标成 rc=1。</summary>
-    const float BlankLum = 3f;
+    // ============================================================ 空图护栏（🔴 B-240 起 = **结构判据**，不再是「平均亮度」）
+    //
+    // 🔴 **为什么必须有一段护栏**：一张**全黑**的图静默写出去 = 「拍了但什么都没拍到」，与「没拍」一样坏，
+    //    而 `fp_sbs_check` 只会把它当「有图」去比 ⇒ 必须在这里就标成 rc=1。
+    //
+    // 🔴 **为什么换掉「平均亮度 ≤ 3」**（`B-237` · 判据全文 = `资料/完全复刻/判据/B114_R1_两扇窗近黑.md`）：
+    //    排位窗族 prefab 自带**整屏 `(0,0,0,0.773)` 黑遮罩**，渲染本身完全正确
+    //    （实测像素比 `(60,200)` 177→40 = 0.226 · `(960,30)` (28,0,20)→(6,0,5) = 0.229，而 `1 − 0.773 = 0.227`）
+    //    ⇒ 平均亮度天然只有 **2.9 / 3.0**；同族 `ranked_division_change` 是 **3.3**，只差 0.3 也被同一刀砍中
+    //    ⇒ 旧闸的门槛**正好压在真实分布上沿**，判「空图」是**假红**。
+    //    ⚠️ 这不是「把闸放松」：真·空图（相机没渲 / 窗被 `SetActive(false)` / 根是空容器）下面两条判据都过不去。
+
+    /// <summary>判据①：**非黑像素占比**下限（%）。低于它 ⇒ 判空图。
+    /// <para>**【门槛怎么来的】** = **全部 30 张**窗图实测（2026-11-01 现读 `d:/4/_tmp_view/shots/win/*.png`，
+    /// 1920×1080 逐像素，`max(r,g,b) &gt; NonBlackChannel` 记作非黑）：最暗三张 ——
+    /// `ranked_season_ended` **8.91%** · `ranked_new_season` **8.97%** · `ranked_division_change` **11.11%**；
+    /// 最亮 `main_menu` **96.87%**。⇒ 门槛取 **1.0%**（= 最低真实值的 **1/8.9**，不贴边）；
+    /// 而**纯黑图恒 0.00%** ⇒ 旧闸能抓的「全黑 = 什么都没画」这一档，新闸照样抓（灭自证）。</para>
+    /// <para>⚠️ 实测只覆盖**今天这 30 张**（= 现状的口径）。将来若某一扇真的整屏只有一个角标，
+    /// 先量它的非黑占比再判「是闸太松还是窗真的空」—— ⛔ 别直接调小这个常量。</para></summary>
+    const float NonBlackMinPct = 1.0f;
+
+    /// <summary>「非黑」的通道阈值（0–255）。取 8：暗遮罩下的顶栏实测是 `(6,0,5)` ⇒ 仍算黑；
+    /// 真正画出来的白字 / 图标 / 底板都远高于它。</summary>
+    const int NonBlackChannel = 8;
+
+    /// <summary>「亮像素」灰度门槛（0–255）—— **只用于读数与索引表，不参与判定**。
+    /// 实测下限 = `ranked_reward_event` **0.144%**，排位两扇 1.34% / 1.42%，`main_menu` 55.89%
+    /// ⇒ 留作下一个人核「这扇窗到底有没有文字」的旁证。⛔ 别拿它当闸（它离最暗真实值只差 3 倍，太贴边）。</summary>
+    const int BrightLum = 40;
 
     // ============================================================ 宿主
 
@@ -79,6 +119,10 @@ public static class WindowShots
     /// <summary>运行期上下文：当前已经建好的宿主根 / 主菜单实例。</summary>
     sealed class Ctx
     {
+        /// <summary>🆕 **B-240②（方案 A）**：这一台宿主的**模糊底**读数（RT 尺寸 / 是否退化），
+        /// 逐行拼进 `_index.tsv` 的 `说明` 列 —— 让「批处理下底是不是退化成一块纯色」一眼可判。
+        /// `null` = 这一档没有模糊底（`DeckScene`）。</summary>
+        public string BakeNote;
         public MainMenuRuntime Menu;
         public Transform DeckRoot;
     }
@@ -321,9 +365,11 @@ public static class WindowShots
                         Debug.LogError(P + "   `MainMenuScene.BuildForWindowShots()` 回来了，但根或 `MainMenuRuntime` 是 null");
                         return false;
                     }
+                    ctx.BakeNote = EnsureBake();     // 🆕 B-240②（方案 A）：补上原版那件模糊快照底
                     return true;
                 case HostKind.Deck:
                     ctx.Menu = null;
+                    ctx.BakeNote = null;             // 卡组编辑那一档没有 `GameWindow` ⇒ 不走 `SetBake`，不该有底
                     ctx.DeckRoot = DeckScene.BuildForWindowShots();
                     if (ctx.DeckRoot == null) { Debug.LogError(P + "   卡组编辑宿主建出来是 null"); return false; }
                     return true;
@@ -355,8 +401,9 @@ public static class WindowShots
         try
         {
             Settle(root);
-            int rc = Render(file, out string detail);
-            note = s.How + " · " + detail;
+            int rc = Render(file, root, out string detail);
+            note = s.How + " · " + detail
+                 + (string.IsNullOrEmpty(ctx.BakeNote) ? "" : " · " + ctx.BakeNote);   // B-240②：模糊底读数逐行进索引
             return rc;
         }
         catch (Exception e)
@@ -399,7 +446,8 @@ public static class WindowShots
     /// 🔴 **`RenderTexture` 必须在 `finally` 里回收** —— 异常路径也要（否则批处理里漏一堆 RT）。
     /// 🔴 ⛔ **不用 `ScreenCapture.CaptureScreenshot`**（批处理下会崩，本仓已记）。
     /// </summary>
-    static int Render(string file, out string detail)
+    /// <param name="root">这一扇的**窗根** —— 结构判据② 要数它子树里的可渲染件（见 <see cref="Measure"/>）。</param>
+    static int Render(string file, Transform root, out string detail)
     {
         var cam = Camera.main;
         if (cam == null) { detail = "**没拍成** —— `Camera.main == null`（宿主没建出带 `MainCamera` 标签的相机）"; return 2; }
@@ -420,13 +468,16 @@ public static class WindowShots
 
             File.WriteAllBytes(file, tex.EncodeToPNG());
 
-            float lum = MeanLum(tex);
-            if (lum <= BlankLum)
+            // 🔴 B-240：判定改用**结构判据**（非黑像素占比 + 窗子树里的可渲染件），平均亮度只留读数。
+            var st = Measure(tex, root);
+            string read = $"{W}×{H} · 平均亮度 {st.MeanLum:F1} · 非黑 {st.NonBlackPct:F2}% · 亮像素 {st.BrightPct:F2}%"
+                        + $" · 子件 渲染件 {st.Renderers} / 文本 {st.Labels}";
+            if (IsBlank(st.MeanLum, st.NonBlackPct, st.BrightPct, st.Renderers, st.Labels, out string why))
             {
-                detail = $"{W}×{H} · ⚠️ **疑似空图**（平均亮度 {lum:F1} ≤ {BlankLum:F0}）—— 文件已写出，但别拿它当「拍到了」";
+                detail = read + " · ⚠️ **疑似空图**（" + why + "）—— 文件已写出，但别拿它当「拍到了」";
                 return 1;
             }
-            detail = $"{W}×{H} · 平均亮度 {lum:F1}";
+            detail = read;
             return 0;
         }
         catch (Exception e)
@@ -527,5 +578,185 @@ public static class WindowShots
         for (int i = 0; i < args.Length - 1; i++)
             if (string.Equals(args[i], key, StringComparison.OrdinalIgnoreCase)) return args[i + 1];
         return null;
+    }
+
+    // ============================================================ 结构判据（🔴 B-240）
+
+    /// <summary>一帧的**结构读数**（像素三项 + 窗根子树两件）。</summary>
+    sealed class Stats
+    {
+        /// <summary>平均亮度（0–255，抽样步长 7，与各宿主 `MeanBrightness` 同一口径）。**只作读数、不参与判定**。</summary>
+        public float MeanLum;
+        /// <summary>非黑像素占比（%）：`max(r,g,b) &gt; NonBlackChannel` 记作非黑，**全像素**统计。</summary>
+        public float NonBlackPct;
+        /// <summary>亮像素占比（%）：灰度 `&gt;= BrightLum`，**只作读数**。</summary>
+        public float BrightPct;
+        /// <summary>窗根子树里的 `MeshRenderer` 数（含 inactive）。`ImageQuad` 与 `Label` 两种件都走它。</summary>
+        public int Renderers;
+        /// <summary>窗根子树里的 `Label` 数（含 inactive）。</summary>
+        public int Labels;
+    }
+
+    /// <summary>量一帧的结构读数。⚠️ 像素遍历是**全像素**（1920×1080 = 2.07M，批处理里几毫秒）；
+    /// 亮度那一项仍按步长 7 抽样（`i % 7 == 0` ⇒ 采样数 = `(n + 6) / 7`）⇒
+    /// **与旧读数逐位可比**（索引表里「平均亮度」那一列不会因这次改动跳数）。
+    /// <para>结构那两件取 `GetComponentsInChildren&lt;&gt;(true)`（**含 inactive**），
+    /// 因为「窗开着但被 `SetActive(false)`」正是要抓的那一档 —— 那时件还在、却一个都没画。</para></summary>
+    static Stats Measure(Texture2D t, Transform root)
+    {
+        var st = new Stats();
+        if (root != null)
+        {
+            var mrs = root.GetComponentsInChildren<MeshRenderer>(true);
+            st.Renderers = mrs != null ? mrs.Length : 0;
+            var ls = root.GetComponentsInChildren<Label>(true);
+            st.Labels = ls != null ? ls.Length : 0;
+        }
+        if (t == null) return st;
+
+        var px = t.GetPixels32();
+        if (px.Length == 0) return st;
+
+        long lumSum = 0; long lumN = 0; int nonBlack = 0; int bright = 0;
+        for (int i = 0; i < px.Length; i++)
+        {
+            var c = px[i];
+            int m = c.r > c.g ? (c.r > c.b ? c.r : c.b) : (c.g > c.b ? c.g : c.b);
+            if (m > NonBlackChannel) nonBlack++;
+            if ((c.r + c.g + c.b) >= BrightLum * 3) bright++;
+            if (i % 7 == 0) { lumSum += c.r + c.g + c.b; lumN++; }
+        }
+        st.MeanLum = lumN > 0 ? lumSum / 3f / lumN : 0f;
+        st.NonBlackPct = 100f * nonBlack / px.Length;
+        st.BrightPct = 100f * bright / px.Length;
+        return st;
+    }
+
+    /// <summary>**空图判定**（🔴 B-240）。纯函数 ⇒ 可被 <see cref="GateSelfTest"/> 离线逐档验证。
+    /// <para>两条**互相独立**的判据，任一成立就判空：</para>
+    /// <list type="number">
+    /// <item><b>① 像素侧</b>：非黑占比 &lt; <see cref="NonBlackMinPct"/> ⇒ 屏幕上几乎什么都没画
+    ///   （纯黑图恒 0.00%；今天 30 张实测最低 8.91%）。</item>
+    /// <item><b>② 结构侧</b>：窗根子树里 `MeshRenderer` 与 `Label` **同时**为 0 ⇒ 开出来的是个空容器。
+    ///   这一档**光看像素会漏**（残留着上一扇窗或黑底时，非黑占比可能是高的）。</item>
+    /// </list>
+    /// <para>⚠️ ② 取「**同时**为 0」是刻意的保守：只要求其一非零会误伤「纯文字窗 / 纯图窗」（本项目两种都存在）。</para>
+    /// <para>`meanLum` / `brightPct` **不参与判定** —— 进签名只为让失败消息和自检档位里带全读数。</para></summary>
+    static bool IsBlank(float meanLum, float nonBlackPct, float brightPct, int renderers, int labels, out string why)
+    {
+        if (nonBlackPct < NonBlackMinPct)
+        {
+            why = $"非黑占比 {nonBlackPct:F2}% < {NonBlackMinPct:F1}%（平均亮度 {meanLum:F1} 只作读数）";
+            return true;
+        }
+        if (renderers == 0 && labels == 0)
+        {
+            why = "窗根子树里**渲染件 0 / 文本 0** ⇒ 开出来的是空容器"
+                + $"（像素侧非黑 {nonBlackPct:F2}% 是残留内容，不是这一扇画的）";
+            return true;
+        }
+        why = "";
+        return false;
+    }
+
+    /// <summary>
+    /// **闸的自检**（灭自证）：`… -executeMethod WindowShots.GateSelfTest`
+    /// <para>逐档喂**合成读数**，断言「该判空的一定判空、该放过的一定放过」。前两档是**负例**
+    /// （纯黑图 / 空容器 = 旧闸能抓的那一类），后三档是**正例**（含两扇曾被旧闸误杀的排位窗）。
+    /// ⛔ 别为了让某扇窗变绿去删负例 —— 删了这条自检就变成自证。</para>
+    /// <para>⚠️ 这是**纯算术**：不建场景、不渲图 ⇒ 批处理里几毫秒。像素项取**实测值**
+    /// （2026-11-01 现读 `_tmp_view/shots/win/*.png`）；件数是**合成值**（这一趟不数真树）。</para>
+    /// </summary>
+    public static void GateSelfTest()
+    {
+        int fail = 0;
+        void Case(string name, bool wantBlank, float lum, float nonBlack, float bright, int rnd, int lbl)
+        {
+            bool got = IsBlank(lum, nonBlack, bright, rnd, lbl, out string why);
+            bool ok = got == wantBlank;
+            if (!ok) fail++;
+            Debug.Log(P + $"   {(ok ? "✓" : "✗")} `{name}`：期望 {(wantBlank ? "判空" : "放行")}，"
+                        + $"实得 {(got ? "判空" : "放行")}{(got ? "（" + why + "）" : "")}"
+                        + $"｜读数 亮度 {lum:F1} / 非黑 {nonBlack:F2}% / 亮像素 {bright:F2}% / 渲染件 {rnd} / 文本 {lbl}");
+        }
+
+        // ---- 负例（必须判空）----
+        Case("纯黑图（相机没渲 / 整屏被遮死）", true, 0f, 0.00f, 0.00f, 12, 3);
+        Case("空容器（像素非黑很高，但窗根子树里一个件都没有）", true, 73.2f, 96.87f, 55.89f, 0, 0);
+        // ---- 正例（必须放行）：两扇曾被旧闸误杀的排位窗 + 基线 ----
+        Case("新赛季窗（像素 = 实测 · 件数 = 合成）", false, 2.8f, 8.97f, 1.34f, 47, 3);
+        Case("赛季结束窗（像素 = 实测 · 件数 = 合成）", false, 3.0f, 8.91f, 1.42f, 52, 6);
+        Case("主菜单基线（像素 = 实测 · 件数 = 合成）", false, 73.2f, 96.87f, 55.89f, 512, 37);
+
+        Debug.Log(P + (fail == 0
+            ? "=== SELFTEST PASS 5/5（闸没被放松：纯黑图与空容器仍判空）==="
+            : $"=== SELFTEST FAIL {fail}/5 ==="));
+        if (fail > 0) Debug.LogError(P + "   闸的自检红了 ⇒ 这一趟的出图结果不能当验收");
+        if (Application.isBatchMode) EditorApplication.Exit(fail > 0 ? 1 : 0);
+    }
+
+    // ============================================================ 模糊底（🔴 B-240② · 方案 A）
+
+    /// <summary>退化下限：RT 任一边小于它 ⇒ 底下认不出是「模糊的主菜单」，只剩大块色。
+    /// <para>判据 = **目标帧 1920×1080 的 1/8**（60×34）。正常档 RT = 帧尺寸 × `UIBakeScreen.RENDER_TEXTURE_MULTIPLIER`
+    /// （= 0.25，原版 `CreateRT` 实读）⇒ **480×270**，正好是下限的 8 倍。低于下限只可能来自
+    /// 「`Screen.width/height` 在批处理下是 0 ⇒ `CreateRT` 兜到 1×1」这一条（`UIBakeScreen.cs:170-176` 的既有兜底）。</para></summary>
+    const int MinBakeRtW = 60, MinBakeRtH = 34;
+
+    /// <summary>
+    /// 给**出图宿主**补上原版那件 `UIBakeScreen`（`B-240②` · 报告 `B114_W6_窗图闸.md` §3·2 的**方案 A**）。
+    /// <para>**为什么不必建整壳**：`GameWindow.SetBake` 的查找链 = `UIBakeScreen.Current`（静态，`Build()` 里赋）
+    /// → 再退 `ShellRuntime.Instance.Bake` ⇒ 场上只要有一件**被 `Build()` 过**的本件就够，
+    /// `ShellRuntime.Instance == null` **不妨碍** ⇒ `Shell/GameWindow.cs` **一行都不用改**。</para>
+    /// <para>**为什么挂在场景根、⛔ 不进菜单树**：`MainMenuWindow.ToBackground()` 会把「背景 + 模式卡」整棵
+    /// `SetActive(false)`；快照要是那棵树的孩子，就会跟它一起被藏掉 ⇒ 底还是黑的（这正是 `B-237` 那张图的成因）。</para>
+    /// <para>**触发链**（静态读码）：开第一扇窗时 `WindowsManager.OpenWindow` 走两条支路之一 ——
+    /// 全屏支 `HideAllWindows()` → `GameWindow.Hide()` → `SetBake(true)`；弹窗支 `currentWindow.ToBackground()`
+    /// → `SetBake(true)`（`WindowsManager.cs:326` / `:332`）。两条支路**都是先烘、后藏**（`GameWindow.cs:653` / `:703`
+    /// 都排在 `SetActive(false)` 之前）⇒ 快照里是「还没被藏掉的主菜单」，与原版一致。</para>
+    /// <para>返回一行进 `_index.tsv` 的读数；建不出来时**也返回原因**（⛔ 不拿 null 冒充「没这回事」）。</para>
+    /// </summary>
+    static string EnsureBake()
+    {
+        try
+        {
+            // 原版节点名 = `Game UI ▸ Main Canvas ▸ Background Render Texture Holder`（判据 → `Shell/UIBakeScreen.cs` 文件头）
+            var go = new GameObject("Background Render Texture Holder");
+            var bake = go.AddComponent<UIBakeScreen>();
+            bake.cameraToBake = Camera.main;
+            bake.Build();          // 批处理/编辑模式下 `Awake` 不跑 ⇒ 显式调（同 `ShellRuntime.Build` 的规矩）
+
+            if (bake.image == null)
+            {
+                Debug.LogWarning(P + "模糊底**没建成**：`UIBakeScreen.image == null`（`CardArt.Solid()` 没给图）"
+                                   + " ⇒ 这一趟的窗图底下仍是**纯黑**（= 原版观感的缺口，⛔ 别当成拍好了）");
+                return "模糊底：**没建成**（`image == null`）";
+            }
+
+            // 提前建一次 RT：只为把**真实尺寸**报出来（`Toggle(true)` 里也是这一步，幂等）。
+            bake.CreateRT();
+            var rt = bake.RT;
+            if (rt == null) return "模糊底：**RT 没建出来**";
+
+            string size = $"RT {rt.width}×{rt.height}（Screen {Screen.width}×{Screen.height}"
+                        + $" × {UIBakeScreen.RENDER_TEXTURE_MULTIPLIER}）";
+            if (rt.width < MinBakeRtW || rt.height < MinBakeRtH)
+            {
+                // 🔴 **必须出声**：这一档是「亮度对、观感不对」，**像素闸查不出来**（非黑占比会很高）⇒
+                //    只能靠这条 Warning + 索引表读数让调度台看见。
+                Debug.LogWarning(P + "模糊底**退化** —— " + size
+                    + $" 小于下限 {MinBakeRtW}×{MinBakeRtH} ⇒ 底下只是**一块整屏平均色**，不是模糊的主菜单；"
+                    + "成因 = 批处理下 `Screen.width/height` 很小/为 0，`UIBakeScreen.CreateRT()` 兜到 1×1"
+                    + "（那是它原有的兜底，本轮**没有改它**）。判据：`_index.tsv` 每行的 `说明` 列都印了这一项。");
+                return "⚠️ 模糊底**退化**：" + size + $" < 下限 {MinBakeRtW}×{MinBakeRtH} ⇒ 底是一块整屏平均色，不是模糊主菜单";
+            }
+            return "模糊底 " + size;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning(P + "模糊底**建不出来**（异常）：" + e.GetType().Name + " · " + e.Message
+                               + " ⇒ 这一趟的窗图底下仍是**纯黑**");
+            return "模糊底：**建不出来**（" + e.GetType().Name + "）";
+        }
     }
 }

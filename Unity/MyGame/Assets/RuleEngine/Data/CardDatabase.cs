@@ -1759,7 +1759,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c)); def.AttachCardTargetCriteria(dto.version >= 46 ? MapCardTargetCriteriaSet(c) : null, dto.version >= 46);   // 🆕 v46（`B113W11`）：卡级 `cardTargetCriteria` 的 36 格载体（`version < 46` ⇒ null = 未知）｜🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c, dto.version)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c)); def.AttachCardTargetCriteria(dto.version >= 46 ? MapCardTargetCriteriaSet(c) : null, dto.version >= 46);   // 🆕 v46（`B113W11`）：卡级 `cardTargetCriteria` 的 36 格载体（`version < 46` ⇒ null = 未知）｜🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -4796,7 +4796,7 @@ namespace RuleEngine
             /// <summary>🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`
             /// （`dump.cs:20340`）。`-1` = 缺键/旧表（<c>cards_engine.json</c> 未重生成）—— ⛔ **不是 0**。
             /// <para>唯一消费者 = 410 去重的闩（`Enchantments.ApplyFollowUpResolutionDedup` / `HasTriggerAbilityWithValue`）。</para></summary>
-            public int triggerValue = -1;
+            public int triggerValue = -1; public int ca = -1;   // 🆕 v47（2026-11-01 · 第 114 会话 · 写手 `W-B` · 账 `B-211`）：`ca` = 原版 **`AbilityLogic.chosenAbility`**（`AbilityEffect`；`Assembly-CSharp/AbilityLogic.cs:9` `public AbilityEffect chosenAbility;` —— 字段在 **AbilityLogic** 上、⛔ 不在 `CardAbility` 上 ⇒ 逐 `(ab, lg)` 行一个值）。`-1` = **未知**（`lg == -1` 没有 logic 实例 / 键缺失 / 旧表 `version < 47`）；`0`（`drawCard`）是**合法真值** ⇒ ⛔ 别把 `-1` 折成 `0`。⚠️ 同一物理行追加（铁律 18·b）：本文件账按行号引用，加行会推走下游 A 行落点。
         }
 
         public partial class CardDto
@@ -4809,8 +4809,8 @@ namespace RuleEngine
         /// <summary>🆕 v42：`triggerAbilityIndices` 列 → <see cref="CardDef.TriggerAbilityIndexSpec"/>。
         /// <para>⚠️ 行级坏值口径与 <see cref="MapAbilityMutations"/> 同族：`ab &lt; 0` / `lg &lt; -1` /
         /// `trigger &lt; 0` ⇒ 出声 + 丢弃该行；同一 `(ab, lg)` 撞键 ⇒ 出声 + **丢弃后一条**
-        /// （原版是一条 logic 一个 `CardEffect`，撞键 = 表坏了）。</para></summary>
-        static CardDef.TriggerAbilityIndexSpec[] MapTriggerAbilityIndices(CardDto c)
+        /// （原版是一条 logic 一个 `CardEffect`，撞键 = 表坏了）。｜🆕 v47（`W-B` · `B-211`）：`Ca` 的**版本守卫** —— `version &lt; 47` ⇒ 恒 `-1`（= **未知**），⛔ **不要 `?? 0` 冒充已知**（`0` = `drawCard` 是合法真值）；`version &gt;= 47` 时 `< -1` 的坏值同样折成 `-1`（判不出来就说不知道；生成器只产 `&gt;= 0` 或 `-1`）。</para></summary>
+        static CardDef.TriggerAbilityIndexSpec[] MapTriggerAbilityIndices(CardDto c, int version)
         {
             if (c == null || c.triggerAbilityIndices == null) return null;   // 缺列 = 未知（⛔ 不是「没有行」）
             var list = new List<CardDef.TriggerAbilityIndexSpec>(c.triggerAbilityIndices.Length);
@@ -4832,7 +4832,7 @@ namespace RuleEngine
                                  + "撞键 = 表坏了）。重跑 工具/gen_cards_engine.py。");
                     continue;
                 }
-                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger, TriggerValue = r.triggerValue });
+                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger, TriggerValue = r.triggerValue, Ca = (version >= 47 && r.ca >= -1) ? r.ca : -1 });   // 🆕 v47：`Ca`（`AbilityLogic.chosenAbility`）—— `version < 47` ⇒ `-1` 未知（⛔ 不是 0）
             }
             return list.ToArray();
         }

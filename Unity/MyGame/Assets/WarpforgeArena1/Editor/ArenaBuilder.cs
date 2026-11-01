@@ -2684,16 +2684,33 @@ public static class ArenaBuilder
                 //    `renderAlignment`（默认 View，原版 sororitas Fire/Glow 是 World）、
                 //    `lengthScale`（Stretch 模式的拉伸长度，原版 5.0 vs 默认 2.0）、`sortingFudge`。
                 if (p.renderAlignment != 0) rend.alignment = (ParticleSystemRenderSpace)p.renderAlignment;
-                // 🔴 **`maxParticleSize` 故意不设**（2026-09-21 实测，别当漏了）：
-                //    原版这几个字段是 12 / 20（Unity 默认 0.5），照抄会把画面**显著改亮** ——
-                //    `battlearena3` 实测：设了之后整场亮度比 **1.032 → 1.181**，
-                //    而把受影响的那 5 颗（`Stuff` / `Stuff (1)` / `Chasm glow` / `Scarab swarm 1/2`）
-                //    `WF_HIDE` 掉，比值**正好回到 1.037** ⇒ **退步全出在这一个字段上**。
-                //    ⇒ 字段语义还没吃透（Unity 的 `maxParticleSize` 到底是「裁掉超限的」还是
-                //    「把超限的缩到上限」，两种读法结论相反），**按铁律 4「实况与字段冲突以实况为准」：
-                //    维持 Unity 默认 0.5**。数据仍在清单里（`maxParticleSize`），吃透了再开。
-                // ⚠️ 另注：`renderAlignment` / `lengthScale` / `sortingFudge` **照原版设了**，
-                //    本次 A/B 里它们没有被牵进来（把上面那 5 颗关掉就够了）。
+                // 🆕 **2026-11-01（`B114_R3` 复核 → 写手 `W-14`）：`maxParticleSize` 改成【按清单逐颗设值】。**
+                //    ⛔ **这不是「2026-09-21 那次的翻案」，两次的前提根本不同，别混**：
+                //      · **09-21 那次**：清单里没有逐颗真值、只能**一个全局值套全 13 场** ——
+                //        `battlearena3` 实测设了之后整场亮度比 **1.032 → 1.181**，把受影响的那 5 颗
+                //        （`Stuff` / `Stuff (1)` / `Chasm glow` / `Scarab swarm 1/2`）`WF_HIDE` 掉，
+                //        比值**正好回到 1.037** ⇒ 退步全出在这一个字段上 ⇒ 当时的正解是「一律不设」。
+                //      · **现在**：清单里已有**逐颗真值**（13 场 `particles[].maxParticleSize`，
+                //        **578/578 颗全有值**，2026-11-01 现读），可以逐颗照抄，不会把别的场一起改亮。
+                //    🔴 **原版判据（13 场清单现读 + 原版资源逐颗亲读）**：
+                //      · `> 0.5`（= 被 Unity 默认值压着）的 **99 / 578** 颗；
+                //      · `TinyFlames` = **5.0**（`battlearena1` / `battlearena2` 各一颗）——
+                //        原版出处 `d:/2/解包整理/07_场景/battlearena1/ParticleSystemRenderer/ParticleSystemRenderer_1703.json`
+                //        的 `m_MaxParticleSize: 5.0` / `m_MinParticleSize: 0.0`（那是 `GameObject/TinyFlames.json`
+                //        的第 3 个 component）。它就是 `T05` 那团火（`Barrels` 旁）的主件，
+                //        我们原来按 0.5 跑 ⇒ **小 10 倍**；
+                //      · 另有 `SmokeEffect` = 10.0 · `WildFire` = 1.0 · `Embers` = 0.5（本来就等于默认）。
+                //    ⚠️ 字段语义（09-21 写「没吃透」的那半）：Unity `ParticleSystemRenderer.maxParticleSize`
+                //      是**上限夹取**（超过上限的粒子被**缩到上限**，不是剔除）⇒ 原版 5.0 / 10.0 等于
+                //      「基本不夹」；我们吃 0.5 = 把大火苗夹成小火苗。**实况仍待重渲验证**
+                //      （本件按 Unity API 语义理解，2026-11-01）。
+                //    ⚠️ **A/B 逃生口 = `WF_MAXPS=<值>`**（在 `RenderPreview` 那段诊断开关里：它会在**出图时**
+                //      `FindObjectsByType<ParticleSystemRenderer>` 后**统一覆盖全部粒子渲染器** ⇒
+                //      `WF_MAXPS=0.5` 就等于退回 09-21 那种「一律不设」那一档，**不用重建**）。
+                //      单颗 A/B 再配 `WF_HIDEIDX` / `WF_HIDE` 点名。
+                if (p.maxParticleSize > 0f) rend.maxParticleSize = p.maxParticleSize;
+                // ⚠️ 另注：`renderAlignment` / `lengthScale` / `sortingFudge` 在 09-21 那次 A/B 里
+                //    没有被牵进来（把上面那 5 颗关掉就够了），照原版设。
                 if (p.minParticleSize > 0f) rend.minParticleSize = p.minParticleSize;
                 if (p.lengthScale > 0f)     rend.lengthScale = p.lengthScale;
                 if (p.sortingFudge != 0f)   rend.sortingFudge = p.sortingFudge;
@@ -3604,7 +3621,11 @@ public static class ArenaBuilder
             if (cc.type != "ColorLookup") continue;
             string base0 = (mf.postFx.profile ?? "").Replace(" PostProcessing", "").Trim();
             string lut0  = $"Assets/WarpforgeArena1/Textures/LUT/LUT {base0}.png";
+            // 🔴 2026-11-01（`B114_R3` → `W-14`）：没有专属 LUT 的那 6 场要回退到**共享恒等 `LUT Normal`**
+            //    ⇒ 这条回退路的导入设置**也必须在这里做完**（同一个「必须早于建 profile」的理由，
+            //    否则 `SaveAndReimport` 会把刚加进去的 `ColorLookup` 冲掉）。
             if (AssetDatabase.LoadAssetAtPath<Texture2D>(lut0) != null) EnsureLutImportSettings(lut0);
+            else EnsureLutImportSettings(SharedIdentityLutPath);
         }
 
         // 🔴 **2026-09-25 修：不再 `DeleteAsset` + `CreateAsset`。**
@@ -3687,9 +3708,33 @@ public static class ArenaBuilder
                 string baseName = (mf.postFx.profile ?? "").Replace(" PostProcessing", "").Trim();
                 string lutName  = "LUT " + baseName;
                 string lutPath  = $"Assets/WarpforgeArena1/Textures/LUT/{lutName}.png";
+                // 🆕 **2026-11-01（`B114_R3` → `W-14`）：那 6 场原来是「本地没有专属 LUT ⇒ 整块省掉」，
+                //    现在改成**回退到共享恒等 `LUT Normal`**。**
+                //    🔴 **原版判据**：13/13 场都有 `ColorLookup` 槽（`active=1` · `contribution=1.0` ·
+                //      `texture.overrideState=1`）；其中 **7 场** `m_FileID=0`（包内自带 `LUT <场>`）、
+                //      **6 场** `m_FileID=9`（`arena2` 是 `10` —— externals 表下标）+ `PathID 382974660631151556`
+                //      = `battlesharedresources` 里那份**共享** `LUT Normal`。
+                //    🔴 **为什么恒等 LUT 不能省**：URP 的 `ColorLookup` 走 **16³ 3D 查找 + Bilinear**，
+                //      过一遍就有量化 / 端点钳制行为（8-bit 条带 + 插值）⇒「我们省掉」与「原版过一遍
+                //      恒等 LUT」**不是同一张图**。旧口径「恒等所以视觉等价 ⇒ 不接」已作废。
+                //    ⚠️ 素材是现成的、逐字节就是原版那张：`Assets/Resources/WarpforgeVFX/LUT/LUT Normal.png`
+                //      （md5 `41c14e8e7a1648098d9705fc68a026cf` · 256×16 RGB，与
+                //      `d:/2/解包资源/assets_full/bundle_battlesharedresources_assets_all/Texture2D/LUT Normal.png` 一致）。
+                //      ⛔ 不用新导、不用复制进来。
+                //    ⚠️ 连带（**不在本文件**）：`Editor/BattleScene.cs` 的 A243 断言 `ColorLookupMismatch`
+                //      仍写着「那 6 场不该接」⇒ 本改动落地后它会红，需按新口径改成「必须接、且贴的是 `LUT Normal`」。
+                bool sharedLut = false;
                 if (AssetDatabase.LoadAssetAtPath<Texture2D>(lutPath) == null)
                 {
-                    Debug.Log($"[Arena] ColorLookup：`{lutName}` 本地没有（原版只有 7 场带专属 LUT）⇒ 这场不接");
+                    lutPath   = SharedIdentityLutPath;
+                    sharedLut = true;
+                }
+                if (AssetDatabase.LoadAssetAtPath<Texture2D>(lutPath) == null)
+                {
+                    // 专属那张没有、恒等那张也没有 ⇒ **不静默**（宁可报红也不假装接上了）
+                    Debug.LogError($"[Arena] 🔴 ColorLookup：`{lutName}` 没有专属 LUT，"
+                                 + $"回退用的共享恒等 LUT 也取不到（`{SharedIdentityLutPath}`）"
+                                 + " ⇒ 这场**没有 ColorLookup**（原版 13/13 场都有）");
                 }
                 else
                 {
@@ -3701,7 +3746,9 @@ public static class ArenaBuilder
                     cl.contribution.overrideState = true;
                     cl.contribution.value = c.contribution <= 0f ? 1f : c.contribution;
                     CommitComp(prof, cl, keep, used);
-                    Debug.Log($"[Arena] ColorLookup：接上原版 LUT `{lutName}`（contribution {cl.contribution.value}）");
+                    Debug.Log(sharedLut
+                        ? $"[Arena] ColorLookup：`{lutName}` 没有专属 LUT ⇒ 按原版回退到**共享恒等** `LUT Normal`（contribution {cl.contribution.value}）"
+                        : $"[Arena] ColorLookup：接上原版 LUT `{lutName}`（contribution {cl.contribution.value}）");
                 }
             }
             else
@@ -6176,4 +6223,15 @@ public static class ArenaBuilder
         AssetDatabase.SaveAssets();
         Debug.Log($"[Arena] 13 场贴图导入设置重导完成（含 Sprites/；LUT 仅核对，见 `B-119`）");
     }
+
+    /// <summary>🆕 2026-11-01（`B114_R3` → 写手 `W-14`）：原版那 **6 场**（`Battle Arena 1/2/3/4` ·
+    /// `Astra Militarum` · `Dark Angels`）的 `ColorLookup` 贴的是 `battlesharedresources` 里的**共享恒等 LUT**
+    /// （`Texture2D` `PathID 382974660631151556`）。本地这张**就是原版那张**，逐字节相同：
+    /// md5 `41c14e8e7a1648098d9705fc68a026cf` · 256×16 · RGB ——
+    /// 与 `d:/2/解包资源/assets_full/bundle_battlesharedresources_assets_all/Texture2D/LUT Normal.png` 同一份。
+    /// <para>⚠️ 放在 `Assets/Resources/` 下（归 `B-233` 那 14 张 LUT 管，`wrap` 已是 0/0/0）；
+    ///   `EnsureLutImportSettings` 对它是**核对**（当前设置已满足 ⇒ 直接 return，不写盘）。</para>
+    /// <para>⛔ 别改成复制一份到 `WarpforgeArena1/Textures/LUT/` —— 那会让 `LUT Battle Arena 1/2/3/4`
+    ///   这几个**原版不存在**的名字出现，下一个会话会以为原版各有一张专属 LUT。</para></summary>
+    public const string SharedIdentityLutPath = "Assets/Resources/WarpforgeVFX/LUT/LUT Normal.png";
 }

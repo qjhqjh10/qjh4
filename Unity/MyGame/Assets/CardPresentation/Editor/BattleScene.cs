@@ -11985,10 +11985,10 @@ public static class BattleScene
                     Check(pfx.ColorLookupRef != null
                        && ReferenceEquals(pfx.ColorLookupRef.texture.value, pfx.Combined),
                           "★ `ColorLookup.texture` 真的指向了那张合并 RT（原版 `LUTBlender.DoBlend` 的最后一步）");
-                    // Reset：交还给**进场时那张静态 LUT**（原版 `PostFXController.ResetLUT`）
-                    pfx.Handle(new WarpforgeVFX.PostFxRequest { op = WarpforgeVFX.PostFxOp.Reset, instant = true });
-                    Check(ReferenceEquals(pfx.ColorLookupRef.texture.value, pfx.OriginalLut),
-                          "★ `Reset` 把 `ColorLookup.texture` 交还给了进场时那张（= 该战场的静态 LUT）");
+                    // Reset：`ColorLookup.texture` **仍指合并 RT**，变的是它的**内容** = 进场那张静态 LUT
+                    //   （原版 `LUTBlender.Awake` 起恒指 `combinedLUT`，`ResetLUT` 只改内容；⚠️ 2026-11-01 `B114_W53` 订正：
+                    //    这条以前写「交还给进场那张」= 10-26 之前的实现口径，且靠 `null==null` 空转过一个月 —— ⛔ 别改回去）
+                    CheckResetLut(pfx, Check);   // 发 `Reset(instant)` 请求 + 断「引用 / `_Blend` / 像素」三件（判据见类尾）
                     Check(pfx.MissingLutTextures.Count == 0,
                           "★ 刚才那条链**一张 LUT 都没缺**（缺了会记名字，只有真缺才非空）");
                 }
@@ -46893,7 +46893,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -47327,18 +47327,18 @@ public static class BattleScene
                               + "（原版就是拿它压四角，我们原来一点都没接）");
                     }
                     // 🆕 **A243：这一层原来「没有分支、也没有 `else`」** ⇒ 做了 / 没做 / 变没变，
-                    //    自检**一声不吭**（13/13 场清单里都有它）。判据（两态，都来自原版）见
-                    //    `ColorLookupMismatch`：7 场各有自己的 `LUT <场>`（该接）· 其余 6 场指的是
-                    //    共享的恒等 `LUT Normal`（不接等效）。
-                    //    ⚠️ 默认 `BoardArena` = `battlearena1` ⇒ 走到这里的是**「不接」那一档**，
-                    //      「7 场该接的接上了没有」由本节后面那条**逐场对账**兜住。
+                    //    自检**一声不吭**（13/13 场清单里都有它）。判据（13 场**都必须有**，来自原版）见
+                    //    `ColorLookupMismatch`：7 场贴各自的 `LUT <场>` · 其余 6 场贴共享的恒等 `LUT Normal`
+                    //    （🔴 2026-11-01 `B114_R3`/`W-14` 改口径：恒等那张**也要接** —— 原版 13/13 场都有槽）。
+                    //    ⚠️ 默认 `BoardArena` = `battlearena1` ⇒ 走到这里的是「贴 `LUT Normal`」那一档，
+                    //      「13 场逐场贴得对不对」由本节后面那条**逐场对账**兜住。
                     else if (c.type == "ColorLookup")
                     {
                         bool own = System.Array.IndexOf(ArenasWithOwnLut, BoardArena) >= 0;
                         string why = ColorLookupMismatch(gv.sharedProfile, BoardArena, mfP);
                         Check(why == null,
                               $"★ `ColorLookup` = 原版那一档（`{BoardArena}`："
-                            + (own ? "原版**有**自己的 `LUT <场>` ⇒ 必须接上" : "原版指的是恒等 `LUT Normal` ⇒ 不接等效")
+                            + (own ? "原版**有**自己的 `LUT <场>` ⇒ 必须接上" : "原版贴的是共享恒等 `LUT Normal` ⇒ 要接、贴它")
                             + "）" + (why == null ? "" : " —— 🔴 " + why));
                     }
                     else
@@ -47370,12 +47370,12 @@ public static class BattleScene
         }
 
         // 🆕 **A243（续）：`ColorLookup` 逐场对账** —— 上面那条只看得到**本局这一个战场**
-        //   （默认 `BoardArena` = `battlearena1`，恰好是「原版没有专属 LUT」那一档）⇒
-        //   「7 场该接的接上了没有」**在默认跑法下还是看不见**。这里把 13 份 `*_PostFx.asset`
+        //   （默认 `BoardArena` = `battlearena1`，恰好是「原版贴共享恒等 LUT」那一档）⇒
+        //   「13 场逐场贴得对不对」**在默认跑法下还是看不见**。这里把 13 份 `*_PostFx.asset`
         //   一次对完 —— 运行时经 `Resources/ArenaPrefabs/<场>.prefab` 里那个 Volume 用的就是它们。
         //   期望值同样**不从被断的实现里读**：来自原版资源（出处见 `ArenasWithOwnLut`）与清单。
-        //   改坏法：把 `ArenaBuilder.ApplyPostFx` 里接 LUT 那一段去掉（或让 `cl.texture` 为空）⇒
-        //   那 7 场立刻红；给 `battlearena1` 那 6 场随便接一个 ⇒ 那 6 场红。
+        //   改坏法：把 `ArenaBuilder.ApplyPostFx` 里接 LUT 那一段去掉（或让 `cl.texture` 为空）⇒ 13 场立刻红；
+        //   把那 6 场贴的 `LUT Normal` 换成别的 ⇒ 那 6 场红。
         {
             int bad = 0, withLut = 0;
             foreach (var a in ArenaBuilder.AllArenas)
@@ -47392,7 +47392,8 @@ public static class BattleScene
             }
             Check(bad == 0,
                   $"★ {ArenaBuilder.AllArenas.Length} 场的 `ColorLookup` 都跟原版那一档对得上"
-                + $"（实际接上专属 LUT 的 {withLut} 场 = 原版该接的 {ArenasWithOwnLut.Length} 场 · "
+                + $"（实际接上 LUT 的 {withLut} 场（其中专属 {ArenasWithOwnLut.Length} 场 + 共享恒等 "
+                + $"{ArenaBuilder.AllArenas.Length - ArenasWithOwnLut.Length} 场）· "
                 + $"不对的 {bad} 场；逐场理由见上面那些 `✗`）");
         }
 
@@ -47530,7 +47531,7 @@ public static class BattleScene
     ///   `m_FileID = 9` + `m_PathID = 382974660631151556`（= `battlesharedresources` 里那份 `LUT Normal`）。
     ///   · 这 7 张：与恒等 LUT **偏差中位 7/255 · p90 11/255**（一层温和调色）⇒ **必须画**；
     ///   · `LUT Normal`：256×16 条带按 16³ 展开后 **4096 个采样点偏差 0/255**（= 恒等）。
-    ///     画不画**视觉等价**（只多一趟 3D LUT 采样）⇒ 我们**不接**，下面那条断言钉的就是「没接」。
+    ///     但这 6 场**也必须接、贴它**（2026-11-01 改口径：13/13 场原版都有槽；「恒等」≠ 数学恒等）。
     /// ⚠️ 名字规则也是原版给的：`&lt;profile 名&gt; − " PostProcessing"` → `LUT &lt;剩下那截&gt;`
     ///   （7 个场景包的 `Texture2D/` 里各只有这一张 LUT，例如 `battlearenasororitas` → `LUT Battle Arena Sororitas`）。</summary>
     static readonly string[] ArenasWithOwnLut = {
@@ -47541,28 +47542,26 @@ public static class BattleScene
 
     /// <summary>`ColorLookup` 这一层对不对（**A243**）。`null` = 对；否则返回一句「哪里不对」。
     /// 期望值**全来自原版**：`contribution` 从**清单**读（原版实读，13/13 场都是 1.0）、
-    /// 「该不该在」由 `ArenasWithOwnLut` 定（出处见它自己的注释）⇒ ⛔ 不从被断的实现里读常量。
-    /// 两态：① 7 场 ⇒ `active` + `texture != null` + 贴的是**这张场的** `LUT &lt;场&gt;` + contribution = 清单值；
-    ///         ② 其余 6 场 ⇒ **不该在**（原版那一个是指向恒等 `LUT Normal` 的 override）。</summary>
+    /// 「贴哪一张」由 `ArenasWithOwnLut` 定（出处见它自己的注释）⇒ ⛔ 不从被断的实现里读常量。
+    /// 13 场**都必须有**：7 场贴**这张场的** `LUT &lt;场&gt;` · 其余 6 场贴共享恒等 `LUT Normal`；
+    /// 两档都要 `active` + `texture != null` + `overrideState` 打勾 + contribution = 清单值。</summary>
     static string ColorLookupMismatch(VolumeProfile prof, string arena, ArenaBuilder.Manifest mf)
     {
         ColorLookup cl = null;                                   // ⚠️ 先赋 null：`TryGet` 在短路里 ⇒ 编译器判不了「一定赋过值」
         bool has = prof != null && prof.TryGet(out cl) && cl != null && cl.active;
-        if (System.Array.IndexOf(ArenasWithOwnLut, arena) < 0)
-            return has ? "这场原版指的是共享的**恒等** `LUT Normal`（16³ 展开后偏差 0/255）⇒ 我们不该接，现在接了一个"
-                       : null;
-        if (!has) return "这场原版有**自己的** LUT（`LUT <场>`，与恒等偏差中位 7/255）⇒ 该接，现在没有";
+        if (!has) return "原版 13/13 场都有 `ColorLookup`（那 6 场贴的是共享恒等 `LUT Normal`）⇒ 必须有，现在没有";
         if (cl.texture.value == null) return "接了，但 `texture` 是空的（= 静默不生效，2026-09-25 踩过）";
         // 🔴 `overrideState` **也是承重的**：`VolumeComponent.Override` 只搬 `overrideState == true` 的参数
         //   （本机 `com.unity.render-pipelines.core@…/Runtime/Volume/VolumeComponent.cs:280-296`）
         //   ⇒ 没打勾 = 这一路**根本没进 Volume 栈**、采的还是默认的空纹理（静默、且渲染上看不出来）。
         if (!cl.texture.overrideState || !cl.contribution.overrideState)
-            return "`texture`/`contribution` 没打 override ⇒ 这两个值**根本进不了 Volume 栈**（`VolumeComponent.Override` 只搬打勾的）";
+            return "`texture`/`contribution` 没打 override ⇒ 这两个值**根本进不了 Volume 栈**";
+        bool own = System.Array.IndexOf(ArenasWithOwnLut, arena) >= 0;
         string baseName = (mf != null && mf.postFx != null && mf.postFx.profile != null)
                         ? mf.postFx.profile.Replace(" PostProcessing", "").Trim() : "";
-        string want = "LUT " + baseName;
+        string want = own ? ("LUT " + baseName) : "LUT Normal";
         if (cl.texture.value.name != want)
-            return $"贴的不是这张场的 LUT（现在是 `{cl.texture.value.name}`，按原版命名应当是 `{want}`）";
+            return $"贴的不是原版那张（现在是 `{cl.texture.value.name}`，按原版应当是 `{want}`）";
         float contrib = 0f;
         if (mf != null && mf.postFx != null && mf.postFx.components != null)
             foreach (var c in mf.postFx.components)
@@ -50657,5 +50656,57 @@ public static class BattleScene
               $"★ ……近战回落到 1（实得 {selW.ButtonScale(AttackKind.Melee):F3}）");
 
         selW.SetSelected(AttackKind.Melee); Step(0.35f);   // 还原成这一段原来的选中档（后面近战用例要用）
+    }
+
+    /// <summary>把任意 `Texture` 拷进 `w×h` 的临时 RT 再读一个像素（自检专用）。
+    /// 🔴 LUT 资产 `isReadable: 0` ⇒ 不能 `GetPixels`；而原版 shader 是**同 UV 采样** ⇒ 窄 LUT
+    /// （`LUT Overexpose High` 就是 64×4）会被拉伸填满合并 RT，所以这里也按**合并 RT 的尺寸**拷，
+    /// 走同一条映射 —— 否则两边量到的不是同一个样本（静默比出假差异）。</summary>
+    static Color ReadTexPixel(Texture t, int w, int h, int x, int y)
+    {
+        if (t == null) return default(Color);
+        var rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(t, rt);
+        var c = ReadRtPixel(rt, x, y);
+        RenderTexture.ReleaseTemporary(rt);
+        return c;
+    }
+
+    /// <summary>★ `Reset(instant:true)` 之后 LUT 链的净状态（原版 `PostFXController.ResetLUT`）。
+    /// <para>🔴 **2026-11-01（`B114_W53`）就地订正**：调用点原来写「`Reset` 把 `ColorLookup.texture`
+    /// **交还给进场那张**（`OriginalLut`）」—— 那是 **2026-10-26 之前我们自己那版实现**的口径
+    /// （`git show 4b315bbf`：`Reset` 只有 `_cl.texture.value = _original` 一句）。2026-10-26 `B8_AF`
+    /// 按原版改成「`_LUT1 = _LUT2 = _original` + `BlendTo(1f)`」之后，`texture` 最终落到 `_combined`
+    /// （`BlendTo` 在 `BattlePostFx.cs:348` 写），断言却没跟着改；又因为 arena1 当时 `_original` 是 `null`，
+    /// `ReferenceEquals(null, null)` **空转了整整一个月**，13 场重建补上 `LUT Normal` 后才第一次真跑。</para>
+    /// <para>原版判据（`d:/2/tools/decomp_full/`）：`LUTBlender__Awake.c` 是**唯一**写
+    /// `ColorLookup.texture` 的地方（指到 `combinedLUT`）；`PostFXController__ResetLUT.c` /
+    /// `LUTBlender__SetTargetLUT.c` / `LUTBlender__DoBlend.c` **都不碰那个引用**，只改 `combined`
+    /// 的**内容**（`_LUT2 = originalLUTTexture` + `_Blend → 1`）。</para>
+    /// <para>⇒ 该断三件（缺一不可）：① 引用**仍是**合并 RT；② `_Blend` 落到 1（否则「Reset 什么都没做」
+    /// 也满足 ①，那是恒真的）；③ **最强的**：合并 RT 的**像素** = 原 LUT 同一像素 —— 这才是
+    /// 「画面回到原 LUT」的净结果，也是唯一一条结构上排得掉「Reset 空转」的。</para></summary>
+    static void CheckResetLut(BattlePostFx pfx, System.Action<bool, string> check)
+    {
+        // 硬前提：⛔ 不许再 `null == null` 假绿（2026-11-01 `B114_R10` §〇 / 铁律「if (前提) Check(结论)」同族）
+        bool hasOrigin = pfx != null && pfx.OriginalLut != null;
+        check(hasOrigin,
+              "（前提）进场时 `ColorLookup.texture` 非空 ⇒ 下面那条才有意义（否则 `null == null` 假绿）");
+        if (!hasOrigin) return;
+
+        float blendBefore = pfx.BlendNow;          // 上面刚 `BlendTo(0.25)` ⇒ 期望 0.25
+        pfx.Handle(new WarpforgeVFX.PostFxRequest { op = WarpforgeVFX.PostFxOp.Reset, instant = true });
+        check(ReferenceEquals(pfx.ColorLookupRef.texture.value, pfx.Combined),
+              "★ `Reset` 之后 `ColorLookup.texture` **仍指**合并 RT（原版 `LUTBlender.Awake` 起的常驻形态）");
+        check(blendBefore < 0.99f && Mathf.Approximately(pfx.BlendNow, 1f),
+              $"★ 而且 `_Blend` 落到了 1（Reset 前 {blendBefore:F2}）⇒ `lerp(_LUT1,_LUT2,1)` = 原 LUT —— "
+            + "「引用没变」还不够，这一条才排得掉「Reset 什么都没做」");
+        // 净结果：合并 RT 的**内容** = 原 LUT（⛔ 别只比引用：`Combined` 是同一张 RT，比它恒真）
+        int w = pfx.Combined.width, h = pfx.Combined.height;
+        var O = ReadTexPixel(pfx.OriginalLut, w, h, 128, 8);
+        var R = ReadRtPixel(pfx.Combined, 128, 8);
+        check(Mathf.Abs(R.r - O.r) + Mathf.Abs(R.g - O.g) + Mathf.Abs(R.b - O.b) <= 0.02f,
+              $"★ `Reset` 之后合并 RT 的内容 = 原 LUT（R={R.r:F3},{R.g:F3},{R.b:F3} "
+            + $"O={O.r:F3},{O.g:F3},{O.b:F3}）—— 这才是「画面回到原 LUT」的净结果");
     }
 }

@@ -49,7 +49,7 @@ namespace CardPresentation
         static void PremiumBody(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
                                 ref ItemDrawResult res, bool armyText, bool iconGuard)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Premium Drawer` / `… No Glow` / `Expansion Pass Premium Drawer` / 两档 Icon 变体：全是 ARF 2（B-260）
             var content = DrawerContent(node, fr);
             // 🆕 **2026-10-31（B108_A15）**：这两层**不是一个固定形状** —— 5 份 prefab 逐份直读
             //   （判据 → `资料/完全复刻/判据/B108_AUD01_余项.md` §二·2 表）：
@@ -99,7 +99,7 @@ namespace CardPresentation
         static void PremiumIcon(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
                                 ref ItemDrawResult res)
         {
-            var fr = FrameOf(box, DrIconRoot, DrIconRoot);
+            var fr = FrameOf(box, DrIconRoot, DrIconRoot, RootFit.HeightControlsWidth);   // `Icon VIP Premium Campaign Drawer Variant`：ARF 2 · 1（B-260）
             var content = DrawerIconContent(node, fr);
 
             var tex = Tex(item.Art);

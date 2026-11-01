@@ -88,7 +88,7 @@ namespace CardPresentation
             LastGenericArmy = new GenericArmyParts();
 
             // holder = prefab 的 `Content`（0.4..712.4 × 0..1080，`FrameOf` 折进本格）
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Generic Army Item Drawer`：ARF `m_AspectMode 2`（0.66）（B-260）
             var holder = DrawerContent(node, fr);
             var holderRect = fr.Map(DrCx1, 0f, DrCx2, DrRootH);
             LastGenericArmy.Holder = holder != null;

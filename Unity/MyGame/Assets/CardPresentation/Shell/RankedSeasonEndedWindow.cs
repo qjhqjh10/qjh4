@@ -17,13 +17,13 @@
 //   `score`（= `Ranking Points Quantity Text`）← 赛季评分的**整数**；
 //   `positionOrPercentageText` ← `I2(EndFinishPercentage)` 或 `I2(EndFinishScore)`（两种，按有没有进前 1000）；
 //   `canvasGroup.DOFade(...).From(...)`（淡入）。⇒ **段位 / 名次 / 评分全在服务端** ⇒ 留空/`--` + 出声，
-//   ⛔ 不编数字（判据口径同 `RankedDivisionInfo.cs` 文件头 ⑤）。
+//   ⛔ 不编数字（判据口径同 `RankedDivisionInfo.cs` 文件头 ⑤）。🔴 **2026-11-01（B-239）就地订正**：上面「段位……留空」那一半已过期 —— 段位大图现在按**展示段位号**画（表 → `RankedDivisionInfo.DivisionArt`），只有名次/评分仍留空。
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **文案**：标题 / `Rating:` / `Tap To Continue` 走 prefab 的 `Localize.mTerm`；
 //   名次那一颗原版是 `EndFinishPercentage`（百分位）或 `EndFinishScore`（名次）二选一 ——
 //   两个词条都在官方 13 语言表里，取词条统一走 `TutorialMessagePopup.OfficialTerm`（唯一一份取法）。
-// · **段位大图 / Rank Icon**：`m_Sprite = 0` ⇒ 节点照建、**不画** + 出声（同 DivisionChange 那一档）。
+// · **段位大图 / Rank Icon**：⚠️ **2026-11-01（B-239）就地订正（铁律 5）**：原写「`m_Sprite = 0` ⇒ 节点照建、**不画**」—— **已过期**：段位大图现在**真的画**（表 = `RankedDivisionInfo.DivisionArt`，7 条字节证据），错因是当时以为「段位号→图名对照表本机没有」；`Rank Icon` 仍然不画（名次号在服务端）。
 // · **`Glow below`**：原版是 `ParticleSystem`（scale 250）⇒ 归特效线，本窗只留节点 + 出声一次。
 // · **`canvasGroup`**：照 prefab `AddComponent<CanvasGroup>`（`m_Alpha = 1`；原版 `Open()` 的
 //   `DOFade` 是动画，本窗不播动画 —— 如实标注）。
@@ -181,18 +181,18 @@ namespace CardPresentation
             _dark = MenuDraw.Node(transform, "Menu Dark Background", DarkR);
             MenuDraw.Rect(_dark, CardArt.Solid(), DarkR, "Image", QShade, ShadeTint); MenuDraw.ShadeHit(_dark, DarkR, QShade, QDivision, () => Close(), "BackgroundCloseButton");
 
-            // ---- 2) `Division Image`（服务端段位图；`m_Sprite = 0` ⇒ 不画）----
-            _division = MenuDraw.Node(transform, "Division Image", DivisionR);
-            if (string.IsNullOrEmpty(_ctx.DivisionLabel))
+            // ---- 2) `Division Image`（段位大图）----
+            // ⚠️ **2026-11-01（B-239）就地订正（铁律 5）**：这里原写「服务端段位图 `m_Sprite = 0` ⇒ 不画」+「本机没有
+            //   段位号→图名对照表」—— **两处都已过期**（表就在 `RankedDivisionInfo.DivisionArt`：`RankedDivisionsSO.asset`
+            //   7 条 GUID 与 7 张 Sprite 逐条相等），错因 = 当时只扫了 `assets_full` 那 84 个 bundle、**没扫 AssetRipper 导出**；
+            //   现在只剩「**本窗拿不到段位号**」这一种空白。判据 = 同族 `RankedDivisionChangeWindow.BuildDivisionImage`（`B88_E10`）。
+            _division = BuildDivisionImage();
+            DivisionArtUsed = DivisionArtOf();
+            if (string.IsNullOrEmpty(DivisionArtUsed))
             {
                 DivisionArtBlank = true;
-                NoteNoArt("Division Image", "段位大图 = 服务端 `RankedDivisions.GetDivisionData(...).AssetReferenceTyped`，"
-                                          + "本机没有「段位号→图名」对照表");
-            }
-            else
-            {
-                DivisionArtBlank = true;
-                NoteNoArt("Division Image", "给了段位名 `" + _ctx.DivisionLabel + "`，但**段位图名对照表本地没有**");
+                NoteNoArt("Division Image", "本窗没拿到段位号（`Context.DivisionLabel` 为空且 `DivisionNumber` 未设）"
+                                          + "⇒ 段位大图不画（节点照建，载体由 `BuildDivisionImage` 建出）");
             }
 
             // ---- 3) `Division Image/Rank Icon`（服务端；按视觉框建，见 `RankIconR`）----
@@ -330,6 +330,61 @@ namespace CardPresentation
                  + " score=\"" + (_pointsQty != null ? _pointsQty.Text : "-") + "\""
                  + " divisionArt=" + (DivisionArtBlank ? "<blank>" : "?")
                  + " missingArt=" + MissingArt.Count;
+        }
+
+        // ============================================================ 段位大图（2026-11-01 · B-239）
+        // ⚠️ 这些成员**全部追加在类尾**（铁律 18·b / 行号纪律）：`Context` 是 struct，往里加字段会让本文件
+        //    `:151`（`Open`）/ `:164`（`Build`）/ `:259`（`PercentText`）那三条账的 A 行落点整体下移。
+        // 判据（现读）：`RankedEventSeasonEndedWindow__Open.c:40-52` —— `GetDivisionData(divisionNumber)` →
+        //   `AssetReferenceTyped.Load()` → `Image.set_sprite(...)`（`+0x88` 那颗 = `Division Image`）。
+        //   原版这一段整块挂在「服务端统计 != null」的判据里 ⇒ 没数据时 `m_Sprite` 停在 prefab 的 0。
+        //   prefab 实读（`assetripper_out/ExportedProject/Assets/Ranked Season Ended Window.prefab`）：
+        //   `Division Image` 只有 `RectTransform/CanvasRenderer/Image` **三个组件**（没有 `AnimateUIMaterialProperty`，
+        //   与 `RankedDivisionChangeWindow` 那颗不同）· `m_SizeDelta = 754.958²` · `m_Type = 0`(Simple) ·
+        //   **`m_PreserveAspect = 0`**（⇒ 铺满，⛔ 别按 `RankedDivisionInfo` 那颗 PA=1 的等比内接抄）· `m_Color` 白 α1。
+
+        /// <summary>`Division Image` 上现在画的是哪张图（= `RankedDivisionInfo.DivisionArtName` 的返回值；
+        /// 空串 = 没画）。自检读口。</summary>
+        public string DivisionArtUsed { get; private set; }
+
+        /// <summary>段位号（原版由服务端 `RankedDivisions.GetDivisionData` 给；本地没有 ⇒ 调用方自己设）。
+        /// ⚠️ 追加在**类尾**（不进 `Context`，理由见上面那一节的行号纪律）。</summary>
+        public int? DivisionNumber;
+
+        /// <summary>段位号 → 图名（**两级，与同族 `RankedDivisionChangeWindow.DivisionArtOf` 逐字同构**）：
+        /// ① `DivisionNumber`（调用方显式给）② `Context.DivisionLabel` 在官方段位名表 `Ranked/Division/1..7`
+        /// 里**反查**。两路都取不到 ⇒ 空串（调用方出声、不画）。
+        /// 🔴 **2026-11-01 调度台裁定**：**⛔ 不退回「演示段位号」**（`RankedData.DisplayDivisionNumber` / 7）——
+        ///   原版没有段位号时**不替玩家编一个段位**（`GetDivisionData` 只在服务端统计非 null 时才被调用），
+        ///   演示值会让画面「看起来有数据」= 项目最忌讳的那种静默欺骗；本窗全仓零生产调用点，空洞不影响玩家路径。
+        /// ⛔ 也不在这里另编一张图名表 —— 唯一出处 = `RankedDivisionInfo.DivisionArt`（7 条字节证据）。</summary>
+        string DivisionArtOf()
+        {
+            if (DivisionNumber.HasValue) return RankedDivisionInfo.DivisionArtName(DivisionNumber.Value) ?? "";
+            if (!string.IsNullOrEmpty(_ctx.DivisionLabel))
+                for (int n = 1; n <= RankedDivisionInfo.DivisionArtCount; n++)
+                {
+                    string key = "Ranked/Division/" + n;
+                    string nm = Loc.T(key);
+                    if (!string.IsNullOrEmpty(nm) && nm != key && nm == _ctx.DivisionLabel)
+                        return RankedDivisionInfo.DivisionArtName(n) ?? "";
+                }
+            return "";
+        }
+
+        /// <summary>建 `Division Image`（+ 段位大图）。取不到图 ⇒ 退回空节点并出声
+        /// （`MenuDraw.Rect` 对 `tex == null` 是**静默返回 null**，所以这里必须显式兜住）。
+        /// <para>⚠️ **已知未复刻的一格（如实记，⛔ 别当成已复刻）**：原版 `Open()` 里 `+0x88` 那颗 Image
+        /// **从不** `SetActive(false)` / `enabled = false`（只有 `+0x90` 那颗 `Rank Icon` 会
+        /// `set_enabled(sprite != null)`，`RankedEventSeasonEndedWindow__Open.c:89-97`）⇒ `sprite == null` 时
+        /// uGUI 走白图兜底 ⇒ **原版很可能是「一整块 754.958² 的纯白方块」**。⚠️ **无实拍证据**（原版已关服、
+        /// 该窗需要赛季结算数据）⇒ 我们取「**不画**」（与同族 `RankedDivisionChangeWindow` 的诊断口径一致）。</para></summary>
+        Transform BuildDivisionImage()
+        {
+            string art = DivisionArtOf();
+            var tex = string.IsNullOrEmpty(art) ? null : Tex(art, "`Division Image` 的段位大图");
+            var quad = tex == null ? null : MenuDraw.Rect(transform, tex, DivisionR, "Division Image", QDivision);
+            return quad != null ? quad.transform : MenuDraw.Node(transform, "Division Image", DivisionR);
         }
     }
 }

@@ -48,7 +48,7 @@ namespace CardPresentation
         static void ForgePointIcon(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st,
                                    ref ItemDrawResult res)
         {
-            var fr = FrameOf(box, DrIconRoot, DrIconRoot);
+            var fr = FrameOf(box, DrIconRoot, DrIconRoot, RootFit.HeightControlsWidth);   // `Icon Forge Points Drawer Variant`：ARF 2 · 1（B-260）
             var content = DrawerIconContent(node, fr);
             var tex = Tex(ArmyIcons.ForgeIconName(0));      // `Neutral` ⇒ `ForgeSpriteName(0)` 返 null ⇒ `Tex(null)` = null
             if (tex != null)                                 // 今天恒 null；图上真有了也照画
@@ -61,8 +61,10 @@ namespace CardPresentation
                                        ref ItemDrawResult res)
         {
             int army = item.CardArmy == 0 ? GenericArmyItem.CurrentArmy : item.CardArmy;
+            st.QArt = DrawerArtQueue(st);   // 🆕 B243（B114_W12）：`Content/Campaign Glow` 要插在「底板」与「主图」之间 ⇒ 主图得让出号（理由 → `ItemDrawerPartial_B114W12.cs` 的「渲染队列」那一节）
             PointsForArmy(node, box, item, qty, st, ref res, army, army, hideOnNeutral: false, forgeIcon: false,
                           noteKey: "expansionPoint");
+            DrawCampaignGlowBase(node, box, st);   // 🆕 B243：原版 `Content.m_Children[1]` = `Campaign Glow`（恒显；`background` 槽是 `{fileID:0}` ⇒ 不由代码开关）—— 判据 → `ItemDrawerPartial_B114W12.cs` 文件头
         }
 
         /// <summary>「阵营徽记 + 阵营名」那两口（`ForgePointDrawer.DrawForArmy` 与
@@ -72,7 +74,7 @@ namespace CardPresentation
                                   ref ItemDrawResult res, int armyIcon, int armyName, bool hideOnNeutral,
                                   bool forgeIcon, string noteKey)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Forge Points Drawer` / `Expansion Pass Points Drawer`：ARF 2 · 0.66（B-260）
             var content = DrawerContent(node, fr);
             DrawerBackground(content, fr, st);
 

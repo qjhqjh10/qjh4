@@ -138,9 +138,9 @@ namespace CardPresentation
             CacheRefs();
             if (_quad != null)
             {
-                var c = _quad.Tint;
+                var c = CurrentColor();   // 🔴 `B-261`：原来这里读 `_quad.Tint`（= `sharedMaterial.color`）—— 材质没有 `_Color` 时那个读口**不可信**，改走 `CurrentColor()`（它带兜底，见类尾那一节）
                 c.a = target;
-                _quad.SetTint(c);
+                if (!_quad.UsesVertexTint && !QuadMaterialHasColor()) _quad.SetVertexTintChannel(true); _quad.SetTint(c); WarnIfVertexTintUnreachable();   // 🔴 `B-261`（2026-11-01 · `W-31`）：原版这一句改的是 uGUI `Graphic.color` = **CanvasRenderer 顶点色**；本族 shader **没有 `_Color`**（判据 → `判据/B114_R5_Reveal_DXBC.md` §2·1 `o2 = v4` / §2·2 ⑧ 末句 `× v2`）⇒ 不开顶点色通道时写下去的那一笔**静默落空**
                 return;
             }
             if (_graphic != null)
@@ -348,7 +348,7 @@ namespace CardPresentation
         Color CurrentColor()
         {
             CacheRefs();
-            if (_quad != null) return _quad.Tint;
+            if (_quad != null) return (_quad.UsesVertexTint || QuadMaterialHasColor()) ? _quad.Tint : Color.white;   // 🔴 `B-261`（2026-11-01 · `W-31`）：`ImageQuad.Tint` 在「材质没有 `_Color`、顶点色通道也没开」时读口**不可信**（Unity 打一条 `Material doesn't have a color property '_Color'` 之后给默认值）——那会让 `graphicOriginalColor.a` 变成 0、`Anim()` 末句把 α「还原」成 0（画面永不可见）。⇒ 按 uGUI「未改过色」= **白**兜底（本族 shader 全靠顶点色/材质自带色，α 只需要 1）
             if (_graphic != null) return _graphic.color;
             return Color.white;
         }
@@ -477,6 +477,57 @@ namespace CardPresentation
             Debug.LogWarning("[UIBorderGlow] " + MaxMaterialRetries + " 帧都取不到渲染件材质（`" + name + "`）⇒ 停止重试，本件不会播。"
                            + "最常见的原因 = **组件挂在没有渲染件的空节点上**（`ImageQuad.Create` 恒建子对象 ⇒ 要挂到 "
                            + "`quad.gameObject`，不是它的父节点）。");
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-11-01（`B-261` · 写手 `W-31`）—— `ChangeGraphicAlpha` 改走**顶点色**
+        //  ⚠️ **全部追加在类尾**：账里本文件的落点最高 `:415`，新增成员不许再把它们顶漂。
+        //     （`ChangeGraphicAlpha` 本体的改动是**同一物理行替换**，行数零变化。）
+        //
+        //  为什么必须换路：原版 `ChangeGraphicAlpha(float target)`（原版 `UIBorderGlow.cs:262`）= 改
+        //  `MyGraphic.color` —— uGUI 里那是 `CanvasRenderer` 的**顶点色**（`Graphic.color` → `SetVerticesDirty`
+        //  → 每顶点 `COLOR`）。而本工程的载体是 `ImageQuad`（`MeshRenderer` + 每件一份材质），它的
+        //  `SetTint` 默认写 `sharedMaterial.color` = `_Color`。本族 shader（本文件所用的
+        //  `WarpforgeVFX/UI/UI Border Highlight`，以及 Forge 那条链用的原版 `Everguild/UI/UI Border
+        //  Highlight Appear`）属性表里**都没有 `_Color`**（判据 → `判据/B114_R5_Reveal_DXBC.md` §2·1 / §2·2 ⑧）
+        //  ⇒ 写进去那一笔**不报错、画面也不变**（Unity 只在材质上打一条
+        //  `Material doesn't have a color property '_Color'`）—— 正是 `B-261` 记的那条静默失败。
+        //  ⇒ 走 `ImageQuad.SetVertexTint` 那一套：`SetVertexTintChannel(true)` 开通道 + `SetTint(c)` 推色
+        //  （通道开着时 `SetTint` 走 `Mesh.colors`，并且**仍会把色转给软边子块**；`SetVertexTint(c)` 只开通道
+        //  不转色，所以这里不用它）。
+        //
+        //  ⚠️ **为什么材质有 `_Color` 时不换路**：那种材质上旧路**本来就生效**；换路之后顶点色会与已有的
+        //     `_Color` **双乘**（rgb 会变暗）。今天挂 `UIBorderGlow` 的两条生产链
+        //     （`ForgeTab` 的 `Collect Highlight Effect`、`CardDisplayEffects` 的 `Level Up Effect*`）
+        //     用的都是**没有 `_Color`** 的那一族，实际走不到这一档；留着它是给「将来有人把本组件挂到
+        //     `Sprites/Default` 上」兜底（`Sprites/Default` 会把 `_Color × 顶点色 × 贴图` 乘在一起）。
+        // ════════════════════════════════════════════════════════════════════════
+
+        static readonly int ColorPropId = Shader.PropertyToID("_Color");
+
+        /// <summary>载体当前那份材质**有没有** `_Color`（`Sprites/Default` 有、本族边框 shader 没有）。
+        /// 只在「`_quad` 还没开顶点色通道」时被问 —— 通道一开，`ChangeGraphicAlpha` 就不再走这一句。</summary>
+        bool QuadMaterialHasColor()
+        {
+            return _renderer != null && _renderer.sharedMaterial != null
+                && _renderer.sharedMaterial.HasProperty(ColorPropId);
+        }
+
+        bool _warnedNoVertexTint;
+
+        /// <summary>【出声】顶点色这条路**真的落地了吗**：`ImageQuad.UploadVertexTint` 在 `_mf == null` 时
+        /// **直接 return**（静默），`RebuildMesh` 也要有 `MeshFilter`。⇒ 没有可用网格就喊一次，
+        /// ⛔ 不让「改了 α、画面一动不动」变成静默失败（本工程红线）。
+        /// <para>⚠️ 只在**已经决定走顶点色**（`UsesVertexTint`）时检查 —— 走 `_Color` 那条路的 quad 不该被这条喊。</para></summary>
+        void WarnIfVertexTintUnreachable()
+        {
+            if (_warnedNoVertexTint || _quad == null || !_quad.UsesVertexTint) return;
+            var mf = GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null && mf.sharedMesh.vertexCount > 0) return;
+            _warnedNoVertexTint = true;
+            Debug.LogWarning("[UIBorderGlow] `ChangeGraphicAlpha` 的顶点色**写不进任何网格**（`" + name
+                           + "` 上没有 `MeshFilter`、或网格是空的）⇒ 这一件的 α 不会变（⛔ 不是静默）。"
+                           + "载体必须由 `ImageQuad.Create` 建出来（只有它会挂 `MeshFilter` + 建网格）。");
         }
     }
 }

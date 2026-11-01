@@ -135,7 +135,7 @@ public static class B110_W5_ShaderSupport_Assert
                     File = "Assets/WarpforgeVFX/Shaders/WFUIBorderHighlight.shader",
                     Container = "MaterialRef",
                     Materials = "Assets/CardPresentation/Resources/Art/vfx/Border Effect For Level up.mat",
-                    Where = "Shell/CardDisplayEffects.cs:458 `Border Effect For Level up`（只经材质引用）" },
+                    Where = "Shell/CardDisplayEffects.cs 的 `BuildImage`（`im.hasAmp` 那一段）挂 `Border Effect For Level up` —— 只经材质引用；⛔ 这里**不写行号**（2026-11-01 起：`W-8`/`W-17` 两次改动已让它漂过两回，指向方法名才稳）" },
 
         // 这一个在 `GraphicsSettings.m_AlwaysIncludedShaders` 里（guid `7d3c5a91…`）
         new Entry { Name = "CardPresentation/UIBlur",

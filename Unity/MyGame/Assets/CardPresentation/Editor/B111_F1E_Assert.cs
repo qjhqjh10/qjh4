@@ -115,7 +115,8 @@ public static class B111_F1E_Assert
                 Check(CountPrefix(fxRoot, "Level Up Effect") >= 2,
                       "A · 佐证：以 `Level Up Effect` 开头的节点**不止一个**（还有 `… Down`）"
                       + $" ⇒ 必须精确名匹配（实际 {CountPrefix(fxRoot, "Level Up Effect")} 个）");
-                // ⚠️ 第 0 子件是它自己的 `… Gfx` quad（`CardDisplayEffects.cs:253` → `ImageQuad.cs:124-125`），`… Down` 是第 1 个
+                // ⚠️ 第 0 子件是它自己的 `… Gfx` quad（`CardDisplayEffects.BuildImage` 里的 `ImageQuad.Create(... im.name + " Gfx")`），`… Down` 是第 1 个
+                //    2026-11-01 起改指**方法名**：`W-8`/`W-17` 两次改动已让行号漂过两回（`:253`→`:313`→…），⛔ 别再写死行号
                 // ⇒ 层级本身是对的，数子件序会数错。按名字递归找。
                 Check(target != null && FindExact(target, "Level Up Effect Down") != null,
                       "A · `Level Up Effect Down` 确实是 `Level Up Effect` 的子件（⛔ 用 `Transform.Find` 只查直接子件会漏）");

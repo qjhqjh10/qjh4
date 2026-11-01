@@ -131,7 +131,7 @@ namespace RuleEngine
                         using (EventSlotsScope.TargetCardAndActing(ctx, targetCard, u.Card, actingCard))
                         {
                             ctx.EffectChain++;
-                            try { ResolveOps(ctx, owner, u, eops, tn.ToUpperInvariant(), chosen: targetCard); }
+                            try { ResolveOps(ctx, owner, u, RandomAbilityChoiceOps(ctx, u, eops, e, null, false, tn), tn.ToUpperInvariant(), chosen: targetCard); }   // 🆕 2026-11-01（写手 `W-19` · 活状态表 `B-251`）：**附魔那半条数值路也接 `randomAbilityChoice`** —— 原版 `RawCardScript__TriggerAbilities.c:184`（附魔趟）调的正是 `RawCardScript__TriggerAbility`，而 `ability+0x48` 那一跳在 `.c:75/:82-94`，**与能力属于哪张卡无关** ⇒ 附魔卡的 `rc` 同样成立。`only = e`（让 `RandomAbilityChoiceOps` 取**附魔卡自己**的 `TriggerRandomChoice`，⛔ 不是载体的）、`keyword = null`（数值路没有关键词）、第 7 形参直给 `tn`。与 `FireTriggerByNumberWithSink` 那处**同形、同一份判法**。
                             finally { ctx.EffectChain--; }
                         }
                     }),
@@ -181,5 +181,22 @@ namespace RuleEngine
         /// <summary>`EnchantmentHasAbilityForTrigger` 的「只喊一次」闩（键 = `卡|trigger`）。</summary>
         static readonly HashSet<string> _b109e6NoIndexNoted =
             new HashSet<string>(System.StringComparer.Ordinal);
+
+        // --------------------------------------------------------------------------------------------
+        //  🆕 2026-11-01（写手 `W-19` · 活状态表 `B-251`）—— 自检门
+        //  ⚠️ 加在**类尾**（本文件在此之后没有成员）：不影响文件内任何已引用行号。
+        //  ⛔ 生产侧别调（纪律同 `FireTriggerRowsByChosenAbilityForTest`）。
+        // --------------------------------------------------------------------------------------------
+
+        /// <summary>自检门：<see cref="FireEnchantmentAbilitiesByNumber"/>（附魔那半条数值路）。
+        /// <para>它证明的是「附魔卡的 `ability+0x48`（`randomAbilityChoice`）也会被消费」——
+        /// 判据 `RawCardScript__TriggerAbilities.c:184` 的附魔趟调的正是 `RawCardScript__TriggerAbility`
+        /// （其 `.c:75/:82-94` 那两跳与「能力属于哪张卡」无关）。</para></summary>
+        public static int FireEnchantmentAbilitiesByNumberForTest(BattleContext ctx, UnitState u, int triggerNumber,
+                                                                  string tn, int owner, int slot,
+                                                                  UnitState actingCard, UnitState targetCard)
+        {
+            return FireEnchantmentAbilitiesByNumber(ctx, u, triggerNumber, tn, owner, slot, actingCard, targetCard);
+        }
     }
 }

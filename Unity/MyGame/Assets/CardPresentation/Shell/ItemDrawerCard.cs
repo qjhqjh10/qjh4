@@ -100,7 +100,7 @@ namespace CardPresentation
         static void DrawCardBody(Transform node, PxRect box, ItemSpec item, int quantity, ItemDrawerStyle style,
                                  ref ItemDrawResult res, bool altArt)
         {
-            var fr = FrameOf(box);
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // `Card Drawer` / `Card Alternate Art Drawer` 都是 ARF 2（0.66）⇒ 框更窄时原版横向溢出（B-260）
             var content = DrawerContent(node, fr);
 
             // ① 卡 id：`ItemSpec.CardId` 优先（施工单 §四-2 那个位），空则回落 `item.Id`

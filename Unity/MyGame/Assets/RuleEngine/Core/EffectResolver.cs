@@ -1348,8 +1348,8 @@ namespace RuleEngine
         ///
         /// <para>**目标表从哪来**：就是这条 logic 自己的 `targetCriteria` —— 这里直接复用
         /// <see cref="ResolveTargets"/>（与 ta=200/201 的**读**同一份解析，⛔ 不另写一遍）。
-        /// 池内唯一的 380 用法（`AM54` / `GOF93`）其 `ta = 150 previousAbilityFiltered`，
-        /// 而 `ta` 已在 `EffectText.<see cref="EffectText.AssignAbilityTargets"/>` 那一趟挂到 op 上。</para>
+        /// 池内 380 共 **3** 行（`AM54` / `GOF93` 是 `ta = 150 previousAbilityFiltered`，另 1 行 `GOF104` 是 `ta = 30`；⚠️ 2026-11-01 就地订正（`B114_R6` / `B114_W23`）：原写「池内唯一的 380 用法（`AM54` / `GOF93`）」漏了 `GOF104`），
+        /// 而 `ta` 已在 `EffectText.<see cref="EffectText.AssignAbilityTargets"/>` 那一趟挂到 op 上。⚠️ 但 `ResolveTargets` **不读 `ta = 150`**（只特判 200/201/60）⇒ 这三行的目标集今天**算不出来**，详见 `资料/完全复刻/报告/B114_W23_ca380引用表.md`。</para>
         ///
         /// <para>⚠️ **今天没有生产调用点**：我们的引擎**不跑 SO `abilityLogic`**，
         /// `cards_engine.json` 也没有 `chosenAbility` 这一列（见 `EffectResolver.FollowUpSchedulerOf`
@@ -2119,7 +2119,7 @@ namespace RuleEngine
             //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
             //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
             //    现在两边都调 `ApplyTargetFilters`，**只此一处**。
-            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: structuredCondition, targetsAffected: targetsAffected);
+            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: structuredCondition, targetsAffected: targetsAffected); ApplyCardTargetCriteriaFilter(ctx, pool, owner, casterCard, quiet: true);   // 🆕 v47（`B-177`）：**卡级** `cardTargetCriteria` —— 逐候选过原版 `RawCardScript.IsValidTarget` 那一份（`targeted==0`/列未知 ⇒ 整条不筛）
             return pool.Contains(u);
         }
 
@@ -2172,7 +2172,7 @@ namespace RuleEngine
             // 🔴 2026-10-26（批次 9 · `E9ER`）：`camouflage` 只挡**战术卡来源**（原版 `RawCardScript__IsValidTarget.c:16-40`
             //   的 `施放者.cardType == 0x14`）—— 本函数的 `card` 就是那张要打出的牌 ⇒ 判据直接读它。
             bool tacticCaster = card != null && !card.IsUnit;
-            if (spec.Side == "own" || spec.Side == "any")
+            bool ownSideInPool = spec.Side == "own" || spec.Side == "any"; if (ownSideInPool)   // 🆕 `B114_W34`（`B-270`）：预览单位也读这一格 —— 它落地**必在出牌者那一侧**，⛔ 别在下面另写一份侧判据
                 // ⚠️ 2026-11-01（`B113W2` · `B-208`）：**pick 层故意传 `includeRemnants: true`**（= 行为逐字不变）——
                 //   这一层镜像的是原版 `IsValidTarget`（另一条谓词，对残骸的态度**未核**），不是 36 格 criteria；
                 //   而结算层单目标那一支会 `list.Add(chosen)`（`ResolveTargets` 的 `spec.Count == 1` 支）⇒ 不会分叉。
@@ -2186,12 +2186,12 @@ namespace RuleEngine
             // ⚠️ **先筛「棋盘上那批」**（老口径逐字不变），预览单位**单独跑一次同样的筛**再并进来 ——
             //    ⛔ 别把预览塞进 `pool` 再统一筛：`ApplyStructuredConditionFilter` 遇到「判不了」
             //    是**整条不筛**（它 `return` 掉整轮），预览若被判不了会把**棋盘那批的筛也一起废掉**。
-            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: pickCond, targetsAffected: TargetsAffectedForOp(ops, spec));
+            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: pickCond, targetsAffected: TargetsAffectedForOp(ops, spec)); ApplyCardTargetCriteriaFilter(ctx, pool, owner, card, quiet: true, thisCard: asIfOnBoard);   // 🆕 2026-11-01（`B114_W40` · `B-278`）：**棋盘那批也传载体** —— 原版对**每一个**候选都传 `thisCard`（`RawCardScript__IsValidTarget.c:44` 第 1 实参）；只有战术卡那一路仍为 `null`（手牌里那份没有 `UnitState` 载体）。⛔ `sideOverride` **不能**传（棋盘候选的侧必须 `SideOf` 现查）｜v47（`B-177`）：与 `IsLegalPick` **同一格**（高亮与轻判不许分叉；这里管「这张卡现在能点谁」）
             if (asIfOnBoard != null && asIfOnBoard.IsAlive && !(troopOnly && asIfOnBoard.IsWarlord)
                 && !pool.Contains(asIfOnBoard))
             {
                 var probe = new List<UnitState> { asIfOnBoard };
-                try { ApplyTargetFilters(ctx, probe, spec, quiet: true, structuredCondition: pickCond, targetsAffected: TargetsAffectedForOp(ops, spec)); }
+                try { ApplyTargetFilters(ctx, probe, spec, quiet: true, structuredCondition: pickCond, targetsAffected: TargetsAffectedForOp(ops, spec)); ApplyCardTargetCriteriaFilter(ctx, probe, owner, card, quiet: true, thisCard: asIfOnBoard, sideOverride: owner); }   // 🆕 `B114_W34`（`B-271`）：原版是**落位之后**问（`IsThereValidUnitTarget` → `GetValidTargets` → 逐候选 `IsValidTarget`）⇒ 待落地那张自己也要过**整道** criteria；它不在棋盘 ⇒ 侧由调用方给（落地必在出牌者一侧）、`thisCard` = 它自己
                 catch (System.Exception e)
                 {
                     // ⛔ 不许把一条「高亮候选算不出来」升级成「这张牌打不出去」的崩溃：
@@ -2200,7 +2200,7 @@ namespace RuleEngine
                           + $"「{e.Message}」⇒ 本次不把待落地那张算进候选）");
                     probe.Clear();
                 }
-                if (probe.Count > 0) pool.Add(asIfOnBoard);
+                if (probe.Count > 0 && ownSideInPool && !PreviewSelfExcludedByCardCriteria(card)) pool.Add(asIfOnBoard);   // 🆕 `B114_W34`（`B-270`）：**侧筛**（敌方目标的卡不该把「友军的自己」算进「要不要问」）；`PreviewSelfExcludedByCardCriteria` = 老判据，⛔ 别删
             }
             return pool;
         }
@@ -2962,7 +2962,7 @@ namespace RuleEngine
                 {
                     var nb = ctx.Players[ap].Board[s];
                     if (nb == null || !nb.IsAlive) continue;
-                    if (!IsLegalPick(ctx, p, spec, nb)) continue;        // 过不了同一套筛选 ⇒ 跳过
+                    if (!IsLegalPick(ctx, p, spec, nb, casterCard: card)) continue;        // 过不了同一套筛选 ⇒ 跳过（🆕 `B-245`：`casterCard` = 这张战术 —— 原版 `TargetedSpellPlayed.c:51-69` 对每个相邻同样跑 `IsValidTarget`，卡级 criteria 与伪装闸都一起判）
                     var un2 = new List<string>();
                     ResolveOps(ctx, p, null, ops, nb, out un2, sourceCard: card,
                                // 🆕 v29（`X6`）：突触这一趟同样过家族闸 —— 原版每跑一遍都重新取目标
@@ -18637,12 +18637,12 @@ namespace RuleEngine
         /// **真的判不了**时出声，且「判不了」那一档用 `Debug.LogWarning`（不进事件表）。</para></summary>
         internal static IReadOnlyList<EffectOp> RandomAbilityChoiceOps(
             BattleContext ctx, UnitState u, IReadOnlyList<EffectOp> ops,
-            ActiveEnchantment only, string keyword, bool ignoreRandomTrigger)
+            ActiveEnchantment only, string keyword, bool ignoreRandomTrigger, string triggerName = null)
         {
             if (ops == null || ops.Count < 2 || ignoreRandomTrigger || ctx == null) return ops;
             var card = only != null ? only.Card : (u != null ? u.Card : null);
             if (card == null) return ops;
-            string tn = TriggerNameOfKeyword(keyword);
+            string tn = !string.IsNullOrEmpty(triggerName) ? triggerName : TriggerNameOfKeyword(keyword);   // 🆕 2026-11-01（`W-19` · B-251）：数值路（`FireTriggerByNumberWithSink`）**没有关键词**，只有 `CardDef.TryAbilityTriggerNameOfNumber` 反查出来的 trigger 名 ⇒ 由第 7 形参直接给（缺省 null ⇒ 关键词路逐字不变）。
             if (string.IsNullOrEmpty(tn) || !card.TriggerRandomChoice(tn)) return ops;
 
             var groups = new Dictionary<int, List<EffectOp>>();
@@ -18652,7 +18652,7 @@ namespace RuleEngine
                 if (op == null) continue;
                 if (op.LogicIndex < 0)
                 {
-                    NoteRandomChoiceUnresolved(card, keyword);
+                    NoteRandomChoiceUnresolved(card, string.IsNullOrEmpty(keyword) ? tn : keyword);
                     return ops;
                 }
                 List<EffectOp> g;
@@ -18669,7 +18669,7 @@ namespace RuleEngine
             keys.Sort();
             int pick = ctx.GetRandomInt(0, keys.Count);          // 上界开区间（与原版同名同义）
             var picked = groups[keys[pick]];
-            ctx.Log($"「{card.Name}」的 {keyword.ToUpperInvariant()} 带 `randomAbilityChoice`"
+            ctx.Log($"「{card.Name}」的 {(string.IsNullOrEmpty(keyword) ? tn : keyword).ToUpperInvariant()} 带 `randomAbilityChoice`"
                   + $"（原版 `RawCardScript__TriggerAbility.c` 的 `ability+0x48`）⇒ 从 {keys.Count} 条 abilityLogic 里"
                   + $"随机抽第 {pick} 条（{picked.Count} 条 op），其余不跑");
             return picked;
@@ -21075,7 +21075,7 @@ namespace RuleEngine
                 ctx.Log($"⚠️ trigger 数值 {triggerNumber} 不在 `AbilityTriggerNumberOfName` 里 ⇒ 这条触发不结算（⛔ 不猜）");
                 return false;
             }
-            var ops = u.Card.TriggerOpsByNumber(triggerNumber); int _enchFired = FireEnchantmentAbilitiesByNumber(ctx, u, triggerNumber, tn, owner, slot, actingCard, targetCard); if (ops == null || ops.Count == 0) return _enchFired > 0;
+            var ops = u.Card.TriggerOpsByNumber(triggerNumber); int _enchFired = FireEnchantmentAbilitiesByNumber(ctx, u, triggerNumber, tn, owner, slot, actingCard, targetCard); if (ops == null || ops.Count == 0) { int _caFired = FireTriggerRowsByChosenAbility(ctx, u, triggerNumber, owner, slot, actingCard, targetCard); return _caFired > 0 || _enchFired > 0; }   // 🆕 v47（`B114_W9` · 账 `B-211` 派发口）：`ca`（原版 `AbilityLogic.chosenAbility`）的**第一个消费者** —— **只在正文 op 为空时**按行种别兜底 / 出声；正文 op 非空时逐字不变（⛔ 把 chosenAbility 再跑一遍 = 打两次）。判据与三档理由 → 文件尾 `FireTriggerRowsByChosenAbility` 的头注释。⚠️ 同一物理行（本文件有账落点按行号引用，铁律 18·b）
             // 🔴 2026-10-31（`B109_E6` · 判据 `RawCardScript__TriggerAbilities.c:49-197`、派发 `:184-186`）：原版的**内联附魔趟** —— 载体自己那趟之后，对每件附魔逐条 ability 再派一遍（载体 = thisCard、能力属于附魔卡）；⛔ 别在 `ops == null` 时就 return（那正是本缺口）；⛔ 别在这里执行 `chosenAbility` 数据行（效果已达 `ApplyDamageCore:9067` / `GrantPrayEnchantmentFaith:1636`，重复 = 双发）
             return EnqueueAbility(ctx, TriggerLaneOfCard(u.Card, tn),
                 u.Name + "·trigger#" + triggerNumber,
@@ -21084,7 +21084,7 @@ namespace RuleEngine
                     using (EventSlotsScope.TargetCardAndActing(ctx, targetCard, u.Card, actingCard))
                     {
                         ctx.EffectChain++;
-                        try { ResolveOps(ctx, owner, u, ops, tn.ToUpperInvariant(), chosen: targetCard); }
+                        try { ResolveOps(ctx, owner, u, RandomAbilityChoiceOps(ctx, u, ops, null, null, false, tn), tn.ToUpperInvariant(), chosen: targetCard); }   // 🆕 2026-11-01（写手 `W-19` · 活状态表 `B-251`）：**数值路也接 `randomAbilityChoice`**。原版判据 = `RawCardScript__TriggerAbility.c:75`（`cVar3 = *(char *)(param_2 + 0x48)`）→ `:82-94`（为真 ∧ `abilityLogic.Count > 1` ⇒ `GetRandomInt` 抽一条、`PlayAbility` 后**直接 return**）；而 `RawCardScript__TriggerAbilities.c` 的**三处调用点 `:184` / `:231` / `:257` 用的是同一个 `TriggerAbility`**（关键词触发与数值触发在原版**是同一条路**，触发值只在 `CanTriggerAbility.c:71` 比一次）⇒ 两条路必须同语义，⛔ 别按"数值路本来绕过它"理解。`only = null`（附魔趟另走 `FireEnchantmentAbilitiesByNumber`）、`keyword = null`（数值路没有关键词）⇒ 由第 7 形参 `tn` 直给。
                         finally { ctx.EffectChain--; }
                     }
                 }),
@@ -21180,6 +21180,305 @@ namespace RuleEngine
         {
             var set = op != null ? op.TargetCriteriaSet : null;
             return set != null && set.IncludeRemnants > 0;
+        }
+    }
+}
+// ==============================================================================================
+//  🆕 v47（2026-11-01 · 第一百一十四会话 · 写手 `W-A` · 账 `B-177`）
+//     —— **卡级 `RawCardScript.cardTargetCriteria` 落到点选/轻判路**
+//        （`CardDef.CardTargetCriteria` 的**第一个读点**；改前全仓零消费者）
+//
+//  ① 数据 + 载体早已落（`B113W11`：`cards_engine.json` 的 `cardTargetCriteriaSet` 覆盖 1129/1129 ·
+//     DTO = `CardDef.CountSetSpec` · 挂载 = `CardDef.AttachCardTargetCriteria`），但**没有任何消费者**
+//     ⇒ 本次接的就是这一步，⛔ 不是「只落数据」。
+//  ② 判据（第一权威）：`d:/2/tools/decomp_full/RawCardScript__IsValidTarget.c:8-44`
+//     —— 末句 `:43-44` = `FilterMethods__CheckIfMeetsCriteria(thisCard, 目标, 目标, *(raw + 0x280))`
+//     ⇒ 语义 = 「**这张卡打出时能点谁**」。求值器**不另写**：直接走 `TargetCriteriaEval.Matches`
+//     （那一份是 `FilterMethods.CheckIfMeetsCriteria` 的唯一等价实现，头注释已逐句列出次序）。
+//  ③ 调用点 = **点选路两处**（⛔ 结算侧不动 —— 结算拿的是玩家选定的那一个）：
+//     · `IsLegalPick`（`CanPlayTactic` 的「轻判 → 没有合法目标」那一格，调用点 `:2088`）
+//     · `PlayTargetPool`（表现层高亮的候选池，`IsLegalPlayTarget` 进）
+//     ⇒ 两边**同一条判据**（本仓红线：高亮与轻判不许分叉）。
+//  ④ 🔴 **旧施工单（`B113_G4` §五·B）为什么被推翻**：它把 **logic 级** `AbilityLogic.targetCriteria`
+//     （`op.TargetCriteriaSet`）接到点选池上。两张对象对 `EC46` 恰好相反 —— 卡级 = 友军（`friendlyUnits=1`）、
+//     logic 级 = `enemyUnits=1`（描述的是**被打的那个敌人**）⇒ 实测把 `EC46` 打成
+//     `ErrNoTargetAvailable`（合法池 4 → 0）。本实现读的是**卡级那一份**，⛔ 别再拿 logic 级顶替。
+//  ⑤ `thisCard` 恒传 `null`：原版传的是**法术卡自己的 `CardScript`**
+//     （`RawCardScript__IsValidTarget.c:44` 的第 1 实参），我们点选路上只有 `CardDef`
+//     （手牌里那一份，**不在棋盘上** ⇒ 没有 `UnitState` 载体）⇒ `Matches` 跳过 `includeSelf`/`excludeNotSelf`。（⚠️ 预览那一路现在会把它自己当 `thisCard` 传进去，见下；🔴 2026-11-01（`B114_W40` · `B-278`）：**单位卡**那条路（`asIfOnBoard != null`）**棋盘那批也传** — 原版对每个候选都传 ⇒ 依赖载体的那几格（`excludeSimilarCards` / 四组 stat 的 `*FilterOption`）对棋盘候选现在也判；战术卡那一路仍 `null`。）
+//     🆕 2026-11-01（`B114_W30` · `B-245`）回源判定：对**战术**这两格 `thisCard` 恒不是候选 ⇒
+//     `includeSelf=0` 本就无效果（跳过 = 等价）；`excludeNotSelf!=0` 则**整池淘汰**，已补 `CardCriteriaExcludeNotSelfEmptiesPool`（现池 0 张，零行为变化）。
+//  ⑥ `cond` 恒传 `null`：卡级 `conditionsFilter` / `excludeCondition`（`unitConditions` 的
+//     `role="cardtarget"` 那 13 行）**已经**由 `EffectText.AssignCardTargetFallback` 落到
+//     `op.TargetCondition`、再由 `ApplyTargetFilters` 里的 `ApplyStructuredConditionFilter` 判过一次
+//     ⇒ 这里再传一遍就是**双判**（同一格两处求值，迟早分叉）。
+//  ⑦ 降级（⛔ 不许静默）：
+//     · criteria 列未知（旧表 < v46 / 手写夹具）⇒ **整条不筛**；
+//     · 原版 `targeted == 0` ⇒ **整条不筛**（那一档 `BattleManager__IsValidSpellTarget.c:46` 的
+//       `get_targeted` 闸先挡掉，`IsValidTarget` 根本不会被调到 ⇒ 那 130 张卡上的 criteria 是
+//       **没人读的遗留值**，拿它筛会凭空造出原版没有的行为）；
+//     · 逐候选 `Matches` 返 `null`（判不了）⇒ **整条不筛 + 出声一次**（与 `ApplyTargetCriteriaFilter`
+//       同一纪律：筛一半再降级会让「谁进了池」说不清）。
+//  ⚠️ 载体 `casterCard` 的**两个**调用点都传（🆕 `B114_W30` 补上突触那一条）：
+//     `CanPlayTactic`（`:2088`）· `RepeatTacticOnAdjacent`（`:2965`，原版 `TargetedSpellPlayed.c:51-69`
+//     对每个相邻同样跑 `IsValidTarget`）⇒ `AddSide` 的 `tacticCaster`（伪装闸）也跟着一起对。
+//  ✅ `PlayTargetPool` 的 `asIfOnBoard` 预览单位**过整道闸**（🆕 2026-11-01 `B114_W34` · `B-271`）：它尚未上棋盘
+//     ⇒ `SideOf` 必然 -1 ⇒ 由调用方把「侧」当参数传进来（`sideOverride = owner`，`thisCard` = 它自己）
+//     ⇒ 阵营/兵种/关键词/stat… 逐格都能判（原版本来就是**落位之后**问：`IsThereValidUnitTarget`
+//     → `GetValidTargets` → 逐候选 `IsValidTarget`）。另有**独立**一道 `spec.Side` 侧筛（`B-270`）+ 老判据
+//     `PreviewSelfExcludedByCardCriteria` —— 三样都在 probe 那一趟，⛔ 别在这儿另写一份求值器。🆕 2026-11-01（`B114_W40` · `B-278`）：**棋盘那批**（上面那趟 `pool`）在单位卡那一路同样拿到 `thisCard = asIfOnBoard`。
+// ⛔ 本块追加在**文件尾**（本文件有账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>🆕 v47（`B-177`）：**一个候选过不过这张卡的卡级 `cardTargetCriteria`**。
+        /// <para>`true` = 过 · `false` = 淘汰 · `null` = **本版判不了**（调用方必须保留候选并出声）。</para>
+        /// <para>判据 = `RawCardScript__IsValidTarget.c:43-44` → `FilterMethods__CheckIfMeetsCriteria`
+        /// （求值器 = <see cref="TargetCriteriaEval.Matches"/>，**唯一实现**，⛔ 别在调用点另写一份）。</para>
+        /// <para>⚠️ 「`card.Targeted == 0`」与「列未知」这两档**不在这里判** —— 它们由
+        /// <see cref="ApplyCardTargetCriteriaFilter"/> 统一处理 ⇒ 本函数是**纯逐候选谓词**，
+        /// 自检可以直接调它（`CheckB114ACardTargetCriteriaPick`）。</para></summary>
+        public static bool? CardTargetCriteriaAccepts(BattleContext ctx, int owner, CardDef card,
+                                                      UnitState candidate, out string gap, UnitState thisCard = null, int? sideOverride = null)
+        {
+            gap = null;
+            if (card == null) { gap = "没有卡 ⇒ 判不了"; return null; }
+            if (!card.CardTargetCriteriaVersioned || card.CardTargetCriteria == null)
+            { gap = "`cardTargetCriteriaSet` 这一列未知（旧表 < v46 / 手写夹具）⇒ 判不了"; return null; }
+            if (candidate == null) return false;          // 与 `TargetCriteriaEval.Matches` 同一出口
+            // `targetCard` 传**候选自己** —— 原版 `IsValidTarget.c:44` 就是
+            // `CheckIfMeetsCriteria(thisCard, targetCard, targetCard, …)`（第 2、3 实参同一个对象）。
+            return TargetCriteriaEval.Matches(ctx, owner, card.CardTargetCriteria, candidate,
+                                              null, thisCard, candidate, out gap, sideOverride);   // 🆕 2026-11-01（`B114_W34` · `B-271`）：`thisCard` / `sideOverride` 由调用方给（预览单位那一路要它们，见 `PlayTargetPool`）
+        }
+
+        /// <summary>🆕 v47（`B-177`）：按**卡级** `cardTargetCriteria` 就地筛一个点选池。
+        /// <para>返回 `true` = 已按 criteria 筛过；`false` = **整条不筛**（池子一字未动）。</para>
+        /// <para>两道「不筛」的闸（缺一条就会把一批卡打成打不出 / 把遗留值当成语义）：</para>
+        /// <list type="bullet">
+        /// <item><b>列未知</b>（旧表 < v46、手写夹具）—— ⛔ 别把「没数据」当「原版 null」：原版
+        ///   `RawCardScript__IsValidTarget.c:13-15` 对 `cardTargetCriteria == null` 是
+        ///   `LogError` + 任何目标都非法，但那是**防御性死支**（池内 1129/1129 全有，`B-178` 已闭合）
+        ///   ⇒ 我们这一侧 `null` 只表示「这一列没落」，必须按「不筛」处置。</item>
+        /// <item><b>原版 `targeted == 0`</b> —— `BattleManager__IsValidSpellTarget.c:46` 的
+        ///   `get_targeted(spell)` 闸先挡掉，`IsValidTarget` 不会被调到。现读 376 张带信息
+        ///   （`targetsAffected != 0`）的 criteria 里有 **130 张 `targeted == 0`**，那批的 36 格
+        ///   与卡面无关（例：`DA60 Defensive Turrets`「Deal 2 damage to a random enemy troop」
+        ///   却写着 `friendlyUnits=1 / keyword=Vehicle`）⇒ 拿它筛会凭空多出一条原版没有的闸。
+        ///   `-1`（未知）**不判**（全仓「`-1` = 未知 ⇒ 一个字都不判」口径）。</item>
+        /// </list>
+        /// <para>逐候选返 `null` ⇒ **整条不筛 + 出声一次**（与 `ApplyTargetCriteriaFilter` 同一纪律）。</para></summary>
+        static bool ApplyCardTargetCriteriaFilter(BattleContext ctx, List<UnitState> pool, int owner,
+                                                  CardDef card, bool quiet, UnitState thisCard = null, int? sideOverride = null)
+        {
+            if (ctx == null || card == null || pool == null || pool.Count == 0) return false;
+            if (!card.CardTargetCriteriaVersioned || card.CardTargetCriteria == null) return false;
+            if (card.Targeted == 0) return false; if (thisCard == null && CardCriteriaExcludeNotSelfEmptiesPool(card)) { int beforeNS = pool.Count; pool.Clear(); if (!quiet) ctx.Log($"（卡级 `excludeNotSelf`：原版只留施放者自己 ⇒ {beforeNS} → 0）"); return true; }   // 🆕 `B114_W34`：预览那一路的池子**只有 thisCard 自己** ⇒ `excludeNotSelf` 命不中它（原版同理）⇒ 不走整池淘汰；🆕 `B114_W40`（`B-278`）后单位卡的**棋盘那批**也传 `thisCard`（`asIfOnBoard`）⇒ 同样走逐候选，结论等价（候选都不是它 ⇒ 全淘汰）
+            int before = pool.Count;
+            var kept = new List<UnitState>(pool.Count);
+            for (int i = 0; i < pool.Count; i++)
+            {
+                string why;
+                bool? ok = CardTargetCriteriaAccepts(ctx, owner, card, pool[i], out why, thisCard, sideOverride);   // 🆕 `B114_W34`：预览那一路把「它自己 + 它的侧」透传进来（棋盘那批仍是 null/null）
+                if (ok == null)
+                {
+                    // ⚠️ 这里**还没动过 pool**（`Clear`/`AddRange` 在循环之后）⇒ 直接 return 就是「整条不筛」。
+                    StructuredConditionNotice("cardtargetcriteria|" + CardKeyOf(card) + "|" + why,
+                        $"「{card.Name}」（{CardKeyOf(card)}）的**卡级** `cardTargetCriteria`"
+                      + $"（原版 `RawCardScript+0x280`）本版判不了：{why} ⇒ 这一次**不筛点选池**"
+                      + "（⛔ 没有当成「不成立」、也没有筛空）。");
+                    return false;
+                }
+                if (ok.Value) kept.Add(pool[i]);
+            }
+            pool.Clear();
+            pool.AddRange(kept);
+            if (!quiet && pool.Count != before)
+                ctx.Log($"（按**卡级** `cardTargetCriteria` 筛点选池：{before} → {pool.Count}）");
+            return true;
+        }
+
+        /// <summary>出声/日志里用的**稳定键**（`Id` 优先，退回卡名）—— 只服务上一格的「同一张卡只喊一次」。</summary>
+        static string CardKeyOf(CardDef card)
+        {
+            if (card == null) return "?";
+            if (!string.IsNullOrEmpty(card.Id)) return card.Id;
+            return string.IsNullOrEmpty(card.Name) ? "?" : card.Name;
+        }
+    }
+}
+
+// ==============================================================================================
+//  🆕 2026-11-01（执行代理 `B114_W9` · 账 `B-211` 派发口 · 数据面 = `B114_WB` 的 v47 `ca`）
+//    —— `AbilityLogic.chosenAbility`（= `CardDef.TriggerAbilityIndexSpec.Ca`）的**第一个消费者**
+//
+//  ① 原版它到底怎么用（第一权威 = `d:/2/tools/decomp_full/`，逐句现读；⛔ 别按名字猜）：
+//     · 字段 = `Assembly-CSharp/AbilityLogic.cs:9` `public AbilityEffect chosenAbility;`（IL2CPP 偏移 `+0x10`）；
+//     · 🔴 **它【不是】触发侧的派发键** —— 选哪条 ability 只看 `CardAbility.trigger(+0x10)`：
+//       `CardAbility__CanTriggerAbility.c:71` 第一句 `if (*(int *)(param_1 + 0x10) != param_2) return 0;`，
+//       之后是 `IsRightContext` + 三条 criteria（`.c:131-138`）；**143 行里一次都没读 `chosenAbility`**；
+//       `RawCardScript__TriggerAbilities.c` 那一层同样只按 `ability.trigger` 筛（`CanTriggerAbility` 是唯一闸）。
+//     · 它真正的作用 = `AbilityLogic.PlayAbility` 内部那个**巨型 switch**：
+//       `AbilityLogic__PlayAbility.c:286` `iVar8 = *(int *)(param_1 + 0x10);` ⇒ 之后全是 `iVar8 == 0x??` 的分支
+//       ⇒ **「这一行执行什么效果」由它决定**（同族：`AbilityLogic__CanPlayAbility.c:18` 也拿它当 switch 值）。
+//  ② 所以我们的等价物**不是**再派发一次，而是**正文 op**：每一行 `(ab,lg)` 的卡面正文 parse 出来的 op
+//     就是那个 switch 的实现（`CardDatabasePartial_B98H7.MapTriggerOpsByNumber` 按 `ab` 归位、按 `trigger` 分桶）。
+//     ⇒ 🔴 **正文 op 非空时一个字节都不许动**：把 chosenAbility 再跑一遍 = 打两次
+//       （`资料/完全复刻/报告/B113X7_能力380生产口.md` §四已论证；`报告/B114_WB_B211逐行ca数据面.md` §四同结论）。
+//  ③ 本口只补**正文 op 为空**那一格，按行种别分三支：
+//     · `320 followAfterResolution` ⇒ 这一行**定义上就没有自己的正文**（它只是「跟着上一条结算」的标记：
+//       原版 `AbilityLogic__PlayAbility.c:2471-2478` → `BattleManager__AddFollowAfterResolution`）
+//       ⇒ 走**已有**的 `RunFollowAfterResolutionRow`（⛔ 不另写执行器；与主动能力那条
+//       `RunActiveRowOpsOrGrantedTrigger` 是同一个执行器、同一份判据）。
+//     · `325 / 340 / 380 / 480` ⇒ **本趟不管**（`325` = 条件版后续结算 · `380/480` = 主动能力那一趟的
+//       标记/表现类 · `340` 的效果**已由手写等价物承担**，见
+//       `EffectResolverPartial_B109E6.FireEnchantmentAbilitiesByNumber` 的「⛔ 不要在这里执行数据行，重复 = 双发」）。
+//     · 其余真效果种类（`ca >= 0`）⇒ 我们这一版**没有**它的非正文执行器 ⇒ **出声**
+//       （今天这里是静默空转：`ops == null || Count == 0` 直接 return）。
+//  ④ `Ca == -1`（未知：旧表 `< 47` / 本行 `lg == -1` 没有 logic 实例 / 手写夹具）⇒ **三支都不进**
+//     = 逐字保持改前行为（现池唯一一行 = `GOF97 Gargantuan Squiggoth`，`ab=0/lg=-1/trigger=0`）。
+//     ⛔ 别把 `-1` 折成 `0` —— `0 = drawCard` 是**合法真值**（现池 81 行）。
+//  ⑤ `TriggerAbilityRowsOf` 的**三态**原样沿用：`null` = 列未知（旧表 `< 42`，判不了）⇒ 本口整趟不进；
+//     `[]` = 明确没有这条 trigger ⇒ 同样不进；两者都等于改前行为，⛔ 别合并成「没有」。
+//  ⑥ 出声只走 `UnityEngine.Debug.LogWarning`、⛔ **不进 `ctx.Log`**：后者会改 `ctx.Events.Count`，
+//     而动到 `NetProtocol.Fingerprint`（同 `NoteRandomChoiceUnresolved` 的纪律）。
+//  ⛔ 本块追加在**文件尾**（本文件有账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>`B-211` 派发口：**这一行 `chosenAbility` 在本趟该走哪一支**（唯一判法，自检直接测它）。
+        /// <para>⛔ 别在调用点或断言里复制一份 —— 四档的语义见文件尾那段头注释 ③④。</para></summary>
+        public enum TriggerRowKind
+        {
+            /// <summary>`ca &lt; 0`：未知（旧表 / `lg == -1` / 手写夹具）⇒ **改前行为**（什么都不做）。</summary>
+            Unknown = 0,
+            /// <summary>`320 followAfterResolution`：走 <see cref="RunFollowAfterResolutionRow"/>。</summary>
+            FollowUp = 1,
+            /// <summary>`325 / 340 / 380 / 480`：本趟不管（各自有别的归属，见头注释 ③）。</summary>
+            OwnLane = 2,
+            /// <summary>其余 `ca &gt;= 0`：它的效果应由**正文 op** 承担；本趟没有 op ⇒ **真缺口**（出声）。</summary>
+            BodyOp = 3,
+        }
+
+        /// <summary>`chosenAbility` → 本趟支别。纯函数（自检直接调，⛔ 不需要战场）。</summary>
+        public static TriggerRowKind TriggerRowKindOf(int ca)
+        {
+            if (ca < 0) return TriggerRowKind.Unknown;      // `-1` = 未知；`0 = drawCard` 是**合法真值**，⛔ 别折成未知
+            if (ca == 320) return TriggerRowKind.FollowUp;
+            if (ca == 325 || ca == 340 || ca == 380 || ca == 480) return TriggerRowKind.OwnLane;
+            return TriggerRowKind.BodyOp;
+        }
+
+        /// <summary>「同一 (卡, trigger, ca) 只喊一次」的闩。</summary>
+        static readonly HashSet<string> _triggerRowKindNoted = new HashSet<string>(System.StringComparer.Ordinal);
+        /// <summary>`followAfterResolution` 那一支的重入闩（它自己会再发一次 `trigger 410`）。</summary>
+        static readonly HashSet<string> _triggerRowFollowUpActive = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>`B-211`：**正文 op 为空时**按 `chosenAbility` 兜底的那一趟（唯一调用点 = `FireTriggerByNumberWithSink`）。
+        /// <para>返回**真入队的条数**（0 = 什么都没做 = 改前行为 + 可能已出声）。</para>
+        /// <para>⚠️ 只有调用方确认 `TriggerOpsByNumber(trigger)` 为空时才该调它 —— 本方法自己**不判**那一格
+        /// （那是调用方的闸；⛔ 别在这儿再判一次，两处写同一条规则迟早分叉）。</para></summary>
+        internal static int FireTriggerRowsByChosenAbility(BattleContext ctx, UnitState u, int triggerNumber,
+                                                           int owner, int slot, UnitState actingCard, UnitState targetCard)
+        {
+            if (ctx == null || u == null || u.Card == null) return 0;
+            var rows = u.Card.TriggerAbilityRowsOf(triggerNumber);   // `null` = 列未知（旧表 < 42）；`[]` = 明确没有
+            if (rows == null || rows.Length == 0) return 0;          // 两档都 = 改前行为（⛔ 别把三态合并）
+            int fired = 0;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var r = rows[i];
+                if (r == null) continue;
+                switch (TriggerRowKindOf(r.Ca))
+                {
+                    case TriggerRowKind.Unknown:                     // ④ 未知 ⇒ 改前行为
+                    case TriggerRowKind.OwnLane:                     // ③ 本趟不管
+                        continue;
+                    case TriggerRowKind.FollowUp:                    // ③ `320`：走已有执行器
+                        fired += RunTriggerRowFollowUp(ctx, u, triggerNumber, owner, targetCard ?? actingCard);
+                        continue;
+                    default:                                         // ③ 真效果种类 + 没有正文 ⇒ 出声
+                        NoteTriggerRowKindGap(u.Card, triggerNumber, r);
+                        continue;
+                }
+            }
+            return fired;
+        }
+
+        /// <summary>`320` 那一支：带重入闩地转 <see cref="RunFollowAfterResolutionRow"/>。
+        /// <para>为什么要闩：那个方法自己会再发一次 `FireTriggerByNumber(410)`（判据
+        /// `CardScript__FollowUpResolutionPlayed.c:5-9`），若某张卡的 `410` 行**也是** `320` 就会无限递归。</para></summary>
+        static int RunTriggerRowFollowUp(BattleContext ctx, UnitState u, int triggerNumber, int owner, UnitState chosen)
+        {
+            string key = CardKeyOf(u.Card) + "|" + triggerNumber;
+            if (!_triggerRowFollowUpActive.Add(key))
+            {
+                if (_triggerRowKindNoted.Add("reentry|" + key))
+                    UnityEngine.Debug.LogWarning(
+                        $"[RuleEngine] 「{(u.Card != null ? u.Card.Name : "?")}」的 trigger {triggerNumber} 在 `ca 320`"
+                      + " 这一支上重入了（`followAfterResolution` 自己会再发一次 `trigger 410`）⇒ **本层不派**，"
+                      + "避免无限递归。判据 = `CardScript__FollowUpResolutionPlayed.c:5-9`。");
+                return 0;
+            }
+            try { return RunFollowAfterResolutionRow(ctx, owner, u, chosen); }
+            finally { _triggerRowFollowUpActive.Remove(key); }
+        }
+
+        /// <summary>`B-211` 的出声口：这张卡这条 trigger 有一行**真效果种类**的 `chosenAbility`，
+        /// 而我们这一版没有它的非正文执行器 ⇒ 原版这一刻会执行、我们**不结算**。
+        /// <para>⛔ 走 `Debug.LogWarning` 不进 `ctx.Log`（理由见头注释 ⑥）；同一 (卡, trigger, ca) 只喊一次。</para></summary>
+        static void NoteTriggerRowKindGap(CardDef card, int triggerNumber, CardDef.TriggerAbilityIndexSpec row)
+        {
+            int ca = row != null ? row.Ca : -1;
+            string key = CardKeyOf(card) + "|" + triggerNumber + "|" + ca;
+            if (!_triggerRowKindNoted.Add(key)) return;
+            UnityEngine.Debug.LogWarning(
+                $"[RuleEngine] 「{(card != null ? card.Name : "?")}」的 trigger {triggerNumber}"
+              + $"（ab{(row != null ? row.Ab : -1)}/lg{(row != null ? row.Lg : -1)}）有一行 `chosenAbility {ca}`"
+              + "（= 原版 `AbilityLogic.chosenAbility`，`AbilityEffect` 枚举），这一趟**没有可跑的正文 op** ⇒"
+              + " 原版这一刻会执行它的效果，我们这一版**没有它的非正文执行器** ⇒ **本行不结算**"
+              + "（⛔ 不猜，也⛔ 不会与正文重复）。判据 = `AbilityLogic__PlayAbility.c:286` 起那个按 `chosenAbility`"
+              + " 分派的巨型 switch；触发侧选 ability 不看它（`CardAbility__CanTriggerAbility.c:71`）。");
+        }
+
+        /// <summary>自检门：<see cref="FireTriggerRowsByChosenAbility"/>（纪律同 `FireTriggerAtWithOverrideForTest`：
+        /// **不改任何行为**，只让 Editor 程序集调得到。⛔ 生产侧别调）。</summary>
+        public static int FireTriggerRowsByChosenAbilityForTest(BattleContext ctx, UnitState u, int triggerNumber,
+                                                                int owner, int slot, UnitState actingCard, UnitState targetCard)
+        {
+            return FireTriggerRowsByChosenAbility(ctx, u, triggerNumber, owner, slot, actingCard, targetCard);
+        }
+    }
+}
+
+// ==============================================================================================
+//  🆕 2026-11-01（写手 `W-19` · 活状态表 `B-251`）：`randomAbilityChoice` 的**数值路**接线。
+//  ⛔ 本块追加在**文件尾**（本文件有账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+//  判据（`d:/2/tools/decomp_full/` 逐句现读）：
+//   · `RawCardScript__TriggerAbility.c:75` `cVar3 = *(char *)(param_2 + 0x48);`（= `CardAbility.randomAbilityChoice`）
+//   · `:82-94` 为真 ∧ `abilityLogic(+0x50).Count > 1` ⇒ `BattleManager__GetRandomInt(0, Count)` 抽一条、
+//     `AbilityLogic__PlayAbility` 那一条之后 **直接 `return`**（其余不跑）；
+//   · `RawCardScript__TriggerAbilities.c` 的**三处** `TriggerAbility` 调用点 `:184` / `:231` / `:257`
+//     **用的是同一个函数**（自己那趟 / 隐藏目标那趟 / 附魔趟），触发值只在
+//     `CardAbility__CanTriggerAbility.c:71` 比一次 ⇒ **关键词触发与数值触发在原版是同一条路**，
+//     `ability+0x48` 对两条路**都成立**（⛔ 不存在「数值路绕过它」这一支）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>自检门：<see cref="RandomAbilityChoiceOps"/>（纪律同 `FireTriggerAtWithOverrideForTest`：
+        /// **不改任何行为**，只让 Editor 程序集调得到。⛔ 生产侧别调）。
+        /// <para>⚠️ 第 7 形参（数值路的 trigger 名）在本门里固定传 `null` ⇒ 走**关键词路**那一支，
+        /// 用来钉住「关键词路行为不变」。</para></summary>
+        public static IReadOnlyList<EffectOp> RandomAbilityChoiceOpsForTest(BattleContext ctx, UnitState u,
+                                                                          IReadOnlyList<EffectOp> ops, string keyword)
+        {
+            return RandomAbilityChoiceOps(ctx, u, ops, null, keyword, false);
         }
     }
 }

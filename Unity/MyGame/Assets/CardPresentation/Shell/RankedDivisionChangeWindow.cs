@@ -1243,12 +1243,12 @@ namespace CardPresentation
         // ⇒ AMP 的挂载目标是「这颗节点自己的 `Image`」。我们这边那颗 `Image` 的等价物 =
         //   同一个 GameObject 上的 `ImageQuad`（它自带 `MeshFilter/MeshRenderer`，见 `Battle/ImageQuad.cs:127-137`）。
         //
-        // ⚠️ **图仍然是空的、这是对的**：原版两颗 `Image.m_Sprite = 0`（本机没有「段位号→图名」对照表），
-        //   图由服务端 `RankedDivisions.GetDivisionData/GetRankData` 的 `AssetReferenceTyped` 在运行期喂，
-        //   而 `Open()` 在 `sprite == null` 时 `SetActive(false)` ⇒ 屏幕上什么都没有。
-        //   `m_Sprite = 0` 在 uGUI 里本来是「全白贴图 × `m_Color`」的**纯白块**，照画会是一块 851×851 的白板
-        //   ⇒ 载体 quad 的 tint **α = 0**：画不出东西，但材质通道挂得上（⛔ 不是 `MenuDraw.Node` 那种空节点）。
-        //   服务端那一半 = P3（`资料/完全复刻/判据/服务器与账户_不复刻清单_第2轮.md`），⛔ 本机不编图。
+        // ⚠️ **2026-11-01（B-239）就地订正（铁律 5）**：这里原写「原版两颗 `Image.m_Sprite = 0`（**本机没有
+        //   「段位号→图名」对照表**），所以图仍然是空的、这是对的」—— **那句已过期**：表就在 `RankedDivisionInfo.DivisionArt`
+        //   （`RankedDivisionsSO.asset` 的 7 条 GUID 与 7 张 Sprite 逐条相等），本窗 `BuildDivisionImage()`（见上，`B88_E10`）就是照它画的；
+        //   错因 = `B88_E10` 当天只订正了 `:281-285` 那一处，漏了这里（文件一度自相矛盾）。⚠️ 本段其余部分**本批没逐条复核**，只订正那一句口径。
+        //   ✅ 仍然成立的：① 图由服务端 `RankedDivisions.GetDivisionData/GetRankData` 的 `AssetReferenceTyped` **运行期**喂；
+        //   ② `m_Sprite = 0` 在 uGUI 里是「全白贴图 × `m_Color`」的**纯白块**（原版空数据时很可能是白板，⛔ 无实拍），我们这侧空数据取 **载体 quad tint α = 0**。
         //
         // ⚠️ 这两颗**没有** `UIBorderGlow`（与卡片展示窗那两件不同）⇒ 不存在「两个组件抢材质」。
         //
