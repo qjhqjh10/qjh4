@@ -819,18 +819,18 @@ namespace RuleEngine
         ///     （`CardScript__IsInPlay.c:7`：`cardState ∈ {2,15,3,17}`；我们的等价物 = `RuleCore.IsUnitInPlay`）。
         /// </para>
         ///
-        /// ⚠️ **挂在 `UnitState` 而不是 `CardInstance` 的理由（如实标）**：原版载体是 `CardScript`
-        /// （**手牌 + 场上**同一套），而本批白名单不含 `Core/CardInstance.cs`；场上的 `UnitState`
-        /// 已经持有 `Instance`，是当前能做的最小落点。⇒ **从【手牌】打出的战术卡**（`AM54 At All Costs`
-        /// 那条 380 就属于这种）在本结构里**没有存放处** —— 这条缺口**未做**，见
-        /// `资料/普查产出_1024/G5_裸Deal与ta200.md` §件2。
+        /// 🔴 **2026-11-01 就地订正（铁律 5 · 执行代理 `B115_W23`）**：你正在读的这一段原来是
+        /// 「挂在 `UnitState` 而不是 `CardInstance` 的理由」——**那个理由不成立**：原版载体是 `CardScript`
+        /// （**手牌 + 场上**同一套），`+0x278` 就在牌自己身上 ⇒ 正确落点是 **`CardInstance`**（已搬过去）。
+        /// 于是「从手牌打出的战术卡没有存放处」这条缺口**已经补上**（`AM54` 那条 380 现在写得进去了）。
         ///
-        /// ⚠️ **今天不改任何一局的行为**：我们的引擎**不跑 SO `abilityLogic`**，380 没有自然调用点，
-        /// 200/201 也没有任何 op 带得到（两张卡的卡面效果由文字管线覆盖，见报告 §件2）。
+        /// ⚠️ **本格 = 转发属性**（旧调用点 `.Count` / `[i]` / `Clear()` / `Add()` 零改动）：
+        /// 读的就是 `Instance.ReferencedCards`（元素已是 `CardRef`，能装手牌实例）。
         /// 与 `UnitState` 上其它字段一样：**由 `BattleContext` 发号、同种子必然同结果**（不掷骰、不用 Guid）。
-        /// ⚠️ 它是**引用列表**（同一批单位对象），不是快照 —— 与 `ctx.LastTargets` 同一种「引用了谁」的语义。
+        /// ⚠️ 它是**引用列表**（同一批牌实例），不是快照 —— 与 `ctx.LastTargets` 同一种「引用了谁」的语义。
+        /// ⚠️ `Instance == null` 的兜底格见类尾 `_orphanReferencedCards`（夹具里可能造出没有实例的单位）。
         /// </summary>
-        public readonly List<UnitState> ReferencedCards = new List<UnitState>();
+        public List<CardRef> ReferencedCards { get { return Instance != null ? Instance.ReferencedCards : _orphanReferencedCards; } }
 
         readonly Dictionary<string, int> _keywords;
 
@@ -1850,7 +1850,7 @@ namespace RuleEngine
             /// <summary>`true` = `setMeleeAttack` / `setRangeAttack` / `setHealth` 那三档（**覆盖**语义）。</summary>
             public bool IsSet;
             /// <summary>`Source` = 来源标签（`Auras.GrantTag` / 黑暗契约种类 / `"虫群合并"` / `null`），只用于「整份收回」｜🆕 2026-10-26（`B8_Q`）`Trait` = 原版 `CardEffect.trait`(`+0x3c`，`DefinedTrait` 名)｜`BuffType` = 原版 `CardEffect.buffType`(`+0x38`)：`1` = `addStats`、`-1` = 明确不是从 `CardEffect` 来的、`0` = 未知（判据 → 类尾 `HasWhileInPlayAbility` ⑥ 那一段）｜🆕 2026-10-29（执行代理 `B97_US` · 账 521）`Permanent` = 原版 `CardEffect.permanentBuff`(`+0x74`，`dump.cs:119100`，Tooltip `Can't be jammed`)：真 ⇒ 被 jam 时**摘不掉**（`decomp_full/CardScript__RemoveEffect.c:43-45` 第一句 `return`）。⚠️ 数据槽 + 消费点已建，**生产点尚未接线**（`EffectResolver` 那几处 `AddStatMod` 都还没传它）⇒ 今天恒 `false`（休眠，铁律 11 照建；与 `GrantRecord.Caster` 同一处置）。</summary>
-            public string Source; public string Trait; public int BuffType; public bool Permanent; public int Seq; public int RowGroup; public string EffectOwner; public int EffectAb = -1; public int EffectLg = -1; public bool EffectIsHand;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：**归属四元组**（同 `TraitEffectRecord` 那四格，判据 `decomp_full/AbilityLogic__PlayAbility.c:1189-1205`）；`EffectOwner == null` ⇒ 判不到（`Ab`/`Lg` 留 `-1`，⛔ 不猜）。⚠️ 不参与任何结算、不进 `PlayerHash`/`Fingerprint`｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）
+            public string Source; public string Trait; public int BuffType; public bool Permanent; public int Seq; public int RowGroup; public string EffectOwner; public int EffectAb = -1; public int EffectLg = -1; public bool EffectIsHand;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：**归属四元组**（同 `TraitEffectRecord` 那四格，判据 `decomp_full/AbilityLogic__PlayAbility.c:1189-1205`）；`EffectOwner == null` ⇒ 判不到（`Ab`/`Lg` 留 `-1`，⛔ 不猜）。⚠️ 不参与任何结算、不进 `PlayerHash`/`Fingerprint`｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，✅ 2026-11-01 更正：原来写「**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）」——实际**已接**（`EffectResolver.cs:11918`）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）：`RowGroup` = **同一次 `give` 子句的合并组号**（原版一条 `CardEffect` 天生带齐四项增量；我们把一个子句解析成多条 `PayloadOp` ⇒ 必须自己把同子句的几条归回一组）。写点 = `AddStatMod(…, rowGroup:)`；生产点 = `EffectResolver.DoGive` 的 `ctx.NextRowGroup()`，✅ 2026-11-01 更正：原来写「**今天恒 0**（生产端补丁见 `报告/B103_W3.md` §四）」——实际**已接**（`EffectResolver.cs:11918`）｜`Permanent` 见上面那条 doc ｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 「加序戳」（原版 `activeEffects(+0x108)` 是 `List.Add` 序；我们把它拆成多本账 ⇒ 靠它还原出表顺序，取值点 = `AddStatMod` 那一刻，见类尾 `NextEffectSeq`；今天无消费者 = 休眠，铁律 11 照建）
         }
 
         readonly List<StatMod> _statMods = new List<StatMod>();
@@ -4343,5 +4343,11 @@ namespace RuleEngine
             o.Owner = card.Name; o.Ab = ab; o.Lg = lg;   // 🆕 2026-10-31（`B107_W19`）：**四格同生共死** —— 只有能唯一钉到那一条行时才回 `Owner`（否则 `Owner` 单留会被消费端误当成「有归属、只是没原文」）
             return o;
         }
+
+        /// <summary>🆕 2026-11-01（`B115_W23`）：**`Instance == null` 时 <see cref="ReferencedCards"/> 的兜底格**。
+        /// 原版不存在这种单位（`CardScript` 自己就是身份），但本仓的夹具/演示允许 `new UnitState((CardDef)null, …)`；
+        /// 那一档读写都落在这里（等价于「这张牌没有实例身份」，⛔ 不静默丢写）。
+        /// ⚠️ 追加在**类尾**（`账/*.tsv` 按 `文件:行号` 引，插进中间就漂）。</summary>
+        readonly List<CardRef> _orphanReferencedCards = new List<CardRef>();
     }
 }

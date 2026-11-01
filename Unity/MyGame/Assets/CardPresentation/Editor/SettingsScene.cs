@@ -5767,29 +5767,76 @@ public static class SettingsScene
         return (float)(s / (px.Length / 7.0));
     }
 
-    /// <summary>🆕 **2026-10-27（B1UI）**：设置窗**底部那几颗钮的命中区必须真的在**。
-    /// <para>为什么要有它：真机实测点 `Redeem Code` / `Close Game Button` 会落到**窗内吸收层** `AbsorbHit`
-    /// （`_tmp_view/click_log.txt:13414-13426` 的候选表里**只有** `q=3134 AbsorbHit` + `q=3130 BackgroundHit`，
-    /// 钮的 `Hit` 根本不在）⇒ 队列假说与坐标假说都已排除，只剩「命中区没建出来」这一支
-    /// （`MenuDraw.Hit` 在「整块在视口外」时**返回 null、连节点都不建**）。</para>
-    /// <para>⛔ **前提断言先写、再写结论**（本项目踩过 `if (x != null) Check(...)` 静默跳过）；本方法两条都是硬 `CheckTrue`。</para>
-    /// <para>⚠️ 判据只到「`Hit` 挂上了 `WindowButton`」这一层 —— **画出来的位置对不对**仍要靠并排比/真机点。</para></summary>
+    /// <summary>🔴 **2026-11-01（`B115_W15` · `UI-06`）**：设置窗底部那几颗钮 —— **「点得到」的机器判据**。
+    /// <para>判据来历：2026-10-25 真机批报「保存 / 测外网 / 兑换码 / 退出」点不到（账 `UI-06`）。
+    /// `B115_W15` 把 `_tmp_view/click_log.txt` 的画布坐标与同批截图逐像素对了一遍 ⇒ **那四次点击都落在钮外**
+    /// （两次在「兑换码 ↔ 退出游戏」中间那条 **36 px** 的缝里：画布 x = 924.8 vs 右沿 902.87 / 左沿 938.87；
+    /// 两次在钮顶沿上方 **2.2 画布 px**：y = 600.8 vs 顶沿 603.0），而钮的命中区**一直盖着**它画出来的那块
+    /// （`click_log.txt:3299` 那次候选表里就有 `q=3135 Hit/…/Redeem Code`；`59_settings_again.png` 量出的底图
+    /// = 画布 `633..902 × 766.5..825`，与 `Screen()` 算的逐像素吻合）。
+    /// ⇒ 把这件事钉成断言，别再来一次「靠人看日志猜」。</para>
+    /// <para>每颗钮三重：① 前提（节点 / `WindowButton` / 命中 quad / `PointerLayer` 都得在）
+    /// ② **中心点必须命中它自己** ③ **灭自证**（把点挪到钮顶外 **3 画布 px** ⇒ **不再**命中它 ——
+    /// 2026-10-25 那两次「点不到」正是差这一点点；若这里仍命中，说明命中区比钮大出一圈，②是空转绿）。</para>
+    /// <para>⛔ 都是硬 `CheckTrue`；失败时才调 `SettingsHitProbe.Describe(...)` 把七格成因一次印出来
+    /// （成功路径零开销 —— 三元表达式里才求值）。</para></summary>
     static void AssertBottomHits(Transform page)
     {
         var all = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
         CheckTrue(all != null && all.Length > 0,
-                  "（前提）场景里找得到 `WindowButton`（否则下面两条是同义反复）");
-        string[] names = { "Redeem Code", "Close Game Button" };
-        for (int i = 0; i < names.Length; i++)
+                  "（前提）场景里找得到 `WindowButton`（否则下面全部是同义反复）");
+        var win = SettingsWindow.Instance;
+        CheckTrue(win != null, "（前提）`SettingsWindow.Instance` 拿得到（下面要切页）");
+        CheckTrue(page != null, "（前提）通用页 `gtab` 是活的");
+        if (win == null || page == null) return;          // ⛔ 不是静默跳过：上面三条已经硬报过
+
+        // ① 通用页：原版 `Bottom Buttons` 两颗 + 我们自己加的 `Online` 入口
+        win.OpenTab(SettingsTab.General);
+        CheckTrue(!win.LangListOpen,
+                  "（前提）语言下拉此刻关着 —— 它开着时列表 q=3142 / 挡板 q=3140 会盖住底部那三颗（那时点不到是**对的**）");
+        AssertReachable(page, "Redeem Code", SettingsWindow.GenL, SettingsWindow.GenBtnT,
+                        SettingsWindow.GenL + SettingsWindow.GenBtnW, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH);
+        AssertReachable(page, "Close Game Button", SettingsWindow.GenBtn2L, SettingsWindow.GenBtnT,
+                        SettingsWindow.GenBtn2L + SettingsWindow.GenBtnW, SettingsWindow.GenBtnT + SettingsWindow.GenBtnH);
+        AssertReachable(page, "Online Button", SettingsWindow.GenOnlineL, SettingsWindow.GenOnlineT,
+                        SettingsWindow.GenOnlineR, SettingsWindow.GenOnlineT + SettingsWindow.GenBtnH);
+
+        // ② 联机页两颗（2026-10-25 报的另外两颗）—— 它们挂在 `Online Tab` 里 ⇒ 必须先切过去（停用页的 quad `HitQuadForTest` 返 null）
+        win.OpenTab(SettingsTab.Online);
+        var onPage = win.HostBlock != null ? win.HostBlock.parent : null;
+        CheckTrue(onPage != null, "（前提）联机页（= `Host Block` 的父节点）拿得到");
+        if (onPage != null)
         {
-            var node = page != null ? FindChild(page, names[i]) : null;
-            CheckTrue(node != null, "（前提）钮 `" + names[i] + "` 的节点在");
-            bool found = false;
-            if (node != null && all != null)
-                for (int k = 0; k < all.Length; k++)
-                    if (all[k] != null && all[k].transform.parent == node) { found = true; break; }
-            CheckTrue(found, "🔴 `" + names[i] + "` 的命中区**挂上了 `WindowButton`**"
-                             + "（红 = `Hit` 被 `ClipRect` 丢掉了 ⇒ 玩家点这颗钮会落到吸收层）");
+            AssertReachable(onPage, "Save Button", SettingsWindow.TitleL, SettingsWindow.OnBtnT,
+                            SettingsWindow.TitleL + SettingsWindow.OnBtnW, SettingsWindow.OnBtnT + SettingsWindow.OnBtnH);
+            AssertReachable(onPage, "Echo Button", SettingsWindow.TitleL + SettingsWindow.OnBtnW + 40f, SettingsWindow.OnBtnT,
+                            SettingsWindow.TitleL + SettingsWindow.OnBtnW + 40f + SettingsWindow.OnEchoW,
+                            SettingsWindow.OnBtnT + SettingsWindow.OnBtnH);
         }
+        win.OpenTab(SettingsTab.General);   // 还原（调用点在 ④ 那一节末尾，后面 ⑤ 还要用通用页）
+    }
+
+    /// <summary>`UI-06` 的单颗判据（`rect` = **设计 px、未过 `Screen()`**）。见 `AssertBottomHits` 的三重结构。</summary>
+    static void AssertReachable(Transform parent, string name, float x1, float y1, float x2, float y2)
+    {
+        var node = parent != null ? FindChild(parent, name) : null;
+        CheckTrue(node != null, "（前提）钮 `" + name + "` 的节点在（父 `" + (parent != null ? parent.name : "<null>") + "`）");
+        var wb = node != null ? node.GetComponentInChildren<WindowButton>(true) : null;
+        CheckTrue(wb != null, "（前提）`" + name + "` 的命中区挂上了 `WindowButton`"
+                             + (wb == null && node != null ? " —— 实读：" + SettingsHitProbe.Describe(node, x1, y1, x2, y2) : ""));
+        var q = wb != null ? PointerLayer.HitQuadForTest(wb) : null;
+        CheckTrue(q != null, "（前提）`" + name + "` 的命中 quad 在激活链上（停用 / 裸节点 ⇒ 真鼠标扫不到，A26 那个坑）");
+        var pl = PointerLayer.Instance;
+        CheckTrue(pl != null, "（前提）`PointerLayer` 拿得到（`ButtonAt` = 生产命中口）");
+        if (wb == null || q == null || pl == null) return;   // 上面已硬报
+
+        var s = SettingsWindow.Screen(x1, y1, x2, y2);       // 画布 px、y 向下
+        bool atCenter = pl.ButtonAt(s.CX, s.CY) == wb;
+        CheckTrue(atCenter, "🔴 `" + name + "` 的**命中区中心点**命中的是它自己"
+                          + "（画布 (" + s.CX.ToString("F1") + "," + s.CY.ToString("F1") + ")）"
+                          + (atCenter ? "" : " —— 实读：" + SettingsHitProbe.Describe(node, x1, y1, x2, y2)));
+        CheckTrue(pl.ButtonAt(s.CX, s.y1 - 3f) != wb,
+                  "…而且**钮顶外 3 画布 px** 那一点**不再命中它**（灭自证：2026-10-25 真机那两次「点不到」正是差这一点点；"
+                + "若这里仍命中 ⇒ 命中区比钮大出一圈，`ButtonAt` 这组断言就是空转绿）");
     }
 }

@@ -394,7 +394,7 @@ namespace RuleEngine
             to.DutyUsed = from.DutyUsed;
             to.Prayed = from.Prayed;
             to.FerocityStay = from.FerocityStay;
-            // ⚠️ `IsRemnant` / `IsLeavingRemnant` / `FaceDown` / `SwarmUnder` / `ReferencedCards`
+            // ⚠️ `IsRemnant` / `IsLeavingRemnant` / `FaceDown` / `SwarmUnder` / `ReferencedCards`（🔴 2026-11-01：后者已是 `CardInstance` 上的 `List<CardRef>`，本方法照样**不搬**）
             //    **不搬** —— 前者两个是「残骸身份」，变身的靶是在场单位；后两个是引用表，
             //    我们的实现里没有「别人指着我」的反向更新口（如实留缺口，见报告）。
         }

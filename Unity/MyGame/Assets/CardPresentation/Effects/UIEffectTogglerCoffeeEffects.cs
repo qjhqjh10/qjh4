@@ -257,6 +257,13 @@ namespace CardPresentation
 
             var mat = new Material(sh);
             mat.name = "WildcardShine_" + (name ?? "layer");
+            // 🔴 判据：原版这颗 shader 是 6 条 `#pragma multi_compile_local` + 一串**精确匹配**的 `#if/#elif`
+            //   （`d:/2/tools/ruri_out_1020_rootshaders/…/Hidden_UI_Default (UIEffect).shader:44-108`），
+            //   **四个效果关键字（TONE_GRAYSCALE / TRANSITION_DISSOLVE / TRANSITION_SHINY / EDGE_SHINY）必须
+            //   恰有一个开**，一个都不开 = 原版基础档 = 什么效果都不做。本层服务的 5 个实例 `m_TransitionFilter`
+            //   全是 4 (Shiny)（判据 = 报告 `B9_W5COF` §2·6 逐字段表）⇒ 这里显式点亮 `TRANSITION_SHINY`。
+            //   ⛔ 别删这一行：删了材质就落回「基础档」，扫光会**静默消失**（那是原版语义，不是这个实例的语义）。
+            mat.EnableKeyword("TRANSITION_SHINY");
             mat.SetFloat("_TransitionWidth", p.width);
             mat.SetFloat("_TransitionSoftness", p.softness);
             mat.SetColor("_TransitionColor", p.color);

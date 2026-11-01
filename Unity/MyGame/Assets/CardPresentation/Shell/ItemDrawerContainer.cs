@@ -48,7 +48,7 @@ namespace CardPresentation
             // ② 阵营徽记：**只有中立才关**（`armyIcon.SetActive(item.cardArmy != Neutral)`）
             if (item.CardArmy != 0)
             {
-                var aR = fr.Map(DrCx1, 939.6f, DrCx2, 1134f);
+                var aR = fr.Map(DrCx1, DrEmblemY1, DrCx2, DrEmblemY2);   // `B-315`：与 `Wildcard` 的 `Content/Image` 同一条（唯一来源 = `ItemDrawerLayout.DrEmblemY1/Y2`）
                 var aTex = ArmyIcons.Texture(item.CardArmy);
                 if (aTex != null)
                     MenuDraw.Rect(content, aTex, aR, NodeArmyIcon, st.QArt + 2, null, true, st.Clip, st.ClipSoftness);

@@ -1045,7 +1045,7 @@ class TutorialProbe
     {
         H("[行 111] AiScripted.GetTipPosition(manager, pos, relation, referenceUnit)");
         L("判据 🥈 cpp2il dev AiScripted.cs:3114-3466（Ghidra 274 行）—— 锚点逐档 + Relation 偏移");
-        L("我们侧 ★缺读口 —— `BattleDriver.cs:16260` `TipAnchor` + `:17032-17092`（Unity 侧）");
+        L("我们侧 已接 —— `BattleDriver.cs:17120` `TutorialAnchor` + `:36873` `TutorialAnchorExtra`（50/70/100 三档，`:17170` 的 default 跳过去）；Unity 断言 `Editor/BattleScene.cs:37734/37738/37743/37746/37749`（b114_unity_battlescene3.log:200939/200952/200978 实跑 ✓）｜⚠️ 2026-11-01 更正：原来写「★缺读口 —— `BattleDriver.cs:16260` `TipAnchor` + `:17032-17092`」，实际 `TipAnchor` 这个名字已不存在（现名 `TutorialAnchor` / `TutorialAnchorExtra`）、`:16260` 也已不在锚点那一段（行号漂了），三档早已建好并有断言");
         // 真实域：6 关的 smallTipParams.positionReference 分布（这是判据侧的输入，可复现）
         var hist = new SortedDictionary<int, int>();
         foreach (var s in AllSlots(f))
@@ -1058,7 +1058,7 @@ class TutorialProbe
         var sb = new StringBuilder("   smallTipParams.positionReference 分布：");
         foreach (var kv in hist) sb.Append(kv.Key).Append("×").Append(kv.Value).Append("  ");
         L(sb.ToString());
-        L("差异 三处已在账里（卡面子锚按比例 · 50/70/100 未做（数据 0 条） · 偏移量同上一行）");
+        L("差异 已收口（卡面子锚按比例 · 50/70/100 已做：数据 0 条也按铁律 11 建了 `TutorialAnchorExtra`，配 3 条断言 + 2 条前提 · 偏移量同上一行）｜⚠️ 2026-11-01 更正：原来写「50/70/100 未做（数据 0 条）」，实际早已落地（判据 → 账 `TOOL-02` 现读，`BattleDriver.cs:36873`）");
         _bad++;
     }
 

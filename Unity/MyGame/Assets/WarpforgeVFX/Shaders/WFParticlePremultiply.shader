@@ -77,7 +77,20 @@ Shader "WarpforgeVFX/FX/ParticlePremultiply"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Color;
-                float  _ENABLEVERTEXSTREAMS;
+                // 🔴 `B-298`（2026-11-01 · 写手 `W-115W1`）：**`float _ENABLEVERTEXSTREAMS;` 这条声明已删**。
+                //    原来这里写着「`_ENABLEVERTEXSTREAMS` 不算这一类：原版没给它编任何变体、本文件也没有它的
+                //    pragma ⇒ 永远不会被 `#define`，留着无害」—— **那个理由靠不住**：`:42` 的
+                //    `[Toggle(_ENABLEVERTEXSTREAMS)]` **本身就是一条关键字声明**（`Toggle(NAME)` 就是给 `NAME`
+                //    建关键字的特性），材质一开（`_ENABLEVERTEXSTREAMS = 1`）Unity 就给变体 `#define NAME`。
+                //    ⚠️ **本机未实证的部分（⛔ 别当已证）**：本文件**没有**该关键字的 `#pragma`，而
+                //       「`[Toggle]` 单独（无 pragma）是否也产生 `#define`」本机**没有 Unity 编译可验**，
+                //       219 份 Unity 官方 shader 里也**找不到**「`[Toggle]` 不给 pragma」的同形反例 ⇒ **存疑**。
+                //    但风险不对称：本文件**从不读这个变量**（正文只有 `#ifdef _SOFTPARTICLES`；顶点流那一支
+                //    原版无产物、文件头 ③ 已记）⇒ **删声明零行为变化**；留着则一旦成立就是整份编不过。
+                //    同族先例：`WFEclipseTau.shader:96-101` · `WFParticlePremultiplyGreyscale.shader:109-111` ·
+                //    `WFUIBorderHighlight.shader:214-219`（都是「只删 HLSL 声明、`Properties` 里那条 `[Toggle]` 原样保留」，
+                //    材质面板 / `SetFloat` 行为不变）。
+                //    闸：`工具/check_shader_keyword_collision.py`（删掉这条声明后，全仓 65 份 shader 现读真冲突 **0**）。
                 // ⚠️ **这里【不能】声明 `float _SOFTPARTICLES;`** —— `_SOFTPARTICLES` 同时是**关键字**
                 //    （`[Toggle(_SOFTPARTICLES)]` ＋ 上面那条 `#pragma multi_compile_local`）。
                 //    只要有材质把它打开，Unity 就 `#define _SOFTPARTICLES 1` ⇒ 与同名变量**重定义**、整份编不过。
@@ -86,8 +99,6 @@ Shader "WarpforgeVFX/FX/ParticlePremultiply"
                 //    （`_tmp_view/20261024_playerbuild.log:4967`）。
                 //    本文件**也没用到它的值**（片元只走 `#ifdef`）⇒ 按 `WFParticlePremultiplyGreyscale.shader:109`
                 //    与 `WFUnlitUVScroll.shader:120` 的同族做法：**只留 Properties 里那一条**。
-                //    ⚠️ `_ENABLEVERTEXSTREAMS` 不算这一类：原版没给它编任何变体、本文件也没有它的 pragma
-                //    ⇒ 永远不会被 `#define`，留着无害（只是让原版材质的值灌得进来）。
                 float4 _Depth_And_Offset;
                 float  _QueueOffset;
                 float  _QueueControl;

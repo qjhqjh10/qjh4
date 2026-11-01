@@ -19,7 +19,7 @@
 //    7 个源（_statMods / _traitEffects / TempBuffs / CardInstance.ActiveEffects / HandEffects / …）
 //    已合成「一条有序 List」+ 每条 `Seq` 序戳（S2，`UnitState.NextEffectSeq`）＋ 表现侧消费
 //    （S4 `CardDisplayWindow.RowsOfEffects`，2026-10-29 `B97_W16`）；**生产接线 = S5**（`BattleDriver.cs:13212`，2026-10-29 `B97_W18`）⇒ 本类**今天有真消费者**。
-//    ⚠️ 仍缺的几段（S3-c 生产端 / S3-f 写点 / S7；如实标，⛔ 别当成「已做」）→ 见 `Of()` 上面那段「今天还差的三段」＋ 账 `特效动画:521` 的残差。
+//    ✅ 2026-11-01 更正：原来写「仍缺的几段（S3-c 生产端 / S3-f 写点 / S7）」——**这三段现在全结了**（`EffectResolver.cs:11918` / `:5757` / `工具/ruleprobe/EffectsProbe.cs`，`B111_E3` 2026-11-01）；错因 = 写于 `B103_W3` 当天补丁执行之前。
 //
 // ⚠️ 本文件属 `Core/` —— **不允许依赖 UnityEngine**。
 using System.Collections.Generic;
@@ -181,11 +181,11 @@ namespace RuleEngine
         //  🔴 **本方法是纯读**：不改任何 `UnitState` 字段、不发事件、不写 `ctx.Log`（除非调用方给了 `ctx`
         //     且遇到**认不出的载荷**那种必须出声的场合）⇒ `ruleprobe play` 指纹必须逐字节不变。
         //
-        //  ⚠️ **今天还差的三段（别当成已做）**：
-        //    · 附魔行 `Seq`：字段 + 读点已通（`ActiveCardEffect.Seq` / `Seq = e.Seq`），写点 = `Enchantments.Attach`（⏳ 临时借载体自己那个单位的计数器）。
-        //    · 手牌行 `Seq`：字段 + 读点已通（`HandEffect.Seq` / `Seq = he.Seq`），**写点未接**（`EffectResolver.AttachHandEffect`）⇒ 今天仍 `0`、排队尾。
+        //  ✅ 2026-11-01 更正：这「三段」**全部已结**（原来写「今天还差的三段（别当成已做）」——错因 = 写于 `B103_W3` 补丁执行之前、之后没回来改）：
+        //    · 附魔行 `Seq`：字段 + 读点已通（`ActiveCardEffect.Seq` / `Seq = e.Seq`），写点 = `Enchantments.Attach`（`Enchantment.cs:283 Seq = carrier.NextEffectSeq()`；发号口已统一到 `CardInstance.NextEffectSeq`，原来那句「⏳ 临时借载体自己那个单位的计数器」已删）。
+        //    · 手牌行 `Seq`：字段 + 读点已通（`HandEffect.Seq` / `Seq = he.Seq`），✅ 写点**已接**（`EffectResolver.cs:5757 Seq = inst != null ? inst.NextEffectSeq() : 0`，补挂照抄 `:5969`）。
         //    · `RowGroup`（S3-c）：**数据槽 + 投影已建**（`StatMod.RowGroup` / `AddStatMod(…, rowGroup:)` / `TempBuff.RowGroup`），
-        //      但**生产端没接**（`EffectResolver.DoGive` 的 `ctx.NextRowGroup()`）⇒ 今天仍恒 `0` = 不合并；接线补丁 → `报告/B103_W3.md` §四。
+        //      ✅ 生产端**已接**（`EffectResolver.cs:11918 { int rowGroup = ctx.NextRowGroup();`，发号口 `BattleContext.cs:837`）；原来写「但生产端没接 ⇒ 今天仍恒 0 = 不合并」，错因同上一行。
         //      （`RemoveTrait` 已结：2026-10-30 `B103_W3` 改读 `UnitState.RemovedTraitSeq` 的有序簿记。）
         // ============================================================================================
 
@@ -410,7 +410,7 @@ namespace RuleEngine
                                 TraitValue = p.Value,
                                 Timed = timed,
                                 Source = he.Source,
-                                Seq = he.Seq,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：读手牌记录自己的加序戳（⏳ 写点未接 ⇒ 今天恒 0，行为不变）
+                                Seq = he.Seq,   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：读手牌记录自己的加序戳。✅ 2026-11-01 更正：原来写「⏳ 写点未接 ⇒ 今天恒 0，行为不变」——写点已接（`EffectResolver.cs:5757`），错因 = 写于同一补丁执行之前
                             });
                         }
                         else if (!string.IsNullOrEmpty(p.Attr))

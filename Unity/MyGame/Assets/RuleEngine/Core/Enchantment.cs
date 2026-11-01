@@ -517,7 +517,7 @@ namespace RuleEngine
                     if (kept != null) kept.Add(e);
                     continue;
                 }
-                carrier.Instance.QuestCounter = carrier.Instance.QuestCounter + 1;
+                int __qStep = AbilityCountForTrigger(e.Card, keyword); carrier.Instance.QuestCounter = carrier.Instance.QuestCounter + __qStep;   // 🔴 2026-11-02（`B115_S6` · 就地订正本行）：原版**每条 ability 各 +1** —— `RawCardScript__TriggerAbilities.c:115` 的调用点在**内层 ability 循环**（`:71-190` 逐条 `cardAbilities(+0x290)`）里，⛔ 不是「每件附魔 +1」⇒ 一件附魔有 N 条同 trigger 的 ability 就 +N。⛔ 别退回 `+1`、也别拿 `_abilityTriggers`（`HashSet`，生成器已去重）凑 —— 条数判据只在类尾 `AbilityCountForTrigger`（含三档保守回退 1，以及「附魔模板第二张表依赖 `ENG-11` 的 B1」）｜⚠️ **零行数变化**（本文件有账落点，铁律 18·b）
                 int counter = carrier.Instance.QuestCounter;
                 if (counter < times)
                 {
@@ -2062,6 +2062,57 @@ namespace RuleEngine
                 if (kept != null) kept.Add(e);
             }
             return kept ?? hits;
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B115_S6` · 活 `ENG-02`）：`questCounter` 的**累加条数**
+        // ==================================================================
+        //  判据（四跳，全部现读 `d:/2/tools/decomp_full/`）：
+        //   ① `EntityScript__ReachedQuestCounter.c:5-15` —— **每一次调用**就 `carrier.questCounter(+0x270) += 1`
+        //      （三道闸 `cardType==0x28 Whispers ∧ spellType==0x78 Quest ∧ 1 < questTimes(+0x7c)`）；
+        //   ② `RawCardScript__TriggerAbilities.c:50-65` —— 外层 = 逐**件**附魔（`activeEnchantments +0x110`）；
+        //   ③ `:71-190` —— 内层 = 逐**条** ability（`enchantmentCard.cardAbilities +0x290`，下标 `iVar7`）；
+        //   ④ **`:115` 的调用点在内层循环里**，`:118-186` 紧接着派发**那一条** ability。
+        //  ⇒ 一件附魔在这一拍派发 N 条 ability ⇒ 计数 **+N**（不是 +1）。
+        //    ⚠️ 只在 `CanTriggerAbility`（`:108`）放行的那些条上 +1 —— 那一层 criteria 本层判不了，
+        //       所以这里数的是「**同 trigger 的 ability 条数**」，与正文派发用的是同一份
+        //       `AbilityTargets[].Trigger` 数据（派发侧同样按它取）。
+        //
+        //  🔴 **数条数只能读 `AbilityTargets[].Trigger`**（`CardDef.cs:2492-2496`，**逐 ability 一项**）：
+        //    ⛔ 别读 `_abilityTriggers` —— 它是 `HashSet<int>`（`CardDef.cs:2454`）且生成器
+        //    `sorted(set(...))` **已去重**，`AbilityTriggerPresence` 只回 `0/1/-1`
+        //    （`CardDef.cs:2462-2466`）⇒ **数不出条数**；拿它凑会让 `+N` 永远等于 `+1`
+        //    （看着"有实现"、实际零变化）。
+        //
+        //  ⚠️ **返回 1 = 改前行为**（原版口径「未知不拦」），三档：
+        //    ① `!AbilityTargetsVersioned` —— 这一列没落。**附魔模板那第二张表就是这一档**
+        //       （`CardDatabase.cs:3715-3729` 构造没传这一列，= `ENG-11` 的 B1）⇒ 模板侧今天只能 +1，
+        //       等 B1 把列补上即自动变 +N（本方法不缓存、每次现算）。
+        //    ② 列在、但**一条 `Trigger` 都对不上**（`-1` = 生成器读不到 / 卡面 wording 不在这条 trigger 上）；
+        //    ③ `keyword` 认不出 trigger 号（`CardDef.AbilityTriggerNumber` 回 `-1`）。
+        //  📊 可达性：`spellType == 120` 现池 **0 张**、两张卡表的 `questTimes` 真值全 0
+        //    ⇒ 今天**零可观测**（`Enchantment.cs:498` 那段老注释仍然成立）；本条按铁律 11 先做形。
+        /// <summary>这件附魔卡在 <paramref name="keyword"/> 这条触发上**有几条 `cardAbilities`**
+        /// —— `questCounter` 按它累加（判据/为什么不能读 `HashSet` 见上面那段注释）。</summary>
+        static int AbilityCountForTrigger(CardDef card, string keyword)
+        {
+            if (card == null) return 1;
+            // 🔴 **引擎关键词 → 原版 trigger 名** 必须过 `RuleCore.TriggerNameOfKeyword`
+            //   （判据只此一处：`ActionPump.cs:1081`）。例：`rally` → `ThisCardPlayed`(0) ——
+            //   ⛔ 别把 `keyword` 直接喂 `AbilityTriggerNumber`：原版 `AbilityTrigger` 表里
+            //   没有 `Rally` 这个词（`CardDef.cs:1914-1953` 那张 97 条表里 0 命中）⇒ 会恒回 `-1`
+            //   ⇒ 恒走「保守回退 1」= 本笔变成空转（看着改了、读数不变）。与 `Matching`（本文件
+            //   `:474`）用的是**同一个映射口**，两处别各写一份。
+            string tn = RuleCore.TriggerNameOfKeyword(keyword) ?? keyword;
+            int trigger = CardDef.AbilityTriggerNumber(tn);
+            if (trigger < 0) return 1;                       // ③ 认不出这条触发名
+            if (!card.AbilityTargetsVersioned) return 1;     // ① 这一列没落（附魔模板 = ENG-11 B1）
+            var rows = card.AbilityTargets;
+            if (rows == null || rows.Count == 0) return 1;
+            int n = 0;
+            for (int i = 0; i < rows.Count; i++)
+                if (rows[i] != null && rows[i].Trigger == trigger) n++;
+            return n >= 1 ? n : 1;                           // ② 列在却一条都对不上 ⇒ 保守按改前行为
         }
     }
 }

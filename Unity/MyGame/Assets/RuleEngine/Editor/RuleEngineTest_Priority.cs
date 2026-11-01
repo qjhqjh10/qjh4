@@ -72,7 +72,7 @@ public static partial class RuleEngineTest
         W61T31PersistentQueuesUntilBoundary();
         // 🆕 2026-10-24（引擎线 `A12` 第 4 件）：`BroadcastHandTrapWhen`（**非单位卡**那一跳）
         W61T32HandTrapQueuesUntilBoundary();
-        W61T33CanPlayCardWaitingBlocking();
+        W61T33CanPlayCardWaitingBlocking(); ENG14HandTrapAbilityGateRejects();   // 🆕 2026-11-02（`B115_W17` · `ENG-14`）：被 ability 级 `targetCriteria` 闸拒 ⇒ **0 条** `EvtKind.Trigger`（同一物理行追加 = 零行数漂移；代码在 `//` 之前）
     }
 
     // ==================================================================
@@ -1223,6 +1223,184 @@ public static partial class RuleEngineTest
             CheckTrue(!RuleCore.WaitingForBlockingAction(replay),
                       "★ T33 回放局 ⇒ `WaitingForBlockingAction` 恒 false（`.c:28` 的 `matchType == 0xa0` 短路）"
                     + "｜🧨 删掉 `MatchType.Replay` 那一行 ⇒ 本行红");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-11-02（`B115_W17` · 账 `ENG-14`）：**被 ability 级闸拒 ⇒ 0 条 Trigger 断言**
+    //
+    //  账上原来写着「等卡池出现真卡」⇒ 🔴 **那个前提不成立**（现读）：
+    //    · `CardDef` 构造器**吃 `abilityLevelCriteria`**（`CardDef.cs:963` 那一行 + `:1237-1250` 建表），
+    //      仓里已有 6 个夹具样板（`B106_W57_Assert:149-171` · `B99E9_Assert:124/161/410` ·
+    //      `EngineE2.E2Criteria10` …）⇒ **夹具自己就能造出「带 ability 级触发条件」的卡**。
+    //    · 落点 = `EffectResolver.BroadcastHandTrapWhen:10986-10995` 的 `if (htqueued)`：
+    //      `EnqueueAbility` 回 false（= `AbilityLevelCriteriaAllows` 判**不满足**，`ActionPump.cs:510-521`）
+    //      ⇒ `EmitListenerTrigger` **不发** ⇒ `EvtKind.Trigger` 一条都没有。
+    //      （`BroadcastHandTrapWhen:10994` 那句 `🧨 灭自证` 注释点名的就是本断言。）
+    // ==================================================================
+
+    /// <summary>`ta = 10 (allFiltered)` 的 36 格 criteria —— **逐格显式给值**（缺省 `Unknown(-1)` ⇒
+    /// `TargetCriteriaEval` 回 `null`（判不了）⇒ 调用点放行 ⇒ 夹具会静默退化成「什么都没验到」）。
+    /// ⚠️ 与 `B106_W57_Assert.B106W57Criteria10` / `B99E9Criteria10` / `EngineE2.E2Criteria10` 同形，
+    /// ⛔ 别改成「少给几格」。</summary>
+    static CardDef.CountSetSpec ENG14Criteria10(int friendlyUnits, int enemyUnits)
+    {
+        return new CardDef.CountSetSpec
+        {
+            PlayerTurn = 0,
+            TargetsAffected = 10,
+            ChosenArmy = 0, ArmyFilter = 0,
+            KeywordFilter = 0,
+            TraitsFilter = 0,
+            MaxTargets = 1,
+            TargetSelectMethod = 0,
+            AttackFilter = 0, AttackFilterOption = 0,
+            CurrentHealthFilter = 0, CurrentHealthFilterOption = 0,
+            ManaCostFilter = 0, ManaCostFilterOption = 0,
+            RarityFilter = 0, RarityFilterOption = 0,
+            SpellType = 0,
+            FriendlyUnits = friendlyUnits,
+            EnemyUnits = enemyUnits,
+            IncludeHero = 1, IncludeMinions = 1,
+            IncludeSpells = 0, IncludeWhispers = 0, IncludeWeapons = 0,
+            IncludeRemnants = 1, IncludeHeroParts = 0,
+            IncludeSelf = 0, ExcludeNotSelf = 0, ExcludeSimilarCards = 0, ExcludeTargetted = 0,
+            ExcludeFriendlyHero = 0, ExcludeEnemyHero = 0,
+            ExcludeRace = 0, ExcludeTrait = 0,
+            SelectFromChooseResolution = 0,
+        };
+    }
+
+    /// <summary>一张躺在手里的**计策卡**（= 手牌陷阱那一族）：整条 desc 就是一句
+    /// `When a unit dies, gain 2 Quest Points` ⇒ `CardDef.CollectHandTrapWhens` 收成 `HandTrapWhens`。
+    /// <para>三格数据缺一不可（缺了夹具会「看着给了数据、其实闸没跑」）：</para>
+    /// <list type="number">
+    /// <item>`abilityTriggers = {90}`（`OtherUnitDeath`）+ versioned ⇒ `HasTriggerSource` 的 **presence 闸**
+    ///   放行（`presence == 0` ⇒ `EmitCardTrigger` 不发事件 —— 那两条断言就全是**假绿**）；</item>
+    /// <item>`abilityTargets = [{trigger:90, ta:[10]}]` + 同一个 versioned 位（`CardDef.cs:1120`
+    ///   把 `AbilityTargetsVersioned` 绑在 `abilityTriggersVersioned` 上）⇒ `UniqueAbilityIndexForTrigger`
+    ///   认得出 ability 下标 0；</item>
+    /// <item>`abilityLevelCriteria` 一行 `{ab:0, trigger:90, ta:10, friendly/enemy}` + `conditionsVersioned: true`。</item>
+    /// </list>
+    /// <para><paramref name="friendlyUnits"/> / <paramref name="enemyUnits"/> 是 `TargetCriteriaEval` 的第 ② 道
+    /// 阵营闸（0/1，`Unknown` 才是判不了）⇒ `1 / 0` = **友方候选放行、敌方候选一律淘汰**。</para></summary>
+    static CardDef ENG14HandTrapWithGate(string id, int friendlyUnits, int enemyUnits)
+    {
+        var ta = new List<CardDef.AbilityTargetSpec>
+        {
+            new CardDef.AbilityTargetSpec { Trigger = 90, TargetsAffected = new[] { 10 } },
+        };
+        var rows = new List<CardDef.TargetCriteriaRowSpec>
+        {
+            new CardDef.TargetCriteriaRowSpec
+            {
+                Ability = 0, Trigger = 90, Logic = -1,
+                Criteria = ENG14Criteria10(friendlyUnits, enemyUnits),
+            },
+        };
+        return new CardDef(id, id, "tactic", "When a unit dies, gain 2 Quest Points", "common", "Test",
+                           cost: 1, attack: 0, health: 0, rangedAttack: 0, keywords: null,
+                           abilityTriggers: new[] { 90 },
+                           abilityTriggersVersioned: true,
+                           abilityTargets: ta.ToArray(),
+                           conditionsVersioned: true,
+                           abilityLevelCriteria: rows.ToArray(),
+                           abilityLevelCriteriaVersioned: true);
+    }
+
+    /// <summary>**账 `ENG-14`**：ability 级 `targetCriteria`（`+0x30`）判**不满足**时，
+    /// 手牌陷阱那一跳**一条 `EvtKind.Trigger` 都不发**。
+    ///
+    /// <para>一对用例，只有「谁死」这一格不同（同一张卡、同一份 criteria `友方1/敌方0`）：</para>
+    /// <list type="bullet">
+    /// <item>① **友方单位死** ⇒ 条件满足 ⇒ 陷阱结算（任务点 +2）且发 **1 条** `EvtKind.Trigger`；</item>
+    /// <item>② **敌方单位死** ⇒ 条件不满足 ⇒ **0 条** `EvtKind.Trigger`、任务点不动。</item>
+    /// </list>
+    /// <para>🔴 **灭自证**：只断 ① 的话，一个**恒真**的实现（把闸整个删掉）照样绿 —— 所以 ② 必须同时在。
+    /// ② 还额外断 `AbilityLevelCriteriaWarningsForTest` **+1**，用来证明「它真走到闸、被闸拒」，
+    /// ⛔ 而不是「`When` 短语压根没匹配上」（那样也是 0 条，但什么都没验到）。</para>
+    ///
+    /// <para>🔴 **为什么用 `RuleCore.BroadcastWhen` 直发、而不是先 `ApplyDamage` 打死再发**：
+    /// `CleanupDeaths` 在**发死讯之前**就 `BoardSlots.RemoveAt`（`RuleCore.cs:10064` 早于 `:10218` 的
+    /// `BroadcastWhen(Die, …)`），而 `TargetCriteriaEval.SideOf` **只扫棋盘**（`:637-647`）
+    /// ⇒ 真死之后候选的「友/敌」判不出来 ⇒ `Matches` 回 `null`（判不了）⇒ 调用点**放行**
+    /// ⇒ ② 那条会**假红**（实得 1 条事件）。这里直发同一入口、让候选留在棋盘上，
+    /// 测的才是「闸判不满足」这件事本身。
+    /// ⚠️ 顺带查出的**真缺口**（不在本批白名单内，只记不改）：
+    /// 生产路径（真死）里 hand-trap 的这张阵营闸**永远到不了「不满足」** —— 见报告 `ENG-14` 一节。</para>
+    /// </summary>
+    static void ENG14HandTrapAbilityGateRejects()
+    {
+        var trap = ENG14HandTrapWithGate("ENG14Trap", friendlyUnits: 1, enemyUnits: 0);
+
+        // ---- 🧨 前提（硬 Check —— 前提不成立就是红，⛔ 不是 `if (x != null) Check(...)` 那种静默跳过）----
+        CheckTrue(trap.HandTrapWhens.Count > 0,
+                  "🧪 ENG-14 前提：那句 `When a unit dies, …` 登记成**手牌陷阱**了（`HandTrapWhens` 非空）");
+        CheckTrue(trap.WhenTriggers.Count == 0,
+                  "🧪 ENG-14 前提：它是**非单位卡** ⇒ 不许同时进 `WhenTriggers`（进两边 = 结算两次）");
+        CheckTrue(!trap.CanListenForEvents,
+                  "🧪 ENG-14 前提：`CanListenForEvents` 只对单位卡为真 ⇒ 它走的是手牌陷阱那一跳");
+        CheckTrue(RuleCore.HasTriggerSourceForTest(trap, "OtherUnitDeath", null, "ENG-14"),
+                  "🧪 ENG-14 前提：presence 闸放行（`abilityTriggers` 含 90）—— 不放行 ⇒ 后面两条**都是假绿**");
+        string gesWhy;
+        CheckTrue(trap.AbilityLevelCriteriaForTrigger("OtherUnitDeath", out gesWhy) != null,
+                  "🧪 ENG-14 前提：`abilityLevelCriteria` 那条行**认得出**（trigger 名 → ability 下标 0）"
+                + "｜🧨 `abilityTargets` 没给 / 没 versioned ⇒ 认不出 ⇒ 闸整个不跑（本行会红）");
+
+        // ---- ① 条件**满足** ⇒ 触发 ----
+        {
+            var mine = Unit("ENG14Mine", 1, 1, 1);
+            var ctx = Battle(new[] { mine }, new CardDef[0]);
+            var dead = Place(ctx, 0, 3, mine);
+            ctx.Players[0].Hand.Add(ctx.NewInstance(trap));
+            CheckTrue(ReferenceEquals(ctx.Players[0].Board[3], dead),
+                      "🧪 ENG-14 ① 前提：候选**仍在棋盘上**（`TargetCriteriaEval.SideOf` 只扫棋盘 —— 不在就越不过阵营闸）");
+            int qp0 = ctx.Players[0].QuestPoints;
+            int sig0 = ctx.Signals.Count;
+            int warn0 = RuleCore.AbilityLevelCriteriaWarningsForTest;
+            RuleCore.BroadcastWhen(ctx, WhenEventKind.Die, 0, dead.Card, subject: dead);
+            Check(RuleCore.AbilityLevelCriteriaWarningsForTest, warn0,
+                  "★ ENG-14 ① 闸**放行**（判满足 ⇒ 不出声、计数不动）"
+                + "｜🧨 把 criteria 的 `friendlyUnits` 写成 0 ⇒ 这里 +1 且下面两条一起红");
+            int n1 = 0;
+            for (int i = sig0; i < ctx.Signals.Count; i++)
+            {
+                var e = ctx.Signals[i];
+                if (e != null && e.Kind == EvtKind.Trigger && e.CardId == trap.Name) n1++;
+            }
+            Check(n1, 1, "★ ENG-14 ① 条件满足 ⇒ 发 **1 条** `EvtKind.Trigger`（手牌陷阱那一拍）");
+            Check(ctx.Players[0].QuestPoints, qp0 + 2,
+                  "★ ENG-14 ① 条件满足 ⇒ 陷阱正文**真的结算**（任务点 +2）"
+                + "｜🧨 只发事件不结算 / 队列没泵 ⇒ 本行实得 +0");
+        }
+
+        // ---- ② 条件**不满足** ⇒ 不触发（灭自证）----
+        {
+            var foe = Unit("ENG14Foe", 1, 1, 1);
+            var ctx2 = Battle(new CardDef[0], new[] { foe });
+            var dead2 = Place(ctx2, 1, 3, foe);
+            ctx2.Players[0].Hand.Add(ctx2.NewInstance(trap));      // 陷阱仍归座位 0（= 这条 ability 的 `owner`）
+            CheckTrue(ReferenceEquals(ctx2.Players[1].Board[3], dead2),
+                      "🧪 ENG-14 ② 前提：候选**仍在棋盘上**（同上；离场 ⇒ 阵营闸判不了 ⇒ 放行 ⇒ 本条会假红）");
+            int qp2 = ctx2.Players[0].QuestPoints;
+            int sig2 = ctx2.Signals.Count;
+            int warn2 = RuleCore.AbilityLevelCriteriaWarningsForTest;
+            RuleCore.BroadcastWhen(ctx2, WhenEventKind.Die, 1, dead2.Card, subject: dead2);
+            Check(RuleCore.AbilityLevelCriteriaWarningsForTest - warn2, 1,
+                  "★ ENG-14 ② 它**真走到闸、且被闸拒**（`AbilityLevelCriteriaWarningsForTest` +1）"
+                + "｜🧨 计数不动 ⇒ 0 条触发是因为「`When` 短语压根没匹配上」，**这条用例什么都没验到**");
+            int n2 = 0;
+            for (int i = sig2; i < ctx2.Signals.Count; i++)
+            {
+                var e = ctx2.Signals[i];
+                if (e != null && e.Kind == EvtKind.Trigger && e.CardId == trap.Name) n2++;
+            }
+            Check(n2, 0,
+                  "★ ENG-14 ② **被闸拒 ⇒ 0 条 `EvtKind.Trigger`**（`BroadcastHandTrapWhen` 的 `if (htqueued)`）"
+                + "｜🧨 把 `if (htqueued)` 改成无条件调用 `EmitListenerTrigger` ⇒ 本行实得 1");
+            Check(ctx2.Players[0].QuestPoints, qp2,
+                  "★ ENG-14 ② 陷阱正文**没结算**（任务点不动）"
+                + "｜🧨 闸只挡事件、不挡结算 ⇒ 本行实得 +2");
         }
     }
 }

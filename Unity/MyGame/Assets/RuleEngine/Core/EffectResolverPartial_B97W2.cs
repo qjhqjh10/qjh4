@@ -214,6 +214,97 @@ namespace RuleEngine
 
             switch (b.BuffType)
             {
+                // ---- 🆕 2026-11-02（`B115_S5` · 波 2b）：`case 1 addStats`（`.c:331-459` 的合并循环）----
+                //  原版那一段**不是单条赋值**：先倒序扫 `activeEffects(+0x108)` 找「同 `enchantingCardId(+0xa4)` ∧
+                //  同 `buffType(+0x38)` ∧ 同 `markOfChaosType(+0x78)` ∧ `daemonHostType(+0x7c)==0` ∧
+                //  `mutationType(+0x80)==0` ∧ `doNotStack(+0x75)==0` ∧ `SameTimingAsEffect`」那一条，
+                //  把 `meleeAttackChange(+0x48)` / `rangeAttackChange(+0x50)` / `healthChange(+0x60)` /
+                //  `costChange(+0x68)` **累加**进去（`.c:399-433`）；找不到才 `List.Add`（`.c:436`）。
+                //  然后 `healthChange != 0` ⇒ 改上限（正数直接加、负数夹到当前上限，`.c:441-479`）；
+                //  `armourChange(+0x58) != 0` ⇒ `AddArmour`（`.c:480`）。
+                //  ⇒ 我们的等价位 = **`UnitState.AddStatMod`**：它的「同属性同来源合并」就是那个合并循环，
+                //     `health` 那一格改的是上限，`armour` 走 `AddKeyword(armour, n)`（与 `case 45` 的 droppod 同形）。
+                //  ⚠️ `costChange` 那一格**没有落**（原版改的是 `CardEffect.costChange` 那一本的合并；
+                //     我们的手牌费用在 `ctx.CostMods`、与 `RuleCore.DoLowerCost` 同一条 —— 见 `case 2`）。
+                case 1:
+                {
+                    bool any = false;
+                    if (b.MeleeAttackChange != 0)
+                    {
+                        target.AddStatMod("attack", b.MeleeAttackChange, "AddEffect:" + who,
+                                          extrinsic: b.Extrinsic != 0, buffType: b.BuffType, permanent: b.PermanentBuff != 0);
+                        any = true;
+                    }
+                    if (b.RangeAttackChange != 0)
+                    {
+                        target.AddStatMod("ranged", b.RangeAttackChange, "AddEffect:" + who,
+                                          extrinsic: b.Extrinsic != 0, buffType: b.BuffType, permanent: b.PermanentBuff != 0);
+                        any = true;
+                    }
+                    if (b.HealthChange != 0)
+                    {
+                        target.AddStatMod("health", b.HealthChange, "AddEffect:" + who,
+                                          extrinsic: b.Extrinsic != 0, buffType: b.BuffType, permanent: b.PermanentBuff != 0);
+                        any = true;
+                    }
+                    if (b.ArmourChange != 0)
+                    {
+                        target.AddKeyword(KeywordTable.Armour, b.ArmourChange);   // 原版 `.c:480 CardScript__AddArmour`
+                        any = true;
+                    }
+                    if (b.CostChange != 0)
+                    {
+                        ctx.Log($"⚠️{who}：`addStats(1)` 里的 `costChange = {b.CostChange}` **本仓没有落点**"
+                              + "（原版改 `CardEffect.costChange` 那本合并账；我们的手牌费用在 `ctx.CostMods`，"
+                              + "与 `case 2 changeCost` 同一条 —— 见那一支）");
+                        if (unresolved != null) unresolved.Add($"{who}（buffType 1 的 costChange 未建）");
+                    }
+                    ctx.Log($"{who}：「{target.Name}」的 `addStats(1)` ⇒ 近战 {b.MeleeAttackChange:+#;-#;0} · "
+                          + $"远程 {b.RangeAttackChange:+#;-#;0} · 生命上限 {b.HealthChange:+#;-#;0} · "
+                          + $"护甲 {b.ArmourChange:+#;-#;0}（原版 `CardScript__AddEffect.c:331-459`）");
+                    return any;
+                }
+
+                // ---- 🆕 2026-11-02（`B115_S5` · 波 2b）：`case 2 changeCost`（`.c:331-459` 同一段合并循环的另一半）----
+                //  原版与 `case 1` 共用那个合并循环，累加的是 `costChange(+0x68)`；我们这一侧手牌费用
+                //  的唯一台账是 `ctx.CostMods`（`RuleCore.DoLowerCost` 那一路）—— 但那条是**翻出正文 op 之后**
+                //  才写的，直接从 `CardEffect` 灌进去会越过它自己的判据 ⇒ **本支先出声、不改状态**，
+                //  留待「`changeCost` 的数据行落点」单独定口径（⛔ 不拿 `CostMods` 硬塞）。
+                case 2:
+                    ctx.Log($"⚠️{who}：`changeCost(2)` 的 `costChange = {b.CostChange}` **本仓暂无数据行落点**"
+                          + "（原版 `.c:331-459` 把它累加进 `CardEffect` 那本合并账；我们的手牌费用由"
+                          + " `ctx.CostMods` 承载、写点只有正文 op 那一路）⇒ **本行不改状态**");
+                    if (unresolved != null) unresolved.Add($"{who}（buffType 2 未建）");
+                    return false;
+
+                // ---- 🆕 2026-11-02（`B115_S5` · 波 2b）：`case 3 addTrait`（`.c:460-679`）----
+                //  原版：`CardTraitCollection.GetTrait(trait)` → 若 `trait != poisoned(200)` 或身上没有
+                //  `resistant(600)`：先 `RemoveActiveEffects(this, 4)`（摘掉同卡「去 trait」那本账，`.c:474`）；
+                //  再倒序扫 `activeEffects` 找「`buffType(+0x38)==3` ∧ 同 `trait(+0x3c)` ∧ 同 `markOfChaosType`
+                //  ∧ 同 `daemonHostType` ∧ `SameTiming` ∧ **两条都非 extrinsic**(`+0x30==0`)」那一条，
+                //  按 `GetTrait(trait).+0x24` 三档合并 `traitValue(+0x40)`：**0 ⇒ Max**（`.c:529`）·
+                //  **10 ⇒ 相加**（`.c:541`）·  **0x14(20) ⇒ 计数 +1**（`.c:549`）；
+                //  找不到才 `List.Add` + `AddTraitSilently(this, trait, traitValue)`（`.c:567-568`）。
+                //  ⇒ 我们的等价位 = **`UnitState.AddKeyword(DefinedTraitName(trait), traitValue)`**（trait 值那一本账）。
+                //  ⚠️ 三档合并方式（Max / 相加 / 计数+1）由 `CardTraitCollection` 的**静态表**决定，本仓**没有**那张表
+                //     ⇒ 交给 `AddKeyword` 自己的既有合并口径（⛔ 不在这里猜某一档）；如实记在报告里。
+                case 3:
+                {
+                    string kw = CardDef.DefinedTraitName(b.Trait);
+                    if (string.IsNullOrEmpty(kw))
+                    {
+                        ctx.Log($"⚠️{who}：`addTrait(3)` 的 `trait = {b.Trait}` **不在 `DefinedTrait` 反查表里**"
+                              + " ⇒ 本行不结算（⛔ 不猜名字；表 = `CardDef.DefinedTraitName`，`CardDefPartial_B94B16.cs`）");
+                        if (unresolved != null) unresolved.Add($"{who}（trait {b.Trait} 认不出）");
+                        return false;
+                    }
+                    bool added = target.AddKeyword(kw, b.TraitValue);
+                    ctx.Log($"{who}：「{target.Name}」的 `addTrait(3)` ⇒ `{kw}` {b.TraitValue}"
+                          + (added ? "" : " —— **没挂上**（`AddKeyword` 拒收，见它的闸）")
+                          + "（原版 `CardScript__AddEffect.c:460-679` → `AddTraitSilently`）");
+                    return added;
+                }
+
                 // ---- `case 5 swapStats`（`.c:695-748`）----
                 // 原版：督军等价体 ⇒ `LogError` 什么都不做；否则取 `CurrentIntrinsicHealth` 与
                 //   `CurrentIntrinsicMeleeAttack`（后者再加「extrinsic 且 `buffType==1`」那些记录的
@@ -395,9 +486,16 @@ namespace RuleEngine
                 }
 
                 default:
-                    // `AddEffect.c` 里这一档本来就走 `default:` 的「未实现」警告（`:958-966`）
-                    ctx.Log($"⚠️{who}：`buffType {b.BuffType}` 不在本表覆盖的 11 组里 —— "
-                          + "原版 `CardScript__AddEffect.c:960` 对它也是打警告、不改状态");
+                    // 🔴 **2026-11-02 更正（`B115_S5` · 铁律 5，就地改错）**：本行原来写的是
+                    //   「`AddEffect.c` 里这一档本来就走 `default:` 的『未实现』警告（`:958-966`）」
+                    //   —— **那句对 `buffType 1/2/3` 不成立**：现读 `CardScript__AddEffect.c` 的跳表
+                    //   **`case 1:` 在 `:331`、`case 2:` 在 `:332`、`case 3:` 在 `:460`**（原版确实处理
+                    //   `addStats` / `changeCost` / `addTrait`）。错因 = 当年只按「我们这 11 组」倒推原版，
+                    //   把「本表没实现」写成了「原版也没有」。现 `1` / `3` 已补（本方法开头两支），
+                    //   `2` 出声；`8 markOfChaos` / `12/15/16` 附魔族 / `90` **仍未补**（见报告 §十三）。
+                    ctx.Log($"⚠️{who}：`buffType {b.BuffType}` **本表尚未实现** —— "
+                          + "⚠️ 这不是「原版也没有」：原版 `CardScript__AddEffect.c` 对它有自己的分支，"
+                          + "本仓这一档**今天不改状态**（判据 → `报告/B115_S5_附魔执行器波01.md` §十三）");
                     return false;
             }
         }

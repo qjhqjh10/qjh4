@@ -262,5 +262,53 @@ namespace RuleEngine
                 return spec;
             }
         }
+
+        // ==================================================================
+        //  🆕 2026-11-01（`B115_W18` · `ENG-24` / `SW58`）：**「这条正文是否已被本格覆盖」的唯一判定**
+        // ==================================================================
+        //  **为什么需要**：`SW58 Fenrisian Wolfpack` 卡面 = `This card costs 1 less for each Hunt Mark on enemy troops`。
+        //    · **本格（数据路）** = 原版 `costChange × Σ目标的 trait 层数`（`NewBuffStat` 的 `costValueOptions=80`
+        //      支：`AbilityLogic__PlayAbility.c:181-236` 的 `ta==210/220` + `traitsFilter` 逐目标累加），
+        //      由 `RuleCore.CostOf` 的 `CostPerKeywords` 那一段**每次现算** ⇒ 手牌价已经是 `9 − Σ猎杀标记`；
+        //    · **正文路**（`EffectText` 把同一句解析成 `lowercost`）的 `countRef` **不带关键词**
+        //      （`ruleprobe card "Fenrisian Wolfpack"` 现读 `countRef=[enemy|troop|all]`）⇒ 外层 `for each`
+        //      **按敌方部队数**重复那条 op。实测（`ruleprobe play SW58`，盘面 3 个敌方部队 / 0 个标记）
+        //      它登记了 **3 条 −1「永久」**，且按**卡 id** 匹配（同名牌每一份都降、可叠加）——
+        //      而原版只有一个机制、且只挂在**打出的那张**上 ⇒ 这是「数成敌方部队数」的那个错值。
+        //  **判定**：正文**逐字**等于本格某一行 `Body` ⇒ 交给数据路（`EffectResolver.DoLowerCost` 侧直接不登记）。
+        //  ⚠️ 逐字比而不是「有 `CostPerKeywords` 就跳过」—— 一张卡**可能同时**有「每有 N 层关键词自降费」
+        //     与别的降费正文，按「有就跳过」会把另一句也吞掉。
+        //  ⚠️ 本方法今天**零调用者**（调用点补丁归 `EffectResolver.cs` 的写手，见报告 §SW58）⇒ 加它**不改任何行为**。
+
+        /// <summary>这条正文（调用方传 `EffectOp.Source`）是否**正是**本格（<see cref="CostPerKeywords"/>）
+        /// 已经建模的那一句。归一 = 去首尾空白 / 去尾点 / 压连续空白 / 忽略大小写
+        /// （`EffectText.Split` 切出来的段可能带句号，比对前一律去掉）。</summary>
+        public bool CoversCostSentence(string sentence)
+        {
+            var rows = CostPerKeywords;                        // 懒建；没有这格 ⇒ 空表 ⇒ false
+            if (rows == null || rows.Count == 0) return false;
+            string a = NormCostSentence(sentence);
+            if (a.Length == 0) return false;
+            for (int i = 0; i < rows.Count; i++)
+                if (rows[i] != null && NormCostSentence(rows[i].Body) == a) return true;
+            return false;
+        }
+
+        /// <summary><see cref="CoversCostSentence"/> 的归一（**只此一份**，⛔ 别在调用点另写一套）。</summary>
+        static string NormCostSentence(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            s = s.Trim();
+            while (s.Length > 0 && s[s.Length - 1] == '.') s = s.Substring(0, s.Length - 1).TrimEnd();
+            var sb = new System.Text.StringBuilder(s.Length);
+            bool sp = false;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char ch = s[i];
+                if (char.IsWhiteSpace(ch)) { if (!sp) { sb.Append(' '); sp = true; } }
+                else { sb.Append(char.ToLowerInvariant(ch)); sp = false; }
+            }
+            return sb.ToString();
+        }
     }
 }

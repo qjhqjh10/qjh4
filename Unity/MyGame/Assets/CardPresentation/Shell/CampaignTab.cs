@@ -1889,14 +1889,14 @@ namespace CardPresentation
         /// <summary>点图标那一格的抽屉版式 —— 原版是 `CampaignPointDrawer.DrawForArmy(pointDrawer, army)`
         /// （`CampaignPremiumPointsPanel__Initialize.c:35-38`）；本仓等价件 = `ItemDrawer.CampaignPoint`（`CampaignPointDrawer` 档）。
         /// <para>🔴 **2026-10-29（B96_W1）就地订正（铁律 5）**：原版这格**只画一层** —— `image` ← `GetArmyIcon(army)`（**替换**，不是叠加；见 `ItemDrawer.CampaignPoint` 头注）。</para>
-        /// <para>`Content/Image` = `anchors(0,0)-(1,1)` + `m_PreserveAspect=1` ⇒ 铺满抽屉框、等比内接 ⇒ `ArmyFill = 1`；</para>
+        /// <para>⚠️ **2026-11-01 更正（铁律 5 · `B-289`）**：原来这里写「⇒ 铺满抽屉框、等比内接 ⇒ `ArmyFill = 1`」**已过期** —— `B-265`（`W-39`）之后主图几何由 `ItemDrawer.CampaignPointsImageRect` **按各档 prefab 锚点**算（`Content/Image` = `anchors(0,0)-(1,1)` + `m_PreserveAspect=1` ⇒ Icon 档铺满 1080²、方图内接），`ArmyFill` 在**本抽屉已无读者**；</para>
         /// <para>prefab 里 `armyText` / `quantity` **都是空引用** ⇒ 名字/数量两层给 0（不画）。</para>
-        /// <para>🔶 自己设计（非原版）：`Square()` 那套**居中方形**是我们挑的 —— 原版由 `Content` 锚点铺满、我们没有那层包装 · 必须自己定：抽屉直接画在 `node` 上 · 调度台 2026-10-29 指派（B95_RS）/ B96_W1 落地。</para></summary>
+        /// <para>🔶 自己设计（非原版）：原版靠 `Content` 包装层 + 锚点铺满、我们没那层 ⇒ **抽屉直接画在 `node` 上**、矩形自己算 · 调度台 2026-10-29 指派（B95_RS）/ B96_W1 落地（⚠️ 2026-11-01 · `B-289` 就地更正：这句原来把「`Square()` 居中方形」也列进自设计 —— **已过期**，`B-265`（`W-39`）之后几何按各档 prefab 锚点算（`ItemDrawer.CampaignPointsImageRect`），⛔ 别按旧的居中方形改回去）。</para></summary>
         static ItemDrawerStyle CampaignPointStyle()
         {
             var st = ItemDrawerStyle.Default(QPanelPts, QPanelPts, QPanelPts);
             st.NodeName = "Campaign Points Drawer";
-            st.ArmyFill = 1f;      // 徽记铺满 min(W,H) —— 原版 `Content/Image` 的 anchors(0,0)-(1,1) + preserveAspect
+            st.ArmyFill = 1f;      // ⚠️ **死值**（2026-11-01 · `B-289` 订正）：原写法「徽记铺满 min(W,H)」已被 `B-265` 的 `CampaignPointsImageRect`（照 prefab 锚点逐档算）取代 ⇒ `CampaignPoint` 那一支**不读它**；字段本身仍被 `Wildcard` 那一支读（`ItemDrawer.cs:1188`）⇒ **保留**，删字段要改 `ItemDrawerStyle` 结构、更容易出错
             st.QuantityPx = 0f;    // 不画数量（prefab `quantity: {fileID: 0}`）
             st.NamePx = 0f;        // 不画阵营名（prefab `armyText: {fileID: 0}`）
             return st;

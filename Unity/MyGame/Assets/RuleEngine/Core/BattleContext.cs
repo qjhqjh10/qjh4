@@ -1127,11 +1127,11 @@ namespace RuleEngine
         ///    **近似只剩「出口那次也幂等调一遍」**，语义上与原版逐效果覆盖一致；
         ///    今天池内 `ta = 150` 的真实消费行 **0 条**（`SW51` 的 `multiSet` 因 `conditionsFilter = 0`
         ///    未落行，见 `N2_八个role.md` §五·⑤）⇒ 本件**零可观测差异**（回归由自检钉住）；
-        /// ② 本版只覆盖**场上单位**候选。原版表里还可能有**手牌 / 牌库的卡**（`SW51` 的上一跳
-        ///    正是 `Draw 2 cards`）⇒ 那种候选落到 `CountEval` 会**返回 null 并出声**
-        ///    （⛔ 不静默少数）；那条路今天由正文的 `countScope == "draw"` 覆盖（`SW51` 等价）。</para>
+        /// ② 🔴 **2026-11-01 就地订正（铁律 5 · `B115_W23`）**：本格**已换成 `List&lt;CardRef&gt;`**、**能装手牌实例**
+        ///    （原版 `CardScript` 手牌与场上同型：`dump.cs:35370 / :32595-32613`；抽牌那一跳 `AbilityLogic__AddDrawCard.c:46-49` 并入目标表）
+        ///    ⇒ 上面「只装场上单位、手牌那半由 `DrawnThisResolve` 单独建模」**已作废**。</para>
         /// </summary>
-        public readonly List<UnitState> PreviousAbilityTargets = new List<UnitState>();
+        public readonly List<CardRef> PreviousAbilityTargets = new List<CardRef>();
 
         /// <summary>
         /// 🆕 **2026-10-24（执行代理 `E2` · `E8` 顺手发现 2 的根治）：本条 ability **至今**解出的目标**并集**
@@ -1149,10 +1149,10 @@ namespace RuleEngine
         /// `AbilityLogic__DeepCopy.c` **不拷贝**这一格）；每条 op 结算完由
         /// `EffectResolver.NotePreviousAbilityTargets` 并进来并**重新发布**。</para>
         ///
-        /// <para>⚠️ 只装**场上单位**（`UnitState`）；原版表里还能有手牌/牌库的卡（抽牌那一跳）——
-        /// 那半边由 `CountEval` 的 `DrawnThisResolve` 分支单独建模（判据 → `PreviousAbilityTargets` 的 doc）。</para>
+        /// <para>🔴 **2026-11-01 就地订正（铁律 5 · `B115_W23`）**：本格**已换成 `List&lt;CardRef&gt;`** —— 与
+        /// `PreviousAbilityTargets` 同一档，能装手牌实例（原版 `+0x80` 本来就是 `List&lt;CardScript&gt;`，`dump.cs:19482`）。</para>
         /// </summary>
-        public readonly List<UnitState> AbilityTargetsSaved = new List<UnitState>();
+        public readonly List<CardRef> AbilityTargetsSaved = new List<CardRef>();
 
         /// <summary>
         /// **事件里那个宾语**（`target`）—— 2026-09-13 A3 加。目前只有一个来源：

@@ -418,7 +418,7 @@ namespace RuleEngine
             if (ctx == null) return null;
             var prev = ctx.PreviousAbilityTargets;
             if (prev == null || prev.Count == 0) return null;
-            return prev[0];
+            return prev[0].Unit != null ? prev[0].Unit : prev[0].ResolveUnit(ctx);   // 🔴 2026-11-01（`B115_W23`）：元素已是 `CardRef`；不在棋盘的那一档（手牌 / 已离场）⇒ `null`（本方法的签名只到 `UnitState`，调用方按既有约定出声）
         }
 
         /// <summary>参照卡的**当前费用**（原版 `GetValueFromCriteria` 的 `120 RefCardCost` 走

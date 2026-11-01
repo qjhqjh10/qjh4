@@ -612,27 +612,27 @@ namespace RuleEngine
                 var prev = ctx.PreviousAbilityTargets;
                 for (int i = 0; i < prev.Count; i++)
                 {
-                    var u = prev[i];
-                    if (u == null) continue;
-                    int side = SideOfUnit(ctx, u);
-                    if (side < 0)
-                    {
-                        gap = "`targetsAffected=150 previousAbilityFiltered` 的候选里有**不在场上**的卡"
-                            + "（抽到的牌 / 已离场）—— 原版按 `CardScript` 筛，本版只建模场上单位";
-                        return null;
+                    var r = prev[i];
+                    if (r.Inst == null && r.Unit == null) continue;
+                    var u = r.Unit != null ? r.Unit : r.ResolveUnit(ctx);
+                    int side;
+                    if (u == null)   // 🔴 2026-11-01（`B115_W23` · E14 · 判据 J4/J9/J10）：**手牌项** —— 原版手牌与棋盘同为 `CardScript`
+                    {                //   ⇒ side 按「那张实例在谁的 `Hand` 里」定，判定走 ③a 同一份卡池判据（⛔ 不另写一份）
+                                     //   ⚠️ 只改一半会出事：本格不接，`SideOfUnit` 会返 −1 ⇒ 原来算得对的 5 张「先抽后数」卡退成 `null`
+                        int? hc = CountHandPrevCandidate(ctx, owner, set, cond, countOption, actor, r, out side, ref gap);
+                        if (hc == null) return null;
+                        if (hc.Value != 0) { if (candSides != null) { candSides.Add(side); count += 1; } else count += hc.Value; }
+                        continue;
                     }
+                    side = SideOfUnit(ctx, u);
+                    if (side < 0) { gap = "`targetsAffected=150 previousAbilityFiltered` 的候选里有**不在场上**的卡（抽到的牌 / 已离场）—— 原版按 `CardScript` 筛，本版只建模棋盘 + 手牌两档"; return null; }
                     if (!SideMatches(owner, side, set)) continue;
-                    // 🆕 2026-10-26（`B1`）：同棋盘那一支 —— 36 格判据走 `TargetCriteriaEval.Matches`
-                    //   （⛔ 不在这里再写一份）。池内 `ta=150` 的 count 行现读 **0 条**，这里只为口径一致。
-                    bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);
-                    if (pass == null) { gap = bWhy; return null; }
-                    if (!pass.Value) continue;
+                    bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);   // 🆕 2026-10-26（`B1`）：同棋盘那一支 —— 36 格判据走 `TargetCriteriaEval.Matches`（⛔ 不在这里再写一份）
+                    if (pass == null) { gap = bWhy; return null; } if (!pass.Value) continue;
                     var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
                     if (v == null) { gap = $"cond={cond} 在上一条能力的目标身上判不了"; return null; }
                     if (!v.Value) continue;
-                    // 🆕 2026-10-26（`E7P06`）：同 ①（收集档只记个数 + 候选）。
-                    if (candSides != null) { candSides.Add(side); cands.Add(u); count += 1; }
-                    else count += Weight(owner, side, countOption);
+                    if (candSides != null) { candSides.Add(side); cands.Add(u); count += 1; } else count += Weight(owner, side, countOption);   // 🆕 2026-10-26（`E7P06`）：收集档只记个数 + 候选
                 }
                 return count;
             }
@@ -1216,7 +1216,7 @@ namespace RuleEngine
         /// </list></para>
         ///
         /// <para>`null` = 本版判不了（写 `gap`）—— ⛔ 不静默当「都过」。</para></summary>
-        static bool? CardPoolCandidatePasses(int owner, int side, CardDef.CountSetSpec set, CardDef card,
+        internal static bool? CardPoolCandidatePasses(int owner, int side, CardDef.CountSetSpec set, CardDef card,   // 🔴 2026-11-01（`B115_W23` · E9）：`static` ⇒ `internal static` —— `RuleCore.ResolvePreviousAbilityTargets` 的**手牌候选**要过同一份判据（⛔ 不另写第二份）
                                              UnitState actor, CardInstance inst, out string gap)
         {
             gap = null;
@@ -1395,6 +1395,52 @@ namespace RuleEngine
                 }
             }
             return count;
+        }
+
+        // ==========================================================================================
+        //  🔴🆕 2026-11-01（执行代理 `B115_W23` · 账 `B-254`）· **一律追加在类尾**
+        //  （本文件有 12 处账落点按 `文件:行号` 引，往中间插成员会让下游落点漂移；铁律 18·b）
+        // ==========================================================================================
+
+        /// <summary>
+        /// 🔴🆕 **2026-11-01（`B115_W23` · E14）**：`ta = 150 previousAbilityFiltered` 的**手牌候选**过不过、
+        /// 记几分。
+        ///
+        /// <para>**为什么要它**：原版这张表（`CardScript.previousAbilityTargets` / `pooledPossibleTargets`）
+        /// 装的是 `CardScript` —— **手牌与场上同一个类**（`dump.cs:35370`），抽牌那一跳
+        /// （`AbilityLogic__AddDrawCard.c:46-49`）把抽到的牌并进去之后，下一张卡用 `ta = 150` 数的就是**手牌**。
+        /// 我们原来只有 `List&lt;UnitState&gt;`，那种候选落到 `SideOfUnit` 返 `−1` ⇒ **`null` + 出声**
+        /// （「算不出」而不是「算错」）—— 本批把那条改掉。</para>
+        ///
+        /// <para>**判据（⛔ 不另写一份）**：side 由「那张实例在谁的 `PlayerState.Hand` 里」定
+        /// （原版 `CardScript.isPlayer(+0x40)`）；候选过筛与计数转调 ③a 那一段的同一份
+        /// <see cref="CardPoolCandidatePasses"/> ＋ <see cref="ConditionEval.MeetsCard"/>。</para>
+        ///
+        /// <para>返回值三态：`null` = 判不了（写 <paramref name="gap"/>）· `0` = 这一张**不过筛** ·
+        /// 其余 = 这一张该记的分（<see cref="Weight"/>：`countOptions == 10` 时同方 −1 / 异方 +1）。</para>
+        /// </summary>
+        static int? CountHandPrevCandidate(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond,
+                                           int countOption, UnitState actor, CardRef r,
+                                           out int side, ref string gap)
+        {
+            side = -1;
+            if (ctx == null || ctx.Players == null || r.Inst == null) { gap = "`ta=150` 的手牌候选**没有实例身份**（`CardRef.Inst == null`，只有模板）"; return null; }
+            for (int p = 0; p < ctx.Players.Length && side < 0; p++)
+            {
+                var hand = ctx.Players[p] != null ? ctx.Players[p].Hand : null;
+                if (hand == null) continue;
+                for (int i = 0; i < hand.Count; i++)
+                    if (object.ReferenceEquals(hand[i], r.Inst)) { side = p; break; }
+            }
+            if (side < 0) { gap = "`targetsAffected=150 previousAbilityFiltered` 的候选里有一张既不在棋盘、也不在任一方手牌（已离场 / 牌库 / 墓地）—— 原版按 `CardScript` 筛，本版只建模棋盘 + 手牌两档"; return null; }
+            if (!SideMatches(owner, side, set)) return 0;
+            bool? pass = CardPoolCandidatePasses(owner, side, set, r.Card, actor, r.Inst, out string why);
+            if (pass == null) { gap = why; return null; }
+            if (!pass.Value) return 0;
+            var v = ConditionEval.MeetsCard(ctx, r.Card, side, cond, false, r.Inst.Id);
+            if (v == null) { gap = $"cond={cond} 在上一条能力的手牌候选身上判不了"; return null; }
+            if (!v.Value) return 0;
+            return Weight(owner, side, countOption);
         }
     }
 }

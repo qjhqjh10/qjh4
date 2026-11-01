@@ -1,5 +1,5 @@
 {
- "format": 1,
+ "format": 2,
  "note": "由 工具/gen_prebuilt_decks.py 生成，**别手改**。匹配规则与 工具/check_prebuilt_decks.py 同源。🔴 卡池或 id 表变了 ⇒ 必须重跑生成器。",
  "pool": "教程 6 关 × (玩家/敌方) = 12 副（原版 SO `*_Deck0_Tutorial{1..6}_*`，deckId 含 Tutorial）。🔴 **与 `prebuilt_decks.json` 的那一池（isPractice==1 的 103 副）是两份产物** —— 原版自己也分两条路：`PrebuiltDeckCollection.AddDeck` 对含 `Tutorial` 的名字直接 return（`decomp_full/PrebuiltDeckCollection__AddDeck.c:21-25`），教程那 12 副由 `TutorialStage.playerDeck/aiDeck` 直引。",
  "roleSource": "关卡 SO 的 `playerDeck`/`aiDeck` 两个 PPtr 解出来的（判据与 pid 抄在 gen_prebuilt_decks.py 的 TUT_ROLE 注释里）—— **不是按名字猜的**。",
@@ -259,8 +259,10 @@
      "SAU56",
      "SAU34",
      "SAU26",
+     "SAU4",
      "SAU10",
      "SAU41",
+     "SAU4",
      "SAU19",
      "SAU10",
      "SAU22",
@@ -277,10 +279,8 @@
      "SAU53",
      "SAU11"
     ],
-    "complete": false,
-    "missing": [
-     "847acecf682cb0748bc4445b52125cb4 x2 (miss-known)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [],
     "overLegendary": [
      "SAU53 x2 (Undying Legions)"
@@ -304,6 +304,7 @@
     "defensiveName": "",
     "defensiveNameZh": "",
     "cardIds": [
+     "SAU4",
      "SAU3",
      "SAU38",
      "SAU21",
@@ -318,6 +319,7 @@
      "SAU53",
      "SAU31",
      "SAU8",
+     "SAU4",
      "SAU5",
      "SAU6",
      "SAU6",
@@ -333,10 +335,8 @@
      "SAU44",
      "SAU44"
     ],
-    "complete": false,
-    "missing": [
-     "847acecf682cb0748bc4445b52125cb4 x2 (miss-known)"
-    ],
+    "complete": true,
+    "missing": [],
     "problems": [],
     "overLegendary": [
      "SAU20 x2 (Chronomancer)"

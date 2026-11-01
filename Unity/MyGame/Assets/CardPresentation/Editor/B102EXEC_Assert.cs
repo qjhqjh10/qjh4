@@ -151,7 +151,7 @@ public static class B102EXEC_Assert
         C(u.ReferencedCards.Count, 1,
           "★★ A1-380 引用表 = **1 张**（原版 `:2139-2153`：先换一张新 List、再把这条 logic 的目标逐个 `Add`）"
         + "｜🧨 分派没接上 ⇒ 实得 0 ⇒ 红");
-        Tr(u.ReferencedCards.Count == 1 && ReferenceEquals(u.ReferencedCards[0], e1),
+        Tr(u.ReferencedCards.Count == 1 && object.ReferenceEquals(u.ReferencedCards[0].Unit, e1),
            "★★ A1-380 表里就是那个目标（**按引用**认，不按卡名）"
          + "｜🧨 写进别的单位（比如施放者自己）⇒ `ReferenceEquals` 假 ⇒ 红");
 
@@ -160,7 +160,7 @@ public static class B102EXEC_Assert
         C(u.ReferencedCards.Count, 1,
           "★★ A1-380b 引用表仍 = **1 张**（**覆盖**不是追加：原版 `:2139-2143` 先换一张新 List）"
         + "｜🧨 写成 `AddRange` 追加 ⇒ 实得 2 ⇒ 红");
-        Tr(u.ReferencedCards.Count == 1 && ReferenceEquals(u.ReferencedCards[0], e2),
+        Tr(u.ReferencedCards.Count == 1 && object.ReferenceEquals(u.ReferencedCards[0].Unit, e2),
            "A1-380b 留下的是**这一次**那条 logic 的目标");
 
         // ---- 空表 ⇒ 不动表（原版 `:2131-2132` 的 `if (0 < count)`）----
@@ -180,7 +180,7 @@ public static class B102EXEC_Assert
         C(u2.ReferencedCards.Count, 1,
           "★★ A1-380c 目标表**为空时不换表**（原版 `:2131-2132`：`if (0 < count)` 才新建 List 并赋值）"
         + "｜🧨 删掉 `SetReferenceCards` 里那句 `if (got.Count == 0) return 0;` ⇒ 无条件 `Clear()` ⇒ 实得 0 ⇒ 红");
-        Tr(u2.ReferencedCards.Count == 1 && ReferenceEquals(u2.ReferencedCards[0], keep),
+        Tr(u2.ReferencedCards.Count == 1 && object.ReferenceEquals(u2.ReferencedCards[0].Unit, keep),
            "A1-380c 留下的仍是**原来**那一张");
 
         // ---- 解不出目标集 ⇒ 不猜 ----

@@ -307,7 +307,7 @@ public static partial class RuleEngineTest
         Check(n2, 1,
               "★★ ⑤ 再写一次 ⇒ 引用表被**覆盖**成 1 张（原版先换新 List 再 Add）"
             + "｜🧨 写成 `AddRange` 追加 ⇒ 实得 3（2 + 1）⇒ 红");
-        CheckTrue(acting.ReferencedCards.Count == 1 && ReferenceEquals(acting.ReferencedCards[0], e1),
+        CheckTrue(acting.ReferencedCards.Count == 1 && object.ReferenceEquals(acting.ReferencedCards[0].Unit, e1),
                   "⑤ ……留下的正是这次那条 logic 的目标（`G5RefA`）"
                 + "｜🧨 追加而不是覆盖 ⇒ Count == 3 ⇒ 红");
 

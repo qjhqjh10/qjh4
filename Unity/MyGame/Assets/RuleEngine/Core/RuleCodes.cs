@@ -163,9 +163,9 @@ namespace RuleEngine
         /// ⚠️ **不复用 <see cref="ErrCost"/>**：余额那一档已由 `CanUseOathAbility` 的
         /// `AbilityCostGate` 提前判成 `ErrCost`；走到本码的是**余额之外**的失败（条件 / 施放者不在场 /
         /// 目标失效），两者对玩家的话不一样（「攒够费就能用」vs「这会儿条件不成立」）。
-        /// **谁返回它**：`RuleCore.ActivateOathAbility` 一处。⚠️ 改成新码**不会**让别处断言变红
-        /// —— 全仓 `<c>ErrUnimplemented</c>` 的另外两处（`EffectResolver` 的 `CanPlayTactic` 一族）
-        /// 语义本来就是「本版未实现」，与这档无关。</summary>
+        /// ⚠️ **2026-11-01 更正（`B115_W7` 现读）：原先「谁返回它：…一处」「全仓 `ErrUnimplemented` 的另外两处」两句已过期，按现读写全 ——**
+        /// **谁返回它（2 处）**：`RuleCore.ActivateOathAbility`（誓约条件不成立）· `BattleDriver.DoResolve` 的教程白名单闸（`BattleDriver.cs:16386`，2026-11-01 由 `ErrUnimplemented` 改指本码）
+        /// **`ErrUnimplemented` 现读 6 处（+ 本码 1 处 = 7 处定性）**：`EffectResolver.cs:2041` · `RuleCore.cs:15561` · `RuleCore.cs:15596` · `Net/NetApply.cs:128` · `Net/NetApply.cs:182`（死支）· `RuleCore.cs:15666` —— 六处都是「本版没实现」，与这档无关。</summary>
         public const int ErrAbilityRejected = 29;
 
         /// <summary>

@@ -384,36 +384,15 @@ namespace RuleEngine
         /// <returns>真入队摘除的条数。</returns>
         internal static int RunRemoveThisEnchantmentRow(BattleContext ctx, int p, UnitState u, int row, int ta, UnitState chosen)
         {
-            if (ctx == null || u == null || (p != 0 && p != 1)) return 0;
-            var inst = u.Instance;
-            if (inst == null || inst.ActiveEffects == null || inst.ActiveEffects.Count == 0)
-            {
-                ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 340`（removeThisEnchantment）：它自己身上**没有附魔记录** ⇒ 无事可做"
-                      + "（原版 `AbilityLogic__PlayAbility.c:2250-2295` 遍历的就是 `thisCard + 0x108`）");
-                return 0;
-            }
-            // 先收集再入队（`EnqueueRemove` 只入队、不立即摘，但仍照「先快照后动手」的纪律写，避免边遍历边改集合）
-            var hits = new List<ActiveCardEffect>();
-            for (int i = 0; i < inst.ActiveEffects.Count; i++)
-            {
-                var eff = inst.ActiveEffects[i];
-                if (eff == null) continue;
-                // 闸①：`buffType ∈ {15 singleUse, 16 choice}`
-                if (eff.BuffType != Enchantments.BuffTypeSingleUse && eff.BuffType != Enchantments.BuffTypeChoice) continue;
-                // 闸②：那张附魔卡存在，且**它自己带 trigger 400**（= 原版 `MatchingTrigger(…, 400)`）
-                if (eff.EnchantmentCard == null) continue;
-                if (eff.EnchantmentCard.AbilityTriggerPresence(400) != 1) continue;
-                hits.Add(eff);
-            }
-            int queued = 0;
-            for (int i = 0; i < hits.Count; i++)
-                if (Enchantments.EnqueueRemove(ctx, inst, hits[i], ActionPriority.Instant,
-                                               $"{u.Name}·removeThisEnchantment"))
-                    queued++;
-            ctx.Log($"{u.Name} 的主动能力 `chosenAbility 340`（removeThisEnchantment）："
-                  + $"{queued}/{hits.Count} 条自己身上的附魔被排进摘除"
-                  + "（原版 `AbilityLogic__PlayAbility.c:2250-2295`：自己的 `+0x108` 里 `buffType ∈ {15,16}` 且那张卡带 trigger 400）");
-            return queued;
+            // 🆕 2026-11-01（`B115_S5` · 波 1）：**判据体已抽走**，唯一实现在
+            //   `Core/EnchantmentExecutor_B115.cs` 的 `RunRemoveThisEnchantmentForTrigger` —— 同一份逐句判据，
+            //   只是把 `MatchingTrigger(…, iVar21)` 里的 `iVar21`（= `PlayAbility` 的第 4 实参 = **当前 trigger**，
+            //   `AbilityLogic__PlayAbility.c:72/:285`）变成形参。
+            //   主动能力路恒传 **400**（`RawCardScript__ResolveActiveAbility.c:58` 的 `ThisUnitAbilityUsed`）
+            //   ⇒ 本入口的行为**逐字不变**；附魔路传它自己的 trigger（60 / 80 / 190 / 640 …）。
+            //   ⛔ 别再在这里写第二份体（铁律 6：两处写同一条规则迟早不一致）。
+            return RunRemoveThisEnchantmentForTrigger(ctx, p, u, 400, selfTemplate: null,
+                                                      by: (u != null ? u.Name : "?") + "·removeThisEnchantment");
         }
 
         // ==================================================================

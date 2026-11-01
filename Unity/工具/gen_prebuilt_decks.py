@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """把原版「预组卡组」解析成我们卡池的 id，产出一份**旁挂数据**给运行时读。
 
-跑法：
-    python d:/4/Unity/工具/gen_prebuilt_decks.py
-    加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+跑法（🔴 **B115_W10 · 2026-11-01：写盘脚本必须显式给动作档**，见 CLAUDE.md §三 2026-10-26 那条）：
+    python d:/4/Unity/工具/gen_prebuilt_decks.py --check   # 只算不写：与盘上两份产物逐字比（一致 rc=0 / 不一致 rc=1）
+    python d:/4/Unity/工具/gen_prebuilt_decks.py --dry     # 只跑计算、打印读数、**零写盘**
+    python d:/4/Unity/工具/gen_prebuilt_decks.py --write   # 真跑并覆盖写两份产物（**唯一会写盘的档**）
+    ⛔ 一个档都不给（或不认识）= **只打印用法并退出 2**，不计算、不写盘。
+       （改这条是因为本项目踩过「`--help` 被当参数 ⇒ 直接真写盘」的事故；`--help`/`-h` 早就 alone 提前退出。）
 
 产出（覆盖写，可重跑）：
     d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json   预组页那一池（103 副）
@@ -56,16 +59,41 @@ from collections import Counter, defaultdict
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+## B115_W10 2026-11-01: 写盘脚本的默认行为改成「只打印用法」（CLAUDE.md §三 2026-10-26 纪律）——
+##   ⛔ 不带显式动作档 = 不计算、不写盘、退出 2；真写盘必须显式 `--write`。
 import sys as _wf_help_sys
-if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+_USAGE = ('用法：python 工具/gen_prebuilt_decks.py {--dry | --check | --write}\n'
+          '  说明：把原版「预组卡组」解析成我们卡池的 id，产出一份**旁挂数据**给运行时读。\n'
+          '  选项：--dry   = 只跑计算、打印读数、**零写盘**\n'
+          '        --check = 只跑计算、与盘上两份产物**逐字比**，只报差异、**零写盘**（一致 rc=0 / 不一致 rc=1）\n'
+          '        --write = 真跑并覆盖写 prebuilt_decks.json + tutorial_decks.json（**唯一会写盘的档**）\n'
+          '  ⛔ 一个都不给 = 只打印本用法并退出 2，不计算、不写盘。')
+
+
+def _print_usage(code):
     try:
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：python 工具/gen_prebuilt_decks.py [参数...] [--dry]\n  说明：把原版「预组卡组」解析成我们卡池的 id，产出一份**旁挂数据**给运行时读。\n  选项：--dry（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
-    _wf_help_sys.exit(0)
+    print(_USAGE)
+    _wf_help_sys.exit(code)
+
+
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    _print_usage(0)
 
 DRY = "--dry" in sys.argv[1:]
+CHECK = "--check" in sys.argv[1:]
+WRITE = "--write" in sys.argv[1:]
+
+
+def _require_action():
+    """⛔ 没有显式动作档 ⇒ 只打印用法并退出 2（绝不因为「没给参数」就真写盘）。"""
+    if not (DRY or CHECK or WRITE):
+        _print_usage(2)
+    if (DRY + CHECK + WRITE) > 1:
+        print("⛔ --dry / --check / --write 三者互斥，一次只给一个。", file=sys.stderr)
+        sys.exit(2)
 
 D = "d:/4/Unity/数据/游戏数据"
 POOL = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
@@ -717,7 +745,47 @@ def build_tutorial(ctx, decks):
     return doc, used, bad, hero_mismatch
 
 
+def _emit(path, doc, report):
+    """按动作档处理一份产物（B115_W10 · 2026-11-01）。
+
+    · `--check`：**只比不写** —— 把「现在算出来的」与「盘上那份」逐字比（同一套 `json.dumps` 口径），
+      差异进 `report`、打印前 40 行 unified diff；**失败不抛**（闸的意义是「报出来」，不是「炸掉」）。
+    · `--dry`  ：只打一行「干跑（未写盘）」。
+    · `--write`：覆盖写（LF、无尾随换行 —— 与既有产物逐字节一致）。
+    """
+    text = json.dumps(doc, ensure_ascii=False, indent=1)
+    if CHECK:
+        try:
+            with open(path, "r", encoding="utf-8", newline="") as f:
+                old = f.read()
+        except FileNotFoundError:
+            old = None
+        if old is None:
+            print("CHECK 不一致 %s：盘上没有这份文件" % path)
+            report.append((path, "missing"))
+        elif old == text:
+            print("CHECK 一致 %s" % path)
+        else:
+            a, b = old.splitlines(), text.splitlines()
+            dl = list(difflib.unified_diff(
+                a, b, fromfile="盘上(旧)", tofile="生成(新)", n=1, lineterm=""))
+            print("CHECK 不一致 %s：盘上 %d 行 / 生成 %d 行 / diff %d 行"
+                  % (path, len(a), len(b), len(dl)))
+            for line in dl[:40]:
+                print("   " + line.encode("ascii", "backslashreplace").decode("ascii"))
+            if len(dl) > 40:
+                print("   ...（只打印前 40 行，共 %d 行）" % len(dl))
+            report.append((path, "diff"))
+        return
+    if DRY:
+        print("干跑（未写盘）：", path)
+        return
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=1)
+
+
 def main():
+    _require_action()   # ⛔ 第一句：没给显式动作档就只打印用法并退出 2
     decks = load(os.path.join(D, "decklists.json"))["decklists"]
     ids_doc = load(os.path.join(D, "card_ids.json"))
     mapping = ids_doc["mapping"]
@@ -791,22 +859,15 @@ def main():
         deckCount=len(out_decks),
         decks=out_decks,
     )
-    if DRY:
-        print("干跑（未写盘）：", OUT)
-    else:
-        with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(doc, f, ensure_ascii=False, indent=1)
+    check_report = []
+    _emit(OUT, doc, check_report)
 
     # ---- 教程那 12 副（**另一份产物**，见 `build_tutorial`）--------------------
     tut_doc, tut_used, tut_bad, tut_hero = build_tutorial(ctx, decks)
-    if DRY:
-        print("干跑（未写盘）：", TUT_OUT)
-    else:
-        with open(TUT_OUT, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(tut_doc, f, ensure_ascii=False, indent=1)
+    _emit(TUT_OUT, tut_doc, check_report)
 
     # 控制台用 ASCII，别打 emoji（Windows 控制台 GBK）
-    if not DRY:
+    if WRITE:
         print("wrote", OUT)
     print("practice=%d complete=%d classic=%d classic_complete=%d no_cardback=%d hero_missing=%d"
           % (stats["total"], stats["complete"], stats["classic"],
@@ -814,7 +875,7 @@ def main():
     print("loreKey=%d/%d（其余 %d 副本地无 Demo DeckInfo ⇒ 空串）"
           % (sum(1 for x in out_decks if x["loreKey"]), len(out_decks),
              sum(1 for x in out_decks if not x["loreKey"])))
-    print("wrote" if not DRY else "dry-run（未写盘）", TUT_OUT)
+    print("wrote" if WRITE else ("check（未写盘）" if CHECK else "dry-run（未写盘）"), TUT_OUT)
     print("tutorial stages=%d decks=%d complete=%d"
           % (tut_doc["stageCount"], len(tut_used),
              sum(1 for s in tut_doc["stages"] for r in ("player", "ai") if s[r]["complete"])))
@@ -848,7 +909,16 @@ def main():
             tiers[missing_parts(m)[2]] += missing_parts(m)[1]
     print("missing cards by tier = " + (", ".join("%s:%d" % kv for kv in sorted(tiers.items())) or "（无）"))
 
+    # ---- `--check` 的收口：**只报、只比、不写**；不一致 ⇒ 非 0（可进 CI / 自检链）-----
+    if CHECK:
+        if check_report:
+            print("CHECK 结果：%d 份产物与盘上不一致 ⇒ 盘上的是旧产物，请跑 --write 重生成。"
+                  % len(check_report))
+            return 1
+        print("CHECK 结果：两份产物与盘上逐字一致。")
+    return 0
+
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    main()
+    sys.exit(main())

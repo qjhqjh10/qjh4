@@ -2588,5 +2588,37 @@ namespace CardPresentation
                 scanLines ? MenuFxMaterials.ScanLines : MenuFxMaterials.Additive,
                 scanLines ? "WarpforgeVFX/UI/Scan Lines" : "WarpforgeVFX/UI/Additive");
         }
+
+        // ============================================================ 🆕 2026-11-01（B115_W16 · ACT-02 ② · **只写判据线索，不实现**）
+        //   **「左栏事件钮要不要改成按事件建」** —— 这一节回答它，⛔ 本轮不动任何代码。
+        //
+        //   ---- 我们今天是什么轴 ----
+        //   `BuildEventTabs(self, utc)`（上面 `:972-979`）是 `for (i < EventWindowRootNames.Length)` 遍历**窗种类**
+        //   ⇒ 每扇活动窗左栏固定列「**其它 3 扇**」，共 3 颗。
+        //   而 `MakeEventTab` 对 Gacha / Raid 拿不到本地活动实例（`LiveOpsLocalKind` 只有
+        //   Parent / Scoring / PremiumItemOffer / FastMode，且 `FastModeEvents` 表为空）⇒ 那几颗只能走词条兜底。
+        //
+        //   ---- 原版是什么轴（判据）----
+        //   · `BaseParentEventWindow.SetupTabs` 按 `LiveOpsManager.GetAllEvents(...).Where(...)` 的结果建 tab
+        //     ⇒ **每个 live 事件一颗**（本类 `:965` 的 doc 与 `Shell/WindowsManager.cs` 的 `OpenEventHub` doc 都已记）。
+        //   · 导航侧同一条轴，而且**我们已经照原版做了**：`Shell/MainMenuRuntime.BuildEventNavButtons`
+        //     （`MainMenuRuntime.cs:4030-4062`）就是「每个在期 Parent 活动一颗钮」。
+        //   ⇒ **两侧轴不一致**：导航是「每事件一颗」，窗内左栏是「每种窗一颗」。
+        //
+        //   ---- 结论（供调度台裁定，⛔ 本批不实现）----
+        //   · **⛔ 不要靠扩 `EventWindowKind`（4 → 7）来补**：那会沿 `BuildEventTabs` 的遍历把**每扇**活动窗左栏
+        //     从 3 颗变 6 颗，且多出来的 3 颗正是「拿不到事件实例」的那几档 ⇒ 只是把错的轴放大。
+        //   · 要照原版，改的是**数据源**：左栏 tab 应当和 `ActiveParentEventsForNav` **同源**（每事件一颗），
+        //     每颗 tab 的去向 = **那个事件自己的** `MainWindow` root
+        //     ⇒ 开窗口已经在 `Shell/WindowsManager.OpenEventWindowByRoot(string prefabRoot)`（2026-11-01 新增，按 root 名分派）。
+        //   · ⚠️ 真改成「按事件建」之后，**本地能建出的 tab 数与今天相同**（13 份 SO 任何时刻最多 1 场 Parent 在期，
+        //     见 `判据/B115_W16_活动GUID施工单.md` §一 与报告 §8.2）—— 差别只在**轴对了**，肉眼今天看不出来。
+        //
+        //   ---- 还差什么（⛔ 判据不全，做之前必须先查）----
+        //   ① `BaseParentEventWindow.SetupTabs` 的**排序 + 去重**规则没读到（`GetAllEvents(2, …)` 那个 `2` 的含义未核）；
+        //   ② 每颗 tab 的 label 取哪个 tag（`TryGetLabel(4/0)` 还是别的）—— 我们 `MakeEventTab` 现在用 4/0 是**推断**；
+        //   ③ 同一事件在不同窗里是否**复用同一颗 tab**（原版 `CreateEventTab` 的入参形状未核）。
+        //   判据读法：`d:/2/tools/decomp_full/BaseParentEventWindow__SetupTabs.c` / `…__CreateEventTab.c`
+        //   ＋ `cpp2il/out_cpp2il_dev_ilspy/BaseParentEventWindow.cs`（⚠️ Cpp2IL 会静默丢体 ⇒ 两份一起看）。
     }
 }

@@ -1200,7 +1200,7 @@ namespace CardPresentation
                 // 野牌 id 走原版命名 `Wildcard<阵营><1..4>`（`ItemDrawer.Spec` 会解出 Rarity / CardArmy）。
                 var spec = ItemDrawer.Spec("Wildcard" + ForgeData.Selected + rw.WildcardRarity, rw.Art, rw.Label);
                 var st = ItemDrawerStyle.Default(QCellReward, QCellRewardArt, QCellRewardText);
-                st.IconFill = 0.95f;   // 🔶 自己设计（非原版）：野牌格子 `IconFill = 0.95` · 默认 0.7 是给 200×300 的格子，本格 297.655×384.66（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ **我们挑的**（默认 0.7 是给 200×300 的格子；本格 297.655×384.66）
+                // 🔴 2026-11-01（`B-293` · `B115_S4`）**删掉 `st.IconFill = 0.95f`**：`Wildcard()` 已按 `Wildcard Drawer.prefab` 铺满整框画（判据 = `判据/B115_S4_三份Drawer规格.md` §四），本格 297.655×384.66 不再需要「主图缩放」这一格；原 `🔶 自己设计` 标记随之作废（它写的理由是「原版判据拿不到」，判据现已取得）。
                 st.QDecor = QCellRewardText;
                 st.NodeName = ItemDrawer.PickDrawer(spec, DrawerOverride.Default) ?? "Reward";
                 var res = ItemDrawer.Draw(holder, holderR, spec, rw.Qty, DrawerOverride.Default, st);

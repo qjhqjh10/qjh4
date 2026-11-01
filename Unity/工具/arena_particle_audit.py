@@ -13,6 +13,11 @@
 
 判据（唯一）：**原版 JSON（`d:/2/解包整理/07_场景/<场>/`）里的模块字段**
  vs **我们清单里的键**。映射表在下面 `MAPPED`，`[未接]` 就是「清单里没这一列」。
+ · 🆕 2026-11-01（`B115_W11` · `T02 · A1580④`）：`ParticleSystemRenderer` 的字段另有一张 `PSR_MAPPED`
+   （原来一条都没有 ⇒ `m_Pivot`/`m_VertexStreams`/`m_NormalDirection` 到底抽没抽无从判断）。
+   三张表都在 `--obj` 的逐字段表里生效；`--summary` 仍只汇总 `ParticleSystem` 模块（psr 不是模块）。
+ · 🔴 生成器来源 = **仓库真身** `Unity/工具/scripts快照/gen_unity_arena_manifest.py`
+   （原来写死 `d:/2/...` 旧副本，见 `GEN_DIR` 那段）。
 
 🔴🔴 **别拿它的「缺口清单」派活**（2026-10-11 三个只读代理 `R1`/`F1`/`A3` 逐条核过；
    2026-10-23 `T06` 又按生成器现状把 `MAPPED` 订正了一遍，并修掉两处把它撑大的工具 bug）：
@@ -44,7 +49,15 @@ import json
 import os
 import sys
 
-GEN_DIR = 'd:/2/Warpforge_tools/scripts'
+# 🔴 2026-11-01（`B115_W11` · `T02 · A1580④`）：**审计必须读【当前生成器真身】**。
+#   原来这里写死 `d:/2/Warpforge_tools/scripts`（2026-10-11 的旧副本，2141 行），
+#   而仓库里的真身 `Unity/工具/scripts快照/gen_unity_arena_manifest.py` 已经 2488 行 ——
+#   拿旧副本当判据 ⇒ 审计报的「没接」是**旧生成器的**没接，与当前产物对不上（MAPPED 就算更新也白搭）。
+#   现在优先用仓库真身，找不到才退回 d:/2 旧副本（并打出声）。
+GEN_DIR = 'd:/4/Unity/工具/scripts快照'
+if not os.path.isfile(os.path.join(GEN_DIR, 'gen_unity_arena_manifest.py')):
+    GEN_DIR = 'd:/2/Warpforge_tools/scripts'
+    print('[audit] 🔴 仓库真身生成器不在，退回旧副本 %s（审计结论可能过期）' % GEN_DIR)
 sys.path.insert(0, GEN_DIR)
 import gen_unity_arena_manifest as G   # noqa: E402
 
@@ -119,6 +132,30 @@ MAPPED = {
     'NoiseModule.*': 'noise',
     'RotationModule.*': 'rotationOverLifetime',
     'SubModule.subEmitters': 'subEmitters',
+}
+
+# --------------------------------------------------- ParticleSystemRenderer 已接字段映射
+# 🆕 2026-11-01（`B115_W11` · `T02 · A1580③④`）：原来这里**一条 psr 映射都没有** ⇒
+#   `dump_obj()` 把所有 psr 字段打成 `[参数]`（不带「已接/未接」），也没法回答
+#   「`m_NormalDirection` / `m_SortMode` / `m_MaskInteraction` 到底抽了没有」。
+# 键 = 原版 `ParticleSystemRenderer` 的序列化字段名，值 = 清单 `particles[]` 的键。
+PSR_MAPPED = {
+    'm_Pivot': 'pivot',
+    'm_UseCustomVertexStreams': 'useCustomVertexStreams',
+    'm_VertexStreams': 'vertexStreams',
+    'm_ApplyActiveColorSpace': 'applyActiveColorSpace',
+    'm_RenderMode': 'renderMode',
+    'm_RenderAlignment': 'renderAlignment',
+    'm_SortingFudge': 'sortingFudge',
+    'm_LengthScale': 'lengthScale',
+    'm_MaxParticleSize': 'maxParticleSize',
+    'm_MinParticleSize': 'minParticleSize',
+    # 🆕 2026-11-01（③ 补抽补接）
+    'm_NormalDirection': 'normalDirection',
+    'm_SortMode': 'sortMode',
+    'm_MaskInteraction': 'maskInteraction',
+    # 网格（`renderMode=4` 时用；由旁挂 `gen_arena_psmesh.py` 翻成名字）
+    'm_Mesh': 'mesh',
 }
 
 # ------------------------------------------------------- 这些「看着像字段」其实是噪音
@@ -233,9 +270,18 @@ def dump_obj(rec, mrec):
         for k, v in psr.items():
             if k in SKIP_FIELD:
                 continue
+            # 🆕 2026-11-01（B115_W11 · T02·A1580③④）：原来 dict/list 值**整条跳过**
+            #   ⇒ `m_Pivot`（dict）/ `m_VertexStreams`（list）/ `m_Mesh`（dict）在逐字段表里**看不见**。
+            #   现在一律打印，并按 PSR_MAPPED 标 [已接]/[未接]。
             if isinstance(v, (dict, list)):
-                continue
-            L.append(f'      [参数] {k} = {v}')
+                vs = json.dumps(v, ensure_ascii=False)
+                if len(vs) > 120:
+                    vs = vs[:117] + '…'
+            else:
+                vs = v
+            mk = '[已接]' if k in PSR_MAPPED else '[未接]'
+            L.append(f'      {mk} {k} = {vs}'
+                     + (f'   → 清单 {PSR_MAPPED[k]}' if k in PSR_MAPPED else ''))
     L.append('-' * 96)
     L.append('  我们的清单：' + (json.dumps(mrec, ensure_ascii=False)[:900] if mrec else '（无）'))
     return '\n'.join(L)

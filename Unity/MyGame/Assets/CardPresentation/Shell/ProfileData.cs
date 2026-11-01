@@ -109,7 +109,7 @@ namespace CardPresentation
             public int keyword;               // `Keyword` 枚举（35 = Beast）
             public int anySpellType;
             public int spellType;             // 260 = `CombatElixir`
-            public int anyCardType;           // 0 = 要看卡型（`Ach_89`）
+            public int anyCardType; public int attackingType;   // `anyCardType=0` 时按 `attackingType` 筛卡型（原版 `CardPlayedCount.attackingType : CardTypeOptions`，`[HideIf("anyCardType")]`；0 Minion / 10 Hero / **20 Tactic** / 40 Whispers）—— `Ach_89` 用的就是 20（🆕 2026-11-01 `B115_W9` · `UI-08`：生成器早就把这一列写进 `f` 了，只是本 DTO 没声明 ⇒ `JsonUtility` 一直丢它；与 `anyCardType` 写在同一物理行 = 零行数漂移）
             public int onlyCountCompanions;   // `Ach_54`
             public int[] playModeBlocklist, playModeAllowlist;   // 102 条**全空** ⇒ 全模式放行
         }
@@ -733,8 +733,8 @@ namespace CardPresentation
             return DamageKind.Unknown;
         }
 
-        /// <summary>出牌类的过滤位 → <see cref="CardPlayedTag"/> 槽位。认不出 ⇒ `-1`。
-        /// （五条各一格闸，判据见 `AchievementTally.CardPlayedTag` 每个常量的 doc。）</summary>
+        /// <summary>出牌类的过滤位 → <see cref="CardPlayedTag"/> 槽位。认不出 ⇒ `-1`（= 不计）。
+        /// （五条各一格闸，判据见 `AchievementTally.CardPlayedTag` 每个常量的 doc。🔴 **2026-11-01 `B115_W9`（`UI-08`）**：原版 `CardPlayedCount__OnCardPlayed.c` 的六道闸是**合取** —— ① `anyCardType=0` 才比卡型（比的是 **`attackingType`**，`.c:24-29`）· ② `anyTrait=0` 才比 `withTrait`（`.c:30-39`）· ③ `anyKeyword=0` 才比关键词 · ④ 费用 · ⑤ `onlyCountCompanions` · ⑥ `anySpellType=0` 才比法术类型。⇒ **`anyTrait=1` 时 trait 闸整支跳过**，剩下几道全开的那条（现读只有 `Ach_97`）就是「**每张打出的卡都算**」；`Ach_89` 的卡型闸比的是 `attackingType == 20`（`CardTypeOptions.Tactic`），⛔ 不是「`anyCardType==0` 就等于计谋」。</summary>
         static int CardPlayedTagOf(Filters f)
         {
             if (f == null) return -1;
@@ -742,9 +742,9 @@ namespace CardPresentation
             if (f.anyTrait == 0 && TraitListed(f, 5)) return CardPlayedTag.Ephemeral;   // `Ach_12`（`DefinedTrait.ephemeral`）
             if (f.anyKeyword == 0 && f.keyword == 35) return CardPlayedTag.Beast;       // `Ach_87`（`Keyword.Beast`）
             if (f.anySpellType == 0 && f.spellType == 260)
-                return f.anyCardType == 0 ? CardPlayedTag.ElixirTactic : CardPlayedTag.Elixir;   // `Ach_89`
-            if (TraitListed(f, 610)) return CardPlayedTag.Pack;                  // `Ach_97`（`DefinedTrait.pack`）
-            return -1;
+                return f.anyCardType == 0 ? (f.attackingType == CardDef.CardTypeTactic ? CardPlayedTag.ElixirTactic : -1) : CardPlayedTag.Elixir;   // `Ach_89`
+            if (f.anyTrait == 0 && TraitListed(f, 610)) return CardPlayedTag.Pack;   // `Ach_97`（`DefinedTrait.pack`）
+            return f.anyTrait == 1 ? CardPlayedTag.AnyCard : -1;                 // `Ach_97` 的真口径
         }
 
         static bool TraitListed(Filters f, int trait)

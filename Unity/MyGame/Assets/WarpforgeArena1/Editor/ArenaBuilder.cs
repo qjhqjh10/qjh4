@@ -322,6 +322,12 @@ public static class ArenaBuilder
         public int scalingMode = 1; public int renderAlignment;
         public float sortingFudge; public float lengthScale = 2f;
         public float maxParticleSize = 0.5f; public float minParticleSize;
+        // 🆕 2026-11-01（B115_W11 · `T02 · A1580③`）：`ParticleSystemRenderer` 的三个字段（原版逐颗读，生成器同批补抽）。
+        //   `normalDirection` 默认 **1.0**（Unity 新建 renderer 的值）、两个 enum 默认 0 ⇒ 清单缺键时保持默认，
+        //   应用时一律「非默认才写」（见 `BuildContent` 里那三行），⛔ 不会把缺键洗成 0。
+        public float normalDirection = 1f;
+        public int sortMode;
+        public int maskInteraction;
         public float[] matColor;                 // 粒子材质 `_BaseColor`（原版 SmokeySteam01 = 0.6038 灰）
         // 🔴 **2026-09-24 新增：原版粒子材质的【身份 + 渲染状态】。**
         //   原来只带了 `matColor` + 贴图名，shader / 关键字 / 整张属性表**全丢** ⇒ Unity 侧只能
@@ -780,12 +786,100 @@ public static class ArenaBuilder
         }
     }
 
+    /// <summary>🆕 **2026-11-01（`B115_W11` · `T08 · A1579`）：预览链的时效守卫（只比源链，⛔ 不比预览图）**。
+    ///
+    /// **真缺陷是什么**（`判据/B114_战场五条时效核查.md:39` §一 + `:137-139` §3·1）：
+    ///   三路不同步 —— 建场写【场景】/ 建 prefab / **预览读【场景】**；`RenderPreviewFromCLI`
+    ///   **不校验 scene 比清单/旁挂旧** ⇒「改了清单/旁挂、没重建场景」时**照样出图**，量的是旧数据。
+    ///   链条是 `manifest → scene`、`manifest → prefab`、`preview ← scene` ——
+    ///   **预览图的新旧与正确性无关**（出图本来就是覆盖它）。
+    ///
+    /// **判据（2026-11-02 调度台订正方向）**：
+    ///   ① manifest / 旁挂 JSON 比 **scene** 新 ⇒ 场景没重建 ⇒ 报红、不出图；
+    ///   ② manifest 比 **prefab** 新 ⇒ prefab 没重建 ⇒ 报红、不出图；
+    ///   ③ **preview 不参与判定**（只在不存在时提示「首渲」）。
+    ///   ⇒ `render_our_arenas.sh` 的「先 BuildAll/BuildArenaPrefabs 再出图」流水线下**不会红**
+    ///     （场景/prefab 刚重建 = 比清单新）；而「改了清单不重建场景」**会红**。
+    ///
+    /// 边界（缺文件不误判）：scene 缺失 ⇒ 跳过（调用方本就先判过存在）；manifest 缺失 ⇒ 跳过清单这一路；
+    ///   prefab 缺失（首跑）⇒ 跳过 prefab 这一路；preview 缺失 ⇒ 提示首渲、照渲。
+    ///
+    /// ⚠️ **抓不到的**：项目设置 / 贴图导入设置这类**加载期**改动（它们不改 manifest/scene/prefab 的 mtime）
+    ///   —— 那一类要另配「渲染指纹」，见 `判据/B114_战场五条时效核查.md` §3.4。
+    /// 逃生口：`WF_SKIP_STALE_GUARD=1` ⇒ 只警告、照渲（日志明说「逃生口已使用」）。
+    /// ⛔ **本函数不重建任何东西** —— 重建是调度台的事（铁律 15：一场一场来）。</summary>
+    static bool EnsurePreviewFresh(string scene)
+    {
+        var scenePath = ScenePath(scene);
+        var prefab    = ArenaPrefabPath(scene);
+        var preview   = $"{ArenaDir(scene)}/preview_{scene}.png";
+
+        if (!File.Exists(scenePath))
+        {
+            Debug.LogWarning($"[Arena] 时效守卫：场景 `{scenePath}` 不存在 ⇒ 跳过时效校验。");
+            return true;
+        }
+        var sceneT = File.GetLastWriteTimeUtc(scenePath);
+        var hasPrefab = File.Exists(prefab);
+        var prefabT = hasPrefab ? File.GetLastWriteTimeUtc(prefab) : System.DateTime.MinValue;
+        if (!hasPrefab)
+            Debug.LogWarning($"[Arena] 时效守卫：prefab `{prefab}` 不存在（首跑？）⇒ 跳过 prefab 这一路校验。");
+        if (!File.Exists(preview))
+            Debug.LogWarning($"[Arena] 时效守卫：`{preview}` 不存在 ⇒ 这是首次渲染，仍然出图（preview 不参与判定）。");
+
+        var stale = new List<string>();
+
+        // ① manifest 比 scene / prefab 新 ⇒ 没重建（manifest 喂【场景】与【prefab】两条路）
+        var manifest = ManifestPath(scene);
+        if (!File.Exists(manifest))
+            Debug.LogWarning($"[Arena] 时效守卫：清单 `{manifest}` 不存在 ⇒ 跳过清单这一路校验（照渲）。");
+        else
+        {
+            var mT = File.GetLastWriteTimeUtc(manifest);
+            if (mT > sceneT)
+                stale.Add($"manifest `{manifest}`（{mT:yyyy-MM-dd HH:mm:ss}Z）比【场景】`{scenePath}`（{sceneT:yyyy-MM-dd HH:mm:ss}Z）新 ⇒ **场景没重建**");
+            if (hasPrefab && mT > prefabT)
+                stale.Add($"manifest `{manifest}`（{mT:yyyy-MM-dd HH:mm:ss}Z）比【prefab】`{prefab}`（{prefabT:yyyy-MM-dd HH:mm:ss}Z）新 ⇒ **prefab 没重建**");
+        }
+
+        // ② 旁挂 `<场>_*.json` 只喂【场景】这一路 ⇒ 它比 scene 新 = 场景没重建
+        var dir = ArenaDir(scene);
+        if (Directory.Exists(dir))
+        {
+            foreach (var f in Directory.GetFiles(dir, scene + "_*.json"))
+            {
+                if (string.Equals(System.IO.Path.GetFileName(f), scene + "_manifest.json", System.StringComparison.OrdinalIgnoreCase))
+                    continue;   // manifest 已在 ① 单独比（且它还要多比 prefab 一路）
+                var t = File.GetLastWriteTimeUtc(f);
+                if (t > sceneT)
+                    stale.Add($"旁挂 `{f}`（{t:yyyy-MM-dd HH:mm:ss}Z）比【场景】`{scenePath}`（{sceneT:yyyy-MM-dd HH:mm:ss}Z）新 ⇒ **场景没重建**");
+            }
+        }
+
+        if (stale.Count == 0) return true;
+        var detail = "源链比构建产物新：\n  " + string.Join("\n  ", stale);
+        if (System.Environment.GetEnvironmentVariable("WF_SKIP_STALE_GUARD") == "1")
+        {
+            Debug.LogWarning($"[Arena] ⚠️ 时效守卫：{detail}\n"
+                           + "  —— **逃生口 `WF_SKIP_STALE_GUARD=1` 已使用**，照渲（出的可能是旧数据的图）。");
+            return true;
+        }
+        Debug.LogError($"[Arena] 🔴 时效守卫：{detail}\n"
+                     + "  ⇒ **拒绝出图**（否则量的是旧数据）。先按正确顺序重建：\n"
+                     + $"    scene → `WF_ARENA={scene} -executeMethod ArenaBuilder.BuildFromCLI`\n"
+                     + $"    prefab → `WF_ARENA={scene} -executeMethod ArenaBuilder.BuildPrefabFromCLI`\n"
+                     + "  真要照渲旧数据：`WF_SKIP_STALE_GUARD=1`。");
+        return false;
+    }
+
     /// <summary>只渲 `WF_ARENA` 指定的那一场（2026-09-20 加）—— `RenderAllPreviews` 要跑全 13 场，
-    /// 单独验一场时太慢。与 `BuildFromCLI` 同款：用环境变量选场。</summary>
+    /// 单独验一场时太慢。与 `BuildFromCLI` 同款：用环境变量选场。
+    /// 🆕 2026-11-01（`B115_W11` · `T08 · A1579`）：渲前先过 `EnsurePreviewFresh` 时效守卫。</summary>
     public static void RenderPreviewFromCLI()
     {
         var s = ArenaFromEnv();
         if (!File.Exists(ScenePath(s))) { Debug.LogError($"[Arena] 没有场景 {ScenePath(s)}，无法渲预览"); return; }
+        if (!EnsurePreviewFresh(s)) return;
         RenderPreview(s);
     }
 
@@ -2714,6 +2808,15 @@ public static class ArenaBuilder
                 if (p.minParticleSize > 0f) rend.minParticleSize = p.minParticleSize;
                 if (p.lengthScale > 0f)     rend.lengthScale = p.lengthScale;
                 if (p.sortingFudge != 0f)   rend.sortingFudge = p.sortingFudge;
+                // 🆕 **2026-11-01（B115_W11 · `T02 · A1580③`）：这三个 `ParticleSystemRenderer` 字段原来没接。**
+                //    判据 = 原版逐颗现读（`battlearena1` 60 个 psr）：`m_NormalDirection` 1.0×50 / 0.5×10 ·
+                //    `m_SortMode` 0×43 / 1×14 / 2×3 · `m_MaskInteraction` 0×60（本 build 全 None）。
+                //    ⚠️ **一律「非默认才写」**（默认 = Unity 新建 renderer 的值）⇒ 清单缺键时保持默认，
+                //      ⛔ 不会把 `JsonUtility` 的 0 兜底洗进产物（`normalDirection=0` 会把公告板转成 90°）。
+                if (p.normalDirection > 0f && !Mathf.Approximately(p.normalDirection, 1f))
+                    rend.normalDirection = p.normalDirection;
+                if (p.sortMode != 0) rend.sortMode = (ParticleSystemSortMode)p.sortMode;
+                if (p.maskInteraction != 0) rend.maskInteraction = (SpriteMaskInteraction)p.maskInteraction;
                 // 🆕 **2026-10-11（A1552）：`ParticleSystemRenderer.pivot`** —— 原来**从来没接过**。
                 //    判据 = 原版 prefab 的 `m_Pivot`（`工具/gen_arena_particlepivot.py` 逐颗灌进清单）。
                 //    13 场 **578 颗里 151 颗非零**，而且**「火」那一整族全是 Y>0**：
@@ -2812,7 +2915,7 @@ public static class ArenaBuilder
                 // 🆕 **2026-10-11（A1557·第②项）：`ParticleSystemRenderer.applyActiveColorSpace`**
                 //    —— 判据/语义/为什么单独判「键在不在」全部写在 `ParticleEntry.applyActiveColorSpace`
                 //    与 `_manifestHasApplyColorSpace` 的头注里，这里只说落地这一句。
-                //    🔴 **只改这一个变量**：`maxParticleSize` 照旧不动（2026-09-21 实测设了会退步）、
+                //    ⚠️ 2026-11-02 更正：本条旧文说「故意不设」，**已过期** —— 现读 `if (p.maxParticleSize > 0f) rend.maxParticleSize = …;` 是逐颗真值赋值（`B114_W14` 落地，13 场 prefab 已重建、13/13 逐格吻合）；09-21 那次 arena3 A/B（1.032→1.181）**不可归因于本字段**（判据 `判据/B115_R2_maxParticleSize判据.md`：该字段语义是**视口比例夹取**，arena3 那 5 颗初始投影只有 0.3%–2.6% 视口，12.0 与 0.5 同结果）。
                 //      `enableGPUInstancing` 照旧不动（两边材质都关着 ⇒ 死值）。
                 if (_manifestHasApplyColorSpace)
                 {
@@ -4822,9 +4925,18 @@ public static class ArenaBuilder
     public static bool HasKeys(CurveData cd)
         => cd != null && cd.keys != null && cd.keys.Length > 0;
 
-    /// <summary>`sizeOverLifetime` 里有**任意一条轴**带曲线键（`null` 物化那件事同 `HasKeys`）。</summary>
+    /// <summary>🔴 **2026-11-01（`B115_W11` · `T02 · A1580①`）：一条曲线数据「有没有值」= 有键 **或** 是常量态。**
+    ///
+    /// 原来 `HasSizeCurve` 只判 `HasKeys` ⇒ 生成器新吐出来的**常量态**（`isConst=true`，没有 `keys`）
+    /// 会被这里判成「没有」⇒ **数据侧改了、消费侧没认，等于没改**（判据要点写在 `curve_or_const`）。
+    /// ⚠️ 仍然能区分「`null` 物化的空对象」：那玩意儿是 `CurveData` 的默认构造 —— `isConst=false`、`keys=null`
+    ///   ⇒ 这里两条都不成立 ⇒ 返回 false（与 `HasKeys` 那一族同一个坑，见上一条注释）。</summary>
+    public static bool HasCurveData(CurveData cd)
+        => cd != null && (cd.isConst || HasKeys(cd));
+
+    /// <summary>`sizeOverLifetime` 里有**任意一条轴**有值（曲线键 **或** 常量态；`null` 物化那件事同 `HasKeys`）。</summary>
     public static bool HasSizeCurve(SizeOverLifetimeData s)
-        => s != null && (HasKeys(s.x) || HasKeys(s.y) || HasKeys(s.z));
+        => s != null && (HasCurveData(s.x) || HasCurveData(s.y) || HasCurveData(s.z));
 
     /// <summary>🆕 2026-09-21 下半场：把清单里的**完整 RGBA 渐变**还原成 `Gradient`。
     /// 原来只建 alpha ⇒ **火焰「白→黄→橙」的渐变全丢**，渲出来永远是一坨白。</summary>

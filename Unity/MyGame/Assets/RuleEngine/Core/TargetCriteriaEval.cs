@@ -864,7 +864,7 @@ namespace RuleEngine
         {
             var list = ctx.PreviousAbilityTargets;
             for (int i = 0; i < list.Count; i++)
-                if (ReferenceEquals(list[i], candidate)) return true;
+                if (ReferenceEquals(list[i].Unit, candidate) || ReferenceEquals(list[i].Inst, candidate.Instance)) return true;   // 🔴 2026-11-01（`B115_W23` · E4）：元素已是 `CardRef`（**值类型**）—— 原来那句 `ReferenceEquals(list[i], candidate)` 会**恒假**（装箱成两个对象）⇒ 静默把 `ta=140/150` 变成「候选永远不在表里」
             return false;
         }
 

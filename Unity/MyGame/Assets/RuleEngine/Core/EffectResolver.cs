@@ -1365,30 +1365,30 @@ namespace RuleEngine
         /// <returns>写进引用表的条数（`acting == null` ⇒ 0）。</returns>
         public static int SetReferenceCards(BattleContext ctx, int owner, UnitState acting,
                                             EffectTargetSpec spec, UnitState source = null,
-                                            UnitState chosen = null)
+                                            UnitState chosen = null, CardInstance actingInst = null)   // 🔴 2026-11-01（`B115_W23` · E7）：`actingInst` = 手牌打出的那张战术卡的实例（原版 `PlayAbility.c:2139` 写的是 `actingCard + 0x278` —— **那个 actingCard 就是牌自己**，⛔ 不要求它是棋盘单位）
         {
             if (ctx == null) return 0;
-            if (acting == null)
+            var holder = actingInst != null ? actingInst : (acting != null ? acting.Instance : null);
+            if (holder == null)
             {
-                ctx.Log("（能力 380 `setReferenceCard`：**没有施放的那张牌**（`actingCard` 为空）"
-                      + "⇒ 引用表无处可写，本次空过 —— 原版 `PlayAbility.c:2139` 写的是 `actingCard + 0x278`）");
+                ctx.Log("（能力 380 `setReferenceCard`：**没有施放的那张牌**（`actingCard` / `actingInst` 都为空）" + "⇒ 引用表无处可写，本次空过 —— 原版 `PlayAbility.c:2139` 写的是 `actingCard + 0x278`）");
                 return 0;
             }
 
             var saved = new List<UnitState>(ctx.LastTargets);
             var savedLast = ctx.LastTarget;
-            var got = ResolveTargets(ctx, owner, spec, source, chosen);
+            var refs = new List<CardRef>();
+            var got = ResolveTargets(ctx, owner, spec, source, chosen, null, null, holder, refs);
             ctx.LastTargets.Clear();
             ctx.LastTargets.AddRange(saved);
             ctx.LastTarget = savedLast;
 
-            if (got.Count == 0) { ctx.Log($"（能力 380 `setReferenceCard`：「{acting.Name}」这条 logic 的目标表**为空** ⇒ 原版 `AbilityLogic__PlayAbility.c:2131-2132` 的 `if (0 < count)` 不成立 ⇒ **不换表**，本次不动引用表）"); return 0; } acting.ReferencedCards.Clear();   // 🔴 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0）：补上原版 `:2132` 那道 `if (0 < count)` 闸 —— 改前本行无条件 `Clear()`，会把「目标表空」也当成一次覆盖（把引用表**清空**），与原版不同（原版只有 count>0 才新建 List 并赋值，空表时旧表原封不动）。⛔ 本行**必须保持一行**（行数守恒 —— 本文件有账落点按行号引用，插行会整体漂移）
-            for (int i = 0; i < got.Count; i++)
-                if (got[i] != null) acting.ReferencedCards.Add(got[i]);
-            ctx.Log($"（能力 380 `setReferenceCard`：「{acting.Name}」的引用表 = "
-                  + $"{acting.ReferencedCards.Count} 张（{Names(acting.ReferencedCards)}）"
-                  + " —— 判据 `AbilityLogic__PlayAbility.c:2128-2160`）");
-            return acting.ReferencedCards.Count;
+            if (refs.Count == 0) { ctx.Log($"（能力 380 `setReferenceCard`：「{holder.Card?.Name}」这条 logic 的目标表**为空** ⇒ 原版 `AbilityLogic__PlayAbility.c:2131-2132` 的 `if (0 < count)` 不成立 ⇒ **不换表**，本次不动引用表）"); return 0; } holder.ReferencedCards.Clear();   // 🔴 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0）：补上原版 `:2132` 那道 `if (0 < count)` 闸 —— 改前无条件 `Clear()` 会把「目标表空」也当成一次覆盖。⛔ 本行**必须保持一行**（行数守恒）
+            holder.ReferencedCards.AddRange(refs);
+            ctx.Log($"（能力 380 `setReferenceCard`：「{holder.Card?.Name}」的引用表 = "
+                  + $"{holder.ReferencedCards.Count} 张（{NamesOf(refs)}）"
+                  + $" —— 其中不在棋盘 {refs.Count - got.Count} 张（手牌 / 已离场）；判据 `AbilityLogic__PlayAbility.c:2128-2160`）");
+            return holder.ReferencedCards.Count;
         }
 
         /// <summary>🆕 **2026-10-25（执行代理 `E4` · `E4-1`）：把一个「这条 ability 落到的目标」
@@ -1441,10 +1441,10 @@ namespace RuleEngine
                                                      EffectTargetSpec spec, UnitState source,
                                                      UnitState chosen,
                                                      CardDef.ConditionSpec structuredCondition = null,
-                                                     EffectOp op = null)
+                                                     EffectOp op = null, CardInstance actingInst = null, List<CardRef> refsOut = null)   // 🔴 2026-11-01（`B115_W23` · E7/E8）：`actingInst` = 手牌打出的那张牌的实例（原版 `abilityData.thisCard + 0x10`，380 写表与 200/201 读表都要它）；`refsOut` = 收「不在棋盘的候选」（手牌 / 已离场）
         {
-            var list = (op != null && op.SubjectTargetsAffected == 60) ? ResolveCemeteryTargetsAsUnits(ctx, owner, spec, op) : ResolveTargetsCore(ctx, owner, spec, source, chosen, structuredCondition, op); list = CountEval.ApplySelectFromChooseResolution(ctx, SelectFromChooseResolutionOf(source, op), FilterSingleUseMutationTargets(ctx, list, source != null ? source.Instance : null, TraitsFilterOf(source, op), "目标池"), "目标池");   // 🔴 2026-10-29（B98_G2 · 账 534②）：`ta = 60`（`inCemeteryFiltered`）**不再落到棋盘扫描** —— 原版那一支（`AbilityLogic__GetTargets.c:949-960` → `BattleManager.GetCardsInCemetery`）的候选是**墓地的 `CardInstance`**，而本函数只收 `UnitState` ⇒ 走 `ResolveCemeteryTargetsAsUnits`（候选由 `ResolveCemeteryTargets` 算出、经 `Debug.LogWarning` 出声，返回**空表**：墓地里的牌不在棋盘上，⛔ 不当成「棋盘上一个都没选到」）。⛔ 别在这里 `ctx.Log`（会进 `ctx.Events` ⇒ 动联机指纹）；取走/搬运那半仍在 `ReturnFromCemetery` / `DoDeployOnce` 各自的入口。  // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格 + 账 1254）：原版 `AbilityLogic__GetTargets` 末尾两段 —— **顺序照原版**：`traitsFilter == 780` 的单次变异去重（`.c:155-172`）在内层、`selectFromChooseResolution`（`.c:1101-1140`）在外层
-            NoteTriggerTargetSink(ctx, list);
+            var list = (op != null && op.SubjectTargetsAffected == 60) ? ResolveCemeteryTargetsAsUnits(ctx, owner, spec, op) : ResolveTargetsCore(ctx, owner, spec, source, chosen, structuredCondition, op, actingInst, refsOut); list = CountEval.ApplySelectFromChooseResolution(ctx, SelectFromChooseResolutionOf(source, op), FilterSingleUseMutationTargets(ctx, list, source != null ? source.Instance : null, TraitsFilterOf(source, op), "目标池"), "目标池");   // 🔴 2026-10-29（B98_G2 · 账 534②）：`ta = 60`（`inCemeteryFiltered`）**不再落到棋盘扫描** —— 原版那一支（`AbilityLogic__GetTargets.c:949-960` → `BattleManager.GetCardsInCemetery`）的候选是**墓地的 `CardInstance`**，而本函数只收 `UnitState` ⇒ 走 `ResolveCemeteryTargetsAsUnits`（候选由 `ResolveCemeteryTargets` 算出、经 `Debug.LogWarning` 出声，返回**空表**：墓地里的牌不在棋盘上，⛔ 不当成「棋盘上一个都没选到」）。⛔ 别在这里 `ctx.Log`（会进 `ctx.Events` ⇒ 动联机指纹）；取走/搬运那半仍在 `ReturnFromCemetery` / `DoDeployOnce` 各自的入口。  // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格 + 账 1254）：原版 `AbilityLogic__GetTargets` 末尾两段 —— **顺序照原版**：`traitsFilter == 780` 的单次变异去重（`.c:155-172`）在内层、`selectFromChooseResolution`（`.c:1101-1140`）在外层
+            NoteTriggerTargetSink(ctx, list); if (refsOut != null) for (int i = 0; i < list.Count; i++) if (list[i] != null) refsOut.Add(CardRef.Of(list[i]));   // 🔴 2026-11-01（`B115_W23` · E8）：**在收口这一层**把棋盘目标折成 `CardRef` 填进去（它有 13 个 `return`，⛔ 别逐出口插）；手牌项由 `ResolveTargetsCore` 自己先填（顺序 = 手牌 → 棋盘，不参与任何判定）
             return list;
         }
 
@@ -1464,9 +1464,9 @@ namespace RuleEngine
                                                      //   只有 `spec.Subjectless` ∧ 没有施放者 ∧ 没有点目标那一格用得上
                                                      //   （读 `op.SubjectTargetsAffected`，原版 `abilityLogic.targetCriteria`）。
                                                      //   传 `null` = 不知道是哪一条 ⇒ 照旧走「己方全体」近似并出声。
-                                                     EffectOp op = null)
+                                                     EffectOp op = null, CardInstance actingInst = null, List<CardRef> refsOut = null)   // 🔴 2026-11-01（`B115_W23`）：与 `ResolveTargets` 同一对尾参
         {
-            var list = new List<UnitState>();
+            var list = new List<UnitState>(); if (op != null && (op.SubjectTargetsAffected == 140 || op.SubjectTargetsAffected == 150) && (spec == null || !spec.HandOnly)) return ResolvePreviousAbilityTargets(ctx, owner, spec, op, source ?? ctx.ActingUnit, list, refsOut);   // 🔴 2026-11-01（`B115_W23` · E9）：新增 `ta = 140/150` 支（判据 `AbilityLogic__GetTargets.c:867-883` + `FilterMethods__CheckIfMeetsCriteria.c:172-183`）—— 与下面 `200/201` 同位置、同形态：**绕开 `spec.Side/Kind/Count` 一个字都不参与**。实体在类尾 `ResolvePreviousAbilityTargets`
             if (spec == null) return list;
 
             // 🆕 2026-09-16：**目标只在手牌**（`all friendly troops in hand` / `a random Beast in
@@ -1493,7 +1493,7 @@ namespace RuleEngine
             //   写的是 **`abilityData.thisCard`（`AbilityData + 0x10`）**，再由它取 `.referencedCards`
             //   （`CardScript + 0x278`）；`actingCard` 只是**大多数情况下恰好就是同一张**。
             //   ⇒ 读侧那两句（`GetTargets.c:770-781` / `:784-806`）不变；**引用表可以跨手牌/场上/墓地**，
-            //   而我们 `UnitState.ReferencedCards` 只装 `UnitState`（见 `UnitState.cs:642` 的如实标注）。
+            //   而我们的载体 = `CardInstance.ReferencedCards`（`List<CardRef>`，手牌实例也装得下；2026-11-01 `B115_W23` 搬过去）。
             // 🔴 **位置必须在最前**：原版这两档**完全绕开** `targetCriteria` 的其它字段
             //   （与 `ta=240` 同一形态），所以文本解析出来的 `Side/Kind/Count` 一个字都不该参与。
             // ⚠️ **按 `op.SubjectTargetsAffected` 分派**（这是本仓 op ↔ `targetsAffected` 的唯一镜像，
@@ -1501,31 +1501,31 @@ namespace RuleEngine
             if (op != null && (op.SubjectTargetsAffected == 200 || op.SubjectTargetsAffected == 201))
             {
                 bool inPlayOnly = op.SubjectTargetsAffected == 201;
-                if (source == null)
+                // 🔴 2026-11-01（`B115_W23` · E10）：原版写的是 `abilityData.thisCard(+0x10).referencedCards(+0x278)`
+                //   —— 从【手牌】打出的战术卡**也有载体**（`CardInstance`），⛔ 不再要求是棋盘单位（旧注释「本结构里没有载体」已作废）
+                var holder = source != null ? source.Instance : actingInst;
+                if (holder == null)
                 {
-                    // 原版写的是 `actingCard.referencedCards` —— 没有施放者就无处可读。
-                    // 手牌打出的战术卡在**本结构里**没有载体（见 `UnitState.ReferencedCards` 的 ⚠️），如实出声。
-                    ctx.Log($"（`ta={op.SubjectTargetsAffected} referencedCards`：**没有施放的那张牌**"
-                          + "（`actingCard` 为空）⇒ 目标表为空。⚠️ 手牌卡这条载体本批**没做**，"
-                          + "见 `资料/普查产出_1024/G5_裸Deal与ta200.md` §件2）");
+                    ctx.Log($"（`ta={op.SubjectTargetsAffected} referencedCards`：**没有施放的那张牌**（`actingCard` / `actingInst` 都为空）⇒ 目标表为空。判据 `AbilityLogic__PlayAbility.c:2128-2160` 的 `thisCard = AbilityData + 0x10`）");
                     return list;
                 }
-                for (int i = 0; i < source.ReferencedCards.Count; i++)
+                var tbl = holder.ReferencedCards;
+                for (int i = 0; i < tbl.Count; i++)
                 {
-                    var u = source.ReferencedCards[i];
-                    if (u == null) continue;
-                    // 201 = 只留 `IsInPlay`（原版 `CardScript.IsInPlay`；我们的等价物见 `IsUnitInPlay`）。
-                    // ⚠️ 200 **一律不筛** —— 包括**已经离场**的那些（原版是整表 AddRange）。
-                    if (inPlayOnly && !IsUnitInPlay(ctx, u)) continue;
-                    list.Add(u);
+                    var r = tbl[i];
+                    if (r.Inst == null && r.Unit == null) continue;
+                    // 201 = 只留 `IsInPlay`（原版 `CardScript.IsInPlay`；我们的等价物见 `IsUnitInPlay`）。⚠️ 200 **一律不筛** —— 包括**已经离场**的那些（原版是整表 AddRange）⇒ 手牌 / 离场项进 `refsOut`（`ta=150` 那一支同样吃它）。
+                    var u = r.Unit != null ? r.Unit : r.ResolveUnit(ctx);   // 换位 / 补位之后按实例现扫棋盘；已离场 ⇒ null
+                    if (u != null) { if (inPlayOnly && !IsUnitInPlay(ctx, u)) continue; list.Add(u); }
+                    else if (!inPlayOnly && refsOut != null) refsOut.Add(r);
                 }
                 ctx.LastTargets.Clear();
                 ctx.LastTargets.AddRange(list);
-                if (list.Count > 0) ctx.LastTarget = list[0];
+                if (list.Count > 0) ctx.LastTarget = list[0];   // ⚠️ 代词槽只收**棋盘**项（手牌项没有 `UnitState`，⛔ 不拿模板顶）
                 ctx.Log($"（`ta={op.SubjectTargetsAffected} referencedCards`："
-                      + $"「{source.Name}」的引用表 {source.ReferencedCards.Count} 张"
+                      + $"「{holder.Card?.Name ?? "?"}」的引用表 {tbl.Count} 张"
                       + (inPlayOnly ? "，只留还在场上的" : "（整表）")
-                      + $" ⇒ 目标 {list.Count} 张（{Names(list)}）—— 判据 `AbilityLogic__GetTargets.c:"
+                      + $" ⇒ 棋盘目标 {list.Count} 张（{Names(list)}）；手牌/离场项 {(refsOut != null ? refsOut.Count : 0)} 张 —— 判据 `AbilityLogic__GetTargets.c:"
                       + (inPlayOnly ? "784-806" : "770-781") + "`）");
                 return list;
             }
@@ -5938,7 +5938,7 @@ namespace RuleEngine
         public static bool AttachHandEffectCopy(BattleContext ctx, CardInstance inst,
                                                 CardInstance.HandEffect src)
         {
-            if (ctx == null || inst == null || src == null || src.Op == null) return false;
+            if (ctx == null || inst == null || src == null) return false; if (src.Op == null) return AttachHandAbilityBuffCopy(ctx, inst, src);   // 🆕 2026-11-02（执行写手 `B115_W20`）：**数据行**（附魔模板 `handBuff` 的 `Spec`）那一档 —— 实现在 `RuleCorePartial_B115W20.cs`（同一 `partial class RuleCore`，⛔ 别在这里再写一份）。行内追加 = 本文件零行数变化（账落点 `:20833/:20995/:21006` 不漂）。
             // 🔴 **2026-10-18（`W4` 整改 · 审查问题 6）**：这里原来按「来源 + 载荷」字符串去重 ——
             //    **那条路是错的、别再回去**（`W4` 的同一条账）。
             // 🔴🆕 **2026-10-25（完全复刻 · 执行代理 A · 卡牌面代理 `E` 的判据）：改成【逐字段比】。**
@@ -7809,7 +7809,7 @@ namespace RuleEngine
 
         /// <summary>🆕 2026-10-25（`E6`）：本族**要不要跑** ability 级 `targetCriteria`（`+0x30`）那道闸 ——
         /// 只对**已经查清 `targetCard` 是哪一格**的事件返回 `true`（⛔ 不是「有事件就判」）。
-        /// <para>逐族判据见上面那段长注释；一句话：`Attack` → `target`，其余六族 → `subject`。</para></summary>
+        /// <para>逐族判据见上面那段长注释；一句话：`Attack` → `target`，620 `TriggeredSwarm` → `target`（= 留下的 host），其余六族 → `subject`。</para></summary>
         static bool AbilityLevelGateApplies(string kind)
         {
             switch (kind)
@@ -7823,7 +7823,7 @@ namespace RuleEngine
                 case WhenEventKind.GetsStun:          // 291（`ReactToUnitStunned.c:7`：targetCard = 被晕者）
                     return true;
             }
-            return false;
+            return kind == WhenEventKind.Triggers(KeywordTable.Swarm);   // 🔴 2026-11-01（`B115_W14` · `ENG-16` ②）：**620 `TriggeredSwarm` 那一族查清了** —— 原版 `CardScript.<>c__DisplayClass401_0.<ExecuteSwarm>b__0:45/51` → `BroadcastUnitSwarm(bm, param_2 = 被销毁那张, param_3 = 留下的那张)` → `TriggeredSwarm(observer, param_2, param_3)` → `OnTrigger(0x26c, …, actingCard = param_2, targetCard = param_3)` ⇒ **`just` = actingCard、`host`（留下的）= targetCard**（判据 `资料/普查产出_1025/E6_十三行接闸.md:153-156`，逐句）。⛔ 别写成 `switch` 的 `case` label —— `WhenEventKind.Triggers(kw)` 是**函数**、不是常量表达式。
         }
 
         /// <summary>见上面那段：不适用 ⇒ `null`（不启用闸）；适用 ⇒ 该族 trigger 名。</summary>
@@ -7833,11 +7833,11 @@ namespace RuleEngine
             return TriggerNameOfWhenKind(kind, selfOnly);
         }
 
-        /// <summary>见上面那段：`Attack` 取 `target`（被打者）、其余六族取 `subject`；不适用 ⇒ `null`
+        /// <summary>见上面那段：`Attack` 取 `target`（被打者）、620 `TriggeredSwarm` 也取 `target`（留下的 host）、其余六族取 `subject`；不适用 ⇒ `null`
         /// （`null` = 本路径没有 `targetCard` ⇒ 那道闸判不了 ⇒ 出声并放行）。</summary>
         static UnitState AbilityLevelGateTarget(string kind, UnitState subject, UnitState target)
         {
-            if (kind == WhenEventKind.Attack) return target;
+            if (kind == WhenEventKind.Attack || kind == WhenEventKind.Triggers(KeywordTable.Swarm)) return target;   // `Attack` → 被打者；620 `TriggeredSwarm` → **留下的 host**（= 原版 `targetCard`）—— host 由 `RuleCore.FireTriggerAt` / `FireTriggerAlways` 的广播塞进 `target:` 那一格；⛔ 不能沿用下面的 `subject`（那是**被并掉那张** = 原版 `actingCard`，拿它筛 = 筛错人）
             return AbilityLevelGateApplies(kind) ? subject : null;
         }
 
@@ -8566,14 +8566,14 @@ namespace RuleEngine
         /// 的下标）透传给 <see cref="EmitCardTrigger"/> —— 同一张卡多条 605 能力各发一次时用它区分
         /// （见 `EmitFaithAbilityUseTriggers` 的 doc）。单组卡保持 `-1` ⇒ 与改前逐字节相同。</para>
         /// </summary>
-        internal static void EmitAbilityUseTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
+        internal static BattleEvent EmitAbilityUseTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,   // 🔴 2026-11-01（`B115_W23` · C1）：`void` ⇒ `BattleEvent` —— 把**它自己刚发的那条事件**交回去（判据 `EmitCardTrigger` 本来就返 `BattleEvent`，改前在这里被丢掉了）
                                                    string triggerName, int triggerId, int abilityIndex = -1)
         {
-            if (ctx == null || card == null) return;
-            if (EmitCardTrigger(ctx, card, owner, unit, triggerName, "ability:" + triggerName, abilityIndex) == null) return;
-            ctx.Log($"「{card.Name}」的阵营能力激活完毕 → 触发事件 `{triggerName}`"
-                  + $"（原版 AbilityTrigger = {triggerId}"
-                  + (abilityIndex >= 0 ? $" · cardAbilities[{abilityIndex}]" : "") + "）");
+            if (ctx == null || card == null) return null;
+            var evt = EmitCardTrigger(ctx, card, owner, unit, triggerName, "ability:" + triggerName, abilityIndex);
+            if (evt == null) return null;
+            ctx.Log($"「{card.Name}」的阵营能力激活完毕 → 触发事件 `{triggerName}`" + $"（原版 AbilityTrigger = {triggerId}" + (abilityIndex >= 0 ? $" · cardAbilities[{abilityIndex}]" : "") + "）");
+            return evt;
         }
 
         /// <summary>
@@ -11504,12 +11504,12 @@ namespace RuleEngine
                 {
                     var u = lt[i];
                     if (u == null) continue;
-                    // 并集去重：同一条 op 跑 N 遍（`repeats`）时目标会重复进来；
-                    // `UnitState` 没有重写 `Equals` ⇒ `Contains` 就是**引用相等**（正是我们要的）。
-                    if (!acc.Contains(u)) acc.Add(u);
+                    // 并集去重：同一条 op 跑 N 遍（`repeats`）时目标会重复进来；`CardRef.Equals` 按 `Inst` 引用相等（正是我们要的）。
+                    var r = CardRef.Of(u);
+                    if (!acc.Contains(r)) acc.Add(r);
                 }
-            ctx.PreviousAbilityTargets.Clear();
-            ctx.PreviousAbilityTargets.AddRange(acc);
+            var lh = ctx.LastHandTargets; if (lh != null) for (int i = 0; i < lh.Count; i++) { var hi = lh[i]; if (hi == null) continue; var hr = CardRef.Of(hi); if (!acc.Contains(hr)) acc.Add(hr); } var hs = ctx.LastHandTarget; if (hs != null) { var hsr = CardRef.Of(hs); if (!acc.Contains(hsr)) acc.Add(hsr); }   // 🔴 2026-11-01（`B115_W23` · E6）：并上「抽进手牌的那几张」—— 原版 `AbilityLogic__AddDrawCard.c:46-49` 把它们 `AddRange` 进 `abilityTargetsToSave(+0x80)`，那正是本表的来源（`LastHandTargets` / `LastHandTarget` 就是这两个槽，见 `BattleContext.cs:1283 / :1295`）
+            ctx.PreviousAbilityTargets.Clear(); ctx.PreviousAbilityTargets.AddRange(acc);   // 发布视图 = 本条 ability 至今的并集
         }
 
         /// <summary>🆕 2026-10-24（引擎线 `A1` 第 3 件）：原版 `TargetCriteria.spellType` 的
@@ -13269,7 +13269,7 @@ namespace RuleEngine
         ///
         /// <para>**反编译逐行**（`d:/2/tools/decomp_full/CardScript__FinishActiveAbility.c`）：
         /// 主动能力（`ActiveAbility`，调用方 = `BattleManager._ResolvePlayActiveAbility_d__479`）**结束时**：
-        /// ① `matchData.gameplayVariables.alternativeTraitLogic (+0x4B) != 0`；
+        /// ① `matchData.gameplayVariables.alternativeTraitLogic` 为真（原版 `bool @+0x4B`；⚠️ 2026-11-01 更正：旧文把它按 int 建模、写成「非零」判据）；
         /// ② 这张卡 `RawCardScript__HasDefaultTrait(card, 0x4a1 = 1185 = DefinedTrait.pray)`；
         /// ⇒ `PlayerManager__AddFaithMana(该卡控制者, +1)` → `BroadcastCollectedFaith(该卡)`。</para>
         ///
@@ -15647,7 +15647,7 @@ namespace RuleEngine
                     //      「正在结算的那一份」，属另一笔）。
                     CardInstance selfPin = ctx.ActingUnit != null ? ctx.ActingUnit.Instance : null;
                     keys.Add(self.Id); shown.Add(self.Name); cardRefs.Add(self); pins.Add(selfPin);
-                    detail = selfPin != null ? "**本卡自己**（已钉到这一份）" : "**本卡自己**";
+                    detail = selfPin != null ? "**本卡自己**（已钉到这一份）" : "**本卡自己**"; if (self.CoversCostSentence(op.Source)) { ctx.Log($"{by}：「{op.Source}」由数据路（`CostPerKeywords`，按关键词层数现算）负责 ⇒ **本次不重复登记降费**"); return true; }   // 🔴 2026-11-01（`B115_W18` · `ENG-24` / `SW58`）：**同一句正文若已被数据路建模 ⇒ 这里不再重复登记**。数据路 = `CardDef.CostPerKeywords` → `RuleCore.CostOf` **每次现算**（= 原版 `costChange × Σ(traitsFilter 的层数)`，判据见 `CardDef.CoversCostSentence` 的 doc）；而本条正文 op 的 `countRef` **丢了关键词**（`enemy|troop|all`）⇒ 外层 `for each` 按**敌方部队数**重复，实测 0 标记时仍登记 3 条 −1「永久」且按**卡 id** 匹配叠加（原版只挂在打出的那一张上）⇒ 这就是「把 Hunt Mark 数成敌方部队数」。⚠️ 接在本行末 = **零净行数**（本文件被账按行号引用）；`return true` 在 `ctx.CostMods.Add` 那个 `for` **之前**，登记点一处未碰。
                 }
                 else if (t == "cards" || t == "card" || t.Length == 0)
                 {
@@ -20886,7 +20886,7 @@ namespace RuleEngine
             var spec = (ops.Count > 0) ? ops[0].Target : null;
             if (spec != null)
             {
-                int n = SetReferenceCards(ctx, p, u, spec, u, chosen);
+                int n = SetReferenceCards(ctx, p, u, spec, u, chosen, u.Instance);
                 if (n <= 0)
                     ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 380`（setReferenceCard）：这条 logic 的目标表**为空**"
                           + " ⇒ **不动引用表**（判据 `AbilityLogic__PlayAbility.c:2131-2132`：`if (0 < count)` 才换表）");
@@ -20900,9 +20900,9 @@ namespace RuleEngine
                       + "（判据 `AbilityLogic__PlayAbility.c:2128-2160`；目标集 = 调用方点定的那一个，`AbilityLogic__GetTargets.c:192-207`）");
                 return 1;
             }
+            if (ta == 140 || ta == 150) { var prevRefs = new List<CardRef>(); ResolveTargets(ctx, p, null, u, chosen, null, new EffectOp { SubjectTargetsAffected = ta }, u.Instance, prevRefs); if (prevRefs.Count > 0) { u.ReferencedCards.Clear(); u.ReferencedCards.AddRange(prevRefs); ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 380`：引用表被**覆盖**成 {prevRefs.Count} 张（{NamesOf(prevRefs)}）—— 目标表 = 上一条能力的目标（`ta={ta}`，判据 `AbilityLogic__PlayAbility.c:2144-2153`）"); return 1; } ctx.Log($"⚠️「{u.Name}」的主动能力 `chosenAbility 380`：`ta={ta}` 的目标表**为空** ⇒ `:2131-2132` 的 `if (0 < count)` 不成立 ⇒ 不动引用表"); return 0; }   // 🔴 2026-11-01（`B115_W23` · E11）：`ta = 140/150` 时目标集 = **上一条能力的目标表**（判据 `AbilityLogic__GetTargets.c:867-883`），⛔ 不是无条件拿 `chosen`（`AM54` 的 380 就是旧写法写错的那一格；判据 `AbilityLogic__PlayAbility.c:2144-2153`）
             ctx.Log($"⚠️「{u.Name}」的主动能力 `chosenAbility 380`（setReferenceCard）**解不出目标集**（`ta={ta}`，这一行没有配到正文 op）"
-                  + " ⇒ 本版**不猜**，这一行不结算。（原版 `AbilityLogic__PlayAbility.c:2144-2153` 填的是这条 logic 自己的目标表；"
-                  + "目标集判据 = `AbilityLogic__GetTargets.c:192-207`，只有 `ta = 30/220` 读调用方给的那个目标）");
+                  + " ⇒ 本版**不猜**，这一行不结算。（原版 `AbilityLogic__PlayAbility.c:2144-2153` 填的是这条 logic 自己的目标表；目标集判据 = `AbilityLogic__GetTargets.c:192-207`，只有 `ta = 30/220` 读调用方给的那个目标）");
             return 0;
         }
 
@@ -21479,6 +21479,132 @@ namespace RuleEngine
                                                                           IReadOnlyList<EffectOp> ops, string keyword)
         {
             return RandomAbilityChoiceOps(ctx, u, ops, null, keyword, false);
+        }
+    }
+}
+
+// ==================================================================================================
+//  🔴🆕 2026-11-01（执行代理 `B115_W23` · 账 `B-254` / `SAN-04` / `B255` 的 W1 批）：
+//  **卡级目标模型**的两个类尾件 —— ⛔ 追加在文件尾（本文件有 394 处账落点按 `文件:行号` 引，
+//  只有尾部零漂移；铁律 18·b）。
+//
+//  判据（第一权威 `d:/2/tools/decomp_full/`，逐行现读）：
+//    · `AbilityLogic__GetTargets.c:867-883`：`ta == 0x96(150)` / `0x8c(140)` ⇒ 把静态表
+//      `pooledPossibleTargets` **AddRange 成候选池**（`140` 不过筛、`150` 多一趟 `CheckIfMeetsCriteria`）；
+//    · `FilterMethods__CheckIfMeetsCriteria.c:172-183`：`iVar17 == 0x96` ⇒ 候选还必须
+//      **`List.Contains(previousAbilityTargets, candidate)`**（= 就在那张表里）才继续；
+//    · `AbilityLogic__AddDrawCard.c:46-49`：抽牌那一跳把抽到的牌 `AddRange` 进 `abilityTargetsToSave(+0x80)`
+//      ⇒ **上一跳抽到的牌天然是 `150` 的合法目标**（这正是本批要打通的形状）；
+//    · `dump.cs:35370 / :32595-32613`：手牌与场上**同一个类**（`CardScript`）⇒ 候选池可以同时装两者。
+// ==================================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>
+        /// 🔴🆕 **2026-11-01（`B115_W23` · E9）**：`targetsAffected = 140 previousAbilityTargets` /
+        /// `150 previousAbilityFiltered` 的**候选池** —— 原版 `AbilityLogic__GetTargets.c:867-883`。
+        ///
+        /// <para>**一百四十与一百五十的差别只有一处**：`150` 还要逐候选过一遍 `CheckIfMeetsCriteria`
+        /// （`FilterMethods__CheckIfMeetsCriteria.c:172-183` 的 `Contains` 闸 + `:184-420` 的常规筛），
+        /// `140` **不过筛**。</para>
+        ///
+        /// <para>🔴 **为什么要在这里分「棋盘 / 手牌」两半**：我们的候选池 <see cref="CardRef"/> 能装
+        /// 手牌实例，而效果层的 `List&lt;UnitState&gt;` 装不下 ⇒ **棋盘项进 <paramref name="list"/>、
+        /// 手牌项进 <paramref name="refsOut"/>**（380 写引用表、事件层 `Slot = -1` 两处都吃它）。
+        /// ⛔ 别把「不在棋盘」当「不存在」丢掉 —— 原版 `ta=200` 那一档**明确保留已离场的**。</para>
+        ///
+        /// <para>⚠️ **两条如实标注**：① 这一支**绕开 `spec.Side/Kind/Count`**（原版同形，与 `ta=240` 一致）；
+        /// ② 行级 `targetCriteria` 读不到（`op.AbilityIndex/LogicIndex` 没归位、旧表）时**不过筛并出声**
+        /// —— ⛔ 不拿目标短语反推。</para>
+        /// </summary>
+        static List<UnitState> ResolvePreviousAbilityTargets(BattleContext ctx, int owner, EffectTargetSpec spec,
+                                                            EffectOp op, UnitState source,
+                                                            List<UnitState> list, List<CardRef> refsOut)
+        {
+            if (ctx == null || list == null) return list;
+            int ta = op != null ? op.SubjectTargetsAffected : 150;
+            bool filtered = ta == 150;
+            var card = source != null && source.Card != null ? source.Card
+                     : (ctx.ActingUnit != null && ctx.ActingUnit.Card != null ? ctx.ActingUnit.Card : ctx.CreationSource);
+            var set = (op != null && card != null)
+                    ? (op.AbilityIndex >= 0 ? card.AbilityTargetCriteriaAt(op.AbilityIndex, op.LogicIndex)
+                                            : card.ActiveAbilityTargetCriteriaAt(op.AbilityIndex, op.LogicIndex))
+                    : null;
+            if (filtered && set == null)
+                ctx.Log($"（`ta=150 previousAbilityFiltered`：「{source?.Name ?? card?.Name ?? "?"}」这一行**读不到 `targetCriteria`**（`AbilityTargetCriteriaAt({op?.AbilityIndex},{op?.LogicIndex})` = null）⇒ 候选**不过筛**，如实出声（⛔ 不拿目标短语反推）");
+            var cond = op != null ? op.TargetCondition : null;
+            var pool = ctx.PreviousAbilityTargets;
+            int nBoard = 0, nOff = 0, nDrop = 0;
+            if (pool != null)
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var r = pool[i];
+                    if (r.Inst == null && r.Unit == null) continue;
+                    var u = r.Unit != null ? r.Unit : r.ResolveUnit(ctx);
+                    if (u != null)
+                    {
+                        if (filtered && set != null)
+                        {
+                            bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, u, cond, source, null, out string gap);
+                            if (ok == null) ctx.Log($"（`ta=150`：棋盘候选「{u.Name}」**判不了**（{gap}）⇒ 按本版约定**保留**（⛔ 不静默淘汰）");
+                            else if (!ok.Value) { nDrop++; continue; }
+                        }
+                        list.Add(u); nBoard++;
+                        continue;
+                    }
+                    if (filtered && set != null)
+                    {
+                        int seat = SeatOfInstance(ctx, r.Inst);
+                        if (seat >= 0)
+                        {
+                            bool? hp = CountEval.CardPoolCandidatePasses(owner, seat, set, r.Card, source, r.Inst, out string hgap);
+                            if (hp == null) ctx.Log($"（`ta=150`：手牌候选「{r.Name}」**判不了**（{hgap}）⇒ 保留（⛔ 不静默淘汰）");
+                            else if (!hp.Value) { nDrop++; continue; }
+                        }
+                        else ctx.Log($"（`ta=150`：候选「{r.Name}」**不在任一方手牌**（已离场 / 牌库 / 墓地）⇒ 不过筛、原样保留；判据 `dump.cs:32595-32613`）");
+                    }
+                    if (refsOut != null) { refsOut.Add(r); nOff++; }
+                    else nDrop++;
+                }
+            ctx.LastTargets.Clear();
+            ctx.LastTargets.AddRange(list);
+            if (list.Count > 0) ctx.LastTarget = list[0];
+            ctx.Log($"（`ta={ta} previousAbilityTargets`：上一张能力的目标表 {(pool != null ? pool.Count : 0)} 张 ⇒ 棋盘 {nBoard} 张"
+                  + (filtered ? "（过了 `CheckIfMeetsCriteria` 那一趟）" : "（**不过筛**，`ta=140`）")
+                  + $"；手牌/离场 {nOff} 张（以 `Slot = -1` 输出）；被筛掉 {nDrop} 张 —— 判据 `AbilityLogic__GetTargets.c:867-883` + `FilterMethods__CheckIfMeetsCriteria.c:172-183`）");
+            return list;
+        }
+
+        /// <summary>🆕 **2026-11-01（`B115_W23`）**：这份**实例**此刻在谁的手牌里（`-1` = 两方手牌都没有）。
+        /// 判据 = 原版 `CardScript.isPlayer(+0x40)` 的那一份归属；我们靠 `PlayerState.Hand` 线性查
+        /// （手牌 / 牌库 / 弃牌堆三种容器里，**只有手牌**是「此刻仍可当目标」的那一档，见
+        /// `AbilityLogic__GetTargets.c:918-931` 的 `50 inHand` 支）。</summary>
+        static int SeatOfInstance(BattleContext ctx, CardInstance inst)
+        {
+            if (ctx == null || inst == null || ctx.Players == null) return -1;
+            for (int p = 0; p < ctx.Players.Length; p++)
+            {
+                var hand = ctx.Players[p] != null ? ctx.Players[p].Hand : null;
+                if (hand == null) continue;
+                for (int i = 0; i < hand.Count; i++)
+                    if (object.ReferenceEquals(hand[i], inst)) return p;
+            }
+            return -1;
+        }
+
+        /// <summary>🆕 **2026-11-01（`B115_W23`）**：`List&lt;CardRef&gt;` 的名字串（日志用；对应旧有的三个
+        /// `Names(...)` 重载之一，⛔ 别改成按卡名去重 —— 同名两张是两份）。</summary>
+        static string NamesOf(List<CardRef> refs)
+        {
+            if (refs == null || refs.Count == 0) return "";
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < refs.Count; i++)
+            {
+                if (i > 0) sb.Append("、");
+                sb.Append(refs[i].Name);
+            }
+            return sb.ToString();
         }
     }
 }

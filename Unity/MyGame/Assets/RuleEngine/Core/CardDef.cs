@@ -9226,7 +9226,7 @@ namespace RuleEngine
             /// <summary>`abilityLogic` 下标；`-1` = 这条 ability 没有任何 logic 行。</summary>
             public int Lg = -1;
             /// <summary>原版 `AbilityTrigger` 数值。</summary>
-            public int Trigger = -1; public int TriggerValue = -1; public int Ca = -1;   // 🆕 v47（`W-B` · `B-211`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（`Assembly-CSharp/AbilityLogic.cs:9`）—— 逐 `(ab, lg)` 行；`-1` = 未知（旧表 / `Lg == -1` 无 logic 实例 / 键缺失），`0 drawCard` 是合法真值 ⇒ ⛔ 别折成 0。  // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
+            public int Trigger = -1; public int TriggerValue = -1; public int Ca = -1; public int Ta = -1;   // 🆕 2026-11-01（`B115_S5` · 波 1）：`Ta` = 原版 `AbilityLogic.targetCriteria.targetsAffected`（`+0x18`；`AbilityLogic__GetTargets.c` 的 `iVar6`）—— **只有 `ta = 30 (target) / 220` 两档读调用方点的那个目标**（`.c:192-207`），其余档自己派生载体。`-1` = 未知（旧表 / `Lg == -1` / 手写夹具），⛔ 不是 `0`（`0 any` 是合法真值）。今天唯一消费者 = `Core/EnchantmentExecutor_B115.cs`（附魔模板那条路）；卡表主路 `MapTriggerAbilityIndices` **还没写这一格**（`-1` = 未知，逐字旧行为）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。   // 🆕 v47（`W-B` · `B-211`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（`Assembly-CSharp/AbilityLogic.cs:9`）—— 逐 `(ab, lg)` 行；`-1` = 未知（旧表 / `Lg == -1` 无 logic 实例 / 键缺失），`0 drawCard` 是合法真值 ⇒ ⛔ 别折成 0。  // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
         }
 
         TriggerAbilityIndexSpec[] _triggerAbilityIndices;
@@ -9494,6 +9494,31 @@ namespace RuleEngine
         {
             CardTargetCriteria = set;
             CardTargetCriteriaVersioned = versioned;
+        }
+
+        /// <summary>🆕 2026-11-01（执行代理 `B115_S5` · 波 0）：`cardAbilities[].trigger` 的全量集合 —— **构造之后挂载**的口。
+        ///
+        /// <para>**为什么需要它**：`LoadEnchantmentTemplates` 造模板 `CardDef` 时走的是不带
+        /// `abilityTriggers` 的那个构造重载 ⇒ `AbilityTriggersVersioned` 恒 `false` ⇒
+        /// <see cref="AbilityTriggerPresence(int)"/> 恒返回 `-1`（= 未知）⇒ `EffectResolver.HasTriggerSource`
+        /// 回落到 `HasAnimTrigger`，而模板的 `_animTimes` 是空表 ⇒ **`EmitCardTrigger` 恒返回 null**
+        /// ⇒ `FireEnchantmentAbilitiesByNumber` 在派发前就 `continue`（`EffectResolverPartial_B109E6.cs:108-116`）。
+        /// 现读面：85 张模板里 **83 张**落这一档（池内的 `Pray Enchantment` / DA42 模板走 `Parse()`，不受影响）。</para>
+        ///
+        /// <para>🔴 **只置 `AbilityTriggersVersioned`，⛔ 不碰 `AbilityTargetsVersioned`**：
+        /// 构造形参 `abilityTriggersVersioned` 会把**两列共用那一个版本位**一起置真（见构造函数里那条
+        /// 「共用版本位」的警告）⇒ 模板的 `AbilityTargets` 会从「未知（`null`）」变成「**明确空表**」，
+        /// 那是**另一处行为变化**（`AbilityTargetsOf` / `TargetsAffected` 的 `-1` 三态会被改写）。
+        /// 本方法的语义 = 原版「这张卡恒有 `cardAbilities`」这一列**单独**到位。</para>
+        ///
+        /// <para><paramref name="triggers"/> 为 `null` ⇒ **不写**（= 未知，⛔ 别把「不知道」折成「没有」）；
+        /// 空集合 ⇒ 置版本位但集合为空（= 明确没有 ability，与 `TriggerAbilityRowsOf` 的空数组同口径）。</para>
+        /// </summary>
+        public void AttachAbilityTriggers(IEnumerable<int> triggers)
+        {
+            if (triggers == null) return;
+            foreach (int _tg in triggers) _abilityTriggers.Add(_tg);
+            AbilityTriggersVersioned = true;
         }
     }
 

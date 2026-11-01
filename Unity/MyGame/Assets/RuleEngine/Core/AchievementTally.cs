@@ -65,10 +65,10 @@ namespace RuleEngine
         public const int Tactic = 4;
         /// <summary>`Ach_97`：`withTrait=[610]` = `DefinedTrait.pack`（数据自相矛盾，见判据 §F4）。</summary>
         public const int Pack = 5;
-        /// <summary>`Ach_89` 的**合取**标签：`spellType=260` **且** 卡型 = 计谋 —— 那条成就两格闸都要
-        /// （`anySpellType=0` + `anyCardType=0`）。单纯取 `Elixir` 或 `Tactic` 都会**多算**
-        /// （战术卡有 448 张、Elixir 只有 6 张 ⇒ 取 `Tactic` 会把全池计谋都算进去）。</summary>
+        /// <summary>`Ach_89` 的**合取**标签：`spellType=260` **且** 卡型 = 计谋 —— 那条成就两格闸都要（`anySpellType=0` + `anyCardType=0`）；单纯取 `Elixir` 或 `Tactic` 都会**多算**（战术卡 448 张、Elixir 仅 6 张）。</summary>
         public const int ElixirTactic = 6;
+        /// <summary>`Ach_97` 的**真口径**：原版 `anyTrait=1` ⇒ trait 闸整支跳过 ⇒ **每张打出的卡都算**（`CardPlayedTagOf` 的最后一条）。</summary>
+        public const int AnyCard = 7;
     }
 
     /// <summary>
@@ -86,8 +86,8 @@ namespace RuleEngine
         /// 超界 ⇒ **丢掉并出声一次**（⛔ 不静默写坏别的格子）。</summary>
         public const int AbilityMax = 800;
 
-        /// <summary>`CardPlayedTag` 的个数。</summary>
-        public const int TagCount = 7;
+        /// <summary>`CardPlayedTag` 的个数（🆕 2026-11-01 · `B115_W9`：7 → **8**，加 `AnyCard`）。</summary>
+        public const int TagCount = 8;
 
         /// <summary>`[打出去那一方的座位 * 9 + DamageKind]` —— 累加的是**实际伤害**
         /// （`RuleCore.ApplyDamageCore` 里扣盾 / 减伤 / 易伤拆分之后的 `actual`）。</summary>
@@ -206,12 +206,12 @@ namespace RuleEngine
             return TriggerByAbility[seat * AbilityMax + ability];
         }
 
-        /// <summary>记一张打出的牌（`tagMask` = `CardPlayedTag` 的位集合，一张卡可落多个标签）。</summary>
+        /// <summary>记一张打出的牌（`tagMask` = `CardPlayedTag` 的位集合，一张卡可落多个标签）。<br/>🔴 **`AnyCard` 那格恒 +1**（不看 `tagMask`，`= 0` 也算）—— 原版 `anyTrait=1` 的 `Ach_97` 就是「每张都算」（判据 → `ProfileData.CardPlayedTagOf`）。</summary>
         public void AddCardPlayed(int seat, int tagMask)
         {
-            if (!SeatOk(seat) || tagMask == 0) return;
-            for (int i = 0; i < TagCount; i++)
-                if ((tagMask & (1 << i)) != 0) CardsPlayedByTag[seat * TagCount + i]++;
+            if (!SeatOk(seat)) return;
+            CardsPlayedByTag[seat * TagCount + CardPlayedTag.AnyCard]++;   // ⛔ 别并进下面那个按位循环（`tagMask` 可能是 0 = 一张没有任何标签的普通卡）
+            for (int i = 0; i < TagCount; i++) if (i != CardPlayedTag.AnyCard && (tagMask & (1 << i)) != 0) CardsPlayedByTag[seat * TagCount + i]++;
         }
 
         /// <summary>某一方某个标签打出过几张。</summary>
@@ -454,7 +454,7 @@ namespace RuleEngine
         /// <summary>某一方**打出过几张战术卡** —— 原版 `PlayerBattleStats.tacticsPlayed(+0x14)` 的等价位。
         /// <para>**写点（唯一）**：战术卡真打出去那一刻 `EffectResolver.PlayTacticCore` 调
         /// `Tally.AddCardPlayed(p, RuleCore.CardPlayedTagMask(card, inst))`，而 `CardPlayedTagMask`
-        /// 对所有 `type == "tactic"` 的卡置 `CardPlayedTag.Tactic` 位（`RuleCore.cs:3883`）
+        /// 对所有 **原版 `cardType == 20`（`CardDef.CardTypeTactic`）** 的卡置 `CardPlayedTag.Tactic` 位（`RuleCore.cs:3999/4001`）—— ⚠️ 2026-11-02 更正：原文写「`type == "tactic"`」+ 行号 `RuleCore.cs:3883`，**两处都已过期**：`B-309`/`B115_W14` 起判据换成原版卡型闸（`Type` 字符串是**我们自己的**映射，全池 41 张 `cardType=20` 但 `Type≠tactic` ⇒ 旧口径少算 41 张、多算 0 张），行号亦已漂到 `3999/4001`。
         /// ⇒ 与 <c>CardsPlayedOf(seat, CardPlayedTag.Tactic)</c> **同一个格**（本口只是转发，⛔ 不是第二本账）。</para>
         /// <para>⚠️ 原版那个 `CardPlayedSignal` 已按结构复刻（`RuleEngine/Core/CardPlayedSignal.cs`，两个发点与本口同一拍）；它带的 **cost**（`EntityScript.get_CurrentCost`）那一格
         /// **原版零消费方** ⇒ ⛔ 不建（判据 `判据/B102_R2_日常奖励B类五条.md` §一·b）—— 本口只承担 `tacticsPlayed` 这一格。</para></summary>

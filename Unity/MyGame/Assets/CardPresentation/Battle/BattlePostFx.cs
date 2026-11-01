@@ -200,7 +200,7 @@ namespace CardPresentation
 
             int w = WFModulePostProcess.LutMergeWidth, h = WFModulePostProcess.LutMergeHeight;
             _combined = NewRt(w, h, "Particle FX controller LUT");     // 原版那个名字，照抄
-            _targetLutRt = NewRt(w, h, "LUT Blend helper");
+            _targetLutRt = NewRt(w, h, "LUT Blend helper"); InitCombinedLikeAwake();   // 🆕 `B-299`：原版 `Awake` 那两步（Blit + 把 `texture` 指到 combined）—— 判据 / 降级 / ⛔ 别删的理由见类尾 `InitCombinedLikeAwake`
 
             WireVolumeStackFlush(boardCamera);                          // 原版 `Update` 末句那一跳
             return _mat != null;
@@ -346,7 +346,7 @@ namespace CardPresentation
             Graphics.Blit(null, _combined, _mat);
             _cl.texture.overrideState = true;
             _cl.texture.value = _combined;
-            Blends++; _lastBlend = v;        // `_lastBlend` = 读口 + `ResetLutCore` 的起点（见类尾那段）
+            Blends++; _lastBlend = v;        // `_lastBlend` **只是自检读口**（`BlendNow`）—— ⚠️ 2026-11-01 `B115_W4` 订正：它**不是** `ResetLutCore` 的输入（那里从 `BlendTo(0f)` 起，见类尾），别照旧注释把它当「过渡起点」
         }
 
         /// <summary>原版 `PostFXController.ResetAll(bool instant)`（🥇 `decomp_full/PostFXController__ResetAll.c`
@@ -558,5 +558,31 @@ namespace CardPresentation
         public float ResetLutRamp01 { get { return _lutRampActive ? Mathf.Clamp01(_lutRampT / TimeToReset) : 1f; } }
         /// <summary>最近一次写进 `_Blend` 的值（-1 = 还没写过）。</summary>
         public float BlendNow { get { return _lastBlend; } }
+
+        /// <summary>原版 `LUTBlender.Awake` 的**那两步**（我们 `Attach` 原来漏了 —— `B-299`）。
+        /// <para>判据（`d:/2/tools/decomp_full/LUTBlender__Awake.c` 现读，行序即下面两句）：
+        /// 建完 `combinedLUT`（`this+0x40`，名字 `Particle FX controller LUT` · `useMipMap = 0`）之后
+        /// ① 对 `ColorLookup.texture` 那个 `VolumeParameter` 虚调用（vtable **`+0x228`**，实参 = `*(this+0x40)`）
+        ///    ⇒ **把引用指到 `combinedLUT`**；
+        /// ② `UnityEngine_Graphics__Blit(*(this+0x50) /* originalLUTTexture */ → *(this+0x40) /* combinedLUT */)`
+        ///    ⇒ 把进场那张静态 LUT **先拷进合并 RT**（同一段里紧接着还有 `Blit(combined → workingRT)` +
+        ///    `SetTexture(mat, "_LUT1", workingRT)`，那两句我们**不需要**：第 ④ 条偏离 —— 我们不建 workingRT）。</para>
+        /// <para>⇒ 这两步之后 `ColorLookup.texture` **恒指 `combinedLUT`**（`PostFXController__ResetLUT.c` /
+        /// `LUTBlender__SetTargetLUT.c` / `LUTBlender__DoBlend.c` **一次都不改那个引用**，只改 `combined` 的**内容**）。
+        /// 这正是「`Reset` 该改**内容**、不是把引用交还静态 LUT」的根据 —— 也是
+        /// `Editor/BattleScene.cs` 的 `CheckResetLut` 那三条断言所断的形状。</para>
+        /// <para>⛔ **别把这里「指 `_combined`」和 `Detach` 里「交还 `_original`」当成矛盾**：后者是
+        /// **销毁 RT 之前必须做的**（否则 `ColorLookup.texture` 指着一张已释放的 RT ⇒ 粉屏/黑屏）。两件事各管一头。</para>
+        /// <para>⚠️ **降级支**：`_original == null`（老 prefab / 运行时补出来的空槽，第 ① ② 条偏离）时原版会在
+        /// 「取原图宽高」那一步 NRE；我们**整段跳过**（只把 `texture` 指到一张**没初始化过**的 RT = 直接黑屏，
+        /// 比「还指着静态资产」更糟）。此时引用形态仍与重建前一致（指着静态资产），而自检的硬前提
+        /// `pfx.OriginalLut != null` 会把这种局面**红出来**（⛔ 不许再 `null == null` 假绿）。</para></summary>
+        void InitCombinedLikeAwake()
+        {
+            if (_cl == null || _combined == null || _original == null) return;
+            Graphics.Blit(_original, _combined);       // ② 原版 `Awake` 那段：`Blit(originalLUTTexture → combinedLUT)`
+            _cl.texture.overrideState = true;
+            _cl.texture.value = _combined;             // ① 原版那一步：`texture` 从此**恒指** `combinedLUT`
+        }
     }
 }

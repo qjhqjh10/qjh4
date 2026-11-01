@@ -5005,13 +5005,93 @@ def _assert_enchant_index_consistent(cards, etpl_doc):
 ENCHANT_TEMPLATES_DST = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/enchantment_templates.json"
 ENCHANT_TEMPLATES_DOC = None                 # `build()` 填；`main()` 在 `--write` 时落盘
 ENCHANT_TEMPLATES_REPORT = {"rows": 0, "with_owner": 0, "pool_reachable": 0,
-                            "wp_on": 0, "rows_bad": [], "order": "uniqueId"}
+                            "wp_on": 0, "rows_bad": [], "order": "uniqueId",
+                            # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的口径与坏值
+                            "hand_rows": 0, "hand_no_row": [], "hand_bad": [],
+                            "set_bad": [], "set_unresolved": []}
 
 
 def _tri_or_unknown(v):
     """`_tri_bool` 的落列版：坏值/缺键 → `-1`（未知）。"""
     t = _tri_bool(v)
     return -1 if t is None else t
+
+
+# ==========================================================================================
+#  🆕 2026-11-02（`B115_W20` · 格 4 / 格 2 / 格 3）—— **手牌 buff 桥要补的四列**
+#
+#  判据（第一权威 = 解包资源字段，现读）：原版 `PlayerHand.AddHandEffect` 收的是一条
+#  `HandEffect` 对象（`D:/2/Warpforge_code/Scripts/Assembly-CSharp/HandEffect.cs`，**全 5 格**）：
+#  `cardEffect` · `playersAffected` · `targetCriteria` · `limitedUses` · `numberOfUses`。
+#  其中 `cardEffect` 的那 26 格已由 `ability_buffs_of` 落进 `abilityBuffs` 列；**其余四格**在这里补：
+#    · `pa`           = `handBuff.playersAffected`（`PlayersAffected`：0 Both / 10 Self / 20 Enemy）
+#    · `limitedUses`  = `handBuff.limitedUses`  （开关；**`0` = 不限次**，是合法真值）
+#    · `numberOfUses` = `handBuff.numberOfUses` （还剩几次）
+#    · `criteria`     = `handBuff.targetCriteria` 的 36 格 —— **与卡表 `abilityTargetCriteria` 列
+#                       同一个 emitter**（`criteria_set_of`），⛔ 不另写一份字段表。
+#                       它是纯 `TargetCriteria`（原版 `HandEffect.targetCriteria` 不是 `BoardCriteria`）
+#                       ⇒ 结构上**没有** `playerTurn` ⇒ 传 `has_player_turn=False`（落 `-1` 且不报坏值）。
+#
+#  🔴 **只在附魔模板表这一段补**：⛔ **不动 `ability_buffs_of`** —— 它被卡表 v40 与本表共用，
+#     改它会让 `cards_engine.json` 的字节变化、连带动 `PinnedPoolMd5`（调度台 2026-11-02 裁决）。
+#  🔴 哨兵：三个标量缺键/坏值落 **`-1`（未知）**，⛔ 不落 `0`（`0` 在 `limitedUses` 上是「不限次」，
+#     在 `pa` 上是 `Both` —— 都是**具体结论**，不能拿它顶「没读到」）。
+#  🔴 `handBuff` 存在但**没有对应的 `abilityBuffs` 行** = `cardEffect.buffType == 0`
+#     （`ability_buffs_of` 按 `AddEffect.c:964-966` 不落）⇒ 进 `hand_no_row` **出声**，⛔ 不静默。
+# ==========================================================================================
+#  `HandEffect` 原版字段名 → 本表的列名（⛔ 别用原名字：DTO 那一格叫 `pa`，
+#  与卡表 `abilities[].logic[].pa` **同名同义**；写成 `playersAffected` = DTO 读不到 ⇒ 静默 `-1`）。
+HAND_BUFF_SCALAR_FIELDS = (("playersAffected", "pa"),
+                           ("limitedUses", "limitedUses"),
+                           ("numberOfUses", "numberOfUses"))
+
+
+def _hand_buff_int(v):
+    """`handBuff` 三个标量的落列版：**`0` 是合法真值** ⇒ 缺键/坏值一律 `-1`（未知）。"""
+    if isinstance(v, bool) or not isinstance(v, int):
+        return -1
+    return v
+
+
+def fill_hand_buff_columns(rows, trow, cid, name, truth_by_path, report):
+    """给 `abilityBuffs` 里 `at == "handBuff"` 的行补四列（口径 → 上面那段长注释）。"""
+    if not rows:
+        return rows
+    idx = {}
+    for r in rows:
+        idx[(r.get("ab"), r.get("lg"), r.get("at"))] = r
+
+    def scan(ab, obj):
+        if not isinstance(obj, dict):
+            return
+        for j, lg in enumerate(obj.get("abilityLogic") or []):
+            if not isinstance(lg, dict):
+                continue
+            hb = lg.get("handBuff")
+            if not isinstance(hb, dict):
+                continue
+            r = idx.get((ab, j, "handBuff"))
+            if r is None:
+                ce = hb.get("cardEffect")
+                report["hand_no_row"].append(
+                    (cid, name, ab, j, ce.get("buffType") if isinstance(ce, dict) else None))
+                continue
+            for src_key, col in HAND_BUFF_SCALAR_FIELDS:
+                r[col] = _hand_buff_int(hb.get(src_key))
+            tc = hb.get("targetCriteria")
+            if not isinstance(tc, dict) or not tc:
+                report["hand_bad"].append((cid, name, ab, j, "handBuff.targetCriteria", tc,
+                                           "整条 criteria 缺失/空（原版 `HandEffect.targetCriteria` 恒非空）"))
+            r["criteria"] = criteria_set_of(cid, name, tc, None, truth_by_path, report,
+                                            label="handBuff.targetCriteria", has_player_turn=False)
+            report["hand_rows"] += 1
+
+    for i, a in enumerate(trow.get("cardAbilities") or []):
+        scan(i, a)
+    # `ab = -1` / `-2` 哨兵与 `ability_buffs_of` 的 `_scan_ability` **同一套**（⛔ 别改成 0）
+    scan(-1, trow.get("activeAbility"))
+    scan(-2, trow.get("alternativeAbility"))
+    return rows
 
 
 def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
@@ -5062,6 +5142,22 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
         if _wp is None:
             ENCHANT_TEMPLATES_REPORT["rows_bad"].append((uid, "whileInPlayAnim", r.get("whileInPlayAnim")))
             _wp = -1
+        # 🆕 2026-11-01（`B115_S5` · 波 2 · 施工面 `判据/B115_S5_附魔执行器施工面.md` §4·2）：
+        #   **逐 `(ab, lg)` 的 `CardEffect` 载荷** —— 复用卡表 v40 那一列的**同一个 helper**（`ability_buffs_of`，
+        #   26 格、`buffType == 0` 不落、`handBuff.cardEffect` 单独一行）⇒ **同一份口径，⛔ 别在这里另写一份**。
+        #   为什么必须要：第二张表以前只落 `ca/pa/ta/fm` **四格标量** ⇒ 附魔模板 `ca 30/40/50` 那 58 行
+        #   的 `buffEffect` 一分钱都拿不到 ⇒ `RuleCore.ApplyAbilityBuff` 吃不到载荷。
+        #   消费端 = `CardDatabase.RecordEnchantmentTemplateAbilityBuffs` → 同一张 `_abilityBuffsById` 旁表。
+        _abf_rep = {"no_truth": 0, "skipped_zero": 0, "unknown_bt": [], "by_buff": {}, "hand": 0,
+                    "rows": 0, "cards": 0, "bad": []}
+        _abf = ability_buffs_of(uid, norm_str(r.get("cardName")) or uid, r, _abf_rep)
+        # 🆕 2026-11-02（`B115_W20` · 格 4 / 格 2 / 格 3）：给 `at == "handBuff"` 的行补
+        #   `pa` / `limitedUses` / `numberOfUses` / `criteria` 四列（口径 → `fill_hand_buff_columns` 上面那段）。
+        #   🔴 只在**本表**补；卡表 v40 那一列由 `ability_buffs_of` 原样产出（⛔ 不动它）。
+        _abf = fill_hand_buff_columns(_abf, r, uid, norm_str(r.get("cardName")) or uid,
+                                      truth_by_path, ENCHANT_TEMPLATES_REPORT)
+        ENCHANT_TEMPLATES_REPORT["buff_rows"] = ENCHANT_TEMPLATES_REPORT.get("buff_rows", 0) + _abf_rep["rows"]
+        ENCHANT_TEMPLATES_REPORT["buff_cards"] = ENCHANT_TEMPLATES_REPORT.get("buff_cards", 0) + (1 if _abf_rep["rows"] else 0)
         own = [{"id": o[0], "buffType": o[1] if isinstance(o[1], int) else -1,
                 "trigger": o[2] if isinstance(o[2], int) and not isinstance(o[2], bool) else -1,
                 "inPool": o[0] in pool_ids} for o in owners.get(r.get("path_id"), [])]
@@ -5086,6 +5182,10 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
                                for at, i, j, bt in _permanent_rows_of(r)],
             "abilities": abil,
             "owners": own,
+            # 🆕 2026-11-01（`B115_S5` · 波 2）：`buffEffect` / `handBuff` 的逐 `(ab, lg)` 载荷 —— 形状与
+            #   卡表 v40 `abilityBuffs` **逐字相同**（`{ab, lg, at, buffType, <26 格>}`），消费端直接复用
+            #   `CardDatabase.MapAbilityBuffs` / `RecordAbilityBuffs`（⛔ 别在这里发明第二套 DTO）。
+            "abilityBuffs": _abf,
         })
         if own:
             ENCHANT_TEMPLATES_REPORT["with_owner"] += 1
@@ -6839,6 +6939,17 @@ def build():
           f" · `whileInPlayAnim == 1` **{_etpl['wp_on']}** 张")
     if _etpl["rows_bad"]:
         print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["rows_bad"][:5]))
+    # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的读数（口径 → `fill_hand_buff_columns`）
+    print(f"手牌 buff   补四列（`pa`/`limitedUses`/`numberOfUses`/`criteria`）**{_etpl['hand_rows']}** 行"
+          f" · 有 `handBuff` 但**没有载荷行**（`buffType == 0` 不落）**{len(_etpl['hand_no_row'])}** 条")
+    if _etpl["hand_no_row"]:
+        print("             ⚠️ 无载荷行：" + " · ".join(str(x) for x in _etpl["hand_no_row"][:5]))
+    if _etpl["hand_bad"]:
+        print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["hand_bad"][:5]))
+    if _etpl["set_bad"] or _etpl["set_unresolved"]:
+        print(f"             ⚠️ `handBuff.targetCriteria` 坏格 {len(_etpl['set_bad'])} 条"
+              f" · 引用解不出 {len(_etpl['set_unresolved'])} 条"
+              + ("：" + " · ".join(str(x) for x in _etpl['set_bad'][:3]) if _etpl['set_bad'] else ""))
 
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。

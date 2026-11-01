@@ -372,7 +372,7 @@ public static partial class RuleEngineTest
         //   · 我们走的是**另一套指代槽**：`draw` 写 `ctx.DrawnThisResolve`（`EffectResolver.DoDraw`），
         //     紧随其后的 `lowercost(payload=(指代上一张))` 读它、并按**实例**钉住（`DoLowerCost` 的 `pins`）。
         // ⇒ 所以这里断的是**行为**（刚抽到的那 3 份各降 4），**不是**那条分支；
-        //   ⛔ 也**不断** `ReferencedCards`：那是结构件、今天 0 生产调用点，断它 = 断我们自己写的空壳（自证）。
+        //   🔴 2026-11-01 就地订正（铁律 5 · `B115_W23`）：`ReferencedCards` **不再是空壳**（载体已搬到 `CardInstance`、380 有了生产调用点）⇒ 那时才允许为它写断言；本条仍不在这里断（它的靶是文本管线）。
         //
         // 四条断言 =「三条正向 + 三条灭自证」，期望值全部写死字面量：
         //   ① 抽到 3 份、手牌 3 → 5；② 那 3 份**各降 4**（4→0 · 5→1 · 6→2，按**实例**）；

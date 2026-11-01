@@ -14087,7 +14087,7 @@ namespace CardPresentation
                 _playerFlightTakeoffPlayed = false;   // 🆕 B3：同上（这一手没打出去 ⇒ 下一手照常响起飞）
                 // 🆕 2026-10-27（账「出对半」）：这一手要是「等目标」期间已经被溶掉的那张战术卡 ⇒ 把 2D 层淡回来
                 //   （否则结算被引擎拒之后，那张牌留在手里却是**透明**的 —— 静默错）
-                if (ReferenceEquals(_fieldDissolvedCard, card)) UndissolveFieldCard(card);
+                if (ReferenceEquals(_fieldDissolvedCard, card)) UndissolveFieldCard(card); SyncBoard(_me, _myUnits, true); SyncBoard(1 - _me, _foeUnits, false);   // 🆕 2026-11-01（`B115_W14` · `SAN-23`）：**引擎拒支没有回滚** ⇒ 让位预览把被推开的单位留在**假格位**上：`CardInteraction.Release` 已按 `DropAccepted`（= 这一手【判据层】合法）让 `EndPreviewReturn` **只清账、不送回**，紧接着引擎却拒了 ⇒ 没有任何一处把视图摆回真格位（`CardInteraction.cs:1396-1398` 已清 `_previewMoved` ⇒ 补一行「撤预览」是空转，前人已判过）。这里按棋盘真值重摆两边（照本文件 `:19440-19441` / `:4530-4531` 同一写法；`SyncBoard` 末尾那句 `v.SetPose(pose, 0f, poseScale)` 就是回滚）。⚠️ **零行数变化**：本文件有大量账按行号引用（`CLAUDE.md` 18·b），⛔ 别把这两句拆成新行。
                 return;
             }
             // 🔴🆕 **2026-10-25（`X19/P4`）**：**「落位后还要点一个目标」的单位卡** —— 如实报一句。
@@ -16383,7 +16383,7 @@ namespace CardPresentation
             {
                 RejectByTutorial(kind == AttackKind.Ability ? "放主动技能" : "发起攻击");
                 ClearSelection();
-                return RuleCodes.ErrUnimplemented;
+                return RuleCodes.ErrAbilityRejected;   // 🔴 2026-11-01（`B115_W7` · ENG-23）：教程白名单闸是**「被拒」**、不是「本版未实现」—— 定性见 `RuleCodes.ErrAbilityRejected` 的 doc（`RuleCodes.cs:158-169`「拒 ≠ 未实现」，`B107_复核_引擎线.md` 指定复用 29）；⛔ 别改回 `ErrUnimplemented`
             }
             int code;
             // 🆕 2026-09-26（N4）：联机局要把**这一手是什么**发对面 ⇒ 先攒成一条 `AiAction`，
@@ -36187,10 +36187,10 @@ namespace CardPresentation
         {
             if (instanceId != 0)
             {
-                foreach (var kv in _myUnits)
-                    if (kv.Value != null && kv.Value.Inst != null && kv.Value.Inst.Id == instanceId) return kv.Value;
-                foreach (var kv in _foeUnits)
-                    if (kv.Value != null && kv.Value.Inst != null && kv.Value.Inst.Id == instanceId) return kv.Value;
+                foreach (var kv in _myUnits) if (kv.Value != null && kv.Value.Inst != null && kv.Value.Inst.Id == instanceId) return kv.Value;
+                foreach (var kv in _foeUnits) if (kv.Value != null && kv.Value.Inst != null && kv.Value.Inst.Id == instanceId) return kv.Value;
+                // 🆕 2026-11-01（`B115_W21` · `SAN-04` 消费侧 P1）**手牌回落**：`Slot = -1` = 不在棋盘上（`BattleEvent.cs:884`）⇒ 按实例号认那张手牌；对手手牌没有 `CardView` ⇒ `null`（与原版「跳过并出声」同形）。⚠️ 顺序 = 棋盘 → 手牌 → 格号（`InstanceId` 是稳定身份，优先于 `Slot`）。
+                if (player >= 0 && instanceId > 0) { var hv = HandCardViewOf(player, null, instanceId); if (hv != null) return hv; }
             }
             return (player >= 0 && slot >= 0) ? ViewAt(player, slot) : null;
         }

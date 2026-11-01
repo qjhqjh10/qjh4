@@ -10,7 +10,7 @@
 //     里的 `DraftAssertD3`）；本文件断「`highestValue` 语义 + 阈值表」；
 //   · §五 `Ach_24`（收集牌）—— 全解锁口径：**首次加载档案时把卡池张数记一次**（幂等、只涨不落）；
 //   · §F5 三组 challenge 原文重名 ⇒ **必须按 `Ach_N` 写**，各自独立涨；
-//   · §F4 `Ach_97` 数据自相矛盾（`anyTrait=1` 但 `withTrait=[610]`）—— 已按 `withTrait` 意图实现，这里确认它在跑。
+//   · §F4 `Ach_97` 的 `anyTrait=1` 与 `withTrait=[610]` 并存 —— 🔴 2026-11-02 订正：**真口径 = `anyTrait=1` ⇒ 每张打出的卡都算**（`CardPlayedTag.AnyCard` 恒 +1），`withTrait` 那半**不生效**；原写「已按 `withTrait` 意图实现」已作废。
 //
 // 🔴 **灭自证**：每一对「该涨 / 不该涨」都**两条一起断** —— 把实现改回旧写法（共用一个键 / 累加实现）
 //    不可能同时绿。
@@ -243,10 +243,10 @@ public static partial class RuleEngineTest
     // ==================================================================================================
     //  ⑤ `Ach_89`（战斗药剂）/ `Ach_97`（带 pack 的部队）—— 确认**真在跑**，并把「判据不闭合」钉在断言上
     //
-    //  · `Ach_89`：`anyCardType=0` 却**没有卡型值字段** ⇒ 已按 `spellType=260 ∧ type=="tactic"` 合取实现
-    //    （判据 §B-3 #3 / `RuleCore.CardPlayedTagMask`）；
-    //  · `Ach_97`：`anyTrait=1` 但 `withTrait=[610]` **自相矛盾** ⇒ 已按 `withTrait` 的**意图**（pack）实现
-    //    （判据 §F4，如实标为「按意图、不是按原版那道闸」）。
+    //  · `Ach_89`：`anyCardType=0` + `attackingType=20` ⇒ 合取 `spellType=260 ∧ cardType==20`（`CardDef.CardTypeTactic`）
+    //    （判据 §B-3 #3 / `RuleCore.CardPlayedTagMask`；⚠️ 2026-11-02 订正：原写 `type=="tactic"`，`B-309` 起改判原版卡型闸）；
+    //  · `Ach_97`：`anyTrait=1` ⇒ 真口径 = **每张打出的卡都算**（`CardPlayedTag.AnyCard` 恒 +1），`withTrait=[610]` 那半不生效
+    //    （判据 `CardPlayedCount__OnCardPlayed.c` 的 `anyTrait=1` 支 + `ProfileData.CardPlayedTagOf` 最后一行；⚠️ 2026-11-02 订正：原写「按 withTrait 意图实现」已作废）。
     // ==================================================================================================
     static void X18T5Ach89AndAch97()
     {
@@ -258,11 +258,11 @@ public static partial class RuleEngineTest
         if (f97 != null && f97.withTrait != null)
             for (int i = 0; i < f97.withTrait.Length; i++) if (f97.withTrait[i] == 610) has610 = true;
         CheckTrue(f97 != null && f97.anyTrait == 1 && has610,
-                  "X18-5b ★ `Ach_97` 的判据**自相矛盾**（`anyTrait=1` 但 `withTrait=[610]`）—— 已按 `withTrait` 意图实现");
+                  "X18-5b ★ `Ach_97` 的 `anyTrait=1` 与 `withTrait=[610]` 并存 ⇒ **按原版 `anyTrait=1` 支判：每张打出的卡都算**（`AnyCard`；`withTrait` 那半不生效。⚠️ 2026-11-02 订正旧文案「已按 `withTrait` 意图实现」）");
 
         // ---- `Ach_89`：一张 `spellType=260` 的**计谋**打出去 ⇒ 只涨它自己 ----
         var elixir = new CardDef("X18Elixir", "X18Elixir", "tactic", "Deal 1 damage to an enemy troop",
-                                 "common", "Test", 1, 0, 0, 0, null, spellType: 260);
+                                 "common", "Test", 1, 0, 0, 0, null, spellType: 260); elixir.AttachCardType(CardDef.CardTypeTactic);   // B-309 / B115_W17：`ElixirTactic` 的两格闸之一是**原版卡型**（`CardTypeTactic = 20`），夹具卡型留 -1 会让 X18-5d / 5f 假红
         var ctx = Battle(new[] { elixir }, new CardDef[0]);
         ToP1Turn(ctx, 1);
         Place(ctx, 1, 5, Unit("X18FoeElixir", 1, 1, 9));
@@ -276,7 +276,7 @@ public static partial class RuleEngineTest
         int b97 = ProfileData.AchievementValue("Ach_97");
         ProfileData.ApplyAchievementTally(ctx.Tally, 0, 0, 0, 0, GameMode.OfflinePractice, null, false, false);
         Check(ProfileData.AchievementValue("Ach_89"), b89 + 1, "X18-5f `Ach_89`（`Play Combat Elixirs`）+1");
-        Check(ProfileData.AchievementValue("Ach_97"), b97, "X18-5g ★ …而 `Ach_97`（带 pack 的部队）**不动**");
+        Check(ProfileData.AchievementValue("Ach_97"), b97 + 1, "X18-5g ★ …而 `Ach_97` **+1** —— 真口径 = `anyTrait=1` ⇒ **每张打出的卡都算**（原版 `CardPlayedCount__OnCardPlayed.c` 的 `anyTrait=1` 支；⚠️ 2026-11-02 订正旧期望「药剂不动 `Ach_97`」，那是旧意图口径、已作废）");
 
         // ---- `Ach_97`：一张带 `pack` 的**部队**打出去 ⇒ 只涨它自己 ----
         var packUnit = new CardDef("X18PackUnit", "X18PackUnit", "unit", "", "common", "Test",

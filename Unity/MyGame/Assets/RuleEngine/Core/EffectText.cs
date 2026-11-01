@@ -939,7 +939,7 @@ namespace RuleEngine
     {
         /// <summary>原短语（排查用，务必留着）</summary>
         public string Raw;
-        /// <summary>`self` / `own` / `enemy` / `any`</summary>
+        /// <summary>`self` / `own` / `enemy` / `any`（⚠️ 2026-11-01 · `B-287`：词表四个，但**当前只有 `own`/`enemy` 能走到「要玩家选目标」** —— <see cref="PickTarget"/> 只放行这两个；`self` 只被 <see cref="ResolvedSide"/> / `NamedSide` 当 `own` 的**别名**，解析层目前产不出它 ⇒ 今天无行为差异）</summary>
         public string Side;
         /// <summary>`unit` / `troop` / `vehicle` / `infantry` / `warlord` / `any`
         /// （原版还有更细的兵种词，遇到不认识的**原样留着**，别猜成 unit）</summary>
@@ -1161,7 +1161,7 @@ namespace RuleEngine
         /// `"own"` / `"enemy"` / `null`（**判不出来**）。
         ///
         /// 判据**只此一处**（⛔ 别在调用点再写一遍 `Side == …` 的判断）：
-        ///   · 明写了侧（`own` / `self` / `enemy`）⇒ 就用它；
+        ///   · 明写了侧（`own` / `self` / `enemy`）⇒ 就用它（⚠️ 2026-11-01 · `B-287`：`self` 在这里只是 `own` 的**别名**，而 <see cref="PickTarget"/> **不放行** `self` ⇒ 今天产不出；将来要支持它 ⇒ `PickTarget` / `ownSideInPool` / `AddSide` / `ResolvedSide` / `NamedSide` 必须**一次性对齐**，⛔ 别只改一处）；
         ///   · `"prev"`（代词）⇒ 回落到 <see cref="PrevSide"/>（没有先行词 = `null`）；
         ///   · 其余（`any` / `eventtarget` / 空）⇒ `null` = **判不出来**。
         ///
@@ -1366,7 +1366,7 @@ namespace RuleEngine
                 //    不是「让玩家点一个」—— 不排掉的话 `any enemy troop … attacked`（`Side="enemy"`）
                 //    会被判成「需要选目标」。
                 if (t.AttackedBySelf) continue;
-                if (t.Side == "enemy" || t.Side == "own") return t;
+                if (t.Side == "enemy" || t.Side == "own") return t;   // ⚠️ 2026-11-01（`B-287`）：**只放行 `own`/`enemy`**，`self`/`any` 一律返 null ⇒ 与 `Side` 的词表（`:942` 那条 `self`/`own`/`enemy`/`any`）口径不一致，今天无行为差异（解析层产不出 `self`）；将来要支持 `self` ⇒ 本函数 + `ownSideInPool` + `AddSide` + `ResolvedSide` + `NamedSide` 必须一次性对齐，⛔ 别只改一处
             }
             return null;
         }

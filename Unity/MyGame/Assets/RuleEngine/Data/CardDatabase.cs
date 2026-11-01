@@ -3630,7 +3630,7 @@ namespace RuleEngine
             /// （判据 `报告/B110_E5.md` §四 补丁 B）⇒ 上面的「只带四格标量」已过期。</summary>
             public EnchantmentTemplateAbilityDto[] abilities;
             /// <summary>谁挂它（反向索引；`inPool` = 挂载者自己是不是**可玩池**里的卡）。</summary>
-            public EnchantmentTemplateOwnerDto[] owners;
+            public EnchantmentTemplateOwnerDto[] owners; public AbilityBuffRowDto[] abilityBuffs;   // 🆕 2026-11-01（`B115_S5` · 波 2）：逐 `(ab, lg)` 的 `CardEffect` 载荷，**形状与卡表 v40 `abilityBuffs` 列逐字相同**（`ability_buffs_of` 同一个 helper 产出）⇒ 消费端复用 `MapAbilityBuffs` / `RecordAbilityBuffs`（⛔ 别发明第二套 DTO）。`null` = 缺列/旧表（未知），`[]` = 明确没有。⚠️ 同一物理行追加（铁律 18·b：本文件 `:3772` 等处有 A 行账落点）。
         }
 
         [Serializable]
@@ -3726,7 +3726,7 @@ namespace RuleEngine
                 //    （`EffectResolverPartial_B109E6.cs:160-183`）⇒ 池外被授予的 30 张模板今天**一条 trigger 都派不出来**
                 //    （其中 **28 张**经「打出即挂」钩子 `Enchantments.AttachGrantedByPlayedCard` 可达；另 2 张走别的 trigger）。
                 //    形状 / 三态口径 → `Data/CardDatabasePartial_B110E5.cs` 的文件头（⛔ 别在这里抄第二份）。
-                def.AttachTriggerAbilityIndices(MapEnchantmentTriggerAbilityIndices(t.abilities, t.id));
+                def.AttachTriggerAbilityIndices(MapEnchantmentTriggerAbilityIndices(t.abilities, t.id)); def.AttachAbilityTriggers(EnchantmentTemplateTriggersOf(t.abilities)); RecordEnchantmentTemplateAbilityBuffs(def, t);   // 🆕 2026-11-01（`B115_S5` · 波 2）：把模板的 `buffEffect`/`handBuff` 载荷写进**同一张** `_abilityBuffsById` 旁表（写口仍是 `RecordAbilityBuffs`，⛔ 不另开第二张表 —— 铁律 6）。池内那 2 张（`Pray`/`DA42`）已在 `Parse()` 里落过 ⇒ 该 helper **不覆盖**。   // 🆕 2026-11-01（`B115_S5` · 波 0 · 判据 → `判据/B115_S5_附魔执行器施工面.md` §2·2 B1）：模板卡**恒有** `cardAbilities` ⇒ `abilityTriggers` 这一列也必须到位，否则 `AbilityTriggerPresence` 恒 `-1` ⇒ `HasTriggerSource` 回落 `HasAnimTrigger`（模板 `_animTimes` 空）⇒ `EmitCardTrigger` 恒 null ⇒ `FireEnchantmentAbilitiesByNumber` 在 `:108-116` 就 `continue`（现读 **83/85** 张落这一档；池内 `Pray Enchantment` / DA42 模板走 `Parse()` 不受影响）。🔴 **⛔ 别改成构造形参 `abilityTriggersVersioned: true`** —— 那会同时置 `AbilityTargetsVersioned`，把模板的 `AbilityTargets` 从「未知」变「明确空表」（另一处行为变化）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:3772` 等处有 A 行账落点。
                 list.Add(def);
             }
             if (file.count != list.Count)
@@ -4495,6 +4495,29 @@ namespace RuleEngine
             public int untilFollowingPlayerTurnStart;
             /// <summary>`CardEffect.untilNextAttack (+0x36)`。</summary>
             public int untilNextAttack;
+
+            // ---- 🆕 2026-11-02（执行写手 `B115_W20` · 格 4 / 格 2 / 格 3）：手牌 buff 桥的四格 ----
+            //  判据（现读）= `D:/2/Warpforge_code/Scripts/Assembly-CSharp/HandEffect.cs`（**全 5 格**：
+            //  `cardEffect` · `playersAffected` · `targetCriteria` · `limitedUses` · `numberOfUses`）。
+            //  `cardEffect` 那 26 格已由上面的字段落实；**其余四格只对 `at == "handBuff"` 的行有值**
+            //  （生成器 `fill_hand_buff_columns` 只在附魔模板表那一段补 —— ⛔ 卡表 v40 那一列不带它们，
+            //    缺键 ⇒ 下面的 `-1` 初值保留 = **未知/不适用**）。
+            //  🔴 **哨兵永远是 `-1`，⛔ 不是 `0`**：`pa = 0` 是 `Both`、`limitedUses = 0` 是「不限次」，
+            //     都是**具体结论**；拿 `0` 顶「没读到」= 静默把「未知」当「双方 / 不限次」。
+            //  ⚠️ **同一物理行追加不适用于本段**：本文件账的 A 行落点最深只到 `:3711`（现读
+            //     `grep -ho 'CardDatabase\.cs:[0-9]*' 账/*.tsv`），本段在 `:4497` 之后 ⇒ 加行不会漂移。
+            /// <summary>原版 `HandEffect.playersAffected`（`PlayersAffected`：0 Both / 10 Self / 20 Enemy）。
+            /// `-1` = 未知 / 这一行不是 `handBuff`。</summary>
+            public int pa = -1;
+            /// <summary>原版 `HandEffect.limitedUses`（开关；**`0` = 不限次**、`-1` = 未知）。</summary>
+            public int limitedUses = -1;
+            /// <summary>原版 `HandEffect.numberOfUses`（还剩几次；`-1` = 未知）。</summary>
+            public int numberOfUses = -1;
+            /// <summary>原版 `HandEffect.targetCriteria` 的 36 格（**纯 `TargetCriteria`**，没有 `playerTurn`）。
+            /// 形状与卡表 `abilityTargetCriteria` 列的 `criteria` **同一个 emitter**
+            /// （生成器 `criteria_set_of(..., has_player_turn=False)`）⇒ 消费端复用 `MapCountSetDto`。
+            /// `null` = 缺键（不是 `handBuff` 行 / 旧表）。</summary>
+            public CountSetDto criteria;
         }
 
         public partial class CardDto
@@ -4529,6 +4552,18 @@ namespace RuleEngine
             public int Extrinsic, ExtrinsicVariable;
             public int UntilEndOfTurn, UntilPlayerTurnStart, UntilEnemyTurnStart;
             public int UntilFollowingPlayerTurnStart, UntilNextAttack;
+
+            // ---- 🆕 2026-11-02（执行写手 `B115_W20`）：手牌 buff 桥那四格的**映射后**形状 ----
+            //  语义逐字同 `AbilityBuffRowDto` 的同名四格（口径/哨兵都写在那里，⛔ 别抄第二份）。
+            /// <summary>原版 `HandEffect.playersAffected`（`-1` = 未知 / 不是 `handBuff`）。</summary>
+            public int PlayersAffected = -1;
+            /// <summary>原版 `HandEffect.limitedUses`（`0` = 不限次 · `-1` = 未知）。</summary>
+            public int LimitedUses = -1;
+            /// <summary>原版 `HandEffect.numberOfUses`（`-1` = 未知）。</summary>
+            public int NumberOfUses = -1;
+            /// <summary>原版 `HandEffect.targetCriteria` 的 36 格（`null` = 缺键 / 不是 `handBuff` 行）。
+            /// 消费口 = `CardCriteria.MatchesRawCard(card, Criteria, out gap)`（卡面级那一份判据）。</summary>
+            public CardDef.CountSetSpec Criteria;
         }
 
         /// <summary>🆕 v40：`id → 行[]`。**只在本类里写**（`RecordAbilityBuffs` 是唯一写口）。
@@ -4616,6 +4651,17 @@ namespace RuleEngine
                     UntilEnemyTurnStart = r.untilEnemyTurnStart,
                     UntilFollowingPlayerTurnStart = r.untilFollowingPlayerTurnStart,
                     UntilNextAttack = r.untilNextAttack,
+                    // 🆕 2026-11-02（执行写手 `B115_W20` · 格 4/2/3）：`handBuff` 那四格。
+                    //   ⚠️ `criteria` 只在**这一行带着它**时才走 `MapCountSetDto` ——
+                    //   卡表 v40 的行没有这一格（`null`），而 `MapCountSetDto(null)` 会**报错**，
+                    //   所以必须在这里先判空（⛔ 不是「顺手兜一下」：那是它会刷 5,000 行假错误）。
+                    PlayersAffected = r.pa,
+                    LimitedUses = r.limitedUses,
+                    NumberOfUses = r.numberOfUses,
+                    Criteria = r.criteria == null ? null
+                             : MapCountSetDto(c, r.criteria,
+                                              $"`abilityBuffs` 行 (ab={r.ab}, lg={r.lg}, at={r.at})",
+                                              noPlayerTurn: true),   // 纯 `TargetCriteria` ⇒ 结构上没有 `playerTurn`
                 });
             }
             return list.ToArray();

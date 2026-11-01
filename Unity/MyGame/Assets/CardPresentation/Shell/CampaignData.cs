@@ -295,7 +295,7 @@ namespace CardPresentation
             for (int i = 0; i < Nodes.Length; i++) { _base[i] = false; _prem[i] = false; _sessionUnlocked[i] = false; _points = Points; }   // 🆕 2026-10-31（B106_W54）`_points` = 自检缝的战役点，一并还原（见类尾）
         }
 
-        /// <summary>已领**基础档**的格数（诊断用；= 原版 `basicList` 的条数口径，**高级档不计**）。</summary>
+        /// <summary>已领**基础档**的格数（= 原版 `CampaignPersistence.NodesCollected.Count` 的等价物，**高级档不计**；🔴 生产读口 = `ProfileTab.FillCampaignContainer` 的「战役等级」那一行 —— ⛔ 别再当它只是「诊断用」；⚠️ 原版数**条目**、我们数**格** ⇒ 可重复节点的重复领取我们数不到）。</summary>
         public static int ClaimedCount
         {
             get { int n = 0; for (int i = 0; i < Nodes.Length; i++) if (_base[i]) n++; return n; }

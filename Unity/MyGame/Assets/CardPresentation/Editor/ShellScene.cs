@@ -5406,7 +5406,7 @@ public static class ShellScene
             //   判据 → `资料/普查产出_1020/W58_界面线_联盟搜索形态判据.md` §一·3 / §四「切片 3」。
             CheckTrue(shell.Loading != null && shell.Loading.Controller != null
                       && !shell.Loading.Controller.IsShowing,
-                      "★ W58·D4：社交窗建完（`ShowJoin` 走完 Show→重填→Hide）之后，转圈件**没有留在屏上**"
+                      "★ W58·D4：社交窗建完（`ShowJoin` 走完 Show→重填→Hide）之后，`Holder`（= 原版 `loadingIndicator`）**没有留在开着**（⚠️ 判据是 `Controller.IsShowing` = `_holder.activeSelf`，**不是「留在屏上」** —— `Menu Dark Background` 恒关 ⇒ `Show()` 之后屏幕上本来就什么都没有）"
                     + "（原版 `FillOpenAlliances` 回调第一句就是 `HideLoading()`）"
                     + "｜🧨 把 `AllianceSearchTab.WithLoading` 的 `finally { loading.Hide(); }` 去掉 ⇒ 本条红");
             var pa = socW.PageAlliances;

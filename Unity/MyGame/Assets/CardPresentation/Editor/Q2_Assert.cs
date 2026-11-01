@@ -8,9 +8,9 @@
 //       · 发 = `CardInventory.UpdateItemCollection()`（`out_il2csharp/Assembly-CSharp/CardInventory.cs:17-20`）
 //       · 收 = `CardCollectionDisplay.OnEnable` 的 `Signal.Register` / `OnDisable` 的 `Signal.Unregister`
 //       · 回调 = 对**当前可见格**逐个 `UpdateCardVisuals`（`CardCollectionDisplay__UpdateCardVisuals.c`）
-//  B  **`ItemDisplayWindow` 的「空上下文」= `LogError + return`，一个节点都不建**（原版第一句；
-//     可读体 = `out_il2csharp/Assembly-CSharp/ItemDisplayWindow.cs` 的 `Open()`：`LogError("No item available")`）。
-//     我们原来走 `DefContext()` 铺出 prefab 那三颗出厂文本（`报告/C2.md` §七·2 记的既有偏离）⇒ 本轮改掉。
+//  B  **`ItemDisplayWindow` 的「空上下文」= `LogError("No item available")` + prefab 静态骨架照建**（只跳过「填内容」）。
+//     ⚠️ **2026-11-01（`B115_W19`）就地订正（铁律 5）**：原来这里写「**一个节点都不建**」—— **判据读错了**：原版 `Open()` 只「不铺内容」，
+//     prefab 静态子树仍由 `GameWindow.TryOpen` 的 `SetActive(true)` 显示（`GameWindow__TryOpen.c:44-47`）⇒ 那一刻画面 = 压暗 + 空面板 + 四颗出厂 TMP。
 //
 // ============================ 🔴 灭自证（每条「什么改动能让它红」）============================
 //  · A2/A3/A5：把 `RefreshHighlights` 里那句 `CardsInventoryTabChanged(...)` 删掉 ⇒ 切页不再订/退 ⇒ A2/A3 红。
@@ -21,8 +21,10 @@
 //  · C1      ：离开 Cards 页后没退订 ⇒ 在 Deck 页加卡也会重建 ⇒ C1 红。
 //  · D1      ：把 `OnCardsInventoryChanged` 第一句的 `this == null` 守卫删掉 ⇒ `DestroyImmediate` 之后背包再变
 //              会抛 `MissingReferenceException` ⇒ D1 红（先例 → `项目任务.md` §三 `B103_F1`）。
-//  · E1/E2   ：把 `Build()` 首句的空上下文闸删掉（= 改前的行为：铺 `Title`/`New Text`/`Type`）⇒ E1 红；
-//              闸写过头（把**非空**上下文也拦掉）⇒ E2 红。两条并排 ⇒ 「恒建 / 恒不建」都只能对一半。
+//  · E1/E2   ：把 `Build()` 里那句 `LogError` 删掉 ⇒ E1 红；把空支改回「零节点 `return`」⇒ E1b/E1c 红；
+//              闸写过头（把**非空**上下文也拦掉）⇒ E2 红。并排 ⇒ 「恒建 / 恒不建」都只能对一半。
+//  · E1d/E1e ：空支写成「建完再把整棵关掉」⇒ E1d 红（原版 `FlavourTextBG` 在这一刻**是亮的**）；
+//              出厂文案换成空串、或漏建 `LoreText` ⇒ E1e 红。
 //
 // ============================ 怎么接（⚠️ 本代理不动断言宿主）============================
 //  自包含（自己建壳 + 自己建窗；A 段会**建一次 Cards 页**，批处理实测那次 ≈50 s —— 与 `B99_W2` 同量级）：
@@ -57,7 +59,7 @@ public static class Q2_Assert
     /// <summary>唯一入口。`mgr` 空 ⇒ 自己 `EnsureHost`；`existing` 空 ⇒ 自己建一台收藏窗（A 段会多花一次建页时间）。</summary>
     public static void Run(WindowsManager mgr = null, CollectionWindow existing = null)
     {
-        MenuCheck.Section(_sink, "Q2 · ① 卡背包变动 ⇒ 收藏窗刷新（原版 `CardCollectionUpdatedSignal`）· ② 物品窗空上下文 = LogError + return");
+        MenuCheck.Section(_sink, "Q2 · ① 卡背包变动 ⇒ 收藏窗刷新（原版 `CardCollectionUpdatedSignal`）· ② 物品窗空上下文 = LogError + 骨架照建");
 
         try { SectionA_CollectionRefresh(mgr, existing); }
         catch (Exception e) { Tr(false, "「A 收藏窗刷新」这一组抛异常：" + e.GetType().Name + "：" + e.Message); }
@@ -223,10 +225,22 @@ public static class Q2_Assert
         return null;
     }
 
-    // ============================================================ B · 物品窗：空上下文 = LogError + return
+    /// <summary>空安全的 TMP 读数口：`null` ⇒ 哨兵串，让断言**照跑**（⛔ 不写 `if (x != null) Check(...)` —— 那是「前提不成立就静默通过」，
+    /// 见 `CLAUDE.md` §三「自检里的 `if (x != null) Check(...)`」）。</summary>
+    static string TextSafe(Label l) { return l == null ? "<null>" : (l.Text ?? ""); }
+
+    /// <summary>根的直接子件里有没有**这个名字、且亮着**的那一颗（空安全，理由同上）。</summary>
+    static bool HasActiveChild(Transform root, string name)
+    {
+        if (root == null) return false;
+        var t = root.Find(name);
+        return t != null && t.gameObject.activeSelf;
+    }
+
+    // ============================================================ B · 物品窗：空上下文 = LogError + **骨架照建**
     static void SectionB_ItemDisplayEmptyContext()
     {
-        MenuCheck.Section(_sink, "B 物品窗：空上下文 ⇒ `LogError(\"No item available\") + return`（一个节点都不建）");
+        MenuCheck.Section(_sink, "B 物品窗：空上下文 ⇒ `LogError(\"No item available\")` + **prefab 静态骨架照建**（只跳过「填内容」）");
 
         ItemDisplayWindow empty = null, full = null;
         bool logged = false;
@@ -243,16 +257,36 @@ public static class Q2_Assert
             empty = ItemDisplayWindow.Create(null, null);     // `ctx == null` = 原版 `context.item == null` 的第一条来源
             Application.logMessageReceived -= hook; hook = null;
 
+            // 🔴 **读数口先取（全部空安全）**：前提不成立时下面每条也**照常断言**，⛔ 不用 `if (empty != null) { … }` 把结论整段跳过。
+            Transform root = empty != null ? empty.transform : null;
+            int kids = root != null ? root.childCount : -1;
+            Transform panel = empty != null ? empty.PanelNode : null;
+            Transform flav = empty != null ? empty.FlavourNode : null;
+            Transform holder = empty != null ? empty.HolderNode : null;
+
             Tr(empty != null, "E0 **前提**：`ItemDisplayWindow.Create(null, null)` 建得出来");
             Tr(logged, "★ E1 空上下文 ⇒ **`LogError`「No item available」**（原版原文，`out_il2csharp` 现读；⛔ 不静默）");
-            if (empty != null)
-            {
-                C(empty.transform.childCount, 0,
-                  "★ E1b 空上下文 ⇒ **一个节点都不建**（`transform.childCount == 0`）"
-                + "｜🧨 退回 `DefContext()` 铺 `Title`/`New Text`/`Type`（= 改前的行为）⇒ 红");
-                Tr(empty.TitleLabel == null && empty.PanelNode == null,
-                   "★ E1c ……读数口一致：`TitleLabel` / `PanelNode` 都是 null（没建那三颗出厂文本、也没建面板）");
-            }
+            // 原版那一刻 = prefab 静态子树（`GameWindow__TryOpen.c:44-47`：先 `SetActive(true)` 再 `Open()`）。
+            // 根的子件：prefab 的 4 颗 + 我们 `MenuDraw.ShadeHit` 在 root 下建的 `BackgroundHit` 命中区 = **5**。
+            C(kids, 5,
+              "★ E1b 空上下文 ⇒ **骨架照建**（根下 5 个直接子件 = prefab 的 `Menu Dark Background` / `Options` / `Card Display` /"
+            + " `Item Holder` + 我们的 `BackgroundHit` 命中区）"
+            + "｜🧨 改回改前的「`if (IsEmptyContext()) return;`」零节点 ⇒ 0 ⇒ 红");
+            Tr(HasActiveChild(root, "Menu Dark Background") && HasActiveChild(root, "Options")
+               && HasActiveChild(root, "Card Display") && HasActiveChild(root, "Item Holder"),
+               "★ E1b2 原版那 4 个直接子件**都在、而且都亮着**（`Item Display Window.prefab:220-223` 的 4 个 `m_Children`，全 `m_IsActive: 1`）"
+             + "｜🧨 只建压暗层、或漏某一颗（建一半）⇒ 红");
+            Tr(panel != null && flav != null && holder != null,
+               "★ E1c ……三块内容容器都在（`Options/Panel` · `Card Display/FlavourTextBG` · `Item Holder`）");
+            Tr(flav != null && flav.gameObject.activeSelf,
+               "★ E1d `FlavourTextBG` 在这一刻**是亮的**（prefab `:166 m_IsActive: 1` —— 关掉它的是 `Open()` 第 ③ 跳，那一跳没跑过）"
+             + "｜🧨 把空支写成「建完再整棵关掉」⇒ 红");
+            Tr(TextSafe(empty != null ? empty.TitleLabel : null) == "Title"
+               && TextSafe(empty != null ? empty.DescriptionLabel : null) == "New Text"
+               && TextSafe(empty != null ? empty.TypeLabel : null) == "Type"
+               && TextSafe(empty != null ? empty.LoreLabel : null) == ItemDisplayWindow.LoreFactoryText,
+               "★ E1e 四颗 TMP = prefab 出厂 `m_text`（`:484` `Title` / `:617` `New Text` / `:750` `Type` / `:976` 那句 Ghazghkull…）"
+             + "｜🧨 用空串顶（「看着更像空面板」）、或漏建 `LoreText` ⇒ 红");
 
             // ---- E2（对照 / 灭自证）：非空上下文照样建 ----
             full = ItemDisplayWindow.Create(null, new ItemDisplayWindow.Context

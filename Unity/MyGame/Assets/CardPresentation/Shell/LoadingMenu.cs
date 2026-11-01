@@ -42,10 +42,10 @@
 // 🔴 **`Loading Controller` 的运行期姿态没查到**：场景里整棵父链（`Game UI`）`m_LocalScale = 0`，
 //    `Animated Loading Image` 的 `270.4²` 是**未缩放帧**；原版运行时先设 scale 再显示 —— **赋值点没查到**。
 //    ⇒ 本件**按序列化值显式给 270.438995²**（⛔ 不按 0 缩放），并把这条记成「判据未清」。
-// 🔴 **`Menu Dark Background` 在场景里 `m_IsActive = false`**（`GameObject/Menu Dark Background_478.json`）。
-//    照抄 ⇒ 它的子件（骷髅 + 齿轮）整棵永不显示。`MenuLoadingController.ShowLoading` 只开 `Holder`、
-//    本地反编译里**找不到**任何一处把这块暗底打开的赋值点 ⇒ 本件按「加载件要可见」实现（暗底随 `Holder` 一起开关），
-//    如实标成 **判据未清的本仓取舍**。
+// ✅ **`Menu Dark Background` 在场景里 `m_IsActive = false`**（`GameObject/Menu Dark Background_478.json`），
+//    且 `MenuLoadingController.ShowLoading` 只开 `Holder`、全库**没有**把它打开的赋值点 ⇒ **原版联盟搜索什么都
+//    不显示**（骷髅/齿轮是它的子件；Unity 激活父件**不**激活 inactive 子件）。🔴 **2026-11-01（`B115_W8`）就地
+//    订正**：原来这里写「本仓按『加载件要可见』强制开暗底」—— 那是**我们多画的**，已按原版改回**不显示**。
 // 🔴 **根节点的出厂 active**：场景里 `LoadingMenu` 是 `m_IsActive = false`，而 `GeneralMenuController.ShowLoading`
 //    **不**激活根（只激活 `Panel`）⇒ 原版运行时根一定被别的东西开过，**那一点本地没查到**。
 //    本件：根出厂**关**（安全），`LoadingFade` 第一句显式激活根 + 面板（**显式，不猜哪一处开的**）。
@@ -298,11 +298,11 @@ namespace CardPresentation
                 Dark.SetAspect(DarkW / DarkH);
                 Dark.SetTint(new Color(0f, 0f, 0f, DarkAlpha));
                 Dark.SetRenderQueue(QDark);
+                // 原版 `Menu Dark Background_478` 序列化 `m_IsActive = false`，全库没有置 true 的赋值点
+                // （`MenuLoadingController__ShowLoading.c` 只开 `loadingIndicator`）⇒ 照抄：建出来但**不开**。
+                Dark.gameObject.SetActive(false);
             }
-            else
-            {
-                Debug.LogError("[LoadingController] 暗底没建起来：`CardArt.Solid()` 取不到 —— 转圈会**没有压暗**。");
-            }
+            else Debug.LogError("[LoadingController] 暗底没建起来：`CardArt.Solid()` 取不到 —— 原版这块本就不显示。");
 
             Transform skullParent = Dark != null ? Dark.transform : _holder;
             var skullTex = CardArt.MenuUi(ArtSkull);
@@ -347,12 +347,12 @@ namespace CardPresentation
 
             // 原版 `MenuLoadingController.Awake`：`loadingIndicator.gameObject.SetActive(false)`。
             _holder.gameObject.SetActive(false);
-            if (Dark != null && !Dark.gameObject.activeSelf)
-            {
-                // 场景里这一块是 `m_IsActive = false`，但照抄会让整棵加载件永远不显示
-                // （`ShowLoading` 只开 `Holder`）。见文件头「已知的取舍」。
-                Dark.gameObject.SetActive(true);
-            }
+            // ⛔ **不要**在这里把 `Dark` 打开（2026-11-01 `B115_W8` 删掉了原来那三行「强制开」）——
+            //    原版的 `Menu Dark Background` 序列化就是 `m_IsActive = false`，而 `ShowLoading` 只
+            //    `SetActive(loadingIndicator)` ⇒ 骷髅/齿轮是它的子件，**也一样不渲染**。照抄 = 什么都看不见
+            //    （判据：`MenuLoadingController__ShowLoading.c` · `__Awake.c` · `GameObject/Menu Dark Background_478.json`）。
+            //    ⚠️ 那一版「强制开」是**我们多画的一块暗底**，与 `CLAUDE.md` §18·0「默认照原版」相反，已删。
+            //    （`Show()` 打开 `Holder` 时 `Dark.activeSelf` 始终 false ⇒ 暗底 + 骷髅 + 齿轮都不画。）
         }
 
         /// <summary>原版 `MenuLoadingController.ShowLoading`。</summary>

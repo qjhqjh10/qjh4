@@ -78,9 +78,65 @@ namespace RuleEngine
                 }
                 for (int j = 0; j < a.logic.Length; j++)
                     list.Add(new CardDef.TriggerAbilityIndexSpec
-                    { Ab = i, Lg = j, Trigger = a.trigger, TriggerValue = a.triggerValue, Ca = (a.logic[j] != null) ? a.logic[j].ca : -1 });   // 🆕 v47（`B114W-B2`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（数据侧 = `enchantment_templates.json` 的 `abilities[].logic[].ca`，DTO `CardDatabase.cs:3657`）—— `-1` = 未知，⛔ 不是 0
+                    { Ab = i, Lg = j, Trigger = a.trigger, TriggerValue = a.triggerValue, Ca = (a.logic[j] != null) ? a.logic[j].ca : -1, Ta = (a.logic[j] != null) ? a.logic[j].ta : -1 });   // 🆕 2026-11-01（`B115_S5` · 波 1）：`Ta` = `abilityLogic[].targetCriteria.targetsAffected`（JSON 键 `ta`，135/135 行都有）—— 原来**只声明不落**，附魔执行器要按它找载体。`-1` = 该行没有 logic 实例 / 键缺失（⛔ 不是 `0 any`）。   // 🆕 v47（`B114W-B2`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（数据侧 = `enchantment_templates.json` 的 `abilities[].logic[].ca`，DTO `CardDatabase.cs:3657`）—— `-1` = 未知，⛔ 不是 0
             }
             return list.ToArray();                         // 空数组 = **明确没有**（⛔ 不是 null）
+        }
+
+        // --------------------------------------------------------------------------------------------
+        //  🆕 2026-11-01（执行代理 `B115_S5` · 波 0）：`abilityTriggers` 那一列，给模板补上
+        // --------------------------------------------------------------------------------------------
+        //  **为什么需要**：`LoadEnchantmentTemplates` 造模板 `CardDef` 时不经过 `Parse()` ⇒
+        //    `AbilityTriggersVersioned` 恒 `false` ⇒ `CardDef.AbilityTriggerPresence(n)` 恒 `-1`
+        //    ⇒ `EffectResolver.HasTriggerSource` 回落到 `HasAnimTrigger`（模板 `_animTimes` 空）
+        //    ⇒ **`EmitCardTrigger` 恒 null ⇒ 该模板的附魔趟在派发前就 `continue`**（现读 83/85 张）。
+        //  原版判据：`RawCardScript.HasAbilityType` 遍历的就是**这张卡自己的** `cardAbilities(+0x290)`
+        //    （`RawCardScript__HasAbilityType.c:16-38`）⇒ 模板**与其他卡同一条规则**，不是特例。
+        //
+        //  三态：`null`（连 `abilities` 键都没有 = 旧表 / 手写夹具）⇒ 返回 **`null` = 未知**
+        //    （`CardDef.AttachAbilityTriggers(null)` 不写任何东西，⛔ 别把「不知道」折成「没有」）；
+        //    空数组 ⇒ 返回**空数组**（= 明确没有 ability，与 `MapEnchantmentTriggerAbilityIndices`
+        //    的「空数组 = 明确没有」同口径）；否则 = 去重后的 trigger 数值。
+        //  ⚠️ `trigger < 0` 的行跳过（那几行已被映射器出声丢弃，这里不再重复喊）。
+        /// <summary>模板 `abilities[].trigger` → 去重后的数值表（供 `CardDef.AttachAbilityTriggers`）。</summary>
+        public static int[] EnchantmentTemplateTriggersOf(EnchantmentTemplateAbilityDto[] rows)
+        {
+            if (rows == null) return null;
+            var seen = new HashSet<int>();
+            var list = new List<int>(rows.Length);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var a = rows[i];
+                if (a == null || a.trigger < 0) continue;
+                if (seen.Add(a.trigger)) list.Add(a.trigger);
+            }
+            return list.ToArray();
+        }
+
+        // --------------------------------------------------------------------------------------------
+        //  🆕 2026-11-01（执行代理 `B115_S5` · 波 2）：模板的 `buffEffect` / `handBuff` 载荷 → 同一张旁表
+        // --------------------------------------------------------------------------------------------
+        //  **数据面**：`enchantment_templates.json` 的 `templates[].abilityBuffs`（形状与卡表 v40
+        //    `abilityBuffs` 列**逐字相同**：`{ab, lg, at, buffType, <26 格>}`，由生成器 `ability_buffs_of`
+        //    同一个 helper 产出 —— ⛔ 不是第二套口径）。
+        //  **写口**：仍然只有 `CardDatabase.RecordAbilityBuffs(def, CardDto)` 一个（它内部就是
+        //    `MapAbilityBuffs` + `_abilityBuffsById`）⇒ 本 helper 只是**造一个只带这一列的 `CardDto`**
+        //    塞进去，⛔ **不新开第二张表、不新写一份映射**（铁律 6）。
+        //  **三态**：`t.abilityBuffs == null`（缺列 / 旧表）⇒ **不写**（`AbilityBuffsOf` 继续返 `null` = 未知）；
+        //    `[]` ⇒ 写空数组（= 明确没有）。
+        //  **为什么不覆盖已有**：池内那 2 张（`Pray Enchantment` / `DA42` 模板）走 `Parse()` 已经用
+        //    `cards_engine.json` 的同一列落过表；两边同源，覆盖只是徒增一次写。留着「先到先得」还能在
+        //    两边真的打架时**看得见**（`AbilityBuffsOf` 仍返回先落的那份，不静默改值）。
+        /// <summary>把模板表的 `abilityBuffs` 灌进 `AbilityBuffsOf` 那张旁表（唯一的写口仍是 `RecordAbilityBuffs`）。</summary>
+        public static void RecordEnchantmentTemplateAbilityBuffs(CardDef def, EnchantmentTemplateDto t)
+        {
+            if (def == null || t == null || string.IsNullOrEmpty(def.Id)) return;
+            if (t.abilityBuffs == null) return;                     // 缺列 = 未知（⛔ 别折成「没有」）
+            if (AbilityBuffsOf(def.Id) != null) return;             // 已有（池内那 2 张）⇒ 不覆盖
+            RecordAbilityBuffs(def, new CardDto
+            {
+                id = def.Id, name = def.Name, abilityBuffs = t.abilityBuffs,
+            });
         }
     }
 }

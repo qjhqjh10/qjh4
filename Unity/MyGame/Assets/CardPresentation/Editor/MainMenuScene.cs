@@ -7401,7 +7401,7 @@ public static class MainMenuScene
                         CheckText(TextOf(FindChild(FindChild(evN, "Campaign Profile Container"), "Title")),
                                   Loc.OfficialCurrent(ProfileTab.EvTermCampaign),
                                   "战役那格标题 = 官方词条 `PlayerProfile/CurrentCampaign`"
-                                + "｜🧨 三格共用一个占位标题 / 退回预制体字面值 ⇒ 红");
+                                + "｜🧨 三格共用一个占位标题 / 退回预制体字面值 ⇒ 红"); var cbN = FindChild(FindChild(evN, "Campaign Profile Container"), "Badge"); var cbWant = ArmyIcons.Texture(ArmyIcons.Id(CampaignData.Selected)); CheckTrue(cbN != null && cbWant != null, "B-311①（前提）：战役格 `Badge` 节点在、且夹具阵营（`CampaignData.Selected` = " + CampaignData.Selected + "）的徽记图取得到（实得 icon=`" + (cbWant != null ? cbWant.name : "<无图>") + "`）—— 取不到 ⇒ 下面那条是空断、不是绿"); var cbQ = QuadOfInactiveToo(cbN); CheckTrue(cbQ != null && cbQ.Texture == cbWant, "★ B-311①：战役格 `Badge` **把阵营徽记画出来了**（期望 `" + (cbWant != null ? cbWant.name : "<无图>") + "`；实得 `" + (cbQ != null && cbQ.Texture != null ? cbQ.Texture.name : "<没图>") + "`）｜🧨 只建节点不画图（改前就是）⇒ 红；判据 = 原版 `decomp_full/CampaignProfileContainer__OnInitialize.c:80-90` 的 `armyIcon.sprite = ArmyUtilities.GetArmyIcon(army)`（在 `if (bVar11)` 里无条件写）");
 
                         // ⑤ `ChooseNameWindow`（内嵌的**全屏**改名窗）
                         var cnw = FindChild(pf, "ChooseNameWindow");
@@ -18523,6 +18523,106 @@ public static class MainMenuScene
         B108A10_Assert.RunModeViewport(); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail;
         B109_E16_AspectClamp_Assert.Run(); _sink.Pass += B109_E16_AspectClamp_Assert.Pass; _sink.Fail += B109_E16_AspectClamp_Assert.Fail;
         B110_S1_Assert.Run(); _sink.Pass += B110_S1_Assert.Pass; _sink.Fail += B110_S1_Assert.Fail; B114_W5_Assert.Run(); _sink.Pass += B114_W5_Assert.Pass; _sink.Fail += B114_W5_Assert.Fail;
+        // ============================================================ 🆕 2026-11-01（B115_W16 · 死钮补齐）
+        //   `MainMenuRuntime.BuildEventNavButtons` **已经按原版建了「每个在期 Parent 活动一颗钮」**（`5 + i`），
+        //   而 `OnNavClick` 的 switch 原来只认 0–5 ⇒ 第 2 颗起（idx ≥ 6）落 `default`，只打一句「还没接」= **死钮**。
+        //   判据 = 原版 `OpenEventButton__ButtonClick.c` → `ev.SelectEvent()`（恒用 label 10 = `MainWindow`）
+        //        → `WindowsManager.OpenWindow(GetComponentReference(ev, 10), ev)`。
+        //   ⚠️ **放在合计行之前、最后一段**：它会开/关 `Parent Event Window`，前面的段落不该被它影响。
+        Section("★ 第 2 颗起的事件钮（死钮补齐）：`OnNavClick(6)` ⇒ `SelectEvent()`（label 10）；挑不到 ⇒ **回退** Parent 窗");
+        {
+            // ---- 前提 0：自检宿主是【编辑模式】，`LiveOpsLocalBoot` 的 `[RuntimeInitializeOnLoadMethod]` **不会跑**
+            //   ⇒ `LiveOpsPopupPresenter.Open` 恒 null ⇒ `SelectEvent()` 一个字都不会开窗。
+            //   这里手动装，装的**就是生产装的那个**（`LiveOpsLocalBoot.BootLocalLiveOps` 第 ① 句）。
+            LiveOpsPopupPresenter.Open = LiveOpsLocalBoot.OpenEventPopup;
+            CheckTrue(LiveOpsPopupPresenter.Open != null,
+                      "（前提）弹窗呈现缝已装 = 生产 `LiveOpsLocalBoot.BootLocalLiveOps` 装的那一个"
+                    + "（编辑模式不会跑 `RuntimeInitializeOnLoadMethod`，不手动装 ⇒ 下面全绿也是假的）");
+
+            // ---- 前提 1：本地目录里要有**在期**的 Parent 活动（`OpenEventButton(id)` 才取得到事件实例）----
+            //   🔴 **前提与原计划不同，就地记（铁律 5）**：原计划「钉到 **≥2 场** Parent 同时在期」——**不成立**：
+            //   13 份 SO 的 4 场 Parent 活动期**两两不相交**（`ExpansionOrks1` 2025-04-03~05-01 ·
+            //   `ECRelease` 05-22~06-20 · `SWRelease` 10-23~11-21 · `ExpansionUM1` 12-18~次年 01-08，
+            //   且 `DarkZealots` 是 `enabled=0`）⇒ `ActiveParentEventsForNav` **任何时刻最多 1 场**
+            //   ⇒ `BuildEventNavButtons` 最多建 **1** 颗，「第 2 颗钮」用真实数据**造不出来**。
+            //   ⇒ 时钟钉在 Orks1 期中（保证 handler 里有事件）；「第 2 颗钮」那一格改用
+            //     `SetEventNavIdsForTest` **注入那张表**（被测的派发链一个字没改）。
+            var navNow = new System.DateTime(2025, 4, 10, 12, 0, 0, System.DateTimeKind.Utc);   // = Orks1 期中
+            LiveOpsClock.NowProvider = () => navNow;
+            LiveOpsLocalHandler.ResetForTest();
+            int navLoaded = LiveOpsLocalHandler.Default.LoadFromCatalog(navNow);
+            CheckTrue(navLoaded >= 1,
+                      "（前提）本地目录装了 ≥1 个在期活动（现装 " + navLoaded + " 个；钉在 2025-04-10 = Orks1 期）");
+            string navEvId = null;
+            var navTable = LiveOpsLocalCatalog.Events;
+            for (int i = 0; i < navTable.Count; i++)
+            {
+                var e0 = navTable[i];
+                if (e0 != null && e0.Kind == LiveOpsLocalKind.Parent && e0.IsCurrentlyActive(navNow)) { navEvId = e0.EventId; break; }
+            }
+            CheckTrue(!string.IsNullOrEmpty(navEvId), "（前提）找到在期的 Parent 活动 id（实得 `" + (navEvId ?? "null") + "`）");
+            var wmNav = WindowsManager.Instance;
+            CheckTrue(wmNav != null, "（前提）`WindowsManager` 在（不然下面「开没开窗」全都没得看）");
+
+            // ---- ① 主断言（**改前必红**）：第 2 颗事件钮 ⇒ 走 `SelectEvent()`（label 10）----
+            //   spy 把 presenter 换成「记下 PopupLabel 再返 null」：**改前**这颗钮落 `OnNavClick` 的
+            //   `default`、只打一句「还没接」⇒ `seen` **恒 0 条**。这是本节唯一一条「改前必红」的锚。
+            menu.SetEventNavIdsForTest(navEvId, navEvId);
+            var seen = new List<int>();
+            LiveOpsPopupPresenter.Open = delegate (ILiveOps e1, PopupOptions o1) { seen.Add(o1 == null ? -1 : o1.PopupLabel); return null; };
+            menu.OnNavClick(6);
+            Check(seen.Count, 1,
+                  "★ 第 2 颗事件钮 ⇒ **派发了一次**活动窗打开（改前这颗钮落 `default`，`seen` 恒 0 条）"
+                + "｜🧨 删掉 `OnNavClick` 的 `default` 里那句 `TryOpenEventNavButton` ⇒ 本条红");
+            Check(seen.Count == 1 ? seen[0] : -1, (int)LiveOpsComponentRef.MainWindow,
+                  "…而且用的是 label **10**（`MainWindow`）= 原版 `OpenEventButton.ButtonClick → ev.SelectEvent()`"
+                + "｜🧨 把 `SelectEvent()` 的 `PopupLabel` 改成别的值 ⇒ 本条红");
+
+            // ---- ② 端到端：换回**真** presenter ⇒ 窗真的开出来（label 10 分支 + `OpenEventHub` 两跳都走一趟）----
+            LiveOpsPopupPresenter.Open = LiveOpsLocalBoot.OpenEventPopup;
+            int navBefore = wmNav.openWindows.Count;
+            menu.OnNavClick(6);
+            var navWins = wmNav.openWindows;
+            CheckTrue(navWins.Count > navBefore, "（前提）第 2 颗事件钮开出了一扇新窗");
+            CheckTrue(navWins.Count > navBefore && navWins[navWins.Count - 1] is ParentEventWindow,
+                      "★ …开的正是 `Parent Event Window`（5 份 Parent 事件的 `MainWindow` 全指向它，判据 → "
+                    + "`判据/B115_W16_活动GUID施工单.md` §一 第 1 行）");
+
+            // ---- ③ 回退支（灭自证的另一面）：查不到事件 ⇒ **回退** `OpenEventHub(Parent)`，⛔ 不许什么都不做 ----
+            //   ⚠️ 必须先把 ② 那扇关掉：`OpenByRef` 对「还开着的那扇」是**复用**，不关的话数的是复用、不是新开。
+            var navOpen2 = ParentEventWindow.LastOpened;
+            CheckTrue(navOpen2 != null, "（前提）② 之后 `ParentEventWindow.LastOpened` 非空（不然 ③ 的「新开一扇」无从判）");
+            if (navOpen2 != null) navOpen2.Close();
+            CheckTrue(ParentEventWindow.LastOpened == null || ParentEventWindow.LastOpened.CurrentState != WindowState.Open,
+                      "（前提）② 那扇已经关掉（③ 要的是「新开一扇」，不然后面数的就是复用）");
+            LiveOpsLocalHandler.ResetForTest();          // 丢掉默认实例 ⇒ `GetEvent(id)` 必定拿不到
+            navBefore = wmNav.openWindows.Count;
+            menu.OnNavClick(6);
+            CheckTrue(wmNav.openWindows.Count > navBefore,
+                      "★ 挑不到事件 ⇒ **回退**开了 `Parent Event Window`（⛔ 不是静默什么都不做）"
+                    + "｜🧨 把 `TryOpenEventNavButton` 末尾那条回退删成 `return false;` ⇒ 本条红");
+
+            // ---- ④ ACT-02①：**按 root 名开活动窗**（`WindowsManager.OpenEventWindowByRoot`，2026-11-01 新增）----
+            //   判据：原版那一跳是「事件 → 它自己的 `MainWindow` prefab」（`GetComponentReference(ev, 10)`），
+            //   **没有「按窗种类」这一层** ⇒ 我们按 root 名分派，⛔ 不扩 `EventWindowKind`（理由 → `WindowsManager` 类尾注释）。
+            //   ⚠️ 这里**只断「认得住 / 认不住」**，不新建 Ranked / Skirmish / Energy 三扇窗 ——
+            //   本写手不跑 Unity，那三扇 `Create` 的红我验不了（覆盖建议写在报告 §九）。
+            CheckTrue(WindowsManager.OpenEventWindowByRoot(null) == null,
+                      "★ ACT-02①：`OpenEventWindowByRoot(null)` ⇒ **null**（出声，⛔ 不静默）");
+            CheckTrue(WindowsManager.OpenEventWindowByRoot("No Such Event Window") == null,
+                      "★ ACT-02①：不在表里的 root ⇒ **null**（7 种之外一律不开；原版 `GetComponentReference` 找不到时同形）"
+                    + "｜🧨 把 `default:` 那支改成返 `OpenParentEvent()` ⇒ 本条红");
+            CheckTrue(WindowsManager.OpenEventWindowByRoot(ParentEventWindow.RootName) is ParentEventWindow,
+                      "★ ACT-02①：按 **root 名** 能开到活动窗（`" + ParentEventWindow.RootName + "`）⇒ 「按 root 名 `OpenByRef`」这条路**通**"
+                    + "（这条绿 = 拆两件事的第 ① 件落地；⛔ 与扩枚举无关）");
+
+            // ---- 收尾（本节是最后一段：把注入的东西全还原，别影响以后别的宿主）----
+            LiveOpsPopupPresenter.ResetForTest();
+            LiveOpsClock.ResetForTest();
+            LiveOpsLocalHandler.ResetForTest();
+            menu.SetEventNavIdsForTest();
+            if (ParentEventWindow.LastOpened != null) ParentEventWindow.LastOpened.Close();
+        }
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里
         //   **已经现场打过一次**，行首是真 `✗`，见本文件 `本文件`）⇒ 重列这里**不能再带 `✗`** ——

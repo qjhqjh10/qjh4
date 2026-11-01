@@ -3413,7 +3413,7 @@ namespace CardPresentation
             if (lb != null) _genLabels.Add(new Keyed(lb, key));
             // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
             var hitNode = Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
-                aq, ArtButton); if (hitNode == null) { var vp = ViewportClip.FindAbove(n); Debug.LogError("[Settings] 钮 `" + name + "` 的命中区**没建出来**（rect " + new PxRect(x1, GenBtnT, x2, y2) + " · 最近视口 " + (vp == null ? "<无>" : (vp.ClipPx.HasValue ? vp.ClipPx.Value.ToString() : "<无>")) + "）⇒ 点它只会落到吸收层 `AbsorbHit`（2026-10-27 真机实测；⛔ 不许静默）"); }
+                aq, ArtButton); if (hitNode == null || !SettingsHitProbe.Covers(n, x1, GenBtnT, x2, y2)) SettingsHitProbe.Report(name, n, x1, GenBtnT, x2, y2);
         }
 
         /// <summary>🆕 **2026-10-19（`A1186` 裁定 ②）**：`General` 页上那颗 **`Online` 入口钮**
@@ -3450,9 +3450,9 @@ namespace CardPresentation
             var lb = Text(n, "Button Text", Loc.T(lkOnTitle), otx, otx + otw, oty, oty + oth,
                           GenOnlineFontPx, Color.white, QText, null, 0f, 12f, GenOnlineFontPx, 12f);
             if (lb != null) _genLabels.Add(new Keyed(lb, lkOnTitle));
-            Hit(n, "Hit", x1, y1, x2, y2, QOverlay,
+            var hitNode = Hit(n, "Hit", x1, y1, x2, y2, QOverlay,
                 () => { Debug.Log($"[Settings] 点了 `{Loc.T(lkOnTitle)}` ⇒ 联机页"); OpenTab(SettingsTab.Online); },
-                aq, ArtButton);
+                aq, ArtButton); if (hitNode == null || !SettingsHitProbe.Covers(n, x1, y1, x2, y2)) SettingsHitProbe.Report("Online Button", n, x1, y1, x2, y2);
         }
 
         /// <summary>把**所有跟着语言走**的字重设一遍：页签上那几行 + General 页那一整页 + 那三颗勾
@@ -6032,8 +6032,8 @@ namespace CardPresentation
             var lb = Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.white, QText,
                           null, 0f, autoMinPx, autoMaxPx, autoBasePx);
             // A17：原版 `Account Tab>Buttons/*` 那几颗同族底图（`40K_button`）都是 SpriteSwap（普查 §块 4 第 16 行，⚠️ 非同名节点）
-            Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); },
-                aq, ArtButton);
+            var hitNode = Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); },
+                aq, ArtButton); if (hitNode == null || !SettingsHitProbe.Covers(n, x1, t, x2, y2)) SettingsHitProbe.Report(n.name, n, x1, t, x2, y2);
             return lb;
         }
 
@@ -7150,5 +7150,110 @@ namespace CardPresentation
             GameStaticData.graphicsQuality = GameStaticData.DefaultQualitySetting;
         }
     }
-}
 
+    public static class SettingsHitProbe
+    {
+        // ============================================================ B115_W15（2026-11-01）：`UI-06`「设置窗底部钮点不到」的诊断口
+        //
+        // 🔴 **落位 = 文件末尾的一个新静态类**（⛔ 不插在既有类/成员之间）：本文件被账按 `文件:行号` 引用，
+        //   而 `账/*.tsv` 在本文件上的最大落点是 **7076 行** ⇒ 任何早于 7150 的插入都会让那些落点整体漂移
+        //   （`SettingsWindow` 这个类本体在 6376 就收尾了 ⇒ 方法写进去必然漂 ⇒ 才单开这个类）。
+        //   ⚠️ 三个调用点都是**同行改写**（行数不变），见 `GenButton` / `GenOnlineEntry` / `ActionButtonAt`。
+        //
+        // 🔴 **为什么必须重写 2026-10-27 那条探针**：它只在 `Hit()` 返回 `null` 时出声，而
+        //   `MenuDraw.Hit` 返回 null **只有一条路** —— `ClipRect(r, PaddedClip(clip, maskPad), out hr)` 判
+        //   「整块在框外」，且它前面两句是 `if (IsNoClip(clip)) return true;` / `if (!clip.HasValue) return true;`
+        //   ⇒ **`clip` 非空才可能返回 null**，而 `clip` 非空 = 父链上真的挂着一个 `ViewportClip`
+        //   （`ViewportClip.Resolve` 第 ② 支；本文件 4 处 `ViewportClip.Hang` 全建在**子件或兄弟**上：
+        //   `:1874` 页签遮罩 · `:3657` 语言列表 · `:3901` 音频页 · `:4516` 图像页）⇒ 设置窗 `General` / `Online`
+        //   两页的父链上**一个视口都没有** ⇒ 旧探针**永远不会响**，也就永远答不了「钮到底点不点得到」。
+        //   ⇒ 本口改成**无条件算一遍**：命中件在不在 / 命中 quad 的矩形 / 钮自己的矩形 / 最近视口 /
+        //   该点上的全部候选（含队列与**生产命中口的赢家**）。调用点只在结论不合预期时 `LogError`。
+        //
+        // ⚠️ **只读**：不建节点、不改任何队列。`PointerLayer.Instance` 在本仓自检里本来就会建一台
+        //   （`Editor/SettingsScene.cs` 已有多处用它，例如 FPS 滑块那条「真鼠标点得到」）。
+        // ⚠️ **帧**：`ButtonAt` / `ButtonsAtForTest` 吃的是**指针帧**；本窗根 scale 恒 1（原版那层 0.9 烘进矩形，
+        //   见 `Screen()`），16:9 出厂态下**指针帧 == 画布帧**（`MenuDraw.PointerFramePxFromDesign` 的恒等式，
+        //   `k == 1` 时逐位相等 ⇒ 直接喂画布 px）。
+
+        /// <summary>`UI-06` 的诊断读数（一行说完）。`node` = 钮的节点；`x1..y2` = **该钮的设计矩形**
+        /// （未过 `Screen()`，与本文件 `Node(...)` / `Hit(...)` 同一份实参）⇒ 内部自己过 `Screen()` 再比。
+        /// <para>返回串的每一格都对应一个「会不会点不到」的成因，按排查顺序排：
+        /// ① 节点 null ② 父链最近视口（旧探针只报这一格，而它恒为「&lt;无&gt;」）
+        /// ③ 子树里有没有 `WindowButton`（= 命中区建没建）④ 命中 quad 取不取得到（裸节点/停用）
+        /// ⑤ 命中区矩形 + 队列 ⑥ 它**盖没盖住**钮自己的矩形 ⑦ 命中区中心那一点上的全部候选与赢家。</para>
+        /// <para>⚠️ 调用前**那一页必须在激活态**（`HitQuadForTest` 对停用的按钮返回 null ⇒ 会误报成「没建」）——
+        /// 自检里先 `win.OpenTab(SettingsTab.Online)` 再问联机页那两颗。</para></summary>
+        public static string Describe(Transform node, float x1, float y1, float x2, float y2)
+        {
+            if (node == null) return "节点为 **null**（钮根本没建 / 手里是重建前的旧树）";
+            var want = SettingsWindow.Screen(x1, y1, x2, y2);                       // 钮自己的矩形（画布 px、y 向下）
+            string s = "钮 `" + node.name + "` 期望矩形 " + want;
+            var vp = ViewportClip.FindAbove(node);
+            s += " · 最近视口 " + (vp == null ? "<无：父链上没有 ViewportClip>" :
+                                   (vp.ClipPx.HasValue ? vp.ClipPx.Value.ToString() : "<节点在但给不出框>"));
+            var wb = node.GetComponentInChildren<WindowButton>(true);
+            if (wb == null)
+                return s + " · 🔴 子树里**没有 `WindowButton`** ⇒ 命中区没建（`Hit()` 被 `ClipRect` 丢了）";
+            s += " · `WindowButton` 在 `" + wb.name + "`（activeAndEnabled=" + wb.isActiveAndEnabled
+               + " · absorbOnly=" + wb.absorbOnly + "）";
+            var q = PointerLayer.HitQuadForTest(wb);
+            if (q == null)
+                return s + " · 🔴 有 `WindowButton` 但**命中 quad 取不到**（停用 / 子树里没有 `ImageQuad`"
+                         + " —— 裸节点进不了 `PointerLayer` 的命中表，A26 那个坑）";
+            var hr = MenuDraw.QuadRectPx(q);                          // 命中区（画布 px、y 向下）
+            s += " · 命中区 " + hr + " 队列 " + q.RenderQueue;
+            s += (hr.x1 <= want.x1 + 0.05f && hr.x2 >= want.x2 - 0.05f
+               && hr.y1 <= want.y1 + 0.05f && hr.y2 >= want.y2 - 0.05f)
+               ? "（**盖住了**期望矩形）"
+               : " · 🔴 **没盖住**期望矩形（命中区比钮小 / 摆歪了 ⇒ 边上一圈点不动）";
+            var hits = PointerLayer.ButtonsAtForTest(hr.CX, hr.CY);
+            s += " · 命中区中心 (" + hr.CX.ToString("F1") + "," + hr.CY.ToString("F1") + ") 上有 "
+               + (hits == null ? 0 : hits.Count) + " 个候选：";
+            if (hits != null)
+                for (int i = 0; i < hits.Count && i < 8; i++)
+                {
+                    var qq = PointerLayer.HitQuadForTest(hits[i]);
+                    s += "[" + hits[i].name + " q=" + (qq != null ? qq.RenderQueue : -1) + "] ";
+                }
+            var pl = PointerLayer.Instance;
+            var winner = pl != null ? pl.ButtonAt(hr.CX, hr.CY) : null;
+            s += " ⇒ 生产命中口给的是 "
+               + (winner == null ? "**null**（那一点上谁都不吃）" : "`" + winner.name + "`");
+            if (winner != null && winner != wb)
+                s += " · 🔴 **不是这一颗**（被上层的件吃掉了 —— 按上面候选表的队列自查）";
+            return s;
+        }
+
+        /// <summary>`Hit()` 建出来的命中区**盖没盖住这颗钮自己的矩形** —— 「点得到」的机器判据。
+        /// 两边都过 `Screen()`（同一帧、画布 px、y 向下），容差 0.05 画布 px
+        /// （浮点往返量级，与 `MenuDraw.SameRectNear` 同一条口径；⛔ 别拿字号/像素去比精确相等）。
+        /// ⚠️ 停用的页里 `HitQuadForTest` 恒 null ⇒ 这条会返回 false —— 只当**建树那一刻**的守卫用。</summary>
+        public static bool Covers(Transform node, float x1, float y1, float x2, float y2)
+        {
+            var wb = node != null ? node.GetComponentInChildren<WindowButton>(true) : null;
+            var q = wb != null ? PointerLayer.HitQuadForTest(wb) : null;
+            if (q == null) return false;
+            var want = SettingsWindow.Screen(x1, y1, x2, y2);
+            var hr = MenuDraw.QuadRectPx(q);
+            return hr.x1 <= want.x1 + 0.05f && hr.x2 >= want.x2 - 0.05f
+                && hr.y1 <= want.y1 + 0.05f && hr.y2 >= want.y2 - 0.05f;
+        }
+
+        /// <summary>建树时的**出声口**（三个建钮工厂各调一次；只在 <see cref="Covers"/> 判否时进来）。
+        /// <para>🔴 **两档分开说**（⛔ 别把「这一刻判不了」写成缺陷）：
+        /// ① 这颗钮**不在激活链上**（整页/整块此刻是关的，例如联机页的客机块）⇒ `Debug.Log`，
+        ///    写明「判不了」以及为什么 —— 那种局面下 `HitQuadForTest` 本来就会返 null，不是缺陷；
+        /// ② 否则 ⇒ `Debug.LogError`（**真的点不到**）。
+        /// ⛔ 两档都**不静默**：这条正是「旧探针永远不响 ⇒ 一年没人知道到底哪里不对」那笔账的反面。</para></summary>
+        public static void Report(string tag, Transform node, float x1, float y1, float x2, float y2)
+        {
+            string why = Describe(node, x1, y1, x2, y2);
+            var wb = node != null ? node.GetComponentInChildren<WindowButton>(true) : null;
+            if (wb != null && !wb.isActiveAndEnabled)
+                Debug.Log("[Settings] 钮 `" + tag + "` 的命中区**这一刻判不了**（它不在激活链上：整页/整块现在是关着的）—— " + why);
+            else
+                Debug.LogError("[Settings] 钮 `" + tag + "` **点不到**（2026-11-01 B115_W15 重写探针；⛔ 不许静默）：" + why);
+        }
+    }
+}

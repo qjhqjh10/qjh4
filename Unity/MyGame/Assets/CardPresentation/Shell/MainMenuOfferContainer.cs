@@ -112,7 +112,7 @@ namespace CardPresentation
     {
         /// <summary>`ItemDrawer.Draw` 的宿主（原版 `contentAnchor`）。</summary>
         public Transform ContentAnchor;
-        /// <summary>一屏几槽（= `UI_InfiniteScroll` 从布局量的那个数；那份源码本地没有 ⇒ 由宿主给）。</summary>
+        /// <summary>一屏几槽（= `UI_InfiniteScroll` 从布局量的那个数 ⇒ 由宿主给）。⚠️ **2026-11-01（`B115_W19`）就地订正（铁律 5）**：原写「那份源码本地没有」——**错**，真体在 `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp-firstpass/UnityEngine/UI/Extensions/UI_InfiniteScroll.cs`（448 行，`Init` :186 从 `content.childCount` 量）；`Shell/ShopCarousel.cs`（2026-10-31）已据它建成离散等价，本类仍由宿主给。</summary>
         public int Visible = 1;
         /// <summary>把奖励映射到原版 `ObtainableItem` 子类型名（谓词② `x.Item is Currency` 的输入；
         /// 同一份口径 = `OfferContainer.Content.ItemType`）。`null` ⇒ 谓词②判不了（出声一次）。</summary>

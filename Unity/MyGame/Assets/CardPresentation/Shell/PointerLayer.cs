@@ -1547,10 +1547,10 @@ namespace CardPresentation
                 var rt = ShellRuntime.Instance;
                 var loading = rt != null && rt.Loading != null ? rt.Loading : LoadingMenu.Current;
                 if (loading == null) return false;
-                // 🆕 **2026-10-18（`N27`）**：转圈件（原版 `MenuLoadingController`）**同样要挡指针** ——
-                //   判据 = 原版那颗暗底 `Image.m_RaycastTarget = 1`（`R4_黑场挡点击诊断.md` §四）。
-                //   它今天零生产调用点（唯一原版调用点 = 公会搜索 `JoinAllianceMenu`），**现在是给将来那一档提前接好**。
-                if (loading.Controller != null && loading.Controller.IsShowing) return true;
+                // 🔴 **2026-11-01（`B115_W18` · `B-310`）：转圈件那条【不挡指针】**（原为 `if (loading.Controller.IsShowing) return true;`）。
+                //   判据（我现读 `bundle_scenes_scenes_mainmenuwarpforge`）：`Holder`（`loadingIndicator` = GO 41）子树里**唯一**
+                //   `m_RaycastTarget = 1` 的件是暗底 `Menu Dark Background`（`MonoBehaviour_2499.json`），而它 `m_IsActive = 0`
+                //   （`GameObject/Menu Dark Background_478.json`）；骷髅/齿轮 `m_RaycastTarget = 0`（`MB_2446`/`MB_2501`）且坐在它下面 ⇒ 这条路上**没有射线靶**。
                 return loading.Panel != null && loading.Panel.gameObject.activeInHierarchy;
             }
         }

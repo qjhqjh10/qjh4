@@ -165,8 +165,13 @@ public static class ProfileWindowAssertE12
         CheckTerm(prof.transform, "Events/Forge Profile Container/Level",
                   ProfileTab.EvLevelTermOther, forgeHasIconNow ? ForgeData.LevelOf(forgeArmyNow).ToString() : "-",
                   "锻造厂格的等级那一行（夹具 `ForgeData.LevelOf(\"" + forgeArmyNow + "\")` = " + ForgeData.LevelOf(forgeArmyNow) + "）");
+        // 🔴 2026-11-01（`B115_W18` · `B-311②`）就地改期望值：战役格等级现在**真填**（`Shell/ProfileTab.cs` 的
+        //   `FillCampaignContainer`）。原版 `decomp_full/CampaignProfileContainer__OnInitialize.c`：
+        //   `level.text = Format(Loc("PlayerProfile/LevelDisplay"), campaign.SaveGame.NodesCollected.Count)`；
+        //   我们的等价物 = 本地进度表的条数口径 `CampaignData.ClaimedCount`（🔶 数据来源本地化，见那一段的标记）。
         CheckTerm(prof.transform, "Events/Campaign Profile Container/Level",
-                  ProfileTab.EvLevelTermOther, "-", "战役格的等级那一行");
+                  ProfileTab.EvLevelTermOther, CampaignData.ClaimedCount.ToString(),
+                  "战役格的等级那一行（=`CampaignData.ClaimedCount` = " + CampaignData.ClaimedCount + "）");
 
         // 奖杯行底下那行（`Victories text`，装的其实是 `Trophies`）
         CheckTerm(prof.transform, "Ranking/Legendary Display Profile/Content/Player Profile Ranked Trophies Gold/Victories text",

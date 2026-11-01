@@ -440,8 +440,8 @@ namespace CardPresentation
         ///     if (onComplete != null) onComplete();             // ★ 开窗后【立刻】回调（不等关窗）
         /// }
         /// </code>
-        /// <para>⚠️ 离线缺口：`LiveOpsAssetUtility.GetComponentReference` 需要「事件 → 弹窗 prefab」的资产引用，
-        /// 本地只解到 GUID、没解到 prefab 名 ⇒ 交给 <see cref="LiveOpsPopupPresenter"/> 装；钩子为空时出声 + 不出窗，
+        /// <para>⚠️ 离线缺口：`LiveOpsAssetUtility.GetComponentReference` 需要「事件 → 弹窗 prefab」的资产引用。
+        /// 🔴 **2026-11-01 就地订正（铁律 5）**：原来这里写「本地只解到 GUID、没解到 prefab 名」——**不成立**：GUID→prefab 根名本地**可解**（两步法：`AssetBundle_1.json` 的 `m_Container` → `m_PathID` → GameObject 名；成表 → `判据/B115_W16_活动GUID施工单.md`）。缺的**只是** Addressables 那套异步实例化 ⇒ 仍交给 <see cref="LiveOpsPopupPresenter"/> 装；钩子为空时出声 + 不出窗，
         /// 但**仍然走完成回调**（原版拿不到窗会 NRE，我们不让排期链卡死）。</para></summary>
         protected virtual void ShowTriggerEventPopup(ILiveOps newEvent, PopupOptions options, Action onComplete)
         {
@@ -1545,7 +1545,7 @@ namespace CardPresentation
             return state != LiveOpState.Expired && state != LiveOpState.NotAvailable;
         }
 
-        /// <summary>GUID → 我们已建的弹窗变体（值 = 2026-10-27 实读的 prefab 根名，见类注释那张表）。</summary>
+        /// <summary>GUID → 我们已建的弹窗变体（值 = 2026-10-27 实读的 prefab 根名，见类注释那张表）。⚠️ 本表**只装弹窗**（label 20/21）；label 10 = 活动**承载窗**（不是弹窗），走文件尾的 `LiveOpsEventEntry`（2026-11-01 · B115_W16 · ACT-01）。</summary>
         static readonly Dictionary<string, EventPopupVariant> _popupVariantByGuid = new Dictionary<string, EventPopupVariant>
         {
             { "e4c251967ff1a79468e8bd25b86b15b8", EventPopupVariant.BaseEvent },               // Base Event Popup
@@ -1569,8 +1569,8 @@ namespace CardPresentation
                 for (int i = 0; i < local.Components.Length; i++)
                     if (local.Components[i].Key == opts.PopupLabel) { guid = local.Components[i].Value; break; }
 
-            EventPopupVariant variant;
-            if (string.IsNullOrEmpty(guid) || !_popupVariantByGuid.TryGetValue(guid, out variant))
+            if (LiveOpsEventEntry.IsEventWindowGuid(guid)) return LiveOpsEventEntry.OpenWindowForGuid(guid);   // ACT-01：label 10 = 活动**承载窗**（不是弹窗）；原版 = `GetComponentReference(ev, MainWindow)` → `WindowsManager.OpenWindow(reference, ev)`
+            if (string.IsNullOrEmpty(guid) || !_popupVariantByGuid.TryGetValue(guid, out EventPopupVariant variant))
             {
                 // 原版同形：找不到组件 ⇒ LogWarning + 返回 null（不开窗）
                 Debug.LogWarning("[LiveOps] 事件 '" + ev.GetID() + "' 没有 label=" + opts.PopupLabel + " 的组件"
@@ -1703,5 +1703,104 @@ namespace CardPresentation
         public LiveOpsHandlerRefreshedSignal(ILiveOpsHandler liveOpsHandler) { Handler = liveOpsHandler; }
 
         public override string ToString() { return "LiveOpsHandlerRefreshedSignal(" + (Handler != null ? Handler.GetType().Name : "<null>") + ")"; }
+    }
+}
+
+// ============================================================ 🆕 2026-11-01（B115_W16 · ACT-01 / ACT-04）
+//   `EventComponents[MainWindow(10)]` = **活动承载窗**（不是弹窗）—— 补上这条缝的映射 + 生产入口。
+//
+//   判据（第一权威 = 反编译方法体 + 解包资源现读）：
+//   · 原版 `LiveOpsEvent.SelectEvent()` **恒用 `MainWindow`(10)**，与活动处于哪一档无关
+//     （`Shell/LiveOpsEvent.cs:1313-1341`；`:1334` 那句 `PopupLabel = (int)LiveOpsComponentRef.MainWindow`）。
+//   · 13 份本地 SO 里有 **5 份 Parent 事件**的 label 10 全指向同一个 GUID `9a266973…`
+//     （`Shell/LiveOpsLocalCatalog.cs:317 / :337 / :400 / :465 / :530`）；
+//     该 GUID → prefab **`Parent Event Window`**（GUID→`m_PathID`→GameObject 两步法实读，
+//     施工单 → `资料/完全复刻/判据/B115_W16_活动GUID施工单.md`）。
+//   · 原版的调用方 = `OpenEventButton.ButtonClick` → `ev.SelectEvent()`
+//     （`Shell/WindowsManager.cs` 的 `OpenEventHub` doc 已核那一跳：`GetComponentReference(ev, 10)` → `OpenWindow`）。
+//
+//   ⛔ 追加在**文件尾**：本文件被账按 `文件:行号` 钉着（`日常_奖励.tsv` 的 1561 / `菜单_外壳.tsv` 的 1628 ……），
+//     插进已有类体会让下游落点整体漂移。
+namespace CardPresentation
+{
+    /// <summary>`EventComponents[MainWindow(10)]` 的 GUID → 我们**哪一扇活动窗**，外加「点活动钮」的生产入口缝。
+    /// <para>⚠️ 为什么单开一处：`LiveOpsLocalBoot.OpenEventPopup` 只认**弹窗**（label 20 / 21）；
+    /// label 10 指向的是**活动承载窗**（`Parent Event Window`），塞不进 `EventPopupVariant`
+    /// ⇒ 补这条分支之前，`SelectEvent()` 必走 `LogWarning` + `return null`，**一次也开不出窗**。</para>
+    /// <para>🔶 自己设计（非原版）：原版 `GetComponentReference` 返回 `AssetReference`，由 Addressables 加载
+    /// **这个事件自己的** `MainWindow` prefab；我们没有 Addressables ⇒ 按 GUID 落到我们已建的等价窗上。
+    /// 为什么必须自己定：GUID ↔ prefab 根名本地可解（施工单见上），拿不到的是那套异步实例化 + 按事件分派的窗口 prefab 表。
+    /// 谁定的 + 日期：调度台 2026-11-01 派单 ACT-01（写手 B115_W16 落地；口径 = 沿用既有等价物 `WindowsManager.OpenEventHub`）。</para></summary>
+    public static class LiveOpsEventEntry
+    {
+        /// <summary>`EventComponentReferenceType.MainWindow` = **10**（`Shell/LiveOpsLocalCatalog.cs` 的 `LiveOpsComponentRef`）。
+        /// 13 份本地 SO 里 5 份 Parent 事件都指向这一个 GUID ⇒ 它就是「Parent 活动的承载窗」。
+        /// <para>⛔ 别按 label 名猜成「主菜单容器」：label 35（`MainMenuContainer`）是另一条
+        /// （`b28a4a68…` → `Base Game Mode Container 1x2 Raid or Army Release`，见同一份施工单）。</para></summary>
+        public const string ParentEventMainWindowGuid = "9a26697357770d8458298d89467fd459";
+
+        /// <summary>这个 GUID 是不是「活动**窗**」（而不是弹窗）那一类。目前只有 Parent 这一条。</summary>
+        public static bool IsEventWindowGuid(string guid)
+        {
+            return !string.IsNullOrEmpty(guid) && guid == ParentEventMainWindowGuid;
+        }
+
+        /// <summary>= 原版 `WindowsManager.OpenWindow(GetComponentReference(ev, 10), ev, closeAll:false, options)` 的等价：
+        /// 按 GUID 开那扇活动窗，返回**已经 Open** 的窗（调用方据此挂 `OnCloseWindow`）。
+        /// 未知 GUID ⇒ 出声 + null（与原版 `GetComponentReference` 找不到时同一形态，⛔ 不静默）。</summary>
+        public static GameWindow OpenWindowForGuid(string guid)
+        {
+            if (guid == ParentEventMainWindowGuid)
+            {
+                var win = WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Parent);
+                if (win != null)
+                    Debug.Log("[LiveOps] `MainWindow`(10) ⇒ 开活动承载窗 `Parent Event Window`（GUID " + guid
+                            + "；原版 = `GetComponentReference(ev, MainWindow)` → `WindowsManager.OpenWindow(reference, ev)`）");
+                else
+                    Debug.LogError("[LiveOps] `MainWindow`(10) 映射到 `Parent Event Window`，但 `WindowsManager.OpenEventHub` 没开出窗 ⇒ 静默挡在这里会很难查");
+                return win;
+            }
+            Debug.LogWarning("[LiveOps] `MainWindow` 的 GUID " + (guid ?? "<null>")
+                           + " 不在本地表里 ⇒ 不开窗（原版 `GetComponentReference` 找不到时 `LogWarning` + 返回 null；表 → `判据/B115_W16_活动GUID施工单.md`）");
+            return null;
+        }
+
+        /// <summary>= 原版 `OpenEventButton.ButtonClick`：**点那颗活动钮** ⇒ `ev.SelectEvent()`
+        /// （`SelectEvent` 恒用 label 10，见 `Shell/LiveOpsEvent.cs:1326`）。
+        /// <para>🔴 这是**生产入口缝**：现读全仓 `SelectEvent()` **0 个生产调用点** ——
+        /// 原版由 `OpenEventButton.ButtonClick` 调，我们左竖导航那颗钮（`MainMenuRuntime.OnNavClick` 的 `case 5`）
+        /// **直开** `WindowsManager.OpenEventHub`，绕过了它；而且 `BuildEventNavButtons` 建出的
+        /// 第 2 颗起（`idx = 6, 7 …`）在 `OnNavClick` 里落到 `default` ⇒ 只打「还没接」。
+        /// 接线补丁（不在本批白名单，⛔ 本类没改那个文件）→ 报告
+        /// `资料/完全复刻/报告/B115_W16_活动窗入口.md`。</para>
+        /// <para>⚠️ 「挑哪一场」沿用本仓既有的唯一规则（`LiveOpsLocalHandler.TrySelectActive`，
+        /// 与左竖导航那颗兜底钮同源）⇒ 不是新口径。</para></summary>
+        /// <param name="eventId">哪一颗钮对应的事件（`null` ⇒ 取「当前在期的 Parent 活动」）。</param>
+        /// <returns>true = 已派发给 `SelectEvent()`（窗到底开没开由它自己出声；原版该方法也是 void）。</returns>
+        public static bool OpenEventButton(string eventId = null)
+        {
+            var handler = LiveOpsLocalHandler.Default;
+            LocalLiveOpsEvent ev = null;
+            string why = null;
+            if (!string.IsNullOrEmpty(eventId))
+            {
+                ev = handler.GetEvent<LocalLiveOpsEvent>(eventId);
+                if (ev == null)
+                    why = "事件列表里没有 id='" + eventId + "'（`LoadFromCatalog` 按状态过滤过，见 `LiveOpsLocalBoot.ShouldLoadEvent`）";
+            }
+            else if (!handler.TrySelectActive(LiveOpsLocalKind.Parent, LiveOpsClock.NowUtc, out ev, out why))
+            {
+                ev = null;
+            }
+            if (ev == null)
+            {
+                Debug.LogWarning("[LiveOps] 点活动钮：挑不到可开的事件 ⇒ 不开窗（" + (why ?? "未知") + "）");
+                return false;
+            }
+            Debug.Log("[LiveOps] 点活动钮 ⇒ 事件 '" + ev.GetID() + "' 的 `SelectEvent()`"
+                    + "（原版 `OpenEventButton.ButtonClick` 那一跳；label 10 = `MainWindow`）");
+            ev.SelectEvent();
+            return true;
+        }
     }
 }

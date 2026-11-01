@@ -22,6 +22,10 @@
 //   triggerops <任意卡>         ⇒ 单卡逐条表
 //   triggerops GOF12 scan      ⇒ 外加**全池扫**：哪些卡真的会走进 `RandomAbilityChoiceOps` 的「抽一条」那一支
 //                                 （判据 = `ops.Count >= 2 ∧ TriggerRandomChoice(tn)`），逐卡打条数与 LogicIndex 分布
+//   🆕 triggerops trigger0      ⇒ **`trigger 0 (ThisCardPlayed)` 的桶空/非空逐卡读数**（`B115_S2`，2026-11-01）：
+//                                 数据半挂载汇总 + 逐 trigger 桶统计 + 逐卡「ca 兜底进不进得去」+ 行级
+//                                 「这一行的 ab 在桶里有没有 op」+ `AM54`/`GOF93`/`GOF104` 逐行明细。
+//                                 🔴 它回答的是 `B-211`「层②」那一格：桶非空 ⇒ `FireTriggerRowsByChosenAbility` 不会被叫到。
 // ⛔ 只读：不碰基线、不碰三个指纹、不改 `check`/`play`/`ai` 的任何输出；`rc` 恒 0（判决归调度台）。
 using System;
 using System.Collections.Generic;
@@ -51,6 +55,14 @@ static class TriggerOpsProbe
         bool scan = string.Equals((arg2 ?? "").Trim(), "scan", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(a, "scan", StringComparison.OrdinalIgnoreCase);
         if (string.Equals(a, "scan", StringComparison.OrdinalIgnoreCase)) a = "";
+
+        // 🆕 `trigger0`（`B115_S2`，2026-11-01 · 活状态表 `B-211` 的「层②」读数）：
+        //   「打出时逐 trigger 0 能力派发」这条路上唯一还靠推理的一格 —— 逐卡的 `TriggerOpsByNumber(0)` 桶空不空。
+        if (string.Equals(a, "trigger0", StringComparison.OrdinalIgnoreCase))
+        {
+            Trigger0Report(pool);
+            return 0;
+        }
 
         if (string.IsNullOrEmpty(a))
         {
@@ -180,6 +192,8 @@ static class TriggerOpsProbe
 
     static string Q(string s) => s == null ? "null" : "\"" + s + "\"";
 
+    static string CountOf(IReadOnlyList<EffectOp> ops) => ops == null ? "null" : ops.Count.ToString();
+
     // ==========================================================================================
     //  全池扫 —— 真正会走进「抽一条」那一支的卡有几张
     // ==========================================================================================
@@ -256,5 +270,194 @@ static class TriggerOpsProbe
             Console.WriteLine($"  · {c.Id} {c.Name}  {string.Join(" · ", detail)}");
         }
         Console.WriteLine($"  小计：条数 >= 2 的卡 **{cards2}** 张（(卡,trigger) 对 {pairs2}）· 其中含 `LogicIndex == -1` 的 **{cardsWithLgNeg}** 张");
+    }
+
+    // ==========================================================================================
+    //  `trigger0` 模式 —— `B115_S2`（2026-11-01 · 活状态表 `B-211` 的「层②」读数）
+    //
+    //  要回答的唯一一件事：**「卡被打出」那一刻，如果真把 `FireTriggerByNumber(…, 0, …)` 接上，
+    //  `FireTriggerRowsByChosenAbility` 会不会被叫到？** 它的闸是
+    //  `TriggerOpsByNumber(0) == null || Count == 0`（`EffectResolver.cs:21078`）⇒
+    //  只要某张卡的 **trigger 0 桶非空**，它的 `ca` 行（380/360/320…）就**永远轮不到**兜底。
+    //
+    //  三个读数：
+    //   ① `TriggerOpsByNumberSummary()`（数据半挂载情况，产品口径）；
+    //   ② 逐 trigger：多少张卡「列已知且桶非空 / 桶空 / 列未知（退回档，判不了）」；
+    //   ③ trigger 0：逐卡桶空不空 + **行级**「这一行自己的 `Ab` 在桶里有没有 op」（这才是
+    //      「这条 ability 有没有文本对应物」的真读数；`Lg == -1` 的行在原版就是空循环、单独计）。
+    //  外加 `AM54` / `GOF93` / `GOF104` 三张的逐行明细（`B-211` 的三张卡）。
+    //
+    //  ⛔ 只读：不碰基线 / 三个指纹 / `check`·`play`·`ai` 的任何输出；`rc` 恒 0。
+    // ==========================================================================================
+    const int T0Trigger = 0;
+    static readonly string[] T0Focus = { "AM54", "GOF93", "GOF104" };
+
+    static void Trigger0Report(List<CardDef> pool)
+    {
+        Console.WriteLine();
+        Console.WriteLine("=== ① 数据半挂载读数（`TriggerOpsByNumberSummary`，产品口径）===");
+        Console.WriteLine("  " + CardDatabase.TriggerOpsByNumberSummary());
+
+        // ---- ② 逐 trigger：桶非空 / 桶空 / 列未知 ----
+        //   [0]=有该 trigger 行的卡数 · [1]=列已知且桶非空 · [2]=列已知且桶空 · [3]=列未知（退回档）
+        var byTrigger = new SortedDictionary<int, int[]>();
+        foreach (var c in pool)
+        {
+            var rows = c.TriggerAbilityIndices;
+            if (rows == null || rows.Length == 0) continue;          // 整卡列未知 / 明确没有行
+            bool known = c.HasTriggerOpsByNumber;
+            var trigs = new HashSet<int>();
+            foreach (var r in rows) if (r != null && r.Trigger >= 0) trigs.Add(r.Trigger);
+            foreach (int t in trigs)
+            {
+                int[] cell;
+                if (!byTrigger.TryGetValue(t, out cell)) { cell = new int[4]; byTrigger[t] = cell; }
+                cell[0]++;
+                if (!known) { cell[3]++; continue; }
+                var ops = c.TriggerOpsByNumber(t);
+                if (ops != null && ops.Count > 0) cell[1]++; else cell[2]++;
+            }
+        }
+        Console.WriteLine();
+        Console.WriteLine("=== ② 逐 trigger：桶非空 / 桶空 / 列未知（卡数）===");
+        Console.WriteLine("  trigger | 有该行卡数 | 列已知·桶非空 | 列已知·桶空 | 列未知(退回档)");
+        foreach (var kv in byTrigger)
+        {
+            var v = kv.Value;
+            Console.WriteLine($"  {kv.Key,7} | {v[0],10} | {v[1],13} | {v[2],11} | {v[3],13}");
+        }
+
+        // ---- ③ trigger 0 专项 ----
+        int cardsWithRows = 0;
+        int knownNonNull = 0, knownNull = 0, colUnknown = 0;
+        int rowsTotal = 0, rowsLgNeg = 0, rowsWithOps = 0, rowsWithoutOps = 0;
+        var rowsByCard = new SortedDictionary<int, int>();          // trigger-0 行数 → 卡数
+        var noOpsByCa = new SortedDictionary<int, int>();           // 「这一行自己 Ab 没 op」→ 按 ca 计数
+        var nullBucketCards = new List<string>();                   // 桶为空的卡（= 今天会被 ca 兜底接住的候选）
+        var nonEmptyBuckets = new List<string>();                    // 桶非空的卡（= 接上数值路会**双发**的候选）
+        foreach (var c in pool)
+        {
+            var rows = c.TriggerAbilityRowsOf(T0Trigger);           // null = 列未知 · [] = 明确没有
+            if (rows == null || rows.Length == 0) continue;
+            cardsWithRows++;
+            int n = rows.Length;
+            int prev; rowsByCard.TryGetValue(n, out prev); rowsByCard[n] = prev + 1;
+
+            bool known = c.HasTriggerOpsByNumber;
+            var bucket = known ? c.TriggerOpsByNumber(T0Trigger) : null;
+            int bucketCount = bucket == null ? 0 : bucket.Count;
+            if (!known) colUnknown++;
+            else if (bucketCount > 0)
+            {
+                knownNonNull++;
+                nonEmptyBuckets.Add($"{c.Id} {c.Name}（op {bucketCount} 条 · trigger 0 行 {n} 条）");
+            }
+            else { knownNull++; nullBucketCards.Add(c.Id ?? c.Name); }
+
+            foreach (var r in rows)
+            {
+                if (r == null) continue;
+                rowsTotal++;
+                if (r.Lg < 0) { rowsLgNeg++; continue; }            // 原版这条 ability 没有 logic 行 ⇒ 空循环
+                int opsForAb = 0;
+                if (bucket != null)
+                    foreach (var op in bucket)
+                        if (op != null && op.AbilityIndex == r.Ab) opsForAb++;
+                if (opsForAb > 0) rowsWithOps++;
+                else
+                {
+                    rowsWithoutOps++;
+                    int pc; noOpsByCa.TryGetValue(r.Ca, out pc); noOpsByCa[r.Ca] = pc + 1;
+                }
+            }
+        }
+        Console.WriteLine();
+        Console.WriteLine($"=== ③ trigger {T0Trigger}（ThisCardPlayed）逐卡 ===");
+        Console.WriteLine($"  有 trigger 0 行的卡：{cardsWithRows} 张（共 {rowsTotal} 行；其中 lg=-1 的 {rowsLgNeg} 行）");
+        Console.WriteLine($"  · 列已知 ∧ 桶**非空** ⇒ ca 兜底**进不去**：{knownNonNull} 张");
+        Console.WriteLine($"  · 列已知 ∧ 桶**空**   ⇒ ca 兜底**会**被叫到：{knownNull} 张");
+        Console.WriteLine($"  · 列未知（退回档，判不了，⛔ 不算任何一边）：{colUnknown} 张");
+        Console.WriteLine($"  行级：它自己的 `Ab` 在桶里有 op 的 {rowsWithOps} 行 · **没有** op 的 {rowsWithoutOps} 行");
+        Console.Write("    「没有 op」那批按 `ca` 分布：");
+        foreach (var kv in noOpsByCa) Console.Write($"ca={kv.Key}×{kv.Value}  ");
+        Console.WriteLine();
+        Console.Write("  trigger-0 行数 → 卡数：");
+        foreach (var kv in rowsByCard) Console.Write($"{kv.Key}行×{kv.Value}张  ");
+        Console.WriteLine();
+        if (nullBucketCards.Count > 0)
+        {
+            Console.WriteLine($"  「列已知 ∧ 桶空」的卡（{nullBucketCards.Count} 张，前 40）：");
+            for (int i = 0; i < nullBucketCards.Count && i < 40; i++) Console.Write(nullBucketCards[i] + " ");
+            Console.WriteLine();
+        }
+        Console.WriteLine();
+        Console.WriteLine($"=== ⑤ trigger 0 **桶非空**的卡（{nonEmptyBuckets.Count} 张）===");
+        Console.WriteLine("  ⚠️ 这批是「若把 `FireTriggerByNumber(0)` 接进出牌点，会把**已经由文本路跑过的正文再跑一遍**」的候选");
+        Console.WriteLine("     —— 补派发器时**必须逐张确认**，别让它们双发。");
+        foreach (var s in nonEmptyBuckets) Console.WriteLine("  · " + s);
+        Console.WriteLine();
+        Console.WriteLine("  ⚠️ 反向同样重要：「桶空」在这里**不等于**「这张卡没有正文」——");
+        Console.WriteLine("     战术/防御的正文走的是 `desc` 解析（`PlayTacticBodyDeferred`），**不经过** `TriggerOpsByNumber` 的那张表；");
+        Console.WriteLine("     单位的 `Rally:` 正文在 `TriggerOps(\"rally\")` 那一格，而数值路的退回档查的是 `TriggerOps(\"thiscardplayed\")`（恒 null）。");
+
+        // ---- ④ 三张焦点卡逐行 ----
+        Console.WriteLine();
+        Console.WriteLine("=== ④ `B-211` 三张焦点卡（AM54 / GOF93 / GOF104）逐行 ===");
+        foreach (var id in T0Focus)
+        {
+            CardDef c = null;
+            foreach (var x in pool) if (Eq(x.Id, id)) { c = x; break; }
+            if (c == null) { Console.WriteLine($"  !! 池内找不到 {id}"); continue; }
+            var rows = c.TriggerAbilityRowsOf(T0Trigger);
+            bool known = c.HasTriggerOpsByNumber;
+            var bucket = known ? c.TriggerOpsByNumber(T0Trigger) : null;
+            // 对照：文本路真正取正文的那两格（单位 = `TriggerOps("rally")`；战术 = `desc` 解析，不在这张表里）
+            var rallyOps = c.TriggerOps("rally");
+            string tn;
+            bool hasTn = CardDef.TryAbilityTriggerNameOfNumber(T0Trigger, out tn);
+            Console.WriteLine();
+            Console.WriteLine($"  == {c.Id} · {c.Name} · type={c.Type} ==");
+            Console.WriteLine($"     HasTriggerOpsByNumber = {known}"
+                            + (known ? "（产品口径）" : " 🔴（未挂表 ⇒ 退回档）"));
+            Console.WriteLine($"     TriggerOpsByNumber(0) = {(bucket == null ? "null（桶空）" : bucket.Count + " 条")}");
+            Console.WriteLine($"     退回档会查的名字：TryAbilityTriggerNameOfNumber(0) = {(hasTn ? tn : "认不出")}"
+                            + $" ⇒ TriggerOps(\"{(hasTn ? tn.ToLowerInvariant() : "?")}\") = "
+                            + (hasTn ? CountOf(c.TriggerOps(tn.ToLowerInvariant())) : "-"));
+            Console.WriteLine($"     对照 · TriggerOps(\"rally\") = {CountOf(rallyOps)} 条"
+                            + (rallyOps == null && c.Type == "unit" ? "（⚠️ 单位卡本应从这里取正文）" : ""));
+            if (bucket != null && bucket.Count > 0)
+            {
+                var abCnt = new SortedDictionary<int, int>();
+                foreach (var op in bucket)
+                {
+                    if (op == null) continue;
+                    int k = op.AbilityIndex, pc; abCnt.TryGetValue(k, out pc); abCnt[k] = pc + 1;
+                }
+                Console.Write("       桶内按 AbilityIndex 分布：");
+                foreach (var kv in abCnt) Console.Write($"ab={kv.Key}×{kv.Value}  ");
+                Console.WriteLine();
+            }
+            if (rows == null) { Console.WriteLine("     trigger 0 行：列未知（判不了）"); continue; }
+            if (rows.Length == 0) { Console.WriteLine("     trigger 0 行：明确没有（[]）"); continue; }
+            Console.WriteLine($"     trigger 0 行 {rows.Length} 条：");
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var r = rows[i];
+                if (r == null) { Console.WriteLine($"       [{i}] null"); continue; }
+                int opsForAb = 0;
+                if (bucket != null)
+                    foreach (var op in bucket)
+                        if (op != null && op.AbilityIndex == r.Ab) opsForAb++;
+                string verdict = r.Lg < 0 ? "lg=-1 ⇒ 原版空循环，不贡献 op"
+                                         : (opsForAb > 0 ? $"有 {opsForAb} 条 op（文本能表达）"
+                                                         : "**0 条 op（文本表达不了 ⇒ 需要行级执行器）**");
+                Console.WriteLine($"       [{i}] ab={r.Ab} lg={r.Lg} ca={r.Ca} ⇒ 该 ab 在桶里 {opsForAb} 条 · {verdict}");
+            }
+            // 派发口那一层：桶非空 ⇒ `FireTriggerRowsByChosenAbility` 今天压根不会被叫
+            Console.WriteLine(known && bucket != null && bucket.Count > 0
+                ? "     ⇒ 层②结论：**桶非空 ⇒ `FireTriggerRowsByChosenAbility` 不会被叫到**（ca 行轮不到兜底）"
+                : (known ? "     ⇒ 层②结论：**桶空 ⇒ 若接上 `FireTriggerByNumber(0)`，ca 兜底会被叫到**"
+                         : "     ⇒ 层②结论：列未知 ⇒ 只能走退回档，⛔ 不下判断"));
+        }
     }
 }

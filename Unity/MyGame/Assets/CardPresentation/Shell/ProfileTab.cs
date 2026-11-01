@@ -944,11 +944,11 @@ namespace CardPresentation
             var riCur = Node(di, "RankImage", new PxRect(dtL + 138.61f, bgB + 14f, dtL + 216.79f, bgB + 6f));
             riCur.gameObject.SetActive(false);
             DrawDivisionArt(di, divR, r - l);
-
-            var ft = Node(ct, "footer", new PxRect(ftL, ftT, ftR, ftB));
+            float dy = (r - l) * DivArtSideRatio;   // `Content` 的 VLG 把 footer 及以下整体推下去这么多（见 `UI-22`）
+            var ft = Node(ct, "footer", new PxRect(ftL, ftT + dy, ftR, ftB + dy));
             // `Highest Faction Rating`（出厂 F · 无字段引用 —— §A.1）⇒ 关
             var hf = Node(ft, "Highest Faction Rating",
-                          new PxRect(ftL - 177.72f, ftT + 160.10f, ftR - 232.28f, ftT + 199.90f));
+                          new PxRect(ftL - 177.72f, ftT + 160.10f + dy, ftR - 232.28f, ftT + 199.90f + dy));
             hf.gameObject.SetActive(false);
             // `MainRating`（逐卡 T/F）> `Mission Milestones Progress` / `Global Rating`
             // 🔴 **2026-10-24（U2 · 父链归真）**：`Global Rating` 原版挂在 **`MainRating` 下面**
@@ -957,11 +957,11 @@ namespace CardPresentation
             //   ⇒ 实拍 `09_档案窗_Profile页.png` 里「最高排名」卡**左外侧**浮着一颗小图标 + 一条破折号
             //   （用户参考图那张卡只有「传奇点数 ⚙ 0」，没有这一行）—— 这就是那个残件的来源。
             //   ⇒ 现在整块连 `Global Rating` 一起受 `MainRating` 的开关管。
-            var mr = Node(ft, "MainRating", new PxRect(mrL, mrT, mrR, mrB));
+            var mr = Node(ft, "MainRating", new PxRect(mrL, mrT + dy, mrR, mrB + dy));
             if (sealsOn)
             {
-                var ms = Node(mr, "Mission Milestones Progress", new PxRect(msL, msT, msR, msB));
-                var steps = Node(ms, "steps", new PxRect(msL, msT, msR, msB));
+                var ms = Node(mr, "Mission Milestones Progress", new PxRect(msL, msT + dy, msR, msB + dy));
+                var steps = Node(ms, "steps", new PxRect(msL, msT + dy, msR, msB + dy));
                 for (int i = 0; i < 4; i++)
                 {
                     float x = msL + SealStep * i;
@@ -975,26 +975,26 @@ namespace CardPresentation
                     //     pid→名 = `_tmp_view/sprite_pids_ALL.json`）。
                     //   ⇒ 用户实拍 `账户-个人资料参考图.png` 里「当前排名」卡底部**确实有一排灰色封印**（未达成态），
                     //     所以「出厂看不见」是错的。
-                    //   ⛔ **仍然没画**，但理由换成**几何**：我们摆 footer 用的是「段位大图还没喂」那一版布局快照
-                    //     （prefab 里 `DivisionImage` 高 = 0.00）⇒ footer 停在卡片**中部**（457.7），
-                    //     照 prefab 坐标画封印会**压在那张 306px 的段位大图上**。原版那是个 `VerticalLayoutGroup`
-                    //     （`Content`，`ctrlH=1`）：大图一旦有真实高度（= 卡宽 × 0.72），footer 会被推到卡片**底部**
-                    //     （≈763.7–829.1）——用户实拍那排封印就落在 775–826，与这条推算吻合。
-                    //   ⇒ 修法 = 先把 footer 按 VLG 重算到卡底、再画 4 颗 `Rank Skull Empty`；
-                    //     ⚠️ 用户实拍那一版是 **5 颗、横贯整卡**（与 prefab 的 4 颗不同 = 又一个版本差）⇒ 颗数以谁为准待裁定。
-                    Node(steps, i == 0 ? "RankedSealStep" : "RankedSealStep (" + (i + 1) + ")",
-                         new PxRect(x, msT + 13.09f, x + SealW, msT + 13.09f + SealH));
+                    //   ✅ **2026-11-01（`B115_W8` · `UI-22`）已按这条画**：footer 已按 VLG 重算到卡底（见上面 `dy`），
+                    //     封印那排落在实拍那一带（`Current Rank` 763.8..824.2）· 颗数本波仍画 **4**（= 作者态实例数）。
+                    //     🔴 **2026-11-01（`B115_W18`）就地订正**：原文「实拍那 5 颗 = 另一个版本」**不成立** ⇒ 原版运行期颗数 = `RankedDivision.TotalSeals`（见 `报告/B115_W18_指针层与战役格.md` §三·3），5 颗 = 另一个**段位**。
+                    //   · 每颗画它的 `Empty` 子件：**stretch 锚 + sizeDelta 0** ⇒ 与 `RankedSealStep` **同矩形**；
+                    //     sprite `Rank_Skull_Empty`（pid −7214020762604782334 = `Rank Skull Empty`）· `m_Color=(1,1,1,1)`
+                    //     · `m_PreserveAspect=1`（判据 = `Player Profile Window.prefab` 的 `Empty` `114003750907562392`）。
+                    var sealR = new PxRect(x, msT + dy + 13.09f, x + SealW, msT + dy + 13.09f + SealH);
+                    var seal = Node(steps, i == 0 ? "RankedSealStep" : "RankedSealStep (" + (i + 1) + ")", sealR);
+                    Rect(seal, "Rank_Skull_Empty", sealR, "Empty", L_Art, null, true);
                 }
             }
-            var gl = Node(mr, "Global Rating", new PxRect(glL, glT, glR, glB));
+            var gl = Node(mr, "Global Rating", new PxRect(glL, glT + dy, glR, glB + dy));
             // `Secondary Icon`（出厂 F）+ `Main Icon` + 数值
-            var gs = Rect(gl, ArtRankIcon, new PxRect(glL, glB, glL, glB), "Secondary Icon", L_Art, null, true);
+            var gs = Rect(gl, ArtRankIcon, new PxRect(glL, glB + dy, glL, glB + dy), "Secondary Icon", L_Art, null, true);
             if (gs != null) gs.gameObject.SetActive(false);
-            Rect(gl, ArtRankIcon, new PxRect(glL, glT - 14.84f, glL + 60f, glT + 30.16f), "Main Icon", L_Art, null, true);
+            Rect(gl, ArtRankIcon, new PxRect(glL, glT + dy - 14.84f, glL + 60f, glT + dy + 30.16f), "Main Icon", L_Art, null, true);
             // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/footer/MainRating/Global Rating/Individual rating value`
             //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base **31.38**
             //   （⚠️ 两颗的 `m_fontSize` 不同：`Current` 40.0 / `Highest` 36.3 —— 上限与 base 仍逐位相同）。
-            Text(gl, Dash6, new PxRect(glL + 60f, glT, glR, glB), Color.white, "Individual rating value",
+            Text(gl, Dash6, new PxRect(glL + 60f, glT + dy, glR, glB + dy), Color.white, "Individual rating value",
                  RvPx, L_Text, autoFit: true, autoMinPx: RvAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 40f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-24（U2 · 父链归真）**：`MainRating` 出厂 **F** 的那一份（`Highest Rank`，`displaySeals=0`）
@@ -1240,10 +1240,10 @@ namespace CardPresentation
             BuildEventContainer(ev, "Campaign Profile Container", EvT + EvStep * 2f,
                                 string.IsNullOrEmpty(campBg) ? ArtSubmenuBack : campBg,
                                 string.IsNullOrEmpty(campBg), false,
-                                TermOr(EvTermCampaign, EvTitleFallbackCampaign), EvLevelTermOther, 23f);
+                                TermOr(EvTermCampaign, EvTitleFallbackCampaign), EvLevelTermOther, 23f); FillCampaignContainer(ev);
             Debug.Log("[Profile] `Events` 三格：标题走官方词条（战将精通 / 最高锻造厂等级 / 当前战役）；"
-                    + "格里的 ArmyName / 等级·胜利数**原版装的是服务端活动状态** ⇒ 我们留空态"
-                    + "（`ArmyName` 空串、`Level` 行印「词条 + `-`」），⛔ 不编数字。");
+                    + "「当前战役」的 `ArmyName` 按 `CampaignData.Selected` 填（`UI-07`），其余文案与等级行仍留空态"
+                    + "（`Level` 行印「词条 + `-`」），⛔ 不编数字。");
         }
 
         /// <summary>一个事件容器（555×175）。`warlord` == true 是 `Warlord  Mastery Container` ——
@@ -1931,6 +1931,87 @@ namespace CardPresentation
             }
             else if (levelT != null)
                 levelT.gameObject.SetActive(false);                    // 没有战报档 ⇒ 保留 `BuildEventContainer` 的空态但不显示假的 0
+        }
+
+        // ============================================================ 账 `个人资料_成就_排行:91` · `CampaignProfileContainer.OnInitialize`
+        // 判据（🥇 `decomp_full/CampaignProfileContainer__OnInitialize.c` 2026-11-01 现读，逐句；`cpp2il/out_il2csharp/…/CampaignProfileContainer.cs` 交叉）：
+        //   ① `army = campaign.Data.Army`（虚调用 `+0x1b8`）→ `armyIcon.sprite = ArmyUtilities.GetArmyIcon(army)`（`+0x28`）
+        //   ② `armyName.text = GameStaticData.CardArmyToString(army)`（`+0x38`）
+        //   ③ `background.sprite = ArmyUtilities.GetArmyMediumBackGround(army)`（`+0x30`）
+        //   ④ `level.text = string.Format(Loc("PlayerProfile/LevelDisplay"), <已领节点数>)`（`+0x40`）——
+        //      值 = `((List<string>)(campaign.SaveGame(+0x20) + 0x30 /*NodesCollected*/))._size`（列表 `+0x18`）。
+        //      链的每一跳都有判据：`LiveOpsEvent.LoadEventData` 写 **Data→+0x18 / SaveGame→+0x20**
+        //      （`out_cpp2il_dev_ilspy/Everguild.LiveOps/LiveOpsEvent.cs:701-730` 的 `this+24` / `this+32` 与
+        //       `UpdateCachedSave((LiveOpsEventPersistence)obj4)`）· `CampaignPersistence.NodesCollected` 在 **+0x30**
+        //      （`CampaignPersistence` ctor 把 `new List<string>()` 写 `this+48`；`Campaign__CollectRewards` 基础档那一支
+        //      `Add` 到 `+0x30`、高级档那一支到 `+0x38`）· `List<T>._size` 在 **+0x18**（`_items` 0x10 / `_version` 0x1C）。
+        //      ⚠️ **原版数的是【条目】**（可重复节点重复领会再加一条）；我们本地只有 `bool` 表 ⇒ 用 `CampaignData.ClaimedCount`（**去重**格数）。
+        //   ⑤ 没有战役时 `Behaviour.set_enabled(armyIcon/armyName/level, false)` —— 三件一起关（`bVar11` = 事件数据带 eventId）
+        // 本仓等价物：`CampaignData.Selected`（= 选中的阵营；落盘 `SaveKeys.ActiveCampaign`）·
+        //   `ArmyIcons.Texture` / `ArmyIcons.LocalizedName`（= `GetArmyIcon` 那张徽记表 / `CardArmyToString` 那一列官方词条）。
+        // 🔶 自己设计（非原版）：**④ 的数据来源** = 本地 `CampaignData.ClaimedCount`（我们自己的战役进度存档）——
+        //   原版读的是 `PlayerInfo.MainCampaignPersistence`（**服务端**下发的玩家对象，关服后本地永远拿不到）·
+        //   为什么必须自定：判据在服务端，本地唯一等价物就是这份进度表 · 调度台 2026-11-01 派 `B115_W18` 施工 ·
+        //   视觉差异：只有「可重复节点被重复领取」时比原版少（原版数条目、我们数格）。
+        // ⚠️ ③ 底图已在 `BuildEvents` 里按 `PurchasePremiumWindow.ArmyBackgroundArt` 取（本方法不重复）。
+        void FillCampaignContainer(Transform ev)
+        {
+            if (ev == null) return;
+            var c = ev.Find("Campaign Profile Container");
+            if (c == null)
+            {
+                Debug.LogWarning("[Profile] `Campaign Profile Container` 没建出来 ⇒ 「当前战役」的徽记/阵营名/等级没处填。");
+                return;
+            }
+
+            float top = EvT + EvStep * 2f;                    // 与 `BuildEvents` 里那一格同一个 top
+            // `Badge` 的框 = `Player Profile Window.prefab` 的 `Campaign Profile Container/Badge`
+            //   （RT 224278792506960236：中心锚 + `anchoredPosition (-192.5,-17.6701)` + `sizeDelta 123.0651×104.2845`；
+            //    Image `114174782033829093`：`m_Sprite = 0`（运行期才填）/ `m_Color = (1,1,1,1)` / **`m_PreserveAspect = 1`** / `m_Type = 0`）
+            //   ⇒ `keepAspect: true` 不是我们挑的。
+            var badgeR = new PxRect(1198.59f, top + 53.02f, 1321.65f, top + 157.31f);
+            string army = CampaignData.Selected;
+            bool has = !string.IsNullOrEmpty(army);
+            string name = has ? (ArmyIcons.LocalizedName(army) ?? "") : "";
+            var iconTex = has ? ArmyIcons.Texture(ArmyIcons.Id(army)) : null;
+            if (has && name.Length == 0)
+                Debug.LogWarning("[Profile] 「当前战役」格的阵营名查不到（army=`" + army + "` · `ArmyIcons` id="
+                               + ArmyIcons.Id(army) + "）⇒ 照原版把这一格留空（⛔ 不静默、也不编一个名字）。");
+            if (has && iconTex == null)
+                Debug.LogWarning("[Profile] 「当前战役」格的阵营徽记图取不到（army=`" + army + "` · `ArmyIcons` id="
+                               + ArmyIcons.Id(army) + "）⇒ 那一格不画徽记（⛔ 不静默；原版 `GetArmyIcon` 给 null 时同样什么都不画）。");
+
+            var badge = c.Find("Badge");
+            var nameT = c.Find("ArmyName");
+            var levelT = c.Find("Level");
+
+            // ① 徽记：原版在 `if (bVar11)` 里无条件 `set_sprite` ⇒ 取不到图时我们**不编**，出声。
+            if (iconTex != null && badge != null)
+                MenuDraw.Rect(badge, iconTex, badgeR, "Image", Q + L_Art, null, true);
+            else if (iconTex != null)
+                Debug.LogWarning("[Profile] `Campaign Profile Container/Badge` 节点不在 ⇒ 阵营徽记没画（⛔ 不静默）。");
+
+            // ⑤ 三件的显隐 = `has`（原版 `Behaviour.set_enabled`；我们这一侧的等价物是 `GameObject` 显隐）
+            if (badge != null) badge.gameObject.SetActive(has);
+            if (nameT != null)
+            {
+                nameT.gameObject.SetActive(has);
+                var lb = nameT.GetComponent<Label>();
+                if (lb != null) lb.SetText(name);
+            }
+            else
+                Debug.LogWarning("[Profile] `Campaign Profile Container/ArmyName` 节点不在 ⇒ 「当前战役」的阵营名没画（⛔ 不静默）。");
+
+            // ④ 等级：原版**只在 `if (bVar11)` 里写**（词条 = `PlayerProfile/LevelDisplay`）；没有战役时保留出厂空态并关掉
+            if (levelT != null)
+            {
+                levelT.gameObject.SetActive(has);
+                var lb = levelT.GetComponent<Label>();
+                if (lb != null && has)
+                    lb.SetText(string.Format(TermOr(EvLevelTermOther, ""), CampaignData.ClaimedCount));
+            }
+            else
+                Debug.LogWarning("[Profile] `Campaign Profile Container/Level` 节点不在 ⇒ 「当前战役」的等级没画（⛔ 不静默）。");
         }
     }
 }

@@ -1443,8 +1443,8 @@ namespace CardPresentation
                     WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Parent);
                     break;
                 default:
-                    Debug.Log($"[Menu] 左竖导航第 {idx + 1} 个钮（{NavName(idx)}）**还没接** —— " +
-                              "原版开的是各自的窗口/场景，属阶段二后面的层");
+                    if (TryOpenEventNavButton(idx)) break;
+                    Debug.Log($"[Menu] 左竖导航第 {idx + 1} 个钮（{NavName(idx)}）**还没接** —— 原版开的是各自的窗口/场景，属阶段二后面的层");
                     break;
             }
             // ============================================================ 🔴 **2026-10-11（`A1522④`）**
@@ -4029,7 +4029,7 @@ namespace CardPresentation
         /// 验收口径要求「入口必须点得开」），⛔ 别删、也别改成「没有活动就不建」。</para></summary>
         void BuildEventNavButtons(Transform holder)
         {
-            var evNavItems = ActiveParentEventsForNav(LiveOpsClock.NowUtc);
+            var evNavItems = ActiveParentEventsForNav(LiveOpsClock.NowUtc); _eventNavIds.Clear();   // 🔴 每重建一次左栏就重填（`OnNavClick` 用 `idx-5` 取）；⛔ 只 Add 不清会在重建后错位 —— 2026-11-01 B115_W16
             if (evNavItems.Count == 0)
             {
                 string evNavTitle; System.DateTime? evNavEnd;
@@ -4057,7 +4057,7 @@ namespace CardPresentation
                               hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
                               iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f),
                               timerEndUtc: ev.EndUtc > LiveOpsClock.NowUtc ? ev.EndUtc : (System.DateTime?)null,
-                              overIconTex: OverIconTexOf(ev));
+                              overIconTex: OverIconTexOf(ev)); _eventNavIds.Add(ev.EventId);   // 与 `5 + i` 同序 ⇒ `OnNavClick(5+i)` 用 `idx-5` 取到「这颗钮是哪个事件」 —— 2026-11-01 B115_W16
                 }
                 Debug.Log("[Menu] 事件钮按原版 `BuildEventButtons` 建了 " + evNavItems.Count + " 颗（在期 Parent 活动）"
                         + " —— 第 i 颗顶 = 143.41 + (5+i)×153.33；判据 = 原版 `NavigationPanelController__BuildEventButtons.c`");
@@ -5578,6 +5578,52 @@ namespace CardPresentation
             if (cam == null) return xPx / LayoutSpace.DesignPxW;
             var r = cam.rect;
             return r.x + (xPx / LayoutSpace.DesignPxW) * r.width;
+        }
+
+        // ============================================================ 🆕 2026-11-01（B115_W16 · 死钮补齐）
+        //   `BuildEventNavButtons` **已经按原版建了「每个在期 Parent 活动一颗钮」**（`5 + i`），但
+        //   `OnNavClick` 的 switch 只认 0–5 ⇒ 第 2 颗起（idx ≥ 6）落到 `default`，现场只打一句「还没接」。
+        //   原版那一跳 = `OpenEventButton.ButtonClick` → `ev.SelectEvent()`（恒用 label 10 = `MainWindow`），
+        //   判据与 label 10 → prefab 的映射 → `Shell/LiveOpsHandler.cs` 文件尾的 `LiveOpsEventEntry`。
+        //   ⛔ 追加在**类尾**（本文件被账按 `文件:行号` 钉着：4030 / 4066 / 4076 / 4179 … 5171），
+        //     插进中间会让下游落点整体漂移。
+        /// <summary>第 idx 颗事件钮 ↔ 事件 id（与 `5 + i` 同序；`_eventNavIds[i]` = 第 `5+i` 颗那颗钮）。
+        /// 每建一次左栏由 <see cref="BuildEventNavButtons"/> 重填（`Clear` 后 Add）。</summary>
+        readonly List<string> _eventNavIds = new List<string>();
+
+        /// <summary>`OnNavClick` 的 `default` 支：idx ≥ 5 且能对上第 `idx-5` 颗事件钮 ⇒ 走原版那条
+        /// 「点这颗钮 = 开**这个事件自己**的 `MainWindow`」（= `LiveOpsEventEntry.OpenEventButton`）。
+        /// <para>🔴 **挑不到时必须回退** `OpenEventHub(Parent)`（= 今天的行为），⛔ 不许什么都不做 ——
+        /// 没有在期活动 / handler 里没有那个 id（自检钉了假时钟但没 `LoadFromCatalog`）都会走到这里。</para>
+        /// <para>⚠️ `idx == 5` 不走这里（`case 5` 被 `Editor/MainMenuScene.cs:18371-18410` 钉着，⛔ 不许删）；
+        /// 那两颗行为上等价 —— 5 份 Parent 事件的 `MainWindow` 全指向同一个 prefab `Parent Event Window`
+        /// （`判据/B115_W16_活动GUID施工单.md` §一 第 1 行）。</para></summary>
+        /// <returns>true = 已经处理（调用方直接 `break`）；false = 不认识这个 idx（落回「还没接」那句）。</returns>
+        bool TryOpenEventNavButton(int idx)
+        {
+            if (idx < 5) return false;                                   // 0–4 各有自己的 `case`，不该走到这里
+            if (idx == 5) return false;                                  // 第 6 颗（`case 5`）保持原路，见上面那条
+            string eventId = (idx - 5) < _eventNavIds.Count ? _eventNavIds[idx - 5] : null;
+            if (!string.IsNullOrEmpty(eventId) && LiveOpsEventEntry.OpenEventButton(eventId))
+                return true;
+            // 挑不到（没有在期活动 / 表里没有这一项）⇒ **回退**今天的行为
+            WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Parent);
+            Debug.Log("[Menu] 事件钮 idx=" + idx + "（事件 id=" + (eventId ?? "<null>")
+                    + "）没有可开的事件 ⇒ **回退** `OpenEventHub(Parent)`（⛔ 不静默；原版此时根本没有这颗钮）");
+            return true;
+        }
+
+        /// <summary>⚠️ **只给自检用**：直接填「第 `5 + i` 颗事件钮 → 事件 id」那张表。
+        /// <para>🔴 **为什么非要一个注入口**：真实数据里**建不出 2 颗事件钮** —— 13 份 SO 的 4 场 Parent 活动期
+        /// **两两不相交**（`ExpansionOrks1` 2025-04-03~05-01 · `ECRelease` 05-22~06-20 · `SWRelease` 10-23~11-21 ·
+        /// `ExpansionUM1` 12-18~次年 01-08，`DarkZealots` 还是 `enabled=0`）⇒ `ActiveParentEventsForNav` **任何时刻
+        /// 最多 1 场** ⇒ `BuildEventNavButtons` 最多建 1 颗，`idx ≥ 6` 那颗**用夹具造不出来**。</para>
+        /// <para>⚠️ 注入的只是**这张表**；被测的派发链（`OnNavClick` → `TryOpenEventNavButton` →
+        /// `LiveOpsEventEntry.OpenEventButton` → `SelectEvent()`）**一个字没改**。⛔ 生产路径不许调它。</para></summary>
+        public void SetEventNavIdsForTest(params string[] ids)
+        {
+            _eventNavIds.Clear();
+            if (ids != null) _eventNavIds.AddRange(ids);
         }
     }
 }

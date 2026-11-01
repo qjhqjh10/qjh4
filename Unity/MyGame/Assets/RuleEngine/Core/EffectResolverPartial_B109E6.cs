@@ -117,9 +117,9 @@ namespace RuleEngine
                 fired++;
 
                 // ② 正文那一半：今天只有**文本 op** 能跑（见文件头「如实差异 ①」）。
-                //    ⛔ 不要在这里执行数据行（`chosenAbility 340` 等）—— 效果已由手写等价物承担，重复 = 双发。
+                //    🆕 2026-11-01（`B115_S5` 波 1）：正文**为空**时改交给 `ca` 执行器（`Core/EnchantmentExecutor_B115.cs`）；正文非空时⛔ 别再跑数据行（= 双发）。
                 var eops = e.Card.TriggerOpsByNumber(triggerNumber);
-                if (eops == null || eops.Count == 0) continue;
+                if (eops == null || eops.Count == 0) { RunEnchantmentLogicRows(ctx, e, u, owner, slot, triggerNumber, tn, actingCard, targetCard); continue; }
 
                 // 两道（target / board）ability 级 criteria：读**附魔卡的行**、被筛对象是**载体**。
                 // `abilityActingGate: true` 打开第一道（acting）—— 原版 `CanTriggerAbility.c:127-130` 对

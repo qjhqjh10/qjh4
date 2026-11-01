@@ -493,11 +493,34 @@ def sub_emitters(a, m):
     return out or None
 
 
+def curve_or_const(v):
+    """MinMaxCurve → **曲线态或常量态都能表达**的数据；源字段**不存在**时返回 None。
+
+    · 曲线态（`minMaxState` 1/2）⇒ 同 `curve_raw()`（`mult` + `keys`）。
+    · 常量态（`minMaxState` 0/3，含 `TwoConstants`）⇒ 同 `mm()`（`isConst` + `c`/`cMin`）。
+    🔴 2026-11-01（`B115_W11` · `T02 · A1580①`）：原来 `size_over_lifetime()` **只用 `curve_raw()`**，
+       而它对常量态一律 `None` ⇒ **全常数 `SizeModule` 在清单里直接变成 `null`**。
+       实测 13 场里有 **12 颗**中招：`battlearena1`/`battlearena2` 的 `TinyFlames`
+       （`separateAxes` · Y = `TwoConstants(0.8, 1.5)`）· `darkangels` 的 10 颗 `Star twinkle`
+       （`curve` = `TwoConstants(0.5, 1.0)`，⚠️ 旧判据写的「x/y/z 全 1.0~1.0」是**读错了字段**
+       —— `separateAxes=false` 时 Unity 只认 `curve`，y/z 是残留死值）。
+    ⛔ 源字段不存在时必须返回 **None**，绝不能拿 `mm()` 的 `default=0.0` 兜底（会把尺寸写成 0）。
+    """
+    if not isinstance(v, dict):
+        return None
+    c = curve_raw(v)
+    if c:
+        return c
+    return mm(v)
+
+
 def size_over_lifetime(ps):
-    """`SizeModule`（sizeOverLifetime）→ `{'separateAxes': bool, 'x'/'y'/'z': curve_raw}`，否则 None。
+    """`SizeModule`（sizeOverLifetime）→ `{'separateAxes': bool, 'x'/'y'/'z': curve_or_const}`，否则 None。
 
     原版常用它做「随生命长大」：leviathan 的 `Gas`/`Fume Burst` 是 0.16~0.23 → 1.0
     （**前段只有最终尺寸的 1/5**），我们没建 ⇒ 全程满尺寸，平均大 2~4 倍。
+    🔴 2026-11-01（`B115_W11` · `T02 · A1580①`）：常量态也吐（`curve_or_const`），
+       原来只吐曲线态 ⇒ 12 颗全常数 `SizeModule` 被丢成 `null`。
     """
     sm = ps.get('SizeModule')
     if not isinstance(sm, dict) or not sm.get('enabled'):
@@ -507,15 +530,15 @@ def size_over_lifetime(ps):
     if sep:
         # ⚠️ `separateAxes=true` 时 Unity 把 **X 轴**序列化成 `curve`（不是 `x`），
         #    y/z 才是独立字段 —— 实读 `ParticleSystem_1762`：curve 的 scalar=0.5、y/z 各 1.0。
-        cx = curve_raw(sm.get('curve')) or curve_raw(sm.get('x'))
+        cx = curve_or_const(sm.get('curve')) or curve_or_const(sm.get('x'))
         if cx:
             out['x'] = cx
         for ax in ('y', 'z'):
-            c = curve_raw(sm.get(ax))
+            c = curve_or_const(sm.get(ax))
             if c:
                 out[ax] = c
     else:
-        c = curve_raw(sm.get('curve'))
+        c = curve_or_const(sm.get('curve'))
         if not c:
             return None
         for ax in ('x', 'y', 'z'):
@@ -2127,6 +2150,16 @@ def build_manifest(a, include_all_particles=False):
             'lengthScale': r6(_f(psr.get('m_LengthScale'), 2.0)),
             'maxParticleSize': r6(_f(psr.get('m_MaxParticleSize'), 0.5)),
             'minParticleSize': r6(_f(psr.get('m_MinParticleSize'), 0.0)),
+            # 🆕 2026-11-01（B115_W11 · `T02 · A1580③`）：**`ParticleSystemRenderer` 的三个字段原来没抽也没接**。
+            #   判据 = 原版逐颗现读（`battlearena1` 60 个 psr）：
+            #     · `m_NormalDirection` —— 公告板法线方向；**1.0 × 50 · 0.5 × 10**（非默认的 10 颗会不同）；
+            #     · `m_SortMode` —— 透明粒子排序模式；**0 × 43 · 1 × 14 · 2 × 3**；
+            #     · `m_MaskInteraction` —— SpriteMask 交互；**0 × 60**（本 build 全是 None ⇒ 接上 = no-op，
+            #       但按铁律 11「全部都要做」照抽照接，⛔ 别因为当前恒 0 就省掉）。
+            #   ⚠️ `_f` 的兜底值 = Unity 新建 ParticleSystemRenderer 时的默认（`normalDirection 1.0` / 两个 enum 0）。
+            'normalDirection': r6(_f(psr.get('m_NormalDirection'), 1.0)),
+            'sortMode': int(_f(psr.get('m_SortMode'), 0)),
+            'maskInteraction': int(_f(psr.get('m_MaskInteraction'), 0)),
             'matColor': (lambda m: ([r6(_f(m.get('r'), 1.0)), r6(_f(m.get('g'), 1.0)),
                                      r6(_f(m.get('b'), 1.0)), r6(_f(m.get('a'), 1.0))]
                                     if isinstance(m, dict) else None))(

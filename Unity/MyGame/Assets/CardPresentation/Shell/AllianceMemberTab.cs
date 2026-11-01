@@ -1899,7 +1899,7 @@ namespace CardPresentation
             var idxR = new PxRect(r.x1 + 2.52f, r.y1 + 2.56f, r.x1 + 47.04f, r.y1 + 97.34f);
             // 🆕 **2026-10-17（`A1024③`）**：原版 `member index` = **Asar**（`R_A1024_字体按用途普查.md` §2·5·1）
             var lbIdx = v.Text(row, idxR,
-                   (rowNumber >= 0 ? rowNumber : m.Index).ToString(), Color.white, "member index", 40f, 3, 18f, wrap: false,
+                   (rowNumber >= 0 ? rowNumber : m.Index).ToString(), Color.white, "member index", 40f, RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 3), 18f, wrap: false,
                    alignLeft: false, face: TmpFont.Face.LatinUi);   // A319 #10（原版 `Center`(2)）· 原版 `折行=0`
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member index` = `对齐=Center/**Midline**`
             //   （同一份 dump；`Alliance Member Entry` 那一族 ⇒ **同名不同档**，与 `Individual rating value`
@@ -1909,11 +1909,11 @@ namespace CardPresentation
             var av = new PxRect(r.x1 + 50.57f, r.y1 + 11.87f, r.x1 + 149.44f, r.y1 + 114.93f);
             var avn = MenuDraw.Node(row, "Avatar Item Small", av);
             v.Rect(avn, "Player_Avatar_selected", AllianceMemberRowAvatarGeo.HighlightRect(av),
-                   "Highlight", 2, null, true);
+                   "Highlight", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 0), null, true);
             var imgC = MenuDraw.Node(avn, "Image Container", new PxRect(av.x1, av.y1, av.x2, av.y1 + 65.69f));
-            v.Cosmetic(imgC, m.AvatarArt, AllianceMemberRowAvatarGeo.ImageRect(av), "Image", 2);
+            v.Cosmetic(imgC, m.AvatarArt, AllianceMemberRowAvatarGeo.ImageRect(av), "Image", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 1));
             v.Rect(avn, "Player_Profile_Border", AllianceMemberRowAvatarGeo.BorderRect(av),
-                   "Border", 2, null, true);
+                   "Border", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 2), null, true);
             // 在线状态点 —— 🔴 **2026-10-31（`B106_W12` · AUD05 社交窗 §1·2 A26）：原版是【单颗 Image + 三档颜色】**，
             //   不是我们原来那两颗（绿 `40K_icon_status_online` / 红 `40K_icon_status_offline`）。
             //   判据（逐句）：`decomp_full/AllianceMemberEntry__Initialize.c:166-192` +
@@ -1926,15 +1926,15 @@ namespace CardPresentation
             //      `m_Sprite: {guid: af6e51c13c75a6b48840fc2113df3597}`、`m_PreserveAspect: 1`、
             //      出厂 `m_Color (0, 1, 0.0736, 1)`），档位**只靠 tint** 区分。
             v.Rect(row, StatusArt, new PxRect(r.x1 + 52.90f, r.y1 + 68.33f, r.x1 + 75.46f, r.y1 + 97.35f),
-                   "connection status", 2, StatusColorOf(m), true);
+                   "connection status", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 3), StatusColorOf(m), true);
             var memNameR = new PxRect(r.x1 + 149.44f, r.y1 + 11.87f, r.x1 + 694.75f, r.y1 + 59.26f);
             var lbMemName = v.Text(row, memNameR, m.Name ?? "",
-                   Color.white, "member name", 50f, 3, 18f, wrap: true, alignLeft: true);   // A319 #11（原版 `Left`(1)）· A258：原版 `折行=1`
+                   Color.white, "member name", 50f, RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 3), 18f, wrap: true, alignLeft: true);   // A319 #11（原版 `Left`(1)）· A258：原版 `折行=1`
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `member name` = `对齐=Left/**Midline**`（同一份 dump）。
             //   ⚠️ 同格的 `member role`（下一句）原版是 `Left/**Middle**` ⇒ **两行不同档**，⛔ 别一刀切。
             MenuDraw.SetVAlign(lbMemName, Label.VAlign.Midline, memNameR);
             v.Text(row, new PxRect(r.x1 + 149.44f, r.y1 + 59.26f, r.x1 + 495.52f, r.y1 + 98.56f), RoleText(m.Role),
-                   new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, 3, 18f, wrap: true,
+                   new Color(0.887f, 0.887f, 0.887f, 1f), "member role", 41.45f, RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 3), 18f, wrap: true,
                    alignLeft: true);   // A319 #12（原版 `Left`(1)）· A258：原版 `折行=1`
             // 两处评级（`VerticalLayoutGroup` 里上下两行，各 46.5 高）
             // 🔴 2026-10-12（A391）：两颗的【折行**不同档**】—— Draft `折行=1` / Ranked `折行=0`
@@ -2790,6 +2790,59 @@ namespace CardPresentation
         {
             if (m == null) return null;
             return m.Season == SocialData.CurrentSeason ? m.RankedRating : null;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-01（`B115_W9` · 旧任务 `UI-11`）：**头像三层的渲染队列按【行】分段**
+        // ================================================================================================
+        //  改前 = `AllianceMemberTab.cs` 那三处队列实参恒 `2`（经 `SocialView.Rect/Cosmetic` 的
+        //    `Page.Q + QOff + qOff`）⇒ **所有行同一个号**，行与行之间由「到相机的 3D 距离」决胜
+        //    （CLAUDE §三「分层要用渲染队列，不能用 z」那条的同一个根因）⇒ 谁压谁**不定**。
+        //
+        //  🔴 **判据（原版为什么会重叠、以及重叠时谁在上）**：
+        //    · 原版每一行是**一棵独立的 `AllianceMemberEntry` prefab 实例**（`§A·2·3` 独立根
+        //      `6030421012472178610`），三层 `Highlight / Image / Border` 是**同一行的子件**
+        //      ⇒ uGUI 在**同一 CanvasRenderer 序**里按**兄弟序**画：行内三层按建序叠加、
+        //      后建的那一行压前一行（原版**没有**逐行设置 `sortingOrder` 的地方）。
+        //    · 重叠是**几何事实**（我们自己量出来的，不是看图猜的）：`HighlightRect` =
+        //      `(av.x1, av.y1−3.53, av.x2+3.34, av.y2−36.37)` 再 ×1.9 about center
+        //      ⇒ 相对行顶 **−23.25 … +110.15**；行距 = `CellH(100) + CellGapY(7.22)` = **107.22**
+        //      ⇒ **相邻两行在 y∈[83.97, 110.15]（26.18px）上真重叠**
+        //      （`Image` −23.67…+107.70、`Border` +10.23…+92.34 同理）。⛔ 所以「行与行不重叠」是错的。
+        //
+        //  🔴 **为什么不塞进页带**：`QOff + L_Art` 这一带（`QBandMember` 3205–3209）只剩 5 个号
+        //    （`L_Panel/L_Btn/L_Art/L_Text(+L_Hit)` 已吃到 3208）⇒ 装不下「每行 4 层」。
+        //    改用 `QCellBase` 之上那段 **3210–3299**，它与本页**结构互斥**（两条闸都在代码里）：
+        //      ① `ShowGeneral` / `ShowTrophies` 每次都 `SetActive(false)` 另一棵（`:457-458` / `:468-469`）
+        //         ⇒ 成员行（`GeneralDetails`）与奖杯格（`TrophiesWindow`）**永远不会同时渲染**；
+        //      ② 入盟支 `AllianceMemberTab` 与未入盟支 `AllianceSearchTab` 互斥（同一页的两种状态）
+        //         —— 与页带 3200–3209 被两支**共用**是同一条前提（`AlliancesTab:124-126`），不新开假设。
+        //    ⚠️ 号段容量：90 个号 / 每行 4 层 = **22 档**，而联盟成员上限 `Members: --/20`（原版那一格）
+        //       ⇒ `rowNumber` **never 超过 20** ⇒ **一次折叠都不会发生**（`% 22` 只是防御）。
+        //    ⚠️ 可见行数上界（另一条独立上界）：视口高 586.42 / 行距 107.22 ⇒ 每列最多 6 行同屏。
+        const int QRowArtBase = 3210;   // 这一段与奖杯格带（`QCellBase` 3210）**共用**，靠上面 ①② 两条闸
+        const int QRowArtStride = 4;    // 一行 4 层：0 `Highlight` < 1 `Image` < 2 `Border` < 3 字/状态点
+        const int QRowArtBands = 22;    // 22 行 × 4 层 = 88 个号（3210–3297，3298/3299 留空）
+
+        /// <summary>某一行的**某一层**该用的**页内偏移**（`SocialView.Rect/Cosmetic/Text` 会再加
+        /// `Page.Q + QOff` ⇒ 这里把它减掉，传进去落地就是**绝对渲染队列**）。
+        /// <para>`rowNumber` = 排序后序号（1 起，`BuildAll` 传的就是 `i + 1`）—— 相邻行 ⇒ 档号 +4，
+        /// 所以「后建那一行的 `Border`（+2）> 前一行的 `Image`（+1）」恒成立。</para>
+        /// <para>🔴 **为什么第 3 层是「字 / 状态点」而不是别的**：这些件**几何上**必须压在头像的
+        /// `Highlight`/`Image` 之上（`Highlight` 实绘 x 从 `r.x1+4.58` 起、`Image` 到 `r.x1+165.69`，
+        /// 而 `member index` 占 `x∈[2.52,47.04]`、`member name/role` 从 `149.44` 起、状态点 `52.90…75.46`
+        /// 整颗落在头像框里）；它们彼此**不重叠**（三段的 x 区间互斥）⇒ 可以共用一层。
+        /// 它们在 y 上都不越过行距（最高的 `member index` 到 97.34 &lt; 107.22）⇒ **不需要跨行次序**。</para>
+        /// <para>⚠️ 页没接上（`v`/`Page` 为 null）⇒ 每层退回改前的常量（`2` / `3`）：那种情况下
+        /// `v.Rect` 自己就会 NRE，这里的回退只是「别把一个空引用错误伪装成队列错误」。</para></summary>
+        static int RowArtQueue(SocialView v, int rowNumber, int layer)
+        {
+            if (v == null || v.Page == null) return layer < 3 ? 2 : 3;
+            // `QOff` 是 `SocialView` 的 `protected abstract`（本类读不到）⇒ 按**宿主类型**取同一份常量
+            // （两支各自的 `QOff` 就是在 `AllianceMemberTab:45` / `AllianceSearchTab:15` 里写的那两个）。
+            int qOff = v is AllianceSearchTab ? AlliancesTab.QBandSearch : AlliancesTab.QBandMember;
+            int band = ((rowNumber < 0 ? 0 : rowNumber) % QRowArtBands) * QRowArtStride;
+            return QRowArtBase + band + layer - (v.Page.Q + qOff);
         }
     }
 }

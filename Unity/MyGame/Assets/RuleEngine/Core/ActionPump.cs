@@ -2074,18 +2074,18 @@ namespace RuleEngine
         /// CardScript targetCard = null, bool shouldIgnoreDestroy = false)` 的等价物 ——
         /// **对四条泳道各跑一次** <see cref="CancelEffectsFromDisappearingUnitFromQueue"/>。
         ///
-        /// <para>**原版四个调用点（现状 = 已接 1 / 仍缺 2 / jam 支由同一处覆盖 —— 见下）**：
-        /// `RemoveSelfBuffsFromQueues`（`CancelEffectsFromDisappearingUnit(bm, card, card, true)`）·
+        /// <para>**原版四个调用点（现状 = 已接 4 / 4，见下）**：
+        /// `RemoveSelfBuffsFromQueues`（`CancelEffectsFromDisappearingUnit(bm, card, card, true)` —— 原版那条全文两行、只是转调）·
         /// `ResolveAction` 的 jam 支（`(bm, card, null, false)`）·
         /// `ResolveJamUnit`（`(bm, card, null, false)` —— **就是账 L832 那一格**）·
         /// `ResolveTransformUnit`（`(bm, card, card, true)`）。</para>
         ///
-        /// <para>🔴 **调用点现状（2026-10-29 `B94_B15` 现读订正：旧文「本批一个都没接」已过期）**：
-        /// **已接 1 / 4** = `EffectResolver.DoJam` 的 ⑤′（`Core/EffectResolver.cs:16144`，传 `(jammed, null, false)`，
-        /// 同时覆盖原版 `ResolveJamUnit` **与** `ResolveAction` 的 jam 支那两格，位置 = 广播之后、光环窄口之前）。
-        /// ⏭ **仍缺 2**：`RemoveSelfBuffsFromQueues`（原版 `(card, card, true)` —— 本仓**全树 0 调用者**，落 `EffectResolver`/`RuleCore`）
-        /// 与 `ResolveTransformUnit`（**状态层已建** = `Core/TransformUnit_B94B12.cs:178` 的 `RuleCore.TransformUnit`，但**无生产端**、也无 27 号动作道 ⇒ 账 L172 仍 C）。
-        /// ⚠️ ⑤′ 的 doc 自承「`ActionType` 未回填 ⇒ 撤不到三档豁免」**已部分过期**（账 L490 现读 11 处回填）；三档豁免的真正缺口见下面 `…FromQueue` 的豁免段。</para>
+        /// <para>🔴 **调用点现状（2026-11-01 `B115_W7` 现读订正：旧文「已接 1 / 仍缺 2」已过期）**：
+        /// **已接 4 / 4**，两个调用点＋残骸支覆盖原版四格 ——
+        /// ① `EffectResolver.DoJam` 的 ⑤′（现读 `Core/EffectResolver.cs:16446`，传 `(jammed, null, false)`，
+        /// 同时覆盖原版 `ResolveJamUnit` **与** `ResolveAction` 的 jam 支那两格，位置 = 广播之后、光环窄口之前）；
+        /// ② `ResolveTransformUnit` —— `Core/TransformUnit_B94B12.cs` 自己就调 `CancelEffectsFromDisappearingUnit(ctx, old, old, true)`（判据 `ResolveTransformUnit.c:654`），而 `TransformUnit` **有生产端且已接线**（`EffectResolver.cs:19548` 的 `chosenAbility 85` · `RuleCorePartial_B103W5.cs:700` 的 `chosenAbility 80`）⇒ 旧文「无生产端 / 无 27 号动作道」已过期；
+        /// ③ 第 4 格 `RemoveSelfBuffsFromQueues` = `RuleCore` 残骸支那一行（`B98_G1`，现读 `RuleCore.cs:10021`，实参 `(u, u, true)` 用**旧** `u`）。⚠️ ⑤′ 的「`ActionType` 未回填」**已部分过期**（账 L490 现读 11 处回填）；三档豁免的真正缺口见下面 `…FromQueue` 的豁免段。</para>
         /// </summary>
         /// <returns>四条道一共撤掉几条。</returns>
         public static int CancelEffectsFromDisappearingUnit(BattleContext ctx, UnitState disappearingUnit,

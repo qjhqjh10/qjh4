@@ -159,14 +159,14 @@ namespace CardPresentation
             public bool ShowAmount;
         }
 
-        /// <summary>出厂值 = prefab 里那三颗 TMP 的原文（`Title` / `New Text` / `Type`），无图、无 lore。
-        /// 走到这一档 = 调用方没给内容（原版此时是「空上下文」⇒ `LogError("No item available") + return`，**什么都不建**；本档只当哨兵，⛔ 别再拿它铺文本）。</summary>
+        /// <summary>出厂值 = prefab 静态子树里**四颗 TMP 的原文**（`Title` / `New Text` / `Type` / `LoreText`），无图、无阵营。
+        /// ⚠️ **2026-11-01（`B115_W19`）就地订正（铁律 5）**：原写「本档只当哨兵，⛔ 别再拿它铺文本」—— 正相反：原版空上下文时 `Open()` 只是「不铺内容」，prefab 骨架仍由 `GameWindow.TryOpen` 的 `SetActive(true)` 显示 ⇒ **本档就是原版那一刻的画面**，`Build()` 的空上下文支必须铺它（`Lore` = `LoreText` 的序列化 `m_text`，不是我们编的）。</summary>
         public static Context DefContext()
         {
             return new Context
             {
                 Title = "Title", Description = "New Text", Type = "Type",
-                Army = null, Lore = null, Art = null, ArtName = null,
+                Army = null, Lore = LoreFactoryText, Art = null, ArtName = null,
                 Amount = 1, ShowAmount = false,   // `Amount = 1` = 原版 ctor 的默认实参（`ItemDisplayWindowContext(ObtainableItem item, int amount = 1)`）；这一支本身是错误路径
             };
         }
@@ -267,7 +267,7 @@ namespace CardPresentation
         {
             LastOpened = this;
             Build();
-            if (IsEmptyContext()) return;   // 原版那一支 `LogError + return` 到此为止（声已由 `Build()` 出过，⛔ 别再来一句 `Type` 留空）
+            if (_emptyCtx) return;   // 原版那一支 `LogError + return` 到此为止（声已由 `Build()` 出过，⛔ 别再来一句 `Type` 留空；⚠️ 用 `_emptyCtx` 而不是 `IsEmptyContext()` —— `Build()` 之后 `_ctx` 已被换成出厂文案）
             if (string.IsNullOrEmpty(_ctx.Type))
                 Debug.LogWarning("[ItemDisplay] `Type` 那一行**留空**：原版 = I2(`ItemDrawerOptions.TypeString`)，"
                                + "而那份 `ItemDrawerConfig` 资产在解包树里**不存在**（84 个 bundle 的 MB 逐字节搜 "
@@ -287,17 +287,17 @@ namespace CardPresentation
         /// <summary>照 prefab 逐节点搭（**先清空重来** —— 换内容就是重建，同 `GenericOptionsPanel.Build`）。</summary>
         public void Build()
         {
-            // 🔴 **原版第一句**（`decomp_full/ItemDisplayWindow__Open.c:23-27`；可读体 =
+            // 🔴 **原版第一句**（`decomp_full/ItemDisplayWindow__Open.c:23-34`；可读体 =
             //   `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/ItemDisplayWindow.cs` 的 `Open()`）：
-            //   `if (context.item == null) { CustomDebug.LogError("No item available"); return; }` —— **一个节点都不建**。
-            //   ⛔ 别退回「`DefContext()` 那三颗出厂文本（`Title` / `New Text` / `Type`）」那条老路：那是 prefab 的
-            //   **静态初值**，不是「没上下文时该铺的东西」（`报告/C2.md` §七·2 记的既有偏离，本轮按原版改掉）。
-            //   ⚠️ 我们的 `Context` 没有 `.item` 对象 ⇒ 判据 = `IsEmptyContext()`（类尾）。
-            if (IsEmptyContext())
-            {
-                Debug.LogError("[ItemDisplay] No item available");   // 消息体 = 原文字面量 `No item available`（`out_il2csharp` 现读）；前缀 `[ItemDisplay]` 是本仓日志惯例
-                return;
-            }
+            //   `if (context.item == null) { CustomDebug.LogError("No item available"); return; }` —— **`Open()` 不铺内容**。
+            //   ⚠️ **2026-11-01 更正（`B115_R1`）**：原写「**一个节点都不建**」——不成立：prefab 静态子树仍在（`GameWindow__TryOpen.c:44-47`
+            //   先 `SetActive(true)` 再 `Open()`）⇒ 原版那一刻画面 = **静态骨架 + 出厂文案**（不是空屏）。
+            //   ⚠️ 我们的 `Context` 没有 `.item` 对象 ⇒ 判据 = `IsEmptyContext()`（类尾）；两支语义合并成一条 `LogError`。
+            bool empty = IsEmptyContext();
+            _emptyCtx = empty;   // ⚠️ 本方法末尾会把 `_ctx` 换成出厂文案 ⇒「空」这件事**只在这里算一次**（`Open()` 也读这个字段）
+            if (empty) Debug.LogError("[ItemDisplay] No item available");   // 消息体 = 原文字面量 `No item available`（`out_il2csharp` 现读）；前缀 `[ItemDisplay]` 是本仓日志惯例
+            if (empty) _ctx = DefContext();   // 原版这一支到此 `return`，但 prefab 静态子树仍在（`GameWindow__TryOpen.c:44-47`：先 `SetActive(true)` 再 `Open()`）
+            // ⇒ 本批（`B115_W19`）把「骨架」与「填内容」分开：空上下文时**骨架照建**（文案 = prefab 四颗 TMP 的 `m_text`），只跳过「内容填充」那一半
             var root = transform;
             MenuDraw.ClearChildren(root);
             MissingArt.Clear();
@@ -353,16 +353,16 @@ namespace CardPresentation
             var card = MenuDraw.Node(root, "Card Display", new PxRect(CardL, CardT, CardR, CardB));
             var fbR = FlavourRect(out float s);
             _flavourBg = MenuDraw.Node(card, "FlavourTextBG", fbR);
-            var fbTex = CardArt.FlavorBg(_ctx.Army);
+            var fbTex = empty ? CardArt.Solid() : CardArt.FlavorBg(_ctx.Army);
             // 🔴 原版 `FlavourTextSO.GetClanFlavorBackground(army)` 的**兜底支**：表里没有这个 army ⇒
             //   返回 `defaultBackground`（`FlavorTextSO__GetClanFlavorBackground.c` 末段那句 Load）。
             //   而工程的 `defaultBackground` 与 `army = 10 (Ultramarines)` 是**同一张**（判据 →
             //   `CardArt.FlavorBg` 的 doc：「`defaultBackground` 与 army=0(Neutral)/10(Ultramarines) 是同一张」）
-            //   ⇒ 卡背里 `Neutral`（`Cardback_All_*` 那一批，armyId = 0）走它。⛔ 不静默留白。
-            if (fbTex == null) fbTex = CardArt.FlavorBg("Ultramarines");
+            //   ⇒ 卡背里 `Neutral`（`Cardback_All_*` 那一批，armyId = 0）走它。⛔ 不静默留白。⚠️ **空上下文照 prefab 出厂态**：`m_Sprite = {fileID: 0}` + `m_Color` 全白 ⇒ uGUI 画成一块**不透明白 quad**（底图是 `Open()` ④ 运行时才换上去的，那一跳没发生）
+            if (!empty && fbTex == null) fbTex = CardArt.FlavorBg("Ultramarines");
             if (fbTex != null)
                 MenuDraw.Rect(_flavourBg, fbTex, fbR, "Image", QFlavour);   // `m_PreserveAspect = 0` ⇒ 拉伸铺满
-            else
+            else if (!empty)
                 Debug.LogWarning("[ItemDisplay] 阵营「" + (_ctx.Army ?? "<null>") + "」没有风味底图"
                                + "（`CardArt.FlavorBg` 取不到）⇒ 风味条**只画字 / 无字就整块不亮**");
 
@@ -569,5 +569,21 @@ namespace CardPresentation
             var fr = ItemDrawer.FrameOf(box, fit: ItemDrawer.RootFit.HeightControlsWidth);
             return new AmountCell { K = fr.K, Rect = fr.Map(m.QtyX1, m.LabelY1, m.QtyX2, m.LabelY2) };
         }
+
+        // ============================================================ 静态骨架（`B-305` · 原版 prefab 的静态子树）
+        /// <summary>`LoreText` 的**出厂文本** = `Item Display Window.prefab` 那颗 TMP 的序列化 `m_text`（逐字照抄，⛔ 不是我们编的）。
+        /// <para>⚠️ 原版 `ItemDisplayWindow.Open()` 在 `context.item == null` 时只做 `LogError("No item available") + return`
+        /// ⇒ 第 ③ 跳（`loreText.text = itemLore`，`ItemDisplayWindow__Open.c`）**没跑过** ⇒ 这颗 TMP 停在出厂值上；
+        /// 而 `GameWindow.TryOpen` 已经先 `SetActive(true)`（`GameWindow__TryOpen.c:44-47`）⇒ **它看得见**。
+        /// 我们照抄这行为（⛔ 不改成空串、也⛔ 不拿 Description 顶 —— 那是「静默改原版」）。</para>
+        /// <para>⚠️ 位置在类尾：本文件被账按行号钉着（`菜单_外壳.tsv` 的 `:130/:150/:266/:288` 等）⇒ 插在 `Context` / `BuildAmount` 之前会把它们顶下去。</para></summary>
+        public const string LoreFactoryText =
+            "Ghazghkull Mag Uruk Thraka is a mighty prophet of the Waaagh! He is the most influential greenskin in the galaxy, and commands billions to war.";
+
+        /// <summary>这一次 `Build()` 走的是不是「空上下文」那一支（= 原版 `context.item == null`）。
+        /// <para>⚠️ **必须存字段**：`Build()` 会把 `_ctx` 换成 <see cref="DefContext"/> 的出厂文案（好把骨架铺出来），
+        /// 那之后 <see cref="IsEmptyContext"/> 对「给了但全空」那一支就不再成立 ⇒ `Open()` 只能读这一格。
+        /// 位置同样在类尾（同上，别顶行号）。</para></summary>
+        bool _emptyCtx;
     }
 }

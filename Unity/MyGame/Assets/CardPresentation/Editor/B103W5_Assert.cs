@@ -343,7 +343,7 @@ public static class B103W5_Assert
     //  原版 `71` 与 `70` 共用同一个 `case` 体（`AbilityLogic__PlayAbility.c:722-878`），唯一差别是
     //  `:868` 多写一句 `*(local_res8 + 0x280) = uVar12`（把**刚召唤出来的那张**记到 `AbilityLogic` 实例侧）。
     //  🔴 `+0x280` ≠ `+0x278`（`B103_W5c` §7·1 已就地订正）：`+0x278` 是 `CardScript.referencedCards`（列表）
-    //  ⇒ 我们的 `UnitState.ReferencedCards`；`+0x280` 在本文件里对应的等价物 = **`DoDeploy` 末尾的 last-target 记账**
+    //  ⇒ 我们的 `CardInstance.ReferencedCards`（`UnitState.ReferencedCards` 是它的转发属性，2026-11-01 `B115_W23`）；`+0x280` 在本文件里对应的等价物 = **`DoDeploy` 末尾的 last-target 记账**
     //  （`ctx.LastTargets` = 刚部署的那批、`ctx.LastTarget = [0]`）—— 紧跟的下一行 `them/it` 读的就是它。
     //  ⇒ **零产品代码改动**，这里只钉「`DoDeploy` 之后 `ctx.LastTargets` 就是被召唤那张」。
 

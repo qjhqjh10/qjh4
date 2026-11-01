@@ -431,8 +431,10 @@ namespace RuleEngine
             var prev = ctx.PreviousAbilityTargets;
             for (int i = 0; i < prev.Count; i++)
             {
-                var u = prev[i];
-                if (u == null) continue;
+                var r = prev[i];
+                if (r.Inst == null && r.Unit == null) continue;
+                var u = r.Unit != null ? r.Unit : r.ResolveUnit(ctx);   // 🔴 2026-11-01（`B115_W23` · E4/E6）：`PreviousAbilityTargets` 的元素已是 `CardRef`（能装手牌实例）；
+                if (u == null) continue;                                 //   不在棋盘的那一档（手牌 / 已离场）`AiTargetRef` 表达不了 ⇒ 跳过（⛔ 不是「判不出阵营」那一档，别复用下面那条告警）
                 int side = SideOf(ctx, u);
                 if (side < 0)
                 {

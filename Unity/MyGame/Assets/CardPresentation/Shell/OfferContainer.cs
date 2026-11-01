@@ -1028,8 +1028,8 @@ namespace CardPresentation
                 public bool AutoScroll = true;
                 /// <summary>`ManualInit()` 跑过没有（= 原版 `scroll.ManualInit()`）。</summary>
                 public bool Initialized;
-                /// <summary>`ManualInit` 的一屏槽数（我们给 `IndexAt` 用的输入 —— ⚠️ 原版是
-                /// `UI_InfiniteScroll` 从布局自己量的，那份源码本地没有 ⇒ 这一格**由调用方给**）。</summary>
+                /// <summary>`ManualInit` 的一屏槽数（我们给 `IndexAt` 用的输入 —— 原版是 `UI_InfiniteScroll` 从布局自己量的）。
+                /// ⚠️ **2026-11-01（`B115_W19`）就地订正（铁律 5）**：原写「那份源码本地没有」——**错**：真体在 `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp-firstpass/UnityEngine/UI/Extensions/UI_InfiniteScroll.cs`（448 行，`ManualInit` :55 → `DelayedInit` :67 → `_itemCount` :186）；`Shell/ShopCarousel.cs`（2026-10-31）已据它建成离散等价 ⇒ **这一格仍由调用方给**（我们不做布局量尺）。</summary>
                 public int Visible;
                 /// <summary>最后一次 `DrawRewards` 收进抽屉的条数（= 谓词②命中 + 未命中两组之和）。</summary>
                 public int DrawnCount { get; private set; }
@@ -1068,8 +1068,8 @@ namespace CardPresentation
                 }
 
                 /// <summary>= 原版 `scroll.ManualInit()`（第三方 `UnityEngine.UI.Extensions.UI_InfiniteScroll`）。
-                /// <para>⚠️ **那份源码本地没有**（有 prefab、无脚本）⇒ 我们只留**它保证的那一件事**：
-                /// 「初始化完了，一屏 N 槽」——`IndexAt(slot, offset, n)` 的循环取模就是它给的环。</para></summary>
+                /// <para>⚠️ **2026-11-01（`B115_W19`）就地订正（铁律 5）**：原写「那份源码本地没有（有 prefab、无脚本）」——**错**：真体在
+                /// `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp-firstpass/UnityEngine/UI/Extensions/UI_InfiniteScroll.cs`（448 行：`ManualInit` :55 · `Init` :186 量 `_itemCount`/`_recordOffset`/`_disableMargin` · `OnScroll` :281 越界搬件 · `AutoScroll` :19）⇒ 我们只留**它保证的那一件事**：「初始化完了，一屏 N 槽」——`IndexAt(slot, offset, n)` 的循环取模就是它给的环。</para></summary>
                 public void ManualInit(int visible)
                 {
                     Initialized = true;

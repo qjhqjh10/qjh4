@@ -84,8 +84,13 @@ def archive(prefix):
 
 def gate():
     print("\n—— 只读闸复核 ——")
-    for tool in ("verify_annot.py", "check_a_vs_diff.py", "check_loc_dupes.py"):
-        rc, out = run(os.path.join(TOOLS, tool), quiet=True)
+    # ⚠️ 2026-11-01（B115_W6）：`check_a_vs_diff.py` 自 v2 起是「写盘类」工具，
+    #   **无参调用只打印用法并 rc=2**（纪律：写盘类脚本无参不许干活；基线只走 `--baseline … --save`）。
+    #   所以这里显式传 `--scan`（= 老的「只读扫一遍」行为）。⛔ 另外两个闸不带参，别给它们乱加。
+    for tool, extra in (("verify_annot.py", ()),
+                        ("check_a_vs_diff.py", ("--scan",)),
+                        ("check_loc_dupes.py", ())):
+        rc, out = run(os.path.join(TOOLS, tool), *extra, quiet=True)
         tail = [l for l in out.strip().split("\n") if l.strip()]
         print("  %-22s rc=%d  %s" % (tool, rc, tail[0][:120] if tail else "(无输出)"))
 

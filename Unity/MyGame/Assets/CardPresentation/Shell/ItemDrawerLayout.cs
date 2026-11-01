@@ -129,6 +129,12 @@ namespace CardPresentation
         const float DrCx1 = 0.4f, DrCx2 = 712.4f;
         /// <summary>`Content/Image` 的默认矩形（`Avatar` / `Container` / `XSolla` / `Title` 例外，见各自文件）。</summary>
         const float DrImgY1 = 216f, DrImgY2 = 648f;
+        /// <summary>`Content/Image` 那条**下沿横带**（锚 `(0,−0.05)-(1,0.13)` × `Content` 的 1080 高 ⇒
+        /// `1080−0.13×1080 = 939.6` · `1080+0.05×1080 = 1134`）。**越过 `Content` 下沿 54 px —— 原版就是溢出**。
+        /// <para>🔴 2026-11-01（`B-315`）：`Wildcard Drawer` 的 `Content/Image` 与 `Container Drawer` 的
+        /// `Content/Army Icon` **是同一条矩形**（判据 → `判据/B115_S4_三份Drawer规格.md` §四·2 / §五·2）。
+        /// 收口前两处各写一份字面量 ⇒ 这里成为**唯一来源**，⛔ 别在任何抽屉里再抄一份数字。</para></summary>
+        const float DrEmblemY1 = 939.6f, DrEmblemY2 = 1134f;
         /// <summary>`Content/Army` 那一行。</summary>
         const float DrArmyY1 = 702f, DrArmyY2 = 810f;
         /// <summary>`Content/Label` 那一行（`HorizontalLayoutGroup`：padding L/R 25 · spacing 10）。</summary>

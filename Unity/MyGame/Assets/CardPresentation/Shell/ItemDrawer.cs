@@ -1168,86 +1168,86 @@ namespace CardPresentation
         /// <see cref="IsStackable"/> 决定。放在这里是为了让「第 4 跳」在库里有一个**可被自检直调**的落点。</summary>
         public static bool ExpandsByQuantity(ItemSpec item, DrawerOverride ov) { return !IsStackable(item, ov); }
 
-        /// <summary>**照 `WildcardDrawer__Draw.c` 三层**：
-        /// `background` = `wildcardBackgrounds[cardRarity−1]`（卡面底图）·
-        /// `image` = `ArmyUtilities.GetArmyIcon(cardArmy)`（阵营徽记 —— 我们走 `DeckRuntime.FactionIcon`，
-        /// 全工程唯一一份阵营图标映射，正本 §六 要求别抄第二份）·
-        /// `armyText` = `GameStaticData.CardArmyToString(cardArmy)`。
-        /// ⚠️ **三层的矩形都是我们挑的**（见 `Square` / `ArmyName` 的注释）。</summary>
+        /// <summary>**照 `Wildcard Drawer.prefab` 逐层画**（判据 → `判据/B115_S4_三份Drawer规格.md` §四）：
+        /// `Content/Background`（稀有度底图，铺满 · PA=1）· `Content/Image`（阵营徽记，下沿横带 939.6…1134）·
+        /// `Content/Army`（阵营名，702…810 · 灰 · Bottom）· `Content/Label`（名条底板 + `Quantity`/`Name`）。
+        /// 运行期三句 = `WildcardDrawer__Draw.c`：`background.sprite` / `image.sprite` / `armyText.text`；
+        /// `Name` / `Quantity` 由基类 `ItemDrawer&lt;T&gt;.Draw` 写（`GetItemName` 非空才显示）。
+        /// ⚠️ 与 `WildcardIcon()` 是**两个 prefab**（Icon 档 = `Icon Wildcard Drawer Variant`），⛔ 别再借它画底图。</summary>
         static void Wildcard(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
         {
-            WildcardIcon(node, box, item, qty, st, ref res);       // 底图那一层（与 Icon 档同一张图）
-            if (res.MissingArt) return;                            // 没图 ⇒ 已经画了占位板，别再叠两层
+            // 🔴 **2026-11-01（`B-293` · `B115_S4`）整版重写**。判据 → `判据/B115_S4_三份Drawer规格.md` §四
+            //   （`Wildcard Drawer.prefab` 逐节点现读：根 ARF 2 · 0.66 · `Content` 712×1080 · 七个可视图层）。
+            //
+            //   旧写法画的是**我们自己挑的版式**，与 prefab 的关系逐层如下（左 = 原版，右 = 旧实现）：
+            //     `Content/Background`（铺满 · PA=1）          ← `Square(box, IconFill)` 居中方图
+            //     `Content/Image`（下沿横带 939.6…1134 · PA=1）← `Square(box, ArmyFill)` 居中方图
+            //     `Content/Army`（702…810 · 灰 · Bottom）      ← 顶部自造条 · 白 · Middle
+            //     `Content/Label`（底板 + HLG 两半）            ← **整层没有**（另起两条自造条 + 底边数量）
+            //     `Content`                                     ← **整层没有**
+            //   ⇒ 这不是「偏移几 px」，是**版式级**的差；因此整段替换，⛔ 不是微调常量。
+            var fr = FrameOf(box, fit: RootFit.HeightControlsWidth);   // 根 ARF `m_AspectMode 2` · 0.66 ⇒ K = box.H / 1080
+            var content = DrawerContent(node, fr);                     // `Content` 712×1080（左右各留 0.4 = `DrCx1/DrCx2`）
 
-            // `image`：阵营徽记（图取不到就**少画一层 + 出声**，不退占位板 —— 底图那张还在）
-            string fac = ArmyName(item.CardArmy);
-            if (fac != null)
+            // ① `Content/Background` = `wildcardBackgrounds[rarity−1]`，**铺满 `Content` + `m_PreserveAspect 1`**
+            //    （`WildcardDrawer__Draw.c` 第一段照抄；域外时原版 `List.get_Item` 会抛 ⇒ 我们退到 `WildcardTexName` 并出声）
+            string bgName = WildcardArtName(item.Rarity);
+            if (bgName == null || Tex(bgName) == null)
             {
-                var fatex = Tex(DeckRuntime.FactionIcon(fac));
-                if (fatex == null) res.MissingArt = true;
-                else MenuDraw.Rect(node, fatex, Square(box, st.ArmyFill),
-                                   NodeArmyIcon, st.QArt, null, true, st.Clip, st.ClipSoftness);
+                string alt = WildcardTexName(item);
+                if (alt == null)
+                {
+                    Placeholder(content, box, item, qty, st, ref res);    // 判据那张与退档都取不到 ⇒ 照旧占位板（不静默画空白）
+                    res.MissingArt = true;
+                    return;
+                }
+                Note("wildcard|bg|" + item.Rarity,
+                     "`WildcardDrawer` 收到 `cardRarity = " + item.Rarity + "`（域外）或那张图取不到 ⇒ 退到 `"
+                     + alt + "`（`WildcardTexName` 那条链），置 `FallbackArt`");
+                bgName = alt;
+                res.FallbackArt = true;
             }
-            // `armyText`：原版 = `GameStaticData.CardArmyToString(cardArmy)`
-            //   = `I2_Loc.GetTranslation("Armies/" + CardArmy枚举名)`（判据：`GameStaticData__CardArmyToString.c`
-            //   现读 —— 前缀字面量 = `stringliteral.json` 的 `0x426cfa8 = "Armies/"`，`Concat(前缀, Enum.ToString)`）。
-            //   🔴 **2026-10-27（B88-E8 · 收藏:269）就地订正（铁律 5）**：本行原来写
-            //   「**词条表在远端 CCD、本地没有** ⇒ 我们画的是枚举名」—— **已过期**：官方 I2 表 2026-10-18 已并入
-            //   （`Resources/official_loc_13lang.json` / `数据/游戏数据/官方本地化_en+zh-CN.json`），
-            //   `Armies/*` 13 个阵营逐个现读都有（`Ultramarines→极限战士` / `Goff→欧克蛮人` …）
-            //   ⇒ 现在走 `Loc.T`（≈ 原版 `GetTranslation`，按当前语言取）。⚠️ 字体随之换回 `Cjk`
-            //   （`LatinCardBody` 渲不出汉字），这是「画对了原文」的必要一步。
-            float k = box.H / DecorRefH;      // 原版字号三格的刻度（`box.H / 1080`）—— 阵营名与 `Name` 两条共用
-            if (st.NamePx > 0f && fac != null)
-            {
-                // 🆕 **2026-10-10（A1212 块 11）接上自适应**：原版那一颗
-                //   `… Drawer ▸ Content/Army` 四格 = `12 / 75 / 36 / 1`（折行 **1** ⇒ 不用还原）。
-                //   出处 = `资料/普查产出_第十会话/R6_包装层战斗与其余.md` §2·H #67
-                //   （六份抽屉逐个现读，`Wildcard Drawer` 那份实测同值）；归组 =
-                //   `资料/普查产出_第十一会话/RA1212_切块表.md` 块 11。
-                //   ⚠️ **三格一起乘 `k`** —— 本文件 `ClippedText` 的 doc 写着「三者都是**原版设计空间的原文**，
-                //   调用方自己按该族的**刻度**换算（见 `AlreadyOwned` 那一处）」，而同族已接的那一站
-                //   （`本文件`）用的正是 `k = box.H / DecorRefH`（`DecorRefH = 1080` = 抽屉的参考高）
-                //   ⇒ 照抄同族写法，⛔ 不自己发明系数。
-                // 🆕 **2026-10-10（`A1242③`）：`wrapPx = box.W − 20f` 的【量纲】已查实 —— 它是「我们这一档的
-                //   **框 px**」，⛔ 不是设计 px、**不需要乘 `k`**，本处与 `:1280` 用的是【同一把尺】**不存在混用**：
-                //   · `wrapPx` 必须与本行的 `r` 同量纲 —— `ClippedText` 把 `r` 与 `wrapPx` **原样**交给
-                //     `MenuDraw.Text`，而后者对两者都走 `LayoutSpace.Px(...)`（`MenuDraw.cs` 的 `MenuDraw.Text`）
-                //     ⇒ `wrapPx` = 那个 TMP 矩形的**宽**，量纲只能是框 px。
-                //   · 数值上也**正好**是矩形宽：`NameStrip(box, st.NamePx)` 的左右各内缩 `side = 10f`
-                //     （`NameStrip` 里那两个是**未乘 `k` 的字面量**）⇒ 它的 `W` ≡ `box.W − 20f`；
-                //     `本文件` 的 `Quantity` 更直接 —— 传的是 `qr.W` 本身（`qr` 同样 `side = 10f`）。
-                //   · 乘 `k` 的只有 `12f/75f/36f` 这三个**原版 `m_fontSizeMin/Max/Base`**（设计 px ⇒ 框 px），
-                //     而 `fontPx = st.NamePx` 本来就是框 px（`Label.SetAutoFitBox` 的 `minPx/maxPx/basePx`
-                //     与调用方的 nominal 同量纲）⇒ 两边**同尺**。
-                //   ⚠️ **另一个（真的）不对齐处，⛔ 本件没动**：`st.NamePx`（`Default()` 给 **26**）是**我们挑的
-                //     旧值**，而原版那一颗 `Army Name` 是 `75 / base 36 / auto[12~75]`（设计帧 712×1080）
-                //     ⇒ 折到 200×300 的格子应当是 `75k = 20.83` ⇒ 现在 `fontPx(26) > autoMaxPx(20.83)`，
-                //     自适应会把它压到 20.83（画面大致对，但 nominal 是死数）。要改得连 `QuantityPx = 34`
-                //     与那两个调用方（`CampaignRewardWindow` / `RewardWindow`）一起定，属另一笔账。
-                ClippedText(node, NameStrip(box, st.NamePx), Loc.T("Armies/" + fac), Color.white, NodeArmyName,
-                            st.NamePx, st.QText, box.W - 20f, st, 0, 12f * k, 75f * k, 36f * k);
-            }
-            // 🆕 **2026-10-27（B88-E8 · 收藏:269）：补回原版那格 `Name`（稀有度档名）**。
-            //   判据三处：① `WildcardDrawer.GetItemName` = `string.Format(wildcardKey, CardRarityToString(rarity))`
-            //   （`判据/ItemDrawer泛型族_判据.md` §二 #14 + `decomp_full/WildcardDrawer__GetItemName.c`）；
-            //   ② `wildcardKey` = prefab 上那条 I2 字段，`mTerm = "MenuShop/RarityWildcard"`（字面 `{0} Wildcard` / `{0}通用牌`）；
-            //   ③ `CardRarityToString` = `I2("Card_Rarity/" + 1..4→Common/Rare/Epic/Legendary · 其余→Special)`
-            //   （`GameStaticData__CardRarityToString.c` + `stringliteral.json` 的 `0x423d4c8/0x42a75e8/0x429dd78/0x42a7e50/0x425a9b0`
-            //   + 前缀 `0x42ce140 = "Card_Rarity/"`），→ prefab `Content/Label/Name` 那颗 TMP 的出厂文本正好是
-            //   **`"Legendary Wildcard"`**（= 该式 rarity=4 的结果）⇒ 三条互证。
-            //   ⚠️ **字号/对齐照 prefab**：`Name` 那颗 = `m_fontSizeMax 75 / base 36 / auto[12..75]`、
-            //   `m_HorizontalAlignment = 1`（左）、`m_VerticalAlignment = 512`（中）。折行 = **1**（不还原）。
-            //   🔶 自己设计（非原版）：**这一格的矩形**（`NameStripAt` 给的条位 = 阵营名那一条**下面**再起一条）
-            //   —— 原版那颗由 `Content/Label` 的 `HorizontalLayoutGroup`（padding L/R 25 · spacing 10 · 两项各占一半）
-            //   与 `Quantity` 排在**同一行**；我们的 `Quantity` 沿用战役奖励窗的底边位、没有那条 layout group
-            //   ⇒ 只能另给一条；必须自己定：prefab 的 0×0 rect 是 VLG 跑之前的模板位、照抄会压在一起。
-            //   执行代理 E8 2026-10-27 定（本批简报授权的范围内）。
-            if (st.NamePx > 0f)
-                ClippedText(node, NameStripAt(box, st.NamePx, 1),
-                            WildcardName(item), Color.white, "Name",   // 节点名照 prefab 逐字（`Content/Label/Name` = 原版 `label` 那一格）；⛔ 别与 `NodeItemName`（我们起的名字）合并
-                            st.NamePx, st.QText, box.W - 20f, st, 1, 12f * k, 75f * k, 36f * k);
-            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
+            // 铺满 + PA=1 —— `DrawerBackground` 的默认档**就是**原版那一颗的 `m_PreserveAspect 1`
+            // （`ItemDrawerLayout.cs` 那颗形参的 doc 记着 `B114_W43` 的全族现读）；⛔ 不要传 `keepAspect: false`。
+            DrawerBackground(content, fr, st, bgName);
+            res.Art = bgName;
+
+            // ② `Content/Image` = `ArmyUtilities.GetArmyIcon(cardArmy)`，锚 (0,−0.05)-(1,0.13)
+            //    ⇒ **下沿横带** y 939.6…1134（越过 `Content` 下沿 54 px —— 原版就是溢出，⛔ 别夹回框内）。
+            //    这条算式与 `Shell/ItemDrawerContainer.cs` 那颗 `Army Icon` 用的是同一条（同族共用矩形）。
+            var fatex = ArmyIcons.Texture(item.CardArmy);
+            if (fatex != null)
+                MenuDraw.Rect(content, fatex, WildcardEmblemRect(fr), NodeImage, st.QArt, null, true,
+                              st.Clip, st.ClipSoftness);
+            else if (!ArmyIcons.IsNeutral(item.CardArmy))
+                Note("wildcard|army|" + item.CardArmy,
+                     "野牌 `" + (item.Id ?? "?") + "` 的阵营 " + item.CardArmy + " 没有徽记图（`ArmyIcons.Texture`）"
+                     + "⇒ 原版 `GetArmyIcon` 返 null、`image.sprite` 被赋空 ⇒ 这一层空着（⛔ 不拿别的图顶）");
+
+            // ③ `Content/Army` = `GameStaticData.CardArmyToString(cardArmy)`（= `Armies/<枚举名>` 词条）
+            //    锚 (0,0.25)-(1,0.35) ⇒ y 702…810；**竖直档 = `Bottom`**（`m_VerticalAlignment 1024`）——
+            //    ⚠️ 与 `Avatar Drawer` 那颗的 `Middle` **不同**，⛔ 别按「共用件默认就是对的」放过。
+            //    颜色由 `DrawerArmyName` 给（`DrArmyInk` = prefab 的 `(0.689, 0.689, 0.689, 0.851)`），
+            //    旧写法写死 `Color.white`，那是错的。
+            var armyLb = DrawerArmyName(content, fr, item.CardArmy, st);
+            if (armyLb != null)
+                MenuDraw.SetVAlign(armyLb, Label.VAlign.Bottom, fr.Map(DrCx1, DrArmyY1, DrCx2, DrArmyY2));
+
+            // ④ `Content/Label`（`40k_main_bt_nametag` 底板 · PA=0）+ `Quantity`（左半·右对齐）+ `Name`（右半·**左对齐**）
+            //    ℹ️ `Label` 是**静态层**（原版恒 active），所以底板无条件建；两颗 TMP 才是数据驱动的。
+            //    ⚠️ `Name` 的水平档原版是 `m_HorizontalAlignment 1 = Left`，而共用件 `DrawerNameQuantity` 给的是
+            //       Center（它是按 `Avatar Drawer` 那一族写的）⇒ 本档**只能自己建这一行**；
+            //       几何仍照共用常量 `DrLb*` / `DrQty*` / `DrName*`，⛔ 别在这里再抄一份数字。
+            //    ℹ️ 两颗 TMP 的出厂值（逐格现读）：`fs 75 / base 36 / auto[12,75]`，`Quantity` H=Right、`Name` H=Left，
+            //       两颗 V=Middle、色白、`wrapPx` = 各自矩形宽（HLG 各占 `(640.8−50−10)/2 = 290.4`）。
+            WildcardLabelRow(content, fr, item, qty, st);
+
+            // ⑤ **不画的四层**（原版在 prefab 上 `m_IsActive 0`，由**调用方**按奖励状态开）：
+            //    `Converted Drawer` / `Ephemeral Drawer` / `Collected Badge` / `Premium Highlight`
+            //    —— 本库同一口径：`ResetDecorationLayers` + `SetConverted` / `SetEphemeral` / `SetPremium`
+            //    （`ItemDrawer.cs` 那句「本抽屉不负责」的注释），⛔ 别在这里顺手建出来。
+            // ⑥ `st.IconFill` / `st.ArmyFill` 在本抽屉**已不再参与几何**（它们是「居中方块」那一档的量；
+            //    现在四层全按 prefab 锚点算）⇒ 调用点仍可传值，但**传什么都不影响本抽屉**。
         }
 
         /// <summary>野牌那格 `Name` 的**文本**：原版 `WildcardDrawer.GetItemName(item)`
@@ -1762,9 +1762,9 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `DeckDrawer.Draw(PrebuiltDeck item, int quantity = 1)` 的四步。
-        /// <para>⚠️ 两处**如实标**的偏离：① 原版第 ②步给的是**过扫**的 `Deck Image`（靠 `RectMask2D` 裁），
-        /// 我们这一层没有 mask ⇒ 直接按 mask 矩形画（可见范围相同）；② 原版 `armyIcon` /
-        /// `gameModeIcon` 是 prefab 里的 `Image`，我们按同一个矩形**建**。</para></summary>
+        /// 🔴 **2026-11-01（`B-293` · `B115_S4`）按 prefab 收口**（判据 → `判据/B115_S4_三份Drawer规格.md` §五）：根挂 `ARF 2 · 0.66` ⇒ **根宽 = 0.66×根高**，`Collection Deck`（328×496.97）由 `UIScaleToFit` 缩满整根 ⇒ 锚点乘**根矩形**即可（旧写法乘 `box`，框比例 ≠ 0.66 时横向被拉伸，锻造格 297.655×384.66 差 ~17%）。
+        /// ⚠️ `background` / `quantity` 两个槽在判据那一份 prefab 上是 **null ⇒ 不画底图、不画数量**；`gameModeIcon` **非** null
+        /// （判据那份 = `-3438027711880944002`，⛔ 按字段列表认，别按类名 —— 全库 3 个 `Deck Drawer`）。</summary>
         static void Deck(Transform node, PxRect box, ItemSpec item, int qty, ItemDrawerStyle st, ref ItemDrawResult res)
         {
             var deck = item.Deck;
@@ -1777,13 +1777,19 @@ namespace CardPresentation
                     "物品 `" + item.Id + "` 走的是 `DeckDrawer`，但 `ItemSpec.Deck` 是 null ⇒ 摊到占位板（调用方要填 `Deck`）");
                 return;
             }
-
-            // ① 英雄卡图（原版 `base.image.sprite = item.DeckHero.cardImageReference.Load()`）
+            var root = RootRectOf(box, fit: RootFit.HeightControlsWidth);   // 根（ARF 2 · 0.66）；`box.H == root.H`
+            var content = MenuDraw.Node(node, NodeContent, root);           // `Content` 锚 (0,0)-(1,1) 拉伸 ⇒ = 整根
+            float k = root.H / DeckDrawerRefH;                              // `Collection Deck` 设计高 496.97 → 根 px
+            // ① 英雄卡图（原版 `image.sprite = item.DeckHero.cardImageReference.Load()`）：父级 `RectMask2D` 的 mask 矩形
+            //    (0.044,0.18)-(0.956,0.93547)，里面那颗 `Deck Image` **过扫** (−0.265,−0.067)-(1.26,1.065) 再被裁
+            //    ⇒ 原版是「拉伸到过扫框再裁」，⛔ 不是在 mask 框里把整张压扁（那正是旧写法）。
+            var maskR = DeckAnchor(root, 0.044f, 0.180f, 0.956f, 0.93547f);
+            var heroR = DeckAnchor(maskR, -0.265f, -0.067f, 1.26f, 1.065f);
             Texture2D hero = CardArt.DeckHero(deck.heroId);
-            PxRect heroR = DeckAnchor(box, 0.044f, 0.180f, 0.956f, 0.93547f);
             if (hero != null)
             {
-                MenuDraw.Rect(node, hero, heroR, NodeIcon, st.QArt, null, false, st.Clip, st.ClipSoftness);
+                MenuDraw.Rect(content, hero, heroR, NodeDeckImage, st.QArt, null, false,
+                              DeckMaskClip(content, maskR, st), st.ClipSoftness);
                 res.Art = deck.heroId;
             }
             else
@@ -1792,32 +1798,26 @@ namespace CardPresentation
                 InventoryManager.Note("deck-hero:" + deck.heroId,
                     "预组卡组 `" + deck.deckId + "` 的督军 `" + deck.heroId + "` 取不到卡图（`CardArt.DeckHero`）⇒ 只画框与名字");
             }
-
-            // 卡框（`Frame` = `40K_bt_deck`）
+            // 卡框（`Frame` = `40K_bt_deck`，`m_PreserveAspect 0` = 拉伸）
             Texture2D frame = Tex("40K_bt_deck");
             if (frame != null)
-                MenuDraw.Rect(node, frame, DeckAnchor(box, 0f, 0.04935f, 1f, 0.958f), NodeDeckFrame, st.QArt + 1,
+                MenuDraw.Rect(content, frame, DeckAnchor(root, 0f, 0.04935f, 1f, 0.958f), NodeDeckFrame, st.QArt + 1,
                               null, false, st.Clip, st.ClipSoftness);
-
             // ② 阵营徽记（原版 `armyIcon.sprite = ArmyUtilities.GetArmyIcon(item.DeckHero.cardArmy)`）
             Texture2D fac = Tex(DeckRuntime.FactionIcon(deck.faction));
             if (fac != null)
-                MenuDraw.Rect(node, fac, DeckAnchor(box, -0.042f, 0.11253f, 0.296f, 0.32425f), NodeDeckFaction,
+                MenuDraw.Rect(content, fac, DeckAnchor(root, -0.042f, 0.11253f, 0.296f, 0.32425f), NodeDeckFaction,
                               st.QArt + 2, null, true, st.Clip, st.ClipSoftness);
-
-            // ③④ 模式图标：有图才画（原版 `gameModeIcon.enabled = 图标非空`）
-            string gmName = MenuDraw.GameModeIconFile(deck.gameMode);
-            Texture2D gm = Tex(gmName);
+            // ③④ 模式图标：有图才画（原版 `gameModeIcon.enabled = 图标非空`；判据那一份的槽**非** null）
+            Texture2D gm = Tex(MenuDraw.GameModeIconFile(deck.gameMode));
             if (gm != null)
-                MenuDraw.Rect(node, gm, DeckAnchor(box, 0.682f, 0.11253f, 1.02f, 0.32425f), NodeDeckGameMode,
+                MenuDraw.Rect(content, gm, DeckAnchor(root, 0.682f, 0.11253f, 1.02f, 0.32425f), NodeDeckGameMode,
                               st.QArt + 2, null, true, st.Clip, st.ClipSoftness);
-
-            // 名字（原版 `GetItemName` = 词条 `"PrebuiltDecks/" + deckId`；`Deck.DisplayName` 就是这个口）
-            float fs = 32f * (box.H / DeckDrawerRefH);
-            ClippedText(node, DeckAnchor(box, 0.08f, 0.052f, 0.92f, 0.15f), deck.DisplayName, Color.white,
-                        NodeItemName, fs, st.QText, box.W, st);
-
-            if (st.QuantityPx > 0f && ItemDrawerOptions.Stackable(item)) Quantity(node, box, qty, st);   // 2026-10-28（B89_E17c）：原版 `ItemDrawerOptions.stackable`（+ prefab 的 `quantity` 槽是否为 null）—— 判据/边界 → `Shell/ItemDrawerOptions.cs` 文件头。⚠️ 零行数变化（本行只换内容）
+            // 名字（原版 `GetItemName` = 词条 `"PrebuiltDecks/" + deckId`）；fs **32** · base **30** · auto **[8,32]** · V = **Capline**
+            var nameR = DeckAnchor(root, 0.08f, 0.052f, 0.92f, 0.15f);
+            var nameLb = ClippedText(content, nameR, deck.DisplayName, Color.white, NodeDeckName, 32f * k, st.QText,
+                                     nameR.W, st, 0, 8f * k, 32f * k, 30f * k);
+            if (nameLb != null) MenuDraw.SetVAlign(nameLb, Label.VAlign.Capline, nameR);
         }
 
         /// <summary>原版 `DeckAndCardbackDrawer.Draw`：`base.Draw(item, q)`，然后**若 `cardBackDrawer` 非空**再画卡背。
@@ -1850,10 +1850,10 @@ namespace CardPresentation
             MenuDraw.Rect(node, cb, cbr, NodeDeckCardback, st.QArt + 3, null, true, st.Clip, st.ClipSoftness);
         }
 
-        // 本抽屉自己那几个节点名（诊断/自检按它认；与 `NodeIcon` 等同一套写法）
-        const string NodeDeckFrame = "Deck Frame";
-        const string NodeDeckFaction = "Deck Faction Icon";
-        const string NodeDeckGameMode = "Deck Game Mode Icon";
+        // 本抽屉自己那几个节点名（诊断/自检按它认）—— 🔴 2026-11-01（`B-316`）**按 prefab 逐字**（原来是 `Deck Frame` / `Deck Faction Icon` / `Deck Game Mode Icon`，全是旧名）
+        const string NodeDeckFrame = "Frame";
+        const string NodeDeckFaction = "Faction Icon";
+        const string NodeDeckGameMode = "Game Mode Icon";
         const string NodeDeckCardback = "Deck Cardback";
     }
 

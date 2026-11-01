@@ -11988,7 +11988,7 @@ public static class BattleScene
                     // Reset：`ColorLookup.texture` **仍指合并 RT**，变的是它的**内容** = 进场那张静态 LUT
                     //   （原版 `LUTBlender.Awake` 起恒指 `combinedLUT`，`ResetLUT` 只改内容；⚠️ 2026-11-01 `B114_W53` 订正：
                     //    这条以前写「交还给进场那张」= 10-26 之前的实现口径，且靠 `null==null` 空转过一个月 —— ⛔ 别改回去）
-                    CheckResetLut(pfx, Check);   // 发 `Reset(instant)` 请求 + 断「引用 / `_Blend` / 像素」三件（判据见类尾）
+                    CheckResetLut(pfx, Check); CheckResetLutOwnLutArenas(Check);   // 发 `Reset(instant)` 请求 + 断「引用 / `_Blend` / 像素」三件（判据见类尾；`B-300` 起同一套判据也在 7 场**专属 LUT** 的战场上真跑一遍 —— 以前只测 `battlearena1` 那一个）
                     Check(pfx.MissingLutTextures.Count == 0,
                           "★ 刚才那条链**一张 LUT 都没缺**（缺了会记名字，只有真缺才非空）");
                 }
@@ -45263,7 +45263,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46893,7 +46893,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -50694,7 +50694,23 @@ public static class BattleScene
               "（前提）进场时 `ColorLookup.texture` 非空 ⇒ 下面那条才有意义（否则 `null == null` 假绿）");
         if (!hasOrigin) return;
 
+        // 🔴 **第二条硬前提（`B-300`）**：下面那句 `ReferenceEquals(texture.value, pfx.Combined)` 在
+        //   **两边同 null** 时也恒真 ⇒ 光有上面那条「原 LUT 非空」还不够，必须把「合并 RT / `ColorLookup` 都在」
+        //   也钉死。（本项目 2026-10-26 一天撞到 3 次「`!= null` / 引用相等两边同 null 恒真」那类假绿。）
+        bool hasRt = pfx.Combined != null && pfx.ColorLookupRef != null;
+        check(hasRt,
+              "（前提）合并 RT 与 `ColorLookup` 都在 ⇒ 下面「引用相等」那条才排得掉「两边同 null 恒真」");
+        if (!hasRt) return;
+
         float blendBefore = pfx.BlendNow;          // 上面刚 `BlendTo(0.25)` ⇒ 期望 0.25
+        // 🔴 **B-306（2026-11-02 `B115_W11`）：硬前提 —— 堵「上游 `BlendTo(0.25)` 被删」的空转绿。**
+        //   `BlendNow` 的初值 = **-1**（`BattlePostFx._lastBlend`）⇒ 若上游那句 `BlendTo(0.25)` 没了，
+        //   `blendBefore` 就是 -1，而下面那条 `blendBefore < 0.99f` 对 -1 **照样成立** ⇒ 断言绿、
+        //   却不再证明「0.25 被推到 1」。故先硬断「Reset 之前是一个真实、>0、非 1 的过渡值」。
+        //   ⛔ 这是硬 check（不是 `if (...) check(...)` 静默跳过）—— 它红 = 上游那条 `BlendTo` 不在了。
+        check(blendBefore > 0f && blendBefore < 0.99f,
+              $"（前提·B-306）`Reset` 之前 `_Blend` 是一个**真实过渡值**（0 < {blendBefore:F3} < 0.99）"
+            + " —— 否则上游 `BlendTo(0.25)` 被删时 `blendBefore = -1` 也会让下面那条空转绿");
         pfx.Handle(new WarpforgeVFX.PostFxRequest { op = WarpforgeVFX.PostFxOp.Reset, instant = true });
         check(ReferenceEquals(pfx.ColorLookupRef.texture.value, pfx.Combined),
               "★ `Reset` 之后 `ColorLookup.texture` **仍指**合并 RT（原版 `LUTBlender.Awake` 起的常驻形态）");
@@ -50708,5 +50724,256 @@ public static class BattleScene
         check(Mathf.Abs(R.r - O.r) + Mathf.Abs(R.g - O.g) + Mathf.Abs(R.b - O.b) <= 0.02f,
               $"★ `Reset` 之后合并 RT 的内容 = 原 LUT（R={R.r:F3},{R.g:F3},{R.b:F3} "
             + $"O={O.r:F3},{O.g:F3},{O.b:F3}）—— 这才是「画面回到原 LUT」的净结果");
+    }
+
+    /// <summary>★ **`B-300`（`B115_W4`）**：把 `CheckResetLut` 那三件也放到**7 场专属 LUT 的战场**上真跑一遍。
+    /// <para>为什么需要（缺口出处）：`Run()` 只建 `battlearena1`，而它是原版贴**共享恒等** `LUT Normal`
+    /// 那一档（`ArenasWithOwnLut` 之外）⇒ 「`_original` 是**本场专属** `LUT &lt;场&gt;` 时，`Reset` 的净结果还对不对」
+    /// **从来没被自检碰到过**（`判据/B114_R10_Reset_ColorLookup诊断.md` §五-4 / §六-5 记的就是这条）。</para>
+    /// <para>做法：把这 7 场的 prefab 各实例化一份（`Resources/ArenaPrefabs/&lt;场&gt;` —— `A345` 已经在用同一条路），
+    /// 找它的**全局** `Volume`，**临时**挂一个 `BattlePostFx` 上去，然后跑**同一个** `CheckResetLut`
+    /// （⛔ 判据不另写一份：两处口径迟早分叉）。⛔ 写不脏那 7 份 `*_PostFx.asset` —— `Attach` 拿的是**运行时副本**。</para>
+    /// <para>⚠️ 两条副作用必须处理：① `BattlePostFx.Attach` 会**覆盖** `WFModulePostProcess.OnFlushVolumeStack`
+    /// 这个**静态**钩子 ⇒ 进出各存/还一次；漏了的话这一节跑完，真战场那台相机的 Volume 刷新就断了
+    /// （后面所有后期断言都会莫名其妙地红）。② prefab 实例 / `BattlePostFx` 都要 `DestroyImmediate` / `Detach`。</para>
+    /// <para>🔴 **覆盖面断言**：末尾那条 `ran == 7` 是**故意**的 —— 它红说明上面某一场**没跑到**
+    /// （取不到 prefab / 没有全局 Volume / 后期链没就绪），⛔ 别把「没跑到」当「通过」。</para></summary>
+    static void CheckResetLutOwnLutArenas(System.Action<bool, string> check)
+    {
+        var prevHook = WarpforgeVFX.WFModulePostProcess.OnFlushVolumeStack;   // 见 doc ①
+        int ran = 0;
+        try
+        {
+            foreach (var a in ArenasWithOwnLut)
+            {
+                var apf = Resources.Load<GameObject>("ArenaPrefabs/" + a);
+                check(apf != null,
+                      $"（前提）`Resources/ArenaPrefabs/{a}` 取得到（⛔ 取不到 = 这一场没验，不是「通过」）");
+                if (apf == null) continue;
+
+                var inst = UnityEngine.Object.Instantiate(apf);
+                BattlePostFx pfx = null;
+                try
+                {
+                    Volume vol = null;
+                    foreach (var v in inst.GetComponentsInChildren<Volume>(true))
+                        if (v.isGlobal) { vol = v; break; }
+                    check(vol != null && vol.sharedProfile != null,
+                          $"（前提）`{a}` 的 prefab 里有**全局** `Volume` + `sharedProfile`"
+                        + "（原版全局 Volume 挂在 BoardCamera 上）");
+                    if (vol == null || vol.sharedProfile == null) continue;
+
+                    pfx = new BattlePostFx();
+                    bool ready = pfx.Attach(vol);        // `boardCamera` 省 ⇒ 走 `ResolveBoardCamera()`（同一套生产逻辑）
+                    check(ready, $"（前提）`{a}` 的后期下游就绪（`Hidden/LUTBlender` 材质 + `ColorLookup` 都在位）");
+                    if (!ready) continue;
+
+                    // 与实战场那条**同形**：先造出「`Reset` 之前 `_Blend` 不是 1」的状态（那里是 `BlendTo(0.25)`）。
+                    // ⚠️ 必须先发一条 `LutBlend(setTextures:true)` 把 `_LUT1`/`_LUT2` 设上 —— 否则合并 RT 里的
+                    //    内容没有意义（`CheckResetLut` 只在 Reset **之后**读像素，但 Reset 之前的那一帧不该是脏的）。
+                    pfx.Handle(new WarpforgeVFX.PostFxRequest
+                    {
+                        op = WarpforgeVFX.PostFxOp.LutBlend,
+                        setTextures = true,
+                        lut1 = "LUT Red Tint",
+                        lut2 = "LUT Invert",
+                        mergeLuts = false,
+                    });
+                    pfx.BlendTo(0.25f);
+
+                    CheckResetLut(pfx, check);           // ← 判据只有这一份
+                    ran++;
+                }
+                finally
+                {
+                    if (pfx != null) pfx.Detach();       // 见 doc ②：先拆钩子再销毁 RT（`Detach` 里那句「交还 `_original`」是必须的）
+                    if (inst != null) UnityEngine.Object.DestroyImmediate(inst);
+                }
+            }
+        }
+        finally
+        {
+            WarpforgeVFX.WFModulePostProcess.OnFlushVolumeStack = prevHook;    // ⛔ 别漏（漏了真战场那一路就断了）
+        }
+        check(ran == ArenasWithOwnLut.Length,
+              $"★ {ArenasWithOwnLut.Length} 场**专属 LUT** 的战场都真跑到了 `Reset` 的净结果（跑到 {ran} 场）"
+            + " —— 这条是覆盖面断言：它红说明上面某一场**没跑到**（⛔ 不是「空转绿」）");
+    }
+
+    /// <summary>★ **`B-307`（2026-11-02 `B115_W11`）：`Attach → Detach` 一圈之后三件必须回到进场值。**
+    ///
+    /// <para>缺口：`overrideState` / `active` / `contribution` 这三件「`Detach` 有没有原样还回去」
+    /// **一条断言都没有**；而 `Detach` 里曾有一句无条件 `overrideState = false`，把 7 场静态 LUT
+    /// 从 Volume 栈上掀掉过（`BattlePostFx.cs` 文件头 `:62` / `Detach` 那句 `_texOverride0` 的注释）。
+    /// 这次修好后若再有人把它改回无条件 `false`，没有任何自检会红 —— 本条就是补这个。</para>
+    ///
+    /// <para>做法：**自造一个运行时 `Volume` + `VolumeProfile`**（⛔ 不碰 `arenas/*/Profiles/*_PostFx.asset`），
+    /// 把 `ColorLookup` 的进场值设成一组**与 `Attach` 写入值明显不同**的数（`active=false` ·
+    /// `texture.overrideState=false` · `contribution.overrideState=false` · `contribution.value=0.37`），
+    /// 然后 `Attach` → 断「Attach 确实把它推到了 `true/true/true/1`」→ `Detach` → 断「逐件回到快照」。</para>
+    ///
+    /// <para>🔴 **灭自证（两张网，结构上不能被同一个错误实现同时满足）**：
+    /// ① 若 `Detach` 不还原（保持 `Attach` 写入值）⇒「后 == 快照」红；
+    /// ② 若 `Attach` 根本没写（那 `Detach` 还原也看不出来）⇒「Attach 后 ≠ 快照」红。
+    /// 所以快照**故意**取一组与 `Attach` 写入值不同的数（末尾那条 meta check 会盯住这一点）。</para>
+    ///
+    /// <para>⚠️ `Attach` 会覆盖静态钩子 `WFModulePostProcess.OnFlushVolumeStack` ⇒ 进出各存/还一次
+    /// （与 `CheckResetLutOwnLutArenas` 同一个理由，漏了真战场那一趟就断）。</para></summary>
+    static void CheckPostFxDetachRoundTrip(System.Action<bool, string> check)
+    {
+        var prevHook = WarpforgeVFX.WFModulePostProcess.OnFlushVolumeStack;
+        GameObject go = null, camGo = null;
+        VolumeProfile prof = null;
+        BattlePostFx pfx = null;
+        try
+        {
+            prof = ScriptableObject.CreateInstance<VolumeProfile>();
+            var cl = prof.Add<ColorLookup>(true);
+
+            // —— 进场值：故意设成**非** `Attach` 写入值（灭自证的前提）——
+            cl.active = false;
+            cl.texture.overrideState = false;
+            cl.contribution.overrideState = false;
+            cl.contribution.value = 0.37f;
+            var lutTex = Resources.Load<Texture2D>("WarpforgeVFX/LUT/LUT Red Tint");
+            check(lutTex != null,
+                  "（前提·B-307）`LUT Red Tint` 取得到（否则 `_original` 为 null、`texture` 那两件还原就无从验起）");
+            cl.texture.value = lutTex;
+
+            bool snapActive = cl.active, snapTexOv = cl.texture.overrideState,
+                 snapConOv = cl.contribution.overrideState;
+            float snapCon = cl.contribution.value;
+
+            go = new GameObject("PostFxDetachRoundTrip");
+            var vol = go.AddComponent<Volume>();
+            vol.isGlobal = true; vol.weight = 1f;
+            vol.profile = prof;      // setter 直接设 `m_InternalProfile` ⇒ `Attach` 里那句 `vol.profile = vol.profile` 不再另造副本
+            camGo = new GameObject("PostFxDetachRoundTripCam");
+            var dummyCam = camGo.AddComponent<Camera>();   // 只让 `Attach` 不报 MissingBoardCamera（flush 不会被调用）
+
+            pfx = new BattlePostFx();
+            bool ready = pfx.Attach(vol, dummyCam);
+            check(ready, "（前提·B-307）自造的运行时 Volume 能挂上后期链（`Hidden/LUTBlender` + `ColorLookup` 在位）");
+            if (!ready) return;
+
+            // ① Attach 必须真的改了这几件（否则「Detach 还原」是空转 —— 灭自证的那张网）
+            check(cl.active && cl.texture.overrideState && cl.contribution.overrideState
+                  && Mathf.Approximately(cl.contribution.value, 1f),
+                  $"★ Attach 把三件推起来了（active={cl.active} · texture.overrideState={cl.texture.overrideState} · "
+                + $"contribution.overrideState={cl.contribution.overrideState} · contribution={cl.contribution.value:F2}）"
+                + " —— 这条不成立 ⇒ 下面「还回去」是空转（没东西可还）");
+
+            pfx.Detach();
+            pfx = null;   // Detach 已拆掉内部资源；置空防 finally 二次 Detach
+
+            // ② Detach 必须逐件还回快照（另一张网）
+            check(cl.active == snapActive,
+                  $"★ B-307 Detach 后 `ColorLookup.active` 回到进场值（{snapActive}）—— 改成无条件置真/假 ⇒ 这里红");
+            check(cl.texture.overrideState == snapTexOv,
+                  $"★ B-307 Detach 后 `texture.overrideState` 回到进场值（{snapTexOv}）—— 改回那句无条件 `false` ⇒ 这里红");
+            check(cl.contribution.overrideState == snapConOv,
+                  $"★ B-307 Detach 后 `contribution.overrideState` 回到进场值（{snapConOv}）");
+            check(Mathf.Approximately(cl.contribution.value, snapCon),
+                  $"★ B-307 Detach 后 `contribution` 回到进场值（{snapCon:F2}）");
+
+            // ③ meta：进场快照**故意**与 Attach 写入值不同 ⇒ 上面两张网才互相独立
+            check(!(snapActive && snapTexOv && snapConOv && Mathf.Approximately(snapCon, 1f)),
+                  "（灭自证·B-307）进场快照**故意**与 `Attach` 写入值不同 ⇒「后==快照」与「Attach 已推起」不可能被同一个错实现同时满足");
+        }
+        finally
+        {
+            if (pfx != null) pfx.Detach();
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
+            if (camGo != null) UnityEngine.Object.DestroyImmediate(camGo);
+            if (prof != null)
+            {
+                var comps = prof.components;
+                if (comps != null)
+                    foreach (var c in comps) if (c != null) UnityEngine.Object.DestroyImmediate(c);
+                UnityEngine.Object.DestroyImmediate(prof);
+            }
+            WarpforgeVFX.WFModulePostProcess.OnFlushVolumeStack = prevHook;
+        }
+    }
+}
+
+// ============================================================================================
+//  🆕 2026-11-01（第一百一十五会话 · 执行写手 `B115_W7`）：**ENG-23 —— 教程白名单闸的返回码**
+// ============================================================================================
+//  **判据**
+//    · `RuleEngine/Core/RuleCodes.cs` 的 `ErrAbilityRejected = 29` 那段：「拒 ≠ 未实现」
+//      （`ActivateOathAbility` 原来把「条件不成立」说成「本版未实现」会骗人）；
+//    · `判据/B107_复核_引擎线.md:22`：教程白名单闸「换成『被拒』码（如 `ErrAbilityRejected`）」。
+//  **被钉的代码** = `CardPresentation/Battle/BattleDriver.cs:16386`
+//    `if (!TutorialPermits(TutAttemptResolve(...))) { RejectByTutorial(...); ClearSelection(); return RuleCodes.ErrAbilityRejected; }`
+//  **为什么必须能断言到**：`ErrUnimplemented(13)` 的文案是「该功能本版未实现」——
+//    教程挡下的那一下**不是**「本版没实现」⇒ 说成 13 会骗人（改前就是这样）。
+//  **接线**：入口 = `B115W7_Assert.Run(driver)`，接在 **`Editor/BattleScene.cs:45266`** 那条「卸 driver 之前」的行
+//    （`CheckManaBuffHud(driver, Check);` 之后、`driver.DetachStaticHooks();` 之前）—— 🔴 必须在该行 `//` 之前，
+//    且**必须在 `UnityEngine.Object.DestroyImmediate(driver)` 之前**：销毁之后 `driver` 是 Unity **假 null**（实测 1 红）。
+//  ⚠️ 本件**自己重建一局教程**（`BeginTutorial(0)`）：它接在方法尾 ⇒ 其后没有任何断言读对局状态。
+// ============================================================================================
+public static class B115W7_Assert
+{
+    const string P = "[B115_W7] ";
+    static int _ok, _bad;
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
+
+    static void Check(bool ok, string what)
+    {
+        if (ok) { _ok++; Debug.Log(P + "✓ " + what); }
+        else { _bad++; Debug.LogError(P + "✗ " + what); }
+    }
+
+    public static void Run(BattleDriver driver)
+    {
+        if (driver == null) { Check(false, "（前提）拿到 `BattleDriver` 实例（⛔ 假 null = 已被 `DestroyImmediate` 卸掉 ⇒ 本断言必须接在 `BattleScene.cs:45266`、`DestroyImmediate(driver)` 之前）"); return; }
+
+        // ---- 夹具：真开一局教程（第 1 关），把脚本推到「等玩家攻击」的那一条 ----
+        driver.BeginTutorial(0);
+        var ctx = driver.Ctx;
+        var tut = ctx != null ? ctx.Tutorial : null;
+        Check(ctx != null && tut != null, "（前提）`BeginTutorial(0)` 开出了教程局（`ctx.Tutorial` 在位）");
+        if (ctx == null || tut == null) return;
+
+        var step = driver.DriveTutorialScriptForTest();
+        if (driver.TutorialWaitingForTip) driver.DismissTutorialTipForTest(true);
+        Check(step == BattleDriver.TutorialStep.Advanced && tut.ActionCounter == 1,
+              $"（前提）脚本推到「等玩家」的那一条（`AttackFreeMode`，指针 0 → {tut.ActionCounter}）"
+            + " —— 指针没动的话，下面那次拒会被误读成「脚本还没轮到玩家」（那是另一条理由）");
+        if (tut.ActionCounter != 1) return;
+
+        // ---- 清干净选择态：`ClearSelection` 会把 `_command` 归 `None`、`_selectedSlot` 归 −1 ----
+        //  不这么做的话，前面别的断言可能留下一条 `Ability` 选择 ⇒ `Resolve` 会先走技能面板那条路（`BeginAsk` 返 OK）。
+        Check(driver.SimulateDeselect(), "（前提）选择态已清空（`_selectedSlot < 0`、`_command == None`）");
+
+        // ---- 挑一个**脚本没写的目标**：敌方「不是督军」的格位（优先空格）----
+        //  第 1 关那一条脚本要的是「打 AI 督军」（`ScriptedActionUnit.AiWarlord`）⇒
+        //  换成任意非督军格 ⇒ `TutorialScript.Matches` ③ 的目标那一关必不成立。
+        int bad = -1;
+        for (int s = 0; s < BoardSpec.Size; s++)
+            if (s != BoardSpec.WarlordSlot && ctx.Players[1].Board[s] == null) { bad = s; break; }
+        if (bad < 0)
+            for (int s = 0; s < BoardSpec.Size; s++)
+                if (s != BoardSpec.WarlordSlot) { bad = s; break; }
+        Check(bad >= 0, $"（前提）敌方存在一个「不是督军」的格位可以当非法目标（实得 {bad}）");
+        if (bad < 0) return;
+
+        // ---- 被测：走 `SimulateResolve → Resolve → DoResolve`（与玩家点目标同一个口）----
+        int rc = driver.SimulateResolve(bad);
+        Check(rc == RuleCodes.ErrAbilityRejected,
+              $"★ ENG-23：教程白名单闸拒了「脚本没写的那一手攻击」⇒ 返回 `ErrAbilityRejected`({RuleCodes.ErrAbilityRejected})"
+            + $"（实得 {rc} = `{RuleCodes.Describe(rc)}`）"
+            + "｜🧨 把 `BattleDriver.cs:16386` 改回 `ErrUnimplemented` ⇒ 本条红");
+        Check(rc != RuleCodes.OK,
+              $"★ ENG-23（灭自证 · 反面）：这一手**真的被拒了**（`rc != OK`，实得 {rc}）"
+            + " —— 没被拒的话上面那条「是不是 29」就失去意义（成了「打成了、码恰好不是 13」）");
+        // 灭自证（结构上不可能同时成立）：两个码值必须不同 —— 若有人把 `ErrAbilityRejected` 改回 13，
+        // 上面那条 `rc == ErrAbilityRejected` 会**照样绿**（rc 也是 13）⇒ 只有这一条能抓。
+        Check(RuleCodes.ErrAbilityRejected != RuleCodes.ErrUnimplemented,
+              $"★ ENG-23（灭自证 · 结构）：`ErrAbilityRejected`({RuleCodes.ErrAbilityRejected})"
+            + $" ≠ `ErrUnimplemented`({RuleCodes.ErrUnimplemented}) —— 🧨 把 29 改回 13"
+            + "（或让两档共用同一码）⇒ 上面那条仍绿、**本条红**");
     }
 }

@@ -805,7 +805,7 @@ namespace CardPresentation
         /// 的 prefab 根名（= `Shell/WhereToGetCardsPopup.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
         /// <para>🔴 **原版入口是本地判据、不是猜的**：`ExpansionPassEventTab.cs:25` 与 `GachaEventTab.cs:20` 各有一个
         /// `AssetReferenceTyped&lt;WhereToGetCardsWindow&gt; getCardsWindow` ⇒ 原版由**事件页那两个 tab** 开出来。
-        /// ⚠️ 我们**没有建承载窗 `Parent Event Window`** ⇒ 这里只提供「怎么开」，⛔ 不伪造调用点
+        /// ⚠️ 🔴 **2026-11-01 就地订正（铁律 5）**：原来这里写「我们**没有建**承载窗 `Parent Event Window`」——**不成立**：承载窗 **T28（2026-10-17）就建了**（见本类 `OpenParentEvent` 与下方 `:1062` 自己那句「已于 T28 建出」）；仍成立的是**入口没接线**（两条事件 tab 本机没有 liveops 数据）⇒ 这里只提供「怎么开」，⛔ 不伪造调用点
         /// （同 `TutorialMessagePopup` / `T26` 口径；判据全文 → `Shell/WhereToGetCardsPopup.cs` 文件头）。</para></summary>
         public const string PrefabRefWhereToGetCards = "WhereToGetCardsPopup";
 
@@ -1721,6 +1721,74 @@ namespace CardPresentation
                                    + "（只可能来自 `ToBackground()`）⇒ **这一具不销毁、只摘表**（出一声，别当成已经收干净了）");
             }
         }
+
+        // ============================================================ 🆕 2026-11-01（B115_W16 · ACT-02 ①）
+        //   **按 prefab 根名开活动窗** —— 原版那一跳是「事件实例 → 它自己的 `MainWindow` prefab」
+        //   （`LiveOpsAssetUtility.GetComponentReference(ev, 10)` → `WindowsManager.OpenWindow(reference)`），
+        //   **原版没有「按窗种类」这一层**。
+        //   🔴 **为什么不扩 `ParentEventWindow.EventWindowKind`**：那个枚举还被「左栏事件钮」那条轴复用
+        //   （`ParentEventWindow.BuildEventTabs` 是 `for (i < EventWindowRootNames.Length)` 遍历）⇒ 扩成 7 值
+        //   会让**每扇活动窗左栏多 3 颗永远点不出东西的钮**，而原版那条轴的粒度是「**每个 live 事件一颗**」，
+        //   不是「每种窗一颗」。⇒ 换窗种类这件事落在这里：**按 root 名分派**，枚举保持 4 值。
+        //   ⛔ 追加在 `WindowsManager` **类尾**（本文件被账按 `文件:行号` 钉着，最后一个落点是 `:1600`）。
+
+        /// <summary>`RankedEventWindowV2`（原版排位活动窗 · `RankedEventWindow`）的注册键。
+        /// <para>根名**现读确认**（⛔ 不是按枚举名猜）：`bundle_menus_assets_all/GameObject/RankedEventWindowV2.json` 存在；
+        /// `AssetRipper` 导出工程 `Assets/RankedEventWindowV2.prefab` 的根 = `m_Father {fileID: 0}`、`m_Name` 逐字相同。</para></summary>
+        public const string PrefabRefRankedEvent = "RankedEventWindowV2";
+
+        /// <summary>`SkirmishModeEventWindow`（原版遭遇战活动窗 · `SkirmishEventWindow`）的注册键。根名现读同上（`SkirmishModeEventWindow.prefab`）。</summary>
+        public const string PrefabRefSkirmishEvent = "SkirmishModeEventWindow";
+
+        /// <summary>开一扇 <see cref="RankedEventWindow"/>（= `MainMenuRuntime` 模式卡 `ranked` 那一跳的**同形**实现：
+        /// `OpenByRef("RankedEventWindowV2", w => RankedEventWindow.Create(w))`）。
+        /// <para>⚠️ 生产调用点仍在 `MainMenuRuntime`（那行 `OpenByRef` 没删，本轮不在白名单）⇒ 两处字符串必须同值；
+        /// 收口办法见类尾注释「还欠一次收口」。</para></summary>
+        public static RankedEventWindow OpenRankedEvent()
+        {
+            return OpenByRef(PrefabRefRankedEvent, wm => RankedEventWindow.Create(wm));
+        }
+
+        /// <summary>开一扇 <see cref="SkirmishEventWindow"/>（= 模式卡 `skirmish` 那一跳的同形实现）。</summary>
+        public static SkirmishEventWindow OpenSkirmishEvent()
+        {
+            return OpenByRef(PrefabRefSkirmishEvent, wm => SkirmishEventWindow.Create(wm));
+        }
+
+        /// <summary>🆕 **ACT-02 ①**：按 **prefab 根名** 开一扇活动窗（7 种 = 4 扇承载窗 + Ranked / Skirmish / Energy）。
+        /// <para>这是「原版 `OpenWindow(GetComponentReference(ev, MainWindow))`」在我们这边的**单一口**：
+        /// 上层拿到 root 名（例如 GUID→root 表）就能开窗，**不必**扩 <see cref="ParentEventWindow.EventWindowKind"/>。</para>
+        /// <para>4 扇承载窗那 4 个分支**转调 <see cref="OpenEventHub"/>**（枚举那张表只有一处，⛔ 别在这里抄第二份开窗代码）。</para>
+        /// <para>⛔ 未知 root / null ⇒ 出声 + null（原版 `GetComponentReference` 找不到时同形，不静默）。</para></summary>
+        public static GameWindow OpenEventWindowByRoot(string prefabRoot)
+        {
+            if (string.IsNullOrEmpty(prefabRoot))
+            {
+                Debug.LogError("[Win] `OpenEventWindowByRoot(null/空)` —— 原版这里 `GetComponentReference` 会 NRE；我们出声后不开窗");
+                return null;
+            }
+            switch (prefabRoot)
+            {
+                case PrefabRefParentEvent:        return OpenEventHub(ParentEventWindow.EventWindowKind.Parent);
+                case PrefabRefGachaEvent:         return OpenEventHub(ParentEventWindow.EventWindowKind.Gacha);
+                case PrefabRefRaidEvent:          return OpenEventHub(ParentEventWindow.EventWindowKind.Raid);
+                case PrefabRefExpansionPassEvent: return OpenEventHub(ParentEventWindow.EventWindowKind.ExpansionPass);
+                case PrefabRefRankedEvent:        return OpenRankedEvent();
+                case PrefabRefSkirmishEvent:      return OpenSkirmishEvent();
+                case PrefabRefEnergyEvent:        return OpenEnergyEvent();
+                default:
+                    Debug.LogWarning("[Win] `OpenEventWindowByRoot(\"" + prefabRoot + "\")` 不在活动窗表里（7 种："
+                                   + PrefabRefParentEvent + " / " + PrefabRefGachaEvent + " / " + PrefabRefRaidEvent + " / "
+                                   + PrefabRefExpansionPassEvent + " / " + PrefabRefRankedEvent + " / " + PrefabRefSkirmishEvent + " / "
+                                   + PrefabRefEnergyEvent + "）⇒ 不开窗（原版 `GetComponentReference` 找不到时 `LogWarning` + 返回 null）");
+                    return null;
+            }
+        }
+
+        // ⚠️ **还欠一次收口（不在本轮白名单）**：`Shell/MainMenuRuntime.cs` 的模式卡 `skirmish` / `ranked` 仍**直接**
+        //   `OpenByRef("SkirmishModeEventWindow" / "RankedEventWindowV2", …)` ⇒ 与上面的 `PrefabRef*` 常量**同值两处**。
+        //   收口改法：那两行换成 `WindowsManager.OpenSkirmishEvent()` / `OpenRankedEvent()`（行为逐字相同，走同一个注册键）。
+        //   ⛔ 本轮不动那个文件（避免与 11 条断言那一批抢写手）。
     }
 
     // ============================================================ 原版 `ReferralContainer.Refresh()`（B94_S3 · 2026-10-29）

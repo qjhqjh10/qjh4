@@ -172,7 +172,7 @@ namespace RuleEngine
         public sealed class HandEffect
         {
             /// <summary>载荷（`give` 那条路解释；登记这一刻**不解析** —— 词表只有 `GivePayload` 一份判据）。</summary>
-            public EffectOp Op;
+            public EffectOp Op;   public CardDatabase.AbilityBuffSpec Spec;   // 🆕 2026-11-02（执行写手 `B115_W20` · 格 1）：**结构化载荷**（原版 `HandEffect.cardEffect`，`AbilityBuffSpec` = `CardEffect` 那 26 格 + 本节新增的 `pa`/`Uses`/`criteria` 四格）。与 `Op` **并存、二选一**：`Op != null` = 正文解析出来的文本 op（本仓原有那条路）；`Spec != null` = **数据行**（原版 `PlayerHand.AddHandEffect` 那一档，走 `RuleCore.AttachHandAbilityBuff`）。⚠️ **同一物理行追加（铁律 18·b）**：本文件账的 A 行落点在 `:399/:502/:513`（均在 `HandEffect` 之后）⇒ 加行会整体漂移，故零行数追加。⛔ 别把两个都填 —— 「两条路各跑一遍」= 双发。
 
             /// <summary>
             /// 🆕 2026-10-18（`W4` 整改 · 审查问题 6）**「同一次挂载」的记录号** ——
@@ -208,7 +208,7 @@ namespace RuleEngine
             ///  `dump.cs:19557-19566` 那两格就是 `AbilityData` 上的 `+0x40/+0x41`）
             /// ⇒ **语义 = 「这条是【在场上才成立】的能力给的」**。
             /// </summary>
-            public bool Extrinsic; public bool Permanent; public int Seq;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：`Seq` = 原版 `activeEffects(+0x108)` 的 `List.Add` 序（投影靠它还原表序）。写点 = `EffectResolver.AttachHandEffect`（补挂那条**照抄**原记录的号）—— ⏳ **本批未接**（那个文件在别的代理手上）⇒ 今天恒 `0` = 投影排队尾，**行为与改前逐字相同**｜🆕 2026-10-28（B91·W4b）`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)` —— 该条【摘不掉】（判据 = `CardScript__RemoveEffect.c` 第一句 `permanentBuff != 0 ⇒ return` / `RemoveBuffHandCostEffects.c:35` 最外层闸）。⚠️ 数据槽而已：生产点 = `RuleCore.AttachHandEffect`、消费点 = `RuleCore.ExpireHandBuffs` / `ClearHandEffect`（均 W1 的文件）—— 账 L846 的「记录层灌值」另一半在那两处，⛔ 别在此文件另造判断
+            public bool Extrinsic; public bool Permanent; public int Seq;   // 🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-f）：`Seq` = 原版 `activeEffects(+0x108)` 的 `List.Add` 序（投影靠它还原表序）。写点 = `EffectResolver.AttachHandEffect`（补挂那条**照抄**原记录的号）—— ✅ 2026-11-01 更正：原来写「⏳ **本批未接**（那个文件在别的代理手上）⇒ 今天恒 `0` = 投影排队尾」——实际**已接**（`EffectResolver.cs:5757 Seq = inst != null ? inst.NextEffectSeq() : 0`，补挂照抄 `:5969`），错因 = 写于同一补丁执行之前｜🆕 2026-10-28（B91·W4b）`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)` —— 该条【摘不掉】（判据 = `CardScript__RemoveEffect.c` 第一句 `permanentBuff != 0 ⇒ return` / `RemoveBuffHandCostEffects.c:35` 最外层闸）。⚠️ 数据槽而已：生产点 = `RuleCore.AttachHandEffect`、消费点 = `RuleCore.ExpireHandBuffs` / `ClearHandEffect`（均 W1 的文件）—— 账 L846 的「记录层灌值」另一半在那两处，⛔ 别在此文件另造判断
 
             /// <summary>
             /// 🆕 **2026-10-23（`W64 B-09`）：这条记录只补给【这一份】实例**（`0` = 不限）。
@@ -534,5 +534,35 @@ namespace RuleEngine
         // ============================================================================================
         int _effectSeq;
         public int NextEffectSeq() { return ++_effectSeq; }
+
+        // ================================================================================================
+        //  🔴🆕 2026-11-01（执行代理 `B115_W23` · 账 `B-254` / `SAN-04`）：
+        //  **`CardScript.referencedCards // +0x278` 的真正落点** —— 追加在**类尾**（⛔ 别插到中间：
+        //  `账/*.tsv` 按 `文件:行号` 引，插一行就漂；本文件现读最后一条账落点是 `:513`）。
+        // ================================================================================================
+        /// <summary>
+        /// 原版 `CardScript.referencedCards（+0x278，`List&lt;CardScript&gt;`，带 public setter）`
+        /// —— 能力 `380 setReferenceCard` 写、`targetsAffected` 的 `200 / 201` 两档读的那张表。
+        ///
+        /// <para>**判据（第一权威，现读）**：`d:/2/tools/il2cpp_out/dump.cs:35480`（`&lt;referencedCards&gt;k__BackingField`）
+        /// / `:35549`（属性）；写点 = `AbilityLogic__PlayAbility.c:2128-2160`（`iVar8 == 0x17c`，
+        /// 先**换一张新 List** 直写 `+0x278`、再把本条 logic 的目标逐个 `Add` ⇒ **覆盖**语义）。</para>
+        ///
+        /// <para>🔴 **为什么挂在【实例】而不是 `UnitState`**（2026-11-01 就地订正，铁律 5）：
+        /// 原版 `CardScript` 是**手牌与场上同一个类**（`dump.cs:35370`，`isPlayer` 在 `+0x40`，手牌也带）
+        /// ⇒ 「从手牌打出的战术卡」也要能写这张表（`AM54 At All Costs` 的 380 就属于这种）。
+        /// 我们原来把它挂在 `UnitState` 上，那份 doc 自己写着「手牌的战术卡没有存放处 —— 这条缺口未做」
+        /// ⇒ **那是挂错了挂载点**，不是「没有地方放」。现在搬到实例上，
+        /// `UnitState.ReferencedCards` 退化成**转发属性**（旧调用点零改动）。
+        /// 原版的 `+0x278` 就在牌自己身上、跟着牌在手牌↔场上走，与「实例」一一对应。</para>
+        ///
+        /// <para>⚠️ 元素类型 = <see cref="CardRef"/>（不是 `UnitState`）：原版这张表可以装
+        /// **已离场 / 手牌里**的卡（`GetCardsInHandList` 那些返回的也是 `List&lt;CardScript&gt;`，
+        /// 见 `dump.cs:32595-32613`）⇒ 只装 `UnitState` 结构上表达不了。</para>
+        ///
+        /// <para>⚠️ 它**不进 `NetProtocol.PlayerHash`**、不落盘、每局从空开始（不是卡 SO 字段 ——
+        /// `cards_raw.json` 的 116 个键里没有它）。</para>
+        /// </summary>
+        public readonly List<CardRef> ReferencedCards = new List<CardRef>();
     }
 }

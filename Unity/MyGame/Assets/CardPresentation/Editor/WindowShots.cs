@@ -141,6 +141,25 @@ public static class WindowShots
     /// <summary>`GameWindow` → 它的窗根（`null` 也照原样返回，让 RunOne 去判「没开出来」）。</summary>
     static Transform T(GameWindow w) { return w != null ? w.transform : null; }
 
+    /// <summary>物品展示窗那一行的**样张内容** = `Resources/Cardbacks.json` 里 Ultramarines 的默认卡背
+    /// （2026-11-01 现读 = `Cardback_UM_Campaign_Free`；取不到则退 `CardArt.CosmeticNames()` 的首个）。
+    /// <para>🔴 **为什么必须给它内容**（`B-303` / `B115_R1`）：原版 `ItemDisplayWindow.Open` 在
+    /// `context.item == null` 时 `LogError("No item available") + return`（`decomp_full/ItemDisplayWindow__Open.c:23-34`），
+    /// 我们的 `Build()` 走的是同一条闸（`Shell/ItemDisplayWindow.cs:296-300`）⇒ **无参调用 = 空容器**
+    /// （实测：窗根子树 渲染件 0 / 文本 0）。⛔ 别改成「`OpenItemDisplay` 无参时自己给一张卡背」——
+    /// 原版 `null` 就是错误支，那样做等于自造一个原版没有的行为。</para>
+    /// <para>取不到**不静默**：返回 `null` ⇒ `ForCardback(null)` 仍落回空上下文 ⇒ 这一行照旧 rc=1（那才是真红）。</para></summary>
+    static string SampleCardback()
+    {
+        var n = CardbackTable.DefaultFor("Ultramarines");
+        if (!string.IsNullOrEmpty(n)) return n;
+        var names = CardArt.CosmeticNames();
+        if (names != null && names.Length > 0) return names[0];
+        Debug.LogError(P + "物品展示窗的样张卡背取不到（`Resources/Cardbacks.json` / `Resources/Art/cardbacks/` 都空）"
+                          + " ⇒ 这一行会是空容器（rc=1，别当拍到了）");
+        return null;
+    }
+
     /// <summary>
     /// **内建窗表**。每一行都指名那条**生产开窗 API**（不是我们造的开法）。
     /// ⚠️ 顺序 = 实际执行顺序（同宿主的窗连在一起跑：一次建场、多扇窗）。
@@ -197,8 +216,13 @@ public static class WindowShots
                  c => T(WindowsManager.OpenTutorialMessage()), "`WindowsManager.OpenTutorialMessage()`"),
         new Spec("通用选项面板", "generic_options", HostKind.MainMenu,
                  c => T(WindowsManager.OpenGenericOptionsPanel()), "`WindowsManager.OpenGenericOptionsPanel()`"),
+        // 🔴 **2026-11-01（`B115_R1` · `B-303`）**：本窗**没有「出厂内容」** —— 原版 `ItemDisplayWindow.Open` 在
+        //   `context.item == null` 时 `LogError("No item available") + return`（`decomp_full/ItemDisplayWindow__Open.c:23-34`），
+        //   我们的 `Build()` 同一条闸（`Shell/ItemDisplayWindow.cs:296-300`）⇒ 原来那一版**无参调用 = 空容器**
+        //   （实测 渲染件 0 / 文本 0）。⇒ 这一行必须给**生产 Context**（= 收藏窗卡背页那一跳），⛔ 不是「给它一个默认值」。
         new Spec("物品展示窗", "item_display", HostKind.MainMenu,
-                 c => T(WindowsManager.OpenItemDisplay()), "`WindowsManager.OpenItemDisplay()`"),
+                 c => T(WindowsManager.OpenItemDisplay(ItemDisplayWindow.ForCardback(SampleCardback()))),
+                 "`WindowsManager.OpenItemDisplay(ItemDisplayWindow.ForCardback(<默认卡背>))`（= 收藏窗卡背页的生产那一跳）"),
         new Spec("卡牌来源窗", "where_to_get_cards", HostKind.MainMenu,
                  c => T(WindowsManager.OpenWhereToGetCards()), "`WindowsManager.OpenWhereToGetCards()`"),
         new Spec("活动承载窗", "parent_event", HostKind.MainMenu,

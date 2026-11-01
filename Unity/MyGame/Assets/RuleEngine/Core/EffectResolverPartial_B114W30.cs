@@ -48,9 +48,9 @@ namespace RuleEngine
         /// <summary>🆕 `B-245`：卡级 `cardTargetCriteria.ExcludeNotSelf != 0` ⇒ 点选池**整池淘汰**。
         /// <para>判据与三条前提见本文件头 ②。现读全池 **0 张** ⇒ 今天零行为变化；
         /// `includeSelf` 那一格**刻意不补**（`候选 == thisCard` 恒假 ⇒ 跳过即等价）。</para>
-        /// <para>⚠️ 这条对**单位卡的棋盘那批**也对：原版 `thisCard` = 待落地那张自己（它在落位后的池里，
-        /// 不在我们这份「棋盘那批」里）⇒ 棋盘那批同样全淘汰；「它自己」由
-        /// <see cref="PreviewSelfExcludedByCardCriteria"/> 那一支按 `includeSelf` 单独判。</para></summary>
+        /// <para>⚠️ **2026-11-01 更正（铁律 5 · `B-288` · `B114_W40` 查出）**：原来这里写「这条对**单位卡的棋盘那批**也对 ⇒
+        /// 棋盘那批同样**全淘汰**」—— **已过期**。`B-278`（`B114_W40`）之后棋盘那批**也传 `thisCard`（`asIfOnBoard`）** ⇒ 走**逐候选**
+        /// 淘汰（候选都不是它 ⇒ **结论等价**，只是不再走本函数这条 `thisCard == null` 的整池路）；「它自己」仍由 <see cref="PreviewSelfExcludedByCardCriteria"/> 按 `includeSelf` 单独判。</para></summary>
         static bool CardCriteriaExcludeNotSelfEmptiesPool(CardDef card)
         {
             if (card == null || card.CardTargetCriteria == null) return false;

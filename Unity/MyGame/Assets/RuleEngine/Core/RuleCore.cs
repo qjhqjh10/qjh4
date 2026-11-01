@@ -2309,7 +2309,7 @@ namespace RuleEngine
             GrantPrayEnchantmentFaith(ctx, ctx.Active, ctx.Players[ctx.Active].Warlord);
 
             ResolveAtTurn(ctx, "turn_start");
-            if (ctx.IsOver) return;      // 触发段能打死督军（`your troops take 1 damage` 那类）
+            if (ctx.IsOver) return; { var tq = new List<UnitState>(); for (int tp = 0; tp < ctx.Players.Length; tp++) { var tb = ctx.Players[tp].Board; for (int ts = 0; ts < BoardSpec.Size; ts++) { var tu = tb[ts]; if (tu == null || !tu.IsAlive) continue; if ((tu.Has("transient") || (tu.Card != null && tu.Card.CardTraitsKnown && tu.Card.HasDefaultTrait("transient", out _))) && !tu.HasRemovedTrait("transient")) tq.Add(tu); } } for (int ti = 0; ti < tq.Count; ti++) { int to, tsl; if (!FindUnit(ctx, tq[ti], out to, out tsl)) continue; ctx.Log($"{tq[ti].Name} 带 `transient`（短暂的）⇒ 回合开始被摧毁（原版 `CardScript__OnTurnStart.c:257` → `BattleManager.DestroyUnit(…, priority 1, deathType = ability(20))`）"); tq[ti].Health = 0; CleanupDeaths(ctx, to, tsl, actingCard: tq[ti], deathType: UnitDeathType.Ability, actionTarget: tq[ti]); } if (ctx.IsOver) return; }      // 触发段能打死督军（`your troops take 1 damage` 那类） ｜ 🆕 2026-11-01（`B115_S7` · ENG-07 `transient`(455)）：**原版 `CardScript__OnTurnStart.c:257` 的那一跳** —— 状态闸 `cardState ∈ {2,0xf,3,0x11}`（= 在场，`p.Board` 天然满足）∧ `HasCurrentTrait(0x1c7)` ⇒ `DestroyUnit(this, this, priority 1, deathType = ability(20))`；**原版没有侧别守卫**（`:257` 只查状态，不像 `:106/:113/:120/:125` 那样查 `param_2 == isPlayer`）⇒ **双方都扫**。位置 = `ResolveAtTurn("turn_start")`（原版 `:137+` 触发段）**之后**、`BroadcastActivateMinions/TurnStarted`（原版 `_NextTurn:384/:385`）**之前**，与原版 `:137 → :257 → :263(Landing)` 同序。⚠️ 已知近似：原版 transient 那一跳在**逐卡** `OnTurnStart` 里、排在 talent(`:160`)/psyker(`:175`) **之后**；我们这两段在更后面（既有结构），暂不可观测（池内 0 张）。⚠️ `keywords` 列的真值需在 `CardDef.Prefixes` 登记 `transient`（不在本笔白名单）——今天走 `cardTraits` 列（`HasDefaultTrait` 的 `TraitKeyOf` 回退到小写净名）即可达
             // 🆕 2026-10-26（`E11RC` · 账行 818 `CardScript.OnTurnStarted`）：原版
             //   `_NextTurn_d__395__MoveNext.c:385` 的 `BroadcastTurnStarted`（trigger 160）排在
             //   `BroadcastTurnStart`（30/31，`:371`）与 `BroadcastActivateMinions` **之后**
@@ -3637,9 +3637,9 @@ namespace RuleEngine
         /// **调用点**（关键词变更的唯一入口两处，都在 `Core/UnitState.cs`）：
         ///   · `UnitState.AddKeyword`（= 原版 `AddEffect` `case 3` 那条加 trait 的路）；
         ///   · `UnitState.RemoveAll`（= 原版 `RemoveTrait` 那条摘 trait 的路）。
-        ///   ⚠️ **光环那条路（`AddAuraKeyword` / `ClearAuraGrants`）没有接** —— 原版光环给的关键词走的是
-        ///   哪条路**还没查清**（`AddTraitSilently` 不重算、`UpdateWhileInPlay` 那一支没读到实据）
-        ///   ⇒ 如实留作待办，⛔ 别照「加词就重算」顺手接上去（可能与原版相反）。
+        ///   ⚠️ **光环那条路（`AddAuraKeyword` / `ClearAuraGrants`）：收回侧【已接】、加法侧刻意不接** ——
+        ///   ⚠️ **2026-11-01 更正：旧文写「没有接」，对「收回侧」已不成立** —— `ClearAuraGrants`（`Core/UnitState.cs:1556`，调用 `:1578`）→ `RequestActRecomputeAfterAuraChange`（`:3077`）；`Core/Aura.cs:650` 二选一；
+        ///   **加法侧 `AddAuraKeyword` 仍刻意不重算**（原版那条路未闭合，见 `报告/B9_W18AR_光环侧翼疲劳.md` §①(a)）⇒ ⛔ 别照「加词就重算」顺手接上去。
         /// ⚠️ **`+0x228 == 2`（cardState = 在场）那道守卫也没有对象**：原版对**还没上场**的卡
         ///   走这一跳会写成「不能动」。我们这边只有一条路会在「构造完、还没 `ApplyDeployTurnState`」
         ///   的窗口里调到这里 —— `PlayCard` 的 `ApplyHandBuffs`（手牌加成可能给 `fast`/`flank`），
@@ -3996,13 +3996,13 @@ namespace RuleEngine
             //   ⚠️ 两格闸**都要** ⇒ 另落一个合取标签（只取 `Elixir` 或只取 `Tactic` 都会**多算**：
             //      战术卡 448 张、Elixir 只有 6 张，取 `Tactic` 会把全池计谋都算进去）。
             bool elixir = card.SpellType == 260;
-            bool tactic = string.Equals(card.Type, "tactic", StringComparison.Ordinal);
+            bool tactic = card.CardType == CardDef.CardTypeTactic;   // 🔴 2026-11-01（`B115_W14` · `B-309`）：判据 = 原版 `CardPlayedCount__OnCardPlayed.c:24-29` 的**卡型闸**（`!anyCardType && RawCard.cardType(+0x94) != attackingType(+0x68)`，而 `CardTypeOptions.Tactic = 20`）⇒ ⛔ 不是 `Type` 字符串（那是**我们自己的**映射）。全池 **41 张** `cardType=20` 但 `Type≠tactic`（39 防御卡 + 2 附魔）⇒ 改前它们**少算**战术；反向 **0 张**。量化/影响面 → `资料/完全复刻/报告/B115_W14_拒支回滚与Tactic判据.md`
             if (elixir) m |= 1 << CardPlayedTag.Elixir;
             if (tactic) m |= 1 << CardPlayedTag.Tactic;
             if (elixir && tactic) m |= 1 << CardPlayedTag.ElixirTactic;
             // `Ach_97` `Deploy troops with Pack` —— `withTrait=[610]` = `DefinedTrait.pack`。
             //   ⚠️ **数据自相矛盾**（判据 §F4）：同一条的 `anyTrait=1` ⇒ 原版那道闸等于**不过滤 trait**；
-            //   我们按 `withTrait` 的**意图**（pack）做，如实标为「按意图、不是按原版那道闸」。
+            //   ⚠️ 2026-11-02 更正（`B-309` 之后的口径）：`Ach_97` 的**真口径 = `anyTrait=1` ⇒ 每张打出的卡都算**，计数口是 `CardPlayedTag.AnyCard`（恒 +1，见 `AchievementTally.cs:70/209`），⛔ **不是本行这个 `Pack` 位** —— 原文「我们按 `withTrait` 的意图（pack）做、如实标为按意图」**已过期**（那是 B-309 之前的第三种说法）。本行 `Pack` 位按 `Card.Has("pack")` 置位，服务的是「按 trait 记标签」这件事本身（`X18-5e/5i` 断言），与 `Ach_97` 的计数无关。
             if (card.Has("pack")) m |= 1 << CardPlayedTag.Pack;
             return m;
         }
@@ -7055,7 +7055,7 @@ namespace RuleEngine
                 // 🔴 **2026-10-19（`D28` 施工单 E）**：闸门改成照原版 —— `!attackerDiesFromPending`
                 //   （= 原版那个 `!EnoughPendingDamageToDie(attacker)`，见上面那段）。
                 if (!attackerDiesFromPending && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);
+                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);   // ⛔ 2026-11-01（`B115_W14` · `ENG-16` ①）**试过、已回退**：原版确实传 `targetCard = 被打者`（`CardScript__ResolveUnitAttacked.c:99-101` 的 `OnTrigger(0x244, …, actingCard=param_1, targetCard=param_2)`），但**今天接不上** —— 传 `chosen:` 会经 `FireTriggerDeferred` → `ResolveOps(chosen:)` 落进 `EffectResolver.ResolveTargetsCore` 那条「`SubjectTargetsAffected < 0` ⇒ 用 chosen 顶掉整张目标表」的兜底（`EffectResolver.cs` 里 `list.Clear(); list.Add(chosen);`），而**触发正文的 op 拿不到 `ta`**（解析层没挂上）⇒ 实测 `play check`：`TL30 Tyrannofex`（`Strike: Deal 1 damage to a random enemy, 8 times`）的 8 次随机伤害**全变成 0**（净伤害 25→0）。反向也不能动那条兜底：把 `< 0` 去掉会改 **21 张**（战术路靠它）。⇒ 卡在「`ta` 映射」这一层（`CardDef.AssignAbilityTargets`，不在本笔白名单）**先不接**，证据/两条候选修法 → `资料/完全复刻/报告/B115_W14_拒支回滚与Tactic判据.md` §三
 
                 // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
                 // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
@@ -11090,7 +11090,7 @@ namespace RuleEngine
             int n = 0, loose = 0;
             foreach (var e in reg)
             {
-                if (e == null || e.Op == null) continue;
+                if (e == null || (e.Op == null && e.Spec == null)) continue;   // 🆕 2026-11-02（执行写手 `B115_W20`）：**`Spec` 记录（附魔模板 `handBuff` 的数据行，`Op == null`）也要发给后进手牌的牌**（同 `HandEffectRegistry` 那一句）。⛔ 别退回 `e.Op == null ⇒ continue`（那会让「后进手牌的牌」永远吃不上这类效果）。行内追加 = 零行数变化。
                 // 🔴 **2026-10-18（`WC` · 修 `DB` §6.1 的 (β) 死代码）**：原来这三句是
                 //    `if (!HandEffectFits(..., out isLoose)) continue;` **排在** `if (isLoose) loose++;` **之前**
                 //    ⇒ 只有返回 `true` 才走到计数，而 `HandEffectFits` **只有**在
@@ -11154,7 +11154,7 @@ namespace RuleEngine
             for (int i = 0; i < recs.Count; i++)
             {
                 var e = recs[i];
-                if (e == null || e.Op == null || e.Op.Verb != "give") continue;
+                if (e == null || (e.Op == null ? e.Spec == null : e.Op.Verb != "give")) continue;   // 🆕 2026-11-02（执行写手 `B115_W20`）：**`Spec` 记录（附魔模板 `handBuff` 的数据行，`Op == null`）也要进清单** —— 原版「后进手牌的牌」那一趟（`PlayerHand__SetupCardInHand.c:38-71`）遍历的是**记录表**，与「这条效果有没有正文 op」无关。三元写法 = **零行数变化**（本文件账落点密集，⛔ 别拆成多行）。
                 bool dup = false;
                 for (int k = 0; k < r.Count; k++)
                     if (r[k].RecordId == e.RecordId) { dup = true; break; }
@@ -11181,7 +11181,7 @@ namespace RuleEngine
         ///     **同一份纪律**：`Subtype` 为空的卡**不许悄悄排除**。）</summary>
         static bool HandEffectFits(CardInstance inst, CardInstance.HandEffect e, out bool loose)
         {
-            loose = false;
+            loose = false;   if (e != null && e.Spec != null) { string _g; bool _ok = HandCardMatchesAbilityBuff(inst, e.Spec, out _g); loose = _g != null; return _ok; }   // 🆕 2026-11-02（执行写手 `B115_W20`）：**数据行**（附魔模板 `handBuff`）那一支 —— criteria 在 `Spec.Criteria` 的 36 格里，⛔ **不在 `Target`（`EffectTargetSpec`）上**（原版 `HandEffect.targetCriteria(+0x20)` 是**纯 `TargetCriteria`**，与 `abilityLogic.targetCriteria` **不是同一份数据**；取错那份会 `ta=0 (any)` ⇒ 整只手牌全中）。判不出来（`_g != null`）⇒ **不放行**（与下面「判不出来就不放行」同一条口径）。行内追加 = 零行数变化。
             if (inst == null || inst.Card == null) return false;
             var card = inst.Card;
             // 🔴 **2026-10-23（`W64 B-09`）：按实例钉的那一格**（`OnlyInstanceId != 0`）——
@@ -11758,11 +11758,11 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
+            var spec = u.Ability;   // 🔴🆕 2026-11-02（`B115_S6` · 活 `ENG-22`）：**先取规格、紧接着校验目标，再写状态** —— 原版 `FinishedChoosingAbilityTargetByClick.c:39-43` 是「先校验 → 后 `ExecuteActiveAbility`」，而 `ResolveActiveAbilityPlayed.c:19-43` 的 `+0x50`/`+0x4C`/`currentAttackType` 又都在它之后 ⇒ 我们原来把两条状态写入排在校验之前，被 `ErrTarget` 拒掉那一手会**留下** `LastAttackType` / `CurrentAttackType`（ENG-22 的一处真缺陷）
+            if (EffectTargets.NeedsPick(spec.Target) && !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrTarget;   // 2026-10-28（批次 91 · `W1` · 账 L1209）：**结算**必须有具体目标 —— `CanUseAbility` 的「候选集非空」那一档只服务查询，⛔ 别让它走进结算（`Board[-1]` 会炸）
             u.LastAttackType = 4;   // 🆕 表现用：主动技能那一档（原版 `currentAttackType = Active`）
-            // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：用了主动能力 ⇒ 带 duty/ferocity/oath 的那个
-            //   重挑攻击型（原版 `ResolveActiveAbilityPlayed.c:29-42`，判据见本方法）。
+            // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：用了主动能力 ⇒ 带 duty/ferocity/oath 的那个重挑攻击型（原版 `ResolveActiveAbilityPlayed.c:29-42`，判据见本方法）。
             RecomputeAttackTypeAfterActiveAbility(u);
-            var spec = u.Ability; if (EffectTargets.NeedsPick(spec.Target) && !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrTarget;   // 2026-10-28（批次 91 · `W1` · 账 L1209）：**结算**必须有具体目标 —— `CanUseAbility` 的「候选集非空」那一档只服务查询，⛔ 别让它走进结算（`Board[-1]` 会炸）
             var chosen = EffectTargets.NeedsPick(spec.Target) ? ctx.Players[targetOwner].Board[targetSlot] : null;
 
             u.Exhausted = true;
@@ -11959,11 +11959,6 @@ namespace RuleEngine
             if (code != RuleCodes.OK) return code;
 
             var u = ctx.Players[p].Board[slot];
-            u.LastAttackType = 4;   // 🆕 表现用：誓约能力也走「技能」那一格（原版同）
-            // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：誓约单位重挑攻击型（原版
-            //    `ResolveActiveAbilityPlayed.c:29-42` 的 `duty||ferocity||oath` 那一支）。
-            RecomputeAttackTypeAfterActiveAbility(u);
-
             // ⚠️ `ResolveOathAbility` 定义在 `EffectResolver.cs` 里，但**那个文件里的类也是 `RuleCore`**
             //    （`public static partial class RuleCore`）—— 照文件名写 `EffectResolver.` 编译不过。
             bool ok = ResolveOathAbility(ctx, p, u);
@@ -11975,6 +11970,11 @@ namespace RuleEngine
                 ctx.Log($"（这次激活没有生效 —— 次数没有消耗）");
                 return RuleCodes.ErrAbilityRejected;   // 账（第六批）：`ResolveOathAbility` 返 false = **结算条件不成立 / 付费被拒**，⛔ 不是「本版未实现」
             }
+
+            // 🔴🆕 2026-11-02（`B115_S6` · 活 `ENG-22`）：**两条状态写入挪到「成功」之后** —— 原版 `ResolveActiveAbilityPlayed.c:19-43` 的 `+0x50`/`+0x4C`/`currentAttackType` 全在它的能力闸（`:19-25` 的 `+0x220`）之后；
+            //   `FinishedChoosingAbilityTargetByClick.c:39-43` 更是「先校验 → 后 `ExecuteActiveAbility`」⇒ 被拒那一手**不许留下** `LastAttackType` / `CurrentAttackType`（付费那一格已核：`ResolveOathAbility` 返 false 时 `Energy` 一定没少，见它 `:9420` 的 `paid` 判据 ⇒ 无需退费）
+            u.LastAttackType = 4;   // 🆕 表现用：誓约能力也走「技能」那一格（原版同）
+            RecomputeAttackTypeAfterActiveAbility(u);   // 🆕 2026-10-18（`W5` · `K3` 第 9 个写点）：誓约单位重挑攻击型（原版 `ResolveActiveAbilityPlayed.c:29-42` 的 `duty||ferocity||oath` 那一支）。
 
             // ---- 到这里 = **付费成功、正文也跑过了** ⇒ 现在才宣布「能力发动了」----
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
@@ -12360,7 +12360,7 @@ namespace RuleEngine
 
             // 🔴 **2026-10-19（第五十七会话 `W57` · P2）：`alternativeTraitLogic` 的第二个消费点。**
             //   原版 `CardScript__FinishActiveAbility.c`：**主动能力结束时**，若
-            //   `GameplayVariablesData.alternativeTraitLogic (+0x4B) != 0` 且这张卡带
+            //   `GameplayVariablesData.alternativeTraitLogic` 为真（原版 `bool @+0x4B`；⚠️ 2026-11-01 更正：旧文把它按 int 建模、写成「非零」判据）且这张卡带
             //   `DefinedTrait.pray = 1185` ⇒ 该卡控制者 **信仰 +1** ＋ `BroadcastCollectedFaith(该卡)`。
             //   判据与「为什么只有 Pray 这一支进得来」全写在 `FinishActiveAbility`（`EffectResolver.cs`，
             //   同一个 `partial class RuleCore`）的 doc 里。
@@ -12974,7 +12974,7 @@ namespace RuleEngine
             if (only == null && u != null && u.Card != null)
             {
                 BroadcastWhen(ctx, WhenEventKind.Triggers(keyword), owner, u.Card, subject ?? u,
-                              boardListeners: listenerSnap);
+                              target: keyword == KeywordTable.Swarm ? u : null, boardListeners: listenerSnap);   // 🔴 2026-11-01（`B115_W14` · `ENG-16` ②）：**只有 620 `TriggeredSwarm` 这一族**把 `u`（= 留下的 host）塞进 `target:` —— 原版那一跳的 `targetCard` 就是 `param_3` = 留下的那张（判断依据见 `EffectResolver.AbilityLevelGateTarget` 的注释与 `普查产出_1025/E6_十三行接闸.md:153-156`）。其余关键词**维持原样传 `null`**（它们的 `targetCard` 是哪一格没查清 ⇒ ⛔ 不猜）
                 // 🔴 **2026-10-22（`W62` · R2 · Mob「再来一次」那一格）**：额度是**上面这一批监听器**
                 //   在它们各自的队列动作里挂到 `u` 身上的（`EffectResolver.DoExtraTrigger`）
                 //   ⇒ 消费必须**在这批监听器入队之后**再入队。位置只有这里对：
@@ -13017,7 +13017,7 @@ namespace RuleEngine
             //     （同一个 `OnTrigger` 的 `actingCard` / `targetCard`）。
             if (ench != null)
                 for (int i = 0; i < ench.Count; i++)
-                    if (u == null || u.Instance == null || !Enchantments.AllSpent(u.Instance, ench[i].Card)) FireTriggerAt(ctx, u, keyword, owner, slot, chosen, subject, ench[i]);   // 🔴 2026-10-29（B98_G1 · 账 1285）：原版 `RawCardScript__TriggerAbilities.c` 的附魔那一支循环体里第一句是 `EntityScript__IsSpentEnchantment(param_4 /*载体*/, *(lVar2 + 0x10) /*附魔卡*/, 0)`，`if (cVar1 == '\0') { …跑正文… }` ⇒ **已花掉的附魔整段跳过**（不是「跳过这一条正文」）。`Enchantments.AllSpent(carrier, card)`（`Enchantment.cs:440`）= 它的等价物，`ench[i].Card` 就是原版那个 `+0x10`。⚠️ **`AllSpent` 在「一条匹配的 `ActiveCardEffect` 都找不到」时返回 TRUE**（照原版 `IsSpentEnchantment.c` 循环走到底那句 `return 1`）⇒ 落地前已核 **4 个附着口全部经 `Enchantment.Attach`**（`AttachPray:755` / `AttachDA42ToChosenHandCard:1230` / `AttachGrantedByPlayedCard:1624` 都转调 `Attach`，而 `Enchantment.cs:278` 那一句 `EnchantmentCard = enchantmentCard` 是**全仓唯一写点**）⇒ 不会把整族静默跳过。`AllSpent(null carrier)` 也返 FALSE ⇒ 不误跳。📊 `Enchantments.Spend` 只对 `buffType ∈ {15,16}` 生效、现池由 `Attach` 挂出的极少 ⇒ 今天零可观测（铁律 11 照建）。零行数变化（铁律 18·b）
+                    if (u == null || u.Instance == null || !Enchantments.AllSpent(u.Instance, ench[i].Card)) { FireTriggerAt(ctx, u, keyword, owner, slot, chosen, subject, ench[i]); RunEnchantmentLogicRowsByKeyword(ctx, ench[i], u, owner, slot, keyword, subject, chosen); }   // 🆕 2026-11-01（`B115_S5` 波 1）：**关键词路也是附魔的一条派发路** —— `FireTriggerAt(..., only: e)` 跑的是 `only.Card.TriggerOps(keyword)`，而附魔模板的正文**恒空** ⇒ 上面那一跳对模板什么都不做。这里补 `ca` 数据行（`AbilityLogic__PlayAbility.c:286` 起的分派）的执行；`RunEnchantmentLogicRowsByKeyword` 内部先判「正文非空就让开」⇒ ⛔ 双发。判据/施工面 → `判据/B115_S5_附魔执行器施工面.md`。⚠️ 新代码必须插在**第一个 `//` 之前**（行尾已有一大段注释）。   // 🔴 2026-10-29（B98_G1 · 账 1285）：原版 `RawCardScript__TriggerAbilities.c` 的附魔那一支循环体里第一句是 `EntityScript__IsSpentEnchantment(param_4 /*载体*/, *(lVar2 + 0x10) /*附魔卡*/, 0)`，`if (cVar1 == '\0') { …跑正文… }` ⇒ **已花掉的附魔整段跳过**（不是「跳过这一条正文」）。`Enchantments.AllSpent(carrier, card)`（`Enchantment.cs:440`）= 它的等价物，`ench[i].Card` 就是原版那个 `+0x10`。⚠️ **`AllSpent` 在「一条匹配的 `ActiveCardEffect` 都找不到」时返回 TRUE**（照原版 `IsSpentEnchantment.c` 循环走到底那句 `return 1`）⇒ 落地前已核 **4 个附着口全部经 `Enchantment.Attach`**（`AttachPray:755` / `AttachDA42ToChosenHandCard:1230` / `AttachGrantedByPlayedCard:1624` 都转调 `Attach`，而 `Enchantment.cs:278` 那一句 `EnchantmentCard = enchantmentCard` 是**全仓唯一写点**）⇒ 不会把整族静默跳过。`AllSpent(null carrier)` 也返 FALSE ⇒ 不误跳。📊 `Enchantments.Spend` 只对 `buffType ∈ {15,16}` 生效、现池由 `Attach` 挂出的极少 ⇒ 今天零可观测（铁律 11 照建）。零行数变化（铁律 18·b）
 
             // ---- 🆕 2026-10-19（战斗线 `T21` · 缺口 A）：`followAfterResolution` 的**结算尾部事件** ----
             //  原版：**调度者**那条能力里带 `AbilityEffect.followAfterResolution = 320` ⇒
@@ -13088,7 +13088,7 @@ namespace RuleEngine
                 //    在尾部广播它们，没正文那一条路原本**连广播都没有**（`TrySwarmMerge` 的注释里
                 //    记着同一个缺口）⇒ 不补的话「没有正文但有系统触发的词」会静默漏掉听众。
                 if (u.Card != null)
-                    BroadcastWhen(ctx, WhenEventKind.Triggers(keyword), owner, u.Card, subject ?? u);
+                    BroadcastWhen(ctx, WhenEventKind.Triggers(keyword), owner, u.Card, subject ?? u, target: keyword == KeywordTable.Swarm ? u : null);   // 🔴 2026-11-01（`B115_W14` · `ENG-16` ②）：口径与 `FireTriggerAt` 尾部那一跳**逐字相同**（620 才把留下的 host 塞进 `target:`；其余维持 `null`）。⚠️ 两条路都要改 —— 只改一支就是「两处写同一条规则」，见 `FireTriggerAt` 的 doc
                 return;
             }
             FireTriggerAt(ctx, u, keyword, owner, slot, null, subject);
@@ -15663,7 +15663,7 @@ namespace RuleEngine
                       + string.Join(" · ", unimplemented) + "（如实报出来，⛔ 不假装做过了）");
 
             ctx.AbilityTargetTable = null; ctx.AbilityTargetTableOwner = null; CheckWinner(ctx);   // 🆕 2026-10-31（`B104_MT`）：**出口清表**（与入口那一行成对；这条能力的目标表到此失效，⛔ 别让它活到下一次动作）
-            return executed > 0 ? RuleCodes.OK : RuleCodes.ErrUnimplemented;
+            return executed > 0 ? RuleCodes.OK : RuleCodes.ErrUnimplemented;   // 🔴 ENG-23 定性（第 7 处，`B115_W7` 2026-11-01 纳入）：一行都没执行成功 ⇒ 确实是「本版没实现」，**合规**（⛔ 不是「被拒」那一档，别换成 `ErrAbilityRejected`）
         }
 
         /// <summary>这一次该用哪一组 `activeAbilityLogic` 行。
@@ -17920,7 +17920,7 @@ namespace RuleEngine
         //  🔴 **本批只接 `ta ∈ {10, 20, 30, 110, 150}`**（施工单裁定的那一批）；其余 `ta`（含 `0 any` —— 池内 0 张、
         //     原版休眠，裁定 ④ 不接线）一律返回 `null` ⇒ 调用方退回改前的单数路（**零回归**）。
         //  🔴 **`ta=150` 落到手牌的那一半不产**（`BattleEventTarget` 只能表达棋盘格）：只产出仍在棋盘上的那些并**出声**一次
-        //     （裁定 ②：走 T21-a 的手牌锚通道；该通道完成前这一档记「部分做」，⛔ 不发明坐标）。
+        //     （裁定 ②：⚠️ 2026-11-01 更正——原来写「走 T21-a 的手牌锚通道；该通道完成前这一档记「部分做」」，把 T21-a 当成阻塞；而 T21-a 已于 `B104_T21` 落地（`Editor/BattleScene.cs:45266` 接线 + 15 条断言）。**真阻塞 = `BattleContext.PreviousAbilityTargets`（`BattleContext.cs:1134`）被写死成 `List<UnitState>`** ⇒ 手牌实例根本进不了候选池；消费端还有第二半：`BattleDriver.AbilityTargetView`（`:36186`）只查 `_myUnits`/`_foeUnits`，`Slot=-1` 时返 null；两半都改才能闭合；⛔ 不发明坐标）。
         //  🔴 **不写 `ctx.Log`**（`ctx.Events` 进 `NetProtocol.Fingerprint`）—— 出声一律 `UnityEngine.Debug.LogWarning` + 去重表。
         //  🔴 **`2/3 valueInPlay` / 未知 `targetSelectMethod` 且真要截断** ⇒ 返回 `null`（本版没有 `GetValueInPlay` 等价字段，
         //     ⛔ 不拿随机或池序冒充）。现池 193 行 `activeAbilityTargets` 的 `targetSelectMethod` 只有 `0`(191) / `7`(2) ⇒ 今天零可观测。
@@ -17968,7 +17968,7 @@ namespace RuleEngine
             if (ta != 10 && ta != 20 && ta != 30 && ta != 110 && ta != 150) return null;   // 本批只接这五档（见类尾注释）
             string cardId = source != null && source.Card != null ? source.Card.Id : "?";
 
-            var pool = new List<UnitState>(4);
+            var pool = new List<UnitState>(4); var handRefs = new List<CardRef>();   // 🔴 2026-11-01（`B115_W23` · E12）：`pool` 仍是棋盘单位（下面那趟筛 / 截断照旧只服务它）；`handRefs` = **不在棋盘上的候选**（`ta=150` 的手牌 / 已离场 —— 原版 `CardScript` 手牌与场上同型，`dump.cs:35370`）
             switch (ta)
             {
                 case 20:   // self（`:184-191`）：写这条 logic 的那张卡；**不筛**
@@ -18024,12 +18024,12 @@ namespace RuleEngine
                     {
                         var prev = ctx.PreviousAbilityTargets;
                         if (prev != null)
-                            for (int i = 0; i < prev.Count; i++) if (prev[i] != null) pool.Add(prev[i]);
-                        // 🔴 裁定 ②：原版这一档的目标**可以在手牌里**；我们这一格只装场上单位 ⇒ 手牌那半**不产**，如实出声。
+                            for (int i = 0; i < prev.Count; i++) { var r = prev[i]; if (r.Inst == null && r.Unit == null) continue; var pu = r.Unit != null ? r.Unit : r.ResolveUnit(ctx); if (pu != null) pool.Add(pu); else handRefs.Add(r); }
+                        // 🔴 2026-11-01（`B115_W23` · E12）：原版这一档的目标**可以在手牌里**（`dump.cs:35370`，手牌与场上同为 `CardScript`）
+                        //   ⇒ 棋盘项进 `pool`（照旧过筛 / 截断），手牌项进 `handRefs`、收尾以 `Slot = -1` 输出
+                        //   （`BattleEvent.cs:877-885` 那个四元组本来就是为此设计的；⚠️ `publishTable` 那一半仍只收棋盘项）。
                         NoteAbilityTargetTable("ta150:" + cardId,
-                            $"「{source?.Name}」的 ability 目标表是 `ta=150 previousAbilityFiltered`：原版的目标**可以在手牌里**，"
-                          + "而 `BattleEventTarget` 只能表达棋盘格 ⇒ 本版**只产出仍在棋盘上的那些**（**部分做**，等 T21-a 的手牌锚通道；"
-                          + "裁定 ② 2026-10-31）。");
+                            $"「{source?.Name}」的 ability 目标表是 `ta=150 previousAbilityFiltered`：棋盘候选 {pool.Count} 张、" + $"手牌/离场候选 {handRefs.Count} 张（以 `Slot = -1` 输出）。");
                         break;
                     }
             }
@@ -18123,8 +18123,8 @@ namespace RuleEngine
                 }
             }
 
-            // ---- 转成事件层的四元组（`BattleEventTarget`；⛔ 只认棋盘格）----
-            var list = new List<BattleEventTarget>(pool.Count);
+            // ---- 转成事件层的四元组（`BattleEventTarget`；棋盘项 `Slot >= 0`、手牌/离场项 `Slot = -1`）----
+            var list = new List<BattleEventTarget>(pool.Count + handRefs.Count);
             var tableUnits = new List<UnitState>(pool.Count);   // 🆕 2026-10-31（`B104_MT`）：**进得了棋盘格的那几个**（= 效果层能消费的那一支；与 `list` 一一对应）
             for (int i = 0; i < pool.Count; i++)
             {
@@ -18133,16 +18133,16 @@ namespace RuleEngine
                 if (u == null || !FindSlot(ctx, u, out tp, out tslot))
                 {
                     NoteAbilityTargetTable("offboard:" + cardId + ":" + ta,
-                        $"「{source?.Name}」的 ability 目标表里有一个目标**不在棋盘上**（`ta={ta}`）⇒ 表现层表达不了，已跳过；"
-                      + "`ta=150` 落在手牌的那一半要等 T21-a 的手牌锚通道（裁定 ②，记「部分做」）。");
+                        $"「{source?.Name}」的 ability 目标表里有一个**棋盘候选认不出格号**（`ta={ta}`）⇒ 表现层表达不了，已跳过。");
                     continue;
                 }
                 list.Add(new BattleEventTarget { Player = tp, Slot = tslot, CardId = u.Name, InstanceId = u.InstanceId });
                 tableUnits.Add(u);
             }
+            // 🔴 2026-11-01（`B115_W23` · E12）：**手牌 / 离场项以 `Slot = -1` 输出** —— `BattleEvent.cs:877-885` 那个四元组本来就为此设计（`Slot = -1` = 不在棋盘上）。⛔ `publishTable` 那一半不收它们（效果层只吃棋盘单位）。
+            for (int i = 0; i < handRefs.Count; i++) { var hr = handRefs[i]; list.Add(new BattleEventTarget { Player = SeatOfInstance(ctx, hr.Inst), Slot = -1, CardId = hr.Name, InstanceId = hr.InstanceId }); }
             // 🆕 2026-10-31（`B104_MT`）：**发布「当前 activeAbility 的目标表」**（只有 `UseActiveAbilityCore` 传 `publishTable: true`）
-            //   —— 效果层（`ResolveTargetsCore` 的 `spec.Random` 分支）有这张表就**直接吃表、不再抽随机数**
-            //   （原版效果消费的就是 `GetTargets` 那张表；那一抽已经在**产表时**发生过一次，⛔ 别再抽第二次）。
+            //   —— 效果层（`ResolveTargetsCore` 的 `spec.Random` 分支）有这张表就**直接吃表、不再抽随机数**（原版效果消费的就是 `GetTargets` 那张表；那一抽已经在**产表时**发生过一次，⛔ 别再抽第二次）。
             //   ⚠️ 清空由 `UseActiveAbilityCore` 的入口/出口两行负责（⛔ 这里不管生命周期）。
             if (publishTable && tableUnits.Count > 0) { ctx.AbilityTargetTable = tableUnits; ctx.AbilityTargetTableOwner = source; }
             return list;

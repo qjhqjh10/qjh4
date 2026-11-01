@@ -38942,6 +38942,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -39513,6 +39516,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -39927,7 +39933,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -39996,6 +40019,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -40453,7 +40479,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -40522,6 +40565,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -41128,6 +41174,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -41542,7 +41591,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -41611,6 +41677,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -42068,7 +42137,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -42137,6 +42223,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -42594,7 +42683,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -42663,6 +42769,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -43207,6 +43316,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -43747,6 +43859,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -44289,7 +44404,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -44358,6 +44490,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -44884,6 +45019,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -45306,7 +45444,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -45375,6 +45530,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -45832,7 +45990,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -45901,6 +46076,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -46530,6 +46708,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -47137,6 +47318,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -47559,7 +47743,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -47628,6 +47829,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -48247,6 +48451,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -48709,7 +48916,24 @@
       "maxParticles": 1000,
       "emissionRate": 0.0,
       "emissionRateCurve": null,
-      "sizeOverLifetime": null,
+      "sizeOverLifetime": {
+        "separateAxes": false,
+        "x": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "y": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        },
+        "z": {
+          "isConst": true,
+          "c": 1.0,
+          "cMin": 0.5
+        }
+      },
       "colorOverLifetime": {
         "colors": [
           {
@@ -48778,6 +49002,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -49407,6 +49634,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 500.0,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -50034,6 +50264,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -50525,6 +50758,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -51022,6 +51258,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -51513,6 +51752,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -52078,6 +52320,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -52608,6 +52853,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -53103,6 +53351,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -53625,6 +53876,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -54120,6 +54374,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -54668,6 +54925,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -55260,6 +55520,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -55788,6 +56051,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -56021,6 +56287,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,
@@ -56567,6 +56836,9 @@
       "lengthScale": 2.0,
       "maxParticleSize": 0.5,
       "minParticleSize": 0.0,
+      "normalDirection": 1.0,
+      "sortMode": 0,
+      "maskInteraction": 0,
       "matColor": [
         1.0,
         1.0,

@@ -2587,6 +2587,86 @@ public static class RewardsScene
                               && timerText.Length > prefix.Length,
                               "…`Timer` 文案 = **活倒计时**（`" + prefix + "` + `TimerDisplay` 算出的剩余；"
                             + "实得「" + timerText + "」）");
+                    // 🔴 **2026-11-01（`B115_W5` · 账 `CHK-06` 就地修）**：上面那一条只断「前缀 + 比前缀长」⇒
+                    //    **换一段更长的定值串照样绿**（例：「在 99 天 23 小时 可用」，`CHK-06` 点名的就是这一档）。
+                    //    判据 → `资料/完全复刻/判据/B115_旧任务对账_E_断言工具.md` 的 `CHK-06` 行。
+                    //    下面**追加**两条（⛔ 不是替换上面那条：那条挡「换成死串 / 空串」，这两条挡「印定值」）：
+                    //    ① **剩余少 1 秒 ⇒ 渲染文本必变**；② **时间那一格里的数字解析得出来、且落在本档上限内**。
+                    //    ⚠️ 「把时钟往前推 1 秒」在本机**做不到**：`TimerDisplay.UpdateTimer` 读真 `DateTime.Now`，
+                    //       而 `剩余 = 目标 − Now` ⇒ **等价做法 = 目标时刻减 1 秒**（只动我们自己的数据口，不碰实现）。
+                    var lgTimerNode = FindChild(lgCard2, "Timer");
+                    var lgTimerTd = lgTimerNode != null ? lgTimerNode.GetComponentInChildren<TimerDisplay>() : null;
+                    // 一段文本里**所有连续的 ASCII 数字段**（按出现顺序）。⛔ 只用来读数，不参与判定口径。
+                    int[] DigitsOf(string s)
+                    {
+                        var outp = new System.Collections.Generic.List<int>();
+                        if (s != null)
+                            for (int i = 0; i < s.Length; )
+                            {
+                                if (s[i] < '0' || s[i] > '9') { i++; continue; }
+                                int st = i;
+                                while (i < s.Length && s[i] >= '0' && s[i] <= '9') i++;
+                                int v;
+                                outp.Add(int.TryParse(s.Substring(st, i - st), out v) ? v : -1);
+                            }
+                        return outp.ToArray();
+                    }
+                    // 前提**写成硬 Check**（⛔ 不写 `if (取得到) Check(…)` —— 前提不成立时静默跳过，本项目一天踩过 3 次）。
+                    CheckTrue(lgTimerNode != null && lgTimerTd != null,
+                              "（前提·不静默）登录卡 `Timer` 节点 + 它身上的 `TimerDisplay` 都取得到"
+                            + "（缺一件 ⇒ 下面「推 1 秒文本必变」「数字段可解析」两条等于没验）");
+                    var lgResetWas = DailyData.NextResetAt;
+                    if (lgTimerNode != null && lgTimerTd != null)
+                    {
+                        // 目标定在「现在 + 125 秒」⇒ 剩余落在 `MS`（分+秒）档，1 秒的差在文本上必定看得见
+                        //（⛔ 别定成几小时：那一档的粒度是分钟，推 1 秒文本本来就该不变，测了反而假红）。
+                        var lgTgt = System.DateTime.Now.AddSeconds(125);
+                        DailyData.ForceNextResetForTest(lgTgt);
+                        lgTimerTd.Refresh();
+                        string lgLive0 = TextOf(lgTimerNode);
+                        DailyData.ForceNextResetForTest(lgTgt.AddSeconds(-1.0));   // = 「时钟往前推 1 秒」的等价做法
+                        lgTimerTd.Refresh();
+                        string lgLive1 = TextOf(lgTimerNode);
+                        DailyData.ForceNextResetForTest(lgResetWas);              // 数据口先还原（显示在下面复位）
+                        lgTimerTd.Refresh();
+                        CheckTrue(lgLive0 != null && lgLive1 != null && lgLive0 != lgLive1,
+                                  "★ 倒计时**随剩余递减**：剩余少 1 秒 ⇒ 渲染文本**必须变**"
+                                + "（实得「" + lgLive0 + "」→「" + lgLive1 + "」）—— 🧨 把 `TimerDisplay.UpdateTimer` 里"
+                                + "那格写成定值串（如「在 99 天 23 小时 可用」）⇒ 上面「前缀 + 比前缀长」那条照样绿、"
+                                + "**这一条红**");
+                        string lgTail0 = lgLive0 != null && prefix != null && lgLive0.StartsWith(prefix)
+                                       ? lgLive0.Substring(prefix.Length) : null;
+                        string lgTail1 = lgLive1 != null && prefix != null && lgLive1.StartsWith(prefix)
+                                       ? lgLive1.Substring(prefix.Length) : null;
+                        CheckTrue(lgTail0 != null && lgTail1 != null,
+                                  "（前提）两次采样都能从前缀之后切出「时间那一格」（前缀 =「" + prefix + "」；"
+                                + "切不出来 ⇒ 下面两条没验成）");
+                        var lgNum0 = DigitsOf(lgTail0);
+                        var lgNum1 = DigitsOf(lgTail1);
+                        CheckTrue(lgNum0.Length == 2 && lgNum1.Length == 2,
+                                  "（前提）时间那一格**恰好两段数字**（本档 = `MS` 分+秒；实得 "
+                                + lgNum0.Length + " / " + lgNum1.Length + " 段）");
+                        int lgDelta = -1;
+                        if (lgNum0.Length == 2 && lgNum1.Length == 2)
+                        {
+                            lgDelta = lgNum0[0] * 60 + lgNum0[1] - (lgNum1[0] * 60 + lgNum1[1]);
+                            CheckTrue(lgNum0[0] >= 0 && lgNum0[0] <= 2 && lgNum0[1] >= 0 && lgNum0[1] <= 59,
+                                      "★ 时间那一格**解析得成整数、且都在本档上限内**（分钟 ≤ 2 · 秒 ≤ 59）"
+                                    + " —— 本档目标 = 现在 + 125 秒 ⇒ 剩余 120–125 秒 ⇒ 分钟只可能是 2；"
+                                    + "实得分 " + lgNum0[0] + " · 秒 " + lgNum0[1]
+                                    + "。🧨 数字段被印成「99 天 23 小时」那一类定值 ⇒ 本条红（分钟 99 > 2）");
+                        }
+                        else
+                            CheckTrue(false, "（前提）数字段不是两段 ⇒「数字可解析且 ≤ 上限」那一条**没验成**"
+                                           + "（⛔ 不许静默跳过）");
+                        // 相邻两次采样之间**真实时钟也在走** ⇒ 允许 1–2 秒（正常情况下就是 1）。
+                        CheckTrue(lgDelta >= 1 && lgDelta <= 2,
+                                  "★ …而且秒数差 = **1 秒**（允许 1–2：第二次采样前真实时钟也走了几毫秒；实得 "
+                                + lgDelta + "）—— 挡「文本只是被别的东西改了、剩余其实没在动」；"
+                                + "🧨 让 `UpdateTimer` 每次都印同一个剩余 ⇒ 本条红");
+                    }
+                    else
+                        CheckTrue(false, "（前提）`Timer` / `TimerDisplay` 缺一件 ⇒ 上面两条倒计时断言**没验成**");
                 }
 
                 // ================================================================ B93_E10：日常/奖励 B93-1 的 6 条
@@ -4942,20 +5022,20 @@ if (glowFx != null)
 
                     // ---- ③ 同一格：`Reward` 图标的矩形与 **uv 一起**被截（只截矩形不截 uv 会把图压扁）----
                     // 🔴 **2026-10-17（第四十八会话 · 桶 H1）**：`T21` 已把奖励格改成**抽屉整层画** ——
-                    //   根节点名是 `WildcardDrawer`（`ItemDrawer.DrawerWildcard`），主图在它下面的 `Icon`
-                    //   （`ItemDrawer.NodeIcon`）。旧断言找 `"Reward"` 恒 null ⇒ 「量得到（有图）」假红。
-                    //   几何也变了：图标装在**方框**里 = `min(297.655, 384.66) × 0.95 = 282.7725`
-                    //   （`ItemDrawer.Square(box, st.IconFill=0.95)`），不再是旧的 150 × 图宽高比。
+                    //   根节点名是 `WildcardDrawer`（`ItemDrawer.DrawerWildcard`）。
+                    // 🔴 **2026-11-01（`B-293` · `B115_S4`）就地重写**：主图**不再是** `Icon`（`NodeIcon`），而是
+                    //   **`Content/Background`** —— `Wildcard()` 已按 `Wildcard Drawer.prefab` 整版重画（底图铺满 + PA=1）。
+                    //   旧值 `min(297.655,384.66)×0.95 = 282.7725`（`Square(box, st.IconFill)`）**已作废**。
                     var rwDrawer = FindChild(cellEdge, ItemDrawer.DrawerWildcard);
                     if (rwDrawer == null) rwDrawer = FindChild(cellEdge, "Reward");   // 旧口径兜底
-                    var rwEdge = rwDrawer != null ? FindChild(rwDrawer, ItemDrawer.NodeIcon) : null;
+                    var rwEdge = rwDrawer != null ? FindChild(rwDrawer, ItemDrawer.NodeBackground) : null;
                     var rwQ = rwEdge != null ? rwEdge.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(rwQ != null && rwQ.Texture != null, "那一格的 `Reward` 图标量得到（有图）");
                     // 对照：完全落在视口里的那一格 ⇒ 整块宽、uv = 整张。
                     // 🔴 **2026-10-17（桶 H1）**：「整块宽」**从这一格现量**（各页的 drawer 框不同 ——
-                    //   Campaign 页是 297.655×384.66、锻造格是别的值；写死 282.7725 只在锻造格成立）。
+                    //   Campaign 页是 297.655×384.66、锻造格是别的值；⛔ 别写死任何宽度常量）。
                     var rwInDrawer = FindChild(FindChild(fcontent, "ForgeCell_" + (lvV + 1)), ItemDrawer.DrawerWildcard);
-                    var rwIn = rwInDrawer != null ? FindChild(rwInDrawer, ItemDrawer.NodeIcon) : null;
+                    var rwIn = rwInDrawer != null ? FindChild(rwInDrawer, ItemDrawer.NodeBackground) : null;
                     var rwInQ = rwIn != null ? rwIn.GetComponentInChildren<ImageQuad>() : null;
                     float fullW = rwInQ != null && rwInQ.Texture != null ? rwInQ.WorldW * 108f : -1f;
                     CheckTrue(fullW > 0f, "（前提）完全落在视口里的那一格量得到**整块宽**（拿它当被截那一格的基准）");
@@ -7872,25 +7952,25 @@ if (glowFx != null)
             // **抽屉里那三层文字也要吃裁切**（原来 `MenuDraw.Text` 没有裁切形参、本库也没走 `ClipText`
             // ⇒ **图被裁、字照画**）。这里用一个**独立探针**断它（不依赖任何一扇窗的数据）：
             //   · 带口 = 原版 `Reward Window` 的 `Scroll View` 矩形 **(0,300) → (1920,932.5)**（**字面量**）
-            //   · 盒子 = **1780..1980**（**fixture**：右半截在视口外）⇒ 数量文字右对齐到 `box.x2 − 10 = **1970**`
-            //   ⇒ 裁过之后**一个顶点都不许越过 1920**，而且**必须有顶点被夹在 1920 上**（真被截了，不是碰巧没到）。
+            //   · 盒子 = **1871..2071**（200×300 fixture）⇒ 数量**右对齐**到 prefab 的 `Content/Label/Quantity` 右沿
+            //     = `OX + 351.4K = **1969.6**`（K = 300/1080）⇒ 裁过后**一个顶点都不许越过 1920**，且**必须有顶点夹在 1920 上**。
             var prClip = new PxRect(0f, 300f, 1920f, 932.5f);
             var prSt = ItemDrawerStyle.Default(RewardWindow.QItem, RewardWindow.QItemIcon, RewardWindow.QItemIcon);
             prSt.Clip = prClip; prSt.ClipSoftness = Vector2.zero;      // 硬边（这一处不是渐隐带）
             const string prId = "WildcardUltramarines1";
-            // 🔴 **2026-10-30（B103_D3 · D 组 #2）就地说明**：探针的物品**原来**是
-            //   `Booster Pack Ultramarines` —— `B101_E3`（10-30）把 `ContainerDrawer` 实装了之后，它的数量文字
-            //   不再落在「`box.x2 − 10` 右对齐」那个位置，而是 prefab 推出来的 `Content/Label/Quantity` 框
-            //   （`Shell/ItemDrawerLayout.cs:169-171`）⇒ 右沿实测 **1878.1**、**根本没碰到 1920**
-            //   ⇒ 「必须被夹在 1920 上」这条前提对它**不成立**（10-28 那一版走过 `Placeholder` 兜底，是 1920.0）。
-            //   ⇒ 换成**仍走我们这条 `Quantity()` 版式（右对齐到 `box.x2 − 10`）**的物品：
-            //   `WildcardUltramarines1` ⇒ `Wildcard` 档 ⇒ 末尾那句 `Quantity(node, box, qty, st)` 用的就是本条要验的那条路。
-            //   ⛔ 别把探针的 box 右移去凑 1920 —— 那条改动会让「真被截」退化成「碰巧越界」，鉴别力下降。
+            // 🔴 **2026-11-01（`B-293` · `B115_S4`）就地重写**：`Wildcard()` 已按 `Wildcard Drawer.prefab` 整版重画
+            //   ⇒ `Quantity` **不再**是「右对齐到 `box.x2 − 10`」，而是 prefab 的 `Content/Label/Quantity`（**左半**）。
+            //   用旧盒子（1780..1980）时它的右沿 = `OX + 351.4K = 1878.6` ⇒ **够不到 1920**（实测 1878.1，
+            //   与算式差 0.5 px = 字形右 bearing）⇒「必须被夹在 1920 上」那条前提**不成立**。
+            //   ⇒ **改盒子、不改版式**：fixture 右移到 **1871..2071**，让那个右沿落在 **1969.6**（跨过 1920）；
+            //   数量写成 **6 位数** —— 右对齐 ⇒ 右沿恒 = 框右沿；自适应 ⇒ 字宽 ≤ 框宽 80.67 ⇒ 左沿 ≈ 1889
+            //   ⇒ **文字真的跨在 1920 上**（左半在带内、右半被切走）。⛔ 别为了让断言变绿去改版式（版式是照 prefab 的）。
+            //   ⚠️ 历史：`B103_D3`（10-30）曾把探针从 `Booster Pack` 换成 `Wildcard`（理由「它仍走 `Quantity(node, box, …)` 右对齐」）—— **本条作废**。
             //   ⛔ 也别删这条 —— 它钉的是「抽屉里的**文字**也吃裁切」（图那一半另有一条）。
             var pr1 = new GameObject("A302 Probe 压边").transform;
-            ItemDrawer.Draw(pr1, new PxRect(1780f, 400f, 1980f, 700f),
+            ItemDrawer.Draw(pr1, new PxRect(1871f, 400f, 2071f, 700f),
                             ItemDrawer.Spec(prId, CampaignData.ItemIcon(prId), CampaignData.ItemShortName(prId)),
-                            3, DrawerOverride.Default, prSt);
+                            123456, DrawerOverride.Default, prSt);
             var pr1Lb = QuantityLabelOf(pr1);
             CheckTrue(pr1Lb != null, "（A302 前提）探针那一格的**数量文字**建出来了（整块有交集、只是压边）");
             if (pr1Lb != null)
@@ -7903,7 +7983,7 @@ if (glowFx != null)
                     for (int k = 0; k < pxs.Length; k++) pmx = Mathf.Max(pmx, pxs[k].x);
                     CheckTrue(pmx <= 1920.5f,
                               $"★ 压在带口的**文字被截到带内**（实测最右顶点 {pmx:F1} ≤ 1920；"
-                              + "未接裁切时它 = **1970** = `box.x2 − 10` 那个右对齐落点）");
+                              + "未接裁切时它 = **1969.6** = prefab `Content/Label/Quantity` 的**右沿**）");
                     CheckTrue(pmx >= 1919.5f,
                               $"★ …而且**确实被夹在 1920 上**（实测 {pmx:F1}）—— 少了这一条，上面那条对一段"
                               + "「本来就没越界」的短文字**恒真**（红要红在「裁没生效」上）");
@@ -13572,6 +13652,76 @@ if (glowFx != null)
 
         RunCampaignRewardLocalization(wm2); B107_W20_Assert.RunAll(root, wm2); _sink.Pass += B107_W20_Assert.Pass; _sink.Fail += B107_W20_Assert.Fail;   // 🆕 2026-10-31（B106_W49）：换语言往返 / 全绑 / 灭自证（方法体在类尾）｜🆕 B107_W30 代接线：N131 `Collected Badge` 三层 + N130 四窗换语言 / `RewardsWindow` 整窗重建（本件自建自毁各窗 ⇒ 不借宿主那几具已被 `ReapClosedWindows` 收割的实例；判据 → 报告/B107_W30.md）
         Debug.Log(P + win.Dump());
+
+        // ---- 🆕 2026-11-01（`B115_W13` · 旧任务 `AU-01`）：`Ready for level up` 的「开/关」**音**断言 ----
+        //   改前：`Shell/ForgeTab.cs` 的**接线**（`onSound` = cue `Booster Open Orks` · `offSound` = null）
+        //   与**读口**（`ReadySound` / `ReadyToggler`）都在，但全仓 `Editor/` 下 `ReadySound` / `DrivenOnCount`
+        //   **0 命中** ⇒ 一条断言都没有（改坏接线不会有任何东西变红）。
+        //   判据 → `资料/完全复刻/判据/B115_旧任务对账_C_界面特效.md` 的 `AU-01` 行；
+        //   读数口 = `Effects/UIEffectTogglerPlaySound.cs` 的 `DrivenOnCount` / `DrivenOffCount` /
+        //   `ResetCount` / `LastDroveOn`，以及 `Battle/AnimFXController.cs` 的 `PlaySoundOnTime.PlayedCountForTest`。
+        //   ⚠️ **批处理没有帧循环** ⇒ 走 `UIEffectTogglerController.Toggle` 的**瞬间档**（`duration <= 0`：
+        //      `enabled=false; currentTime=MaxValue; Update()` ⇒ `DoUpdate(n=1)` + `AnimationFinished` 一次跑完）；
+        //      ⛔ 没有 `TickForTest` 之类的方法（别照着编），本文件也**不推帧**。
+        //   ⚠️ `forceChange = true`：到这一段时 `targetStateEnabled` 可能已经是「开」（开页 `FocusClaimable` 推过），
+        //      不加就会被 `Toggle` 的「同态不重播」早退拦住 —— 那会让本段**静默变成空转**。
+        {
+            // 前提①：宿主的奖励窗这一刻还活着（`GameWindow : MonoBehaviour` ⇒ `win != null` 就是 Unity 的「对象还在」判据）。
+            //   本宿主 §八 之前有一段「被 `CloseAllWindows` 收掉就重造」的块（`B103_F1`），之后没有 `OpenWindow` 打岔
+            //   ⇒ 正常应为真。⚠️ 先判它再 `win.transform`：销毁后的 `MonoBehaviour.transform` 会抛 `MissingReferenceException`。
+            bool bWinAlive = win != null;
+            CheckTrue(bWinAlive, "（前提·不静默）宿主那扇奖励窗这一刻**还活着**（否则 `win.transform` 一碰就抛、本节整段跑不到）");
+            var bftNode = bWinAlive ? FindChild(win.transform, "Forge Tab") : null;
+            var bft = bftNode != null ? bftNode.GetComponent<ForgeTab>() : null;
+            CheckTrue(bft != null,
+                      "（前提·不静默）奖励窗里找得到挂着 `ForgeTab` 的 `Forge Tab` 节点（拿不到 ⇒ 本节 A1–A10 那 12 条音效断言等于没验）");
+            if (bft != null)
+            {
+                var bsnd = bft.ReadySound;
+                CheckTrue(bsnd != null,
+                          "A1 `Ready for level up` 上挂着 `UIEffectTogglerPlaySound`（`ForgeTab.ReadySound` 读口非空）"
+                        + "｜🧨 删掉 `ForgeTab.Build` 里那颗 `AddComponent<UIEffectTogglerPlaySound>()` ⇒ 红");
+                if (bsnd != null)
+                {
+                    CheckTrue(bsnd.Ready,
+                              "A2 两个槽**至少一个**非空（`Ready`）—— 全空 ⇒ 可领光效亮/灭都不出声（`ForgeTab.Build` 会打告警）");
+                    CheckTrue(bsnd.onSound != null, "（前提）`onSound` 槽非空（A3 / A5 / A6 都压在它上面）");
+                    Check(bsnd.onSound != null ? bsnd.onSound.sound : null, WindowSounds.BoosterOpenOrksCue,
+                          "A3 `onSound` 的 cue = `Booster Open Orks`（原版 `Forge Tab.prefab` 那颗 `sound` 引用解出来的就是它）");
+                    CheckTrue(bsnd.offSound == null,
+                              "A4 `offSound` = null（原版 prefab 是 `{fileID:0}` ⇒ **关的时候不出声**）"
+                            + "｜🧨 给它接上一条音 ⇒ `DrivenOffCount` 变 1 ⇒ A8 红（A4 与 A8 互相钉死）");
+                    var btg = bft.ReadyToggler;
+                    CheckTrue(btg != null, "（前提）`ReadyToggler`（`UIEffectTogglerController`）取得 —— 它是唯一驱动口");
+                    if (btg != null && bsnd.onSound != null)
+                    {
+                        bsnd.ResetCountersForTest();          // 只清**我们这一侧的**计数器，⛔ 不碰两个槽自己的播放计数
+                        btg.Toggle(true, 0f, true);           // 第三实参 = `forceChange`（见上）
+                        Check(bsnd.DrivenOnCount, 1,
+                              "A5 开一下 ⇒ `DoUpdate` **推了 `onSound` 一次**（瞬间档一次跑完，不需要帧循环）"
+                            + "｜🧨 删掉 `ForgeTab.Build` 里那句 `_readyToggler.Rescan()` / 那颗 `UIEffectTogglerPlaySound` ⇒ 计数恒 0 ⇒ 红");
+                        Check(bsnd.onSound.PlayedCountForTest, 0,
+                              "★★ A6 灭自证：同一下之后**播放计数回到 0** —— 那是 `AnimationFinished → onSound.Reset()` 干的"
+                            + "（`PlaySoundOnTime.Update` 里它刚被推到 1）。A5「推过一次」+ A6「又被复位」**结构上不可能只做一半**："
+                            + "漏 `AnimationFinished` ⇒ 这里是 1 ⇒ 红；漏 `DoUpdate` ⇒ A5 是 0 ⇒ 红");
+                        Check(bsnd.ResetCount, 1, "A7 瞬间档把 `AnimationFinished` 也跑完了（`ResetCount` = 1）");
+                        CheckTrue(bsnd.LastDroveOn, "A7b 最近一次推的是 `onSound` 那一槽（方向没反）");
+
+                        btg.Toggle(false, 0f, true);
+                        Check(bsnd.DrivenOffCount, 0,
+                              "★★ A8 关一下 ⇒ **`offSound` 一次都没被推**（它是 null ⇒ 原版 `?.Update` 什么都不做；关本来就不该响）"
+                            + "｜🧨 给 `offSound` 接一条音 ⇒ 这里变 1 ⇒ 红");
+                        Check(bsnd.ResetCount, 2, "A9 关这一下也把 `AnimationFinished` 跑完（`ResetCount` = 2）");
+                        CheckTrue(!bsnd.LastDroveOn, "A9b 最近一次推的是「关」那一槽");
+
+                        btg.Toggle(true, 0f, true);
+                        Check(bsnd.DrivenOnCount, 2,
+                              "A10 再开一次 ⇒ 又推了一次（`DrivenOnCount` = 2）—— 驱动链没断、✅ 可重复触发");
+                    }
+                }
+            }
+        }
+
         B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; B111_R3WB_Assert.Run(); _sink.Pass += B111_R3WB_Assert.Pass; _sink.Fail += B111_R3WB_Assert.Fail; C9_Assert.Run(); _sink.Pass += C9_Assert.Pass; _sink.Fail += C9_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。
