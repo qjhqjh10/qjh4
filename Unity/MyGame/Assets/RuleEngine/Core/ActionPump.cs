@@ -286,7 +286,7 @@ namespace RuleEngine
                                           UnitState abilityActingCard = null,
                                           bool abilityActingGate = false,
                                           CardDef abilityHostCard = null,
-                                          int abilityOwnerSeat = -1, int actionType = 0, string abilityActingTrigger = null)   // 🔴 2026-10-29（执行代理 `B97_ER` · 判据 #54）：`abilityActingTrigger` = **只喂第一道闸（`actingCardCriteria` `+0x28`）的 trigger 名**，与 `abilityTrigger`（喂 target/board 两道闸）**解耦** —— 原版 `CardAbility__CanTriggerAbility.c:126-141` 的三道 criteria 对**所有** trigger 生效（`:130` 之后那条 `&&` 链不看 trigger），而我们这三道闸的覆盖面不一样（acting 已扩到全部族，target/board 仍只有七族）⇒ 共用一个名字会顺带把 target/board 两闸也扩出去。缺省 `null` ⇒ 回退 `abilityTrigger`（老调用点行为逐字不变）
+                                          int abilityOwnerSeat = -1, int actionType = 0, string abilityActingTrigger = null, int? abilityTargetSide = null)   // 🔴 2026-10-29（执行代理 `B97_ER` · 判据 #54）：`abilityActingTrigger` = **只喂第一道闸（`actingCardCriteria` `+0x28`）的 trigger 名**，与 `abilityTrigger`（喂 target/board 两道闸）**解耦** —— 原版 `CardAbility__CanTriggerAbility.c:126-141` 的三道 criteria 对**所有** trigger 生效（`:130` 之后那条 `&&` 链不看 trigger），而我们这三道闸的覆盖面不一样（acting 已扩到全部族，target/board 仍只有七族）⇒ 共用一个名字会顺带把 target/board 两闸也扩出去。缺省 `null` ⇒ 回退 `abilityTrigger`（老调用点行为逐字不变）｜🔴 2026-11-02（`B116_W39` · 账 `B-317`）：`abilityTargetSide` = **`abilityTarget` 在哪一方**（`0`/`1`；缺省 `null` = 不知道 ⇒ 照旧回棋盘查）。真死那一路 `CleanupDeaths` 在发死讯**之前**就把单位从 `BoardSlots` 摘掉（`RuleCore.cs:10064` 早于 `:10218`）⇒ `TargetCriteriaEval.SideOf`（只扫棋盘）恒 `-1` ⇒ 阵营闸判不了 ⇒ **放行（多触发）**；原版读的是卡对象字段 `targetCard.isPlayer`（`+0x40`，死后照样读得到）⇒ 用 `TargetCriteriaEval.Matches` 现成的 `sideOverride` 口把它补上。⛔ 别改 `SideOf` 本身（全仓大量路径共用）
         {
             if (ctx == null || body == null) return false;
             // ============================================================
@@ -506,7 +506,7 @@ namespace RuleEngine
                     string cwhy;
                     bool camb;
                     bool? verdict = AbilityLevelCriteriaAllows(ctx, gateOwner, gateThisCard, hostCard,
-                                                               abilityTrigger, abilityTarget, out cwhy, out camb);
+                                                               abilityTrigger, abilityTarget, out cwhy, out camb, candidateSide: abilityTargetSide);   // 🔴 2026-11-02（`B116_W39` · `B-317`）：把「候选在哪一方」透传下去（`null` = 不知道 ⇒ 回棋盘查，= 改前行为）
                     if (verdict == false)
                     {
                         AbilityLevelCriteriaWarningsForTest++;
@@ -869,11 +869,11 @@ namespace RuleEngine
         /// </summary>
         public static bool? AbilityLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
                                                       CardDef card, string triggerName, UnitState candidate,
-                                                      out string why, bool ignoreRandom = false)
+                                                      out string why, bool ignoreRandom = false, int? candidateSide = null)
         {
             bool amb;
             return AbilityLevelCriteriaAllows(ctx, owner, thisCard, card, triggerName, candidate,
-                                             out why, out amb, ignoreRandom);
+                                             out why, out amb, ignoreRandom, candidateSide);
         }
 
         /// <summary>🆕 v26：同 <see cref="AbilityLevelCriteriaAllows(BattleContext,int,UnitState,CardDef,string,UnitState,out string)"/>，
@@ -881,7 +881,7 @@ namespace RuleEngine
         /// 与「列没落 / 认不出 / 没有 targetCard」那几档（判不了 ⇒ 放行 + 出声）**方向相反**。</summary>
         public static bool? AbilityLevelCriteriaAllows(BattleContext ctx, int owner, UnitState thisCard,
                                                       CardDef card, string triggerName, UnitState candidate,
-                                                      out string why, out bool ambiguous, bool ignoreRandom = false)
+                                                      out string why, out bool ambiguous, bool ignoreRandom = false, int? candidateSide = null)
         {
             ambiguous = false;
             why = null;
@@ -913,7 +913,7 @@ namespace RuleEngine
             //   我们只有它的 `CardDef` ⇒ `Matches` 里凡是要 `UnitState` 的格走它自己的
             //   「判不了 / 跳过」契约（类头那段），⛔ 不在这里另判一次。
             var cond = AbilityLevelConditionRow(card, triggerName, "target");
-            bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, candidate, out gap);
+            bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, candidate, out gap, candidateSide);   // 🔴 2026-11-02（`B116_W39` · `B-317`）：`candidateSide` 非空 ⇒ 用调用方给的侧（真死之后 `SideOf` 扫不到棋盘）；`null` ⇒ 改前行为（回棋盘查）
             if (ok == null && !string.IsNullOrEmpty(gap)) why = gap;
             // 🔴🆕 **2026-10-26（`G17`）：原版是一条 `&&` 链 ⇒ target **明确不满足**时 board 不求值。**
             if (ok == false) return false;

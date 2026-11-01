@@ -4,6 +4,13 @@
 // ENG-07 里判为「真缺口」的 `transient`（`DefinedTrait.transient = 455`）落了地
 // （`RuleCore.cs:2312` 同物理行内联块），本文件给它**持久断言**。
 //
+// 🆕 2026-11-02（执行代理 `B116_W35` · 账 `B-319`）：本文件**第二个入口**
+// `CheckB116W35TransientParses` —— 补的是「词从 `keywords` 列进得来」那一半
+// （`CardDef.Prefixes` 原来没登记 `transient` ⇒ `Normalize` 返回 null ⇒ 构造函数
+//  `:1385` `NoteDropped` **静默丢弃** ⇒ 上面那条机制从卡数据永远不可达）。
+//  ⚠️ 两条分工：`CheckB115S7Transient` 测 `cardTraits` 列 + 运行时 `AddKeyword`；
+//     新入口测 `keywords` 列（`CardDef._keywords` → `UnitState._keywords`）端到端。
+//
 // ============================ 判据（⛔ 不是我挑的）============================
 //   · 第一权威：`d:/2/tools/decomp_full/CardScript__OnTurnStart.c:255-261`
 //       `cardState ∈ {2, 0xf, 3, 0x11}`（在场）∧ `HasCurrentTrait(0x1c7 = transient)`
@@ -71,7 +78,7 @@ public static partial class RuleEngineTest
 
         var uB = BoardUnitB115S7(ctx, me, "B115S7_runtimeKw");
         CheckTrue(uB != null, "A2 前提：运行时关键词那张在场上（拿不到就说明部署这条链变了）");
-        if (uB != null) uB.AddKeyword("transient", 1);         // `keywords` 列的真值今天进不来（`CardDef.Prefixes` 未登记，账 `B-319`）
+        if (uB != null) uB.AddKeyword("transient", 1);         // 本条专测**运行时**挂载那一路；`keywords` 列那条路见 `CheckB116W35TransientParses`（`B116_W35` 已把 `transient` 登记进 `Prefixes`，账 `B-319` 已闭合）
 
         CheckTrue(BoardUnitB115S7(ctx, me, "B115S7_traitData") != null
                   && BoardUnitB115S7(ctx, me, "B115S7_runtimeKw") != null
@@ -100,5 +107,66 @@ public static partial class RuleEngineTest
         CheckTrue(BoardUnitB115S7(ctx, me, "B115S7_runtimeKw") == null,
                   "B4 运行时挂上去的 `transient` 同样生效（`UnitState._keywords` 那条读路）"
                   + " —— 只留 `HasDefaultTrait` 那一半 ⇒ 本条红");
+    }
+
+    /// <summary>🆕 2026-11-02（执行代理 `B116_W35` · 账 `B-319`）：`transient` **从 `keywords` 列进得来**。
+    /// <para>修前：`CardDef.Prefixes` 没有 `transient` ⇒ `KeywordTable.Normalize` 返回 null ⇒
+    /// 构造函数 `CardDef.cs:1385` 把它 `NoteDropped` + `continue` **静默丢弃** ⇒ `CardDef._keywords`
+    /// 里没有它 ⇒ `UnitState` 构造时 `card.Keywords` 也种不进去 ⇒ `RuleCore.cs:2312` 那一跳
+    /// 从卡数据**永远不可达**（死代码，违反铁律 11）。</para>
+    /// <para>判据：`CardScript__OnTurnStart.c:255-261` —— 与 <see cref="CheckB115S7Transient"/> 文件头同一份
+    /// （`cardState ∈ {2, 0xf, 3, 0x11}` ∧ `HasCurrentTrait(0x1c7 = transient)` ⇒ `DestroyUnit(…, 0x14)`）。</para>
+    /// <para>🔴 **灭自证**（本组为什么这样写）：只断「带词的卡离场」是过不了鉴别力的 —— 一个「无条件清场」
+    /// 的实现也能让它绿。所以同时钉 ① 同一份夹具**不写**这个词 ⇒ `Has` 假、且回合开始后**仍在场**（B2/B5）；
+    /// ② 两级读路都断（`CardDef.Has` 走 B1、`UnitState.Has` 走 B3）—— 只登记不灌进单位的实现过不了 B3；
+    /// ③ 端到端断**机制可达**（B4）—— 只看 `Has` 过不了「登记了但引擎没读」。
+    /// ⇒ ①②③ 与「恒绿」结构上不可能同时成立。</para>
+    /// <para>⚠️ `Prefixes` 只解决「认得出」；**不是** `Implemented` 成员 —— `trait_collection.json` 里
+    /// 没有 `transient` 的 SO（77 条现读），进那一栏会多印一枚原版没有的徽标（同 `massive`）。</para></summary>
+    public static void CheckB116W35TransientParses()
+    {
+        Section("🆕 B116_W35 · `transient` 从 `keywords` 列进得来（账 `B-319`）");
+
+        // A1：最贴近本账的那一条 —— 「认得出」这一层。修前 `Normalize` 返回 null。
+        CheckTrue(KeywordTable.Normalize("transient") == "transient",
+                  "A1 前提：`KeywordTable.Normalize(\"transient\")` 返回规范名（`Prefixes` 已登记）"
+                  + " —— 把 `CardDef.Prefixes` 里那条删掉 ⇒ 本条红、B1/B3 跟着红");
+
+        // 两张夹具：K = `keywords` 列带词；N = 同一个词都不带（灭自证）
+        var defK = Unit("B116W35_kw", 1, 1, 5, "transient");
+        var defN = Unit("B116W35_ctrl", 1, 1, 5);
+
+        CheckTrue(defK.Has("transient"),
+                  "B1 带 `keywords=\"transient\"` 的卡，`CardDef.Has` 为真（不被 `NoteDropped` 丢弃）");
+        CheckTrue(!defN.Has("transient"),
+                  "B2 🧨 不写这个词的卡 `Has` 为**假**（灭自证：一个 `Has` 恒真的实现过不了本条）");
+
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+        int me = ctx.Active;
+
+        int sK, sN;
+        bool okK = RuleCore.DeployFree(ctx, me, defK, out sK);
+        bool okN = RuleCore.DeployFree(ctx, me, defN, out sN);
+        CheckTrue(okK && okN, "A2 前提：两张夹具都部署成功（任意一张失败 ⇒ 后面几条没有意义）");
+
+        var uK = BoardUnitB115S7(ctx, me, "B116W35_kw");
+        var uN = BoardUnitB115S7(ctx, me, "B116W35_ctrl");
+        CheckTrue(uK != null && uN != null, "A3 前提：回合开始前两张**都在场**");
+
+        // B3：第二级读路 —— `UnitState` 构造时从 `card.Keywords` 种进 `_keywords`
+        CheckTrue(uK != null && uK.Has("transient"),
+                  "B3 场上那张 `UnitState.Has(\"transient\")` 也为真（`card.Keywords` → `_keywords` 那条种入路）"
+                  + " —— 只登记 `Prefixes`、却不在 `CardDef._keywords` 里留住的实现过不了本条");
+
+        // ---- 触发一次回合开始 ----
+        RuleCore.BeginTurn(ctx);
+
+        // B4：端到端 —— 机制从 `keywords` 列**真的可达**
+        CheckTrue(BoardUnitB115S7(ctx, me, "B116W35_kw") == null,
+                  "B4 带 `transient`（`keywords` 列）的单位在回合开始被摧毁（机制从卡数据可达，不是死代码）");
+
+        // B5：灭自证 —— 不带的不许受影响
+        CheckTrue(BoardUnitB115S7(ctx, me, "B116W35_ctrl") != null,
+                  "B5 🧨 不带 `transient` 的单位**仍在场**（灭自证：一个「无条件清场」的实现过不了本条）");
     }
 }

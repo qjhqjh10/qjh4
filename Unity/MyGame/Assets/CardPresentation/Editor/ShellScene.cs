@@ -10706,7 +10706,7 @@ public static class ShellScene
             Object.DestroyImmediate(probeRoot);
         }
 
-        MenuCheck.RaycastFilterAsserts(_sink); MenuCheck.ToastChannelAsserts(_sink); B97ProfileAssert.Run(_sink); B97W7Assert.Run(); _sink.Pass += B97W7Assert.Pass; _sink.Fail += B97W7Assert.Fail; B97W40Assert.Run(); _sink.Pass += B97W40Assert.Pass; _sink.Fail += B97W40Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W40`）：账 `日常/奖励:681` 物品层 `HandleOnCollect` 等价物（边框 `aa` 自动装备 · 非边框不动且出声）   // 🆕 2026-10-29（调度台代接线 · `B97_W7`）：账 `日常_奖励:680/681` 联盟奖杯 `CollectSingleReward` ④ 支（三格硬赋 + 互斥两支）；同一行追加 ⇒ 行数零变化 · 2026-10-28（B89-R3d · 账 `未分类_其他` 230）：教程期命中白名单那 3 条（空表=不过滤 / 死码口 / 注册清空成对）｜🆕 2026-10-28（B89-E16d）：**横幅 ≠ 模态窗**那 4 条（决斗窗没卡组 / 删卡组失败 / 点 Player ID / 导入支源码扫描）—— 同 R3d 口径：**追加在同一行末**，行数 0 变化、落点零漂移。都在合计行**之前** ⇒ 计数进本宿主的 `_sink`
+        MenuCheck.RaycastFilterAsserts(_sink); MenuCheck.ToastChannelAsserts(_sink); B97ProfileAssert.Run(_sink); B97W7Assert.Run(); _sink.Pass += B97W7Assert.Pass; _sink.Fail += B97W7Assert.Fail; B97W40Assert.Run(); _sink.Pass += B97W40Assert.Pass; _sink.Fail += B97W40Assert.Fail; B116W3_Assert.Run(root); _sink.Pass += B116W3_Assert.Pass; _sink.Fail += B116W3_Assert.Fail;   // 🆕 2026-11-02（`B116_W3` · 活状态表 `UI-02` 收尾）：toast 的 fancy 底图 = 原版真图（模板 + 真弹出来那条两个调用点 · 灭自证 = 两张资产不同）；断言本体在 `ShellScene.cs` 类尾 `B116W3_Assert`，接在合计行之前 ⇒ 其后无账落点   // 🆕 2026-10-29（调度台代接线 · `B97_W40`）：账 `日常/奖励:681` 物品层 `HandleOnCollect` 等价物（边框 `aa` 自动装备 · 非边框不动且出声）   // 🆕 2026-10-29（调度台代接线 · `B97_W7`）：账 `日常_奖励:680/681` 联盟奖杯 `CollectSingleReward` ④ 支（三格硬赋 + 互斥两支）；同一行追加 ⇒ 行数零变化 · 2026-10-28（B89-R3d · 账 `未分类_其他` 230）：教程期命中白名单那 3 条（空表=不过滤 / 死码口 / 注册清空成对）｜🆕 2026-10-28（B89-E16d）：**横幅 ≠ 模态窗**那 4 条（决斗窗没卡组 / 删卡组失败 / 点 Player ID / 导入支源码扫描）—— 同 R3d 口径：**追加在同一行末**，行数 0 变化、落点零漂移。都在合计行**之前** ⇒ 计数进本宿主的 `_sink`
         Debug.Log(P + "LiveOpsFilterSelfCheck 跑 " + LiveOpsFilterSelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_E19）：`Shell/LiveOpsFilter.cs` 的 `LiveOpsFilterSelfCheck.Run` 原来**全仓 0 调用方**（那一批断言一条都不跑）。接在**合计行之前** ⇒ 其后无账落点（本文件最大账落点 = `ShellScene.cs:10351`），本行 = 文件行数 **+1**、其下游只位移 `+1`。**打印返回条数 = 自证它真被跑到**（`Run` 返回实际执行的断言数）。
         // ---------------- ④·c 🆕 2026-10-28（B93_E24）：**输入层停用 = 原版 `eventSystem.enabled = false`** ----------------
         //
@@ -11090,7 +11090,7 @@ public static class ShellScene
         Debug.Log(P + "B93D4SelfCheck 跑 " + B93D4SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-28（B93_D4）：断言本体在 `Editor/ShellScene_B93D4SelfCheck.cs`。打印返回条数 = 自证真被跑到。
         Debug.Log(P + "LiveOpsB93N2SelfCheck 跑 " + LiveOpsB93N2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");
         Debug.Log(P + "B94S2SelfCheck 跑 " + B94S2SelfCheck.Run((ok, msg) => CheckTrue(ok, msg)) + " 条断言");   // 🆕 2026-10-29（B94_S2 · 日常/奖励）：断言本体在 `Editor/ShellScene_B94S2SelfCheck.cs`。接在**合计行之前** ⇒ 其后无账落点（本文件最大账落点 = `ShellScene.cs:10351`）。**打印返回条数 = 自证它真被跑到**。
-        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B97W9Assert.Run(); _sink.Pass += B97W9Assert.Pass; _sink.Fail += B97W9Assert.Fail; B98K3Assert.Run(); _sink.Pass += B98K3Assert.Pass; _sink.Fail += B98K3Assert.Fail; B97W25Assert.Run(); _sink.Pass += B97W25Assert.Pass; _sink.Fail += B97W25Assert.Fail; B97W39Assert.Run(); _sink.Pass += B97W39Assert.Pass; _sink.Fail += B97W39Assert.Fail;   B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; B97W2Assert.Run(); _sink.Pass += B97W2Assert.Pass; _sink.Fail += B97W2Assert.Fail; B97_DAILYAssert.Run((ok, msg) => CheckTrue(ok, msg)); B97MISC2Assert.Run(); _sink.Pass += B97MISC2Assert.Pass; _sink.Fail += B97MISC2Assert.Fail; B97_MENU_Assert.RunAll(); B97MINI2Assert.Run(); _sink.Pass += B97MINI2Assert.Pass; _sink.Fail += B97MINI2Assert.Fail; B98A1_Assert.Run(); _sink.Pass += B98A1_Assert.Pass; _sink.Fail += B98A1_Assert.Fail; B98A5_Assert.Run(); _sink.Pass += B98A5_Assert.Pass; _sink.Fail += B98A5_Assert.Fail; B98A8_Assert.Run(); _sink.Pass += B98A8_Assert.Pass; _sink.Fail += B98A8_Assert.Fail; B98A11_Assert.Run(); _sink.Pass += B98A11_Assert.Pass; _sink.Fail += B98A11_Assert.Fail; B98H5Assert.Run(); _sink.Pass += B98H5Assert.Pass; _sink.Fail += B98H5Assert.Fail; B98K5_Assert.Run(); _sink.Pass += B98K5_Assert.Pass; _sink.Fail += B98K5_Assert.Fail; B98M2_Assert.Run(); _sink.Pass += B98M2_Assert.Pass; _sink.Fail += B98M2_Assert.Fail; B101R8_Assert.Run(); _sink.Pass += B101R8_Assert.Pass; _sink.Fail += B101R8_Assert.Fail; B101W3_Assert.Run(); _sink.Pass += B101W3_Assert.Pass; _sink.Fail += B101W3_Assert.Fail; B99G3Assert.Run(_sink); B99A4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B102MISSAssert.Run(); _sink.Pass += B102MISSAssert.Pass; _sink.Fail += B102MISSAssert.Fail; B102AUD04_Assert.Run(); _sink.Pass += B102AUD04_Assert.Pass; _sink.Fail += B102AUD04_Assert.Fail; B97W32Assert.Run(); _sink.Pass += B97W32Assert.OkCount; _sink.Fail += B97W32Assert.BadCount; B102CHAT_Assert.Run(); _sink.Pass += B102CHAT_Assert.Pass; _sink.Fail += B102CHAT_Assert.Fail; B102AUD03R_Assert.Run(); _sink.Pass += B102AUD03R_Assert.Pass; _sink.Fail += B102AUD03R_Assert.Fail; B102FTUE_Assert.Run(); _sink.Pass += B102FTUE_Assert.Pass; _sink.Fail += B102FTUE_Assert.Fail; B102BUY_Assert.Run(); _sink.Pass += B102BUY_Assert.Pass; _sink.Fail += B102BUY_Assert.Fail; B103W1_Assert.Run(); _sink.Pass += B103W1_Assert.Pass; _sink.Fail += B103W1_Assert.Fail; B103W6_Assert.Run(); _sink.Pass += B103W6_Assert.Pass; _sink.Fail += B103W6_Assert.Fail; B103W4_Assert.Run(); _sink.Pass += B103W4_Assert.Pass; _sink.Fail += B103W4_Assert.Fail; B103R1_Assert.RunTypeOverrides(); B103R1_Assert.RunShell(WindowsManager.Get()); _sink.Pass += B103R1_Assert.Pass; _sink.Fail += B103R1_Assert.Fail; B103W7bAssert.Run(); _sink.Pass += B103W7bAssert.Pass; _sink.Fail += B103W7bAssert.Fail; B104_P3_Assert.CheckB104P3(); _sink.Pass += B104_P3_Assert.Pass; _sink.Fail += B104_P3_Assert.Fail; B104_P26_Assert.CheckB104P26(); _sink.Pass += B104_P26_Assert.Pass; _sink.Fail += B104_P26_Assert.Fail; GameModesCheck.Run(); _sink.Pass += GameModesCheck.Pass; _sink.Fail += GameModesCheck.Fail; B97W26_Assert.Run(); _sink.Pass += B97W26_Assert.Pass; _sink.Fail += B97W26_Assert.Fail; B108_A5_ReuseRewards_Assert.Run(); _sink.Pass += B108_A5_ReuseRewards_Assert.Pass; _sink.Fail += B108_A5_ReuseRewards_Assert.Fail; B108A6_Assert.Run(); _sink.Pass += B108A6_Assert.Pass; _sink.Fail += B108A6_Assert.Fail; B108A6_Assert.RunCampaign(WindowsManager.Get()); _sink.Pass += B108A6_Assert.Pass; _sink.Fail += B108A6_Assert.Fail; B109_E11_Drawer_Assert.Run(); _sink.Pass += B109_E11_Drawer_Assert.Pass; _sink.Fail += B109_E11_Drawer_Assert.Fail; B109_E5_PremiumDrawer_Assert.Run(); _sink.Pass += B109_E5_PremiumDrawer_Assert.Pass; _sink.Fail += B109_E5_PremiumDrawer_Assert.Fail; B109_E15_LangDefault_Assert.Run(); _sink.Pass += B109_E15_LangDefault_Assert.Pass; _sink.Fail += B109_E15_LangDefault_Assert.Fail; B109_E18_RandomCard_Assert.Run(); _sink.Pass += B109_E18_RandomCard_Assert.Pass; _sink.Fail += B109_E18_RandomCard_Assert.Fail; B109_E21_ChatTrans_Assert.Run(); _sink.Pass += B109_E21_ChatTrans_Assert.Pass; _sink.Fail += B109_E21_ChatTrans_Assert.Fail; B109E20_Assert.Run(); _sink.Pass += B109E20_Assert.Pass; _sink.Fail += B109E20_Assert.Fail; B109_E23_DailyClick_Assert.Run(); _sink.Pass += B109_E23_DailyClick_Assert.Pass; _sink.Fail += B109_E23_DailyClick_Assert.Fail; B109_E27_GachaBar_Assert.Run(); _sink.Pass += B109_E27_GachaBar_Assert.Pass; _sink.Fail += B109_E27_GachaBar_Assert.Fail; B109_E17_Mixer_Assert.Run(false); _sink.Pass += B109_E17_Mixer_Assert.Pass; _sink.Fail += B109_E17_Mixer_Assert.Fail; B109_E32_EventImage_Assert.Run(); _sink.Pass += B109_E32_EventImage_Assert.Pass; _sink.Fail += B109_E32_EventImage_Assert.Fail; B109_E33_MenuMat_Assert.Run(); _sink.Pass += B109_E33_MenuMat_Assert.Pass; _sink.Fail += B109_E33_MenuMat_Assert.Fail; B109_E35_DraftImage_Assert.Run(); _sink.Pass += B109_E35_DraftImage_Assert.Pass; _sink.Fail += B109_E35_DraftImage_Assert.Fail; C5_Assert.Run(); _sink.Pass += C5_Assert.Pass; _sink.Fail += C5_Assert.Fail; B110_C14_Assert.Run(); _sink.Pass += B110_C14_Assert.Pass; _sink.Fail += B110_C14_Assert.Fail; B110_M1_MenuMat_Assert.Run(false); _sink.Pass += B110_M1_MenuMat_Assert.Pass; _sink.Fail += B110_M1_MenuMat_Assert.Fail; B110_M2_MenuMat_Assert.Run(); _sink.Pass += B110_M2_MenuMat_Assert.Pass; _sink.Fail += B110_M2_MenuMat_Assert.Fail; B110_M3_MenuMat_Assert.Run(); _sink.Pass += B110_M3_MenuMat_Assert.Pass; _sink.Fail += B110_M3_MenuMat_Assert.Fail; B110_W5_ShaderSupport_Assert.Run(); _sink.Pass += B110_W5_ShaderSupport_Assert.Pass; _sink.Fail += B110_W5_ShaderSupport_Assert.Fail; B110W4_Assert.Run(); _sink.Pass += B110W4_Assert.Pass; _sink.Fail += B110W4_Assert.Fail; B111S3_Assert.Run(); _sink.Pass += B111S3_Assert.Pass; _sink.Fail += B111S3_Assert.Fail; B111_S4_Assert.Run(); _sink.Pass += B111_S4_Assert.Pass; _sink.Fail += B111_S4_Assert.Fail; B111_R3W_Assert.Run(); _sink.Pass += B111_R3W_Assert.Pass; _sink.Fail += B111_R3W_Assert.Fail; B111_T1B_Assert.Run(); _sink.Pass += B111_T1B_Assert.Pass; _sink.Fail += B111_T1B_Assert.Fail; B111_F1C_Assert.Run(); _sink.Pass += B111_F1C_Assert.Pass; _sink.Fail += B111_F1C_Assert.Fail; B112A_Assert.Run(); _sink.Pass += B112A_Assert.Pass; _sink.Fail += B112A_Assert.Fail; B111_F1D_Assert.Run(); _sink.Pass += B111_F1D_Assert.Pass; _sink.Fail += B111_F1D_Assert.Fail; B113X2_Assert.Run(); _sink.Pass += B113X2_Assert.Pass; _sink.Fail += B113X2_Assert.Fail; B113X5_Assert.Run(); _sink.Pass += B113X5_Assert.Pass; _sink.Fail += B113X5_Assert.Fail; B114_C_Assert.Run(); _sink.Pass += B114_C_Assert.Pass; _sink.Fail += B114_C_Assert.Fail; B114_W11_Assert.Run(); _sink.Pass += B114_W11_Assert.Pass; _sink.Fail += B114_W11_Assert.Fail; B114_W12_Assert.Run(); _sink.Pass += B114_W12_Assert.Pass; _sink.Fail += B114_W12_Assert.Fail; B114_W16_Assert.Run(); _sink.Pass += B114_W16_Assert.Pass; _sink.Fail += B114_W16_Assert.Fail; B114_W20_Assert.Run(); _sink.Pass += B114_W20_Assert.Pass; _sink.Fail += B114_W20_Assert.Fail; B114_W24_Assert.Run(); _sink.Pass += B114_W24_Assert.Pass; _sink.Fail += B114_W24_Assert.Fail; B114_W27_Assert.Run(); _sink.Pass += B114_W27_Assert.Pass; _sink.Fail += B114_W27_Assert.Fail; B114_W32_Assert.Run(); _sink.Pass += B114_W32_Assert.Pass; _sink.Fail += B114_W32_Assert.Fail; B114_W35_Assert.Run(); _sink.Pass += B114_W35_Assert.Pass; _sink.Fail += B114_W35_Assert.Fail; B114_W38_Assert.Run(); _sink.Pass += B114_W38_Assert.Pass; _sink.Fail += B114_W38_Assert.Fail; B114_W43_Assert.Run(); _sink.Pass += B114_W43_Assert.Pass; _sink.Fail += B114_W43_Assert.Fail; B114_W48_Assert.Run(); _sink.Pass += B114_W48_Assert.Pass; _sink.Fail += B114_W48_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W39`）：轮抽房属性过网（`MsgDeck`/`MsgStart` 各 4 格 · 老报文出声+默认 · 三格不在指纹面）   // 🆕 2026-10-29（调度台代接线 · `B97_W25`）：账 `轮抽:31` `SetCustomMatchOptions`（`won` 读胜场、⛔ 不是 `defensiveCard`；handler null ⇒ 整段跳过不写键）    // [B98_Q2 2026-10-29 代接线] A1(边框按 AutoAssign 自动装备)·A5/A8(卡包实物+三层遮挡序；⚠️ 这两件只有自带 `_ok/_bad` 与小结日志、**没有** `Pass/Fail` ⇒ 不进 `_sink`)·A11(挑战消费方两条；同样自带计数)·H5(boosts 支)·K5(轮抽三条 B)·M2(`DraftState` 15)。接在合计行之前 ⇒ 行数零变化   // 🆕 2026-10-29（B97_DAILY · 日常/奖励）：账 `745` 的接线锁（IL 层「方法体恰好一处 call `ModifyLocalization`」）+ `510` 的 `displayRule` 三档；断言本体在 `Editor/B97_DAILY_Assert.cs`。接在**合计行之前**，同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93S3Assert.Run(); _sink.Pass += B93S3Assert.Pass; _sink.Fail += B93S3Assert.Fail; B97W9Assert.Run(); _sink.Pass += B97W9Assert.Pass; _sink.Fail += B97W9Assert.Fail; B98K3Assert.Run(); _sink.Pass += B98K3Assert.Pass; _sink.Fail += B98K3Assert.Fail; B97W25Assert.Run(); _sink.Pass += B97W25Assert.Pass; _sink.Fail += B97W25Assert.Fail; B97W39Assert.Run(); _sink.Pass += B97W39Assert.Pass; _sink.Fail += B97W39Assert.Fail;   B94Y6_Assert.Run(); _sink.Pass += B94Y6_Assert.Pass; _sink.Fail += B94Y6_Assert.Fail; B94B4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B94B6Assert.Run(); _sink.Pass += B94B6Assert.Pass; _sink.Fail += B94B6Assert.Fail; B94B17Assert.Run(); _sink.Pass += B94B17Assert.Pass; _sink.Fail += B94B17Assert.Fail; B97W2Assert.Run(); _sink.Pass += B97W2Assert.Pass; _sink.Fail += B97W2Assert.Fail; B97_DAILYAssert.Run((ok, msg) => CheckTrue(ok, msg)); B97MISC2Assert.Run(); _sink.Pass += B97MISC2Assert.Pass; _sink.Fail += B97MISC2Assert.Fail; B97_MENU_Assert.RunAll(); B97MINI2Assert.Run(); _sink.Pass += B97MINI2Assert.Pass; _sink.Fail += B97MINI2Assert.Fail; B98A1_Assert.Run(); _sink.Pass += B98A1_Assert.Pass; _sink.Fail += B98A1_Assert.Fail; B98A5_Assert.Run(); _sink.Pass += B98A5_Assert.Pass; _sink.Fail += B98A5_Assert.Fail; B98A8_Assert.Run(); _sink.Pass += B98A8_Assert.Pass; _sink.Fail += B98A8_Assert.Fail; B98A11_Assert.Run(); _sink.Pass += B98A11_Assert.Pass; _sink.Fail += B98A11_Assert.Fail; B98H5Assert.Run(); _sink.Pass += B98H5Assert.Pass; _sink.Fail += B98H5Assert.Fail; B98K5_Assert.Run(); _sink.Pass += B98K5_Assert.Pass; _sink.Fail += B98K5_Assert.Fail; B98M2_Assert.Run(); _sink.Pass += B98M2_Assert.Pass; _sink.Fail += B98M2_Assert.Fail; B101R8_Assert.Run(); _sink.Pass += B101R8_Assert.Pass; _sink.Fail += B101R8_Assert.Fail; B101W3_Assert.Run(); _sink.Pass += B101W3_Assert.Pass; _sink.Fail += B101W3_Assert.Fail; B99G3Assert.Run(_sink); B99A4Assert.Run((ok, msg) => CheckTrue(ok, msg)); B102MISSAssert.Run(); _sink.Pass += B102MISSAssert.Pass; _sink.Fail += B102MISSAssert.Fail; B102AUD04_Assert.Run(); _sink.Pass += B102AUD04_Assert.Pass; _sink.Fail += B102AUD04_Assert.Fail; B97W32Assert.Run(); _sink.Pass += B97W32Assert.OkCount; _sink.Fail += B97W32Assert.BadCount; B102CHAT_Assert.Run(); _sink.Pass += B102CHAT_Assert.Pass; _sink.Fail += B102CHAT_Assert.Fail; B102AUD03R_Assert.Run(); _sink.Pass += B102AUD03R_Assert.Pass; _sink.Fail += B102AUD03R_Assert.Fail; B102FTUE_Assert.Run(); _sink.Pass += B102FTUE_Assert.Pass; _sink.Fail += B102FTUE_Assert.Fail; B102BUY_Assert.Run(); _sink.Pass += B102BUY_Assert.Pass; _sink.Fail += B102BUY_Assert.Fail; B103W1_Assert.Run(); _sink.Pass += B103W1_Assert.Pass; _sink.Fail += B103W1_Assert.Fail; B103W6_Assert.Run(); _sink.Pass += B103W6_Assert.Pass; _sink.Fail += B103W6_Assert.Fail; B103W4_Assert.Run(); _sink.Pass += B103W4_Assert.Pass; _sink.Fail += B103W4_Assert.Fail; B103R1_Assert.RunTypeOverrides(); B103R1_Assert.RunShell(WindowsManager.Get()); _sink.Pass += B103R1_Assert.Pass; _sink.Fail += B103R1_Assert.Fail; B103W7bAssert.Run(); _sink.Pass += B103W7bAssert.Pass; _sink.Fail += B103W7bAssert.Fail; B104_P3_Assert.CheckB104P3(); _sink.Pass += B104_P3_Assert.Pass; _sink.Fail += B104_P3_Assert.Fail; B104_P26_Assert.CheckB104P26(); _sink.Pass += B104_P26_Assert.Pass; _sink.Fail += B104_P26_Assert.Fail; GameModesCheck.Run(); _sink.Pass += GameModesCheck.Pass; _sink.Fail += GameModesCheck.Fail; B97W26_Assert.Run(); _sink.Pass += B97W26_Assert.Pass; _sink.Fail += B97W26_Assert.Fail; B108_A5_ReuseRewards_Assert.Run(); _sink.Pass += B108_A5_ReuseRewards_Assert.Pass; _sink.Fail += B108_A5_ReuseRewards_Assert.Fail; B108A6_Assert.Run(); _sink.Pass += B108A6_Assert.Pass; _sink.Fail += B108A6_Assert.Fail; B108A6_Assert.RunCampaign(WindowsManager.Get()); _sink.Pass += B108A6_Assert.Pass; _sink.Fail += B108A6_Assert.Fail; B109_E11_Drawer_Assert.Run(); _sink.Pass += B109_E11_Drawer_Assert.Pass; _sink.Fail += B109_E11_Drawer_Assert.Fail; B109_E5_PremiumDrawer_Assert.Run(); _sink.Pass += B109_E5_PremiumDrawer_Assert.Pass; _sink.Fail += B109_E5_PremiumDrawer_Assert.Fail; B109_E15_LangDefault_Assert.Run(); _sink.Pass += B109_E15_LangDefault_Assert.Pass; _sink.Fail += B109_E15_LangDefault_Assert.Fail; B109_E18_RandomCard_Assert.Run(); _sink.Pass += B109_E18_RandomCard_Assert.Pass; _sink.Fail += B109_E18_RandomCard_Assert.Fail; B109_E21_ChatTrans_Assert.Run(); _sink.Pass += B109_E21_ChatTrans_Assert.Pass; _sink.Fail += B109_E21_ChatTrans_Assert.Fail; B109E20_Assert.Run(); _sink.Pass += B109E20_Assert.Pass; _sink.Fail += B109E20_Assert.Fail; B109_E23_DailyClick_Assert.Run(); _sink.Pass += B109_E23_DailyClick_Assert.Pass; _sink.Fail += B109_E23_DailyClick_Assert.Fail; B109_E27_GachaBar_Assert.Run(); _sink.Pass += B109_E27_GachaBar_Assert.Pass; _sink.Fail += B109_E27_GachaBar_Assert.Fail; B109_E17_Mixer_Assert.Run(false); _sink.Pass += B109_E17_Mixer_Assert.Pass; _sink.Fail += B109_E17_Mixer_Assert.Fail; B109_E32_EventImage_Assert.Run(); _sink.Pass += B109_E32_EventImage_Assert.Pass; _sink.Fail += B109_E32_EventImage_Assert.Fail; B109_E33_MenuMat_Assert.Run(); _sink.Pass += B109_E33_MenuMat_Assert.Pass; _sink.Fail += B109_E33_MenuMat_Assert.Fail; B109_E35_DraftImage_Assert.Run(); _sink.Pass += B109_E35_DraftImage_Assert.Pass; _sink.Fail += B109_E35_DraftImage_Assert.Fail; C5_Assert.Run(); _sink.Pass += C5_Assert.Pass; _sink.Fail += C5_Assert.Fail; B110_C14_Assert.Run(); _sink.Pass += B110_C14_Assert.Pass; _sink.Fail += B110_C14_Assert.Fail; B110_M1_MenuMat_Assert.Run(false); _sink.Pass += B110_M1_MenuMat_Assert.Pass; _sink.Fail += B110_M1_MenuMat_Assert.Fail; B110_M2_MenuMat_Assert.Run(); _sink.Pass += B110_M2_MenuMat_Assert.Pass; _sink.Fail += B110_M2_MenuMat_Assert.Fail; B110_M3_MenuMat_Assert.Run(); _sink.Pass += B110_M3_MenuMat_Assert.Pass; _sink.Fail += B110_M3_MenuMat_Assert.Fail; B110_W5_ShaderSupport_Assert.Run(); _sink.Pass += B110_W5_ShaderSupport_Assert.Pass; _sink.Fail += B110_W5_ShaderSupport_Assert.Fail; B110W4_Assert.Run(); _sink.Pass += B110W4_Assert.Pass; _sink.Fail += B110W4_Assert.Fail; B111S3_Assert.Run(); _sink.Pass += B111S3_Assert.Pass; _sink.Fail += B111S3_Assert.Fail; B111_S4_Assert.Run(); _sink.Pass += B111_S4_Assert.Pass; _sink.Fail += B111_S4_Assert.Fail; B111_R3W_Assert.Run(); _sink.Pass += B111_R3W_Assert.Pass; _sink.Fail += B111_R3W_Assert.Fail; B111_T1B_Assert.Run(); _sink.Pass += B111_T1B_Assert.Pass; _sink.Fail += B111_T1B_Assert.Fail; B111_F1C_Assert.Run(); _sink.Pass += B111_F1C_Assert.Pass; _sink.Fail += B111_F1C_Assert.Fail; B112A_Assert.Run(); _sink.Pass += B112A_Assert.Pass; _sink.Fail += B112A_Assert.Fail; B111_F1D_Assert.Run(); _sink.Pass += B111_F1D_Assert.Pass; _sink.Fail += B111_F1D_Assert.Fail; B113X2_Assert.Run(); _sink.Pass += B113X2_Assert.Pass; _sink.Fail += B113X2_Assert.Fail; B113X5_Assert.Run(); _sink.Pass += B113X5_Assert.Pass; _sink.Fail += B113X5_Assert.Fail; B114_C_Assert.Run(); _sink.Pass += B114_C_Assert.Pass; _sink.Fail += B114_C_Assert.Fail; B114_W11_Assert.Run(); _sink.Pass += B114_W11_Assert.Pass; _sink.Fail += B114_W11_Assert.Fail; B114_W12_Assert.Run(); _sink.Pass += B114_W12_Assert.Pass; _sink.Fail += B114_W12_Assert.Fail; B114_W16_Assert.Run(); _sink.Pass += B114_W16_Assert.Pass; _sink.Fail += B114_W16_Assert.Fail; B114_W20_Assert.Run(); _sink.Pass += B114_W20_Assert.Pass; _sink.Fail += B114_W20_Assert.Fail; B114_W24_Assert.Run(); _sink.Pass += B114_W24_Assert.Pass; _sink.Fail += B114_W24_Assert.Fail; B114_W27_Assert.Run(); _sink.Pass += B114_W27_Assert.Pass; _sink.Fail += B114_W27_Assert.Fail; B114_W32_Assert.Run(); _sink.Pass += B114_W32_Assert.Pass; _sink.Fail += B114_W32_Assert.Fail; B114_W35_Assert.Run(); _sink.Pass += B114_W35_Assert.Pass; _sink.Fail += B114_W35_Assert.Fail; B114_W38_Assert.Run(); _sink.Pass += B114_W38_Assert.Pass; _sink.Fail += B114_W38_Assert.Fail; B114_W43_Assert.Run(); _sink.Pass += B114_W43_Assert.Pass; _sink.Fail += B114_W43_Assert.Fail; B114_W48_Assert.Run(); _sink.Pass += B114_W48_Assert.Pass; _sink.Fail += B114_W48_Assert.Fail; B116_W14_Assert.Run(); _sink.Pass += B116_W14_Assert.Pass; _sink.Fail += B116_W14_Assert.Fail; B116W21_Assert.Run(); _sink.Pass += B116W21_Assert.Pass; _sink.Fail += B116W21_Assert.Fail; B116W26_Assert.Run(); _sink.Pass += B116W26_Assert.Pass; _sink.Fail += B116W26_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W39`）：轮抽房属性过网（`MsgDeck`/`MsgStart` 各 4 格 · 老报文出声+默认 · 三格不在指纹面）   // 🆕 2026-10-29（调度台代接线 · `B97_W25`）：账 `轮抽:31` `SetCustomMatchOptions`（`won` 读胜场、⛔ 不是 `defensiveCard`；handler null ⇒ 整段跳过不写键）    // [B98_Q2 2026-10-29 代接线] A1(边框按 AutoAssign 自动装备)·A5/A8(卡包实物+三层遮挡序；⚠️ 这两件只有自带 `_ok/_bad` 与小结日志、**没有** `Pass/Fail` ⇒ 不进 `_sink`)·A11(挑战消费方两条；同样自带计数)·H5(boosts 支)·K5(轮抽三条 B)·M2(`DraftState` 15)。接在合计行之前 ⇒ 行数零变化   // 🆕 2026-10-29（B97_DAILY · 日常/奖励）：账 `745` 的接线锁（IL 层「方法体恰好一处 call `ModifyLocalization`」）+ `510` 的 `displayRule` 三档；断言本体在 `Editor/B97_DAILY_Assert.cs`。接在**合计行之前**，同一行追加 ⇒ 行数零变化   // 🆕 2026-10-29（调度台代接线）：B94_B4 的日常线断言（GridMissionLayout 7 条 + 信号触发器 6 条 + 周常倒计时 3 条）—— `Run` 自带 sink 回调 ⇒ 直接进 `_sink`   // 🆕 2026-10-29（调度台代接线）：`B93S3Assert`（124 条）· `B94Y6_Assert`（收件箱占位符/ConfigProvider/GameNews）—— 此前全仓 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在
         //   `Check` 里**已经打过一次**）⇒ 行首标记必须是 `失败重列：`、⛔ **不能再是 `✗`** ——
         //   原来是 `✗` 时日志里 `✗` 行数 = 失败数 **×2**，连「按行首标记数」都数不准
@@ -11176,4 +11176,272 @@ public static class ShellScene
         try { w.Open(); return true; }
         catch (System.Exception e) { Debug.LogError(P + "夹具 `" + who + "`.Open() 抛异常：" + e); return false; }
     }
+}
+
+// ============================================================ 🆕 2026-11-02（`B116_W3` · 活状态表 `UI-02` 收尾）
+//
+// 它盯的是什么：`Toast Collection Level Up` / `Get XP` 的根底图**必须取到原版那张真图**
+//   `WF_UI_Generic_FancyNotification_Background`，而不是兜底图 `UI_Deck_Information_submenu_Back_opaque`。
+//
+// 为什么需要它：`Shell/ToastNotifications.cs` 文件头「边界 2」原来写「这张图本地 `Resources/` 里没有（导入器没导）」。
+//   🔴 2026-11-02 现核**不成立**：`Resources/Art/ui_menu/WF_UI_Generic_FancyNotification_Background.png`
+//   在（45,254 B · 与源图同字节），`CardArt.MenuUi` 按 `ui_menu/ → ui_deck/ → ui/` 兜底 ⇒ 今天**取到的是真图**；
+//   「退回通用底图并出声一次」那条只是**异常档**（图被移走 / 改名才会走）。注释已就地订正（铁律 5），本节把它钉住。
+//
+// 期望值怎么来的（⛔ 不自证）：两个字面量是**原版 prefab 根 Image 的 sprite 名**（不是我们起的名字）；
+//   贴图**直接问 `CardArt` 要**，⛔ 不读 `ToastNotifications` 的私有常量，也不读它算出来的参数。
+//
+// 🧨 灭自证（怎么才能红）：
+//   · A3 —— 两张贴图**不是同一个资产**（名字也不同）⇒ B2/B5 按名字比才有判别力；
+//   · 真把 `Resources/Art/ui_menu/` 那张 PNG 移走 / 改名 ⇒ A1 先红（硬前提），B2/B5 同时红
+//     （生产侧会退到兜底图，并让 `_warnedFancyBg` 出声一次）；
+//   · ⚠️ 本节**不**去挪那张图（破坏性动作），只用「两张资产不同 + 兜底图也在」构造反向比较。
+//
+// 证得到 / 证不到：
+//   · 证得到 = **模板**（`FancyBackground` 那一跳）与**真弹出来的那条**（`ShowInternal` → `Fill` →
+//     `RebuildBackground` 那一跳）两处的 `Background` 都是真图；
+//   · 证不到 = 「原版运行时到底用哪张图」—— 那要原版实拍，用户 2026-11-02 已叫停 ⇒ **挂起**（不是待办）。
+public static class B116W3_Assert
+{
+    static readonly CheckSink _sink = new CheckSink("[B116W3] ") { Near = MenuNearStyle.Compact3 };
+
+    /// <summary>通过条数（宿主累加用）。</summary>
+    public static int Pass { get { return _sink.Pass; } }
+    /// <summary>失败条数（宿主累加用）。</summary>
+    public static int Fail { get { return _sink.Fail; } }
+
+    static void Tr(bool cond, string msg) { MenuCheck.True(_sink, cond, msg); }
+    static void C<T>(T got, T want, string msg) { MenuCheck.Check(_sink, got, want, msg); }
+
+    // ---- 判据字面量（原版 prefab 的 sprite 名；⛔ 不读生产常量）----
+    const string Fancy = "WF_UI_Generic_FancyNotification_Background";
+    const string Fallback = "UI_Deck_Information_submenu_Back_opaque";
+
+    static string NameOf(Texture t) { return t != null ? t.name : "<null>"; }
+
+    public static void Run(Transform root)
+    {
+        MenuCheck.Section(_sink, "🆕 B116_W3（`UI-02` 收尾）：fancy 底图 = 原版真图，不是兜底图");
+
+        // ---- A · 贴图层：硬前提 + 判别力 ----
+        var fancyTex = CardArt.MenuUi(Fancy);
+        var fallbackTex = CardArt.MenuUi(Fallback);
+
+        Tr(fancyTex != null,
+           "★ B116W3-A1（硬前提）：`" + Fancy + "` **在 `Resources/` 里**（现读 " + NameOf(fancyTex)
+         + (fancyTex != null ? " · " + fancyTex.width + "×" + fancyTex.height : "") + "）"
+         + "｜🧨 把 `Resources/Art/ui_menu/WF_UI_Generic_FancyNotification_Background.png` 移走 / 改名 ⇒ 本条红");
+        Tr(fallbackTex != null,
+           "（前提）B116W3-A2：兜底图 `" + Fallback + "` 也在（现读 " + NameOf(fallbackTex) + "）"
+         + " —— 它在，才说明 B2/B5「取到真图」不是「两边都 null」的假象");
+        Tr(fancyTex != null && fallbackTex != null && !object.ReferenceEquals(fancyTex, fallbackTex)
+           && fancyTex.name != fallbackTex.name,
+           "★ B116W3-A3（灭自证）：两张是**不同资产**（" + NameOf(fancyTex) + " ≠ " + NameOf(fallbackTex) + "）"
+         + " ⇒ 下面按名字比有判别力（同族替身名 ≠ 原版名）");
+
+        // ---- B · 生产侧：模板 + 真弹出来的那条 ----
+        ToastNotifications.DisposeForTest();
+        var tn = ToastNotifications.Build(root);
+        Tr(tn != null && tn.Built, "（前提）B116W3-B0：Toast 控制器在壳根下建出来了（`Safe area Only Horizontal ▸ … ▸ Holder`）");
+
+        var tpl = tn != null && tn.Templates != null ? tn.Templates.Find("Toast Collection Level Up") : null;
+        var tplBg = tpl != null ? tpl.Find("Background") : null;
+        var tplQ = tplBg != null ? tplBg.GetComponentInChildren<ImageQuad>(true) : null;
+        Tr(tplQ != null,
+           "（前提）B116W3-B1：模板 `Toast Collection Level Up ▸ Background` 上有 `ImageQuad`"
+         + "（`Templates` 现读 " + (tn != null && tn.Templates != null ? tn.Templates.childCount.ToString() : "<null>") + " 个子件）");
+        C(tplQ != null ? NameOf(tplQ.Texture) : "<null>", Fancy,
+          "★ B116W3-B2（模板）：根底图 = **原版那张真图**（`FancyBackground` 那一跳，不是兜底图）"
+        + "｜🧨 让 `CardArt.MenuUi` 取不到它（移走 PNG）⇒ 本条红，同时 `_warnedFancyBg` 出声");
+
+        // 真弹出来那条：`CollectionGainXP` 走 `ShowInternal → ApplyMeasuredHeight → RebuildBackground(fancy: true)`
+        // （第二个调用点；短文案时高度不变、直接复用模板那一份，同样必须是真图）。
+        bool shown = tn != null && ToastNotifications.Show(ToastNotifications.ToastNotificationType.CollectionGainXP, "50");
+        Tr(shown, "（前提）B116W3-B3：`Show(CollectionGainXP, \"50\")` 真弹出来了一条");
+        var holder = tn != null ? tn.Holder : null;
+        int liveN = holder != null ? holder.childCount : 0;
+        var liveRoot = liveN > 0 ? holder.GetChild(liveN - 1) : null;
+        var liveBg = liveRoot != null ? liveRoot.Find("Background") : null;
+        var liveQ = liveBg != null ? liveBg.GetComponentInChildren<ImageQuad>(true) : null;
+        Tr(liveQ != null,
+           "（前提）B116W3-B4：真弹出来那条的 `Background` 上有 `ImageQuad`（`Holder` 现读 " + liveN + " 条）");
+        C(liveQ != null ? NameOf(liveQ.Texture) : "<null>", Fancy,
+          "★ B116W3-B5（端到端）：真弹出来的那条，`Background` 也是 **原版真图**"
+        + "（覆盖 `RebuildBackground(fancy: true)` 那一跳；与 B2 是**两个**调用点）");
+
+        int fbQuads = 0, allQuads = 0;
+        if (liveRoot != null)
+            foreach (var z in liveRoot.GetComponentsInChildren<ImageQuad>(true))
+            {
+                allQuads++;
+                if (z.Texture != null && z.Texture.name == Fallback) fbQuads++;
+            }
+        C(fbQuads, 0, "★ B116W3-B6（反证）：真弹出来那条里**没有任何** quad 用兜底图 `" + Fallback + "`"
+                    + "（现读 " + fbQuads + " 个兜底 / 共 " + allQuads + " 个 quad）");
+
+        ToastNotifications.DisposeForTest();
+        Tr(ToastNotifications.Instance == null,
+           "（收尾）B116W3-B7：`DisposeForTest()` 之后 `Instance` 归 null（不给后面的段留幽灵）");
+    }
+}
+
+// ============================================================ 🆕 2026-11-02（`B116_W14` · 活状态表 `UI-12` 的**后半**）
+//
+// 它盯的是什么：`Shell/PointerLayer.cs` 的**命中点判据要读 `transform.rotation`** ——
+//   原版命中的是 uGUI `Graphic.Raycast` → `RectTransformUtility.RectangleContainsScreenPoint`，
+//   它把屏幕点**逆变换进该件的局部空间**再与矩形比，**不是**取轴对齐外接盒（AABB）。
+//
+// 为什么需要它：改前 `QuadBoxPx` 只读 `lossyScale`，**一次没读旋转** ⇒ 旋转件（草拟窗两张卡背）画出来是
+//   **转的**、命中区却是**未旋转**那一块：四个角各差一块，**两个方向都错**（角上假命中 / 边上假不命中），
+//   而且**零报错**。今天那两件是纯展示 ⇒ 生产零可观测，所以这条断言是**唯一能看见它**的地方。
+//
+// 期望值怎么来的（⛔ 不自证）：夹具的**局部点**（`lx/ly`，设计 px）是我们自己写死的；把它摆到世界里用的是
+//   `Quaternion` 的标准 z 旋转 + `LayoutSpace.ToDesignPixel`（生产口的**坐标换算**，不是命中算式）。
+//   判定结果一律问**生产口的只读转发** `PointerLayer.ButtonsAtForTest`（与 `CollectHits` 同一条遍历）。
+//
+// 🧨 灭自证（怎么才能红）：
+//   · 删掉 `QuadContainsPx` 的旋转分支 / 退回原来那两句 `Mathf.Abs` ⇒ **A4 / A5 红**（它们恰好是旧算式的
+//     两个错法：A4 = 假命中、A5 = 假不命中）；
+//   · 把「θ == 0 走直路」那半删掉 ⇒ A7 在**边界点**上会因世界往返的舍入而抖（正文里如实写了它的判别力上限）；
+//   · A8 断「同一组点在 θ=0 与 θ=30 下**判定不同**（翻转 ≥ 2）」⇒ 谁把旋转读成常量 / 读错轴都会红。
+//
+// 证得到 / 证不到：
+//   · 证得到 = 旋转矩形上的点判据（含两个方向各一条）；
+//   · 证不到 = ①「非 16:9 × 旋转」的组合（自检宿主全程 16:9）；②「并集/登记表 × 旋转」的组合
+//     （今天零实例，见 `QuadContainsPx` 的注释）；③「原版运行时到底怎么判」——
+//     那要原版实拍，用户 2026-11-02 已叫停实拍 ⇒ **挂起**（不是待办）。
+public static class B116_W14_Assert
+{
+    static readonly CheckSink _sink = new CheckSink("[B116W14] ") { Near = MenuNearStyle.Compact3 };
+
+    /// <summary>通过条数（宿主累加用）。</summary>
+    public static int Pass { get { return _sink.Pass; } }
+    /// <summary>失败条数（宿主累加用）。</summary>
+    public static int Fail { get { return _sink.Fail; } }
+
+    static bool Tr(bool cond, string msg) { MenuCheck.True(_sink, cond, msg); return cond; }
+    static void C<T>(T got, T want, string msg) { MenuCheck.Check(_sink, got, want, msg); }
+
+    // 夹具几何（设计 px、左上原点、y 向下）：矩形 **200 × 100**（半宽半高 = 100 / 50）、中心 (3200, 300)。
+    // ⚠️ 中心摆在 x = 3200（画布只有 1920 宽）⇒ 那一片**没有别的钮**，判定不会被别家抢走。
+    const float CX = 3200f, CY = 300f, HW = 100f, HH = 50f;
+    const float RotDeg = 30f;
+
+    public static void Run()
+    {
+        MenuCheck.Section(_sink, "🆕 B116_W14（`UI-12` 后半）：命中点判据要读 `transform.rotation`");
+
+        if (!Tr(CardArt.Solid() != null, "A0（硬前提）：`CardArt.Solid()` 取得到（`ImageQuad.Create` 要它）")) return;
+
+        // 冻结场上其它钮（它们的命中区可能盖住夹具那几点；`HitQuad` 判 `isActiveAndEnabled` ⇒ 一冻就出局）
+        var all = Object.FindObjectsByType<WindowButton>(FindObjectsSortMode.None);
+        var frozen = new List<WindowButton>();
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] == null || !all[i].enabled) continue;
+            all[i].enabled = false; frozen.Add(all[i]);
+        }
+
+        var root = new GameObject("B116W14 fixture", typeof(RectTransform));
+        try
+        {
+            var node = new GameObject("RotBtn", typeof(RectTransform));
+            node.transform.SetParent(root.transform, false);
+            var q = ImageQuad.Create(node.transform, CardArt.Solid(), LayoutSpace.FromPixel(CX, CY),
+                                     LayoutSpace.Px(HH * 2f), new Vector2(0.5f, 0.5f), "RotQuad");
+            if (!Tr(q != null, "A0（硬前提）：夹具那颗 `ImageQuad` 建出来了")) return;
+            q.SetAspect(HW * 2f / (HH * 2f));
+            q.SetTint(new Color(0f, 0f, 0f, 0f));
+            var wb = node.AddComponent<WindowButton>();
+            wb.onClick = () => { };
+
+            Vector2 c, half; ImageQuad q0;
+            if (!Tr(PointerLayer.HitBoxForTest(wb, out c, out half, out q0),
+                    "A0（硬前提）：`HitBoxForTest` 量得到这颗钮（量不到 ⇒ 后面全空转）")) return;
+            Tr(Near(c.x, CX) && Near(c.y, CY) && Near(half.x, HW) && Near(half.y, HH),
+               "A0（前提）：夹具命中区 = 我们摆的那一块（中心 (" + c.x.ToString("F2") + "," + c.y.ToString("F2")
+             + ")，半宽半高 (" + half.x.ToString("F2") + "," + half.y.ToString("F2") + ")，期望 ("
+             + CX.ToString("F2") + "," + CY.ToString("F2") + ")/(" + HW.ToString("F2") + "," + HH.ToString("F2") + ")）");
+
+            // ---- 四个**夹具点**：按**局部** (lx,ly)（设计 px）摆一次、之后**不再动** ----
+            // ⚠️ 点用 `RotDeg` 的基算（不是 qubit 当前转角）⇒ θ=0 与 θ=30 两态量的是**同一组点**。
+            Vector2 P1 = LocalToPx(q, 90f, 0f);        // 局部 +x 方向 90 px（矩形内）
+            Vector2 P2 = LocalToPx(q, 63.64f, 63.64f); // 同长度 90 px、转到局部 45°（|ly| = 63.64 > 50 ⇒ 矩形外）
+            Vector2 P3 = LocalToPx(q, 95f, 45f);       // 靠角那一片（矩形内，但**旧算式**判它不中）
+            Vector2 P4 = LocalToPx(q, 130f, 0f);       // 局部 +x 方向 130 px（矩形外）
+
+            // ---- A7：θ = 0 时同一组点与**改前算式**逐点一致（灭自证「零旋转逐位不变」）----
+            q.transform.localRotation = Quaternion.identity;
+            Tr(Near(q.transform.eulerAngles.z, 0f),
+               "A7（前提）：夹具已转到 θ = 0（`eulerAngles.z` = " + q.transform.eulerAngles.z.ToString("F4") + "°）");
+            Vector2[] pts = { P1, P2, P3, P4 };
+            string[] pname = { "P1 局部(90,0)", "P2 局部(63.64,63.64)", "P3 局部(95,45)", "P4 局部(130,0)" };
+            bool[] at0 = new bool[pts.Length];
+            for (int i = 0; i < pts.Length; i++)
+            {
+                at0[i] = Contains(wb, pts[i]);
+                C(at0[i], OldContainsPx(c, half, pts[i]),
+                  "A7★ 灭自证 · θ==0 时 `" + pname[i] + "` 的判定与**改前那两句 `Mathf.Abs`** 逐点一致（现读 "
+                + at0[i] + "）｜🧨 旋转分支把 θ==0 也带进世界往返 ⇒ 边界点上会翻");
+            }
+
+            // ---- 转 30°：真实场景 ----
+            q.transform.localRotation = Quaternion.Euler(0f, 0f, RotDeg);
+            Tr(Near(q.transform.eulerAngles.z, RotDeg),
+               "A2（前提）：`transform.rotation` 真的转到了 " + RotDeg.ToString("F0") + "°（现读 "
+             + q.transform.eulerAngles.z.ToString("F3") + "°）—— 转不动的话 A3–A6 量的是同一个方向");
+
+            Tr(Contains(wb, P1),
+               "A3★ 局部 +x 方向 90 px 的点**命中**（90 ≤ 100 且 ly = 0 ≤ 50）");
+            Tr(!Contains(wb, P2),
+               "A4★ 同长度 90 px、但转到**局部 45°** 的点**不命中**（|ly| = 63.64 > 50）"
+             + "｜🧨 退回轴对齐 AABB ⇒ 旧算式在这一点上是**假命中**（角上那 4 块非命中区被算成命中）");
+            Tr(Contains(wb, P3),
+               "A5★ 靠角那一片（局部 (95,45)）**命中**（95 ≤ 100 且 45 ≤ 50）"
+             + "｜🧨 退回轴对齐 AABB ⇒ 旧算式判它不中 = 「看着在卡背角上、点不动」（假不命中）");
+            Tr(!Contains(wb, P4),
+               "A6 局部 +x 方向 130 px（矩形外）**不命中** —— 防「旋转分支让一切都命中」");
+
+            // ---- A8：灭自证的结构那一半 —— 同一组点在两态下**判定必须翻转** ----
+            int flips = 0;
+            for (int i = 0; i < pts.Length; i++) if (at0[i] != Contains(wb, pts[i])) flips++;
+            Tr(flips >= 2,
+               "A8🧨 同一组点 θ=0 与 θ=" + RotDeg.ToString("F0") + "° 下**判定不同**（翻转 " + flips
+             + " 个，期望 ≥ 2：P2 由命中变不命中、P3 由不命中变命中）—— 证明旋转**真的进了算式**，⛔ 不是读了个常量");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            for (int i = 0; i < frozen.Count; i++) if (frozen[i] != null) frozen[i].enabled = true;
+            PointerLayer.InvalidateHitUnion(null);      // 夹具销毁了 ⇒ 缓存里那条也清掉
+        }
+    }
+
+    /// <summary>这一点上`wb` 在不在候选命中表里（严格转发生产口 `PointerLayer.ButtonsAtForTest` ——
+    /// ⛔ 这里**不重算**任何矩形：期望值由夹具的局部点定义，判定问生产口）。</summary>
+    static bool Contains(WindowButton wb, Vector2 p)
+    {
+        var bs = PointerLayer.ButtonsAtForTest(p.x, p.y);
+        for (int i = 0; i < bs.Count; i++) if (bs[i] == wb) return true;
+        return false;
+    }
+
+    /// <summary>把「quad 局部 `(lx,ly)`（设计 px、y 向下）」摆成**画布像素点** —— 按 `RotDeg` 的**标准**世界 z 旋转。
+    /// ⚠️ 只用来**摆夹具点**，⛔ 不参与判定（判定问生产口）。</summary>
+    static Vector2 LocalToPx(ImageQuad q, float lxPx, float lyPx)
+    {
+        float u = ImageQuad.PixelsPerUnit;                   // 108：设计 px ↔ 世界单位（`ImageQuad` 自己的常量）
+        float lx = lxPx / u, ly = -lyPx / u;                 // 设计 px 的 y 向下 ⇒ 局部世界 y 向上
+        float th = RotDeg * Mathf.Deg2Rad, cs = Mathf.Cos(th), sn = Mathf.Sin(th);
+        var cw = q.transform.position;
+        var w = new Vector3(cw.x + lx * cs - ly * sn, cw.y + lx * sn + ly * cs, 0f);
+        return LayoutSpace.ToDesignPixel(w);
+    }
+
+    /// <summary>**改前**那两句（`Mathf.Abs(px - c.x) > half.x` / `Mathf.Abs(py - c.y) > half.y` 的否定）。
+    /// ⚠️ 它**故意**重写一遍 —— 「改前行为」就定义在这两句上；从被测实现里读就成自证了。只用于 A7。</summary>
+    static bool OldContainsPx(Vector2 c, Vector2 half, Vector2 p)
+        => Mathf.Abs(p.x - c.x) <= half.x && Mathf.Abs(p.y - c.y) <= half.y;
+
+    static bool Near(float a, float b) { return Mathf.Abs(a - b) <= 0.05f; }
 }

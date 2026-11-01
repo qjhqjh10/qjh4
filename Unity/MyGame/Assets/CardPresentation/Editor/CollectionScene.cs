@@ -13246,7 +13246,7 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
             Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -13405,5 +13405,305 @@ public static class CollectionScene
             public bool FilterOn { get { return filterOn; } }
             public bool OwnedOn { get { return ownedOn; } }
             public void SetFilterOn(bool on) { setFilterCalls++; filterOn = on; }
+        }
+
+        // ============================================================ 🆕 2026-11-02（`B116_W20` · 账 `B-326`）
+        //   `ImageQuad` 的 **uv1（TEXCOORD1）通道**：`WildcardShine` 的 Shadow 支总闸 `_287` 读它，原版那份数据由
+        //   `UIEffectBase.ModifyMesh` → `GraphicProxy.s_OnModifyVertex` 写入。实现侧（`B116_W17`）只给「材质 =
+        //   `CardPresentation/WildcardShine`」的 quad 写 ⇒ 本节验「接上了没有 / 写进去的是不是那一组数」。
+        //   判据 → `报告/B116_W11_WildcardShine剩余三块.md` §一；实现 → `Battle/ImageQuad.cs` 的
+        //   `SyncShineUv1` / `Uv1VertexCount` / `UsesShineShader`。
+        //   🔴 前提一律写成**独立的硬断言**（页 / 节点 / 门槛不成立 ⇒ 当场红），⛔ 不写 `if (前提) Check(结论)`。
+        //   🧨 灭自证三件：① 期望值**本段从 `mesh.uv` 独立算**（uv0 的包围矩形、四顶点同值）—— ⛔ 不回读实现；
+        //      ② 另取一具**非** shine、有材质、4 顶点的 quad，断 `Uv1VertexCount == 0`（确实只给 shine 件写）；
+        //      ③ 连「门槛本身」也断（9 块全带 shine 材质）—— 门槛恒真 / 材质没挂上都只能对一半。
+        static void CheckB326Uv1(CollectionWindow win)
+        {
+            Section("B-326：`ImageQuad` 的 uv1 通道（`WildcardShine` 的 Shadow 支）");
+            // 🔴 硬前提（B116_W44）：宿主必须活着且激活。上游 `B108A4_Assert.RunCollectionCloseScrolls(win)` 会 `win.Close()`、
+            //   紧接着 `Q2_Assert.Run()` 自建并打开新收藏窗 ⇒ `ReapClosedWindows` 把这一台真销毁 ⇒ 传进来的 `win` 是 Unity 假 null
+            //   ⇒ `PageRoot(1)` 恒 null、下面 9 条会级联全红。故这里单条出声早退，把级联压成 1 条可读红（⛔ 不自建窗顶替）。
+            if (win == null || !win.gameObject.activeSelf) { CheckTrue(false, "（硬前提）宿主 `win` 活着且 `activeSelf` —— 已被上游收窗链真销毁 / 失活 ⇒ 本段 9 条级联全红；此处单条早退（⛔ 不自建窗）"); return; }
+            var page = win != null ? win.PageRoot(1) : null;
+            CheckTrue(page != null, "（前提·不静默）Cards 页取得到（`win.PageRoot(1)`；null ⇒ 下面全都不许静默跳过）");
+            var hdr = page != null ? page.Find("Header Filters") : null;
+            var wd = hdr != null ? hdr.Find("WIldcard Display") : null;
+            var bg = wd != null ? wd.Find("Background") : null;
+            CheckTrue(bg != null, "（前提）`Header Filters ▸ WIldcard Display ▸ Background` 取得到（uv1 的写入者就是这 9 具 quad）");
+            var quads = bg != null ? bg.GetComponentsInChildren<ImageQuad>(true) : null;
+            int n = quads != null ? quads.Length : 0;
+            Check(n, 9, "（前提）那颗 `Background` 是九宫格 **9 块**（🧨 块数一变，下面的分母就不是 9）");
+
+            int shineN = 0, mesh4N = 0, uv1N = 0, contentN = 0;
+            for (int i = 0; i < n; i++)
+            {
+                var q = quads[i];
+                if (q == null) continue;
+                if (!q.UsesShineShader) continue;                       // 门槛：只有 shine 材质才写 uv1
+                shineN++;
+                var mf = q.GetComponent<MeshFilter>();
+                var mesh = mf != null ? mf.sharedMesh : null;
+                if (mesh == null || mesh.vertexCount != 4) continue;    // 九宫格的每一块 = 一具 4 顶点单 quad
+                mesh4N++;
+                if (q.Uv1VertexCount != 4) continue;
+                uv1N++;
+                // 独立算期望值：uv1 应 = 这块自己 uv0 的**包围矩形**，且**四顶点写同一组值**
+                var uv0 = mesh.uv;
+                var uv1 = new System.Collections.Generic.List<Vector4>(4);
+                mesh.GetUVs(1, uv1);                 // ⚠️ 不能读 `mesh.uv2`（那是 `Vector2[]`，只有 x/y；uv1 的 z/w 读不到）
+                if (uv0 == null || uv0.Length != 4 || uv1.Count != 4) continue;
+                float xMin = Mathf.Min(Mathf.Min(uv0[0].x, uv0[1].x), Mathf.Min(uv0[2].x, uv0[3].x));
+                float xMax = Mathf.Max(Mathf.Max(uv0[0].x, uv0[1].x), Mathf.Max(uv0[2].x, uv0[3].x));
+                float yMin = Mathf.Min(Mathf.Min(uv0[0].y, uv0[1].y), Mathf.Min(uv0[2].y, uv0[3].y));
+                float yMax = Mathf.Max(Mathf.Max(uv0[0].y, uv0[1].y), Mathf.Max(uv0[2].y, uv0[3].y));
+                bool ok = true;
+                for (int k = 0; k < 4; k++)
+                    if (Mathf.Abs(uv1[k].x - xMin) > 1e-5f || Mathf.Abs(uv1[k].y - yMin) > 1e-5f
+                     || Mathf.Abs(uv1[k].z - xMax) > 1e-5f || Mathf.Abs(uv1[k].w - yMax) > 1e-5f) ok = false;
+                if (ok) contentN++;
+            }
+            Check(shineN, 9, "★ 9 块的材质**全是** `WildcardShine`（`UsesShineShader`）—— 这是 `SyncShineUv1` 的写入**门槛**"
+                           + "（🧨 门槛改成恒真、或材质没挂上 ⇒ 本格红）");
+            Check(mesh4N, 9, "（前提）9 块的网格都是 **4 顶点单 quad**（`Uv1VertexCount` 的分母；0 顶点那一档本来就不该有 uv1）");
+            Check(uv1N, 9, "★★ 9 块的 `Uv1VertexCount` **全是 4** —— uv1 通道**接上了**"
+                         + "（🧨 删掉 `ImageQuad` 里任一 `SyncShineUv1()` 调用、或把它挪到 `sharedMaterial` 赋值**之前** ⇒ 读到 0 ⇒ 红）");
+            Check(contentN, 9, "★★ 9 块的 uv1 = **自己那块 uv0 的包围矩形**（`(xMin,yMin,xMax,yMax)`，四顶点同值）"
+                             + "｜期望值本段从 `mesh.uv` 独立算（⛔ 不回读实现）"
+                             + "（🧨 写成「每顶点写自己的 uv」⇒ 四值不等 ⇒ 红；写成整块 sprite 矩形 ⇒ 值不对 ⇒ 红）");
+
+            // 灭自证：同页另取一具**非** shine 的 4 顶点 quad，它**不许**有 uv1（证明确实只给 shine 件写）
+            ImageQuad plain = null;
+            var all = page != null ? page.GetComponentsInChildren<ImageQuad>(true) : null;
+            if (all != null)
+                for (int i = 0; i < all.Length; i++)
+                {
+                    var q = all[i];
+                    if (q == null || q.UsesShineShader) continue;
+                    var mr = q.GetComponent<MeshRenderer>();
+                    if (mr == null || mr.sharedMaterial == null) continue;   // 没材质的 quad 不算（那样「没 uv1」是废话）
+                    var mf = q.GetComponent<MeshFilter>();
+                    var mesh = mf != null ? mf.sharedMesh : null;
+                    if (mesh == null || mesh.vertexCount != 4) continue;
+                    plain = q; break;
+                }
+            CheckTrue(plain != null, "（前提·不静默）同页找到一具**非** `WildcardShine`、有材质、网格为 4 顶点的 quad（找不到 ⇒ 下面那条恒真）");
+            Check(plain != null ? plain.Uv1VertexCount : -1, 0,
+                  "★★ 灭自证：**非** shine 的 quad ⇒ `Uv1VertexCount` = **0**（uv1 只给 shine 件写）"
+                + "（🧨 把 `SyncShineUv1` 首句 `if (!UsesShineShader) return;` 删掉 ⇒ 全页 quad 都写 ⇒ 本条红）");
+        }
+
+        // ============================================================ 🆕 2026-11-02（`B116_W46` · `UI-21`）
+        //   卡池小卡「文字压立绘」的**真因隔离实验**（**只量不修**）。判据出处（⛔ 一条都不取我们的常量）：
+        //   · 两个候选 → `资料/普查产出_1024c/A2_引擎战斗判据总表.md:280`
+        //   · 原版层序（底 → 顶）→ 同文件 §6·2：`CardImage`(立绘) → `Textbackgrounds`(文字黑底) → `CardFrame` → `Card Info`
+        //   · 原版 `DescTextUnit` 矩形 **152.74 × 76.16 px**（节点 `m_LocalScale = 0.01` ⇒ 高 **0.7616 卡单位**；
+        //     `m_enableAutoSizing = 1` · `m_fontSizeMin/Max = 1/24`）→ §6·3
+        //   · 原版 `TextBackground Big UI` **1.7766 × 1.55** / `Small UI` **1.8635 × 0.9621** → §6·3
+        //   · state 选择 = `IsNullOrEmpty(description) ? 2 : 1`（**有描述才开 Big 底板 + `DescTextUnit`**）→ §6·4
+        //   ⇒ **候选①②都只在 state 1 那一档存在**，所以夹具必须是一张**有描述**的卡。
+        //   ⚠️ 为什么方法在**类尾**、接线**追加到既有聚合行**（`Run` 末尾那一行）：本文件大量账按 `文件:行号`
+        //     引用 ⇒ 在文件中部插行会让下游落点整片漂。⛔ 别把这段搬回卡池 Section 里「更顺手」的位置。
+        //   ⚠️ `InkBoxCardUnits` 与 `Editor/CardBaseDemo.cs` 的 `InkBoxCardLocal` **是同一套量法的副本**
+        //     （那一份是 `private static`、跨类调不到）⇒ 两边要同时改，⛔ 别只改一边。
+
+        /// <summary>🆕 2026-11-02（`B116_W46` · `UI-21`）：量出「文字压立绘」的真因是候选①、候选②、还是都不是。
+        /// <para>**四条数**（全部原样打进断言消息，⛔ 不拿期望值冒充实测）：① `DescTextUnit` 的**可见字墨高**；
+        /// ② 文字底板的**网格高**（判「被长描述撑高」在机制上成不成立）；③ 立绘/底板/卡框三层的 `renderQueue`；
+        /// ④ 三层沿相机视线的**深度**（卡内各层共用同一队列 ⇒ 先后只由它定）。</para>
+        /// <para>夹具：优先**卡池里真的一张有描述**的卡；窗口已被上游收掉 / 卡池没建 ⇒ 自建一张**真卡**探针
+        /// （卡池里正文最长的那张，⛔ 不用自造串）。</para>
+        /// <para>⚠️ 前提一律写成**独立的硬断言**，⛔ 不写 `if (前提) Check(结论)`（空转变绿是本工程踩过的坑）。</para></summary>
+        static void CheckUI21Measure(CollectionWindow win)
+        {
+            Section("UI-21 量测（`B116_W46`）：`DescTextUnit` 渲染高 vs 0.762 · 底板/立绘/卡框的队列与深度");
+
+            // ---- 夹具 ----
+            CardView cv = null; string src = "（空）";
+            if (win != null)
+            {
+                int nc = win.CardsCells.Count;
+                for (int i = 0; i < nc; i++)
+                {
+                    var cell = win.CardsCells[i];
+                    var v = cell != null ? cell.GetComponent<CardView>() : null;
+                    if (v == null) continue;
+                    var kt = v.KeywordsText;
+                    if (kt != null && !string.IsNullOrEmpty(kt.text)) { cv = v; src = "卡池第 " + i + " 格 `" + cell.name + "`"; break; }
+                }
+            }
+            GameObject probeRoot = null;
+            if (cv == null)
+            {
+                // 探针 = 卡池里**正文最长**的那张真卡（长度决定「撑高底板 / 越框」吃不吃紧）
+                var pool = CollectionWindow.CardsState != null ? CollectionWindow.CardsState.Pool : null;
+                CardData best = default(CardData); int bestLen = -1; string bestName = null;
+                if (pool != null)
+                    for (int i = 0; i < pool.Count; i++)
+                    {
+                        var def = pool[i];
+                        if (def == null) continue;
+                        var d = BattleDriver.ToCardData(def, def.Faction);
+                        int L = d.keywords != null ? d.keywords.Length : 0;
+                        if (L > bestLen) { bestLen = L; best = d; bestName = def.Name; }
+                    }
+                CheckTrue(bestLen > 0, "（前提）卡池里找得到一张**正文非空**的卡（自建探针的夹具；0 ⇒ 下面全是空转）");
+                if (bestLen > 0)                     // ⛔ 别拿 `default(CardData)` 建卡（会走「空卡位」分支、没有卡框/立绘那几层）
+                {
+                    probeRoot = new GameObject("ui21_probe");
+                    cv = CardView.Create(probeRoot.transform, best, "ui21_probe_card");
+                    if (cv != null)
+                    {
+                        cv.gameObject.SetActive(true);   // TMP 在未激活对象上量不出尺寸
+                        // 与卡池同一档缩放（原版公式 `格高×150/512 ÷ 108`）—— 只为「还原同一张画面」，⛔ 不当期望值
+                        cv.transform.localScale = Vector3.one * (CollectionWindow.CardsCellH * 150f / 512f / 108f);
+                        src = "自建探针 `" + bestName + "`（正文 " + bestLen + " 字；卡池那张取不到）";
+                    }
+                }
+            }
+            CheckTrue(cv != null, $"（前提）拿到一张**有描述**的 `CardView` —— {src}"
+                                + "｜候选①②只在原版 state 1（有描述 ⇒ Big 底板 + `DescTextUnit`）那一档存在");
+
+            // ---- 三层的渲染器（`CardView.AddLayer` 把卡面各层直接挂在 `2DCard/Front` 下）----
+            var front = cv != null ? cv.FaceContentRoot : null;      // = `2DCard/Front`（原版 `Front`）
+            var tmp = cv != null ? cv.KeywordsText : null;           // 原版 `DescTextUnit`
+            var mrArt = LayerMesh(front, "art");                     // 立绘（完整插图，垫在卡框下）
+            var mrFrame = LayerMesh(front, "frame");                 // 卡框
+            var mrBg = LayerMesh(front, "textBg");                   // 文字底板（原版 `Textbackgrounds`）
+            CheckTrue(front != null, "（前提）`FaceContentRoot`（`2DCard/Front`）取得到");
+            CheckTrue(tmp != null, "（前提）`keywords` 层 TMP 取得到（原版 `DescTextUnit`）");
+            CheckTrue(mrArt != null, "（前提）立绘层 `art` 取得到");
+            CheckTrue(mrFrame != null, "（前提）卡框层 `frame` 取得到");
+            CheckTrue(mrBg != null, "（前提）文字底板层 `textBg` 取得到");
+
+            // ---- ① `DescTextUnit` 的**可见字墨**（卡单位）----
+            float inkH = float.NaN, inkY0 = float.NaN, inkY1 = float.NaN, lineH = float.NaN;
+            if (front != null && tmp != null)
+            {
+                tmp.ForceMeshUpdate();                               // 批处理没有帧循环
+                lineH = tmp.textBounds.size.y;
+                float ix0, ix1, iy0, iy1;
+                if (InkBoxCardUnits(front, tmp, out ix0, out ix1, out iy0, out iy1))
+                { inkH = iy1 - iy0; inkY0 = iy0; inkY1 = iy1; }
+            }
+            const float OrigDescBoxH = 0.7616f;      // 原版矩形高（152.74×76.16 px × 0.01，A2 §6·3）
+            CheckTrue(inkH > 0f,
+                      $"（前提）量到了 `DescTextUnit` 的**可见字墨**（高 **{inkH:F4}** · 行盒 **{lineH:F4}** 卡单位）"
+                    + " —— 量不到 ⇒ 下一条拿 NaN 假红");
+            CheckTrue(inkH <= OrigDescBoxH,
+                      $"① **候选①的判据**：`DescTextUnit` 渲染高 **{inkH:F4}** ≤ 原版矩形高 **{OrigDescBoxH:F4}** 卡单位"
+                    + $"（行盒 {lineH:F4} · 字墨 y [{inkY0:F4}, {inkY1:F4}] · 来源 {src}）"
+                    + "｜🔴 **红 = 候选①成立**（描述越出原版版面框 ⇒ 文字压到框外）· 绿 = ①不成立");
+
+            // ---- 候选①的**机制**那一半：底板高是常量吗（「被长描述撑到 1.55」成不成立）----
+            string bgMesh = cv != null ? cv.TextBgMeshName : null;
+            float bgH = LayerMeshH(mrBg);
+            bool isBig = bgMesh != null && bgMesh.EndsWith("textBg");   // `TextBgQuad_textBg`(Big) ↔ `…textBgSmall`(Small)
+            CheckTrue(bgMesh != null, $"（前提）文字底板的网格名取得到（实测 `{bgMesh}`）");
+            CheckTrue(isBig,
+                      $"（判据）**有描述**的卡 ⇒ 底板用 **Big**（原版 state 1 ON `TextBackground Big UI`，A2 §6·4）"
+                    + $"；实测网格 `{bgMesh}`");
+            CheckTrue(Mathf.Abs(bgH - 1.55f) <= 1e-3f,
+                      $"① 候选①的**机制**：底板网格高 = **1.55 卡单位**（原版 prefab 1.7766×1.55，A2 §6·3）"
+                    + $" —— 实测 **{bgH:F4}**｜它是**常量烘进网格**的（`TextBgQuad` 的 w/h 是常量、不读文字）"
+                    + "｜🧨 红 = 底板真的随文字变高（= ① 的机制成立）");
+
+            // ---- ② 三层队列 + 沿视线深度 ----
+            int qArt = LayerQueue(mrArt), qBg = LayerQueue(mrBg), qFrame = LayerQueue(mrFrame);
+            float dArt = LayerDepth(mrArt), dBg = LayerDepth(mrBg), dFrame = LayerDepth(mrFrame);
+            float zArt = LayerZ(mrArt), zBg = LayerZ(mrBg), zFrame = LayerZ(mrFrame);
+            // 欧氏距离也打一份：`ApplyBoardSortingOrders` 的注释说「按到相机的包围盒中心距离排」，
+            //   那是**透视**相机下横向偏移也会进排序键的情形（战斗侧踩过）。**收藏窗是正交相机**
+            //   （`CollectionScene.Build` → `LayoutSpace.Apply`：`cam.orthographic = true`）⇒ 排序键 = 沿视线的投影。
+            //   两个数都打出来，读日志的人不必再猜「到底按哪个排」。
+            Debug.Log($"{P}[UI-21] 队列：立绘 {qArt} · 底板 {qBg} · 卡框 {qFrame}"
+                    + $"｜local z：立绘 {zArt:F4} · 底板 {zBg:F4} · 卡框 {zFrame:F4}"
+                    + $"｜视线深度：立绘 {dArt:F5} · 底板 {dBg:F5} · 卡框 {dFrame:F5}"
+                    + $"｜欧氏距离：立绘 {LayerDist(mrArt):F5} · 底板 {LayerDist(mrBg):F5} · 卡框 {LayerDist(mrFrame):F5}"
+                    + $"｜卡缩放 {(cv != null ? cv.BaseScale : float.NaN):F4} · 底板网格高 {bgH:F4} · 字墨高 {inkH:F4}"
+                    + $"（来源 {src}）");
+            CheckTrue(qArt == qBg && qBg == qFrame,
+                      $"② 前提：三层**共用同一队列**（立绘 {qArt} · 底板 {qBg} · 卡框 {qFrame}）"
+                    + "⇒ **卡内先后只由「到相机的深度」定，队列不参与**（每张卡一段队列 = `CardView.StampQueue`）"
+                    + "｜🧨 三层队列不同 ⇒ 下一条的深度就不是判据（先后由队列说了算）");
+            // 队列**本身**的次序（万一层号被改动）：队列号小的先画 ⇒ 立绘 ≤ 底板 ≤ 卡框。
+            CheckTrue(qArt <= qBg && qBg <= qFrame,
+                      $"② 队列序：立绘 {qArt} ≤ 底板 {qBg} ≤ 卡框 {qFrame}（队列号小的先画、后画的压在上面）"
+                    + " —— 与「立绘 → 底板 → 卡框」同向｜🧨 红 = 层号被改反了（② 的另一种成立形态）");
+            // 深度越小 = 离相机越近 = 画在上面。原版层序（底→顶）= 立绘 → 底板 → 卡框（A2 §6·2）
+            //   ⇒ 必须 dArt > dBg > dFrame。
+            CheckTrue(dArt > dBg && dBg > dFrame,
+                      $"② **候选②的判据**：有效绘制次序 = 立绘({dArt:F5}) → 底板({dBg:F5}) → 卡框({dFrame:F5})"
+                    + $"（深度越小越靠前）｜local z：立绘 {zArt:F4} / 底板 {zBg:F4} / 卡框 {zFrame:F4}（本仓 z 越小越靠前）"
+                    + "｜🔴 **红 = 候选②成立**（底板落到立绘后面 ⇒ 黑底被立绘盖掉、米白文字直接压在人像上）· 绿 = ②不成立");
+
+            if (probeRoot != null) Object.DestroyImmediate(probeRoot);
+        }
+
+        /// <summary>`UI-21` 量测用：`Front` 的**直接子件**里那个名字层的 `MeshRenderer`（取不到 ⇒ null）。</summary>
+        static MeshRenderer LayerMesh(Transform front, string name)
+        {
+            var t = front != null ? front.Find(name) : null;
+            return t != null ? t.GetComponent<MeshRenderer>() : null;
+        }
+        /// <summary>`UI-21` 量测用：那一层的材质队列（取不到 ⇒ 一个不可能出现的哨兵，后面的比较会红）。</summary>
+        static int LayerQueue(MeshRenderer mr)
+        { return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.renderQueue : -99999; }
+        /// <summary>`UI-21` 量测用：那一层的**局部 z**（本仓约定「z 越小 = 离相机越近 = 画在上面」）。</summary>
+        static float LayerZ(MeshRenderer mr) { return mr != null ? mr.transform.localPosition.z : float.NaN; }
+        /// <summary>`UI-21` 量测用：那一层**网格**的高（卡单位 —— 卡面各层的网格都按卡单位烘，见 `CardView.SpriteQuad`）。</summary>
+        static float LayerMeshH(MeshRenderer mr)
+        {
+            var mf = mr != null ? mr.GetComponent<MeshFilter>() : null;
+            return mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds.size.y : float.NaN;
+        }
+        /// <summary>`UI-21` 量测用：那一层沿**相机视线**的深度（同队列时它定先后：越小越靠近相机）。
+        /// <para>⚠️ 卡内各层**共用一个队列**（`CardView.QCard` = 3000）⇒ 先后**不是**队列定的；
+        /// 相机是正交的（`LayoutSpace.Apply`：`cam.orthographic = true`）⇒ 这条投影就是 Unity 的透明排序键。</para></summary>
+        static float LayerDepth(MeshRenderer mr)
+        {
+            var cam = LayoutSpace.Cam != null ? LayoutSpace.Cam : Camera.main;
+            if (mr == null || cam == null) return float.NaN;
+            return Vector3.Dot(mr.bounds.center - cam.transform.position, cam.transform.forward);
+        }
+        /// <summary>`UI-21` 量测用：那一层到相机的**欧氏距离**（诊断用 —— 透视相机下横向偏移会进排序键；
+        /// 收藏窗是正交相机，真正的排序键是上一条的视线投影）。</summary>
+        static float LayerDist(MeshRenderer mr)
+        {
+            var cam = LayoutSpace.Cam != null ? LayoutSpace.Cam : Camera.main;
+            if (mr == null || cam == null) return float.NaN;
+            return Vector3.Distance(mr.bounds.center, cam.transform.position);
+        }
+        /// <summary>`UI-21` 量测用：TMP 的**可见字墨**包围盒，换到 `card` 的局部系（卡单位）。
+        /// <para>⚠️ 与 `Editor/CardBaseDemo.cs` 的 `InkBoxCardLocal` **是同一套量法的一份副本** ——
+        /// 那一份是 `private static`、跨类调不到。判据也照抄那边：**四角全 0 ⇒ 跳过**
+        /// （⛔ 不用 `isVisible`，它会被 TMP 后续流程改写），顶点读 `characterInfo[].vertex_*.position`
+        /// （`meshInfo[].vertices` 只在 `Render` 模式下才写）。</para></summary>
+        static bool InkBoxCardUnits(Transform card, TMPro.TextMeshPro t,
+                                    out float x0, out float x1, out float y0, out float y1)
+        {
+            x0 = x1 = y0 = y1 = 0f;
+            var ti = t != null ? t.textInfo : null;
+            if (card == null || ti == null || ti.characterInfo == null) return false;
+            var chr = ti.characterInfo;
+            float lx = float.MaxValue, hx = float.MinValue, ly = float.MaxValue, hy = float.MinValue;
+            int n = Mathf.Min(ti.characterCount, chr.Length);
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 bl = chr[i].vertex_BL.position, tl = chr[i].vertex_TL.position;
+                Vector3 tr = chr[i].vertex_TR.position, br = chr[i].vertex_BR.position;
+                if (bl.x == 0f && bl.y == 0f && tl.x == 0f && tl.y == 0f
+                    && tr.x == 0f && tr.y == 0f && br.x == 0f && br.y == 0f) continue;
+                Vector3 p0 = card.InverseTransformPoint(t.transform.TransformPoint(bl));
+                Vector3 p1 = card.InverseTransformPoint(t.transform.TransformPoint(tl));
+                Vector3 p2 = card.InverseTransformPoint(t.transform.TransformPoint(tr));
+                Vector3 p3 = card.InverseTransformPoint(t.transform.TransformPoint(br));
+                lx = Mathf.Min(lx, Mathf.Min(Mathf.Min(p0.x, p1.x), Mathf.Min(p2.x, p3.x)));
+                hx = Mathf.Max(hx, Mathf.Max(Mathf.Max(p0.x, p1.x), Mathf.Max(p2.x, p3.x)));
+                ly = Mathf.Min(ly, Mathf.Min(Mathf.Min(p0.y, p1.y), Mathf.Min(p2.y, p3.y)));
+                hy = Mathf.Max(hy, Mathf.Max(Mathf.Max(p0.y, p1.y), Mathf.Max(p2.y, p3.y)));
+            }
+            if (lx > hx || ly > hy) return false;
+            x0 = lx; x1 = hx; y0 = ly; y1 = hy;
+            return true;
         }
 }

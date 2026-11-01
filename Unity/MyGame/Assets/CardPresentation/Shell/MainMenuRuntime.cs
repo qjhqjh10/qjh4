@@ -3341,7 +3341,7 @@ namespace CardPresentation
         //          含 inactive 的查找 ⇒ 找得到 ≠ 显示得出来）。
         //
         // 🔴 **颗数与点亮数在【远端】—— 建这一排时拿不到真值（本活的难点）**：
-        //     颗数 = `RankedDivisionV2.TotalSeals`（0x54）· 点亮数 = `RankedDivisionV2.SealCount`（0x50），
+        // 🔶 自己设计（非原版）：印玺排兜底口径（建 `RankedSealFallbackCount` 颗、点亮 `RankedSealFallbackLit`）· 原版值来自远端 `RankedDivisionV2.TotalSeals`/`SealCount`（关服拿不到，本地推不出参考图里那个「4」）· 调度台 2026-11-02 追认 ｜ 原注：颗数 = `RankedDivisionV2.TotalSeals`（0x54）· 点亮数 = `RankedDivisionV2.SealCount`（0x50），
         //     由 `RankedFastMode__GetDivisionByPoints.c` 用 `ConfigManager.GetConfig<>()`（**远端配置**）
         //     构造 ⇒ **本地推不出参考图里那个「4」**。
         //     ⚠️ 参考图那排是 **4 颗、全灰** ⇒ **推断** `TotalSeals = 4` / `SealCount = 0`
@@ -3393,7 +3393,7 @@ namespace CardPresentation
         public const int RankedSealFallbackCount = 4;
 
         /// <summary>兜底点亮数（参考图那 4 颗**全灰** ⇒ 0）。🔴 同样是**我们挑的兜底** ——
-        /// 原版来自玩家进度的 `RankedDivisionV2.SealCount`（远端 / 存档），本地拿不到。</summary>
+        /// 🔶 自己设计（非原版）：兜底点亮数 = 0 · 原版值来自远端 `RankedDivisionV2.SealCount`（玩家进度），关服拿不到 · 调度台 2026-11-02 追认｜原注：原版来自玩家进度的 `RankedDivisionV2.SealCount`（远端 / 存档），本地拿不到。</summary>
         public const int RankedSealFallbackLit = 0;
 
         /// <summary>排位卡 `Rating` 底下那两支的**互斥门控** —— 照原版 `RankedMenuContainer.RefreshContentDisplay`

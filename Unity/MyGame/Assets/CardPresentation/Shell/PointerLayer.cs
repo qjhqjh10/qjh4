@@ -1683,8 +1683,8 @@ namespace CardPresentation
                 }
                 Vector2 c, half; ImageQuad q;
                 if (YieldToHostSkip(all[i]) || !HitBoxPx(all[i], out c, out half, out q)) continue;   // B102_HOVER：归别家派发的件直接剪掉（见类尾让位表）
-                if (Mathf.Abs(px - c.x) > half.x) continue;
-                if (Mathf.Abs(py - c.y) > half.y) continue;
+                if (!QuadContainsPx(q, c, half, px, py)) continue;         // 点判据（**读 `transform.rotation`**）→ 类尾 `QuadContainsPx`
+                // ↑ 原来是 `Mathf.Abs(px-c.x) > half.x` / `Mathf.Abs(py-c.y) > half.y` 两句；θ == 0 时 `QuadContainsPx` 走**同一条直路**、逐位不变（2026-11-02 `B116_W14`）
                 list.Add((all[i], q));
             }
             return list;
@@ -1854,7 +1854,7 @@ namespace CardPresentation
 
         /// <summary>一颗 quad 的命中区（画布 px、**y 向下**）—— 🔴 **全类唯一一份算式**（A167 父链缩放 × A990② 宽高比）。
         /// 口径与原来内联在 `HitBoxPx` 里的那四句**逐字相同**（来历 → 那里那一整段注释，⛔ 别再抄一份）。
-        /// 返回 `false` = 这颗今天不进命中表（假 null / 不在激活链上）。</summary>
+        /// 返回 `false` = 这颗今天不进命中表（假 null / 不在激活链上）。⚠️ 它给的是**局部半宽半高**（未旋转），旋转件的**点**判据 = 类尾 `QuadContainsPx`（2026-11-02 `B116_W14`）。</summary>
         static bool QuadBoxPx(ImageQuad q, out Vector2 center, out Vector2 half)
         {
             center = Vector2.zero; half = Vector2.zero;
@@ -1917,6 +1917,63 @@ namespace CardPresentation
             var list = new List<WindowButton>(hits.Count);
             for (int i = 0; i < hits.Count; i++) list.Add(hits[i].btn);
             return list;
+        }
+
+        // ============================================================ B116_W14（2026-11-02）：点判据要**读旋转**
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用，插一行整段下游就漂）。
+        //
+        // 🔴 **判据**：原版命中的是 uGUI 的 `Graphic.Raycast` → `RectTransformUtility.RectangleContainsScreenPoint`
+        //   ⇒ 把屏幕点**逆变换进该件的局部空间**再与矩形比，**不是**取它的轴对齐外接盒（AABB）。
+        //   原版 `RectangleContainsScreenPoint` 的方法体**没导出**（`d:/2/tools/decomp_full/` 里没有 `UnityEngine.UI`
+        //   那一份），但**同一个二进制里有它的同语义消费者**可以取证：
+        //   `UnityEngine.UI.Extensions.RaycastMask__IsRaycastLocationValid.c:67-68` 先调
+        //   `RectTransformUtility.ScreenPointToLocalPointInRectangle(...)` 拿到**局部点**，`:69-78` 再拿
+        //   `rect`+`pivot` 把它换算成局部矩形坐标去比 ⇒ 「局部空间判据」这一条是**实读**出来的，不是推断。
+        //   ⇒ 本函数的判据 = **uGUI 标准语义 + 同二进制的同语义消费者**（⛔ 不是逐字照抄某个方法体）。
+        //
+        // 🔴 **我们原来错在哪（静默、两个方向都错）**：`QuadBoxPx` 只读 `lossyScale`，**一次都没读
+        //   `transform.rotation`** ⇒ 旋转件（今天只有草拟窗两张卡背 `Shell/DraftModeWindow.cs:3077/:3084`）
+        //   画出来是**转的**、命中区却是**未旋转**的那一块 ⇒ 四个角上各差一块：
+        //   「角上点得中」= **假命中**（把非命中区算成命中）·「边上点不中」= **假不命中**。两者都零报错。
+        //   ⚠️ 今天那两件是**纯展示**（不可点）⇒ 生产上零可观测；但「画得出来就得点得到」是原版口径。
+        //
+        // 🔑 **帧**：`center`/`half` 是**设计 px、y 向下**（`QuadBoxPx` 的产出，已含父链缩放 + 宽高比换算）。
+        //   旋转角在**世界帧**里定义，而设计 px 的 x/y 斜率**可以不等**（非 16:9：x = `PxPerWorldX`、
+        //   y = `DesignPxH/DesignHeight`）⇒ ⛔ **别**把这个角度直接套在设计 px 的偏移上（非 16:9 会把矩形判歪）。
+        //   所以旋转分支走：设计 px → 世界（`ToDesignPixel` 的逆）→ 投到 quad 自己的两根轴上 → 比。
+        //   ⚠️ 16:9 下两种做法等价（两个斜率都是 108）。
+        //
+        // 🔴 **零旋转逐位不变**：`rotation` 是单位时走**原来那两句 `Mathf.Abs` 的直路** —— ⛔ 不是「算式在 θ=0
+        //   时等价」：世界往返会引入 1 ulp 级差异，边界点（`|dx| == half.x`）上能翻转。
+        //   ⇒ 出厂态那几百颗钮**一个字节的判定都不变**。
+        //
+        // ⚠️ **与「并集 / 登记表」的交界**：`UnionOtherQuads` / `ApplyHitRectOverride` 产出的 `center`/`half`
+        //   是**未旋转帧**的外接盒。今天「主件带旋转」与它们**零交集**（登记表只服务顶栏那 4 颗；并集只在
+        //   子树里有多颗可射线件时生效，而两件旋转卡背都是**单 quad** 子树）⇒ 这里**不另立一套语义**；
+        //   真出现那种组合先回源判原版（外接盒本来就是我们的近似，不是原版做法）。
+        /// <summary>画布像素点 `(px,py)`（**y 向下**）落不落在这颗 quad 的命中矩形里 —— **含 `transform.rotation`**
+        /// （判据与来历 → 上面那一整段）。<paramref name="q"/> 为空 ⇒ 退成轴对齐判据。</summary>
+        static bool QuadContainsPx(ImageQuad q, Vector2 center, Vector2 half, float px, float py)
+        {
+            Vector3 ax = Vector3.right, ay = Vector3.up;
+            if (q != null)
+            {
+                var rot = q.transform.rotation;      // **世界**旋转（父链已含）；与 `lossyScale` 同一帧
+                ax = rot * Vector3.right;
+                ay = rot * Vector3.up;
+            }
+            // θ == 0（出厂态：除那两件卡背以外的**全部**钮）⇒ 原来那两句，**逐位不变**
+            if (Mathf.Abs(ax.x - 1f) <= 1e-6f && Mathf.Abs(ax.y) <= 1e-6f && Mathf.Abs(ax.z) <= 1e-6f
+             && Mathf.Abs(ay.x) <= 1e-6f && Mathf.Abs(ay.y - 1f) <= 1e-6f && Mathf.Abs(ay.z) <= 1e-6f)
+                return Mathf.Abs(px - center.x) <= half.x && Mathf.Abs(py - center.y) <= half.y;
+
+            float kx = LayoutSpace.PxPerWorldX;                        // x 斜率（非 16:9 ≠ 108）
+            float ky = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // y 斜率（恒 108）
+            float dx = (px - center.x) / kx;                            // 设计 px → 世界（x）
+            float dy = (center.y - py) / ky;                            // 设计 px → 世界（y 向上）= `ToDesignPixel` 的逆
+            float lx = dx * ax.x + dy * ax.y;                           // 投到 quad 自己的局部 +x
+            float ly = dx * ay.x + dy * ay.y;                           // 投到 quad 自己的局部 +y
+            return Mathf.Abs(lx) <= half.x / kx && Mathf.Abs(ly) <= half.y / ky;
         }
     }
 }

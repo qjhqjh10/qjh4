@@ -270,7 +270,7 @@ public static class EnchantmentTemplateCheck
            $"E4 `whileInPlayAnim` 只有 0/1 两档（越界 {weird} 张）—— 🧨 生成器把坏值当 0 落 ⇒ 红");
         Ok(ones == 3 && zeros == n - 3,
            $"E4（同族）全量分布 = `1` **{ones}** / `0` **{zeros}**（期望 3 / {n - 3}）"
-         + " —— 🧨 数据列没落 / 生成器漏行 / 判据从 `m_Name` 尾 `_enchantment` 改成别的 ⇒ 红");
+         + " —— 🧨 数据列没落 / 生成器漏行 / 判据从「`m_Name` 尾 `_enchantment` ∪ 非零 PPtr 指向」并集改成别的 ⇒ 红");
 
         // E5 · 那 3 张**名字**必须在（防「分布对了但换成另外 3 张」）
         var byName = new Dictionary<string, CardDatabase.EnchantmentTemplateDto>(StringComparer.Ordinal);

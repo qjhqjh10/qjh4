@@ -9,9 +9,9 @@
 //   `FilterMethods.CheckIfRawCardMeetsCriteria`。
 //
 //   我们这一侧：**求值入口早就有**（`TargetCriteriaEval.MatchesRawCard`，逐句照
-//   `FilterMethods__CheckIfRawCardMeetsCriteria.c:18-103`），**缺的是卡池消费端** ——
-//   `RuleCore.ChooseCardCandidates` 全程只走文本筛（`CreatePool.FilterChoose`），从不看 `op.TargetCriteriaSet`。
-//   本类就是那个消费端。
+//   `FilterMethods__CheckIfRawCardMeetsCriteria.c:18-103`），**缺的是卡池消费端**。
+//   本类就是那个消费端 —— 🔴 **2026-11-02 就地订正（铁律 5 · `B116_W41` 现核）**：原句写「`ChooseCardCandidates` 全程只走文本筛…从不看 `op.TargetCriteriaSet`」**已过期**
+//   （`B99_C1` 起它两处 `return CardPoolCriteriaFilter.Apply(...)` 就是生产调用点，`报告/B116_W31` 的「0 个生产调用点」是 grep 读数、不是事实）⇒ ✅ **真缺口** = `ta=65` 的**抽牌支**（`Draw two troops …` → `DoDrawType`），现走类尾 `DeckDrawCandidates`。
 //
 // ============================ 用哪几个 `targetsAffected`（判据只此一处）============================
 //   只对【候选池本来就是一批卡】的那几档生效（枚举值 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/TargetsAffected.cs`）：
@@ -120,6 +120,59 @@ namespace RuleEngine
                 ctx.Log($"（按原版 `targetCriteria` 36 格筛**候选卡池**：{before} → {pool.Count}；"
                       + $"`ta={ta}`，原版 `AbilityLogic__GetTargets.c:1086-1095`）");
             return pool;
+        }
+
+        /// <summary>🔴 **2026-11-02（执行代理 `B116_W41` · 活状态表 `B-340`）：`ta=65 inDeckFiltered` 的
+        /// 【抽牌那一支】的卡池消费端** —— `Draw two troops …`（`GOF39` / `TAU47`）走的是
+        /// `EffectResolver.DoDrawType`（按文本翻找牌库），**不经过** <see cref="Apply"/> 原来唯一的
+        /// 生产调用点（`EffectResolver.ChooseCardCandidates`）⇒ 那一条支的 36 格 criteria 一直没接。
+        ///
+        /// <para>**判据**（原版）：`AbilityLogic__GetTargets.c:963`（`0x41 = 65 inDeckFiltered`）用
+        /// `GetCardsInDeck` 建池 ⇒ 末尾 `:1086-1095` 对池里每个元素一律 `CheckIfMeetsCriteria`，
+        /// 之后按 `targetCriteria.maxTargets` 取 N 张交给「抽」那一跳。我们这一侧「取 N 张」由文本
+        /// （`Draw two …` 的 `Amount`）给，**`maxTargets` 不在这里消费**（它那两个数今天对得上，
+        /// 但语义是「从牌库取几张」而不是动画目标数 —— 见 `报告/B116_W31_SAN04_27收尾.md` §2）。</para>
+        ///
+        /// <para>**顺序**：与 `DoDrawType` 改前**逐字相同**（牌库顶 = 列表末尾，往下走）；
+        /// 文本筛（<see cref="CreatePool.MatchesKind"/>）在前、criteria 在后（取交集 = 只少不增）。</para>
+        ///
+        /// <para>🔴 **今天零行为变化**：这条 op 的 `TargetCriteriaSet` 恒 `null`
+        /// （`EffectText.AssignAbilityTargets` 的 `logic-gate`：整条 `desc` 一块里两条 op ⇒ 不贴 36 格）
+        /// ⇒ 直接原样返回；即使将来挂上，`Apply` 判不了时也原样返回（同一纪律）。
+        /// 验收 = `play all dump` 逐字节不变。</para></summary>
+        public static List<CardInstance> DeckDrawCandidates(BattleContext ctx, EffectOp op,
+                                                            List<CardInstance> deck, string kind)
+        {
+            var cand = new List<CardInstance>();
+            if (deck == null) return cand;
+            for (int i = deck.Count - 1; i >= 0; i--)
+            {
+                var c = deck[i];
+                if (c == null || !CreatePool.MatchesKind(c.Card, kind)) continue;
+                cand.Add(c);
+            }
+            if (cand.Count == 0 || op == null || op.TargetCriteriaSet == null) return cand;
+
+            var pool = new List<CardDef>(cand.Count);
+            for (int i = 0; i < cand.Count; i++) pool.Add(cand[i].Card);
+            int before = pool.Count;
+            Apply(ctx, op, pool);                                  // 36 格（同一份判据，⛔ 这里不重写筛选）
+            if (pool.Count == before) return cand;                 // 一条都没筛掉（或判不了 ⇒ `Apply` 原样返回）
+
+            // 模板 → 实例回落：**同一模板出现几次就保留前几次**（顺序 = 牌库顶往下，不动）
+            var need = new Dictionary<CardDef, int>();
+            for (int i = 0; i < pool.Count; i++)
+            {
+                int n; need.TryGetValue(pool[i], out n); need[pool[i]] = n + 1;
+            }
+            var keep = new List<CardInstance>(pool.Count);
+            for (int i = 0; i < cand.Count; i++)
+            {
+                int n;
+                if (!need.TryGetValue(cand[i].Card, out n) || n <= 0) continue;
+                keep.Add(cand[i]); need[cand[i].Card] = n - 1;
+            }
+            return keep;
         }
     }
 }

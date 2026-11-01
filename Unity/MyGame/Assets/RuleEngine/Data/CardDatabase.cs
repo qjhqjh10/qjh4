@@ -3565,7 +3565,7 @@ namespace RuleEngine
         //  🆕 B89 / E6c（2026-10-28 · 执行代理 `E6c`）：**第二张表** —— 附魔模板
         //     `Assets/RuleEngine/Resources/enchantment_templates.json`（由 `工具/gen_cards_engine.py` 写）
         // ==========================================================================================
-        //  🔴 **它为什么不是第 1129 张卡**：收录的是真值里 `m_Name` 尾 `_enchantment` 的**模板**（现读 85 张），
+        //  🔴 **它为什么不是第 1129 张卡**：收录 = 真值里 `m_Name` 尾 `_enchantment` ∪ 被非零 PPtr 指向且 `cardType 20` 的**模板**（⚠️ 2026-11-02 `B116_W28` 更正：原写「85 张 / 名字尾判据」，实际并集口径 ⇒ 86 张 · `abilityBuffs` 89 行；判据见 `报告/B116_W28_附魔收录闸放宽.md`），
         //     它们**不在** `cards_engine.json` 的 `cards[]` 里（v30 入池闸 = `cardType == 20` ∧ 名字含 `enchant`）。
         //     调度台 2026-10-28 裁定：**⛔ 不放宽入池闸**（会改 `count` ⇒ 影响可玩池与探针基线；
         //     附魔模板**不是可玩卡**）⇒ 单开一张表，只服务「**按 id 查模板**」这一条读路。
@@ -3640,9 +3640,9 @@ namespace RuleEngine
             /// <summary>🆕 B110/E5（2026-10-31 · 判据 `判据/B110_V4_真缺陷复核D.md` §H·2）：原版
             /// `CardAbility.triggerValue // +0x20`（`dump.cs:20340`）。`-1` = **缺键 / 旧表**。
             /// <para>🔴 **2026-11-01 就地订正（铁律 5 · `B113W11` 现读）**：原来这里写「现读
-            /// `enchantment_templates.json`（v1 · 85 张 · 110 条 ability）**还没有这一列**」——
+            /// `enchantment_templates.json`（v1 · 86 张 · 112 条 ability；⚠️ 2026-11-02 `B116_W28` 并集闸订正，原 85/110）**还没有这一列**」——
             /// **已过期**：生成器补丁（`报告/B110_E5.md` §四 补丁 B）已落进
-            /// `工具/gen_cards_engine.py` 的 `build_enchantment_templates` 并重跑，85 张模板的 110 条
+            /// `工具/gen_cards_engine.py` 的 `build_enchantment_templates` 并重跑，86 张模板的 112 条（⚠️ 2026-11-02 `B116_W28` 并集闸订正，原 85/110）
             /// ability **现在全部带 `triggerValue`**（分布 → `报告/B113W11_生成器两列.md`）。
             /// 缺键仍按 `-1` = 未知（旧表）；⛔ **不是 0**（`0` = 「明确 val 0」这一档）。</para>
             /// <para>唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）。</para></summary>
@@ -4092,7 +4092,7 @@ namespace RuleEngine
             /// <summary>`buffEffect.enchantment.m_PathID` 解出来的**附魔模板 id**
             /// （= `enchantment_templates.json` 的 `id`；41/41 命中，37 个不同模板）。
             /// <para>🔴 **这才是「环境生效期间」那段效果的本体** —— 模板本身已经在
-            /// `enchantment_templates.json`（v1 · 85 张）里，缺的只是「谁来挂它」。</para></summary>
+            /// `enchantment_templates.json`（v1 · 86 张；⚠️ 2026-11-02 `B116_W28` 并集闸订正）里，缺的只是「谁来挂它」。</para></summary>
             public string enchantmentId;
             /// <summary>原版 PPtr 原值（排查用；`0` = 真值里没有这个键）。</summary>
             public long enchantmentPathId;
@@ -4518,6 +4518,21 @@ namespace RuleEngine
             /// （生成器 `criteria_set_of(..., has_player_turn=False)`）⇒ 消费端复用 `MapCountSetDto`。
             /// `null` = 缺键（不是 `handBuff` 行 / 旧表）。</summary>
             public CountSetDto criteria;
+
+            // ---- 🆕 2026-11-02（执行代理 `B116_W18` · 旧任务 `B-328` · `ENG-11` 的数据面）----
+            //  判据（第一权威 = 全量反编译，现读）= `d:/2/tools/decomp_full/CardScript__AddEnchantment.c:24-33`：
+            //  第一句读 `newEffect.enchantment(+0x88)`（`CardEffect.enchantment`，PPtr → `RawCardScript`）。
+            //  🔴 生成器**只在附魔模板表这一段**补这两列（`fill_enchantment_pptr_columns`）——
+            //     卡表 v40 的 `abilityBuffs` 不带它们（缺键 ⇒ 下面两个初值保留 = 「没有指向」）。
+            //  🔴 哨兵口径与 `OffensiveEnvLogicDto.enchantmentId/enchantmentPathId` **同一套**：
+            //     `enchantmentPathId == 0` / `enchantmentId == ""` = **这一行没有附魔指向**（原版 PPtr 的 null），
+            //     ⛔ 不是「未知」、也不是错误。`handBuff` 行结构上没有这一格（原版 `HandEffect` 只有 5 格）。
+            /// <summary>原版 `CardEffect.enchantment (+0x88)` 解出来的**附魔模板 id**
+            /// （= `enchantment_templates.json` 的 `id`）。`""` = 没有指向。</summary>
+            public string enchantmentId;
+            /// <summary>同上的 PPtr **原值**（`enchantment.m_PathID`；`0` = 真值里没有这个键 / 指向 null）。
+            /// 排查用；消费端请用 <see cref="enchantmentId"/>。</summary>
+            public long enchantmentPathId;
         }
 
         public partial class CardDto
@@ -4564,6 +4579,14 @@ namespace RuleEngine
             /// <summary>原版 `HandEffect.targetCriteria` 的 36 格（`null` = 缺键 / 不是 `handBuff` 行）。
             /// 消费口 = `CardCriteria.MatchesRawCard(card, Criteria, out gap)`（卡面级那一份判据）。</summary>
             public CardDef.CountSetSpec Criteria;
+
+            // ---- 🆕 2026-11-02（执行代理 `B116_W18` · 旧任务 `B-328`）----
+            //  语义逐字同 `AbilityBuffRowDto.enchantmentId` / `.enchantmentPathId`（口径/哨兵都写在那里，⛔ 别抄第二份）。
+            /// <summary>原版 `CardEffect.enchantment (+0x88)` 解出的附魔模板 id；
+            /// `null` / 空 = **这一行没有附魔指向**（不是「未知」）。</summary>
+            public string EnchantmentId;
+            /// <summary>同上 PPtr 原值（`0` = 没有指向）。</summary>
+            public long EnchantmentPathId;
         }
 
         /// <summary>🆕 v40：`id → 行[]`。**只在本类里写**（`RecordAbilityBuffs` 是唯一写口）。
@@ -4662,7 +4685,20 @@ namespace RuleEngine
                              : MapCountSetDto(c, r.criteria,
                                               $"`abilityBuffs` 行 (ab={r.ab}, lg={r.lg}, at={r.at})",
                                               noPlayerTurn: true),   // 纯 `TargetCriteria` ⇒ 结构上没有 `playerTurn`
+                    // 🆕 2026-11-02（执行代理 `B116_W18` · 旧任务 `B-328`）：附魔 PPtr 两列
+                    //   （口径/哨兵 → `AbilityBuffRowDto.enchantmentId` 上面那段，⛔ 别抄第二份）。
+                    //   `null` / `0` = **这一行没有附魔指向**（原版 PPtr 的 null），不是「未知」。
+                    EnchantmentId = string.IsNullOrEmpty(r.enchantmentId) ? null : r.enchantmentId,
+                    EnchantmentPathId = r.enchantmentPathId,
                 });
+                // 🔴 制表侧已经保证「有 PPtr 就一定能解」；这里再兜一次并**出声** —— 解不出的行
+                //    等于「知道要挂附魔、却不知道挂哪张」，消费端会静默跳过（⛔ 不许静默）。
+                if (r.enchantmentPathId != 0 && string.IsNullOrEmpty(r.enchantmentId))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityBuffs` 有一行带附魔 PPtr"
+                                 + $"（m_PathID={r.enchantmentPathId}）但 `enchantmentId` 为空 —— "
+                                 + "这一行**挂不上附魔**。重跑 工具/gen_cards_engine.py --write。");
+                }
             }
             return list.ToArray();
         }

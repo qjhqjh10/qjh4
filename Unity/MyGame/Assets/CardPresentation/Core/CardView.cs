@@ -7019,7 +7019,7 @@ namespace CardPresentation
             var p = _art.transform.localPosition;
             p.y = _artLocalY;
             _art.transform.localPosition = p;
-            _art.transform.localScale = Vector3.one * _artLocalScale;
+            _art.transform.localScale = new Vector3(_artLocalScale * _artMirrorX, _artLocalScale, _artLocalScale);
         }
 
         /// <summary>原版溶解 shader = **`Everguild/Cards/3D Card Dissolve`**（随包 `wf_shaders_extra.bundle`
@@ -15790,5 +15790,42 @@ namespace CardPresentation
             }
             return true;
         }
+
+        // ==================================================================
+        //  🔴 2026-11-02（执行代理 `B116_W23` · 账 `ENG-07`）：`massive` 的**水平镜像**
+        //
+        //  判据（一手）：`d:/2/tools/decomp_full/CardScript__CardSetup.c:198-210`（ILSpy 版 `CardScript.cs:6536`）
+        //    ① 时机 = `CardSetup` **一次**（不是每帧、不是每次 `SyncBoard` 重算）；
+        //    ② 条件 = `RawCardScript.ShowDefaultTrait(rawCardData, 0x24e)` **且** `isPlayer == 0`
+        //       （`0x24e` = 590 = `DefinedTrait.massive`）；
+        //    ③ 写入 = `cardImage` 的 `transform.localScale`，三元组 `(-1, 1, 1)`
+        //       （倍率字面量 `_DAT_1834b2bc8` 用 `工具/read_literal.py` 现读 = `-1`）。
+        //    ⇒ **是水平镜像，不是放大**；只动立绘那一层，⛔ 不动卡框 / 数值 / 徽标。
+        //  ⚠️ 同值 `0x24e` 另有 `AbilityTrigger.Combo = 590` —— `CheckForCombo` 等 4 处的
+        //     `OnTrigger(raw, 0x24e, …)` 是 **Combo 触发器、与 massive 无关**（⛔ 别混）。
+        //  ⚠️ `cardImage` 的类型是 `EntityScript.cardImage`（`dump.cs:21966`，`UnityEngine.UI.Image`），
+        //     在 `CardPrefab` 里指向 `CardPrefab/2DCard/Front/CardImage` ⇒ 我们的等价层 = **`_art`**
+        //     （底层完整插图）。场上形态可见的是 3D 体（`_body3D`），而原版 `Card 3D` 自带
+        //     `localRotation (0,180,0)`（见 `BuildBody3D`）—— **⛔ 别把 `_body3D` 也镜像**
+        //     （那会凭空多一个原版没有的差异）。
+        // ==================================================================
+
+        /// <summary>把**立绘层**（`_art`）按 x 符号水平镜像；`mirror = false` 还原成 `+1`。
+        /// 判据与「为什么只镜像这一层」→ 上面那一段注释。</summary>
+        public void SetArtMirrorX(bool mirror)
+        {
+            _artMirrorX = mirror ? -1f : 1f;
+            ApplyArtTransform();
+        }
+
+        /// <summary>立绘层要求的 x 符号（`+1` / `−1`）—— 自检断言用。</summary>
+        public float ArtMirrorX { get { return _artMirrorX; } }
+
+        /// <summary>立绘层**真实**的 `localScale.x`（没建层 = `NaN`）—— 自检断言用。
+        /// ⚠️ 比 <see cref="ArtMirrorX"/> 硬：它能让「`ApplyArtTransform` 没把符号写进 transform」当场现形。</summary>
+        public float ArtLayerScaleX { get { return _art != null ? _art.transform.localScale.x : float.NaN; } }
+
+        /// <summary>立绘层的 x 镜像符号。默认 `+1`；`massive` 的敌方卡 → `−1`（见上面那一段判据）。</summary>
+        float _artMirrorX = 1f;
     }
 }

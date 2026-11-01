@@ -557,5 +557,28 @@ namespace RuleEngine
             list.RemoveAll(u => ctx.IsPendingDeath(u));      // 原版 IsInPlay() == false
             return list;
         }
+
+        // ==============================================================================================
+        //  🔴 2026-11-02（执行代理 `B116_W41` · 活状态表 `ENG-07` `psyker`(620) / `reactor`(625)）
+        //     —— `PlayerManager` 上那两个**独立法力池**的**形状照抄**（⛔ 不是可用机制）。
+        // ==============================================================================================
+        //  判据（逐句读过 `d:/2/tools/decomp_full/`）：
+        //   · 读点 = `PlayerManager__HasEnoughMana.c:18-49` 的四支选一（normal `+0x4C` /
+        //     **psychic `+0x74`** / **plasma `+0x88`** / spirit `+0x9C`），形参来自
+        //     `AbilityUsesPsychicEnergy` / `AbilityUsesPlasmaEnergy` 两个 **bool**；
+        //   · 写点 = `PlayerManager__ResetMana.c:58-73`（开局 `SetupInitialMana` 从**督军 SO** 取初值）。
+        //  🔴 **为什么今天一定是 0**：那两个 bool 的源 = `activeAbility(+0x260).psychicCost/plasmaCost`，
+        //     池内 `cards_engine.json` **1129/1129 两列全 0**；而 `psyker`/`reactor` 那条回合开始链
+        //     在原版里**根本不写池**（`BattleManager__ProcessManaBuff.c:27-49` 一次都不读
+        //     `psychicMana(+0x19)` / `plasmaMana(+0x1a)`）⇒ **净效果恒零**（详见 `Core/ManaBuffDeadBranch_B116W41.cs`）。
+        //  ⇒ 这一对字段只是把原版形状摆出来（铁律 11：休眠机制也做），⛔ 别把它当「回合开始 +N 灵能」。
+        //  ⚠️ **不进** `NetProtocol.PlayerHash`（那三行是显式列字段的，加了才进）—— 本笔没有加。
+        // ==============================================================================================
+
+        /// <summary>原版 `PlayerManager` **psychic 法力池**（`+0x74`）。今天恒 0，见上面那段注释。</summary>
+        public int PsychicMana;
+
+        /// <summary>原版 `PlayerManager` **plasma 法力池**（`+0x88`）。今天恒 0，见上面那段注释。</summary>
+        public int PlasmaMana;
     }
 }

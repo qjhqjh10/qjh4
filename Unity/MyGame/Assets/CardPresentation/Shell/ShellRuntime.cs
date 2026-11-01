@@ -353,7 +353,7 @@ namespace CardPresentation
             //   下的路径 ⇒ 落盘关着时白登记、还会让日志误导人 ⇒ 一并挡在 `SaveCenter.StoreOn` 里。
             if (SaveCenter.StoreOn)
             {
-                LegacySaveReader.ImportAll();
+                LegacySaveReader.ImportAll(); ReconcileLegacyChannelsOnSwitch();   // 🆕 2026-11-02（B116_W26）：**切前对账**（旧档赢）—— 必须在 `RegisterMirrors()` 之前：此刻双写表还空着 ⇒ 写中央档**不会**顺带改旧档
                 LegacySaveReader.RegisterMirrors();
             }
         }
@@ -1482,6 +1482,29 @@ namespace CardPresentation
             _aspectClamp = null;
             _aspectClampLastW = -1;
             _aspectClampLastH = -1;
+        }
+
+        // ---- 存档 Step 4·b：切前对账（2026-11-02 · B116_W26）----
+
+        /// <summary>把「中央档只可能是旧快照」的两条通道（轮抽 `ActiveEvent` / 卡牌等级 `_ours_CardProgress`）
+        /// 在**切成中央优先之前**对回旧档真值。
+        /// <para>挂在 `Awake` 的 `ImportAll()` 之后、`RegisterMirrors()` 之前（**同一物理行**）——
+        /// 那个顺序保证：① 对账写中央档时双写表还空着 ⇒ **不会顺带改旧档**；
+        /// ② 下游读口拿到的是对过的值。</para>
+        /// <para>⚠️ 调用时必须已经过了 `SaveCenter.StoreOn` 这一关（`Awake` 里就是；批处理/自检一律不跑）。</para>
+        /// <para>🔶 自己设计（非原版）：原版轮抽 / 卡牌等级的数据在**服务端**，客户端没有「旧档 vs 中央档谁新」
+        /// 这回事；关服后判据在远端、本地永远拿不到 ⇒ 只能自定 · 调度台 2026-11-02（`B116_W26`）。
+        /// 判据与「只做一次」的规则见 `SaveCenter.ReconcileOnSwitch` 的注释。</para></summary>
+        static void ReconcileLegacyChannelsOnSwitch()
+        {
+            string root = LegacySaveReader.LegacyRoot;
+            string d1, d2;
+            SaveCenter.ReconcileOnSwitch(SaveKeys.ActiveEvent,
+                System.IO.Path.Combine(root, LegacySaveReader.DraftRel), out d1);
+            SaveCenter.ReconcileOnSwitch(SaveKeys.OursCardProgress,
+                System.IO.Path.Combine(root, LegacySaveReader.CardLevelsRel), out d2);
+            if (d1 != null) Debug.Log("[Shell] 切前对账 · 轮抽 `" + SaveKeys.ActiveEvent + "`：" + d1);
+            if (d2 != null) Debug.Log("[Shell] 切前对账 · 卡牌等级 `" + SaveKeys.OursCardProgress + "`：" + d2);
         }
     }
 }

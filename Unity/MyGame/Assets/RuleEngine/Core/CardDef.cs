@@ -5129,7 +5129,7 @@ namespace RuleEngine
                 if (SameTriggerBody(bodies[i], body)) return;
 
             var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs, card: this,
-                                       alternativeActionBody: IsActiveActionKeyword(key));
+                                       alternativeActionBody: IsActiveActionKeyword(key)); ApplyUniformTriggerTa(ops, key);   // 🔴 2026-11-02（`B116_W39` · `ENG-16`①）：**触发正文的 op 也挂 `abilityTargets` 的 `ta`** —— `EffectText.AssignAbilityTargets` 的片段支只在「`ta` 条数 == op 条数」时才挂（`taOk`），而 `TL30 Tyrannofex`（`Strike: Deal 1 damage to a random enemy, 8 times`）的正文塌成 **1 条 op + `repeatTimes=8`**、`ta` 有 **8 格** ⇒ 一格都挂不上 ⇒ `op.SubjectTargetsAffected = -1` ⇒ `EffectResolver.ResolveTargetsCore` 的 `chosen` 兜底（`EffectResolver.cs:1966` 的 `op.SubjectTargetsAffected < 0`）会把整张目标表换成调用方给的 `chosen`。本方法只在「**该 trigger 唯一一条 ability ∧ 各 logic 的 `ta` 全相等 ∧ `ta` 比 op 多**」时补（见它的 doc，⛔ 不按位置猜）。同一物理行追加 ⇒ 行数零变化（本文件下游有账落点）
             if (ops == null || ops.Count == 0) return;
 
             bodies.Add(body);
@@ -8683,7 +8683,7 @@ namespace RuleEngine
             new[] { "resolution", "resolution" }, new[] { "combo", "combo" },
             new[] { "support", "support" },
             new[] { "choose one", "chooseone" }, new[] { "chooseone", "chooseone" },
-            new[] { "coward", RuleCore.Coward }, new[] { "precognition", RuleCore.Precognition },   // 🆕 2026-10-30（`B99_B1` · 调度台裁定）：两条**攻击目标** trait，常量在 `RuleCore`（照 `Noncombatant`/`Unstoppable` 先例）。判据 = `BattleManager__IsValidAttackTarget.c:136-141`（precognition=640）/ `:203-211`（coward=190）。🔴 裁定理由 = **闸已建 ⇒ 必须登记**：不登记 `Normalize` 就丢掉这两个词 ⇒ `UnitState._keywords` 灌不进 ⇒ 闸从卡数据永远不可达（死代码，违反铁律 11）。⚠️ 前缀撞车已现核：`coward` vs `c*` 第 2 字符分岔、`precognition` vs `pray` 第 3 字符分岔（`pindown`/`pack`/`penitence`/`poisoned` 第 2 字符分岔）
+            new[] { "coward", RuleCore.Coward }, new[] { "precognition", RuleCore.Precognition }, new[] { "massive", "massive" }, new[] { "transient", "transient" },   /* 🆕 2026-11-02（执行代理 `B116_W35` · 账 `B-319`）：**`transient`（原版 `DefinedTrait.transient = 455` / 反编译 `0x1c7`）**。⚠️ **只进 `Prefixes`、⛔ 绝不进 `Implemented`** —— `trait_collection.json`（`TraitsCollection`，77 条，`generated` 2026-11-02 现读）里**没有 `transient` 的 SO**，进 `Implemented` 会让 `BattleDriver` 的外观过滤给它多显示一枚原版没有的徽标（同 `massive` 的教训）。补这条的理由 = 「闸已建 ⇒ 必须登记」（`B98_N3` / `B99_B1` 先例）：机制那一半**早已落地**（`RuleCore.cs:2312` 回合开始摧毁；判据 `CardScript__OnTurnStart.c:255-261`：`cardState ∈ {2, 0xf, 3, 0x11}` ∧ `HasCurrentTrait(0x1c7)` ⇒ `DestroyUnit(…, 0x14)`），但 `Prefixes` 不登记 ⇒ `Normalize` 返回 null ⇒ `keywords` 列被构造函数 `:1385` `NoteDropped` **静默丢弃** ⇒ 机制从卡数据**永远不可达**（死代码，违反铁律 11）。⚠️ `cardTraits` 列**本来就可达**（`TraitKeyOf` 回退「小写净名」）—— 本笔补的只是 `keywords` 列那一半。⚠️ 前缀撞车已现核（`Normalize` = `StartsWith` + 先到先得）：`t` 开头既有条目 `tainted`/`talent`/`teleport`/`terror`/`tide`/`triggeronceifboardcriteria` 第 2 字符即分岔，反向也无任何条目以 `transient` 开头。⚠️ 池内 **0 张卡**带它（`cards_engine.json` 1129 张 + `cards_truth.json` 1351 张现扫各 0 命中）⇒ **零行为变化**，只是把「将来一有卡就静默失效」这个缺口提前堵上。 */   // 🆕 2026-11-02（执行代理 `B116_W23` · 账 `ENG-07`）：**`massive`（原版 `DefinedTrait.massive = 590` / 反编译 `0x24e`）**。⚠️ **只进 `Prefixes`、⛔ 绝不进 `Implemented`** —— 它在 `trait_collection.json` 里**没有 SO**，进 `Implemented` 会让 `BattleDriver` 的外观过滤给它多显示一枚原版没有的徽标（那正是上面 `markOfChaos` 那条血案的形状）。补这条的理由同 `ward`/`coward` 那一族：不登记 ⇒ `Normalize` 返回 null ⇒ `CardDef` 构造函数把它 `NoteDropped` + `continue` **静默丢掉** ⇒ 表现层那条 `massive` 镜像（`BattleDriver.ApplyMassiveMirror`，判据 `CardScript__CardSetup.c:198-210`）从卡数据**永远不可达** = 死代码（违反铁律 11）。⚠️ 前缀撞车已现核：以 `ma` 开头的既有条目只有 `maintenance` / `markerlight` / `mark of chaos`（第 3 字符分岔），反向也没有任何条目以 `massive` 开头。⚠️ 池内 **0 张卡**带它（`cards_engine.json` 1127 / `cards_truth.json` / `cards_raw.json` 现扫 `massive` 各 **0** 命中）⇒ **零行为变化**，只是把「将来一有卡就静默失效」这个缺口提前堵上。⚠️ 同值 `0x24e` 另有 `AbilityTrigger.Combo = 590` —— 那是**另一个枚举**，⛔ 别混。   // 🆕 2026-10-30（`B99_B1` · 调度台裁定）：两条**攻击目标** trait，常量在 `RuleCore`（照 `Noncombatant`/`Unstoppable` 先例）。判据 = `BattleManager__IsValidAttackTarget.c:136-141`（precognition=640）/ `:203-211`（coward=190）。🔴 裁定理由 = **闸已建 ⇒ 必须登记**：不登记 `Normalize` 就丢掉这两个词 ⇒ `UnitState._keywords` 灌不进 ⇒ 闸从卡数据永远不可达（死代码，违反铁律 11）。⚠️ 前缀撞车已现核：`coward` vs `c*` 第 2 字符分岔、`precognition` vs `pray` 第 3 字符分岔（`pindown`/`pack`/`penitence`/`poisoned` 第 2 字符分岔）
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };
@@ -9503,7 +9503,7 @@ namespace RuleEngine
         /// <see cref="AbilityTriggerPresence(int)"/> 恒返回 `-1`（= 未知）⇒ `EffectResolver.HasTriggerSource`
         /// 回落到 `HasAnimTrigger`，而模板的 `_animTimes` 是空表 ⇒ **`EmitCardTrigger` 恒返回 null**
         /// ⇒ `FireEnchantmentAbilitiesByNumber` 在派发前就 `continue`（`EffectResolverPartial_B109E6.cs:108-116`）。
-        /// 现读面：85 张模板里 **83 张**落这一档（池内的 `Pray Enchantment` / DA42 模板走 `Parse()`，不受影响）。</para>
+        /// 现读面：86 张模板里 **84 张**落这一档（⚠️ 2026-11-02 `B116_W28` 并集闸订正：原写「85 张模板里 83 张」= 旧分母；新收的 `Z-Sororitas-Raging Storm_enchantment1` 同样落这一档 ⇒ 84/86。池内的 `Pray Enchantment` / DA42 模板走 `Parse()`，不受影响）。</para>
         ///
         /// <para>🔴 **只置 `AbilityTriggersVersioned`，⛔ 不碰 `AbilityTargetsVersioned`**：
         /// 构造形参 `abilityTriggersVersioned` 会把**两列共用那一个版本位**一起置真（见构造函数里那条
@@ -9519,6 +9519,62 @@ namespace RuleEngine
             if (triggers == null) return;
             foreach (int _tg in triggers) _abilityTriggers.Add(_tg);
             AbilityTriggersVersioned = true;
+        }
+
+        /// <summary>🔴 2026-11-02（执行代理 `B116_W39` · 活状态表 `ENG-16`① 的前置）：**给触发正文的 op 补 `ta`
+        /// （`abilityTargets` 那条 `targetsAffected`）**。
+        ///
+        /// <para>**为什么需要它**：`EffectText.AssignAbilityTargets` 的**片段支**只在
+        /// `ta != null && ta.Length == ops.Count`（`taOk`）时按位置挂 `SubjectTargetsAffected`。
+        /// 而「同一条 logic 重复 N 次」的正文会被解析器塌成**一条 op + `repeatTimes`**
+        /// （实测 `TL30 Tyrannofex`：`ta = [10×8]`、`op.Count == 1`）⇒ 一格都挂不上 ⇒
+        /// `op.SubjectTargetsAffected` 留 `-1`。</para>
+        ///
+        /// <para>**留 `-1` 的后果**（就是 `ENG-16`① 卡住的那一跳）：`EffectResolver.ResolveTargetsCore`
+        /// 末尾那条兜底 —— `if (chosen != null && (op == null || op.SubjectTargetsAffected < 0 || …) …)
+        /// { list.Clear(); list.Add(chosen); }`（`EffectResolver.cs:1966`）⇒ 只要调用方给了 `chosen`，
+        /// **整张目标表就被换成它**。`RuleCore.cs:7058` 的 `Strike` 按原版
+        /// `CardScript__ResolveUnitAttacked.c:99-101`（`OnTrigger(0x244, …, actingCard=param_1, targetCard=param_2)`）
+        /// 应当传 `chosen: 被打者` —— 改前传了就会把「随机敌人 ×8」换成一个固定目标
+        /// （实测净伤 25 → 0，见 `报告/B115_W14_拒支回滚与Tactic判据.md` §三）。</para>
+        ///
+        /// <para>🔴 **补值的四道闸（缺一条就不补 —— ⛔ 不按位置猜）**：
+        /// ① `abilityTargets` 列**已落**（`AbilityTargetsVersioned`）；
+        /// ② 这个 trigger 在 `_abilityTargets` 里**恰好一条**（两条 ⇒ 归不到某一行，原版 `CanTriggerAbility`
+        ///    逐条各判，我们这一条正文分不出是谁的）；
+        /// ③ `ta` **每格全相等且 ≥ 0**（各处一致 ⇒ 「这一条 op 属于哪一行」不影响结论）；
+        /// ④ **`ta.Length > ops.Count`**（数据里的 logic 行比解析出的 op 多 —— 就是「塌成一条 + repeat」那一档）。
+        ///    反方向（`ta.Length < ops.Count`）**不补**：多出来的 op 在数据里没有对应的 logic 行，
+        ///    给它贴一个 `ta` 就是发明。
+        /// 只补 `SubjectTargetsAffected < 0` 的 op（已按位置挂上的**一格都不动**）。
+        /// ⚠️ **只挂 `ta`，不挂 `TargetCriteriaSet`（36 格）** —— 后者会启
+        /// `EffectResolver.ApplyTargetCriteriaFilter` 的整道筛，而「这一条塌进去的 op 该用哪一行的 36 格」
+        /// 在数据里同样对不上；本方法只解决 `chosen` 兜底那一格。</para>
+        ///
+        /// <para>**判据**：原版 `AbilityLogic.GetTargets` 的建池 switch 按**每一条** `abilityLogic` 的
+        /// `targetCriteria.targetsAffected` 取池（`d:/2/tools/decomp_full/AbilityLogic__GetTargets.c:184-1079`）；
+        /// `TL30` 那 8 行的 `ta` 逐格现读全是 `10`（`cards_engine.json` 的 `abilityTargets` +
+        /// `abilityTargetCriteria` 两列）。</para></summary>
+        void ApplyUniformTriggerTa(List<EffectOp> ops, string keyword)
+        {
+            if (ops == null || ops.Count == 0) return;
+            if (!AbilityTargetsVersioned || _abilityTargets.Count == 0) return;
+            int trg = AbilityTriggerNumber(keyword);
+            if (trg < 0) return;
+            int[] ta = null; int rows = 0;
+            for (int i = 0; i < _abilityTargets.Count; i++)
+            {
+                var at = _abilityTargets[i];
+                if (at == null || at.Trigger != trg) continue;
+                if (++rows > 1) return;                       // ② 同一 trigger 有两条 ability ⇒ 不猜
+                ta = at.TargetsAffected;
+            }
+            if (rows != 1 || ta == null || ta.Length <= ops.Count) return;   // ④（含 ta 为空）
+            int v = ta[0];
+            if (v < 0) return;
+            for (int i = 1; i < ta.Length; i++) if (ta[i] != v) return;      // ③ 各行不一致 ⇒ 不猜
+            for (int i = 0; i < ops.Count; i++)
+                if (ops[i] != null && ops[i].SubjectTargetsAffected < 0) ops[i].SubjectTargetsAffected = v;
         }
     }
 

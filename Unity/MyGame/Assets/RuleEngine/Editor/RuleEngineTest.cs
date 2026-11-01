@@ -1285,7 +1285,7 @@ public static partial class RuleEngineTest
         Step(TestB95WREAttackerPlumbing);
 
         // 🆕 2026-10-29（调度台代接线）：`B96_CB` —— 921 弃/偷牌揭示两档 · 1037 手牌探针 · 372/422 开局桥 · 907 换牌态。
-        { Step(CheckB96CBEngine); Guard("CheckB115S7Transient", CheckB115S7Transient); }   // 🆕 2026-11-01（`B115_S7` · ENG-07 `transient`(455)）：回合开始摧毁的持久断言 —— 全文在 `Editor/RuleEngineTest_B115S7.cs`（同一物理行追加 ⇒ 行数零变化）
+        { Step(CheckB96CBEngine); Guard("CheckB115S7Transient", CheckB115S7Transient); Guard("CheckB116W35TransientParses", CheckB116W35TransientParses); }   // 🆕 2026-11-01（`B115_S7` · ENG-07 `transient`(455)）：回合开始摧毁的持久断言 —— 全文在 `Editor/RuleEngineTest_B115S7.cs`（同一物理行追加 ⇒ 行数零变化）｜ 🆕 2026-11-02（`B116_W35` · 账 `B-319`）：`transient` **从 `keywords` 列进得来**（`Prefixes` 登记 + 端到端可达），同在 `Editor/RuleEngineTest_B115S7.cs`
 
         // 🆕 2026-10-29（调度台代接线）：`B96_CR` —— 279 先标将死 · 876/550 · 1376 ActivateMinions · 559 Sacrifice · 1053 SecretBuff · 1217 逐条 AND。
         Guard("CheckB96CRCombatBits", CheckB96CRCombatBits); Guard("CheckB115W13TutorialDecksComplete", CheckB115W13TutorialDecksComplete); Guard("CheckB115W23CardRefTargets", CheckB115W23CardRefTargets);   // 🆕 2026-11-01（`B115_W13` · 旧任务 `B-308`）：教程 12 副 `complete` 的**宿主闸** —— `gen_prebuilt_decks.py --check` 只能人手跑，本闸把它钉进自检；断言全文在 `Editor/RuleEngineTest_B115W13.cs`（同一物理行追加 ⇒ 行数零变化）
@@ -1303,7 +1303,7 @@ public static partial class RuleEngineTest
         Guard("CheckB97ER2Gaps", CheckB97ER2Gaps); { Guard("CheckB97W2Gaps", CheckB97W2Gaps); Guard("CheckB97W5DataColumnsAndPoolFilters", CheckB97W5DataColumnsAndPoolFilters); }   // 🆕 2026-10-29（调度台代接线）：`B97_W2`（手牌费 Permanent / 210 手牌两跳 / 11 组 buff）· `B97_W5`（startingCardInHand 列 / BoardGate ConditionsFilter / selectFromChooseResolution / 单次变异）—— 同一物理行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER` —— 再裁 #54：`CanTriggerAbility` 第一道闸扩到全部 trigger。
-        Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates); Guard("CheckB108A1TriggerEmits", CheckB108A1TriggerEmits); Guard("CheckB108A16EnchantDataTriggerMatch", CheckB108A16EnchantDataTriggerMatch);   // 🆕 2026-10-31（B108_A1/A16）：trigger 发射口 + 附魔数据位匹配
+        Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates); Guard("CheckB108A1TriggerEmits", CheckB108A1TriggerEmits); Guard("CheckB108A16EnchantDataTriggerMatch", CheckB108A16EnchantDataTriggerMatch); Guard("CheckB116G2MultiAbilityQuest", CheckB116G2MultiAbilityQuest); Guard("CheckB116W12SwarmListenerTarget", CheckB116W12SwarmListenerTarget); Guard("CheckB116W6ChoiceTableAndOathRecompose", CheckB116W6ChoiceTableAndOathRecompose); Guard("B116W8_Assert", B116W8_Assert.Run); _pass += B116W8_Assert.Pass; _fail += B116W8_Assert.Fail; Guard("B116W18_Assert", B116W18_Assert.Run); _pass += B116W18_Assert.Pass; _fail += B116W18_Assert.Fail; Guard("CheckB116W19Jam", CheckB116W19Jam); Guard("B116W24_Assert", B116W24_Assert.Run); _pass += B116W24_Assert.Pass; _fail += B116W24_Assert.Fail; Guard("B116W27_Assert", B116W27_Assert.Run); _pass += B116W27_Assert.Pass; _fail += B116W27_Assert.Fail; Guard("B116W31_Assert", B116W31_Assert.Run); _pass += B116W31_Assert.Pass; _fail += B116W31_Assert.Fail; Guard("B116W32_Assert", B116W32_Assert.Run); _pass += B116W32_Assert.Pass; _fail += B116W32_Assert.Fail; Guard("B116W39_Assert", B116W39_Assert.Run); _pass += B116W39_Assert.Pass; _fail += B116W39_Assert.Fail; Guard("B116W41_Assert", B116W41_Assert.Run); _pass += B116W41_Assert.Pass; _fail += B116W41_Assert.Fail;   // 🆕 2026-11-02（`B116_W41` · 活状态表 `B-340` ＋ `ENG-07` `psyker`/`reactor`）：`ta=65` 抽牌支接 36 格 ＋ 灵能/等离子死支（写 flag、没人读）；断言全文在 `Editor/B116W41_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W39` · 账 `B-342` ＋ `ENG-16`① ＋ `B-317`）：表支 `ta=140`（140 不筛 / 150 筛）· 触发正文挂 `ta` 后 `Strike` 才接得住 `chosen:` · 真死时的阵营闸走 `sideOverride`；断言全文在 `Editor/B116W39_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W31` · 活状态表 `SAN-04` 残余 + `SAN-27` 判据侧 + `B-333`）：`ta=150` 手牌半（效果层筛 / 表现层 `Slot=-1`）＋报表口径走表现层白名单；断言全文在 `Editor/B116W31_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W27` · 活状态表 `B-211` ＋ `B-255`）：`cardAbilities` 逐 ability 派发（380/320）＋ 排他闸；断言全文在 Editor/B116W27_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W24` · `ENG-11`）：`buffType 12/15` 的附魔挂载执行器（`Enchantments.Attach`）；断言全文在 Editor/B116W24_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W19` · `ENG-07` `jam`）：`cardTraits` 口径 + `HasWhileInPlayAbility` 判反 + 触发闸 + 誓约闸；断言全文在 `Editor/RuleEngineTest_B116W19.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W18` 代接线 · 同一物理行追加 ⇒ 行数零变化）：`B116W8` = ENG-11 的 `8 markOfChaos`/`90 addTraitRemnant`（原 `B116_W8` 写好但未接线）；`B116W18` = `B-328` `abilityBuffs` 的 `enchantmentId`/`enchantmentPathId` 两列   // 🆕 2026-11-02（B116_W12 · `B-314`）：Swarm 监听（620）的 `it` = 留下的 host（`ta=30` ← `targetCard`）；断言全文在 Editor/RuleEngineTest_B116W12.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（B116_W9 · ENG-02）：一件任务附魔有 N 条同 trigger 的 ability ⇒ （判据 = 原版 TriggerAbilities.c:115 在逐条循环里）；断言全文在 Editor/RuleEngineTest_B116G2.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-10-31（B108_A1/A16）：trigger 发射口 + 附魔数据位匹配   // 🆕 2026-11-02（`B116_W32` · `B-329`）：选项 SO 旁表（`choice_option_cards.json`）＋ 结构化支接上 —— TL20 的 `+2 [Melee]` 只加自己，⛔ 不再是「己方全体」；断言全文在 Editor/B116W32_Assert.cs（同一物理行追加 ⇒ 行数零变化）
 
         // 🆕 2026-10-29（调度台代接线）：`B97_GEN2` —— 泛型补读 20 条（DynamicList 12 + ConfigProvider 2 + RefreshHandler 等）。
         Guard("CheckB97Gen2", CheckB97Gen2); Guard("CheckB97W11Gaps", CheckB97W11Gaps); B97W38Assert.Run(); _pass += B97W38Assert.Pass; _fail += B97W38Assert.Fail; Guard("CheckB97W35EnchantmentHop", CheckB97W35EnchantmentHop); Step(TestB97W1); Step(CheckB100F17Gaps); Step(CheckB100F21RemnantSlay);   // 🆕 2026-10-30（`B100_F19` · G11 #52）：`Step(TestB97W1)` 从 `:1365` **上移到覆盖闸 `:1318` 之前** —— 闸按 `_ranCases` 对账，`Step` 排在闸后 = 记不到 ⇒ #52 红（照 `:1272-1279` 同款先例；同一行追加 ⇒ 行数零变化）   // 🆕 2026-10-29（调度台代接线 · `B97_W11`）：账 `战斗逻辑驱动:1121` `MinionManager.GetNextSlotPos` 的上界缺陷 + `required==1` 中性支（200 个局面全量对过、0 处不同）；同一行追加 ⇒ 行数零变化
@@ -35326,16 +35326,16 @@ public static partial class RuleEngineTest
     // ==================================================================
 
     // ------------------------------------------------------------------------
-    //  ★ `A1574`：虫群合并那一跳广播的 `subject` = **被并掉那张**（不是留下那张）
-    //
+    //  ★ `A1574`：虫群合并那一跳广播的 `subject`(= actingCard) = **被并掉那张**；
+    //    而监听者那句「give **it** +1 attack」的「it」按 `ta=30` 读 **targetCard** = **留下的 host**
+    //    🔴 2026-11-02 就地订正（`B116_W45` · 铁律 5）：本段原写「it ↔ actingCard」，**不成立**
     //  判据（原版反编译，逐跳核过）：
     //    `CardScript.<>c__DisplayClass401_0.<ExecuteSwarm>b__0.c:45/51/54`
     //      —— `+0x18` 收数值抽屉（留下那张）· `+0x10` 先 `DestroyUnitSilent` 再当
     //         `BroadcastUnitSwarm` 的 `param_2`（被并掉那张）
     //    `BattleManagerSupport__BroadcastUnitSwarm.c:44` → `TriggeredSwarm(卡, param_2, param_3)`
     //    `CardScript__TriggeredSwarm.c:7` → `OnTrigger(…, actingCard = param_2, targetCard = param_3)`
-    //    「it」↔ `actingCard`（成对证据 = `ResolveUnitAttacked` 的
-    //      `Doomstalker`「it」= 攻方 vs `Valtus`「the target of the attack」= 被打者）
+    //    🔴 `AbilityLogic__GetTargets.c:192-202` 六参重载：`ta == 30 (target)` 读 `param_5` = targetCard
     // ------------------------------------------------------------------------
     static void TestA1574SwarmSubject()
     {
@@ -35378,10 +35378,10 @@ public static partial class RuleEngineTest
         Check(LogCount(ctx, "「W5Prime」的监听器"), 1,
               "（前提）监听者被叫醒了**一次** —— 广播那一跳真的把事件送到了「别人」那里"
             + "｜🧨 删掉 `FireTriggerAlways` 里那一句 `BroadcastWhen(...)` ⇒ 本行实得 0");
-        Check(host.Attack, 4,
-              "★ A1574：**那个「it」不是留下那张**（留下那张 = 2 + 2 = 4，**没有**再多 1 点）"
-            + "｜🧨 把 `TrySwarmMerge` 尾部那句 `FireTriggerAlways(…, just)` 改回 `…`（不传 subject）"
-            + " ⇒ 本行实得 **5**");
+        Check(host.Attack, 5,
+              "★ A1574：**那个「it」就是留下那张**（`ta=30` 读 targetCard = 留下的 host）"
+            + "（留下那张 = 2 + 2 = 4，再加监听者的 +1 = **5**）"
+            + "｜🧨 把 `FireBoardListenerDeferred` 的 seed 改回 `subject`（= 被并掉那张）⇒ 本行实得 **4**");
 
         // ---- 单元级·判据口直判：`swarm` 这一族**自排除**（`A1574` 之后口径才对齐）----
         //  判据 = `BattleManagerSupport__BroadcastUnitSwarm.c` 棋盘跳那条 `op_Inequality(卡, param_2)`

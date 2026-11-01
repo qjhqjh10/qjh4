@@ -1314,7 +1314,7 @@ class Program
             // 🔴 2026-11-01（写手 `W-25` · 活状态表 `B-257`）：`triggerAbilityIndices` ＋
             //   `{触发数值 → 正文 op}` 两列也要挂 —— 与引擎 `Data/CardDatabase.cs:1762` 那两句
             //   **同一套代码、同一顺序**（判据与理由见 `CardDatabaseProbeHook.cs` 文件头）。
-            AttachTriggerAbilityAndOpsByNumber(__def, c, poolVersion);
+            AttachTriggerAbilityAndOpsByNumber(__def, c, poolVersion); __def.AttachCardTraits(ProbeCardTraits(c));   // 🔴 2026-11-02（`B116_W33` · 活状态表 `B-324`）：卡池的 `cardTraits` 列也要挂 —— 与引擎 `Data/CardDatabase.cs:1734` 同一句、同一个方法（理由与三态口径 → 类尾 `ProbeCardTraits` 的 doc）。⚠️ 同一物理行追加（铁律 18·b）：加行会把本文件下游行号整体推走。
             list.Add(__def);
         rawKw.Add(kws);
         }
@@ -2226,6 +2226,46 @@ class Program
         }
         return outp;
     }
+
+    /// <summary>🔴 2026-11-02（执行代理 `B116_W33` · 活状态表 `B-324`）：卡池 `cardTraits` 列 → `CardDef.AttachCardTraits` 的**探针侧读口**。
+    /// <para>为什么要有它：`LoadPool` 是 `System.Text.Json` 手读卡表、**不走** `Data/CardDatabase.cs` ⇒
+    /// 引擎 `:1734` 那句 `def.AttachCardTraits(c.cardTraits)` 在探针里**从来没被执行过** ⇒
+    /// 探针池里每张卡 `CardTraitsKnown == false` ⇒ `TargetCriteriaEval.RawCardMeetsTraitCriteria`
+    /// （`Core/TargetCriteriaEval.cs:1036` 的 `HasDefaultTrait` 那一句）**恒返回 `null`（判不了）**，
+    /// 而它的调用方 `MatchesRawCard` 一遇 `null` 就**整条 criteria 不筛** ⇒ 任何「卡面级 trait 条件」
+    /// 在 `play` 那条路上**看着像产品口径、其实不是同一条路**（同 `A1911` / `A1959` / `B-257` 那一族）。</para>
+    /// <para>🔴 **三态口径与引擎逐字相同**（⛔ 别改成「缺列也挂空表」）：
+    /// 缺键 / 不是数组 ⇒ <c>null</c> = **没喂**（不调 `AttachCardTraits`，`CardTraitsKnown` 保持 false ⇒ 判不了）；
+    /// 键在且是数组 ⇒ 逐项收下（**空数组 = 明确没有 trait**，与「没喂」是两件事）。
+    /// 池 v47 现读：1,129 张**全都有这个键**（433 空 / 696 非空）⇒ 这条修复对 433 张的效果是
+    /// 「从『判不了』变成『明确没有』」、对 696 张是「从『判不了』变成『有这些 trait』」。</para>
+    /// <para>⚠️ 非字符串元素**出声并跳过**（⛔ 不静默把它当成某一项）—— 数组里的占位 `null` 也算这一档。</para></summary>
+    static string[] ProbeCardTraits(JsonElement card)
+    {
+        if (!card.TryGetProperty("cardTraits", out var el) || el.ValueKind != JsonValueKind.Array)
+        {
+            // 缺键 = 旧表 / 这张卡没有这一列 ⇒ `null`（未知）。⛔ 别改成空表（那会把「缺列」读成「明确没有」）。
+            return null;
+        }
+        var outp = new List<string>();
+        foreach (var item in el.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                Console.WriteLine("⚠️ `cardTraits` 有一项不是字符串（" + CardIdOf(card) + "）—— 跳过这一项");
+                continue;
+            }
+            outp.Add(item.GetString());
+        }
+        return outp.ToArray();
+    }
+
+    /// <summary>尽量打出卡 id（`cardTraits` 形状告警用）—— 缺 `id` 时回落到 `(无 id 列)`，⛔ 不抛。</summary>
+    static string CardIdOf(JsonElement card)
+    {
+        return card.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+            ? idEl.GetString() : "(无 id 列)";
+    }
 }
 
 /// <summary>
@@ -2574,6 +2614,68 @@ class Sentinel
                               + "** 条 · `Source` 含 `/{T:`（会挪 `Sentinel.Legacy` 的切点）**"
                               + srcMovesLegacyCut + "** 条（真 op 数按 `/{T:` 数 = " + opsWithT + "，"
                               + "`Ops()` 切出来 " + pieces + " 条）");
+        }
+
+        // ---------------------------------------------------------------- ⑨ `cardTraits` 在探针池里真的挂上了
+        // 🔴 2026-11-02（执行代理 `B116_W33` · 活状态表 `B-324`）：这条哨兵抓的是
+        //   「`Program.LoadPool` 忘了调 `AttachCardTraits`」那一类回归 —— 症状是**静默**的：
+        //   `RawCardMeetsTraitCriteria` 恒 `null`（判不了）⇒ 调用方 `MatchesRawCard` 整条 criteria 不筛
+        //   ⇒ `play` 的读数**看着像产品口径、其实不是同一条路**（同 `A1911`/`A1959` 那一族）。
+        // 判据两条（都必须过）：
+        //   ① **数据在**：池 v47 现读 1,129 张**每一张都有 `cardTraits` 键**（433 空 / 696 非空）
+        //      ⇒ `CardTraitsKnown` 应为 **全池 true**。这一条断了 = 「挂载整条掉了」。
+        //   ② **判得出来**：拿池里**第一张带 `Ephemeral` 的卡**走**产品代码**
+        //      `TargetCriteriaEval.RawCardMeetsTraitCriteria`：`traitsFilter = 5 (ephemeral)` 应为 `true`、
+        //      `excludeTrait = 1` 应为 `false`、两次 `gap` 都必须为空。
+        //      ⚠️ 期望值出处 = 原版枚举 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs`（`ephemeral = 5`），
+        //      ⛔ 不是拿我们自己的 dump 反填。
+        //   ⚠️ ② 不能写成「结果非 null 就算过」—— `TraitsFilter=0` 那条短路在**挂载前**也会返回 null，
+        //      只有**真筛一个 trait** 才同时证明「数据挂上了」＋「筛选路径跑得通」。
+        Program.LoadPool();                      // 幂等
+        var pool9 = Program.PoolList;
+        int traitsKnown9 = 0;
+        foreach (var cd in pool9) if (cd.CardTraitsKnown) traitsKnown9++;
+        if (traitsKnown9 != pool9.Count)
+        {
+            fail++;
+            Console.WriteLine("  ✗ [cardTraits] 池内 `CardTraitsKnown` 只有 **" + traitsKnown9 + "/" + pool9.Count
+                              + "** 张 ⇒ `Program.LoadPool` 里那句 `__def.AttachCardTraits(Program.ProbeCardTraits(c))`"
+                              + " 掉了（或卡池缺 `cardTraits` 列）⇒ `RawCardMeetsTraitCriteria` 对缺的那批恒「判不了」"
+                              + "（`Core/TargetCriteriaEval.cs:1036`），而调用方一遇 null 就**整条 criteria 不筛**。");
+        }
+        else
+        {
+            CardDef sentTrait = null;
+            foreach (var cd in pool9)
+            {
+                if (cd.CardTraitsKnown && cd.HasDefaultTrait("ephemeral", out _)) { sentTrait = cd; break; }
+            }
+            if (sentTrait == null)
+            {
+                fail++;
+                Console.WriteLine("  ✗ [cardTraits] 池内**找不到**带 `Ephemeral` 的卡（现读应为 ~104 张）——"
+                                  + " 卡池被换过 / `cardTraits` 列改名？哨兵要**跟着换**（⛔ 别静默放过）。");
+            }
+            else
+            {
+                var spec9 = new CardDef.CountSetSpec { TargetsAffected = 10, TraitsFilter = 5, ExcludeTrait = 0 };
+                bool? inc9 = TargetCriteriaEval.RawCardMeetsTraitCriteria(sentTrait, spec9, out string gap9a);
+                spec9.ExcludeTrait = 1;
+                bool? exc9 = TargetCriteriaEval.RawCardMeetsTraitCriteria(sentTrait, spec9, out string gap9b);
+                if (inc9 != true || exc9 != false || gap9a != null || gap9b != null)
+                {
+                    fail++;
+                    Console.WriteLine("  ✗ [cardTraits] `" + sentTrait.Id + "`（带 `Ephemeral`）上 `RawCardMeetsTraitCriteria`："
+                                      + "`traitsFilter=5,exclude=0` ⇒ " + (inc9.HasValue ? inc9.Value.ToString() : "null(判不了)")
+                                      + (gap9a != null ? "（gap: " + gap9a + "）" : "")
+                                      + " · `exclude=1` ⇒ " + (exc9.HasValue ? exc9.Value.ToString() : "null(判不了)")
+                                      + (gap9b != null ? "（gap: " + gap9b + "）" : "")
+                                      + " —— 期望 `true` / `false` 且 gap 全空。");
+                }
+                else
+                    Console.WriteLine("  ✓ [cardTraits] 池内 " + traitsKnown9 + "/" + pool9.Count + " 张已挂 · `"
+                                      + sentTrait.Id + "` 的 `traitsFilter=5 (ephemeral)` 判得出来（true / exclude ⇒ false）");
+            }
         }
 
         Console.WriteLine("=== 哨兵合计：失败 " + fail + " 条 ===");

@@ -148,7 +148,7 @@ public static class B110_E5_Assert
         try { tpl = CardDatabase.LoadEnchantmentTemplates(); }
         catch (Exception e) { Debug.LogWarning(P + "`LoadEnchantmentTemplates()` 抛了：" + e.Message); }
         CheckTrue(tpl != null && tpl.Count >= 80,
-                  "B1 前提：第二张表读得到（现读 85 张；< 80 说明资源没进工程 ⇒ 后面按「前提不成立」处理）");
+                  "B1 前提：第二张表读得到（现读 86 张 · 2026-11-02 `B116_W28` 并集闸订正 85→86，阈值 `>= 80` 不变；< 80 说明资源没进工程 ⇒ 后面按「前提不成立」处理）");
         if (tpl == null || tpl.Count == 0) return;
 
         // B2 ★★ 灭自证主断言：**每一张**都必须有「列已知」的正面信号

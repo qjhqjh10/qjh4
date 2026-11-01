@@ -221,12 +221,12 @@ namespace CardPresentation
             var save = new ExpansionPassSave();
             if (!StoreOn) return save;
             string path = StorePath;
-            if (!System.IO.File.Exists(path)) return save;
-            string text;
-            try { text = System.IO.File.ReadAllText(path); }
-            catch (Exception e)
+            // 🆕 2026-11-02（`B116_W21` · UI-15/B-322）：**先中央档、再旧档**（双写期过渡读法，同 `InboxData.cs:427`）。
+            //    中央档在但读不出来 ⇒ 它自己退回旧档；两处都没有 ⇒ `null` ⇒ 按出厂值走（⛔ 别恢复裸 `File.ReadAllText`）。
+            string text = SaveCenter.ReadThroughLegacy(SaveKeys.OursExpansionPass, path);
+            if (text == null)
             {
-                Debug.LogWarning("[ExpansionPass] 读存档失败（" + path + "）：" + e.Message + " ⇒ 按空档走，**没动文件**。");
+                Debug.Log("[ExpansionPass] 还没有存档（" + path + "）⇒ 按出厂值走");
                 return save;
             }
             StoreDto dto;
@@ -249,7 +249,7 @@ namespace CardPresentation
         }
 
         /// <summary>写盘。返回是否真的写成功（读盘门关着时返回 `false` 且**不报错** —— 那是设计）。
-        /// 写法 = 先写 `.tmp` 再替换（原子，同 `SaveCenter.SetRaw` 那条口径）。</summary>
+        /// 写法 = `SaveCenter.SaveThroughLegacy`（中央档 + 双写旧档，原子写由 `AtomicWrite` 承担；`SaveCenter.StoreOn` 关着 ⇒ 只写旧档）。</summary>
         public bool Save()
         {
             if (!StoreOn) return false;
@@ -263,19 +263,19 @@ namespace CardPresentation
                 return false;
             }
             string path = StorePath;
-            string tmp = path + ".tmp";
+            // 🆕 2026-11-02（`B116_W21` · UI-15/B-322 · 存档切换）：原来的「写 `.tmp` → 删旧 → 换名」三段交给
+            //    `SaveCenter.SaveThroughLegacy`：中央档 `_ours_ExpansionPass` 一份 + 旧档（**不带 `_v`**）一份，原子写由 `AtomicWrite` 承担。
+            //    只注入了 `ExpansionPassSave.OverrideDir`（自检常态）⇒ `SaveCenter.StoreOn` 为假 ⇒ **只写旧档**，与切换前逐字节同。
             try
             {
-                System.IO.Directory.CreateDirectory(StoreDir);
-                System.IO.File.WriteAllText(tmp, json);
-                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
-                System.IO.File.Move(tmp, path);
-                return true;
+                string werr;
+                if (SaveCenter.SaveThroughLegacy(SaveKeys.OursExpansionPass, path, json, out werr)) return true;
+                Debug.LogError("[ExpansionPass] 存档写盘失败（" + path + "）：" + werr + " ⇒ 这一份改动**只在内存里**（红线：不许静默失败）");
+                return false;
             }
             catch (Exception e)
             {
                 Debug.LogError("[ExpansionPass] 存档写盘失败（" + path + "）：" + e.Message);
-                try { if (System.IO.File.Exists(tmp)) System.IO.File.Delete(tmp); } catch { }
                 return false;
             }
         }

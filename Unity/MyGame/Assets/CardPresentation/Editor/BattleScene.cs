@@ -1426,26 +1426,29 @@ public static class BattleScene
                 + "`CardScript._Heal…:204` 的 `WaitForSeconds(1.5)`；多目标治疗严格串行）");
             // 🆕 2026-10-14（`A1767`）：**「发动能力」的时长 = 逐卡真值**，不再是那条常数 1.0。
             //   判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和
-            //   （`d:/2/tools/decomp_full/AnimInfo__GetAnimDuration.c` 四字段 + `AbilityLogic__PlayAnim.c`
-            //    的「逐条 `AddCardAnim` 排队播完」）⇒ 表 = `Resources/ability_anim_durations.json`
-            //   （生成器 `工具/gen_ability_anim_durations.py`）。
-            //   ⚠️ **只按 `EvtKind` 的这条重载拿不到卡**（签名里没有 `BattleEvent`）⇒ 它只能给兜底值。
-            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Ability) - EventTiming.AbilityFallbackSeconds) < 1e-4f,
-                  $"★ 只按 `EvtKind` 的重载返回**兜底** {EventTiming.AbilityFallbackSeconds}s"
-                + "（它签名里没有卡 ⇒ 逐卡那一半只能走 `DurationOf(BattleEvent)`）");
+            //   （`AnimInfo__GetAnimDuration.c` 四字段 + `AbilityLogic__PlayAnim.c` 的「逐条 `AddCardAnim` 排队播完」）
+            //   ⇒ 表 = `Resources/ability_anim_durations.json`（生成器 `工具/gen_ability_anim_durations.py`）。
+            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Ability) - EventTiming.AbilityLoadFailSeconds) < 1e-4f,
+                  $"★ 只按 `EvtKind` 的重载返回**保守档** {EventTiming.AbilityLoadFailSeconds}s（签名里没有卡 ⇒ 逐卡那一半只能走 "
+                + "`DurationOf(BattleEvent)`；⛔ 这一档不是「表空」那档 —— 见 `AbilityLoadFailSeconds`）");
             {
                 Debug.Log(P + $"   逐卡能力时长表：{AbilityAnimDurations.Count} 张卡"
                              + $"（`Resources/{AbilityAnimDurations.ResourcePath}.json`）"
                              + (AbilityAnimDurations.LastError == null ? "" : "  ⚠️ " + AbilityAnimDurations.LastError));
                 Check(AbilityAnimDurations.Loaded && AbilityAnimDurations.Count >= 40,
                       $"★ 逐卡能力时长表**载进来了**（{AbilityAnimDurations.Count} 张 —— ⛔ 不是「一个常数糊全场」）");
-                // 兜底值**两处必须相等**（常量 vs 表里那个数）—— 两处写同一个规则迟早不一致
-                Check(Mathf.Abs(AbilityAnimDurations.FallbackSeconds - EventTiming.AbilityFallbackSeconds) < 1e-4f,
-                      $"★ 兜底值两处一致（表 {AbilityAnimDurations.FallbackSeconds:F3} == 常量 "
-                    + $"{EventTiming.AbilityFallbackSeconds:F3}）");
-                // 钉**两条原版事实**（逐条可复核）：
-                //   `Leman Russ Vanquisher` = `DutyAnim` 0.0 + `Atk_TankShot_huge` 1.0 ×2 = **2.0**
-                //   `Ursula Creed`        = `DutyAnim` 0.0 + `Guard Summon` 0.2       = **0.2**
+                // 兜底值**两处必须相等**（常量 vs 表里那个数）—— 🔴 2026-11-02（`SAN-16`）拆分后**两档都要核**
+                Check(Mathf.Abs(AbilityAnimDurations.FallbackSeconds - EventTiming.AbilityLoadFailSeconds) < 1e-4f
+                   && Mathf.Abs(AbilityAnimDurations.NoEntryFallback - EventTiming.AbilityNoEntrySeconds) < 1e-4f
+                   && Mathf.Abs(AbilityAnimDurations.LoadFailFallback - EventTiming.AbilityLoadFailSeconds) < 1e-4f,
+                      $"★ 兜底值两处一致（表 {AbilityAnimDurations.FallbackSeconds:F3} · 两档常量 NoEntry "
+                    + $"{EventTiming.AbilityNoEntrySeconds:F3} / LoadFail {EventTiming.AbilityLoadFailSeconds:F3}）");
+                // 🔴 **2026-11-02（`SAN-16`）**：兜底**分两档** ——「表里没有这张卡」= **0**（原版 `AbilityLogic__PlayAnim.c:46-58` 的 `cardAnimations` 表空 ⇒ 首调 `MoveNext` 为假 ⇒ 不排任何动画）；「资源缺失 / 解析失败」= **1.0**（保守档）。
+                Check(Mathf.Abs(AbilityAnimDurations.FallbackFor(true) - 0f) < 1e-4f && Mathf.Abs(AbilityAnimDurations.FallbackFor(false) - 1f) < 1e-4f,
+                      $"★ 两档兜底：表在但没这张卡 {AbilityAnimDurations.FallbackFor(true):F2}s · 资源缺失 {AbilityAnimDurations.FallbackFor(false):F2}s");
+                Check(Mathf.Abs(AbilityAnimDurations.FallbackFor(true) - AbilityAnimDurations.FallbackFor(false)) > 0.5f,
+                      "★ **灭自证**：两条兜底路**必须给出不同的值**（0 vs 1.0）—— 合成一档时本条与上两条同时红");
+                // 钉**两条原版事实**（逐条可复核）：`Leman Russ Vanquisher` = `DutyAnim` 0.0 + `Atk_TankShot_huge` 1.0 ×2 = **2.0**；`Ursula Creed` = `DutyAnim` 0.0 + `Guard Summon` 0.2 = **0.2**
                 var eAb35 = new BattleEvent { Kind = EvtKind.Ability, CardId = "Leman Russ Vanquisher" };
                 var eAb2 = new BattleEvent { Kind = EvtKind.Ability, CardId = "Ursula Creed" };
                 float am35 = EventTiming.DurationOf(eAb35);
@@ -1456,33 +1459,30 @@ public static class BattleScene
                       $"★ 逐卡真值：`Ursula Creed` = 0.20s（`DutyAnim 0.0 + Guard Summon 0.2`；实得 {am2v:F2}s）");
                 // **灭自证**：两张卡的值相差 1.8s ⇒ 谁把 `DurationOf(BattleEvent)` 收回到一个常数，这一条**必红**
                 Check(Mathf.Abs(am35 - am2v) > 0.5f,
-                      $"★ **灭自证**：两张卡的值必然不同（{am35:F2} vs {am2v:F2}）—— "
-                    + "退回常数／退回「只按 `EvtKind` 查表」都会让这条**与上面两条同时**变红");
-                // **灭自证 ②**：表里**没有**的卡要**退回兜底并出声**（`TryGet` 自己打 warning + 计数）
-                //   🔴 **2026-10-18（第五十二会话 · 铁律 5 就地改断言）**：原来用 `Terminator` ——
-                //   第五十会话 `3251df0` 把 VFX 真值源换成当前 build 的 1,351 张 allcards 后，
-                //   `UM103 Terminator` **进了** `ability_anim_durations`（93 张，`s=2.0`）⇒ 它不再走兜底。
-                //   改用现读确认**不在表里**的 `Celestian Sacresant`（SOR30，在卡池），并补 `Has()` 前提。
+                      $"★ **灭自证**：两张卡的值必然不同（{am35:F2} vs {am2v:F2}）—— 退回常数／"
+                    + "退回「只按 `EvtKind` 查表」都会让这条**与上面两条同时**变红");
+                // **灭自证 ②**：表里**没有**的卡要**退回 0 秒**并**出声**（`TryGet` 打 warning + 计数）；原用 `Terminator`，真值源换成 1,351 张 allcards 后它**进了**表（`s=2.0`）⇒ 改 `Celestian Sacresant`（SOR30）；2026-11-02（`SAN-16`）期望值 1.0 → **0**。
                 const string noTruthCard = "Celestian Sacresant";
                 Check(!AbilityAnimDurations.Has(noTruthCard),
                       $"（前提）`{noTruthCard}` **不在** `ability_anim_durations` 表里（不在才验得到兜底）");
                 int beforeFallback = AbilityAnimDurations.FallbackHits;
                 float noTruth = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = noTruthCard });
                 Check(AbilityAnimDurations.FallbackHits == beforeFallback + 1
-                      && Mathf.Abs(noTruth - EventTiming.AbilityFallbackSeconds) < 1e-4f,
-                      $"★ 表里没有的卡**退回兜底值**（`{noTruthCard}` 判据为空 ⇒ {noTruth:F2}s，"
+                      && Mathf.Abs(noTruth - EventTiming.AbilityNoEntrySeconds) < 1e-4f,
+                      $"★ 表里没有的卡**退回 0 秒**（`{noTruthCard}` 判据为空 ⇒ {noTruth:F2}s，"
                     + $"退回计数 {beforeFallback}→{AbilityAnimDurations.FallbackHits}）—— ⛔ 不是静默失败");
-
-                // 🆕 2026-10-22（`W64` · B17）：**把表头那两句文档钉住**（判据 = 全量件的
-                //   `uncovered` / `conditional`，数据现读 93 张）。
-                //   ① **3 张例外**（会发 Ability 事件、但卡 SO 的 `activeAbility` 一条非空 CardAnim 都没有）：
-                //      `SOR30` / `SOR65` / `SW9` —— 它们**必须不在表里**（在表里就说明生成器拿猜的值填了）。
+                // 🆕 2026-10-22（`W64` · B17）· 🔴 2026-11-02（`SAN-16`）：三张例外卡**必须不在表里**、且**时长 = 0**（判据 = 全量件的 `uncovered`：`SOR30` / `SOR65` / `SW9` 的 `activeAbility` 一条非空 CardAnim 都没有）
                 Check(!AbilityAnimDurations.Has("Celestian Sacresant")
                       && !AbilityAnimDurations.Has("Celestian Sacresant Aveline")
                       && !AbilityAnimDurations.Has("Fenrisian Wolf"),
                       "★ 三张判据为空的卡**都不在表里**（SOR30 / SOR65 / SW9 —— 原版这条路上不放动画）");
-                //   ② **`SW21` 存的是【普通那一支】0.4，不是替代能力那支 0.2**（同一张卡两种棋盘状态）。
-                //      🧨 改坏法：把 `conditional.alternative` 塞进表 ⇒ 0.4 那条红；两个值差 0.2，分得开。
+                float dS30 = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = "Celestian Sacresant" });
+                float dS65 = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = "Celestian Sacresant Aveline" });
+                float dSW9 = EventTiming.DurationOf(new BattleEvent { Kind = EvtKind.Ability, CardId = "Fenrisian Wolf" });
+                Check(Mathf.Abs(dS30) < 1e-4f && Mathf.Abs(dS65) < 1e-4f && Mathf.Abs(dSW9) < 1e-4f,
+                      $"★ 三张判据为空的卡（SOR30 {dS30:F2}s · SOR65 {dS65:F2}s · SW9 {dSW9:F2}s）**时长 = 0**"
+                    + " —— 原版这条路上不放任何动画 ⇒ 不占时间线（改回 1.0 ⇒ 本条与上一条同时红）");
+                //   ② **`SW21` 存的是【普通那一支】0.4，不是替代能力那支 0.2**（同一张卡两种棋盘状态；改坏 ⇒ 0.4 那条红）
                 var eAbSw21 = new BattleEvent { Kind = EvtKind.Ability, CardId = "Wulfen Pack Leader" };
                 float amSw21 = EventTiming.DurationOf(eAbSw21);
                 Check(Mathf.Abs(amSw21 - 0.4f) < 1e-4f,
@@ -45263,7 +45263,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46893,7 +46893,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); B116W23_Assert.Run(); pass += B116W23_Assert.Pass; fail += B116W23_Assert.Fail; B116W29_Assert.Run(); pass += B116W29_Assert.Pass; fail += B116W29_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -47801,7 +47801,7 @@ public static class BattleScene
         driver.skillPanel = skGo.AddComponent<SkillPanel>();
 
         // 特效钩子（特效库不在时只记日志，不影响流程）
-        int shot = 0;
+        int shot = 0; var drvHook = driver;   // 🆕 2026-11-02（`B116_W42` · S3-G1）：`out` 形参**不能被 lambda 捕获** ⇒ 先落一个局部（`S3VfxTrace` 的卡上下文靠它）
         _fired.Clear();
         CardEffects.Play = (name, pos, parent) =>
         {
@@ -47815,13 +47815,13 @@ public static class BattleScene
             //   （`CardEffects.Fire` → `WarpforgeEffectPlayer.Play(..., parent, localPosition, ...)`）
             //   ⇒ 记录与回放都必须先换算成**世界点**，否则既有那些「落点对不对」的断言会读到 0。
             //   顺带记下父节点的层（断言「这件真的活在竞技场/ HUD 空间」时要用）。
-            var world = parent != null ? parent.TransformPoint(pos) : pos;
+            var world = parent != null ? parent.TransformPoint(pos) : pos; var evNow = drvHook.CurrentVfxEvent; string evCard = evNow != null ? evNow.CardId : null; string evKind = evNow != null ? evNow.Kind.ToString() : null;   // 🆕 B116_W42（S3-G1）：这一拍属于哪张卡 / 哪个事件（`BattleDriver.CurrentVfxEvent` 的 doc 写明了它是「最近一条」）
             _fired.Add(new FiredFx
             {
                 name = name, pos = world,
-                parentLayer = parent != null ? parent.gameObject.layer : -1,
+                parentLayer = parent != null ? parent.gameObject.layer : -1, cardId = evCard, evt = evKind,
             });
-            var fx = WarpforgeVFX.WarpforgeEffectPlayer.Play(name, null, world, 1f, -1f);
+            var fx = WarpforgeVFX.WarpforgeEffectPlayer.Play(name, null, world, 1f, -1f); S3VfxTrace.Capture(name, world, parent != null ? parent.gameObject.layer : -1, evCard, evKind, drvHook.PresentationClock);   // 🆕 B116_W42（S3-G1）：默认关 ⇒ 本句第一行就 return、一个字节都不写
             shot++;
             Debug.Log(P + $"   [特效] {name} @ {world} → {(fx == null ? "**没播出来**" : fx.name)}"
                         + $"（活着的播放器 {WarpforgeVFX.WarpforgeEffectPlayer.ActiveCount} 个）");
@@ -47830,8 +47830,9 @@ public static class BattleScene
         return cam;
     }
 
-    /// <summary>一次「特效真的播了」的记录：名字 + 世界坐标 + 父节点的层（无父节点 = −1）。</summary>
-    struct FiredFx { public string name; public Vector3 pos; public int parentLayer; }
+    /// <summary>一次「特效真的播了」的记录：名字 + 世界坐标 + 父节点的层（无父节点 = −1）
+    /// + 🆕 2026-11-02（`B116_W42` · `S3-G1`）这一拍所属的**卡 / 事件**（`BattleDriver.CurrentVfxEvent`，口径见它）。</summary>
+    struct FiredFx { public string name; public Vector3 pos; public int parentLayer; public string cardId; public string evt; }
 
     /// <summary>自检期间 `CardEffects.Play` 收到过的特效（按顺序）</summary>
     static readonly List<FiredFx> _fired = new List<FiredFx>();
@@ -50975,5 +50976,224 @@ public static class B115W7_Assert
               $"★ ENG-23（灭自证 · 结构）：`ErrAbilityRejected`({RuleCodes.ErrAbilityRejected})"
             + $" ≠ `ErrUnimplemented`({RuleCodes.ErrUnimplemented}) —— 🧨 把 29 改回 13"
             + "（或让两档共用同一码）⇒ 上面那条仍绿、**本条红**");
+    }
+}
+
+// ============================================================================================
+//  🆕 2026-11-02（执行代理 `B116_W42` · `ID-01` S3 表现维 · 账 `S3-G1`）：**逐卡特效播放 trace（默认关闭）**
+// ============================================================================================
+//  **判据**：`资料/完全复刻/判据/B108_ID01_S3_表现维.md` §5.2 的 `S3-G1` —— 原话「在 `BattleScene` 的钩子里
+//    加 3 行：把 `(cardId/evt, name, world, parentLayer, _clock)` 追加到 `_tmp_view/s3_vfx_trace.tsv`；
+//    或复刻 `AnimTrace` 的写法做一个 `VfxTrace`（默认关）」。本类取**后者**（形状逐条照
+//    `Core/EventTiming.cs` 的 `AnimTrace`：环境变量开关 + `SetEnabledForTest` + 显式 `FileStream`）。
+//  **为什么需要**：同一份判据 §5.1 第 2 条 —— 「逐卡真实播放**没有落盘记录**」正是 S3 表现维判不下去的根因；
+//    原来 `_fired` 只在内存里、每次建场 `Clear()`（`BattleScene.cs` 的 hook）。
+//  **默认行为零改变**：开关关着时 `Capture` 第一句就 `return` —— **不建目录、不建文件、不写一个字节**，
+//    钩子其余部分（`_fired` / 真播放 / 日志）与改前逐字相同。开关 = ① 环境变量 `WF_S3_TRACE=1`
+//    （真机 / 批处理**起进程之前**设）· ② `SetEnabledForTest(...)`（只给自检）。
+//  **落盘**：`<工程根>/_tmp_view/s3_vfx_trace.tsv`（`_tmp_view` 不进 git）；首行列名；**边记边刷**。
+//  🔴 **覆盖边界（如实记，⛔ 别读成「全量」）**：
+//    ① 只覆盖走 `CardEffects.Play` 的那条路 —— `CardEffects.PlayInstance` 一旦接上
+//       （`WarpforgeEffectHook` 在 **Play 模式** `[RuntimeInitializeOnLoadMethod]` 装它），`FireOne` 就走那条、
+//       **不进本 trace**；本文件在 **Editor 程序集**、进不了 player ⇒ 今天是**批处理 / 自检宿主专用**仪器。
+//    ② `cardId` 那列 = 引擎 `BattleEvent.CardId`，**是英文卡名不是卡 id**（与 `AnimTrace` 同一个坑、同一口径）；
+//       `evt` = `EvtKind` 枚举名。两列都来自 `BattleDriver.CurrentVfxEvent`（= **最近一条**卡级事件，
+//       非卡级特效会带残留值）—— 它的 doc 写全了这个局限。
+//    ③ 记的是「**钩子被调**」那一刻，不记「播完」（批处理里没有帧循环，与 `_fired` 同一个口径）。
+// ============================================================================================
+public static class S3VfxTrace
+{
+    /// <summary>开关的环境变量名（`1` / `true`，不区分大小写；其它值 = 关）。</summary>
+    public const string EnvVar = "WF_S3_TRACE";
+    /// <summary>落盘文件名（在 `<工程根>/_tmp_view/` 下）。</summary>
+    public const string FileName = "s3_vfx_trace.tsv";
+
+    /// <summary>列名（顺序即 TSV 的列序）。🔴 改这里 ⇒ `B116W42_Assert` 的 G1 段会红（那是故意的）。</summary>
+    public static readonly string[] Columns =
+    {
+        "cardId", "evt", "fx", "t", "x", "y", "z", "parentLayer",
+    };
+
+    /// <summary>表头行（不含换行）。</summary>
+    public static string HeaderLine { get { return string.Join("\t", Columns); } }
+
+    static int _envCached = -1;          // -1 = 还没问过环境变量；0 = 关；1 = 开
+    static bool _testOverride;           // 自检强开/强关（⛔ 生产不设）
+    static bool _testValue;
+    static string _path;                 // 本会话正在写的文件（null = 还没写第一行）
+    static System.IO.FileStream _fs;
+    static System.IO.StreamWriter _writer;
+    static int _rows;                    // 已写的数据行（不含表头）
+    static bool _ioErrorReported;
+
+    /// <summary>环境变量是不是要求开 trace（每次**现读** —— 自检改环境变量之后能立刻看到）。</summary>
+    public static bool EnvWantsTrace()
+    {
+        try
+        {
+            string v = System.Environment.GetEnvironmentVariable(EnvVar);
+            if (string.IsNullOrEmpty(v)) return false;
+            v = v.Trim();
+            return v == "1" || string.Equals(v, "true", System.StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>现在开不开（自检强开关优先；否则读环境变量，结果缓存）。</summary>
+    public static bool Enabled
+    {
+        get
+        {
+            if (_testOverride) return _testValue;
+            if (_envCached < 0) _envCached = EnvWantsTrace() ? 1 : 0;
+            return _envCached == 1;
+        }
+    }
+
+    /// <summary>本会话正在写的文件（`null` = 关着 / 还没写第一行）。</summary>
+    public static string FilePath { get { return _path; } }
+
+    /// <summary>本会话已写的数据行数（不含表头）。</summary>
+    public static int Rows { get { return _rows; } }
+
+    /// <summary>`_tmp_view` 目录（= 工程根 `/Assets/../../..` 下的 `_tmp_view`）。
+    /// ⚠️ **只是算路径** —— 关着的时候不会把它建出来。</summary>
+    public static string DirPath
+    {
+        get
+        {
+            try
+            {
+                string data = Application.dataPath;
+                if (string.IsNullOrEmpty(data)) return null;
+                return System.IO.Path.GetFullPath(System.IO.Path.Combine(data, "..", "..", "..", "_tmp_view"));
+            }
+            catch { return null; }
+        }
+    }
+
+    /// <summary>默认落盘路径（`DirPath` + `FileName`）；算不出来 = `null`。</summary>
+    public static string DefaultPath
+    {
+        get
+        {
+            string d = DirPath;
+            return string.IsNullOrEmpty(d) ? null : System.IO.Path.Combine(d, FileName);
+        }
+    }
+
+    /// <summary>记一行（**开关关着 = 立即 return、零副作用、一个字节都不写**）。
+    /// <para>`fx` = 件名 · `world` = **世界点** · `parentLayer` = 父节点的层（无父 = −1）·
+    /// `cardId` / `evt` = `BattleDriver.CurrentVfxEvent` 那两位（口径见它）· `t` = 表现层时钟秒。</para></summary>
+    public static void Capture(string fx, Vector3 world, int parentLayer, string cardId, string evt, float t)
+    {
+        if (!Enabled) return;
+        try
+        {
+            var w = EnsureWriter();
+            if (w == null) return;
+            _rows++;
+            w.Write(Clean(cardId));
+            w.Write('\t'); w.Write(Clean(evt));
+            w.Write('\t'); w.Write(Clean(fx));
+            w.Write('\t'); w.Write(t.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+            w.Write('\t'); w.Write(world.x.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+            w.Write('\t'); w.Write(world.y.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+            w.Write('\t'); w.Write(world.z.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+            w.Write('\t'); w.Write(parentLayer.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            w.Write('\n');
+        }
+        catch (System.Exception e)
+        {
+            if (_ioErrorReported) return;
+            _ioErrorReported = true;
+            Debug.LogError($"[S3VfxTrace] 写 trace 失败（本会话不再重复出声）：{e.Message}｜文件 = `{_path}`");
+        }
+    }
+
+    /// <summary>把缓冲刷到盘上（`AutoFlush` 已经每行刷；这个是给收尾 / 断言用的显式口）。</summary>
+    public static void Flush()
+    {
+        try
+        {
+            if (_writer != null) _writer.Flush();
+            if (_fs != null) { try { _fs.Flush(true); } catch (System.Exception) { } }
+        }
+        catch { }
+    }
+
+    /// <summary>关掉当前文件（换文件 / 收尾 / 自检读回之前用）。
+    /// <para>⚠️ 关掉之后再 `Capture` ⇒ **同一路径续写**（`FileMode.Append`、不重写表头），不会把已经写好的行截掉。</para></summary>
+    public static void Close()
+    {
+        try { if (_writer != null) { _writer.Flush(); _writer.Dispose(); } } catch { }
+        _writer = null;
+        _fs = null;
+    }
+
+    static System.IO.StreamWriter EnsureWriter()
+    {
+        if (_writer != null) return _writer;
+        string path = _path;
+        if (string.IsNullOrEmpty(path))
+        {
+            string dir = DirPath;
+            if (string.IsNullOrEmpty(dir)) return null;
+            System.IO.Directory.CreateDirectory(dir);
+            path = System.IO.Path.Combine(dir, FileName);
+        }
+        else
+        {
+            string d = System.IO.Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(d)) System.IO.Directory.CreateDirectory(d);
+        }
+        _path = path;
+        // 形状照 `AnimTrace.EnsureWriter`：① `FileShare.ReadWrite`（读端永不被这个写句柄挡住）；
+        // ② 已经有行 ⇒ `Append` 且**不重写表头**，否则 `Create` + 写表头。
+        bool appendExisting = _rows > 0 && System.IO.File.Exists(path);
+        _fs = new System.IO.FileStream(path, appendExisting ? System.IO.FileMode.Append : System.IO.FileMode.Create,
+                                       System.IO.FileAccess.Write, System.IO.FileShare.ReadWrite);
+        _writer = new System.IO.StreamWriter(_fs, new System.Text.UTF8Encoding(false)) { AutoFlush = true };
+        if (!appendExisting)
+        {
+            _writer.Write(HeaderLine);
+            _writer.Write('\n');
+        }
+        return _writer;
+    }
+
+    /// <summary>字段清洗：tab / CR / LF 一律换成空格（否则一列会被撑成两列）。</summary>
+    static string Clean(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        if (s.IndexOf('\t') < 0 && s.IndexOf('\r') < 0 && s.IndexOf('\n') < 0) return s;
+        return s.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+    }
+
+    // ------------------------------------------------------------------
+    //  自检口（`Editor/B116W42_Assert.cs` 用；⛔ 生产别调）
+    // ------------------------------------------------------------------
+    /// <summary>自检专用：强开 / 强关。<paramref name="path"/> 非空 = 写到那个文件；
+    /// 空 = 走默认路径（`_tmp_view/s3_vfx_trace.tsv`）。</summary>
+    public static void SetEnabledForTest(bool on, string path = null)
+    {
+        Close();
+        _testOverride = true;
+        _testValue = on;
+        _path = on ? path : null;
+        _rows = 0;
+        _ioErrorReported = false;
+    }
+
+    /// <summary>自检专用：撤掉强开 / 强关，回到「看环境变量」那一档（同时让环境变量缓存失效）。</summary>
+    public static void ClearTestOverride()
+    {
+        Close();
+        _testOverride = false;
+        _testValue = false;
+        _envCached = -1;
+        _path = null;
+        _rows = 0;
+        _ioErrorReported = false;
     }
 }

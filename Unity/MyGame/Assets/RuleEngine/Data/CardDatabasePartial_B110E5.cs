@@ -21,7 +21,7 @@
 //     ⇒ 消费端 `EnchantmentHasAbilityForTrigger`（`EffectResolverPartial_B109E6.cs:160-183`）落 ③
 //     「按文本 op 兜底」那一档并**出声一次**（⛔ 不静默）。
 //   · `rows.Length == 0`（表里有这个键、值是 `[]`）⇒ 返回**空数组 = 明确没有 ability**
-//     （现读 85 张里有 2 张是这一档：`Hive Fleet Leviathan` / `Saviour Protocols`）。
+//     （现读 86 张里有 2 张是这一档：`Hive Fleet Leviathan` / `Saviour Protocols`；⚠️ 2026-11-02 `B116_W28` 并集闸订正 85→86）。
 //   · `trigger < 0`（坏值）⇒ **出声 + 丢弃该行**（⛔ 不猜 `0` = `ThisCardPlayed`）。
 //   · `triggerValue` 缺键 / 坏值 ⇒ `-1`（未知），⛔ 不当 `0`（`0` 是「明确 val 0」那一档）。
 //
@@ -89,7 +89,7 @@ namespace RuleEngine
         //  **为什么需要**：`LoadEnchantmentTemplates` 造模板 `CardDef` 时不经过 `Parse()` ⇒
         //    `AbilityTriggersVersioned` 恒 `false` ⇒ `CardDef.AbilityTriggerPresence(n)` 恒 `-1`
         //    ⇒ `EffectResolver.HasTriggerSource` 回落到 `HasAnimTrigger`（模板 `_animTimes` 空）
-        //    ⇒ **`EmitCardTrigger` 恒 null ⇒ 该模板的附魔趟在派发前就 `continue`**（现读 83/85 张）。
+        //    ⇒ **`EmitCardTrigger` 恒 null ⇒ 该模板的附魔趟在派发前就 `continue`**（当时口径 83/85 张；⚠️ 2026-11-02 `B116_W28` 并集闸后表为 86 张，分母已变）。
         //  原版判据：`RawCardScript.HasAbilityType` 遍历的就是**这张卡自己的** `cardAbilities(+0x290)`
         //    （`RawCardScript__HasAbilityType.c:16-38`）⇒ 模板**与其他卡同一条规则**，不是特例。
         //

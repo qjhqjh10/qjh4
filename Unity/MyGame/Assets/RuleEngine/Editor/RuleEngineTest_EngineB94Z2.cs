@@ -258,8 +258,14 @@ public static partial class RuleEngineTest
     /// <param name="context">这条 `Strike(580)` 的 `abilityContext`（10 = Hand / 0 = Play）。</param>
     /// <param name="contextRow">`false` = **不落 context 行**（= v14「缺行 = Play(0)」那一档；
     /// ⚠️ 前提是 `abilityContextsVersioned = true`，见 `AbilityContextOfAbilityV14` 的那两条前提）。</param>
+    /// <param name="abilityTargets">🆕 2026-11-02（`B116_W45`）：`abilityTargets` 列（逐 ability 的
+    /// `trigger` + `targetsAffected`）。`null` = **保持旧行为**（与 `triggers` 等长的**全 null 占位**，
+    /// 逐字同改前）⇒ 只是「占位 / 列已落但没有一条 trigger 命中」，⛔ 不是「有数据」。
+    /// ⚠️ 需要 `AbilitiesForTrigger(580)` 真返回行时，调用方必须显式喂
+    /// `new[]{ new CardDef.AbilityTargetSpec { Trigger = 580 } }`（`Trigger` 默认 `-1`，不喂就恒不命中）。</param>
     static CardDef B94Z2Fixture(string id, int context, int[] triggers, string[] keywords, string body,
-                                bool triggersVersioned = true, bool contextRow = true)
+                                bool triggersVersioned = true, bool contextRow = true,
+                                CardDef.AbilityTargetSpec[] abilityTargets = null)
     {
         var ctorCtx = new List<CardDef.AbilityContextSpec>();
         if (contextRow)
@@ -267,7 +273,7 @@ public static partial class RuleEngineTest
             {
                 Trigger = 580, Name = "Strike", Keyword = KeywordTable.Strike, Context = context,
             });
-        var ta = new CardDef.AbilityTargetSpec[triggers != null ? triggers.Length : 0];
+        var ta = abilityTargets ?? new CardDef.AbilityTargetSpec[triggers != null ? triggers.Length : 0];
         return new CardDef(id, id, "unit", body ?? "", "common", "Test", 1, 1, 1, 0,
                            keywords,
                            abilityContext: ctorCtx,

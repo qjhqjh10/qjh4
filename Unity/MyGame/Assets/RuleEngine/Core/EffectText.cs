@@ -2519,7 +2519,7 @@ namespace RuleEngine
         /// <para>🔴 **四道闸（缺一不可，全部是「不许开了面板却没人消费」）**：
         /// ① 数据齐：<see cref="CardDef.HasSpecificCardChoice"/>（180 + `maxTargets>0` + 候选非空）；
         /// ② 正文**没有** choose 子句（`choosecard`/`chooseone`/`chooseeffect`）——
-        ///    有就说明这一族已经由文本解析自己问了，再插一条 = **问两遍**；
+        ///    🔴 2026-11-02（`B116_W6`）：**`chooseone` 不再只是「挡」** —— 非随机的那条（卡面明写 `choose one:` / `Choose and …`）会把原版选项表**挂到它身上**（`ChooseSpecificIds`，任意 N 张、原序；见 `TryAttachChoiceTableToTextChoice`），其余 choose 子句照旧只挡；插新 op = 问两遍，⛔ 绝不做；
         /// ③ 这一族**真的会消费选中那张**：今天只有「**授予一份没写种类的 Dark Pact**」
         ///    （`Give a [Chaos] Dark Pact to a friendly troop` 那 6 张）接上了消费点
         ///    （`EffectResolver.GrantDarkPact` 读 `ctx.LastChosenCard`）。
@@ -2537,9 +2537,9 @@ namespace RuleEngine
         static void InjectChoicesDefinitionOp(List<EffectOp> ops, CardDef card)
         {
             if (ops == null || card == null || !card.HasSpecificCardChoice) return;
-            foreach (var op in ops)
-                if (op != null && (op.Verb == "choosecard" || op.Verb == "chooseone" || op.Verb == "chooseeffect"))
-                    return;
+            if (TryAttachChoiceTableToTextChoice(ops, card)) return;   // 文本层已经问过（非随机 `chooseone`）⇒ 挂原版选项表；`choosecard`/`chooseeffect`/随机 `chooseone` ⇒ 只挡不挂
+            // ⚠️ 上面这一行取代了原来的 3 行 `foreach`（`choosecard|chooseone|chooseeffect ⇒ return`）——
+            //    判据搬进 `TryAttachChoiceTableToTextChoice`，⛔ 别在这儿再写一份「有没有 choose 子句」。
             if (!HasUnspecifiedDarkPactGrant(ops)) return;
             ops.Insert(0, new EffectOp
             {
@@ -10902,6 +10902,46 @@ namespace RuleEngine
             string f = SubtypeFilterOfKindNoun(t, out bool sawKindWord);
             if (f != null) spec.SubtypeFilter = f;
             else if (sawKindWord) spec.KindUnfilterable = true;
+        }
+
+        // ======================================================================================
+        //  🆕 2026-11-02（`B116_W6` · `ENG-12` / `ENG-18`）—— 「特定卡选项表」**任意 N 张**通用化
+        // ======================================================================================
+        //  判据（🥇 第一权威，现读 → `资料/完全复刻/判据/B116_对账_G2_引擎执行.md` §ENG-12/§ENG-18）：
+        //   · `BattleManager__GetChoiceFullPool.c:36-55`：`ta == 180` 且 `filterSpecificCards` **非空**
+        //     ⇒ 候选池**就是那张表**（再 `uniqueId != null` + 排序）；**为空**才回落
+        //     `cardsTargetedInChosenResolution`（`BattleManager.cs:14291`）。
+        //   · 表长**任意**（现读池内 180 档 56 张：2 张 11 卡 · 3 张 13 · 4 张 11 · 5 张 1 · 6 张 4 · 0 张 16）
+        //     —— `maxTargets` **只决定面板摆几张**（`GetChoiceOptions.c:40-45` 夹到候选张数），**不筛池**。
+        //  ⇒ 原版两条机制**别混**：① 卡面明写 `choose one:`（含 `Choose and …`）= `choicesDefinition`
+        //     → 候选是**选项卡 SO**；② 没有 `choose` 字样的 `X or Y` = 同一 ability 多条 logic + 随机挑一行
+        //     （`RawCardScript__ResolveAbilities.c:16-30`；我们 = `EmitEitherOr` 那条 `RandomPick = true`）。
+        //  本方法只处理 ①：文本层**已经问过玩家**了 ⇒ 把原版选项 id 表**挂到那条 op 上**（原序、不限张数），
+        //  结算层（`EffectResolver.TryRunStructuredOptionOrText`）再决定「选项 SO 在池里 ⇒ 跑它的 ThisCardPlayed；
+        //  不在 ⇒ 按卡面文本结算」。⇒ ⛔ **不插第二条 op**（插了 = 问两遍，见 `InjectChoicesDefinitionOp` 的 ②）。
+        //  ⚠️ 张数对不上（`op.Amount != filterSpecificCards.Count`）时**不挂** —— 下标会错位；`EffectText` 是纯解析层
+        //     （没有 `ctx`、发不了日志）⇒ 这一档的可见性是「结算层按文本走」，与改前逐字相同。
+        /// <summary>`ops` 里若已有**非随机**的 `chooseone`（= 卡面明写 `choose one:` / `Choose and …`），
+        /// 把 `card.ChoicesSpecificCardIds`（原版 `filterSpecificCards`，**任意 N 张、原序**）挂到它身上。
+        /// <returns>`true` = `ops` 里已经有 choose 子句 ⇒ 调用方**不许**再插一条新 op（问两遍）。</returns></summary>
+        static bool TryAttachChoiceTableToTextChoice(List<EffectOp> ops, CardDef card)
+        {
+            if (ops == null || card == null) return false;
+            bool hasChoose = false;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null) continue;
+                if (op.Verb != "choosecard" && op.Verb != "chooseone" && op.Verb != "chooseeffect") continue;
+                hasChoose = true;
+                if (op.Verb != "chooseone" || op.RandomPick) continue;    // 机制 ② / 别的 choose 子句 ⇒ 只挡不挂
+                if (op.ChooseSpecificIds != null) continue;               // 已挂过（同一张卡两次 Parse 调用）
+                var ids = card.ChoicesSpecificCardIds;
+                if (ids == null || ids.Count == 0) continue;
+                if (op.Amount != ids.Count) continue;                     // 文本选项数 ≠ 原版选项表长 ⇒ 不挂（下标错位）
+                op.ChooseSpecificIds = new List<string>(ids);
+            }
+            return hasChoose;
         }
     }
 

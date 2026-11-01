@@ -174,7 +174,7 @@ namespace RuleEngine
         /// <para>我们的等价物 = `AbilityTargets` 里 `Trigger == 该值` 的那些行（**下标 = `cardAbilities` 下标**）。
         /// 🔴 与 <see cref="UniqueAbilityIndexForTrigger(string, out string)"/> 的分工：
         /// 那条是「**唯一**下标」口（不唯一 ⇒ 返回 -1 + 出声），本方法是原版的**列表**形状
-        /// （原版压根不要求唯一）。两者扫的是**同一列** `AbilityTargets`，⛔ 别再造第三处扫描。</para>
+        /// （原版压根不要求唯一）。两者扫的是**同一列** `AbilityTargets`，⛔ 别再造第三处扫描。🔴 2026-11-02（`B116_W19` · `ENG-07` `jam` R4）：本口等价于原版 `GetAbilitiesForTrigger.c:28-46` 的**非 jam 那一支**（`HasCurrentTrait(0x82 jam)` 为假时才按 trigger 过滤自己的 `cardAbilities(+0x290)`）；**jam 那一支（`:47-88` 只留附魔）不在本层做** —— 本层是纯 `CardDef`、拿不到实例。等价位在调用方 `Core/EffectResolver.cs` 的 `TriggerAbilitiesPassGates` ①（`EffectResolver.cs:18595`，jam ⇒ 把 `ops/spec/skipDraw` 清空、附魔那趟照跑）。⚠️ 现读 `AbilitiesForTrigger` 的**生产调用点 = 0**（只有 `RuleEngineTest_EngineB94B16.cs` 与注释引用）⇒ 这条闸今天无可观测差异，属「原版有、我们按 18·0 照补」。</para>
         ///
         /// <para>三态（⛔ 别合并）：`null` = **判不了**（`abilityTargets` 列没落 / 旧表 / 名字认不出）·
         /// 空表 = **明确没有**这一 trigger 的 ability · 非空 = 命中列表（按 `cardAbilities` 下标原序）。</para></summary>

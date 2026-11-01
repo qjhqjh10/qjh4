@@ -138,8 +138,8 @@ namespace CardPresentation
             //      这里要答的是「顶窗**是不是**我头上这一扇」⇒ 只有对象身份算数（见 `HostWindow` 的 doc）。
             //   ⚠️ 写在 `Build` **之前**：`Build` 之后本窗已经能收输入，那一小段窗口期里闸必须已经是对的。
             _runtime.HostWindow = this;
-            // ⚠️ `Build` 的实参现读签名 = `Build(DeckLibrary lib)`（`Deck/DeckRuntime.cs`），
-            //    与 `Editor/DeckScene.cs` 那条 Play 入口冒烟测试**同一种喂法**（传当前库）。
+            // ⚠️ `Build` 的实参现读签名 = `Build(DeckLibrary lib)`（`Deck/DeckRuntime.cs`）；但**本窗是托管腿**
+            //    （上一句刚把 `HostWindow` 登记上）⇒ `Build` 内部改用**进程级那份库** `DeckRuntime.SharedLibrary`（`B-339`：库跨窗存活），这份临时 `Load()` 只当兜底。
             _runtime.Build(DeckLibrary.Load());
         }
 
@@ -154,10 +154,10 @@ namespace CardPresentation
         /// ⛔ **别绕开它直调 `SaveAndSay`**（那是 private，而且会跳过前三级的让位口径）。</para>
         ///
         /// <para>🔴 **返回值是我们加的**（原版 `void`；见基类 `ESCPressed` 的 doc：语义 = 「有没有真的
-        /// **关掉**一扇窗」）—— 本窗按 ESC **只存不关** ⇒ **`false`**。
-        /// ⛔ **别改成 `true`**：`Shell/PointerLayer.cs` 的 `KeyCancel` 是
-        /// `bool closed = w.ESCPressed(); if (closed) Select(null);` ⇒ 返 `true` 会多跑一句
-        /// `Select(null)`、把编辑窗里的选中态抹掉，而**原版没有那一步**（原版这一跳是 `void`）。</para></summary>
+        /// **关掉**一扇窗」）—— 本窗**恒返 `false`**：`B-334` 起「保存成功」这一跳自己会关窗
+        /// （`SaveAndSay` 成功支 → `BackToMenu`）、`B-339` 起**失败支也关窗**，但那条关窗**不靠**这个返回值。
+        /// ⛔ **别因为「窗已经关了」就改成 `true`**：`Shell/PointerLayer.cs` 的 `KeyCancel` 是
+        /// `bool closed = w.ESCPressed(); if (closed) Select(null);` ⇒ 返 `true` 会多跑 `Select(null)`、把编辑窗里的选中态抹掉（原版这一跳是 `void`，没有那一步）。</para></summary>
         public override bool ESCPressed()
         {
             if (_runtime == null)
@@ -169,7 +169,7 @@ namespace CardPresentation
                 return false;
             }
             _runtime.EscPressed();
-            return false;   // 只存不关 ⇒ 没有关掉任何一扇窗（判据见上面的 doc）
+            return false;   // 🔴 恒 `false`（判据见上面的 doc）：保存链**自己**会关窗（成功 `B-334` / 失败 `B-339`），⛔ 别在这里再返 `true`（那会多跑 `PointerLayer` 的 `Select(null)`）
         }
 
         /// <summary>🔴 **2026-10-17（界面线 `T12`）：关窗时把左竖导航放回来。**

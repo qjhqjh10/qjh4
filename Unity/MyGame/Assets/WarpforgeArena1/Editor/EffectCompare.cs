@@ -61,6 +61,15 @@ public static class EffectCompare
         //    **跑完已清空。**
     };
 
+    /// <summary>🔬 `WFCMP_ONLY` —— **只渲命中的那一批**（逗号分隔的卡 id / 件名白名单，子串匹配、大小写不敏感）。
+    /// 语义：命中 **任一** token 的导出预制才渲（对 prefab 文件名做子串匹配；件名/卡 id 都在此列）。
+    /// **不设（空）= 全量，行为与今天逐字节相同 —— ⛔ 别改成默认只渲一部分。**
+    /// 用途：只想复验某几张卡 / 某一批效果时省时（照 `WFCMP_SIMT` / `WFCMP_ISO` 的先例，运行期从环境变量给）。</summary>
+    static readonly string[] OnlyFilter =
+        (System.Environment.GetEnvironmentVariable("WFCMP_ONLY") ?? "")
+            .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+
     public static void Run()
     {
         Debug.Log("=== 特效比对渲染 开始 ===");
@@ -86,8 +95,13 @@ public static class EffectCompare
         if (NameFilter.Length > 0)
             exports = exports.Where(p => NameFilter.Any(k =>
                 Path.GetFileNameWithoutExtension(p).IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+        // `WFCMP_ONLY`：不设 = 全量（此块整段不生效，输出与今天逐字节相同）；设了才按白名单再筛一层。
+        if (OnlyFilter.Length > 0)
+            exports = exports.Where(p => OnlyFilter.Any(k =>
+                Path.GetFileNameWithoutExtension(p).IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
         Debug.Log($"原版效果 {originals.Count} 个，导出预制 {exports.Count} 个" +
-                  (NameFilter.Length > 0 ? $"（已按 {string.Join("/", NameFilter)} 过滤）" : ""));
+                  (NameFilter.Length > 0 ? $"（已按 {string.Join("/", NameFilter)} 过滤）" : "") +
+                  (OnlyFilter.Length > 0 ? $"（WFCMP_ONLY 过滤：{string.Join(",", OnlyFilter)}）" : ""));
 
         // ---- 第一趟：**只碰原版**。渲 `__orig` + 记取景 ----
         // 🔴 **顺序不能反**：`wf_shaders_extra.bundle` 的内容是从 `battleprefabs*` 抽出来的，

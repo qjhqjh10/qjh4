@@ -5523,13 +5523,13 @@ namespace CardPresentation
             MulliganSeenByBeginForTest = mulliganEnabled ? 2 : 1;   // 自检口（见那个属性的 doc）
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: shuffle, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat,
-                                     tutorial: tutorial, botSeat: botSeatThisGame);   // A1070：单机（无联机层）⇒ 座位 1 是电脑
+                                     tutorial: tutorial, botSeat: botSeatThisGame, matchType: RuleEngine.MatchTypes.For(ResolvePlayMode(playMode)));   // A1070：单机（无联机层）⇒ 座位 1 是电脑｜🆕 2026-11-02（`B116_W37` · `B-335` D2）：**补上 `matchType` 显式实参**（`RuleCore.cs:148` 的文档明写「入口窗必须显式传」）—— 值 = 本局模式号的 `MatchType`，与下面 `Ctx.PlayMode` **同一个来源**（`ResolvePlayMode`，唯一出处）；不传的话 `NewBattle` 只能退回 `tutorial != null ? Tutorial : Undefined` ⇒ 将来「不洗牌」档（`TutorialReplay 140` 之类）会静默照洗。今天净影响 0（`ShouldShuffleDeck` 只对 100/140 返假，而这两档要么由 `tutorial` 兜住、要么产品侧走不到）
             // 🔴 **2026-10-15（A383）**：**本局真正的模式号落位**。
             //   ⚠️ 只能落在这里、**不能**塞进 `RuleCore.NewBattle` 的语义里 —— 那一层收的是
             //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
             //   没显式给 ⇒ 退回「这副牌自己带的模式」：与 `_vars` **同一条判据**（§2.7），
             //   所以「自检直接调 `Begin`」与「老调用点没传」这两条路**与今天逐字一致**。
-            Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic); NotifyGameModesMatchStarted(); _foeDisplayName = null;   // 🆕 2026-10-31（`B108_A2` · AUD08）：每局清掉上一局的离线 bot 名（**懒生成**，见类尾 `FoeDisplayName()`；⛔ 不在这里摇 —— 本局是联机时 `_net` 此刻还没 `Attach`，在这摇会白摇）｜🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退
+            Ctx.PlayMode = ResolvePlayMode(playMode); NotifyGameModesMatchStarted(); _foeDisplayName = null;   // 🆕 2026-10-31（`B108_A2` · AUD08）：每局清掉上一局的离线 bot 名（**懒生成**，见类尾 `FoeDisplayName()`；⛔ 不在这里摇 —— 本局是联机时 `_net` 此刻还没 `Attach`，在这摇会白摇）｜🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退
             _playMode = Ctx.PlayMode; InstallMissionChallengeMatchGates();   // 🆕 2026-10-29（B98_H4 · `报告/B98_A11.md` §4·3）：把 `MissionChallenge` 的三个模式闸装上（原来生产代码**一个都没装** ⇒ `ValidateMatchConditions()` 恒真）。同一物理行追加 ⇒ 零行数漂移；摘在 `OnDestroy` 的 `DetachStaticHooks()` 那一行
             // 🔴 **2026-10-24（执行代理 `W9`）**：**回放逐动作全量指纹的那一格「开局」** ——
             //   录制端（`RecBegin` → `ReplayFingerprintTrace.RecordStart`）与回放端
@@ -7683,7 +7683,7 @@ namespace CardPresentation
             if (src == null) return;                     // 没有 hudRoot（纯引擎自检）⇒ 没有播放面
             src.PlayOneShot(clip, AudioListener.volume);
             UnitVoiceAudioOnlyCountForTest++;
-            LastUnitVoiceAudioOnlyForTest = (card != null ? card.Id : "?") + "|" + evt;
+            NoteUnitVoiceAudioOnly(card, evt);   // 🆕 2026-11-02（`B116_W42` · S3-G3）：旧单值读口 + 有序日志 + 按卡字典**同一处**更新
         }
 
         /// <summary>投降时说一句（原版 `concede` 那一族台词；只有督军有）。
@@ -13411,7 +13411,7 @@ namespace CardPresentation
         /// 所以这条改动**只影响 x、且只在非 16:9 下生效**；16:9 下两者差 ≤ 2.5e-4 px。
         /// 🔴 **用户 2026-10-15 的口径**：「原版……**不会被窗口宽高比影响**，因为可以在窗口模式下
         /// 调整窗口大小游玩」⇒ 「换窗口就点不到」**本身就是与原版不符**，不是「先量一下用户宽高比」的小问题。
-        /// ⚠️ 更上游的架构账见 `A2098`（原版那层是 uGUI + `CanvasScaler`，**根本没有像素常量这一层**）。
+        /// ⚠️ 更上游的架构事实：原版那层是 uGUI + `CanvasScaler`、**根本没有像素常量这一层**；现状与下一步现读 `资料/任务线/战斗线/任务/T09_整层换uGUI.md`，⛔ 别拿账名当答案。
         /// </summary>
         public static bool HitMyDeckPile(Vector3 world)
         {
@@ -26903,7 +26903,7 @@ namespace CardPresentation
                 //   · ⚠️ **排在 `SetCanAct` 之后、`SetQueue` 之前**：`SetQueue` 要落在这一格所有动作
                 //     的最后（它扫整棵子树盖章，见它上面那段注释）；本方法**不新建任何子物体**
                 //     （只开关已有层 + 换贴图），所以放它前面不破坏那条纪律。
-                v.SetAmbush(u.FaceDown, hideStats: u.FaceDown && !mine); NoteAmbushObserved(owner, s, u);   // 【B92_B3c 2026-10-28】事件式翻「法力藏不藏」那个 bool（判据见类尾 `NoteAmbushObserved`）
+                v.SetAmbush(u.FaceDown, hideStats: u.FaceDown && !mine); NoteAmbushObserved(owner, s, u); ApplyMassiveMirror(v, u.Card, mine);   // 【B92_B3c 2026-10-28】事件式翻「法力藏不藏」那个 bool（判据见类尾 `NoteAmbushObserved`）｜🆕 2026-11-02（`B116_W23` · 账 `ENG-07`）：`massive` 的**敌方**卡把立绘层水平镜像（原版 `CardScript.CardSetup` 一次；判据见 `CardView.SetArtMirrorX` 上方那一段）。⚠️ 同一物理行追加 ⇒ 行数零变化；读的是**卡模板**的关键词（= 原版 `ShowDefaultTrait`），⛔ 不是运行时 trait（jam 摘掉后原版也不还原）
 
                 // 🆕 2026-10-12（`A1672`）：**这一格上的卡占一段渲染队列**。
                 //   号源 = `BoardLayout.QueueOf(格号)`（⛔ 别在这儿另算一套号），机制 = `CardView.SetQueue`
@@ -28546,7 +28546,7 @@ namespace CardPresentation
         {
             var list = new List<string>();
             foreach (var kv in u.Card.Keywords)
-                if (!KeywordTable.Implemented.Contains(kv.Key))
+                if (!KeywordTable.Implemented.Contains(kv.Key) && !IsPresentationOnlyKeyword(kv.Key))
                     list.Add(CardText.Keyword(kv.Key) + "*");
             return list;
         }
@@ -28555,7 +28555,7 @@ namespace CardPresentation
         {
             var list = new List<string>();
             foreach (var kv in c.Keywords)
-                if (!KeywordTable.Implemented.Contains(kv.Key))
+                if (!KeywordTable.Implemented.Contains(kv.Key) && !IsPresentationOnlyKeyword(kv.Key))
                     list.Add(CardText.Keyword(kv.Key) + "*");
             // 战术卡的**效果文字**能不能结算，和「关键词实现了没有」是两件事：
             // 关键词全实现了，效果照样可能解析不出来（原版卡面是英文自然语言）。
@@ -31793,7 +31793,7 @@ namespace CardPresentation
             //   原因见 `LayoutSpace.VisibleHeight` 的 doc：我们全线用的是**一个全局拉伸映射**
             //   （等价于假设所有元素都是 stretch 锚点），画布一变高，**同一个映射不可能同时是两个轴的逆**
             //   ⇒ 实测 `FromPixel(1234.5, 678.25)` 往返回来 y 变成 724.33。
-            //   ⇒ 正确的修法是 `A2098`（换 uGUI 锚点体系），⛔ 不是在这里补一行。
+            //   ⇒ 架构事实：原版那层是 uGUI + `CanvasScaler`、**根本没有像素常量这一层**；正确的修法是换 uGUI 锚点体系（现状与下一步现读 `资料/任务线/战斗线/任务/T09_整层换uGUI.md`），⛔ 不是在这里补一行。
             //
             // 🔴 **2026-10-16（`T09` §五 第 5 步 · 字族迁 uGUI）：原来这里还有【HUD 标签那一整轮】重贴
             //    （`t.localPosition = LayoutSpace.ToWorld(spot)` + `t.localScale = HudTextScale`）—— 已删。**
@@ -39963,14 +39963,14 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>清掉两条「跨场景开战」静态通道（教程关号 + 模式号）。
+        /// <summary>清掉**三条**「跨场景开战」静态通道（教程关号 + 模式号 + 预组卡组）。🔶 自己设计（非原版）：**第三条（预组卡组）是我们补的健壮性** · 原版此处**没有清理闸**（原版 `MatchData` 每局新建，不存在「静态通道跨局残留」这回事；我们跨场景只能用静态字段）· 调度台 2026-11-02 裁定（`B-335` D4）：不让「教学 / 联机 / 切场景失败」那几支把上一场入口窗挑的预组牌带进下一局（`PrebuiltDecks.TakePendingBattleDeck` 的消费者只有 `BeginFromDeckLibrary` 的普通那一支，`:4562`）。
         /// <para>⚠️ 只在**开战没有真的发生**时调（场景载不入 / 入口窗放弃开战）：否则下一局普通对战
         /// 会把残留的 `Tutorial(4)` 当成本局模式号（`Ctx.PlayMode` ⇒ 骷髅档 / 里程碑 /
         /// `InstallMissionChallengeMatchGates` 全跟着错）。通道口径 = 「读一次就清」⇒ **没人读就没人清**。</para></summary>
         public static void ClearPendingBattleChannels()
         {
             _pendingTutorialStage = -1;
-            _pendingPlayMode = null;
+            _pendingPlayMode = null; PrebuiltDecks.ClearPendingBattleDeck();   // 🔶 自己设计（见方法 doc 的第三条）
         }
 
         // ==================================================================
@@ -40202,6 +40202,186 @@ namespace CardPresentation
             _lastOathGateNotice = $"（选牌面板：「{card.Name}」这次{why} ⇒ 不问「付不付誓约」，按平版只结算基础效果）";
             Debug.LogWarning("[Battle] 誓约二选一：" + _lastOathGateNotice);
         }
+
+        // ==================================================================
+        //  🔴 2026-11-02（执行代理 `B116_W23` · 账 `ENG-07`）：`massive` 的**水平镜像**
+        //
+        //  判据（一手）：`d:/2/tools/decomp_full/CardScript__CardSetup.c:198-210`
+        //    `ShowDefaultTrait(rawCardData, 0x24e)` ∧ `!isPlayer` ⇒
+        //    `cardImage.transform.localScale = (-1, 1, 1)`（倍率字面量现读 = `-1`）。
+        //    ⇒ **是水平镜像，不是放大**。逐句出处与「为什么只镜像立绘层、不动 3D 体」→
+        //      `CardView.SetArtMirrorX` 上方那一段注释（本类不重复写第二份判据）。
+        //
+        //  ⚠️ **读的是【卡模板】的关键词**（`CardDef.Keywords`）= 原版 `ShowDefaultTrait`
+        //     （「默认 trait」= 卡自带的，不是运行时加成）—— ⛔ 别改成 `UnitState.Has(...)`：
+        //     那本字典会被 jam 等路径摘掉，而原版只在 `CardSetup` 那一次读模板 ⇒ 摘掉后**不还原**。
+        //     也正因为读的是模板（每张卡恒定），每次 `SyncBoard` 重算一遍与「只算一次」等价。
+        //  ⚠️ 本文件有**两个**顶层类（`BattleDriver` 与文件后半的 `ChoicePanelPool`）——
+        //     🔴 新成员必须落在 `BattleDriver` 这一层的末尾（`NoticeOathGateBlocked` 之后），
+        //     ⛔ 别顺手追加到文件最末（那是 `ChoicePanelPool` 的类体，2026-11-02 本代理踩过一次）。
+        // ==================================================================
+
+        /// <summary>`massive` 的规范名（`CardDef.Prefixes` 里登记的就是这个字面量）。
+        /// 判据 → `CardDef.cs` 的 `new[] { "massive", "massive" }` 那一行。</summary>
+        public const string MassiveKeyword = "massive";
+
+        /// <summary>把 `card` 的 `massive` 条件落到视图上：**敌方**（`mine == false`）且带 `massive`
+        /// ⇒ 立绘层水平镜像；其余一律 `+1`（含我方带 `massive`、敌方不带）。
+        /// <para>返回是否真的镜像了 —— 自检断言用（`B116W23_Assert`）。</para>
+        /// <para>🆕 2026-11-02（`B116_W23` · `ENG-07`）：判据见上面那一段与
+        /// `CardView.SetArtMirrorX` 的注释。⛔ 本方法**只**动立绘层缩放，不改 `IsPlayer` 语义、
+        /// 不改任何别的层（卡框 / 数值 / 徽标 / 3D 体）。</para></summary>
+        public static bool ApplyMassiveMirror(CardView v, CardDef card, bool mine)
+        {
+            bool massive = card != null && card.Keywords != null && card.Keywords.ContainsKey(MassiveKeyword);
+            bool mirror = massive && !mine;
+            if (v != null) v.SetArtMirrorX(mirror);
+            return mirror;
+        }
+
+        // ==================================================================
+        //  🔶 2026-11-02（执行代理 `B116_W29` · 账 `B-331`）：**「表现层关键词」白名单**
+        //
+        //  🔶 自己设计（非原版）：**原版没有「星」这个概念**（卡面那个 `*` 是我们自己的装置，
+        //     见 `UnimplementedNotes` 上方那段），所以「哪些词不该打星」也只能由我们自己定。
+        //     · 为什么必须自己定：`massive` 已经复刻（敌方立绘水平镜像，见 `ApplyMassiveMirror`），
+        //       但它是**表现层**，**不能进** `KeywordTable.Implemented` —— 那栏的语义是「引擎会结算」，
+        //       而且进了会让徽标那一路多显示一枚原版没有的徽标（`trait_collection.json` 里没有 massive）。
+        //     · 于是需要一个中间档：**打星时排除、上徽标时不加**。这就是本表。
+        //     · 谁定的：调度台 2026-11-02（账 `B-331`）。
+        //
+        //  ⚠️ 这是**白名单**，⛔ 别当「已实现表」用 —— `Implemented` 仍是唯一的「引擎会结算」判据；
+        //     本表只是让卡面那枚 `*` 别对**已经做好的表现层词**说谎。池内今天 **0 张**带 `massive`。
+        // ==================================================================
+
+        /// <summary>🔶 自己设计（非原版）：**表现层关键词**（已复刻、但不参与引擎结算、也不上场上徽标）。
+        /// <para>当前只有 `massive`（敌方立绘水平镜像，见 <see cref="ApplyMassiveMirror"/>）。</para>
+        /// <para>用途只有一处：卡面打星时排除（<see cref="UnimplementedNotes(UnitState)"/> /
+        /// <see cref="UnimplementedNotes(CardDef)"/>）。⛔ 不拿它给徽标开口 —— 徽标看的是
+        /// `Badges.For` + `trait_collection.json` 那 47 条（`massive` 本就不在里面，加了也不会画）。</para>
+        /// <para>读口：<see cref="IsPresentationOnlyKeyword"/> / <see cref="PresentationOnlyKeywordsForTest"/>。</para></summary>
+        static readonly HashSet<string> PresentationOnlyKeywords = new HashSet<string>(System.StringComparer.Ordinal)
+        {
+            MassiveKeyword,
+        };
+
+        /// <summary>🔶 自己设计（非原版）：这个词是不是「表现层关键词」（见 <see cref="PresentationOnlyKeywords"/>）。
+        /// <para>输入按关键词表的同一口径归一化（去空白 + 小写），与 <see cref="KeywordTable.Implemented"/>
+        /// 里存的那种规范名一致；`null` / 空串 ⇒ `false`。</para>
+        /// <para>只读口 —— 卡面打星两处与自检 `B116W29_Assert` 共用，⛔ 别在调用点各写一份名单。</para></summary>
+        public static bool IsPresentationOnlyKeyword(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            return PresentationOnlyKeywords.Contains(keyword.Trim().ToLowerInvariant());
+        }
+
+        /// <summary>🔶 自己设计（非原版）：白名单的**只读快照**（已排序）—— 供自检断言用
+        /// （「今天只含 `massive`」这条要能读到全表，⛔ 别让断言只反问单个词）。</summary>
+        public static string[] PresentationOnlyKeywordsForTest
+        {
+            get
+            {
+                var a = new string[PresentationOnlyKeywords.Count];
+                PresentationOnlyKeywords.CopyTo(a);
+                System.Array.Sort(a, System.StringComparer.Ordinal);
+                return a;
+            }
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-02（执行代理 `B116_W37` · `B-335` / `B-341`）：两件「装仪器 / 补显式实参」的小活。
+        //  两条成员都**追加在类尾**（本仓账按 `文件:行号` 引用；类尾之后没有账落点 ⇒ 零漂移）。
+        // ==================================================================
+
+        /// <summary>本局模式号（`Begin` 用）：**入口窗给的优先；没给 ⇒ 按本局参数推**（`_vars.IsSkirmish`）。
+        /// <para>**只此一处** —— `Begin` 把它同时交给 ① `Ctx.PlayMode`（`BattleContext.PlayMode`，下游的
+        /// 骷髅档 / 里程碑 / `InstallMissionChallengeMatchGates` 读它）和 ② `RuleCore.NewBattle(matchType:)`
+        /// （经 `RuleEngine.MatchTypes.For`）。为什么非得由入口传：`NewBattle` 里的两条洗牌闸
+        /// （`MatchData.ShouldShuffleDeck` / `SetBotOpponentDeck` 的内联 `!(matchType∈{100,140})`）**只看 `matchType`**，
+        /// 而那时 `Ctx.PlayMode` 还没落位（`NewBattle` 之后才赋值）⇒ 不显式传就只能退回
+        /// 「`tutorial != null ? Tutorial : Undefined`」。⛔ **别在调用点再写一份三元式**（两处写同一条规则迟早不一致）。
+        /// 判据 → `RuleEngine/Core/RuleCore.cs:148`（`matchType` 形参的 doc）· `TutorialScript.cs:1494`（`ShouldShuffleDeck`）。</para></summary>
+        GameMode ResolvePlayMode(GameMode? playMode)
+        {
+            return playMode ?? (_vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic);
+        }
+
+        /// <summary>自检口：<see cref="AbilityTargetView"/> 的只读入口。
+        /// <para>为什么要有它：那个方法是 `private`，Editor 程序集看不见 ⇒ `SAN-04` 的「手牌回落」
+        /// （`Slot = -1` ⇒ 按 `InstanceId` 认手牌）今天**写不出断言**。补法是 `报告/B115_W21` §4 给的三行。
+        /// ⚠️ 本件**只装仪器、不写断言**（断言另立一笔）；⛔ 别在别处再包一层（判据只一处）。</para></summary>
+        public CardView AbilityTargetViewForTest(int player, int slot, int instanceId)
+        {
+            return AbilityTargetView(player, slot, instanceId);
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-02（执行代理 `B116_W42` · `ID-01` S3 表现维）：
+        //    ① `S3-G3` 逐卡语音记录（判据 → `判据/B108_ID01_S3_表现维.md` §5.2）；
+        //    ② `S3-G1` 特效 trace 的「这一拍是哪张卡 / 哪个事件」读口（写入器在 `Editor/BattleScene.cs` 的 `S3VfxTrace`）。
+        //  成员**一律追加在类尾**（本仓账按 `文件:行号` 引用；类尾之后没有账落点 ⇒ 零漂移）。
+        // ==================================================================
+
+        /// <summary>`S3-G3`：纯音频那一路的**有序**日志（每播一次加一格，元素 = `<卡 id>|<事件>`）。
+        /// <para>为什么要有：原来只有一个 <see cref="LastUnitVoiceAudioOnlyForTest"/> 单值读口
+        /// ⇒ 「两张卡各响一次」只能验到**最后一次**（判据 §5.2 的 `S3-G3` 原话）。
+        /// 三份记录（旧单值 / 本日志 / <see cref="_unitVoiceAudioByCard"/>）**只由
+        /// <see cref="NoteUnitVoiceAudioOnly"/> 一处写** ⇒ 口径永远一致（⛔ 别在调用点各写一份）。</para></summary>
+        readonly List<string> _unitVoiceAudioLog = new List<string>();
+        /// <summary>`S3-G3`：按卡 id 的**最后一次**记录（值 = `<卡 id>|<事件>`）。</summary>
+        readonly Dictionary<string, string> _unitVoiceAudioByCard =
+            new Dictionary<string, string>(System.StringComparer.Ordinal);
+
+        /// <summary>`S3-G3` 的**唯一写入口**：`PlayUnitVoiceClipOnly` 每播一次走一次。</summary>
+        void NoteUnitVoiceAudioOnly(CardDef card, string evt)
+        {
+            string rec = (card != null ? card.Id : "?") + "|" + evt;
+            LastUnitVoiceAudioOnlyForTest = rec;                 // 兼容旧读口 = 「最后一条」（⛔ 既有断言靠它）
+            _unitVoiceAudioLog.Add(rec);
+            if (card != null && !string.IsNullOrEmpty(card.Id)) _unitVoiceAudioByCard[card.Id] = rec;
+        }
+
+        /// <summary>`S3-G3` 读口：某张卡**最后一次**纯音频播的是什么（`<卡 id>|<事件>`）；没播过 = `null`。</summary>
+        public string UnitVoiceAudioOnlyOfForTest(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return null;
+            string v;
+            return _unitVoiceAudioByCard.TryGetValue(cardId, out v) ? v : null;
+        }
+
+        /// <summary>`S3-G3` 读口：某张卡纯音频播了**几次**（按有序日志逐条数，⛔ 不另立计数器）。</summary>
+        public int UnitVoiceAudioOnlyCountOfForTest(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return 0;
+            string key = cardId + "|";
+            int n = 0;
+            for (int i = 0; i < _unitVoiceAudioLog.Count; i++)
+                if (_unitVoiceAudioLog[i] != null
+                    && _unitVoiceAudioLog[i].StartsWith(key, System.StringComparison.Ordinal)) n++;
+            return n;
+        }
+
+        /// <summary>`S3-G3` 读口：**有序**全表快照（每播一次一格，⛔ 不去重）。</summary>
+        public string[] UnitVoiceAudioLogForTest { get { return _unitVoiceAudioLog.ToArray(); } }
+
+        /// <summary>`S3-G3` 读口：清空三份记录（自检每一段开始前调；⛔ 生产别调）。</summary>
+        public void ClearUnitVoiceAudioForTest()
+        {
+            _unitVoiceAudioLog.Clear();
+            _unitVoiceAudioByCard.Clear();
+            LastUnitVoiceAudioOnlyForTest = null;
+        }
+
+        /// <summary>`S3-G1` 读口：**最近一条**演出事件（`_animfxLastEvent`）。
+        /// <para>用途：`BattleScene` 的特效钩子要把「这件特效属于哪一张卡 / 哪一拍」记进 `S3VfxTrace`
+        /// 的 `cardId` / `evt` 两列 —— 钩子本身只拿到件名 / 落点 / 父节点，**这两个值只有这里认得**。</para>
+        /// <para>⚠️ 它是**最近一条**，不是「这条特效专属」：`_animfxLastEvent` 在每条卡级事件前被赋值、
+        /// 播完**不一定清**（各调用点各自清的是 `_animfxCtx`）⇒ 非卡级特效（落地扬尘 / HUD 图标）会带上残留值。
+        /// trace 里那两列**如实当「最近一条卡级事件」读**，⛔ 别当因果。</para></summary>
+        public BattleEvent CurrentVfxEvent { get { return _animfxLastEvent; } }
+
+        /// <summary>`S3-G1` 读口：表现层时钟（`_clock`，秒）—— trace 的 `t` 列用它。</summary>
+        public float PresentationClock { get { return _clock; } }
     }
 }
 

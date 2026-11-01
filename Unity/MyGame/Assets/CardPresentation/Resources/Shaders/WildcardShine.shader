@@ -94,14 +94,34 @@
 //       (B) 过渡 = 「换色族」（**不乘 `C.a`、也不乘 α**，例 4 直接 = `C.rgb`）。注意 (A) 与 (C) 的**公式逐条相同**，
 //       差的是颜色参数与输入（(C) 的输入已是 (A)+intensity 之后的值）—— 仍各留一份，见那 3 个 `wfColorFilter*`。
 //     · 顺带补上 `_ColorIntensity` / `_ColorGlow`（原版 `_282.._298` 那一跳）：现役实例取默认值 **1 / 0** ⇒ **恒等，观感不变**。
-//   ⛔ **仍未实现（与本批「变体补齐」无关的、原本就缺的共用子特性）**：
-//     · **Shadow 族**（`_ShadowColorFilter/_ShadowColor/_ShadowColorGlow/_ShadowIteration/_ShadowFade/…`）
-//     · **Gradation / Target / Detail / Sampling** 那几族
-//     · **uv1 矩形掩码**（原版每个变体都拿 `TEXCOORD1` 当「sprite 的 uv 矩形」做盒测；本工程没有那一路数据通道
-//       ⇒ 等价于原版 `uv1 = (0,0,1,1)` 那一档，**逐项等价**：`_382 = uv.x>=0 = 1`、`_393 = 1>=uv.x = 1`、
-//       且 `_287 = 0<0 = false` ⇒ 不进 Shadow 支；本文件所有式子都是照这一档写的）
-//     ⚠️ 上面这几条都是**已记账的缺口**（见 `报告/B115_W12_WildcardShine变体.md` §五「顺手发现」），
-//       ⛔ **不是「影响小所以不做」**（铁律 11）。
+//   ✅ **`B116_W11`（2026-11-02）补上三块**：
+//     · **`_TextureSampleAdd`**（原版 `type_Globals` c3，基础档就有）：`tx = tex2D(...) + _TextureSampleAdd`。
+//       判据 `b13.hlsl:8` + `:34-37` · `b16.hlsl:8` + `:134-137`。对 Image 恒 0 ⇒ **观感无变化**，结构对上。
+//     · **uv1 盒测掩码**（原版每个变体都拿 `TEXCOORD1` 当「sprite 的 uv 矩形」做四边盒测）：
+//       `b16.hlsl:122-128`（编解码）＋ `:144-163`（四条边乘进预乘色/α）；`b13.hlsl:44-63` 同形。
+//       📌 原版为什么需要它：`UIVertexUtil.Expand`（描边/阴影/边缘会把网格**外扩**）之后 uv 会被外推到
+//       矩形之外 ⇒ 这四条边把外扩那圈裁回 sprite 矩形。**不外扩就不裁**（我们这条链不外扩 ⇒ 掩码恒 1）。
+//       🔶 **数据通道还没有**（`ImageQuad` 只建 `uv`）⇒ 现落「单位矩形」兜底那一档，**行为与本条之前逐项相同**；
+//       接法见 `frag` 里那段注释与报告 §四（⛔ 不是「不做」，是等 `ImageQuad` 补通道）。
+//     · **Shadow 族**（`_ShadowColorFilter` / `_ShadowColor` / `_ShadowColorGlow`）：
+//       它是**与基础 `_ColorFilter` 互斥的另一条滤波支**（`if (_287) … else …`），见 `wfBaseOrShadowFilter` 的函数头。
+//       📌 全库 152 颗 `UIEffect` 的 `m_ShadowMode` **全 0**（`判据/J-12…:154`）⇒ 原版生产路径**永不进入**该支；
+//       本文件照原版结构实现它（18·0「死支也照抄」），⛔ 别删、别「因为走不到所以简化」。
+//     · 顺带订正预乘口径：**预乘里不含 `COLOR.a`**（`b16.hlsl:375-380` 与末跳 `:729`；见 `frag` 里那条 🔴）。
+//   ⛔ **仍未实现（已查清，如实记）**：
+//     · **`uv1` 的「镜像」那一支**（`uv1.x < −3` ⇒ 过渡采样改用 `_MirrorRootViewMatrix`）：那个矩阵的生产者
+//       `UIEffectContext.UpdateViewMatrix` 在 Cpp2IL 重建的 dll 里局部变量被打散 ⇒ 拿不到逐句算式（见 `frag` 里那条缺口）。
+//       原版 `m_Flip` 152/152 全 0 ⇒ 永不出现。
+//     · **`Shadow` 的影子几何**（`ShadowUtil.DoShadow`：多副本 + 迭代 + 衰减）是 **CPU 侧网格活**，不在本 shader 里；
+//       `_ShadowIteration` / `_ShadowFade` 也就**不是** uniform（`DoShadow(verts, vectors, distance, iteration, fade)` 的形参）。
+//     · **Gradation / Detail / Target / Sampling** —— 🔴 **原版这颗 shader 里根本没有**（2026-11-02 现核）：
+//       ① `.shader` 只有 6 条 `multi_compile_local`（`:44-49`），无 GRADATION/DETAIL/TARGET 关键字；
+//       ② `grep -rn "Gradation\|_Detail\|_GradationTex"` 扫 **`Shader/` 下全部 422 份产物 = 0 命中**；
+//       ③ `b16` 的 cbuffer 里那些 `_Globals_Unmapped_at_*` **每一条都只出现 1 次**（只有声明、0 处使用）。
+//       ⇒ Coffee 的 `UIEffect` 在 C# 侧会 `Material.Set*` 这些名字（`s_Gradation*` / `s_DetailTex`），但**本 build 的
+//       shader 不认** ⇒ 原版里它们是 **no-op**；且 `m_GradationMode` / `m_DetailFilter` 152/152 全 0。
+//       ⛔ **实现它们 = 造出原版没有的行为**（18·0），所以这一档**按「不实现」结案、不是「还没做」**。
+//       `Sampling` 那一路本文件已实现（`_SamplingScale` 进 EDGE 的 12 向采样，`b17.hlsl:386-397`）。
 //
 // ============================ 两个必须知道的工程口径 ============================
 //  ⚠️ **① `multi_compile` 一定会把变体编进去，与该实例开没开那个关键字无关**（本文件 2026-11-01 就地订正）：
@@ -123,6 +143,15 @@ Shader "CardPresentation/WildcardShine"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
+
+        // ---- 原版 `type_Globals` c3 的 `_TextureSampleAdd`（判据：五份 fragment **一律 `:8`** 的 `: packoffset(c3)`）----
+        //   原版**不在 `Properties` 里声明**它（`Hidden_UI_Default (UIEffect).shader:2-11` 属性表只有 `_MainTex/_Color/_Stencil*/_ColorMask/_UseUIAlphaClip`），
+        //   而是由 uGUI（`Graphic`/`Image` 那条链）在运行时往材质上写；普通 sprite（RGBA32）恒 0，只有 Alpha8 / ETC1 图集才非 0。
+        //   🔶 自己设计（非原版）：**在 `Properties` 里声明出来、把默认值钉成 0** —— 为什么必须自定：我们这条渲染链是
+        //   `ImageQuad`+`MeshRenderer`，没有 uGUI 往材质写这个名字的那一跳（判据 = `Effects/UIEffectTogglerCoffeeEffects.cs`
+        //   的 `WildcardShineLayer.Attach` 只 `new Material(sh)` + 若干个 `SetFloat/SetColor`，全文无 `_TextureSampleAdd`）；
+        //   不声明就只能赌未绑定的 uniform 是 0。调度台 2026-11-02 裁定（本波 `B116_W11`）。同族先例 = `WFUIAdditive.shader:105`。
+        [HideInInspector] _TextureSampleAdd ("TextureSampleAdd", Vector) = (0,0,0,0)
 
         // ---- 原版 `UIEffect` 的 Transition 族（名字逐字照抄，⛔ 别改名）----
         _TransitionRate ("Transition Rate", Range(0,1)) = 1
@@ -153,6 +182,19 @@ Shader "CardPresentation/WildcardShine"
         _ColorValue ("Color", Color) = (1,1,1,1)
         _ColorIntensity ("Color Intensity", Float) = 1
         _ColorGlow ("Color Glow", Float) = 0
+
+        // ---- 原版 Shadow 族（`b16.hlsl:41-43` 的 `_ShadowColorFilter`(c26.w) / `_ShadowColor`(c27) / `_ShadowColorGlow`(c28)）----
+        //   🔴 它不是「画一层阴影」，而是**另一条颜色滤波支**：原版 `if (_287) {…Shadow…} else {…_ColorFilter…}`
+        //   （`b16.hlsl:320` 与 `:521`）—— 即**影子顶点走 Shadow 滤波，本体顶点走基础滤波**，两条互斥。
+        //   `_287` 的来源 = uv1.x 的编码（见下方 frag 里的 uv1 解码与文件头那张表）：`-2` = 影子顶点。
+        //   ⚠️ 原版这一族**没有被 Properties 声明过**（Coffee 的 C# 按名字 `Material.SetFloat/SetColor` 绑 cbuffer）；
+        //   我们照 Unity 常规写法声明，只为 `new Material(sh)` 有**确定的默认值**：
+        //   `_ShadowColorFilter = 0`（不染）· `_ShadowColor = 白` · `_ShadowColorGlow = 0` ⇒ 影子支 = 恒等（原版 `ShadowMode.None` 的语义）。
+        //   📌 全库 152 颗 `UIEffect` 的 `m_ShadowMode` **全是 0（`ShadowMode.None`）**（判据 `判据/J-12_Coffee前置判据_补充_第八十七会话.md:154`）
+        //   ⇒ 这一支在原版**生产路径上一次都不走**；本文件照原版结构实现它（铁律 18·0「死支也要照抄」），⛔ 别删。
+        _ShadowColorFilter ("Shadow Color Filter", Float) = 0
+        _ShadowColor ("Shadow Color", Color) = (1,1,1,1)
+        _ShadowColorGlow ("Shadow Color Glow", Float) = 0
 
         // ---- 原版 `EDGE_SHINY` 档（`b17`）：名字逐字照抄 `b17.hlsl` 的 cbuffer ----
         _EdgeWidth ("Edge Width", Range(0,1)) = 0
@@ -224,13 +266,15 @@ Shader "CardPresentation/WildcardShine"
                 #define WF_EDGE 1
             #endif
 
-            struct appdata { float4 vertex : POSITION; float4 color : COLOR; float2 uv : TEXCOORD0; };
+            struct appdata { float4 vertex : POSITION; float4 color : COLOR; float2 uv : TEXCOORD0; float4 uv1 : TEXCOORD1; };
             struct v2f
             {
                 float4 pos   : SV_POSITION;
                 fixed4 color : COLOR;
                 float2 uv    : TEXCOORD0;
                 float3 world : TEXCOORD1;
+                // 原版顶点把 `TEXCOORD1` 原样透传到 `TEXCOORD20`（`b1.hlsl:112-115` 四句；输出声明 `TEXCOORD_3 : TEXCOORD20`）
+                float4 uv1   : TEXCOORD3;
                 // 原版顶点输出 `TEXCOORD_2`（`b23.hlsl` 的 `TEXCOORD_2 : TEXCOORD16`）
                 #if defined(UNITY_UI_CLIP_RECT)
                 float4 clipMask : TEXCOORD2;
@@ -239,6 +283,7 @@ Shader "CardPresentation/WildcardShine"
 
             sampler2D _MainTex;
             fixed4 _Color;
+            float4 _TextureSampleAdd;      // 原版 `type_Globals` c3（见 Properties 里那条 🔶 说明）
 
             float _TransitionRate;
             float _TransitionWidth;
@@ -260,6 +305,11 @@ Shader "CardPresentation/WildcardShine"
             float4 _ColorValue;
             float _ColorIntensity;
             float _ColorGlow;
+
+            // 原版 Shadow 族（判据 = `b16.hlsl:41-43` 的 `_ShadowColorFilter` c26.w / `_ShadowColor` c27 / `_ShadowColorGlow` c28）
+            float _ShadowColorFilter;
+            float4 _ShadowColor;
+            float _ShadowColorGlow;
 
             float4 _MainTex_TexelSize;      // Unity 自动填（判据 = `b17.hlsl` c14 的 `_MainTex_TexelSize`）
             float _SamplingScale;
@@ -284,7 +334,8 @@ Shader "CardPresentation/WildcardShine"
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
-                o.color = v.color * _Color;      // 同 `UnitySprites.cginc` 的 `SpriteVert`（UI 顶点色 × 材质色）
+                o.uv1 = v.uv1;                   // 原版 `b1.hlsl:112-115`：`TEXCOORD_3 = TEXCOORD_1`（逐分量原样透传）
+                o.color = v.color * _Color;      // 同 `UnitySprites.cginc` 的 `SpriteVert`；原版顶点 `b1.hlsl:86-93` = `COLOR * _Color`
                 o.world = mul(unity_ObjectToWorld, v.vertex).xyz;
 
                 #if defined(UNITY_UI_CLIP_RECT)
@@ -439,24 +490,84 @@ Shader "CardPresentation/WildcardShine"
                 return float4(p + I * (flt.rgb - p), (1.0 - _ColorGlow * I) * (a + I * (flt.a - a)));
             }
 
+            // ============================ Shadow 支 / 基础支：**互斥的二选一** ============================
+            // 判据 = 原版 `if (_287) {…Shadow…} else {…_ColorFilter…}`（`b16.hlsl:320` / `:521`；同族
+            //   `b14.hlsl:108`（变量名 `_71`）· `b15.hlsl:324` · `b17.hlsl:159`（变量名 `_285`））——
+            //   每一份效果变体里**恰有一处**这么一个二选一，位置也一致：TONE 档在 Tone 之后、过渡档在过渡混合之后、
+            //   EDGE 档在边缘色之前。
+            //   🔴 Shadow 支**没有** `_ColorIntensity` / `_ColorGlow` 那两跳：
+            //      rgb   = 直接用 `_ShadowColorFilter` 的滤波值（等价于 `_ColorIntensity = 1` 那一档）
+            //      alpha = `filter > 0 ? (1 − _ShadowColorGlow)·α滤波 : α滤波`（判据 `b16.hlsl:516` 的
+            //              `_842 = (int(_ShadowColorFilter) > 0) ? _636 : _632`，其中 `_636 = (1 − _ShadowColorGlow)·_632`；
+            //              基础支那一跳在 `:716-725` 的 `_666 = int(_ColorFilter) > 0` 那一段 —— **两支的旋钮不是同一套**）
+            //   ⚠️ Shadow 支的 9 档算式与基础支**逐例相同**（只是颜色参数换成 `_ShadowColor`；实测 `b16.hlsl:327-513`
+            //      的第 1/2/4/5/6/8 例与 `b14.hlsl:316-481` 逐条同形）⇒ 复用 `wfColorFilterBase`，⛔ 别另抄一份。
+            float4 wfBaseOrShadowFilter(float3 p, float a, bool shadow)
+            {
+                if (shadow)
+                {
+                    float4 f = wfColorFilterBase(p, a, _ShadowColor, _ShadowColorFilter);
+                    return float4(f.rgb, (_ShadowColorFilter > 0.5) ? ((1.0 - _ShadowColorGlow) * f.a) : f.a);
+                }
+                return wfBaseColorFilter(p, a);
+            }
+
             fixed4 frag(v2f i) : SV_Target
             {
-                fixed4 c = tex2D(_MainTex, i.uv) * i.color;
+                // 采样 + `_TextureSampleAdd`（原版 `_365.._368` = `tex + add`；`b13.hlsl:34-37` 同形）
+                float4 tx = tex2D(_MainTex, i.uv) + _TextureSampleAdd;
 
-                // 预乘（原版 `_378.._380` = `a * (tex.rgb * COLOR.rgb)`；`_410` = 同一份 alpha）
-                float3 s = c.rgb * c.a;
-                float  sa = c.a;
+                // 预乘（原版 `_375.._380`）：`COLOR.rgb·(tex+add).rgb·(tex+add).a`
+                //   🔴 **预乘里不含 `COLOR.a`** —— 原版顶点 alpha 只从最后一跳 `_72 = round(COLOR.w·255)/255` 进
+                //   （`b16.hlsl:103` 与 `:727-729`；`b13.hlsl:65-66` 同）。旧写法先 `tex * i.color`
+                //   再 `rgb * c.a` 会把 `COLOR.a` 乘**两遍**（`_Color.a`/CanvasGroup 淡出时偏暗），本波顺带订正。
+                float3 s  = tx.rgb * i.color.rgb * tx.a;   // 原版 `_378.._380`
+                float  sa = tx.a;                          // 原版 `_368`
+
+                // ------------------------------------------------ uv1：sprite uv 矩形的盒测 + 影子/镜像标志位
+                // 判据 = `b16.hlsl:122-128`（`b14:64-71` · `b15:122-128` · `b17:116-122` 同形）：
+                //   `_238 = uv1.x < −3`（**镜像**标志：置位时过渡采样改用 `_MirrorRootViewMatrix`）
+                //   `_284 = _238 ? uv1.x + 4 : uv1.x`（剥掉镜像的 −4）
+                //   `_287 = _284 < 0`（**影子**标志：置位 ⇒ 走 Shadow 滤波支）
+                //   `_290 = _284 + (_287 ? 2 : 0)`（剥掉影子的 −2 ⇒ 还原成 sprite 的 uv 左边界）
+                //   ⇒ 编解码规则：`uv1 = (xMin − 2·影子 − 4·镜像, yMin, xMax, yMax)`
+                //     写入方 = `UIEffectContext`/`GraphicProxy`（`Coffee.UIEffect.dll`：`vt.uv1 = uvMask` 与
+                //     `ShadowUtil.onMarkAsShadow` 的 `uv1.x −= 2f`）。
+                // 盒测（`b16.hlsl:144-163` / `b13.hlsl:44-63`）：四条边全乘进**预乘色与 α**，位置就在预乘之后、
+                //   任何效果之前 ⇒ 效果吃到的是「已被矩形裁过」的颜色。
+                // 🔶 自己设计（非原版）：**「没有 uv1 数据」时的兜底** —— 我们的 `ImageQuad` 目前只建 `uv`（通道 0），
+                //   没有 `uv1` ⇒ 顶点属性取到 (0,0,0,0) ⇒ 四条盒测里「右边 >= uv.x」恒假 ⇒ **整块变黑**。
+                //   兜底判据：合法矩形必有 `z > x && w > y`；不满足就当「没有数据」、按单位矩形 (0,0,1,1) 处理 ——
+                //   那正是本文件此前一直假定的那一档（`uv.x >= 0` / `1 >= uv.x` 全真 ⇒ 掩码恒 1），**行为不变**。
+                //   等 `ImageQuad` 补上 uv1 通道（方案见报告 §四），这一段自动生效。调度台 2026-11-02 裁定（`B116_W11`）。
+                float4 uv1 = i.uv1;
+                if (!(uv1.z > uv1.x && uv1.w > uv1.y)) uv1 = float4(0.0, 0.0, 1.0, 1.0);
+                float u1x      = (uv1.x < -3.0) ? (uv1.x + 4.0) : uv1.x;   // 原版 `_284`
+                bool  wfShadow = u1x < 0.0;                                 // 原版 `_287`
+                float u1left   = u1x + (wfShadow ? 2.0 : 0.0);               // 原版 `_290`
+                // ⚠️ 已知缺口（如实记）：`uv1.x < −3` 的**镜像**那一支要 `_MirrorRootViewMatrix`（`b16.hlsl:130`
+                //   用 `_238` 在 `_MirrorRootViewMatrix` / `_RootViewMatrix` 之间二选一来采 `_TransitionTex`），
+                //   而那个矩阵的生产者 `UIEffectContext.UpdateViewMatrix` 在 Cpp2IL 重建的 dll 里局部变量被打散
+                //   ⇒ 拿不到逐句算式。原版 `m_Flip` **152/152 全 0**（`判据/J-12…:117`）、`uv1.x < −3` 也就永不出现，
+                //   本支**未实现**（⛔ 没拿屏幕坐标凑一个）。上面只解出 `u1x`，镜像的坐标翻转留给接 uv1 那一波。
+                float wfBox = (i.uv.x >= u1left ? 1.0 : 0.0)      // 原版 `_382`
+                            * (uv1.z  >= i.uv.x ? 1.0 : 0.0)      // 原版 `_393`
+                            * (i.uv.y >= uv1.y  ? 1.0 : 0.0)      // 原版 `_402`
+                            * (uv1.w  >= i.uv.y ? 1.0 : 0.0);     // 原版 `_394`
+                s  *= wfBox;                                      // 原版 `_383.._410`（b16 `:145-163`）
+                sa *= wfBox;
 
                 // ------------------------------------------------------------------ TONE_GRAYSCALE（`b14`）
                 //   原版：`_155 = dot(premultRgb, (0.22,0.707,0.071))`；
                 //         `_172 = mad(_171, mad(-_146, _137, _155), _150)` = `_ToneIntensity*(luma - r) + r`
-                //   （`_146*_137` / `_150` 都是「掩码后的预乘 r」；uv1 = (0,0,1,1) 时掩码 = 1，见文件头「仍未实现」那条）
+                //   （`_146*_137` / `_150` 都是「掩码后的预乘 r」⇒ Tone 吃的是**已被 uv1 盒测裁过**的色，见上面那一段）
                 #if defined(WF_TONE)
                 {
                     float luma = dot(s, float3(0.2199999988079071044921875, 0.7070000171661376953125, 0.071000002324581146240234375));
                     s = s + _ToneIntensity * (luma - s);
                     // 原版 `b14.hlsl:311-513`：Tone **之后**才走基础 `_ColorFilter`（8 档，判据 `b14:316-481`）
-                    float4 bfc = wfBaseColorFilter(s, sa);
+                    // Shadow 支 / 基础支二选一（判据见 `wfBaseOrShadowFilter` 的函数头）
+                    float4 bfc = wfBaseOrShadowFilter(s, sa, wfShadow);
                     s = bfc.rgb; sa = bfc.a;
                 }
                 #endif
@@ -514,7 +625,8 @@ Shader "CardPresentation/WildcardShine"
                     #endif
 
                     // 原版 `b15:522-711` / `b16:523-725`：基础 `_ColorFilter` 在**过渡混合之后**才生效
-                    float4 bfc = wfBaseColorFilter(s, sa);
+                    // Shadow 支 / 基础支二选一（判据见 `wfBaseOrShadowFilter` 的函数头）
+                    float4 bfc = wfBaseOrShadowFilter(s, sa, wfShadow);
                     s = bfc.rgb; sa = bfc.a;
                 }
                 #endif
@@ -553,7 +665,8 @@ Shader "CardPresentation/WildcardShine"
 
                     // 原版 `b17.hlsl:444-637`：基础 `_ColorFilter` 在**边缘色之前**
                     //   （`_EdgeColorFilter` 的输入 `_747.._750` 就是它 + intensity/glow 算出来的）
-                    float4 bfc = wfBaseColorFilter(s, sa);
+                    // Shadow 支 / 基础支二选一（判据见 `wfBaseOrShadowFilter` 的函数头）
+                    float4 bfc = wfBaseOrShadowFilter(s, sa, wfShadow);
                     s = bfc.rgb; sa = bfc.a;
 
                     // ---- 边缘色：原版 `_EdgeColorFilter` —— **8 档**（判据 `b17.hlsl:643-829`）----
@@ -594,7 +707,7 @@ Shader "CardPresentation/WildcardShine"
                 #endif
 
                 // 原版末尾 `SV_Target = _72 * (color)`，`_72` = 顶点 alpha 的 8 bit 量化值（UI 顶点色那一份）
-                // ⚠️ 用 `floor(x+0.5)` 而不是 `round()`：`round` 要 SM4，本 shader 用默认 2.5 档（少一次编译风险）
+                // ⚠️ 用 `floor(x+0.5)` 而不是 `round()`：`round` 要 SM4，而本 shader 是 **3.0** 档（见 `:242` 的 `#pragma target 3.0`）
                 float vAlpha = floor(i.color.a * 255.0 + 0.5) * 0.0039215688593685626983642578125;
                 float4 col = float4(s, sa) * vAlpha;
 

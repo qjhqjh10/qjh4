@@ -352,18 +352,18 @@ namespace CardPresentation
         /// <item>替代支（`CardDef.UsesAlternativeAbility` 为真，现读全池只有 `SW21 Wulfen Pack Leader`）⇒
         ///   `AbilityAnimDurations.TryGetAlternative`（`alternative.seconds`，SW21 = **0.2**）；</item>
         /// <item>普通支 / 没有替代表 ⇒ `AbilityAnimDurations.TryGet`（`active`，SW21 = **0.4**）；</item>
-        /// <item>查不到 ⇒ <see cref="AbilityFallbackSeconds"/>（**不是原版值**，`IsSourced` 如实回 false）。</item>
+        /// <item>表里没有这张卡 ⇒ <see cref="AbilityNoEntrySeconds"/>（**0**：原版表空就不放动画）；整张表载不到 ⇒ <see cref="AbilityLoadFailSeconds"/>（保守档，`IsSourced` 如实回 false）。</item>
         /// </list>
         /// <para>✅ **2026-10-25（`TL` §2）**：`alt` 那一列已进运行期表（现读只有 `SW21 = 0.2`）⇒
         /// 替代支**现在真的按 0.2 排**；没替代支的卡仍走普通支。</para></summary>
         public static float AbilityHoldOf(BattleEvent e)
         {
-            if (e == null) return AbilityFallbackSeconds;
+            if (e == null) return AbilityLoadFailSeconds;
             bool alt = AbilityUsesAlternative != null && AbilityUsesAlternative(e);
             float s;
             if (alt && AbilityAnimDurations.TryGetAlternative(e.CardId, out s)) return s;
             if (AbilityAnimDurations.TryGet(e.CardId, out s)) return s;
-            return AbilityFallbackSeconds;
+            return AbilityAnimDurations.FallbackFor(AbilityAnimDurations.Loaded);   // 表在但没这张卡 = 0；整表载不到 = 1.0
         }
 
         /// <summary>
@@ -669,10 +669,10 @@ namespace CardPresentation
                 //   `DurationOf(BattleEvent)` 那个重载按事件里的卡（`CardId`）去
                 //   `AbilityAnimDurations` 查这张卡的 `activeAbility` 时长；
                 //   **这个只按 `EvtKind` 的重载拿不到卡** ⇒ 一律返回兜底值
-                //   （= 真值表的中位数 `AbilityFallbackSeconds`，见那个常量的注释）。
+                //   （= 保守档 `AbilityLoadFailSeconds`，见那个常量的注释）。
                 //   ⛔ **别把逐卡那一半写回这里** —— 它需要事件（`BattleEvent.CardId`），
                 //      而这条重载的签名里没有；两条路都要能跑到才是接完。
-                case EvtKind.Ability: return AbilityFallbackSeconds;
+                case EvtKind.Ability: return AbilityLoadFailSeconds;
 
                 // 触发：见 `TriggerLen`（有出处，但那两个常量是引擎的**通用节拍**，不是 Trigger 专用）
                 case EvtKind.Trigger: return TriggerLen;
@@ -723,7 +723,7 @@ namespace CardPresentation
         /// 其余一律转发给 <see cref="DurationOf(EvtKind)"/>。
         /// 为什么要这个重载：`DurationOf(EvtKind)` 拿不到 `BattleEvent` 里那两个参数
         /// （`Ranged` / `CardId`），而原版这两处**各自都是分档的**
-        /// （见 `AttackStepMelee` / `AttackStepRanged` 与 `AbilityFallbackSeconds` 的出处）。
+        /// （见 `AttackStepMelee` / `AttackStepRanged` 与 `AbilityLoadFailSeconds` 的出处）。
         /// **别退回「一刀切」** —— 那会让远程的出手比原版快一倍、所有卡的发动能力都变成同一个数。</summary>
         public static float DurationOf(BattleEvent e)
         {
@@ -966,19 +966,20 @@ namespace CardPresentation
         /// `twoFractDelay(0.2)` ⇒ **图标/触发这条线是 0.2 s**（440 那种是 0.7 s）。</summary>
         public const float TriggerLen = 0.2f;
 
-        /// <summary>🆕 2026-10-14（`A1767`）**发动能力**在「不知道是哪张卡」时的兜底秒数。
-        ///
-        /// 🔴 **它现在只是兜底，不再是「原版就是 1.0」** —— 逐卡真值走
-        /// <see cref="DurationOf(BattleEvent)"/> → <see cref="AbilityAnimDurations"/>。
+        /// <summary>🆕 2026-10-14（`A1767`）· 🔴 **2026-11-02（`SAN-16`）拆成两档**：**发动能力**的兜底秒数。
+        /// 原来只有一个 `AbilityFallbackSeconds = 1.0` 兼任两种情形 —— **那是错的**（判据 = `B116_R2` 现读）：
+        /// 原版 `AbilityLogic.PlayAnim` 的 `cardAnimations` 表为空 ⇒ 协程首调 `MoveNext` 为假 ⇒ `Dispose` + `return`，
+        /// 而整段**唯一的排片调用** `BattleManager.AddCardAnim` 在**循环体内**（`d:/2/tools/decomp_full/AbilityLogic__PlayAnim.c:46-58`、
+        /// 同文件 `:230-236`）⇒ **表空 = 0 时长**。两档：
+        ///   · <see cref="AbilityNoEntrySeconds"/> = **0**：**表在、但表里没有这张卡**（`TryGet` 回 false 那条路）
+        ///     —— 原版这条路上**不放任何动画** ⇒ 不占时间线；
+        ///   · <see cref="AbilityLoadFailSeconds"/> = **1.0**：**资源缺失 / 解析失败**（整张表都拿不到）
+        ///     ⇒ 无从判断，取**保守档**（= 表的中位数，与旧常数恰好相等）并**出声**（`LogWarning`）。
+        /// ⚠️ `DurationOf(EvtKind.Ability)`（**拿不到卡**的旧重载）走**保守档** —— 它是「不知道是哪张卡」，⛔ 不是「这张卡没有动画」，所以**不许**回 0。
+        /// ⚠️ `AbilityAnimDurations.FallbackSeconds`（表里写的那个数）**必须等于** `AbilityLoadFailSeconds`；`NoEntry` / `LoadFail` 两条常量也**必须两处相等** —— 自检逐字比（`BattleScene.Run` 那三条）。
         ///
         /// 这个 `1.0` 的来历（**旧口径，保留痕迹**）：本地 506 条【有名字】的 `AnimInfo` 时长之和的**中位数**
-        /// （表 = `数据/游戏数据/card_anim_map.json`：908 条总条目 = 506 有名 + 402 光 GUID）。
-        /// 新的逐卡表（`Resources/ability_anim_durations.json`，🔴 **现读 93 张卡 / 160 条 CardAnim**；
-        /// 真值源 = **当前 build 的卡 SO**，见文件头「2026-10-22 就地订正」）**中位也恰好是 1.0**
-        /// ⇒ 两代口径在这一格上偶然相等 —— 所以「兜底取 1.0」不是拍脑袋，**但也不能当成原版值**。
-        /// ⚠️ `AbilityAnimDurations.FallbackSeconds`（表里现读的那个数）**必须等于本常量** ——
-        ///    自检会逐字比（`BattleScene.Run` 那条「兜底值与表一致」）。
-        ///
+        /// （表 = `数据/游戏数据/card_anim_map.json`；现读的逐卡表 `Resources/ability_anim_durations.json` 中位也是 1.0）。
         /// 🔴 **为什么这条重载一定拿不到逐卡值**：原版判据是「**那条技能自己的** `AnimInfo` 四字段之和」
         /// （`AnimInfo.GetAnimDuration` = `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`），
         /// 而「哪条技能」只存在于**事件**里（`BattleEvent.CardId`）。`DurationOf(EvtKind)` 的签名里没有卡
@@ -986,11 +987,10 @@ namespace CardPresentation
         /// 判据链全文 → `Core/AbilityAnimDurations.cs` 文件头。**三条例外 + 一条条件分支**（2026-10-22 现读，
         /// 逐条见全量件 `uncovered` / `conditional`）：
         ///   · `SOR30` / `SOR65` / `SW9` —— 卡 SO 里 `hasActiveAbility=1`，但 `activeAbility` 一条非空 CardAnim
-        ///     引用都没有（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画 ⇒ 退回兜底并**出声**；
-        ///   · `SW21 Wulfen Pack Leader` —— 普通支 **0.4**（表里存这支）/ 替代能力支 **0.2**；
-        ///     运行时按棋盘切支**还没接**（判据 = 原版 `RawCardScript.GetActiveAbility`）。
+        ///     引用都没有（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画 ⇒ **时长 0**（2026-11-02 前误给 1.0）；
+        ///   · `SW21 Wulfen Pack Leader` —— 普通支 **0.4**（表里存这支）/ 替代能力支 **0.2**；运行时按棋盘切支**还没接**（判据 = 原版 `RawCardScript.GetActiveAbility`）。
         /// 另：`tweenAnim`（UnitTweenSO）那一段没算 · `cardAbilities` 那一族不进本表。</summary>
-        public const float AbilityFallbackSeconds = 1.0f;
+        public const float AbilityNoEntrySeconds = AbilityAnimDurations.NoEntryFallback; public const float AbilityLoadFailSeconds = AbilityAnimDurations.LoadFailFallback;
 
         /// <summary>🆕 2026-10-14（`A1816`）**抽卡**这一条事件占多久 = **0.3 s**。
         ///
@@ -1060,7 +1060,7 @@ namespace CardPresentation
         ///   `deathTimeMinionDuration`，我们已经把它算进动画时长，再加同样的数会重复计」）。
         ///   ⚠️ 2026-10-23 前这里写的时长是 0.2（只算了消散那一段）—— 那一条**已作废**。</item>
         /// <item><b>`Ability`</b> —— 逐卡真值有出处（`AbilityAnimDurations`），
-        ///   但**查不到那张卡时**退回的 <see cref="AbilityFallbackSeconds"/> **不是原版值**
+        ///   但**整张表载不到时**退回的 <see cref="AbilityLoadFailSeconds"/> **不是原版值**
         ///   （它是真值表的中位数，恰好等于旧常数 1.0；见那个常量的 doc）。</item>
         /// </list>
         ///
@@ -1095,8 +1095,8 @@ namespace CardPresentation
                                   + $"；时长 {CardFeel.DeathTotal(false):F2}s 本身有出处（`CardFeel.DeathTotal`）";
                     return false;
                 case EvtKind.Ability:
-                    unsourcedPart = $"查不到那张卡时退回的 `AbilityFallbackSeconds` {AbilityFallbackSeconds:F2}s "
-                                  + "**不是原版值**（= 真值表的中位数，恰好等于旧常数）";
+                    unsourcedPart = $"整张表载不到时退回的 `AbilityLoadFailSeconds` {AbilityLoadFailSeconds:F2}s "
+                                  + "**不是原版值**（保守档 = 真值表的中位数，恰好等于旧常数；表里没有这张卡时是 0 s，有出处）";
                     return false;
                 // 🆕 2026-10-24（`A2`）：未登记的 `EvtKind` ⇒ **如实报「无出处」**（不是「有出处」）。
                 //   ⇒ `BattleScene` 那条 `unsourced == 2` 会因为多出这一条而变红，逼着加值的人来登记。
@@ -1162,7 +1162,7 @@ namespace CardPresentation
                                              + " 为真，现读只有 `SW21`）取 `alternative.seconds`（SW21 = **0.2**）· 普通支取 `s`"
                                              + "（SW21 = 0.4）—— **替代那一列运行期表今天还没有** ⇒ 两支都按 0.4（见 `AbilityHoldOf`）；"
                                              + "查不到那张卡 ⇒ 兜底 "
-                                             + $"{AbilityFallbackSeconds}（= 真值表中位数，与旧常数恰好相等）";
+                                             + $"{AbilityLoadFailSeconds}（保守档 = 真值表中位数，与旧常数恰好相等；表里没有这张卡时是 {AbilityNoEntrySeconds}）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
                 // 🔴 **2026-10-23（P1 · 演出时序 ②）就地订正（铁律 5）**：原文写「0.2（督军那档 0.5 见
                 //   `CardFeel.DeathDissolve`）」—— **那句现在不成立**：这条演出占多久不再是消散那一段，

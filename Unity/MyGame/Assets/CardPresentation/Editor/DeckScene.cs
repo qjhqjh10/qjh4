@@ -1394,6 +1394,9 @@ public static class DeckScene
             B97_MENU_Assert.CheckB97MenuDeckPoolBanIcon(_rt);   // 🆕 2026-10-29（调度台代接线 · `B97_MENU`）：卡池卡格的 ban 徽标（账 `菜单_外壳:58`）。
 
             B105W3_Assert.Run(); _sink.Pass += B105W3_Assert.Pass; _sink.Fail += B105W3_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · AUD11）：换将不清卡（原版形状；⛔ 别把「换将即清」接回 TryAdd）
+            // 🔴 **2026-11-02（`B-334` · `B116_W36`）**：`Done`/`ESC` **保存成功 ⇒ 关窗**（原版 `TrySaveDeck→UploadDeck→OnSave→Close()`）。
+            //   ⚠️ 这一行**必须**是独立的一行（⛔ 别并进下面那条超长聚合行 —— 追加点落在它行尾 `//` 之后就被静默吞掉）。
+            B116W36_Assert.Run(); _sink.Pass += B116W36_Assert.Pass; _sink.Fail += B116W36_Assert.Fail; /* 🔴 B-339（B116_W38）：卡组库**跨窗存活** ⇒ 保存失败支也关窗、库内容不丢 */ B116W38_Assert.Run(); _sink.Pass += B116W38_Assert.Pass; _sink.Fail += B116W38_Assert.Fail;
             B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail; B111R1WB_Assert.Run(); _sink.Pass += B111R1WB_Assert.Pass; _sink.Fail += B111R1WB_Assert.Fail;   TestDoneHighlightToggler(); B107_W14_Assert.Reset(); B107_W14_Assert.RunStatic(); B107_W14_Assert.RunDeckScene(_rt); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
 
             int total = _sink.Pass + _sink.Fail;
@@ -7261,7 +7264,7 @@ public static class DeckScene
                 string keepName = live.Name;
                 Check(_rt.State.Validate(), DeckError.None, "（前提）这一节起手这副牌合法");
                 CheckTrue(!_rt.ModalPopupOpen && _rt.ModalPopup == null, "（前提）起手**没有**模态消息窗");
-                Check(_rt.LeaveCount, 0, "（前提）起手没离场过");
+                int leave364 = _rt.LeaveCount;                       // 🔴 B-334（2026-11-02）：`Done` **保存成功现在会关窗**（`DeckRuntime.SaveAndSay` 成功支 → `BackToMenu`）⇒ 离场计数**不再是 0 起步**；本节「没离场 / 离场一次」两条一律改成**相对这个基线**（判别力不变：断的是增量）
                 bool fltWas = _rt.FiltersOpen;                       // 下面验「模态挡住指针」要用的基线
 
                 live.CardIds.RemoveAt(0);                            // 30 → 29 ⇒ `TooFewCards`
@@ -7460,7 +7463,7 @@ public static class DeckScene
                     //    ⛔ 不另开一个「关窗」自检口 —— 那样就验不到两颗钮的接线了。
                     ClickPopupButton(pop, "ButtonRight");
                     CheckTrue(!_rt.ModalPopupOpen, "★ 点**右钮**（`Cancel`）⇒ 窗关掉");
-                    Check(_rt.LeaveCount, 0, "★ ……而且**没离场**（原版右钮那颗回调体里只有 `HidePopUp()`）");
+                    Check(_rt.LeaveCount, leave364, "★ ……而且**没离场**（原版右钮那颗回调体里只有 `HidePopUp()`）—— 与起手基线**逐值相等**；🔴 B-334 起基线不再是 0（`Done` 保存成功会关窗）⇒ 断增量、不断绝对值");
                     Check(DeckLibrary.Load().Current.Name, keepName, "★ ……盘上仍然没变");
                     CheckTrue(_rt.UiClickPx(392.2f, 113.5f), "★ ……窗关了之后本窗**又吃得进点击了**（模态解除）");
                     _rt.UiClickPx(392.2f, 113.5f);                   // 翻回去（别把抽屉留在开着）
@@ -7475,7 +7478,7 @@ public static class DeckScene
                                   "★ ……而且是**新的一扇**（原版 `CloseWindowCO` 关窗即销毁 + 清字段 ⇒ 关过就不复用；"
                                 + "同 `WindowsManager.OpenByRef` 那条「关过就不再复用」口径）");
                     if (pop2 != null) ClickPopupButton(pop2, "ButtonLeft");   // = 点左钮（`Discard`）
-                    Check(_rt.LeaveCount, 1,
+                    Check(_rt.LeaveCount, leave364 + 1,
                           "★ ……点**左钮**（`Discard`）⇒ **离场那一步真的走了**（原版那颗回调 = `HidePopUp()` + "
                         + "`GameWindow.Close()`(虚槽 0x1b8)；改成一个什么都不做的钮 ⇒ 这条红）");
                     CheckTrue(!_rt.ModalPopupOpen, "★ ……窗也关掉了");

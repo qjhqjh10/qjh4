@@ -499,7 +499,26 @@ namespace CardPresentation
                         How = "整份导入（原版无对应 key ⇒ `_ours_`）" },
             new Entry { Label = "个人资料", Rel = ProfileRel, Key = SaveKeys.CosmeticData, ProfileSpecial = true,
                         How = "整份导入（6 个字段全进）+ 成就投影到 `AchievementsData`" },
+            // 🆕 2026-11-02（`B116_W16` · UI-15 / B-322「切第一个通道」）：收件箱纳入中央体系。
+            //    它此前**完全没纳入**（无 key、无导入）⇒ 首次 `ImportAll` 因 `Exists == false` 整份导入，**不需要重导**。
+            //    原版这条在服务端（`GameMessagePersistence : LiveOpsEventPersistence`）、无 `PlayerDataKey` ⇒ `_ours_`。
+            new Entry { Label = "收件箱", Rel = InboxRel, Key = SaveKeys.OursInbox,
+                        How = "整份导入（原版无对应 key ⇒ `_ours_`；payload 只 3 格、无删档路径）" },
+            // 🆕 2026-11-02（`B116_W21` · UI-15 / B-322「切第二个通道」）：活动通行证纳入中央体系。
+            //    与收件箱同属「此前完全没纳入」（无 key、无导入）⇒ 首次 `ImportAll` 因 `Exists == false` 整份导入，**不需要重导**。
+            //    原版这条在服务端（`ExpansionPassSave : ScoringEventPersistence : LiveOpsEventPersistence`）、无 `PlayerDataKey` ⇒ `_ours_`。
+            new Entry { Label = "活动通行证", Rel = ExpansionPassRel, Key = SaveKeys.OursExpansionPass,
+                        How = "整份导入（原版无对应 key ⇒ `_ours_`；payload 只有两个分数 + 两个领取平行数组、无删档路径）" },
         };
+
+        /// <summary>`Shell/InboxData.cs:375`（`StoreDir` 的目录名 `WarpforgeInbox`）+ `:379`（`inbox.json`）。
+        /// <para>⚠️ 放在 `Entries` 之后而不是上面那排 `*Rel` 常量里：那一排下面有账的 A 行落点（`:494`），
+        /// 插进去会把整片行号推后（`check_ledger_points` 当场报漂移）。</para></summary>
+        public const string InboxRel = "WarpforgeInbox/inbox.json";
+
+        /// <summary>`Shell/ExpansionPassEvent.cs:179`（`StoreDirName = "WarpforgeExpansionPass"`）+ `:181`（`StoreFileName = "pass.json"`）。
+        /// <para>⚠️ 同 <see cref="InboxRel"/>：放在 `Entries` 之后而不是上面那排 `*Rel` 常量里 —— 那一排下面有账的 A 行落点，插进去会整片推后。</para></summary>
+        public const string ExpansionPassRel = "WarpforgeExpansionPass/pass.json";
 
         /// <summary>Step 4：把已知的旧档逐条登记进 `SaveCenter` 的双写表 —— 登记之后写中央档会**自动双写**旧档。
         /// 返回登记了几条。幂等；⛔ 不读旧档内容、不写盘。

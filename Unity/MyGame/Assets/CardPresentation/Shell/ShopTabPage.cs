@@ -259,7 +259,7 @@ namespace CardPresentation
             //   §2·3 vs §2·4）：Grid 族 = `329.76,127.62 → 1920,1080`（1590.24×952.38，页头让出 56.68）；
             //   Flexible 族（本页 = `Packs Tab`/`BoosterShopTab`）= `163.5,0 → 1752.8,1009.1`（相对 `Tabs`）⇒
             //   绝对 **`330.67,70.94 → 1919.97,1080`**（1589.31×1009.06，页头 **INACT** ⇒ 从页顶起）。见 `FlexScrollView`。
-            var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollRectNow);
+            var sv = MainMenuSubmenuWindow.Node(_root, "Packs Scroll View", ScrollRectNow); if (IsFlexiblePage) BuildScrollbarHorizontal(sv);   // 🆕 2026-11-02（`B116_W4` · `B-320`）：`Packs Tab`/`Generic Shop Tab` 的 `Packs Scroll View/Scrollbar Horizontal` 整棵（原版 `m_IsActive: 0`，见 `ScrollbarH` 的 doc）—— **同物理行追加 ⇒ 行数零变化**（本文件被账按 `文件:行号` 引用）
             // ⚠️ `Scroll View`/`Viewport` 自己的 `Image` 是 `UIMask` 且 **alpha = 0** ⇒ 不画
             var vp = MainMenuSubmenuWindow.Node(sv, "Viewport", ScrollRectNow);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A26）**：裁切状态**长在这颗视口节点上** ——
@@ -685,7 +685,7 @@ namespace CardPresentation
             // `Counter`（拥有数角标）+ 它的 `Text (TMP)` `x14`
             {
                 var cr = CellRect(r, CellCount);
-                _win.Rect(cell, "40K_main_deck_card_counter", cr, "Counter", QCellCount, null, true);
+                var cq = _win.Rect(cell, "40K_main_deck_card_counter", cr, "Counter", QCellCount, null, true); if (cq != null) { var uvC = cq.UvRect; cq.SetUvRect(new Rect(uvC.x, uvC.y + uvC.height, uvC.width, -uvC.height)); }   // 🔴 2026-11-02（`B116_W4` · `B-320`）：原版这颗挂 `UIFlippable` —— `m_Horizontal: 0` / **`m_Veritical: 1`**（`Card Shop Tab.prefab` 的 `MonoBehaviour &114947810564538834`；⚠️ **原文字段名就拼成 `Veritical`**）⇒ **上下翻**，用**负高 UV** 表达（判据 + 机制断言 → `CounterFlipV` 的 doc 与 `Editor/B116W4_Assert.cs` 的 A 段）
                 var tr = CellRect(r, CellCountText);
                 // 🆕 **2026-10-10（A1212 块 6）接上自适应**：原版那一颗（`x{Owned}` 角标）四格 =
                 //   `18 / 72 / 32 / 1`（出处 = `RA1212_切块表.md` 块 6 #18）。闸三条全真（`23 > 18`）。
@@ -1682,5 +1682,223 @@ namespace CardPresentation
         //   （今天不需要：两种情形都该被那条卫生断言抓）。
         /// <summary>自检只读口：这一页挂在哪扇宿主窗上（= `SetHost` 灌进来的 `_win`；假 null = 已销毁或从没灌过）。</summary>
         public MainMenuSubmenuWindow OwnerWin { get { return _win; } }
+
+        // ============================================================ B116_W4（2026-11-02 · 账 `B-320`）
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用，插一行整段下游就漂；现读账最深落点 = `:1524`）。
+
+        /// <summary>`Counter` 的 uv —— **负高 = 上下翻**。
+        /// <para>判据 = 原版 `Card Shop Tab.prefab` 的 `…/Catalog Item Shop Container/background/Counter` 上挂的 `UIFlippable`
+        /// （`MonoBehaviour &114947810564538834`：`m_Horizontal: 0` · `m_Veritical: 1`；
+        /// ⚠️ **字段名在 prefab 里就拼成 `m_Veritical`**，按 `m_Vertical` 搜会 0 命中）。
+        /// `Daily Shop Tab.prefab` / `Item Shop Tab.prefab` 各一份、值相同（三份各 1 处 `UIFlippable`）。
+        /// 这颗 `Counter` 的矩形（锚点 `y 0.14931637…0.21753846` 落在 `background` 477 高上）就是本文件的
+        /// <see cref="CellCount"/>（= `372.23…404.78`，逐位对上），⇒ **节点早就建了**（`BuildCell`），
+        /// `B-320` 缺的是**这一翻**（审计原文「我们商店页里没有 `Counter`」是**看漏了** `:688`）。</para>
+        /// <para>机制：`ImageQuad.RebuildMesh` 的 uv 数组 = `{ (xMin,yMin), (xMax,yMin), (xMax,yMax), (xMin,yMax) }`，
+        /// 顶点序 = 左下/右下/右上/左上 ⇒ `y = 1, height = -1` 时**左下顶点取图的上沿** = 上下翻。
+        /// 工程里「负宽」镜像有 5 处先例（`CollectionWindow.cs:2453` 等），**负高零先例**
+        /// ⇒ 由 `Editor/B116W4_Assert.cs` 的 A 段逐值钉住（含 `Rect(0,0,1,1)` 基线与灭自证）。</para>
+        /// <para>⚠️ 生产落点（`BuildCell`）**不是**直接写这一句，而是「读回 `UvRect` 再把 v 那一段翻过来」——
+        /// 因为 `MenuDraw.Rect` 会**先**按视口裁切算一份 uv（滚到底时那半格会被截），直接覆盖会把裁切丢掉
+        /// （Counter 会画到视口外）。**没被裁时两者逐值相同**：`(0,0,1,1)` ⇒ `(0,1,1,-1)`。</para></summary>
+        public static readonly Rect CounterFlipV = new Rect(0f, 1f, 1f, -1f);
+
+        /// <summary>`Packs Scroll View/Scrollbar Horizontal` 的矩形。
+        /// <para>原版实读（`Packs Tab.prefab` / `Generic Shop Tab.prefab` 同值，`RectTransform &224313026266067498`）：
+        /// `m_AnchorMin (0,0)` · `m_AnchorMax (1,0)` · `m_AnchoredPosition (173.65668, 15.14)` ·
+        /// `m_SizeDelta (-509.1857, 5.469)` · `m_Pivot (0,0)`；父 = `Packs Scroll View` **1589.30 × 1009.06**
+        /// （= <see cref="FlexScrollView"/>）⇒ 宽 `1589.30 − 509.1857` = **1080.114**、高 **5.469**，
+        /// 距父**下沿** 15.14 ⇒ 折成本文件这套「像素、y 向下」= `504.33, 1059.39 → 1584.44, 1064.86`。</para>
+        /// <para>⚠️ 原版这颗 **`m_IsActive: 0`**；且 `Packs Scroll View` 的 `ScrollRect.m_HorizontalScrollbarVisibility = 1`
+        /// （**AutoHide**；`&114470112387431263`）⇒ uGUI `ScrollRect.UpdateOneScrollbarVisibility` 对**非 `Permanent`** 档
+        /// **无条件 `SetActive(false)`** ⇒ 原版整棵（连同下面 4 颗箭头）**恒不显示** = 死装饰。
+        /// 我们**照 `activeSelf` 摆**：建、但关。⛔ 别改成显示，也⛔ 别给它编交互（`Assembly-CSharp` 全仓 0 处按名引用）。</para></summary>
+        public static readonly PxRect ScrollbarH = new PxRect(504.33f, 1059.39f, 1584.44f, 1064.86f);
+
+        /// <summary>`Scrollbar Horizontal/Arrow Left 1`（`RT &224320256170494724`：锚点 `(0,0.5)` · `pos (3.8147E-06, 0)` ·
+        /// `sizeDelta 36.57007×36.692` · `pivot (1,0.5)` ⇒ 右沿贴父左沿、竖向居中）。</summary>
+        public static readonly PxRect ArrowLeft1 = new PxRect(467.76f, 1043.78f, 504.33f, 1080.47f);
+        /// <summary>`Scrollbar Horizontal/Arrow Left 1 2`（`RT &224089843903986396`）—— 与上一颗**只差 `pos.x = 10`**。</summary>
+        public static readonly PxRect ArrowLeft1B = new PxRect(477.76f, 1043.78f, 514.33f, 1080.47f);
+        /// <summary>`Arrow Left 1*` 的 uv —— **负宽 = 水平镜像**（工程里已有 5 处先例）。
+        /// 判据 = 两颗上各挂一份 `UIFlippable`：`m_Horizontal: 1` / `m_Veritical: 0`
+        /// （`Packs Tab.prefab` 的 `&114217368724061974` / `&114060945828524476`）。</summary>
+        public static readonly Rect ArrowFlipH = new Rect(1f, 0f, -1f, 1f);
+        /// <summary>箭头底图（`Resources/Art/ui_menu/40k_general_bt_arrow.png`；原版 sprite `40k_general_bt_arrow`，
+        /// `m_Type 0 (Simple)` · **`m_PreserveAspect: 0`** ⇒ 拉伸到框，⛔ 别开等比）。</summary>
+        public const string ArrowSprite = "40k_general_bt_arrow";
+        /// <summary>滚动条那一层：**低于**货架 `QGrid` 3022 —— 原版它排在 `Packs Scroll View` 的 `Viewport` **之前**（画在内容底下）。</summary>
+        public const int QScrollbar = 3019;
+
+        /// <summary>建 `Packs Scroll View/Scrollbar Horizontal`（原版 `Packs Tab` = 我们的第 5 页 Crates / `Generic Shop Tab`）。
+        /// <para>⚠️ **件数已闭合**：`B116_W4`（`B-320`）建了壳 + 两颗 `Arrow Left 1`；`B116_W15`（`B-325`）补齐了
+        /// `Sliding Area` / `Handle` / `Arrow Right 1` / `Arrow Right 2` ⇒ 与原版 `m_Children` **5 项逐位同序**。
+        /// （原版这条账拆成两条的原因：`B-320` = `UIFlippable` 翻转机制，只覆盖**挂翻转的两颗左箭头**；
+        /// 右箭头**没有** `UIFlippable`，是纯「节点没建」。）
+        /// 🆕 **2026-11-02（`B116_W25` · `B-330`）多出第 6 颗 `Background`**：原版父件**自身**挂着一颗红底
+        /// `Image`，而本工程的图像只能落在节点上 ⇒ 用子件表达它，并放在五颗原版子件**之后**（`index 5`）。
+        /// ⛔ 前五颗的次序判据一个字没动（`Editor/B116W4_Assert.cs` 的 D-⓪/D-① 逐位比）。</para>
+        /// <para>🔴 **建完就 `SetActive(false)`**：照原版 `m_IsActive: 0`（运行时 `ScrollRect` 的 AutoHide 还会再关一次）——
+        /// 所以这整棵**今天是看不见的**，它的价值是**节点级闭合**（`B-320` 的判据就是「节点在不在」）。</para></summary>
+        void BuildScrollbarHorizontal(Transform sv)
+        {
+            if (sv == null) return;
+            var sb = MainMenuSubmenuWindow.Node(sv, "Scrollbar Horizontal", ScrollbarH);
+            if (sb == null) return;
+            // ⚠️ **建件顺序 = 原版 `m_Children` 序**（`RT &224313026266067498`）：
+            //   `Sliding Area` → `Arrow Right 1` → `Arrow Right 2` → `Arrow Left 1` → `Arrow Left 1 2`。
+            //   `B116_W4` 只建了后两颗；前三颗是 `B-325`（本批）补的。
+            var sa = MainMenuSubmenuWindow.Node(sb, "Sliding Area", SlidingArea);
+            if (sa != null) BuildHandle(sa);
+            BuildArrowPlain(sb, "Arrow Right 1", ArrowRight1);
+            BuildArrowPlain(sb, "Arrow Right 2", ArrowRight2);
+            BuildArrowFlip(sb, "Arrow Left 1", ArrowLeft1);
+            BuildArrowFlip(sb, "Arrow Left 1 2", ArrowLeft1B);
+            BuildScrollbarBack(sb);   // 🆕 `B116_W25`（账 `B-330`）：原版挂在 `Scrollbar Horizontal` **自身**上的红底（五颗之后，见类尾）
+            sb.gameObject.SetActive(false);
+        }
+
+        /// <summary>一颗「原版挂了 `UIFlippable`（水平镜像）」的箭头静态件。</summary>
+        void BuildArrowFlip(Transform parent, string nodeName, PxRect r)
+        {
+            var q = _win.Rect(parent, ArrowSprite, r, nodeName, QScrollbar, null, false);
+            if (q == null)
+            {
+                Debug.LogWarning("[Shop] ★ `" + nodeName + "` 没画出来（`" + ArrowSprite + "` 取不到图？）—— 这是缺口，不是「被裁掉了」");
+                return;
+            }
+            q.SetUvRect(ArrowFlipH);
+        }
+
+        // ============================================================ B116_W15（2026-11-02 · 账 `B-325`）
+        // `Scrollbar Horizontal` 子树**剩下的三颗**（`Sliding Area` / `Handle` / `Arrow Right 1` / `Arrow Right 2`）。
+        // 追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用；现读账最深落点 `:1524`，本段全在其后）。
+        //
+        // 🔴 判据（2026-11-02 本代理现读 `D:/2/tools/assetripper_out/ExportedProject/Assets/Packs Tab.prefab`
+        //   —— 与 `Generic Shop Tab.prefab` **逐字节同构**，`diff` 只差 `m_Name` 与页脚本 `m_Script`，
+        //   两族同 fileID / 同值；`RT &224313026266067498` 的 `m_Children` 有序 5 项）：
+        //   · `Sliding Area`（`RT &224302127217294661` / GO `&1618682377417806`）：**只有 RectTransform、没有 Image**
+        //     锚点 `(0,0.5)–(1,0.5)` · `pos (0.006164551, 0)` · `sizeDelta (0.2, 21.6125)` · `pivot (.5,.5)` · `m_IsActive: 1`
+        //     ⇒ 横向拉伸父宽（1080.114 + 0.2 = **1080.314**）、高 **21.6125**、竖向居中。
+        //   · `Handle`（`RT &224969106005120503`）：锚点 `(0,0)–(1,1)` · `pos (0,0)` · `sizeDelta (0,0)` · `pivot (.5,.5)`
+        //     ⇒ **完全填满 `Sliding Area`**（同矩形）。`Image`：`m_Color (0.90588236, 0.83137256, 0.63529414, 1)`
+        //     · `m_Sprite` guid `d185926faff3c9f46a8a4dc25a4ccabe` = **`GenericRoundedSquare`**（32×32 · `m_Border 9/9/9/9`）
+        //     · `m_Type 1`（**Sliced**）· `m_PreserveAspect: 0`。
+        //     🔴 **2026-11-02（`B116_W25` · `B-330`）就地订正**：本段原写「**这张图我们取不到**
+        //     （`B109_资源可用性.tsv:52` = `PRESENT_NOT_LOADABLE`）⇒ 本批用同色纯色块」—— **已过期**。
+        //     图已导入 `Resources/Art/ui_menu/`（`工具/import_original_art.py` 的 `MENU_IMAGES` 那一行），
+        //     `BuildHandle` 现在走 **`_win.Nine`（border 9）**；本段第 1 行那颗红底也一起补上了（`BuildScrollbarBack`）。
+        //     ⚠️ 仍然成立：**这一整棵在原版恒不显示**（`ScrollRect.m_HorizontalScrollbarVisibility = 1` = AutoHide
+        //     ⇒ uGUI 无条件 `SetActive(false)`），所以它的价值是**节点级闭合 + 参数级吻合**，不是画面。
+        //   · `Arrow Right 1`（`RT &224711914853252429`）：锚点 `(1,0.5)` · `pos (-0.00012207031, 0)` · `pivot (0,.5)`
+        //     · `sizeDelta 36.570007 × 36.692` ⇒ 右沿贴父右沿、**向右伸出**（左沿 = 父右沿）。
+        //   · `Arrow Right 2`（`RT &224875609422105747`）：只差 `pos.x = -9.400024`。
+        //     两颗 `Image`：sprite guid `35e30868f503dba41a4ea45738aec243` = **`40k_general_bt_arrow`**（已有）
+        //     · `m_Color (1,1,1,1)` · `m_Type 0`（Simple）· `m_PreserveAspect: 0` ⇒ 拉伸到框。
+        //   🔴 **两颗右箭头没有 `UIFlippable`**（`Arrow Left 1*` 才有 H=1）⇒ **不翻 uv**，这也是
+        //     `B-325` 与 `B-320`（翻转机制）不是同一条账的原因；⛔ 别顺手给它们加镜像。
+
+        /// <summary>`Scrollbar Horizontal/Sliding Area` 的矩形 —— 横向拉伸父宽（+0.2）、高 21.6125、竖向居中。
+        /// <para>算式：父 = <see cref="ScrollbarH"/>（`504.33,1059.39 → 1584.44,1064.86`，宽 1080.11 / 高 5.47 / 中心 `1044.385, 1062.125`）
+        /// ⇒ 宽 `1080.11 + 0.2 = 1080.31` · 中心 x `1044.385 + 0.006164551 = 1044.3912`
+        /// ⇒ `504.2362 … 1584.5462`；高 `21.6125` 竖向居中 ⇒ `1051.31875 … 1072.93125`。</para>
+        /// <para>⚠️ 它**比父高 5.47 还高**（21.6125）—— 这是原版 prefab 的实读值，不是我们算错；⛔ 别「顺手夹到父框里」。</para></summary>
+        public static readonly PxRect SlidingArea = new PxRect(504.24f, 1051.32f, 1584.55f, 1072.93f);
+
+        /// <summary>`Scrollbar Horizontal/Sliding Area/Handle` 的矩形 —— 原版 `sizeDelta (0,0)` + 四向拉伸 ⇒ **与 `Sliding Area` 逐值相同**。
+        /// <para>⛔ 别按「滑块应该短一点」去编一个宽度：原版 `sizeDelta = (0,0)`，`Scrollbar` 运行时才按 `m_Size` 调它。</para></summary>
+        public static readonly PxRect HandleRect = new PxRect(504.24f, 1051.32f, 1584.55f, 1072.93f);
+
+        /// <summary>`Handle` 的 `Image.m_Color`（prefab 实读 `0.90588236, 0.83137256, 0.63529414, 1` = 米白）。</summary>
+        public static readonly Color HandleTint = new Color(0.90588236f, 0.83137256f, 0.63529414f, 1f);
+
+        /// <summary>`Handle` 的原版底图名（`GenericRoundedSquare`，`m_Type 1` Sliced · `m_Border 9`）。
+        /// <para>🔴 **2026-11-02（`B116_W25` · 账 `B-330`）就地订正**：原文写「**本工程取不到**（`PRESENT_NOT_LOADABLE`）
+        /// ⇒ 今天画同色块」—— **已过期**。图已于本批导入 `Resources/Art/ui_menu/`（`工具/import_original_art.py`
+        /// 的 `MENU_IMAGES`，源 `ui_extract/duplicateassetisolation_assets_all/Sprite/`），
+        /// `B109_资源可用性.tsv:52` 那一行应随之翻面（该表由调度台维护，本代理不改账本）。
+        /// ⛔ 别再按「取不到」给 `BuildHandle` 加纯色兜底。</para></summary>
+        public const string HandleSprite = "GenericRoundedSquare";
+
+        /// <summary>`GenericRoundedSquare` 的九宫格边界（**贴图 px**，原版 sprite JSON 现读 `m_Border (9,9,9,9)`）。
+        /// <para>⚠️ 本工程的图像不走 Unity Sprite（`ArtBaker.ApplyImportSettings` 把 `Resources/Art` 下这批设成
+        /// `textureType = Default`，我们自己按 UV 摆）⇒ **border 只能是代码常量**，别指望 `.meta` 里的 `spriteBorder`。</para>
+        /// <para>两块用的 border **相同、画出来的角块不同**：`Handle` 的 `m_PixelsPerUnitMultiplier: 1` ⇒ 角块 9px；
+        /// 红底那颗是 **2** ⇒ 角块 `9 ÷ 2` = 4.5px（走 `MenuDraw.Nine` 的 `borderOutPx`，⛔ 别把 4.5 写进 border）。</para></summary>
+        public static readonly Vector4 HandleBorder = new Vector4(9f, 9f, 9f, 9f);
+
+        /// <summary>`Scrollbar Horizontal` **自身**那颗红底（原版挂在父件上的 `Image`）的 `m_Color`
+        /// —— prefab 实读 `0.5471698, 0.11594599, 0.080010675, 1`。</summary>
+        public static readonly Color ScrollbarBackTint = new Color(0.5471698f, 0.11594599f, 0.080010675f, 1f);
+
+        /// <summary>`Scrollbar Horizontal/Arrow Right 1` —— 右沿贴父右沿、向右伸出 `36.570007`。
+        /// <para>`1584.44 + 0 = 左沿` · `+36.570007 = 1621.01`；y 与 `Arrow Left 1` 同（`1043.78 … 1080.47`）。</para></summary>
+        public static readonly PxRect ArrowRight1 = new PxRect(1584.44f, 1043.78f, 1621.01f, 1080.47f);
+
+        /// <summary>`Scrollbar Horizontal/Arrow Right 2` —— 只差 `pos.x = -9.400024` ⇒ 左沿 `1584.44 − 9.400024 = 1575.04`。</summary>
+        public static readonly PxRect ArrowRight2 = new PxRect(1575.04f, 1043.78f, 1611.61f, 1080.47f);
+
+        /// <summary>`Handle` 那一层：**低于**箭头（`QScrollbar` 3019）—— 原版 `Sliding Area` 是 `m_Children[0]`，画在箭头底下。
+        /// <para>同队列（3019）时两张透明 quad 到相机距离相同 ⇒ 压盖次序不定；本层用 3018 把它钉死在下面
+        /// （分层口径见 `CLAUDE.md` §三「分层要用渲染队列，不能用 z」）。`ShopTabPage` 里 3018 之前没人占。</para></summary>
+        public const int QScrollbarBack = 3018;
+
+        /// <summary>🆕 `B116_W25`（账 `B-330`）：`Scrollbar Horizontal` **自身红底**那一层（3017）。
+        /// <para>次序 = 红底 3017 &lt; `Handle` 3018 &lt; 箭头 3019 —— 原版同理：父件自己的 `Image` 先画、子件后画。
+        /// 3017 在本文件此前的分层里没人占（3018 是 `B116_W15` 给 `Handle` 占的）。</para></summary>
+        public const int QScrollbarBg = 3017;
+
+        /// <summary>建 `Sliding Area/Handle`（原版那颗米白滑块）。
+        /// <para>🔴 **2026-11-02（`B116_W25` · 账 `B-330`）：改成真九宫格** —— `GenericRoundedSquare` 已导入
+        /// `Resources/Art/ui_menu/`（`工具/import_original_art.py` 的 `MENU_IMAGES` 那一行；源 = 切片缓存
+        /// `ui_extract/duplicateassetisolation_assets_all/Sprite/`，32×32 · `m_Border (9,9,9,9)`）。
+        /// 原版 `Image`：`m_Type 1`(Sliced) · `m_PixelsPerUnitMultiplier: 1` ⇒ `borderOutPx` 不传 = 与 border 同值。
+        /// ⛔ **别退回 `CardArt.Solid()` 同色块** —— 那会少掉四个 9px 圆角，`Editor/B116W4_Assert.cs` 的
+        /// D·`Handle` 底图名那条会当场红（它先断 `Resources.Load` 非空、再断名字）。</para></summary>
+        void BuildHandle(Transform parent)
+        {
+            var go = _win.Nine(parent, HandleSprite, HandleRect, HandleBorder, QScrollbarBack, HandleTint,
+                               true, "Handle");
+            if (go == null)
+                Debug.LogWarning("[Shop] ★ `Sliding Area/Handle` 没画出来（底图 `" + HandleSprite + "` 取不到 ——"
+                                 + " `Resources/Art/ui_menu/GenericRoundedSquare.png` 没导入？"
+                                 + " 重导：`python 工具/import_original_art.py --apply --only GenericRoundedSquare`）");
+        }
+
+        /// <summary>一颗**没有 `UIFlippable`** 的箭头（原版 `Arrow Right 1` / `Arrow Right 2`）。
+        /// ⚠️ 与 <see cref="BuildArrowFlip"/> 的唯一差别：**不调 `SetUvRect`**（不镜像）。
+        /// ⛔ 别为了「两族看起来对称」给右箭头也套 `ArrowFlipH` —— 原版只给左箭头挂 `UIFlippable`。</summary>
+        void BuildArrowPlain(Transform parent, string nodeName, PxRect r)
+        {
+            var q = _win.Rect(parent, ArrowSprite, r, nodeName, QScrollbar, null, false);
+            if (q == null)
+            {
+                Debug.LogWarning("[Shop] ★ `" + nodeName + "` 没画出来（`" + ArrowSprite + "` 取不到图？）—— 这是缺口，不是「被裁掉了」");
+                return;
+            }
+        }
+
+        // ============================================================ B116_W25（2026-11-02 · 账 `B-330`）
+        //  `GenericRoundedSquare` 导入 + `Scrollbar Horizontal` **自身**那颗红底。
+        //  追加在**类尾**（⛔ 不插在成员之间 —— 本文件被账按 `文件:行号` 引用）。
+        // 判据（`Packs Tab.prefab` 现读，与 `Generic Shop Tab.prefab` 同值）：GO `&1724804207875695` 上挂的
+        //   `Image &114632457200066912` —— `m_Sprite` = `GenericRoundedSquare` · `m_Color (0.5471698, 0.11594599, 0.080010675, 1)`
+        //   · `m_Type 1`(Sliced) · `m_PreserveAspect 0` · **`m_PixelsPerUnitMultiplier: 2`** ⇒ 角块 `9 ÷ 2` = **4.5px**。
+        //  ⚠️ 原版这颗 Image 是**父件自己的组件**、不是子节点；本工程的图像只能落在节点上（`ImageQuad`）
+        //   ⇒ 建一颗子件 `Background` 放在原版五颗子件**之后**（`index 5`）。⛔ 别挪到 `index 0`：
+        //   `Editor/B116W4_Assert.cs` 的 D-⓪ 断的是「**前五颗**逐位同序」= 原版 `m_Children` 判据。
+        //  ⚠️ 矩形 = `ScrollbarH`（父件自己的盒子 1080.11 × 5.47）；竖向 `4.5 + 4.5 = 9 > 5.47`
+        //   ⇒ 角块按 uGUI `GetAdjustedBorders` **逐轴**压扁（`ImageQuad.CreateNineSlice` 已照抄这条）。
+
+        /// <summary>🆕 `B116_W25`（账 `B-330`）：`Scrollbar Horizontal` **自身**那颗红底（原版 `Image &114632457200066912`）。</summary>
+        void BuildScrollbarBack(Transform sb)
+        {
+            var go = _win.Nine(sb, HandleSprite, ScrollbarH, HandleBorder, QScrollbarBg, ScrollbarBackTint,
+                               true, "Background", new Vector4(4.5f, 4.5f, 4.5f, 4.5f));
+            if (go == null)
+                Debug.LogWarning("[Shop] ★ `Scrollbar Horizontal` 的红底没画出来（底图 `" + HandleSprite + "` 取不到 ——"
+                                 + " `Resources/Art/ui_menu/GenericRoundedSquare.png` 没导入？"
+                                 + " 重导：`python 工具/import_original_art.py --apply --only GenericRoundedSquare`）");
+        }
     }
 }

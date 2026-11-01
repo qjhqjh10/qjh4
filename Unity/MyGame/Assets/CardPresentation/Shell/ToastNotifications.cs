@@ -140,12 +140,12 @@
 //     ⇒ 现在的实现：`ShowInternal` 里 `Fill` 之后按**本次文案现量**文本首选高、重算根高并重摆
 //       （`ApplyMeasuredHeight`）；`BuildToast` / `BuildGetXP` 里那两个常量**降级成兜底**
 //       （未激活 / 量不出时用，并**出声**）。判据/算式只在 `ToastRootHeight` 一处。
-//     ⚠️ 仍未做：**原版真机读数**（本仓没有原版 `rect.height` 的实拍）—— 现量的口径是**uGUI 字段语义**
-//       （padding + 子件高），不是从原版画面反推的。
-// ⚠️ **2. `WF_UI_Generic_FancyNotification_Background` 本地 `Resources/` 里没有**
-//     （只在源图 `CardPresentation/Art/原版/0_mainmenu/`，资源导入器没导）。
-//     ⇒ 本文件**退回** `UI_Deck_Information_submenu_Back_opaque`（= 通用 `Toast` 那张底图，
-//     同族、已导入）并**出声一次**。⛔ 没有把「缺图」说成「原版也这样」。
+//     ⏸ **挂起（不是待办）**：**原版真机 `rect.height` 读数** —— 判据只能取自原版实拍，而用户 2026-11-02
+//       已叫停实拍（「以后不必再进原版截图」）⇒ 本条挂起；恢复条件 = 用户重新开实拍。现量口径是字段语义。
+// ✅ **2. `WF_UI_Generic_FancyNotification_Background` 本地 `Resources/` 里【有】**（🔴 2026-11-02 现核，铁律 5：
+//     `Resources/Art/ui_menu/WF_UI_Generic_FancyNotification_Background.png` · 45,254 B · 与源图同字节）。
+//     ⇒ 正常路径 = 取到**这张真图**（`CardArt.MenuUi` 按 `ui_menu/ → ui_deck/ → ui/` 兜底）；仅当它被移走/改名，
+//     才退回 `UI_Deck_Information_submenu_Back_opaque` 并**出声一次**。原注「本地没有、导入器没导」**已作废**。
 // ⚠️ **3. Mission toast 的运行时装配（`N20②`）—— 能静态补的已补，补不了的如实标：**
 //     `ToastNotificationMission__Initialize.c` 逐句：`SetActive(true)` → `text = ModifyLocalization(
 //     GetLocalizedDescription(progress))` → 对三个 `MissionInfoDisplay` 各跑一次 `Initialize(progress)`。
@@ -555,7 +555,7 @@ namespace CardPresentation
                             Vector2.zero, new Vector2(LevelUpW, LevelUpH), rootRect);
 
             // 根 Image：`WF_UI_Generic_FancyNotification_Background` · Sliced · border 20 · ppuMul 1.3
-            //   （`m_Color = 白`）—— ⚠️ 这张图**本地 Resources 里没有**，见文件头「边界 2」
+            //   （`m_Color = 白`）—— ✅ 这张图**本地 Resources 里【有】**（2026-11-02 现核），见文件头「边界 2」
             FancyBackground(root, rootRect, QBg, "Background");
 
             // `Icon`（RT 353）：a(0,0.5)-(0,0.5) p(0,0.5) ap(1.61853,-2.5042) sd(86.6998,86.7019)
@@ -1217,7 +1217,7 @@ namespace CardPresentation
         /// <summary>两条模板的根底图参数（**一处定义**）：`fancy = false` ⇒ 通用 `Toast` 那张
         /// `UI_Deck_Information_submenu_Back_opaque`（border 18 · 69×63 · 画出来的角块 18）；
         /// `fancy = true` ⇒ 原版 `WF_UI_Generic_FancyNotification_Background`（border 20 · 352×116 ·
-        /// 角块 15.3846），本地缺图时**退回**同一张通用底图并**出声一次**（判据 → `FancyBackground`）。</summary>
+        /// 角块 15.3846）；**取不到时**才**退回**同一张通用底图并**出声一次**（判据 → `FancyBackground`）。</summary>
         static void BackgroundSpec(bool fancy, out Texture2D tex, out Vector4 border,
                                    out float texW, out float texH, out Vector4 borderOut)
         {
@@ -1490,7 +1490,7 @@ namespace CardPresentation
             return q;
         }
 
-        /// <summary>那张缺图的底图名。判据 / 退回理由 → 文件头「边界 2」。</summary>
+        /// <summary>原版那张 fancy 底图的 sprite 名（图在 `Resources/Art/ui_menu/`）。判据 / 退回理由 → 文件头「边界 2」。</summary>
         const string FancyBackgroundName = "WF_UI_Generic_FancyNotification_Background";
 
         /// <summary>`Toast Collection Level Up` / `Toast Collection Get XP` 的根底图。
@@ -1503,15 +1503,15 @@ namespace CardPresentation
             { var go = MenuDraw.Nine(parent, tex, r, border, texW, texH, q, Color.white, true, name, borderOut); if (go != null) foreach (var z in go.GetComponentsInChildren<ImageQuad>(true)) { MenuFxMaterials.ApplyOrangeButtonToPurple(z); z.SetVertexTintChannel(true); } }   // 🆕 `B-188` 原版根 Image 挂 `UI Orange Button To Purple` ⇒ 底图换 HUE 材质 · `B-190` 同刻开顶点色通道（判据/口径 → 类尾那一段）
         }
 
-        /// <summary>原版那张 fancy 底图**本地 Resources 里没有**（只在源图，导入器没导）⇒ 出声一次，
-        /// 并由 <see cref="BackgroundSpec"/> 退回同族的 `UI_Deck_Information_submenu_Back_opaque`。
-        /// ⛔ 没有把「缺图」写成「原版也这样」。</summary>
+        /// <summary>⚠️ **只在真取不到时**才走这条（正常路径见文件头「边界 2」：图在 `Resources/Art/ui_menu/`）⇒
+        /// 出声一次，并由 <see cref="BackgroundSpec"/> 退回同族的 `UI_Deck_Information_submenu_Back_opaque`。
+        /// ⛔ 没有把「缺图」写成「原版也这样」；⛔ 也别把这条读成「现状 = 缺图」（2026-11-02 现核：图在）。</summary>
         static void WarnFancyBackgroundMissingOnce()
         {
             if (_warnedFancyBg) return;
             _warnedFancyBg = true;
             Debug.LogWarning($"[ToastNotifications] `{FancyBackgroundName}` 在 `Resources/Art/{{ui_menu,ui_deck,ui}}` "
-                           + "里**没有**（只在源图 `CardPresentation/Art/原版/0_mainmenu/`，导入器没导）⇒ "
+                           + "里**取不到**（正常应在 `Art/ui_menu/`，2026-11-02 现核 45,254 B；被移走/改名才会落到这里）⇒ "
                            + "`Toast Collection Level Up` / `Get XP` 的根底图**退回** "
                            + "`UI_Deck_Information_submenu_Back_opaque`（同族、已导；⛔ 不静默、也⛔ 不写成原版行为）。");
         }

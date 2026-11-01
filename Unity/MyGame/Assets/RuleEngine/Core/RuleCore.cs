@@ -2309,7 +2309,7 @@ namespace RuleEngine
             GrantPrayEnchantmentFaith(ctx, ctx.Active, ctx.Players[ctx.Active].Warlord);
 
             ResolveAtTurn(ctx, "turn_start");
-            if (ctx.IsOver) return; { var tq = new List<UnitState>(); for (int tp = 0; tp < ctx.Players.Length; tp++) { var tb = ctx.Players[tp].Board; for (int ts = 0; ts < BoardSpec.Size; ts++) { var tu = tb[ts]; if (tu == null || !tu.IsAlive) continue; if ((tu.Has("transient") || (tu.Card != null && tu.Card.CardTraitsKnown && tu.Card.HasDefaultTrait("transient", out _))) && !tu.HasRemovedTrait("transient")) tq.Add(tu); } } for (int ti = 0; ti < tq.Count; ti++) { int to, tsl; if (!FindUnit(ctx, tq[ti], out to, out tsl)) continue; ctx.Log($"{tq[ti].Name} 带 `transient`（短暂的）⇒ 回合开始被摧毁（原版 `CardScript__OnTurnStart.c:257` → `BattleManager.DestroyUnit(…, priority 1, deathType = ability(20))`）"); tq[ti].Health = 0; CleanupDeaths(ctx, to, tsl, actingCard: tq[ti], deathType: UnitDeathType.Ability, actionTarget: tq[ti]); } if (ctx.IsOver) return; }      // 触发段能打死督军（`your troops take 1 damage` 那类） ｜ 🆕 2026-11-01（`B115_S7` · ENG-07 `transient`(455)）：**原版 `CardScript__OnTurnStart.c:257` 的那一跳** —— 状态闸 `cardState ∈ {2,0xf,3,0x11}`（= 在场，`p.Board` 天然满足）∧ `HasCurrentTrait(0x1c7)` ⇒ `DestroyUnit(this, this, priority 1, deathType = ability(20))`；**原版没有侧别守卫**（`:257` 只查状态，不像 `:106/:113/:120/:125` 那样查 `param_2 == isPlayer`）⇒ **双方都扫**。位置 = `ResolveAtTurn("turn_start")`（原版 `:137+` 触发段）**之后**、`BroadcastActivateMinions/TurnStarted`（原版 `_NextTurn:384/:385`）**之前**，与原版 `:137 → :257 → :263(Landing)` 同序。⚠️ 已知近似：原版 transient 那一跳在**逐卡** `OnTurnStart` 里、排在 talent(`:160`)/psyker(`:175`) **之后**；我们这两段在更后面（既有结构），暂不可观测（池内 0 张）。⚠️ `keywords` 列的真值需在 `CardDef.Prefixes` 登记 `transient`（不在本笔白名单）——今天走 `cardTraits` 列（`HasDefaultTrait` 的 `TraitKeyOf` 回退到小写净名）即可达
+            if (ctx.IsOver) return; ManaBuffProcess.AddPsychicReactor(ctx, ctx.Active); /* 🆕 2026-11-02（`B116_W41` · `ENG-07` `psyker`(620)/`reactor`(625)）：原版 `CardScript__OnTurnStart.c:177`/`:218` 那两跳 —— 只扫**行动方**（侧别守卫 `:101-103`）⇒ 造 `ManaBuff{psychicMana=1}`/`{plasmaMana=1}` 并交给 `Process`；🔴 原版 `BattleManager__ProcessManaBuff.c:27-49` **一次都不读**那两个 flag ⇒ 净效果恒零（死支照抄，18·0）。⛔ 别做成「回合开始 +N 灵能」。池内 0 张带这两个 trait ⇒ 零行为变化。判据/红线 → `Core/ManaBuffDeadBranch_B116W41.cs` 文件头 */ { var tq = new List<UnitState>(); for (int tp = 0; tp < ctx.Players.Length; tp++) { var tb = ctx.Players[tp].Board; for (int ts = 0; ts < BoardSpec.Size; ts++) { var tu = tb[ts]; if (tu == null || !tu.IsAlive) continue; if ((tu.Has("transient") || (tu.Card != null && tu.Card.CardTraitsKnown && tu.Card.HasDefaultTrait("transient", out _))) && !tu.HasRemovedTrait("transient")) tq.Add(tu); } } for (int ti = 0; ti < tq.Count; ti++) { int to, tsl; if (!FindUnit(ctx, tq[ti], out to, out tsl)) continue; ctx.Log($"{tq[ti].Name} 带 `transient`（短暂的）⇒ 回合开始被摧毁（原版 `CardScript__OnTurnStart.c:257` → `BattleManager.DestroyUnit(…, priority 1, deathType = ability(20))`）"); tq[ti].Health = 0; CleanupDeaths(ctx, to, tsl, actingCard: tq[ti], deathType: UnitDeathType.Ability, actionTarget: tq[ti]); } if (ctx.IsOver) return; }      // 触发段能打死督军（`your troops take 1 damage` 那类） ｜ 🆕 2026-11-01（`B115_S7` · ENG-07 `transient`(455)）：**原版 `CardScript__OnTurnStart.c:257` 的那一跳** —— 状态闸 `cardState ∈ {2,0xf,3,0x11}`（= 在场，`p.Board` 天然满足）∧ `HasCurrentTrait(0x1c7)` ⇒ `DestroyUnit(this, this, priority 1, deathType = ability(20))`；**原版没有侧别守卫**（`:257` 只查状态，不像 `:106/:113/:120/:125` 那样查 `param_2 == isPlayer`）⇒ **双方都扫**。位置 = `ResolveAtTurn("turn_start")`（原版 `:137+` 触发段）**之后**、`BroadcastActivateMinions/TurnStarted`（原版 `_NextTurn:384/:385`）**之前**，与原版 `:137 → :257 → :263(Landing)` 同序。⚠️ 已知近似：原版 transient 那一跳在**逐卡** `OnTurnStart` 里、排在 talent(`:160`)/psyker(`:175`) **之后**；我们这两段在更后面（既有结构），暂不可观测（池内 0 张）。⚠️ `keywords` 列的真值需在 `CardDef.Prefixes` 登记 `transient`（不在本笔白名单）——今天走 `cardTraits` 列（`HasDefaultTrait` 的 `TraitKeyOf` 回退到小写净名）即可达
             // 🆕 2026-10-26（`E11RC` · 账行 818 `CardScript.OnTurnStarted`）：原版
             //   `_NextTurn_d__395__MoveNext.c:385` 的 `BroadcastTurnStarted`（trigger 160）排在
             //   `BroadcastTurnStart`（30/31，`:371`）与 `BroadcastActivateMinions` **之后**
@@ -4219,7 +4219,7 @@ namespace RuleEngine
             //    位置仍满足「校验过了、费用付掉了、手牌已经拿走、也落位了」⇒
             //    **打不出去的牌一张都不会记上**（前面任一关没过就 return 了）。
             //    ⛔ 别再挪回广播之前 —— 那会让「广播期间读『本局打出过的牌』」多看见一张。
-            FireTriggerOnBoard(ctx, unit, KeywordTable.Rally, chosen); ResolveSpiritAbility(ctx, p, unit); ctx.NotePlayed(p, inst, false); ApplyPlayedCardTailEffects(ctx, p, card, inst, unit, chosen);   // 🔴 2026-10-28（B89-E14 · 账 L869②③）：原版 `CardScript__ResolveCardPlayed.c` 的 ② Combo(590) 与 ④ 打出时 `RemoveTraitSilently(5 ephemeral)` —— 夹在「广播：打出一张牌」与 `Deploy` 广播之间，与 `.c:1-95` 的语句次序一致（详见那个类尾方法）｜🔴🔴 2026-10-29（B95_WRE 批 3 · 判据 `判据/B95_Rally闸_核查.md` §八·1/§八·5 方案 (a)）：**本行前三句就是原版那一跳的头三拍** —— `Rally(0)`（`:1081` → `CardScript__ResolveCardPlayed.c:22-24` → `RawCardScript__OnCardPlayedWithTarget.c:43`）→ `600 UseSpiritStone`（同一函数 `:66`）→ `590 Combo`（`ResolveCardPlayed.c:25-31`）。⚠️ 这三句原来散在 `:4183`(600) / `:4211`(Rally) 与下面 590 那批里、且次序全反（见判据 §八·3 的 ①③④）；本次**只搬次序、没改语义**（`FireTriggerOnBoard` / `ResolveSpiritAbility` / `NotePlayed` 三个函数本体一个字没动）
+            FireTriggerOnBoard(ctx, unit, KeywordTable.Rally, chosen); ResolveSpiritAbility(ctx, p, unit); ctx.NotePlayed(p, inst, false); ApplyPlayedCardTailEffects(ctx, p, card, inst, unit, chosen); DispatchCardAbilityRows(ctx, card, inst, 0, p, slot, actingCard: unit, targetCard: chosen);   // 🆕 2026-11-02（`B116_W27` · 活状态表 `B-211`）：**卡级派发 `cardAbilities` 逐 ability 那一层**（本批只接 `ca 380`；`320` 由单位关键词路负责 ⇒ `tacticPath:false` 跳过它）—— 判据 / 三态 / 灭自证全在 `Core/CardAbilityDispatch_B116.cs` 头注释；⛔ 别再把「按 ability 派」加回文本层｜🔴 2026-10-28（B89-E14 · 账 L869②③）：原版 `CardScript__ResolveCardPlayed.c` 的 ② Combo(590) 与 ④ 打出时 `RemoveTraitSilently(5 ephemeral)` —— 夹在「广播：打出一张牌」与 `Deploy` 广播之间，与 `.c:1-95` 的语句次序一致（详见那个类尾方法）｜🔴🔴 2026-10-29（B95_WRE 批 3 · 判据 `判据/B95_Rally闸_核查.md` §八·1/§八·5 方案 (a)）：**本行前三句就是原版那一跳的头三拍** —— `Rally(0)`（`:1081` → `CardScript__ResolveCardPlayed.c:22-24` → `RawCardScript__OnCardPlayedWithTarget.c:43`）→ `600 UseSpiritStone`（同一函数 `:66`）→ `590 Combo`（`ResolveCardPlayed.c:25-31`）。⚠️ 这三句原来散在 `:4183`(600) / `:4211`(Rally) 与下面 590 那批里、且次序全反（见判据 §八·3 的 ①③④）；本次**只搬次序、没改语义**（`FireTriggerOnBoard` / `ResolveSpiritAbility` / `NotePlayed` 三个函数本体一个字没动）
 
             // **事件层广播**（`When you deploy a Vehicle, …`）—— 第三十二轮。
             // ⚠️ 排在 `ResolveDeploy` **之后**：那条是「常驻效果盯着某类牌」，
@@ -4780,13 +4780,13 @@ namespace RuleEngine
             //        是**同一个形状** ⇒ 这一族里被排除的那个就是「触发源」。
             //    ⇒ 所以这一跳的 `subject` 必须传 `just`（被并掉那张），**格位仍传 `host`**
             //      （表现层拿格号反查视图，⛔ 见下面那个 `hostSlot` 的两条错法）。
-            //    ⚠️ **如实标着的一条**：`Tyranid Prime` 的 `give it +1 Melee Attack and +1 Health`
-            //      在**我们引擎里**会因此落在一张**已经不在场上**的卡上（`just` 只在
-            //      `host.SwarmUnder` 里留一份 `CardInstance`，没有任何代码从它重算数值）
-            //      ⇒ **那半句的效果不可观测**。这是**照原版口径**的必然结果（原版 likewise
-            //      在 `DestroyUnitSilent` **之后**才广播），但「原版那张卡的能力数据里
-            //      `it` 究竟绑哪一个 `TargetsAffected`」本地**取不到**（卡能力数据在远端 CCD
-            //      ⇒ 判据在远端）⇒ 已如实写进 `W5` 报告 §一·五，**没猜**。
+            //    🔴 **2026-11-02 就地订正（`B116_W12` · `B-314`，铁律 5）**：上面最后那半句「`it` 绑哪个
+            //      `TargetsAffected` 本地取不到」**已过期** —— 卡表 `abilityTargets[{620, ta:[30]}]`
+            //      就在 `cards_engine.json` 里：`ta = 30 (target)` 只读 `targetCard`（`GetTargets.c:192-207`）
+            //      ⇒ 原版那半句落在**留下的 host**（`param_3`）上，**不是** `it / actingCard`（`param_2`）。
+            //      我们改前把 `subject`（= 被并掉那张）当 `it` ⇒ 效果落到一张**已离场**的卡上
+            //      （`host.SwarmUnder` 里那份 `CardInstance`，没有任何代码从它重算数值）⇒ 不可观测。
+            //      🔴 **修法（补丁已交调度台、⛔ 尚未落地）**：`EffectResolver.FireBoardListenerDeferred` 的 seed 改取 host ⇒ `报告/B116_W12_B314_TL15归属.md`。
             //
             // 🔴 **2026-10-21（`A1356`）就地收成一处**：这一段原来是**两条手写的跳**
             //    （`BroadcastKeywordEvent(Triggers(Swarm), host)` + 一段自己拼的 `ctx.Emit(EvtKind.Trigger…)`）。
@@ -7055,7 +7055,7 @@ namespace RuleEngine
                 // 🔴 **2026-10-19（`D28` 施工单 E）**：闸门改成照原版 —— `!attackerDiesFromPending`
                 //   （= 原版那个 `!EnoughPendingDamageToDie(attacker)`，见上面那段）。
                 if (!attackerDiesFromPending && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot);   // ⛔ 2026-11-01（`B115_W14` · `ENG-16` ①）**试过、已回退**：原版确实传 `targetCard = 被打者`（`CardScript__ResolveUnitAttacked.c:99-101` 的 `OnTrigger(0x244, …, actingCard=param_1, targetCard=param_2)`），但**今天接不上** —— 传 `chosen:` 会经 `FireTriggerDeferred` → `ResolveOps(chosen:)` 落进 `EffectResolver.ResolveTargetsCore` 那条「`SubjectTargetsAffected < 0` ⇒ 用 chosen 顶掉整张目标表」的兜底（`EffectResolver.cs` 里 `list.Clear(); list.Add(chosen);`），而**触发正文的 op 拿不到 `ta`**（解析层没挂上）⇒ 实测 `play check`：`TL30 Tyrannofex`（`Strike: Deal 1 damage to a random enemy, 8 times`）的 8 次随机伤害**全变成 0**（净伤害 25→0）。反向也不能动那条兜底：把 `< 0` 去掉会改 **21 张**（战术路靠它）。⇒ 卡在「`ta` 映射」这一层（`CardDef.AssignAbilityTargets`，不在本笔白名单）**先不接**，证据/两条候选修法 → `资料/完全复刻/报告/B115_W14_拒支回滚与Tactic判据.md` §三
+                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot, chosen: StrikeChosenOrNull(attacker, target));   // ✅ 2026-11-02（`B116_W39` · `ENG-16`①，**候选①**）：按原版 `CardScript__ResolveUnitAttacked.c:99-101`（`OnTrigger(0x244, …, actingCard=param_1, targetCard=param_2)`）**接上 `chosen: 被打者`**。⚠️ 2026-11-01（`B115_W14`）试过又回退过 —— 当时卡在「触发正文的 op 拿不到 `ta`」：`chosen` 会经 `FireTriggerDeferred` → `ResolveOps(chosen:)` 落进 `EffectResolver.ResolveTargetsCore` 的兜底（`EffectResolver.cs:1966` 的 `op.SubjectTargetsAffected < 0` ⇒ `list.Clear(); list.Add(chosen);`）⇒ `TL30 Tyrannofex` 的 8 次随机伤害全变 0（净伤 25→0）。🔴 **真正的传参闸在 `FireTriggerAt` 入口**（`StrikeChosenOrNull`：该卡这条 `strike` 的**每一条 op 都有已知 `ta`** 才真传）—— 单变量实测：`GSC17 Locus`（2 条 ability ⇒ 片段支不给挂 `ta` ⇒ `subjTa=-1`）无条件传会把卡面「Stun a **random** enemy」换成「打者点名的那个」= **与卡面相反**；`TAU18`（`ta=30`）与 `TL30`（`ta=10`）都朝原版。判据与归因 → `报告/B116_W39_三件引擎.md` §追加。⛔ 别把那道兜底的 `< 0` 去掉（战术路 21 张靠它）
 
                 // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
                 // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
@@ -10936,11 +10936,11 @@ namespace RuleEngine
             //     而 `lVar4 = *(cardEffect + 0x18)` = **`enchantingCard`（施放者）**）。
             //    · `0x82` = 130 = **`DefinedTrait.jam`**（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/
             //      DefinedTrait.cs:13`）；我们词表里的名字 = `KeywordTable.Jam`（本批新登记）。
-            //    · 判据挂在**施放者**身上（不是那张手牌）⇒ 用 `UnitState.Has`（那是「卡面印的 +
-            //      运行时加的」的全集，对应原版 `CurrentTraits`）。
+            //    · 判据挂在**施放者**身上（不是那张手牌）⇒ 用 `UnitState.HasCurrentTrait`（`keywords` 列 ∪ 运行期 ∪ `cardTraits` 列，
+            //      = 原版 `SetBaseCardTraits.c:37-42` 灌进 `+0x128` 的那张表；⛔ 别退回 `Has` —— 它漏 `cardTraits` 那批）。
             //    ⚠️ 今天全池 **0 张卡**带 `jam` ⇒ 这一支不会变异任何一局的行为（不是死代码：
             //      它等的是数据 —— 词表已认得它）。
-            if (e.Extrinsic && e.ActingUnit != null && e.ActingUnit.Has(KeywordTable.Jam)) return true;
+            if (e.Extrinsic && e.ActingUnit != null && e.ActingUnit.HasCurrentTrait(KeywordTable.Jam)) return true;
             // 🆕 **2026-10-25（同批）：另外两条「换主」支线** —— 原版 `UpdateCardEffects.c` 里
             //   `extrinsic && playersAffected == Self  && enchantingCard.isPlayer != 本手牌那方` ⇒ 摘；
             //   `extrinsic && playersAffected == Enemy && enchantingCard.isPlayer == 本手牌那方` ⇒ 摘。
@@ -14214,7 +14214,7 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 这套牌里**有、但 v1 不结算**的关键词。用来量化「还差多少才像原版」，
+        /// 这套牌里**有、但 v1 不结算**的关键词（**表现层关键词不算「未实现」** —— 见 <see cref="PresentationOnlyKeywords"/>）。用来量化「还差多少才像原版」，
         /// 而不是让它们静默失效。
         /// </summary>
         public static List<string> UnimplementedKeywords(IEnumerable<CardDef> cards)
@@ -14226,7 +14226,7 @@ namespace RuleEngine
             {
                 if (c == null) continue;
                 foreach (var kv in c.Keywords)
-                    if (!KeywordTable.Implemented.Contains(kv.Key)) found.Add(kv.Key);
+                    if (!KeywordTable.Implemented.Contains(kv.Key) && !IsPresentationOnlyKeyword(kv.Key)) found.Add(kv.Key);   // 🆕 2026-11-02（`B116_W31` · 活状态表 `B-333`）：**报表口径与卡面打星口径对齐** —— 已交接给表现层的关键词（今天只有 `massive`）不算「未实现」，见类尾 `PresentationOnlyKeywords`。同一行内改 ⇒ 零行数变化
             }
             return new List<string>(found);
         }
@@ -16878,7 +16878,7 @@ namespace RuleEngine
                     if (u == null) continue;
                     if (!IsUnitInPlayOrDying(ctx, u)) continue;                  // = `unitsInPlay` 里只有场内那批
                     if (!HasCancelAttackAbility(ctx, u, actingCard, targetCard)) continue;   // `.c:40`
-                    if (u.Has(KeywordTable.Jam)) continue;                       // `.c:47`：`trait 0x82(130) = jam` 排除
+                    if (u.HasCurrentTrait(KeywordTable.Jam)) continue;           // `.c:47`：`trait 0x82(130) = jam` 排除（`HasCurrentTrait` 才认 `cardTraits` 列，见 `B116_W19`）
                     list.Add(u);                                                 // 去重天然成立：一张卡只在一格里
                 }
             }
@@ -17917,8 +17917,10 @@ namespace RuleEngine
         //     抽一个并从池里删；非 `default` 六档末尾统一 `Take(maxTargets)`；
         //   · **随机源** = `ctx.GetRandomInt`（开局预烧 100 个整数 + 按下标取；⛔ 别在结算路径上写 `ctx.Rng.Next`）。
         //
-        //  🔴 **本批只接 `ta ∈ {10, 20, 30, 110, 150}`**（施工单裁定的那一批）；其余 `ta`（含 `0 any` —— 池内 0 张、
+        //  🔴 **本批只接 `ta ∈ {10, 20, 30, 110, 140, 150}`**（施工单裁定的那一批 ＋ `B-342` 补的 `140`）；其余 `ta`（含 `0 any` —— 池内 0 张、
         //     原版休眠，裁定 ④ 不接线）一律返回 `null` ⇒ 调用方退回改前的单数路（**零回归**）。
+        //  🔴 2026-11-02（`B116_W39` · 账 `B-342`）**补 `140` 的那一格**：建池**与 150 同一句**（原版 `GetTargets.c:849-866` = `AddRange(上一条 ability 的目标表)` 后 `goto LAB_180818485`），
+        //     差别只在**逐候选筛**（140 = `Contains` 直接返回 / 150 = 在表里才继续走常规格）—— 那一半在 `TargetCriteriaEval.Matches`（`:133-143`），本文件**不重复判**。
         //  🔴 **`ta=150` 落到手牌的那一半不产**（`BattleEventTarget` 只能表达棋盘格）：只产出仍在棋盘上的那些并**出声**一次
         //     （裁定 ②：⚠️ 2026-11-01 更正——原来写「走 T21-a 的手牌锚通道；该通道完成前这一档记「部分做」」，把 T21-a 当成阻塞；而 T21-a 已于 `B104_T21` 落地（`Editor/BattleScene.cs:45266` 接线 + 15 条断言）。**真阻塞 = `BattleContext.PreviousAbilityTargets`（`BattleContext.cs:1134`）被写死成 `List<UnitState>`** ⇒ 手牌实例根本进不了候选池；消费端还有第二半：`BattleDriver.AbilityTargetView`（`:36186`）只查 `_myUnits`/`_foeUnits`，`Slot=-1` 时返 null；两半都改才能闭合；⛔ 不发明坐标）。
         //  🔴 **不写 `ctx.Log`**（`ctx.Events` 进 `NetProtocol.Fingerprint`）—— 出声一律 `UnityEngine.Debug.LogWarning` + 去重表。
@@ -17965,7 +17967,7 @@ namespace RuleEngine
             if (ctx == null || criteria == null || ctx.Players == null || ctx.Players.Length < 2) return null;
             if (owner < 0 || owner > 1) return null;
             int ta = criteria.TargetsAffected;
-            if (ta != 10 && ta != 20 && ta != 30 && ta != 110 && ta != 150) return null;   // 本批只接这五档（见类尾注释）
+            if (ta != 10 && ta != 20 && ta != 30 && ta != 110 && ta != 140 && ta != 150) return null;   // 本批只接这**六**档（见类尾注释）；🔴 2026-11-02（`B116_W39` · 账 `B-342`）：补 `140` —— 池内 `ta=140` **7 行 / 3 张**（`BL55`×4 · `GSC29` · `GSC75`×2）；140 与 150 的建池**同一句**（都是「上一条 ability 的目标表」`GetTargets.c:849-866` vs `:867-883`），差别只在**逐候选筛**（140 `Contains` 直接返回、150 落常规格）—— 那一半在 `TargetCriteriaEval.Matches` 的 `case 140/150` 里，⛔ 别在这条 switch 里再判一次
             string cardId = source != null && source.Card != null ? source.Card.Id : "?";
 
             var pool = new List<UnitState>(4); var handRefs = new List<CardRef>();   // 🔴 2026-11-01（`B115_W23` · E12）：`pool` 仍是棋盘单位（下面那趟筛 / 截断照旧只服务它）；`handRefs` = **不在棋盘上的候选**（`ta=150` 的手牌 / 已离场 —— 原版 `CardScript` 手牌与场上同型，`dump.cs:35370`）
@@ -18020,6 +18022,7 @@ namespace RuleEngine
                         break;
                     }
 
+                case 140:  // previousAbilityTargets（`:849-866`）：上一条 ability 的目标表，**建完池就 `goto` 返回口（不筛）**
                 case 150:  // previousAbilityFiltered（`:867-883`）：上一条 ability 的目标表
                     {
                         var prev = ctx.PreviousAbilityTargets;
@@ -18028,14 +18031,18 @@ namespace RuleEngine
                         // 🔴 2026-11-01（`B115_W23` · E12）：原版这一档的目标**可以在手牌里**（`dump.cs:35370`，手牌与场上同为 `CardScript`）
                         //   ⇒ 棋盘项进 `pool`（照旧过筛 / 截断），手牌项进 `handRefs`、收尾以 `Slot = -1` 输出
                         //   （`BattleEvent.cs:877-885` 那个四元组本来就是为此设计的；⚠️ `publishTable` 那一半仍只收棋盘项）。
-                        NoteAbilityTargetTable("ta150:" + cardId,
-                            $"「{source?.Name}」的 ability 目标表是 `ta=150 previousAbilityFiltered`：棋盘候选 {pool.Count} 张、" + $"手牌/离场候选 {handRefs.Count} 张（以 `Slot = -1` 输出）。");
+                        // 🔴 2026-11-02（`B116_W39` · `B-342`）：**140 与 150 的建池是同一句**（原版 `GetTargets.c:849-866` vs `:867-883`），
+                        //   差别只在下面那趟**逐候选筛** —— 140 是 `return List.Contains(...)`（不落常规格）、150 在表里才继续走常规格
+                        //   ⇒ 那一半**已经**在 `TargetCriteriaEval.Matches` 的 `case 140/150` 里（`TargetCriteriaEval.cs:133-143`），
+                        //   ⛔ 别在本 switch 里再判一次（两处判据迟早不一致）。
+                        NoteAbilityTargetTable("ta" + ta + ":" + cardId,
+                            $"「{source?.Name}」的 ability 目标表是 `ta={ta} previousAbility{(ta == 140 ? "Targets" : "Filtered")}`：棋盘候选 {pool.Count} 张、" + $"手牌/离场候选 {handRefs.Count} 张（以 `Slot = -1` 输出）。");
                         break;
                     }
             }
 
             // ---- 逐候选筛（原版 `:1081-1163` = `FilterMethods.CheckIfMeetsCriteria`）----
-            //   `20/30` 在建池那一支已经 `return`（原版同）⇒ 不走这一层；其余三档都要过整份 36 格。
+            //   `20/30` 在建池那一支已经 `return`（原版同）⇒ 不走这一层；其余档都要过这一层（`140` 在 `Matches` 里直接 `Contains` 返回 —— 等于不筛，⛔ 别在这里替它短路）。
             if (ta != 20 && ta != 30)
             {
                 for (int i = pool.Count - 1; i >= 0; i--)
@@ -18172,7 +18179,7 @@ namespace RuleEngine
                 var step = plan[i];
                 if (step == null || step.Length < 4) continue;
                 int ta = step[1];
-                if (ta != 10 && ta != 110 && ta != 150) continue;
+                if (ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;   // 🔴 2026-11-02（`B116_W39` · `B-342`）：`140` 与 `150` 同属「上一条 ability 的目标表」⇒ 也能产 >1 个（见 `AbilityTargetListFromCriteria` 的类尾注释）
                 var set = u.Card.ActiveAbilityTargetCriteriaAt(step[3], step[2]);
                 if (set != null) return set;
             }
@@ -18261,5 +18268,112 @@ namespace RuleEngine
         }
 
         static bool _actingCardNullDealerLogged;
+
+        // ==========================================================================================
+        //  🆕 2026-11-02（执行写手 `B116_W31` · 活状态表 `B-333` ＋ `B-332` 的读数口）
+        //  ⚠️ 一律追加在**类尾**（本文件被账按 `文件:行号` 引用；现读账里最远一条 = `RuleCore.cs:18247`）。
+        // ==========================================================================================
+
+        /// <summary>🔶 自己设计（非原版）：**表现层关键词**白名单（**引擎侧的唯一一份判据**）。
+        /// <para>**是什么**：已经复刻、但**不参与引擎结算**、也不上场徽标的关键词。今天只有 `massive`
+        /// （敌方立绘水平镜像 —— 表现层 `BattleDriver.ApplyMassiveMirror`，判据/来源见 `B116_W29` 报告）。</para>
+        /// <para>**为什么必须自己定**：原版没有「表现层关键词」这一档 —— 它那张关键词表里 `massive` 就是
+        /// 一个正常的引擎关键词，而我们的实现只做到表现层 ⇒ 需要一个「**已做、但不在引擎 `Implemented` 里**」
+        /// 的中间档。**谁定的**：调度台 2026-11-02（账 `B-331` / `B-333`）。</para>
+        /// <para>🔴 **与 `CardPresentation.Battle.BattleDriver.PresentationOnlyKeywords` 是同一份口径**
+        /// （那一份给卡面打星用）。两份**必须逐项相等** —— `Editor/B116W31_Assert.cs` 的 D 段有一条断言
+        /// 把两张表逐项比，漂了就红。⛔ 将来若要收成一份，方向只能是「`BattleDriver` 转调本表」：
+        /// `ruleprobe` 只编 `RuleEngine/Core`（net8 离线，**不引用 `CardPresentation`**）⇒ 引擎**不能**
+        /// 反向引用表现层（那样探针立刻编不过）。</para>
+        /// <para>⚠️ 用途只有一处：<see cref="UnimplementedKeywords"/> 的过滤。⛔ **别拿它当「已实现表」**
+        /// —— `KeywordTable.Implemented` 仍是「引擎会结算」的唯一判据。</para></summary>
+        public static readonly string[] PresentationOnlyKeywords = { "massive" };
+
+        /// <summary>词是不是「表现层关键词」（见 <see cref="PresentationOnlyKeywords"/>）。
+        /// 归一化口径与 `BattleDriver.IsPresentationOnlyKeyword` **逐字一致**（去空白 + 小写；
+        /// `null` / 空串 ⇒ `false`）—— 两处若不一致，「报表」与「卡面打星」就会对同一个词给出相反答案。</summary>
+        public static bool IsPresentationOnlyKeyword(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            string k = keyword.Trim().ToLowerInvariant();
+            for (int i = 0; i < PresentationOnlyKeywords.Length; i++)
+                if (string.Equals(PresentationOnlyKeywords[i], k, System.StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        /// <summary>🔴 **只为自检开门**（同 `HurtWithSourceForTest` / `ActiveRowHasOpsForTest` 的纪律：
+        /// **不改任何行为**，只把私有实现转出来给编辑器程序集看）。
+        /// <para>转出的是 <see cref="AbilityTargetListFromCriteria"/> —— 「一条 ability 行的
+        /// `targetCriteria` 会落到哪些牌」。**为什么需要这个口**：`ta = 150` 的**手牌半**
+        /// （`Slot = -1` 的四元组、`publishTable` 只收棋盘项）今天**没有别的可观测入口** ——
+        /// 战术卡正文与触发路都还没调 `AttachAbilityTargets`（判据 → `报告/B115_W23` §5·E13），
+        /// 而 `AbilityTargetListFromCriteria` 是 `static` 私有。⛔ 产品路径别调。</para></summary>
+        public static System.Collections.Generic.List<BattleEventTarget> AbilityTargetListFromCriteriaForTest(
+            BattleContext ctx, int owner, CardDef.CountSetSpec criteria, UnitState source, UnitState chosen, bool publishTable = false)
+        {
+            return AbilityTargetListFromCriteria(ctx, owner, criteria, source, chosen, publishTable);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-02（执行代理 `B116_W39` · `ENG-16`① 的**传参闸**）
+        //  ⚠️ 位置 = **类尾**（本文件 400+ 处账按 `文件:行号` 引用 ⇒ 新成员一律追加在这里）。
+        // ==========================================================================================
+        static readonly System.Collections.Generic.HashSet<string> _strikeChosenGapNoted =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>`Strike` 触发要传的 `chosen`（原版 `OnTrigger(0x244, …, targetCard = 被打者)`，
+        /// `decomp_full/CardScript__ResolveUnitAttacked.c:99-101`）—— **过不了闸就返回 `null`**（= 不传，
+        /// 与改前逐字相同），并**出声一次**。
+        ///
+        /// <para>🔴 **为什么要这道闸**（2026-11-02 单变量实测，⛔ 别删）：原版无条件传 `targetCard`，而我们这一侧的
+        /// `chosen` 还会经 `EffectResolver.ResolveTargetsCore` 末尾那条兜底
+        /// （`EffectResolver.cs:1966`：`op.SubjectTargetsAffected < 0` ⇒ `list.Clear(); list.Add(chosen);`）
+        /// 把**整张目标表换成它**。原版里「`targetCard` 参与目标集」只发生在 `ta = 30 (target)` / `220` 两档
+        /// （`AbilityLogic__GetTargets.c:192-207` / `:121`），其余档**忽略**它（同一道闸已写在 `:1966`）。
+        /// ⇒ **op 的 `ta` 读不到（`-1`）时传 `chosen` 是「拿它顶掉目标表」，不是原版语义**：
+        /// 实测 `GSC17 Locus`（`Strike: Stun a **random** enemy`，2 条 ability ⇒ 片段支不给挂 `ta`）
+        /// 会把「随机敌人」换成「被打的那一个」，**与卡面相反**。</para>
+        ///
+        /// <para>**闸的门槛 = 这条 `strike` 的【每一条 op 都已有已知 `ta`（`>= 0`）】**：
+        /// `TL30`（`ta=10`，由 `CardDef.ApplyUniformTriggerTa` 补上）与 `TAU18`（`ta=30`）过闸 ⇒ 传 `chosen`（朝原版）；
+        /// `GSC17`（`subjTa=-1`）不过闸 ⇒ 不传（= 改前行为，卡面「random」保住）。
+        /// 没有 op（`FxOps == null` ⇒ 走封闭文法 `spec` 那一支）也**不传**：那一支的 `ta` 同样无从确认。</para>
+        ///
+        /// <para>⚠️ **这是本条已知道的缺口**（⛔ 不是「原版没有」）：多 ability 卡的 `ta` 挂载卡在
+        /// 「逐 ability 派发」那一层（活状态表 `B-211`）—— 那一层落地后闸自然全过，本方法可以退化成
+        /// 「恒 `return target`」。⛔ 别把闸放宽成「只要不是 `ta < 0` 就传」以外的形态。
+        /// **出声走 `UnityEngine.Debug`（⛔ 不走 `ctx.Log`）**：后者进 `ctx.Events`、会动联机指纹。</para>
+        /// </summary>
+        static UnitState StrikeChosenOrNull(UnitState attacker, UnitState target)
+        {
+            if (target == null || attacker == null) return null;
+            var ops = attacker.FxOps(KeywordTable.Strike);
+            if (ops == null || ops.Count == 0) return null;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null) continue;
+                if (op.SubjectTargetsAffected >= 0) continue;
+                string key = (attacker.Card != null ? attacker.Card.Id : attacker.Name) + "|" + (op.Source ?? "?");
+                if (_strikeChosenGapNoted.Count > 512) _strikeChosenGapNoted.Clear();
+                if (_strikeChosenGapNoted.Add(key))
+                    UnityEngine.Debug.LogWarning(
+                        "[RuleEngine] 「" + (attacker.Name ?? "?") + "」的 `Strike` 正文有一条 op **读不到 `ta`**"
+                      + "（`SubjectTargetsAffected = -1`，源「" + (op.Source ?? "?") + "」）⇒ 本次**不传** `chosen`"
+                      + "（= 按卡面自己的目标取，而不是「被打的那一个」）。原版 `CardScript__ResolveUnitAttacked.c:99-101`"
+                      + " 传 `targetCard`，但只有 `ta = 30/220` 两档会用它（`AbilityLogic__GetTargets.c:192-207`）"
+                      + " ⇒ `ta` 未知时传它会把整张目标表顶掉（实测 `GSC17` 的「random enemy」会变成「被打者」，与卡面相反）。"
+                      + "根因 = 多 ability 卡的 `ta` 挂载缺口（活状态表 `B-211`）。本消息同 (卡, 源) 只出现一次。");
+                return null;
+            }
+            return target;
+        }
+
+        /// <summary>自检门：<see cref="StrikeChosenOrNull"/>（**只读、不改任何状态**，纪律同
+        /// `AbilityTargetListFromCriteriaForTest`）。⛔ 产品路径别调。</summary>
+        public static UnitState StrikeChosenOrNullForTest(UnitState attacker, UnitState target)
+        {
+            return StrikeChosenOrNull(attacker, target);
+        }
     }
 }

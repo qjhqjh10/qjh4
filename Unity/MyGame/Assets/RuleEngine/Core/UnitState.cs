@@ -2231,7 +2231,7 @@ namespace RuleEngine
             RemoveAllAppliedEffectsForJam();
             // ② 摘掉全部 trait —— 键先快照（`RemoveAll` 会改字典）
             var keys = new List<string>(_keywords.Keys);
-            foreach (string kw in keys) RemoveAll(kw);
+            foreach (string kw in keys) RemoveAll(kw); _baseTraitsStripped = true;   // 🔴 2026-11-02（`B116_W19`）：原版这一句是对 `+0x128` 里**每一条当前 trait** 调 `RemoveTrait`（`CardScript__ReactToUnitJammed.c:96-113` 那个快照遍历）—— 含 `SetBaseCardTraits` 从 `cardTraits` 灌进来的卡面那些；我们的 `RemoveAll` 只清 `keywords` 列 ⇒ `cardTraits` 那批要靠这一位（见类尾 `HasCurrentTrait`）
             // ③ 两个「回合开始时就在某状态」的闸门清 0（原版两行直接写 0）
             StunnedAtStartOfTurn = false;
             RemoveMarkerlightAtEndOfTurn = false;
@@ -2368,11 +2368,11 @@ namespace RuleEngine
         public bool HasWhileInPlayAbility(out string why)
         {
             why = null;
-            // ① jam（130）—— 原版这一支**最先**判，命中就直接 true（`HasWhileInPlayAbility.c:9-12`）
-            if (Has(KeywordTable.Jam)) return true;
+            // ① jam（130）—— 原版这一支**只跳过**「卡自己的 ability」那两查，⛔ 不是「命中就 true」
+            bool jammed = HasCurrentTrait(KeywordTable.Jam);   // `.c:10-22`：`if (HasCurrentTrait(0x82) == 0) { 查 ability 20 / 240 }` ⇒ jam 时**跳过**、继续走 ④⑤⑥
 
             // ② / ③ 卡自己的 ability trigger 20 / 240
-            if (Card != null)
+            if (!jammed && Card != null)
             {
                 int t20 = Card.AbilityTriggerPresence(20);    // AbilityTrigger.WhileInPlay
                 int t240 = Card.AbilityTriggerPresence(240);  // AbilityTrigger.WhileInPlayVariable
@@ -2394,8 +2394,8 @@ namespace RuleEngine
                 }
             }
 
-            // ⑤ pack（610）
-            if (Has("pack")) return true;
+            // ⑤ pack（610）—— 原版也是 `HasCurrentTrait(0x262)`（`.c:25`），与 ① 同口
+            if (HasCurrentTrait("pack")) return true;
 
             // ⑥ 原版 `activeEffects.Find(x => x.trait == pack && x.buffType == 1)` —— 逐字（判据 → 类尾 `StatMod.Trait/BuffType`）
             for (int i = 0; i < _statMods.Count; i++)
@@ -2641,7 +2641,7 @@ namespace RuleEngine
                 AttackBase = card.Attack;
                 RangedAttackBase = card.RangedAttack;
                 _keywords.Clear();
-                foreach (var kv in card.Keywords) _keywords[kv.Key] = kv.Value;
+                foreach (var kv in card.Keywords) _keywords[kv.Key] = kv.Value; _baseTraitsStripped = false;   // 🔴 2026-11-02（`B116_W19`）：原版 `.c:154 SetBaseCardTraits()` 把 `cardTraits` **重新灌**回 `+0x128` ⇒ jam 那次摘掉的卡面 trait 在这里回来（见类尾 `HasCurrentTrait`）
                 Armor = KwValue(KeywordTable.Armour);
             }
             Health = MaxHealth;            // currentHealth = currentMaxHealthProcessed
@@ -4349,5 +4349,43 @@ namespace RuleEngine
         /// 那一档读写都落在这里（等价于「这张牌没有实例身份」，⛔ 不静默丢写）。
         /// ⚠️ 追加在**类尾**（`账/*.tsv` 按 `文件:行号` 引，插进中间就漂）。</summary>
         readonly List<CardRef> _orphanReferencedCards = new List<CardRef>();
+
+        // ================================================================================================
+        //  🆕 2026-11-02（执行代理 `B116_W19` · `ENG-07` · `jam` ①）：**原版 `EntityScript.HasCurrentTrait`**
+        //  （判据 `decomp_full/EntityScript__HasCurrentTrait.c:17-33`（正常档）/ `:54-69`（残骸档））。
+        //
+        //  🔴 **为什么必须有这个口**：原版「当前 trait 表」`+0x128` 由 `CardScript__SetBaseCardTraits.c:37-42`
+        //     把 `rawCard.CardTraits(+0x230)` **整表**拷进来 ⇒ `cardTraits` 列与 `keywords` 列在原版是
+        //     **同一张表的两个来源**。而我们的 `Has()` 只读 `_keywords`（= `keywords` 列）⇒ 一张只在
+        //     `cardTraits` 里写 `jam` 的卡，`Has(KeywordTable.Jam)` **一个读点都发现不了**。
+        //
+        //  ⛔ **别把这段合并逻辑塞进 `Has()`**：`Has` 的语义是「卡面关键词 + 运行期关键词」（且带残骸档闸），
+        //     表现层与 `KwValue` 都按那个口径读；把 `cardTraits` 并进去会同时改掉残骸档与 UI 的含义。
+        //
+        //  ⚠️ 追加在**类尾**（`账/*.tsv` 按 `文件:行号` 引，插中间就漂）。
+        // ================================================================================================
+        /// <summary>见 <see cref="HasCurrentTrait"/>：`cardTraits` 那批卡面 trait **已被摘掉**的标志位。
+        /// <para>原版没有这个标志位 —— 那是「`+0x128` 里那几条被 `RemoveTrait` 真删了」
+        /// （`ReactToUnitJammed.c:96-113`），而 `SetBaseCardTraits`（`ResetToValuesInHand.c:154`）会重新灌回。
+        /// 我们两侧各只改一个点：`ApplyJam` 置真 / `ResetToValuesInHand` 置假（都写在**已有的物理行**上，行数零变化）。</para></summary>
+        bool _baseTraitsStripped;
+
+        /// <summary>原版 `EntityScript.HasCurrentTrait(trait)` —— 「当前 trait 表」判据：
+        /// `keywords` 列 ∪ 运行期授予 ∪ `cardTraits` 列，再被**残骸档**（`.c:54-69`：只认 90 档）
+        /// 与**已摘除**（`HasRemovedTrait`）两道闸收窄。
+        /// <para>⚠️ 原版那两条 `activeEffects` 支（`buffType == 3 addTrait` / `== 90 addTraitRemnant`）
+        /// 在我们的模型里已经由 `_keywords` / `_remnantTraits` 承载（`AddKeyword` 是唯一授予口）。</para>
+        /// <para>⛔ 今天的 `jam` 读点还没全换过来（`EffectResolver.cs` / `ConditionEval.cs` /
+        /// `EffectResolverPartial_B88E2.cs` 共 4 处仍走 `Has`）—— 那三个文件不归本批，已在
+        /// `报告/B116_W19_ENG07_jam.md` 交回调度台。</para></summary>
+        public bool HasCurrentTrait(string trait)
+        {
+            if (string.IsNullOrEmpty(trait)) return false;
+            if (Has(trait)) return true;                                     // `keywords` 列 + 运行期授予（含残骸档 90 档，`Has` 自带那道闸）
+            if (IsRemnant && !IsLeavingRemnant) return false;                // `.c:54-69`：残骸档只认 90 档授予，⛔ 不退回卡面表
+            if (_baseTraitsStripped) return false;                           // 被 jam 摘过 ⇒ 卡面那批已不在当前表（`.c:96-113` 逐条 `RemoveTrait`）
+            if (Card == null || !Card.HasDefaultTrait(trait, out _)) return false;   // `cardTraits` 列
+            return !HasRemovedTrait(trait);                                  // 曾被 `removeTrait` 摘掉 ⇒ 已不在当前表里
+        }
     }
 }

@@ -103,6 +103,13 @@ namespace RuleEngine
             var card = inst.Card;
             if (!RuleCore.OathChoiceNeeded(card)) return false;
             if (!RuleCore.NeedsToChooseFromPool(ctx, me, card, null, inst: inst)) return false;   // 🔴 2026-11-01（`B111_E1B`）：补上 `inst` —— 消费端 `DecideOathChoice` 是带 `inst` 判的（按份费用修正才算得准），两边**必须同参**
+            // 🔴 2026-11-02（`B116_W19` · `ENG-07` `jam` · R12）：原版 `CardScript__CanPlayWithOathNowInHand.c:25`
+            //   在**法力比较之前**有一句 `if (HasCurrentTrait(0x82 jam)) return false;` —— 我们这一侧
+            //   `RuleCore.CanPayOathChoice` 只有法力那一条（它自己那半句该补在 `EffectResolver.cs`，归 `B116_W6`）；
+            //   本分册是**直调**口（不经 `DecideOathChoice`）⇒ 在这里补上**同一道闸**，别让 AI 这条路径漏 jam。
+            //   ⚠️ 手牌卡没有 `UnitState` ⇒ 只能读默认 trait（= 原版「手牌里被临时授予 jam」的已知差异，
+            //   同口径见 `RuleCore.CanPlayWithCodexNow`）。⚠️ 今天池内 0 张 oath+jam 卡 ⇒ 零行为变化。
+            if (card.HasDefaultTrait(KeywordTable.Jam, out _)) return false;
             if (!RuleCore.CanPayOathChoice(ctx, me, card, inst)) return false;
 
             // 掷骰**逻辑只此一处**：`RuleCore.RollOathPay`（原版 `GetChoiceOptions` 第 1 圈

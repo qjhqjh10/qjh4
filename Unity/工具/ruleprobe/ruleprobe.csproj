@@ -94,6 +94,13 @@
          等哪一天探针/`AiProbe` 读到它们就是 `CS0117`，而那种缺口**不会自己出声**。
          ⇒ 这是 `B-34` 那道差集闸（`工具/check_ruleprobe_csproj.py`）抓出来的第一例。 -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiActionPartial_B110R3.cs" />
+    <!-- 🆕 2026-11-02（`B116_W32` · 活状态表 `B-329`）：**第三张表（选项 SO）的装载端**。
+         🔴 必须显式列（本 csproj 关了 `EnableDefaultCompileItems`）；漏了 ⇒ 探针里的 `CardDatabase`
+         少了那句「登记 `BattleContext.ChoiceOptionCardsProvider`」⇒ 探针**读不到本表**——
+         而那种缺口**不会自己出声**（`B-34` 那道差集闸就是为这一类设的）。
+         ⚠️ 探针的 `Resources.Load` 是桩（恒 null）⇒ 本表在探针里**恒空** ⇒ `play check` 指纹不变
+         （与第二张表 `enchantment_templates.json` 同一条现状，⛔ 不是「本件没生效」）。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/CardDatabasePartial_B116W32.cs" />
     <!-- 🆕 2026-11-01（`B111_E3`）：`SimpleAIPartial_B111E2.cs` —— `SimpleAI` 的兄弟分册
          （`B111_E2` · 账 `B-69`：AI 的「平 / 誓二选一」按原版 bot 支等概率随机）。
          🔴 **它是在 `B-34` 那道差集闸落地后 3 分钟内被闸当场抓到的**：

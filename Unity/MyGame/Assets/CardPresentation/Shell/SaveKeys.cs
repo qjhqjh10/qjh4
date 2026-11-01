@@ -316,6 +316,14 @@ namespace CardPresentation
         /// **原版没有对应 key**：原版拥有数在**每个活动的 `TSave`** 里（`Shell/ShopData.cs:281-290` 已如实标注）。</summary>
         public const string OursInventoryPrefix = OursPrefix + "Inventory.";
 
+        /// 🔶 自己设计（非原版）：`_ours_Inbox` 存档键 · 原版这条在**服务端**（`GameMessagePersistence : LiveOpsEventPersistence`，ILSpy 现读）且**没有 `PlayerDataKey` 对应项** ⇒ 本地永远拿不到原版容器名，只能 `_ours_` · 调度台 2026-11-02（`B116_W16` 按 `判据/B116_R8_存档切换施工面.md` §1/§6 命名，原笔建议 `_ours_Inbox`）｜原注：<summary>`_ours_` · **收件箱**（`WarpforgeInbox/inbox.json`，`Shell/InboxData.cs`）—— 只装 `id`/`read`/`claimedAt` 三格。
+        /// <para>⚠️ **不进 `All`**（否则 `Count = 51` 那条对账会红，见 `ValidateTable`）：`_ours_` 前缀由 `IsKnown` 直接放行。</para></summary>
+        public const string OursInbox = OursPrefix + "Inbox";
+
+        /// 🔶 自己设计（非原版）：`_ours_ExpansionPass` 存档键 · 原版这条在**服务端**（`ExpansionPassSave : ScoringEventPersistence : LiveOpsEventPersistence`，ILSpy 现读）且**没有 `PlayerDataKey` 对应项**（`EventSaveGames` 只是字符串 key、全库 0 处使用）⇒ 关服后本地永远拿不到原版容器名，只能 `_ours_` · 调度台 2026-11-02（`B116_W21` 按 `判据/B116_R8_存档切换施工面.md` §1/§6 命名）｜原注：<summary>`_ours_` · **活动通行证**（`WarpforgeExpansionPass/pass.json`，`Shell/ExpansionPassEvent.cs`）—— 只装 `totalScore` / `spentScore` / `claimKeys` / `claimValues` 四格。
+        /// <para>⚠️ **不进 `All`**（否则 `Count = 51` 那条对账会红，见 `ValidateTable`）：`_ours_` 前缀由 `IsKnown` 直接放行。</para></summary>
+        public const string OursExpansionPass = OursPrefix + "ExpansionPass";
+
         // ════════════════════════════════════════════════════════════════════════════════════
         //  原版存在、但**不在** `PlayerDataKey` 枚举里的 key（照抄原名字符串）
         //  ⚠️ 不进 `All`（否则「51 条」对账会错）；Step 4 用到时再说。

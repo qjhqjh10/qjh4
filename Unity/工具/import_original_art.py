@@ -1121,6 +1121,22 @@ MENU_IMAGES = [
     #   ⚠️ 88×87 是 **NPOT** ⇒ `.meta` 必须 `nPOTScale: 0`（Unity 首次导入默认 ToNearest 会放大到 128×128）。
     #   三处源 md5 同为 `488515657a513ffa5432c9de0455c311`（`ui_extract` 两个包）。
     ('40k_UI_bt_back_pressed',                    'atlasindividual_assets_0_mainmenu'),   # 预览窗返回钮 pressed 88×87
+    # ---- 🆕 2026-11-02（`B116_W25` · 活状态表 `B-330`）商店滚动条的**圆角方块** ----
+    # 判据 = `Packs Tab.prefab` / `Generic Shop Tab.prefab`（两族同 fileID 同值）里**两处** `Image.m_Sprite`
+    #   guid `d185926faff3c9f46a8a4dc25a4ccabe`：
+    #     ① `Scrollbar Horizontal` **自身**那颗（GO `&1724804207875695` · Image `&114632457200066912`）：
+    #        `m_Color (0.5471698, 0.11594599, 0.080010675, 1)`（深红）· `m_Type 1`(Sliced) ·
+    #        **`m_PixelsPerUnitMultiplier: 2`** ⇒ 画出来的角块 = `9 ÷ 2` = **4.5px**
+    #     ② `Sliding Area/Handle`（GO `&1703437598541787` · Image `&114946936116752871`）：
+    #        `m_Color (0.90588236, 0.83137256, 0.63529414, 1)`（米白）· `m_Type 1` ·
+    #        `m_PixelsPerUnitMultiplier: 1` ⇒ 角块 = **9px**
+    #   sprite 本体（`bundle_duplicateassetisolation_assets_all/Sprite/GenericRoundedSquare.json` 现读）：
+    #   `m_Rect` 32×32 == `m_RD.textureRect` 32×32 · `textureRectOffset (0,0)` ⇒ `copy_ui_sprite` 走 `asis`（不补画布）；
+    #   **`m_Border = (9,9,9,9)`**（贴图 px）· `m_PixelsToUnits 100` · `m_Pivot (.5,.5)`。
+    # 消费点 = `Shell/ShopTabPage.cs` 的 `BuildScrollbarHorizontal`（红底）与 `BuildHandle`（九宫格 border 9）。
+    # ⚠️ `.meta` **不写 `spriteBorder`**：本工程图像不走 Unity Sprite（`ArtBaker.ApplyImportSettings` 把
+    #   这批设成 `textureType = Default`，我们自己按 UV 摆）⇒ border 是**代码常量**（`MenuDraw.Nine` 的形参）。
+    ('GenericRoundedSquare',                      'duplicateassetisolation_assets_all'),  # 商店滚动条底 / 滑块 32×32 Sliced border 9
 ]
 
 # ---- 🆕 2026-11-01（B111_T1 · 活状态表 `B-64`）：**落 `ui_deck/` 的菜单图**（不是 `MENU_IMAGES` 那个 `ui_menu/`）----

@@ -1187,11 +1187,11 @@ namespace RuleEngine
             int want = op.Amount > 0 ? op.Amount : 1;
             int got = 0;
             var taken = new List<CardInstance>();      // 第 7 行第 2 步：翻找出来的**是那几份**
-            for (int i = ps.Deck.Count - 1; i >= 0 && got < want; i--)
+            var deckCand = CardPoolCriteriaFilter.DeckDrawCandidates(ctx, op, ps.Deck, kind);   // 🔴 2026-11-02（`B116_W41` · 活状态表 `B-340`）：候选 = 牌库顶往下、文本认得出的那几张，**再过一遍原版 36 格 criteria**（`ta=65 inDeckFiltered`：`AbilityLogic__GetTargets.c:963` 建池 → `:1086-1095` 筛）。今天这条 op 的 `TargetCriteriaSet` 恒 `null` ⇒ 原样返回（`play all dump` 逐字节不变）；⛔ 取几张仍由文本 `Amount` 给，不读 criteria 的 `maxTargets`（它那两个数的语义是「从牌库取几张」，见 `报告/B116_W31` §2）
+            for (int i = 0; i < deckCand.Count && got < want; i++)
             {
-                var c = ps.Deck[i];
-                if (c == null || !CreatePool.MatchesKind(c.Card, kind)) continue;
-                ps.Deck.RemoveAt(i);
+                var c = deckCand[i];
+                ps.Deck.Remove(c);                                     // 改前是 `RemoveAt(i)`（同一个实例，等价；顺序仍是牌库顶往下）
                 taken.Add(c);
                 got++;
             }
@@ -2802,7 +2802,7 @@ namespace RuleEngine
             EnqueueAbility(ctx, ActionPriority.Instant, "tactic-body:" + card.Name,
                            () => PlayTacticBodyDeferred(ctx, _tacP, _tacCard, _tacOps, _tacChosen,
                                                         _tacTargetSlot, _tacSide, _tacInst,
-                                                        _tacPaid, _tacSpiritBefore));
+                                                        _tacPaid, _tacSpiritBefore)); EnqueueAbility(ctx, ActionPriority.Instant, "cardax:" + card.Name, () => DispatchCardAbilityRows(ctx, _tacCard, _tacInst, 0, _tacP, _tacTargetSlot, actingCard: _tacChosen, targetCard: _tacChosen, tacticPath: true, tacticSide: _tacSide));   // 🆕 2026-11-02（`B116_W27` · 活状态表 `B-211`）：**卡级派发 `cardAbilities` 逐 ability**（本批只接 `ca 380` 与战术路的 `320`）—— **必须是独立队列动作、排在正文之后**（原版一行 ability 一份结算）；判据 / 三态 / 灭自证全在 `Core/CardAbilityDispatch_B116.cs` 头注释
             return RuleCodes.OK;
         }
 
@@ -2914,7 +2914,7 @@ namespace RuleEngine
             //   `Player` 要写 `1-p`）；没有（抽牌 / 手牌降费那一族）⇒ `-1`
             //   —— 原版那几条的 `AnimInfo.startPosOption` 是手牌/自身锚，我们的表现层今天没有
             //   手牌锚这条落点（报告 §四 如实记着「仍不可达」）。
-            if (FollowUpSchedulerOf(card) == "ThisCardPlayed")
+            if (FollowUpSchedulerOf(card) == "ThisCardPlayed" && !AbilityLayerOwns320Row(card))   // 🔴 2026-11-02（`B116_W27` · 活状态表 `B-255` 排他闸）：**数据驱动地让路** —— 条件 = 「战术/防御路 ∧ 数据里确有 `ca 320` 行」（`AbilityLayerOwns320Row` 是唯一判据）。⛔ 别写成「表命中就让路」：`ASH73` 只有 `ca 325`、硬编码表里却有它 ⇒ 那会让它从 **1 拍变 0 拍**
             {
                 // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）**：这一拍演在**哪一侧**按「点定的那个单位归谁」算 ——
                 //   原版 `followAfterResolution` 的那条动画挂在**目标 CardScript** 上（`isPlayer` 取目标的归属）。
@@ -4682,7 +4682,7 @@ namespace RuleEngine
             //   改前是 `foreach (var o in sub.Ops) ResolveOne(...)`，把这几层**整条绕过**。
             //   📊 池内 `chooseone` op 现扫 **18 条**，选项文本**没有一条**含 `for each`/`equal to`
             //   ⇒ 今天**零读数变化**，属**堵形状**（⛔ 不是修了一条可见缺陷）。
-            return ResolveOps(ctx, owner, null, sub.Ops, by, chosen: chosen, keepResolvedTargets: true);
+            return TryRunStructuredOptionOrText(ctx, owner, by, op, pick, opts.Length, sub.Ops, chosen);   // 🆕 2026-11-02（`B116_W6` · `ENG-12`/`ENG-18`）：挂过 `choicesDefinition` 选项表 ⇒ 先试**结构化支**（选项卡 SO 的 `ThisCardPlayed`），否则/失败 ⇒ 原样回落文本支
         }
 
         // ==================================================================
@@ -9413,11 +9413,11 @@ namespace RuleEngine
             }
             ctx.EffectChain--;
 
-            // 棋盘可能被改过（`Oath 1: Deal 1 damage` 会死人、`Gain Camouflage` 只是加关键词）——
-            // 光环重算和别处 9 个棋盘写入点同一条纪律（`Core/Aura.cs` 的 `Recompose` 注释）。
-            if (!ctx.IsOver) Auras.Recompose(ctx);
-
+            // 🔴 2026-11-02（`B116_W6` · `B-323`）：`Recompose` 幂等 ≠ 无副作用（重放夹血 / 费用重登记 / 誓约授予）⇒ **只有真付了费**才重算
+            //     （原版「没付费 ⇒ 这次激活什么都没发生」）。`OathCost <= 0` 时 `paid` 恒真 ⇒ void 能力那一半行为逐字不变。
             bool paid = unit.Card.OathCost <= 0 || ctx.Players[owner].Energy < energyBefore;
+            if (paid && !ctx.IsOver) Auras.Recompose(ctx);
+
             if (!paid)
                 ctx.Log($"{unit.Name} 的誓约能力**没有生效**（见上面那行原因）——次数不消耗");
             return paid;
@@ -10513,7 +10513,7 @@ namespace RuleEngine
                            //   覆盖面 / 残余 → `资料/普查产出_1025/E2_ability_criteria管线.md` ·
                            //   `资料/普查产出_1025/E6_十三行接闸.md`（2026-10-25 `E6` 补齐后 35/85 行已接）。
                            abilityTrigger: AbilityLevelGateTrigger(kind, selfOnlyOnly),
-                           abilityTarget: AbilityLevelGateTarget(kind, subject, target),
+                           abilityTarget: AbilityLevelGateTarget(kind, subject, target), abilityTargetSide: AbilityLevelGateTargetSide(kind, subject, target),   // 🆕 2026-11-02（`B116_W39` · `B-317`）：候选的「侧」由广播点直接给（真死之后 `SideOf` 只扫棋盘 ⇒ 恒 -1 ⇒ 闸放行）；同一物理行追加 ⇒ 行数零变化
                            // 🔴🆕 **2026-10-25（执行代理 `E3` · `E2` 报告 §六）：ability 级
                            //   `actingCardCriteria`（`+0x28`）—— 原版**第一道闸**，在 target 那道【之前】。
                            //   判据 `CardAbility__CanTriggerAbility.c:127-130`；⚠️ `Attack` / `Die` /
@@ -10647,7 +10647,7 @@ namespace RuleEngine
             using (EventSlotsScope.TargetAndCard(ctx, target, card))
             {
                 ResolveWithTriggerTargetSink(ctx, triggerEvent, () => { ctx.EffectChain++;
-                try { ResolveOps(ctx, owner, u, ops, "事件触发", subject); }
+                try { ResolveOps(ctx, owner, u, ops, "事件触发", (kind == WhenEventKind.Triggers(KeywordTable.Swarm) && target != null) ? target : subject); }
                 finally { ctx.EffectChain--; } });
             }
 
@@ -10786,7 +10786,7 @@ namespace RuleEngine
                     bool pqueued = EnqueueAbility(ctx, ListenerLane(_pe.Source, TriggerNameOfWhenKind(kind)), "常驻:" + kind,
                                    () => PersistentListenerDeferred(ctx, _pe, kind, subject, target, triggerEvt),
                                    abilityTrigger: AbilityLevelGateTrigger(kind, false),
-                                   abilityTarget: AbilityLevelGateTarget(kind, subject, target),
+                                   abilityTarget: AbilityLevelGateTarget(kind, subject, target), abilityTargetSide: AbilityLevelGateTargetSide(kind, subject, target),   // 🆕 2026-11-02（`B116_W39` · `B-317`）：候选的「侧」由广播点直接给（真死之后 `SideOf` 只扫棋盘 ⇒ 恒 -1 ⇒ 闸放行）；同一物理行追加 ⇒ 行数零变化
                                    abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
                                    abilityActingTrigger: TriggerNameOfWhenKind(kind),
                                    abilityActingGate: AbilityActingGateApplies(kind),
@@ -10986,7 +10986,7 @@ namespace RuleEngine
                     bool htqueued = EnqueueAbility(ctx, ListenerLane(c, TriggerNameOfWhenKind(kind)), "手牌陷阱:" + kind,
                                    () => HandTrapListenerDeferred(ctx, _p, _opsT, triggerEvt),
                                    abilityTrigger: AbilityLevelGateTrigger(kind, false),
-                                   abilityTarget: AbilityLevelGateTarget(kind, subject, target),
+                                   abilityTarget: AbilityLevelGateTarget(kind, subject, target), abilityTargetSide: AbilityLevelGateTargetSide(kind, subject, target),   // 🆕 2026-11-02（`B116_W39` · `B-317`）：**本行是账里点名的那一格** —— 手牌陷阱 + 真死时 `SideOf` 恒 -1 ⇒ 闸判不了 ⇒ 放行（多触发）；同一物理行追加 ⇒ 行数零变化
                                    abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
                                    abilityActingTrigger: TriggerNameOfWhenKind(kind),
                                    abilityActingGate: AbilityActingGateApplies(kind),   // 🔴 2026-10-29（`B97_ER` · #54）：`actingCard` 已由 `BroadcastWhen` 透传下来 ⇒ 本跳不再恒不判
@@ -11156,7 +11156,7 @@ namespace RuleEngine
                                            () => HandListenerDeferred(ctx, p, _restOps, subject,
                                                                       target, card, triggerEvt),
                                            abilityTrigger: AbilityLevelGateTrigger(kind, false),
-                                           abilityTarget: AbilityLevelGateTarget(kind, subject, target),
+                                           abilityTarget: AbilityLevelGateTarget(kind, subject, target), abilityTargetSide: AbilityLevelGateTargetSide(kind, subject, target),   // 🆕 2026-11-02（`B116_W39` · `B-317`）：候选的「侧」由广播点直接给（真死之后 `SideOf` 只扫棋盘 ⇒ 恒 -1 ⇒ 闸放行）；同一物理行追加 ⇒ 行数零变化
                                            abilityActingCard: AbilityActingGateCard(kind, subject, actingCard),
                                            abilityActingTrigger: TriggerNameOfWhenKind(kind),
                                            abilityActingGate: AbilityActingGateApplies(kind),   // 🔴 2026-10-29（`B97_ER` · #54）：同上（`actingCard` 透传后本跳也过第一道闸）
@@ -21605,6 +21605,101 @@ namespace RuleEngine
                 sb.Append(refs[i].Name);
             }
             return sb.ToString();
+        }
+
+        // ======================================================================================
+        //  🆕 2026-11-02（`B116_W6` · `ENG-12` / `ENG-18`）—— `chooseone` 的**结构化选项支**
+        // ======================================================================================
+        //  判据（🥇 第一权威，现读 → `资料/完全复刻/判据/B116_对账_G2_引擎执行.md` §ENG-12/§ENG-18）：
+        //   · 原版机制 ①（卡面明写 `choose one:`）= `choicesDefinition` → 候选是**选项卡 SO**
+        //     （`BattleManager__GetChoiceFullPool.c:36-55`）→ 玩家点一张 → `chosenAbility 360 (playChosenCardAbility)`
+        //     → `AbilityLogic__PlayAbility.c:2032-2040`：`thatCard.OnTriggerAlt(0 /* ThisCardPlayed */, …)`。
+        //     （带 `oath` 的选项卡还先按 **actingCard 自己的** oath 付一次，`:2025-2031` —— 本版选项卡数据里无 oath。）
+        //   · 本口**只复用现成执行器** `RunAbilityOfAnotherCard`（与 `chosenAbility 360` 同一个，
+        //     见 `RunPlayChosenCardAbility` 的调用）⇒ ⛔ 不另写一套结算。
+        //  ⚠️ **今天绝大多数卡走不到结构化支**（如实出声、⛔ 不静默）：6 张 `choose one:` 卡的选项 SO
+        //     **全部不在可玩卡池里**（`cards_engine.json` 1,129 张现查 **0/18** 命中；它们在
+        //     `cards_truth.json` 1,351 张里）⇒ 出声后按**卡面文本**结算（= 改前行为逐字不变）。
+        //     「选项 SO 在池里、但它的 `ThisCardPlayed` 正文解析不出来」同样回落文本并出声。
+        //  口径依据：`资料/完全复刻/报告/B116_W6_选牌链与B323.md` §ENG-18。
+        /// <summary>`chooseone` 的结算口：**先试结构化支**（`op.ChooseSpecificIds` = 原版 `filterSpecificCards`，
+        /// 任意 N 张、原序 ⇒ 第 <paramref name="pick"/> 项的选项卡 SO 若在可玩卡池里，就按原版
+        /// `chosenAbility 360` 让**那张卡**跑它的 `ThisCardPlayed` 能力），
+        /// 否则/失败 ⇒ 原样走**卡面文本**那条路（`ResolveOps`，= 改前行为）。</summary>
+        static bool TryRunStructuredOptionOrText(BattleContext ctx, int owner, string by, EffectOp op,
+                                                 int pick, int optCount, List<EffectOp> textOps, UnitState chosen)
+        {
+            var ids = op.ChooseSpecificIds;
+            if (ctx != null && ctx.CardPool != null && ids != null
+                && ids.Count == optCount && pick >= 0 && pick < ids.Count)
+            {
+                string id = ids[pick];
+                if (string.IsNullOrEmpty(id))
+                {
+                    ctx.Log($"{by}：「{op.Source}」第 {pick + 1} 项在原版选项表里**没有卡 id**"
+                          + "（`filterSpecificCards` 该格为空/未解出）⇒ 按卡面文本结算这一项");
+                }
+                else
+                {
+                    CardDef optCard = ctx.FindChoiceOptionCard(id);   // 🆕 2026-11-02（`B116_W32` · `B-329`）：**可玩池 → 选项 SO 旁表**两条表都查
+                    // ↑ 改前这里是「只扫 `ctx.CardPool`」的 5 行 `for`。判据：原版 `GetChoiceFullPool.c:36-55` 取的
+                    //   就是父卡 `choicesDefinition.filterSpecificCards` 那张 **PPtr 表**（`List<RawCardScript>`，
+                    //   `dump.cs:23870`），选项 SO **本来就不在可玩池里** ⇒ 我们的等价物 = 第三张表
+                    //   `Resources/choice_option_cards.json`（现读池内 0/57 · 旁表 57/57）。
+                    //   ⛔ 别在别处再写一份「池→旁表」的查法（次序只此一处）。
+                    if (optCard == null)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」第 {pick + 1} 项的原版**选项卡 SO**（id={id}）"
+                              + "**可玩池与选项 SO 旁表都没有它** ⇒ 按卡面文本结算这一项"
+                              + "（原版 `AbilityLogic__PlayAbility.c:2032` 那条路要那张卡本身）");
+                    }
+                    else
+                    {
+                        var optOps = optCard.TriggerOps("rally");   // `rally` = `ThisCardPlayed(0)` 的卡面写法（判据见 `RunPlayChosenCardAbility` 的注释）
+                        if (optOps != null && optOps.Count > 0)
+                        {
+                            ctx.Log($"{by}：「{op.Source}」第 {pick + 1} 项按原版**选项卡 SO**「{optCard.Name}」"
+                                  + "跑它的 `ThisCardPlayed` 能力（`AbilityLogic__PlayAbility.c:2032-2040`；"
+                                  + "执行器 = `RunAbilityOfAnotherCard`，与 `chosenAbility 360` 同一个）");
+                            return RunAbilityOfAnotherCard(ctx, optCard, KeywordTable.Rally, owner,
+                                                           abilityOwnerUnit: null, actingCard: null,
+                                                           targetCard: chosen, by: by);
+                        }
+                        // 🆕 2026-11-02（`B116_W32` · `B-329`）：**选项 SO 本来就没有正文** —— 真卡的选项 SO 是纯结构化载体
+                        //   （`desc` 空、`cardType 20`），原版跑的就是它 `cardAbilities[].abilityLogic[]` 那些行
+                        //   （`AbilityLogic__PlayAbility.c:2032-2040` → `OnTriggerAlt(0)`）。这里先试**结构化行**
+                        //   （`ca 30/40/50`，执行器 `RunAbilityBuffRowOfEnchantment`），跑得动就以它为结果。
+                        //   闸：**任何一行没有执行器 ⇒ 整张让路**（`TryRunChoiceOptionRows` 内部判）⇒ 下面那行回落仍在。
+                        if (TryRunChoiceOptionRows(ctx, owner, optCard, chosen ?? ctx.ActingUnit, chosen, by)) return true;
+                        ctx.Log($"{by}：「{op.Source}」第 {pick + 1} 项的选项卡 SO「{optCard.Name}」的 "
+                              + "`ThisCardPlayed`（`rally`）**正文与结构化行都跑不动** ⇒ 按卡面文本结算这一项");
+                    }
+                }
+            }
+            return ResolveOps(ctx, owner, null, textOps, by, chosen: chosen, keepResolvedTargets: true);   // 兜底 = 卡面文本（改前行为）
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-02（执行代理 `B116_W39` · 活状态表 `B-317`）：ability 级 `targetCriteria` 的
+        //  「**候选在哪一方**」—— 与 <see cref="AbilityLevelGateTarget"/> 同一处判据、同一族传参。
+        //  ⚠️ 位置 = **类尾**（本文件被账按 `文件:行号` 引用；新成员一律追加在这里）。
+        // ==========================================================================================
+        /// <summary>要喂给 <c>EnqueueAbility(abilityTargetSide: …)</c> 的那个侧 —— 候选取法**与
+        /// <see cref="AbilityLevelGateTarget"/> 逐字相同**（⛔ 别在两处各判一次族）；拿不到座位 ⇒ `null`。
+        ///
+        /// <para>**为什么需要它**（`B-317` 实测）：真死那一路 `RuleCore.CleanupDeaths` 在发死讯**之前**
+        /// 就把单位从 `BoardSlots` 摘掉（`RuleCore.cs:10064` 早于 `:10218`）⇒
+        /// `TargetCriteriaEval.SideOf`（**只扫棋盘**，`:637-647`）恒 `-1` ⇒ `Matches` 回 `null`（判不了）
+        /// ⇒ 调用点**放行** ⇒ 手牌陷阱的阵营闸**永远到不了「不满足」**（方向 = **多触发**）。
+        /// 原版读的是卡对象字段 `targetCard.isPlayer`（`dump.cs` 的 `CardScript.isPlayer` `+0x40`），
+        /// **死后照样读得到** ⇒ 我们读 <see cref="UnitState.OwnerSeat"/>（`UnitState.cs:3546`，
+        /// 部署 / 发牌 / `SetAsPlayer` 三处写；离场后仍保留 —— 见那个字段的 doc）。
+        /// ⚠️ 拿不到座位（`SeatKnown == false`）⇒ 返回 `null` ⇒ 闸回退「回棋盘查」（= 改前行为，⛔ 不猜）。</para>
+        /// </summary>
+        static int? AbilityLevelGateTargetSide(string kind, UnitState subject, UnitState target)
+        {
+            var c = AbilityLevelGateTarget(kind, subject, target);
+            return c != null && c.SeatKnown ? (int?)c.OwnerSeat : null;
         }
     }
 }

@@ -4991,8 +4991,19 @@ def _assert_enchant_index_consistent(cards, etpl_doc):
 #    ⇒ 本表只服务「**按 id 查模板**」这一条读路；`cards_engine.json` 的 `cards[]` 与 `count` **一个字不动**。
 #
 #  📌 **口径**（同时写进产物的 `note` —— 消费端照它读，⛔ 别在别处另立一套）：
-#    · 收录 = 真值快照里 **`m_Name` 尾 `_enchantment`** 的全部行（现读 **85** 张）。
-#      ⛔ **不**按「名字含 `enchant`」筛（那是入池闸的判据，另一件事）。
+#    · 收录（🔴 2026-11-02 `B116_W28` 放宽，调度台裁定，依据铁律 18·0「复刻原版」）= **两条路的并集**：
+#      ① 真值快照里 **`m_Name` 尾 `_enchantment`** 的行（原闸，现读 **85** 张）——
+#         ⛔ **不**按「名字含 `enchant`」筛（那是入池闸的判据，另一件事）；
+#      ② **被非零 `buffEffect.enchantment` PPtr 指向的全部模板**（新路，现读 **80** 个 path_id）。
+#      🔑 **为什么是并集而不是「只用 ② 取代 ①」**：原版 `CardScript__AddEnchantment.c:24-33` 读的是
+#         `newEffect.enchantment(+0x88)` 这个 **PPtr** ⇒ 「模板集合」的原版语义确实是「被 PPtr 指到的全集」，
+#         名字后缀是我们自己的构造。但**纯替换会掉 6 张**（现读：`Mark of Nurgle/Tzeentch/Khorne/Slaanesh` ×2
+#         这 5 张只被 `relatedCard1` 指到、不经过 `enchantment` 字段，外加 `Z-SW-Full Moon` 全表 0 引用）
+#         ⇒ 那是**回归**，不是复刻。并集只**加**不减：现读 85 → **86**（新增 `Z-Sororitas-Raging Storm_enchantment1`）。
+#      ⚠️ **排除并出声**（⛔ 不静默）：PPtr 指向的行 ① 解不出真值行、② `cardType != 20`（现读 2 张：
+#         `13 Goff-Wurrboy_enchantment` / `6 Ultramarines-Sergeant Gadriel_enchantment`，都是 `cardType 0` 的部队卡）。
+#         这两张**本来就在 ① 里**（名字闸），所以「不因 ② 收录」不改变本表字节 —— 只是不许把 ② 当成
+#         「附魔模板」的充分条件（同族错误 = 把池内 487 张 `cardType 20` 的普通战术卡一起扫进来）。
 #    · `version` **独立计数**（从 1 起），与卡表的 v37 **无关**；两张表各自 bump。
 #    · `abilities` 只带**四格标量**：`ca` = `chosenAbility` · `pa` = `playersAffected` ·
 #      `ta` = `targetCriteria.targetsAffected` · `fm` = `furtherMultiplier`。
@@ -5006,9 +5017,14 @@ ENCHANT_TEMPLATES_DST = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/enchantm
 ENCHANT_TEMPLATES_DOC = None                 # `build()` 填；`main()` 在 `--write` 时落盘
 ENCHANT_TEMPLATES_REPORT = {"rows": 0, "with_owner": 0, "pool_reachable": 0,
                             "wp_on": 0, "rows_bad": [], "order": "uniqueId",
+                            # 🆕 2026-11-02（执行代理 `B116_W28`）：收录闸②（PPtr 可达）的读数
+                            "pptr_targets": 0, "pptr_added": [],
+                            "pptr_bad_type": [], "pptr_unresolved": [],
                             # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的口径与坏值
                             "hand_rows": 0, "hand_no_row": [], "hand_bad": [],
-                            "set_bad": [], "set_unresolved": []}
+                            "set_bad": [], "set_unresolved": [],
+                            # 🆕 2026-11-02（`B116_W18` · `B-328`）：`enchantmentId` / `enchantmentPathId` 两列
+                            "enchant_rows": 0, "enchant_bad": [], "enchant_off_table": []}
 
 
 def _tri_or_unknown(v):
@@ -5094,6 +5110,72 @@ def fill_hand_buff_columns(rows, trow, cid, name, truth_by_path, report):
     return rows
 
 
+# ==========================================================================================
+#  🆕 2026-11-02（执行代理 `B116_W18` · 旧任务 `B-328` · `ENG-11` 的**数据面**）
+#     —— `abilityBuffs` 每行补 `enchantmentId` / `enchantmentPathId` 两列
+#
+#  判据（第一权威 = 全量反编译，现读）：`d:/2/tools/decomp_full/CardScript__AddEnchantment.c:24-33`
+#    第一句读 `newEffect.enchantment(+0x88)`（`CardEffect.enchantment` = PPtr → `RawCardScript`）。
+#    我们的 `abilityBuffs` 行**没有这一格**（`AB_BUFF_FIELDS` 明确排除 —— 那是 v38 `enchantment` 列的活），
+#    ⇒ `buffType 12 enchantment`（13 行）＋ `15 singleUseEnchantment`（5 行）共 **18 行**接不上
+#    （引擎知道「要挂一张附魔」，但不知道**挂哪张**）。
+#
+#  🔴 **只在附魔模板表这一段补**：⛔ **不动 `ability_buffs_of`** —— 它被卡表 v40 与本题共用，
+#     改它会让 `cards_engine.json` 的字节变化（调度台 2026-11-02 裁决「本件只动模板表」）。
+#
+#  · `enchantmentPathId` = `buffEffect.enchantment.m_PathID` **原值**。
+#    `0` = 真值里没有这个键 / 指向 null —— 那是**原值**，⛔ 不是错误（`Daemonic Feast` 那 2 行）。
+#  · `enchantmentId`     = 那个 PPtr 按 `truth_by_path` 解出来的模板 `uniqueId`
+#    （与 `choicesSpecificCardIds` **同一条解引用路**，⛔ 别另写一张表）。
+#    解不出 ⇒ `""` 并进 `report["enchant_bad"]`（**出声**）—— ⛔ 不拿 path_id 当 id。
+#  · `handBuff` 行**结构上**没有 `enchantment`（原版 `HandEffect` 只有 5 格）⇒ 恒 `""` / `0`。
+#  · **每一行都带这两列**（⛔ 不稀疏）—— 缺键与「明确没有」在消费端必须分得开。
+# ==========================================================================================
+def fill_enchantment_pptr_columns(rows, trow, cid, name, truth_by_path, report):
+    """给 `abilityBuffs` 每一行补 `enchantmentId` / `enchantmentPathId`（口径 → 上面那段长注释）。"""
+    if not rows:
+        return rows
+    for r in rows:                       # 先铺默认值：**每一行**都带这两列
+        r["enchantmentId"] = ""
+        r["enchantmentPathId"] = 0
+    idx = {}
+    for r in rows:
+        idx[(r.get("ab"), r.get("lg"), r.get("at"))] = r
+
+    def scan(ab, obj):
+        if not isinstance(obj, dict):
+            return
+        for j, lg in enumerate(obj.get("abilityLogic") or []):
+            if not isinstance(lg, dict):
+                continue
+            r = idx.get((ab, j, "buffEffect"))
+            if r is None:
+                continue
+            be = lg.get("buffEffect")
+            if not isinstance(be, dict):
+                continue
+            en = be.get("enchantment")
+            pid = en.get("m_PathID") if isinstance(en, dict) else None
+            if isinstance(pid, bool) or not isinstance(pid, int):
+                pid = 0                  # 缺键 / 坏值 ⇒ 原版 PPtr 的 null 值
+            r["enchantmentPathId"] = pid
+            if pid == 0:
+                continue                 # 指向 null ⇒ `enchantmentId` 保持 ""（**这不是错误**）
+            uid = truth_by_path.get(pid)
+            if uid is None:
+                report["enchant_bad"].append((cid, name, ab, j, pid, "PPtr 解不出模板 id"))
+                continue
+            r["enchantmentId"] = uid
+            report["enchant_rows"] += 1
+
+    for i, a in enumerate(trow.get("cardAbilities") or []):
+        scan(i, a)
+    # `ab = -1` / `-2` 哨兵与 `ability_buffs_of` 的 `_scan_ability` 同一套（⛔ 别改成 0）
+    scan(-1, trow.get("activeAbility"))
+    scan(-2, trow.get("alternativeAbility"))
+    return rows
+
+
 def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
     """真值快照 → 第二张表的 doc（`{version, source, note, count, templates[]}`）；口径见上面那段长注释。"""
     pool_ids = {c.get("id") for c in (pool_cards or [])}
@@ -5111,11 +5193,57 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
                     continue
                 owners.setdefault(pid, []).append((uid, be.get("buffType"), a.get("trigger")))
 
+    # ---- ①ᵇ 收录闸②（🆕 2026-11-02 · 执行代理 `B116_W28`）：被**非零 PPtr** 指向的模板全集 ----
+    #   判据（第一权威 = 全量反编译）：`CardScript__AddEnchantment.c:24-33` 读 `newEffect.enchantment(+0x88)`
+    #   ⇒ 模板的**原版语义** = 「被这个 PPtr 指到的卡」，与命名习惯无关（`_enchantment1` 就是被命名闸漏掉的）。
+    #   ⚠️ 与上面 `owners` **不同口径、故意不合并**：`owners[]` 只收 `buffType ∈ {12,15,16}` 的**挂载行**
+    #      （那是「谁挂它」的反向索引，字节已钉）；这里收的是**任意 buffType** 的 `enchantment` PPtr
+    #      （原版 `case 0x28` 也读 `+0x88`，只是落到 `+0x118` 而不是 `activeEnchantments`）⇒ 两个 dict 各算各的。
+    #   ⛔ 只扫 `buffEffect`（= 原版 `CardEffect` 本体）；`handBuff.cardEffect` 结构上带同一个字段，
+    #      但现读全表 0 例（扫过：80 个 PPtr 全部落在 `buffEffect/enchantment`）。
+    def _enchant_slots(r):
+        for i, a in enumerate(r.get("cardAbilities") or []):
+            yield ("ab%d" % i, a)
+        yield ("activeAbility", r.get("activeAbility"))
+        yield ("alternativeAbility", r.get("alternativeAbility"))
+
+    pptr_targets = {}          # 模板 path_id → [(owner uid, slot, buffType, lg)]
+    for uid, owner in (truth_cards or {}).items():
+        for slot, obj in _enchant_slots(owner):
+            if not isinstance(obj, dict):
+                continue
+            for j, lg in enumerate(obj.get("abilityLogic") or []):
+                if not isinstance(lg, dict):
+                    continue
+                be = lg.get("buffEffect")
+                if not isinstance(be, dict):
+                    continue
+                en = be.get("enchantment")
+                pid = en.get("m_PathID") if isinstance(en, dict) else None
+                if isinstance(pid, bool) or not isinstance(pid, int) or pid == 0:
+                    continue
+                pptr_targets.setdefault(pid, []).append((uid, slot, be.get("buffType"), j))
+    ENCHANT_TEMPLATES_REPORT["pptr_targets"] = len(pptr_targets)
+    # 把「指向了但**不能**当模板收」的出声（⛔ 不静默）—— 解不出真值行 / 不是 `cardType 20`
+    for _pid in sorted(pptr_targets):
+        _uid2 = (truth_by_path or {}).get(_pid)
+        _r2 = (truth_cards or {}).get(_uid2) if _uid2 else None
+        if _r2 is None:
+            ENCHANT_TEMPLATES_REPORT["pptr_unresolved"].append((_pid, pptr_targets[_pid][:2]))
+        elif _r2.get("cardType") != 20:
+            ENCHANT_TEMPLATES_REPORT["pptr_bad_type"].append(
+                (norm_str(_r2.get("m_Name")), _uid2, _pid, _r2.get("cardType")))
+
     templates = []
     for uid in sorted((truth_cards or {}).keys()):
         r = truth_cards[uid]
-        if not norm_str(r.get("m_Name")).endswith("_enchantment"):
+        _by_name = norm_str(r.get("m_Name")).endswith("_enchantment")
+        _by_pptr = (r.get("path_id") in pptr_targets) and r.get("cardType") == 20
+        if not (_by_name or _by_pptr):
             continue
+        if _by_pptr and not _by_name:
+            ENCHANT_TEMPLATES_REPORT["pptr_added"].append(
+                (norm_str(r.get("m_Name")), uid, r.get("path_id")))
         aa = r.get("activeAbility") if isinstance(r.get("activeAbility"), dict) else {}
         abil = []
         for a in (r.get("cardAbilities") or []):
@@ -5156,6 +5284,12 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
         #   🔴 只在**本表**补；卡表 v40 那一列由 `ability_buffs_of` 原样产出（⛔ 不动它）。
         _abf = fill_hand_buff_columns(_abf, r, uid, norm_str(r.get("cardName")) or uid,
                                       truth_by_path, ENCHANT_TEMPLATES_REPORT)
+        # 🆕 2026-11-02（执行代理 `B116_W18` · 旧任务 `B-328`）：给**每一行**补
+        #   `enchantmentId` / `enchantmentPathId`（判据 `CardScript__AddEnchantment.c:24-33` 读
+        #   `newEffect.enchantment(+0x88)`；口径 → `fill_enchantment_pptr_columns` 上面那段）。
+        #   🔴 只在**本表**补；卡表 v40 那一列由 `ability_buffs_of` 原样产出（⛔ 不动它）。
+        _abf = fill_enchantment_pptr_columns(_abf, r, uid, norm_str(r.get("cardName")) or uid,
+                                             truth_by_path, ENCHANT_TEMPLATES_REPORT)
         ENCHANT_TEMPLATES_REPORT["buff_rows"] = ENCHANT_TEMPLATES_REPORT.get("buff_rows", 0) + _abf_rep["rows"]
         ENCHANT_TEMPLATES_REPORT["buff_cards"] = ENCHANT_TEMPLATES_REPORT.get("buff_cards", 0) + (1 if _abf_rep["rows"] else 0)
         own = [{"id": o[0], "buffType": o[1] if isinstance(o[1], int) else -1,
@@ -5195,11 +5329,24 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
             ENCHANT_TEMPLATES_REPORT["wp_on"] += 1
 
     ENCHANT_TEMPLATES_REPORT["rows"] = len(templates)
+    # 🆕 2026-11-02（执行代理 `B116_W18` · `B-328`）：解出来的模板 id **不在本表里** ⇒ 出声。
+    #   🔴 2026-11-02（执行代理 `B116_W28`）：收录闸②（PPtr 可达）落地后**这一档现读 = 0**
+    #   （`Z-Sororitas-Raging Storm_enchantment1` 已被 ② 收进来）。**保留这个自检**：③ 它是「PPtr 指向的
+    #   模板必须两张表都认得」的常设反证 —— 有人再把闸收窄 / 把模板从真值快照里弄丢 ⇒ 这里当场出声。
+    _tids = {t["id"] for t in templates}
+    for _t in templates:
+        for _r in (_t.get("abilityBuffs") or []):
+            _eid = _r.get("enchantmentId")
+            if _eid and _eid not in _tids:
+                ENCHANT_TEMPLATES_REPORT["enchant_off_table"].append((_t["id"], _t["name"], _eid))
     doc = {
         "version": 1,
         "source": (f"{TRUTH_CARDS_SRC}（当前 build 的卡 SO 快照 —— 与 `cards_engine.json` **同一份源**）"),
         "note": (
-            "附魔模板表（第二张表）。收录 = 真值快照里 `m_Name` 尾 `_enchantment` 的全部行；"
+            "附魔模板表（第二张表）。收录 = **两条路的并集**：① 真值快照里 `m_Name` 尾 `_enchantment` 的全部行；"
+            "② 被非零 `buffEffect.enchantment` PPtr 指向的模板全集（原版 `CardScript__AddEnchantment.c:24-33`"
+            "读的就是这个 PPtr ⇒ ② 才是原版语义；① 保留是因为它多覆盖 6 张只被 `relatedCard1` 指到的模板）。"
+            "② 里解不出真值行 / `cardType != 20` 的**出声并排除**；"
             "⛔ **不进** `cards_engine.json` 的 `cards[]`、不改它的 `count`（那些模板不是可玩卡）。"
             "用途 = 账 L1044 的 `HasEnchantmentWhileInPlay` 需要读**附魔卡自己**的 `whileInPlayAnim`，"
             "而那 3 张为真的模板都在本表里。"
@@ -5208,6 +5355,9 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
             "`ca`(chosenAbility) `pa`(playersAffected) `ta`(targetsAffected) `fm`(furtherMultiplier)，"
             "buff/damage/summon 正文**不在本表**；`permanentBuffs` 与卡表 v37 同形（稀疏）；"
             "`owners` = 谁挂它（`id` / `buffType` / `trigger` / `inPool`）；排序 = uniqueId 升序。"
+            "`abilityBuffs` 每行另带 `enchantmentId` / `enchantmentPathId`"
+            "（原版 `CardEffect.enchantment(+0x88)` 的 PPtr 原值 + 它解出的模板 id；"
+            "`enchantmentPathId == 0` / `enchantmentId == \"\"` = 这一行**没有附魔指向**，不是错误）。"
             "`version` 独立计数，与卡表版本无关。"
         ),
         "count": len(templates),
@@ -6934,9 +7084,21 @@ def build():
     _assert_enchant_index_consistent(cards, ENCHANT_TEMPLATES_DOC)
     _etpl = ENCHANT_TEMPLATES_REPORT
     print(f"\n附魔模板表   `enchantment_templates.json`（第二张表）收录 **{_etpl['rows']}** 张"
-          f"（判据 = `m_Name` 尾 `_enchantment`；⛔ 不进卡池、不改 `count`）"
+          f"（判据 = 名字尾 `_enchantment` ∪ 被非零 PPtr 指向；⛔ 不进卡池、不改 `count`）"
           f" · 有挂载者 **{_etpl['with_owner']}** 张（其中挂载者在池内 **{_etpl['pool_reachable']}** 张）"
           f" · `whileInPlayAnim == 1` **{_etpl['wp_on']}** 张")
+    # 🆕 2026-11-02（执行代理 `B116_W28`）：收录闸②（PPtr 可达）的读数 —— 新收进来的必须点名，
+    #   排除的（非 `cardType 20` / 解不出）**出声**，⛔ 不静默。
+    print(f"             收录闸②（PPtr 可达模板）targets **{_etpl['pptr_targets']}** 个 · "
+          f"因此**新收** **{len(_etpl['pptr_added'])}** 张 · "
+          f"排除：非 `cardType 20` **{len(_etpl['pptr_bad_type'])}** 张 · 解不出 **{len(_etpl['pptr_unresolved'])}** 个")
+    if _etpl["pptr_added"]:
+        print("             新收：" + " · ".join(f"{n}（{u}）" for n, u, _ in _etpl["pptr_added"]))
+    if _etpl["pptr_bad_type"]:
+        print("             ⚠️ PPtr 指向但**不是 cardType 20**（不因这一条收录）："
+              + " · ".join(f"{n}({u}) ct={c}" for n, u, _p, c in _etpl["pptr_bad_type"]))
+    if _etpl["pptr_unresolved"]:
+        print("             ⚠️ PPtr 解不出真值行：" + " · ".join(str(x) for x in _etpl["pptr_unresolved"][:5]))
     if _etpl["rows_bad"]:
         print("             ⚠️ 坏值：" + " · ".join(str(x) for x in _etpl["rows_bad"][:5]))
     # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的读数（口径 → `fill_hand_buff_columns`）
@@ -6950,6 +7112,19 @@ def build():
         print(f"             ⚠️ `handBuff.targetCriteria` 坏格 {len(_etpl['set_bad'])} 条"
               f" · 引用解不出 {len(_etpl['set_unresolved'])} 条"
               + ("：" + " · ".join(str(x) for x in _etpl['set_bad'][:3]) if _etpl['set_bad'] else ""))
+    # 🆕 2026-11-02（执行代理 `B116_W18` · 旧任务 `B-328`）：`enchantmentId` / `enchantmentPathId` 两列的读数
+    #   （口径 → `fill_enchantment_pptr_columns` 上面那段）。`m_PathID: 0` 的行**不算**「解不出」——
+    #   那是原版 PPtr 的 null 值（现读 `Daemonic Feast` 的 2 行）。
+    _etpl_tmpls = (ENCHANT_TEMPLATES_DOC or {}).get("templates") or []
+    _n_pptr = sum(1 for _t in _etpl_tmpls for _r in (_t.get("abilityBuffs") or [])
+                  if _r.get("enchantmentPathId"))
+    print(f"附魔 PPtr     `abilityBuffs` 的 `enchantmentId`/`enchantmentPathId`：有 PPtr "
+          f"**{_n_pptr}** 行 · 解出模板 id **{_etpl['enchant_rows']}** 行 · 解不出 "
+          f"**{len(_etpl['enchant_bad'])}** 条 · 解出的 id 不在本表 **{len(_etpl['enchant_off_table'])}** 条")
+    if _etpl["enchant_bad"]:
+        print("             ⚠️ 解不出：" + " · ".join(str(x) for x in _etpl["enchant_bad"][:5]))
+    if _etpl["enchant_off_table"]:
+        print("             ⚠️ 不在本表：" + " · ".join(str(x) for x in _etpl["enchant_off_table"][:5]))
 
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。

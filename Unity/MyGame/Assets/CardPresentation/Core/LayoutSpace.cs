@@ -100,14 +100,14 @@ namespace CardPresentation
         /// <para>**原版为什么不靠这个**：它每个元素有自己的 `m_AnchorMin/Max` —— 锚在边上的跟边、
         /// 锚在中心的留中心，**根本没有一个全局映射**。</para>
         ///
-        /// <para>⇒ **正确的修法是 `A2098`**（把战斗 HUD 换成 uGUI 锚点体系 / `CanvasScaler` 那一套），
-        /// ⛔ **不是在这里调相机**。在那之前，这层保持「一律钉高」：4:3 下画面整体偏大 1.333 倍
+        /// <para>⇒ **今天的实际约束**：这层**保持「一律钉高」**（`VisibleHeight` 恒 = 10 世界单位、`VisibleWidth` 随宽高比走）；
+        /// ⛔ **不是在这里调相机**。跟着这条的是架构账 `A2098`（= 战斗线 `T09` 整层换 uGUI：`CanvasScaler(Expand)` + 锚点体系）—— **现状现读** `资料/任务线/战斗线/任务/T09_整层换uGUI.md` 的头部，⛔ 别拿账名当答案、也别在这里先动一半：4:3 下画面整体偏大 1.333 倍
         /// **但自洽**（位置与尺寸一起放大，不漂移、不点不到）。</para></summary>
         public static float VisibleHeight { get { return DesignHeight; } }
 
         /// <summary>可见**宽**（世界单位）= `DesignHeight × aspect`（16:9 下 = 17.7778 = <see cref="DesignWidth"/>）。
         /// ⚠️ 见 <see cref="VisibleHeight"/> 的 doc：**不要**在这里改成「窄屏钉宽」——
-        /// 那要连带一套全局映射的重做，属于 `A2098` 的活。</summary>
+        /// 那要连带**一套全局映射的重做**（`FromPixel`/`ToDesignPixel`/命中/滚动区全族同一批），归 `A2098`（`T09` 整层换 uGUI）跟；⛔ 别在这里单独改。</summary>
         public static float VisibleWidth
         {
             get

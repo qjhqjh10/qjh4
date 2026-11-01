@@ -1173,6 +1173,151 @@ namespace CardPresentation
             }
             return string.IsNullOrEmpty(legacyFullPath) ? null : SafeRead(legacyFullPath);
         }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  Step 4·b —— 【切前对账】把「中央档只可能是旧快照」的通道对回旧档真值（2026-11-02 · B116_W26）
+        //  判据 = `资料/完全复刻/判据/B116_R8_存档切换施工面.md` §1 表 A 第 1/2 行 + §3 B5。
+        //  ⚠️ 本节成员**追加在类尾**（`CLAUDE.md`：新成员别插进已有成员之间，免得下游行号漂）。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>「切前对账」标记 key 的前缀：`_ours_Reconcile.&lt;通道 key&gt;`。
+        /// <para>⛔ 业务代码别用它；`_ours_` 前缀由 `SaveKeys.IsKnown` 放行 ⇒ **不需要**改 `SaveKeys.All`
+        /// （进了 `All` 会让 `Count = 51` 那条对账红）。</para></summary>
+        public const string ReconcileMarkPrefix = "_ours_Reconcile.";
+
+        /// <summary>某个通道的「切前对账」标记 key。</summary>
+        public static string ReconcileMarkKeyOf(string key) { return ReconcileMarkPrefix + key; }
+
+        /// <summary>Step 4·b（**切前对账**）：把一条「中央档只可能是旧快照」的通道对回旧档真值。
+        /// <para>返回 `true` = **真的写了中央档**（旧档赢）；`detail` 恒定给一句人话原因（⛔ 不静默）。</para>
+        /// <para>🔶 自己设计（非原版）：原版轮抽 / 卡牌等级的数据在**服务端**（`PlayerDataManager` 的 PlayFab user data），
+        /// 客户端根本没有「旧档 vs 中央档谁新」这回事 ⇒ 本仓没有对应机制；关服后判据在远端、本地永远拿不到，
+        /// 只能自定 · 调度台 2026-11-02（`B116_W26`）。</para>
+        /// <para>**为什么必须有这一步**：`SaveKeys.ActiveEvent`（轮抽）/ `SaveKeys.OursCardProgress`（卡牌等级）
+        /// 的中央档**只可能是几周前的一次性 `ImportAll` 快照**（全仓 0 个写口，现读）——
+        /// 把读口切成「中央优先」（<see cref="ReadThroughLegacy"/>）之前若不对账，
+        /// 玩家一进界面就读到几周前的进度（`B-322` 的雷）。</para>
+        /// <para>**「只做一次」的判据（自终止，不需要切换方配合）**：标记 `_ours_Reconcile.&lt;key&gt;` 里记着
+        /// 「上一次对账之后中央档 payload 的指纹」。① 标记在、且中央档**当前指纹不符** ⇒ 中央档被别的东西写过
+        /// （= 这条通道已经切到「中央权威」，或玩家真写过）⇒ **一律不覆盖**；② 标记不在（第一次）或指纹相符
+        /// ⇒ 中央档仍是「上次从旧档对过来的那一份」、没人写过 ⇒ 旧档仍是权威 ⇒ 旧档更新且内容不同就对过来。
+        /// ⇒ **通道切换后第一次真正写中央档，指纹立刻不符 ⇒ 自动停手**。
+        /// ⛔ 不用「跑过几次」这种计数 —— 那会在「已对账、但读口还没切」的空窗期把中央档冻在过期值上。</para></summary>
+        public static bool ReconcileOnSwitch(string key, string legacyFullPath, out string detail)
+        {
+            detail = null;
+            if (!StoreOn)
+            {
+                detail = "落盘关着（`SaveCenter.StoreOn == false`）⇒ 一个字节都没碰";
+                return false;
+            }
+            if (string.IsNullOrEmpty(key)) { detail = "key 是空 ⇒ 不动"; return false; }
+
+            string legacyPath;
+            try { legacyPath = string.IsNullOrEmpty(legacyFullPath) ? null : Path.GetFullPath(legacyFullPath); }
+            catch (Exception e) { detail = "旧档路径不合法：" + e.Message; return false; }
+            if (legacyPath == null) { detail = "旧档路径是空 ⇒ 没有权威来源，不动"; return false; }
+            if (!File.Exists(legacyPath)) { detail = "旧档不存在（`" + legacyPath + "`）⇒ 没有权威来源，不动"; return false; }
+            if (!Exists(key)) { detail = "中央档不存在 ⇒ 交给 `ImportAll` 整份导入，本条不动"; return false; }
+
+            string central = GetRaw(key);
+            if (central == null) { detail = "中央档读不出来（坏档 / 未来版本）⇒ ⛔ 不用旧档去盖它"; return false; }
+
+            string fingerprint;
+            bool hadMark = TryReadReconcileMark(key, out fingerprint);
+            if (hadMark && !string.Equals(fingerprint, StableFingerprint(central), StringComparison.Ordinal))
+            {
+                detail = "中央档**自上次对账后已被写过**（标记 `" + ReconcileMarkKeyOf(key)
+                       + "` 的指纹不符）⇒ 这条通道已切到「中央权威」，⛔ 不再用旧档覆盖";
+                return false;
+            }
+
+            string legacy = SafeRead(legacyPath);
+            if (legacy == null) { detail = "旧档读不出来（`" + legacyPath + "`）⇒ 不动"; return false; }
+            string problem;
+            if (!IsWellFormedJsonObject(legacy, out problem))
+            {
+                detail = "旧档不是合法 JSON 对象（" + problem + "）⇒ 不导，旧文件原地不动";
+                return false;
+            }
+
+            if (DiffPayload(central, legacy).Length == 0)
+            {
+                if (!hadMark && !WriteReconcileMark(key, central))
+                    Debug.LogWarning("[SaveCenter] 切前对账：'" + key + "' 两边相等，但标记 `"
+                                   + ReconcileMarkKeyOf(key) + "` 没写成（原因见上一条日志）");
+                detail = "两边逐字段相等 ⇒ 无需对账" + (hadMark ? "" : "（首次：已记下中央档指纹）");
+                return false;
+            }
+
+            DateTime legacyTime = File.GetLastWriteTimeUtc(legacyPath);
+            DateTime centralTime = File.GetLastWriteTimeUtc(PathOf(key));
+            if (legacyTime <= centralTime)
+            {
+                detail = "旧档**不比中央档新**（旧档 " + IsoUtc(legacyTime) + " ≤ 中央档 " + IsoUtc(centralTime)
+                       + "）⇒ 中央档是新的那个，⛔ 不覆盖";
+                return false;
+            }
+
+            if (!SetRaw(key, legacy))
+            {
+                detail = "写中央档失败：" + (LastWriteError ?? "原因见上一条 `[SaveCenter]` 日志");
+                Debug.LogError("[SaveCenter] 切前对账：'" + key + "' 用旧档覆盖中央档**失败**（" + detail + "）");
+                return false;
+            }
+            bool markOk = WriteReconcileMark(key, legacy);
+            detail = "旧档赢：中央档已用旧档整份覆盖（旧档 " + IsoUtc(legacyTime) + " > 中央档 " + IsoUtc(centralTime) + "）"
+                   + (markOk ? "" : "；⚠️ 标记没写成（下次启动会再对一次，无害）");
+            Debug.Log("[SaveCenter] 切前对账：'" + key + "' " + detail + " · `" + PathOf(key) + "`");
+            return true;
+        }
+
+        /// <summary>写「切前对账」标记（payload = 中央档 payload 的稳定指纹）。</summary>
+        static bool WriteReconcileMark(string key, string centralPayload)
+        {
+            SaveReconcileMark mark = new SaveReconcileMark();
+            mark.key = key;
+            mark.payload = StableFingerprint(centralPayload);
+            mark.at = IsoUtc(DateTime.UtcNow);
+            return SetRaw(ReconcileMarkKeyOf(key), JsonUtility.ToJson(mark));
+        }
+
+        /// <summary>读「切前对账」标记。返回 false = 没有标记 / 标记坏掉（**当成第一次**处理）。</summary>
+        static bool TryReadReconcileMark(string key, out string payloadFingerprint)
+        {
+            payloadFingerprint = null;
+            // ⚠️ 先用 `Exists` 挡一道：直接 `GetRaw` 会在「第一次」时打一条「缺 key」的警告，每启动一次响一遍。
+            if (!Exists(ReconcileMarkKeyOf(key))) return false;
+            string raw = GetRaw(ReconcileMarkKeyOf(key));
+            if (string.IsNullOrEmpty(raw)) return false;
+            try
+            {
+                SaveReconcileMark mark = JsonUtility.FromJson<SaveReconcileMark>(raw);
+                if (mark == null || string.IsNullOrEmpty(mark.payload)) return false;
+                payloadFingerprint = mark.payload;
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>payload 的**稳定指纹**（FNV-1a 64 + 长度）。⛔ 别用 `string.GetHashCode()`
+        /// —— 它在 .NET 上**逐进程随机化**，跨启动永不相同（那么标记永远「不符」⇒ 永远不覆盖）。</summary>
+        static string StableFingerprint(string s)
+        {
+            unchecked
+            {
+                ulong h = 14695981039346656037UL;
+                int n = s == null ? 0 : s.Length;
+                for (int i = 0; i < n; i++) { h ^= s[i]; h *= 1099511628211UL; }
+                return h.ToString("x16", CultureInfo.InvariantCulture) + ":" + n.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>UTC 时间 → `yyyy-MM-dd HH:mm:ssZ`（日志 / 报告里给人看的）。</summary>
+        static string IsoUtc(DateTime t)
+        {
+            return t.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "Z";
+        }
     }
 
     /// <summary>`{"_v":N}` 的解析探针 —— **只认这一个字段**，别的字段 `JsonUtility` 会自动忽略。
@@ -1457,4 +1602,20 @@ namespace CardPresentation
             return s.Length <= n ? s : s.Substring(0, n) + "…";
         }
     }
+
+    /// <summary>`_ours_Reconcile.&lt;通道 key&gt;` 的 payload —— **切前对账标记**（Step 4·b · `B116_W26`）。
+    /// <para>⚠️ 文件级、非 `MonoBehaviour`（同 `SaveVersionProbe` 的理由：`JsonUtility` 对**嵌套类型**的支持
+    /// 在各 Unity 版本上不一致；而它不是组件 ⇒ 不会被场景烘成 `!u!115` 存根）。</para></summary>
+    [Serializable]
+#pragma warning disable 0649   // 只由 `JsonUtility` 反序列化填（同全工程所有 JsonUtility DTO）
+    class SaveReconcileMark
+    {
+        /// <summary>通道 key（诊断用；判定只看 <see cref="payload"/>）。</summary>
+        public string key;
+        /// <summary>上一次对账之后**中央档 payload** 的指纹（`SaveCenter.StableFingerprint` 的输出）。</summary>
+        public string payload;
+        /// <summary>对账时刻（UTC，仅供人读）。</summary>
+        public string at;
+    }
+#pragma warning restore 0649
 }

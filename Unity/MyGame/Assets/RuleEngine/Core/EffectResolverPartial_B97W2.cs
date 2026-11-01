@@ -288,18 +288,18 @@ namespace RuleEngine
                 //  ⇒ 我们的等价位 = **`UnitState.AddKeyword(DefinedTraitName(trait), traitValue)`**（trait 值那一本账）。
                 //  ⚠️ 三档合并方式（Max / 相加 / 计数+1）由 `CardTraitCollection` 的**静态表**决定，本仓**没有**那张表
                 //     ⇒ 交给 `AddKeyword` 自己的既有合并口径（⛔ 不在这里猜某一档）；如实记在报告里。
-                case 3:
+                case 3: case 90:   // 🆕 2026-11-02（`B116_W8` · ENG-11）：`90 addTraitRemnant` 在**原版就是同一个体**（`CardScript__AddEffect.c:220` `if (iVar16 == 0x5a) goto switchD_1805e5668_caseD_3;` ⇒ 直接跳进 `case 3` 那段），⛔ 别另写第二份
                 {
                     string kw = CardDef.DefinedTraitName(b.Trait);
                     if (string.IsNullOrEmpty(kw))
                     {
-                        ctx.Log($"⚠️{who}：`addTrait(3)` 的 `trait = {b.Trait}` **不在 `DefinedTrait` 反查表里**"
+                        ctx.Log($"⚠️{who}：`addTrait(3)/addTraitRemnant(90)` 的 `trait = {b.Trait}` **不在 `DefinedTrait` 反查表里**"
                               + " ⇒ 本行不结算（⛔ 不猜名字；表 = `CardDef.DefinedTraitName`，`CardDefPartial_B94B16.cs`）");
                         if (unresolved != null) unresolved.Add($"{who}（trait {b.Trait} 认不出）");
                         return false;
                     }
                     bool added = target.AddKeyword(kw, b.TraitValue);
-                    ctx.Log($"{who}：「{target.Name}」的 `addTrait(3)` ⇒ `{kw}` {b.TraitValue}"
+                    ctx.Log($"{who}：「{target.Name}」的 `{(b.BuffType == 90 ? "addTraitRemnant(90)" : "addTrait(3)")}` ⇒ `{kw}` {b.TraitValue}"
                           + (added ? "" : " —— **没挂上**（`AddKeyword` 拒收，见它的闸）")
                           + "（原版 `CardScript__AddEffect.c:460-679` → `AddTraitSilently`）");
                     return added;
@@ -486,13 +486,13 @@ namespace RuleEngine
                 }
 
                 default:
-                    // 🔴 **2026-11-02 更正（`B115_S5` · 铁律 5，就地改错）**：本行原来写的是
-                    //   「`AddEffect.c` 里这一档本来就走 `default:` 的『未实现』警告（`:958-966`）」
-                    //   —— **那句对 `buffType 1/2/3` 不成立**：现读 `CardScript__AddEffect.c` 的跳表
-                    //   **`case 1:` 在 `:331`、`case 2:` 在 `:332`、`case 3:` 在 `:460`**（原版确实处理
-                    //   `addStats` / `changeCost` / `addTrait`）。错因 = 当年只按「我们这 11 组」倒推原版，
-                    //   把「本表没实现」写成了「原版也没有」。现 `1` / `3` 已补（本方法开头两支），
-                    //   `2` 出声；`8 markOfChaos` / `12/15/16` 附魔族 / `90` **仍未补**（见报告 §十三）。
+                    if (b.BuffType == 8) return ApplyMarkOfChaosBuff(ctx, owner, target, b, who, unresolved);
+                    if (b.BuffType == 12 || b.BuffType == 15 || b.BuffType == 16)
+                        return ApplyAttachEnchantmentBuff(ctx, target, b, who, unresolved);
+                    // 🆕 2026-11-02（`B116_W8` · ENG-11）：`8` / `12/15/16` 已从这一档分出去（两个 helper 在类尾）；
+                    //   `90 addTraitRemnant` 更早一步就并进了 `case 3`（原版同一个体）。剩下的只剩「本表连分组都没有」的档。
+                    //   `12/15` **已接上**（`B116_W24`；`enchantmentId` 列 `B116_W18` 补的），`16` 仍不结算（原版那一支多出四个 spellType 旁支，见 helper 的 remarks）；
+                    //   `2 changeCost`（15 行）同样不结算，缺**两件**：① 手牌 buff 台账（`ctx.CostMods` 的契约只认正文 op 一个写点）② `ta=50` 的目标解析；现读 15 行里 **10 行 `at=handBuff`** 根本不走 `AddEffect`、剩 5 行里 **3 行 `ta=50`**（`Living Icon` 1 + `Solar Eclipse` 2）先卡在 `ResolveBuffOthersTargets`、**2 行 `ca=50`** 走手牌路 ⇒ 今天硬写只会是死码（详见 `case 2` 自己那段头注）。
                     ctx.Log($"⚠️{who}：`buffType {b.BuffType}` **本表尚未实现** —— "
                           + "⚠️ 这不是「原版也没有」：原版 `CardScript__AddEffect.c` 对它有自己的分支，"
                           + "本仓这一档**今天不改状态**（判据 → `报告/B115_S5_附魔执行器波01.md` §十三）");
@@ -555,6 +555,219 @@ namespace RuleEngine
                 ctx.Log($"（`CardCreated(210)` 棋盘那一跳：「{created.Card.Name}」被造出来 ⇒ "
                       + $"{n} 个在场监听器入队；原版 `BattleManager__BroadcastCardCreated.c:19-33`）");
             return n;
+        }
+
+        // ==============================================================================================
+        //  🆕 2026-11-02（执行代理 `B116_W8` · ENG-11）：`switch` 的 `default:` 里那两档的下沉实现
+        // ==============================================================================================
+        //  **为什么体在类尾、分派在 `default:`**：本文件被 `账/*.tsv` 按 `文件:行号` 引用
+        //    （`战斗逻辑驱动.tsv` 的 `:109` / `:175` / `:205` / `:533`）⇒ `switch` 里**必须零行数变化**
+        //    （铁律 18·b），所以 `default:` 只加两行 `if … return Helper(...)`，体全部追加在这里。
+        //
+        //  **本批动到哪几档（第二张表 `enchantment_templates.json` 的 86 行里的 37 行）**：
+        //    · `8 markOfChaos`（3 行）—— ✅ **本批接上**（原版 `.c:776-793`）。
+        //    · `90 addTraitRemnant`（1 行）—— ✅ **本批接上**（原版 `.c:220` 直接 `goto` 进 `case 3` 那段，
+        //      ⇒ 已经在 `case 3: case 90:` 那个合并标签里，没有新方法）。
+        //    · `12 enchantment` 13 行 / `15 singleUseEnchantment` 5 行 —— ✅ **2026-11-02（`B116_W24`）接上**
+        //      （数据列 `enchantmentId` 由 `B116_W18` 补，执行器 = `ApplyAttachEnchantmentBuff` 里的新支）。
+        //    · `16 choiceEnchantment` **0 行** —— ⛔ **仍不结算**：原版 `.c:830-932` 除了 `AddEnchantment` 还多出
+        //      **四个 spellType 旁支**（`0x3c` secretBuff / `0x78` questBuff / `0x82` 用掉并触发 / `0x8c,0xbe` 印记），
+        //      本仓这四支一个都没建 ⇒ 只做半条会成为「做一半」，判据见 helper 的 remarks。
+        //    · `2 changeCost` 15 行 —— 按既有裁定保持「出声、不改状态」（理由在 `case 2` 自己的头注里）。
+        //  ⇒ 37 行里**接上 22 行**（8 的 3 + 90 的 1 + 12 的 13 + 15 的 5），剩 15 行（`2 changeCost`）。
+
+        /// <summary>`MarkOfChaosType` → 我们这边的黑暗契约种类名（`DarkPactFx` 的第一列）。
+        ///
+        /// <para>映射**照抄** `EffectResolver.MarkOfChaosTypeOf` 那张表（`blood 10 Khorne` / `resilience 20 Nurgle`
+        /// / `excess 30 Slaanesh` / `fate 40 Tzeentch`，三重已证）的**反向**；`50` = 原版
+        /// `Enchantments.json` 把四张卡挂在同一格 ⇒ 均匀四选一。⛔ 别在这里再写一张**不同**的数字表
+        /// （铁律 6；那边是「种类 → 数字」的唯一正本，这里只做反向查）。</para>
+        /// <returns>`null` = 原版 `Enchantments.GetMarkOfChaos` 也取不到（`0 none` / 认不出）⇒ 整条 case 8 不发生。</returns>
+        static string DarkPactKindOfMarkType(BattleContext ctx, int markType)
+        {
+            switch (markType)
+            {
+                case 10: return "blood";        // Khorne
+                case 20: return "resilience";   // Nurgle
+                case 30: return "excess";       // Slaanesh
+                case 40: return "fate";         // Tzeentch
+                case 50:                        // Random：`Enchantments.json` 的 `cardEffect: 50` 那一格挂了 4 张卡
+                    if (ctx == null) return null;
+                    return DarkPactFx[ctx.GetRandomInt(0, DarkPactFx.Length)][0];
+            }
+            return null;
+        }
+
+        /// <summary>**`buffType 8 markOfChaos`**（原版 `CardScript__AddEffect.c:776-793`）。
+        ///
+        /// <para>原版逐句：`Log` → `Enchantments.GetMarkOfChaos(bm + 0x38, newEffect.markOfChaosType(+0x78))`
+        /// （**取不到就整条跳过**，`:782` 的 null 闸）→ `RawCardScript.TriggerEnchantment(那张附魔卡, …)`
+        /// → `bm.lastMarkOfChaos(+0x2f0) = 那张卡` → `BattleManager.BroadcastMarkResolved(this)`。</para>
+        ///
+        /// <para>⚠️ **我们的等价位是整个 `GrantDarkPact`**（正文路 `give … a Dark Pact` 走的同一条），
+        /// 它已经把这五步逐一对上：① `markOfChaos(330)` 计数 + `darkpact` 层数（= 那张附魔卡 500 能力的
+        /// `addTrait(330)`）② `SetLastMarkOfChaos`（= `+0x2f0`）③ `EmitEnchantmentTrigger`（= `TriggerEnchantment`）
+        /// ④ `BroadcastWhen(GetsDarkPact)`（= `BroadcastMarkResolved` → `OnTrigger(510 UnitReceivesMarkOfChaos)`）
+        /// ⑤ 「After receiving a Dark Pact」/ 同伴那两跳。⛔ **别在这里另写一份印记逻辑**（铁律 6）。
+        /// 判据与两处模型差异的完整说明在 `EffectResolver.cs` 的 `ApplyMarkBody` 头注里。</para>
+        /// </summary>
+        /// <returns>`true` = 印记落地（`GrantDarkPact` 已改状态）；`false` = 取不到那张附魔卡（原版同样整条跳过）。</returns>
+        static bool ApplyMarkOfChaosBuff(BattleContext ctx, int owner, UnitState target,
+                                         CardDatabase.AbilityBuffSpec b, string who,
+                                         List<string> unresolved)
+        {
+            if (ctx == null || target == null || b == null) return false;
+            string kind = DarkPactKindOfMarkType(ctx, b.MarkOfChaosType);
+            if (kind == null)
+            {
+                // 原版 `.c:782` 的 null 闸：`GetMarkOfChaos` 回 null ⇒ **整条 case 8 不发生**
+                ctx.Log($"⚠️{who}：`markOfChaos(8)` 的 `markOfChaosType = {b.MarkOfChaosType}` "
+                      + "**在 `Enchantments` 表里没有对应的附魔卡**（原版 `Enchantments__GetMarkOfChaos.c:20-36` "
+                      + "遍历后回 null，`.c:782` 那一句随即整条跳过）⇒ **本行不改状态**");
+                if (unresolved != null) unresolved.Add($"{who}（markOfChaosType {b.MarkOfChaosType} 无对应附魔卡）");
+                return false;
+            }
+            int seat = OwnerOf(ctx, target);
+            if (seat < 0) seat = owner;
+            GrantDarkPact(ctx, seat, target, kind, who + "·markOfChaos(8)");
+            ctx.Log($"{who}：`markOfChaos(8)` ⇒ 「{target.Name}」获得「{kind}」印记"
+                  + $"（由 `markOfChaosType {b.MarkOfChaosType}` 定；原版 `CardScript__AddEffect.c:776-793`）");
+            return true;
+        }
+
+        /// <summary>**`buffType 12 / 15`**（原版 `CardScript__AddEffect.c:826-829` → `CardScript__AddEnchantment`）
+        /// —— **已接上**（2026-11-02 `B116_W24`）。`16 choiceEnchantment` 仍不结算（见 remarks 第 3 段）。</summary>
+        /// <remarks>
+        /// **原版逐句（`CardScript__AddEnchantment.c` 全文现读）**：
+        ///   `:24` `newEffect == null` ⇒ 什么都不做；`:25` 读 `newEffect.enchantment(+0x88)`（PPtr → 模板卡）；
+        ///   `:29-33` `op_Equality(那个 PPtr, 0)` ⇒ **`LogWarning` + `return`（不挂）**；
+        ///   `:37-39` 惰性建 `+0x110`；`:40-48` 新记录 = `{enchantment, BattleManager.enchatmentsUsed(+0x4e4)}`
+        ///   → `BattleManager__UsedEnchantment`（流水号 +1）；`:50-67` 追加进 `+0x110 activeEnchantments`；
+        ///   `:68-90` **同时**把 `param_2`（那条 `CardEffect` 本身）追加进 `+0x108 activeEffects`；
+        ///   `:91` `CardScript__ActivateTraitsOnSummonOrEnchantment(this, 0, 1, 0)`。
+        ///   ⇒ 我们的等价位 = **`Enchantments.Attach(ctx, carrier, 模板, buffType, source, acting, trait, permanent)`**
+        ///   （它逐条对了上面每一步，判据写在它自己的 doc 上 —— ⛔ 别在这里另写一份挂载逻辑，铁律 6）。
+        ///   `case 0xc(12)` 与 `case 0xf(15)` 在 `.c` 里是**同一支**（`:826-828` 两个 label 共用一句
+        ///   `CardScript__AddEnchantment(param_1, param_2)`）⇒ 本方法不为它们各写一份。
+        ///
+        /// **数据面（`B116_W18` 补齐，本代理只消费）**：`AbilityBuffSpec.EnchantmentId` / `.EnchantmentPathId`
+        ///   = 原版 `CardEffect.enchantment(+0x88)` 解出来的模板 id / PPtr 原值。哨兵口径：
+        ///   `PathId == 0` ⇒ **原版那一格就是 null**（走 :29-33 的 `LogWarning` + 不挂，**不是错误**）；
+        ///   `PathId != 0 而 Id 为空` ⇒ 数据侧解不出（坏行）；`Id` 有值但表里查不到 ⇒ **表外模板**。
+        ///   三档都**跳过 + 出声**，⛔ 静默（红线）。
+        ///
+        /// 🔴 **`16 choiceEnchantment` 为什么仍不结算**（`.c:830-932` 现读，**池内 0 行**）：
+        ///   原版那一支在 `AddEnchantment` 之外**还多出四组旁支**，本仓一个都没建 ——
+        ///   ① `:850-855` 模板 `spellType == 0x3c(60 secretOrder)` ⇒ 给那条 effect 置 `secretBuff(+0x90)`；
+        ///   ② `:856-886` `spellType == 0x78(120 quest)` ⇒ **先摘掉身上其它 quest 附魔**、置 `questBuff(+0x91)`、
+        ///      `+0x270 = 0`、`DisplayStatusAnim(0x2ee)`、`UpdateTraitIcons`；
+        ///   ③ `:887-905` `spellType == 0x82(130)` ⇒ `SpendEnchantment` + `TriggerEnchantment` + `OnTrigger(0x1cc = 460)`；
+        ///   ④ `:906-930` `spellType ∈ {0x8c(140), 0xbe(190)}` ⇒ `SpendEnchantment` + 写 `bm.lastMarkOfChaos(+0x2f0)`
+        ///      + `TriggerEnchantment` + `BroadcastMarkResolved`，末尾清 `+0x2e8`。
+        ///   只做第 0 句（挂上去）而漏掉这四支 = **做一半**（玩家会看到「挂上了但那一跳没发生」）⇒ 本代理**整档不做**，
+        ///   维持出声。判据 → `报告/B116_W24_ENG11_12_15档.md` §3。
+        ///
+        /// 📊 现读分布（`enchantment_templates.json` 现读，断言 `B116W24_Assert` 钉住）：
+        ///   12 ×13 · 15 ×5 · 16 ×0；非零 PPtr 17 行 → 解出 17 / 解不出 0 / **表外 2**
+        ///   （`Raging Storm` 的 15 两行指向 `Z-Sororitas-Raging Storm_enchantment1`，只落在 3 个模板上：
+        ///   `Z-NC Goff-Night_enchantment` 11 行 · `T2 BlackLegion-Spreading Corruption_enchantment` 自挂 3 行 ·
+        ///   表外 2 行）＋ **2 行 `m_PathID: 0`**（`Daemonic Feast`）。其中**池内可达**的只有
+        ///   `Spreading Corruption` 那 3 行（`owners[]` 里 `BL74.inPool = true`）。
+        /// </remarks>
+        /// <returns>真挂上返回 `true`；`false` = 这一行没有挂（**已经出声**，原因见上）。</returns>
+        static bool ApplyAttachEnchantmentBuff(BattleContext ctx, UnitState target,
+                                               CardDatabase.AbilityBuffSpec b, string who,
+                                               List<string> unresolved)
+        {
+            if (ctx == null || b == null) return false;
+            string name = b.BuffType == 12 ? "enchantment"
+                        : b.BuffType == 15 ? "singleUseEnchantment"
+                        : "choiceEnchantment";
+
+            // ---------- ① `16 choiceEnchantment`：整档不做（四个 spellType 旁支没建，理由见 remarks）----------
+            if (b.BuffType == 16)
+            {
+                ctx.Log($"⚠️{who}：`choiceEnchantment(16)` **整档不结算** —— 原版 `CardScript__AddEffect.c:830-932`"
+                      + " 在 `AddEnchantment` 之外还有四组 spellType 旁支（`0x3c` 置 secretBuff · `0x78` 摘旧 quest"
+                      + " 并置 questBuff · `0x82` 用掉+触发 · `0x8c,0xbe` 写 lastMarkOfChaos+广播印记），"
+                      + "本仓四支一个都没建 ⇒ 只挂不判 = **做一半**，故整档维持「出声、不改状态」"
+                      + "（池内现读 0 行，零可观测）");
+                if (unresolved != null) unresolved.Add($"{who}（buffType 16 的四个 spellType 旁支未建）");
+                return false;
+            }
+
+            // ---------- ② 原版 `AddEnchantment.c:25-33`：`enchantment` 那一格取不到 ⇒ `LogWarning` + 不挂 ----------
+            if (string.IsNullOrEmpty(b.EnchantmentId))
+            {
+                if (b.EnchantmentPathId == 0)
+                {
+                    // `m_PathID: 0` = 原版 PPtr 的 null（**不是**数据错误）⇒ 走 `.c:29-33` 那条 LogWarning
+                    ctx.Log($"⚠️{who}：`buffType {b.BuffType}`（{name}）的 `CardEffect.enchantment(+0x88)` 是 **null**"
+                          + "（`m_PathID: 0`）⇒ 原版 `CardScript__AddEnchantment.c:29-33` 打 `LogWarning` 后"
+                          + " **直接 return、一张都不挂**（照抄：本行不改状态）");
+                    if (unresolved != null) unresolved.Add($"{who}（buffType {b.BuffType} 的 `enchantment` 为 null）");
+                    return false;
+                }
+                // 有 PPtr 却解不出 id ⇒ 数据侧坏行（`CardDatabase.MapAbilityBuffs` 已 `LogError` 一次）
+                ctx.Log($"⚠️{who}：`buffType {b.BuffType}`（{name}）带附魔 PPtr（`m_PathID = {b.EnchantmentPathId}`）"
+                      + " 但 `enchantmentId` 解不出 ⇒ **判不了挂哪张模板**，本行不改状态"
+                      + "（重跑 工具/gen_cards_engine.py --write）");
+                if (unresolved != null) unresolved.Add($"{who}（buffType {b.BuffType} 的 PPtr 解不出模板 id）");
+                return false;
+            }
+
+            // ---------- ③ 载体：原版 `param_1` = **那张 CardScript**（场上与手牌同一套）⇒ 我们的 `CardInstance` ----------
+            CardInstance carrier = target != null ? target.Instance : null;
+            if (carrier == null)
+            {
+                ctx.Log($"⚠️{who}：`buffType {b.BuffType}`（{name}）的载体（`target.Instance`）是 null ⇒ "
+                      + "原版 `CardScript__AddEnchantment` 拿不到 CardScript，**这一条不挂**");
+                if (unresolved != null) unresolved.Add($"{who}（buffType {b.BuffType} 的载体不是 CardInstance）");
+                return false;
+            }
+
+            // ---------- ④ 取模板：`+0x88` 那个 PPtr 指向的那张（先池后表）----------
+            CardDef tmpl = ctx.FindEnchantmentTemplate(b.EnchantmentId);
+            if (tmpl == null)
+            {
+                ctx.Log($"⚠️{who}：`buffType {b.BuffType}`（{name}）指向的附魔模板 `{b.EnchantmentId}` "
+                      + "**在本局两张表里都查不到**（多半是「表外模板」：`enchantment_templates.json` 的收录闸是"
+                      + " `m_Name` 尾 `_enchantment`）⇒ 原版 `CardScript__AddEnchantment.c:29-33` 的取不到闸，"
+                      + "**本行一张都不挂**");
+                if (unresolved != null) unresolved.Add($"{who}（buffType {b.BuffType} 的模板 `{b.EnchantmentId}` 查不到）");
+                return false;
+            }
+
+            // ---------- ⑤ 挂：唯一等价位 `Enchantments.Attach`（⛔ 别另写一份）----------
+            //   `trait`：原版这一格 = 那条 `CardEffect.trait(+0x3C)` 本身（`param_2` 原样进 `+0x108`）⇒
+            //     `b.Trait == 0` 时明确传 `""`（= 没有 trait），⛔ 别传 `null` —— 那会让 `Attach` 回落到
+            //     载体卡的 `EnchantTrait`，凭空给这条附魔安一个原版没有的 trait。
+            string traitName = "";
+            if (b.Trait != 0)
+            {
+                traitName = CardDef.DefinedTraitName(b.Trait);
+                if (traitName == null)
+                {
+                    ctx.Log($"⚠️{who}：`buffType {b.BuffType}`（{name}）带 `trait = {b.Trait}` 但**不在 `DefinedTrait` 反查表里**"
+                          + " ⇒ 这条附魔的 `CardEffect.trait` 记成空（⛔ 不猜名字）");
+                }
+            }
+            var eff = Enchantments.Attach(ctx, carrier, tmpl, b.BuffType,
+                                          source: who,
+                                          acting: ctx.ActingUnit,
+                                          trait: traitName,
+                                          permanent: b.PermanentBuff != 0);
+            if (eff == null)
+            {
+                ctx.Log($"⚠️{who}：`buffType {b.BuffType}`（{name}）⇒ `Enchantments.Attach` 拒收，**这一条没挂上**");
+                if (unresolved != null) unresolved.Add($"{who}（buffType {b.BuffType} 的 Attach 拒收）");
+                return false;
+            }
+            ctx.Log($"{who}：`{(b.BuffType == 12 ? "enchantment(12)" : "singleUseEnchantment(15)")}` ⇒ "
+                  + $"把附魔「{tmpl.Name}」挂到「{target.Name}」身上"
+                  + "（原版 `CardScript__AddEffect.c:826-829` → `CardScript__AddEnchantment.c`："
+                  + "读 `newEffect.enchantment(+0x88)` → 流水号 → `+0x110`/`+0x108` 各追加一份 → `ActivateTraitsOnSummonOrEnchantment`）");
+            return true;
         }
     }
 }

@@ -99,7 +99,7 @@ namespace CardPresentation
         /// 形状照 `LoadingMenu.Current`（同一条坑）。</summary>
         public static UIBakeScreen Current { get; private set; }
 
-        int _rtW, _rtH;      // 上次建 RT 时看到的屏幕尺寸（判「分辨率变了」用）
+        int _rtW, _rtH;      // 上次建 RT 时用的「屏尺寸」= 有效屏尺寸（`EffScreenW/H`；判「分辨率变了」用）
 
         void Awake() { Build(); }
 
@@ -148,8 +148,8 @@ namespace CardPresentation
             }
 
             if (cameraToBake == null) cameraToBake = Camera.main;
-            _rtW = Screen.width;
-            _rtH = Screen.height;
+            _rtW = EffScreenW;
+            _rtH = EffScreenH;
         }
 
         /// <summary>原版 `CreateRT()`：销毁旧 RT → `ceil(屏 × 0.25)` 建新 RT（24 位深度）→ `image.texture = RT`。</summary>
@@ -165,12 +165,12 @@ namespace CardPresentation
                 renderTexture = null;
             }
 
-            int w = Mathf.CeilToInt(Screen.width * RENDER_TEXTURE_MULTIPLIER);
-            int h = Mathf.CeilToInt(Screen.height * RENDER_TEXTURE_MULTIPLIER);
+            int w = Mathf.CeilToInt(EffScreenW * RENDER_TEXTURE_MULTIPLIER);
+            int h = Mathf.CeilToInt(EffScreenH * RENDER_TEXTURE_MULTIPLIER);
             if (w < 1 || h < 1)
             {
                 // 原版不会看到 0（有窗口系统）；批处理/无图形环境下 Screen 可能是 0 ⇒ 出声并兜到 1
-                Debug.LogWarning($"[Bake] 屏幕尺寸异常（{Screen.width}×{Screen.height}）⇒ RT 尺寸兜到至少 1×1" +
+                Debug.LogWarning($"[Bake] 屏幕尺寸异常（{EffScreenW}×{EffScreenH}）⇒ RT 尺寸兜到至少 1×1" +
                                  "（原版没有这一档；只为别让 `new RenderTexture(0,0,…)` 抛异常）");
                 w = Mathf.Max(1, w); h = Mathf.Max(1, h);
             }
@@ -270,8 +270,8 @@ namespace CardPresentation
         void Update()
         {
             // 原版 `Start` 是把 `ResolutionChanged` 注册到「屏幕分辨率变了」的信号上；我们没有那个信号
-            // ⇒ 每帧比一次（`Screen.width/height` 是廉价读）。语义 = `ResolutionChanged()`。
-            if (Screen.width != _rtW || Screen.height != _rtH) ResolutionChanged();
+            // ⇒ 每帧比一次（`EffScreenW/H` 是廉价读；没设 override 时就是 `Screen.width/height`）。语义 = `ResolutionChanged()`。
+            if (EffScreenW != _rtW || EffScreenH != _rtH) ResolutionChanged();
         }
 
         /// <summary>原版 `ResolutionChanged()`：**没在显示**（= `image.enabled == false`）⇒ 重建 RT；否则不动。</summary>
@@ -300,5 +300,22 @@ namespace CardPresentation
                 blitBlurMaterial = null;
             }
         }
+
+        // 🔶 自己设计（非原版）：`ScreenSizeOverride` = 只给**批处理出图宿主**用的一档「帧尺寸替代」。
+        //   判据（原版 `CreateRT`）只认 `Screen.width/height`，而批处理（`-executeMethod`，编辑器非播放态）下
+        //   `Screen` 恒 640×480（无真实 GameView；本仓 2026-09/10 多次实测），而那一趟场景是按 1920×1080 渲的
+        //   （`Editor/WindowShots.cs` 的 `W/H`）⇒ 原版公式只能得 160×120，比原版 1920×1080 → 480×270 **糊 3 倍**；
+        //   且 4:3 的 RT 让整屏 quad 宽只有 13.33（16:9 屏要 17.78 ⇒ 左右盖不满）。
+        //   为什么必须自己定：`Screen` 在编辑器非播放态不可设（`Screen.SetResolution` 在编辑器里不生效，未实测；
+        //   `-screen-width/-screen-height` 只作用于独立 player）。判据本身拿不到「批处理下的帧尺寸」。
+        //   语义：**只有被显式赋非零值时才替代 `Screen` 读数**；默认 (0,0) ⇒ 与改动前逐位相同
+        //   （真机 `ShellRuntime` 建的那件、`ShellScene` 自检用的那件都不赋值 ⇒ 仍读 `Screen`）。
+        //   谁定的：调度台 2026-11-02（`B-302`）。
+        [System.NonSerialized] public Vector2Int ScreenSizeOverride;
+
+        /// <summary>建 RT 时该用的「屏宽」：有显式覆盖就用它，否则 = 原版读的 `Screen.width`。</summary>
+        int EffScreenW { get { return ScreenSizeOverride.x > 0 ? ScreenSizeOverride.x : Screen.width; } }
+        /// <summary>同上（高）。</summary>
+        int EffScreenH { get { return ScreenSizeOverride.y > 0 ? ScreenSizeOverride.y : Screen.height; } }
     }
 }

@@ -422,14 +422,14 @@ namespace CardPresentation
                 return;
             }
             var path = StorePath;
-            if (!System.IO.File.Exists(path))
-            {
-                Debug.Log("[Inbox] 还没有存档（`" + path + "`）⇒ 按出厂值走");
-                return;
-            }
+            // 🆕 2026-11-02（B116_W16 · UI-15/B-322 · 存档切换）：**先中央档、再旧档**（双写期过渡读法，同 `DailyData.cs:1969`）。
+            //    中央档在但读不出来时它自己退回旧档；两处都没有 ⇒ `null` ⇒ 按出厂值走（⛔ 别恢复裸 `File.ReadAllText`）。
+            string text = SaveCenter.ReadThroughLegacy(SaveKeys.OursInbox, path);
+            if (text == null) { Debug.Log("[Inbox] 还没有存档（`" + path + "`）⇒ 按出厂值走"); return; }
             try
             {
-                var dto = JsonUtility.FromJson<StoreDto>(System.IO.File.ReadAllText(path));
+                // payload 形状没变（`StoreDto`）；旧档那侧仍不带 `_v` 信封 ⇒ 旧客户端照样能读旧档。
+                var dto = JsonUtility.FromJson<StoreDto>(text);
                 if (dto == null)
                 {
                     Debug.LogWarning("[Inbox] 存档解不出内容（`" + path + "`）⇒ 按出厂值走，下一拍落盘会**盖掉**它");
@@ -442,7 +442,7 @@ namespace CardPresentation
                     return;
                 }
                 ApplyDto(dto);
-                Debug.Log("[Inbox] 已从 `" + path + "` 读回：" + Brief());
+                Debug.Log("[Inbox] 已读回（中央档 `" + SaveKeys.OursInbox + "` 优先，旧档 `" + path + "`）：" + Brief());
             }
             catch (Exception e)
             {
@@ -481,15 +481,15 @@ namespace CardPresentation
                 }
                 dto.states = st.ToArray();
                 var json = JsonUtility.ToJson(dto);
-                var dir = System.IO.Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
-                // 原子写：先 `.tmp` 再换名（与 `DailyData.Persist` 同一形状 —— 中途崩不毁旧档）。
-                var tmp = path + ".tmp";
-                System.IO.File.WriteAllText(tmp, json);
-                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
-                System.IO.File.Move(tmp, path);
-                LastStorePath = path;
-                Debug.Log("[Inbox] 落盘（" + why + "）→ `" + path + "`：" + Brief());
+                // 🆕 2026-11-02（B116_W16 · UI-15/B-322 · 存档切换）：原来的「写 `.tmp` → 删旧 → 换名」三段交给
+                //    `SaveCenter.SaveThroughLegacy`：中央档 `_ours_Inbox` 一份 + 旧档（**不带 `_v`**）一份，原子写由 `AtomicWrite` 承担。
+                //    只注入了 `InboxData.OverrideDir`（自检常态）⇒ `SaveCenter.StoreOn` 为假 ⇒ **只写旧档**，与切换前逐字节同。
+                string werr;
+                bool wrote = SaveCenter.SaveThroughLegacy(SaveKeys.OursInbox, path, json, out werr);
+                if (wrote) LastStorePath = path;
+                else Debug.LogError("[Inbox] 落盘失败（" + why + "）：" + werr + "（目录 " + StoreDir + "）⇒ 这一份改动**只在内存里**（红线：不许静默失败）");
+                Debug.Log("[Inbox] 落盘（" + why + "）→ `" + path + "`：" + Brief()
+                        + (wrote ? "" : "（⚠️ 见上一条错误：中央档/旧档有一侧没写成）"));
             }
             catch (Exception e)
             {

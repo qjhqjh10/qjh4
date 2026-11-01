@@ -1275,7 +1275,7 @@ namespace CardPresentation
         /// <summary>按像素坐标建整个界面。**自检与运行时调同一个**（见 <see cref="Start"/>）。</summary>
         public void Build(DeckLibrary lib)
         {
-            Library = lib ?? DeckLibrary.Load();
+            Library = HostWindow != null ? SharedLibrary : (lib ?? DeckLibrary.Load());   // 🔴 B-339（2026-11-02）：**窗托管那条腿用进程级那份库** —— 卡组编辑窗关掉之后它还活着（= 原版 `PlayerDataManager` 手里那份卡组列表），失败支关窗才不会丢改动；裸 `DeckRuntime`（`Editor/DeckScene.cs` 的 `_rt` / 直起兜底）**照旧用自己的实例**（口径与新鲜度闸见文件尾「卡组库跨窗存活」那一段）
             _cam = Camera.main;
             if (_cam != null) LayoutSpace.Apply(_cam); if (_cam != null && HostWindow == null) ShellRuntime.EnsureAspectClamp(_cam);   // 🆕 B109_E16 · AUD05 S4：比例夹取 [4:3, 22:9]。**只挂独立场景那一档**（`HostWindow == null`）—— 窗化档渲染相机是主菜单那颗（已经挂过），再挂一次会把它带进 `Shell.unity` 存盘（原版 `Intro` 没有该件）；判据 → `ShellRuntime` 类尾那一节
 
@@ -5519,7 +5519,7 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>保存 = **原版 `DeckEditingWindow.TrySaveDeck`** —— `Done` 钮与 `ESC` **共用这一个函数**
+        /// <summary>保存 = **原版 `DeckEditingWindow.TrySaveDeck`** —— `Done` 钮与 `ESC` **共用这一个函数**（🔴 **2026-11-02（`B-334`）补上成功支的关窗**：原版 `TrySaveDeck`→`UploadDeck`→`g__OnSave_0` 末句 = 虚槽 `0x1b8` = `GameWindow.Close()` ⇒ **保存成功就把窗关掉**，原来我们只 `Say("已保存")` 留在窗里 = 偏离）
         /// （`ESC` 那一路：`d:/2/tools/decomp_full/DeckEditingWindow__ESCPressed.c:5` 就一句
         /// `DeckEditingWindow__TrySaveDeck(param_1, 0)`）。
         ///
@@ -5546,7 +5546,7 @@ namespace CardPresentation
         ///
         /// <para>改坏法：把下面那个 `if` 整段删掉（或改成 `if (false)`）⇒
         /// `Editor/DeckScene.cs` 的「A330 ★ 不合法 ⇒ Done 不落盘」「A330 ★ …ESC 也不落盘」双双变红；
-        /// 把 `ShowInvalidDeckPopUp(err)` 那一句删掉 ⇒ A364 那一节的「不合法 ⇒ 弹出模态窗」变红。</para></summary>
+        /// 把 `ShowInvalidDeckPopUp(err)` 那一句删掉 ⇒ A364 那一节的「不合法 ⇒ 弹出模态窗」变红。🔴 **2026-11-02（`B-334`）成功支关窗的改坏法**：删掉成功支那句 `BackToMenu()` ⇒ `Editor/B116W36_Assert.cs` 那组「保存成功 ⇒ 宿主窗 `IsOpen()`/`activeSelf` 双双为假」+「`LeaveCount` +1」全红；换成「只 `Say`」或另写一个只 `gameObject.SetActive(false)` 的关法 ⇒ 同上。🔴 **2026-11-02（`B-339`）失败支现在【也】关窗**（原版 `g__OnSave_0` 的 `param_2 == 0` 那一支同样走到末句 `Close()`）；它**不再丢改动**的前提 = 库是进程级、跨窗存活（<see cref="SharedLibrary"/>）⇒ `Editor/B116W38_Assert.cs` 钉着「窗关 / `LeaveCount` +1 / 脏标记仍真 / 库内容还在（且**重读存档读不回来**）/ 重开窗还在」。</para></summary>
         void SaveAndSay()
         {
             var err = State.Validate();
@@ -5560,10 +5560,10 @@ namespace CardPresentation
             {
                 // ⛔ 不静默：写不进去就**别**说「已保存」（脏标记也留着 —— 下次 Done 还会再试）
                 Say("保存失败：" + SaveFailReason());
-                return;
+                HideDeckPopUp(); BackToMenu(); return;      // ★ B-339（2026-11-02）：**失败支也关窗**（原版 `g__OnSave_0` 的末句是虚槽 `0x1b8` = `GameWindow.Close()`，且那个 `if (param_2 != 0)` 只包着「发通配符」⇒ **失败同样走到关窗**）。关窗**不再丢改动**：库已改成进程级（`DeckRuntime.SharedLibrary`，见文件尾那一段），本次改动留在内存那份库里、`DeckDirty` 仍为 true ⇒ **下次开编辑器还能再按一次 Done 重试**（= 原版 `syncedToServer = 0` 可重试）
             }
             HideDeckPopUp();                               // 🆕 A364：= 原版 `__TrySaveDeck.c:103 HidePopUp`
-            Say("已保存");
+            Say("已保存"); BackToMenu();                    // ★ B-334（2026-11-02）：原版 `TrySaveDeck`→`UploadDeck`→`g__OnSave_0` 末句 = 虚槽 `0x1b8`（`GameWindow.Close()`）⇒ **保存成功即关窗**；我们走**既有离场口** `BackToMenu`（有宿主窗 ⇒ `LeaveByHostWindow` 关窗；独立场景 ⇒ 切场景），⛔ 没另造一个「关窗口」
         }
 
         /// <summary>`DeckError` → **给玩家看的那句人话**（`Describe` 出键、`Loc.T` 取词）。
@@ -8349,7 +8349,7 @@ namespace CardPresentation
             //    —— ⛔ **不是** `CommitCurrent`（那会把内容写进**当前选中**那一套；全新的卡组压根没有下标记得自己）。
             if (_newDeck != null)
             {
-                bool ins = Library.Insert(State.Deck);
+                bool ins = Library.Insert(State.Deck); if (ins) NoteSaveSucceeded(Library);   // B-339：写成功 ⇒ 刷新共享库的盘上指纹（否则下一次访问会冤枉地重读；见文件尾那一段）
                 // ⛔ **无论落盘成败都要翻篇**：`Insert` 已经把它加进 `_decks` 了（同 `Create` 的语义：
                 //    内存里留着 + `LastError` 说得出原因）⇒ 不清 `_newDeck` 的话下一次 `Done` 会**再插一遍**
                 //    （库里两套同名，静默）。
@@ -8362,7 +8362,7 @@ namespace CardPresentation
                 RefreshHeader();
                 return ins;
             }
-            bool ok = Library.CommitCurrent(State.Deck);
+            bool ok = Library.CommitCurrent(State.Deck); if (ok) NoteSaveSucceeded(Library);   // B-339：同上（写成功才刷指纹；写失败 ⇒ 指纹保持旧值 ⇒ 内存那份**不会被重读冲掉**）
             if (ok) DeckDirty = false;
             RefreshHeader();
             return ok;
@@ -10178,6 +10178,107 @@ namespace CardPresentation
             if (lb == null) return;
             if (c.Key != null && (c.Key.StartsWith("$rar:") || c.Key.StartsWith("$type:")))
                 MenuDraw.SetVAlign(lb, Label.VAlign.Bottom, lr);
+        }
+    }
+}
+
+// ================================================================================================
+//  🆕 2026-11-02（`B-339` · `B116_W38`）：**卡组库跨窗存活** —— 进程级那份实例 + 新鲜度闸
+//
+//  原版那份卡组列表由 `PlayerDataManager` 持有，窗只是它的一个视图：
+//    · `DeckEditingWindow__TrySaveDeck.c:100` → `UploadDeck` → `UploadUnsyncedDeck` 写进那份列表；
+//    · `DeckEditingWindow.__c__DisplayClass43_0___UploadDeck_g__OnSave_0.c` 的**末句**
+//      `(**(code **)(*plVar1 + 0x1b8))(plVar1, …)` = 虚槽 `0x1b8` = `GameWindow.Close()`；
+//      而那句 `if (param_2 != '\0')` 只包着「发通配符」—— ⇒ **失败（`param_2 == 0`）同样走到关窗**。
+//    ⇒ 原版「保存失败也关窗」，而玩家的改动**不会丢**：它在 `PlayerDataManager` 那份列表里、标着未同步。
+//
+//  我们改之前：`DeckEditingWindow.Open()` → `Build(DeckLibrary.Load())` ⇒ **库随窗生灭**
+//    ⇒ 一关窗那份内存改动就没了 ⇒ `B-334` 的失败支只能停手（当时写在 `SaveAndSay` 那条注释里）。
+//  本段把库提到**进程级**（原版那份列表的等价物），并给它一条**新鲜度闸**：
+//    · `SharedLibrary` —— 窗托管那条腿（`Build` 里判 `HostWindow != null`）读写的就是它；
+//    · `SaveDiskStamp()` —— 「内存这一份是基于盘上哪个状态」的指纹（旧档 + 中央档的「在不在 / 多大 / 改于何时」）；
+//      **盘被别人改过 ⇒ 重读**（⛔ 别拿旧内容覆盖人家新写的）；
+//      **盘没动 ⇒ 一直用内存这一份** —— 这正是「保存失败后还能重试」要的那条性质；
+//    · `NoteSaveSucceeded` —— 我们自己写成功那一拍把指纹刷新成新的盘上状态（否则下一次访问会冤枉地重读）。
+//
+//  ⚠️ **只挂窗托管那条腿**：裸 `DeckRuntime`（`Editor/DeckScene.cs` 的 `_rt`、直起兜底）**照旧用自己的实例**
+//     —— 那些自检拿 `rt.Library` 当「这一次 `Build` 装进来的那一份」用，换掉会改掉它们的语义。
+//  ⚠️ 本段**追加在文件尾**（铁律 18·b：本文件被账按 `文件:行号` 引用 124 处，插进类体中间会让下游落点整体漂）。
+// ================================================================================================
+namespace CardPresentation
+{
+    public partial class DeckRuntime
+    {
+        /// <summary>进程级卡组库（= 原版 `PlayerDataManager` 手里那份 `CardDeck` 列表）。
+        /// <para>⚠️ 取用一律走 <see cref="SharedLibrary"/> / <see cref="InvalidateSharedLibrary"/>，
+        /// ⛔ 别在外面另存一份长命引用。⚠️ `Shell/CollectionData.Lib` 是**另一个**历史缓存
+        /// （它有自己的作废口 `CollectionData.InvalidateLibrary`）—— 它写盘之后本段的指纹会变、下次访问自动重读。</para></summary>
+        static DeckLibrary _sharedLibrary;
+
+        /// <summary>内存这一份**所基于的**盘上状态指纹（见 <see cref="SaveDiskStamp"/>）；`null` = 还没算过。</summary>
+        static string _sharedDiskStamp;
+
+        /// <summary>🆕 `B-339`：**卡组库的进程级实例** —— 卡组编辑窗关掉之后它仍然在（可读写）。
+        /// <para>取用前先过新鲜度闸：盘上那份**被别人改过** ⇒ 重读（并出声）；否则**沿用内存这一份**。</para></summary>
+        public static DeckLibrary SharedLibrary
+        {
+            get
+            {
+                string stamp = SaveDiskStamp();
+                if (_sharedLibrary == null)
+                {
+                    _sharedLibrary = DeckLibrary.Load();
+                    _sharedDiskStamp = SaveDiskStamp();      // ⚠️ 读完**再取一次**（读的那一瞬盘上状态才是我们的基线）
+                    return _sharedLibrary;
+                }
+                if (!string.Equals(stamp, _sharedDiskStamp, System.StringComparison.Ordinal))
+                {
+                    Debug.Log("[Deck] 卡组存档在别处被改过（盘上指纹 " + (_sharedDiskStamp ?? "<none>")
+                              + " → " + stamp + "）⇒ **重读卡组库**（⛔ 不拿内存里的旧内容覆盖新存档）");
+                    _sharedLibrary = DeckLibrary.Load();
+                    _sharedDiskStamp = SaveDiskStamp();
+                }
+                return _sharedLibrary;
+            }
+        }
+
+        /// <summary>作废进程级那一份（下次取 <see cref="SharedLibrary"/> 会重读存档）。
+        /// ⚠️ 自检收尾要用它：别把夹具态那份库漏给后面的段落。</summary>
+        public static void InvalidateSharedLibrary() { _sharedLibrary = null; _sharedDiskStamp = null; }
+
+        /// <summary>某一次**落盘成功**之后调（`CommitDeck` 两个分支）。
+        /// <para>只有「写的就是那份共享库」才刷新指纹：**别的实例**写成功 ⇒ 我们的内存已经过期，
+        /// 指纹保持旧值、下一次访问**重读**（那才是对的）。</para></summary>
+        static void NoteSaveSucceeded(DeckLibrary lib)
+        {
+            if (lib == null || _sharedLibrary == null || !ReferenceEquals(lib, _sharedLibrary)) return;
+            _sharedDiskStamp = SaveDiskStamp();
+        }
+
+        /// <summary>盘上「卡组存档」的指纹：**旧档** + （注入钩子在的）**中央档**的「在不在 / 多大 / 改于何时」，都带路径。
+        /// <para>⚠️ 只读、不建目录、不抛：读不到就当 `<none>`（下一次真写成功会把指纹刷新正）。
+        /// ⚠️ 中央档那一格必须跟 `DeckLibrary.ReadLegacyText` **同进同退** —— 钩子没注册（批处理 / 编辑器）时
+        /// 读档走的是纯文件路，那就不该去问中央档（否则会与 `ReadThroughLegacy` 的 `StoreOn` 支自相矛盾）。</para></summary>
+        static string SaveDiskStamp()
+        {
+            var sb = new System.Text.StringBuilder(160);
+            AppendFileStamp(sb, DeckStore.Path);
+            if (DeckLibrary.ReadLegacyText != null && SaveCenter.StoreOn)
+                AppendFileStamp(sb, SaveCenter.PathOf(SaveKeys.PlayerDecks));
+            return sb.ToString();
+        }
+
+        static void AppendFileStamp(System.Text.StringBuilder sb, string path)
+        {
+            sb.Append(path ?? "<null>").Append('=');
+            try
+            {
+                var fi = new System.IO.FileInfo(path);
+                if (!fi.Exists) sb.Append("<none>");
+                else sb.Append(fi.Length).Append('/').Append(fi.LastWriteTimeUtc.Ticks);
+            }
+            catch (System.Exception) { sb.Append("<na>"); }
+            sb.Append('|');
         }
     }
 }

@@ -213,7 +213,7 @@ namespace CardPresentation
         const float DvPx = 36f, DvAutoMin = 18f, DvPxHighest = 31.35f;
         /// <summary>`RankTitleBG` 的 `m_Color.a`（两份都是 0.918）。</summary>
         const float RankBgA = 0.918f;
-        /// <summary>四个 `RankedSealStep`：48.30×60.33，从 368.85 起、步进 48.2967。</summary>
+        /// <summary>🔶 自己设计（非原版）：注释里那个「四个」是兜底颗数 · 原版运行期颗数来自远端 `RankedDivisionV2.TotalSeals`，关服拿不到 · 调度台 2026-11-02 追认（单颗 48.30×60.33 / 步进 48.2967 是原版实测几何，不是自设计）｜原注：四个 `RankedSealStep`：48.30×60.33，从 368.85 起、步进 48.2967。</summary>
         const float SealW = 48.2967f, SealH = 60.325f, SealStep = 48.2967f;
         /// <summary>`Individual rating value`：fs 40 · auto[18~40] · Left/Middle。</summary>
         const float RvPx = 40f, RvAutoMin = 18f;
@@ -962,7 +962,7 @@ namespace CardPresentation
             {
                 var ms = Node(mr, "Mission Milestones Progress", new PxRect(msL, msT + dy, msR, msB + dy));
                 var steps = Node(ms, "steps", new PxRect(msL, msT + dy, msR, msB + dy));
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < MainMenuRuntime.RankedSealFallbackCount; i++)   // 🔶 自己设计（非原版）：颗数 = 兜底颗数（值来自 `MainMenuRuntime.RankedSealFallbackCount`，⛔ 别再写死 4）· 原版运行期颗数来自远端 `RankedDivisionV2.TotalSeals`，关服拿不到 · 调度台 2026-11-02 追认
                 {
                     float x = msL + SealStep * i;
                     // 🔴 **2026-10-24（U2）就地订正（铁律 5）**：这里原来写「原版这四格是 `Rank Skull` +

@@ -300,7 +300,7 @@ namespace CardPresentation
             int q = _mr.sharedMaterial != null ? _mr.sharedMaterial.renderQueue : -1;
             m.mainTexture = _tex;
             if (q >= 0) m.renderQueue = q;
-            _mr.sharedMaterial = m;
+            _mr.sharedMaterial = m; SyncShineUv1();   // `B-326`：换成 `WildcardShine` 时补 `uv1`（同物理行追加，行数不变；其余材质这句立刻返回，网格一个字节不变）
         }
 
         // ============================================================ 去饱和通道（`_GreyScale`）
@@ -499,7 +499,7 @@ namespace CardPresentation
             m.colors = CornerColorsWithTint(cols ?? WhiteVerts);   // 🆕 `B-190`：通道没开 ⇒ 原样返回（零行为变化）
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             m.RecalculateBounds();
-            _mf.sharedMesh = m;
+            _mf.sharedMesh = m; SyncShineUv1();   // `B-326`：`WildcardShine` 的 quad 才写 `uv1`（同物理行追加，行数不变）
         }
 
         static readonly Color[] WhiteVerts = { Color.white, Color.white, Color.white, Color.white };
@@ -972,7 +972,7 @@ namespace CardPresentation
             m.SetColors(colors);
             m.SetTriangles(tris, 0);
             m.RecalculateBounds();
-            _mf.sharedMesh = m;
+            _mf.sharedMesh = m; SyncShineUv1();   // `B-326`：九宫格同样按**整块 sprite 矩形**写 `uv1`（同物理行追加，行数不变）
         }
 
         /// <summary>九宫格的一个顶点（`RebuildNineSliceMesh` 用）。顶点色按**整块 quad 的归一化位置**做四角双线性插值
@@ -992,6 +992,88 @@ namespace CardPresentation
         {
             if (cols == null || cols.Length < 4) return Color.white;
             return Color.Lerp(Color.Lerp(cols[0], cols[1], nx), Color.Lerp(cols[3], cols[2], nx), ny);
+        }
+
+        // ============================================================ `B-326`：给 `WildcardShine` 的 quad 补 `uv1`（**追加在类尾**）
+        //
+        // **为什么**：`Resources/Shaders/WildcardShine.shader` 拿 `TEXCOORD1`（= `Mesh.uv2`，即 uv **通道 1**）当
+        //   「sprite 的 uv 矩形」做四边盒测，且 `uv1.x` 同时是 Shadow 支的总闸 `_287`（判据 = `b16.hlsl:122-128`：
+        //   `uv1 = (xMin − 2·影 − 4·镜, yMin, xMax, yMax)`，剥掉偏移后 `uv1.x < 0` ⇒ 影子）。
+        //   原版那份数据由 `UIEffectBase.ModifyMesh` → `GraphicProxy.s_OnModifyVertex` 写入
+        //   （`vt.uv1 = GetBounds(这批顶点的 uv)`，判据 → `报告/B116_W11_WildcardShine剩余三块.md` §一），
+        //   **只有挂 `UIEffect` 的图形才有**；我们等价的挂载者 = 被 `WildcardShineLayer` 换上那颗材质的 quad。
+        //   ⇒ 本类只给**材质是 `CardPresentation/WildcardShine`** 的 quad 写这个通道；其余 quad 的网格一个字节不变
+        //     （`UsesShineShader` 为假时 `SyncShineUv1` 第一句就 return —— 连 `mesh.uv` 都不读）。
+        //
+        // **写什么**：整批顶点的 uv **包围矩形**，四个分量 = `(xMin, yMin, xMax, yMax)`，**每个顶点写同一组值**
+        //   —— 与 `GraphicProxy` 的 `GetBounds` 同语义（⛔ 不是「每个顶点写自己的 uv」）。
+        //   · 单 quad ⇒ 就是它那一块 uv 矩形（`SetUvRect` / `SetFillAmount` 之后的那一段，与真实网格同源）；
+        //   · 九宫格**单网格**（`ImageQuadNine`）⇒ 包围矩形 = 整块 sprite 矩形，⛔ 不是每段自己的；
+        //   · 九宫格走 `CreateNineSlice` 的**9 个子 quad** 时，每个子 quad 在我们的模型里各自是一张图形
+        //     （各自带自己的 uv 子矩形）⇒ 各自写自己那一段，与「`GetBounds(该图形这批顶点)`」同一条规则。
+        //
+        // **为什么不影响现有画面**（这是「变了也没关系」的证明，不是「没变」的证明）：盒测（`b16.hlsl:144-163`）
+        //   只在**网格被外扩**（描边/阴影/边缘）时才裁得掉东西；本链**从不外扩** ⇒ 所有顶点都落在自己的 uv 矩形内
+        //   ⇒ 四条盒测恒 1。`uv1.x ≥ 0`（归一化 uv 的 xMin 不会是负数）⇒ `_287` 恒 0 ⇒ **影子支仍不进**。
+        //   这与 `B116_W11` 那条「无数据兜底 = 单位矩形」的结果**逐项相同**，只是数据来源从兜底换成了真值。
+        //
+        // 🔶 自己设计（非原版）：**「按 shader 名判定要不要写 uv1」这一跳** —— 原版的结构事实是「这个图形挂没挂
+        //   `UIEffect`」，我们这条链上没有那个组件；等价物 = 「渲染器上是不是 `WildcardShine` 这颗材质」
+        //   （全工程唯一会读 `uv1` 的 shader，`grep "uv1" Resources/Shaders/` 可复核）。
+        //   为什么必须自定：`ImageQuad` 是共用件（几百个实例），没有「谁会读 uv1」的注册口可用；
+        //   按 shader 名判定是唯一不必改所有调用点的办法。· 调度台 2026-11-02 裁定（`B116_W17`）
+        const string ShineShaderName = "CardPresentation/WildcardShine";
+
+        /// <summary>这块 quad 现在的材质是不是 `WildcardShine`（= 唯一会读 `uv1` 的 shader）。
+        /// ⚠️ 读的是**渲染器上真正生效**的材质（`sharedMaterial`），与 `SetMaterial` 同口径。</summary>
+        public bool UsesShineShader
+        {
+            get
+            {
+                if (_mr == null || _mr.sharedMaterial == null) return false;
+                var sh = _mr.sharedMaterial.shader;
+                return sh != null && sh.name == ShineShaderName;
+            }
+        }
+
+        /// <summary>网格现在有几个 `uv1`（`TEXCOORD1`）顶点。**自检读口**：`0` = 这条通道没接上
+        /// （`WildcardShine` 就会走「无数据兜底 = 单位矩形」）；接上后应等于 `Mesh.vertexCount`
+        /// （单 quad = 4 / 九宫格单网格 = 4×格数 / `fillAmount < 0.001` 时 = 0，那本来就一个顶点都没有）。</summary>
+        public int Uv1VertexCount
+        {
+            get
+            {
+                if (_mf == null || _mf.sharedMesh == null) return 0;
+                var mesh = _mf.sharedMesh;
+                return mesh.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.TexCoord1) ? mesh.vertexCount : 0;
+            }
+        }
+
+        /// <summary>把当前网格的 `uv1` 刷成「这批顶点的 uv 包围矩形」（判据与影响面 → 上面那一段）。
+        /// **只对 `WildcardShine` 的 quad 生效** —— 其余 quad 在这里第一句就返回，网格一个字节不变。</summary>
+        void SyncShineUv1()
+        {
+            if (!UsesShineShader) return;
+            if (_mf == null || _mf.sharedMesh == null) return;
+            var mesh = _mf.sharedMesh;
+            int n = mesh.vertexCount;
+            if (n <= 0) return;                        // `fillAmount < 0.001` 那一档：网格本来就没有顶点
+            var uv = mesh.uv;
+            if (uv == null || uv.Length != n) return;  // 没有 uv0 ⇒ 无判据；不写（`uv1` 保持「无数据」，shader 走兜底）
+            float xMin = float.MaxValue, yMin = float.MaxValue, xMax = float.MinValue, yMax = float.MinValue;
+            for (int i = 0; i < n; i++)
+            {
+                var p = uv[i];
+                if (p.x < xMin) xMin = p.x;
+                if (p.y < yMin) yMin = p.y;
+                if (p.x > xMax) xMax = p.x;
+                if (p.y > yMax) yMax = p.y;
+            }
+            if (!(xMax > xMin && yMax > yMin)) return;  // 退化矩形 ⇒ 留「无数据」（⛔ 别写成一个 mask 恒 0 的框，那会把整块抹黑）
+            var v4 = new List<Vector4>(n);
+            var one = new Vector4(xMin, yMin, xMax, yMax);
+            for (int i = 0; i < n; i++) v4.Add(one);
+            mesh.SetUVs(1, v4);
         }
     }
 }

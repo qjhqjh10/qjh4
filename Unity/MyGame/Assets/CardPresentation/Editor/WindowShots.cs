@@ -21,7 +21,11 @@
 //    ⇒ 原版那件 `UIBakeScreen`（`MainMenuWindow.ToBackground/Hide/Close` 烘的「上一帧 UI 模糊快照」）缺位
 //    ⇒ **31 张窗图**的底是纯黑、系统性偏暗。现在由 `EnsureBake()` 在场景根建一件（⛔ 不进菜单树），
 //    `Shell/GameWindow.cs` **一行不用改**（它的查找链首选 `UIBakeScreen.Current`）。
-//    实际 RT 尺寸 / 是否退化会印进 `_index.tsv` 的 `说明` 列（批处理下 `Screen` 尺寸若为 0，底会退化成一整块平均色）。
+//    实际 RT 尺寸 / 是否退化会印进 `_index.tsv` 的 `说明` 列。
+//    🔴 **B-302（2026-11-02）**：批处理下 `Screen` 恒 **640×480**（无真实 GameView）⇒ 原版公式 `Screen × 0.25` 只得
+//    **160×120**（原版 1920×1080 → **480×270**，糊 3 倍；且 4:3 的 RT 让整屏 quad 宽只有 13.33 < 16:9 的 17.78）。
+//    现由 `EnsureBake()` 把**这一趟真正的帧尺寸** `W×H` 显式喂给 `UIBakeScreen.ScreenSizeOverride`（那边打了 `🔶 自己设计`）
+//    ⇒ 窗口里跑出来的读数应为 `模糊底 RT 480×270（帧 1920×1080 × 0.25 …）`。⛔ 真机不经过这条 override。
 //
 // 产物：
 //   `d:/4/_tmp_view/shots/win/<slug>.png`       每扇窗一张（**我们的**渲染，固定 1920×1080）
@@ -723,8 +727,10 @@ public static class WindowShots
 
     /// <summary>退化下限：RT 任一边小于它 ⇒ 底下认不出是「模糊的主菜单」，只剩大块色。
     /// <para>判据 = **目标帧 1920×1080 的 1/8**（60×34）。正常档 RT = 帧尺寸 × `UIBakeScreen.RENDER_TEXTURE_MULTIPLIER`
-    /// （= 0.25，原版 `CreateRT` 实读）⇒ **480×270**，正好是下限的 8 倍。低于下限只可能来自
-    /// 「`Screen.width/height` 在批处理下是 0 ⇒ `CreateRT` 兜到 1×1」这一条（`UIBakeScreen.cs:170-176` 的既有兜底）。</para></summary>
+    /// （= 0.25，原版 `CreateRT` 实读）⇒ **480×270**，正好是下限的 8 倍。低于下限只可能来自两条：
+    /// ① 本文件喂进去的帧尺寸没生效（`B-302` 的 override 坏掉）；② 没有 override 的宿主（真机/自检）在
+    /// `Screen.width/height` 异常时由 `CreateRT` 兜到 1×1（`UIBakeScreen.cs:170-176` 的既有兜底）。
+    /// ⚠️ 2026-11-02（`B-302`）之前，批处理 `Screen` = 640×480 ⇒ 常态就是 **160×120**（不触发下限，但比原版糊 3 倍）。</para></summary>
     const int MinBakeRtW = 60, MinBakeRtH = 34;
 
     /// <summary>
@@ -747,6 +753,12 @@ public static class WindowShots
             // 原版节点名 = `Game UI ▸ Main Canvas ▸ Background Render Texture Holder`（判据 → `Shell/UIBakeScreen.cs` 文件头）
             var go = new GameObject("Background Render Texture Holder");
             var bake = go.AddComponent<UIBakeScreen>();
+            // 🔴 **B-302**：批处理下 `Screen` 恒 **640×480**（无真实 GameView；本仓多次实测），而这一趟场景
+            //   是按 `W×H` = **1920×1080** 渲的 ⇒ 原版公式 `RT = Screen × 0.25` 只得 **160×120**，
+            //   比原版 1920×1080 → **480×270** 糊 3 倍，且 4:3 的 RT 让整屏 quad 宽只有 13.33（16:9 屏要 17.78）。
+            //   ⇒ 把**这一趟真正的帧尺寸**显式喂给它（`UIBakeScreen.ScreenSizeOverride`，那边打了 `🔶 自己设计`）。
+            //   ⛔ 真机不经过这里（`ShellRuntime` 自己建本件、`Screen` 是真的）⇒ 真机语义一位不变。
+            bake.ScreenSizeOverride = new Vector2Int(W, H);
             bake.cameraToBake = Camera.main;
             bake.Build();          // 批处理/编辑模式下 `Awake` 不跑 ⇒ 显式调（同 `ShellRuntime.Build` 的规矩）
 
@@ -762,16 +774,17 @@ public static class WindowShots
             var rt = bake.RT;
             if (rt == null) return "模糊底：**RT 没建出来**";
 
-            string size = $"RT {rt.width}×{rt.height}（Screen {Screen.width}×{Screen.height}"
-                        + $" × {UIBakeScreen.RENDER_TEXTURE_MULTIPLIER}）";
+            string size = $"RT {rt.width}×{rt.height}（帧 {W}×{H} × {UIBakeScreen.RENDER_TEXTURE_MULTIPLIER}"
+                        + $"；批处理 `Screen` {Screen.width}×{Screen.height} 不代表帧尺寸 ⇒ 已显式喂帧尺寸）";
             if (rt.width < MinBakeRtW || rt.height < MinBakeRtH)
             {
                 // 🔴 **必须出声**：这一档是「亮度对、观感不对」，**像素闸查不出来**（非黑占比会很高）⇒
                 //    只能靠这条 Warning + 索引表读数让调度台看见。
                 Debug.LogWarning(P + "模糊底**退化** —— " + size
                     + $" 小于下限 {MinBakeRtW}×{MinBakeRtH} ⇒ 底下只是**一块整屏平均色**，不是模糊的主菜单；"
-                    + "成因 = 批处理下 `Screen.width/height` 很小/为 0，`UIBakeScreen.CreateRT()` 兜到 1×1"
-                    + "（那是它原有的兜底，本轮**没有改它**）。判据：`_index.tsv` 每行的 `说明` 列都印了这一项。");
+                    + "成因 = `ScreenSizeOverride` 没生效（或该宿主的 `Screen.width/height` 异常）⇒ "
+                    + "`UIBakeScreen.CreateRT()` 兜到 1×1（它原有的兜底，没有改）。正常档 = **480×270**"
+                    + "（`B-302` 修法）。判据：`_index.tsv` 每行的 `说明` 列都印了这一项。");
                 return "⚠️ 模糊底**退化**：" + size + $" < 下限 {MinBakeRtW}×{MinBakeRtH} ⇒ 底是一块整屏平均色，不是模糊主菜单";
             }
             return "模糊底 " + size;

@@ -72,7 +72,7 @@
 //        **一个都没有** ⇒ 要接得先让 `gen_cards_engine.py` 把这两个字段带出来（卡牌线的文件）。
 //        逐条见全量件 `conditional`。
 //   ④ **tween 那一段仍没算**（见上「播多久」那一条）。
-//   ⑤ 命中不了时**退回 `1.0` 并出声**（不静默）—— 那是本表的**中位数**，与旧常数恰好相等。
+//   ⑤ 命中不了时**分两档**（`SAN-16` · 2026-11-02）：**表里没有这张卡 = `0`**（原版 `PlayAnim` 表空 ⇒ 不放动画）、**资源缺失 / 解析失败 = `1.0` 并出声**（保守档 = 本表中位数）。⛔ 别再合成一个数。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -111,23 +111,36 @@ namespace CardPresentation
     {
         public const string ResourcePath = "ability_anim_durations";
 
-        /// <summary>载不到资源 / 表里没有这张卡时的兜底秒数（= 表的中位数，当前 **1.0**）。
-        /// 🔴 **不是「原版就是这个数」** —— 它是「不知道这张卡时用的那一个数」，
-        /// `EventTiming.AbilityFallbackSeconds` 与它**必须相等**（自检盯这一条）。</summary>
-        public const float DefaultFallback = 1.0f;
+        /// <summary>**表里没有这张卡**时的兜底秒数 = **0**（`SAN-16` · 2026-11-02）。
+        /// 判据 = 原版 `AbilityLogic.PlayAnim` 的 `cardAnimations` 表为空 ⇒ 协程首调 `MoveNext` 为假
+        /// ⇒ `Dispose` + `return`，而**整段唯一的排片调用** `BattleManager.AddCardAnim` 在**循环体内**
+        /// （`d:/2/tools/decomp_full/AbilityLogic__PlayAnim.c:46-58` + 同文件 `:230-236`）⇒ **表空 = 0 时长**。
+        /// 🔴 这一档与「资源缺失」**必须分开**：原来两者共用 `1.0`，等于给判据为空的能力凭空加 1 秒。</summary>
+        public const float NoEntryFallback = 0f;
+
+        /// <summary>**资源缺失 / 解析失败**（整张表都拿不到）时的兜底秒数 = **1.0**（= 表的中位数）。
+        /// 🔴 **不是「原版值」** —— 它是「无从判断」时的**保守档**，且**必须出声**（`EnsureLoaded` 里那三条失败路）。
+        /// `EventTiming.AbilityLoadFailSeconds` 与它**必须相等**（自检盯这一条）。</summary>
+        public const float LoadFailFallback = 1.0f;
 
         static Dictionary<string, AbilityAnimEntry> _byName;
         static Dictionary<string, AbilityAnimEntry> _byId;
         static AbilityAnimEntry[] _all;
-        static float _fallback = DefaultFallback;
+        static float _fallback = LoadFailFallback;
 
         /// <summary>表载进来了没有（没载 = 资源不在；**不静默**：`LastError` 有话说）</summary>
         public static bool Loaded { get { EnsureLoaded(); return _all != null && _all.Length > 0; } }
         public static int Count { get { EnsureLoaded(); return _all != null ? _all.Length : 0; } }
         public static string LastError { get; private set; }
 
-        /// <summary>表里写的兜底值（载不到 ⇒ `DefaultFallback`）</summary>
+        /// <summary>表里写的兜底值（载不到 ⇒ `LoadFailFallback`）</summary>
         public static float FallbackSeconds { get { EnsureLoaded(); return _fallback; } }
+
+        /// <summary>兜底**分两档**的唯一判据口（`SAN-16` · 2026-11-02）：
+        /// <paramref name="tableLoaded"/> 为真 ⇒ 表在、只是**没有这张卡** ⇒ <see cref="NoEntryFallback"/>（0 s）；
+        /// 为假 ⇒ **整张表都拿不到** ⇒ <see cref="LoadFailFallback"/>（1.0 s，保守档）。
+        /// ⛔ 别把两档合成一个数 —— `EventTiming.AbilityHoldOf` 与自检都盯这一条。</summary>
+        public static float FallbackFor(bool tableLoaded) { return tableLoaded ? NoEntryFallback : LoadFailFallback; }
 
         /// <summary>**退回兜底值的次数与最近一次是谁**（诊断；自检盯它）。
         /// 🔴 这不是「静默失败」—— 同一张卡只在**第一次**退时打一条 warning（去重），计数照累。</summary>
@@ -151,6 +164,8 @@ namespace CardPresentation
                 _all = new AbilityAnimEntry[0];
                 _byName = new Dictionary<string, AbilityAnimEntry>();
                 _byId = new Dictionary<string, AbilityAnimEntry>();
+                Debug.LogWarning("[发动能力时长] " + LastError + " ⇒ 整张表拿不到，兜底走 "
+                               + LoadFailFallback.ToString("F2") + "s（**保守档**，⛔ 不是「表空 = 0」那一档）");
                 return;
             }
             AbilityAnimFile f = null;
@@ -169,6 +184,9 @@ namespace CardPresentation
             }
             if (LastError == null && items.Length == 0)
                 LastError = "`" + ResourcePath + ".json` 里一条都没有";
+            if (LastError != null)
+                Debug.LogWarning("[发动能力时长] " + LastError + " ⇒ 整张表拿不到，兜底走 "
+                               + LoadFailFallback.ToString("F2") + "s（**保守档**）");
         }
 
         /// <summary>按**卡名或卡 id** 取这张卡的「发动能力」时长。
@@ -178,13 +196,13 @@ namespace CardPresentation
         /// 卡名会重（全池 3 组同名）⇒ 名字这一半走「重名就取先到的那个」不可靠，
         /// 所以**先查 id、再查卡名**，两边都查不到才出声退回。
         ///
-        /// 返回 `false` = 这张卡**不在真值表里**（2022 快照没有它 / 原版这张卡没有主动能力动画）
-        /// ⇒ 调用方用兜底值。**本方法会出声**（每张卡一次），不必再在外面重打一遍。
+        /// 返回 `false` = 这张卡**不在真值表里**（原版这张卡没有主动能力动画 / 真值表没覆盖它）
+        /// ⇒ 调用方用 <see cref="FallbackFor"/>（表在但没这张卡 = **0** / 整表拿不到 = **1.0**）。**本方法会出声**（每张卡一次），不必再在外面重打一遍。
         /// </summary>
         public static bool TryGet(string cardIdOrName, out float seconds)
         {
             EnsureLoaded();
-            seconds = _fallback;
+            seconds = FallbackFor(Loaded);      // 🔴 `SAN-16`：表在但没这张卡 = 0；整张表拿不到 = 1.0（保守档）
             if (string.IsNullOrEmpty(cardIdOrName)) return false;
 
             AbilityAnimEntry e;
@@ -195,8 +213,8 @@ namespace CardPresentation
             LastFallbackCard = cardIdOrName;
             if (Loaded && _warned.Count < WarnCap && _warned.Add(cardIdOrName))
                 Debug.LogWarning(
-                    $"[发动能力时长] `{cardIdOrName}` **不在真值表里** ⇒ 退回 {_fallback:F2}s"
-                    + "（= 表的中位数，与旧常数恰好相等）。原因只有两种：① 它不在 2022 快照里"
+                    $"[发动能力时长] `{cardIdOrName}` **不在真值表里** ⇒ 退回 {NoEntryFallback:F2}s"
+                    + "（原版这条路上不放任何动画 ⇒ 不占时间线）。原因只有两种：① 它不在真值表覆盖范围里"
                     + "（UM/SW 那批扩军）② 原版这张卡的 `activeAbility` 一条 CardAnim 都没有。"
                     + "逐张名单 → `数据/游戏数据/ability_anim_durations.json` 的 `uncovered`");
             return false;

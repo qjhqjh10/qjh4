@@ -1533,7 +1533,7 @@ namespace RuleEngine
         public static bool HasSpecialAttackScoring(UnitState u)
         {
             if (u == null || u.Card == null) return false;
-            return u.Card.SpecialAttackScoring && !u.Has(KeywordTable.Jam);
+            return u.Card.SpecialAttackScoring && !u.HasCurrentTrait(KeywordTable.Jam);   // 🆕 2026-11-02（`B116_W19`）：`HasCurrentTrait` 才认 `cardTraits` 列（原版 `HasCurrentTrait.c:17-33` 读的是 `+0x128` 那张合并表），⛔ 别退回 `Has`
         }
 
         /// <summary>原版 `SelectBestAction` 里那个例外：这一刀哪怕分不高也该打出去。</summary>
